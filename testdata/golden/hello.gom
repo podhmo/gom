@@ -2,5 +2,7 @@ package main
 
 import go "fmt"
 
-fn main () -> Unit =
-  fmt.Println("hello")
+fn main () -> Unit = {
+  let _ = fmt.Println("hello")
+  ()
+}

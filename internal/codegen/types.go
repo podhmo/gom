@@ -66,6 +66,11 @@ func (g *gen) conType(c *types.Con) ast.Expr {
 			return &ast.ArrayType{Elt: g.goType(c.Args[0])}
 		case "Map":
 			return &ast.MapType{Key: g.goType(c.Args[0]), Value: g.goType(c.Args[1])}
+		case "Int":
+			// The Go-side `int` — distinct from Gom `Int` (int64).
+			return ast.NewIdent("int")
+		case "Any":
+			return ast.NewIdent("any")
 		default:
 			panic(fmt.Sprintf("codegen: unknown Go namespace type %q", c.Name))
 		}

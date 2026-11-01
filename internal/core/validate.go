@@ -86,6 +86,7 @@ type validator struct {
 	fn    *Func                         // innermost enclosing function (nil outside one)
 	fnTop bool                          // fn belongs to a FuncDecl (TailCall may target it)
 	spawn int                           // >0 inside a go{} block — escapes are illegal
+	pkg   string                        // the file's package clause — entry-point consistency
 }
 
 func (v *validator) err(sp diag.Span, node, format string, args ...any) {
@@ -167,6 +168,7 @@ func (v *validator) file(f *File) {
 	if f.Package == "" {
 		v.err(f.PkgSp, "File", "package name is empty")
 	}
+	v.pkg = f.Package
 	if !f.PkgSp.Valid() {
 		v.err(f.PkgSp, "File", "package clause has no valid source span")
 	}
@@ -230,6 +232,9 @@ func (v *validator) decl(d Decl) {
 				v.err(d.Sp, "FuncDecl", "nil type parameter")
 			}
 		}
+		if d.IsEntry {
+			v.entryDecl(d)
+		}
 		v.fnDecl(d.Fn, true, "FuncDecl")
 	case *VarDecl:
 		v.declSym(d.Sp, d.Sym, resolve.KindVar, "VarDecl")
@@ -256,6 +261,30 @@ func (v *validator) decl(d Decl) {
 		v.fnDecl(d.Fn, false, "TestDecl")
 	default:
 		panic("unreachable")
+	}
+}
+
+// entryDecl checks the IsEntry contract: the emitted `func main()`
+// drops every parameter, so each bind must be a Unit-typed discard
+// (a named bind would dangle in the generated code) and the residual
+// must be Unit (a `func main()` result is not allowed).
+func (v *validator) entryDecl(d *FuncDecl) {
+	if d.Sym == nil || d.Sym.Name != "main" || v.pkg != "main" {
+		v.err(d.Sp, "FuncDecl", "IsEntry requires `fn main` in package main")
+	}
+	if d.Fn == nil {
+		return // reported by fnDecl
+	}
+	for i, p := range d.Fn.Params {
+		if !p.Discard {
+			v.err(p.Sp, "FuncDecl", "entry parameter %d binds a name — `func main()` binds nothing", i)
+		}
+		if !types.Equal(p.Typ, types.Unit) {
+			v.err(p.Sp, "FuncDecl", "entry parameter %d is %s, want Unit", i, p.Typ)
+		}
+	}
+	if rt := d.Fn.ResidualType(); !types.Equal(rt, types.Unit) {
+		v.err(d.Sp, "FuncDecl", "entry result is %s, want Unit", rt)
 	}
 }
 
@@ -519,7 +548,10 @@ func atomType(a Atom) types.Type {
 	if a == nil || nilAtom(a) {
 		return nil
 	}
-	return a.Type()
+	// Atom and expression types may still carry metas the checker
+	// bound late (a let-bound function value's `?n` to `Int ->
+	// String`), so validate chases before inspecting shapes.
+	return types.Chase(a.Type())
 }
 
 // exprType returns an expression's recorded type, or nil.

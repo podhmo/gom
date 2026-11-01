@@ -14,5 +14,7 @@ fn area (s: Shape) -> Float =
     Empty -> 0.0
   }
 
-fn main () -> Unit =
-  fmt.Println(area (Circle 1.0))
+fn main () -> Unit = {
+  let _ = fmt.Println(area (Circle 1.0))
+  ()
+}

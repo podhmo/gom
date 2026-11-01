@@ -16,6 +16,8 @@ import (
 
 	"github.com/podhmo/gom/internal/build"
 	"github.com/podhmo/gom/internal/diag"
+	"github.com/podhmo/gom/internal/goimport"
+	"github.com/podhmo/gom/internal/lower"
 	"github.com/podhmo/gom/internal/treedump"
 )
 
@@ -24,6 +26,27 @@ type input struct {
 	path  string // as the user refers to it — also the name spans carry
 	src   []byte
 	iface bool
+}
+
+// compileOptions builds the driver options for one input: a
+// goimport.Loader wired as the resolve loader, the signature oracle,
+// and lowering's GoSig hook — the whole `import go` seam of
+// build.Options. The loader's go list runs in the input file's own
+// directory so imported packages resolve in the module the file
+// belongs to; Config.GoBin/Dir are the documented escape from
+// ambient toolchain and workspace skew.
+func compileOptions(in input, checkOnly bool) *build.Options {
+	dir := filepath.Dir(in.path)
+	if abs, err := filepath.Abs(dir); err == nil {
+		dir = abs
+	}
+	gl := goimport.New(&goimport.Config{Dir: dir})
+	return &build.Options{
+		Loader:    gl,
+		Sigs:      gl,
+		Lower:     &lower.Env{GoSig: gl.GoSigOf},
+		CheckOnly: checkOnly,
+	}
 }
 
 // runCheck implements `gom check [-format F] [FILE|DIR ...]`:
@@ -50,12 +73,12 @@ func runCheck(args []string, stdout, stderr io.Writer) int {
 		return diag.ExitInternal
 	}
 
-	opts := &build.Options{CheckOnly: true}
 	rep := diag.Report{Files: inputNames(inputs)}
 	srcs := map[string][]byte{}
 	for _, in := range inputs {
 		srcs[in.path] = in.src
-		r, err := build.Compile(build.Input{Path: in.path, Src: in.src, Interface: in.iface}, opts)
+		r, err := build.Compile(build.Input{Path: in.path, Src: in.src, Interface: in.iface},
+			compileOptions(in, true))
 		if err != nil {
 			fmt.Fprintf(stderr, "gom check: %s: %v\n", in.path, err)
 			return diag.ExitInternal
@@ -99,7 +122,8 @@ func runBuild(args []string, stdout, stderr io.Writer) int {
 	var results []*build.Result
 	for _, in := range inputs {
 		srcs[in.path] = in.src
-		r, err := build.Compile(build.Input{Path: in.path, Src: in.src, Interface: in.iface}, nil)
+		r, err := build.Compile(build.Input{Path: in.path, Src: in.src, Interface: in.iface},
+			compileOptions(in, false))
 		if err != nil {
 			fmt.Fprintf(stderr, "gom build: %s: %v\n", in.path, err)
 			return diag.ExitInternal
@@ -187,7 +211,8 @@ func runDump(args []string, stdout, stderr io.Writer) int {
 	}
 	in := inputs[0]
 
-	r, err := build.Compile(build.Input{Path: in.path, Src: in.src, Interface: in.iface}, nil)
+	r, err := build.Compile(build.Input{Path: in.path, Src: in.src, Interface: in.iface},
+		compileOptions(in, false))
 	if err != nil {
 		fmt.Fprintf(stderr, "gom dump: %s: %v\n", in.path, err)
 		return diag.ExitInternal

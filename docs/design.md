@@ -92,7 +92,8 @@ Go コード生成器に言語の意味を判断させない。次のことは C
 4. **match は決定木**: パターンは残っていない。ADT の不正値に対する panic の分岐も明示
 5. **脱出**: `try` と `|?>` は、どの関数境界から抜けるかを明示した脱出ノード
 6. **型の具体化**: 多相な定義と、実行時の関数値を区別する。多相な定義を値として使う箇所では型引数が具体化済みで、必要なラッパーも確定済み（関数の表現は [decisions/function-representation](decisions/2026-11-01-function-representation.md)）
-7. **ソースの由来**: すべてのノードが元の Gom ソースの範囲を指す
+7. **エントリポイントの判定**: `package main` の `fn main () -> Unit` という言語規則は `FuncDecl.IsEntry` として確定済み。codegen はパッケージ名・関数名を見ず、このフラグだけで `func main()` を出力する（[decisions/fn-main-entrypoint](decisions/2026-11-04-fn-main-entrypoint.md)）
+8. **ソースの由来**: すべてのノードが元の Gom ソースの範囲を指す
 
 例: ラベル付き引数の並べ替え。
 

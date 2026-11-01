@@ -5,41 +5,26 @@ import (
 	"testing"
 
 	"github.com/podhmo/gom/internal/build"
-	"github.com/podhmo/gom/internal/check"
 	"github.com/podhmo/gom/internal/diag"
+	"github.com/podhmo/gom/internal/goimport"
 	"github.com/podhmo/gom/internal/gomtest"
-	"github.com/podhmo/gom/internal/resolve"
-	"github.com/podhmo/gom/internal/types"
+	"github.com/podhmo/gom/internal/lower"
 )
 
 // These tests run the file-based suites under testdata/ end to end
 // through the real driver. suiteOptions is shared by both suites.
 //
-// The `go:fmt` package is stubbed until internal/goimport lands
-// (P1-9): fixtures import it, and a real compiler invocation without
-// a loader would report E0203. The stub gives Println the signature
-// `(args: ..Go.Slice a) -> Unit` — a fresh type variable per use so
-// any single element type unifies — which is what the fixtures need
-// to exercise `import go` through the whole pipeline. P1-9 should
-// replace it with the real loader; fixtures that rely on the real
-// (int, error) result shape will need updating then.
+// `import go` resolves through a real internal/goimport Loader —
+// the same object fills the resolve loader, the signature oracle
+// and lowering's GoSig hook, mirroring cmd/gom's wiring. Its
+// `go list -export` runs in the repository root so imported packages
+// resolve in this module's context.
 func suiteOptions() *build.Options {
-	printlnSym := &resolve.Symbol{
-		Name: "Println", Kind: resolve.KindFunc, IsGo: true, Package: "fmt",
-	}
+	gl := goimport.New(&goimport.Config{Dir: "../.."})
 	return &build.Options{
-		Loader: resolve.MapLoader{
-			"go:fmt": {
-				Path:    "fmt",
-				Members: map[string]*resolve.Symbol{"Println": printlnSym},
-			},
-		},
-		Sigs: check.MapSource{
-			printlnSym: {
-				Type:     types.Fn(types.Unit, types.P(types.GoSlice(&types.Var{ID: 1 << 21, Name: "a"}))),
-				Variadic: true,
-			},
-		},
+		Loader: gl,
+		Sigs:   gl,
+		Lower:  &lower.Env{GoSig: gl.GoSigOf},
 	}
 }
 

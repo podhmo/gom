@@ -17,7 +17,7 @@ type typeKey struct {
 // keyOf returns the key of a nominal type, and false when t is not a
 // *types.Con (a bound Meta is chased first).
 func keyOf(t types.Type) (typeKey, bool) {
-	if c, ok := chase(t).(*types.Con); ok {
+	if c, ok := types.Chase(t).(*types.Con); ok {
 		return typeKey{c.Qual, c.Name}, true
 	}
 	return typeKey{}, false
@@ -196,7 +196,7 @@ type signature struct {
 // signature returns the instantiated constructor signature of t, or
 // nil when t has no enumerable signature.
 func (e *Env) signature(t types.Type) *signature {
-	return e.sigOf(chase(t), 0)
+	return e.sigOf(types.Chase(t), 0)
 }
 
 // sigOf is signature with an alias-expansion depth guard.
@@ -257,17 +257,6 @@ func (ti *TypeInfo) instantiate(e *Env, t *types.Con, depth int) *signature {
 		sig.ctors[i] = cv
 	}
 	return sig
-}
-
-// chase follows bound metas to their solutions.
-func chase(t types.Type) types.Type {
-	for {
-		m, ok := t.(*types.Meta)
-		if !ok || !m.Bound() {
-			return t
-		}
-		t = m.Solution()
-	}
 }
 
 // builtinSignature returns the constructor signature of a builtin

@@ -200,6 +200,11 @@ func (*EscapeCall) isExpr() {}
 type ResultFromGo struct {
 	Base
 	Call *CallGo // Results must be GoResultsErr or GoResultsErrOnly
+	// ValConv wraps the payload variable in a Go conversion when the
+	// raw result type differs from the payload's Gom spelling —
+	// the `int` → `int64` of `strconv.Atoi` (`int64(v)`). Zero means
+	// none. The conversion target is the Result's payload type.
+	ValConv ConvKind
 }
 
 func (*ResultFromGo) isExpr() {}
@@ -211,6 +216,11 @@ func (*ResultFromGo) isExpr() {}
 type OptionFromGo struct {
 	Base
 	Call *CallGo // Results must be GoResultsOK
+	// ValConv wraps the payload variable in a Go conversion when the
+	// raw result type differs from the Option's payload spelling;
+	// zero means none. The conversion target is the Option's payload
+	// type.
+	ValConv ConvKind
 }
 
 func (*OptionFromGo) isExpr() {}
@@ -221,6 +231,11 @@ func (*OptionFromGo) isExpr() {}
 type TupleFromGo struct {
 	Base
 	Call *CallGo // Results must be GoResultsOK or GoResultsPair
+	// ElemConv wraps each result variable in a Go conversion when the
+	// raw result type differs from the tuple element's Gom spelling —
+	// ElemConv[i] applies to result i; a nil slice or a zero element
+	// means none. Conversion targets are the Tuple's element types.
+	ElemConv []ConvKind
 }
 
 func (*TupleFromGo) isExpr() {}

@@ -21,7 +21,7 @@
       "data": {
         "go": false,
         "path": "no/such/pkg",
-        "reason": "package \"no/such/pkg\" not found"
+        "reason": "package \"no/such/pkg\" is not a Go package (use `import go`)"
       }
     }
   ]

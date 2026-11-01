@@ -297,9 +297,9 @@ func (c *checker) builtinVariant(sym *resolve.Symbol, sig Signature) *variantInf
 		return vi
 	}
 	// The constructor's parent is the signature's result type.
-	con, _ := chase(sig.Type).(*types.Con)
-	if fn, ok := chase(sig.Type).(*types.Func); ok {
-		con, _ = chase(fn.Ret).(*types.Con)
+	con, _ := types.Chase(sig.Type).(*types.Con)
+	if fn, ok := types.Chase(sig.Type).(*types.Func); ok {
+		con, _ = types.Chase(fn.Ret).(*types.Con)
 	}
 	if con != nil {
 		if ti, ok := c.tyCons[conKey{qual: con.Qual, name: con.Name}]; ok && ti.kind == kindSum {
@@ -314,7 +314,7 @@ func (c *checker) builtinVariant(sym *resolve.Symbol, sig Signature) *variantInf
 	}
 	// Unknown/imported ctor: fabricate an entry from the signature.
 	vi := &variantInfo{sym: sym, name: sym.Name, sp: sym.DefSpan()}
-	if fn, ok := chase(sig.Type).(*types.Func); ok {
+	if fn, ok := types.Chase(sig.Type).(*types.Func); ok {
 		fields := make([]*fieldInfo, len(fn.Params))
 		for i, p := range fn.Params {
 			fields[i] = &fieldInfo{label: p.Label, index: i, typ: p.Type}
@@ -374,9 +374,9 @@ func (c *checker) fieldByLabel(fields []*fieldInfo, label string) *fieldInfo {
 // record constructor only when the type is already known — otherwise
 // the meta stays unsolved and the caller's field types stay metas.
 func (c *checker) recordOf(want types.Type, sp diag.Span) (*typeInfo, types.Subst) {
-	con, ok := chase(want).(*types.Con)
+	con, ok := types.Chase(want).(*types.Con)
 	if !ok {
-		if _, isMeta := chase(want).(*types.Meta); isMeta {
+		if _, isMeta := types.Chase(want).(*types.Meta); isMeta {
 			// The expected type is unknown: fields stay metas and
 			// a later binding may still name a record.
 			return nil, nil
@@ -401,7 +401,7 @@ func (c *checker) recordOf(want types.Type, sp diag.Span) (*typeInfo, types.Subs
 // tupleElems returns the element types want must have as an n-tuple,
 // extending a meta into a fresh tuple type.
 func (c *checker) tupleElems(want types.Type, n int, sp diag.Span) []types.Type {
-	switch t := chase(want).(type) {
+	switch t := types.Chase(want).(type) {
 	case *types.Tuple:
 		if len(t.Elems) != n {
 			c.mismatch(sp, fmt.Sprintf("a %d-tuple", n), want)
@@ -436,7 +436,7 @@ func (c *checker) tupleElems(want types.Type, n int, sp diag.Span) []types.Type 
 // listElem returns the element type want must have as `List _`,
 // extending a meta into a fresh list type.
 func (c *checker) listElem(want types.Type, sp diag.Span) types.Type {
-	switch t := chase(want).(type) {
+	switch t := types.Chase(want).(type) {
 	case *types.Con:
 		if t.Qual == "" && t.Name == "List" && len(t.Args) == 1 {
 			return t.Args[0]
@@ -458,7 +458,7 @@ func (c *checker) listElem(want types.Type, sp diag.Span) types.Type {
 // resultArgs decomposes want as `Result a e` — used by `try` and
 // `|?>`. An unbound meta becomes Result of fresh metas.
 func (c *checker) resultArgs(want types.Type, sp diag.Span) (val, err types.Type, ok bool) {
-	switch t := chase(want).(type) {
+	switch t := types.Chase(want).(type) {
 	case *types.Con:
 		if t.Qual == "" && t.Name == "Result" && len(t.Args) == 2 {
 			return t.Args[0], t.Args[1], true
@@ -487,7 +487,7 @@ func (c *checker) resultArgs(want types.Type, sp diag.Span) (val, err types.Type
 // chanElem decomposes want as `Chan a`, `RecvChan a` or `SendChan a`,
 // reporting the direction actually found.
 func chanElem(t types.Type) (elem types.Type, dir string, ok bool) {
-	con, ok := chase(t).(*types.Con)
+	con, ok := types.Chase(t).(*types.Con)
 	if !ok || con.Qual != "" || len(con.Args) != 1 {
 		return nil, "", false
 	}

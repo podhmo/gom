@@ -1,6 +1,7 @@
 package codegen
 
 import (
+	"fmt"
 	"go/ast"
 	"go/token"
 	"strconv"
@@ -722,7 +723,7 @@ func (g *gen) resultFromGo(e *core.ResultFromGo, d dest) {
 		g.nl()
 		g.writeDest(d, &ast.CallExpr{
 			Fun:  ast.NewIdent(g.pkgQual(rtPath) + "ResultFromGo"),
-			Args: []ast.Expr{ast.NewIdent(v), ast.NewIdent(err)},
+			Args: []ast.Expr{g.convOf(e.ValConv, payloadType(e.Type(), 0), ast.NewIdent(v)), ast.NewIdent(err)},
 		})
 	case core.GoResultsErrOnly:
 		err := g.fresh("err")
@@ -748,7 +749,7 @@ func (g *gen) optionFromGo(e *core.OptionFromGo, d dest) {
 	g.nl()
 	g.writeDest(d, &ast.CallExpr{
 		Fun:  ast.NewIdent(g.pkgQual(rtPath) + "OptionFromGo"),
-		Args: []ast.Expr{ast.NewIdent(v), ast.NewIdent(ok)},
+		Args: []ast.Expr{g.convOf(e.ValConv, payloadType(e.Type(), 0), ast.NewIdent(v)), ast.NewIdent(ok)},
 	})
 }
 
@@ -759,11 +760,61 @@ func (g *gen) tupleFromGo(e *core.TupleFromGo, d dest) {
 	g.raw(a + ", " + b + " := ")
 	g.expr(g.callGo(e.Call))
 	g.nl()
+	var convA, convB core.ConvKind
+	if len(e.ElemConv) > 0 {
+		convA = e.ElemConv[0]
+	}
+	if len(e.ElemConv) > 1 {
+		convB = e.ElemConv[1]
+	}
 	lit := &ast.CompositeLit{Type: g.goType(e.Type()), Elts: []ast.Expr{
-		&ast.KeyValueExpr{Key: ast.NewIdent("V0"), Value: ast.NewIdent(a)},
-		&ast.KeyValueExpr{Key: ast.NewIdent("V1"), Value: ast.NewIdent(b)},
+		&ast.KeyValueExpr{Key: ast.NewIdent("V0"), Value: g.convOf(convA, payloadType(e.Type(), 0), ast.NewIdent(a))},
+		&ast.KeyValueExpr{Key: ast.NewIdent("V1"), Value: g.convOf(convB, payloadType(e.Type(), 1), ast.NewIdent(b))},
 	}}
 	g.writeDest(d, lit)
+}
+
+// convOf wraps x in the conversion kind names — the
+// lowering-recorded `int` → `int64` (and friends) adjustments
+// inside Go-result consumers. kind 0 means none; the rendering
+// mirrors conv in expr.go for a value already in hand.
+func (g *gen) convOf(kind core.ConvKind, target types.Type, x ast.Expr) ast.Expr {
+	switch kind {
+	case 0:
+		return x
+	case core.ConvNum, core.ConvNamed, core.ConvIface:
+		return &ast.CallExpr{Fun: g.goType(target), Args: []ast.Expr{x}}
+	case core.ConvBoxAny:
+		return &ast.CallExpr{Fun: ast.NewIdent("any"), Args: []ast.Expr{x}}
+	case core.ConvSliceToGo:
+		return &ast.CallExpr{Fun: &ast.SelectorExpr{X: x, Sel: ast.NewIdent("ToSlice")}}
+	case core.ConvSliceFromGo:
+		return &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual(listPath) + "FromSlice"), Args: []ast.Expr{x}}
+	default:
+		panic("unreachable")
+	}
+}
+
+// payloadType returns the i-th component type of a consumer node's
+// materialized type: Result/Option's payload, a Tuple's element.
+// Callers only invoke it when the corresponding conversion is set,
+// so the shape is guaranteed by lowering.
+func payloadType(t types.Type, i int) types.Type {
+	switch t := t.(type) {
+	case *types.Con:
+		if len(t.Args) > i {
+			return t.Args[i]
+		}
+	case *types.Tuple:
+		if len(t.Elems) > i {
+			return t.Elems[i]
+		}
+	case *types.Var, *types.Meta, *types.Func, *types.Go:
+		panic("unreachable")
+	default:
+		panic("unreachable")
+	}
+	panic(fmt.Sprintf("codegen: no payload type %d in %s", i, t))
 }
 
 // recordUpdate emits copy-then-set: `u := rec; u.F = v; ...` then the

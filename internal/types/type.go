@@ -131,6 +131,21 @@ func (m *Meta) String() string {
 	return fmt.Sprintf("?%d", m.ID)
 }
 
+// Chase follows bound metas to their solutions. An unbound meta (or
+// a non-meta type) returns itself. The checker's expression types
+// are not always fully zonked — a let-bound function value's type
+// can still be `?n` bound to `Int -> String` — so every phase that
+// inspects the *shape* of a type produced upstream chases first.
+func Chase(t Type) Type {
+	for {
+		m, ok := t.(*Meta)
+		if !ok || !m.bound {
+			return t
+		}
+		t = m.sol
+	}
+}
+
 // FuncParam is one parameter of a function type: positional or
 // labeled (`~name: T`, docs/spec.md section 2.1).
 type FuncParam struct {

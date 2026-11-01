@@ -59,7 +59,7 @@ func (c *checker) declArity(sig Signature, flat int) int {
 		}
 		return flat
 	}
-	if f, ok := chase(sig.Type).(*types.Func); ok {
+	if f, ok := types.Chase(sig.Type).(*types.Func); ok {
 		if n := f.Arity(); n <= flat {
 			return n
 		}
@@ -152,7 +152,7 @@ func (c *checker) checkGomApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol
 		if label != "" {
 			pi = c.paramByLabel(params, label)
 			if pi < 0 {
-				if _, unresolved := chase(fn.Type()).(*types.Meta); unresolved || flat == 0 {
+				if _, unresolved := types.Chase(fn.Type()).(*types.Meta); unresolved || flat == 0 {
 					// A labeled call needs the callee's parameter
 					// list: on an unresolved function type that is
 					// E0408, not "unknown label".
@@ -589,7 +589,7 @@ func (c *checker) checkGoApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol,
 // sliceElemOf returns the element type of the declared variadic
 // parameter — a GoSlice — or a fresh meta when the shape is unusual.
 func sliceElemOf(t types.Type, sp diag.Span, c *checker) types.Type {
-	if con, ok := chase(t).(*types.Con); ok && len(con.Args) == 1 &&
+	if con, ok := types.Chase(t).(*types.Con); ok && len(con.Args) == 1 &&
 		((con.Qual == "Go" && con.Name == "Slice") || (con.Qual == "" && con.Name == "List")) {
 		return con.Args[0]
 	}
@@ -600,7 +600,7 @@ func sliceElemOf(t types.Type, sp diag.Span, c *checker) types.Type {
 // a GoSlice whose element type unifies with the variadic parameter's
 // element type.
 func (c *checker) spreadElem(t types.Type, elem types.Type, sp diag.Span) {
-	switch t := chase(t).(type) {
+	switch t := types.Chase(t).(type) {
 	case *types.Con:
 		if len(t.Args) == 1 &&
 			((t.Qual == "" && t.Name == "List") || (t.Qual == "Go" && t.Name == "Slice")) {

@@ -1,0 +1,28 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0501",
+      "severity": "error",
+      "message": "Go symbol `strconv.ParseUint` is not exposed: result 0: uint64 is not supported yet",
+      "span": {
+        "file": "E0501_hidden_go_member.gom",
+        "start": {
+          "line": 8,
+          "col": 36,
+          "offset": 227
+        },
+        "end": {
+          "line": 8,
+          "col": 45,
+          "offset": 236
+        }
+      },
+      "data": {
+        "package": "strconv",
+        "reason": "result 0: uint64 is not supported yet",
+        "symbol": "ParseUint"
+      }
+    }
+  ]
+}

@@ -485,12 +485,15 @@ func (c *checker) typeCtorOf(te syntax.TypeExpr) typeCtor {
 			qual = qsym.Package
 		}
 		if sym != nil {
+			if c.hiddenDiag(sym, tn.Sp) {
+				return typeCtor{arity: -1}
+			}
 			if sig, ok := c.sigOf(sym); ok {
-				if con, ok := chase(sig.Type).(*types.Con); ok {
+				if con, ok := types.Chase(sig.Type).(*types.Con); ok {
 					return typeCtor{con: con, arity: len(con.Args), params: varsOf(con.Args)}
 				}
-				if fn, ok := chase(sig.Type).(*types.Func); ok {
-					if con, ok := chase(fn.Ret).(*types.Con); ok {
+				if fn, ok := types.Chase(sig.Type).(*types.Func); ok {
+					if con, ok := types.Chase(fn.Ret).(*types.Con); ok {
 						return typeCtor{con: con, arity: len(fn.Params), params: varsOfFunc(fn)}
 					}
 				}
@@ -509,15 +512,18 @@ func (c *checker) typeCtorOf(te syntax.TypeExpr) typeCtor {
 	// Unqualified: resolver-bound symbol first (local declarations
 	// and shadowing), then the builtin table by name.
 	if sym := c.res.UseOf(tn.Name); sym != nil {
+		if c.hiddenDiag(sym, tn.Sp) {
+			return typeCtor{arity: -1}
+		}
 		if ti, ok := c.tyBySym[sym]; ok {
 			return c.ctorOfInfo(ti)
 		}
 		if sig, ok := c.sigOf(sym); ok {
-			if con, ok := chase(sig.Type).(*types.Con); ok {
+			if con, ok := types.Chase(sig.Type).(*types.Con); ok {
 				return typeCtor{con: con, arity: len(con.Args), params: varsOf(con.Args)}
 			}
-			if fn, ok := chase(sig.Type).(*types.Func); ok {
-				if con, ok := chase(fn.Ret).(*types.Con); ok {
+			if fn, ok := types.Chase(sig.Type).(*types.Func); ok {
+				if con, ok := types.Chase(fn.Ret).(*types.Con); ok {
 					return typeCtor{con: con, arity: len(fn.Params), params: varsOfFunc(fn)}
 				}
 			}

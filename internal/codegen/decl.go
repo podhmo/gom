@@ -32,9 +32,21 @@ func (g *gen) decl(d core.Decl) {
 }
 
 // funcDecl emits `func name[A any](p T, ...) Res { ... }` — the
-// declared arity in, the residual type out (P0-2).
+// declared arity in, the residual type out (P0-2). The program
+// entry — `fn main () -> Unit` in `package main` — is marked by
+// lowering on FuncDecl.IsEntry (design.md section 2.1: codegen does
+// not re-derive language rules); it emits as `func main()` with the
+// body discarded.
 func (g *gen) funcDecl(d *core.FuncDecl) {
 	g.line(d.Sp)
+	if d.IsEntry {
+		g.raw("func main()")
+		g.open()
+		g.funcBody(d.Fn, discard)
+		g.close()
+		g.nl()
+		return
+	}
 	g.raw("func " + g.symName(d.Sym))
 	g.typeParams(d.TypeParams)
 	g.raw("(")

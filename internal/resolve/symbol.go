@@ -67,6 +67,13 @@ type Symbol struct {
 	IsGo     bool // defined by a Go package (import go)
 	TestOnly bool // lives in the test-only scope (@test, docs/spec.md section 11)
 
+	// Hidden, when non-empty, marks a loaded Go symbol whose
+	// signature cannot be represented in Gom (spec section 8.5):
+	// the member still binds — references resolve to it — but the
+	// checker reports E0501 carrying this reason at every use site.
+	// It is empty for every symbol defined by Gom source.
+	Hidden string
+
 	// Package is the path of the package that defines the symbol — a
 	// Go import path or a Gom package path. It is "" for symbols
 	// defined in the file being compiled (locals and top-level names

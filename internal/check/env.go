@@ -72,6 +72,22 @@ func (c chain) SignatureOf(sym *resolve.Symbol) (Signature, bool) {
 	return Signature{}, false
 }
 
+// MethodOf forwards the optional MethodSource protocol through the
+// chain — the first source implementing it and knowing the method
+// wins.
+func (c chain) MethodOf(recv types.Type, name string) (*resolve.Symbol, Signature, bool) {
+	for _, s := range c {
+		ms, ok := s.(MethodSource)
+		if !ok {
+			continue
+		}
+		if sym, sig, ok := ms.MethodOf(recv, name); ok {
+			return sym, sig, true
+		}
+	}
+	return nil, Signature{}, false
+}
+
 // builtinTVar hands out the rigid variables used by the builtin
 // signatures below. They are created once per checker so two builtin
 // signatures never share a variable by accident.
@@ -137,4 +153,26 @@ func builtinSigs(v *builtinTVar) map[string]Signature {
 func isConv(sym *resolve.Symbol) bool {
 	return sym != nil && sym.Kind == resolve.KindBuiltin &&
 		sym.Name == "conv" && sym.Package == "Go"
+}
+
+// isGoAny reports whether t is the empty-interface type `Go.Any`
+// (types.GoAny): a wanted `any` accepts every argument
+// (spec 8.1.7).
+func isGoAny(t types.Type) bool {
+	con, ok := t.(*types.Con)
+	return ok && con.Qual == "Go" && con.Name == "Any"
+}
+
+// MethodSource is an optional extension a SignatureSource may
+// implement to expose methods of Go named types: the checker
+// consults it when a select's receiver has a Go type (a types.Go or
+// a Ptr to one) and the selector did not resolve to an ordinary
+// member symbol. internal/goimport answers it with go/types method
+// sets; sources that do not implement it leave `x.M` on a Go
+// receiver as an ordinary "no field or method" miss.
+type MethodSource interface {
+	// MethodOf returns the method symbol and signature of name on
+	// the Go named type behind recv (a *types.Go possibly under
+	// Ptr), or false when the type has no such method.
+	MethodOf(recv types.Type, name string) (*resolve.Symbol, Signature, bool)
 }

@@ -247,7 +247,9 @@ func sameCtor(a, b *resolve.Symbol) bool {
 func (l *lowerer) ctorSwitch(states []*armState, _ *seq, resT types.Type) core.DTree {
 	ob := states[0].todo[0]
 	subj := ob.subj
-	con, _ := subj.Type().(*types.Con)
+	// Chase bound metas — a let-bound subject's type can still be `?n`
+	// bound to the ADT when the match runs over an inferred binding.
+	con, _ := types.Chase(subj.Type()).(*types.Con)
 	kind := core.SwitchType
 	if con != nil && isResultCon(con) {
 		kind = core.SwitchTag
@@ -1046,7 +1048,7 @@ func boundVarsType(vars []boundVar) types.Type {
 
 // listElem is the element type of `List a`; nil for other shapes.
 func listElem(t types.Type) types.Type {
-	if c, ok := t.(*types.Con); ok && c.Name == "List" && len(c.Args) == 1 {
+	if c, ok := types.Chase(t).(*types.Con); ok && c.Name == "List" && len(c.Args) == 1 {
 		return c.Args[0]
 	}
 	return nil

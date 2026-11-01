@@ -4,10 +4,16 @@ package main
 
 import (
 	"fmt"
+	"github.com/podhmo/gom/rt"
 )
 
 //line hello.gom:5
-func main(_ struct{}) struct{} {
+func main() {
 //line hello.gom:6
-	return fmt.Println("hello")
+	tmp3 := any("hello")
+//line hello.gom:6
+	v, err := fmt.Println(tmp3)
+	_ = rt.ResultFromGo(int64(v), err)
+//line hello.gom:7
+	_ = struct{}{}
 }

@@ -195,6 +195,9 @@ func (c *checker) valOf(sym *resolve.Symbol, sp diag.Span) types.Type {
 	if sym == nil {
 		return c.newMeta(sp, "an unresolved name")
 	}
+	if c.hiddenDiag(sym, sp) {
+		return c.newMeta(sp, fmt.Sprintf("the type of `%s`", sym.Name))
+	}
 	if sig, ok := c.sigOf(sym); ok {
 		if _, local := c.vals[sym]; local && sym.Kind == resolve.KindVar {
 			return sig.Type
@@ -203,6 +206,21 @@ func (c *checker) valOf(sym *resolve.Symbol, sp diag.Span) types.Type {
 		return t
 	}
 	return c.newMeta(sp, fmt.Sprintf("the type of `%s`", sym.Name))
+}
+
+// hiddenDiag reports E0501 for a loaded Go symbol whose signature
+// cannot be represented in Gom (spec section 8.5): the resolver
+// binds the member so references resolve, and every use site gets
+// the reason the loader recorded on the symbol. Returns true when a
+// diagnostic was emitted.
+func (c *checker) hiddenDiag(sym *resolve.Symbol, sp diag.Span) bool {
+	if sym == nil || sym.Hidden == "" {
+		return false
+	}
+	c.diags.Add(diag.Error("E0501",
+		fmt.Sprintf("Go symbol `%s.%s` is not exposed: %s", sym.Package, sym.Name, sym.Hidden)).
+		At(sp).Set("package", sym.Package).Set("symbol", sym.Name).Set("reason", sym.Hidden))
+	return true
 }
 
 // base is the Base shared by every typed node.
@@ -252,7 +270,7 @@ func (c *checker) importOf(d *syntax.ImportDecl) (Import, bool) {
 // pattern); each binds against the declared parameter type.
 func (c *checker) checkFnDecl(d *syntax.FnDecl) {
 	sym := c.declSym(d.Name, resolve.KindFunc)
-	sig, ok := chase(c.vals[sym]).(*types.Func)
+	sig, ok := types.Chase(c.vals[sym]).(*types.Func)
 	if !ok {
 		// registerValueDecls always stores a *types.Func for fns.
 		sig = c.fnSig(d)
@@ -368,9 +386,9 @@ func (c *checker) checkTestDecl(d *syntax.TestDecl) {
 	// The boundary ret records what a `try` inside demanded: Result
 	// a e. Unify it with the body's own type (lifted into Result
 	// when a try fixed it) so its metas do not stay dangling.
-	if bt := chase(ret); isCon(bt, "Result") {
+	if bt := types.Chase(ret); isCon(bt, "Result") {
 		var lifted types.Type
-		if isCon(chase(body.Type()), "Result") {
+		if isCon(types.Chase(body.Type()), "Result") {
 			lifted = body.Type()
 		} else {
 			lifted = types.Result(body.Type(), c.newMeta(body.Span(), "the test's error type"))
@@ -379,17 +397,17 @@ func (c *checker) checkTestDecl(d *syntax.TestDecl) {
 	} else {
 		c.unify(ret, body.Type(), body.Span())
 	}
-	switch t := chase(body.Type()).(type) {
+	switch t := types.Chase(body.Type()).(type) {
 	case *types.Con:
 		if t.Qual == "" && t.Name == "Unit" {
 			break
 		}
 		if t.Qual == "" && t.Name == "Result" && len(t.Args) == 2 &&
-			isCon(chase(t.Args[0]), "Unit") {
+			isCon(types.Chase(t.Args[0]), "Unit") {
 			// A test's error channel is free: nothing else pins it,
 			// so a still-open error meta defaults to GoError rather
 			// than surfacing as an unsolved variable.
-			if m, ok := chase(t.Args[1]).(*types.Meta); ok {
+			if m, ok := types.Chase(t.Args[1]).(*types.Meta); ok {
 				c.bind(m, types.GoError, body.Span())
 			}
 			break

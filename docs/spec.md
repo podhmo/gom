@@ -261,6 +261,7 @@ error[E0301]: non-exhaustive match on `Expr`
 
 - 公開されるのは `.gomi` に書いた定義だけ（`pub` キーワードは持たない）。Go 側では先頭大文字の識別子になる（`.gomi` の `fn area` → `Area`）
 - 非公開定義は Go 側で先頭小文字。Go の予約語と衝突する名前は `_` 接尾辞を付けてマングルする
+- `package main` の `fn main () -> Unit` は Go のエントリポイント `func main()` になり、`gom build` の成果物はそのまま `go build` できる。使える引数を取る `main`（`(u: Unit)` など）や `Unit` 以外を返す `main` は特別扱いせず、通常の関数として生成される（Go と同じく `go build` が入口としては拒否する形になる）
 
 ---
 
@@ -331,7 +332,7 @@ fn parse_sum (a: String) (b: String) -> Result Int GoError = {
 fn report (xs: List String) -> Unit = {
   let buf = bytes.NewBufferString(strings.Join(xs, ", "))
   ignore (buf.WriteString("!"))     // メソッド呼び出しも Go と同じ
-  fmt.Println(buf.String(), List.length xs)
+  ignore (fmt.Println(buf.String(), List.length xs))
 }
 ```
 
@@ -373,6 +374,8 @@ strconv.ParseInt(_, 10, 64)
 | `chan T` / `<-chan T` / `chan<- T` | `Chan T` / `RecvChan T` / `SendChan T` |
 | interface（`io.Reader`、`fmt.Stringer` など） | 名前的な型 `io.Reader` など。Go 由来の値を代入規則に従って渡せる |
 | `error` | `GoError` |
+
+v1 で対応していない型（符号なし整数 `uint8`–`uint64`/`byte`、`float32`、複素数、配列 `[N]T`、`unsafe.Pointer`、ジェネリック型・関数、メソッドを持つ無名 interface、関数型の引数・戻り値）をシグネチャに含むシンボルは公開されず、参照すると理由付きの診断になる（8.5 節）。ジェネリック関数については 8.5 節の記述と食い違いがある（[problem](problems/2026-11-04-generic-go-fns-hidden.md)）。
 
 ### 8.4 extern（上書き専用）
 

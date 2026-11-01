@@ -1,6 +1,6 @@
 # `fn main` does not produce a Go entrypoint — generated `package main` cannot be a program
 
-- 状態: 未解決
+- 状態: 解消（[decision](../decisions/2026-11-04-fn-main-entrypoint.md) — `fn main () -> Unit` in `package main` は lower が `core.FuncDecl.IsEntry` に確定し、codegen は `func main()` を出すだけ。`cmd/gom.TestEndToEnd_BuildAndRun` が shim なしで検証）
 - 日付: 2026-11-02
 
 ## Situation

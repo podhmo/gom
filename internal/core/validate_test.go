@@ -27,6 +27,40 @@ func fnFile(ret types.Type, body *Body) *File {
 // fnOf returns the single FuncDecl's function for target wiring.
 func fnOf(f *File) *Func { return f.Decls[0].(*FuncDecl).Fn }
 
+// entryFile builds a one-decl file `package pkg; fn name (u: Unit)
+// -> ret = ()` with IsEntry set — the shape lower produces for
+// `fn main () -> Unit` in `package main` (a discarded Unit binder,
+// Unit residual). discard=false keeps the parameter named, the
+// dangling-binder bug the tightened rule rejects.
+func entryFile(pkg, name string, ret types.Type, discard bool) *File {
+	param := &Bind{Sp: sp(), Typ: types.Unit, Discard: discard}
+	if !discard {
+		param.Sym = vsym("u")
+	}
+	return &File{
+		Sp: sp(), Package: pkg, PkgSp: sp(),
+		Decls: []Decl{&FuncDecl{
+			Sp: sp(), Sym: fsym(name), IsEntry: true,
+			Fn: &Func{
+				Sp:     sp(),
+				Sig:    types.Fn(ret, types.P(types.Unit)),
+				Params: []*Bind{param},
+				Body:   &Body{Tail: unitLit()},
+			},
+		}},
+	}
+}
+
+// TestValidateAcceptsEntry pins the lowered `fn main () -> Unit`
+// shape: package main, a discarded Unit binder, Unit residual.
+func TestValidateAcceptsEntry(t *testing.T) {
+	if got := Validate(entryFile("main", "main", types.Unit, true)); len(got) != 0 {
+		for _, v := range got {
+			t.Errorf("unexpected violation: %s", v)
+		}
+	}
+}
+
 func TestValidateAcceptsValidFile(t *testing.T) {
 	if got := Validate(okFile); len(got) != 0 {
 		for _, v := range got {
@@ -276,6 +310,26 @@ func TestValidateViolations(t *testing.T) {
 				Results: GoResultsOne,
 			}}),
 			want: "Go arity",
+		},
+		{
+			name: "IsEntry outside package main",
+			file: entryFile("p", "main", types.Unit, true),
+			want: "IsEntry requires `fn main` in package main",
+		},
+		{
+			name: "IsEntry on a non-main name",
+			file: entryFile("main", "start", types.Unit, true),
+			want: "IsEntry requires `fn main` in package main",
+		},
+		{
+			name: "IsEntry binds a named param",
+			file: entryFile("main", "main", types.Unit, false),
+			want: "binds a name",
+		},
+		{
+			name: "IsEntry non-Unit result",
+			file: entryFile("main", "main", types.Int, true),
+			want: "entry result is Int, want Unit",
 		},
 		{
 			name: "CallGo spread on non-variadic",

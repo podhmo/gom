@@ -64,7 +64,7 @@
 - [x] **P1-6 網羅性・冗長性の検査 `internal/pattern`**: Maranget の usefulness で判定し、反例を先頭 5 件まで生成する。ガード付きの腕の扱いを含む（[design.md 4.2](docs/design.md)）。`E0301` の診断と `fixes` を出す。依存: P1-2
 - [x] **P1-7 脱糖と決定木コンパイル `internal/lower`**: 型付き AST → Core IR。パイプの展開、ANF 化、match の決定木化、自己末尾再帰の検出、arity の分類。出力は P1-2 の validator を必ず通す。依存: P1-2
 - [x] **P1-8 Go コード生成 `internal/codegen`**: Core IR → go/ast。宛先渡し（`Return` / `Assign` / `Discard`）、type switch、ADT の不正値に対する `rt.InvalidVariant`、`//line` の付与、`go/printer` による出力。ADT の表現は P0-1 の結論に従う（それまでは design.md 4.1 の案で進めてよい）。依存: P1-2。実装の決定: [decisions/generated-go-conventions](docs/decisions/2026-11-02-generated-go-conventions.md), [decisions/generated-support-packages](docs/decisions/2026-11-02-generated-support-packages.md), 検証: [sketch](docs/sketch/2026-11-02-p1-8-codegen-verification.md)
-- [ ] **P1-9 小規模な `import go`**: 引数・戻り値が基本型の Go 関数と `(T, error)` → `Result` を呼べるようにする（resolve・check・lower・codegen にまたがる）。依存: P1-4, P1-5, P1-7, P1-8
+- [x] **P1-9 小規模な `import go`**: 引数・戻り値が基本型の Go 関数と `(T, error)` → `Result` を呼べるようにする（resolve・check・lower・codegen にまたがる）。依存: P1-4, P1-5, P1-7, P1-8
 - [x] **P1-10 診断の JSON Lines / text 出力**: `kind`、最後の行の `summary`、終了コード 0/1/2、行・列（列はコードポイント単位）の計算（[spec 12 章](docs/spec.md)）。依存: P1-1
 - [x] **P1-11 `cmd/gom` の `build` / `check`**: ファイル単位でフェーズをつなぎ、`.go` を出力する。`internal/build` は最小限（毎回すべて変換）。依存: P1-3, P1-4, P1-5, P1-6, P1-7, P1-8, P1-10
 - [x] **P1-12 意味論の比較テスト用の評価器**: 単相の純粋な式、ADT、`match`、関数適用を型付き AST（または Core IR）から直接評価し、生成 Go コードの実行結果と比べるテストを作る（[design.md 7 章](docs/design.md)）。依存: P1-2

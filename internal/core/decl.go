@@ -23,6 +23,12 @@ type Decl interface {
 type FuncDecl struct {
 	Sp  diag.Span
 	Sym *resolve.Symbol // KindFunc; TestOnly marks @test definitions
+	// IsEntry marks the program entry — `fn main () -> Unit` in
+	// `package main` — decided by lowering (docs/design.md section
+	// 2.1: codegen consumes the flag, it does not re-derive the rule
+	// from the package and symbol names). Codegen emits it as
+	// `func main()`: no parameters, no result.
+	IsEntry bool
 	// TypeParams are the declared type parameters in source order —
 	// the order the type's instantiation arguments are given in.
 	// Nil while the definition is monomorphic.

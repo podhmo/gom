@@ -24,16 +24,16 @@ import (
 // (pointer and ID respectively). This is the equality users observe
 // through type errors; it is not a unification.
 func Equal(a, b Type) bool {
-	switch a := chase(a).(type) {
+	switch a := Chase(a).(type) {
 	case *Var:
-		bv, ok := chase(b).(*Var)
+		bv, ok := Chase(b).(*Var)
 		return ok && a.ID == bv.ID
 	case *Meta:
 		// Unbound metas are identical only to themselves.
-		bm, ok := chase(b).(*Meta)
+		bm, ok := Chase(b).(*Meta)
 		return ok && a == bm
 	case *Con:
-		bc, ok := chase(b).(*Con)
+		bc, ok := Chase(b).(*Con)
 		if !ok || a.Qual != bc.Qual || a.Name != bc.Name || len(a.Args) != len(bc.Args) {
 			return false
 		}
@@ -44,7 +44,7 @@ func Equal(a, b Type) bool {
 		}
 		return true
 	case *Func:
-		bf, ok := chase(b).(*Func)
+		bf, ok := Chase(b).(*Func)
 		if !ok {
 			return false
 		}
@@ -62,7 +62,7 @@ func Equal(a, b Type) bool {
 		}
 		return true
 	case *Tuple:
-		bt, ok := chase(b).(*Tuple)
+		bt, ok := Chase(b).(*Tuple)
 		if !ok || len(a.Elems) != len(bt.Elems) {
 			return false
 		}
@@ -73,7 +73,7 @@ func Equal(a, b Type) bool {
 		}
 		return true
 	case *Go:
-		bg, ok := chase(b).(*Go)
+		bg, ok := Chase(b).(*Go)
 		if !ok || a.Ref != bg.Ref || len(a.Args) != len(bg.Args) {
 			return false
 		}
@@ -88,17 +88,6 @@ func Equal(a, b Type) bool {
 	}
 }
 
-// chase follows bound metas to their solutions.
-func chase(t Type) Type {
-	for {
-		m, ok := t.(*Meta)
-		if !ok || !m.bound {
-			return t
-		}
-		t = m.sol
-	}
-}
-
 // flattenFunc unrolls a function type into its full parameter list
 // and final result type, chasing bound metas in tail position. Fn
 // already produces the flat canonical form, so this is a no-op for
@@ -106,7 +95,7 @@ func chase(t Type) Type {
 // a bound Meta sitting in Ret position, which inference can
 // legitimately introduce.
 func flattenFunc(f *Func) (params []FuncParam, ret Type) {
-	ret = chase(f.Ret)
+	ret = Chase(f.Ret)
 	g, ok := ret.(*Func)
 	if !ok {
 		return f.Params, ret
@@ -114,7 +103,7 @@ func flattenFunc(f *Func) (params []FuncParam, ret Type) {
 	params = slices.Clone(f.Params)
 	for ok {
 		params = append(params, g.Params...)
-		ret = chase(g.Ret)
+		ret = Chase(g.Ret)
 		g, ok = ret.(*Func)
 	}
 	return params, ret

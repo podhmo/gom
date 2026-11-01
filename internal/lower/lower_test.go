@@ -665,6 +665,74 @@ func TestPipeTry(t *testing.T) {
 	}
 }
 
+// TestPipeTryBoundMeta: `let r = inc(1); r |?> inc` where the
+// let-bound `r` still carries a bound `?n` — the checker does not
+// always zonk a let-inferred binding's type. pipeTry must chase the
+// meta before extracting the payload: before the fix the whole
+// Result atom fed `inc` (`inc(r)`), now `inc(payload)`.
+func TestPipeTryBoundMeta(t *testing.T) {
+	resT := types.Result(types.Int, types.GoError)
+	mt := &types.Meta{ID: 41}
+	mt.Bind(resT)
+	f := fsym("inc")
+	fsig := types.Fn(resT, types.P(types.Int))
+	subj := vsym("r", resT)
+	pipe := &check.Binary{Base: b(resT), Op: syntax.BinPipeTry,
+		X: vr(subj, mt), Y: vr(f, fsig)}
+	d := decl("run", []check.Param{param(vpat(subj, resT))}, pipe, types.Fn(resT, types.P(resT)))
+	out := mustLower(t, d)
+	body := fnDeclOf(t, out, 0).Fn.Body
+	// Same three-let shape as TestPipeTry: the inflow escape unwraps
+	// the Result, the step consumes its payload.
+	if len(body.Lets) != 3 {
+		t.Fatalf("lets = %d, want 3 (inflow escape, step, step escape)", len(body.Lets))
+	}
+	escIn, ok := body.Lets[0].X.(*core.EscapeResult)
+	if !ok || escIn.Wrap != "" {
+		t.Fatalf("inflow escape = %+v — the bound meta hid the Result shape", body.Lets[0].X)
+	}
+	if !types.Equal(escIn.Typ, types.Int) {
+		t.Errorf("escape payload type = %s, want Int", escIn.Typ)
+	}
+	cd, ok := body.Lets[1].X.(*core.CallDirect)
+	if !ok {
+		t.Fatalf("step call = %T, want CallDirect", body.Lets[1].X)
+	}
+	if arg, ok := cd.Args[0].(*core.Var); !ok || arg.Sym != body.Lets[0].Name.Sym {
+		t.Errorf("step arg = %+v, want the escape's payload bind", cd.Args[0])
+	}
+}
+
+// TestMatchBoundMetaSubject: `let r = inc(1); match r { ... }` where
+// the subject's type is a bound `?n` — ctorSwitch must chase before
+// enumerating variants. Before the fix this reported E0901 "cannot
+// enumerate variants of Result Int GoError" and emitted DPanic.
+func TestMatchBoundMetaSubject(t *testing.T) {
+	resT := types.Result(types.Int, types.GoError)
+	mt := &types.Meta{ID: 42}
+	mt.Bind(resT)
+	subj := vsym("r", resT)
+	n := vsym("n", types.Int)
+	body := &check.Match{Base: b(types.Int), Subj: vr(subj, mt), Arms: []check.MatchArm{
+		mArm(&check.CtorPat{Base: b(resT), Ctor: csym("Ok"),
+			Args: []check.CtorArg{{Pat: vpat(n, types.Int)}}}, vr(n, types.Int)),
+		mArm(wpat(resT), intLit("0")),
+	}}
+	out := mustLower(t, decl("run", []check.Param{param(vpat(subj, resT))}, body,
+		types.Fn(types.Int, types.P(resT))))
+	m, ok := fnDeclOf(t, out, 0).Fn.Body.Tail.(*core.Match)
+	if !ok {
+		t.Fatalf("tail is %T, want Match", fnDeclOf(t, out, 0).Fn.Body.Tail)
+	}
+	sw, ok := m.Tree.(*core.DSwitch)
+	if !ok || sw.Kind != core.SwitchTag {
+		t.Fatalf("tree = %T, want DSwitch SwitchTag", m.Tree)
+	}
+	if len(sw.Cases) != 2 {
+		t.Fatalf("cases = %d, want 2 (Ok, Err)", len(sw.Cases))
+	}
+}
+
 // TestTailCall: a self call in tail position becomes TailCall and
 // marks the function TailLoop; a non-tail self call does not.
 func TestTailCall(t *testing.T) {

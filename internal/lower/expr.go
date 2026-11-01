@@ -155,12 +155,13 @@ func (l *lowerer) blockExpr(s *seq, e *check.Block) core.Expr {
 
 // --- references ---
 
-// varRef lowers a KindVar reference. A variable of another package
-// cannot be a bare core.Var — cross-package lowering is out of scope
-// for this phase, so the gap is a diagnostic (the validator's scope
-// check will flag the unbound Var too).
+// varRef lowers a KindVar reference. A Go package variable or
+// constant (`math.Pi`) is a bare qualified name in the output, so
+// IsGo symbols pass through; a variable of a Gom package cannot be a
+// bare core.Var — cross-package lowering is out of scope for this
+// phase, so that gap stays a diagnostic.
 func (l *lowerer) varRef(base core.Base, sym *resolve.Symbol) *core.Var {
-	if sym != nil && sym.Package != "" {
+	if sym != nil && sym.Package != "" && !sym.IsGo {
 		l.err(base.Sp, fmt.Sprintf("variable %s.%s belongs to another package — cross-package lowering is not supported yet",
 			sym.Package, sym.Name))
 	}
@@ -180,7 +181,7 @@ func (l *lowerer) varExpr(e *check.Var) core.Expr {
 		}
 		return l.funcRefOrFlatten(e, sym)
 	case resolve.KindCtor:
-		if _, ok := e.Type().(*types.Func); ok {
+		if sigOf(e.Type()) != nil {
 			return &core.CtorRef{Base: baseOf(e), Sym: sym}
 		}
 		// Nullary constructor in value position: a saturated
@@ -210,7 +211,7 @@ func (l *lowerer) funcRefOrFlatten(e *check.Var, sym *resolve.Symbol) core.Expr 
 	}
 	// Function-returning function referenced at its full flat type:
 	// wrap into one flat arity closure.
-	sig, _ := e.Type().(*types.Func)
+	sig := sigOf(e.Type())
 	if sig == nil {
 		l.err(e.Sp, fmt.Sprintf("function %s has non-function type %s", sym.Name, e.Type()))
 		return l.litUnit(e.Sp)
@@ -257,7 +258,7 @@ func (l *lowerer) memberExpr(s *seq, e *check.MemberExpr) core.Expr {
 	case resolve.KindVar:
 		return l.varRef(baseOf(e), e.Sym)
 	case resolve.KindCtor:
-		if _, ok := e.Type().(*types.Func); ok {
+		if sigOf(e.Type()) != nil {
 			return &core.CtorRef{Base: baseOf(e), Sym: e.Sym}
 		}
 		return &core.CtorApp{Base: baseOf(e), Ctor: e.Sym, Arity: 0}
@@ -272,17 +273,18 @@ func (l *lowerer) memberExpr(s *seq, e *check.MemberExpr) core.Expr {
 
 // goFuncRefOrAdapter lowers a Go function or method in value
 // position: a bare GoFuncRef exactly when the Go signature needs no
-// adaptation (one parameter, one non-error result), otherwise an
-// adapter Closure whose body is a CallGo (P0-2, spec 8).
+// adaptation (one parameter, one non-error result, no boundary
+// conversion between the views), otherwise an adapter Closure whose
+// body is a CallGo (P0-2, spec 8).
 func (l *lowerer) goFuncRefOrAdapter(sp diag.Span, typ types.Type, sym *resolve.Symbol, recv core.Atom) core.Expr {
 	sig := l.goSig(sym, typ)
-	if sig.Arity == 1 && sig.Results == core.GoResultsOne && !sig.Variadic {
+	fs := sigOf(typ)
+	if goBareRefOK(sig, fs) {
 		return &core.GoFuncRef{
 			Base: core.Base{Sp: sp, Typ: typ}, Sym: sym,
 			Recv: recv, Arity: sig.Arity, Results: sig.Results,
 		}
 	}
-	fs, _ := typ.(*types.Func)
 	if fs == nil {
 		l.err(sp, fmt.Sprintf("Go function %s has non-function type %s", sym.Name, typ))
 		return l.litUnit(sp)
@@ -290,34 +292,73 @@ func (l *lowerer) goFuncRefOrAdapter(sp diag.Span, typ types.Type, sym *resolve.
 	return l.closureOf(sp, typ, fs.Params, func(bs *seq, pv []core.Atom) core.Expr {
 		call := &core.CallGo{
 			Base:   core.Base{Sp: sp, Typ: goCallTyp(sig, fs.Ret)},
-			Callee: sym, Recv: recv, Args: pv,
+			Callee: sym, Recv: recv, Args: l.convGoArgs(bs, sig, pv, false),
 			Arity:    sig.Arity,
 			Variadic: sig.Variadic,
 			Results:  sig.Results,
 		}
-		return l.wrapGoResult(call, fs.Ret)
+		x := l.wrapGoResult(call, fs.Ret)
+		if sig.Results == core.GoResultsOne {
+			return l.goPayloadConv(bs, sp, call.Typ, fs.Ret, x)
+		}
+		return x
 	})
 }
 
-// goCallTyp is the raw Go-side result type of a CallGo: the Gom view
-// of the call's type is decomposed per result shape — `(T, error)`
-// reports T, `Result Unit GoError` reports Unit, a pair reports the
-// tuple.
+// goBareRefOK reports whether a Go function reference can stand as
+// the bare qualified name — one parameter, one result, no variadic,
+// and no `int`/`int64`-style conversion between the Gom view of the
+// signature and the real Go signature.
+func goBareRefOK(sig GoSig, fs *types.Func) bool {
+	if fs == nil || sig.Arity != 1 || sig.Results != core.GoResultsOne ||
+		sig.Variadic || len(fs.Params) != 1 {
+		return false
+	}
+	if len(sig.Params) > 0 && !types.Equal(sig.Params[0], fs.Params[0].Type) {
+		return false
+	}
+	if len(sig.ResTypes) > 0 && !types.Equal(sig.ResTypes[0], fs.Ret) {
+		return false
+	}
+	return true
+}
+
+// goCallTyp is the raw Go-side result type of a CallGo. ResTypes
+// carries the callee's real Go signature when the import loader
+// provided it — `strconv.Atoi` reports Go.Int there while the
+// Gom-facing resTyp is Int (an `int`/`int64` gap the consumer
+// converts). Without ResTypes the Gom view is decomposed per result
+// shape — `(T, error)` reports T, `Result Unit GoError` reports
+// Unit, a pair reports the tuple.
 func goCallTyp(sig GoSig, resTyp types.Type) types.Type {
+	raw := sig.ResTypes
 	switch sig.Results {
 	case core.GoResultsErr:
+		if len(raw) > 0 {
+			return raw[0]
+		}
 		if a, _, ok := resultArgs(resTyp); ok {
 			return a
 		}
 	case core.GoResultsErrOnly:
 		return types.Unit
 	case core.GoResultsOK:
+		if len(raw) > 0 {
+			return raw[0]
+		}
 		if c, ok := isCon(resTyp, "", "Option"); ok && len(c.Args) == 1 {
 			return c.Args[0]
 		}
 	case core.GoResultsPair:
-		// TupleFromGo's operand reports the tuple itself.
+		// TupleFromGo's operand reports the tuple itself — the raw
+		// element pair when ResTypes is known.
+		if len(raw) == 2 {
+			return &types.Tuple{Elems: raw}
+		}
 	case core.GoResultsOne:
+		if len(raw) == 1 {
+			return raw[0]
+		}
 	default:
 		panic("unreachable")
 	}
@@ -326,27 +367,186 @@ func goCallTyp(sig GoSig, resTyp types.Type) types.Type {
 
 // wrapGoResult gives a CallGo its single mandatory consumer when it
 // produces multiple Go values; a one-result call stands on its own.
-// resTyp is the Gom-facing type the consumer must produce.
+// resTyp is the Gom-facing type the consumer must produce. When the
+// raw Go result (call.Typ) differs from the Gom-facing payload —
+// `int` vs `int64` — the consumer records the conversion so codegen
+// renders `rt.ResultFromGo[int64](int64(v), err)` and friends.
 func (l *lowerer) wrapGoResult(call *core.CallGo, resTyp types.Type) core.Expr {
 	base := core.Base{Sp: call.Sp, Typ: resTyp}
 	switch call.Results {
 	case core.GoResultsOne:
 		return call
 	case core.GoResultsErr, core.GoResultsErrOnly:
-		if _, _, ok := resultArgs(resTyp); !ok {
+		var vc core.ConvKind
+		if a, _, ok := resultArgs(resTyp); !ok {
 			l.err(call.Sp, fmt.Sprintf("Go (T, error) call typed %s, not a Result", resTyp))
+		} else if call.Results == core.GoResultsErr {
+			vc = l.goConvKind(call, call.Typ, a)
 		}
-		return &core.ResultFromGo{Base: base, Call: call}
+		return &core.ResultFromGo{Base: base, Call: call, ValConv: vc}
 	case core.GoResultsOK:
-		if _, ok := isCon(resTyp, "", "Option"); ok {
-			return &core.OptionFromGo{Base: base, Call: call}
+		if c, ok := isCon(resTyp, "", "Option"); ok && len(c.Args) == 1 {
+			return &core.OptionFromGo{Base: base, Call: call,
+				ValConv: l.goConvKind(call, call.Typ, c.Args[0])}
 		}
-		return &core.TupleFromGo{Base: base, Call: call}
+		return &core.TupleFromGo{Base: base, Call: call,
+			ElemConv: l.goElemConvs(call, resTyp)}
 	case core.GoResultsPair:
-		return &core.TupleFromGo{Base: base, Call: call}
+		return &core.TupleFromGo{Base: base, Call: call,
+			ElemConv: l.goElemConvs(call, resTyp)}
 	default:
 		panic("unreachable")
 	}
+}
+
+// goElemConvs maps each tuple element to the conversion from the
+// raw Go result element (call.Typ's tuple) to the Gom-facing one.
+func (l *lowerer) goElemConvs(call *core.CallGo, resTyp types.Type) []core.ConvKind {
+	tup, ok := types.Chase(resTyp).(*types.Tuple)
+	if !ok {
+		return nil
+	}
+	raw, _ := types.Chase(call.Typ).(*types.Tuple)
+	out := make([]core.ConvKind, len(tup.Elems))
+	for i, el := range tup.Elems {
+		var rt types.Type = el
+		if raw != nil && i < len(raw.Elems) {
+			rt = raw.Elems[i]
+		}
+		out[i] = l.goConvKind(call, rt, el)
+	}
+	return out
+}
+
+// goConvKind is the conversion a Go result value needs to become the
+// Gom-facing payload; the ConvKind zero value when the
+// representations agree. A
+// pair the boundary cannot convert is a contract-gap diagnostic —
+// the checker unified the Gom views, so only the numeric and the
+// boxing-any pairs are expected here.
+func (l *lowerer) goConvKind(call *core.CallGo, from, to types.Type) core.ConvKind {
+	k, ok := goConvKindOf(from, to)
+	if !ok {
+		l.err(call.Sp, fmt.Sprintf("Go result of type %s cannot convert to %s — the boundary needs a value copy not yet supported",
+			typeName(from), typeName(to)))
+	}
+	return k
+}
+
+// goConvKindOf picks the conversion from a raw Go type to the
+// Gom-facing type, or reports the pair unsupported.
+func goConvKindOf(from, to types.Type) (core.ConvKind, bool) {
+	from = types.Chase(from)
+	to = types.Chase(to)
+	if types.Equal(from, to) {
+		return 0, true
+	}
+	if isGoAny(to) {
+		return core.ConvBoxAny, true
+	}
+	if isNumericCon(from) && isNumericCon(to) {
+		return core.ConvNum, true
+	}
+	return 0, false
+}
+
+// isGoAny reports whether t is Go's empty interface — the catch-all
+// a Go-side `any` parameter or result carries.
+func isGoAny(t types.Type) bool {
+	c, ok := types.Chase(t).(*types.Con)
+	return ok && c.Qual == "Go" && c.Name == "Any"
+}
+
+// convGoArgs wraps arguments whose lowered value type differs from
+// the Go parameter's raw type — an `Int` (`int64`) value reaching a
+// Go `int` parameter — in explicit Convs bound to temporaries.
+// sig.Params is the raw Go parameter list; nil means the Gom view
+// already matches and every argument passes through.
+func (l *lowerer) convGoArgs(s *seq, sig GoSig, args []core.Atom, spread bool) []core.Atom {
+	if len(sig.Params) == 0 {
+		return args
+	}
+	out := make([]core.Atom, len(args))
+	for i, a := range args {
+		out[i] = a
+		if a == nil {
+			continue
+		}
+		pt := goParamTypeAt(sig, i, spread && i == len(args)-1)
+		at := types.Chase(a.Type())
+		if pt == nil || types.Equal(at, pt) {
+			continue
+		}
+		k, ok := goConvKindOf(at, pt)
+		if !ok {
+			l.err(a.Span(), fmt.Sprintf("Go call argument of type %s cannot convert to parameter type %s — the boundary needs a value copy not yet supported",
+				typeName(a.Type()), typeName(pt)))
+			continue
+		}
+		out[i] = l.asAtom(s, a.Span(), &core.Conv{
+			Base: core.Base{Sp: a.Span(), Typ: pt}, Kind: k, X: a,
+		})
+	}
+	return out
+}
+
+// goParamTypeAt is the raw Go parameter type the argument at index i
+// feeds. Arguments at or beyond the last parameter of a variadic
+// function feed the variadic element — except a `..xs` spread, which
+// feeds the variadic slice itself.
+func goParamTypeAt(sig GoSig, i int, spreadArg bool) types.Type {
+	if sig.Arity == 0 || len(sig.Params) < sig.Arity {
+		return nil
+	}
+	j := i
+	if j > sig.Arity-1 {
+		j = sig.Arity - 1
+	}
+	pt := types.Chase(sig.Params[j])
+	if sig.Variadic && j == sig.Arity-1 && !spreadArg {
+		if c, ok := pt.(*types.Con); ok && len(c.Args) == 1 &&
+			((c.Qual == "Go" && c.Name == "Slice") || (c.Qual == "" && c.Name == "List")) {
+			return c.Args[0]
+		}
+		return nil
+	}
+	return pt
+}
+
+// goPayloadConv wraps a raw Go-produced value in a Conv when its raw
+// type differs from the Gom-facing want — the `try` payload of
+// strconv.Atoi is `int` where Gom expects `Int` (`int64`). The
+// conversion binds through a temporary, keeping the raw value an
+// atom.
+func (l *lowerer) goPayloadConv(s *seq, sp diag.Span, raw, want types.Type, x core.Expr) core.Expr {
+	if types.Equal(raw, want) {
+		return x
+	}
+	k, ok := goConvKindOf(raw, want)
+	if !ok {
+		l.err(sp, fmt.Sprintf("Go result of type %s cannot convert to %s — the boundary needs a value copy not yet supported",
+			typeName(raw), typeName(want)))
+		return x
+	}
+	a := l.asAtom(s, sp, x)
+	return &core.Conv{Base: core.Base{Sp: sp, Typ: want}, Kind: k, X: a}
+}
+
+// convAtomTo is goPayloadConv for a value already bound to an atom —
+// the escape-produced `in` of |?> and the Ok payload of escapeStep.
+func (l *lowerer) convAtomTo(s *seq, sp diag.Span, a core.Atom, want types.Type) core.Atom {
+	if types.Equal(a.Type(), want) {
+		return a
+	}
+	k, ok := goConvKindOf(a.Type(), want)
+	if !ok {
+		l.err(sp, fmt.Sprintf("Go result of type %s cannot convert to %s — the boundary needs a value copy not yet supported",
+			typeName(a.Type()), typeName(want)))
+		return a
+	}
+	return l.asAtom(s, sp, &core.Conv{
+		Base: core.Base{Sp: sp, Typ: want}, Kind: k, X: a,
+	})
 }
 
 // --- calls ---
@@ -511,8 +711,8 @@ func (l *lowerer) directCall(s *seq, sp diag.Span, resTyp types.Type, callee che
 // overAppRetType is the function type the saturated prefix of an
 // over-applied call returns — the callee's remaining arrow chain.
 func overAppRetType(callee check.Expr, ci check.CallInfo) types.Type {
-	sig, ok := callee.Type().(*types.Func)
-	if !ok || len(sig.Params) <= ci.Arity {
+	sig := sigOf(callee.Type())
+	if sig == nil || len(sig.Params) <= ci.Arity {
 		return callee.Type()
 	}
 	return &types.Func{Params: sig.Params[ci.Arity:], Ret: sig.Ret}
@@ -529,12 +729,12 @@ func (l *lowerer) partialCall(s *seq, sp diag.Span, resTyp types.Type, callee ch
 	if sym.IsGo || sym.Kind == resolve.KindMethod {
 		return l.goCall(s, sp, resTyp, ci, args, nil, spread)
 	}
-	sig, _ := resTyp.(*types.Func)
+	sig := sigOf(resTyp)
 	if sig == nil {
 		l.err(sp, fmt.Sprintf("partial application typed %s, not a function", resTyp))
 		return l.litUnit(sp)
 	}
-	calleeSig, _ := callee.Type().(*types.Func)
+	calleeSig := sigOf(callee.Type())
 	filled := filledParams(ci, args)
 	var unapplied []int
 	for i := 0; i < ci.Arity; i++ {
@@ -636,14 +836,14 @@ func (l *lowerer) goCall(s *seq, sp diag.Span, resTyp types.Type, ci check.CallI
 			sig.Results = goResultsOf(resTyp)
 		}
 	}
-	ordered := declOrderArgs(ci, args)
+	ordered := l.convGoArgs(s, sig, declOrderArgs(ci, args), spread)
 
 	if ci.HoleIndex >= 0 {
 		// Cute partial application: the hole is the closure's single
 		// parameter; the other (already evaluated) arguments are
 		// captured by the generated closure body.
-		remTyp, ok := resTyp.(*types.Func)
-		if !ok || len(remTyp.Params) != 1 {
+		remTyp := sigOf(resTyp)
+		if remTyp == nil || len(remTyp.Params) != 1 {
 			l.err(sp, fmt.Sprintf("cute _ call typed %s, not a one-parameter function", resTyp))
 			return l.litUnit(sp)
 		}
@@ -658,7 +858,7 @@ func (l *lowerer) goCall(s *seq, sp diag.Span, resTyp types.Type, ci check.CallI
 			} else {
 				written = append(written, pv[0])
 			}
-			filled := declOrderArgs(ci, written)
+			filled := l.convGoArgs(bs, sig, declOrderArgs(ci, written), spread)
 			call := &core.CallGo{
 				Base:   core.Base{Sp: sp, Typ: goCallTyp(sig, remTyp.Ret)},
 				Callee: ci.Callee, Recv: recv, TypeArgs: ci.TypeArgs,
@@ -666,7 +866,11 @@ func (l *lowerer) goCall(s *seq, sp diag.Span, resTyp types.Type, ci check.CallI
 				Arity: ci.Arity, Variadic: ci.Variadic,
 				Spread: spread, Results: sig.Results,
 			}
-			return l.wrapGoResult(call, remTyp.Ret)
+			x := l.wrapGoResult(call, remTyp.Ret)
+			if sig.Results == core.GoResultsOne {
+				return l.goPayloadConv(bs, sp, call.Typ, remTyp.Ret, x)
+			}
+			return x
 		})
 	}
 
@@ -677,7 +881,11 @@ func (l *lowerer) goCall(s *seq, sp diag.Span, resTyp types.Type, ci check.CallI
 		Arity: ci.Arity, Variadic: ci.Variadic,
 		Spread: spread, Results: sig.Results,
 	}
-	return l.wrapGoResult(call, resTyp)
+	x := l.wrapGoResult(call, resTyp)
+	if sig.Results == core.GoResultsOne {
+		return l.goPayloadConv(s, sp, call.Typ, resTyp, x)
+	}
+	return x
 }
 
 // hasSpread reports whether the written argument list carried a
@@ -710,12 +918,13 @@ func (l *lowerer) goCallNode(s *seq, ap *check.Apply) *core.CallGo {
 	if sig.Results == 0 {
 		sig.Results = goResultsOf(ap.Type())
 	}
+	spread := hasSpread(ap.Args)
 	return &core.CallGo{
 		Base:   core.Base{Sp: ap.Sp, Typ: goCallTyp(sig, ap.Type())},
 		Callee: ci.Callee, Recv: recv, TypeArgs: ci.TypeArgs,
-		Args:  declOrderArgs(ci, args),
+		Args:  l.convGoArgs(s, sig, declOrderArgs(ci, args), spread),
 		Arity: ci.Arity, Variadic: ci.Variadic,
-		Spread:  hasSpread(ap.Args),
+		Spread:  spread,
 		Results: sig.Results,
 	}
 }
@@ -725,7 +934,7 @@ func (l *lowerer) goCallNode(s *seq, ap *check.Apply) *core.CallGo {
 // atoms. The closure's own *core.Func is pushed onto the boundary
 // stack for the body's escapes.
 func (l *lowerer) closureOf(sp diag.Span, typ types.Type, params []types.FuncParam, build func(bs *seq, pv []core.Atom) core.Expr) *core.Closure {
-	fs, _ := typ.(*types.Func)
+	fs := sigOf(typ)
 	if fs == nil {
 		fs = types.Fn(types.Unit, params...)
 	}
@@ -829,7 +1038,7 @@ func (l *lowerer) applyAtom(s *seq, sp diag.Span, resTyp types.Type, fn core.Ato
 // CallFunc chunks — the CallUnknown path for atoms.
 func (l *lowerer) callFuncChunks(s *seq, sp diag.Span, fn core.Atom, args []core.Atom) core.Expr {
 	for len(args) > 0 {
-		fs, ok := fn.Type().(*types.Func)
+		fs, ok := types.Chase(fn.Type()).(*types.Func)
 		if !ok {
 			l.err(sp, fmt.Sprintf("applying a non-function value of type %s", fn.Type()))
 			return l.litUnit(sp)
@@ -862,8 +1071,9 @@ func (l *lowerer) callFuncChunks(s *seq, sp diag.Span, fn core.Atom, args []core
 	return fn
 }
 
+// sigOf chases bound metas, then returns the Func behind t.
 func sigOf(t types.Type) *types.Func {
-	fs, _ := t.(*types.Func)
+	fs, _ := types.Chase(t).(*types.Func)
 	return fs
 }
 
@@ -881,8 +1091,7 @@ func overAppRet(f *core.FuncRef, arity int) types.Type {
 // of a callee's flat parameters.
 func resFunc(sig *types.Func, consumed int, fallback types.Type) *types.Func {
 	if sig == nil {
-		fs, _ := fallback.(*types.Func)
-		return fs
+		return sigOf(fallback)
 	}
 	if len(sig.Params) <= consumed {
 		return types.Fn(sig.Ret)
@@ -1011,8 +1220,8 @@ func lowestUnfilled(ci check.CallInfo) int {
 // the *application-order* function atoms, already evaluated in source
 // order by the caller; the applications happen per call.
 func (l *lowerer) compose(s *seq, e *check.Binary, first, second core.Atom, firstSp, secondSp diag.Span) core.Expr {
-	sig, ok := e.Type().(*types.Func)
-	if !ok {
+	sig := sigOf(e.Type())
+	if sig == nil {
 		l.err(e.Sp, fmt.Sprintf("composition typed %s, not a function", e.Type()))
 		return l.litUnit(e.Sp)
 	}
@@ -1045,10 +1254,10 @@ func (l *lowerer) tryExpr(s *seq, e *check.Try) core.Expr {
 				l.err(e.Sp, "try escapes with no enclosing function boundary")
 				return l.wrapGoResult(call, ap.Type())
 			}
-			return &core.EscapeCall{
+			return l.goPayloadConv(s, e.Sp, call.Typ, e.Type(), &core.EscapeCall{
 				Base: core.Base{Sp: e.Sp, Typ: call.Typ},
 				Call: call, To: fn, Wrap: "",
-			}
+			})
 		}
 		// Non-escapable shape — fall through to EscapeResult, which
 		// the validator will report against the operand's type.
@@ -1101,6 +1310,7 @@ func (l *lowerer) pipeTry(s *seq, e *check.Binary) core.Expr {
 				Base: core.Base{Sp: e.X.Span(), Typ: call.Typ},
 				Call: call, To: fn, Wrap: "",
 			})
+			in = l.convAtomTo(s, e.X.Span(), in, payloadOf(ap.Type()))
 		} else {
 			in = l.asAtom(s, e.X.Span(), l.wrapGoResult(call, ap.Type()))
 		}
@@ -1165,6 +1375,7 @@ func (l *lowerer) escapeStep(s *seq, e *check.Binary, step core.Expr) core.Expr 
 			Base: core.Base{Sp: e.Sp, Typ: call.Typ},
 			Call: call, To: fn, Wrap: wrap,
 		})
+		payload = l.convAtomTo(s, e.Sp, payload, payloadOf(e.Type()))
 	} else {
 		stepAtom := l.asAtom(s, e.Y.Span(), step)
 		if fn == nil {
@@ -1265,7 +1476,7 @@ func (l *lowerer) matchExpr(s *seq, e *check.Match) core.Expr {
 func (l *lowerer) forExpr(s *seq, e *check.For) core.Expr {
 	iter := l.atom(s, e.Iter)
 	kind := core.ForList
-	if c, ok := e.Iter.Type().(*types.Con); ok && c.Qual == "" {
+	if c, ok := types.Chase(e.Iter.Type()).(*types.Con); ok && c.Qual == "" {
 		// Qual == "" narrows to builtin-space names — a same-file
 		// `type Chan` still misclassifies (the checker's own
 		// chanElem has the same ambiguity); filed as a contract
@@ -1438,7 +1649,7 @@ func convKind(from, to types.Type) core.ConvKind {
 // isNumericCon reports whether t is one of the numeric builtin
 // constructors `Go.conv` may convert between.
 func isNumericCon(t types.Type) bool {
-	c, ok := t.(*types.Con)
+	c, ok := types.Chase(t).(*types.Con)
 	if !ok {
 		return false
 	}
@@ -1481,7 +1692,7 @@ func (l *lowerer) strInterp(s *seq, e *check.StrInterp) core.Expr {
 
 // lambdaExpr lowers `fn p... -> body` to a Closure.
 func (l *lowerer) lambdaExpr(e *check.Lambda) core.Expr {
-	sig, _ := e.Type().(*types.Func)
+	sig := sigOf(e.Type())
 	fn := &core.Func{Sp: e.Sp, Sig: sig}
 	fn.Params = l.paramBinds(e.Params, fn)
 	l.fnStack = append(l.fnStack, fn)

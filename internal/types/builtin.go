@@ -61,6 +61,19 @@ func GoMap(k, v Type) Type {
 	return &Con{Qual: "Go", Name: "Map", Args: []Type{k, v}}
 }
 
+// Go.Int is Go's `int` — the Go-side view kept next to the Gom view
+// `Int` (which renders `int64`) so that loaded Go signatures can
+// express where a real `int` conversion is required
+// (docs/decisions/2026-11-03-go-types-mapping.md). It never appears
+// in Gom-facing signatures; the GoSig oracle carries it for lowering.
+var GoInt Type = &Con{Qual: "Go", Name: "Int"}
+
+// Go.Any is Go's `any` — the empty interface. A wanted `Go.Any`
+// accepts every argument (implicit boxing, spec 8.1.7); a `Go.Any`
+// result is an opaque value that only flows back into `any`
+// parameters.
+var GoAny Type = &Con{Qual: "Go", Name: "Any"}
+
 // GoNamed returns the Go-interop handle for the package-qualified
 // named type or interface `path.Name` — `GoNamed("io", "Reader")`.
 func GoNamed(path, name string) Type {

@@ -35,8 +35,9 @@ func IsInterfaceFile(path string) bool {
 // points — the driver interprets none of them (see
 // docs/decisions/2026-11-02-build-driver.md). The zero value compiles
 // a self-contained file: every import reports E0203 and only the
-// builtin scope supplies signatures. internal/goimport is expected to
-// provide the real implementations (P1-9).
+// builtin scope supplies signatures. cmd/gom wires the real
+// implementations — one internal/goimport.Loader fills Loader, Sigs
+// and Lower.GoSig.
 type Options struct {
 	// Loader resolves imported packages for resolve (nil: every
 	// import reports E0203).

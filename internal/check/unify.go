@@ -48,18 +48,6 @@ type metaRec struct {
 	dflt types.Type // default solution, or nil for "ask for an annotation"
 }
 
-// chase follows bound metas to their solutions — the checker's local
-// copy of the operation types.Equal performs internally.
-func chase(t types.Type) types.Type {
-	for {
-		m, ok := t.(*types.Meta)
-		if !ok || !m.Bound() {
-			return t
-		}
-		t = m.Solution()
-	}
-}
-
 // newMeta creates an unbound unification variable recorded with the
 // span and description diagnostics will cite.
 func (c *checker) newMeta(sp diag.Span, desc string) *types.Meta {
@@ -103,7 +91,7 @@ func mergeRec(dst, src *metaRec) {
 // already-known types reports its E0409. Returns false when the
 // constraint failed on a concrete type.
 func (c *checker) constrain(t types.Type, sp diag.Span, desc string, fn func(*metaRec)) bool {
-	if m, ok := chase(t).(*types.Meta); ok {
+	if m, ok := types.Chase(t).(*types.Meta); ok {
 		fn(c.recOf(m))
 		return true
 	}
@@ -116,7 +104,7 @@ func (c *checker) constrain(t types.Type, sp diag.Span, desc string, fn func(*me
 // binding a constrained meta runs it, and so does flagging a concrete
 // type directly.
 func (c *checker) satisfies(r *metaRec, t types.Type, sp diag.Span) bool {
-	t = chase(t)
+	t = types.Chase(t)
 	if r.num && !isNumeric(t) {
 		c.mismatch(sp, "a numeric type", t)
 		return false
@@ -203,7 +191,7 @@ func isOrdered(t types.Type) bool {
 // metas are chased; unbound metas do not count (they carry an eq flag
 // instead and are re-checked when bound).
 func (c *checker) hasFuncOrVar(t types.Type) bool {
-	switch t := chase(t).(type) {
+	switch t := types.Chase(t).(type) {
 	case *types.Var:
 		return true
 	case *types.Meta:
@@ -239,7 +227,7 @@ func (c *checker) hasFuncOrVar(t types.Type) bool {
 // occurs reports whether the unbound meta m occurs inside t — a bind
 // that would create an infinite type.
 func occurs(m *types.Meta, t types.Type) bool {
-	switch t := chase(t).(type) {
+	switch t := types.Chase(t).(type) {
 	case *types.Var:
 		return false
 	case *types.Meta:
@@ -284,7 +272,7 @@ func occurs(m *types.Meta, t types.Type) bool {
 // there is unexported).
 func flattenFunc(t types.Type) (params []types.FuncParam, ret types.Type) {
 	for {
-		f, ok := chase(t).(*types.Func)
+		f, ok := types.Chase(t).(*types.Func)
 		if !ok {
 			return params, t
 		}
@@ -319,7 +307,7 @@ func (c *checker) bind(m *types.Meta, t types.Type, sp diag.Span) bool {
 // propagateFlags folds the constraint flags of a record into every
 // unbound meta occurring inside a solution being bound.
 func (c *checker) propagateFlags(r *metaRec, t types.Type) {
-	switch t := chase(t).(type) {
+	switch t := types.Chase(t).(type) {
 	case *types.Var:
 	case *types.Meta:
 		inner := c.recOf(t)
@@ -359,7 +347,7 @@ func (c *checker) propagateFlags(r *metaRec, t types.Type) {
 // The expected type is the first argument so diagnostics read
 // "expected X, got Y".
 func (c *checker) unify(want, got types.Type, sp diag.Span) bool {
-	w, g := chase(want), chase(got)
+	w, g := types.Chase(want), types.Chase(got)
 
 	// Metas first: binding beats every structural rule.
 	if m, ok := w.(*types.Meta); ok {
@@ -375,6 +363,13 @@ func (c *checker) unify(want, got types.Type, sp diag.Span) bool {
 			return true
 		}
 		return c.bind(m, g, sp)
+	}
+	// A `Go.Any` parameter accepts every argument — boxing a value
+	// into Go's empty interface is implicit at call sites
+	// (spec 8.1.7). The check runs before the got-meta bind so an
+	// `any` slot never captures an inference variable.
+	if isGoAny(w) {
+		return true
 	}
 	if m, ok := g.(*types.Meta); ok {
 		return c.bind(m, w, sp)
@@ -574,7 +569,7 @@ func rigidVars(t types.Type) []*types.Var {
 	seen := map[int]bool{}
 	var walk func(t types.Type)
 	walk = func(t types.Type) {
-		switch t := chase(t).(type) {
+		switch t := types.Chase(t).(type) {
 		case *types.Var:
 			if !seen[t.ID] {
 				seen[t.ID] = true
@@ -719,7 +714,7 @@ func defaultOf(r *metaRec) types.Type {
 // metas still bind (a failure there is an occurs report the caller
 // should not mask).
 func (c *checker) unifyErr(want, got types.Type, sp diag.Span) bool {
-	w, g := chase(want), chase(got)
+	w, g := types.Chase(want), types.Chase(got)
 	if _, ok := w.(*types.Meta); ok {
 		return c.unify(w, g, sp)
 	}

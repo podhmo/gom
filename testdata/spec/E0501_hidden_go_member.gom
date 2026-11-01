@@ -1,0 +1,8 @@
+package ex
+
+import go "strconv"
+
+// A hidden member reports E0501 wherever it is referenced — a bare
+// reference, not an application, so no arity mismatch (E0401) can
+// fire on top of it.
+fn f () -> Int -> String = strconv.ParseUint

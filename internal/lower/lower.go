@@ -56,6 +56,16 @@ type GoSig struct {
 	Variadic bool
 	// Results is the call's result shape (core.GoResults*).
 	Results core.GoResults
+	// Params is the Go-side view of the parameter types, len == Arity
+	// (a variadic last entry keeps its `Go.Slice` shape). It differs
+	// from the Gom view of the signature only where the two spell
+	// differently — today only `int` → `Go.Int`. Nil means "every
+	// parameter is its Gom-view type" (no argument conversions).
+	Params []types.Type
+	// ResTypes is the Go-side view of the result types — the raw
+	// types the call binds at, in result order (the `(T, error)`
+	// shape has two). Nil means "each result is its Gom-view type".
+	ResTypes []types.Type
 }
 
 // Variant is one constructor of a sum type — the answer TypeOracle
@@ -144,6 +154,26 @@ func File(f *check.File, env *Env) (*core.File, []diag.Diagnostic) {
 		}
 	}
 	return out, l.diags
+}
+
+// isEntryPoint reports whether sym is the program entry — the rule
+// codegen used to infer from the file's package and the symbol's
+// name, now settled here so Core IR carries the decision. The shape
+// is exactly `() -> Unit`: one parameter whose Unit value the
+// pattern discards (the `()` literal or `_`), returning Unit. A
+// named `(u: Unit)` binds a name the emitted `func main()` cannot
+// provide, so it lowers to an ordinary Unit-parameter function like
+// any other — Go then rejects its signature, which is the
+// checker-side gap the entry-point problem file already records.
+func isEntryPoint(pkg string, sym *resolve.Symbol, fn *core.Func) bool {
+	if pkg != "main" || sym == nil || sym.Name != "main" {
+		return false
+	}
+	if len(fn.Params) != 1 || !fn.Params[0].Discard ||
+		!types.Equal(fn.Params[0].Typ, types.Unit) {
+		return false
+	}
+	return types.Equal(fn.ResidualType(), types.Unit)
 }
 
 // lowerer is the per-file lowering context.
@@ -280,9 +310,10 @@ func (l *lowerer) goSig(sym *resolve.Symbol, refTyp types.Type) GoSig {
 }
 
 // flatArity is the parameter count of a function type in canonical
-// flat form; 0 for non-function types.
+// flat form; 0 for non-function types. The type is chased first — a
+// let-bound function value's type can still be a bound `?n`.
 func flatArity(t types.Type) int {
-	if fn, ok := t.(*types.Func); ok {
+	if fn, ok := types.Chase(t).(*types.Func); ok {
 		return len(fn.Params)
 	}
 	return 0
@@ -294,12 +325,12 @@ func flatArity(t types.Type) int {
 // comma-ok (T, bool), a 2-tuple as a two-result call, everything else
 // as a single result.
 func goResultsOf(t types.Type) core.GoResults {
-	if c, ok := t.(*types.Func); ok {
+	if c, ok := types.Chase(t).(*types.Func); ok {
 		t = c.Ret
 	}
-	c, ok := t.(*types.Con)
+	c, ok := types.Chase(t).(*types.Con)
 	if !ok {
-		if tup, ok := t.(*types.Tuple); ok && len(tup.Elems) == 2 {
+		if tup, ok := types.Chase(t).(*types.Tuple); ok && len(tup.Elems) == 2 {
 			return core.GoResultsPair
 		}
 		return core.GoResultsOne
@@ -313,7 +344,7 @@ func goResultsOf(t types.Type) core.GoResults {
 	case c.Qual == "" && c.Name == "Option" && len(c.Args) == 1:
 		return core.GoResultsOK
 	}
-	if tup, ok := t.(*types.Tuple); ok && len(tup.Elems) == 2 {
+	if tup, ok := types.Chase(t).(*types.Tuple); ok && len(tup.Elems) == 2 {
 		return core.GoResultsPair
 	}
 	return core.GoResultsOne
@@ -348,9 +379,10 @@ func conKey(c *types.Con) string {
 }
 
 // isCon reports whether t is a *types.Con with the given
-// qualification and name.
+// qualification and name, chasing bound metas first — expression
+// types the checker leaves behind are not always fully zonked.
 func isCon(t types.Type, qual, name string) (*types.Con, bool) {
-	c, ok := t.(*types.Con)
+	c, ok := types.Chase(t).(*types.Con)
 	if !ok || c.Qual != qual || c.Name != name {
 		return nil, false
 	}
@@ -372,6 +404,7 @@ func resultArgs(t types.Type) (a, e types.Type, ok bool) {
 // typeName renders a type for a panic message — the qualified type
 // name for nominal types, the surface form otherwise.
 func typeName(t types.Type) string {
+	t = types.Chase(t)
 	if t == nil {
 		return "<unknown>"
 	}
@@ -470,7 +503,7 @@ func (l *lowerer) fieldIndex(recTyp types.Type, sym *resolve.Symbol) int {
 	if sym == nil {
 		return -1
 	}
-	c, ok := recTyp.(*types.Con)
+	c, ok := types.Chase(recTyp).(*types.Con)
 	if !ok {
 		return -1
 	}
@@ -517,6 +550,7 @@ func (l *lowerer) decl(d check.Decl, out *core.File) {
 		l.markTailCalls(fn, d.Sym)
 		out.Decls = append(out.Decls, &core.FuncDecl{
 			Sp: d.Sp, Sym: d.Sym, Fn: fn,
+			IsEntry: isEntryPoint(out.Package, d.Sym, fn),
 		})
 	case *check.LetDecl:
 		l.letDecl(d, out)

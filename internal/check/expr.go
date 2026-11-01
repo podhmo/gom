@@ -188,7 +188,15 @@ func (c *checker) checkSelect(e *syntax.Select) Expr {
 	if sel != nil && sel.Kind == resolve.KindField {
 		return &MemberExpr{Base: baseOf(e.Sp, c.valOf(sel, e.Sel.Sp)), Recv: recv, Sel: e.Sel, Sym: sel, Index: -1}
 	}
-	if _, ok := chase(recv.Type()).(*types.Meta); ok {
+	// A method selected on a Go-typed receiver that the resolver
+	// could not see: the SignatureSource's optional MethodSource
+	// looks the name up in the named type's method set (P1-9).
+	if sel == nil {
+		if msym, typ, ok := c.methodOf(recv.Type(), selName, e.Sel.Sp); ok {
+			return &MemberExpr{Base: baseOf(e.Sp, typ), Recv: recv, Sel: e.Sel, Sym: msym, Index: -1}
+		}
+	}
+	if _, ok := types.Chase(recv.Type()).(*types.Meta); ok {
 		// The receiver's type is still unknown. The node keeps a
 		// meta type; Index stays -1 — field-dependent lowering sees
 		// an unresolved selector.
@@ -224,7 +232,7 @@ func nameOfSel(sym *resolve.Symbol, sel *syntax.Ident) string {
 // for Go values; whether a Gom builtin type may carry methods is left
 // open (List has none today, but interop mapping may change that).
 func (c *checker) gomValue(t types.Type) bool {
-	switch t := chase(t).(type) {
+	switch t := types.Chase(t).(type) {
 	case *types.Con:
 		if t.Qual == "Go" {
 			return false
@@ -245,7 +253,7 @@ func (c *checker) gomValue(t types.Type) bool {
 // fieldOf resolves a field selection on a receiver of known type:
 // a record field by name, or a variant's uniquely named payload slot.
 func (c *checker) fieldOf(t types.Type, name string) (*fieldInfo, types.Type, bool) {
-	con, ok := chase(t).(*types.Con)
+	con, ok := types.Chase(t).(*types.Con)
 	if !ok {
 		return nil, nil, false
 	}
@@ -283,6 +291,33 @@ func (c *checker) fieldOf(t types.Type, name string) (*fieldInfo, types.Type, bo
 		}
 	}
 	return nil, nil, false
+}
+
+// methodOf resolves a method name on a Go-typed receiver (a
+// types.Go or a Ptr to one) through the optional MethodSource of the
+// signature source. The returned type is the instantiated method
+// signature — the receiver itself is not a parameter of it.
+func (c *checker) methodOf(recvT types.Type, name string, sp diag.Span) (*resolve.Symbol, types.Type, bool) {
+	t := types.Chase(recvT)
+	if con, ok := t.(*types.Con); ok && con.Qual == "" && con.Name == "Ptr" && len(con.Args) == 1 {
+		t = types.Chase(con.Args[0])
+	}
+	if _, ok := t.(*types.Go); !ok {
+		return nil, nil, false
+	}
+	ms, ok := c.src.(MethodSource)
+	if !ok {
+		return nil, nil, false
+	}
+	sym, sig, ok := ms.MethodOf(recvT, name)
+	if !ok {
+		return nil, nil, false
+	}
+	if c.hiddenDiag(sym, sp) {
+		return sym, c.newMeta(sp, fmt.Sprintf("the type of method `%s`", name)), true
+	}
+	typ, _ := c.instantiate(sig.Type, sp)
+	return sym, typ, true
 }
 
 // checkAscribe types `e : T` — and `Go.conv e : T`, the explicit Go
@@ -356,7 +391,7 @@ func (c *checker) calleeSym(e syntax.Expr) *resolve.Symbol {
 // go/types the checker accepts anything that is not a statically
 // impossible pair — functions to scalars, records to numbers, etc.
 func (c *checker) checkConv(from, to types.Type, sp diag.Span) {
-	if !c.convOK(chase(from), chase(to)) {
+	if !c.convOK(types.Chase(from), types.Chase(to)) {
 		c.diags.Add(diag.Error("E0507",
 			fmt.Sprintf("cannot convert %s to %s", from, to)).
 			At(sp).Set("from", from.String()).Set("to", to.String()))
@@ -561,7 +596,7 @@ func (c *checker) checkIf(e *syntax.If, want types.Type) Expr {
 	cond := c.checkExpr(e.Cond, types.Bool)
 	if e.Else == nil {
 		then := c.checkExpr(e.Then, nil)
-		switch t := chase(then.Type()).(type) {
+		switch t := types.Chase(then.Type()).(type) {
 		case *types.Meta:
 			// An unconstrained unknown may still be Unit; a
 			// constrained one (numeric, ordered, ...) can never
@@ -636,7 +671,7 @@ func (c *checker) checkBlock(e *syntax.Block, want types.Type) Expr {
 			st = c.checkExpr(s, want)
 		} else {
 			st = c.checkExpr(s, nil)
-			switch t := chase(st.Type()).(type) {
+			switch t := types.Chase(st.Type()).(type) {
 			case *types.Meta:
 				// An unknown mid-block result is discarded: it must
 				// be Unit. A constrained meta (numeric, ordered...)
@@ -742,7 +777,7 @@ func (c *checker) checkGoExpr(e *syntax.GoExpr) Expr {
 	c.goDepth++
 	body := c.checkExpr(e.Body, nil)
 	c.goDepth--
-	switch t := chase(body.Type()).(type) {
+	switch t := types.Chase(body.Type()).(type) {
 	case *types.Meta:
 		// An unconstrained unknown may still be Unit; a
 		// constrained one can never be — that is E0701.
@@ -774,7 +809,7 @@ func (c *checker) checkGoExpr(e *syntax.GoExpr) Expr {
 func (c *checker) checkFor(e *syntax.For) Expr {
 	iter := c.checkExpr(e.Iter, nil)
 	var elem types.Type
-	switch t := chase(iter.Type()).(type) {
+	switch t := types.Chase(iter.Type()).(type) {
 	case *types.Con:
 		if t.Qual == "" && t.Name == "List" && len(t.Args) == 1 {
 			elem = t.Args[0]
@@ -820,7 +855,7 @@ func (c *checker) checkSelectExpr(e *syntax.SelectExpr, want types.Type) Expr {
 			ch := c.checkExpr(a.Chan, nil)
 			elem, dir, ok := chanElem(ch.Type())
 			if !ok {
-				if _, isMeta := chase(ch.Type()).(*types.Meta); !isMeta {
+				if _, isMeta := types.Chase(ch.Type()).(*types.Meta); !isMeta {
 					c.mismatch(a.Chan.Span(), "a receivable channel", ch.Type())
 				}
 				elem = c.newMeta(a.Chan.Span(), "the received element's type")
@@ -859,7 +894,7 @@ func (c *checker) checkSelectExpr(e *syntax.SelectExpr, want types.Type) Expr {
 			ch := c.checkExpr(a.Chan, nil)
 			elem, dir, ok := chanElem(ch.Type())
 			if !ok {
-				if _, isMeta := chase(ch.Type()).(*types.Meta); !isMeta {
+				if _, isMeta := types.Chase(ch.Type()).(*types.Meta); !isMeta {
 					c.mismatch(a.Chan.Span(), "a sendable channel", ch.Type())
 				}
 				elem = c.newMeta(a.Chan.Span(), "the sent element's type")
@@ -901,7 +936,7 @@ func (c *checker) checkListLit(e *syntax.ListLit, want types.Type) Expr {
 					"`..e` is only allowed as the last element of a list literal").At(sp.Sp))
 			}
 			x := c.checkExpr(sp.X, nil)
-			switch t := chase(x.Type()).(type) {
+			switch t := types.Chase(x.Type()).(type) {
 			case *types.Con:
 				if len(t.Args) == 1 &&
 					((t.Qual == "" && t.Name == "List") || (t.Qual == "Go" && t.Name == "Slice")) {
@@ -956,7 +991,7 @@ func (c *checker) checkRecordLit(e *syntax.RecordLit, want types.Type) Expr {
 	} else {
 		wantT = want
 	}
-	if con, ok := chase(wantT).(*types.Con); ok {
+	if con, ok := types.Chase(wantT).(*types.Con); ok {
 		if t, ok2 := c.tyCons[conKey{qual: con.Qual, name: con.Name}]; ok2 && t.kind == kindRecord {
 			ti = t
 			sub = types.Subst{}
@@ -968,7 +1003,7 @@ func (c *checker) checkRecordLit(e *syntax.RecordLit, want types.Type) Expr {
 		} else if !ok2 || t.kind != kindRecord {
 			c.mismatch(e.Sp, "a record type", wantT)
 		}
-	} else if _, isMeta := chase(wantT).(*types.Meta); isMeta || wantT == nil {
+	} else if _, isMeta := types.Chase(wantT).(*types.Meta); isMeta || wantT == nil {
 		// Field-set resolution: exactly one declared record may own
 		// every written name.
 		ti = c.recordByFields(e)
@@ -983,7 +1018,7 @@ func (c *checker) checkRecordLit(e *syntax.RecordLit, want types.Type) Expr {
 				sub[v.ID] = args[i]
 			}
 			wantT = &types.Con{Qual: ti.con.Qual, Name: ti.con.Name, Args: args}
-			if m, ok := chase(want).(*types.Meta); ok {
+			if m, ok := types.Chase(want).(*types.Meta); ok {
 				c.bind(m, wantT, e.Sp)
 			} else if want == nil && base == nil {
 				// nothing else to tie to
@@ -993,7 +1028,7 @@ func (c *checker) checkRecordLit(e *syntax.RecordLit, want types.Type) Expr {
 			// ambiguous set). Bind the expected meta so the failure
 			// does not leave an unsolved variable behind, and use
 			// Unit as the recovery type.
-			if m, ok := chase(wantT).(*types.Meta); ok {
+			if m, ok := types.Chase(wantT).(*types.Meta); ok {
 				c.bind(m, types.Unit, e.Sp)
 			}
 			wantT = types.Unit

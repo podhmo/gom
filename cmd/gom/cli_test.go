@@ -35,6 +35,30 @@ fn eval (e: Expr) -> Int =
 fn answer () -> Int =
   eval (Add (Num 40) (Num 2))
 `
+
+	// mainGom is a runnable program: `fn main () -> Unit` in
+	// `package main` lowers to `func main()`. fmt.Println's real
+	// signature is `(int, error)` → Result Int GoError, so the call
+	// is discarded under `let _`.
+	mainGom = `package main
+
+import go "fmt"
+
+type Expr =
+  | Num Int
+  | Add Expr Expr
+
+fn eval (e: Expr) -> Int =
+  match e {
+    Num n -> n
+    Add l r -> eval l + eval r
+  }
+
+fn main () -> Unit = {
+  let _ = fmt.Println("gom answer:", eval (Add (Num 40) (Num 2)))
+  ()
+}
+`
 )
 
 // writeFiles creates dir/name for each entry and returns dir.
@@ -338,11 +362,11 @@ func TestDumpPhases(t *testing.T) {
 	}
 }
 
-// TestEndToEnd_BuildAndRun is the full proof: gom build emits .go, the
-// real Go toolchain compiles it (with a tiny hand-written entry point —
-// Gom `fn` compiles to Go functions that take and return Unit as
-// struct{}, so `fn main` is not a Go entrypoint yet; see
-// docs/problems/), and the binary runs and computes the right answer.
+// TestEndToEnd_BuildAndRun is the full proof: gom build emits .go —
+// `fn main () -> Unit` in `package main` becomes Go's `func main()`
+// (core.FuncDecl.IsEntry) — the real Go toolchain compiles the module
+// with no hand-written shim, and the binary runs and prints the
+// answer.
 func TestEndToEnd_BuildAndRun(t *testing.T) {
 	gobin, err := exec.LookPath("go")
 	if err != nil {
@@ -352,7 +376,7 @@ func TestEndToEnd_BuildAndRun(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dir := writeFiles(t, map[string]string{"prog.gom": goodGom})
+	dir := writeFiles(t, map[string]string{"prog.gom": mainGom})
 	outDir := filepath.Join(dir, "mod")
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
 		t.Fatal(err)
@@ -363,26 +387,12 @@ func TestEndToEnd_BuildAndRun(t *testing.T) {
 		t.Fatalf("gom build: exit %d; stdout=%q stderr=%q", code, out, errout)
 	}
 
-	// The generated file is not a Go main package by itself, so the
-	// module gets a small shim that calls it. go.mod requires the gom
-	// module (for github.com/podhmo/gom/rt) replaced with this worktree.
-	shim := `package main
-
-import "os"
-
-func main() {
-	if got := answer(struct{}{}); got != 42 {
-		println("unexpected answer:", got)
-		os.Exit(1)
-	}
-	println("gom answer:", 42)
-}
-`
+	// The generated file carries the whole program — the module only
+	// needs a go.mod pointing at the gom module (rt/stdlib) via this
+	// worktree.
 	gomod := "module e2e\n\ngo 1.27\n\nrequire github.com/podhmo/gom v0.0.0\n\nreplace github.com/podhmo/gom => " + root + "\n"
-	for name, body := range map[string]string{"main.go": shim, "go.mod": gomod} {
-		if err := os.WriteFile(filepath.Join(outDir, name), []byte(body), 0o644); err != nil {
-			t.Fatal(err)
-		}
+	if err := os.WriteFile(filepath.Join(outDir, "go.mod"), []byte(gomod), 0o644); err != nil {
+		t.Fatal(err)
 	}
 
 	bin := filepath.Join(outDir, "prog")
