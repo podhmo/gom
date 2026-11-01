@@ -127,4 +127,5 @@ Go 相互運用を変えたら両方向（Gom → Go、Go → Gom）のテスト
 - [x] **[task] 隠し・未解決シンボル後の診断カスケードを整理する**: `slices.Contains` 参照で正しい E0501 のあと誤解を招く E0401 "the Go callee takes 0 argument(s), got 2" と E0407 が続く。`type Meters = Int` の誤用では同一 E0401 が 3 連発する。二次診断の抑制と重複排除（V-1、`slices.Contains`・`type Meters = Int` で確認）
 - [x] **[task] 空の `select {}` が E0901 "core invariant violation: select has no arms"**: ユーザー入力に対し内部不変条件エラーが出る。parse か check の段階でユーザー向け診断に（V-1、probe で発見）
 - [x] **[task] `gom build` が `test` ブロックを lower している**: spec 11.6 はテストコードを `gom test` のときだけ出力するとしているが、build でも lower に掛かり `assert_eq` の builtin バグを踏む。lower/codegen の対象をコマンドで絞る（V-1、`test`/`assert_eq` を試して発見）
+- [ ] **[bug] `checkGoApply` の arity メッセージが自己矛盾する**: 部分適用 `strconv.FormatInt 255` で "the Go callee takes 1 argument(s), got 1"（want に arity−missing を出しているため expected == actual に見える）。main で再現（bugfix-check レビューで発見）
 - [ ] **[task] spec の例のうち現状コンパイルできないものを整理する**: spec.md 冒頭例（`List.map`/`List.sum`、P4-8 未実装）、8.1 `report` 例（`ignore` 未実装 + `strings.Join` への `List` 引数、P3-3 未実装）、10 章（`Option.get`/`Chan`/`Task`）。「将来の例」と注記するか実装タスクへ紐付ける（V-1 で確認）
