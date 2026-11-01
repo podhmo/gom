@@ -112,7 +112,7 @@ Go 相互運用を変えたら両方向（Gom → Go、Go → Gom）のテスト
 ### 検証
 
 - [x] **V-1 実行可能チュートリアル**: `tutorial/` に `.gom` のサンプル群と実行手順を作り、`gom build` / `gom check` / `gom test` で実際に動かす。エンドユーザー視点で不備・分かりにくい診断・壊れた UX を洗い出し、見つけたものは TODO.md の Bugs/タスクに追加してから実装に戻る。依存: P1-13
-- [ ] **V-2 grammar ベースのランダムプログラム生成器**: `docs/grammar.ebnf`（または tree-sitter 文法を別途整備して二重実装相互検証）から妥当な `.gom` を生成し、パーサー fuzz・compile-canary・eval vs compiled 差分テストのシードとする。意味論の食い違い（評価順・`|?>`・構造的 `==`）を先回りで発見するためのもの。依存: なし（seed 消費側は parser/compile fuzz があると効果大）
+- [x] **V-2 grammar ベースのランダムプログラム生成器**: `docs/grammar.ebnf`（または tree-sitter 文法を別途整備して二重実装相互検証）から妥当な `.gom` を生成し、パーサー fuzz・compile-canary・eval vs compiled 差分テストのシードとする。意味論の食い違い（評価順・`|?>`・構造的 `==`）を先回りで発見するためのもの。依存: なし（seed 消費側は parser/compile fuzz があると効果大） — `internal/gomgen` + `internal/build/gen_test.go`。差分テスト seed 化は未配線
 
 ## Bugs
 
@@ -145,3 +145,4 @@ Go 相互運用を変えたら両方向（Gom → Go、Go → Gom）のテスト
 - [x] **[bug] 整数リテラルの表記が正規化されず生成 Go が壊れる**: `let a=080` の `080` がそのまま `var a int64 = 080` に出力され、Go では不正な 8 進リテラルとして codegen 内部の gofmt チェックが "invalid digit '8' in octal literal" で落ちる。Gom のリテラル受理規則と Go の表記変換がずれている（FuzzCompile が発見、knownBugs 登録済み、corpus: `internal/build/testdata/fuzz/FuzzCompile/f7bdbe872126e546`）
 - [ ] **[task] fuzz knownBugs の `Skip: true` エントリがバグ修正後に orphan 化する**: `CheckRegistry` の TODO 判定は `strings.Contains(todo, bug.TODO)` で `- [x]` の完了行にもマッチするが、Skip 済み（hang 系 4 件）は実行されないため staleness 検出が効かず、対象バグが直ってもエントリが永続的に残る。`- [ ]` 行内マッチに絞るとよい（fuzz レビューで発見、`internal/testutil/fuzzutil` / `internal/{syntax,build}/fuzz_test.go`）
 - [ ] **[bug] TailLoop でパラメータを捕捉したクロージャが再代入後の値を読む**: 自己末尾再帰の `for` 化はパラメータを multi-assign で再代入するため、ループ中に作られたクロージャが捕捉したパラメータは「その呼び出し時の値」ではなく最終値を返す。例: `fn keep (n: Int) (k: Unit -> Int) -> Int = { let kk = if n == 5 { fn () -> n } else { k }; if n <= 0 { kk () } else { keep (n - 1) kk } }` — `keep 10 k` は 5 を返すべきだが生成コードは 0 を返す（design.md 4.5 の「捕捉変数はすべて不変」の前提を TailLoop の再代入が壊している）。`go { ... }` 内の捕捉はさらにデータ競合になる。詳細と修正案は [docs/problems/2026-11-02-tailloop-param-capture.md](docs/problems/2026-11-02-tailloop-param-capture.md)
+- [ ] **[bug] 値渡しで自分自身を含む record 型が不正な生成 Go になる**: `type Point = {x: Point}` のような record 型が check を通って `type Point struct { X Point }` を生成し、Go では "invalid recursive type" でコンパイル不能になる。ADT のバリアントは interface 経由で間接化されるので問題ないが、record は Go struct にそのまま展開される。check で値渡しの再帰を拒否するか codegen でポインタ化する必要がある（gomgen 生成プログラムの canary で発見、knownBugs 登録済み）

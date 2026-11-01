@@ -138,6 +138,17 @@ fn len2 (xs: List a) -> Int =
 	// (`let a=080` is fixed in the parser: a leading-zero decimal
 	// literal is normalized to its value's decimal spelling — `80` —
 	// so the corpus file now compiles cleanly.)
+	// `type Point = {x: Point}` — a record type that contains
+	// itself by value passes check and lowers to
+	// `type Point struct { X Point }`, which Go rejects as an
+	// invalid recursive type. Variants are safe (the ADT lowers to
+	// an interface, giving natural indirection) — only the
+	// record-to-struct path lacks it. Found by the gomgen canary.
+	fuzzutil.Sum256([]byte("package m\n\ntype Point = {x: Point}\n")): {
+		Match: []string{"generated Go fails to typecheck", "invalid recursive type"},
+		TODO:  "値渡しで自分自身を含む record 型が不正な生成 Go になる",
+		Desc:  "self-recursive record emits invalid Go struct",
+	},
 }
 
 // fuzzGoPkgs bounds which `import go` paths the loader will resolve

@@ -62,6 +62,7 @@
 | [fuzz-strategy](2026-11-02-fuzz-strategy.md) | Fuzz strategy: parser oracle, compile canary, and the knownBugs registry | 採用 |
 | [generated-go-conventions](2026-11-02-generated-go-conventions.md) | Generated Go code conventions: names, unused binders, //line | draft |
 | [generated-support-packages](2026-11-02-generated-support-packages.md) | Generated-code support packages: `rt/` and `stdlib/` | draft |
+| [grammar-based-generator](2026-11-02-grammar-based-generator.md) | Grammar-based random program generator (internal/gomgen) | 採用 |
 | [import-go-loader-seam](2026-11-02-import-go-loader-seam.md) | The package-loader seam for `import` and `import go` | draft |
 | [monomorphic-checker-design](2026-11-02-monomorphic-checker-design.md) | Design of the P1 monomorphic checker | draft |
 | [name-resolution](2026-11-02-name-resolution.md) | Name resolution: scopes, shadowing, and constructor lookup | draft |
