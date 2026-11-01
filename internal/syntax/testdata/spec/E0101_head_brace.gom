@@ -1,0 +1,4 @@
+package m
+
+fn f (n: Int) -> Int =
+  if {x = true}.x { n } else { 0 }

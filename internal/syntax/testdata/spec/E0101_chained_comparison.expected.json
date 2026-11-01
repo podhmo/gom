@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0101",
+      "severity": "error",
+      "message": "comparison operators do not chain; parenthesize, e.g. \"(a \u003c b) == c\"",
+      "span": {
+        "file": "E0101_chained_comparison.gom",
+        "start": {
+          "line": 3,
+          "col": 15,
+          "offset": 25
+        },
+        "end": {
+          "line": 3,
+          "col": 16,
+          "offset": 26
+        }
+      }
+    }
+  ]
+}

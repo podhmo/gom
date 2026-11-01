@@ -1,6 +1,6 @@
 # Interpretations adopted in the formal grammar (spec 1.5 / 1.6 formalization)
 
-- 状態: draft
+- 状態: 採用（P1-3 のパーサーがこの解釈のまま実装・検証した。パーサー側の追加解釈は [2026-11-02-p1-3-parser-interpretations](2026-11-02-p1-3-parser-interpretations.md) を参照）
 - 日付: 2026-11-01
 
 ## Background
@@ -8,8 +8,10 @@
 While writing `docs/grammar.ebnf` for task D-1, several rules that spec.md
 states in prose could not be transcribed mechanically and had to be
 formalized. Genuinely open questions were split into `docs/problems/`.
-This file records the interpretations the grammar commits to. The status
-stays draft until the actual parser (P1-3) validates them.
+This file records the interpretations the grammar commits to. The P1-3
+parser implemented and validated them; the additional interpretations
+the parser itself needed are recorded in
+[2026-11-02-p1-3-parser-interpretations](2026-11-02-p1-3-parser-interpretations.md).
 
 ## Decisions (interpretations baked into the grammar)
 

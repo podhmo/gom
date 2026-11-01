@@ -32,7 +32,7 @@
 | [cute-placeholder](2026-11-01-cute-placeholder.md) | Go 呼び出しの `_` プレースホルダ（`cute` 方式） | 採用 |
 | [development-order](2026-11-01-development-order.md) | 開発順序を P0〜P5 に変える | 採用 |
 | [evaluation-order](2026-11-01-evaluation-order.md) | 評価順序 | 採用 |
-| [formal-grammar-interpretations](2026-11-01-formal-grammar-interpretations.md) | Interpretations adopted in the formal grammar (spec 1.5 / 1.6 formalization) | draft |
+| [formal-grammar-interpretations](2026-11-01-formal-grammar-interpretations.md) | Interpretations adopted in the formal grammar (spec 1.5 / 1.6 formalization) | 採用（P1-3 のパーサーがこの解釈のまま実装・検証した。パーサー側の追加解釈は [2026-11-02-p1-3-parser-interpretations](2026-11-02-p1-3-parser-interpretations.md) を参照） |
 | [fsharp-pipes](2026-11-01-fsharp-pipes.md) | F# 流のパイプと関数合成 | 採用 |
 | [function-representation](2026-11-01-function-representation.md) | 関数値の表現 | 採用（P0-2 の実験で決定。根拠: [sketch: P0-2](../sketch/2026-11-01-p0-2-function-representation.md)） |
 | [generated-code-goals](2026-11-01-generated-code-goals.md) | 生成 Go コードの位置づけ | 採用 |
@@ -60,6 +60,7 @@
 | [eval-value-model](2026-11-02-eval-value-model.md) | Value model of the typed-AST evaluator (internal/eval) | draft |
 | [import-go-loader-seam](2026-11-02-import-go-loader-seam.md) | The package-loader seam for `import` and `import go` | draft |
 | [name-resolution](2026-11-02-name-resolution.md) | Name resolution: scopes, shadowing, and constructor lookup | draft |
+| [p1-3-parser-interpretations](2026-11-02-p1-3-parser-interpretations.md) | P1-3 parser: interpretations made while implementing grammar.ebnf | 採用 |
 | [sumtype-exhaustiveness-tool](2026-11-02-sumtype-exhaustiveness-tool.md) | Exhaustiveness checker for sealed interfaces (B-3) | 採用 |
 | [test-harness](2026-11-02-test-harness.md) | テストハーネスの配置とファイル規約 (internal/gomtest) | 採用 |
 | [treedump-format](2026-11-02-treedump-format.md) | IR テキストダンプ形式 (internal/treedump) | draft |

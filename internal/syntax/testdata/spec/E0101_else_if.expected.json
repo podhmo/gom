@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0101",
+      "severity": "error",
+      "message": "\"else\" must be followed by a block; write \"else { if ... }\"",
+      "span": {
+        "file": "E0101_else_if.gom",
+        "start": {
+          "line": 4,
+          "col": 23,
+          "offset": 56
+        },
+        "end": {
+          "line": 4,
+          "col": 25,
+          "offset": 58
+        }
+      }
+    }
+  ]
+}

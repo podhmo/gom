@@ -1,0 +1,3 @@
+package m
+
+let v = 1 < 2 < 3

@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0101",
+      "severity": "error",
+      "message": "\"{\" cannot start an expression in a head position (parenthesize it)",
+      "span": {
+        "file": "E0101_head_brace.gom",
+        "start": {
+          "line": 4,
+          "col": 6,
+          "offset": 39
+        },
+        "end": {
+          "line": 4,
+          "col": 7,
+          "offset": 40
+        }
+      }
+    }
+  ]
+}

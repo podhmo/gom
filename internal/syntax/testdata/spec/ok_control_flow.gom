@@ -1,0 +1,23 @@
+package flow
+
+type Option a =
+  | Some a
+  | None
+
+fn classify (n: Int) -> Int =
+  if n < 0 {
+    0 - 1
+  } else {
+    n
+  }
+
+fn each (xs: List Int) -> Unit =
+  for x in xs {
+    ignore x
+  }
+
+fn first (o: Option Int) -> Int =
+  match o {
+    Some x if x > 0 -> x
+    Some _ | None -> 0
+  }
