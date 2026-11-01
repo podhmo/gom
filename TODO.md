@@ -52,7 +52,9 @@
 中間表現の型（P1-1, P1-2）を先に固めれば、以降の各フェーズは手書きの入力（AST や IR のリテラル）でテストしながら並列に実装できる。フェーズ間の依存は一方向（`syntax` → `resolve` → `check` → `pattern` → `lower` → `codegen`）。
 
 - [x] **P1-1 診断の内部表現 `internal/diag`**: 位置（UTF-8 バイトオフセット）、span、severity、code、message、構造化された `data`、notes、fixes の型。行・列への変換はここに置くが、出力形式はまだ作らない（[spec 12 章](docs/spec.md)、[decisions/json-diagnostics](docs/decisions/2026-11-01-json-diagnostics.md)）。依存: B-1
-- [ ] **P1-2 中間表現の型定義**: 表層 AST（trivia を保持）、名前解決済み AST、型の表現（`internal/types`）、型付き AST（適用ノードの呼び出し情報を構造化）、Core IR（ANF、決定木、arity 分類、脱出ノード、相互運用の変換ノード）を sealed interface で定義する。Core IR には [design.md 2.1](docs/design.md) の不変条件を検査する validator を付ける。大きければ AST 側と IR 側で子タスクに分ける。依存: B-1, P1-1
+- [-] **P1-2 中間表現の型定義**: 表層 AST（trivia を保持）、名前解決済み AST、型の表現（`internal/types`）、型付き AST（適用ノードの呼び出し情報を構造化）、Core IR（ANF、決定木、arity 分類、脱出ノード、相互運用の変換ノード）を sealed interface で定義する。Core IR には [design.md 2.1](docs/design.md) の不変条件を検査する validator を付ける。大きければ AST 側と IR 側で子タスクに分ける。依存: B-1, P1-1
+  - [x] **P1-2a** AST 側（表層・解決済み・types・型付き AST + CallInfo）。配置の決定は [decisions/2026-11-02-ast-representation](docs/decisions/2026-11-02-ast-representation.md)
+  - [ ] **P1-2b** IR 側（Core IR + 不変条件 validator）
 - [ ] **P1-3 字句解析・構文解析 `internal/syntax`**: 再帰下降＋Pratt 法。並置の適用、パイプ類の優先順位、改行の規則、波括弧の曖昧さ、エラー回復。コメントと空行を trivia として保持する。依存: P1-2, D-1
 - [ ] **P1-4 名前解決 `internal/resolve`**: スコープ、シャドーイング、モジュール参照、未定義名の診断。Go パッケージの読み込みは P1-9 で足す。依存: P1-2
 - [ ] **P1-5 単相の型検査と ADT `internal/check`**: 型付き AST を作る。組み込み型、ADT、レコード、`if`/`match`/ブロックの型、ブロック途中の非 `Unit` 式のエラー（[spec 1.1](docs/spec.md)）、算術演算子の型の確定。依存: P1-2
