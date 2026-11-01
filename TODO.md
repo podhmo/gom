@@ -68,7 +68,7 @@
 - [x] **P1-10 診断の JSON Lines / text 出力**: `kind`、最後の行の `summary`、終了コード 0/1/2、行・列（列はコードポイント単位）の計算（[spec 12 章](docs/spec.md)）。依存: P1-1
 - [x] **P1-11 `cmd/gom` の `build` / `check`**: ファイル単位でフェーズをつなぎ、`.go` を出力する。`internal/build` は最小限（毎回すべて変換）。依存: P1-3, P1-4, P1-5, P1-6, P1-7, P1-8, P1-10
 - [x] **P1-12 意味論の比較テスト用の評価器**: 単相の純粋な式、ADT、`match`、関数適用を型付き AST（または Core IR）から直接評価し、生成 Go コードの実行結果と比べるテストを作る（[design.md 7 章](docs/design.md)）。依存: P1-2
-- [ ] **P1-13 P1 の完了確認**: `Expr` 評価器のサンプルと、`strconv` を使う小さなプログラムがファイル単位でビルドでき、`go vet` を通り、評価器との比較テストに通る。依存: P1-9, P1-11, P1-12
+- [x] **P1-13 P1 の完了確認**: `Expr` 評価器のサンプルと、`strconv` を使う小さなプログラムがファイル単位でビルドでき、`go vet` を通り、評価器との比較テストに通る。依存: P1-9, P1-11, P1-12
 - [x] **P1-14 E90xx 診断コードの登録**: `internal/eval` が使う E9001–E9005 は `codes.go` の `categories` に `90` が無く登録不能。カテゴリ `90` と Phase `eval` を加えて登録し、`docs/error-codes.md` を再生成する。依存: P1-12, D-2
 
 ### P2 型推論と関数
@@ -110,8 +110,20 @@ Go 相互運用を変えたら両方向（Gom → Go、Go → Gom）のテスト
 
 ### 検証
 
-- [ ] **V-1 実行可能チュートリアル**: `tutorial/` に `.gom` のサンプル群と実行手順を作り、`gom build` / `gom check` / `gom test` で実際に動かす。エンドユーザー視点で不備・分かりにくい診断・壊れた UX を洗い出し、見つけたものは TODO.md の Bugs/タスクに追加してから実装に戻る。依存: P1-13
+- [x] **V-1 実行可能チュートリアル**: `tutorial/` に `.gom` のサンプル群と実行手順を作り、`gom build` / `gom check` / `gom test` で実際に動かす。エンドユーザー視点で不備・分かりにくい診断・壊れた UX を洗い出し、見つけたものは TODO.md の Bugs/タスクに追加してから実装に戻る。依存: P1-13
 
 ## Bugs
 
 （見つけたバグはここに `- [ ]` で足す）
+
+- [ ] **[bug] 組み込み関数の呼び出しが `gom build` で落ちる**: `todo ()`・`not x`・`assert`・`assert_eq` は `gom check` を通るが `gom build` が E0901 "builtin X used as a value" で失敗する（`internal/lower/expr.go` `applyCall` が CallInfo の振り分け前に `e.Fn` を `varExpr` へ下ろし、`KindBuiltin` が値位置でエラーになる）。結果として `test` ブロックが一切使えず、E0301 が提案する修正テキスト `-> todo ()` がビルドできないコードを挿入する。再現: `fn f () -> Int = todo ()`（V-1、`tutorial/10-errors` の suggested fix が挿す `todo ()` もこれに当たる）
+- [ ] **[bug] 構造的 `==` が Go の `==` にそのまま下り、List を含む型で生成コードが壊れる**: `[1, 2] == [1, 2]` は `gom build` 成功だが生成 Go が `slice can only be compared to nil` でコンパイル不能。ADT・レコードが List フィールドを持つ場合も同様（`Items [1] == Items [1]` → `struct containing list.List[int64] cannot be compared`）。スカラ・ADT・タプルの `==` は動く（spec 3.3 は構造的等価を要求。`tutorial/04-match` は ADT の `==` のみに留めて回避）
+- [ ] **[bug] 可変長引数を取る Go 関数への `f <| x` が引数リスト展開扱いになる**: `fmt.Println <| "hi"` → E0401 "expected Go.Slice Go.Any, got String" と付随する E0407。非可変長の Go 関数（`strconv.Itoa <| 42`）と Gom 関数では動く（V-1、`tutorial/08-pipes-labels` で `double <| 21` は動作）
+- [ ] **[bug] Go のパッケージ変数・定数が E0901 の内部不変条件違反になる**: `os.Args`・`math.Pi`・`strconv.ErrSyntax` などを参照すると "core invariant violation: symbol \"X\" is not in scope"。spec 8.1.5 は型なし定数を期待される Gom の型へ解決すると約束している。未実装なら内部エラーではなくユーザー向け診断にすべき（V-1、`os.Getenv`/`os.Setenv` は動くが `os.Args` で発見）
+- [ ] **[bug] ガード内でパターン変数同士の `==` が E0407 になる**: `P a b if a == b` → "the type of `a` could not be determined"。`a == 3`（変数 vs リテラル）や通常の変数の `x == y` は通る（V-1、`tutorial/04-match` のガード執筆中に発見）
+- [ ] **[bug] span を持たない診断が出力されることがある**: `(String, Bool)` タプルを返す `os.LookupEnv` の結果を `Some`/`None` で match すると、`"span"` を欠く E0407 が出る（spec 12 は位置を診断の一部として扱う。V-1、`os.LookupEnv` の match 中に発見）
+- [ ] **[bug] `GoError` のメソッドセットが露出していない**: `e.Error()` → E0401 "GoError has no field or method `Error`"。`${e}` や `fmt.Println` 経由の文字列化しかできない（V-1、`tutorial/07-go-interop`・`09-capstone` 執筆中に発見。作る側の設計上の問題は [docs/problems/2026-11-04-goerror-construction.md](docs/problems/2026-11-04-goerror-construction.md)）
+- [ ] **[task] 隠し・未解決シンボル後の診断カスケードを整理する**: `slices.Contains` 参照で正しい E0501 のあと誤解を招く E0401 "the Go callee takes 0 argument(s), got 2" と E0407 が続く。`type Meters = Int` の誤用では同一 E0401 が 3 連発する。二次診断の抑制と重複排除（V-1、`slices.Contains`・`type Meters = Int` で確認）
+- [ ] **[task] 空の `select {}` が E0901 "core invariant violation: select has no arms"**: ユーザー入力に対し内部不変条件エラーが出る。parse か check の段階でユーザー向け診断に（V-1、probe で発見）
+- [ ] **[task] `gom build` が `test` ブロックを lower している**: spec 11.6 はテストコードを `gom test` のときだけ出力するとしているが、build でも lower に掛かり `assert_eq` の builtin バグを踏む。lower/codegen の対象をコマンドで絞る（V-1、`test`/`assert_eq` を試して発見）
+- [ ] **[task] spec の例のうち現状コンパイルできないものを整理する**: spec.md 冒頭例（`List.map`/`List.sum`、P4-8 未実装）、8.1 `report` 例（`ignore` 未実装 + `strings.Join` への `List` 引数、P3-3 未実装）、10 章（`Option.get`/`Chan`/`Task`）。「将来の例」と注記するか実装タスクへ紐付ける（V-1 で確認）

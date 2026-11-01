@@ -1,0 +1,51 @@
+// Step 6: Option, Result, `try`, and the `|?>` pipe.
+//
+// `Option a` is `Some a | None` — no null. `Result a e` carries a
+// value or an error. `try e` unwraps `Ok v` to `v` or returns the
+// `Err` from the enclosing function, whose return type must be a
+// `Result`. `r |?> f` chains `Result`-producing steps, skipping the
+// rest on the first `Err`.
+package main
+
+import go "fmt"
+
+fn head (xs: List Int) -> Option Int =
+  match xs {
+    [] -> None
+    [x, ..rest] -> Some x
+  }
+
+fn show_opt (o: Option Int) -> String =
+  match o {
+    Some n -> "some ${n}"
+    None -> "none"
+  }
+
+fn checked_div (a: Int) (b: Int) -> Result Int String =
+  if b == 0 { Err "division by zero" } else { Ok (a / b) }
+
+// `try` escapes from the enclosing function on the first Err.
+fn ratio (a: Int) (b: Int) (c: Int) -> Result Int String = {
+  let x = try (checked_div a b)
+  let y = try (checked_div x c)
+  Ok y
+}
+
+// `|?>` is the same short-circuit written as a pipeline.
+fn ratio_pipe (a: Int) (b: Int) (c: Int) -> Result Int String =
+  checked_div a b
+  |?> fn x -> checked_div x c
+
+fn show_res (r: Result Int String) -> String =
+  match r {
+    Ok n -> "ok ${n}"
+    Err e -> "err ${e}"
+  }
+
+fn main () -> Unit = {
+  let _ = fmt.Println(show_opt (head [7, 8]))
+  let _ = fmt.Println(show_opt (head []))
+  let _ = fmt.Println(show_res (ratio 100 5 2))
+  let _ = fmt.Println(show_res (ratio_pipe 100 0 2))
+  ()
+}

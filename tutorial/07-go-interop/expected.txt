@@ -1,0 +1,6 @@
+ok 42
+err strconv.Atoi: parsing "x": invalid syntax
+GOM
+gogogo
+env: yes
+a, b

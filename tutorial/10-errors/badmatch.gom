@@ -1,0 +1,19 @@
+// Step 10: what a diagnostic looks like.
+//
+// This file is intentionally broken: the match forgets `Empty`.
+// `gom check` reports E0301 with the missing pattern and a
+// suggested fix — run it and look at the JSON (or `-format text`).
+package main
+
+type Shape =
+  | Circle (r: Float)
+  | Rect (w: Float) (h: Float)
+  | Empty
+
+fn area (s: Shape) -> Float =
+  match s {
+    Circle r -> 3.14159 * r * r
+    Rect w h -> w * h
+  }
+
+fn main () -> Unit = ()

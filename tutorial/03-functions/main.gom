@@ -1,0 +1,21 @@
+// Step 3: functions are curried values.
+//
+// `fn add (a: Int) (b: Int) -> Int` takes its arguments one at a
+// time, so `add 40` is a perfectly good `Int -> Int`. Lambdas are
+// `fn x -> body`, and functions are ordinary arguments.
+package main
+
+import go "fmt"
+
+fn add (a: Int) (b: Int) -> Int = a + b
+
+fn twice (f: Int -> Int) (x: Int) -> Int = f (f x)
+
+fn main () -> Unit = {
+  let add40 = add 40
+  let _ = fmt.Println(add40 2)
+  let _ = fmt.Println(twice (add 1) 10)
+  let inc = fn x -> x + 1
+  let _ = fmt.Println(twice inc 5)
+  ()
+}

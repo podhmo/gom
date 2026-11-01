@@ -1,0 +1,29 @@
+// Step 8: pipelines, composition, and labeled arguments.
+//
+// `x |> f` is `f x`; `f <| x` is `f x` too — handy when the
+// argument is a long expression. `f >> g` and `g << f` compose
+// functions. `~name:` marks an argument that call sites must label;
+// `~name` alone puns `~name: name`.
+package main
+
+import go "fmt"
+
+fn add (a: Int) (b: Int) -> Int = a + b
+
+fn double (x: Int) -> Int = x * 2
+
+fn greet (~name: String) (~greeting: String) -> String =
+  "${greeting}, ${name}!"
+
+fn main () -> Unit = {
+  let _ = fmt.Println(1 |> add 2 |> double)
+  let f = add 1 >> double
+  let g = double << add 1
+  let _ = fmt.Println("${f 10} / ${g 10}")
+  let _ = fmt.Println(double <| 21)
+  // Labeled arguments may come in any order; `~name` puns `~name: name`.
+  let _ = fmt.Println(greet ~greeting: "hi" ~name: "gom")
+  let name = "pon"
+  let _ = fmt.Println(greet ~name ~greeting: "yo")
+  ()
+}

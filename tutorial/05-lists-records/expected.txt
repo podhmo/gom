@@ -1,0 +1,4 @@
+sum 10, len 4
+moved to 15,20
+at 15,20
+answer = 42

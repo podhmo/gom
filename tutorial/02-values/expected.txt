@@ -1,0 +1,4 @@
+42 is big
+1 is small
+ratio: 1.5
+bool: true

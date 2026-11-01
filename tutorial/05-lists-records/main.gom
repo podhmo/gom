@@ -1,0 +1,41 @@
+// Step 5: lists, records, and tuples.
+//
+// A `List a` is an immutable list matched head/tail with
+// `[x, ..rest]`; recursion is how you traverse it (the `List`
+// stdlib module — `List.map` and friends — is not implemented yet).
+// Records are declared inline `{ name: String, ... }` and updated
+// with `{ r with field = v }`. Tuples destructure in `let`.
+package main
+
+import go "fmt"
+
+fn sum (xs: List Int) -> Int =
+  match xs {
+    [] -> 0
+    [x, ..rest] -> x + sum rest
+  }
+
+fn length (xs: List Int) -> Int =
+  match xs {
+    [] -> 0
+    [_, ..rest] -> 1 + length rest
+  }
+
+type Point = { x: Int, y: Int }
+
+fn shift (p: Point) (dx: Int) -> Point = { p with x = p.x + dx }
+
+fn main () -> Unit = {
+  let xs = [1, 2, 3, 4]
+  let _ = fmt.Println("sum ${sum xs}, len ${length xs}")
+  let p = { x = 10, y = 20 }
+  let q = shift p 5
+  let _ = fmt.Println("moved to ${q.x},${q.y}")
+  match q {
+    { x = 0, y = 0 } -> { let _ = fmt.Println("origin"); () }
+    { x = a, y = b } -> { let _ = fmt.Println("at ${a},${b}"); () }
+  }
+  let (name, n) = ("answer", 42)
+  let _ = fmt.Println("${name} = ${n}")
+  ()
+}

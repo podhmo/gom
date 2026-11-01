@@ -1,0 +1,44 @@
+// Step 4: sum types and exhaustive match.
+//
+// `type Shape = | Circle ... | Rect ... | Empty` declares an
+// algebraic data type; it lowers to a sealed interface in Go.
+// `match` must cover every variant — the compiler lists any patterns
+// you forgot (see step 10 for the error). Arms can nest patterns,
+// bind named fields, and carry `if` guards.
+package main
+
+import go "fmt"
+
+type Shape =
+  | Circle (radius: Float)
+  | Rect (w: Float) (h: Float)
+  | Empty
+
+fn area (s: Shape) -> Float =
+  match s {
+    Circle r -> 3.14159 * r * r
+    Rect w h -> w * h
+    Empty -> 0.0
+  }
+
+type Expr =
+  | Num Int
+  | Add Expr Expr
+  | Neg Expr
+
+fn eval (e: Expr) -> Int =
+  match e {
+    Num n -> n
+    Add (Num 0) r -> eval r
+    Add l r -> eval l + eval r
+    Neg x if x == Num 0 -> 0
+    Neg x -> 0 - eval x
+  }
+
+fn main () -> Unit = {
+  let _ = fmt.Println(area (Circle 1.0))
+  let _ = fmt.Println(area (Rect 2.0 3.0))
+  let _ = fmt.Println(area Empty)
+  let _ = fmt.Println(eval (Add (Num 40) (Neg (Num (-2)))))
+  ()
+}

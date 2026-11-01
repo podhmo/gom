@@ -1,0 +1,42 @@
+// Step 7: calling Go.
+//
+// `import go "pkg"` reads the package's types automatically.
+// Mapping rules (spec 8.3): `(T, error)` becomes `Result T GoError`,
+// `(T, bool)` becomes a tuple `(T, Bool)`, a bare `error` result
+// becomes `Result Unit GoError`, and `*T` becomes `Ptr T`. Methods
+// on Go values use `x.M(args)`; `_` in a Go call makes a one-hole
+// function. `|?>` on `GoError` results wraps each failing step's
+// error with the step name (`fmt.Errorf("name: %w", err)`).
+package main
+
+import go "bytes"
+import go "fmt"
+import go "os"
+import go "strconv"
+import go "strings"
+
+fn parse_sum (a: String) (b: String) -> Result Int GoError =
+  strconv.Atoi a
+  |?> fn x -> strconv.Atoi b
+  |?> fn y -> Ok (x + y)
+
+fn show_res (r: Result Int GoError) -> String =
+  match r {
+    Ok n -> "ok ${n}"
+    Err e -> "err ${e}"
+  }
+
+fn main () -> Unit = {
+  let _ = fmt.Println(show_res (parse_sum "40" "2"))
+  let _ = fmt.Println(show_res (parse_sum "x" "2"))
+  let _ = fmt.Println(strings.ToUpper("gom"))
+  let shout = strings.Repeat(_, 3)
+  let _ = fmt.Println(shout "go")
+  let _ = os.Setenv("GOM_TUTORIAL", "yes")
+  let (home, ok) = os.LookupEnv("GOM_TUTORIAL")
+  if ok { let _ = fmt.Println("env: ${home}"); () } else { () }
+  let buf = bytes.NewBufferString("a")
+  let _ = buf.WriteString(", b")
+  let _ = fmt.Println(buf.String())
+  ()
+}

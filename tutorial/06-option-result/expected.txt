@@ -1,0 +1,4 @@
+some 7
+none
+ok 10
+err division by zero
