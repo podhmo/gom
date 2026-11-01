@@ -73,7 +73,19 @@ func (g *gen) let(l *core.Let) {
 	if isSimpleExpr(l.X) {
 		g.line(l.Sp)
 		g.raw(name + " := ")
-		g.exprValue(l.X)
+		// A literal-arithmetic RHS (`x := 6 * 7`) stays an untyped
+		// constant in Go, so `:=` picks the default literal type —
+		// `int`, not the `int64` Gom Int maps to — and later int64
+		// call sites reject it. Integer lets over Lit/Unary/Binary
+		// spell the type as a conversion: `x := int64(6 * 7)`.
+		// Typed RHS nodes (calls, vars) already carry int64.
+		if t := g.intLitConv(l.Name.Typ, l.X); t != "" {
+			g.raw(t + "(")
+			g.exprValue(l.X)
+			g.raw(")")
+		} else {
+			g.exprValue(l.X)
+		}
 		g.nl()
 		return
 	}
@@ -333,7 +345,7 @@ func (g *gen) dcaseType(c core.DCase, guard string, s *core.DSwitch, d dest) {
 		panic("codegen: SwitchType case test is not a DCtorTest")
 	}
 	var targs []types.Type
-	if con, ok := s.Subj.Type().(*types.Con); ok {
+	if con, ok := types.Chase(s.Subj.Type()).(*types.Con); ok {
 		targs = con.Args
 	}
 	g.caseLabel(func() {
@@ -689,7 +701,7 @@ func (g *gen) escapeErr(errExpr ast.Expr, wrap string, to *core.Func) {
 		g.nl()
 		return
 	}
-	ret := to.ResidualType()
+	ret := types.Chase(to.ResidualType())
 	con, ok := ret.(*types.Con)
 	// The builtin-Result check mirrors the ctor sites (isResultCon +
 	// localT): a file-local `type Result` shadows the builtin, and
@@ -800,7 +812,7 @@ func (g *gen) convOf(kind core.ConvKind, target types.Type, x ast.Expr) ast.Expr
 // Callers only invoke it when the corresponding conversion is set,
 // so the shape is guaranteed by lowering.
 func payloadType(t types.Type, i int) types.Type {
-	switch t := t.(type) {
+	switch t := types.Chase(t).(type) {
 	case *types.Con:
 		if len(t.Args) > i {
 			return t.Args[i]

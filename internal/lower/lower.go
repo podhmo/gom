@@ -309,11 +309,15 @@ func (l *lowerer) goSig(sym *resolve.Symbol, refTyp types.Type) GoSig {
 	return GoSig{Arity: flatArity(refTyp), Results: goResultsOf(refTyp)}
 }
 
-// flatArity is the parameter count of a function type in canonical
-// flat form; 0 for non-function types. The type is chased first — a
-// let-bound function value's type can still be a bound `?n`.
+// flatArity is the *immediate* parameter count of a function type;
+// 0 for non-function types. The type is chased first — a let-bound
+// function value's type can still be a bound `?n`. A nested Ret is
+// not unfolded: `Int -> (Int -> Int)` reports 1, matching the
+// declared arity of `fn mk (a) -> (Int -> Int)` and the Go arity of
+// `func(a) func(b)` — both are what the count is for. flatSig
+// counts the whole chain.
 func flatArity(t types.Type) int {
-	if fn, ok := types.Chase(t).(*types.Func); ok {
+	if fn := sigOf(t); fn != nil {
 		return len(fn.Params)
 	}
 	return 0
@@ -529,13 +533,13 @@ func (l *lowerer) fieldIndex(recTyp types.Type, sym *resolve.Symbol) int {
 func (l *lowerer) decl(d check.Decl, out *core.File) {
 	switch d := d.(type) {
 	case *check.FnDecl:
-		sig := d.Sig
+		sig := flatSig(d.Sig)
 		if sig == nil {
 			var ps []types.FuncParam
 			for _, p := range d.Params {
 				ps = append(ps, types.FuncParam{Type: p.Pat.Type()})
 			}
-			sig = types.Fn(d.Body.Type(), ps...)
+			sig = flatSig(types.Fn(d.Body.Type(), ps...))
 		}
 		fn := &core.Func{Sp: d.Sp, Sig: sig}
 		fn.Params = l.paramBinds(d.Params, fn)

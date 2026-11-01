@@ -409,3 +409,75 @@ func TestEndToEnd_BuildAndRun(t *testing.T) {
 		t.Fatalf("binary output %q, want %q", b, "gom answer: 42")
 	}
 }
+
+// strconvGom is the canonical P1 program (P1-13, the shape the V-1
+// tutorial builds on): `import go "strconv"`, `|?>` sequencing of
+// Result-returning Go calls, and a match on the Result.
+const strconvGom = `package main
+
+import go "fmt"
+import go "strconv"
+
+fn parse_sum (a: String) (b: String) -> Result Int GoError =
+  strconv.Atoi a
+  |?> fn x -> strconv.Atoi b
+  |?> fn y -> Ok (x + y)
+
+fn main () -> Unit = {
+  match parse_sum "40" "2" {
+    Ok n -> { let _ = fmt.Println(strconv.Itoa(n)); () }
+    Err _ -> { let _ = fmt.Println("parse failed"); () }
+  }
+}
+`
+
+// TestEndToEnd_Strconv proves the canonical P1 program survives the
+// whole toolchain: `gom build` emits the .go file, `go vet` accepts
+// it, `go build` compiles it, and the binary prints "42".
+func TestEndToEnd_Strconv(t *testing.T) {
+	gobin, err := exec.LookPath("go")
+	if err != nil {
+		t.Skip("no go toolchain on PATH")
+	}
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := writeFiles(t, map[string]string{"strconv_demo.gom": strconvGom})
+	outDir := filepath.Join(dir, "mod")
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	code, out, errout := invoke("build", "-o", outDir, filepath.Join(dir, "strconv_demo.gom"))
+	if code != 0 {
+		t.Fatalf("gom build: exit %d; stdout=%q stderr=%q", code, out, errout)
+	}
+
+	gomod := "module e2e\n\ngo 1.27\n\nrequire github.com/podhmo/gom v0.0.0\n\nreplace github.com/podhmo/gom => " + root + "\n"
+	if err := os.WriteFile(filepath.Join(outDir, "go.mod"), []byte(gomod), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	env := append(os.Environ(), "GOWORK=off", "GOFLAGS=-mod=mod", "GOTOOLCHAIN=local")
+
+	vetCmd := exec.Command(gobin, "vet", ".")
+	vetCmd.Dir = outDir
+	vetCmd.Env = env
+	if b, err := vetCmd.CombinedOutput(); err != nil {
+		t.Fatalf("go vet: %v\n%s", err, b)
+	}
+
+	bin := filepath.Join(outDir, "prog")
+	buildCmd := exec.Command(gobin, "build", "-o", bin, ".")
+	buildCmd.Dir = outDir
+	buildCmd.Env = env
+	if b, err := buildCmd.CombinedOutput(); err != nil {
+		t.Fatalf("go build: %v\n%s", err, b)
+	}
+	runCmd := exec.Command(bin)
+	if b, err := runCmd.CombinedOutput(); err != nil {
+		t.Fatalf("running binary: %v\n%s", err, b)
+	} else if strings.TrimSpace(string(b)) != "42" {
+		t.Fatalf("binary output %q, want %q", b, "42")
+	}
+}

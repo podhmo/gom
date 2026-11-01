@@ -710,8 +710,10 @@ func (l *lowerer) directCall(s *seq, sp diag.Span, resTyp types.Type, callee che
 
 // overAppRetType is the function type the saturated prefix of an
 // over-applied call returns — the callee's remaining arrow chain.
+// The flat view sees through a nested declared Ret: `add3 (a) (b)
+// -> (Int -> Int)` reports `Int -> Int`, not the whole signature.
 func overAppRetType(callee check.Expr, ci check.CallInfo) types.Type {
-	sig := sigOf(callee.Type())
+	sig := flatSig(callee.Type())
 	if sig == nil || len(sig.Params) <= ci.Arity {
 		return callee.Type()
 	}
@@ -934,7 +936,10 @@ func (l *lowerer) goCallNode(s *seq, ap *check.Apply) *core.CallGo {
 // atoms. The closure's own *core.Func is pushed onto the boundary
 // stack for the body's escapes.
 func (l *lowerer) closureOf(sp diag.Span, typ types.Type, params []types.FuncParam, build func(bs *seq, pv []core.Atom) core.Expr) *core.Closure {
-	fs := sigOf(typ)
+	// Sig takes the flat arrow chain — typ can be a residual like
+	// `Int -> (Int -> Int)` whose nested Ret names the rest of the
+	// chain; Params still binds only `params` (the arity split).
+	fs := flatSig(typ)
 	if fs == nil {
 		fs = types.Fn(types.Unit, params...)
 	}
@@ -951,7 +956,14 @@ func (l *lowerer) closureOf(sp diag.Span, typ types.Type, params []types.FuncPar
 	tail := build(bs, pv)
 	l.fnStack = l.fnStack[:len(l.fnStack)-1]
 	fn.Body = &core.Body{Lets: bs.lets, Tail: tail}
-	return &core.Closure{Base: core.Base{Sp: sp, Typ: fs}, Fn: fn}
+	// The expression's own type spells the value's Go shape —
+	// `func(bound) residual` — so arity readers see the immediate
+	// count: `add3 40` emits `func(b) func(c)`, and its type must be
+	// `Int -> (Int -> Int)`, not the flat `Int -> Int -> Int` that
+	// both spellings Equal-compare to (check.go keeps declared sigs
+	// nested for the same reason; this literal preserves the split).
+	exprTyp := &types.Func{Params: params, Ret: fn.ResidualType()}
+	return &core.Closure{Base: core.Base{Sp: sp, Typ: exprTyp}, Fn: fn}
 }
 
 // closureOfType is closureOf for a signature the lowering already
@@ -1071,16 +1083,56 @@ func (l *lowerer) callFuncChunks(s *seq, sp diag.Span, fn core.Atom, args []core
 	return fn
 }
 
-// sigOf chases bound metas, then returns the Func behind t.
+// sigOf chases bound metas, then returns the Func behind t as
+// stored — the *immediate* parameter chunk: `Int -> (Int -> Int)`
+// reports arity 1 and a function-typed Ret. That is the view call
+// chunking and declared-arity comparisons need; use flatSig where
+// the whole arrow chain is wanted.
 func sigOf(t types.Type) *types.Func {
 	fs, _ := types.Chase(t).(*types.Func)
 	return fs
 }
 
+// flatSig is sigOf's canonical flat form: the whole arrow chain is
+// one Func whose chased Ret is never itself a function. types.Fn
+// already flattens a literal nested Func, but two spellings reach
+// lowering unflattened — a declared `fn mk () -> (Int -> Int)`
+// keeps its Ret nested so `mk ()` is CallDirect (check.go), and
+// inference can hide a function behind a bound Meta in Ret position
+// (`fn k -> fn y -> k + y` types as `?k -> ?r`). Core's Func.Sig
+// demands the flat form — the arity split lives in Func.Params —
+// so the chain is spliced here; Equal treats the spellings as the
+// same type. nil for non-function types.
+func flatSig(t types.Type) *types.Func {
+	fs := sigOf(t)
+	if fs == nil {
+		return nil
+	}
+	var tail []types.FuncParam
+	ret := fs.Ret
+	for {
+		inner, ok := types.Chase(ret).(*types.Func)
+		if !ok {
+			break
+		}
+		tail = append(tail, inner.Params...)
+		ret = inner.Ret
+	}
+	if tail == nil {
+		return fs
+	}
+	params := make([]types.FuncParam, 0, len(fs.Params)+len(tail))
+	params = append(params, fs.Params...)
+	params = append(params, tail...)
+	return &types.Func{Params: params, Ret: ret}
+}
+
 // overAppRet is the function type returned by the saturated prefix
-// of an over-applied FuncRef call.
+// of an over-applied FuncRef call. The flat view sees through a
+// nested declared Ret — `add3` applied past its declared arity
+// still reports the residual `Int -> Int`.
 func overAppRet(f *core.FuncRef, arity int) types.Type {
-	fs := sigOf(f.Type())
+	fs := flatSig(f.Type())
 	if fs == nil || len(fs.Params) <= arity {
 		return f.Type()
 	}
@@ -1692,7 +1744,9 @@ func (l *lowerer) strInterp(s *seq, e *check.StrInterp) core.Expr {
 
 // lambdaExpr lowers `fn p... -> body` to a Closure.
 func (l *lowerer) lambdaExpr(e *check.Lambda) core.Expr {
-	sig := sigOf(e.Type())
+	// The Closure's Sig is the canonical flat arrow chain — core
+	// keeps the declared arity in Params instead of a nested Ret.
+	sig := flatSig(e.Type())
 	fn := &core.Func{Sp: e.Sp, Sig: sig}
 	fn.Params = l.paramBinds(e.Params, fn)
 	l.fnStack = append(l.fnStack, fn)

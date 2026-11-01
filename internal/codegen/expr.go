@@ -122,7 +122,7 @@ func (g *gen) fieldGet(a *core.FieldGet) ast.Expr {
 // ever emitted), and both take exactly one payload argument, so the
 // instantiated function value `result.Ok[T, E]` serves directly.
 func (g *gen) ctorRef(a *core.CtorRef) ast.Expr {
-	fn, ok := a.Type().(*types.Func)
+	fn, ok := types.Chase(a.Type()).(*types.Func)
 	if !ok {
 		panic("codegen: CtorRef type is not a function type")
 	}
@@ -278,9 +278,69 @@ func (g *gen) callBuiltin(c *core.CallBuiltin) ast.Expr {
 	case "not":
 		// `not x` is the bool negation `!x`.
 		return &ast.UnaryExpr{Op: token.NOT, X: g.atom(c.Args[0])}
+	case "str_concat":
+		// The parts of an interpolated string: `a + b + ...`.
+		return g.strConcat(c)
+	case "display":
+		// A splice's value rendered per its static type.
+		return g.display(c.Args[0])
 	default:
 		panic(fmt.Sprintf("codegen: unknown builtin %q", c.Sym.Name))
 	}
+}
+
+// strConcat renders `str_concat a b ...` as the `a + b + ...` chain —
+// lowering only ever feeds it strings. A single part needs no
+// operator; zero parts degrade to the empty literal.
+func (g *gen) strConcat(c *core.CallBuiltin) ast.Expr {
+	if len(c.Args) == 0 {
+		return &ast.BasicLit{Kind: token.STRING, Value: `""`}
+	}
+	x := g.atom(c.Args[0])
+	for _, a := range c.Args[1:] {
+		x = &ast.BinaryExpr{X: x, Op: token.ADD, Y: g.atom(a)}
+	}
+	return x
+}
+
+// display renders `display x`: the value a `"${...}"` splice shows.
+// Scalars go through strconv so generated output matches the
+// evaluator's display format exactly (internal/eval's display: Int
+// in decimal, Float in 'g' shortest form, Char as the code point
+// itself, String unquoted). Composite values (ADTs, records, lists,
+// tuples, function values, Go types) have no generated display
+// function yet — they fall back to fmt's %v, whose rendering
+// diverges from the evaluator's comparison format
+// (docs/problems/2026-11-04-interp-composite-display.md).
+func (g *gen) display(a core.Atom) ast.Expr {
+	x := g.atom(a)
+	if con, ok := types.Chase(a.Type()).(*types.Con); ok && con.Qual == "" {
+		switch con.Name {
+		case "String":
+			return x
+		case "Unit":
+			return &ast.BasicLit{Kind: token.STRING, Value: `"()"`}
+		case "Bool":
+			return &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual("strconv") + "FormatBool"), Args: []ast.Expr{x}}
+		case "Int", "Int64":
+			return &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual("strconv") + "FormatInt"),
+				Args: []ast.Expr{x, &ast.BasicLit{Kind: token.INT, Value: "10"}}}
+		case "Int32":
+			return &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual("strconv") + "FormatInt"),
+				Args: []ast.Expr{
+					&ast.CallExpr{Fun: ast.NewIdent("int64"), Args: []ast.Expr{x}},
+					&ast.BasicLit{Kind: token.INT, Value: "10"}}}
+		case "Float":
+			return &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual("strconv") + "FormatFloat"),
+				Args: []ast.Expr{x,
+					&ast.BasicLit{Kind: token.CHAR, Value: `'g'`},
+					&ast.BasicLit{Kind: token.INT, Value: "-1"},
+					&ast.BasicLit{Kind: token.INT, Value: "64"}}}
+		case "Char":
+			return &ast.CallExpr{Fun: ast.NewIdent("string"), Args: []ast.Expr{x}}
+		}
+	}
+	return &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual("fmt") + "Sprint"), Args: []ast.Expr{x}}
 }
 
 // ctorApp renders a saturated constructor application: a variant
@@ -313,7 +373,7 @@ func ctorTArgs(targs []types.Type, ret types.Type) []types.Type {
 	if len(targs) > 0 {
 		return targs
 	}
-	if c, ok := ret.(*types.Con); ok {
+	if c, ok := types.Chase(ret).(*types.Con); ok {
 		return c.Args
 	}
 	return nil
@@ -346,7 +406,7 @@ func (g *gen) ctorGoType(sym *resolve.Symbol, typ types.Type, targs []types.Type
 	typeName := ""
 	if d, ok := g.ctors[sym]; ok {
 		typeName = d.typeName
-	} else if c, ok := typ.(*types.Con); ok {
+	} else if c, ok := types.Chase(typ).(*types.Con); ok {
 		typeName = c.Name
 	}
 	variant := exportName(typeName) + "_" + exportName(sym.Name)
@@ -359,7 +419,7 @@ func (g *gen) ctorGoType(sym *resolve.Symbol, typ types.Type, targs []types.Type
 	case typeName == "Option" && !g.localT["Option"]:
 		x = ast.NewIdent(g.pkgQual(optionPath) + variant)
 	default:
-		if c, ok := typ.(*types.Con); ok && c.Qual != "" {
+		if c, ok := types.Chase(typ).(*types.Con); ok && c.Qual != "" {
 			x = ast.NewIdent(g.pkgQual(c.Qual) + variant)
 		} else {
 			x = ast.NewIdent(variant)
@@ -390,7 +450,7 @@ func (g *gen) tfieldName(f *core.TField) string {
 
 // tupleNew renders `(a, b, ...)` as an rt.TupleN literal.
 func (g *gen) tupleNew(e *core.TupleNew) ast.Expr {
-	tup, ok := e.Type().(*types.Tuple)
+	tup, ok := types.Chase(e.Type()).(*types.Tuple)
 	if !ok {
 		panic("codegen: TupleNew type is not a tuple")
 	}
@@ -494,6 +554,6 @@ func binOp(op syntax.BinOp) token.Token {
 // one constructor family whose Go representation is functions, not a
 // struct literal.
 func isResultCon(t types.Type) bool {
-	c, ok := t.(*types.Con)
+	c, ok := types.Chase(t).(*types.Con)
 	return ok && c.Qual == "" && c.Name == "Result"
 }

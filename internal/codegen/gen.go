@@ -11,6 +11,7 @@ import (
 	"github.com/podhmo/gom/internal/core"
 	"github.com/podhmo/gom/internal/diag"
 	"github.com/podhmo/gom/internal/resolve"
+	"github.com/podhmo/gom/internal/types"
 )
 
 // Module paths of the support packages generated code imports. The
@@ -404,6 +405,55 @@ const (
 	conSendChan                // chan<- T
 	conTask                    // rt.Task[A]
 )
+
+// intLitConv is the conversion a `name := rhs` let needs when the
+// binder's type is an integer whose Go literal default differs and
+// the RHS is an untyped constant expression (`x := 6 * 7` would
+// bind `int`, not the `int64`/`int32` the type says — Go adapts
+// untyped constants at every other position, but `:=` locks the
+// default in). Empty for unaffected types or a typed RHS.
+func (g *gen) intLitConv(t types.Type, x core.Expr) string {
+	if !untypedConst(x) {
+		return ""
+	}
+	c, ok := types.Chase(t).(*types.Con)
+	if !ok || c.Qual != "" || g.localT[exportName(c.Name)] {
+		return ""
+	}
+	switch c.Name {
+	case "Int", "Int64":
+		return "int64"
+	case "Int32":
+		return "int32"
+	}
+	return ""
+}
+
+// untypedConst reports whether a core expr emits as a Go untyped
+// constant expression: literals, unary ops, and binary ops composed
+// entirely of them. Every other node emits a value with a concrete
+// type, so `:=` over it is already safe.
+func untypedConst(x core.Expr) bool {
+	switch e := x.(type) {
+	case *core.Lit:
+		return true
+	case *core.Unary:
+		return untypedConst(e.X)
+	case *core.Binary:
+		return untypedConst(e.X) && untypedConst(e.Y)
+	case *core.Var, *core.FuncRef, *core.CtorRef, *core.GoFuncRef,
+		*core.FieldGet, *core.CallDirect, *core.CallFunc,
+		*core.CallGo, *core.CallBuiltin, *core.CtorApp,
+		*core.TupleNew, *core.ListNew, *core.RecordNew,
+		*core.RecordUpdate, *core.Conv, *core.Closure, *core.If,
+		*core.Match, *core.SelectExpr, *core.Spawn, *core.ForRange,
+		*core.TailCall, *core.EscapeResult, *core.EscapeCall,
+		*core.ResultFromGo, *core.OptionFromGo, *core.TupleFromGo:
+		return false
+	default:
+		panic("unreachable")
+	}
+}
 
 // simpleBuiltinName gives the Go identifier for the conSimple kinds.
 func simpleBuiltinName(name string) string {

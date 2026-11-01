@@ -351,7 +351,7 @@ func (v *validator) fnDecl(fn *Func, isDecl bool, what string) {
 			v.err(fn.Sp, what, "declared arity %d exceeds signature's flat arity %d",
 				len(fn.Params), len(fn.Sig.Params))
 		}
-		if _, nested := fn.Sig.Ret.(*types.Func); nested {
+		if _, nested := types.Chase(fn.Sig.Ret).(*types.Func); nested {
 			v.err(fn.Sp, what, "signature return type is a nested *types.Func (not canonical flat form)")
 		}
 	}
@@ -465,7 +465,7 @@ func (v *validator) atom(a Atom, what string) {
 		if a.Arity < 1 {
 			v.err(a.Sp, "FuncRef", "declared arity %d < 1", a.Arity)
 		}
-		if fn, ok := a.Typ.(*types.Func); ok {
+		if fn, ok := types.Chase(a.Typ).(*types.Func); ok {
 			// Direct reference is legal only when declared arity
 			// covers the whole arrow chain (P0-2 rule 3); otherwise
 			// lowering must emit a flatten Closure.
@@ -481,7 +481,7 @@ func (v *validator) atom(a Atom, what string) {
 			v.err(a.Sp, "CtorRef", "not a constructor symbol")
 		}
 		if a.Typ != nil {
-			if _, ok := a.Typ.(*types.Func); !ok {
+			if _, ok := types.Chase(a.Typ).(*types.Func); !ok {
 				v.err(a.Sp, "CtorRef", "type %s is not a function type", a.Typ)
 			}
 		}
@@ -514,7 +514,7 @@ func (v *validator) atom(a Atom, what string) {
 				a.Arity, a.Results)
 		}
 		if a.Typ != nil {
-			if _, ok := a.Typ.(*types.Func); !ok {
+			if _, ok := types.Chase(a.Typ).(*types.Func); !ok {
 				v.err(a.Sp, "GoFuncRef", "type %s is not a function type", a.Typ)
 			}
 		}
@@ -699,7 +699,7 @@ func (v *validator) expr(e Expr, inTail bool) {
 		if len(e.Elems) < 2 {
 			v.err(e.Sp, "TupleNew", "tuple has %d elements", len(e.Elems))
 		}
-		if tup, ok := e.Typ.(*types.Tuple); ok {
+		if tup, ok := types.Chase(e.Typ).(*types.Tuple); ok {
 			if len(tup.Elems) != len(e.Elems) {
 				v.err(e.Sp, "TupleNew", "tuple type has %d elements for %d values",
 					len(tup.Elems), len(e.Elems))
@@ -742,7 +742,7 @@ func (v *validator) expr(e Expr, inTail bool) {
 		}
 	case *TupleFromGo:
 		v.wrapCall(e, e.Call, "TupleFromGo", GoResultsOK, GoResultsPair)
-		if _, ok := e.Typ.(*types.Tuple); !ok && e.Typ != nil {
+		if _, ok := types.Chase(e.Typ).(*types.Tuple); !ok && e.Typ != nil {
 			v.err(e.Sp, "TupleFromGo", "type %s is not a tuple", e.Typ)
 		}
 	case *Conv:
@@ -1424,14 +1424,15 @@ func tailType(b *Body) types.Type {
 }
 
 // conIs reports whether t is a *types.Con with the given qualifier,
-// name and argument count.
+// name and argument count. Bound metas are chased first — inferred
+// types (a lambda boundary's Sig.Ret, for one) may still carry them.
 func conIs(t types.Type, qual, name string, nargs int) bool {
-	c, ok := t.(*types.Con)
+	c, ok := types.Chase(t).(*types.Con)
 	return ok && c.Qual == qual && c.Name == name && len(c.Args) == nargs
 }
 
 // resultType unpacks `Result a e`.
 func resultType(t types.Type) (*types.Con, bool) {
-	c, ok := t.(*types.Con)
+	c, ok := types.Chase(t).(*types.Con)
 	return c, ok && c.Qual == "" && c.Name == "Result" && len(c.Args) == 2
 }

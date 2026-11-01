@@ -244,17 +244,7 @@ func (c *checker) checkGomApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol
 	if len(extras) > 0 {
 		res = c.overApply(ret, extras, e.Sp)
 	} else {
-		var rem []types.FuncParam
-		for i, p := range params {
-			if !used[i] {
-				rem = append(rem, p)
-			}
-		}
-		if len(rem) == 0 {
-			res = ret
-		} else {
-			res = types.Fn(ret, rem...)
-		}
+		res = applyResidual(fn.Type(), used, 0)
 	}
 	out.Base = baseOf(e.Sp, res)
 
@@ -304,6 +294,32 @@ func (c *checker) checkGomApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol
 		panic(fmt.Sprintf("check: invalid CallInfo for %T: %v", e.Fn, err))
 	}
 	return out
+}
+
+// applyResidual rebuilds an application's result type from the
+// callee's own — possibly nested — arrow structure. `used` marks the
+// flattened parameters (in flattenFunc order) the call filled; the
+// residual keeps the declared split level by level: `add3 40` is
+// `Int -> (Int -> Int)`, so a later `g 2 0` chunks at immediate
+// arity 1 the way the emitted Go value demands. types.Fn would
+// flatten that to `Int -> Int -> Int`, and rebuilding from the
+// flattened parameter list loses splits declared inside Ret.
+func applyResidual(t types.Type, used []bool, off int) types.Type {
+	fs, ok := types.Chase(t).(*types.Func)
+	if !ok {
+		return t
+	}
+	var rem []types.FuncParam
+	for i, p := range fs.Params {
+		if off+i >= len(used) || !used[off+i] {
+			rem = append(rem, p)
+		}
+	}
+	r := applyResidual(fs.Ret, used, off+len(fs.Params))
+	if len(rem) == 0 {
+		return r
+	}
+	return &types.Func{Params: rem, Ret: r}
 }
 
 // labelSpan returns a label's own span, falling back to the arg's
@@ -568,7 +584,9 @@ func (c *checker) checkGoApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol,
 	res := ret
 	if hole >= 0 {
 		// The cute placeholder: the call is a one-argument function.
-		res = types.Fn(ret, types.P(holeT))
+		// A literal Func (not types.Fn) keeps a function-typed ret
+		// nested — the emitted closure really is `func(hole) ret`.
+		res = &types.Func{Params: []types.FuncParam{types.P(holeT)}, Ret: ret}
 	}
 	out.Base = baseOf(e.Sp, res)
 	out.Call = CallInfo{
