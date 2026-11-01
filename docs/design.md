@@ -147,7 +147,8 @@ gom/
 │   ├── lower/        脱糖、決定木へのコンパイル、arity 解析、テストの分離
 │   ├── codegen/      Core IR → go/ast（宛先渡し、sum type、_test.go の出力）
 │   ├── diag/         診断の型、JSON / text 出力、エラーコード表、JSON Schema
-│   └── build/        パッケージグラフ、インクリメンタルビルド、キャッシュ、go build / go test の呼び出し
+│   ├── build/        パッケージグラフ、インクリメンタルビルド、キャッシュ、go build / go test の呼び出し
+│   └── tool/         リポジトリのツール（同期ジェネレータなど。コンパイラのフェーズではない）
 ├── rt/               生成コードが import する補助（Tuple、Task、アサーションなど）
 ├── stdlib/           Gom で書いた標準ライブラリ（list, option, result, chan, task）。各パッケージに .gomi
 ├── testdata/
