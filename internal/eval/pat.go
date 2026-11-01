@@ -61,10 +61,10 @@ func (e *interp) matchPat(pat check.Pat, v Value, env *Env) bool {
 		}
 		if p.Ctor == nil {
 			name := ""
-			switch n := p.Name.(type) {
-			case *syntax.Ident:
+			if n, ok := p.Name.(*syntax.Ident); ok {
 				name = n.Name
-			case *syntax.Select:
+			}
+			if n, ok := p.Name.(*syntax.Select); ok {
 				name = n.Sel.Name
 			}
 			failData(CodeInternal, "constructor pattern has no resolved symbol",
@@ -233,10 +233,12 @@ func (e *interp) ctorOf(sym *resolve.Symbol, name string, typ types.Type) *ctorI
 // the payload (params in order, labels kept); a Con type is a
 // nullary variant. Other shapes give nil.
 func deriveCtor(sym *resolve.Symbol, name string, typ types.Type) *ctorInfo {
-	switch t := typ.(type) {
-	case *types.Con:
+	// Partial probes stay as if-assertions: types.Type is a sumtype
+	// and the checker requires exhaustive switches.
+	if t, ok := typ.(*types.Con); ok {
 		return &ctorInfo{sym: sym, name: name, typ: t}
-	case *types.Func:
+	}
+	if t, ok := typ.(*types.Func); ok {
 		con, ok := t.Ret.(*types.Con)
 		if !ok {
 			return nil
@@ -246,7 +248,6 @@ func deriveCtor(sym *resolve.Symbol, name string, typ types.Type) *ctorInfo {
 			fields[i] = fieldInfo{label: p.Label, index: i}
 		}
 		return &ctorInfo{sym: sym, name: name, typ: con, fields: fields}
-	default:
-		return nil
 	}
+	return nil
 }

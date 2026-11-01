@@ -118,8 +118,10 @@ func (e *Evaluator) Run() Result {
 			if ds.HasError() {
 				return Result{Diags: diags}
 			}
+		case *check.FnDecl, *check.TypeDecl:
+			// Handled by New.
 		default:
-			// FnDecl and TypeDecl handled by New.
+			panic("unreachable")
 		}
 	}
 	if g := e.Global("main"); g != nil {
@@ -756,21 +758,23 @@ func errIsGoError(t types.Type) bool {
 // the byte offset because the evaluator does not hold sources for a
 // line index — see the reported gap.
 func stepName(x check.Expr) string {
-	switch x := x.(type) {
-	case *check.Var:
+	// Partial probes stay as if-assertions: check.Expr is a sumtype
+	// and the checker requires exhaustive switches.
+	if x, ok := x.(*check.Var); ok {
 		return x.Sym.Name
-	case *check.MemberExpr:
+	}
+	if x, ok := x.(*check.MemberExpr); ok {
 		prefix := ""
 		if v, ok := x.Recv.(*check.Var); ok {
 			prefix = v.Sym.Name + "."
 		}
 		return prefix + x.Sel.Name
-	case *check.Apply:
-		return stepName(x.Fn)
-	default:
-		sp := x.Span()
-		return fmt.Sprintf("%s:%d", sp.File, sp.Start)
 	}
+	if x, ok := x.(*check.Apply); ok {
+		return stepName(x.Fn)
+	}
+	sp := x.Span()
+	return fmt.Sprintf("%s:%d", sp.File, sp.Start)
 }
 
 // errorText renders the message of an error-ish value.
