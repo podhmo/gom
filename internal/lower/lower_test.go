@@ -1835,3 +1835,95 @@ func TestEqLowering(t *testing.T) {
 		t.Fatalf("record == lowered to %#v, want CallBuiltin{eq}", fnDeclOf(t, out, 0).Fn.Body.Tail)
 	}
 }
+
+// --- pipe Go-callee conventions --------------------------------------
+
+// lowerWith is lower1 with an Env — used where the Go signature
+// oracle decides the call shape (variadicness is an Env fact).
+func lowerWith(t *testing.T, env *Env, decls ...check.Decl) (*core.File, []diag.Diagnostic) {
+	t.Helper()
+	f := &check.File{Sp: sp, Package: "p", PkgSp: sp, Decls: decls}
+	out, diags := File(f, env)
+	if out == nil {
+		t.Fatal("File returned nil")
+	}
+	return out, diags
+}
+
+// findCallGo digs the single CallGo out of a function body — into
+// the Let bindings first, then the tail.
+func findCallGo(t *testing.T, fn *core.FuncDecl) *core.CallGo {
+	t.Helper()
+	for _, l := range fn.Fn.Body.Lets {
+		if cg, ok := l.X.(*core.CallGo); ok {
+			return cg
+		}
+	}
+	if cg, ok := fn.Fn.Body.Tail.(*core.CallGo); ok {
+		return cg
+	}
+	t.Fatalf("no CallGo in body")
+	return nil
+}
+
+// `x |> Println` for a bare variadic-arity-1 Go callee lowers as the
+// one-element CallGo — the checker types the piped value as an
+// element, so the value is not (and must not be) re-sliced at
+// lowering. Spread stays false: the pipe is not `..` syntax.
+func TestPipeFwdGoVariadicElem(t *testing.T) {
+	g := gsym("Println")
+	sig := types.Fn(types.Int, types.P(types.GoSlice(types.GoAny)))
+	x := vsym("x", types.String)
+	pipe := &check.Binary{Base: b(types.Int), Op: syntax.BinPipeFwd,
+		X: vr(x, types.String), Y: vr(g, sig)}
+	env := &Env{GoSig: func(sym *resolve.Symbol) (GoSig, bool) {
+		return GoSig{Arity: 1, Variadic: true, Results: core.GoResultsOne}, true
+	}}
+	out, diags := lowerWith(t, env,
+		decl("f", []check.Param{param(vpat(x, types.String))}, pipe,
+			types.Fn(types.Int, types.P(types.String))))
+	for _, d := range diags {
+		t.Errorf("unexpected diagnostic: %v", d)
+	}
+	cg := findCallGo(t, fnDeclOf(t, out, 0))
+	if cg.Spread {
+		t.Error("piped call is not a spread call")
+	}
+	if !cg.Variadic || cg.Arity != 1 {
+		t.Errorf("CallGo = %+v, want arity-1 variadic", cg)
+	}
+	if len(cg.Args) != 1 {
+		t.Fatalf("CallGo args = %d, want the single piped element", len(cg.Args))
+	}
+}
+
+// `x |> f(_, "a")` fills the placeholder with the piped value: the
+// hole's slot, not a new argument, and no residual closure.
+func TestPipeBackGoHoleFill(t *testing.T) {
+	g := gsym("G")
+	sig := types.Fn(types.Int, types.P(types.String), types.P(types.String))
+	x := vsym("x", types.String)
+	rhs := app(vr(g, sig),
+		[]check.Expr{strLit("a"), &check.Hole{Base: b(types.String)}},
+		check.CallInfo{Kind: check.CallGo, Callee: g, Arity: 2, Applied: 2,
+			ArgToParam: []int{0, 1}, HoleIndex: 1},
+		types.Fn(types.Int, types.P(types.String)))
+	pipe := &check.Binary{Base: b(types.Int), Op: syntax.BinPipeBack,
+		X: rhs, Y: vr(x, types.String)}
+	env := &Env{GoSig: func(sym *resolve.Symbol) (GoSig, bool) {
+		return GoSig{Arity: 2, Results: core.GoResultsOne}, true
+	}}
+	out, diags := lowerWith(t, env,
+		decl("f", []check.Param{param(vpat(x, types.String))}, pipe,
+			types.Fn(types.Int, types.P(types.String))))
+	for _, d := range diags {
+		t.Errorf("unexpected diagnostic: %v", d)
+	}
+	cg := findCallGo(t, fnDeclOf(t, out, 0))
+	if len(cg.Args) != 2 {
+		t.Fatalf("CallGo args = %d, want 2 (hole filled)", len(cg.Args))
+	}
+	if _, ok := cg.Args[1].(*core.Var); !ok {
+		t.Errorf("arg1 = %T, want the piped var", cg.Args[1])
+	}
+}

@@ -23,7 +23,7 @@ fn parse_sum (a: String) (b: String) -> Result Int GoError =
 fn show_res (r: Result Int GoError) -> String =
   match r {
     Ok n -> "ok ${n}"
-    Err e -> "err ${e}"
+    Err e -> "err ${e.Error()}"
   }
 
 fn main () -> Unit = {

@@ -16,8 +16,9 @@ import (
 func (c *checker) checkExpr(e syntax.Expr, want types.Type) Expr {
 	if e == nil {
 		// A missing expression (a .gomi signature body, a recovery
-		// hole in the surface tree) is a meta-typed unit.
-		m := c.newMeta(diag.Span{}, "a missing expression")
+		// hole in the surface tree) is a meta-typed unit. Quiet:
+		// the hole's own diagnostic already ran.
+		m := c.quietMeta(diag.Span{}, "a missing expression")
 		if want != nil {
 			c.unify(want, m, diag.Span{})
 		}
@@ -44,7 +45,7 @@ func (c *checker) checkExpr(e syntax.Expr, want types.Type) Expr {
 		// never calls checkExpr on one, so reaching here is misplaced.
 		c.diags.Add(diag.Error("E0504",
 			"`_` is only allowed as an argument of a Go call").At(e.Sp))
-		out = &Hole{Base: baseOf(e.Sp, c.newMeta(e.Sp, "the placeholder's type"))}
+		out = &Hole{Base: baseOf(e.Sp, c.quietMeta(e.Sp, "the placeholder's type"))}
 	case *syntax.Lambda:
 		out = c.checkLambda(e)
 	case *syntax.If:
@@ -85,7 +86,12 @@ func (c *checker) checkExpr(e syntax.Expr, want types.Type) Expr {
 		panic("unreachable")
 	}
 	if want != nil {
-		c.unify(want, out.Type(), e.Span())
+		// A failed expectation left want unsolved: silence it —
+		// the mismatch diagnostic at e.Span() already tells the
+		// user what to fix.
+		if !c.unify(want, out.Type(), e.Span()) {
+			c.markQuiet(want)
+		}
 	}
 	return out
 }
@@ -199,13 +205,18 @@ func (c *checker) checkSelect(e *syntax.Select) Expr {
 	if _, ok := types.Chase(recv.Type()).(*types.Meta); ok {
 		// The receiver's type is still unknown. The node keeps a
 		// meta type; Index stays -1 — field-dependent lowering sees
-		// an unresolved selector.
-		return &MemberExpr{Base: baseOf(e.Sp, c.newMeta(e.Sp, fmt.Sprintf("the type of `.%s`", selName))), Recv: recv, Sel: e.Sel, Sym: sel, Index: -1}
+		// an unresolved selector. When the receiver's own meta is
+		// quiet (an unresolved name), the member's is too.
+		mt := c.newMeta(e.Sp, fmt.Sprintf("the type of `.%s`", selName))
+		if c.isQuiet(recv.Type()) {
+			c.markQuiet(mt)
+		}
+		return &MemberExpr{Base: baseOf(e.Sp, mt), Recv: recv, Sel: e.Sel, Sym: sel, Index: -1}
 	}
 	c.diags.Add(diag.Error("E0401",
 		fmt.Sprintf("%s has no field or method `%s`", recv.Type(), selName)).
 		At(e.Sel.Sp).Set("type", recv.Type().String()).Set("member", selName))
-	return &MemberExpr{Base: baseOf(e.Sp, c.newMeta(e.Sp, fmt.Sprintf("the type of `.%s`", selName))), Recv: recv, Sel: e.Sel, Sym: sel, Index: -1}
+	return &MemberExpr{Base: baseOf(e.Sp, c.quietMeta(e.Sp, fmt.Sprintf("the type of `.%s`", selName))), Recv: recv, Sel: e.Sel, Sym: sel, Index: -1}
 }
 
 // nameOfSel returns the selector name a resolved member symbol
@@ -306,19 +317,29 @@ func (c *checker) methodOf(recvT types.Type, name string, sp diag.Span) (*resolv
 	if _, ok := t.(*types.Go); !ok && !types.Equal(t, types.GoError) {
 		return nil, nil, false
 	}
-	ms, ok := c.src.(MethodSource)
-	if !ok {
-		return nil, nil, false
+	// The signature source wins when it can answer — a loader-provided
+	// symbol keeps its origin, its hidden-symbol check, and whatever
+	// method set the Go type really carries.
+	if ms, ok := c.src.(MethodSource); ok {
+		if sym, sig, ok := ms.MethodOf(recvT, name); ok {
+			if c.hiddenDiag(sym, sp) {
+				return sym, c.quietMeta(sp, fmt.Sprintf("the type of method `%s`", name)), true
+			}
+			typ, _ := c.instantiate(sig.Type, sp)
+			return sym, typ, true
+		}
 	}
-	sym, sig, ok := ms.MethodOf(recvT, name)
-	if !ok {
-		return nil, nil, false
+	// `GoError` is a builtin scalar — not a types.Go — so a
+	// MethodSource that only knows named Go types cannot reach its
+	// `Error() string`. The checker owns the builtin and answers the
+	// one method the `error` interface carries, so checkers built
+	// without a signature source still type `e.Error()`.
+	if isCon(t, "GoError") && name == "Error" {
+		sym := c.goErrMethodSym()
+		typ, _ := c.instantiate(c.vals[sym], sp)
+		return sym, typ, true
 	}
-	if c.hiddenDiag(sym, sp) {
-		return sym, c.newMeta(sp, fmt.Sprintf("the type of method `%s`", name)), true
-	}
-	typ, _ := c.instantiate(sig.Type, sp)
-	return sym, typ, true
+	return nil, nil, false
 }
 
 // checkAscribe types `e : T` — and `Go.conv e : T`, the explicit Go
@@ -473,14 +494,19 @@ func (c *checker) checkBinary(e *syntax.Binary) Expr {
 	case syntax.BinEq, syntax.BinNe:
 		x := c.checkExpr(e.X, nil)
 		y := c.checkExpr(e.Y, nil)
-		c.unify(x.Type(), y.Type(), e.Sp)
-		c.constrain(x.Type(), e.Sp, "the operands of `==`", func(r *metaRec) { r.eq = true })
+		// The constraint check runs only when the operands agreed —
+		// a failed unify already reported; probing its type again
+		// would restate the same mismatch.
+		if c.unify(x.Type(), y.Type(), e.Sp) {
+			c.constrain(x.Type(), e.Sp, "the operands of `==`", func(r *metaRec) { r.eq = true })
+		}
 		return &Binary{Base: baseOf(e.Sp, types.Bool), Op: op, X: x, Y: y}
 	case syntax.BinLt, syntax.BinLe, syntax.BinGt, syntax.BinGe:
 		x := c.checkExpr(e.X, nil)
 		y := c.checkExpr(e.Y, nil)
-		c.unify(x.Type(), y.Type(), e.Sp)
-		c.constrain(x.Type(), e.Sp, "the operands of a comparison", func(r *metaRec) { r.ord = true })
+		if c.unify(x.Type(), y.Type(), e.Sp) {
+			c.constrain(x.Type(), e.Sp, "the operands of a comparison", func(r *metaRec) { r.ord = true })
+		}
 		return &Binary{Base: baseOf(e.Sp, types.Bool), Op: op, X: x, Y: y}
 	case syntax.BinAnd, syntax.BinOr:
 		x := c.checkExpr(e.X, types.Bool)
@@ -490,16 +516,12 @@ func (c *checker) checkBinary(e *syntax.Binary) Expr {
 		// `x |> f` is `f x`.
 		x := c.checkExpr(e.X, nil)
 		f := c.checkExpr(e.Y, nil)
-		ret := c.newMeta(e.Sp, "the result of `|>`")
-		c.unify(f.Type(), types.Fn(ret, types.P(x.Type())), e.Sp)
-		return &Binary{Base: baseOf(e.Sp, ret), Op: op, X: x, Y: f}
+		return c.pipeCall(e, x, f)
 	case syntax.BinPipeBack:
-		// f left-pipe x applies f to x.
+		// `f PIPE_BACK x` applies f to x — operands in source order.
 		f := c.checkExpr(e.X, nil)
 		x := c.checkExpr(e.Y, nil)
-		ret := c.newMeta(e.Sp, "the result of left-pipe")
-		c.unify(f.Type(), types.Fn(ret, types.P(x.Type())), e.Sp)
-		return &Binary{Base: baseOf(e.Sp, ret), Op: op, X: f, Y: x}
+		return c.pipeCall(e, x, f)
 	case syntax.BinPipeTry:
 		return c.checkPipeTry(e)
 	case syntax.BinComposeFwd:
@@ -509,8 +531,13 @@ func (c *checker) checkBinary(e *syntax.Binary) Expr {
 		a := c.newMeta(e.Sp, "the composed function's input")
 		b := c.newMeta(e.Sp, "the composed function's middle type")
 		r := c.newMeta(e.Sp, "the composed function's result")
-		c.unify(x.Type(), types.Fn(b, types.P(a)), e.X.Span())
-		c.unify(g.Type(), types.Fn(r, types.P(b)), e.Y.Span())
+		ok1 := c.unify(x.Type(), types.Fn(b, types.P(a)), e.X.Span())
+		ok2 := c.unify(g.Type(), types.Fn(r, types.P(b)), e.Y.Span())
+		if !ok1 || !ok2 {
+			c.markQuiet(a)
+			c.markQuiet(b)
+			c.markQuiet(r)
+		}
 		return &Binary{Base: baseOf(e.Sp, types.Fn(r, types.P(a))), Op: op, X: x, Y: g}
 	case syntax.BinComposeBack:
 		// g << f is x -> g (f x).
@@ -519,12 +546,121 @@ func (c *checker) checkBinary(e *syntax.Binary) Expr {
 		a := c.newMeta(e.Sp, "the composed function's input")
 		b := c.newMeta(e.Sp, "the composed function's middle type")
 		r := c.newMeta(e.Sp, "the composed function's result")
-		c.unify(f.Type(), types.Fn(b, types.P(a)), e.Y.Span())
-		c.unify(g.Type(), types.Fn(r, types.P(b)), e.X.Span())
+		ok1 := c.unify(f.Type(), types.Fn(b, types.P(a)), e.Y.Span())
+		ok2 := c.unify(g.Type(), types.Fn(r, types.P(b)), e.X.Span())
+		if !ok1 || !ok2 {
+			c.markQuiet(a)
+			c.markQuiet(b)
+			c.markQuiet(r)
+		}
 		return &Binary{Base: baseOf(e.Sp, types.Fn(r, types.P(a))), Op: op, X: g, Y: f}
 	default:
 		panic("unreachable")
 	}
+}
+
+// goCalleeSym returns the Go symbol a bare pipe callee denotes —
+// a Var or MemberExpr bound to a Go function or a method — or nil.
+// It is the bare-reference counterpart of calleeOf's classification.
+func goCalleeSym(e Expr) *resolve.Symbol {
+	var sym *resolve.Symbol
+	switch e := e.(type) {
+	case *Var:
+		sym = e.Sym
+	case *MemberExpr:
+		sym = e.Sym
+	case *Apply, *Ascribe, *Binary, *Block, *For, *GoExpr, *Hole,
+		*If, *Ignore, *Lambda, *Let, *ListLit, *Lit, *Match,
+		*RecordLit, *SelectExpr, *Spread, *StrInterp, *Try,
+		*TupleLit, *Unary:
+		return nil
+	default:
+		panic("unreachable")
+	}
+	if sym != nil && (sym.Kind == resolve.KindMethod || sym.IsGo) {
+		return sym
+	}
+	return nil
+}
+
+// pipeCall types `x |> f` and `f BACKPIPE x`: f applied to x.
+// arg/fn are the checked operands in application roles (for BACKPIPE
+// they arrive swapped relative to source order).
+//
+// An ordinary application would make x the first argument of a
+// fresh call; two Go-callee shapes bend that rule so the spelling
+// matches the calling convention lowering emits:
+//
+//   - A bare variadic callee of arity 1 (`fmt.Println`) receives x
+//     as one variadic element — checked against the element type of
+//     the declared slice parameter, never the slice itself — and the
+//     pipe has the callee's return type. `Println BACKPIPE "hi"` is
+//     `Println("hi")`, not `Println("hi"...)`.
+//   - A partially applied Go call (`Println "a" BACKPIPE x`)
+//     appends x as the next argument — again as one variadic
+//     element when the open slot is the variadic parameter. A
+//     saturated non-variadic call cannot take another argument —
+//     the same arity diagnostic an over-applied Go call reports.
+//
+// Everything else goes through the generic function-type rule:
+// f must be `x's type -> ret` for a fresh ret meta.
+func (c *checker) pipeCall(e *syntax.Binary, arg, fn Expr) Expr {
+	out := &Binary{Base: baseOf(e.Sp, nil), Op: e.Op, X: arg, Y: fn}
+	if e.Op == syntax.BinPipeBack {
+		out.X, out.Y = fn, arg
+	}
+	if sym := goCalleeSym(fn); sym != nil {
+		if sig, ok := c.sigOf(sym); ok {
+			params, ret := flattenFunc(fn.Type())
+			arity := c.declArity(sig, len(params))
+			switch {
+			case sig.Variadic && arity == 1 && len(params) == 1:
+				c.unify(sliceElemOf(params[0].Type, arg.Span(), c), arg.Type(), arg.Span())
+				out.Base = baseOf(e.Sp, ret)
+				return out
+			case arity == 0 && !sig.Variadic:
+				// `x |> f` for a Go callee taking no argument is
+				// the one-argument over-application — the same
+				// diagnostic the application form reports.
+				c.diags.Add(diag.Error("E0401",
+					"the Go callee takes 0 argument(s), got 1").
+					At(e.Sp).Set("expected", "0").Set("actual", "1"))
+				out.Base = baseOf(e.Sp, ret)
+				return out
+			}
+		}
+	}
+	// A call carrying a `_` placeholder keeps a function residual
+	// (`holeT -> ret`), so it takes the generic path like any other
+	// function value — the pipe fills the hole at lowering. The
+	// special cases below are the *saturated* Go calls: a variadic
+	// one can absorb x as another element; a non-variadic one is
+	// over-applied — the same diagnostic the application form gives.
+	if ap, ok := fn.(*Apply); ok && ap.Call.Kind == CallGo && ap.Call.HoleIndex < 0 {
+		params, _ := flattenFunc(ap.Fn.Type())
+		switch {
+		case ap.Call.Variadic && ap.Call.Arity > 0 && len(params) == ap.Call.Arity:
+			// The open slot is the variadic parameter: x is one
+			// element of it.
+			c.unify(sliceElemOf(params[ap.Call.Arity-1].Type, arg.Span(), c), arg.Type(), arg.Span())
+		default:
+			// A saturated non-variadic Go call — over-applied. A
+			// partial one (Applied < Arity) already carries its own
+			// arity diagnostic; another would only echo it with a
+			// self-contradicting "got" count.
+			if ap.Call.Applied >= ap.Call.Arity {
+				c.diags.Add(diag.Error("E0401",
+					fmt.Sprintf("the Go callee takes %d argument(s), got %d", ap.Call.Arity, ap.Call.Applied+1)).
+					At(e.Sp).Set("expected", fmt.Sprintf("%d", ap.Call.Arity)).Set("actual", fmt.Sprintf("%d", ap.Call.Applied+1)))
+			}
+		}
+		out.Base = baseOf(e.Sp, ap.Type())
+		return out
+	}
+	ret := c.newMeta(e.Sp, "the pipe's result type")
+	c.unify(fn.Type(), types.Fn(ret, types.P(arg.Type())), e.Sp)
+	out.Base = baseOf(e.Sp, ret)
+	return out
 }
 
 // checkArith types +,-,*,/ and %: both operands share one numeric
@@ -532,8 +668,9 @@ func (c *checker) checkBinary(e *syntax.Binary) Expr {
 func (c *checker) checkArith(e *syntax.Binary, constrain func(*metaRec)) Expr {
 	x := c.checkExpr(e.X, nil)
 	y := c.checkExpr(e.Y, nil)
-	c.unify(x.Type(), y.Type(), e.Sp)
-	c.constrain(x.Type(), e.Sp, "the operands of an arithmetic operator", constrain)
+	if c.unify(x.Type(), y.Type(), e.Sp) {
+		c.constrain(x.Type(), e.Sp, "the operands of an arithmetic operator", constrain)
+	}
 	return &Binary{Base: baseOf(e.Sp, x.Type()), Op: e.Op, X: x, Y: y}
 }
 
@@ -554,7 +691,10 @@ func (c *checker) checkPipeTry(e *syntax.Binary) Expr {
 		errT = c.newMeta(e.Sp, "the pipeline error type")
 	}
 	resT := c.newMeta(e.Sp, "the |?> result type")
-	c.unify(f.Type(), types.Fn(types.Result(resT, errT), types.P(argT)), e.Y.Span())
+	if !c.unify(f.Type(), types.Fn(types.Result(resT, errT), types.P(argT)), e.Y.Span()) {
+		c.markQuiet(resT)
+		c.markQuiet(errT)
+	}
 	return &Binary{Base: baseOf(e.Sp, types.Result(resT, errT)), Op: e.Op, X: x, Y: f}
 }
 
@@ -644,13 +784,17 @@ func (c *checker) checkMatch(e *syntax.Match, want types.Type) Expr {
 	}
 	arms := make([]MatchArm, len(e.Arms))
 	for i, a := range e.Arms {
+		// The pattern binds before the guard runs: `a == b` in a
+		// guard must see the pattern variables' own types, not
+		// fresh metas minted against an empty binding table.
+		pat := c.checkPat(a.Pat, subj.Type())
 		var guard Expr
 		if a.Guard != nil {
 			guard = c.checkExpr(a.Guard, types.Bool)
 		}
 		arms[i] = MatchArm{
 			Sp:    a.Sp,
-			Pat:   c.checkPat(a.Pat, subj.Type()),
+			Pat:   pat,
 			Guard: guard,
 			Body:  c.checkExpr(a.Body, bt),
 		}
@@ -828,7 +972,9 @@ func (c *checker) checkFor(e *syntax.For) Expr {
 		}
 	case *types.Meta:
 		elem = c.newMeta(e.Iter.Span(), "the iterated element's type")
-		c.bind(t, types.List(elem), e.Iter.Span())
+		if !c.bind(t, types.List(elem), e.Iter.Span()) {
+			c.markQuiet(elem)
+		}
 	case *types.Var, *types.Func, *types.Tuple, *types.Go:
 		c.mismatch(e.Iter.Span(), "a List or a channel", iter.Type())
 		elem = iter.Type()
@@ -846,14 +992,22 @@ func (c *checker) checkFor(e *syntax.For) Expr {
 // one default arm is allowed (E0703).
 func (c *checker) checkSelectExpr(e *syntax.SelectExpr, want types.Type) Expr {
 	bt := want
+	if len(e.Arms) == 0 {
+		// `select {}` cannot evaluate — Go's empty select blocks
+		// forever, and the Core validator would only report an
+		// internal invariant. The user-facing rule lives here.
+		c.diags.Add(diag.Error("E0705",
+			"a `select` requires at least one arm").At(e.Sp))
+		if bt == nil {
+			bt = c.quietMeta(e.Sp, "the select arms' type")
+		} else {
+			c.markQuiet(bt)
+		}
+	}
 	if bt == nil {
 		bt = c.newMeta(e.Sp, "the select arms' type")
 	}
 	out := &SelectExpr{Base: baseOf(e.Sp, bt)}
-	if len(e.Arms) == 0 {
-		c.diags.Add(diag.Error("E0705",
-			"a select needs at least one arm").At(e.Sp))
-	}
 	defaults := 0
 	for _, a := range e.Arms {
 		switch a := a.(type) {
@@ -861,10 +1015,14 @@ func (c *checker) checkSelectExpr(e *syntax.SelectExpr, want types.Type) Expr {
 			ch := c.checkExpr(a.Chan, nil)
 			elem, dir, ok := chanElem(ch.Type())
 			if !ok {
-				if _, isMeta := types.Chase(ch.Type()).(*types.Meta); !isMeta {
+				_, isMeta := types.Chase(ch.Type()).(*types.Meta)
+				if !isMeta {
 					c.mismatch(a.Chan.Span(), "a receivable channel", ch.Type())
 				}
 				elem = c.newMeta(a.Chan.Span(), "the received element's type")
+				if !isMeta || c.isQuiet(ch.Type()) {
+					c.markQuiet(elem)
+				}
 			} else if dir == "send" {
 				c.diags.Add(diag.Error("E0401",
 					"cannot receive on a send-only channel").At(a.Chan.Span()))
@@ -900,10 +1058,14 @@ func (c *checker) checkSelectExpr(e *syntax.SelectExpr, want types.Type) Expr {
 			ch := c.checkExpr(a.Chan, nil)
 			elem, dir, ok := chanElem(ch.Type())
 			if !ok {
-				if _, isMeta := types.Chase(ch.Type()).(*types.Meta); !isMeta {
+				_, isMeta := types.Chase(ch.Type()).(*types.Meta)
+				if !isMeta {
 					c.mismatch(a.Chan.Span(), "a sendable channel", ch.Type())
 				}
 				elem = c.newMeta(a.Chan.Span(), "the sent element's type")
+				if !isMeta || c.isQuiet(ch.Type()) {
+					c.markQuiet(elem)
+				}
 			} else if dir == "recv" {
 				c.diags.Add(diag.Error("E0401",
 					"cannot send on a receive-only channel").At(a.Chan.Span()))
@@ -951,7 +1113,9 @@ func (c *checker) checkListLit(e *syntax.ListLit, want types.Type) Expr {
 					c.mismatch(sp.Sp, "a List or Go.Slice", x.Type())
 				}
 			case *types.Meta:
-				c.bind(t, types.List(elem), sp.Sp)
+				if !c.bind(t, types.List(elem), sp.Sp) {
+					c.markQuiet(elem)
+				}
 			case *types.Var, *types.Func, *types.Tuple, *types.Go:
 				c.mismatch(sp.Sp, "a List or Go.Slice", x.Type())
 			default:
@@ -1115,7 +1279,9 @@ func (c *checker) checkRecordLit(e *syntax.RecordLit, want types.Type) Expr {
 	} else if wantT != nil {
 		rt = wantT
 	} else {
-		rt = c.newMeta(e.Sp, "the record's type")
+		// ti == nil means resolution or the expectation already
+		// reported — the fallback type is recovery.
+		rt = c.quietMeta(e.Sp, "the record's type")
 	}
 	out.Base = baseOf(e.Sp, rt)
 	return out

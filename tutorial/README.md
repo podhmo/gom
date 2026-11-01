@@ -52,15 +52,6 @@ known issue, linked from `TODO.md` or `docs/problems/`:
 - `List.map`, `Option.get`, `Chan`, `Ref` and friends are stdlib
   modules that do not exist yet (task P4-8), so step 5 recurses by
   hand.
-- `==` is structural in spec but lowers to Go `==` today, which
-  cannot compare slices — `[1, 2] == [1, 2]` produces uncompilable
-  Go. `==` on ADTs and scalars works.
-- `f <| x` with a variadic Go function (`fmt.Println <| x`)
-  fails — the right-hand side is treated as the variadic argument
-  list. Use it with Gom functions, or parenthesize Go calls.
-- `todo ()`, `not x`, `assert`, `assert_eq` are accepted by
-  `gom check` but rejected by `gom build` — including the `todo ()`
-  in the suggested fix that step 10 prints. A real bug.
 - `type Meters = Int` looks like an alias but defines a variant
   named `Int` — a known grammar trap
   (`docs/problems/2026-11-02-type-alias-body.md`).

@@ -1,0 +1,14 @@
+package main
+
+type P = | Pair Int Int | None
+
+// Pattern variables bound before the guard typechecks `a == b`
+// against the pattern's own Int bindings — no annotation needed.
+fn f (p: P) -> Int =
+  match p {
+    Pair a b if a == b -> a
+    Pair a b -> a + b
+    None -> 0
+  }
+
+fn main () -> Unit = ()

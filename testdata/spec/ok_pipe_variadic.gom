@@ -1,0 +1,14 @@
+package main
+
+import go "fmt"
+
+// A bare variadic Go callee in a pipe takes the piped value as one
+// variadic element — `fmt.Println <| "hi"` is `Println("hi")`,
+// never `Println("hi"...)`. A `_` placeholder call in pipe position
+// is filled by the piped value in place.
+fn main () -> Unit = {
+  let _ = "hi" |> fmt.Println
+  let _ = fmt.Println <| "yo"
+  let _ = "b" |> fmt.Println("a", _)
+  ()
+}

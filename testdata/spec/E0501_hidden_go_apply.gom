@@ -1,0 +1,9 @@
+package ex
+
+import go "slices"
+
+// An application of a hidden Go callee reports E0501 alone — the
+// unresolvable signature cannot argue about arity, so no follow-on
+// E0401 fires.
+fn f (xs: List Int) -> Bool =
+  slices.Contains(xs, 1)

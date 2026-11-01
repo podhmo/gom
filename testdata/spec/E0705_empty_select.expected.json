@@ -4,7 +4,7 @@
       "kind": "diagnostic",
       "code": "E0705",
       "severity": "error",
-      "message": "a select needs at least one arm",
+      "message": "a `select` requires at least one arm",
       "span": {
         "file": "E0705_empty_select.gom",
         "start": {

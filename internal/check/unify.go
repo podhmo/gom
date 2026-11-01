@@ -40,12 +40,13 @@ type metaRec struct {
 	span diag.Span // where the meta was created (diagnostic site)
 	desc string    // what the meta stands for ("the operand of +")
 
-	num  bool       // constrained to a built-in numeric type
-	ord  bool       // constrained to an ordered type
-	eq   bool       // must not contain functions or type variables
-	flo  bool       // constrained to a floating-point type (Float literals)
-	intg bool       // constrained to an integral type (the `%` operator)
-	dflt types.Type // default solution, or nil for "ask for an annotation"
+	num   bool       // constrained to a built-in numeric type
+	ord   bool       // constrained to an ordered type
+	eq    bool       // must not contain functions or type variables
+	flo   bool       // constrained to a floating-point type (Float literals)
+	intg  bool       // constrained to an integral type (the `%` operator)
+	quiet bool       // another diagnostic already covers this meta — no E0407
+	dflt  types.Type // default solution, or nil for "ask for an annotation"
 }
 
 // newMeta creates an unbound unification variable recorded with the
@@ -55,6 +56,35 @@ func (c *checker) newMeta(sp diag.Span, desc string) *types.Meta {
 	c.nextMeta++
 	c.metas[m] = &metaRec{span: sp, desc: desc}
 	return m
+}
+
+// quietMeta creates a meta that may stay unsolved without an E0407:
+// it is a recovery artifact of a failure some other diagnostic
+// already reports (an unresolved name, a hidden Go member, an
+// over-applied call whose arity error was emitted). The flag travels
+// with unification — binding a quiet meta into a type propagates it
+// to the metas inside, and merging records ORs it — so the silence
+// follows the value.
+func (c *checker) quietMeta(sp diag.Span, desc string) *types.Meta {
+	m := c.newMeta(sp, desc)
+	c.metas[m].quiet = true
+	return m
+}
+
+// markQuiet flags t's record quiet when t is an unbound meta; bound
+// or concrete types are unaffected.
+func (c *checker) markQuiet(t types.Type) {
+	if m, ok := types.Chase(t).(*types.Meta); ok {
+		c.recOf(m).quiet = true
+	}
+}
+
+// isQuiet reports whether t is an unbound meta carrying the quiet
+// flag — used to keep recovery metas derived from a silenced value
+// from reporting E0407 of their own.
+func (c *checker) isQuiet(t types.Type) bool {
+	m, ok := types.Chase(t).(*types.Meta)
+	return ok && c.recOf(m).quiet
 }
 
 // recOf returns the constraint record of the unbound meta m, creating
@@ -77,6 +107,7 @@ func mergeRec(dst, src *metaRec) {
 	dst.eq = dst.eq || src.eq
 	dst.flo = dst.flo || src.flo
 	dst.intg = dst.intg || src.intg
+	dst.quiet = dst.quiet || src.quiet
 	if dst.dflt == nil {
 		dst.dflt = src.dflt
 	}
@@ -104,6 +135,7 @@ func (c *checker) constrain(t types.Type, sp diag.Span, desc string, fn func(*me
 // binding a constrained meta runs it, and so does flagging a concrete
 // type directly.
 func (c *checker) satisfies(r *metaRec, t types.Type, sp diag.Span) bool {
+	sp = c.pos(sp)
 	t = types.Chase(t)
 	if r.num && !isNumeric(t) {
 		c.mismatch(sp, "a numeric type", t)
@@ -284,6 +316,7 @@ func flattenFunc(t types.Type) (params []types.FuncParam, ret types.Type) {
 // bind solves an unbound meta after the occurs check and the
 // constraint check. It reports and returns false on failure.
 func (c *checker) bind(m *types.Meta, t types.Type, sp diag.Span) bool {
+	sp = c.pos(sp)
 	r := c.recOf(m)
 	if occurs(m, t) {
 		d := diag.Error("E0401",
@@ -296,8 +329,9 @@ func (c *checker) bind(m *types.Meta, t types.Type, sp diag.Span) bool {
 		return false
 	}
 	// Constraints must outlive the meta itself: an eq-flagged meta
-	// bound to `Result ?a ?b` keeps the restriction on ?a and ?b.
-	if r != nil && (r.num || r.ord || r.eq) {
+	// bound to `Result ?a ?b` keeps the restriction on ?a and ?b, and
+	// a quiet meta keeps the metas inside its solution quiet too.
+	if r != nil && (r.num || r.ord || r.eq || r.flo || r.intg || r.quiet) {
 		c.propagateFlags(r, t)
 	}
 	m.Bind(t)
@@ -316,6 +350,7 @@ func (c *checker) propagateFlags(r *metaRec, t types.Type) {
 		inner.eq = inner.eq || r.eq
 		inner.flo = inner.flo || r.flo
 		inner.intg = inner.intg || r.intg
+		inner.quiet = inner.quiet || r.quiet
 		if inner.span.IsZero() {
 			inner.span = r.span
 		}
@@ -538,6 +573,7 @@ func labeledRun(ps []types.FuncParam) []types.FuncParam {
 
 // mismatch reports the generic unification failure.
 func (c *checker) mismatch(sp diag.Span, want, got any) {
+	sp = c.pos(sp)
 	var w string
 	switch want := want.(type) {
 	case types.Type:
@@ -653,28 +689,33 @@ func (c *checker) finalize() {
 			continue
 		}
 		if d := defaultOf(e.r); d != nil {
-			c.satisfies(e.r, d, e.r.span)
+			c.satisfies(e.r, d, c.pos(e.r.span))
 			e.m.Bind(d)
 		}
 	}
-	// Second pass: report what is left.
+	// Second pass: report what is left. A meta marked quiet is a
+	// recovery artifact — the diagnostic that created it already ran.
 	for _, e := range ms {
 		m, r := e.m, e.r
+		sp := c.pos(r.span)
 		if !m.Bound() {
+			if r.quiet {
+				continue
+			}
 			desc := r.desc
 			if desc == "" {
 				desc = "this type"
 			}
 			d := diag.Error("E0407",
 				fmt.Sprintf("type annotation required: %s could not be determined", desc)).
-				At(r.span).Set("type", m.String())
+				At(sp).Set("type", m.String())
 			c.diags.Add(d)
 			continue
 		}
 		if r.eq && c.hasFuncOrVar(m) {
 			d := diag.Error("E0409",
 				fmt.Sprintf("`==` is not defined on %s: the type contains a function or a type variable", m.Solution())).
-				At(r.span).Set("type", m.Solution().String())
+				At(sp).Set("type", m.Solution().String())
 			c.diags.Add(d)
 		}
 	}

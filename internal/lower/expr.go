@@ -1342,32 +1342,95 @@ func appendArg(ci *check.CallInfo) {
 // parameter. resTyp is the pipe node's own type.
 func (l *lowerer) pipeApply(s *seq, e *check.Binary, rhs check.Expr, piped core.Atom) core.Expr {
 	if ap, ok := rhs.(*check.Apply); ok {
-		ci := ap.Call
-		recv := l.methodRecv(s, ap.Fn, ci)
-		fnExpr := l.calleeExpr(s, ap.Fn, ci, recv)
-		args := l.argAtoms(s, ap.Args)
-		args = append(args, piped)
-		appendArg(&ci)
-		return l.finishCall(s, rhs.Span(), e.Type(), ap.Fn, fnExpr, recv, ci, args, hasSpread(ap.Args))
+		return l.pipeApplyInto(s, rhs.Span(), ap, func() core.Atom { return piped }, e.Type())
+	}
+	// A bare variadic-arity-1 Go callee: the checker typed the piped
+	// value as one variadic element — emit the CallGo of that
+	// element call rather than an application of the slice-typed
+	// function value.
+	if out, ok := l.pipeGoElemCall(s, rhs, func() core.Atom { return piped }, e.Type()); ok {
+		return out
 	}
 	fn := l.atom(s, rhs)
 	return l.applyAtom(s, rhs.Span(), e.Type(), fn, []core.Atom{piped})
 }
 
-// pipeApplyBack lowers `rhs <| x` — identical convention to |>,
-// evaluated left to right: the callee side first, then the argument.
+// pipeApplyBack lowers `rhs PIPEBACK x` — identical convention to
+// the forward pipe, evaluated left to right: the callee side first,
+// then the argument.
 func (l *lowerer) pipeApplyBack(s *seq, e *check.Binary) core.Expr {
 	if ap, ok := e.X.(*check.Apply); ok {
-		ci := ap.Call
-		recv := l.methodRecv(s, ap.Fn, ci)
-		fnExpr := l.calleeExpr(s, ap.Fn, ci, recv)
-		args := l.argAtoms(s, ap.Args)
-		args = append(args, l.atom(s, e.Y))
-		appendArg(&ci)
-		return l.finishCall(s, e.X.Span(), e.Type(), ap.Fn, fnExpr, recv, ci, args, hasSpread(ap.Args))
+		return l.pipeApplyInto(s, e.X.Span(), ap, func() core.Atom { return l.atom(s, e.Y) }, e.Type())
+	}
+	if out, ok := l.pipeGoElemCall(s, e.X, func() core.Atom { return l.atom(s, e.Y) }, e.Type()); ok {
+		return out
 	}
 	fn := l.atom(s, e.X)
 	return l.applyAtom(s, e.Sp, e.Type(), fn, []core.Atom{l.atom(s, e.Y)})
+}
+
+// pipeApplyInto lowers a pipe whose callee side is itself an
+// application: the piped value joins the written arguments — into
+// the `_` slot when the call carries a placeholder, else as the
+// lowest unfilled parameter. piped produces the argument atom; it
+// runs after the callee side's own lowering so a back pipe keeps
+// left-to-right evaluation (a forward pipe's argument is the left
+// operand, already bound before this call).
+func (l *lowerer) pipeApplyInto(s *seq, sp diag.Span, ap *check.Apply, piped func() core.Atom, resTyp types.Type) core.Expr {
+	ci := ap.Call
+	recv := l.methodRecv(s, ap.Fn, ci)
+	fnExpr := l.calleeExpr(s, ap.Fn, ci, recv)
+	args := l.argAtoms(s, ap.Args)
+	atom := piped()
+	if ci.HoleIndex >= 0 {
+		// The piped value fills the placeholder: it takes the
+		// hole's written slot and the call is saturated — no
+		// residual Closure.
+		if ci.HoleIndex < len(args) {
+			args[ci.HoleIndex] = atom
+		} else {
+			args = append(args, atom)
+		}
+		ci.HoleIndex = -1
+	} else {
+		args = append(args, atom)
+		appendArg(&ci)
+	}
+	return l.finishCall(s, sp, resTyp, ap.Fn, fnExpr, recv, ci, args, hasSpread(ap.Args))
+}
+
+// pipeGoElemCall lowers a bare variadic-arity-1 Go callee a pipe
+// hands one value to. The checker types the pipe as a one-element
+// variadic call for exactly that shape (check.pipeCall), so the piped
+// value is the whole argument list and the result is the callee's
+// own — emitting an ordinary CallGo rather than applying the
+// slice-typed function value (which would pass the slice itself).
+// piped produces the argument atom and runs after the receiver, so a
+// back pipe still evaluates left to right. Reports false for every
+// other operand shape.
+func (l *lowerer) pipeGoElemCall(s *seq, callee check.Expr, piped func() core.Atom, resTyp types.Type) (core.Expr, bool) {
+	var sym *resolve.Symbol
+	if v, ok := callee.(*check.Var); ok {
+		sym = v.Sym
+	} else if m, ok := callee.(*check.MemberExpr); ok {
+		sym = m.Sym
+	}
+	if sym == nil || (sym.Kind != resolve.KindMethod && !sym.IsGo) {
+		return nil, false
+	}
+	sig := l.goSig(sym, callee.Type())
+	if !sig.Variadic || sig.Arity != 1 {
+		return nil, false
+	}
+	var recv core.Atom
+	if m, ok := callee.(*check.MemberExpr); ok && sym.Kind == resolve.KindMethod {
+		recv = l.atom(s, m.Recv)
+	}
+	ci := check.CallInfo{
+		Kind: check.CallGo, Callee: sym,
+		Arity: 1, Applied: 1, HoleIndex: -1, Variadic: true,
+	}
+	return l.goCall(s, callee.Span(), resTyp, ci, []core.Atom{piped()}, recv, false), true
 }
 
 // lowestUnfilled is the smallest callee-parameter index no written
@@ -1500,18 +1563,13 @@ func (l *lowerer) pipeTry(s *seq, e *check.Binary) core.Expr {
 }
 
 // stepApply applies a |?> step to the unwrapped payload — the same
-// shape as |>: an Apply rhs gets the payload appended, anything else
-// is a function value applied once. resTyp is the |?> node's type —
-// the step's full-application result.
+// shape as |>: an Apply rhs takes the payload per the pipe
+// convention (fill the hole, else the lowest unfilled parameter),
+// anything else is a function value applied once. resTyp is the |?>
+// node's type — the step's full-application result.
 func (l *lowerer) stepApply(s *seq, e *check.Binary, rhs check.Expr, in core.Atom) core.Expr {
 	if ap, ok := rhs.(*check.Apply); ok {
-		ci := ap.Call
-		recv := l.methodRecv(s, ap.Fn, ci)
-		fnExpr := l.calleeExpr(s, ap.Fn, ci, recv)
-		args := l.argAtoms(s, ap.Args)
-		args = append(args, in)
-		appendArg(&ci)
-		return l.finishCall(s, rhs.Span(), e.Type(), ap.Fn, fnExpr, recv, ci, args, hasSpread(ap.Args))
+		return l.pipeApplyInto(s, rhs.Span(), ap, func() core.Atom { return in }, e.Type())
 	}
 	fn := l.atom(s, rhs)
 	return l.applyAtom(s, rhs.Span(), e.Type(), fn, []core.Atom{in})

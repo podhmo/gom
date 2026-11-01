@@ -690,12 +690,13 @@ Match on the received "Option a" value in the arm's body instead.`,
 	{
 		Code:     "E0705",
 		Severity: SeverityError,
-		Title:    "select has no arms",
+		Title:    "empty select",
 		Phase:    PhaseCheck,
 		Spec:     "10",
-		Explanation: `A select expression needs at least one arm — each arm maps
-one-to-one onto a Go select case, so an empty select has no meaning.`,
-		Example: `select {}`,
+		Explanation: `A select expression requires at least one arm. The empty form
+"select {}" would lower to Go's "select {}", which blocks forever —
+hardly ever the intent, and never a value-producing expression.`,
+		Example: `fn poll () -> Int = select {}   // write at least one arm`,
 	},
 	{
 		Code:     "E0801",

@@ -604,7 +604,9 @@ func (c *checker) applyTypeCtor(tc typeCtor, args []types.Type, sp diag.Span) (t
 		return sub.Apply(target), nil
 	}
 	if tc.con == nil {
-		return c.newMeta(sp, "an unknown type"), nil
+		// Reached only after the unknown/hidden-type diagnostic —
+		// the meta is recovery, not an inference question.
+		return c.quietMeta(sp, "an unknown type"), nil
 	}
 	if tc.arity >= 0 && len(args) != tc.arity {
 		c.arityMismatch(sp, tc.con.Name, tc.arity, len(args))

@@ -71,7 +71,7 @@ func (c *checker) declArity(sig Signature, flat int) int {
 // checkConvCall handles `Go.conv e` written without the mandatory
 // `: T` ascription — always an error, kept recoverable.
 func (c *checker) checkConvCall(e *syntax.Apply, fn Expr) Expr {
-	out := &Apply{Base: baseOf(e.Sp, c.newMeta(e.Sp, "the conversion's result")), Fn: fn}
+	out := &Apply{Base: baseOf(e.Sp, c.quietMeta(e.Sp, "the conversion's result")), Fn: fn}
 	for _, a := range e.Args {
 		var v Expr
 		if a.Value != nil {
@@ -195,7 +195,9 @@ func (c *checker) checkGomApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol
 			// over-applies into the returned function value.
 			pt = c.newMeta(a.Sp, "an over-applied argument's parameter")
 		default:
-			pt = c.newMeta(a.Sp, fmt.Sprintf("the argument `~%s`", label))
+			// The label already reported E0406/E0408 — the
+			// argument's parameter slot is recovery.
+			pt = c.quietMeta(a.Sp, fmt.Sprintf("the argument `~%s`", label))
 		}
 		var argExpr Expr
 		switch av := a.Value.(type) {
@@ -354,9 +356,12 @@ func (c *checker) overApply(ret types.Type, extras []Expr, sp diag.Span) types.T
 			continue
 		}
 		// The returned function itself is exhausted: extend the
-		// result with a fresh curried step.
+		// result with a fresh curried step. A failed unify leaves
+		// next unsolved — the mismatch already reported it.
 		next := c.newMeta(extras[i].Span(), "the over-applied result")
-		c.unify(rret, types.Fn(next, types.P(extras[i].Type())), extras[i].Span())
+		if !c.unify(rret, types.Fn(next, types.P(extras[i].Type())), extras[i].Span()) {
+			c.markQuiet(next)
+		}
 		rret = next
 	}
 	if i < len(rparams) {
@@ -499,7 +504,10 @@ func (c *checker) checkGoApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol,
 				pt = sliceElemOf(pt, g.sp, c)
 			}
 		} else {
-			pt = c.newMeta(g.sp, "the Go argument's parameter type")
+			// Unresolvable slot (unknown label, over-arity,
+			// duplicate): E0405/E0406/the arity diagnostic already
+			// reported the cause.
+			pt = c.quietMeta(g.sp, "the Go argument's parameter type")
 		}
 		var argExpr Expr
 		switch av := g.x.(type) {
@@ -561,13 +569,19 @@ func (c *checker) checkGoApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol,
 		}
 	}
 	if missing > 0 || tooMany > 0 {
-		want := fmt.Sprintf("%d", arity-missing)
-		if variadic {
-			want = fmt.Sprintf("at least %d", arity-1)
+		if _, unknown := types.Chase(fn.Type()).(*types.Meta); !unknown {
+			// A callee whose signature never resolved (a hidden or
+			// unknown Go symbol) has no arity to argue with — its
+			// own diagnostic already reported the cause, and "the
+			// Go callee takes 0 argument(s)" would only mislead.
+			want := fmt.Sprintf("%d", arity-missing)
+			if variadic {
+				want = fmt.Sprintf("at least %d", arity-1)
+			}
+			c.diags.Add(diag.Error("E0401",
+				fmt.Sprintf("the Go callee takes %s argument(s), got %d", want, len(gargs))).
+				At(e.Sp).Set("expected", want).Set("actual", fmt.Sprintf("%d", len(gargs))))
 		}
-		c.diags.Add(diag.Error("E0401",
-			fmt.Sprintf("the Go callee takes %s argument(s), got %d", want, len(gargs))).
-			At(e.Sp).Set("expected", want).Set("actual", fmt.Sprintf("%d", len(gargs))))
 	}
 
 	// ArgToParam is representable only when every argument resolved

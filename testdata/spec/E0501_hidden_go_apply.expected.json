@@ -1,0 +1,28 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0501",
+      "severity": "error",
+      "message": "Go symbol `slices.Contains` is not exposed: generic Go functions are not supported yet",
+      "span": {
+        "file": "E0501_hidden_go_apply.gom",
+        "start": {
+          "line": 9,
+          "col": 10,
+          "offset": 223
+        },
+        "end": {
+          "line": 9,
+          "col": 18,
+          "offset": 231
+        }
+      },
+      "data": {
+        "package": "slices",
+        "reason": "generic Go functions are not supported yet",
+        "symbol": "Contains"
+      }
+    }
+  ]
+}

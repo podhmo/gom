@@ -64,6 +64,18 @@ func (c *checker) untypedMeta() types.Type {
 	return &types.Meta{ID: -1}
 }
 
+// pos supplies a fallback span for diagnostics whose natural site is
+// positionless — a meta created away from the source (an implicit
+// test-boundary result, a recovered unknown) still gets reported
+// somewhere readable rather than at offset 0. The file's own span is
+// the least surprising such site.
+func (c *checker) pos(sp diag.Span) diag.Span {
+	if sp.IsZero() && c.res != nil && c.res.File != nil {
+		return c.res.File.Sp
+	}
+	return sp
+}
+
 // checker is the per-file state of the type checker.
 type checker struct {
 	res *resolve.Resolved
@@ -98,8 +110,32 @@ type checker struct {
 	bounds  []boundary
 	goDepth int
 
+	// errMethod is the synthetic symbol for `GoError.Error` —
+	// created on first use by goErrMethodSym.
+	errMethod *resolve.Symbol
+
 	imports []Import
 	decls   []Decl
+}
+
+// goErrMethodSym returns the symbol standing for GoError's
+// `Error() string` method — the one member the builtin `error`
+// interface carries. It is minted once per file and registered in
+// vals like an extern signature, so signature lookup, CallGo
+// classification and member codegen treat it as an ordinary Go
+// method. `e.Error` is a receiver-free `() -> String`.
+func (c *checker) goErrMethodSym() *resolve.Symbol {
+	if c.errMethod == nil {
+		sym := &resolve.Symbol{
+			Name:    "Error",
+			Kind:    resolve.KindMethod,
+			IsGo:    true,
+			Package: "builtin",
+		}
+		c.errMethod = sym
+		c.vals[sym] = types.Fn(types.String)
+	}
+	return c.errMethod
 }
 
 // boundary is one `try` escape target: the innermost enclosing
@@ -193,10 +229,12 @@ func (c *checker) sigOf(sym *resolve.Symbol) (Signature, bool) {
 // evaporating into a fresh meta.
 func (c *checker) valOf(sym *resolve.Symbol, sp diag.Span) types.Type {
 	if sym == nil {
-		return c.newMeta(sp, "an unresolved name")
+		// The resolver's E0201 already reports the name; the
+		// recovery meta must not add an E0407 of its own.
+		return c.quietMeta(sp, "an unresolved name")
 	}
 	if c.hiddenDiag(sym, sp) {
-		return c.newMeta(sp, fmt.Sprintf("the type of `%s`", sym.Name))
+		return c.quietMeta(sp, fmt.Sprintf("the type of `%s`", sym.Name))
 	}
 	if sig, ok := c.sigOf(sym); ok {
 		if _, local := c.vals[sym]; local && sym.Kind == resolve.KindVar {
@@ -388,14 +426,23 @@ func (c *checker) checkTestDecl(d *syntax.TestDecl) {
 	// when a try fixed it) so its metas do not stay dangling.
 	if bt := types.Chase(ret); isCon(bt, "Result") {
 		var lifted types.Type
+		var errT types.Type
 		if isCon(types.Chase(body.Type()), "Result") {
 			lifted = body.Type()
 		} else {
-			lifted = types.Result(body.Type(), c.newMeta(body.Span(), "the test's error type"))
+			errT = c.newMeta(body.Span(), "the test's error type")
+			lifted = types.Result(body.Type(), errT)
 		}
-		c.unify(ret, lifted, body.Span())
+		if !c.unify(ret, lifted, body.Span()) {
+			c.markQuiet(ret)
+			// The lifted error meta never saw a constraint — the
+			// boundary mismatch is the whole story.
+			c.markQuiet(errT)
+		}
 	} else {
-		c.unify(ret, body.Type(), body.Span())
+		if !c.unify(ret, body.Type(), body.Span()) {
+			c.markQuiet(ret)
+		}
 	}
 	switch t := types.Chase(body.Type()).(type) {
 	case *types.Con:

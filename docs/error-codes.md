@@ -581,15 +581,16 @@ select {
 }
 ```
 
-### E0705 — select has no arms
+### E0705 — empty select
 
 **Severity:** error · **Phase:** check · **Spec:** §10
 
-A select expression needs at least one arm — each arm maps
-one-to-one onto a Go select case, so an empty select has no meaning.
+A select expression requires at least one arm. The empty form
+"select {}" would lower to Go's "select {}", which blocks forever —
+hardly ever the intent, and never a value-producing expression.
 
 ```gom
-select {}
+fn poll () -> Int = select {}   // write at least one arm
 ```
 
 ### W0701 — channel of mutable element type

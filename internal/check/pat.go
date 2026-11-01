@@ -29,7 +29,9 @@ func (c *checker) checkPat(p syntax.Pat, want types.Type) Pat {
 		return &VarPat{Base: baseOf(p.Sp, want), Sym: sym}
 	case *syntax.LitPat:
 		lt := c.litType(p.Lit)
-		c.unify(want, lt, p.Sp)
+		if !c.unify(want, lt, p.Sp) {
+			c.markQuiet(lt)
+		}
 		return &LitPat{Base: baseOf(p.Sp, want), Kind: p.Lit.Kind, Text: p.Lit.Text}
 	case *syntax.CtorPat:
 		return c.checkCtorPat(p, want)
@@ -111,8 +113,15 @@ func (c *checker) checkCtorPat(p *syntax.CtorPat, want types.Type) Pat {
 		return out
 	}
 	out.Ctor = vi.sym
-	params, ret := c.ctorParams(vi)
-	c.unify(want, ret, p.Sp)
+	params, ret, targs := c.ctorParams(vi, p.Sp)
+	if !c.unify(want, ret, p.Sp) {
+		// The constructor's instantiation arguments can no longer
+		// solve — a `Some v` pattern against a Tuple subject says
+		// nothing about `a`; silence them under the mismatch.
+		for _, t := range targs {
+			c.markQuiet(t)
+		}
+	}
 	out.Rest = p.Rest
 
 	if len(p.Fields) != 0 {
@@ -126,7 +135,7 @@ func (c *checker) checkCtorPat(p *syntax.CtorPat, want types.Type) Pat {
 				c.diags.Add(diag.Error("E0401",
 					fmt.Sprintf("`%s` has no field named `%s`", vi.sym.Name, fname)).
 					At(f.Sp).Set("ctor", vi.sym.Name).Set("field", fname))
-				out.Fields = append(out.Fields, c.fieldPatOf(f, c.newMeta(f.Sp, "the field's type"), nil, -1))
+				out.Fields = append(out.Fields, c.fieldPatOf(f, c.quietMeta(f.Sp, "the field's type"), nil, -1))
 				continue
 			}
 			ft := params[fi.index].Type
@@ -172,7 +181,9 @@ func (c *checker) checkCtorPat(p *syntax.CtorPat, want types.Type) Pat {
 			used[fi.index] = true
 			pt = params[fi.index].Type
 		} else {
-			pt = c.newMeta(a.Sp, "the constructor argument's type")
+			// The argument's own diagnostic (E0405/E0406, or the
+			// too-many mismatch) already ran.
+			pt = c.quietMeta(a.Sp, "the constructor argument's type")
 		}
 		out.Args = append(out.Args, CtorArg{Label: label, Pat: c.checkPat(a.Pat, pt)})
 	}
@@ -326,9 +337,11 @@ func (c *checker) builtinVariant(sym *resolve.Symbol, sig Signature) *variantInf
 	return vi
 }
 
-// ctorParams instantiates a variant's signature: it returns the
-// payload parameter list and the constructed (parent) type.
-func (c *checker) ctorParams(vi *variantInfo) ([]types.FuncParam, types.Type) {
+// ctorParams instantiates a variant's signature at the use site sp:
+// it returns the payload parameter list, the constructed (parent)
+// type, and the instantiation's type arguments — the metas a failed
+// subject unify may need to silence.
+func (c *checker) ctorParams(vi *variantInfo, sp diag.Span) ([]types.FuncParam, types.Type, []types.Type) {
 	var sig types.Type
 	if s, ok := c.sigOf(vi.sym); ok {
 		sig = s.Type
@@ -343,9 +356,9 @@ func (c *checker) ctorParams(vi *variantInfo) ([]types.FuncParam, types.Type) {
 	} else if vi.parent != nil {
 		sig = vi.parent.con
 	}
-	t, _ := c.instantiate(sig, vi.sp)
+	t, targs := c.instantiate(sig, sp)
 	params, ret := flattenFunc(t)
-	return params, ret
+	return params, ret, targs
 }
 
 // fieldByName finds a payload slot by pattern name.
@@ -407,7 +420,7 @@ func (c *checker) tupleElems(want types.Type, n int, sp diag.Span) []types.Type 
 			c.mismatch(sp, fmt.Sprintf("a %d-tuple", n), want)
 			ms := make([]types.Type, n)
 			for i := range ms {
-				ms[i] = c.newMeta(sp, "a tuple element")
+				ms[i] = c.quietMeta(sp, "a tuple element")
 			}
 			return ms
 		}
@@ -419,13 +432,17 @@ func (c *checker) tupleElems(want types.Type, n int, sp diag.Span) []types.Type 
 			ms[i] = c.newMeta(sp, "a tuple element")
 			elems[i] = ms[i]
 		}
-		c.bind(t, types.Tup(elems...), sp)
+		if !c.bind(t, types.Tup(elems...), sp) {
+			for i := range ms {
+				c.markQuiet(ms[i])
+			}
+		}
 		return ms
 	case *types.Var, *types.Con, *types.Func, *types.Go:
 		c.mismatch(sp, fmt.Sprintf("a %d-tuple", n), want)
 		ms := make([]types.Type, n)
 		for i := range ms {
-			ms[i] = c.newMeta(sp, "a tuple element")
+			ms[i] = c.quietMeta(sp, "a tuple element")
 		}
 		return ms
 	default:
@@ -442,14 +459,16 @@ func (c *checker) listElem(want types.Type, sp diag.Span) types.Type {
 			return t.Args[0]
 		}
 		c.mismatch(sp, "List", want)
-		return c.newMeta(sp, "the element type")
+		return c.quietMeta(sp, "the element type")
 	case *types.Meta:
 		elem := c.newMeta(sp, "the element type")
-		c.bind(t, types.List(elem), sp)
+		if !c.bind(t, types.List(elem), sp) {
+			c.markQuiet(elem)
+		}
 		return elem
 	case *types.Var, *types.Func, *types.Tuple, *types.Go:
 		c.mismatch(sp, "List", want)
-		return c.newMeta(sp, "the element type")
+		return c.quietMeta(sp, "the element type")
 	default:
 		panic("unreachable")
 	}

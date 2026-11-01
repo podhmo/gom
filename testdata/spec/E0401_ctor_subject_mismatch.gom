@@ -1,0 +1,14 @@
+package ex
+
+import go "os"
+
+// A constructor pattern against a non-variant subject reports one
+// E0401 per arm; the constructor's unsolved instantiation arguments
+// stay quiet instead of adding E0407s.
+fn f () -> Unit = {
+  let r = os.LookupEnv("HOME")
+  match r {
+    Some v -> ()
+    None -> ()
+  }
+}
