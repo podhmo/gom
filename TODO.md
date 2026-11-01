@@ -60,7 +60,7 @@
   - [x] **P1-2b** IR 側（Core IR + 不変条件 validator）。`Func.Sig`=canonical flat/`Params`=宣言 arity、`ResidualType()`、呼び出し分類はノード型で固定
 - [x] **P1-3 字句解析・構文解析 `internal/syntax`**: 再帰下降＋Pratt 法。並置の適用、パイプ類の優先順位、改行の規則、波括弧の曖昧さ、エラー回復。コメントと空行を trivia として保持する。依存: P1-2, D-1。実装時の解釈は [decisions/p1-3-parser-interpretations](docs/decisions/2026-11-02-p1-3-parser-interpretations.md)、未解決の文法ギャップは docs/problems/2026-11-02-* を参照
 - [x] **P1-4 名前解決 `internal/resolve`**: スコープ、シャドーイング、モジュール参照、未定義名の診断。Go パッケージの読み込みは P1-9 で足す。依存: P1-2
-- [ ] **P1-5 単相の型検査と ADT `internal/check`**: 型付き AST を作る。組み込み型、ADT、レコード、`if`/`match`/ブロックの型、ブロック途中の非 `Unit` 式のエラー（[spec 1.1](docs/spec.md)）、算術演算子の型の確定。依存: P1-2
+- [x] **P1-5 単相の型検査と ADT `internal/check`**: 型付き AST を作る。組み込み型、ADT、レコード、`if`/`match`/ブロックの型、ブロック途中の非 `Unit` 式のエラー（[spec 1.1](docs/spec.md)）、算術演算子の型の確定。依存: P1-2
 - [ ] **P1-6 網羅性・冗長性の検査 `internal/pattern`**: Maranget の usefulness で判定し、反例を先頭 5 件まで生成する。ガード付きの腕の扱いを含む（[design.md 4.2](docs/design.md)）。`E0301` の診断と `fixes` を出す。依存: P1-2
 - [ ] **P1-7 脱糖と決定木コンパイル `internal/lower`**: 型付き AST → Core IR。パイプの展開、ANF 化、match の決定木化、自己末尾再帰の検出、arity の分類。出力は P1-2 の validator を必ず通す。依存: P1-2
 - [ ] **P1-8 Go コード生成 `internal/codegen`**: Core IR → go/ast。宛先渡し（`Return` / `Assign` / `Discard`）、type switch、ADT の不正値に対する `rt.InvalidVariant`、`//line` の付与、`go/printer` による出力。ADT の表現は P0-1 の結論に従う（それまでは design.md 4.1 の案で進めてよい）。依存: P1-2

@@ -674,6 +674,20 @@ matching Go's select.`,
 }`,
 	},
 	{
+		Code:     "E0704",
+		Severity: SeverityError,
+		Title:    "select receive arm must bind a variable or _",
+		Phase:    PhaseCheck,
+		Spec:     "10",
+		Explanation: `The left side of a select receive arm "x <- ch" may only be a
+variable or "_" (spec section 10.5) — every arm maps one-to-one onto a
+Go select case, so a destructuring pattern cannot be decided there.
+Match on the received "Option a" value in the arm's body instead.`,
+		Example: `select {
+  Some job <- jobs -> work job   // write: r <- jobs -> match r { ... }
+}`,
+	},
+	{
 		Code:     "E0801",
 		Severity: SeverityError,
 		Title:    "invalid test body type",

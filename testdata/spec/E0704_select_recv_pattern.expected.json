@@ -1,0 +1,10 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0704",
+      "severity": "error",
+      "message": "a select receive arm must bind a variable or `_`, not a destructuring pattern"
+    }
+  ]
+}

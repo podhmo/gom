@@ -59,6 +59,7 @@
 | [error-code-table](2026-11-02-error-code-table.md) | Error-code table and numbering scheme (D-2) | 採用 |
 | [eval-value-model](2026-11-02-eval-value-model.md) | Value model of the typed-AST evaluator (internal/eval) | draft |
 | [import-go-loader-seam](2026-11-02-import-go-loader-seam.md) | The package-loader seam for `import` and `import go` | draft |
+| [monomorphic-checker-design](2026-11-02-monomorphic-checker-design.md) | Design of the P1 monomorphic checker | draft |
 | [name-resolution](2026-11-02-name-resolution.md) | Name resolution: scopes, shadowing, and constructor lookup | draft |
 | [p1-3-parser-interpretations](2026-11-02-p1-3-parser-interpretations.md) | P1-3 parser: interpretations made while implementing grammar.ebnf | 採用 |
 | [sumtype-exhaustiveness-tool](2026-11-02-sumtype-exhaustiveness-tool.md) | Exhaustiveness checker for sealed interfaces (B-3) | 採用 |

@@ -1,0 +1,10 @@
+package main
+
+type Job = | Job (id: Int)
+
+fn poll (jobs: Chan Job) -> Int =
+  select {
+    Some j <- jobs -> j
+    _ <- jobs -> 0
+    default -> -1
+  }

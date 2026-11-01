@@ -566,6 +566,21 @@ select {
 }
 ```
 
+### E0704 — select receive arm must bind a variable or _
+
+**Severity:** error · **Phase:** check · **Spec:** §10
+
+The left side of a select receive arm "x <- ch" may only be a
+variable or "_" (spec section 10.5) — every arm maps one-to-one onto a
+Go select case, so a destructuring pattern cannot be decided there.
+Match on the received "Option a" value in the arm's body instead.
+
+```gom
+select {
+  Some job <- jobs -> work job   // write: r <- jobs -> match r { ... }
+}
+```
+
 ### W0701 — channel of mutable element type
 
 **Severity:** warning · **Phase:** lint · **Spec:** §10
