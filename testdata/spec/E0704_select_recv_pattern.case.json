@@ -1,3 +1,0 @@
-{
-  "skip": "needs the parser (P1-3); the check is covered by internal/check tests (TestSelectRecvArmCtorPat)"
-}

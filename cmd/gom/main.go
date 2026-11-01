@@ -1,11 +1,10 @@
 // Command gom is the CLI of the Gom compiler, which transpiles Gom
 // sources to Go.
 //
-// This is a placeholder: it validates the subcommand and prints usage,
-// but no command is implemented yet. Real functionality lives in the
-// internal packages (see docs/design.md section 3) and is wired up here
-// as the compiler grows — this command stays a thin layer over
-// internal/build and internal/format.
+// build, check, and dump are implemented; the rest of the commands
+// listed in usage are planned (docs/design.md section 3). The command
+// stays a thin layer over internal/build and internal/diag: cli.go
+// holds flag parsing, file walking, and message-stream emission.
 package main
 
 import (
@@ -25,48 +24,24 @@ The commands are:
 
 	build     compile .gom files and emit .go
 	check     type-check without emitting code
-	test      run tests written in .gom files
-	fmt       format .gom files
-	fix       apply safe suggested fixes
-	gomi      check or generate .gomi interface files
-	explain   explain an error code
-	schema    print the JSON Schema of the message format
+	dump      print a compiler phase's IR (developer tool)
+	test      run tests written in .gom files (not implemented yet)
+	fmt       format .gom files (not implemented yet)
+	fix       apply safe suggested fixes (not implemented yet)
+	gomi      check or generate .gomi interface files (not implemented yet)
+	explain   explain an error code (not implemented yet)
+	schema    print the JSON Schema of the message format (not implemented yet)
 
-Run "gom <command> -h" for command-specific help (not implemented yet).
+Run "gom <command> -h" for command-specific help.
 `
-
-// subcommands are the commands gom will eventually support
-// (docs/design.md section 3). They are declared now only so the CLI can
-// validate its arguments and print usage.
-var subcommands = []string{
-	"build",
-	"check",
-	"test",
-	"fmt",
-	"fix",
-	"gomi",
-	"explain",
-	"schema",
-}
-
-// isSubcommand reports whether arg names a known subcommand.
-func isSubcommand(arg string) bool {
-	for _, c := range subcommands {
-		if arg == c {
-			return true
-		}
-	}
-	return false
-}
 
 // run executes the CLI with the given arguments (excluding the program
 // name) and returns the process exit code. Output goes to stdout and
 // stderr so tests can capture it.
 //
-// Exit codes follow the go tool's convention: 0 for success, 2 for usage
-// errors and unimplemented commands. Once commands are implemented,
-// compiler diagnostics will use the spec's codes (0 success, 1 diagnostic
-// errors, 2 internal error — spec section 12).
+// Exit codes follow spec section 12: 0 for success, 1 when the source
+// had error diagnostics, 2 for usage errors, unreadable inputs, and
+// internal failures.
 func run(args []string, stdout, stderr io.Writer) int {
 	if len(args) == 0 {
 		fmt.Fprint(stderr, usage)
@@ -77,15 +52,19 @@ func run(args []string, stdout, stderr io.Writer) int {
 	case "-h", "--help", "help":
 		fmt.Fprint(stdout, usage)
 		return 0
-	}
-
-	if !isSubcommand(args[0]) {
-		fmt.Fprintf(stderr, "gom: unknown command %q\n\n", args[0])
-		fmt.Fprint(stderr, usage)
+	case "build":
+		return runBuild(args[1:], stdout, stderr)
+	case "check":
+		return runCheck(args[1:], stdout, stderr)
+	case "dump":
+		return runDump(args[1:], stdout, stderr)
+	case "test", "fmt", "fix", "gomi", "explain", "schema":
+		fmt.Fprintf(stderr, "gom %s: not implemented yet\n", args[0])
 		return 2
 	}
 
-	fmt.Fprintf(stderr, "gom %s: not implemented yet\n", args[0])
+	fmt.Fprintf(stderr, "gom: unknown command %q\n\n", args[0])
+	fmt.Fprint(stderr, usage)
 	return 2
 }
 

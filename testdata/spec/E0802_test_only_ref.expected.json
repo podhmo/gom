@@ -7,10 +7,20 @@
       "message": "`helper` is test-only and cannot be referenced from non-test code",
       "span": {
         "file": "E0802_test_only_ref.gom",
-        "start": { "line": 7, "col": 3, "offset": 65 },
-        "end": { "line": 7, "col": 9, "offset": 71 }
+        "start": {
+          "line": 7,
+          "col": 3,
+          "offset": 65
+        },
+        "end": {
+          "line": 7,
+          "col": 9,
+          "offset": 71
+        }
       },
-      "data": { "name": "helper" }
+      "data": {
+        "name": "helper"
+      }
     }
   ]
 }

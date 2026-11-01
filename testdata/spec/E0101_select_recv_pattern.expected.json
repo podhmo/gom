@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0101",
+      "severity": "error",
+      "message": "expected a select arm (\"send\", \"default\", or \"name <-\"), found identifier 'Some'",
+      "span": {
+        "file": "E0101_select_recv_pattern.gom",
+        "start": {
+          "line": 7,
+          "col": 5,
+          "offset": 91
+        },
+        "end": {
+          "line": 7,
+          "col": 9,
+          "offset": 95
+        }
+      }
+    }
+  ]
+}

@@ -18,8 +18,10 @@ func TestRun(t *testing.T) {
 		{"--help shows usage", []string{"--help"}, 0, "Usage:", ""},
 		{"help shows usage", []string{"help"}, 0, "Usage:", ""},
 		{"unknown command fails", []string{"bogus"}, 2, "", `unknown command "bogus"`},
-		{"known command is a stub", []string{"build"}, 2, "", "not implemented"},
-		{"extra args after known command", []string{"check", "-h"}, 2, "", "not implemented"},
+		{"check -h prints its usage", []string{"check", "-h"}, 0, "", "Usage of check"},
+		{"check -format typo is a usage error", []string{"check", "-fmt"}, 2, "", "flag provided but not defined"},
+		{"missing input file", []string{"check", "no/such/file.gom"}, 2, "", "no such file"},
+		{"nonexistent dir", []string{"check", "no/such/dir/"}, 2, "", "no such file"},
 	}
 
 	for _, tt := range tests {
@@ -47,17 +49,17 @@ func TestUsageListsAllSubcommands(t *testing.T) {
 	if code := run([]string{"-h"}, &stdout, &strings.Builder{}); code != 0 {
 		t.Fatalf("run(-h) exit code = %d, want 0", code)
 	}
-	for _, c := range subcommands {
+	for _, c := range []string{"build", "check", "dump", "test", "fmt", "fix", "gomi", "explain", "schema"} {
 		if !strings.Contains(stdout.String(), c) {
 			t.Errorf("usage text does not list subcommand %q", c)
 		}
 	}
 }
 
-// TestAllSubcommandsAreDispatched ensures every declared subcommand is
-// recognized (as a stub) rather than reported as unknown.
-func TestAllSubcommandsAreDispatched(t *testing.T) {
-	for _, c := range subcommands {
+// TestUnimplementedSubcommandsAreDispatched ensures every planned
+// subcommand is recognized rather than reported as unknown.
+func TestUnimplementedSubcommandsAreDispatched(t *testing.T) {
+	for _, c := range []string{"test", "fmt", "fix", "gomi", "explain", "schema"} {
 		var stderr strings.Builder
 		code := run([]string{c}, &strings.Builder{}, &stderr)
 		if code != 2 || !strings.Contains(stderr.String(), "not implemented") {

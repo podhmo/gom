@@ -14,3 +14,5 @@ fn eval (e: Expr) -> Int =
     Neg (Neg x) -> eval x
     Neg x if is_zero x -> 0
   }
+
+fn is_zero (e: Expr) -> Bool = false

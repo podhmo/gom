@@ -52,6 +52,7 @@
 | [value-representation](2026-11-01-value-representation.md) | 値の表現（ADT・List・Result） | 採用（P0-1・P0-3・P0-4 の実験で決定） |
 | [value-restriction](2026-11-01-value-restriction.md) | 一般化は value restriction 付き | 採用 |
 | [ast-representation](2026-11-02-ast-representation.md) | Placement and shape of the pre-Core intermediate representations | draft |
+| [build-driver](2026-11-02-build-driver.md) | The P1-11 build driver: error boundaries, compilation unit, and CLI shape | 採用 |
 | [ci-check-scope](2026-11-02-ci-check-scope.md) | Scope of CI checks and `make check` (B-2) | 採用 |
 | [core-ir-node-inventory](2026-11-02-core-ir-node-inventory.md) | Core IR node inventory and validator | draft |
 | [diag-internal-model](2026-11-02-diag-internal-model.md) | Shape of the internal diagnostic model (internal/diag) | 採用 |

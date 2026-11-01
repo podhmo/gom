@@ -7,10 +7,22 @@
       "message": "cannot resolve import \"no/such/pkg\"",
       "span": {
         "file": "E0203_import_missing.gom",
-        "start": { "line": 3, "col": 8, "offset": 19 },
-        "end": { "line": 3, "col": 21, "offset": 32 }
+        "start": {
+          "line": 3,
+          "col": 8,
+          "offset": 19
+        },
+        "end": {
+          "line": 3,
+          "col": 21,
+          "offset": 32
+        }
       },
-      "data": { "path": "no/such/pkg", "go": false }
+      "data": {
+        "go": false,
+        "path": "no/such/pkg",
+        "reason": "package \"no/such/pkg\" not found"
+      }
     }
   ]
 }

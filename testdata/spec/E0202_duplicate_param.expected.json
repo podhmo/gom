@@ -7,10 +7,25 @@
       "message": "duplicate definition of `x`",
       "span": {
         "file": "E0202_duplicate_param.gom",
-        "start": { "line": 3, "col": 8, "offset": 19 },
-        "end": { "line": 3, "col": 9, "offset": 20 }
+        "start": {
+          "line": 3,
+          "col": 16,
+          "offset": 27
+        },
+        "end": {
+          "line": 3,
+          "col": 17,
+          "offset": 28
+        }
       },
-      "data": { "name": "x" }
+      "data": {
+        "first_defined_at": {
+          "end": 19,
+          "file": "E0202_duplicate_param.gom",
+          "start": 18
+        },
+        "name": "x"
+      }
     }
   ]
 }

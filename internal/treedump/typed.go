@@ -187,6 +187,10 @@ func (d *dumper) call(c check.CallInfo) *form {
 // --- typed expressions ---
 
 func (d *dumper) texpr(e check.Expr) *form {
+	if e == nil {
+		// .gomi signatures leave FnDecl.Body nil.
+		return nodef("?")
+	}
 	switch e := e.(type) {
 	case *check.Lit:
 		return nodef(head("lit", e.Base) + " " + e.Kind.String() + " " + atom(e.Text))
