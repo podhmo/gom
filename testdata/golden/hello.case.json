@@ -1,0 +1,3 @@
+{
+  "skip": "no compiler pipeline yet (P1-3 onwards); the .golden.go file is a hand-written sketch of the intended output"
+}

@@ -1,0 +1,34 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0301",
+      "severity": "error",
+      "message": "non-exhaustive match on `Expr`",
+      "span": {
+        "file": "E0301_nonexhaustive_match.gom",
+        "start": { "line": 10, "col": 3, "offset": 149 },
+        "end": { "line": 16, "col": 4, "offset": 290 }
+      },
+      "data": {
+        "scrutinee_type": "Expr",
+        "missing_patterns": ["Neg (Num _)", "Neg (Add _ _)", "Neg (Let _ _ _)", "Let _ _ _"]
+      },
+      "notes": ["arms with guards do not count toward exhaustiveness"],
+      "fixes": [
+        {
+          "title": "add the missing arms",
+          "applicability": "placeholder",
+          "edits": [
+            {
+              "file": "E0301_nonexhaustive_match.gom",
+              "start": { "line": 16, "col": 3, "offset": 289 },
+              "end": { "line": 16, "col": 3, "offset": 289 },
+              "text": "  Neg (Num _) -> todo ()\n    Neg (Add _ _) -> todo ()\n    Neg (Let _ _ _) -> todo ()\n    Let _ _ _ -> todo ()\n  "
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

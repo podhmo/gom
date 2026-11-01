@@ -1,0 +1,16 @@
+package eval
+
+type Expr =
+  | Num Int
+  | Add Expr Expr
+  | Neg Expr
+  | Let (name: String) (value: Expr) (body: Expr)
+
+fn eval (e: Expr) -> Int =
+  match e {
+    Num n -> n
+    Add (Num 0) r -> eval r
+    Add l r -> eval l + eval r
+    Neg (Neg x) -> eval x
+    Neg x if is_zero x -> 0
+  }

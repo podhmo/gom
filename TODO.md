@@ -27,7 +27,7 @@
 - [x] **B-1 Go モジュールとディレクトリの初期化**: `go.mod`（`go 1.27`）、[design.md 3 章](docs/design.md) のディレクトリ構成の空パッケージ、`cmd/gom` の空の CLI。各パッケージに `doc.go` で役割を書く
 - [x] **B-2 CI とチェックスクリプト**: GitHub Actions で `gofmt -l`、`go vet`、`go test -race` を回す。ローカル用に同じ内容の `make check`（またはスクリプト）を用意する。依存: B-1
 - [x] **B-3 sealed interface の網羅性検査**: go-sumtype 相当のツール（現状を調査して [docs/sketch/](docs/sketch/) に記録）を CI に入れ、AST にバリアントを足したときに CI が失敗することを確かめるテストを置く。Go 1.27 とジェネリック型への対応も確認する（[design.md 2.4](docs/design.md)）。依存: B-2
-- [ ] **B-4 テストハーネス**: `testdata/spec/`（規則ごとの `.gom` と期待する診断 JSON）と `testdata/golden/`（生成 Go コード）を読むテストランナーと `-update` フラグ。まだ通らないケースを skip として置ける仕組みを含む。依存: B-1, D-1
+- [x] **B-4 テストハーネス**: `testdata/spec/`（規則ごとの `.gom` と期待する診断 JSON）と `testdata/golden/`（生成 Go コード）を読むテストランナーと `-update` フラグ。まだ通らないケースを skip として置ける仕組みを含む。依存: B-1, D-1
 - [ ] **B-5 sealed interface への `//sumtype:decl` 適用**: `internal/{syntax,check,types}` の sealed interface に注釈を付けて網羅性検査を有効化し、`internal/syntax/expr_test.go` の部分プローブ switch 2 件（fork は `_test.go` も検査する）を型アサーションに書き換える（[sketch の findings](docs/sketch/2026-11-02-sumtype-check-selection.md)）。依存: P1-2a, B-3
 
 ### ドキュメント

@@ -1,0 +1,6 @@
+package main
+
+import go "fmt"
+
+fn main () -> Unit =
+  fmt.Println("hello")

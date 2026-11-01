@@ -1,0 +1,18 @@
+package shapes
+
+import go "fmt"
+
+type Shape =
+  | Circle (radius: Float)
+  | Rect (w: Float) (h: Float)
+  | Empty
+
+fn area (s: Shape) -> Float =
+  match s {
+    Circle r -> 3.14159 * r * r
+    Rect w h -> w * h
+    Empty -> 0.0
+  }
+
+fn main () -> Unit =
+  fmt.Println(area (Circle 1.0))
