@@ -30,7 +30,7 @@
 - [x] **B-4 テストハーネス**: `testdata/spec/`（規則ごとの `.gom` と期待する診断 JSON）と `testdata/golden/`（生成 Go コード）を読むテストランナーと `-update` フラグ。まだ通らないケースを skip として置ける仕組みを含む。依存: B-1, D-1
 - [x] **B-5 sealed interface への `//sumtype:decl` 適用**: `internal/{syntax,check,types}` の sealed interface に注釈を付けて網羅性検査を有効化し、`internal/syntax/expr_test.go` の部分プローブ switch 2 件（fork は `_test.go` も検査する）を型アサーションに書き換える（[sketch の findings](docs/sketch/2026-11-02-sumtype-check-selection.md)）。依存: P1-2a, B-3
 - [x] **B-6 中間表現のテキストダンパー**: `syntax.File`/`check.File`/`types`/`core.File` に S式風の安定したテキスト `Dump` を用意し、フェーズ単体のゴールデンテストを可能にする（どのフェーズで壊れたかを分離できる）。`core` は P1-2b マージ後のフォローアップでよい。依存: P1-2a
-- [ ] **B-8 `DumpCore` と dump の gomtest 配線**: `internal/treedump` に `core.File` 用の `DumpCore` を追加し、フェーズ別 `.dump` ゴールデン fixture を `gomtest` で扱えるようにする（どのフェーズで壊れたか分離できる）。依存: B-6, P1-2b
+- [x] **B-8 `DumpCore` と dump の gomtest 配線**: `internal/treedump` に `core.File` 用の `DumpCore` を追加し、フェーズ別 `.dump` ゴールデン fixture を `gomtest` で扱えるようにする（どのフェーズで壊れたか分離できる）。依存: B-6, P1-2b
 - [x] **B-7 decisions README 同期ジェネレータ**: `internal/diag/codes_doc.go` と同じパターン（`go:generate` でレンダリング → テストで一致を強制）を `docs/decisions/` の frontmatter（状態/日付/タイトル）→ `docs/decisions/README.md` 一覧に適用し、手動同期を廃止する。依存: なし
 
 ### ドキュメント

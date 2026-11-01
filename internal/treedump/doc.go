@@ -1,7 +1,7 @@
 // Package treedump renders the compiler's intermediate
 // representations — the surface AST, the resolved AST with its symbol
-// tables, the typed AST, and types — as stable S-expression-style
-// text for golden tests and debugging.
+// tables, the typed AST, the Core IR, and types — as stable
+// S-expression-style text for golden tests and debugging.
 //
 // One node of the printed tree is `(head fields...)` with children
 // indented two spaces, e.g.

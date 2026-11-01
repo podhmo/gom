@@ -6,15 +6,25 @@
 //
 // # Suites
 //
-// Each suite is a directory of cases discovered by walking for *.gom
-// files (recursively). A case is named by its path relative to the
-// suite directory without the .gom extension; '/' in the name nests
-// subtests. Files and directories whose base name starts with '_' or
-// '.' are ignored, which leaves room for multi-file fixtures shared
-// between cases.
+// The spec and golden suites discover cases by walking a directory
+// for *.gom files (recursively). A case is named by its path relative
+// to the suite directory without the .gom extension; '/' in the name
+// nests subtests. Files and directories whose base name starts with
+// '_' or '.' are ignored, which leaves room for multi-file fixtures
+// shared between cases.
 //
 //	testdata/spec/    — expected-diagnostics cases (spec section 12)
 //	testdata/golden/  — generated-Go golden cases
+//	testdata/dump/    — phase-IR dump cases (see below)
+//
+// # Dump suite
+//
+// The dump suite (RunDumpTests) is different: there is no .gom input.
+// The caller registers a map of named generators, one per case; the
+// name "<phase>/<case>" maps to <dir>/<phase>/<case>.dump holding the
+// generator's expected text — conventionally a treedump rendering of
+// a phase's IR. Fixture files on disk with no registered generator
+// are orphan errors, so deleting a generator deletes its fixture.
 //
 // # Case files
 //
