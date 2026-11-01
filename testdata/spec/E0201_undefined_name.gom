@@ -1,0 +1,4 @@
+package ex
+
+fn f (x: Int) -> Int =
+  y + 1

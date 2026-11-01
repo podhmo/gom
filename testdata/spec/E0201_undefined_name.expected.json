@@ -1,0 +1,16 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0201",
+      "severity": "error",
+      "message": "undefined name `y`",
+      "span": {
+        "file": "E0201_undefined_name.gom",
+        "start": { "line": 4, "col": 3, "offset": 37 },
+        "end": { "line": 4, "col": 4, "offset": 38 }
+      },
+      "data": { "name": "y", "namespace": "value" }
+    }
+  ]
+}

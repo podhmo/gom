@@ -1,0 +1,9 @@
+package ex
+
+type T = | Known
+
+fn f (s: T) -> Int =
+  match s {
+    Unknown -> 0
+    Known -> 1
+  }

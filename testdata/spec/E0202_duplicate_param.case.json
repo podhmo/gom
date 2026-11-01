@@ -1,0 +1,3 @@
+{
+  "skip": "needs the parser (P1-3); the resolver emits these diagnostics for the AST this parses to"
+}

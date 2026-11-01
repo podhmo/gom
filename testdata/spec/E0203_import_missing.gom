@@ -1,0 +1,5 @@
+package ex
+
+import "no/such/pkg"
+
+fn f () -> Int = 1

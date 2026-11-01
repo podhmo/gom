@@ -1,0 +1,3 @@
+package ex
+
+fn f x x = x

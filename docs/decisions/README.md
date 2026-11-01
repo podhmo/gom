@@ -58,6 +58,8 @@
 | [diag-output-formats](2026-11-02-diag-output-formats.md) | Diagnostic output formats: JSON Lines and text emitters (P1-10) | draft |
 | [error-code-table](2026-11-02-error-code-table.md) | Error-code table and numbering scheme (D-2) | 採用 |
 | [eval-value-model](2026-11-02-eval-value-model.md) | Value model of the typed-AST evaluator (internal/eval) | draft |
+| [import-go-loader-seam](2026-11-02-import-go-loader-seam.md) | The package-loader seam for `import` and `import go` | draft |
+| [name-resolution](2026-11-02-name-resolution.md) | Name resolution: scopes, shadowing, and constructor lookup | draft |
 | [sumtype-exhaustiveness-tool](2026-11-02-sumtype-exhaustiveness-tool.md) | Exhaustiveness checker for sealed interfaces (B-3) | 採用 |
 | [test-harness](2026-11-02-test-harness.md) | テストハーネスの配置とファイル規約 (internal/gomtest) | 採用 |
 | [treedump-format](2026-11-02-treedump-format.md) | IR テキストダンプ形式 (internal/treedump) | draft |

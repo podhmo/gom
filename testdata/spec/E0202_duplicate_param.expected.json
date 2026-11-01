@@ -1,0 +1,16 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0202",
+      "severity": "error",
+      "message": "duplicate definition of `x`",
+      "span": {
+        "file": "E0202_duplicate_param.gom",
+        "start": { "line": 3, "col": 8, "offset": 19 },
+        "end": { "line": 3, "col": 9, "offset": 20 }
+      },
+      "data": { "name": "x" }
+    }
+  ]
+}

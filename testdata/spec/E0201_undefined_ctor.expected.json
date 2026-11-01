@@ -1,0 +1,16 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0201",
+      "severity": "error",
+      "message": "undefined constructor `Unknown`",
+      "span": {
+        "file": "E0201_undefined_ctor.gom",
+        "start": { "line": 7, "col": 5, "offset": 67 },
+        "end": { "line": 7, "col": 12, "offset": 74 }
+      },
+      "data": { "name": "Unknown", "namespace": "constructor" }
+    }
+  ]
+}
