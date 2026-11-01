@@ -41,7 +41,7 @@ func (s Severity) String() string {
 // Code is a stable diagnostic identifier such as "E0301"
 // (docs/spec.md section 12). Codes never change meaning and are never
 // reused, even after being retired. The registry of defined codes is
-// maintained in this package (TODO D-2).
+// maintained in codes.go.
 type Code string
 
 // Source identifies which tool produced a diagnostic. The zero value

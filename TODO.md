@@ -34,7 +34,7 @@
 
 - [x] **D-0 参考文献の確認**: [design.md 8 章](docs/design.md) のとおり、Maranget 2007 / 2008 の論文名・内容と go-sumtype の現状を確認し、[docs/sketch/](docs/sketch/) にレポートを書いて design.md を直す
 - [x] **D-1 形式文法 `docs/grammar.ebnf`**: 並置の適用、演算子の優先順位と結合性、改行の規則（[spec 1.5](docs/spec.md)）、波括弧の曖昧さ（1.6）、`select` の腕、ラベル付き引数、`_` プレースホルダを含める。パーサー（P1-3）の正になる
-- [ ] **D-2 エラーコード表**: `internal/diag` に表を 1 か所で定義し、`docs/` へ生成または同期する。既存の `E0301`（非網羅の match）など spec に出ているコードから始める。依存: P1-1
+- [x] **D-2 エラーコード表**: `internal/diag` に表を 1 か所で定義し、`docs/` へ生成または同期する。既存の `E0301`（非網羅の match）など spec に出ているコードから始める。依存: P1-1
 
 ### P0 Go 出力の実現可能性の検証
 
