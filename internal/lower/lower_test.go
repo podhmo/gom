@@ -947,6 +947,42 @@ func TestUnknownCall(t *testing.T) {
 	}
 }
 
+// TestUnknownCallCalleeBindsFirst pins spec section 2 rule 4's
+// left-to-right order at the apply boundary — `getF () (eff ())`
+// must bind the getF temporary before the eff one: the callee
+// evaluates before the arguments (eval's evalApply agrees). Before
+// the fix the callee's Let was emitted by unknownCall *after*
+// argAtoms, so compiled code ran eff first where eval ran getF.
+func TestUnknownCallCalleeBindsFirst(t *testing.T) {
+	fT := types.Fn(types.Int, types.P(types.Int))
+	getF := fsym("getF")
+	eff := fsym("eff")
+	callee := app(vr(getF, types.Fn(fT)), nil,
+		check.CallInfo{Kind: check.CallDirect, Callee: getF, Arity: 0, Applied: 0, HoleIndex: -1}, fT)
+	arg := app(vr(eff, types.Fn(types.Int)), nil,
+		check.CallInfo{Kind: check.CallDirect, Callee: eff, Arity: 0, Applied: 0, HoleIndex: -1}, types.Int)
+	call := app(callee, []check.Expr{arg},
+		check.CallInfo{Kind: check.CallUnknown, Arity: 1, Applied: 1, HoleIndex: -1}, types.Int)
+	out := mustLower(t, decl("g", nil, call, types.Fn(types.Int)))
+	body := fnDeclOf(t, out, 0).Fn.Body
+	if len(body.Lets) != 2 {
+		t.Fatalf("lets = %d, want 2 — the callee temp, then the arg temp", len(body.Lets))
+	}
+	if cd, ok := body.Lets[0].X.(*core.CallDirect); !ok || cd.Callee != getF {
+		t.Fatalf("lets[0].X = %#v, want the getF CallDirect bound first", body.Lets[0].X)
+	}
+	if cd, ok := body.Lets[1].X.(*core.CallDirect); !ok || cd.Callee != eff {
+		t.Fatalf("lets[1].X = %#v, want the eff CallDirect bound second", body.Lets[1].X)
+	}
+	cf, ok := body.Tail.(*core.CallFunc)
+	if !ok {
+		t.Fatalf("tail = %T, want CallFunc", body.Tail)
+	}
+	if v, ok := cf.Fn.(*core.Var); !ok || v.Sym != body.Lets[0].Name.Sym {
+		t.Fatalf("CallFunc.Fn = %#v, want the var lets[0] binds", cf.Fn)
+	}
+}
+
 // TestCompose: `f >> g` becomes a closure applying f then g.
 func TestCompose(t *testing.T) {
 	f := fsym("f")
@@ -1554,3 +1590,248 @@ func TestSelectNilBind(t *testing.T) {
 
 var _ = fmt.Sprintf // keep fmt imported if unused in a build tag path
 var _ = strings.TrimSpace
+
+// --- builtin calls / test gating / structural equality ---
+
+// TestBuiltinCallDirect: `todo ()` and `not x` — a statically known
+// builtin callee (CallDirect, KindBuiltin) lowers to CallBuiltin
+// without the function position ever touching the value path. The
+// regression: applyCall used to lower e.Fn first, so a builtin in
+// function position reported "builtin X used as a value" (E0901).
+func TestBuiltinCallDirect(t *testing.T) {
+	todo := &resolve.Symbol{Name: "todo", Kind: resolve.KindBuiltin}
+	call := app(vr(todo, types.Fn(types.Int)), nil,
+		check.CallInfo{Kind: check.CallDirect, Callee: todo, Arity: 0, Applied: 0, HoleIndex: -1},
+		types.Int)
+	out := mustLower(t, decl("f", nil, call, types.Fn(types.Int)))
+	cb, ok := fnDeclOf(t, out, 0).Fn.Body.Tail.(*core.CallBuiltin)
+	if !ok || cb.Sym.Name != "todo" {
+		t.Fatalf("tail = %T, want CallBuiltin{todo}", fnDeclOf(t, out, 0).Fn.Body.Tail)
+	}
+}
+
+// TestBuiltinCallNotDirect: same dispatch through `not x` — one
+// argument.
+func TestBuiltinCallNotDirect(t *testing.T) {
+	not := &resolve.Symbol{Name: "not", Kind: resolve.KindBuiltin}
+	x := vsym("x", types.Bool)
+	call := app(vr(not, types.Fn(types.Bool, types.P(types.Bool))), []check.Expr{vr(x, types.Bool)},
+		check.CallInfo{Kind: check.CallDirect, Callee: not, Arity: 1, Applied: 1, HoleIndex: -1},
+		types.Bool)
+	out := mustLower(t, decl("f", []check.Param{param(vpat(x, types.Bool))}, call,
+		types.Fn(types.Bool, types.P(types.Bool))))
+	cb, ok := fnDeclOf(t, out, 0).Fn.Body.Tail.(*core.CallBuiltin)
+	if !ok || cb.Sym.Name != "not" || len(cb.Args) != 1 {
+		t.Fatalf("tail = %#v, want CallBuiltin{not, 1 arg}", fnDeclOf(t, out, 0).Fn.Body.Tail)
+	}
+}
+
+// TestBuiltinPartialCall: an under-applied builtin still lowers
+// through the closure path — `assert_eq 1` inside a test block is a
+// Closure whose body is the saturated CallBuiltin.
+func TestBuiltinPartialCall(t *testing.T) {
+	assertEq := &resolve.Symbol{Name: "assert_eq", Kind: resolve.KindBuiltin}
+	call := app(vr(assertEq, types.Fn(types.Unit, types.P(types.Int), types.P(types.Int))),
+		[]check.Expr{intLit("1")},
+		check.CallInfo{Kind: check.CallPartial, Callee: assertEq, Arity: 2, Applied: 1, Unapplied: 1, HoleIndex: -1},
+		types.Fn(types.Unit, types.P(types.Int)))
+	body := &check.Block{Base: b(types.Unit), Stmts: []check.Expr{call, unitLit()}}
+	td := &check.TestDecl{Sp: sp, Name: "t", NameSp: sp, Body: body}
+	f := &check.File{Sp: sp, Package: "p", PkgSp: sp, Decls: []check.Decl{td}}
+	out, diags := File(f, &Env{Tests: true})
+	for _, d := range diags {
+		t.Fatalf("unexpected diagnostic: %v", d)
+	}
+	tdc, ok := out.Decls[0].(*core.TestDecl)
+	if !ok {
+		t.Fatalf("decl 0 = %T, want TestDecl", out.Decls[0])
+	}
+	cl, ok := tdc.Fn.Body.Lets[0].X.(*core.Closure)
+	if !ok {
+		t.Fatalf("let0 = %T, want Closure over the partial call", tdc.Fn.Body.Lets[0].X)
+	}
+	cb, ok := cl.Fn.Body.Tail.(*core.CallBuiltin)
+	if !ok || cb.Sym.Name != "assert_eq" || len(cb.Args) != 2 {
+		t.Fatalf("closure tail = %#v, want saturated CallBuiltin{assert_eq}", cl.Fn.Body.Tail)
+	}
+}
+
+// TestAssertOutsideTest: `assert` in ordinary code must not emit
+// rt.Assert(t, ...) — `t` exists only inside generated test
+// functions. Until check settles the semantic rule
+// (docs/problems/2026-11-02-assert-outside-test.md) lowering reports
+// the shape instead of producing uncompilable Go.
+func TestAssertOutsideTest(t *testing.T) {
+	asrt := &resolve.Symbol{Name: "assert", Kind: resolve.KindBuiltin}
+	x := vsym("x", types.Bool)
+	call := app(vr(asrt, types.Fn(types.Unit, types.P(types.Bool))), []check.Expr{vr(x, types.Bool)},
+		check.CallInfo{Kind: check.CallDirect, Callee: asrt, Arity: 1, Applied: 1, HoleIndex: -1},
+		types.Unit)
+	_, diags := lower1(t, decl("f", []check.Param{param(vpat(x, types.Bool))}, call,
+		types.Fn(types.Unit, types.P(types.Bool))))
+	if len(diags) == 0 {
+		t.Fatal("expected a diagnostic for assert outside a test block")
+	}
+	if !strings.Contains(fmt.Sprint(diags[0]), "test block") {
+		t.Fatalf("diagnostic = %v, want a test-block message", diags[0])
+	}
+}
+
+// TestAssertInTest: inside a `test` declaration — the one place the
+// generated `t` exists — assert_eq lowers cleanly.
+func TestAssertInTest(t *testing.T) {
+	assertEq := &resolve.Symbol{Name: "assert_eq", Kind: resolve.KindBuiltin}
+	call := app(vr(assertEq, types.Fn(types.Unit, types.P(types.Int), types.P(types.Int))),
+		[]check.Expr{intLit("1"), intLit("1")},
+		check.CallInfo{Kind: check.CallDirect, Callee: assertEq, Arity: 2, Applied: 2, HoleIndex: -1},
+		types.Unit)
+	body := &check.Block{Base: b(types.Unit), Stmts: []check.Expr{call, unitLit()}}
+	td := &check.TestDecl{Sp: sp, Name: "t", NameSp: sp, Body: body}
+	f := &check.File{Sp: sp, Package: "p", PkgSp: sp, Decls: []check.Decl{td}}
+	out, diags := File(f, &Env{Tests: true})
+	for _, d := range diags {
+		t.Fatalf("unexpected diagnostic: %v", d)
+	}
+	tdc, ok := out.Decls[0].(*core.TestDecl)
+	if !ok {
+		t.Fatalf("decl 0 = %T, want TestDecl", out.Decls[0])
+	}
+	cb, ok := tdc.Fn.Body.Lets[0].X.(*core.CallBuiltin)
+	if !ok || cb.Sym.Name != "assert_eq" {
+		t.Fatalf("let0 = %#v, want CallBuiltin{assert_eq}", tdc.Fn.Body.Lets[0].X)
+	}
+}
+
+// TestTestDeclGating: spec 11.6 — gom build checks test code but
+// emits none of it. A `test` declaration lowers only under
+// Env.Tests (gom test mode).
+func TestTestDeclGating(t *testing.T) {
+	body := &check.Block{Base: b(types.Unit), Stmts: []check.Expr{unitLit()}}
+	td := &check.TestDecl{Sp: sp, Name: "t", NameSp: sp, Body: body}
+	mk := func() *check.File {
+		return &check.File{Sp: sp, Package: "p", PkgSp: sp, Decls: []check.Decl{td}}
+	}
+	out, diags := File(mk(), nil)
+	for _, d := range diags {
+		t.Fatalf("unexpected diagnostic: %v", d)
+	}
+	if len(out.Decls) != 0 {
+		t.Fatalf("build mode kept %d decls, want the test dropped", len(out.Decls))
+	}
+	out, diags = File(mk(), &Env{Tests: true})
+	for _, d := range diags {
+		t.Fatalf("unexpected diagnostic: %v", d)
+	}
+	if len(out.Decls) != 1 {
+		t.Fatalf("test mode emitted %d decls, want 1", len(out.Decls))
+	}
+	if _, ok := out.Decls[0].(*core.TestDecl); !ok {
+		t.Fatalf("decl 0 = %T, want TestDecl", out.Decls[0])
+	}
+}
+
+// TestTestOnlyDeclGating: @test fns and lets are test-only code —
+// dropped under gom build like the test decls they serve.
+func TestTestOnlyDeclGating(t *testing.T) {
+	tsym := &resolve.Symbol{Name: "helper", Kind: resolve.KindFunc, TestOnly: true}
+	tdecl := &check.FnDecl{Sp: sp, Sym: tsym, Sig: types.Fn(types.Int),
+		Body: intLit("1")}
+	lsym := &resolve.Symbol{Name: "fixture", Kind: resolve.KindVar, TestOnly: true}
+	ldecl := &check.LetDecl{Sp: sp, Pat: vpat(lsym, types.Int), Value: intLit("2")}
+	mk := func() *check.File {
+		return &check.File{Sp: sp, Package: "p", PkgSp: sp, Decls: []check.Decl{tdecl, ldecl}}
+	}
+	out, diags := File(mk(), nil)
+	for _, d := range diags {
+		t.Fatalf("unexpected diagnostic: %v", d)
+	}
+	if len(out.Decls) != 0 {
+		t.Fatalf("build mode kept %d decls, want 0", len(out.Decls))
+	}
+	out, diags = File(mk(), &Env{Tests: true})
+	for _, d := range diags {
+		t.Fatalf("unexpected diagnostic: %v", d)
+	}
+	if len(out.Decls) != 2 {
+		t.Fatalf("test mode emitted %d decls, want 2", len(out.Decls))
+	}
+}
+
+// TestEqLowering: `==` on scalars stays a native Binary; on List it
+// becomes the `eq` builtin (rt.Equal), and `!=` the `ne` builtin.
+func TestEqLowering(t *testing.T) {
+	xs := vsym("x", types.Int)
+	ys := vsym("y", types.Int)
+	intEq := &check.Binary{Base: b(types.Bool), Op: syntax.BinEq,
+		X: vr(xs, types.Int), Y: vr(ys, types.Int)}
+	out := mustLower(t, decl("f",
+		[]check.Param{param(vpat(xs, types.Int)), param(vpat(ys, types.Int))},
+		intEq, nil))
+	if _, ok := fnDeclOf(t, out, 0).Fn.Body.Tail.(*core.Binary); !ok {
+		t.Fatalf("Int == lowered to %T, want native core.Binary", fnDeclOf(t, out, 0).Fn.Body.Tail)
+	}
+
+	lt := types.List(types.Int)
+	lx := vsym("x", lt)
+	ly := vsym("y", lt)
+	listEq := &check.Binary{Base: b(types.Bool), Op: syntax.BinEq,
+		X: vr(lx, lt), Y: vr(ly, lt)}
+	out = mustLower(t, decl("f",
+		[]check.Param{param(vpat(lx, lt)), param(vpat(ly, lt))},
+		listEq, nil))
+	cb, ok := fnDeclOf(t, out, 0).Fn.Body.Tail.(*core.CallBuiltin)
+	if !ok || cb.Sym.Name != "eq" || len(cb.Args) != 2 {
+		t.Fatalf("List == lowered to %#v, want CallBuiltin{eq}", fnDeclOf(t, out, 0).Fn.Body.Tail)
+	}
+
+	listNe := &check.Binary{Base: b(types.Bool), Op: syntax.BinNe,
+		X: vr(lx, lt), Y: vr(ly, lt)}
+	out = mustLower(t, decl("f",
+		[]check.Param{param(vpat(lx, lt)), param(vpat(ly, lt))},
+		listNe, nil))
+	cb, ok = fnDeclOf(t, out, 0).Fn.Body.Tail.(*core.CallBuiltin)
+	if !ok || cb.Sym.Name != "ne" {
+		t.Fatalf("List != lowered to %#v, want CallBuiltin{ne}", fnDeclOf(t, out, 0).Fn.Body.Tail)
+	}
+
+	// A tuple of scalars is a comparable Go struct — native ==.
+	tt := &types.Tuple{Elems: []types.Type{types.Int, types.String}}
+	tx := vsym("x", tt)
+	ty := vsym("y", tt)
+	tupEq := &check.Binary{Base: b(types.Bool), Op: syntax.BinEq,
+		X: vr(tx, tt), Y: vr(ty, tt)}
+	out = mustLower(t, decl("f",
+		[]check.Param{param(vpat(tx, tt)), param(vpat(ty, tt))},
+		tupEq, nil))
+	if _, ok := fnDeclOf(t, out, 0).Fn.Body.Tail.(*core.Binary); !ok {
+		t.Fatalf("scalar-tuple == lowered to %T, want core.Binary", fnDeclOf(t, out, 0).Fn.Body.Tail)
+	}
+
+	// A tuple containing a List cannot use Go's ==.
+	tt2 := &types.Tuple{Elems: []types.Type{types.Int, lt}}
+	tx2 := vsym("x", tt2)
+	ty2 := vsym("y", tt2)
+	tupEq2 := &check.Binary{Base: b(types.Bool), Op: syntax.BinEq,
+		X: vr(tx2, tt2), Y: vr(ty2, tt2)}
+	out = mustLower(t, decl("f",
+		[]check.Param{param(vpat(tx2, tt2)), param(vpat(ty2, tt2))},
+		tupEq2, nil))
+	cb, ok = fnDeclOf(t, out, 0).Fn.Body.Tail.(*core.CallBuiltin)
+	if !ok || cb.Sym.Name != "eq" {
+		t.Fatalf("list-tuple == lowered to %#v, want CallBuiltin{eq}", fnDeclOf(t, out, 0).Fn.Body.Tail)
+	}
+
+	// A nominal record type goes through rt.Equal too.
+	rt_ := &types.Con{Name: "Point"}
+	rx := vsym("x", rt_)
+	ry := vsym("y", rt_)
+	recEq := &check.Binary{Base: b(types.Bool), Op: syntax.BinEq,
+		X: vr(rx, rt_), Y: vr(ry, rt_)}
+	out = mustLower(t, decl("f",
+		[]check.Param{param(vpat(rx, rt_)), param(vpat(ry, rt_))},
+		recEq, nil))
+	cb, ok = fnDeclOf(t, out, 0).Fn.Body.Tail.(*core.CallBuiltin)
+	if !ok || cb.Sym.Name != "eq" {
+		t.Fatalf("record == lowered to %#v, want CallBuiltin{eq}", fnDeclOf(t, out, 0).Fn.Body.Tail)
+	}
+}

@@ -650,6 +650,17 @@ func TestSelectTwoDefaults(t *testing.T) {
 	requireCodes(t, diags, "E0703")
 }
 
+// An empty `select {}` is E0705 — a user diagnostic the checker
+// reports, not the Core invariant violation lowering used to hit.
+func TestSelectNoArms(t *testing.T) {
+	b := newTB()
+	sel := b.selectx()
+	f1, _ := b.fn("f", nil, b.tn("Int"), sel)
+
+	_, diags := b.check(nil, f1)
+	requireCodes(t, diags, "E0705")
+}
+
 // A send arm on a receive-only channel is E0401.
 func TestSelectSendOnRecv(t *testing.T) {
 	b := newTB()

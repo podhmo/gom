@@ -28,6 +28,9 @@ it acyclic.
   - `Assert` / `AssertEq` / `AssertOk` — the `assert*` builtins and
     Result-bodied test check (AssertEq uses `reflect.DeepEqual`
     until generated per-type comparators exist, design.md 4.8);
+  - `Equal` — structural `==`/`!=` on the representations Go's own
+    `==` cannot compare, same DeepEqual interim as AssertEq
+    ([structural-equality-emission](2026-11-04-structural-equality-emission.md));
   - `Todo[T]()` — the `todo` hole.
 - `stdlib/` — the Go-side representations of Gom's builtin types,
   each written in the shape generated code targets:

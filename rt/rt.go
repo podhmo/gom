@@ -53,6 +53,41 @@ func OptionFromGo[T any](v T, ok bool) option.Option[T] {
 	return option.Option_None[T]{}
 }
 
+// Equal is Gom's structural `==` (spec section 3.3) on the Go
+// representations of Gom values — the operands generated code cannot
+// compare with Go's own `==`: lists and Go slices (uncomparable),
+// and any shape that may contain them inside an interface (ADT
+// values) or a struct (records, tuples), where Go's `==` either does
+// not compile or panics. The comparison is reflect.DeepEqual until
+// compiler-generated per-type compare functions exist
+// (docs/design.md section 4.8).
+func Equal(a, b any) bool {
+	if reflect.DeepEqual(a, b) {
+		return true
+	}
+	// A nil slice is the empty list per the representation contract
+	// (stdlib/list: "the zero value (nil) is the empty list"), and
+	// eval's element-wise comparison agrees — but DeepEqual
+	// distinguishes nil from non-nil-but-empty. A nil slice reaches
+	// here through the Go boundary (FromSlice, Go.Slice) or
+	// Go-built zero values, so give the top level a second answer.
+	// Nil/empty nested inside records, ADTs or other lists still
+	// follows DeepEqual until the per-type comparators exist —
+	// docs/decisions/2026-11-04-structural-equality-emission.md.
+	return bothEmptySlices(a, b)
+}
+
+// bothEmptySlices reports whether a and b are two empty slices of
+// the same type — the nil-vs-empty reading Equal adds on top of
+// reflect.DeepEqual.
+func bothEmptySlices(a, b any) bool {
+	av, bv := reflect.ValueOf(a), reflect.ValueOf(b)
+	if !av.IsValid() || !bv.IsValid() || av.Type() != bv.Type() {
+		return false
+	}
+	return av.Kind() == reflect.Slice && av.Len() == 0 && bv.Len() == 0
+}
+
 // Assert is the body of the `assert cond` builtin used in test
 // blocks.
 func Assert(t *testing.T, cond bool) {
@@ -65,11 +100,12 @@ func Assert(t *testing.T, cond bool) {
 // AssertEq is the body of the `assert_eq actual expected` builtin used
 // in test blocks. Gom's `==` is structural equality, which covers
 // lists and tuples that Go's comparable constraint cannot, so the
-// comparison uses reflect.DeepEqual until compiler-generated per-type
-// compare functions exist (docs/design.md section 4.8).
+// comparison is Equal — the same interim answer `==` emits — until
+// compiler-generated per-type compare functions exist
+// (docs/design.md section 4.8).
 func AssertEq(t *testing.T, actual, expected any) {
 	t.Helper()
-	if !reflect.DeepEqual(actual, expected) {
+	if !Equal(actual, expected) {
 		t.Errorf("gom: assertion failed:\n  actual:   %#v\n  expected: %#v", actual, expected)
 	}
 }

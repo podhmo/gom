@@ -842,13 +842,18 @@ func (c *checker) checkFor(e *syntax.For) Expr {
 
 // checkSelectExpr types a channel `select`. recv arms bind
 // `Option a`; send arms require a send-capable channel and a value of
-// the element type; at most one default arm is allowed (E0703).
+// the element type; at least one arm is required (E0705) and at most
+// one default arm is allowed (E0703).
 func (c *checker) checkSelectExpr(e *syntax.SelectExpr, want types.Type) Expr {
 	bt := want
 	if bt == nil {
 		bt = c.newMeta(e.Sp, "the select arms' type")
 	}
 	out := &SelectExpr{Base: baseOf(e.Sp, bt)}
+	if len(e.Arms) == 0 {
+		c.diags.Add(diag.Error("E0705",
+			"a select needs at least one arm").At(e.Sp))
+	}
 	defaults := 0
 	for _, a := range e.Arms {
 		switch a := a.(type) {

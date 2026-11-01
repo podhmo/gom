@@ -1,0 +1,6 @@
+package ex
+
+fn main () -> Int = {
+  let x: Int = select {}
+  x
+}

@@ -289,6 +289,17 @@ func (g *gen) callBuiltin(c *core.CallBuiltin) ast.Expr {
 	case "not":
 		// `not x` is the bool negation `!x`.
 		return &ast.UnaryExpr{Op: token.NOT, X: g.atom(c.Args[0])}
+	case "eq":
+		// rt.Equal(x, y) — structural `==` on representations Go's
+		// own == cannot compare (spec 3.3; lowering decides which
+		// operand types route here).
+		return &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual(rtPath) + "Equal"),
+			Args: g.atoms(c.Args)}
+	case "ne":
+		// `x != y` lowers to `not (eq x y)` — `!rt.Equal(x, y)`.
+		return &ast.UnaryExpr{Op: token.NOT,
+			X: &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual(rtPath) + "Equal"),
+				Args: g.atoms(c.Args)}}
 	case "str_concat":
 		// The parts of an interpolated string: `a + b + ...`.
 		return g.strConcat(c)

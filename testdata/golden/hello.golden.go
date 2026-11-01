@@ -10,9 +10,9 @@ import (
 //line hello.gom:5
 func main() {
 //line hello.gom:6
-	tmp3 := any("hello")
+	tmp1 := any("hello")
 //line hello.gom:6
-	v, err := fmt.Println(tmp3)
+	v, err := fmt.Println(tmp1)
 	_ = rt.ResultFromGo(int64(v), err)
 //line hello.gom:7
 	_ = struct{}{}

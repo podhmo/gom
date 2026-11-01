@@ -587,25 +587,55 @@ func (l *lowerer) convAtomTo(s *seq, sp diag.Span, a core.Atom, want types.Type)
 // place the call contract is honoured.
 func (l *lowerer) applyCall(s *seq, e *check.Apply) core.Expr {
 	ci := e.Call
-	// A method callee evaluates its receiver first; the receiver is
-	// the callee position's effect.
-	var recv core.Atom
-	isMethod := false
-	if ci.Callee != nil && ci.Callee.Kind == resolve.KindMethod {
-		if m, ok := e.Fn.(*check.MemberExpr); ok {
-			isMethod = true
-			recv = l.atom(s, m.Recv)
-		}
-	}
-	// The callee expression evaluates first — for a statically known
-	// callee it is a pure ref (emitted work is nil); for CallUnknown
-	// the function value itself may be a complex expression.
-	var fnExpr core.Expr
-	if !isMethod {
-		fnExpr = l.expr(s, e.Fn)
-	}
+	recv := l.methodRecv(s, e.Fn, ci)
+	// The callee expression evaluates first — but only when the call
+	// shape actually consumes a function value; a statically known
+	// callee is a pure ref (emitted work is nil).
+	fnExpr := l.calleeExpr(s, e.Fn, ci, recv)
 	args := l.argAtoms(s, e.Args)
 	return l.finishCall(s, e.Sp, e.Type(), e.Fn, fnExpr, recv, ci, args, hasSpread(e.Args))
+}
+
+// methodRecv extracts a method call's receiver — evaluated first,
+// it is the callee position's effect. Nil for every other callee
+// shape, and for a method callee that did not arrive as a MemberExpr
+// (calleeExpr then takes the error path).
+func (l *lowerer) methodRecv(s *seq, fn check.Expr, ci check.CallInfo) core.Atom {
+	if ci.Callee != nil && ci.Callee.Kind == resolve.KindMethod {
+		if m, ok := fn.(*check.MemberExpr); ok {
+			return l.atom(s, m.Recv)
+		}
+	}
+	return nil
+}
+
+// calleeExpr lowers a call's callee expression only where the call
+// kind consumes the result: CallUnknown — the callee *is* a
+// function-typed value — and a method callee that did not arrive as
+// a MemberExpr, so no receiver was extracted (the value path reports
+// the shape it cannot handle). Every other kind names a statically
+// known callee — a Var or package-member MemberExpr — which is a
+// pure reference carrying no evaluation; lowering it would push
+// symbols that are not values (KindBuiltin) through varExpr and
+// report them as misplaced values.
+func (l *lowerer) calleeExpr(s *seq, fn check.Expr, ci check.CallInfo, recv core.Atom) core.Expr {
+	if recv != nil {
+		return nil
+	}
+	if ci.Kind == check.CallUnknown {
+		// The callee evaluates before the arguments (spec section
+		// 2 rule 4 — left-to-right; eval's evalApply agrees): a
+		// complex callee must be bound here, ahead of argAtoms'
+		// Lets — deferring the bind to unknownCall would emit it
+		// after the arguments it must precede. Atoms pass through
+		// asAtom unchanged, so a Var or FieldGet callee stays
+		// unbound as before.
+		return l.asAtom(s, fn.Span(), l.expr(s, fn))
+	}
+	if ci.Callee != nil && ci.Callee.Kind == resolve.KindMethod {
+		return l.expr(s, fn)
+	}
+	return nil
 }
 
 // argAtoms lowers call arguments in source order. Holes and the
@@ -730,13 +760,28 @@ func (l *lowerer) directCall(s *seq, sp diag.Span, resTyp types.Type, callee che
 				flat = append(flat, a)
 			}
 		}
-		return &core.CallBuiltin{
-			Base: core.Base{Sp: sp, Typ: resTyp},
-			Sym:  sym, Args: flat,
-		}
+		return l.builtinCall(sp, resTyp, sym, flat)
 	default:
 		l.err(sp, fmt.Sprintf("CallDirect callee %s has kind %s", sym.Name, sym.Kind))
 		return l.litUnit(sp)
+	}
+}
+
+// builtinCall builds the CallBuiltin for a user-visible builtin
+// call. assert and assert_eq emit `rt.Assert*(t, ...)` — `t` is the
+// *testing.T parameter only a generated test function binds — so a
+// call outside a test block cannot be emitted. Whether assertions
+// in ordinary code are a user diagnostic is an open semantic
+// question (docs/problems/2026-11-02-assert-outside-test.md); until
+// check settles it, lowering reports the shape rather than produce
+// uncompilable Go.
+func (l *lowerer) builtinCall(sp diag.Span, typ types.Type, sym *resolve.Symbol, args []core.Atom) core.Expr {
+	if !l.inTest && (sym.Name == "assert" || sym.Name == "assert_eq") {
+		l.err(sp, fmt.Sprintf("builtin %s may only be called inside a test block", sym.Name))
+	}
+	return &core.CallBuiltin{
+		Base: core.Base{Sp: sp, Typ: typ},
+		Sym:  sym, Args: args,
 	}
 }
 
@@ -811,10 +856,7 @@ func (l *lowerer) partialCall(s *seq, sp diag.Span, resTyp types.Type, callee ch
 					flat = append(flat, a)
 				}
 			}
-			return &core.CallBuiltin{
-				Base: core.Base{Sp: sp, Typ: retAfter(calleeSig, ci.Arity)},
-				Sym:  sym, Args: flat,
-			}
+			return l.builtinCall(sp, retAfter(calleeSig, ci.Arity), sym, flat)
 		default:
 			panic("unreachable")
 		}
@@ -939,14 +981,8 @@ func hasSpread(args []check.Arg) bool {
 // not its wrapped Gom-facing value.
 func (l *lowerer) goCallNode(s *seq, ap *check.Apply) *core.CallGo {
 	ci := ap.Call
-	var recv core.Atom
-	if ci.Callee != nil && ci.Callee.Kind == resolve.KindMethod {
-		if m, ok := ap.Fn.(*check.MemberExpr); ok {
-			recv = l.atom(s, m.Recv)
-		}
-	} else {
-		l.expr(s, ap.Fn)
-	}
+	recv := l.methodRecv(s, ap.Fn, ci)
+	l.calleeExpr(s, ap.Fn, ci, recv)
 	args := l.argAtoms(s, ap.Args)
 	sig := l.goSig(ci.Callee, ap.Type())
 	if sig.Results == 0 {
@@ -1210,11 +1246,77 @@ func (l *lowerer) binaryExpr(s *seq, e *check.Binary) core.Expr {
 		gAtom := l.atom(s, e.X)
 		fAtom := l.atom(s, e.Y)
 		return l.compose(s, e, fAtom, gAtom, e.Y.Span(), e.X.Span())
+	case syntax.BinEq, syntax.BinNe:
+		return l.eqExpr(s, e)
 	default:
 		return &core.Binary{
 			Base: baseOf(e), Op: e.Op,
 			X: l.atom(s, e.X), Y: l.atom(s, e.Y),
 		}
+	}
+}
+
+// eqExpr lowers `x == y` / `x != y`. Spec 3.3 makes equality
+// structural — the answer must agree with the evaluator's eqValue —
+// but Go's `==` only covers part of that domain: lists, maps and Go
+// slices are not comparable at all, and an ADT interface value whose
+// variant holds one panics under `==` rather than answering false.
+// Operands whose Go representation is guaranteed comparable — the
+// scalar builtins, and tuples whose every element qualifies — emit
+// the native `==`/`!=`; every other shape calls the `eq`/`ne`
+// builtins, which codegen renders as `rt.Equal`
+// (reflect.DeepEqual) until generated per-type comparators exist.
+// The split is made here on the static operand type — codegen only
+// renders the Core node it is given.
+func (l *lowerer) eqExpr(s *seq, e *check.Binary) core.Expr {
+	x := l.atom(s, e.X)
+	y := l.atom(s, e.Y)
+	if goEqOK(e.X.Type()) {
+		return &core.Binary{Base: baseOf(e), Op: e.Op, X: x, Y: y}
+	}
+	name := "eq"
+	if e.Op == syntax.BinNe {
+		name = "ne"
+	}
+	return &core.CallBuiltin{
+		Base: baseOf(e), Sym: l.builtinSym(name),
+		Args: []core.Atom{x, y},
+	}
+}
+
+// goEqOK reports whether Go's `==` on the representation of type t
+// is both compilable and structurally correct: scalar builtins, and
+// tuples whose every element qualifies (rt.TupleN is a flat struct).
+// Records could qualify field-wise, but their field list lives
+// behind the type oracle — rt.Equal answers correctly either way.
+func goEqOK(t types.Type) bool {
+	switch t := types.Chase(t).(type) {
+	case *types.Con:
+		if t.Qual != "" {
+			// List, Go.Slice, Go.Map, nominal types — none is a
+			// Go-comparable scalar.
+			return false
+		}
+		switch t.Name {
+		case "Int", "Int32", "Int64", "Float", "Bool", "Char", "String", "Unit":
+			return true
+		}
+		return false
+	case *types.Tuple:
+		for _, e := range t.Elems {
+			if !goEqOK(e) {
+				return false
+			}
+		}
+		return true
+	case *types.Go, *types.Func, *types.Var, *types.Meta:
+		// Named Go types keep their comparability behind the ref;
+		// functions and variables are rejected by check (E0409) —
+		// if one slips through, rt.Equal still answers where Go's
+		// `==` would panic on a func value.
+		return false
+	default:
+		panic("unreachable")
 	}
 }
 
@@ -1241,16 +1343,8 @@ func appendArg(ci *check.CallInfo) {
 func (l *lowerer) pipeApply(s *seq, e *check.Binary, rhs check.Expr, piped core.Atom) core.Expr {
 	if ap, ok := rhs.(*check.Apply); ok {
 		ci := ap.Call
-		var recv core.Atom
-		if ci.Callee != nil && ci.Callee.Kind == resolve.KindMethod {
-			if m, ok := ap.Fn.(*check.MemberExpr); ok {
-				recv = l.atom(s, m.Recv)
-			}
-		}
-		var fnExpr core.Expr
-		if recv == nil {
-			fnExpr = l.expr(s, ap.Fn)
-		}
+		recv := l.methodRecv(s, ap.Fn, ci)
+		fnExpr := l.calleeExpr(s, ap.Fn, ci, recv)
 		args := l.argAtoms(s, ap.Args)
 		args = append(args, piped)
 		appendArg(&ci)
@@ -1265,16 +1359,8 @@ func (l *lowerer) pipeApply(s *seq, e *check.Binary, rhs check.Expr, piped core.
 func (l *lowerer) pipeApplyBack(s *seq, e *check.Binary) core.Expr {
 	if ap, ok := e.X.(*check.Apply); ok {
 		ci := ap.Call
-		var recv core.Atom
-		if ci.Callee != nil && ci.Callee.Kind == resolve.KindMethod {
-			if m, ok := ap.Fn.(*check.MemberExpr); ok {
-				recv = l.atom(s, m.Recv)
-			}
-		}
-		var fnExpr core.Expr
-		if recv == nil {
-			fnExpr = l.expr(s, ap.Fn)
-		}
+		recv := l.methodRecv(s, ap.Fn, ci)
+		fnExpr := l.calleeExpr(s, ap.Fn, ci, recv)
 		args := l.argAtoms(s, ap.Args)
 		args = append(args, l.atom(s, e.Y))
 		appendArg(&ci)
@@ -1420,16 +1506,8 @@ func (l *lowerer) pipeTry(s *seq, e *check.Binary) core.Expr {
 func (l *lowerer) stepApply(s *seq, e *check.Binary, rhs check.Expr, in core.Atom) core.Expr {
 	if ap, ok := rhs.(*check.Apply); ok {
 		ci := ap.Call
-		var recv core.Atom
-		if ci.Callee != nil && ci.Callee.Kind == resolve.KindMethod {
-			if m, ok := ap.Fn.(*check.MemberExpr); ok {
-				recv = l.atom(s, m.Recv)
-			}
-		}
-		var fnExpr core.Expr
-		if recv == nil {
-			fnExpr = l.expr(s, ap.Fn)
-		}
+		recv := l.methodRecv(s, ap.Fn, ci)
+		fnExpr := l.calleeExpr(s, ap.Fn, ci, recv)
 		args := l.argAtoms(s, ap.Args)
 		args = append(args, in)
 		appendArg(&ci)

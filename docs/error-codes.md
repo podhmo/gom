@@ -581,6 +581,17 @@ select {
 }
 ```
 
+### E0705 — select has no arms
+
+**Severity:** error · **Phase:** check · **Spec:** §10
+
+A select expression needs at least one arm — each arm maps
+one-to-one onto a Go select case, so an empty select has no meaning.
+
+```gom
+select {}
+```
+
 ### W0701 — channel of mutable element type
 
 **Severity:** warning · **Phase:** lint · **Spec:** §10

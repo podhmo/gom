@@ -44,6 +44,13 @@ type Env struct {
 	// step name of a nameless step (a lambda): the name is rendered
 	// as "file:line". Nil makes lowering fall back to a bare offset.
 	Lines *diag.LineIndex
+
+	// Tests selects `gom test` lowering (spec 11.6): `test`
+	// declarations and `@test`-marked fns and lets stay in the Core
+	// IR. The zero value is `gom build` mode — test-only code is
+	// still type- and pattern-checked upstream, but dropped here so
+	// no test code reaches the generated output.
+	Tests bool
 }
 
 // GoSig is the Go-level signature of a Go function or method symbol —
@@ -203,6 +210,11 @@ type lowerer struct {
 	// fnStack is the stack of enclosing function boundaries — the
 	// innermost is the escape To target. Entries are *core.Func.
 	fnStack []*core.Func
+
+	// inTest marks lowering inside a `test` declaration's body —
+	// where the generated function binds the `t` identifier
+	// assert/assert_eq emit calls against.
+	inTest bool
 
 	// subst is a stack of symbol-substitution maps. Match-arm leaves
 	// push the map renaming the arm's pattern variables to the fresh
@@ -533,6 +545,11 @@ func (l *lowerer) fieldIndex(recTyp types.Type, sym *resolve.Symbol) int {
 func (l *lowerer) decl(d check.Decl, out *core.File) {
 	switch d := d.(type) {
 	case *check.FnDecl:
+		if !l.env.Tests && d.Sym != nil && d.Sym.TestOnly {
+			// A `@test fn` is test-only code: checked but not
+			// lowered under gom build (spec 11.6).
+			return
+		}
 		sig := flatSig(d.Sig)
 		if sig == nil {
 			var ps []types.FuncParam
@@ -557,6 +574,10 @@ func (l *lowerer) decl(d check.Decl, out *core.File) {
 			IsEntry: isEntryPoint(out.Package, d.Sym, fn),
 		})
 	case *check.LetDecl:
+		if !l.env.Tests && testOnlyPat(d.Pat) {
+			// A `@test let` is test-only code (spec 11.6).
+			return
+		}
 		l.letDecl(d, out)
 	case *check.TypeDecl:
 		out.Decls = append(out.Decls, &core.TypeDecl{
@@ -564,14 +585,21 @@ func (l *lowerer) decl(d check.Decl, out *core.File) {
 			Body: l.typeBody(d.Body),
 		})
 	case *check.TestDecl:
+		if !l.env.Tests {
+			// spec 11.6: gom build checks tests but emits no test
+			// code — that is gom test's output.
+			return
+		}
 		fn := &core.Func{
 			Sp:  d.Sp,
 			Sig: types.Fn(d.Body.Type()),
 		}
 		l.fnStack = append(l.fnStack, fn)
+		l.inTest = true
 		s := &seq{}
 		tail := l.expr(s, d.Body)
 		fn.Body = &core.Body{Lets: s.lets, Tail: tail}
+		l.inTest = false
 		l.fnStack = l.fnStack[:len(l.fnStack)-1]
 		out.Decls = append(out.Decls, &core.TestDecl{
 			Sp: d.Sp, Name: d.Name, NameSp: d.NameSp, Fn: fn,
@@ -579,6 +607,17 @@ func (l *lowerer) decl(d check.Decl, out *core.File) {
 	default:
 		panic("unreachable")
 	}
+}
+
+// testOnlyPat reports whether a top-level let pattern binds a
+// test-only symbol — a `@test let` definition.
+func testOnlyPat(p check.Pat) bool {
+	for _, v := range boundVars(p) {
+		if v.sym != nil && v.sym.TestOnly {
+			return true
+		}
+	}
+	return false
 }
 
 func (l *lowerer) typeBody(b check.TypeBody) core.TypeBody {

@@ -1,0 +1,33 @@
+package main
+
+fn not_neg (b: Bool) -> Bool = not b
+
+fn pending () -> Int = todo ()
+
+type Pair = { x: Int, xs: List Int }
+
+type Shape = | Circle Int | Square (List Int)
+
+fn eq_list (xs: List Int) (ys: List Int) -> Bool = xs == ys
+
+fn ne_list (xs: List Int) (ys: List Int) -> Bool = xs != ys
+
+fn eq_tuple (a: (Int, List Int)) (b: (Int, List Int)) -> Bool = a == b
+
+fn eq_record (a: Pair) (b: Pair) -> Bool = a == b
+
+fn eq_adt (a: Shape) (b: Shape) -> Bool = a == b
+
+fn eq_scalars (a: Int) (b: Int) -> Bool = a == b
+
+fn eq_scalar_tuple (a: (Int, String)) (b: (Int, String)) -> Bool = a == b
+
+fn main () -> Unit = {
+  let _ = [1, 2] == [1, 2]
+  ()
+}
+
+test "eq" {
+  assert_eq (1 + 1) 2
+  assert true
+}

@@ -223,6 +223,38 @@ fn main () -> Unit = {
 `,
 		want: "mid",
 	},
+	{
+		// spec 3.3 structural equality: eval's eqValue and the
+		// compiled rt.Equal / native == must answer the same on
+		// every shape Go's `==` cannot compare natively — lists,
+		// tuples holding them, records, and ADTs.
+		name: "structural_equality",
+		src: `package main
+
+import go "fmt"
+
+type Pair = { x: Int, xs: List Int }
+type Shape = | Circle Int | Square (List Int)
+
+fn answer () -> String = {
+  let a = [1, 2] == [1, 2]
+  let b = [1, 2] != [1, 3]
+  let c = (1, [2]) == (1, [2])
+  let d = { x = 1, xs = [2] } == { x = 1, xs = [2] }
+  let e = Circle 1 == Circle 1
+  let f = Square ([1]) != Square ([2])
+  let g = [(Circle 1)] == [(Circle 1)]
+  let h = (1, "x") == (1, "x")
+  "${a},${b},${c},${d},${e},${f},${g},${h}"
+}
+
+fn main () -> Unit = {
+  let _ = fmt.Println(answer ())
+  ()
+}
+`,
+		want: "true,true,true,true,true,true,true,true",
+	},
 }
 
 // evalAnswer applies the file's `answer` through internal/eval and

@@ -688,6 +688,16 @@ Match on the received "Option a" value in the arm's body instead.`,
 }`,
 	},
 	{
+		Code:     "E0705",
+		Severity: SeverityError,
+		Title:    "select has no arms",
+		Phase:    PhaseCheck,
+		Spec:     "10",
+		Explanation: `A select expression needs at least one arm — each arm maps
+one-to-one onto a Go select case, so an empty select has no meaning.`,
+		Example: `select {}`,
+	},
+	{
 		Code:     "E0801",
 		Severity: SeverityError,
 		Title:    "invalid test body type",

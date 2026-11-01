@@ -240,6 +240,45 @@ func TestBuildWritesGo(t *testing.T) {
 	}
 }
 
+// TestBuildSkipsTestCode is the spec 11.6 regression: `gom build`
+// type- and pattern-checks `test` blocks (and the assert/assert_eq
+// builtins inside them) but emits no test code — no lowering E0901,
+// no _test.go output.
+func TestBuildSkipsTestCode(t *testing.T) {
+	src := `package m
+
+@test
+fn helper (x: Int) -> Int = x + 1
+
+fn main () -> Unit = ()
+
+test "arith" {
+  assert_eq (helper 1) 2
+  assert ((1 + 1) == 2)
+}
+`
+	dir := writeFiles(t, map[string]string{"m.gom": src})
+	code, out, _ := invoke("build", filepath.Join(dir, "m.gom"))
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stdout=%q", code, out)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "m.go")); err != nil {
+		t.Errorf("m.go not written: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "m_test.go")); !os.IsNotExist(err) {
+		t.Errorf("m_test.go was written under gom build: %v", err)
+	}
+	gen, err := os.ReadFile(filepath.Join(dir, "m.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, s := range []string{"TestArith", "helper", "AssertEq"} {
+		if strings.Contains(string(gen), s) {
+			t.Errorf("generated source contains test code %q:\n%s", s, gen)
+		}
+	}
+}
+
 func TestBuildDefaultOutputBesideInput(t *testing.T) {
 	dir := writeFiles(t, map[string]string{"m.gom": "package m\n\nfn f () -> Int = 1\n"})
 	code, _, _ := invoke("build", filepath.Join(dir, "m.gom"))

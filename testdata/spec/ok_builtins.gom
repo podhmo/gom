@@ -1,0 +1,13 @@
+package ex
+
+fn not_neg (b: Bool) -> Bool = not b
+
+fn pending () -> Int = todo ()
+
+fn main () -> Unit = {
+  let xs = [1, 2]
+  let _: Bool = xs == xs
+  let _: Bool = xs != xs
+  let _: Bool = not (xs == xs)
+  ()
+}

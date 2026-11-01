@@ -6,10 +6,12 @@ package build_test
 // boundaries each testdata file cannot see on its own.
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/podhmo/gom/internal/build"
 	"github.com/podhmo/gom/internal/diag"
+	"github.com/podhmo/gom/internal/lower"
 )
 
 func compile(t *testing.T, src string, opts *build.Options) *build.Result {
@@ -42,6 +44,56 @@ fn f (x: Int) -> Int = x + 1
 	}
 	if len(r.Output.Source) == 0 {
 		t.Error("empty generated source")
+	}
+}
+
+// TestTestsModeEmitsTestFile pins spec 11.6's `gom test` shape end
+// to end: with lower.Env.Tests the pipeline keeps `test` decls and
+// `@test` helpers, and codegen splits them into `<pkg>_test.go` —
+// the rt.Assert*/AssertEq emission the golden suite never sees
+// (it generates with Tests off).
+func TestTestsModeEmitsTestFile(t *testing.T) {
+	src := `package m
+
+@test
+fn helper (x: Int) -> Int = x + 1
+
+fn main () -> Unit = ()
+
+test "arith" {
+  assert_eq (helper 1) 2
+  assert true
+}
+`
+	r := compile(t, src, &build.Options{Lower: &lower.Env{Tests: true}})
+	for _, d := range r.Diagnostics {
+		if d.Severity == diag.SeverityError {
+			t.Fatalf("%s: %s", d.Code, d.Message)
+		}
+	}
+	if r.Output == nil {
+		t.Fatal("no generated output")
+	}
+	ts := string(r.Output.TestSource)
+	for _, want := range []string{"func TestArith(t *testing.T)", "rt.AssertEq(t,", "rt.Assert(t,"} {
+		if !strings.Contains(ts, want) {
+			t.Errorf("TestSource missing %q:\n%s", want, ts)
+		}
+	}
+	if !strings.Contains(string(r.Output.Source), "func helper(") {
+		t.Error("main source missing the @test helper — gom test compiles it into the package")
+	}
+
+	// Build mode drops both halves instead.
+	rb := compile(t, src, nil)
+	if rb.Output == nil {
+		t.Fatal("build mode: no generated output")
+	}
+	if rb.Output.TestSource != nil {
+		t.Error("build mode emitted a test file")
+	}
+	if strings.Contains(string(rb.Output.Source), "func helper(") {
+		t.Error("build mode kept the @test helper")
 	}
 }
 
