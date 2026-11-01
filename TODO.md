@@ -66,7 +66,7 @@
 - [ ] **P1-9 小規模な `import go`**: 引数・戻り値が基本型の Go 関数と `(T, error)` → `Result` を呼べるようにする（resolve・check・lower・codegen にまたがる）。依存: P1-4, P1-5, P1-7, P1-8
 - [x] **P1-10 診断の JSON Lines / text 出力**: `kind`、最後の行の `summary`、終了コード 0/1/2、行・列（列はコードポイント単位）の計算（[spec 12 章](docs/spec.md)）。依存: P1-1
 - [ ] **P1-11 `cmd/gom` の `build` / `check`**: ファイル単位でフェーズをつなぎ、`.go` を出力する。`internal/build` は最小限（毎回すべて変換）。依存: P1-3, P1-4, P1-5, P1-6, P1-7, P1-8, P1-10
-- [ ] **P1-12 意味論の比較テスト用の評価器**: 単相の純粋な式、ADT、`match`、関数適用を型付き AST（または Core IR）から直接評価し、生成 Go コードの実行結果と比べるテストを作る（[design.md 7 章](docs/design.md)）。依存: P1-2
+- [x] **P1-12 意味論の比較テスト用の評価器**: 単相の純粋な式、ADT、`match`、関数適用を型付き AST（または Core IR）から直接評価し、生成 Go コードの実行結果と比べるテストを作る（[design.md 7 章](docs/design.md)）。依存: P1-2
 - [ ] **P1-13 P1 の完了確認**: `Expr` 評価器のサンプルと、`strconv` を使う小さなプログラムがファイル単位でビルドでき、`go vet` を通り、評価器との比較テストに通る。依存: P1-9, P1-11, P1-12
 - [ ] **P1-14 E90xx 診断コードの登録**: `internal/eval` が使う E9001–E9005 は `codes.go` の `categories` に `90` が無く登録不能。カテゴリ `90` と Phase `eval` を加えて登録し、`docs/error-codes.md` を再生成する。依存: P1-12, D-2
 
