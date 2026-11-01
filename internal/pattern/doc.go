@@ -4,7 +4,15 @@
 // counterexample patterns on failure (docs/design.md section 4.2).
 //
 // The check runs on the typed AST, since the set of constructors is
-// determined by the type. It is shared by match expressions, let bindings,
-// and function parameters, and emits the E0301 diagnostic with fixes for
-// non-exhaustive matches.
+// determined by the type (Env). It is shared by match expressions, let
+// bindings, for bindings, and function parameters (CheckMatch,
+// CheckPattern, CheckFile) and emits the pattern-matching
+// diagnostics of docs/error-codes.md: E0301 non-exhaustive match
+// (with the "add the missing arms" placeholder fix), E0302
+// unreachable match arm, E0303 refutable pattern in an irrefutable
+// position, and E0304 or-pattern alternatives binding different
+// variables.
+//
+// Decision-tree compilation for code generation is Maranget 2008 and
+// belongs to internal/lower (P1-7), not to this package.
 package pattern

@@ -62,6 +62,7 @@
 | [monomorphic-checker-design](2026-11-02-monomorphic-checker-design.md) | Design of the P1 monomorphic checker | draft |
 | [name-resolution](2026-11-02-name-resolution.md) | Name resolution: scopes, shadowing, and constructor lookup | draft |
 | [p1-3-parser-interpretations](2026-11-02-p1-3-parser-interpretations.md) | P1-3 parser: interpretations made while implementing grammar.ebnf | 採用 |
+| [pattern-checking](2026-11-02-pattern-checking.md) | Pattern-matrix checking: domains, guards, counterexamples (internal/pattern) | draft |
 | [sumtype-exhaustiveness-tool](2026-11-02-sumtype-exhaustiveness-tool.md) | Exhaustiveness checker for sealed interfaces (B-3) | 採用 |
 | [test-harness](2026-11-02-test-harness.md) | テストハーネスの配置とファイル規約 (internal/gomtest) | 採用 |
 | [treedump-format](2026-11-02-treedump-format.md) | IR テキストダンプ形式 (internal/treedump) | draft |
