@@ -25,7 +25,7 @@
 ### 基盤（最初に着手。P0 と並列に進められる）
 
 - [x] **B-1 Go モジュールとディレクトリの初期化**: `go.mod`（`go 1.27`）、[design.md 3 章](docs/design.md) のディレクトリ構成の空パッケージ、`cmd/gom` の空の CLI。各パッケージに `doc.go` で役割を書く
-- [ ] **B-2 CI とチェックスクリプト**: GitHub Actions で `gofmt -l`、`go vet`、`go test -race` を回す。ローカル用に同じ内容の `make check`（またはスクリプト）を用意する。依存: B-1
+- [x] **B-2 CI とチェックスクリプト**: GitHub Actions で `gofmt -l`、`go vet`、`go test -race` を回す。ローカル用に同じ内容の `make check`（またはスクリプト）を用意する。依存: B-1
 - [ ] **B-3 sealed interface の網羅性検査**: go-sumtype 相当のツール（現状を調査して [docs/sketch/](docs/sketch/) に記録）を CI に入れ、AST にバリアントを足したときに CI が失敗することを確かめるテストを置く。Go 1.27 とジェネリック型への対応も確認する（[design.md 2.4](docs/design.md)）。依存: B-2
 - [ ] **B-4 テストハーネス**: `testdata/spec/`（規則ごとの `.gom` と期待する診断 JSON）と `testdata/golden/`（生成 Go コード）を読むテストランナーと `-update` フラグ。まだ通らないケースを skip として置ける仕組みを含む。依存: B-1, D-1
 

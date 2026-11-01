@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Read-only CI: the checks below need nothing more.
+permissions:
+  contents: read
+
+# Cancel superseded runs on the same ref.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# `make check` runs the same checks locally.
+jobs:
+  check:
+    name: check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      # go.mod declares `go 1.27`; setup-go resolves the version file to
+      # the latest 1.27.x patch release.
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      # gofmt is module-agnostic: one pass covers the root module and
+      # the nested modules under experiments/.
+      # The `exit` on gofmt's own failure also catches unparseable
+      # files, which it reports on stderr without listing.
+      - name: gofmt -l .
+        run: |
+          unformatted=$(gofmt -l .) || exit 1
+          if [ -n "$unformatted" ]; then
+            echo "::error::files need gofmt:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: go vet ./... (root module)
+        run: go vet ./...
+
+      - name: go test -race ./... (root module)
+        run: go test -race ./...
+
+      # experiments/ hold nested Go modules that `./...` never reaches.
+      # Vet and test each module anyway so the verification code does
+      # not silently rot. Revisit here — not the root checks — if an
+      # experiment ever turns flaky or slow.
+      - name: go vet + go test (experiments modules)
+        run: |
+          test -d experiments || exit 0
+          for mod in $(find experiments -name go.mod | sort); do
+            dir=$(dirname "$mod")
+            echo "== $dir"
+            go -C "$dir" vet ./...
+            go -C "$dir" test -race ./...
+          done
