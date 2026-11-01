@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte(" Step 9: putting it together — a tiny port parser.\n//\n// Everything so far, in one program: a Go call whose `(T, error)`\n// becomes `Result Int GoError`, a conversion into our own error\n// type, a `|?>` chain with a validation step, and a match on the\n// final Result.\npackage main\n\nimport go \"fmt\"\nimport go \"strconv\"\n\nfn to_s (r: Result Int GoError) -> Result Int String =\n  match r {\n    Ok n -")

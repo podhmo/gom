@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("package flow\n\ntype Option a =\n  | Some a\n  | None\n\nfn classify (n: Int) -> Int =\n  if n < 0={\n    0 - 1\n  } else {\n    n\n  }\n\nfn each (xs: List Int) -> Uni\x11t =\n  for x in xs {\n    ignore x\n  }\n\nfn first ( : Option Int) -> Int =\n  match o {\n    Some x ifox > 0 -> \xb2\n    Some _ match o ")

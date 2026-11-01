@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("package a000\nimport go\"fmt\"\nfn a0000000(n:Int)->a00000=if 0>0{}else{}")

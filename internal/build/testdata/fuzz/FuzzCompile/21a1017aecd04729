@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("package a\nimport go\"fmt\"\nfn a()->Unit={let a=fmt.Print(\"\xeb\")}")

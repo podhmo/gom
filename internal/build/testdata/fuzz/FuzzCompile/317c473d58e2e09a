@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("ackage ex\n\ntype T = | Known\n\nfn f (s: T) -> Int =\n  match s {\n    Unknown -> C\n    Known -")

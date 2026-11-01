@@ -73,3 +73,24 @@ jobs:
             go -C "$dir" vet ./...
             go -C "$dir" test -race ./...
           done
+
+  # Bounded fuzz run (make check-fuzz). Advisory, not a gate: the
+  # targets suppress bug classes already registered in knownBugs,
+  # but a fresh compiler keeps surfacing NEW classes — a failure
+  # here is a finding to file (TODO.md + registry + the corpus file
+  # the fuzzer writes under testdata/fuzz/), which is deliberate
+  # signal rather than something every green change should block
+  # on. See docs/decisions/2026-11-02-fuzz-strategy.md.
+  fuzz:
+    name: fuzz (advisory)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+
+      - name: make check-fuzz
+        run: make check-fuzz

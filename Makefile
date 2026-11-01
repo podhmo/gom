@@ -9,7 +9,7 @@
 GO ?= go
 GOFMT ?= gofmt
 
-.PHONY: check fmt-check vet test check-experiments check-sumtype check-staticcheck
+.PHONY: check fmt-check vet test check-experiments check-sumtype check-staticcheck check-fuzz
 
 check: fmt-check vet test check-sumtype check-staticcheck check-experiments
 
@@ -30,6 +30,34 @@ vet:
 
 test:
 	$(GO) test -race ./...
+
+# Bounded fuzz run for the two compiler fuzz targets
+# (docs/decisions/2026-11-02-fuzz-strategy.md). NOT part of `check`:
+# the targets suppress only bugs already registered in knownBugs —
+# a run that surfaces a NEW bug class is a finding to file in
+# TODO.md + the registry (the failure prints the input; the Go
+# fuzzer also writes it under testdata/fuzz/), not a signal that
+# `check` should stay red over. CI runs this as an advisory job.
+#
+# -parallel is pinned: each worker can hold one sandbox child whose
+# rlimit is 3 GiB, so workers x 3 GiB must stay inside machine RAM —
+# a default GOMAXPROCS=16 on a 15 GiB box was enough to OOM-kill
+# workers mid-run. -run='^$$' skips regular tests; the fuzz session
+# itself replays the seed corpus as baseline coverage.
+#
+# `go clean -fuzzcache` first: the shared build-cache corpus
+# inherits every variant ever generated — including hundreds of
+# inputs in the known hang family — and replaying them can burn a
+# whole bounded window at ~0 execs/sec (observed). A bounded run
+# should explore fresh from the checked-in corpus, matching what CI
+# sees on a clean box.
+FUZZTIME ?= 25s
+FUZZPARALLEL ?= 4
+
+check-fuzz:
+	$(GO) clean -fuzzcache
+	GOMEMLIMIT=2GiB $(GO) test ./internal/syntax -run='^$$' -fuzz=FuzzParse -fuzztime=$(FUZZTIME) -parallel=$(FUZZPARALLEL)
+	GOMEMLIMIT=2GiB $(GO) test ./internal/build -run='^$$' -fuzz=FuzzCompile -fuzztime=$(FUZZTIME) -parallel=$(FUZZPARALLEL)
 
 # go-check-sumtype verifies type-switch exhaustiveness on the sealed
 # interfaces annotated with //sumtype:decl (docs/design.md section 2.4).
