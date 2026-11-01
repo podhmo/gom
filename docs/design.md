@@ -91,7 +91,7 @@ Go コード生成器に言語の意味を判断させない。次のことは C
 3. **Go 相互運用の変換**: `(T, error)` から `Result` への変換、数値変換、`any` へのボックス化、スライスのコピー、interface への代入はすべて明示的なノード
 4. **match は決定木**: パターンは残っていない。ADT の不正値に対する panic の分岐も明示
 5. **脱出**: `try` と `|?>` は、どの関数境界から抜けるかを明示した脱出ノード
-6. **型の具体化**: 多相な定義と、実行時の関数値を区別する。多相な定義を値として使う箇所では型引数が具体化済みで、必要なラッパーも確定済み（関数の表現は decisions/0020）
+6. **型の具体化**: 多相な定義と、実行時の関数値を区別する。多相な定義を値として使う箇所では型引数が具体化済みで、必要なラッパーも確定済み（関数の表現は [decisions/function-representation](decisions/2026-11-01-function-representation.md)）
 7. **ソースの由来**: すべてのノードが元の Gom ソースの範囲を指す
 
 例: ラベル付き引数の並べ替え。
@@ -188,7 +188,7 @@ func (Shape_Rect) isShape()   {}
 func (Shape_Empty) isShape()  {}
 ```
 
-非公開メソッド `isShape()` によりパッケージ外から新しいバリアントを足せない（sealed）。ただし Go 側では `var s Shape` が `nil` になり得るので、type switch の `default` は `panic("unreachable")` ではなく、型名を含む契約違反のメッセージで panic する（`rt.InvalidVariant("shapes.Shape", s)`）。引数なしバリアントはゼロサイズ struct なので割り当ては発生しない。ジェネリックな ADT は `type Option[A any] interface{ isOption() }` と `Option_Some[A any]` で表す。ADT・`List`・`Result` の最終的な表現は P0 の実験で決める（decisions/0018）。
+非公開メソッド `isShape()` によりパッケージ外から新しいバリアントを足せない（sealed）。ただし Go 側では `var s Shape` が `nil` になり得るので、type switch の `default` は `panic("unreachable")` ではなく、型名を含む契約違反のメッセージで panic する（`rt.InvalidVariant("shapes.Shape", s)`）。引数なしバリアントはゼロサイズ struct なので割り当ては発生しない。ジェネリックな ADT は `type Option[A any] interface{ isOption() }` と `Option_Some[A any]` で表す。ADT・`List`・`Result` の最終的な表現は P0 の実験で決める（[decisions/value-representation](decisions/2026-11-01-value-representation.md)）。
 
 ### 4.2 match → 決定木 → type switch
 
@@ -245,7 +245,7 @@ if n > 0 {
 | 引数が多い（結果が関数） | 直接呼び出しの結果に残りを適用 |
 | 未知の関数値への適用 | 1 引数ずつ適用 `f(x)(y)` |
 
-関数値の表現（カリー化形 `func(A) func(B) C` か、arity 付きのクロージャか）は P0 の実験で決める（decisions/0020）。現時点の案はカリー化形。既知の多引数関数を値として渡すときは変換ラッパーを生成する。`List.map` など頻出の標準関数には `func(A, B) C` を直接受け取る特殊化版を用意してクロージャのコストを緩和する。`.gomi` には引数リストの形でシグネチャを書くので、他パッケージの関数についても arity が分かる。
+関数値の表現（カリー化形 `func(A) func(B) C` か、arity 付きのクロージャか）は P0 の実験で決める（[decisions/function-representation](decisions/2026-11-01-function-representation.md)）。現時点の案はカリー化形。既知の多引数関数を値として渡すときは変換ラッパーを生成する。`List.map` など頻出の標準関数には `func(A, B) C` を直接受け取る特殊化版を用意してクロージャのコストを緩和する。`.gomi` には引数リストの形でシグネチャを書くので、他パッケージの関数についても arity が分かる。
 
 ### 4.5 その他の変換
 

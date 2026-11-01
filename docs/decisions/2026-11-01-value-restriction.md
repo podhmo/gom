@@ -1,4 +1,4 @@
-# 0016 一般化は value restriction 付き
+# 一般化は value restriction 付き
 
 - 状態: 採用
 - 日付: 2026-11-01

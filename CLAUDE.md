@@ -10,18 +10,23 @@ Gom は Go へトランスパイルする関数型言語。コンパイラは Go
 | `docs/design.md` | 実装方針と理由 | コンパイラ内部、コード生成、ディレクトリ構成 |
 | `docs/decisions/` | 決定の記録（1 件 1 ファイル） | なぜそう決めたか |
 | `docs/open-questions.md` | 未決事項と future work | まだ決まっていないこと |
-| `TODO.md` | 作業一覧 | 決まっていて手を動かすだけのこと |
+| `TODO.md` | 作業一覧（`.claude/skills/todo-md` の規則に従う） | 決まっていて手を動かすだけのこと、明らかなバグ |
+| `docs/sketch/` | 調査・検証のレポート | 規範ではない記録 |
+| `docs/problems/` | 懸念事項（1 件 1 ファイル） | まだどちらとも言えない懸念 |
 
 spec と実装が食い違ったら、勝手に実装に合わせて spec を書き換えず、食い違いを報告する。
 
 ## ドキュメント更新のルール
 
-- 未決事項が決着したら: `docs/decisions/NNNN-<slug>.md` を追加 → spec.md / design.md を更新 → open-questions.md から消す → 作業が生じたら TODO.md に追加
+- 未決事項が決着したら: `docs/decisions/YYYY-MM-DD-<slug>.md`（日付は作成日。以後ファイル名は変えない）を追加 → spec.md / design.md を更新 → open-questions.md から消す → 作業が生じたら TODO.md に追加
 - 決定を覆すときは、元の decision を消さず、新しい decision から「Supersedes」で参照する
 - 「ユーザーのコードの書き方や意味が変わるなら spec、変わらないなら design」
+- 実装中に決めたことは `状態: draft` の decision として追加し、prototype で検証して結果を `docs/sketch/` に書いてから状態を更新する（docs/decisions/README.md）
+- 遠い将来のタスクは TODO.md ではなく open-questions.md の Future work に書く
 
 ## 実装のルール
 
+- Go は 1.27 以上。完了前に `gofmt -l .`（出力が空）、`go vet ./...`、`go test ./...` を通す
 - フェーズ間の依存は一方向: `syntax` → `resolve` → `check` → `pattern` → `lower` → `codegen`。`diag` と `types` は共通部品
 - `codegen` に言語の意味を判断させない。評価順、arity と呼び出し規約、Go 相互運用の変換、脱出境界、型の具体化は Core IR で確定させる（docs/design.md 2.1 節）
 - 型付き AST の適用ノードは呼び出し情報を構造化して持つ。シンボル名や AST の見た目から呼び出し方法を判定し直さない

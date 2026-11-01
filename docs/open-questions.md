@@ -6,10 +6,10 @@
 
 机上で決めず、手書きの Go 実装案を比較して決める（TODO.md の P0）。
 
-- [ ] ADT の表現: sealed interface か、タグ付きの単一 struct か（decisions/0018）
-- [ ] `List` の表現: スライスベースか、永続 cons リストか。スライスなら `[x, ..rest]` は O(1) だが先頭追加は O(n) で、`rest` が元の配列を保持し続ける（decisions/0018）
-- [ ] `Result` の表現: sealed interface か、`struct { Value T; Error E; Ok bool }` か。大きな値型のコピーとゼロ値の扱いも比べる（decisions/0018）
-- [ ] 関数値の表現: カリー化形 `func(A) func(B) C` か、arity 付きクロージャか。多相な定義の具体化の時点と、パッケージをまたぐ関数値の公開形も含む（decisions/0020）
+- [ ] ADT の表現: sealed interface か、タグ付きの単一 struct か（[decisions/value-representation](decisions/2026-11-01-value-representation.md)）
+- [ ] `List` の表現: スライスベースか、永続 cons リストか。スライスなら `[x, ..rest]` は O(1) だが先頭追加は O(n) で、`rest` が元の配列を保持し続ける（[decisions/value-representation](decisions/2026-11-01-value-representation.md)）
+- [ ] `Result` の表現: sealed interface か、`struct { Value T; Error E; Ok bool }` か。大きな値型のコピーとゼロ値の扱いも比べる（[decisions/value-representation](decisions/2026-11-01-value-representation.md)）
+- [ ] 関数値の表現: カリー化形 `func(A) func(B) C` か、arity 付きクロージャか。多相な定義の具体化の時点と、パッケージをまたぐ関数値の公開形も含む（[decisions/function-representation](decisions/2026-11-01-function-representation.md)）
 
 ## 未決事項
 

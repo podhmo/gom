@@ -1,8 +1,8 @@
-# 0019 Go 相互運用の境界
+# Go 相互運用の境界
 
 - 状態: 採用
 - 日付: 2026-11-01
-- Supersedes: 0005 のうち `(T, bool)` と数値型の自動変換
+- Supersedes: [go-calls-as-tuples](2026-11-01-go-calls-as-tuples.md) のうち `(T, bool)` と数値型の自動変換
 
 ## 背景
 
