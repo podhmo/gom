@@ -10,6 +10,8 @@ import "github.com/podhmo/gom/experiments/p0/adt-repr/rt"
 //
 // Recursive positions hold the interface itself; a child is boxed once
 // when constructed and then passed around as a two-word interface value.
+//
+//sumtype:decl
 type Expr interface{ isExpr() }
 
 type Expr_Lit struct{ V0 int64 }

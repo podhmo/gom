@@ -15,6 +15,8 @@ import "github.com/podhmo/gom/experiments/p0/adt-repr/rt"
 //	| Circle (radius: Float)
 //	| Rect (w: Float) (h: Float)
 //	| Empty
+//
+//sumtype:decl
 type Shape interface{ isShape() }
 
 type Shape_Circle struct{ Radius float64 }

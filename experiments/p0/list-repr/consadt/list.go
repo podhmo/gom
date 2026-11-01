@@ -28,6 +28,11 @@ import (
 )
 
 // List is the sealed-interface encoding of `type List a = | Nil | Cons a (List a)`.
+// (The go-check-sumtype annotation is declared for documentation; the
+// tool skips generic variants, so the check is vacuous here — see
+// docs/sketch/2026-11-02-sumtype-check-selection.md.)
+//
+//sumtype:decl
 type List[A any] interface{ isList() }
 
 // List_Nil is the empty-list variant. Zero-sized: values cost no allocation.

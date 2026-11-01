@@ -9,9 +9,9 @@
 GO ?= go
 GOFMT ?= gofmt
 
-.PHONY: check fmt-check vet test check-experiments
+.PHONY: check fmt-check vet test check-experiments check-sumtype
 
-check: fmt-check vet test check-experiments
+check: fmt-check vet test check-sumtype check-experiments
 
 # gofmt is module-agnostic: one pass covers the root module and the
 # nested modules under experiments/.
@@ -30,6 +30,13 @@ vet:
 
 test:
 	$(GO) test -race ./...
+
+# go-check-sumtype verifies type-switch exhaustiveness on the sealed
+# interfaces annotated with //sumtype:decl (docs/design.md section 2.4).
+# The script also runs the tool's own canary: testdata/sumtype is a
+# nested module whose nonexhaustive package MUST fail the check.
+check-sumtype:
+	GO='$(GO)' sh scripts/check-sumtype.sh
 
 # experiments/ hold nested Go modules that `./...` never reaches. Vet
 # and test each module anyway so the verification code does not rot.

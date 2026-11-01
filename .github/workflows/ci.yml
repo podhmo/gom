@@ -48,6 +48,13 @@ jobs:
       - name: go test -race ./... (root module)
         run: go test -race ./...
 
+      # Type-switch exhaustiveness on the //sumtype:decl sealed
+      # interfaces (docs/design.md section 2.4). The shared script also
+      # asserts the tool still detects the deliberate missing variant
+      # in the testdata/sumtype canary module.
+      - name: go-check-sumtype (all modules + canary)
+        run: sh scripts/check-sumtype.sh
+
       # experiments/ hold nested Go modules that `./...` never reaches.
       # Vet and test each module anyway so the verification code does
       # not silently rot. Revisit here — not the root checks — if an

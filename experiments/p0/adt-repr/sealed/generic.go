@@ -13,6 +13,11 @@ import "github.com/podhmo/gom/experiments/p0/adt-repr/rt"
 // unifies types through their structure, and A is not part of the
 // method set's structure. With isOption() A, a call like
 // GetOrElse(o, 9) infers A from o alone.
+//
+// (go-check-sumtype skips generic variants, so the annotation is
+// documentation only here — docs/sketch/2026-11-02-sumtype-check-selection.md.)
+//
+//sumtype:decl
 type Option[A any] interface{ isOption() A }
 
 type Option_Some[A any] struct{ V0 A }
@@ -48,6 +53,10 @@ func IsSome[A any](o Option[A]) bool {
 //
 //	| Cons a (List a)
 //	| Nil
+//
+// (go-check-sumtype skips generic variants — see the note on Option.)
+//
+//sumtype:decl
 type List[A any] interface{ isList() A }
 
 type List_Cons[A any] struct {
