@@ -641,9 +641,12 @@ func (p *parser) parseLetDeclWithFlag(testOnly bool, doc *Comment) Decl {
 		Type:     typ,
 	}
 	if p.gomi {
-		switch pat.(type) {
-		case *VarPat, *WildPat:
-		default:
+		// Partial probe — only VarPat/WildPat are legal; use assertions
+		// instead of a type switch so the sumtype checker doesn't
+		// require enumerating every Pat variant.
+		_, isVar := pat.(*VarPat)
+		_, isWild := pat.(*WildPat)
+		if !isVar && !isWild {
 			p.errf(pat.Span(), "a constant signature binds a plain name")
 		}
 	}
