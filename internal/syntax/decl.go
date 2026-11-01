@@ -6,6 +6,8 @@ import "github.com/podhmo/gom/internal/diag"
 // subset allowed in .gomi files, docs/spec.md section 7). The interface
 // is sealed: every variant is declared in this package and type
 // switches over Decl must end with `default: panic("unreachable")`.
+//
+//sumtype:decl
 type Decl interface {
 	Node
 	isDecl()
@@ -58,6 +60,8 @@ func (n *LetDecl) Span() diag.Span { return n.Sp }
 
 // TypeBody is the right-hand side of `type X = ...` — or `type X`
 // alone for an abstract type.
+//
+//sumtype:decl
 type TypeBody interface {
 	Node
 	isTypeBody()
@@ -173,6 +177,8 @@ func (n *ImportDecl) Span() diag.Span { return n.Sp }
 // function signatures exist; the family is sealed so new entry kinds
 // (conversion rules, types — docs/spec.md section 8.4) force type
 // switches to be revisited.
+//
+//sumtype:decl
 type ExternEntry interface {
 	Node
 	isExternEntry()

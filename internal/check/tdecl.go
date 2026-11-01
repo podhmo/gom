@@ -13,6 +13,8 @@ import (
 // Surface-only declarations are gone by this stage: import clauses
 // become File.Imports and extern blocks have already been consumed by
 // name resolution.
+//
+//sumtype:decl
 type Decl interface {
 	Span() diag.Span
 	isDecl()
@@ -42,6 +44,8 @@ func (n *LetDecl) Span() diag.Span { return n.Sp }
 
 // TypeBody is the typed body of a type declaration, with every field
 // type resolved to a types.Type.
+//
+//sumtype:decl
 type TypeBody interface {
 	Span() diag.Span
 	isTypeBody()

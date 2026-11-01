@@ -5,6 +5,8 @@ import "github.com/podhmo/gom/internal/diag"
 // Pat is a surface-AST pattern (docs/spec.md section 4.1). The
 // interface is sealed: every variant is declared in this package and
 // type switches over Pat must end with `default: panic("unreachable")`.
+//
+//sumtype:decl
 type Pat interface {
 	Node
 	isPat()

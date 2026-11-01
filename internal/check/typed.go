@@ -26,6 +26,8 @@ func (b Base) Type() types.Type { return b.Typ }
 // resolved symbol (docs/design.md section 2). The interface is
 // sealed: every variant is declared in this package and type switches
 // over Expr must end with `default: panic("unreachable")`.
+//
+//sumtype:decl
 type Expr interface {
 	Span() diag.Span
 	Type() types.Type
@@ -124,6 +126,8 @@ type Binary struct {
 func (*Binary) isExpr() {}
 
 // StrPart is one part of an interpolated string: text or a splice.
+//
+//sumtype:decl
 type StrPart interface {
 	Span() diag.Span
 	isStrPart()
@@ -256,6 +260,8 @@ type For struct {
 func (*For) isExpr() {}
 
 // SelectArm is one arm of a typed select expression.
+//
+//sumtype:decl
 type SelectArm interface {
 	Span() diag.Span
 	isSelectArm()

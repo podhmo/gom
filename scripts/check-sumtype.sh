@@ -23,8 +23,8 @@ FLAGS="-default-signifies-exhaustive=false"
 "$GO" run "$TOOL" $FLAGS ./...
 
 # Nested modules under experiments/ — the same set check-experiments
-# covers. The sealed interfaces annotated with //sumtype:decl live
-# there until the internal AST lands (TODO P1-2).
+# covers. internal/ sealed interfaces are checked by the root ./...
+# run above; experiments keep their own annotations.
 if [ -d experiments ]; then
 	for mod in $(find experiments -name go.mod | sort); do
 		dir=$(dirname "$mod")

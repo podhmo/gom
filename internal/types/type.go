@@ -18,6 +18,8 @@ import (
 // fields (Con.Args, Func.Params, Tuple.Elems, Go.Args) are shared
 // between nodes and must not be mutated — build a new node instead.
 // The single mutation point is Meta.Bind, which is inference's.
+//
+//sumtype:decl
 type Type interface {
 	isType()
 	String() string // renders in Gom surface syntax

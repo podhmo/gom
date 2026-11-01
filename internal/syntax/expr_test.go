@@ -150,16 +150,15 @@ func TestBinOp(t *testing.T) {
 }
 
 func TestSelectArmsAndStrPartsAreSealed(t *testing.T) {
+	// Type assertions, not switches: a partial type switch over a
+	// sealed interface fails the exhaustiveness check
+	// (scripts/check-sumtype.sh); an assertion is outside its scope.
 	var arm SelectArm = &RecvArm{Sp: sp, Bind: &VarPat{Sp: sp, Name: &Ident{Sp: sp, Name: "x"}}}
-	switch arm.(type) {
-	case *RecvArm:
-	default:
+	if _, ok := arm.(*RecvArm); !ok {
 		t.Fatalf("RecvArm is not a SelectArm")
 	}
 	var part StrPart = &StrExpr{Sp: sp, X: &Ident{Sp: sp, Name: "x"}}
-	switch part.(type) {
-	case *StrExpr:
-	default:
+	if _, ok := part.(*StrExpr); !ok {
 		t.Fatalf("StrExpr is not a StrPart")
 	}
 }

@@ -8,6 +8,8 @@ import "github.com/podhmo/gom/internal/diag"
 // application (`List Int`, `Result Unit TxError`). The interface is
 // sealed: every variant is declared in this package and type switches
 // over TypeExpr must end with `default: panic("unreachable")`.
+//
+//sumtype:decl
 type TypeExpr interface {
 	Node
 	isTypeExpr()

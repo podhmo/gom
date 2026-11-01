@@ -5,6 +5,8 @@ import "github.com/podhmo/gom/internal/diag"
 // Expr is a surface-AST expression. The interface is sealed: every
 // variant is declared in this package and type switches over Expr must
 // end with `default: panic("unreachable")`.
+//
+//sumtype:decl
 type Expr interface {
 	Node
 	isExpr()
@@ -77,6 +79,8 @@ func (n *Lit) Span() diag.Span { return n.Sp }
 // StrPart is one part of an interpolated string `"hello ${name}"`
 // (docs/spec.md section 1.2): a literal text chunk or a `${expr}`
 // splice.
+//
+//sumtype:decl
 type StrPart interface {
 	Node
 	isStrPart()
@@ -422,6 +426,8 @@ func (n *For) Span() diag.Span { return n.Sp }
 // SelectArm is one arm of a select expression (docs/spec.md
 // section 10): a receive `x <- ch -> e`, a send `send ch v -> e`, or
 // `default -> e`.
+//
+//sumtype:decl
 type SelectArm interface {
 	Node
 	isSelectArm()
