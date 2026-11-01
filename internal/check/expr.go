@@ -294,15 +294,16 @@ func (c *checker) fieldOf(t types.Type, name string) (*fieldInfo, types.Type, bo
 }
 
 // methodOf resolves a method name on a Go-typed receiver (a
-// types.Go or a Ptr to one) through the optional MethodSource of the
-// signature source. The returned type is the instantiated method
-// signature — the receiver itself is not a parameter of it.
+// types.Go, the builtin GoError, or a Ptr to one) through the
+// optional MethodSource of the signature source. The returned type
+// is the instantiated method signature — the receiver itself is not
+// a parameter of it.
 func (c *checker) methodOf(recvT types.Type, name string, sp diag.Span) (*resolve.Symbol, types.Type, bool) {
 	t := types.Chase(recvT)
 	if con, ok := t.(*types.Con); ok && con.Qual == "" && con.Name == "Ptr" && len(con.Args) == 1 {
 		t = types.Chase(con.Args[0])
 	}
-	if _, ok := t.(*types.Go); !ok {
+	if _, ok := t.(*types.Go); !ok && !types.Equal(t, types.GoError) {
 		return nil, nil, false
 	}
 	ms, ok := c.src.(MethodSource)

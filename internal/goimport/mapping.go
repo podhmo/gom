@@ -137,7 +137,7 @@ func (l *Loader) mapType(t types.Type, goView bool) (gt.Type, string) {
 			}
 			return gt.Int, ""
 		}
-		return basicType(t)
+		return basicType(t, goView)
 	case *types.Named:
 		return l.namedType(t)
 	case *types.Alias:
@@ -203,13 +203,21 @@ func (l *Loader) mapType(t types.Type, goView bool) (gt.Type, string) {
 // basicType maps the Go builtin types; untyped kinds take their Go
 // default type (a const's reported type is untyped — `math.Pi` is an
 // untyped float constant and behaves as `float64` at use sites).
-func basicType(t *types.Basic) (gt.Type, string) {
+// goView selects the Go spelling where it differs from the Gom one —
+// like the `types.Int` case in mapType, the untyped int default `int`
+// is `Go.Int` there: `sz := strconv.IntSize` binds a real `int`.
+func basicType(t *types.Basic, goView bool) (gt.Type, string) {
 	switch t.Kind() {
 	case types.Bool, types.UntypedBool:
 		return gt.Bool, ""
 	case types.UntypedInt:
-		// An untyped int constant's default type is `int` — the
-		// same value `Int` maps to.
+		// An untyped int constant's default type is `int` — it
+		// shares the `int` split view (`Int` / `Go.Int`), or a
+		// `let`-bound reference would infer Go `int` while the
+		// Gom view claims `Int` (`int64`).
+		if goView {
+			return gt.GoInt, ""
+		}
 		return gt.Int, ""
 	case types.Int64:
 		return gt.Int, ""

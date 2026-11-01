@@ -1,0 +1,9 @@
+package ex
+
+import go "os"
+
+// A Go package variable is a value, not a callee: `os.Args ()`
+// applies a `Go.Slice String`, which is not a function — the
+// ordinary type mismatch (E0401) at check time, never an E0901
+// contract gap at `gom build`.
+fn main () -> Unit = os.Args ()

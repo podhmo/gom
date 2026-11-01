@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/podhmo/gom/internal/diag"
+	"github.com/podhmo/gom/internal/resolve"
 	"github.com/podhmo/gom/internal/syntax"
 	"github.com/podhmo/gom/internal/types"
 )
@@ -63,6 +64,25 @@ func TestValidateAcceptsEntry(t *testing.T) {
 
 func TestValidateAcceptsValidFile(t *testing.T) {
 	if got := Validate(okFile); len(got) != 0 {
+		for _, v := range got {
+			t.Errorf("unexpected violation: %s", v)
+		}
+	}
+}
+
+// A Go package member (`os.O_RDONLY`, `math.Pi`) is referenced by
+// qualification, not by an enclosing binder — Var's contract admits
+// it without a scope entry. A non-Go member still demands the local
+// binding (the "var out of scope" violation case below).
+func TestValidateAcceptsGoPkgVar(t *testing.T) {
+	goVar := &resolve.Symbol{Name: "O_RDONLY", Kind: resolve.KindVar, IsGo: true, Package: "os"}
+	// The shape lower emits for `let _ = os.O_RDONLY`: the raw-typed
+	// reference inside the int64 conversion.
+	f := fnFile(types.Int, &Body{Tail: &Conv{
+		Base: Base{Sp: sp(), Typ: types.Int},
+		Kind: ConvNum, X: vref(goVar, types.GoInt),
+	}})
+	if got := Validate(f); len(got) != 0 {
 		for _, v := range got {
 			t.Errorf("unexpected violation: %s", v)
 		}

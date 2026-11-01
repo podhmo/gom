@@ -165,14 +165,16 @@ func isGoAny(t types.Type) bool {
 
 // MethodSource is an optional extension a SignatureSource may
 // implement to expose methods of Go named types: the checker
-// consults it when a select's receiver has a Go type (a types.Go or
-// a Ptr to one) and the selector did not resolve to an ordinary
-// member symbol. internal/goimport answers it with go/types method
-// sets; sources that do not implement it leave `x.M` on a Go
-// receiver as an ordinary "no field or method" miss.
+// consults it when a select's receiver has a Go type (a types.Go,
+// the builtin GoError, or a Ptr to one) and the selector did not
+// resolve to an ordinary member symbol. internal/goimport answers
+// it with go/types method sets; sources that do not implement it
+// leave `x.M` on a Go receiver as an ordinary "no field or method"
+// miss.
 type MethodSource interface {
 	// MethodOf returns the method symbol and signature of name on
-	// the Go named type behind recv (a *types.Go possibly under
-	// Ptr), or false when the type has no such method.
+	// the Go named type behind recv (a *types.Go or the builtin
+	// GoError, possibly under Ptr), or false when the type has no
+	// such method.
 	MethodOf(recv types.Type, name string) (*resolve.Symbol, Signature, bool)
 }

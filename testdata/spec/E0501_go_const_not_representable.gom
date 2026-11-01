@@ -1,0 +1,9 @@
+package ex
+
+import go "math"
+
+// math.MaxUint is 1<<64 - 1 — an untyped int constant outside
+// int64's range, so the `Int` view cannot hold it and the member is
+// hidden: referencing it reports E0501 rather than emitting an
+// `int64(...)` conversion that could not compile.
+fn f () -> Int = math.MaxUint

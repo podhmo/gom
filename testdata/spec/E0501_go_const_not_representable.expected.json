@@ -1,0 +1,28 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0501",
+      "severity": "error",
+      "message": "Go symbol `math.MaxUint` is not exposed: value not representable as Int",
+      "span": {
+        "file": "E0501_go_const_not_representable.gom",
+        "start": {
+          "line": 9,
+          "col": 23,
+          "offset": 301
+        },
+        "end": {
+          "line": 9,
+          "col": 30,
+          "offset": 308
+        }
+      },
+      "data": {
+        "package": "math",
+        "reason": "value not representable as Int",
+        "symbol": "MaxUint"
+      }
+    }
+  ]
+}

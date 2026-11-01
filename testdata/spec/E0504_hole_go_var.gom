@@ -1,0 +1,9 @@
+package ex
+
+import go "os"
+
+// The `_` placeholder is only legal as an argument of a Go call;
+// `os.Args` is a variable, so `os.Args _` reports E0504 at check
+// time (the ordinary application mismatch follows — the variable's
+// type is not a function).
+fn main () -> Unit = os.Args _

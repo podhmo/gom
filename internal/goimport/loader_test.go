@@ -131,6 +131,34 @@ func TestHiddenMembers(t *testing.T) {
 	}
 }
 
+// An untyped int constant outside int64's range cannot back the
+// `Int` (`int64`) the Gom view would claim — `math.MaxUint` is
+// `1<<64 - 1`, and `int64(math.MaxUint)` does not compile — so the
+// member stays bound but Hidden (E0501 at use sites). The in-range
+// untyped int consts (`math.MaxInt`, `math.MinInt`, `strconv.IntSize`)
+// stay exposed.
+func TestOverflowIntConstHidden(t *testing.T) {
+	l := loaderFor(t)
+	mp := membersOf(t, l, "math")
+	mx := mp.Members["MaxUint"]
+	if mx == nil {
+		t.Skip("MaxUint not exported")
+	}
+	if mx.Hidden == "" {
+		t.Errorf("MaxUint should be Hidden, got %+v", mx)
+	}
+	if _, ok := l.SignatureOf(mx); ok {
+		t.Error("SignatureOf must not answer a hidden member")
+	}
+	for _, name := range []string{"MaxInt", "MinInt"} {
+		if s := mp.Members[name]; s == nil {
+			t.Skip(name + " not exported")
+		} else if s.Hidden != "" {
+			t.Errorf("%s should stay exposed, hidden: %s", name, s.Hidden)
+		}
+	}
+}
+
 // A Go named type maps to a types.Go NamedRef with method lookup.
 func TestLoadNamedTypeAndMethods(t *testing.T) {
 	l := loaderFor(t)
@@ -192,6 +220,113 @@ func TestLoadConst(t *testing.T) {
 	}
 	if !gt.Equal(sig.Type, gt.Float) {
 		t.Errorf("Pi type = %s, want Float", sig.Type)
+	}
+}
+
+// A Go package var or const answers SignatureOf with the Gom view
+// and GoSigOf with the raw Go type — a zero-arity, single-result
+// "signature" — so lowering can place the int/int64 conversion a
+// reference needs (spec 8.1.5). Regression: a reference used to die
+// on an internal E0901 in core validation.
+func TestLoadPkgVars(t *testing.T) {
+	l := loaderFor(t)
+	os := membersOf(t, l, "os")
+
+	// O_RDONLY is a typed `int` const: Int to Gom, Go.Int raw —
+	// the reference must lower to `int64(os.O_RDONLY)`.
+	rdonly := os.Members["O_RDONLY"]
+	if rdonly == nil {
+		t.Skip("O_RDONLY not exported")
+	}
+	if rdonly.Kind != resolve.KindVar || !rdonly.IsGo || rdonly.Package != "os" {
+		t.Errorf("O_RDONLY symbol = %+v, want an IsGo KindVar of package os", rdonly)
+	}
+	sig, ok := l.SignatureOf(rdonly)
+	if !ok || !gt.Equal(sig.Type, gt.Int) {
+		t.Errorf("O_RDONLY signature = %v, want Int", sig)
+	}
+	gs, ok := l.GoSigOf(rdonly)
+	if !ok || gs.Results != core.GoResultsOne || len(gs.ResTypes) != 1 || !gt.Equal(gs.ResTypes[0], gt.GoInt) {
+		t.Errorf("O_RDONLY GoSig = %+v, want a single Go.Int result", gs)
+	}
+
+	// Args is a real var of type []string — the same type in both
+	// views, so a reference lowers to the bare `os.Args`.
+	args := os.Members["Args"]
+	if args == nil {
+		t.Skip("Args not exported")
+	}
+	sig, ok = l.SignatureOf(args)
+	if !ok || sig.Type.String() != "Go.Slice String" {
+		t.Errorf("Args signature = %v, want `Go.Slice String`", sig.Type)
+	}
+	gs, ok = l.GoSigOf(args)
+	if !ok || len(gs.ResTypes) != 1 || !gt.Equal(gs.ResTypes[0], sig.Type) {
+		t.Errorf("Args GoSig = %+v, want a single Go.Slice String result", gs)
+	}
+
+	// Untyped consts take their Go default type — and the untyped
+	// int default is `int`, so strconv.IntSize splits the views
+	// like a typed `int`: Int to Gom, Go.Int raw, the reference
+	// lowered to `int64(strconv.IntSize)`.
+	sp := membersOf(t, l, "strconv")
+	isz := sp.Members["IntSize"]
+	if isz == nil {
+		t.Skip("IntSize not exported")
+	}
+	sig, ok = l.SignatureOf(isz)
+	if !ok || !gt.Equal(sig.Type, gt.Int) {
+		t.Errorf("IntSize signature = %v, want Int", sig.Type)
+	}
+	gs, ok = l.GoSigOf(isz)
+	if !ok || len(gs.ResTypes) != 1 || !gt.Equal(gs.ResTypes[0], gt.GoInt) {
+		t.Errorf("IntSize GoSig = %+v, want a single Go.Int result", gs)
+	}
+
+	// math.Pi is an untyped float const: Float in both views.
+	mp := membersOf(t, l, "math")
+	pi := mp.Members["Pi"]
+	if pi == nil {
+		t.Skip("Pi not exported")
+	}
+	gs, ok = l.GoSigOf(pi)
+	if !ok || len(gs.ResTypes) != 1 || !gt.Equal(gs.ResTypes[0], gt.Float) {
+		t.Errorf("Pi GoSig = %+v, want a single Float result", gs)
+	}
+}
+
+// The universe `error` interface's method set answers a GoError
+// receiver — the GoError builtin is the one Go-typed receiver that
+// has no types.Named entry in l.named. `e.Error()` used to fail
+// E0401 "GoError has no field or method".
+func TestMethodOfGoError(t *testing.T) {
+	l := loaderFor(t)
+	msym, msig, ok := l.MethodOf(gt.GoError, "Error")
+	if !ok {
+		t.Fatal("MethodOf(GoError, Error) not found")
+	}
+	if msym.Kind != resolve.KindMethod || !msym.IsGo {
+		t.Errorf("Error symbol = %+v, want an IsGo KindMethod", msym)
+	}
+	if got := msig.Type.String(); got != " -> String" {
+		t.Errorf("Error signature = %s, want ` -> String`", got)
+	}
+	gs, ok := l.GoSigOf(msym)
+	if !ok || gs.Arity != 0 || len(gs.ResTypes) != 1 || !gt.Equal(gs.ResTypes[0], gt.String) {
+		t.Errorf("Error GoSig = %+v, want a single String result", gs)
+	}
+	// Second lookup reuses the interned symbol.
+	msym2, _, ok := l.MethodOf(gt.GoError, "Error")
+	if !ok || msym2 != msym {
+		t.Error("MethodOf must intern method symbols")
+	}
+	// A `*error` receiver reaches the same interface method through
+	// Go's implicit deref.
+	if _, _, ok := l.MethodOf(gt.Ptr(gt.GoError), "Error"); !ok {
+		t.Error("MethodOf(*GoError, Error) not found")
+	}
+	if _, _, ok := l.MethodOf(gt.GoError, "Nosuch"); ok {
+		t.Error("MethodOf(GoError, Nosuch) must not answer")
 	}
 }
 

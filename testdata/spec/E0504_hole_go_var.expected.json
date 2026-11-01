@@ -1,0 +1,68 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected Go.Slice String, got ?0 -> ?1",
+      "span": {
+        "file": "E0504_hole_go_var.gom",
+        "start": {
+          "line": 9,
+          "col": 30,
+          "offset": 287
+        },
+        "end": {
+          "line": 9,
+          "col": 31,
+          "offset": 288
+        }
+      },
+      "data": {
+        "actual": "?0 -> ?1",
+        "expected": "Go.Slice String"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0407",
+      "severity": "error",
+      "message": "type annotation required: an over-applied argument's parameter could not be determined",
+      "span": {
+        "file": "E0504_hole_go_var.gom",
+        "start": {
+          "line": 9,
+          "col": 30,
+          "offset": 287
+        },
+        "end": {
+          "line": 9,
+          "col": 31,
+          "offset": 288
+        }
+      },
+      "data": {
+        "type": "?0"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0504",
+      "severity": "error",
+      "message": "`_` is only allowed as an argument of a Go call",
+      "span": {
+        "file": "E0504_hole_go_var.gom",
+        "start": {
+          "line": 9,
+          "col": 30,
+          "offset": 287
+        },
+        "end": {
+          "line": 9,
+          "col": 31,
+          "offset": 288
+        }
+      }
+    }
+  ]
+}

@@ -273,6 +273,43 @@ func TestMethodOnGomValue(t *testing.T) {
 	requireCodes(t, diags, "E0502")
 }
 
+// `os.Args ()` — a Go package variable is a plain value, not a Go
+// callee: the application classifies CallUnknown and reports the
+// ordinary non-function mismatch (E0401) instead of becoming a
+// CallGo that lowering would reject as an E0901 contract gap.
+func TestCallGoVarNotCallable(t *testing.T) {
+	b := newTB()
+	os := b.modSym("os", true)
+	args := b.govarSym("os", "Args")
+	src := MapSource{args: {Type: types.GoSlice(types.String)}}
+	up := b.unitParam()
+	call := b.app(b.member(os, args, "Args"), b.arg(b.ulit()))
+	main, _ := b.fn("main", []syntax.Param{up}, b.tn("Unit"), call)
+
+	f, diags := b.check(src, main)
+	requireCodes(t, diags, "E0401")
+	d := findDecl[*FnDecl](f, 0)
+	a := applyAt(d.Body)
+	expectCall(t, a, CallUnknown, 0, 1, 0, nil)
+}
+
+// `os.Args _` takes the same path — the `_` placeholder is only
+// legal in a Go call, so E0504 fires on top of the non-function
+// application mismatch (E0401). The recovered unit argument leaves
+// its parameter meta unsolved, so E0407 tags along.
+func TestCallGoVarHoleArg(t *testing.T) {
+	b := newTB()
+	os := b.modSym("os", true)
+	args := b.govarSym("os", "Args")
+	src := MapSource{args: {Type: types.GoSlice(types.String)}}
+	up := b.unitParam()
+	call := b.app(b.member(os, args, "Args"), b.arg(b.hole()))
+	main, _ := b.fn("main", []syntax.Param{up}, b.tn("Unit"), call)
+
+	_, diags := b.check(src, main)
+	requireCodes(t, diags, "E0504", "E0401", "E0407")
+}
+
 // `Go.conv e : T` is an Ascribe with Conv; a bare `Go.conv e` is
 // E0507, as is an impossible conversion.
 func TestConv(t *testing.T) {

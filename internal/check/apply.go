@@ -15,9 +15,10 @@ import (
 //
 // Classification:
 //
-//   - the callee resolves to a KindMethod symbol or one flagged IsGo
-//     → CallGo: Go calling convention, no currying; the surface
-//     argument tuple is unpacked into the individual Go arguments.
+//   - the callee resolves to a Go function or method (KindFunc /
+//     KindMethod flagged IsGo) → CallGo: Go calling convention, no
+//     currying; the surface argument tuple is unpacked into the
+//     individual Go arguments.
 //   - a known Gom callee (a declared or imported fn, a variant
 //     constructor, a builtin) saturated or over-applied → CallDirect;
 //     under-applied → CallPartial.
@@ -109,7 +110,12 @@ func (c *checker) calleeOf(e syntax.Expr) (Expr, *resolve.Symbol, bool) {
 	if sym == nil {
 		return fn, nil, false
 	}
-	if sym.Kind == resolve.KindMethod || sym.IsGo {
+	// Only Go *functions* (and methods) use the Go calling
+	// convention — a Go package variable or constant is a plain
+	// value: `os.Args ()` must fall through to ordinary
+	// application diagnostics, not become a CallGo that lowering
+	// rejects as an E0901 contract gap.
+	if sym.IsGo && (sym.Kind == resolve.KindFunc || sym.Kind == resolve.KindMethod) {
 		return fn, sym, true
 	}
 	switch sym.Kind {

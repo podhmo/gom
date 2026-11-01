@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/podhmo/gom/internal/check"
@@ -247,6 +248,120 @@ fn main () -> Unit = {
 	}
 	if out != "abc\n" {
 		t.Fatalf("output = %q, want \"abc\\n\"\n---\n%s", out, gen)
+	}
+}
+
+// A GoError value carries the universe `error` interface's method
+// set: `e.Error()` resolves through MethodOf and emits `e.Error()`.
+// Regression: it used to fail E0401 "GoError has no field or method".
+func TestE2EGoErrorMethod(t *testing.T) {
+	l := loaderFor(t)
+	src := `package main
+
+import go "errors"
+import go "fmt"
+import go "strconv"
+
+fn main () -> Unit = {
+  match strconv.Atoi("x") {
+    Ok n -> { let _ = fmt.Println(n); () }
+    Err e -> {
+      let _ = fmt.Println(errors.Is(e, strconv.ErrSyntax))
+      let _ = fmt.Println(e.Error())
+      ()
+    }
+  }
+}
+`
+	gen := compileSource(t, l, src)
+	out, err := runGenerated(t, gen)
+	if err != nil {
+		t.Fatalf("generated program failed: %v\noutput: %s\n---\n%s", err, out, gen)
+	}
+	want := "true\nstrconv.Atoi: parsing \"x\": invalid syntax\n"
+	if out != want {
+		t.Fatalf("output = %q, want %q\n---\n%s", out, want, gen)
+	}
+}
+
+// Go package vars and consts lower to qualified references — no
+// "not in scope" E0901: `math.Pi` (untyped float const),
+// `strconv.IntSize` (untyped int const), `os.O_RDONLY` (a typed
+// `int` const the int64 conversion wraps), `time.Nanosecond` (a Go
+// named type's const) and `os.Args` (a real var).
+func TestE2EGoPkgVars(t *testing.T) {
+	l := loaderFor(t)
+	src := `package main
+
+import go "fmt"
+import go "math"
+import go "os"
+import go "strconv"
+import go "strings"
+import go "time"
+
+fn main () -> Unit = {
+  let _ = fmt.Println(math.Pi)
+  let _ = fmt.Println(strconv.IntSize)
+  let _ = fmt.Println(os.O_RDONLY)
+  let _ = fmt.Println(time.Nanosecond)
+  let _ = fmt.Println(strings.Join(os.Args, " "))
+  ()
+}
+`
+	gen := compileSource(t, l, src)
+	out, err := runGenerated(t, gen)
+	if err != nil {
+		t.Fatalf("generated program failed: %v\noutput: %s\n---\n%s", err, out, gen)
+	}
+	// The int64 conversion must surround the typed `int` const.
+	if !strings.Contains(string(gen), "int64(os.O_RDONLY)") {
+		t.Errorf("generated source lacks int64(os.O_RDONLY):\n%s", gen)
+	}
+	want := "3.141592653589793\n64\n0\n1ns\n"
+	if !strings.HasPrefix(out, want) {
+		t.Fatalf("output = %q, want prefix %q\n---\n%s", out, want, gen)
+	}
+	// The remaining line is os.Args joined — the exe path, whose
+	// only stable property is being non-empty.
+	if rest := out[len(want):]; len(rest) == 0 {
+		t.Fatalf("output ends too early: %q\n---\n%s", out, gen)
+	}
+}
+
+// An untyped int constant bound by `let` still behaves as `Int`:
+// the untyped default `int` is not `int64`, so the emitted
+// reference is `int64(strconv.IntSize)` — without the conversion
+// `sz` would bind a Go `int` and `id sz` would not compile. The
+// untyped `math.MaxInt`/`math.MinInt` take the same path.
+func TestE2EUntypedIntConstLet(t *testing.T) {
+	l := loaderFor(t)
+	src := `package main
+
+import go "fmt"
+import go "math"
+import go "strconv"
+
+fn id (x: Int) -> Int = x
+
+fn main () -> Unit = {
+  let sz = strconv.IntSize
+  let _ = fmt.Println(id sz + id math.MaxInt + id math.MinInt)
+  ()
+}
+`
+	gen := compileSource(t, l, src)
+	for _, want := range []string{"int64(strconv.IntSize)", "int64(math.MaxInt)", "int64(math.MinInt)"} {
+		if !strings.Contains(string(gen), want) {
+			t.Errorf("generated source lacks %s:\n%s", want, gen)
+		}
+	}
+	out, err := runGenerated(t, gen)
+	if err != nil {
+		t.Fatalf("generated program failed: %v\noutput: %s\n---\n%s", err, out, gen)
+	}
+	if out != "63\n" {
+		t.Fatalf("output = %q, want \"63\\n\"\n---\n%s", out, gen)
 	}
 }
 

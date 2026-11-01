@@ -1,7 +1,42 @@
 # `GoError` is uninspectable and unfabricatable from inside Gom
 
-- 状態: 未解決
+- 状態: 一部解消 — `GoError` values are inspectable now (`e.Error()`
+  resolves and emits `e.Error()`, and error-typed package vars such
+  as `strconv.ErrSyntax` work as `errors.Is` targets). Fabrication —
+  producing a `GoError` from nothing — is still open.
 - 日付: 2026-11-04（V-1 実行可能チュートリアルで発見）
+
+## Update: inspection is fixed
+
+`Loader.MethodOf` now admits the builtin `GoError` receiver —
+the one Go-typed receiver that has no `types.Named` entry in
+`l.named` — and resolves it through the universe `error`
+interface's method set. `check.methodOf` admits the same receiver
+shape. As a result:
+
+- `match r { Err e -> e.Error() }` compiles and emits `e.Error()`
+  (locked by `TestE2EGoErrorMethod` in
+  `internal/goimport/pipeline_test.go` and `TestMethodOfGoError` in
+  `internal/goimport/loader_test.go`).
+- `errors.Is(e, strconv.ErrSyntax)` works end to end — error-typed
+  *package vars* like `strconv.ErrSyntax` now load, so sentinel
+  targets are obtainable (the same batch's package-var/const fix;
+  `TestE2EGoPkgVars`).
+- Other interface-typed receivers were never actually blocked:
+  named interfaces (`io.Reader` etc.) reach `l.named` through the
+  ordinary `types.Go` path and their method sets already worked.
+  The universe `error` was the sole gap.
+
+What remains is fabrication, "why it matters" 2: `errors.New s`
+still returns `Result Unit GoError`, so the program still cannot
+*produce* a `GoError` from nothing — error-typed package vars like
+`strconv.ErrSyntax` now exist as `GoError`-typed expressions, but
+they are Go's own sentinels, not fresh errors. The constructor
+directions below (a `Go.error` builtin, an `extern` binding, or
+revisiting the single-`error`-return mapping) are all still open.
+
+## Original report (inspection part retained for the record)
+
 
 ## Situation
 
@@ -20,7 +55,9 @@ holes follow from that mapping:
 2. **No way to fabricate.** `errors.New "msg"` returns
    `Result Unit GoError`, so the error value lives only in the `Err`
    position. There is no expression of type `GoError` except one
-   bound by `Err e ->`: in `match errors.New s { Ok _ -> <need a GoError>, Err e -> e }`
+   bound by `Err e ->` (or a Go package var like
+   `strconv.ErrSyntax`, which is Go's own sentinel, not a fresh
+   error): in `match errors.New s { Ok _ -> <need a GoError>, Err e -> e }`
    the `Ok` arm cannot produce one either — the only `GoError`-typed
    expression is another `Err e` binding. Users cannot write their
    own `Err` payload of type `GoError` without already holding a

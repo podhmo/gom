@@ -28,6 +28,7 @@ package goimport
 
 import (
 	"fmt"
+	"go/constant"
 	"go/importer"
 	"go/token"
 	"go/types"
@@ -37,6 +38,7 @@ import (
 	"strings"
 
 	"github.com/podhmo/gom/internal/check"
+	"github.com/podhmo/gom/internal/core"
 	"github.com/podhmo/gom/internal/lower"
 	"github.com/podhmo/gom/internal/resolve"
 	gt "github.com/podhmo/gom/internal/types"
@@ -189,11 +191,50 @@ func (l *Loader) member(path string, obj types.Object) (*resolve.Symbol, *member
 			sym.Hidden = reason
 			break
 		}
+		if reason := constFits(obj, mt); reason != "" {
+			sym.Hidden = reason
+			break
+		}
 		m.ck = check.Signature{Type: mt}
+		// The Go view of the member's type — identical to the Gom
+		// view except where the spellings diverge (`int` reports
+		// Go.Int here, Int there). Lowering reads it through
+		// GoSigOf to place the conversion a reference needs:
+		// `os.O_RDONLY` (a typed `int` const) emits
+		// `int64(os.O_RDONLY)` where Gom sees Int. A var/const
+		// reference is a zero-arity, single-result "call", so the
+		// signature's single ResTypes slot carries the raw type.
+		rt, rreason := l.mapType(obj.Type(), true)
+		if rreason != "" {
+			rt = mt // the views diverge only where both map — defensive
+		}
+		m.gs = lower.GoSig{Results: core.GoResultsOne, ResTypes: []gt.Type{rt}}
 	default:
 		sym.Hidden = fmt.Sprintf("unsupported member kind %T", obj)
 	}
 	return sym, m
+}
+
+// constFits reports the Hidden reason for a Go constant whose value
+// the Gom view cannot hold: an int-kind constant mapped to `Int`
+// (`int64`) emits `int64(pkg.C)` at every reference, which fails to
+// compile when the constant overflows int64 — `math.MaxUint` is
+// `1<<64 - 1`. Constants of a named Go type emit bare references and
+// are not checked here: their own type — which Go already validated
+// — is what holds the value.
+func constFits(obj types.Object, mt gt.Type) string {
+	c, ok := obj.(*types.Const)
+	if !ok || !gt.Equal(mt, gt.Int) {
+		return ""
+	}
+	v := c.Val()
+	if v.Kind() != constant.Int {
+		return ""
+	}
+	if _, ok := constant.Int64Val(v); ok {
+		return ""
+	}
+	return "value not representable as Int"
 }
 
 // sigOf fills m with the Gom-view and Go-view signatures of a Go
@@ -224,14 +265,19 @@ func (l *Loader) SignatureOf(sym *resolve.Symbol) (check.Signature, bool) {
 
 // GoSigOf returns the Go-view signature facts — the Env.GoSig hook
 // lowering consults for arity, result shape and the raw parameter and
-// result types.
+// result types. A package var or const answers too: it is a
+// zero-arity, single-result "call" whose lone ResTypes entry is the
+// member's raw Go type (lowering needs it to place the `int`/`Int`
+// conversion — see member).
 func (l *Loader) GoSigOf(sym *resolve.Symbol) (lower.GoSig, bool) {
 	m, ok := l.syms[sym]
 	if !ok || sym.Hidden != "" {
 		return lower.GoSig{}, false
 	}
 	if m.sig == nil {
-		return lower.GoSig{}, false
+		// A non-function member (a type name carries no signature
+		// either) answers only when it recorded a raw result type.
+		return m.gs, len(m.gs.ResTypes) == 1
 	}
 	return m.gs, true
 }

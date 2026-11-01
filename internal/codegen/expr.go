@@ -38,13 +38,24 @@ func (g *gen) atom(a core.Atom) ast.Expr {
 	}
 }
 
+// selName renders the `Name` half of a `pkg.Name` reference: a Go
+// member keeps its exported Go identifier verbatim (`O_RDONLY`
+// stays `O_RDONLY`), a Gom package member follows the capitalize
+// convention.
+func selName(sym *resolve.Symbol) string {
+	if sym.IsGo {
+		return sym.Name
+	}
+	return exportName(sym.Name)
+}
+
 // varRef renders a variable reference: a bare name for file-local
 // symbols, pkg.Name for symbols of another package (Gom or Go).
 func (g *gen) varRef(sym *resolve.Symbol) ast.Expr {
 	if sym.Package == "" {
 		return ast.NewIdent(g.symName(sym))
 	}
-	return &ast.SelectorExpr{X: ast.NewIdent(g.imp(sym.Package)), Sel: ast.NewIdent(exportName(sym.Name))}
+	return &ast.SelectorExpr{X: ast.NewIdent(g.imp(sym.Package)), Sel: ast.NewIdent(selName(sym))}
 }
 
 // qualRef renders a reference to a top-level function or other
@@ -54,7 +65,7 @@ func (g *gen) qualRef(sym *resolve.Symbol, targs []types.Type) ast.Expr {
 	if sym.Package == "" {
 		x = ast.NewIdent(g.symName(sym))
 	} else {
-		x = &ast.SelectorExpr{X: ast.NewIdent(g.imp(sym.Package)), Sel: ast.NewIdent(exportName(sym.Name))}
+		x = &ast.SelectorExpr{X: ast.NewIdent(g.imp(sym.Package)), Sel: ast.NewIdent(selName(sym))}
 	}
 	args := g.goTypeArgs(targs)
 	switch len(args) {

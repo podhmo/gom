@@ -174,6 +174,9 @@ func (l *lowerer) varExpr(e *check.Var) core.Expr {
 	sym := e.Sym
 	switch sym.Kind {
 	case resolve.KindVar:
+		if sym.IsGo {
+			return l.goVarRef(e.Span(), e.Type(), sym)
+		}
 		return l.varRef(baseOf(e), sym)
 	case resolve.KindFunc:
 		if sym.IsGo {
@@ -256,6 +259,9 @@ func (l *lowerer) memberExpr(s *seq, e *check.MemberExpr) core.Expr {
 		}
 		return l.funcRefOrFlatten(&check.Var{Base: check.Base{Sp: e.Sp, Typ: e.Type()}, Sym: e.Sym}, e.Sym)
 	case resolve.KindVar:
+		if e.Sym.IsGo {
+			return l.goVarRef(e.Sp, e.Type(), e.Sym)
+		}
 		return l.varRef(baseOf(e), e.Sym)
 	case resolve.KindCtor:
 		if sigOf(e.Type()) != nil {
@@ -269,6 +275,32 @@ func (l *lowerer) memberExpr(s *seq, e *check.MemberExpr) core.Expr {
 		l.err(e.Sp, fmt.Sprintf("member %s is not an expression", e.Sym.Kind))
 		return l.litUnit(e.Sp)
 	}
+}
+
+// goVarRef lowers a reference to a Go package variable or constant
+// (`os.Args`, `math.Pi`): a bare qualified name. When the Go view of
+// the member's type — the Env.GoSig hook's single ResTypes entry —
+// differs from the Gom view (a typed `int` member like `os.O_RDONLY`
+// reads as `Int` but emits `int`), the reference binds at the raw
+// type inside an explicit Conv so generated code carries the
+// conversion (`int64(os.O_RDONLY)`), per the boundary rules of spec
+// section 8.1.5.
+func (l *lowerer) goVarRef(sp diag.Span, typ types.Type, sym *resolve.Symbol) core.Expr {
+	raw := typ
+	if sig := l.goSig(sym, typ); len(sig.ResTypes) == 1 {
+		raw = sig.ResTypes[0]
+	}
+	ref := &core.Var{Base: core.Base{Sp: sp, Typ: raw}, Sym: l.substSym(sym)}
+	if types.Equal(raw, typ) {
+		return ref
+	}
+	k, ok := goConvKindOf(raw, typ)
+	if !ok {
+		l.err(sp, fmt.Sprintf("Go member %s.%s has type %s, which cannot convert to %s — the boundary needs a value copy not yet supported",
+			sym.Package, sym.Name, typeName(raw), typeName(typ)))
+		return &core.Var{Base: core.Base{Sp: sp, Typ: typ}, Sym: l.substSym(sym)}
+	}
+	return &core.Conv{Base: core.Base{Sp: sp, Typ: typ}, Kind: k, X: ref}
 }
 
 // goFuncRefOrAdapter lowers a Go function or method in value

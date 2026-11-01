@@ -448,7 +448,13 @@ func (v *validator) atom(a Atom, what string) {
 			v.err(a.Sp, "Var", "symbol %q has kind %s, want var (functions use FuncRef, ctors CtorRef)",
 				a.Sym.Name, a.Sym.Kind)
 		}
-		if !v.inScope(a.Sym) {
+		// A Go package member (`os.Args`, `math.Pi`) is referenced by
+		// qualification, not by an enclosing binder — it needs no
+		// scope entry (Var's doc: a package-level value). Only a
+		// *packaged* Go symbol is exempt: a package-less IsGo var
+		// would be a lowering artifact and must live in scope like
+		// any local.
+		if (!a.Sym.IsGo || a.Sym.Package == "") && !v.inScope(a.Sym) {
 			v.err(a.Sp, "Var", "symbol %q is not in scope — not bound by an enclosing let/param/case",
 				a.Sym.Name)
 		}

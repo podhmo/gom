@@ -1,0 +1,16 @@
+package ex
+
+import go "strconv"
+
+// A GoError receiver answers the universe `error` interface's method
+// set (spec 8.3): `e.Error()` type-checks and emits `e.Error()`.
+fn describe (r: Result Int GoError) -> String =
+  match r {
+    Ok _ -> "ok"
+    Err e -> e.Error()
+  }
+
+fn main () -> Unit = {
+  let _ = describe (strconv.Atoi "x")
+  ()
+}

@@ -27,6 +27,11 @@ func (t *tb) methodSym(pkg, name string) *resolve.Symbol {
 	return &resolve.Symbol{Name: name, Kind: resolve.KindMethod, IsGo: true, Package: pkg}
 }
 
+// govarSym is a Go package variable or constant, e.g. `os.Args`.
+func (t *tb) govarSym(pkg, name string) *resolve.Symbol {
+	return &resolve.Symbol{Name: name, Kind: resolve.KindVar, IsGo: true, Package: pkg}
+}
+
 // ctorSym is an undeclared-in-this-file constructor symbol — used for
 // the builtin-scope constructors (Some, None, Ok, Err) the resolver
 // binds from the builtin scope.

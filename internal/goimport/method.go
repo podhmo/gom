@@ -27,7 +27,9 @@ import (
 
 // MethodOf returns the method symbol and Gom-view signature of name
 // on the Go named type behind recv — the check.MethodSource entry.
-// recv may be a types.Go directly or a `Ptr` to one.
+// recv may be a types.Go directly or a `Ptr` to one; the builtin
+// GoError type is also admitted, standing for the universe `error`
+// interface.
 func (l *Loader) MethodOf(recv gt.Type, name string) (*resolve.Symbol, check.Signature, bool) {
 	t := gt.Chase(recv)
 	ptr := false
@@ -35,18 +37,41 @@ func (l *Loader) MethodOf(recv gt.Type, name string) (*resolve.Symbol, check.Sig
 		t = c.Args[0]
 		ptr = true
 	}
-	g, ok := gt.Chase(t).(*gt.Go)
-	if !ok || len(g.Args) > 0 {
-		return nil, check.Signature{}, false
+	t = gt.Chase(t)
+
+	// named is the go/types named type behind the receiver and
+	// path/recvName feed the interned method symbol's identity.
+	var named *types.Named
+	path, recvName := "", ""
+	if g, ok := t.(*gt.Go); ok && len(g.Args) == 0 {
+		n, found := l.named[g.Ref]
+		if !found {
+			return nil, check.Signature{}, false
+		}
+		named, path, recvName = n, g.Ref.Path, g.Ref.Name
+	} else if gt.Equal(t, gt.GoError) {
+		// The universe `error` interface maps to the builtin GoError
+		// type rather than a types.Go handle — the one Go-typed
+		// receiver l.named cannot hold. Its method set is the
+		// interface's own (Error); `Ptr GoError` reaches the same
+		// method through Go's implicit deref.
+		if n, ok := types.Universe.Lookup("error").Type().(*types.Named); ok {
+			named, recvName = n, "error"
+		}
 	}
-	named, ok := l.named[g.Ref]
-	if !ok {
+	if named == nil {
 		return nil, check.Signature{}, false
 	}
 	var sets []*types.MethodSet
-	if ptr {
+	switch {
+	case gt.Equal(t, gt.GoError):
+		// The interface's own set — also what `pe.M` on a `*error`
+		// consults through the deref rule (the pointer's method
+		// set proper is empty).
+		sets = []*types.MethodSet{types.NewMethodSet(named)}
+	case ptr:
 		sets = []*types.MethodSet{types.NewMethodSet(types.NewPointer(named))}
-	} else {
+	default:
 		// Pointer methods come second: Go resolves `x.M` on an
 		// addressable x by taking &x itself.
 		sets = []*types.MethodSet{
@@ -65,7 +90,7 @@ func (l *Loader) MethodOf(recv gt.Type, name string) (*resolve.Symbol, check.Sig
 			if !ok {
 				continue
 			}
-			return l.methodSym(g.Ref.Path, g.Ref.Name, fn, sig)
+			return l.methodSym(path, recvName, fn, sig)
 		}
 	}
 	return nil, check.Signature{}, false

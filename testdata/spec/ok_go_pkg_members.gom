@@ -1,0 +1,32 @@
+package ex
+
+import go "errors"
+import go "math"
+import go "os"
+import go "strconv"
+import go "strings"
+import go "time"
+
+// Go package vars and consts are values, not functions: references
+// lower to qualified names (spec 8.1.5) — `os.O_RDONLY` is a typed
+// `int` const, so the emitted reference is `int64(os.O_RDONLY)`;
+// `strconv.ErrSyntax` is an error var, `os.Args` a []string var.
+fn main () -> Unit = {
+  let pi = math.Pi
+  let sz = strconv.IntSize
+  let flag = os.O_RDONLY
+  let dur = time.Nanosecond
+  let _ = strings.Join(os.Args, " ")
+  match strconv.Atoi("x") {
+    Ok _ -> ()
+    Err e -> {
+      let _ = errors.Is(e, strconv.ErrSyntax)
+      ()
+    }
+  }
+  let _ = pi
+  let _ = sz
+  let _ = flag
+  let _ = dur
+  ()
+}
