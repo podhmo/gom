@@ -1,0 +1,286 @@
+package core
+
+import (
+	"github.com/podhmo/gom/internal/resolve"
+	"github.com/podhmo/gom/internal/types"
+)
+
+// CallDirect is a saturated call to a known Gom callee — len(Args)
+// equals the declared Arity and the args are already in declaration
+// order (labeled-argument reordering happened during lowering, with
+// source-order evaluation preserved by the enclosing Lets). The call
+// emits as a plain multi-argument Go call.
+//
+// Over-application — a callee returning a function applied to more
+// than Arity arguments — does not exist here: lowering splits it into
+// a saturated CallDirect whose result is bound, followed by a
+// CallFunc on the bound variable. Partial application likewise does
+// not exist as a call: it is an explicit Closure (design.md section
+// 2.1, item 2).
+type CallDirect struct {
+	Base
+	Callee   *resolve.Symbol // KindFunc, not IsGo
+	TypeArgs []types.Type
+	Args     []Atom
+	Arity    int // the callee's declared parameter count; len(Args) == Arity
+}
+
+func (*CallDirect) isExpr() {}
+
+// CallFunc applies a function *value* — a Var, a FieldGet result or
+// a GoFuncRef whose callee is not statically a Gom function — at its
+// full remaining arity: one flat Go call `f(a1, ..., an)` where n is
+// the arity of Fn's type (the arity-aware representation of P0-2 —
+// no curried intermediate calls ever). Applying fewer arguments is a
+// partial application and must be an explicit Closure.
+type CallFunc struct {
+	Base
+	Fn   Atom   // a function value — never FuncRef / CtorRef (those are CallDirect / CtorApp)
+	Args []Atom // exactly the arity of Fn's *types.Func type
+}
+
+func (*CallFunc) isExpr() {}
+
+// GoResults classifies the result shape of a Go callee — the
+// convention that decides which consumer nodes may wrap a CallGo.
+type GoResults int
+
+const (
+	// GoResultsOne is a single result `v := f(...)` — or zero results,
+	// typed Unit. The call binds like any expression.
+	GoResultsOne GoResults = iota + 1
+	// GoResultsErr is `v, err := f(...)` — the `(T, error)` shape.
+	// Type() is the first result's type.
+	GoResultsErr
+	// GoResultsErrOnly is `err := f(...)` — a lone `error` result,
+	// seen from Gom as `Result Unit GoError`. Type() is Unit.
+	GoResultsErrOnly
+	// GoResultsOK is `v, ok := f(...)` — the `(T, bool)` comma-ok
+	// shape. Type() is the first result's type.
+	GoResultsOK
+	// GoResultsPair is `a, b := f(...)` — any other two-result shape,
+	// mapped to a tuple. Type() is the (A, B) tuple type.
+	GoResultsPair
+)
+
+// String returns the shape name for debugging.
+func (r GoResults) String() string {
+	switch r {
+	case GoResultsOne:
+		return "one"
+	case GoResultsErr:
+		return "err"
+	case GoResultsErrOnly:
+		return "err-only"
+	case GoResultsOK:
+		return "ok"
+	case GoResultsPair:
+		return "pair"
+	default:
+		return "GoResults(?)"
+	}
+}
+
+// CallGo is a call to a Go function or method, emitted with Go's
+// calling convention — `pkg.F(a, b)`, `recv.M(a)`, `f(a...)` — with
+// no currying. The surface argument tuple is already unpacked into
+// positional Args, and the `_` placeholder is gone (lowering wrapped
+// the call in a Closure).
+//
+// Types on and around a CallGo are the *raw* Go-side view: `[]T`
+// appears as `Go.Slice T`, a `(T, error)` result reports its first
+// component's type, and a `T` that maps to `List` is still its Go
+// self. Gom-facing types are built by the explicit consumer nodes —
+// ResultFromGo, OptionFromGo, TupleFromGo, EscapeCall — and by Conv,
+// per design.md section 2.1 item 3.
+//
+// A CallGo whose Results is not GoResultsOne produces a Go
+// multi-value: it may appear only as the Call operand of those
+// consumer nodes, never directly at Let.X or Body.Tail.
+type CallGo struct {
+	Base
+	Callee   *resolve.Symbol // IsGo: KindFunc, or KindMethod with Recv
+	Recv     Atom            // receiver for method calls; nil for package functions
+	TypeArgs []types.Type    // instantiation for generic Go callees
+	Args     []Atom
+	Arity    int       // the callee's fixed parameter count (the variadic element counts once)
+	Variadic bool      // the callee's last parameter is variadic
+	Spread   bool      // the last arg is spliced `a...`; requires Variadic
+	Results  GoResults // result shape
+}
+
+func (*CallGo) isExpr() {}
+
+// CallBuiltin is a call to a compiler-provided builtin — `assert_eq`,
+// `todo`, and friends — whose implementation has no Gom definition
+// and is emitted from a fixed table in codegen, dispatched on the
+// builtin's symbol.
+type CallBuiltin struct {
+	Base
+	Sym  *resolve.Symbol // KindBuiltin
+	Args []Atom
+}
+
+func (*CallBuiltin) isExpr() {}
+
+// CtorApp is a saturated constructor application — a variant
+// construction `Shape_Circle{...}` / `Option_Some[A]{...}` with Args
+// in the variant's declared payload order (labeled payload arguments
+// reordered during lowering, exactly like CallDirect). Partial
+// constructor application is an explicit Closure; the bare
+// constructor value is a CtorRef.
+type CtorApp struct {
+	Base
+	Ctor     *resolve.Symbol // KindCtor
+	TypeArgs []types.Type    // instantiation of the ADT's type parameters
+	Args     []Atom
+	Arity    int // the variant's declared payload count; len(Args) == Arity
+}
+
+func (*CtorApp) isExpr() {}
+
+// TailCall is a self-tail call: a call to the enclosing FuncDecl's
+// own function in tail position. It exists only inside a Func with
+// TailLoop set, and emits reassign-arguments-and-continue inside the
+// enclosing loop (docs/design.md section 4.5 — self-tail recursion
+// becomes a Go `for`). Mutual recursion is not covered.
+//
+// "Tail position" means a Body.Tail slot — at any depth through
+// If / Match / SelectExpr branch bodies — of the To function.
+// A TailCall may not sit at Let.X or in a non-tail branch.
+type TailCall struct {
+	Base
+	To   *Func  // the enclosing FuncDecl's function — always the innermost enclosing Func
+	Args []Atom // exactly len(To.Params)
+}
+
+func (*TailCall) isExpr() {}
+
+// EscapeResult is the `try e` / `|?>` escape on a Result-typed value
+// (flat2 representation, P0-4): it emits `if x.Tag() == ErrTag {
+// return <the To function's Err construction> }` and evaluates to
+// x's Ok payload. To is the innermost enclosing Func — the named
+// function boundary the escape leaves through — whose result type
+// must be `Result _ e` with e matching x's error type.
+//
+// Wrap is the `|?>` step name — `fmt.Errorf("<step>: %w", err)` is
+// emitted around the error before escaping; it is "" for `try`,
+// which never wraps, and for `|?>` steps whose error type is not
+// GoError. The choice is fixed at lowering.
+type EscapeResult struct {
+	Base
+	X    Atom   // a Result a e value
+	To   *Func  // the innermost enclosing function boundary
+	Wrap string // the |?> step name to %w-wrap the error in, or ""
+}
+
+func (*EscapeResult) isExpr() {}
+
+// EscapeCall is the fused form of EscapeResult for a Go `(T, error)`
+// call (design.md section 4.6): `v, err := call(...); if err != nil
+// { return <To's Err construction>(wrap err) }` — no Result value is
+// materialized on the success path. The node's type is the Go call's
+// first result type — raw, like CallGo's; conversions on the payload
+// apply after the escape.
+type EscapeCall struct {
+	Base
+	Call *CallGo // Results must be GoResultsErr or GoResultsErrOnly
+	To   *Func
+	Wrap string
+}
+
+func (*EscapeCall) isExpr() {}
+
+// ResultFromGo materializes a `Result T GoError` from a `(T, error)`
+// Go call — the naive (non-fused) boundary conversion, emitted as a
+// runtime/helper application over the call's result pair
+// (`rt.ResultFromGo(...)` / `rt.ResultFromErr(...)`). Use it for Go
+// results that are stored or returned, never inside `|?>` / `try`
+// (that is EscapeCall's job).
+type ResultFromGo struct {
+	Base
+	Call *CallGo // Results must be GoResultsErr or GoResultsErrOnly
+}
+
+func (*ResultFromGo) isExpr() {}
+
+// OptionFromGo materializes an `Option T` from a comma-ok `(T, bool)`
+// Go call — the conversion available only for callees whose binding
+// (standard bindings or `extern`) declares comma-ok semantics
+// (spec section 8.3).
+type OptionFromGo struct {
+	Base
+	Call *CallGo // Results must be GoResultsOK
+}
+
+func (*OptionFromGo) isExpr() {}
+
+// TupleFromGo materializes a tuple `(A, B)` from a two-result Go
+// call — covering both `(T, bool)` results kept as tuples and other
+// `(A, B)` shapes (spec section 8.3).
+type TupleFromGo struct {
+	Base
+	Call *CallGo // Results must be GoResultsOK or GoResultsPair
+}
+
+func (*TupleFromGo) isExpr() {}
+
+// ConvKind classifies the explicit Go-interop conversion a Conv node
+// performs (design.md section 2.1, item 3).
+type ConvKind int
+
+const (
+	// ConvNum is a numeric conversion `T(x)` — the implicit
+	// loss-free number conversions of spec 8.1 item 5 and explicit
+	// `Go.conv` numeric conversions.
+	ConvNum ConvKind = iota + 1
+	// ConvNamed converts between a Go named type and its underlying
+	// type — the `Go.conv` of spec 8.4.
+	ConvNamed
+	// ConvBoxAny boxes a Gom value into a Go `any` — allowed only at
+	// `any` parameter positions (spec 8.1 item 7).
+	ConvBoxAny
+	// ConvIface assigns a Go-origin value to a Go interface-typed
+	// parameter under Go's assignability rules (spec 8.1 item 8).
+	ConvIface
+	// ConvSliceToGo copies a `List a` into a Go-owned `Go.Slice a` —
+	// `[]T` — for a Go argument (spec 8.5).
+	ConvSliceToGo
+	// ConvSliceFromGo copies a `[]T` received from Go into a Gom
+	// `List a` (spec 8.5).
+	ConvSliceFromGo
+)
+
+// String returns the kind name for debugging.
+func (k ConvKind) String() string {
+	switch k {
+	case ConvNum:
+		return "num"
+	case ConvNamed:
+		return "named"
+	case ConvBoxAny:
+		return "box-any"
+	case ConvIface:
+		return "iface"
+	case ConvSliceToGo:
+		return "slice-to-go"
+	case ConvSliceFromGo:
+		return "slice-from-go"
+	default:
+		return "ConvKind(?)"
+	}
+}
+
+// Conv is an explicit Go-interop conversion. Every boundary
+// adjustment the spec applies implicitly — number conversion, `any`
+// boxing, slice copying, interface assignment — is a Conv node; the
+// unchecked remainder (Go.conv named conversions) uses the same node
+// because conversion legality was already settled at check time.
+// The node's Type() is the conversion's result type.
+type Conv struct {
+	Base
+	Kind ConvKind
+	X    Atom
+}
+
+func (*Conv) isExpr() {}
