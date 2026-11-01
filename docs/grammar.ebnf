@@ -1,0 +1,753 @@
+(* ==========================================================================
+   Gom — formal grammar
+   ==========================================================================
+
+   This file is the source of truth for the parser (internal/syntax, task
+   P1-3). The normative language definition is docs/spec.md; this grammar
+   fixes the syntax precisely enough to implement a recursive-descent +
+   Pratt parser without re-deciding the language.
+
+   Referenced documents:
+     spec.md      — sections 1 (expressions, newlines, braces), 2 (labels),
+                    3 (types), 4 (patterns), 7 (.gomi), 8 (Go interop),
+                    9 (|?>), 10 (concurrency), 11 (tests)
+     decisions/   — juxtaposition-and-currying, fsharp-pipes, cute-placeholder,
+                    labeled-required-arguments, select-receive-arms,
+                    no-offside-rule-and-gom-fmt, try-keyword, inline-tests,
+                    go-calls-as-tuples, evaluation-order
+
+   NOTATION — ISO/IEC 14977 EBNF:
+     name = definition ;          a rule
+     "x"   'x'                    terminal symbols (either quote style)
+     a , b                       concatenation
+     a | b                       alternation
+     [ a ]                       optional
+     { a }                       repetition, zero or more
+     ( a )                       grouping
+     ( * ... * )                 comment (shown spaced; written glued)
+     ? text ?                    informal / special sequence (rarely used here)
+
+   Names in lower-kebab-case are nonterminals of the syntactic grammar.
+   Token names (ident, UIdent, INT, FLOAT, CHAR, STRING, NL) are produced
+   by the lexer (section 2). NL is the ONE virtual token, inserted under
+   the rules of section 3; "sep" is an ordinary nonterminal abbreviation
+   for (NL | ";")+ used by the productions. "whitespace", "comment",
+   "can-end" and "line-start" are written in rule form but describe
+   lexer-level sets — the parser never sees them.
+
+   Comment tags:
+     [PROVISIONAL slug]  The spec does not define this; the most plausible
+                         reading was chosen. See docs/problems/<slug>.md.
+     [SEMANTIC]          Parsed here, but restricted or given meaning only
+                         in a later phase (resolve / check / pattern).
+
+   ========================================================================== *)
+
+
+(* ==========================================================================
+   1. Source files and characters
+   ==========================================================================
+
+   A source file is UTF-8 text. Locations are counted in bytes; line and
+   column are derived at display time (spec 12.4).                         *)
+
+source-file    = package-decl , { sep , top-decl } , [ sep ] ;
+
+package-decl   = "package" , ident ;
+
+top-decl       = [ attribute ] , ( fn-decl | let-decl )
+               | type-decl
+               | import-decl
+               | extern-decl
+               | test-decl ;
+
+attribute      = "@" , member-name ;      (* only "test" is defined [SEMANTIC] *)
+
+(* --------------------------------------------------------------------
+   1.1 Interface files (.gomi), spec §7
+
+   Same token rules as .gom files. A .gomi contains only declarations
+   without bodies; abstract types have no "=" part.                       *)
+
+interface-file = package-decl , { sep , iface-decl } , [ sep ] ;
+
+iface-decl     = import-decl                             (* [PROVISIONAL gom-import-syntax] *)
+               | type-decl-iface
+               | fn-sig
+               | let-sig ;
+
+type-decl-iface = "type" , UIdent , { ident } , [ "=" , type-body ] ;
+
+fn-sig         = "fn" , ident , fn-param , { fn-param } , "->" , type-expr ;
+
+let-sig        = "let" , ident , ":" , type-expr ;
+
+(* spec 7.1 allows only type declarations, function signatures, constant
+   signatures and /// doc comments in .gomi. Whether import and ordinary
+   comments are permitted is unspecified — see docs/problems/
+   2026-11-01-gom-import-syntax.md.                                       *)
+
+
+(* ==========================================================================
+   2. Lexical structure
+   ========================================================================== *)
+
+(* --------------------------------------------------------------------
+   2.1 Whitespace, comments, identifiers
+   -------------------------------------------------------------------- *)
+
+whitespace     = ? space, tab, carriage return ? ;   (* newline handled in §3 *)
+
+comment        = "//" , { any-char-except-newline }              (* to end of line *)
+               | "///" , { any-char-except-newline }             (* doc comment    *)
+               | "/*" , { any-char } , "*/" ;      (* [PROVISIONAL literal-lexical-details:
+                                                      non-nesting, like Go] *)
+
+(* /// is an ordinary comment for parsing; documentation attachment is
+   trivia on the surface AST (decisions/no-offside-rule-and-gom-fmt).    *)
+
+ident          = ( lower | "_" ) , { letter | digit | "_" } ;
+               (* [PROVISIONAL literal-lexical-details: ASCII only;
+                   unicode letters and trailing ' are unspecified.
+                   "_" alone is the WILDCARD token, not an ident.      *)
+
+UIdent         = upper , { letter | digit | "_" } ;
+
+(* Uppercase identifiers name type constructors, types, and Go-exported
+   members (fmt.Println). Whether a name is a variable, a constructor or
+   a module is decided in resolve, not by the grammar — except inside
+   patterns, where case is significant (ctor-pattern vs ident).         *)
+
+(* --------------------------------------------------------------------
+   2.2 Keywords
+   -------------------------------------------------------------------- *)
+
+keyword        = "as" | "default" | "else" | "extern" | "false" | "fn"
+               | "for" | "go" | "if" | "import" | "in" | "let" | "match"
+               | "package" | "select" | "send" | "test" | "true" | "try"
+               | "type" | "with" ;
+
+(* Notes:
+   - "go", "select", "send", "test", "with", "as", "in" are reserved
+     everywhere even though each is used in a narrow context.
+   - After "." any keyword may still be used as a member name (member-name),
+     because the standard library exports names such as Chan.send.
+     [SEMANTIC: whether keywords other than those actually needed may be
+     member names is a style question; the grammar permits all.]
+   - assert / assert_eq / ignore / todo / not / show / compare are plain
+     functions, not keywords (spec 1.1, 11.4).                          *)
+
+(* --------------------------------------------------------------------
+   2.3 Literals
+   -------------------------------------------------------------------- *)
+
+literal        = INT | FLOAT | CHAR | STRING | "true" | "false" ;
+
+INT            = dec-int | hex-int | oct-int | bin-int ;
+dec-int        = digit , { digit | "_" } ;
+hex-int        = "0" , ( "x" | "X" ) , hex-digit , { hex-digit | "_" } ;
+oct-int        = "0" , ( "o" | "O" ) , oct-digit , { oct-digit | "_" } ;
+bin-int        = "0" , ( "b" | "B" ) , bin-digit , { bin-digit | "_" } ;
+(* [PROVISIONAL literal-lexical-details: spec shows only decimal ints.
+   Hex/oct/bin and "_" separators are Go-style guesses.               *)
+
+FLOAT          = digit , { digit | "_" } , "." , digit , { digit | "_" } ,
+                 [ exponent ]
+               | digit , { digit | "_" } , exponent ;
+exponent       = ( "e" | "E" ) , [ "+" | "-" ] , digit , { digit } ;
+(* [PROVISIONAL literal-lexical-details: ".5" and "5." are rejected so
+   that "1." / "..x" can never be confused with member access or "..".  *)
+
+CHAR           = "'" , ( char-char | escape ) , "'" ;
+
+STRING         = '"' , { string-char | escape | interpolation } , '"' ;
+interpolation  = "${" , expr , "}" ;
+(* The expr inside ${...} is parsed with the full expression grammar;
+   it may itself contain strings and braces (lexer recursion).
+   "${" counts as an opening "("-style delimiter for the newline rules
+   (§3), and the matching "}" closes it.
+   [PROVISIONAL literal-lexical-details: how to write a literal "${"
+   is unspecified; suggested escape is "\${". Raw (backquote) strings
+   do not exist in the spec.]                                          *)
+
+escape         = "\" , ( "n" | "t" | "r" | "0" | "\" | "'" | '"' | "$"
+               | "u" , hex-digit , hex-digit , hex-digit , hex-digit
+               | "u{" , hex-digit , { hex-digit } , "}" ) ;
+(* [PROVISIONAL literal-lexical-details: escape set is a Go/Unicode
+   guess; spec only shows ordinary strings.]                            *)
+
+(* --------------------------------------------------------------------
+   2.4 Operators and punctuation
+   -------------------------------------------------------------------- *)
+
+(* Single tokens (the lexer applies maximal munch):
+
+     (  )  [  ]  {  }  ,  ;  :  .  ..  ~  @  =  ->  <-  |  _
+     "|>"  "<|"  "|?>"  ">>"  "<<"  "||"  "&&"
+     "=="  "!="  "<"  "<="  ">"  ">="  "+"  "-"  "*"  "/"  "%"
+
+   Maximal munch matters: "->" beats "-" ">"; "<-" beats "<" "-";
+   "|>" / "|?>" / "||" beat "|"; ">>" beats ">" ">"; ".." beats ".".
+   Edge case (same as Go): "x<-1" lexes as "x" "<-" "1", never
+   "x" "<" "-1". "<-" is used only in select receive arms.
+
+   NOT single tokens: bare "?" (only inside "|?>"), bare "!" (only
+   inside "!="), bare "&". "|" IS a token (variant and or-pattern
+   separator) but is NOT a binary operator. "&" "^" "!"
+   are unused. Note "<<" and ">>" are function composition, NOT bit
+   shifts — Gom has no infix bit operators [PROVISIONAL operator-coverage].
+   "$" and "#" are not tokens; "$" appears only inside string
+   interpolation, "@" only in attributes.                                *)
+
+
+(* ==========================================================================
+   3. Newlines and separators (spec §1.5)
+   ==========================================================================
+
+   The syntactic grammar is written over a token stream that contains a
+   virtual token NL (newline separator). The lexer inserts NL by the
+   rules below; indentation is never consulted
+   (decisions/no-offside-rule-and-gom-fmt). An explicit ";" token is
+   always equivalent to NL.
+
+   NL-1  Inside "(" ... ")", "[" ... "]", "${" ... "}" a newline is
+         ordinary whitespace. "Inside" is decided by the innermost
+         unclosed delimiter on a stack the lexer maintains:
+         a "{" opened inside "(" still sees significant newlines (it can
+         start a block), a "(" opened inside "{" suppresses them.
+
+   NL-2  Otherwise (top level, or innermost delimiter is "{"), let PREV be
+         the last non-trivia token before the newline and NEXT the first
+         non-trivia token after it. NL is inserted iff
+
+             PREV in can-end  AND  NEXT not in line-start
+
+         If PREV is not in can-end the line continues (spec rule 2:
+         line ends with a binary operator, "<|", "=", "->", ",",
+         "(", "~label:", ... — all of these are absent from can-end).
+         If NEXT is in line-start the line continues (spec rule 3).
+
+   NL-3  A "//" or "///" comment runs to the newline; the newline is then
+         subject to NL-2 with PREV = the token before the comment.
+         "/* ... */" comments are trivia: a newline inside one never
+         produces NL. Blank lines produce NL candidates like any other
+         newline. At end of file a pending newline produces one final
+         NL (which the grammar accepts as a trailing [ sep ]).
+
+   Token sets:                                                          *)
+
+can-end        = ident | UIdent | literal | "_" | ")" | "]" | "}" ;
+               (* tokens that can END an expression or declaration.
+                  Every keyword except the literals "true" / "false" is
+                  absent — "if", "else", "match", "in", "with", "as",
+                  "send", "default", "try", "fn", ... all continue.    *)
+
+line-start     = "|>" | "<|" | "|?>" | ">>" | "<<"
+               | "||" | "&&" | "==" | "!=" | "<" | "<=" | ">" | ">="
+               | "+" | "-" | "*" | "/" | "%"
+               | "else"
+               | "|" ;
+               (* spec rule 3 lists binary operators and "else".
+                  "|" is added here [PROVISIONAL]: it is required for the
+                  "| Circle" / "| Rect" variant lines that every spec
+                  example uses ("|" is also the or-pattern separator).
+                  Notably ABSENT — a line starting with these does NOT
+                  continue, by the letter of spec 1.5:
+                    "->"  (a match arm must keep "->" on its own line)
+                    ","   (multiline lists need a trailing comma)
+                    "."   (member access cannot lead a line)
+                    ":"   ("Go.conv e : T" cannot split before ":")
+                    "~"   (a labeled argument cannot lead a line)
+                    "in"  ("for x in xs" cannot split before "in")
+                    "with" (a record update cannot split before "with")
+                    "<-"  (a select arm cannot split before "<-")
+                    "if"  (a match guard cannot lead a line)            *)
+
+(* Consequences worth noting:
+   - "x |> f" may be split as "x\n|> f" (NEXT rule) or "x |>\nf" (PREV
+     rule), matching spec 1.5 and decisions/fsharp-pipes.
+   - "type X =\n| A\n| B" works: "=" continues (NL-2 PREV), "|" continues
+     (line-start), ")" before the next "|" is in can-end.
+   - "if c {a}\nelse {b}" continues at "else".
+   - "if c\n{ a }" FAILS: "c" is in can-end, "{" is not in line-start —
+     like Go, the "{" must stay on the condition's line. Same for
+     "match s\n{...}", "for x in xs\n{...}".
+   - A match arm "p\n-> e" FAILS ("->" not in line-start); write
+     "p ->\n e" instead ("->" cannot end an expression, PREV rule).
+   - "test \"x\"\n{...}" and "extern go \"x\"\n{...}" FAIL for the same
+     reason: STRING is in can-end, so the "{" must stay on the preceding
+     line — a mechanical consequence of NL-2, like Go.
+   - Inside "${...}" interpolation, newlines are whitespace (NL-1).   *)
+
+sep            = ( NL | ";" ) , { NL | ";" } ;
+               (* at least one separator; blank lines and explicit ";"
+                  both count. Used between block items, match and select
+                  arms, top-level declarations, and extern items.      *)
+
+
+(* ==========================================================================
+   4. Declarations
+   ========================================================================== *)
+
+import-decl    = "import" , [ "go" ] , [ ident ] , STRING ;
+               (* [PROVISIONAL gom-import-syntax: spec only ever shows
+                  "import go \"pkg\"". The bare form is assumed to import
+                  a Gom package; the optional ident is a plausible alias
+                  syntax. Both are provisional.]                        *)
+
+extern-decl    = "extern" , "go" , STRING , "{" ,
+                 [ extern-item , { sep , extern-item } , [ sep ] ] , "}" ;
+extern-item    = "fn" , ( ident | UIdent ) , fn-param , { fn-param } ,
+                 "->" , type-expr ;
+               (* unlike fn-sig the name may be a UIdent: an extern item
+                  names a Go function, and spec 8.4's own examples are
+                  exported ("Lookup", "Copy"). spec 8.4 shows only fn
+                  signatures inside extern; whether types or constants
+                  may also be overridden is unspecified.               *)
+
+type-decl      = "type" , UIdent , { ident } , "=" , type-body ;
+
+type-body      = variant-list
+               | record-type ;            (* [PROVISIONAL record-type-syntax:
+                  spec never shows a record type declaration; see the
+                  problems file.]                                        *)
+
+variant-list   = [ "|" ] , variant , { "|" , variant } ;
+               (* every spec example writes the leading "|"; it is made
+                  optional so "type X = A | B" also parses.             *)
+
+variant        = UIdent , { variant-field } ;
+
+variant-field  = "(" , [ "~" ] , ident , ":" , type-expr , ")"  (* named / labeled *)
+               | type-atom ;                                    (* positional     *)
+               (* positional fields are single atoms: "Add Expr Expr" is
+                  two fields; a function-typed field needs parens,
+                  "| Foo (Int -> Int)".                                 *)
+
+record-type    = "{" , [ record-field , { "," , record-field } , [ "," ] ] , "}" ;
+record-field   = ident , ":" , type-expr ;
+               (* [PROVISIONAL record-type-syntax: the spec never defines
+                  record type syntax. This form ("{ name: T, ... }") is a
+                  guess, allowed both as a type-body and inline as a
+                  type-atom.]                                          *)
+
+fn-decl        = fn-sig , "=" , expr ;
+
+fn-param       = "(" , ")"                                    (* Unit parameter *)
+               | "(" , [ "~" ] , pattern , ":" , type-expr , ")" ;
+               (* at least one parameter group is required: "fn f -> T"
+                  is not a declaration (it reads as a lambda and is
+                  rejected at top level, which admits only declarations).
+                  The pattern must be irrefutable [SEMANTIC, spec 4].   *)
+
+let-decl       = "let" , pattern , "=" , expr ;
+               (* the pattern must be irrefutable [SEMANTIC, spec 1.1.5] *)
+
+test-decl      = "test" , STRING , block ;                    (* spec 11 *)
+
+
+(* ==========================================================================
+   5. Expressions
+   ==========================================================================
+
+   Everything is an expression (spec 1.1), but not every expression can
+   appear in every position:
+
+   - control-expr (if / match / for / go / select / fn-lambda) may not
+     be an operand of a binary operator or an application argument;
+     parenthesize it (same rule as Rust's expression-with-block).
+   - a bare lambda may follow a pipe operator: spec shows
+     "Task.spawn <| fn () -> ..." and "|?> fn c -> ..." without
+     parentheses (pipe-rhs below). A lambda body still extends as far
+     right as possible, so "x |> fn y -> e |> g" is
+     "x |> (fn y -> (e |> g))".
+   - "_" is an atom everywhere; that it may appear only as an argument
+     of a Go call (spec 8.2, cute) is a [SEMANTIC] restriction.
+   - an ascription "expr : Type" is allowed syntactically after any
+     pipe-level expression; spec only sanctions it for "Go.conv e : T"
+     [SEMANTIC — PROVISIONAL type-ascription].                          *)
+
+expr           = control-expr
+               | ascribed-expr ;
+
+control-expr   = if-expr | match-expr | for-expr | go-expr | select-expr
+               | lambda ;
+
+ascribed-expr  = pipe-expr , [ ":" , type-expr ] ;
+
+(* Precedence, tightest first (spec 1.2, 1.4):
+     .  member access           postfix
+     juxtaposition              application, left-assoc, tighter than
+                                every binary operator: "f x + g y" is
+                                "(f x) + (g y)"
+     -  unary minus             prefix; operand is an application-level
+                                expression, so "-f x" is "-(f x)"
+     *  /  %                    left
+     +  -                       left
+     == != < <= > >=            non-associative (at most one)
+     &&                         left
+     ||                         left
+     "|>" "<|" "|?>" ">>" "<<"   left — the lowest binary ops
+     :  ascription              non-associative, loosest
+   [PROVISIONAL operator-coverage: "!=", "%", "||" are assumed to exist
+   alongside the spec-shown "==", "&&"; "!" alone, unary "+", and infix
+   bit operators do not exist.]                                        *)
+
+pipe-expr      = bool-or , { pipe-op , pipe-rhs } ;
+pipe-op        = "|>" | "<|" | "|?>" | ">>" | "<<" ;
+pipe-rhs       = bool-or | lambda ;
+
+bool-or        = bool-and , { "||" , bool-and } ;
+bool-and       = rel-expr , { "&&" , rel-expr } ;
+
+rel-expr       = add-expr , [ rel-op , add-expr ] ;
+rel-op         = "==" | "!=" | "<" | "<=" | ">" | ">=" ;
+
+add-expr       = mul-expr , { add-op , mul-expr } ;
+add-op         = "+" | "-" ;
+
+mul-expr       = unary-expr , { mul-op , unary-expr } ;
+mul-op         = "*" | "/" | "%" ;
+
+unary-expr     = "-" , unary-expr
+               | "try" , unary-expr                    (* spec 6; operand is
+                  application-level, so "try f x" is "try (f x)" and
+                  "try a + b" is "(try a) + b" [PROVISIONAL]            *)
+               | apply-expr ;
+
+apply-expr     = postfix-expr , { app-arg } ;
+               (* juxtaposition, left-associative *)
+
+app-arg        = simple-expr                            (* positional     *)
+               | "~" , ident , [ ":" , simple-expr ] ;  (* labeled / punned *)
+               (* "~to: e" and punning "~to" (spec 2.7). The value after
+                  ":" is one simple-expr (spec 2.2): identifiers,
+                  literals, parenthesized or "{"-led expressions —
+                  "~amount: (base * 2)". "~to: f x" binds "~to: f" and
+                  makes "x" a separate positional argument.
+                  The label ":" resolves greedily: "f ~x : T" is
+                  "f (~x: T)" — the ":" belongs to the labeled argument,
+                  not to the expression-level ascription (ascribed-expr);
+                  write "(f ~x) : T" to ascribe the call itself.       *)
+
+simple-expr    = postfix-expr ;
+               (* atoms plus member access — the application-argument
+                  level. Never a unary minus, so "f -1" is the binary
+                  "f - 1" (spec 1.2: negative arguments need parens).   *)
+
+postfix-expr   = atom , { "." , member-name } ;
+member-name    = ident | UIdent | keyword ;
+               (* "p.name", "List.map", "buf.WriteString", "io.Reader".
+                  Keywords are allowed after "." because the standard
+                  library names members like "Chan.send" [PROVISIONAL —
+                  the set could be restricted later].                   *)
+
+atom           = literal
+               | ident
+               | UIdent                                 (* constructors, modules *)
+               | "_"                                    (* wildcard / Go placeholder *)
+               | paren-expr
+               | list-expr
+               | brace-expr ;
+
+paren-expr     = "(" , ")"                                    (* Unit literal *)
+               | "(" , expr , [ "," ] , ")"                   (* parenthesized *)
+               | "(" , expr , "," , expr , { "," , expr } , [ "," ] , ")"
+                                                            (* tuple ≥2 items *)
+               | "(" , ".." , expr , ")"                      (* spread *)
+               | "(" , expr , { "," , expr } , "," , ".." , expr , ")" ;
+               (* a tuple needs at least two items. "f(a, b)" IS the
+                  application "f (a, b)" — Go calls are applications of
+                  a tuple (decisions/go-calls-as-tuples). "(x,)" is a
+                  parenthesized expression with a trailing comma, not a
+                  one-tuple [PROVISIONAL].
+                  ".." marks a spread argument (spec 8.1.4: list spread in
+                  Go calls, "fmt.Println(..xs)"); it may only appear as
+                  the LAST item and only in a Go call [SEMANTIC].       *)
+
+list-expr      = "[" , [ expr , { "," , expr } , [ "," ] ] , "]" ;
+               (* list literal; [PROVISIONAL operator-coverage: spec
+                  shows ".." spread only in patterns and in Go call
+                  arguments, not in list expressions.]                  *)
+
+brace-expr     = block | record-literal | record-update ;
+               (* resolved by lookahead — see the disambiguation rule in
+                  section 8.                                            *)
+
+block          = "{" , [ block-item , { sep , block-item } , [ sep ] ] , "}" ;
+block-item     = let-decl | expr ;
+               (* "{" "}" is the empty block, i.e. "()". The "{" of
+                  "go", "select", "test", if/match/for/else bodies is
+                  always this block — never a record — because it is part
+                  of the construct, not an expression.                  *)
+
+record-literal = "{" , field-init , { "," , field-init } , [ "," ] , "}" ;
+record-update  = "{" , expr , "with" , field-init ,
+                 { "," , field-init } , [ "," ] , "}" ;
+field-init     = ident , "=" , expr ;
+               (* [PROVISIONAL record-type-syntax: records require at
+                  least one "name =" field; "{ name }" is a block, not a
+                  punned record. Which record TYPE a literal belongs to
+                  is decided in check, not here.]                       *)
+
+(* ---- control expressions ------------------------------------------- *)
+
+if-expr        = "if" , head-expr , block , [ "else" , block ] ;
+               (* [PROVISIONAL else-if: spec only has "else" + block;
+                  an "else if" chain needs "else { if ... }".]          *)
+
+match-expr     = "match" , head-expr ,
+                 "{" , [ match-arm , { sep , match-arm } , [ sep ] ] , "}" ;
+match-arm      = pattern , [ "if" , expr ] , "->" , expr ;
+               (* the guard "if" sits between the pattern and "->"
+                  (spec 4.1). An arm body is a full expr.               *)
+
+for-expr       = "for" , pattern , "in" , head-expr , block ;
+               (* [PROVISIONAL: spec examples only show ident and "_" as
+                  the binding; an irrefutable pattern is permitted like
+                  in "let" — narrow later if undesired.]                *)
+
+go-expr        = "go" , block ;                             (* spec 10.1 *)
+
+select-expr    = "select" , "{" ,
+                 [ select-arm , { sep , select-arm } , [ sep ] ] , "}" ;
+select-arm     = recv-arm | send-arm | default-arm ;
+recv-arm       = ( ident | "_" ) , "<-" , expr , "->" , expr ;
+               (* spec 10.4-5: left side is a variable or "_" — not a
+                  pattern. The channel is an expr; it stops before "->".
+                  Taking a full expr here is intentionally permissive
+                  (spec 10.6 evaluates each channel expression once, so
+                  arbitrary expressions are meaningful); a later phase
+                  may restrict it [SEMANTIC: bound var has type
+                  "Option a"].                                         *)
+send-arm       = "send" , simple-expr , simple-expr , "->" , expr ;
+               (* [PROVISIONAL select-send-arm-operands: "send ch v" is
+                  inherently ambiguous ("send f x v" could mean
+                  "send (f x) v" or "send f (x v)"). Both operands are
+                  simple-expr so complex channels and values need
+                  parens, and mistakes fail loudly.]                    *)
+default-arm    = "default" , "->" , expr ;
+               (* [SEMANTIC: at most one default arm, like Go.]         *)
+
+lambda         = "fn" , lambda-param , { lambda-param } , "->" , expr ;
+lambda-param   = ident | "_" | "(" , ")" ;
+               (* "fn x -> x + 1", "fn a b -> a + b", "fn () -> e",
+                  "fn _ -> e". The body extends as far right as possible.
+                  [PROVISIONAL lambda-param-forms: typed "(x: T)" and
+                  pattern parameters are not shown by the spec.]        *)
+
+(* ---- head-expr: the brace restriction (spec 1.6) ---------------------
+
+   head-expr is parsed exactly like expr EXCEPT that a "{" token is not
+   allowed to begin an atom. Encountering "{" at that position ends the
+   head expression; the "{" then plays its grammatical role as the block
+   opener of "if" / "match" / "for" (the same rule Rust uses to keep
+   struct literals out of if/match conditions).
+
+   The restriction applies only at the head's own nesting level: a "{"
+   nested inside "(", "[" or a nested "{" is unaffected, so
+   "match (f {x = 1})" is legal while "match f {x = 1}" is not (the "{"
+   ends the head and opens the match's arm block, where "x = 1" fails).
+
+   Spec 1.6 names only "if" and "match"; "for x in e" is given the same
+   rule by analogy — "for x in {a = 1}" would otherwise silently read
+   "{a = 1}" as the loop block. [PROVISIONAL — see report.]            *)
+
+head-expr      = expr ;   (* modulo the restriction above *)
+
+
+(* ==========================================================================
+   6. Patterns (spec 4.1)
+   ========================================================================== *)
+
+pattern        = or-pattern , [ "as" , ident ] ;
+               (* "as" binds the whole or-pattern: "A x | B y as w" is
+                  "(A x | B y) as w" [PROVISIONAL — spec shows only
+                  "Add _ _ as whole"].                                    *)
+
+or-pattern     = ctor-pattern , { "|" , ctor-pattern } ;
+
+ctor-pattern   = ctor-name , { pat-arg }
+               | pat-atom ;
+ctor-name      = [ ( ident | UIdent ) , "." ] , UIdent ;
+               (* case distinguishes constructors from variable bindings:
+                  "Some x" matches a constructor, "x" binds a variable.
+                  [PROVISIONAL: module-qualified "option.Some" /
+                  "Option.Some" — the spec never shows it.]               *)
+
+pat-arg        = pat-atom
+               | "~" , ident , [ ":" , pat-atom ] ;
+               (* [PROVISIONAL: labeled constructor arguments in
+                  patterns, mirroring "Transfer ~to: t" — spec 2.6 only
+                  defines the construction form.]                       *)
+
+pat-atom       = "_"
+               | ident
+               | pat-literal
+               | "(" , ")"
+               | "(" , pattern , ")"
+               | tuple-pat
+               | list-pat
+               | brace-pat ;
+
+pat-literal    = INT | FLOAT | CHAR | STRING | "true" | "false"
+               | "-" , ( INT | FLOAT ) ;
+               (* [PROVISIONAL: negative literal patterns.]             *)
+
+tuple-pat      = "(" , pattern , "," , pattern , { "," , pattern } ,
+                 [ "," ] , ")" ;
+
+list-pat       = "[" , "]"
+               | "[" , ".." , ( ident | "_" ) , "]"
+               | "[" , pattern , { "," , pattern } , [ "," ] , "]"
+               | "[" , pattern , { "," , pattern } , "," , ".." ,
+                     ( ident | "_" ) , "]" ;
+               (* "[]", "[x]", "[x, y]", "[x, ..rest]", "[..rest]" —
+                  spec 4.1. ".." requires a name or "_"; a bare ".."
+                  alone is not allowed [PROVISIONAL].                   *)
+
+brace-pat      = "{" , [ pat-field , { "," , pat-field } , [ "," ] ] , "}" ;
+pat-field      = ".." | ident , [ "=" , pattern ] ;
+               (* record pattern "{ name, age = 0 }": a bare ident puns
+                  ("name" = "name = name"), "f = p" binds a sub-pattern,
+                  ".." ignores the rest. The same shape serves as a
+                  constructor's named-field pattern: "Let { name = n, .. }"
+                  is just "Let" applied to a brace-pat [spec 4.1].      *)
+
+
+(* ==========================================================================
+   7. Types (spec 2.1, 3)
+   ========================================================================== *)
+
+type-expr      = arrow-type ;
+
+arrow-type     = "~" , ident , ":" , app-type , "->" , arrow-type
+               | app-type , [ "->" , arrow-type ] ;
+               (* "->" is right-associative: "a -> b -> c" is
+                  "a -> (b -> c)". A labeled argument type
+                  "~name: T -> ..." may appear anywhere in the arrow
+                  chain (spec 2.1).                                     *)
+
+app-type       = type-atom , { type-atom } ;
+               (* juxtaposed application, left-associative:
+                  "List Int", "Result Unit TxError", "Go.Map K V".      *)
+
+type-atom      = UIdent , [ "." , UIdent ]   (* named "Shape" / qualified "Go.Map" *)
+               | ident , "." , UIdent                    (* qualified "io.Reader" *)
+               | ident                                   (* type variable *)
+               | "(" , ")"                               (* Unit *)
+               | "(" , type-expr , ")"                   (* parenthesized *)
+               | tuple-type
+               | record-type ;                           (* [PROVISIONAL
+                  record-type-syntax]                                    *)
+
+tuple-type     = "(" , type-expr , "," , type-expr ,
+                 { "," , type-expr } , [ "," ] , ")" ;
+
+
+(* ==========================================================================
+   8. Brace disambiguation (normative algorithm)
+   ==========================================================================
+
+   "{ ... }" is one brace-expr with three readings, decided by lookahead
+   after the "{":
+
+     "}"            → empty block "()"
+     "let"          → block — "let" starts a block-item and can never
+                      start an expr, so "{ let x = 1; x }" (the common
+                      block form, used by spec's own "fn main") is
+                      unambiguous
+     ident "="      → record literal (a block can never contain "=" —
+                      there is no assignment and "==" is a different
+                      token, so "{ a = 1 }" is unambiguous)
+     a token that can begin an expr
+                    → parse an expr; if it is followed by "with" the
+                      result is a record update "{ e with f = v }",
+                      otherwise the expr is the first block item and the
+                      whole form is a block
+     anything else  → syntax error ("{ , }", "{ -> }", "{ with }", ...)
+
+   In particular:
+     "{ name }"     is a block containing the variable "name", NOT a
+                    punned record [PROVISIONAL record-type-syntax];
+     "{ a , b }"    fails — it is neither a block ("," separates nothing
+                    there) nor a record (no "=");
+     "{ a = 1 ; b }" fails — a record literal expects "," or "}";
+     "{ if c {a} else {b} }" is a block holding an if-expression;
+     "f { x = 1 }"  is "f" applied to the record "{x = 1}" — a
+                    brace-expr is an atom and atoms can be application
+                    arguments. Spec 9.2 confirms: "Ok { c with ... }".
+                    Only in a head-expr (§5) is "{" barred from starting
+                    an atom.
+
+   ========================================================================== *)
+
+
+(* ==========================================================================
+   9. Character classes (lexical primitives)
+   ========================================================================== *)
+
+letter         = lower | upper ;
+lower          = "a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "i"
+               | "j" | "k" | "l" | "m" | "n" | "o" | "p" | "q" | "r"
+               | "s" | "t" | "u" | "v" | "w" | "x" | "y" | "z" ;
+upper          = "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I"
+               | "J" | "K" | "L" | "M" | "N" | "O" | "P" | "Q" | "R"
+               | "S" | "T" | "U" | "V" | "W" | "X" | "Y" | "Z" ;
+digit          = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;
+hex-digit      = digit | "a" | "b" | "c" | "d" | "e" | "f"
+               | "A" | "B" | "C" | "D" | "E" | "F" ;
+oct-digit      = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" ;
+bin-digit      = "0" | "1" ;
+
+any-char       = ? any unicode code point ? ;
+any-char-except-newline = ? any code point except U+000A ? ;
+string-char    = ? any code point except '"', '\' and an unescaped "${" ? ;
+char-char      = ? any code point except "'" and '\' ? ;
+               (* [PROVISIONAL literal-lexical-details: a Char is meant to
+                  be one Unicode code point (spec 3.1); how a multi-byte
+                  escape like \u{1F600} interacts with the single-quote
+                  rule is for the lexer to pin down.]                  *)
+
+
+(* ==========================================================================
+   10. Index of provisional points
+   ==========================================================================
+
+   Every [PROVISIONAL] marker in this file and the problems entry that
+   discusses it:
+
+     record-type-syntax         docs/problems/2026-11-01-record-type-syntax.md
+                                 — record type declarations, literal
+                                 resolution, field punning, "{}"
+     gom-import-syntax          docs/problems/2026-11-01-gom-import-syntax.md
+                                 — Gom package imports, aliasing, .gomi
+                                 contents
+     select-send-arm-operands   docs/problems/2026-11-01-select-send-arm-operands.md
+                                 — extent of "send ch v" operands
+     type-ascription            docs/problems/2026-11-01-type-ascription.md
+                                 — "expr : Type" beyond "Go.conv"
+     operator-coverage          docs/problems/2026-11-01-operator-coverage.md
+                                 — "!=", "%", "||", "!", bit ops, list
+                                 spread
+     else-if                    docs/problems/2026-11-01-else-if.md
+     lambda-param-forms         docs/problems/2026-11-01-lambda-param-forms.md
+     literal-lexical-details    docs/problems/2026-11-01-literal-lexical-details.md
+
+   Smaller judgements recorded only in comments:
+   - "for" accepts any irrefutable pattern, not just ident / "_".
+   - "try" binds to an application-level operand only.
+   - "->", ",", ".", ":", "~", "in", "with", "<-", "if" are absent from
+     line-start (strict reading of spec 1.5); "|" was added.
+   - an expression-level ascription "e : T" needs pipe-level operands;
+     "match e {..} : T" requires parentheses. The label ":" of an
+     app-arg is greedier: "f ~x : T" is "f (~x: T)".
+   - "_" is an atom everywhere; Go-call-only usage is [SEMANTIC].
+   - "{ a : T }" is a block containing an ascription, not a record.
+   - "(x,)" is a parenthesized expression with a trailing comma.
+   - attributes other than "@test" are accepted by the grammar and
+     rejected in resolve.
+   - keywords are usable as member names after "." (needed for
+     "Chan.send", "ctx.Done" uses UIdent, etc.).
+
+   ========================================================================== *)
