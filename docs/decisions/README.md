@@ -68,6 +68,7 @@
 | [p1-3-parser-interpretations](2026-11-02-p1-3-parser-interpretations.md) | P1-3 parser: interpretations made while implementing grammar.ebnf | 採用 |
 | [pattern-checking](2026-11-02-pattern-checking.md) | Pattern-matrix checking: domains, guards, counterexamples (internal/pattern) | draft |
 | [sumtype-exhaustiveness-tool](2026-11-02-sumtype-exhaustiveness-tool.md) | Exhaustiveness checker for sealed interfaces (B-3) | 採用 |
+| [tailrec-requirement](2026-11-02-tailrec-requirement.md) | `@tailrec`: a requirement attribute for tail-call optimization | draft |
 | [test-harness](2026-11-02-test-harness.md) | テストハーネスの配置とファイル規約 (internal/gomtest) | 採用 |
 | [treedump-format](2026-11-02-treedump-format.md) | IR テキストダンプ形式 (internal/treedump) | draft |
 | [go-types-mapping](2026-11-03-go-types-mapping.md) | go/types → Gom type mapping and where boundary conversions live | 採用（P1-9 の `internal/goimport` が実装・検証した — `strconv.Atoi`/`Itoa`・`os.LookupEnv`・`bytes.Buffer` メソッドが E2E で動く） |
