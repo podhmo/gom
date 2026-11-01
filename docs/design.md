@@ -338,6 +338,11 @@ sum type にコンストラクタを足すとインターフェースが変わ�
 - **生成コードの品質テスト**: `go build`、`go vet`、`go test -race`、ベンチマーク、エスケープ解析
 - 既存のゴールデンテスト、仕様テスト（`testdata/spec/`）、フォーマッタのプロパティテスト
 
-## 8. 参考文献について
+## 8. 参考文献
 
-本文中の論文名（Maranget 2007 / 2008）は検索せずに記憶から書いたもの。引用する前に確認すること。go-sumtype の現状も同様に要確認。
+4.2 節が依拠する論文（2026-11-02 に確認。詳細は [sketch: reference-verification](sketch/2026-11-02-reference-verification.md)）:
+
+- Luc Maranget. "Warnings for pattern matching". *Journal of Functional Programming* 17(3), May 2007, pp. 387–421. doi:10.1017/S0956796807006223 — 網羅性・冗長性の検査（usefulness アルゴリズム）と反例生成の根拠
+- Luc Maranget. "Compiling pattern matching to good decision trees". *Proceedings of the ACM SIGPLAN Workshop on ML* (ML '08), Victoria, BC, Canada, September 2008, pp. 35–46. doi:10.1145/1411304.1411311 — パターン行列から決定木へのコンパイルとヒューリスティクスの根拠。Le Fessant & Maranget "Optimizing pattern matching" (ICFP 2001) は backtracking automata の別論文なので混同しないこと
+
+内部 AST の sealed interface 網羅性検査（2.4 節、TODO B-3）: BurntSushi/go-sumtype は実在するがメンテナンスが停滞しており、ジェネリクス未対応。フォークの alecthomas/go-check-sumtype（`//sumtype:decl` 注釈。golangci-lint の `gochecksumtype` と同じ解析器、Go 1.27 対応を確認済み）が第一候補。どちらも `default` が単一文の `panic(...)` なら網羅性検査が継続するので、内部 AST の type switch 規約と整合する。
