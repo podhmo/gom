@@ -124,12 +124,11 @@ Condensed language tour (body of SKILL.md — keep small):
   source-map, diagnostics-playbook, idioms, mental-models…).
   "Load the smallest relevant reference file"; freshness gate:
   never answer from memory, answer with a verification command.
-- Generated project `AGENTS.md` = **thin router**: "This is a
-  MoonBit project" + link to skills repo + "Read the MoonBit
-  skills before writing code — model priors are routinely wrong
-  here" + task→skill routing table + two non-negotiables (never
-  name an unverified API — check via tooling; verify toolchain
-  version). Contains NO language knowledge itself.
+- Generated project `AGENTS.md` = **thin router** — see the
+  `moon new` section below for the exact upstream template (the
+  "routing table + non-negotiables" version circulating on
+  mooncakes is a COMMUNITY extension by the moon-ical author,
+  not the stock template).
 - So: **AGENTS.md routes, SKILL.md carries the payload,
   references/ carries depth.** Our current AGENTS.md is
   compiler-developer-facing and should stay; add one routing
@@ -234,8 +233,77 @@ Placement: canonical `skills/gom-agent-guide/` in-repo (future
 use moonbit's `skills.sources.json` sync pattern rather than
 hand-editing both.
 
+## The `moon new` template + skill linkage (verified against source)
+
+Template lives in `moonbitlang/moon` at
+`crates/moonbuild/template/moon_new_template/` — a real file tree,
+serialized to `moon_new_template.toml` by an xtask, embedded via
+`include_str!`, rendered with Handlebars (`{{username}}` etc. in
+both filenames and contents). In Go the equivalent is `//go:embed`.
+
+The upstream `AGENTS.md` template is 53 lines:
+- "This is a [MoonBit](docs URL) project."
+- "You can browse and install extra skills here:
+  github.com/moonbitlang/skills"
+- `## Project Structure` — moon.pkg/moon.mod facts only
+- `## Coding convention` — `///|` blocks, deprecated.mbt
+- `## Tooling` — fmt / ide / info / test commands + snapshot
+  workflow, ending with "See $moonbit-agent-guide for details."
+
+**Skill linkage is one-directional, project-file → skill:**
+1. Repo URL for discoverability (skills hub link).
+2. `$skill-name` references ("See $moonbit-agent-guide") — a soft
+   ref meaning "read it if installed"; same syntax used in
+   openai.yaml `default_prompt` and moon's own AGENTS.md.
+3. NO reverse link: skills never reference the project file; they
+   trigger via `description` on file extensions/commands.
+4. `moon explain` help footer + error-code index page also point
+   at the skills repo — the toolchain itself advertises skills.
+
+Other generated agent-facing files: `.github/workflows/
+copilot-setup-steps.yml` (installs toolchain for the Copilot
+agent), `.githooks/pre-commit` running `moon check`, `README.mbt.md`
+(literate markdown — ` ```mbt check` blocks typecheck under
+`moon check`), `.gitignore` ignoring `.moonagent/`.
+
+Versioning: **none** — no generated-file markers, no upgrade path;
+freshness comes from (a) template shipping inside the toolchain
+binary, (b) skills synced upstream via skills.sources.json + daily
+CI. Docs say "remove any template files you don't need".
+
+**Correction applied above**: the routing-table AGENTS.md seen on
+mooncakes (justinwongcn/moon-ical) is an author extension, NOT the
+stock template — still worth copying since it expresses the
+"model priors are routinely wrong here; load the skill BEFORE the
+first edit" policy the stock template only implies.
+
+**Tested-skill CI**: moonbit-agent-guide ships `SKILL.mbt.md`
+alongside SKILL.md; CI runs `moon check SKILL.mbt.md` on a
+nightly+latest matrix so skill examples can never bit-rot. Gom
+equivalent: extract ```gom blocks from the skill into
+`testdata/` fixtures checked by `gom check`/`gom build` (no
+literate-md support needed — a small extraction test suffices).
+
+## Implementation shape decided
+
+- `gom new` (when it exists — separate task) generates a thin
+  `AGENTS.md` modeled on the 53-line upstream template: project
+  declaration + skills repo URL + project facts + "See
+  $gom-agent-guide". Optionally adopt the moon-ical routing
+  extension since our skill count may stay at 1-2.
+- Canonical skill lives at `skills/gom-agent-guide/` (future
+  `npx skills add` compatible, real files only) and is vendored to
+  `.devin/skills/` for this repo's own sessions via a small sync
+  (skills.sources.json pattern or a Makefile target).
+- This repo dogfoods: AGENTS.md gets a routing section "writing
+  `.gom` → read `$gom-agent-guide` first".
+- Skill code examples: extracted and `gom check`-verified in CI
+  (add to the implementation task's acceptance criteria).
+
 ## Next step
 
-Second research task is extracting the exact `moon new` AGENTS.md
-template + the project-file→skill linkage; once it reports, file
-P4-9 as an implementation task.
+Both research reports are in; P4-9 is now implementable. The task
+should: write `skills/gom-agent-guide/{SKILL.md,references/*}` per
+the shape above, add the AGENTS.md routing section, add the
+example-extraction test, and file the `gom new` template work as a
+separate follow-up (needs `gom new` itself — not yet built).
