@@ -39,7 +39,7 @@
 
 完成したコンパイラを作る工程ではない。Gom 構文からの自動変換はなくてよく、各案の Go 実装を手書きし、ビルド・ベンチマーク・Go からの使いやすさを比べる。実験コードは `experiments/p0/<topic>/` に置き、結果は [docs/sketch/](docs/sketch/) にレポートとして書いてから decisions を更新する。各タスクは独立で、すべて並列に進められる。
 
-- [ ] **P0-1 再帰的 ADT の表現**: sealed interface＋ジェネリクスとタグ付き単一 struct を比較する。`nil` の扱い、割り当て、Go からの使いやすさを見る。結果を [decisions/value-representation](docs/decisions/2026-11-01-value-representation.md) に記録
+- [x] **P0-1 再帰的 ADT の表現**: sealed interface＋ジェネリクスとタグ付き単一 struct を比較する。`nil` の扱い、割り当て、Go からの使いやすさを見る。結果を [decisions/value-representation](docs/decisions/2026-11-01-value-representation.md) に記録
 - [x] **P0-2 多相関数の部分適用と関数値の表現**: カリー化形 `func(A) func(B) C` と arity 付きクロージャを比較する。型の具体化の時点、パッケージをまたぐ公開形、ラベル付き引数の部分適用を含む。結果を [decisions/function-representation](docs/decisions/2026-11-01-function-representation.md) に記録
 - [x] **P0-3 `List` と Go スライスの往復**: スライスベースと永続 cons リストを比較する。コピー・所有権・先頭追加の性能、`[x, ..rest]` のメモリ保持を見る。結果を [decisions/value-representation](docs/decisions/2026-11-01-value-representation.md) に記録
 - [ ] **P0-4 `Result` と `(T, error)` の変換**: sealed interface と `struct { Value T; Error E; Ok bool }` を比較する。呼び出し規約、`|?>` の中間値の省略（[design.md 4.6](docs/design.md)）、大きな値型のコピー、ゼロ値を見る。結果を [decisions/value-representation](docs/decisions/2026-11-01-value-representation.md) に記録
