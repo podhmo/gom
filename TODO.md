@@ -45,7 +45,7 @@
 - [x] **P0-3 `List` と Go スライスの往復**: スライスベースと永続 cons リストを比較する。コピー・所有権・先頭追加の性能、`[x, ..rest]` のメモリ保持を見る。結果を [decisions/value-representation](docs/decisions/2026-11-01-value-representation.md) に記録
 - [x] **P0-4 `Result` と `(T, error)` の変換**: sealed interface と `struct { Value T; Error E; Ok bool }` を比較する。呼び出し規約、`|?>` の中間値の省略（[design.md 4.6](docs/design.md)）、大きな値型のコピー、ゼロ値を見る。結果を [decisions/value-representation](docs/decisions/2026-11-01-value-representation.md) に記録
 - [x] **P0-5 Go の interface と named type**: `go/types` から Gom の型への対応を小さなプログラムで確かめる（`io.Reader`、`time.Duration` など）。結果を [decisions/go-interop-boundary](docs/decisions/2026-11-01-go-interop-boundary.md) の追記と docs/sketch に記録
-- [ ] **P0-6 P0 の結論の反映**: P0-1〜P0-5 の結果から [decisions/value-representation](docs/decisions/2026-11-01-value-representation.md)・[function-representation](docs/decisions/2026-11-01-function-representation.md) の状態を更新し、[design.md 4 章](docs/design.md) と [open-questions.md](docs/open-questions.md) の「P0 の実験で決めるもの」を整理する。依存: P0-1, P0-2, P0-3, P0-4, P0-5
+- [x] **P0-6 P0 の結論の反映**: P0-1〜P0-5 の結果から [decisions/value-representation](docs/decisions/2026-11-01-value-representation.md)・[function-representation](docs/decisions/2026-11-01-function-representation.md) の状態を更新し、[design.md 4 章](docs/design.md) と [open-questions.md](docs/open-questions.md) の「P0 の実験で決めるもの」を整理する。依存: P0-1, P0-2, P0-3, P0-4, P0-5
 
 ### P1 最小の型付き言語
 

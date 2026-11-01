@@ -24,3 +24,14 @@
 
 - `io.Reader` / `io.Writer` などを使う標準ライブラリが v1 から使える
 - Go ABI の安定性と、Gom の型が interface を実装する方法は未決
+
+## 検証の追記（2026-11-02、P0-5）
+
+`go/types` を使った実地の検証（[sketch: P0-5](../sketch/2026-11-02-p0-5-go-types-mapping.md)）で以下が確認された。
+
+- Go の型は `*types.Named`（named scalar・named interface・named struct を含む）を同一性のキーとして保持する。`types.Identical` は named type の object 同一性を見るため、**1 回のコンパイルでは 1 つの読み込みセッション（`packages.Load` / importer）を共有する必要がある**。セッションをまたぐと同名の型でも Identical にならないことが実験で確認された
+- `(T, error)` の判定は `types.Identical(末尾結果, universe error)` で実装できる。`any` は export data 上では `*types.Alias`、`interface{}` と書かれた場合は `*types.Interface` と、表記によってノードが変わるため、`Unalias` 後に empty interface かを見る構造的な判定が必要（alias の有無では検出できない）
+- `Go.conv` の可否は `types.ConvertibleTo`、interface への代入可否は `types.AssignableTo`、nil 代入可否は `AssignableTo(untyped nil, T)`、メソッド・フィールド解決は `types.LookupFieldOrMethod` で実装できることが確認された。ジェネリック呼び出しの制約検査は `types.Instantiate(…, validate=true)` をそのまま使える
+- `nil` になりうる型は underlying が pointer / slice / map / chan / func / interface / `unsafe.Pointer` のもの（named type は基底型に従う。`*types.TypeParam` の underlying は制約 interface を返す罠がある）。`*T`・interface・func を返す Go 関数の戻り値は nil を持ちうる値として扱う
+- Go のジェネリック関数の制約判定は `IsMethodSet() || IsComparable()`（+ union/`~` の検出）で分類できる。ただし `any`/`comparable` だけの厳格な境界では `slices`/`maps`/`cmp` の主要な関数（`slices.Contains` `[S ~[]E, E comparable]` など）が呼べないことが分かった。`~[]E`/`~map[K]V` 形状の制約まで広げるかは P3-3 実装前に再検討する（open-questions.md）
+- Go の struct 型のフィールド参照・コンポジットリテラル（`srv.Addr`、`http.Server{Addr: ...}`）は spec 8.3 の対応表にない。v1 で扱うかは未決（open-questions.md）

@@ -2,15 +2,6 @@
 
 決着したら [decisions/](decisions/) に 1 件 1 ファイルで記録し、[spec.md](spec.md) / [design.md](design.md) を更新してから、この一覧から消す。決まっていて作業するだけのものは [../TODO.md](../TODO.md) に移す。
 
-## P0 の実験で決めるもの
-
-机上で決めず、手書きの Go 実装案を比較して決める（TODO.md の P0）。
-
-- [ ] ADT の表現: sealed interface か、タグ付きの単一 struct か（[decisions/value-representation](decisions/2026-11-01-value-representation.md)）
-- [ ] `List` の表現: スライスベースか、永続 cons リストか。スライスなら `[x, ..rest]` は O(1) だが先頭追加は O(n) で、`rest` が元の配列を保持し続ける（[decisions/value-representation](decisions/2026-11-01-value-representation.md)）
-- [ ] `Result` の表現: sealed interface か、`struct { Value T; Error E; Ok bool }` か。大きな値型のコピーとゼロ値の扱いも比べる（[decisions/value-representation](decisions/2026-11-01-value-representation.md)）
-- [ ] 関数値の表現: カリー化形 `func(A) func(B) C` か、arity 付きクロージャか。多相な定義の具体化の時点と、パッケージをまたぐ関数値の公開形も含む（[decisions/function-representation](decisions/2026-11-01-function-representation.md)）
-
 ## 未決事項
 
 ### 型システム
@@ -29,7 +20,8 @@
 - [ ] `*T` の既定: `Ptr T`（Go と同じく nil で panic、書きやすい）と `Option (Ptr T)`（安全だが冗長）のどちらを既定にするか
 - [ ] Go ABI の方針: 生成される Go の API（型名・関数のシグネチャ・バリアントの struct 名）を、Gom のバージョンをまたいでどこまで安定させるか
 - [ ] Gom の型が Go の interface を実装できるようにするか（v1 ではできない）。できるなら、どう宣言するか
-- [ ] Go のジェネリック関数のうち、`any` / `comparable` 以外の制約を持つものをどう扱うか
+- [ ] Go のジェネリック関数のうち、`any` / `comparable` 以外の制約を持つものをどう扱うか。P0-5 で、`any`/`comparable` だけの厳格な境界では `slices.Contains`（`[S ~[]E, E comparable]`）など `slices`/`maps`/`cmp` の主要な関数がほぼ全部呼べないことが分かった。`IsMethodSet() || IsComparable()` に留めるか、`~[]E`/`~map[K]V` の core-type 制約を持つものまで広げるか（後者は `cmp.Ordered` のような「Gom 型が Ordered か」の判定を要する）。P3-3 の実装前に再検討する（[go-interop-boundary](decisions/2026-11-01-go-interop-boundary.md) の検証追記、[sketch: P0-5](sketch/2026-11-02-p0-5-go-types-mapping.md)）
+- [ ] Go の struct 型の扱い: フィールド参照（`srv.Addr`）とコンポジットリテラル（`http.Server{Addr: ...}`）は spec 8.3 の対応表にない（P0-5 で発覚）。フィールドは読み取りのみ許すか、宣言は `extern` 経由に限るか
 - [ ] 標準のバインディング（`(T, bool)` を `Option` にする関数の一覧など）をどこで管理するか
 
 ### 並行処理
@@ -48,6 +40,7 @@
 - 省略可能引数とデフォルト値
 - `|?>` の自動ラップの文言を設定可能にする。候補は、書式（関数名・ソース位置・任意の文言）をパッケージ単位で指定する方法と、ステップごとに文言を書ける構文。`strconv` のようにエラーが関数名を含むパッケージで、関数名が二重に付く問題もここで扱う。エラーの構造化されたフレーム情報（呼び出しの由来の追跡）も候補
 - ローカル let 多相（入れる場合は relaxed value restriction を検討）
+- `List` のハイブリッド表現（chunked / unrolled list、所有権フラグ付きの反転ストレージなど）。先頭追加を償却 O(1) に戻す案。P0-3 でスライス表現（`type List[A] []A`）を採用したが、ユーザーレベルの `x :: acc` 型の逐次構築が支配的なワークロードで再検討する余地がある（[sketch: P0-3](sketch/2026-11-02-p0-3-list-representation.md)）
 - チャネルで送れる値を型で制限する仕組み（Rust の `Send` 相当）
 - 型クラス、`deriving` 相当の自動生成
 - インクリメンタルビルドのキャッシュ（P4。それまでは毎回変換し、Go のキャッシュに任せる）

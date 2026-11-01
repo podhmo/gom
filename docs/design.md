@@ -87,7 +87,7 @@
 Go コード生成器に言語の意味を判断させない。次のことは Core IR の時点ですべて確定し、`codegen` は決められた手順で Go AST を出力するだけにする。
 
 1. **評価順序**: 部分式はすべて、評価順に並んだ束縛（ANF）になっている。ラベル付き引数の並べ替え、`_` プレースホルダ、`select` の腕の式、パイプの展開はすべてここで順序付きの束縛に変換済み
-2. **関数の arity と呼び出し規約**: 各呼び出しは「既知の関数への飽和呼び出し」「部分適用（生成するクロージャを明示）」「未知の関数値への 1 引数ずつの適用」「Go 関数の呼び出し」のどれかに分類済み
+2. **関数の arity と呼び出し規約**: 各呼び出しは「既知の関数への飽和呼び出し」「部分適用（生成するクロージャを明示）」「未知の関数値への残り arity の呼び出し」「Go 関数の呼び出し」のどれかに分類済み
 3. **Go 相互運用の変換**: `(T, error)` から `Result` への変換、数値変換、`any` へのボックス化、スライスのコピー、interface への代入はすべて明示的なノード
 4. **match は決定木**: パターンは残っていない。ADT の不正値に対する panic の分岐も明示
 5. **脱出**: `try` と `|?>` は、どの関数境界から抜けるかを明示した脱出ノード
@@ -121,7 +121,7 @@ call transfer(t2, t3, t1)
 
 ### 2.5 Go パッケージの読み込み
 
-名前解決フェーズは `import go` されたパッケージを `go/packages` で読み、`go/types` の情報から Gom の型を自動で作る。型は名前の文字列ではなく `go/types` の型の同一性を保ったまま扱う（named type を区別するため）。表現できない型を含むシンボルは公開せず、参照されたときに理由付きの診断を出す。結果はビルドキャッシュに保存し、`extern` 宣言があればそれで上書きする。依存する Gom パッケージについては、実装ではなく `.gomi` だけを読み込む。
+名前解決フェーズは `import go` されたパッケージを `go/packages` で読み、`go/types` の情報から Gom の型を自動で作る。型は名前の文字列ではなく `go/types` の型の同一性を保ったまま扱う（named type を区別するため）。`types.Identical` は named type の object 同一性を比較するので、1 回のコンパイルでは 1 つの読み込みセッション（`packages.Load`）を共有し、シンボルごとにローダーを作り直さない（P0-5 で、セッションをまたぐと同名の型も Identical にならないことを確認）。表現できない型を含むシンボルは公開せず、参照されたときに理由付きの診断を出す。結果はビルドキャッシュに保存し、`extern` 宣言があればそれで上書きする。依存する Gom パッケージについては、実装ではなく `.gomi` だけを読み込む。
 
 ---
 
@@ -158,7 +158,7 @@ gom/
     ├── spec.md
     ├── design.md
     ├── open-questions.md
-    ├── grammar.ebnf  （未作成）
+    ├── grammar.ebnf
     └── decisions/
 ```
 
@@ -188,7 +188,22 @@ func (Shape_Rect) isShape()   {}
 func (Shape_Empty) isShape()  {}
 ```
 
-非公開メソッド `isShape()` によりパッケージ外から新しいバリアントを足せない（sealed）。ただし Go 側では `var s Shape` が `nil` になり得るので、type switch の `default` は `panic("unreachable")` ではなく、型名を含む契約違反のメッセージで panic する（`rt.InvalidVariant("shapes.Shape", s)`）。引数なしバリアントはゼロサイズ struct なので割り当ては発生しない。ジェネリックな ADT は `type Option[A any] interface{ isOption() }` と `Option_Some[A any]` で表す。ADT・`List`・`Result` の最終的な表現は P0 の実験で決める（[decisions/value-representation](decisions/2026-11-01-value-representation.md)）。
+非公開メソッド `isShape()` によりパッケージ外から新しいバリアントを足せない（sealed）。ただし Go 側では `var s Shape` が `nil` になり得るので、type switch の `default` は `panic("unreachable")` ではなく、型名を含む契約違反のメッセージで panic する（`rt.InvalidVariant("shapes.Shape", s)`）。引数なしバリアントはゼロサイズ struct なので割り当ては発生しない。バリアントはポインタ型ではなく値 struct にし、Go 側から typed nil が渡されても `default` で `rt.InvalidVariant` に落ちるようにする。
+
+ジェネリックな ADT では、マーカーメソッドのシグネチャに型パラメータを含める。シグネチャに出ない型パラメータは phantom になり、呼び出し側の型推論が束縛できない——`Option[int64]` の値が `Option[int]` の引数を構造的に満たしてコンパイルが通り、実行時に `default` へ素通りする静かな誤推論が起きる（P0-1・P0-3 で確認。全 generic sealed ADT に効く罠）。
+
+```go
+// type Option a = | Some a | None
+type Option[A any] interface{ isOption() A }
+
+type Option_Some[A any] struct{ V0 A }
+type Option_None[A any] struct{}
+
+func (o Option_Some[A]) isOption() A { return o.V0 }
+func (Option_None[A]) isOption() A   { var z A; return z }
+```
+
+組み込みの `List a` と `Result a e` はこの sealed interface ではなく別の表現にする: `List a` は `type List[A] []A`（スライス）、`Result a e` は `struct { state ResultTag; Value T; Error E }`（非公開の 3 状態タグ付き。4.6 節）。`Result` は保持するデータではなく失敗しうる呼び出し規約なので、構築・判定・分解が安い専用表現にする（[decisions/value-representation](decisions/2026-11-01-value-representation.md)）。
 
 ### 4.2 match → 決定木 → type switch
 
@@ -243,9 +258,9 @@ if n > 0 {
 | 既知の関数に引数がちょうど揃う | 直接呼び出し `transfer(alice, bob, m)` |
 | 引数が足りない（部分適用） | 残りを受け取るクロージャ `func(m Money) R { return transfer(alice, bob, m) }` |
 | 引数が多い（結果が関数） | 直接呼び出しの結果に残りを適用 |
-| 未知の関数値への適用 | 1 引数ずつ適用 `f(x)(y)` |
+| 未知の関数値への適用 | 残り arity ぶんの引数で 1 回の呼び出し `f(x, y)` |
 
-関数値の表現（カリー化形 `func(A) func(B) C` か、arity 付きのクロージャか）は P0 の実験で決める（[decisions/function-representation](decisions/2026-11-01-function-representation.md)）。現時点の案はカリー化形。既知の多引数関数を値として渡すときは変換ラッパーを生成する。`List.map` など頻出の標準関数には `func(A, B) C` を直接受け取る特殊化版を用意してクロージャのコストを緩和する。`.gomi` には引数リストの形でシグネチャを書くので、他パッケージの関数についても arity が分かる。
+関数値の表現は arity 形（P0-2 で決定、[decisions/function-representation](decisions/2026-11-01-function-representation.md)）: Gom の `T1 -> ... -> Tn -> R` の値は Go の `func(T1, ..., Tn)` とし、矢印チェーンを平坦化した形が canonical。残り arity は静的に分かるので、未知の関数値への適用でも中間クロージャは作らない。既知の関数を値として渡すときはそのまま参照する。宣言 arity が型の矢印長より小さい関数（`fn mk_add (a) -> (Int -> Int)` のような関数を返す関数）にだけ、値として使う箇所で平坦化ラッパーを生成する。カリー化形 `func(A) func(B) C` は不採用——実測で、境界を越えた関数値の適用が arity 3 で ~43 倍、高階関数のループ内の要素ごとの割り当てが fold で ~87 倍、Go API への受け渡しに Uncurry アダプタが要ったため。arity 形は特殊化版が最初から canonical なので、`List.map` 系のための別バリアントは要らない。`.gomi` には引数リストの形でシグネチャを書くので、他パッケージの関数についても arity が分かる。
 
 ### 4.5 その他の変換
 
@@ -253,7 +268,7 @@ if n > 0 {
 - `_` プレースホルダ → `_` 以外の引数を一時変数に評価してから、それを捕捉するクロージャを作る
 - ラベル付き引数 → ラベルは消去し、Go 関数の引数は宣言順。呼び出し側の評価順を保つため、並べ替えは一時変数で行う
 - パイプ・関数合成 → 脱糖の段階で普通の関数適用に戻す。`>>` で作った関数を値として渡す場合だけクロージャになる
-- `try e` → `if r, ok := e.(Result_Err[...]); ok { return ... }`
+- `try e` → `r := e` として `r.Tag()` で分岐する。`result.ResultTag_Err` なら `return result.Err[...](r.Error)` で最も内側の関数から脱出、`result.ResultTag_Ok` なら `r.Value` に進む。分岐は invalid（タグ 0）を含む完全なものにし、`default` は `rt.InvalidVariant` で panic する
 - 自己末尾再帰 → 引数を再代入する `for` ループ。相互再帰は保証しない
 - ラムダ → Go の関数リテラル。捕捉変数はすべて不変なのでコピー意味論の問題は起きない
 - トップレベルの多相関数 → 型パラメータ `[A any]`
@@ -261,17 +276,22 @@ if n > 0 {
 
 ### 4.6 `|?>`
 
-各ステップを `err` の確認と早期リターンに展開し、中間の `Result` 値は作らない。
+各ステップを `err` の確認と早期リターンに展開し、中間の `Result` 値は作らない。`Result` は言語上は stdlib の sum type だが、Go 側の `Result`/`ResultTag`/コンストラクタはコンパイラが生成する標準ライブラリの `result` パッケージに置く（`List` など他の組み込み型の Go 側表現も stdlib 側の特別扱いとして生成する）。表現は `struct { state ResultTag; Value T; Error E }`（`state` は非公開、0=invalid・1=Ok・2=Err）で、コンストラクタは `result.Ok[T,E](v)` / `result.Err[T,E](e)`、判定は `r.Tag()`（[decisions/value-representation](decisions/2026-11-01-value-representation.md)）。ステップが返す `Result` の検査は必ず invalid を含む完全な分岐にする——bare な comma-ok 型アサーション（`r.(Result_Err[...])` 型）は invalid 値を Ok 側のパスに流すので使わない（P0-4 で確認）。
 
 ```go
 // load_config の生成コード（抜粋）
 b, err := os.ReadFile(path)
 if err != nil {
-	return Result_Err[Config, error]{V0: fmt.Errorf("os.ReadFile: %w", err)}
+	return result.Err[Config, error](fmt.Errorf("os.ReadFile: %w", err))
 }
 r := parseToml(b)
-if e, failed := r.(Result_Err[Toml, error]); failed {
-	return Result_Err[Config, error]{V0: fmt.Errorf("parse_toml: %w", e.V0)}
+switch r.Tag() {
+case result.ResultTag_Ok:
+	// r.Value を使って続行
+case result.ResultTag_Err:
+	return result.Err[Config, error](fmt.Errorf("parse_toml: %w", r.Error))
+default:
+	panic(rt.InvalidVariant("result.Result", r))
 }
 ```
 

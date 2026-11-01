@@ -407,7 +407,7 @@ extern go "io" {
 
 ### 8.7 Go から Gom を呼ぶ
 
-生成コードは普通の Go パッケージなので直接 import できる。生成コードは「読めて、デバッグでき、Go から自然に使える成果物」であり、人が直接書き換えて保守するソースではない。sum type は sealed interface として公開され、Go 側では type switch で分解する（網羅性は Go 側では保証されない）。
+生成コードは普通の Go パッケージなので直接 import できる。生成コードは「読めて、デバッグでき、Go から自然に使える成果物」であり、人が直接書き換えて保守するソースではない。sum type は sealed interface として公開され、Go 側では type switch で分解する（網羅性は Go 側では保証されない）。ただし `Result a e` は例外で、非公開タグ付きの struct として公開し、`Ok` / `Err` のコンストラクタ関数と `Tag()` / `Unwrap()` で扱う。
 
 ---
 

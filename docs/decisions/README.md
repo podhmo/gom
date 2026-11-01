@@ -40,9 +40,9 @@
 | [select-receive-arms](2026-11-01-select-receive-arms.md) | `select` の受信腕はチャネルごとに 1 つの `case` |
 | [value-restriction](2026-11-01-value-restriction.md) | 一般化は value restriction 付き |
 | [try-boundary](2026-11-01-try-boundary.md) | `try` の脱出先は最も内側の関数 |
-| [value-representation](2026-11-01-value-representation.md) | 値の表現（一部未決、P0 で決定） |
+| [value-representation](2026-11-01-value-representation.md) | 値の表現（P0 で決定） |
 | [go-interop-boundary](2026-11-01-go-interop-boundary.md) | Go 相互運用の境界 |
-| [function-representation](2026-11-01-function-representation.md) | 関数値の表現（未決、P0 で決定） |
+| [function-representation](2026-11-01-function-representation.md) | 関数値の表現（P0 で決定） |
 | [core-ir-invariants](2026-11-01-core-ir-invariants.md) | Core IR の不変条件 |
 | [evaluation-order](2026-11-01-evaluation-order.md) | 評価順序 |
 | [generated-code-goals](2026-11-01-generated-code-goals.md) | 生成 Go コードの位置づけ |
