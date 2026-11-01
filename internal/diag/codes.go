@@ -42,6 +42,10 @@ const (
 	// PhaseLint covers opt-in lints such as the mutable-sharing
 	// warnings of spec section 10 (P5-2).
 	PhaseLint Phase = "lint"
+	// PhaseEval covers the typed-AST evaluator (internal/eval), the
+	// tree-walking interpreter behind the semantics-comparison
+	// testing of docs/design.md section 7.
+	PhaseEval Phase = "eval"
 )
 
 // phases is the closed set of valid Phase values, in display order.
@@ -56,6 +60,7 @@ var phases = []Phase{
 	PhaseIface,
 	PhaseGoImport,
 	PhaseLint,
+	PhaseEval,
 }
 
 // validPhase reports whether p is one of the declared phases.
@@ -98,6 +103,8 @@ var categories = []Category{
 		"The go/select/channel rules of spec section 10 and the mutable-sharing lints."},
 	{"08", "Tests",
 		"Test declarations, the @test scope, and assertions (spec section 11)."},
+	{"90", "Evaluation",
+		"Run-time diagnostics of the typed-AST evaluator (internal/eval): unsupported constructs, panics, and broken interpreter invariants."},
 }
 
 // categoryNumbers returns the valid category prefixes for validation.
@@ -690,6 +697,76 @@ referenced only from test declarations and other @test definitions
 fn helper () -> Int = 1
 
 fn prod () -> Int = helper ()   // helper is test-only`,
+	},
+
+	{
+		Code:     "E9001",
+		Severity: SeverityError,
+		Title:    "construct not supported by the evaluator",
+		Phase:    PhaseEval,
+		Explanation: `The typed-AST evaluator (internal/eval) — the tree-walking
+interpreter the semantics-comparison harness checks generated Go
+against (design.md section 7) — does not implement this construct in
+its current scope. Reported for "go"/"select" expressions, "for"
+over non-List iterables, "Go.conv" ascriptions, misplaced holes and
+spreads, Ref/Array/Ptr/Chan/Task values, unknown builtins, module
+members in expression position, and Go calls for which no host
+function was bound (eval.NewHostFunc). This is a limitation of the
+interpreter, not a rule of the language: the same program may compile
+and run through the Go backend.`,
+		Example: `go { ping () }   // goroutines are outside the evaluator's scope`,
+	},
+	{
+		Code:     "E9002",
+		Severity: SeverityError,
+		Title:    "no match arm accepted the value",
+		Phase:    PhaseEval,
+		Spec:     "8.6",
+		Explanation: `Every arm of a match rejected the scrutinee value at run time.
+In a checked program the pattern checker guarantees coverage, so
+this means a contract-violating value — a nil or malformed ADT
+value produced by Go code — reached the match, which the spec
+defines as a panic naming the type (spec section 8.6). On a
+hand-built typed AST it can also mean the arms genuinely do not
+cover the value.`,
+	},
+	{
+		Code:     "E9003",
+		Severity: SeverityError,
+		Title:    "panic during evaluation",
+		Phase:    PhaseEval,
+		Explanation: `A Gom-level panic surfaced as a diagnostic instead of a Go
+panic: "todo ()" was reached (spec section 12 item 5), "assert" or
+"assert_eq" failed (spec section 11.4), an invalid variant value
+was matched, a division or modulo by zero was evaluated, or a host
+function raised a Go panic. The message carries the panic text.`,
+		Example: `let x = todo ()   // panic: todo reached`,
+	},
+	{
+		Code:     "E9004",
+		Severity: SeverityError,
+		Title:    "evaluator or compiler invariant violated",
+		Phase:    PhaseEval,
+		Explanation: `A broken invariant inside the evaluator or the typed AST it
+consumes: an unbound symbol, a non-function applied, a pattern
+typed as irrefutable that failed anyway, a "try" escaping with no
+enclosing function boundary, malformed literal text, and similar.
+This indicates a bug in gom itself — or a malformed hand-built AST
+in a test — not a mistake in the .gom program.`,
+	},
+	{
+		Code:     "E9005",
+		Severity: SeverityError,
+		Title:    "test returned Err",
+		Phase:    PhaseEval,
+		Spec:     "11",
+		Explanation: `A "test" declaration's body evaluated to "Err e", which fails
+the test (spec section 11). The structured data carries the test
+name ("test") and the rendered result ("value").`,
+		Example: `test "round-trip" {
+  try decode input   // an Err here fails the test
+  ()
+}`,
 	},
 
 	{

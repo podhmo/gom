@@ -38,6 +38,7 @@ renumbering.
 | `06xx` | Packages and interfaces | Package layout, .gomi presence and contents, and implementation-to-interface agreement (internal/iface, internal/build). |
 | `07xx` | Concurrency | The go/select/channel rules of spec section 10 and the mutable-sharing lints. |
 | `08xx` | Tests | Test declarations, the @test scope, and assertions (spec section 11). |
+| `90xx` | Evaluation | Run-time diagnostics of the typed-AST evaluator (internal/eval): unsupported constructs, panics, and broken interpreter invariants. |
 
 ## 00xx — Compiler and toolchain
 
@@ -619,4 +620,77 @@ referenced only from test declarations and other @test definitions
 fn helper () -> Int = 1
 
 fn prod () -> Int = helper ()   // helper is test-only
+```
+
+## 90xx — Evaluation
+
+### E9001 — construct not supported by the evaluator
+
+**Severity:** error · **Phase:** eval
+
+The typed-AST evaluator (internal/eval) — the tree-walking
+interpreter the semantics-comparison harness checks generated Go
+against (design.md section 7) — does not implement this construct in
+its current scope. Reported for "go"/"select" expressions, "for"
+over non-List iterables, "Go.conv" ascriptions, misplaced holes and
+spreads, Ref/Array/Ptr/Chan/Task values, unknown builtins, module
+members in expression position, and Go calls for which no host
+function was bound (eval.NewHostFunc). This is a limitation of the
+interpreter, not a rule of the language: the same program may compile
+and run through the Go backend.
+
+```gom
+go { ping () }   // goroutines are outside the evaluator's scope
+```
+
+### E9002 — no match arm accepted the value
+
+**Severity:** error · **Phase:** eval · **Spec:** §8.6
+
+Every arm of a match rejected the scrutinee value at run time.
+In a checked program the pattern checker guarantees coverage, so
+this means a contract-violating value — a nil or malformed ADT
+value produced by Go code — reached the match, which the spec
+defines as a panic naming the type (spec section 8.6). On a
+hand-built typed AST it can also mean the arms genuinely do not
+cover the value.
+
+### E9003 — panic during evaluation
+
+**Severity:** error · **Phase:** eval
+
+A Gom-level panic surfaced as a diagnostic instead of a Go
+panic: "todo ()" was reached (spec section 12 item 5), "assert" or
+"assert_eq" failed (spec section 11.4), an invalid variant value
+was matched, a division or modulo by zero was evaluated, or a host
+function raised a Go panic. The message carries the panic text.
+
+```gom
+let x = todo ()   // panic: todo reached
+```
+
+### E9004 — evaluator or compiler invariant violated
+
+**Severity:** error · **Phase:** eval
+
+A broken invariant inside the evaluator or the typed AST it
+consumes: an unbound symbol, a non-function applied, a pattern
+typed as irrefutable that failed anyway, a "try" escaping with no
+enclosing function boundary, malformed literal text, and similar.
+This indicates a bug in gom itself — or a malformed hand-built AST
+in a test — not a mistake in the .gom program.
+
+### E9005 — test returned Err
+
+**Severity:** error · **Phase:** eval · **Spec:** §11
+
+A "test" declaration's body evaluated to "Err e", which fails
+the test (spec section 11). The structured data carries the test
+name ("test") and the rendered result ("value").
+
+```gom
+test "round-trip" {
+  try decode input   // an Err here fails the test
+  ()
+}
 ```

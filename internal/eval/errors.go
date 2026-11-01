@@ -4,10 +4,9 @@ import (
 	"github.com/podhmo/gom/internal/diag"
 )
 
-// Diagnostic codes emitted by the evaluator. The E90xx range is
-// reserved for runtime/evaluation diagnostics but is NOT yet
-// registered in internal/diag/codes.go — registering it is follow-up
-// work (the evaluator package may not edit other packages).
+// Diagnostic codes emitted by the evaluator. They are registered in
+// internal/diag/codes.go under the E90xx "Evaluation" category with
+// phase "eval" (see docs/error-codes.md).
 const (
 	// CodeUnsupported marks a typed-AST construct the evaluator does
 	// not implement in P1 scope: go/select/channel operations,
