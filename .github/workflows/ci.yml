@@ -55,6 +55,11 @@ jobs:
       - name: go-check-sumtype (all modules + canary)
         run: sh scripts/check-sumtype.sh
 
+      # staticcheck over every module in the repo (pinned tool version
+      # lives in the script, same `go run` pattern as check-sumtype).
+      - name: staticcheck (all modules)
+        run: sh scripts/check-staticcheck.sh
+
       # experiments/ hold nested Go modules that `./...` never reaches.
       # Vet and test each module anyway so the verification code does
       # not silently rot. Revisit here — not the root checks — if an

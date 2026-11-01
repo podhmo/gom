@@ -18,9 +18,11 @@ import (
 // TestCompileSmoke generates the compile fixture, lays it out in a
 // temp module, and runs the Go toolchain over it.
 func TestCompileSmoke(t *testing.T) {
-	gobin := filepath.Join(runtime.GOROOT(), "bin", "go")
-	if _, err := os.Stat(gobin); err != nil {
-		t.Skipf("no go toolchain at %s", gobin)
+	// runtime.GOROOT is deprecated since Go 1.24; the system path is
+	// the documented way to locate the `go` binary.
+	gobin, err := exec.LookPath("go")
+	if err != nil {
+		t.Skipf("no go toolchain on PATH: %v", err)
 	}
 
 	out, err := File(compileFixture(), fixtureSrc())

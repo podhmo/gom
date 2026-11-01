@@ -77,9 +77,6 @@ func (b *astb) ctorpat(ctor syntax.Expr, args ...syntax.Pat) *syntax.CtorPat {
 	}
 	return &syntax.CtorPat{Sp: b.sp(), Ctor: ctor, Args: ca}
 }
-func (b *astb) fieldpat(name string, pat syntax.Pat) syntax.FieldPat {
-	return syntax.FieldPat{Sp: b.sp(), Name: b.id(name), Pat: pat}
-}
 func (b *astb) match(subj syntax.Expr, arms ...syntax.MatchArm) *syntax.Match {
 	return &syntax.Match{Sp: b.sp(), Subj: subj, Arms: arms}
 }

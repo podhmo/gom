@@ -6,13 +6,11 @@ package check
 // mints identifiers, symbols and spans so tables stay consistent.
 
 import (
-	"fmt"
 	"testing"
 
 	"github.com/podhmo/gom/internal/diag"
 	"github.com/podhmo/gom/internal/resolve"
 	"github.com/podhmo/gom/internal/syntax"
-	"github.com/podhmo/gom/internal/types"
 )
 
 // tb builds one resolved file. Spans are synthesized: every node a
@@ -411,14 +409,3 @@ func expectCall(t *testing.T, a *Apply, kind CallKind, arity, applied, unapplied
 		}
 	}
 }
-
-// typeString renders a type for comparisons.
-func typeString(ty types.Type) string {
-	if ty == nil {
-		return "<nil>"
-	}
-	return ty.String()
-}
-
-// errf is a tiny fmt helper for test messages.
-var errf = fmt.Sprintf

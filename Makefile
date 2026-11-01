@@ -9,9 +9,9 @@
 GO ?= go
 GOFMT ?= gofmt
 
-.PHONY: check fmt-check vet test check-experiments check-sumtype
+.PHONY: check fmt-check vet test check-experiments check-sumtype check-staticcheck
 
-check: fmt-check vet test check-sumtype check-experiments
+check: fmt-check vet test check-sumtype check-staticcheck check-experiments
 
 # gofmt is module-agnostic: one pass covers the root module and the
 # nested modules under experiments/.
@@ -37,6 +37,11 @@ test:
 # nested module whose nonexhaustive package MUST fail the check.
 check-sumtype:
 	GO='$(GO)' sh scripts/check-sumtype.sh
+
+# staticcheck over every module in the repo. Like go-check-sumtype the
+# tool runs as `go run <pkg>@<pinned>` so it never enters go.mod.
+check-staticcheck:
+	GO='$(GO)' sh scripts/check-staticcheck.sh
 
 # experiments/ hold nested Go modules that `./...` never reaches. Vet
 # and test each module anyway so the verification code does not rot.

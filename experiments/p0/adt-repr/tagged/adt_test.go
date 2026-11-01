@@ -57,7 +57,8 @@ func TestEqualityIsNotStructural(t *testing.T) {
 		t.Error("== compares payload pointers; equal trees differ")
 	}
 	// ... but leaf variants with inline payloads do compare equal.
-	if Expr_Lit(1) != Expr_Lit(1) {
+	x, y := Expr_Lit(1), Expr_Lit(1)
+	if x != y {
 		t.Error("Lit values must compare equal")
 	}
 }

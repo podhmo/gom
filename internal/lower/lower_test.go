@@ -22,10 +22,9 @@ func b(t types.Type) check.Base { return check.Base{Sp: sp, Typ: t} }
 func lit(k syntax.LitKind, text string, t types.Type) *check.Lit {
 	return &check.Lit{Base: b(t), Kind: k, Text: text}
 }
-func intLit(n string) *check.Lit   { return lit(syntax.LitInt, n, types.Int) }
-func strLit(s string) *check.Lit   { return lit(syntax.LitStr, `"`+s+`"`, types.String) }
-func unitLit() *check.Lit          { return lit(syntax.LitUnit, "()", types.Unit) }
-func vLit(t types.Type) *check.Lit { return lit(syntax.LitUnit, "()", t) }
+func intLit(n string) *check.Lit { return lit(syntax.LitInt, n, types.Int) }
+func strLit(s string) *check.Lit { return lit(syntax.LitStr, `"`+s+`"`, types.String) }
+func unitLit() *check.Lit        { return lit(syntax.LitUnit, "()", types.Unit) }
 
 func vsym(name string, t types.Type) *resolve.Symbol {
 	return &resolve.Symbol{Name: name, Kind: resolve.KindVar}

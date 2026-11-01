@@ -4,7 +4,6 @@ import "testing"
 
 var (
 	sinkExpr   Expr
-	sinkShape  Shape
 	sinkInt    int64
 	sinkOption Option[int64]
 	sinkBig    Option[[128]int64]

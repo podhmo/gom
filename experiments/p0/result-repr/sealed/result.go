@@ -200,7 +200,7 @@ func Bind[T, U, E any](r Result[T, E], f func(T) Result[U, E]) Result[U, E] {
 	case Result_Ok[T, E]:
 		return f(r.V0)
 	case Result_Err[T, E]:
-		return Result_Err[U, E]{V0: r.V0}
+		return Result_Err[U, E](r)
 	default:
 		panic(rt.InvalidVariant("sealed.Result", r))
 	}

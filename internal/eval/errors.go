@@ -32,14 +32,10 @@ const (
 	CodeTestFail = diag.Code("E9005")
 )
 
-// fail panics with a runtime failure carrying one diagnostic. The
-// panic is recovered at the API boundary (evalWrapper) and turned
-// into Result.Diags — evaluation panics never escape as Go panics.
-func fail(code diag.Code, message string, sp diag.Span) {
-	panic(failure{d: diag.Error(code, message).At(sp)})
-}
-
-// failData is fail with one structured-data entry.
+// failData panics with a runtime failure carrying one diagnostic with
+// a structured-data entry. The panic is recovered at the API boundary
+// (runEval) and turned into Result.Diags — evaluation panics never
+// escape as Go panics.
 func failData(code diag.Code, message string, sp diag.Span, key string, value any) {
 	panic(failure{d: diag.Error(code, message).At(sp).Set(key, value)})
 }

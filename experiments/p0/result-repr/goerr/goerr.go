@@ -31,12 +31,12 @@ type GoErrorI interface{ error }
 // Compiled-assertion examples for the invariant-instantiation wrinkle
 // of option (c):
 
-// aliasInstantiated compiles because GoErrorA is error.
-var aliasInstantiated sealed.Result[int, GoErrorA] = sealed.Result_Ok[int, error]{V0: 1}
+// This compiles because GoErrorA is error.
+var _ sealed.Result[int, GoErrorA] = sealed.Result_Ok[int, error]{V0: 1}
 
-// ifaceInstantiated is a DIFFERENT type from Result[int, error] —
+// Result[int, GoErrorI] is a DIFFERENT type from Result[int, error] —
 // isResult() (int, GoErrorI) != isResult() (int, error), so
 // sealed.Result[int, GoErrorI] does not satisfy sealed.Result[int,
 // error]. A compile error, not a silent miscompile — the fixed marker
 // turns the P0-1 phantom-param hazard into ordinary type checking.
-var ifaceInstantiated sealed.Result[int, GoErrorI] = sealed.Result_Ok[int, GoErrorI]{V0: 1}
+var _ sealed.Result[int, GoErrorI] = sealed.Result_Ok[int, GoErrorI]{V0: 1}
