@@ -101,6 +101,7 @@ Go 相互運用を変えたら両方向（Gom → Go、Go → Gom）のテスト
 - [ ] **P4-6 LSP**: 型表示、網羅性エラーの即時表示、UTF-16 位置への変換。依存: P4-5
 - [ ] **P4-7 インクリメンタルビルドのキャッシュ**: キャッシュキーは [design.md 5 章](docs/design.md)。依存: P4-1
 - [ ] **P4-8 標準ライブラリ `stdlib/`**: `list`、`option`、`result` を Gom で書き、`.gomi` を付けてコンパイラ自身でビルドする。依存: P4-1, P2-5
+- [ ] **P4-9 LLM 向け言語ガイド skill**: MoonBit の `moonbit-agent-guide` 方式（[docs/sketch/2026-11-02-agent-skill-for-gom.md](docs/sketch/2026-11-02-agent-skill-for-gom.md)）で、`.devin/skills/`（または `.claude/skills/`）に SKILL.md + references/ を置き、学習データに存在しない Gom の凝縮された言語ツアー・よくある LLM の勘違い・toolchain/ドキュメントへの導線を提供する。依存: なし（言語がある程度固まってからでよい。精査結果は sketch に追記済み）
 
 ### P5 並行処理と最適化
 
