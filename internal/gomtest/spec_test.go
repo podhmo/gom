@@ -46,7 +46,7 @@ func TestDiffDiagnosticsScalarFields(t *testing.T) {
 		{"unknown keys ignored", `[{"code":"E0301","future_field":{"x":1}}]`, 0},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			msgs := diffDiagnostics(mustExpected(t, tt.exp), got, &fileResolver{})
+			msgs := diffDiagnostics(mustExpected(t, tt.exp), got, diag.NewDirResolver(""))
 			if len(msgs) != tt.want {
 				t.Errorf("got %d messages %v, want %d", len(msgs), msgs, tt.want)
 			}
@@ -56,7 +56,7 @@ func TestDiffDiagnosticsScalarFields(t *testing.T) {
 
 func TestDiffDiagnosticsCount(t *testing.T) {
 	got := []diag.Diagnostic{diag.Error("E0301", "m")}
-	msgs := diffDiagnostics(mustExpected(t, `[{"code":"E0301"},{"code":"E0302"}]`), got, &fileResolver{})
+	msgs := diffDiagnostics(mustExpected(t, `[{"code":"E0301"},{"code":"E0302"}]`), got, diag.NewDirResolver(""))
 	if len(msgs) == 0 || !strings.Contains(msgs[0], "expected 2, got 1") {
 		t.Errorf("msgs = %v", msgs)
 	}
@@ -73,7 +73,7 @@ func TestDiffDiagnosticsSortsActual(t *testing.T) {
 	b := diag.Error("E0301", "first").At(diag.SpanIn("f.gom", 2, 4))
 	exp := mustExpected(t, `[{"code":"E0301"},{"code":"E0302"}]`)
 	// Unsorted input still matches the output-order expectation.
-	if msgs := diffDiagnostics(exp, []diag.Diagnostic{a, b}, &fileResolver{}); len(msgs) != 0 {
+	if msgs := diffDiagnostics(exp, []diag.Diagnostic{a, b}, diag.NewDirResolver("")); len(msgs) != 0 {
 		t.Errorf("msgs = %v", msgs)
 	}
 }
@@ -82,7 +82,7 @@ func TestDiffDiagnosticsSortsActual(t *testing.T) {
 // source file (testdata/spans/f.gom contains "ab\ncd\nef\n", so byte
 // offset 3 is line 2 col 1 and offset 6 is line 3 col 1).
 func TestDiffDiagnosticsSpan(t *testing.T) {
-	res := &fileResolver{dir: filepath.Join("testdata", "spans")}
+	res := diag.NewDirResolver(filepath.Join("testdata", "spans"))
 	sp := diag.SpanIn("f.gom", 3, 6) // covers "cd\n"
 	got := []diag.Diagnostic{diag.Error("E0301", "m").At(sp)}
 
@@ -114,7 +114,7 @@ func TestDiffDiagnosticsSpan(t *testing.T) {
 
 func TestDiffDiagnosticsSpanPositionless(t *testing.T) {
 	got := []diag.Diagnostic{diag.Error("E0301", "m")} // zero Span
-	res := &fileResolver{dir: filepath.Join("testdata", "spans")}
+	res := diag.NewDirResolver(filepath.Join("testdata", "spans"))
 
 	if msgs := diffDiagnostics(mustExpected(t, `[{"span":null}]`), got, res); len(msgs) != 0 {
 		t.Errorf("null span vs positionless: msgs = %v", msgs)
@@ -128,7 +128,7 @@ func TestDiffDiagnosticsSpanPositionless(t *testing.T) {
 // the expected file asks for line/column but the span's file cannot be
 // read. Offsets remain comparable.
 func TestDiffDiagnosticsUnresolvableLineCol(t *testing.T) {
-	res := &fileResolver{dir: filepath.Join("testdata", "spans")}
+	res := diag.NewDirResolver(filepath.Join("testdata", "spans"))
 	sp := diag.SpanIn("missing.gom", 3, 5)
 	got := []diag.Diagnostic{diag.Error("E0301", "m").At(sp)}
 
@@ -165,7 +165,7 @@ func TestDiffDiagnosticsData(t *testing.T) {
 		{"absent data unchecked", `[{"code":"E0301"}]`, 0},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			msgs := diffDiagnostics(mustExpected(t, tt.exp), got, &fileResolver{})
+			msgs := diffDiagnostics(mustExpected(t, tt.exp), got, diag.NewDirResolver(""))
 			if len(msgs) != tt.want {
 				t.Errorf("got %d messages %v, want %d", len(msgs), msgs, tt.want)
 			}
@@ -182,7 +182,7 @@ func TestDiffDiagnosticsDataNormalization(t *testing.T) {
 			Set("m", map[string]int{"a": 1}),
 	}
 	exp := mustExpected(t, `[{"data":{"ints":[1,2],"m":{"a":1}}}]`)
-	if msgs := diffDiagnostics(exp, got, &fileResolver{}); len(msgs) != 0 {
+	if msgs := diffDiagnostics(exp, got, diag.NewDirResolver("")); len(msgs) != 0 {
 		t.Errorf("msgs = %v", msgs)
 	}
 }
@@ -208,7 +208,7 @@ func TestDiffDiagnosticsNotes(t *testing.T) {
 		{"non-string element", `[{"notes":[1]}]`, 1},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			msgs := diffDiagnostics(mustExpected(t, tt.exp), got, &fileResolver{})
+			msgs := diffDiagnostics(mustExpected(t, tt.exp), got, diag.NewDirResolver(""))
 			if len(msgs) != tt.want {
 				t.Errorf("got %d messages %v, want %d", len(msgs), msgs, tt.want)
 			}
@@ -228,7 +228,7 @@ func TestDiffDiagnosticsFixes(t *testing.T) {
 	got := []diag.Diagnostic{
 		diag.Error("E0301", "m").AddFix(safe).AddFix(fix),
 	}
-	res := &fileResolver{dir: filepath.Join("testdata", "spans")}
+	res := diag.NewDirResolver(filepath.Join("testdata", "spans"))
 
 	for _, tt := range []struct {
 		name string
@@ -326,7 +326,7 @@ func TestSpecUpdate(t *testing.T) {
 			Edits:         []diag.Edit{{Span: diag.SpanIn("c.gom", len(src)-1, len(src)-1), Text: "  B -> todo ()\n"}},
 		})
 
-	res := &fileResolver{dir: dir}
+	res := diag.NewDirResolver(dir)
 	writeExpected(t, expectedPath, []diag.Diagnostic{d}, res)
 
 	// The written file loads and compares clean.

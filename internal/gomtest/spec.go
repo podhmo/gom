@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
-	"path/filepath"
 	"slices"
 	"testing"
 
@@ -56,7 +55,7 @@ func RunSpecTests(t *testing.T, dir string, compile DiagnosticsFunc) {
 		if err != nil {
 			t.Fatalf("compile failed: %v", err)
 		}
-		res := &fileResolver{dir: suiteDir}
+		res := diag.NewDirResolver(suiteDir)
 		expectedPath := c.sidePath(expectedExt)
 
 		if *update {
@@ -110,71 +109,34 @@ func loadExpected(path string) ([]map[string]any, error) {
 
 // writeExpected renders the actual diagnostics — sorted into output
 // order — to the spec section 12 wire shape and rewrites the expected
-// file (-update).
-func writeExpected(t *testing.T, path string, got []diag.Diagnostic, res *fileResolver) {
+// file (-update). The diagnostics are encoded by
+// diag.MarshalDiagnostic, the same encoder the compiler emits, and
+// indented with json.Indent so the file keeps their bytes verbatim.
+func writeExpected(t *testing.T, path string, got []diag.Diagnostic, res diag.Resolver) {
 	t.Helper()
 	got = sortedDiagnostics(got)
-	diags := make([]wireDiagnostic, 0, len(got))
+	var doc bytes.Buffer
+	doc.WriteString(`{"diagnostics":[`)
 	for i, d := range got {
-		w, err := renderDiagnostic(d, res)
+		raw, err := diag.MarshalDiagnostic(d, res)
 		if err != nil {
 			t.Fatalf("gomtest: cannot render diagnostics[%d] for %s: %v", i, path, err)
 		}
-		diags = append(diags, w)
+		if i > 0 {
+			doc.WriteByte(',')
+		}
+		doc.Write(raw)
 	}
-	out, err := json.MarshalIndent(struct {
-		Diagnostics []wireDiagnostic `json:"diagnostics"`
-	}{Diagnostics: diags}, "", "  ")
-	if err != nil {
+	doc.WriteString("]}")
+	var out bytes.Buffer
+	if err := json.Indent(&out, doc.Bytes(), "", "  "); err != nil {
 		t.Fatalf("gomtest: cannot encode %s: %v", path, err)
 	}
-	out = append(out, '\n')
-	if err := os.WriteFile(path, out, 0o644); err != nil {
+	out.WriteByte('\n')
+	if err := os.WriteFile(path, out.Bytes(), 0o644); err != nil {
 		t.Fatalf("gomtest: cannot write %s: %v", path, err)
 	}
 	t.Logf("updated %s", path)
-}
-
-// fileResolver lazily builds diag.LineIndex values for files under a
-// suite directory, so that byte-offset spans can be resolved to the
-// line/column positions used by expected files.
-type fileResolver struct {
-	dir     string
-	indexes map[string]*diag.LineIndex
-	failed  map[string]error
-}
-
-// resolve attaches line/column positions to both ends of sp. The file
-// named by sp.File is read relative to the suite directory.
-func (r *fileResolver) resolve(sp diag.Span) (diag.SpanPos, error) {
-	li, err := r.index(sp.File)
-	if err != nil {
-		return diag.SpanPos{}, err
-	}
-	return li.Resolve(sp), nil
-}
-
-func (r *fileResolver) index(file string) (*diag.LineIndex, error) {
-	if li, ok := r.indexes[file]; ok {
-		return li, nil
-	}
-	if err, ok := r.failed[file]; ok {
-		return nil, err
-	}
-	src, err := os.ReadFile(filepath.Join(r.dir, filepath.FromSlash(file)))
-	if err != nil {
-		if r.failed == nil {
-			r.failed = make(map[string]error)
-		}
-		r.failed[file] = err
-		return nil, err
-	}
-	if r.indexes == nil {
-		r.indexes = make(map[string]*diag.LineIndex)
-	}
-	li := diag.NewLineIndex(src)
-	r.indexes[file] = li
-	return li, nil
 }
 
 // sortedDiagnostics returns a copy of got ordered into the output
@@ -188,7 +150,7 @@ func sortedDiagnostics(got []diag.Diagnostic) []diag.Diagnostic {
 // diffDiagnostics compares the expected diagnostic objects against the
 // actual diagnostics, sorting a copy of the actual list into output
 // order first. It returns one message per discrepancy.
-func diffDiagnostics(exp []map[string]any, got []diag.Diagnostic, res *fileResolver) []string {
+func diffDiagnostics(exp []map[string]any, got []diag.Diagnostic, res diag.Resolver) []string {
 	var msgs []string
 	got = sortedDiagnostics(got)
 	if len(exp) != len(got) {
@@ -205,16 +167,14 @@ func diffDiagnostics(exp []map[string]any, got []diag.Diagnostic, res *fileResol
 // dumpDiagnostics renders actual diagnostics for a failure message on
 // a best-effort basis: spans that cannot be resolved degrade to byte
 // offsets.
-func dumpDiagnostics(got []diag.Diagnostic, res *fileResolver) string {
+func dumpDiagnostics(got []diag.Diagnostic, res diag.Resolver) string {
 	var buf bytes.Buffer
 	for i, d := range got {
 		if i > 0 {
 			buf.WriteString(", ")
 		}
-		w, err := renderDiagnostic(d, res)
-		if err == nil {
-			b, _ := json.Marshal(w)
-			buf.Write(b)
+		if raw, err := diag.MarshalDiagnostic(d, res); err == nil {
+			buf.Write(raw)
 			continue
 		}
 		b, _ := json.Marshal(map[string]any{
@@ -230,7 +190,7 @@ func dumpDiagnostics(got []diag.Diagnostic, res *fileResolver) string {
 
 // diffDiagnostic checks one actual diagnostic against one expected
 // object and returns the mismatches found, prefixed by path.
-func diffDiagnostic(exp map[string]any, got diag.Diagnostic, res *fileResolver, path string) (msgs []string) {
+func diffDiagnostic(exp map[string]any, got diag.Diagnostic, res diag.Resolver, path string) (msgs []string) {
 	if v, ok := exp["kind"]; ok {
 		if s, ok := v.(string); !ok || s != "diagnostic" {
 			msgs = append(msgs, fmt.Sprintf("%s.kind: expected \"diagnostic\", got %s", path, jsonRepr(v)))
@@ -265,7 +225,7 @@ func checkString(exp map[string]any, key, got, path string) []string {
 
 // checkSpan verifies the "span" field: null expects a positionless
 // diagnostic; an object checks "file" plus per-endpoint position keys.
-func checkSpan(exp map[string]any, sp diag.Span, res *fileResolver, path string) (msgs []string) {
+func checkSpan(exp map[string]any, sp diag.Span, res diag.Resolver, path string) (msgs []string) {
 	v, ok := exp["span"]
 	if !ok {
 		return nil
@@ -289,7 +249,7 @@ func checkSpan(exp map[string]any, sp diag.Span, res *fileResolver, path string)
 
 // checkSpanFields compares the file/start/end keys of an expected span
 // object (also used for fix edits, which add "text") against sp.
-func checkSpanFields(em map[string]any, sp diag.Span, res *fileResolver, path string) (msgs []string) {
+func checkSpanFields(em map[string]any, sp diag.Span, res diag.Resolver, path string) (msgs []string) {
 	if v, ok := em["file"]; ok {
 		s, ok := v.(string)
 		if !ok {
@@ -314,7 +274,7 @@ func checkSpanFields(em map[string]any, sp diag.Span, res *fileResolver, path st
 	resolved := false
 	if needPos {
 		var err error
-		rp, err = res.resolve(sp)
+		rp, err = diag.ResolveSpan(res, sp)
 		if err != nil {
 			msgs = append(msgs, fmt.Sprintf("%s: cannot resolve span: %v "+
 				"(the expected file checks line/column but the source for %q is unreadable)",
@@ -442,7 +402,7 @@ func checkNotes(exp map[string]any, notes []string, path string) (msgs []string)
 
 // checkFixes verifies that each expected fix matches some actual fix
 // in order (subsequence semantics).
-func checkFixes(exp map[string]any, fixes []diag.Fix, res *fileResolver, path string) (msgs []string) {
+func checkFixes(exp map[string]any, fixes []diag.Fix, res diag.Resolver, path string) (msgs []string) {
 	v, ok := exp["fixes"]
 	if !ok {
 		return nil
@@ -477,7 +437,7 @@ func checkFixes(exp map[string]any, fixes []diag.Fix, res *fileResolver, path st
 
 // fixMatches reports whether the actual fix satisfies every field
 // present in the expected fix object.
-func fixMatches(em map[string]any, f diag.Fix, res *fileResolver) bool {
+func fixMatches(em map[string]any, f diag.Fix, res diag.Resolver) bool {
 	if v, ok := em["title"]; ok {
 		s, ok := v.(string)
 		if !ok || s != f.Title {
@@ -507,7 +467,7 @@ func fixMatches(em map[string]any, f diag.Fix, res *fileResolver) bool {
 
 // editMatches reports whether the actual edit satisfies the expected
 // edit object: "file" and "text" exact, "start"/"end" per-key.
-func editMatches(em map[string]any, e diag.Edit, res *fileResolver) bool {
+func editMatches(em map[string]any, e diag.Edit, res diag.Resolver) bool {
 	if v, ok := em["text"]; ok {
 		s, ok := v.(string)
 		if !ok || s != e.Text {
@@ -519,7 +479,7 @@ func editMatches(em map[string]any, e diag.Edit, res *fileResolver) bool {
 
 // spanFieldsMatch is the boolean counterpart of checkSpanFields, for
 // subsequence matching inside fixes.
-func spanFieldsMatch(em map[string]any, sp diag.Span, res *fileResolver) bool {
+func spanFieldsMatch(em map[string]any, sp diag.Span, res diag.Resolver) bool {
 	if v, ok := em["file"]; ok {
 		s, ok := v.(string)
 		if !ok || s != sp.File {
@@ -539,7 +499,7 @@ func spanFieldsMatch(em map[string]any, sp diag.Span, res *fileResolver) bool {
 		}
 		if !resolved && (has(em2, "line") || has(em2, "col")) {
 			var err error
-			rp, err = res.resolve(sp)
+			rp, err = diag.ResolveSpan(res, sp)
 			if err != nil {
 				return false
 			}
@@ -634,78 +594,4 @@ func jsonRepr(v any) string {
 		return fmt.Sprintf("%#v", v)
 	}
 	return string(b)
-}
-
-// wire* types render a diag.Diagnostic in the JSON shape of spec
-// section 12, in the spec's field order. P1-10 will own the real
-// output encoding; this subset exists so -update can generate
-// expected files.
-type wireDiagnostic struct {
-	Kind     string         `json:"kind"`
-	Code     string         `json:"code"`
-	Severity string         `json:"severity"`
-	Message  string         `json:"message"`
-	Span     *wireSpan      `json:"span,omitempty"`
-	Source   string         `json:"source,omitempty"`
-	Data     map[string]any `json:"data,omitempty"`
-	Notes    []string       `json:"notes,omitempty"`
-	Fixes    []wireFix      `json:"fixes,omitempty"`
-}
-
-type wireSpan struct {
-	File  string   `json:"file"`
-	Start diag.Pos `json:"start"`
-	End   diag.Pos `json:"end"`
-}
-
-type wireFix struct {
-	Title         string     `json:"title"`
-	Applicability string     `json:"applicability"`
-	Edits         []wireEdit `json:"edits"`
-}
-
-type wireEdit struct {
-	File  string   `json:"file"`
-	Start diag.Pos `json:"start"`
-	End   diag.Pos `json:"end"`
-	Text  string   `json:"text"`
-}
-
-// renderDiagnostic converts a diagnostic to its wire form, resolving
-// spans to line/column through res.
-func renderDiagnostic(d diag.Diagnostic, res *fileResolver) (wireDiagnostic, error) {
-	w := wireDiagnostic{
-		Kind:     "diagnostic",
-		Code:     string(d.Code),
-		Severity: d.Severity.String(),
-		Message:  d.Message,
-		Source:   string(d.Source),
-		Data:     d.Data,
-		Notes:    d.Notes,
-	}
-	if !d.Span.IsZero() {
-		rp, err := res.resolve(d.Span)
-		if err != nil {
-			return w, fmt.Errorf("span %s:%d-%d: %w", d.Span.File, d.Span.Start, d.Span.End, err)
-		}
-		w.Span = &wireSpan{File: rp.File, Start: rp.Start, End: rp.End}
-	}
-	for _, f := range d.Fixes {
-		wf := wireFix{
-			Title:         f.Title,
-			Applicability: f.Applicability.String(),
-			Edits:         make([]wireEdit, 0, len(f.Edits)),
-		}
-		for _, e := range f.Edits {
-			rp, err := res.resolve(e.Span)
-			if err != nil {
-				return w, fmt.Errorf("fix %q edit: %w", f.Title, err)
-			}
-			wf.Edits = append(wf.Edits, wireEdit{
-				File: rp.File, Start: rp.Start, End: rp.End, Text: e.Text,
-			})
-		}
-		w.Fixes = append(w.Fixes, wf)
-	}
-	return w, nil
 }
