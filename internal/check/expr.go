@@ -204,19 +204,62 @@ func (c *checker) checkSelect(e *syntax.Select) Expr {
 	}
 	if _, ok := types.Chase(recv.Type()).(*types.Meta); ok {
 		// The receiver's type is still unknown. The node keeps a
-		// meta type; Index stays -1 — field-dependent lowering sees
-		// an unresolved selector. When the receiver's own meta is
-		// quiet (an unresolved name), the member's is too.
+		// meta type; Index stays -1 — and the selection is deferred:
+		// finalize retries the lookup once the receiver's meta has
+		// bound (`0.f` waits for the literal's Int default). When the
+		// receiver's own meta is quiet (an unresolved name), the
+		// member's is too.
 		mt := c.newMeta(e.Sp, fmt.Sprintf("the type of `.%s`", selName))
 		if c.isQuiet(recv.Type()) {
 			c.markQuiet(mt)
 		}
-		return &MemberExpr{Base: baseOf(e.Sp, mt), Recv: recv, Sel: e.Sel, Sym: sel, Index: -1}
+		me := &MemberExpr{Base: baseOf(e.Sp, mt), Recv: recv, Sel: e.Sel, Sym: sel, Index: -1}
+		c.pendingSels = append(c.pendingSels, me)
+		return me
 	}
 	c.diags.Add(diag.Error("E0401",
 		fmt.Sprintf("%s has no field or method `%s`", recv.Type(), selName)).
 		At(e.Sel.Sp).Set("type", recv.Type().String()).Set("member", selName))
 	return &MemberExpr{Base: baseOf(e.Sp, c.quietMeta(e.Sp, fmt.Sprintf("the type of `.%s`", selName))), Recv: recv, Sel: e.Sel, Sym: sel, Index: -1}
+}
+
+// revisitSelects retries the member selections checkSelect deferred
+// on an unresolved receiver meta — see pendingSels. finalize calls
+// it once the defaulting pass has run, so `0.f` sees the literal's
+// Int and `x.f` whatever the use site pinned. A retry that finds the
+// member patches Sym/Index into place and unifies the node's
+// standing meta with the member type — a meta already bound by the
+// use site reports the conflict through the ordinary unification
+// diagnostic. A receiver still unresolved is left alone: its meta's
+// own E0407 (or quiet recovery) covers the selection. A resolved
+// receiver that carries no such member earns the E0401 the first
+// pass withheld.
+func (c *checker) revisitSelects() {
+	for _, me := range c.pendingSels {
+		rt := types.Chase(me.Recv.Type())
+		if _, ok := rt.(*types.Meta); ok {
+			continue
+		}
+		selName := nameOfSel(me.Sym, me.Sel)
+		if fi, typ, ok := c.fieldOf(rt, selName); ok {
+			me.Sym, me.Index = fi.sym, fi.index
+			c.unify(me.Type(), typ, me.Sel.Sp)
+			continue
+		}
+		if me.Sym == nil {
+			if msym, typ, ok := c.methodOf(rt, selName, me.Sel.Sp); ok {
+				me.Sym = msym
+				c.unify(me.Type(), typ, me.Sel.Sp)
+				continue
+			}
+		}
+		c.diags.Add(diag.Error("E0401",
+			fmt.Sprintf("%s has no field or method `%s`", rt, selName)).
+			At(me.Sel.Sp).Set("type", rt.String()).Set("member", selName))
+		// The selection failed; the member's standing meta — nothing
+		// bound it — must not pile an E0407 on the E0401.
+		c.markQuiet(me.Type())
+	}
 }
 
 // nameOfSel returns the selector name a resolved member symbol

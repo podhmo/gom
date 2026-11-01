@@ -1,0 +1,76 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0201",
+      "severity": "error",
+      "message": "`fmt` is a module, not a value",
+      "span": {
+        "file": "E0201_module_not_value.gom",
+        "start": {
+          "line": 9,
+          "col": 21,
+          "offset": 289
+        },
+        "end": {
+          "line": 9,
+          "col": 24,
+          "offset": 292
+        }
+      },
+      "data": {
+        "name": "fmt",
+        "namespace": "value",
+        "resolved_kind": "module"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0201",
+      "severity": "error",
+      "message": "`fmt` is a module, not a value",
+      "span": {
+        "file": "E0201_module_not_value.gom",
+        "start": {
+          "line": 10,
+          "col": 21,
+          "offset": 315
+        },
+        "end": {
+          "line": 10,
+          "col": 24,
+          "offset": 318
+        }
+      },
+      "data": {
+        "name": "fmt",
+        "namespace": "value",
+        "resolved_kind": "module"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0201",
+      "severity": "error",
+      "message": "`Result` is a module, not a value",
+      "span": {
+        "file": "E0201_module_not_value.gom",
+        "start": {
+          "line": 11,
+          "col": 19,
+          "offset": 342
+        },
+        "end": {
+          "line": 11,
+          "col": 25,
+          "offset": 348
+        }
+      },
+      "data": {
+        "name": "Result",
+        "namespace": "value",
+        "resolved_kind": "module"
+      }
+    }
+  ]
+}

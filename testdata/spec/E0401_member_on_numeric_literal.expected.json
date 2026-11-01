@@ -1,0 +1,27 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "Int has no field or method `A00`",
+      "span": {
+        "file": "E0401_member_on_numeric_literal.gom",
+        "start": {
+          "line": 6,
+          "col": 21,
+          "offset": 188
+        },
+        "end": {
+          "line": 6,
+          "col": 24,
+          "offset": 191
+        }
+      },
+      "data": {
+        "member": "A00",
+        "type": "Int"
+      }
+    }
+  ]
+}

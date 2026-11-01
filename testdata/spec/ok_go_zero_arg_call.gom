@@ -1,0 +1,16 @@
+package ex
+
+import go "fmt"
+import go "strings"
+
+// A zero-argument Go call is legitimate: `CallGo.Args` is exactly the
+// supplied operands, so `fmt.Print ()` / `fmt.Println ()` — and a
+// zero-argument method `r.Len ()` — lower to proper calls, never an
+// E0901 "missing atom".
+fn main () -> Unit = {
+  let _ = fmt.Print ()
+  let _ = fmt.Println ()
+  let r = strings.NewReader "hi"
+  let _ = r.Len ()
+  ()
+}

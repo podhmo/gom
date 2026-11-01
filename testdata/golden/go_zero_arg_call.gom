@@ -1,0 +1,12 @@
+package ex
+
+import go "fmt"
+import go "strings"
+
+fn main () -> Unit = {
+  let _ = fmt.Print ()
+  let _ = fmt.Println ()
+  let r = strings.NewReader "hi"
+  let _ = r.Len ()
+  ()
+}

@@ -139,7 +139,12 @@ The name does not resolve to any variable, constructor, type, or
 module in scope. This also covers the label punning form "~name",
 which is defined to reference a variable of the same name (spec
 section 2.7): "~to" without a variable named "to" reports "undefined
-variable `to`".
+variable `to`". The same code covers wrong-kind uses that
+have no legitimate reading — a name that resolves to a namespace
+where a value was written: a module is only valid as the qualifier
+of `mod.sel`, so a module name in expression or callee
+position reports "`fmt` is a module, not a value" rather
+than an internal-invariant diagnostic downstream.
 
 ```gom
 transfer alice ~to ~amount: 100   // error when no variable

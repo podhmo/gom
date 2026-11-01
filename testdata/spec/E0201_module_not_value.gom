@@ -1,0 +1,11 @@
+package ex
+
+import go "fmt"
+
+// A module is a namespace, not a value: used in expression position
+// (`{ fmt }`), as a callee (`{ fmt () }`), or as a stdlib module call
+// (`Result ()`) it reports one E0201 at resolve — never an E0901
+// contract gap at `gom build`.
+fn f () -> Unit = { fmt }
+fn g () -> Unit = { fmt () }
+fn h () -> Unit = Result ()

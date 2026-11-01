@@ -114,6 +114,12 @@ type checker struct {
 	// created on first use by goErrMethodSym.
 	errMethod *resolve.Symbol
 
+	// pendingSels are member selections deferred on an unresolved
+	// receiver type — `0.f` waits for the literal's numeric default,
+	// `x.f` for the meta the use site pins. finalize revisits them
+	// once the receiver is known (or asks for its annotation).
+	pendingSels []*MemberExpr
+
 	imports []Import
 	decls   []Decl
 }

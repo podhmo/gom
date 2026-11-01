@@ -35,7 +35,11 @@ func (r *resolver) resolveDecls(f *syntax.File, file *scope) {
 
 // useTerm records a term-level reference: it resolves id through the
 // scope chain and emits the undefined-name diagnostic when the name
-// does not resolve (r.use handles the test-only rule).
+// does not resolve (r.use handles the test-only rule). A module is a
+// namespace, not a value: its only legitimate term-level use is as a
+// `mod.sel` qualifier, which selectExpr resolves directly — any
+// module symbol reaching here (`{fmt}`, `fmt ()`) is a misuse the
+// later phases cannot represent.
 func (r *resolver) useTerm(id *syntax.Ident, sc *scope) {
 	if id == nil {
 		return
@@ -46,6 +50,9 @@ func (r *resolver) useTerm(id *syntax.Ident, sc *scope) {
 		return
 	}
 	r.use(id, sym)
+	if sym.Kind == KindModule {
+		r.notValue(id, sym)
+	}
 }
 
 // use records an ident→symbol reference, enforcing the test-only

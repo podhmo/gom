@@ -12,7 +12,8 @@ import (
 //
 //	E0201 undefined name          — bare names, members, constructors,
 //	                              type names, and wrong-kind uses that
-//	                              have no legitimate reading
+//	                              have no legitimate reading (a module
+//	                              in value position among them)
 //	E0202 duplicate definition    — same scope, same name
 //	E0203 cannot resolve import   — the Loader failed or is absent
 //	E0802 @test referenced from non-test code
@@ -88,6 +89,18 @@ func (r *resolver) notModule(id *syntax.Ident, sym *Symbol) {
 		At(id.Sp).
 		Set("name", id.Name).
 		Set("namespace", "module").
+		Set("resolved_kind", sym.Kind.String()))
+}
+
+// notValue reports a term-position name that resolves to a namespace
+// rather than a value — a module used as an expression (`{fmt}`) or
+// as a callee (`fmt ()`). Without it the name passes check untyped
+// and lowering reports an internal contract gap (E0901).
+func (r *resolver) notValue(id *syntax.Ident, sym *Symbol) {
+	r.diags.Add(diag.Error("E0201", fmt.Sprintf("`%s` is a %s, not a value", id.Name, sym.Kind)).
+		At(id.Sp).
+		Set("name", id.Name).
+		Set("namespace", "value").
 		Set("resolved_kind", sym.Kind.String()))
 }
 

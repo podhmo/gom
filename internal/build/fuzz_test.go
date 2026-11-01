@@ -100,13 +100,10 @@ fn len2 (xs: List a) -> Int =
 	// E0102 negative span, raw token text in messages — was fixed
 	// in internal/syntax; those corpus files now run live as
 	// regression seeds.)
-	// `let a = fmt.Print()` — a zero-argument Go call lowers to a
-	// CallGo whose Args[0] is a missing atom: E0901 on user input.
-	fuzzutil.Sum256Hex("6686d3a23126b505ae4fb6b0c47f11f696d3fdfcd4ba2b04b368b285886ef464"): {
-		Match: []string{"E0901", "missing atom"},
-		TODO:  "引数なしの Go 呼び出しが E0901 \"missing atom\" になる",
-		Desc:  "zero-arg Go call emits E0901 missing atom",
-	},
+	// (The zero-argument Go call bug — `let a = fmt.Print()` lowering
+	// to a CallGo with Args[0] missing — is fixed in lower:
+	// declOrderArgs no longer pads CallGo.Args to the declared arity,
+	// so the corpus file compiles cleanly.)
 	// `fn a()->a={}` — a function declared to return a bare type
 	// variable with an empty-block body trips the lowering
 	// invariant "body type Unit differs from residual type a".
@@ -126,43 +123,18 @@ fn len2 (xs: List a) -> Int =
 		TODO:  "型変数を返す関数の本体との型不一致が E0901 になる",
 		Desc:  "if/else body vs type-var return emits E0901",
 	},
-	// `{fmt}` — a Go module name used in expression position
-	// reaches lowering and reports E0901 "module fmt is not an
-	// expression" instead of a resolve/check diagnostic.
-	fuzzutil.Sum256Hex("829c16fd1fb51bbb395ffa0811e5b4c77d20ffe247794f7a3757c641486f87a0"): {
-		Match: []string{"E0901", "module"},
-		TODO:  "Go モジュール名の式・呼び出し位置での誤用が E0901 になる",
-		Desc:  "module name in expr position emits E0901",
-	},
-	// `{fmt()}` — calling a module name reports E0901 "callee fmt
-	// has kind module, want func or method"; same module-misuse
-	// family, shared Match and TODO.
-	fuzzutil.Sum256Hex("c860279a92afa226256ca5187d6a2b1e8e2b2f6406a320b8db88fbb55bb7fe6e"): {
-		Match: []string{"E0901", "module"},
-		TODO:  "Go モジュール名の式・呼び出し位置での誤用が E0901 になる",
-		Desc:  "module call emits E0901 callee-has-kind-module",
-	},
-	// `fn f () -> Unit = Result()` — calling the stdlib Result
-	// module name leaks a SECOND E0901 alongside "module Result is
-	// not an expression": "applying a non-function value of type
-	// Unit". Same misuse family, distinct wording (found by
-	// FuzzCompile as a 1503-byte variant; this is the minimal).
-	fuzzutil.Sum256([]byte("package m\nfn f () -> Unit = Result()\n")): {
-		Match: []string{"E0901", "applying a non-function"},
-		TODO:  "Go モジュール名の式・呼び出し位置での誤用が E0901 になる",
-		Desc:  "module call also emits E0901 applying-non-function",
-	},
+	// (The module-name-in-value-position family — `{fmt}`, `{fmt()}`,
+	// `Result()` reaching lower as E0901s — is fixed in resolve: a
+	// module symbol in term position is E0201 there, so the corpus
+	// files now report one clean diagnostic and the pipeline stops
+	// before lower.)
 	// (The raw-byte-in-string-literal pair — `fmt.Print("\xeb")` and
 	// `"\x00"` — is fixed in the lexer: E0105 rejects the literal at
 	// lex time, so the corpus files now run live.)
-	// `0.A00()` — a member expression on a numeric literal panics
-	// inside lower.memberExpr (internal/lower/expr.go) instead of
-	// producing a diagnostic.
-	fuzzutil.Sum256Hex("23da4097f38766764c382cd2f82383e2ad52db975dd8d373a5edeebd038259eb"): {
-		Match: []string{"panicked", "memberExpr"},
-		TODO:  "数値リテラルへの member アクセスで lower が panic する",
-		Desc:  "0.A00() panics in lower.memberExpr",
-	},
+	// (`0.A00()` — member access on a numeric literal — is fixed in
+	// check: selections on an unresolved receiver meta defer to
+	// finalize, where the literal's Int default reports E0401
+	// instead of a nil-symbol panic in lower.memberExpr.)
 	// (`let a=080` is fixed in the parser: a leading-zero decimal
 	// literal is normalized to its value's decimal spelling — `80` —
 	// so the corpus file now compiles cleanly.)

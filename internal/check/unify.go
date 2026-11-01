@@ -693,6 +693,20 @@ func (c *checker) finalize() {
 			e.m.Bind(d)
 		}
 	}
+	// With the defaults bound, member selections deferred on an
+	// unknown receiver type can retry: `0.f` now sees the literal's
+	// Int. The retry may mint metas (an instantiated method
+	// signature), so rebuild the table for the reporting pass — the
+	// new entries carry no defaults, so the default pass need not
+	// run again.
+	c.revisitSelects()
+	if len(c.metas) != len(ms) {
+		ms = ms[:0]
+		for m, r := range c.metas {
+			ms = append(ms, metaEntry{m, r})
+		}
+		sortEntries(ms)
+	}
 	// Second pass: report what is left. A meta marked quiet is a
 	// recovery artifact — the diagnostic that created it already ran.
 	for _, e := range ms {

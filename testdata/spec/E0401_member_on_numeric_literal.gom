@@ -1,0 +1,6 @@
+package ex
+
+// Member access waits for the receiver's type: a numeric literal
+// defaults to Int, and Int has no members — E0401 at check, never
+// a panic in lower.
+fn f () -> Unit = 0.A00 ()

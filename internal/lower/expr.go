@@ -238,6 +238,14 @@ func (l *lowerer) funcRefOrFlatten(e *check.Var, sym *resolve.Symbol) core.Expr 
 // memberExpr lowers `recv.sel` — field projection, module member, or
 // Go bound-method selection.
 func (l *lowerer) memberExpr(s *seq, e *check.MemberExpr) core.Expr {
+	if e.Sym == nil {
+		// Check defers selections on an unresolved receiver type to
+		// finalize; a MemberExpr that still has no member here means
+		// the deferred pass ran without diagnosing — an internal gap,
+		// not a user error shape.
+		l.err(e.Sp, "member selection with no resolved symbol")
+		return l.litUnit(e.Sp)
+	}
 	switch e.Sym.Kind {
 	case resolve.KindField:
 		idx := e.Index
@@ -678,13 +686,19 @@ func (l *lowerer) finishCall(s *seq, sp diag.Span, resTyp types.Type, callee che
 }
 
 // declOrderArgs reorders source-order argument atoms into
-// declaration order per ArgToParam. The result has room for Arity
-// entries plus any over-application extras, which keep source order.
-// Holes leave nil slots.
-func declOrderArgs(ci check.CallInfo, args []core.Atom) []core.Atom {
+// declaration order per ArgToParam. The result has room for at least
+// minLen entries — positions no argument filled stay nil — plus any
+// over-application extras, which keep source order. Holes leave nil
+// slots. CallDirect and CallPartial pass the declared arity: their
+// call contract saturates every parameter slot. The Go call sites
+// pass 0: CallGo.Args are exactly the supplied operands, and a
+// variadic callee may legitimately be given fewer than its arity (a
+// zero-argument `fmt.Print()` is legal) — padding to Arity would
+// plant nil atoms the Core contract rejects.
+func declOrderArgs(ci check.CallInfo, args []core.Atom, minLen int) []core.Atom {
 	n := len(args)
-	if ci.Arity > n {
-		n = ci.Arity
+	if minLen > n {
+		n = minLen
 	}
 	out := make([]core.Atom, n)
 	for i, a := range args {
@@ -719,7 +733,7 @@ func (l *lowerer) directCall(s *seq, sp diag.Span, resTyp types.Type, callee che
 		l.err(sp, "CallDirect with no callee")
 		return l.litUnit(sp)
 	}
-	ordered := declOrderArgs(ci, args)
+	ordered := declOrderArgs(ci, args, ci.Arity)
 	switch sym.Kind {
 	case resolve.KindFunc:
 		if sym.IsGo {
@@ -832,7 +846,7 @@ func (l *lowerer) partialCall(s *seq, sp diag.Span, resTyp types.Type, callee ch
 		})
 	}
 	return l.closureOf(sp, resTyp, paramTyps, func(bs *seq, pv []core.Atom) core.Expr {
-		ordered := declOrderArgs(ci, args)
+		ordered := declOrderArgs(ci, args, ci.Arity)
 		for k, i := range unapplied {
 			ordered[i] = pv[k]
 		}
@@ -912,7 +926,7 @@ func (l *lowerer) goCall(s *seq, sp diag.Span, resTyp types.Type, ci check.CallI
 			sig.Results = goResultsOf(resTyp)
 		}
 	}
-	ordered := l.convGoArgs(s, sig, declOrderArgs(ci, args), spread)
+	ordered := l.convGoArgs(s, sig, declOrderArgs(ci, args, 0), spread)
 
 	if ci.HoleIndex >= 0 {
 		// Cute partial application: the hole is the closure's single
@@ -934,7 +948,7 @@ func (l *lowerer) goCall(s *seq, sp diag.Span, resTyp types.Type, ci check.CallI
 			} else {
 				written = append(written, pv[0])
 			}
-			filled := l.convGoArgs(bs, sig, declOrderArgs(ci, written), spread)
+			filled := l.convGoArgs(bs, sig, declOrderArgs(ci, written, 0), spread)
 			call := &core.CallGo{
 				Base:   core.Base{Sp: sp, Typ: goCallTyp(sig, remTyp.Ret)},
 				Callee: ci.Callee, Recv: recv, TypeArgs: ci.TypeArgs,
@@ -992,7 +1006,7 @@ func (l *lowerer) goCallNode(s *seq, ap *check.Apply) *core.CallGo {
 	return &core.CallGo{
 		Base:   core.Base{Sp: ap.Sp, Typ: goCallTyp(sig, ap.Type())},
 		Callee: ci.Callee, Recv: recv, TypeArgs: ci.TypeArgs,
-		Args:  l.convGoArgs(s, sig, declOrderArgs(ci, args), spread),
+		Args:  l.convGoArgs(s, sig, declOrderArgs(ci, args, 0), spread),
 		Arity: ci.Arity, Variadic: ci.Variadic,
 		Spread:  spread,
 		Results: sig.Results,
