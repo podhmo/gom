@@ -111,6 +111,7 @@ Go 相互運用を変えたら両方向（Gom → Go、Go → Gom）のテスト
 ### 検証
 
 - [x] **V-1 実行可能チュートリアル**: `tutorial/` に `.gom` のサンプル群と実行手順を作り、`gom build` / `gom check` / `gom test` で実際に動かす。エンドユーザー視点で不備・分かりにくい診断・壊れた UX を洗い出し、見つけたものは TODO.md の Bugs/タスクに追加してから実装に戻る。依存: P1-13
+- [ ] **V-2 grammar ベースのランダムプログラム生成器**: `docs/grammar.ebnf`（または tree-sitter 文法を別途整備して二重実装相互検証）から妥当な `.gom` を生成し、パーサー fuzz・compile-canary・eval vs compiled 差分テストのシードとする。意味論の食い違い（評価順・`|?>`・構造的 `==`）を先回りで発見するためのもの。依存: なし（seed 消費側は parser/compile fuzz があると効果大）
 
 ## Bugs
 
