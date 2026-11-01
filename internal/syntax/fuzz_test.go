@@ -32,49 +32,11 @@ import (
 // surfacing rather than accumulating silently.
 const knownBugsCap = 16
 
-var knownParseBugs = map[[32]byte]fuzzutil.KnownBug{
-	// `"\r` (2 bytes): a \r inside a string literal lands verbatim in
-	// the "expected ..., found string literal '...'" message via
-	// parser.describe, breaking the single-line message invariant.
-	// The signature is the validation error only — any token text
-	// carrying \r or \n hits the same unsanitized-embed bug.
-	fuzzutil.Sum256([]byte("\"\r")): {
-		Match: []string{"message must be a single line"},
-		TODO:  "診断メッセージに生のソース断片が混入する",
-		Desc:  "token text with \\r or \\n breaks Diagnostic.Validate",
-	},
-	// `"${}0` (5 bytes): E0102 "unterminated string literal" is
-	// reported at a span whose Start is -1.
-	fuzzutil.Sum256([]byte(`"${}0`)): {
-		Match: []string{"invalid span", "Code:E0102"},
-		TODO:  "負のオフセットを持つ span が診断に出る",
-		Desc:  "E0102 span starts at -1 on unterminated interpolation",
-	},
-	// 399-byte truncation of tutorial/09 (corpus 25cd876c8882179d):
-	// `match r {\n    Ok n -` — a constructor-pattern arm followed
-	// by a stray `-` at EOF inside an unclosed match makes the arm
-	// loop rebuild hole arms forever, emitting ~10 GB/s of
-	// diagnostics until the worker is OOM-killed. Minimal repro:
-	// `fn f () -> Int = match r {A -`.
-	fuzzutil.Sum256Hex("1793759541c17ce8b61a339f456a101d2ecf58499f3860e27018f632467d29f2"): {
-		Match: []string{"parse did not return within"},
-		TODO:  "match の腕パースが EOF で無限ループする",
-		Desc:  "ctor-pattern arm + stray '-' at EOF loops forever",
-		Skip:  true,
-	},
-	// `let A -` (7 bytes): the same ctor-pattern + stray `-` at EOF
-	// loop, reached through a let binding's pattern instead of a
-	// match arm — the fuzzer generated it via a garbage-byte
-	// identifier (`let \xe2\xc9Q0…\xc9-`), proving the loop is in
-	// shared pattern machinery, not match-specific code. Minimal
-	// repro pinned in corpus 95e4f3c862ab915e.
-	fuzzutil.Sum256([]byte("let A -")): {
-		Match: []string{"parse did not return within"},
-		TODO:  "match の腕パースが EOF で無限ループする",
-		Desc:  "let ctor pattern + stray '-' at EOF loops forever",
-		Skip:  true,
-	},
-}
+// knownParseBugs is currently empty: every parse bug the fuzzer
+// found has been fixed (the corpus files stay as regression seeds —
+// a re-regression reports a NEW failure signature). New findings go
+// here with their TODO.md entry.
+var knownParseBugs = map[[32]byte]fuzzutil.KnownBug{}
 
 // parseSeeds collects every .gom file the repo already ships as a
 // parse-level fixture, plus adversarial inputs chosen to hit panic
@@ -185,13 +147,13 @@ func FuzzParse(f *testing.F) {
 	sb := fuzzutil.NewSandbox("TestFuzzParseSandbox", sandboxTimeout, 2<<20)
 	// The parse phases get a tighter bound than the 3 s default: a
 	// legit parse is milliseconds even for the largest seeds, and
-	// the known ctor-pattern hang family re-times-out on every
-	// mutation variant — the knownBugs signature still classifies
-	// the same "did not return" text, just cheaper per eval.
+	// the fixed ctor-pattern hang family taught us a sibling hang
+	// would re-time-out on every mutation variant — the cap keeps
+	// that cheap per eval if one regresses.
 	sb.SetPhaseTimeout("parse", 1500*time.Millisecond)
 	sb.SetPhaseTimeout("parse-interface", 1500*time.Millisecond)
-	// Suspects (the same family's shape) get a further-shrunk cap:
-	// the mutator regenerates variants constantly and each costs
+	// Suspects (that family's shape) get a further-shrunk cap: the
+	// mutator regenerates variants constantly and each costs
 	// timeout+respawn — observed whole minutes at 0 execs/sec.
 	suspect := map[string]time.Duration{
 		"parse":           500 * time.Millisecond,

@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/podhmo/gom/internal/diag"
 )
@@ -70,6 +71,8 @@ func TestParseExpr(t *testing.T) {
 		{"negative arg is binary minus", `f -1`, `(- f 1)`},
 		{"negative arg spaced", `f - 1`, `(- f 1)`},
 		{"neg int", `- 1`, `(- 1)`},
+		{"leading-zero int normalized", `080`, `80`},
+		{"underscored int kept", `1_000`, `1_000`},
 
 		// control expressions
 		{"if", `if c { a } else { b }`, `(if c (block a) else (block b))`},
@@ -184,6 +187,27 @@ func TestParsePattern(t *testing.T) {
 		{"as binds whole or", `C x | D y as w`, `(as (or (ctor C x) (ctor D y)) w)`},
 		{"paren group", `(x)`, `x`},
 		{"nested ctor in or", `Some x | None`, `(or (ctor Some x) (ctor None))`},
+
+		// int literals normalize to their value's spelling (the
+		// raw lexeme is decimal in Gom but means octal to Go).
+		{"leading-zero int", `080`, `80`},
+		{"neg leading-zero int", `-077`, `-77`},
+		{"base-prefixed int kept", `0x1F`, `0x1F`},
+
+		// A negative literal is rebuilt from the "-" and digit
+		// tokens: bytes BETWEEN them are trivia, not part of the
+		// spelling. "- 080" used to keep the verbatim span text —
+		// the leading-zero normalization never saw it, and the
+		// whitespace (or comment) leaked into the generated Go
+		// (invalid octal, or worse: "- 0_17" is -15 in Go).
+		{"neg spaced leading-zero int", `- 080`, `-80`},
+		{"neg tabbed leading-zero int", "-\t080", `-80`},
+		{"neg cr leading-zero int", "-\r080", `-80`},
+		{"neg commented leading-zero int", `- /* c */ 080`, `-80`},
+		{"neg spaced zero-underscore int", `- 0_17`, `-17`},
+		{"neg paren leading-zero int", `(- 080)`, `-80`},
+		{"ctor arg neg spaced int", `A - 080`, `(ctor A -80)`},
+		{"neg spaced float", `- 1.5`, `-1.5`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			got, diags := parsePatDump(t, tc.src)
@@ -603,6 +627,27 @@ func TestParseDiagnostics(t *testing.T) {
 				`E0101@27-28: a record update needs at least one "name = value" field`,
 			},
 		},
+		// The ctor-pattern + stray "-" family that looped forever
+		// (TODO.md): the "-" is consumed, so the parse terminates
+		// with ordinary recovery diagnostics.
+		{
+			"ctor pattern + stray - at EOF (let)",
+			"package m\nlet A -",
+			[]string{
+				`E0101@16-17: expected a number after "-" in a pattern`,
+				`E0101@17-17: expected "=" followed by the value, found end of file`,
+			},
+		},
+		{
+			"ctor pattern + stray - at EOF (match arm)",
+			"package m\nlet v = match r {A -",
+			[]string{
+				`E0101@29-30: expected a number after "-" in a pattern`,
+				`E0101@30-30: expected "->" between the pattern and the arm body, found end of file`,
+				`E0101@30-30: expected an expression, found end of file`,
+				`E0101@30-30: expected "}", found end of file`,
+			},
+		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			_, diags := Parse([]byte(tc.src), "test.gom")
@@ -932,6 +977,46 @@ func TestParseRecovery(t *testing.T) {
 			nil,
 		},
 		{
+			// Fuzz hang regression: the stray "-" after a
+			// constructor pattern used to spin the pattern-argument
+			// loop forever at EOF.
+			"ctor pattern + stray - at EOF (let)",
+			"package m\nlet A -",
+			nil,
+		},
+		{
+			"ctor pattern + stray - at EOF (match arm)",
+			"package m\nfn f () -> Int = match r {A -",
+			nil,
+		},
+		{
+			"ctor pattern + stray - mid-file recovers",
+			"package m\nlet A -\nlet b = 2\n",
+			[]string{`(let (ctor A _))`, `(let b = 2)`},
+		},
+		{
+			// The same shared-machinery path through a for header.
+			"ctor pattern + stray - in for pattern",
+			"package m\nlet v = { for A - in xs { b } }",
+			nil,
+		},
+		{
+			// Fuzz hang regression: the "{" swallowed by the
+			// unclosed "[" makes the lexer emit a newline the
+			// list loop cannot resync past — it reported the
+			// same token forever (corpus b42a89eef6620e98).
+			"stray newline inside a desynced list",
+			"package m\nlet x = [\ny = {\n]\n",
+			nil,
+		},
+		{
+			// A bare "]" inside a block body is left for the
+			// decl loop, which reports and skips it.
+			"stray close inside a block body",
+			"package m\nfn h () -> Unit = {\n  ]\n}\n",
+			[]string{`(fn h (()) -> Unit = (block))`},
+		},
+		{
 			"empty source",
 			"",
 			nil,
@@ -976,5 +1061,78 @@ func TestParseRecovery(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestIntLitText pins the literal normalization: Gom's dec-int
+// accepts leading zeros (decimal semantics) while the same spelling
+// in Go is an octal literal — so a leading-zero decimal is rewritten
+// to plain decimal digits for the codegen-facing Text.
+func TestIntLitText(t *testing.T) {
+	for _, tc := range []struct{ in, want string }{
+		{"0", "0"},
+		{"42", "42"},
+		{"1_000", "1_000"},
+		{"080", "80"},
+		{"077", "77"},
+		{"007", "7"},
+		{"00", "0"},
+		{"0_0", "0"},
+		{"0_17", "17"},
+		{"0x1F", "0x1F"},
+		{"0o17", "0o17"},
+		{"0b101", "0b101"},
+		{"-0", "-0"},
+		{"-080", "-80"},
+	} {
+		if got := intLitText(tc.in); got != tc.want {
+			t.Errorf("intLitText(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+}
+
+// TestQuoteLexeme pins the escaping that keeps a token's raw text
+// from breaking the single-line rule of Diagnostic.Validate.
+func TestQuoteLexeme(t *testing.T) {
+	for _, tc := range []struct{ in, want string }{
+		{"x", "x"},
+		{"\r", `\r`},
+		{"a\nb", `a\nb`},
+		{"a\tb", `a\tb`},
+		{`'a'`, `'a'`},
+		{`"s"`, `\"s\"`},
+		{"\x01", `\x01`},
+		{"日本語", "日本語"}, // printable non-ASCII is kept, not escaped
+		{strings.Repeat("a", 100), strings.Repeat("a", describeLexemeMax) + "..."},
+	} {
+		if got := quoteLexeme(tc.in); got != tc.want {
+			t.Errorf("quoteLexeme(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+	// A multi-byte rune at the cut boundary must not be split.
+	got := quoteLexeme("a" + strings.Repeat("é", 50))
+	if !utf8.ValidString(got) {
+		t.Errorf("truncated mid-rune: %q", got)
+	}
+}
+
+// TestDescribeEscapesLiteralText: a control character inside a
+// string literal must reach the "found" detail escaped — the raw
+// byte would make the message multi-line (TODO.md fuzz finding).
+func TestDescribeEscapesLiteralText(t *testing.T) {
+	_, diags := Parse([]byte("\"\r"), "t.gom")
+	for _, d := range diags {
+		if err := d.Validate(); err != nil {
+			t.Fatalf("invalid diagnostic: %v (%+v)", err, d)
+		}
+	}
+	found := false
+	for _, d := range diags {
+		if strings.Contains(d.Message, `'\"\r'`) {
+			found = true
+		}
+	}
+	if !found {
+		t.Errorf("no diagnostic quotes the escaped lexeme: %v", diags)
 	}
 }

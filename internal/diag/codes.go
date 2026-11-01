@@ -249,6 +249,19 @@ Supported escapes include \n, \t, \r, \0, \\, \', \", \$, \uXXXX and
 \u{X...}.`,
 		Example: `let s = "column\qvalue"`,
 	},
+	{
+		Code:     "E0105",
+		Severity: SeverityError,
+		Title:    "invalid byte in literal",
+		Phase:    PhaseSyntax,
+		Explanation: `A string or character literal contains a byte that cannot appear
+in generated Go source: an invalid UTF-8 byte, or the NUL byte. Both
+would be emitted verbatim and rejected by the Go toolchain, so the
+literal is refused at lex time. Write an escape instead: \0 for NUL
+and \uXXXX or \u{X...} for code points — source text must be valid
+UTF-8, so arbitrary bytes cannot be spelled in a literal.`,
+		Example: `let s = "<0xEB>"`,
+	},
 
 	{
 		Code:     "E0201",

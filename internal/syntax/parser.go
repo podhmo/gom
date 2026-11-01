@@ -2,7 +2,9 @@ package syntax
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/podhmo/gom/internal/diag"
 )
@@ -145,10 +147,32 @@ func (p *parser) expected(what string) bool {
 func (p *parser) describe(t token) string {
 	switch t.kind {
 	case tokIdent, tokUIdent, tokInt, tokFloat, tokChar, tokString:
-		return t.kind.String() + " '" + p.text(t) + "'"
+		return t.kind.String() + " '" + quoteLexeme(p.text(t)) + "'"
 	default:
 		return t.kind.String()
 	}
+}
+
+// describeLexemeMax bounds the lexeme bytes a "found" detail may
+// embed — a string literal can run to megabytes, and the message
+// must stay a readable single line.
+const describeLexemeMax = 64
+
+// quoteLexeme renders token text inside the '...' of a "found"
+// detail: control characters are escaped (the raw bytes of a string
+// literal may contain '\r' or '\n', which would violate the
+// single-line rule of diag.Diagnostic.Validate) and overlong input
+// is truncated before quoting.
+func quoteLexeme(s string) string {
+	if len(s) > describeLexemeMax {
+		cut := describeLexemeMax
+		for cut < len(s) && !utf8.RuneStart(s[cut]) {
+			cut++
+		}
+		s = s[:cut] + "..."
+	}
+	q := strconv.Quote(s)
+	return q[1 : len(q)-1] // strip the surrounding quotes; '...' is added by the caller
 }
 
 // expect consumes a token of kind k, or reports it missing and
@@ -243,7 +267,23 @@ func (p *parser) syncDecl() { p.syncDepth(true) }
 // rely on consuming at least one token per iteration, and the
 // keyword may legitimately be their next item ("let" in a block,
 // "fn" in an extern block).
+//
+// The skip STOPS at a separator without consuming it — the caller
+// decides whether separators end the item list. A loop whose head
+// does not treat them as trivia must therefore follow syncItem
+// with skipSep (see syncItemSep), or it re-reports the same token
+// forever.
 func (p *parser) syncItem() { p.syncDepth(false) }
+
+// syncItemSep is the usual recovery tail of an item-list loop:
+// sync to the next item boundary, then eat the separator syncItem
+// stopped at. Without the skipSep a stray newline inside "[", "{"
+// reached via a recovery desync is re-reported forever (the list
+// literal hang of TODO.md's bug list).
+func (p *parser) syncItemSep() {
+	p.syncItem()
+	p.skipSep()
+}
 
 // syncArmArrow looks ahead for a "->" at the current nesting depth
 // before the next separator, "|" or closing delimiter. When one is

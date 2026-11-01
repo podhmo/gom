@@ -144,15 +144,19 @@ func SkipInput(src []byte, bugs map[[32]byte]KnownBug) (KnownBug, bool) {
 	return bug, ok && bug.Skip
 }
 
-// LooksHangSuspect reports whether src is probably in the known
-// ctor-pattern + stray '-' infinite-loop family (TODO "match の腕
-// パースが EOF で無限ループする"): every verified repro —
-// `match r {A -`, `let A -`, `let Q a -`, `Num n - n` mid-match,
-// `let Q0\xff-` — combines a `let`/`match`/`select` keyword, an
-// uppercase-ident token (the ctor pattern head), and a '-' that is
-// not part of '->'. Callers use it to shrink a suspect's phase
-// timeout (RunCapped), never to skip running: a suspect still runs
-// in the sandbox and any non-hang failure reports normally. False
+// LooksHangSuspect reports whether src has the shape of the
+// ctor-pattern + stray '-' infinite-loop family the fuzzer found
+// (TODO "match の腕 パースが EOF で無限ループする" — since fixed,
+// and the corpus entries now run live as regression seeds): every
+// verified repro — `match r {A -`, `let A -`, `let Q a -`,
+// `Num n - n` mid-match, `let Q0\xff-` — combines a
+// `let`/`match`/`select` keyword, an uppercase-ident token (the
+// ctor pattern head), and a '-' that is not part of '->'. Callers
+// use it to shrink a suspect's phase timeout (RunCapped), never to
+// skip running: the family is fixed but the mutator keeps emitting
+// same-shape variants, and a regression or sibling hang class
+// would burn the full timeout on each one. A suspect still runs in
+// the sandbox and any non-hang failure reports normally. False
 // positives only cost a shorter budget on a legit input.
 func LooksHangSuspect(src []byte) bool {
 	if !bytes.Contains(src, []byte("let")) &&

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+
+	"github.com/podhmo/gom/internal/diag"
 )
 
 // dumpToks renders the post-NL-insertion token stream, one
@@ -349,6 +351,11 @@ func TestLexerDiagnostics(t *testing.T) {
 		{"bare ! is not a token", `a ! b`, "E0101", "not a Gom token"},
 		{"? is not a token", `a ? b`, "E0101", "not a Gom token"},
 		{"# is not a token", `#`, "E0101", "not a Gom token"},
+		{"invalid UTF-8 in string", "\"a\xebx\"", "E0105", "invalid UTF-8 byte"},
+		{"invalid UTF-8 in resumed string", "\"${x}\xeb\"", "E0105", "invalid UTF-8 byte"},
+		{"NUL in string", "\"a\x00b\"", "E0105", "NUL byte"},
+		{"invalid UTF-8 in char", "'\xeb'", "E0105", "invalid UTF-8 byte"},
+		{"NUL in char", "'\x00'", "E0105", "NUL byte"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			lx := lex([]byte(tc.src), "t.gom")
@@ -368,6 +375,34 @@ func TestLexerDiagnostics(t *testing.T) {
 	}
 }
 
+// TestLexerE0105OncePerChunk pins the deduplication of invalid-byte
+// diagnostics: checkLitByte reports at most once per literal chunk,
+// and a "${...}" boundary starts a fresh chunk — so two bad bytes in
+// one chunk produce ONE E0105 while a bad byte on each side of an
+// interpolation produces two.
+func TestLexerE0105OncePerChunk(t *testing.T) {
+	for _, tc := range []struct {
+		name, src string
+		want      int
+	}{
+		{"two bad bytes one chunk", "\"\xeb\xeb\"", 1},
+		{"bad byte each side of interp", "\"a\xeb${x}b\xff\"", 2},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			lx := lex([]byte(tc.src), "t.gom")
+			got := 0
+			for _, d := range lx.diags {
+				if d.Code == "E0105" {
+					got++
+				}
+			}
+			if got != tc.want {
+				t.Errorf("E0105 count = %d, want %d (diags: %v)", got, tc.want, lx.diags)
+			}
+		})
+	}
+}
+
 // TestLexerDiagSpans checks that diagnostics point at the bytes of
 // the offending construct.
 func TestLexerDiagSpans(t *testing.T) {
@@ -378,5 +413,26 @@ func TestLexerDiagSpans(t *testing.T) {
 	d := lx.diags[0]
 	if d.Span.Start != 0 || d.Span.End != 4 {
 		t.Errorf("unterminated string span = [%d,%d), want [0,4)", d.Span.Start, d.Span.End)
+	}
+}
+
+// TestLexerResumedStringDiagSpan pins the regression where an
+// unterminated string resumed after a "}" reported E0102 at a
+// -1 offset: the error must point at the string's opening quote.
+func TestLexerResumedStringDiagSpan(t *testing.T) {
+	lx := lex([]byte(`x = "${}0`), "t.gom")
+	var e0102 *diag.Diagnostic
+	for i := range lx.diags {
+		if lx.diags[i].Code == "E0102" {
+			e0102 = &lx.diags[i]
+		}
+	}
+	if e0102 == nil {
+		t.Fatalf("no E0102 in %v", lx.diags)
+	}
+	// The string opens at offset 4 and the file ends at 9.
+	if e0102.Span.Start != 4 || e0102.Span.End != 9 {
+		t.Errorf("resumed unterminated string span = [%d,%d), want [4,9)",
+			e0102.Span.Start, e0102.Span.End)
 	}
 }

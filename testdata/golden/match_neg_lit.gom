@@ -1,0 +1,23 @@
+package main
+
+type W = | A Int | B
+
+// Negative literal patterns rebuild the literal text from the "-"
+// and digit tokens: trivia between them must not reach the
+// generated Go ("- 080" used to emit `case - 080:` — invalid
+// octal — and "- 0_17" silently meant -15 to Go).
+fn f (n: Int) -> Int =
+  match n {
+    - 080 -> 1
+    (- 0_17) -> 3
+    _ -> 2
+  }
+
+fn g (w: W) -> Int =
+  match w {
+    A - 080 -> 1
+    A _ -> 2
+    B -> 0
+  }
+
+fn main () -> Unit = ()

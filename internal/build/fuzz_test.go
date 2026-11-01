@@ -96,41 +96,10 @@ fn len2 (xs: List a) -> Int =
 		TODO:  "多相関数の型パラメータが生成 Go で宣言されない",
 		Desc:  "return type var emits undeclared C",
 	},
-	// Corpus 317c473d58e2e09a: `match s {\n    Unknown -> C\n
-	// Known -` — the same match-arm EOF infinite loop FuzzParse
-	// registered (the hang is in parse, so Compile never gets
-	// further). Skipped: running it leaks a GB/s goroutine.
-	// "parse did not return" pins the phase: a hang AFTER parse
-	// would be a different bug and must not be suppressed here.
-	fuzzutil.Sum256Hex("ca46e7a1f0b33b02cce49749f1abb0dd425a79576b76276ca9ea1186750a95c8"): {
-		Match: []string{"parse did not return within"},
-		TODO:  "match の腕パースが EOF で無限ループする",
-		Desc:  "ctor-pattern arm + stray '-' at EOF loops forever",
-		Skip:  true,
-	},
-	// `let A -` (7 bytes): the same ctor-pattern `-` loop via a
-	// let binding's pattern (see FuzzParse). Pinned in corpus
-	// 95e4f3c862ab915e.
-	fuzzutil.Sum256([]byte("let A -")): {
-		Match: []string{"parse did not return within"},
-		TODO:  "match の腕パースが EOF で無限ループする",
-		Desc:  "let ctor pattern + stray '-' at EOF loops forever",
-		Skip:  true,
-	},
-	// `"${}0` (5 bytes): the same E0102 negative-span bug FuzzParse
-	// registered — Compile validates diagnostics the same way.
-	fuzzutil.Sum256Hex("8afb9874e34b03fa16d3560c52238b646835b5c7eceba679608ff0c0737c991f"): {
-		Match: []string{"invalid span", "E0102"},
-		TODO:  "負のオフセットを持つ span が診断に出る",
-		Desc:  "E0102 span starts at -1 on unterminated interpolation",
-	},
-	// `"\r` (2 bytes): the raw-token-text-in-message bug FuzzParse
-	// registered, seen through Compile's diagnostic validation.
-	fuzzutil.Sum256([]byte("\"\r")): {
-		Match: []string{"message must be a single line"},
-		TODO:  "診断メッセージに生のソース断片が混入する",
-		Desc:  "token text with \\r or \\n breaks Diagnostic.Validate",
-	},
+	// (The parse-phase bug cluster — ctor-pattern '-' loop, the
+	// E0102 negative span, raw token text in messages — was fixed
+	// in internal/syntax; those corpus files now run live as
+	// regression seeds.)
 	// `let a = fmt.Print()` — a zero-argument Go call lowers to a
 	// CallGo whose Args[0] is a missing atom: E0901 on user input.
 	fuzzutil.Sum256Hex("6686d3a23126b505ae4fb6b0c47f11f696d3fdfcd4ba2b04b368b285886ef464"): {
@@ -183,26 +152,9 @@ fn len2 (xs: List a) -> Int =
 		TODO:  "Go モジュール名の式・呼び出し位置での誤用が E0901 になる",
 		Desc:  "module call also emits E0901 applying-non-function",
 	},
-	// `fmt.Print("\xeb")` — an invalid-UTF-8 byte inside a string
-	// literal is emitted verbatim into the generated Go, so codegen's
-	// own gofmt check fails ("illegal UTF-8 encoding") and Compile
-	// returns an internal error for user input. Match covers the
-	// sibling wording: NUL bytes report "illegal character NUL".
-	fuzzutil.Sum256Hex("0845ae8cd9a6f1cd17b65c1e22cae676d995ebe4e24329a898b56def583cf563"): {
-		Match: []string{"does not gofmt", "illegal"},
-		TODO:  "非 UTF-8 バイトを含む文字列リテラルが生成 Go を壊す",
-		Desc:  "raw invalid-UTF-8 byte reaches generated Go",
-	},
-	// `fn f () -> String = "\x00"` — a NUL byte inside a string
-	// literal is likewise emitted verbatim; gofmt rejects the
-	// generated file with "illegal character NUL". Same verbatim-
-	// emission bug, different gofmt wording (registered after a
-	// 1503-byte fuzz discovery; this is the minimal repro).
-	fuzzutil.Sum256([]byte("package m\nfn f () -> String = \"\x00\"\n")): {
-		Match: []string{"does not gofmt", "illegal"},
-		TODO:  "非 UTF-8 バイトを含む文字列リテラルが生成 Go を壊す",
-		Desc:  "raw NUL byte reaches generated Go",
-	},
+	// (The raw-byte-in-string-literal pair — `fmt.Print("\xeb")` and
+	// `"\x00"` — is fixed in the lexer: E0105 rejects the literal at
+	// lex time, so the corpus files now run live.)
 	// `0.A00()` — a member expression on a numeric literal panics
 	// inside lower.memberExpr (internal/lower/expr.go) instead of
 	// producing a diagnostic.
@@ -211,16 +163,9 @@ fn len2 (xs: List a) -> Int =
 		TODO:  "数値リテラルへの member アクセスで lower が panic する",
 		Desc:  "0.A00() panics in lower.memberExpr",
 	},
-	// `let a=080` — the literal text is emitted verbatim into
-	// generated Go where `080` is an invalid octal literal, and
-	// codegen's own gofmt check fails the compile with an internal
-	// error. Match covers the sibling "invalid digit" wordings for
-	// other bases (binary, hex).
-	fuzzutil.Sum256Hex("c035410c3ac726f5c1583a8ff8ee4d61f607233a82baed66a00e0194d8ea1834"): {
-		Match: []string{"does not gofmt", "invalid digit"},
-		TODO:  "整数リテラルの表記が正規化されず生成 Go が壊れる",
-		Desc:  "080 emitted as invalid Go octal literal",
-	},
+	// (`let a=080` is fixed in the parser: a leading-zero decimal
+	// literal is normalized to its value's decimal spelling — `80` —
+	// so the corpus file now compiles cleanly.)
 }
 
 // fuzzGoPkgs bounds which `import go` paths the loader will resolve

@@ -114,6 +114,21 @@ Supported escapes include \n, \t, \r, \0, \\, \', \", \$, \uXXXX and
 let s = "column\qvalue"
 ```
 
+### E0105 — invalid byte in literal
+
+**Severity:** error · **Phase:** syntax
+
+A string or character literal contains a byte that cannot appear
+in generated Go source: an invalid UTF-8 byte, or the NUL byte. Both
+would be emitted verbatim and rejected by the Go toolchain, so the
+literal is refused at lex time. Write an escape instead: \0 for NUL
+and \uXXXX or \u{X...} for code points — source text must be valid
+UTF-8, so arbitrary bytes cannot be spelled in a literal.
+
+```gom
+let s = "<0xEB>"
+```
+
 ## 02xx — Name resolution
 
 ### E0201 — undefined name

@@ -65,8 +65,11 @@ func (k LitKind) String() string {
 }
 
 // Lit is a literal: `42`, `3.14`, `"s"`, `'c'`, `true`, `()`.
-// Interpolated strings are StrInterp instead. Text is the raw source
-// lexeme; its meaning is fixed during type checking.
+// Interpolated strings are StrInterp instead. Text is the source
+// lexeme — except LitInt, where it is normalized to the decimal or
+// base-prefixed spelling of the value denoted ("080" is decimal 80
+// in Gom but an invalid octal in Go, so Text holds "80"; see
+// intLitText). Its meaning is fixed during type checking.
 type Lit struct {
 	Sp   diag.Span
 	Kind LitKind

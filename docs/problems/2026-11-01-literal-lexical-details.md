@@ -10,7 +10,8 @@ forms. The grammar's choices, all marked [PROVISIONAL
 literal-lexical-details]:
 
 - integers: decimal assumed; hex `0x` / octal `0o` / binary `0b` and
-  `_` separators added Go-style
+  `_` separators added Go-style. Leading zeros stay decimal —
+  see docs/problems/2026-11-02-leading-zero-decimal-ints.md
 - floats: `1.0`, `1e3`, `1.5e-3` allowed; `.5` and `5.` rejected so a
   leading/trailing `.` can never clash with member access or `..`
 - characters: `'a'` with Go-style escapes; whether `\u{...}` counts as

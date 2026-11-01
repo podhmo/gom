@@ -2,6 +2,7 @@ package syntax
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/podhmo/gom/internal/diag"
 )
@@ -327,7 +328,7 @@ func (p *parser) parseAtom(nb bool) Expr {
 	switch t.kind {
 	case tokInt:
 		p.next()
-		return &Lit{Sp: p.spanOf(t), Kind: LitInt, Text: p.text(t)}
+		return &Lit{Sp: p.spanOf(t), Kind: LitInt, Text: intLitText(p.text(t))}
 	case tokFloat:
 		p.next()
 		return &Lit{Sp: p.spanOf(t), Kind: LitFloat, Text: p.text(t)}
@@ -924,7 +925,7 @@ func (p *parser) parseList() Expr {
 		t := p.cur()
 		p.errf(p.spanOf(t),
 			"expected \",\" or \"]\" between list elements, found %s", p.describe(t))
-		p.syncItem()
+		p.syncItemSep()
 	}
 }
 
@@ -1023,8 +1024,7 @@ func (p *parser) parseFieldInits(r *RecordLit) {
 		t := p.cur()
 		p.errf(p.spanOf(t),
 			"expected \",\" or \"}\" between record fields, found %s", p.describe(t))
-		p.syncItem()
-		p.skipSep()
+		p.syncItemSep()
 	}
 }
 
@@ -1129,7 +1129,16 @@ func (p *parser) parseCtorPat() Pat {
 	ctor := p.parseCtorName()
 	var args []CtorArg
 	for p.atPatArgStart() {
+		save := p.pos
 		args = append(args, p.parsePatArg())
+		if p.pos == save {
+			// The argument produced an error node without consuming
+			// anything — bail out rather than rebuild error args
+			// forever (the "ctor pattern + stray '-'" infinite loop
+			// of TODO.md's bug list; every pat-atom path is expected
+			// to consume, this guard is defense in depth).
+			break
+		}
 	}
 	c := &CtorPat{
 		Sp:   p.span(ctor.Span().Start, p.prevEnd()),
@@ -1277,8 +1286,21 @@ func (p *parser) parsePatAtom() Pat {
 				kind = LitFloat
 			}
 			sp := p.span(t.start, n.end)
-			return &LitPat{Sp: sp, Lit: &Lit{Sp: sp, Kind: kind, Text: p.srcText(sp)}}
+			// Build Text from the token lexemes, not from the span:
+			// whitespace or comments between "-" and the digits
+			// ("- 080", "- /* c */ 1") would otherwise reach codegen
+			// verbatim — the space defeats the leading-zero
+			// normalization and the bytes are not a literal in Go.
+			text := "-" + p.text(n)
+			if kind == LitInt {
+				text = intLitText(text)
+			}
+			return &LitPat{Sp: sp, Lit: &Lit{Sp: sp, Kind: kind, Text: text}}
 		}
+		// Consume the stray "-" so pattern-argument loops make
+		// progress: "-" itself starts a pat-atom, so leaving it
+		// unconsumed spins the caller forever on the same token.
+		p.next()
 		p.errf(p.spanOf(t), "expected a number after \"-\" in a pattern")
 		return p.errPat(p.spanOf(t))
 	case tokLParen:
@@ -1295,10 +1317,43 @@ func (p *parser) parsePatAtom() Pat {
 
 // litPat wraps a literal token in a LitPat.
 func (p *parser) litPat(t token, kind LitKind) Pat {
+	text := p.text(t)
+	if kind == LitInt {
+		text = intLitText(text)
+	}
 	return &LitPat{
 		Sp:  p.spanOf(t),
-		Lit: &Lit{Sp: p.spanOf(t), Kind: kind, Text: p.text(t)},
+		Lit: &Lit{Sp: p.spanOf(t), Kind: kind, Text: text},
 	}
+}
+
+// intLitText normalizes an integer literal to the spelling of the
+// value it denotes in Gom. dec-int accepts leading zeros — "080" is
+// decimal 80 — while Go reads the same spelling as an (invalid)
+// octal literal and even "077" would silently change value. A bare
+// leading-zero decimal is therefore rewritten to plain decimal
+// digits for the codegen-facing Text ("080" → "80", "0_0" → "0").
+// Base-prefixed literals (0x/0o/0b) spell the same value in Go and
+// pass through; a leading "-" of a negative pattern literal is kept.
+// See docs/problems/2026-11-02-leading-zero-decimal-ints.md.
+func intLitText(text string) string {
+	s := text
+	neg := ""
+	if s != "" && s[0] == '-' {
+		neg, s = "-", s[1:]
+	}
+	if len(s) < 2 || s[0] != '0' {
+		return text
+	}
+	switch s[1] {
+	case 'x', 'X', 'o', 'O', 'b', 'B':
+		return text
+	}
+	digits := strings.TrimLeft(strings.ReplaceAll(s, "_", ""), "0")
+	if digits == "" {
+		digits = "0"
+	}
+	return neg + digits
 }
 
 // srcText returns the source text of a span.
@@ -1397,7 +1452,7 @@ func (p *parser) parseListPat() Pat {
 		p.errf(p.spanOf(t),
 			"expected \",\" or \"]\" between list pattern elements, found %s",
 			p.describe(t))
-		p.syncItem()
+		p.syncItemSep()
 	}
 }
 
@@ -1442,8 +1497,7 @@ func (p *parser) parseBracePat() Pat {
 		p.errf(p.spanOf(t),
 			"expected \",\" or \"}\" between record pattern fields, found %s",
 			p.describe(t))
-		p.syncItem()
-		p.skipSep()
+		p.syncItemSep()
 	}
 }
 
@@ -1650,8 +1704,7 @@ func (p *parser) parseRecordType() (fields []Field, end int) {
 		p.errf(p.spanOf(t),
 			"expected \",\" or \"}\" between record type fields, found %s",
 			p.describe(t))
-		p.syncItem()
-		p.skipSep()
+		p.syncItemSep()
 	}
 }
 

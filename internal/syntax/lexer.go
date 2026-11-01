@@ -1,6 +1,7 @@
 package syntax
 
 import (
+	"fmt"
 	"unicode/utf8"
 
 	"github.com/podhmo/gom/internal/diag"
@@ -73,6 +74,12 @@ type lexer struct {
 
 	stack     []delim // open delimiters, innermost last
 	resumeStr bool    // next step continues an interpolated string
+
+	// resumeStrOpen is the opening-quote offset of the interpolated
+	// string a "}" just returned to (the strOpen of the popped
+	// delimInterp). scanString uses it to locate diagnostics when it
+	// resumes — the "-1" open sentinel has no position of its own.
+	resumeStrOpen int
 
 	line         int  // current 1-based line
 	lineStart    int  // byte offset of the current line's start
@@ -291,12 +298,18 @@ func (l *lexer) lineOf(off int) int {
 // and ends with tokStrClose.
 func (l *lexer) scanString(open int) {
 	resume := open < 0
-	if !resume {
+	if resume {
+		// The string's opening quote was recorded when "}" closed
+		// the interpolation — diagnostics keep pointing at the
+		// string, not at a negative sentinel offset.
+		open = l.resumeStrOpen
+	} else {
 		open = l.pos
 		l.pos++ // consume '"'
 	}
 	chunkStart := l.pos // start of the pending literal chunk
 	interp := resume    // resumed strings already emitted tokStrOpen
+	badByte := false    // E0105 reported at most once per chunk
 	for l.pos < len(l.src) {
 		b := l.src[l.pos]
 		switch {
@@ -338,7 +351,7 @@ func (l *lexer) scanString(open int) {
 			l.pos += 2
 			return // back to normal token mode inside ${...}
 		default:
-			l.pos++
+			l.pos += l.checkLitByte(&badByte, "string")
 		}
 	}
 	// EOF inside the string.
@@ -351,6 +364,31 @@ func (l *lexer) scanString(open int) {
 		}
 		l.emit(tokStrClose, len(l.src), len(l.src))
 	}
+}
+
+// checkLitByte decodes the rune at l.pos inside a string or
+// character literal and reports E0105 when it is not valid UTF-8 or
+// is the NUL byte — both would pass through to the generated Go
+// verbatim and fail gofmt there ("illegal UTF-8 encoding",
+// "illegal character NUL"), so the literal is rejected here
+// instead. reported caps the diagnostic at one per literal chunk; it
+// returns the decoded rune's width in bytes.
+func (l *lexer) checkLitByte(reported *bool, what string) int {
+	r, size := utf8.DecodeRune(l.src[l.pos:])
+	if *reported {
+		return size
+	}
+	switch {
+	case r == utf8.RuneError && size == 1:
+		l.err(l.pos, l.pos+1, "E0105",
+			fmt.Sprintf("invalid UTF-8 byte in %s literal", what))
+		*reported = true
+	case r == 0:
+		l.err(l.pos, l.pos+1, "E0105",
+			fmt.Sprintf("the NUL byte is not allowed in a %s literal", what))
+		*reported = true
+	}
+	return size
 }
 
 // scanEscape consumes one escape sequence starting at '\'. Invalid
@@ -420,8 +458,8 @@ func (l *lexer) scanChar() {
 	case '\'':
 		l.err(start, l.pos+1, "E0101", "empty character literal")
 	default:
-		_, size := utf8.DecodeRune(l.src[l.pos:])
-		l.pos += size
+		badByte := false
+		l.pos += l.checkLitByte(&badByte, "character")
 	}
 	if l.pos < len(l.src) && l.src[l.pos] == '\'' {
 		l.pos++
@@ -592,6 +630,7 @@ func (l *lexer) stepOp() {
 	case '}':
 		switch l.innermost() {
 		case delimInterp:
+			l.resumeStrOpen = l.stack[len(l.stack)-1].strOpen
 			l.pop()
 			l.emit(tokInterpEnd, pos, pos+1)
 			l.pos++
