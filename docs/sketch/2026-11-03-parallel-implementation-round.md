@@ -50,3 +50,54 @@ implementation and fresh review. Unresolved concerns belong in
   session. Audit observable requirements before replacing that mechanism.
 - The tutorial README still says `ignore` is unimplemented even though
   chapter 1 already uses it. Update the tutorial from executed evidence.
+
+## Reviewed integration milestones
+
+Each implementation used its own managed worktree, a fresh reviewer,
+and an explicit follow-up decision by the original implementer.
+
+| Work | Integration | Review result |
+| --- | --- | --- |
+| P3-1 import session audit / error aliases | `daf5ee4` | No required change; original owner recorded the decision |
+| P2-2a type-variable scope | `d97d075` | No required change; normal polymorphism and eager timing verified |
+| P2-2b static function aliases | `c5a0c4a` | No required change; aggregate cycles remain P2-2c |
+| P2-4a Result pipelines | `9888c3a` | Numeric inflow conversion finding fixed; related void inflow regression also fixed |
+| Gist CLI use case | `6e55872` | No required change; real generated binary tested only against local fake servers |
+| Explicit void Go calls | `4300eb9` | No required change; explicit Core result shape and Unit normalization verified |
+
+The Gist CLI was added at the user's request during this round. It
+creates one secret Gist from all supplied UTF-8 files, or updates the
+Gist identified by `--gist URL`, and prints the response URL. Fake
+servers cover POST/PATCH, preserved remote files, payloads, headers,
+input failures, HTTP/JSON failures and redirect rejection. No real
+GitHub API was called. Its small host adapter exposes the interop
+operations the compiler does not yet support; HTTP interface/field
+support is being implemented to remove four of those adapter functions.
+
+The executable tutorial iteration added two chapters and reproduced
+a stale test-cache success after compiler changes. Fresh review then
+found the same hole for generated-code runtime dependencies. Both the
+new chapters and the revised dependency tracking are being verified
+before integration.
+
+HTTP boundary review found three additional cases to fix: preserving
+the dynamic numeric type when boxing into an interface, channel
+assignability, and field types that become known after the receiver is
+inferred. These findings are recorded without changing the normative
+spec to match the prototype.
+
+## Persistent follow-up
+
+The user requested a durable, low-effort place for discrepancies.
+[implementation-gaps.md](../implementation-gaps.md) records short
+descriptions and source links, including documentation-only drift.
+AGENTS.md requires registration on discovery and a checked entry with
+verification when resolved. It does not require deciding priority,
+cause or the correct side before making a note. TODO still owns work;
+decisions, problems and sketch retain their existing roles.
+
+Remaining implementation items stay explicit in TODO.md: aggregate
+function-value initialization cycles, fusion of pipelines containing
+explicit `try`, further Go interop (including byte and slice/List
+boundaries), and the independently reproduced inferred numeric binder
+problem. This round does not mark the whole compiler complete.

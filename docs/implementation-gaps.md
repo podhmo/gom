@@ -21,7 +21,7 @@
 
 ```markdown
 - [ ] **短い説明**: A にはこう書かれているが、B ではこうなっている。
-  参照: [A](spec.md)、[B](../internal/example/example.go)。
+  参照: [仕様](spec.md)、[実装](../internal/goimport/mapping.go)。
 ```
 
 ## 記録
@@ -74,6 +74,20 @@
 - [ ] **Go interface の代入規則が未実装**: spec 8.3 は Go 由来の値を代入規則に従って渡せるとするが、
   `*strings.Reader` → `io.Reader` や `*os.File` → `io.Writer` が E0401 になる。
   参照: [spec](spec.md#83-型の対応)、[Gist probe](sketch/2026-11-03-gist-cli-prototype.md)。
+
+- [ ] **interface へ渡す整数リテラルの動的型が Gom の型と異なる**: HTTP 境界の修正試作を
+  独立レビューしたところ、`Int` に解決した `1` が named empty interface へ渡る時に Go の
+  `int` となり、想定する `int64` と異なることを `%T` で再現した。
+  参照: [型の対応](spec.md#83-型の対応)。試作 `codex/http-boundary` の追加修正対象。
+
+- [ ] **Go チャネルを interface に渡せない**: 同じ修正試作で、Go から返る `chan string` を
+  named empty interface の引数へ渡すと E0401 になった。Go の代入規則では可能。
+  参照: [interface の規則](spec.md#83-型の対応)。試作 `codex/http-boundary` の追加修正対象。
+
+- [ ] **型が後で分かる Go field を interface に渡せない**: 同じ試作で、高階関数のラムダ内の
+  `model.Accept x.Count` はレシーバの型が後で決まると E0401 になる。
+  数値リテラル以外の未解決型についても、field 解決後まで代入判定を待つ必要がある。
+  参照: [interface の規則](spec.md#83-型の対応)。試作 `codex/http-boundary` の追加修正対象。
 
 - [ ] **Go struct フィールドの参照が未決・未実装**: HTTP の Header/StatusCode/Body を使いたいが、
   spec には対応表がなく、open-questions に未決として残り、実装は参照を拒否する。
