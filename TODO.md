@@ -93,7 +93,7 @@ Go 相互運用を変えたら両方向（Gom → Go、Go → Gom）のテスト
 
 ### P4 公開 API と開発体験
 
-- [ ] **P4-1 `.gomi` の検査と `gom gomi`**: 実装とインターフェースの照合、下書き生成、正規化した構文木からのハッシュ（[spec 7 章](docs/spec.md)、[decisions/gomi-interface-files](docs/decisions/2026-11-01-gomi-interface-files.md)）。依存: P2-1
+- [ ] **P4-1 `.gomi` の検査と `gom info`**: 実装とインターフェースの照合、下書き生成、正規化した構文木からのハッシュ（[spec 7 章](docs/spec.md)、[decisions/gomi-interface-files](docs/decisions/2026-11-01-gomi-interface-files.md)）。moon の慣習に合わせサブコマンド名は `gomi` ではなく `info`（`moon info` が .mbti を生成するのと同じく成果物の役割で命名）。CLI 体系の整理方針は [sketch/moon-cli-command-structure](docs/sketch/2026-11-05-moon-cli-command-structure.md)（`build check test fmt fix explain schema dump` + `new`/`version`、registry 系は Go に任せる、write-if-different、`gom-*` 外部 dispatch）。依存: P2-1 ✅
 - [ ] **P4-2 `gom fmt`**: Wadler 流のプリティプリンタ。冪等性・往復一致のプロパティテスト、改行とコメントの境界ケース（[spec 1.7](docs/spec.md)、[design.md 6 章](docs/design.md)）。依存: P1-3
 - [ ] **P4-3 ファイル内テストと `gom test`**: `_test.go` の出力、`go test -json` の変換、`assert_eq` 用の表示関数の自動生成（[spec 11 章](docs/spec.md)、[design.md 4.8](docs/design.md)）。依存: P1-13
 - [ ] **P4-4 `gom fix` / `gom explain` / `gom schema`**: `safe` な fixes だけを適用、エラーコード表からの説明、メッセージの JSON Schema。依存: P1-10, D-2
@@ -113,6 +113,10 @@ Go 相互運用を変えたら両方向（Gom → Go、Go → Gom）のテスト
 
 - [x] **V-1 実行可能チュートリアル**: `tutorial/` に `.gom` のサンプル群と実行手順を作り、`gom build` / `gom check` / `gom test` で実際に動かす。エンドユーザー視点で不備・分かりにくい診断・壊れた UX を洗い出し、見つけたものは TODO.md の Bugs/タスクに追加してから実装に戻る。依存: P1-13
 - [x] **V-2 grammar ベースのランダムプログラム生成器**: `docs/grammar.ebnf`（または tree-sitter 文法を別途整備して二重実装相互検証）から妥当な `.gom` を生成し、パーサー fuzz・compile-canary・eval vs compiled 差分テストのシードとする。意味論の食い違い（評価順・`|?>`・構造的 `==`）を先回りで発見するためのもの。依存: なし（seed 消費側は parser/compile fuzz があると効果大） — `internal/gomgen` + `internal/build/gen_test.go`。差分テスト seed 化は未配線
+- [ ] **V-3 gomgen → eval-vs-compiled 差分 fuzz の配線**: 文法的に妥当な生成プログラムを eval とコンパイルの両方で実行し、stdout/診断を差分比較する（V-2 の意図的繰越分）。評価順・意味論乖離の検出器。決定性が必要なので `go{}`・`select`・非決定的組み込みを生成から除く deterministic サブセットモードを gomgen に追加する形が自然。差分は既存の knownBugs ではなく別レジストリ（divergence はバグ確定ではなく両側の仕様確認が要るため）か、比較結果を分類して既知のものだけ抑制する。依存: V-2 ✅
+- [ ] **V-4 HM 推論のプロパティテスト**: gomgen typed モードが生成する型注釈をオラクルに `check` の推論結果と照合する（typed 生成が「この式は T を持つ」と保証しているのに check が別の型/E0401 を出せば推論バグ）。P2-1 着地で実行可能になった。依存: V-2 ✅, P2-1 ✅
+- [ ] **V-5 `gom fmt` の継続 fuzz を gomgen seed で拡張**: formatter fuzz の入力を grammar 生成器由来に広げてカバレッジを上げる（手書き corpus では到達しにくい構文の組み合わせを網羅）。冪等性・往復一致のプロパティを生成入力で回し続ける。依存: V-2 ✅, P4-2
+- [ ] **[task] compile-canary の生成 Go に vet 相当の解析を追加**: 現在の canary は in-process go/types で型検査のみ。shadow・到達不能コード等を先回り検出したい。方式の決定が要る: (a) `golang.org/x/tools/go/analysis` — stdlib-only の repo 初の外部依存になる、(b) unreachable/shadow の小さな AST 歩行を自作（scope 追跡が正確に要る）、(c) sandbox 内で実 `go vet` を temp module に実行（重い）。`(a)` の依存追加は decisions 経由で
 
 ## Bugs
 

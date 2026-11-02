@@ -35,6 +35,11 @@
 
 set -euo pipefail
 
+# Never wait on an editor: rebase --continue and any other git
+# operation that would open one must proceed non-interactively
+# (a stray EDITOR in the caller's env must not hang the merge).
+export GIT_EDITOR=true GIT_SEQUENCE_EDITOR=true
+
 GO=${GO:-go}
 GOFMT=${GOFMT:-gofmt}
 GENERATED_README=docs/decisions/README.md

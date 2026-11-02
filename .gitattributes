@@ -1,0 +1,7 @@
+# TODO.md is append-mostly: parallel task branches add entries at the
+# same tail position, which is the merge conflict hit most often.
+# Union merge keeps both sides' added lines — the right answer for
+# this file (a `[ ]`/`[x]` flip on a line edited on both sides can
+# still duplicate the line, which is visible noise rather than lost
+# work).
+TODO.md merge=union
