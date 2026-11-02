@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("package a\n\nfn f (x: a00) -> a01 = { g x }\n\nlet g = f\n")
