@@ -1,0 +1,21 @@
+package m
+
+let h = xs |> fn y -> y + 1
+
+let h2 = a |> f |> fn x -> g x
+
+let h3 = a |> (fn x -> e x) |> g
+
+let h4 = xs |?> fn x -> Ok (x + 1)
+
+let h5 = f << fn x -> x
+
+let h6 = (xs |> f ~x) : Int
+
+let h7 = xs |> f ~x: Int
+
+let h8 = (xs |> fn y -> y) : Int
+
+let h9 = xs |> fn y -> y : Int
+
+let h10 = x |> (fn y -> y) |> g : Int

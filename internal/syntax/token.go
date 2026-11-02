@@ -119,6 +119,13 @@ var keywords = map[string]tokenKind{
 	"with":    tokWith,
 }
 
+// IsKeyword reports whether s is a reserved word of grammar.ebnf
+// section 2.2.
+func IsKeyword(s string) bool {
+	_, ok := keywords[s]
+	return ok
+}
+
 // spellings gives a printable name for every token kind, used in
 // diagnostic messages. Operator spellings are quoted so that
 // "expected ->" reads like the source. The "<" + "|" concatenation

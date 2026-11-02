@@ -1,0 +1,9 @@
+package lib
+
+import go "os"
+
+type Shape
+
+fn area (s: Shape) -> Float
+
+let pi: Float

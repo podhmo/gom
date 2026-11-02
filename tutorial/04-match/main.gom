@@ -14,33 +14,31 @@ type Shape =
   | Rect (w: Float) (h: Float)
   | Empty
 
-fn area (s: Shape) -> Float =
-  match s {
-    Circle r -> 3.14159 * r * r
-    Rect w h -> w * h
-    Empty -> 0.0
-  }
+fn area (s: Shape) -> Float = match s {
+  Circle r -> 3.14159 * r * r
+  Rect w h -> w * h
+  Empty -> 0.0
+}
 
 type Expr =
   | Num Int
   | Add Expr Expr
   | Neg Expr
 
-fn eval (e: Expr) -> Int =
-  match e {
-    Num n -> n
-    Add (Num 0) r -> eval r
-    Add l r if l == r -> 2 * eval l
-    Add l r -> eval l + eval r
-    Neg x if x == Num 0 -> 0
-    Neg x -> 0 - eval x
-  }
+fn eval (e: Expr) -> Int = match e {
+  Num n -> n
+  Add (Num 0) r -> eval r
+  Add l r if l == r -> 2 * eval l
+  Add l r -> eval l + eval r
+  Neg x if x == Num 0 -> 0
+  Neg x -> 0 - eval x
+}
 
 fn main () -> Unit = {
-  let _ = fmt.Println(area (Circle 1.0))
-  let _ = fmt.Println(area (Rect 2.0 3.0))
-  let _ = fmt.Println(area Empty)
-  let _ = fmt.Println(eval (Add (Num 40) (Neg (Num (-2)))))
-  let _ = fmt.Println(eval (Add (Num 21) (Num 21)))
+  let _ = fmt.Println (area (Circle 1.0))
+  let _ = fmt.Println (area (Rect 2.0 3.0))
+  let _ = fmt.Println (area Empty)
+  let _ = fmt.Println (eval (Add (Num 40) (Neg (Num (-2)))))
+  let _ = fmt.Println (eval (Add (Num 21) (Num 21)))
   ()
 }

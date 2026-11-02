@@ -59,7 +59,7 @@ func TestUsageListsAllSubcommands(t *testing.T) {
 // TestUnimplementedSubcommandsAreDispatched ensures every planned
 // subcommand is recognized rather than reported as unknown.
 func TestUnimplementedSubcommandsAreDispatched(t *testing.T) {
-	for _, c := range []string{"test", "fmt", "fix", "gomi", "explain", "schema"} {
+	for _, c := range []string{"test", "fix", "gomi", "explain", "schema"} {
 		var stderr strings.Builder
 		code := run([]string{c}, &strings.Builder{}, &stderr)
 		if code != 2 || !strings.Contains(stderr.String(), "not implemented") {

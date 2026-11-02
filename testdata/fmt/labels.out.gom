@@ -1,0 +1,31 @@
+package m
+
+let a = (f ~x) : Int
+
+let b = f ~x: Int
+
+let c = f ~x: v : Int
+
+let d = (xs |> f ~x) : Int
+
+let e = (a + f ~x) : Int
+
+let g = (-f ~x) : Int
+
+let h = (f ~x ~y) : Int
+
+let i = "${(f ~x) : Int}"
+
+let j = match s {
+  A ~y: (N x) -> 1
+  B ~z: (a | b) -> 2
+  C ~w: (p as r) -> 3
+  D ~v: (Int) -> 4
+  _ -> 0
+}
+
+let k = match t {
+  E ~m: 1 -> 5
+  F ~n: n -> 6
+  _ -> 0
+}

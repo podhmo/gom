@@ -1,10 +1,11 @@
 // Command gom is the CLI of the Gom compiler, which transpiles Gom
 // sources to Go.
 //
-// build, check, and dump are implemented; the rest of the commands
-// listed in usage are planned (docs/design.md section 3). The command
-// stays a thin layer over internal/build and internal/diag: cli.go
-// holds flag parsing, file walking, and message-stream emission.
+// build, check, dump, and fmt are implemented; the rest of the
+// commands listed in usage are planned (docs/design.md section 3).
+// The command stays a thin layer over internal/build, internal/format
+// and internal/diag: cli.go holds flag parsing, file walking, and
+// message-stream emission.
 package main
 
 import (
@@ -26,7 +27,7 @@ The commands are:
 	check     type-check without emitting code
 	dump      print a compiler phase's IR (developer tool)
 	test      run tests written in .gom files (not implemented yet)
-	fmt       format .gom files (not implemented yet)
+	fmt       format .gom files
 	fix       apply safe suggested fixes (not implemented yet)
 	gomi      check or generate .gomi interface files (not implemented yet)
 	explain   explain an error code (not implemented yet)
@@ -58,7 +59,9 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return runCheck(args[1:], stdout, stderr)
 	case "dump":
 		return runDump(args[1:], stdout, stderr)
-	case "test", "fmt", "fix", "gomi", "explain", "schema":
+	case "fmt":
+		return runFmt(args[1:], stdout, stderr)
+	case "test", "fix", "gomi", "explain", "schema":
 		fmt.Fprintf(stderr, "gom %s: not implemented yet\n", args[0])
 		return 2
 	}

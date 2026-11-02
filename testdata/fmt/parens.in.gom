@@ -1,0 +1,27 @@
+package m
+let a = if (x : Bool) { 1 } else { 2 }
+let b = match (x : Int) {
+  1 -> 2
+  _ -> 0
+}
+let c = for v in (ys : List Int) { v }
+let d = if (xs |> fn y -> y : Bool) { 1 } else { 2 }
+let e = select {
+  x <- (ch : Int) -> x
+  y <- (ch |> fn z -> z : Int) -> y
+  _ <- ch2 -> 0
+  send (sc : Int) v -> 0
+  default -> 0
+}
+let f = match s {
+  A if (g : Bool) -> 1
+  B if (xs |> fn y -> y : Bool) -> 2
+  _ -> 0
+}
+let g = (f a b) c d
+let h = (f a) b
+let i = f a b
+let j = ((g x) |> f) y
+let k : (F A B) C D = y
+let l : ((A -> B) C) D = y
+let m = if a |> f { 1 } else { 2 }

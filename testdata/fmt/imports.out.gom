@@ -1,0 +1,6 @@
+package main
+
+import go "fmt"
+import "list"
+import go "os"
+import go alias "strings"

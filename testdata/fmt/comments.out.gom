@@ -1,0 +1,12 @@
+// File header comment.
+package main // package line comment
+
+// leading comment on f
+fn f () -> Int = { // brace comment
+  let x = 1 // about x
+
+  // own-line comment before y
+
+  let y = 2 // about y
+  x + y     // trailing on last expr
+}

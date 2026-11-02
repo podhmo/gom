@@ -449,8 +449,156 @@ func TestEndToEnd_BuildAndRun(t *testing.T) {
 	}
 }
 
+// messyGom is deliberately unformatted: irregular spacing and no
+// blank line after the package clause.
+const messyGom = `package main
+fn  f (x:Int) ->Int=x
+`
+
+// TestFmtStdout formats one file to stdout: the formatted source is
+// the whole stdout — the summary goes to stderr so
+// `gom fmt a.gom > a.gom` is safe.
+func TestFmtStdout(t *testing.T) {
+	dir := writeFiles(t, map[string]string{"m.gom": messyGom})
+	code, out, errout := invoke("fmt", filepath.Join(dir, "m.gom"))
+	if code != 0 {
+		t.Fatalf("gom fmt: exit %d; stderr=%q", code, errout)
+	}
+	if out != "package main\n\nfn f (x: Int) -> Int = x\n" {
+		t.Errorf("stdout is not exactly the formatted source: %q", out)
+	}
+	if sum := lastSummary(t, errout); sum["ok"] != true {
+		t.Errorf("stderr summary not ok: %v", sum)
+	}
+}
+
+// TestFmtWrite rewrites a dirty file in place and lists it in the
+// summary's outputs; a second run finds nothing to do.
+func TestFmtWrite(t *testing.T) {
+	dir := writeFiles(t, map[string]string{"m.gom": messyGom})
+	p := filepath.Join(dir, "m.gom")
+	code, out, errout := invoke("fmt", "-w", p)
+	if code != 0 {
+		t.Fatalf("gom fmt -w: exit %d; stderr=%q", code, errout)
+	}
+	if out != "" {
+		t.Errorf("gom fmt -w: stdout = %q, want empty", out)
+	}
+	got, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(got), "fn f (x: Int) -> Int = x") {
+		t.Fatalf("file not formatted: %q", got)
+	}
+	if sum := lastSummary(t, errout); sum["ok"] != true {
+		t.Errorf("summary not ok: %v", sum)
+	}
+	code, _, errout = invoke("fmt", "-w", p)
+	if code != 0 {
+		t.Fatalf("second gom fmt -w: exit %d", code)
+	}
+	if sum := lastSummary(t, errout); len(sum["outputs"].([]any)) != 0 {
+		t.Errorf("second run should report no outputs: %v", sum)
+	}
+}
+
+// TestFmtListDiffCheck covers the reporting modes: -l prints the
+// path, -d prints a diff, --check fails on dirty files.
+func TestFmtListDiffCheck(t *testing.T) {
+	dir := writeFiles(t, map[string]string{"m.gom": messyGom})
+	p := filepath.Join(dir, "m.gom")
+
+	// -l prints exactly the path list — the message stream stays on
+	// stderr so the list pipes into xargs.
+	code, out, _ := invoke("fmt", "-l", p)
+	if code != 0 || out != p+"\n" {
+		t.Errorf("gom fmt -l: exit %d, stdout %q; want 0 and just the path", code, out)
+	}
+	code, out, _ = invoke("fmt", "-d", p)
+	if code != 0 || !strings.Contains(out, "-fn  f (x:Int) ->Int=x") {
+		t.Errorf("gom fmt -d: exit %d, stdout %q; want a - line", code, out)
+	}
+	if strings.Contains(out, `"kind"`) {
+		t.Errorf("gom fmt -d: stdout carries message-stream JSON: %q", out)
+	}
+	// --check: stdout stays empty; the unformatted messages and the
+	// summary go to stderr.
+	code, out, errout := invoke("fmt", "--check", p)
+	if code != 1 {
+		t.Errorf("gom fmt --check: exit %d; want 1 for a dirty file", code)
+	}
+	if out != "" {
+		t.Errorf("gom fmt --check: stdout = %q, want empty", out)
+	}
+	if !strings.Contains(errout, "unformatted") {
+		t.Errorf("gom fmt --check: stderr missing unformatted message: %q", errout)
+	}
+	// The summary's ok tracks error diagnostics (none here); the
+	// dirty signal is the unformatted messages plus exit code 1.
+	if sum := lastSummary(t, errout); sum["ok"] != true {
+		t.Errorf("gom fmt --check: stderr summary = %v", sum)
+	}
+	if code, _, _ := invoke("fmt", "-w", p); code != 0 {
+		t.Fatalf("gom fmt -w: exit %d", code)
+	}
+	code, out, _ = invoke("fmt", "-l", p)
+	if code != 0 || out != "" {
+		t.Errorf("gom fmt -l after -w: exit %d, stdout %q; want clean", code, out)
+	}
+	code, _, _ = invoke("fmt", "--check", p)
+	if code != 0 {
+		t.Errorf("gom fmt --check after -w: exit %d; want 0", code)
+	}
+}
+
+// TestFmtStdin feeds "-" a source on stdin and gets the formatted
+// text on stdout, the message stream on stderr.
+func TestFmtStdin(t *testing.T) {
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatal(err)
+	}
+	old := os.Stdin
+	os.Stdin = r
+	defer func() { os.Stdin = old }()
+	go func() {
+		w.WriteString(messyGom)
+		w.Close()
+	}()
+	var stdout, stderr strings.Builder
+	code := run([]string{"fmt", "-"}, &stdout, &stderr)
+	if code != 0 {
+		t.Fatalf("gom fmt -: exit %d; stderr=%q", code, stderr.String())
+	}
+	if !strings.Contains(stdout.String(), "fn f (x: Int) -> Int = x") {
+		t.Errorf("stdout missing formatted source: %q", stdout.String())
+	}
+}
+
+// TestFmtParseError reports diagnostics and exits 1 without writing
+// anything for an unparseable file.
+func TestFmtParseError(t *testing.T) {
+	dir := writeFiles(t, map[string]string{"bad.gom": "package main\n\nfn = (\n"})
+	p := filepath.Join(dir, "bad.gom")
+	code, out, errout := invoke("fmt", "-w", p)
+	if code != 1 {
+		t.Errorf("gom fmt -w on syntax error: exit %d; want 1", code)
+	}
+	got, _ := os.ReadFile(p)
+	if string(got) != "package main\n\nfn = (\n" {
+		t.Errorf("errored file was modified: %q", got)
+	}
+	if out != "" {
+		t.Errorf("errored run wrote to stdout: %q", out)
+	}
+	if sum := lastSummary(t, errout); sum["ok"] != false {
+		t.Errorf("summary should not be ok: %v", sum)
+	}
+}
+
 // strconvGom is the canonical P1 program (P1-13, the shape the V-1
-// tutorial builds on): `import go "strconv"`, `|?>` sequencing of
+// tutorial builds on): `import go "strconv"`, `|?> sequencing of
 // Result-returning Go calls, and a match on the Result.
 const strconvGom = `package main
 

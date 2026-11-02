@@ -9,26 +9,22 @@ package main
 import go "fmt"
 import go "strconv"
 
-fn to_s (r: Result Int GoError) -> Result Int String =
-  match r {
-    Ok n -> Ok n
-    Err _ -> Err "not a number"
-  }
+fn to_s (r: Result Int GoError) -> Result Int String = match r {
+  Ok n -> Ok n
+  Err _ -> Err "not a number"
+}
 
 fn parse_port (s: String) -> Result Int String =
-  to_s (strconv.Atoi s)
-  |?> fn p ->
-    if p > 0 && p < 65536 { Ok p } else { Err "out of range" }
+  to_s (strconv.Atoi s) |?> fn p -> if p > 0 && p < 65536 { Ok p } else { Err "out of range" }
 
-fn describe (r: Result Int String) -> String =
-  match r {
-    Ok p -> "listening on port ${p}"
-    Err e -> "bad port: ${e}"
-  }
+fn describe (r: Result Int String) -> String = match r {
+  Ok p -> "listening on port ${p}"
+  Err e -> "bad port: ${e}"
+}
 
 fn main () -> Unit = {
-  let _ = fmt.Println(describe (parse_port "8080"))
-  let _ = fmt.Println(describe (parse_port "abc"))
-  let _ = fmt.Println(describe (parse_port "70000"))
+  let _ = fmt.Println (describe (parse_port "8080"))
+  let _ = fmt.Println (describe (parse_port "abc"))
+  let _ = fmt.Println (describe (parse_port "70000"))
   ()
 }

@@ -1,0 +1,21 @@
+package main
+
+fn f (aaaaaaaaaaaa: Int) (bbbbbbbbbbbb: Int) (cccccccccccc: Int) (dddddddddddd: Int) -> Int =
+  aaaaaaaaaaaa
+  + bbbbbbbbbbbb
+  + cccccccccccc
+  + dddddddddddd
+  + aaaaaaaaaaaa
+  + bbbbbbbbbbbb
+  + cccccccccccc
+
+let xs = [
+  11111111111,
+  22222222222,
+  33333333333,
+  44444444444,
+  55555555555,
+  66666666666,
+  77777777777,
+  88888888888,
+]

@@ -1,0 +1,14 @@
+package main
+/// docs for Color
+type Color =
+  | Red
+  /// docs for Rgb
+  | Rgb Int Int Int
+extern go "bytes" {
+  fn NewBufferString (s :String) -> Buffer
+  /// comment on second entry
+  fn Len (b :Buffer) -> Int
+}
+@test
+fn helper () -> Int = 1
+test "smoke" { let x = 1 }

@@ -1,0 +1,5 @@
+package main
+type Point = { x: Int, y: Int }
+type Long = { first: String, second: String, third: Int, fourth: Float, fifth: Bool, sixth: String, seventh: Int, eighth: Float }
+fn f (p :Point) -> Point = { p with x = p.x + 1, y = p.y - 1 }
+let q = { x = 1, y = 2 }

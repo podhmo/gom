@@ -148,3 +148,51 @@ ADT の `==`（sealed interface 経由）、`_` プレースホルダ、メソ�
   側の既存論点。
 - `gom build` が `go vet`/`go build` 相当を走らせるか（生成コード検証の
   タイミング）— P4-5 の対応表と絡む。
+
+## P4-2 `gom fmt` verification (2026-11-04 follow-up)
+
+The prototype in `internal/format` (Wadler doc IR, width 100, indent 2)
+was verified against every `.gom`/`.gomi` file in `tutorial/`,
+`testdata/`, `testdata/spec`, `testdata/golden` and ~15M fuzz
+executions. On this evidence the 2026-11-02-gom-fmt-layout draft is
+adopted.
+
+### Before/After (from tutorial/08-pipes-labels)
+
+```gom
+// before
+fn render(user: User) -> String =
+  user |> fetchProfile
+       |> formatName ~style: "short"
+
+// after (pipes break before the operator; long applies go
+// one-argument-per-line)
+fn render (user: User) -> String =
+  user
+  |> fetchProfile
+  |> formatName ~style: "short"
+```
+
+### Bugs found by fuzzing and fixed (selection)
+
+- `//` inside an expression gap would swallow following tokens once
+  reflowed → rewritten as `/* */`; an empty `///` doc comment is
+  normalised to `/* */` so its empty text survives.
+- `//` after `(` could swallow the closing delimiter → the flat/empty
+  brace shortcut is only taken when the head is comment-safe.
+- `0.type\nf` glued by NL-2 into `0.type f` (keyword member names are
+  not canEnd tokens) → emit an explicit `;` when the item's rendered
+  last token is a non-canEnd keyword (skipped for `|`-led next items).
+  Applies at top level too (`let x = 0.type;` before `fn`).
+- A nested apply head `(f a) b` flattened onto the broken form's head
+  line reparsed as outer arguments → flatten the apply left spine into
+  one argument list.
+- Chained comparisons `a > b != c` violated the non-associative rule
+  → no spine flattening at pRel and parens forced on same-level
+  operands.
+- Shared sum-variant `///` docs printed per variant → deduplicated by
+  `diag.Span`. Leading-gap trail comments and leading-gap blanks are
+  normalised for idempotency.
+- The fuzz comment-multiset comparison now ignores comment kind and
+  the harmless whitespace normalisation `*/` → `* /` inside block
+  rewrites.

@@ -9,7 +9,4 @@ package main
 
 import go "fmt"
 
-fn main () -> Unit = {
-  ignore (fmt.Println("hello, gom"))
-  ()
-}
+fn main () -> Unit = { ignore fmt.Println "hello, gom"; () }

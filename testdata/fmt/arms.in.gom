@@ -1,0 +1,17 @@
+package main
+type Shape =
+  | Circle (radius: Float)
+  | Rect (w: Float) (h: Float)
+  | Point
+fn f (n :Int) -> Int =
+  match n {
+    0 -> "zero"
+    n if n > 10 -> "big"
+    _ -> "rest"
+  }
+fn g (s :Shape) -> Float =
+  match s {
+    Circle r -> r
+    Rect w h -> w * h
+    Point -> 0.0
+  }

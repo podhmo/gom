@@ -16,6 +16,7 @@ import (
 
 	"github.com/podhmo/gom/internal/build"
 	"github.com/podhmo/gom/internal/diag"
+	"github.com/podhmo/gom/internal/format"
 	"github.com/podhmo/gom/internal/goimport"
 	"github.com/podhmo/gom/internal/lower"
 	"github.com/podhmo/gom/internal/treedump"
@@ -248,6 +249,143 @@ func runDump(args []string, stdout, stderr io.Writer) int {
 		return rep.ExitCode()
 	}
 	fmt.Fprint(stdout, text)
+	return rep.ExitCode()
+}
+
+// runFmt implements `gom fmt [flags] [FILE|DIR ...]` — spec 1.7's
+// canonical formatter. stdout is reserved for the formatted artifact:
+// the spec-12 message stream (diagnostics, unformatted messages and
+// the summary, rendered per -format) goes to stderr, mirroring gofmt's
+// quiet-stdout convention and the same split `gom dump` uses. That
+// keeps `gom fmt a.gom > a.gom` safe and `-l` / `-d` output pipeable.
+//
+//	gom fmt FILE...       formatted output on stdout
+//	gom fmt -w FILE...    rewrite files in place
+//	gom fmt -d FILE...    print unified diffs
+//	gom fmt -l FILE...    list files whose formatting differs
+//	gom fmt --check F...  "unformatted" messages + diff (exit 1 when dirty)
+//	gom fmt -             read stdin, write stdout
+func runFmt(args []string, stdout, stderr io.Writer) int {
+	fs := flag.NewFlagSet("fmt", flag.ContinueOnError)
+	fs.SetOutput(stderr)
+	w := fs.Bool("w", false, "write result to source file instead of stdout")
+	d := fs.Bool("d", false, "display diffs instead of rewriting files")
+	l := fs.Bool("l", false, "list files whose formatting differs from gom fmt's")
+	check := fs.Bool("check", false, "report files needing formatting as unformatted messages and fail")
+	fmtFormat := fs.String("format", "json", "diagnostic format: json or text")
+	if err := fs.Parse(args); err != nil {
+		return flagError(err)
+	}
+	if err := checkFormat(*fmtFormat); err != nil {
+		fmt.Fprintf(stderr, "gom fmt: %v\n", err)
+		return diag.ExitInternal
+	}
+	if *check && (*w || *d || *l) {
+		fmt.Fprintf(stderr, "gom fmt: --check cannot be combined with -w, -d or -l\n")
+		return diag.ExitInternal
+	}
+
+	// Stdin mode: exactly "-" reads the source from stdin.
+	if fs.NArg() == 1 && fs.Arg(0) == "-" {
+		if *w || *d || *l || *check {
+			fmt.Fprintf(stderr, "gom fmt: - reads stdin and writes stdout; combine it with no other flag\n")
+			return diag.ExitInternal
+		}
+		src, err := io.ReadAll(os.Stdin)
+		if err != nil {
+			fmt.Fprintf(stderr, "gom fmt: cannot read stdin: %v\n", err)
+			return diag.ExitInternal
+		}
+		out, diags := format.Source(src, "<stdin>", false)
+		rep := diag.Report{Diagnostics: diags, Files: []string{"<stdin>"}}
+		if err := emitReport(stderr, *fmtFormat, rep, map[string][]byte{"<stdin>": src}); err != nil {
+			fmt.Fprintf(stderr, "gom fmt: %v\n", err)
+			return diag.ExitInternal
+		}
+		if diags.HasError() {
+			return rep.ExitCode()
+		}
+		if _, err := stdout.Write(out); err != nil {
+			fmt.Fprintf(stderr, "gom fmt: cannot write stdout: %v\n", err)
+			return diag.ExitInternal
+		}
+		return rep.ExitCode()
+	}
+
+	inPaths, err := expandInputs(fs.Args(), true)
+	if err != nil {
+		fmt.Fprintf(stderr, "gom fmt: %v\n", err)
+		return diag.ExitInternal
+	}
+	inputs, err := readInputs(inPaths)
+	if err != nil {
+		fmt.Fprintf(stderr, "gom fmt: %v\n", err)
+		return diag.ExitInternal
+	}
+
+	rep := diag.Report{Files: inputNames(inputs)}
+	srcs := map[string][]byte{}
+	var unformatted []diag.Unformatted
+	var writeErrs []error
+	for _, in := range inputs {
+		srcs[in.path] = in.src
+		out, diags := format.Source(in.src, in.path, in.iface)
+		rep.Diagnostics = append(rep.Diagnostics, diags...)
+		if diags.HasError() {
+			continue
+		}
+		changed := string(out) != string(in.src)
+		switch {
+		case *check:
+			if changed {
+				unformatted = append(unformatted,
+					diag.Unformatted{File: in.path, Diff: format.Diff(in.path, in.src, out)})
+			}
+		case *w:
+			if !changed {
+				continue
+			}
+			if err := writeFile(in.path, out); err != nil {
+				writeErrs = append(writeErrs, fmt.Errorf("%s: %w", in.path, err))
+				continue
+			}
+			rep.Outputs = append(rep.Outputs, in.path)
+		case *d:
+			if changed {
+				fmt.Fprint(stdout, format.Diff(in.path, in.src, out))
+			}
+		case *l:
+			if changed {
+				fmt.Fprintln(stdout, in.path)
+			}
+		default:
+			if _, err := stdout.Write(out); err != nil {
+				writeErrs = append(writeErrs, fmt.Errorf("stdout: %w", err))
+			}
+		}
+	}
+	// stdout carries only the artifact above; the unformatted/summary
+	// message stream goes to stderr so the artifact pipes cleanly
+	// (the same split the stdin path uses).
+	if err := diag.WriteUnformatted(stderr, *fmtFormat, unformatted); err != nil {
+		fmt.Fprintf(stderr, "gom fmt: %v\n", err)
+		return diag.ExitInternal
+	}
+	if err := emitReport(stderr, *fmtFormat, rep, srcs); err != nil {
+		fmt.Fprintf(stderr, "gom fmt: %v\n", err)
+		return diag.ExitInternal
+	}
+	for _, e := range writeErrs {
+		fmt.Fprintf(stderr, "gom fmt: cannot write output: %v\n", e)
+	}
+	if len(writeErrs) > 0 {
+		return diag.ExitInternal
+	}
+	// --check is a gate: unformatted files fail the run the way error
+	// diagnostics do.
+	if *check && len(unformatted) > 0 {
+		return diag.ExitError
+	}
 	return rep.ExitCode()
 }
 

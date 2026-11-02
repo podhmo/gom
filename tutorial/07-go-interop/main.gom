@@ -16,27 +16,24 @@ import go "strconv"
 import go "strings"
 
 fn parse_sum (a: String) (b: String) -> Result Int GoError =
-  strconv.Atoi a
-  |?> fn x -> strconv.Atoi b
-  |?> fn y -> Ok (x + y)
+  strconv.Atoi a |?> fn x -> strconv.Atoi b |?> fn y -> Ok (x + y)
 
-fn show_res (r: Result Int GoError) -> String =
-  match r {
-    Ok n -> "ok ${n}"
-    Err e -> "err ${e.Error()}"
-  }
+fn show_res (r: Result Int GoError) -> String = match r {
+  Ok n -> "ok ${n}"
+  Err e -> "err ${e.Error ()}"
+}
 
 fn main () -> Unit = {
-  let _ = fmt.Println(show_res (parse_sum "40" "2"))
-  let _ = fmt.Println(show_res (parse_sum "x" "2"))
-  let _ = fmt.Println(strings.ToUpper("gom"))
-  let shout = strings.Repeat(_, 3)
-  let _ = fmt.Println(shout "go")
-  let _ = os.Setenv("GOM_TUTORIAL", "yes")
-  let (home, ok) = os.LookupEnv("GOM_TUTORIAL")
-  if ok { let _ = fmt.Println("env: ${home}"); () } else { () }
-  let buf = bytes.NewBufferString("a")
-  let _ = buf.WriteString(", b")
-  let _ = fmt.Println(buf.String())
+  let _ = fmt.Println (show_res (parse_sum "40" "2"))
+  let _ = fmt.Println (show_res (parse_sum "x" "2"))
+  let _ = fmt.Println (strings.ToUpper "gom")
+  let shout = strings.Repeat (_, 3)
+  let _ = fmt.Println (shout "go")
+  let _ = os.Setenv ("GOM_TUTORIAL", "yes")
+  let (home, ok) = os.LookupEnv "GOM_TUTORIAL"
+  if ok { let _ = fmt.Println "env: ${home}"; () } else { () }
+  let buf = bytes.NewBufferString "a"
+  let _ = buf.WriteString ", b"
+  let _ = fmt.Println (buf.String ())
   ()
 }
