@@ -19,12 +19,17 @@ func id[A any](x A) A {
 }
 
 //line poly_functions.gom:5
-var alias func(int64) func(int64) int64 = func(tmp1 int64) func(int64) int64 {
+func alias(tmp1 int64) func(int64) int64 {
 //line poly_functions.gom:5
-	return func(tmp2 int64) int64 {
+	tmp4 := func(tmp2 int64) func(int64) int64 {
 //line poly_functions.gom:5
-		return choose[int64](tmp1, tmp2)
+		return func(tmp3 int64) int64 {
+//line poly_functions.gom:5
+			return choose[int64](tmp2, tmp3)
+		}
 	}
+//line poly_functions.gom:5
+	return tmp4(tmp1)
 }
 
 //line poly_functions.gom:7
@@ -41,34 +46,34 @@ func captured[A any](x A) func(A) A {
 //line poly_functions.gom:12
 func answer(_ struct{}) string {
 //line poly_functions.gom:13
-	pick := func(tmp3 int64) int64 {
+	pick := func(tmp5 int64) int64 {
 //line poly_functions.gom:13
-		return choose[int64](40, tmp3)
+		return choose[int64](40, tmp5)
 	}
 //line poly_functions.gom:14
 	local := captured[string]("captured")
 //line poly_functions.gom:15
-	tmp4 := id[string]("poly")
+	tmp6 := id[string]("poly")
 //line poly_functions.gom:15
-	tmp5 := tmp4
+	tmp7 := tmp6
 //line poly_functions.gom:15
-	tmp6 := id[int64](2)
-//line poly_functions.gom:15
-	tmp7 := strconv.FormatInt(tmp6, 10)
-//line poly_functions.gom:15
-	tmp8 := pick(2)
+	tmp8 := id[int64](2)
 //line poly_functions.gom:15
 	tmp9 := strconv.FormatInt(tmp8, 10)
 //line poly_functions.gom:15
-	tmp10 := alias(3)
+	tmp10 := pick(2)
 //line poly_functions.gom:15
-	tmp11 := tmp10(4)
+	tmp11 := strconv.FormatInt(tmp10, 10)
 //line poly_functions.gom:15
-	tmp12 := strconv.FormatInt(tmp11, 10)
+	tmp12 := alias(3)
 //line poly_functions.gom:15
-	tmp13 := local("ignored")
+	tmp13 := tmp12(4)
 //line poly_functions.gom:15
-	tmp14 := tmp13
+	tmp14 := strconv.FormatInt(tmp13, 10)
 //line poly_functions.gom:15
-	return tmp5 + ":" + tmp7 + ":" + tmp9 + ":" + tmp12 + ":" + tmp14
+	tmp15 := local("ignored")
+//line poly_functions.gom:15
+	tmp16 := tmp15
+//line poly_functions.gom:15
+	return tmp7 + ":" + tmp9 + ":" + tmp11 + ":" + tmp14 + ":" + tmp16
 }

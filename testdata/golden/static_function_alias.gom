@@ -1,0 +1,12 @@
+package aliases
+
+fn count (n: Int) -> Int = if n == 0 { 0 } else { again (n - 1) + 1 }
+let again = count
+let chained = again
+
+fn add (x: Int) (y: Int) -> Int = x + y
+let plus = add
+let add40 = plus 40
+
+fn apply (f: Int -> Int) (x: Int) -> Int = f x
+fn answer () -> Int = apply chained 3 + add40 2

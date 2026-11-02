@@ -98,3 +98,46 @@ func TestEagerFnChunkTiming(t *testing.T) {
 		t.Fatalf("binary output %q lacks the todo panic", out)
 	}
 }
+
+// Static aliases must not delay a declaration's first chunk or
+// recompute a partial application's initializer each time it is used.
+func TestStaticAliasEagerInitialization(t *testing.T) {
+	src := `package main
+import go "fmt"
+
+fn factory (x: Int) -> (Int -> Int) = {
+  ignore (fmt.Println "factory ${x}")
+  fn y -> x + y
+}
+let alias = factory
+let partial = alias 40
+
+fn main () -> Unit = {
+  ignore (fmt.Println "main")
+  ignore (fmt.Println (partial 2))
+  ignore (fmt.Println (partial 3))
+  let unused = alias 1
+  ignore (fmt.Println "after")
+  ()
+}
+`
+	r, err := build.Compile(build.Input{Path: "alias_eager.gom", Src: []byte(src)}, suiteOptions())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Output == nil {
+		t.Fatalf("compile diagnostics: %+v", r.Diagnostics)
+	}
+	gobin, err := lookupGo(t)
+	if err != nil {
+		t.Skip(err.Error())
+	}
+	out, err := runCompiledCmd(t, gobin, r.Output.Source)
+	if err != nil {
+		t.Fatalf("run: %v\n%s", err, out)
+	}
+	const want = "factory 40\nmain\n42\n43\nfactory 1\nafter\n"
+	if out != want {
+		t.Fatalf("output = %q, want %q", out, want)
+	}
+}

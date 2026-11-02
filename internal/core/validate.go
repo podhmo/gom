@@ -332,7 +332,14 @@ func (v *validator) decl(d Decl) {
 	}
 	switch d := d.(type) {
 	case *FuncDecl:
-		v.declSym(d.Sp, d.Sym, resolve.KindFunc, "FuncDecl")
+		kind := resolve.KindFunc
+		if d.ValueAlias {
+			kind = resolve.KindVar
+			if d.IsEntry || len(d.TypeParams) != 0 || d.Fn == nil || len(d.Fn.Params) != 1 {
+				v.err(d.Sp, "FuncDecl", "value alias must be a monomorphic arity-one non-entry function")
+			}
+		}
+		v.declSym(d.Sp, d.Sym, kind, "FuncDecl")
 		if d.Sym != nil && d.Sym.IsGo {
 			v.err(d.Sp, "FuncDecl", "function declaration symbol %q is a Go symbol", d.Sym.Name)
 		}

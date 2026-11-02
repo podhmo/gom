@@ -70,6 +70,46 @@ func TestValidateAcceptsValidFile(t *testing.T) {
 	}
 }
 
+func TestValidateValueAlias(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		edit func(*FuncDecl)
+		want string
+	}{
+		{name: "canonical variable wrapper", edit: func(*FuncDecl) {}},
+		{name: "function symbol", edit: func(d *FuncDecl) { d.Sym = fsym("alias") }, want: "want var"},
+		{name: "entry", edit: func(d *FuncDecl) { d.IsEntry = true }, want: "value alias must be"},
+		{name: "nil function", edit: func(d *FuncDecl) { d.Fn = nil }, want: "value alias must be"},
+		{name: "zero arity", edit: func(d *FuncDecl) { d.Fn.Params = nil }, want: "value alias must be"},
+		{name: "multiple parameters", edit: func(d *FuncDecl) {
+			d.Fn.Params = append(d.Fn.Params, bind(vsym("v"), types.Unit))
+		}, want: "value alias must be"},
+		{name: "type parameters", edit: func(d *FuncDecl) {
+			d.TypeParams = []*types.Var{{ID: 1, Name: "a"}}
+		}, want: "value alias must be"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := fnFile(types.Unit, &Body{Tail: unitLit()})
+			d := f.Decls[0].(*FuncDecl)
+			d.ValueAlias, d.Sym = true, vsym("alias")
+			tc.edit(d)
+			got := Validate(f)
+			if tc.want == "" {
+				if len(got) != 0 {
+					t.Fatalf("unexpected violations: %v", got)
+				}
+				return
+			}
+			for _, v := range got {
+				if strings.Contains(v.String(), tc.want) {
+					return
+				}
+			}
+			t.Fatalf("violations %v lack %q", got, tc.want)
+		})
+	}
+}
+
 // A Go package member (`os.O_RDONLY`, `math.Pi`) is referenced by
 // qualification, not by an enclosing binder — Var's contract admits
 // it without a scope entry. A non-Go member still demands the local

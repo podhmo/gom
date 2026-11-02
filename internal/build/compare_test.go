@@ -35,6 +35,26 @@ var compareCases = []struct {
 	want string // the string `answer ()` produces — eval and binary must agree
 }{
 	{
+		name: "static_function_alias",
+		src: `package main
+
+import go "fmt"
+
+fn count (n: Int) -> Int = if n == 0 { 0 } else { again (n - 1) + 1 }
+let again = count
+let chained = again
+
+fn add (x: Int) (y: Int) -> Int = if x == 0 { y } else { plus (x - 1) (y + 1) }
+let plus = add
+let add40 = plus 40
+
+fn apply (f: Int -> Int) (x: Int) -> Int = f x
+fn answer () -> String = "${again 3}:${chained 4}:${apply chained 5}:${add40 2}"
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "3:4:5:42",
+	},
+	{
 		name: "poly_functions",
 		src: `package main
 

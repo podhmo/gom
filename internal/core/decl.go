@@ -22,7 +22,11 @@ type Decl interface {
 // a flattened func type (P0-2).
 type FuncDecl struct {
 	Sp  diag.Span
-	Sym *resolve.Symbol // KindFunc; TestOnly marks @test definitions
+	Sym *resolve.Symbol // KindFunc, or KindVar for ValueAlias; TestOnly marks @test definitions
+	// ValueAlias marks a static function-valued let emitted as a named
+	// arity-one wrapper. Sym keeps KindVar and references remain Var /
+	// CallFunc, preserving the canonical function-value convention.
+	ValueAlias bool
 	// IsEntry marks the program entry — `fn main () -> Unit` in
 	// `package main` — decided by lowering (docs/design.md section
 	// 2.1: codegen consumes the flag, it does not re-derive the rule

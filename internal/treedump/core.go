@@ -116,7 +116,11 @@ func (d *cdump) cdecl(dd core.Decl) *form {
 	switch dd := dd.(type) {
 	case *core.FuncDecl:
 		name := d.symRef(dd.Sym)
-		return d.cfunc("fn"+at(dd.Sp)+" "+name, dd.Fn, name, dd.TypeParams)
+		head := "fn"
+		if dd.ValueAlias {
+			head = "value-alias"
+		}
+		return d.cfunc(head+at(dd.Sp)+" "+name, dd.Fn, name, dd.TypeParams)
 	case *core.VarDecl:
 		return nodef("let"+at(dd.Sp)+" "+d.symRef(dd.Sym), d.cbody(dd.Body))
 	case *core.TestDecl:

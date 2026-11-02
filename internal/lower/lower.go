@@ -146,6 +146,7 @@ func File(f *check.File, env *Env) (*core.File, []diag.Diagnostic) {
 			panic("unreachable")
 		}
 	}
+	l.staticAliases = l.indexStaticAliases(f)
 
 	// Generated comparators are package-scope declarations, but the
 	// .gom files of one package are compiled independently — each
@@ -221,6 +222,9 @@ type lowerer struct {
 	// one emits the call `x[T]()`, while a declared `fn f () -> T`
 	// referenced in value position stays a FuncRef.
 	thunks map[*resolve.Symbol]bool
+	// staticAliases marks pure local function references whose package
+	// let can use a named canonical wrapper without an initializer.
+	staticAliases map[*resolve.Symbol]bool
 	// typeD indexes the file's TypeDecls by qualified name key; ctorT
 	// maps a locally declared variant symbol to its TypeDecl.
 	typeD map[string]*check.TypeDecl
@@ -735,7 +739,8 @@ func (l *lowerer) tfields(fs []check.TField) []core.TField {
 
 // letDecl lowers a top-level `let pat = e`.
 //
-//   - `let x = e` becomes one VarDecl.
+//   - `let x = e` becomes one VarDecl, except a static function alias
+//     becomes a canonical named FuncDecl wrapper (ValueAlias).
 //   - a deep-irrefutable pattern (tuple/record/as/`[..rest]`
 //     compositions, wildcard) binds a shared hidden temporary VarDecl
 //     and one VarDecl per bound variable initialised by pure
@@ -752,6 +757,17 @@ func (l *lowerer) tfields(fs []check.TField) []core.TField {
 // lowered through the decision tree.
 func (l *lowerer) letDecl(d *check.LetDecl, out *core.File) {
 	if v, ok := d.Pat.(*check.VarPat); ok {
+		if l.staticAliases[v.Sym] {
+			sig := flatSig(d.Value.Type())
+			wrapper := l.closureOf(d.Sp, sig, sig.Params[:1], func(s *seq, params []core.Atom) core.Expr {
+				fn := l.atom(s, d.Value)
+				return l.applyAtom(s, d.Sp, retAfter(sig, 1), fn, params)
+			})
+			out.Decls = append(out.Decls, &core.FuncDecl{
+				Sp: d.Sp, Sym: v.Sym, ValueAlias: true, Fn: wrapper.Fn,
+			})
+			return
+		}
 		out.Decls = append(out.Decls, &core.VarDecl{
 			Sp: d.Sp, Sym: v.Sym, Body: l.exprBody(d.Value),
 		})

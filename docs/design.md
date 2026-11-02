@@ -109,6 +109,13 @@ let t3 = expensive_b ()
 call transfer(t2, t3, t1)
 ```
 
+Top-level `let` bindings that are pure references to local non-thunk functions
+(including alias chains) lower to canonical arity-one named wrappers.
+`core.FuncDecl.ValueAlias` preserves the variable symbol and `Var`/`CallFunc`
+references while making the absence of a Go package initializer explicit.
+Computed initializers remain eager `VarDecl`s. See
+[static-function-alias-declarations](decisions/2026-11-03-static-function-alias-declarations.md).
+
 ### 2.2 ソース位置の対応
 
 内部では「Gom ソースの範囲 → Core IR の由来 → 生成した Go ソースの範囲」の対応表を持つ。`//line` ディレクティブはこの対応を Go ツールチェーンに伝える手段の 1 つにすぎず、`go build` / `go vet` のエラーを Gom の位置に戻すときや、panic のスタックの変換にも対応表を使う。位置の正は UTF-8 のバイトオフセットで、行・列や UTF-16 の位置は出力時に計算する。
