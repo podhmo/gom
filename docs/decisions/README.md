@@ -70,6 +70,7 @@
 | [name-resolution](2026-11-02-name-resolution.md) | Name resolution: scopes, shadowing, and constructor lookup | draft |
 | [p1-3-parser-interpretations](2026-11-02-p1-3-parser-interpretations.md) | P1-3 parser: interpretations made while implementing grammar.ebnf | 採用 |
 | [pattern-checking](2026-11-02-pattern-checking.md) | Pattern-matrix checking: domains, guards, counterexamples (internal/pattern) | draft |
+| [record-recursion-by-value](2026-11-02-record-recursion-by-value.md) | レコード型は自分自身を値として内包できない（E0413） | 採用 |
 | [sumtype-exhaustiveness-tool](2026-11-02-sumtype-exhaustiveness-tool.md) | Exhaustiveness checker for sealed interfaces (B-3) | 採用 |
 | [tailrec-requirement](2026-11-02-tailrec-requirement.md) | `@tailrec`: a requirement attribute for tail-call optimization | draft |
 | [test-harness](2026-11-02-test-harness.md) | テストハーネスの配置とファイル規約 (internal/gomtest) | 採用 |

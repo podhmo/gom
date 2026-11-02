@@ -124,7 +124,7 @@ const builtinVarBase = 1 << 20
 // declaration environment and the SignatureSource do not cover —
 // builtin-scope symbols carry Package == "" (internal/types.Con).
 //
-// stdlib-level names (List.map, Chan.send, not, show, ...) are not
+// stdlib-level names (List.map, Chan.send, show, ...) are not
 // here: they belong to real packages and arrive through a
 // SignatureSource once the resolver learns them.
 func builtinSigs(v *builtinTVar) map[string]Signature {
@@ -144,6 +144,10 @@ func builtinSigs(v *builtinTVar) map[string]Signature {
 		"assert_eq": {Type: types.Fn(types.Unit, types.P(a), types.P(a))},
 		// todo () : a — diverges (panics) when reached.
 		"todo": {Type: types.Fn(v.named("todo_ret"), types.P(types.Unit))},
+		// not x : Bool — the `!` negation builtin (its lowering
+		// emits `!x`). A signature is what makes `not` usable as a
+		// function value.
+		"not": {Type: types.Fn(types.Bool, types.P(types.Bool))},
 	}
 }
 

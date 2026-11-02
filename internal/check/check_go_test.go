@@ -147,6 +147,57 @@ func TestCallGoSpread(t *testing.T) {
 	}
 }
 
+// The arity diagnostic compares the callee's declared parameter
+// count against the supplied positional arguments — never against
+// itself. `strings.Compare("x")` used to report a self-contradicting
+// "takes 1 argument(s), got 1" (fuzz finding): the expected count
+// subtracted the missing parameters instead of staying at the
+// declaration's arity.
+func TestCallGoArityMessage(t *testing.T) {
+	b := newTB()
+	strconv := b.modSym("strconv", true)
+	os := b.modSym("os", true)
+	fmt := b.modSym("fmt", true)
+	format := b.gofnSym("strconv", "FormatInt")
+	getpid := b.gofnSym("os", "Getpid")
+	sprintf := b.gofnSym("fmt", "Sprintf")
+	src := MapSource{
+		format:  sig(types.String, types.P(types.Int), types.P(types.Int)),
+		getpid:  sig(types.Int),
+		sprintf: vsig(types.String, types.P(types.String), types.P(types.GoSlice(types.GoAny))),
+	}
+
+	for _, tt := range []struct {
+		name string
+		call *syntax.Apply
+		ret  syntax.TypeExpr
+		want string
+	}{
+		// Under-application of a fixed-arity callee.
+		{"under", b.goCall(strconv, format, "FormatInt", b.ilit("255")), b.tn("String"),
+			"the Go callee takes 2 argument(s), got 1"},
+		// Over-application of the same callee.
+		{"over", b.goCall(strconv, format, "FormatInt", b.ilit("1"), b.ilit("2"), b.ilit("3")), b.tn("String"),
+			"the Go callee takes 2 argument(s), got 3"},
+		// A niladic callee with a stray argument.
+		{"niladic", b.goCall(os, getpid, "Getpid", b.ilit("5")), b.tn("Int"),
+			"the Go callee takes 0 argument(s), got 1"},
+		// A variadic callee missing its fixed prefix.
+		{"variadic", b.goCall(fmt, sprintf, "Sprintf"), b.tn("String"),
+			"the Go callee takes at least 1 argument(s), got 0"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			up := b.unitParam()
+			main, _ := b.fn("main", []syntax.Param{up}, tt.ret, tt.call)
+			_, diags := b.check(src, main)
+			requireCodes(t, diags, "E0401")
+			if got := diags[0].Message; got != tt.want {
+				t.Errorf("message = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
 // A spread on a non-variadic callee is E0505.
 func TestCallGoSpreadNonVariadic(t *testing.T) {
 	b := newTB()
@@ -345,6 +396,40 @@ func TestConvBare(t *testing.T) {
 
 	_, diags := b.check(nil, main)
 	requireCodes(t, diags, "E0507")
+}
+
+// `Go.conv` in value position is not a function: the conversion
+// operator only exists inside `Go.conv e : T`, so a bare reference
+// reports E0507 rather than reaching lowering (which would E0901).
+func TestConvValue(t *testing.T) {
+	b := newTB()
+	goMod := b.modSym("Go", true)
+	conv := b.builtinSym("conv", "Go")
+	vp, _ := b.vp("c")
+	d := b.letd(vp,
+		b.tfn(b.tn("Int32"), b.tp(b.tn("Int"))),
+		b.member(goMod, conv, "conv"))
+
+	_, diags := b.check(nil, d)
+	requireCodes(t, diags, "E0507")
+}
+
+// A type member of a module (`Go.Slice`, `Go.Map`, `pkg.SomeRecord`)
+// is a namespace, not a value: expression position is E0201. The
+// resolver reports it first for parsed input; check reports it too
+// so hand-built inputs stay covered.
+func TestGoTypeMemberValue(t *testing.T) {
+	b := newTB()
+	goMod := b.modSym("Go", true)
+	slice := &resolve.Symbol{Name: "Slice", Kind: resolve.KindType, Package: "Go"}
+	vp, _ := b.vp("s")
+	d := b.letd(vp, nil, b.member(goMod, slice, "Slice"))
+
+	_, diags := b.check(nil, d)
+	requireCodes(t, diags, "E0201")
+	if got := diags[0].Message; got != "`Slice` is a type, not a value" {
+		t.Errorf("message = %q", got)
+	}
 }
 
 // An impossible conversion is E0507.

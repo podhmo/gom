@@ -317,3 +317,240 @@ func TestCallBuiltinCtor(t *testing.T) {
 		t.Errorf("ctor type = %s, want `Option Int`", got)
 	}
 }
+
+// ---- record by-value cycles (E0413) -----------------------------------
+
+// A record field whose type expands back to the declaring record —
+// inline, with no boxing representation in between — is E0413:
+// the Go struct would contain itself.
+func TestRecordByValueCycle(t *testing.T) {
+	t.Run("direct", func(t *testing.T) {
+		b := newTB()
+		// type Point = {x: Point}
+		pointD, point := b.typeDecl("Point", nil, nil)
+		pointD.Body = b.recBody(b.fieldNamed("x", b.tnBound("Point", point)))
+		_, diags := b.check(nil, pointD)
+		requireCodes(t, diags, "E0413")
+	})
+
+	t.Run("mutual", func(t *testing.T) {
+		b := newTB()
+		// type A = {b: B}; type B = {a: A}
+		aD, a := b.typeDecl("A", nil, nil)
+		bD, bSym := b.typeDecl("B", nil, nil)
+		aD.Body = b.recBody(b.fieldNamed("b", b.tnBound("B", bSym)))
+		bD.Body = b.recBody(b.fieldNamed("a", b.tnBound("A", a)))
+		_, diags := b.check(nil, aD, bD)
+		requireCodes(t, diags, "E0413", "E0413")
+	})
+
+	t.Run("through generic record", func(t *testing.T) {
+		b := newTB()
+		// type Box a = {v: a}; type A = {b: Box A}
+		boxD, box := b.typeDecl("Box", []string{"a"}, nil)
+		boxD.Body = b.recBody(b.fieldNamed("v", b.tvar("a")))
+		aD, a := b.typeDecl("A", nil, nil)
+		aD.Body = b.recBody(b.fieldNamed("b",
+			b.tapp(b.tnBound("Box", box), b.tnBound("A", a))))
+		_, diags := b.check(nil, boxD, aD)
+		requireCodes(t, diags, "E0413")
+	})
+
+	t.Run("through nested generic record", func(t *testing.T) {
+		b := newTB()
+		// type Box a = {v: a}; type A = {b: Box (Box A)}
+		boxD, box := b.typeDecl("Box", []string{"a"}, nil)
+		boxD.Body = b.recBody(b.fieldNamed("v", b.tvar("a")))
+		aD, a := b.typeDecl("A", nil, nil)
+		inner := b.tapp(b.tnBound("Box", box), b.tnBound("A", a))
+		aD.Body = b.recBody(b.fieldNamed("b",
+			b.tapp(b.tnBound("Box", box), inner)))
+		_, diags := b.check(nil, boxD, aD)
+		requireCodes(t, diags, "E0413")
+	})
+
+	t.Run("through Result", func(t *testing.T) {
+		b := newTB()
+		// Result is a struct holding both payloads inline, so
+		// `{r: Result A GoError}` puts A inside A.
+		aD, a := b.typeDecl("A", nil, nil)
+		aD.Body = b.recBody(b.fieldNamed("r",
+			b.tapp(b.tn("Result"), b.tnBound("A", a), b.tn("GoError"))))
+		_, diags := b.check(nil, aD)
+		requireCodes(t, diags, "E0413")
+	})
+
+	t.Run("through Task", func(t *testing.T) {
+		b := newTB()
+		aD, a := b.typeDecl("A", nil, nil)
+		aD.Body = b.recBody(b.fieldNamed("t",
+			b.tapp(b.tn("Task"), b.tnBound("A", a))))
+		_, diags := b.check(nil, aD)
+		requireCodes(t, diags, "E0413")
+	})
+
+	t.Run("through tuple", func(t *testing.T) {
+		b := newTB()
+		aD, a := b.typeDecl("A", nil, nil)
+		aD.Body = b.recBody(b.fieldNamed("t",
+			b.ttup(b.tn("Int"), b.tnBound("A", a))))
+		_, diags := b.check(nil, aD)
+		requireCodes(t, diags, "E0413")
+	})
+
+	t.Run("recursive instantiation", func(t *testing.T) {
+		b := newTB()
+		// type W a = {x: W (W a)} — any W _ inside W's fields is
+		// by-value recursion, whatever the arguments.
+		wD, w := b.typeDecl("W", []string{"a"}, nil)
+		wD.Body = b.recBody(b.fieldNamed("x",
+			b.tapp(b.tnBound("W", w), b.tapp(b.tnBound("W", w), b.tvar("a")))))
+		_, diags := b.check(nil, wD)
+		requireCodes(t, diags, "E0413")
+	})
+}
+
+// Recursion across a representation that boxes or references the
+// payload — a sum-type variant, a function type, or a
+// reference-shaped builtin — is legal.
+func TestRecordIndirectCycleOK(t *testing.T) {
+	t.Run("function field", func(t *testing.T) {
+		b := newTB()
+		// type A = {f: () -> A}
+		aD, a := b.typeDecl("A", nil, nil)
+		aD.Body = b.recBody(b.fieldNamed("f",
+			b.tfn(b.tnBound("A", a), b.tp(b.tn("Unit")))))
+		_, diags := b.check(nil, aD)
+		requireCodes(t, diags)
+	})
+
+	t.Run("sum type field", func(t *testing.T) {
+		b := newTB()
+		// A record may hold a recursive sum type: the variant
+		// payload is boxed behind the sealed interface.
+		nodeV, _ := b.variant("Node", b.fieldPos(b.tn("Tree")))
+		treeD, tree := b.typeDecl("Tree", nil, b.sumBody(nodeV))
+		bD, _ := b.typeDecl("B", nil,
+			b.recBody(b.fieldNamed("t", b.tnBound("Tree", tree))))
+		_, diags := b.check(nil, treeD, bD)
+		requireCodes(t, diags)
+	})
+
+	t.Run("reference-shaped builtins", func(t *testing.T) {
+		for _, tt := range []struct {
+			name string
+			ty   func(t *tb, elem syntax.TypeExpr) syntax.TypeExpr
+		}{
+			{"List", func(t *tb, e syntax.TypeExpr) syntax.TypeExpr {
+				return t.tapp(t.tn("List"), e)
+			}},
+			{"Option", func(t *tb, e syntax.TypeExpr) syntax.TypeExpr {
+				return t.tapp(t.tn("Option"), e)
+			}},
+			{"Ref", func(t *tb, e syntax.TypeExpr) syntax.TypeExpr {
+				return t.tapp(t.tn("Ref"), e)
+			}},
+			{"Ptr", func(t *tb, e syntax.TypeExpr) syntax.TypeExpr {
+				return t.tapp(t.tn("Ptr"), e)
+			}},
+			{"Array", func(t *tb, e syntax.TypeExpr) syntax.TypeExpr {
+				return t.tapp(t.tn("Array"), e)
+			}},
+			{"Chan", func(t *tb, e syntax.TypeExpr) syntax.TypeExpr {
+				return t.tapp(t.tn("Chan"), e)
+			}},
+			{"Go.Slice", func(t *tb, e syntax.TypeExpr) syntax.TypeExpr {
+				return t.tapp(&syntax.TypeName{Sp: t.sp(), Qual: t.id("Go"), Name: t.id("Slice")}, e)
+			}},
+			{"Go.Map", func(t *tb, e syntax.TypeExpr) syntax.TypeExpr {
+				return t.tapp(&syntax.TypeName{Sp: t.sp(), Qual: t.id("Go"), Name: t.id("Map")}, t.tn("String"), e)
+			}},
+		} {
+			t.Run(tt.name, func(t *testing.T) {
+				b := newTB()
+				aD, a := b.typeDecl("A", nil, nil)
+				aD.Body = b.recBody(b.fieldNamed("x",
+					tt.ty(b, b.tnBound("A", a))))
+				_, diags := b.check(nil, aD)
+				requireCodes(t, diags)
+			})
+		}
+	})
+
+	t.Run("generic record holding its parameter", func(t *testing.T) {
+		b := newTB()
+		// type Box a = {v: a} alone is fine — Box[Int] is finite.
+		boxD, _ := b.typeDecl("Box", []string{"a"}, nil)
+		boxD.Body = b.recBody(b.fieldNamed("v", b.tvar("a")))
+		_, diags := b.check(nil, boxD)
+		requireCodes(t, diags)
+	})
+}
+
+// A builtin function name in value position is a function value:
+// `let f = not` binds `f : Bool -> Bool` (lowering eta-expands the
+// reference into a closure over the builtin call).
+func TestBuiltinValue(t *testing.T) {
+	t.Run("not", func(t *testing.T) {
+		b := newTB()
+		notSym := b.builtinSym("not", "")
+		vp, _ := b.vp("f")
+		d := b.letd(vp, nil, b.ref(notSym))
+		f, diags := b.check(nil, d)
+		requireCodes(t, diags)
+		ld := findDecl[*LetDecl](f, 0)
+		if got := ld.Pat.Type().String(); got != "Bool -> Bool" {
+			t.Errorf("f's type = %s, want Bool -> Bool", got)
+		}
+	})
+
+	t.Run("assert in a test", func(t *testing.T) {
+		// Inside a `test` block the assertion builtins are
+		// ordinary function values — `let a = assert` binds
+		// `a : Bool -> Unit`.
+		b := newTB()
+		assertSym := b.builtinSym("assert", "")
+		vp, _ := b.vp("a")
+		d := b.testd("t", b.block(
+			b.letStmt(vp, b.ref(assertSym)),
+			b.ulit()))
+		_, diags := b.check(nil, d)
+		requireCodes(t, diags)
+	})
+
+	t.Run("assert outside a test", func(t *testing.T) {
+		// The same binding in ordinary code is E0803 — the
+		// assertion's lowering needs the generated *testing.T
+		// only a test function binds.
+		b := newTB()
+		assertSym := b.builtinSym("assert", "")
+		vp, _ := b.vp("a")
+		up := b.unitParam()
+		main, _ := b.fn("main", []syntax.Param{up}, b.tn("Unit"),
+			b.block(b.letStmt(vp, b.ref(assertSym)), b.ulit()))
+		_, diags := b.check(nil, main)
+		requireCodes(t, diags, "E0803")
+		if got := diags[0].Message; got != "`assert` may only be used inside a test block" {
+			t.Errorf("message = %q", got)
+		}
+	})
+
+	t.Run("assert_eq call outside a test", func(t *testing.T) {
+		b := newTB()
+		assertSym := b.builtinSym("assert_eq", "")
+		up := b.unitParam()
+		main, _ := b.fn("main", []syntax.Param{up}, b.tn("Unit"),
+			b.app(b.ref(assertSym), b.arg(b.ilit("1")), b.arg(b.ilit("2"))))
+		_, diags := b.check(nil, main)
+		requireCodes(t, diags, "E0803")
+	})
+
+	t.Run("todo annotated", func(t *testing.T) {
+		b := newTB()
+		todoSym := b.builtinSym("todo", "")
+		vp, _ := b.vp("t")
+		d := b.letd(vp, b.tfn(b.tn("Int"), b.tp(b.tn("Unit"))), b.ref(todoSym))
+		_, diags := b.check(nil, d)
+		requireCodes(t, diags)
+	})
+}

@@ -439,6 +439,23 @@ fn f () -> Unit = {
 }
 ```
 
+### E0413 — record type contains itself by value
+
+**Severity:** error · **Phase:** check
+
+A record's Go representation is a struct whose
+fields are stored inline, so a field whose type expands back to the
+same record — directly or through a cycle of records — describes an
+infinitely large value, which Go rejects as an invalid recursive
+type. Recursion is still allowed across representations that box
+their payload: sum-type variants (sealed interfaces), function
+types, and the reference-shaped builtins List, Ref, Ptr, Array,
+Go.Slice, Go.Map, and the channel types.
+
+```gom
+type Point = {x: Point}   // use a sum type or {f: () -> Point}
+```
+
 ## 05xx — Go interop
 
 ### E0501 — Go symbol cannot be represented in Gom
@@ -686,6 +703,24 @@ referenced only from test declarations and other @test definitions
 fn helper () -> Int = 1
 
 fn prod () -> Int = helper ()   // helper is test-only
+```
+
+### E0803 — assert outside a test block
+
+**Severity:** error · **Phase:** check · **Spec:** §11
+
+assert and assert_eq compile to test-assertion calls that need the
+*testing.T a generated test function binds, so they may appear only
+inside a test block (spec section 11.2). Whether assertions will gain
+a meaning in ordinary code is an open question; until then this
+diagnostic reports the restriction.
+
+```gom
+test "ok" {
+  assert (1 + 1 == 2)
+}
+
+fn prod () -> Unit = assert true   // no test function binds t
 ```
 
 ## 90xx — Evaluation

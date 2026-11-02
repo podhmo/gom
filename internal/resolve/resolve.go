@@ -103,6 +103,11 @@ type resolver struct {
 	// @test declaration — the contexts allowed to reference test-only
 	// symbols (spec section 11.3).
 	inTest bool
+	// inQual counts nested selects walking a qualifier path
+	// (`pkg.Type.Ctor`): a type member selected there is a namespace
+	// hop, not a term, so selectMember suppresses its notValue
+	// diagnostic while the count is non-zero.
+	inQual int
 	// tv is the enclosing declaration's type-variable scope while a
 	// body is being resolved — annotations inside the body see the
 	// signature's variables through it.

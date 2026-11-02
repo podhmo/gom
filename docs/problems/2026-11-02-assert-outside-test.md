@@ -3,7 +3,10 @@
 - 状態: 未解決（2026-11-04 追記: lowering が `test` ブロック外の
   `assert`/`assert_eq` を E0901 "may only be called inside a test
   block" と診断する暫定措置を入れた — 壊れた Go は出ないが、
-  `assert` が普通のコードで使えるかという意味論の決定は未解決のまま）
+  `assert` が普通のコードで使えるかという意味論の決定は未解決のまま。
+  2026-11-02 再追記: 制約自体は check 層の責務なので、型検査が
+  呼び出し・値参照のどちらの用途も E0803 で報告するようになった。
+  lowering のガードは IR 契約のバックストップとして残る）
 - 発見: 2026-11-02, P1-8 review follow-up
 
 ## Situation

@@ -1,0 +1,8 @@
+package ex
+
+// `Go.conv` is a conversion operator, not a function value — it only
+// exists inside `Go.conv e : T`. A bare reference is E0507.
+fn main () -> Unit = {
+  let c : Int -> Int32 = Go.conv
+  ()
+}

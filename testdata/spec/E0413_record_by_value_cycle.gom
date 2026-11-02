@@ -1,0 +1,8 @@
+package ex
+
+// A record is a Go struct, so a field that expands back to the same
+// record by value would be infinitely large — recursion must cross a
+// boxing representation (sum type, function, reference-shaped builtin).
+type Point = {x: Point}
+
+fn main () -> Unit = ()

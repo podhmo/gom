@@ -1,0 +1,26 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0803",
+      "severity": "error",
+      "message": "`assert` may only be used inside a test block",
+      "span": {
+        "file": "E0803_assert_outside_test.gom",
+        "start": {
+          "line": 7,
+          "col": 3,
+          "offset": 243
+        },
+        "end": {
+          "line": 7,
+          "col": 9,
+          "offset": 249
+        }
+      },
+      "data": {
+        "builtin": "assert"
+      }
+    }
+  ]
+}

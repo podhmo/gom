@@ -42,6 +42,15 @@ func builtinByName(name string, typ types.Type) *VFunc {
 			}
 			return &VUnit{}, nil
 		}
+	case "not":
+		arity = 1
+		impl = func(args []Value) (Value, error) {
+			b, ok := args[0].(*VBool)
+			if !ok {
+				return nil, fmt.Errorf("not applied to %s, want Bool", args[0].String())
+			}
+			return &VBool{B: !b.B}, nil
+		}
 	default:
 		return nil
 	}

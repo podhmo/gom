@@ -188,6 +188,16 @@ func (r *resolver) selectExpr(n *syntax.Select, sc *scope) {
 	}
 	recv, ok := n.Recv.(*syntax.Ident)
 	if !ok {
+		if _, isSel := n.Recv.(*syntax.Select); isSel {
+			// `pkg.Type.Ctor` — the inner select qualifies a
+			// further member, so its type member is a namespace
+			// hop, not a value: keep the notValue diagnostic for
+			// genuine term positions only.
+			r.inQual++
+			r.expr(n.Recv, sc)
+			r.inQual--
+			return
+		}
 		r.expr(n.Recv, sc)
 		return
 	}
@@ -244,6 +254,17 @@ func (r *resolver) selectMember(mod *Symbol, sel *syntax.Ident, sc *scope) {
 	}
 	if member, ok := table[sel.Name]; ok {
 		r.use(sel, member)
+		// A type member (`Go.Slice`, `pkg.SomeRecord`) is a
+		// namespace, not a value — like a bare module name it can
+		// never be an expression. In qualifier position
+		// (`pkg.Type.Ctor`) it is a namespace hop instead, so the
+		// diagnostic is for genuine term positions only.
+		// KindBuiltin members (`Go.conv`) are exempt either way:
+		// whether the selection is a misuse depends on call-site
+		// context the checker sees, not the member kind.
+		if member.Kind == KindType && r.inQual == 0 {
+			r.notValue(sel, member)
+		}
 		return
 	}
 	if tsym := sc.lookupType(mod.Name); tsym != nil && tsym.Kind == KindType {

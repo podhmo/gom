@@ -51,6 +51,7 @@ func Check(res *resolve.Resolved, src SignatureSource) (*File, diag.List) {
 	c.registerBuiltinTypes(bv)
 	c.registerTypeDecls(res.File.Decls)
 	c.resolveTypeBodies(res.File.Decls)
+	c.checkRecordCycles()
 	c.registerValueDecls(res.File.Decls)
 	c.checkDecls(res.File.Decls)
 	c.finalize()
@@ -126,6 +127,12 @@ type checker struct {
 	// bounds is the escape-boundary stack for `try` — innermost last.
 	bounds  []boundary
 	goDepth int
+
+	// inTest marks checking inside a `test` declaration's body —
+	// the only place assert and assert_eq may appear (E0803). The
+	// flag is syntactic: a lambda nested in a test still sees the
+	// generated t parameter it captures.
+	inTest bool
 
 	// curTScope is the rigid-variable scope of the signature whose
 	// body is being checked — a nested annotation (a local `let`'s
@@ -283,6 +290,19 @@ func (c *checker) valOf(sym *resolve.Symbol, sp diag.Span) (types.Type, []types.
 	c.referenced[sym] = true
 	if c.hiddenDiag(sym, sp) {
 		return c.quietMeta(sp, fmt.Sprintf("the type of `%s`", sym.Name)), nil
+	}
+	if sym.Kind == resolve.KindBuiltin && !c.inTest &&
+		(sym.Name == "assert" || sym.Name == "assert_eq") {
+		// assert/assert_eq compile to rt.Assert*(t, ...) — t is
+		// the *testing.T only a generated test function binds.
+		// The restriction is reported here rather than at
+		// lowering so a stray reference (a call, a partial
+		// application, a value-position name) gets a user
+		// diagnostic instead of an internal one; lowering keeps
+		// its own guard as the IR contract.
+		c.diags.Add(diag.Error("E0803",
+			fmt.Sprintf("`%s` may only be used inside a test block", sym.Name)).
+			At(sp).Set("builtin", sym.Name))
 	}
 	if sig, ok := c.sigOf(sym); ok {
 		if _, local := c.vals[sym]; local && sym.Kind == resolve.KindVar {
@@ -850,7 +870,9 @@ func (c *checker) checkExternDecl(d *syntax.ExternDecl) {
 func (c *checker) checkTestDecl(d *syntax.TestDecl) {
 	ret := c.newMeta(d.Sp, "the test body's result type")
 	c.bounds = append(c.bounds, boundary{ret: ret, sp: d.Sp, goDepth: c.goDepth, kind: "test"})
+	c.inTest = true
 	body := c.checkExpr(d.Body, nil)
+	c.inTest = false
 	c.bounds = c.bounds[:len(c.bounds)-1]
 	// The boundary ret records what a `try` inside demanded: Result
 	// a e. Unify it with the body's own type (lifted into Result

@@ -191,12 +191,27 @@ func (l *lowerer) varExpr(e *check.Var) core.Expr {
 		// application of zero arguments.
 		return &core.CtorApp{Base: baseOf(e), Ctor: sym, Arity: 0, TypeArgs: e.TypeArgs}
 	case resolve.KindBuiltin:
-		l.err(e.Sp, fmt.Sprintf("builtin %s used as a value", sym.Name))
-		return &core.CallBuiltin{Base: baseOf(e), Sym: sym}
+		return l.builtinRef(e.Sp, e.Type(), sym)
 	default:
 		l.err(e.Sp, fmt.Sprintf("%s %s is not an expression", sym.Kind, sym.Name))
 		return l.litUnit(e.Sp)
 	}
+}
+
+// builtinRef lowers a builtin function name used as a value. A
+// builtin is a function like a declared one — `let f = not` must
+// denote `Bool -> Bool` — but it has no Go-level name to reference,
+// so the value is an eta-expansion: a closure over the builtin call
+// (`func(b bool) bool { return !b }`). The reference type supplies
+// the parameter list.
+func (l *lowerer) builtinRef(sp diag.Span, typ types.Type, sym *resolve.Symbol) core.Expr {
+	if sig := sigOf(typ); sig != nil {
+		return l.closureOf(sp, typ, sig.Params, func(bs *seq, pv []core.Atom) core.Expr {
+			return l.builtinCall(sp, sig.Ret, sym, pv)
+		})
+	}
+	l.err(sp, fmt.Sprintf("builtin %s used as a non-function value", sym.Name))
+	return &core.CallBuiltin{Base: core.Base{Sp: sp, Typ: typ}, Sym: sym}
 }
 
 // funcRefOrFlatten lowers a Gom function reference: a FuncRef when
@@ -291,6 +306,12 @@ func (l *lowerer) memberExpr(s *seq, e *check.MemberExpr) core.Expr {
 	case resolve.KindMethod:
 		recv := l.atom(s, e.Recv)
 		return l.goFuncRefOrAdapter(e.Sp, e.Type(), e.Sym, recv, e.TypeArgs)
+	case resolve.KindBuiltin:
+		// A function-valued builtin member lowers like a builtin
+		// name in value position (an eta-expansion). `Go.conv`
+		// never reaches here: check reports E0507 for it in
+		// expression position.
+		return l.builtinRef(e.Sp, e.Type(), e.Sym)
 	default:
 		l.err(e.Sp, fmt.Sprintf("member %s is not an expression", e.Sym.Kind))
 		return l.litUnit(e.Sp)

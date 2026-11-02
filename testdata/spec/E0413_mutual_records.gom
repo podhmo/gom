@@ -1,0 +1,9 @@
+package ex
+
+// The by-value cycle may pass through another record: A's b field
+// holds a B, and B's a field holds an A — both are rejected.
+type A = {b: B}
+
+type B = {a: A}
+
+fn main () -> Unit = ()

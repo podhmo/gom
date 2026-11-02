@@ -2009,3 +2009,58 @@ func TestPipeBackGoHoleFill(t *testing.T) {
 		t.Errorf("arg1 = %T, want the piped var", cg.Args[1])
 	}
 }
+
+// TestBuiltinValueClosure: a builtin function name in value
+// position is a function value like a declared one — `let f = not`
+// has no Go-level name to reference, so it eta-expands to a Closure
+// over the builtin call (`func(b) { return !b }`).
+func TestBuiltinValueClosure(t *testing.T) {
+	notSym := &resolve.Symbol{Name: "not", Kind: resolve.KindBuiltin}
+	sig := types.Fn(types.Bool, types.P(types.Bool))
+	out := mustLower(t, decl("f", nil, vr(notSym, sig), types.Fn(sig)))
+	cl, ok := fnDeclOf(t, out, 0).Fn.Body.Tail.(*core.Closure)
+	if !ok {
+		t.Fatalf("tail is %T, want Closure", fnDeclOf(t, out, 0).Fn.Body.Tail)
+	}
+	if len(cl.Fn.Params) != 1 {
+		t.Fatalf("closure params = %d, want 1", len(cl.Fn.Params))
+	}
+	cb, ok := cl.Fn.Body.Tail.(*core.CallBuiltin)
+	if !ok {
+		t.Fatalf("closure body is %T, want CallBuiltin", cl.Fn.Body.Tail)
+	}
+	if cb.Sym != notSym {
+		t.Fatalf("CallBuiltin sym = %v, want not", cb.Sym)
+	}
+	if len(cb.Args) != 1 || cb.Args[0].(*core.Var).Sym != cl.Fn.Params[0].Sym {
+		t.Fatalf("CallBuiltin args = %+v, want [the closure param]", cb.Args)
+	}
+}
+
+// TestBuiltinValueClosureInTest: an assert builtin in value
+// position inside a `test` block eta-expands the same way — the
+// closure's CallBuiltin still runs under the in-test flag.
+func TestBuiltinValueClosureInTest(t *testing.T) {
+	assertSym := &resolve.Symbol{Name: "assert", Kind: resolve.KindBuiltin}
+	sig := types.Fn(types.Unit, types.P(types.Bool))
+	td := &check.TestDecl{Sp: sp, Name: "t", Body: vr(assertSym, sig)}
+	out, diags := lowerWith(t, &Env{Tests: true}, td)
+	for _, d := range diags {
+		t.Errorf("unexpected diagnostic: %v", d)
+	}
+	td0, ok := out.Decls[0].(*core.TestDecl)
+	if !ok {
+		t.Fatalf("decl 0 is %T, want TestDecl", out.Decls[0])
+	}
+	cl, ok := td0.Fn.Body.Tail.(*core.Closure)
+	if !ok {
+		t.Fatalf("tail is %T, want Closure", td0.Fn.Body.Tail)
+	}
+	cb, ok := cl.Fn.Body.Tail.(*core.CallBuiltin)
+	if !ok {
+		t.Fatalf("closure body is %T, want CallBuiltin", cl.Fn.Body.Tail)
+	}
+	if cb.Sym != assertSym {
+		t.Fatalf("CallBuiltin sym = %v, want assert", cb.Sym)
+	}
+}

@@ -1,0 +1,10 @@
+package ex
+
+// Builtin functions are first-class values: `not` is `Bool -> Bool`
+// and lowers as a closure over the builtin call, like a named
+// function reference does.
+fn main () -> Unit = {
+  let f : Bool -> Bool = not
+  let _ = f true
+  ()
+}

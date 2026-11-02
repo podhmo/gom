@@ -1,0 +1,28 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0201",
+      "severity": "error",
+      "message": "`Slice` is a type, not a value",
+      "span": {
+        "file": "E0201_go_type_member.gom",
+        "start": {
+          "line": 6,
+          "col": 14,
+          "offset": 176
+        },
+        "end": {
+          "line": 6,
+          "col": 19,
+          "offset": 181
+        }
+      },
+      "data": {
+        "name": "Slice",
+        "namespace": "value",
+        "resolved_kind": "type"
+      }
+    }
+  ]
+}

@@ -142,14 +142,34 @@ func (c *checker) checkSelect(e *syntax.Select) Expr {
 			recv := &Var{Base: baseOf(id.Sp, c.untypedMeta()), Sym: msym}
 			var typ types.Type
 			var targs []types.Type
-			if sel != nil && isConv(sel) {
+			switch {
+			case sel != nil && isConv(sel):
 				// `Go.conv` alone is not a value; the conversion form
-				// is `Go.conv e : T` (the apply/ascription checker
-				// reads it without evaluating this node). Its type is
-				// not representable — keep it off the meta table so a
-				// stray `Go.conv` never asks for an annotation.
+				// is `Go.conv e : T`, which the ascription checker
+				// reads straight from the surface apply without ever
+				// evaluating this node. Reaching here means the
+				// selection sits in expression position — a bare
+				// `{Go.conv}` or the callee of a malformed call —
+				// so report E0507. Its type is not representable:
+				// keep it off the meta table so a stray `Go.conv`
+				// never asks for an annotation.
+				c.diags.Add(diag.Error("E0507",
+					"`Go.conv` is only valid as a conversion: `Go.conv e : T`").At(e.Sp))
 				typ = c.untypedMeta()
-			} else {
+			case sel != nil && !valueMember(sel.Kind):
+				// A namespace member (a type, or a builtin that is
+				// not a function) is not an expression. The resolver
+				// reports this as E0201 already; the checker stays
+				// total over inputs that skipped it — recover with a
+				// quiet meta so no E0407 follows.
+				c.diags.Add(diag.Error("E0201",
+					fmt.Sprintf("`%s` is a %s, not a value", nameOfSel(sel, e.Sel), sel.Kind)).
+					At(e.Sel.Sp).
+					Set("name", nameOfSel(sel, e.Sel)).
+					Set("namespace", "value").
+					Set("resolved_kind", sel.Kind.String()))
+				typ = c.quietMeta(e.Sp, fmt.Sprintf("the type of `%s`", nameOfSel(sel, e.Sel)))
+			default:
 				typ, targs = c.valOf(sel, e.Sel.Sp)
 				if sel.Kind == resolve.KindCtor {
 					targs = ctorADTArgs(typ)
@@ -234,6 +254,21 @@ func (c *checker) checkSelect(e *syntax.Select) Expr {
 		fmt.Sprintf("%s has no field or method `%s`", recv.Type(), selName)).
 		At(e.Sel.Sp).Set("type", recv.Type().String()).Set("member", selName))
 	return &MemberExpr{Base: baseOf(e.Sp, c.quietMeta(e.Sp, fmt.Sprintf("the type of `.%s`", selName))), Recv: recv, Sel: e.Sel, Sym: sel, Index: -1}
+}
+
+// valueMember reports whether a module member kind denotes a term —
+// functions, constructors, variables, fields, and methods are
+// values; types and modules are namespaces. (KindBuiltin members
+// with a signature are values too; `Go.conv` is diverted before this
+// test ever sees it.)
+func valueMember(k resolve.Kind) bool {
+	switch k {
+	case resolve.KindFunc, resolve.KindCtor, resolve.KindVar,
+		resolve.KindField, resolve.KindMethod, resolve.KindBuiltin:
+		return true
+	default:
+		return false
+	}
 }
 
 // revisitSelects retries the member selections checkSelect deferred

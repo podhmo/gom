@@ -69,7 +69,9 @@ func (c *checker) declArity(sig Signature, flat int) int {
 }
 
 // checkConvCall handles `Go.conv e` written without the mandatory
-// `: T` ascription — always an error, kept recoverable.
+// `: T` ascription — always an error, kept recoverable. The E0507
+// itself was already reported by checkSelect, which types the conv
+// member in expression position on the way through calleeOf.
 func (c *checker) checkConvCall(e *syntax.Apply, fn Expr) Expr {
 	out := &Apply{Base: baseOf(e.Sp, c.quietMeta(e.Sp, "the conversion's result")), Fn: fn}
 	for _, a := range e.Args {
@@ -82,8 +84,6 @@ func (c *checker) checkConvCall(e *syntax.Apply, fn Expr) Expr {
 		out.Args = append(out.Args, Arg{Value: v})
 	}
 	out.Call = CallInfo{Kind: CallUnknown, Arity: 0, Applied: len(out.Args), HoleIndex: -1}
-	c.diags.Add(diag.Error("E0507",
-		"`Go.conv` must be written with a target type: `Go.conv e : T`").At(e.Sp))
 	return out
 }
 
@@ -462,6 +462,7 @@ func (c *checker) checkGoApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol,
 	used := make([]bool, arity)
 	posIdx := 0
 	tooMany := 0
+	posArgs := 0
 	hole := -1
 	var holeT types.Type
 	mapping := make([]int, 0, len(gargs))
@@ -483,6 +484,7 @@ func (c *checker) checkGoApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol,
 				pi = -1
 			}
 		} else {
+			posArgs++
 			for posIdx < arity && (used[posIdx] || goParams[posIdx].Label != "") {
 				posIdx++
 			}
@@ -557,7 +559,11 @@ func (c *checker) checkGoApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol,
 	// diagnostic; unfilled labeled params report E0404 each — a Go
 	// call cannot be partial.
 	missing := 0
+	posParams := 0
 	for i, p := range goParams {
+		if p.Label == "" {
+			posParams++
+		}
 		if used[i] || (variadic && i == arity-1) {
 			continue
 		}
@@ -575,13 +581,28 @@ func (c *checker) checkGoApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol,
 			// unknown Go symbol) has no arity to argue with — its
 			// own diagnostic already reported the cause, and "the
 			// Go callee takes 0 argument(s)" would only mislead.
-			want := fmt.Sprintf("%d", arity-missing)
+			// The counts compare positional arguments against
+			// positional (unlabeled) parameters: labeled arguments
+			// and unfilled labeled parameters carry their own
+			// per-label diagnostics (E0404–E0406), and counting
+			// them on either side yields self-contradicting
+			// messages like "takes 1 argument(s), got 1".
+			required := posParams
 			if variadic {
-				want = fmt.Sprintf("at least %d", arity-1)
+				// The variadic tail is optional; only the
+				// fixed prefix must be supplied.
+				required--
+				if required < 0 {
+					required = 0
+				}
+			}
+			want := fmt.Sprintf("%d", required)
+			if variadic {
+				want = fmt.Sprintf("at least %d", required)
 			}
 			c.diags.Add(diag.Error("E0401",
-				fmt.Sprintf("the Go callee takes %s argument(s), got %d", want, len(gargs))).
-				At(e.Sp).Set("expected", want).Set("actual", fmt.Sprintf("%d", len(gargs))))
+				fmt.Sprintf("the Go callee takes %s argument(s), got %d", want, posArgs)).
+				At(e.Sp).Set("expected", want).Set("actual", fmt.Sprintf("%d", posArgs)))
 		}
 	}
 

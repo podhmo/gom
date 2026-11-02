@@ -679,3 +679,205 @@ func varsOfFunc(f *types.Func) []*types.Var {
 	out = append(out, rigidVars(f.Ret)...)
 	return out
 }
+
+// recordCycleLimit bounds the number of distinct instantiated
+// records one field walk may visit. An expansion that grows past the
+// limit describes an infinitely large value — `{x: B (B A)}` style
+// nesting peels one layer per step — so exceeding it reports the
+// same E0413 an outright cycle does.
+const recordCycleLimit = 256
+
+// checkRecordCycles rejects records that contain themselves by
+// value: the Go representation of a record is a struct whose fields
+// are stored inline, so `type Point = {x: Point}` — or a mutual
+// cycle `type A = {b: B}; type B = {a: A}` — would emit a struct
+// that contains itself, which Go forbids as an invalid recursive
+// type. The check runs after resolveTypeBodies so every local
+// record's fields are known; each offending field reports E0413 at
+// its own span.
+func (c *checker) checkRecordCycles() {
+	for _, ti := range c.records {
+		for _, fi := range ti.fields {
+			w := &recordCycle{origin: ti, c: c}
+			if w.holds(fi.typ) {
+				name := ""
+				if ti.sym != nil {
+					name = ti.sym.Name
+				}
+				d := diag.Error("E0413",
+					fmt.Sprintf("invalid recursive type: `%s` contains itself by value through field `%s`", name, fi.name)).
+					At(fi.sp).Set("type", name).Set("field", fi.name)
+				if fi.typ != nil {
+					d = d.Set("field_type", fi.typ.String())
+				}
+				c.diags.Add(d)
+			}
+		}
+	}
+}
+
+// recordCycle walks a record field's type looking for a by-value
+// path back to the record it is declared in. The walk stops at
+// representations that box or reference their payload — sum types
+// (sealed interfaces), function types, and the reference-shaped
+// builtins (List, Ref, Ptr, Array, Go.Slice, Go.Map, the channels,
+// scalars) — and descends through the ones that carry their payload
+// inline: records themselves, tuples, the struct-shaped builtins
+// Result and Task, and instantiated Go named types, whose layout is
+// opaque and is therefore treated as by-value.
+type recordCycle struct {
+	origin *typeInfo
+	c      *checker
+	steps  int
+	// seen memoizes the instantiated records (typeInfo + type
+	// arguments) already fully expanded: re-entering one means the
+	// expansion repeats without reaching the origin, so it cannot
+	// complete a cycle. Linear scan is fine — record graphs are
+	// small.
+	seen []recordVisit
+}
+
+// recordVisit is one expanded instantiated record: the type
+// declaration plus the arguments its parameters took on this path.
+type recordVisit struct {
+	ti   *typeInfo
+	args []types.Type
+}
+
+// holds reports whether t contains the origin record somewhere
+// inside a by-value expansion.
+func (w *recordCycle) holds(t types.Type) bool {
+	switch t := types.Chase(t).(type) {
+	case *types.Con:
+		return w.con(t)
+	case *types.Tuple:
+		return w.args(t.Elems)
+	case *types.Func:
+		// A function field stores a closure — the record appears
+		// only inside the code pointer's environment, not inline.
+		return false
+	case *types.Go:
+		// A Go named type instantiated with the record (`pkg.Box
+		// A`) may store its arguments inside a struct; the layout
+		// is opaque to Gom, so the walk is conservative.
+		return w.args(t.Args)
+	case *types.Var, *types.Meta:
+		return false
+	default:
+		panic("unreachable")
+	}
+}
+
+func (w *recordCycle) args(ts []types.Type) bool {
+	for _, t := range ts {
+		if w.holds(t) {
+			return true
+		}
+	}
+	return false
+}
+
+// con handles a constructor application: a local record expands its
+// fields under the instantiation, Result and Task keep the walk
+// going through their inline payloads, and every other constructor
+// — boxed sum types, references, scalars, opaque imported types —
+// ends it.
+func (w *recordCycle) con(t *types.Con) bool {
+	if ti, ok := w.c.tyCons[conKey{qual: t.Qual, name: t.Name}]; ok {
+		switch ti.kind {
+		case kindRecord:
+			if ti == w.origin {
+				return true
+			}
+			return w.fields(ti, t.Args)
+		case kindSum:
+			// Sum types emit as sealed interfaces; the builtin
+			// Result is the exception — its representation is a
+			// struct holding both payloads inline.
+			if ti.sym == nil && t.Qual == "" && t.Name == "Result" {
+				return w.args(t.Args)
+			}
+			return false
+		case kindAlias:
+			// Alias references expand at use sites, so no field
+			// type arrives as an alias Con; recurse defensively in
+			// case a hand-built input produces one.
+			if ti.aliasRes {
+				sub := types.Subst{}
+				for i, p := range ti.params {
+					if i < len(t.Args) {
+						sub[p.ID] = t.Args[i]
+					}
+				}
+				return w.holds(sub.Apply(ti.alias))
+			}
+			return false
+		case kindAbstract:
+			// An abstract type has no visible body — nothing it
+			// could contain is knowable here.
+			return false
+		default:
+			panic("unreachable")
+		}
+	}
+	// Not a declared (or builtin ADT) type: Result and Task still
+	// carry their arguments inside a struct; the remaining builtin
+	// and Go-namespace constructors are reference-shaped or opaque.
+	if t.Qual == "" {
+		switch t.Name {
+		case "Result", "Task":
+			return w.args(t.Args)
+		default:
+			return false
+		}
+	}
+	return false
+}
+
+// fields expands ti's field types under the instantiation args and
+// keeps walking any of them that still lead toward the origin.
+func (w *recordCycle) fields(ti *typeInfo, args []types.Type) bool {
+	for _, v := range w.seen {
+		if v.ti == ti && sameTypes(v.args, args) {
+			return false
+		}
+	}
+	w.seen = append(w.seen, recordVisit{ti: ti, args: args})
+	w.steps++
+	if w.steps > recordCycleLimit {
+		return true
+	}
+	var sub types.Subst
+	if len(args) > 0 {
+		sub = types.Subst{}
+		for i, p := range ti.params {
+			if i < len(args) {
+				sub[p.ID] = args[i]
+			}
+		}
+	}
+	for _, fi := range ti.fields {
+		typ := fi.typ
+		if sub != nil {
+			typ = sub.Apply(typ)
+		}
+		if w.holds(typ) {
+			return true
+		}
+	}
+	return false
+}
+
+// sameTypes reports whether two type-argument lists are pairwise
+// Equal.
+func sameTypes(a, b []types.Type) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if !types.Equal(a[i], b[i]) {
+			return false
+		}
+	}
+	return true
+}

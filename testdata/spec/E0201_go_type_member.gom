@@ -1,0 +1,8 @@
+package ex
+
+// `Go.Slice` (and `Go.Map`, or a package's type member) is a type,
+// not a value — it cannot appear in expression position.
+fn main () -> Unit = {
+  let s = Go.Slice
+  ()
+}

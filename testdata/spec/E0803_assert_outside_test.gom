@@ -1,0 +1,12 @@
+package ex
+
+// `assert` and `assert_eq` compile to test assertions that need the
+// *testing.T only a generated test function binds — they may appear
+// only inside a `test` block, whether called or used as a value.
+fn main () -> Unit = {
+  assert true
+}
+
+test "ok" {
+  assert true
+}
