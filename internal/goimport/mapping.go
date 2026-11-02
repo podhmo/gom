@@ -273,6 +273,7 @@ func (l *Loader) namedType(t *types.Named) (gt.Type, string) {
 // isError reports whether t is Go's error — the named interface of
 // the universe scope, or an interface equal to it.
 func isError(t types.Type) bool {
+	t = types.Unalias(t)
 	if n, ok := t.(*types.Named); ok {
 		o := n.Obj()
 		return o.Pkg() == nil && o.Name() == "error"

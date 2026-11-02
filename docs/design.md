@@ -119,11 +119,15 @@ call transfer(t2, t3, t1)
 
 ### 2.4 実装言語
 
-コンパイラは Go で実装する。`go/ast`・`go/printer`・`go/types`・`go/packages` をそのまま使えるので、Go パッケージの読み込みと Go コードの出力を自前で書かずに済み、配布も単一バイナリで済む。Go には sum type とパターンマッチがないため、コンパイラ内部の AST は sealed interface＋type switch で表す（Gom が生成するコードと同じ形）。type switch の網羅性は go-sumtype のような静的検査ツールで補う。ツールが実際に漏れを検出することを確かめるため、AST にバリアントを足したときに CI が失敗するテストを置く（Go のバージョンとジェネリック型への対応も確認する）。
+コンパイラは Go で実装する。`go/ast`・`go/printer`・`go/types`・`go/importer` をそのまま使えるので、Go パッケージの読み込みと Go コードの出力を自前で書かずに済み、配布も単一バイナリで済む。Go には sum type とパターンマッチがないため、コンパイラ内部の AST は sealed interface＋type switch で表す（Gom が生成するコードと同じ形）。type switch の網羅性は go-sumtype のような静的検査ツールで補う。ツールが実際に漏れを検出することを確かめるため、AST にバリアントを足したときに CI が失敗するテストを置く（Go のバージョンとジェネリック型への対応も確認する）。
 
 ### 2.5 Go パッケージの読み込み
 
-名前解決フェーズは `import go` されたパッケージを `go/packages` で読み、`go/types` の情報から Gom の型を自動で作る。型は名前の文字列ではなく `go/types` の型の同一性を保ったまま扱う（named type を区別するため）。`types.Identical` は named type の object 同一性を比較するので、1 回のコンパイルでは 1 つの読み込みセッション（`packages.Load`）を共有し、シンボルごとにローダーを作り直さない（P0-5 で、セッションをまたぐと同名の型も Identical にならないことを確認）。表現できない型を含むシンボルは公開せず、参照されたときに理由付きの診断を出す。結果はビルドキャッシュに保存し、`extern` 宣言があればそれで上書きする。依存する Gom パッケージについては、実装ではなく `.gomi` だけを読み込む。
+`internal/goimport.Loader` は `import go` されたパッケージを、`go list -export` で得た export data と `go/importer.ForCompiler` で読み、`go/types` の情報から Gom の型を自動で作る（[採用済みの読み込み方式](decisions/2026-11-03-import-go-loading-mechanics.md)）。`go/packages` への依存は追加しない。`Config.Dir` は対象モジュールのディレクトリ、`Config.GoBin` は利用する Go コマンドを指定し、標準ライブラリだけでなく `replace` を含むモジュール依存も同じ経路で扱う。
+
+`types.Identical` は named type の object 同一性を比較するので、1 回のコンパイルでは 1 つの `Loader`（`token.FileSet` と importer）を共有し、シンボルや import ごとにローダーを作り直さない。Gom 側の named type はパッケージパスと宣言名を持つ参照で表し、ローダーが同じ参照に対応する `go/types.Named` を保持してメソッド解決に使う。Go の alias は元の型へ正規化し、`error` への alias も単一 error / 末尾 error の戻り値規約を引き継ぐ（[error alias](decisions/2026-11-03-go-error-alias-results.md)）。
+
+表現できない型を含むシンボルも理由を付けて名前解決の表に残し、参照されたときだけ E0501 を出す。パッケージとシンボルはローダー内でキャッシュし、export data は Go のビルドキャッシュを利用する。`extern` 宣言があれば導出したバインディングを上書きする。依存する Gom パッケージについては、実装ではなく `.gomi` だけを読み込む。
 
 ### 2.6 Builtin type identity
 
@@ -152,7 +156,7 @@ gom/
 │   ├── syntax/       字句解析・構文解析・表層 AST（コメントと空行を trivia として保持）
 │   ├── format/       gom fmt（プリティプリンタ）
 │   ├── resolve/      名前解決、.gomi と Go パッケージの読み込み
-│   ├── goimport/     go/packages・go/types から Gom の型を作る、extern による上書き
+│   ├── goimport/     go/importer・go/types から Gom の型を作る、extern による上書き
 │   ├── types/        型の表現、単一化、HM 推論、ラベル付き引数
 │   ├── check/        型検査（型付き AST を作る）
 │   ├── pattern/      網羅性・冗長性の判定と反例の生成（match、let、関数引数で共用）

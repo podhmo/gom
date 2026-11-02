@@ -85,7 +85,7 @@
 
 Go 相互運用を変えたら両方向（Gom → Go、Go → Gom）のテストを足す。`nil`、スライス、named type、interface を忘れない。
 
-- [ ] **P3-1 `go/packages` による型の自動取り込み `internal/goimport`**: `go/types` の型の同一性を保って扱う。表現できないシンボルは参照時に理由付きの診断（[decisions/go-interop-boundary](docs/decisions/2026-11-01-go-interop-boundary.md)）。依存: P1-13
+- [x] **P3-1 Go 型の自動取り込み `internal/goimport`**: `go/types` の型の同一性を保って扱う。読み込み方式は[採用済みの go/importer + go list -export](docs/decisions/2026-11-03-import-go-loading-mechanics.md)に従う。表現できないシンボルは参照時に理由付きの診断（[decisions/go-interop-boundary](docs/decisions/2026-11-01-go-interop-boundary.md)）。依存: P1-13
 - [ ] **P3-2 named type と interface**: 名前的な型として扱い、`Go.conv` で明示変換、interface は `go/types` の代入規則に従う。依存: P3-1
 - [ ] **P3-3 スライス・map・ジェネリック関数**: `List` との境界コピー、`Go.Slice`、`Go.Map`、制約が `any` / `comparable` のジェネリック関数。依存: P3-1, P2-5
 - [ ] **P3-4 メソッド呼び出しと `_` プレースホルダ**: `_` 以外の引数を作成時に評価する（[spec 8.2](docs/spec.md)、[decisions/cute-placeholder](docs/decisions/2026-11-01-cute-placeholder.md)）。依存: P3-1, P2-2
