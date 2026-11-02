@@ -191,3 +191,5 @@ Go 相互運用を変えたら両方向（Gom → Go、Go → Gom）のテスト
 - [x] **[bug] tutorial の Go テスト結果がコンパイラ変更後もキャッシュ成功する**: チュートリアルのテストはコンパイラを外部コマンドでビルドするため実装パッケージの依存を持たず、codegen の不正な Go 編集後も `go test ./tutorial` が cached 成功する。実効的な API/CLI 出力照合とテスト本体での fixture 読み込みで依存を追跡する。[検証方針](docs/decisions/2026-11-03-tutorial-dependency-tracking.md)。
 
 - [x] **[bug] tutorial の生成 Go だけが使う runtime/stdlib をテストキャッシュが追跡しない**: `stdlib/result/result.go` を壊しても `go test ./tutorial` が cached 成功する。CLI と生成 Go が実際に使う Go モジュール入力を列挙し、ソース・ディレクトリ・manifest をテスト本体で追跡する。[レビュー対応](docs/decisions/2026-11-03-tutorial-go-module-inputs.md)。
+
+- [ ] **[bug] Go.Any へ渡す数値リテラルが Gom の具体型を保たない**: `fmt.Sprintf ("%T", 1)` が `int64` ではなく `int` を返す。既存の `ConvBoxAny` 経路でも boxing 前に Gom の数値型を具体化し、直接リテラル・束縛・数値演算・Go 側の型 switch を実行検証する。[再現](docs/sketch/2026-11-03-parallel-implementation-round.md#goany-numeric-probe)。

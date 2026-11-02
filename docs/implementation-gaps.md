@@ -17,12 +17,8 @@
   台帳からリンクする。同じ説明を長く複製しない。台帳だけのメモでもよい。
 - 未解消だけを探すときは `rg '^- \[ \]' docs/implementation-gaps.md`。
 
-追記例:
-
-```markdown
-- [ ] **短い説明**: A にはこう書かれているが、B ではこうなっている。
-  参照: [仕様](spec.md)、[実装](../internal/goimport/mapping.go)。
-```
+追記例: `- [ ] **短い説明**: A にはこう書かれているが、B ではこうなっている。`
+次の行に `[仕様](spec.md)`、`[実装](../internal/goimport/mapping.go)` などの参照を足す。
 
 ## 記録
 
@@ -79,6 +75,11 @@
   独立レビューしたところ、`Int` に解決した `1` が named empty interface へ渡る時に Go の
   `int` となり、想定する `int64` と異なることを `%T` で再現した。
   参照: [型の対応](spec.md#83-型の対応)。試作 `codex/http-boundary` の追加修正対象。
+
+- [ ] **既存の Go.Any 経路でも整数リテラルの動的型が int になる**:
+  `fmt.Sprintf ("%T", 1)` を main `5e792f4` で生成・実行すると `int` を返した。
+  Gom `Int` の `int64` 表現と異なり、named interface の修正だけではこの既存経路は直らない。
+  参照: [型の対応](spec.md#83-型の対応)、[実行記録](sketch/2026-11-03-parallel-implementation-round.md#goany-numeric-probe)。
 
 - [ ] **Go チャネルを interface に渡せない**: 同じ修正試作で、Go から返る `chan string` を
   named empty interface の引数へ渡すと E0401 になった。Go の代入規則では可能。

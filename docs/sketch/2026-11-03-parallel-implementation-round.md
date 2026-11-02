@@ -101,3 +101,22 @@ function-value initialization cycles, fusion of pipelines containing
 explicit `try`, further Go interop (including byte and slice/List
 boundaries), and the independently reproduced inferred numeric binder
 problem. This round does not mark the whole compiler complete.
+
+## Go.Any numeric probe
+
+HTTP boundary review repairs boxing into named interfaces, while the
+existing Go.Any path deliberately remains `ConvBoxAny`. A separate
+probe on integrated main `5e792f4` confirmed a related existing gap:
+
+```gom
+package main
+import go "fmt"
+fn main () -> Unit = { ignore (fmt.Println (fmt.Sprintf ("%T", 1))); () }
+```
+
+Building the current `cmd/gom`, running `gom build` on the temporary
+source, then `go run` on its output succeeds and prints `int`. Gom's
+`Int` representation is `int64` (spec 8.3). This is recorded separately
+in TODO and the persistent gap ledger so the named-interface repair
+does not claim to fix the older Go.Any boxing path. No remote API is
+involved in this probe.
