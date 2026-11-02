@@ -1,0 +1,3 @@
+package bridge
+import go "net/http"
+fn bad (request: Ptr http.Request) -> Unit = ignore request.GetBody

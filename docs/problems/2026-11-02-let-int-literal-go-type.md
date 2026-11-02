@@ -1,6 +1,6 @@
 # `let x = <int literal>` が Go の `int` で落ちる可能性
 
-- 状態: 未解決
+- 状態: 一部再現確認、修正は TODO
 - 発見: 2026-11-02, P1-8 レビュー修正中に観察（再現未確定、fixture は経路を回避）
 
 ## 観察
@@ -18,3 +18,10 @@
 ## 影響範囲
 
 `internal/lower`（Conv 挿入位置）、`internal/codegen`（lit emit、dest の宣言型の利用）、fixture goldens。
+
+## 2026-11-03 の確定再現
+
+`fn f () -> Float = { let n = 1; n + 0.5 }` は Float として型検査を通るが、
+生成 Go は `n := 1; return n + 0.5` で `0.5 truncated to int` となる。
+通常の Gom Int の束縛には既に `int64(...)` 変換があるが、Float へ推論された
+整数字面の束縛はカバーされていない。HTTP interface 検証で確認し TODO に追加。

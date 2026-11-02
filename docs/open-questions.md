@@ -21,7 +21,7 @@
 - [ ] Go ABI の方針: 生成される Go の API（型名・関数のシグネチャ・バリアントの struct 名）を、Gom のバージョンをまたいでどこまで安定させるか
 - [ ] Gom の型が Go の interface を実装できるようにするか（v1 ではできない）。できるなら、どう宣言するか
 - [ ] Go のジェネリック関数のうち、`any` / `comparable` 以外の制約を持つものをどう扱うか。P0-5 で、`any`/`comparable` だけの厳格な境界では `slices.Contains`（`[S ~[]E, E comparable]`）など `slices`/`maps`/`cmp` の主要な関数がほぼ全部呼べないことが分かった。`IsMethodSet() || IsComparable()` に留めるか、`~[]E`/`~map[K]V` の core-type 制約を持つものまで広げるか（後者は `cmp.Ordered` のような「Gom 型が Ordered か」の判定を要する）。P3-3 の実装前に再検討する（[go-interop-boundary](decisions/2026-11-01-go-interop-boundary.md) の検証追記、[sketch: P0-5](sketch/2026-11-02-p0-5-go-types-mapping.md)）
-- [ ] Go の struct 型の扱い: フィールド参照（`srv.Addr`）とコンポジットリテラル（`http.Server{Addr: ...}`）は spec 8.3 の対応表にない（P0-5 で発覚）。フィールドは読み取りのみ許すか、宣言は `extern` 経由に限るか
+- [ ] Go の struct 型の構築・書き込み: exported field の読み取りは [決定済み](decisions/2026-11-03-go-interface-assignment-and-fields.md)。コンポジットリテラル（`http.Server{Addr: ...}`）や field への代入を許すか、構築は Go の factory 関数や `extern` に限るか
 - [ ] 標準のバインディング（`(T, bool)` を `Option` にする関数の一覧など）をどこで管理するか
 
 ### 並行処理

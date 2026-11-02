@@ -1,0 +1,12 @@
+package bridge
+
+import go "io"
+import go "net/http"
+import go "os"
+import go "strings"
+
+fn header (request: Ptr http.Request) -> http.Header = request.Header
+fn status (response: Ptr http.Response) -> Int = response.StatusCode
+fn body (response: Ptr http.Response) -> io.ReadCloser = response.Body
+fn stderr () -> io.Writer = os.Stderr
+fn request () -> Result (Ptr http.Request) GoError = http.NewRequest ("POST", "http://example.invalid/gists", strings.NewReader "body")

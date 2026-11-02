@@ -136,6 +136,12 @@ Computed initializers remain eager `VarDecl`s. See
 
 表現できない型を含むシンボルも理由を付けて名前解決の表に残し、参照されたときだけ E0501 を出す。パッケージとシンボルはローダー内でキャッシュし、export data は Go のビルドキャッシュを利用する。`extern` 宣言があれば導出したバインディングを上書きする。依存する Gom パッケージについては、実装ではなく `.gomi` だけを読み込む。
 
+**Go interface と struct field の境界（P3-2a）**
+
+`check.InterfaceSource` は共有 `go/types` セッションの assignability を式の期待型境界で照会し、型付き `Ascribe.Iface` に記録する。型の単一化には代入関係を混ぜず、lower は数値の具体型を `ConvNum` で確定してから、この印に従って `core.ConvIface` を作る。未解決の field 型（別名経由を含む）は field 解決後まで代入判定を遅延する。`check.FieldSource` は exported field の型と raw Go 型を返し、型付き `MemberExpr.GoFieldType` が差を運ぶ。lower は field selector を即座に一時変数へ束縛し、副作用のある後続式より前の読み取りと nil panic を保持してから数値変換する。codegen は既存の `FieldGet` と `Conv` を出力するだけである。
+
+検証と範囲は [HTTP boundary](sketch/2026-11-03-go-http-boundary-verification.md)、決定は [Go interface assignment and fields](decisions/2026-11-03-go-interface-assignment-and-fields.md)。
+
 ### 2.6 Builtin type identity
 
 `types.Con{Qual: "", Name: "Result"}` cannot tell the builtin `Result` from a file-local `type Result`. When a file declares a `type` under a builtin name, the unqualified name denotes only the local declaration file-wide ([decisions/builtin-type-identity](decisions/2026-11-02-builtin-type-identity.md)). Every "is this `Con` the builtin X?" question consults the phase's own declaration index before the name:
@@ -388,7 +394,7 @@ sum type にコンストラクタを足すとインターフェースが変わ�
 
 - **意味論の比較テスト**: 小さな Gom 評価器（単相の純粋な式、ADT、`match`、関数適用から始める）を作り、生成した Go コードの実行結果と比べる。評価順序、パターンマッチ、部分適用の検証に使う
 - **Go 相互運用テスト**: Gom → Go と Go → Gom の両方向。特に `nil`、スライス、named type、interface、ジェネリクス
-- **実行可能なユースケース**: `examples/gist-cli/` は引数解析・ファイル走査・JSON生成・HTTP新規/更新・診断をGomで組み合わせ、生成CLIをfake serverへ実行して検証する。未対応のGo byte/field/interface操作はGist固有の方針を含まないexample-local adapterに隔離し、コンパイラ機能が整い次第縮小する（[decision](decisions/2026-11-03-gist-cli-host-boundary.md)、[検証](sketch/2026-11-03-gist-cli-prototype.md)）。
+- **実行可能なユースケース**: `examples/gist-cli/` は引数解析・ファイル走査・JSON生成・HTTP新規/更新・診断をGomで組み合わせ、生成CLIをfake serverへ実行して検証する。未対応のGo byte/container/JSON操作はGist固有の方針を含まないexample-local adapterに隔離し、コンパイラ機能が整い次第縮小する（[decision](decisions/2026-11-03-gist-cli-host-boundary.md)、[検証](sketch/2026-11-03-gist-cli-prototype.md)）。
 - **実行可能 tutorial**: 各章をコンパイラ API と実際の CLI の両方で変換し、生成 Go の一致と実行時の期待出力を検査する。コンパイラの実装依存に加え、CLI/fixture と `go list -deps` で得た生成 Go のモジュール入力を直接読み込み、runtime/stdlib の変更やソース追加でも Go のテストキャッシュを無効化できるようにする（[検証](sketch/2026-11-03-tutorial-iteration.md)）。
 - **生成コードの品質テスト**: `go build`、`go vet`、`go test -race`、ベンチマーク、エスケープ解析
 - 既存のゴールデンテスト、仕様テスト（`testdata/spec/`）、フォーマッタのプロパティテスト

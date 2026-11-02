@@ -104,10 +104,11 @@ func (*Hole) isExpr() {}
 // more precise than the whole MemberExpr's for diagnostics.
 type MemberExpr struct {
 	Base
-	Recv  Expr
-	Sel   *syntax.Ident   // the written selector
-	Sym   *resolve.Symbol // the selected member (KindField, a module member, or KindMethod)
-	Index int             // field position for record/variant payloads; -1 otherwise
+	Recv        Expr
+	Sel         *syntax.Ident   // the written selector
+	Sym         *resolve.Symbol // the selected member (KindField, a module member, or KindMethod)
+	GoFieldType types.Type      // raw Go field type; nil for non-Go fields
+	Index       int             // field position for record/variant payloads; -1 otherwise
 	// Ctor is the variant constructor (KindCtor) that owns the
 	// selected slot when a named payload field is read through its
 	// sum type — the read is legal only for the variant that
@@ -376,10 +377,11 @@ func (*RecordLit) isExpr() {}
 type Ascribe struct {
 	Base
 	X Expr
-	// Conv is true when the node comes from `Go.conv`: lowering emits
-	// an explicit Go conversion, while a plain ascription is a no-op
-	// once checked.
+	// Conv asks lowering to emit a Go conversion, for explicit `Go.conv`
+	// or an implicit interface assignment. Plain ascription is a no-op.
 	Conv bool
+	// Iface marks an oracle-validated implicit Go interface assignment.
+	Iface bool
 }
 
 func (*Ascribe) isExpr() {}

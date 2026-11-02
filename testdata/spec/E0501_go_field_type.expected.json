@@ -1,0 +1,28 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0501",
+      "severity": "error",
+      "message": "Go symbol `net/http.GetBody` is not exposed: func-typed parameters and results are not supported yet",
+      "span": {
+        "file": "E0501_go_field_type.gom",
+        "start": {
+          "line": 3,
+          "col": 61,
+          "offset": 96
+        },
+        "end": {
+          "line": 3,
+          "col": 68,
+          "offset": 103
+        }
+      },
+      "data": {
+        "package": "net/http",
+        "reason": "func-typed parameters and results are not supported yet",
+        "symbol": "GetBody"
+      }
+    }
+  ]
+}

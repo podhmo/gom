@@ -91,15 +91,15 @@ fn run (cfg: Config) -> Result String String = {
           let visibility = if creating { ",\"public\":false" } else { "" }
           let body = fmt.Sprintf ("{\"files\":{%s}%s}", entries, visibility)
           let url = fmt.Sprintf ("%s%s", strings.TrimRight (cfg.api, "/"), route)
-          let request = try text_error (http.NewRequest (method, url, host.Reader body))
-          let headers = host.RequestHeader request
+          let request = try text_error (http.NewRequest (method, url, strings.NewReader body))
+          let headers = request.Header
           headers.Set ("Accept", "application/vnd.github+json")
           headers.Set ("Content-Type", "application/json")
           headers.Set ("Authorization", fmt.Sprintf ("Bearer %s", token))
           headers.Set ("X-GitHub-Api-Version", "2026-03-10")
           let client = host.NewClient ()
           let response = try text_error (client.Do request)
-          let status = host.StatusCode response
+          let status = response.StatusCode
           let response_body = try text_error (host.ReadResponse response)
           let expected = if creating { 201 } else { 200 }
           if status != expected { Err "HTTP ${status}: ${response_body}" } else {
@@ -115,7 +115,7 @@ fn run (cfg: Config) -> Result String String = {
 }
 
 fn fail (message: String) -> Unit = {
-  ignore fmt.Fprintln (host.Stderr (), fmt.Sprintf ("gist-cli: %s", message))
+  ignore fmt.Fprintln (os.Stderr, fmt.Sprintf ("gist-cli: %s", message))
   ignore os.Exit 1
   ()
 }

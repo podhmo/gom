@@ -170,6 +170,9 @@ type checker struct {
 	// once the receiver is known (or asks for its annotation).
 	pendingSels []*MemberExpr
 
+	// pendingIfaces keep numeric and selector inference independent of interface assignment.
+	pendingIfaces []*Ascribe
+
 	// pendingDivs are `/` and `%` nodes whose right operand folded
 	// to a constant zero — candidates for E0414. Whether the
 	// diagnostic fires depends on the operand type (an integer

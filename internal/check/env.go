@@ -182,3 +182,34 @@ type MethodSource interface {
 	// such method.
 	MethodOf(recv types.Type, name string) (*resolve.Symbol, Signature, bool)
 }
+
+// InterfaceSource checks concrete-to-Go-interface assignments at expression
+// boundaries. It never participates in invariant type unification.
+type InterfaceSource interface {
+	InterfaceAssignable(from, to types.Type) bool
+}
+
+// FieldSource exposes exported Go struct selectors and their raw Go types.
+type FieldSource interface {
+	FieldOf(recv types.Type, name string) (*resolve.Symbol, Signature, types.Type, bool)
+}
+
+func (c chain) InterfaceAssignable(from, to types.Type) bool {
+	for _, s := range c {
+		if src, ok := s.(InterfaceSource); ok && src.InterfaceAssignable(from, to) {
+			return true
+		}
+	}
+	return false
+}
+
+func (c chain) FieldOf(recv types.Type, name string) (*resolve.Symbol, Signature, types.Type, bool) {
+	for _, s := range c {
+		if src, ok := s.(FieldSource); ok {
+			if sym, sig, raw, found := src.FieldOf(recv, name); found {
+				return sym, sig, raw, true
+			}
+		}
+	}
+	return nil, Signature{}, nil, false
+}

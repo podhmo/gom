@@ -1,0 +1,27 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected io.Reader, got String",
+      "span": {
+        "file": "E0401_go_interface.gom",
+        "start": {
+          "line": 3,
+          "col": 101,
+          "offset": 136
+        },
+        "end": {
+          "line": 3,
+          "col": 115,
+          "offset": 150
+        }
+      },
+      "data": {
+        "actual": "String",
+        "expected": "io.Reader"
+      }
+    }
+  ]
+}

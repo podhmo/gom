@@ -362,7 +362,7 @@ fn report (xs: List String) -> Unit = {
 5. 数値型の暗黙変換は、Go の `int` / `int64` と Gom の `Int`、`float64` と `Float` のように情報が落ちないものに限る。それ以外は 8.4 節の `Go.conv` で明示する。Go の型なし定数（`math.Pi` など）は、期待される Gom の型になる
 6. Go のジェネリック関数（`slices.Contains(xs, x)`）は型引数を推論して呼ぶ
 7. `any` 型の引数には任意の Gom 値を渡せる。暗黙のボックス化はこの位置に限る
-8. Go の interface 型の引数には、Go の代入規則（`go/types` の assignability）を満たす Go 由来の値を渡せる（`io.Copy(w, r)` に `*os.File` を渡すなど）。Gom の型が Go の interface を実装することは v1 ではできない
+8. Go の interface 型の引数には、Go の代入規則（`go/types` の assignability）を満たす Go 由来の値を渡せる（`io.Copy(w, r)` に `*os.File` を渡すなど）。型注釈付きの束縛・戻り値・Gom 関数の引数でも、期待型が Go interface のときは同じ代入規則を使う。コンテナの要素型や関数型の同一性は変えない。Gom の型が Go の interface を実装することは v1 ではできない
 
 ### 8.2 `_` プレースホルダ
 
@@ -395,6 +395,8 @@ strconv.ParseInt(_, 10, 64)
 | `error` | `GoError` |
 
 v1 で対応していない型（符号なし整数 `uint8`–`uint64`/`byte`、`float32`、複素数、配列 `[N]T`、`unsafe.Pointer`、ジェネリック型・関数、メソッドを持つ無名 interface、関数型の引数・戻り値）をシグネチャに含むシンボルは公開されず、参照すると理由付きの診断になる（8.5 節）。ジェネリック関数については 8.5 節の記述と食い違いがある（[problem](problems/2026-11-04-generic-go-fns-hidden.md)）。
+
+Go の名前付き struct 型の値またはそのポインタから、exported field を `value.Field` で読み取れる。Go と同じ promoted field と曖昧性の規則を使い、unexported field は参照できない。field の型は上の対応に従い、未対応の型は参照位置で理由付き E0501 になる。読み取りはソースの評価順に行い、nil ポインタ経由の読み取りは Go と同じく panic する。field への代入と Go struct のコンポジットリテラルはまだ定めない。
 
 ### 8.4 extern（上書き専用）
 

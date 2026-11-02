@@ -822,6 +822,7 @@ func (c *checker) finalize() {
 	// new entries carry no defaults, so the default pass need not
 	// run again.
 	c.revisitSelects()
+	c.revisitInterfaces()
 	// The same post-default moment settles the pending constant-zero
 	// divisors: their operand types are now concrete (or bound to a
 	// default), so revisitDivs can tell integer divisions — always

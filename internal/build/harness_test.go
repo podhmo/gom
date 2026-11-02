@@ -9,6 +9,8 @@ import (
 	"github.com/podhmo/gom/internal/goimport"
 	"github.com/podhmo/gom/internal/gomtest"
 	"github.com/podhmo/gom/internal/lower"
+	// Keep the named-interface golden helper in the Go test dependency graph.
+	_ "github.com/podhmo/gom/testdata/goiface"
 )
 
 // These tests run the file-based suites under testdata/ end to end

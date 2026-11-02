@@ -1,0 +1,10 @@
+package bridge
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+fn int_kind () -> String = goiface.Kind 1
+fn channel () -> String = goiface.Kind (goiface.Channel ())
+fn receive_channel () -> String = goiface.Kind (goiface.ReceiveChannel ())
+fn send_channel () -> String = goiface.Kind (goiface.SendChannel ())
+fn consume (f: (Ptr goiface.Container -> String)) (c: Ptr goiface.Container) -> String = f c
+fn delayed_field () -> String = consume (fn x -> goiface.Kind x.Count) (goiface.NewContainer ())

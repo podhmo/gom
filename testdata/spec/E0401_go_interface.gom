@@ -1,0 +1,3 @@
+package bridge
+import go "net/http"
+fn bad () -> Result (Ptr http.Request) GoError = http.NewRequest ("POST", "http://example.invalid", "not a reader")

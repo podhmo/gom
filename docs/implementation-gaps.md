@@ -67,32 +67,37 @@
   loader は `Go.Slice T` を返す。`Go.conv os.Args : List String` も E0507。
   参照: [spec](spec.md#83-型の対応)、[mapping](../internal/goimport/mapping.go)、[Gist probe](sketch/2026-11-03-gist-cli-prototype.md)。
 
-- [ ] **Go interface の代入規則が未実装**: spec 8.3 は Go 由来の値を代入規則に従って渡せるとするが、
+- [x] **Go interface の代入規則が未実装**: spec 8.3 は Go 由来の値を代入規則に従って渡せるとするが、
   `*strings.Reader` → `io.Reader` や `*os.File` → `io.Writer` が E0401 になる。
-  参照: [spec](spec.md#83-型の対応)、[Gist probe](sketch/2026-11-03-gist-cli-prototype.md)。
+  対応: Go 由来の引数・注釈境界で代入規則を照会し、明示的 Core 変換を生成。Gist の接続関数も削減。
+  参照: [spec](spec.md#83-型の対応)、[検証](sketch/2026-11-03-go-http-boundary-verification.md)。
 
-- [ ] **interface へ渡す整数リテラルの動的型が Gom の型と異なる**: HTTP 境界の修正試作を
+- [x] **interface へ渡す整数リテラルの動的型が Gom の型と異なる**: HTTP 境界の修正試作を
   独立レビューしたところ、`Int` に解決した `1` が named empty interface へ渡る時に Go の
   `int` となり、想定する `int64` と異なることを `%T` で再現した。
-  参照: [型の対応](spec.md#83-型の対応)。試作 `codex/http-boundary` の追加修正対象。
+  対応: named interface へ包む前に `ConvNum` で数値型を具体化し、動的型を実行検証。Go.Any は別項目。
+  参照: [型の対応](spec.md#83-型の対応)、[レビュー対応と再レビュー](sketch/2026-11-03-go-http-boundary-verification.md)。
 
 - [ ] **既存の Go.Any 経路でも整数リテラルの動的型が int になる**:
   `fmt.Sprintf ("%T", 1)` を main `5e792f4` で生成・実行すると `int` を返した。
   Gom `Int` の `int64` 表現と異なり、named interface の修正だけではこの既存経路は直らない。
   参照: [型の対応](spec.md#83-型の対応)、[実行記録](sketch/2026-11-03-parallel-implementation-round.md#goany-numeric-probe)。
 
-- [ ] **Go チャネルを interface に渡せない**: 同じ修正試作で、Go から返る `chan string` を
+- [x] **Go チャネルを interface に渡せない**: 同じ修正試作で、Go から返る `chan string` を
   named empty interface の引数へ渡すと E0401 になった。Go の代入規則では可能。
-  参照: [interface の規則](spec.md#83-型の対応)。試作 `codex/http-boundary` の追加修正対象。
+  対応: 全方向のチャネルと `chan any` の型復元を追加し、同一性と typed nil を検証。
+  参照: [レビュー対応と再レビュー](sketch/2026-11-03-go-http-boundary-verification.md)。
 
-- [ ] **型が後で分かる Go field を interface に渡せない**: 同じ試作で、高階関数のラムダ内の
+- [x] **型が後で分かる Go field を interface に渡せない**: 同じ試作で、高階関数のラムダ内の
   `model.Accept x.Count` はレシーバの型が後で決まると E0401 になる。
   数値リテラル以外の未解決型についても、field 解決後まで代入判定を待つ必要がある。
-  参照: [interface の規則](spec.md#83-型の対応)。試作 `codex/http-boundary` の追加修正対象。
+  対応: field とその別名は型確定後に代入を検証し、裸のラムダ引数の推論は維持。
+  参照: [レビュー対応と再レビュー](sketch/2026-11-03-go-http-boundary-verification.md)。
 
-- [ ] **Go struct フィールドの参照が未決・未実装**: HTTP の Header/StatusCode/Body を使いたいが、
+- [x] **Go struct フィールドの参照が未決・未実装**: HTTP の Header/StatusCode/Body を使いたいが、
   spec には対応表がなく、open-questions に未決として残り、実装は参照を拒否する。
-  参照: [未決事項](open-questions.md)、[Gist probe](sketch/2026-11-03-gist-cli-prototype.md)。
+  対応: exported field の読み取りを決定・実装し、Go の selector・nil・評価順・raw 型変換を検証。
+  参照: [decision](decisions/2026-11-03-go-interface-assignment-and-fields.md)、[検証](sketch/2026-11-03-go-http-boundary-verification.md)。
 
 - [ ] **Go ジェネリック関数の扱いが文書内でも異なる**: spec 8.3 は未対応、8.5 は
   `any` / `comparable` 制約なら呼べるとするが、loader はすべて非公開にする。

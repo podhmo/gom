@@ -100,6 +100,20 @@ func (c *checker) checkExpr(e syntax.Expr, want types.Type) Expr {
 		panic("unreachable")
 	}
 	if want != nil {
+		// Go.Any keeps its dedicated all-Gom-values boxing path.
+		ifaceWant := c.goOriginType(want) && !isGoAny(types.Chase(want))
+		if m, ok := types.Chase(out.Type()).(*types.Meta); ok && c.deferInterfaceSource(m) && ifaceWant {
+			if src, ok := c.src.(InterfaceSource); ok && src.InterfaceAssignable(want, want) {
+				conv := &Ascribe{Base: baseOf(e.Span(), want), X: out, Conv: true, Iface: true}
+				c.pendingIfaces = append(c.pendingIfaces, conv)
+				return conv
+			}
+		}
+		if !types.Equal(want, out.Type()) {
+			if src, ok := c.src.(InterfaceSource); ok && c.goOriginType(out.Type()) && ifaceWant && src.InterfaceAssignable(out.Type(), want) {
+				return &Ascribe{Base: baseOf(e.Span(), want), X: out, Conv: true, Iface: true}
+			}
+		}
 		// A failed expectation left want unsolved: silence it —
 		// the mismatch diagnostic at e.Span() already tells the
 		// user what to fix.
@@ -252,6 +266,9 @@ func (c *checker) checkSelect(e *syntax.Select) Expr {
 	// could not see: the SignatureSource's optional MethodSource
 	// looks the name up in the named type's method set (P1-9).
 	if sel == nil {
+		if field, typ, raw, ok := c.goFieldOf(recv.Type(), selName, e.Sel.Sp); ok {
+			return &MemberExpr{Base: baseOf(e.Sp, typ), Recv: recv, Sel: e.Sel, Sym: field, Index: 0, GoFieldType: raw}
+		}
 		if msym, typ, mtargs, ok := c.methodOf(recv.Type(), selName, e.Sel.Sp); ok {
 			return &MemberExpr{Base: baseOf(e.Sp, typ), Recv: recv, Sel: e.Sel, Sym: msym, Index: -1, TypeArgs: mtargs}
 		}
@@ -319,6 +336,11 @@ func (c *checker) revisitSelects() {
 			continue
 		}
 		if me.Sym == nil {
+			if field, typ, raw, ok := c.goFieldOf(rt, selName, me.Sel.Sp); ok {
+				me.Sym, me.Index, me.GoFieldType = field, 0, raw
+				c.unify(me.Type(), typ, me.Sel.Sp)
+				continue
+			}
 			if msym, typ, targs, ok := c.methodOf(rt, selName, me.Sel.Sp); ok {
 				me.Sym = msym
 				me.TypeArgs = targs
@@ -1712,4 +1734,71 @@ func (c *checker) recordByFields(e *syntax.RecordLit) *typeInfo {
 	default:
 		return cand
 	}
+}
+
+// goOriginType excludes file-local nominal types and shadowed builtins from
+// the loader's Go type relation.
+func (c *checker) goOriginType(t types.Type) bool {
+	switch t := types.Chase(t).(type) {
+	case *types.Go:
+		return true
+	case *types.Con:
+		if t.Qual == "Go" {
+			return true
+		}
+		if t.Qual != "" || c.shadowedBuiltin(t.Name) {
+			return false
+		}
+		if (t.Name == "Ptr" || t.Name == "Chan" || t.Name == "RecvChan" || t.Name == "SendChan") && len(t.Args) == 1 {
+			return c.goOriginType(t.Args[0])
+		}
+		return c.isBuiltinCon(t, "Int") || c.isBuiltinCon(t, "Int32") || c.isBuiltinCon(t, "Float") || c.isBuiltinCon(t, "Bool") || c.isBuiltinCon(t, "String") || c.isBuiltinCon(t, "Char") || c.isBuiltinCon(t, "GoError")
+	case *types.Func, *types.Var, *types.Tuple, *types.Meta:
+		return false
+	default:
+		panic("unreachable")
+	}
+}
+
+func (c *checker) goFieldOf(recv types.Type, name string, sp diag.Span) (*resolve.Symbol, types.Type, types.Type, bool) {
+	if !c.goOriginType(recv) {
+		return nil, nil, nil, false
+	}
+	if src, ok := c.src.(FieldSource); ok {
+		if sym, sig, raw, found := src.FieldOf(recv, name); found {
+			if c.hiddenDiag(sym, sp) {
+				return sym, c.quietMeta(sp, "the type of Go field `"+name+"`"), raw, true
+			}
+			return sym, sig.Type, raw, true
+		}
+	}
+	return nil, nil, nil, false
+}
+
+func (c *checker) revisitInterfaces() {
+	for _, conv := range c.pendingIfaces {
+		from := types.Chase(conv.X.Type())
+		if _, ok := from.(*types.Meta); ok {
+			continue
+		}
+		src, ok := c.src.(InterfaceSource)
+		if !ok || !c.goOriginType(from) || !src.InterfaceAssignable(from, conv.Type()) {
+			c.mismatch(conv.Sp, conv.Type(), from)
+		}
+	}
+}
+
+// Numeric inference and unresolved selectors have independent constraints that
+// settle during finalize. Bare unconstrained parameters still infer an interface
+// from their use, rather than becoming unconstrained polymorphic parameters.
+func (c *checker) deferInterfaceSource(m *types.Meta) bool {
+	if defaultOf(c.recOf(m)) != nil {
+		return true
+	}
+	for _, member := range c.pendingSels {
+		if types.Chase(member.Type()) == m {
+			return true
+		}
+	}
+	return false
 }

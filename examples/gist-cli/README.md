@@ -76,11 +76,13 @@ generic primitives for the operations Gom cannot yet express directly:
 | Argument count/index | Go slice → List conversion and indexing are not implemented |
 | Read UTF-8 file / response text | `byte`/`[]byte` are not exposed |
 | Quote JSON string / decode string field | `encoding/json` needs byte slices and destination pointers |
-| String reader as `io.Reader` | Go interface assignability is incomplete |
-| Request header / response status | Go struct field access is not implemented |
-| HTTP client / stderr writer | Constructing configured Go structs and naming an interface value |
+| HTTP client | Constructing configured Go structs and callback functions |
 
 The adapter has no Gist route, file schema, create/update decision, URL validation,
 or CLI argument policy. The initial audit records the exact compiler diagnostics
 and related TODOs so future interop work can remove these adapters. Generated
 Go is kept in a temporary directory; the source of truth remains `main.gom`.
+
+Reader/writer interface assignments and exported HTTP field reads are expressed
+in Gom directly; the [HTTP boundary verification](../../docs/sketch/2026-11-03-go-http-boundary-verification.md)
+records the compiler support and regression tests that removed those adapters.

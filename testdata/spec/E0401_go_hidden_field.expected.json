@@ -1,0 +1,27 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "Ptr net/http.Request has no field or method `ctx`",
+      "span": {
+        "file": "E0401_go_hidden_field.gom",
+        "start": {
+          "line": 3,
+          "col": 61,
+          "offset": 96
+        },
+        "end": {
+          "line": 3,
+          "col": 64,
+          "offset": 99
+        }
+      },
+      "data": {
+        "member": "ctx",
+        "type": "Ptr net/http.Request"
+      }
+    }
+  ]
+}

@@ -286,6 +286,14 @@ func (l *lowerer) memberExpr(s *seq, e *check.MemberExpr) core.Expr {
 	}
 	switch e.Sym.Kind {
 	case resolve.KindField:
+		if e.GoFieldType != nil {
+			raw := &core.FieldGet{Base: core.Base{Sp: e.Sp, Typ: e.GoFieldType}, Recv: l.atom(s, e.Recv), Field: e.Sym, Index: e.Index}
+			// Go fields may mutate (and nil pointer reads may panic). Snapshot
+			// the selector now, before later source operands execute.
+			bind := l.tmpBind(e.Sp, e.GoFieldType)
+			s.emit(bind, raw)
+			return l.goPayloadConv(s, e.Sp, e.GoFieldType, e.Type(), varOf(e.Sp, bind))
+		}
 		idx := e.Index
 		if idx < 0 {
 			idx = l.fieldIndex(e.Recv.Type(), e.Sym)
@@ -1958,10 +1966,21 @@ func (l *lowerer) ascribe(s *seq, e *check.Ascribe) core.Expr {
 	if !e.Conv {
 		return l.expr(s, e.X)
 	}
+	kind := l.convKind(e.X.Type(), e.Type())
+	x := l.atom(s, e.X)
+	if e.Iface {
+		kind = core.ConvIface
+		if l.isNumericCon(x.Type()) {
+			// A Go interface supplies no concrete numeric context: an untyped
+			// literal would otherwise acquire Go's default dynamic type (int).
+			// Materialize the oracle-validated Gom type before interface boxing.
+			x = l.asAtom(s, e.Sp, &core.Conv{Base: core.Base{Sp: e.Sp, Typ: x.Type()}, Kind: core.ConvNum, X: x})
+		}
+	}
 	return &core.Conv{
 		Base: baseOf(e),
-		Kind: l.convKind(e.X.Type(), e.Type()),
-		X:    l.atom(s, e.X),
+		Kind: kind,
+		X:    x,
 	}
 }
 

@@ -286,7 +286,9 @@ func TestGistCLI(t *testing.T) {
 		var forwarded atomic.Int32
 		destination := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { forwarded.Add(1) }))
 		defer destination.Close()
-		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { http.Redirect(w, r, destination.URL, 307) }))
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			http.Redirect(w, r, destination.URL, http.StatusTemporaryRedirect)
+		}))
 		defer server.Close()
 		out, stderr, code := execute(t, cli, server.URL, fakeToken, first)
 		if code != 1 || out != "" || !strings.Contains(stderr, "HTTP 307") || forwarded.Load() != 0 {
