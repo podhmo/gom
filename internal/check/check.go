@@ -15,12 +15,18 @@ import (
 // tree is a best-effort recovery (error sites carry metas), and later
 // phases must not consume it.
 //
-// P1 is monomorphic: declared annotations are the source of truth and
-// nothing is generalized. Unification still runs locally — to default
-// numeric literals, resolve operator overloading, and instantiate the
-// rigid variables of annotated signatures and builtin constructors at
-// each use site — but a meta left unsolved at the end is E0407 (a
-// request for an annotation), never a polymorphic type.
+// P2-1 adds Hindley–Milner let-polymorphism on top of the P1 shape:
+// declared annotations are still authoritative, but a top-level `let`
+// whose right-hand side is a syntactic value (the adopted value
+// restriction — decisions/2026-11-01-value-restriction.md)
+// generalizes its unsolved metas into rigid type parameters, and a
+// use of a generalized binding instantiates them with fresh metas.
+// The generalized binding lowers as a generic Go declaration
+// (decisions/2026-11-02-let-polymorphism-emission.md): a lambda lets
+// become a `func` with type parameters, other values become niladic
+// generic thunks. Metas that may not generalize — shared with the
+// environment, constrained, or recovery artifacts — still report
+// E0407.
 //
 // src supplies the signatures of symbols the file does not declare
 // (imported members, Go functions and methods); it may be nil. The
@@ -29,15 +35,18 @@ import (
 func Check(res *resolve.Resolved, src SignatureSource) (*File, diag.List) {
 	bv := &builtinTVar{}
 	c := &checker{
-		res:       res,
-		src:       src,
-		vals:      map[*resolve.Symbol]types.Type{},
-		tyCons:    map[conKey]*typeInfo{},
-		tyBySym:   map[*resolve.Symbol]*typeInfo{},
-		ctors:     map[*resolve.Symbol]*variantInfo{},
-		fieldSyms: map[*resolve.Symbol]*fieldInfo{},
-		metas:     map[*types.Meta]*metaRec{},
-		builtins:  builtinSigs(bv),
+		res:        res,
+		src:        src,
+		vals:       map[*resolve.Symbol]types.Type{},
+		referenced: map[*resolve.Symbol]bool{},
+		sigScope:   map[*resolve.Symbol]*tscope{},
+		thunks:     map[*resolve.Symbol]bool{},
+		tyCons:     map[conKey]*typeInfo{},
+		tyBySym:    map[*resolve.Symbol]*typeInfo{},
+		ctors:      map[*resolve.Symbol]*variantInfo{},
+		fieldSyms:  map[*resolve.Symbol]*fieldInfo{},
+		metas:      map[*types.Meta]*metaRec{},
+		builtins:   builtinSigs(bv),
 	}
 	c.registerBuiltinTypes(bv)
 	c.registerTypeDecls(res.File.Decls)
@@ -89,6 +98,14 @@ type checker struct {
 	// declared in this file resolve through src and the builtins.
 	vals map[*resolve.Symbol]types.Type
 
+	// referenced records the value-level symbols a use site consumed
+	// — every valOf call for a known symbol sets it. checkLetDecl
+	// consults it to decide whether the pre-registered meta of a
+	// top-level `let` pattern already carries constraints from an
+	// earlier (forward) reference, in which case the binding cannot
+	// generalize: the earlier use recorded a monomorphic shape.
+	referenced map[*resolve.Symbol]bool
+
 	// The type-declaration tables.
 	tyCons    map[conKey]*typeInfo          // declared + builtin types by identity
 	tyBySym   map[*resolve.Symbol]*typeInfo // declared types by symbol
@@ -109,6 +126,22 @@ type checker struct {
 	// bounds is the escape-boundary stack for `try` — innermost last.
 	bounds  []boundary
 	goDepth int
+
+	// curTScope is the rigid-variable scope of the signature whose
+	// body is being checked — a nested annotation (a local `let`'s
+	// type, a lambda parameter, an ascription) resolves a type
+	// variable by name through it, so `let y : List a` inside
+	// `fn f (xs: List a)` refers to f's `a`. Nil at top level.
+	curTScope *tscope
+	// sigScope records each declared signature's tscope so the body
+	// checker can set curTScope to it.
+	sigScope map[*resolve.Symbol]*tscope
+
+	// thunks records the symbols checkLetDecl flipped to a
+	// generalized value-let — their `() -> T` signature is a thunk,
+	// and valOf types a reference at the value T rather than the
+	// niladic function a declared `fn f () -> T` would keep.
+	thunks map[*resolve.Symbol]bool
 
 	// errMethod is the synthetic symbol for `GoError.Error` —
 	// created on first use by goErrMethodSym.
@@ -219,37 +252,55 @@ func (c *checker) sigOf(sym *resolve.Symbol) (Signature, bool) {
 	return Signature{}, false
 }
 
-// valOf returns the type a symbol denotes at a use site: its declared
-// or external signature instantiated with fresh metas. Unknown symbols
-// get a fresh meta (the resolver's E0201 covers the cause).
+// valOf returns the type a symbol denotes at a use site — its
+// declared or external signature instantiated with fresh metas —
+// together with the instantiation arguments (nil for monomorphic or
+// locally bound types). Unknown symbols get a fresh meta (the
+// resolver's E0201 covers the cause).
 //
 // Instantiation applies only to symbols whose signature quantifies
 // its type variables — declared fns, constructors, builtins, methods,
-// and anything the SignatureSource supplies (an `a` in
-// `fn id (x: a) -> a` means "for every a", so each call gets fresh
-// metas). A local value binding (KindVar: a let, a parameter, a
-// pattern variable) is different: the `a` in its declared type is the
-// enclosing declaration's rigid variable, shared by every use of the
-// binding. Returning it as-is lets a constraint the body places on
-// `x : a` — like `x + 1` — reach the declared `a` itself instead of
-// evaporating into a fresh meta.
-func (c *checker) valOf(sym *resolve.Symbol, sp diag.Span) types.Type {
+// anything the SignatureSource supplies, and generalized top-level
+// lets (P2-1: `let id = fn x -> x` binds `a` as a rigid variable, so
+// each use gets fresh metas). A local value binding (KindVar: a
+// lambda parameter, a pattern variable, a block-level let) is
+// different: the `a` in its declared type is the enclosing
+// declaration's rigid variable, shared by every use of the binding.
+// Returning it as-is lets a constraint the body places on `x : a` —
+// like `x + 1` — reach the declared `a` itself instead of evaporating
+// into a fresh meta.
+//
+// valOf also marks the symbol referenced: a top-level let-bound name
+// consumed before its own declaration is checked keeps the
+// monomorphic meta the pre-registration gave it — the earlier use
+// fixed a shape the binding may not generalize away from.
+func (c *checker) valOf(sym *resolve.Symbol, sp diag.Span) (types.Type, []types.Type) {
 	if sym == nil {
 		// The resolver's E0201 already reports the name; the
 		// recovery meta must not add an E0407 of its own.
-		return c.quietMeta(sp, "an unresolved name")
+		return c.quietMeta(sp, "an unresolved name"), nil
 	}
+	c.referenced[sym] = true
 	if c.hiddenDiag(sym, sp) {
-		return c.quietMeta(sp, fmt.Sprintf("the type of `%s`", sym.Name))
+		return c.quietMeta(sp, fmt.Sprintf("the type of `%s`", sym.Name)), nil
 	}
 	if sig, ok := c.sigOf(sym); ok {
 		if _, local := c.vals[sym]; local && sym.Kind == resolve.KindVar {
-			return sig.Type
+			return sig.Type, nil
 		}
-		t, _ := c.instantiate(sig.Type, sp)
-		return t
+		typ, targs := c.instantiate(sig.Type, sp)
+		if c.thunks[sym] {
+			// A generalized value-let's signature is the niladic
+			// thunk `() -> T` (checkLetDecl): the reference denotes
+			// the *value*, so it types at the instantiated T — the
+			// call is lowering's emission detail (`x[T]()`).
+			if inst, ok := types.Chase(typ).(*types.Func); ok {
+				return inst.Ret, targs
+			}
+		}
+		return typ, targs
 	}
-	return c.newMeta(sp, fmt.Sprintf("the type of `%s`", sym.Name))
+	return c.newMeta(sp, fmt.Sprintf("the type of `%s`", sym.Name)), nil
 }
 
 // hiddenDiag reports E0501 for a loaded Go symbol whose signature
@@ -317,7 +368,7 @@ func (c *checker) checkFnDecl(d *syntax.FnDecl) {
 	sig, ok := types.Chase(c.vals[sym]).(*types.Func)
 	if !ok {
 		// registerValueDecls always stores a *types.Func for fns.
-		sig = c.fnSig(d)
+		sig, c.sigScope[sym] = c.fnSig(d)
 		c.vals[sym] = sig
 	}
 	params := make([]Param, len(d.Params))
@@ -340,18 +391,29 @@ func (c *checker) checkFnDecl(d *syntax.FnDecl) {
 		}
 		params[i] = Param{Label: label, Pat: pat}
 	}
+	// The signature's rigid-variable scope stays visible while the
+	// body is checked so a nested annotation (`let y : List a`, a
+	// lambda parameter, an ascription) resolves `a` to this
+	// declaration's own variable.
+	prevScope := c.curTScope
+	c.curTScope = c.sigScope[sym]
 	c.bounds = append(c.bounds, boundary{ret: sig.Ret, sp: d.Sp, goDepth: c.goDepth, kind: "fn"})
 	var body Expr
 	if d.Body != nil {
 		body = c.checkExpr(d.Body, sig.Ret)
 	}
 	c.bounds = c.bounds[:len(c.bounds)-1]
+	c.curTScope = prevScope
 	c.decls = append(c.decls, &FnDecl{
 		Sp:     d.Sp,
 		Sym:    sym,
 		Sig:    sig,
 		Params: params,
 		Body:   body,
+		// A declared signature's rigid variables are the function's
+		// own type parameters — `fn len2 (t: Tree a) -> Int` emits
+		// `func len2[A](t Tree[A]) int64`.
+		TypeParams: rigidVars(sig),
 	})
 }
 
@@ -359,12 +421,60 @@ func (c *checker) checkFnDecl(d *syntax.FnDecl) {
 // (so it binds the binding's type), then the pattern is checked
 // against it. Bound symbols were pre-registered with metas, so
 // references in other declarations already resolve.
+//
+// Generalization (P2-1, decisions/2026-11-01-value-restriction.md):
+// a `let x = v` whose right-hand side is a syntactic value
+// generalizes the binding's unsolved metas — the ones not shared
+// with the environment — into rigid variables the reference sites
+// instantiate per use. Two emission shapes carry that through the
+// pipeline (decisions/2026-11-02-let-polymorphism-emission.md):
+//
+//   - `let f = <lambda>` becomes a function declaration: the
+//     symbol's kind flips to KindFunc and the typed decl is a
+//     FnDecl with the generalized variables as TypeParams.
+//   - `let x = <other syntactic value>` with generalized variables
+//     becomes a "thunk": a niladic function declaration
+//     `func x[T...]() T` whose references emit `x[T]()`.
+//
+// A binding stays monomorphic — an ordinary LetDecl — when its
+// pattern binds more than a bare variable, when the symbol was
+// already consumed by a forward reference (the pre-registered meta
+// carries the earlier use's constraints), or when generalization
+// found nothing to quantify. A `let` annotation that names type
+// variables it cannot bind (the pattern or RHS blocked the flip, or
+// the binding is a local let inside a body) is E0412.
 func (c *checker) checkLetDecl(d *syntax.LetDecl) {
 	var want types.Type
+	var annScope *tscope
 	if d.Type != nil {
-		want = c.typeExpr(d.Type, c.newTScope())
+		annScope = c.newTScope()
+		want = c.typeExpr(d.Type, annScope)
 	} else {
 		want = c.newMeta(d.Sp, "the type of the let binding")
+	}
+	// The environment snapshot generalization subtracts: every
+	// value-level symbol bound before this decl, minus the let's own
+	// pattern symbols — a meta reachable from another binding is
+	// shared and may not be quantified here.
+	env := map[*resolve.Symbol]bool{}
+	own := map[*resolve.Symbol]bool{}
+	for _, s := range c.patSyms(d.Pat) {
+		if s != nil {
+			own[s] = true
+		}
+	}
+	for s := range c.vals {
+		if !own[s] {
+			env[s] = true
+		}
+	}
+
+	// The annotation's variables stay visible inside the right-hand
+	// side — `let f : List a -> List a = fn (xs: List a) -> xs`
+	// resolves the lambda's `a` to the annotation's own variable.
+	prevScope := c.curTScope
+	if annScope != nil {
+		c.curTScope = annScope
 	}
 	var val Expr
 	if d.Value != nil {
@@ -373,12 +483,327 @@ func (c *checker) checkLetDecl(d *syntax.LetDecl) {
 		// A .gomi-style signature `let name : T` has no body.
 		val = &Lit{Base: baseOf(d.Sp, want), Kind: syntax.LitUnit}
 	}
+	c.curTScope = prevScope
 	pat := c.checkPat(d.Pat, want)
+
+	// A let-bound name that is a syntactic value — and was not
+	// consumed earlier — may generalize.
+	if d.Value != nil {
+		if vp, ok := pat.(*VarPat); ok && vp.Sym != nil {
+			if lam, ok := val.(*Lambda); ok {
+				// `let f = fn ...` — a function binding. The
+				// signature keeps the lambda's own shape (its
+				// declared arity): nested function-typed bodies
+				// stay in Ret position the way fnSig keeps them.
+				sig := &types.Func{Ret: lam.Body.Type()}
+				sig.Params = make([]types.FuncParam, len(lam.Params))
+				for i, p := range lam.Params {
+					sig.Params[i] = types.FuncParam{Label: p.Label, Type: p.Pat.Type()}
+				}
+				// A binding already consumed by a forward (or
+				// recursive) reference may not generalize: the
+				// earlier use recorded a monomorphic shape through
+				// the pre-registered meta, and binding it to a
+				// rigid variable now would leave the use site
+				// holding the meta.
+				if !c.referenced[vp.Sym] {
+					// Eligible metas bind to fresh rigid
+					// variables; rigidVars then reports every
+					// quantified variable — generalized metas
+					// plus an annotation's own declared
+					// variables (`let f : a -> a = ...`) — in
+					// the signature's first-occurrence order,
+					// the same order instantiation uses at
+					// call sites.
+					c.generalize(env, sig)
+				}
+				vars := rigidVars(sig)
+				// A referenced binding still flips when its
+				// signature stays monomorphic — nothing is left
+				// to quantify, so the earlier uses' shape is the
+				// declaration's. It must flip: `var f = <func
+				// literal>` puts the body inside Go's
+				// initialization-dependency analysis, where every
+				// (mutually) recursive reference is an
+				// initialization cycle; a func declaration has no
+				// initializer and escapes it.
+				if !c.referenced[vp.Sym] || len(vars) == 0 {
+					vp.Sym.Kind = resolve.KindFunc
+					c.vals[vp.Sym] = sig
+					if c.referenced[vp.Sym] {
+						// Uses checked while the symbol was a
+						// variable recorded CallUnknown; the
+						// callee is statically known now.
+						c.reclassifyCalls(vp.Sym, len(sig.Params), val)
+					}
+					c.decls = append(c.decls, &FnDecl{
+						Sp: d.Sp, Sym: vp.Sym, Sig: sig,
+						Params: lam.Params, Body: lam.Body,
+						TypeParams: vars,
+					})
+					return
+				}
+			} else if isValue(val) && !c.referenced[vp.Sym] {
+				c.generalize(env, want)
+				vars := rigidVars(want)
+				// The flip is only sound when the value really
+				// produced want's type — a failed unify leaves the
+				// annotation's variables unbound (E0412 below), and
+				// quantifying them would emit a body the residual
+				// check rejects.
+				if len(vars) > 0 && types.Equal(want, val.Type()) {
+					// `let x = <value>` — a thunk: a niladic
+					// generic function whose body is the value.
+					sig := &types.Func{Ret: want}
+					vp.Sym.Kind = resolve.KindFunc
+					c.vals[vp.Sym] = sig
+					c.thunks[vp.Sym] = true
+					c.decls = append(c.decls, &FnDecl{
+						Sp: d.Sp, Sym: vp.Sym, Sig: sig,
+						Body: val, TypeParams: vars, Thunk: true,
+					})
+					return
+				}
+			}
+		}
+		// A `let` annotation's variables bind only when the binding
+		// generalizes; on a monomorphic let — or on a `let` that
+		// could not flip (a destructure pattern, a non-value RHS,
+		// an earlier reference) — they are unbound.
+		if d.Type != nil {
+			before := len(c.diags)
+			c.unboundVars(want, d.Type.Span(), annScope)
+			if len(c.diags) != before {
+				// E0412 already doomed the binding — metas left
+				// unsolved inside the value's type are leftovers
+				// of the same failure, not separate user errors:
+				// `let f : List a = [[]]` needs no third E0407.
+				metasIn(val.Type(), func(m *types.Meta) { c.markQuiet(m) })
+			}
+		}
+	}
 	c.decls = append(c.decls, &LetDecl{
 		Sp:    d.Sp,
 		Pat:   pat,
 		Value: val,
 	})
+}
+
+// unboundVars reports E0412 for every rigid variable of t the
+// annotation's own scope minted — a type variable with no quantifier
+// to bind it. Variables resolved through an enclosing signature's
+// scope (`let y : List a` inside `fn f (xs: List a)`) are bound by
+// that declaration and skipped; metas are not the annotation's own.
+func (c *checker) unboundVars(t types.Type, sp diag.Span, sc *tscope) {
+	for _, v := range rigidVars(t) {
+		if !sc.owned[v] {
+			continue
+		}
+		c.diags.Add(diag.Error("E0412",
+			fmt.Sprintf("unbound type variable `%s`", v)).
+			At(sp).Set("var", v.String()))
+	}
+}
+
+// generalize binds the unification variables of t that belong to this
+// binding alone — occurring in t, not reachable from the environment's
+// types, and free of constraint flags — to fresh rigid variables, and
+// returns them in first-occurrence order. env is the set of
+// value-level symbols bound before the binding's own pattern. A meta
+// carrying a constraint (numeric, ordered, equality, integral,
+// float, or the quiet recovery flag) is left for defaulting or E0407:
+// `1` generalizes to nothing because its literal meta is Int-bound by
+// default, and a quiet meta belongs to a diagnostic already reported.
+func (c *checker) generalize(env map[*resolve.Symbol]bool, t types.Type) []*types.Var {
+	shared := map[*types.Meta]bool{}
+	for s := range env {
+		metasIn(c.vals[s], func(m *types.Meta) { shared[m] = true })
+	}
+	used := map[string]bool{}
+	for _, v := range rigidVars(t) {
+		used[v.Name] = true
+	}
+	var vars []*types.Var
+	metasIn(t, func(m *types.Meta) {
+		if shared[m] {
+			return
+		}
+		if r := c.metas[m]; r != nil &&
+			(r.num || r.ord || r.eq || r.flo || r.intg || r.quiet) {
+			return
+		}
+		v := &types.Var{ID: c.nextVar, Name: genName(used)}
+		c.nextVar++
+		m.Bind(v)
+		vars = append(vars, v)
+	})
+	return vars
+}
+
+// genName picks the next unused variable name `a`, `b`, ..., `z`,
+// `a1`, `b1`, ... — used records the names rigidVars already found.
+func genName(used map[string]bool) string {
+	for suffix := 0; ; suffix++ {
+		for r := 'a'; r <= 'z'; r++ {
+			name := string(r)
+			if suffix > 0 {
+				name = fmt.Sprintf("%s%d", name, suffix)
+			}
+			if !used[name] {
+				used[name] = true
+				return name
+			}
+		}
+	}
+}
+
+// metasIn walks t chasing bound metas and calls fn on each unbound
+// meta in first-occurrence order, deduplicated by identity.
+func metasIn(t types.Type, fn func(*types.Meta)) {
+	seen := map[*types.Meta]bool{}
+	var walk func(t types.Type)
+	walk = func(t types.Type) {
+		switch t := types.Chase(t).(type) {
+		case *types.Meta:
+			if !seen[t] {
+				seen[t] = true
+				fn(t)
+			}
+		case *types.Var:
+		case *types.Con:
+			for _, a := range t.Args {
+				walk(a)
+			}
+		case *types.Func:
+			for _, p := range t.Params {
+				walk(p.Type)
+			}
+			walk(t.Ret)
+		case *types.Tuple:
+			for _, e := range t.Elems {
+				walk(e)
+			}
+		case *types.Go:
+			for _, a := range t.Args {
+				walk(a)
+			}
+		default:
+			panic("unreachable")
+		}
+	}
+	walk(t)
+}
+
+// isValue reports whether x is a syntactic value per the value
+// restriction (decisions/2026-11-01-value-restriction.md): a literal,
+// a lambda, a constructor applied to values or referenced bare as a
+// constant, or a tuple/list/record composed of values. Applications
+// of ordinary functions, and every other expression, are not values —
+// `let r = Ref.new []` stays monomorphic and reports E0407 on its
+// unsolved element meta.
+func isValue(x Expr) bool {
+	switch x := x.(type) {
+	case *Lit:
+		return true
+	case *Lambda:
+		return true
+	case *Var:
+		// A bare constructor constant (None) is a value; a function
+		// reference is not a *saturated* value form — but the spec's
+		// "constructor applications" read includes the nullary one.
+		return x.Sym != nil && x.Sym.Kind == resolve.KindCtor &&
+			!isFuncT(x.Type())
+	case *MemberExpr:
+		return x.Sym != nil && x.Sym.Kind == resolve.KindCtor &&
+			!isFuncT(x.Type())
+	case *TupleLit:
+		for _, e := range x.Elems {
+			if !isValue(e) {
+				return false
+			}
+		}
+		return true
+	case *ListLit:
+		// A `..rest` element is a *Spread — not a value — so a
+		// spread list is excluded by the element check itself.
+		for _, e := range x.Elems {
+			if !isValue(e) {
+				return false
+			}
+		}
+		return true
+	case *RecordLit:
+		if x.With != nil {
+			return false
+		}
+		for _, f := range x.Fields {
+			if !isValue(f.Value) {
+				return false
+			}
+		}
+		return true
+	case *Apply:
+		// A saturated constructor application whose arguments are
+		// all values (`Some (1, 2)`, `Ok v`) is a value.
+		if x.Call.Callee == nil || x.Call.Callee.Kind != resolve.KindCtor ||
+			x.Call.Applied != x.Call.Arity {
+			return false
+		}
+		for _, a := range x.Args {
+			if !isValue(a.Value) {
+				return false
+			}
+		}
+		return true
+	case *Hole, *Unary, *Binary, *StrInterp, *If, *Match, *Block,
+		*Let, *Ignore, *Try, *GoExpr, *For, *SelectExpr, *Spread,
+		*Ascribe:
+		return false
+	default:
+		panic("unreachable")
+	}
+}
+
+// isFuncT reports whether t is a function type — used to tell a
+// nullary constructor constant (a value) from a curried constructor
+// reference (not a *saturated* value).
+func isFuncT(t types.Type) bool {
+	_, ok := types.Chase(t).(*types.Func)
+	return ok
+}
+
+// targsOf returns the instantiation arguments a callee-position
+// expression recorded — the Var/MemberExpr TypeArgs that CallInfo
+// mirrors for direct calls.
+func targsOf(e Expr) []types.Type {
+	switch e := e.(type) {
+	case *Var:
+		return e.TypeArgs
+	case *MemberExpr:
+		return e.TypeArgs
+	case *Lit, *Apply, *Hole, *Unary, *Binary, *StrInterp, *Lambda,
+		*If, *Match, *Block, *Let, *Ignore, *Try, *GoExpr, *For,
+		*SelectExpr, *ListLit, *Spread, *TupleLit, *RecordLit,
+		*Ascribe:
+		return nil
+	default:
+		panic("unreachable")
+	}
+}
+
+// ctorADTArgs returns the instantiated type arguments a constructor
+// reference carries — the Con.Args of its result type. That is the
+// order generated code instantiates the variant's ADT in:
+// `result.Err` is declared `func Err[A, E](v E) Result[A, E]`, so the
+// emitted `result.Err[A, E]` wants the result's [a, e], not the
+// signature's occurrence order (`e -> Result a e`, which collects
+// e first).
+func ctorADTArgs(t types.Type) []types.Type {
+	_, ret := flattenFunc(t)
+	if c, ok := types.Chase(ret).(*types.Con); ok {
+		return c.Args
+	}
+	return nil
 }
 
 // checkExternDecl records an extern block's entries. Each `fn`
@@ -504,8 +929,9 @@ func (c *checker) registerValueDecls(decls []syntax.Decl) {
 		switch d := d.(type) {
 		case *syntax.FnDecl:
 			sym := c.declSym(d.Name, resolve.KindFunc)
-			sig := c.fnSig(d)
+			sig, sc := c.fnSig(d)
 			c.vals[sym] = sig
+			c.sigScope[sym] = sc
 		case *syntax.LetDecl:
 			for _, sym := range c.patSyms(d.Pat) {
 				if sym != nil {
@@ -529,7 +955,7 @@ func (c *checker) registerValueDecls(decls []syntax.Decl) {
 // declared arity (CallInfo.Arity). Unannotated parameters get metas
 // (the grammar requires annotations; tolerance keeps hand-built
 // inputs checkable). A `()` parameter is a Unit parameter.
-func (c *checker) fnSig(d *syntax.FnDecl) *types.Func {
+func (c *checker) fnSig(d *syntax.FnDecl) (*types.Func, *tscope) {
 	sc := c.newTScope()
 	params := make([]types.FuncParam, len(d.Params))
 	for i, p := range d.Params {
@@ -557,7 +983,7 @@ func (c *checker) fnSig(d *syntax.FnDecl) *types.Func {
 	// parameter list, losing the declared arity — `fn mk () -> (Int
 	// -> Int)` declares one parameter, and `mk ()` is CallDirect
 	// rather than CallPartial.
-	return &types.Func{Params: params, Ret: ret}
+	return &types.Func{Params: params, Ret: ret}, sc
 }
 
 // patSyms collects the symbols a surface pattern binds (VarPat and

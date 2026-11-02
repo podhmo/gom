@@ -1,0 +1,21 @@
+package main
+
+// Generalized lets emit Go generics: a lambda-binding flips to a
+// generic FnDecl, a non-function value to a niladic generic thunk.
+let id = fn x -> x
+let e = []
+
+fn sum (xs: List Int) -> Int = match xs {
+  [] -> 0
+  [x, ..rest] -> x + sum rest
+}
+
+fn answer () -> Int = {
+  let _ = sum e
+  id 40 + id 2
+}
+
+fn main () -> Unit = {
+  let _ = answer ()
+  ()
+}

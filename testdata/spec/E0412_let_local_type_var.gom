@@ -1,0 +1,10 @@
+package ex
+
+// A type variable in a `let` annotation has nothing to bind it when
+// the binding cannot introduce type variables — a local `let` inside
+// a function body is never generalized (spec 3.3, value
+// restriction), so `a` is unbound (E0412).
+fn f () -> Unit = {
+  let x : a = ()
+  ()
+}

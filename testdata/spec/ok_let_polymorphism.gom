@@ -1,0 +1,10 @@
+package ex
+
+// `let id = fn x -> x` generalizes to `forall a. a -> a`; each use
+// instantiates it independently (spec 3.3).
+let id = fn x -> x
+
+fn main () -> Int = {
+  let _ = id "s"
+  id 42
+}

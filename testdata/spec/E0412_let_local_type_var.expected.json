@@ -1,0 +1,49 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0412",
+      "severity": "error",
+      "message": "unbound type variable `a`",
+      "span": {
+        "file": "E0412_let_local_type_var.gom",
+        "start": {
+          "line": 8,
+          "col": 11,
+          "offset": 284
+        },
+        "end": {
+          "line": 8,
+          "col": 12,
+          "offset": 285
+        }
+      },
+      "data": {
+        "var": "a"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected a, got Unit",
+      "span": {
+        "file": "E0412_let_local_type_var.gom",
+        "start": {
+          "line": 8,
+          "col": 15,
+          "offset": 288
+        },
+        "end": {
+          "line": 8,
+          "col": 17,
+          "offset": 290
+        }
+      },
+      "data": {
+        "actual": "Unit",
+        "expected": "a"
+      }
+    }
+  ]
+}

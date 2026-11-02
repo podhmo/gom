@@ -1,0 +1,17 @@
+package main
+
+// A recursive let-lambda is *referenced* (by its own body, or a
+// partner's) yet stays monomorphic: it still flips to a func
+// declaration — `var f = <func literal>` would put the body inside
+// Go's initialization-dependency analysis, where every recursive
+// reference is an initialization cycle.
+let f = fn n -> if n == 0 { 1 } else { n * f (n - 1) }
+
+let even = fn n -> if n == 0 { true } else { odd (n - 1) }
+let odd = fn n -> if n == 0 { false } else { even (n - 1) }
+
+fn main () -> Unit = {
+  let _ = f 5
+  let _ = even 10 && odd 10
+  ()
+}

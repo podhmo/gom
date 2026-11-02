@@ -64,6 +64,7 @@
 | [generated-support-packages](2026-11-02-generated-support-packages.md) | Generated-code support packages: `rt/` and `stdlib/` | draft |
 | [grammar-based-generator](2026-11-02-grammar-based-generator.md) | Grammar-based random program generator (internal/gomgen) | 採用 |
 | [import-go-loader-seam](2026-11-02-import-go-loader-seam.md) | The package-loader seam for `import` and `import go` | draft |
+| [let-polymorphism-emission](2026-11-02-let-polymorphism-emission.md) | Emission shape for let-polymorphic bindings (P2-1) | 採用（[sketch: let-polymorphism-emission](../sketch/2026-11-02-let-polymorphism-emission.md) で検証） |
 | [monomorphic-checker-design](2026-11-02-monomorphic-checker-design.md) | Design of the P1 monomorphic checker | draft |
 | [name-resolution](2026-11-02-name-resolution.md) | Name resolution: scopes, shadowing, and constructor lookup | draft |
 | [p1-3-parser-interpretations](2026-11-02-p1-3-parser-interpretations.md) | P1-3 parser: interpretations made while implementing grammar.ebnf | 採用 |

@@ -532,6 +532,24 @@ converting the error first.`,
   Ok ()
 }`,
 	},
+	{
+		Code:     "E0412",
+		Severity: SeverityError,
+		Title:    "unbound type variable",
+		Phase:    PhaseCheck,
+		Spec:     "3.3",
+		Explanation: `A type variable in a "let" annotation has nothing to bind it:
+type variables quantify over a declaration — a "fn" signature, a type
+declaration, or a generalized top-level "let" — and a "let" whose
+pattern is not a bare name, whose right-hand side is not a syntactic
+value, or that sits inside a function body cannot introduce them
+(spec section 3.3, value restriction). Declare the variable on the
+enclosing signature or remove it from the annotation.`,
+		Example: `fn f () -> Unit = {
+  let x : a = ()   // a is not bound by f's signature
+  ()
+}`,
+	},
 
 	{
 		Code:     "E0501",

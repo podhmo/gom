@@ -1,0 +1,27 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: ?4 occurs in ?4 -> ?5 (infinite type)",
+      "span": {
+        "file": "E0401_self_application.gom",
+        "start": {
+          "line": 5,
+          "col": 19,
+          "offset": 167
+        },
+        "end": {
+          "line": 5,
+          "col": 20,
+          "offset": 168
+        }
+      },
+      "data": {
+        "in": "?4 -> ?5",
+        "var": "?4"
+      }
+    }
+  ]
+}

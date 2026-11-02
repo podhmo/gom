@@ -1,0 +1,49 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0412",
+      "severity": "error",
+      "message": "unbound type variable `a`",
+      "span": {
+        "file": "E0412_let_nonvalue.gom",
+        "start": {
+          "line": 8,
+          "col": 9,
+          "offset": 247
+        },
+        "end": {
+          "line": 8,
+          "col": 10,
+          "offset": 248
+        }
+      },
+      "data": {
+        "var": "a"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected a, got Int",
+      "span": {
+        "file": "E0412_let_nonvalue.gom",
+        "start": {
+          "line": 8,
+          "col": 13,
+          "offset": 251
+        },
+        "end": {
+          "line": 8,
+          "col": 16,
+          "offset": 254
+        }
+      },
+      "data": {
+        "actual": "Int",
+        "expected": "a"
+      }
+    }
+  ]
+}

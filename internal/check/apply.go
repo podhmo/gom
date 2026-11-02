@@ -269,6 +269,7 @@ func (c *checker) checkGomApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol
 		Applied:   len(out.Args),
 		Arity:     declArity,
 		HoleIndex: -1,
+		TypeArgs:  targsOf(fn),
 	}
 	allMapped := !overDeclared
 	if allMapped {
@@ -617,6 +618,7 @@ func (c *checker) checkGoApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol,
 		ArgToParam: argToParam,
 		HoleIndex:  hole,
 		Variadic:   variadic,
+		TypeArgs:   targsOf(fn),
 	}
 	if err := out.Validate(); err != nil {
 		panic(fmt.Sprintf("check: invalid CallInfo for %T: %v", e.Fn, err))

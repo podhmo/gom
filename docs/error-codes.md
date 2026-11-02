@@ -420,6 +420,25 @@ fn f () -> Result Unit MyError = {
 }
 ```
 
+### E0412 — unbound type variable
+
+**Severity:** error · **Phase:** check · **Spec:** §3.3
+
+A type variable in a "let" annotation has nothing to bind it:
+type variables quantify over a declaration — a "fn" signature, a type
+declaration, or a generalized top-level "let" — and a "let" whose
+pattern is not a bare name, whose right-hand side is not a syntactic
+value, or that sits inside a function body cannot introduce them
+(spec section 3.3, value restriction). Declare the variable on the
+enclosing signature or remove it from the annotation.
+
+```gom
+fn f () -> Unit = {
+  let x : a = ()   // a is not bound by f's signature
+  ()
+}
+```
+
 ## 05xx — Go interop
 
 ### E0501 — Go symbol cannot be represented in Gom

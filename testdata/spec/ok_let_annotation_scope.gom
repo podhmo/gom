@@ -1,0 +1,16 @@
+package ex
+
+// A type variable in a `let` annotation resolves through the
+// enclosing signature's variables, and a top-level `let`'s own
+// annotation variables are visible inside its right-hand side:
+// `a` below is f's parameter and the binding's own respectively —
+// neither is unbound.
+fn f (xs: List a) -> List a = {
+  let y : List a = xs
+  y
+}
+
+let id : List a -> List a = fn xs -> {
+  let y : List a = xs
+  y
+}

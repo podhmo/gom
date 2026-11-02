@@ -27,6 +27,20 @@ type FnDecl struct {
 	Sig    *types.Func     // declared or inferred signature
 	Params []Param
 	Body   Expr
+	// TypeParams are the declaration's quantified type variables in
+	// source occurrence order — the rigid variables of Sig for a
+	// `fn`, or the metas generalization bound to fresh variables for
+	// a `let f = <lambda>` / value `let` (P2-1, decisions
+	// 2026-11-02-let-polymorphism-emission). A generalized let that
+	// is not a lambda has nil Params and Sig of `() -> T` — the
+	// "thunk" shape lowering emits as `func x[T...]() T`.
+	TypeParams []*types.Var
+	// Thunk marks the `() -> T` shape as a generalized value-let
+	// (`let x = <value>`), not a declared niladic function:
+	// references denote the *value* and emit the call `x[T]()`,
+	// while `fn f () -> T` stays an ordinary function whose value
+	// position is `f`. The shape alone cannot tell the two apart.
+	Thunk bool
 }
 
 func (*FnDecl) isDecl()           {}

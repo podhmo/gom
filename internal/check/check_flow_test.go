@@ -113,8 +113,8 @@ func TestLetInBlock(t *testing.T) {
 	}
 }
 
-// A top-level unannotated let of a lambda asks for an annotation —
-// the checker does not generalize.
+// A top-level unannotated let of a lambda generalizes (P2-1): the
+// binding flips to a FnDecl whose metas became rigid type variables.
 func TestTopLetUnannotatedLambda(t *testing.T) {
 	b := newTB()
 	xp, xs := b.vp("x")
@@ -126,11 +126,22 @@ func TestTopLetUnannotatedLambda(t *testing.T) {
 	}, b.ref(xs)))
 	_ = fs
 
-	_, diags := b.check(nil, d)
-	requireCodes(t, diags, "E0407")
+	f, diags := b.check(nil, d)
+	requireCodes(t, diags)
+	fd := findDecl[*FnDecl](f, 0)
+	if fd == nil {
+		t.Fatalf("let f = fn x -> x did not generalize to a FnDecl")
+	}
+	if got := fd.Sig.String(); got != "a -> a" {
+		t.Errorf("generalized sig = %s, want `a -> a`", got)
+	}
+	if len(fd.TypeParams) != 1 {
+		t.Fatalf("TypeParams = %d, want 1", len(fd.TypeParams))
+	}
 }
 
-// An annotated lambda parameter checks against the annotation.
+// An annotated lambda parameter checks against the annotation; the
+// let still generalizes — here over an already-rigid signature.
 func TestLambdaTyped(t *testing.T) {
 	b := newTB()
 	xp, xs := b.param("x", "", b.tn("Int"))
@@ -140,8 +151,8 @@ func TestLambdaTyped(t *testing.T) {
 
 	f, diags := b.check(nil, d)
 	requireCodes(t, diags)
-	ld := findDecl[*LetDecl](f, 0)
-	if got := ld.Value.Type().String(); got != "Int -> Int" {
+	fd := findDecl[*FnDecl](f, 0)
+	if got := fd.Sig.String(); got != "Int -> Int" {
 		t.Errorf("lambda type = %s, want `Int -> Int`", got)
 	}
 }

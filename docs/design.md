@@ -273,7 +273,7 @@ if n > 0 {
 - `try e` → `r := e` として `r.Tag()` で分岐する。`result.ResultTag_Err` なら `return result.Err[...](r.Error)` で最も内側の関数から脱出、`result.ResultTag_Ok` なら `r.Value` に進む。分岐は invalid（タグ 0）を含む完全なものにし、`default` は `rt.InvalidVariant` で panic する
 - 自己末尾再帰 → 引数を再代入する `for` ループ。相互再帰は保証しない。A parameter a nested `Closure` or `Spawn` can capture is copied to a fresh per-iteration binding at the top of the loop body and every use is rebound to it (internal/lower/tail.go `snapshotCapturedParams`) — without the copy a capture would read the value of the *last* iteration rather than the call that created it (docs/problems/2026-11-02-tailloop-param-capture.md)
 - ラムダ → Go の関数リテラル。捕捉変数はすべて不変なのでコピー意味論の問題は起きない（the TailLoop loop registers are the exception — they are rebound every iteration, which is why the snapshot above exists）
-- トップレベルの多相関数 → 型パラメータ `[A any]`
+- トップレベルの多相関数 → 型パラメータ `[A any]`。一般化した `let` の非関数値（`let e = []`）は niladic のジェネリック関数 `func e[A any]() list.List[A]` として出力し、参照側は `e[T]()` の呼び出しにする。使用箇所の型引数は checker が型付き AST の `TypeArgs` に記録し、Core IR の `CallDirect`/`FuncRef`/`CtorApp` へそのまま移す（[decisions/let-polymorphism-emission](decisions/2026-11-02-let-polymorphism-emission.md)）
 - 生成コードには `//line foo.gom:12` ディレクティブを埋め込み、panic のスタックトレースとデバッガを元ソースへ対応させる
 
 ### 4.6 `|?>`

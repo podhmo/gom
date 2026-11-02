@@ -57,77 +57,17 @@ import (
 const knownBugsCap = 24
 
 var knownCompileBugs = map[[32]byte]fuzzutil.KnownBug{
-	// `fn len2 (xs: List a) -> Int = ...`: a polymorphic function's
-	// type variable reaches codegen as a bare name — `func
-	// len2(xs list.List[A])` — with no `[A any]` type parameter
-	// declared, so the generated code has an undefined identifier.
-	fuzzutil.Sum256([]byte(`package m
-
-fn len2 (xs: List a) -> Int =
-  match xs {
-    [] -> 0
-    [_, ..rest] -> 1 + len2 rest
-  }
-`)): {
-		// The Match is deliberately family-wide: any "undefined: X"
-		// typecheck failure means codegen referenced a name it never
-		// declared — the type-param defect or a sibling of it. Mutations
-		// keep minting fresh names (A0, B00, C) so per-name signatures
-		// would never stop failing. If a fix for the type-param bug
-		// reveals a different "undefined" class underneath, it surfaces
-		// as a new signature then.
-		Match: []string{"generated Go fails to typecheck", "undefined:"},
-		TODO:  "多相関数の型パラメータが生成 Go で宣言されない",
-		Desc:  "generic fn emits unbound type parameter A",
-	},
-	// `fn a000(a:b00) ...` — lowercase type names in signatures are
-	// implicit type variables; they reach codegen as `B00`/`B` with
-	// no `[B00 any]` declaration. Same root cause as `len2` above —
-	// same TODO, same signature.
-	fuzzutil.Sum256Hex("af7ead9ce70b0085bc3cd4ac84364ef49c5f622c28df8ba26e7abef309b45562"): {
-		Match: []string{"generated Go fails to typecheck", "undefined:"},
-		TODO:  "多相関数の型パラメータが生成 Go で宣言されない",
-		Desc:  "implicit type vars emit undeclared B00/B",
-	},
-	// `fn helper()->c=helper()` — the return type `c` reaches
-	// codegen as `C` with no declaration; same family again.
-	fuzzutil.Sum256([]byte("package a\nfn helper()->c=helper()")): {
-		Match: []string{"generated Go fails to typecheck", "undefined:"},
-		TODO:  "多相関数の型パラメータが生成 Go で宣言されない",
-		Desc:  "return type var emits undeclared C",
-	},
-	// (The parse-phase bug cluster — ctor-pattern '-' loop, the
-	// E0102 negative span, raw token text in messages — was fixed
-	// in internal/syntax; those corpus files now run live as
-	// regression seeds.)
-	// (The zero-argument Go call bug — `let a = fmt.Print()` lowering
-	// to a CallGo with Args[0] missing — is fixed in lower:
-	// declOrderArgs no longer pads CallGo.Args to the declared arity,
-	// so the corpus file compiles cleanly.)
-	// `fn a()->a={}` — a function declared to return a bare type
-	// variable with an empty-block body trips the lowering
-	// invariant "body type Unit differs from residual type a".
-	// The "differs from" match covers the sibling wordings of the
-	// same check-vs-lower type-var leak ("node type X differs from
-	// branch type Y" below).
-	fuzzutil.Sum256Hex("e8e94738d328b213a7aadaf7715bbd0ff445f93ef290673c85e2cdd93585da47"): {
-		Match: []string{"E0901", "differs from"},
-		TODO:  "型変数を返す関数の本体との型不一致が E0901 になる",
-		Desc:  "fn returning bare type var emits E0901 differs-from",
-	},
-	// `fn a0000000(n:Int)->a00000=if 0>0{}else{}` — declared return
-	// type var vs an all-Unit if/else body: "node type a00000
-	// differs from branch type Unit". Same family as above.
-	fuzzutil.Sum256Hex("f999e98f27345a9ed51b9a9f72725d861414a1de1b35a837df66f13223204562"): {
-		Match: []string{"E0901", "differs from"},
-		TODO:  "型変数を返す関数の本体との型不一致が E0901 になる",
-		Desc:  "if/else body vs type-var return emits E0901",
-	},
-	// (The module-name-in-value-position family — `{fmt}`, `{fmt()}`,
-	// `Result()` reaching lower as E0901s — is fixed in resolve: a
-	// module symbol in term position is E0201 there, so the corpus
-	// files now report one clean diagnostic and the pipeline stops
-	// before lower.)
+	// (The registry is empty for now — recent fixes retired every
+	// entry. The parse-phase bugs (ctor-pattern '-' loop, the
+	// E0102 negative span, raw token text in messages) were fixed
+	// in internal/syntax; the zero-argument Go call, the
+	// module-name-in-value-position family, and the memberExpr
+	// panic were fixed by fix-lower-bugs; and the type-variable
+	// clusters — the unbound `A`/`B00`/`C` of polymorphic
+	// signatures and the type-var-vs-body "differs from" E0901s —
+	// were fixed in P2-1, which emits FnDecl.TypeParams as Go
+	// `[A any]` and reports the mismatch as E0401/E0412 in check.
+	// Those corpus files and seeds run live as regression seeds.)
 	// (The raw-byte-in-string-literal pair — `fmt.Print("\xeb")` and
 	// `"\x00"` — is fixed in the lexer: E0105 rejects the literal at
 	// lex time, so the corpus files now run live.)
@@ -420,8 +360,15 @@ fn mainish () -> Int = add 2 3
 		"package m\n\nfn f () -> Int = todo ()\n",
 		"package m\n\nimport go \"os\"\n\nfn args () -> Go.Slice String = os.Args\n",
 		"package m\n\nfn f () -> Unit = select {}\n",
-		// knownBugs repros — covered by the registry above
-		"package m\n\nfn len2 (xs: List a) -> Int =\n  match xs {\n    [] -> 0\n    [_, ..rest] -> 1 + len2 rest\n  }\n",
+		// P2-1 fixes: generic signatures now emit Go type parameters,
+		// and a type-var-vs-body mismatch is E0401, not E0901.
+		"package a\nfn helper()->c=helper()",
+		"package a\nfn a()->a={}",
+		"package a000\nimport go\"fmt\"\nfn a0000000(n:Int)->a00000=if 0>0{}else{}",
+		"package a0\nimport go \"fmt\"\nfn a000(a:b00) (b:Int)->Int=00\nfn a000000(a:b00) -> Int =0\nfn a00000(a0000:b)(a00000000:b)->Unit={} ",
+		// Former knownBugs repro — the module-misuse family is now
+		// E0201 at resolve, so this runs live as a regression seed.
+		"package a\nimport go \"fmt\"\nfn a () -> a = {fmt}\n",
 	}
 	for _, s := range hand {
 		seeds = append(seeds, []byte(s))

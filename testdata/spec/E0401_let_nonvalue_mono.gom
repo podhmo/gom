@@ -1,0 +1,9 @@
+package ex
+
+fn f (n: Int) -> Int = n
+
+// `let y = f 1` is not a syntactic value, so `y` is monomorphic Int —
+// a String use is an ordinary mismatch (value restriction, spec 3.3).
+let y = f 1
+
+fn main () -> String = y

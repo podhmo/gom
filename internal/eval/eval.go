@@ -206,6 +206,7 @@ func (e *Evaluator) fnValue(d *check.FnDecl) *VFunc {
 	f.params = d.Params
 	f.body = d.Body
 	f.env = e.env
+	f.thunk = d.Thunk
 	return f
 }
 
@@ -377,11 +378,24 @@ func (e *interp) eval(x check.Expr, env *Env) Value {
 	panic("unreachable")
 }
 
+// forceThunk applies a generalized value-let — a top-level `let x =
+// <value>` the checker emitted as a parameterless `() -> T` FnDecl
+// (P2-1) — yielding the bound value; generated code makes the same
+// shape a thunk call `x[T]()`. Any other value passes through —
+// including a declared `fn f () -> T`, whose value is the function.
+func (e *interp) forceThunk(v Value, sp diag.Span) Value {
+	f, ok := v.(*VFunc)
+	if !ok || !f.thunk {
+		return v
+	}
+	return e.applyArgs(f, nil, nil, sp)
+}
+
 // evalVar resolves a symbol reference: environment first (locals,
 // globals, harness stubs), then constructors and builtins.
 func (e *interp) evalVar(x *check.Var, env *Env) Value {
 	if v, ok := env.Lookup(x.Sym); ok {
-		return v
+		return e.forceThunk(v, x.Span())
 	}
 	switch x.Sym.Kind {
 	case resolve.KindCtor:
@@ -461,7 +475,7 @@ func (e *interp) evalMember(x *check.MemberExpr, env *Env) Value {
 		// Module member selection (`pkg.Fn`): the member symbol's
 		// value comes from the environment so tests can stub it.
 		if v, ok := env.Lookup(x.Sym); ok {
-			return v
+			return e.forceThunk(v, x.Sel.Sp)
 		}
 		if x.Sym.Kind == resolve.KindCtor {
 			info := e.ctorOf(x.Sym, x.Sym.Name, x.Type())

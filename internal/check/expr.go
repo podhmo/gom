@@ -99,7 +99,13 @@ func (c *checker) checkExpr(e syntax.Expr, want types.Type) Expr {
 // checkIdent resolves a value-position identifier.
 func (c *checker) checkIdent(e *syntax.Ident) Expr {
 	sym := c.useSym(e)
-	return &Var{Base: baseOf(e.Sp, c.valOf(sym, e.Sp)), Sym: sym}
+	typ, targs := c.valOf(sym, e.Sp)
+	if sym != nil && sym.Kind == resolve.KindCtor {
+		// A constructor's TypeArgs instantiate its ADT — the
+		// result's own argument order, not the signature's.
+		targs = ctorADTArgs(typ)
+	}
+	return &Var{Base: baseOf(e.Sp, typ), Sym: sym, TypeArgs: targs}
 }
 
 // checkStrInterp types an interpolated string. Each splice is checked
@@ -135,6 +141,7 @@ func (c *checker) checkSelect(e *syntax.Select) Expr {
 			}
 			recv := &Var{Base: baseOf(id.Sp, c.untypedMeta()), Sym: msym}
 			var typ types.Type
+			var targs []types.Type
 			if sel != nil && isConv(sel) {
 				// `Go.conv` alone is not a value; the conversion form
 				// is `Go.conv e : T` (the apply/ascription checker
@@ -143,9 +150,12 @@ func (c *checker) checkSelect(e *syntax.Select) Expr {
 				// stray `Go.conv` never asks for an annotation.
 				typ = c.untypedMeta()
 			} else {
-				typ = c.valOf(sel, e.Sel.Sp)
+				typ, targs = c.valOf(sel, e.Sel.Sp)
+				if sel.Kind == resolve.KindCtor {
+					targs = ctorADTArgs(typ)
+				}
 			}
-			return &MemberExpr{Base: baseOf(e.Sp, typ), Recv: recv, Sel: e.Sel, Sym: sel, Index: -1}
+			return &MemberExpr{Base: baseOf(e.Sp, typ), Recv: recv, Sel: e.Sel, Sym: sel, Index: -1, TypeArgs: targs}
 		}
 	}
 
@@ -175,13 +185,15 @@ func (c *checker) checkSelect(e *syntax.Select) Expr {
 				fmt.Sprintf("method calls are only valid on Go values; `%s` has Gom type %s", selName, recv.Type())).
 				At(e.Sel.Sp).Set("type", recv.Type().String()))
 		}
-		return &MemberExpr{Base: baseOf(e.Sp, c.valOf(sel, e.Sel.Sp)), Recv: recv, Sel: e.Sel, Sym: sel, Index: -1}
+		mtyp, mtargs := c.valOf(sel, e.Sel.Sp)
+		return &MemberExpr{Base: baseOf(e.Sp, mtyp), Recv: recv, Sel: e.Sel, Sym: sel, Index: -1, TypeArgs: mtargs}
 	}
 	// A constructor selected through a type or package (`Option.Some`
 	// with the receiver already resolved); the callee checker picks
 	// it up by symbol.
 	if sel != nil && sel.Kind == resolve.KindCtor {
-		return &MemberExpr{Base: baseOf(e.Sp, c.valOf(sel, e.Sel.Sp)), Recv: recv, Sel: e.Sel, Sym: sel, Index: -1}
+		ctyp, _ := c.valOf(sel, e.Sel.Sp)
+		return &MemberExpr{Base: baseOf(e.Sp, ctyp), Recv: recv, Sel: e.Sel, Sym: sel, Index: -1, TypeArgs: ctorADTArgs(ctyp)}
 	}
 	// Field access on a declared record or a variant's uniquely named
 	// payload slot.
@@ -192,14 +204,15 @@ func (c *checker) checkSelect(e *syntax.Select) Expr {
 	// cannot place — a Go struct field or an imported record field
 	// (both carry signatures in the SignatureSource).
 	if sel != nil && sel.Kind == resolve.KindField {
-		return &MemberExpr{Base: baseOf(e.Sp, c.valOf(sel, e.Sel.Sp)), Recv: recv, Sel: e.Sel, Sym: sel, Index: -1}
+		ftyp, ftargs := c.valOf(sel, e.Sel.Sp)
+		return &MemberExpr{Base: baseOf(e.Sp, ftyp), Recv: recv, Sel: e.Sel, Sym: sel, Index: -1, TypeArgs: ftargs}
 	}
 	// A method selected on a Go-typed receiver that the resolver
 	// could not see: the SignatureSource's optional MethodSource
 	// looks the name up in the named type's method set (P1-9).
 	if sel == nil {
-		if msym, typ, ok := c.methodOf(recv.Type(), selName, e.Sel.Sp); ok {
-			return &MemberExpr{Base: baseOf(e.Sp, typ), Recv: recv, Sel: e.Sel, Sym: msym, Index: -1}
+		if msym, typ, mtargs, ok := c.methodOf(recv.Type(), selName, e.Sel.Sp); ok {
+			return &MemberExpr{Base: baseOf(e.Sp, typ), Recv: recv, Sel: e.Sel, Sym: msym, Index: -1, TypeArgs: mtargs}
 		}
 	}
 	if _, ok := types.Chase(recv.Type()).(*types.Meta); ok {
@@ -247,8 +260,9 @@ func (c *checker) revisitSelects() {
 			continue
 		}
 		if me.Sym == nil {
-			if msym, typ, ok := c.methodOf(rt, selName, me.Sel.Sp); ok {
+			if msym, typ, targs, ok := c.methodOf(rt, selName, me.Sel.Sp); ok {
 				me.Sym = msym
+				me.TypeArgs = targs
 				c.unify(me.Type(), typ, me.Sel.Sp)
 				continue
 			}
@@ -351,14 +365,15 @@ func (c *checker) fieldOf(t types.Type, name string) (*fieldInfo, types.Type, bo
 // types.Go, the builtin GoError, or a Ptr to one) through the
 // optional MethodSource of the signature source. The returned type
 // is the instantiated method signature — the receiver itself is not
-// a parameter of it.
-func (c *checker) methodOf(recvT types.Type, name string, sp diag.Span) (*resolve.Symbol, types.Type, bool) {
+// a parameter of it — and the targs are the metas the instantiation
+// substituted for the signature's type variables.
+func (c *checker) methodOf(recvT types.Type, name string, sp diag.Span) (*resolve.Symbol, types.Type, []types.Type, bool) {
 	t := types.Chase(recvT)
 	if con, ok := t.(*types.Con); ok && con.Qual == "" && con.Name == "Ptr" && len(con.Args) == 1 {
 		t = types.Chase(con.Args[0])
 	}
 	if _, ok := t.(*types.Go); !ok && !types.Equal(t, types.GoError) {
-		return nil, nil, false
+		return nil, nil, nil, false
 	}
 	// The signature source wins when it can answer — a loader-provided
 	// symbol keeps its origin, its hidden-symbol check, and whatever
@@ -366,10 +381,10 @@ func (c *checker) methodOf(recvT types.Type, name string, sp diag.Span) (*resolv
 	if ms, ok := c.src.(MethodSource); ok {
 		if sym, sig, ok := ms.MethodOf(recvT, name); ok {
 			if c.hiddenDiag(sym, sp) {
-				return sym, c.quietMeta(sp, fmt.Sprintf("the type of method `%s`", name)), true
+				return sym, c.quietMeta(sp, fmt.Sprintf("the type of method `%s`", name)), nil, true
 			}
-			typ, _ := c.instantiate(sig.Type, sp)
-			return sym, typ, true
+			typ, targs := c.instantiate(sig.Type, sp)
+			return sym, typ, targs, true
 		}
 	}
 	// `GoError` is a builtin scalar — not a types.Go — so a
@@ -379,10 +394,10 @@ func (c *checker) methodOf(recvT types.Type, name string, sp diag.Span) (*resolv
 	// without a signature source still type `e.Error()`.
 	if isCon(t, "GoError") && name == "Error" {
 		sym := c.goErrMethodSym()
-		typ, _ := c.instantiate(c.vals[sym], sp)
-		return sym, typ, true
+		typ, targs := c.instantiate(c.vals[sym], sp)
+		return sym, typ, targs, true
 	}
-	return nil, nil, false
+	return nil, nil, nil, false
 }
 
 // checkAscribe types `e : T` — and `Go.conv e : T`, the explicit Go
@@ -764,9 +779,14 @@ func (c *checker) checkLambda(e *syntax.Lambda) Expr {
 		fparams[i] = types.FuncParam{Label: label, Type: pt}
 	}
 	ret := c.newMeta(e.Sp, "the lambda's return type")
+	// The lambda's own annotation variables stay visible in its
+	// body — `fn (x: a) -> { let y : a = x; y }`.
+	prevScope := c.curTScope
+	c.curTScope = sc
 	c.bounds = append(c.bounds, boundary{ret: ret, sp: e.Sp, goDepth: c.goDepth, kind: "lambda"})
 	body := c.checkExpr(e.Body, ret)
 	c.bounds = c.bounds[:len(c.bounds)-1]
+	c.curTScope = prevScope
 	return &Lambda{
 		Base:   baseOf(e.Sp, types.Fn(ret, fparams...)),
 		Params: params,
@@ -887,25 +907,44 @@ func (c *checker) checkBlock(e *syntax.Block, want types.Type) Expr {
 		}
 		out.Stmts = append(out.Stmts, st)
 	}
-	if want != nil {
+	if n := len(out.Stmts); n > 0 && want != nil {
 		out.Base = baseOf(e.Sp, want)
 	} else if n := len(out.Stmts); n > 0 {
 		out.Base = baseOf(e.Sp, out.Stmts[n-1].Type())
 	}
+	// An empty block stays Unit — the context's want unifies against
+	// it in checkExpr's trailing step (an `fn f () -> a = {}` is a
+	// mismatch, not a silently ascribed `a`).
 	return out
 }
 
 // checkLet types a block-level `let pat = e`: the binding's type is
 // Unit and the bound names go into scope for the rest of the block.
+// Local lets are monomorphic (spec 3.3): an annotation's type
+// variables have no binder — a fresh `a` the enclosing signature
+// never declared is E0412 (one declared there resolves to it).
 func (c *checker) checkLet(e *syntax.Let) Expr {
 	var want types.Type
+	var annScope *tscope
 	if e.Type != nil {
-		want = c.typeExpr(e.Type, c.newTScope())
+		annScope = c.newTScope()
+		want = c.typeExpr(e.Type, annScope)
 	} else {
 		want = c.newMeta(e.Sp, "the let binding's type")
 	}
+	// The annotation's variables stay visible inside the value —
+	// `let y : List a = xs` under `fn f (xs: List a)` resolves `a`
+	// to f's variable, and a nested annotation can name it too.
+	prevScope := c.curTScope
+	if annScope != nil {
+		c.curTScope = annScope
+	}
 	val := c.checkExpr(e.Value, want)
+	c.curTScope = prevScope
 	pat := c.checkPat(e.Pat, want)
+	if e.Type != nil {
+		c.unboundVars(want, e.Type.Span(), annScope)
+	}
 	return &Let{Base: baseOf(e.Sp, types.Unit), Pat: pat, Value: val}
 }
 

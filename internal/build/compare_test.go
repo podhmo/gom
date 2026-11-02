@@ -281,6 +281,97 @@ fn main () -> Unit = {
 `,
 		want: "5",
 	},
+	{
+		// P2-1 let polymorphism: `let id = fn x -> x` emits a Go
+		// generic function called with explicit type arguments, and
+		// `let e = []` a generic niladic thunk the evaluator forces
+		// on lookup — eval and the binary must agree.
+		name: "let_polymorphism",
+		src: `package main
+
+import go "fmt"
+
+let id = fn x -> x
+let e = []
+
+fn sum (xs: List Int) -> Int = match xs {
+  [] -> 0
+  [x, ..rest] -> x + sum rest
+}
+
+fn answer () -> String = "${id "a"}${id 40 + id 2 + sum e}"
+
+fn main () -> Unit = {
+  let _ = fmt.Println(answer ())
+  ()
+}
+`,
+		want: "a42",
+	},
+	{
+		// P2-1 review: a self-recursive let-lambda is *referenced*
+		// (its own body consumes the symbol) yet stays monomorphic —
+		// it must emit a func decl, not `var f = <func literal>`,
+		// which Go's initialization-dependency analysis rejects as
+		// "initialization cycle: f refers to itself".
+		name: "let_self_recursion",
+		src: `package main
+
+import go "fmt"
+
+let f = fn n -> if n == 0 { 1 } else { n * f (n - 1) }
+
+fn answer () -> String = "${f 5}"
+
+fn main () -> Unit = {
+  let _ = fmt.Println(answer ())
+  ()
+}
+`,
+		want: "120",
+	},
+	{
+		// A mutually-recursive pair: `even` is checked first (and
+		// flips while unreferenced), `odd` is referenced by even's
+		// body but stays monomorphic — both must emit func decls or
+		// `var odd` initialization cycles back through even.
+		name: "let_mutual_recursion",
+		src: `package main
+
+import go "fmt"
+
+let even = fn n -> if n == 0 { "even" } else { odd (n - 1) }
+let odd = fn n -> if n == 0 { "odd" } else { even (n - 1) }
+
+fn answer () -> String = "${even 10} ${odd 10} ${even 7}"
+
+fn main () -> Unit = {
+  let _ = fmt.Println(answer ())
+  ()
+}
+`,
+		want: "even odd odd",
+	},
+	{
+		// An annotated recursive let — `let f : Int -> Int` — is
+		// referenced by its own body; the annotation binds no type
+		// variables, so the monomorphic flip applies the same way.
+		name: "let_annotated_recursion",
+		src: `package main
+
+import go "fmt"
+
+let f : Int -> Int = fn n -> if n == 0 { 0 } else { 1 + f (n - 1) }
+
+fn answer () -> String = "${f 40 + f 2}"
+
+fn main () -> Unit = {
+  let _ = fmt.Println(answer ())
+  ()
+}
+`,
+		want: "42",
+	},
 }
 
 // evalAnswer applies the file's `answer` through internal/eval and

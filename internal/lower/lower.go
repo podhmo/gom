@@ -114,6 +114,7 @@ type TypeOracle interface {
 func File(f *check.File, env *Env) (*core.File, []diag.Diagnostic) {
 	l := &lowerer{
 		arity:     map[*resolve.Symbol]int{},
+		thunks:    map[*resolve.Symbol]bool{},
 		typeD:     map[string]*check.TypeDecl{},
 		ctorT:     map[*resolve.Symbol]*check.TypeDecl{},
 		boundSyms: map[*resolve.Symbol]bool{},
@@ -123,11 +124,15 @@ func File(f *check.File, env *Env) (*core.File, []diag.Diagnostic) {
 	}
 	l.env = env
 
-	// First pass: index declarations for oracle and arity lookup.
+	// First pass: index declarations for oracle, arity, and thunk
+	// lookup.
 	for _, d := range f.Decls {
 		switch d := d.(type) {
 		case *check.FnDecl:
 			l.arity[d.Sym] = len(d.Params)
+			if d.Thunk {
+				l.thunks[d.Sym] = true
+			}
 		case *check.TypeDecl:
 			l.typeD[typeKey(d.Sym)] = d
 			if s, ok := d.Body.(*check.SumType); ok {
@@ -189,6 +194,11 @@ type lowerer struct {
 
 	// arity maps file-local FuncDecl symbols to declared arity.
 	arity map[*resolve.Symbol]int
+	// thunks marks the generalized value-lets whose `() -> T`
+	// declaration is a thunk (check.FnDecl.Thunk) — a reference to
+	// one emits the call `x[T]()`, while a declared `fn f () -> T`
+	// referenced in value position stays a FuncRef.
+	thunks map[*resolve.Symbol]bool
 	// typeD indexes the file's TypeDecls by qualified name key; ctorT
 	// maps a locally declared variant symbol to its TypeDecl.
 	typeD map[string]*check.TypeDecl
@@ -571,7 +581,8 @@ func (l *lowerer) decl(d check.Decl, out *core.File) {
 		l.markTailCalls(fn, d.Sym)
 		out.Decls = append(out.Decls, &core.FuncDecl{
 			Sp: d.Sp, Sym: d.Sym, Fn: fn,
-			IsEntry: isEntryPoint(out.Package, d.Sym, fn),
+			TypeParams: d.TypeParams,
+			IsEntry:    isEntryPoint(out.Package, d.Sym, fn),
 		})
 	case *check.LetDecl:
 		if !l.env.Tests && testOnlyPat(d.Pat) {

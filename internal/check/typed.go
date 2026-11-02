@@ -48,6 +48,13 @@ func (*Lit) isExpr() {}
 type Var struct {
 	Base
 	Sym *resolve.Symbol
+	// TypeArgs are the type arguments this reference instantiated
+	// the symbol's quantified variables with — the fresh metas
+	// valOf substituted for each rigid variable, in first-occurrence
+	// order (the same list CallInfo.TypeArgs records). Nil when the
+	// symbol's type is monomorphic or the reference is a shared
+	// (local) binding.
+	TypeArgs []types.Type
 }
 
 func (*Var) isExpr() {}
@@ -101,6 +108,10 @@ type MemberExpr struct {
 	Sel   *syntax.Ident   // the written selector
 	Sym   *resolve.Symbol // the selected member (KindField, a module member, or KindMethod)
 	Index int             // field position for record/variant payloads; -1 otherwise
+	// TypeArgs mirrors Var.TypeArgs for member references whose
+	// symbol quantifies type variables (`List.map`, `Option.Some`,
+	// a generic fn reached through a module).
+	TypeArgs []types.Type
 }
 
 func (*MemberExpr) isExpr() {}

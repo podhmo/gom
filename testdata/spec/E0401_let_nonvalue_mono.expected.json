@@ -1,0 +1,27 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected String, got Int",
+      "span": {
+        "file": "E0401_let_nonvalue_mono.gom",
+        "start": {
+          "line": 9,
+          "col": 24,
+          "offset": 218
+        },
+        "end": {
+          "line": 9,
+          "col": 25,
+          "offset": 219
+        }
+      },
+      "data": {
+        "actual": "Int",
+        "expected": "String"
+      }
+    }
+  ]
+}

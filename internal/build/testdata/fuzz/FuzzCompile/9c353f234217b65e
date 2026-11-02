@@ -1,2 +1,0 @@
-go test fuzz v1
-[]byte("package a0\nimport go \"fmt\"\nfn a000(a:b00) (b:Int)->Int=00\nfn a000000(a:b00) -> Int =0\nfn a00000(a0000:b)(a00000000:b)->Unit={} ")

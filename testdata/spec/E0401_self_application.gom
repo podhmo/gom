@@ -1,0 +1,5 @@
+package ex
+
+// `fn x -> x x` needs `?x := ?x -> ?r` — an occurs failure reported
+// as an ordinary type mismatch (E0401), never an internal error.
+let w = fn x -> x x

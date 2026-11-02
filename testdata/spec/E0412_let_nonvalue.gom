@@ -1,0 +1,8 @@
+package ex
+
+fn g (n: Int) -> Int = n
+
+// A top-level `let` generalizes only when the right-hand side is a
+// syntactic value; `g 1` is an application result, so the binding
+// stays monomorphic and the annotation's `a` is unbound (E0412).
+let x : a = g 1

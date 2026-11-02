@@ -1,0 +1,13 @@
+package ex
+
+// A generalized non-function value (`let e = []`) becomes a generic
+// niladic thunk `func e[A any]() list.List[A]`; references emit the
+// call `e[T]()`.
+let e = []
+
+fn sum (xs: List Int) -> Int = match xs {
+  [] -> 0
+  [x, ..rest] -> x + sum rest
+}
+
+fn main () -> Int = sum e

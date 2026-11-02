@@ -180,16 +180,16 @@ func (l *lowerer) varExpr(e *check.Var) core.Expr {
 		return l.varRef(baseOf(e), sym)
 	case resolve.KindFunc:
 		if sym.IsGo {
-			return l.goFuncRefOrAdapter(e.Span(), e.Type(), sym, nil)
+			return l.goFuncRefOrAdapter(e.Span(), e.Type(), sym, nil, e.TypeArgs)
 		}
 		return l.funcRefOrFlatten(e, sym)
 	case resolve.KindCtor:
 		if sigOf(e.Type()) != nil {
-			return &core.CtorRef{Base: baseOf(e), Sym: sym}
+			return &core.CtorRef{Base: baseOf(e), Sym: sym, TypeArgs: e.TypeArgs}
 		}
 		// Nullary constructor in value position: a saturated
 		// application of zero arguments.
-		return &core.CtorApp{Base: baseOf(e), Ctor: sym, Arity: 0}
+		return &core.CtorApp{Base: baseOf(e), Ctor: sym, Arity: 0, TypeArgs: e.TypeArgs}
 	case resolve.KindBuiltin:
 		l.err(e.Sp, fmt.Sprintf("builtin %s used as a value", sym.Name))
 		return &core.CallBuiltin{Base: baseOf(e), Sym: sym}
@@ -201,16 +201,27 @@ func (l *lowerer) varExpr(e *check.Var) core.Expr {
 
 // funcRefOrFlatten lowers a Gom function reference: a FuncRef when
 // the declared arity covers the whole arrow chain, otherwise the P0-2
-// flatten closure `func(all...) { return f(all...) }`.
+// flatten closure `func(all...) { return f(all...) }`. A reference
+// whose symbol is a generalized value-let thunk is the call `x[T]()`.
 func (l *lowerer) funcRefOrFlatten(e *check.Var, sym *resolve.Symbol) core.Expr {
+	if l.thunks[sym] {
+		// A generalized `let x = <value>` lowered to a niladic
+		// generic declaration (P2-1): the reference is the value
+		// itself, so it emits the call `x[T]()`.
+		return &core.CallDirect{
+			Base:   core.Base{Sp: e.Sp, Typ: e.Type()},
+			Callee: sym, TypeArgs: e.TypeArgs,
+			Arity: 0,
+		}
+	}
 	decl := l.funcArity(sym, e.Type())
 	flat := flatArity(e.Type())
 	if decl == flat {
-		return &core.FuncRef{Base: baseOf(e), Sym: sym, Arity: decl}
+		return &core.FuncRef{Base: baseOf(e), Sym: sym, Arity: decl, TypeArgs: e.TypeArgs}
 	}
 	if decl > flat {
 		l.err(e.Sp, fmt.Sprintf("function %s has declared arity %d exceeding its type arity %d", sym.Name, decl, flat))
-		return &core.FuncRef{Base: baseOf(e), Sym: sym, Arity: decl}
+		return &core.FuncRef{Base: baseOf(e), Sym: sym, Arity: decl, TypeArgs: e.TypeArgs}
 	}
 	// Function-returning function referenced at its full flat type:
 	// wrap into one flat arity closure.
@@ -224,7 +235,8 @@ func (l *lowerer) funcRefOrFlatten(e *check.Var, sym *resolve.Symbol) core.Expr 
 		// remainder applies the returned function value.
 		prefix := &core.CallDirect{
 			Base:   core.Base{Sp: e.Sp, Typ: retAfter(sig, decl)},
-			Callee: sym, Args: pv[:decl], Arity: decl,
+			Callee: sym, TypeArgs: e.TypeArgs,
+			Args: pv[:decl], Arity: decl,
 		}
 		rest := pv[decl:]
 		if len(rest) == 0 {
@@ -263,9 +275,9 @@ func (l *lowerer) memberExpr(s *seq, e *check.MemberExpr) core.Expr {
 		}
 	case resolve.KindFunc:
 		if e.Sym.IsGo {
-			return l.goFuncRefOrAdapter(e.Sp, e.Type(), e.Sym, nil)
+			return l.goFuncRefOrAdapter(e.Sp, e.Type(), e.Sym, nil, e.TypeArgs)
 		}
-		return l.funcRefOrFlatten(&check.Var{Base: check.Base{Sp: e.Sp, Typ: e.Type()}, Sym: e.Sym}, e.Sym)
+		return l.funcRefOrFlatten(&check.Var{Base: check.Base{Sp: e.Sp, Typ: e.Type()}, Sym: e.Sym, TypeArgs: e.TypeArgs}, e.Sym)
 	case resolve.KindVar:
 		if e.Sym.IsGo {
 			return l.goVarRef(e.Sp, e.Type(), e.Sym)
@@ -273,12 +285,12 @@ func (l *lowerer) memberExpr(s *seq, e *check.MemberExpr) core.Expr {
 		return l.varRef(baseOf(e), e.Sym)
 	case resolve.KindCtor:
 		if sigOf(e.Type()) != nil {
-			return &core.CtorRef{Base: baseOf(e), Sym: e.Sym}
+			return &core.CtorRef{Base: baseOf(e), Sym: e.Sym, TypeArgs: e.TypeArgs}
 		}
-		return &core.CtorApp{Base: baseOf(e), Ctor: e.Sym, Arity: 0}
+		return &core.CtorApp{Base: baseOf(e), Ctor: e.Sym, Arity: 0, TypeArgs: e.TypeArgs}
 	case resolve.KindMethod:
 		recv := l.atom(s, e.Recv)
-		return l.goFuncRefOrAdapter(e.Sp, e.Type(), e.Sym, recv)
+		return l.goFuncRefOrAdapter(e.Sp, e.Type(), e.Sym, recv, e.TypeArgs)
 	default:
 		l.err(e.Sp, fmt.Sprintf("member %s is not an expression", e.Sym.Kind))
 		return l.litUnit(e.Sp)
@@ -316,13 +328,14 @@ func (l *lowerer) goVarRef(sp diag.Span, typ types.Type, sym *resolve.Symbol) co
 // adaptation (one parameter, one non-error result, no boundary
 // conversion between the views), otherwise an adapter Closure whose
 // body is a CallGo (P0-2, spec 8).
-func (l *lowerer) goFuncRefOrAdapter(sp diag.Span, typ types.Type, sym *resolve.Symbol, recv core.Atom) core.Expr {
+func (l *lowerer) goFuncRefOrAdapter(sp diag.Span, typ types.Type, sym *resolve.Symbol, recv core.Atom, targs []types.Type) core.Expr {
 	sig := l.goSig(sym, typ)
 	fs := sigOf(typ)
 	if goBareRefOK(sig, fs) {
 		return &core.GoFuncRef{
 			Base: core.Base{Sp: sp, Typ: typ}, Sym: sym,
 			Recv: recv, Arity: sig.Arity, Results: sig.Results,
+			TypeArgs: targs,
 		}
 	}
 	if fs == nil {
@@ -332,7 +345,8 @@ func (l *lowerer) goFuncRefOrAdapter(sp diag.Span, typ types.Type, sym *resolve.
 	return l.closureOf(sp, typ, fs.Params, func(bs *seq, pv []core.Atom) core.Expr {
 		call := &core.CallGo{
 			Base:   core.Base{Sp: sp, Typ: goCallTyp(sig, fs.Ret)},
-			Callee: sym, Recv: recv, Args: l.convGoArgs(bs, sig, pv, false),
+			Callee: sym, Recv: recv, TypeArgs: targs,
+			Args:     l.convGoArgs(bs, sig, pv, false),
 			Arity:    sig.Arity,
 			Variadic: sig.Variadic,
 			Results:  sig.Results,

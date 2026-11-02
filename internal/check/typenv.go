@@ -75,9 +75,18 @@ type variantInfo struct {
 // signature. Type variables are looked up by symbol when the resolver
 // bound them (KindTypeVar) and by name otherwise — signatures like
 // `fn map (f: a -> b) ...` bind their variables implicitly.
+//
+// A scope opened while a body is being checked chains to the
+// enclosing signature's scope (outer): `fn f (xs: List a) -> List a =
+// { let y : List a = xs; y }` resolves the annotation's `a` to the
+// function's own variable rather than minting a fresh one. owned
+// records the vars the scope itself minted — unboundVars reports only
+// those, since an inherited var is bound by the enclosing decl.
 type tscope struct {
 	bySym  map[*resolve.Symbol]*types.Var
 	byName map[string]*types.Var
+	owned  map[*types.Var]bool
+	outer  *tscope
 	c      *checker
 }
 
@@ -85,6 +94,8 @@ func (c *checker) newTScope() *tscope {
 	return &tscope{
 		bySym:  map[*resolve.Symbol]*types.Var{},
 		byName: map[string]*types.Var{},
+		owned:  map[*types.Var]bool{},
+		outer:  c.curTScope,
 		c:      c,
 	}
 }
@@ -93,17 +104,32 @@ func (c *checker) newTScope() *tscope {
 // parameter) so TypeVar nodes resolve to it.
 func (s *tscope) bind(sym *resolve.Symbol, v *types.Var) {
 	s.bySym[sym] = v
+	s.owned[v] = true
 }
 
-// named returns the variable for a type parameter declared by name
-// (used when registering `type` decl parameters).
-func (s *tscope) named(name string) *types.Var {
+// find returns the variable name already denotes in this scope or an
+// enclosing one — nil when unbound (unlike named it never mints).
+func (s *tscope) find(name string) *types.Var {
 	if v, ok := s.byName[name]; ok {
+		return v
+	}
+	if s.outer != nil {
+		return s.outer.find(name)
+	}
+	return nil
+}
+
+// named returns the variable for a type parameter declared by name:
+// an enclosing scope's variable when one exists, otherwise a fresh
+// one owned by this scope.
+func (s *tscope) named(name string) *types.Var {
+	if v := s.find(name); v != nil {
 		return v
 	}
 	v := &types.Var{ID: s.c.nextVar, Name: name}
 	s.c.nextVar++
 	s.byName[name] = v
+	s.owned[v] = true
 	return v
 }
 

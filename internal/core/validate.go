@@ -71,8 +71,9 @@ func (v Violation) String() string {
 // file satisfies the mechanically checkable subset of the contract.
 func Validate(f *File) []Violation {
 	v := &validator{
-		top:   make(map[*resolve.Symbol]bool),
-		bound: make(map[*resolve.Symbol]diag.Span),
+		top:     make(map[*resolve.Symbol]bool),
+		bound:   make(map[*resolve.Symbol]diag.Span),
+		tparams: make(map[*resolve.Symbol]int),
 	}
 	v.file(f)
 	return v.errs
@@ -82,11 +83,15 @@ type validator struct {
 	errs  []Violation
 	top   map[*resolve.Symbol]bool      // file-scope value symbols (fn and let decls)
 	bound map[*resolve.Symbol]diag.Span // every symbol bound anywhere — uniqueness check
-	scope []map[*resolve.Symbol]bool    // lexical scope stack of Var-visible binds
-	fn    *Func                         // innermost enclosing function (nil outside one)
-	fnTop bool                          // fn belongs to a FuncDecl (TailCall may target it)
-	spawn int                           // >0 inside a go{} block — escapes are illegal
-	pkg   string                        // the file's package clause — entry-point consistency
+	// tparams is the declared type-parameter count of file-local
+	// function and constructor symbols — the count a reference's
+	// TypeArgs must instantiate.
+	tparams map[*resolve.Symbol]int
+	scope   []map[*resolve.Symbol]bool // lexical scope stack of Var-visible binds
+	fn      *Func                      // innermost enclosing function (nil outside one)
+	fnTop   bool                       // fn belongs to a FuncDecl (TailCall may target it)
+	spawn   int                        // >0 inside a go{} block — escapes are illegal
+	pkg     string                     // the file's package clause — entry-point consistency
 }
 
 func (v *validator) err(sp diag.Span, node, format string, args ...any) {
@@ -181,13 +186,24 @@ func (v *validator) file(f *File) {
 		case *FuncDecl:
 			if d.Sym != nil {
 				v.top[d.Sym] = true
+				v.tparams[d.Sym] = len(d.TypeParams)
 			}
 		case *VarDecl:
 			if d.Sym != nil {
 				v.top[d.Sym] = true
 			}
-		case *TypeDecl, *TestDecl:
-			// type and test decls bind no referencable value symbol
+		case *TypeDecl:
+			// Type decls bind no referencable value symbol, but a
+			// sum type's constructors carry TypeArgs instantiating
+			// the ADT's parameters.
+			if s, ok := d.Body.(*TSum); ok {
+				for _, vr := range s.Variants {
+					if vr.Sym != nil {
+						v.tparams[vr.Sym] = len(d.TypeParams)
+					}
+				}
+			}
+		case *TestDecl:
 		default:
 			panic("unreachable")
 		}
@@ -232,6 +248,12 @@ func (v *validator) decl(d Decl) {
 				v.err(d.Sp, "FuncDecl", "nil type parameter")
 			}
 		}
+		if d.Fn != nil && d.Fn.Sig != nil {
+			if n := len(types.FreeVars(d.Fn.Sig)); n != len(d.TypeParams) {
+				v.err(d.Sp, "FuncDecl", "signature has %d type variable(s) for %d declared type parameter(s)",
+					n, len(d.TypeParams))
+			}
+		}
 		if d.IsEntry {
 			v.entryDecl(d)
 		}
@@ -249,6 +271,13 @@ func (v *validator) decl(d Decl) {
 			if tp == nil {
 				v.err(d.Sp, "TypeDecl", "nil type parameter")
 			}
+		}
+		// A body's rigid variables must be declared parameters —
+		// undeclared variables would emit as undeclared names in
+		// generated Go. Unused (phantom) parameters are legal.
+		if n := len(typeBodyVars(d.Body)); n > len(d.TypeParams) {
+			v.err(d.Sp, "TypeDecl", "body has %d type variable(s) for %d declared type parameter(s)",
+				n, len(d.TypeParams))
 		}
 		v.typeBody(d.Body)
 	case *TestDecl:
@@ -285,6 +314,55 @@ func (v *validator) entryDecl(d *FuncDecl) {
 	}
 	if rt := d.Fn.ResidualType(); !types.Equal(rt, types.Unit) {
 		v.err(d.Sp, "FuncDecl", "entry result is %s, want Unit", rt)
+	}
+}
+
+// typeBodyVars collects the rigid type variables occurring in a
+// type declaration's body — variant payload and record field types,
+// or the alias target.
+func typeBodyVars(b TypeBody) map[int]*types.Var {
+	out := map[int]*types.Var{}
+	if b == nil || nilTypeBody(b) {
+		return out
+	}
+	switch b := b.(type) {
+	case *TSum:
+		for _, vr := range b.Variants {
+			for _, f := range vr.Fields {
+				for id, v := range types.FreeVars(f.Type) {
+					out[id] = v
+				}
+			}
+		}
+	case *TRecord:
+		for _, f := range b.Fields {
+			for id, v := range types.FreeVars(f.Type) {
+				out[id] = v
+			}
+		}
+	case *TAlias:
+		return types.FreeVars(b.Type)
+	case *TAbstract:
+	default:
+		panic("unreachable")
+	}
+	return out
+}
+
+// targs checks a TypeArgs instantiation against the target's
+// declared type-parameter count — when the target is declared in
+// this file and the count is known (imported symbols carry no decl
+// to compare with).
+func (v *validator) targs(sp diag.Span, what string, sym *resolve.Symbol, targs []types.Type) {
+	if sym == nil {
+		return
+	}
+	n, ok := v.tparams[sym]
+	if !ok {
+		return
+	}
+	if len(targs) != n {
+		v.err(sp, what, "%d type argument(s) for %d declared type parameter(s)", len(targs), n)
 	}
 }
 
@@ -468,6 +546,7 @@ func (v *validator) atom(a Atom, what string) {
 		if a.Sym == nil || a.Sym.Kind != resolve.KindFunc || a.Sym.IsGo {
 			v.err(a.Sp, "FuncRef", "not a Gom function symbol")
 		}
+		v.targs(a.Sp, "FuncRef", a.Sym, a.TypeArgs)
 		if a.Arity < 1 {
 			v.err(a.Sp, "FuncRef", "declared arity %d < 1", a.Arity)
 		}
@@ -486,6 +565,7 @@ func (v *validator) atom(a Atom, what string) {
 		if a.Sym == nil || a.Sym.Kind != resolve.KindCtor {
 			v.err(a.Sp, "CtorRef", "not a constructor symbol")
 		}
+		v.targs(a.Sp, "CtorRef", a.Sym, a.TypeArgs)
 		if a.Typ != nil {
 			if _, ok := types.Chase(a.Typ).(*types.Func); !ok {
 				v.err(a.Sp, "CtorRef", "type %s is not a function type", a.Typ)
@@ -593,6 +673,7 @@ func (v *validator) expr(e Expr, inTail bool) {
 		if e.Callee == nil || e.Callee.Kind != resolve.KindFunc || e.Callee.IsGo {
 			v.err(e.Sp, "CallDirect", "callee is not a Gom function symbol")
 		}
+		v.targs(e.Sp, "CallDirect", e.Callee, e.TypeArgs)
 		if len(e.Args) != e.Arity {
 			v.err(e.Sp, "CallDirect", "call has %d args for declared arity %d — not saturated",
 				len(e.Args), e.Arity)
@@ -630,6 +711,7 @@ func (v *validator) expr(e Expr, inTail bool) {
 		if e.Ctor == nil || e.Ctor.Kind != resolve.KindCtor {
 			v.err(e.Sp, "CtorApp", "callee is not a constructor symbol")
 		}
+		v.targs(e.Sp, "CtorApp", e.Ctor, e.TypeArgs)
 		if len(e.Args) != e.Arity {
 			v.err(e.Sp, "CtorApp", "constructor takes %d args for declared arity %d",
 				len(e.Args), e.Arity)

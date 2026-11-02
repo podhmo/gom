@@ -267,6 +267,13 @@ type VFunc struct {
 	sig   *types.Func
 	bound []slot
 
+	// thunk marks a generalized value-let's FnDecl value (P2-1):
+	// the `() -> T` shape is a thunk whose references denote the
+	// *value* — forceThunk applies it on lookup. A declared
+	// `fn f () -> T` is not a thunk; `f` in value position is the
+	// function itself.
+	thunk bool
+
 	// kind-specific payload.
 	params  []check.Param                     // fnLambda / fnDecl
 	body    check.Expr                        // fnLambda / fnDecl

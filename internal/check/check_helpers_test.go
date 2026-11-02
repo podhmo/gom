@@ -376,6 +376,63 @@ func firstApply(d *FnDecl) *Apply {
 	return found
 }
 
+// applys returns every Apply in the declaration's body — the
+// collecting counterpart of firstApply.
+func applys(d *FnDecl) []*Apply {
+	var out []*Apply
+	var walk func(e Expr)
+	walk = func(e Expr) {
+		if e == nil {
+			return
+		}
+		if a, ok := e.(*Apply); ok {
+			out = append(out, a)
+		}
+		switch e := e.(type) {
+		case *Block:
+			for _, s := range e.Stmts {
+				walk(s)
+			}
+		case *Let:
+			walk(e.Value)
+		case *Binary:
+			walk(e.X)
+			walk(e.Y)
+		case *If:
+			walk(e.Then)
+			if e.Else != nil {
+				walk(e.Else)
+			}
+		case *Match:
+			walk(e.Subj)
+			for _, a := range e.Arms {
+				walk(a.Body)
+			}
+		case *Lambda:
+			walk(e.Body)
+		case *Try:
+			walk(e.X)
+		case *Ascribe:
+			walk(e.X)
+		case *ListLit:
+			for _, el := range e.Elems {
+				walk(el)
+			}
+		case *TupleLit:
+			for _, el := range e.Elems {
+				walk(el)
+			}
+		case *Apply, *For, *GoExpr, *Hole, *Ignore, *Lit, *MemberExpr,
+			*RecordLit, *SelectExpr, *Spread, *StrInterp, *Unary, *Var:
+			// No nested Apply shapes needed by current tests.
+		default:
+			panic("unreachable")
+		}
+	}
+	walk(d.Body)
+	return out
+}
+
 // expectCall asserts the CallInfo fields of an apply node.
 func expectCall(t *testing.T, a *Apply, kind CallKind, arity, applied, unapplied int, argToParam []int) {
 	t.Helper()

@@ -39,7 +39,8 @@ func TestUnifyFuncTailAbsorb(t *testing.T) {
 
 	f, diags := b.check(nil, twice, main)
 	requireCodes(t, diags)
-	d := findDecl[*FnDecl](f, 0)
+	// FnDecl 0 is the generalized `twice`; `main` is the second.
+	d := findDecl[*FnDecl](f, 1)
 	if got := d.Body.Type().String(); got != "Int" {
 		t.Errorf("main body type = %s, want Int", got)
 	}
