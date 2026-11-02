@@ -75,6 +75,7 @@ func Validate(f *File) []Violation {
 		top:     make(map[*resolve.Symbol]bool),
 		bound:   make(map[*resolve.Symbol]diag.Span),
 		tparams: make(map[*resolve.Symbol]int),
+		localT:  make(map[string]bool),
 	}
 	v.file(f)
 	return v.errs
@@ -84,6 +85,14 @@ type validator struct {
 	errs  []Violation
 	top   map[*resolve.Symbol]bool      // file-scope value symbols (fn and let decls)
 	bound map[*resolve.Symbol]diag.Span // every symbol bound anywhere — uniqueness check
+	// localT names the file's declared types. An unqualified
+	// *types.Con carrying one of these names denotes the file-local
+	// declaration, never the builtin of the same spelling — so a
+	// `type Result`/`type List`/`type Unit` in the file makes every
+	// "operand is builtin Result/List/Unit" shape test answer false
+	// (checker E0415 keeps those constructs from reaching here;
+	// the validator still refuses the reading on hand-built IR).
+	localT map[string]bool
 	// tparams is the declared type-parameter count of file-local
 	// function and constructor symbols — the count a reference's
 	// TypeArgs must instantiate.
@@ -197,6 +206,9 @@ func (v *validator) file(f *File) {
 			// Type decls bind no referencable value symbol, but a
 			// sum type's constructors carry TypeArgs instantiating
 			// the ADT's parameters.
+			if d.Sym != nil {
+				v.localT[d.Sym.Name] = true
+			}
 			if s, ok := d.Body.(*TSum); ok {
 				for _, vr := range s.Variants {
 					if vr.Sym != nil {
@@ -389,11 +401,11 @@ func (v *validator) entryDecl(d *FuncDecl) {
 		if !p.Discard {
 			v.err(p.Sp, "FuncDecl", "entry parameter %d binds a name — `func main()` binds nothing", i)
 		}
-		if !types.Equal(p.Typ, types.Unit) {
+		if !v.conIs(p.Typ, "", "Unit", 0) {
 			v.err(p.Sp, "FuncDecl", "entry parameter %d is %s, want Unit", i, p.Typ)
 		}
 	}
-	if rt := d.Fn.ResidualType(); !types.Equal(rt, types.Unit) {
+	if rt := d.Fn.ResidualType(); !v.conIs(rt, "", "Unit", 0) {
 		v.err(d.Sp, "FuncDecl", "entry result is %s, want Unit", rt)
 	}
 }
@@ -842,7 +854,7 @@ func (v *validator) expr(e Expr, inTail bool) {
 		v.atom(e.X, "Equal.X")
 		v.atom(e.Y, "Equal.Y")
 		v.eqPlan(e.How, false, "Equal.How")
-		if e.Typ != nil && !types.Equal(e.Typ, types.Bool) {
+		if e.Typ != nil && !v.conIs(e.Typ, "", "Bool", 0) {
 			v.err(e.Sp, "Equal", "result type %s is not Bool", e.Typ)
 		}
 		if xt, yt := atomType(e.X), atomType(e.Y); xt != nil && yt != nil && !types.Equal(xt, yt) {
@@ -856,12 +868,12 @@ func (v *validator) expr(e Expr, inTail bool) {
 		}
 	case *If:
 		v.atom(e.Cond, "If.Cond")
-		if t := atomType(e.Cond); t != nil && !types.Equal(t, types.Bool) {
+		if t := atomType(e.Cond); t != nil && !v.conIs(t, "", "Bool", 0) {
 			v.err(e.Sp, "If", "condition type %s is not Bool", t)
 		}
 		v.body(e.Then, inTail)
 		if e.Else == nil {
-			if t := tailType(e.Then); t != nil && !types.Equal(t, types.Unit) {
+			if t := tailType(e.Then); t != nil && !v.conIs(t, "", "Unit", 0) {
 				v.err(e.Sp, "If", "else-less if has non-Unit then type %s", t)
 			}
 		} else {
@@ -883,14 +895,14 @@ func (v *validator) expr(e Expr, inTail bool) {
 	case *SelectExpr:
 		v.selectExpr(e, inTail)
 	case *Spawn:
-		if e.Typ != nil && !types.Equal(e.Typ, types.Unit) {
+		if e.Typ != nil && !v.conIs(e.Typ, "", "Unit", 0) {
 			v.err(e.Sp, "Spawn", "node type %s is not Unit", e.Typ)
 		}
 		if e.Body == nil {
 			v.err(e.Sp, "Spawn", "missing body")
 			break
 		}
-		if t := tailType(e.Body); t != nil && !types.Equal(t, types.Unit) {
+		if t := tailType(e.Body); t != nil && !v.conIs(t, "", "Unit", 0) {
 			v.err(e.Sp, "Spawn", "go block's type is %s, not Unit", t)
 		}
 		v.spawn++
@@ -912,13 +924,13 @@ func (v *validator) expr(e Expr, inTail bool) {
 		}
 		v.atoms(e.Elems, "TupleNew.Elems")
 	case *ListNew:
-		if !conIs(e.Typ, "", "List", 1) && e.Typ != nil {
+		if !v.conIs(e.Typ, "", "List", 1) && e.Typ != nil {
 			v.err(e.Sp, "ListNew", "type %s is not a List", e.Typ)
 		}
 		v.atoms(e.Elems, "ListNew.Elems")
 		if e.Rest != nil {
 			v.atom(e.Rest, "ListNew.Rest")
-			if t := atomType(e.Rest); t != nil && !conIs(t, "", "List", 1) {
+			if t := atomType(e.Rest); t != nil && !v.conIs(t, "", "List", 1) {
 				v.err(e.Sp, "ListNew", "rest type %s is not a List", t)
 			}
 		}
@@ -935,12 +947,12 @@ func (v *validator) expr(e Expr, inTail bool) {
 		v.escapeCall(e)
 	case *ResultFromGo:
 		v.wrapCall(e, e.Call, "ResultFromGo", GoResultsErr, GoResultsErrOnly)
-		if !conIs(e.Typ, "", "Result", 2) && e.Typ != nil {
+		if !v.conIs(e.Typ, "", "Result", 2) && e.Typ != nil {
 			v.err(e.Sp, "ResultFromGo", "type %s is not a Result", e.Typ)
 		}
 	case *OptionFromGo:
 		v.wrapCall(e, e.Call, "OptionFromGo", GoResultsOK)
-		if !conIs(e.Typ, "", "Option", 1) && e.Typ != nil {
+		if !v.conIs(e.Typ, "", "Option", 1) && e.Typ != nil {
 			v.err(e.Sp, "OptionFromGo", "type %s is not an Option", e.Typ)
 		}
 	case *TupleFromGo:
@@ -1067,7 +1079,7 @@ func (v *validator) escapeTarget(sp diag.Span, to *Func, what string) (errT type
 	// `fn f (a) -> (Int -> Result _ e)` the outer body's result is the
 	// remaining arrow, which is not a Result and must be rejected.
 	rt := v.fn.ResidualType()
-	c, isRes := resultType(rt)
+	c, isRes := v.resultType(rt)
 	if !isRes {
 		v.err(sp, what, "boundary result type %s is not a Result", rt)
 		return nil, false
@@ -1078,7 +1090,7 @@ func (v *validator) escapeTarget(sp diag.Span, to *Func, what string) (errT type
 func (v *validator) escapeResult(e *EscapeResult) {
 	v.atom(e.X, "EscapeResult.X")
 	xt := atomType(e.X)
-	c, isRes := resultType(xt)
+	c, isRes := v.resultType(xt)
 	if xt != nil && !isRes {
 		v.err(e.Sp, "EscapeResult", "operand type %s is not a Result", xt)
 	}
@@ -1089,7 +1101,7 @@ func (v *validator) escapeResult(e *EscapeResult) {
 	if isRes && ok && !types.Equal(c.Args[1], be) {
 		v.err(e.Sp, "EscapeResult", "error type %s does not match boundary's %s", c.Args[1], be)
 	}
-	if e.Wrap != "" && isRes && !types.Equal(c.Args[1], types.GoError) {
+	if e.Wrap != "" && isRes && !v.conIs(c.Args[1], "", "GoError", 0) {
 		v.err(e.Sp, "EscapeResult", "|?> wraps only GoError steps; error type is %s", c.Args[1])
 	}
 }
@@ -1100,7 +1112,7 @@ func (v *validator) escapeCall(e *EscapeCall) {
 		v.err(e.Sp, "EscapeCall", "node type %s differs from call's first-result type %s", e.Typ, e.Call.Typ)
 	}
 	be, ok := v.escapeTarget(e.Sp, e.To, "EscapeCall")
-	if ok && !types.Equal(be, types.GoError) {
+	if ok && !v.conIs(be, "", "GoError", 0) {
 		v.err(e.Sp, "EscapeCall", "boundary error type %s is not GoError — the (T, error) escape needs Result _ GoError", be)
 	}
 }
@@ -1136,17 +1148,17 @@ func (v *validator) conv(e *Conv) {
 		// operand/target legality is Go's conversion and
 		// assignability rules — settled at check time.
 	case ConvSliceToGo:
-		if t := atomType(e.X); t != nil && !conIs(t, "", "List", 1) {
+		if t := atomType(e.X); t != nil && !v.conIs(t, "", "List", 1) {
 			v.err(e.Sp, "Conv", "slice-to-go operand type %s is not a List", t)
 		}
-		if e.Typ != nil && !conIs(e.Typ, "Go", "Slice", 1) {
+		if e.Typ != nil && !v.conIs(e.Typ, "Go", "Slice", 1) {
 			v.err(e.Sp, "Conv", "slice-to-go result type %s is not Go.Slice", e.Typ)
 		}
 	case ConvSliceFromGo:
-		if t := atomType(e.X); t != nil && !conIs(t, "Go", "Slice", 1) {
+		if t := atomType(e.X); t != nil && !v.conIs(t, "Go", "Slice", 1) {
 			v.err(e.Sp, "Conv", "slice-from-go operand type %s is not Go.Slice", t)
 		}
-		if e.Typ != nil && !conIs(e.Typ, "", "List", 1) {
+		if e.Typ != nil && !v.conIs(e.Typ, "", "List", 1) {
 			v.err(e.Sp, "Conv", "slice-from-go result type %s is not a List", e.Typ)
 		}
 	default:
@@ -1171,13 +1183,13 @@ func (v *validator) selectExpr(e *SelectExpr, inTail bool) {
 		case *SelRecv:
 			v.atom(a.Chan, "SelRecv.Chan")
 			if ct := atomType(a.Chan); ct != nil &&
-				!conIs(ct, "", "Chan", 1) && !conIs(ct, "", "RecvChan", 1) {
+				!v.conIs(ct, "", "Chan", 1) && !v.conIs(ct, "", "RecvChan", 1) {
 				v.err(a.Sp, "SelRecv", "channel type %s is not Chan/RecvChan", ct)
 			}
 			if a.Bind == nil {
 				v.err(a.Sp, "SelRecv", "missing bind")
 			} else {
-				if !a.Bind.Discard && !conIs(a.Bind.Typ, "", "Option", 1) {
+				if !a.Bind.Discard && !v.conIs(a.Bind.Typ, "", "Option", 1) {
 					v.err(a.Sp, "SelRecv", "receive bind type %s is not an Option", a.Bind.Typ)
 				}
 				v.pushScope()
@@ -1188,7 +1200,7 @@ func (v *validator) selectExpr(e *SelectExpr, inTail bool) {
 		case *SelSend:
 			v.atom(a.Chan, "SelSend.Chan")
 			if ct := atomType(a.Chan); ct != nil &&
-				!conIs(ct, "", "Chan", 1) && !conIs(ct, "", "SendChan", 1) {
+				!v.conIs(ct, "", "Chan", 1) && !v.conIs(ct, "", "SendChan", 1) {
 				v.err(a.Sp, "SelSend", "channel type %s is not Chan/SendChan", ct)
 			}
 			v.atom(a.Value, "SelSend.Value")
@@ -1244,12 +1256,12 @@ func (v *validator) forRange(e *ForRange) {
 	switch e.Kind {
 	case ForList:
 		if t := atomType(e.Iter); t != nil &&
-			!conIs(t, "", "List", 1) && !conIs(t, "", "Array", 1) && !conIs(t, "Go", "Slice", 1) {
+			!v.conIs(t, "", "List", 1) && !v.conIs(t, "", "Array", 1) && !v.conIs(t, "Go", "Slice", 1) {
 			v.err(e.Sp, "ForRange", "list-loop iterable type %s is not List/Array/Go.Slice", t)
 		}
 	case ForChan:
 		if t := atomType(e.Iter); t != nil &&
-			!conIs(t, "", "Chan", 1) && !conIs(t, "", "RecvChan", 1) {
+			!v.conIs(t, "", "Chan", 1) && !v.conIs(t, "", "RecvChan", 1) {
 			v.err(e.Sp, "ForRange", "chan-loop iterable type %s is not Chan/RecvChan", t)
 		}
 	default:
@@ -1261,7 +1273,7 @@ func (v *validator) forRange(e *ForRange) {
 	}
 	if e.Body == nil {
 		v.err(e.Sp, "ForRange", "missing body")
-	} else if t := tailType(e.Body); t != nil && !types.Equal(t, types.Unit) {
+	} else if t := tailType(e.Body); t != nil && !v.conIs(t, "", "Unit", 0) {
 		v.err(e.Sp, "ForRange", "loop body's type is %s, not Unit", t)
 	}
 	v.pushScope()
@@ -1272,7 +1284,7 @@ func (v *validator) forRange(e *ForRange) {
 	if e.Body != nil {
 		v.body(e.Body, false)
 	}
-	if e.Typ != nil && !types.Equal(e.Typ, types.Unit) {
+	if e.Typ != nil && !v.conIs(e.Typ, "", "Unit", 0) {
 		v.err(e.Sp, "ForRange", "node type %s is not Unit", e.Typ)
 	}
 }
@@ -1308,7 +1320,7 @@ func (v *validator) dtree(t DTree, inTail bool) {
 			v.err(t.Sp, "DSwitch", "invalid switch kind %d", int(t.Kind))
 		}
 		if t.Kind == SwitchList {
-			if st := atomType(t.Subj); st != nil && !conIs(st, "", "List", 1) {
+			if st := atomType(t.Subj); st != nil && !v.conIs(st, "", "List", 1) {
 				v.err(t.Sp, "DSwitch", "list switch's subject type %s is not a List", st)
 			}
 		}
@@ -1349,7 +1361,7 @@ func (v *validator) dtree(t DTree, inTail bool) {
 		}
 	case *DGuard:
 		v.atom(t.Cond, "DGuard.Cond")
-		if c := atomType(t.Cond); c != nil && !types.Equal(c, types.Bool) {
+		if c := atomType(t.Cond); c != nil && !v.conIs(c, "", "Bool", 0) {
 			v.err(t.Sp, "DGuard", "guard type %s is not Bool", c)
 		}
 		v.dtreeChild(t.Then, t.Typ, "DGuard.Then", inTail)
@@ -1638,15 +1650,24 @@ func tailType(b *Body) types.Type {
 }
 
 // conIs reports whether t is a *types.Con with the given qualifier,
-// name and argument count. Bound metas are chased first — inferred
-// types (a lambda boundary's Sig.Ret, for one) may still carry them.
-func conIs(t types.Type, qual, name string, nargs int) bool {
+// name and argument count — and, for an unqualified name, that the
+// file does not declare a same-named type of its own. Bound metas
+// are chased first — inferred types (a lambda boundary's Sig.Ret,
+// for one) may still carry them.
+func (v *validator) conIs(t types.Type, qual, name string, nargs int) bool {
+	if qual == "" && v.localT[name] {
+		return false
+	}
 	c, ok := types.Chase(t).(*types.Con)
 	return ok && c.Qual == qual && c.Name == name && len(c.Args) == nargs
 }
 
-// resultType unpacks `Result a e`.
-func resultType(t types.Type) (*types.Con, bool) {
+// resultType unpacks the builtin `Result a e` — not a file-local
+// `type Result`, which spells the same Con but denotes an ADT.
+func (v *validator) resultType(t types.Type) (*types.Con, bool) {
 	c, ok := types.Chase(t).(*types.Con)
-	return c, ok && c.Qual == "" && c.Name == "Result" && len(c.Args) == 2
+	if !ok || c.Qual != "" || c.Name != "Result" || len(c.Args) != 2 || v.localT["Result"] {
+		return nil, false
+	}
+	return c, true
 }

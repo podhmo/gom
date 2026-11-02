@@ -368,7 +368,11 @@ func (g *gen) strConcat(c *core.CallBuiltin) ast.Expr {
 // (docs/problems/2026-11-04-interp-composite-display.md).
 func (g *gen) display(a core.Atom) ast.Expr {
 	x := g.atom(a)
-	if con, ok := types.Chase(a.Type()).(*types.Con); ok && con.Qual == "" {
+	if con, ok := types.Chase(a.Type()).(*types.Con); ok && con.Qual == "" &&
+		!g.localT[exportName(con.Name)] {
+		// The name switch only fires on builtin spellings — a
+		// file-local `type Bool`/`type Int` is an ADT and takes the
+		// fmt fallback like every other composite.
 		switch con.Name {
 		case "String":
 			return x

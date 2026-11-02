@@ -251,7 +251,7 @@ func (l *lowerer) ctorSwitch(states []*armState, _ *seq, resT types.Type) core.D
 	// bound to the ADT when the match runs over an inferred binding.
 	con, _ := types.Chase(subj.Type()).(*types.Con)
 	kind := core.SwitchType
-	if con != nil && isResultCon(con) {
+	if con != nil && l.isResultCon(con) {
 		kind = core.SwitchTag
 	}
 	variants := l.variantsOf(con)
@@ -578,7 +578,7 @@ func (l *lowerer) listSwitch(states []*armState, _ *seq, resT types.Type) core.D
 	if len(consStates) > 0 {
 		// A cons case always binds head and tail; the element type
 		// comes from the list type when it is known.
-		elemT := listElem(subj.Type())
+		elemT := l.listElem(subj.Type())
 		hb := l.tmpBind(ob.pat.Span(), elemT)
 		tb := l.tmpBind(ob.pat.Span(), subj.Type())
 		head, tail := varOf(ob.pat.Span(), hb), varOf(ob.pat.Span(), tb)
@@ -1046,9 +1046,12 @@ func boundVarsType(vars []boundVar) types.Type {
 	}
 }
 
-// listElem is the element type of `List a`; nil for other shapes.
-func listElem(t types.Type) types.Type {
-	if c, ok := types.Chase(t).(*types.Con); ok && c.Name == "List" && len(c.Args) == 1 {
+// listElem is the element type of the *builtin* `List a`; nil for
+// other shapes — including a file-local `type List`, which is an
+// ADT the checker refuses a list pattern against.
+func (l *lowerer) listElem(t types.Type) types.Type {
+	if c, ok := types.Chase(t).(*types.Con); ok && c.Qual == "" &&
+		c.Name == "List" && !l.declaredT(c) && len(c.Args) == 1 {
 		return c.Args[0]
 	}
 	return nil

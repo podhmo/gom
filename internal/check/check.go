@@ -124,6 +124,10 @@ type checker struct {
 	// functions).
 	builtins map[string]Signature
 
+	// seenShadow deduplicates the E0415 a foreign/builtin signature
+	// reports per use site — a lookup may run twice for one use.
+	seenShadow map[shadowKey]bool
+
 	// bounds is the escape-boundary stack for `try` — innermost last.
 	bounds  []boundary
 	goDepth int
@@ -247,7 +251,12 @@ func (c *checker) useSym(id *syntax.Ident) *resolve.Symbol {
 // then the SignatureSource, then the builtin table keyed by name.
 // The returned signature's type may contain rigid variables; callers
 // instantiate per use.
-func (c *checker) sigOf(sym *resolve.Symbol) (Signature, bool) {
+//
+// Foreign and builtin signatures spell builtin types unqualified —
+// in a file declaring `type Result` those spellings resolve to the
+// file-local declaration, which the callee does not produce, so the
+// lookup reports E0415 (sp is the use site).
+func (c *checker) sigOf(sym *resolve.Symbol, sp diag.Span) (Signature, bool) {
 	if t, ok := c.vals[sym]; ok {
 		// vals keeps the declared (unflattened) shape for fns, so the
 		// declared arity is recoverable from the type itself.
@@ -255,6 +264,7 @@ func (c *checker) sigOf(sym *resolve.Symbol) (Signature, bool) {
 	}
 	if c.src != nil {
 		if sig, ok := c.src.SignatureOf(sym); ok {
+			c.shadowedSigDiag(sym, sp, sig.Type)
 			return sig, true
 		}
 	}
@@ -263,6 +273,7 @@ func (c *checker) sigOf(sym *resolve.Symbol) (Signature, bool) {
 	// `assert` is an ordinary imported name.
 	if sym.Package == "" {
 		if sig, ok := c.builtins[sym.Name]; ok {
+			c.shadowedSigDiag(sym, sp, sig.Type)
 			return sig, true
 		}
 	}
@@ -314,7 +325,7 @@ func (c *checker) valOf(sym *resolve.Symbol, sp diag.Span) (types.Type, []types.
 			fmt.Sprintf("`%s` may only be used inside a test block", sym.Name)).
 			At(sp).Set("builtin", sym.Name))
 	}
-	if sig, ok := c.sigOf(sym); ok {
+	if sig, ok := c.sigOf(sym, sp); ok {
 		if _, local := c.vals[sym]; local && sym.Kind == resolve.KindVar {
 			return sig.Type, nil
 		}
@@ -868,7 +879,15 @@ func (c *checker) checkExternDecl(d *syntax.ExternDecl) {
 			sym.IsGo = true
 			// Unflattened: the extern entry's parameter list is the
 			// Go callee's declared arity.
-			c.vals[sym] = &types.Func{Params: params, Ret: ret}
+			sig := &types.Func{Params: params, Ret: ret}
+			// An extern signature's unqualified builtin spellings
+			// resolve to the file's own `type` decls when they
+			// shadow — a shape the bound Go callee does not
+			// produce; reject the entry (E0415).
+			if name := c.shadowedInType(sig); name != "" {
+				c.shadowedErr(e.Sp, fmt.Sprintf("the signature of extern `%s`", e.Name.Name), name)
+			}
+			c.vals[sym] = sig
 		default:
 			panic("unreachable")
 		}
@@ -888,10 +907,10 @@ func (c *checker) checkTestDecl(d *syntax.TestDecl) {
 	// The boundary ret records what a `try` inside demanded: Result
 	// a e. Unify it with the body's own type (lifted into Result
 	// when a try fixed it) so its metas do not stay dangling.
-	if bt := types.Chase(ret); isCon(bt, "Result") {
+	if bt := types.Chase(ret); c.isBuiltinCon(bt, "Result") {
 		var lifted types.Type
 		var errT types.Type
-		if isCon(types.Chase(body.Type()), "Result") {
+		if c.isBuiltinCon(types.Chase(body.Type()), "Result") {
 			lifted = body.Type()
 		} else {
 			errT = c.newMeta(body.Span(), "the test's error type")
@@ -910,11 +929,11 @@ func (c *checker) checkTestDecl(d *syntax.TestDecl) {
 	}
 	switch t := types.Chase(body.Type()).(type) {
 	case *types.Con:
-		if t.Qual == "" && t.Name == "Unit" {
+		if c.isBuiltinCon(t, "Unit") {
 			break
 		}
-		if t.Qual == "" && t.Name == "Result" && len(t.Args) == 2 &&
-			isCon(types.Chase(t.Args[0]), "Unit") {
+		if c.isBuiltinCon(t, "Result") && len(t.Args) == 2 &&
+			c.isBuiltinCon(types.Chase(t.Args[0]), "Unit") {
 			// A test's error channel is free: nothing else pins it,
 			// so a still-open error meta defaults to GoError rather
 			// than surfacing as an unsolved variable.
@@ -946,7 +965,15 @@ func (c *checker) checkTestDecl(d *syntax.TestDecl) {
 }
 
 // testBodyError reports E0801 for a test block of a disallowed type.
+// When the body spells a file-local `type Unit`/`type Result` the
+// rule's complaint is the shadowing instead (E0415) — "got Result"
+// would read as a tautology for the declaration the file wrote.
 func (c *checker) testBodyError(sp diag.Span, t types.Type) {
+	if con, ok := types.Chase(t).(*types.Con); ok && con.Qual == "" &&
+		(con.Name == "Unit" || con.Name == "Result") && c.shadowedBuiltin(con.Name) {
+		c.shadowedErr(sp, "a test body (it must produce the builtin Unit or `Result Unit e`)", con.Name)
+		return
+	}
 	c.diags.Add(diag.Error("E0801",
 		fmt.Sprintf("a test body must have type Unit or Result Unit e, got %s", t)).
 		At(sp).Set("type", t.String()))
@@ -956,6 +983,154 @@ func (c *checker) testBodyError(sp diag.Span, t types.Type) {
 func isCon(t types.Type, name string) bool {
 	con, ok := t.(*types.Con)
 	return ok && con.Qual == "" && con.Name == name
+}
+
+// --- builtin-name shadowing (E0415) ---
+//
+// A file-local `type` declaration may reuse a builtin name — `type
+// Result`, `type Option`, `type Int` — and then shadows the builtin
+// *completely*: an unqualified `Con{Name: n}` anywhere in the file's
+// own types denotes the local declaration, not the builtin (the
+// resolver binds the name to the file's symbol; both spellings are
+// the same Con). Constructs that specifically need the builtin —
+// `try`/`|?>`, the builtin constructors, list literals, select
+// binds, comparison results, literals, and signatures supplied from
+// outside the file — report E0415 instead of silently treating the
+// local type as the builtin's representation.
+//
+// shadowedBuiltin tells the two spellings apart by declaration: the
+// builtins registerBuiltinTypes enters into tyCons carry no symbol
+// (Option, Result), while every file declaration registers its
+// resolved symbol. The remaining builtin names live only in
+// builtinTypeArity, so an absent entry means "no declaration".
+
+// shadowedBuiltin reports whether the file declares a `type` under
+// the unqualified builtin name, making the builtin unreachable. A
+// name that is not a builtin at all — `type Shape` — never counts,
+// however it resolves.
+func (c *checker) shadowedBuiltin(name string) bool {
+	if _, ok := builtinTypeArity[name]; !ok {
+		return false
+	}
+	ti, ok := c.tyCons[conKey{qual: "", name: name}]
+	return ok && ti.sym != nil
+}
+
+// isBuiltinCon reports whether t is the *builtin* constructor name —
+// an unqualified Con the file's declarations do not shadow. Sites
+// that consume a builtin-shaped value (the escape machinery, test
+// bodies, method receivers) must distinguish `type Result`'s local
+// Con from the stdlib one the name usually spells.
+func (c *checker) isBuiltinCon(t types.Type, name string) bool {
+	return isCon(t, name) && !c.shadowedBuiltin(name)
+}
+
+// shadowedErr reports E0415 — a construct needs a builtin type the
+// file's own declaration shadows into unreachability.
+func (c *checker) shadowedErr(sp diag.Span, what, name string) {
+	c.diags.Add(diag.Error("E0415",
+		fmt.Sprintf("%s needs the builtin `%s`, but the file declares a `type %s` shadowing it", what, name, name)).
+		At(sp).Set("builtin", name).Set("construct", what))
+}
+
+// boolResult types a node that produces the builtin Bool — under a
+// file-local `type Bool` the produced `==`/comparison value cannot be
+// the declared type, so the construct is E0415.
+func (c *checker) boolResult(sp diag.Span, what string) types.Type {
+	if c.shadowedBuiltin("Bool") {
+		c.shadowedErr(sp, what, "Bool")
+	}
+	return types.Bool
+}
+
+// unitResult types a node that produces the builtin Unit — under a
+// file-local `type Unit` the produced `()` cannot be the declared
+// type, so the construct is E0415.
+func (c *checker) unitResult(sp diag.Span, what string) types.Type {
+	if c.shadowedBuiltin("Unit") {
+		c.shadowedErr(sp, what, "Unit")
+	}
+	return types.Unit
+}
+
+// shadowKey deduplicates E0415s a signature lookup reports — one
+// (symbol, shadowed-builtin) complaint is emitted once per file, no
+// matter how many use sites consult the signature. The complaint is
+// about the callee's own unrepresentable signature, not the call
+// site, so repeating it per span only adds noise.
+type shadowKey struct {
+	sym  *resolve.Symbol
+	name string
+}
+
+// shadowedSigDiag reports E0415 when a foreign or builtin signature
+// mentions a builtin the file shadows. Sources outside the file — a
+// Go import's signature, a loaded .gomi member's, the builtin
+// table's — spell builtins unqualified; under a local `type Result`
+// such a `Result` resolves to the file's own declaration, a type the
+// foreign callee neither takes nor returns.
+func (c *checker) shadowedSigDiag(sym *resolve.Symbol, sp diag.Span, t types.Type) {
+	name := c.shadowedInType(t)
+	if name == "" {
+		return
+	}
+	k := shadowKey{sym: sym, name: name}
+	if c.seenShadow == nil {
+		c.seenShadow = map[shadowKey]bool{}
+	}
+	if c.seenShadow[k] {
+		return
+	}
+	c.seenShadow[k] = true
+	c.shadowedErr(sp, fmt.Sprintf("the signature of `%s`", sym.Name), name)
+}
+
+// shadowedInType returns the name of the first unqualified Con in t
+// the file shadows — "" when there is none.
+func (c *checker) shadowedInType(t types.Type) string {
+	switch t := types.Chase(t).(type) {
+	case *types.Var, *types.Meta:
+	case *types.Con:
+		if t.Qual == "" && c.shadowedBuiltin(t.Name) {
+			return t.Name
+		}
+		for _, a := range t.Args {
+			if n := c.shadowedInType(a); n != "" {
+				return n
+			}
+		}
+	case *types.Func:
+		ps, ret := flattenFunc(t)
+		for _, p := range ps {
+			if n := c.shadowedInType(p.Type); n != "" {
+				return n
+			}
+		}
+		return c.shadowedInType(ret)
+	case *types.Tuple:
+		for _, e := range t.Elems {
+			if n := c.shadowedInType(e); n != "" {
+				return n
+			}
+		}
+	case *types.Go:
+		for _, a := range t.Args {
+			if n := c.shadowedInType(a); n != "" {
+				return n
+			}
+		}
+	default:
+		panic("unreachable")
+	}
+	return ""
+}
+
+// isShadowedCon reports whether t spells the file-local declaration
+// of the builtin name — the case a builtin-shape consumer must
+// reject rather than silently read as the builtin.
+func (c *checker) isShadowedCon(t types.Type, name string) bool {
+	con, ok := types.Chase(t).(*types.Con)
+	return ok && con.Qual == "" && con.Name == name && c.shadowedBuiltin(name)
 }
 func (c *checker) registerValueDecls(decls []syntax.Decl) {
 	for _, d := range decls {

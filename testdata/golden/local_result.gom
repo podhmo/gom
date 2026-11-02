@@ -1,0 +1,20 @@
+package main
+
+// A file-local `type Result` shadows the builtin completely: the
+// declaration is legal, its variants emit as an ordinary sealed ADT,
+// and a match on it is a plain Go type switch — the builtin's flat
+// `rt.Result` representation never applies. (Constructs that would
+// need the shadowed builtin — `try`, `|?>`, a test's Result
+// boundary — are E0415, so no case here needs them.)
+type Result = | Ok Int | Err String
+
+let r = Ok 1
+let m = match r { Ok v -> v; Err _ -> 0 }
+
+fn describe (x: Result) -> Int =
+  match x {
+    Ok v -> v
+    Err e -> 0
+  }
+
+fn main () -> Unit = ()

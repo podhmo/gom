@@ -117,6 +117,107 @@ fn main () -> Unit = {
 		want: "ok 42 / err too big / ok 140",
 	},
 	{
+		name: "local_result_adt",
+		src: `package main
+
+import go "log"
+
+// A file-local "type Result" shadows the builtin: its variants are
+// an ordinary sealed ADT and match compiles to a Go type switch —
+// the evaluator reads the same declaration, so both sides must
+// agree on the ADT reading. (fmt.Println's (int, error) signature
+// needs the shadowed builtin, so main prints through log.Print —
+// a Unit-returning call the shadowing leaves intact.)
+type Result = | Ok Int | Err String
+
+fn describe (r: Result) -> String =
+  match r {
+    Ok v -> "ok ${v}"
+    Err e -> "err ${e}"
+  }
+
+fn answer () -> String = {
+  let e = Err "bad"
+  "${describe (Ok 42)} / ${describe e}"
+}
+
+fn main () -> Unit = {
+  let _ = log.SetFlags(0)
+  let _ = log.Print(answer ())
+  ()
+}
+`,
+		want: "ok 42 / err bad",
+	},
+	{
+		name: "local_option_and_builtin_result",
+		src: `package main
+
+import go "fmt"
+
+// Shadowing is per name: a file-local "type Option" is an ordinary
+// ADT while the builtin Result — undeclared here — keeps its own
+// constructors, try, and |?>.
+type Option = | Just Int | Nothing
+
+fn show (o: Option) -> String =
+  match o { Just v -> "just ${v}"; Nothing -> "nothing" }
+
+fn checked (n: Int) -> Result Int String =
+  if n > 0 { Ok n } else { Err "neg" }
+
+fn describe (r: Result Int String) -> String =
+  match r { Ok v -> "ok ${v}"; Err e -> "err ${e}" }
+
+fn answer () -> String =
+  "${show (Just 3)} / ${describe (checked 5)}"
+
+fn main () -> Unit = {
+  let _ = fmt.Println(answer ())
+  ()
+}
+`,
+		want: "just 3 / ok 5",
+	},
+	{
+		name: "local_goerror_no_wrap",
+		src: `package main
+
+import go "log"
+
+// A file-local "type GoError" shadows the builtin error channel:
+// |?> must not wrap the Err payload of Result _ <local GoError> —
+// check/codegen/validator gate on the declaration, and the
+// evaluator must too (a name-structural read wraps and diverges).
+// (fmt.Println's error-returning signature needs the shadowed
+// builtin, so main prints through log.Print.)
+type GoError = | MkE Int
+
+fn tryStep (n: Int) -> Result Int GoError =
+  if n > 0 { Ok n } else { Err (MkE (0 - n)) }
+
+fn run (n: Int) -> Result Int GoError =
+  Ok n
+  |?> fn v -> tryStep (v - 4)
+
+fn show (r: Result Int GoError) -> String =
+  match r {
+    Ok v -> "ok ${v}"
+    Err (MkE c) -> "err ${c}"
+  }
+
+fn answer () -> String =
+  "${show (run 5)} / ${show (run 1)}"
+
+fn main () -> Unit = {
+  let _ = log.SetFlags(0)
+  let _ = log.Print(answer ())
+  ()
+}
+`,
+		want: "ok 1 / err 3",
+	},
+	{
 		name: "bound_curried_value",
 		src: `package main
 

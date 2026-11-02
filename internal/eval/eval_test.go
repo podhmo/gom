@@ -975,9 +975,23 @@ func TestTry(t *testing.T) {
 	}
 
 	t.Run("try unwraps Ok", func(t *testing.T) {
-		ev := eval.New(&check.File{Sp: sp, Decls: []check.Decl{decl}})
+		// No `type Result` declaration — the builtin's ctor metadata
+		// is derived lazily, so the Ok value is a builtin Result.
+		ev := eval.New(&check.File{Sp: sp})
 		r := ev.Expr(&check.Try{Base: b(types.Int), X: mkOk(intLit(7))})
 		if !r.OK() || r.Value.String() != "7" {
+			t.Fatalf("result = %v diags=%v", r.Value, r.Diags)
+		}
+	})
+
+	t.Run("try refuses a file-local Result", func(t *testing.T) {
+		// A declared `type Result` shadows the builtin: its Ok/Err
+		// variants are ordinary ADT values, not escape-able Results.
+		// The checker reports E0415 before this point — the evaluator's
+		// invariant is the backstop.
+		ev := eval.New(&check.File{Sp: sp, Decls: []check.Decl{decl}})
+		r := ev.Expr(&check.Try{Base: b(types.Int), X: mkOk(intLit(7))})
+		if r.OK() || r.Diags[0].Code != eval.CodeInternal {
 			t.Fatalf("result = %v diags=%v", r.Value, r.Diags)
 		}
 	})

@@ -150,6 +150,17 @@ func (c *checker) constrain(t types.Type, sp diag.Span, desc string, fn func(*me
 func (c *checker) satisfies(r *metaRec, t types.Type, sp diag.Span) bool {
 	sp = c.pos(sp)
 	t = types.Chase(t)
+	// A file-local `type Int` (or `Float`, `Char`, `String`, ...)
+	// shadows the builtin the numeric/ordered constraints mean —
+	// its Con spells the same name, so the constraint is rejected
+	// before the name-based tables accept it (E0415). `eq` is not
+	// here on purpose: structural equality is defined on declared
+	// types too.
+	if con, ok := t.(*types.Con); ok && con.Qual == "" && c.shadowedBuiltin(con.Name) &&
+		(r.num || r.flo || r.intg || r.ord) {
+		c.shadowedErr(sp, "the constraint on this type", con.Name)
+		return false
+	}
 	if r.num && !isNumeric(t) {
 		c.mismatch(sp, "a numeric type", t)
 		return false

@@ -125,6 +125,18 @@ call transfer(t2, t3, t1)
 
 名前解決フェーズは `import go` されたパッケージを `go/packages` で読み、`go/types` の情報から Gom の型を自動で作る。型は名前の文字列ではなく `go/types` の型の同一性を保ったまま扱う（named type を区別するため）。`types.Identical` は named type の object 同一性を比較するので、1 回のコンパイルでは 1 つの読み込みセッション（`packages.Load`）を共有し、シンボルごとにローダーを作り直さない（P0-5 で、セッションをまたぐと同名の型も Identical にならないことを確認）。表現できない型を含むシンボルは公開せず、参照されたときに理由付きの診断を出す。結果はビルドキャッシュに保存し、`extern` 宣言があればそれで上書きする。依存する Gom パッケージについては、実装ではなく `.gomi` だけを読み込む。
 
+### 2.6 Builtin type identity
+
+`types.Con{Qual: "", Name: "Result"}` cannot tell the builtin `Result` from a file-local `type Result`. When a file declares a `type` under a builtin name, the unqualified name denotes only the local declaration file-wide ([decisions/builtin-type-identity](decisions/2026-11-02-builtin-type-identity.md)). Every "is this `Con` the builtin X?" question consults the phase's own declaration index before the name:
+
+- `check`: `typeInfo.sym` on `tyCons` (non-nil for local declarations) → `shadowedBuiltin` / `isBuiltinCon`
+- `lower`: `typeD` → `declaredT` / `builtinName` / `isResultCon` / `isOptionCon`; `variantsOf` and the equality plans (`eqKindOf`) also try local declarations first
+- `core.Validate`: `localT` collected from the file's `TypeDecl` names → `conIs` / `resultType`
+- `codegen`: `g.localT`; Core carries the semantic decisions, so the guards only pick the generated representation
+- `eval`: `interp.localT` → `VVariant.IsResult` / `resultTag` / `errIsGoError` (the evaluator and generated code share the same reading)
+
+Constructs that specifically need a shadowed builtin — `try`/`|?>`, builtin constructors, list literals, `for`/`select`, foreign signatures mentioning the name, and so on — report E0415 in check, and the validator rejects the same reading on hand-built IR.
+
 ---
 
 ## 3. ディレクトリ構成

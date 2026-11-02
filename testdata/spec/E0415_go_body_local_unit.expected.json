@@ -1,0 +1,119 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0415",
+      "severity": "error",
+      "message": "the unit literal `()` needs the builtin `Unit`, but the file declares a `type Unit` shadowing it",
+      "span": {
+        "file": "E0415_go_body_local_unit.gom",
+        "start": {
+          "line": 9,
+          "col": 6,
+          "offset": 251
+        },
+        "end": {
+          "line": 9,
+          "col": 8,
+          "offset": 253
+        }
+      },
+      "data": {
+        "builtin": "Unit",
+        "construct": "the unit literal `()`"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0415",
+      "severity": "error",
+      "message": "`let` needs the builtin `Unit`, but the file declares a `type Unit` shadowing it",
+      "span": {
+        "file": "E0415_go_body_local_unit.gom",
+        "start": {
+          "line": 10,
+          "col": 3,
+          "offset": 267
+        },
+        "end": {
+          "line": 10,
+          "col": 19,
+          "offset": 283
+        }
+      },
+      "data": {
+        "builtin": "Unit",
+        "construct": "`let`"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0415",
+      "severity": "error",
+      "message": "a mid-block expression needs the builtin `Unit`, but the file declares a `type Unit` shadowing it",
+      "span": {
+        "file": "E0415_go_body_local_unit.gom",
+        "start": {
+          "line": 10,
+          "col": 3,
+          "offset": 267
+        },
+        "end": {
+          "line": 10,
+          "col": 19,
+          "offset": 283
+        }
+      },
+      "data": {
+        "builtin": "Unit",
+        "construct": "a mid-block expression"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0415",
+      "severity": "error",
+      "message": "`go {}` needs the builtin `Unit`, but the file declares a `type Unit` shadowing it",
+      "span": {
+        "file": "E0415_go_body_local_unit.gom",
+        "start": {
+          "line": 10,
+          "col": 11,
+          "offset": 275
+        },
+        "end": {
+          "line": 10,
+          "col": 19,
+          "offset": 283
+        }
+      },
+      "data": {
+        "builtin": "Unit",
+        "construct": "`go {}`"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0415",
+      "severity": "error",
+      "message": "a `go` body needs the builtin `Unit`, but the file declares a `type Unit` shadowing it",
+      "span": {
+        "file": "E0415_go_body_local_unit.gom",
+        "start": {
+          "line": 10,
+          "col": 14,
+          "offset": 278
+        },
+        "end": {
+          "line": 10,
+          "col": 19,
+          "offset": 283
+        }
+      },
+      "data": {
+        "builtin": "Unit",
+        "construct": "a `go` body"
+      }
+    }
+  ]
+}

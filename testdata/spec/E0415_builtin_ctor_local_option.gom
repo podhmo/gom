@@ -1,0 +1,9 @@
+package ex
+
+// The builtin constructor `Some` has signature `a -> Option a` — an
+// unqualified `Option` the file re-declares, so the constructor can
+// no longer denote the type it produces (E0415 at the signature
+// lookup).
+type Option = | O
+
+let x = Some 3

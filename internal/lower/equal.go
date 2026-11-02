@@ -417,7 +417,7 @@ func (l *lowerer) eqBuiltinVariants(sp diag.Span, c *types.Con) []core.EqVariant
 		fields := make([]core.EqField, len(v.Fields))
 		for j, f := range v.Fields {
 			sel := ""
-			if isResultCon(c) {
+			if l.isResultCon(c) {
 				// The flat Result keeps its Ok payload in Value
 				// and its Err payload in Error.
 				if v.Sym.Name == "Ok" {

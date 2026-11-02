@@ -1,0 +1,11 @@
+package ex
+
+// A mid-block expression must have the builtin Unit type — under a
+// file-local `type Unit` the spelling names the local ADT, so the
+// discard rule cannot apply (E0415).
+type Unit = | U
+
+fn f () -> Unit = {
+  U
+  U
+}

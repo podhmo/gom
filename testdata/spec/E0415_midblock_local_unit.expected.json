@@ -1,0 +1,50 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0415",
+      "severity": "error",
+      "message": "the unit literal `()` needs the builtin `Unit`, but the file declares a `type Unit` shadowing it",
+      "span": {
+        "file": "E0415_midblock_local_unit.gom",
+        "start": {
+          "line": 8,
+          "col": 6,
+          "offset": 209
+        },
+        "end": {
+          "line": 8,
+          "col": 8,
+          "offset": 211
+        }
+      },
+      "data": {
+        "builtin": "Unit",
+        "construct": "the unit literal `()`"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0415",
+      "severity": "error",
+      "message": "a mid-block expression needs the builtin `Unit`, but the file declares a `type Unit` shadowing it",
+      "span": {
+        "file": "E0415_midblock_local_unit.gom",
+        "start": {
+          "line": 9,
+          "col": 3,
+          "offset": 226
+        },
+        "end": {
+          "line": 9,
+          "col": 4,
+          "offset": 227
+        }
+      },
+      "data": {
+        "builtin": "Unit",
+        "construct": "a mid-block expression"
+      }
+    }
+  ]
+}

@@ -1,0 +1,27 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0415",
+      "severity": "error",
+      "message": "the signature of `Some` needs the builtin `Option`, but the file declares a `type Option` shadowing it",
+      "span": {
+        "file": "E0415_builtin_ctor_local_option.gom",
+        "start": {
+          "line": 9,
+          "col": 9,
+          "offset": 256
+        },
+        "end": {
+          "line": 9,
+          "col": 13,
+          "offset": 260
+        }
+      },
+      "data": {
+        "builtin": "Option",
+        "construct": "the signature of `Some`"
+      }
+    }
+  ]
+}

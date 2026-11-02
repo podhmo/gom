@@ -1,6 +1,6 @@
 # Local `type Result` is indistinguishable from the builtin at the escape boundary
 
-- 状態: 未解決
+- 状態: 解決（2026-11-02、宣言ベースの組み込み判定を採用 — [decisions/builtin-type-identity](../decisions/2026-11-02-builtin-type-identity.md)）
 - 発見: 2026-11-02, P1-8 review follow-up
 
 ## Situation
@@ -55,3 +55,39 @@ it writes is that *local* type — yet `try`/`|?>` still validate
 - Alternatively have the resolver reject local declarations that
   collide with builtin-scope type names (`Result`, `Option`,
   `List`, ...), turning the ambiguity into a user diagnostic.
+
+## Resolution
+
+Adopted a third route — declaration-aware builtin identity:
+
+- Local `type` declarations stay **legal** — `type Result`,
+  `type Option`, `type List`, `type Int` are ordinary ADT/record
+  declarations that shadow their builtin for the whole file.
+- Every phase that asks "is this the builtin `X`?" consults the
+  phase's own declaration index before the name:
+  - check: `typeInfo.sym` on `tyCons` (`shadowedBuiltin`,
+    `isBuiltinCon` in check.go)
+  - lower: `typeD` (`declaredT`/`builtinName`/`isResultCon`/
+    `isOptionCon` in lower.go)
+  - core validator: `localT` collected from `core.TypeDecl`s
+    (`conIs`/`resultType` in validate.go)
+  - codegen: `localT` (existing guards)
+  - eval: `interp.localT` collected from `check.TypeDecl`s
+    (`VVariant.IsResult`, `resultTag`, `errIsGoError`)
+- Constructs that *specifically need* the shadowed builtin report
+  **E0415** (`shadowedErr`) — `try`/`|?>` and Result boundaries,
+  builtin `Some`/`None`/`Ok`/`Err` signature lookups, list
+  literals/patterns, `for`/`select`/spread element types, literals
+  and numeric constraints, test-body shape, and foreign/extern/builtin
+  signatures that mention the name (`sigOf`/`shadowedSigDiag`,
+  deduplicated per (symbol, builtin) via `shadowKey`).
+- A reserved `Qual` / Con back-reference was not needed: every
+  phase already owns a declaration table; plumbing symbol identity
+  into `types.Con` would duplicate what `typeInfo.sym`/`typeD`/
+  `localT` already decide.
+- Rejecting the declarations was rejected: shadowing is spec-
+  sanctioned name resolution (decisions/name-resolution.md's
+  scope model), and a file-local `type Result` is a useful ADT.
+
+See `docs/decisions/2026-11-02-builtin-type-identity.md` for the
+full rationale and the E0415 coverage table.

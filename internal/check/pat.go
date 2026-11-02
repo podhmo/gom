@@ -292,7 +292,11 @@ func (c *checker) ctorOf(e syntax.Expr) (*variantInfo, *syntax.Ident) {
 	}
 	// A builtin-scope constructor (Some, None, Ok, Err) that is not
 	// declared in this file.
-	if sig, ok := c.sigOf(sym); ok {
+	sp := diag.Span{}
+	if name != nil {
+		sp = name.Sp
+	}
+	if sig, ok := c.sigOf(sym, sp); ok {
 		return c.builtinVariant(sym, sig), name
 	}
 	return nil, name
@@ -343,7 +347,7 @@ func (c *checker) builtinVariant(sym *resolve.Symbol, sig Signature) *variantInf
 // subject unify may need to silence.
 func (c *checker) ctorParams(vi *variantInfo, sp diag.Span) ([]types.FuncParam, types.Type, []types.Type) {
 	var sig types.Type
-	if s, ok := c.sigOf(vi.sym); ok {
+	if s, ok := c.sigOf(vi.sym, sp); ok {
 		sig = s.Type
 	} else if vi.parent != nil && len(vi.fields) > 0 {
 		// A builtin-variant entry whose signature never reached the
@@ -451,14 +455,20 @@ func (c *checker) tupleElems(want types.Type, n int, sp diag.Span) []types.Type 
 }
 
 // listElem returns the element type want must have as `List _`,
-// extending a meta into a fresh list type.
+// extending a meta into a fresh list type. A file-local `type List`
+// is not the builtin: a `[x, ..rest]` pattern against it is E0415.
 func (c *checker) listElem(want types.Type, sp diag.Span) types.Type {
 	switch t := types.Chase(want).(type) {
 	case *types.Con:
 		if t.Qual == "" && t.Name == "List" && len(t.Args) == 1 {
-			return t.Args[0]
+			if c.shadowedBuiltin("List") {
+				c.shadowedErr(sp, "a list pattern", "List")
+			} else {
+				return t.Args[0]
+			}
+		} else {
+			c.mismatch(sp, "List", want)
 		}
-		c.mismatch(sp, "List", want)
 		return c.quietMeta(sp, "the element type")
 	case *types.Meta:
 		elem := c.newMeta(sp, "the element type")
@@ -475,11 +485,14 @@ func (c *checker) listElem(want types.Type, sp diag.Span) types.Type {
 }
 
 // resultArgs decomposes want as `Result a e` — used by `try` and
-// `|?>`. An unbound meta becomes Result of fresh metas.
+// `|?>`. An unbound meta becomes Result of fresh metas. A file-local
+// `type Result` is not the builtin: callers report E0415 via
+// isShadowedCon when the operand spells it.
 func (c *checker) resultArgs(want types.Type, sp diag.Span) (val, err types.Type, ok bool) {
 	switch t := types.Chase(want).(type) {
 	case *types.Con:
-		if t.Qual == "" && t.Name == "Result" && len(t.Args) == 2 {
+		if t.Qual == "" && t.Name == "Result" && len(t.Args) == 2 &&
+			!c.shadowedBuiltin("Result") {
 			return t.Args[0], t.Args[1], true
 		}
 		return nil, nil, false
@@ -495,6 +508,13 @@ func (c *checker) resultArgs(want types.Type, sp diag.Span) (val, err types.Type
 			c.bind(e, types.Unit, sp)
 			return nil, nil, false
 		}
+		// The bound meta now spells `Result` — which a file-local
+		// `type Result` declares: the `try` would unwrap the local
+		// ADT through the builtin's tag machinery (E0415).
+		if c.shadowedBuiltin("Result") {
+			c.shadowedErr(sp, "`try`", "Result")
+			return nil, nil, false
+		}
 		return a, e, true
 	case *types.Var, *types.Func, *types.Tuple, *types.Go:
 		return nil, nil, false
@@ -504,10 +524,12 @@ func (c *checker) resultArgs(want types.Type, sp diag.Span) (val, err types.Type
 }
 
 // chanElem decomposes want as `Chan a`, `RecvChan a` or `SendChan a`,
-// reporting the direction actually found.
-func chanElem(t types.Type) (elem types.Type, dir string, ok bool) {
+// reporting the direction actually found. A file-local `type Chan`
+// (or `RecvChan`/`SendChan`) is not a builtin channel — select and
+// `for` cannot receive from it.
+func (c *checker) chanElem(t types.Type) (elem types.Type, dir string, ok bool) {
 	con, ok := types.Chase(t).(*types.Con)
-	if !ok || con.Qual != "" || len(con.Args) != 1 {
+	if !ok || con.Qual != "" || len(con.Args) != 1 || c.shadowedBuiltin(con.Name) {
 		return nil, "", false
 	}
 	switch con.Name {
@@ -546,12 +568,26 @@ func (c *checker) litType(l *syntax.Lit) types.Type {
 		})
 		return m
 	case syntax.LitStr:
+		// A literal produces the builtin — a file-local `type
+		// String` shadows that reading (E0415).
+		if c.shadowedBuiltin("String") {
+			c.shadowedErr(l.Sp, "a string literal", "String")
+		}
 		return types.String
 	case syntax.LitChar:
+		if c.shadowedBuiltin("Char") {
+			c.shadowedErr(l.Sp, "a char literal", "Char")
+		}
 		return types.Char
 	case syntax.LitBool:
+		if c.shadowedBuiltin("Bool") {
+			c.shadowedErr(l.Sp, "a boolean literal", "Bool")
+		}
 		return types.Bool
 	case syntax.LitUnit:
+		if c.shadowedBuiltin("Unit") {
+			c.shadowedErr(l.Sp, "the unit literal `()`", "Unit")
+		}
 		return types.Unit
 	default:
 		panic("unreachable")

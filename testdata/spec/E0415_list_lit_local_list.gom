@@ -1,0 +1,8 @@
+package ex
+
+// A list literal produces the builtin `List a` — a file-local
+// `type List` shadows that reading, so `[e1, e2]` cannot produce
+// the declared type at all (E0415).
+type List = | Nil | Cons Int List
+
+let xs = [1, 2, 3]

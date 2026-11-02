@@ -51,6 +51,13 @@ type interp struct {
 	// defaultMaxDepth applies when unset; <= 0 means unlimited.
 	depth    int64
 	maxDepth int64
+	// localT names the file's declared types — an unqualified
+	// *types.Con carrying one of these names denotes the file-local
+	// declaration, never the builtin of the same spelling. It is
+	// the same guard check's shadowedBuiltin, lower's declaredT and
+	// codegen's localT apply: a file-local `type Result` makes
+	// IsResult answer false for its variants.
+	localT map[string]bool
 }
 
 // letInit is the lazy initializer of one top-level `let`
@@ -95,6 +102,12 @@ func New(f *check.File) *Evaluator {
 			continue
 		}
 		ev.registerTypeDecl(td)
+		if td.Sym != nil && td.Sym.Package == "" {
+			if ev.interp.localT == nil {
+				ev.interp.localT = map[string]bool{}
+			}
+			ev.interp.localT[td.Sym.Name] = true
+		}
 	}
 	for _, d := range f.Decls {
 		fd, ok := d.(*check.FnDecl)
@@ -178,7 +191,7 @@ func (e *Evaluator) Run() Result {
 				return runBody(func() Value { return e.interp.eval(d.Body, e.env.Child()) })
 			})
 			if !ds.HasError() && v != nil {
-				if isRes, isOk := resultTag(v); isRes && !isOk {
+				if isRes, isOk := e.interp.resultTag(v); isRes && !isOk {
 					ds = append(ds, diag.Error(CodeTestFail, "test returned Err").
 						At(d.Sp).Set("test", d.Name).Set("value", v.String()))
 				}
@@ -311,12 +324,12 @@ func (e *Evaluator) registerTypeDecl(d *check.TypeDecl) {
 }
 
 // resultTag decomposes a Result value: (isResult, isOk).
-func resultTag(v Value) (isResult, isOk bool) {
+func (e *interp) resultTag(v Value) (isResult, isOk bool) {
 	variant, ok := v.(*VVariant)
 	if !ok {
 		return false, false
 	}
-	return variant.IsResult()
+	return variant.IsResult(e.localT)
 }
 
 // --- expression dispatch ---
@@ -401,7 +414,7 @@ func (e *interp) eval(x check.Expr, env *Env) Value {
 		if !ok {
 			failData(CodeInternal, "try applied to a non-Result value", x.Span(), "value", v.String())
 		}
-		isRes, isOk := variant.IsResult()
+		isRes, isOk := variant.IsResult(e.localT)
 		if !isRes {
 			failData(CodeInternal, "try applied to a non-Result value", x.Span(), "value", v.String())
 		}
@@ -858,7 +871,7 @@ func (e *interp) evalMatch(x *check.Match, env *Env) Value {
 // step's failure is wrapped once with the step name.
 func (e *interp) evalPipeTry(x *check.Binary, env *Env) Value {
 	l := e.eval(x.X, env)
-	isRes, isOk := resultTag(l)
+	isRes, isOk := e.resultTag(l)
 	if isRes && !isOk {
 		// Err e |?> f: pass through untouched; f does not evaluate
 		// (spec 9.2 items 1 and 5; the evaluation-order decision has
@@ -881,10 +894,10 @@ func (e *interp) evalPipeTry(x *check.Binary, env *Env) Value {
 	// Err, keyed on the pipe node's own Result type (spec 9.2 items
 	// 3 and 5) — so `5 |?> f` wraps too, while a later `|?> g` sees
 	// an already-wrapped Err as plain inflow and passes it through.
-	if !errIsGoError(x.Type()) {
+	if !errIsGoError(x.Type(), e.localT) {
 		return r
 	}
-	isRes, isOk = resultTag(r)
+	isRes, isOk = e.resultTag(r)
 	if !isRes || isOk {
 		return r
 	}
@@ -899,10 +912,17 @@ func (e *interp) evalPipeTry(x *check.Binary, env *Env) Value {
 	return &VVariant{Type: variant.Type, Ctor: variant.Ctor, Name: variant.Name, Fields: fields}
 }
 
-// errIsGoError reports whether t is `Result _ GoError`.
-func errIsGoError(t types.Type) bool {
+// errIsGoError reports whether t is `Result _ GoError` — the
+// builtin Result only: a file-local `type Result` (localT) spells
+// the same Con but is an ADT the pipe-wrap rule does not apply to.
+func errIsGoError(t types.Type, localT map[string]bool) bool {
 	con, ok := t.(*types.Con)
-	if !ok || con.Qual != "" || con.Name != "Result" || len(con.Args) != 2 {
+	if !ok || con.Qual != "" || con.Name != "Result" || len(con.Args) != 2 || localT["Result"] {
+		return false
+	}
+	// A file-local `type GoError` spells the same Con as the builtin;
+	// the pipe-wrap rule only applies to the builtin error channel.
+	if localT["GoError"] {
 		return false
 	}
 	return types.Equal(con.Args[1], types.GoError)

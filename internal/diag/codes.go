@@ -587,6 +587,27 @@ over them, and type ascriptions — named constants and calls are not
 folded.`,
 		Example: `fn f () -> Int = 10 / 0   // the divisor is a constant zero`,
 	},
+	{
+		Code:     "E0415",
+		Severity: SeverityError,
+		Title:    "file-local type shadows a builtin the construct needs",
+		Phase:    PhaseCheck,
+		Spec:     "3.1",
+		Explanation: `A file-local "type" declaration may reuse a builtin type's
+name — "type Result", "type Option", "type List", "type Int" — and
+then shadows the builtin completely (spec section 3.1): every
+unqualified use of the name in the file denotes the local
+declaration. Constructs that specifically need the builtin — "try"
+and "|?>" (Result), the builtin constructors Some/None/Ok/Err, list
+literals and list patterns (List), a select receive arm's bind
+(Option), comparisons and "if" conditions (Bool), literals and
+numeric constraints (the scalar builtins), and signatures supplied
+from outside the file that mention the name — are reported here,
+because the builtin is unreachable inside the file.`,
+		Example: `type Result = | Ok Int | Err String
+
+fn f () -> Int = try compute ()   // try unwraps the builtin Result`,
+	},
 
 	{
 		Code:     "E0501",

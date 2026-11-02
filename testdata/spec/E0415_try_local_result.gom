@@ -1,0 +1,11 @@
+package ex
+
+// `try` unwraps the builtin `Result a e` — a file-local `type
+// Result` shadows it, so an operand spelling `Result` is the
+// file's own ADT, not the type `try` needs (E0415).
+type Result = | Ok Int | Err String
+
+fn f () -> Result = {
+  let x = try (Ok 1)
+  x
+}

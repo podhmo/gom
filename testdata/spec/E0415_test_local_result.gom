@@ -1,0 +1,8 @@
+package ex
+
+// A test body must be the builtin Unit or `Result Unit e` — under a
+// file-local `type Result` the spelling names the local ADT, which
+// is not the shape the test boundary observes (E0415).
+type Result = | Ok Int | Err String
+
+test "t" { Ok 1 }

@@ -1,0 +1,11 @@
+package ex
+
+import go "strconv"
+
+// A Go `(T, error)` signature maps to the builtin `Result a GoError`
+// — under a file-local `type Result` that spelling resolves to the
+// local ADT, a type the Go callee does not produce (E0415 at the
+// signature lookup; `try` itself also needs the builtin).
+type Result = | Ok Int | Err String
+
+fn f (s: String) -> Int = try strconv.Atoi s

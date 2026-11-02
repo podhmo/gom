@@ -1,0 +1,10 @@
+package ex
+
+// `|?>` threads the builtin `Result a e` through an escape boundary —
+// under a file-local `type Result` the operator's whole semantics is
+// unavailable (E0415).
+type Result = | Ok Int | Err String
+
+fn compute () -> Result = Ok 1
+
+fn f () -> Result = compute () |?> fn x -> Ok (x + 1)

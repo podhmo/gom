@@ -514,7 +514,7 @@ func (c *checker) typeCtorOf(te syntax.TypeExpr) typeCtor {
 			if c.hiddenDiag(sym, tn.Sp) {
 				return typeCtor{arity: -1}
 			}
-			if sig, ok := c.sigOf(sym); ok {
+			if sig, ok := c.sigOf(sym, tn.Sp); ok {
 				if con, ok := types.Chase(sig.Type).(*types.Con); ok {
 					return typeCtor{con: con, arity: len(con.Args), params: varsOf(con.Args)}
 				}
@@ -544,7 +544,7 @@ func (c *checker) typeCtorOf(te syntax.TypeExpr) typeCtor {
 		if ti, ok := c.tyBySym[sym]; ok {
 			return c.ctorOfInfo(ti)
 		}
-		if sig, ok := c.sigOf(sym); ok {
+		if sig, ok := c.sigOf(sym, tn.Sp); ok {
 			if con, ok := types.Chase(sig.Type).(*types.Con); ok {
 				return typeCtor{con: con, arity: len(con.Args), params: varsOf(con.Args)}
 			}

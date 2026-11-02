@@ -1,0 +1,27 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0415",
+      "severity": "error",
+      "message": "`for` iterates the builtin `List` or a channel type needs the builtin `List`, but the file declares a `type List` shadowing it",
+      "span": {
+        "file": "E0415_for_local_list.gom",
+        "start": {
+          "line": 10,
+          "col": 12,
+          "offset": 219
+        },
+        "end": {
+          "line": 10,
+          "col": 14,
+          "offset": 221
+        }
+      },
+      "data": {
+        "builtin": "List",
+        "construct": "`for` iterates the builtin `List` or a channel type"
+      }
+    }
+  ]
+}

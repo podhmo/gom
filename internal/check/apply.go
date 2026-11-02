@@ -35,13 +35,13 @@ func (c *checker) checkApply(e *syntax.Apply) Expr {
 	}
 	params, ret := flattenFunc(fn.Type())
 	if goCall {
-		sig, _ := c.sigOf(callee)
+		sig, _ := c.sigOf(callee, e.Sp)
 		arity := c.declArity(sig, len(params))
 		return c.checkGoApply(e, fn, callee, params, ret, sig.Variadic, arity)
 	}
 	arity := len(params)
 	if callee != nil {
-		if sig, ok := c.sigOf(callee); ok {
+		if sig, ok := c.sigOf(callee, e.Sp); ok {
 			arity = c.declArity(sig, arity)
 		}
 	}
@@ -649,9 +649,11 @@ func (c *checker) checkGoApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol,
 
 // sliceElemOf returns the element type of the declared variadic
 // parameter — a GoSlice — or a fresh meta when the shape is unusual.
+// A file-local `type List` is not the builtin the rule names.
 func sliceElemOf(t types.Type, sp diag.Span, c *checker) types.Type {
 	if con, ok := types.Chase(t).(*types.Con); ok && len(con.Args) == 1 &&
-		((con.Qual == "Go" && con.Name == "Slice") || (con.Qual == "" && con.Name == "List")) {
+		((con.Qual == "Go" && con.Name == "Slice") ||
+			(con.Qual == "" && con.Name == "List" && !c.shadowedBuiltin("List"))) {
 		return con.Args[0]
 	}
 	return c.newMeta(sp, "the variadic element type")
@@ -659,12 +661,20 @@ func sliceElemOf(t types.Type, sp diag.Span, c *checker) types.Type {
 
 // spreadElem checks the collection a `..e` spread expands: a List or
 // a GoSlice whose element type unifies with the variadic parameter's
-// element type.
+// element type. A file-local `type List` shadows the builtin the
+// spread needs (E0415).
 func (c *checker) spreadElem(t types.Type, elem types.Type, sp diag.Span) {
 	switch t := types.Chase(t).(type) {
 	case *types.Con:
-		if len(t.Args) == 1 &&
-			((t.Qual == "" && t.Name == "List") || (t.Qual == "Go" && t.Name == "Slice")) {
+		if len(t.Args) == 1 && t.Qual == "Go" && t.Name == "Slice" {
+			c.unify(elem, t.Args[0], sp)
+			return
+		}
+		if len(t.Args) == 1 && t.Qual == "" && t.Name == "List" {
+			if c.shadowedBuiltin("List") {
+				c.shadowedErr(sp, "the spread `..e`", "List")
+				return
+			}
 			c.unify(elem, t.Args[0], sp)
 			return
 		}

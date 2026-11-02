@@ -1,0 +1,27 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0415",
+      "severity": "error",
+      "message": "a list literal `[...]` needs the builtin `List`, but the file declares a `type List` shadowing it",
+      "span": {
+        "file": "E0415_list_lit_local_list.gom",
+        "start": {
+          "line": 8,
+          "col": 10,
+          "offset": 224
+        },
+        "end": {
+          "line": 8,
+          "col": 19,
+          "offset": 233
+        }
+      },
+      "data": {
+        "builtin": "List",
+        "construct": "a list literal `[...]`"
+      }
+    }
+  ]
+}

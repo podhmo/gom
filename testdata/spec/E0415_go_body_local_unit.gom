@@ -1,0 +1,12 @@
+package ex
+
+// A `go` body's type must be the builtin Unit, and the `go`
+// expression itself produces builtin Unit — both readings are
+// shadowed by a file-local `type Unit` (E0415 at the body and at
+// the `go` expression).
+type Unit = | U
+
+fn f () -> Int = {
+  let _ = go { U }
+  1
+}

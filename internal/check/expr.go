@@ -434,10 +434,14 @@ func (c *checker) fieldOf(t types.Type, name string) (*fieldInfo, *variantInfo, 
 // substituted for the signature's type variables.
 func (c *checker) methodOf(recvT types.Type, name string, sp diag.Span) (*resolve.Symbol, types.Type, []types.Type, bool) {
 	t := types.Chase(recvT)
-	if con, ok := t.(*types.Con); ok && con.Qual == "" && con.Name == "Ptr" && len(con.Args) == 1 {
+	if con, ok := t.(*types.Con); ok && con.Qual == "" && con.Name == "Ptr" && len(con.Args) == 1 &&
+		!c.shadowedBuiltin("Ptr") {
 		t = types.Chase(con.Args[0])
 	}
-	if _, ok := t.(*types.Go); !ok && !types.Equal(t, types.GoError) {
+	// `types.Equal(t, types.GoError)` cannot tell a file-local `type
+	// GoError` from the builtin — its Con spells the same name — so
+	// the builtin receiver test goes through isBuiltinCon.
+	if _, ok := t.(*types.Go); !ok && !c.isBuiltinCon(types.Chase(t), "GoError") {
 		return nil, nil, nil, false
 	}
 	// The signature source wins when it can answer — a loader-provided
@@ -457,7 +461,7 @@ func (c *checker) methodOf(recvT types.Type, name string, sp diag.Span) (*resolv
 	// `Error() string`. The checker owns the builtin and answers the
 	// one method the `error` interface carries, so checkers built
 	// without a signature source still type `e.Error()`.
-	if isCon(t, "GoError") && name == "Error" {
+	if c.isBuiltinCon(t, "GoError") && name == "Error" {
 		sym := c.goErrMethodSym()
 		typ, targs := c.instantiate(c.vals[sym], sp)
 		return sym, typ, targs, true
@@ -562,7 +566,9 @@ func (c *checker) convOK(from, to types.Type) bool {
 		if !ok {
 			return false
 		}
-		if con.Qual == "" {
+		// A file-local `type Int` is not the builtin numeric the
+		// conversion rule means.
+		if con.Qual == "" && !c.shadowedBuiltin(con.Name) {
 			switch con.Name {
 			case "Int", "Int32", "Int64", "Float", "Char":
 				return true
@@ -598,7 +604,7 @@ func (c *checker) checkUnary(e *syntax.Unary) Expr {
 		return &Unary{Base: baseOf(e.Sp, x.Type()), Op: e.Op, X: x}
 	case syntax.UnNot:
 		x := c.checkExpr(e.X, types.Bool)
-		return &Unary{Base: baseOf(e.Sp, types.Bool), Op: e.Op, X: x}
+		return &Unary{Base: baseOf(e.Sp, c.boolResult(e.Sp, "`!`")), Op: e.Op, X: x}
 	default:
 		panic("unreachable")
 	}
@@ -623,18 +629,18 @@ func (c *checker) checkBinary(e *syntax.Binary) Expr {
 		if c.unify(x.Type(), y.Type(), e.Sp) {
 			c.constrain(x.Type(), e.Sp, "the operands of `==`", func(r *metaRec) { r.eq = true })
 		}
-		return &Binary{Base: baseOf(e.Sp, types.Bool), Op: op, X: x, Y: y}
+		return &Binary{Base: baseOf(e.Sp, c.boolResult(e.Sp, "`==`")), Op: op, X: x, Y: y}
 	case syntax.BinLt, syntax.BinLe, syntax.BinGt, syntax.BinGe:
 		x := c.checkExpr(e.X, nil)
 		y := c.checkExpr(e.Y, nil)
 		if c.unify(x.Type(), y.Type(), e.Sp) {
 			c.constrain(x.Type(), e.Sp, "the operands of a comparison", func(r *metaRec) { r.ord = true })
 		}
-		return &Binary{Base: baseOf(e.Sp, types.Bool), Op: op, X: x, Y: y}
+		return &Binary{Base: baseOf(e.Sp, c.boolResult(e.Sp, "a comparison")), Op: op, X: x, Y: y}
 	case syntax.BinAnd, syntax.BinOr:
 		x := c.checkExpr(e.X, types.Bool)
 		y := c.checkExpr(e.Y, types.Bool)
-		return &Binary{Base: baseOf(e.Sp, types.Bool), Op: op, X: x, Y: y}
+		return &Binary{Base: baseOf(e.Sp, c.boolResult(e.Sp, fmt.Sprintf("`%s`", e.Op))), Op: op, X: x, Y: y}
 	case syntax.BinPipeFwd:
 		// `x |> f` is `f x`.
 		x := c.checkExpr(e.X, nil)
@@ -733,7 +739,7 @@ func (c *checker) pipeCall(e *syntax.Binary, arg, fn Expr) Expr {
 		out.X, out.Y = fn, arg
 	}
 	if sym := goCalleeSym(fn); sym != nil {
-		if sig, ok := c.sigOf(sym); ok {
+		if sig, ok := c.sigOf(sym, e.Sp); ok {
 			params, ret := flattenFunc(fn.Type())
 			arity := c.declArity(sig, len(params))
 			switch {
@@ -948,6 +954,13 @@ func constFold(e Expr) (constant.Value, bool) {
 func (c *checker) checkPipeTry(e *syntax.Binary) Expr {
 	x := c.checkExpr(e.X, nil)
 	f := c.checkExpr(e.Y, nil)
+	// `|?>` wraps the step in the builtin Result and unwraps the
+	// operand through its tag machinery — both meanings are the
+	// file-local `type Result` when one shadows it, so the whole
+	// pipeline is E0415.
+	if c.shadowedBuiltin("Result") {
+		c.shadowedErr(e.Sp, "`|?>`", "Result")
+	}
 	var argT, errT types.Type
 	if a, er, ok := c.resultArgs(x.Type(), e.X.Span()); ok {
 		argT, errT = a, er
@@ -1007,6 +1020,11 @@ func (c *checker) checkLambda(e *syntax.Lambda) Expr {
 // must be Unit — a value-producing then without else is E0403.
 func (c *checker) checkIf(e *syntax.If, want types.Type) Expr {
 	cond := c.checkExpr(e.Cond, types.Bool)
+	// The condition must be the builtin Bool — which a file-local
+	// `type Bool` shadows away entirely.
+	if c.shadowedBuiltin("Bool") {
+		c.shadowedErr(e.Sp, "the `if` condition", "Bool")
+	}
 	if e.Else == nil {
 		then := c.checkExpr(e.Then, nil)
 		switch t := types.Chase(then.Type()).(type) {
@@ -1034,7 +1052,7 @@ func (c *checker) checkIf(e *syntax.If, want types.Type) Expr {
 		default:
 			panic("unreachable")
 		}
-		return &If{Base: baseOf(e.Sp, types.Unit), Cond: cond, Then: then}
+		return &If{Base: baseOf(e.Sp, c.unitResult(e.Sp, "`if` without `else`")), Cond: cond, Then: then}
 	}
 	bt := want
 	if bt == nil {
@@ -1063,6 +1081,9 @@ func (c *checker) checkMatch(e *syntax.Match, want types.Type) Expr {
 		var guard Expr
 		if a.Guard != nil {
 			guard = c.checkExpr(a.Guard, types.Bool)
+			if c.shadowedBuiltin("Bool") {
+				c.shadowedErr(a.Guard.Span(), "a match guard", "Bool")
+			}
 		}
 		arms[i] = MatchArm{
 			Sp:    a.Sp,
@@ -1101,7 +1122,13 @@ func (c *checker) checkBlock(e *syntax.Block, want types.Type) Expr {
 					c.bind(t, types.Unit, s.Span())
 				}
 			case *types.Con:
-				if !(t.Qual == "" && t.Name == "Unit") {
+				if t.Qual == "" && t.Name == "Unit" {
+					// The mid-block rule names the builtin Unit —
+					// a file-local `type Unit` is an ADT, not it.
+					if c.shadowedBuiltin("Unit") {
+						c.shadowedErr(s.Span(), "a mid-block expression", "Unit")
+					}
+				} else {
 					c.diags.Add(diag.Error("E0402",
 						fmt.Sprintf("a mid-block expression must have type Unit, got %s", st.Type())).
 						At(s.Span()).Set("type", st.Type().String()))
@@ -1154,7 +1181,7 @@ func (c *checker) checkLet(e *syntax.Let) Expr {
 	if e.Type != nil {
 		c.unboundVars(want, e.Type.Span(), annScope)
 	}
-	return &Let{Base: baseOf(e.Sp, types.Unit), Pat: pat, Value: val}
+	return &Let{Base: baseOf(e.Sp, c.unitResult(e.Sp, "`let`")), Pat: pat, Value: val}
 }
 
 // checkTry types `try e`: e must be `Result a err`; the expression
@@ -1166,7 +1193,11 @@ func (c *checker) checkTry(e *syntax.Try) Expr {
 	x := c.checkExpr(e.X, nil)
 	a, errT, ok := c.resultArgs(x.Type(), e.X.Span())
 	if !ok {
-		c.mismatch(e.X.Span(), "Result a e", x.Type())
+		if c.isShadowedCon(x.Type(), "Result") {
+			c.shadowedErr(e.X.Span(), "`try`", "Result")
+		} else {
+			c.mismatch(e.X.Span(), "Result a e", x.Type())
+		}
 		// Recovery: the tried value is the operand itself. The
 		// boundary shape checks below still run (they are separate
 		// rules), but the error-channel unification is skipped —
@@ -1191,9 +1222,14 @@ func (c *checker) checkTry(e *syntax.Try) Expr {
 	if ok {
 		bv, berr, bok := c.resultArgs(b.ret, e.Sp)
 		if !bok {
-			c.diags.Add(diag.Error("E0410",
-				fmt.Sprintf("`try` requires the enclosing %s to return Result _ e, but it returns %s", b.kind, b.ret)).
-				At(e.Sp).Set("return", b.ret.String()).Set("boundary", b.kind))
+			if c.isShadowedCon(b.ret, "Result") {
+				c.shadowedErr(e.Sp,
+					fmt.Sprintf("the enclosing %s's declared return type", b.kind), "Result")
+			} else {
+				c.diags.Add(diag.Error("E0410",
+					fmt.Sprintf("`try` requires the enclosing %s to return Result _ e, but it returns %s", b.kind, b.ret)).
+					At(e.Sp).Set("return", b.ret.String()).Set("boundary", b.kind))
+			}
 			return &Try{Base: baseOf(e.Sp, a), X: x}
 		}
 		_ = bv
@@ -1225,7 +1261,13 @@ func (c *checker) checkGoExpr(e *syntax.GoExpr) Expr {
 			c.bind(t, types.Unit, body.Span())
 		}
 	case *types.Con:
-		if !(t.Qual == "" && t.Name == "Unit") {
+		if t.Qual == "" && t.Name == "Unit" {
+			// The `go` body's rule names the builtin Unit — a
+			// file-local `type Unit` is an ADT, not it.
+			if c.shadowedBuiltin("Unit") {
+				c.shadowedErr(body.Span(), "a `go` body", "Unit")
+			}
+		} else {
 			c.diags.Add(diag.Error("E0701",
 				fmt.Sprintf("a `go` body's type must be Unit, got %s", body.Type())).
 				At(body.Span()).Set("type", body.Type().String()))
@@ -1237,7 +1279,7 @@ func (c *checker) checkGoExpr(e *syntax.GoExpr) Expr {
 	default:
 		panic("unreachable")
 	}
-	return &GoExpr{Base: baseOf(e.Sp, types.Unit), Body: body}
+	return &GoExpr{Base: baseOf(e.Sp, c.unitResult(e.Sp, "`go {}`")), Body: body}
 }
 
 // checkFor types `for pat in iter { body }`: iter is a List or a
@@ -1247,16 +1289,23 @@ func (c *checker) checkFor(e *syntax.For) Expr {
 	var elem types.Type
 	switch t := types.Chase(iter.Type()).(type) {
 	case *types.Con:
-		if t.Qual == "" && t.Name == "List" && len(t.Args) == 1 {
+		if t.Qual == "" && t.Name == "List" && len(t.Args) == 1 &&
+			!c.shadowedBuiltin("List") {
 			elem = t.Args[0]
-		} else if el, dir, ok := chanElem(t); ok {
+		} else if el, dir, ok := c.chanElem(t); ok {
 			if dir == "send" {
 				c.diags.Add(diag.Error("E0401",
 					"cannot iterate a send-only channel").At(e.Iter.Span()))
 			}
 			elem = el
 		} else {
-			c.mismatch(e.Iter.Span(), "a List or a channel", iter.Type())
+			if t.Qual == "" && c.shadowedBuiltin(t.Name) &&
+				(t.Name == "List" || t.Name == "Chan" || t.Name == "RecvChan") {
+				c.shadowedErr(e.Iter.Span(),
+					"`for` iterates the builtin `List` or a channel type", t.Name)
+			} else {
+				c.mismatch(e.Iter.Span(), "a List or a channel", iter.Type())
+			}
 			// Recovery: pretend the value iterates itself so the
 			// pattern still has a concrete type to bind.
 			elem = iter.Type()
@@ -1266,6 +1315,14 @@ func (c *checker) checkFor(e *syntax.For) Expr {
 		if !c.bind(t, types.List(elem), e.Iter.Span()) {
 			c.markQuiet(elem)
 		}
+		// The bound meta spells `List` — under a file-local `type
+		// List` that is the local ADT, which `for` cannot range
+		// over: the element type needs an explicit channel or
+		// builtin-List annotation.
+		if c.shadowedBuiltin("List") {
+			c.shadowedErr(e.Iter.Span(),
+				"`for` iteration without a channel defaults to the builtin `List`", "List")
+		}
 	case *types.Var, *types.Func, *types.Tuple, *types.Go:
 		c.mismatch(e.Iter.Span(), "a List or a channel", iter.Type())
 		elem = iter.Type()
@@ -1274,7 +1331,7 @@ func (c *checker) checkFor(e *syntax.For) Expr {
 	}
 	pat := c.checkPat(e.Pat, elem)
 	body := c.checkExpr(e.Body, types.Unit)
-	return &For{Base: baseOf(e.Sp, types.Unit), Pat: pat, Iter: iter, Body: body}
+	return &For{Base: baseOf(e.Sp, c.unitResult(e.Sp, "`for`")), Pat: pat, Iter: iter, Body: body}
 }
 
 // checkSelectExpr types a channel `select`. recv arms bind
@@ -1304,7 +1361,7 @@ func (c *checker) checkSelectExpr(e *syntax.SelectExpr, want types.Type) Expr {
 		switch a := a.(type) {
 		case *syntax.RecvArm:
 			ch := c.checkExpr(a.Chan, nil)
-			elem, dir, ok := chanElem(ch.Type())
+			elem, dir, ok := c.chanElem(ch.Type())
 			if !ok {
 				_, isMeta := types.Chase(ch.Type()).(*types.Meta)
 				if !isMeta {
@@ -1329,6 +1386,23 @@ func (c *checker) checkSelectExpr(e *syntax.SelectExpr, want types.Type) Expr {
 			switch a.Bind.(type) {
 			case nil, *syntax.VarPat, *syntax.WildPat:
 				bind = c.checkPat(a.Bind, types.Option(elem))
+				// The bound name's declared type is the builtin
+				// `Option a` — under a file-local `type Option`
+				// that reading is the local ADT, which the
+				// emitted `rt.OptionFromGo` is not (E0415). An
+				// unused bind never materializes the Option, so
+				// only a bind the arm's body consumes is an error.
+				if vp, isVar := bind.(*VarPat); isVar && vp.Sym != nil &&
+					c.shadowedBuiltin("Option") {
+					// referenced is marked by the arm-body check
+					// below; defer the diagnostic until then.
+					defer func() {
+						if c.referenced[vp.Sym] {
+							c.shadowedErr(vp.Sp,
+								"a select receive arm's variable bind (it receives the builtin `Option a`)", "Option")
+						}
+					}()
+				}
 			case *syntax.LitPat, *syntax.CtorPat, *syntax.TuplePat,
 				*syntax.RecordPat, *syntax.ListPat, *syntax.OrPat,
 				*syntax.AsPat:
@@ -1347,7 +1421,7 @@ func (c *checker) checkSelectExpr(e *syntax.SelectExpr, want types.Type) Expr {
 			})
 		case *syntax.SendArm:
 			ch := c.checkExpr(a.Chan, nil)
-			elem, dir, ok := chanElem(ch.Type())
+			elem, dir, ok := c.chanElem(ch.Type())
 			if !ok {
 				_, isMeta := types.Chase(ch.Type()).(*types.Meta)
 				if !isMeta {
@@ -1387,6 +1461,12 @@ func (c *checker) checkSelectExpr(e *syntax.SelectExpr, want types.Type) Expr {
 // tail (a List or GoSlice of it), and `List a` as the node type.
 func (c *checker) checkListLit(e *syntax.ListLit, want types.Type) Expr {
 	elem := c.newMeta(e.Sp, "the list element type")
+	// The literal produces the builtin `List a` — a file-local `type
+	// List` shadows that reading, so `[e1, e2]` cannot produce the
+	// declared type at all (E0415).
+	if c.shadowedBuiltin("List") {
+		c.shadowedErr(e.Sp, "a list literal `[...]`", "List")
+	}
 	out := &ListLit{Base: baseOf(e.Sp, types.List(elem))}
 	for i, el := range e.Elems {
 		if sp, ok := el.(*syntax.Spread); ok {
@@ -1397,9 +1477,13 @@ func (c *checker) checkListLit(e *syntax.ListLit, want types.Type) Expr {
 			x := c.checkExpr(sp.X, nil)
 			switch t := types.Chase(x.Type()).(type) {
 			case *types.Con:
-				if len(t.Args) == 1 &&
-					((t.Qual == "" && t.Name == "List") || (t.Qual == "Go" && t.Name == "Slice")) {
+				if len(t.Args) == 1 && t.Qual == "Go" && t.Name == "Slice" {
 					c.unify(elem, t.Args[0], sp.Sp)
+				} else if len(t.Args) == 1 && t.Qual == "" && t.Name == "List" &&
+					!c.shadowedBuiltin("List") {
+					c.unify(elem, t.Args[0], sp.Sp)
+				} else if t.Qual == "" && c.shadowedBuiltin(t.Name) {
+					c.shadowedErr(sp.Sp, "the spread's element type", t.Name)
 				} else {
 					c.mismatch(sp.Sp, "a List or Go.Slice", x.Type())
 				}

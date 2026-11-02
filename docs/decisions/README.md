@@ -53,6 +53,7 @@
 | [value-restriction](2026-11-01-value-restriction.md) | 一般化は value restriction 付き | 採用 |
 | [ast-representation](2026-11-02-ast-representation.md) | Placement and shape of the pre-Core intermediate representations | draft |
 | [build-driver](2026-11-02-build-driver.md) | The P1-11 build driver: error boundaries, compilation unit, and CLI shape | 採用 |
+| [builtin-type-identity](2026-11-02-builtin-type-identity.md) | Builtin type identity is decided by declaration, not by name | 採用 |
 | [canary-vet-analysis](2026-11-02-canary-vet-analysis.md) | Compile canary: stdlib-only vet-equivalent analysis on generated Go | 採用 |
 | [ci-check-scope](2026-11-02-ci-check-scope.md) | Scope of CI checks and `make check` (B-2) | 採用 |
 | [constant-zero-division](2026-11-02-constant-zero-division.md) | `/` / `%` の定数ゼロ除数は型検査エラー（E0414） | 採用 |

@@ -1,0 +1,12 @@
+package ex
+
+// `for x in iter` iterates the builtin `List` or a channel — under a
+// file-local `type List` the iterable name denotes an ADT (E0415).
+type List = | L
+
+let xs : List = L
+
+fn f () -> Unit = {
+  for x in xs { () }
+  ()
+}

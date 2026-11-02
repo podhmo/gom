@@ -1,0 +1,27 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0415",
+      "severity": "error",
+      "message": "a test body (it must produce the builtin Unit or `Result Unit e`) needs the builtin `Result`, but the file declares a `type Result` shadowing it",
+      "span": {
+        "file": "E0415_test_local_result.gom",
+        "start": {
+          "line": 8,
+          "col": 10,
+          "offset": 253
+        },
+        "end": {
+          "line": 8,
+          "col": 18,
+          "offset": 261
+        }
+      },
+      "data": {
+        "builtin": "Result",
+        "construct": "a test body (it must produce the builtin Unit or `Result Unit e`)"
+      }
+    }
+  ]
+}

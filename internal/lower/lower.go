@@ -190,15 +190,24 @@ func File(f *check.File, env *Env) (*core.File, []diag.Diagnostic) {
 // provide, so it lowers to an ordinary Unit-parameter function like
 // any other — Go then rejects its signature, which is the
 // checker-side gap the entry-point problem file already records.
-func isEntryPoint(pkg string, sym *resolve.Symbol, fn *core.Func) bool {
+// Under a file-local `type Unit` the shape is never entry: that
+// `Unit` is an ADT `func main()` cannot carry.
+func (l *lowerer) isEntryPoint(pkg string, sym *resolve.Symbol, fn *core.Func) bool {
 	if pkg != "main" || sym == nil || sym.Name != "main" {
 		return false
 	}
 	if len(fn.Params) != 1 || !fn.Params[0].Discard ||
-		!types.Equal(fn.Params[0].Typ, types.Unit) {
+		!l.isUnitCon(fn.Params[0].Typ) {
 		return false
 	}
-	return types.Equal(fn.ResidualType(), types.Unit)
+	return l.isUnitCon(fn.ResidualType())
+}
+
+// isUnitCon reports whether t spells the *builtin* Unit — an
+// unqualified `Unit` Con the file does not declare itself.
+func (l *lowerer) isUnitCon(t types.Type) bool {
+	c, ok := types.Chase(t).(*types.Con)
+	return ok && c.Qual == "" && c.Name == "Unit" && !l.declaredT(c)
 }
 
 // lowerer is the per-file lowering context.
@@ -358,7 +367,7 @@ func (l *lowerer) goSig(sym *resolve.Symbol, refTyp types.Type) GoSig {
 			return s
 		}
 	}
-	return GoSig{Arity: flatArity(refTyp), Results: goResultsOf(refTyp)}
+	return GoSig{Arity: flatArity(refTyp), Results: l.goResultsOf(refTyp)}
 }
 
 // flatArity is the *immediate* parameter count of a function type;
@@ -379,8 +388,9 @@ func flatArity(t types.Type) int {
 // its result type — the contract gaps the Env.GoSig hook overrides:
 // Result Unit GoError is read as GoResultsErrOnly, Option as a
 // comma-ok (T, bool), a 2-tuple as a two-result call, everything else
-// as a single result.
-func goResultsOf(t types.Type) core.GoResults {
+// as a single result. Only the *builtin* Result/Option read this way —
+// a file-local `type Result` is one result like any other value.
+func (l *lowerer) goResultsOf(t types.Type) core.GoResults {
 	if c, ok := types.Chase(t).(*types.Func); ok {
 		t = c.Ret
 	}
@@ -392,12 +402,12 @@ func goResultsOf(t types.Type) core.GoResults {
 		return core.GoResultsOne
 	}
 	switch {
-	case c.Qual == "" && c.Name == "Result" && len(c.Args) == 2:
+	case l.isResultCon(c) && len(c.Args) == 2:
 		if types.Equal(c.Args[0], types.Unit) {
 			return core.GoResultsErrOnly
 		}
 		return core.GoResultsErr
-	case c.Qual == "" && c.Name == "Option" && len(c.Args) == 1:
+	case l.isOptionCon(c) && len(c.Args) == 1:
 		return core.GoResultsOK
 	}
 	if tup, ok := types.Chase(t).(*types.Tuple); ok && len(tup.Elems) == 2 {
@@ -450,13 +460,29 @@ func isCon(t types.Type, qual, name string) (*types.Con, bool) {
 	return c, true
 }
 
-func isResultCon(c *types.Con) bool { return c.Qual == "" && c.Name == "Result" }
-func isOptionCon(c *types.Con) bool { return c.Qual == "" && c.Name == "Option" }
+// declaredT reports whether c names a type the file declares —
+// under a file-local `type Result`/`Option`/`List`/... an
+// unqualified Con *is* the local declaration, so every builtin-shape
+// test must consult the declaration index before the name.
+func (l *lowerer) declaredT(c *types.Con) bool {
+	_, ok := l.typeD[conKey(c)]
+	return ok
+}
 
-// resultArgs unpacks `Result a e`; ok is false for other shapes.
-func resultArgs(t types.Type) (a, e types.Type, ok bool) {
+// builtinName reports whether c denotes the builtin named type — an
+// unqualified name the file does not shadow with its own `type`.
+func (l *lowerer) builtinName(c *types.Con, name string) bool {
+	return c != nil && c.Qual == "" && c.Name == name && !l.declaredT(c)
+}
+
+func (l *lowerer) isResultCon(c *types.Con) bool { return l.builtinName(c, "Result") }
+func (l *lowerer) isOptionCon(c *types.Con) bool { return l.builtinName(c, "Option") }
+
+// resultArgs unpacks the *builtin* `Result a e`; ok is false for
+// other shapes — including a file-local `type Result`'s Con.
+func (l *lowerer) resultArgs(t types.Type) (a, e types.Type, ok bool) {
 	c, is := isCon(t, "", "Result")
-	if !is || len(c.Args) != 2 {
+	if !is || len(c.Args) != 2 || !l.isResultCon(c) {
 		return nil, nil, false
 	}
 	return c.Args[0], c.Args[1], true
@@ -511,24 +537,13 @@ func (l *lowerer) builtinSym(name string) *resolve.Symbol {
 	return l.builtin(symKey{kind: resolve.KindBuiltin, name: name})
 }
 
-// variantsOf returns the constructor set of a nominal type — builtin
-// shapes first, then the file's own TypeDecls, then the Env oracle.
+// variantsOf returns the constructor set of a nominal type — the
+// file's own TypeDecls first (a local `type Result` shadows the
+// builtin shape), then the builtin shapes, then the Env oracle.
 // A nil or foreign Con yields nil — the caller reports the gap.
 func (l *lowerer) variantsOf(c *types.Con) []Variant {
 	if c == nil {
 		return nil
-	}
-	if isResultCon(c) && len(c.Args) == 2 {
-		return []Variant{
-			{Sym: l.ctorSym("Ok"), Fields: []check.TField{{Index: 0, Type: c.Args[0]}}},
-			{Sym: l.ctorSym("Err"), Fields: []check.TField{{Index: 0, Type: c.Args[1]}}},
-		}
-	}
-	if isOptionCon(c) && len(c.Args) == 1 {
-		return []Variant{
-			{Sym: l.ctorSym("Some"), Fields: []check.TField{{Index: 0, Type: c.Args[0]}}},
-			{Sym: l.ctorSym("None")},
-		}
 	}
 	if d, ok := l.typeD[conKey(c)]; ok {
 		if s, ok := d.Body.(*check.SumType); ok {
@@ -550,6 +565,23 @@ func (l *lowerer) variantsOf(c *types.Con) []Variant {
 				out[i] = Variant{Sym: v.Sym, Fields: fields}
 			}
 			return out
+		}
+	}
+	// The builtin shapes come after the declaration index: a
+	// file-local `type Result`/`type Option` — sum, record, or
+	// alias — shadows the name, and isResultCon/isOptionCon refuse
+	// the reading. This only matters for hand-built inputs; check
+	// never produces these variants for a declared name.
+	if l.isResultCon(c) && len(c.Args) == 2 {
+		return []Variant{
+			{Sym: l.ctorSym("Ok"), Fields: []check.TField{{Index: 0, Type: c.Args[0]}}},
+			{Sym: l.ctorSym("Err"), Fields: []check.TField{{Index: 0, Type: c.Args[1]}}},
+		}
+	}
+	if l.isOptionCon(c) && len(c.Args) == 1 {
+		return []Variant{
+			{Sym: l.ctorSym("Some"), Fields: []check.TField{{Index: 0, Type: c.Args[0]}}},
+			{Sym: l.ctorSym("None")},
 		}
 	}
 	if l.env.Types != nil {
@@ -620,7 +652,7 @@ func (l *lowerer) decl(d check.Decl, out *core.File) {
 		out.Decls = append(out.Decls, &core.FuncDecl{
 			Sp: d.Sp, Sym: d.Sym, Fn: fn,
 			TypeParams: d.TypeParams,
-			IsEntry:    isEntryPoint(out.Package, d.Sym, fn),
+			IsEntry:    l.isEntryPoint(out.Package, d.Sym, fn),
 		})
 	case *check.LetDecl:
 		if !l.env.Tests && testOnlyPat(d.Pat) {

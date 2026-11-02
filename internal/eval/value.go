@@ -216,10 +216,13 @@ func (v *VVariant) FieldByIndex(i int) (VField, bool) {
 }
 
 // IsResult reports whether the value is an Ok or Err of the builtin
-// `Result a e` type. A nil Type (hand-built ASTs that never declared
-// Result) falls back to the constructor name.
-func (v *VVariant) IsResult() (ok bool, isOk bool) {
-	resultType := v.Type != nil && v.Type.Qual == "" && v.Type.Name == "Result"
+// `Result a e` type. localT names the evaluated file's declared
+// types: a file-local `type Result` shadows the builtin, so its Ok
+// and Err variants are ordinary ADT values here. A nil Type
+// (hand-built ASTs that never declared Result) falls back to the
+// constructor name.
+func (v *VVariant) IsResult(localT map[string]bool) (ok bool, isOk bool) {
+	resultType := v.Type != nil && v.Type.Qual == "" && v.Type.Name == "Result" && !localT["Result"]
 	name := v.Name
 	if name == "" && v.Ctor != nil {
 		name = v.Ctor.Name

@@ -1,0 +1,73 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected Int, got Result Int GoError",
+      "span": {
+        "file": "E0415_go_sig_local_result.gom",
+        "start": {
+          "line": 11,
+          "col": 27,
+          "offset": 361
+        },
+        "end": {
+          "line": 11,
+          "col": 45,
+          "offset": 379
+        }
+      },
+      "data": {
+        "actual": "Result Int GoError",
+        "expected": "Int"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0415",
+      "severity": "error",
+      "message": "`try` needs the builtin `Result`, but the file declares a `type Result` shadowing it",
+      "span": {
+        "file": "E0415_go_sig_local_result.gom",
+        "start": {
+          "line": 11,
+          "col": 31,
+          "offset": 365
+        },
+        "end": {
+          "line": 11,
+          "col": 45,
+          "offset": 379
+        }
+      },
+      "data": {
+        "builtin": "Result",
+        "construct": "`try`"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0415",
+      "severity": "error",
+      "message": "the signature of `Atoi` needs the builtin `Result`, but the file declares a `type Result` shadowing it",
+      "span": {
+        "file": "E0415_go_sig_local_result.gom",
+        "start": {
+          "line": 11,
+          "col": 39,
+          "offset": 373
+        },
+        "end": {
+          "line": 11,
+          "col": 43,
+          "offset": 377
+        }
+      },
+      "data": {
+        "builtin": "Result",
+        "construct": "the signature of `Atoi`"
+      }
+    }
+  ]
+}

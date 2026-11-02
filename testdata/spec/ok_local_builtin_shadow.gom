@@ -1,0 +1,16 @@
+package ex
+
+// File-local `type` declarations may reuse builtin names — each
+// declaration shadows only its own builtin for the whole file. The
+// declarations, their values, and ordinary ADT matches on them are
+// legal; builtins under other names keep working beside them.
+type Result = | Ok Int | Err String
+type List = | Nil2 | Cons2 Int List
+
+let r = Ok 1
+let m = match r { Ok v -> v; Err _ -> 0 }
+let l = Cons2 1 Nil2
+
+// `Option` is not declared here, so the builtin Option and its
+// constructors still mean themselves.
+let o = match Some 3 { Some v -> v; None -> 0 }
