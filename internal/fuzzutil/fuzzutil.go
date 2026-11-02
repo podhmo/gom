@@ -25,8 +25,9 @@ import (
 // KnownBug links one checked-in repro input (by SHA-256 of its
 // bytes) to the failure signature of a bug already filed in TODO.md.
 // Match is the set of substrings a failure text must all contain to
-// count as this bug; TODO must name a substring of a TODO.md entry
-// so entries cannot outlive their task.
+// count as this bug; TODO must name a substring of an open
+// (`- [ ]` or `- [-]`) TODO.md entry so entries cannot outlive their
+// task.
 //
 // Skip marks inputs that cannot be executed at all: a non-terminating
 // compile leaks its goroutine, and the leak keeps allocating until
@@ -114,9 +115,9 @@ func Report(t *testing.T, src []byte, failures []string, bugs map[[32]byte]Known
 
 // CheckRegistry pins the bookkeeping rules a fuzz target's knownBugs
 // map must obey: the list stays under cap (a growing list means
-// findings accumulate faster than fixes) and every entry names a
-// TODO.md line that exists — an entry without a live task is an
-// orphan.
+// findings accumulate faster than fixes) and every entry names an
+// open TODO.md item — an entry whose task was checked off (`- [x]`)
+// is an orphan, even while the completed line still carries the text.
 func CheckRegistry(t *testing.T, bugs map[[32]byte]KnownBug, cap int, todoPath string) {
 	t.Helper()
 	if len(bugs) > cap {
@@ -130,10 +131,27 @@ func CheckRegistry(t *testing.T, bugs map[[32]byte]KnownBug, cap int, todoPath s
 		if len(bug.Match) == 0 || bug.TODO == "" {
 			t.Errorf("knownBugs %x: Match and TODO must be non-empty", h[:8])
 		}
-		if !strings.Contains(string(todo), bug.TODO) {
-			t.Errorf("knownBugs %x: TODO.md has no entry containing %q", h[:8], bug.TODO)
+		if !openItemsContain(string(todo), bug.TODO) {
+			t.Errorf("knownBugs %x: TODO.md has no open entry containing %q", h[:8], bug.TODO)
 		}
 	}
+}
+
+// openItemsContain reports whether needle appears within one open
+// task line of todoSrc — `- [ ]` unchecked or `- [-]` partially done
+// (still live work under .claude/skills/todo-md). Checked-off `- [x]`
+// lines and non-item text never satisfy a link: the entry is stale.
+func openItemsContain(todoSrc, needle string) bool {
+	for _, line := range strings.Split(todoSrc, "\n") {
+		item := strings.TrimLeft(line, " \t")
+		if !strings.HasPrefix(item, "- [ ]") && !strings.HasPrefix(item, "- [-]") {
+			continue
+		}
+		if strings.Contains(line, needle) {
+			return true
+		}
+	}
+	return false
 }
 
 // SkipInput reports whether the input is pinned as unsafe to run —

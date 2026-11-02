@@ -28,6 +28,22 @@ type interp struct {
 	ctx *ctx
 }
 
+// letInit is the lazy initializer of one top-level `let`
+// declaration: the compiled form is a Go package variable, whose
+// initialization order follows dependencies rather than source order
+// (`let y = z + 1; let z = 40` initializes z first and y = 41). The
+// evaluator matches that by computing the value on first demand —
+// either when Run reaches the declaration or when evalVar reads one
+// of its bound names. busy marks an in-progress initializer so a
+// re-entrant read reports an initialization cycle instead of
+// diverging; done means the pattern has been bound into the global
+// environment already.
+type letInit struct {
+	decl *check.LetDecl
+	done bool
+	busy bool
+}
+
 // --- public API ---
 
 // Evaluator evaluates one typed file: it registers type declarations
@@ -65,6 +81,19 @@ func New(f *check.File) *Evaluator {
 		}
 		env.Bind(fd.Sym, ev.fnValue(fd))
 	}
+	// Top-level lets stay unbound until Run (or a first read through
+	// evalVar) initializes them — the compiled form is a package var,
+	// whose initialization follows dependencies, not source order.
+	for _, d := range f.Decls {
+		ld, ok := d.(*check.LetDecl)
+		if !ok {
+			continue
+		}
+		init := &letInit{decl: ld}
+		for _, sym := range boundSyms(ld.Pat) {
+			env.ctx.topLets[sym] = init
+		}
+	}
 	return ev
 }
 
@@ -92,18 +121,14 @@ func (e *Evaluator) Run() Result {
 	for _, d := range e.fileDecls() {
 		switch d := d.(type) {
 		case *check.LetDecl:
-			v, ds := runEval(func() Value {
-				x := e.interp.eval(d.Value, e.env)
-				if !e.interp.matchPat(d.Pat, x, e.env) {
-					failData(CodeInternal, "irrefutable let pattern failed", d.Pat.Span(), "value", x.String())
-				}
-				return x
+			_, ds := runEval(func() Value {
+				e.interp.ensureTopLet(d, e.env)
+				return nil
 			})
 			diags = append(diags, ds...)
 			if ds.HasError() {
 				return Result{Diags: diags}
 			}
-			_ = v
 		case *check.TestDecl:
 			v, ds := runEval(func() Value {
 				return runBody(func() Value { return e.interp.eval(d.Body, e.env.Child()) })
@@ -392,10 +417,20 @@ func (e *interp) forceThunk(v Value, sp diag.Span) Value {
 }
 
 // evalVar resolves a symbol reference: environment first (locals,
-// globals, harness stubs), then constructors and builtins.
+// globals, harness stubs), then the lazy initializer of a top-level
+// let, then constructors and builtins.
 func (e *interp) evalVar(x *check.Var, env *Env) Value {
 	if v, ok := env.Lookup(x.Sym); ok {
 		return e.forceThunk(v, x.Span())
+	}
+	if init := e.ctx.topLets[x.Sym]; init != nil {
+		// A top-level let not yet bound: force its initializer —
+		// the package var it compiles to is initialized before its
+		// first dependent's use, not in source order.
+		e.forceTopLet(init, env)
+		if v, ok := env.Lookup(x.Sym); ok {
+			return v
+		}
 	}
 	switch x.Sym.Kind {
 	case resolve.KindCtor:
@@ -425,6 +460,62 @@ func (e *interp) evalVar(x *check.Var, env *Env) Value {
 		failData(CodeInternal, "unbound symbol", x.Span(), "name", x.Sym.Name)
 	}
 	panic("unreachable")
+}
+
+// ensureTopLet initializes a top-level let declaration exactly once.
+// Run drives declarations in source order while evalVar forces them
+// on first read, so a declaration may already be done when reached
+// here. A pattern binding no symbols (`let _ = e`) can never be
+// referenced and is evaluated straight away for effect.
+func (e *interp) ensureTopLet(d *check.LetDecl, env *Env) {
+	for _, sym := range boundSyms(d.Pat) {
+		if init := e.ctx.topLets[sym]; init != nil {
+			e.forceTopLet(init, env)
+			return
+		}
+	}
+	v := e.eval(d.Value, env)
+	if !e.matchPat(d.Pat, v, env) {
+		failData(CodeInternal, "irrefutable let pattern failed", d.Pat.Span(), "value", v.String())
+	}
+}
+
+// forceTopLet evaluates a top-level let's initializer once and binds
+// its pattern into the global (root) environment — the frame the
+// package variable it compiles to would live in. Dependencies on
+// other pending lets resolve by the same lazy read, matching Go's
+// dependency-ordered package initialization; a re-entrant read is an
+// initialization cycle, which a compiled program could not contain
+// either (Go rejects `var a = b; var b = a` at compile time).
+func (e *interp) forceTopLet(init *letInit, env *Env) {
+	if init.done {
+		return
+	}
+	if init.busy {
+		name := ""
+		if syms := boundSyms(init.decl.Pat); len(syms) > 0 {
+			name = syms[0].Name
+		}
+		failData(CodePanic, "initialization cycle through top-level let", init.decl.Sp,
+			"name", name)
+	}
+	root := rootEnv(env)
+	init.busy = true
+	defer func() { init.busy = false }()
+	v := e.eval(init.decl.Value, root)
+	if !e.matchPat(init.decl.Pat, v, root) {
+		failData(CodeInternal, "irrefutable let pattern failed", init.decl.Pat.Span(), "value", v.String())
+	}
+	init.done = true
+}
+
+// rootEnv returns the outermost frame of env — the global scope
+// where top-level declarations live.
+func rootEnv(env *Env) *Env {
+	for env.parent != nil {
+		env = env.parent
+	}
+	return env
 }
 
 // evalMember handles `recv.sel`: record/variant field access, module

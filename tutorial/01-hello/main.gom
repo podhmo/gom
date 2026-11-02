@@ -4,13 +4,12 @@
 // `import go "fmt"` imports the real Go package — no declarations
 // needed. `fmt.Println` returns `(int, error)` in Go, which Gom sees
 // as `Result Int GoError`; a block demands `Unit` in the middle, so
-// the call is discarded with `let _ =` (spec 1.1; the documented
-// `ignore e` form is not implemented yet).
+// the call is discarded with `ignore e` (spec 1.1).
 package main
 
 import go "fmt"
 
 fn main () -> Unit = {
-  let _ = fmt.Println("hello, gom")
+  ignore (fmt.Println("hello, gom"))
   ()
 }

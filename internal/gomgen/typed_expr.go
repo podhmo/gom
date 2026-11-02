@@ -72,6 +72,13 @@ func (g *Gen) exprOf(want *gty, d int) {
 		menu = append(menu,
 			choice{3, func() { g.forOf(d) }},
 			choice{1, func() { g.goExprOf(d) }},
+			// `ignore e` discards any value (spec 1.1 item 2).
+			choice{2, func() {
+				g.emit("ignore")
+				g.emit("(")
+				g.exprOf(g.pickType(0), d-1)
+				g.emit(")")
+			}},
 		)
 		if g.imports["fmt"] {
 			menu = append(menu, choice{3, func() {

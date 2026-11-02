@@ -256,6 +256,51 @@ fn main () -> Unit = {
 		want: "true,true,true,true,true,true,true,true",
 	},
 	{
+		// Top-level names are scoped to the whole file, so `let y`
+		// may read `let z` declared after it. Compiled these are
+		// package vars and Go initializes z first (y = 41); the
+		// evaluator must force the same dependency order.
+		name: "toplevel_let_forward_ref",
+		src: `package main
+
+import go "fmt"
+
+let y = z + 1
+let z = 40
+
+fn answer () -> String = "${y}"
+
+fn main () -> Unit = {
+  let _ = fmt.Println(answer ())
+  ()
+}
+`,
+		want: "41",
+	},
+	{
+		// The forward reference also resolves through a function
+		// body: Go's package-init dependency analysis counts names
+		// referenced by called functions, so z initializes before
+		// y = zed () + 1. The evaluator forces z the same way.
+		name: "toplevel_let_forward_ref_via_fn",
+		src: `package main
+
+import go "fmt"
+
+fn zed () -> Int = z
+let y = zed () + 1
+let z = 40
+
+fn answer () -> String = "${y}"
+
+fn main () -> Unit = {
+  let _ = fmt.Println(answer ())
+  ()
+}
+`,
+		want: "41",
+	},
+	{
 		// Regression for the miscompile in
 		// docs/problems/2026-11-02-tailloop-param-capture.md: the
 		// `for` codegen rebinds parameters every iteration, so a

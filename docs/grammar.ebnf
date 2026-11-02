@@ -123,9 +123,9 @@ UIdent         = upper , { letter | digit | "_" } ;
    -------------------------------------------------------------------- *)
 
 keyword        = "as" | "default" | "else" | "extern" | "false" | "fn"
-               | "for" | "go" | "if" | "import" | "in" | "let" | "match"
-               | "package" | "select" | "send" | "test" | "true" | "try"
-               | "type" | "with" ;
+               | "for" | "go" | "if" | "ignore" | "import" | "in" | "let"
+               | "match" | "package" | "select" | "send" | "test" | "true"
+               | "try" | "type" | "with" ;
 
 (* Notes:
    - "go", "select", "send", "test", "with", "as", "in" are reserved
@@ -134,7 +134,7 @@ keyword        = "as" | "default" | "else" | "extern" | "false" | "fn"
      because the standard library exports names such as Chan.send.
      [SEMANTIC: whether keywords other than those actually needed may be
      member names is a style question; the grammar permits all.]
-   - assert / assert_eq / ignore / todo / not / show / compare are plain
+   - assert / assert_eq / todo / not / show / compare are plain
      functions, not keywords (spec 1.1, 11.4).                          *)
 
 (* --------------------------------------------------------------------
@@ -413,6 +413,8 @@ unary-expr     = "-" , unary-expr
                | "try" , unary-expr                    (* spec 6; operand is
                   application-level, so "try f x" is "try (f x)" and
                   "try a + b" is "(try a) + b" [PROVISIONAL]            *)
+               | "ignore" , unary-expr                 (* spec 1.1 item 2;
+                  explicit discard, same operand level as "try"         *)
                | apply-expr ;
 
 apply-expr     = postfix-expr , { app-arg } ;

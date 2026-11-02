@@ -21,7 +21,7 @@ import (
 //	rel-expr         add-expr [ rel-op add-expr ]         (non-assoc)
 //	add-expr         mul-expr { ("+"|"-") mul-expr }      (left-assoc)
 //	mul-expr         unary-expr { ("*"|"/"|"%") unary }   (left-assoc)
-//	unary-expr       "-" unary | "try" unary | apply-expr
+//	unary-expr       "-" unary | "try" unary | "ignore" unary | apply-expr
 //	apply-expr       postfix-expr { app-arg }             (juxtaposition)
 //	postfix-expr     atom { "." member-name }
 //
@@ -229,6 +229,10 @@ func (p *parser) parseUnary(nb bool) Expr {
 		p.next()
 		x := p.parseUnary(nb)
 		return &Try{Sp: p.span(t.start, x.Span().End), X: x}
+	case tokIgnore:
+		p.next()
+		x := p.parseUnary(nb)
+		return &Ignore{Sp: p.span(t.start, x.Span().End), X: x}
 	default:
 		return p.parseApply(nb)
 	}
@@ -984,7 +988,7 @@ func canStartExpr(k tokenKind) bool {
 	switch k {
 	case tokIdent, tokUIdent, tokInt, tokFloat, tokChar, tokString,
 		tokStrOpen, tokTrue, tokFalse, tokUnder, tokLParen, tokLBrack,
-		tokLBrace, tokMinus, tokTry:
+		tokLBrace, tokMinus, tokTry, tokIgnore:
 		return true
 	default:
 		return isControlStart(k)

@@ -39,6 +39,7 @@ const (
 	tokFor
 	tokGo
 	tokIf
+	tokIgnore
 	tokImport
 	tokIn
 	tokLet
@@ -103,6 +104,7 @@ var keywords = map[string]tokenKind{
 	"for":     tokFor,
 	"go":      tokGo,
 	"if":      tokIf,
+	"ignore":  tokIgnore,
 	"import":  tokImport,
 	"in":      tokIn,
 	"let":     tokLet,
@@ -180,6 +182,7 @@ var spellings = map[tokenKind]string{
 	tokFor:         "\"for\"",
 	tokGo:          "\"go\"",
 	tokIf:          "\"if\"",
+	tokIgnore:      "\"ignore\"",
 	tokImport:      "\"import\"",
 	tokIn:          "\"in\"",
 	tokLet:         "\"let\"",

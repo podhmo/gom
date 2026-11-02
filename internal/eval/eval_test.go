@@ -1471,6 +1471,45 @@ func TestProgram(t *testing.T) {
 		}
 	})
 
+	t.Run("top-level let reads a later let", func(t *testing.T) {
+		// `let x = y + 1; let y = 40` compiles to package vars and
+		// initializes y first (x = 41); the evaluator forces the
+		// dependency on first read instead of walking source order.
+		xP, xS := vpat("x", types.Int)
+		yP, yS := vpat("y", types.Int)
+		letX := &check.LetDecl{Sp: sp, Pat: xP,
+			Value: bin(syntax.BinAdd, types.Int, vr(yS, types.Int), intLit(1))}
+		letY := &check.LetDecl{Sp: sp, Pat: yP, Value: intLit(40)}
+		uPat, _ := vpat("u", types.Unit)
+		mainSym := sym("main", resolve.KindFunc)
+		mainD := &check.FnDecl{Sp: sp, Sym: mainSym,
+			Sig:    types.Fn(types.Int, types.P(types.Unit)),
+			Params: []check.Param{{Pat: uPat}},
+			Body:   vr(xS, types.Int)}
+		r := eval.Program(&check.File{Sp: sp, Decls: []check.Decl{letX, letY, mainD}})
+		if !r.OK() || r.Value.String() != "41" {
+			t.Fatalf("got %v diags=%v", r.Value, r.Diags)
+		}
+	})
+
+	t.Run("top-level let initialization cycle", func(t *testing.T) {
+		// A compiled cycle would be a Go init-cycle error or panic;
+		// the evaluator reports the re-entrant read instead of
+		// recursing forever.
+		xP, xS := vpat("x", types.Int)
+		yP, yS := vpat("y", types.Int)
+		letX := &check.LetDecl{Sp: sp, Pat: xP, Value: vr(yS, types.Int)}
+		letY := &check.LetDecl{Sp: sp, Pat: yP,
+			Value: bin(syntax.BinAdd, types.Int, vr(xS, types.Int), intLit(1))}
+		r := eval.Program(&check.File{Sp: sp, Decls: []check.Decl{letX, letY}})
+		if r.OK() {
+			t.Fatal("expected initialization cycle diagnostic")
+		}
+		if r.Diags[0].Code != eval.CodePanic {
+			t.Fatalf("code = %s, want %s", r.Diags[0].Code, eval.CodePanic)
+		}
+	})
+
 	t.Run("test decl that returns Err fails the program", func(t *testing.T) {
 		resT := types.Result(types.Unit, types.GoError)
 		errV := &eval.VVariant{Type: resT.(*types.Con), Name: "Err",

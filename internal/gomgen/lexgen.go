@@ -47,7 +47,7 @@ func isBuiltinRule(name string) bool {
 var keywords = map[string]bool{
 	"as": true, "default": true, "else": true, "extern": true,
 	"false": true, "fn": true, "for": true, "go": true, "if": true,
-	"import": true, "in": true, "let": true, "match": true,
+	"ignore": true, "import": true, "in": true, "let": true, "match": true,
 	"package": true, "select": true, "send": true, "test": true,
 	"true": true, "try": true, "type": true, "with": true,
 }

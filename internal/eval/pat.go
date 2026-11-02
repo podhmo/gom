@@ -153,6 +153,54 @@ func (e *interp) matchPat(pat check.Pat, v Value, env *Env) bool {
 	}
 }
 
+// boundSyms collects every symbol a pattern binds — the names a
+// top-level `let` makes visible file-wide. Or-pattern alternatives
+// contribute all their binders, like resolve's binderIdents.
+func boundSyms(pat check.Pat) []*resolve.Symbol {
+	var out []*resolve.Symbol
+	var walk func(p check.Pat)
+	walk = func(p check.Pat) {
+		switch p := p.(type) {
+		case *check.WildPat, *check.LitPat:
+		case *check.VarPat:
+			out = append(out, p.Sym)
+		case *check.AsPat:
+			walk(p.Pat)
+			out = append(out, p.Sym)
+		case *check.TuplePat:
+			for _, ep := range p.Elems {
+				walk(ep)
+			}
+		case *check.ListPat:
+			for _, ep := range p.Elems {
+				walk(ep)
+			}
+			if p.Rest != nil {
+				walk(p.Rest)
+			}
+		case *check.CtorPat:
+			for _, a := range p.Args {
+				walk(a.Pat)
+			}
+			for _, fp := range p.Fields {
+				walk(fp.Pat)
+			}
+		case *check.RecordPat:
+			for _, fp := range p.Fields {
+				walk(fp.Pat)
+			}
+		case *check.OrPat:
+			for _, alt := range p.Alts {
+				walk(alt)
+			}
+		default:
+			panic("unreachable")
+		}
+	}
+	walk(pat)
+	return out
+}
+
 // ctorField finds variant's payload field by declared index, falling
 // back to symbol/name lookup.
 func ctorField(v *VVariant, index int, sym *resolve.Symbol, name string) (Value, bool) {

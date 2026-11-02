@@ -1,0 +1,14 @@
+package ex
+
+fn compute (n: Int) -> Int = n + 1
+
+fn each (xs: List Int) -> Unit =
+  for x in xs {
+    ignore x
+  }
+
+fn main () -> Unit = {
+  ignore (compute 40)
+  ignore [1, 2, 3]
+  ()
+}
