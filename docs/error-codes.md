@@ -457,6 +457,27 @@ Go.Slice, Go.Map, and the channel types.
 type Point = {x: Point}   // use a sum type or {f: () -> Point}
 ```
 
+### E0414 — division by a constant zero
+
+**Severity:** error · **Phase:** check · **Spec:** §3.3
+
+The right operand of "/" or "%" is a constant
+expression that evaluates to zero, so the operation can only fail —
+and the emitted Go would not even compile, because Go rejects a
+division whose divisor is a constant zero. For the integer types the
+diagnostic fires whenever the divisor is constant, dividend or not:
+Go rejects "x / 0" even though x is a variable. For Float, division
+by zero yields the IEEE values +Inf, -Inf and NaN at run time, so
+"x / 0.0" stays legal and only a constant dividend makes it an error
+("10.0 / 0.0"). Constant expressions are the forms that emit Go
+constants: numeric literals, unary "-", the arithmetic operators
+over them, and type ascriptions — named constants and calls are not
+folded.
+
+```gom
+fn f () -> Int = 10 / 0   // the divisor is a constant zero
+```
+
 ## 05xx — Go interop
 
 ### E0501 — Go symbol cannot be represented in Gom

@@ -1,0 +1,26 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0414",
+      "severity": "error",
+      "message": "division by a constant zero",
+      "span": {
+        "file": "E0414_div_int_literal.gom",
+        "start": {
+          "line": 5,
+          "col": 23,
+          "offset": 148
+        },
+        "end": {
+          "line": 5,
+          "col": 24,
+          "offset": 149
+        }
+      },
+      "data": {
+        "op": "/"
+      }
+    }
+  ]
+}

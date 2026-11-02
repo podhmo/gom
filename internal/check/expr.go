@@ -2,6 +2,8 @@ package check
 
 import (
 	"fmt"
+	"go/constant"
+	"go/token"
 
 	"github.com/podhmo/gom/internal/diag"
 	"github.com/podhmo/gom/internal/resolve"
@@ -789,10 +791,154 @@ func (c *checker) pipeCall(e *syntax.Binary, arg, fn Expr) Expr {
 func (c *checker) checkArith(e *syntax.Binary, constrain func(*metaRec)) Expr {
 	x := c.checkExpr(e.X, nil)
 	y := c.checkExpr(e.Y, nil)
+	out := &Binary{Base: baseOf(e.Sp, x.Type()), Op: e.Op, X: x, Y: y}
 	if c.unify(x.Type(), y.Type(), e.Sp) {
 		c.constrain(x.Type(), e.Sp, "the operands of an arithmetic operator", constrain)
+		// A constant-zero divisor is always wrong — for an integer
+		// division Go itself rejects `x / 0` (there is no integer
+		// infinity to produce) and a constant division like `10 / 0`
+		// is not even compilable Go. Whether `x / 0.0` is legal IEEE
+		// arithmetic depends on the operand type, so the decision is
+		// deferred to finalize — see pendingDivs. A quiet operand
+		// (an unresolved name, say) already reports elsewhere.
+		if (e.Op == syntax.BinDiv || e.Op == syntax.BinMod) &&
+			constZero(y) && !c.isQuiet(x.Type()) {
+			c.pendingDivs = append(c.pendingDivs, out)
+		}
 	}
-	return &Binary{Base: baseOf(e.Sp, x.Type()), Op: e.Op, X: x, Y: y}
+	return out
+}
+
+// revisitDivs reports E0414 for each `/` or `%` whose right operand
+// folded to a constant zero — the rule Go applies to the emitted
+// code. It runs from finalize, after the defaulting pass, so an
+// operand meta is judged by its solved type:
+//
+//   - integral operand (Int, Int32, Int64 — including metas that
+//     defaulted there): the division is reported, dividend or not —
+//     `x / 0` emits a division Go itself rejects, and for `x / (1-1)`
+//     folding the divisor is what Go does too;
+//   - Float operand: reported only when the dividend is also a
+//     constant expression (`10.0 / 0.0` is an invalid Go constant;
+//     `x / 0.0` is the IEEE division to +Inf that Go allows);
+//   - still-unbound operand meta: left alone — the meta's own E0407
+//     (or quiet recovery) covers the expression. A non-numeric
+//     operand (`true / 0`) already reports the num constraint —
+//     piling E0414 on it would cascade.
+func (c *checker) revisitDivs() {
+	for _, b := range c.pendingDivs {
+		t := types.Chase(b.X.Type())
+		switch {
+		case isIntegral(t):
+			// Always invalid — see above.
+		case isFloat(t):
+			if _, ok := constFold(b.X); !ok {
+				continue
+			}
+		default:
+			continue
+		}
+		c.diags.Add(diag.Error("E0414", "division by a constant zero").
+			At(b.Y.Span()).Set("op", b.Op.String()))
+	}
+}
+
+// constZero reports whether e is a constant expression that
+// evaluates to numeric zero — see constFold for the folded shapes.
+func constZero(e Expr) bool {
+	v, ok := constFold(e)
+	return ok && constant.Sign(v) == 0
+}
+
+// constFold evaluates e as a Go constant expression and returns its
+// value, or false when e is not constant. The folded shapes are the
+// ones that emit Go constants — numeric literals, unary `-`, the
+// arithmetic binary operators over constants, and type ascriptions —
+// evaluated with go/constant's exact arithmetic (arbitrary precision
+// integers and rationals, so the fold agrees with the compiler's
+// judgment of the emitted code, not float64 arithmetic). Everything
+// else is not a constant: variables and named constants (a `let`
+// binding emits a Go variable, not a Go constant — `let z = 0`
+// leaves `x / z` a runtime panic, matching Go), function calls,
+// blocks and branching expressions. One consequence of treating
+// references as opaque: a *Go* constant used as a divisor
+// (`x / pkg.Zero`) still emits a division Go rejects — folding
+// imported constants is out of scope for this check.
+func constFold(e Expr) (constant.Value, bool) {
+	switch e := e.(type) {
+	case *Lit:
+		var tok token.Token
+		switch e.Kind {
+		case syntax.LitInt:
+			tok = token.INT
+		case syntax.LitFloat:
+			tok = token.FLOAT
+		default:
+			return nil, false
+		}
+		v := constant.MakeFromLiteral(e.Text, tok, 0)
+		if v.Kind() == constant.Unknown {
+			return nil, false
+		}
+		return v, true
+	case *Unary:
+		if e.Op != syntax.UnNeg {
+			return nil, false
+		}
+		v, ok := constFold(e.X)
+		if !ok {
+			return nil, false
+		}
+		return constant.UnaryOp(token.SUB, v, 0), true
+	case *Binary:
+		x, ok := constFold(e.X)
+		if !ok {
+			return nil, false
+		}
+		y, ok := constFold(e.Y)
+		if !ok {
+			return nil, false
+		}
+		var op token.Token
+		switch e.Op {
+		case syntax.BinAdd:
+			op = token.ADD
+		case syntax.BinSub:
+			op = token.SUB
+		case syntax.BinMul:
+			op = token.MUL
+		case syntax.BinDiv:
+			op = token.QUO
+		case syntax.BinMod:
+			op = token.REM
+		default:
+			return nil, false
+		}
+		// constant.BinaryOp panics on a division by zero — and the
+		// nested node that actually divides by zero reports its own
+		// E0414, so this expression simply has no value to fold —
+		// and on `%` applied to non-integers (a malformed operand
+		// already diagnosed against the intg constraint).
+		if (op == token.QUO || op == token.REM) && constant.Sign(y) == 0 {
+			return nil, false
+		}
+		if op == token.REM &&
+			(x.Kind() != constant.Int || y.Kind() != constant.Int) {
+			return nil, false
+		}
+		return constant.BinaryOp(x, op, y), true
+	case *Ascribe:
+		// `e : T` emits e (possibly under a conversion); converting
+		// a constant keeps it constant, so the ascription is
+		// transparent to folding.
+		return constFold(e.X)
+	case *Var, *Apply, *Hole, *MemberExpr, *StrInterp, *Lambda, *If,
+		*Match, *Block, *Let, *Ignore, *Try, *GoExpr, *For,
+		*SelectExpr, *ListLit, *Spread, *TupleLit, *RecordLit:
+		return nil, false
+	default:
+		panic("unreachable")
+	}
 }
 
 // checkPipeTry types the Result-bind pipeline `x |?> f`: when x is

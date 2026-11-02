@@ -160,6 +160,16 @@ type checker struct {
 	// once the receiver is known (or asks for its annotation).
 	pendingSels []*MemberExpr
 
+	// pendingDivs are `/` and `%` nodes whose right operand folded
+	// to a constant zero — candidates for E0414. Whether the
+	// diagnostic fires depends on the operand type (an integer
+	// division by a constant zero is always invalid, a Float one
+	// only when the dividend is constant too), and an unresolved
+	// operand meta makes that undecidable until finalize's default
+	// pass has run — `x / 0` judged under a meta that later binds
+	// Float is the IEEE division Go allows.
+	pendingDivs []*Binary
+
 	imports []Import
 	decls   []Decl
 }

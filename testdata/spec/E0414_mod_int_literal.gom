@@ -1,0 +1,6 @@
+package ex
+
+// spec 3.3: `%` shares the constant-zero divisor rule of `/`.
+fn f () -> Int = 10 % 0
+
+fn main () -> Unit = ()

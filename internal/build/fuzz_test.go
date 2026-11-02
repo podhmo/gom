@@ -62,19 +62,14 @@ const knownBugsCap = 24
 
 var knownCompileBugs = map[[32]byte]fuzzutil.KnownBug{
 	// (`let _ = 10 / 0` — an integer division by a constant zero —
-	// passes check but emits `10 / 0`, a constant expression Go
-	// rejects with "invalid operation: division by zero". eval
-	// reports the division at runtime; the generated Go cannot
-	// build at all. check should reject constant-zero divisors or
-	// codegen should force a non-constant operand to match eval's
-	// runtime panic — a spec-level call. Found by the gomgen
-	// canary's vet sweep, typed seed 301 — pre-existing in the
-	// typecheck gate.)
-	fuzzutil.Sum256Hex("17e7c80667d171b1a6e1f730c08e95e65d5bfc0c91fac80280aef07c26a86e73"): {
-		Match: []string{"generated Go fails to typecheck", "division by zero"},
-		TODO:  "定数式の除算ゼロ",
-		Desc:  "constant `10 / 0` emits an invalid Go constant division",
-	},
+	// is fixed in check: E0414 reports a `/` or `%` whose right
+	// operand folds to a constant zero, following Go's own rule —
+	// integer `x / 0` is invalid even with a variable dividend,
+	// Float reports only when the whole expression is constant.
+	// testdata/spec/E0414_* pins the diagnostics; the hand seed was
+	// retired with this entry since a cleanly-rejected input only
+	// exercises the "rejected is fine" path. Found by the gomgen
+	// canary's vet sweep, typed seed 301.)
 	// (`let g = f` at package scope where `f` is polymorphic emits
 	// `var g func(A00) A01 = f[A00, A01]` — f's type parameters leak
 	// to package scope where they are undefined, and the f→g→f edge
@@ -439,12 +434,11 @@ fn mainish () -> Int = add 2 3
 		// Former knownBugs repro — the module-misuse family is now
 		// E0201 at resolve, so this runs live as a regression seed.
 		"package a\nimport go \"fmt\"\nfn a () -> a = {fmt}\n",
-		// Registered bug repro — constant integer division by zero
-		// compiles to a Go-invalid constant `10 / 0` (canary-vet
-		// sweep, gomgen typed seed 301). Pinned so the registry
-		// entry goes stale — and fails loudly — once the bug is
-		// fixed.
-		"package main\n\nfn f () -> Int = 10 / 0\nfn main () -> Unit = ()\n",
+		// (Former knownBugs repro `10 / 0` — constant integer
+		// division by zero — is retired: check now rejects it with
+		// E0414, so as a seed it only exercises the "rejected is
+		// fine" path. The regression lives in
+		// testdata/spec/E0414_*.)
 		// V-3 diff fixes: the ctor-application scrutinee now binds
 		// at the sum-interface type (codegen letConv), and a
 		// branching expression in a `...any` argument keeps its own

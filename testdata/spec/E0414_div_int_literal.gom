@@ -1,0 +1,7 @@
+package ex
+
+// spec 3.3: `/` with a constant-zero divisor reports E0414 — `10 / 0`
+// emits a constant division Go rejects.
+fn f () -> Int = 10 / 0
+
+fn main () -> Unit = ()

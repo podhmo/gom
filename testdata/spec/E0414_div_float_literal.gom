@@ -1,0 +1,8 @@
+package ex
+
+// spec 3.3: `10.0 / 0.0` is a constant division by zero — an invalid
+// Go constant expression — even though `x / 0.0` with a variable x
+// is legal IEEE arithmetic.
+fn f () -> Float = 10.0 / 0.0
+
+fn main () -> Unit = ()

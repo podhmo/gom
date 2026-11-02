@@ -1,0 +1,7 @@
+package ex
+
+// spec 3.3: the divisor's constant folding sees through arithmetic —
+// `(3 - 3)` is a constant zero, so the division reports E0414.
+fn f () -> Int = 10 / (3 - 3)
+
+fn main () -> Unit = ()

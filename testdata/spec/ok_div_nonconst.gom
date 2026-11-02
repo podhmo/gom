@@ -1,0 +1,10 @@
+package ex
+
+// spec 3.3: a non-constant divisor is a runtime value — a division
+// by it is legal even when the value could be zero (a Go runtime
+// panic, preserved).
+fn f (x: Int) (y: Int) -> Int = x / y
+
+fn g (x: Int) -> Int = { let z = 0; x / z }
+
+fn main () -> Unit = ()

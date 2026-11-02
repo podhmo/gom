@@ -811,6 +811,11 @@ func (c *checker) finalize() {
 	// new entries carry no defaults, so the default pass need not
 	// run again.
 	c.revisitSelects()
+	// The same post-default moment settles the pending constant-zero
+	// divisors: their operand types are now concrete (or bound to a
+	// default), so revisitDivs can tell integer divisions — always
+	// invalid — from Float ones, which need a constant dividend.
+	c.revisitDivs()
 	if len(c.metas) != len(ms) {
 		ms = ms[:0]
 		for m, r := range c.metas {

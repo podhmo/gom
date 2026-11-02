@@ -1,0 +1,7 @@
+package ex
+
+// spec 3.3: a Float division by a constant zero with a non-constant
+// dividend is the IEEE division Go allows — +Inf, not a panic.
+fn f (x: Float) -> Float = x / 0.0
+
+fn main () -> Unit = ()

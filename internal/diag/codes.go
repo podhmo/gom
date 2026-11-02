@@ -567,6 +567,26 @@ types, and the reference-shaped builtins List, Ref, Ptr, Array,
 Go.Slice, Go.Map, and the channel types.`,
 		Example: `type Point = {x: Point}   // use a sum type or {f: () -> Point}`,
 	},
+	{
+		Code:     "E0414",
+		Severity: SeverityError,
+		Title:    "division by a constant zero",
+		Phase:    PhaseCheck,
+		Spec:     "3.3",
+		Explanation: `The right operand of "/" or "%" is a constant
+expression that evaluates to zero, so the operation can only fail —
+and the emitted Go would not even compile, because Go rejects a
+division whose divisor is a constant zero. For the integer types the
+diagnostic fires whenever the divisor is constant, dividend or not:
+Go rejects "x / 0" even though x is a variable. For Float, division
+by zero yields the IEEE values +Inf, -Inf and NaN at run time, so
+"x / 0.0" stays legal and only a constant dividend makes it an error
+("10.0 / 0.0"). Constant expressions are the forms that emit Go
+constants: numeric literals, unary "-", the arithmetic operators
+over them, and type ascriptions — named constants and calls are not
+folded.`,
+		Example: `fn f () -> Int = 10 / 0   // the divisor is a constant zero`,
+	},
 
 	{
 		Code:     "E0501",

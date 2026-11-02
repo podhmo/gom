@@ -338,3 +338,125 @@ func TestCtorPatUnresolvedNoDangling(t *testing.T) {
 	_, diags := b.check(nil, f1)
 	requireCodes(t, diags)
 }
+
+// ---- E0414: division by a constant zero --------------------------------
+//
+// A `/` or `%` whose right operand is a constant zero emits Go the
+// compiler itself rejects, so check reports E0414 — the same call Go
+// makes: integer divisions are invalid whenever the divisor is a
+// constant zero (`x / 0` included), Float ones only when the dividend
+// is constant too (`x / 0.0` is IEEE arithmetic).
+
+// An integer division by a literal zero is reported even with a
+// variable dividend: `x / 0` cannot emit compilable Go.
+func TestDivZeroIntVar(t *testing.T) {
+	b := newTB()
+	xp, xs := b.param("x", "", b.tn("Int"))
+	f1, _ := b.fn("f", []syntax.Param{xp}, b.tn("Int"),
+		b.bin(syntax.BinDiv, b.ref(xs), b.ilit("0")))
+
+	_, diags := b.check(nil, f1)
+	requireCodes(t, diags, "E0414")
+}
+
+// The full-constant division the fuzz canary found: `10 / 0` reports
+// at the divisor.
+func TestDivZeroIntLiteral(t *testing.T) {
+	b := newTB()
+	up := b.unitParam()
+	f1, _ := b.fn("f", []syntax.Param{up}, b.tn("Int"),
+		b.bin(syntax.BinDiv, b.ilit("10"), b.ilit("0")))
+
+	_, diags := b.check(nil, f1)
+	requireCodes(t, diags, "E0414")
+}
+
+// `%` shares the rule.
+func TestDivZeroMod(t *testing.T) {
+	b := newTB()
+	xp, xs := b.param("x", "", b.tn("Int"))
+	f1, _ := b.fn("f", []syntax.Param{xp}, b.tn("Int"),
+		b.bin(syntax.BinMod, b.ref(xs), b.ilit("0")))
+
+	_, diags := b.check(nil, f1)
+	requireCodes(t, diags, "E0414")
+}
+
+// The divisor folds through unary `-` and constant arithmetic:
+// `x / -0`, `x / 0x0`, `x / (3 - 3)`, `x / (2 * 0)` and
+// `x / (10 % 10)` all reach zero.
+func TestDivZeroFolded(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		div  func(b *tb) syntax.Expr
+	}{
+		{"neg", func(b *tb) syntax.Expr { return b.unary(syntax.UnNeg, b.ilit("0")) }},
+		{"hex", func(b *tb) syntax.Expr { return b.ilit("0x0") }},
+		{"sub", func(b *tb) syntax.Expr {
+			return b.bin(syntax.BinSub, b.ilit("3"), b.ilit("3"))
+		}},
+		{"mul", func(b *tb) syntax.Expr {
+			return b.bin(syntax.BinMul, b.ilit("2"), b.ilit("0"))
+		}},
+		{"mod", func(b *tb) syntax.Expr {
+			return b.bin(syntax.BinMod, b.ilit("10"), b.ilit("10"))
+		}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			b := newTB()
+			xp, xs := b.param("x", "", b.tn("Int"))
+			f1, _ := b.fn("f", []syntax.Param{xp}, b.tn("Int"),
+				b.bin(syntax.BinDiv, b.ref(xs), tc.div(b)))
+
+			_, diags := b.check(nil, f1)
+			requireCodes(t, diags, "E0414")
+		})
+	}
+}
+
+// A constant zero divisor under Float reports only when the dividend
+// is a constant expression: `10.0 / 0.0` is an invalid Go constant
+// but `x / 0.0` is IEEE division to +Inf. Float composite expressions
+// fold exactly (`0.5 - 0.5` is a constant zero), so a constant
+// dividend over one reports as well.
+func TestDivZeroFloat(t *testing.T) {
+	b := newTB()
+	up := b.unitParam()
+	f1, _ := b.fn("f", []syntax.Param{up}, b.tn("Float"),
+		b.bin(syntax.BinDiv, b.flit("10.0"), b.flit("0.0")))
+	f2, _ := b.fn("g", []syntax.Param{up}, b.tn("Float"),
+		b.bin(syntax.BinDiv, b.flit("10.0"),
+			b.bin(syntax.BinSub, b.flit("0.5"), b.flit("0.5"))))
+
+	_, diags := b.check(nil, f1, f2)
+	requireCodes(t, diags, "E0414", "E0414")
+}
+
+func TestDivZeroFloatVarOK(t *testing.T) {
+	b := newTB()
+	xp, xs := b.param("x", "", b.tn("Float"))
+	f1, _ := b.fn("f", []syntax.Param{xp}, b.tn("Float"),
+		b.bin(syntax.BinDiv, b.ref(xs), b.flit("0.0")))
+	f2, _ := b.fn("g", []syntax.Param{xp}, b.tn("Float"),
+		b.bin(syntax.BinDiv, b.ref(xs),
+			b.bin(syntax.BinSub, b.flit("0.5"), b.flit("0.5"))))
+
+	_, diags := b.check(nil, f1, f2)
+	requireCodes(t, diags)
+}
+
+// A variable divisor is never constant — `let q = 0` binds a Go
+// variable, so `z / q` is a runtime panic (Go semantics), not a
+// compile error.
+func TestDivZeroLetBoundOK(t *testing.T) {
+	b := newTB()
+	zp, zs := b.param("z", "", b.tn("Int"))
+	qp, qs := b.vp("q")
+	f1, _ := b.fn("f", []syntax.Param{zp}, b.tn("Int"),
+		b.block(
+			b.letStmt(qp, b.ilit("0")),
+			b.bin(syntax.BinDiv, b.ref(zs), b.ref(qs))))
+
+	_, diags := b.check(nil, f1)
+	requireCodes(t, diags)
+}

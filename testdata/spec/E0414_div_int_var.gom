@@ -1,0 +1,8 @@
+package ex
+
+// spec 3.3: an integer division by a constant zero is invalid even
+// when the dividend is not constant — Go rejects `x / 0` itself, so
+// it can only ever panic at run time.
+fn f (x: Int) -> Int = x / 0
+
+fn main () -> Unit = ()
