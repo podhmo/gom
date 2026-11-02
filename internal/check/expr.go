@@ -962,7 +962,19 @@ func (c *checker) checkPipeTry(e *syntax.Binary) Expr {
 		c.shadowedErr(e.Sp, "`|?>`", "Result")
 	}
 	var argT, errT types.Type
-	if a, er, ok := c.resultArgs(x.Type(), e.X.Span()); ok {
+	// Numeric/ordered metas cannot be Result. Unlike try, a pipeline
+	// accepts these as its initial unwrapped value (spec 9.2.7).
+	canBeResult := true
+	if m, ok := types.Chase(x.Type()).(*types.Meta); ok {
+		r := c.recOf(m)
+		canBeResult = !r.num && !r.ord && !r.flo && !r.intg
+	}
+	var a, er types.Type
+	var isResult bool
+	if canBeResult {
+		a, er, isResult = c.resultArgs(x.Type(), e.X.Span())
+	}
+	if isResult {
 		argT, errT = a, er
 	} else {
 		// Non-Result left side: the value is used as-is (Ok-wrapped

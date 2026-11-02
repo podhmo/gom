@@ -1,0 +1,10 @@
+package pipes
+
+import go "strings"
+import go "runtime"
+
+fn next (n: Int) -> Result Int String = Ok (n + 1)
+fn count () -> Result Int String = (strings.Count ("a", "a")) |?> next
+
+fn unit (u: Unit) -> Result Int String = Ok 7
+fn schedule () -> Result Int String = (runtime.Gosched ()) |?> unit

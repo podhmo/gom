@@ -245,7 +245,7 @@ func TestEvalCompiledDiff(t *testing.T) {
 
 			// Eval side first: an unsupported program costs no `go
 			// build`, and its eval fuel bound is cheap.
-			eo := evalDiff(t, r)
+			eo := evalDiff(t, r, src)
 			switch eo.class {
 			case dUnsupported:
 				evalUnsupported++
@@ -367,7 +367,7 @@ fn main () -> Unit = {
 	if r.Diagnostics.HasError() || r.Output == nil {
 		t.Fatalf("probe program rejected: %v", r.Diagnostics)
 	}
-	eo := evalDiff(t, r)
+	eo := evalDiff(t, r, src)
 	if eo.class == dUnsupported {
 		t.Skipf("eval cannot stub the probe's Go calls: %s", eo.detail)
 	}
@@ -488,7 +488,7 @@ type diffCapture struct {
 // crashing the whole diff run (the call-depth bound covers the
 // unrecoverable stack-exhaustion case; this net is for everything
 // else).
-func evalDiff(t *testing.T, r *build.Result) (o diffOutcome) {
+func evalDiff(t *testing.T, r *build.Result, sources ...string) (o diffOutcome) {
 	t.Helper()
 	var out strings.Builder
 	capture := &diffCapture{out: &out}
@@ -499,6 +499,9 @@ func evalDiff(t *testing.T, r *build.Result) (o diffOutcome) {
 		}
 	}()
 	ev := eval.New(r.Typed)
+	if len(sources) != 0 {
+		ev.SetLineIndex(diag.NewLineIndex([]byte(sources[0])))
+	}
 	ev.SetMaxSteps(diffEvalFuel)
 	bindGoStubs(t, r.Typed, ev, capture)
 	res := ev.Run()

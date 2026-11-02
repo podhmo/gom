@@ -642,13 +642,14 @@ func TestPipeTry(t *testing.T) {
 		X: vr(subj, resT), Y: vr(f, fsig)}
 	d := decl("g", []check.Param{param(vpat(subj, resT))}, pipe, types.Fn(resT, types.P(resT)))
 	out := mustLower(t, d)
-	body := fnDeclOf(t, out, 0).Fn.Body
+	outer := fnDeclOf(t, out, 0).Fn
+	body := outer.Body.Lets[0].X.(*core.Closure).Fn.Body
 	// lets: in = escape(r) ; step = f(in) ; payload = escape-wrap(step)
 	if len(body.Lets) != 3 {
 		t.Fatalf("lets = %d, want 3", len(body.Lets))
 	}
 	escIn, ok := body.Lets[0].X.(*core.EscapeResult)
-	if !ok || escIn.Wrap != "" {
+	if !ok || escIn.Wrap != "" || escIn.To == outer {
 		t.Fatalf("inflow escape = %+v", body.Lets[0].X)
 	}
 	if _, ok := body.Lets[1].X.(*core.CallDirect); !ok {
@@ -680,14 +681,15 @@ func TestPipeTryBoundMeta(t *testing.T) {
 		X: vr(subj, mt), Y: vr(f, fsig)}
 	d := decl("run", []check.Param{param(vpat(subj, resT))}, pipe, types.Fn(resT, types.P(resT)))
 	out := mustLower(t, d)
-	body := fnDeclOf(t, out, 0).Fn.Body
+	outer := fnDeclOf(t, out, 0).Fn
+	body := outer.Body.Lets[0].X.(*core.Closure).Fn.Body
 	// Same three-let shape as TestPipeTry: the inflow escape unwraps
 	// the Result, the step consumes its payload.
 	if len(body.Lets) != 3 {
 		t.Fatalf("lets = %d, want 3 (inflow escape, step, step escape)", len(body.Lets))
 	}
 	escIn, ok := body.Lets[0].X.(*core.EscapeResult)
-	if !ok || escIn.Wrap != "" {
+	if !ok || escIn.Wrap != "" || escIn.To == outer {
 		t.Fatalf("inflow escape = %+v — the bound meta hid the Result shape", body.Lets[0].X)
 	}
 	if !types.Equal(escIn.Typ, types.Int) {

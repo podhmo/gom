@@ -35,7 +35,8 @@ const defaultMaxDepth = 50_000
 
 // interp carries one evaluation's mutable state.
 type interp struct {
-	ctx *ctx
+	ctx   *ctx
+	lines *diag.LineIndex
 	// steps/maxSteps implement the evaluator's fuel budget
 	// (Evaluator.SetMaxSteps): every expression node evaluated costs
 	// one step, so a diverging program — unbounded recursion, a long
@@ -138,6 +139,10 @@ func New(f *check.File) *Evaluator {
 // Env returns the evaluator's global environment — bind host
 // functions and stub module members here before Run or Expr.
 func (e *Evaluator) Env() *Env { return e.env }
+
+// SetLineIndex supplies source lines for nameless pipeline step labels.
+// Without an index, hand-built AST evaluation uses byte offsets.
+func (e *Evaluator) SetLineIndex(lines *diag.LineIndex) { e.interp.lines = lines }
 
 // SetMaxSteps bounds how many expression nodes one evaluation may
 // reduce before it stops with an E9006 diagnostic — the fuel budget
@@ -906,7 +911,7 @@ func (e *interp) evalPipeTry(x *check.Binary, env *Env) Value {
 		failData(CodeInternal, "malformed Err value", x.Span(), "value", r.String())
 	}
 	errV := variant.Fields[0].V
-	wrapped := &VGoErr{Text: stepName(x.Y) + ": " + errorText(errV), Wrapped: errV}
+	wrapped := &VGoErr{Text: e.stepName(x.Y) + ": " + errorText(errV), Wrapped: errV}
 	fields := append([]VField(nil), variant.Fields...)
 	fields[0].V = wrapped
 	return &VVariant{Type: variant.Type, Ctor: variant.Ctor, Name: variant.Name, Fields: fields}
@@ -931,9 +936,9 @@ func errIsGoError(t types.Type, localT map[string]bool) bool {
 // stepName derives the `|?>` step name from the right-hand
 // expression's head (spec 9.2 item 4): the written name, qualified
 // for module members; otherwise the source position. Position uses
-// the byte offset because the evaluator does not hold sources for a
-// line index — see the reported gap.
-func stepName(x check.Expr) string {
+// the source line index supplied by the caller; hand-built ASTs without
+// an index retain the byte-offset fallback.
+func (e *interp) stepName(x check.Expr) string {
 	// Partial probes stay as if-assertions: check.Expr is a sumtype
 	// and the checker requires exhaustive switches.
 	if x, ok := x.(*check.Var); ok {
@@ -947,9 +952,12 @@ func stepName(x check.Expr) string {
 		return prefix + x.Sel.Name
 	}
 	if x, ok := x.(*check.Apply); ok {
-		return stepName(x.Fn)
+		return e.stepName(x.Fn)
 	}
 	sp := x.Span()
+	if e.lines != nil {
+		return fmt.Sprintf("%s:%d", sp.File, e.lines.Pos(sp.Start).Line)
+	}
 	return fmt.Sprintf("%s:%d", sp.File, sp.Start)
 }
 

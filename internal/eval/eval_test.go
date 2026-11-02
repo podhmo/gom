@@ -1755,3 +1755,20 @@ func TestErrorPaths(t *testing.T) {
 		}
 	})
 }
+
+func TestPipeNamelessStepLineIndex(t *testing.T) {
+	resT := types.Result(types.Int, types.GoError)
+	errSymV := sym("failure", resolve.KindVar)
+	p, _ := vpat("n", types.Int)
+	step := &check.Lambda{Base: b(types.Fn(resT, types.P(types.Int))),
+		Params: []check.Param{{Pat: p}}, Body: vr(errSymV, resT)}
+	x := bin(syntax.BinPipeTry, resT, intLit(1), step)
+	ev := eval.New(&check.File{Sp: sp})
+	ev.SetLineIndex(diag.NewLineIndex([]byte("// α\n// β\nstep")))
+	ev.Env().Bind(errSymV, &eval.VVariant{Type: resT.(*types.Con), Name: "Err",
+		Fields: []eval.VField{{Index: 0, V: &eval.VGoErr{Text: "bad"}}}})
+	r := ev.Expr(x)
+	if !r.OK() || r.Value.String() != `Err (error("test.gom:2: bad"))` {
+		t.Fatalf("result = %v, diagnostics = %v", r.Value, r.Diags)
+	}
+}

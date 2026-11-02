@@ -1,0 +1,8 @@
+package main
+
+fn fail (n: Int) -> Result Int String = Err "bad"
+fn keep (n: Int) -> Result Int String = Ok n
+let top = 1 |?> fail |?> keep
+fn unit () -> Unit = { ignore (2 |?> fail); () }
+fn run () -> Result Int Bool = { ignore (3 |?> fail); Ok 42 }
+fn use () -> Int = match (4 |?> fail) { Ok n -> n; Err e -> 0 }

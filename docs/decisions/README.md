@@ -47,7 +47,7 @@
 | [no-offside-rule-and-gom-fmt](2026-11-01-no-offside-rule-and-gom-fmt.md) | オフサイドルールを持たず、出力が一意な `gom fmt` を持つ | 採用 |
 | [result-pipe-auto-wrap](2026-11-01-result-pipe-auto-wrap.md) | `\|?>` と `%w` による自動ラップ | 採用 |
 | [select-receive-arms](2026-11-01-select-receive-arms.md) | `select` の受信腕はチャネルごとに 1 つの `case` | 採用 |
-| [try-boundary](2026-11-01-try-boundary.md) | `try` の脱出先は最も内側の関数 | 採用 |
+| [try-boundary](2026-11-01-try-boundary.md) | `try` の脱出先は最も内側の関数（一部を [result-pipe-local-boundary](2026-11-03-result-pipe-local-boundary.md) で置き換え） | 採用 |
 | [try-keyword](2026-11-01-try-keyword.md) | 早期脱出は前置の `try` | 採用 |
 | [value-representation](2026-11-01-value-representation.md) | 値の表現（ADT・List・Result） | 採用（P0-1・P0-3・P0-4 の実験で決定） |
 | [value-restriction](2026-11-01-value-restriction.md) | 一般化は value restriction 付き | 採用 |
@@ -83,6 +83,7 @@
 | [go-error-alias-results](2026-11-03-go-error-alias-results.md) | Go の error alias は error 戻り値規約を引き継ぐ | 採用 |
 | [go-types-mapping](2026-11-03-go-types-mapping.md) | go/types → Gom type mapping and where boundary conversions live | 採用（P1-9 の `internal/goimport` が実装・検証した — `strconv.Atoi`/`Itoa`・`os.LookupEnv`・`bytes.Buffer` メソッドが E2E で動く） |
 | [import-go-loading-mechanics](2026-11-03-import-go-loading-mechanics.md) | How `import go` loads Go packages: go/types + go/importer over `go list -export` | 採用（P1-9 の `internal/goimport` が実装・検証した — E2E で `strconv`/`bytes`/`os`/`fmt` の呼び出しが生成コードの build・run まで通る） |
+| [result-pipe-local-boundary](2026-11-03-result-pipe-local-boundary.md) | Result パイプの局所的な制御フロー | 採用 |
 | [static-function-alias-declarations](2026-11-03-static-function-alias-declarations.md) | Static function aliases use named canonical function wrappers | 採用 |
 | [top-level-let-type-variable-scope](2026-11-03-top-level-let-type-variable-scope.md) | Top-level monomorphic lets cannot capture declaration type variables | 採用 |
 | [fn-main-entrypoint](2026-11-04-fn-main-entrypoint.md) | `fn main () -> Unit` in `package main` is the Go entrypoint | 採用（`cmd/gom.TestEndToEnd_BuildAndRun` が shim なしで `gom build` → `go build` → 実行まで検証） |

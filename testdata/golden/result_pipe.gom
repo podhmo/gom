@@ -1,0 +1,13 @@
+package pipes
+
+import go "strconv"
+
+fn keep (n: Int) -> Result Int GoError = Ok n
+fn parse (s: String) -> Result Int GoError = s |?> strconv.Atoi |?> keep
+fn use (s: String) -> Unit = { ignore (s |?> strconv.Atoi); () }
+fn outer () -> Result Int String = Err "outer"
+fn step (n: Int) (x: Int) -> Result Int Bool = Ok (n + x)
+fn explicit () -> Result Int String = {
+  ignore (1 |?> step (try (outer ())))
+  Ok 42
+}

@@ -1552,50 +1552,109 @@ func (l *lowerer) tryExpr(s *seq, e *check.Try) core.Expr {
 	}
 }
 
-// pipeTry lowers `x |?> step`. Under the escape-boundary semantics
-// (design.md section 4.6) the whole expression still evaluates to a
-// `Result b e`: the incoming Result is unwrapped by an escape, the
-// step is applied, and its Result is unwrapped by a second escape
-// whose payload is re-wrapped in Ok. Errors escape the innermost
-// function boundary — this is where `|?>` diverges from "evaluate to
-// Err and continue" mid-body; see
-// docs/problems/2026-11-02-pipe-try-semantics.md.
+// pipeTry returns a Result value. Only the compiler-created local
+// boundary exits on failure; the surrounding user function continues.
 func (l *lowerer) pipeTry(s *seq, e *check.Binary) core.Expr {
-	// The incoming value unwraps with a passthrough escape — the
-	// |?>-step wrap applies to the step's own failure, never to the
-	// inflow (spec 9.2 items 1, 5 and 7). A direct Go `(T, error)`
-	// operand fuses to EscapeCall so no Result materialises.
-	fn := l.curFn()
-	if fn == nil {
-		// Report once; the escapes below degrade to their unescaped
-		// operands rather than emitting target-less nodes.
-		l.err(e.Sp, "|?> escapes with no enclosing function boundary")
+	hasTry := false
+	check.WalkExpr(e, func(x check.Expr) {
+		if _, ok := x.(*check.Try); ok {
+			hasTry = true
+		}
+	})
+	if hasTry {
+		return l.pipeTryValue(s, e)
 	}
+	cl := l.closureOf(e.Sp, types.Fn(e.Type(), types.P(types.Unit)),
+		[]types.FuncParam{types.P(types.Unit)}, func(bs *seq, _ []core.Atom) core.Expr {
+			payload := l.pipePayload(bs, e)
+			return l.pipeOk(e, payload)
+		})
+	return &core.CallFunc{Base: baseOf(e), Fn: l.asAtom(s, e.Sp, cl), Args: []core.Atom{l.litUnit(e.Sp)}}
+}
+
+// pipePayload fuses a left-associated chain inside one local boundary.
+// Intermediate successful pipeline stages never construct Result values.
+func (l *lowerer) pipePayload(s *seq, e *check.Binary) core.Atom {
+	fn := l.curFn()
 	var in core.Atom
-	if ap, ok := e.X.(*check.Apply); ok && ap.Call.Kind == check.CallGo && ap.Call.HoleIndex < 0 {
+	if prev, ok := e.X.(*check.Binary); ok && prev.Op == syntax.BinPipeTry {
+		in = l.pipePayload(s, prev)
+	} else if ap, ok := e.X.(*check.Apply); ok && ap.Call.Kind == check.CallGo && ap.Call.HoleIndex < 0 {
 		call := l.goCallNode(s, ap)
-		if fn != nil && (call.Results == core.GoResultsErr || call.Results == core.GoResultsErrOnly) {
+		if call.Results == core.GoResultsErr || call.Results == core.GoResultsErrOnly {
 			in = l.asAtom(s, e.X.Span(), &core.EscapeCall{
-				Base: core.Base{Sp: e.X.Span(), Typ: call.Typ},
-				Call: call, To: fn, Wrap: "",
+				Base: core.Base{Sp: e.X.Span(), Typ: call.Typ}, Call: call, To: fn,
 			})
 			in = l.convAtomTo(s, e.X.Span(), in, l.payloadOf(ap.Type()))
+		} else if call.Results == core.GoResultsOne && l.isUnitCon(ap.Type()) {
+			// A zero-result Go call is a statement. Its Gom Unit payload
+			// is explicit; assigning the call itself is invalid Go.
+			s.emit(l.discardBind(e.X.Span(), call.Type()), call)
+			in = l.litUnit(e.X.Span())
 		} else {
-			in = l.asAtom(s, e.X.Span(), l.wrapGoResult(call, ap.Type()))
+			x := l.wrapGoResult(call, ap.Type())
+			// A single Go value retains its raw Go type (notably int).
+			// Multi-result consumers already carry their element conversions.
+			if call.Results == core.GoResultsOne {
+				x = l.goPayloadConv(s, e.X.Span(), call.Typ, ap.Type(), x)
+			}
+			in = l.asAtom(s, e.X.Span(), x)
 		}
 	}
 	if in == nil {
-		lv := l.atom(s, e.X)
-		in = lv
-		if _, _, isRes := l.resultArgs(lv.Type()); isRes && fn != nil {
+		in = l.pipeInputAtom(s, e.X)
+		if _, _, isRes := l.resultArgs(in.Type()); isRes {
 			in = l.asAtom(s, e.Sp, &core.EscapeResult{
-				Base: core.Base{Sp: e.X.Span(), Typ: l.payloadOf(lv.Type())},
-				X:    lv, To: fn, Wrap: "",
+				Base: core.Base{Sp: e.X.Span(), Typ: l.payloadOf(in.Type())}, X: in, To: fn,
 			})
 		}
 	}
-	step := l.stepApply(s, e, e.Y, in)
-	return l.escapeStep(s, e, step)
+	return l.escapeStepPayload(s, e, l.stepApply(s, e, e.Y, in))
+}
+
+// pipeInputAtom preserves the effects of Unit-valued inflow expressions
+// without assigning a zero-result Go call, including the explicit-try path.
+func (l *lowerer) pipeInputAtom(s *seq, e check.Expr) core.Atom {
+	if l.isUnitCon(e.Type()) {
+		l.stmt(s, e)
+		return l.litUnit(e.Span())
+	}
+	return l.atom(s, e)
+}
+
+func (l *lowerer) pipeOk(e *check.Binary, payload core.Atom) core.Expr {
+	return &core.CtorApp{Base: baseOf(e), Ctor: l.ctorSym("Ok"), Args: []core.Atom{payload}, Arity: 1}
+}
+
+// pipeTryValue keeps explicit try expressions in their original function
+// boundary. Decision-tree branches skip every RHS computation on Err.
+func (l *lowerer) pipeTryValue(s *seq, e *check.Binary) core.Expr {
+	in := l.pipeInputAtom(s, e.X)
+	step := func(bs *seq, payload core.Atom) core.Expr {
+		// Evaluate user expressions before entering the synthetic boundary.
+		value := l.asAtom(bs, e.Y.Span(), l.stepApply(bs, e, e.Y, payload))
+		cl := l.closureOf(e.Sp, types.Fn(e.Type(), types.P(types.Unit)),
+			[]types.FuncParam{types.P(types.Unit)}, func(cs *seq, _ []core.Atom) core.Expr {
+				return l.pipeOk(e, l.escapeStepPayload(cs, e, value))
+			})
+		return &core.CallFunc{Base: baseOf(e), Fn: l.asAtom(bs, e.Sp, cl), Args: []core.Atom{l.litUnit(e.Sp)}}
+	}
+	argT, errT, isRes := l.resultArgs(in.Type())
+	if !isRes {
+		return step(s, in)
+	}
+	okBind := l.tmpBind(e.Sp, argT)
+	errBind := l.tmpBind(e.Sp, errT)
+	bs := &seq{}
+	tail := step(bs, varOf(e.Sp, okBind))
+	return &core.Match{Base: baseOf(e), Tree: &core.DSwitch{
+		Base: baseOf(e), Subj: in, Kind: core.SwitchTag,
+		Cases: []core.DCase{
+			{Sp: e.Sp, Test: &core.DCtorTest{Sp: e.Sp, Ctor: l.ctorSym("Ok")}, Binds: []*core.Bind{okBind}, Body: &core.Body{Lets: bs.lets, Tail: tail}},
+			{Sp: e.Sp, Test: &core.DCtorTest{Sp: e.Sp, Ctor: l.ctorSym("Err")}, Binds: []*core.Bind{errBind}, Body: &core.Body{Tail: &core.CtorApp{Base: baseOf(e), Ctor: l.ctorSym("Err"), Args: []core.Atom{varOf(e.Sp, errBind)}, Arity: 1}}},
+		},
+		Default: l.dpanic(in, e.Type()),
+	}}
 }
 
 // stepApply applies a |?> step to the unwrapped payload — the same
@@ -1604,6 +1663,27 @@ func (l *lowerer) pipeTry(s *seq, e *check.Binary) core.Expr {
 // anything else is a function value applied once. resTyp is the |?>
 // node's type — the step's full-application result.
 func (l *lowerer) stepApply(s *seq, e *check.Binary, rhs check.Expr, in core.Atom) core.Expr {
+	// A known unary Go step is a call, not a function value. Keep its
+	// raw result pair available to EscapeCall instead of manufacturing
+	// an adapter Closure that would materialize a Result first.
+	var sym *resolve.Symbol
+	var targs []types.Type
+	var recv core.Atom
+	if v, ok := rhs.(*check.Var); ok {
+		sym, targs = v.Sym, v.TypeArgs
+	} else if m, ok := rhs.(*check.MemberExpr); ok {
+		sym, targs = m.Sym, m.TypeArgs
+	}
+	if sym != nil && sym.IsGo && (sym.Kind == resolve.KindFunc || sym.Kind == resolve.KindMethod) {
+		sig := l.goSig(sym, rhs.Type())
+		if sig.Arity == 1 && !sig.Variadic {
+			if m, ok := rhs.(*check.MemberExpr); ok && sym.Kind == resolve.KindMethod {
+				recv = l.atom(s, m.Recv)
+			}
+			ci := check.CallInfo{Kind: check.CallGo, Callee: sym, TypeArgs: targs, Arity: 1, Applied: 1, HoleIndex: -1}
+			return l.goCall(s, rhs.Span(), e.Type(), ci, []core.Atom{in}, recv, false)
+		}
+	}
 	if ap, ok := rhs.(*check.Apply); ok {
 		return l.pipeApplyInto(s, rhs.Span(), ap, func() core.Atom { return in }, e.Type())
 	}
@@ -1611,21 +1691,17 @@ func (l *lowerer) stepApply(s *seq, e *check.Binary, rhs check.Expr, in core.Ato
 	return l.applyAtom(s, rhs.Span(), e.Type(), fn, []core.Atom{in})
 }
 
-// escapeStep turns the step's Result value into the |?> expression's
-// own Result-typed value: `Ok (escape-with-wrap step)`. A direct Go
-// `(T, error)` step fuses to EscapeCall instead of materializing the
-// Result. The payload is then wrapped in the `Ok` constructor so the
-// whole expression still has type `Result b e` at the boundary.
-func (l *lowerer) escapeStep(s *seq, e *check.Binary, step core.Expr) core.Expr {
+// escapeStepPayload unwraps one step under the local pipeline boundary.
+// The caller wraps only the final payload in Ok. Direct Go error-returning
+// calls fuse to EscapeCall without materializing an intermediate Result.
+func (l *lowerer) escapeStepPayload(s *seq, e *check.Binary, step core.Expr) core.Atom {
 	wrap := ""
 	if _, e2, ok := l.resultArgs(e.Type()); ok && l.isGoError(e2) {
 		wrap = l.stepName(e.Y)
 	}
-	// pipeTry already reported a missing boundary; degrade to the
-	// unescaped step value rather than emitting a target-less node.
 	fn := l.curFn()
 	var payload core.Atom
-	if call, ok := unwrapToCallGo(step); ok && fn != nil &&
+	if call, ok := unwrapToCallGo(step); ok &&
 		(call.Results == core.GoResultsErr || call.Results == core.GoResultsErrOnly) {
 		payload = l.asAtom(s, e.Sp, &core.EscapeCall{
 			Base: core.Base{Sp: e.Sp, Typ: call.Typ},
@@ -1634,21 +1710,12 @@ func (l *lowerer) escapeStep(s *seq, e *check.Binary, step core.Expr) core.Expr 
 		payload = l.convAtomTo(s, e.Sp, payload, l.payloadOf(e.Type()))
 	} else {
 		stepAtom := l.asAtom(s, e.Y.Span(), step)
-		if fn == nil {
-			payload = stepAtom
-		} else {
-			payload = l.asAtom(s, e.Sp, &core.EscapeResult{
-				Base: core.Base{Sp: e.Sp, Typ: l.payloadOf(stepAtom.Type())},
-				X:    stepAtom, To: fn, Wrap: wrap,
-			})
-		}
+		payload = l.asAtom(s, e.Sp, &core.EscapeResult{
+			Base: core.Base{Sp: e.Sp, Typ: l.payloadOf(stepAtom.Type())},
+			X:    stepAtom, To: fn, Wrap: wrap,
+		})
 	}
-	okSym := l.ctorSym("Ok")
-	return &core.CtorApp{
-		Base: core.Base{Sp: e.Sp, Typ: e.Type()},
-		Ctor: okSym,
-		Args: []core.Atom{payload}, Arity: 1,
-	}
+	return payload
 }
 
 // unwrapToCallGo returns the CallGo under a single consumer wrapper

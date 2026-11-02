@@ -1,6 +1,6 @@
 # `|?>` step name for nameless steps uses byte offsets, not line numbers
 
-- 状態: 未解決
+- 状態: 解決（2026-11-03）
 - 日付: 2026-11-02
 
 ## Situation
@@ -30,3 +30,9 @@ meant to catch, except here it is the evaluator that is wrong.
 - Or accept that the offset form is fine for diagnostics and instead
   make codegen emit `file:line` the same way — compare only the
   wrapped-error text loosely in the harness.
+
+## Resolution
+
+`Evaluator.SetLineIndex` supplies source lines. Nameless steps use the same
+`file:line` label as lowering; source-free hand-built ASTs keep the documented
+byte-offset fallback. `TestPipeNamelessStepLineIndex` covers UTF-8 source.

@@ -5,6 +5,7 @@ import (
 	"go/ast"
 	"go/token"
 	"strconv"
+	"strings"
 
 	"github.com/podhmo/gom/internal/core"
 	"github.com/podhmo/gom/internal/types"
@@ -705,7 +706,7 @@ func (g *gen) escapeErr(errExpr ast.Expr, wrap string, to *core.Func) {
 		errExpr = &ast.CallExpr{
 			Fun: ast.NewIdent(g.pkgQual("fmt") + "Errorf"),
 			Args: []ast.Expr{
-				&ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(wrap + ": %w")},
+				&ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(strings.ReplaceAll(wrap, "%", "%%") + ": %w")},
 				errExpr,
 			},
 		}

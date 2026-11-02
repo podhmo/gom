@@ -810,13 +810,64 @@ fn main () -> Unit = {
 `,
 		want: "6 3 12",
 	},
+	{
+		name: "pipe_result_value",
+		src: `package main
+import go "fmt"
+fn fail (n: Int) -> Result Int String = Err "bad"
+fn skipped (n: Int) -> Result Int String = todo ()
+let top = 1 |?> fail |?> skipped
+fn describe (r: Result Int String) -> String = match r { Ok n -> "ok ${n}"; Err e -> e }
+fn unit () -> Unit = { ignore (1 |?> fail); () }
+fn run () -> Result Int Bool = { ignore (1 |?> fail); Ok 42 }
+fn tried () -> Result Int String = { let x = try (1 |?> fail); Ok 99 }
+fn answer () -> String = {
+  ignore (unit ())
+  let r = 1 |?> fail |?> skipped
+  let x = match (run ()) { Ok n -> n; Err e -> 0 }
+  "${describe top}/${describe r}/${x}/${describe (tried ())}/continued"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "bad/bad/42/bad/continued",
+	},
+	{
+		name: "pipe_explicit_try_boundary",
+		src: `package main
+import go "fmt"
+fn fail () -> Result Int String = Err "outer"
+fn step (n: Int) (x: Int) -> Result Int Bool = Ok (n + x)
+fn run () -> Result Int String = {
+  let r = 1 |?> step (try (fail ()))
+  Ok 99
+}
+fn bad () -> Result Int Bool = Err true
+fn skipped () -> Result Int String = {
+  let r = bad () |?> step (try (fail ()))
+  Ok 42
+}
+fn nested () -> Result Int String = {
+  let r = 1 |?> fn n -> { let x = try (fail ()); Ok x }
+  Ok 7
+}
+fn answer () -> String = {
+  let a = match (run ()) { Ok n -> "${n}"; Err e -> e }
+  let b = match (skipped ()) { Ok n -> "${n}"; Err e -> e }
+  let c = match (nested ()) { Ok n -> "${n}"; Err e -> e }
+  "${a}/${b}/${c}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "outer/42/7",
+	},
 }
 
 // evalAnswer applies the file's `answer` through internal/eval and
 // returns the produced String's contents.
-func evalAnswer(t *testing.T, r *build.Result) string {
+func evalAnswer(t *testing.T, r *build.Result, src string) string {
 	t.Helper()
 	ev := eval.New(r.Typed)
+	ev.SetLineIndex(diag.NewLineIndex([]byte(src)))
 	fn := ev.Global("answer")
 	if fn == nil {
 		t.Fatal("no top-level `answer` binding for the evaluator")
@@ -1066,7 +1117,7 @@ func TestEvalMatchesCompiled(t *testing.T) {
 				t.Fatal("no generated output")
 			}
 
-			if got := evalAnswer(t, r); got != c.want {
+			if got := evalAnswer(t, r, c.src); got != c.want {
 				t.Fatalf("eval answer = %q, want %q", got, c.want)
 			}
 			got := strings.TrimSuffix(runCompiled(t, r.Output.Source), "\n")

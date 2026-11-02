@@ -90,7 +90,7 @@ Go コード生成器に言語の意味を判断させない。次のことは C
 2. **関数の arity と呼び出し規約**: 各呼び出しは「既知の関数への飽和呼び出し」「部分適用（生成するクロージャを明示）」「未知の関数値への残り arity の呼び出し」「Go 関数の呼び出し」のどれかに分類済み
 3. **Go 相互運用の変換**: `(T, error)` から `Result` への変換、数値変換、`any` へのボックス化、スライスのコピー、interface への代入はすべて明示的なノード
 4. **match は決定木**: パターンは残っていない。ADT の不正値に対する panic の分岐も明示
-5. **脱出**: `try` と `|?>` は、どの関数境界から抜けるかを明示した脱出ノード
+5. **脱出**: `try` は利用者の最内関数境界、`|?>` は lower が作るパイプ式だけの局所境界を明示した脱出ノード（明示的 `try` を含むパイプは決定木として利用者の境界を保存する）
 6. **型の具体化**: 多相な定義と、実行時の関数値を区別する。多相な定義を値として使う箇所では型引数が具体化済みで、必要なラッパーも確定済み（関数値の表現は [decisions/function-value-representation](decisions/2026-11-02-function-value-representation.md)、多相定義との区別は [decisions/function-representation](decisions/2026-11-01-function-representation.md)）
 7. **エントリポイントの判定**: `package main` の `fn main () -> Unit` という言語規則は `FuncDecl.IsEntry` として確定済み。codegen はパッケージ名・関数名を見ず、このフラグだけで `func main()` を出力する（[decisions/fn-main-entrypoint](decisions/2026-11-04-fn-main-entrypoint.md)）
 8. **等価のレシピ**: `==` / `!=` / `assert_eq` がどう比較するか（ネイティブ `==`・ランタイムのフォールバック・エラーの文字列比較・生成した比較関数の呼び出し）は `core.Equal` / `CallBuiltin.Eq` のプランとして確定済み（4.9 節）
@@ -304,10 +304,10 @@ if n > 0 {
 
 ### 4.6 `|?>`
 
-各ステップを `err` の確認と早期リターンに展開し、中間の `Result` 値は作らない。`Result` は言語上は stdlib の sum type だが、Go 側の `Result`/`ResultTag`/コンストラクタはコンパイラが生成する標準ライブラリの `result` パッケージに置く（`List` など他の組み込み型の Go 側表現も stdlib 側の特別扱いとして生成する）。表現は `struct { state ResultTag; Value T; Error E }`（`state` は非公開、0=invalid・1=Ok・2=Err）で、コンストラクタは `result.Ok[T,E](v)` / `result.Err[T,E](e)`、判定は `r.Tag()`（[decisions/value-representation](decisions/2026-11-01-value-representation.md)）。ステップが返す `Result` の検査は必ず invalid を含む完全な分岐にする——bare な comma-ok 型アサーション（`r.(Result_Err[...])` 型）は invalid 値を Ok 側のパスに流すので使わない（P0-4 で確認）。
+`|?>` は spec 9.2 のとおり Result 値を返す式であり、失敗してもパイプ外の後続処理を中断しない。lower は連続するパイプチェーンを即時適用する Unit 引数の局所クロージャとして確定し、各ステップを `err` の確認と**その局所境界からの**早期リターンに展開する。連続チェーンでは成功 payload をそのまま次の段へ渡し、Go の既知の単項ステップと直接呼び出しは `EscapeCall` に融合して中間の `Result` 値を作らない。任意の Gom 関数・関数値が返す Result は実際の呼び出しの結果として検査する。明示的 `try` を含む式は、そのユーザー関数境界を変更しないため Ok/Err 決定木へ保守的に展開する（この経路では中間 Result が残る。最適化は TODO P2-4b）。決定と検証は [result-pipe-local-boundary](decisions/2026-11-03-result-pipe-local-boundary.md)。`Result` は言語上は stdlib の sum type だが、Go 側の `Result`/`ResultTag`/コンストラクタはコンパイラが生成する標準ライブラリの `result` パッケージに置く（`List` など他の組み込み型の Go 側表現も stdlib 側の特別扱いとして生成する）。表現は `struct { state ResultTag; Value T; Error E }`（`state` は非公開、0=invalid・1=Ok・2=Err）で、コンストラクタは `result.Ok[T,E](v)` / `result.Err[T,E](e)`、判定は `r.Tag()`（[decisions/value-representation](decisions/2026-11-01-value-representation.md)）。ステップが返す `Result` の検査は必ず invalid を含む完全な分岐にする——bare な comma-ok 型アサーション（`r.(Result_Err[...])` 型）は invalid 値を Ok 側のパスに流すので使わない（P0-4 で確認）。
 
 ```go
-// load_config の生成コード（抜粋）
+// load_config の局所パイプクロージャ内の生成コード（抜粋）
 b, err := os.ReadFile(path)
 if err != nil {
 	return result.Err[Config, error](fmt.Errorf("os.ReadFile: %w", err))

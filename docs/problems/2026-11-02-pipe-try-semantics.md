@@ -1,6 +1,6 @@
 # `|?>` semantics differ structurally between eval and lowering
 
-- 状態: 未解決
+- 状態: 一部解決（2026-11-03、主要な値意味論の不一致を解消）
 - 日付: 2026-11-02
 
 ## Situation
@@ -49,3 +49,19 @@ comparison harness depends on.
   value guarantee in decisions/value-representation.
 - Decide explicitly which artefact is normative for `|?>` edge cases
   before P1-8 codegen relies on the compiled reading.
+
+## Resolution
+
+The normative spec 9.2 value semantics are preserved. Lowering now exits a
+compiler-created local pipeline boundary, so a failing pipeline does not
+leave the user function. Pipelines containing explicit `try` use decision
+trees to preserve its user-function target. Invalid Go-side Result values
+still panic. See [decision](../decisions/2026-11-03-result-pipe-local-boundary.md)
+and [verification](../sketch/2026-11-03-result-pipe-local-boundary.md).
+
+## Remaining concern
+
+The evaluator's host-supplied `VVariant` representation has no Go-style
+state tag. Malformed host values are not yet cross-checked against the
+compiled invalid-value panic behavior. This concern is separate from the
+now-covered value semantics and from P2-4b's optimization work.
