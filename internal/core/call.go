@@ -57,8 +57,7 @@ func (*CallFunc) isExpr() {}
 type GoResults int
 
 const (
-	// GoResultsOne is a single result `v := f(...)` — or zero results,
-	// typed Unit. The call binds like any expression.
+	// GoResultsOne is a single result `v := f(...)`.
 	GoResultsOne GoResults = iota + 1
 	// GoResultsErr is `v, err := f(...)` — the `(T, error)` shape.
 	// Type() is the first result's type.
@@ -72,11 +71,16 @@ const (
 	// GoResultsPair is `a, b := f(...)` — any other two-result shape,
 	// mapped to a tuple. Type() is the (A, B) tuple type.
 	GoResultsPair
+	// GoResultsNone is a zero-result call, typed Unit but usable only
+	// as a discarded statement. Lowering supplies Unit separately.
+	GoResultsNone
 )
 
 // String returns the shape name for debugging.
 func (r GoResults) String() string {
 	switch r {
+	case GoResultsNone:
+		return "none"
 	case GoResultsOne:
 		return "one"
 	case GoResultsErr:
@@ -105,9 +109,9 @@ func (r GoResults) String() string {
 // ResultFromGo, OptionFromGo, TupleFromGo, EscapeCall — and by Conv,
 // per design.md section 2.1 item 3.
 //
-// A CallGo whose Results is not GoResultsOne produces a Go
-// multi-value: it may appear only as the Call operand of those
-// consumer nodes, never directly at Let.X or Body.Tail.
+// A GoResultsNone call may appear only at a discarded Let.X. Other
+// shapes besides GoResultsOne require their corresponding multi-result
+// consumer and may not appear directly at Let.X or Body.Tail.
 type CallGo struct {
 	Base
 	Callee   *resolve.Symbol // IsGo: KindFunc, or KindMethod with Recv

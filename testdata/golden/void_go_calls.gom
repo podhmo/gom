@@ -1,0 +1,9 @@
+package effects
+
+import go "runtime"
+
+fn schedule () -> Unit = runtime.Gosched ()
+fn use (u: Unit) -> Unit = u
+fn bound () -> Unit = { let u = runtime.Gosched (); use u }
+fn argument () -> Unit = use (runtime.Gosched ())
+fn branch (b: Bool) -> Unit = if b { runtime.Gosched () } else { () }

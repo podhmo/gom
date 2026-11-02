@@ -185,4 +185,4 @@ Go 相互運用を変えたら両方向（Gom → Go、Go → Gom）のテスト
 - [x] **U-1 実行可能な Gist CLI**: 複数ファイルの新規作成/URL指定更新をGomで実装し、fake HTTP serverへのPOST/PATCHと失敗系をルート`go test ./...`から検証する。API契約と一時的なhost境界は[prototype](docs/sketch/2026-11-03-gist-cli-prototype.md)に記録する。
 - [ ] **[task] Gist CLIが必要とするGo field/interface/byte境界**: `http.Request.Header`、`http.Response.StatusCode`/`Body`の参照、`*strings.Reader`から`io.Reader`への代入、byte I/Oと`Go.Slice String`→`List String`を実装してexample-local adapterを縮小する。最小再現と必要操作は[Gist prototype](docs/sketch/2026-11-03-gist-cli-prototype.md)、関連: P3-2/P3-3。
 
-- [ ] **[bug] 戻り値なしGo呼び出しをUnit関数の末尾に置くと生成Goが不正**: `fn stop () -> Unit = os.Exit 1`は`return os.Exit(tmp1)`を生成し、Goがno value used as valueで拒否する。呼び出し情報で戻り値0個をUnit値の1個と区別し、Core IRで確定して出力する。最小再現は[Gist prototype](docs/sketch/2026-11-03-gist-cli-prototype.md)。
+- [x] **[bug] 戻り値なしGo呼び出しをUnit関数の末尾に置くと生成Goが不正**: `GoResultsNone` と discard 呼び出し後の明示的 Unit 値で、0 戻り値を1戻り値から区別する。末尾・束縛・引数・分岐・関数値と両方向の実行を検証する（[検証](docs/sketch/2026-11-03-void-go-call-verification.md)）。

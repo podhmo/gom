@@ -63,7 +63,7 @@ func (l *Loader) mapSignature(sig *types.Signature) (check.Signature, lower.GoSi
 	switch results.Len() {
 	case 0:
 		ret = gt.Unit
-		shape = core.GoResultsOne
+		shape = core.GoResultsNone
 	case 1:
 		t0 := results.At(0).Type()
 		if isError(t0) {

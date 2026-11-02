@@ -383,7 +383,7 @@ func (l *lowerer) goFuncRefOrAdapter(sp diag.Span, typ types.Type, sym *resolve.
 			Variadic: sig.Variadic,
 			Results:  sig.Results,
 		}
-		x := l.wrapGoResult(call, fs.Ret)
+		x := l.wrapGoResult(bs, call, fs.Ret)
 		if sig.Results == core.GoResultsOne {
 			return l.goPayloadConv(bs, sp, call.Typ, fs.Ret, x)
 		}
@@ -419,6 +419,8 @@ func goBareRefOK(sig GoSig, fs *types.Func) bool {
 func (l *lowerer) goCallTyp(sig GoSig, resTyp types.Type) types.Type {
 	raw := sig.ResTypes
 	switch sig.Results {
+	case core.GoResultsNone:
+		return types.Unit
 	case core.GoResultsErr:
 		if len(raw) > 0 {
 			return raw[0]
@@ -453,13 +455,17 @@ func (l *lowerer) goCallTyp(sig GoSig, resTyp types.Type) types.Type {
 
 // wrapGoResult gives a CallGo its single mandatory consumer when it
 // produces multiple Go values; a one-result call stands on its own.
+// A zero-result call executes in the sequence and yields explicit Unit.
 // resTyp is the Gom-facing type the consumer must produce. When the
 // raw Go result (call.Typ) differs from the Gom-facing payload —
 // `int` vs `int64` — the consumer records the conversion so codegen
 // renders `rt.ResultFromGo[int64](int64(v), err)` and friends.
-func (l *lowerer) wrapGoResult(call *core.CallGo, resTyp types.Type) core.Expr {
+func (l *lowerer) wrapGoResult(s *seq, call *core.CallGo, resTyp types.Type) core.Expr {
 	base := core.Base{Sp: call.Sp, Typ: resTyp}
 	switch call.Results {
+	case core.GoResultsNone:
+		s.emit(l.discardBind(call.Sp, types.Unit), call)
+		return l.litUnit(call.Sp)
 	case core.GoResultsOne:
 		return call
 	case core.GoResultsErr, core.GoResultsErrOnly:
@@ -1010,7 +1016,7 @@ func (l *lowerer) goCall(s *seq, sp diag.Span, resTyp types.Type, ci check.CallI
 				Arity: ci.Arity, Variadic: ci.Variadic,
 				Spread: spread, Results: sig.Results,
 			}
-			x := l.wrapGoResult(call, remTyp.Ret)
+			x := l.wrapGoResult(bs, call, remTyp.Ret)
 			if sig.Results == core.GoResultsOne {
 				return l.goPayloadConv(bs, sp, call.Typ, remTyp.Ret, x)
 			}
@@ -1025,7 +1031,7 @@ func (l *lowerer) goCall(s *seq, sp diag.Span, resTyp types.Type, ci check.CallI
 		Arity: ci.Arity, Variadic: ci.Variadic,
 		Spread: spread, Results: sig.Results,
 	}
-	x := l.wrapGoResult(call, resTyp)
+	x := l.wrapGoResult(s, call, resTyp)
 	if sig.Results == core.GoResultsOne {
 		return l.goPayloadConv(s, sp, call.Typ, resTyp, x)
 	}
@@ -1207,7 +1213,7 @@ func (l *lowerer) applyAtom(s *seq, sp diag.Span, resTyp types.Type, fn core.Ato
 			Arity:   f.Arity,
 			Results: f.Results,
 		}
-		return l.wrapGoResult(call, resTyp)
+		return l.wrapGoResult(s, call, resTyp)
 	case *core.Var, *core.Lit, *core.FieldGet:
 		return l.callFuncChunks(s, sp, fn, args)
 	default:
@@ -1521,7 +1527,7 @@ func (l *lowerer) tryExpr(s *seq, e *check.Try) core.Expr {
 				// an EscapeCall with no target is a second,
 				// redundant violation.
 				l.err(e.Sp, "try escapes with no enclosing function boundary")
-				return l.wrapGoResult(call, ap.Type())
+				return l.wrapGoResult(s, call, ap.Type())
 			}
 			return l.goPayloadConv(s, e.Sp, call.Typ, e.Type(), &core.EscapeCall{
 				Base: core.Base{Sp: e.Sp, Typ: call.Typ},
@@ -1532,7 +1538,7 @@ func (l *lowerer) tryExpr(s *seq, e *check.Try) core.Expr {
 		// the validator will report against the operand's type.
 		return &core.EscapeResult{
 			Base: core.Base{Sp: e.Sp, Typ: e.Type()},
-			X:    l.asAtom(s, e.Sp, l.wrapGoResult(call, ap.Type())),
+			X:    l.asAtom(s, e.Sp, l.wrapGoResult(s, call, ap.Type())),
 			To:   l.curFn(), Wrap: "",
 		}
 	}
@@ -1586,13 +1592,8 @@ func (l *lowerer) pipePayload(s *seq, e *check.Binary) core.Atom {
 				Base: core.Base{Sp: e.X.Span(), Typ: call.Typ}, Call: call, To: fn,
 			})
 			in = l.convAtomTo(s, e.X.Span(), in, l.payloadOf(ap.Type()))
-		} else if call.Results == core.GoResultsOne && l.isUnitCon(ap.Type()) {
-			// A zero-result Go call is a statement. Its Gom Unit payload
-			// is explicit; assigning the call itself is invalid Go.
-			s.emit(l.discardBind(e.X.Span(), call.Type()), call)
-			in = l.litUnit(e.X.Span())
 		} else {
-			x := l.wrapGoResult(call, ap.Type())
+			x := l.wrapGoResult(s, call, ap.Type())
 			// A single Go value retains its raw Go type (notably int).
 			// Multi-result consumers already carry their element conversions.
 			if call.Results == core.GoResultsOne {

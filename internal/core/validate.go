@@ -591,6 +591,10 @@ func (v *validator) body(b *Body, inTail bool) {
 		}
 		if l.X == nil {
 			v.err(l.Sp, "Let", "binding has nil expression")
+		} else if call, ok := l.X.(*CallGo); ok && call.Results == GoResultsNone &&
+			l.Name != nil && l.Name.Discard {
+			v.base(call, call.BaseOf())
+			v.callGo(call)
 		} else {
 			v.expr(l.X, false)
 		}
@@ -808,7 +812,9 @@ func (v *validator) expr(e Expr, inTail bool) {
 		v.atoms(e.Args, "CallFunc.Args")
 	case *CallGo:
 		v.callGo(e)
-		if e.Results != GoResultsOne {
+		if e.Results == GoResultsNone {
+			v.err(e.Sp, "CallGo", "zero-result Go call must be a discarded binding")
+		} else if e.Results != GoResultsOne {
 			v.err(e.Sp, "CallGo", "multi-result Go call (%s) must be wrapped by ResultFromGo/OptionFromGo/TupleFromGo/EscapeCall",
 				e.Results)
 		}
@@ -1040,6 +1046,10 @@ func (v *validator) callGo(c *CallGo) {
 		v.err(c.Sp, "CallGo", "spread call requires a variadic callee with a splice argument")
 	}
 	switch c.Results {
+	case GoResultsNone:
+		if !v.conIs(c.Type(), "", "Unit", 0) {
+			v.err(c.Sp, "CallGo", "zero-result Go call must have Unit type")
+		}
 	case GoResultsOne, GoResultsErr, GoResultsErrOnly, GoResultsOK, GoResultsPair:
 	default:
 		v.err(c.Sp, "CallGo", "invalid result shape %d", int(c.Results))

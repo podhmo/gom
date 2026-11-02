@@ -83,9 +83,10 @@
   `any` / `comparable` 制約なら呼べるとするが、loader はすべて非公開にする。
   参照: [spec](spec.md#83-型の対応)、[詳細](problems/2026-11-04-generic-go-fns-hidden.md)。
 
-- [ ] **戻り値なしの Go 呼び出しを関数末尾に置けない**: Unit として型検査を通る
+- [x] **戻り値なしの Go 呼び出しを関数末尾に置けない**: Unit として型検査を通る
   `fn stop () -> Unit = os.Exit 1` が `return os.Exit(...)` を生成し Go でコンパイルできない。
-  参照: [Gist probe](sketch/2026-11-03-gist-cli-prototype.md)、[TODO](../TODO.md)。
+  対応: Core の `GoResultsNone` と discard → Unit 正規化で区別し、各値位置・副作用順を検証。
+  参照: [Gist probe](sketch/2026-11-03-gist-cli-prototype.md)、[検証と独立レビュー](sketch/2026-11-03-void-go-call-verification.md)。
 
 - [ ] **Go の引数なし関数は値にすると呼べない**: spec は Go 関数を値として公開するが、
   `let f = e.Error; f ()` は直接の `e.Error ()` と異なり E0401 になる。

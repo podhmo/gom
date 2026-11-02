@@ -337,3 +337,17 @@ func TestLoadRefusesGomPackages(t *testing.T) {
 		t.Error("Load(strconv, goPkg=false) must fail")
 	}
 }
+
+// A zero-result function is distinct from one-result Unit-like Go values.
+func TestZeroResultShape(t *testing.T) {
+	l := loaderFor(t)
+	runtime := membersOf(t, l, "runtime")
+	sig, ok := l.GoSigOf(runtime.Members["Gosched"])
+	if !ok || sig.Results != core.GoResultsNone || len(sig.ResTypes) != 0 {
+		t.Fatalf("Gosched signature = %+v, %v", sig, ok)
+	}
+	fixture := membersOf(t, l, "github.com/podhmo/gom/testdata/voidhost")
+	if reason := fixture.Members["UnitValue"].Hidden; reason == "" {
+		t.Fatal("anonymous struct result should remain unsupported, not become void")
+	}
+}

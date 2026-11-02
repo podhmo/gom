@@ -88,7 +88,7 @@ Go コード生成器に言語の意味を判断させない。次のことは C
 
 1. **評価順序**: 部分式はすべて、評価順に並んだ束縛（ANF）になっている。ラベル付き引数の並べ替え、`_` プレースホルダ、`select` の腕の式、パイプの展開はすべてここで順序付きの束縛に変換済み
 2. **関数の arity と呼び出し規約**: 各呼び出しは「既知の関数への飽和呼び出し」「部分適用（生成するクロージャを明示）」「未知の関数値への残り arity の呼び出し」「Go 関数の呼び出し」のどれかに分類済み
-3. **Go 相互運用の変換**: `(T, error)` から `Result` への変換、数値変換、`any` へのボックス化、スライスのコピー、interface への代入はすべて明示的なノード
+3. **Go 相互運用の変換**: `(T, error)` から `Result` への変換、数値変換、`any` へのボックス化、スライスのコピー、interface への代入はすべて明示的なノード 0 戻り値の Go 呼び出しは `GoResultsNone` の discard 文と明示的 Unit 値に lower し、1 戻り値とは区別する（[decision](decisions/2026-11-03-void-go-call-results.md)）。
 4. **match は決定木**: パターンは残っていない。ADT の不正値に対する panic の分岐も明示
 5. **脱出**: `try` は利用者の最内関数境界、`|?>` は lower が作るパイプ式だけの局所境界を明示した脱出ノード（明示的 `try` を含むパイプは決定木として利用者の境界を保存する）
 6. **型の具体化**: 多相な定義と、実行時の関数値を区別する。多相な定義を値として使う箇所では型引数が具体化済みで、必要なラッパーも確定済み（関数値の表現は [decisions/function-value-representation](decisions/2026-11-02-function-value-representation.md)、多相定義との区別は [decisions/function-representation](decisions/2026-11-01-function-representation.md)）

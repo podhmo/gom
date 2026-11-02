@@ -392,11 +392,15 @@ func flatArity(t types.Type) int {
 // its result type — the contract gaps the Env.GoSig hook overrides:
 // Result Unit GoError is read as GoResultsErrOnly, Option as a
 // comma-ok (T, bool), a 2-tuple as a two-result call, everything else
-// as a single result. Only the *builtin* Result/Option read this way —
+// as a single result, except builtin Unit which denotes zero results.
+// Only the *builtin* Result/Option read this way —
 // a file-local `type Result` is one result like any other value.
 func (l *lowerer) goResultsOf(t types.Type) core.GoResults {
 	if c, ok := types.Chase(t).(*types.Func); ok {
 		t = c.Ret
+	}
+	if l.isUnitCon(t) {
+		return core.GoResultsNone
 	}
 	c, ok := types.Chase(t).(*types.Con)
 	if !ok {

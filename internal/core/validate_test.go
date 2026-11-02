@@ -1159,3 +1159,40 @@ func TestViolationImplementsError(t *testing.T) {
 		t.Error("empty error string")
 	}
 }
+
+func TestZeroResultCallPositions(t *testing.T) {
+	makeCall := func(typ types.Type) *CallGo {
+		return &CallGo{Base: Base{Sp: sp(), Typ: typ}, Callee: &resolve.Symbol{
+			Name: "Effect", Kind: resolve.KindFunc, IsGo: true, Package: "example",
+		}, Results: GoResultsNone}
+	}
+	discard := func(typ types.Type) *Bind { return &Bind{Sp: sp(), Typ: typ, Discard: true} }
+	bound, _ := vbind("value", types.Unit)
+	tests := []struct {
+		name string
+		body *Body
+		want string
+	}{
+		{"discard", &Body{Lets: []*Let{{Sp: sp(), Name: discard(types.Unit), X: makeCall(types.Unit)}}, Tail: unitLit()}, ""},
+		{"tail", &Body{Tail: makeCall(types.Unit)}, "must be a discarded binding"},
+		{"bound", &Body{Lets: []*Let{{Sp: sp(), Name: bound, X: makeCall(types.Unit)}}, Tail: unitLit()}, "must be a discarded binding"},
+		{"wrong type", &Body{Lets: []*Let{{Sp: sp(), Name: discard(types.Int), X: makeCall(types.Int)}}, Tail: unitLit()}, "must have Unit type"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			errs := Validate(fnFile(types.Unit, tc.body))
+			if tc.want == "" {
+				if len(errs) != 0 {
+					t.Fatalf("unexpected errors: %v", errs)
+				}
+				return
+			}
+			for _, err := range errs {
+				if strings.Contains(err.Error(), tc.want) {
+					return
+				}
+			}
+			t.Fatalf("errors %v do not contain %q", errs, tc.want)
+		})
+	}
+}
