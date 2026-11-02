@@ -13,17 +13,38 @@ import (
 	"github.com/podhmo/gom/internal/treedump"
 )
 
-var (
-	spanRe       = regexp.MustCompile(`@[0-9]+:[0-9]+`)
-	triviaFormRe = regexp.MustCompile(`\((comment|blank)( [^()]*)?\)`)
-)
+var spanRe = regexp.MustCompile(`@[0-9]+:[0-9]+`)
 
-// parseNorm dumps src's surface tree with spans stripped and
-// comment/blank trivia removed — the "same syntax tree" half of
-// spec 1.7's fmt guarantee. Trivia forms nested on a line with real
-// forms are removed as substrings so enclosing closers survive.
+// parseNorm renders src's syntax tree for the "same syntax tree"
+// half of spec 1.7's fmt guarantee; it fatals when src does not
+// parse. normSyntax is the non-fatal half, for callers inside a
+// sandbox where t.Fatalf would lose the DONE marker.
 func parseNorm(t *testing.T, src []byte, file string, iface bool) string {
 	t.Helper()
+	norm, diags := normSyntax(src, file, iface)
+	if diags.HasError() {
+		t.Fatalf("%s does not parse: %v", file, diags)
+	}
+	return norm
+}
+
+// normSyntax dumps src's surface tree with spans stripped — the
+// parse(fmt(x)) == parse(x) invariant — and returns the diagnostics
+// so a caller can skip unparseable input instead of failing.
+//
+// The compare is structural, so the dump's own layout choices must
+// not leak in: a form renders flat only under the one-block-child
+// rule, and comment/blank trivia count as children — trivia the
+// formatter ADDS (the canonical blank line between package clause
+// and first decl, the gaps around a decl it re-anchors a comment
+// into) would flip file-level flatness and fabricate a diff. The
+// formatter also hoists and sorts imports (spec 1.7), so an import
+// line's position relative to other decls is not invariant either.
+// Dumping each decl as a single-decl File removes both leaks: no
+// trivia ever enters the dump (attached Doc comments stay — they
+// are part of the tree), and import decls join the stream as a
+// sorted set ahead of the others, which keep their source order.
+func normSyntax(src []byte, file string, iface bool) (string, diag.List) {
 	var f *syntax.File
 	var diags diag.List
 	if iface {
@@ -32,41 +53,21 @@ func parseNorm(t *testing.T, src []byte, file string, iface bool) string {
 		f, diags = syntax.Parse(src, file)
 	}
 	if diags.HasError() {
-		t.Fatalf("%s does not parse: %v", file, diags)
+		return "", diags
 	}
-	dump := spanRe.ReplaceAllString(treedump.DumpSyntax(f), "")
-	dump = triviaFormRe.ReplaceAllString(dump, "")
-	// Trivia removal leaves whitespace-only lines where items sat;
-	// drop them so the comparison is purely structural.
-	var keep []string
-	for _, ln := range strings.Split(dump, "\n") {
-		trim := strings.TrimSpace(ln)
-		if trim == "" {
-			continue
-		}
-		// A line holding only closers is a removed-trivia line's
-		// residue — fold it into the previous line.
-		if strings.Trim(trim, ")") == "" && len(keep) > 0 {
-			keep[len(keep)-1] += trim
-			continue
-		}
-		keep = append(keep, ln)
-	}
-	// The formatter sorts and merges imports (spec 1.7); compare their
-	// sets, not their order.
-	var impIdx []int
-	var imps []string
-	for i, ln := range keep {
-		if strings.HasPrefix(strings.TrimSpace(ln), "(import ") {
-			impIdx = append(impIdx, i)
-			imps = append(imps, ln)
+	var imps, rest []string
+	for _, d := range f.Decls {
+		dump := spanRe.ReplaceAllString(treedump.DumpSyntax(
+			&syntax.File{Package: f.Package, Decls: []syntax.Decl{d}}), "")
+		if _, isImport := d.(*syntax.ImportDecl); isImport {
+			imps = append(imps, dump)
+		} else {
+			rest = append(rest, dump)
 		}
 	}
 	sort.Strings(imps)
-	for i, idx := range impIdx {
-		keep[idx] = imps[i]
-	}
-	return strings.Join(keep, "\n")
+	return "package " + f.PackageName() + "\n" +
+		strings.Join(imps, "") + strings.Join(rest, ""), diags
 }
 
 // fmt is a debugging aid: GOMFMT=<file> go test -run=File -v dumps

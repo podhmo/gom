@@ -31,7 +31,7 @@ vet:
 test:
 	$(GO) test -race ./...
 
-# Bounded fuzz run for the two compiler fuzz targets
+# Bounded fuzz run for the compiler fuzz targets
 # (docs/decisions/2026-11-02-fuzz-strategy.md). NOT part of `check`:
 # the targets suppress only bugs already registered in knownBugs —
 # a run that surfaces a NEW bug class is a finding to file in
@@ -58,6 +58,9 @@ check-fuzz:
 	$(GO) clean -fuzzcache
 	GOMEMLIMIT=2GiB $(GO) test ./internal/syntax -run='^$$' -fuzz=FuzzParse -fuzztime=$(FUZZTIME) -parallel=$(FUZZPARALLEL)
 	GOMEMLIMIT=2GiB $(GO) test ./internal/build -run='^$$' -fuzz=FuzzCompile -fuzztime=$(FUZZTIME) -parallel=$(FUZZPARALLEL)
+	# -fuzz=FuzzFormat matches FuzzFormat and FuzzFormatGen; each
+	# gets its own FUZZTIME window.
+	GOMEMLIMIT=2GiB $(GO) test ./internal/format -run='^$$' -fuzz=FuzzFormat -fuzztime=$(FUZZTIME) -parallel=$(FUZZPARALLEL)
 
 # go-check-sumtype verifies type-switch exhaustiveness on the sealed
 # interfaces annotated with //sumtype:decl (docs/design.md section 2.4).
