@@ -1529,6 +1529,80 @@ func TestProgram(t *testing.T) {
 	})
 }
 
+// divergingFile is `fn f (x: Int) -> Int = f x` applied from main —
+// unbounded recursion with no base case. Before the call-depth
+// budget existed this died on the ~1 GB goroutine stack ceiling
+// (~350K nested calls), an unrecoverable kill that no diagnostic
+// survives.
+func divergingFile() *check.File {
+	fSym := sym("f", resolve.KindFunc)
+	xP, xS := vpat("x", types.Int)
+	sig := types.Fn(types.Int, types.P(types.Int))
+	f := &check.FnDecl{Sp: sp, Sym: fSym, Sig: sig,
+		Params: []check.Param{{Pat: xP}},
+		Body:   directCall(types.Int, fSym, sig, vr(xS, types.Int))}
+	uP, _ := vpat("u", types.Unit)
+	rP, rS := vpat("r", types.Int)
+	mainSym := sym("main", resolve.KindFunc)
+	mainD := &check.FnDecl{Sp: sp, Sym: mainSym,
+		Sig:    types.Fn(types.Int, types.P(types.Unit)),
+		Params: []check.Param{{Pat: uP}},
+		Body: block(types.Int,
+			let(rP, directCall(types.Int, fSym, sig, intLit(0))),
+			vr(rS, types.Int))}
+	return &check.File{Sp: sp, Decls: []check.Decl{f, mainD}}
+}
+
+func TestCallDepthBudget(t *testing.T) {
+	t.Run("unbounded recursion trips E9006 by default", func(t *testing.T) {
+		// The verdict must be an ordinary diagnostic — not a dead
+		// test binary.
+		r := eval.Program(divergingFile())
+		if r.OK() {
+			t.Fatalf("diverging program returned %s", r.Value)
+		}
+		if r.Diags[0].Code != eval.CodeBudget {
+			t.Fatalf("code = %s, want %s", r.Diags[0].Code, eval.CodeBudget)
+		}
+	})
+
+	t.Run("SetMaxDepth tunes the bound", func(t *testing.T) {
+		ev := eval.New(divergingFile())
+		ev.SetMaxDepth(64)
+		r := ev.Run()
+		if r.OK() || r.Diags[0].Code != eval.CodeBudget {
+			t.Fatalf("got value=%v diags=%v, want E9006", r.Value, r.Diags)
+		}
+	})
+
+	t.Run("recursion under the budget still evaluates", func(t *testing.T) {
+		// A self-recursive fn that terminates well inside the
+		// default depth budget must keep working — the budget only
+		// guards runaway depth.
+		fSym := sym("count", resolve.KindFunc)
+		nP, nS := vpat("n", types.Int)
+		sig := types.Fn(types.Int, types.P(types.Int))
+		count := &check.FnDecl{Sp: sp, Sym: fSym, Sig: sig,
+			Params: []check.Param{{Pat: nP}},
+			Body: &check.If{Base: b(types.Int),
+				Cond: bin(syntax.BinLe, types.Bool, vr(nS, types.Int), intLit(0)),
+				Then: intLit(0),
+				Else: bin(syntax.BinAdd, types.Int, intLit(1),
+					directCall(types.Int, fSym, sig,
+						bin(syntax.BinSub, types.Int, vr(nS, types.Int), intLit(1))))}}
+		uP, _ := vpat("u", types.Unit)
+		mainSym := sym("main", resolve.KindFunc)
+		mainD := &check.FnDecl{Sp: sp, Sym: mainSym,
+			Sig:    types.Fn(types.Int, types.P(types.Unit)),
+			Params: []check.Param{{Pat: uP}},
+			Body:   directCall(types.Int, fSym, sig, intLit(500))}
+		r := eval.Program(&check.File{Sp: sp, Decls: []check.Decl{count, mainD}})
+		if !r.OK() || r.Value.String() != "500" {
+			t.Fatalf("got %v diags=%v", r.Value, r.Diags)
+		}
+	})
+}
+
 // --- error paths ---
 
 func TestErrorPaths(t *testing.T) {

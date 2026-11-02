@@ -59,9 +59,9 @@ func (c *checker) reclassifyCalls(sym *resolve.Symbol, arity int, rhs Expr) {
 			panic(fmt.Sprintf("check: reclassified CallInfo for %s: %v", sym.Name, err))
 		}
 	}
-	walkExpr(rhs, fix)
+	WalkExpr(rhs, fix)
 	for _, d := range c.decls {
-		walkDecl(d, fix)
+		WalkDecl(d, fix)
 	}
 }
 
@@ -89,118 +89,5 @@ func calleeSymOf(e Expr) *resolve.Symbol {
 		default:
 			panic("unreachable")
 		}
-	}
-}
-
-// walkDecl calls fn on every expression inside a typed declaration
-// body — the places an already-checked use site can live.
-func walkDecl(d Decl, fn func(Expr)) {
-	switch d := d.(type) {
-	case *FnDecl:
-		walkExpr(d.Body, fn)
-	case *LetDecl:
-		walkExpr(d.Value, fn)
-	case *TestDecl:
-		walkExpr(d.Body, fn)
-	case *TypeDecl:
-		// Type declarations carry no value-level expressions.
-	default:
-		panic("unreachable")
-	}
-}
-
-// walkExpr calls fn on e and every expression nested inside it.
-// Patterns carry no expressions, so they are not descended into.
-func walkExpr(e Expr, fn func(Expr)) {
-	if e == nil {
-		return
-	}
-	fn(e)
-	switch e := e.(type) {
-	case *Lit, *Var, *Hole:
-	case *Apply:
-		walkExpr(e.Fn, fn)
-		for _, a := range e.Args {
-			walkExpr(a.Value, fn)
-		}
-	case *MemberExpr:
-		walkExpr(e.Recv, fn)
-	case *Unary:
-		walkExpr(e.X, fn)
-	case *Binary:
-		walkExpr(e.X, fn)
-		walkExpr(e.Y, fn)
-	case *StrInterp:
-		for _, p := range e.Parts {
-			switch p := p.(type) {
-			case *StrExpr:
-				walkExpr(p.X, fn)
-			case *StrText:
-			default:
-				panic("unreachable")
-			}
-		}
-	case *Lambda:
-		walkExpr(e.Body, fn)
-	case *If:
-		walkExpr(e.Cond, fn)
-		walkExpr(e.Then, fn)
-		walkExpr(e.Else, fn)
-	case *Match:
-		walkExpr(e.Subj, fn)
-		for _, a := range e.Arms {
-			walkExpr(a.Guard, fn)
-			walkExpr(a.Body, fn)
-		}
-	case *Block:
-		for _, s := range e.Stmts {
-			walkExpr(s, fn)
-		}
-	case *Let:
-		walkExpr(e.Value, fn)
-	case *Ignore:
-		walkExpr(e.X, fn)
-	case *Try:
-		walkExpr(e.X, fn)
-	case *GoExpr:
-		walkExpr(e.Body, fn)
-	case *For:
-		walkExpr(e.Iter, fn)
-		walkExpr(e.Body, fn)
-	case *SelectExpr:
-		for _, a := range e.Arms {
-			switch a := a.(type) {
-			case *RecvArm:
-				walkExpr(a.Chan, fn)
-				walkExpr(a.Body, fn)
-			case *SendArm:
-				walkExpr(a.Chan, fn)
-				walkExpr(a.Value, fn)
-				walkExpr(a.Body, fn)
-			case *DefaultArm:
-				walkExpr(a.Body, fn)
-			default:
-				panic("unreachable")
-			}
-		}
-	case *ListLit:
-		for _, el := range e.Elems {
-			walkExpr(el, fn)
-		}
-	case *TupleLit:
-		for _, el := range e.Elems {
-			walkExpr(el, fn)
-		}
-	case *Spread:
-		walkExpr(e.X, fn)
-	case *RecordLit:
-		walkExpr(e.With, fn)
-		for _, f := range e.Fields {
-			walkExpr(f.Value, fn)
-		}
-	case *Ascribe:
-		walkExpr(e.X, fn)
-	default:
-		panic("unreachable")
 	}
 }

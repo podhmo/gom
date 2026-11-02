@@ -85,6 +85,43 @@ var knownCompileBugs = map[[32]byte]fuzzutil.KnownBug{
 	// variant, a function type, or a reference-shaped builtin stays
 	// legal. The corpus file now reports the diagnostic instead of
 	// emitting an invalid Go struct. Found by the gomgen canary.)
+	// `match (Some 1)` — a scrutinee that is itself a constructor
+	// application lowers to `tmp := Option_Some[T]{...}` (concrete
+	// struct type via :=), and the emitted type switch on it is
+	// "not an interface". The scrutinee's static type is the
+	// variant interface; the binding should be declared with it.
+	// Found by the deterministic diff seeds (V-3), several times.
+	// The signature must match at either typecheck gate — the
+	// sandbox's gc importer and the real `go build`; both failure
+	// texts embed the generated source, so the ".(type)"
+	// discriminator resolves at each.
+	fuzzutil.Sum256([]byte("package m\n\nfn f () -> Int = match (Some 1) {\n  Some x -> x\n  None -> 0\n}\n")): {
+		// ".(type)" keeps the signature honest: `go build` reports
+		// the same "is not an interface" substring for an invalid
+		// type ASSERTION (`s.(I)`), so the error text alone would
+		// swallow a bad-assertion codegen bug. The discriminator
+		// survives because both reporting paths embed the generated
+		// source in the failure text — only a file whose codegen
+		// actually emitted a type switch carries it.
+		Match: []string{"is not an interface", ".(type)"},
+		TODO:  "対象式がコンストラクタ適用だと生成 Go の type switch が concrete struct で壊れる",
+		Desc:  "match on a ctor-application scrutinee emits a type switch over a concrete struct",
+	},
+	// `fmt.Println (match ...)` / `fmt.Println (if ...)` — a
+	// branching expression nested directly in a variadic `...any`
+	// Go-call argument position gets its node type unified to
+	// Go.Any (instead of inferring String/etc and letting it
+	// subtype), and lower's invariants then reject their own IR:
+	// "case body type String differs from switch type Go.Any"
+	// (DCase), "node type Go.Any differs from branch type String"
+	// (If), "body type ... differs from node type Go.Any" (DLeaf).
+	// Through a `let` binding or a concrete-typed parameter it
+	// compiles fine. Found by the deterministic diff seeds (V-3).
+	fuzzutil.Sum256([]byte("package main\nimport go \"fmt\"\n\nfn f () -> Unit = ignore (fmt.Println (match true { true -> \"a\"; false -> \"b\" }))\n")): {
+		Match: []string{"E0901", "differs from", "Go.Any"},
+		TODO:  "if/match が Go 可変長 `...any` 引数位置に直接ネストされるとノード型が Go.Any に unify され E0901",
+		Desc:  "if/match in a ...any variadic argument position unifies the node type to Go.Any → E0901",
+	},
 }
 
 // fuzzGoPkgs bounds which `import go` paths the loader will resolve

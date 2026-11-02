@@ -36,7 +36,8 @@
 // evaluator reserves the E90xx range (see errors.go): E9001
 // unsupported construct, E9002 match failure, E9003 Gom panic (todo,
 // assertion, invalid variant, division by zero), E9004 evaluator or
-// compiler invariant violation, E9005 test failure. The codes are
+// compiler invariant violation, E9005 test failure, E9006 resource
+// budget exhausted (step or call-depth bound). The codes are
 // registered in internal/diag/codes.go under the E90xx "Evaluation"
 // category with phase eval.
 //

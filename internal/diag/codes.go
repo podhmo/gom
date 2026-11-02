@@ -861,6 +861,23 @@ name ("test") and the rendered result ("value").`,
   ()
 }`,
 	},
+	{
+		Code:     "E9006",
+		Severity: SeverityError,
+		Title:    "evaluation resource budget exhausted",
+		Phase:    PhaseEval,
+		Explanation: `The evaluator stopped because it crossed a resource budget:
+it reduced more expression nodes than the step budget set with
+eval.SetMaxSteps, or it nested more function calls than the
+call-depth budget (eval.SetMaxDepth, default 50000). The budgets
+are a harness device (the eval-vs-compiled differential test): a
+tree-walking interpreter cannot be timed out from outside, so a
+diverging program — unbounded recursion, a very long loop — is
+cut off structurally instead of growing the Go stack without
+limit; the depth bound additionally keeps the fatal goroutine
+stack ceiling unreachable. It does not mean the program is wrong,
+only that it did not finish within the bound.`,
+	},
 
 	{
 		Code:     "W0701",

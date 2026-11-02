@@ -386,10 +386,26 @@ func (g *Gen) expandTypedRef(name string) bool {
 	case "type-decl":
 		g.typedTypeDecl()
 	case "test-decl":
+		// The deterministic subset has no tests — the evaluator
+		// runs test blocks but `gom build` drops them, so the
+		// asymmetry would fabricate divergences. Substitute an
+		// ordinary let; test-decl is unreachable in mechanical
+		// mode (altWeight 0), so this only fires under Typed.
+		if g.opts.Deterministic {
+			g.typedLetDecl()
+			return true
+		}
 		g.typedTestDecl()
 	case "import-decl":
 		g.typedImportDecl()
 	case "extern-decl":
+		// An extern item invents a Go signature the real package
+		// need not provide — the generated call may fail to build
+		// for user-level reasons, which is not a diff case.
+		if g.opts.Deterministic {
+			g.typedLetDecl()
+			return true
+		}
 		g.typedExternDecl()
 	case "expr":
 		// Reached inside string interpolation and any mechanical

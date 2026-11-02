@@ -30,6 +30,12 @@ const (
 	// CodeTestFail marks a `test` declaration that returned an Err
 	// result (spec section 11).
 	CodeTestFail = diag.Code("E9005")
+	// CodeBudget marks an evaluation stopped by a resource budget —
+	// the step budget (Evaluator.SetMaxSteps) or the call-depth
+	// budget (Evaluator.SetMaxDepth, default defaultMaxDepth). It is
+	// the harness's divergence class for "did not terminate", the
+	// eval-side analogue of the compiled side's wall-clock timeout.
+	CodeBudget = diag.Code("E9006")
 )
 
 // failData panics with a runtime failure carrying one diagnostic with

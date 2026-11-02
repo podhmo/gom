@@ -23,9 +23,34 @@ type Result struct {
 // OK reports whether the evaluation produced a value without errors.
 func (r Result) OK() bool { return r.Value != nil && !diag.List(r.Diags).HasError() }
 
+// defaultMaxDepth is the built-in call-depth bound: eval recursion
+// is Go-stack recursion, and the goroutine stack ceiling (~1 GB) is
+// a fatal, unrecoverable death — `f x = f x` reaches it around
+// ~300K nested calls, well before a throughput-sized step budget
+// would trip. 50K frames stays an order of magnitude below the
+// measured ceiling while leaving generous headroom for legitimate
+// recursion (stdlib list ops are Go-side and do not consume this
+// budget at all). Evaluator.SetMaxDepth overrides it.
+const defaultMaxDepth = 50_000
+
 // interp carries one evaluation's mutable state.
 type interp struct {
 	ctx *ctx
+	// steps/maxSteps implement the evaluator's fuel budget
+	// (Evaluator.SetMaxSteps): every expression node evaluated costs
+	// one step, so a diverging program — unbounded recursion, a long
+	// for loop — is cut off with a diagnostic instead of growing the
+	// Go stack without limit. 0 means unlimited, the default.
+	steps    int64
+	maxSteps int64
+	// depth/maxDepth bound nested function calls — the other half of
+	// the resource story. A step budget alone cannot catch unbounded
+	// recursion early enough: the Go stack dies first. Each
+	// saturated invoke counts one frame against maxDepth; crossing
+	// it reports the same E9006 class as fuel exhaustion.
+	// defaultMaxDepth applies when unset; <= 0 means unlimited.
+	depth    int64
+	maxDepth int64
 }
 
 // letInit is the lazy initializer of one top-level `let`
@@ -60,7 +85,7 @@ type Evaluator struct {
 // LetDecl values are not evaluated until Run.
 func New(f *check.File) *Evaluator {
 	env := NewEnv()
-	ev := &Evaluator{env: env, file: f, interp: &interp{ctx: env.ctx}}
+	ev := &Evaluator{env: env, file: f, interp: &interp{ctx: env.ctx, maxDepth: defaultMaxDepth}}
 	if f == nil {
 		return ev
 	}
@@ -100,6 +125,25 @@ func New(f *check.File) *Evaluator {
 // Env returns the evaluator's global environment — bind host
 // functions and stub module members here before Run or Expr.
 func (e *Evaluator) Env() *Env { return e.env }
+
+// SetMaxSteps bounds how many expression nodes one evaluation may
+// reduce before it stops with an E9006 diagnostic — the fuel budget
+// the differential harness uses to keep generated programs from
+// running forever (a compiled binary gets a wall-clock timeout; a
+// tree-walking evaluator needs a structural bound instead, since a
+// leaked goroutine cannot be killed). n <= 0 restores the default,
+// unlimited.
+func (e *Evaluator) SetMaxSteps(n int64) { e.interp.maxSteps = n }
+
+// SetMaxDepth bounds how deeply function calls may nest before the
+// evaluation stops with an E9006 diagnostic — the depth analogue of
+// SetMaxSteps. Eval recursion is Go-stack recursion, so an
+// unbounded recursive program hits the fatal goroutine stack
+// ceiling long before a step budget sized for throughput trips;
+// every Evaluator starts at defaultMaxDepth so that death is
+// unreachable. n <= 0 removes the bound — only for callers that can
+// prove the program terminates.
+func (e *Evaluator) SetMaxDepth(n int64) { e.interp.maxDepth = n }
 
 // Global returns the value bound to the top-level symbol named name,
 // or nil.
@@ -188,7 +232,7 @@ func Expr(env *Env, x check.Expr) Result {
 	if env == nil {
 		env = NewEnv()
 	}
-	it := &interp{ctx: env.ctx}
+	it := &interp{ctx: env.ctx, maxDepth: defaultMaxDepth}
 	v, ds := runEval(func() Value { return it.eval(x, env) })
 	return Result{Value: v, Diags: ds}
 }
@@ -278,6 +322,13 @@ func resultTag(v Value) (isResult, isOk bool) {
 // --- expression dispatch ---
 
 func (e *interp) eval(x check.Expr, env *Env) Value {
+	if e.maxSteps > 0 {
+		e.steps++
+		if e.steps > e.maxSteps {
+			failData(CodeBudget, "evaluation step budget exhausted", x.Span(),
+				"budget", e.maxSteps)
+		}
+	}
 	switch x := x.(type) {
 	case *check.Lit:
 		return litValue(x.Kind, x.Text, x.Span())

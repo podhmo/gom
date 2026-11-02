@@ -71,7 +71,6 @@ func (g *Gen) exprOf(want *gty, d int) {
 	if want.kind == tUnit {
 		menu = append(menu,
 			choice{3, func() { g.forOf(d) }},
-			choice{1, func() { g.goExprOf(d) }},
 			// `ignore e` discards any value (spec 1.1 item 2).
 			choice{2, func() {
 				g.emit("ignore")
@@ -80,10 +79,24 @@ func (g *Gen) exprOf(want *gty, d int) {
 				g.emit(")")
 			}},
 		)
+		if !g.opts.Deterministic {
+			menu = append(menu, choice{1, func() { g.goExprOf(d) }})
+		}
 		if g.imports["fmt"] {
 			menu = append(menu, choice{3, func() {
+				// fmt.Println returns a Result, not Unit — under
+				// the deterministic subset the call is wrapped in
+				// `ignore` so it still prints but the Unit slot
+				// typechecks.
+				if g.opts.Deterministic {
+					g.emit("ignore")
+					g.emit("(")
+				}
 				g.emitFrag("fmt.Println")
 				g.tupleCallOf([]*gty{g.pickType(0)}, d-1)
+				if g.opts.Deterministic {
+					g.emit(")")
+				}
 			}})
 		}
 	}
@@ -101,7 +114,7 @@ func (g *Gen) exprOf(want *gty, d int) {
 			g.emit(")")
 		}})
 	}
-	if g.rng.Float64() < 0.06 {
+	if !g.opts.Deterministic && g.rng.Float64() < 0.06 {
 		menu = append(menu, choice{1, func() {
 			g.selectOf(want, d)
 		}})
@@ -495,8 +508,18 @@ func (g *Gen) unitItemOf(d int) {
 		g.forOf(d - 1)
 	case 2:
 		if g.imports["fmt"] {
+			// Same Result-vs-Unit wrap as the tUnit menu choice:
+			// the print stays observable, the block item stays
+			// Unit-typed.
+			if g.opts.Deterministic {
+				g.emit("ignore")
+				g.emit("(")
+			}
 			g.emitFrag("fmt.Println")
 			g.tupleCallOf([]*gty{g.pickType(0)}, d-1)
+			if g.opts.Deterministic {
+				g.emit(")")
+			}
 			return
 		}
 		g.emit("()")

@@ -43,6 +43,7 @@ func builtinByName(name string, typ types.Type) *VFunc {
 			return &VUnit{}, nil
 		}
 	case "not":
+		// `not x` is the Bool negation codegen emits as `!x`.
 		arity = 1
 		impl = func(args []Value) (Value, error) {
 			b, ok := args[0].(*VBool)

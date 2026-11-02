@@ -88,6 +88,12 @@ var builtinTypes = []string{
 // resolve mostly does, and what remains is the deliberate
 // unbound-name near-miss.
 func (g *Gen) genIdent() {
+	// The deterministic subset is meant to be built and run, so its
+	// package is always "main" — `go run` needs it.
+	if g.opts.Deterministic && g.curRule == "package-decl" {
+		g.emit("main")
+		return
+	}
 	if g.defKind != 0 {
 		// A definition site: record the name, keep fn names and
 		// import aliases unique so redefinitions are not the
@@ -102,6 +108,7 @@ func (g *Gen) genIdent() {
 			name = g.freshAlias()
 			g.importSet[name] = true
 			g.importMod = append(g.importMod, name)
+			g.importAliased = true
 		case defQual:
 			// A qualifier names a module, not a variable —
 			// a bound import mostly resolves.
@@ -339,6 +346,14 @@ var goImportPaths = []string{
 	"sort", "strconv", "strings", "time", "unicode/utf8",
 }
 
+// deterministicImportPaths is goImportPaths minus the packages whose
+// members read the environment, the clock or process state — the
+// diff subset must be reproducible run to run.
+var deterministicImportPaths = []string{
+	"bytes", "errors", "fmt", "math", "slices",
+	"sort", "strconv", "strings", "unicode/utf8",
+}
+
 // genString emits a string literal. Most are plain text; some embed
 // "${expr}" interpolation — the interpolation's own expansion goes
 // through the grammar's expr rule, staying grammar-driven. Inside
@@ -350,8 +365,18 @@ func (g *Gen) genString() {
 	// paths and record the bound module name (the basename, when
 	// there is no alias) so qualified references can resolve.
 	if g.curRule == "import-decl" {
-		path := goImportPaths[g.rng.IntN(len(goImportPaths))]
+		paths := goImportPaths
+		if g.opts.Deterministic {
+			paths = deterministicImportPaths
+		}
+		path := paths[g.rng.IntN(len(paths))]
 		g.emitRaw(path + "\"")
+		if g.importAliased {
+			// `import go x "pkg"`: the alias site already recorded
+			// the bound module name — the basename binds nothing.
+			g.importAliased = false
+			return
+		}
 		base := path
 		if i := strings.LastIndexByte(path, '/'); i >= 0 {
 			base = path[i+1:]
@@ -362,7 +387,13 @@ func (g *Gen) genString() {
 		}
 		return
 	}
-	if g.noInterp > 0 {
+	if g.noInterp > 0 || (g.opts.Deterministic && !g.opts.Typed) {
+		// Plain literal: decl strings never interpolate, and under
+		// the deterministic subset mechanical-mode splices are
+		// suppressed entirely — a splice's type is untracked, so it
+		// can render a composite whose display format is a known
+		// eval-vs-compiled divergence (typed-mode splices are
+		// scalar-typed and stay).
 		g.emitRaw(stringFragments[g.rng.IntN(len(stringFragments))])
 		g.emitRaw("\"")
 		return

@@ -47,6 +47,30 @@ type Options struct {
 	// does not promise well-typed output.
 	Typed bool
 
+	// Deterministic restricts generation to the subset of the
+	// language whose observable behavior is reproducible — the input
+	// of the eval-vs-compiled differential test (internal/build's
+	// diff_test.go). Excluded: "go" and "select" expressions
+	// (concurrency, which the evaluator does not implement anyway),
+	// test declarations and "@test" attributes (run by the evaluator
+	// but dropped from builds — an asymmetry that would fabricate
+	// divergences), extern declarations (invented signatures need not
+	// exist on the Go side, so generated code can fail to build for
+	// user-level reasons), and the os/time/io imports (environment
+	// and wall-clock reads). In mechanical mode string interpolation
+	// is also suppressed: its splices can render composite values
+	// whose display format is a known open divergence
+	// (docs/problems/2026-11-04-interp-composite-display.md); typed
+	// mode keeps interpolation because its splices are scalar-typed.
+	//
+	// Everything emitted under Deterministic runs identically twice:
+	// the package name is fixed to "main" and a driver epilogue is
+	// appended after the grammar walk so a clean program is runnable
+	// on both sides — `fn main () -> Unit` printing through
+	// fmt.Println, plus (in Typed mode) `fn answer () -> String`
+	// computed from the generated declarations.
+	Deterministic bool
+
 	// Perturb is the per-terminal probability of a near-miss edit
 	// (drop or token swap), for feeding the parser fuzzer almost-valid
 	// input. 0 (the default) aims at grammar-valid programs; the
@@ -92,6 +116,9 @@ func Generate(g *Grammar, rng *rand.Rand, opts Options) string {
 		gen.initTyped()
 	}
 	gen.expand(ref(SourceFile))
+	if opts.Deterministic {
+		gen.epilogue()
+	}
 	out := strings.TrimRight(gen.buf.String(), " \t")
 	if !strings.HasSuffix(out, "\n") {
 		out += "\n"
@@ -136,13 +163,20 @@ type Gen struct {
 	declCtorS map[string]bool // dedup for declCtors
 	importMod []string        // module names an import binds
 	importSet map[string]bool // dedup for importMod
-	bound     []string        // pattern/fn bindings so far
-	boundSet  map[string]bool // dedup for top-level fn names
-	defKind   byte            // != 0 while expanding a name-defining member
-	bindNext  bool            // the next ident is a binding occurrence
-	inPat     int             // > 0 inside a pattern subtree (its idents bind)
-	inType    int             // > 0 inside a type subtree (the type namespace)
-	inLabel   int             // > 0 inside a field/member-label subtree
+	// importAliased marks that the import-decl currently being
+	// emitted declared an alias (`import go x "pkg"`): the module
+	// name in scope is the alias, so the path's basename must NOT be
+	// recorded — ensureFmt keys on it, and a phantom "fmt" entry
+	// would suppress the epilogue's import while `fmt.Println`
+	// references stay unbound (E0201).
+	importAliased bool
+	bound         []string        // pattern/fn bindings so far
+	boundSet      map[string]bool // dedup for top-level fn names
+	defKind       byte            // != 0 while expanding a name-defining member
+	bindNext      bool            // the next ident is a binding occurrence
+	inPat         int             // > 0 inside a pattern subtree (its idents bind)
+	inType        int             // > 0 inside a type subtree (the type namespace)
+	inLabel       int             // > 0 inside a field/member-label subtree
 
 	// typed-mode state (typed.go) — nil/empty in mechanical mode.
 	scope   [][]binding
@@ -291,6 +325,17 @@ func (g *Gen) expandSeq(x seq, top bool) {
 	// spends no depth budget, matching needCtx's accounting.
 	last, n := g.g.soleMandatory(x)
 	for i, m := range x {
+		if g.opts.Deterministic && g.curRule == "top-decl" && i == 0 {
+			// The "[ attribute ]" member of top-decl's first
+			// alternative: an "@test"-marked decl is test-only
+			// code, dropped by `gom build` but evaluated by the
+			// evaluator — suppress it for the diff subset.
+			if o, isOpt := m.(opt); isOpt {
+				if r, isRef := o.x.(ref); isRef && string(r) == "attribute" {
+					continue
+				}
+			}
+		}
 		if top {
 			// Some member positions DEFINE a name (the "type X"
 			// head, a variant's ctor, the fn name, an import
@@ -714,6 +759,16 @@ func (g *Gen) altWeight(e gexpr) int {
 		}
 		return 4
 	case ref:
+		if g.opts.Deterministic {
+			switch string(x) {
+			// Concurrency is unreproducible (and the evaluator
+			// does not implement it); test-decl runs only under
+			// the evaluator; extern-decl invents Go signatures
+			// the real packages need not provide.
+			case "go-expr", "select-expr", "test-decl", "extern-decl":
+				return 0
+			}
+		}
 		switch string(x) {
 		case "control-expr":
 			return 2 // if/match/lambda are big; keep pipe exprs dominant
@@ -881,4 +936,104 @@ func repPolicyFor(g *Gen) (cap int, p float64) {
 		return 2, 0.4
 	}
 	return 3, 0.45
+}
+
+// ------------------------------------------------------------------
+// deterministic-mode epilogue (Options.Deterministic)
+// ------------------------------------------------------------------
+//
+// The grammar walk emits declarations; the epilogue appends the
+// driver the differential test needs: an `import go "fmt"` when the
+// walk never emitted one (top-level names are file-scoped, so a
+// trailing import is legal), `fn answer () -> String` computed from
+// the generated declarations, and `fn main () -> Unit` printing the
+// answer through fmt.Println. answer/main cannot collide with
+// generated names — neither is in any name pool — and a collision
+// would surface as an ordinary redeclaration diagnostic anyway.
+func (g *Gen) epilogue() {
+	g.ensureFmt()
+	if g.opts.Typed {
+		// The typed driver exercises the generated declarations:
+		// answer's body draws on the whole top-level scope, and
+		// main's block interleaves Println calls with lets and
+		// loops before printing the answer.
+		g.newline()
+		g.emit("fn")
+		g.emit("answer")
+		g.emit("()")
+		g.emit("->")
+		g.emit("String")
+		g.emit("=")
+		g.exprOf(stringT, 3)
+		g.newline()
+		g.emit("fn")
+		g.emit("main")
+		g.emit("()")
+		g.emit("->")
+		g.emit("Unit")
+		g.emit("=")
+		g.emit("{")
+		for n := g.rng.IntN(3); n > 0; n-- {
+			g.unitItemOf(2)
+			g.newline()
+		}
+		g.emit("let")
+		g.emit("_")
+		g.emit("=")
+		g.emitFrag("fmt.Println")
+		g.emit("(")
+		g.emit("answer")
+		g.emit("()")
+		g.emit(")")
+		g.newline()
+		g.emit("()")
+		g.newline()
+		g.emit("}")
+		return
+	}
+	// The mechanical driver only marks a clean exit: the generated
+	// declarations carry the compared behavior (top-level lets are
+	// initialized on both sides), and calling generated functions
+	// cannot be attempted — their signatures are not tracked.
+	g.newline()
+	g.emit("fn")
+	g.emit("main")
+	g.emit("()")
+	g.emit("->")
+	g.emit("Unit")
+	g.emit("=")
+	g.emit("{")
+	g.emit("let")
+	g.emit("_")
+	g.emit("=")
+	g.emitFrag("fmt.Println")
+	g.emit("(")
+	g.emitRaw("\"main ran\"")
+	g.emit(")")
+	g.newline()
+	g.emit("()")
+	g.newline()
+	g.emit("}")
+}
+
+// ensureFmt emits `import go "fmt"` when the walk did not import it,
+// recording the binding so the driver's fmt.Println resolves.
+func (g *Gen) ensureFmt() {
+	if g.opts.Typed {
+		if g.imports["fmt"] {
+			return
+		}
+		g.imports["fmt"] = true
+		g.bindTop(binding{name: "fmt", kind: bModule})
+	} else {
+		if g.importSet["fmt"] {
+			return
+		}
+		g.importSet["fmt"] = true
+		g.importMod = append(g.importMod, "fmt")
+	}
+	g.newline()
+	g.emit("import")
+	g.emit("go")
+	g.emitRaw("\"fmt\"")
 }

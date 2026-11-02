@@ -89,8 +89,23 @@ func cloneFunc(f *VFunc) *VFunc {
 	return &nf
 }
 
-// invoke runs a saturated function: all bound slots are filled.
+// invoke runs a saturated function: all bound slots are filled. It
+// is also the call-depth boundary — every saturated call is one
+// frame of Go-stack recursion, so the depth budget lives here; the
+// deferred decrement keeps the count exact under failData panics.
 func (e *interp) invoke(f *VFunc, sp diag.Span) Value {
+	if e.maxDepth > 0 {
+		e.depth++
+		defer func() { e.depth-- }()
+		if e.depth > e.maxDepth {
+			// Same E9006 class as the step budget: an unbounded
+			// recursion stopped structurally, orders of magnitude
+			// before the goroutine stack ceiling would kill the
+			// process unrecoverably.
+			failData(CodeBudget, "evaluation call depth budget exhausted", sp,
+				"budget", e.maxDepth)
+		}
+	}
 	switch f.kind {
 	case fnLambda:
 		if len(f.params) > len(f.bound) {
