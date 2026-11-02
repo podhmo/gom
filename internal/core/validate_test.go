@@ -992,6 +992,127 @@ func TestValidateViolations(t *testing.T) {
 	}
 }
 
+// TestValidateEquality pins the plan invariants of the equality
+// nodes: an Equal carries leaf recipes only, a composite recipe is
+// legal solely at an EqDecl's root, and assert_eq must carry its
+// precomputed plan.
+func TestValidateEquality(t *testing.T) {
+	listT := types.List(types.Int)
+	xb, xs := vbind("x", types.Int)
+	yb, ys := vbind("y", types.Int)
+	lb, ls := vbind("xs", listT)
+	mb, ms := vbind("ys", listT)
+
+	params := []*Bind{xb, yb, lb, mb}
+	eqFn := func(tail Expr) *Func {
+		return &Func{
+			Sp:     sp(),
+			Sig:    types.Fn(types.Bool, types.P(types.Int), types.P(types.Int), types.P(listT), types.P(listT)),
+			Params: params,
+			Body:   &Body{Tail: tail},
+		}
+	}
+	eqFile := func(tail Expr, eqs []*EqDecl) *File {
+		return &File{Sp: sp(), Package: "p", PkgSp: sp(),
+			Decls:   []Decl{&FuncDecl{Sp: sp(), Sym: fsym("f"), Fn: eqFn(tail)}},
+			EqDecls: eqs}
+	}
+	native := &EqPlan{Kind: EqNative}
+	cmpDecl := &EqDecl{
+		Sp:   sp(),
+		Sym:  fsym("gomEq1"),
+		Typ:  listT,
+		Plan: &EqPlan{Kind: EqSlice, Elem: native},
+	}
+	call := &EqPlan{Kind: EqCall, Fn: cmpDecl}
+
+	valid := &File{Sp: sp(), Package: "p", PkgSp: sp(),
+		Decls: []Decl{&FuncDecl{Sp: sp(), Sym: fsym("f"), Fn: eqFn(&Equal{
+			Base: Base{Sp: sp(), Typ: types.Bool},
+			X:    vref(ls, listT), Y: vref(ms, listT),
+			How: call,
+		})}},
+		EqDecls: []*EqDecl{cmpDecl}}
+	if got := Validate(valid); len(got) != 0 {
+		for _, v := range got {
+			t.Errorf("valid equality file: unexpected violation: %s", v)
+		}
+	}
+
+	cases := []struct {
+		name string
+		file *File
+		want string
+	}{
+		{
+			name: "composite recipe on Equal",
+			file: eqFile(&Equal{
+				Base: Base{Sp: sp(), Typ: types.Bool},
+				X:    vref(ls, listT), Y: vref(ms, listT),
+				How: &EqPlan{Kind: EqSlice, Elem: native},
+			}, nil),
+			want: "legal only at a comparator's root",
+		},
+		{
+			name: "missing recipe",
+			file: eqFile(&Equal{
+				Base: Base{Sp: sp(), Typ: types.Bool},
+				X:    vref(xs, types.Int), Y: vref(ys, types.Int),
+			}, nil),
+			want: "missing comparison recipe",
+		},
+		{
+			name: "comparator without plan",
+			file: eqFile(&Equal{
+				Base: Base{Sp: sp(), Typ: types.Bool},
+				X:    vref(xs, types.Int), Y: vref(ys, types.Int),
+				How: native,
+			}, []*EqDecl{{Sp: sp(), Sym: fsym("gomEq9"), Typ: listT}}),
+			want: "missing comparison recipe",
+		},
+		{
+			name: "comparator symbol of the wrong kind",
+			file: eqFile(&Equal{
+				Base: Base{Sp: sp(), Typ: types.Bool},
+				X:    vref(xs, types.Int), Y: vref(ys, types.Int),
+				How: native,
+			}, []*EqDecl{{Sp: sp(), Sym: vsym("gomEq9"), Typ: listT,
+				Plan: &EqPlan{Kind: EqSlice, Elem: native}}}),
+			want: "want func",
+		},
+		{
+			name: "assert_eq without a plan",
+			file: eqFile(&CallBuiltin{
+				Base: Base{Sp: sp(), Typ: types.Unit},
+				Sym:  &resolve.Symbol{Name: "assert_eq", Kind: resolve.KindBuiltin},
+				Args: []Atom{vref(ls, listT), vref(ms, listT)},
+			}, nil),
+			want: "assert_eq without an Eq plan",
+		},
+		{
+			name: "plan on a non-assert_eq builtin",
+			file: eqFile(&CallBuiltin{
+				Base: Base{Sp: sp(), Typ: types.Unit},
+				Sym:  bsym(),
+				Args: []Atom{vref(ls, listT), vref(ms, listT)},
+				Eq:   native,
+			}, nil),
+			want: "non-assert_eq",
+		},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			got := Validate(c.file)
+			for _, v := range got {
+				if strings.Contains(v.Msg, c.want) || strings.Contains(v.String(), c.want) {
+					return
+				}
+			}
+			t.Fatalf("no violation contains %q; got %v", c.want, got)
+		})
+	}
+}
+
 func TestViolationImplementsError(t *testing.T) {
 	var err error = Violation{Span: diag.Point("a.gom", 3), Node: "If", Msg: "cond is not Bool"}
 	if err.Error() == "" {

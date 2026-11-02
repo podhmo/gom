@@ -2,6 +2,7 @@
 
 - 状態: draft
 - 日付: 2026-11-04
+- Superseded by: [generated-equality-comparators](2026-11-05-generated-equality-comparators.md) のうち composite 型への一律 `rt.Equal` ルート — per-type comparators landed; `rt.Equal` remains only as the documented fallback for Go-view types.
 
 ## Context
 

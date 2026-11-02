@@ -1,0 +1,26 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0409",
+      "severity": "error",
+      "message": "`==` is not defined on Op: the type contains a function or a type variable",
+      "span": {
+        "file": "E0409_eq_fn_adt.gom",
+        "start": {
+          "line": 7,
+          "col": 33,
+          "offset": 211
+        },
+        "end": {
+          "line": 7,
+          "col": 39,
+          "offset": 217
+        }
+      },
+      "data": {
+        "type": "Op"
+      }
+    }
+  ]
+}

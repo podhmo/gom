@@ -211,6 +211,86 @@ func (v *validator) file(f *File) {
 	for _, d := range f.Decls {
 		v.decl(d)
 	}
+	for _, d := range f.EqDecls {
+		v.eqDecl(d)
+	}
+}
+
+// eqDecl checks a generated comparator: valid span, a fresh
+// KindFunc symbol, a non-nil compared type, and a well-formed plan.
+// Composite plans are legal only here — at an EqDecl's root.
+func (v *validator) eqDecl(d *EqDecl) {
+	if d == nil {
+		v.err(diag.Span{}, "EqDecl", "nil comparator declaration")
+		return
+	}
+	if !d.Sp.Valid() {
+		v.err(d.Sp, "EqDecl", "declaration has no valid source span")
+	}
+	v.declSym(d.Sp, d.Sym, resolve.KindFunc, "EqDecl")
+	if d.Typ == nil {
+		v.err(d.Sp, "EqDecl", "nil compared type")
+	}
+	v.eqPlan(d.Plan, true, "EqDecl.Plan")
+}
+
+// eqPlan checks a comparison recipe's shape. At an EqDecl's root
+// (root=true) every kind is legal; nested plans — an Equal's How and
+// the children inside composite plans — must be leaf kinds, which is
+// the invariant that keeps generated comparison code expression-
+// shaped outside comparator bodies.
+func (v *validator) eqPlan(p *EqPlan, root bool, what string) {
+	if p == nil {
+		v.err(diag.Span{}, what, "missing comparison recipe")
+		return
+	}
+	if root {
+		if p.Kind < EqNative || p.Kind > EqResult {
+			v.err(diag.Span{}, what, "invalid recipe kind %d", int(p.Kind))
+			return
+		}
+	} else if !eqLeafKind(p.Kind) {
+		v.err(diag.Span{}, what, "composite recipe kind %s is legal only at a comparator's root", p.Kind)
+		return
+	}
+	switch p.Kind {
+	case EqCall:
+		if p.Fn == nil {
+			v.err(diag.Span{}, what, "call recipe without a comparator")
+		}
+	case EqSlice, EqMap:
+		v.eqPlan(p.Elem, false, what+".Elem")
+	case EqTuple, EqRecord:
+		for i := range p.Fields {
+			v.eqField(&p.Fields[i], what)
+		}
+	case EqSum, EqResult:
+		for i := range p.Variants {
+			vr := &p.Variants[i]
+			if vr.Sym == nil || vr.Sym.Kind != resolve.KindCtor {
+				v.err(diag.Span{}, what, "variant %d symbol is not a ctor", i)
+			}
+			for j := range vr.Fields {
+				v.eqField(&vr.Fields[j], what)
+			}
+		}
+	case EqNative, EqRuntime, EqError:
+	default:
+		panic("unreachable")
+	}
+}
+
+// eqField checks one projected operand pair: a way to select the
+// field on both sides (Sel, Sym, or Name — Index alone suffices when
+// none names it) and a nested leaf recipe.
+func (v *validator) eqField(f *EqField, what string) {
+	if f.Sel == "" && f.Sym == nil && f.Name == "" && f.Index < 0 {
+		v.err(diag.Span{}, what, "field with no selector")
+	}
+	if f.Sym != nil && f.Sym.Kind != resolve.KindField {
+		v.err(diag.Span{}, what, "field symbol %q has kind %s, want field", f.Sym.Name, f.Sym.Kind)
+	}
+	v.eqPlan(f.Plan, false, what+".Plan")
 }
 
 // declSym checks and registers a declaration's symbol.
@@ -711,6 +791,14 @@ func (v *validator) expr(e Expr, inTail bool) {
 			v.err(e.Sp, "CallBuiltin", "not a builtin symbol")
 		}
 		v.atoms(e.Args, "CallBuiltin.Args")
+		if e.Eq != nil {
+			if e.Sym == nil || e.Sym.Name != "assert_eq" {
+				v.err(e.Sp, "CallBuiltin", "Eq plan on a non-assert_eq builtin")
+			}
+			v.eqPlan(e.Eq, false, "CallBuiltin.Eq")
+		} else if e.Sym != nil && e.Sym.Name == "assert_eq" {
+			v.err(e.Sp, "CallBuiltin", "assert_eq without an Eq plan")
+		}
 	case *CtorApp:
 		if e.Ctor == nil || e.Ctor.Kind != resolve.KindCtor {
 			v.err(e.Sp, "CtorApp", "callee is not a constructor symbol")
@@ -743,6 +831,22 @@ func (v *validator) expr(e Expr, inTail bool) {
 		}
 		v.atom(e.X, "Binary.X")
 		v.atom(e.Y, "Binary.Y")
+	case *Equal:
+		v.atom(e.X, "Equal.X")
+		v.atom(e.Y, "Equal.Y")
+		v.eqPlan(e.How, false, "Equal.How")
+		if e.Typ != nil && !types.Equal(e.Typ, types.Bool) {
+			v.err(e.Sp, "Equal", "result type %s is not Bool", e.Typ)
+		}
+		if xt, yt := atomType(e.X), atomType(e.Y); xt != nil && yt != nil && !types.Equal(xt, yt) {
+			v.err(e.Sp, "Equal", "operand types differ: %s vs %s", xt, yt)
+		}
+		if e.How != nil && e.How.Kind == EqCall && e.How.Fn != nil && e.How.Fn.Typ != nil {
+			if xt := atomType(e.X); xt != nil && !types.Equal(xt, e.How.Fn.Typ) {
+				v.err(e.Sp, "Equal", "operand type %s differs from comparator's %s",
+					xt, e.How.Fn.Typ)
+			}
+		}
 	case *If:
 		v.atom(e.Cond, "If.Cond")
 		if t := atomType(e.Cond); t != nil && !types.Equal(t, types.Bool) {
@@ -1363,6 +1467,8 @@ func nilExpr(e Expr) bool {
 	case *Unary:
 		return e == nil
 	case *Binary:
+		return e == nil
+	case *Equal:
 		return e == nil
 	case *If:
 		return e == nil

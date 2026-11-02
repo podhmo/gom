@@ -211,6 +211,8 @@ func (g *gen) simpleExpr(e core.Expr) ast.Expr {
 		return &ast.UnaryExpr{Op: unOp(e.Op), X: g.atom(e.X)}
 	case *core.Binary:
 		return &ast.BinaryExpr{X: g.atom(e.X), Op: binOp(e.Op), Y: g.atom(e.Y)}
+	case *core.Equal:
+		return g.equalExpr(e)
 	case *core.CallDirect:
 		return &ast.CallExpr{Fun: g.qualRef(e.Callee, e.TypeArgs), Args: g.atoms(e.Args)}
 	case *core.CallFunc:
@@ -248,7 +250,7 @@ func isSimpleExpr(e core.Expr) bool {
 	switch e.(type) {
 	case *core.Var, *core.Lit, *core.FuncRef, *core.CtorRef,
 		*core.GoFuncRef, *core.FieldGet,
-		*core.Unary, *core.Binary,
+		*core.Unary, *core.Binary, *core.Equal,
 		*core.CallDirect, *core.CallFunc, *core.CallGo, *core.CallBuiltin,
 		*core.CtorApp, *core.TupleNew, *core.ListNew, *core.RecordNew,
 		*core.Conv, *core.Closure:
@@ -293,9 +295,20 @@ func (g *gen) callGo(c *core.CallGo) ast.Expr {
 func (g *gen) callBuiltin(c *core.CallBuiltin) ast.Expr {
 	switch c.Sym.Name {
 	case "assert_eq":
-		// rt.AssertEq(t, actual, expected)
+		// rt.AssertEq(t, eq, actual, expected) — eq is the verdict
+		// under the operands' own recipe (core.CallBuiltin.Eq),
+		// matching what `actual == expected` evaluates to.
+		var eq ast.Expr
+		if c.Eq != nil && len(c.Args) >= 2 {
+			eq = g.eqExpr(c.Eq, g.atom(c.Args[0]), g.atom(c.Args[1]))
+		} else {
+			// A plan-less assert_eq is a contract gap — degrade to
+			// the runtime fallback rather than miscompile.
+			eq = &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual(rtPath) + "Equal"),
+				Args: g.atoms(c.Args)}
+		}
 		return &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual(rtPath) + "AssertEq"),
-			Args: append([]ast.Expr{ast.NewIdent("t")}, g.atoms(c.Args)...)}
+			Args: append([]ast.Expr{ast.NewIdent("t"), eq}, g.atoms(c.Args)...)}
 	case "assert":
 		// rt.Assert(t, cond)
 		return &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual(rtPath) + "Assert"),
@@ -308,17 +321,6 @@ func (g *gen) callBuiltin(c *core.CallBuiltin) ast.Expr {
 	case "not":
 		// `not x` is the bool negation `!x`.
 		return &ast.UnaryExpr{Op: token.NOT, X: g.atom(c.Args[0])}
-	case "eq":
-		// rt.Equal(x, y) — structural `==` on representations Go's
-		// own == cannot compare (spec 3.3; lowering decides which
-		// operand types route here).
-		return &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual(rtPath) + "Equal"),
-			Args: g.atoms(c.Args)}
-	case "ne":
-		// `x != y` lowers to `not (eq x y)` — `!rt.Equal(x, y)`.
-		return &ast.UnaryExpr{Op: token.NOT,
-			X: &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual(rtPath) + "Equal"),
-				Args: g.atoms(c.Args)}}
 	case "str_concat":
 		// The parts of an interpolated string: `a + b + ...`.
 		return g.strConcat(c)

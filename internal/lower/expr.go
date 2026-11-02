@@ -828,10 +828,17 @@ func (l *lowerer) builtinCall(sp diag.Span, typ types.Type, sym *resolve.Symbol,
 	if !l.inTest && (sym.Name == "assert" || sym.Name == "assert_eq") {
 		l.err(sp, fmt.Sprintf("builtin %s may only be called inside a test block", sym.Name))
 	}
-	return &core.CallBuiltin{
+	cb := &core.CallBuiltin{
 		Base: core.Base{Sp: sp, Typ: typ},
 		Sym:  sym, Args: args,
 	}
+	// assert_eq carries the operands' comparison recipe — the same
+	// judgment `x == y` applies, rendered by codegen as the
+	// pre-computed operand of rt.AssertEq.
+	if sym.Name == "assert_eq" && len(args) == 2 {
+		cb.Eq = l.eqPlan(sp, args[0].Type())
+	}
+	return cb
 }
 
 // overAppRetType is the function type the saturated prefix of an
@@ -1305,69 +1312,10 @@ func (l *lowerer) binaryExpr(s *seq, e *check.Binary) core.Expr {
 	}
 }
 
-// eqExpr lowers `x == y` / `x != y`. Spec 3.3 makes equality
-// structural — the answer must agree with the evaluator's eqValue —
-// but Go's `==` only covers part of that domain: lists, maps and Go
-// slices are not comparable at all, and an ADT interface value whose
-// variant holds one panics under `==` rather than answering false.
-// Operands whose Go representation is guaranteed comparable — the
-// scalar builtins, and tuples whose every element qualifies — emit
-// the native `==`/`!=`; every other shape calls the `eq`/`ne`
-// builtins, which codegen renders as `rt.Equal`
-// (reflect.DeepEqual) until generated per-type comparators exist.
-// The split is made here on the static operand type — codegen only
-// renders the Core node it is given.
-func (l *lowerer) eqExpr(s *seq, e *check.Binary) core.Expr {
-	x := l.atom(s, e.X)
-	y := l.atom(s, e.Y)
-	if goEqOK(e.X.Type()) {
-		return &core.Binary{Base: baseOf(e), Op: e.Op, X: x, Y: y}
-	}
-	name := "eq"
-	if e.Op == syntax.BinNe {
-		name = "ne"
-	}
-	return &core.CallBuiltin{
-		Base: baseOf(e), Sym: l.builtinSym(name),
-		Args: []core.Atom{x, y},
-	}
-}
-
-// goEqOK reports whether Go's `==` on the representation of type t
-// is both compilable and structurally correct: scalar builtins, and
-// tuples whose every element qualifies (rt.TupleN is a flat struct).
-// Records could qualify field-wise, but their field list lives
-// behind the type oracle — rt.Equal answers correctly either way.
-func goEqOK(t types.Type) bool {
-	switch t := types.Chase(t).(type) {
-	case *types.Con:
-		if t.Qual != "" {
-			// List, Go.Slice, Go.Map, nominal types — none is a
-			// Go-comparable scalar.
-			return false
-		}
-		switch t.Name {
-		case "Int", "Int32", "Int64", "Float", "Bool", "Char", "String", "Unit":
-			return true
-		}
-		return false
-	case *types.Tuple:
-		for _, e := range t.Elems {
-			if !goEqOK(e) {
-				return false
-			}
-		}
-		return true
-	case *types.Go, *types.Func, *types.Var, *types.Meta:
-		// Named Go types keep their comparability behind the ref;
-		// functions and variables are rejected by check (E0409) —
-		// if one slips through, rt.Equal still answers where Go's
-		// `==` would panic on a func value.
-		return false
-	default:
-		panic("unreachable")
-	}
-}
+// (The `==`/`!=` lowering lives in equal.go: it emits a core.Equal
+// whose recipe — native Go `==`, the rt.Equal fallback, the GoError
+// comparison, or a generated comparator call — the static operand
+// type decides here, so codegen only renders the plan it is given.)
 
 // appendArg adjusts a CallInfo for the pipe-synthesized trailing
 // argument: one more argument applied, filling the lowest unfilled

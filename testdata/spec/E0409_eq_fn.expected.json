@@ -1,0 +1,26 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0409",
+      "severity": "error",
+      "message": "`==` is not defined on Int -> Int: the type contains a function or a type variable",
+      "span": {
+        "file": "E0409_eq_fn.gom",
+        "start": {
+          "line": 5,
+          "col": 49,
+          "offset": 157
+        },
+        "end": {
+          "line": 5,
+          "col": 55,
+          "offset": 163
+        }
+      },
+      "data": {
+        "type": "Int -> Int"
+      }
+    }
+  ]
+}

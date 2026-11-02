@@ -81,8 +81,8 @@ func (g *gen) let(l *core.Let) {
 		//     not the `int64` Gom Int maps to, and later int64 call
 		//     sites reject it;
 		//   - a sealed-ADT constructor literal binds the concrete
-		//     variant struct, not the ADT interface — a later type
-		//     switch on the variable is not compilable Go.
+		//     variant struct, not the ADT interface — a `==` or a
+		//     type switch over the variable then does not compile.
 		if t := g.letConv(l.Name.Typ, l.X); t != nil {
 			g.typ(t)
 			g.raw("(")
@@ -153,7 +153,7 @@ func (g *gen) emit(e core.Expr, d dest) {
 	case *core.Closure,
 		*core.Var, *core.Lit, *core.FuncRef, *core.CtorRef,
 		*core.GoFuncRef, *core.FieldGet,
-		*core.Unary, *core.Binary,
+		*core.Unary, *core.Binary, *core.Equal,
 		*core.CallDirect, *core.CallFunc, *core.CallGo, *core.CallBuiltin,
 		*core.CtorApp, *core.TupleNew, *core.ListNew, *core.RecordNew,
 		*core.Conv:

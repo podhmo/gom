@@ -1,0 +1,12 @@
+package ex
+
+// spec 3.3: `xs == ys` at `List ?n` is only clean while ?n is
+// unknown — the eq constraint flags the inner meta, and binding it
+// to a function type reports E0409 at the bind site.
+fn bad (f: Int -> Int) -> Bool = {
+  let xs = []
+  let ys = [f]
+  xs == ys
+}
+
+fn main () -> Unit = ()

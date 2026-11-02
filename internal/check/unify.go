@@ -128,7 +128,20 @@ func (c *checker) constrain(t types.Type, sp diag.Span, desc string, fn func(*me
 	}
 	probe := &metaRec{span: sp, desc: desc}
 	fn(probe)
-	return c.satisfies(probe, t, sp)
+	ok := c.satisfies(probe, t, sp)
+	// The eq judgment must re-run when a still-unbound meta *inside*
+	// the concrete type solves — `xs == xs` at `List ?n` is clean
+	// today only because ?n is unknown. Flagging every meta the
+	// (declaration-aware) walk crosses defers the same check to the
+	// bind site and to finalize.
+	if ok && probe.eq {
+		var ms []*types.Meta
+		c.eqProbe(t, &ms)
+		for _, m := range ms {
+			c.recOf(m).eq = true
+		}
+	}
+	return ok
 }
 
 // satisfies checks a concrete type against a constraint record —
@@ -219,41 +232,139 @@ func isOrdered(t types.Type) bool {
 }
 
 // hasFuncOrVar reports whether t contains a function type or a rigid
-// type variable — the two things `==` cannot compare in v1. Bound
-// metas are chased; unbound metas do not count (they carry an eq flag
-// instead and are re-checked when bound).
+// type variable — the two things `==` cannot compare in v1 (spec 3.3).
+// Bound metas are chased; unbound metas do not count (they carry an
+// eq flag instead and are re-checked when bound).
+//
+// The walk expands *local* named types the way recordCycle does: a
+// record with a function field, an ADT whose payload carries one, or
+// `Box (Int -> Int)` all reach the Func through the declaration.
+// Visited declarations are memoized by (declaration, instantiated
+// arguments) and a step budget bounds generic expansion — a revisit
+// answers false, the "keep looking elsewhere" value.
 func (c *checker) hasFuncOrVar(t types.Type) bool {
+	w := &eqWalk{c: c}
+	return w.has(t)
+}
+
+// eqProbe reports whether t is equality-clean and, if sink is
+// non-nil, collects every unbound meta it crosses — the inner
+// positions whose solutions must still satisfy eq.
+func (c *checker) eqProbe(t types.Type, sink *[]*types.Meta) bool {
+	w := &eqWalk{c: c, sink: sink}
+	return !w.has(t)
+}
+
+// eqWalk is the shared traversal behind hasFuncOrVar and eqProbe.
+// sink, when set, collects every unbound meta the walk crosses.
+type eqWalk struct {
+	c     *checker
+	seen  []recordVisit
+	steps int
+	sink  *[]*types.Meta
+}
+
+// has reports whether t contains a function type or a rigid variable.
+func (w *eqWalk) has(t types.Type) bool {
 	switch t := types.Chase(t).(type) {
 	case *types.Var:
 		return true
 	case *types.Meta:
+		if w.sink != nil {
+			*w.sink = append(*w.sink, t)
+		}
 		return false
 	case *types.Func:
 		return true
-	case *types.Con:
-		for _, a := range t.Args {
-			if c.hasFuncOrVar(a) {
-				return true
-			}
-		}
-		return false
 	case *types.Tuple:
 		for _, e := range t.Elems {
-			if c.hasFuncOrVar(e) {
+			if w.has(e) {
 				return true
 			}
 		}
 		return false
 	case *types.Go:
 		for _, a := range t.Args {
-			if c.hasFuncOrVar(a) {
+			if w.has(a) {
 				return true
 			}
+		}
+		return false
+	case *types.Con:
+		for _, a := range t.Args {
+			if w.has(a) {
+				return true
+			}
+		}
+		if w.expandable(t) {
+			ti := w.c.tyCons[conKey{qual: t.Qual, name: t.Name}]
+			return w.expand(t, ti, func(sub types.Subst) bool {
+				switch ti.kind {
+				case kindRecord:
+					for _, f := range ti.fields {
+						if w.has(sub.Apply(f.typ)) {
+							return true
+						}
+					}
+				case kindSum:
+					for _, v := range ti.variants {
+						for _, f := range v.fields {
+							if w.has(sub.Apply(f.typ)) {
+								return true
+							}
+						}
+					}
+				case kindAlias:
+					if ti.aliasRes {
+						return w.has(sub.Apply(ti.alias))
+					}
+				}
+				return false
+			})
 		}
 		return false
 	default:
 		panic("unreachable")
 	}
+}
+
+// expandable reports whether the constructor names a *local* declared
+// record, sum or alias — the shapes whose declarations contribute to
+// the eq judgment. Builtin constructors (List, Option, Result, Task,
+// Ref, Go slices/maps) contribute their arguments directly; foreign
+// and abstract types stay opaque.
+func (w *eqWalk) expandable(t *types.Con) bool {
+	if t.Qual != "" {
+		return false
+	}
+	ti, ok := w.c.tyCons[conKey{qual: t.Qual, name: t.Name}]
+	return ok && ti.kind != kindAbstract
+}
+
+// expand runs f under the declaration's type-parameter substitution
+// unless the same (declaration, arguments) pair is already on the
+// path or the expansion budget ran out — both answer false, matching
+// recordCycle's "repeats cannot reach the answer" reading.
+func (w *eqWalk) expand(t *types.Con, ti *typeInfo, f func(types.Subst) bool) bool {
+	v := recordVisit{ti: ti, args: t.Args}
+	for _, s := range w.seen {
+		if s.ti == ti && sameTypes(s.args, v.args) {
+			return false
+		}
+	}
+	if w.steps >= recordCycleLimit {
+		return false
+	}
+	w.seen = append(w.seen, v)
+	w.steps++
+	defer func() { w.seen = w.seen[:len(w.seen)-1] }()
+	sub := types.Subst{}
+	for i, p := range ti.params {
+		if i < len(t.Args) {
+			sub[p.ID] = t.Args[i]
+		}
+	}
+	return f(sub)
 }
 
 // occurs reports whether the unbound meta m occurs inside t — a bind

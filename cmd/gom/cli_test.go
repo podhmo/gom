@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 )
 
 const (
@@ -276,6 +277,40 @@ test "arith" {
 		if strings.Contains(string(gen), s) {
 			t.Errorf("generated source contains test code %q:\n%s", s, gen)
 		}
+	}
+}
+
+// TestBuildEqBudgetTerminates is the mint-budget regression:
+// `type W a = {next: List (W (W a))}` is a self-application whose
+// expansion grows at every level — `x == y` on it used to mint
+// comparators forever (gom check passed; gom build hung). The
+// eqDeclLimit cap must answer E0906 inside the timeout instead.
+func TestBuildEqBudgetTerminates(t *testing.T) {
+	dir := writeFiles(t, map[string]string{"w.gom": `package ex
+
+type W a = {next: List (W (W a))}
+
+fn eq (x: W Int) (y: W Int) -> Bool = x == y
+`})
+	type result struct {
+		code int
+		out  string
+	}
+	done := make(chan result, 1)
+	go func() {
+		code, out, _ := invoke("build", filepath.Join(dir, "w.gom"))
+		done <- result{code, out}
+	}()
+	select {
+	case r := <-done:
+		if r.code != 1 {
+			t.Fatalf("exit code = %d, want 1 (diagnostic); out=%q", r.code, r.out)
+		}
+		if !strings.Contains(r.out, `"E0906"`) {
+			t.Fatalf("output lacks E0906: %q", r.out)
+		}
+	case <-time.After(20 * time.Second):
+		t.Fatal("gom build did not return within 20s — comparator minting diverged")
 	}
 }
 

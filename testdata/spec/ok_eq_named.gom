@@ -1,0 +1,26 @@
+package ex
+
+// spec 3.3: `==` on function-free named types is legal — the eq
+// judgment expands records, ADTs, aliases and generic
+// instantiations, and its revisit guard lets recursive shapes
+// through instead of looping.
+
+type Point = {x: Int, y: Int}
+
+type Tree = | Leaf Int | Node (List Tree)
+
+type Box a = {v: a}
+
+type Pos = Point
+
+type A = {b: B}
+type B = {a: Option A}
+
+fn eq (p: Point) (q: Point) -> Bool = p == q
+fn ne (p: Point) (q: Point) -> Bool = p != q
+fn teq (s: Tree) (t: Tree) -> Bool = s == t
+fn beq (a: Box Int) (b: Box Int) -> Bool = a == b
+fn peq (x: Pos) (y: Pos) -> Bool = x == y
+fn aeq (x: A) (y: A) -> Bool = x == y
+
+fn main () -> Unit = ()

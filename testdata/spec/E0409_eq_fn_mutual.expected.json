@@ -1,0 +1,26 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0409",
+      "severity": "error",
+      "message": "`==` is not defined on A: the type contains a function or a type variable",
+      "span": {
+        "file": "E0409_eq_fn_mutual.gom",
+        "start": {
+          "line": 9,
+          "col": 31,
+          "offset": 278
+        },
+        "end": {
+          "line": 9,
+          "col": 37,
+          "offset": 284
+        }
+      },
+      "data": {
+        "type": "A"
+      }
+    }
+  ]
+}

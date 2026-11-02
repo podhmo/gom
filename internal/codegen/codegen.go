@@ -53,6 +53,12 @@ func File(f *core.File, src []byte) (*Output, error) {
 		}
 		main.decl(d)
 	}
+	// Generated structural comparators belong to the package source
+	// even when only test code reaches for them — an unused func is
+	// legal Go, and the two halves share the file's symbol table.
+	for _, d := range f.EqDecls {
+		main.eqDecl(d)
+	}
 
 	source, err := render(f.Package, main)
 	if err != nil {

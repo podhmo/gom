@@ -1,0 +1,13 @@
+package ex
+
+// `==` on an expanding self-application: every comparator's nested
+// recipe instantiates a strictly larger W, so no finite set of
+// generated comparators covers it. The mint budget reports E0906 at
+// the `==` site instead of hanging (previously `gom build` diverged).
+// The fixture lives in a subdirectory because the checker's own
+// bounded expansion walk makes it a multi-second input — inside the
+// FuzzCompile sandbox's 8s race-mode budget it would read as a hang,
+// and the seed glob only covers testdata/spec/*.gom.
+type W a = {next: List (W (W a))}
+
+fn eq (x: W Int) (y: W Int) -> Bool = x == y

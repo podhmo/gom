@@ -508,6 +508,9 @@ func walkTailrec(b *core.Body, f func(e core.Expr, inSpawn, inClosure bool)) {
 			callGo(e.Call, inSpawn, inClosure)
 		case *core.Conv:
 			atom(e.X, inSpawn, inClosure)
+		case *core.Equal:
+			atom(e.X, inSpawn, inClosure)
+			atom(e.Y, inSpawn, inClosure)
 		default:
 			panic("unreachable")
 		}

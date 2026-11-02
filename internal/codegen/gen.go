@@ -139,6 +139,14 @@ func (g *gen) indexDecls(f *core.File) {
 		})
 	}
 	g.fnames = nil
+	// Generated comparators claim package-scope names — both halves
+	// resolve the same symbols, so a test body's `gomEqN` call names
+	// the function the main half emits.
+	for _, d := range f.EqDecls {
+		if d.Sym != nil {
+			g.declSymName(d.Sym)
+		}
+	}
 }
 
 // --- names ---
@@ -417,11 +425,13 @@ const (
 //     default in);
 //   - a sealed-ADT constructor application: `x := Shape_C{..}` binds
 //     the concrete variant struct, not the ADT interface the binder
-//     declares — a type switch on x then fails to compile
-//     ("x is not an interface"). The emitted conversion names the
-//     ADT interface: `x := Shape(Shape_C{..})`. The builtin Result
-//     representation emits constructor *calls* (result.Ok(...))
-//     whose Go type already is the declared type — no conversion.
+//     declares — `x == y` between two such variables then compares
+//     different concrete types, and a type switch on one is not
+//     compilable Go ("x is not an interface"). The emitted
+//     conversion names the ADT interface: `x := Shape(Shape_C{..})`.
+//     The builtin Result representation emits constructor *calls*
+//     (result.Ok(...)) whose Go type already is the declared type —
+//     no conversion.
 //
 // nil for unaffected RHS shapes.
 func (g *gen) letConv(t types.Type, x core.Expr) ast.Expr {
@@ -471,7 +481,7 @@ func untypedConst(x core.Expr) bool {
 		return untypedConst(e.X) && untypedConst(e.Y)
 	case *core.Var, *core.FuncRef, *core.CtorRef, *core.GoFuncRef,
 		*core.FieldGet, *core.CallDirect, *core.CallFunc,
-		*core.CallGo, *core.CallBuiltin, *core.CtorApp,
+		*core.CallGo, *core.CallBuiltin, *core.CtorApp, *core.Equal,
 		*core.TupleNew, *core.ListNew, *core.RecordNew,
 		*core.RecordUpdate, *core.Conv, *core.Closure, *core.If,
 		*core.Match, *core.SelectExpr, *core.Spawn, *core.ForRange,

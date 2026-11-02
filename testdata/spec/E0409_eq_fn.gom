@@ -1,0 +1,7 @@
+package ex
+
+// spec 3.3: `==` applies only to function-free types — a bare
+// function type reports E0409.
+fn eq (f: Int -> Int) (g: Int -> Int) -> Bool = f == g
+
+fn main () -> Unit = ()

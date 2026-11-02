@@ -93,7 +93,8 @@ Go コード生成器に言語の意味を判断させない。次のことは C
 5. **脱出**: `try` と `|?>` は、どの関数境界から抜けるかを明示した脱出ノード
 6. **型の具体化**: 多相な定義と、実行時の関数値を区別する。多相な定義を値として使う箇所では型引数が具体化済みで、必要なラッパーも確定済み（関数の表現は [decisions/function-representation](decisions/2026-11-01-function-representation.md)）
 7. **エントリポイントの判定**: `package main` の `fn main () -> Unit` という言語規則は `FuncDecl.IsEntry` として確定済み。codegen はパッケージ名・関数名を見ず、このフラグだけで `func main()` を出力する（[decisions/fn-main-entrypoint](decisions/2026-11-04-fn-main-entrypoint.md)）
-8. **ソースの由来**: すべてのノードが元の Gom ソースの範囲を指す
+8. **等価のレシピ**: `==` / `!=` / `assert_eq` がどう比較するか（ネイティブ `==`・ランタイムのフォールバック・エラーの文字列比較・生成した比較関数の呼び出し）は `core.Equal` / `CallBuiltin.Eq` のプランとして確定済み（4.9 節）
+9. **ソースの由来**: すべてのノードが元の Gom ソースの範囲を指す
 
 例: ラベル付き引数の並べ替え。
 
@@ -325,9 +326,14 @@ func unitSquare() Shape { return Shape_Rect{W: 1.0, H: 1.0} }
 
 func TestRectArea(t *testing.T) {
 //line area.gom:15
-	rt.AssertEq(t, area(Shape_Rect{W: 2.0, H: 3.0}), 6.0)
+	tmp1 := area(Shape_Rect{W: 2.0, H: 3.0})
+	rt.AssertEq(t, tmp1 == 6.0, tmp1, 6.0)
 }
 ```
+
+### 4.9 構造的等価の生成
+
+`x == y` / `x != y` は `core.Equal` に下ろされる。`How` に載せる比較レシピ（`EqPlan`）を lowering が被演算子の静的型から決める — codegen はそれをレンダリングするだけで、型を見て判断し直さない（2.1 節の不変条件）。レシピは4種: スカラーや全フィールドがネイティブ比較できる複合は Go の `==`（`EqNative`）、`GoError` は nil 対応のメッセージ文字列比較（`EqError`）、Gom が表現を握らない型（名前付き Go 型・`Task`・`Go.Any`）は `rt.Equal`（`EqRuntime`）、それ以外の複合型は型ごとに生成する比較関数 `gomEq<N>` の呼び出し（`EqCall`）。`gomEq<N>` は `File.EqDecls` に集めてファイル末尾に出力し、リストは要素ごと・レコード/タプルはフィールドごと・ADT はバリアントの type switch＋ペイロード比較になる。再帰型は比較関数どうしの再帰呼び出しで表す（ネストした比較は必ず `EqCall` 経由なので、プラン自体が再帰しない）。`assert_eq` も同じ判定を `CallBuiltin.Eq` に載せ、`rt.AssertEq(t, 判定結果, actual, expected)` を生成する — `assert_eq` は常に `==` と同じ答えを報告する。詳細は [decisions/2026-11-05-generated-equality-comparators](decisions/2026-11-05-generated-equality-comparators.md)。
 
 ---
 

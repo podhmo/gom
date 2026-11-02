@@ -170,6 +170,11 @@ type File struct {
 	PkgSp   diag.Span
 	Imports []Import
 	Decls   []Decl
+	// EqDecls are the generated structural comparators the file's
+	// Equal nodes and CallBuiltin{assert_eq} plans call — one per
+	// distinct composite type lowering compared. They are emitted
+	// after Decls; see EqDecl for why they are not Decls.
+	EqDecls []*EqDecl
 }
 
 // Span returns the whole-file span.

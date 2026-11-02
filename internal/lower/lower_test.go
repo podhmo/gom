@@ -1839,8 +1839,10 @@ func TestTestOnlyDeclGating(t *testing.T) {
 	}
 }
 
-// TestEqLowering: `==` on scalars stays a native Binary; on List it
-// becomes the `eq` builtin (rt.Equal), and `!=` the `ne` builtin.
+// TestEqLowering: `==` lowers to a core.Equal whose How carries the
+// recipe — native for scalars and all-native composites, a generated
+// EqDecl comparator (EqCall) for composites needing loops/switches,
+// and the rt.Equal fallback for undeclared/Go-view shapes.
 func TestEqLowering(t *testing.T) {
 	xs := vsym("x", types.Int)
 	ys := vsym("y", types.Int)
@@ -1849,8 +1851,12 @@ func TestEqLowering(t *testing.T) {
 	out := mustLower(t, decl("f",
 		[]check.Param{param(vpat(xs, types.Int)), param(vpat(ys, types.Int))},
 		intEq, nil))
-	if _, ok := fnDeclOf(t, out, 0).Fn.Body.Tail.(*core.Binary); !ok {
-		t.Fatalf("Int == lowered to %T, want native core.Binary", fnDeclOf(t, out, 0).Fn.Body.Tail)
+	eq, ok := fnDeclOf(t, out, 0).Fn.Body.Tail.(*core.Equal)
+	if !ok || eq.How.Kind != core.EqNative || eq.Neg {
+		t.Fatalf("Int == lowered to %#v, want native core.Equal", fnDeclOf(t, out, 0).Fn.Body.Tail)
+	}
+	if len(out.EqDecls) != 0 {
+		t.Fatalf("Int == minted %d comparators, want 0", len(out.EqDecls))
 	}
 
 	lt := types.List(types.Int)
@@ -1861,9 +1867,15 @@ func TestEqLowering(t *testing.T) {
 	out = mustLower(t, decl("f",
 		[]check.Param{param(vpat(lx, lt)), param(vpat(ly, lt))},
 		listEq, nil))
-	cb, ok := fnDeclOf(t, out, 0).Fn.Body.Tail.(*core.CallBuiltin)
-	if !ok || cb.Sym.Name != "eq" || len(cb.Args) != 2 {
-		t.Fatalf("List == lowered to %#v, want CallBuiltin{eq}", fnDeclOf(t, out, 0).Fn.Body.Tail)
+	eq, ok = fnDeclOf(t, out, 0).Fn.Body.Tail.(*core.Equal)
+	if !ok || eq.How.Kind != core.EqCall || eq.How.Fn == nil {
+		t.Fatalf("List == lowered to %#v, want EqCall core.Equal", fnDeclOf(t, out, 0).Fn.Body.Tail)
+	}
+	if len(out.EqDecls) != 1 || out.EqDecls[0] != eq.How.Fn {
+		t.Fatalf("List == minted %d comparators, want the called one", len(out.EqDecls))
+	}
+	if eq.How.Fn.Plan.Kind != core.EqSlice || eq.How.Fn.Plan.Elem.Kind != core.EqNative {
+		t.Fatalf("List Int comparator plan = %#v, want slice of native", eq.How.Fn.Plan)
 	}
 
 	listNe := &check.Binary{Base: b(types.Bool), Op: syntax.BinNe,
@@ -1871,9 +1883,9 @@ func TestEqLowering(t *testing.T) {
 	out = mustLower(t, decl("f",
 		[]check.Param{param(vpat(lx, lt)), param(vpat(ly, lt))},
 		listNe, nil))
-	cb, ok = fnDeclOf(t, out, 0).Fn.Body.Tail.(*core.CallBuiltin)
-	if !ok || cb.Sym.Name != "ne" {
-		t.Fatalf("List != lowered to %#v, want CallBuiltin{ne}", fnDeclOf(t, out, 0).Fn.Body.Tail)
+	eq, ok = fnDeclOf(t, out, 0).Fn.Body.Tail.(*core.Equal)
+	if !ok || !eq.Neg || eq.How.Kind != core.EqCall {
+		t.Fatalf("List != lowered to %#v, want negated EqCall", fnDeclOf(t, out, 0).Fn.Body.Tail)
 	}
 
 	// A tuple of scalars is a comparable Go struct — native ==.
@@ -1885,11 +1897,13 @@ func TestEqLowering(t *testing.T) {
 	out = mustLower(t, decl("f",
 		[]check.Param{param(vpat(tx, tt)), param(vpat(ty, tt))},
 		tupEq, nil))
-	if _, ok := fnDeclOf(t, out, 0).Fn.Body.Tail.(*core.Binary); !ok {
-		t.Fatalf("scalar-tuple == lowered to %T, want core.Binary", fnDeclOf(t, out, 0).Fn.Body.Tail)
+	eq, ok = fnDeclOf(t, out, 0).Fn.Body.Tail.(*core.Equal)
+	if !ok || eq.How.Kind != core.EqNative {
+		t.Fatalf("scalar-tuple == lowered to %#v, want native core.Equal",
+			fnDeclOf(t, out, 0).Fn.Body.Tail)
 	}
 
-	// A tuple containing a List cannot use Go's ==.
+	// A tuple containing a List needs a fieldwise comparator.
 	tt2 := &types.Tuple{Elems: []types.Type{types.Int, lt}}
 	tx2 := vsym("x", tt2)
 	ty2 := vsym("y", tt2)
@@ -1898,12 +1912,19 @@ func TestEqLowering(t *testing.T) {
 	out = mustLower(t, decl("f",
 		[]check.Param{param(vpat(tx2, tt2)), param(vpat(ty2, tt2))},
 		tupEq2, nil))
-	cb, ok = fnDeclOf(t, out, 0).Fn.Body.Tail.(*core.CallBuiltin)
-	if !ok || cb.Sym.Name != "eq" {
-		t.Fatalf("list-tuple == lowered to %#v, want CallBuiltin{eq}", fnDeclOf(t, out, 0).Fn.Body.Tail)
+	eq, ok = fnDeclOf(t, out, 0).Fn.Body.Tail.(*core.Equal)
+	if !ok || eq.How.Kind != core.EqCall || eq.How.Fn.Plan.Kind != core.EqTuple {
+		t.Fatalf("list-tuple == lowered to %#v, want tuple comparator call",
+			fnDeclOf(t, out, 0).Fn.Body.Tail)
+	}
+	// The list field's recipe is itself a call — the two composite
+	// types get one comparator each.
+	if got := len(out.EqDecls); got != 2 {
+		t.Fatalf("list-tuple == minted %d comparators, want 2 (tuple + list)", got)
 	}
 
-	// A nominal record type goes through rt.Equal too.
+	// An undeclared nominal name has no shape to compare through —
+	// the rt.Equal fallback answers.
 	rt_ := &types.Con{Name: "Point"}
 	rx := vsym("x", rt_)
 	ry := vsym("y", rt_)
@@ -1912,9 +1933,122 @@ func TestEqLowering(t *testing.T) {
 	out = mustLower(t, decl("f",
 		[]check.Param{param(vpat(rx, rt_)), param(vpat(ry, rt_))},
 		recEq, nil))
-	cb, ok = fnDeclOf(t, out, 0).Fn.Body.Tail.(*core.CallBuiltin)
-	if !ok || cb.Sym.Name != "eq" {
-		t.Fatalf("record == lowered to %#v, want CallBuiltin{eq}", fnDeclOf(t, out, 0).Fn.Body.Tail)
+	eq, ok = fnDeclOf(t, out, 0).Fn.Body.Tail.(*core.Equal)
+	if !ok || eq.How.Kind != core.EqRuntime {
+		t.Fatalf("undeclared record == lowered to %#v, want runtime fallback",
+			fnDeclOf(t, out, 0).Fn.Body.Tail)
+	}
+}
+
+// TestEqDeclNamesTagged: comparator names are `gomEq<N>_<filetag>` —
+// deterministic per file, unique across files of one package. Two
+// independent lowerings of the same source mint the same name; two
+// files mint different ones.
+func TestEqDeclNamesTagged(t *testing.T) {
+	listFile := func(path string) *core.File {
+		lt := types.List(types.Int)
+		lx, ly := vsym("x", lt), vsym("y", lt)
+		listEq := &check.Binary{Base: b(types.Bool), Op: syntax.BinEq,
+			X: vr(lx, lt), Y: vr(ly, lt)}
+		sp2 := diag.SpanIn(path, 1, 2)
+		f := &check.File{
+			Sp: sp2, Package: "p", PkgSp: sp2,
+			Decls: []check.Decl{decl("f",
+				[]check.Param{param(vpat(lx, lt)), param(vpat(ly, lt))},
+				listEq, nil)},
+		}
+		out, diags := File(f, nil)
+		if out == nil {
+			t.Fatal("File returned nil")
+		}
+		for _, d := range diags {
+			t.Errorf("unexpected diagnostic: %v", d)
+		}
+		return out
+	}
+	nameOf := func(f *core.File) string {
+		if len(f.EqDecls) != 1 || f.EqDecls[0].Sym == nil {
+			t.Fatalf("EqDecls = %#v, want one minted comparator", f.EqDecls)
+		}
+		return f.EqDecls[0].Sym.Name
+	}
+	a1, a2 := nameOf(listFile("a.gom")), nameOf(listFile("a.gom"))
+	bx := nameOf(listFile("b.gom"))
+	if a1 != a2 {
+		t.Fatalf("same file minted %q then %q — names must be deterministic", a1, a2)
+	}
+	if a1 == bx {
+		t.Fatalf("a.gom and b.gom both minted %q — package-scope names collide", a1)
+	}
+	if !strings.HasPrefix(a1, "gomEq1_") || !strings.HasPrefix(bx, "gomEq1_") {
+		t.Fatalf("names %q, %q lack the gomEq<N>_<filetag> shape", a1, bx)
+	}
+}
+
+// TestEqMapPlan: a `Go.Map` operand mints a map comparator — key-set
+// equality plus the element recipe (a nested EqCall for a List
+// value type).
+func TestEqMapPlan(t *testing.T) {
+	mt := &types.Con{Qual: "Go", Name: "Map",
+		Args: []types.Type{types.String, types.List(types.Int)}}
+	mx, my := vsym("x", mt), vsym("y", mt)
+	mapEq := &check.Binary{Base: b(types.Bool), Op: syntax.BinEq,
+		X: vr(mx, mt), Y: vr(my, mt)}
+	out := mustLower(t, decl("f",
+		[]check.Param{param(vpat(mx, mt)), param(vpat(my, mt))},
+		mapEq, nil))
+	eq, ok := fnDeclOf(t, out, 0).Fn.Body.Tail.(*core.Equal)
+	if !ok || eq.How.Kind != core.EqCall || eq.How.Fn == nil {
+		t.Fatalf("Go.Map == lowered to %#v, want EqCall", fnDeclOf(t, out, 0).Fn.Body.Tail)
+	}
+	if eq.How.Fn.Plan.Kind != core.EqMap {
+		t.Fatalf("Go.Map comparator plan = %#v, want EqMap", eq.How.Fn.Plan)
+	}
+	if el := eq.How.Fn.Plan.Elem; el.Kind != core.EqCall || el.Fn.Plan.Kind != core.EqSlice {
+		t.Fatalf("map elem recipe = %#v, want the list comparator's call", el)
+	}
+	if got := len(out.EqDecls); got != 2 {
+		t.Fatalf("minted %d comparators, want 2 (map + list)", got)
+	}
+}
+
+// TestEqBudget: `type W a = {next: List (W (W a))}` — each minted
+// comparator's nested recipe instantiates a strictly larger W, so
+// generation never converges. The eqDeclLimit cap reports a single
+// E0906 at the `==` site and degrades the plan rather than minting
+// forever (the prior behaviour: `gom build` hung).
+func TestEqBudget(t *testing.T) {
+	wA := &types.Var{Name: "a", ID: 91}
+	wSym := &resolve.Symbol{Name: "W", Kind: resolve.KindType}
+	wa := &types.Con{Name: "W", Args: []types.Type{wA}}  // W a
+	wwa := &types.Con{Name: "W", Args: []types.Type{wa}} // W (W a)
+	nextT := types.List(wwa)                             // List (W (W a))
+	td := &check.TypeDecl{
+		Sp: sp, Sym: wSym, TypeParams: []*types.Var{wA},
+		Body: &check.RecordType{Sp: sp, Fields: []check.TField{{
+			Sp: sp, Name: "next", Index: 0,
+			Sym:  &resolve.Symbol{Name: "next", Kind: resolve.KindField},
+			Type: nextT,
+		}}},
+	}
+	wInt := &types.Con{Name: "W", Args: []types.Type{types.Int}}
+	xs, ys := vsym("x", wInt), vsym("y", wInt)
+	eqE := &check.Binary{Base: b(types.Bool), Op: syntax.BinEq,
+		X: vr(xs, wInt), Y: vr(ys, wInt)}
+	out, diags := lower1(t, td,
+		decl("eq", []check.Param{param(vpat(xs, wInt)), param(vpat(ys, wInt))},
+			eqE, nil))
+	if len(diags) != 1 || diags[0].Code != codeEqBudget {
+		t.Fatalf("diags = %v, want a single %s", diags, codeEqBudget)
+	}
+	if got := len(out.EqDecls); got > eqDeclLimit {
+		t.Fatalf("minted %d comparators, want <= %d", got, eqDeclLimit)
+	}
+	// The plan degrades to a well-formed runtime recipe — the
+	// diagnostic, not the IR, is what stops the build.
+	eq, ok := fnDeclOf(t, out, 1).Fn.Body.Tail.(*core.Equal)
+	if !ok || eq.How == nil {
+		t.Fatalf("eq tail = %#v, want a lowered core.Equal", fnDeclOf(t, out, 1).Fn.Body.Tail)
 	}
 }
 

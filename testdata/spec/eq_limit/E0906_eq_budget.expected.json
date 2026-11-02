@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0906",
+      "severity": "error",
+      "message": "`==` mints more structural comparators than the 128 limit — the operand type's expansion does not converge",
+      "span": {
+        "file": "eq_limit/E0906_eq_budget.gom",
+        "start": {
+          "line": 13,
+          "col": 39,
+          "offset": 617
+        },
+        "end": {
+          "line": 13,
+          "col": 45,
+          "offset": 623
+        }
+      }
+    }
+  ]
+}

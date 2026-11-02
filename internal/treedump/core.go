@@ -37,6 +37,9 @@ func DumpCore(f *core.File) string {
 	for _, decl := range f.Decls {
 		kids = append(kids, d.cdecl(decl))
 	}
+	for _, ed := range f.EqDecls {
+		kids = append(kids, d.ceqdecl(ed))
+	}
 	kids = append(kids, d.syms())
 	return render(nodef(text, kids...))
 }
@@ -137,6 +140,71 @@ func (d *cdump) cdecl(dd core.Decl) *form {
 		return nodef(text, kids...)
 	default:
 		panic("unreachable")
+	}
+}
+
+// ceqdecl renders a generated comparator —
+// `(eqdecl@sp <sym>%n :Typ (plan ...))` — after the file's own
+// declarations, in mint order.
+func (d *cdump) ceqdecl(ed *core.EqDecl) *form {
+	text := "eqdecl" + at(ed.Sp) + " " + d.symRef(ed.Sym) + " " + typ(ed.Typ)
+	return nodef(text, nodef("plan", d.cplan(ed.Plan)))
+}
+
+// cplan renders a comparison recipe compactly: leaf kinds print
+// `kind` (EqCall appends its comparator symbol); composite kinds
+// print `(kind ...)` with their nested recipes.
+func (d *cdump) cplan(p *core.EqPlan) *form {
+	if p == nil {
+		return nodef("?")
+	}
+	switch p.Kind {
+	case core.EqNative, core.EqRuntime, core.EqError:
+		return nodef(p.Kind.String())
+	case core.EqCall:
+		name := "?"
+		if p.Fn != nil && p.Fn.Sym != nil {
+			name = d.symRef(p.Fn.Sym)
+		}
+		return nodef(p.Kind.String() + " " + name)
+	case core.EqSlice, core.EqMap:
+		return nodef(p.Kind.String(), nodef("elem", d.cplan(p.Elem)))
+	case core.EqTuple, core.EqRecord:
+		kids := make([]*form, 0, len(p.Fields))
+		for _, f := range p.Fields {
+			kids = append(kids, nodef(d.eqFieldLabel(&f)+fmt.Sprintf(" :i%d", f.Index), d.cplan(f.Plan)))
+		}
+		return nodef(p.Kind.String(), kids...)
+	case core.EqSum, core.EqResult:
+		kids := make([]*form, 0, len(p.Variants))
+		for i := range p.Variants {
+			v := &p.Variants[i]
+			vk := make([]*form, 0, len(v.Fields))
+			for j := range v.Fields {
+				f := &v.Fields[j]
+				vk = append(vk, nodef(d.eqFieldLabel(f)+fmt.Sprintf(" :i%d", f.Index), d.cplan(f.Plan)))
+			}
+			kids = append(kids, nodef("variant "+d.symRef(v.Sym), vk...))
+		}
+		return nodef(p.Kind.String(), kids...)
+	default:
+		return nodef(p.Kind.String())
+	}
+}
+
+// eqFieldLabel picks the printable selector of an EqField — `name`
+// for a declared field, `.Sel` for an accessor override, `V<i>`
+// otherwise.
+func (d *cdump) eqFieldLabel(f *core.EqField) string {
+	switch {
+	case f.Sel != "":
+		return "." + f.Sel
+	case f.Name != "":
+		return f.Name
+	case f.Sym != nil:
+		return f.Sym.Name
+	default:
+		return fmt.Sprintf("V%d", f.Index)
 	}
 }
 
@@ -337,6 +405,12 @@ func (d *cdump) cexpr(e core.Expr) *form {
 		return nodef(chead("unary", e.Base)+" "+e.Op.String(), d.cexpr(e.X))
 	case *core.Binary:
 		return nodef(chead("binary", e.Base)+" "+e.Op.String(), d.cexpr(e.X), d.cexpr(e.Y))
+	case *core.Equal:
+		text := chead("eq", e.Base) + " how=" + eqKindName(e.How)
+		if e.Neg {
+			text += " neg"
+		}
+		return nodef(text, d.cexpr(e.X), d.cexpr(e.Y))
 	case *core.If:
 		kids := []*form{d.cexpr(e.Cond), d.cbody(e.Then)}
 		if e.Else != nil {
@@ -394,7 +468,11 @@ func (d *cdump) cexpr(e core.Expr) *form {
 		kids = append(kids, d.catoms(e.Args)...)
 		return nodef(text, kids...)
 	case *core.CallBuiltin:
-		return nodef(chead("builtin", e.Base)+" "+d.symRef(e.Sym), d.catoms(e.Args)...)
+		text := chead("builtin", e.Base) + " " + d.symRef(e.Sym)
+		if e.Eq != nil {
+			text += " eq=" + eqKindName(e.Eq)
+		}
+		return nodef(text, d.catoms(e.Args)...)
 	case *core.CtorApp:
 		text := chead("ctorapp", e.Base) + " " + d.symRef(e.Ctor)
 		return nodef(text+fmt.Sprintf(" arity=%d", e.Arity)+targs(e.TypeArgs), d.catoms(e.Args)...)
@@ -415,6 +493,15 @@ func (d *cdump) cexpr(e core.Expr) *form {
 	default:
 		panic("unreachable")
 	}
+}
+
+// eqKindName prints an Equal node's leaf recipe name — `?` for a
+// missing plan so malformed input stays visible.
+func eqKindName(p *core.EqPlan) string {
+	if p == nil {
+		return "?"
+	}
+	return p.Kind.String()
 }
 
 // escapeHead renders `name@sp :T to=<fn> [wrap="step"]` — the shared

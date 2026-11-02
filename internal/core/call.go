@@ -119,6 +119,11 @@ type CallBuiltin struct {
 	Base
 	Sym  *resolve.Symbol // KindBuiltin
 	Args []Atom
+	// Eq is the comparison recipe — set for `assert_eq` only, where
+	// it describes how Args[0] and Args[1] compare so codegen emits
+	// the verdict as the pre-computed operand of rt.AssertEq. Nil
+	// for every other builtin.
+	Eq *EqPlan
 }
 
 func (*CallBuiltin) isExpr() {}

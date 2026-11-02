@@ -1,0 +1,12 @@
+package ex
+
+// spec 3.3: `assert_eq` applies the same eq judgment `==` does — a
+// function-containing record reports E0409 inside a test block.
+type Box = {f: Int -> Int}
+
+fn main () -> Unit = ()
+
+test "eq" {
+  let a : Box = {f = fn x -> x}
+  assert_eq a a
+}

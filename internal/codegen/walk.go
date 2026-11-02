@@ -69,7 +69,7 @@ func walkExpr(e core.Expr, f func(*core.Bind)) {
 		walkBody(e.Body, f)
 	case *core.Var, *core.Lit, *core.FuncRef, *core.CtorRef,
 		*core.GoFuncRef, *core.FieldGet,
-		*core.Unary, *core.Binary,
+		*core.Unary, *core.Binary, *core.Equal,
 		*core.CallDirect, *core.CallFunc, *core.CallGo, *core.CallBuiltin,
 		*core.CtorApp, *core.TupleNew, *core.ListNew,
 		*core.RecordNew, *core.RecordUpdate, *core.Conv,
@@ -204,6 +204,8 @@ func exprUses(e core.Expr, sym *resolve.Symbol) bool {
 	case *core.Unary:
 		return atomUses(e.X, sym)
 	case *core.Binary:
+		return atomUses(e.X, sym) || atomUses(e.Y, sym)
+	case *core.Equal:
 		return atomUses(e.X, sym) || atomUses(e.Y, sym)
 	case *core.If:
 		return atomUses(e.Cond, sym) || bodyUses(e.Then, sym) || bodyUses(e.Else, sym)

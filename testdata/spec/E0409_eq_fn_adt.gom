@@ -1,0 +1,9 @@
+package ex
+
+// spec 3.3: the eq judgment expands a named ADT's payloads — a
+// function in one variant makes the whole type uncomparable.
+type Op = | Apply (Int -> Int) | Noop
+
+fn eq (a: Op) (b: Op) -> Bool = a == b
+
+fn main () -> Unit = ()

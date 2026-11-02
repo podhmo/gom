@@ -104,7 +104,7 @@ var categories = []Category{
 	{"08", "Tests",
 		"Test declarations, the @test scope, and assertions (spec section 11)."},
 	{"09", "Lowering",
-		"User-facing diagnostics of the desugaring phase (internal/lower) — today the @tailrec requirement rules of spec section 1."},
+		"User-facing diagnostics of the desugaring phase (internal/lower) — the @tailrec requirement rules of spec section 1 and limits of the desugaring step such as equality comparator expansion."},
 	{"90", "Evaluation",
 		"Run-time diagnostics of the typed-AST evaluator (internal/eval): unsupported constructs, panics, and broken interpreter invariants."},
 }
@@ -888,6 +888,23 @@ call.`,
 		Example: `@tailrec
 fn answer () -> Int = 42   // no self-call anywhere`,
 	},
+	{
+		Code:     "E0906",
+		Severity: SeverityError,
+		Title:    "equality comparator expansion exceeds budget",
+		Phase:    PhaseLower,
+		Explanation: `"==" on a composite type emits one generated comparator
+function per distinct operand type. A generic type whose expansion
+keeps growing — a self-application like "type W a = {next: List (W (W a))}",
+where each level instantiates a *larger* type — needs an unbounded
+set, so lowering stops at the budget and reports here instead of
+hanging. Degrading the comparison to the reflect.DeepEqual fallback
+is not done silently: that reading diverges from "==" on shared
+backing stores (NaN, alias cycles).`,
+		Example: `type W a = {next: List (W (W a))}
+fn eq (x: W Int) (y: W Int) -> Bool = x == y   // no finite comparator set`,
+	},
+
 	{
 		Code:     "E9001",
 		Severity: SeverityError,

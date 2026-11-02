@@ -1,0 +1,11 @@
+package ex
+
+// spec 3.3: a function reachable through a mutually-recursive
+// record cycle still counts — the eq walk's revisit guard stops the
+// loop but the sibling field keeps reporting.
+type A = {b: B}
+type B = {a: Option A, f: Int -> Int}
+
+fn eq (x: A) (y: A) -> Bool = x == y
+
+fn main () -> Unit = ()

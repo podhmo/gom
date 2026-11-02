@@ -986,7 +986,7 @@ func retarget(f *core.File, pkg string) {
 		case *core.GoFuncRef:
 			e.Sym = cloneGoSym(e.Sym, pkg)
 		case *core.Var, *core.Lit, *core.FuncRef, *core.CtorRef,
-			*core.FieldGet, *core.Unary, *core.Binary,
+			*core.FieldGet, *core.Unary, *core.Binary, *core.Equal,
 			*core.CallDirect, *core.CallFunc, *core.CallBuiltin,
 			*core.CtorApp, *core.TupleNew, *core.ListNew,
 			*core.RecordNew, *core.RecordUpdate, *core.Conv,
@@ -1079,7 +1079,7 @@ func walkExprNodes(e core.Expr, mut func(core.Expr)) {
 		mut(e.Call)
 	case *core.Var, *core.Lit, *core.FuncRef, *core.CtorRef,
 		*core.GoFuncRef, *core.FieldGet,
-		*core.Unary, *core.Binary,
+		*core.Unary, *core.Binary, *core.Equal,
 		*core.CallDirect, *core.CallFunc, *core.CallGo, *core.CallBuiltin,
 		*core.CtorApp, *core.TupleNew, *core.ListNew,
 		*core.RecordNew, *core.RecordUpdate, *core.Conv,

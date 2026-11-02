@@ -1,0 +1,26 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0409",
+      "severity": "error",
+      "message": "`==` is not defined on Box: the type contains a function or a type variable",
+      "span": {
+        "file": "E0409_assert_eq_fn.gom",
+        "start": {
+          "line": 11,
+          "col": 3,
+          "offset": 246
+        },
+        "end": {
+          "line": 11,
+          "col": 16,
+          "offset": 259
+        }
+      },
+      "data": {
+        "type": "Box"
+      }
+    }
+  ]
+}

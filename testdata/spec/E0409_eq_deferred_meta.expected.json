@@ -1,0 +1,26 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0409",
+      "severity": "error",
+      "message": "`==` is not defined on List (Int -> Int): the type contains a function or a type variable",
+      "span": {
+        "file": "E0409_eq_deferred_meta.gom",
+        "start": {
+          "line": 9,
+          "col": 3,
+          "offset": 265
+        },
+        "end": {
+          "line": 9,
+          "col": 11,
+          "offset": 273
+        }
+      },
+      "data": {
+        "type": "List (Int -> Int)"
+      }
+    }
+  ]
+}

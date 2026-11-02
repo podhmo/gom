@@ -1,0 +1,10 @@
+package ex
+
+// spec 3.3: a generic declaration instantiated with a function
+// type is uncomparable — the eq judgment substitutes the type
+// argument into the declaration's fields.
+type Box a = {v: a}
+
+fn eq (a: Box (Int -> Int)) (b: Box (Int -> Int)) -> Bool = a == b
+
+fn main () -> Unit = ()

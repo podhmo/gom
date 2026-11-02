@@ -1,0 +1,10 @@
+package ex
+
+// spec 3.3: the judgment reaches through container arguments and
+// into the named type they instantiate — List Box is uncomparable
+// because Box's field is.
+type Box = {f: Int -> Int}
+
+fn eq (xs: List Box) (ys: List Box) -> Bool = xs == ys
+
+fn main () -> Unit = ()

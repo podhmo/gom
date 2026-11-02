@@ -1,0 +1,26 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0409",
+      "severity": "error",
+      "message": "`==` is not defined on Box (Int -> Int): the type contains a function or a type variable",
+      "span": {
+        "file": "E0409_eq_fn_generic.gom",
+        "start": {
+          "line": 8,
+          "col": 61,
+          "offset": 265
+        },
+        "end": {
+          "line": 8,
+          "col": 67,
+          "offset": 271
+        }
+      },
+      "data": {
+        "type": "Box (Int -> Int)"
+      }
+    }
+  ]
+}

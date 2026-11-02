@@ -197,6 +197,9 @@ func eachVar(b *core.Body, f func(v *core.Var, captured bool)) {
 		case *core.Binary:
 			atom(e.X, captured)
 			atom(e.Y, captured)
+		case *core.Equal:
+			atom(e.X, captured)
+			atom(e.Y, captured)
 		case *core.If:
 			atom(e.Cond, captured)
 			body(e.Then, captured)

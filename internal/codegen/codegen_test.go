@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/podhmo/gom/internal/core"
@@ -185,6 +186,99 @@ func TestInvalidFile(t *testing.T) {
 	}
 	if len(iv.Violations) == 0 {
 		t.Error("InvalidFileError carries no violations")
+	}
+}
+
+// TestCtorLetConversion: `let a = A` / `let b = B 1` on a local sum
+// emits the ADT-interface conversion — `a := Sh(Sh_A{})` — because
+// `:=` would otherwise bind the concrete variant struct and the
+// later `a == b` would compare two different concrete types (which
+// does not compile). The builtin Result representation emits
+// constructor *calls* already typed at the declared type, so it is
+// exempt.
+func TestCtorLetConversion(t *testing.T) {
+	shSym := tsym("Sh")
+	shT := &types.Con{Name: "Sh"}
+	aCt, bCt := csym("A"), csym("B")
+	f := &core.File{Sp: lsp(1), Package: "shapes", PkgSp: lsp(1)}
+	f.Decls = append(f.Decls, &core.TypeDecl{
+		Sp: lsp(3), Sym: shSym,
+		Body: &core.TSum{Sp: lsp(3), Variants: []core.TVariant{
+			{Sp: lsp(3), Sym: aCt},
+			{Sp: lsp(3), Sym: bCt, Fields: []core.TField{
+				{Sp: lsp(3), Index: 0, Type: types.Int},
+			}},
+		}},
+	})
+	aB, aS := vbind("a", shT)
+	bB, bS := vbind("b", shT)
+	f.Decls = append(f.Decls, &core.FuncDecl{
+		Sp: lsp(5), Sym: fsym("neq"),
+		Fn: &core.Func{
+			Sp:  lsp(5),
+			Sig: types.Fn(types.Bool),
+			Body: &core.Body{
+				Lets: []*core.Let{
+					{Sp: lsp(6), Name: aB, X: &core.CtorApp{
+						Base: core.Base{Sp: lsp(6), Typ: shT}, Ctor: aCt, Arity: 0}},
+					{Sp: lsp(7), Name: bB, X: &core.CtorApp{
+						Base: core.Base{Sp: lsp(7), Typ: shT}, Ctor: bCt,
+						Args: []core.Atom{intLit("1")}, Arity: 1}},
+				},
+				Tail: &core.Equal{
+					Base: core.Base{Sp: lsp(8), Typ: types.Bool},
+					X:    vref(aS, shT), Y: vref(bS, shT),
+					How: &core.EqPlan{Kind: core.EqNative},
+				},
+			},
+		},
+	})
+	out, err := File(f, fakeSrc())
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := string(out.Source)
+	for _, want := range []string{
+		"a := Sh(Sh_A{})",
+		"b := Sh(Sh_B{V0: 1})",
+		"return a == b",
+	} {
+		if !strings.Contains(src, want) {
+			t.Errorf("generated source lacks %q:\n%s", want, src)
+		}
+	}
+}
+
+// TestEqMapDecl: a Go.Map comparator emits the key-set/value loop,
+// and — like every comparator — carries its //line only on the
+// declaration, never on the generated body statements.
+func TestEqMapDecl(t *testing.T) {
+	mapT := &types.Con{Qual: "Go", Name: "Map",
+		Args: []types.Type{types.String, types.Int}}
+	f := &core.File{Sp: lsp(1), Package: "shapes", PkgSp: lsp(1)}
+	f.EqDecls = []*core.EqDecl{{
+		Sp:  lsp(3),
+		Sym: &resolve.Symbol{Name: "gomEq1_deadbeef", Kind: resolve.KindFunc},
+		Typ: mapT,
+		Plan: &core.EqPlan{Kind: core.EqMap,
+			Elem: &core.EqPlan{Kind: core.EqNative}},
+	}}
+	out, err := File(f, fakeSrc())
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := string(out.Source)
+	for _, want := range []string{
+		"func gomEq1Deadbeef(a, b map[string]int64) bool",
+		"for k, av := range a",
+		"bv, ok := b[k]",
+	} {
+		if !strings.Contains(src, want) {
+			t.Errorf("generated comparator lacks %q:\n%s", want, src)
+		}
+	}
+	if n := strings.Count(src, "//line"); n != 1 {
+		t.Errorf("comparator emitted %d //line directives, want the declaration's one:\n%s", n, src)
 	}
 }
 

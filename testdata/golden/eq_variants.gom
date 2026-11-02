@@ -1,0 +1,28 @@
+package main
+
+// `==` between narrowed operands: let-bound constructor applications
+// bind the ADT interface (the `Sh(...)` conversions), so the native
+// `a == b` never compares two different concrete variant structs.
+type Sh = A | B Int
+
+fn neq_vars () -> Bool = {
+  let a = A
+  let b = B 1
+  a == b
+}
+
+fn neq_ctor_tail (s: Sh) -> Bool = {
+  let a = A
+  match s {
+    A -> false
+    B n -> a == B n
+  }
+}
+
+fn neq_opt () -> Bool = (Some 1) == None
+
+fn main () -> Unit = {
+  let _ = neq_vars ()
+  let _ = neq_opt ()
+  ()
+}

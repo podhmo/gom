@@ -2,6 +2,7 @@ package lower
 
 import (
 	"fmt"
+	"hash/fnv"
 
 	"github.com/podhmo/gom/internal/check"
 	"github.com/podhmo/gom/internal/core"
@@ -146,6 +147,16 @@ func File(f *check.File, env *Env) (*core.File, []diag.Diagnostic) {
 		}
 	}
 
+	// Generated comparators are package-scope declarations, but the
+	// .gom files of one package are compiled independently — each
+	// mints its own — and land in a shared Go package. The names
+	// therefore carry a deterministic per-file tag (fnv32a of the
+	// file path): two files may both mint a `gomEq1`, never the
+	// same `gomEq1_<tag>`.
+	h := fnv.New32a()
+	_, _ = h.Write([]byte(f.Sp.File))
+	l.eqMark = fmt.Sprintf("%08x", h.Sum32())
+
 	out := &core.File{
 		Sp:      f.Sp,
 		Package: f.Package,
@@ -160,6 +171,7 @@ func File(f *check.File, env *Env) (*core.File, []diag.Diagnostic) {
 		l.decl(d, out)
 	}
 	l.checkTailRec(out)
+	out.EqDecls = l.eqOrder
 
 	if errs := core.Validate(out); len(errs) > 0 {
 		for _, v := range errs {
@@ -221,6 +233,18 @@ type lowerer struct {
 	// fnStack is the stack of enclosing function boundaries — the
 	// innermost is the escape To target. Entries are *core.Func.
 	fnStack []*core.Func
+
+	// eqDecls/eqOrder/eqSeq mint and collect the generated
+	// structural comparators `x == y` on composite types needs —
+	// deduplicated by operand type, emitted in first-use order
+	// (equal.go). eqMark is the file-unique tag baked into the
+	// decl names (equal.go's cmpDecl); eqOver reported keeps the
+	// eqDeclLimit overflow to a single diagnostic.
+	eqDecls map[string]*core.EqDecl
+	eqOrder []*core.EqDecl
+	eqSeq   int
+	eqMark  string
+	eqOver  bool
 
 	// inTest marks lowering inside a `test` declaration's body —
 	// where the generated function binds the `t` identifier
@@ -388,6 +412,11 @@ func goResultsOf(t types.Type) core.GoResults {
 // category is not yet registered in the diag code table; see
 // docs/problems/2026-11-02-lower-input-contract-gaps.md.
 const codeLowering diag.Code = "E0901"
+
+// codeEqBudget is the registered user-facing code for the generated-
+// comparator minting budget (`==` on an expanding self-applied type
+// needs an unbounded set — equal.go's eqDeclLimit).
+const codeEqBudget diag.Code = "E0906"
 
 // coreViolation renders a validator violation as a diagnostic —
 // compiler-bug evidence surfaced instead of a malformed file.

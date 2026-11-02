@@ -26,6 +26,7 @@ import (
 	"github.com/podhmo/gom/internal/build"
 	"github.com/podhmo/gom/internal/diag"
 	"github.com/podhmo/gom/internal/eval"
+	"github.com/podhmo/gom/internal/lower"
 )
 
 var compareCases = []struct {
@@ -254,6 +255,71 @@ fn main () -> Unit = {
 }
 `,
 		want: "true,true,true,true,true,true,true,true",
+	},
+	{
+		// The NaN triple (spec 3.3): scalar `==` keeps IEEE
+		// semantics, so `n == n` is false — and elementwise list
+		// comparison must preserve that reading even when both
+		// operands are the *same slice*, where reflect.DeepEqual
+		// shortcuts to true. The evaluator's eqValue always read
+		// this way; the compiled comparators now agree.
+		name: "structural_equality_nan",
+		src: `package main
+
+import go "fmt"
+
+fn answer () -> String = {
+  let z = 0.0
+  let n = z / z
+  let xs = [n]
+  let a = n == n
+  let b = xs == xs
+  let c = [n] == [n]
+  let d = xs == [n]
+  "${a},${b},${c},${d}"
+}
+
+fn main () -> Unit = {
+  let _ = fmt.Println(answer ())
+  ()
+}
+`,
+		want: "false,false,false,false",
+	},
+	{
+		// `==` between narrowed operands (spec 3.3 again): `let a = A`
+		// on a local sum and `(Some 1)` both bind through the ADT
+		// interface, so the native `==` never meets two different
+		// concrete variant structs — before the let-bound conversion
+		// this compiled `Sh_A == Sh_B` literals, which Go rejects.
+		name: "structural_equality_narrowed",
+		src: `package main
+
+import go "fmt"
+
+type Sh = A | B Int
+
+fn answer () -> String = {
+  let a = A
+  let b = B 1
+  let x = a == b
+  let y = a == A
+  let z = b == B 1
+  let p = (Some 1) == None
+  let q = Some 1 != None
+  let m = match b {
+    A -> false
+    B n -> n == 1
+  }
+  "${x},${y},${z},${p},${q},${m}"
+}
+
+fn main () -> Unit = {
+  let _ = fmt.Println(answer ())
+  ()
+}
+`,
+		want: "false,true,true,false,true,true",
 	},
 	{
 		// Top-level names are scoped to the whole file, so `let y`
@@ -553,6 +619,167 @@ func runCompiled(t *testing.T, src []byte) string {
 		t.Fatalf("generated program failed: %v\noutput: %s\n---\n%s", err, out, src)
 	}
 	return string(out)
+}
+
+// TestGeneratedTestFileRuns compiles a test-mode file and runs the
+// generated <pkg>_test.go under `go test` — the path the golden
+// suite never exercises (it generates with Tests off). The
+// assert_eq cases pin the precomputed-verdict signature of
+// rt.AssertEq and the generated-comparator route for lists.
+func TestGeneratedTestFileRuns(t *testing.T) {
+	src := `package m
+
+fn main () -> Unit = ()
+
+test "scalars" {
+  assert_eq (1 + 1) 2
+}
+
+test "lists" {
+  let z = 0.0
+  let n = z / z
+  let xs = [1.0, 2.0]
+  assert_eq xs xs
+  assert (not (xs == [n]))
+}
+
+test "variants" {
+  assert (Some 1 != None)
+  assert (not ((Some 1) == None))
+  match Some 1 {
+    Some n -> assert (n == 1)
+    None -> assert false
+  }
+}
+`
+	r, err := build.Compile(
+		build.Input{Path: "m.gom", Src: []byte(src)},
+		&build.Options{Lower: &lower.Env{Tests: true}},
+	)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	for _, d := range r.Diagnostics {
+		if d.Severity == diag.SeverityError {
+			t.Fatalf("%s: %s", d.Code, d.Message)
+		}
+	}
+	if r.Output == nil || r.Output.TestSource == nil {
+		t.Fatal("test mode produced no test source")
+	}
+
+	gobin, err := exec.LookPath("go")
+	if err != nil {
+		t.Skip("no go toolchain on PATH")
+	}
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	gomod := "module e2e\n\ngo 1.27\n\nrequire github.com/podhmo/gom v0.0.0\n\nreplace github.com/podhmo/gom => " + root + "\n"
+	for name, src := range map[string][]byte{
+		"go.mod":    []byte(gomod),
+		"m.go":      r.Output.Source,
+		"m_test.go": r.Output.TestSource,
+	} {
+		if err := os.WriteFile(filepath.Join(dir, name), src, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cmd := exec.Command(gobin, "test", ".")
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "GOWORK=off", "GOFLAGS=-mod=mod", "GOTOOLCHAIN=local")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("generated test file failed: %v\noutput: %s\n---\n%s",
+			err, out, r.Output.TestSource)
+	}
+}
+
+// TestTwoFilePackageCompiles is the package-scope collision probe:
+// `gom build dir/` compiles each .gom file independently but emits
+// them into one Go package, so two files that both compare
+// `List Int` mint the same-base `gomEq1` name — without the per-file
+// tag the merged package has a redeclared function (and the wrong
+// comparator could be picked cross-file). The test proves the minted
+// names differ and the merged package builds.
+func TestTwoFilePackageCompiles(t *testing.T) {
+	gobin, err := exec.LookPath("go")
+	if err != nil {
+		t.Skip("no go toolchain on PATH")
+	}
+	compile := func(path, src string) []byte {
+		r, err := build.Compile(build.Input{Path: path, Src: []byte(src)}, suiteOptions())
+		if err != nil {
+			t.Fatalf("compile %s: %v", path, err)
+		}
+		for _, d := range r.Diagnostics {
+			if d.Severity == diag.SeverityError {
+				t.Fatalf("%s: %s: %s", path, d.Code, d.Message)
+			}
+		}
+		if r.Output == nil {
+			t.Fatalf("%s: no generated output", path)
+		}
+		return r.Output.Source
+	}
+	// Both files compare `List Int` — the comparator signatures are
+	// identical, so only the file tag keeps the names distinct.
+	aSrc := compile("a.gom", `package main
+
+import go "fmt"
+
+fn eq (xs: List Int) (ys: List Int) -> Bool = xs == ys
+
+fn main () -> Unit = {
+  let _ = fmt.Println(eq [40, 2] [40, 2])
+  ()
+}
+`)
+	bSrc := compile("b.gom", `package main
+
+fn beq (xs: List Int) (ys: List Int) -> Bool = xs == ys
+`)
+
+	eqName := func(src []byte) string {
+		s := string(src)
+		i := strings.Index(s, "func gomEq")
+		if i < 0 {
+			t.Fatalf("generated source mints no comparator:\n%s", s)
+		}
+		rest := s[i+len("func "):]
+		return rest[:strings.IndexByte(rest, '(')]
+	}
+	an, bn := eqName(aSrc), eqName(bSrc)
+	if an == bn {
+		t.Fatalf("a.gom and b.gom both minted %s — package-scope collision", an)
+	}
+	if !strings.HasPrefix(an, "gomEq1") || !strings.HasPrefix(bn, "gomEq1") {
+		t.Fatalf("comparator names %q, %q lack the gomEq<N> base", an, bn)
+	}
+
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	gomod := "module e2e\n\ngo 1.27\n\nrequire github.com/podhmo/gom v0.0.0\n\nreplace github.com/podhmo/gom => " + root + "\n"
+	for name, src := range map[string][]byte{
+		"go.mod": []byte(gomod), "a.go": aSrc, "b.go": bSrc,
+	} {
+		if err := os.WriteFile(filepath.Join(dir, name), src, 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cmd := exec.Command(gobin, "run", ".")
+	cmd.Dir = dir
+	cmd.Env = append(os.Environ(), "GOWORK=off", "GOFLAGS=-mod=mod", "GOTOOLCHAIN=local")
+	if out, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("merged package failed: %v\noutput: %s\n---\n%s\n%s",
+			err, out, aSrc, bSrc)
+	} else if got := strings.TrimSpace(string(out)); got != "true" {
+		t.Fatalf("program printed %q, want true", got)
+	}
 }
 
 func TestEvalMatchesCompiled(t *testing.T) {

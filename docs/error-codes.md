@@ -38,7 +38,7 @@ renumbering.
 | `06xx` | Packages and interfaces | Package layout, .gomi presence and contents, and implementation-to-interface agreement (internal/iface, internal/build). |
 | `07xx` | Concurrency | The go/select/channel rules of spec section 10 and the mutable-sharing lints. |
 | `08xx` | Tests | Test declarations, the @test scope, and assertions (spec section 11). |
-| `09xx` | Lowering | User-facing diagnostics of the desugaring phase (internal/lower) — today the @tailrec requirement rules of spec section 1. |
+| `09xx` | Lowering | User-facing diagnostics of the desugaring phase (internal/lower) — the @tailrec requirement rules of spec section 1 and limits of the desugaring step such as equality comparator expansion. |
 | `90xx` | Evaluation | Run-time diagnostics of the typed-AST evaluator (internal/eval): unsupported constructs, panics, and broken interpreter invariants. |
 
 ## 00xx — Compiler and toolchain
@@ -821,6 +821,24 @@ call.
 ```gom
 @tailrec
 fn answer () -> Int = 42   // no self-call anywhere
+```
+
+### E0906 — equality comparator expansion exceeds budget
+
+**Severity:** error · **Phase:** lower
+
+"==" on a composite type emits one generated comparator
+function per distinct operand type. A generic type whose expansion
+keeps growing — a self-application like "type W a = {next: List (W (W a))}",
+where each level instantiates a *larger* type — needs an unbounded
+set, so lowering stops at the budget and reports here instead of
+hanging. Degrading the comparison to the reflect.DeepEqual fallback
+is not done silently: that reading diverges from "==" on shared
+backing stores (NaN, alias cycles).
+
+```gom
+type W a = {next: List (W (W a))}
+fn eq (x: W Int) (y: W Int) -> Bool = x == y   // no finite comparator set
 ```
 
 ## 90xx — Evaluation

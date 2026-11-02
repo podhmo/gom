@@ -53,14 +53,17 @@ func OptionFromGo[T any](v T, ok bool) option.Option[T] {
 	return option.Option_None[T]{}
 }
 
-// Equal is Gom's structural `==` (spec section 3.3) on the Go
-// representations of Gom values — the operands generated code cannot
-// compare with Go's own `==`: lists and Go slices (uncomparable),
-// and any shape that may contain them inside an interface (ADT
-// values) or a struct (records, tuples), where Go's `==` either does
-// not compile or panics. The comparison is reflect.DeepEqual until
-// compiler-generated per-type compare functions exist
-// (docs/design.md section 4.8).
+// Equal is the fallback recipe for Gom's structural `==` (spec
+// section 3.3): generated code routes operand types it has no
+// per-type comparator for — named Go types, Task, Go.Any — through
+// here. Lists, tuples, records and ADTs use compiler-generated
+// per-type comparators instead (docs/design.md section 4.9), which
+// is what removes reflect.DeepEqual's identical-backing-store
+// shortcut from user-visible equality. Equal therefore only has to
+// answer for values whose Gom-level recipe does not exist, and its
+// reflect.DeepEqual reading is the documented approximation for
+// those — including DeepEqual's nil-vs-empty and pointer-shortcut
+// quirks, which can still leak through Go-view types.
 func Equal(a, b any) bool {
 	if reflect.DeepEqual(a, b) {
 		return true
@@ -68,12 +71,10 @@ func Equal(a, b any) bool {
 	// A nil slice is the empty list per the representation contract
 	// (stdlib/list: "the zero value (nil) is the empty list"), and
 	// eval's element-wise comparison agrees — but DeepEqual
-	// distinguishes nil from non-nil-but-empty. A nil slice reaches
-	// here through the Go boundary (FromSlice, Go.Slice) or
-	// Go-built zero values, so give the top level a second answer.
-	// Nil/empty nested inside records, ADTs or other lists still
-	// follows DeepEqual until the per-type comparators exist —
-	// docs/decisions/2026-11-04-structural-equality-emission.md.
+	// distinguishes nil from non-nil-but-empty, so give the top
+	// level a second answer for the Go-view slices that still route
+	// here. Nested nil-vs-empty is generated code's job: the
+	// element recipe inside a composite comparator is never Equal.
 	return bothEmptySlices(a, b)
 }
 
@@ -97,15 +98,15 @@ func Assert(t *testing.T, cond bool) {
 	}
 }
 
-// AssertEq is the body of the `assert_eq actual expected` builtin used
-// in test blocks. Gom's `==` is structural equality, which covers
-// lists and tuples that Go's comparable constraint cannot, so the
-// comparison is Equal — the same interim answer `==` emits — until
-// compiler-generated per-type compare functions exist
-// (docs/design.md section 4.8).
-func AssertEq(t *testing.T, actual, expected any) {
+// AssertEq is the body of the `assert_eq actual expected` builtin
+// used in test blocks. The eq argument is the already-computed
+// verdict under the operands' own comparison recipe — the same
+// plan `actual == expected` would evaluate (docs/design.md section
+// 4.9) — so a failing assert_eq reports exactly what `==` would
+// answer, including native comparisons' IEEE NaN verdict.
+func AssertEq(t *testing.T, eq bool, actual, expected any) {
 	t.Helper()
-	if !Equal(actual, expected) {
+	if !eq {
 		t.Errorf("gom: assertion failed:\n  actual:   %#v\n  expected: %#v", actual, expected)
 	}
 }

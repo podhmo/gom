@@ -1,0 +1,26 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0409",
+      "severity": "error",
+      "message": "`==` is not defined on List Box: the type contains a function or a type variable",
+      "span": {
+        "file": "E0409_eq_fn_nested.gom",
+        "start": {
+          "line": 8,
+          "col": 47,
+          "offset": 248
+        },
+        "end": {
+          "line": 8,
+          "col": 55,
+          "offset": 256
+        }
+      },
+      "data": {
+        "type": "List Box"
+      }
+    }
+  ]
+}

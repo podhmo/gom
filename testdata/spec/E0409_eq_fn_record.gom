@@ -1,0 +1,10 @@
+package ex
+
+// spec 3.3: the eq judgment expands a named record — a function
+// field makes `Box` uncomparable even though `==` never spells the
+// function type out.
+type Box = {f: Int -> Int}
+
+fn eq (a: Box) (b: Box) -> Bool = a == b
+
+fn main () -> Unit = ()
