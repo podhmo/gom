@@ -94,7 +94,7 @@ Go 相互運用を変えたら両方向（Gom → Go、Go → Gom）のテスト
 ### P4 公開 API と開発体験
 
 - [ ] **P4-1 `.gomi` の検査と `gom info`**: 実装とインターフェースの照合、下書き生成、正規化した構文木からのハッシュ（[spec 7 章](docs/spec.md)、[decisions/gomi-interface-files](docs/decisions/2026-11-01-gomi-interface-files.md)）。moon の慣習に合わせサブコマンド名は `gomi` ではなく `info`（`moon info` が .mbti を生成するのと同じく成果物の役割で命名）。CLI 体系の整理方針は [sketch/moon-cli-command-structure](docs/sketch/2026-11-05-moon-cli-command-structure.md)（`build check test fmt fix explain schema dump` + `new`/`version`、registry 系は Go に任せる、write-if-different、`gom-*` 外部 dispatch）。依存: P2-1 ✅
-- [ ] **P4-2 `gom fmt`**: Wadler 流のプリティプリンタ。冪等性・往復一致のプロパティテスト、改行とコメントの境界ケース（[spec 1.7](docs/spec.md)、[design.md 6 章](docs/design.md)）。依存: P1-3
+- [x] **P4-2 `gom fmt`**: Wadler 流のプリティプリンタ。冪等性・往復一致のプロパティテスト、改行とコメントの境界ケース（[spec 1.7](docs/spec.md)、[design.md 6 章](docs/design.md)）。依存: P1-3 — `internal/format` + `gom fmt`（`-w`/`-l`/`-d`/`--check`/stdin、`testdata/fmt` golden、FuzzFormat、layout decision 採用済み）
 - [ ] **P4-3 ファイル内テストと `gom test`**: `_test.go` の出力、`go test -json` の変換、`assert_eq` 用の表示関数の自動生成（[spec 11 章](docs/spec.md)、[design.md 4.8](docs/design.md)）。依存: P1-13
 - [ ] **P4-4 `gom fix` / `gom explain` / `gom schema`**: `safe` な fixes だけを適用、エラーコード表からの説明、メッセージの JSON Schema。依存: P1-10, D-2
 - [ ] **P4-5 ソース位置の対応表**: Gom → Core IR → Go の対応表、`go build` / `go vet` のエラーと panic スタックを `.gom` の位置へ戻す（[design.md 2.2](docs/design.md)）。依存: P1-11
