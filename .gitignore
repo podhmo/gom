@@ -32,3 +32,6 @@ go.work.sum
 # Editor/IDE
 # .idea/
 # .vscode/
+
+# Executable built by examples/gist-cli/build.sh
+/gist-cli

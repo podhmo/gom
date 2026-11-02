@@ -1,0 +1,140 @@
+// A complete CLI: application decisions stay in Gom; host bridges Go I/O.
+package main
+
+import go "fmt"
+import go "github.com/podhmo/gom/examples/gist-cli/host"
+import go "net/http"
+import go "os"
+import go "path"
+import go "path/filepath"
+import go "regexp"
+import go "strings"
+
+type Files =
+  | NoFiles
+  | File String Files
+
+type Config = { api: String, gist: String, files: Files, literal: Bool, help: Bool }
+
+fn text_error (r: Result a GoError) -> Result a String = match r {
+  Ok value -> Ok value
+  Err e -> Err (e.Error ())
+}
+
+fn usage () -> String = "usage: gist-cli [--api-url URL] [--gist URL] [--] FILE..."
+
+fn parse_args (index: Int) (cfg: Config) -> Result Config String = if index == host.ArgumentCount () {
+  Ok cfg
+} else {
+  let arg = host.Argument index
+  if cfg.literal { parse_args (index + 1) { cfg with files = File arg cfg.files } } else {
+    match arg {
+      "--help" -> Ok { cfg with help = true }
+      "--" -> parse_args (index + 1) { cfg with literal = true }
+      "--gist" -> if index + 1 == host.ArgumentCount () { Err "--gist requires a URL" } else {
+        if cfg.gist != "" { Err "--gist may only be supplied once" } else {
+          let url = host.Argument (index + 1)
+          if url == "" { Err "--gist requires a URL" } else {
+            parse_args (index + 2) { cfg with gist = url }
+          }
+        }
+      }
+      "--api-url" -> if index + 1 == host.ArgumentCount () { Err "--api-url requires a URL" } else {
+        parse_args (index + 2) { cfg with api = host.Argument (index + 1) }
+      }
+      _ -> if strings.HasPrefix (arg, "-") { Err "unknown option: ${arg}" } else {
+        parse_args (index + 1) { cfg with files = File arg cfg.files }
+      }
+    }
+  }
+}
+
+fn contains (xs: Files) (value: String) -> Bool = match xs {
+  NoFiles -> false
+  File x rest -> if x == value { true } else { contains rest value }
+}
+
+fn file_entries (paths: Files) (seen: Files) (entries: String) (separator: String) -> Result String String = match paths {
+  NoFiles -> Ok entries
+  File file rest -> {
+    let name = filepath.Base file
+    if contains seen name { Err "duplicate filename: ${name}" } else {
+      let content = try text_error (host.ReadText file)
+      let entry = fmt.Sprintf ("%s:{\"content\":%s}", host.Quote name, host.Quote content)
+      file_entries rest (File name seen) (fmt.Sprintf ("%s%s%s", entries, separator, entry)) ","
+    }
+  }
+}
+
+fn valid_gist_url (url: String) -> Bool = match regexp.MatchString (
+  "^https://gist\\.github\\.com/([A-Za-z0-9-]+/)?[0-9a-fA-F]+/?$",
+  url,
+) {
+  Ok matches -> matches
+  Err _ -> false
+}
+
+fn run (cfg: Config) -> Result String String = {
+  if cfg.files == NoFiles { Err (usage ()) } else {
+    if cfg.gist != "" && not (valid_gist_url cfg.gist) { Err "invalid Gist URL: ${cfg.gist}" } else {
+      let endpoint_ok =
+        try text_error (regexp.MatchString ("^https?://[^/?#]+(/[^?#]*)?$", cfg.api))
+      if not endpoint_ok { Err "invalid API URL: ${cfg.api}" } else {
+        let token = os.Getenv "GITHUB_TOKEN"
+        if token == "" { Err "GITHUB_TOKEN is required" } else {
+          let entries = try file_entries cfg.files NoFiles "" ""
+          let creating = cfg.gist == ""
+          let method = if creating { "POST" } else { "PATCH" }
+          let route = if creating { "/gists" } else {
+            fmt.Sprintf ("/gists/%s", path.Base cfg.gist)
+          }
+          let visibility = if creating { ",\"public\":false" } else { "" }
+          let body = fmt.Sprintf ("{\"files\":{%s}%s}", entries, visibility)
+          let url = fmt.Sprintf ("%s%s", strings.TrimRight (cfg.api, "/"), route)
+          let request = try text_error (http.NewRequest (method, url, host.Reader body))
+          let headers = host.RequestHeader request
+          headers.Set ("Accept", "application/vnd.github+json")
+          headers.Set ("Content-Type", "application/json")
+          headers.Set ("Authorization", fmt.Sprintf ("Bearer %s", token))
+          headers.Set ("X-GitHub-Api-Version", "2026-03-10")
+          let client = host.NewClient ()
+          let response = try text_error (client.Do request)
+          let status = host.StatusCode response
+          let response_body = try text_error (host.ReadResponse response)
+          let expected = if creating { 201 } else { 200 }
+          if status != expected { Err "HTTP ${status}: ${response_body}" } else {
+            let result_url = try text_error (host.StringField (response_body, "html_url"))
+            if valid_gist_url result_url { Ok result_url } else {
+              Err "response html_url is not a Gist URL"
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+fn fail (message: String) -> Unit = {
+  ignore fmt.Fprintln (host.Stderr (), fmt.Sprintf ("gist-cli: %s", message))
+  ignore os.Exit 1
+  ()
+}
+
+fn main () -> Unit = {
+  let initial: Config = {
+    api = "https://api.github.com",
+    gist = "",
+    files = NoFiles,
+    literal = false,
+    help = false,
+  }
+  match parse_args 0 initial {
+    Err message -> fail message
+    Ok cfg -> if cfg.help { ignore fmt.Println (usage ()) } else {
+      match run cfg {
+        Ok url -> ignore fmt.Println url
+        Err message -> fail message
+      }
+    }
+  }
+}
