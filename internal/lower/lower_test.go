@@ -787,6 +787,88 @@ func TestTailCall(t *testing.T) {
 	}
 }
 
+// TestTailCallCaptureSnapshot: a TailLoop parameter referenced from a
+// nested closure gets a per-iteration copy `n' = n` at the body's
+// head, and every later use — the capture, synchronous reads, the
+// TailCall argument — reads n' (tail.go;
+// docs/problems/2026-11-02-tailloop-param-capture.md).
+func TestTailCallCaptureSnapshot(t *testing.T) {
+	n := vsym("n", types.Int)
+	fnUI := types.Fn(types.Int, types.P(types.Unit))
+	self := fsym("loop")
+	sig := types.Fn(types.Int, types.P(types.Int))
+	d := decl("loop", []check.Param{param(vpat(n, types.Int))},
+		&check.Block{Base: b(types.Int), Stmts: []check.Expr{
+			&check.Let{Base: b(types.Unit), Pat: vpat(vsym("g", fnUI), fnUI),
+				Value: &check.Lambda{Base: b(fnUI),
+					Params: []check.Param{param(vpat(vsym("u", types.Unit), types.Unit))},
+					Body:   vr(n, types.Int)}},
+			app(vr(self, sig), []check.Expr{vr(n, types.Int)},
+				check.CallInfo{Kind: check.CallDirect, Callee: self, Arity: 1, Applied: 1, HoleIndex: -1}, types.Int),
+		}},
+		sig)
+	d.Sym = self
+	out := mustLower(t, d)
+	fn := fnDeclOf(t, out, 0)
+	if !fn.Fn.TailLoop {
+		t.Fatal("TailLoop not set")
+	}
+	body := fn.Fn.Body
+	// The head let is the per-iteration copy `n' = n`; the param
+	// register keeps its symbol.
+	cp := body.Lets[0]
+	cv, ok := cp.X.(*core.Var)
+	if !ok || cv.Sym != n {
+		t.Fatalf("Lets[0].X = %#v, want Var(param n)", cp.X)
+	}
+	snap := cp.Name.Sym
+	if snap == nil || snap == n {
+		t.Fatalf("snapshot binder = %v, want a fresh symbol", cp.Name.Sym)
+	}
+	if fn.Fn.Params[0].Sym != n {
+		t.Fatalf("param symbol changed: %v", fn.Fn.Params[0].Sym)
+	}
+	cl, ok := body.Lets[1].X.(*core.Closure)
+	if !ok {
+		t.Fatalf("Lets[1].X = %T, want Closure", body.Lets[1].X)
+	}
+	if v, ok := cl.Fn.Body.Tail.(*core.Var); !ok || v.Sym != snap {
+		t.Fatalf("closure tail = %#v, want Var(snapshot)", cl.Fn.Body.Tail)
+	}
+	tc, ok := body.Tail.(*core.TailCall)
+	if !ok {
+		t.Fatalf("tail = %T, want TailCall", body.Tail)
+	}
+	if v, ok := tc.Args[0].(*core.Var); !ok || v.Sym != snap {
+		t.Fatalf("tail arg = %#v, want Var(snapshot)", tc.Args[0])
+	}
+}
+
+// TestTailCallNoCaptureNoSnapshot: a TailLoop parameter used only
+// synchronously keeps its symbol — no copy let is synthesized.
+func TestTailCallNoCaptureNoSnapshot(t *testing.T) {
+	n := vsym("n", types.Int)
+	self := fsym("loop")
+	sig := types.Fn(types.Int, types.P(types.Int))
+	d := decl("loop", []check.Param{param(vpat(n, types.Int))},
+		app(vr(self, sig), []check.Expr{vr(n, types.Int)},
+			check.CallInfo{Kind: check.CallDirect, Callee: self, Arity: 1, Applied: 1, HoleIndex: -1}, types.Int),
+		sig)
+	d.Sym = self
+	out := mustLower(t, d)
+	body := fnDeclOf(t, out, 0).Fn.Body
+	if len(body.Lets) != 0 {
+		t.Fatalf("lets = %v, want none (no snapshot)", body.Lets)
+	}
+	tc, ok := body.Tail.(*core.TailCall)
+	if !ok {
+		t.Fatalf("tail = %T, want TailCall", body.Tail)
+	}
+	if v := tc.Args[0].(*core.Var); v.Sym != n {
+		t.Fatalf("tail arg sym = %v, want param n", v.Sym)
+	}
+}
+
 // TestPipeFwd: `x |> f a` appends x at the lowest unfilled parameter.
 func TestPipeFwd(t *testing.T) {
 	f := fsym("f")

@@ -1,0 +1,18 @@
+package main
+
+import go "fmt"
+
+fn keep (n: Int) (k: Unit -> Int) -> Int = {
+  let kk = if n == 5 { fn () -> n } else { k }
+  if n <= 0 { kk () } else { keep (n - 1) kk }
+}
+
+fn countdown (n: Int) -> Unit = {
+  go { let _ = n }
+  if n <= 0 { () } else { countdown (n - 1) }
+}
+
+fn main () -> Unit = {
+  let _ = fmt.Println(keep 10 (fn () -> 99))
+  ()
+}

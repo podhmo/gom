@@ -255,6 +255,32 @@ fn main () -> Unit = {
 `,
 		want: "true,true,true,true,true,true,true,true",
 	},
+	{
+		// Regression for the miscompile in
+		// docs/problems/2026-11-02-tailloop-param-capture.md: the
+		// `for` codegen rebinds parameters every iteration, so a
+		// closure capturing one used to observe the final value
+		// (0 below) rather than the value of the call that
+		// created it (5).
+		name: "tailloop_param_capture",
+		src: `package main
+
+import go "fmt"
+
+fn keep (n: Int) (k: Unit -> Int) -> Int = {
+  let kk = if n == 5 { fn () -> n } else { k }
+  if n <= 0 { kk () } else { keep (n - 1) kk }
+}
+
+fn answer () -> String = "${keep 10 (fn () -> 99)}"
+
+fn main () -> Unit = {
+  let _ = fmt.Println(answer ())
+  ()
+}
+`,
+		want: "5",
+	},
 }
 
 // evalAnswer applies the file's `answer` through internal/eval and

@@ -1946,7 +1946,8 @@ func (l *lowerer) lambdaExpr(e *check.Lambda) core.Expr {
 // the function's own tail position into TailCall, then sets TailLoop.
 // Runs after the body is lowered so it sees the final tree shape;
 // nested functions keep their own boundary — their CallDirect nodes
-// are not in To's tail position.
+// are not in To's tail position. When the conversion applies,
+// snapshotCapturedParams repairs captured parameters (tail.go).
 func (l *lowerer) markTailCalls(fn *core.Func, self *resolve.Symbol) {
 	found := false
 	var body func(b *core.Body)
@@ -2019,4 +2020,9 @@ func (l *lowerer) markTailCalls(fn *core.Func, self *resolve.Symbol) {
 	}
 	body(fn.Body)
 	fn.TailLoop = found
+	if found {
+		// The loop rebinds the parameter registers, so anything a
+		// capture can reach needs its own per-iteration copy.
+		l.snapshotCapturedParams(fn)
+	}
 }

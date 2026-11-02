@@ -271,8 +271,8 @@ if n > 0 {
 - ラベル付き引数 → ラベルは消去し、Go 関数の引数は宣言順。呼び出し側の評価順を保つため、並べ替えは一時変数で行う
 - パイプ・関数合成 → 脱糖の段階で普通の関数適用に戻す。`>>` で作った関数を値として渡す場合だけクロージャになる
 - `try e` → `r := e` として `r.Tag()` で分岐する。`result.ResultTag_Err` なら `return result.Err[...](r.Error)` で最も内側の関数から脱出、`result.ResultTag_Ok` なら `r.Value` に進む。分岐は invalid（タグ 0）を含む完全なものにし、`default` は `rt.InvalidVariant` で panic する
-- 自己末尾再帰 → 引数を再代入する `for` ループ。相互再帰は保証しない
-- ラムダ → Go の関数リテラル。捕捉変数はすべて不変なのでコピー意味論の問題は起きない
+- 自己末尾再帰 → 引数を再代入する `for` ループ。相互再帰は保証しない。A parameter a nested `Closure` or `Spawn` can capture is copied to a fresh per-iteration binding at the top of the loop body and every use is rebound to it (internal/lower/tail.go `snapshotCapturedParams`) — without the copy a capture would read the value of the *last* iteration rather than the call that created it (docs/problems/2026-11-02-tailloop-param-capture.md)
+- ラムダ → Go の関数リテラル。捕捉変数はすべて不変なのでコピー意味論の問題は起きない（the TailLoop loop registers are the exception — they are rebound every iteration, which is why the snapshot above exists）
 - トップレベルの多相関数 → 型パラメータ `[A any]`
 - 生成コードには `//line foo.gom:12` ディレクティブを埋め込み、panic のスタックトレースとデバッガを元ソースへ対応させる
 
