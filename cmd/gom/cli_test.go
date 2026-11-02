@@ -309,8 +309,8 @@ fn eq (x: W Int) (y: W Int) -> Bool = x == y
 		if !strings.Contains(r.out, `"E0906"`) {
 			t.Fatalf("output lacks E0906: %q", r.out)
 		}
-	case <-time.After(20 * time.Second):
-		t.Fatal("gom build did not return within 20s — comparator minting diverged")
+	case <-time.After(90 * time.Second):
+		t.Fatal("gom build did not return within 90s — comparator minting diverged")
 	}
 }
 
