@@ -68,8 +68,12 @@ in [the prototype report](../../docs/sketch/2026-11-03-gist-cli-prototype.md).
 
 ## Current host boundary
 
-`main.gom` contains all Gist-specific behavior. `host/host.go` provides small,
-generic primitives for the operations Gom cannot yet express directly:
+`main.gom` contains all Gist-specific behavior. `host/host.go` is a temporary
+compatibility package for the current compiler. Each
+definition documents what would let it move into Gom and be deleted, including
+undecided bindings and the behavior its replacement must preserve.
+
+The remaining primitives cover operations Gom cannot yet express directly:
 
 | Primitive | Current reason |
 | --- | --- |
