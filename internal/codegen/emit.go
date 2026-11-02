@@ -582,22 +582,39 @@ func (g *gen) forExpr(e *core.ForRange, d dest) {
 // `for` — `p0, p1 = a0, a1` then `continue` (design.md section 4.5).
 // The multi-assignment evaluates arguments before rebinding, which is
 // the semantics the node guarantees.
+//
+// A pair `p = p` rebinds a parameter to itself — a no-op that
+// `go vet` reports as self-assignment (and the compile canary's
+// vet-equivalent checks flag the same way). Such pairs are dropped:
+// a self-call passing every parameter unchanged emits the bare
+// `continue`, and a mixed call keeps only the changing parameters.
 func (g *gen) tailCall(e *core.TailCall) {
 	g.line(e.Sp)
+	var lhs, rhs []ast.Expr
 	for i, p := range e.To.Params {
-		if i > 0 {
-			g.raw(", ")
+		a := e.Args[i]
+		if v, ok := a.(*core.Var); ok && v.Sym == p.Sym {
+			continue // p = p — self-assignment, no effect
 		}
-		g.raw(g.bindName(p))
+		lhs = append(lhs, ast.NewIdent(g.bindName(p)))
+		rhs = append(rhs, g.atom(a))
 	}
-	g.raw(" = ")
-	for i, a := range e.Args {
-		if i > 0 {
-			g.raw(", ")
+	if len(lhs) != 0 {
+		for i, l := range lhs {
+			if i > 0 {
+				g.raw(", ")
+			}
+			g.expr(l)
 		}
-		g.expr(g.atom(a))
+		g.raw(" = ")
+		for i, r := range rhs {
+			if i > 0 {
+				g.raw(", ")
+			}
+			g.expr(r)
+		}
+		g.nl()
 	}
-	g.nl()
 	g.raw("continue")
 	g.nl()
 }

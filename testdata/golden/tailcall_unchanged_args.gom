@@ -1,0 +1,14 @@
+package main
+
+// A self-tail call passing every parameter unchanged drops the
+// no-op rebind entirely: `for { continue }`, not `for { x = x;
+// continue }` (go vet reports `x = x` as self-assignment; the
+// compile canary's vet-equivalent checks flag it too).
+
+fn same (n: Int) -> Int = same n
+
+// A call that changes only some parameters keeps only those
+// assignments: `n = tmp1` alone, not `n, acc = tmp1, acc`.
+
+fn keep2 (n: Int) (acc: Int) -> Int =
+  if n <= 0 { acc } else { keep2 (n - 1) acc }

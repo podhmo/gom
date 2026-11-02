@@ -10,10 +10,14 @@ package build_test
 //     "core invariant violation" reaching the user is always a
 //     compiler bug, whatever the input
 //   - produced output implies error-free diagnostics (driver
-//     invariant), and the generated Go must PARSE and TYPECHECK —
+//     invariant), and the generated Go must PARSE, TYPECHECK —
 //     go/types over the same `go list -export` mechanism the
-//     interop loader uses. `:=` shadowing, nonexistent types and
-//     `==` on slices all surface here without a full `go build`.
+//     interop loader uses — and pass the vet-equivalent analysis
+//     in internal/fuzzutil (unreachable code, self-assignment,
+//     discarded must-use results, int→string conversions,
+//     shadowed declarations). `:=` shadowing, nonexistent types
+//     and `==` on slices all surface here without a full
+//     `go build`.
 //
 // `import go` resolves only an allowlist of std packages plus this
 // module's own — every other path errors quickly in resolve (E0203)
@@ -57,8 +61,23 @@ import (
 const knownBugsCap = 24
 
 var knownCompileBugs = map[[32]byte]fuzzutil.KnownBug{
-	// (The registry is empty for now — recent fixes retired every
-	// entry. The parse-phase bugs (ctor-pattern '-' loop, the
+	// (`let _ = 10 / 0` — an integer division by a constant zero —
+	// passes check but emits `10 / 0`, a constant expression Go
+	// rejects with "invalid operation: division by zero". eval
+	// reports the division at runtime; the generated Go cannot
+	// build at all. check should reject constant-zero divisors or
+	// codegen should force a non-constant operand to match eval's
+	// runtime panic — a spec-level call. Found by the gomgen
+	// canary's vet sweep, typed seed 301 — pre-existing in the
+	// typecheck gate.)
+	fuzzutil.Sum256Hex("17e7c80667d171b1a6e1f730c08e95e65d5bfc0c91fac80280aef07c26a86e73"): {
+		Match: []string{"generated Go fails to typecheck", "division by zero"},
+		TODO:  "定数式の除算ゼロ",
+		Desc:  "constant `10 / 0` emits an invalid Go constant division",
+	},
+	// (The registry was empty for a stretch — recent fixes retired
+	// the first batch of entries. The parse-phase bugs (ctor-pattern
+	// '-' loop, the
 	// E0102 negative span, raw token text in messages) were fixed
 	// in internal/syntax; the zero-argument Go call, the
 	// module-name-in-value-position family, and the memberExpr
@@ -241,14 +260,25 @@ func checkCompile(src []byte, opts *build.Options, imp types.Importer) (failures
 		pkgName = gf.Name.Name
 		parsed = append(parsed, gf)
 	}
-	if len(parsed) == 0 || imp == nil {
+	if len(parsed) == 0 {
 		return failures
 	}
+	if imp == nil {
+		// No toolchain: the vet-equivalent checks still get their
+		// AST-only subset (unreachable, shadow).
+		return append(failures, vetFailures(fset, parsed, nil, r.Output.Source)...)
+	}
 	var typeErrs []string
+	info := &types.Info{
+		Types:      make(map[ast.Expr]types.TypeAndValue),
+		Defs:       make(map[*ast.Ident]types.Object),
+		Uses:       make(map[*ast.Ident]types.Object),
+		Selections: make(map[*ast.SelectorExpr]*types.Selection),
+	}
 	conf := types.Config{Importer: imp, Error: func(err error) {
 		typeErrs = append(typeErrs, err.Error())
 	}}
-	if _, err := conf.Check(pkgName, fset, parsed, nil); err != nil {
+	if _, err := conf.Check(pkgName, fset, parsed, info); err != nil {
 		var sb strings.Builder
 		for _, e := range typeErrs {
 			sb.WriteString("\n  " + e)
@@ -256,6 +286,24 @@ func checkCompile(src []byte, opts *build.Options, imp types.Importer) (failures
 		failures = append(failures, fmt.Sprintf(
 			"generated Go fails to typecheck:%s\n---\n%s",
 			sb.String(), r.Output.Source))
+		return failures
+	}
+	return append(failures, vetFailures(fset, parsed, info, r.Output.Source)...)
+}
+
+// vetFailures runs the vet-equivalent analysis over generated files
+// that parsed (and, when info is non-nil, typechecked): unreachable
+// code, self-assignment, discarded must-use results, int→string
+// conversions, and shadowed declarations — the "compiles yet wrong"
+// classes go/types does not see. Each finding is its own failure so
+// knownBugs signatures can pin one bug without masking a new one
+// reported alongside it.
+func vetFailures(fset *token.FileSet, parsed []*ast.File, info *types.Info, src []byte) []string {
+	var failures []string
+	for _, f := range fuzzutil.VetGenerated(fset, parsed, info) {
+		failures = append(failures, fmt.Sprintf(
+			"generated Go fails vet-equivalent checks: %s\n---\n%s",
+			f.Format(fset), src))
 	}
 	return failures
 }
@@ -378,6 +426,12 @@ fn mainish () -> Int = add 2 3
 		// Former knownBugs repro — the module-misuse family is now
 		// E0201 at resolve, so this runs live as a regression seed.
 		"package a\nimport go \"fmt\"\nfn a () -> a = {fmt}\n",
+		// Registered bug repro — constant integer division by zero
+		// compiles to a Go-invalid constant `10 / 0` (canary-vet
+		// sweep, gomgen typed seed 301). Pinned so the registry
+		// entry goes stale — and fails loudly — once the bug is
+		// fixed.
+		"package main\n\nfn f () -> Int = 10 / 0\nfn main () -> Unit = ()\n",
 		// V-3 diff fixes: the ctor-application scrutinee now binds
 		// at the sum-interface type (codegen letConv), and a
 		// branching expression in a `...any` argument keeps its own
