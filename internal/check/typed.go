@@ -108,6 +108,13 @@ type MemberExpr struct {
 	Sel   *syntax.Ident   // the written selector
 	Sym   *resolve.Symbol // the selected member (KindField, a module member, or KindMethod)
 	Index int             // field position for record/variant payloads; -1 otherwise
+	// Ctor is the variant constructor (KindCtor) that owns the
+	// selected slot when a named payload field is read through its
+	// sum type — the read is legal only for the variant that
+	// declared the name, so lowering records which concrete
+	// representation the receiver must hold. Nil for record fields
+	// and every non-field member.
+	Ctor *resolve.Symbol
 	// TypeArgs mirrors Var.TypeArgs for member references whose
 	// symbol quantifies type variables (`List.map`, `Option.Some`,
 	// a generic fn reached through a module).

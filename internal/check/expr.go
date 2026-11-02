@@ -25,6 +25,18 @@ func (c *checker) checkExpr(e syntax.Expr, want types.Type) Expr {
 		return &Lit{Base: baseOf(diag.Span{}, m), Kind: syntax.LitUnit, Text: "()"}
 	}
 	var out Expr
+	// The branching checkers (if/match/select) stamp `want` on the
+	// node itself and thread it into every arm's body — under a
+	// Go `any` expectation (a `...any` Go-call argument) that would
+	// pin Go.Any on the node while the branches keep their natural
+	// types, which lower's node-type invariants then reject (E0901).
+	// `any` bounds without seeding: infer the branch type, and the
+	// trailing unify below conforms it — an `any` slot accepts
+	// every type (spec 8.1.7).
+	bw := want
+	if w := types.Chase(bw); isGoAny(w) {
+		bw = nil
+	}
 	switch e := e.(type) {
 	case *syntax.Ident:
 		out = c.checkIdent(e)
@@ -49,9 +61,9 @@ func (c *checker) checkExpr(e syntax.Expr, want types.Type) Expr {
 	case *syntax.Lambda:
 		out = c.checkLambda(e)
 	case *syntax.If:
-		out = c.checkIf(e, want)
+		out = c.checkIf(e, bw)
 	case *syntax.Match:
-		out = c.checkMatch(e, want)
+		out = c.checkMatch(e, bw)
 	case *syntax.Block:
 		out = c.checkBlock(e, want)
 	case *syntax.Let:
@@ -66,7 +78,7 @@ func (c *checker) checkExpr(e syntax.Expr, want types.Type) Expr {
 	case *syntax.For:
 		out = c.checkFor(e)
 	case *syntax.SelectExpr:
-		out = c.checkSelectExpr(e, want)
+		out = c.checkSelectExpr(e, bw)
 	case *syntax.ListLit:
 		out = c.checkListLit(e, want)
 	case *syntax.Spread:
@@ -79,7 +91,7 @@ func (c *checker) checkExpr(e syntax.Expr, want types.Type) Expr {
 	case *syntax.TupleLit:
 		out = c.checkTupleLit(e)
 	case *syntax.RecordLit:
-		out = c.checkRecordLit(e, want)
+		out = c.checkRecordLit(e, bw)
 	case *syntax.Ascribe:
 		out = c.checkAscribe(e)
 	default:
@@ -216,9 +228,16 @@ func (c *checker) checkSelect(e *syntax.Select) Expr {
 		return &MemberExpr{Base: baseOf(e.Sp, ctyp), Recv: recv, Sel: e.Sel, Sym: sel, Index: -1, TypeArgs: ctorADTArgs(ctyp)}
 	}
 	// Field access on a declared record or a variant's uniquely named
-	// payload slot.
-	if fi, typ, ok := c.fieldOf(recv.Type(), selName); ok {
-		return &MemberExpr{Base: baseOf(e.Sp, typ), Recv: recv, Sel: e.Sel, Sym: fi.sym, Index: fi.index}
+	// payload slot. The owning variant of a sum selection goes on
+	// the node: the receiver is the sealed interface, so emitting
+	// the read needs to know which concrete variant struct asserts
+	// it (design.md 2.1 — codegen does not re-derive this).
+	if fi, owner, typ, ok := c.fieldOf(recv.Type(), selName); ok {
+		var ctor *resolve.Symbol
+		if owner != nil {
+			ctor = owner.sym
+		}
+		return &MemberExpr{Base: baseOf(e.Sp, typ), Recv: recv, Sel: e.Sel, Sym: fi.sym, Index: fi.index, Ctor: ctor}
 	}
 	// A field symbol the resolver bound but the declared-type tables
 	// cannot place — a Go struct field or an imported record field
@@ -289,8 +308,11 @@ func (c *checker) revisitSelects() {
 			continue
 		}
 		selName := nameOfSel(me.Sym, me.Sel)
-		if fi, typ, ok := c.fieldOf(rt, selName); ok {
+		if fi, owner, typ, ok := c.fieldOf(rt, selName); ok {
 			me.Sym, me.Index = fi.sym, fi.index
+			if owner != nil {
+				me.Ctor = owner.sym
+			}
 			c.unify(me.Type(), typ, me.Sel.Sp)
 			continue
 		}
@@ -355,14 +377,18 @@ func (c *checker) gomValue(t types.Type) bool {
 
 // fieldOf resolves a field selection on a receiver of known type:
 // a record field by name, or a variant's uniquely named payload slot.
-func (c *checker) fieldOf(t types.Type, name string) (*fieldInfo, types.Type, bool) {
+// The variant result is the constructor info owning a sum selection —
+// nil for record fields — because the receiver's representation is
+// the sealed interface and the read only exists on one variant's
+// concrete struct.
+func (c *checker) fieldOf(t types.Type, name string) (*fieldInfo, *variantInfo, types.Type, bool) {
 	con, ok := types.Chase(t).(*types.Con)
 	if !ok {
-		return nil, nil, false
+		return nil, nil, nil, false
 	}
 	ti, ok := c.tyCons[conKey{qual: con.Qual, name: con.Name}]
 	if !ok || ti == nil {
-		return nil, nil, false
+		return nil, nil, nil, false
 	}
 	sub := types.Subst{}
 	for i, v := range ti.params {
@@ -373,27 +399,29 @@ func (c *checker) fieldOf(t types.Type, name string) (*fieldInfo, types.Type, bo
 	switch ti.kind {
 	case kindRecord:
 		if fi := c.fieldByName(ti.fields, name); fi != nil {
-			return fi, sub.Apply(fi.typ), true
+			return fi, nil, sub.Apply(fi.typ), true
 		}
 	case kindSum:
 		// A named payload slot of a sum type is selectable when
 		// exactly one variant declares it.
 		var found *fieldInfo
+		var owner *variantInfo
 		for _, v := range ti.variants {
 			for _, f := range v.fields {
 				if f.name == name {
 					if found != nil && found.sym != f.sym {
-						return nil, nil, false
+						return nil, nil, nil, false
 					}
 					found = f
+					owner = v
 				}
 			}
 		}
 		if found != nil {
-			return found, sub.Apply(found.typ), true
+			return found, owner, sub.Apply(found.typ), true
 		}
 	}
-	return nil, nil, false
+	return nil, nil, nil, false
 }
 
 // methodOf resolves a method name on a Go-typed receiver (a

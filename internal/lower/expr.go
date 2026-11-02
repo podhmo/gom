@@ -286,7 +286,7 @@ func (l *lowerer) memberExpr(s *seq, e *check.MemberExpr) core.Expr {
 		return &core.FieldGet{
 			Base:  baseOf(e),
 			Recv:  l.atom(s, e.Recv),
-			Field: e.Sym, Index: idx,
+			Field: e.Sym, Index: idx, Ctor: e.Ctor,
 		}
 	case resolve.KindFunc:
 		if e.Sym.IsGo {

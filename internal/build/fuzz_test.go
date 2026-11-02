@@ -85,43 +85,19 @@ var knownCompileBugs = map[[32]byte]fuzzutil.KnownBug{
 	// variant, a function type, or a reference-shaped builtin stays
 	// legal. The corpus file now reports the diagnostic instead of
 	// emitting an invalid Go struct. Found by the gomgen canary.)
-	// `match (Some 1)` — a scrutinee that is itself a constructor
-	// application lowers to `tmp := Option_Some[T]{...}` (concrete
-	// struct type via :=), and the emitted type switch on it is
-	// "not an interface". The scrutinee's static type is the
-	// variant interface; the binding should be declared with it.
-	// Found by the deterministic diff seeds (V-3), several times.
-	// The signature must match at either typecheck gate — the
-	// sandbox's gc importer and the real `go build`; both failure
-	// texts embed the generated source, so the ".(type)"
-	// discriminator resolves at each.
-	fuzzutil.Sum256([]byte("package m\n\nfn f () -> Int = match (Some 1) {\n  Some x -> x\n  None -> 0\n}\n")): {
-		// ".(type)" keeps the signature honest: `go build` reports
-		// the same "is not an interface" substring for an invalid
-		// type ASSERTION (`s.(I)`), so the error text alone would
-		// swallow a bad-assertion codegen bug. The discriminator
-		// survives because both reporting paths embed the generated
-		// source in the failure text — only a file whose codegen
-		// actually emitted a type switch carries it.
-		Match: []string{"is not an interface", ".(type)"},
-		TODO:  "対象式がコンストラクタ適用だと生成 Go の type switch が concrete struct で壊れる",
-		Desc:  "match on a ctor-application scrutinee emits a type switch over a concrete struct",
-	},
-	// `fmt.Println (match ...)` / `fmt.Println (if ...)` — a
-	// branching expression nested directly in a variadic `...any`
-	// Go-call argument position gets its node type unified to
-	// Go.Any (instead of inferring String/etc and letting it
-	// subtype), and lower's invariants then reject their own IR:
-	// "case body type String differs from switch type Go.Any"
-	// (DCase), "node type Go.Any differs from branch type String"
-	// (If), "body type ... differs from node type Go.Any" (DLeaf).
-	// Through a `let` binding or a concrete-typed parameter it
-	// compiles fine. Found by the deterministic diff seeds (V-3).
-	fuzzutil.Sum256([]byte("package main\nimport go \"fmt\"\n\nfn f () -> Unit = ignore (fmt.Println (match true { true -> \"a\"; false -> \"b\" }))\n")): {
-		Match: []string{"E0901", "differs from", "Go.Any"},
-		TODO:  "if/match が Go 可変長 `...any` 引数位置に直接ネストされるとノード型が Go.Any に unify され E0901",
-		Desc:  "if/match in a ...any variadic argument position unifies the node type to Go.Any → E0901",
-	},
+	// (`match (Some 1)` — a constructor-application scrutinee whose
+	// `tmp := Option_Some[T]{...}` let bound the concrete variant
+	// struct, breaking the emitted type switch — is fixed in
+	// codegen: the let now converts the RHS to the binder's
+	// declared sum-interface type. The seed runs live in
+	// compileSeeds.)
+	// (`fmt.Println (match ...)` / `fmt.Println (if ...)` — a
+	// branching expression nested in a variadic `...any` argument
+	// whose node type unified to Go.Any and tripped lower's
+	// invariants — is fixed in check: `Go.Any` as the expected
+	// type no longer propagates into If/Match/SelectExpr, which
+	// infer their own type and conform to `any`. The seed runs
+	// live in compileSeeds.)
 }
 
 // fuzzGoPkgs bounds which `import go` paths the loader will resolve
@@ -402,6 +378,13 @@ fn mainish () -> Int = add 2 3
 		// Former knownBugs repro — the module-misuse family is now
 		// E0201 at resolve, so this runs live as a regression seed.
 		"package a\nimport go \"fmt\"\nfn a () -> a = {fmt}\n",
+		// V-3 diff fixes: the ctor-application scrutinee now binds
+		// at the sum-interface type (codegen letConv), and a
+		// branching expression in a `...any` argument keeps its own
+		// inferred type instead of unifying to Go.Any (check).
+		"package m\n\nfn f () -> Int = match (Some 1) {\n  Some x -> x\n  None -> 0\n}\n",
+		"package main\nimport go \"fmt\"\n\nfn f () -> Unit = ignore (fmt.Println (match true { true -> \"a\"; false -> \"b\" }))\n",
+		"package main\nimport go \"fmt\"\n\nfn f () -> Unit = ignore (fmt.Println (if true { \"a\" } else { \"b\" }))\n",
 	}
 	for _, s := range hand {
 		seeds = append(seeds, []byte(s))

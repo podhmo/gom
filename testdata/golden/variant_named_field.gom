@@ -1,0 +1,35 @@
+package main
+
+// A named variant payload read through the sum type — `s.r` where
+// `s : Shape` — selects on the sealed interface, whose Go type has
+// no field: the read asserts the owning variant's concrete struct,
+// `s.(Shape_Circle).R`. Before MemberExpr carried the owning
+// constructor, codegen emitted `s.R`, which does not compile. The
+// let-bound form relies on the same owner info — the binder keeps
+// the interface type (letConv), so the struct-shape RHS does not
+// rescue the selection.
+//
+// A wrong-variant value panics at the assertion (the evaluator
+// reports "variant has no such field" — spec leaves the case
+// undefined; see docs/problems/2026-11-02-variant-field-wrong-variant.md).
+type Shape = | Circle (r: Float) | Empty
+
+fn getr (s: Shape) -> Float = s.r
+
+fn letbound () -> Float = {
+  let s = Circle 1.0
+  s.r
+}
+
+fn rebound (s: Shape) -> Float = {
+  let t = s
+  t.r
+}
+
+// A generic ADT instantiates the asserted struct with the receiver's
+// own type arguments — `p.(Pair_MkPair[A]).Fst`.
+type Pair a = | MkPair (fst: a) (snd: a)
+
+fn pfst (p: Pair a) -> a = p.fst
+
+fn main () -> Unit = ()

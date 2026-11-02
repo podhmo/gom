@@ -321,6 +321,9 @@ func (d *cdump) cexpr(e core.Expr) *form {
 		if e.Field != nil {
 			text += " " + d.symRef(e.Field)
 		}
+		if e.Ctor != nil {
+			text += " :ctor " + e.Ctor.Name
+		}
 		return nodef(text+fmt.Sprintf(" :i%d", e.Index), d.cexpr(e.Recv))
 	case *core.Closure:
 		var fn *form

@@ -112,7 +112,15 @@ func (g *gen) goFuncRef(a *core.GoFuncRef) ast.Expr {
 }
 
 // fieldGet renders `recv.Name` for named fields and `recv.Vn` for
-// positional payload slots and tuple elements.
+// positional payload slots and tuple elements. A named payload read
+// through the sealed sum interface (Ctor set) first asserts the
+// receiver to the owning variant's concrete struct —
+// `recv.(Shape_Circle).R` — which panics when the value holds a
+// different variant. The spec does not define the wrong-variant
+// case; the evaluator answers a fieldless variant with "variant has
+// no such field" but reads the wrong variant's same-index slot when
+// one exists — the divergence is filed in
+// docs/problems/2026-11-02-variant-field-wrong-variant.md.
 func (g *gen) fieldGet(a *core.FieldGet) ast.Expr {
 	sel := fmt.Sprintf("V%d", a.Index)
 	if a.Field != nil {
@@ -122,7 +130,18 @@ func (g *gen) fieldGet(a *core.FieldGet) ast.Expr {
 			sel = exportName(a.Field.Name)
 		}
 	}
-	return &ast.SelectorExpr{X: g.atom(a.Recv), Sel: ast.NewIdent(sel)}
+	var recv ast.Expr = g.atom(a.Recv)
+	if a.Ctor != nil {
+		var targs []types.Type
+		if con, ok := types.Chase(a.Recv.Type()).(*types.Con); ok {
+			targs = con.Args
+		}
+		recv = &ast.TypeAssertExpr{
+			X:    recv,
+			Type: g.ctorGoType(a.Ctor, a.Recv.Type(), targs),
+		}
+	}
+	return &ast.SelectorExpr{X: recv, Sel: ast.NewIdent(sel)}
 }
 
 // ctorRef materializes a constructor used as a value: a function

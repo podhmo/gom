@@ -73,14 +73,19 @@ func (g *gen) let(l *core.Let) {
 	if isSimpleExpr(l.X) {
 		g.line(l.Sp)
 		g.raw(name + " := ")
-		// A literal-arithmetic RHS (`x := 6 * 7`) stays an untyped
-		// constant in Go, so `:=` picks the default literal type —
-		// `int`, not the `int64` Gom Int maps to — and later int64
-		// call sites reject it. Integer lets over Lit/Unary/Binary
-		// spell the type as a conversion: `x := int64(6 * 7)`.
-		// Typed RHS nodes (calls, vars) already carry int64.
-		if t := g.intLitConv(l.Name.Typ, l.X); t != "" {
-			g.raw(t + "(")
+		// `:=` re-infers the variable's Go type from the RHS, which
+		// for two RHS shapes is narrower than the binder's declared
+		// type — the spelling must then appear explicitly as a
+		// conversion (letConv):
+		//   - an untyped constant (`x := 6 * 7`) defaults to `int`,
+		//     not the `int64` Gom Int maps to, and later int64 call
+		//     sites reject it;
+		//   - a sealed-ADT constructor literal binds the concrete
+		//     variant struct, not the ADT interface — a later type
+		//     switch on the variable is not compilable Go.
+		if t := g.letConv(l.Name.Typ, l.X); t != nil {
+			g.typ(t)
+			g.raw("(")
 			g.exprValue(l.X)
 			g.raw(")")
 		} else {

@@ -1,0 +1,25 @@
+package main
+
+import go "fmt"
+import go "strconv"
+
+// A branching expression nested directly in a variadic `...any`
+// Go-call argument conforms to `any` (spec 8.1.7) without letting
+// the expectation become the node's own type: the if/match/select
+// infers its branch type first, so the result type flows through
+// as `any` — not `Go.Any` stamped on the node (E0901 regression).
+// The concrete-parameter form (`strconv.Itoa`) keeps the natural
+// type on the same path. A record literal in the same slot follows
+// the identical rule — field-set resolution names its record type
+// before `any` conforms it (the `want` → `bw` hand-off, E0401
+// "expected a record type, got Go.Any" regression).
+type P = { x: Int }
+
+fn f () -> Unit = {
+  ignore (fmt.Println (match true { true -> "a"; false -> "b" }))
+  ignore (fmt.Println (if true { "a" } else { "b" }))
+  ignore (fmt.Println (strconv.Itoa (match 1 { 1 -> 42; _ -> 0 })))
+  ignore (fmt.Println ("x", (match 2 { 2 -> "m"; _ -> "n" }), "y"))
+  ignore (fmt.Println ({ x = 42 }))
+  ()
+}

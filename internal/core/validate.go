@@ -609,6 +609,10 @@ func (v *validator) atom(a Atom, what string) {
 			v.err(a.Sp, "FieldGet", "negative index %d", a.Index)
 		}
 		v.atom(a.Recv, "FieldGet.Recv")
+		if a.Ctor != nil && a.Ctor.Kind != resolve.KindCtor {
+			v.err(a.Sp, "FieldGet", "owner symbol %q has kind %s, want ctor",
+				a.Ctor.Name, a.Ctor.Kind)
+		}
 		if a.Field != nil {
 			if a.Field.Kind != resolve.KindField {
 				v.err(a.Sp, "FieldGet", "field symbol %q has kind %s, want field",

@@ -111,16 +111,24 @@ func (*GoFuncRef) isExpr() {}
 func (*GoFuncRef) isAtom() {}
 
 // FieldGet is a projection: a record field read `r.name`, a variant
-// payload read on a narrowed variable `s.V0`, or a tuple element
-// `t.V1`. Field is the declared field symbol (KindField) for records
-// and named payload slots; it is nil for tuple projections and
-// positional payload slots, which are selected by Index alone.
+// payload read `s.V0`, or a tuple element `t.V1`. Field is the
+// declared field symbol (KindField) for records and named payload
+// slots; it is nil for tuple projections and positional payload
+// slots, which are selected by Index alone.
 // Reading a field is pure and cheap, so FieldGet is an atom.
 type FieldGet struct {
 	Base
 	Recv  Atom
 	Field *resolve.Symbol // KindField; nil for tuple/positional projection
 	Index int             // element position in the record / variant / tuple
+	// Ctor is the variant constructor (KindCtor) owning the selected
+	// payload slot when a named field is read through the sealed sum
+	// interface — the receiver's Gom type is the ADT, so the read
+	// asserts it to the variant's concrete struct
+	// (`recv.(Shape_Circle).R`). Nil for record fields, tuple
+	// projections, and payload reads on a variable the decision
+	// tree already narrowed (Recv's representation is concrete).
+	Ctor *resolve.Symbol
 }
 
 func (*FieldGet) isExpr() {}

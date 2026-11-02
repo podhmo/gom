@@ -417,6 +417,88 @@ fn main () -> Unit = {
 `,
 		want: "42",
 	},
+	{
+		// A constructor-application scrutinee — `match (Some 1)` —
+		// lowers through a `tmp := Option_Some[T]{...}` binding whose
+		// `:=` used to infer the concrete variant struct, so the
+		// emitted type switch was "not an interface" and the binary
+		// failed to build. The binding must carry the static sum
+		// interface — both for the direct scrutinee and for a ctor
+		// value bound by `let`.
+		name: "match_ctor_scrutinee",
+		src: `package main
+
+import go "fmt"
+
+fn answer () -> String = {
+  let x = Some 40
+  let a = match (Some 1) { Some n -> n + 1; None -> 0 }
+  let b = match x { Some n -> n; None -> 0 }
+  "${a},${b}"
+}
+
+fn main () -> Unit = {
+  let _ = fmt.Println(answer ())
+  ()
+}
+`,
+		want: "2,40",
+	},
+	{
+		// A named variant payload read through the sum type used to
+		// emit `s.R` on the sealed interface — not compilable Go.
+		// check records the owning constructor on MemberExpr, so
+		// codegen asserts the variant's concrete struct:
+		// `s.(Shape_Circle).R`. Both a let-bound receiver (whose
+		// `:=` stays interface-typed under letConv) and a parameter
+		// receiver exercise the read; eval answers the same value.
+		name: "variant_named_field",
+		src: `package main
+
+import go "fmt"
+
+type Shape = | Circle (r: Float) | Empty
+
+fn getr (s: Shape) -> Float = s.r
+
+fn answer () -> String = {
+  let s = Circle 40.0
+  let t = Circle 2.0
+  "${s.r + getr t}"
+}
+
+fn main () -> Unit = {
+  let _ = fmt.Println(answer ())
+  ()
+}
+`,
+		want: "42",
+	},
+	{
+		// A branching expression directly inside a variadic `...any`
+		// Go argument used to have its node type unified to Go.Any,
+		// which lower's invariants reject (E0901). The branch infers
+		// its own type and conforms to `any`; the strconv.Itoa
+		// argument pins that a concrete parameter type still reaches
+		// the nested match the same way.
+		name: "branch_in_any_arg",
+		src: `package main
+
+import go "fmt"
+import go "strconv"
+
+fn answer () -> String = "a b 42"
+
+fn main () -> Unit = {
+  let _ = fmt.Println (
+    (match true { true -> "a"; false -> "x" }),
+    (if false { "y" } else { "b" }),
+    (strconv.Itoa (match 1 { 1 -> 42; _ -> 0 })))
+  ()
+}
+`,
+		want: "a b 42",
+	},
 }
 
 // evalAnswer applies the file's `answer` through internal/eval and

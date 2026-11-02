@@ -35,6 +35,14 @@ it writes is that *local* type — yet `try`/`|?>` still validate
 ## 関連
 
 - `internal/core/validate.go` (`resultType`, `escapeTarget`)
+- `internal/lower` (`lower.go` `isResultCon`, `pat.go`) — a
+  file-local `type Result` also takes the builtin dispatch: a
+  `match` over it emits `switch r.Tag() { case
+  result.ResultTagOk: ... r.Value }` against an interface that
+  only declares `isResult()`, so the generated Go cannot compile
+  (found while verifying fix-diff-bugs; the escape-boundary
+  manifestation above is the same identification gap, one site
+  earlier)
 - `internal/codegen` (`isResultCon`, `escapeErr`, `ctorApp`,
   `ctorRef`, `testDecl`) — the `localT` guards
 - [decisions/generated-go-conventions](../decisions/2026-11-02-generated-go-conventions.md)

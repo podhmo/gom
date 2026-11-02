@@ -406,6 +406,34 @@ const (
 	conTask                    // rt.Task[A]
 )
 
+// letConv is the conversion a `name := rhs` let needs when the RHS's
+// own Go type is narrower than the binder's declared type — `:=`
+// re-infers from the RHS, so the declared spelling must appear
+// explicitly as `name := T(rhs)`. Two RHS shapes mislead it:
+//
+//   - an untyped integer constant: `x := 6 * 7` binds `int`, not the
+//     `int64` Gom Int maps to (intLitConv — Go adapts untyped
+//     constants at every other position, but `:=` locks the
+//     default in);
+//   - a sealed-ADT constructor application: `x := Shape_C{..}` binds
+//     the concrete variant struct, not the ADT interface the binder
+//     declares — a type switch on x then fails to compile
+//     ("x is not an interface"). The emitted conversion names the
+//     ADT interface: `x := Shape(Shape_C{..})`. The builtin Result
+//     representation emits constructor *calls* (result.Ok(...))
+//     whose Go type already is the declared type — no conversion.
+//
+// nil for unaffected RHS shapes.
+func (g *gen) letConv(t types.Type, x core.Expr) ast.Expr {
+	if s := g.intLitConv(t, x); s != "" {
+		return ast.NewIdent(s)
+	}
+	if ca, ok := x.(*core.CtorApp); ok && !(isResultCon(ca.Type()) && !g.localT["Result"]) {
+		return g.goType(t)
+	}
+	return nil
+}
+
 // intLitConv is the conversion a `name := rhs` let needs when the
 // binder's type is an integer whose Go literal default differs and
 // the RHS is an untyped constant expression (`x := 6 * 7` would

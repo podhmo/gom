@@ -213,6 +213,9 @@ func (d *dumper) texpr(e check.Expr) *form {
 		if e.Sym != nil {
 			text += " -> " + d.symRef(e.Sym)
 		}
+		if e.Ctor != nil {
+			text += " :ctor " + e.Ctor.Name
+		}
 		return nodef(text+fmt.Sprintf(" :i%d", e.Index), recv)
 	case *check.Unary:
 		return nodef(head("unary", e.Base)+" "+e.Op.String(), d.texpr(e.X))

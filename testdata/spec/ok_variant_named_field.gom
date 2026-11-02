@@ -1,0 +1,22 @@
+package main
+
+import go "fmt"
+
+// A uniquely named variant payload slot is selectable through the
+// sum type (spec 3.2): `s.r` resolves to the one variant declaring
+// `r` — on a parameter, a let-bound value, and a generic ADT.
+type Shape = | Circle (r: Float) | Empty
+
+type Pair a = | MkPair (fst: a) (snd: a)
+
+fn getr (s: Shape) -> Float = s.r
+
+fn pfst (p: Pair a) -> a = p.fst
+
+fn f () -> Unit = {
+  let s = Circle 1.0
+  let _ = fmt.Println(s.r)
+  let _ = fmt.Println(getr s)
+  let _ = fmt.Println(pfst (MkPair 1 2))
+  ()
+}

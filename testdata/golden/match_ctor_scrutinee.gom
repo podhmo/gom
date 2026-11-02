@@ -1,0 +1,48 @@
+package main
+
+// A let binding over a constructor application keeps the binder's
+// static sum-interface type: `tmp := Option_Some[T]{...}` under `:=`
+// would bind the concrete variant struct, and the emitted type
+// switch on it ("tmp is not an interface") is not compilable Go.
+// The binding must spell the interface — `option.Option[int64](...)`.
+// The builtin Result stays unconverted: `result.Ok/Err` calls
+// already return the declared representation.
+fn direct () -> Int =
+  match (Some 1) {
+    Some x -> x
+    None -> 0
+  }
+
+fn bound () -> Int = {
+  let x = Some 2
+  match x {
+    Some n -> n
+    None -> 0
+  }
+}
+
+fn none () -> Int =
+  match None {
+    Some x -> x
+    None -> 0
+  }
+
+type Shape = | Circle (r: Float) | Empty
+
+fn local () -> Float = {
+  let s = Circle 1.0
+  match s {
+    Circle r -> r
+    Empty -> 0.0
+  }
+}
+
+fn res () -> Int = {
+  let r : Result Int String = Ok 3
+  match r {
+    Ok v -> v
+    Err e -> 0
+  }
+}
+
+fn main () -> Unit = ()
