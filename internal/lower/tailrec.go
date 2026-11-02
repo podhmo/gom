@@ -32,12 +32,15 @@ import (
 //     activation, the same special status spec section 10 gives go);
 //   - R3: the function is never used as a value inside its own body
 //     — a FuncRef would let aliases hide self-calls from
-//     CallDirect-based detection. Unlike R2 there is no Spawn
-//     exemption: a call inside `go` provably runs on the new
-//     goroutine's stack, but a function *value* is not bound to
-//     that stack — it can leave the goroutine entirely (sent over
-//     a channel, handed to Go code) and be applied anywhere,
-//     including back inside the function's own loop;
+//     CallDirect-based detection. A declared arity above 1 reaches
+//     value position as the adapter's flagged CallDirect (a
+//     *value's* firing call, not a call site — CallDirect.Adapter),
+//     so it reports here rather than under R1/R2. Unlike R2 there
+//     is no Spawn exemption: a call inside `go` provably runs on
+//     the new goroutine's stack, but a function *value* is not
+//     bound to that stack — it can leave the goroutine entirely
+//     (sent over a channel, handed to Go code) and be applied
+//     anywhere, including back inside the function's own loop;
 //   - R4: the function's strongly-connected component in the file's
 //     direct-reference graph is itself alone — Go has no general
 //     TCO, so a mutual cycle grows the stack even when every call
@@ -134,6 +137,19 @@ func (l *lowerer) checkTailRecFn(m tailrecMark, fd *core.FuncDecl,
 		// demand a case for every one.
 		if c, ok := e.(*core.CallDirect); ok {
 			if c.Callee != m.sym {
+				return
+			}
+			if c.Adapter {
+				// The firing call of the synthesized value
+				// adapter — `let g = f` on a multi-arity f is
+				// the same value escape a FuncRef is, so R3
+				// reports it here. No Spawn exemption: the
+				// adapted value can leave the goroutine and
+				// be applied on any stack. It is not a call
+				// site, so R1/R2 never count it.
+				l.diags = append(l.diags, diag.Error(codeTailrecRef,
+					fmt.Sprintf("`@tailrec` function `%s` is used as a value", m.sym.Name)).
+					At(c.Sp).Set("fn", m.sym.Name))
 				return
 			}
 			if inSpawn {

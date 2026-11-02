@@ -1,0 +1,48 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0905",
+      "severity": "error",
+      "message": "`@tailrec` function `f` has no self-recursive call in tail position",
+      "span": {
+        "file": "E0903_tailrec_let_alias_multi_arity.gom",
+        "start": {
+          "line": 8,
+          "col": 4,
+          "offset": 275
+        },
+        "end": {
+          "line": 8,
+          "col": 5,
+          "offset": 276
+        }
+      },
+      "data": {
+        "fn": "f"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0903",
+      "severity": "error",
+      "message": "`@tailrec` function `f` is used as a value",
+      "span": {
+        "file": "E0903_tailrec_let_alias_multi_arity.gom",
+        "start": {
+          "line": 9,
+          "col": 11,
+          "offset": 318
+        },
+        "end": {
+          "line": 9,
+          "col": 12,
+          "offset": 319
+        }
+      },
+      "data": {
+        "fn": "f"
+      }
+    }
+  ]
+}

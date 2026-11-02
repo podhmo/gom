@@ -170,17 +170,28 @@ func (g *gen) ctorRef(a *core.CtorRef) ast.Expr {
 		}
 	}
 	params, args := g.variantParams(fn, a.TypeArgs)
-	ret := g.goType(fn.Ret)
 	lit := g.ctorLit(a.Sym, fn.Ret, a.TypeArgs, args)
-	return &ast.FuncLit{
-		Type: &ast.FuncType{
-			Params:  &ast.FieldList{List: params},
-			Results: &ast.FieldList{List: []*ast.Field{{Type: ret}}},
-		},
-		Body: &ast.BlockStmt{List: []ast.Stmt{
-			&ast.ReturnStmt{Results: []ast.Expr{lit}},
-		}},
+	// Canonical value representation: one func literal per
+	// parameter — `func(v0) func(v1) ... T { return T_C{...} }` —
+	// so a constructor reference has the same Go shape as every
+	// other function value of its type.
+	var x ast.Expr = lit
+	for i := len(fn.Params) - 1; i >= 0; i-- {
+		resTyp := ast.Expr(g.goType(fn.Ret))
+		if i+1 < len(fn.Params) {
+			resTyp = g.goType(&types.Func{Params: fn.Params[i+1:], Ret: fn.Ret})
+		}
+		x = &ast.FuncLit{
+			Type: &ast.FuncType{
+				Params:  &ast.FieldList{List: []*ast.Field{params[i]}},
+				Results: &ast.FieldList{List: []*ast.Field{{Type: resTyp}}},
+			},
+			Body: &ast.BlockStmt{List: []ast.Stmt{
+				&ast.ReturnStmt{Results: []ast.Expr{x}},
+			}},
+		}
 	}
+	return x
 }
 
 // variantParams builds `v0 T0, v1 T1` parameter fields and the

@@ -1,0 +1,11 @@
+package ex
+
+// A multi-arity declaration used as a value lowers through the
+// curried adapter (one Closure per arrow ending in the declared-arity
+// call) rather than a bare FuncRef — the alias hole is the same, so
+// R3 reports at the reference all the same.
+@tailrec
+fn f (n: Int) (acc: Int) -> Int = {
+  let g = f
+  if n <= 0 { acc } else { g (n - 1) acc }
+}

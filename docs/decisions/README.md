@@ -34,7 +34,7 @@
 | [evaluation-order](2026-11-01-evaluation-order.md) | 評価順序 | 採用 |
 | [formal-grammar-interpretations](2026-11-01-formal-grammar-interpretations.md) | Interpretations adopted in the formal grammar (spec 1.5 / 1.6 formalization) | 採用（P1-3 のパーサーがこの解釈のまま実装・検証した。パーサー側の追加解釈は [2026-11-02-p1-3-parser-interpretations](2026-11-02-p1-3-parser-interpretations.md) を参照） |
 | [fsharp-pipes](2026-11-01-fsharp-pipes.md) | F# 流のパイプと関数合成 | 採用 |
-| [function-representation](2026-11-01-function-representation.md) | 関数値の表現 | 採用（P0-2 の実験で決定。根拠: [sketch: P0-2](../sketch/2026-11-01-p0-2-function-representation.md)） |
+| [function-representation](2026-11-01-function-representation.md) | 関数値の表現（一部を [function-value-representation](2026-11-02-function-value-representation.md) で置き換え） | 採用（P0-2 の実験で決定。根拠: [sketch: P0-2](../sketch/2026-11-01-p0-2-function-representation.md)） |
 | [generated-code-goals](2026-11-01-generated-code-goals.md) | 生成 Go コードの位置づけ | 採用 |
 | [go-calls-as-tuples](2026-11-01-go-calls-as-tuples.md) | Go 関数は Go の書き方で呼び、型は自動で取り込む（一部を [go-interop-boundary](2026-11-01-go-interop-boundary.md) で置き換え） | 採用 |
 | [go-interop-boundary](2026-11-01-go-interop-boundary.md) | Go 相互運用の境界 | 採用 |
@@ -60,6 +60,7 @@
 | [diag-output-formats](2026-11-02-diag-output-formats.md) | Diagnostic output formats: JSON Lines and text emitters (P1-10) | draft |
 | [error-code-table](2026-11-02-error-code-table.md) | Error-code table and numbering scheme (D-2) | 採用 |
 | [eval-value-model](2026-11-02-eval-value-model.md) | Value model of the typed-AST evaluator (internal/eval) | draft |
+| [function-value-representation](2026-11-02-function-value-representation.md) | Function value representation: canonical curried form | 採用 |
 | [fuzz-strategy](2026-11-02-fuzz-strategy.md) | Fuzz strategy: parser oracle, compile canary, and the knownBugs registry | 採用 |
 | [generated-go-conventions](2026-11-02-generated-go-conventions.md) | Generated Go code conventions: names, unused binders, //line | draft |
 | [generated-support-packages](2026-11-02-generated-support-packages.md) | Generated-code support packages: `rt/` and `stdlib/` | draft |

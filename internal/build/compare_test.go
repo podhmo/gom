@@ -565,6 +565,102 @@ fn main () -> Unit = {
 `,
 		want: "a b 42",
 	},
+	{
+		// The canonical function-value representation
+		// (docs/decisions/2026-11-02-function-value-representation.md):
+		// `stage`'s flat parameter type `Int -> Int -> Int` and
+		// `make`'s nested return type `Int -> (Int -> Int)` are the
+		// same semantic type, and both emit `func(int64) func(int64)
+		// int64` — `stage make` must compile. `make 1 2` adds the
+		// over-application path: declared arity 1 saturates, then a
+		// one-argument CallFunc takes the residual.
+		name: "fn_value_repr",
+		src: `package main
+
+import go "fmt"
+
+fn make (x: Int) -> (Int -> Int) = fn y -> x + y
+
+fn stage (f: Int -> Int -> Int) -> (Int -> Int) = f 20
+
+fn answer () -> String = {
+  let p = stage make
+  "${p 30} ${make 1 2}"
+}
+
+fn main () -> Unit = {
+  let _ = fmt.Println(answer ())
+  ()
+}
+`,
+		want: "50 3",
+	},
+	{
+		// Function values crossing every boundary a gom program
+		// offers: a record field typed by the flat spelling, a
+		// variant payload, a whole multi-arity declaration used as
+		// a value (the eta adapter), and partial application.
+		name: "fn_value_boundaries",
+		src: `package main
+
+import go "fmt"
+
+type Rec = { f: Int -> Int -> Int, n: Int }
+type Box = | Wrap (Int -> Int)
+
+fn add2 (a: Int) (b: Int) -> Int = a + b
+
+fn unwrap (b: Box) -> Int = match b {
+  Wrap f -> f 1
+}
+
+fn answer () -> String = {
+  let r = { f = add2, n = 0 }
+  let g = r.f 40
+  let h = add2
+  let w = Wrap (add2 1)
+  "${g 1} ${r.f 10 10} ${unwrap w} ${h 30 12}"
+}
+
+fn main () -> Unit = {
+  let _ = fmt.Println(answer ())
+  ()
+}
+`,
+		want: "41 20 2 42",
+	},
+	{
+		// A multi-parameter lambda whose body returns a function —
+		// the flat signature has more arrows than written parameters.
+		// The canonical lowering binds one written parameter per
+		// level and leaves the remaining arrows to the body's own
+		// lowering: a nested lambda (`fn a b -> fn c -> ...`), a
+		// whole declaration value (`fn a b -> add2` — the adapter),
+		// and a partial application (`fn a b -> add2 a`). The
+		// degenerate path used to bind every written parameter at
+		// one level, which E0901 rejects the moment a second
+		// parameter is written.
+		name: "lambda_returns_function",
+		src: `package main
+
+import go "fmt"
+
+fn add2 (a: Int) (b: Int) -> Int = a + b
+
+fn answer () -> String = {
+  let f = fn a b -> fn c -> a + b + c
+  let g = fn a b -> add2
+  let h = fn a b -> add2 a
+  "${f 1 2 3} ${g 10 20 1 2} ${h 5 6 7}"
+}
+
+fn main () -> Unit = {
+  let _ = fmt.Println(answer ())
+  ()
+}
+`,
+		want: "6 3 12",
+	},
 }
 
 // evalAnswer applies the file's `answer` through internal/eval and
@@ -590,15 +686,22 @@ func evalAnswer(t *testing.T, r *build.Result) string {
 	return s.S
 }
 
-// runCompiled drops the generated file into a scratch module that
-// replaces github.com/podhmo/gom with the repository, then `go run`s
-// it. Skips when no Go toolchain is on PATH.
-func runCompiled(t *testing.T, src []byte) string {
+// lookupGo resolves the go toolchain, or reports why there is none.
+func lookupGo(t *testing.T) (string, error) {
 	t.Helper()
 	gobin, err := exec.LookPath("go")
 	if err != nil {
-		t.Skip("no go toolchain on PATH")
+		return "", err
 	}
+	return gobin, nil
+}
+
+// runCompiledCmd drops the generated file into a scratch module that
+// replaces github.com/podhmo/gom with the repository and runs
+// `go run .`, returning the combined output and the run error — the
+// caller decides whether a non-zero exit is a failure.
+func runCompiledCmd(t *testing.T, gobin string, src []byte) (string, error) {
+	t.Helper()
 	root, err := filepath.Abs(filepath.Join("..", ".."))
 	if err != nil {
 		t.Fatal(err)
@@ -615,10 +718,23 @@ func runCompiled(t *testing.T, src []byte) string {
 	cmd.Dir = dir
 	cmd.Env = append(os.Environ(), "GOWORK=off", "GOFLAGS=-mod=mod", "GOTOOLCHAIN=local")
 	out, err := cmd.CombinedOutput()
+	return string(out), err
+}
+
+// runCompiled drops the generated file into a scratch module that
+// replaces github.com/podhmo/gom with the repository, then `go run`s
+// it. Skips when no Go toolchain is on PATH.
+func runCompiled(t *testing.T, src []byte) string {
+	t.Helper()
+	gobin, err := lookupGo(t)
+	if err != nil {
+		t.Skip("no go toolchain on PATH")
+	}
+	out, err := runCompiledCmd(t, gobin, src)
 	if err != nil {
 		t.Fatalf("generated program failed: %v\noutput: %s\n---\n%s", err, out, src)
 	}
-	return string(out)
+	return out
 }
 
 // TestGeneratedTestFileRuns compiles a test-mode file and runs the

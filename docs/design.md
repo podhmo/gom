@@ -91,7 +91,7 @@ Go コード生成器に言語の意味を判断させない。次のことは C
 3. **Go 相互運用の変換**: `(T, error)` から `Result` への変換、数値変換、`any` へのボックス化、スライスのコピー、interface への代入はすべて明示的なノード
 4. **match は決定木**: パターンは残っていない。ADT の不正値に対する panic の分岐も明示
 5. **脱出**: `try` と `|?>` は、どの関数境界から抜けるかを明示した脱出ノード
-6. **型の具体化**: 多相な定義と、実行時の関数値を区別する。多相な定義を値として使う箇所では型引数が具体化済みで、必要なラッパーも確定済み（関数の表現は [decisions/function-representation](decisions/2026-11-01-function-representation.md)）
+6. **型の具体化**: 多相な定義と、実行時の関数値を区別する。多相な定義を値として使う箇所では型引数が具体化済みで、必要なラッパーも確定済み（関数値の表現は [decisions/function-value-representation](decisions/2026-11-02-function-value-representation.md)、多相定義との区別は [decisions/function-representation](decisions/2026-11-01-function-representation.md)）
 7. **エントリポイントの判定**: `package main` の `fn main () -> Unit` という言語規則は `FuncDecl.IsEntry` として確定済み。codegen はパッケージ名・関数名を見ず、このフラグだけで `func main()` を出力する（[decisions/fn-main-entrypoint](decisions/2026-11-04-fn-main-entrypoint.md)）
 8. **等価のレシピ**: `==` / `!=` / `assert_eq` がどう比較するか（ネイティブ `==`・ランタイムのフォールバック・エラーの文字列比較・生成した比較関数の呼び出し）は `core.Equal` / `CallBuiltin.Eq` のプランとして確定済み（4.9 節）
 9. **ソースの由来**: すべてのノードが元の Gom ソースの範囲を指す
@@ -259,11 +259,11 @@ if n > 0 {
 | 呼び出しの形 | 生成する Go |
 | --- | --- |
 | 既知の関数に引数がちょうど揃う | 直接呼び出し `transfer(alice, bob, m)` |
-| 引数が足りない（部分適用） | 残りを受け取るクロージャ `func(m Money) R { return transfer(alice, bob, m) }` |
-| 引数が多い（結果が関数） | 直接呼び出しの結果に残りを適用 |
-| 未知の関数値への適用 | 残り arity ぶんの引数で 1 回の呼び出し `f(x, y)` |
+| 引数が足りない（部分適用） | 残りを 1 引数ずつ受け取る入れ子クロージャ `func(p) ... { return transfer(alice, bob, p, ...) }` |
+| 引数が多い（結果が関数） | 直接呼び出しの結果に残りを 1 引数ずつ適用 |
+| 未知の関数値への適用 | 1 引数ずつの適用 `f(x)(y)` — 関数値自体がカリー化形なので |
 
-関数値の表現は arity 形（P0-2 で決定、[decisions/function-representation](decisions/2026-11-01-function-representation.md)）: Gom の `T1 -> ... -> Tn -> R` の値は Go の `func(T1, ..., Tn)` とし、矢印チェーンを平坦化した形が canonical。残り arity は静的に分かるので、未知の関数値への適用でも中間クロージャは作らない。既知の関数を値として渡すときはそのまま参照する。宣言 arity が型の矢印長より小さい関数（`fn mk_add (a) -> (Int -> Int)` のような関数を返す関数）にだけ、値として使う箇所で平坦化ラッパーを生成する。カリー化形 `func(A) func(B) C` は不採用——実測で、境界を越えた関数値の適用が arity 3 で ~43 倍、高階関数のループ内の要素ごとの割り当てが fold で ~87 倍、Go API への受け渡しに Uncurry アダプタが要ったため。arity 形は特殊化版が最初から canonical なので、`List.map` 系のための別バリアントは要らない。`.gomi` には引数リストの形でシグネチャを書くので、他パッケージの関数についても arity が分かる。
+関数値の表現はカリー化形（[decisions/function-value-representation](decisions/2026-11-02-function-value-representation.md) — P0-2 の flat 形を部分的に Supersede）: Gom の `T1 -> ... -> Tn -> R` の値は Go の `func(T1) func(T2) ... R` とし、矢印 1 本につき Go の関数を 1 つ生成する。`types.Equal` は矢印チェーンを平坦化して同一視するため、`Int -> Int -> Int` と `Int -> (Int -> Int)` は同じ型——表現を平坦化済みチェーンの純粋関数にすると、どの綴りでも同じ Go 型になり、境界に変換は要らない（P0-2 の flat 形は宣言 arity で表現を選んだため、check を通った `stage make` が型検査の通らない Go を生成していた）。宣言は従来どおり宣言 arity の Go 関数を出力する。値として参照できるのは宣言 arity 1 のときだけで、2 以上は `func(p0) func(p1) ... { f_(p0, p1, ...) }` のアダプタを生成する——アダプタの最後の矢印が宣言チャンク全体を起動するので、本体の副作用が最初のチャンク適用時に走る順序は変わらない。`.gomi` には引数リストの形でシグネチャを書くので、他パッケージの関数についても arity が分かる。
 
 ### 4.5 その他の変換
 
@@ -273,7 +273,7 @@ if n > 0 {
 - パイプ・関数合成 → 脱糖の段階で普通の関数適用に戻す。`>>` で作った関数を値として渡す場合だけクロージャになる
 - `try e` → `r := e` として `r.Tag()` で分岐する。`result.ResultTag_Err` なら `return result.Err[...](r.Error)` で最も内側の関数から脱出、`result.ResultTag_Ok` なら `r.Value` に進む。分岐は invalid（タグ 0）を含む完全なものにし、`default` は `rt.InvalidVariant` で panic する
 - 自己末尾再帰 → 引数を再代入する `for` ループ。相互再帰は保証しない。A parameter a nested `Closure` or `Spawn` can capture is copied to a fresh per-iteration binding at the top of the loop body and every use is rebound to it (internal/lower/tail.go `snapshotCapturedParams`) — without the copy a capture would read the value of the *last* iteration rather than the call that created it (docs/problems/2026-11-02-tailloop-param-capture.md)
-- `@tailrec` → 変換とは別に、ファイル全体を lower し終えて `markTailCalls` が走ったあとで検査するパス（internal/lower/tailrec.go）。残った自己 `CallDirect` があれば E0902、`FuncRef` で値として参照されていれば E0903、ファイル内の直接参照グラフの強連結成分に自分以外がいれば E0904、変換可能な自己末尾呼び出しがなければ E0905。`Spawn` の中の自己呼び出しは R2/R4 の対象外（新しいスタックで走るため）で、変換もできないので R1 の証拠にもならない。`markTailCalls` の出力を読むので、ANF が `let` に落とした呼び出しは自動的に末尾位置から外れ、検査が codegen とずれない。R4 のグラフは `FuncDecl` だけでなく `VarDecl` も頂点にする — パッケージレベルの `let` は関数値を保持できるので、`let g = f` や束縛パターン越しの参照巡回（`f` → `g` → `f`）は普通の相互再帰と同じくスタックを増やす。辺は `CallDirect`・`FuncRef` に加えて `VarDecl` を指す `Var` で、`CallFunc` の被呼 `Var` もここに含まれる。`VarDecl` 側の辺だけは初期化時呼び出しと値の振る舞いを区別する — 本体トップレベルの `CallDirect`（`let r = f 0` は init 時に一度走るだけで、保持された値が `f` を呼び戻すわけではない）は辺にせず、内側の `Closure` の中の呼び出しだけを数える。`FuncRef` と `Var` の辺は位置を問わず数える — 値として渡された関数は活性化内で適用され得る、という既存の保守的近似と同じ根拠
+- `@tailrec` → 変換とは別に、ファイル全体を lower し終えて `markTailCalls` が走ったあとで検査するパス（internal/lower/tailrec.go）。残った自己 `CallDirect` があれば E0902、`FuncRef` で値として参照されていれば E0903、ファイル内の直接参照グラフの強連結成分に自分以外がいれば E0904、変換可能な自己末尾呼び出しがなければ E0905。宣言 arity が 2 以上の関数を値として使う場合（`let g = f`）は `FuncRef` ではなく adapter の `Closure` 列が出るが、その末端の `CallDirect` は `Adapter` フラグを持つので同じく E0903 を報告する — adapter の呼び出しは「値の発火呼び出し」であって R1/R2 の呼び出し箇所ではなく、`go` の中でも R3 の免除はない（値はゴルーチンを離れられる）。`Spawn` の中の自己呼び出しは R2/R4 の対象外（新しいスタックで走るため）で、変換もできないので R1 の証拠にもならない。`markTailCalls` の出力を読むので、ANF が `let` に落とした呼び出しは自動的に末尾位置から外れ、検査が codegen とずれない。R4 のグラフは `FuncDecl` だけでなく `VarDecl` も頂点にする — パッケージレベルの `let` は関数値を保持できるので、`let g = f` や束縛パターン越しの参照巡回（`f` → `g` → `f`）は普通の相互再帰と同じくスタックを増やす。辺は `CallDirect`・`FuncRef` に加えて `VarDecl` を指す `Var` で、`CallFunc` の被呼 `Var` もここに含まれる。`VarDecl` 側の辺だけは初期化時呼び出しと値の振る舞いを区別する — 本体トップレベルの `CallDirect`（`let r = f 0` は init 時に一度走るだけで、保持された値が `f` を呼び戻すわけではない）は辺にせず、内側の `Closure` の中の呼び出しだけを数える。`FuncRef` と `Var` の辺は位置を問わず数える — 値として渡された関数は活性化内で適用され得る、という既存の保守的近似と同じ根拠
 - ラムダ → Go の関数リテラル。捕捉変数はすべて不変なのでコピー意味論の問題は起きない（the TailLoop loop registers are the exception — they are rebound every iteration, which is why the snapshot above exists）
 - トップレベルの多相関数 → 型パラメータ `[A any]`。一般化した `let` の非関数値（`let e = []`）は niladic のジェネリック関数 `func e[A any]() list.List[A]` として出力し、参照側は `e[T]()` の呼び出しにする。使用箇所の型引数は checker が型付き AST の `TypeArgs` に記録し、Core IR の `CallDirect`/`FuncRef`/`CtorApp` へそのまま移す（[decisions/let-polymorphism-emission](decisions/2026-11-02-let-polymorphism-emission.md)）
 - 生成コードには `//line foo.gom:12` ディレクティブを埋め込み、panic のスタックトレースとデバッガを元ソースへ対応させる

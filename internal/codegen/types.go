@@ -18,7 +18,7 @@ import (
 //	Ref a / Ptr a → *T           Array a / Go.Slice a → []T
 //	Chan a → chan T  RecvChan a → <-chan T   SendChan a → chan<- T
 //	Go.Map k v → map[K]V         (a, b) → rt.TupleN[A, B]
-//	T1 -> .. -> R → func(T1, ..., Tn) R      Go named → pkg.Name
+//	T1 -> .. -> R → func(T1) func(T2) ... R  Go named → pkg.Name
 //	type var → A/E/T0            declared type → Name[args]
 
 // goType renders a types.Type as a Go type expression.
@@ -148,18 +148,30 @@ func (g *gen) goRefType(t *types.Go) ast.Expr {
 	}
 }
 
-// funcType renders a Gom function type as a flat Go func type —
-// `func(T1, ..., Tn) R` (P0-2 arity representation). Labels are
-// erased; parameter order is declaration order.
+// funcType renders a Gom function type in the canonical value
+// representation: one Go func per arrow — `func(T1) func(T2) ... R`.
+// The representation is a pure function of the *flattened* arrow
+// chain, so every spelling types.Equal identifies — `A -> B -> R`,
+// `A -> (B -> R)`, `Func{[A,B],R}` — renders to the same Go type and
+// no boundary adapter ever stands between them. Labels are erased;
+// parameter order is declaration order. Function *declarations* keep
+// their declared arity on top of this residual shape — see
+// docs/decisions/2026-11-02-function-value-representation.md.
 func (g *gen) funcType(f *types.Func) ast.Expr {
-	params := make([]*ast.Field, 0, len(f.Params))
-	for _, p := range f.Params {
-		params = append(params, &ast.Field{Type: g.goType(p.Type)})
+	ret := g.goType(f.Ret)
+	if len(f.Params) == 0 {
+		return &ast.FuncType{
+			Params:  &ast.FieldList{},
+			Results: &ast.FieldList{List: []*ast.Field{{Type: ret}}},
+		}
 	}
-	return &ast.FuncType{
-		Params:  &ast.FieldList{List: params},
-		Results: &ast.FieldList{List: []*ast.Field{{Type: g.goType(f.Ret)}}},
+	for i := len(f.Params) - 1; i >= 0; i-- {
+		ret = &ast.FuncType{
+			Params:  &ast.FieldList{List: []*ast.Field{{Type: g.goType(f.Params[i].Type)}}},
+			Results: &ast.FieldList{List: []*ast.Field{{Type: ret}}},
+		}
 	}
+	return ret
 }
 
 // tupleType renders `(A, B, ...)` as rt.TupleN[A, B, ...].

@@ -282,24 +282,24 @@ func TestValidateViolations(t *testing.T) {
 			want: "not a Gom function",
 		},
 		{
-			name: "CallFunc partial application",
+			name: "CallFunc supplies more than one argument",
 			file: func() *File {
-				fb, fs := vbind("f", types.Fn(types.Int, types.P(types.Int), types.P(types.Int)))
-				return fnFile(types.Int, &Body{
-					Lets: []*Let{
-						{Sp: sp(), Name: fb, X: &FuncRef{
-							Base: Base{Sp: sp(), Typ: types.Fn(types.Int, types.P(types.Int), types.P(types.Int))},
-							Sym:  fnVal, Arity: 2,
+				fT := types.Fn(types.Int, types.P(types.Int), types.P(types.Int))
+				uB, _ := vbind("u", types.Unit)
+				fB, fS := vbind("f", fT)
+				return &File{Sp: sp(), Package: "p", PkgSp: sp(),
+					Decls: []Decl{&FuncDecl{Sp: sp(), Sym: fsym("g"), Fn: &Func{
+						Sp:     sp(),
+						Sig:    types.Fn(types.Int, types.P(types.Unit), types.P(fT)),
+						Params: []*Bind{uB, fB},
+						Body: &Body{Tail: &CallFunc{
+							Base: Base{Sp: sp(), Typ: types.Int},
+							Fn:   vref(fS, fT),
+							Args: []Atom{intLit("1"), intLit("2")},
 						}},
-					},
-					Tail: &CallFunc{
-						Base: Base{Sp: sp(), Typ: types.Int},
-						Fn:   vref(fs, types.Fn(types.Int, types.P(types.Int), types.P(types.Int))),
-						Args: []Atom{intLit("1")},
-					},
-				})
+					}}}}
 			}(),
-			want: "must be a Closure",
+			want: "exactly one",
 		},
 		{
 			name: "CallFunc on a known callee",
@@ -678,10 +678,10 @@ func TestValidateViolations(t *testing.T) {
 		{
 			name: "FuncRef arity mismatch",
 			file: fnFile(fnII, &Body{Tail: &FuncRef{
-				Base: Base{Sp: sp(), Typ: types.Fn(types.Int, types.P(types.Int))},
-				Sym:  fnVal, Arity: 2, // declared arity 2 but type arity 1 — needs flatten Closure
+				Base: Base{Sp: sp(), Typ: types.Fn(types.Int, types.P(types.Int), types.P(types.Int))},
+				Sym:  fnVal, Arity: 2, // declared arity 2 — the direct-call shape, not the value shape
 			}}),
-			want: "flatten Closure",
+			want: "adapter Closure",
 		},
 		{
 			name: "record field initialized twice",

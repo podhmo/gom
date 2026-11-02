@@ -206,7 +206,7 @@ func (l *lowerer) varExpr(e *check.Var) core.Expr {
 // the parameter list.
 func (l *lowerer) builtinRef(sp diag.Span, typ types.Type, sym *resolve.Symbol) core.Expr {
 	if sig := sigOf(typ); sig != nil {
-		return l.closureOf(sp, typ, sig.Params, func(bs *seq, pv []core.Atom) core.Expr {
+		return l.closureChainType(sp, sig, func(bs *seq, pv []core.Atom) core.Expr {
 			return l.builtinCall(sp, sig.Ret, sym, pv)
 		})
 	}
@@ -214,10 +214,16 @@ func (l *lowerer) builtinRef(sp diag.Span, typ types.Type, sym *resolve.Symbol) 
 	return &core.CallBuiltin{Base: core.Base{Sp: sp, Typ: typ}, Sym: sym}
 }
 
-// funcRefOrFlatten lowers a Gom function reference: a FuncRef when
-// the declared arity covers the whole arrow chain, otherwise the P0-2
-// flatten closure `func(all...) { return f(all...) }`. A reference
-// whose symbol is a generalized value-let thunk is the call `x[T]()`.
+// funcRefOrFlatten lowers a Gom function reference. The emitted
+// declaration takes its declared arity — `func f_(a, b) R` — while
+// a *value* of its type is the canonical one-func-per-arrow chain,
+// so a bare FuncRef is legal only at declared arity 1 (`func f_(a)
+// R'` already is the chain, whatever shape R' has). Any larger
+// declared arity gets the eta adapter `func(p0) func(p1) ... {
+// f_(p0, p1, ...) }` — the adapter's own arrows match the gom
+// semantics (each supplies one argument; the declaration's chunk
+// fires when its last parameter arrives). A reference whose symbol
+// is a generalized value-let thunk is the call `x[T]()`.
 func (l *lowerer) funcRefOrFlatten(e *check.Var, sym *resolve.Symbol) core.Expr {
 	if l.thunks[sym] {
 		// A generalized `let x = <value>` lowered to a niladic
@@ -231,27 +237,32 @@ func (l *lowerer) funcRefOrFlatten(e *check.Var, sym *resolve.Symbol) core.Expr 
 	}
 	decl := l.funcArity(sym, e.Type())
 	flat := flatArity(e.Type())
-	if decl == flat {
+	if decl == 1 {
 		return &core.FuncRef{Base: baseOf(e), Sym: sym, Arity: decl, TypeArgs: e.TypeArgs}
 	}
 	if decl > flat {
 		l.err(e.Sp, fmt.Sprintf("function %s has declared arity %d exceeding its type arity %d", sym.Name, decl, flat))
 		return &core.FuncRef{Base: baseOf(e), Sym: sym, Arity: decl, TypeArgs: e.TypeArgs}
 	}
-	// Function-returning function referenced at its full flat type:
-	// wrap into one flat arity closure.
-	sig := sigOf(e.Type())
+	// Declared arity >= 2: the declaration's `func f_(p0, p1, ...)`
+	// is the direct-call shape, not the value representation —
+	// adapt through one arrow per parameter.
+	sig := flatSig(e.Type())
 	if sig == nil {
 		l.err(e.Sp, fmt.Sprintf("function %s has non-function type %s", sym.Name, e.Type()))
 		return l.litUnit(e.Sp)
 	}
-	return l.closureOf(e.Sp, e.Type(), sig.Params, func(bs *seq, pv []core.Atom) core.Expr {
+	return l.closureChainType(e.Sp, sig, func(bs *seq, pv []core.Atom) core.Expr {
 		// Saturate the declared arity first; any flat-arity
-		// remainder applies the returned function value.
+		// remainder applies the returned function value. The call is
+		// flagged Adapter: it is the firing end of a function *value*
+		// escape, not a user-written call site — @tailrec's R3 reads
+		// it the way it reads a FuncRef.
 		prefix := &core.CallDirect{
 			Base:   core.Base{Sp: e.Sp, Typ: retAfter(sig, decl)},
 			Callee: sym, TypeArgs: e.TypeArgs,
 			Args: pv[:decl], Arity: decl,
+			Adapter: true,
 		}
 		rest := pv[decl:]
 		if len(rest) == 0 {
@@ -363,7 +374,7 @@ func (l *lowerer) goFuncRefOrAdapter(sp diag.Span, typ types.Type, sym *resolve.
 		l.err(sp, fmt.Sprintf("Go function %s has non-function type %s", sym.Name, typ))
 		return l.litUnit(sp)
 	}
-	return l.closureOf(sp, typ, fs.Params, func(bs *seq, pv []core.Atom) core.Expr {
+	return l.closureChain(sp, typ, fs.Params, func(bs *seq, pv []core.Atom) core.Expr {
 		call := &core.CallGo{
 			Base:   core.Base{Sp: sp, Typ: goCallTyp(sig, fs.Ret)},
 			Callee: sym, Recv: recv, TypeArgs: targs,
@@ -783,9 +794,8 @@ func (l *lowerer) directCall(s *seq, sp diag.Span, resTyp types.Type, callee che
 			}
 		}
 		// Over-application: saturate the declared arity, then apply
-		// the returned function value to the extras — in flat-arity
-		// chunks like CallUnknown, so a remainder under the return's
-		// arity becomes a Closure rather than a partial CallFunc.
+		// the returned function value to the extras one argument per
+		// CallFunc, like CallUnknown.
 		first := &core.CallDirect{
 			Base:   core.Base{Sp: sp, Typ: overAppRetType(callee, ci)},
 			Callee: sym, TypeArgs: ci.TypeArgs,
@@ -887,7 +897,7 @@ func (l *lowerer) partialCall(s *seq, sp diag.Span, resTyp types.Type, callee ch
 			Label: paramLabel(calleeSig, i), Type: pt,
 		})
 	}
-	return l.closureOf(sp, resTyp, paramTyps, func(bs *seq, pv []core.Atom) core.Expr {
+	return l.closureChain(sp, resTyp, paramTyps, func(bs *seq, pv []core.Atom) core.Expr {
 		ordered := declOrderArgs(ci, args, ci.Arity)
 		for k, i := range unapplied {
 			ordered[i] = pv[k]
@@ -938,8 +948,9 @@ func retAfter(sig *types.Func, arity int) types.Type {
 	return &types.Func{Params: sig.Params[arity:], Ret: sig.Ret}
 }
 
-// unknownCall applies a function value in flat chunks of its own
-// arity — never a curried intermediate, never a partial application.
+// unknownCall applies a function value one argument per CallFunc —
+// the canonical chain means every application step is a real Go
+// call and a partial application is simply a shorter chain.
 func (l *lowerer) unknownCall(s *seq, sp diag.Span, fnExpr core.Expr, args []core.Atom) core.Expr {
 	if fnExpr == nil {
 		l.err(sp, "CallUnknown with no callee value")
@@ -1080,11 +1091,11 @@ func (l *lowerer) closureOf(sp diag.Span, typ types.Type, params []types.FuncPar
 	tail := build(bs, pv)
 	l.fnStack = l.fnStack[:len(l.fnStack)-1]
 	fn.Body = &core.Body{Lets: bs.lets, Tail: tail}
-	// The expression's own type spells the value's Go shape —
-	// `func(bound) residual` — so arity readers see the immediate
-	// count: `add3 40` emits `func(b) func(c)`, and its type must be
-	// `Int -> (Int -> Int)`, not the flat `Int -> Int -> Int` that
-	// both spellings Equal-compare to (check.go keeps declared sigs
+	// The expression's own type records the emitted level split —
+	// `Func{bound, ResidualType}` — so arity readers see the
+	// immediate count: `add3 40`'s residual closure reports
+	// `Int -> (Int -> Int)`, not the flat `Int -> Int -> Int` both
+	// spellings Equal-compare to (check.go keeps declared sigs
 	// nested for the same reason; this literal preserves the split).
 	exprTyp := &types.Func{Params: params, Ret: fn.ResidualType()}
 	return &core.Closure{Base: core.Base{Sp: sp, Typ: exprTyp}, Fn: fn}
@@ -1094,6 +1105,39 @@ func (l *lowerer) closureOf(sp diag.Span, typ types.Type, params []types.FuncPar
 // holds — the parameter types come from the Func itself.
 func (l *lowerer) closureOfType(sp diag.Span, sig *types.Func, build func(bs *seq, pv []core.Atom) core.Expr) *core.Closure {
 	return l.closureOf(sp, sig, sig.Params, build)
+}
+
+// closureChain builds a Closure in the canonical value
+// representation: one Go func per parameter — `func(p0) func(p1)
+// ... { body }` — nested so each level is an arity-1 core.Func.
+// build runs at the innermost level and receives every parameter
+// atom in declaration order. Callers that produce a *function-typed
+// value* must use this (or an equivalent arity-1 closureOf): a
+// multi-parameter core.Func emits `func(p0, p1, ...)`, which is not
+// a value of the gom function type — it is the Go-facing flat form
+// used only inside boundary adapters.
+func (l *lowerer) closureChain(sp diag.Span, typ types.Type, params []types.FuncParam, build func(bs *seq, pv []core.Atom) core.Expr) *core.Closure {
+	if len(params) <= 1 {
+		return l.closureOf(sp, typ, params, build)
+	}
+	resTyp := typ
+	if fs := flatSig(typ); fs != nil {
+		resTyp = &types.Func{Params: fs.Params[1:], Ret: fs.Ret}
+	}
+	return l.closureOf(sp, typ, params[:1], func(bs *seq, pv1 []core.Atom) core.Expr {
+		return l.closureChain(sp, resTyp, params[1:], func(bs2 *seq, pvRest []core.Atom) core.Expr {
+			return build(bs2, append(append([]core.Atom{}, pv1...), pvRest...))
+		})
+	})
+}
+
+// closureChainType is closureChain for a signature the lowering
+// already holds — the parameter list comes from the Func itself.
+func (l *lowerer) closureChainType(sp diag.Span, sig *types.Func, build func(bs *seq, pv []core.Atom) core.Expr) *core.Closure {
+	if sig == nil {
+		return l.closureOf(sp, nil, nil, build)
+	}
+	return l.closureChain(sp, sig, sig.Params, build)
 }
 
 // applyAtom applies an atom of function type to argument atoms —
@@ -1120,7 +1164,7 @@ func (l *lowerer) applyAtom(s *seq, sp diag.Span, resTyp types.Type, fn core.Ato
 			t := l.asAtom(s, sp, first)
 			return l.callFuncChunks(s, sp, t, args[f.Arity:])
 		default:
-			return l.closureOfType(sp, resFunc(sigOf(f.Type()), len(args), f.Type()), func(bs *seq, pv []core.Atom) core.Expr {
+			return l.closureChainType(sp, resFunc(sigOf(f.Type()), len(args), f.Type()), func(bs *seq, pv []core.Atom) core.Expr {
 				return &core.CallDirect{
 					Base:   core.Base{Sp: sp, Typ: retAfter(sigOf(f.Type()), f.Arity)},
 					Callee: f.Sym, TypeArgs: f.TypeArgs,
@@ -1142,7 +1186,7 @@ func (l *lowerer) applyAtom(s *seq, sp diag.Span, resTyp types.Type, fn core.Ato
 			l.err(sp, fmt.Sprintf("constructor %s over-applied (%d/%d)", f.Sym.Name, len(args), arity))
 			return l.litUnit(sp)
 		}
-		return l.closureOfType(sp, resFunc(sigOf(f.Type()), len(args), f.Type()), func(bs *seq, pv []core.Atom) core.Expr {
+		return l.closureChainType(sp, resFunc(sigOf(f.Type()), len(args), f.Type()), func(bs *seq, pv []core.Atom) core.Expr {
 			return &core.CtorApp{
 				Base: core.Base{Sp: sp, Typ: retAfter(sigOf(f.Type()), arity)},
 				Ctor: f.Sym, TypeArgs: f.TypeArgs,
@@ -1170,8 +1214,11 @@ func (l *lowerer) applyAtom(s *seq, sp diag.Span, resTyp types.Type, fn core.Ato
 	}
 }
 
-// callFuncChunks applies an unknown function value in arity-sized
-// CallFunc chunks — the CallUnknown path for atoms.
+// callFuncChunks applies an unknown function value one argument per
+// CallFunc — the canonical value representation is one Go func per
+// arrow, so `f a b` emits `f(a)(b)` the way the evaluator's
+// one-argument apply steps run it. Intermediates bind to temporaries
+// so each application's type (the residual arrow) stays an atom's.
 func (l *lowerer) callFuncChunks(s *seq, sp diag.Span, fn core.Atom, args []core.Atom) core.Expr {
 	for len(args) > 0 {
 		fs, ok := types.Chase(fn.Type()).(*types.Func)
@@ -1179,30 +1226,21 @@ func (l *lowerer) callFuncChunks(s *seq, sp diag.Span, fn core.Atom, args []core
 			l.err(sp, fmt.Sprintf("applying a non-function value of type %s", fn.Type()))
 			return l.litUnit(sp)
 		}
-		k := len(fs.Params)
-		if len(args) > k {
-			call := &core.CallFunc{
-				Base: core.Base{Sp: sp, Typ: fs.Ret},
-				Fn:   fn, Args: args[:k],
-			}
-			fn = l.asAtom(s, sp, call)
-			args = args[k:]
-			continue
+		// The residual after one argument: a nested Ret names the
+		// rest of the chain; a multi-parameter chunk keeps its tail.
+		resTyp := fs.Ret
+		if len(fs.Params) > 1 {
+			resTyp = &types.Func{Params: fs.Params[1:], Ret: fs.Ret}
 		}
-		if len(args) < k {
-			rem := &types.Func{Params: fs.Params[len(args):], Ret: fs.Ret}
-			full := append([]core.Atom{}, args...)
-			return l.closureOfType(sp, rem, func(bs *seq, pv []core.Atom) core.Expr {
-				return &core.CallFunc{
-					Base: core.Base{Sp: sp, Typ: fs.Ret},
-					Fn:   fn, Args: append(full, pv...),
-				}
-			})
+		call := &core.CallFunc{
+			Base: core.Base{Sp: sp, Typ: resTyp},
+			Fn:   fn, Args: args[:1],
 		}
-		return &core.CallFunc{
-			Base: core.Base{Sp: sp, Typ: fs.Ret},
-			Fn:   fn, Args: args,
+		args = args[1:]
+		if len(args) == 0 {
+			return call
 		}
+		fn = l.asAtom(s, sp, call)
 	}
 	return fn
 }
@@ -1459,7 +1497,7 @@ func (l *lowerer) compose(s *seq, e *check.Binary, first, second core.Atom, firs
 	if k <= 0 || k > len(sig.Params) {
 		k = 1
 	}
-	return l.closureOf(e.Sp, e.Type(), sig.Params, func(bs *seq, pv []core.Atom) core.Expr {
+	return l.closureChain(e.Sp, e.Type(), sig.Params, func(bs *seq, pv []core.Atom) core.Expr {
 		mid := l.applyAtom(bs, firstSp, retAfter(sigOf(first.Type()), k), first, pv[:k])
 		midAtom := l.asAtom(bs, firstSp, mid)
 		rest := append([]core.Atom{midAtom}, pv[k:]...)
@@ -1907,20 +1945,58 @@ func (l *lowerer) strInterp(s *seq, e *check.StrInterp) core.Expr {
 	}
 }
 
-// lambdaExpr lowers `fn p... -> body` to a Closure.
+// lambdaExpr lowers `fn p... -> body` to a Closure. A multi-parameter
+// lambda emits the canonical value representation — one core.Func per
+// parameter, `func(p0) func(p1) ... { body }` — because the lambda is
+// already a value: `fn a b -> e` partially applied (`f a`) must be a
+// `func(b)` Go value, not an uncallable half of `func(a, b)`. Each
+// parameter's destructuring prelude sits at its own level.
 func (l *lowerer) lambdaExpr(e *check.Lambda) core.Expr {
 	// The Closure's Sig is the canonical flat arrow chain — core
 	// keeps the declared arity in Params instead of a nested Ret.
+	// The flat chain may run *longer* than the written parameter
+	// list — `fn a b -> fn c -> ...`, `fn a b -> add2`, `fn a b ->
+	// add2 a` all return a function — and the level path still
+	// applies: each level binds one written parameter and the body's
+	// own lowering nests the remaining arrows. Only fewer signature
+	// arrows than written parameters is a mismatch.
 	sig := flatSig(e.Type())
-	fn := &core.Func{Sp: e.Sp, Sig: sig}
-	fn.Params = l.paramBinds(e.Params, fn)
-	l.fnStack = append(l.fnStack, fn)
-	s := &seq{}
-	l.paramPrelude(e.Params, fn.Params, s)
-	tail := l.expr(s, e.Body)
-	fn.Body = &core.Body{Lets: s.lets, Tail: tail}
-	l.fnStack = l.fnStack[:len(l.fnStack)-1]
-	return &core.Closure{Base: baseOf(e), Fn: fn}
+	if sig == nil || len(e.Params) == 0 || len(sig.Params) < len(e.Params) {
+		// Degenerate shape (non-function type or a param/sig
+		// mismatch the validator reports) — emit the single level.
+		fn := &core.Func{Sp: e.Sp, Sig: sig}
+		fn.Params = l.paramBinds(e.Params, fn)
+		l.fnStack = append(l.fnStack, fn)
+		s := &seq{}
+		l.paramPrelude(e.Params, fn.Params, s)
+		tail := l.expr(s, e.Body)
+		fn.Body = &core.Body{Lets: s.lets, Tail: tail}
+		l.fnStack = l.fnStack[:len(l.fnStack)-1]
+		return &core.Closure{Base: baseOf(e), Fn: fn}
+	}
+	var level func(i int) *core.Closure
+	level = func(i int) *core.Closure {
+		fs := &types.Func{Params: sig.Params[i:], Ret: sig.Ret}
+		fn := &core.Func{Sp: e.Sp, Sig: fs}
+		fn.Params = l.paramBinds(e.Params[i:i+1], fn)
+		l.fnStack = append(l.fnStack, fn)
+		s := &seq{}
+		l.paramPrelude(e.Params[i:i+1], fn.Params, s)
+		var tail core.Expr
+		if i+1 < len(e.Params) {
+			tail = level(i + 1)
+		} else {
+			tail = l.expr(s, e.Body)
+		}
+		fn.Body = &core.Body{Lets: s.lets, Tail: tail}
+		l.fnStack = l.fnStack[:len(l.fnStack)-1]
+		typ := types.Type(fs)
+		if i == 0 {
+			typ = e.Type()
+		}
+		return &core.Closure{Base: core.Base{Sp: e.Sp, Typ: typ}, Fn: fn}
+	}
+	return level(0)
 }
 
 // --- tail calls ---

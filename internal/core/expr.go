@@ -61,12 +61,13 @@ func (*Lit) isExpr() {}
 func (*Lit) isAtom() {}
 
 // FuncRef is a top-level Gom function used as a value: a direct
-// reference `pkg.F` emitted when the function's declared arity equals
-// the arrow length of its type (P0-2 rule 3 — no flatten wrapper
-// needed). When the declared arity is smaller — a function returning
-// a function — lowering emits a Closure applying the trailing
-// arguments instead; Arity records the declared arity so the
-// validator can check the rule.
+// reference `pkg.F`. It is emitted only at declared arity 1 — an
+// arity-1 declaration's `func f_(a) R'` already *is* the canonical
+// one-func-per-arrow value. A larger declared arity (`func f_(a, b)`)
+// is the direct-call shape, not the value shape, so lowering emits
+// an adapter Closure `func(p0) func(p1) ... { f_(p0, p1, ...) }`
+// instead; Arity records the declared arity so the validator can
+// check the rule.
 type FuncRef struct {
 	Base
 	Sym      *resolve.Symbol // KindFunc, not IsGo
@@ -134,13 +135,16 @@ type FieldGet struct {
 func (*FieldGet) isExpr() {}
 func (*FieldGet) isAtom() {}
 
-// Closure is a function literal `func(p...) R { ... }`. All function
-// values that cannot be referenced directly are explicit closures at
-// this level: partial applications (the body is the saturated
-// CallDirect, CallFunc or CtorApp over bound atoms and the closure's
-// own parameters, in declaration order), cute `_` placeholder calls,
-// function compositions, flatten wrappers for function-returning
-// functions, and Go-function adapters (body is a CallGo).
+// Closure is a function literal `func(p) R' { ... }` — one canonical
+// level of the value representation, binding at most one parameter.
+// A value of an n-arrow type nests n Closures; `func() R` is the
+// zero-argument value. All function values that cannot be referenced
+// directly are explicit closures at this level: partial applications
+// (the body is the saturated CallDirect, CallFunc or CtorApp over
+// bound atoms and the closure's own parameters, in declaration
+// order), cute `_` placeholder calls, function compositions,
+// adapters for multi-arity function declarations and Go functions
+// (body is a CallGo), and lambdas.
 type Closure struct {
 	Base
 	Fn *Func

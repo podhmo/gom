@@ -48,8 +48,9 @@ func (v Violation) String() string {
 //     fresh symbol used in scope (ANF shape is structural; scoping
 //     and uniqueness are checked)
 //   - call classification: CallDirect/CtorApp are saturated
-//     (len(Args) == Arity), CallFunc applies a function value at its
-//     full remaining arity, CallGo arity/variadic/spread agree with
+//     (len(Args) == Arity), CallFunc applies a function value at
+//     exactly one argument — the canonical one-func-per-arrow value
+//     representation — CallGo arity/variadic/spread agree with
 //     the callee, and no node re-classifies a known callee as an
 //     unknown value
 //   - interop conversions are explicit: multi-result Go calls appear
@@ -630,15 +631,16 @@ func (v *validator) atom(a Atom, what string) {
 		if a.Arity < 1 {
 			v.err(a.Sp, "FuncRef", "declared arity %d < 1", a.Arity)
 		}
-		if fn, ok := types.Chase(a.Typ).(*types.Func); ok {
-			// Direct reference is legal only when declared arity
-			// covers the whole arrow chain (P0-2 rule 3); otherwise
-			// lowering must emit a flatten Closure.
-			if len(fn.Params) != a.Arity {
-				v.err(a.Sp, "FuncRef", "declared arity %d does not cover function type arity %d — use a flatten Closure",
-					a.Arity, len(fn.Params))
-			}
-		} else if a.Typ != nil {
+		// The emitted declaration takes its declared arity —
+		// `func f_(p0, p1, ...)` — while a function *value* is the
+		// canonical one-func-per-arrow chain. The two coincide only
+		// at declared arity 1; any larger arity needs an adapter
+		// Closure instead of a bare reference.
+		if a.Arity != 1 {
+			v.err(a.Sp, "FuncRef", "declared arity %d does not emit the canonical one-argument value — use an adapter Closure",
+				a.Arity)
+		}
+		if _, ok := types.Chase(a.Typ).(*types.Func); !ok && a.Typ != nil {
 			v.err(a.Sp, "FuncRef", "type %s is not a function type", a.Typ)
 		}
 	case *CtorRef:
@@ -772,12 +774,17 @@ func (v *validator) expr(e Expr, inTail bool) {
 			v.err(e.Sp, "CallFunc", "Fn is a CtorRef — a known callee must be CtorApp")
 		}
 		if fn, ok := atomType(e.Fn).(*types.Func); ok {
-			if len(e.Args) != len(fn.Params) {
-				v.err(e.Sp, "CallFunc", "applying at %d args but value's arity is %d — partial application must be a Closure",
-					len(e.Args), len(fn.Params))
+			if len(fn.Params) == 0 {
+				v.err(e.Sp, "CallFunc", "Fn type %s has no parameters", atomType(e.Fn))
 			}
 		} else if atomType(e.Fn) != nil {
 			v.err(e.Sp, "CallFunc", "Fn type %s is not a function type", atomType(e.Fn))
+		}
+		// The canonical value representation is one Go func per
+		// arrow, so every CallFunc supplies exactly one argument.
+		if len(e.Args) != 1 {
+			v.err(e.Sp, "CallFunc", "applying at %d args — the canonical function value takes exactly one",
+				len(e.Args))
 		}
 		v.atoms(e.Args, "CallFunc.Args")
 	case *CallGo:
@@ -962,6 +969,15 @@ func (v *validator) closure(e *Closure) {
 	}
 	if fn.Sig != nil && e.Typ != nil && !types.Equal(e.Typ, fn.Sig) {
 		v.err(e.Sp, "Closure", "node type %s differs from function signature %s", e.Typ, fn.Sig)
+	}
+	// A Closure is a function *value*, so its Func is one canonical
+	// level: at most one parameter. `func() R` is the zero-argument
+	// value and `func(p) R'` one arrow; more parameters would emit
+	// the flat direct-call shape, which is not a value of the gom
+	// function type — a multi-arrow value must nest closures.
+	if len(fn.Params) > 1 {
+		v.err(e.Sp, "Closure", "binds %d parameters — the canonical function value binds at most one per arrow",
+			len(fn.Params))
 	}
 	v.fnDecl(fn, false, "Closure")
 }

@@ -963,11 +963,16 @@ func TestForAndGo(t *testing.T) {
 	_ = sp_
 }
 
-// TestFuncRefFlatten: a function returning a function, referenced at
-// its full flat type, lowers to a flatten Closure (P0-2 rule 3).
-func TestFuncRefFlatten(t *testing.T) {
+// TestFuncRefAdapter: a function value reference emits a bare
+// FuncRef only at declared arity 1 — where the declaration's own
+// `func f_(a) R'` already is the canonical chain — and a nested
+// adapter Closure for any larger declared arity.
+func TestFuncRefAdapter(t *testing.T) {
 	fsig := types.Fn(types.Int, types.P(types.Int), types.P(types.Int))
-	// declared arity 1, flat type arity 2.
+	// Declared arity 1 returning a function, referenced at the flat
+	// spelling: `func mk_add_(a) func(b) Int` already is canonical —
+	// the reference stands directly even though the type spells
+	// two arrows.
 	d := decl("mk_add", []check.Param{param(vpat(vsym("a", types.Int), types.Int))},
 		&check.Lambda{Base: b(types.Fn(types.Int, types.P(types.Int))),
 			Params: []check.Param{param(vpat(vsym("b", types.Int), types.Int))},
@@ -975,22 +980,44 @@ func TestFuncRefFlatten(t *testing.T) {
 		types.Fn(types.Fn(types.Int, types.P(types.Int)), types.P(types.Int)))
 	d2 := decl("use", nil, vr(d.Sym, fsig), types.Fn(fsig))
 	out := mustLower(t, d, d2)
+	fr, ok := fnDeclOf(t, out, 1).Fn.Body.Tail.(*core.FuncRef)
+	if !ok {
+		t.Fatalf("tail = %T, want FuncRef — arity-1 declarations emit canonical values", fnDeclOf(t, out, 1).Fn.Body.Tail)
+	}
+	if fr.Arity != 1 {
+		t.Fatalf("FuncRef arity = %d, want 1", fr.Arity)
+	}
+}
+
+// TestFuncRefMultiArityAdapter: `fn g (a, b)` referenced as a value
+// wraps into `func(p0) func(p1) { g_(p0, p1) }` — the canonical
+// chain delegating each arrow's last argument to the declaration's
+// multi-argument call.
+func TestFuncRefMultiArityAdapter(t *testing.T) {
+	fsig := types.Fn(types.Int, types.P(types.Int), types.P(types.Int))
+	d := decl("g", []check.Param{
+		param(vpat(vsym("a", types.Int), types.Int)),
+		param(vpat(vsym("b", types.Int), types.Int)),
+	}, intLit("0"), fsig)
+	d2 := decl("use", nil, vr(d.Sym, fsig), types.Fn(fsig))
+	out := mustLower(t, d, d2)
 	cl, ok := fnDeclOf(t, out, 1).Fn.Body.Tail.(*core.Closure)
 	if !ok {
-		t.Fatalf("tail = %T, want flatten Closure", fnDeclOf(t, out, 1).Fn.Body.Tail)
+		t.Fatalf("tail = %T, want adapter Closure", fnDeclOf(t, out, 1).Fn.Body.Tail)
 	}
-	if len(cl.Fn.Params) != 2 {
-		t.Fatalf("flatten params = %d, want 2", len(cl.Fn.Params))
+	if len(cl.Fn.Params) != 1 {
+		t.Fatalf("outer adapter params = %d, want 1", len(cl.Fn.Params))
 	}
-	if len(cl.Fn.Body.Lets) != 1 {
-		t.Fatalf("flatten lets = %d, want 1 (saturated prefix)", len(cl.Fn.Body.Lets))
+	inner, ok := cl.Fn.Body.Tail.(*core.Closure)
+	if !ok {
+		t.Fatalf("adapter tail = %T, want inner Closure", cl.Fn.Body.Tail)
 	}
-	cd, ok := cl.Fn.Body.Lets[0].X.(*core.CallDirect)
-	if !ok || cd.Arity != 1 || len(cd.Args) != 1 {
-		t.Fatalf("flatten prefix = %T", cl.Fn.Body.Lets[0].X)
+	cd, ok := inner.Fn.Body.Tail.(*core.CallDirect)
+	if !ok || cd.Arity != 2 || len(cd.Args) != 2 {
+		t.Fatalf("adapter inner tail = %T, want saturated CallDirect arity 2", inner.Fn.Body.Tail)
 	}
-	if _, ok := cl.Fn.Body.Tail.(*core.CallFunc); !ok {
-		t.Fatalf("flatten tail = %T, want CallFunc on the remainder", cl.Fn.Body.Tail)
+	if !cd.Adapter {
+		t.Fatal("adapter CallDirect lacks the Adapter flag — @tailrec's R3 cannot see the value escape")
 	}
 }
 
@@ -1012,7 +1039,8 @@ func TestStrInterp(t *testing.T) {
 	}
 }
 
-// TestUnknownCall: CallUnknown chunks by the value's own arity.
+// TestUnknownCall: CallUnknown applies one argument per CallFunc —
+// the canonical chain emits `f(1)(2)`.
 func TestUnknownCall(t *testing.T) {
 	fT := types.Fn(types.Int, types.P(types.Int), types.P(types.Int))
 	f := vsym("f", fT)
@@ -1020,12 +1048,20 @@ func TestUnknownCall(t *testing.T) {
 		check.CallInfo{Kind: check.CallUnknown, Arity: 2, Applied: 2, HoleIndex: -1}, types.Int)
 	out := mustLower(t, decl("g", []check.Param{param(vpat(f, fT))}, call,
 		types.Fn(types.Int, types.P(fT))))
-	cf, ok := fnDeclOf(t, out, 0).Fn.Body.Tail.(*core.CallFunc)
-	if !ok {
-		t.Fatalf("tail = %T, want CallFunc", fnDeclOf(t, out, 0).Fn.Body.Tail)
+	body := fnDeclOf(t, out, 0).Fn.Body
+	if len(body.Lets) != 1 {
+		t.Fatalf("lets = %d, want 1 (first application binds the residual)", len(body.Lets))
 	}
-	if len(cf.Args) != 2 {
-		t.Fatalf("args = %d", len(cf.Args))
+	first, ok := body.Lets[0].X.(*core.CallFunc)
+	if !ok || len(first.Args) != 1 {
+		t.Fatalf("let0 = %T, want one-argument CallFunc", body.Lets[0].X)
+	}
+	cf, ok := body.Tail.(*core.CallFunc)
+	if !ok {
+		t.Fatalf("tail = %T, want CallFunc", body.Tail)
+	}
+	if len(cf.Args) != 1 {
+		t.Fatalf("args = %d, want 1", len(cf.Args))
 	}
 }
 
@@ -1394,12 +1430,12 @@ func TestTryVariadicSpread(t *testing.T) {
 	}
 }
 
-// TestOverApplyPartialRemainder is the F5 regression: `mk x y` where
-// mk's declared arity is 1 but its flat type arity is 3 — the
-// one-argument remainder under-applies the returned `Int -> Int ->
-// Int` and must become a Closure, not a partial CallFunc the
-// validator rejects.
-func TestOverApplyPartialRemainder(t *testing.T) {
+// TestOverApplyRemainder is the F5 regression: `mk x y` where mk's
+// declared arity is 1 but its flat type arity is 3 — the saturated
+// prefix binds `mk(x)` and the remainder applies the returned
+// function value one argument per CallFunc under the canonical
+// chain.
+func TestOverApplyRemainder(t *testing.T) {
 	mk := fsym("mk")
 	fsig := types.Fn(types.Int, types.P(types.Int), types.P(types.Int), types.P(types.Int))
 	retFn := types.Fn(types.Int, types.P(types.Int)) // Int -> Int
@@ -1409,28 +1445,20 @@ func TestOverApplyPartialRemainder(t *testing.T) {
 	out := mustLower(t, decl("f", []check.Param{param(vpat(x, types.Int)), param(vpat(y, types.Int))},
 		call, types.Fn(retFn, types.P(types.Int), types.P(types.Int))))
 	fn := fnDeclOf(t, out, 0)
-	// let tmp = mk(x) saturated; tail = \p -> tmp(y, p).
+	// let tmp = mk(x) saturated; tail = tmp(y) — one arrow per call.
 	if len(fn.Fn.Body.Lets) != 1 {
 		t.Fatalf("lets = %d, want 1 (saturated prefix)", len(fn.Fn.Body.Lets))
 	}
 	if _, ok := fn.Fn.Body.Lets[0].X.(*core.CallDirect); !ok {
 		t.Fatalf("let0 = %T, want CallDirect", fn.Fn.Body.Lets[0].X)
 	}
-	cl, ok := fn.Fn.Body.Tail.(*core.Closure)
+	cf, ok := fn.Fn.Body.Tail.(*core.CallFunc)
 	if !ok {
-		t.Fatalf("tail = %T, want Closure for the partial remainder", fn.Fn.Body.Tail)
+		t.Fatalf("tail = %T, want CallFunc on the returned value", fn.Fn.Body.Tail)
 	}
-	if len(cl.Fn.Params) != 1 {
-		t.Fatalf("closure params = %d, want 1", len(cl.Fn.Params))
-	}
-	cf, ok := cl.Fn.Body.Tail.(*core.CallFunc)
-	if !ok {
-		t.Fatalf("closure tail = %T, want CallFunc", cl.Fn.Body.Tail)
-	}
-	if len(cf.Args) != 2 ||
-		cf.Args[0].(*core.Var).Sym != y ||
-		cf.Args[1].(*core.Var).Sym != cl.Fn.Params[0].Sym {
-		t.Errorf("closure call args = %+v, want [y, param]", cf.Args)
+	if len(cf.Args) != 1 ||
+		cf.Args[0].(*core.Var).Sym != y {
+		t.Errorf("remainder call args = %+v, want [y]", cf.Args)
 	}
 }
 

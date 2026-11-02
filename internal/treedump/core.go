@@ -446,7 +446,11 @@ func (d *cdump) cexpr(e core.Expr) *form {
 		return nodef(chead("update", e.Base), kids...)
 	case *core.CallDirect:
 		text := chead("calldirect", e.Base) + " " + d.symRef(e.Callee)
-		return nodef(text+fmt.Sprintf(" arity=%d", e.Arity)+targs(e.TypeArgs), d.catoms(e.Args)...)
+		text += fmt.Sprintf(" arity=%d", e.Arity)
+		if e.Adapter {
+			text += " adapter"
+		}
+		return nodef(text+targs(e.TypeArgs), d.catoms(e.Args)...)
 	case *core.CallFunc:
 		kids := []*form{d.cexpr(e.Fn)}
 		kids = append(kids, d.catoms(e.Args)...)

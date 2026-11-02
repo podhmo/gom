@@ -23,20 +23,31 @@ type CallDirect struct {
 	TypeArgs []types.Type
 	Args     []Atom
 	Arity    int // the callee's declared parameter count; len(Args) == Arity
+	// Adapter marks the firing call inside the synthesized value
+	// adapter — the nested-Closure eta-expansion lowering emits when
+	// a declaration whose declared arity exceeds 1 is used as a
+	// function value (`let g = f` on `fn f (a) (b)`; FuncRef's doc
+	// covers why a bare reference is impossible there). The call is
+	// not a user-written call site: it runs only if the adapted
+	// value is applied, and it stands where a FuncRef — a *value* —
+	// would. @tailrec's requirement pass reads it as R3's
+	// value-escape, not as one of the call sites R1/R2 count.
+	Adapter bool
 }
 
 func (*CallDirect) isExpr() {}
 
 // CallFunc applies a function *value* — a Var, a FieldGet result or
-// a GoFuncRef whose callee is not statically a Gom function — at its
-// full remaining arity: one flat Go call `f(a1, ..., an)` where n is
-// the arity of Fn's type (the arity-aware representation of P0-2 —
-// no curried intermediate calls ever). Applying fewer arguments is a
-// partial application and must be an explicit Closure.
+// a GoFuncRef whose callee is not statically a Gom function — to
+// exactly one argument: `f(a)`. The canonical value representation
+// is one Go func per arrow (spec 1.3's currying made concrete), so
+// every application step is a real one-argument Go call and a
+// partial application is simply a value of the residual arrow type —
+// no extra Closure stands between `f 20` and `f 20 30`.
 type CallFunc struct {
 	Base
 	Fn   Atom   // a function value — never FuncRef / CtorRef (those are CallDirect / CtorApp)
-	Args []Atom // exactly the arity of Fn's *types.Func type
+	Args []Atom // exactly one argument — the canonical chain applies one arrow per call
 }
 
 func (*CallFunc) isExpr() {}

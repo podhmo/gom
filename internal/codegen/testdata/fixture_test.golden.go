@@ -9,21 +9,21 @@ import (
 	"testing"
 )
 
-//line t.gom:12
+//line t.gom:13
 func TestSmoke(t *testing.T) {
-//line t.gom:12
+//line t.gom:13
 	_ = struct{}{}
 }
 
-//line t.gom:17
+//line t.gom:18
 func TestResult(t *testing.T) {
 	var r1 result.Result[struct{}, error]
 //line t.gom:17
 	var res result.Result[int64, error]
-//line t.gom:17
+//line t.gom:18
 	v1, err := strconv.Atoi("7")
 	res = rt.ResultFromGo(v1, err)
-//line t.gom:17
+//line t.gom:18
 	switch res.Tag() {
 	case result.ResultTagOk:
 		_ = res.Value
@@ -31,11 +31,11 @@ func TestResult(t *testing.T) {
 		t.Errorf("%v", res.Error)
 		return
 	default:
-//line t.gom:17
+//line t.gom:18
 		panic(rt.InvalidVariant("result.Result", res))
 	}
-//line t.gom:16
-	r1 = result.Ok[struct{}, error](struct{}{})
 //line t.gom:17
+	r1 = result.Ok[struct{}, error](struct{}{})
+//line t.gom:18
 	rt.AssertOk(t, r1)
 }

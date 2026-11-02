@@ -260,6 +260,32 @@ func TestTailRecUnmarked(t *testing.T) {
 	}
 }
 
+// TestTailRecAdapterSpawn: `let g = f` on a *multi-arity* f lowers
+// through the curried adapter — nested Closures ending in a CallDirect
+// flagged Adapter rather than a FuncRef — but the value escape is the
+// same: R3 reports E0903 even under `go`, because the adapted value
+// can leave the goroutine (unlike a spawned self-call, which R2
+// exempts). The adapter's call is not a call site, so R1 still
+// reports E0905 alongside.
+func TestTailRecAdapterSpawn(t *testing.T) {
+	n := vsym("n", types.Int)
+	c := vsym("c", types.Bool)
+	sig := types.Fn(types.Unit, types.P(types.Int), types.P(types.Bool))
+	d := tailRecDecl("f",
+		[]check.Param{param(vpat(n, types.Int)), param(vpat(c, types.Bool))}, nil, sig)
+	g := vsym("g", sig)
+	d.Body = &check.Block{Base: b(types.Unit), Stmts: []check.Expr{
+		&check.GoExpr{Base: b(types.Unit),
+			Body: &check.Block{Base: b(types.Unit), Stmts: []check.Expr{
+				&check.Let{Base: b(sig), Pat: vpat(g, sig), Value: vr(d.Sym, sig)},
+				&check.Ignore{Base: b(types.Unit), X: selfApp(d.Sym, sig, types.Unit, vr(n, types.Int), vr(c, types.Bool))},
+			}}},
+		unitLit(),
+	}}
+	_, diags := lower1(t, d)
+	wantCodes(t, diags, "E0903", "E0905")
+}
+
 // TestTailRecCycleEdge: a self FuncRef inside a spawned body still
 // reports E0903 — unlike a spawned call, a function value is not
 // bound to the fresh stack; it can leave the goroutine entirely and

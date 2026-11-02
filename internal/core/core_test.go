@@ -284,6 +284,32 @@ func buildOKFile() *File {
 			},
 		}
 
+		// `add2`'s declared arity is 2 — the bare reference is not a
+		// canonical value, so the binding carries the eta adapter
+		// `func(a) func(b) { add2(a, b) }` that lowering emits for it.
+		adA, adAS := vbind("a", types.Int)
+		adB, adBS := vbind("b", types.Int)
+		adapter := &Closure{
+			Base: Base{Sp: sp(), Typ: fnIII},
+			Fn: &Func{
+				Sp:     sp(),
+				Sig:    fnIII,
+				Params: []*Bind{adA},
+				Body: &Body{Tail: &Closure{
+					Base: Base{Sp: sp(), Typ: fnII},
+					Fn: &Func{
+						Sp:     sp(),
+						Sig:    fnII,
+						Params: []*Bind{adB},
+						Body: &Body{Tail: &CallDirect{
+							Base:   Base{Sp: sp(), Typ: types.Int},
+							Callee: add2, Args: []Atom{vref(adAS, types.Int), vref(adBS, types.Int)}, Arity: 2,
+						}},
+					},
+				}},
+			},
+		}
+
 		fn := &Func{
 			Sp:  sp(),
 			Sig: types.Fn(types.Unit, types.P(types.Unit), types.P(types.Chan(types.Int))),
@@ -292,10 +318,7 @@ func buildOKFile() *File {
 			},
 			Body: &Body{
 				Lets: []*Let{
-					{Sp: sp(), Name: pB, X: &FuncRef{
-						Base: Base{Sp: sp(), Typ: types.Fn(types.Int, types.P(types.Int), types.P(types.Int))},
-						Sym:  add2, Arity: 2,
-					}},
+					{Sp: sp(), Name: pB, X: adapter},
 					{Sp: sp(), Name: cB, X: partial},
 					{Sp: sp(), Name: lB, X: &ListNew{
 						Base:  Base{Sp: sp(), Typ: types.List(types.Int)},

@@ -74,65 +74,71 @@ func apply2(f func(int64) int64) int64 {
 	return f(2)
 }
 
-//line t.gom:12
+//line t.gom:13
 func main(u struct{}, jobs chan int64) struct{} {
 //line t.gom:8
-	_ = add2
+	_ = func(a int64) func(int64) int64 {
 //line t.gom:8
-	inc := func(b int64) int64 {
-//line t.gom:8
-		return add2(1, b)
+		return func(b int64) int64 {
+//line t.gom:9
+			return add2(a, b)
+		}
 	}
+//line t.gom:9
+	inc := func(b1 int64) int64 {
 //line t.gom:8
+		return add2(1, b1)
+	}
+//line t.gom:9
 	l := list.List[int64]{1, 2}
-//line t.gom:9
+//line t.gom:10
 	_ = rt.Tuple2[int64, int64]{V0: 1, V1: 2}
-//line t.gom:9
+//line t.gom:10
 	inc(3)
-//line t.gom:10
+//line t.gom:11
 	select {
-//line t.gom:10
+//line t.gom:11
 	case <-jobs:
-//line t.gom:10
+//line t.gom:11
 		_ = 0
-//line t.gom:10
+//line t.gom:11
 	default:
-//line t.gom:10
+//line t.gom:11
 		_ = 1
 	}
 //line t.gom:11
 	rt.Todo[struct{}]()
-//line t.gom:11
+//line t.gom:12
 	go func() {
-//line t.gom:11
+//line t.gom:12
 		_ = struct{}{}
 	}()
-//line t.gom:11
-	for range l {
 //line t.gom:12
+	for range l {
+//line t.gom:13
 		_ = struct{}{}
 	}
-//line t.gom:12
+//line t.gom:13
 	return struct{}{}
 }
 
 //line t.gom:13
 var answer int64 = 42
 
-//line t.gom:13
+//line t.gom:14
 var computed int64 = func() int64 {
-//line t.gom:13
+//line t.gom:14
 	cn := add2(1, 2)
-//line t.gom:13
+//line t.gom:14
 	return cn
 }()
 
-//line t.gom:13
+//line t.gom:14
 type Box[A any] interface{ isBox() A }
 
-//line t.gom:14
+//line t.gom:15
 type Box_Boxed[A any] struct {
-//line t.gom:14
+//line t.gom:15
 	V A
 }
 
@@ -141,7 +147,7 @@ func (Box_Boxed[A]) isBox() A {
 	return z0
 }
 
-//line t.gom:14
+//line t.gom:15
 type Box_Nada[A any] struct{}
 
 func (Box_Nada[A]) isBox() A {
@@ -149,266 +155,269 @@ func (Box_Nada[A]) isBox() A {
 	return z0
 }
 
-//line t.gom:14
+//line t.gom:15
 func ident[A any](x A) A {
-//line t.gom:14
+//line t.gom:15
 	return x
 }
 
 //line t.gom:15
 func unwrap(b Box[int64]) int64 {
-//line t.gom:15
+//line t.gom:16
 	switch v2 := b.(type) {
-//line t.gom:15
+//line t.gom:16
 	case Box_Boxed[int64]:
 		v := v2
-//line t.gom:15
+//line t.gom:16
 		return v.V
 //line t.gom:16
 	case Box_Nada[int64]:
-//line t.gom:16
+//line t.gom:17
 		return 0
 	default:
-//line t.gom:16
+//line t.gom:17
 		panic(rt.InvalidVariant("shapes.Box", b))
 	}
 }
 
 //line t.gom:18
 type Point struct {
-//line t.gom:18
+//line t.gom:19
 	X float64
-//line t.gom:18
+//line t.gom:19
 	Y float64
 }
 
-//line t.gom:18
+//line t.gom:19
 type Meters = float64
 
 //line t.gom:19
 func classify(r result.Result[int64, error]) int64 {
-//line t.gom:19
+//line t.gom:20
 	switch r.Tag() {
-//line t.gom:19
+//line t.gom:20
 	case result.ResultTagOk:
 		n := r.Value
-//line t.gom:19
-		return n
-//line t.gom:19
-	case result.ResultTagErr:
 //line t.gom:20
+		return n
+//line t.gom:20
+	case result.ResultTagErr:
+//line t.gom:21
 		return -1
 	default:
-//line t.gom:20
+//line t.gom:21
 		panic(rt.InvalidVariant("Result", r))
 	}
 }
 
-//line t.gom:20
+//line t.gom:21
 func sign(n int64) int64 {
 //line t.gom:21
 	g := n > 0
-//line t.gom:21
+//line t.gom:22
 	switch n {
-//line t.gom:21
+//line t.gom:22
 	case 0:
 //line t.gom:22
 		return 0
 	default:
-//line t.gom:22
+//line t.gom:23
 		if g {
-//line t.gom:22
+//line t.gom:23
 			return 1
 		} else {
-//line t.gom:22
+//line t.gom:23
 			return -1
 		}
 	}
 }
 
-//line t.gom:23
+//line t.gom:24
 func head(xs list.List[int64]) int64 {
-//line t.gom:23
+//line t.gom:24
 	switch {
-//line t.gom:23
+//line t.gom:24
 	case len(xs) == 0:
-//line t.gom:23
+//line t.gom:24
 		return 0
 //line t.gom:24
 	case len(xs) != 0:
 		h := xs[0]
-//line t.gom:24
+//line t.gom:25
 		return h
 	default:
-//line t.gom:24
+//line t.gom:25
 		panic(rt.InvalidVariant("List", xs))
 	}
 }
 
-//line t.gom:26
+//line t.gom:27
 func countdown(n int64) int64 {
 	for {
 //line t.gom:25
 		z := n == 0
-//line t.gom:25
+//line t.gom:26
 		m := n - 1
-//line t.gom:25
+//line t.gom:26
 		if z {
 //line t.gom:26
 			return 0
 		} else {
-//line t.gom:26
+//line t.gom:27
 			n = m
 			continue
 		}
 	}
 }
 
-//line t.gom:29
+//line t.gom:30
 func fetch(u struct{}) result.Result[int64, error] {
-//line t.gom:27
+//line t.gom:28
 	var res result.Result[int64, error]
-//line t.gom:27
+//line t.gom:28
 	v3, err1 := strconv.Atoi("1")
 	res = rt.ResultFromGo(v3, err1)
-//line t.gom:27
+//line t.gom:28
 	var n int64
-//line t.gom:27
+//line t.gom:28
 	switch res.Tag() {
 	case result.ResultTagOk:
 		n = res.Value
 	case result.ResultTagErr:
 		return result.Err[int64, error](res.Error)
 	default:
-//line t.gom:27
+//line t.gom:28
 		panic(rt.InvalidVariant("result.Result", res))
 	}
-//line t.gom:28
+//line t.gom:29
 	_ = int64(n)
-//line t.gom:28
+//line t.gom:29
 	v4, ok := cache.Get(0)
 	_ = rt.OptionFromGo(v4, ok)
-//line t.gom:28
-	a1, b1 := num.DivMod(0)
-	_ = rt.Tuple2[int64, bool]{V0: a1, V1: b1}
 //line t.gom:29
+	a1, b2 := num.DivMod(0)
+	_ = rt.Tuple2[int64, bool]{V0: a1, V1: b2}
+//line t.gom:30
 	out := result.Ok[int64, error](n)
-//line t.gom:29
+//line t.gom:30
 	return out
 }
 
-//line t.gom:29
+//line t.gom:30
 func mkAdd(a int64) func(int64) int64 {
-//line t.gom:30
+//line t.gom:31
 	return func(b int64) int64 {
-//line t.gom:30
+//line t.gom:31
 		return a + b
 	}
 }
 
 //line t.gom:31
-func adders(u struct{}) func(int64, int64) int64 {
-//line t.gom:31
-	return func(x, y int64) int64 {
-//line t.gom:31
-		return x + y
+func adders(u struct{}) func(int64) func(int64) int64 {
+//line t.gom:32
+	return func(x int64) func(int64) int64 {
+//line t.gom:32
+		return func(y int64) int64 {
+//line t.gom:32
+			return x + y
+		}
 	}
 }
 
-//line t.gom:32
+//line t.gom:33
 func worker(jobs chan int64, src result.Result[int64, error]) struct{} {
-//line t.gom:33
+//line t.gom:34
 	go func() {
-//line t.gom:33
+//line t.gom:34
 		g := func(gu struct{}) result.Result[int64, error] {
-//line t.gom:32
+//line t.gom:33
 			var n int64
-//line t.gom:32
+//line t.gom:33
 			switch src.Tag() {
 			case result.ResultTagOk:
 				n = src.Value
 			case result.ResultTagErr:
 				return result.Err[int64, error](src.Error)
 			default:
-//line t.gom:32
+//line t.gom:33
 				panic(rt.InvalidVariant("result.Result", src))
 			}
-//line t.gom:32
+//line t.gom:33
 			return result.Ok[int64, error](n)
 		}
-//line t.gom:33
+//line t.gom:34
 		g(struct{}{})
-//line t.gom:34
+//line t.gom:35
 		select {
-//line t.gom:34
+//line t.gom:35
 		case jobs <- 7:
-//line t.gom:34
+//line t.gom:35
 			_ = struct{}{}
-//line t.gom:34
+//line t.gom:35
 		default:
-//line t.gom:34
+//line t.gom:35
 			_ = struct{}{}
 		}
-//line t.gom:35
+//line t.gom:36
 		for range jobs {
-//line t.gom:35
+//line t.gom:36
 			_ = struct{}{}
 		}
-//line t.gom:35
+//line t.gom:36
 		_ = struct{}{}
 	}()
 	return struct{}{}
 }
 
-//line t.gom:36
+//line t.gom:37
 func misc(u struct{}) float64 {
-//line t.gom:36
+//line t.gom:37
 	_ = func(v0 float64) Shape {
 		return Shape_Circle{Radius: v0}
 	}
-//line t.gom:36
+//line t.gom:37
 	_ = strconv.Itoa
-//line t.gom:36
+//line t.gom:37
 	p := Point{X: 1.0, Y: 2.0}
-//line t.gom:37
+//line t.gom:38
 	var q Point
-//line t.gom:37
+//line t.gom:38
 	u1 := p
-//line t.gom:37
+//line t.gom:38
 	u1.X = 3.0
 	q = u1
-//line t.gom:37
+//line t.gom:39
 	return q.X
 }
 
-//line t.gom:38
+//line t.gom:39
 func useAnswer(u struct{}) int64 {
-//line t.gom:38
+//line t.gom:39
 	return answer
 }
 
-//line t.gom:41
+//line t.gom:42
 func regress(p string, c bool, def int64) result.Result[int64, error] {
-//line t.gom:39
+//line t.gom:40
 	x := def
-//line t.gom:39
+//line t.gom:40
 	x1 := x + 1
-//line t.gom:40
+//line t.gom:41
 	var n int64
-//line t.gom:40
+//line t.gom:41
 	if c {
-//line t.gom:40
+//line t.gom:41
 		v5, err2 := strconv.Atoi(p)
 		if err2 != nil {
 			return result.Err[int64, error](err2)
 		}
 		n = v5
 	} else {
-//line t.gom:40
+//line t.gom:41
 		n = x1
 	}
-//line t.gom:40
-	f := result.Ok[int64, error]
 //line t.gom:41
+	f := result.Ok[int64, error]
+//line t.gom:42
 	return f(n)
 }

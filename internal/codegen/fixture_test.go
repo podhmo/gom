@@ -213,6 +213,32 @@ func buildFixture() *core.File {
 			},
 		}
 
+		// `add2`'s declared arity is 2 — the bare reference is not a
+		// canonical value, so the binding carries the eta adapter
+		// `func(a) func(b) { add2(a, b) }` that lowering emits for it.
+		adA, adAS := vbind("a", types.Int)
+		adB, adBS := vbind("b", types.Int)
+		adapter := &core.Closure{
+			Base: core.Base{Sp: tsp(), Typ: fnIII},
+			Fn: &core.Func{
+				Sp:     tsp(),
+				Sig:    fnIII,
+				Params: []*core.Bind{adA},
+				Body: &core.Body{Tail: &core.Closure{
+					Base: core.Base{Sp: tsp(), Typ: fnII},
+					Fn: &core.Func{
+						Sp:     tsp(),
+						Sig:    fnII,
+						Params: []*core.Bind{adB},
+						Body: &core.Body{Tail: &core.CallDirect{
+							Base:   core.Base{Sp: tsp(), Typ: types.Int},
+							Callee: add2, Args: []core.Atom{vref(adAS, types.Int), vref(adBS, types.Int)}, Arity: 2,
+						}},
+					},
+				}},
+			},
+		}
+
 		fn := &core.Func{
 			Sp:  tsp(),
 			Sig: types.Fn(types.Unit, types.P(types.Unit), types.P(types.Chan(types.Int))),
@@ -221,10 +247,7 @@ func buildFixture() *core.File {
 			},
 			Body: &core.Body{
 				Lets: []*core.Let{
-					{Sp: tsp(), Name: pB, X: &core.FuncRef{
-						Base: core.Base{Sp: tsp(), Typ: types.Fn(types.Int, types.P(types.Int), types.P(types.Int))},
-						Sym:  add2, Arity: 2,
-					}},
+					{Sp: tsp(), Name: pB, X: adapter},
 					{Sp: tsp(), Name: cB, X: partial},
 					{Sp: tsp(), Name: lB, X: &core.ListNew{
 						Base:  core.Base{Sp: tsp(), Typ: types.List(types.Int)},
@@ -721,9 +744,9 @@ func buildFixture() *core.File {
 	}
 
 	// --- fn adders (u: Unit) -> (Int -> Int -> Int) — arity-split
-	//     FuncDecl whose body is one flat two-param Closure: the
-	//     residual `Int -> Int -> Int` is exactly the closure's Sig
-	//     (node.go — Sigs are canonical flat arrows).
+	//     FuncDecl whose body is the canonical nested chain
+	//     `func(x) func(y) { x + y }`: a Closure binds exactly one
+	//     parameter per arrow.
 	{
 		uB, _ := vbind("u", types.Unit)
 		xB, xS := vbind("x", types.Int)
@@ -740,10 +763,18 @@ func buildFixture() *core.File {
 					Fn: &core.Func{
 						Sp:     tsp(),
 						Sig:    fnIII,
-						Params: []*core.Bind{xB, yB},
-						Body: &core.Body{Tail: &core.Binary{
-							Base: core.Base{Sp: tsp(), Typ: types.Int},
-							Op:   syntax.BinAdd, X: vref(xS, types.Int), Y: vref(yS, types.Int),
+						Params: []*core.Bind{xB},
+						Body: &core.Body{Tail: &core.Closure{
+							Base: core.Base{Sp: tsp(), Typ: fnII},
+							Fn: &core.Func{
+								Sp:     tsp(),
+								Sig:    fnII,
+								Params: []*core.Bind{yB},
+								Body: &core.Body{Tail: &core.Binary{
+									Base: core.Base{Sp: tsp(), Typ: types.Int},
+									Op:   syntax.BinAdd, X: vref(xS, types.Int), Y: vref(yS, types.Int),
+								}},
+							},
 						}},
 					},
 				}},

@@ -87,7 +87,9 @@ type Func struct {
 	// Params are the parameter binders in declaration order —
 	// len(Params) is the declared arity. A function whose Sig has
 	// more arrows than Params returns another function (P0-2 keeps
-	// the declared-arity form for direct calls).
+	// the declared-arity form for direct calls). A Closure's Func
+	// binds at most one parameter — function *values* are the
+	// canonical one-Go-func-per-arrow chain.
 	Params []*Bind
 	Body   *Body
 	// TailLoop marks a function containing self-tail calls: codegen
