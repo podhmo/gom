@@ -28,7 +28,7 @@ import (
 // Reading fixtures in this process registers them with Go's test cache.
 // compileStep gives the test actual compiler dependencies and also checks
 // the real CLI's pipeline wiring. Each chapter is a separate module, so
-// go:embed cannot cross into its fixture directory.
+// Embedding cannot cross into a fixture directory in another Go module.
 func compileStep(t *testing.T, root, src string, checkOnly bool) *build.Result {
 	t.Helper()
 	source, err := os.ReadFile(src)
