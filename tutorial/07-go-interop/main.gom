@@ -24,16 +24,16 @@ fn show_res (r: Result Int GoError) -> String = match r {
 }
 
 fn main () -> Unit = {
-  let _ = fmt.Println (show_res (parse_sum "40" "2"))
-  let _ = fmt.Println (show_res (parse_sum "x" "2"))
-  let _ = fmt.Println (strings.ToUpper "gom")
+  ignore (fmt.Println (show_res (parse_sum "40" "2")))
+  ignore (fmt.Println (show_res (parse_sum "x" "2")))
+  ignore (fmt.Println (strings.ToUpper "gom"))
   let shout = strings.Repeat (_, 3)
-  let _ = fmt.Println (shout "go")
-  let _ = os.Setenv ("GOM_TUTORIAL", "yes")
+  ignore (fmt.Println (shout "go"))
+  ignore (os.Setenv ("GOM_TUTORIAL", "yes"))
   let (home, ok) = os.LookupEnv "GOM_TUTORIAL"
-  if ok { let _ = fmt.Println "env: ${home}"; () } else { () }
+  if ok { ignore (fmt.Println "env: ${home}"); () } else { () }
   let buf = bytes.NewBufferString "a"
-  let _ = buf.WriteString ", b"
-  let _ = fmt.Println (buf.String ())
+  ignore (buf.WriteString ", b")
+  ignore (fmt.Println (buf.String ()))
   ()
 }

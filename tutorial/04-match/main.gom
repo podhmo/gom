@@ -35,10 +35,10 @@ fn eval (e: Expr) -> Int = match e {
 }
 
 fn main () -> Unit = {
-  let _ = fmt.Println (area (Circle 1.0))
-  let _ = fmt.Println (area (Rect 2.0 3.0))
-  let _ = fmt.Println (area Empty)
-  let _ = fmt.Println (eval (Add (Num 40) (Neg (Num (-2)))))
-  let _ = fmt.Println (eval (Add (Num 21) (Num 21)))
+  ignore (fmt.Println (area (Circle 1.0)))
+  ignore (fmt.Println (area (Rect 2.0 3.0)))
+  ignore (fmt.Println (area Empty))
+  ignore (fmt.Println (eval (Add (Num 40) (Neg (Num (-2))))))
+  ignore (fmt.Println (eval (Add (Num 21) (Num 21))))
   ()
 }

@@ -389,6 +389,7 @@ sum type にコンストラクタを足すとインターフェースが変わ�
 - **意味論の比較テスト**: 小さな Gom 評価器（単相の純粋な式、ADT、`match`、関数適用から始める）を作り、生成した Go コードの実行結果と比べる。評価順序、パターンマッチ、部分適用の検証に使う
 - **Go 相互運用テスト**: Gom → Go と Go → Gom の両方向。特に `nil`、スライス、named type、interface、ジェネリクス
 - **実行可能なユースケース**: `examples/gist-cli/` は引数解析・ファイル走査・JSON生成・HTTP新規/更新・診断をGomで組み合わせ、生成CLIをfake serverへ実行して検証する。未対応のGo byte/field/interface操作はGist固有の方針を含まないexample-local adapterに隔離し、コンパイラ機能が整い次第縮小する（[decision](decisions/2026-11-03-gist-cli-host-boundary.md)、[検証](sketch/2026-11-03-gist-cli-prototype.md)）。
+- **実行可能 tutorial**: 各章をコンパイラ API と実際の CLI の両方で変換し、生成 Go の一致と実行時の期待出力を検査する。コンパイラの実装依存に加え、CLI/fixture と `go list -deps` で得た生成 Go のモジュール入力を直接読み込み、runtime/stdlib の変更やソース追加でも Go のテストキャッシュを無効化できるようにする（[検証](sketch/2026-11-03-tutorial-iteration.md)）。
 - **生成コードの品質テスト**: `go build`、`go vet`、`go test -race`、ベンチマーク、エスケープ解析
 - 既存のゴールデンテスト、仕様テスト（`testdata/spec/`）、フォーマッタのプロパティテスト
 

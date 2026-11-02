@@ -1,0 +1,29 @@
+// Step 11: top-level polymorphism, captured closures, and function aliases.
+//
+// Top-level fn declarations and lambda values may be polymorphic. Local
+// lets and function aliases are monomorphic: their uses fix one type.
+package main
+
+import go "fmt"
+
+let id = fn x -> x
+fn choose (x: a) (y: a) -> a = x
+let int_choose = choose
+
+fn capture (value: a) -> (a -> a) = fn ignored -> value
+
+// Pure aliases preserve function behavior, including recursive references.
+fn count (n: Int) -> Int = if n == 0 { 0 } else { again (n - 1) + 1 }
+let again = count
+let chained = again
+fn apply (f: Int -> Int) (x: Int) -> Int = f x
+
+fn main () -> Unit = {
+  ignore (fmt.Println "generic: ${id "poly"}:${id 42}")
+  let pick = int_choose 40
+  ignore (fmt.Println "chosen: ${pick 2}")
+  let saved = capture "saved"
+  ignore (fmt.Println "captured: ${saved "ignored"}")
+  ignore (fmt.Println "alias: ${again 3}:${chained 4}:${apply chained 5}")
+  ()
+}

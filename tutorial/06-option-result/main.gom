@@ -40,9 +40,9 @@ fn show_res (r: Result Int String) -> String = match r {
 }
 
 fn main () -> Unit = {
-  let _ = fmt.Println (show_opt (head [7, 8]))
-  let _ = fmt.Println (show_opt (head []))
-  let _ = fmt.Println (show_res (ratio 100 5 2))
-  let _ = fmt.Println (show_res (ratio_pipe 100 0 2))
+  ignore (fmt.Println (show_opt (head [7, 8])))
+  ignore (fmt.Println (show_opt (head [])))
+  ignore (fmt.Println (show_res (ratio 100 5 2)))
+  ignore (fmt.Println (show_res (ratio_pipe 100 0 2)))
   ()
 }

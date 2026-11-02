@@ -25,15 +25,15 @@ fn shift (p: Point) (dx: Int) -> Point = { p with x = p.x + dx }
 
 fn main () -> Unit = {
   let xs = [1, 2, 3, 4]
-  let _ = fmt.Println "sum ${sum xs}, len ${length xs}"
+  ignore (fmt.Println "sum ${sum xs}, len ${length xs}")
   let p = { x = 10, y = 20 }
   let q = shift p 5
-  let _ = fmt.Println "moved to ${q.x},${q.y}"
+  ignore (fmt.Println "moved to ${q.x},${q.y}")
   match q {
-    { x = 0, y = 0 } -> { let _ = fmt.Println "origin"; () }
-    { x = a, y = b } -> { let _ = fmt.Println "at ${a},${b}"; () }
+    { x = 0, y = 0 } -> { ignore (fmt.Println "origin"); () }
+    { x = a, y = b } -> { ignore (fmt.Println "at ${a},${b}"); () }
   }
   let (name, n) = ("answer", 42)
-  let _ = fmt.Println "${name} = ${n}"
+  ignore (fmt.Println "${name} = ${n}")
   ()
 }

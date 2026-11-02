@@ -1,0 +1,40 @@
+// Step 12: a Result pipeline is a value, even inside a Unit function.
+//
+// A failed |?> skips its remaining steps, then surrounding code continues.
+// Only an explicit try escapes from the nearest enclosing function.
+package main
+
+import go "fmt"
+
+fn next (n: Int) -> Result Int String = {
+  ignore (fmt.Println "step ${n}")
+  Ok (n + 1)
+}
+
+fn fail (n: Int) -> Result Int String = {
+  ignore (fmt.Println "fail ${n}")
+  Err "stop"
+}
+
+fn describe (r: Result Int String) -> String = match r {
+  Ok n -> "ok ${n}"
+  Err message -> "err ${message}"
+}
+
+fn explicit_try () -> Result Int String = {
+  let n = try (2 |?> fail)
+  ignore (fmt.Println "unreachable after try")
+  Ok n
+}
+
+fn main () -> Unit = {
+  // A non-Result input starts as Ok; the pipeline itself returns a Result.
+  let success = 40 |?> next
+  ignore (fmt.Println (describe success))
+  let failed = 1 |?> fail |?> next
+  ignore (fmt.Println (describe failed))
+  ignore (fmt.Println "continued after failed pipeline")
+  ignore (fmt.Println (describe (explicit_try ())))
+  ignore (fmt.Println "continued after function returned Err")
+  ()
+}

@@ -23,8 +23,8 @@ fn describe (r: Result Int String) -> String = match r {
 }
 
 fn main () -> Unit = {
-  let _ = fmt.Println (describe (parse_port "8080"))
-  let _ = fmt.Println (describe (parse_port "abc"))
-  let _ = fmt.Println (describe (parse_port "70000"))
+  ignore (fmt.Println (describe (parse_port "8080")))
+  ignore (fmt.Println (describe (parse_port "abc")))
+  ignore (fmt.Println (describe (parse_port "70000")))
   ()
 }

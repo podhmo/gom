@@ -13,9 +13,9 @@ fn twice (f: Int -> Int) (x: Int) -> Int = f (f x)
 
 fn main () -> Unit = {
   let add40 = add 40
-  let _ = fmt.Println (add40 2)
-  let _ = fmt.Println (twice (add 1) 10)
+  ignore (fmt.Println (add40 2))
+  ignore (fmt.Println (twice (add 1) 10))
   let inc = fn x -> x + 1
-  let _ = fmt.Println (twice inc 5)
+  ignore (fmt.Println (twice inc 5))
   ()
 }

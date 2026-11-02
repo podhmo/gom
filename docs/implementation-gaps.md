@@ -119,12 +119,15 @@
   eval は別名の同じ位置の値を返し、生成コードは型アサーションで panic する。spec の失敗時の意味も未定義。
   参照: [詳細](problems/2026-11-02-variant-field-wrong-variant.md)。
 
-- [ ] **チュートリアルが `ignore` を未実装と説明する**: chapter 1 はすでに `ignore` を使う一方、
+- [x] **チュートリアルが `ignore` を未実装と説明する**: chapter 1 はすでに `ignore` を使う一方、
   README は未実装とし、他章は `let _ =` を使っている。
-  参照: [tutorial README](../tutorial/README.md)、[chapter 1](../tutorial/01-hello/main.gom)。
+  対応: 全章の discard と README を更新し、追加2章を含む12章を実行検証。
+  参照: [tutorial README](../tutorial/README.md)、[検証](sketch/2026-11-03-tutorial-iteration.md)。
 
-- [ ] **チュートリアルの成功キャッシュがコンパイラ変更を追跡しない**: 外部 CLI 経由だけのテストでは、
+- [x] **チュートリアルの成功キャッシュがコンパイラ変更を追跡しない**: 外部 CLI 経由だけのテストでは、
   コンパイラを壊しても `go test ./tutorial` が過去の成功を返すことを専用 worktree で再現した。
   API 依存を追加した試作の独立レビューでも、生成コードが使う `stdlib/result` を壊すと
   cached 成功することを再現。コンパイラだけでなく生成コードの実行依存も追跡が必要。
-  参照: [テスト本体](../tutorial/tutorial_test.go)。修正・検証レポートは tutorial 担当が追加中。
+  対応: API/CLI 生成比較と実際の Go モジュール入力の追跡を追加し、コンパイラ・CLI・fixture・
+  runtime の破損と runtime ソース追加を検出することを実測。
+  参照: [テスト本体](../tutorial/tutorial_test.go)、[独立レビューと追加検証](sketch/2026-11-03-tutorial-iteration.md#fresh-review-and-runtime-input-follow-up)。

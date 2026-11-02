@@ -1,0 +1,8 @@
+step 40
+ok 41
+fail 1
+err stop
+continued after failed pipeline
+fail 2
+err stop
+continued after function returned Err

@@ -39,7 +39,7 @@
 - [x] **D-1 形式文法 `docs/grammar.ebnf`**: 並置の適用、演算子の優先順位と結合性、改行の規則（[spec 1.5](docs/spec.md)）、波括弧の曖昧さ（1.6）、`select` の腕、ラベル付き引数、`_` プレースホルダを含める。パーサー（P1-3）の正になる
 - [x] **D-2 エラーコード表**: `internal/diag` に表を 1 か所で定義し、`docs/` へ生成または同期する。既存の `E0301`（非網羅の match）など spec に出ているコードから始める。依存: P1-1
 - [ ] **D-3 `README.md` を書く**: 現在 `# gom` のみの空状態。言語の概要・ビルド/実行の quick start・ツール群（`gom build`/`check`/`fmt`/`info`）・ドキュメントへの導線（spec/design/tutorial）を載せる。**プロジェクト終盤に書く** — 機能が増えるたびに更新対象になるのを避けるため、内容が安定してから一括で書く（ユーザー指定）
-- [ ] **D-4 tutorial の `let _ = e` を `ignore e` に書き換える**: `ignore` は discard 構文として実装済み（01-hello が使用済み）だが、残りの tutorial は `let _ =` 慣用句のまま — `tutorial/03-functions` 3 箇所、`tutorial/07-go-interop` 6 箇所。言語機能が安定してから一括で書き換える（ユーザー指定：「動くようになってからで良い」）。関連: D-3 と同時期でよい
+- [x] **D-4 tutorial の `let _ = e` を `ignore e` に書き換える**: 全章で discard を `ignore` に統一する。[実行検証](docs/sketch/2026-11-03-tutorial-iteration.md)。
 
 ### P0 Go 出力の実現可能性の検証
 
@@ -186,3 +186,8 @@ Go 相互運用を変えたら両方向（Gom → Go、Go → Gom）のテスト
 - [ ] **[task] Gist CLIが必要とするGo field/interface/byte境界**: `http.Request.Header`、`http.Response.StatusCode`/`Body`の参照、`*strings.Reader`から`io.Reader`への代入、byte I/Oと`Go.Slice String`→`List String`を実装してexample-local adapterを縮小する。最小再現と必要操作は[Gist prototype](docs/sketch/2026-11-03-gist-cli-prototype.md)、関連: P3-2/P3-3。
 
 - [x] **[bug] 戻り値なしGo呼び出しをUnit関数の末尾に置くと生成Goが不正**: `GoResultsNone` と discard 呼び出し後の明示的 Unit 値で、0 戻り値を1戻り値から区別する。末尾・束縛・引数・分岐・関数値と両方向の実行を検証する（[検証](docs/sketch/2026-11-03-void-go-call-verification.md)）。
+- [x] **V-7 実行可能 tutorial の関数値・Result 値意味論を拡充する**: 全章の discard を `ignore` に統一し、トップレベル多相・関数別名・捕捉クロージャ・Unit 関数での Result パイプと失敗後の継続を実行例と期待出力で検証する。古い制限説明を実測結果へ更新する。依存: P2-2a, P2-2b, P2-4a
+
+- [x] **[bug] tutorial の Go テスト結果がコンパイラ変更後もキャッシュ成功する**: チュートリアルのテストはコンパイラを外部コマンドでビルドするため実装パッケージの依存を持たず、codegen の不正な Go 編集後も `go test ./tutorial` が cached 成功する。実効的な API/CLI 出力照合とテスト本体での fixture 読み込みで依存を追跡する。[検証方針](docs/decisions/2026-11-03-tutorial-dependency-tracking.md)。
+
+- [x] **[bug] tutorial の生成 Go だけが使う runtime/stdlib をテストキャッシュが追跡しない**: `stdlib/result/result.go` を壊しても `go test ./tutorial` が cached 成功する。CLI と生成 Go が実際に使う Go モジュール入力を列挙し、ソース・ディレクトリ・manifest をテスト本体で追跡する。[レビュー対応](docs/decisions/2026-11-03-tutorial-go-module-inputs.md)。

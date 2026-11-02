@@ -87,6 +87,8 @@
 | [result-pipe-local-boundary](2026-11-03-result-pipe-local-boundary.md) | Result パイプの局所的な制御フロー | 採用 |
 | [static-function-alias-declarations](2026-11-03-static-function-alias-declarations.md) | Static function aliases use named canonical function wrappers | 採用 |
 | [top-level-let-type-variable-scope](2026-11-03-top-level-let-type-variable-scope.md) | Top-level monomorphic lets cannot capture declaration type variables | 採用 |
+| [tutorial-dependency-tracking](2026-11-03-tutorial-dependency-tracking.md) | Track executable tutorial inputs and compiler dependencies | 採用 |
+| [tutorial-go-module-inputs](2026-11-03-tutorial-go-module-inputs.md) | Track actual Go module inputs of tutorial subprocesses | 採用 |
 | [void-go-call-results](2026-11-03-void-go-call-results.md) | Zero-result Go calls are statements followed by Gom Unit | 採用 |
 | [fn-main-entrypoint](2026-11-04-fn-main-entrypoint.md) | `fn main () -> Unit` in `package main` is the Go entrypoint | 採用（`cmd/gom.TestEndToEnd_BuildAndRun` が shim なしで `gom build` → `go build` → 実行まで検証） |
 | [structural-equality-emission](2026-11-04-structural-equality-emission.md) | Structural `==`/`!=` emission: `rt.Equal` except provably comparable scalars（一部を [generated-equality-comparators](2026-11-05-generated-equality-comparators.md) で置き換え） | draft |

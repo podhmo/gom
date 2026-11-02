@@ -13,9 +13,9 @@ fn classify (n: Int) -> String = if n > 40 { "big" } else { "small" }
 fn main () -> Unit = {
   let answer = 6 * 7
   let ratio = 3.0 / 2.0
-  let _ = fmt.Println "${answer} is ${classify answer}"
-  let _ = fmt.Println "1 is ${classify 1}"
-  let _ = fmt.Println "ratio: ${ratio}"
-  let _ = fmt.Println "bool: ${answer == 42 && 1 < 2}"
+  ignore (fmt.Println "${answer} is ${classify answer}")
+  ignore (fmt.Println "1 is ${classify 1}")
+  ignore (fmt.Println "ratio: ${ratio}")
+  ignore (fmt.Println "bool: ${answer == 42 && 1 < 2}")
   ()
 }
