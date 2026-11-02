@@ -1,14 +1,15 @@
 # `@tailrec`: a requirement attribute for tail-call optimization
 
-- 状態: draft
+- 状態: 採用（実装・検証済み: [sketch: tailrec-validation](../sketch/2026-11-02-tailrec-validation.md)）
 - 日付: 2026-11-02
 
 ## Background
 
 Users want to *require* constant-stack compilation: mark a function so
 that compilation fails when the compiler cannot turn its recursion
-into iteration. This is a design study — the feature is not
-implemented.
+into iteration. This is implemented: the check runs as a post-pass
+in `internal/lower/tailrec.go` reading `markTailCalls`' output, with
+spec §1.1 item 8 as the user-facing contract.
 
 ### What exists today
 
@@ -294,17 +295,80 @@ User-visible surface changes ⇒ spec.md. Internal plumbing ⇒ design.md.
 
 No `testdata/golden/` changes are expected: codegen is untouched.
 
-## Open questions
+## Resolution
 
-- Is a build-only diagnostic acceptable (`gom check` stays clean),
-  or should the rule live on the typed AST for `gom check` coverage?
-  (See *Alternatives — where to check*.)
-- R4 in v1, or document "mutual recursion is not covered" as
-  design.md §4.5 already does for the plain conversion?
-- R1 (non-recursive marked fn errors) — error or silent accept?
-- `Attrs` generalization now (resolves two open problems, enables
-  `@test @tailrec`) or the `TailRec bool` MVP?
-- Should a `@tailrec` fn whose parameter is captured by a closure
-  get an explicit error until
-  [problems/tailloop-param-capture](../problems/2026-11-02-tailloop-param-capture.md)
-  is fixed, or is that bug fixed independently?
+Adopted with R1–R4 as proposed, after validating the prototype
+([sketch](../sketch/2026-11-02-tailrec-validation.md)). Deviations
+from this draft:
+
+- **R4's call graph also counts `FuncRef` edges** — `let h = g`
+  inside `f` where `g` calls `f` is an unprovable cycle the
+  `CallDirect`-only graph would miss. Strictly stronger than drafted.
+- **R1 counts self `CallDirect` at any position** (nested closures,
+  `Spawn`), not only `TailCall`s — `f` is recursive wherever the call
+  sits; R2 decides whether its position is legal.
+- **`TailRec bool` MVP shipped**, not `Attrs []Attr` — the two
+  attribute-representation problem files stay open; `@test @tailrec`
+  remains unexpressible (grammar's single-attribute production).
+- The check is lowering-stage, so `gom check` does not report these
+  diagnostics — spec §1.1 item 8 documents that; the typed-AST
+  alternative remains available if `gom check` coverage is wanted.
+- Diagnostics use the message shapes in `codes.go` (`` `@tailrec`
+  function `f` ... ``); E0904 and E0905 report at the function-name
+  span.
+
+Post-review amendments (same day, R4 soundness hole):
+
+- **R4's graph also covers `VarDecl` nodes.** A package-level `let`
+  can hold a function value, and cycles routed through one —
+  `let g = f` then `g (n - 1)` inside `f`, or a destructured
+  `let (g, _) = (fn n -> f (n - 1), 0)` — compiled to a real call
+  per loop iteration while the FuncDecl-only graph saw nothing.
+  VarDecls are now vertices: every `Var` reference to a file-local
+  VarDecl is an edge into it (applying `g` via `CallFunc`, handing
+  it to a combinator, projecting it — the same conservative
+  argument that made `FuncRef` an edge), and its initializer
+  contributes the edges of the value it stores — `FuncRef`s, `Var`s,
+  and calls *inside Closures*. One deliberate exclusion: a
+  `CallDirect` at the initializer's own top level (`let r = f 0`)
+  runs once at package init and its result cannot call `f` back, so
+  it is not an edge — without this, the idiomatic
+  precomputed-seed/base-case pattern would read as a spurious
+  cycle. Residual over-approximation: a `FuncRef` or `Var` inside an
+  initializer counts wherever it sits (`let g = { let h = f; h (f 0) }`
+  still reads as `g`→`f`), the same trade-off the FuncRef edge
+  already accepted. The remaining static gap is the dynamic side —
+  see the next item.
+- **E0904 is scoped to statically resolvable cycles.** Recursion
+  routed through values the compiler cannot see — a function
+  parameter fed back (`g n h = f n h` where `f` calls `h`), a
+  function-typed call result — stays outside the guarantee;
+  spec §1.1 item 8 now says so explicitly.
+- **R1 requires a convertible tail call.** A function whose only
+  self-calls sit inside `go` bodies emits no loop — the spawned call
+  is exempt from R2 but is not convertible, so the attribute would
+  certify nothing. R1 now fails (E0905) unless at least one
+  `TailCall` exists; residual non-spawned self-calls are still
+  reported by E0902 rather than double-reported. E0905's message
+  became "has no self-recursive call in tail position" — accurate
+  for the bare no-call case, for the alias-hidden case (paired with
+  E0903 the old "has no recursive call" was wrong), and for the
+  spawned-only case, where the alternative "no *direct*
+  self-recursive call" would have been false — a spawned
+  `CallDirect` is direct.
+- **Why R3 is not exempt inside `go { ... }` while R2 is:** R2's
+  exemption is about where a *call* runs — a spawned `CallDirect`
+  provably executes on the fresh goroutine stack, so it cannot grow
+  `f`'s activation. A `FuncRef` is a *value*, and values are not
+  bound to that stack: it can leave the goroutine entirely (a
+  `Chan.send`, a Go call, a captured binding) and be applied on any
+  stack — including back inside `f`'s own loop, where the call is
+  invisible to `CallDirect`-based detection. Exempting R3 there
+  would reopen exactly the aliasing hole R3 exists to close.
+- `tailrecPath` explores neighbors in (name, definition offset)
+  order, so E0904's `path` data is deterministic.
+
+Open-question answers: build-only diagnostics are acceptable for v1;
+R4 and R1 both ship (an unenforced `@tailrec` would lie); the
+param-capture problem was fixed on `main` independently
+(`snapshotCapturedParams`), so no extra rule is needed.

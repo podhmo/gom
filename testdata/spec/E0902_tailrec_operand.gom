@@ -1,0 +1,7 @@
+package ex
+
+// `f (n - 1) + 1` puts the recursive call in operand position — not
+// tail position, so the mark is rejected at the call.
+@tailrec
+fn f (n: Int) -> Int =
+  if n <= 0 { 0 } else { f (n - 1) + 1 }

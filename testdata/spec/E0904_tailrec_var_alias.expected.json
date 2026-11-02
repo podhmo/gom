@@ -1,0 +1,54 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0904",
+      "severity": "error",
+      "message": "`@tailrec` function `f` is mutually recursive through `g`",
+      "span": {
+        "file": "E0904_tailrec_var_alias.gom",
+        "start": {
+          "line": 9,
+          "col": 4,
+          "offset": 213
+        },
+        "end": {
+          "line": 9,
+          "col": 5,
+          "offset": 214
+        }
+      },
+      "data": {
+        "fn": "f",
+        "path": [
+          "f",
+          "g",
+          "f"
+        ],
+        "through": "g"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0905",
+      "severity": "error",
+      "message": "`@tailrec` function `f` has no self-recursive call in tail position",
+      "span": {
+        "file": "E0904_tailrec_var_alias.gom",
+        "start": {
+          "line": 9,
+          "col": 4,
+          "offset": 213
+        },
+        "end": {
+          "line": 9,
+          "col": 5,
+          "offset": 214
+        }
+      },
+      "data": {
+        "fn": "f"
+      }
+    }
+  ]
+}

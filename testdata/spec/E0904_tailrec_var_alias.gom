@@ -1,0 +1,10 @@
+package ex
+
+// A package-level `let` can hold a function value, so a recursion
+// routed through it is still a stack-growing cycle: `f` applies
+// `g`, and `g`'s stored value is `f` itself.
+let g = f
+
+@tailrec
+fn f (n: Int) -> Int =
+  if n <= 0 { 0 } else { g (n - 1) }

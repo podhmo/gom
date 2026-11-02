@@ -485,7 +485,17 @@ func TestParseDiagnostics(t *testing.T) {
 		{
 			"unknown attribute",
 			"package m\n@wat fn f () -> Unit = ()\n",
-			[]string{`E0101@11-14: unknown attribute "@wat": only "@test" is defined`},
+			[]string{`E0101@11-14: unknown attribute "@wat": only "@test" and "@tailrec" are defined`},
+		},
+		{
+			"tailrec on let",
+			"package m\n@tailrec let f = fn n -> n\n",
+			[]string{`E0101@11-18: the "@tailrec" attribute applies only to a "fn" declaration`},
+		},
+		{
+			"tailrec on fn parses",
+			"package m\n@tailrec fn f (n: Int) -> Int = f (n - 1)\n",
+			nil,
 		},
 		{
 			"if brace on next line",

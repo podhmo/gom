@@ -82,6 +82,9 @@ func (p *printer) declItem(d syntax.Decl) item {
 		if d.TestOnly {
 			lead = append(lead, "@test")
 		}
+		if d.TailRec {
+			lead = append(lead, "@tailrec")
+		}
 		dd = p.fnDecl(d)
 	case *syntax.LetDecl:
 		lead = append(lead, docLines(d.Doc)...)

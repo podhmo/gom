@@ -1,0 +1,10 @@
+package ex
+
+// A destructured `let` keeps the lambda a package `var`, so the
+// cycle f -> g -> tuple temporary -> f is the same stack-growing
+// shape a direct mutual recursion would make.
+let (g, _) = (fn n -> f (n - 1), 0)
+
+@tailrec
+fn f (n: Int) -> Int =
+  if n <= 0 { 0 } else { g (n - 1) }

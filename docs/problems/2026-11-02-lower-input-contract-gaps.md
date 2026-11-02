@@ -13,11 +13,11 @@ diagnostics (compiler-bug evidence instead of a bad tree).
 
 Two gaps showed up while doing this:
 
-1. **The diagnostic code is provisional.** Lowering reports through
-   `E0901` ("E09" was chosen for the desugar/lowering category), but
-   the error-code table registered under
-   `docs/decisions/2026-11-02-error-code-table.md` has no `E09xx`
-   range yet — the constant is a placeholder.
+1. **The diagnostic code is provisional** — *resolved 2026-11-02 by
+   the `@tailrec` task*: the `09` "Lowering" category is registered
+   in `internal/diag/codes.go` (`E0901` internal-only, `E0902`–
+   `E0905` user-facing) and generated into `docs/error-codes.md`.
+   ~~the error-code table has no `E09xx` range yet.~~
 2. **The contracts themselves are implicit.** The same observation
    already filed for eval in
    `2026-11-02-eval-typed-ast-contract.md` applies a fortiori to

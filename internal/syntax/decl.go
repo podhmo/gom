@@ -35,6 +35,7 @@ type FnDecl struct {
 	Sp       diag.Span
 	Doc      *Comment // attached `///` doc comment, or nil
 	TestOnly bool     // declared with `@test` (docs/spec.md section 11)
+	TailRec  bool     // declared with `@tailrec` (docs/spec.md section 1)
 	Name     *Ident
 	Params   []Param
 	Ret      TypeExpr // nil when unannotated

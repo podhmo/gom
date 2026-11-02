@@ -1,0 +1,6 @@
+package ex
+
+// Function attributes attach to `fn` declarations only; a `let`
+// cannot carry @tailrec.
+@tailrec
+let x = 1

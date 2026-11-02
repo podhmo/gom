@@ -159,6 +159,7 @@ func File(f *check.File, env *Env) (*core.File, []diag.Diagnostic) {
 	for _, d := range f.Decls {
 		l.decl(d, out)
 	}
+	l.checkTailRec(out)
 
 	if errs := core.Validate(out); len(errs) > 0 {
 		for _, v := range errs {
@@ -231,6 +232,11 @@ type lowerer struct {
 	// temporaries the earned binds were lowered to, so a duplicated
 	// arm body (or-patterns, wildcard expansion) stays well-scoped.
 	subst []map[*resolve.Symbol]*resolve.Symbol
+
+	// tailrec records the `@tailrec`-marked FnDecls checkTailRec
+	// validates once the file's bodies (and TailCall marks) are
+	// complete (tailrec.go).
+	tailrec []tailrecMark
 
 	diags []diag.Diagnostic
 }
@@ -579,6 +585,9 @@ func (l *lowerer) decl(d check.Decl, out *core.File) {
 		fn.Body = &core.Body{Lets: s.lets, Tail: tail}
 		l.fnStack = l.fnStack[:len(l.fnStack)-1]
 		l.markTailCalls(fn, d.Sym)
+		if d.TailRec && d.Sym != nil {
+			l.tailrec = append(l.tailrec, tailrecMark{sym: d.Sym, sp: tailrecNameSpan(d)})
+		}
 		out.Decls = append(out.Decls, &core.FuncDecl{
 			Sp: d.Sp, Sym: d.Sym, Fn: fn,
 			TypeParams: d.TypeParams,

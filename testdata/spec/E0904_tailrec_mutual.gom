@@ -1,0 +1,8 @@
+package ex
+
+// Mutual recursion cannot run in constant stack even when every
+// call is in tail position: `odd` still calls back into `even`.
+@tailrec
+fn even (n: Int) -> Bool = if n == 0 { true } else { odd (n - 1) }
+
+fn odd (n: Int) -> Bool = if n == 0 { false } else { even (n - 1) }

@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0101",
+      "severity": "error",
+      "message": "the \"@tailrec\" attribute applies only to a \"fn\" declaration",
+      "span": {
+        "file": "E0101_tailrec_on_let.gom",
+        "start": {
+          "line": 5,
+          "col": 2,
+          "offset": 104
+        },
+        "end": {
+          "line": 5,
+          "col": 9,
+          "offset": 111
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0902",
+      "severity": "error",
+      "message": "`@tailrec` function `f` has a recursive call that is not in tail position",
+      "span": {
+        "file": "E0902_tailrec_operand.gom",
+        "start": {
+          "line": 7,
+          "col": 26,
+          "offset": 195
+        },
+        "end": {
+          "line": 7,
+          "col": 35,
+          "offset": 204
+        }
+      },
+      "data": {
+        "fn": "f"
+      }
+    }
+  ]
+}

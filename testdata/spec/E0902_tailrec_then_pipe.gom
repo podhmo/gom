@@ -1,0 +1,7 @@
+package ex
+
+// A `|?>` post-processing pipe is not tail position: the recursive
+// call's result flows back into the enclosing `f`.
+@tailrec
+fn f (n: Int) -> Result Int GoError =
+  Ok (n - 1) |?> f

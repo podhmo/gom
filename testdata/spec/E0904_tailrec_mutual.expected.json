@@ -1,0 +1,54 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0904",
+      "severity": "error",
+      "message": "`@tailrec` function `even` is mutually recursive through `odd`",
+      "span": {
+        "file": "E0904_tailrec_mutual.gom",
+        "start": {
+          "line": 6,
+          "col": 4,
+          "offset": 154
+        },
+        "end": {
+          "line": 6,
+          "col": 8,
+          "offset": 158
+        }
+      },
+      "data": {
+        "fn": "even",
+        "path": [
+          "even",
+          "odd",
+          "even"
+        ],
+        "through": "odd"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0905",
+      "severity": "error",
+      "message": "`@tailrec` function `even` has no self-recursive call in tail position",
+      "span": {
+        "file": "E0904_tailrec_mutual.gom",
+        "start": {
+          "line": 6,
+          "col": 4,
+          "offset": 154
+        },
+        "end": {
+          "line": 6,
+          "col": 8,
+          "offset": 158
+        }
+      },
+      "data": {
+        "fn": "even"
+      }
+    }
+  ]
+}

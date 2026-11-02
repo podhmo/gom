@@ -1,0 +1,11 @@
+package ex
+
+// A valid @tailrec declaration: the only self-recursive call sits
+// in tail position through `if`, so lowering marks it TailCall and
+// the requirement is discharged. `f` in a `let` needs no marker.
+@tailrec
+fn loop (n: Int) (acc: Int) -> Int =
+  if n <= 0 { acc } else { loop (n - 1) (acc + n) }
+
+fn f (n: Int) -> Int =
+  if n <= 0 { 0 } else { f (n - 1) + 1 }

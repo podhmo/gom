@@ -1,0 +1,26 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0905",
+      "severity": "error",
+      "message": "`@tailrec` function `f` has no self-recursive call in tail position",
+      "span": {
+        "file": "E0905_tailrec_no_recursion.gom",
+        "start": {
+          "line": 6,
+          "col": 4,
+          "offset": 132
+        },
+        "end": {
+          "line": 6,
+          "col": 5,
+          "offset": 133
+        }
+      },
+      "data": {
+        "fn": "f"
+      }
+    }
+  ]
+}

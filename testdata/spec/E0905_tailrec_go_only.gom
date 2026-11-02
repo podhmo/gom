@@ -1,0 +1,8 @@
+package ex
+
+// A spawned self-call is exempt from the tail-position rule, but it
+// is not convertible: a function whose only recursion lives inside
+// `go` gets no loop, so the requirement still fails.
+@tailrec
+fn f (n: Int) -> Unit =
+  go { f (n - 1) }

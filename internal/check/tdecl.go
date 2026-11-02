@@ -27,6 +27,11 @@ type FnDecl struct {
 	Sig    *types.Func     // declared or inferred signature
 	Params []Param
 	Body   Expr
+	// TailRec marks a declaration written with `@tailrec`: the
+	// lowering-stage requirement that every self-recursive call sits
+	// in tail position (docs/spec.md section 1). Only declared `fn`s
+	// carry it — a `let` flipped to a function declaration does not.
+	TailRec bool
 	// TypeParams are the declaration's quantified type variables in
 	// source occurrence order — the rigid variables of Sig for a
 	// `fn`, or the metas generalization bound to fresh variables for

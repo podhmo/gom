@@ -330,6 +330,63 @@ func TestDiffEvalRecursion(t *testing.T) {
 	}
 }
 
+// TestDiffTailRec: a program under `@tailrec` must produce the same
+// answer under the interpreter and under the compiled `for` loop —
+// the attribute is a requirement check (E0902–E0905), not a
+// semantics change.
+func TestDiffTailRec(t *testing.T) {
+	opts, _ := compileOracles(t)
+	if opts == nil {
+		t.Skip("no go toolchain on PATH — cannot typecheck the probe")
+	}
+	gobin, err := exec.LookPath("go")
+	if err != nil {
+		t.Skip("no go toolchain on PATH — the compiled side cannot run")
+	}
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := `package main
+
+import go "fmt"
+
+@tailrec
+fn sum (n: Int) (acc: Int) -> Int =
+  if n <= 0 { acc } else { sum (n - 1) (acc + n) }
+
+fn main () -> Unit = {
+  let _ = fmt.Println(sum 100 0)
+  ()
+}
+`
+	r, cerr := build.Compile(build.Input{Path: "tailrec.gom", Src: []byte(src)}, opts)
+	if cerr != nil {
+		t.Fatalf("compile: %v", cerr)
+	}
+	if r.Diagnostics.HasError() || r.Output == nil {
+		t.Fatalf("probe program rejected: %v", r.Diagnostics)
+	}
+	eo := evalDiff(t, r)
+	if eo.class == dUnsupported {
+		t.Skipf("eval cannot stub the probe's Go calls: %s", eo.detail)
+	}
+	co, nondeterministic, buildErr := compiledDiff(t, gobin, root, r.Output.Source)
+	if buildErr != "" {
+		t.Fatalf("generated Go failed go build:\n%s", buildErr)
+	}
+	if nondeterministic {
+		t.Skip("compiled output is nondeterministic")
+	}
+	if div := diffCompare(eo, co); div != "" {
+		t.Fatalf("eval/compiled divergence on @tailrec program: %s\neval=%s %q compiled=%s %q\n--- program ---\n%s",
+			div, className(eo.class), eo.stdout, className(co.class), co.stdout, src)
+	}
+	if eo.stdout != "5050\n" {
+		t.Fatalf("stdout = %q, want %q", eo.stdout, "5050\n")
+	}
+}
+
 // diffCompare reduces two outcomes to a divergence description —
 // "" means the observations agree.
 func diffCompare(e, c diffOutcome) string {

@@ -73,7 +73,7 @@
 | [pattern-checking](2026-11-02-pattern-checking.md) | Pattern-matrix checking: domains, guards, counterexamples (internal/pattern) | draft |
 | [record-recursion-by-value](2026-11-02-record-recursion-by-value.md) | レコード型は自分自身を値として内包できない（E0413） | 採用 |
 | [sumtype-exhaustiveness-tool](2026-11-02-sumtype-exhaustiveness-tool.md) | Exhaustiveness checker for sealed interfaces (B-3) | 採用 |
-| [tailrec-requirement](2026-11-02-tailrec-requirement.md) | `@tailrec`: a requirement attribute for tail-call optimization | draft |
+| [tailrec-requirement](2026-11-02-tailrec-requirement.md) | `@tailrec`: a requirement attribute for tail-call optimization | 採用（実装・検証済み: [sketch: tailrec-validation](../sketch/2026-11-02-tailrec-validation.md)） |
 | [test-harness](2026-11-02-test-harness.md) | テストハーネスの配置とファイル規約 (internal/gomtest) | 採用 |
 | [treedump-format](2026-11-02-treedump-format.md) | IR テキストダンプ形式 (internal/treedump) | draft |
 | [go-types-mapping](2026-11-03-go-types-mapping.md) | go/types → Gom type mapping and where boundary conversions live | 採用（P1-9 の `internal/goimport` が実装・検証した — `strconv.Atoi`/`Itoa`・`os.LookupEnv`・`bytes.Buffer` メソッドが E2E で動く） |

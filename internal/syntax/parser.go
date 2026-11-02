@@ -478,7 +478,7 @@ func (p *parser) parseTopDecl() Decl {
 	doc := p.docBefore(p.cur().start)
 	switch p.kind() {
 	case tokFn:
-		return p.parseFnDecl(false, doc)
+		return p.parseFnDecl(declAttrs{}, doc)
 	case tokLet:
 		return p.parseLetDeclWithFlag(false, doc)
 	case tokType:
@@ -536,20 +536,35 @@ func (p *parser) parseAttrDecl() Decl {
 		// attribute is simply dropped.
 		return p.parseTopDecl()
 	}
-	isTest := name == "test"
-	if !isTest {
-		// The AST cannot carry a non-@test attribute (no field
+	attrs := declAttrs{testOnly: name == "test", tailRec: name == "tailrec"}
+	if !attrs.testOnly && !attrs.tailRec {
+		// The AST cannot carry an unknown attribute (no field
 		// records it): report at parse time so the error is not
 		// silently lost. E0204 remains the resolve-phase code once
 		// the AST gains an attribute slot.
 		p.errf(p.spanOf(nameTok),
-			"unknown attribute \"@%s\": only \"@test\" is defined", name)
+			"unknown attribute \"@%s\": only \"@test\" and \"@tailrec\" are defined", name)
 	}
 	doc := p.docBefore(at.start)
 	if p.at(tokFn) {
-		return p.parseFnDecl(isTest, doc)
+		return p.parseFnDecl(attrs, doc)
 	}
-	return p.parseLetDeclWithFlag(isTest, doc)
+	if attrs.tailRec {
+		// A let-bound function calls itself through the package
+		// variable, which the tail-call conversion cannot see —
+		// @tailrec is defined on fn only (spec section 1).
+		p.errf(p.spanOf(nameTok),
+			"the \"@tailrec\" attribute applies only to a \"fn\" declaration")
+	}
+	return p.parseLetDeclWithFlag(attrs.testOnly, doc)
+}
+
+// declAttrs records the attributes a top-level declaration was
+// written with. The grammar admits one attribute per declaration
+// (docs/grammar.ebnf: [ attribute ] , ( fn-decl | let-decl )).
+type declAttrs struct {
+	testOnly bool // `@test` (fn or let)
+	tailRec  bool // `@tailrec` (fn only)
 }
 
 // parseFnDecl parses a fn declaration or signature:
@@ -557,7 +572,7 @@ func (p *parser) parseAttrDecl() Decl {
 //	"fn" ident fn-param { fn-param } "->" type-expr [ "=" expr ]
 //
 // The "=" body is required in .gom and forbidden in .gomi.
-func (p *parser) parseFnDecl(testOnly bool, doc *Comment) Decl {
+func (p *parser) parseFnDecl(attrs declAttrs, doc *Comment) Decl {
 	start := p.next() // 'fn'
 	nameTok := p.cur()
 	var name *Ident
@@ -587,7 +602,8 @@ func (p *parser) parseFnDecl(testOnly bool, doc *Comment) Decl {
 	d := &FnDecl{
 		Sp:       diag.SpanIn(p.file, start.start, p.prevEnd()),
 		Doc:      doc,
-		TestOnly: testOnly,
+		TestOnly: attrs.testOnly,
+		TailRec:  attrs.tailRec,
 		Name:     name,
 		Params:   params,
 		Ret:      ret,

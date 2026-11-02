@@ -1,0 +1,6 @@
+package ex
+
+// A mark with no recursive call at all is almost certainly a
+// mistake — reported at the function name.
+@tailrec
+fn f () -> Int = 42

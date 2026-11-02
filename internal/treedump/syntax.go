@@ -117,6 +117,9 @@ func (d *dumper) decl(dd syntax.Decl) *form {
 		if dd.TestOnly {
 			text += " :test"
 		}
+		if dd.TailRec {
+			text += " :tailrec"
+		}
 		kids := []*form{}
 		if dd.Doc != nil {
 			kids = append(kids, d.doc(dd.Doc))

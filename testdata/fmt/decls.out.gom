@@ -16,3 +16,6 @@ extern go "bytes" {
 fn helper () -> Int = 1
 
 test "smoke" { let x = 1 }
+
+@tailrec
+fn loop (n: Int) (acc: Int) -> Int = if n <= 0 { acc } else { loop (n - 1) (acc + n) }

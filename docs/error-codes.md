@@ -38,6 +38,7 @@ renumbering.
 | `06xx` | Packages and interfaces | Package layout, .gomi presence and contents, and implementation-to-interface agreement (internal/iface, internal/build). |
 | `07xx` | Concurrency | The go/select/channel rules of spec section 10 and the mutable-sharing lints. |
 | `08xx` | Tests | Test declarations, the @test scope, and assertions (spec section 11). |
+| `09xx` | Lowering | User-facing diagnostics of the desugaring phase (internal/lower) — today the @tailrec requirement rules of spec section 1. |
 | `90xx` | Evaluation | Run-time diagnostics of the typed-AST evaluator (internal/eval): unsupported constructs, panics, and broken interpreter invariants. |
 
 ## 00xx — Compiler and toolchain
@@ -721,6 +722,105 @@ test "ok" {
 }
 
 fn prod () -> Unit = assert true   // no test function binds t
+```
+
+## 09xx — Lowering
+
+### E0901 — lowering invariant violated
+
+**Severity:** error · **Phase:** lower
+
+A contract between the type checker and the lowering phase —
+or inside the Core IR lowering produced — was violated: malformed
+call information, an unbound or twice-bound symbol, a decision tree
+that cannot enumerate its subject's type, or a finding of the Core
+validator on generated IR. This is compiler-bug evidence (the E9004
+of the desugaring side), not a mistake in the .gom program — see
+docs/problems/2026-11-02-lower-input-contract-gaps.md.
+
+### E0902 — recursive call is not in tail position
+
+**Severity:** error · **Phase:** lower · **Spec:** §1.1
+
+A function marked "@tailrec" requires every self-recursive call
+to sit in tail position — the position whose value is the function's
+result, reached only through block tails, if/match/select arm
+results, and the outermost application of a "|>" or "<|" pipeline.
+Anything that consumes the call's result — an operand position, a
+"let" binding, a "for" body, "try", "|?>", or a nested lambda —
+takes it out of tail position, as does a call inside a nested fn.
+Calls inside "go { ... }" are exempt: the goroutine runs on a fresh
+stack. Move the call to the result position or drop the attribute.
+
+```gom
+@tailrec
+fn f (n: Int) -> Int =
+  if n <= 0 { 0 } else { f (n - 1) + 1 }   // the call feeds "+"
+```
+
+### E0903 — function marked @tailrec is used as a value
+
+**Severity:** error · **Phase:** lower · **Spec:** §1.1
+
+Inside its own body, a function marked "@tailrec" may not be
+referenced as a value: an alias such as "let g = f" turns "g x" into
+a call through a variable, which the tail-call conversion cannot
+recognize, so constant stack can no longer be proven. Passing the
+function to other code is still allowed *outside* its own body.
+Call the function directly instead of aliasing it, or drop the
+attribute.
+
+```gom
+@tailrec
+fn f (n: Int) -> Int = {
+  let g = f                       // g is an alias, not a direct call
+  if n <= 0 { 0 } else { g (n - 1) }
+}
+```
+
+### E0904 — @tailrec function is mutually recursive
+
+**Severity:** error · **Phase:** lower · **Spec:** §1.1
+
+Go has no general tail-call optimization, so a cycle of
+direct references "f -> g -> f" — calls, function values, or
+package-level "let" bindings holding one, all of which can be
+applied — grows the stack even when every call is in tail position;
+only a self-recursive function compiles to a loop. The check follows
+only references the compiler can resolve statically: recursion
+routed through a function value it cannot see into — a parameter
+fed back into the recursion, a returned function — is outside the
+"@tailrec" guarantee. The structured data names one other
+declaration on the cycle ("through") and the reference path
+("path"). Break the cycle — inline one side or restructure the
+recursion — or drop the attribute.
+
+```gom
+@tailrec
+fn even (n: Int) -> Bool = if n == 0 { true } else { odd (n - 1) }
+
+fn odd (n: Int) -> Bool = if n == 0 { false } else { even (n - 1) }
+```
+
+### E0905 — @tailrec function has no self-call in tail position
+
+**Severity:** error · **Phase:** lower · **Spec:** §1.1
+
+"@tailrec" asserts that the function is tail-recursive, so a
+marked function must contain at least one self-recursive call the
+compiler can convert to a loop iteration — a call in tail position.
+The report covers the shapes where nothing converts: no self-call
+at all, every self-call hidden behind a value or an alias (E0903 or
+E0904 names the escape route), or every self-call inside a "go"
+body — spawned calls are exempt from the position rule but run on
+another stack, so no loop is emitted for them. A misplaced call
+that simply sits outside tail position is reported as E0902
+instead. Remove the attribute or add a convertible recursive
+call.
+
+```gom
+@tailrec
+fn answer () -> Int = 42   // no self-call anywhere
 ```
 
 ## 90xx — Evaluation

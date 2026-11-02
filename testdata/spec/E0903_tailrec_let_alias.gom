@@ -1,0 +1,9 @@
+package ex
+
+// Binding the marked function as a value lets calls hide behind an
+// alias the tail-call check cannot see — reported at the reference.
+@tailrec
+fn f (n: Int) -> Int = {
+  let g = f
+  if n <= 0 { 0 } else { g (n - 1) }
+}
