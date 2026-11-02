@@ -1,0 +1,5 @@
+package a
+
+fn f (x: a00) -> a01 = { g x }
+
+let g = f

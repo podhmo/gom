@@ -1,0 +1,26 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0412",
+      "severity": "error",
+      "message": "unbound type variable `b`",
+      "span": {
+        "file": "E0412_late_alias_scope.gom",
+        "start": {
+          "line": 4,
+          "col": 5,
+          "offset": 37
+        },
+        "end": {
+          "line": 4,
+          "col": 10,
+          "offset": 42
+        }
+      },
+      "data": {
+        "var": "b"
+      }
+    }
+  ]
+}

@@ -35,6 +35,34 @@ var compareCases = []struct {
 	want string // the string `answer ()` produces — eval and binary must agree
 }{
 	{
+		name: "poly_functions",
+		src: `package main
+
+import go "fmt"
+
+fn choose (x: a) (y: a) -> a = x
+let id = fn x -> x
+let alias = choose
+
+fn forward (x: Int) -> Int = forward_alias x
+let forward_alias = id
+
+fn captured (x: a) -> (a -> a) = {
+  let value = x
+  fn y -> value
+}
+
+fn answer () -> String = {
+  let pick = choose 40
+  let local = captured "captured"
+  "${id "poly"}:${id 2}:${pick 2}:${alias 3 4}:${local "ignored"}:${forward 5}"
+}
+
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "poly:2:40:3:captured:5",
+	},
+	{
 		name: "interp_and_int_let",
 		src: `package main
 

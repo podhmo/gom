@@ -70,19 +70,6 @@ var knownCompileBugs = map[[32]byte]fuzzutil.KnownBug{
 	// retired with this entry since a cleanly-rejected input only
 	// exercises the "rejected is fine" path. Found by the gomgen
 	// canary's vet sweep, typed seed 301.)
-	// (`let g = f` at package scope where `f` is polymorphic emits
-	// `var g func(A00) A01 = f[A00, A01]` — f's type parameters leak
-	// to package scope where they are undefined, and the f→g→f edge
-	// is an initialization cycle. A polymorphic value let must stay
-	// a generic thunk (`func g[A00, A01 any]() func(A00) A01` like
-	// `let e = []` emits) or be instantiated at a concrete type.
-	// Found by the canary-vet review sweep — the typecheck gate
-	// caught it, i.e. the mechanism working.)
-	fuzzutil.Sum256Hex("85aad84d7109ed5cb631c48ef29a8cb0f5332a51bd61f77db7f9f932ebce9601"): {
-		Match: []string{"generated Go fails to typecheck", "undefined: A0"},
-		TODO:  "トップレベル `let` の多相値束縛が型パラメータをパッケージスコープに漏らす",
-		Desc:  "`let g = f` on a polymorphic decl leaks type params into a package-scope var",
-	},
 	// (The registry was empty for a stretch — recent fixes retired
 	// the first batch of entries. The parse-phase bugs (ctor-pattern
 	// '-' loop, the

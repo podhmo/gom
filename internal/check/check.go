@@ -55,6 +55,7 @@ func Check(res *resolve.Resolved, src SignatureSource) (*File, diag.List) {
 	c.registerValueDecls(res.File.Decls)
 	c.checkDecls(res.File.Decls)
 	c.finalize()
+	c.checkTopLevelLetScopes()
 
 	f := &File{Sp: res.File.Sp}
 	if res.File.Package != nil {
@@ -106,6 +107,11 @@ type checker struct {
 	// earlier (forward) reference, in which case the binding cannot
 	// generalize: the earlier use recorded a monomorphic shape.
 	referenced map[*resolve.Symbol]bool
+
+	// monomorphicLets need a scope check after all declarations have
+	// solved their metas: a later generic use may bind an ordinary
+	// top-level let to variables owned by another declaration.
+	monomorphicLets []Pat
 
 	// The type-declaration tables.
 	tyCons    map[conKey]*typeInfo          // declared + builtin types by identity
@@ -623,12 +629,30 @@ func (c *checker) checkLetDecl(d *syntax.LetDecl) {
 				metasIn(val.Type(), func(m *types.Meta) { c.markQuiet(m) })
 			}
 		}
+		if d.Type == nil {
+			c.monomorphicLets = append(c.monomorphicLets, pat)
+		}
 	}
 	c.decls = append(c.decls, &LetDecl{
 		Sp:    d.Sp,
 		Pat:   pat,
 		Value: val,
 	})
+}
+
+// checkTopLevelLetScopes prevents rigid variables from escaping their
+// declaring function through unification with a top-level let. Run after
+// finalization: a later use may have solved the binding's original meta.
+// Generalized lets returned FnDecls and do not enter this list; annotated
+// lets already report their own unbound variables at the annotation.
+func (c *checker) checkTopLevelLetScopes() {
+	for _, pat := range c.monomorphicLets {
+		for _, v := range rigidVars(pat.Type()) {
+			c.diags.Add(diag.Error("E0412",
+				fmt.Sprintf("unbound type variable `%s`", v)).
+				At(pat.Span()).Set("var", v.String()))
+		}
+	}
 }
 
 // unboundVars reports E0412 for every rigid variable of t the

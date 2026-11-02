@@ -76,7 +76,9 @@
 ### P2 型推論と関数
 
 - [x] **P2-1 HM 型推論**: 単一化、value restriction 付きでトップレベルのみ一般化（[spec 3.3](docs/spec.md)、[decisions/value-restriction](docs/decisions/2026-11-01-value-restriction.md)）。依存: P1-5 — 一般化した `let` の生成形は [decisions/let-polymorphism-emission](docs/decisions/2026-11-02-let-polymorphism-emission.md)（検証: [sketch](docs/sketch/2026-11-02-let-polymorphism-emission.md)）。ラムダ束縛はジェネリック `FnDecl`、非関数値は niladic thunk、使用箇所の型引数は `TypeArgs` で Core IR まで運ぶ。ローカル let 多相・多相再帰・前方参照の一般化・単相化は P2-2 以降に延期
-- [ ] **P2-2 多相関数・部分適用・クロージャ**: 関数値の表現は P0-2 の結論に従う。多相な定義の具体化とラッパー生成を Core IR で確定させる。依存: P2-1, P0-6, P1-13
+- [-] **P2-2 多相関数・部分適用・クロージャ**: 関数値の表現は P0-2 の結論に従う。多相な定義の具体化とラッパー生成を Core IR で確定させる。依存: P2-1, P0-6, P1-13
+  - [x] **P2-2a v1 の関数値表現・具体化の検証と型変数漏れの拒否**: 多相宣言・ラムダ、部分適用、捕捉クロージャ、正常な単相別名、宣言 arity の実行時機を確認する。[検証記録](docs/sketch/2026-11-03-poly-functions-verification.md)。依存: P2-1, P0-6, P1-13
+  - [ ] **P2-2b 単相の循環関数別名を初期化循環なしで生成する**: `fn f (x: Int) -> Int = g x` と `let g = f` が `gom build` を通る一方、生成 Go の `var g = f` が f→g→f の initialization cycle になる。関数別名の表現を Core IR で確定させ、非循環別名・部分適用・@tailrec 判定を含む回帰テストを追加する。[再現](docs/sketch/2026-11-03-poly-functions-verification.md)。依存: P2-2a
 - [ ] **P2-3 ラベル付き引数**: 評価順の保存（[design.md 2.1](docs/design.md) の例）、パンニング、v1 の制限（[spec 2 章](docs/spec.md)、[decisions/labeled-required-arguments](docs/decisions/2026-11-01-labeled-required-arguments.md)）。依存: P2-2
 - [ ] **P2-4 `try` と `|?>`**: 脱出境界は最も内側の関数（[decisions/try-boundary](docs/decisions/2026-11-01-try-boundary.md)）、`|?>` の `%w` 自動ラップ（[spec 9 章](docs/spec.md)）。中間の `Result` を作らない生成（design.md 4.6）。依存: P2-1, P1-13
 - [ ] **P2-5 Go ジェネリクスへの出力**: トップレベルの多相関数と多相 ADT を型パラメータ付きで出力する。依存: P2-2
@@ -123,7 +125,7 @@ Go 相互運用を変えたら両方向（Gom → Go、Go → Gom）のテスト
 
 ## Bugs
 
-- [ ] **[bug] トップレベル `let` の多相値束縛が型パラメータをパッケージスコープに漏らす**: `let g = f`（`f` が `fn f (x: a00) -> a01` のような多相宣言）が `var g func(A00) A01 = f[A00, A01]` を生成 — `gom build` は成功するが生成 Go は `undefined: A00`/`A01`＋f→g→f の initialization cycle でコンパイル不能。多相な値束縛は `let e = []` と同様にジェネリック thunk `func g[A00, A01 any]() func(A00) A01` として出力するか、具体型へ単相化する必要がある（canary-vet レビューの fuzz sweep で発見、knownCompileBugs 登録済み、corpus: `internal/build/testdata/fuzz/FuzzCompile/polyvar_let`）
+- [x] **[bug] トップレベル `let` の多相値束縛が型パラメータをパッケージスコープに漏らす**: `let g = f`（`f` が `fn f (x: a00) -> a01` のような多相宣言）が `var g func(A00) A01 = f[A00, A01]` を生成 — `gom build` は成功するが生成 Go は `undefined: A00`/`A01`＋f→g→f の initialization cycle でコンパイル不能。多相な値束縛は `let e = []` と同様にジェネリック thunk `func g[A00, A01 any]() func(A00) A01` として出力するか、具体型へ単相化する必要がある（canary-vet レビューの fuzz sweep で発見、knownCompileBugs 登録済み、corpus: `internal/build/testdata/fuzz/FuzzCompile/polyvar_let`）
 
 （見つけたバグはここに `- [ ]` で足す）
 

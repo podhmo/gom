@@ -1,0 +1,48 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0412",
+      "severity": "error",
+      "message": "unbound type variable `a00`",
+      "span": {
+        "file": "E0412_forward_alias_tuple.gom",
+        "start": {
+          "line": 5,
+          "col": 5,
+          "offset": 47
+        },
+        "end": {
+          "line": 5,
+          "col": 11,
+          "offset": 53
+        }
+      },
+      "data": {
+        "var": "a00"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0412",
+      "severity": "error",
+      "message": "unbound type variable `a01`",
+      "span": {
+        "file": "E0412_forward_alias_tuple.gom",
+        "start": {
+          "line": 5,
+          "col": 5,
+          "offset": 47
+        },
+        "end": {
+          "line": 5,
+          "col": 11,
+          "offset": 53
+        }
+      },
+      "data": {
+        "var": "a01"
+      }
+    }
+  ]
+}

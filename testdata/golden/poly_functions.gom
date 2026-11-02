@@ -1,0 +1,16 @@
+package main
+
+fn choose (x: a) (y: a) -> a = x
+let id = fn x -> x
+let alias = choose
+
+fn captured (x: a) -> (a -> a) = {
+  let value = x
+  fn y -> value
+}
+
+fn answer () -> String = {
+  let pick = choose 40
+  let local = captured "captured"
+  "${id "poly"}:${id 2}:${pick 2}:${alias 3 4}:${local "ignored"}"
+}
