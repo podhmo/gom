@@ -309,7 +309,7 @@ func firstByte(d *doc) byte {
 			// First-byte questions are branch-independent: flat and
 			// broken forms of a collection start with the same
 			// delimiter or open doc.
-			d = d.lazy(0, 0)
+			d = d.eval(0, 0)
 		default:
 			return 0
 		}

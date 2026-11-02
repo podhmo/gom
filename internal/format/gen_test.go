@@ -21,8 +21,8 @@ package format
 // normSyntax lives in this package. A bare parse runs first so a
 // parser-side hang attributes to "parse", and both Source passes
 // run under the phase name "format" — pass 2 formats Source's own
-// output but it is the same code path, so the registered
-// deep-nesting hang signature covers either pass while a hang in
+// output but it is the same code path, so a hang anywhere inside
+// Source reports under "format" while a hang in
 // reparse/tree/comments still reports under its own phase.
 
 import (
@@ -50,70 +50,32 @@ const genFormatBugsCap = 16
 // in the repo, so a checked-in .gom hang repro would stall that
 // suite outright.
 var knownGenFormatBugs = map[[32]byte]fuzzutil.KnownBug{
-	// The deep-nesting exponential-layout bug (TODO "gom fmt が深い
-	// 入れ子で指数的に遅くなる"): braceSeq's lazy callbacks
-	// re-evaluate flatWidth/docText per item, so deep block chains
-	// cost super-polynomial time inside Source. These are gomgen
-	// typed-mode seeds 62/162/168/172/176 — pass-1 Source times
-	// them at ~2 s / >15 s / ~2 s / >15 s / >15 s for 1.2–1.9 KB
-	// programs (the two-second pair lands inside the same family
-	// under -race or a slower box). Skip-pinned: every run would
-	// burn the sandbox budget for no new information. The Match
-	// is phase-scoped so a NEW hang inside Source also reads as
-	// this bug — intentional: "format did not return" is the
-	// signature of this one family until triage says otherwise.
-	fuzzutil.Sum256([]byte(genHangTyped62)): {
-		Match: []string{"format did not return within"},
-		TODO:  "`gom fmt` が深い入れ子で指数的に遅くなる",
-		Desc:  "exponential layout on deep block nesting (gomgen typed seed 62, ~2s)",
-		Skip:  true,
-	},
-	fuzzutil.Sum256([]byte(genHangTyped162)): {
-		Match: []string{"format did not return within"},
-		TODO:  "`gom fmt` が深い入れ子で指数的に遅くなる",
-		Desc:  "exponential layout on deep block nesting (gomgen typed seed 162, >15s)",
-		Skip:  true,
-	},
-	fuzzutil.Sum256([]byte(genHangTyped168)): {
-		Match: []string{"format did not return within"},
-		TODO:  "`gom fmt` が深い入れ子で指数的に遅くなる",
-		Desc:  "exponential layout on deep block nesting (gomgen typed seed 168, ~2s)",
-		Skip:  true,
-	},
-	fuzzutil.Sum256([]byte(genHangTyped172)): {
-		Match: []string{"format did not return within"},
-		TODO:  "`gom fmt` が深い入れ子で指数的に遅くなる",
-		Desc:  "exponential layout on deep block nesting (gomgen typed seed 172, >15s)",
-		Skip:  true,
-	},
-	fuzzutil.Sum256([]byte(genHangTyped176)): {
-		Match: []string{"format did not return within"},
-		TODO:  "`gom fmt` が深い入れ子で指数的に遅くなる",
-		Desc:  "exponential layout on deep block nesting (gomgen typed seed 176, >15s)",
-		Skip:  true,
-	},
+	// (The registry is empty for now — the only entry, the
+	// deep-nesting exponential-layout family, was fixed by
+	// memoizing lazy doc evaluation in internal/format/doc.go
+	// (doc.eval). The gomgen typed seeds 62/162/168/172/176 —
+	// pass-1 Source ~2 s / >15 s / ~2 s / >15 s / >15 s on
+	// 1.2–1.9 KB programs — now format in single-digit
+	// milliseconds and run live in the corpus below.)
 }
 
 // genSandboxTimeout bounds one input's turn inside the persistent
 // helper. Legit formatting of a generated program is milliseconds
-// even at the sweep's worst (typed seeds 21/42 take ~0.6–1.0 s —
-// already the exponential bug's foothill); 8 s keeps slow-but-legal
-// inputs passing under -race while a real hang dies in the child.
+// even at the sweep's worst; 8 s keeps slow-but-legal inputs
+// passing under -race while a real hang dies in the child.
 // The parse/dump-side phases get 2 s: they legitimately cost µs.
 const genSandboxTimeout = 8 * time.Second
 
 // genCaps sizes the per-phase budget for one input. Parse/dump legs
 // are cheap for any input, so they always get the small cap. The
 // "format" phase keeps the full sandbox timeout UNLESS the input
-// sits inside the exponential-layout family: the measured bug is
-// super-polynomial in block-nesting depth (typed repros nest
+// sits inside the (now fixed) exponential-layout family: that bug
+// was super-polynomial in block-nesting depth (typed repros nest
 // { 12–16 deep; the deepest input that still completes nests 11),
-// so past genNestDepth a variant would burn the whole budget — the
-// same hang-variant storm the ctor-pattern family caused in the
-// compile canary. A suspect gets 1.5 s instead: the signature still
-// classifies as the registered bug, it just costs ~4 s of
-// timeout+respawn instead of ~10 s. fuzzutil.LooksHangSuspect
-// shrinks the parse-side phases the same way for its family.
+// so past genNestDepth a same-shape variant still gets a 1.5 s
+// cap — a regression or a sibling slow class costs ~4 s of
+// timeout+respawn instead of ~10 s, matching what
+// fuzzutil.LooksHangSuspect does for the parse-side phases.
 func genCaps(src []byte) map[string]time.Duration {
 	caps := map[string]time.Duration{
 		"parse":    2 * time.Second,
@@ -195,8 +157,8 @@ var genModes = []struct {
 
 // genCorpus returns the fixed input set shared by FuzzFormatGen
 // (as f.Add seeds) and TestGeneratedFormat (run before the seed
-// sweep): the pinned regenerations plus the registered repros —
-// Skip-pinned inputs seed the corpus without executing.
+// sweep): the pinned regenerations plus the bug repros — a
+// Skip-pinned input would seed the corpus without executing.
 func genCorpus(t testing.TB, g *gomgen.Grammar) [][]byte {
 	t.Helper()
 	var seeds [][]byte
@@ -210,8 +172,9 @@ func genCorpus(t testing.TB, g *gomgen.Grammar) [][]byte {
 	return seeds
 }
 
-// genBugRepros lists the inline repro literals the registry keys
-// on, so they also seed the corpus.
+// genBugRepros lists the inline repro literals kept as corpus
+// seeds — formerly registry keys, they now run live as regression
+// inputs for the fixed deep-nesting bug.
 var genBugRepros = []string{
 	genHangTyped62, genHangTyped162, genHangTyped168,
 	genHangTyped172, genHangTyped176,

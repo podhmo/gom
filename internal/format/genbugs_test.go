@@ -1,7 +1,8 @@
 package format
 
-// Inline repros of the deep-nesting exponential-layout bug pinned
-// in knownGenFormatBugs — the exact bytes gomgen emits for each
+// Inline repros of the deep-nesting exponential-layout bug —
+// fixed by memoizing lazy doc evaluation (doc.eval), kept as
+// regression seeds. The exact bytes gomgen emits for each
 // (mode, seed) pair, stashed here rather than under testdata/ so
 // TestRepoFiles (which formats every .gom in the repo) cannot
 // reach them. Regenerate with internal/gomgen:

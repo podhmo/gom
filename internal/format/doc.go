@@ -51,6 +51,13 @@ type doc struct {
 	kids []*doc                  // dConcat
 	d    *doc                    // dNest, dGroup
 	lazy func(col, ind int) *doc // dLazy: landing column, structural indent
+	memo map[lazyKey]*doc        // dLazy: evaluated results, filled on first use
+}
+
+// lazyKey keys a lazy doc's result cache: the callback is a pure
+// function of its landing column and structural indent.
+type lazyKey struct {
+	col, ind int
 }
 
 var (
@@ -104,6 +111,28 @@ func group(d *doc) *doc       { return &doc{kind: dGroup, d: d} }
 // may run more than once (once while fits probes, once for the final
 // rendering) and must return the same doc for the same arguments.
 func lazy(f func(col, ind int) *doc) *doc { return &doc{kind: dLazy, lazy: f} }
+
+// eval runs a lazy doc's callback, caching the result per (col, ind).
+// Every probing path — fits, flatWidth, docText, firstByte and layout
+// itself — goes through here; without the cache each probe re-ran the
+// callback, and since a collection's callback probes its own items
+// (flatWidth, needsSep→docText), deeply nested collections re-ran the
+// inner callbacks once per outer probe — exponential in depth (the
+// deep-nesting bug registered in knownGenFormatBugs). The callback's
+// purity contract makes the cached result interchangeable with a
+// fresh call.
+func (d *doc) eval(col, ind int) *doc {
+	k := lazyKey{col, ind}
+	if r, ok := d.memo[k]; ok {
+		return r
+	}
+	r := d.lazy(col, ind)
+	if d.memo == nil {
+		d.memo = map[lazyKey]*doc{}
+	}
+	d.memo[k] = r
+	return r
+}
 
 // ------------------------------------------------------------------
 // layout
@@ -169,7 +198,7 @@ func layout(width, ind int, d *doc) string {
 				newline(c.ind)
 			}
 		case dLazy:
-			stack = append(stack, frame{c.ind, c.mode, c.d.lazy(col, c.ind)})
+			stack = append(stack, frame{c.ind, c.mode, c.d.eval(col, c.ind)})
 		case dHard:
 			newline(c.ind)
 		}
@@ -213,7 +242,7 @@ func fits(w, base int, cmds []frame) bool {
 				return true
 			}
 		case dLazy:
-			cmds = append(cmds, frame{c.ind, c.mode, c.d.lazy(base+w0-w, c.ind)})
+			cmds = append(cmds, frame{c.ind, c.mode, c.d.eval(base+w0-w, c.ind)})
 		case dHard:
 			// A hard newline inside a group being probed for flatness
 			// means the group cannot be flat; in break mode it simply
@@ -250,7 +279,7 @@ func flatWidth(d *doc, col int) (w int, ok bool) {
 	case dNest, dGroup:
 		return flatWidth(d.d, col)
 	case dLazy:
-		next := d.lazy(col, 0)
+		next := d.eval(col, 0)
 		if next == nil {
 			return 0, false
 		}

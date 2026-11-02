@@ -306,7 +306,7 @@ func writeDocText(d *doc, sb *strings.Builder) {
 	case dNest, dGroup:
 		writeDocText(d.d, sb)
 	case dLazy:
-		writeDocText(d.lazy(0, 0), sb)
+		writeDocText(d.eval(0, 0), sb)
 	case dLine, dSoft, dHard:
 		sb.WriteByte('\n')
 	case dNil:
