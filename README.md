@@ -1,3 +1,8 @@
+> [!NOTE]
+> Gom is under active development and is not yet complete. Syntax,
+> semantics, generated code, and the command-line interface may change
+> without notice.
+
 # Gom
 
 Gom is a statically typed, expression-oriented functional language that
