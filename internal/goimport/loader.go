@@ -71,7 +71,24 @@ type Loader struct {
 	// named indexes the go/types.Named behind every types.Go ref the
 	// mapping produced — MethodOf needs it to build method sets.
 	named map[gt.NamedRef]*types.Named
+
+	// tps scopes a generic signature's type parameters while
+	// mapSignature maps it: the go/types.TypeParam objects map to
+	// the rigid variables minted for it. Nil outside a generic
+	// signature — TypeParam occurrences then reject.
+	tps map[types.Object]*gt.Var
+	// nextVar numbers the rigid variables minted for Go type
+	// parameters, offset by goTypeParamVarBase so they never
+	// collide with a checker's declared or builtin variables (Var
+	// identity is its ID — a collision would equate distinct
+	// variables under types.Subst).
+	nextVar int
 }
+
+// goTypeParamVarBase starts the ID range of the rigid variables
+// standing for Go type parameters — kept clear of the checker's
+// declared-variable range (0+) and its builtinVarBase.
+const goTypeParamVarBase = 1 << 21
 
 // member is the per-symbol Go metadata: the object itself plus the
 // two signature views the checker and lowering consume.
@@ -208,6 +225,10 @@ func (l *Loader) member(path string, obj types.Object) (*resolve.Symbol, *member
 		if rreason != "" {
 			rt = mt // the views diverge only where both map — defensive
 		}
+		if rreason == "" && !viewsCompatible(mt, rt) {
+			sym.Hidden = divergentReason(obj.Type())
+			break
+		}
 		m.gs = lower.GoSig{Results: core.GoResultsOne, ResTypes: []gt.Type{rt}}
 	default:
 		sym.Hidden = fmt.Sprintf("unsupported member kind %T", obj)
@@ -244,9 +265,10 @@ func (l *Loader) sigOf(sym *resolve.Symbol, m *member, sig *types.Signature) {
 		sym.Hidden = "member has no Go signature"
 		return
 	}
-	ck, gs, reason := l.mapSignature(sig)
-	if reason != "" {
-		sym.Hidden = reason
+	ck, gs, h := l.mapSignature(sig)
+	if h.reason != "" {
+		sym.Hidden = h.reason
+		sym.HiddenCode = h.code
 		return
 	}
 	m.ck = ck

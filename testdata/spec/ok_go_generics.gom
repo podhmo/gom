@@ -1,0 +1,15 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// Generic Go calls infer their type arguments from the arguments
+// (spec 8.1.6): `Identity`'s T binds Int, `Count`'s E binds String
+// through the `List` boundary, and `Lookup` exercises the `Go.Map`
+// boundary with a tuple-shaped `(V, Bool)` result (spec 8.3).
+fn ident (n: Int) -> Int = goiface.Identity n
+fn count (xs: List String) (s: String) -> Int = goiface.Count xs s
+fn lookup_or (m: Go.Map String Int) (k: String) -> Int = {
+  let (v, ok) = goiface.Lookup m k
+  if ok { v } else { 0 }
+}
+fn swap (s: String) (n: Int) -> Int = goiface.Second s n

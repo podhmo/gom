@@ -1,0 +1,9 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// `[]int` needs an element-wise int/int64 conversion inside the
+// slice — the boundary cannot spell that conversion yet, so the
+// member stays hidden and the reference reports E0501 with the
+// reason (spec 8.3's type table and 8.5's hidden-symbol rule).
+fn f (xs: List Int) -> Int = goiface.Sum xs

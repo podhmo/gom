@@ -67,9 +67,14 @@
   [decision](decisions/2026-11-03-pipe-try-segmented-fusion.md)、
   [検証](sketch/2026-11-03-pipe-try-segmented-fusion.md)、[TODO P2-4b](../TODO.md)。
 
-- [ ] **Go slice の既定対応が spec と異なる**: spec 8.3/8.5 は `[]T` → `List T` と両方向コピー、
+- [x] **Go slice の既定対応が spec と異なる**: spec 8.3/8.5 は `[]T` → `List T` と両方向コピー、
   loader は `Go.Slice T` を返す。`Go.conv os.Args : List String` も E0507。
-  参照: [spec](spec.md#83-型の対応)、[mapping](../internal/goimport/mapping.go)、[Gist probe](sketch/2026-11-03-gist-cli-prototype.md)。
+  対応: シグネチャ境界の `[]T` を `List T` に写し、両方向のコピーを Core Conv
+  （`.ToSlice()` / `list.FromSlice`）として生成。`Go.Slice` は明示の no-copy 経路。
+  `Go.conv` に `List` との相互変換は足していない（境界では暗黙変換のため不要 — 要 spec 確認）。
+  参照: [decision](decisions/2026-11-04-go-collections-and-generics.md)、
+  [検証](sketch/2026-11-04-p3-3-go-collections-verification.md)、
+  [golden](../testdata/golden/go_slice_boundary.golden.go)。
 
 - [x] **Go interface の代入規則が未実装**: spec 8.3 は Go 由来の値を代入規則に従って渡せるとするが、
   `*strings.Reader` → `io.Reader` や `*os.File` → `io.Writer` が E0401 になる。
@@ -105,7 +110,13 @@
 
 - [ ] **Go ジェネリック関数の扱いが文書内でも異なる**: spec 8.3 は未対応、8.5 は
   `any` / `comparable` 制約なら呼べるとするが、loader はすべて非公開にする。
-  参照: [spec](spec.md#83-型の対応)、[詳細](problems/2026-11-04-generic-go-fns-hidden.md)。
+  対応（一部）: `any` / `comparable` 制約のジェネリック関数は宣言順の型引数で呼べる
+  （E0508 は comparable 違反）。残るずれ: spec 8.1.6 の例 `slices.Contains` は構造制約
+  `~[]E` のため非公開のまま（E0506）— 8.3 の「ジェネリック関数は未対応」という括弧書きも
+  `any`/`comparable` が呼べる現状と齟齬。spec の文言修正か制約の拡張が必要。
+  参照: [decision](decisions/2026-11-04-go-collections-and-generics.md)、
+  [詳細](problems/2026-11-04-generic-go-fns-hidden.md)、
+  [検証](sketch/2026-11-04-p3-3-go-collections-verification.md)。
 
 - [x] **戻り値なしの Go 呼び出しを関数末尾に置けない**: Unit として型検査を通る
   `fn stop () -> Unit = os.Exit 1` が `return os.Exit(...)` を生成し Go でコンパイルできない。
@@ -281,3 +292,20 @@
   decision に訂正を追記。
   参照: [decision](decisions/2026-11-03-list-literal-spread.md)、
   [grammar.ebnf](grammar.ebnf)。
+
+- [x] **制約の分類が型集合の部分集合を comparable と誤認**: `~int`・`int|string`・
+  `interface{comparable; ~int}` は `IsComparable` が真でも生成 `pkg.F[int64]` が Go に
+  拒否される。`interface{comparable}` は受理する必要があるため IsMethodSet でも判別不能。
+  対応: universe `comparable` との `types.Identical` で型集合の同一性を照合し、
+  部分集合は E0506 で非公開。`interface{comparable}` 同値表記は受理を維持。
+  参照: [decision](decisions/2026-11-04-go-collections-and-generics.md)、
+  [fixture](../testdata/spec/E0506_approx_constraint.gom)。
+- [x] **コンテナ要素の Int/Go.Int 分裂が lower の E0901 になる**: `[]int`・
+  `map[string]int`・`[][]int`・`chan int`・`Ptr int`・`...int` は要素ごとの
+  int/int64 変換を Core IR で表せず、check を通って lowering で内部エラーになった
+  （P3-3 以前からの潜在バグでもある）。
+  対応: `viewsCompatible` で両ビューの整合を境界型ごとに検査し、
+  分裂するメンバーは理由付きで非公開（E0501）。要素変換コピー（rt.MapSlice 案）は
+  コストが読めないため見送り — `Go.Slice` 経路と spec 修正の余地として記録。
+  参照: [decision](decisions/2026-11-04-go-collections-and-generics.md)、
+  [fixture](../testdata/spec/E0501_go_container_view_split.gom)。

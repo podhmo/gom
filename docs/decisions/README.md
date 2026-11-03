@@ -85,7 +85,7 @@
 | [gist-cli-host-boundary](2026-11-03-gist-cli-host-boundary.md) | Gist CLI as an executable Gom integration use case（一部を [go-interface-assignment-and-fields](2026-11-03-go-interface-assignment-and-fields.md) で置き換え） | 採用 |
 | [go-error-alias-results](2026-11-03-go-error-alias-results.md) | Go の error alias は error 戻り値規約を引き継ぐ | 採用 |
 | [go-interface-assignment-and-fields](2026-11-03-go-interface-assignment-and-fields.md) | Go interface assignments and read-only exported struct fields | 採用 |
-| [go-types-mapping](2026-11-03-go-types-mapping.md) | go/types → Gom type mapping and where boundary conversions live | 採用（P1-9 の `internal/goimport` が実装・検証した — `strconv.Atoi`/`Itoa`・`os.LookupEnv`・`bytes.Buffer` メソッドが E2E で動く） |
+| [go-types-mapping](2026-11-03-go-types-mapping.md) | go/types → Gom type mapping and where boundary conversions live（一部を [go-collections-and-generics](2026-11-04-go-collections-and-generics.md) で置き換え） | 採用（P1-9 の `internal/goimport` が実装・検証した — `strconv.Atoi`/`Itoa`・`os.LookupEnv`・`bytes.Buffer` メソッドが E2E で動く） |
 | [gom-fix-explain-schema](2026-11-03-gom-fix-explain-schema.md) | gom fix / explain / schema: wire shapes and the fix-application policy (P4-4) | 採用 |
 | [gom-test-message-stream](2026-11-03-gom-test-message-stream.md) | `gom test` message stream and `go test` execution granularity | 採用 |
 | [import-go-loading-mechanics](2026-11-03-import-go-loading-mechanics.md) | How `import go` loads Go packages: go/types + go/importer over `go list -export` | 採用（P1-9 の `internal/goimport` が実装・検証した — E2E で `strconv`/`bytes`/`os`/`fmt` の呼び出しが生成コードの build・run まで通る） |
@@ -103,6 +103,7 @@
 | [tutorial-go-module-inputs](2026-11-03-tutorial-go-module-inputs.md) | Track actual Go module inputs of tutorial subprocesses | 採用 |
 | [void-go-call-results](2026-11-03-void-go-call-results.md) | Zero-result Go calls are statements followed by Gom Unit | 採用 |
 | [fn-main-entrypoint](2026-11-04-fn-main-entrypoint.md) | `fn main () -> Unit` in `package main` is the Go entrypoint | 採用（`cmd/gom.TestEndToEnd_BuildAndRun` が shim なしで `gom build` → `go build` → 実行まで検証） |
+| [go-collections-and-generics](2026-11-04-go-collections-and-generics.md) | []T → List boundary copies, Go.Slice/Go.Map, and callable generic Go functions | 採用（P3-3 が実装・検証した — [検証](../sketch/2026-11-04-p3-3-go-collections-verification.md)） |
 | [structural-equality-emission](2026-11-04-structural-equality-emission.md) | Structural `==`/`!=` emission: `rt.Equal` except provably comparable scalars（一部を [generated-equality-comparators](2026-11-05-generated-equality-comparators.md) で置き換え） | draft |
 | [eq-comparator-budget-and-names](2026-11-05-eq-comparator-budget-and-names.md) | Comparator minting is bounded and file-unique; ctor lets keep the declared interface | draft |
 | [generated-equality-comparators](2026-11-05-generated-equality-comparators.md) | Generated per-type comparators for `==`/`!=`/`assert_eq` (core.Equal + File.EqDecls)（一部を [eq-comparator-budget-and-names](2026-11-05-eq-comparator-budget-and-names.md) で置き換え） | 採用 |

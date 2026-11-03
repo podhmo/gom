@@ -1,0 +1,28 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0506",
+      "severity": "error",
+      "message": "Go symbol `github.com/podhmo/gom/testdata/goiface.Clamp` is not exposed: type parameter T: constraint ~int is not supported (only any and comparable are)",
+      "span": {
+        "file": "E0506_approx_constraint.gom",
+        "start": {
+          "line": 10,
+          "col": 32,
+          "offset": 360
+        },
+        "end": {
+          "line": 10,
+          "col": 37,
+          "offset": 365
+        }
+      },
+      "data": {
+        "package": "github.com/podhmo/gom/testdata/goiface",
+        "reason": "type parameter T: constraint ~int is not supported (only any and comparable are)",
+        "symbol": "Clamp"
+      }
+    }
+  ]
+}

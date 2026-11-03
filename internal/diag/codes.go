@@ -745,6 +745,21 @@ underlying type or between numeric types, but not for conversions Go
 itself would reject.`,
 		Example: `Go.conv "abc" : Int   // String is not convertible to Int`,
 	},
+	{
+		Code:     "E0508",
+		Severity: SeverityError,
+		Title:    "type argument does not satisfy a Go constraint",
+		Phase:    PhaseCheck,
+		Spec:     "8.5",
+		Explanation: `A generic Go function whose type parameter carries the
+"comparable" constraint needs a type argument whose generated Go
+representation is comparable (spec section 8.5). Lists, arrays, maps,
+slices, functions, and Gom type variables (which instantiate as "any")
+are not comparable; records and tuples are comparable only when every
+field is. Wrap the call behind an extern binding or a Go helper, or
+choose a type argument that is comparable.`,
+		Example: `cmp.Or [1, 2] [3]   // List Int is not comparable`,
+	},
 
 	{
 		Code:     "E0601",

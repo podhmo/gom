@@ -22,6 +22,20 @@ func Todo[T any]() T {
 	panic("gom: todo")
 }
 
+// BoxSlice copies a Go slice into a fresh []any, boxing each element —
+// the boundary conversion a `..xs` spread into a `...any` variadic
+// needs (spec section 8.1 item 4): Go itself cannot splice a []T
+// into ...any. The fresh array means the Go callee's writes through
+// the slice never reach the operand's backing array, per spec
+// section 8.5's copy rule.
+func BoxSlice[A any](xs []A) []any {
+	out := make([]any, len(xs))
+	for i, v := range xs {
+		out[i] = v
+	}
+	return out
+}
+
 // Equal is the fallback recipe for Gom's structural `==` (spec
 // section 3.3): generated code routes operand types it has no
 // per-type comparator for — named Go types, Task, Go.Any — through

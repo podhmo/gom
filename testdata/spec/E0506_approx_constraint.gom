@@ -1,0 +1,10 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// `~int` is a proper subset of `comparable` — every element is
+// comparable, but instantiating Clamp as `Clamp[int64]` would
+// violate the `~` term, so the constraint is outside the
+// any/comparable callable set (spec 8.5) and the reference reports
+// E0506.
+fn f (n: Int) -> Int = goiface.Clamp n 0 9

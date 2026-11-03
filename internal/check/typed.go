@@ -382,6 +382,10 @@ type Ascribe struct {
 	Conv bool
 	// Iface marks an oracle-validated implicit Go interface assignment.
 	Iface bool
+	// Slice marks an implicit List ↔ Go.Slice boundary conversion —
+	// the checker validated the pair; lowering picks the direction
+	// (ConvSliceToGo / ConvSliceFromGo / ConvSliceBox) from the types.
+	Slice bool
 }
 
 func (*Ascribe) isExpr() {}

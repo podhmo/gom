@@ -113,6 +113,9 @@ func (c *checker) checkExpr(e syntax.Expr, want types.Type) Expr {
 			if src, ok := c.src.(InterfaceSource); ok && c.goOriginType(out.Type()) && ifaceWant && src.InterfaceAssignable(out.Type(), want) {
 				return &Ascribe{Base: baseOf(e.Span(), want), X: out, Conv: true, Iface: true}
 			}
+			if conv := c.sliceConv(want, out.Type(), out, e.Span()); conv != nil {
+				return conv
+			}
 		}
 		// A failed expectation left want unsolved: silence it —
 		// the mismatch diagnostic at e.Span() already tells the
@@ -474,7 +477,7 @@ func (c *checker) methodOf(recvT types.Type, name string, sp diag.Span) (*resolv
 			if c.hiddenDiag(sym, sp) {
 				return sym, c.quietMeta(sp, fmt.Sprintf("the type of method `%s`", name)), nil, true
 			}
-			typ, targs := c.instantiate(sig.Type, sp)
+			typ, targs := c.instantiateSig(sig, sp)
 			return sym, typ, targs, true
 		}
 	}
@@ -1775,6 +1778,51 @@ func (c *checker) goOriginType(t types.Type) bool {
 	default:
 		panic("unreachable")
 	}
+}
+
+// sliceConv checks the implicit List ↔ Go.Slice boundary conversion
+// (spec section 8.5): an annotated position whose expected and actual
+// types are the builtin List and `Go.Slice` in either order converts
+// by copy. The Conv+Slice Ascribe records the choice — lowering reads
+// the two types to pick ConvSliceToGo or ConvSliceFromGo. Element
+// types must agree: equal solves, an unbound meta binds, and a
+// `Go.Slice Go.Any` target accepts any element through boxing
+// (ConvSliceBox). Anything else falls back to the ordinary mismatch.
+func (c *checker) sliceConv(want, got types.Type, x Expr, sp diag.Span) Expr {
+	wc, _ := types.Chase(want).(*types.Con)
+	gc, _ := types.Chase(got).(*types.Con)
+	if wc == nil || gc == nil || len(wc.Args) != 1 || len(gc.Args) != 1 {
+		return nil
+	}
+	isGoSlice := func(con *types.Con) bool { return con.Qual == "Go" && con.Name == "Slice" }
+	isList := func(con *types.Con) bool {
+		return con.Qual == "" && con.Name == "List" && !c.shadowedBuiltin("List")
+	}
+	var we, ge types.Type
+	box := false
+	switch {
+	case isGoSlice(wc) && isList(gc):
+		we, ge = wc.Args[0], gc.Args[0]
+		box = isGoAny(types.Chase(we)) && !isGoAny(types.Chase(ge))
+	case isGoSlice(wc) && isGoSlice(gc):
+		we, ge = wc.Args[0], gc.Args[0]
+		box = isGoAny(types.Chase(we)) && !isGoAny(types.Chase(ge))
+	case isList(wc) && isGoSlice(gc):
+		we, ge = wc.Args[0], gc.Args[0]
+	default:
+		return nil
+	}
+	if !box && !types.Equal(we, ge) {
+		_, wmeta := types.Chase(we).(*types.Meta)
+		_, gmeta := types.Chase(ge).(*types.Meta)
+		if !wmeta && !gmeta {
+			return nil
+		}
+		if !c.unify(we, ge, sp) {
+			return nil
+		}
+	}
+	return &Ascribe{Base: baseOf(sp, want), X: x, Conv: true, Slice: true}
 }
 
 func (c *checker) goFieldOf(recv types.Type, name string, sp diag.Span) (*resolve.Symbol, types.Type, types.Type, bool) {

@@ -1,0 +1,28 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0506",
+      "severity": "error",
+      "message": "Go symbol `slices.Contains` is not exposed: type parameter S: constraint ~[]E is not supported (only any and comparable are)",
+      "span": {
+        "file": "E0506_hidden_go_apply.gom",
+        "start": {
+          "line": 10,
+          "col": 10,
+          "offset": 336
+        },
+        "end": {
+          "line": 10,
+          "col": 18,
+          "offset": 344
+        }
+      },
+      "data": {
+        "package": "slices",
+        "reason": "type parameter S: constraint ~[]E is not supported (only any and comparable are)",
+        "symbol": "Contains"
+      }
+    }
+  ]
+}

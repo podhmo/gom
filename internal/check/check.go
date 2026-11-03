@@ -57,6 +57,7 @@ func Check(res *resolve.Resolved, src SignatureSource) (*File, diag.List) {
 	c.finalize()
 	c.checkTopLevelLetScopes()
 	c.checkInstantiationCycles()
+	c.validateGoGenerics()
 
 	f := &File{Sp: res.File.Sp}
 	if res.File.Package != nil {
@@ -184,8 +185,58 @@ type checker struct {
 	// Float is the IEEE division Go allows.
 	pendingDivs []*Binary
 
+	// pendingGens are the use sites of generic Go callees — each
+	// records the signature and the type arguments (metas) that
+	// instantiate produced, in declared TypeParams order. Once
+	// inference finishes, validateGoGenerics checks each solved type
+	// argument against its Go constraint (spec section 8.5).
+	pendingGens []*genericUse
+
 	imports []Import
 	decls   []Decl
+}
+
+// genericUse is one use of a generic Go callee: the reference span
+// and the type arguments instantiate produced — parallel to
+// sig.TypeParams and sig.GoConstraints.
+type genericUse struct {
+	sym   *resolve.Symbol
+	sig   Signature
+	targs []types.Type
+	sp    diag.Span
+}
+
+// validateGoGenerics runs after inference settles: every recorded
+// use of a generic Go callee has its type arguments solved, so each
+// `comparable` parameter's argument is judged on its emitted Go
+// representation (spec section 8.5). An unsolved argument's E0407
+// already stands — the constraint check skips it rather than pile on.
+func (c *checker) validateGoGenerics() {
+	for _, use := range c.pendingGens {
+		for i, k := range use.sig.GoConstraints {
+			if k != GoConstraintComparable || i >= len(use.targs) {
+				continue
+			}
+			targ := types.Chase(use.targs[i])
+			if _, ok := targ.(*types.Meta); ok {
+				continue
+			}
+			if c.goReprComparable(targ) {
+				continue
+			}
+			param := "?"
+			if i < len(use.sig.TypeParams) {
+				param = use.sig.TypeParams[i].Name
+			}
+			c.diags.Add(diag.Error("E0508",
+				fmt.Sprintf("type argument `%s` does not satisfy the `comparable` constraint of `%s`'s type parameter `%s`",
+					targ, use.sym.Name, param)).
+				At(use.sp).
+				Set("argument", targ.String()).
+				Set("constraint", "comparable").
+				Set("parameter", param))
+		}
+	}
 }
 
 // goErrMethodSym returns the symbol standing for GoError's
@@ -339,7 +390,10 @@ func (c *checker) valOf(sym *resolve.Symbol, sp diag.Span) (types.Type, []types.
 		if _, local := c.vals[sym]; local && sym.Kind == resolve.KindVar {
 			return sig.Type, nil
 		}
-		typ, targs := c.instantiate(sig.Type, sp)
+		typ, targs := c.instantiateSig(sig, sp)
+		if len(sig.GoConstraints) > 0 {
+			c.pendingGens = append(c.pendingGens, &genericUse{sym: sym, sig: sig, targs: targs, sp: sp})
+		}
 		if c.thunks[sym] {
 			// A generalized value-let's signature is the niladic
 			// thunk `() -> T` (checkLetDecl): the reference denotes
@@ -363,7 +417,11 @@ func (c *checker) hiddenDiag(sym *resolve.Symbol, sp diag.Span) bool {
 	if sym == nil || sym.Hidden == "" {
 		return false
 	}
-	c.diags.Add(diag.Error("E0501",
+	code := diag.Code(sym.HiddenCode)
+	if code == "" {
+		code = "E0501"
+	}
+	c.diags.Add(diag.Error(code,
 		fmt.Sprintf("Go symbol `%s.%s` is not exposed: %s", sym.Package, sym.Name, sym.Hidden)).
 		At(sp).Set("package", sym.Package).Set("symbol", sym.Name).Set("reason", sym.Hidden))
 	return true

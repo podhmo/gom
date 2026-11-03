@@ -832,6 +832,8 @@ func (g *gen) convOf(kind core.ConvKind, target types.Type, x ast.Expr) ast.Expr
 		return &ast.CallExpr{Fun: &ast.SelectorExpr{X: x, Sel: ast.NewIdent("ToSlice")}}
 	case core.ConvSliceFromGo:
 		return &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual(listPath) + "FromSlice"), Args: []ast.Expr{x}}
+	case core.ConvSliceBox:
+		return &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual(rtPath) + "BoxSlice"), Args: []ast.Expr{x}}
 	default:
 		panic("unreachable")
 	}

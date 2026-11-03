@@ -1,0 +1,10 @@
+package ex
+
+import go "slices"
+
+// An application of a hidden Go callee reports E0506 alone — the
+// constraint of `slices.Contains`'s S parameter (~[]E) is outside
+// the any/comparable callable set (spec 8.5), so the symbol stays
+// unexposed; no arity mismatch (E0401) can fire on top of it.
+fn f (xs: List Int) -> Bool =
+  slices.Contains(xs, 1)

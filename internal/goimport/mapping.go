@@ -25,24 +25,63 @@ import (
 
 // mapSignature derives the two signature views of a Go callable.
 // reason is "" on success.
-func (l *Loader) mapSignature(sig *types.Signature) (check.Signature, lower.GoSig, string) {
-	if sig.TypeParams().Len() > 0 || sig.RecvTypeParams().Len() > 0 {
-		return check.Signature{}, lower.GoSig{}, "generic Go functions are not supported yet"
+//
+// A generic Go function ([T any], [E comparable]) maps to a Gom
+// signature over rigid type variables in declared order — recorded
+// on Signature.TypeParams so CallInfo.TypeArgs lines up with the
+// emitted `pkg.F[T1, T2]`. Only `any` and `comparable` constraints
+// are callable (spec section 8.5); other constraints hide the
+// symbol with the reason E0501 surfaces.
+// hiddenSym is why a member stays unexposed in Gom — the reason the
+// checker reports at each use site plus the diagnostic code to report
+// it under ("" = the E0501 default).
+type hiddenSym struct {
+	reason string
+	code   string
+}
+
+func (l *Loader) mapSignature(sig *types.Signature) (check.Signature, lower.GoSig, hiddenSym) {
+	if sig.RecvTypeParams().Len() > 0 {
+		return check.Signature{}, lower.GoSig{}, hiddenSym{reason: "generic receiver type parameters are not supported yet"}
+	}
+	var tvars []*gt.Var
+	var gcons []check.GoConstraint
+	if n := sig.TypeParams().Len(); n > 0 {
+		l.tps = map[types.Object]*gt.Var{}
+		defer func() { l.tps = nil }()
+		tvars = make([]*gt.Var, n)
+		gcons = make([]check.GoConstraint, n)
+		for i := 0; i < n; i++ {
+			tp := sig.TypeParams().At(i)
+			k, reason := callableConstraint(tp.Constraint())
+			if reason != "" {
+				return check.Signature{}, lower.GoSig{}, hiddenSym{
+					reason: fmt.Sprintf("type parameter %s: %s", tp.Obj().Name(), reason),
+					code:   "E0506",
+				}
+			}
+			v := &gt.Var{ID: goTypeParamVarBase + l.nextVar, Name: tp.Obj().Name()}
+			l.nextVar++
+			tvars[i] = v
+			gcons[i] = k
+			l.tps[tp.Obj()] = v
+		}
 	}
 	params := sig.Params()
 	ps := make([]gt.FuncParam, 0, params.Len())
 	rawP := make([]gt.Type, 0, params.Len())
 	for i := 0; i < params.Len(); i++ {
 		pt := params.At(i).Type()
-		mt, reason := l.mapType(pt, false)
+		mt, reason := l.mapBoundaryType(pt, false)
 		if reason != "" {
-			return check.Signature{}, lower.GoSig{},
-				fmt.Sprintf("parameter %s: %s", params.At(i).Name(), reason)
+			return check.Signature{}, lower.GoSig{}, hiddenSym{reason: fmt.Sprintf("parameter %s: %s", params.At(i).Name(), reason)}
 		}
 		rt, reason := l.mapType(pt, true)
 		if reason != "" {
-			return check.Signature{}, lower.GoSig{},
-				fmt.Sprintf("parameter %s: %s", params.At(i).Name(), reason)
+			return check.Signature{}, lower.GoSig{}, hiddenSym{reason: fmt.Sprintf("parameter %s: %s", params.At(i).Name(), reason)}
+		}
+		if !viewsCompatible(mt, rt) {
+			return check.Signature{}, lower.GoSig{}, hiddenSym{reason: fmt.Sprintf("parameter %s: %s", params.At(i).Name(), divergentReason(pt))}
 		}
 		ps = append(ps, gt.P(mt))
 		rawP = append(rawP, rt)
@@ -53,8 +92,7 @@ func (l *Loader) mapSignature(sig *types.Signature) (check.Signature, lower.GoSi
 	for i := 0; i < results.Len(); i++ {
 		rt, reason := l.mapType(results.At(i).Type(), true)
 		if reason != "" {
-			return check.Signature{}, lower.GoSig{},
-				fmt.Sprintf("result %d: %s", i, reason)
+			return check.Signature{}, lower.GoSig{}, hiddenSym{reason: fmt.Sprintf("result %d: %s", i, reason)}
 		}
 		rawR = append(rawR, rt)
 	}
@@ -71,32 +109,40 @@ func (l *Loader) mapSignature(sig *types.Signature) (check.Signature, lower.GoSi
 			shape = core.GoResultsErrOnly
 			break
 		}
-		mt, reason := l.mapType(t0, false)
+		mt, reason := l.mapBoundaryType(t0, false)
 		if reason != "" {
-			return check.Signature{}, lower.GoSig{}, fmt.Sprintf("result 0: %s", reason)
+			return check.Signature{}, lower.GoSig{}, hiddenSym{reason: fmt.Sprintf("result 0: %s", reason)}
+		}
+		if !viewsCompatible(mt, rawR[0]) {
+			return check.Signature{}, lower.GoSig{}, hiddenSym{reason: fmt.Sprintf("result 0: %s", divergentReason(t0))}
 		}
 		ret = mt
 		shape = core.GoResultsOne
 	case 2:
 		t0, t1 := results.At(0).Type(), results.At(1).Type()
-		m0, reason := l.mapType(t0, false)
+		m0, reason := l.mapBoundaryType(t0, false)
 		if reason != "" {
-			return check.Signature{}, lower.GoSig{}, fmt.Sprintf("result 0: %s", reason)
+			return check.Signature{}, lower.GoSig{}, hiddenSym{reason: fmt.Sprintf("result 0: %s", reason)}
+		}
+		if !viewsCompatible(m0, rawR[0]) {
+			return check.Signature{}, lower.GoSig{}, hiddenSym{reason: fmt.Sprintf("result 0: %s", divergentReason(t0))}
 		}
 		if isError(t1) {
 			ret = gt.Result(m0, gt.GoError)
 			shape = core.GoResultsErr
 			break
 		}
-		m1, reason := l.mapType(t1, false)
+		m1, reason := l.mapBoundaryType(t1, false)
 		if reason != "" {
-			return check.Signature{}, lower.GoSig{}, fmt.Sprintf("result 1: %s", reason)
+			return check.Signature{}, lower.GoSig{}, hiddenSym{reason: fmt.Sprintf("result 1: %s", reason)}
+		}
+		if !viewsCompatible(m1, rawR[1]) {
+			return check.Signature{}, lower.GoSig{}, hiddenSym{reason: fmt.Sprintf("result 1: %s", divergentReason(t1))}
 		}
 		ret = gt.Tup(m0, m1)
 		shape = core.GoResultsPair
 	default:
-		return check.Signature{}, lower.GoSig{},
-			fmt.Sprintf("%d results — only 0, 1 or 2 are representable", results.Len())
+		return check.Signature{}, lower.GoSig{}, hiddenSym{reason: fmt.Sprintf("%d results — only 0, 1 or 2 are representable", results.Len())}
 	}
 
 	gs := lower.GoSig{
@@ -105,6 +151,11 @@ func (l *Loader) mapSignature(sig *types.Signature) (check.Signature, lower.GoSi
 		Results:  shape,
 		Params:   rawP,
 		ResTypes: rawR,
+		// TypeParams records the callee's own rigid variables in
+		// declared order — lowering substitutes the call site's
+		// type arguments (CallInfo.TypeArgs) into Params/ResTypes
+		// before picking conversions.
+		TypeParams: tvars,
 	}
 	ck := check.Signature{
 		Type:     gt.Fn(ret, ps...),
@@ -113,18 +164,114 @@ func (l *Loader) mapSignature(sig *types.Signature) (check.Signature, lower.GoSi
 		// and never returns a function (func-typed results are
 		// rejected below), so the derived arity is the declared one.
 		DeclArity: 0,
+		// TypeParams/GoConstraints carry the generic callee's
+		// declared order and constraint kinds — instantiateSig
+		// orders CallInfo.TypeArgs by them and the post-inference
+		// pass validates the solved arguments (E0508).
+		TypeParams:    tvars,
+		GoConstraints: gcons,
 	}
-	return ck, gs, ""
+	return ck, gs, hiddenSym{}
+}
+
+// universeComparable is the type set a `comparable` type parameter
+// must match exactly — `interface{comparable}` spells the same set
+// and is admitted, while `~int`, `int|string` and
+// `interface{comparable; ~int}` are proper subsets IsComparable alone
+// cannot tell apart: their elements are all comparable, but the
+// generated `pkg.F[int64]` instantiation would violate the
+// constraint. Identity, not the IsComparable flag, is the test.
+var universeComparable = types.Universe.Lookup("comparable").Type().Underlying()
+
+// callableConstraint classifies a Go type-parameter constraint for
+// the v1 callable set — `any` and `comparable` only (spec section
+// 8.5). Everything else — method sets, unions, `~` approximations,
+// intersections — hides the symbol with the reason E0506 surfaces.
+// The strictness is deliberate: widening to `IsMethodSet`-style or
+// structural `~[]E` constraints is a spec amendment, not an
+// oversight.
+func callableConstraint(c types.Type) (check.GoConstraint, string) {
+	iface, ok := types.Unalias(c).Underlying().(*types.Interface)
+	if !ok {
+		return 0, fmt.Sprintf("constraint %s is not an interface", c)
+	}
+	switch {
+	case iface.Empty():
+		return check.GoConstraintAny, ""
+	case types.Identical(iface, universeComparable):
+		return check.GoConstraintComparable, ""
+	default:
+		return 0, fmt.Sprintf("constraint %s is not supported (only any and comparable are)", c)
+	}
+}
+
+// viewsCompatible reports whether the two views of one boundary type
+// can reach each other through the conversions Core IR can express:
+// Equal views need none, the top-level int ↔ Go.Int split is a
+// numeric conversion, and the List ↔ Go.Slice boundary pair is a
+// copy — legal only when the elements' views are Equal, because an
+// element-wise conversion inside a container cannot be spelled yet.
+// Anything else (int nested in a slice/map/pointer/channel, a nested
+// slice pair, …) hides the symbol rather than surfacing as an
+// internal lowering error.
+func viewsCompatible(g, r gt.Type) bool {
+	g, r = gt.Chase(g), gt.Chase(r)
+	if gt.Equal(g, r) {
+		return true
+	}
+	gc, gok := g.(*gt.Con)
+	rc, rok := r.(*gt.Con)
+	if !gok || !rok {
+		return false
+	}
+	if gc.Qual == "" && gc.Name == "Int" && len(gc.Args) == 0 &&
+		rc.Qual == "Go" && rc.Name == "Int" && len(rc.Args) == 0 {
+		return true
+	}
+	if gc.Qual == "" && gc.Name == "List" && len(gc.Args) == 1 &&
+		rc.Qual == "Go" && rc.Name == "Slice" && len(rc.Args) == 1 {
+		return gt.Equal(gc.Args[0], rc.Args[0])
+	}
+	return false
+}
+
+// divergentReason explains the hidden reason for a boundary type
+// whose Gom and Go views split inside a container — the element-wise
+// conversion `[]int` or `map[string]int` would need cannot be
+// spelled in Core IR yet, so the symbol stays unexposed like any
+// other unrepresentable member.
+func divergentReason(t types.Type) string {
+	return fmt.Sprintf("type %s splits int and int64 inside a container — element-wise boundary conversions are not supported yet", t)
 }
 
 // gomType maps a go/types type to the Gom view — the entry used for
 // non-function members (types, vars, consts).
 func (l *Loader) gomType(t types.Type) (gt.Type, string) {
-	return l.mapType(t, false)
+	return l.mapBoundaryType(t, false)
 }
 
-// mapType maps a go/types type. goView selects the Go spelling where
-// it differs from the Gom one — today only `int` → `Go.Int`.
+// mapBoundaryType maps a Go type standing at a signature boundary —
+// a parameter, a result, or a member's declared type. In the Gom
+// view a top-level `[]T` is `List T` (the boundary copies of spec
+// section 8.5); nested `[]T` keeps the Go-owned `Go.Slice T` spelling
+// of mapType. The raw Go view (goView) maps like mapType.
+func (l *Loader) mapBoundaryType(t types.Type, goView bool) (gt.Type, string) {
+	if !goView {
+		if s, ok := t.(*types.Slice); ok {
+			el, reason := l.mapType(s.Elem(), false)
+			if reason != "" {
+				return nil, reason
+			}
+			return gt.List(el), ""
+		}
+	}
+	return l.mapType(t, goView)
+}
+
+// mapType maps a go/types type in a nested (non-boundary) position.
+// goView selects the Go spelling where it differs from the Gom one —
+// `int` → `Go.Int`, and `[]T` keeps the Go-owned `Go.Slice T` view
+// (mapBoundaryType owns the boundary's `List` view).
 func (l *Loader) mapType(t types.Type, goView bool) (gt.Type, string) {
 	switch t := t.(type) {
 	case *types.Basic:
@@ -192,6 +339,14 @@ func (l *Loader) mapType(t types.Type, goView bool) (gt.Type, string) {
 	case *types.Array:
 		return nil, "Go array types are not supported yet"
 	case *types.TypeParam:
+		// Inside a generic signature's scope the type parameter is
+		// the rigid variable mapSignature minted — the generic
+		// callee's `T` is a Gom `a` the caller instantiates.
+		if l.tps != nil {
+			if v, ok := l.tps[t.Obj()]; ok {
+				return v, ""
+			}
+		}
 		return nil, "generic Go types are not supported yet"
 	case *types.Tuple:
 		return nil, "tuple types only appear inside signatures"

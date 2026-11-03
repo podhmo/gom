@@ -39,6 +39,16 @@ func (l *Loader) boundaryType(t gt.Type) types.Type {
 			}
 			return nil
 		}
+		if t.Qual == "" && t.Name == "List" && len(t.Args) == 1 {
+			// The Gom List renders as the named slice list.List[A]
+			// — for the boundary relations (assignability,
+			// comparability, convertibility) its underlying slice
+			// is the faithful Go spelling.
+			if el := l.boundaryType(t.Args[0]); el != nil {
+				return types.NewSlice(el)
+			}
+			return nil
+		}
 		if t.Qual == "" && len(t.Args) == 1 {
 			direction, channel := types.SendRecv, true
 			switch t.Name {
@@ -95,6 +105,15 @@ func (l *Loader) boundaryType(t gt.Type) types.Type {
 	}
 }
 
+// GoComparable reports whether t's Go representation satisfies the
+// `comparable` constraint — the check.ComparableSource entry the
+// generic-call constraint check consults for *types.Go handles.
+// The named type behind the handle answers with types.Comparable.
+func (l *Loader) GoComparable(t gt.Type) bool {
+	bt := l.boundaryType(t)
+	return bt != nil && types.Comparable(bt)
+}
+
 // FieldOf resolves readable Go struct fields, including promoted selectors.
 // Unsupported field types remain discoverable and produce E0501 on use only.
 func (l *Loader) FieldOf(recv gt.Type, name string) (*resolve.Symbol, check.Signature, gt.Type, bool) {
@@ -111,10 +130,13 @@ func (l *Loader) FieldOf(recv gt.Type, name string) (*resolve.Symbol, check.Sign
 	if field.Pkg() != nil {
 		sym.Package = field.Pkg().Path()
 	}
-	mapped, reason := l.mapType(field.Type(), false)
+	mapped, reason := l.mapBoundaryType(field.Type(), false)
 	raw, rawReason := l.mapType(field.Type(), true)
 	if reason == "" {
 		reason = rawReason
+	}
+	if reason == "" && !viewsCompatible(mapped, raw) {
+		reason = divergentReason(field.Type())
 	}
 	if reason != "" {
 		sym.Hidden = reason

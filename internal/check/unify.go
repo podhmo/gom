@@ -378,6 +378,167 @@ func (w *eqWalk) expand(t *types.Con, ti *typeInfo, f func(types.Subst) bool) bo
 	return f(sub)
 }
 
+// goReprComparable reports whether t's emitted Go representation
+// satisfies Go's `comparable` constraint — the checker's half of the
+// generic-Go-call constraint check (spec section 8.5). The judgment
+// is over generated code shapes, not Go semantics: a sum type is a
+// sealed interface (comparable), a record a struct (comparable iff
+// every field is), Option an interface, Result a flat struct, a
+// declared Gom type variable an `any` parameter (not comparable).
+// *types.Go handles delegate to the ComparableSource oracle —
+// `types.Comparable` on the named type behind the handle. Opaque
+// shapes the checker cannot see (abstract or foreign declared types)
+// answer false rather than guess: a rejected call is recoverable, a
+// generated file that fails `go build` is not.
+func (c *checker) goReprComparable(t types.Type) bool {
+	w := &cmpWalk{c: c}
+	return w.has(t)
+}
+
+// cmpWalk is the comparable-representation traversal behind
+// goReprComparable — it mirrors eqWalk's declared-type expansion.
+type cmpWalk struct {
+	c     *checker
+	seen  []recordVisit
+	steps int
+}
+
+// has reports whether t's Go representation is comparable.
+func (w *cmpWalk) has(t types.Type) bool {
+	switch t := types.Chase(t).(type) {
+	case *types.Var:
+		// A Gom type parameter instantiates as `any` — it cannot
+		// satisfy `comparable` (spec section 8.5's boundary).
+		return false
+	case *types.Meta:
+		// An unbound meta is undecided — finalize reports E0407.
+		return true
+	case *types.Func:
+		return false
+	case *types.Tuple:
+		// rt.TupleN[A, ...] is a struct — comparable iff every
+		// element is.
+		for _, e := range t.Elems {
+			if !w.has(e) {
+				return false
+			}
+		}
+		return true
+	case *types.Go:
+		if src, ok := w.c.src.(ComparableSource); ok {
+			return src.GoComparable(t)
+		}
+		return false
+	case *types.Con:
+		if t.Qual == "Go" {
+			switch t.Name {
+			case "Slice", "Map":
+				return false
+			default:
+				// Go.Int (int) and Go.Any (any) are comparable.
+				return true
+			}
+		}
+		if t.Qual == "" && !w.c.shadowedBuiltin(t.Name) {
+			switch t.Name {
+			case "Unit", "Bool", "Int", "Int32", "Int64", "Float",
+				"Char", "String", "GoError":
+				// bool, the int widths, float64, rune, string,
+				// struct{} and the error interface — all
+				// comparable Go representations.
+				return true
+			case "List", "Array":
+				// list.List[A] is a named slice; Array renders []A.
+				return false
+			case "Result":
+				// result.Result[T, E] is a struct — comparable iff
+				// its payload fields are.
+				for _, a := range t.Args {
+					if !w.has(a) {
+						return false
+					}
+				}
+				return true
+			case "Task":
+				// rt.Task[T] is a struct — comparable iff T is.
+				if len(t.Args) == 1 {
+					return w.has(t.Args[0])
+				}
+				return true
+			case "Option", "Ref", "Ptr", "Chan", "RecvChan", "SendChan":
+				// option.Option[A] is an interface; Ref and Ptr are
+				// pointers; channels are channels — all comparable.
+				return true
+			}
+		}
+		// A declared type: sealed-interface sums are comparable,
+		// records are comparable iff every field is, aliases expand.
+		if w.expandable(t) {
+			ti := w.c.tyCons[conKey{qual: t.Qual, name: t.Name}]
+			return w.expand(t, ti, func(sub types.Subst) bool {
+				switch ti.kind {
+				case kindSum:
+					return true
+				case kindRecord:
+					for _, f := range ti.fields {
+						if !w.has(sub.Apply(f.typ)) {
+							return false
+						}
+					}
+					return true
+				case kindAlias:
+					if ti.aliasRes {
+						return w.has(sub.Apply(ti.alias))
+					}
+				}
+				return false
+			})
+		}
+		// An unqualified builtin the file shadows (tyCons has the
+		// declaration — expandable caught it), an abstract type, or
+		// a foreign nominal type: the repr is not visible here.
+		return false
+	default:
+		panic("unreachable")
+	}
+}
+
+// expandable reports whether the constructor names a *local* declared
+// record, sum or alias — the shapes whose declarations contribute to
+// the comparable judgment.
+func (w *cmpWalk) expandable(t *types.Con) bool {
+	if t.Qual != "" {
+		return false
+	}
+	ti, ok := w.c.tyCons[conKey{qual: t.Qual, name: t.Name}]
+	return ok && ti.kind != kindAbstract
+}
+
+// expand runs f under the declaration's type-parameter substitution,
+// bounded like eqWalk.expand — a revisit or an exhausted budget
+// answers false, the "cannot prove comparable" value.
+func (w *cmpWalk) expand(t *types.Con, ti *typeInfo, f func(types.Subst) bool) bool {
+	v := recordVisit{ti: ti, args: t.Args}
+	for _, s := range w.seen {
+		if s.ti == ti && sameTypes(s.args, v.args) {
+			return false
+		}
+	}
+	if w.steps >= recordCycleLimit {
+		return false
+	}
+	w.seen = append(w.seen, v)
+	w.steps++
+	defer func() { w.seen = w.seen[:len(w.seen)-1] }()
+	sub := types.Subst{}
+	for i, p := range ti.params {
+		if i < len(t.Args) {
+			sub[p.ID] = t.Args[i]
+		}
+	}
+	return f(sub)
+}
+
 // occurs reports whether the unbound meta m occurs inside t — a bind
 // that would create an infinite type.
 func occurs(m *types.Meta, t types.Type) bool {
@@ -778,6 +939,25 @@ func (c *checker) instantiate(t types.Type, sp diag.Span) (types.Type, []types.T
 		args[i] = m
 	}
 	return sub.Apply(t), args
+}
+
+// instantiateSig is instantiate over a Signature: when the signature
+// declares its own TypeParams (a generic Go callee) the returned type
+// arguments follow that declared order — which may differ from
+// first-occurrence order — so CallInfo.TypeArgs lines up with the
+// emitted `pkg.F[T1, T2]` instantiation.
+func (c *checker) instantiateSig(sig Signature, sp diag.Span) (types.Type, []types.Type) {
+	if len(sig.TypeParams) == 0 {
+		return c.instantiate(sig.Type, sp)
+	}
+	sub := types.Subst{}
+	args := make([]types.Type, len(sig.TypeParams))
+	for i, v := range sig.TypeParams {
+		m := c.newMeta(sp, fmt.Sprintf("the type argument for `%s`", v))
+		sub[v.ID] = m
+		args[i] = m
+	}
+	return sub.Apply(sig.Type), args
 }
 
 // finalize runs at the end of the check: integer-literal metas and

@@ -1,0 +1,28 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0508",
+      "severity": "error",
+      "message": "type argument `List Int` does not satisfy the `comparable` constraint of `Count`'s type parameter `E`",
+      "span": {
+        "file": "E0508_generic_comparable.gom",
+        "start": {
+          "line": 8,
+          "col": 59,
+          "offset": 318
+        },
+        "end": {
+          "line": 8,
+          "col": 64,
+          "offset": 323
+        }
+      },
+      "data": {
+        "argument": "List Int",
+        "constraint": "comparable",
+        "parameter": "E"
+      }
+    }
+  ]
+}

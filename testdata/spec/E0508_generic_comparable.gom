@@ -1,0 +1,8 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// `List Int` generates the named slice `list.List`, which is not
+// comparable — it cannot instantiate `Count`'s `comparable` type
+// parameter E (spec 8.5). E0508 reports the failed argument.
+fn f (xs: List (List Int)) (v: List Int) -> Int = goiface.Count xs v

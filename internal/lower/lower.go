@@ -82,6 +82,14 @@ type GoSig struct {
 	// types the call binds at, in result order (the `(T, error)`
 	// shape has two). Nil means "each result is its Gom-view type".
 	ResTypes []types.Type
+	// TypeParams is the callee's own rigid type variables in
+	// declared order, parallel to the instantiation
+	// `check.CallInfo.TypeArgs` records for a generic Go callee.
+	// Params and ResTypes may contain these variables; lowering
+	// substitutes the call's solved arguments before comparing
+	// views, so the emitted `pkg.F[T1, T2]` and the conversions
+	// around it agree.
+	TypeParams []*types.Var
 }
 
 // Variant is one constructor of a sum type — the answer TypeOracle
@@ -399,6 +407,42 @@ func (l *lowerer) goSig(sym *resolve.Symbol, refTyp types.Type) GoSig {
 		}
 	}
 	return GoSig{Arity: flatArity(refTyp), Results: l.goResultsOf(refTyp)}
+}
+
+// instantiateGoSig substitutes a generic Go callee's solved type
+// arguments — the CallInfo.TypeArgs the checker ordered by the
+// signature's declared TypeParams — into the raw parameter and
+// result views, so conversion selection sees the instantiated
+// shapes the generated `pkg.F[T1, T2]` call will bind at. Unsolved
+// arguments (unbound metas — E0407 already stands) leave their
+// variable in place.
+func instantiateGoSig(sig GoSig, targs []types.Type) GoSig {
+	if len(sig.TypeParams) == 0 {
+		return sig
+	}
+	sub := types.Subst{}
+	for i, v := range sig.TypeParams {
+		if i >= len(targs) {
+			break
+		}
+		sub[v.ID] = types.Chase(targs[i])
+	}
+	out := sig
+	out.Params = substTypes(sig.Params, sub)
+	out.ResTypes = substTypes(sig.ResTypes, sub)
+	return out
+}
+
+// substTypes applies a substitution to a slice of types.
+func substTypes(ts []types.Type, sub types.Subst) []types.Type {
+	if len(ts) == 0 {
+		return ts
+	}
+	out := make([]types.Type, len(ts))
+	for i, t := range ts {
+		out[i] = sub.Apply(t)
+	}
+	return out
 }
 
 // flatArity is the *immediate* parameter count of a function type;

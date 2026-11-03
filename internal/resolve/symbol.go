@@ -73,6 +73,11 @@ type Symbol struct {
 	// checker reports E0501 carrying this reason at every use site.
 	// It is empty for every symbol defined by Gom source.
 	Hidden string
+	// HiddenCode overrides the diagnostic code hiddenDiag emits —
+	// "" means the default E0501. The loader sets E0506 for a
+	// generic function whose constraints fall outside the
+	// any/comparable callable set.
+	HiddenCode string
 
 	// Package is the path of the package that defines the symbol — a
 	// Go import path or a Gom package path. It is "" for symbols

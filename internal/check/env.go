@@ -27,7 +27,34 @@ type Signature struct {
 	// callee has at least one parameter, even if only `()`, so 0 is
 	// never a real declared arity.)
 	DeclArity int
+	// TypeParams is the callee's own rigid type variables in declared
+	// order. A generic Go function keeps sig.TypeParams()'s order
+	// here — which may differ from the first-occurrence order
+	// instantiate would derive — so CallInfo.TypeArgs lines up with
+	// the emitted `pkg.F[T1, T2]`. Nil for monomorphic signatures and
+	// for Gom-declared callees (whose declared order is the
+	// first-occurrence order instantiate already derives).
+	TypeParams []*types.Var
+	// GoConstraints runs parallel to TypeParams for a generic Go
+	// callee: the constraint kind each type argument must satisfy at
+	// the boundary (spec section 8.5 — v1 admits any and comparable).
+	// The checker validates the solved type arguments against it once
+	// inference finishes (E0508).
+	GoConstraints []GoConstraint
 }
+
+// GoConstraint is the admissible constraint kind of a generic Go
+// callee's type parameter (spec section 8.5).
+type GoConstraint int
+
+const (
+	// GoConstraintAny is the `any` constraint — every type argument
+	// satisfies it, so nothing is validated.
+	GoConstraintAny GoConstraint = iota + 1
+	// GoConstraintComparable is the `comparable` constraint — the
+	// type argument's emitted Go representation must be comparable.
+	GoConstraintComparable
+)
 
 // SignatureSource supplies the signatures of symbols not declared in
 // the file being checked: imported module members, Go functions and
@@ -194,6 +221,18 @@ type FieldSource interface {
 	FieldOf(recv types.Type, name string) (*resolve.Symbol, Signature, types.Type, bool)
 }
 
+// ComparableSource answers the emitted-representation comparability
+// of a type the checker cannot judge on its own — the Go named types
+// behind *types.Go handles — for the generic-call constraint check
+// (spec section 8.5: type arguments of a `comparable` parameter must
+// be comparable in the generated Go).
+type ComparableSource interface {
+	// GoComparable reports whether t's Go representation satisfies
+	// `comparable`. Only *types.Go handles reach it; a source answers
+	// false for anything it does not know.
+	GoComparable(t types.Type) bool
+}
+
 func (c chain) InterfaceAssignable(from, to types.Type) bool {
 	for _, s := range c {
 		if src, ok := s.(InterfaceSource); ok && src.InterfaceAssignable(from, to) {
@@ -212,4 +251,13 @@ func (c chain) FieldOf(recv types.Type, name string) (*resolve.Symbol, Signature
 		}
 	}
 	return nil, Signature{}, nil, false
+}
+
+func (c chain) GoComparable(t types.Type) bool {
+	for _, s := range c {
+		if src, ok := s.(ComparableSource); ok && src.GoComparable(t) {
+			return true
+		}
+	}
+	return false
 }

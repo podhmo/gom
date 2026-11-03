@@ -1271,6 +1271,14 @@ func (v *validator) conv(e *Conv) {
 		if e.Typ != nil && !v.conIs(e.Typ, "", "List", 1) {
 			v.err(e.Sp, "Conv", "slice-from-go result type %s is not a List", e.Typ)
 		}
+	case ConvSliceBox:
+		if t := atomType(e.X); t != nil &&
+			!v.conIs(t, "", "List", 1) && !v.conIs(t, "Go", "Slice", 1) {
+			v.err(e.Sp, "Conv", "slice-box operand type %s is not a List or Go.Slice", t)
+		}
+		if e.Typ != nil && !v.conIs(e.Typ, "Go", "Slice", 1) {
+			v.err(e.Sp, "Conv", "slice-box result type %s is not Go.Slice", e.Typ)
+		}
 	default:
 		v.err(e.Sp, "Conv", "invalid conversion kind %d", int(e.Kind))
 	}

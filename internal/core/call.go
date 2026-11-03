@@ -289,6 +289,11 @@ const (
 	// ConvSliceFromGo copies a `[]T` received from Go into a Gom
 	// `List a` (spec 8.5).
 	ConvSliceFromGo
+	// ConvSliceBox copies a `List a` or `Go.Slice a` into a Go-owned
+	// `[]any`, boxing each element — the conversion a `..xs` spread
+	// into a `...any` variadic needs, which Go itself cannot express
+	// (a []T cannot splice into ...any).
+	ConvSliceBox
 )
 
 // String returns the kind name for debugging.
@@ -306,6 +311,8 @@ func (k ConvKind) String() string {
 		return "slice-to-go"
 	case ConvSliceFromGo:
 		return "slice-from-go"
+	case ConvSliceBox:
+		return "slice-box"
 	default:
 		return "ConvKind(?)"
 	}

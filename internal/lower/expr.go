@@ -369,7 +369,7 @@ func (l *lowerer) goVarRef(sp diag.Span, typ types.Type, sym *resolve.Symbol) co
 // conversion between the views), otherwise an adapter Closure whose
 // body is a CallGo (P0-2, spec 8).
 func (l *lowerer) goFuncRefOrAdapter(sp diag.Span, typ types.Type, sym *resolve.Symbol, recv core.Atom, targs []types.Type) core.Expr {
-	sig := l.goSig(sym, typ)
+	sig := instantiateGoSig(l.goSig(sym, typ), targs)
 	fs := sigOf(typ)
 	if goBareRefOK(sig, fs) {
 		return &core.GoFuncRef{
@@ -533,8 +533,13 @@ func (l *lowerer) goConvKind(call *core.CallGo, from, to types.Type) core.ConvKi
 	return k
 }
 
-// goConvKindOf picks the conversion from a raw Go type to the
-// Gom-facing type, or reports the pair unsupported.
+// goConvKindOf picks the conversion between a Go-side type view and
+// the Gom-facing type, or reports the pair unsupported. Both
+// directions pass through here: argument positions ask for the
+// Gom-to-Go direction (a List argument feeding a Go.Slice
+// parameter), result positions the Go-to-Gom one (a []T result
+// becoming a List). Slice pairs need the element types to agree —
+// an any-element Go slice accepts anything through boxing.
 func (l *lowerer) goConvKindOf(from, to types.Type) (core.ConvKind, bool) {
 	from = types.Chase(from)
 	to = types.Chase(to)
@@ -546,6 +551,29 @@ func (l *lowerer) goConvKindOf(from, to types.Type) (core.ConvKind, bool) {
 	}
 	if l.isNumericCon(from) && l.isNumericCon(to) {
 		return core.ConvNum, true
+	}
+	fc, fok := from.(*types.Con)
+	tc, tok := to.(*types.Con)
+	if !fok || !tok || len(fc.Args) == 0 || len(tc.Args) == 0 {
+		return 0, false
+	}
+	toSlice := tc.Qual == "Go" && tc.Name == "Slice" && len(tc.Args) == 1
+	fromSlice := fc.Qual == "Go" && fc.Name == "Slice" && len(fc.Args) == 1
+	toList := tc.Qual == "" && tc.Name == "List" && len(tc.Args) == 1 && !l.declaredT(tc)
+	fromList := fc.Qual == "" && fc.Name == "List" && len(fc.Args) == 1 && !l.declaredT(fc)
+	switch {
+	case toSlice && fromList && types.Equal(fc.Args[0], tc.Args[0]):
+		// A Gom list feeding a Go slice — copy in (`.ToSlice()`).
+		return core.ConvSliceToGo, true
+	case toSlice && (fromList || fromSlice) &&
+		isGoAny(tc.Args[0]) && !isGoAny(fc.Args[0]):
+		// A slice or list feeding a Go `[]any` — copy and box each
+		// element (`rt.BoxSlice`), the spread `..xs` needs.
+		return core.ConvSliceBox, true
+	case toList && fromSlice && types.Equal(fc.Args[0], tc.Args[0]):
+		// A Go slice reaching a List position — copy out
+		// (`list.FromSlice`).
+		return core.ConvSliceFromGo, true
 	}
 	return 0, false
 }
@@ -988,7 +1016,7 @@ func (l *lowerer) unknownCall(s *seq, sp diag.Span, fnExpr core.Expr, args []cor
 // goCall lowers a Go call. A `_` hole becomes the parameter of a
 // cute-style Closure; a multi-result call is wrapped in its consumer.
 func (l *lowerer) goCall(s *seq, sp diag.Span, resTyp types.Type, ci check.CallInfo, args []core.Atom, recv core.Atom, spread bool) core.Expr {
-	sig := l.goSig(ci.Callee, resTyp)
+	sig := instantiateGoSig(l.goSig(ci.Callee, resTyp), ci.TypeArgs)
 	if sig.Arity == 0 && !sig.Variadic {
 		// The Env oracle did not know the signature: trust CallInfo.
 		sig.Arity = ci.Arity
@@ -1069,7 +1097,7 @@ func (l *lowerer) goCallNode(s *seq, ap *check.Apply) *core.CallGo {
 	recv := l.methodRecv(s, ap.Fn, ci)
 	l.calleeExpr(s, ap.Fn, ci, recv)
 	args := l.argAtoms(s, ap.Args)
-	sig := l.goSig(ci.Callee, ap.Type())
+	sig := instantiateGoSig(l.goSig(ci.Callee, ap.Type()), ci.TypeArgs)
 	if sig.Results == 0 {
 		sig.Results = l.goResultsOf(ap.Type())
 	}
@@ -2265,6 +2293,22 @@ func (l *lowerer) ascribe(s *seq, e *check.Ascribe) core.Expr {
 			// literal would otherwise acquire Go's default dynamic type (int).
 			// Materialize the oracle-validated Gom type before interface boxing.
 			x = l.asAtom(s, e.Sp, &core.Conv{Base: core.Base{Sp: e.Sp, Typ: x.Type()}, Kind: core.ConvNum, X: x})
+		}
+	}
+	if e.Slice {
+		// The checker validated the List ↔ Go.Slice pair; the
+		// direction (and any `[]any` boxing) is read off the types.
+		// Element metas solved since check time can collapse the
+		// views to the same type — an identity conversion emits no
+		// node at all.
+		if k, ok := l.goConvKindOf(e.X.Type(), e.Type()); ok {
+			if k == 0 {
+				return x
+			}
+			kind = k
+		} else {
+			l.err(e.Sp, fmt.Sprintf("slice boundary conversion %s -> %s is not supported",
+				e.X.Type(), e.Type()))
 		}
 	}
 	return &core.Conv{

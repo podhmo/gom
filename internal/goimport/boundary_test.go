@@ -110,7 +110,7 @@ func TestInterfaceAssignmentAndFieldsBothDirections(t *testing.T) {
   c:=model.NewContainer()
   if count(c)!=41 || named(c)!="hello" {t.Fatal("fields")}
   if names(c)!=nil || reader(c)!=nil {t.Fatal("nil field changed")}
-  c.Names=[]string{"a"};ns:=names(c);ns[0]="b";if c.Names[0]!="b" {t.Fatal("opaque slice copied")}
+  c.Names=[]string{"a"};ns:=names(c);ns[0]="b";if c.Names[0]!="a" {t.Fatal("List boundary shared the backing array")}
   if order(c)!=4102 {t.Fatal("field read moved after mutation")}
   r:=request(struct{}{});if !r.IsOk() || r.Value!="application/json" {t.Fatal(r)}
  }

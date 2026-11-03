@@ -643,6 +643,22 @@ itself would reject.
 Go.conv "abc" : Int   // String is not convertible to Int
 ```
 
+### E0508 — type argument does not satisfy a Go constraint
+
+**Severity:** error · **Phase:** check · **Spec:** §8.5
+
+A generic Go function whose type parameter carries the
+"comparable" constraint needs a type argument whose generated Go
+representation is comparable (spec section 8.5). Lists, arrays, maps,
+slices, functions, and Gom type variables (which instantiate as "any")
+are not comparable; records and tuples are comparable only when every
+field is. Wrap the call behind an extern binding or a Go helper, or
+choose a type argument that is comparable.
+
+```gom
+cmp.Or [1, 2] [3]   // List Int is not comparable
+```
+
 ## 06xx — Packages and interfaces
 
 ### E0601 — missing .gomi interface file

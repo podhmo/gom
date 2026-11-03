@@ -4,23 +4,23 @@
       "kind": "diagnostic",
       "code": "E0401",
       "severity": "error",
-      "message": "type mismatch: expected Go.Slice String, got Unit -> ?1",
+      "message": "type mismatch: expected List String, got Unit -> ?1",
       "span": {
         "file": "E0401_apply_go_var.gom",
         "start": {
           "line": 9,
           "col": 30,
-          "offset": 281
+          "offset": 277
         },
         "end": {
           "line": 9,
           "col": 32,
-          "offset": 283
+          "offset": 279
         }
       },
       "data": {
         "actual": "Unit -> ?1",
-        "expected": "Go.Slice String"
+        "expected": "List String"
       }
     }
   ]

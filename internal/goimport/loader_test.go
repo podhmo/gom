@@ -1,8 +1,10 @@
 package goimport
 
 import (
+	"strings"
 	"testing"
 
+	"github.com/podhmo/gom/internal/check"
 	"github.com/podhmo/gom/internal/core"
 	"github.com/podhmo/gom/internal/resolve"
 	gt "github.com/podhmo/gom/internal/types"
@@ -104,8 +106,8 @@ func TestLoadSprintfVariadic(t *testing.T) {
 	if !sig.Variadic {
 		t.Error("Sprintf signature must be variadic")
 	}
-	if got := sig.Type.String(); got != "String -> Go.Slice Go.Any -> String" {
-		t.Errorf("Sprintf signature = %s, want `String -> Go.Slice Go.Any -> String`", got)
+	if got := sig.Type.String(); got != "String -> List Go.Any -> String" {
+		t.Errorf("Sprintf signature = %s, want `String -> List Go.Any -> String`", got)
 	}
 	gs, _ := l.GoSigOf(sprintf)
 	if !gs.Variadic || gs.Arity != 2 {
@@ -250,18 +252,19 @@ func TestLoadPkgVars(t *testing.T) {
 		t.Errorf("O_RDONLY GoSig = %+v, want a single Go.Int result", gs)
 	}
 
-	// Args is a real var of type []string — the same type in both
-	// views, so a reference lowers to the bare `os.Args`.
+	// Args is a real var of type []string — `List String` to Gom at
+	// the boundary, `Go.Slice String` in the raw view, so a
+	// reference lowers to `list.FromSlice(os.Args)`.
 	args := os.Members["Args"]
 	if args == nil {
 		t.Skip("Args not exported")
 	}
 	sig, ok = l.SignatureOf(args)
-	if !ok || sig.Type.String() != "Go.Slice String" {
-		t.Errorf("Args signature = %v, want `Go.Slice String`", sig.Type)
+	if !ok || sig.Type.String() != "List String" {
+		t.Errorf("Args signature = %v, want `List String`", sig.Type)
 	}
 	gs, ok = l.GoSigOf(args)
-	if !ok || len(gs.ResTypes) != 1 || !gt.Equal(gs.ResTypes[0], sig.Type) {
+	if !ok || len(gs.ResTypes) != 1 || !gt.Equal(gs.ResTypes[0], gt.GoSlice(gt.String)) {
 		t.Errorf("Args GoSig = %+v, want a single Go.Slice String result", gs)
 	}
 
@@ -349,5 +352,94 @@ func TestZeroResultShape(t *testing.T) {
 	fixture := membersOf(t, l, "github.com/podhmo/gom/testdata/voidhost")
 	if reason := fixture.Members["UnitValue"].Hidden; reason == "" {
 		t.Fatal("anonymous struct result should remain unsupported, not become void")
+	}
+}
+
+// Generic Go functions keep their declared type-parameter order on
+// Signature.TypeParams with the any/comparable classification on
+// GoConstraints; a structural ~[]E constraint hides the callee under
+// E0506.
+func TestGenericSignatureViews(t *testing.T) {
+	l, _ := moduleLoader(t)
+	p := membersOf(t, l, "example.test/dependency/model")
+
+	sig, ok := l.SignatureOf(p.Members["Identity"])
+	if !ok || sig.Type.String() != "T -> T" {
+		t.Fatalf("Identity = %v, want T -> T", sig)
+	}
+	if len(sig.TypeParams) != 1 || sig.TypeParams[0].Name != "T" ||
+		len(sig.GoConstraints) != 1 || sig.GoConstraints[0] != check.GoConstraintAny {
+		t.Fatalf("Identity generics = %v %v, want [T][any]", sig.TypeParams, sig.GoConstraints)
+	}
+
+	// Declared order (A, B) wins over first-occurrence order (B, A).
+	sig, ok = l.SignatureOf(p.Members["Second"])
+	if !ok || sig.Type.String() != "B -> A -> A" {
+		t.Fatalf("Second = %v, want B -> A -> A", sig)
+	}
+	if len(sig.TypeParams) != 2 || sig.TypeParams[0].Name != "A" || sig.TypeParams[1].Name != "B" {
+		t.Fatalf("Second TypeParams = %v, want [A B]", sig.TypeParams)
+	}
+	gs, ok := l.GoSigOf(p.Members["Second"])
+	if !ok || len(gs.TypeParams) != 2 || gs.TypeParams[0].Name != "A" {
+		t.Fatalf("Second GoSig TypeParams = %v, want [A B]", gs.TypeParams)
+	}
+
+	sig, ok = l.SignatureOf(p.Members["Count"])
+	if !ok || sig.Type.String() != "List E -> E -> Int" {
+		t.Fatalf("Count = %v, want List E -> E -> Int", sig)
+	}
+	if len(sig.GoConstraints) != 1 || sig.GoConstraints[0] != check.GoConstraintComparable {
+		t.Fatalf("Count constraints = %v, want [comparable]", sig.GoConstraints)
+	}
+
+	sig, ok = l.SignatureOf(p.Members["Lookup"])
+	if !ok || sig.Type.String() != "Go.Map K V -> K -> (V, Bool)" {
+		t.Fatalf("Lookup = %v, want Go.Map K V -> K -> (V, Bool)", sig)
+	}
+	if len(sig.GoConstraints) != 2 || sig.GoConstraints[0] != check.GoConstraintComparable || sig.GoConstraints[1] != check.GoConstraintAny {
+		t.Fatalf("Lookup constraints = %v, want [comparable any]", sig.GoConstraints)
+	}
+
+	// The structural ~[]E constraint keeps Index hidden, under E0506.
+	idx := p.Members["Index"]
+	if idx.Hidden == "" || idx.HiddenCode != "E0506" {
+		t.Fatalf("Index = %+v, want hidden under E0506", idx)
+	}
+	if _, ok := l.SignatureOf(idx); ok {
+		t.Fatal("SignatureOf must not answer a hidden member")
+	}
+
+	// Subsets of comparable are not comparable: ~int and int|string
+	// stay hidden under E0506, while the interface{comparable}
+	// spelling — the identical type set — stays callable.
+	for _, name := range []string{"Clamp", "G"} {
+		s := p.Members[name]
+		if s.Hidden == "" || s.HiddenCode != "E0506" {
+			t.Fatalf("%s = %+v, want hidden under E0506", name, s)
+		}
+	}
+	sig, ok = l.SignatureOf(p.Members["First"])
+	if !ok || sig.Type.String() != "T -> T -> T" ||
+		len(sig.GoConstraints) != 1 || sig.GoConstraints[0] != check.GoConstraintComparable {
+		t.Fatalf("First = %v %v, want T -> T -> T [comparable]", sig, sig.GoConstraints)
+	}
+
+	// An Int/Go.Int view split inside a container hides the member —
+	// the element-wise conversion the boundary cannot spell.
+	for _, name := range []string{"Sum", "Tally"} {
+		s := p.Members[name]
+		if s.Hidden == "" || !strings.Contains(s.Hidden, "element-wise") {
+			t.Fatalf("%s = %+v, want hidden for the container view split", name, s)
+		}
+		if _, ok := l.SignatureOf(s); ok {
+			t.Fatalf("SignatureOf must not answer hidden %s", name)
+		}
+	}
+	// Nested slices whose elements agree stay exposed: [][]string is
+	// List (Go.Slice String) in the Gom view.
+	sig, ok = l.SignatureOf(p.Members["Dup"])
+	if !ok || sig.Type.String() != "List (Go.Slice String) -> List (Go.Slice String)" {
+		t.Fatalf("Dup = %v, want List (Go.Slice String) -> List (Go.Slice String)", sig)
 	}
 }

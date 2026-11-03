@@ -1,0 +1,15 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// Generic Go calls instantiate by declared type-parameter order:
+// `Second`'s emitted `Second[int64, string]` follows (A, B), not the
+// first-occurrence (B, A). The `List` argument to `Count` copies out
+// (`.ToSlice()`) before the call.
+fn ident (n: Int) -> Int = goiface.Identity n
+fn swap (s: String) (n: Int) -> Int = goiface.Second s n
+fn count (xs: List String) (s: String) -> Int = goiface.Count xs s
+fn lookup_or (m: Go.Map String Int) (k: String) -> Int = {
+  let (v, ok) = goiface.Lookup m k
+  if ok { v } else { 0 }
+}

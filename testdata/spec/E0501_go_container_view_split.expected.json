@@ -1,0 +1,28 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0501",
+      "severity": "error",
+      "message": "Go symbol `github.com/podhmo/gom/testdata/goiface.Sum` is not exposed: parameter xs: type []int splits int and int64 inside a container — element-wise boundary conversions are not supported yet",
+      "span": {
+        "file": "E0501_go_container_view_split.gom",
+        "start": {
+          "line": 9,
+          "col": 38,
+          "offset": 361
+        },
+        "end": {
+          "line": 9,
+          "col": 41,
+          "offset": 364
+        }
+      },
+      "data": {
+        "package": "github.com/podhmo/gom/testdata/goiface",
+        "reason": "parameter xs: type []int splits int and int64 inside a container — element-wise boundary conversions are not supported yet",
+        "symbol": "Sum"
+      }
+    }
+  ]
+}
