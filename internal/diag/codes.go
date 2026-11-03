@@ -734,7 +734,7 @@ itself would reject.`,
 		Spec:     "7",
 		Explanation: `Every library package (anything but "package main") must have
 exactly one .gomi interface file that declares its public API (spec
-section 7.4). "gom gomi" generates a draft from the inferred
+section 7.4). "gom info" generates a draft from the inferred
 signatures.`,
 	},
 	{
@@ -758,6 +758,17 @@ files provide the implementation.`,
 .gomi: same names, same argument shapes (including labels), same
 types up to type-variable renaming (spec section 7.6). Either fix the
 implementation or update the interface.`,
+	},
+	{
+		Code:     "E0604",
+		Severity: SeverityError,
+		Title:    "stray .gomi interface file",
+		Phase:    PhaseIface,
+		Spec:     "7",
+		Explanation: `A package has exactly one .gomi, named "<package>.gomi"
+(spec section 7.4): a file whose name does not match the package it
+sits with is stray. Rename or remove it. Several .gomi files for one
+package name are stray too — merge their declarations into one.`,
 	},
 
 	{

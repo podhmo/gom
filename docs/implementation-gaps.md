@@ -200,3 +200,9 @@
   参照: [検証](sketch/2026-11-03-p2-5-generic-emission-verification.md)、
   [golden](../testdata/golden/tailcall_instantiation.golden.go)、
   [decision](decisions/2026-11-03-generic-instantiation-cycles.md)。
+- [x] **CLI usage の計画中コマンド名が P4-1 の決定と食い違う**:
+  `cmd/gom/main.go` の usage は計画コマンドとして `gomi` を列挙するが、
+  TODO P4-1 は `moon info` 流の `info` という名前を決めている（spec 7.5 も `gom gomi` 表記）。
+  実装はまだ無いが、名前の正が文書間で不一致。
+  対応: `gom info` を実装し `gomi` はリネーム通知に変更、spec 7.5 も `gom info` 表記に統一。
+  参照: [usage](../cmd/gom/main.go)、[iface](../cmd/gom/iface.go)、[spec 7](spec.md#7-インターフェースファイル-gomi)、[sketch](sketch/2026-11-05-moon-cli-command-structure.md)。

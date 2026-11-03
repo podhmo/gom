@@ -498,11 +498,18 @@ func (p *parser) parseTopDecl() Decl {
 	}
 }
 
+// errGomi reports an E0602 — a construct the .gomi grammar does not
+// admit (spec section 7.1). The parser still parses the construct
+// for recovery; check ignores the pieces it cannot type.
+func (p *parser) errGomi(sp diag.Span, format string, args ...any) {
+	p.diags.Add(diag.Error("E0602", fmt.Sprintf(format, args...)).At(sp))
+}
+
 // gomOnly reports a declaration that the .gomi grammar does not
 // admit; the declaration is still parsed for recovery.
 func (p *parser) gomOnly(sp diag.Span, what string) {
 	if p.gomi {
-		p.errf(sp, "%s is not allowed in an interface file", what)
+		p.errGomi(sp, "%s is not allowed in an interface file", what)
 	}
 }
 
@@ -611,7 +618,7 @@ func (p *parser) parseFnDecl(attrs declAttrs, doc *Comment) Decl {
 	if p.at(tokEq) {
 		if p.gomi {
 			eq := p.cur()
-			p.errf(p.spanOf(eq), "a signature in an interface file has no \"= body\"")
+			p.errGomi(p.spanOf(eq), "a signature in an interface file has no \"= body\"")
 		}
 		p.next()
 		d.Body = p.parseExpr()
@@ -703,13 +710,13 @@ func (p *parser) parseLetDeclWithFlag(testOnly bool, doc *Comment) Decl {
 		_, isVar := pat.(*VarPat)
 		_, isWild := pat.(*WildPat)
 		if !isVar && !isWild {
-			p.errf(pat.Span(), "a constant signature binds a plain name")
+			p.errGomi(pat.Span(), "a constant signature binds a plain name")
 		}
 	}
 	if p.at(tokEq) {
 		if p.gomi {
 			eq := p.cur()
-			p.errf(p.spanOf(eq), "a let signature in an interface file has no \"= value\"")
+			p.errGomi(p.spanOf(eq), "a let signature in an interface file has no \"= value\"")
 		}
 		p.next()
 		d.Value = p.parseExpr()

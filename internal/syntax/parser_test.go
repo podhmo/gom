@@ -768,13 +768,13 @@ func TestParseInterface(t *testing.T) {
 			"fn body rejected",
 			"package m\nfn f () -> Unit = ()\n",
 			"",
-			[]string{`E0101@26-27: a signature in an interface file has no "= body"`},
+			[]string{`E0602@26-27: a signature in an interface file has no "= body"`},
 		},
 		{
 			"let value rejected",
 			"package m\nlet x : Int = 1\n",
 			"",
-			[]string{`E0101@22-23: a let signature in an interface file has no "= value"`},
+			[]string{`E0602@22-23: a let signature in an interface file has no "= value"`},
 		},
 		{
 			"let sig needs colon",
@@ -786,25 +786,25 @@ func TestParseInterface(t *testing.T) {
 			"let tuple pattern rejected",
 			"package m\nlet (a, b) : T\n",
 			"",
-			[]string{`E0101@14-20: a constant signature binds a plain name`},
+			[]string{`E0602@14-20: a constant signature binds a plain name`},
 		},
 		{
 			"test decl rejected",
 			"package m\ntest \"x\" { 1 }\n",
 			"",
-			[]string{`E0101@10-14: a test declaration is not allowed in an interface file`},
+			[]string{`E0602@10-14: a test declaration is not allowed in an interface file`},
 		},
 		{
 			"extern decl rejected",
 			"package m\nextern go \"m\" {}\n",
 			"",
-			[]string{`E0101@10-16: an extern declaration is not allowed in an interface file`},
+			[]string{`E0602@10-16: an extern declaration is not allowed in an interface file`},
 		},
 		{
 			"attribute rejected",
 			"package m\n@test fn f () -> Unit\n",
 			"",
-			[]string{`E0101@10-11: an attribute is not allowed in an interface file`},
+			[]string{`E0602@10-11: an attribute is not allowed in an interface file`},
 		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

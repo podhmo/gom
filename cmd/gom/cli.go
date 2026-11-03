@@ -76,6 +76,7 @@ func runCheck(args []string, stdout, stderr io.Writer) int {
 
 	rep := diag.Report{Files: inputNames(inputs)}
 	srcs := map[string][]byte{}
+	var results []*build.Result
 	for _, in := range inputs {
 		srcs[in.path] = in.src
 		r, err := build.Compile(build.Input{Path: in.path, Src: in.src, Interface: in.iface},
@@ -84,8 +85,13 @@ func runCheck(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stderr, "gom check: %s: %v\n", in.path, err)
 			return diag.ExitInternal
 		}
+		results = append(results, r)
 		rep.Diagnostics = append(rep.Diagnostics, r.Diagnostics...)
 	}
+	// The interface contract binds the package, not the argument
+	// list: sibling .gomi files are discovered and compared
+	// (spec section 7.4–7.6).
+	checkInterfaces(inputs, results, &rep, srcs)
 	if err := emitReport(stdout, *format, rep, srcs); err != nil {
 		fmt.Fprintf(stderr, "gom check: %v\n", err)
 		return diag.ExitInternal
@@ -132,6 +138,9 @@ func runBuild(args []string, stdout, stderr io.Writer) int {
 		results = append(results, r)
 		rep.Diagnostics = append(rep.Diagnostics, r.Diagnostics...)
 	}
+	// Same package-level interface pass as gom check — the .gomi
+	// contract binds the package even though codegen is per-file.
+	checkInterfaces(inputs, results, &rep, srcs)
 
 	// Resolve every output path before writing anything so a bad -o
 	// fails fast instead of after partial writes.

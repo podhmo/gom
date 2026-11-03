@@ -59,12 +59,20 @@ func TestUsageListsAllSubcommands(t *testing.T) {
 // TestUnimplementedSubcommandsAreDispatched ensures every planned
 // subcommand is recognized rather than reported as unknown.
 func TestUnimplementedSubcommandsAreDispatched(t *testing.T) {
-	for _, c := range []string{"test", "gomi"} {
+	for _, c := range []string{"test"} {
 		var stderr strings.Builder
 		code := run([]string{c}, &strings.Builder{}, &stderr)
 		if code != 2 || !strings.Contains(stderr.String(), "not implemented") {
 			t.Errorf("run(%q) = exit %d, stderr %q; want exit 2 and a not-implemented message",
 				c, code, stderr.String())
 		}
+	}
+	// `gomi` was renamed to `info`: it must point users at the new
+	// name rather than dispatching or reporting an unknown command.
+	var stderr strings.Builder
+	code := run([]string{"gomi"}, &strings.Builder{}, &stderr)
+	if code != 2 || !strings.Contains(stderr.String(), `renamed to "gom info"`) {
+		t.Errorf("run(gomi) = exit %d, stderr %q; want the rename notice",
+			code, stderr.String())
 	}
 }

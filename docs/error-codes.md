@@ -634,7 +634,7 @@ Go.conv "abc" : Int   // String is not convertible to Int
 
 Every library package (anything but "package main") must have
 exactly one .gomi interface file that declares its public API (spec
-section 7.4). "gom gomi" generates a draft from the inferred
+section 7.4). "gom info" generates a draft from the inferred
 signatures.
 
 ### E0602 — disallowed declaration in .gomi
@@ -654,6 +654,15 @@ The package's definitions must agree with the signatures in its
 .gomi: same names, same argument shapes (including labels), same
 types up to type-variable renaming (spec section 7.6). Either fix the
 implementation or update the interface.
+
+### E0604 — stray .gomi interface file
+
+**Severity:** error · **Phase:** iface · **Spec:** §7
+
+A package has exactly one .gomi, named "<package>.gomi"
+(spec section 7.4): a file whose name does not match the package it
+sits with is stray. Rename or remove it. Several .gomi files for one
+package name are stray too — merge their declarations into one.
 
 ## 07xx — Concurrency
 

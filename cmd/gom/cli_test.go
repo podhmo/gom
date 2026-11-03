@@ -178,9 +178,9 @@ func TestCheckClean(t *testing.T) {
 
 func TestCheckDirectory(t *testing.T) {
 	dir := writeFiles(t, map[string]string{
-		"pkg/a.gom":  "package pkg\n\nfn a () -> Int = 1\n",
-		"pkg/b.gom":  "package pkg\n\nfn b () -> Int = nope\n",
-		"pkg/i.gomi": "package pkg\n\nfn c (x: Int) -> Int\n",
+		"pkg/a.gom":    "package pkg\n\nfn a () -> Int = 1\n",
+		"pkg/b.gom":    "package pkg\n\nfn b () -> Int = nope\n",
+		"pkg/pkg.gomi": "package pkg\n\nfn a () -> Int\nfn b () -> Int\n",
 	})
 	code, out, _ := invoke("check", filepath.Join(dir, "pkg"))
 
@@ -258,7 +258,10 @@ test "arith" {
   assert ((1 + 1) == 2)
 }
 `
-	dir := writeFiles(t, map[string]string{"m.gom": src})
+	dir := writeFiles(t, map[string]string{
+		"m.gom":  src,
+		"m.gomi": "package m\n\nfn main () -> Unit\n",
+	})
 	code, out, _ := invoke("build", filepath.Join(dir, "m.gom"))
 	if code != 0 {
 		t.Fatalf("exit code = %d, want 0; stdout=%q", code, out)
@@ -315,7 +318,10 @@ fn eq (x: W Int) (y: W Int) -> Bool = x == y
 }
 
 func TestBuildDefaultOutputBesideInput(t *testing.T) {
-	dir := writeFiles(t, map[string]string{"m.gom": "package m\n\nfn f () -> Int = 1\n"})
+	dir := writeFiles(t, map[string]string{
+		"m.gom":  "package m\n\nfn f () -> Int = 1\n",
+		"m.gomi": "package m\n\nfn f () -> Int\n",
+	})
 	code, _, _ := invoke("build", filepath.Join(dir, "m.gom"))
 	if code != 0 {
 		t.Fatalf("exit code = %d", code)
@@ -929,5 +935,79 @@ func TestSchema(t *testing.T) {
 	}
 	if code, _, errout := invoke("schema", "extra"); code != 2 || !strings.Contains(errout, "no arguments") {
 		t.Errorf("gom schema extra: exit %d stderr %q; want usage error", code, errout)
+	}
+}
+
+// TestInfoDraftWritesGomi exercises `gom info`: a package without an
+// interface file gets a draft .gomi generated beside its sources, and
+// a subsequent `gom check` accepts implementation and interface.
+func TestInfoDraftWritesGomi(t *testing.T) {
+	dir := writeFiles(t, map[string]string{
+		"shapes/shapes.gom": `package shapes
+
+type Shape =
+  | Circle (radius: Float)
+  | Rect (w: Float) (h: Float)
+
+fn area (s: Shape) -> Float = match s {
+  Circle r -> r;
+  Rect w h -> w;
+}
+`,
+	})
+	code, out, errout := invoke("info", filepath.Join(dir, "shapes"))
+	if code != 0 {
+		t.Fatalf("gom info: exit %d; stderr=%q stdout=%q", code, errout, out)
+	}
+	gomi, err := os.ReadFile(filepath.Join(dir, "shapes", "shapes.gomi"))
+	if err != nil {
+		t.Fatalf("shapes.gomi not written: %v", err)
+	}
+	for _, want := range []string{"package shapes", "| Circle (radius: Float)", "fn area (s: Shape) -> Float"} {
+		if !strings.Contains(string(gomi), want) {
+			t.Errorf("draft missing %q:\n%s", want, gomi)
+		}
+	}
+	code, out, _ = invoke("check", filepath.Join(dir, "shapes"))
+	if code != 0 {
+		t.Fatalf("gom check after info: exit %d; stdout=%q", code, out)
+	}
+}
+
+// TestCheckMissingInterface verifies spec 7 rule 4: a library package
+// with no <package>.gomi is E0601.
+func TestCheckMissingInterface(t *testing.T) {
+	dir := writeFiles(t, map[string]string{
+		"lib/lib.gom": "package lib\n\nfn f () -> Int = 1\n",
+	})
+	code, out, _ := invoke("check", filepath.Join(dir, "lib"))
+	if code != 1 {
+		t.Fatalf("exit %d, want 1; stdout=%q", code, out)
+	}
+	lines := jsonLines(t, out)
+	if lines[0]["code"] != "E0601" {
+		t.Errorf("first diagnostic = %v, want E0601", lines[0])
+	}
+}
+
+// TestCheckInterfaceMismatch verifies spec 7 rule 6: implementation
+// signatures must match the .gomi (type vars may only be renamed).
+func TestCheckInterfaceMismatch(t *testing.T) {
+	dir := writeFiles(t, map[string]string{
+		"lib/lib.gom":  "package lib\n\nfn f () -> Int = 1\n",
+		"lib/lib.gomi": "package lib\n\nfn f () -> String\nfn ghost () -> Int\n",
+	})
+	code, out, _ := invoke("check", filepath.Join(dir, "lib"))
+	if code != 1 {
+		t.Fatalf("exit %d, want 1; stdout=%q", code, out)
+	}
+	var codes []string
+	for _, l := range jsonLines(t, out) {
+		if c, ok := l["code"].(string); ok {
+			codes = append(codes, c)
+		}
+	}
+	if len(codes) != 2 || codes[0] != "E0603" || codes[1] != "E0603" {
+		t.Errorf("diagnostic codes = %v, want [E0603 E0603]", codes)
 	}
 }
