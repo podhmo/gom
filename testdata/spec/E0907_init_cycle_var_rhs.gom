@@ -1,0 +1,11 @@
+package ex
+
+// The compiler cannot trace elements through another binding:
+// `pair` holds the tuple, so `let (a, b) = pair` reads back out of
+// a package variable that `count` (through `a`) reaches — a cycle
+// the wrapper cannot cut.
+let pair = (count, 0)
+fn count (n: Int) -> Int = if n == 0 { 0 } else { a (n - 1) + 1 }
+let (a, b) = pair
+
+fn main () -> Int = count 3 + b

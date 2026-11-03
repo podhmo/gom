@@ -1,0 +1,9 @@
+package ex
+
+// `let r = f 0` runs `f` during package initialization while `f`'s
+// body reads `r` — the same cycle Go reports ("r refers to f; f
+// refers to r"), raised against the .gom bindings.
+fn f (n: Int) -> Int = if n == 0 { r } else { n }
+let r = f 0
+
+fn main () -> Int = r

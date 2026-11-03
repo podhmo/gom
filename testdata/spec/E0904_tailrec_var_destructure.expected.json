@@ -2,6 +2,62 @@
   "diagnostics": [
     {
       "kind": "diagnostic",
+      "code": "E0907",
+      "severity": "error",
+      "message": "initialization cycle for `let (g, _)`: `let (g, _)` refers to `f` refers to `g` refers to `let (g, _)`",
+      "span": {
+        "file": "E0904_tailrec_var_destructure.gom",
+        "start": {
+          "line": 6,
+          "col": 1,
+          "offset": 190
+        },
+        "end": {
+          "line": 6,
+          "col": 36,
+          "offset": 225
+        }
+      },
+      "data": {
+        "path": [
+          "let (g, _)",
+          "f",
+          "g",
+          "let (g, _)"
+        ],
+        "var": "let (g, _)"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0907",
+      "severity": "error",
+      "message": "initialization cycle for `g`: `g` refers to `let (g, _)` refers to `f` refers to `g`",
+      "span": {
+        "file": "E0904_tailrec_var_destructure.gom",
+        "start": {
+          "line": 6,
+          "col": 6,
+          "offset": 195
+        },
+        "end": {
+          "line": 6,
+          "col": 7,
+          "offset": 196
+        }
+      },
+      "data": {
+        "path": [
+          "g",
+          "let (g, _)",
+          "f",
+          "g"
+        ],
+        "var": "g"
+      }
+    },
+    {
+      "kind": "diagnostic",
       "code": "E0904",
       "severity": "error",
       "message": "`@tailrec` function `f` is mutually recursive through `g`",

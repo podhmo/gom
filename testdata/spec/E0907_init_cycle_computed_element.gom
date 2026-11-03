@@ -1,0 +1,10 @@
+package ex
+
+// `f`'s element is a call `mk ()`, not a traceable reference to a
+// local function, so `f` stays an eager variable projection — and
+// `mk`'s body reading `f` closes the initialization cycle.
+fn mk () -> (Int -> Int) = f
+fn count (n: Int) -> Int = if n == 0 { 0 } else { f (n - 1) + 1 }
+let (f, _) = (mk (), 0)
+
+fn main () -> Int = count 3

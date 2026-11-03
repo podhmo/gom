@@ -958,6 +958,33 @@ type W a = {next: List (W (W a))}
 fn eq (x: W Int) (y: W Int) -> Bool = x == y   // no finite comparator set
 ```
 
+### E0907 — package-level initialization cycle
+
+**Severity:** error · **Phase:** lower
+
+Package-level "let" bindings initialize eagerly in dependency
+order, following the same rule Go applies to "var" declarations:
+a binding's initializer must wait for every variable the
+initializer — or a function body the initializer references —
+mentions. When the bindings form a cycle no order exists, and the
+generated Go could not compile.
+
+A function value stored inside an aggregate is the usual culprit.
+When the bound function is a plain reference to a local "fn" —
+"let (f, _) = (g, 0)" — the compiler emits a named wrapper calling
+"g" directly, which removes the dependency. The diagnostic
+therefore means one of the remaining shapes: a cycle through a
+non-function binding, through an element the compiler cannot trace
+to a function (a call, a conditional, a variable holding the
+aggregate), or through a lambda that mentions its own binding.
+Restructure by referencing the function inside a function body
+rather than binding the value.
+
+```gom
+fn g (n: Int) -> Int = x + n
+let (f, x) = (g, 41)   // tuple -> g -> x -> tuple: no valid init order
+```
+
 ## 90xx — Evaluation
 
 ### E9001 — construct not supported by the evaluator

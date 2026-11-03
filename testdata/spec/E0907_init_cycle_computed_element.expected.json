@@ -1,0 +1,60 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0907",
+      "severity": "error",
+      "message": "initialization cycle for `let (f, _)`: `let (f, _)` refers to `mk` refers to `f` refers to `let (f, _)`",
+      "span": {
+        "file": "E0907_init_cycle_computed_element.gom",
+        "start": {
+          "line": 8,
+          "col": 1,
+          "offset": 303
+        },
+        "end": {
+          "line": 8,
+          "col": 24,
+          "offset": 326
+        }
+      },
+      "data": {
+        "path": [
+          "let (f, _)",
+          "mk",
+          "f",
+          "let (f, _)"
+        ],
+        "var": "let (f, _)"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0907",
+      "severity": "error",
+      "message": "initialization cycle for `f`: `f` refers to `let (f, _)` refers to `mk` refers to `f`",
+      "span": {
+        "file": "E0907_init_cycle_computed_element.gom",
+        "start": {
+          "line": 8,
+          "col": 6,
+          "offset": 308
+        },
+        "end": {
+          "line": 8,
+          "col": 7,
+          "offset": 309
+        }
+      },
+      "data": {
+        "path": [
+          "f",
+          "let (f, _)",
+          "mk",
+          "f"
+        ],
+        "var": "f"
+      }
+    }
+  ]
+}

@@ -1,0 +1,60 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0907",
+      "severity": "error",
+      "message": "initialization cycle for `h`: `h` refers to `mk` refers to `g` refers to `h`",
+      "span": {
+        "file": "E0907_init_cycle_var_block.gom",
+        "start": {
+          "line": 8,
+          "col": 1,
+          "offset": 252
+        },
+        "end": {
+          "line": 8,
+          "col": 14,
+          "offset": 265
+        }
+      },
+      "data": {
+        "path": [
+          "h",
+          "mk",
+          "g",
+          "h"
+        ],
+        "var": "h"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0907",
+      "severity": "error",
+      "message": "initialization cycle for `g`: `g` refers to `h` refers to `mk` refers to `g`",
+      "span": {
+        "file": "E0907_init_cycle_var_block.gom",
+        "start": {
+          "line": 9,
+          "col": 1,
+          "offset": 266
+        },
+        "end": {
+          "line": 9,
+          "col": 14,
+          "offset": 279
+        }
+      },
+      "data": {
+        "path": [
+          "g",
+          "h",
+          "mk",
+          "g"
+        ],
+        "var": "g"
+      }
+    }
+  ]
+}

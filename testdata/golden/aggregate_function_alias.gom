@@ -1,0 +1,28 @@
+package aliases
+
+// Function-typed variables bound by top-level destructuring
+// patterns lower to named canonical wrappers when their element is
+// a pure reference to a local function — the aggregate keeps its
+// eager initializer; the wrapper keeps the variable edge out of
+// package initialization order.
+fn count (n: Int) -> Int = if n == 0 { 0 } else { again (n - 1) + 1 }
+let (again, _) = (count, 0)
+
+type Pair = {f: Int -> Int, x: Int}
+let {f = ragain, x = rx} = {f = count, x = 7}
+
+type Box = | Box (Int -> Int)
+let Box g = Box count
+
+// A multi-arity element wraps the same way — the wrapper's arity-one
+// shape matches the canonical value representation.
+fn add (x: Int) (y: Int) -> Int = x + y
+let (plus, px) = (add, 9)
+
+// A `let g = e` whose `e` is a block keeps the initializer eager
+// under a hidden variable — its statements still run at package
+// initialization — while `g` is the wrapper.
+fn mark () -> Unit = ()
+let g2 = { mark (); count }
+
+fn answer () -> Int = again 1 + ragain rx + g 2 + plus px 9 + g2 1

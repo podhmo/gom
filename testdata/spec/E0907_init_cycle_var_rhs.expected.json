@@ -1,0 +1,91 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0907",
+      "severity": "error",
+      "message": "initialization cycle for `pair`: `pair` refers to `count` refers to `a` refers to `let (a, b)` refers to `pair`",
+      "span": {
+        "file": "E0907_init_cycle_var_rhs.gom",
+        "start": {
+          "line": 7,
+          "col": 1,
+          "offset": 239
+        },
+        "end": {
+          "line": 7,
+          "col": 22,
+          "offset": 260
+        }
+      },
+      "data": {
+        "path": [
+          "pair",
+          "count",
+          "a",
+          "let (a, b)",
+          "pair"
+        ],
+        "var": "pair"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0907",
+      "severity": "error",
+      "message": "initialization cycle for `let (a, b)`: `let (a, b)` refers to `pair` refers to `count` refers to `a` refers to `let (a, b)`",
+      "span": {
+        "file": "E0907_init_cycle_var_rhs.gom",
+        "start": {
+          "line": 9,
+          "col": 1,
+          "offset": 327
+        },
+        "end": {
+          "line": 9,
+          "col": 18,
+          "offset": 344
+        }
+      },
+      "data": {
+        "path": [
+          "let (a, b)",
+          "pair",
+          "count",
+          "a",
+          "let (a, b)"
+        ],
+        "var": "let (a, b)"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0907",
+      "severity": "error",
+      "message": "initialization cycle for `a`: `a` refers to `let (a, b)` refers to `pair` refers to `count` refers to `a`",
+      "span": {
+        "file": "E0907_init_cycle_var_rhs.gom",
+        "start": {
+          "line": 9,
+          "col": 6,
+          "offset": 332
+        },
+        "end": {
+          "line": 9,
+          "col": 7,
+          "offset": 333
+        }
+      },
+      "data": {
+        "path": [
+          "a",
+          "let (a, b)",
+          "pair",
+          "count",
+          "a"
+        ],
+        "var": "a"
+      }
+    }
+  ]
+}

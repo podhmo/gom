@@ -1,0 +1,60 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0907",
+      "severity": "error",
+      "message": "initialization cycle for `let (f, x)`: `let (f, x)` refers to `g` refers to `x` refers to `let (f, x)`",
+      "span": {
+        "file": "E0907_init_cycle_tuple_data.gom",
+        "start": {
+          "line": 8,
+          "col": 1,
+          "offset": 294
+        },
+        "end": {
+          "line": 8,
+          "col": 21,
+          "offset": 314
+        }
+      },
+      "data": {
+        "path": [
+          "let (f, x)",
+          "g",
+          "x",
+          "let (f, x)"
+        ],
+        "var": "let (f, x)"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0907",
+      "severity": "error",
+      "message": "initialization cycle for `x`: `x` refers to `let (f, x)` refers to `g` refers to `x`",
+      "span": {
+        "file": "E0907_init_cycle_tuple_data.gom",
+        "start": {
+          "line": 8,
+          "col": 9,
+          "offset": 302
+        },
+        "end": {
+          "line": 8,
+          "col": 10,
+          "offset": 303
+        }
+      },
+      "data": {
+        "path": [
+          "x",
+          "let (f, x)",
+          "g",
+          "x"
+        ],
+        "var": "x"
+      }
+    }
+  ]
+}

@@ -55,6 +55,49 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 		want: "3:4:5:42",
 	},
 	{
+		// P2-2c: the same delayed-reference cycle through a
+		// destructuring let — tuple, record, and a single-variant
+		// constructor all bind `count` as a named wrapper.
+		name: "aggregate_function_alias",
+		src: `package main
+
+import go "fmt"
+
+fn count (n: Int) -> Int = if n == 0 { 0 } else { again (n - 1) + 1 }
+let (again, _) = (count, 0)
+
+type Pair = {f: Int -> Int, x: Int}
+let {f = ragain, x = rx} = {f = count, x = 7}
+
+type Box = | Box (Int -> Int)
+let Box g = Box count
+
+fn apply (f: Int -> Int) (x: Int) -> Int = f x
+fn answer () -> String = "${again 3}:${ragain rx}:${g 2}:${apply g 5}"
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "3:7:2:5",
+	},
+	{
+		// P2-2c: the rest of the traceable shapes — `as` binds two
+		// names to one element, the trace descends nested tuples,
+		// and a block element supplies its tail.
+		name: "aggregate_alias_shapes",
+		src: `package main
+
+import go "fmt"
+
+fn count (n: Int) -> Int = if n == 0 { 0 } else { a (n - 1) + 1 }
+let (f as g, _) = (count, 0)
+let ((a, _), (_, m)) = ((count, 0), (0, 41))
+let (h, _) = ({ (); count }, 0)
+
+fn answer () -> String = "${f 3}:${g 3}:${a 3}:${h 3}:${m}"
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "3:3:3:3:41",
+	},
+	{
 		name: "poly_functions",
 		src: `package main
 

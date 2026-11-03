@@ -975,10 +975,12 @@ func (l *lowerer) pureBinds(pat check.Pat, subj core.Atom) []pureBind {
 	return out
 }
 
-// boundVar is one variable a pattern binds, with its declared type.
+// boundVar is one variable a pattern binds, with its declared type
+// and the pattern's source span.
 type boundVar struct {
 	sym *resolve.Symbol
 	typ types.Type
+	sp  diag.Span
 }
 
 // boundVars collects a pattern's bound variables in traversal order.
@@ -990,9 +992,9 @@ func boundVars(p check.Pat) []boundVar {
 	walk = func(p check.Pat) {
 		switch p := p.(type) {
 		case *check.VarPat:
-			out = append(out, boundVar{sym: p.Sym, typ: p.Type()})
+			out = append(out, boundVar{sym: p.Sym, typ: p.Type(), sp: p.Span()})
 		case *check.AsPat:
-			out = append(out, boundVar{sym: p.Sym, typ: p.Type()})
+			out = append(out, boundVar{sym: p.Sym, typ: p.Type(), sp: p.Span()})
 			walk(p.Pat)
 		case *check.TuplePat:
 			for _, e := range p.Elems {

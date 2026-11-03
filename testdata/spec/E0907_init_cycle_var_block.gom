@@ -1,0 +1,11 @@
+package ex
+
+// `let g = { h }` — the block tail is a `Var`, but `h` is bound to
+// a call (`mk ()`), not a static-alias root, so `g` keeps its eager
+// block initializer and the cycle `h → mk → g → h` is reported.
+
+fn mk () -> (Int -> Int) = g
+let h = mk ()
+let g = { h }
+
+fn main () -> Int = g 1

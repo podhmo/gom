@@ -1,0 +1,10 @@
+package ex
+
+// The tuple's initializer reaches `g`, whose body reads `x`, and
+// `x` reads the tuple back: no initialization order exists. `f`
+// becomes a wrapper but `x` cannot, so the cycle stays and is
+// reported instead of producing Go that fails to compile.
+fn g (n: Int) -> Int = x + n
+let (f, x) = (g, 41)
+
+fn main () -> Int = f 1

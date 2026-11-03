@@ -1,0 +1,31 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0907",
+      "severity": "error",
+      "message": "initialization cycle for `r`: `r` refers to `f` refers to `r`",
+      "span": {
+        "file": "E0907_init_cycle_self_call.gom",
+        "start": {
+          "line": 7,
+          "col": 1,
+          "offset": 249
+        },
+        "end": {
+          "line": 7,
+          "col": 12,
+          "offset": 260
+        }
+      },
+      "data": {
+        "path": [
+          "r",
+          "f",
+          "r"
+        ],
+        "var": "r"
+      }
+    }
+  ]
+}

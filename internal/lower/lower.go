@@ -130,11 +130,14 @@ type TypeOracle interface {
 //     than silently handing codegen a malformed tree).
 func File(f *check.File, env *Env) (*core.File, []diag.Diagnostic) {
 	l := &lowerer{
-		arity:     map[*resolve.Symbol]int{},
-		thunks:    map[*resolve.Symbol]bool{},
-		typeD:     map[string]*check.TypeDecl{},
-		ctorT:     map[*resolve.Symbol]*check.TypeDecl{},
-		boundSyms: map[*resolve.Symbol]bool{},
+		arity:      map[*resolve.Symbol]int{},
+		thunks:     map[*resolve.Symbol]bool{},
+		typeD:      map[string]*check.TypeDecl{},
+		ctorT:      map[*resolve.Symbol]*check.TypeDecl{},
+		boundSyms:  map[*resolve.Symbol]bool{},
+		aliasElems: map[*resolve.Symbol]check.Expr{},
+		aliasInit:  map[*resolve.Symbol]bool{},
+		tmpLets:    map[*resolve.Symbol]*check.LetDecl{},
 	}
 	if env == nil {
 		env = &Env{}
@@ -188,6 +191,7 @@ func File(f *check.File, env *Env) (*core.File, []diag.Diagnostic) {
 		l.decl(d, out)
 	}
 	l.checkTailRec(out)
+	l.checkInitCycles(out)
 	out.EqDecls = l.eqOrder
 	out.ShowDecls = l.showOrder
 
@@ -242,6 +246,21 @@ type lowerer struct {
 	// staticAliases marks pure local function references whose package
 	// let can use a named canonical wrapper without an initializer.
 	staticAliases map[*resolve.Symbol]bool
+	// aliasElems maps each static-alias binding to the initializer
+	// element expression its wrapper applies — the `f` of `let g = f`
+	// or the `count` of `let (again, _) = (count, 0)`. Populated by
+	// indexStaticAliases alongside staticAliases.
+	aliasElems map[*resolve.Symbol]check.Expr
+	// aliasInit marks `let g = e` bindings whose `e` is not itself the
+	// pure reference — element tracing peeled a block to reach it —
+	// so the initializer must still be emitted eagerly under a hidden
+	// variable or its effects would never run.
+	aliasInit map[*resolve.Symbol]bool
+	// tmpLets maps hidden temporaries minted for top-level `let`
+	// destructurings back to their let declaration, so the
+	// initialization-cycle diagnostic can name them by the pattern
+	// they carry instead of `tmp4`.
+	tmpLets map[*resolve.Symbol]*check.LetDecl
 	// typeD indexes the file's TypeDecls by qualified name key; ctorT
 	// maps a locally declared variant symbol to its TypeDecl.
 	typeD map[string]*check.TypeDecl
@@ -820,13 +839,18 @@ func (l *lowerer) tfields(fs []check.TField) []core.TField {
 //   - a deep-irrefutable pattern (tuple/record/as/`[..rest]`
 //     compositions, wildcard) binds a shared hidden temporary VarDecl
 //     and one VarDecl per bound variable initialised by pure
-//     projection.
+//     projection — again except a static-alias binding, whose
+//     function value would otherwise route a package-initialization
+//     cycle through the hidden aggregate (`let (again, _) =
+//     (count, 0)`; docs/decisions/2026-11-05-aggregate-function-bindings.md).
 //   - a tested pattern — a single-variant constructor pattern is the
 //     only one the pattern checker should admit, but refutable
 //     patterns are still meaningful — compiles to a match on the
 //     shared temporary whose leaf yields the bound variables as a
 //     tuple (or the single variable, or Unit when nothing binds).
-//     One VarDecl per bound variable then projects the tuple.
+//     One VarDecl per bound variable then projects the tuple. The
+//     match is emitted even when every binding became a wrapper:
+//     the initializer still runs — and can still panic — eagerly.
 //
 // This replaces the earlier scheme that projected every pattern with
 // fabricated FieldGet nodes; patterns that need a test can only be
@@ -834,15 +858,20 @@ func (l *lowerer) tfields(fs []check.TField) []core.TField {
 func (l *lowerer) letDecl(d *check.LetDecl, out *core.File) {
 	if v, ok := d.Pat.(*check.VarPat); ok {
 		if l.staticAliases[v.Sym] {
-			sig := flatSig(d.Value.Type())
-			wrapper := l.closureOf(d.Sp, sig, sig.Params[:1], func(s *seq, params []core.Atom) core.Expr {
-				fn := l.atom(s, d.Value)
-				return l.applyAtom(s, d.Sp, retAfter(sig, 1), fn, params)
-			})
-			out.Decls = append(out.Decls, &core.FuncDecl{
-				Sp: d.Sp, Sym: v.Sym, ValueAlias: true, Fn: wrapper.Fn,
-				Exported: l.exported(v.Sym),
-			})
+			// A block initializer still carries effects — the trace
+			// peeled it to reach the element, so the wrapper cannot
+			// stand in for it. Keep `d.Value` eager under a hidden
+			// variable, the same role a destructure's shared
+			// temporary plays.
+			if l.aliasInit[v.Sym] {
+				tmpSym := l.tmp()
+				tmpSym.TestOnly = testOnlyPat(d.Pat)
+				l.tmpLets[tmpSym] = d
+				out.Decls = append(out.Decls, &core.VarDecl{
+					Sp: d.Sp, Sym: tmpSym, Body: l.exprBody(d.Value),
+				})
+			}
+			out.Decls = append(out.Decls, l.aliasWrapper(v.Span(), v.Sym))
 			return
 		}
 		out.Decls = append(out.Decls, &core.VarDecl{
@@ -857,6 +886,7 @@ func (l *lowerer) letDecl(d *check.LetDecl, out *core.File) {
 	testOnly := testOnlyPat(d.Pat)
 	tmpSym := l.tmp()
 	tmpSym.TestOnly = testOnly
+	l.tmpLets[tmpSym] = d
 	out.Decls = append(out.Decls, &core.VarDecl{
 		Sp: d.Sp, Sym: tmpSym, Body: l.exprBody(d.Value),
 	})
@@ -868,6 +898,10 @@ func (l *lowerer) letDecl(d *check.LetDecl, out *core.File) {
 	}
 	if deepPure(d.Pat) {
 		for _, b := range l.pureBinds(d.Pat, tmpVar()) {
+			if l.staticAliases[b.sym] {
+				out.Decls = append(out.Decls, l.aliasWrapper(b.sp, b.sym))
+				continue
+			}
 			out.Decls = append(out.Decls, &core.VarDecl{
 				Sp:       b.sp,
 				Sym:      b.sym,
@@ -894,12 +928,26 @@ func (l *lowerer) letDecl(d *check.LetDecl, out *core.File) {
 		body.Lets = append(body.Lets, dl.Body.Lets...)
 		body.Tail = dl.Body.Tail
 	}
+	// discardDecl emits the match's value under a hidden name — the
+	// pattern test must still run at initialization even when the
+	// bindings below it are wrappers or absent.
+	discardDecl := func() {
+		dsym := l.tmp()
+		dsym.TestOnly = testOnly
+		l.tmpLets[dsym] = d
+		out.Decls = append(out.Decls, &core.VarDecl{
+			Sp: d.Sp, Sym: dsym, Body: body,
+		})
+	}
 	switch len(vars) {
 	case 0:
-		out.Decls = append(out.Decls, &core.VarDecl{
-			Sp: d.Sp, Sym: l.tmp(), Body: body,
-		})
+		discardDecl()
 	case 1:
+		if l.staticAliases[vars[0].sym] {
+			discardDecl()
+			out.Decls = append(out.Decls, l.aliasWrapper(vars[0].sp, vars[0].sym))
+			break
+		}
 		out.Decls = append(out.Decls, &core.VarDecl{
 			Sp: d.Sp, Sym: vars[0].sym, Body: body,
 			Exported: l.exported(vars[0].sym),
@@ -907,10 +955,15 @@ func (l *lowerer) letDecl(d *check.LetDecl, out *core.File) {
 	default:
 		tupSym := l.tmp()
 		tupSym.TestOnly = testOnly
+		l.tmpLets[tupSym] = d
 		out.Decls = append(out.Decls, &core.VarDecl{
 			Sp: d.Sp, Sym: tupSym, Body: body,
 		})
 		for i, v := range vars {
+			if l.staticAliases[v.sym] {
+				out.Decls = append(out.Decls, l.aliasWrapper(v.sp, v.sym))
+				continue
+			}
 			out.Decls = append(out.Decls, &core.VarDecl{
 				Sp:  d.Sp,
 				Sym: v.sym,
@@ -922,6 +975,29 @@ func (l *lowerer) letDecl(d *check.LetDecl, out *core.File) {
 				Exported: l.exported(v.sym),
 			})
 		}
+	}
+}
+
+// aliasWrapper emits a static-alias binding's canonical named
+// wrapper — the ValueAlias FuncDecl that applies the binding's
+// element expression directly. Callers guarantee staticAliases[sym],
+// which means a function-typed element rooted in a local function
+// (indexStaticAliases), so the flat signature exists and the call
+// convention is the same arity-one shape P2-2b established for
+// `let g = f`.
+func (l *lowerer) aliasWrapper(sp diag.Span, sym *resolve.Symbol) *core.FuncDecl {
+	elem := l.aliasElems[sym]
+	sig := flatSig(elem.Type())
+	if sig == nil {
+		panic("unreachable") // staticAliases implies a function-typed element
+	}
+	wrapper := l.closureOf(sp, sig, sig.Params[:1], func(s *seq, params []core.Atom) core.Expr {
+		fn := l.atom(s, elem)
+		return l.applyAtom(s, sp, retAfter(sig, 1), fn, params)
+	})
+	return &core.FuncDecl{
+		Sp: sp, Sym: sym, ValueAlias: true, Fn: wrapper.Fn,
+		Exported: l.exported(sym),
 	}
 }
 

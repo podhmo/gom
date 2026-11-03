@@ -116,6 +116,22 @@ references while making the absence of a Go package initializer explicit.
 Computed initializers remain eager `VarDecl`s. See
 [static-function-alias-declarations](decisions/2026-11-03-static-function-alias-declarations.md).
 
+The same wrapper rule applies to function-typed variables bound by
+destructuring patterns (`let (again, _) = (count, 0)`): the hidden aggregate
+keeps its eager `VarDecl` — its initializer, effects, and their order are
+unchanged — while the bound symbol becomes a `ValueAlias` `FuncDecl` that
+calls the element's root function directly. Element tracing composes only
+through statically knowable shapes — tuple/record/list/constructor literals
+matched by the pattern's structure, transparent ascriptions, and block tails —
+so a call, a conditional, or a variable holding the aggregate keeps the eager
+projection. A plain `let g = e` whose `e` the trace peeled through a block
+keeps `e` as a hidden eager `VarDecl` too — the wrapper cannot stand in for
+the block's statements. Whatever variable-to-variable dependency cycle
+remains after the wrapper rule is unorderable in Go's initialization model
+and is rejected on the lowered Core IR as E0907, reported against the .gom
+bindings rather than left for `go build` to name hidden temporaries. See
+[aggregate-function-bindings](decisions/2026-11-05-aggregate-function-bindings.md).
+
 ### 2.2 ソース位置の対応
 
 内部では「Gom ソースの範囲 → Core IR の由来 → 生成した Go ソースの範囲」の対応表を持つ。`//line` ディレクティブはこの対応を Go ツールチェーンに伝える手段の 1 つにすぎず、`go build` / `go vet` のエラーを Gom の位置に戻すときや、panic のスタックの変換にも対応表を使う。位置の正は UTF-8 のバイトオフセットで、行・列や UTF-16 の位置は出力時に計算する。

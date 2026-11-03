@@ -416,23 +416,29 @@ func TestTailRecPkgVarChain(t *testing.T) {
 	}
 }
 
-// TestTailRecPkgVarSeed (R4, no false cycle): `let r = f 0` calls f
+// TestTailRecPkgVarSeed (R4, no false cycle): `let r = g 0` calls g
 // once at package init — the stored Int cannot call f back, so f
-// reading `r` closes no cycle. Init-time calls at a VarDecl body's
-// top level do not produce edges.
+// reading `r` closes no recursion cycle. Init-time calls at a
+// VarDecl body's top level do not produce edges. (The callee is g
+// rather than f itself: `let r = f 0` with f's body reading r is a
+// genuine package-initialization cycle and E0907 now reports it —
+// the init-order graph does follow function bodies.)
 func TestTailRecPkgVarSeed(t *testing.T) {
 	n := vsym("n", types.Int)
 	c := vsym("c", types.Bool)
 	sig := types.Fn(types.Int, types.P(types.Int), types.P(types.Bool))
 	fd := tailRecDecl("f",
 		[]check.Param{param(vpat(n, types.Int)), param(vpat(c, types.Bool))}, nil, sig)
+	gd := decl("g",
+		[]check.Param{param(vpat(vsym("m", types.Int), types.Int)),
+			param(vpat(vsym("b", types.Bool), types.Bool))}, intLit("0"), sig)
 	r := vsym("r", types.Int)
 	rd := &check.LetDecl{Sp: sp, Pat: vpat(r, types.Int),
-		Value: selfApp(fd.Sym, sig, types.Int, intLit("0"),
+		Value: selfApp(gd.Sym, sig, types.Int, intLit("0"),
 			lit(syntax.LitBool, "true", types.Bool))}
 	fd.Body = &check.If{Base: b(types.Int), Cond: vr(c, types.Bool),
 		Then: selfApp(fd.Sym, sig, types.Int, vr(n, types.Int), vr(c, types.Bool)),
 		Else: vr(r, types.Int)}
-	_, diags := lower1(t, rd, fd)
+	_, diags := lower1(t, rd, gd, fd)
 	wantCodes(t, diags)
 }
