@@ -115,6 +115,19 @@ func (c chain) MethodOf(recv types.Type, name string) (*resolve.Symbol, Signatur
 	return nil, Signature{}, false
 }
 
+// TypeDecls forwards the optional TypeDeclSource protocol through
+// the chain — the concatenation of every implementing source's
+// loaded type declarations.
+func (c chain) TypeDecls() []*TypeDecl {
+	var out []*TypeDecl
+	for _, s := range c {
+		if src, ok := s.(TypeDeclSource); ok {
+			out = append(out, src.TypeDecls()...)
+		}
+	}
+	return out
+}
+
 // builtinTVar hands out the rigid variables used by the builtin
 // signatures below. They are created once per checker so two builtin
 // signatures never share a variable by accident.

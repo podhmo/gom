@@ -1,6 +1,6 @@
 # Foreign-package ADT construction guesses `V%d` field names
 
-- 状態: 未解決
+- 状態: 解消（2026-11-05 — `core.CtorApp`/`CtorRef` carry `Fields`; `gomimport` + sibling decls supply them. Verified in [sketch: multifile package](../sketch/2026-11-05-multifile-package-verification.md) — `shapes.Circle 2.0` emits `shapes.Shape_Circle{Radius: 2.0}`）
 - 発見: 2026-11-02, P1-8 review follow-up
 
 ## Situation

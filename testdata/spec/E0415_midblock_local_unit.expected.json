@@ -4,7 +4,7 @@
       "kind": "diagnostic",
       "code": "E0415",
       "severity": "error",
-      "message": "the unit literal `()` needs the builtin `Unit`, but the file declares a `type Unit` shadowing it",
+      "message": "the unit literal `()` needs the builtin `Unit`, but the package declares a `type Unit` shadowing it",
       "span": {
         "file": "E0415_midblock_local_unit.gom",
         "start": {
@@ -27,7 +27,7 @@
       "kind": "diagnostic",
       "code": "E0415",
       "severity": "error",
-      "message": "a mid-block expression needs the builtin `Unit`, but the file declares a `type Unit` shadowing it",
+      "message": "a mid-block expression needs the builtin `Unit`, but the package declares a `type Unit` shadowing it",
       "span": {
         "file": "E0415_midblock_local_unit.gom",
         "start": {

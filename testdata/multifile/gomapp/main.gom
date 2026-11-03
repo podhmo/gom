@@ -1,0 +1,18 @@
+package main
+
+import go "fmt"
+import "example.com/multifile/shapes"
+
+fn describe (s: shapes.Shape) -> String = match s {
+  shapes.Circle r -> "circle ${r}"
+  shapes.Rect w h -> "rect ${w} ${h}"
+}
+
+fn main () -> Unit = {
+  let c = shapes.Circle 2.0
+  ignore (fmt.Println (shapes.area c))
+  ignore (fmt.Println (describe (shapes.scale (fn r -> r * 2.0) c)))
+  ignore (fmt.Println (shapes.twice (fn n -> n + 1) 0))
+  ignore (fmt.Println shapes.tau)
+  ()
+}

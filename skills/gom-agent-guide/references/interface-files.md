@@ -63,7 +63,7 @@ Rules:
 
 A `.gomi`-listed member exports as its capitalized Go name; an
 unlisted top-level definition stays a lowercase-private Go
-identifier. Inside Gom there is still no cross-package `import
-"pkg"` — dependents see interface members through the compiler's
-builtin module tables (the stdlib modules) today, and cross-package
-imports remain future work.
+identifier. `import "pkg"` resolves a Gom package through its
+`.gomi` — the importing file must sit in the same Go module;
+cyclic package imports and `.gomi`-side imports are not yet
+specified (see problems/2026-11-05-gom-package-imports).

@@ -166,6 +166,12 @@ type CtorApp struct {
 	TypeArgs []types.Type    // instantiation of the ADT's type parameters
 	Args     []Atom
 	Arity    int // the variant's declared payload count; len(Args) == Arity
+	// Fields are the variant's declared payload slots — their names
+	// and labels — so the variant literal emits `T_C{Name: v}` for
+	// constructors codegen has no declaration table for (sibling-
+	// file and imported ADTs). Nil means positional-only slots,
+	// emitted V0, V1, ...
+	Fields []TField
 }
 
 func (*CtorApp) isExpr() {}

@@ -47,17 +47,20 @@ func runTest(args []string, stdout, stderr io.Writer) int {
 	// "tests" counts even when the run never reaches go test.
 	rep := diag.Report{Files: inputNames(inputs), Tests: []diag.TestResult{}}
 	srcs := map[string][]byte{}
-	results := make([]*build.Result, len(inputs))
-	for i, in := range inputs {
+	for _, in := range inputs {
 		srcs[in.path] = in.src
-		opts := compileOptions(in, false)
-		opts.Lower.Tests = true
-		r, err := build.Compile(build.Input{Path: in.path, Src: in.src, Interface: in.iface}, opts)
-		if err != nil {
-			fmt.Fprintf(stderr, "gom test: %s: %v\n", in.path, err)
-			return diag.ExitInternal
-		}
-		results[i] = r
+	}
+	// The .gom files of one directory compile as one package unit,
+	// like gom build — a test file sees its siblings' declarations,
+	// and a member's failure withholds the whole package's outputs.
+	results, err := compileInputs(inputs, false, func(o *build.Options) {
+		o.Lower.Tests = true
+	})
+	if err != nil {
+		fmt.Fprintf(stderr, "gom test: %v\n", err)
+		return diag.ExitInternal
+	}
+	for _, r := range results {
 		rep.Diagnostics = append(rep.Diagnostics, r.Diagnostics...)
 	}
 

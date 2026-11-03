@@ -221,6 +221,21 @@ func (v *validator) file(f *File) {
 			panic("unreachable")
 		}
 	}
+	// The unit's sibling files share the package scope: their
+	// package-level vars, declared type names, and fn/ctor type
+	// parameter arities count as established facts here, exactly as
+	// if they had been declared in this file.
+	if u := f.Unit; u != nil {
+		for sym := range u.Vars {
+			v.top[sym] = true
+		}
+		for sym, n := range u.TParams {
+			v.tparams[sym] = n
+		}
+		for name := range u.Types {
+			v.localT[name] = true
+		}
+	}
 	for _, d := range f.Decls {
 		v.decl(d)
 	}
@@ -717,13 +732,13 @@ func (v *validator) atom(a Atom, what string) {
 			v.err(a.Sp, "Var", "symbol %q has kind %s, want var (functions use FuncRef, ctors CtorRef)",
 				a.Sym.Name, a.Sym.Kind)
 		}
-		// A Go package member (`os.Args`, `math.Pi`) is referenced by
-		// qualification, not by an enclosing binder — it needs no
-		// scope entry (Var's doc: a package-level value). Only a
-		// *packaged* Go symbol is exempt: a package-less IsGo var
-		// would be a lowering artifact and must live in scope like
-		// any local.
-		if (!a.Sym.IsGo || a.Sym.Package == "") && !v.inScope(a.Sym) {
+		// A package member is referenced by qualification, not by an
+		// enclosing binder — it needs no scope entry (Var's doc: a
+		// package-level value). This covers Go members (`os.Args`,
+		// `math.Pi`) and imported Gom `let` members (`pkg.x`) alike;
+		// a package-less symbol is always a local binding that must
+		// live in scope — sibling-package vars arrive via File.Unit.
+		if a.Sym.Package == "" && !v.inScope(a.Sym) {
 			v.err(a.Sp, "Var", "symbol %q is not in scope — not bound by an enclosing let/param/case",
 				a.Sym.Name)
 		}

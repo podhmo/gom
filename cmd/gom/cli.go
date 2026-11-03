@@ -18,8 +18,10 @@ import (
 	"github.com/podhmo/gom/internal/diag"
 	"github.com/podhmo/gom/internal/format"
 	"github.com/podhmo/gom/internal/goimport"
+	"github.com/podhmo/gom/internal/gomimport"
 	"github.com/podhmo/gom/internal/iface"
 	"github.com/podhmo/gom/internal/lower"
+	"github.com/podhmo/gom/internal/resolve"
 	gomstd "github.com/podhmo/gom/internal/stdlib"
 	"github.com/podhmo/gom/internal/treedump"
 )
@@ -32,28 +34,81 @@ type input struct {
 }
 
 // compileOptions builds the driver options for one input: a
-// goimport.Loader wired as the resolve loader, the signature oracle,
-// and lowering's GoSig hook — the whole `import go` seam of
-// build.Options — plus the standard library's builtin-module
-// tables and the .gomi export hook of spec section 5. The loader's
-// go list runs in the input file's own directory so imported
-// packages resolve in the module the file belongs to;
-// Config.GoBin/Dir are the documented escape from ambient toolchain
-// and workspace skew.
+// goimport.Loader behind the gomimport composite answers both
+// `import go` and `import` — the resolve loader, signature oracle,
+// constructor-field tables and lowering's GoSig/type/arity hooks
+// all come from the two sessions — plus the standard library's
+// builtin-module tables and the .gomi export hook of spec section
+// 5. The loaders run in the input file's own directory so imported
+// packages resolve in the module the file belongs to.
 func compileOptions(in input, checkOnly bool) *build.Options {
 	dir := filepath.Dir(in.path)
 	if abs, err := filepath.Abs(dir); err == nil {
 		dir = abs
 	}
 	gl := goimport.New(&goimport.Config{Dir: dir})
+	mods := map[string]map[string]*resolve.Symbol{}
+	ml := gomimport.New(&gomimport.Config{Dir: dir, Go: gl, Sigs: gl, Modules: mods})
 	return gomstd.Apply(&build.Options{
-		Loader:         gl,
-		Sigs:           gl,
-		Lower:          &lower.Env{GoSig: gl.GoSigOf},
+		Loader:         ml,
+		Sigs:           ml,
+		Modules:        mods,
+		Lower:          &lower.Env{GoSig: gl.GoSigOf, Types: ml, FuncArity: ml.ArityOf},
 		Exports:        iface.ExportNames,
 		SelfImportPath: gomstd.SelfPath(in.path),
 		CheckOnly:      checkOnly,
 	})
+}
+
+// compileInputs compiles every input and returns one *build.Result
+// per input, in input order. The .gom files of one directory go
+// through build.CompileFiles as one package unit — the package is
+// the resolve/check unit (docs/decisions/2026-11-05-package-
+// compilation-unit.md) — while each .gomi input compiles
+// individually through build.Compile (an interface is its own
+// scope). Diagnostics of all results concatenate in input order.
+func compileInputs(inputs []input, checkOnly bool, tweak func(*build.Options)) ([]*build.Result, error) {
+	results := make([]*build.Result, len(inputs))
+	groups := map[string][]int{}
+	var order []string
+	for i, in := range inputs {
+		if in.iface {
+			r, err := build.Compile(build.Input{Path: in.path, Src: in.src, Interface: true},
+				compileOptions(in, checkOnly))
+			if err != nil {
+				return nil, fmt.Errorf("%s: %w", in.path, err)
+			}
+			results[i] = r
+			continue
+		}
+		// Clean the path before grouping — `pkg/../pkg/b.gom` and
+		// `pkg/a.gom` name the same directory, and an unnormalized dir
+		// would split one package into two units.
+		dir := filepath.Dir(filepath.Clean(in.path))
+		if _, ok := groups[dir]; !ok {
+			order = append(order, dir)
+		}
+		groups[dir] = append(groups[dir], i)
+	}
+	for _, dir := range order {
+		idxs := groups[dir]
+		ins := make([]build.Input, len(idxs))
+		for j, i := range idxs {
+			ins[j] = build.Input{Path: inputs[i].path, Src: inputs[i].src}
+		}
+		opts := compileOptions(inputs[idxs[0]], checkOnly)
+		if tweak != nil {
+			tweak(opts)
+		}
+		rs, err := build.CompileFiles(ins, opts)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", dir, err)
+		}
+		for j, i := range idxs {
+			results[i] = rs[j]
+		}
+	}
+	return results, nil
 }
 
 // runCheck implements `gom check [-format F] [FILE|DIR ...]`:
@@ -82,16 +137,15 @@ func runCheck(args []string, stdout, stderr io.Writer) int {
 
 	rep := diag.Report{Files: inputNames(inputs)}
 	srcs := map[string][]byte{}
-	var results []*build.Result
 	for _, in := range inputs {
 		srcs[in.path] = in.src
-		r, err := build.Compile(build.Input{Path: in.path, Src: in.src, Interface: in.iface},
-			compileOptions(in, true))
-		if err != nil {
-			fmt.Fprintf(stderr, "gom check: %s: %v\n", in.path, err)
-			return diag.ExitInternal
-		}
-		results = append(results, r)
+	}
+	results, err := compileInputs(inputs, true, nil)
+	if err != nil {
+		fmt.Fprintf(stderr, "gom check: %v\n", err)
+		return diag.ExitInternal
+	}
+	for _, r := range results {
 		rep.Diagnostics = append(rep.Diagnostics, r.Diagnostics...)
 	}
 	// The interface contract binds the package, not the argument
@@ -132,16 +186,15 @@ func runBuild(args []string, stdout, stderr io.Writer) int {
 
 	rep := diag.Report{Files: inputNames(inputs)}
 	srcs := map[string][]byte{}
-	var results []*build.Result
 	for _, in := range inputs {
 		srcs[in.path] = in.src
-		r, err := build.Compile(build.Input{Path: in.path, Src: in.src, Interface: in.iface},
-			compileOptions(in, false))
-		if err != nil {
-			fmt.Fprintf(stderr, "gom build: %s: %v\n", in.path, err)
-			return diag.ExitInternal
-		}
-		results = append(results, r)
+	}
+	results, err := compileInputs(inputs, false, nil)
+	if err != nil {
+		fmt.Fprintf(stderr, "gom build: %v\n", err)
+		return diag.ExitInternal
+	}
+	for _, r := range results {
 		rep.Diagnostics = append(rep.Diagnostics, r.Diagnostics...)
 	}
 	// Same package-level interface pass as gom check — the .gomi

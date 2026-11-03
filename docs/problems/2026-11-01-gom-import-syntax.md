@@ -1,6 +1,6 @@
 # Gom package import syntax and .gomi contents are unspecified
 
-- 状態: 未解決
+- 状態: 一部解消（2026-11-05 — `import "path"` は実装済み: 生成 Go パッケージの import path で Gom パッケージを読み、`.gomi` が公開面になる。名前参照はパッケージ句の名前（通常はパス末尾）。残る未決は `.gomi` 側の import・alias 形式の仕様化。参照: [decision](../decisions/2026-11-05-package-compilation-unit.md)、[検証](../sketch/2026-11-05-multifile-package-verification.md)）
 - 日付: 2026-11-01
 
 ## Situation

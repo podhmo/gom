@@ -49,6 +49,17 @@ type Env struct {
 	// the package-main behavior.
 	Exported func(sym *resolve.Symbol) bool
 
+	// Siblings lists the checked declarations of the package's other
+	// files — the compilation unit's sibling .gom files
+	// (docs/decisions/2026-11-05-package-compilation-unit.md). Their
+	// symbols resolve in the shared package scope (Package == ""), so
+	// they index into the same declared-arity, thunk, type and
+	// constructor tables the file's own declarations do — a sibling
+	// `fn` referenced as a value adapts by its declared arity, a
+	// sibling thunked `let` emits its call, and a sibling ADT's
+	// payload names reach the emitted literals.
+	Siblings []check.Decl
+
 	// Lines converts byte offsets to source positions for the `|?>`
 	// step name of a nameless step (a lambda): the name is rendered
 	// as "file:line". Nil makes lowering fall back to a bare offset.
@@ -145,34 +156,21 @@ func File(f *check.File, env *Env) (*core.File, []diag.Diagnostic) {
 	l.env = env
 
 	// First pass: index declarations for oracle, arity, and thunk
-	// lookup.
+	// lookup — the file's own declarations, then the unit's sibling
+	// files', whose symbols resolve through the same package scope.
 	for _, d := range f.Decls {
-		switch d := d.(type) {
-		case *check.FnDecl:
-			l.arity[d.Sym] = len(d.Params)
-			if d.Thunk {
-				l.thunks[d.Sym] = true
-			}
-		case *check.TypeDecl:
-			l.typeD[typeKey(d.Sym)] = d
-			if s, ok := d.Body.(*check.SumType); ok {
-				for _, v := range s.Variants {
-					l.ctorT[v.Sym] = d
-				}
-			}
-		case *check.LetDecl, *check.TestDecl:
-		default:
-			panic("unreachable")
-		}
+		l.indexDecl(d)
+	}
+	for _, d := range env.Siblings {
+		l.indexDecl(d)
 	}
 	l.staticAliases = l.indexStaticAliases(f)
 
-	// Generated comparators are package-scope declarations, but the
-	// .gom files of one package are compiled independently — each
-	// mints its own — and land in a shared Go package. The names
-	// therefore carry a deterministic per-file tag (fnv32a of the
-	// file path): two files may both mint a `gomEq1`, never the
-	// same `gomEq1_<tag>`.
+	// Generated comparators are package-scope declarations, but each
+	// file lowers independently — each mints its own — and they land
+	// in a shared Go package. The names therefore carry a
+	// deterministic per-file tag (fnv32a of the file path): two files
+	// may both mint a `gomEq1`, never the same `gomEq1_<tag>`.
 	h := fnv.New32a()
 	_, _ = h.Write([]byte(f.Sp.File))
 	l.eqMark = fmt.Sprintf("%08x", h.Sum32())
@@ -181,6 +179,7 @@ func File(f *check.File, env *Env) (*core.File, []diag.Diagnostic) {
 		Sp:      f.Sp,
 		Package: f.Package,
 		PkgSp:   f.PkgSp,
+		Unit:    l.unitScope(env.Siblings),
 	}
 	for _, im := range f.Imports {
 		out.Imports = append(out.Imports, core.Import{
@@ -201,6 +200,87 @@ func File(f *check.File, env *Env) (*core.File, []diag.Diagnostic) {
 		}
 	}
 	return out, l.diags
+}
+
+// indexDecl registers one checked declaration's lookup facts: fn
+// arity and thunk marking, and the type-declaration tables
+// (typeD by qualified name, ctorT by variant symbol). Local and
+// sibling-file declarations index identically — their symbols share
+// the unit's package scope.
+func (l *lowerer) indexDecl(d check.Decl) {
+	switch d := d.(type) {
+	case *check.FnDecl:
+		l.arity[d.Sym] = len(d.Params)
+		if d.Thunk {
+			l.thunks[d.Sym] = true
+		}
+	case *check.TypeDecl:
+		l.typeD[typeKey(d.Sym)] = d
+		if s, ok := d.Body.(*check.SumType); ok {
+			for _, v := range s.Variants {
+				l.ctorT[v.Sym] = d
+			}
+		}
+	case *check.LetDecl, *check.TestDecl:
+	default:
+		panic("unreachable")
+	}
+}
+
+// unitScope collects the package-scope facts a unit's sibling
+// declarations contribute to Core IR validation (core.File.Unit):
+// the binders of sibling `let`s are top-level vars for this file
+// too, sibling type names shadow the builtins package-wide, and
+// sibling fn/variant type-parameter arities check type arguments.
+// Decls additionally carries each sibling value-declaration symbol
+// with the export status the unit's shared .gomi oracle gives it —
+// codegen claims names for the whole unit so sibling references and
+// declaring files emit the same identifier. Symbols carrying
+// Package (imported member decls mixed into Env.Siblings) need no
+// entries — they resolve by qualification.
+func (l *lowerer) unitScope(siblings []check.Decl) *core.UnitScope {
+	if len(siblings) == 0 {
+		return nil
+	}
+	u := &core.UnitScope{
+		Vars:    map[*resolve.Symbol]bool{},
+		Types:   map[string]bool{},
+		TParams: map[*resolve.Symbol]int{},
+	}
+	for _, d := range siblings {
+		switch d := d.(type) {
+		case *check.FnDecl:
+			if d.Sym != nil {
+				u.TParams[d.Sym] = len(d.TypeParams)
+				if d.Sym.Package == "" {
+					u.Decls = append(u.Decls, core.UnitDecl{Sym: d.Sym, Exported: l.exported(d.Sym)})
+				}
+			}
+		case *check.TypeDecl:
+			if d.Sym != nil && d.Sym.Package == "" {
+				u.Types[d.Sym.Name] = true
+			}
+			if s, ok := d.Body.(*check.SumType); ok {
+				for _, v := range s.Variants {
+					if v.Sym != nil {
+						u.TParams[v.Sym] = len(d.TypeParams)
+					}
+				}
+			}
+		case *check.LetDecl:
+			for _, b := range boundVars(d.Pat) {
+				if b.sym != nil && b.sym.Package == "" {
+					u.Vars[b.sym] = true
+					u.Decls = append(u.Decls, core.UnitDecl{Sym: b.sym, Exported: l.exported(b.sym)})
+				}
+			}
+		case *check.TestDecl:
+			// test blocks bind no package-scope values
+		default:
+			panic("unreachable")
+		}
+	}
+	return u
 }
 
 // isEntryPoint reports whether sym is the program entry — the rule
@@ -327,6 +407,17 @@ type lowerer struct {
 func (l *lowerer) tmp() *resolve.Symbol {
 	l.tmpSeq++
 	return &resolve.Symbol{Name: fmt.Sprintf("tmp%d", l.tmpSeq), Kind: resolve.KindVar}
+}
+
+// pkgTmp makes a temporary symbol bound at package scope — a
+// VarDecl's hidden scrutinee/tuple var. Its name carries the file's
+// eqMark tag (like gomEq*/gomShow*) because sibling members of one
+// package share the emitted Go package's namespace: two files each
+// minting `var tmp1` collide. References resolve by symbol pointer,
+// so only the declared name needs the disambiguation.
+func (l *lowerer) pkgTmp() *resolve.Symbol {
+	l.tmpSeq++
+	return &resolve.Symbol{Name: fmt.Sprintf("tmp%d_%s", l.tmpSeq, l.eqMark), Kind: resolve.KindVar}
 }
 
 // tmpBind makes a fresh temporary binder of the given type.
@@ -569,17 +660,18 @@ func isCon(t types.Type, qual, name string) (*types.Con, bool) {
 	return c, true
 }
 
-// declaredT reports whether c names a type the file declares —
-// under a file-local `type Result`/`Option`/`List`/... an
-// unqualified Con *is* the local declaration, so every builtin-shape
-// test must consult the declaration index before the name.
+// declaredT reports whether c names a type the package declares —
+// the index covers sibling files too, so under any member's
+// `type Result`/`Option`/`List`/... an unqualified Con *is* the
+// local declaration, and every builtin-shape test must consult the
+// declaration index before the name.
 func (l *lowerer) declaredT(c *types.Con) bool {
 	_, ok := l.typeD[conKey(c)]
 	return ok
 }
 
 // builtinName reports whether c denotes the builtin named type — an
-// unqualified name the file does not shadow with its own `type`.
+// unqualified name the package does not shadow with its own `type`.
 func (l *lowerer) builtinName(c *types.Con, name string) bool {
 	return c != nil && c.Qual == "" && c.Name == name && !l.declaredT(c)
 }
@@ -695,6 +787,24 @@ func (l *lowerer) variantsOf(c *types.Con) []Variant {
 	}
 	if l.env.Types != nil {
 		return l.env.Types.Variants(c)
+	}
+	return nil
+}
+
+// ctorFields returns the declared payload slots of the variant sym
+// constructs, for the CtorApp/CtorRef node to carry — the unit's own
+// declaration tables and the Env oracle, so a sibling-file or
+// imported ADT's named payload reaches the emitted literal. Nil
+// means the constructor's slots are positional (V0, V1, ...).
+func (l *lowerer) ctorFields(sym *resolve.Symbol, ret types.Type) []core.TField {
+	c, ok := types.Chase(ret).(*types.Con)
+	if !ok {
+		return nil
+	}
+	for _, v := range l.variantsOf(c) {
+		if v.Sym == sym {
+			return l.tfields(v.Fields)
+		}
 	}
 	return nil
 }
@@ -875,7 +985,7 @@ func (l *lowerer) letDecl(d *check.LetDecl, out *core.File) {
 			// variable, the same role a destructure's shared
 			// temporary plays.
 			if l.aliasInit[v.Sym] {
-				tmpSym := l.tmp()
+				tmpSym := l.pkgTmp()
 				tmpSym.TestOnly = testOnlyPat(d.Pat)
 				l.tmpLets[tmpSym] = d
 				out.Decls = append(out.Decls, &core.VarDecl{
@@ -894,8 +1004,10 @@ func (l *lowerer) letDecl(d *check.LetDecl, out *core.File) {
 	// Every other pattern shares a hidden package-level temporary.
 	// A `@test let`'s temporaries inherit the marker so codegen keeps
 	// them out of production output along with the bound variables.
+	// pkgTmp file-tags the name — the var is package scope, so
+	// sibling files minting the same tmpN would collide.
 	testOnly := testOnlyPat(d.Pat)
-	tmpSym := l.tmp()
+	tmpSym := l.pkgTmp()
 	tmpSym.TestOnly = testOnly
 	l.tmpLets[tmpSym] = d
 	out.Decls = append(out.Decls, &core.VarDecl{
@@ -943,7 +1055,7 @@ func (l *lowerer) letDecl(d *check.LetDecl, out *core.File) {
 	// pattern test must still run at initialization even when the
 	// bindings below it are wrappers or absent.
 	discardDecl := func() {
-		dsym := l.tmp()
+		dsym := l.pkgTmp()
 		dsym.TestOnly = testOnly
 		l.tmpLets[dsym] = d
 		out.Decls = append(out.Decls, &core.VarDecl{
@@ -964,7 +1076,7 @@ func (l *lowerer) letDecl(d *check.LetDecl, out *core.File) {
 			Exported: l.exported(vars[0].sym),
 		})
 	default:
-		tupSym := l.tmp()
+		tupSym := l.pkgTmp()
 		tupSym.TestOnly = testOnly
 		l.tmpLets[tupSym] = d
 		out.Decls = append(out.Decls, &core.VarDecl{

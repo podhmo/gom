@@ -1,0 +1,16 @@
+package shapes
+
+/// A planar shape.
+type Shape =
+  | Circle (radius: Float)
+  | Rect (w: Float) (h: Float)
+
+fn area (s: Shape) -> Float
+
+let pi : Float
+
+let tau : Float
+
+fn scale (f: Float -> Float) (s: Shape) -> Shape
+
+fn twice (f: a -> a) (x: a) -> a

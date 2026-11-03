@@ -14,7 +14,6 @@ import (
 	"os"
 	"strings"
 
-	"github.com/podhmo/gom/internal/build"
 	"github.com/podhmo/gom/internal/diag"
 )
 
@@ -61,15 +60,20 @@ func runFix(args []string, stdout, stderr io.Writer) int {
 	}
 
 	srcs := map[string][]byte{}
-	var diags diag.List
 	for _, in := range inputs {
 		srcs[in.path] = in.src
-		r, err := build.Compile(build.Input{Path: in.path, Src: in.src, Interface: in.iface},
-			compileOptions(in, true))
-		if err != nil {
-			fmt.Fprintf(stderr, "gom fix: %s: %v\n", in.path, err)
-			return diag.ExitInternal
-		}
+	}
+	// The .gom files of one directory compile as one package unit —
+	// fixes must see the same diagnostics `gom check` reports, so
+	// they attach to the same shared scope (sibling references
+	// resolve package-wide).
+	results, err := compileInputs(inputs, true, nil)
+	if err != nil {
+		fmt.Fprintf(stderr, "gom fix: %v\n", err)
+		return diag.ExitInternal
+	}
+	var diags diag.List
+	for _, r := range results {
 		diags = append(diags, r.Diagnostics...)
 	}
 	// Apply in output order so the accepted set never depends on

@@ -6,6 +6,7 @@ import (
 	"go/ast"
 	"go/printer"
 	"go/token"
+	"sort"
 	"strings"
 
 	"github.com/podhmo/gom/internal/core"
@@ -109,9 +110,17 @@ func newGen(li *diag.LineIndex) *gen {
 // indexDecls builds the local declaration indexes: every declared
 // name, every local variant constructor, and every local type name —
 // used names block fresh temps, local types shadow the builtin map.
+// Package-scope claiming is unit-wide: f.Unit.Decls carries the
+// sibling files' value declarations (with their export status) and
+// f.Unit.Types the sibling type names, so every member file of a
+// package unit resolves a declaration symbol to the same emitted
+// identifier, and no member's binder or temp can steal a package
+// name a sibling declared.
 func (g *gen) indexDecls(f *core.File) {
 	// The public surface is settled before any name is claimed:
-	// exported decls claim their capitalized identifier.
+	// exported decls claim their capitalized identifier. Sibling
+	// decls' export status arrives on the node — the oracle is
+	// package-keyed, so every member records the same set.
 	for _, d := range f.Decls {
 		switch d := d.(type) {
 		case *core.FuncDecl:
@@ -131,16 +140,56 @@ func (g *gen) indexDecls(f *core.File) {
 			panic("unreachable")
 		}
 	}
+	if u := f.Unit; u != nil {
+		for _, d := range u.Decls {
+			if d.Sym != nil && d.Exported {
+				g.exported[d.Sym] = true
+			}
+		}
+	}
+	// Every package-scope value symbol of the unit claims its
+	// emitted name in one canonical order — sorted by (emitted base,
+	// Gom name), not declaration order — so the claiming sequence is
+	// identical in every member file even when distinct Gom names
+	// map to the same emitted base (`my_fn` vs `myFn`). Gom names
+	// are package-unique (E0202), making the order total.
+	var pkgSyms []*resolve.Symbol
 	for _, d := range f.Decls {
 		switch d := d.(type) {
 		case *core.FuncDecl:
 			if d.Sym != nil {
-				g.declSymName(d.Sym)
+				pkgSyms = append(pkgSyms, d.Sym)
 			}
 		case *core.VarDecl:
 			if d.Sym != nil {
-				g.declSymName(d.Sym)
+				pkgSyms = append(pkgSyms, d.Sym)
 			}
+		case *core.TypeDecl, *core.TestDecl:
+			// not package-scope value symbols
+		default:
+			panic("unreachable")
+		}
+	}
+	if u := f.Unit; u != nil {
+		for _, d := range u.Decls {
+			if d.Sym != nil {
+				pkgSyms = append(pkgSyms, d.Sym)
+			}
+		}
+	}
+	sort.Slice(pkgSyms, func(i, j int) bool {
+		if bi, bj := g.declBase(pkgSyms[i]), g.declBase(pkgSyms[j]); bi != bj {
+			return bi < bj
+		}
+		return pkgSyms[i].Name < pkgSyms[j].Name
+	})
+	for _, sym := range pkgSyms {
+		g.declSymName(sym)
+	}
+	for _, d := range f.Decls {
+		switch d := d.(type) {
+		case *core.FuncDecl, *core.VarDecl:
+			// value names claimed in the unit pass above
 		case *core.TypeDecl:
 			if d.Sym != nil {
 				// The type name is a package-scope identifier too
@@ -163,6 +212,17 @@ func (g *gen) indexDecls(f *core.File) {
 			// test functions are named from d.Name, deduplicated later
 		default:
 			panic("unreachable")
+		}
+	}
+	// Sibling type names are package-scope too: a `type Unit` /
+	// `type Option` in a sibling file shadows the builtin map for
+	// this file's output as well.
+	if u := f.Unit; u != nil {
+		for tname := range u.Types {
+			name := exportName(tname)
+			g.localT[name] = true
+			g.pused[name] = true
+			g.used[name] = true
 		}
 	}
 	// Every binder anywhere also blocks temp naming. Binder names
@@ -225,6 +285,19 @@ func (g *gen) bindSymName(sym *resolve.Symbol) string {
 	return g.claim(sym, g.fnames, g.fnames, g.pused)
 }
 
+// declBase is the emitted-identifier stem of a package-level symbol:
+// the capitalized export name for .gomi members, the value name
+// otherwise. It is the sort key of the unit's canonical claiming
+// order — and claim's base, so the two never disagree.
+func (g *gen) declBase(sym *resolve.Symbol) string {
+	if g.exported[sym] {
+		// .gomi members emit with a capital letter (spec section
+		// 5): `fn is_some` → `IsSome`.
+		return g.safeIdent(exportName(sym.Name))
+	}
+	return g.safeIdent(valueName(sym.Name))
+}
+
 // claim resolves sym to its emitted identifier, choosing the first
 // candidate not taken in any blocks set and registering it in mark
 // and in the file-wide used set.
@@ -232,12 +305,7 @@ func (g *gen) claim(sym *resolve.Symbol, mark map[string]bool, blocks ...map[str
 	if n, ok := g.names[sym]; ok {
 		return n
 	}
-	base := g.safeIdent(valueName(sym.Name))
-	if g.exported[sym] {
-		// .gomi members emit with a capital letter (spec section
-		// 5): `fn is_some` → `IsSome`.
-		base = g.safeIdent(exportName(sym.Name))
-	}
+	base := g.declBase(sym)
 	n := base
 outer:
 	for i := 1; ; i++ {

@@ -70,7 +70,10 @@ Go 相互運用を変えたら両方向（Gom → Go、Go → Gom）のテスト
 ### 検証
 
 - [-] **V-4 follow-up（レビュー軽微指摘）**: witness 0 件プログラムが ~40%（decl のみ/型宣言のみ — infer スイープに最小 decl 数を要求する選択肢）、`witnessedNode` の tie-break が map 反復で非決定的（infer_test.go:258）、`parseWant` が `->` を識別子として受理（latent）。ブロッカー無し・merge 済み（ab3f235）
-- [ ] **V-6 複数ファイル + `.gomi` の縦断検証**: 2 つの `.gom` と 1 つの `.gomi` からなる小さなライブラリを作り、別パッケージの Gom と Go の双方から呼ぶ（公開関数・ADT・関数値を1つずつ含める）。同一パッケージ複数ファイルのスコープ共有は open-questions の未決事項で、名前解決・型の同一性・初期化順・生成名衝突に影響するため `.gomi` 実装と併せて早めに決める（セカンドオピニオンの推奨到達点）。依存: P4-1（`.gomi`）、同一パッケージ複数ファイルは部分実装で先行可
+- [x] **V-6 複数ファイル + `.gomi` の縦断検証**: 2 つの `.gom` と 1 つの `.gomi` からなる小さなライブラリを作り、別パッケージの Gom と Go の双方から呼ぶ（公開関数・ADT・関数値を1つずつ含める）。同一パッケージ複数ファイルのスコープ共有は open-questions の未決事項で、名前解決・型の同一性・初期化順・生成名衝突に影響するため `.gomi` 実装と併せて早めに決める（セカンドオピニオンの推奨到達点）。依存: P4-1（`.gomi`）、同一パッケージ複数ファイルは部分実装で先行可
+  対応: パッケージをコンパイル単位とする決定（resolve.Files / check.Files / build.CompileFiles）を実装し、`internal/gomimport` で `.gomi` 経由の Gom パッケージ import を実装。`testdata/multifile/` fixture + `TestEndToEnd_MultifilePackage` で `gom check`→`gom build`→`go build`/`go test`/`go run` まで検証。残件は [problems](docs/problems/2026-11-05-gom-package-imports.md)。
+  参照: [decision](docs/decisions/2026-11-05-package-compilation-unit.md)、[検証](docs/sketch/2026-11-05-multifile-package-verification.md)。
+- [ ] **[task] V-6 残件（パッケージ単位コンパイルの境界）**: ① `pkg.Type.Ctor` 修飾綴りは未実装（resolve に per-type メンバー表が要る）② 相互 `.gom` import の循環は `gom check`/`build` を通り `go build` の import cycle としてしか検出できない（`.gomi` 内 import・循環は loader が機械処理、spec §7 の規定は未記述）③ `gom dump` は単一ファイルのみでマルチファイルパッケージのメンバーに誤解を招く E0201 を出す。④ 同名 `test` ブロックの兄弟ファイル衝突は `TestX` が Go 側重複になる（問題記録: [problems](docs/problems/2026-11-05-gom-package-imports.md)）。依存: V-6
 
 ## Bugs
 

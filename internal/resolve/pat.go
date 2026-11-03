@@ -274,10 +274,11 @@ func (r *resolver) selectMemberCtor(mod *Symbol, sel *syntax.Ident, sc *scope) {
 
 // fieldRef resolves a `{ name = pat }` field name or a `~label:`
 // argument of a constructor pattern against the resolved
-// constructor's named payload slots. It only resolves fields of
-// file-local constructors — for imported and builtin constructors the
-// field ident is left for check (the constructor's variant decl is
-// not available here).
+// constructor's named payload slots. The table lookup covers the
+// unit's declared constructors first, then the loader-supplied
+// foreign tables (Config.CtorFields) — a constructor with no entry
+// anywhere leaves the ident for check, which resolves field names by
+// type.
 func (r *resolver) fieldRef(ctor syntax.Expr, id *syntax.Ident, sc *scope) {
 	if id == nil {
 		return
@@ -287,6 +288,12 @@ func (r *resolver) fieldRef(ctor syntax.Expr, id *syntax.Ident, sc *scope) {
 		return
 	}
 	fields, ok := r.ctorFields[cs]
+	if !ok && r.cfg.CtorFields != nil {
+		if fs := r.cfg.CtorFields(cs); fs != nil {
+			fields, ok = fs, true
+			r.ctorFields[cs] = fs // cache: one table per symbol
+		}
+	}
 	if !ok {
 		return // foreign constructor — check resolves field names by type
 	}

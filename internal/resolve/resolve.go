@@ -37,6 +37,18 @@ type Loader interface {
 	Load(path string, goPkg bool) (*Package, error)
 }
 
+// CtorFieldSource is the optional Loader capability a .gomi-based
+// loader implements to publish the named payload slots of its
+// constructors and records — the seam Config.CtorFields delegates
+// to (build wires the probe, so a Loader needs no separate
+// registration).
+type CtorFieldSource interface {
+	// CtorFieldsOf returns the param-name -> field-symbol table of
+	// a constructor (or record type) the source's packages declare,
+	// or nil when the source does not know it.
+	CtorFieldsOf(ctor *Symbol) map[string]*Symbol
+}
+
 // MapLoader is a Loader backed by a fixed map of packages — used in
 // tests of this and later phases until internal/goimport lands.
 type MapLoader map[string]*Package
@@ -68,23 +80,107 @@ type Config struct {
 	// stdlib .gomi packages exist (P4-8); the compiler-owned `Go`
 	// module always has its hardcoded table and is not looked up here.
 	Modules map[string]map[string]*Symbol
+
+	// CtorFields supplies the named payload slots of a constructor
+	// the unit does not declare — `{ name = pat }` fields and
+	// `~label:` arguments of imported-variant patterns — keyed by
+	// Field.ParamName() like bindFields's table. The hook is the
+	// .gomi loader's seam; nil leaves imported ctors positional-only.
+	CtorFields func(ctor *Symbol) map[string]*Symbol
+}
+
+// unit is the resolution context the .gom files of one package share:
+// a single package scope for every top-level name, and the
+// constructor tables those names imply. A file's own imports stay
+// file-local — they bind in a child scope, not here
+// (docs/decisions/2026-11-05-package-compilation-unit.md).
+type unit struct {
+	// scope is the shared package scope: the builtin scope's child,
+	// holding every file's type names, constructors, functions and
+	// let binders.
+	scope *scope
+	// ctorsOf/ctorFields are the unit-wide tables declared types
+	// and constructors resolve against — every file's declarations
+	// register here so a sibling file's `T.Ctor` and `{ name = pat }`
+	// resolve like a same-file one.
+	ctorsOf    map[*Symbol]map[string]*Symbol
+	ctorFields map[*Symbol]map[string]*Symbol
+
+	// pkgName/pkgSp record the first file's package clause so a
+	// later file declaring a different package reports E0605.
+	pkgName string
+	pkgSp   diag.Span
+	pkgSeen bool
+	diags   diag.List
+}
+
+// newUnit builds a package unit: the shared scope below builtins.
+func newUnit() *unit {
+	builtins := builtinScope()
+	u := &unit{
+		scope:      pushScope(builtins),
+		ctorsOf:    make(map[*Symbol]map[string]*Symbol),
+		ctorFields: make(map[*Symbol]map[string]*Symbol),
+	}
+	// The builtin Option/Result constructor tables live with the
+	// unit: a file-local `type Option` shadows them only at the
+	// scope level, so `Option.Some` keeps resolving until then.
+	wireBuiltinCtors(builtins, u.ctorsOf)
+	return u
+}
+
+// checkPackage verifies the file's package clause agrees with the
+// unit's: one directory is one Go package, so files of a unit may not
+// declare different package names (E0605).
+func (u *unit) checkPackage(f *syntax.File) {
+	if f.Package == nil {
+		return
+	}
+	if !u.pkgSeen {
+		u.pkgSeen = true
+		u.pkgName = f.Package.Name
+		u.pkgSp = f.Package.Sp
+		return
+	}
+	if f.Package.Name != u.pkgName {
+		d := diag.Error("E0605",
+			fmt.Sprintf("package clause %q conflicts with earlier %q", f.Package.Name, u.pkgName)).
+			At(f.Package.Sp).
+			Set("name", f.Package.Name).
+			Set("previous", u.pkgName)
+		if u.pkgSp.Valid() {
+			d = d.Set("first_declared_at", map[string]any{
+				"file":  u.pkgSp.File,
+				"start": u.pkgSp.Start,
+				"end":   u.pkgSp.End,
+			})
+		}
+		u.diags.Add(d)
+	}
 }
 
 // resolver carries the state of one file's name resolution.
 type resolver struct {
 	cfg Config
 
+	// u is the package unit this file resolves inside; file is the
+	// file-private scope — a child of u.scope — that holds the
+	// file's own import aliases.
+	u    *unit
+	file *scope
+
 	defs  map[*syntax.Ident]*Symbol
 	uses  map[*syntax.Ident]*Symbol
 	diags diag.List
 
 	// ctorsOf maps a type symbol to its constructor name table, for
-	// `T.Ctor` / `pkg.Ctor` resolution.
+	// `T.Ctor` / `pkg.Ctor` resolution. Shared with the unit: a
+	// sibling file's declaration resolves here too.
 	ctorsOf map[*Symbol]map[string]*Symbol
-	// ctorFields maps a file-local constructor symbol to its named
+	// ctorFields maps a constructor symbol to its named
 	// payload slots (Field.ParamName() -> field symbol), used to
 	// resolve `{ name = pat }` fields and `~label:` arguments of
-	// constructor patterns.
+	// constructor patterns. Shared with the unit.
 	ctorFields map[*Symbol]map[string]*Symbol
 	// members maps a module symbol (imported or builtin) to its
 	// member table. A nil entry marks a module whose package failed
@@ -126,9 +222,9 @@ type pkgKey struct {
 // errors — the returned tables are as complete as the input allows —
 // so a diagnostic never aborts the walk.
 //
-// Resolution is single-file: the package clause is not validated
-// against other files, and top-level names are mutually visible in
-// the whole file regardless of source order.
+// Resolution is one file inside a fresh package unit — see Files for
+// the package-granular form. Within the unit, top-level names are
+// mutually visible in the whole package regardless of source order.
 //
 // After resolution an identifier has exactly one of three states:
 //   - in Defs (it introduces a symbol),
@@ -142,60 +238,92 @@ type pkgKey struct {
 //     deferred/failed at an enclosing point already diagnosed (a
 //     member of a package that failed to load).
 func File(f *syntax.File, cfg *Config) (*Resolved, diag.List) {
+	ress, diags := Files([]*syntax.File{f}, cfg)
+	if len(ress) == 0 {
+		return &Resolved{File: f}, diags
+	}
+	return ress[0], diags
+}
+
+// Files resolves the .gom files of one package as a unit: every file
+// shares the unit's package scope, so a top-level name declared in
+// one file is visible in the others and a duplicate across files is
+// E0202 at the second definition — while each file's imports stay
+// file-local in a per-file child scope. The returned slice is one
+// *Resolved per input, in input order; the diagnostic list is the
+// unit's diagnostics followed by each file's in input order.
+//
+// The passes interleave so every file's declared names exist before
+// any file's bodies resolve: pass 1–3 (externs, types, constructors)
+// run for all files, then pass 4 (imports, fn/let binders) for all
+// files, then bodies.
+func Files(fs []*syntax.File, cfg *Config) ([]*Resolved, diag.List) {
 	c := Config{}
 	if cfg != nil {
 		c = *cfg
 	}
-	r := &resolver{
-		cfg:        c,
-		defs:       make(map[*syntax.Ident]*Symbol),
-		uses:       make(map[*syntax.Ident]*Symbol),
-		ctorsOf:    make(map[*Symbol]map[string]*Symbol),
-		ctorFields: make(map[*Symbol]map[string]*Symbol),
-		members:    make(map[*Symbol]map[string]*Symbol),
-		externs:    make(map[pkgKey]map[string]*Symbol),
-		pkgCache:   make(map[pkgKey]*Package),
+	u := newUnit()
+	rs := make([]*resolver, len(fs))
+	for i, f := range fs {
+		u.checkPackage(f)
+		r := &resolver{
+			cfg:        c,
+			u:          u,
+			file:       pushScope(u.scope),
+			defs:       make(map[*syntax.Ident]*Symbol),
+			uses:       make(map[*syntax.Ident]*Symbol),
+			ctorsOf:    u.ctorsOf,
+			ctorFields: u.ctorFields,
+			members:    make(map[*Symbol]map[string]*Symbol),
+			externs:    make(map[pkgKey]map[string]*Symbol),
+			pkgCache:   make(map[pkgKey]*Package),
+		}
+		r.collect(f)
+		rs[i] = r
 	}
-	builtins := builtinScope()
-	r.wireBuiltinCtors(builtins)
-	file := pushScope(builtins)
-
-	r.collect(f, file)
-	r.resolveDecls(f, file)
-
-	return &Resolved{File: f, Defs: r.defs, Uses: r.uses}, r.diags
+	for i, r := range rs {
+		r.bindTerms(fs[i])
+	}
+	out := make([]*Resolved, len(rs))
+	diags := diag.List(u.diags)
+	for i, r := range rs {
+		r.resolveDecls(fs[i], r.file)
+		out[i] = &Resolved{File: fs[i], Defs: r.defs, Uses: r.uses}
+		diags = append(diags, r.diags...)
+	}
+	return out, diags
 }
 
 // wireBuiltinCtors links the builtin Option/Result constructor
 // symbols to their type symbols so `Option.Some` and pattern
 // resolution work like file-declared constructors.
-func (r *resolver) wireBuiltinCtors(builtins *scope) {
+func wireBuiltinCtors(builtins *scope, table map[*Symbol]map[string]*Symbol) {
 	ctors := map[string][]string{
 		"Option": {"Some", "None"},
 		"Result": {"Ok", "Err"},
 	}
 	for tname, cnames := range ctors {
 		tsym := builtins.types[tname]
-		table := make(map[string]*Symbol, len(cnames))
+		entry := make(map[string]*Symbol, len(cnames))
 		for _, cn := range cnames {
-			table[cn] = builtins.terms[cn]
+			entry[cn] = builtins.terms[cn]
 		}
-		r.ctorsOf[tsym] = table
+		table[tsym] = entry
 	}
 }
 
-// collect performs the declaration pass: it binds every top-level
-// name into the file scope (mutual visibility, source order
-// irrelevant inside bodies), records constructor/field side tables,
-// and loads imported packages. Sub-passes order the work so that
-// later steps see the names they need:
+// collect performs the declaration passes that feed the shared
+// package scope: extern member symbols stay file-local (they overlay
+// only this file's imports), while type names, constructors and their
+// field tables register on the unit so sibling files see them.
+// Sub-passes order the work so that later steps see the names they
+// need:
 //
 //  1. extern entries — so import member tables can overlay them
 //  2. type names — so constructor binding and type references see them
 //  3. constructors and fields — so let-patterns resolve ctor references
-//  4. fn/let/import binders — so every top-level name exists
-//  5. imports — load member tables once all externs are known
-func (r *resolver) collect(f *syntax.File, file *scope) {
+func (r *resolver) collect(f *syntax.File) {
+	pkg := r.u.scope
 	// Pass 1: extern member symbols (Def'd here; their types resolve
 	// with the bodies).
 	for _, d := range f.Decls {
@@ -230,7 +358,8 @@ func (r *resolver) collect(f *syntax.File, file *scope) {
 		}
 	}
 
-	// Pass 2: type names.
+	// Pass 2: type names — bound on the unit scope so a sibling
+	// file's signatures and constructor tables see them.
 	for _, d := range f.Decls {
 		td, ok := d.(*syntax.TypeDecl)
 		if !ok || td.Name == nil {
@@ -238,12 +367,14 @@ func (r *resolver) collect(f *syntax.File, file *scope) {
 		}
 		sym := &Symbol{Name: td.Name.Name, Kind: KindType, Def: td}
 		r.defs[td.Name] = sym
-		if prev := file.defineType(sym.Name, sym); prev != nil {
+		if prev := pkg.defineType(sym.Name, sym); prev != nil {
 			r.dupDef(td.Name, prev)
 		}
 	}
 
-	// Pass 3: constructors and their field tables.
+	// Pass 3: constructors and their field tables — unit scope and
+	// unit tables, so `T.Ctor` and `{ name = pat }` resolve across
+	// files exactly as within one file.
 	for _, d := range f.Decls {
 		td, ok := d.(*syntax.TypeDecl)
 		if !ok {
@@ -262,7 +393,7 @@ func (r *resolver) collect(f *syntax.File, file *scope) {
 				cs := &Symbol{Name: v.Name.Name, Kind: KindCtor, Def: v}
 				r.defs[v.Name] = cs
 				table[v.Name.Name] = cs
-				if prev := file.defineTerm(v.Name.Name, cs); prev != nil {
+				if prev := pkg.defineTerm(v.Name.Name, cs); prev != nil {
 					r.dupDef(v.Name, prev)
 				}
 				r.ctorFields[cs] = r.bindFields(v.Params)
@@ -280,17 +411,24 @@ func (r *resolver) collect(f *syntax.File, file *scope) {
 			panic("unreachable")
 		}
 	}
+}
 
+// bindTerms performs pass 4 of the declaration walk — imports, then
+// fn/let binders — once every file's pass 1–3 has run. Imports bind
+// file-locally (r.file); fn and let binders register on the shared
+// package scope, so a sibling file's body sees them like Go's.
+func (r *resolver) bindTerms(f *syntax.File) {
 	// Pass 4a: import aliases — bound before let-patterns are walked
 	// so `pkg.Ctor` heads resolve regardless of source order (all
 	// top-level names are mutually visible).
 	for _, d := range f.Decls {
 		if decl, ok := d.(*syntax.ImportDecl); ok {
-			r.bindImport(decl, file)
+			r.bindImport(decl, r.file)
 		}
 	}
 
 	// Pass 4b: fn and let binders.
+	pkg := r.u.scope
 	for _, d := range f.Decls {
 		switch decl := d.(type) {
 		case *syntax.FnDecl:
@@ -300,16 +438,31 @@ func (r *resolver) collect(f *syntax.File, file *scope) {
 			sym := &Symbol{Name: decl.Name.Name, Kind: KindFunc, Def: decl,
 				TestOnly: decl.TestOnly}
 			r.defs[decl.Name] = sym
-			if prev := file.defineTerm(sym.Name, sym); prev != nil {
+			if prev := pkg.defineTerm(sym.Name, sym); prev != nil {
 				r.dupDef(decl.Name, prev)
 			}
 		case *syntax.LetDecl:
-			r.bindPat(decl.Pat, file)
-			if decl.TestOnly {
-				for _, id := range binderIdents(decl.Pat) {
-					if sym := r.defs[id]; sym != nil {
-						sym.TestOnly = true
-					}
+			// Pattern constructor references resolve through the
+			// file scope — the file's own imports are visible; the
+			// bound variables then hoist into the package scope so
+			// sibling files share them.
+			r.bindPat(decl.Pat, r.file)
+			for _, id := range binderIdents(decl.Pat) {
+				sym := r.defs[id]
+				if sym == nil {
+					continue
+				}
+				// A same-file `let` collision is already reported by
+				// the file-scope binding above (its slot was set by
+				// the earlier let's own bindPat); the hoist reports
+				// only duplicates the file scope cannot see — a
+				// sibling file's binder or a non-var one (fn, ctor).
+				if prev := pkg.defineTerm(sym.Name, sym); prev != nil && prev != sym &&
+					!(prev.Kind == KindVar && prev.DefSpan().File == f.Sp.File) {
+					r.dupDefName(id.Name, id, prev.DefSpan())
+				}
+				if decl.TestOnly {
+					sym.TestOnly = true
 				}
 			}
 		case *syntax.TypeDecl, *syntax.ImportDecl, *syntax.ExternDecl, *syntax.TestDecl:

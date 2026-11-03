@@ -1,0 +1,11 @@
+package shapes
+
+/// A planar shape.
+type Shape =
+  | Circle (radius: Float)
+  | Rect (w: Float) (h: Float)
+
+fn area (s: Shape) -> Float = match s {
+  Circle r -> pi * r * r
+  Rect w h -> w * h
+}

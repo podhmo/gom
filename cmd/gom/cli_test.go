@@ -332,26 +332,54 @@ func TestBuildDefaultOutputBesideInput(t *testing.T) {
 }
 
 func TestBuildDoesNotWriteOnErrors(t *testing.T) {
+	// Two separate packages (different directories): a failure in
+	// one does not stop the clean package's output.
 	dir := writeFiles(t, map[string]string{
-		"bad.gom":  badGom,
-		"good.gom": "package m\n\nfn f () -> Int = 1\n",
+		"bad/bad.gom":   badGom,
+		"good/good.gom": "package m\n\nfn f () -> Int = 1\n",
 	})
-	code, out, _ := invoke("build", filepath.Join(dir, "bad.gom"), filepath.Join(dir, "good.gom"))
+	code, out, _ := invoke("build", filepath.Join(dir, "bad", "bad.gom"), filepath.Join(dir, "good", "good.gom"))
 
 	if code != 1 {
 		t.Fatalf("exit code = %d, want 1", code)
 	}
-	if _, err := os.Stat(filepath.Join(dir, "bad.go")); !os.IsNotExist(err) {
+	if _, err := os.Stat(filepath.Join(dir, "bad", "bad.go")); !os.IsNotExist(err) {
 		t.Errorf("bad.go was written despite diagnostics: %v", err)
 	}
-	// The clean sibling still produces output.
-	if _, err := os.Stat(filepath.Join(dir, "good.go")); err != nil {
+	// The clean package still produces output.
+	if _, err := os.Stat(filepath.Join(dir, "good", "good.go")); err != nil {
 		t.Errorf("good.go missing: %v", err)
 	}
 	sum := lastSummary(t, out)
 	outputs, _ := sum["outputs"].([]any)
 	if len(outputs) != 1 {
 		t.Errorf("summary.outputs = %v, want 1 entry", outputs)
+	}
+}
+
+func TestBuildDoesNotWritePartialPackage(t *testing.T) {
+	// Files in one directory form one package: a diagnostic in any
+	// member blocks every output of the package — emitting a partial
+	// package would leave a directory whose generated files may not
+	// even reference each other consistently.
+	dir := writeFiles(t, map[string]string{
+		"bad.gom":  "package m\n\nfn f () -> Int = y\n",
+		"good.gom": "package m\n\nfn g () -> Int = 1\n",
+	})
+	code, out, _ := invoke("build", filepath.Join(dir, "bad.gom"), filepath.Join(dir, "good.gom"))
+
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1", code)
+	}
+	for _, name := range []string{"bad.go", "good.go"} {
+		if _, err := os.Stat(filepath.Join(dir, name)); !os.IsNotExist(err) {
+			t.Errorf("%s was written despite a package member failing: %v", name, err)
+		}
+	}
+	sum := lastSummary(t, out)
+	outputs, _ := sum["outputs"].([]any)
+	if len(outputs) != 0 {
+		t.Errorf("summary.outputs = %v, want no entries", outputs)
 	}
 }
 

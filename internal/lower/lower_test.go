@@ -1801,22 +1801,26 @@ func TestCtorSwitchNonConSubject(t *testing.T) {
 	}
 }
 
-// TestForeignVarDiagnostic is the F10 regression: a KindVar reference
-// resolved to another package cannot lower to a bare core.Var — the
-// checker would never emit one, so it is a contract-gap diagnostic.
-func TestForeignVarDiagnostic(t *testing.T) {
+// TestForeignVarQualified used to be the F10 regression asserting a
+// "another package" diagnostic for a packaged KindVar. V-6 changed the
+// contract deliberately: an imported .gomi `let` member is minted as a
+// KindVar carrying its package, so the reference lowers to a core.Var
+// whose symbol keeps the package — codegen emits `q.y`. No diagnostic.
+func TestForeignVarQualified(t *testing.T) {
 	foreign := &resolve.Symbol{Name: "y", Kind: resolve.KindVar, Package: "q"}
 	x := vsym("x", types.Int)
 	d := &check.LetDecl{Sp: sp, Pat: vpat(x, types.Int), Value: vr(foreign, types.Int)}
-	_, diags := lower1(t, d)
-	var found bool
-	for _, dg := range diags {
-		if strings.Contains(dg.Message, "another package") {
-			found = true
-		}
+	f, diags := lower1(t, d)
+	if len(diags) != 0 {
+		t.Fatalf("packaged let member should lower cleanly, got %v", diags)
 	}
-	if !found {
-		t.Fatalf("expected a cross-package diagnostic, got %v", diags)
+	ld, ok := f.Decls[0].(*core.VarDecl)
+	if !ok {
+		t.Fatalf("decl = %T, want *core.VarDecl", f.Decls[0])
+	}
+	v, ok := ld.Body.Tail.(*core.Var)
+	if !ok || v.Sym.Package != "q" {
+		t.Fatalf("value = %+v, want core.Var with Sym.Package %q", ld.Body.Tail, "q")
 	}
 }
 

@@ -187,6 +187,40 @@ func TestTestCompileErrorSkipsRun(t *testing.T) {
 	}
 }
 
+// TestTestSiblingPackage: `gom test` compiles same-directory inputs
+// as one package unit — a test block in one file may reference a
+// sibling file's declarations (the unit scope `compileInputs`
+// establishes), and both members' outputs land beside the inputs.
+func TestTestSiblingPackage(t *testing.T) {
+	haveGo(t)
+	dir := writeFiles(t, map[string]string{
+		"a.gom": "package m\n\nlet base = 40\nfn bump (x: Int) -> Int = x + 1\n",
+		"b.gom": "package m\n\ntest \"sibling refs\" {\n  assert_eq (bump base) 41\n}\n",
+	})
+	testModule(t, dir)
+
+	code, out, errout := invoke("test",
+		filepath.Join(dir, "a.gom"), filepath.Join(dir, "b.gom"))
+	if errout != "" {
+		t.Fatalf("stderr = %q", errout)
+	}
+	if code != 0 {
+		t.Fatalf("exit = %d, want 0 (the sibling-ref test passes); out=%q", code, out)
+	}
+	sum := lastSummary(t, out)
+	tc, _ := sum["tests"].(map[string]any)
+	if tc["run"] != float64(1) || tc["failed"] != float64(0) {
+		t.Errorf("summary tests = %v", tc)
+	}
+	// Both members' production outputs land; only b, which declares
+	// the test block, gets a _test.go.
+	for _, f := range []string{"a.go", "b.go", "b_test.go"} {
+		if _, err := os.Stat(filepath.Join(dir, f)); err != nil {
+			t.Errorf("%s not written: %v", f, err)
+		}
+	}
+}
+
 // TestTestStaleTestFileRemoved: when a .gom stops declaring tests,
 // `gom test` removes the stale generated _test.go — but never a
 // hand-written one (no generated marker).

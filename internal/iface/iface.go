@@ -110,8 +110,9 @@ func Surface(f *check.File) *Package {
 // add registers m under its name; the first member of a name wins.
 // Duplicate names inside one file are resolve's E0202 — an errored
 // file never reaches Surface. Duplicates across files of one package
-// are the multi-file scope question (open-questions.md); merging is
-// first-wins here.
+// are E0202 via resolve.Files (the package unit); merging remains
+// first-wins as a defensive default for callers outside the unit
+// pipeline.
 func (p *Package) add(m *Member) {
 	if m.Name == "" {
 		return

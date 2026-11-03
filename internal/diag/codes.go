@@ -824,6 +824,20 @@ implementation or update the interface.`,
 sits with is stray. Rename or remove it. Several .gomi files for one
 package name are stray too — merge their declarations into one.`,
 	},
+	{
+		Code:     "E0605",
+		Severity: SeverityError,
+		Title:    "conflicting package declaration",
+		Phase:    PhaseResolve,
+		Explanation: `The .gom files of one directory compile into one Go package
+(docs/decisions/2026-11-05-package-compilation-unit.md): the files
+compiled together as a unit must declare the same "package" name,
+like Go's own "found packages a and b" rule. Rename the clause or
+move the file to its own directory.`,
+		Example: `// a.gom declares "package shapes"
+// b.gom:
+package ops    // conflicting package declaration`,
+	},
 
 	{
 		Code:     "E0701",

@@ -170,7 +170,7 @@ func (g *gen) ctorRef(a *core.CtorRef) ast.Expr {
 		}
 	}
 	params, args := g.variantParams(fn, a.TypeArgs)
-	lit := g.ctorLit(a.Sym, fn.Ret, a.TypeArgs, args)
+	lit := g.ctorLit(a.Sym, fn.Ret, a.TypeArgs, args, a.Fields)
 	// Canonical value representation: one func literal per
 	// parameter — `func(v0) func(v1) ... T { return T_C{...} }` —
 	// so a constructor reference has the same Go shape as every
@@ -428,7 +428,7 @@ func (g *gen) ctorApp(e *core.CtorApp) ast.Expr {
 		}
 		return &ast.CallExpr{Fun: fun, Args: g.atoms(e.Args)}
 	}
-	return g.ctorLit(e.Ctor, e.Type(), e.TypeArgs, g.atoms(e.Args))
+	return g.ctorLit(e.Ctor, e.Type(), e.TypeArgs, g.atoms(e.Args), e.Fields)
 }
 
 // ctorTArgs returns a constructor's ADT instantiation: the node's
@@ -446,13 +446,16 @@ func ctorTArgs(targs []types.Type, ret types.Type) []types.Type {
 
 // ctorLit renders `Type_Ctor{F0: a0, ...}` — the sealed-variant
 // struct literal. Named payload fields use their names; positional
-// slots use V0, V1, ...
-func (g *gen) ctorLit(sym *resolve.Symbol, typ types.Type, targs []types.Type, args []ast.Expr) ast.Expr {
+// slots use V0, V1, ... The node-carried fields win — they cover
+// constructors no file-local declaration table describes (sibling-
+// file and imported ADTs) — with g.ctors as the fallback.
+func (g *gen) ctorLit(sym *resolve.Symbol, typ types.Type, targs []types.Type, args []ast.Expr, fields []core.TField) ast.Expr {
 	t := g.ctorGoType(sym, typ, targs)
 	elts := make([]ast.Expr, 0, len(args))
-	var fields []core.TField
-	if d, ok := g.ctors[sym]; ok {
-		fields = d.fields
+	if fields == nil {
+		if d, ok := g.ctors[sym]; ok {
+			fields = d.fields
+		}
 	}
 	for i, a := range args {
 		name := fmt.Sprintf("V%d", i)

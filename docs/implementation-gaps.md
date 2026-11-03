@@ -362,3 +362,41 @@
   deferred 経路だけ `expected String, got Go.Any`。`Go.Any` の受け入れが want 側
   限定であることに起因し、仕様判断が必要。
   参照: [problem](problems/2026-11-05-any-hole-deferred-result.md)。
+
+- [ ] **`import alias "path"` 形式と `.gomi` 内 import は文法だけが許す**: spec §5 が
+  `import "path"`（Gom パッケージ）を規定したのに対し、grammar.ebnf の
+  `import-decl` の `[ ident ]` alias 部と `iface-decl` での import 受理は実装で
+  未検証のまま（[PROVISIONAL gom-import-syntax] タグ付き）。`.gomi` 内 import は
+  gomimport ローダ経由で機械的には読める（ネスト解決・サイクル検出、
+  `TestGomiSideImport`）が spec §7 の規定としては未記述 — 残るずれは仕様定義側。
+  参照: [spec 5](spec.md#5-モジュールと可視性)、[grammar.ebnf](grammar.ebnf)、
+  [problems](problems/2026-11-01-gom-import-syntax.md)、
+  [problems](problems/2026-11-05-gom-package-imports.md)。
+- [ ] **兄弟ファイルで同名 `test` ブロックは Go 側で重複シンボルになる**:
+  パッケージ単位コンパイルで `gomEq*`/`tmp*` 系はファイルタグで回避するが、
+  `test "name"` 由来の `func TestX` は無修飾のため、2 ファイルに同名 test が
+  あると生成コードの `go build` が重複定義で失敗する（Gom 診断ではない）。
+  参照: [problems](problems/2026-11-05-gom-package-imports.md)、
+  [decision](decisions/2026-11-05-package-compilation-unit.md)。
+
+- [x] **兄弟ファイルのトップレベル `let` 分解・ワイルドカードが生成 `var tmpN` で衝突する**:
+  lower の `tmp()` はファイルタグを持たず、`let _ =` / `let (a,b) =` が 2 ファイルあると
+  `gom build` は成功するが生成 Go パッケージが `tmp1 redeclared` でビルド失敗した
+  （V-6 最終レビューで検出）。
+  対応: package-scope の一時変数は `pkgTmp()`（`tmp<N>_<fnv32a(path)>`、`eqMark` と同型）で
+  発行し、関数本体の一時変数は従来の `tmp()` のまま。decision の「`tmp*` はファイルタグを
+  持つ」記述も併せて実態通りに修正済み。
+  参照: [lower.go](../internal/lower/lower.go) (`pkgTmp`)、
+  [テスト](../internal/build/files_test.go) `TestCompileFilesTmpVarsDontCollide`、
+  [decision](decisions/2026-11-05-package-compilation-unit.md)。
+
+- [ ] **`gom build` が E0601（`.gomi` 不整合）でも `.go` を書き出す**: `checkInterfaces` は
+  ファイルごとの codegen の後に走るため `r.Output` は既に設定済みで、exit 1 ながら出力は
+  書かれる（サマリには正直に列挙される）。F3 のユニット原子性（失敗したユニットは出力を
+  出さない）との整合が取れていない — interface 不整合をコンパイルエラーと見なして
+  出力を抑止するかは spec 判断が要る。
+  参照: [cli.go](../cmd/gom/cli.go)、[build.go](../internal/build/build.go)。
+
+- [ ] **exported `let foo` と `type Foo` が生成 Go で同名 `Foo` になる**: 単一ファイルでも
+  再現（pre-existing）。export 値名と型名が大文字名前空間を共有し dedup されない。
+  参照: [codegen/gen.go](../internal/codegen/gen.go)。

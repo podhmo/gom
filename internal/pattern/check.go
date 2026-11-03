@@ -25,6 +25,12 @@ type Options struct {
 	// section 4 and design.md section 4.2 say "先頭 5 件"). Values
 	// <= 0 select the default of 5.
 	MaxCounterexamples int
+	// Decls are type declarations the file's patterns may name
+	// beyond its own — the package's other files' declarations and
+	// imported packages' (requalified) TypeDecls — added to the
+	// constructor environment so a wildcard arm over a foreign ADT
+	// can expand instead of under-reporting coverage.
+	Decls []check.Decl
 }
 
 // checker carries the shared state of one checking run.
@@ -329,7 +335,11 @@ func diffBindings(ref, cur map[string]types.Type) (missing, extra, mistyped []st
 // — match、let、関数引数で共用). It returns the collected
 // diagnostics in traversal order; callers sort with diag.List.Sort.
 func CheckFile(f *check.File, opts Options) diag.List {
-	c := newChecker(NewEnv(f.Decls), opts)
+	env := NewEnv(f.Decls)
+	for _, d := range opts.Decls {
+		env.AddDecl(d)
+	}
+	c := newChecker(env, opts)
 	var diags diag.List
 	for _, d := range f.Decls {
 		switch d := d.(type) {

@@ -155,16 +155,12 @@ func (l *lowerer) blockExpr(s *seq, e *check.Block) core.Expr {
 
 // --- references ---
 
-// varRef lowers a KindVar reference. A Go package variable or
-// constant (`math.Pi`) is a bare qualified name in the output, so
-// IsGo symbols pass through; a variable of a Gom package cannot be a
-// bare core.Var — cross-package lowering is out of scope for this
-// phase, so that gap stays a diagnostic.
+// varRef lowers a KindVar reference. A symbol carrying a package
+// (`os.Args`, an imported Gom `let` member) emits its qualified
+// `pkg.Name` — package members are package-level values, no binder
+// is needed; a package-less symbol is a local/sibling-package
+// binding resolved by scope (File.Unit carries sibling lets).
 func (l *lowerer) varRef(base core.Base, sym *resolve.Symbol) *core.Var {
-	if sym != nil && sym.Package != "" && !sym.IsGo {
-		l.err(base.Sp, fmt.Sprintf("variable %s.%s belongs to another package — cross-package lowering is not supported yet",
-			sym.Package, sym.Name))
-	}
 	return &core.Var{Base: base, Sym: l.substSym(sym)}
 }
 
@@ -184,8 +180,9 @@ func (l *lowerer) varExpr(e *check.Var) core.Expr {
 		}
 		return l.funcRefOrFlatten(e, sym)
 	case resolve.KindCtor:
-		if sigOf(e.Type()) != nil {
-			return &core.CtorRef{Base: baseOf(e), Sym: sym, TypeArgs: e.TypeArgs}
+		if sig := sigOf(e.Type()); sig != nil {
+			return &core.CtorRef{Base: baseOf(e), Sym: sym, TypeArgs: e.TypeArgs,
+				Fields: l.ctorFields(sym, sig.Ret)}
 		}
 		// Nullary constructor in value position: a saturated
 		// application of zero arguments.
@@ -318,8 +315,9 @@ func (l *lowerer) memberExpr(s *seq, e *check.MemberExpr) core.Expr {
 		}
 		return l.varRef(baseOf(e), e.Sym)
 	case resolve.KindCtor:
-		if sigOf(e.Type()) != nil {
-			return &core.CtorRef{Base: baseOf(e), Sym: e.Sym, TypeArgs: e.TypeArgs}
+		if sig := sigOf(e.Type()); sig != nil {
+			return &core.CtorRef{Base: baseOf(e), Sym: e.Sym, TypeArgs: e.TypeArgs,
+				Fields: l.ctorFields(e.Sym, sig.Ret)}
 		}
 		return &core.CtorApp{Base: baseOf(e), Ctor: e.Sym, Arity: 0, TypeArgs: e.TypeArgs}
 	case resolve.KindMethod:
@@ -884,6 +882,7 @@ func (l *lowerer) directCall(s *seq, sp diag.Span, resTyp types.Type, callee che
 			Base: core.Base{Sp: sp, Typ: resTyp},
 			Ctor: sym, TypeArgs: ci.TypeArgs,
 			Args: ordered[:ci.Arity], Arity: ci.Arity,
+			Fields: l.ctorFields(sym, resTyp),
 		}
 	case resolve.KindBuiltin:
 		var flat []core.Atom
@@ -990,6 +989,7 @@ func (l *lowerer) partialCall(s *seq, sp diag.Span, resTyp types.Type, callee ch
 				Base: core.Base{Sp: sp, Typ: retAfter(calleeSig, ci.Arity)},
 				Ctor: sym, TypeArgs: ci.TypeArgs,
 				Args: ordered[:ci.Arity], Arity: ci.Arity,
+				Fields: l.ctorFields(sym, retAfter(calleeSig, ci.Arity)),
 			}
 		case resolve.KindBuiltin:
 			var flat []core.Atom
@@ -1271,6 +1271,7 @@ func (l *lowerer) applyAtom(s *seq, sp diag.Span, resTyp types.Type, fn core.Ato
 				Base: core.Base{Sp: sp, Typ: resTyp},
 				Ctor: f.Sym, TypeArgs: f.TypeArgs,
 				Args: args, Arity: arity,
+				Fields: f.Fields,
 			}
 		}
 		if len(args) > arity {
@@ -1281,8 +1282,9 @@ func (l *lowerer) applyAtom(s *seq, sp diag.Span, resTyp types.Type, fn core.Ato
 			return &core.CtorApp{
 				Base: core.Base{Sp: sp, Typ: retAfter(sigOf(f.Type()), arity)},
 				Ctor: f.Sym, TypeArgs: f.TypeArgs,
-				Args:  append(append([]core.Atom{}, args...), pv...),
-				Arity: arity,
+				Args:   append(append([]core.Atom{}, args...), pv...),
+				Arity:  arity,
+				Fields: f.Fields,
 			}
 		})
 	case *core.GoFuncRef:

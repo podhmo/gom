@@ -4,7 +4,7 @@
       "kind": "diagnostic",
       "code": "E0415",
       "severity": "error",
-      "message": "the signature of `Some` needs the builtin `Option`, but the file declares a `type Option` shadowing it",
+      "message": "the signature of `Some` needs the builtin `Option`, but the package declares a `type Option` shadowing it",
       "span": {
         "file": "E0415_builtin_ctor_local_option.gom",
         "start": {

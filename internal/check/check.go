@@ -51,6 +51,9 @@ func Check(res *resolve.Resolved, src SignatureSource) (*File, diag.List) {
 	}
 	c.registerBuiltinTypes(bv)
 	c.registerTypeDecls(res.File.Decls)
+	if ts, ok := src.(TypeDeclSource); ok {
+		c.registerForeignTypes(ts.TypeDecls())
+	}
 	c.resolveTypeBodies(res.File.Decls)
 	c.checkRecordCycles()
 	c.registerValueDecls(res.File.Decls)
@@ -1206,10 +1209,10 @@ func (c *checker) isBuiltinCon(t types.Type, name string) bool {
 }
 
 // shadowedErr reports E0415 — a construct needs a builtin type the
-// file's own declaration shadows into unreachability.
+// package's own declaration shadows into unreachability.
 func (c *checker) shadowedErr(sp diag.Span, what, name string) {
 	c.diags.Add(diag.Error("E0415",
-		fmt.Sprintf("%s needs the builtin `%s`, but the file declares a `type %s` shadowing it", what, name, name)).
+		fmt.Sprintf("%s needs the builtin `%s`, but the package declares a `type %s` shadowing it", what, name, name)).
 		At(sp).Set("builtin", name).Set("construct", what))
 }
 

@@ -82,6 +82,8 @@
 
 各フェーズは純粋関数として実装し、フェーズごとにゴールデンテストを置く。エラーはフェーズ 4 と 5 で集めて一括表示し、以降のフェーズはエラーのない入力だけを受け取る。
 
+コンパイル単位はフェーズごとに異なる（[decision](decisions/2026-11-05-package-compilation-unit.md)）。名前解決と型検査はディレクトリ（＝パッケージ）の全 `.gom` ファイルを 1 単位として扱い（`resolve.Files` / `check.Files`）、トップレベルスコープと型の同一性をシンボルのポインタ同一性で保つ。パターン検査・脱糖・コード生成はファイル単位のままで、兄弟ファイルやインポートしたパッケージの宣言は再解決せずデータとして渡す（`pattern.Options.Decls`、`lower.Env.Siblings`、`check.TypeDeclSource`）。`import` 宣言はファイルローカル、コード生成はファイルごとの出力。`import "path"` は `internal/gomimport` が対象パッケージの `.gomi` を読んで公開面を作り、`import go` は §2.5 の `internal/goimport` が受け持つ。
+
 呼び出し情報の確定は `checkApply` の一回きりとは限らない。メンバー選択 `x.M` のレシーバ型がまだメタの間、check は選択を pendingSels に留め、その上の適用 `x.M(args)` も pendingApplies として規約を決めずに引数だけ暫定検査する（`_`・`..e`・ラベル・引数タプルは保持し、規約の診断は発行しない）。`finalize` の `revisitSelects` がレシーバ確定と同時にメンバーを解決し、適用を Go 規約（`replayGoApply`）か Gom 規約（`replayGomApply`）で replay して CallInfo を最終確定する。`revisitSelects` は不動点ループ——ある replay が更に先行のメンバーのレシーバを束縛しうるので、解決がある間繰り返す。lower に渡る時点で全件の規約が確定済みという契約は変わらない（[decisions/deferred-member-application](decisions/2026-11-05-deferred-member-application.md)）。
 
 ### 2.1 Core IR の不変条件
@@ -154,7 +156,7 @@ bindings rather than left for `go build` to name hidden temporaries. See
 
 `types.Identical` は named type の object 同一性を比較するので、1 回のコンパイルでは 1 つの `Loader`（`token.FileSet` と importer）を共有し、シンボルや import ごとにローダーを作り直さない。Gom 側の named type はパッケージパスと宣言名を持つ参照で表し、ローダーが同じ参照に対応する `go/types.Named` を保持してメソッド解決に使う。Go の alias は元の型へ正規化し、`error` への alias も単一 error / 末尾 error の戻り値規約を引き継ぐ（[error alias](decisions/2026-11-03-go-error-alias-results.md)）。
 
-表現できない型を含むシンボルも理由を付けて名前解決の表に残し、参照されたときだけ E0501 を出す。パッケージとシンボルはローダー内でキャッシュし、export data は Go のビルドキャッシュを利用する。`extern` 宣言があれば導出したバインディングを上書きする。依存する Gom パッケージについては、実装ではなく `.gomi` だけを読み込む。
+表現できない型を含むシンボルも理由を付けて名前解決の表に残し、参照されたときだけ E0501 を出す。パッケージとシンボルはローダー内でキャッシュし、export data は Go のビルドキャッシュを利用する。`extern` 宣言があれば導出したバインディングを上書きする。依存する Gom パッケージについては、実装ではなく `.gomi` だけを読み込む（`internal/gomimport` — 自前の型名は import path 修飾の `types.Con` に付け替え、コンストラクタのフィールド名や宣言 arity も公開する）。
 
 **Go interface と struct field の境界（P3-2a）**
 

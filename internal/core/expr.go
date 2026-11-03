@@ -86,6 +86,10 @@ type CtorRef struct {
 	Base
 	Sym      *resolve.Symbol // KindCtor
 	TypeArgs []types.Type
+	// Fields are the variant's declared payload slots, as on
+	// CtorApp — the materializing closure's literal needs the names
+	// for constructors codegen has no declaration table for.
+	Fields []TField
 }
 
 func (*CtorRef) isExpr() {}

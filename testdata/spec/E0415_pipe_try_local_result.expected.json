@@ -27,7 +27,7 @@
       "kind": "diagnostic",
       "code": "E0415",
       "severity": "error",
-      "message": "`|?>` needs the builtin `Result`, but the file declares a `type Result` shadowing it",
+      "message": "`|?>` needs the builtin `Result`, but the package declares a `type Result` shadowing it",
       "span": {
         "file": "E0415_pipe_try_local_result.gom",
         "start": {

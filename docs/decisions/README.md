@@ -110,4 +110,5 @@
 | [deferred-member-application](2026-11-05-deferred-member-application.md) | Deferred member application: `x.M(args)` on an unresolved receiver | 採用 |
 | [eq-comparator-budget-and-names](2026-11-05-eq-comparator-budget-and-names.md) | Comparator minting is bounded and file-unique; ctor lets keep the declared interface | draft |
 | [generated-equality-comparators](2026-11-05-generated-equality-comparators.md) | Generated per-type comparators for `==`/`!=`/`assert_eq` (core.Equal + File.EqDecls)（一部を [eq-comparator-budget-and-names](2026-11-05-eq-comparator-budget-and-names.md) で置き換え） | 採用 |
+| [package-compilation-unit](2026-11-05-package-compilation-unit.md) | The package compilation unit: shared top-level scope and .gomi imports | 採用（[sketch: multifile package verification](../sketch/2026-11-05-multifile-package-verification.md) — V-6 vertical slice verified end to end） |
 <!-- END GENERATED -->

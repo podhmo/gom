@@ -628,8 +628,9 @@ fn main () -> Unit = ()
 
 - No `pub`/`private`/`internal` — a package's `.gomi` file decides
   what is public.
-- No `import "pkg"` — Go: `import go "pkg"`; Gom packages resolve
-  through their `.gomi` (P4-1 pending).
+- `import "pkg"` loads a Gom package through its `.gomi` (the
+  importing file must be inside the same Go module); Go packages
+  use `import go "pkg"`.
 - No `switch`/`case` → `match`; no `enum` → `type`; no
   `interface`/`struct`/`class` → records and ADTs; no `nil`/`null`/
   `None`-free references → `Option`; no `func`/`def`/`let fun` →

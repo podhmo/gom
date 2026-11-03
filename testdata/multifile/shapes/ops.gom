@@ -1,0 +1,20 @@
+package shapes
+
+// pi lives in this file but shapes.gom's `area` reads it — a
+// package-scope `let` must resolve across files in either order.
+let pi = 3.14159
+
+// tau is an exported `let` member: .gomi lists it, other packages
+// read it as shapes.Tau — a plain package-level Go var.
+let tau = 2.0 * pi
+
+// scale maps a radius/edge transform over a Shape — the sibling
+// file's Shape and constructors are visible like same-file ones.
+fn scale (f: Float -> Float) (s: Shape) -> Shape = match s {
+  Circle r -> Circle (f r)
+  Rect w h -> Rect (f w) (f h)
+}
+
+// twice is a function value: apply f to x twice. Declared with let
+// on purpose — the generalization flip makes it an ordinary fn.
+let twice = fn f x -> f (f x)

@@ -141,17 +141,8 @@ func Compile(in Input, opts *Options) (*Result, error) {
 	// would leak into the generated file. The check lives at the
 	// driver boundary so library callers get the same guard as the
 	// CLI.
-	if !utf8.ValidString(in.Path) {
-		r.Diagnostics = append(r.Diagnostics,
-			diag.Error("E0002", "input path is not valid UTF-8").
-				Set("path", in.Path))
-		return r, nil
-	}
-	if i := strings.IndexFunc(in.Path, unicode.IsControl); i >= 0 {
-		r.Diagnostics = append(r.Diagnostics,
-			diag.Error("E0002", "input path contains a control character").
-				Set("path", in.Path).
-				Set("offset", i))
+	if ds := pathDiags(in.Path); len(ds) > 0 {
+		r.Diagnostics = append(r.Diagnostics, ds...)
 		return r, nil
 	}
 
@@ -166,7 +157,7 @@ func Compile(in Input, opts *Options) (*Result, error) {
 		return r, nil
 	}
 
-	res, diags := resolve.File(f, &resolve.Config{Loader: o.Loader, Modules: o.Modules})
+	res, diags := resolve.File(f, resolveConfig(&o))
 	r.Resolved = res
 	r.Diagnostics = append(r.Diagnostics, diags...)
 	if diags.HasError() {
@@ -189,17 +180,26 @@ func Compile(in Input, opts *Options) (*Result, error) {
 			po.Resolver = o.Pattern.Resolver
 		}
 		po.MaxCounterexamples = o.Pattern.MaxCounterexamples
+		po.Decls = append(po.Decls, o.Pattern.Decls...)
 	}
+	var siblings []check.Decl
+	if ts, ok := o.Sigs.(check.TypeDeclSource); ok {
+		for _, td := range ts.TypeDecls() {
+			siblings = append(siblings, td)
+		}
+	}
+	po.Decls = append(po.Decls, siblings...)
 	diags = pattern.CheckFile(tf, po)
 	r.Diagnostics = append(r.Diagnostics, diags...)
 	if diags.HasError() || o.CheckOnly {
 		return r, nil
 	}
 
-	le := lower.Env{Lines: diag.NewLineIndex(in.Src)}
+	le := lower.Env{Lines: diag.NewLineIndex(in.Src), Siblings: siblings}
 	if o.Lower != nil {
 		le = *o.Lower
 		le.Lines = diag.NewLineIndex(in.Src)
+		le.Siblings = siblings
 	}
 	if o.Exports != nil && tf.Package != "main" {
 		exports := o.Exports(filepath.Dir(in.Path), tf.Package)
@@ -227,4 +227,244 @@ func Compile(in Input, opts *Options) (*Result, error) {
 	}
 	r.Output = out
 	return r, nil
+}
+
+// resolveConfig builds the resolver configuration of a compile:
+// the package loader and builtin-module tables pass through, and a
+// loader that also publishes constructor field tables (the .gomi
+// reader's CtorFieldsOf) fills the CtorFields hook — `{ name = pat
+// }` fields and `~label:` arguments of imported-variant patterns
+// resolve against it.
+func resolveConfig(o *Options) *resolve.Config {
+	c := &resolve.Config{Loader: o.Loader, Modules: o.Modules}
+	if cf, ok := o.Loader.(resolve.CtorFieldSource); ok {
+		c.CtorFields = cf.CtorFieldsOf
+	}
+	return c
+}
+
+// pathDiags is the driver-boundary path guard of Compile, in
+// distributable form: nil when the path is safe to write into
+// diagnostics and generated output.
+func pathDiags(path string) diag.List {
+	if !utf8.ValidString(path) {
+		return diag.List{
+			diag.Error("E0002", "input path is not valid UTF-8").
+				Set("path", path),
+		}
+	}
+	if i := strings.IndexFunc(path, unicode.IsControl); i >= 0 {
+		return diag.List{
+			diag.Error("E0002", "input path contains a control character").
+				Set("path", path).
+				Set("offset", i),
+		}
+	}
+	return nil
+}
+
+// spread attributes each diagnostic to the result whose path its
+// span names; a diagnostic with no matching — or no — span attaches
+// to first. Unit-level diagnostics carry the span of the file they
+// concern, so this keeps per-file Diagnostics honest.
+func spread(first *Result, byPath map[string]*Result, ds diag.List) {
+	for _, d := range ds {
+		if r := byPath[d.Span.File]; r != nil {
+			r.Diagnostics = append(r.Diagnostics, d)
+			continue
+		}
+		first.Diagnostics = append(first.Diagnostics, d)
+	}
+}
+
+// CompileFiles drives the .gom files of one package through the
+// pipeline as a unit — the package-granular form of Compile
+// (docs/decisions/2026-11-05-package-compilation-unit.md). Results
+// come back one per input, in input order.
+//
+// Interface (.gomi) inputs are not part of the unit — an interface
+// file has its own scope and stops after check — so each compiles
+// singly through Compile while the implementation files of the batch
+// share one package scope: a top-level name one file declares is
+// visible in the others, a duplicate across files is E0202, and
+// conflicting package clauses are E0605.
+//
+// The unit boundary covers the phases whose state is shared:
+// parse → resolve → check run for the batch only when the batch is
+// clean so far (a file whose sibling failed to parse sees no
+// cascaded diagnostics). From pattern on the phases are per-file
+// again — each file's env is the shared one plus the unit's other
+// declarations — so a pattern or lowering error stops just that
+// file.
+func CompileFiles(ins []Input, opts *Options) ([]*Result, error) {
+	if len(ins) == 0 {
+		return nil, nil
+	}
+	var o Options
+	if opts != nil {
+		o = *opts
+	}
+	results := make([]*Result, len(ins))
+
+	// Partition: interface files compile singly.
+	var impl []int
+	for i, in := range ins {
+		if in.Interface || IsInterfaceFile(in.Path) {
+			r, err := Compile(in, opts)
+			if err != nil {
+				return nil, err
+			}
+			results[i] = r
+			continue
+		}
+		results[i] = &Result{}
+		impl = append(impl, i)
+	}
+	if len(impl) == 0 {
+		return results, nil
+	}
+	byPath := make(map[string]*Result, len(impl))
+	for _, i := range impl {
+		byPath[ins[i].Path] = results[i]
+	}
+	if len(impl) == 1 {
+		// A one-file unit is the single-file pipeline — the shared
+		// scope just has no siblings to share with.
+		r, err := Compile(ins[impl[0]], opts)
+		if err != nil {
+			return nil, err
+		}
+		results[impl[0]] = r
+		return results, nil
+	}
+
+	// Parse every implementation file. The unit's next phase runs
+	// only when every file parsed: a failed sibling would leave the
+	// package scope incomplete and cascade E0201s through the rest.
+	files := make([]*syntax.File, 0, len(impl))
+	failed := false
+	for _, i := range impl {
+		in := ins[i]
+		r := results[i]
+		if ds := pathDiags(in.Path); len(ds) > 0 {
+			r.Diagnostics = append(r.Diagnostics, ds...)
+			failed = true
+			continue
+		}
+		f, diags := syntax.Parse(in.Src, in.Path)
+		r.File = f
+		r.Diagnostics = append(r.Diagnostics, diags...)
+		files = append(files, f)
+		if diags.HasError() {
+			failed = true
+		}
+	}
+	if failed {
+		return results, nil
+	}
+
+	ress, diags := resolve.Files(files, resolveConfig(&o))
+	for i, res := range ress {
+		results[impl[i]].Resolved = res
+	}
+	spread(results[impl[0]], byPath, diags)
+	if diags.HasError() {
+		return results, nil
+	}
+
+	tfs, diags := check.Files(ress, o.Sigs)
+	for i, tf := range tfs {
+		results[impl[i]].Typed = tf
+	}
+	spread(results[impl[0]], byPath, diags)
+	if diags.HasError() {
+		return results, nil
+	}
+
+	// The unit's declaration universe, for the per-file envs below:
+	// every file's typed declarations, plus the requalified type
+	// declarations the signature source loaded (imported ADTs).
+	var unitDecls []check.Decl
+	for _, tf := range tfs {
+		unitDecls = append(unitDecls, tf.Decls...)
+	}
+	if ts, ok := o.Sigs.(check.TypeDeclSource); ok {
+		for _, td := range ts.TypeDecls() {
+			unitDecls = append(unitDecls, td)
+		}
+	}
+
+	// The unit's per-file phases run independently, but the package
+	// is still atomic on failure: a pattern or lowering error in any
+	// member withholds every output — a partial package would emit
+	// files that reference declarations which never materialized.
+	unitFailed := false
+	for k, i := range impl {
+		in := ins[i]
+		r := results[i]
+		tf := tfs[k]
+
+		var siblings []check.Decl
+		for _, d := range unitDecls {
+			if d.Span().File == in.Path {
+				continue // the file's own declarations index from f.Decls
+			}
+			siblings = append(siblings, d)
+		}
+
+		po := pattern.Options{Resolver: diag.NewMapResolver(map[string][]byte{in.Path: in.Src})}
+		if o.Pattern != nil {
+			if o.Pattern.Resolver != nil {
+				po.Resolver = o.Pattern.Resolver
+			}
+			po.MaxCounterexamples = o.Pattern.MaxCounterexamples
+			po.Decls = append(po.Decls, o.Pattern.Decls...)
+		}
+		po.Decls = append(po.Decls, siblings...)
+		pdiags := pattern.CheckFile(tf, po)
+		r.Diagnostics = append(r.Diagnostics, pdiags...)
+		if diag.List(pdiags).HasError() || o.CheckOnly {
+			unitFailed = unitFailed || diag.List(pdiags).HasError()
+			continue
+		}
+
+		le := lower.Env{Lines: diag.NewLineIndex(in.Src), Siblings: siblings}
+		if o.Lower != nil {
+			le = *o.Lower
+			le.Lines = diag.NewLineIndex(in.Src)
+			le.Siblings = siblings
+		}
+		if o.Exports != nil && tf.Package != "main" {
+			exports := o.Exports(filepath.Dir(in.Path), tf.Package)
+			if len(exports) > 0 {
+				base := le.Exported
+				le.Exported = func(sym *resolve.Symbol) bool {
+					if sym.Package == "" && exports[sym.Name] {
+						return true
+					}
+					return base != nil && base(sym)
+				}
+			}
+		}
+		coref, ldiags := lower.File(tf, &le)
+		coref.SelfImportPath = o.SelfImportPath
+		r.Core = coref
+		r.Diagnostics = append(r.Diagnostics, ldiags...)
+		if diag.List(ldiags).HasError() {
+			unitFailed = true
+			continue
+		}
+
+		out, err := codegen.File(coref, in.Src)
+		if err != nil {
+			return nil, err
+		}
+		r.Output = out
+	}
+	if unitFailed {
+		for _, i := range impl {
+			results[i].Output = nil
+		}
+	}
+	return results, nil
 }

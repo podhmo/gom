@@ -321,16 +321,18 @@ func runInfo(args []string, stdout, stderr io.Writer) int {
 	var order []string
 	for _, in := range inputs {
 		srcs[in.path] = in.src
-		r, err := build.Compile(build.Input{Path: in.path, Src: in.src},
-			compileOptions(in, true))
-		if err != nil {
-			fmt.Fprintf(stderr, "gom info: %s: %v\n", in.path, err)
-			return diag.ExitInternal
-		}
+	}
+	results, err := compileInputs(inputs, true, nil)
+	if err != nil {
+		fmt.Fprintf(stderr, "gom info: %v\n", err)
+		return diag.ExitInternal
+	}
+	for i, r := range results {
 		rep.Diagnostics = append(rep.Diagnostics, r.Diagnostics...)
 		if r.Typed == nil {
 			continue
 		}
+		in := inputs[i]
 		key := filepath.Dir(in.path) + "\x00" + r.Typed.Package
 		g := groups[key]
 		if g == nil {

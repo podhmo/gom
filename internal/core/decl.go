@@ -190,6 +190,14 @@ type File struct {
 	// codegen cannot know a user file's eventual import path.
 	SelfImportPath string
 	Decls          []Decl
+	// Unit records the package-scope bindings sibling sources of the
+	// same compilation unit contribute — the resolve.Files /
+	// check.Files shared scope. A Var or FuncRef naming a sibling
+	// declaration resolves through the package, not through a local
+	// binder: Validate treats these as top-level entries and codegen
+	// emits their bare names into the same Go package. Nil for a
+	// standalone file. (docs/decisions/2026-11-05-package-compilation-unit.md)
+	Unit *UnitScope
 	// EqDecls are the generated structural comparators the file's
 	// Equal nodes and CallBuiltin{assert_eq} plans call — one per
 	// distinct composite type lowering compared. They are emitted
@@ -205,3 +213,44 @@ type File struct {
 
 // Span returns the whole-file span.
 func (f *File) Span() diag.Span { return f.Sp }
+
+// UnitScope carries the bindings a package unit's sibling files
+// contribute to the shared top-level scope — facts Validate uses in
+// place of re-resolving siblings. lower fills it from
+// Env.Siblings; each map holds only what the sibling declarations
+// establish (the file's own declarations index from Decls as
+// usual).
+type UnitScope struct {
+	// Vars are sibling package-scope variable symbols — the binders
+	// of sibling `let` declarations. A Var naming one is package
+	// scope, not unbound.
+	Vars map[*resolve.Symbol]bool
+	// Types are sibling-declared type names. A sibling
+	// `type Unit`/`type Result` shadows the builtins for the whole
+	// package, so builtin-shape checks must see these names.
+	Types map[string]bool
+	// TParams is the declared type-parameter arity of sibling
+	// functions and constructors, for FuncRef/CtorRef type-argument
+	// counts.
+	TParams map[*resolve.Symbol]int
+	// Decls are the sibling files' package-scope value declarations
+	// — fn and `let` symbols — each carrying the export status the
+	// unit's shared .gomi oracle gave it. Codegen claims emitted
+	// names for the whole unit's decls in one canonical order so a
+	// sibling reference and the declaring file spell a symbol
+	// identically, and so no member's binder can steal a package
+	// name a sibling declared (docs/decisions/
+	// 2026-11-05-package-compilation-unit.md section 3).
+	Decls []UnitDecl
+}
+
+// UnitDecl is a sibling package-scope value declaration fact: the
+// declared symbol plus whether the package's .gomi exports it. Type
+// declarations carry no entry — their emitted name is a
+// deterministic function of the Gom name (Types covers their
+// package-wide shadowing facts), and variant constructors resolve
+// through the node's own type and Fields.
+type UnitDecl struct {
+	Sym      *resolve.Symbol
+	Exported bool
+}
