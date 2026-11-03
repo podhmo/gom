@@ -44,7 +44,7 @@ func count(n int64) int64 {
 }
 
 //line aggregate_function_alias.gom:9
-var tmp4 rt.Tuple2[func(int64) int64, int64] = rt.Tuple2[func(int64) int64, int64]{V0: count, V1: 0}
+var tmp443e771d9 rt.Tuple2[func(int64) int64, int64] = rt.Tuple2[func(int64) int64, int64]{V0: count, V1: 0}
 
 //line aggregate_function_alias.gom:9
 func again(tmp5 int64) int64 {
@@ -53,7 +53,7 @@ func again(tmp5 int64) int64 {
 }
 
 //line aggregate_function_alias.gom:12
-var tmp6 Pair = Pair{F: count, X: 7}
+var tmp643e771d9 Pair = Pair{F: count, X: 7}
 
 //line aggregate_function_alias.gom:12
 func ragain(tmp7 int64) int64 {
@@ -62,15 +62,15 @@ func ragain(tmp7 int64) int64 {
 }
 
 //line aggregate_function_alias.gom:12
-var rx int64 = tmp6.X
+var rx int64 = tmp643e771d9.X
 
 //line aggregate_function_alias.gom:15
-var tmp8 Box = Box_Box{V0: count}
+var tmp843e771d9 Box = Box_Box{V0: count}
 
 //line aggregate_function_alias.gom:15
-var tmp11 func(int64) int64 = func() func(int64) int64 {
+var tmp1143e771d9 func(int64) int64 = func() func(int64) int64 {
 //line aggregate_function_alias.gom:15
-	switch v := tmp8.(type) {
+	switch v := tmp843e771d9.(type) {
 //line aggregate_function_alias.gom:15
 	case Box_Box:
 		tmp9 := v
@@ -80,7 +80,7 @@ var tmp11 func(int64) int64 = func() func(int64) int64 {
 		return tmp10
 	default:
 //line aggregate_function_alias.gom:15
-		panic(rt.InvalidVariant("Box", tmp8))
+		panic(rt.InvalidVariant("Box", tmp843e771d9))
 	}
 }()
 
@@ -97,7 +97,7 @@ func add(x, y int64) int64 {
 }
 
 //line aggregate_function_alias.gom:20
-var tmp13 rt.Tuple2[func(int64) func(int64) int64, int64] = func() rt.Tuple2[func(int64) func(int64) int64, int64] {
+var tmp1343e771d9 rt.Tuple2[func(int64) func(int64) int64, int64] = func() rt.Tuple2[func(int64) func(int64) int64, int64] {
 //line aggregate_function_alias.gom:20
 	tmp16 := func(tmp14 int64) func(int64) int64 {
 //line aggregate_function_alias.gom:20
@@ -125,7 +125,7 @@ func plus(tmp17 int64) func(int64) int64 {
 }
 
 //line aggregate_function_alias.gom:20
-var px int64 = tmp13.V1
+var px int64 = tmp1343e771d9.V1
 
 //line aggregate_function_alias.gom:25
 func mark(_ struct{}) struct{} {
@@ -134,7 +134,7 @@ func mark(_ struct{}) struct{} {
 }
 
 //line aggregate_function_alias.gom:26
-var tmp21 func(int64) int64 = func() func(int64) int64 {
+var tmp2143e771d9 func(int64) int64 = func() func(int64) int64 {
 //line aggregate_function_alias.gom:26
 	mark(struct{}{})
 //line aggregate_function_alias.gom:26
