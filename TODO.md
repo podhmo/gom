@@ -39,8 +39,8 @@
 
 ### P2 型推論と関数
 
-- [-] **P2-2 多相関数・部分適用・クロージャ**: 関数値の表現は P0-2 の結論に従う。多相な定義の具体化とラッパー生成を Core IR で確定させる。依存: P2-1, P0-6, P1-13
-  - [ ] **P2-2c タプル等に格納した循環関数値の初期化循環を解消する**: `fn count (n: Int) -> Int = if n == 0 { 0 } else { again (n - 1) + 1 }; let (again, _) = (count, 0)` が check/build を通るが、生成 Go は hidden tuple → count → again → hidden tuple の initialization cycle になる。集約値の初期化の副作用・依存順を保つ表現を Core IR で決め、生成コードの実行回帰を追加する。[再現と範囲](docs/sketch/2026-11-03-static-function-alias-verification.md)。依存: P2-2b
+- [x] **P2-2 多相関数・部分適用・クロージャ**: 関数値の表現は P0-2 の結論に従う。多相な定義の具体化とラッパー生成を Core IR で確定させる。依存: P2-1, P0-6, P1-13
+  - [x] **P2-2c タプル等に格納した循環関数値の初期化循環を解消する**: `fn count (n: Int) -> Int = if n == 0 { 0 } else { again (n - 1) + 1 }; let (again, _) = (count, 0)` が check/build を通るが、生成 Go は hidden tuple → count → again → hidden tuple の initialization cycle になる。集約値の初期化の副作用・依存順を保つ表現を Core IR で決め、生成コードの実行回帰を追加する。[再現と範囲](docs/sketch/2026-11-03-static-function-alias-verification.md)。依存: P2-2b
 - [-] **P2-4 `try` と `|?>`**: 脱出境界は最も内側の関数（[decisions/try-boundary](docs/decisions/2026-11-01-try-boundary.md)）、`|?>` の `%w` 自動ラップ（[spec 9 章](docs/spec.md)）。中間の `Result` を作らない生成（design.md 4.6）。依存: P2-1, P1-13
   - [ ] **P2-4c unguarded ステップの `EscapeCall` 融合（残る最適化）**: unguarded ステップの引数が Go `(T,error)` 呼び出しの場合、`ResultFromGo` で物質化してから次セグメントの `EscapeResult` が検査するため中間 Result が 1 個残る。引数評価（try を含むのでユーザー側の列）と呼び出し本体（セグメント内 `EscapeCall`）を分離すれば融合可能。併せて `pipeRest` の span 不統一（束縛は `lv.Y.Span()`・enter escape は `lv.Sp`）も直す（P2-4b レビュー F5/F6）。依存: P2-4b
 

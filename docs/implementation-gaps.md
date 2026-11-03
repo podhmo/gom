@@ -45,9 +45,14 @@
   対応: Core IR で純粋な関数別名を wrapper にし、評価時機も実行検証。集約値経由は別項目。
   参照: [検証](sketch/2026-11-03-static-function-alias-verification.md)。
 
-- [ ] **集約値経由の循環関数値は初期化循環が残る**: 単純別名は直ったが、
+- [x] **集約値経由の循環関数値は初期化循環が残る**: 単純別名は直ったが、
   `let (again, _) = (count, 0)` を関数本体から参照すると check/build 成功後に Go が拒否する。
-  参照: [再現](sketch/2026-11-03-static-function-alias-verification.md)、[TODO P2-2c](../TODO.md)。
+  対応: 集約内の関数型束縛を named `ValueAlias` ラッパーに下ろして初期化依存の変数辺を外し、
+  残る変数→変数サイクルは lowered Core IR 上の解析で E0907 として拒否。レビューで発見した
+  `let g = { …; f }` の初期化式喪失（評価順回帰）は hidden eager var で修正。合法・拒否の
+  両形状を実行回帰で検証。
+  参照: [decision](decisions/2026-11-05-aggregate-function-bindings.md)、
+  [検証](sketch/2026-11-05-aggregate-function-bindings-verification.md)、[TODO P2-2c](../TODO.md)。
 
 - [x] **`|?>` の失敗が外側の関数を脱出する**: spec 9.2 と評価器は Result 値を返すが、
   lower は外側から早期 return し、パイプ外の処理が続かないことがあった。
@@ -309,3 +314,15 @@
   コストが読めないため見送り — `Go.Slice` 経路と spec 修正の余地として記録。
   参照: [decision](decisions/2026-11-04-go-collections-and-generics.md)、
   [fixture](../testdata/spec/E0501_go_container_view_split.gom)。
+
+- [ ] **`checkInitCycles` は file-local で Go のパッケージ単位の分析とずれる**:
+  E0907 の初期化依存グラフは 1 ファイルの Core IR 上に構築するが、Go は
+  パッケージ単位で初期化順を決める。複数 `.gom` ファイルのパッケージが実現すると、
+  ファイル跨ぎの初期化サイクルが Gom 診断を通り抜け `go build` のエラーとして表れる。
+  参照: [initcycle.go](../internal/lower/initcycle.go)、
+  [decision](decisions/2026-11-05-aggregate-function-bindings.md)。
+
+- [ ] **spec にパッケージ初期化順序の節がない**: E0907（初期化循環の拒否）の
+  `Spec:` 参照先が未定義 — `@tailrec` 系の E09xx は spec 1.1 を参照するが、
+  初期化順序の言語仕様自体は spec にない。spec 節を新設するかは未決。
+  参照: [codes.go](../internal/diag/codes.go)、[spec](spec.md)。
