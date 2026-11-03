@@ -56,6 +56,7 @@ import (
 	"github.com/podhmo/gom/internal/fuzzutil"
 	"github.com/podhmo/gom/internal/gomgen"
 	"github.com/podhmo/gom/internal/resolve"
+	"github.com/podhmo/gom/internal/types"
 )
 
 // diffEvalFuel is the eval-side step budget: a tree-walking
@@ -552,13 +553,18 @@ func evalDiff(t *testing.T, r *build.Result, sources ...string) (o diffOutcome) 
 // stub table covers into the evaluator's environment. Members with
 // no faithful stub stay unbound so evalMember's E9001 classifies the
 // program as unexecutable.
+//
+// Method symbols key differently: a method belongs to a receiver
+// type, not the package namespace, so the stub name is
+// `pkg.Type.Method` derived from the receiver's checked type — the
+// same triple the loader interns it under — and the stub receives
+// the receiver as its first argument.
 func bindGoStubs(t *testing.T, f *check.File, ev *eval.Evaluator, capture *diffCapture) {
 	t.Helper()
-	bind := func(sym *resolve.Symbol, arity int) {
+	bindNamed := func(sym *resolve.Symbol, name string, arity int) {
 		if sym == nil || !sym.IsGo {
 			return
 		}
-		name := sym.Package + "." + sym.Name
 		if fn, ok := diffGoStubs[name]; ok {
 			ev.Env().Bind(sym, eval.NewHostFunc(name, arity, fn(capture)))
 			return
@@ -566,6 +572,12 @@ func bindGoStubs(t *testing.T, f *check.File, ev *eval.Evaluator, capture *diffC
 		if v, ok := diffGoValues[name]; ok {
 			ev.Env().Bind(sym, v)
 		}
+	}
+	bind := func(sym *resolve.Symbol, arity int) {
+		if sym == nil {
+			return
+		}
+		bindNamed(sym, sym.Package+"."+sym.Name, arity)
 	}
 	for _, d := range f.Decls {
 		check.WalkDecl(d, func(x check.Expr) {
@@ -577,15 +589,60 @@ func bindGoStubs(t *testing.T, f *check.File, ev *eval.Evaluator, capture *diffC
 				if arity < 1 {
 					arity = 1
 				}
-				bind(a.Call.Callee, arity)
+				if me, ok := a.Fn.(*check.MemberExpr); ok && a.Call.Callee != nil && a.Call.Callee.Kind == resolve.KindMethod {
+					bindNamed(a.Call.Callee, methodStubName(me), arity+1)
+				} else {
+					bind(a.Call.Callee, arity)
+				}
 			}
 			if m, ok := x.(*check.MemberExpr); ok {
-				bind(m.Sym, 1)
+				if m.Sym != nil && m.Sym.Kind == resolve.KindMethod {
+					// A method reference's arity is its value-type
+					// parameter count; the stub adds the receiver.
+					p, _ := flattenType(m.Type())
+					bindNamed(m.Sym, methodStubName(m), len(p)+1)
+				} else {
+					bind(m.Sym, 1)
+				}
 			}
 			if v, ok := x.(*check.Var); ok {
 				bind(v.Sym, 1)
 			}
 		})
+	}
+}
+
+// methodStubName derives the diffGoStubs key for a method member:
+// `pkg.Type.Method` — the receiver type's package path and name plus
+// the method name, matching the triple goimport interns the symbol
+// under. A non-Go receiver shape (the GoError builtin, or a Ptr to a
+// named type) reduces to the same dotted name.
+func methodStubName(me *check.MemberExpr) string {
+	t := me.Recv.Type()
+	for {
+		if c, ok := types.Chase(t).(*types.Con); ok && c.Qual == "" && c.Name == "Ptr" && len(c.Args) == 1 {
+			t = c.Args[0]
+			continue
+		}
+		break
+	}
+	if g, ok := types.Chase(t).(*types.Go); ok {
+		return g.Ref.Path + "." + g.Ref.Name + "." + me.Sym.Name
+	}
+	return me.Sym.Package + "." + me.Sym.Name
+}
+
+// flattenType unrolls a function type into its parameter list and
+// result — the checker's own flattenFunc, unexported there.
+func flattenType(t types.Type) ([]types.FuncParam, types.Type) {
+	var params []types.FuncParam
+	for {
+		f, ok := types.Chase(t).(*types.Func)
+		if !ok {
+			return params, t
+		}
+		params = append(params, f.Params...)
+		t = f.Ret
 	}
 }
 
@@ -719,6 +776,88 @@ var diffGoStubs = map[string]func(capture *diffCapture) func([]eval.Value) (eval
 			return &eval.VInt{N: int64(utf8.RuneCountInString(s.S))}, nil
 		}
 	},
+	// Methods key as `pkg.Type.Method` (see methodStubName); the
+	// receiver arrives as args[0] ahead of the declared parameters.
+	// Receivers are VHost values produced by earlier host calls.
+	"time.Unix": func(capture *diffCapture) func([]eval.Value) (eval.Value, error) {
+		return func(args []eval.Value) (eval.Value, error) {
+			sec, ok1 := args[0].(*eval.VInt)
+			nsec, ok2 := args[1].(*eval.VInt)
+			if !ok1 || !ok2 {
+				return goBadArgs("time.Unix", args)
+			}
+			return &eval.VHost{V: time.Unix(sec.N, nsec.N)}, nil
+		}
+	},
+	"time.Time.AddDate": func(capture *diffCapture) func([]eval.Value) (eval.Value, error) {
+		return func(args []eval.Value) (eval.Value, error) {
+			recv, ok := args[0].(*eval.VHost)
+			if !ok || len(args) != 4 {
+				return goBadArgs("time.Time.AddDate", args)
+			}
+			t, ok := recv.V.(time.Time)
+			if !ok {
+				return goBadArgs("time.Time.AddDate", args)
+			}
+			y, ok1 := args[1].(*eval.VInt)
+			m, ok2 := args[2].(*eval.VInt)
+			d, ok3 := args[3].(*eval.VInt)
+			if !ok1 || !ok2 || !ok3 {
+				return goBadArgs("time.Time.AddDate", args)
+			}
+			return &eval.VHost{V: t.AddDate(int(y.N), int(m.N), int(d.N))}, nil
+		}
+	},
+	"time.Time.Format": func(capture *diffCapture) func([]eval.Value) (eval.Value, error) {
+		return func(args []eval.Value) (eval.Value, error) {
+			recv, ok := args[0].(*eval.VHost)
+			if !ok || len(args) != 2 {
+				return goBadArgs("time.Time.Format", args)
+			}
+			t, ok := recv.V.(time.Time)
+			if !ok {
+				return goBadArgs("time.Time.Format", args)
+			}
+			layout, ok := args[1].(*eval.VStr)
+			if !ok {
+				return goBadArgs("time.Time.Format", args)
+			}
+			return &eval.VStr{S: t.Format(layout.S)}, nil
+		}
+	},
+	"strings.Builder.WriteString": func(capture *diffCapture) func([]eval.Value) (eval.Value, error) {
+		return func(args []eval.Value) (eval.Value, error) {
+			recv, ok := args[0].(*eval.VHost)
+			if !ok || len(args) != 2 {
+				return goBadArgs("strings.Builder.WriteString", args)
+			}
+			b, ok := recv.V.(*strings.Builder)
+			if !ok {
+				return goBadArgs("strings.Builder.WriteString", args)
+			}
+			s, ok := args[1].(*eval.VStr)
+			if !ok {
+				return goBadArgs("strings.Builder.WriteString", args)
+			}
+			n, err := b.WriteString(s.S)
+			if err != nil {
+				return goErrVariant(err.Error()), nil
+			}
+			return goOkVariant(&eval.VInt{N: int64(n)}), nil
+		}
+	},
+	// The builtin GoError receiver's only method: the checker's
+	// synthetic symbol is Package "builtin", Name "Error" — the
+	// methodStubName fallback keys it here. Its receiver is a VGoErr.
+	"builtin.Error": func(capture *diffCapture) func([]eval.Value) (eval.Value, error) {
+		return func(args []eval.Value) (eval.Value, error) {
+			recv, ok := args[0].(*eval.VGoErr)
+			if !ok || len(args) != 1 {
+				return goBadArgs("builtin.Error", args)
+			}
+			return &eval.VStr{S: recv.Text}, nil
+		}
+	},
 }
 
 // diffGoValues holds the pure constants a generated program can
@@ -819,6 +958,8 @@ func goDisplay(v eval.Value) (string, bool) {
 		return v.S, true
 	case *eval.VGoErr:
 		return v.Text, true
+	case *eval.VHost:
+		return fmt.Sprintf("%v", v.V), true
 	case *eval.VList:
 		var b strings.Builder
 		b.WriteByte('[')

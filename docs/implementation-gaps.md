@@ -332,3 +332,33 @@
   `Spec:` 参照先が未定義 — `@tailrec` 系の E09xx は spec 1.1 を参照するが、
   初期化順序の言語仕様自体は spec にない。spec 節を新設するかは未決。
   参照: [codes.go](../internal/diag/codes.go)、[spec](spec.md)。
+
+- [x] **遅延メンバー適用の引数タプル内で `_` / `..e` が provisional 通過をすり抜ける**:
+  `x.M((_, 1), 2)` のように arg タプルの *要素* に置かれた `_` は provisionalArg が
+  TupleLit を再帰的に保持するため E0504 を報告されず、メソッド確定後も
+  checkGoApply の top-level 引数処理に届かなかった（spec 8.2 の「`_` は Go 呼び出しの
+  引数にだけ使える」とのずれ）。対応: pendingApply に minted marker を記録し、
+  replay の使用済み marker との差分を flagStrayMarkers で E0504/E0505 として報告、
+  stray hole は markQuiet で eager と同じ回復形に揃えた。
+  参照: [decision](decisions/2026-11-05-deferred-member-application.md)、
+  [検証](sketch/2026-11-05-deferred-member-application.md)、
+  [fixture](../testdata/spec/E0504_hole_in_go_arg_tuple.gom)。
+- [ ] **メソッド呼び出しの連鎖 `x.M(1).N(2)` が arg タプルへの select として parse される**:
+  postfix の selector が適用の引数タプルより強く結合するため、`.N` は `(1)` の
+  後続ではなくタプル要素とみなされる。`x.AddDate(1,0,0).AddDate(0,1,0)` は
+  E0401（arity / "tuple type has no AddDate"）になるが、明示的な
+  `(x.AddDate(1,0,0)).AddDate(0,1,0)` は動く。解決済み receiver でも同じ
+  失敗 — 推論の問題ではなく grammar の優先順位の問題（spec 8.1.3 は連鎖を定めていない）。
+  参照: [problem](problems/2026-11-05-method-chain-select-binds-args.md)、
+  [検証の観測](sketch/2026-11-05-deferred-member-application.md)。
+
+- [ ] **eval が Go 呼び出し内の `..e` spread を評価できない**: `*check.Spread` は
+  list literal 内でのみ処理され、Go call の引数位置では `CodeUnsupported`。
+  CallGo/variadic を eval 側が完全にカバーするには spread 展開の実装が要る
+  （P3-4 レビューで観測、pre-existing）。
+  参照: [検証](sketch/2026-11-05-deferred-member-application.md) の Remaining boundary。
+
+- [ ] **any-hole cute の結果型が callee unify で premature bind されると eager と診断がずれる**:
+  deferred 経路だけ `expected String, got Go.Any`。`Go.Any` の受け入れが want 側
+  限定であることに起因し、仕様判断が必要。
+  参照: [problem](problems/2026-11-05-any-hole-deferred-result.md)。

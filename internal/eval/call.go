@@ -30,8 +30,8 @@ const (
 type goCall struct {
 	sp     diag.Span
 	callee *VFunc
-	args   []Value // evaluated non-hole args in source order
-	holeAt int     // position of the hole in the full argument list
+	args   []Value // evaluated non-hole args in declaration order
+	holeAt int     // the hole's declaration-order parameter position
 }
 
 // applyArgs applies a function value to args whose positions index
@@ -197,6 +197,23 @@ func funcOfType(name string, kind fnKind, sig *types.Func) *VFunc {
 		sig = &types.Func{Ret: types.Unit}
 	}
 	return &VFunc{name: name, kind: kind, sig: sig, bound: make([]slot, len(sig.Params))}
+}
+
+// methodValueSig flattens a bound method's value type — the member
+// selection's checked type, e.g. `Int -> Int -> Int -> Time` —
+// into the flat signature a VFunc curries over. The host stub the
+// bound method wraps takes the receiver as an extra first argument,
+// so the receiver is not among these params.
+func methodValueSig(t types.Type) *types.Func {
+	var params []types.FuncParam
+	for {
+		f, ok := types.Chase(t).(*types.Func)
+		if !ok {
+			return &types.Func{Params: params, Ret: t}
+		}
+		params = append(params, f.Params...)
+		t = f.Ret
+	}
 }
 
 // NewHostFunc binds a Go-implemented function for tests: it takes all

@@ -180,6 +180,14 @@ type checker struct {
 	// once the receiver is known (or asks for its annotation).
 	pendingSels []*MemberExpr
 
+	// pendingApplies are applications whose callee is one of the
+	// deferred member selections above: `x.M(args)` cannot pick the
+	// calling convention (curried Gom vs Go tuple) until `.M`'s
+	// owner is known, so the arguments check provisionally and the
+	// replay runs when the member resolves — or under the Gom rule
+	// at finalize's end when the receiver never does.
+	pendingApplies []*pendingApply
+
 	// pendingIfaces keep numeric and selector inference independent of interface assignment.
 	pendingIfaces []*Ascribe
 
@@ -757,8 +765,30 @@ func (c *checker) unboundVars(t types.Type, sp diag.Span, sc *tscope) {
 // default, and a quiet meta belongs to a diagnostic already reported.
 func (c *checker) generalize(env map[*resolve.Symbol]bool, t types.Type) []*types.Var {
 	shared := map[*types.Meta]bool{}
+	markShared := func(m *types.Meta) { shared[m] = true }
 	for s := range env {
-		metasIn(c.vals[s], func(m *types.Meta) { shared[m] = true })
+		metasIn(c.vals[s], markShared)
+	}
+	// Metas pinned by an open deferred obligation — a member
+	// selection's receiver and standing type, a deferred
+	// application's result and provisionally checked arguments —
+	// belong to the obligation, not to this binding. Quantifying
+	// one would bind it to a rigid variable, which neither the
+	// member lookup (a type variable owns no field set) nor the
+	// replay's unify (a Var cannot become time.Time) can use: the
+	// binding stays monomorphic so a later use binds the receiver
+	// concretely and revisitSelects resolves the member.
+	for _, me := range c.pendingSels {
+		metasIn(me.Recv.Type(), markShared)
+		metasIn(me.Type(), markShared)
+	}
+	for _, pa := range c.pendingApplies {
+		metasIn(pa.ap.Type(), markShared)
+		for _, a := range pa.ap.Args {
+			if a.Value != nil {
+				metasIn(a.Value.Type(), markShared)
+			}
+		}
 	}
 	used := map[string]bool{}
 	for _, v := range rigidVars(t) {

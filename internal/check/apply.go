@@ -30,6 +30,20 @@ import (
 // reports E0507.
 func (c *checker) checkApply(e *syntax.Apply) Expr {
 	fn, callee, goCall := c.calleeOf(e.Fn)
+	if callee == nil {
+		// A member selection deferred on an unresolved receiver meta
+		// cannot pick a calling convention yet: `x.M(args)` may be a
+		// curried Gom application or the tuple-shaped call of a Go
+		// method, and pre-digesting the surface argument tuple as
+		// curried application would under-record the call once the
+		// member resolves to a method (the CallInfo the rest of the
+		// pipeline consumes — see pendingApplies).
+		if me, ok := fn.(*MemberExpr); ok && me.Sym == nil {
+			if _, unresolved := types.Chase(me.Recv.Type()).(*types.Meta); unresolved {
+				return c.checkDeferredApply(e, me)
+			}
+		}
+	}
 	if callee != nil && isConv(callee) {
 		return c.checkConvCall(e, fn)
 	}
@@ -687,4 +701,531 @@ func (c *checker) spreadElem(t types.Type, elem types.Type, sp diag.Span) {
 		panic("unreachable")
 	}
 	c.mismatch(sp, "a List or Go.Slice", t)
+}
+
+// --- deferred applications ----------------------------------------
+
+// pendingApply is an application whose callee is a member selection
+// deferred on an unresolved receiver meta (pendingSels). The surface
+// call `x.M(args)` cannot pick a calling convention while `.M`'s
+// owner is unknown: resolving to a Gom field means curried
+// application, resolving to a Go method means the tuple convention
+// of spec section 8.1. checkDeferredApply checks the arguments
+// provisionally — labels kept, `_` and `..e` recorded without their
+// convention diagnostics — and replayApply rewrites Args and Call
+// once revisitSelects resolves the member, or at the end of finalize
+// under the Gom rule when the receiver never does.
+type pendingApply struct {
+	ap   *Apply      // the provisional node; Fn is me
+	me   *MemberExpr // the deferred callee selection
+	done bool        // replayed — guards chained members
+
+	// holes and spreads record the `_` and `..e` markers the
+	// provisional pass minted (only direct arguments and elements
+	// of the surface arg tuple carry them — every other context
+	// reported the marker eagerly). The replay consumes the ones
+	// the settled convention admits and flagStrayMarkers reports
+	// the rest.
+	holes   []*Hole
+	spreads []*Spread
+	used    map[Expr]bool
+}
+
+// useMarker marks a provisional marker as consumed — it reached a
+// legal position under the settled convention or was already
+// reported by the replay's own switch.
+func (pa *pendingApply) useMarker(e Expr) {
+	if pa.used == nil {
+		pa.used = map[Expr]bool{}
+	}
+	pa.used[e] = true
+}
+
+// checkDeferredApply types `x.M(args)` while `x`'s type — and hence
+// `.M`'s owner — is still a meta. Arguments check with no parameter
+// expectation: their own inference still runs (a `42` literal still
+// defaults), only the conform step waits for the convention. The
+// node's standing result meta is what context constraints see; the
+// replay unifies it with the convention-correct result.
+func (c *checker) checkDeferredApply(e *syntax.Apply, me *MemberExpr) Expr {
+	pa := &pendingApply{me: me}
+	out := &Apply{Base: baseOf(e.Sp, c.newMeta(e.Sp, "the deferred call's result")), Fn: me}
+	pa.ap = out
+	for _, a := range e.Args {
+		label := ""
+		var labelSp diag.Span
+		if a.Label != nil {
+			label = a.Label.Name
+			labelSp = a.Label.Sp
+		}
+		out.Args = append(out.Args, Arg{
+			Label: label, LabelSp: labelSp,
+			Value: c.provisionalArg(a.Value, pa),
+		})
+	}
+	// The provisional CallInfo claims nothing: a CallUnknown with no
+	// callee — valid for walkers that inspect it before finalize —
+	// and replayApply replaces it with a validated record.
+	out.Call = CallInfo{Kind: CallUnknown, Applied: len(out.Args), HoleIndex: -1}
+	c.pendingApplies = append(c.pendingApplies, pa)
+	return out
+}
+
+// provisionalArg checks one argument of a deferred application
+// without the convention a parameter type would supply: `_` and
+// `..e` keep their markers (the replay's convention decides whether
+// they were legal — E0504/E0505 withheld until then), a `(a, b, ...)`
+// argument tuple keeps its surface unpackability by checking the
+// elements the same way, and everything else checks normally.
+func (c *checker) provisionalArg(e syntax.Expr, pa *pendingApply) Expr {
+	switch av := e.(type) {
+	case nil:
+		// A recovery hole in the surface tree.
+		return c.checkExpr(nil, nil)
+	case *syntax.Hole:
+		// `_` is legal only under the Go convention — which the
+		// replay may yet select — so the Hole is kept and E0504
+		// waits for the convention decision.
+		h := &Hole{Base: baseOf(av.Sp, c.newMeta(av.Sp, "the placeholder's type"))}
+		pa.holes = append(pa.holes, h)
+		return h
+	case *syntax.Spread:
+		x := c.checkExpr(av.X, nil)
+		sp := &Spread{Base: baseOf(av.Sp, x.Type()), X: x}
+		pa.spreads = append(pa.spreads, sp)
+		return sp
+	case *syntax.TupleLit:
+		// `f(_, b)` packs the `_` inside the argument tuple — the
+		// eager Go path unpacks the *surface* tuple, so the
+		// provisional one must keep its elements' markers too.
+		out := &TupleLit{Base: baseOf(av.Sp, nil), Elems: make([]Expr, len(av.Elems))}
+		ts := make([]types.Type, len(av.Elems))
+		for i, el := range av.Elems {
+			out.Elems[i] = c.provisionalArg(el, pa)
+			ts[i] = out.Elems[i].Type()
+		}
+		out.Base = baseOf(av.Sp, types.Tup(ts...))
+		return out
+	case *syntax.Ident, *syntax.Lit, *syntax.StrInterp,
+		*syntax.Apply, *syntax.Select, *syntax.Unary,
+		*syntax.Binary, *syntax.Lambda, *syntax.If, *syntax.Match,
+		*syntax.Block, *syntax.Let, *syntax.Ignore, *syntax.Try,
+		*syntax.GoExpr, *syntax.For, *syntax.SelectExpr,
+		*syntax.ListLit, *syntax.Ascribe, *syntax.RecordLit:
+		return c.checkExpr(e, nil)
+	default:
+		panic("unreachable")
+	}
+}
+
+// replayAppliesOf runs the convention replay of every deferred
+// application whose callee member is me — called by revisitSelects
+// right after it resolves me, so a member chained off the call's
+// result (`x.M(1).N(2)`) sees the bound result type when its own
+// turn comes.
+func (c *checker) replayAppliesOf(me *MemberExpr) {
+	for _, pa := range c.pendingApplies {
+		if pa.me == me {
+			c.replayApply(pa)
+		}
+	}
+}
+
+// replayDeferredApplies is the trailing pass: applications whose
+// member selection never resolved replay under the Gom convention —
+// the convention diagnostics the first pass withheld (E0504 for a
+// `_`, E0408 for a label on an unknown callee) still fire.
+func (c *checker) replayDeferredApplies() {
+	for _, pa := range c.pendingApplies {
+		c.replayApply(pa)
+	}
+}
+
+// replayApply gives a deferred application its final Args and
+// CallInfo. A member that resolved to a Go method replays the Go
+// tuple convention; anything else — a record or Go struct field
+// (whose func-typed value curries), an unresolved receiver, a failed
+// lookup — replays the Gom rule.
+func (c *checker) replayApply(pa *pendingApply) {
+	if pa.done {
+		return
+	}
+	pa.done = true
+	if me := pa.me; me.Sym != nil && me.Sym.IsGo && me.Sym.Kind == resolve.KindMethod {
+		c.replayGoApply(pa)
+		return
+	}
+	c.replayGomApply(pa)
+}
+
+// replayGoApply is checkGoApply's second pass over an already-typed
+// argument list: the surface argument tuple unpacks the same way
+// (the typed TupleLit of a single argument carries the individual Go
+// arguments), parameter matching and all of E0404–E0406 and the
+// arity diagnostic run identically, and the conform step unifies
+// each typed argument's solved type with its parameter — no
+// re-checking, so inference the provisional pass seeded is not
+// replayed. The node's standing result meta unifies with the
+// method's result (wrapped in the hole's one-parameter function for
+// a cute call).
+func (c *checker) replayGoApply(pa *pendingApply) {
+	e := pa.ap
+	me := pa.me
+	params, ret := flattenFunc(me.Type())
+	sig, _ := c.sigOf(me.Sym, me.Sel.Sp)
+	declArity := c.declArity(sig, len(params))
+	if declArity > len(params) {
+		declArity = len(params)
+	}
+	goParams := params[:declArity]
+	arity := declArity
+	variadic := sig.Variadic && arity > 0
+
+	// Unpack the surface argument form into the Go argument list;
+	// labels may arrive on the top-level arguments.
+	type garg struct {
+		label   string
+		labelSp diag.Span
+		sp      diag.Span
+		x       Expr
+	}
+	var gargs []garg
+	one := len(e.Args) == 1
+	for _, a := range e.Args {
+		// Partial probes stay as if-assertions: check.Expr is a
+		// sumtype and the checker requires exhaustive switches.
+		if one && a.Label == "" {
+			if v, ok := a.Value.(*TupleLit); ok {
+				for _, el := range v.Elems {
+					gargs = append(gargs, garg{sp: el.Span(), x: el})
+				}
+				continue
+			}
+			if v, ok := a.Value.(*Lit); ok && v.Kind == syntax.LitUnit {
+				continue // `f()` — no Go arguments
+			}
+		}
+		gargs = append(gargs, garg{label: a.Label, labelSp: a.LabelSp, sp: a.Span(), x: a.Value})
+	}
+
+	used := make([]bool, arity)
+	posIdx := 0
+	tooMany := 0
+	posArgs := 0
+	hole := -1
+	var holeT types.Type
+	mapping := make([]int, 0, len(gargs))
+	newArgs := make([]Arg, 0, len(gargs))
+
+	for gi, g := range gargs {
+		last := gi == len(gargs)-1
+		pi := -1
+		if g.label != "" {
+			pi = c.paramByLabel(goParams, g.label)
+			if pi < 0 {
+				c.diags.Add(diag.Error("E0406",
+					fmt.Sprintf("the Go callee has no parameter labeled `~%s`", g.label)).
+					At(labelSpan(g.labelSp, g.sp)).Set("label", g.label))
+			} else if used[pi] {
+				c.diags.Add(diag.Error("E0405",
+					fmt.Sprintf("the label `~%s` is supplied twice", g.label)).
+					At(labelSpan(g.labelSp, g.sp)).Set("label", g.label))
+				pi = -1
+			}
+		} else {
+			posArgs++
+			for posIdx < arity && (used[posIdx] || goParams[posIdx].Label != "") {
+				posIdx++
+			}
+			if posIdx < arity {
+				pi = posIdx
+				posIdx++
+			} else if variadic {
+				pi = arity - 1
+			} else {
+				tooMany++
+			}
+		}
+		var pt types.Type
+		if pi >= 0 {
+			used[pi] = true
+			pt = goParams[pi].Type
+			if variadic && pi == arity-1 {
+				// Arguments of the variadic tail have the element
+				// type of the declared last (slice) parameter.
+				pt = sliceElemOf(pt, g.sp, c)
+			}
+		} else {
+			pt = c.quietMeta(g.sp, "the Go argument's parameter type")
+		}
+		var argExpr Expr
+		switch v := g.x.(type) {
+		case *Hole:
+			pa.useMarker(v)
+			if hole >= 0 {
+				c.diags.Add(diag.Error("E0504",
+					"at most one `_` placeholder is allowed in a call").At(v.Sp))
+				// A second Hole node in Args would fail
+				// Apply.Validate (exactly one hole at
+				// HoleIndex); recover as an ordinary argument.
+				c.markQuiet(v.Type())
+				argExpr = &Lit{Base: baseOf(v.Sp, pt), Kind: syntax.LitUnit, Text: "()"}
+			} else {
+				hole = len(newArgs)
+				holeT = pt
+				c.unify(pt, v.Type(), v.Sp)
+				argExpr = v
+			}
+		case *Spread:
+			pa.useMarker(v)
+			if !variadic || !last || g.label != "" {
+				c.diags.Add(diag.Error("E0505",
+					"`..e` is only allowed as the last argument of a variadic Go call").At(v.Sp))
+			} else {
+				c.spreadElem(v.X.Type(), pt, v.Sp)
+			}
+			argExpr = v
+		case *Var, *Lit, *StrInterp, *Apply, *MemberExpr, *Unary,
+			*Binary, *Lambda, *If, *Match, *Block, *Let, *Ignore,
+			*Try, *GoExpr, *For, *SelectExpr, *ListLit, *TupleLit,
+			*Ascribe, *RecordLit:
+			argExpr = c.conformExpr(v, pt, g.sp)
+		default:
+			panic("unreachable")
+		}
+		newArgs = append(newArgs, Arg{Label: g.label, LabelSp: g.labelSp, Value: argExpr})
+		mapping = append(mapping, pi)
+	}
+
+	// Saturation check: unfilled unlabeled params join a single arity
+	// diagnostic; unfilled labeled params report E0404 each — a Go
+	// call cannot be partial.
+	missing := 0
+	posParams := 0
+	for i, p := range goParams {
+		if p.Label == "" {
+			posParams++
+		}
+		if used[i] || (variadic && i == arity-1) {
+			continue
+		}
+		if p.Label != "" {
+			c.diags.Add(diag.Error("E0404",
+				fmt.Sprintf("the Go callee requires `~%s:`, which the call does not supply", p.Label)).
+				At(e.Sp).Set("label", p.Label))
+		} else {
+			missing++
+		}
+	}
+	if missing > 0 || tooMany > 0 {
+		if _, unknown := types.Chase(me.Type()).(*types.Meta); !unknown {
+			required := posParams
+			if variadic {
+				required--
+				if required < 0 {
+					required = 0
+				}
+			}
+			want := fmt.Sprintf("%d", required)
+			if variadic {
+				want = fmt.Sprintf("at least %d", required)
+			}
+			c.diags.Add(diag.Error("E0401",
+				fmt.Sprintf("the Go callee takes %s argument(s), got %d", want, posArgs)).
+				At(e.Sp).Set("expected", want).Set("actual", fmt.Sprintf("%d", posArgs)))
+		}
+	}
+
+	var argToParam []int
+	seen := make([]bool, arity)
+	ok := true
+	for _, pi := range mapping {
+		if pi < 0 || seen[pi] {
+			ok = false
+			break
+		}
+		seen[pi] = true
+	}
+	if ok {
+		argToParam = normalizeMapping(mapping)
+	}
+
+	res := ret
+	if hole >= 0 {
+		// The cute placeholder: the call is a one-argument function.
+		// A literal Func (not types.Fn) keeps a function-typed ret
+		// nested — the emitted closure really is `func(hole) ret`.
+		res = &types.Func{Params: []types.FuncParam{types.P(holeT)}, Ret: ret}
+	}
+	c.unify(e.Type(), res, e.Sp)
+	e.Args = newArgs
+	e.Call = CallInfo{
+		Kind:       CallGo,
+		Callee:     me.Sym,
+		Arity:      arity,
+		Applied:    len(newArgs),
+		ArgToParam: argToParam,
+		HoleIndex:  hole,
+		Variadic:   variadic,
+		TypeArgs:   me.TypeArgs,
+	}
+	c.flagStrayMarkers(pa)
+	if err := e.Validate(); err != nil {
+		panic(fmt.Sprintf("check: invalid CallInfo for %T: %v", e.Fn, err))
+	}
+}
+
+// replayGomApply is checkGomApply's second pass: the member resolved
+// to a func-typed value (or never resolved — the standing meta
+// becomes the curried chain, as the first-pass over-application path
+// would have produced). Convention diagnostics the provisional pass
+// withheld fire here: E0504 for a `_`, E0505 for a `..e`, the label
+// errors E0405/E0406/E0408.
+func (c *checker) replayGomApply(pa *pendingApply) {
+	e := pa.ap
+	me := pa.me
+	params, ret := flattenFunc(me.Type())
+	flat := len(params)
+	declArity := flat // a member value's arity is its whole signature
+	used := make([]bool, flat)
+	posIdx := 0
+	argToParam := make([]int, 0, len(e.Args))
+	var extras []Expr
+	overDeclared := false
+	newArgs := make([]Arg, 0, len(e.Args))
+
+	for _, a := range e.Args {
+		label := a.Label
+		labelSp := a.LabelSp
+		pi := -1
+		if label != "" {
+			pi = c.paramByLabel(params, label)
+			if pi < 0 {
+				if _, unresolved := types.Chase(me.Type()).(*types.Meta); unresolved || flat == 0 {
+					c.diags.Add(diag.Error("E0408",
+						"a labeled call requires the callee's type to be known").
+						At(labelSpan(labelSp, a.Span())).Set("label", label))
+				} else {
+					c.diags.Add(diag.Error("E0406",
+						fmt.Sprintf("the callee has no parameter labeled `~%s`", label)).
+						At(labelSpan(labelSp, a.Span())).Set("label", label))
+				}
+			} else if used[pi] {
+				c.diags.Add(diag.Error("E0405",
+					fmt.Sprintf("the label `~%s` is supplied twice", label)).
+					At(labelSpan(labelSp, a.Span())).Set("label", label))
+				pi = -1
+			}
+		} else {
+			for posIdx < flat && (used[posIdx] || params[posIdx].Label != "") {
+				posIdx++
+			}
+			if posIdx < flat {
+				pi = posIdx
+				posIdx++
+			}
+		}
+		var pt types.Type
+		switch {
+		case pi >= 0:
+			used[pi] = true
+			pt = params[pi].Type
+		case label == "":
+			// A positional argument beyond the callee's parameters
+			// over-applies into the returned function value.
+			pt = c.newMeta(a.Span(), "an over-applied argument's parameter")
+		default:
+			// The label already reported E0406/E0408 — the
+			// argument's parameter slot is recovery.
+			pt = c.quietMeta(a.Span(), fmt.Sprintf("the argument `~%s`", label))
+		}
+		var argExpr Expr
+		switch v := a.Value.(type) {
+		case *Hole:
+			pa.useMarker(v)
+			c.diags.Add(diag.Error("E0504",
+				"`_` is only allowed as an argument of a Go call").At(v.Sp))
+			// A Hole in Args would fail Apply.Validate on a non-Go
+			// call — recover with a unit literal of the slot type.
+			c.markQuiet(v.Type())
+			argExpr = &Lit{Base: baseOf(v.Sp, pt), Kind: syntax.LitUnit, Text: "()"}
+		case *Spread:
+			pa.useMarker(v)
+			c.diags.Add(diag.Error("E0505",
+				"`..e` is only allowed as the last argument of a variadic Go call").At(v.Sp))
+			argExpr = v
+		case *Var, *Lit, *StrInterp, *Apply, *MemberExpr, *Unary,
+			*Binary, *Lambda, *If, *Match, *Block, *Let, *Ignore,
+			*Try, *GoExpr, *For, *SelectExpr, *ListLit, *TupleLit,
+			*Ascribe, *RecordLit:
+			argExpr = c.conformExpr(v, pt, a.Span())
+		default:
+			panic("unreachable")
+		}
+		newArgs = append(newArgs, Arg{Label: label, LabelSp: labelSp, Value: argExpr})
+		argToParam = append(argToParam, pi)
+		if pi < 0 {
+			if label == "" {
+				extras = append(extras, argExpr)
+			}
+			overDeclared = true
+		} else if pi >= declArity {
+			overDeclared = true
+		}
+	}
+
+	var res types.Type
+	if len(extras) > 0 {
+		res = c.overApply(ret, extras, e.Sp)
+	} else {
+		res = applyResidual(me.Type(), used, 0)
+	}
+	c.unify(e.Type(), res, e.Sp)
+	e.Args = newArgs
+	e.Call = CallInfo{
+		Kind:      CallUnknown,
+		Arity:     flat,
+		Applied:   len(newArgs),
+		HoleIndex: -1,
+	}
+	allMapped := !overDeclared
+	if allMapped {
+		for _, pi := range argToParam {
+			if pi < 0 || pi >= declArity {
+				allMapped = false
+				break
+			}
+		}
+	}
+	if allMapped {
+		e.Call.ArgToParam = normalizeMapping(argToParam)
+	}
+	c.flagStrayMarkers(pa)
+	if err := e.Validate(); err != nil {
+		panic(fmt.Sprintf("check: invalid CallInfo for %T: %v", e.Fn, err))
+	}
+}
+
+// flagStrayMarkers reports the convention diagnostics for the
+// provisional `_`/`..e` markers the replay did not consume — a `_`
+// under a Gom convention, or either marker nested inside an argument
+// tuple below the Go argument list's own level. The marker node stays
+// in the tree (the eager pass leaves the same recovery shape — a
+// quiet-meta Hole lowering's stray-placeholder guard also covers).
+func (c *checker) flagStrayMarkers(pa *pendingApply) {
+	for _, h := range pa.holes {
+		if pa.used[h] {
+			continue
+		}
+		c.diags.Add(diag.Error("E0504",
+			"`_` is only allowed as an argument of a Go call").At(h.Sp))
+		c.markQuiet(h.Type())
+	}
+	for _, sp := range pa.spreads {
+		if pa.used[sp] {
+			continue
+		}
+		c.diags.Add(diag.Error("E0505",
+			"`..e` is only allowed as the last element of a list literal or the last argument of a variadic Go call").At(sp.Sp))
+	}
 }

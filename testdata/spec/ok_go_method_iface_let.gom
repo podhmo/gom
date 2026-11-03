@@ -1,0 +1,17 @@
+package main
+
+import go "fmt"
+import go "time"
+
+// A deferred method call whose result feeds an interface-typed
+// slot: `x.AddDate` is checked while `x` is still a meta, so the
+// `fmt.Stringer` want must wait for the calling-convention replay —
+// otherwise the provisional conformance binds the result meta to the
+// interface and the replay reports `expected fmt.Stringer, got
+// time.Time`. time.Time implements fmt.Stringer via String().
+fn main () -> Unit = {
+  let t0 = time.Unix(0, 0)
+  let f = fn x -> { let s : fmt.Stringer = x.AddDate(1, 0, 0); s }
+  let _ = f t0
+  ()
+}

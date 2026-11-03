@@ -82,6 +82,8 @@
 
 各フェーズは純粋関数として実装し、フェーズごとにゴールデンテストを置く。エラーはフェーズ 4 と 5 で集めて一括表示し、以降のフェーズはエラーのない入力だけを受け取る。
 
+呼び出し情報の確定は `checkApply` の一回きりとは限らない。メンバー選択 `x.M` のレシーバ型がまだメタの間、check は選択を pendingSels に留め、その上の適用 `x.M(args)` も pendingApplies として規約を決めずに引数だけ暫定検査する（`_`・`..e`・ラベル・引数タプルは保持し、規約の診断は発行しない）。`finalize` の `revisitSelects` がレシーバ確定と同時にメンバーを解決し、適用を Go 規約（`replayGoApply`）か Gom 規約（`replayGomApply`）で replay して CallInfo を最終確定する。`revisitSelects` は不動点ループ——ある replay が更に先行のメンバーのレシーバを束縛しうるので、解決がある間繰り返す。lower に渡る時点で全件の規約が確定済みという契約は変わらない（[decisions/deferred-member-application](decisions/2026-11-05-deferred-member-application.md)）。
+
 ### 2.1 Core IR の不変条件
 
 Go コード生成器に言語の意味を判断させない。次のことは Core IR の時点ですべて確定し、`codegen` は決められた手順で Go AST を出力するだけにする。

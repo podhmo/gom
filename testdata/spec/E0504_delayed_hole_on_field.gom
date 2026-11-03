@@ -1,0 +1,15 @@
+package ex
+
+// The member a deferred application calls may turn out not to be a
+// method at all: `r` binds to the record Rec, so `r.n` is a field —
+// an Int, not a function — and the application replays under the
+// Gom convention, where the `_` the provisional pass kept reports
+// E0504 like it would eagerly.
+type Rec = { n: Int }
+
+let later = fn r -> r.n(_)
+
+fn main () -> Unit = {
+  let _ = later { n = 1 }
+  ()
+}

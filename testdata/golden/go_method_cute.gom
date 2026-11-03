@@ -1,0 +1,20 @@
+package ex
+
+import go "fmt"
+import go "time"
+
+// Go method calls emit `recv.M(args)` like Go, and a `_` placeholder
+// lowers to a closure capturing the evaluated non-hole arguments in
+// temporaries — created once, before the returned function exists.
+// The `later` lambda's parameter carries no annotation, so the
+// method lookup settles at the `later t0` call (deferred member
+// application); the emitted shape is the same as the eager one.
+fn main () -> Unit = {
+  let t0 = time.Unix(0, 0)
+  let direct = t0.AddDate(5, 2, 3)
+  let later = fn x -> x.AddDate(_, 2, 3)
+  let delayed = later t0 5
+  let _ = fmt.Println(direct.Format "2006-01-02")
+  let _ = fmt.Println(delayed.Format "2006-01-02")
+  ()
+}

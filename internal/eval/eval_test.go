@@ -1754,6 +1754,193 @@ func TestErrorPaths(t *testing.T) {
 			t.Fatalf("code = %s, want %s", d.Code, eval.CodeInternal)
 		}
 	})
+
+	t.Run("CallGo labeled args reach the stub in declaration order", func(t *testing.T) {
+		// io.Copy(dst, src) written ~src: s ~dst: d — ArgToParam maps
+		// written order back to declaration order, like lowering's
+		// declOrderArgs.
+		goSym := &resolve.Symbol{Name: "Copy", Kind: resolve.KindFunc, IsGo: true, Package: "io"}
+		env := eval.NewEnv()
+		var got []string
+		env.Bind(goSym, eval.NewHostFunc("io.Copy", 2, func(args []eval.Value) (eval.Value, error) {
+			got = []string{args[0].(*eval.VStr).S, args[1].(*eval.VStr).S}
+			return &eval.VUnit{}, nil
+		}))
+		member := &check.MemberExpr{Base: b(types.Fn(types.Unit, types.P(types.String), types.P(types.String))),
+			Recv: vr(sym("io", resolve.KindModule), types.Unit),
+			Sel:  &syntax.Ident{Sp: sp, Name: "Copy"}, Sym: goSym, Index: -1}
+		x := &check.Apply{Base: b(types.Unit), Fn: member,
+			Args: []check.Arg{larg("src", strLit("s")), larg("dst", strLit("d"))},
+			Call: check.CallInfo{Kind: check.CallGo, Callee: goSym, Arity: 2, Applied: 2,
+				ArgToParam: []int{1, 0}, HoleIndex: -1}}
+		evalOK(t, env, x)
+		if len(got) != 2 || got[0] != "d" || got[1] != "s" {
+			t.Fatalf("host args = %v, want [d s]", got)
+		}
+	})
+
+	t.Run("cute partial keeps the hole's declaration slot", func(t *testing.T) {
+		// swap(~b: "B", ~a: _) — the hole is written second but fills
+		// parameter 0; the captured "B" belongs to parameter 1.
+		goSym := &resolve.Symbol{Name: "swap", Kind: resolve.KindFunc, IsGo: true, Package: "p"}
+		env := eval.NewEnv()
+		var got []string
+		env.Bind(goSym, eval.NewHostFunc("p.swap", 2, func(args []eval.Value) (eval.Value, error) {
+			got = []string{args[0].(*eval.VStr).S, args[1].(*eval.VStr).S}
+			return &eval.VUnit{}, nil
+		}))
+		member := &check.MemberExpr{Base: b(types.Fn(types.Unit, types.LP("a", types.String), types.LP("b", types.String))),
+			Recv: vr(sym("p", resolve.KindModule), types.Unit),
+			Sel:  &syntax.Ident{Sp: sp, Name: "swap"}, Sym: goSym, Index: -1}
+		x := &check.Apply{Base: b(types.Fn(types.Unit, types.P(types.String))), Fn: member,
+			Args: []check.Arg{larg("b", strLit("B")), {Value: &check.Hole{Base: b(types.String)}}},
+			Call: check.CallInfo{Kind: check.CallGo, Callee: goSym, Arity: 2, Applied: 2,
+				ArgToParam: []int{1, 0}, HoleIndex: 1}}
+		r := eval.Expr(env, x)
+		if !r.OK() {
+			t.Fatalf("eval failed: %+v", r.Diags)
+		}
+		fSym := sym("holef2", resolve.KindVar)
+		env.Bind(fSym, r.Value)
+		done := eval.Expr(env, unknownCall(types.Unit, vr(fSym, types.Unit), 1, strLit("A")))
+		if !done.OK() {
+			t.Fatalf("apply failed: %+v", done.Diags)
+		}
+		if len(got) != 2 || got[0] != "A" || got[1] != "B" {
+			t.Fatalf("host args = %v, want [A B]", got)
+		}
+	})
+}
+
+func TestGoMethods(t *testing.T) {
+	bufT := &types.Go{Ref: types.NamedRef{Path: "bytes", Name: "Buffer"}}
+
+	t.Run("bound method call", func(t *testing.T) {
+		recvSym := sym("buf", resolve.KindVar)
+		msym := &resolve.Symbol{Name: "M", Kind: resolve.KindMethod, IsGo: true, Package: "bytes"}
+		env := eval.NewEnv()
+		env.Bind(recvSym, &eval.VHost{V: "RECV"})
+		var got []string
+		env.Bind(msym, eval.NewHostFunc("bytes.Buffer.M", 3, func(args []eval.Value) (eval.Value, error) {
+			got = []string{
+				args[0].(*eval.VHost).V.(string),
+				args[1].(*eval.VStr).S,
+				strconv.FormatInt(args[2].(*eval.VInt).N, 10),
+			}
+			return &eval.VUnit{}, nil
+		}))
+		mSig := types.Fn(types.Unit, types.P(types.String), types.P(types.Int))
+		member := &check.MemberExpr{Base: b(mSig), Recv: vr(recvSym, bufT),
+			Sel: &syntax.Ident{Sp: sp, Name: "M"}, Sym: msym, Index: -1}
+		x := &check.Apply{Base: b(types.Unit), Fn: member,
+			Args: []check.Arg{arg(strLit("a")), arg(intLit(2))},
+			Call: check.CallInfo{Kind: check.CallGo, Callee: msym, Arity: 2, Applied: 2, HoleIndex: -1}}
+		evalOK(t, env, x)
+		if len(got) != 3 || got[0] != "RECV" || got[1] != "a" || got[2] != "2" {
+			t.Fatalf("host args = %v, want [RECV a 2]", got)
+		}
+	})
+
+	t.Run("bound method placeholder", func(t *testing.T) {
+		recvSym := sym("buf", resolve.KindVar)
+		msym := &resolve.Symbol{Name: "M", Kind: resolve.KindMethod, IsGo: true, Package: "bytes"}
+		env := eval.NewEnv()
+		env.Bind(recvSym, &eval.VHost{V: "RECV"})
+		var got []string
+		env.Bind(msym, eval.NewHostFunc("bytes.Buffer.M", 3, func(args []eval.Value) (eval.Value, error) {
+			got = []string{
+				args[0].(*eval.VHost).V.(string),
+				args[1].(*eval.VStr).S,
+				strconv.FormatInt(args[2].(*eval.VInt).N, 10),
+			}
+			return &eval.VUnit{}, nil
+		}))
+		mSig := types.Fn(types.Unit, types.P(types.String), types.P(types.Int))
+		member := &check.MemberExpr{Base: b(mSig), Recv: vr(recvSym, bufT),
+			Sel: &syntax.Ident{Sp: sp, Name: "M"}, Sym: msym, Index: -1}
+		// buf.M(_, 7) : String -> Unit
+		x := &check.Apply{Base: b(types.Fn(types.Unit, types.P(types.String))), Fn: member,
+			Args: []check.Arg{{Value: &check.Hole{Base: b(types.String)}}, arg(intLit(7))},
+			Call: check.CallInfo{Kind: check.CallGo, Callee: msym, Arity: 2, Applied: 2, HoleIndex: 0}}
+		r := eval.Expr(env, x)
+		if !r.OK() {
+			t.Fatalf("eval failed: %+v", r.Diags)
+		}
+		f, ok := r.Value.(*eval.VFunc)
+		if !ok {
+			t.Fatalf("got %s, want fn", r.Value)
+		}
+		fSym := sym("partial", resolve.KindVar)
+		env.Bind(fSym, f)
+		done := eval.Expr(env, unknownCall(types.Unit, vr(fSym, types.Unit), 1, strLit("z")))
+		if !done.OK() {
+			t.Fatalf("apply failed: %+v", done.Diags)
+		}
+		if len(got) != 3 || got[0] != "RECV" || got[1] != "z" || got[2] != "7" {
+			t.Fatalf("host args = %v, want [RECV z 7]", got)
+		}
+	})
+
+	t.Run("unbound method unsupported", func(t *testing.T) {
+		recvSym := sym("buf", resolve.KindVar)
+		msym := &resolve.Symbol{Name: "M", Kind: resolve.KindMethod, IsGo: true, Package: "bytes"}
+		env := eval.NewEnv()
+		env.Bind(recvSym, &eval.VHost{V: "RECV"})
+		mSig := types.Fn(types.Unit, types.P(types.String))
+		member := &check.MemberExpr{Base: b(mSig), Recv: vr(recvSym, bufT),
+			Sel: &syntax.Ident{Sp: sp, Name: "M"}, Sym: msym, Index: -1}
+		x := &check.Apply{Base: b(types.Unit), Fn: member,
+			Args: []check.Arg{arg(strLit("a"))},
+			Call: check.CallInfo{Kind: check.CallGo, Callee: msym, Arity: 1, Applied: 1, HoleIndex: -1}}
+		d := evalFail(t, env, x)
+		if d.Code != eval.CodeUnsupported {
+			t.Fatalf("code = %s, want %s", d.Code, eval.CodeUnsupported)
+		}
+	})
+
+	t.Run("cute arguments evaluate once", func(t *testing.T) {
+		recvSym := sym("buf", resolve.KindVar)
+		msym := &resolve.Symbol{Name: "M", Kind: resolve.KindMethod, IsGo: true, Package: "bytes"}
+		tapSym := sym("tap", resolve.KindFunc)
+		env := eval.NewEnv()
+		env.Bind(recvSym, &eval.VHost{V: "RECV"})
+		var taps, calls int
+		env.Bind(tapSym, eval.NewHostFunc("tap", 1, func(args []eval.Value) (eval.Value, error) {
+			taps++
+			return args[0], nil
+		}))
+		env.Bind(msym, eval.NewHostFunc("bytes.Buffer.M", 3, func(args []eval.Value) (eval.Value, error) {
+			calls++
+			return &eval.VUnit{}, nil
+		}))
+		mSig := types.Fn(types.Unit, types.P(types.Int), types.P(types.String))
+		member := &check.MemberExpr{Base: b(mSig), Recv: vr(recvSym, bufT),
+			Sel: &syntax.Ident{Sp: sp, Name: "M"}, Sym: msym, Index: -1}
+		// buf.M(tap 40, _) — the non-hole argument is evaluated at
+		// partial creation, captured for every later application.
+		tapCall := directCall(types.Int, tapSym, types.Fn(types.Int, types.P(types.Int)), intLit(40))
+		x := &check.Apply{Base: b(types.Fn(types.Unit, types.P(types.String))), Fn: member,
+			Args: []check.Arg{arg(tapCall), {Value: &check.Hole{Base: b(types.String)}}},
+			Call: check.CallInfo{Kind: check.CallGo, Callee: msym, Arity: 2, Applied: 2, HoleIndex: 1}}
+		r := eval.Expr(env, x)
+		if !r.OK() {
+			t.Fatalf("eval failed: %+v", r.Diags)
+		}
+		fSym := sym("partial2", resolve.KindVar)
+		env.Bind(fSym, r.Value)
+		for _, s := range []string{"x", "y"} {
+			done := eval.Expr(env, unknownCall(types.Unit, vr(fSym, types.Unit), 1, strLit(s)))
+			if !done.OK() {
+				t.Fatalf("apply %q failed: %+v", s, done.Diags)
+			}
+		}
+		if taps != 1 {
+			t.Fatalf("captured argument evaluated %d times, want 1", taps)
+		}
+		if calls != 2 {
+			t.Fatalf("method invoked %d times, want 2", calls)
+		}
+	})
 }
 
 func TestPipeNamelessStepLineIndex(t *testing.T) {

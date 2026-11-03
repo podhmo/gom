@@ -1,0 +1,68 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected Int, got ?9 -> ?10",
+      "span": {
+        "file": "E0504_delayed_hole_on_field.gom",
+        "start": {
+          "line": 10,
+          "col": 25,
+          "offset": 365
+        },
+        "end": {
+          "line": 10,
+          "col": 26,
+          "offset": 366
+        }
+      },
+      "data": {
+        "actual": "?9 -> ?10",
+        "expected": "Int"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0407",
+      "severity": "error",
+      "message": "type annotation required: an over-applied argument's parameter could not be determined",
+      "span": {
+        "file": "E0504_delayed_hole_on_field.gom",
+        "start": {
+          "line": 10,
+          "col": 25,
+          "offset": 365
+        },
+        "end": {
+          "line": 10,
+          "col": 26,
+          "offset": 366
+        }
+      },
+      "data": {
+        "type": "?9"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0504",
+      "severity": "error",
+      "message": "`_` is only allowed as an argument of a Go call",
+      "span": {
+        "file": "E0504_delayed_hole_on_field.gom",
+        "start": {
+          "line": 10,
+          "col": 25,
+          "offset": 365
+        },
+        "end": {
+          "line": 10,
+          "col": 26,
+          "offset": 366
+        }
+      }
+    }
+  ]
+}

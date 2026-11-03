@@ -107,6 +107,7 @@
 | [go-collections-and-generics](2026-11-04-go-collections-and-generics.md) | []T → List boundary copies, Go.Slice/Go.Map, and callable generic Go functions | 採用（P3-3 が実装・検証した — [検証](../sketch/2026-11-04-p3-3-go-collections-verification.md)） |
 | [structural-equality-emission](2026-11-04-structural-equality-emission.md) | Structural `==`/`!=` emission: `rt.Equal` except provably comparable scalars（一部を [generated-equality-comparators](2026-11-05-generated-equality-comparators.md) で置き換え） | draft |
 | [aggregate-function-bindings](2026-11-05-aggregate-function-bindings.md) | Aggregate-bound function values become named wrappers; residual initialization cycles are rejected | 採用（P2-2c の実装・検証: [検証レポート](../sketch/2026-11-05-aggregate-function-bindings-verification.md)） |
+| [deferred-member-application](2026-11-05-deferred-member-application.md) | Deferred member application: `x.M(args)` on an unresolved receiver | 採用 |
 | [eq-comparator-budget-and-names](2026-11-05-eq-comparator-budget-and-names.md) | Comparator minting is bounded and file-unique; ctor lets keep the declared interface | draft |
 | [generated-equality-comparators](2026-11-05-generated-equality-comparators.md) | Generated per-type comparators for `==`/`!=`/`assert_eq` (core.Equal + File.EqDecls)（一部を [eq-comparator-budget-and-names](2026-11-05-eq-comparator-budget-and-names.md) で置き換え） | 採用 |
 <!-- END GENERATED -->

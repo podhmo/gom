@@ -1,0 +1,16 @@
+package ex
+
+import go "time"
+
+// A `_` nested inside the argument tuple is not an argument of the
+// Go call itself: `x.M((_, 1), 2)` supplies two arguments — a tuple
+// and an Int — and the hole one level down reports E0504. The rule
+// holds when the calling convention settles late too: the receiver
+// below is an unannotated lambda parameter, so the method lookup
+// (and the hole's legality) is decided only once `f t0` binds it.
+fn main () -> Unit = {
+  let t0 = time.Unix(0, 0)
+  let f = fn x -> x.AddDate((_, 1), 2)
+  let _ = f t0
+  ()
+}

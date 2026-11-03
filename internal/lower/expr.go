@@ -370,7 +370,10 @@ func (l *lowerer) goVarRef(sp diag.Span, typ types.Type, sym *resolve.Symbol) co
 // body is a CallGo (P0-2, spec 8).
 func (l *lowerer) goFuncRefOrAdapter(sp diag.Span, typ types.Type, sym *resolve.Symbol, recv core.Atom, targs []types.Type) core.Expr {
 	sig := instantiateGoSig(l.goSig(sym, typ), targs)
-	fs := sigOf(typ)
+	// The flat view: a method's member type can arrive as nested
+	// arrows (`Int -> Int -> Int -> T`), and the adapter must bind
+	// every parameter — sigOf would report only the outermost level.
+	fs := flatSig(typ)
 	if goBareRefOK(sig, fs) {
 		return &core.GoFuncRef{
 			Base: core.Base{Sp: sp, Typ: typ}, Sym: sym,
@@ -615,26 +618,34 @@ func (l *lowerer) convGoArgs(s *seq, sig GoSig, args []core.Atom, spread bool) [
 	}
 	out := make([]core.Atom, len(args))
 	for i, a := range args {
-		out[i] = a
-		if a == nil {
-			continue
-		}
-		pt := l.goParamTypeAt(sig, i, spread && i == len(args)-1)
-		at := types.Chase(a.Type())
-		if pt == nil || types.Equal(at, pt) {
-			continue
-		}
-		k, ok := l.goConvKindOf(at, pt)
-		if !ok {
-			l.err(a.Span(), fmt.Sprintf("Go call argument of type %s cannot convert to parameter type %s — the boundary needs a value copy not yet supported",
-				typeName(a.Type()), typeName(pt)))
-			continue
-		}
-		out[i] = l.asAtom(s, a.Span(), &core.Conv{
-			Base: core.Base{Sp: a.Span(), Typ: pt}, Kind: k, X: a,
-		})
+		out[i] = l.convGoArg(s, sig, i, a, spread && i == len(args)-1)
 	}
 	return out
+}
+
+// convGoArg is convGoArgs for one argument position: a value whose
+// lowered type differs from the Go parameter's raw type is wrapped
+// in an explicit Conv bound to a temporary — in the sequence s, so a
+// conversion emitted outside a closure runs once at creation while
+// one emitted inside the body runs per call.
+func (l *lowerer) convGoArg(s *seq, sig GoSig, i int, a core.Atom, spreadArg bool) core.Atom {
+	if a == nil {
+		return nil
+	}
+	pt := l.goParamTypeAt(sig, i, spreadArg)
+	at := types.Chase(a.Type())
+	if pt == nil || types.Equal(at, pt) {
+		return a
+	}
+	k, ok := l.goConvKindOf(at, pt)
+	if !ok {
+		l.err(a.Span(), fmt.Sprintf("Go call argument of type %s cannot convert to parameter type %s — the boundary needs a value copy not yet supported",
+			typeName(a.Type()), typeName(pt)))
+		return a
+	}
+	return l.asAtom(s, a.Span(), &core.Conv{
+		Base: core.Base{Sp: a.Span(), Typ: pt}, Kind: k, X: a,
+	})
 }
 
 // goParamTypeAt is the raw Go parameter type the argument at index i
@@ -1059,18 +1070,27 @@ func (l *lowerer) goCall(s *seq, sp diag.Span, resTyp types.Type, ci check.CallI
 			l.err(sp, fmt.Sprintf("cute _ call typed %s, not a one-parameter function", resTyp))
 			return l.litUnit(sp)
 		}
+		// The hole's declaration-order slot — the position
+		// declOrderArgs left nil in ordered. HoleIndex counts in
+		// *written* argument order, so the parameter must not be
+		// placed directly: labeled arguments map through ArgToParam
+		// or the hole lands on the wrong slot.
+		holePos := ci.HoleIndex
+		if ci.HoleIndex < len(ci.ArgToParam) {
+			holePos = ci.ArgToParam[ci.HoleIndex]
+		}
 		return l.closureOfType(sp, remTyp, func(bs *seq, pv []core.Atom) core.Expr {
-			// HoleIndex counts in *written* argument order — fill
-			// the parameter there before reordering into
-			// declaration order, or labeled arguments pull the
-			// hole to the wrong slot and leave a nil atom.
-			written := append([]core.Atom{}, args...)
-			if ci.HoleIndex < len(written) {
-				written[ci.HoleIndex] = pv[0]
-			} else {
-				written = append(written, pv[0])
+			// `ordered` carries the non-hole arguments: evaluated —
+			// and converted — once, at closure creation, per the
+			// cute semantics of spec section 8.2. Only the hole's
+			// own value arrives per call, so only its conversion
+			// emits inside the body.
+			filled := append([]core.Atom{}, ordered...)
+			for len(filled) <= holePos {
+				filled = append(filled, nil)
 			}
-			filled := l.convGoArgs(bs, sig, declOrderArgs(ci, written, 0), spread)
+			filled[holePos] = l.convGoArg(bs, sig, holePos, pv[0],
+				spread && holePos == len(filled)-1)
 			call := &core.CallGo{
 				Base:   core.Base{Sp: sp, Typ: l.goCallTyp(sig, remTyp.Ret)},
 				Callee: ci.Callee, Recv: recv, TypeArgs: ci.TypeArgs,

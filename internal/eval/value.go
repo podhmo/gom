@@ -2,6 +2,7 @@ package eval
 
 import (
 	"fmt"
+	"reflect"
 	"strconv"
 	"strings"
 
@@ -255,6 +256,20 @@ func (v *VGoErr) String() string {
 // Error returns the error text — Go's err.Error() equivalent.
 func (v *VGoErr) Error() string { return v.Text }
 
+// VHost is an opaque Go value — the evaluator cannot call Go, so
+// host values arise only from host functions bound by the harness
+// (e.g. a `time.Unix` stub returning a real time.Time). They are
+// receivers and arguments of further host calls; String renders the
+// Go value's `%v` form so fmt-print comparisons stay faithful.
+type VHost struct {
+	V any
+}
+
+func (*VHost) isValue() {}
+func (v *VHost) String() string {
+	return fmt.Sprintf("%v", v.V)
+}
+
 // VFunc is a function value with declared arity and a set of already
 // bound parameters (partial application captures them). Applying
 // fills remaining parameters in CallInfo order; when all are filled
@@ -336,7 +351,7 @@ func writeOperand(sb *strings.Builder, v Value) {
 	switch v.(type) {
 	case *VUnit, *VBool, *VInt, *VFloat, *VChar, *VStr, *VTuple, *VList:
 		sb.WriteString(v.String())
-	case *VRecord, *VVariant, *VGoErr, *VFunc:
+	case *VRecord, *VVariant, *VGoErr, *VHost, *VFunc:
 		sb.WriteByte('(')
 		sb.WriteString(v.String())
 		sb.WriteByte(')')
@@ -401,6 +416,9 @@ func Equal(a, b Value) bool {
 	case *VGoErr:
 		bv, ok := b.(*VGoErr)
 		return ok && a.Text == bv.Text
+	case *VHost:
+		bv, ok := b.(*VHost)
+		return ok && reflect.DeepEqual(a.V, bv.V)
 	case *VFunc:
 		bv, ok := b.(*VFunc)
 		return ok && a == bv

@@ -589,7 +589,8 @@ func rootEnv(env *Env) *Env {
 
 // evalMember handles `recv.sel`: record/variant field access, module
 // member selection (resolved through the environment so the harness
-// can stub it), or a Go method selection (unsupported).
+// can stub it), or a Go method selection — a bound method whose host
+// stub receives the receiver as its first argument.
 func (e *interp) evalMember(x *check.MemberExpr, env *Env) Value {
 	switch x.Sym.Kind {
 	case resolve.KindField:
@@ -629,8 +630,26 @@ func (e *interp) evalMember(x *check.MemberExpr, env *Env) Value {
 				"value", recv.String())
 		}
 	case resolve.KindMethod:
-		failData(CodeUnsupported, "Go method calls are not supported by the evaluator",
-			x.Span(), "method", x.Sym.Name)
+		// A Go method selection evaluates to the bound method: the
+		// receiver evaluates now, and the host stub — bound into
+		// the environment like any other Go member — takes it as
+		// its first argument when the method is finally applied.
+		recv := e.eval(x.Recv, env)
+		if v, ok := env.Lookup(x.Sym); ok {
+			f, ok := v.(*VFunc)
+			if !ok || f.kind != fnBuiltin {
+				failData(CodeInternal, "Go method is not bound to a host function", x.Sel.Sp,
+					"method", x.Sym.Name)
+			}
+			g := funcOfType(x.Sym.Name, fnBuiltin, methodValueSig(x.Type()))
+			g.builtin = func(args []Value) (Value, error) {
+				return f.builtin(append([]Value{recv}, args...))
+			}
+			return g
+		}
+		failData(CodeUnsupported,
+			"Go method not bound — provide a host value via Env.Bind", x.Sel.Sp,
+			"method", x.Sym.Name)
 	default:
 		// Module member selection (`pkg.Fn`): the member symbol's
 		// value comes from the environment so tests can stub it.
@@ -1020,20 +1039,50 @@ func (e *interp) evalGoCall(x *check.Apply, fv Value, vals []Value) Value {
 			"value", fv.String())
 	}
 	if x.Call.HoleIndex < 0 {
-		return e.invokeGo(f, vals, x.Span())
+		return e.invokeGo(f, declOrderVals(x.Call, vals), x.Span())
 	}
 	// cute partial call: capture evaluated args, one hole remains.
-	var kept []Value
-	for i, v := range vals {
-		if i == x.Call.HoleIndex {
-			continue
+	// kept and holeAt are in *declaration* order — the order the
+	// host callee's parameter list expects (declOrderVals is the
+	// eval counterpart of lowering's declOrderArgs), and a hole
+	// supplied under a label keeps its declaration slot.
+	holePos := x.Call.HoleIndex
+	if x.Call.HoleIndex < len(x.Call.ArgToParam) {
+		holePos = x.Call.ArgToParam[x.Call.HoleIndex]
+	}
+	ordered := declOrderVals(x.Call, vals)
+	kept := make([]Value, 0, len(ordered)-1)
+	for i, v := range ordered {
+		if i != holePos {
+			kept = append(kept, v)
 		}
-		kept = append(kept, v)
 	}
 	g := funcOfType("", fnGoPartial, &types.Func{
 		Params: []types.FuncParam{types.P(types.Unit)}, Ret: types.Unit})
-	g.gocall = &goCall{sp: x.Span(), callee: f, args: kept, holeAt: x.Call.HoleIndex}
+	g.gocall = &goCall{sp: x.Span(), callee: f, args: kept, holeAt: holePos}
 	return g
+}
+
+// declOrderVals reorders source-order argument values into
+// declaration order per CallInfo.ArgToParam — the eval counterpart
+// of lowering's declOrderArgs. An unrepresentable mapping
+// (ArgToParam nil, e.g. a repeated variadic slot) keeps source
+// order, which is also what the compiled path emits.
+func declOrderVals(ci check.CallInfo, vals []Value) []Value {
+	if ci.ArgToParam == nil {
+		return vals
+	}
+	out := make([]Value, len(vals))
+	for i, v := range vals {
+		pos := i
+		if i < len(ci.ArgToParam) {
+			pos = ci.ArgToParam[i]
+		}
+		if pos >= 0 && pos < len(out) {
+			out[pos] = v
+		}
+	}
+	return out
 }
 
 // evalFor implements `for pat in iter { body }` over List values.
@@ -1183,7 +1232,7 @@ func display(v Value) string {
 		return string(v.R)
 	case *VStr:
 		return v.S
-	case *VTuple, *VList, *VRecord, *VVariant, *VGoErr, *VFunc:
+	case *VTuple, *VList, *VRecord, *VVariant, *VGoErr, *VHost, *VFunc:
 		return v.String()
 	default:
 		panic("unreachable")

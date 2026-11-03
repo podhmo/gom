@@ -1138,19 +1138,56 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 `,
 		want: "alice->bob:100/yuki->zed:9/alice->carol:50/alice->bob:7/mallory->dave:1/send 5 to bob",
 	},
+	{
+		// Go method calls and the cute `_` placeholder (spec 8.1.3,
+		// 8.2): `later`'s receiver `x` is an unannotated lambda
+		// parameter, so `x.AddDate` defers its calling-convention
+		// decision until `later t0` binds the receiver — then the
+		// call replays as CallGo with the hole as a one-argument
+		// function. The evaluator binds host stubs for the method
+		// symbols (receiver first) and both sides must print the
+		// same date.
+		name: "go_method_cute",
+		src: `package main
+
+import go "fmt"
+import go "time"
+
+let later = fn x -> x.AddDate(_, 2, 3)
+
+fn answer () -> String = {
+  let t0 = time.Unix(0, 0)
+  let t1 = (later t0) 5
+  "${t1.Format "2006-01-02"}/${(t0.AddDate (1, 0, 0)).Format "2006-01-02"}"
+}
+
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "1975-03-04/1971-01-01",
+	},
 }
 
 // evalAnswer applies the file's `answer` through internal/eval and
-// returns the produced String's contents.
+// returns the produced String's contents. Go members the typed file
+// references and the audited stub table covers are bound first, so
+// a case may call deterministic Go functions and methods (a cute
+// placeholder call, a bound-method application) inside `answer`
+// itself.
 func evalAnswer(t *testing.T, r *build.Result, src string) string {
 	t.Helper()
 	ev := eval.New(r.Typed)
 	ev.SetLineIndex(diag.NewLineIndex([]byte(src)))
+	var out strings.Builder
+	capture := &diffCapture{out: &out}
+	bindGoStubs(t, r.Typed, ev, capture)
 	fn := ev.Global("answer")
 	if fn == nil {
 		t.Fatal("no top-level `answer` binding for the evaluator")
 	}
 	res := ev.Apply(fn, &eval.VUnit{})
+	if capture.unfaithful {
+		t.Fatal("a Go call observed a value the stub table cannot render faithfully")
+	}
 	if !res.OK() {
 		for _, d := range res.Diags {
 			t.Errorf("eval: %s: %s", d.Code, d.Message)

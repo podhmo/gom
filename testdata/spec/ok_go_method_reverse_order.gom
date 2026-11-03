@@ -1,0 +1,17 @@
+package main
+
+import go "fmt"
+import go "time"
+
+// A member selection registered *before* the deferred apply whose
+// result feeds its receiver: `g`'s `r.Year` waits on the type
+// `x.AddDate(1, 0, 0)` produces, so the member-revisit pass loops
+// until no more members resolve — registration order must not
+// decide whether a member resolves.
+fn main () -> Unit = {
+  let t0 = time.Unix(0, 0)
+  let g = fn r -> r.Year()
+  let later = fn x -> g (x.AddDate(1, 0, 0))
+  let _ = fmt.Println("${later t0}")
+  ()
+}

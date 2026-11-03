@@ -99,30 +99,40 @@ func (c *checker) checkExpr(e syntax.Expr, want types.Type) Expr {
 	default:
 		panic("unreachable")
 	}
-	if want != nil {
-		// Go.Any keeps its dedicated all-Gom-values boxing path.
-		ifaceWant := c.goOriginType(want) && !isGoAny(types.Chase(want))
-		if m, ok := types.Chase(out.Type()).(*types.Meta); ok && c.deferInterfaceSource(m) && ifaceWant {
-			if src, ok := c.src.(InterfaceSource); ok && src.InterfaceAssignable(want, want) {
-				conv := &Ascribe{Base: baseOf(e.Span(), want), X: out, Conv: true, Iface: true}
-				c.pendingIfaces = append(c.pendingIfaces, conv)
-				return conv
-			}
+	return c.conformExpr(out, want, e.Span())
+}
+
+// conformExpr applies the want-context conformance to an already
+// typed expression — the trailing half of checkExpr, shared with the
+// deferred-apply replay whose arguments checked provisionally. An
+// interface-typed Go want may route through pendingIfaces or an
+// Ascribe conversion; a mismatch reports at sp and quiets want so no
+// E0407 piles on.
+func (c *checker) conformExpr(out Expr, want types.Type, sp diag.Span) Expr {
+	if want == nil {
+		return out
+	}
+	// Go.Any keeps its dedicated all-Gom-values boxing path.
+	ifaceWant := c.goOriginType(want) && !isGoAny(types.Chase(want))
+	if m, ok := types.Chase(out.Type()).(*types.Meta); ok && c.deferInterfaceSource(m) && ifaceWant {
+		if src, ok := c.src.(InterfaceSource); ok && src.InterfaceAssignable(want, want) {
+			conv := &Ascribe{Base: baseOf(sp, want), X: out, Conv: true, Iface: true}
+			c.pendingIfaces = append(c.pendingIfaces, conv)
+			return conv
 		}
-		if !types.Equal(want, out.Type()) {
-			if src, ok := c.src.(InterfaceSource); ok && c.goOriginType(out.Type()) && ifaceWant && src.InterfaceAssignable(out.Type(), want) {
-				return &Ascribe{Base: baseOf(e.Span(), want), X: out, Conv: true, Iface: true}
-			}
-			if conv := c.sliceConv(want, out.Type(), out, e.Span()); conv != nil {
-				return conv
-			}
+	}
+	if !types.Equal(want, out.Type()) {
+		if src, ok := c.src.(InterfaceSource); ok && c.goOriginType(out.Type()) && ifaceWant && src.InterfaceAssignable(out.Type(), want) {
+			return &Ascribe{Base: baseOf(sp, want), X: out, Conv: true, Iface: true}
 		}
-		// A failed expectation left want unsolved: silence it —
-		// the mismatch diagnostic at e.Span() already tells the
-		// user what to fix.
-		if !c.unify(want, out.Type(), e.Span()) {
-			c.markQuiet(want)
+		if conv := c.sliceConv(want, out.Type(), out, sp); conv != nil {
+			return conv
 		}
+	}
+	// A failed expectation left want unsolved: silence it — the
+	// mismatch diagnostic at sp already tells the user what to fix.
+	if !c.unify(want, out.Type(), sp) {
+		c.markQuiet(want)
 	}
 	return out
 }
@@ -315,49 +325,80 @@ func valueMember(k resolve.Kind) bool {
 // revisitSelects retries the member selections checkSelect deferred
 // on an unresolved receiver meta — see pendingSels. finalize calls
 // it once the defaulting pass has run, so `0.f` sees the literal's
-// Int and `x.f` whatever the use site pinned. A retry that finds the
-// member patches Sym/Index into place and unifies the node's
-// standing meta with the member type — a meta already bound by the
-// use site reports the conflict through the ordinary unification
-// diagnostic. A receiver still unresolved is left alone: its meta's
-// own E0407 (or quiet recovery) covers the selection. A resolved
-// receiver that carries no such member earns the E0401 the first
-// pass withheld.
+// Int and `x.f` whatever the use site pinned, and it loops to a
+// fixpoint because resolving one member (and replaying its deferred
+// application) can bind the receiver another entry waits on. A
+// retry that finds the member patches Sym/Index into place and
+// unifies the node's standing meta with the member type — a meta
+// already bound by the use site reports the conflict through the
+// ordinary unification diagnostic. A receiver still unresolved is
+// left alone: its meta's own E0407 (or quiet recovery) covers the
+// selection. A resolved receiver that carries no such member earns
+// the E0401 the first pass withheld.
 func (c *checker) revisitSelects() {
-	for _, me := range c.pendingSels {
-		rt := types.Chase(me.Recv.Type())
-		if _, ok := rt.(*types.Meta); ok {
-			continue
-		}
-		selName := nameOfSel(me.Sym, me.Sel)
-		if fi, owner, typ, ok := c.fieldOf(rt, selName); ok {
-			me.Sym, me.Index = fi.sym, fi.index
-			if owner != nil {
-				me.Ctor = owner.sym
-			}
-			c.unify(me.Type(), typ, me.Sel.Sp)
-			continue
-		}
-		if me.Sym == nil {
-			if field, typ, raw, ok := c.goFieldOf(rt, selName, me.Sel.Sp); ok {
-				me.Sym, me.Index, me.GoFieldType = field, 0, raw
-				c.unify(me.Type(), typ, me.Sel.Sp)
+	// Resolved members are marked done: a receiver bound by a later
+	// replay — e.g. `g (x.AddDate(1, 0, 0))` whose apply meta feeds
+	// an earlier `r.Year` receiver — must still get its pass, so the
+	// loop repeats while any member newly resolved. Registration
+	// order decides only the diagnostic order, never the outcome.
+	done := map[*MemberExpr]bool{}
+	for progress := true; progress; {
+		progress = false
+		for _, me := range c.pendingSels {
+			if done[me] {
 				continue
 			}
-			if msym, typ, targs, ok := c.methodOf(rt, selName, me.Sel.Sp); ok {
-				me.Sym = msym
-				me.TypeArgs = targs
-				c.unify(me.Type(), typ, me.Sel.Sp)
+			rt := types.Chase(me.Recv.Type())
+			if _, ok := rt.(*types.Meta); ok {
 				continue
 			}
+			done[me] = true
+			progress = true
+			selName := nameOfSel(me.Sym, me.Sel)
+			resolved := false
+			if fi, owner, typ, ok := c.fieldOf(rt, selName); ok {
+				me.Sym, me.Index = fi.sym, fi.index
+				if owner != nil {
+					me.Ctor = owner.sym
+				}
+				c.unify(me.Type(), typ, me.Sel.Sp)
+				resolved = true
+			} else if me.Sym == nil {
+				if field, typ, raw, ok := c.goFieldOf(rt, selName, me.Sel.Sp); ok {
+					me.Sym, me.Index, me.GoFieldType = field, 0, raw
+					c.unify(me.Type(), typ, me.Sel.Sp)
+					resolved = true
+				} else if msym, typ, targs, ok := c.methodOf(rt, selName, me.Sel.Sp); ok {
+					me.Sym = msym
+					me.TypeArgs = targs
+					c.unify(me.Type(), typ, me.Sel.Sp)
+					resolved = true
+				}
+			}
+			if !resolved {
+				c.diags.Add(diag.Error("E0401",
+					fmt.Sprintf("%s has no field or method `%s`", rt, selName)).
+					At(me.Sel.Sp).Set("type", rt.String()).Set("member", selName))
+				// The selection failed; the member's standing meta — nothing
+				// bound it — must not pile an E0407 on the E0401.
+				c.markQuiet(me.Type())
+			}
+			// Applications sitting on this member (pendingApplies)
+			// now know their calling convention — a Go method
+			// settles the tuple form; anything else the Gom rule.
+			// Replaying here, in pendingSels order, lets a member
+			// chained off the call's result (`x.M(1).N(2)`) see the
+			// bound result type when its own turn comes — and lets
+			// an earlier member whose receiver this result binds
+			// resolve on the next pass.
+			c.replayAppliesOf(me)
 		}
-		c.diags.Add(diag.Error("E0401",
-			fmt.Sprintf("%s has no field or method `%s`", rt, selName)).
-			At(me.Sel.Sp).Set("type", rt.String()).Set("member", selName))
-		// The selection failed; the member's standing meta — nothing
-		// bound it — must not pile an E0407 on the E0401.
-		c.markQuiet(me.Type())
 	}
+	// Applications whose member never resolved still need a final
+	// CallInfo: they replay under the Gom convention so the
+	// diagnostics the first pass withheld (a `_`, a label on an
+	// unknown callee) fire and lowering sees a valid record.
+	c.replayDeferredApplies()
 }
 
 // nameOfSel returns the selector name a resolved member symbol
@@ -1862,6 +1903,15 @@ func (c *checker) deferInterfaceSource(m *types.Meta) bool {
 	}
 	for _, member := range c.pendingSels {
 		if types.Chase(member.Type()) == m {
+			return true
+		}
+	}
+	// A deferred application's result meta is equally unknowable at
+	// conformance time: the replay's unify binds the real Go result
+	// during revisitSelects, right before revisitInterfaces re-checks
+	// the pending Ascribe — the same window the member metas use.
+	for _, pa := range c.pendingApplies {
+		if types.Chase(pa.ap.Type()) == m {
 			return true
 		}
 	}

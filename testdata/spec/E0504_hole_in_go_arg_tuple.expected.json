@@ -1,0 +1,69 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "the Go callee takes 3 argument(s), got 2",
+      "span": {
+        "file": "E0504_hole_in_go_arg_tuple.gom",
+        "start": {
+          "line": 13,
+          "col": 19,
+          "offset": 508
+        },
+        "end": {
+          "line": 13,
+          "col": 39,
+          "offset": 528
+        }
+      },
+      "data": {
+        "actual": "2",
+        "expected": "3"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected Int, got (?8, Int)",
+      "span": {
+        "file": "E0504_hole_in_go_arg_tuple.gom",
+        "start": {
+          "line": 13,
+          "col": 29,
+          "offset": 518
+        },
+        "end": {
+          "line": 13,
+          "col": 35,
+          "offset": 524
+        }
+      },
+      "data": {
+        "actual": "(?8, Int)",
+        "expected": "Int"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0504",
+      "severity": "error",
+      "message": "`_` is only allowed as an argument of a Go call",
+      "span": {
+        "file": "E0504_hole_in_go_arg_tuple.gom",
+        "start": {
+          "line": 13,
+          "col": 30,
+          "offset": 519
+        },
+        "end": {
+          "line": 13,
+          "col": 31,
+          "offset": 520
+        }
+      }
+    }
+  ]
+}
