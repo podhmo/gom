@@ -194,8 +194,6 @@ Go 相互運用を変えたら両方向（Gom → Go、Go → Gom）のテスト
 - [x] **[bug] tutorial の生成 Go だけが使う runtime/stdlib をテストキャッシュが追跡しない**: `stdlib/result/result.go` を壊しても `go test ./tutorial` が cached 成功する。CLI と生成 Go が実際に使う Go モジュール入力を列挙し、ソース・ディレクトリ・manifest をテスト本体で追跡する。[レビュー対応](docs/decisions/2026-11-03-tutorial-go-module-inputs.md)。
 
 - [ ] **[bug] Go.Any へ渡す数値リテラルが Gom の具体型を保たない**: `fmt.Sprintf ("%T", 1)` が `int64` ではなく `int` を返す。既存の `ConvBoxAny` 経路でも boxing 前に Gom の数値型を具体化し、直接リテラル・束縛・数値演算・Go 側の型 switch を実行検証する。[再現](docs/sketch/2026-11-03-parallel-implementation-round.md#goany-numeric-probe)。
-- [ ] **[bug] 戻り値なしGo呼び出しをUnit関数の末尾に置くと生成Goが不正**: `fn stop () -> Unit = os.Exit 1`は`return os.Exit(tmp1)`を生成し、Goがno value used as valueで拒否する。呼び出し情報で戻り値0個をUnit値の1個と区別し、Core IRで確定して出力する。最小再現は[Gist prototype](docs/sketch/2026-11-03-gist-cli-prototype.md)。
-
 - [ ] **[bug] Floatへ推論された整数リテラル束縛がGo intで生成される**: `fn f () -> Float = { let n = 1; n + 0.5 }` は型検査を通るが `n := 1` がGoのintとなり、生成Goが `0.5 truncated to int` で拒否される。lowerで確定した束縛の型を生成時に保持し、単体・interface引数の後にFloatへ解決される場合の実行回帰を追加する。[再現](docs/sketch/2026-11-03-go-http-boundary-verification.md)、[既存懸念](docs/problems/2026-11-02-let-int-literal-go-type.md)。
 
 - [x] **[bug] named interfaceへの数値boxingがGoのdefault型を使う**: `model.Kind 1`（Kindはnamed empty interfaceを受けて `%T` を返す）がGom `Int`のint64ではなくGo intを格納する。lowerで数値型を具体化してからinterfaceへ変換し、dynamic typeを実行検証する。[レビュー記録](docs/sketch/2026-11-03-go-http-boundary-verification.md)。
