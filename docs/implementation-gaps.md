@@ -149,3 +149,19 @@
   TODO P4-1 は `moon info` 流の `info` という名前を決めている（spec 7.5 も `gom gomi` 表記）。
   実装はまだ無いが、名前の正が文書間で不一致。
   参照: [usage](../cmd/gom/main.go)、[TODO](../TODO.md)、[spec 7](spec.md#7-インターフェースファイル-gomi)、[sketch](sketch/2026-11-05-moon-cli-command-structure.md)。
+
+- [ ] **`struct{}` の Gom 側の対応が定められていない**: spec 8.3 の対応表にも v1 未対応リストにも
+  `struct{}` が現れないが、spec 10 章の例は `ctx.Done()` の `<-chan struct{}` を `select` の腕に書く
+  （`Unit` → `struct{}` なら `RecvChan Unit` が自然）。実装は "unsupported Go type struct{}" で
+  E0501 にするため、10 章の例はメンバー未実装とは別の理由でもコンパイルできない。
+  参照: [spec 8.3](spec.md#83-型の対応)、[spec 10](spec.md#10-並行処理)、
+  [mapping](../internal/goimport/mapping.go)、[監査](sketch/2026-11-03-spec-examples-audit.md)。
+
+- [ ] **spec の例の `Result Int64 GoError` が 8.3 節の対応表と食い違う**: 9.2 節の
+  `parse_port`（`strconv.ParseInt` の結果）と 8.4 節の `extern io.Copy` は `Int64` を
+  宣言するが、対応表は Go の `int64` → `Int` と定める（decisions/go-types-mapping も同じ）。
+  `check` は "expected Int64, got Int" を出す。extern の `Int64` は変換の上書きとして
+  意図的かもしれないが、9.2 の `parse_port` は少なくとも表とずれている。
+  参照: [spec 8.3](spec.md#83-型の対応)、[spec 8.4](spec.md#84-extern上書き専用)、
+  [spec 9.2](spec.md#92-意味)、[decision](decisions/2026-11-03-go-types-mapping.md)、
+  [監査](sketch/2026-11-03-spec-examples-audit.md)。

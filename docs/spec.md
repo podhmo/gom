@@ -34,6 +34,8 @@ fn main () -> Unit = {
 }
 ```
 
+（この例は未実装の機能に依存する: `List.map` / `List.sum` は標準ライブラリの実装待ち — [TODO](../TODO.md) P4-8）
+
 ### 1.1 式指向の規則
 
 1. ブロック `{ e1; e2; ...; en }` の値は `en`。改行は `;` と同じ扱い（改行の規則は 1.5 節）
@@ -93,6 +95,8 @@ let task = Task.spawn <| fn () -> {
 let handle = parse >> validate >> render
 ```
 
+（この例は未実装の機能に依存する: `List.filter` / `List.map` / `List.sum` は標準ライブラリ（P4-8）、`Task.spawn` は並行処理と `Task`（P5-1）の実装待ち）
+
 - これらは二項演算子の中で最も優先順位が低く、左結合。`a + b |> f` は `f (a + b)`、`f <| a <| b` は `f a b`
 - 標準ライブラリはデータを最後の引数に取るので、`|>` で自然につながる
 
@@ -117,6 +121,8 @@ let page =
     body
     footer)
 ```
+
+（この例は未実装の機能に依存する: `List.map` / `List.sum` は標準ライブラリの実装待ち — P4-8）
 
 ### 1.6 波括弧の曖昧さ
 
@@ -355,6 +361,8 @@ fn report (xs: List String) -> Unit = {
 }
 ```
 
+（この例は未実装の機能に依存する: `strings.Join` への `List String` 引数は `[]T` と `List T` の境界コピー（P3-3）、`List.length` は標準ライブラリ（P4-8）の実装待ち）
+
 1. 0 引数の Go 関数は `()` を受け取る（`time.Now()`）。1 引数なら `strconv.Itoa(n)` と `strconv.Itoa n` は同じ意味
 2. 値として渡せる（`List.map strconv.Itoa xs`）
 3. メソッド呼び出しは `x.M(args)`。Go の型の値にだけ使え、Gom の型はメソッドを持たない
@@ -413,6 +421,8 @@ extern go "io" {
 }
 ```
 
+（この例は未実装の機能に依存する: `extern` は P3-5 の実装待ち。`*T` → `Option (Ptr T)` のような変換規則の上書きはまだコンパイルできない）
+
 `extern` では型だけでなく変換規則も指定できる（`(T, bool)` を comma-ok として `Option` にする、`*T` を `Option (Ptr T)` にする、など）。
 
 明示的な変換は組み込みの `Go.conv` で書く: `Go.conv user_id : Int`。変換できるかどうかは Go の変換規則で検査する。
@@ -456,6 +466,8 @@ fn parse_port (s: String) -> Result Int64 GoError =
   |?> strconv.ParseInt(_, 10, 64)
   |?> check_port_range
 ```
+
+（この例は現状コンパイルできない: `os.ReadFile` の `[]byte` 戻り値は v1 で対応していない型（8.3 節）で、戻り値の `Int64` も 8.3 節の対応表（`int64` → `Int`）とずれている — [implementation-gaps](implementation-gaps.md) 参照）
 
 1. `r |?> f` は `r : Result a e` と `f : a -> Result b e` を取り、`Result b e` を返す。`Ok v` なら `f v`、`Err e` ならそれ以降のステップを飛ばして `Err` のまま流す
 2. 優先順位と結合は `|>` と同じ。1 つの流れの中で `|>` と混ぜられる
@@ -513,6 +525,8 @@ fn next_job (ctx: context.Context) (jobs: RecvChan Job) -> Result Job Stop =
     _ <- time.After(time.Second) -> Err Timeout
   }
 ```
+
+（この例は未実装の機能に依存する: `Chan` / `Option.get` / `List.*` の各メンバーは標準ライブラリと並行処理（P4-8, P5-1）の実装待ち。`ctx.Done()` の `<-chan struct{}` 戻り値も未対応 — [implementation-gaps](implementation-gaps.md) 参照）
 
 1. `go { e }` は `e` を新しい goroutine で評価する式で、型は `Unit`。`e` が `Unit` 以外ならエラー
 2. チャネル型は `Chan a`（双方向）、`RecvChan a`、`SendChan a`。方向の制限は `Chan.recvOnly` / `Chan.sendOnly` で明示的に変換する。Go 関数に渡すときだけは Go の代入規則に合わせて暗黙に変換する
