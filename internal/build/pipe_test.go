@@ -23,6 +23,19 @@ fn renamed (s: String) -> Result Int GoError = { let convert = strconv.Atoi; s |
 fn anonymous (s: String) -> Result Int GoError = s |?> fn t -> strconv.Atoi t
 fn only (s: String) -> Result Unit GoError = s |?> errors.New
 fn input (r: Result Int GoError) -> Result Int GoError = r |?> keep
+fn bump (n: Int) (x: Int) -> Result Int GoError = Ok (n + x)
+fn failing (n: Int) (x: Int) -> Result Int GoError =
+  match (errors.New "bang") { Err e -> Err e; Ok _ -> Ok 0 }
+// Unguarded try inside a |?> chain: the try keeps the user-function
+// boundary (raw error, never wrapped) while a failed step's own
+// Result is inspected by the next boundary segment, wrapped once.
+fn mixed (s: String) (r: Result Int GoError) -> Result Int GoError =
+  s |?> strconv.Atoi |?> failing (try r) |?> keep
+// Consecutive unguarded steps: the segment between them covers zero
+// steps — it exists only to inspect the first step's Result with its
+// wrap name.
+fn twoUnguarded (r1: Result Int GoError) (r2: Result Int GoError) -> Result Int GoError =
+  1 |?> bump (try r1) |?> failing (try r2) |?> keep
 `
 	r, err := build.Compile(build.Input{Path: "pipe%name.gom", Src: []byte(src)}, suiteOptions())
 	if err != nil {
@@ -61,6 +74,31 @@ func main() {
     defer func() { if recover() == nil { panic("invalid result accepted") } }()
     input(result.Result[int64,error]{})
   }()
+  // Explicit-try chains: an unguarded try escapes with the original
+  // error identity (never wrapped); a failing step's Result is
+  // wrapped once by the segment that inspects it.
+  boom := errors.New("boom")
+  if r := mixed("bad", result.Ok[int64,error](1)); !errors.Is(r.Error, strconv.ErrSyntax) ||
+    !strings.HasPrefix(r.Error.Error(), "strconv.Atoi: ") {
+    panic(r.Error)
+  }
+  if r := mixed("42", result.Err[int64,error](boom)); r.Error != boom {
+    panic("try escape changed the error")
+  }
+  if r := mixed("42", result.Ok[int64,error](1)); r.Error.Error() != "failing: bang" ||
+    errors.Unwrap(r.Error) == nil || errors.Unwrap(r.Error).Error() != "bang" {
+    panic(r.Error)
+  }
+  if r := twoUnguarded(result.Err[int64,error](boom), result.Ok[int64,error](1)); r.Error != boom {
+    panic("first unguarded try changed the error")
+  }
+  if r := twoUnguarded(result.Ok[int64,error](10), result.Err[int64,error](boom)); r.Error != boom {
+    panic("second unguarded try changed the error")
+  }
+  if r := twoUnguarded(result.Ok[int64,error](10), result.Ok[int64,error](20)); r.Error.Error() != "failing: bang" ||
+    errors.Unwrap(r.Error) == nil || errors.Unwrap(r.Error).Error() != "bang" {
+    panic(r.Error)
+  }
   fmt.Println("ok")
 }
 `

@@ -104,25 +104,21 @@ func explicit(_ struct{}) result.Result[int64, string] {
 //line result_pipe.gom:11
 	tmp14 := step(tmp13, 1)
 //line result_pipe.gom:11
-	tmp17 := func(tmp15 struct{}) result.Result[int64, bool] {
+	switch tmp14.Tag() {
 //line result_pipe.gom:11
-		var tmp16 int64
+	case result.ResultTagOk:
+		tmp15 := tmp14.Value
 //line result_pipe.gom:11
-		switch tmp14.Tag() {
-		case result.ResultTagOk:
-			tmp16 = tmp14.Value
-		case result.ResultTagErr:
+		result.Ok[int64, bool](tmp15)
 //line result_pipe.gom:11
-			return result.Err[int64, bool](tmp14.Error)
-		default:
+	case result.ResultTagErr:
+		tmp16 := tmp14.Error
 //line result_pipe.gom:11
-			panic(rt.InvalidVariant("result.Result", tmp14))
-		}
+		result.Err[int64, bool](tmp16)
+	default:
 //line result_pipe.gom:11
-		return result.Ok[int64, bool](tmp16)
+		panic(rt.InvalidVariant("Result", tmp14))
 	}
-//line result_pipe.gom:11
-	tmp17(struct{}{})
 //line result_pipe.gom:12
 	return result.Ok[int64, string](42)
 }

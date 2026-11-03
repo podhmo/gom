@@ -59,6 +59,8 @@ trees to preserve its user-function target. Invalid Go-side Result values
 still panic. See [decision](../decisions/2026-11-03-result-pipe-local-boundary.md)
 and [verification](../sketch/2026-11-03-result-pipe-local-boundary.md).
 
+(2026-11-03 追記: P2-4b で、明示的 `try` を含むチェーンは「try を含むステップを利用者の境界側で評価し、残りを局所境界のセグメントに融合する」方式に変わった。値意味論・脱出先・ラップ規則は同じ。[pipe-try-segmented-fusion](../decisions/2026-11-03-pipe-try-segmented-fusion.md))
+
 ## Remaining concern
 
 The evaluator's host-supplied `VVariant` representation has no Go-style

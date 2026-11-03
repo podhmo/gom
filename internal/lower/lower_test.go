@@ -704,6 +704,168 @@ func TestPipeTryBoundMeta(t *testing.T) {
 	}
 }
 
+// TestPipeTryMixed: `x |?> f |?> step (try r) |?> h` — the chain
+// holds a `try` no lambda shields, so it cannot sit inside one
+// synthesized boundary without retargeting the escape (P2-4b). The
+// guarded steps fuse into boundary segments around the unguarded
+// step, which applies inside the user function so `try r` still
+// escapes it; a decision-tree feed between segments preserves
+// skip-on-Err and each step's wrap name ("f", "step", "h").
+func TestPipeTryMixed(t *testing.T) {
+	resT := types.Result(types.Int, types.GoError)
+	stepT := types.Fn(resT, types.P(types.Int))
+	f := fsym("f")
+	h := fsym("h")
+	step := fsym("step")
+	x := vsym("x", resT)
+	r := vsym("r", resT)
+	stepApp := app(vr(step, types.Fn(resT, types.P(types.Int), types.P(types.Int))),
+		[]check.Expr{&check.Try{Base: b(types.Int), X: vr(r, resT)}},
+		check.CallInfo{Kind: check.CallPartial, Callee: step, Arity: 2, Applied: 1, Unapplied: 1, HoleIndex: -1},
+		types.Fn(resT, types.P(types.Int)))
+	l0 := &check.Binary{Base: b(resT), Op: syntax.BinPipeTry, X: vr(x, resT), Y: vr(f, stepT)}
+	l1 := &check.Binary{Base: b(resT), Op: syntax.BinPipeTry, X: l0, Y: stepApp}
+	l2 := &check.Binary{Base: b(resT), Op: syntax.BinPipeTry, X: l1, Y: vr(h, stepT)}
+	d := decl("g", []check.Param{param(vpat(x, resT)), param(vpat(r, resT))}, l2,
+		types.Fn(resT, types.P(resT), types.P(resT)))
+	out := mustLower(t, d)
+	g := fnDeclOf(t, out, 0).Fn
+
+	// The opening segment's closure and its call bind in the user
+	// sequence; the feed match is the body tail.
+	if len(g.Body.Lets) != 2 {
+		t.Fatalf("outer lets = %d, want 2 (segment closure, segment call)", len(g.Body.Lets))
+	}
+	seg1, ok := g.Body.Lets[0].X.(*core.Closure)
+	if !ok {
+		t.Fatalf("let0 = %T, want segment Closure", g.Body.Lets[0].X)
+	}
+	if _, ok := g.Body.Lets[1].X.(*core.CallFunc); !ok {
+		t.Fatalf("let1 = %T, want segment CallFunc", g.Body.Lets[1].X)
+	}
+	// seg1: in = escape(x) ; call = f(in) ; payload = escape(call)@"f" ; Ok.
+	if len(seg1.Fn.Body.Lets) != 3 {
+		t.Fatalf("seg1 lets = %d, want 3 (inflow escape, step, step escape)", len(seg1.Fn.Body.Lets))
+	}
+	escIn, ok := seg1.Fn.Body.Lets[0].X.(*core.EscapeResult)
+	if !ok || escIn.To != seg1.Fn || escIn.Wrap != "" {
+		t.Fatalf("seg1 inflow escape = %+v, want EscapeResult to seg1, no wrap", seg1.Fn.Body.Lets[0].X)
+	}
+	escF, ok := seg1.Fn.Body.Lets[2].X.(*core.EscapeResult)
+	if !ok || escF.To != seg1.Fn || escF.Wrap != "f" {
+		t.Fatalf("seg1 step escape = %+v, want EscapeResult to seg1 with Wrap \"f\"", seg1.Fn.Body.Lets[2].X)
+	}
+	if _, ok := seg1.Fn.Body.Tail.(*core.CtorApp); !ok {
+		t.Fatalf("seg1 tail = %T, want Ok CtorApp", seg1.Fn.Body.Tail)
+	}
+
+	m, ok := g.Body.Tail.(*core.Match)
+	if !ok {
+		t.Fatalf("tail = %T, want feed Match", g.Body.Tail)
+	}
+	sw, ok := m.Tree.(*core.DSwitch)
+	if !ok || sw.Kind != core.SwitchTag || len(sw.Cases) != 2 {
+		t.Fatalf("feed tree = %+v, want DSwitch SwitchTag with 2 cases", m.Tree)
+	}
+	okArm := sw.Cases[0].Body
+	// Ok arm: try = escape(r)->user fn ; val = step(try, payload) ;
+	// the second segment's closure binds; its call is the arm tail.
+	if len(okArm.Lets) != 3 {
+		t.Fatalf("ok arm lets = %d, want 3 (try escape, step call, segment closure)", len(okArm.Lets))
+	}
+	escTry, ok := okArm.Lets[0].X.(*core.EscapeResult)
+	if !ok || escTry.To != g || escTry.Wrap != "" {
+		t.Fatalf("unguarded try escape = %+v, want EscapeResult to the user fn g, no wrap", okArm.Lets[0].X)
+	}
+	cd, ok := okArm.Lets[1].X.(*core.CallDirect)
+	if !ok || cd.Callee != step || len(cd.Args) != 2 {
+		t.Fatalf("unguarded step call = %+v, want CallDirect step with 2 args", okArm.Lets[1].X)
+	}
+	seg2, ok := okArm.Lets[2].X.(*core.Closure)
+	if !ok {
+		t.Fatalf("seg2 bind = %T, want segment Closure", okArm.Lets[2].X)
+	}
+	if _, ok := okArm.Tail.(*core.CallFunc); !ok {
+		t.Fatalf("ok arm tail = %T, want segment CallFunc", okArm.Tail)
+	}
+	// seg2 enters by unwrapping the unguarded step's Result with its
+	// own wrap name, then fuses h's step + escape.
+	if len(seg2.Fn.Body.Lets) != 3 {
+		t.Fatalf("seg2 lets = %d, want 3 (enter escape, step, step escape)", len(seg2.Fn.Body.Lets))
+	}
+	escEnter, ok := seg2.Fn.Body.Lets[0].X.(*core.EscapeResult)
+	if !ok || escEnter.To != seg2.Fn || escEnter.Wrap != "step" {
+		t.Fatalf("seg2 enter escape = %+v, want EscapeResult to seg2 with Wrap \"step\"", seg2.Fn.Body.Lets[0].X)
+	}
+	escH, ok := seg2.Fn.Body.Lets[2].X.(*core.EscapeResult)
+	if !ok || escH.To != seg2.Fn || escH.Wrap != "h" {
+		t.Fatalf("seg2 step escape = %+v, want EscapeResult to seg2 with Wrap \"h\"", seg2.Fn.Body.Lets[2].X)
+	}
+	// The Err arm rebuilds the segment's Err at the chain type: a
+	// failure skips the unguarded step entirely.
+	errArm := sw.Cases[1].Body
+	errTail, ok := errArm.Tail.(*core.CtorApp)
+	if !ok || errTail.Ctor.Name != "Err" {
+		t.Fatalf("err arm tail = %T, want Err CtorApp", errArm.Tail)
+	}
+	if sw.Default == nil {
+		t.Fatal("feed match has no invalid-tag default")
+	}
+}
+
+// TestPipeTryShieldedTryFuses: `x |?> (fn n -> Ok (try r + n)) |?> h`
+// — the only `try` sits under a lambda, which is its own escape
+// boundary wherever it is applied, so the whole chain still takes the
+// fused single-boundary path: no segments, no feed match.
+func TestPipeTryShieldedTryFuses(t *testing.T) {
+	resT := types.Result(types.Int, types.GoError)
+	stepT := types.Fn(resT, types.P(types.Int))
+	h := fsym("h")
+	x := vsym("x", resT)
+	r := vsym("r", resT)
+	n := vsym("n", types.Int)
+	okSym := csym("Ok")
+	lam := &check.Lambda{Base: b(stepT), Params: []check.Param{param(vpat(n, types.Int))},
+		Body: &check.Apply{Base: b(resT),
+			Fn: vr(okSym, types.Fn(resT, types.P(types.Int))),
+			Args: []check.Arg{{Value: &check.Binary{Base: b(types.Int), Op: syntax.BinAdd,
+				X: &check.Try{Base: b(types.Int), X: vr(r, resT)}, Y: vr(n, types.Int)}}},
+			Call: check.CallInfo{Kind: check.CallDirect, Callee: okSym, Arity: 1, Applied: 1, HoleIndex: -1}}}
+	l0 := &check.Binary{Base: b(resT), Op: syntax.BinPipeTry, X: vr(x, resT), Y: lam}
+	l1 := &check.Binary{Base: b(resT), Op: syntax.BinPipeTry, X: l0, Y: vr(h, stepT)}
+	d := decl("g", []check.Param{param(vpat(x, resT)), param(vpat(r, resT))}, l1,
+		types.Fn(resT, types.P(resT), types.P(resT)))
+	out := mustLower(t, d)
+	g := fnDeclOf(t, out, 0).Fn
+	// The fused shape of TestPipeTry: one boundary closure applied to
+	// () — no feed Match in the user sequence.
+	cl, ok := g.Body.Lets[0].X.(*core.Closure)
+	if !ok {
+		t.Fatalf("let0 = %T, want the single boundary Closure", g.Body.Lets[0].X)
+	}
+	if _, ok := g.Body.Tail.(*core.CallFunc); !ok {
+		t.Fatalf("tail = %T, want the boundary CallFunc", g.Body.Tail)
+	}
+	// Inside the boundary the lambda step applies as a function
+	// value — its try targets the lambda's own Func, not g and not
+	// the segment.
+	if len(cl.Fn.Body.Lets) != 6 {
+		t.Fatalf("boundary lets = %d, want 6 (inflow escape, lambda, lambda call, lambda escape, h call, h escape)", len(cl.Fn.Body.Lets))
+	}
+	lamFn, ok := cl.Fn.Body.Lets[1].X.(*core.Closure)
+	if !ok {
+		t.Fatalf("lambda bind = %T, want Closure", cl.Fn.Body.Lets[1].X)
+	}
+	escLam, ok := lamFn.Fn.Body.Lets[0].X.(*core.EscapeResult)
+	if !ok || escLam.To != lamFn.Fn {
+		t.Fatalf("lambda try escape = %+v, want EscapeResult to the lambda", lamFn.Fn.Body.Lets[0].X)
+	}
+	escH, ok := cl.Fn.Body.Lets[5].X.(*core.EscapeResult)
+	if !ok || escH.To != cl.Fn || escH.Wrap != "h" {
+		t.Fatalf("h step escape = %+v, want EscapeResult to the boundary with Wrap \"h\"", cl.Fn.Body.Lets[5].X)
+	}
+}
+
 // TestMatchBoundMetaSubject: `let r = inc(1); match r { ... }` where
 // the subject's type is a bound `?n` — ctorSwitch must chase before
 // enumerating variants. Before the fix this reported E0901 "cannot

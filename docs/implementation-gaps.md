@@ -59,9 +59,13 @@
   対応: 通常の境界変換を適用し、数値・多値・Unit の生成 Go を実行検証。
   参照: [検証](sketch/2026-11-03-result-pipe-local-boundary.md)。
 
-- [ ] **明示的 `try` を含むパイプは中間 Result が残る**: design 4.6 の中間 Result を省く生成に対し、
+- [x] **明示的 `try` を含むパイプは中間 Result が残る**: design 4.6 の中間 Result を省く生成に対し、
   脱出先を保存する保守的な経路には未融合の Result が残る。値の意味は検証済み。
-  参照: [design](design.md)、[検証](sketch/2026-11-03-result-pipe-local-boundary.md)、[TODO P2-4b](../TODO.md)。
+  対応: セグメント融合でステップ数比例の物質化を解消（unguarded try を挟むチェーンは
+  セグメント境界の `Ok` 構築のみ残存、意味は不変）。残る最適化余地は TODO へ。
+  参照: [design](design.md)、[検証](sketch/2026-11-03-result-pipe-local-boundary.md)、
+  [decision](decisions/2026-11-03-pipe-try-segmented-fusion.md)、
+  [検証](sketch/2026-11-03-pipe-try-segmented-fusion.md)、[TODO P2-4b](../TODO.md)。
 
 - [ ] **Go slice の既定対応が spec と異なる**: spec 8.3/8.5 は `[]T` → `List T` と両方向コピー、
   loader は `Go.Slice T` を返す。`Go.conv os.Args : List String` も E0507。

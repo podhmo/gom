@@ -892,6 +892,170 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 		want: "outer/42/7",
 	},
 	{
+		// The segmented lowering for a chain that carries a `try` no
+		// lambda shields (P2-4b): guarded steps fuse into shared
+		// boundary segments while the unguarded step still applies
+		// inside the user boundary — escape destinations, skip-on-Err
+		// and evaluation order must match the evaluator exactly.
+		name: "pipe_try_segments",
+		src: `package main
+import go "fmt"
+fn fail () -> Result Int String = Err "bad"
+fn keep (n: Int) -> Result Int String = Ok n
+fn step (n: Int) (x: Int) -> Result Int String = Ok (n + x)
+fn show (r: Result Int String) -> String = match r { Ok n -> "ok ${n}"; Err e -> "err ${e}" }
+
+// guarded - unguarded - guarded: one segment each side of the try step.
+fn mid (n: Int) (r: Result Int String) -> Result Int String =
+  n |?> keep |?> step (try r) |?> keep
+
+// the unguarded step is first / last.
+fn first (r: Result Int String) -> Result Int String =
+  r |?> step (try (fail ())) |?> keep
+fn last (r: Result Int String) -> Result Int String =
+  3 |?> keep |?> step (try r)
+
+// two unguarded steps in a row.
+fn two (a: Result Int String) (b: Result Int String) -> Result Int String =
+  1 |?> step (try a) |?> step (try b) |?> keep
+
+// a try under a lambda step is shielded — the chain fuses outright.
+fn lam (n: Int) (r: Result Int String) -> Result Int String =
+  n |?> keep |?> (fn x -> { let v = try r; Ok (x + v) }) |?> keep
+
+// unguarded try in the inflow expression.
+fn inflow (r: Result Int String) -> Result Int String =
+  (step (try r) 0) |?> keep |?> step 100
+
+// Err inflow: every step — including the try argument — is skipped, so
+// bomb runs only on the Ok path, where its Err escapes skip.
+fn bomb () -> Result Int String = Err "bomb"
+fn skip (r: Result Int String) -> Result Int String =
+  r |?> step (try (bomb ())) |?> keep
+
+fn answer () -> String = {
+  let parts = [
+    show (mid 1 (Ok 10)), show (mid 1 (Err "e1")), show (mid 1 (fail ())),
+    show (first (Ok 5)), show (first (fail ())),
+    show (last (Ok 7)), show (last (fail ())),
+    show (two (Ok 10) (Ok 20)), show (two (Err "ea") (Ok 20)), show (two (Ok 10) (Err "eb")),
+    show (lam 3 (Ok 4)), show (lam 3 (Err "el")),
+    show (inflow (Ok 7)), show (inflow (Err "ei")),
+    show (skip (Err "skipped")), show (skip (Ok 1))
+  ]
+  join parts "/"
+}
+fn join (xs: List String) (sep: String) -> String = match xs {
+  [] -> ""
+  [x] -> x
+  [x, ..rest] -> "${x}${sep}${join rest sep}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "ok 11/err e1/err bad/err bad/err bad/ok 10/err bad/ok 31/err ea/err eb/ok 7/err el/ok 107/err ei/err skipped/err bomb",
+	},
+	{
+		// hasUnguardedTry must descend through every non-boundary
+		// construct — match arms AND guards, for bodies, ignores,
+		// blocks, string interpolation, tuples, lists, records,
+		// unary operands, if arms/conditions and member receivers.
+		// (Spread and ascription share the same single-child descent;
+		// their only surface forms — Go variadic args and `Go.conv`
+		// — are not evaluable, and `go`/`select` cannot hold a try
+		// the evaluator can observe.)
+		// A missed descent would let the step ride inside a
+		// synthesized segment, where the try would escape the
+		// segment instead of the user function: each chain sits in
+		// non-tail position ({ ignore (...); Ok 99 }) so that mistake
+		// is observable as "ok 99" instead of the escape.
+		name: "pipe_try_descent",
+		src: `package main
+import go "fmt"
+fn keep (n: Int) -> Result Int String = Ok n
+fn step (n: Int) (x: Int) -> Result Int String = Ok (n + x)
+fn sarg (s: String) (x: Int) -> Result Int String = Ok (x + 1)
+fn tstep (p: (Int, Int)) (x: Int) -> Result Int String = { let (a, b) = p; Ok (a + b + x) }
+fn lstep (xs: List Int) (x: Int) -> Result Int String = match xs { [v] -> Ok (v + x); _ -> Ok x }
+type Box = { v: Int }
+fn rstep (b: Box) (x: Int) -> Result Int String = Ok (b.v + x)
+fn show (r: Result Int String) -> String = match r { Ok n -> "ok ${n}"; Err e -> "err ${e}" }
+
+// try inside a match arm of a step argument.
+fn marm (n: Int) (r: Result Int String) -> Result Int String = {
+  ignore (n |?> keep |?> step (match r { Ok v -> v; Err e -> try (Err e) }) |?> keep)
+  Ok 99
+}
+// try inside a match guard.
+fn mguard (n: Int) (r: Result Int String) -> Result Int String = {
+  ignore (n |?> keep |?> step (match n { x if (try r) > 0 -> x; _ -> 0 }) |?> keep)
+  Ok 99
+}
+// try inside a for body — for is not a boundary.
+fn fory (r: Result Int String) -> Result Int String = {
+  ignore (1 |?> step ({ for x in [r] { ignore (try x) }; 7 }) |?> keep)
+  Ok 99
+}
+// try inside an ignore inside a block argument.
+fn blk (n: Int) (r: Result Int String) -> Result Int String = {
+  ignore (n |?> keep |?> step ({ ignore (try r); 5 }) |?> keep)
+  Ok 99
+}
+// try inside a string interpolation.
+fn sinterp (n: Int) (r: Result String String) -> Result Int String = {
+  ignore (n |?> keep |?> sarg "${try r}" |?> keep)
+  Ok 99
+}
+// try inside tuple / list / record / ascription arguments.
+fn tup (n: Int) (r: Result Int String) -> Result Int String = {
+  ignore (n |?> keep |?> tstep (try r, 2) |?> keep)
+  Ok 99
+}
+fn listy (n: Int) (r: Result Int String) -> Result Int String = {
+  ignore (n |?> keep |?> lstep [try r] |?> keep)
+  Ok 99
+}
+fn recd (n: Int) (r: Result Int String) -> Result Int String = {
+  ignore (n |?> keep |?> rstep { v = try r } |?> keep)
+  Ok 99
+}
+fn neg (n: Int) (r: Result Int String) -> Result Int String = {
+  ignore (n |?> keep |?> step (-(try r)) |?> keep)
+  Ok 99
+}
+fn ify (n: Int) (r: Result Int String) -> Result Int String = {
+  ignore (n |?> keep |?> step (if (try r) > 0 { try r } else { 0 }) |?> keep)
+  Ok 99
+}
+fn fld (n: Int) (r: Result Box String) -> Result Int String = {
+  ignore (n |?> keep |?> step (try r).v |?> keep)
+  Ok 99
+}
+fn answer () -> String = {
+  let parts = [
+    show (marm 1 (Ok 10)), show (marm 1 (Err "mx")),
+    show (mguard 5 (Ok 3)), show (mguard 5 (Err "gx")),
+    show (fory (Ok 4)), show (fory (Err "fx")),
+    show (blk 1 (Ok 4)), show (blk 1 (Err "bx")),
+    show (sinterp 1 (Ok "hi")), show (sinterp 1 (Err "sx")),
+    show (tup 1 (Ok 10)), show (tup 1 (Err "tx")),
+    show (listy 1 (Ok 10)), show (listy 1 (Err "lx")),
+    show (recd 1 (Ok 10)), show (recd 1 (Err "rx")),
+    show (neg 1 (Ok 10)), show (neg 1 (Err "ux")),
+    show (ify 1 (Ok 3)), show (ify 1 (Ok 0)), show (ify 1 (Err "ix")),
+    show (fld 1 (Ok { v = 10 })), show (fld 1 (Err "vx"))
+  ]
+  join parts "/"
+}
+fn join (xs: List String) (sep: String) -> String = match xs {
+  [] -> ""
+  [x] -> x
+  [x, ..rest] -> "${x}${sep}${join rest sep}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "ok 99/err mx/ok 99/err gx/ok 99/err fx/ok 99/err bx/ok 99/err sx/ok 99/err tx/ok 99/err lx/ok 99/err rx/ok 99/err ux/ok 99/ok 99/err ix/ok 99/err vx",
+	},
+	{
 		name: "labeled_args",
 		src: `package main
 

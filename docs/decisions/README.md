@@ -90,7 +90,8 @@
 | [gom-test-message-stream](2026-11-03-gom-test-message-stream.md) | `gom test` message stream and `go test` execution granularity | 採用 |
 | [import-go-loading-mechanics](2026-11-03-import-go-loading-mechanics.md) | How `import go` loads Go packages: go/types + go/importer over `go list -export` | 採用（P1-9 の `internal/goimport` が実装・検証した — E2E で `strconv`/`bytes`/`os`/`fmt` の呼び出しが生成コードの build・run まで通る） |
 | [inference-witness-oracle](2026-11-03-inference-witness-oracle.md) | Inference witness oracle: generator-side wanted types vs `check`'s inference | 採用 |
-| [result-pipe-local-boundary](2026-11-03-result-pipe-local-boundary.md) | Result パイプの局所的な制御フロー | 採用 |
+| [pipe-try-segmented-fusion](2026-11-03-pipe-try-segmented-fusion.md) | 明示的 `try` を含む `\|?>` チェーンの分割融合 | 採用（評価器対生成 Go の比較・生成コード検査で確認。[検証レポート](../sketch/2026-11-03-pipe-try-segmented-fusion.md)） |
+| [result-pipe-local-boundary](2026-11-03-result-pipe-local-boundary.md) | Result パイプの局所的な制御フロー（一部を [pipe-try-segmented-fusion](2026-11-03-pipe-try-segmented-fusion.md) で置き換え） | 採用 |
 | [skill-vendoring-via-symlink](2026-11-03-skill-vendoring-via-symlink.md) | `.devin/skills` への skill 公開は symlink で行う | 採用 |
 | [source-location-correspondence](2026-11-03-source-location-correspondence.md) | Source-location correspondence: anchor table shape and Go-position restore | 採用 |
 | [static-function-alias-declarations](2026-11-03-static-function-alias-declarations.md) | Static function aliases use named canonical function wrappers | 採用 |

@@ -27,6 +27,7 @@
 ### ドキュメント
 
 - [ ] **D-3 `README.md` を書く**: 現在 `# gom` のみの空状態。言語の概要・ビルド/実行の quick start・ツール群（`gom build`/`check`/`fmt`/`info`）・ドキュメントへの導線（spec/design/tutorial）を載せる。**プロジェクト終盤に書く** — 機能が増えるたびに更新対象になるのを避けるため、内容が安定してから一括で書く（ユーザー指定）
+- [ ] **D-4 tutorial/examples の go.mod 配置の整理**: tutorial の各章にはほぼ同形の go.mod がある（実質 `tutorial_test.go` が scratch module へコピーする用途だけで使い、`run.sh` は自前生成）。章側で生成するか集約するかは、gom がパッケージとして取り込まれる形（examples/tutorial が利用者からどう見えるか）を決めるタイミングで整理する。外部依存を取り込んでいない現状では不要。**D-3 と同程度の後の作業**（ユーザー指定）
 
 ### P0 Go 出力の実現可能性の検証
 
@@ -42,7 +43,8 @@
   - [ ] **P2-2c タプル等に格納した循環関数値の初期化循環を解消する**: `fn count (n: Int) -> Int = if n == 0 { 0 } else { again (n - 1) + 1 }; let (again, _) = (count, 0)` が check/build を通るが、生成 Go は hidden tuple → count → again → hidden tuple の initialization cycle になる。集約値の初期化の副作用・依存順を保つ表現を Core IR で決め、生成コードの実行回帰を追加する。[再現と範囲](docs/sketch/2026-11-03-static-function-alias-verification.md)。依存: P2-2b
 - [x] **P2-3 ラベル付き引数**: 評価順の保存（[design.md 2.1](docs/design.md) の例）、パンニング、v1 の制限（[spec 2 章](docs/spec.md)、[decisions/labeled-required-arguments](docs/decisions/2026-11-01-labeled-required-arguments.md)）。P2-2 の呼び出し情報構造化で実装は揃っており、規則ごとの spec fixture・評価順を固定する golden・eval/compiled 比較を追加した（[検証](docs/sketch/2026-11-05-p2-3-labeled-args.md)）。依存: P2-2
 - [-] **P2-4 `try` と `|?>`**: 脱出境界は最も内側の関数（[decisions/try-boundary](docs/decisions/2026-11-01-try-boundary.md)）、`|?>` の `%w` 自動ラップ（[spec 9 章](docs/spec.md)）。中間の `Result` を作らない生成（design.md 4.6）。依存: P2-1, P1-13
-  - [ ] **P2-4b 明示的 `try` を含むパイプの融合**: ユーザー関数への脱出先を保存したまま、決定木経路の Go 呼び出しと連続チェーンの中間 Result を削減する。現在は意味を優先した保守的経路であり、ラムダ内だけに `try` があるケースも含めて最適化できる（[検証](docs/sketch/2026-11-03-result-pipe-local-boundary.md)）。依存: P2-4a
+  - [x] **P2-4b 明示的 `try` を含むパイプの融合**: unguarded try（最内ユーザー関数を脱出する `try`）を `hasUnguardedTry` で検出し、チェーンをセグメント化して融合。セグメント内は `EscapeCall`/`EscapeResult` で payload のみ運び末尾で一度だけ `Ok` 構築、セグメント間は feed 決定木、脱出先はユーザー関数のまま保存。ラムダ内だけに `try` があるケースは従来の単一境界融合。eval/compiled 一致は 16+21 ケース、GoError wrap 同一性は `TestPipeGoErrorChain` で実行検証（[decision](docs/decisions/2026-11-03-pipe-try-segmented-fusion.md)、[検証](docs/sketch/2026-11-03-pipe-try-segmented-fusion.md)）。依存: P2-4a
+  - [ ] **P2-4c unguarded ステップの `EscapeCall` 融合（残る最適化）**: unguarded ステップの引数が Go `(T,error)` 呼び出しの場合、`ResultFromGo` で物質化してから次セグメントの `EscapeResult` が検査するため中間 Result が 1 個残る。引数評価（try を含むのでユーザー側の列）と呼び出し本体（セグメント内 `EscapeCall`）を分離すれば融合可能。併せて `pipeRest` の span 不統一（束縛は `lv.Y.Span()`・enter escape は `lv.Sp`）も直す（P2-4b レビュー F5/F6）。依存: P2-4b
 
 - [x] **P2-5 Go ジェネリクスへの出力**: トップレベルの多相関数と多相 ADT を型パラメータ付きで出力する。本体は既存実装（`poly_functions` / `variant_named_field` golden）を `poly_adts` golden・評価一致テストで確定。監査で見つかった成長する多相再帰（生成 Go が instantiation cycle で拒否される）は E0416 で拒否（[decision](docs/decisions/2026-11-03-generic-instantiation-cycles.md)、[検証](docs/sketch/2026-11-03-p2-5-generic-emission-verification.md)）。依存: P2-2
 

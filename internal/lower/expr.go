@@ -1571,15 +1571,18 @@ func (l *lowerer) tryExpr(s *seq, e *check.Try) core.Expr {
 
 // pipeTry returns a Result value. Only the compiler-created local
 // boundary exits on failure; the surrounding user function continues.
+//
+// A `try` that no lambda shields — one whose escape boundary is the
+// user function being lowered — cannot move into the synthesized
+// boundary closure without retargeting its escape (spec section 6).
+// When the chain holds such a try it takes the segmented path
+// (pipeTryMixed); otherwise every step is safe inside one boundary
+// closure and the chain fuses outright — a `try` under a lambda keeps
+// its own boundary wherever the lambda is applied, so it does not
+// force the segmented path.
 func (l *lowerer) pipeTry(s *seq, e *check.Binary) core.Expr {
-	hasTry := false
-	check.WalkExpr(e, func(x check.Expr) {
-		if _, ok := x.(*check.Try); ok {
-			hasTry = true
-		}
-	})
-	if hasTry {
-		return l.pipeTryValue(s, e)
+	if hasUnguardedTry(e) {
+		return l.pipeTryMixed(s, e)
 	}
 	cl := l.closureOf(e.Sp, types.Fn(e.Type(), types.P(types.Unit)),
 		[]types.FuncParam{types.P(types.Unit)}, func(bs *seq, _ []core.Atom) core.Expr {
@@ -1592,11 +1595,25 @@ func (l *lowerer) pipeTry(s *seq, e *check.Binary) core.Expr {
 // pipePayload fuses a left-associated chain inside one local boundary.
 // Intermediate successful pipeline stages never construct Result values.
 func (l *lowerer) pipePayload(s *seq, e *check.Binary) core.Atom {
-	fn := l.curFn()
 	var in core.Atom
 	if prev, ok := e.X.(*check.Binary); ok && prev.Op == syntax.BinPipeTry {
 		in = l.pipePayload(s, prev)
-	} else if ap, ok := e.X.(*check.Apply); ok && ap.Call.Kind == check.CallGo && ap.Call.HoleIndex < 0 {
+	} else {
+		in = l.pipeInflowAtom(s, e)
+	}
+	return l.escapeStepPayload(s, e, l.stepApply(s, e, e.Y, in))
+}
+
+// pipeInflowAtom lowers the non-|?> left operand of a chain level
+// inside a boundary sequence: a Go (T,error) call fuses to EscapeCall,
+// a stored Result unwraps through EscapeResult, and any other value —
+// including a non-Result first value (spec 9.2.7) — feeds the step
+// directly. The escapes target the enclosing boundary (curFn), so this
+// may only run inside a synthesized boundary sequence.
+func (l *lowerer) pipeInflowAtom(s *seq, e *check.Binary) core.Atom {
+	fn := l.curFn()
+	var in core.Atom
+	if ap, ok := e.X.(*check.Apply); ok && ap.Call.Kind == check.CallGo && ap.Call.HoleIndex < 0 {
 		call := l.goCallNode(s, ap)
 		if call.Results == core.GoResultsErr || call.Results == core.GoResultsErrOnly {
 			in = l.asAtom(s, e.X.Span(), &core.EscapeCall{
@@ -1621,7 +1638,7 @@ func (l *lowerer) pipePayload(s *seq, e *check.Binary) core.Atom {
 			})
 		}
 	}
-	return l.escapeStepPayload(s, e, l.stepApply(s, e, e.Y, in))
+	return in
 }
 
 // pipeInputAtom preserves the effects of Unit-valued inflow expressions
@@ -1638,35 +1655,308 @@ func (l *lowerer) pipeOk(e *check.Binary, payload core.Atom) core.Expr {
 	return &core.CtorApp{Base: baseOf(e), Ctor: l.ctorSym("Ok"), Args: []core.Atom{payload}, Arity: 1}
 }
 
-// pipeTryValue keeps explicit try expressions in their original function
-// boundary. Decision-tree branches skip every RHS computation on Err.
-func (l *lowerer) pipeTryValue(s *seq, e *check.Binary) core.Expr {
-	in := l.pipeInputAtom(s, e.X)
-	step := func(bs *seq, payload core.Atom) core.Expr {
-		// Evaluate user expressions before entering the synthetic boundary.
-		value := l.asAtom(bs, e.Y.Span(), l.stepApply(bs, e, e.Y, payload))
-		cl := l.closureOf(e.Sp, types.Fn(e.Type(), types.P(types.Unit)),
-			[]types.FuncParam{types.P(types.Unit)}, func(cs *seq, _ []core.Atom) core.Expr {
-				return l.pipeOk(e, l.escapeStepPayload(cs, e, value))
+// hasUnguardedTry reports whether e contains a `try` no lambda
+// shields — a try whose escape boundary is the function the chain is
+// being lowered into. Such a `try` cannot be moved into a synthesized
+// boundary closure without changing its escape target. A `try` under
+// a lambda escapes the lambda itself wherever the lambda is applied,
+// so it does not force the conservative path; `go { ... }` is not a
+// boundary (the checker already rejects a try escaping across it) and
+// does not shield. The walk mirrors check.WalkExpr's tree, minus the
+// descent into lambda bodies.
+func hasUnguardedTry(e check.Expr) bool {
+	found := false
+	var walk func(x check.Expr)
+	walk = func(x check.Expr) {
+		if x == nil || found {
+			return
+		}
+		switch x := x.(type) {
+		case *check.Lit, *check.Var, *check.Hole:
+		case *check.Lambda:
+			// A function boundary: trys inside target the lambda.
+		case *check.Try:
+			found = true
+		case *check.Apply:
+			walk(x.Fn)
+			for _, a := range x.Args {
+				walk(a.Value)
+			}
+		case *check.MemberExpr:
+			walk(x.Recv)
+		case *check.Unary:
+			walk(x.X)
+		case *check.Binary:
+			walk(x.X)
+			walk(x.Y)
+		case *check.StrInterp:
+			for _, p := range x.Parts {
+				switch p := p.(type) {
+				case *check.StrExpr:
+					walk(p.X)
+				case *check.StrText:
+				default:
+					panic("unreachable")
+				}
+			}
+		case *check.If:
+			walk(x.Cond)
+			walk(x.Then)
+			walk(x.Else)
+		case *check.Match:
+			walk(x.Subj)
+			for _, a := range x.Arms {
+				walk(a.Guard)
+				walk(a.Body)
+			}
+		case *check.Block:
+			for _, st := range x.Stmts {
+				walk(st)
+			}
+		case *check.Let:
+			walk(x.Value)
+		case *check.Ignore:
+			walk(x.X)
+		case *check.GoExpr:
+			walk(x.Body)
+		case *check.For:
+			walk(x.Iter)
+			walk(x.Body)
+		case *check.SelectExpr:
+			for _, a := range x.Arms {
+				switch a := a.(type) {
+				case *check.RecvArm:
+					walk(a.Chan)
+					walk(a.Body)
+				case *check.SendArm:
+					walk(a.Chan)
+					walk(a.Value)
+					walk(a.Body)
+				case *check.DefaultArm:
+					walk(a.Body)
+				default:
+					panic("unreachable")
+				}
+			}
+		case *check.ListLit:
+			for _, el := range x.Elems {
+				walk(el)
+			}
+		case *check.TupleLit:
+			for _, el := range x.Elems {
+				walk(el)
+			}
+		case *check.Spread:
+			walk(x.X)
+		case *check.RecordLit:
+			walk(x.With)
+			for _, f := range x.Fields {
+				walk(f.Value)
+			}
+		case *check.Ascribe:
+			walk(x.X)
+		default:
+			panic("unreachable")
+		}
+	}
+	walk(e)
+	return found
+}
+
+// pipeTryMixed lowers a |?> chain holding at least one unguarded `try`.
+// Such a try must keep the user function as its escape boundary, so the
+// chain splits into segments at the steps that carry one: each maximal
+// run of guarded steps fuses inside one boundary closure (a Go
+// (T,error) call fuses to EscapeCall and no intermediate Result is
+// materialized between steps — the same emission pipePayload produces),
+// while an unguarded step's application is evaluated in the enclosing
+// sequence — the top one or a match arm's — where its trys still target
+// the user function. A decision-tree match hands a segment's Ok payload
+// to the next unguarded step, so a failure skips every remaining step.
+// The semantics are the conservative path's — escape destinations,
+// wrap-once names and evaluation order are unchanged; only the number
+// of synthesized closures and materialized Results shrinks.
+func (l *lowerer) pipeTryMixed(s *seq, e *check.Binary) core.Expr {
+	// Flatten the left-associated chain: levels[0] is the innermost |?>.
+	var rev []*check.Binary
+	for x := e; ; {
+		rev = append(rev, x)
+		prev, ok := x.X.(*check.Binary)
+		if !ok || prev.Op != syntax.BinPipeTry {
+			break
+		}
+		x = prev
+	}
+	levels := make([]*check.Binary, len(rev))
+	for i, x := range rev {
+		levels[len(rev)-1-i] = x
+	}
+	unguarded := make([]bool, len(levels))
+	for i, lv := range levels {
+		unguarded[i] = hasUnguardedTry(lv.Y)
+	}
+
+	in := levels[0].X
+	if unguarded[0] {
+		// No leading segment exists: the inflow evaluates in s — a
+		// sequence of the user boundary — and a Result input is
+		// matched for its payload like any boundary Result.
+		inAtom := l.pipeInputAtom(s, in)
+		if _, _, isRes := l.resultArgs(inAtom.Type()); isRes {
+			return l.pipeFeed(s, e, inAtom, func(as *seq, p core.Atom) core.Expr {
+				return l.pipeRest(as, e, levels, unguarded, 0, p)
 			})
-		return &core.CallFunc{Base: baseOf(e), Fn: l.asAtom(bs, e.Sp, cl), Args: []core.Atom{l.litUnit(e.Sp)}}
+		}
+		return l.pipeRest(s, e, levels, unguarded, 0, inAtom)
 	}
-	argT, errT, isRes := l.resultArgs(in.Type())
+
+	// The chain opens with a boundary segment. A guarded inflow is
+	// lowered inside it (Go calls fuse); an unguarded inflow evaluates
+	// in s and is inspected there.
+	var enter func(bs *seq) core.Atom
+	if hasUnguardedTry(in) {
+		inAtom := l.pipeInputAtom(s, in)
+		if _, _, isRes := l.resultArgs(inAtom.Type()); isRes {
+			enter = func(bs *seq) core.Atom {
+				return l.asAtom(bs, in.Span(), &core.EscapeResult{
+					Base: core.Base{Sp: in.Span(), Typ: l.payloadOf(inAtom.Type())},
+					X:    inAtom, To: l.curFn(),
+				})
+			}
+		} else {
+			enter = func(bs *seq) core.Atom { return inAtom }
+		}
+	} else {
+		enter = func(bs *seq) core.Atom { return l.pipeInflowAtom(bs, levels[0]) }
+	}
+	j := 0
+	for j < len(levels) && !unguarded[j] {
+		j++
+	}
+	seg := l.pipeSegment(s, levels[j-1], enter, levels, 0, j)
+	if j == len(levels) {
+		return seg
+	}
+	res := l.asAtom(s, levels[j-1].Sp, seg)
+	return l.pipeFeed(s, e, res, func(as *seq, p core.Atom) core.Expr {
+		return l.pipeRest(as, e, levels, unguarded, j, p)
+	})
+}
+
+// pipeRest continues a mixed chain from step i given the payload atom
+// p — already unwrapped and bound in cs, a sequence of the user
+// boundary. Guarded steps fuse inside one boundary segment; an
+// unguarded step applies in cs so its trys keep the user boundary, and
+// its Result either enters the next segment for inspection (when the
+// step name wraps the error) or feeds a plain decision-tree match.
+func (l *lowerer) pipeRest(cs *seq, e *check.Binary, levels []*check.Binary, unguarded []bool, i int, p core.Atom) core.Expr {
+	n := len(levels)
+	if i >= n {
+		return l.pipeOk(e, p)
+	}
+	if !unguarded[i] {
+		j := i + 1
+		for j < n && !unguarded[j] {
+			j++
+		}
+		seg := l.pipeSegment(cs, levels[j-1], func(bs *seq) core.Atom { return p }, levels, i, j)
+		if j == n {
+			return seg
+		}
+		res := l.asAtom(cs, levels[j-1].Sp, seg)
+		return l.pipeFeed(cs, e, res, func(as *seq, q core.Atom) core.Expr {
+			return l.pipeRest(as, e, levels, unguarded, j, q)
+		})
+	}
+	lv := levels[i]
+	val := l.asAtom(cs, lv.Y.Span(), l.stepApply(cs, lv, lv.Y, p))
+	if wrap := l.pipeWrap(lv); wrap != "" {
+		// The wrap lives only on EscapeResult/EscapeCall — inspect
+		// the step's Result inside the next boundary segment, which
+		// also runs the guarded steps that follow it.
+		j := i + 1
+		for j < n && !unguarded[j] {
+			j++
+		}
+		seg := l.pipeSegment(cs, levels[j-1], func(bs *seq) core.Atom {
+			return l.asAtom(bs, lv.Sp, &core.EscapeResult{
+				Base: core.Base{Sp: lv.Sp, Typ: l.payloadOf(val.Type())},
+				X:    val, To: l.curFn(), Wrap: wrap,
+			})
+		}, levels, i+1, j)
+		if j == n {
+			return seg
+		}
+		res := l.asAtom(cs, levels[j-1].Sp, seg)
+		return l.pipeFeed(cs, e, res, func(as *seq, q core.Atom) core.Expr {
+			return l.pipeRest(as, e, levels, unguarded, j, q)
+		})
+	}
+	// No wrap to apply (the chain's error type is not GoError): a
+	// plain match continues the chain — no boundary is needed to
+	// rebuild the same Err value.
+	return l.pipeFeed(cs, e, val, func(as *seq, q core.Atom) core.Expr {
+		return l.pipeRest(as, e, levels, unguarded, i+1, q)
+	})
+}
+
+// pipeSegment emits one immediately-applied boundary closure running
+// the guarded steps levels[lo:hi]: inside it each step's Result is
+// unwrapped by EscapeResult (or fused to EscapeCall for a Go (T,error)
+// call) and no intermediate Ok is rebuilt. enter produces the entry
+// payload inside the boundary sequence — it may create escapes
+// targeting the segment's own Func. The closure's return type is
+// resLevel's, the last level the segment covers.
+func (l *lowerer) pipeSegment(cs *seq, resLevel *check.Binary, enter func(bs *seq) core.Atom, levels []*check.Binary, lo, hi int) core.Expr {
+	cl := l.closureOf(resLevel.Sp, types.Fn(resLevel.Type(), types.P(types.Unit)),
+		[]types.FuncParam{types.P(types.Unit)}, func(bs *seq, _ []core.Atom) core.Expr {
+			p := enter(bs)
+			for k := lo; k < hi; k++ {
+				p = l.escapeStepPayload(bs, levels[k], l.stepApply(bs, levels[k], levels[k].Y, p))
+			}
+			return l.pipeOk(resLevel, p)
+		})
+	return &core.CallFunc{
+		Base: baseOf(resLevel),
+		Fn:   l.asAtom(cs, resLevel.Sp, cl),
+		Args: []core.Atom{l.litUnit(resLevel.Sp)},
+	}
+}
+
+// pipeFeed emits the decision-tree match that hands a Result subject's
+// Ok payload to ok — built against the Ok arm's sequence — and rebuilds
+// `Err e` at the chain's type in the Err arm so a failure skips the
+// remaining steps. Invalid subjects reach the DPanic default, matching
+// the boundary escapes' invalid-Result panic.
+func (l *lowerer) pipeFeed(cs *seq, e *check.Binary, subj core.Atom, ok func(as *seq, p core.Atom) core.Expr) core.Expr {
+	argT, errT, isRes := l.resultArgs(subj.Type())
 	if !isRes {
-		return step(s, in)
+		l.err(subj.Span(), fmt.Sprintf("|?> chain feeds %s, not a Result", typeName(subj.Type())))
+		return subj
 	}
-	okBind := l.tmpBind(e.Sp, argT)
-	errBind := l.tmpBind(e.Sp, errT)
-	bs := &seq{}
-	tail := step(bs, varOf(e.Sp, okBind))
+	okBind := l.tmpBind(subj.Span(), argT)
+	errBind := l.tmpBind(subj.Span(), errT)
+	as := &seq{}
+	tail := ok(as, varOf(subj.Span(), okBind))
 	return &core.Match{Base: baseOf(e), Tree: &core.DSwitch{
-		Base: baseOf(e), Subj: in, Kind: core.SwitchTag,
+		Base: baseOf(e), Subj: subj, Kind: core.SwitchTag,
 		Cases: []core.DCase{
-			{Sp: e.Sp, Test: &core.DCtorTest{Sp: e.Sp, Ctor: l.ctorSym("Ok")}, Binds: []*core.Bind{okBind}, Body: &core.Body{Lets: bs.lets, Tail: tail}},
-			{Sp: e.Sp, Test: &core.DCtorTest{Sp: e.Sp, Ctor: l.ctorSym("Err")}, Binds: []*core.Bind{errBind}, Body: &core.Body{Tail: &core.CtorApp{Base: baseOf(e), Ctor: l.ctorSym("Err"), Args: []core.Atom{varOf(e.Sp, errBind)}, Arity: 1}}},
+			{Sp: subj.Span(), Test: &core.DCtorTest{Sp: subj.Span(), Ctor: l.ctorSym("Ok")}, Binds: []*core.Bind{okBind}, Body: &core.Body{Lets: as.lets, Tail: tail}},
+			{Sp: subj.Span(), Test: &core.DCtorTest{Sp: subj.Span(), Ctor: l.ctorSym("Err")}, Binds: []*core.Bind{errBind}, Body: &core.Body{Tail: &core.CtorApp{Base: baseOf(e), Ctor: l.ctorSym("Err"), Args: []core.Atom{varOf(e.Sp, errBind)}, Arity: 1}}},
 		},
-		Default: l.dpanic(in, e.Type()),
+		Default: l.dpanic(subj, e.Type()),
 	}}
+}
+
+// pipeWrap is a chain level's %w wrap name — the step's source name
+// when the chain's error type is the builtin GoError, "" otherwise.
+// The same rule escapeStepPayload applies; a non-Result level type
+// (broken input) wraps nothing.
+func (l *lowerer) pipeWrap(e *check.Binary) string {
+	if _, e2, ok := l.resultArgs(e.Type()); ok && l.isGoError(e2) {
+		return l.stepName(e.Y)
+	}
+	return ""
 }
 
 // stepApply applies a |?> step to the unwrapped payload — the same
@@ -1707,10 +1997,7 @@ func (l *lowerer) stepApply(s *seq, e *check.Binary, rhs check.Expr, in core.Ato
 // The caller wraps only the final payload in Ok. Direct Go error-returning
 // calls fuse to EscapeCall without materializing an intermediate Result.
 func (l *lowerer) escapeStepPayload(s *seq, e *check.Binary, step core.Expr) core.Atom {
-	wrap := ""
-	if _, e2, ok := l.resultArgs(e.Type()); ok && l.isGoError(e2) {
-		wrap = l.stepName(e.Y)
-	}
+	wrap := l.pipeWrap(e)
 	fn := l.curFn()
 	var payload core.Atom
 	if call, ok := unwrapToCallGo(step); ok &&
