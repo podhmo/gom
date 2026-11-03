@@ -415,7 +415,13 @@ func (s *Sandbox) spawn() error {
 	}
 	argv := []string{"-test.run=^" + s.helper + "$", "-test.v"}
 	var cmd *exec.Cmd
-	if sh, err := exec.LookPath("sh"); err == nil {
+	// The `ulimit -v` vsize cap is skipped under -race: RLIMIT_AS
+	// counts the race runtime's shadow address-space reservations,
+	// so a capped child dies environment-dependently (the "address
+	// space collisions" death abnormal() folds into the timeout
+	// class). Real memory is still bounded by the kernel OOM killer
+	// and GOMEMLIMIT.
+	if sh, err := exec.LookPath("sh"); err == nil && !raceEnabled {
 		args := append([]string{"-c",
 			fmt.Sprintf(`ulimit -v %d 2>/dev/null; exec "$@"`, s.vsizeKB),
 			"gom-fuzz-sandbox", bin}, argv...)

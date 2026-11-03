@@ -148,8 +148,12 @@ func testOnlyDecl(d core.Decl) bool {
 		return d.Sym != nil && d.Sym.TestOnly
 	case *core.VarDecl:
 		return d.Sym != nil && d.Sym.TestOnly
-	default:
+	case *core.TestDecl:
+		return true
+	case *core.TypeDecl:
 		return false
+	default:
+		panic("unreachable")
 	}
 }
 

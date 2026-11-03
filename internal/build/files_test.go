@@ -14,7 +14,6 @@ import (
 	"testing"
 
 	"github.com/podhmo/gom/internal/build"
-	"github.com/podhmo/gom/internal/diag"
 )
 
 func compileFiles(t *testing.T, srcs map[string]string) []*build.Result {
@@ -40,16 +39,6 @@ func compileFiles(t *testing.T, srcs map[string]string) []*build.Result {
 		t.Fatalf("CompileFiles: %v", err)
 	}
 	return rs
-}
-
-func hasErrCode(t *testing.T, r *build.Result, code diag.Code) bool {
-	t.Helper()
-	for _, d := range r.Diagnostics {
-		if d.Code == code {
-			return true
-		}
-	}
-	return false
 }
 
 // A sibling `let` is a package-scope var: the other file reads it

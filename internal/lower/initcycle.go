@@ -50,6 +50,11 @@ func (l *lowerer) checkInitCycles(out *core.File) {
 				vars[d.Sym] = d
 				order = append(order, d.Sym)
 			}
+		case *core.TestDecl, *core.TypeDecl:
+			// Test bodies run at test time, not package init;
+			// type declarations carry no initializer.
+		default:
+			panic("unreachable")
 		}
 	}
 	if len(vars) == 0 {
@@ -75,8 +80,10 @@ func (l *lowerer) checkInitCycles(out *core.File) {
 				continue
 			}
 			from, b = d.Sym, d.Body
-		default:
+		case *core.TestDecl, *core.TypeDecl:
 			continue
+		default:
+			panic("unreachable")
 		}
 		walkTailrec(b, func(e core.Expr, _, _ bool) {
 			var to *resolve.Symbol
@@ -87,6 +94,20 @@ func (l *lowerer) checkInitCycles(out *core.File) {
 				to = e.Sym
 			case *core.CallDirect:
 				to = e.Callee
+			case *core.Binary, *core.CallBuiltin, *core.CallFunc,
+				*core.CallGo, *core.Closure, *core.Conv, *core.CtorApp,
+				*core.CtorRef, *core.Equal, *core.EscapeCall,
+				*core.EscapeResult, *core.FieldGet, *core.ForRange,
+				*core.GoFuncRef, *core.If, *core.ListNew, *core.Lit,
+				*core.Match, *core.OptionFromGo, *core.RecordNew,
+				*core.RecordUpdate, *core.ResultFromGo, *core.SelectExpr,
+				*core.Spawn, *core.TailCall, *core.TupleFromGo,
+				*core.TupleNew, *core.Unary:
+				// Only direct symbol references join the init
+				// dependency set; every other expression kind
+				// contributes through walkTailrec's traversal.
+			default:
+				panic("unreachable")
 			}
 			if to != nil && (funcs[to] || vars[to] != nil) {
 				if refset[from] == nil {

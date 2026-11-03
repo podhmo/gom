@@ -64,8 +64,10 @@ func TestFilesSiblingCall(t *testing.T) {
 				got = append(got, d.Sym.Name)
 			case *TypeDecl:
 				got = append(got, d.Sym.Name)
-			default:
+			case *LetDecl, *TestDecl:
 				got = append(got, "?")
+			default:
+				panic("unreachable")
 			}
 		}
 		if len(got) != len(names) || got[0] != names[0] {

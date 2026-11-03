@@ -43,15 +43,6 @@ func wantDiag(t *testing.T, ds diag.List, code string, sub string) diag.Diagnost
 	return diag.Diagnostic{}
 }
 
-func wantNoDiag(t *testing.T, ds diag.List, code string) {
-	t.Helper()
-	for _, d := range ds {
-		if d.Code == diag.Code(code) {
-			t.Fatalf("unexpected %s: %s", code, d.Message)
-		}
-	}
-}
-
 // The P3-5 regression: inside `extern go "flag"`, `String` must mean
 // the builtin type — not flag.String the three-parameter function —
 // and `Ptr` must not inherit a Go member's arity. Neither the bogus

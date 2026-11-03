@@ -196,6 +196,24 @@ func TestLoadMembers(t *testing.T) {
 	}
 }
 
+// A wildcard let binds no symbols — `let _ : T` is legal `.gomi`
+// surface (E0602 only rejects multi-name patterns), so the member
+// walk must treat WildPat/LitPat as contributing nothing rather
+// than panicking.
+func TestLoadWildcardLetMember(t *testing.T) {
+	root := writeMod(t, "example.com/m", map[string]string{
+		"p/p.gomi": "package p\n\nlet _ : Float\nlet keep : Int\n",
+	})
+	l := New(&Config{Dir: root})
+	p, err := l.Load("example.com/m/p", false)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if len(p.Members) != 1 || p.Members["keep"] == nil {
+		t.Fatalf("members = %v, want just keep", p.Members)
+	}
+}
+
 // A failed load latches: the same error object comes back without
 // recompiling.
 func TestLoadFailureCaches(t *testing.T) {

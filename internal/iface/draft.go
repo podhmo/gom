@@ -225,6 +225,10 @@ func (d *drafter) letMember(name string, td check.Decl) []string {
 			d.writeType(&sb, m.Type)
 			return []string{sb.String()}
 		}
+	case *check.TestDecl, *check.TypeDecl:
+		// Tests and type declarations carry no let members.
+	default:
+		panic("unreachable")
 	}
 	return nil
 }

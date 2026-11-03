@@ -56,11 +56,13 @@ FUZZPARALLEL ?= 4
 
 check-fuzz:
 	$(GO) clean -fuzzcache
-	GOMEMLIMIT=2GiB $(GO) test ./internal/syntax -run='^$$' -fuzz=FuzzParse -fuzztime=$(FUZZTIME) -parallel=$(FUZZPARALLEL)
-	GOMEMLIMIT=2GiB $(GO) test ./internal/build -run='^$$' -fuzz=FuzzCompile -fuzztime=$(FUZZTIME) -parallel=$(FUZZPARALLEL)
-	# -fuzz=FuzzFormat matches FuzzFormat and FuzzFormatGen; each
-	# gets its own FUZZTIME window.
-	GOMEMLIMIT=2GiB $(GO) test ./internal/format -run='^$$' -fuzz=FuzzFormat -fuzztime=$(FUZZTIME) -parallel=$(FUZZPARALLEL)
+	GOMEMLIMIT=2GiB $(GO) test ./internal/syntax -run='^$$' -fuzz='^FuzzParse$$' -fuzztime=$(FUZZTIME) -parallel=$(FUZZPARALLEL)
+	GOMEMLIMIT=2GiB $(GO) test ./internal/build -run='^$$' -fuzz='^FuzzCompile$$' -fuzztime=$(FUZZTIME) -parallel=$(FUZZPARALLEL)
+	# -fuzz takes one regex and errors when it matches multiple
+	# fuzz targets, so each format fuzzer is anchored explicitly;
+	# each gets its own FUZZTIME window.
+	GOMEMLIMIT=2GiB $(GO) test ./internal/format -run='^$$' -fuzz='^FuzzFormat$$' -fuzztime=$(FUZZTIME) -parallel=$(FUZZPARALLEL)
+	GOMEMLIMIT=2GiB $(GO) test ./internal/format -run='^$$' -fuzz='^FuzzFormatGen$$' -fuzztime=$(FUZZTIME) -parallel=$(FUZZPARALLEL)
 
 # go-check-sumtype verifies type-switch exhaustiveness on the sealed
 # interfaces annotated with //sumtype:decl (docs/design.md section 2.4).

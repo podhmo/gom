@@ -572,6 +572,8 @@ func letSyms(p check.Pat) []*resolve.Symbol {
 		case nil:
 		case *check.VarPat:
 			out = append(out, n.Sym)
+		case *check.LitPat, *check.WildPat:
+			// Literal and wildcard patterns bind no symbols.
 		case *check.CtorPat:
 			for _, a := range n.Args {
 				walk(a.Pat)
@@ -619,6 +621,8 @@ func patType(p check.Pat, sym *resolve.Symbol) types.Type {
 			if n.Sym == sym {
 				found = n.Type()
 			}
+		case *check.LitPat, *check.WildPat:
+			// Literal and wildcard patterns bind no symbols.
 		case *check.CtorPat:
 			for _, a := range n.Args {
 				walk(a.Pat)

@@ -21,6 +21,13 @@ TOOL=honnef.co/go/tools/cmd/staticcheck@v0.8.2
 
 for mod in $(find . -name go.mod | sort); do
 	dir=$(dirname "$mod")
+	# A module holding a .staticcheck-skip marker is a fixture that
+	# cannot be linted at rest (e.g. testdata/multifile generates its
+	# .go files during the e2e test, so its imports only resolve
+	# after `gom build` ran).
+	if [ -f "$dir/.staticcheck-skip" ]; then
+		continue
+	fi
 	if [ "$dir" = "." ]; then
 		"$GO" run "$TOOL" ./...
 	else
