@@ -1,0 +1,26 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0404",
+      "severity": "error",
+      "message": "the Go callee requires `~dst:`, which the call does not supply",
+      "span": {
+        "file": "E0404_go_missing_label.gom",
+        "start": {
+          "line": 15,
+          "col": 16,
+          "offset": 381
+        },
+        "end": {
+          "line": 15,
+          "col": 31,
+          "offset": 396
+        }
+      },
+      "data": {
+        "label": "dst"
+      }
+    }
+  ]
+}

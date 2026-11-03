@@ -1,0 +1,27 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0201",
+      "severity": "error",
+      "message": "undefined name `name`",
+      "span": {
+        "file": "E0201_label_pun_undefined.gom",
+        "start": {
+          "line": 7,
+          "col": 16,
+          "offset": 211
+        },
+        "end": {
+          "line": 7,
+          "col": 20,
+          "offset": 215
+        }
+      },
+      "data": {
+        "name": "name",
+        "namespace": "value"
+      }
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+package ex
+
+fn transfer (from: String) (~to: String) (~amount: Int) -> String =
+  "${from} -> ${to}: ${amount}"
+
+// spec section 2 rule 3: supplying the same label twice is an error.
+let x = transfer "alice" ~to: "bob" ~to: "carol" ~amount: 1

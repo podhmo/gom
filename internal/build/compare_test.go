@@ -860,6 +860,46 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 `,
 		want: "outer/42/7",
 	},
+	{
+		name: "labeled_args",
+		src: `package main
+
+import go "fmt"
+
+// Labeled arguments: the evaluator scatters written arguments to
+// declared parameters via CallInfo.ArgToParam while lowering does
+// the same through declOrderArgs — the two must agree on which
+// argument fills which parameter, or the strings below diverge.
+// Punning, labeled partial application (both a labeled residual and
+// a positional-only one), and labeled variant payload construction
+// plus patterns share the same mapping.
+fn transfer (from: String) (~to: String) (~amount: Int) -> String =
+  "${from}->${to}:${amount}"
+
+type Tx =
+  | Send (~to: String) (~amount: Int)
+  | Noop
+
+fn describe (t: Tx) -> String = match t {
+  Send ~to: who ~amount: n -> "send ${n} to ${who}"
+  Noop -> "noop"
+}
+
+fn answer () -> String = {
+  let to = "carol"
+  let scrambled = transfer "alice" ~amount: 100 ~to: "bob"
+  let lead = transfer ~amount: 9 ~to: "zed" "yuki"
+  let punned = transfer "alice" ~to ~amount: 50
+  let partial = transfer "alice" ~to: "bob"
+  let positional_only = transfer ~to: "dave" ~amount: 1
+  let t = Send ~amount: 5 ~to: "bob"
+  "${scrambled}/${lead}/${punned}/${partial ~amount: 7}/${positional_only "mallory"}/${describe t}"
+}
+
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "alice->bob:100/yuki->zed:9/alice->carol:50/alice->bob:7/mallory->dave:1/send 5 to bob",
+	},
 }
 
 // evalAnswer applies the file's `answer` through internal/eval and

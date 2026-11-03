@@ -1,0 +1,27 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected String, got String -> ?5",
+      "span": {
+        "file": "E0401_positional_for_labeled.gom",
+        "start": {
+          "line": 11,
+          "col": 22,
+          "offset": 452
+        },
+        "end": {
+          "line": 11,
+          "col": 25,
+          "offset": 455
+        }
+      },
+      "data": {
+        "actual": "String -> ?5",
+        "expected": "String"
+      }
+    }
+  ]
+}

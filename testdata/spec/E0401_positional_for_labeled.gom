@@ -1,0 +1,11 @@
+package ex
+
+fn transfer (from: String) (~to: String) (~amount: Int) -> String =
+  "${from} -> ${to}: ${amount}"
+
+// spec section 2 rule 3: a positional argument may never fill a
+// labeled parameter — `transfer "a" "b" 100` is an error. The
+// extras land past the flattened parameter list and the saturated
+// result reports the mismatch (the dedicated wording is open:
+// docs/problems/2026-11-03-overapply-labeled-params.md).
+let x = transfer "a" "b" 100

@@ -1,0 +1,6 @@
+package ex
+
+// spec section 2.1: no implicit conversion between labeled and
+// unlabeled function types — the lambda's `?a -> Int` does not
+// unify with `~x: Int -> Int`.
+fn mk () -> (~x: Int -> Int) = fn x -> x + 1

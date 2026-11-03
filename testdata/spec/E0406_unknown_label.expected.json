@@ -1,0 +1,26 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0406",
+      "severity": "error",
+      "message": "the callee has no parameter labeled `~towhere`",
+      "span": {
+        "file": "E0406_unknown_label.gom",
+        "start": {
+          "line": 9,
+          "col": 27,
+          "offset": 290
+        },
+        "end": {
+          "line": 9,
+          "col": 34,
+          "offset": 297
+        }
+      },
+      "data": {
+        "label": "towhere"
+      }
+    }
+  ]
+}

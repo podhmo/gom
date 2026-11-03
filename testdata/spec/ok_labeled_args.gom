@@ -1,0 +1,49 @@
+package ex
+
+// spec section 2 — labeled required arguments.
+
+fn transfer (from: String) (~to: String) (~amount: Int) -> String =
+  "${from} -> ${to}: ${amount}"
+
+type Tx =
+  | Transfer (~to: String) (~amount: Int)
+  | Noop
+
+fn describe (t: Tx) -> String = match t {
+  // Labeled constructor arguments in patterns mirror the call form.
+  Transfer ~to: who ~amount: n -> "send ${n} to ${who}"
+  Noop -> "noop"
+}
+
+// Labeled arguments may come in any order, before or after the
+// positional ones.
+let a = transfer "alice" ~to: "bob" ~amount: 100
+let b = transfer ~amount: 100 ~to: "bob" "alice"
+
+// Punning: `~to` is `~to: to`.
+let to = "carol"
+let c = transfer "alice" ~to ~amount: 50
+
+// The labeled value is one simple expression; anything larger is
+// parenthesized.
+let d = transfer "alice" ~to: "bob" ~amount: (40 + 60)
+
+// Labeled partial application: the unfilled `~amount` stays in the
+// residual `~amount: Int -> String`.
+let partial = transfer "alice" ~to: "bob"
+let e = partial ~amount: 7
+
+// Filling only labels leaves a positional-only function, ready for
+// higher-order use.
+let fill_later = transfer ~to: "dave" ~amount: 1
+let f = fill_later "mallory"
+
+// Variant payloads take the same notation, reordered by label.
+let t = Transfer ~amount: 5 ~to: "bob"
+let g = describe t
+
+// Type equality sorts each run of consecutive labeled parameters by
+// label (spec section 2.1), so `~a -> ~b` is `~b -> ~a`.
+fn add2 (~a: Int) (~b: Int) -> Int = a + b
+fn apply_it (f: (~b: Int -> ~a: Int -> Int)) -> Int = f ~a: 1 ~b: 2
+let h = apply_it add2

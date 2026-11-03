@@ -328,9 +328,18 @@ The callee declares a labeled required argument ("~name: T")
 that the call does not supply. Labeled arguments may be written in
 any order but may not be omitted; partial application supplies some
 labels now and leaves the rest in the resulting function type.
+Because a partially applied Gom call is a legal function value,
+E0404 currently fires only for Go callees — a Go call never curries,
+so every declared labeled parameter must be supplied (see
+docs/problems/2026-11-02-gom-missing-label-is-partial.md for the
+Gom-side wording question).
 
 ```gom
-transfer alice ~to: bob          // ~amount: is missing
+extern go "io" {
+  fn Copy (~dst: Writer) (~src: Reader) -> Result Int64 GoError
+}
+
+io.Copy ~src: f   // ~dst: is missing — a Go call cannot be partial
 ```
 
 ### E0405 — duplicate labeled argument

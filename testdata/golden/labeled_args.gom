@@ -1,0 +1,35 @@
+package main
+
+import go "fmt"
+
+fn trace (tag: String) (v: String) -> String = {
+  ignore (fmt.Println ("eval ${tag}"))
+  v
+}
+
+fn transfer (from: String) (~to: String) (~amount: Int) -> String =
+  "${from} -> ${to}: ${amount}"
+
+type Tx =
+  | Transfer (~to: String) (~amount: Int)
+  | Noop
+
+fn main () -> Unit = {
+  // Labeled arguments written out of declaration order evaluate in
+  // source order (the `trace` calls print in written order), while
+  // the call itself passes declaration order.
+  ignore (fmt.Println (transfer ~amount: 3 ~to: (trace "to" "bob") (trace "from" "alice")))
+  // `~to` puns `~to: to`.
+  let to = "carol"
+  ignore (fmt.Println (transfer "alice" ~to ~amount: 50))
+  // Labeled partial application materializes a closure for the
+  // unfilled `~amount`.
+  let partial = transfer "alice" ~to: "bob"
+  ignore (fmt.Println (partial ~amount: 7))
+  // Filling only labels leaves a positional-only function.
+  let positional_only = transfer ~to: "dave" ~amount: 1
+  ignore (fmt.Println (positional_only "mallory"))
+  // Variant constructors reorder labeled payload arguments too.
+  let t = Transfer ~amount: 5 ~to: "bob"
+  ()
+}

@@ -1,0 +1,27 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected ~x: Int -> Int, got ?1 -> ?1",
+      "span": {
+        "file": "E0401_unlabeled_for_labeled_fn.gom",
+        "start": {
+          "line": 6,
+          "col": 32,
+          "offset": 205
+        },
+        "end": {
+          "line": 6,
+          "col": 45,
+          "offset": 218
+        }
+      },
+      "data": {
+        "actual": "?1 -> ?1",
+        "expected": "~x: Int -> Int"
+      }
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+package ex
+
+fn greet (~name: String) -> String = "hi ${name}"
+
+// spec section 2 rule 7: `~name` puns `~name: name`, so it always
+// refers to a variable `name` — here none is in scope (E0201).
+let x = greet ~name

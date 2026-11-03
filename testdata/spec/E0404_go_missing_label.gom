@@ -1,0 +1,17 @@
+package ex
+
+import go "io"
+import go "os"
+
+extern go "io" {
+  fn Copy (~dst: Writer) (~src: Reader) -> Result Int64 GoError
+}
+
+// spec section 2 rule 3: a missing labeled argument is an error.
+// A Go call never curries, so the unsupplied `~dst` is E0404 rather
+// than a partial application.
+fn run () -> Result Unit GoError = {
+  let f = try (os.Open "/dev/null")
+  let _ = try (io.Copy ~src: f)
+  Ok ()
+}

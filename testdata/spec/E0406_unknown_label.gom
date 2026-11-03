@@ -1,0 +1,9 @@
+package ex
+
+fn transfer (from: String) (~to: String) (~amount: Int) -> String =
+  "${from} -> ${to}: ${amount}"
+
+// spec section 2 rule 3: the callee declares no `~towhere`
+// parameter (the unfilled `~to` stays a partial application, not an
+// additional error).
+let x = transfer "alice" ~towhere: "bob" ~amount: 1

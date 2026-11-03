@@ -23,6 +23,21 @@ E0404/E0406-style errors).
 
 ## なぜ問題か
 
+**追記 (P2-3, 2026-11-05)**: the mechanism described above no longer
+reproduces. `checkGomApply` now hands `overApply` the *final*
+non-function return type (`flattenFunc` flattens the whole arrow
+chain, so `ret` is never a `Func`), which makes `rparams` always
+empty — the `i < len(rparams)` branch above is dead code. Every
+positional extra therefore takes the meta-extension path and fails
+against a saturated result: `mk () 5` is E0401 ("type mismatch:
+expected Int, got ?3 -> ?5"). The *outcome* now matches spec 2 rule 3
+(a positional argument never fills a labeled parameter — pinned by
+testdata/spec/E0401_positional_for_labeled.gom), but the diagnostic
+is an indirect mismatch, and the dead `rparams` branch still
+documents the old "labels ignored" semantics. The open questions are
+now: is E0401's wording acceptable for this error, and should the
+unreachable branch be removed?
+
 - The same source shape is legal or illegal depending on which side
   of the declared arity the argument lands — inconsistent.
 - If it is an error, which code? "positional argument cannot fill a

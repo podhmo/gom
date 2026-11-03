@@ -1,0 +1,26 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0408",
+      "severity": "error",
+      "message": "a labeled call requires the callee's type to be known",
+      "span": {
+        "file": "E0408_labeled_call_unresolved.gom",
+        "start": {
+          "line": 6,
+          "col": 24,
+          "offset": 216
+        },
+        "end": {
+          "line": 6,
+          "col": 25,
+          "offset": 217
+        }
+      },
+      "data": {
+        "label": "x"
+      }
+    }
+  ]
+}

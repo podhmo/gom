@@ -144,6 +144,24 @@
   ファイル自体の状態が更新されていない。
   参照: [problem](problems/2026-11-04-ignore-discard-syntax-unparsed.md)、[lexer](../internal/syntax/token.go)、[tutorial](../tutorial/01-hello/main.gom)。
 
+- [ ] **overapply-labeled-params の problems doc の記述が陳腐化**:
+  `mk () 5` が位置引数で `~x` を埋めると説明するが、`flattenFunc` が全
+  arrow を畳むため `overApply` の `rparams` 分岐は到達不能になり、
+  現在は常に meta 拡張で E0401 になる (spec 2 規則3と結果は整合)。
+  到達不能分岐の削除と E0401 文言の是非が残る未決。
+  参照: [problem](problems/2026-11-03-overapply-labeled-params.md)（追記済み）、
+  [overApply](../internal/check/apply.go)、
+  [fixture](../testdata/spec/E0401_positional_for_labeled.gom)、
+  [検証](sketch/2026-11-05-p2-3-labeled-args.md)。
+
+- [x] **E0404 のコード表の例が発火しない形を示していた**:
+  例の `transfer alice ~to: bob` は Gom 呼び出しでは合法な部分適用で、
+  E0404 は Go callee でしか発火しない。対応: 例を `extern` 経由の
+  Go 呼び出しに差し替えた。Gom 側の文言の未決は problems doc が追跡。
+  参照: [error-codes](error-codes.md#e0404--missing-labeled-argument)、
+  [problem](problems/2026-11-02-gom-missing-label-is-partial.md)、
+  [fixture](../testdata/spec/E0404_go_missing_label.gom)。
+
 - [ ] **CLI usage の計画中コマンド名が P4-1 の決定と食い違う**:
   `cmd/gom/main.go` の usage は計画コマンドとして `gomi` を列挙するが、
   TODO P4-1 は `moon info` 流の `info` という名前を決めている（spec 7.5 も `gom gomi` 表記）。

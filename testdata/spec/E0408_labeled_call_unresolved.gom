@@ -1,0 +1,6 @@
+package ex
+
+// spec section 2.1: a labeled call requires the callee's type to be
+// known. `f` is an unannotated lambda parameter — a fresh meta — so
+// `f ~x: 1` cannot resolve the label.
+let apply = fn f -> f ~x: 1

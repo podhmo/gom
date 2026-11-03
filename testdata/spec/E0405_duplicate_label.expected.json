@@ -1,0 +1,26 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0405",
+      "severity": "error",
+      "message": "the label `~to` is supplied twice",
+      "span": {
+        "file": "E0405_duplicate_label.gom",
+        "start": {
+          "line": 7,
+          "col": 38,
+          "offset": 220
+        },
+        "end": {
+          "line": 7,
+          "col": 40,
+          "offset": 222
+        }
+      },
+      "data": {
+        "label": "to"
+      }
+    }
+  ]
+}
