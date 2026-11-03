@@ -100,6 +100,39 @@ func (o Options) withDefaults() Options {
 // (depth and token budgets always decrease toward minimum-depth
 // alternatives) and never panics on well-formed input.
 func Generate(g *Grammar, rng *rand.Rand, opts Options) string {
+	return GenerateResult(g, rng, opts).Source
+}
+
+// Witness records one emitted expression's source span together with
+// the type the typed-mode generator aimed at — the oracle half of the
+// inference property test (internal/build's infer_test.go). Start and
+// End are UTF-8 byte offsets into Result.Source, half-open
+// [Start, End), matching the convention diag.Span uses.
+type Witness struct {
+	Start int
+	End   int
+	Type  string // surface type the emitter aimed at ("Int", "List Bool", "Shape42")
+}
+
+// Result is Generate's full output: the source text plus the
+// metadata the inference property test needs.
+type Result struct {
+	Source    string
+	Witnesses []Witness
+	// Guaranteed reports whether every emitted expression is meant to
+	// typecheck without diagnostics: false when the walk took a
+	// deliberate near-miss (an else-less if on a non-Unit want, a
+	// bare fmt.Println in a Unit slot, ...). The flag says nothing
+	// about Witnesses — those are recorded either way — but a
+	// "guaranteed" program carrying a diagnostic is itself an
+	// anomaly the property test wants to see.
+	Guaranteed bool
+}
+
+// GenerateResult is Generate with the witness metadata exposed. The
+// witness list only fills under Options.Typed: mechanical mode emits
+// no wanted-type information. Same rng state ⇒ identical Result.
+func GenerateResult(g *Grammar, rng *rand.Rand, opts Options) Result {
 	opts = opts.withDefaults()
 	gen := &Gen{
 		g:         g,
@@ -123,7 +156,7 @@ func Generate(g *Grammar, rng *rand.Rand, opts Options) string {
 	if !strings.HasSuffix(out, "\n") {
 		out += "\n"
 	}
-	return out
+	return Result{Source: out, Witnesses: gen.wits, Guaranteed: gen.slips == 0}
 }
 
 // Gen is the one-shot generation state; use Generate, not Gen
@@ -190,6 +223,46 @@ type Gen struct {
 	// emitted there (lowering reports E0901 otherwise; the semantic
 	// question is open — docs/problems/2026-11-02-assert-outside-test).
 	inTest int
+	// inLambda > 0 inside a `fn v -> ...` body and inGo > 0 inside a
+	// `go { ... }` body: `try` escapes to the innermost fn/lambda/test
+	// boundary, so both marks suppress it (a try inside either lands
+	// E0410/E0702, not inference coverage).
+	inLambda, inGo int
+	// noTodo > 0 inside emissions whose expected type reaches the
+	// checker as nil or a metavariable rather than a concrete type
+	// (unannotated let values, match scrutinees, operator operands,
+	// splice exprs, assert_eq/ignore args). A bare `todo ()` — or
+	// any leaf that cannot pin its own metas (`[]`, `None`, `Ok`,
+	// `Err`) — there would strand an unbound meta: E0407, an
+	// accident rather than a slip. Leaves either pin themselves
+	// (`[e]`, `Some e`) or take the annotated-let pin (pinnedOf);
+	// atConcrete clears the flag inside declared-type positions.
+	noTodo int
+	// noWit > 0 inside emissions whose runtime type legitimately
+	// differs from the wanted surface type — Go-call arguments at
+	// `...any` positions (fmt.Println): the checker stamps Go.Any
+	// on block/list nodes there while other nodes keep their
+	// natural types, so no single surface want is right. The
+	// emissions still typecheck — the position really does accept
+	// anything — they just have no usable oracle type.
+	noWit int
+
+	// topVal/topTy/topCtor dedup file-scope declaration names.
+	// The pools are small and every declaration is file-scoped, so
+	// repeats would mint accidental E0204/E0205s rather than near-
+	// misses. topVal covers value-level names (fns, top-level lets,
+	// modules, and the builtin lowercase names); topTy covers type
+	// names (seeded with the builtin type constructors, whose
+	// shadowing makes `()`/`==` results unrepresentable); topCtor
+	// covers variant constructors (a ctor can collide with another
+	// ctor across types).
+	topVal, topTy, topCtor map[string]bool
+
+	// wits accumulates witnessed spans (typed mode only); slips
+	// counts the deliberate near-misses that void the guarantee —
+	// see GenerateResult.
+	wits  []Witness
+	slips int
 }
 
 // ------------------------------------------------------------------
@@ -240,6 +313,31 @@ func (g *Gen) newline() {
 	g.buf.WriteByte('\n')
 	g.last = '\n'
 }
+
+// witnessed records the byte span just emitted (start is the caller's
+// buf position from before emission) as a Witness aiming at want —
+// deferred from the expr-position emitters, so it sees the full span.
+// emit's mechanical spacing may put a separating space between the
+// captured position and the first token, so leading whitespace is
+// trimmed to land the span exactly on the emitted text.
+func (g *Gen) witnessed(start int, want *gty) {
+	if !g.opts.Typed || want == nil || g.noWit > 0 {
+		return
+	}
+	s := g.buf.String()
+	for start < len(s) && (s[start] == ' ' || s[start] == '\n') {
+		start++
+	}
+	if end := len(s); end > start {
+		g.wits = append(g.wits, Witness{Start: start, End: end, Type: want.text()})
+	}
+}
+
+// slip marks the source being emitted as a deliberate near-miss — a
+// semantic error the check phase is meant to diagnose. Slipped
+// programs stay grammar-valid canary input but fall outside
+// Result.Guaranteed.
+func (g *Gen) slip() { g.slips++ }
 
 func (g *Gen) needsSpace(prev, next byte) bool {
 	if prev == 0 || prev == '\n' || prev == ' ' {
@@ -325,11 +423,15 @@ func (g *Gen) expandSeq(x seq, top bool) {
 	// spends no depth budget, matching needCtx's accounting.
 	last, n := g.g.soleMandatory(x)
 	for i, m := range x {
-		if g.opts.Deterministic && g.curRule == "top-decl" && i == 0 {
+		if (g.opts.Deterministic || g.opts.Typed) && g.curRule == "top-decl" && i == 0 {
 			// The "[ attribute ]" member of top-decl's first
 			// alternative: an "@test"-marked decl is test-only
 			// code, dropped by `gom build` but evaluated by the
 			// evaluator — suppress it for the diff subset.
+			// Typed mode suppresses it for a different reason:
+			// "@test" is the only legal attribute and applying
+			// it to a non-test decl is a plain user error, not
+			// interesting inference coverage.
 			if o, isOpt := m.(opt); isOpt {
 				if r, isRef := o.x.(ref); isRef && string(r) == "attribute" {
 					continue

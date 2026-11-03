@@ -206,3 +206,12 @@
   実装はまだ無いが、名前の正が文書間で不一致。
   対応: `gom info` を実装し `gomi` はリネーム通知に変更、spec 7.5 も `gom info` 表記に統一。
   参照: [usage](../cmd/gom/main.go)、[iface](../cmd/gom/iface.go)、[spec 7](spec.md#7-インターフェースファイル-gomi)、[sketch](sketch/2026-11-05-moon-cli-command-structure.md)。
+- [ ] **`...any` 位置で `checkBlock` だけが `want` をそのままノードに刻む非対称**:
+  if/match/select/recordLit は `bw`（`Go.Any` を nil に倒す）で推論するのに対し、
+  `checkExpr` は `checkBlock` に生の `want` を渡し、`checkBlock` はそれを Block ノードの型にする。
+  結果として `fmt.Println ({563.33})` の Block ノードは `Go.Any` を持ち、最終式は `Float` のまま —
+  `bw` のコメントが lower の不変条件 (E0901) を心配する形と同じだが、`gom build`・lower は通る
+  （実測 `ignore (fmt.Println ({563.33}))` → `ok:true`）。意図的な設計か未整合かは未確認。
+  参照: [checkExpr の bw 分岐](../internal/check/expr.go)（30-41 行目と 69-70 行目）、
+  [checkBlock](../internal/check/expr.go)（`out.Base = baseOf(e.Sp, want)`）、
+  [発見経緯](sketch/2026-11-03-inference-witness-oracle.md)。
