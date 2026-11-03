@@ -7,9 +7,6 @@ package diag
 // "version" and the trailing number of "$id" bump on incompatible
 // changes; additions that keep old consumers working (a new kind, a
 // new optional field) do not require a bump.
-//
-// The "test" definition is provisional: gom test is not implemented
-// yet, so its object is only constrained to carry kind "test".
 const messageSchema = `{
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "gom:schema:message:1",
@@ -112,15 +109,54 @@ const messageSchema = `{
           "type": "array",
           "items": { "type": "string" },
           "description": "The files the command produced or rewrote."
+        },
+        "tests": {
+          "type": "object",
+          "required": ["run", "failed", "skipped"],
+          "properties": {
+            "run": { "type": "integer", "minimum": 0 },
+            "failed": { "type": "integer", "minimum": 0 },
+            "skipped": { "type": "integer", "minimum": 0 }
+          },
+          "description": "Per-test counts; present only when the command ran tests (gom test)."
         }
       }
     },
     "test": {
       "type": "object",
-      "description": "One test's outcome (gom test; provisional — the command is not implemented yet, the object is only constrained to carry kind \"test\").",
-      "required": ["kind"],
+      "description": "One test's outcome (gom test): the test's name and generated Go function, pass/fail/skip, elapsed seconds, the test's source position, and the output it produced — on failure the assertion's values and source position.",
+      "required": ["kind", "name", "func", "ok", "elapsed"],
       "properties": {
-        "kind": { "const": "test" }
+        "kind": { "const": "test" },
+        "name": {
+          "type": "string",
+          "description": "The name from the 'test \"name\"' declaration; the Go function name for tests gom did not generate."
+        },
+        "func": {
+          "type": "string",
+          "description": "The Go test function name — usable as a go test -run selector."
+        },
+        "ok": {
+          "type": "boolean",
+          "description": "True when the test passed; false on failure. A skipped test reports ok true plus \"skipped\"."
+        },
+        "skipped": {
+          "type": "boolean",
+          "description": "True when go test reported the test as skipped; present only then."
+        },
+        "elapsed": {
+          "type": "number",
+          "minimum": 0,
+          "description": "Wall-clock seconds as reported by go test."
+        },
+        "span": {
+          "$ref": "#/$defs/span",
+          "description": "The test declaration's position; absent for tests gom did not generate."
+        },
+        "output": {
+          "type": "string",
+          "description": "Output the test produced — assertion values and positions on failure, log lines otherwise — with go test's ===/--- framing removed; absent when empty."
+        }
       }
     },
     "unformatted": {

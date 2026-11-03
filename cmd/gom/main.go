@@ -1,9 +1,8 @@
 // Command gom is the CLI of the Gom compiler, which transpiles Gom
 // sources to Go.
 //
-// build, check, dump, fmt, fix, info, explain, and schema are
-// implemented;
-// the rest of the commands listed in usage are planned
+// build, check, dump, test, fmt, fix, info, explain, and schema are
+// implemented; `gomi` reports its rename to `info`
 // (docs/design.md section 3). The command stays a thin layer over
 // internal/build, internal/format and internal/diag: cli.go holds
 // flag parsing, file walking, and message-stream emission;
@@ -28,7 +27,7 @@ The commands are:
 	build     compile .gom files and emit .go
 	check     type-check without emitting code
 	dump      print a compiler phase's IR (developer tool)
-	test      run tests written in .gom files (not implemented yet)
+	test      run tests written in .gom files
 	fmt       format .gom files
 	fix       apply the fixes diagnostics mark safe
 	info      generate or update .gomi interface drafts
@@ -72,8 +71,7 @@ func run(args []string, stdout, stderr io.Writer) int {
 	case "schema":
 		return runSchema(args[1:], stdout, stderr)
 	case "test":
-		fmt.Fprintf(stderr, "gom %s: not implemented yet\n", args[0])
-		return 2
+		return runTest(args[1:], stdout, stderr)
 	case "gomi":
 		fmt.Fprintln(stderr, `gom gomi: the command was renamed to "gom info"`)
 		return 2

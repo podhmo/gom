@@ -84,11 +84,15 @@ func (g *gen) varDecl(d *core.VarDecl) {
 }
 
 // testDecl emits `func TestX(t *testing.T) { ... }` into the test
-// half. A `Result Unit e` body binds its result and asserts Ok; a
-// Unit body is discarded (decl.go TestDecl, spec section 12).
-func (g *gen) testDecl(d *core.TestDecl) {
+// half and returns the emitted name — File records it on
+// Output.Tests so `gom test` can map `go test -json` events back to
+// the `test "Name"` declaration (docs/design.md section 4.8). A
+// `Result Unit e` body binds its result and asserts Ok; a Unit body
+// is discarded (decl.go TestDecl, spec section 12).
+func (g *gen) testDecl(d *core.TestDecl) string {
+	name := g.testName(d.Name)
 	g.line(d.Sp)
-	g.raw("func " + g.testName(d.Name) + "(t *" + g.pkgQual("testing") + "T)")
+	g.raw("func " + name + "(t *" + g.pkgQual("testing") + "T)")
 	g.open()
 	savedT := g.testFn
 	g.testFn = d.Fn
@@ -113,6 +117,7 @@ func (g *gen) testDecl(d *core.TestDecl) {
 	g.testFn = savedT
 	g.close()
 	g.nl()
+	return name
 }
 
 // testName deduplicates generated test function names — repeated or

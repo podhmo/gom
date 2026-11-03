@@ -28,6 +28,7 @@ func TestResult(t *testing.T) {
 	case result.ResultTagOk:
 		_ = res.Value
 	case result.ResultTagErr:
+//line t.gom:18
 		t.Errorf("%v", res.Error)
 		return
 	default:

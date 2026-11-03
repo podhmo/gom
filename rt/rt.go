@@ -103,12 +103,25 @@ func Assert(t *testing.T, cond bool) {
 // verdict under the operands' own comparison recipe — the same
 // plan `actual == expected` would evaluate (docs/design.md section
 // 4.9) — so a failing assert_eq reports exactly what `==` would
-// answer, including native comparisons' IEEE NaN verdict.
-func AssertEq(t *testing.T, eq bool, actual, expected any) {
+// answer, including native comparisons' IEEE NaN verdict. actual and
+// expected arrive already rendered to text by the compiler-generated
+// display functions of docs/design.md section 4.8 (fmt's %v for
+// Go-view values, spec section 11).
+func AssertEq(t *testing.T, eq bool, actual, expected string) {
 	t.Helper()
 	if !eq {
-		t.Errorf("gom: assertion failed:\n  actual:   %#v\n  expected: %#v", actual, expected)
+		t.Errorf("gom: assertion failed:\n  actual:   %s\n  expected: %s", actual, expected)
 	}
+}
+
+// ShowError renders a GoError value inside a generated display
+// function — `error("text")`, the evaluator's VGoErr reading, with a
+// nil guard for the Go-side zero value.
+func ShowError(err error) string {
+	if err == nil {
+		return "nil"
+	}
+	return fmt.Sprintf("error(%q)", err.Error())
 }
 
 // AssertOk checks that a test block's Result-typed tail is Ok. A test

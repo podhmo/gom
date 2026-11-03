@@ -80,8 +80,11 @@ test "arith" {
 			t.Errorf("TestSource missing %q:\n%s", want, ts)
 		}
 	}
-	if !strings.Contains(string(r.Output.Source), "func helper(") {
-		t.Error("main source missing the @test helper — gom test compiles it into the package")
+	if !strings.Contains(ts, "func helper(") {
+		t.Error("test source missing the @test helper — it renders into the _test.go half")
+	}
+	if strings.Contains(string(r.Output.Source), "func helper(") {
+		t.Error("main source kept the @test helper — test-only code never reaches production output")
 	}
 
 	// Build mode drops both halves instead.

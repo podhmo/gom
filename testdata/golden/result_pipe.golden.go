@@ -22,6 +22,7 @@ func parse(s string) result.Result[int64, error] {
 //line result_pipe.gom:6
 		tmp2, err := strconv.Atoi(s)
 		if err != nil {
+//line result_pipe.gom:6
 			return result.Err[int64, error](fmt.Errorf("strconv.Atoi: %w", err))
 		}
 //line result_pipe.gom:6
@@ -35,6 +36,7 @@ func parse(s string) result.Result[int64, error] {
 		case result.ResultTagOk:
 			tmp5 = tmp4.Value
 		case result.ResultTagErr:
+//line result_pipe.gom:6
 			return result.Err[int64, error](fmt.Errorf("keep: %w", tmp4.Error))
 		default:
 //line result_pipe.gom:6
@@ -54,6 +56,7 @@ func use(s string) struct{} {
 //line result_pipe.gom:7
 		tmp8, err1 := strconv.Atoi(s)
 		if err1 != nil {
+//line result_pipe.gom:7
 			return result.Err[int64, error](fmt.Errorf("strconv.Atoi: %w", err1))
 		}
 //line result_pipe.gom:7
@@ -92,6 +95,7 @@ func explicit(_ struct{}) result.Result[int64, string] {
 	case result.ResultTagOk:
 		tmp13 = tmp12.Value
 	case result.ResultTagErr:
+//line result_pipe.gom:11
 		return result.Err[int64, string](tmp12.Error)
 	default:
 //line result_pipe.gom:11
@@ -108,6 +112,7 @@ func explicit(_ struct{}) result.Result[int64, string] {
 		case result.ResultTagOk:
 			tmp16 = tmp14.Value
 		case result.ResultTagErr:
+//line result_pipe.gom:11
 			return result.Err[int64, bool](tmp14.Error)
 		default:
 //line result_pipe.gom:11

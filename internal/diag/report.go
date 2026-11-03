@@ -53,6 +53,11 @@ const (
 type Report struct {
 	// Diagnostics emitted during the run, in any order.
 	Diagnostics []Diagnostic
+	// Tests are the test results the run produced — nil for
+	// commands that do not run tests; a non-nil empty slice (gom
+	// test that found no test) still reports the "tests" counts in
+	// the summary. Order is preserved on the wire.
+	Tests []TestResult
 	// Files are the .gom source files the command processed.
 	Files []string
 	// Outputs are the files the command produced — generated .go
@@ -61,12 +66,13 @@ type Report struct {
 }
 
 // ExitCode returns the process exit code for the run: ExitError when
-// the report holds error-severity diagnostics, ExitSuccess otherwise
-// (warnings alone still succeed). ExitInternal is reserved for the
-// driver and never returned — emit failures and compiler crashes are
-// reported through it, not through the diagnostics.
+// the report holds error-severity diagnostics or a failing test,
+// ExitSuccess otherwise (warnings and skipped tests still succeed).
+// ExitInternal is reserved for the driver and never returned — emit
+// failures and compiler crashes are reported through it, not through
+// the diagnostics.
 func (r Report) ExitCode() int {
-	if List(r.Diagnostics).HasError() {
+	if List(r.Diagnostics).HasError() || r.TestsFailed() {
 		return ExitError
 	}
 	return ExitSuccess
@@ -74,18 +80,24 @@ func (r Report) ExitCode() int {
 
 // Summary builds the trailing "summary" object of the run's message
 // stream (docs/spec.md section 12). OK reports whether the run
-// succeeded — true exactly when Errors is zero; warnings do not fail
+// succeeded — true exactly when no error-severity diagnostic was
+// emitted and no test failed; warnings and skipped tests do not fail
 // a run. Files and Outputs are deduplicated; Files is sorted, Outputs
 // keeps the caller's order.
 func (r Report) Summary() Summary {
 	errors, warnings := List(r.Diagnostics).Counts()
-	return Summary{
-		OK:       errors == 0,
+	s := Summary{
+		OK:       errors == 0 && !r.TestsFailed(),
 		Errors:   errors,
 		Warnings: warnings,
 		Files:    sortedUnique(r.Files),
 		Outputs:  unique(r.Outputs),
 	}
+	if r.Tests != nil {
+		run, failed, skipped := r.testStats()
+		s.Tests = &TestCounts{Run: run, Failed: failed, Skipped: skipped}
+	}
+	return s
 }
 
 // orderedDiagnostics returns a copy of the report's diagnostics in
@@ -111,19 +123,35 @@ type Summary struct {
 	Files []string
 	// Outputs are the files the command produced.
 	Outputs []string
+	// Tests counts the run's test results — nil for commands that
+	// did not run tests, in which case "tests" is absent from the
+	// wire object.
+	Tests *TestCounts
+}
+
+// TestCounts is the summary's per-test tally (gom test).
+type TestCounts struct {
+	// Run is the number of tests go test reported.
+	Run int `json:"run"`
+	// Failed is the number that neither passed nor skipped.
+	Failed int `json:"failed"`
+	// Skipped is the number go test reported as skipped.
+	Skipped int `json:"skipped"`
 }
 
 // MarshalJSON renders s as the wire object
-// {"kind":"summary","ok":…,"errors":…,"warnings":…,"files":[…],"outputs":[…]}.
-// Files and Outputs marshal as empty arrays, never null.
+// {"kind":"summary","ok":…,"errors":…,"warnings":…,"files":[…],"outputs":[…]},
+// plus "tests" when the run reported test results. Files and Outputs
+// marshal as empty arrays, never null.
 func (s Summary) MarshalJSON() ([]byte, error) {
 	type wire struct {
-		Kind     string   `json:"kind"`
-		OK       bool     `json:"ok"`
-		Errors   int      `json:"errors"`
-		Warnings int      `json:"warnings"`
-		Files    []string `json:"files"`
-		Outputs  []string `json:"outputs"`
+		Kind     string      `json:"kind"`
+		OK       bool        `json:"ok"`
+		Errors   int         `json:"errors"`
+		Warnings int         `json:"warnings"`
+		Files    []string    `json:"files"`
+		Outputs  []string    `json:"outputs"`
+		Tests    *TestCounts `json:"tests,omitempty"`
 	}
 	files, outputs := s.Files, s.Outputs
 	if files == nil {
@@ -132,7 +160,7 @@ func (s Summary) MarshalJSON() ([]byte, error) {
 	if outputs == nil {
 		outputs = []string{}
 	}
-	return marshalJSON(wire{string(KindSummary), s.OK, s.Errors, s.Warnings, files, outputs})
+	return marshalJSON(wire{string(KindSummary), s.OK, s.Errors, s.Warnings, files, outputs, s.Tests})
 }
 
 // sortedUnique returns xs deduplicated and sorted, or an empty slice

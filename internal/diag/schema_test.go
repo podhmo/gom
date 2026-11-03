@@ -117,6 +117,7 @@ func TestSchemaRequiredFields(t *testing.T) {
 	}{
 		{"diagnostic", []string{"kind", "code", "severity", "message"}},
 		{"summary", []string{"kind", "ok", "errors", "warnings", "files", "outputs"}},
+		{"test", []string{"kind", "name", "func", "ok", "elapsed"}},
 		{"applied", []string{"kind", "code", "title", "edits"}},
 		{"unformatted", []string{"kind", "file", "diff"}},
 		{"explanation", []string{"kind", "code", "severity", "title", "phase", "explanation"}},

@@ -227,6 +227,93 @@ func (v *validator) file(f *File) {
 	for _, d := range f.EqDecls {
 		v.eqDecl(d)
 	}
+	for _, d := range f.ShowDecls {
+		v.showDecl(d)
+	}
+}
+
+// showDecl checks a generated display function: valid span, a fresh
+// KindFunc symbol, a non-nil displayed type, and a well-formed plan.
+// Composite plans are legal only here — at a ShowDecl's root.
+func (v *validator) showDecl(d *ShowDecl) {
+	if d == nil {
+		v.err(diag.Span{}, "ShowDecl", "nil display declaration")
+		return
+	}
+	if !d.Sp.Valid() {
+		v.err(d.Sp, "ShowDecl", "declaration has no valid source span")
+	}
+	v.declSym(d.Sp, d.Sym, resolve.KindFunc, "ShowDecl")
+	if d.Typ == nil {
+		v.err(d.Sp, "ShowDecl", "nil displayed type")
+	}
+	v.showPlan(d.Plan, true, "ShowDecl.Plan")
+}
+
+// showPlan checks a display recipe's shape — the same root/leaf
+// invariant eqPlan enforces: composite kinds are legal only at a
+// ShowDecl's root so generated display code outside the decls stays
+// expression-shaped.
+func (v *validator) showPlan(p *ShowPlan, root bool, what string) {
+	if p == nil {
+		v.err(diag.Span{}, what, "missing display recipe")
+		return
+	}
+	if root {
+		if p.Kind < ShowScalar || p.Kind > ShowResult {
+			v.err(diag.Span{}, what, "invalid recipe kind %d", int(p.Kind))
+			return
+		}
+	} else {
+		switch p.Kind {
+		case ShowScalar, ShowRuntime, ShowError, ShowCall:
+		default:
+			v.err(diag.Span{}, what, "composite recipe kind %s is legal only at a display decl's root", p.Kind)
+			return
+		}
+	}
+	switch p.Kind {
+	case ShowCall:
+		if p.Fn == nil {
+			v.err(diag.Span{}, what, "call recipe without a display decl")
+		}
+	case ShowSlice:
+		v.showPlan(p.Elem, false, what+".Elem")
+	case ShowTuple:
+		for i := range p.Elems {
+			v.showPlan(p.Elems[i], false, what+".Elems")
+		}
+	case ShowRecord:
+		for i := range p.Fields {
+			v.showField(&p.Fields[i], what)
+		}
+	case ShowSum, ShowResult:
+		for i := range p.Variants {
+			vr := &p.Variants[i]
+			if vr.Sym == nil || vr.Sym.Kind != resolve.KindCtor {
+				v.err(diag.Span{}, what, "variant %d symbol is not a ctor", i)
+			}
+			for j := range vr.Fields {
+				v.showField(&vr.Fields[j], what)
+			}
+		}
+	case ShowScalar, ShowRuntime, ShowError:
+	default:
+		panic("unreachable")
+	}
+}
+
+// showField checks one projected operand: a way to select the field
+// (Sel, Sym, or Name — Index alone suffices when none names it) and
+// a nested leaf recipe.
+func (v *validator) showField(f *ShowField, what string) {
+	if f.Sel == "" && f.Sym == nil && f.Name == "" && f.Index < 0 {
+		v.err(diag.Span{}, what, "field with no selector")
+	}
+	if f.Sym != nil && f.Sym.Kind != resolve.KindField {
+		v.err(diag.Span{}, what, "field symbol %q has kind %s, want field", f.Sym.Name, f.Sym.Kind)
+	}
+	v.showPlan(f.Plan, false, what+".Plan")
 }
 
 // eqDecl checks a generated comparator: valid span, a fresh
@@ -830,6 +917,12 @@ func (v *validator) expr(e Expr, inTail bool) {
 			v.eqPlan(e.Eq, false, "CallBuiltin.Eq")
 		} else if e.Sym != nil && e.Sym.Name == "assert_eq" {
 			v.err(e.Sp, "CallBuiltin", "assert_eq without an Eq plan")
+		}
+		if e.Show != nil {
+			if e.Sym == nil || e.Sym.Name != "assert_eq" {
+				v.err(e.Sp, "CallBuiltin", "Show plan on a non-assert_eq builtin")
+			}
+			v.showPlan(e.Show, false, "CallBuiltin.Show")
 		}
 	case *CtorApp:
 		if e.Ctor == nil || e.Ctor.Kind != resolve.KindCtor {

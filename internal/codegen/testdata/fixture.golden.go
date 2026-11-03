@@ -60,6 +60,7 @@ func load(p string) result.Result[int64, error] {
 //line t.gom:5
 	n, err := strconv.Atoi(p)
 	if err != nil {
+//line t.gom:5
 		return result.Err[int64, error](fmt.Errorf("load: %w", err))
 	}
 //line t.gom:5
@@ -284,6 +285,7 @@ func fetch(u struct{}) result.Result[int64, error] {
 	case result.ResultTagOk:
 		n = res.Value
 	case result.ResultTagErr:
+//line t.gom:28
 		return result.Err[int64, error](res.Error)
 	default:
 //line t.gom:28
@@ -337,6 +339,7 @@ func worker(jobs chan int64, src result.Result[int64, error]) struct{} {
 			case result.ResultTagOk:
 				n = src.Value
 			case result.ResultTagErr:
+//line t.gom:33
 				return result.Err[int64, error](src.Error)
 			default:
 //line t.gom:33
@@ -409,6 +412,7 @@ func regress(p string, c bool, def int64) result.Result[int64, error] {
 //line t.gom:41
 		v5, err2 := strconv.Atoi(p)
 		if err2 != nil {
+//line t.gom:41
 			return result.Err[int64, error](err2)
 		}
 		n = v5

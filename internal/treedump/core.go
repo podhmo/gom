@@ -40,6 +40,9 @@ func DumpCore(f *core.File) string {
 	for _, ed := range f.EqDecls {
 		kids = append(kids, d.ceqdecl(ed))
 	}
+	for _, sd := range f.ShowDecls {
+		kids = append(kids, d.cshowdecl(sd))
+	}
 	kids = append(kids, d.syms())
 	return render(nodef(text, kids...))
 }
@@ -200,6 +203,80 @@ func (d *cdump) cplan(p *core.EqPlan) *form {
 // for a declared field, `.Sel` for an accessor override, `V<i>`
 // otherwise.
 func (d *cdump) eqFieldLabel(f *core.EqField) string {
+	switch {
+	case f.Sel != "":
+		return "." + f.Sel
+	case f.Name != "":
+		return f.Name
+	case f.Sym != nil:
+		return f.Sym.Name
+	default:
+		return fmt.Sprintf("V%d", f.Index)
+	}
+}
+
+// cshowdecl renders a generated display function —
+// `(showdecl@sp <sym>%n :Typ (plan ...))` — after the comparators,
+// in mint order.
+func (d *cdump) cshowdecl(sd *core.ShowDecl) *form {
+	text := "showdecl" + at(sd.Sp) + " " + d.symRef(sd.Sym) + " " + typ(sd.Typ)
+	return nodef(text, nodef("plan", d.csplan(sd.Plan)))
+}
+
+// csplan renders a display recipe compactly — the same shape cplan
+// gives comparison recipes: leaf kinds print `kind` (ShowCall
+// appends its display function's symbol); composite kinds print
+// `(kind ...)` with their nested recipes.
+func (d *cdump) csplan(p *core.ShowPlan) *form {
+	if p == nil {
+		return nodef("?")
+	}
+	switch p.Kind {
+	case core.ShowScalar:
+		return nodef(p.Kind.String() + " " + p.Scalar)
+	case core.ShowRuntime, core.ShowError:
+		return nodef(p.Kind.String())
+	case core.ShowCall:
+		name := "?"
+		if p.Fn != nil && p.Fn.Sym != nil {
+			name = d.symRef(p.Fn.Sym)
+		}
+		return nodef(p.Kind.String() + " " + name)
+	case core.ShowSlice:
+		return nodef(p.Kind.String(), nodef("elem", d.csplan(p.Elem)))
+	case core.ShowTuple:
+		kids := make([]*form, 0, len(p.Elems))
+		for i, e := range p.Elems {
+			kids = append(kids, nodef(fmt.Sprintf("V%d :i%d", i, i), d.csplan(e)))
+		}
+		return nodef(p.Kind.String(), kids...)
+	case core.ShowRecord:
+		kids := make([]*form, 0, len(p.Fields))
+		for i := range p.Fields {
+			f := &p.Fields[i]
+			kids = append(kids, nodef(d.showFieldLabel(f)+fmt.Sprintf(" :i%d", f.Index), d.csplan(f.Plan)))
+		}
+		return nodef(p.Kind.String(), kids...)
+	case core.ShowSum, core.ShowResult:
+		kids := make([]*form, 0, len(p.Variants))
+		for i := range p.Variants {
+			v := &p.Variants[i]
+			vk := make([]*form, 0, len(v.Fields))
+			for j := range v.Fields {
+				f := &v.Fields[j]
+				vk = append(vk, nodef(d.showFieldLabel(f)+fmt.Sprintf(" :i%d", f.Index), d.csplan(f.Plan)))
+			}
+			kids = append(kids, nodef("variant "+d.symRef(v.Sym), vk...))
+		}
+		return nodef(p.Kind.String(), kids...)
+	default:
+		return nodef(p.Kind.String())
+	}
+}
+
+// showFieldLabel picks the printable selector of a ShowField — the
+// same rule eqFieldLabel applies.
+func (d *cdump) showFieldLabel(f *core.ShowField) string {
 	switch {
 	case f.Sel != "":
 		return "." + f.Sel
@@ -480,6 +557,9 @@ func (d *cdump) cexpr(e core.Expr) *form {
 		if e.Eq != nil {
 			text += " eq=" + eqKindName(e.Eq)
 		}
+		if e.Show != nil {
+			text += " show=" + showKindName(e.Show)
+		}
 		return nodef(text, d.catoms(e.Args)...)
 	case *core.CtorApp:
 		text := chead("ctorapp", e.Base) + " " + d.symRef(e.Ctor)
@@ -506,6 +586,15 @@ func (d *cdump) cexpr(e core.Expr) *form {
 // eqKindName prints an Equal node's leaf recipe name — `?` for a
 // missing plan so malformed input stays visible.
 func eqKindName(p *core.EqPlan) string {
+	if p == nil {
+		return "?"
+	}
+	return p.Kind.String()
+}
+
+// showKindName prints a CallBuiltin's display recipe kind — `?` for
+// a missing plan.
+func showKindName(p *core.ShowPlan) string {
 	if p == nil {
 		return "?"
 	}

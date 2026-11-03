@@ -3,6 +3,7 @@ package diag
 import (
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 	"unicode/utf8"
 )
@@ -87,8 +88,55 @@ func (r Report) WriteText(w io.Writer, res Resolver, opts TextOptions) error {
 	if len(diags) > 0 {
 		tw.printf("\n")
 	}
+	for i := range r.Tests {
+		if i > 0 {
+			tw.printf("\n")
+		}
+		tw.test(r.Tests[i])
+	}
+	if len(r.Tests) > 0 {
+		tw.printf("\n")
+	}
 	tw.trailer(r)
 	return tw.err
+}
+
+// test renders one test result:
+//
+//	test "rect area": ok (0.00s)
+//	test "fails": FAIL (0.00s)
+//	  --> area.gom:33:7
+//	    area.gom:33: gom: assertion failed:
+//	          actual:   6
+//	          expected: 7
+//
+// The output lines (assertion values, panic traces) keep go test's
+// own layout — they already carry the .gom positions the generated
+// //line directives set.
+func (tw *textWriter) test(t TestResult) {
+	tag, style := "ok", ansiBold+ansiGreen
+	switch {
+	case t.Skipped:
+		tag, style = "SKIP", ansiBold+ansiYellow
+	case !t.OK:
+		tag, style = "FAIL", ansiBold+ansiRed
+	}
+	tw.printf("%s %s (%.2fs)\n",
+		tw.paint(ansiBold, "test "+strconv.Quote(t.Name)), tw.paint(style, tag), t.Elapsed)
+	if !t.OK && !t.Span.IsZero() {
+		// The declaration position matters only on failure — a
+		// passing test's span is noise next to its verdict.
+		if li, err := resolveIndex(tw.res, t.Span.File); err == nil {
+			start := li.Pos(t.Span.Start)
+			tw.printf("  %s %s:%d:%d\n", tw.paint(markStyle, "-->"),
+				t.Span.File, start.Line, start.Col)
+		}
+	}
+	for _, line := range strings.Split(strings.TrimRight(t.Output, "\n"), "\n") {
+		if line != "" {
+			tw.printf("    %s\n", line)
+		}
+	}
 }
 
 // textWriter accumulates one text stream, keeping the first write
@@ -205,9 +253,13 @@ func (tw *textWriter) labeled(pad, label, text string) {
 	}
 }
 
-// trailer prints the closing one-line summary rustc-style.
+// trailer prints the closing one-line summary rustc-style. Test
+// failures rank between errors and warnings: a clean compile whose
+// tests failed closes "error: M of N tests failed" rather than
+// "success".
 func (tw *textWriter) trailer(r Report) {
 	errors, warnings := List(r.Diagnostics).Counts()
+	run, failed, _ := r.testStats()
 	switch {
 	case errors > 0:
 		var b strings.Builder
@@ -216,6 +268,13 @@ func (tw *textWriter) trailer(r Report) {
 		} else {
 			fmt.Fprintf(&b, "aborting due to %d previous errors", errors)
 		}
+		if warnings > 0 {
+			fmt.Fprintf(&b, "; %d warning%s emitted", warnings, plural(warnings))
+		}
+		tw.printf("%s: %s\n", tw.paint(sevStyle(SeverityError), "error"), b.String())
+	case failed > 0:
+		var b strings.Builder
+		fmt.Fprintf(&b, "%d of %d test%s failed", failed, run, plural(run))
 		if warnings > 0 {
 			fmt.Fprintf(&b, "; %d warning%s emitted", warnings, plural(warnings))
 		}

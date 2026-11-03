@@ -141,8 +141,14 @@ func (g *gen) indexDecls(f *core.File) {
 	g.fnames = nil
 	// Generated comparators claim package-scope names — both halves
 	// resolve the same symbols, so a test body's `gomEqN` call names
-	// the function the main half emits.
+	// the function the main half emits. Generated display functions
+	// are the test half's counterpart.
 	for _, d := range f.EqDecls {
+		if d.Sym != nil {
+			g.declSymName(d.Sym)
+		}
+	}
+	for _, d := range f.ShowDecls {
 		if d.Sym != nil {
 			g.declSymName(d.Sym)
 		}

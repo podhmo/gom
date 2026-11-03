@@ -308,7 +308,10 @@ func (g *gen) callBuiltin(c *core.CallBuiltin) ast.Expr {
 	case "assert_eq":
 		// rt.AssertEq(t, eq, actual, expected) — eq is the verdict
 		// under the operands' own recipe (core.CallBuiltin.Eq),
-		// matching what `actual == expected` evaluates to.
+		// matching what `actual == expected` evaluates to; the value
+		// operands go through the operand type's display recipe
+		// (core.CallBuiltin.Show, docs/design.md section 4.8) so the
+		// failure reports Gom-shaped values.
 		var eq ast.Expr
 		if c.Eq != nil && len(c.Args) >= 2 {
 			eq = g.eqExpr(c.Eq, g.atom(c.Args[0]), g.atom(c.Args[1]))
@@ -318,8 +321,12 @@ func (g *gen) callBuiltin(c *core.CallBuiltin) ast.Expr {
 			eq = &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual(rtPath) + "Equal"),
 				Args: g.atoms(c.Args)}
 		}
+		args := []ast.Expr{ast.NewIdent("t"), eq}
+		for _, a := range c.Args {
+			args = append(args, g.showExpr(c.Show, g.atom(a)))
+		}
 		return &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual(rtPath) + "AssertEq"),
-			Args: append([]ast.Expr{ast.NewIdent("t"), eq}, g.atoms(c.Args)...)}
+			Args: args}
 	case "assert":
 		// rt.Assert(t, cond)
 		return &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual(rtPath) + "Assert"),

@@ -173,6 +173,7 @@ func File(f *check.File, env *Env) (*core.File, []diag.Diagnostic) {
 	}
 	l.checkTailRec(out)
 	out.EqDecls = l.eqOrder
+	out.ShowDecls = l.showOrder
 
 	if errs := core.Validate(out); len(errs) > 0 {
 		for _, v := range errs {
@@ -258,6 +259,16 @@ type lowerer struct {
 	eqSeq   int
 	eqMark  string
 	eqOver  bool
+
+	// showDecls/showOrder/showSeq mint and collect the generated
+	// display functions `assert_eq` on composite operand types
+	// needs — deduplicated by operand type, emitted in first-use
+	// order into the _test.go half (show.go). The names share
+	// eqMark's file-unique tag so the two decl families cannot
+	// collide.
+	showDecls map[string]*core.ShowDecl
+	showOrder []*core.ShowDecl
+	showSeq   int
 
 	// inTest marks lowering inside a `test` declaration's body —
 	// where the generated function binds the `t` identifier
@@ -778,7 +789,11 @@ func (l *lowerer) letDecl(d *check.LetDecl, out *core.File) {
 		return
 	}
 	// Every other pattern shares a hidden package-level temporary.
+	// A `@test let`'s temporaries inherit the marker so codegen keeps
+	// them out of production output along with the bound variables.
+	testOnly := testOnlyPat(d.Pat)
 	tmpSym := l.tmp()
+	tmpSym.TestOnly = testOnly
 	out.Decls = append(out.Decls, &core.VarDecl{
 		Sp: d.Sp, Sym: tmpSym, Body: l.exprBody(d.Value),
 	})
@@ -826,6 +841,7 @@ func (l *lowerer) letDecl(d *check.LetDecl, out *core.File) {
 		})
 	default:
 		tupSym := l.tmp()
+		tupSym.TestOnly = testOnly
 		out.Decls = append(out.Decls, &core.VarDecl{
 			Sp: d.Sp, Sym: tupSym, Body: body,
 		})

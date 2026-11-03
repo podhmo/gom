@@ -859,9 +859,12 @@ func (l *lowerer) builtinCall(sp diag.Span, typ types.Type, sym *resolve.Symbol,
 	}
 	// assert_eq carries the operands' comparison recipe — the same
 	// judgment `x == y` applies, rendered by codegen as the
-	// pre-computed operand of rt.AssertEq.
+	// pre-computed operand of rt.AssertEq — and the operand type's
+	// display recipe, rendered as the reported values
+	// (docs/design.md section 4.8).
 	if sym.Name == "assert_eq" && len(args) == 2 {
 		cb.Eq = l.eqPlan(sp, args[0].Type())
+		cb.Show = l.showPlan(sp, args[0].Type())
 	}
 	return cb
 }

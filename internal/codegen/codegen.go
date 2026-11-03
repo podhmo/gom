@@ -44,11 +44,24 @@ func File(f *core.File, src []byte) (*Output, error) {
 	test.fileImports = f.Imports
 	test.indexDecls(f)
 
+	out := &Output{}
 	hasTests := false
 	for _, d := range f.Decls {
 		if td, ok := d.(*core.TestDecl); ok {
 			hasTests = true
-			test.testDecl(td)
+			out.Tests = append(out.Tests, TestMapping{
+				Name:   td.Name,
+				Func:   test.testDecl(td),
+				Sp:     td.Sp,
+				NameSp: td.NameSp,
+			})
+			continue
+		}
+		if testOnlyDecl(d) {
+			// An `@test` helper is test-only code (spec section
+			// 11): it renders into the _test.go half and never
+			// reaches production output.
+			test.decl(d)
 			continue
 		}
 		main.decl(d)
@@ -59,12 +72,18 @@ func File(f *core.File, src []byte) (*Output, error) {
 	for _, d := range f.EqDecls {
 		main.eqDecl(d)
 	}
+	// Generated display functions live in the test half — only
+	// test code reaches for them, so production output stays free
+	// of them.
+	for _, d := range f.ShowDecls {
+		test.showDecl(d)
+	}
 
 	source, err := render(f.Package, main)
 	if err != nil {
 		return nil, err
 	}
-	out := &Output{Source: source}
+	out.Source = source
 
 	if hasTests {
 		ts, err := render(f.Package, test)
@@ -83,6 +102,39 @@ type Output struct {
 	// TestSource is the formatted contents of `<pkg>_test.go` —
 	// nil when the Core file declares no tests.
 	TestSource []byte
+	// Tests maps every `func TestX(t *testing.T)` emitted into
+	// TestSource back to its `test "Name" { ... }` declaration, in
+	// declaration order — `gom test` translates `go test -json`
+	// events through it (docs/design.md section 4.8).
+	Tests []TestMapping
+}
+
+// TestMapping identifies one generated Go test function.
+type TestMapping struct {
+	// Name is the test's name as written in `test "Name" { ... }`.
+	Name string
+	// Func is the emitted Go function name (e.g. "TestRectArea",
+	// "TestRectArea2" after a collision).
+	Func string
+	// Sp is the whole test declaration's span.
+	Sp diag.Span
+	// NameSp is the name literal's span — the test's identifying
+	// position.
+	NameSp diag.Span
+}
+
+// testOnlyDecl reports whether d is an `@test`-marked declaration —
+// a FuncDecl or VarDecl whose symbol resolve flagged TestOnly
+// (spec section 11). Type declarations cannot be marked.
+func testOnlyDecl(d core.Decl) bool {
+	switch d := d.(type) {
+	case *core.FuncDecl:
+		return d.Sym != nil && d.Sym.TestOnly
+	case *core.VarDecl:
+		return d.Sym != nil && d.Sym.TestOnly
+	default:
+		return false
+	}
 }
 
 // ParseFile parses Output.Source into a go/ast tree — a convenience

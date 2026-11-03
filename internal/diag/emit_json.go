@@ -41,9 +41,10 @@ func MarshalDiagnostic(d Diagnostic, res Resolver) ([]byte, error) {
 }
 
 // WriteJSONLines renders the report in the default message format
-// (docs/spec.md section 12): one "diagnostic" object per line followed
-// by the "summary" object — including when the report is empty, in
-// which case the stream is just the summary line.
+// (docs/spec.md section 12): one "diagnostic" object per line, then
+// the run-phase "test" objects when the report carries test results,
+// closed by the "summary" object — including when the report is
+// empty, in which case the stream is just the summary line.
 //
 // Diagnostics are emitted in List.Sort order on a copy of the list.
 // Each diagnostic must pass Validate and every span (including fix
@@ -59,6 +60,9 @@ func (r Report) WriteJSONLines(w io.Writer, res Resolver) error {
 		if err := writeLine(w, raw); err != nil {
 			return err
 		}
+	}
+	if err := r.writeTestsJSON(w, res); err != nil {
+		return err
 	}
 	raw, err := r.Summary().MarshalJSON()
 	if err != nil {

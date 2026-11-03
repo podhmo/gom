@@ -179,6 +179,12 @@ type File struct {
 	// distinct composite type lowering compared. They are emitted
 	// after Decls; see EqDecl for why they are not Decls.
 	EqDecls []*EqDecl
+	// ShowDecls are the generated display functions the file's
+	// CallBuiltin{assert_eq} plans render values through — one per
+	// distinct assert_eq operand type (docs/design.md section 4.8).
+	// They are emitted into the _test.go half after the test
+	// declarations; see ShowDecl for why they are not Decls.
+	ShowDecls []*ShowDecl
 }
 
 // Span returns the whole-file span.

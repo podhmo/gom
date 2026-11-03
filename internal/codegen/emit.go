@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/podhmo/gom/internal/core"
+	"github.com/podhmo/gom/internal/diag"
 	"github.com/podhmo/gom/internal/types"
 )
 
@@ -640,7 +641,7 @@ func (g *gen) escapeResult(e *core.EscapeResult, d dest) {
 	g.caseLabel(func() {
 		g.raw("case " + g.pkgQual(resultPath) + "ResultTagErr")
 	})
-	g.escapeErr(&ast.SelectorExpr{X: subj, Sel: ast.NewIdent("Error")}, e.Wrap, e.To)
+	g.escapeErr(e.Sp, &ast.SelectorExpr{X: subj, Sel: ast.NewIdent("Error")}, e.Wrap, e.To)
 	g.caseLabel(func() { g.raw("default") })
 	g.line(e.Sp)
 	g.raw("panic(" + g.pkgQual(rtPath) + "InvalidVariant(" + strconv.Quote("result.Result") + ", ")
@@ -674,7 +675,7 @@ func (g *gen) escapeCall(e *core.EscapeCall, d dest) {
 		g.raw(v + ", " + err + " := ")
 		g.expr(call)
 		g.nl()
-		g.errIf(err, e.Wrap, e.To)
+		g.errIf(e.Sp, err, e.Wrap, e.To)
 		if d.kind != dDeclare {
 			g.writeDest(d, ast.NewIdent(v))
 		}
@@ -682,26 +683,30 @@ func (g *gen) escapeCall(e *core.EscapeCall, d dest) {
 		g.raw(err + " := ")
 		g.expr(call)
 		g.nl()
-		g.errIf(err, e.Wrap, e.To)
+		g.errIf(e.Sp, err, e.Wrap, e.To)
 		g.unitValue(d)
 	default:
 		panic("codegen: EscapeCall over non-error result shape")
 	}
 }
 
-// errIf emits `if err != nil { <escape> }` for a bound error var.
-func (g *gen) errIf(errVar, wrap string, to *core.Func) {
+// errIf emits `if err != nil { <escape> }` for a bound error var;
+// sp re-anchors the arm's //line so the reported failure position is
+// the escape's own, not a drifted offset of the enclosing construct.
+func (g *gen) errIf(sp diag.Span, errVar, wrap string, to *core.Func) {
 	g.raw("if " + errVar + " != nil")
 	g.open()
-	g.escapeErr(ast.NewIdent(errVar), wrap, to)
+	g.escapeErr(sp, ast.NewIdent(errVar), wrap, to)
 	g.close()
 }
 
 // escapeErr emits the error arm of an escape: `return
 // result.Err[T, E](err)` at a function boundary, `t.Errorf; return`
 // at a test boundary. T and E come from the boundary's residual
-// `Result _ e` type (validator guarantees the shape).
-func (g *gen) escapeErr(errExpr ast.Expr, wrap string, to *core.Func) {
+// `Result _ e` type (validator guarantees the shape). sp re-anchors
+// the arm's //line — a //line covers only the line right after it
+// and the arm sits several lines below the escape's own.
+func (g *gen) escapeErr(sp diag.Span, errExpr ast.Expr, wrap string, to *core.Func) {
 	if wrap != "" {
 		errExpr = &ast.CallExpr{
 			Fun: ast.NewIdent(g.pkgQual("fmt") + "Errorf"),
@@ -716,6 +721,7 @@ func (g *gen) escapeErr(errExpr ast.Expr, wrap string, to *core.Func) {
 	// its own Result boundary (testFn, not inTest: g.inTest would
 	// misfire on nested closures).
 	if to == g.testFn && g.testFn != nil {
+		g.line(sp)
 		g.raw("t.Errorf(" + strconv.Quote("%v") + ", ")
 		g.expr(errExpr)
 		g.raw(")")
@@ -734,6 +740,7 @@ func (g *gen) escapeErr(errExpr ast.Expr, wrap string, to *core.Func) {
 	if !ok || !isResultCon(con) || len(con.Args) != 2 || g.localT["Result"] {
 		panic("codegen: escape target's residual type is not the builtin Result")
 	}
+	g.line(sp)
 	g.raw("return " + g.pkgQual(resultPath) + "Err[")
 	g.expr(g.goType(con.Args[0]))
 	g.raw(", ")

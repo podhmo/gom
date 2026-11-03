@@ -34,6 +34,7 @@ func count(_ struct{}) result.Result[int64, string] {
 		case result.ResultTagOk:
 			tmp6 = tmp5.Value
 		case result.ResultTagErr:
+//line result_pipe_go_inflow.gom:7
 			return result.Err[int64, string](tmp5.Error)
 		default:
 //line result_pipe_go_inflow.gom:7
@@ -67,6 +68,7 @@ func schedule(_ struct{}) result.Result[int64, string] {
 		case result.ResultTagOk:
 			tmp10 = tmp9.Value
 		case result.ResultTagErr:
+//line result_pipe_go_inflow.gom:10
 			return result.Err[int64, string](tmp9.Error)
 		default:
 //line result_pipe_go_inflow.gom:10
