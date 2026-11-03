@@ -80,6 +80,7 @@
 | [tailrec-requirement](2026-11-02-tailrec-requirement.md) | `@tailrec`: a requirement attribute for tail-call optimization | 採用（実装・検証済み: [sketch: tailrec-validation](../sketch/2026-11-02-tailrec-validation.md)） |
 | [test-harness](2026-11-02-test-harness.md) | テストハーネスの配置とファイル規約 (internal/gomtest) | 採用 |
 | [treedump-format](2026-11-02-treedump-format.md) | IR テキストダンプ形式 (internal/treedump) | draft |
+| [agent-skill-example-verification](2026-11-03-agent-skill-example-verification.md) | gom-agent-guide の例示コードを抽出テストで検証する方式 | 採用 |
 | [gist-cli-host-boundary](2026-11-03-gist-cli-host-boundary.md) | Gist CLI as an executable Gom integration use case（一部を [go-interface-assignment-and-fields](2026-11-03-go-interface-assignment-and-fields.md) で置き換え） | 採用 |
 | [go-error-alias-results](2026-11-03-go-error-alias-results.md) | Go の error alias は error 戻り値規約を引き継ぐ | 採用 |
 | [go-interface-assignment-and-fields](2026-11-03-go-interface-assignment-and-fields.md) | Go interface assignments and read-only exported struct fields | 採用 |

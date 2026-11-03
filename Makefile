@@ -9,7 +9,7 @@
 GO ?= go
 GOFMT ?= gofmt
 
-.PHONY: check fmt-check vet test check-experiments check-sumtype check-staticcheck check-fuzz
+.PHONY: check fmt-check vet test check-experiments check-sumtype check-staticcheck check-fuzz vendor-skills
 
 check: fmt-check vet test check-sumtype check-staticcheck check-experiments
 
@@ -27,6 +27,15 @@ fmt-check:
 
 vet:
 	$(GO) vet ./...
+
+# vendor-skills copies the canonical agent skills from skills/ into
+# .devin/skills/ for this repo's own Devin sessions. The two trees are
+# kept byte-identical — skills/snippets_test.go fails on drift, so
+# edit only the canonical copy and re-run this target.
+vendor-skills:
+	mkdir -p .devin/skills
+	rm -rf .devin/skills/gom-agent-guide
+	cp -a skills/gom-agent-guide .devin/skills/
 
 test:
 	$(GO) test -race ./...

@@ -137,3 +137,15 @@
   対応: API/CLI 生成比較と実際の Go モジュール入力の追跡を追加し、コンパイラ・CLI・fixture・
   runtime の破損と runtime ソース追加を検出することを実測。
   参照: [テスト本体](../tutorial/tutorial_test.go)、[独立レビューと追加検証](sketch/2026-11-03-tutorial-iteration.md#fresh-review-and-runtime-input-follow-up)。
+
+- [ ] **ignore の problem file が実装済みなのに未解決のまま**:
+  problems/2026-11-04-ignore-discard-syntax-unparsed.md は「パーサーに ignore がない（E0201）」
+  と主張するが、現在は `ignore` がキーワードとして実装済みで tutorial 全章も使用している。
+  ファイル自体の状態が更新されていない。
+  参照: [problem](problems/2026-11-04-ignore-discard-syntax-unparsed.md)、[lexer](../internal/syntax/token.go)、[tutorial](../tutorial/01-hello/main.gom)。
+
+- [ ] **CLI usage の計画中コマンド名が P4-1 の決定と食い違う**:
+  `cmd/gom/main.go` の usage は計画コマンドとして `gomi` を列挙するが、
+  TODO P4-1 は `moon info` 流の `info` という名前を決めている（spec 7.5 も `gom gomi` 表記）。
+  実装はまだ無いが、名前の正が文書間で不一致。
+  参照: [usage](../cmd/gom/main.go)、[TODO](../TODO.md)、[spec 7](spec.md#7-インターフェースファイル-gomi)、[sketch](sketch/2026-11-05-moon-cli-command-structure.md)。

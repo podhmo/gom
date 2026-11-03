@@ -1,0 +1,6 @@
+interface:
+  display_name: "Gom Agent Guide"
+  short_description: "Language tour and toolchain guide for the Gom functional language (.gom/.gomi)"
+  default_prompt: "Use the gom-agent-guide conventions for .gom/.gomi files: read this skill before writing Gom, and verify with `gom check`."
+policy:
+  allow_implicit_invocation: true
