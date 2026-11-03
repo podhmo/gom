@@ -6,9 +6,11 @@
 # Gom
 
 Gom is a statically typed, expression-oriented functional language that
-transpiles to readable Go. It combines ML-style features — sum types,
-exhaustive pattern matching, curried functions, and Hindley–Milner type
-inference — with direct calls into Go packages.
+transpiles to Go. The generated code is not meant to be clean, idiomatic
+Go, but it is meant to be readable enough for a human to inspect and
+debug. Gom combines ML-style features — sum types, exhaustive pattern
+matching, curried functions, and Hindley–Milner type inference — with
+direct calls into Go packages.
 
 ```gom
 package main
@@ -30,10 +32,11 @@ fn main () -> Unit = {
 }
 ```
 
-`gom build main.gom` writes `main.go`, which is ordinary Go you can run,
-read, and debug. Curried functions become nested `func` values, ADTs become
+`gom build main.gom` writes `main.go`, which you can run with the Go
+toolchain. Curried functions become nested `func` values, ADTs become
 sealed interfaces with variant structs, and `//line` directives point back
-to the `.gom` source.
+to the `.gom` source. The output is a debuggable artifact, not source to
+maintain by hand.
 
 ## Quick start
 
