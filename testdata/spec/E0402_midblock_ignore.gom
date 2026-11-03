@@ -1,0 +1,9 @@
+package ex
+
+fn compute (n: Int) -> Int = n + 1
+
+fn main () -> Unit = {
+  let x = compute 1
+  x + compute 2
+  ()
+}

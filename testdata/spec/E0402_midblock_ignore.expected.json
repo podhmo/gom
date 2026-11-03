@@ -1,0 +1,62 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0402",
+      "severity": "error",
+      "message": "a mid-block expression must have type Unit, got Int",
+      "span": {
+        "file": "E0402_midblock_ignore.gom",
+        "start": {
+          "line": 7,
+          "col": 3,
+          "offset": 93
+        },
+        "end": {
+          "line": 7,
+          "col": 16,
+          "offset": 106
+        }
+      },
+      "data": {
+        "type": "Int"
+      },
+      "fixes": [
+        {
+          "title": "discard the value with `ignore`",
+          "applicability": "safe",
+          "edits": [
+            {
+              "file": "E0402_midblock_ignore.gom",
+              "start": {
+                "line": 7,
+                "col": 3,
+                "offset": 93
+              },
+              "end": {
+                "line": 7,
+                "col": 3,
+                "offset": 93
+              },
+              "text": "ignore ("
+            },
+            {
+              "file": "E0402_midblock_ignore.gom",
+              "start": {
+                "line": 7,
+                "col": 16,
+                "offset": 106
+              },
+              "end": {
+                "line": 7,
+                "col": 16,
+                "offset": 106
+              },
+              "text": ")"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

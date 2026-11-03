@@ -420,7 +420,10 @@ The structured data carries the expected and actual types.`,
 		Explanation: `Every expression in a block except the last one must have type
 Unit (spec section 1.1.2); a non-Unit value produced mid-block is a
 compile error because silently dropping results hides bugs. To
-discard a value deliberately, write "ignore e".`,
+discard a value deliberately, write "ignore e". The diagnostic
+offers a safe fix that wraps the statement in "ignore (...)" —
+the discard the code already performs, made explicit — which
+"gom fix" applies (spec section 12 item 5).`,
 		Example: `fn main () -> Unit = {
   let xs = [1, 2, 3]
   List.map double xs   // computed and dropped: write "ignore (...)"

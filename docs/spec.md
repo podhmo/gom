@@ -617,3 +617,15 @@ test "parse then sum" {
 | `gom fix` | `applied`（適用した編集）、`summary` |
 | `gom explain <code>` | `explanation`（エラーコードの説明・例・修正例） |
 | `gom schema` | メッセージ形式の JSON Schema |
+
+`applied` オブジェクトは適用した fix 1 件につき 1 つ。`code` は fix が答えた診断のコード、`title` は `fixes` にあった fix のタイトル、`edits` は診断の fix edit と同じ形（`file`・`start`・`end`・`text`）で、編集前のソースの座標系で解決される。
+
+```json
+{"kind": "applied", "code": "E0402", "title": "discard the value with `ignore`", "edits": [{"file": "a.gom", "start": {"line": 7, "col": 3, "offset": 93}, "end": {"line": 7, "col": 3, "offset": 93}, "text": "ignore ("}, {"file": "a.gom", "start": {"line": 7, "col": 16, "offset": 106}, "end": {"line": 7, "col": 16, "offset": 106}, "text": ")"}]}
+```
+
+`explanation` オブジェクトはエラーコード表のエントリをそのまま運ぶ。`code`・`severity`・`title`・`phase`・`explanation` は必須、`spec`・`example` は表が持つときだけ、`retired` は廃止コードのときだけ `true` で付く。引数なしの `gom explain` は全コードの `explanation` を出す（`--format text` ではコードとタイトルの一覧）。
+
+```json
+{"kind": "explanation", "code": "E0301", "severity": "error", "title": "non-exhaustive match", "phase": "pattern", "spec": "4", "explanation": "...", "example": "..."}
+```

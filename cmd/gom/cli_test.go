@@ -703,3 +703,231 @@ func TestEndToEnd_Strconv(t *testing.T) {
 		t.Fatalf("binary output %q, want %q", b, "42")
 	}
 }
+
+// midblockGom has one E0402: a non-Unit expression mid-block, which
+// carries the safe "discard the value with `ignore`" fix.
+const midblockGom = `package main
+
+fn compute (n: Int) -> Int = n + 1
+
+fn main () -> Unit = {
+  let x = compute 1
+  x + compute 2
+  ()
+}
+`
+
+// TestFixAppliesSafeFix is the gom fix end-to-end: the E0402 safe
+// fix lands in the source as `ignore (...)`, the stream reports one
+// "applied" object plus the summary, and the fixed file checks
+// clean.
+func TestFixAppliesSafeFix(t *testing.T) {
+	dir := writeFiles(t, map[string]string{"m.gom": midblockGom})
+	p := filepath.Join(dir, "m.gom")
+
+	code, out, errout := invoke("fix", p)
+	if code != 0 {
+		t.Fatalf("gom fix: exit %d; stdout=%q stderr=%q", code, out, errout)
+	}
+	lines := jsonLines(t, out)
+	if len(lines) != 2 {
+		t.Fatalf("want applied + summary, got %v", lines)
+	}
+	a := lines[0]
+	if a["kind"] != "applied" || a["code"] != "E0402" ||
+		a["title"] != "discard the value with `ignore`" {
+		t.Errorf("unexpected applied message: %v", a)
+	}
+	edits, _ := a["edits"].([]any)
+	if len(edits) != 2 {
+		t.Fatalf("applied edits = %v, want the two insertions", edits)
+	}
+	sum := lastSummary(t, out)
+	if sum["ok"] != true {
+		t.Errorf("summary = %v", sum)
+	}
+	outputs, _ := sum["outputs"].([]any)
+	if len(outputs) != 1 || outputs[0] != p {
+		t.Errorf("summary.outputs = %v, want [%s]", outputs, p)
+	}
+
+	got, err := os.ReadFile(p)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(got), "ignore (x + compute 2)") {
+		t.Fatalf("fix not applied: %q", got)
+	}
+	// The fixed file checks clean.
+	if code, cout, _ := invoke("check", p); code != 0 {
+		t.Fatalf("gom check after fix: exit %d; stdout=%q", code, cout)
+	}
+	// A second run has nothing left to apply.
+	code, out, _ = invoke("fix", p)
+	if code != 0 {
+		t.Fatalf("second gom fix: exit %d", code)
+	}
+	if lines := jsonLines(t, out); len(lines) != 1 || lines[0]["kind"] != "summary" {
+		t.Errorf("second run should emit only the summary: %v", lines)
+	}
+}
+
+// TestFixSkipsNonSafe: placeholder fixes are not applied — the
+// E0301 "add the missing arms" suggestion stays a suggestion and the
+// stream is just the summary.
+func TestFixSkipsNonSafe(t *testing.T) {
+	src := `package main
+
+type Opt = | Some Int | None
+
+fn is_some (o: Opt) -> Bool =
+  match o {
+    Some _ -> true
+  }
+`
+	dir := writeFiles(t, map[string]string{"m.gom": src})
+	p := filepath.Join(dir, "m.gom")
+
+	code, out, _ := invoke("fix", p)
+	if code != 0 {
+		t.Fatalf("gom fix: exit %d; stdout=%q", code, out)
+	}
+	if lines := jsonLines(t, out); len(lines) != 1 || lines[0]["kind"] != "summary" {
+		t.Fatalf("want only a summary line, got %v", lines)
+	}
+	got, _ := os.ReadFile(p)
+	if string(got) != src {
+		t.Errorf("file was modified by a placeholder fix: %q", got)
+	}
+	if sum := lastSummary(t, out); len(sum["outputs"].([]any)) != 0 {
+		t.Errorf("summary.outputs = %v, want empty", sum["outputs"])
+	}
+}
+
+// TestFixText renders the applied stream in text format: an
+// "applied[CODE]" block per fix ending in the text trailer.
+func TestFixText(t *testing.T) {
+	dir := writeFiles(t, map[string]string{"m.gom": midblockGom})
+	code, out, _ := invoke("fix", "-format", "text", filepath.Join(dir, "m.gom"))
+	if code != 0 {
+		t.Fatalf("gom fix -format text: exit %d", code)
+	}
+	if !strings.Contains(out, "applied[E0402]: discard the value with `ignore`") {
+		t.Errorf("text output missing applied block: %q", out)
+	}
+	if !strings.Contains(out, "--> ") || !strings.HasSuffix(out, "success\n") {
+		t.Errorf("text output shape unexpected: %q", out)
+	}
+}
+
+// TestExplainCode: `gom explain E0301` emits one explanation object
+// plus the closing summary; lowercase codes are accepted.
+func TestExplainCode(t *testing.T) {
+	code, out, errout := invoke("explain", "e0301")
+	if code != 0 {
+		t.Fatalf("gom explain: exit %d; stderr=%q", code, errout)
+	}
+	lines := jsonLines(t, out)
+	if len(lines) != 2 {
+		t.Fatalf("want explanation + summary, got %v", lines)
+	}
+	e := lines[0]
+	if e["kind"] != "explanation" || e["code"] != "E0301" ||
+		e["severity"] != "error" || e["title"] != "non-exhaustive match" {
+		t.Errorf("unexpected explanation: %v", e)
+	}
+	for _, k := range []string{"phase", "spec", "explanation", "example"} {
+		if _, ok := e[k]; !ok {
+			t.Errorf("explanation missing %q: %v", k, e)
+		}
+	}
+	if _, ok := e["retired"]; ok {
+		t.Errorf("active code should omit retired: %v", e)
+	}
+	if sum := lastSummary(t, out); sum["ok"] != true {
+		t.Errorf("summary = %v", sum)
+	}
+}
+
+// TestExplainCodeErrors: malformed and unregistered codes are usage
+// errors (exit 2), not diagnostics.
+func TestExplainCodeErrors(t *testing.T) {
+	for _, tt := range []struct {
+		arg  string
+		want string
+	}{
+		{"bogus", "malformed code"},
+		{"E9999", "no diagnostic code E9999"},
+	} {
+		code, out, errout := invoke("explain", tt.arg)
+		if code != 2 || !strings.Contains(errout, tt.want) {
+			t.Errorf("explain %s: exit %d stderr %q; want 2 and %q",
+				tt.arg, code, errout, tt.want)
+		}
+		if out != "" {
+			t.Errorf("explain %s: stdout = %q, want empty", tt.arg, out)
+		}
+	}
+}
+
+// TestExplainList: bare `gom explain` lists every registered code —
+// full explanation objects in JSON, a compact index in text.
+func TestExplainList(t *testing.T) {
+	code, out, _ := invoke("explain")
+	if code != 0 {
+		t.Fatalf("gom explain: exit %d", code)
+	}
+	lines := jsonLines(t, out)
+	if len(lines) < 2 {
+		t.Fatalf("want explanations + summary, got %v", lines)
+	}
+	if sum := lastSummary(t, out); sum["kind"] != "summary" {
+		t.Fatalf("stream must end with summary: %v", sum)
+	}
+	seen := map[string]bool{}
+	for _, e := range lines[:len(lines)-1] {
+		if e["kind"] != "explanation" {
+			t.Fatalf("non-explanation line in the stream: %v", e)
+		}
+		seen[e["code"].(string)] = true
+	}
+	for _, c := range []string{"E0301", "E0402", "E0305"} {
+		if !seen[c] {
+			t.Errorf("index stream missing %s", c)
+		}
+	}
+
+	code, out, _ = invoke("explain", "-format", "text")
+	if code != 0 {
+		t.Fatalf("gom explain -format text: exit %d", code)
+	}
+	if !strings.Contains(out, "E0301  non-exhaustive match\n") {
+		t.Errorf("text index missing E0301: %q", out)
+	}
+}
+
+// TestSchema emits the message format's JSON Schema on stdout: a
+// versioned document covering every kind of the spec section 12
+// vocabulary.
+func TestSchema(t *testing.T) {
+	code, out, errout := invoke("schema")
+	if code != 0 {
+		t.Fatalf("gom schema: exit %d; stderr=%q", code, errout)
+	}
+	var doc map[string]any
+	if err := json.Unmarshal([]byte(out), &doc); err != nil {
+		t.Fatalf("schema is not JSON: %v", err)
+	}
+	if doc["version"] != float64(1) || doc["$id"] != "gom:schema:message:1" {
+		t.Errorf("schema identity = %v %v", doc["version"], doc["$id"])
+	}
+	defs, _ := doc["$defs"].(map[string]any)
+	for _, k := range []string{"diagnostic", "summary", "applied", "explanation"} {
+		if _, ok := defs[k]; !ok {
+			t.Errorf("$defs missing %q", k)
+		}
+	}
+	if code, _, errout := invoke("schema", "extra"); code != 2 || !strings.Contains(errout, "no arguments") {
+		t.Errorf("gom schema extra: exit %d stderr %q; want usage error", code, errout)
+	}
+}

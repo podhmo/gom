@@ -1149,9 +1149,7 @@ func (c *checker) checkBlock(e *syntax.Block, want types.Type) Expr {
 				// be Unit. A constrained meta (numeric, ordered...)
 				// can never be — that is the E0402 shape too.
 				if r := c.recOf(t); r != nil && (r.num || r.flo || r.intg || r.ord) {
-					c.diags.Add(diag.Error("E0402",
-						fmt.Sprintf("a mid-block expression must have type Unit, got %s", st.Type())).
-						At(s.Span()).Set("type", st.Type().String()))
+					c.diags.Add(midBlockUnitDiag(s, st.Type()))
 				} else {
 					c.bind(t, types.Unit, s.Span())
 				}
@@ -1163,14 +1161,10 @@ func (c *checker) checkBlock(e *syntax.Block, want types.Type) Expr {
 						c.shadowedErr(s.Span(), "a mid-block expression", "Unit")
 					}
 				} else {
-					c.diags.Add(diag.Error("E0402",
-						fmt.Sprintf("a mid-block expression must have type Unit, got %s", st.Type())).
-						At(s.Span()).Set("type", st.Type().String()))
+					c.diags.Add(midBlockUnitDiag(s, st.Type()))
 				}
 			case *types.Var, *types.Func, *types.Tuple, *types.Go:
-				c.diags.Add(diag.Error("E0402",
-					fmt.Sprintf("a mid-block expression must have type Unit, got %s", st.Type())).
-					At(s.Span()).Set("type", st.Type().String()))
+				c.diags.Add(midBlockUnitDiag(s, st.Type()))
 			default:
 				panic("unreachable")
 			}
@@ -1186,6 +1180,29 @@ func (c *checker) checkBlock(e *syntax.Block, want types.Type) Expr {
 	// it in checkExpr's trailing step (an `fn f () -> a = {}` is a
 	// mismatch, not a silently ascribed `a`).
 	return out
+}
+
+// midBlockUnitDiag builds the E0402 diagnostic of a non-Unit
+// mid-block statement s. It carries the "discard the value with
+// `ignore`" fix: wrapping the statement in `ignore (...)` makes the
+// discard the code already performs explicit, so the fix is
+// ApplicabilitySafe and `gom fix` applies it (spec section 1.1.2,
+// section 12 item 5). The parens are needed — `ignore` binds at
+// unary level, so `ignore a + b` would parse as `(ignore a) + b`.
+func midBlockUnitDiag(s syntax.Expr, ty types.Type) diag.Diagnostic {
+	sp := s.Span()
+	return diag.Error("E0402",
+		fmt.Sprintf("a mid-block expression must have type Unit, got %s", ty)).
+		At(sp).
+		Set("type", ty.String()).
+		AddFix(diag.Fix{
+			Title:         "discard the value with `ignore`",
+			Applicability: diag.ApplicabilitySafe,
+			Edits: []diag.Edit{
+				{Span: diag.Point(sp.File, sp.Start), Text: "ignore ("},
+				{Span: diag.Point(sp.File, sp.End), Text: ")"},
+			},
+		})
 }
 
 // checkLet types a block-level `let pat = e`: the binding's type is
