@@ -8,7 +8,9 @@ import (
 	"github.com/podhmo/gom/internal/diag"
 	"github.com/podhmo/gom/internal/goimport"
 	"github.com/podhmo/gom/internal/gomtest"
+	"github.com/podhmo/gom/internal/iface"
 	"github.com/podhmo/gom/internal/lower"
+	gomstd "github.com/podhmo/gom/internal/stdlib"
 	// Keep the named-interface golden helper in the Go test dependency graph.
 	_ "github.com/podhmo/gom/testdata/goiface"
 )
@@ -23,11 +25,12 @@ import (
 // resolve in this module's context.
 func suiteOptions() *build.Options {
 	gl := goimport.New(&goimport.Config{Dir: "../.."})
-	return &build.Options{
-		Loader: gl,
-		Sigs:   gl,
-		Lower:  &lower.Env{GoSig: gl.GoSigOf},
-	}
+	return gomstd.Apply(&build.Options{
+		Loader:  gl,
+		Sigs:    gl,
+		Lower:   &lower.Env{GoSig: gl.GoSigOf},
+		Exports: iface.ExportNames,
+	})
 }
 
 // specCompile drives the full pipeline — the superset of what

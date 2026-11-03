@@ -884,7 +884,7 @@ func goOkVariant(v eval.Value) eval.Value {
 }
 
 // goErrVariant builds `Err e` wrapping a Go error text — the shape
-// rt.ResultFromErr produces on the compiled side.
+// result.FromErr produces on the compiled side.
 func goErrVariant(text string) eval.Value {
 	return &eval.VVariant{Name: "Err", Fields: []eval.VField{{Index: 0, V: &eval.VGoErr{Text: text}}}}
 }

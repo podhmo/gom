@@ -90,11 +90,13 @@
 | [gom-test-message-stream](2026-11-03-gom-test-message-stream.md) | `gom test` message stream and `go test` execution granularity | 採用 |
 | [import-go-loading-mechanics](2026-11-03-import-go-loading-mechanics.md) | How `import go` loads Go packages: go/types + go/importer over `go list -export` | 採用（P1-9 の `internal/goimport` が実装・検証した — E2E で `strconv`/`bytes`/`os`/`fmt` の呼び出しが生成コードの build・run まで通る） |
 | [inference-witness-oracle](2026-11-03-inference-witness-oracle.md) | Inference witness oracle: generator-side wanted types vs `check`'s inference | 採用 |
+| [list-literal-spread](2026-11-03-list-literal-spread.md) | Spread element in list literals `[x, ..xs]` | 採用 |
 | [pipe-try-segmented-fusion](2026-11-03-pipe-try-segmented-fusion.md) | 明示的 `try` を含む `\|?>` チェーンの分割融合 | 採用（評価器対生成 Go の比較・生成コード検査で確認。[検証レポート](../sketch/2026-11-03-pipe-try-segmented-fusion.md)） |
 | [result-pipe-local-boundary](2026-11-03-result-pipe-local-boundary.md) | Result パイプの局所的な制御フロー（一部を [pipe-try-segmented-fusion](2026-11-03-pipe-try-segmented-fusion.md) で置き換え） | 採用 |
 | [skill-vendoring-via-symlink](2026-11-03-skill-vendoring-via-symlink.md) | `.devin/skills` への skill 公開は symlink で行う | 採用 |
 | [source-location-correspondence](2026-11-03-source-location-correspondence.md) | Source-location correspondence: anchor table shape and Go-position restore | 採用 |
 | [static-function-alias-declarations](2026-11-03-static-function-alias-declarations.md) | Static function aliases use named canonical function wrappers | 採用 |
+| [stdlib-packaging](2026-11-03-stdlib-packaging.md) | stdlib packaging: .gomi-driven exports, builtin module tables, leaf layering | 採用 |
 | [test-file-emission-layout](2026-11-03-test-file-emission-layout.md) | `@test` helper とテスト関数の出力先 | 採用 |
 | [top-level-let-type-variable-scope](2026-11-03-top-level-let-type-variable-scope.md) | Top-level monomorphic lets cannot capture declaration type variables | 採用 |
 | [tutorial-dependency-tracking](2026-11-03-tutorial-dependency-tracking.md) | Track executable tutorial inputs and compiler dependencies | 採用 |

@@ -39,10 +39,12 @@ func File(f *core.File, src []byte) (*Output, error) {
 
 	main := newGen(li)
 	main.fileImports = f.Imports
+	main.selfPath = f.SelfImportPath
 	main.indexDecls(f)
 
 	test := newGen(li)
 	test.fileImports = f.Imports
+	test.selfPath = f.SelfImportPath
 	test.indexDecls(f)
 
 	out := &Output{}

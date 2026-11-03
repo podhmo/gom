@@ -110,6 +110,8 @@ func TestParseExpr(t *testing.T) {
 		// literals and brackets
 		{"list", `[1, 2, 3]`, `(list 1 2 3)`},
 		{"list empty", `[]`, `(list)`},
+		{"list spread", `[1, ..rest]`, `(list 1 (..rest))`},
+		{"list spread only", `[..rest]`, `(list (..rest))`},
 		{"tuple", `(1, 2)`, `(tuple 1 2)`},
 		{"tuple trailing comma", `(1, 2,)`, `(tuple 1 2)`},
 		{"paren trailing comma is not a tuple", `(x,)`, `x`},
@@ -577,11 +579,6 @@ func TestParseDiagnostics(t *testing.T) {
 			"chained comparison",
 			"package m\nlet v = a == b == c\n",
 			[]string{`E0101@25-27: comparison operators do not chain; parenthesize, e.g. "(a < b) == c"`},
-		},
-		{
-			"spread in list literal",
-			"package m\nlet v = [1, ..rest]\n",
-			[]string{`E0101@22-24: spread ".." is not allowed in a list literal`},
 		},
 		{
 			"record field missing comma",

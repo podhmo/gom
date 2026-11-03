@@ -709,13 +709,17 @@ wildcard, which is a different feature.`,
 	{
 		Code:     "E0505",
 		Severity: SeverityError,
-		Title:    "misplaced spread argument",
+		Title:    "misplaced spread",
 		Phase:    PhaseCheck,
 		Spec:     "8.1",
-		Explanation: `A spread argument "..xs" expands a list into a variadic Go call;
-it may only appear as the last argument of a Go function call (spec
-section 8.1.4). It is not a general list-splicing syntax.`,
-		Example: `fmt.Println(..xs, "end")   // the spread must be last`,
+		Explanation: `A spread "..xs" expands a list in place. It appears in three
+positions and is always the last element: a list literal ([x, ..xs]
+is cons), a list pattern ([x, ..rest] binds the tail), and the last
+argument of a variadic Go call (fmt.Println(..xs), spec section
+8.1.4). Anywhere else — mid-argument, mid-literal, or a non-list
+operand — is this diagnostic.`,
+		Example: `fmt.Println(..xs, "end")   // the spread must be last
+[1, ..xs, 2]                 // and the literal tail must be last`,
 	},
 	{
 		Code:     "E0506",

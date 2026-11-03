@@ -158,7 +158,7 @@ type Config = { name: String, retries: Int, endpoint: String }
   (`Circle { radius = r, .. }`). Positional slots have no `.N`
   access; destructure with patterns.
 - Constructors are curried functions: `List.map Num xs`-style usage
-  works once `List.map` exists; `Add (Num 0) r` needs parens for
+  works; `Add (Num 0) r` needs parens for
   nested ctor applications in patterns.
 - Records are stored inline → a record cannot contain itself by
   value (E0413); recurse through variants, function fields,
@@ -298,13 +298,14 @@ fn add_res (a: Int) (b: Int) -> Result Int String = Ok (a + b)
 
 ## Things that look plausible but don't exist
 
-`List.map`, `List.filter`, `Option.get`, `Result.map`, `Chan.*`,
-`Task.*`, `Ref.*`, `Array.*` — module names are reserved, member
-tables are empty (stdlib task P4-8) → E0201 "exposes no members
-yet". `let ... in`, `pub`, `var`, `return`, `break`, `while`,
+`Chan.*`, `Task.*`, `Ref.*`, `Array.*` — module names are reserved,
+member tables are empty → E0201 "exposes no members yet". The
+`List.*`, `Option.*`, `Result.*` stdlib modules do exist (see
+`stdlib/{list,option,result}/*.gomi`). `let ... in`, `pub`, `var`,
+`return`, `break`, `while`,
 `switch`, `enum`, `interface`, `class`, `nil`, `null`, `void`,
 `func`, `def`, `type X = T` aliases, `::`, `$`, `!`, `??`, `?.`,
-raw strings, `xs[i]` indexing, `[x, ..xs]` construction, and doc
+raw strings, `xs[i]` indexing, and doc
 notations other than `///`.
 
 Comments do exist — `//` line comments, `/* */` block comments,

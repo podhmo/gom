@@ -51,6 +51,7 @@ import (
 	"github.com/podhmo/gom/internal/goimport"
 	"github.com/podhmo/gom/internal/lower"
 	"github.com/podhmo/gom/internal/resolve"
+	gomstd "github.com/podhmo/gom/internal/stdlib"
 	"github.com/podhmo/gom/internal/syntax"
 )
 
@@ -475,11 +476,11 @@ func compileOracles(t testing.TB) (opts *build.Options, imp types.Importer) {
 		return nil, nil
 	}
 	gl := goimport.New(&goimport.Config{Dir: root, GoBin: gobin})
-	opts = &build.Options{
+	opts = gomstd.Apply(&build.Options{
 		Loader: allowLoader{gl},
 		Sigs:   gl,
 		Lower:  &lower.Env{GoSig: gl.GoSigOf},
-	}
+	})
 	imp = newExportImporter(gobin, root)
 	return opts, imp
 }

@@ -219,7 +219,7 @@ func (*EscapeCall) isExpr() {}
 // ResultFromGo materializes a `Result T GoError` from a `(T, error)`
 // Go call — the naive (non-fused) boundary conversion, emitted as a
 // runtime/helper application over the call's result pair
-// (`rt.ResultFromGo(...)` / `rt.ResultFromErr(...)`). Use it for Go
+// (`result.FromGo(...)` / `result.FromErr(...)`). Use it for Go
 // results that are stored or returned, never inside `|?>` / `try`
 // (that is EscapeCall's job).
 type ResultFromGo struct {

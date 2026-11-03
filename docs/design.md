@@ -166,7 +166,7 @@ gom/
 ├── CLAUDE.md
 ├── TODO.md
 ├── cmd/
-│   └── gom/          CLI（build, check, test, fmt, fix, gomi, explain, schema）
+│   └── gom/          CLI（build, check, test, fmt, fix, info, explain, schema）
 ├── internal/
 │   ├── syntax/       字句解析・構文解析・表層 AST（コメントと空行を trivia として保持）
 │   ├── format/       gom fmt（プリティプリンタ）
@@ -175,15 +175,17 @@ gom/
 │   ├── types/        型の表現、単一化、HM 推論、ラベル付き引数
 │   ├── check/        型検査（型付き AST を作る）
 │   ├── pattern/      網羅性・冗長性の判定と反例の生成（match、let、関数引数で共用）
-│   ├── iface/        .gomi の検査とハッシュ、gom gomi の下書き生成
+│   ├── iface/        .gomi の検査とハッシュ、gom info の下書き生成
 │   ├── core/         Core IR の定義
 │   ├── lower/        脱糖、決定木へのコンパイル、arity 解析、テストの分離
 │   ├── codegen/      Core IR → go/ast（宛先渡し、sum type、_test.go の出力）
 │   ├── diag/         診断の型、JSON / text 出力、エラーコード表、JSON Schema
 │   ├── build/        パッケージグラフ、インクリメンタルビルド、キャッシュ、go build / go test の呼び出し
+│   ├── stdlib/       埋め込み .gomi から組み込みモジュール表・シグネチャ・arity を作る配線（gomstd.Apply）
 │   └── tool/         リポジトリのツール（同期ジェネレータなど。コンパイラのフェーズではない）
-├── rt/               生成コードが import する補助（Tuple、Task、アサーションなど）
-├── stdlib/           Gom で書いた標準ライブラリ（list, option, result, chan, task）。各パッケージに .gomi
+├── rt/               生成コードが import する補助（Tuple、Task、アサーションなど）。stdlib の表現を参照しない葉
+├── stdlib/           Gom で書いた標準ライブラリ（list, option, result, chan, task）。各パッケージに .gomi。
+│                     types.go が手書きの Go 表現、.go / _test.go は `gom build` / `gom test` の生成物でコミットする
 ├── testdata/
 │   ├── spec/         仕様の規則ごとの .gom と、期待する診断 JSON
 │   ├── golden/       生成される Go コードのゴールデンファイル
@@ -198,8 +200,8 @@ gom/
 
 - 依存の向きはパイプラインと同じく一方向: `syntax` → `resolve` → `check` → `pattern` → `lower` → `codegen`
 - `diag` と `types` はどのフェーズからも使う共通部品。`build` がすべてを束ね、`cmd/gom` は `build` と `format` を呼ぶだけの薄い層にする
-- `rt` は生成コードから import されるので `internal/` の外に置く。名前は Go 標準の `runtime` との衝突を避けたもの
-- `stdlib` はコンパイラ自身でビルドするので、最初の大きな実用テストになる
+- `rt` は生成コードから import されるので `internal/` の外に置く。名前は Go 標準の `runtime` との衝突を避けたもの。境界ヘルパ（`result.FromGo`/`result.FromErr`/`result.AssertOk`/`option.FromGo`）は対象の stdlib パッケージ側に置き、`rt` は stdlib を参照しない葉にする — 生成された stdlib コード自身も `rt` を import できる
+- `stdlib` はコンパイラ自身でビルドするので、最初の大きな実用テストになる。パッケージ間の依存は DAG に固定する（`result` のみ葉、`option` は `result` に、`list` は `option` に依存）。`List.map` などの組み込みモジュール参照は `internal/stdlib` が `.gomi` を一度だけコンパイルして得た member 表で解決し、`.gomi` の公開名は `build.Options.Exports` → `core.Decl.Exported` でエクスポート名になる（[decisions/stdlib-packaging](decisions/2026-11-03-stdlib-packaging.md)）
 
 ---
 

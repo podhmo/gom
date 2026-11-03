@@ -4,7 +4,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/podhmo/gom/rt"
+	"github.com/podhmo/gom/stdlib/result"
 )
 
 //line ignore.gom:5
@@ -21,7 +21,7 @@ func main() {
 	tmp1 := any("discarded")
 //line ignore.gom:9
 	v, err := fmt.Println(tmp1)
-	_ = rt.ResultFromGo(int64(v), err)
+	_ = result.FromGo(int64(v), err)
 //line ignore.gom:10
 	_ = struct{}{}
 }

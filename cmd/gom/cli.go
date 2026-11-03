@@ -18,7 +18,9 @@ import (
 	"github.com/podhmo/gom/internal/diag"
 	"github.com/podhmo/gom/internal/format"
 	"github.com/podhmo/gom/internal/goimport"
+	"github.com/podhmo/gom/internal/iface"
 	"github.com/podhmo/gom/internal/lower"
+	gomstd "github.com/podhmo/gom/internal/stdlib"
 	"github.com/podhmo/gom/internal/treedump"
 )
 
@@ -32,22 +34,26 @@ type input struct {
 // compileOptions builds the driver options for one input: a
 // goimport.Loader wired as the resolve loader, the signature oracle,
 // and lowering's GoSig hook — the whole `import go` seam of
-// build.Options. The loader's go list runs in the input file's own
-// directory so imported packages resolve in the module the file
-// belongs to; Config.GoBin/Dir are the documented escape from
-// ambient toolchain and workspace skew.
+// build.Options — plus the standard library's builtin-module
+// tables and the .gomi export hook of spec section 5. The loader's
+// go list runs in the input file's own directory so imported
+// packages resolve in the module the file belongs to;
+// Config.GoBin/Dir are the documented escape from ambient toolchain
+// and workspace skew.
 func compileOptions(in input, checkOnly bool) *build.Options {
 	dir := filepath.Dir(in.path)
 	if abs, err := filepath.Abs(dir); err == nil {
 		dir = abs
 	}
 	gl := goimport.New(&goimport.Config{Dir: dir})
-	return &build.Options{
-		Loader:    gl,
-		Sigs:      gl,
-		Lower:     &lower.Env{GoSig: gl.GoSigOf},
-		CheckOnly: checkOnly,
-	}
+	return gomstd.Apply(&build.Options{
+		Loader:         gl,
+		Sigs:           gl,
+		Lower:          &lower.Env{GoSig: gl.GoSigOf},
+		Exports:        iface.ExportNames,
+		SelfImportPath: gomstd.SelfPath(in.path),
+		CheckOnly:      checkOnly,
+	})
 }
 
 // runCheck implements `gom check [-format F] [FILE|DIR ...]`:

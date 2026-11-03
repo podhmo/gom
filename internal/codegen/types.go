@@ -121,7 +121,7 @@ func (g *gen) conType(c *types.Con) ast.Expr {
 	// type: Name or pkg.Name, with type arguments when applied.
 	var x ast.Expr = ast.NewIdent(exportName(c.Name))
 	if c.Qual != "" {
-		x = &ast.SelectorExpr{X: ast.NewIdent(g.imp(c.Qual)), Sel: ast.NewIdent(exportName(c.Name))}
+		x = g.qualIdent(c.Qual, exportName(c.Name))
 	}
 	switch len(c.Args) {
 	case 0:
@@ -136,7 +136,7 @@ func (g *gen) conType(c *types.Con) ast.Expr {
 // goRefType renders a Go-interop type handle (types.Go): the named
 // type or interface `path.Name[args]`.
 func (g *gen) goRefType(t *types.Go) ast.Expr {
-	x := &ast.SelectorExpr{X: ast.NewIdent(g.imp(t.Ref.Path)), Sel: ast.NewIdent(t.Ref.Name)}
+	x := g.qualIdent(t.Ref.Path, t.Ref.Name)
 	args := g.goTypeArgs(t.Args)
 	switch len(args) {
 	case 0:

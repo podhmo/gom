@@ -34,7 +34,7 @@ fn main () -> Unit = {
 }
 ```
 
-（この例は未実装の機能に依存する: `List.map` / `List.sum` は標準ライブラリの実装待ち — [TODO](../TODO.md) P4-8）
+（`List.map` / `List.sum` は `stdlib/list` — コンパイラ組み込みモジュールとして実装済み — [TODO](../TODO.md) P4-8）
 
 ### 1.1 式指向の規則
 
@@ -62,6 +62,7 @@ fn main () -> Unit = {
 - ラムダ: `fn x -> x + 1`、複数引数は `fn a b -> a + b`。本体はできるだけ右まで伸びる
 - 引数のない関数は `Unit` を取る: 定義は `fn main () -> Unit`、呼び出しは `main ()`
 - タプル `(a, b)`、リスト `[1, 2, 3]`、レコード `{ name = "a", age = 3 }`、更新 `{ p with age = 4 }`
+- リストの末尾要素は `..rest` で他のリストを接合できる: `[x, ..rest]` は `rest` を壊さずに先頭へ `x` を足した新しいリストを作る（コンス）
 - コメント `//` と `/* */`、ドキュメントコメント `///`、文字列補間 `"hello ${name}"`
 
 ### 1.3 カリー化
@@ -95,7 +96,7 @@ let task = Task.spawn <| fn () -> {
 let handle = parse >> validate >> render
 ```
 
-（この例は未実装の機能に依存する: `List.filter` / `List.map` / `List.sum` は標準ライブラリ（P4-8）、`Task.spawn` は並行処理と `Task`（P5-1）の実装待ち）
+（`List.filter` / `List.map` / `List.sum` は `stdlib/list` として実装済み（P4-8）。`Task.spawn` は並行処理と `Task`（P5-1）の実装待ち）
 
 - これらは二項演算子の中で最も優先順位が低く、左結合。`a + b |> f` は `f (a + b)`、`f <| a <| b` は `f a b`
 - 標準ライブラリはデータを最後の引数に取るので、`|>` で自然につながる
@@ -122,7 +123,7 @@ let page =
     footer)
 ```
 
-（この例は未実装の機能に依存する: `List.map` / `List.sum` は標準ライブラリの実装待ち — P4-8）
+（`List.map` / `List.sum` は `stdlib/list` として実装済み — P4-8）
 
 ### 1.6 波括弧の曖昧さ
 
@@ -362,7 +363,7 @@ fn report (xs: List String) -> Unit = {
 }
 ```
 
-（この例は未実装の機能に依存する: `strings.Join` への `List String` 引数は `[]T` と `List T` の境界コピー（P3-3）、`List.length` は標準ライブラリ（P4-8）の実装待ち）
+（`List.length` は `stdlib/list` として実装済み（P4-8）。`strings.Join` への `List String` 引数は `[]T` と `List T` の境界コピー（P3-3）の実装待ち）
 
 1. 0 引数の Go 関数は `()` を受け取る（`time.Now()`）。1 引数なら `strconv.Itoa(n)` と `strconv.Itoa n` は同じ意味
 2. 値として渡せる（`List.map strconv.Itoa xs`）
@@ -527,7 +528,7 @@ fn next_job (ctx: context.Context) (jobs: RecvChan Job) -> Result Job Stop =
   }
 ```
 
-（この例は未実装の機能に依存する: `Chan` / `Option.get` / `List.*` の各メンバーは標準ライブラリと並行処理（P4-8, P5-1）の実装待ち。`ctx.Done()` の `<-chan struct{}` 戻り値も未対応 — [implementation-gaps](implementation-gaps.md) 参照）
+（`Option.get` / `List.*` の各メンバーは `stdlib/{option,list}` として実装済み（P4-8）。`Chan` は並行処理（P5-1）の実装待ち。`ctx.Done()` の `<-chan struct{}` 戻り値も未対応 — [implementation-gaps](implementation-gaps.md) 参照）
 
 1. `go { e }` は `e` を新しい goroutine で評価する式で、型は `Unit`。`e` が `Unit` 以外ならエラー
 2. チャネル型は `Chan a`（双方向）、`RecvChan a`、`SendChan a`。方向の制限は `Chan.recvOnly` / `Chan.sendOnly` で明示的に変換する。Go 関数に渡すときだけは Go の代入規則に合わせて暗黙に変換する

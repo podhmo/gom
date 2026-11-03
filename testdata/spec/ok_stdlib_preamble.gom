@@ -1,0 +1,22 @@
+package ex
+
+import go "fmt"
+
+// The specification's opening example: the builtin-scope List
+// module resolves members of the Gom-written standard library —
+// List.map, List.sum — with no import clause (docs/spec.md
+// preamble; stdlib/list/list.gom).
+
+type Shape = Circle Float | Rect Float Float
+
+fn area (s: Shape) -> Float =
+  match s {
+    Circle r -> 3.14159 * r * r
+    Rect w h -> w * h
+  }
+
+fn main () -> Unit = {
+  let shapes = [Circle 1.0, Rect 2.0 3.0]
+  let total = shapes |> List.map area |> List.sum
+  ignore (fmt.Println(total))
+}

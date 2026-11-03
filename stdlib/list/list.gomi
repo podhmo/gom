@@ -1,0 +1,60 @@
+package list
+
+/// The `List` module: operations over the builtin immutable list.
+/// The list being worked on is the last parameter so `|>` pipelines
+/// read naturally; functions that can miss return `Option` instead
+/// of panicking.
+/// of x is [x] — a singleton list.
+fn of (x: a) -> List a
+
+/// cons x xs is [x, ..xs] — a fresh list, xs is never modified.
+fn cons (x: a) (xs: List a) -> List a
+
+/// append xs ys is xs ++ ys.
+fn append (xs: List a) (ys: List a) -> List a
+
+/// rev_append xs onto is rev xs ++ onto, in one pass.
+fn rev_append (xs: List a) (onto: List a) -> List a
+
+/// rev xs is xs reversed.
+fn rev (xs: List a) -> List a
+
+/// is_empty xs reports whether xs is [].
+fn is_empty (xs: List a) -> Bool
+
+/// length xs is the element count.
+fn length (xs: List a) -> Int
+
+/// head xs is Some x for the first element, None on [].
+fn head (xs: List a) -> Option a
+
+/// tail xs is Some rest — everything after the head — or None on [].
+fn tail (xs: List a) -> Option (List a)
+
+/// get n xs is the zero-based nth element, or None when out of
+/// bounds (n < 0 or n >= length xs).
+fn get (n: Int) (xs: List a) -> Option a
+
+/// map f xs applies f to every element in order.
+fn map (f: a -> b) (xs: List a) -> List b
+
+/// filter f xs keeps the elements that satisfy f, in order.
+fn filter (f: a -> Bool) (xs: List a) -> List a
+
+/// fold f acc xs is the left fold f(...f(f(acc, x0), x1)..., xn).
+fn fold (f: b -> a -> b) (acc: b) (xs: List a) -> b
+
+/// iter f xs applies f to every element for effect.
+fn iter (f: a -> Unit) (xs: List a) -> Unit
+
+/// find f xs is the first element satisfying f, or None.
+fn find (f: a -> Bool) (xs: List a) -> Option a
+
+/// concat xss is xss[0] ++ xss[1] ++ ... (`List.join` in OCaml).
+fn concat (xss: List (List a)) -> List a
+
+/// sum xs adds the elements of a Float list left to right.
+fn sum (xs: List Float) -> Float
+
+/// range lo hi is [lo, lo+1, ..., hi-1]; empty when lo >= hi.
+fn range (lo: Int) (hi: Int) -> List Int

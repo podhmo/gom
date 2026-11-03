@@ -39,6 +39,7 @@ import (
 	"github.com/podhmo/gom/internal/diag"
 	"github.com/podhmo/gom/internal/goimport"
 	"github.com/podhmo/gom/internal/lower"
+	gomstd "github.com/podhmo/gom/internal/stdlib"
 )
 
 // fence matches a markdown fenced code block anchored at line start;
@@ -157,10 +158,10 @@ func checkSnippet(t *testing.T, root string, s snippet) diag.List {
 	name := fmt.Sprintf("%s#%d.gom", s.mdFile, s.line)
 	in := build.Input{Path: name, Src: src, Interface: s.lang == "gomi"}
 	loader := goimport.New(&goimport.Config{Dir: root})
-	r, err := build.Compile(in, &build.Options{
+	r, err := build.Compile(in, gomstd.Apply(&build.Options{
 		Loader: loader, Sigs: loader, Lower: &lower.Env{GoSig: loader.GoSigOf},
 		CheckOnly: true,
-	})
+	}))
 	if err != nil {
 		t.Fatalf("%s: compiler API: %v", s.name(), err)
 	}

@@ -4,7 +4,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/podhmo/gom/rt"
+	"github.com/podhmo/gom/stdlib/result"
 )
 
 //line tailloop_capture.gom:5
@@ -84,7 +84,7 @@ func main() {
 	tmp8 := any(tmp7)
 //line tailloop_capture.gom:16
 	v, err := fmt.Println(tmp8)
-	_ = rt.ResultFromGo(int64(v), err)
+	_ = result.FromGo(int64(v), err)
 //line tailloop_capture.gom:17
 	_ = struct{}{}
 }

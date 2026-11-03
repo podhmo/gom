@@ -55,7 +55,7 @@ func (g *gen) varRef(sym *resolve.Symbol) ast.Expr {
 	if sym.Package == "" {
 		return ast.NewIdent(g.symName(sym))
 	}
-	return &ast.SelectorExpr{X: ast.NewIdent(g.imp(sym.Package)), Sel: ast.NewIdent(selName(sym))}
+	return g.qualIdent(sym.Package, selName(sym))
 }
 
 // qualRef renders a reference to a top-level function or other
@@ -65,7 +65,7 @@ func (g *gen) qualRef(sym *resolve.Symbol, targs []types.Type) ast.Expr {
 	if sym.Package == "" {
 		x = ast.NewIdent(g.symName(sym))
 	} else {
-		x = &ast.SelectorExpr{X: ast.NewIdent(g.imp(sym.Package)), Sel: ast.NewIdent(selName(sym))}
+		x = g.qualIdent(sym.Package, selName(sym))
 	}
 	args := g.goTypeArgs(targs)
 	switch len(args) {

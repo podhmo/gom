@@ -491,7 +491,7 @@ func (g *gen) ddefault(s *core.DSwitch, d dest) {
 // selExpr emits a Go select. A receive arm's channel evaluation was
 // already ordered by the enclosing body's bindings (expr.go
 // SelectExpr); the `v, ok` pair becomes the arm's Option bind
-// through rt.OptionFromGo.
+// through option.FromGo.
 func (g *gen) selExpr(e *core.SelectExpr, d dest) {
 	g.line(e.Sp)
 	g.raw("select")
@@ -520,7 +520,7 @@ func (g *gen) selArm(a core.SelArm, d dest) {
 			g.raw("case " + v + ", " + ok + " := <-")
 			g.expr(g.atom(a.Chan))
 		})
-		g.raw(g.bindName(a.Bind) + " := " + g.pkgQual(rtPath) + "OptionFromGo(" + v + ", " + ok + ")")
+		g.raw(g.bindName(a.Bind) + " := " + g.pkgQual(optionPath) + "FromGo(" + v + ", " + ok + ")")
 		g.nl()
 		g.body(a.Body, d)
 	case *core.SelSend:
@@ -752,7 +752,7 @@ func (g *gen) escapeErr(sp diag.Span, errExpr ast.Expr, wrap string, to *core.Fu
 }
 
 // resultFromGo emits `v, err := call` then materializes the Result —
-// `rt.ResultFromGo(v, err)` / `rt.ResultFromErr(err)` (call.go —
+// `result.FromGo(v, err)` / `result.FromErr(err)` (call.go —
 // the non-fused boundary conversion).
 func (g *gen) resultFromGo(e *core.ResultFromGo, d dest) {
 	g.line(e.Sp)
@@ -764,7 +764,7 @@ func (g *gen) resultFromGo(e *core.ResultFromGo, d dest) {
 		g.expr(call)
 		g.nl()
 		g.writeDest(d, &ast.CallExpr{
-			Fun:  ast.NewIdent(g.pkgQual(rtPath) + "ResultFromGo"),
+			Fun:  ast.NewIdent(g.pkgQual(resultPath) + "FromGo"),
 			Args: []ast.Expr{g.convOf(e.ValConv, payloadType(e.Type(), 0), ast.NewIdent(v)), ast.NewIdent(err)},
 		})
 	case core.GoResultsErrOnly:
@@ -773,7 +773,7 @@ func (g *gen) resultFromGo(e *core.ResultFromGo, d dest) {
 		g.expr(call)
 		g.nl()
 		g.writeDest(d, &ast.CallExpr{
-			Fun:  ast.NewIdent(g.pkgQual(rtPath) + "ResultFromErr"),
+			Fun:  ast.NewIdent(g.pkgQual(resultPath) + "FromErr"),
 			Args: []ast.Expr{ast.NewIdent(err)},
 		})
 	default:
@@ -781,7 +781,7 @@ func (g *gen) resultFromGo(e *core.ResultFromGo, d dest) {
 	}
 }
 
-// optionFromGo emits `v, ok := call` then `rt.OptionFromGo(v, ok)` —
+// optionFromGo emits `v, ok := call` then `option.FromGo(v, ok)` —
 // the comma-ok boundary conversion (call.go OptionFromGo).
 func (g *gen) optionFromGo(e *core.OptionFromGo, d dest) {
 	g.line(e.Sp)
@@ -790,7 +790,7 @@ func (g *gen) optionFromGo(e *core.OptionFromGo, d dest) {
 	g.expr(g.callGo(e.Call))
 	g.nl()
 	g.writeDest(d, &ast.CallExpr{
-		Fun:  ast.NewIdent(g.pkgQual(rtPath) + "OptionFromGo"),
+		Fun:  ast.NewIdent(g.pkgQual(optionPath) + "FromGo"),
 		Args: []ast.Expr{g.convOf(e.ValConv, payloadType(e.Type(), 0), ast.NewIdent(v)), ast.NewIdent(ok)},
 	})
 }

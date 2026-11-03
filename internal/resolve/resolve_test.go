@@ -1,6 +1,7 @@
 package resolve
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/podhmo/gom/internal/diag"
@@ -482,6 +483,50 @@ func TestUndefinedMember(t *testing.T) {
 	}
 	if !found {
 		t.Fatal("no E0201 at the member ident")
+	}
+}
+
+func TestUndefinedBuiltinMemberNotes(t *testing.T) {
+	b := newAstb()
+	// A member miss on a builtin-scope module with no injected
+	// table splits two ways: List/Option/Result are implemented by
+	// internal/stdlib — the miss means this compile was not wired
+	// for them — while Ref/Array/Chan/Task have no members
+	// anywhere yet. The E0201 note must say which.
+	cases := []struct {
+		name     string
+		mod      string
+		wantNote string
+	}{
+		{"stdlib not wired", "List", "not given its member table"},
+		{"stdlib not implemented", "Task", "exposes no members yet"},
+	}
+	for _, tt := range cases {
+		t.Run(tt.name, func(t *testing.T) {
+			sel := b.sel(b.id(tt.mod), "mapp")
+			f := b.file(b.fn("f", nil, nil, sel))
+			_, diags := File(f, &Config{})
+			found := false
+			for _, d := range diags {
+				if d.Code != "E0201" || d.Data["namespace"] != "member" {
+					continue
+				}
+				found = true
+				var note string
+				for _, n := range d.Notes {
+					note += n
+				}
+				if !strings.Contains(note, tt.wantNote) {
+					t.Fatalf("note %q does not contain %q", note, tt.wantNote)
+				}
+				if strings.Contains(note, "P4-8") {
+					t.Fatalf("note %q still names the closed task", note)
+				}
+			}
+			if !found {
+				t.Fatalf("no E0201 member diagnostic in %+v", diags)
+			}
+		})
 	}
 }
 

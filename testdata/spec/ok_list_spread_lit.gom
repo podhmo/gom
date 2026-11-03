@@ -1,0 +1,15 @@
+package ex
+
+// A spread element in a list literal splices a whole list into the
+// new one: [x, ..rest] is cons — a fresh list, rest is never
+// modified (the slice backing array is copied).
+fn cons (x: Int) (xs: List Int) -> List Int = [x, ..xs]
+
+fn dup (xs: List Int) -> List Int = [..xs]
+
+fn len (xs: List Int) -> Int = match xs {
+  [] -> 0
+  [x, ..rest] -> 1 + len rest
+}
+
+fn main () -> Int = len (cons 1 (dup [2, 3]))

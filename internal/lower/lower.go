@@ -41,6 +41,14 @@ type Env struct {
 	// reports whether the signature is known.
 	GoSig func(sym *resolve.Symbol) (GoSig, bool)
 
+	// Exported reports whether a package-level symbol is part of the
+	// package's public surface — a `fn`/`let` name the package's
+	// .gomi declares (spec section 5). It sets the Exported flag on
+	// the Core declaration, which codegen turns into the
+	// capitalized identifier contract. Nil: nothing is exported —
+	// the package-main behavior.
+	Exported func(sym *resolve.Symbol) bool
+
 	// Lines converts byte offsets to source positions for the `|?>`
 	// step name of a nameless step (a lambda): the name is rendered
 	// as "file:line". Nil makes lowering fall back to a bare offset.
@@ -359,6 +367,14 @@ func (l *lowerer) err(sp diag.Span, msg string) {
 		diag.Error(codeLowering, msg).At(sp))
 }
 
+// exported reports whether sym lands on the package's public
+// surface — a name the .gomi declares (Env.Exported; spec section
+// 5). Nil-sym and missing oracle both answer unexported, which is
+// also the package-main behavior.
+func (l *lowerer) exported(sym *resolve.Symbol) bool {
+	return sym != nil && l.env.Exported != nil && l.env.Exported(sym)
+}
+
 // funcArity is the declared arity of a Gom function symbol — its
 // parameter-list length — falling back through the same-file table,
 // the Env hook, and finally the flat arity of the reference type.
@@ -672,6 +688,7 @@ func (l *lowerer) decl(d check.Decl, out *core.File) {
 			Sp: d.Sp, Sym: d.Sym, Fn: fn,
 			TypeParams: d.TypeParams,
 			IsEntry:    l.isEntryPoint(out.Package, d.Sym, fn),
+			Exported:   l.exported(d.Sym),
 		})
 	case *check.LetDecl:
 		if !l.env.Tests && testOnlyPat(d.Pat) {
@@ -780,11 +797,13 @@ func (l *lowerer) letDecl(d *check.LetDecl, out *core.File) {
 			})
 			out.Decls = append(out.Decls, &core.FuncDecl{
 				Sp: d.Sp, Sym: v.Sym, ValueAlias: true, Fn: wrapper.Fn,
+				Exported: l.exported(v.Sym),
 			})
 			return
 		}
 		out.Decls = append(out.Decls, &core.VarDecl{
 			Sp: d.Sp, Sym: v.Sym, Body: l.exprBody(d.Value),
+			Exported: l.exported(v.Sym),
 		})
 		return
 	}
@@ -806,9 +825,10 @@ func (l *lowerer) letDecl(d *check.LetDecl, out *core.File) {
 	if deepPure(d.Pat) {
 		for _, b := range l.pureBinds(d.Pat, tmpVar()) {
 			out.Decls = append(out.Decls, &core.VarDecl{
-				Sp:   b.sp,
-				Sym:  b.sym,
-				Body: &core.Body{Tail: b.atom},
+				Sp:       b.sp,
+				Sym:      b.sym,
+				Body:     &core.Body{Tail: b.atom},
+				Exported: l.exported(b.sym),
 			})
 		}
 		return
@@ -838,6 +858,7 @@ func (l *lowerer) letDecl(d *check.LetDecl, out *core.File) {
 	case 1:
 		out.Decls = append(out.Decls, &core.VarDecl{
 			Sp: d.Sp, Sym: vars[0].sym, Body: body,
+			Exported: l.exported(vars[0].sym),
 		})
 	default:
 		tupSym := l.tmp()
@@ -854,6 +875,7 @@ func (l *lowerer) letDecl(d *check.LetDecl, out *core.File) {
 					Recv:  &core.Var{Base: core.Base{Sp: d.Sp, Typ: resT}, Sym: tupSym},
 					Index: i,
 				}},
+				Exported: l.exported(v.sym),
 			})
 		}
 	}

@@ -891,10 +891,10 @@ func (p *parser) parseParen() Expr {
 	return &TupleLit{Sp: p.span(open.start, end), Elems: elems}
 }
 
-// parseList parses "[" [ expr { "," expr } [ "," ] ] "]".
-// A ".." element is accepted for recovery but reported: grammar
-// reserves spread for call parens and patterns
-// (docs/problems/2026-11-01-operator-coverage.md).
+// parseList parses "[" [ expr { "," expr } [ "," ".." expr ] [ "," ] ] "]".
+// A trailing ".." element splices a whole list — [x, ..xs] is cons —
+// spec section 6 and decisions/2026-11-03-list-literal-spread.md; the
+// same tail shape as list patterns.
 func (p *parser) parseList() Expr {
 	open := p.next() // '['
 	l := &ListLit{Sp: p.span(open.start, p.prevEnd())}
@@ -911,8 +911,6 @@ func (p *parser) parseList() Expr {
 		}
 		if p.at(tokDotDot) {
 			start := p.next()
-			p.errf(p.spanOf(start),
-				"spread \"..\" is not allowed in a list literal")
 			x := p.parseExpr()
 			l.Elems = append(l.Elems, &Spread{Sp: p.span(start.start, x.Span().End), X: x})
 		} else {

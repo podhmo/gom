@@ -1,0 +1,43 @@
+package option
+
+/// The `Option` module: operations over the builtin `Some a | None`
+/// sum. The option being worked on is the last parameter so `|>`
+/// pipelines read naturally.
+/// is_some o reports whether o is Some.
+fn is_some (o: Option a) -> Bool
+
+/// is_none o reports whether o is None.
+fn is_none (o: Option a) -> Bool
+
+/// get o is the payload of Some; it diverges on None — prefer
+/// get_or_else or a match when the case can arise.
+fn get (o: Option a) -> a
+
+/// get_or_else fallback o is the payload of o, or fallback on None.
+fn get_or_else (fallback: a) (o: Option a) -> a
+
+/// map f o applies f to the payload when present.
+fn map (f: a -> b) (o: Option a) -> Option b
+
+/// and_then f o is flat-map: f applies when o is Some.
+fn and_then (f: a -> Option b) (o: Option a) -> Option b
+
+/// or_else fallback o is o when Some, else the fallback option.
+fn or_else (fallback: Option a) (o: Option a) -> Option a
+
+/// filter f o keeps Some payloads that satisfy f; anything else is
+/// None.
+fn filter (f: a -> Bool) (o: Option a) -> Option a
+
+/// flatten joins a nested option: Some (Some x) → Some x.
+fn flatten (oo: Option (Option a)) -> Option a
+
+/// iter f o applies f to the payload when present.
+fn iter (f: a -> Unit) (o: Option a) -> Unit
+
+// There is no `to_list` ([x] for Some, [] for None): it would
+// import stdlib/list while List.get already imports this
+// package — Go forbids the cycle. The layering is
+// result < option < list.
+/// to_result err o is Ok x for Some x, Err err for None.
+fn to_result (err: e) (o: Option a) -> Result a e

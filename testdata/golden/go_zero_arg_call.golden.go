@@ -4,7 +4,7 @@ package ex
 
 import (
 	"fmt"
-	"github.com/podhmo/gom/rt"
+	"github.com/podhmo/gom/stdlib/result"
 	"strings"
 )
 
@@ -12,10 +12,10 @@ import (
 func main(_ struct{}) struct{} {
 //line go_zero_arg_call.gom:7
 	v, err := fmt.Print()
-	_ = rt.ResultFromGo(int64(v), err)
+	_ = result.FromGo(int64(v), err)
 //line go_zero_arg_call.gom:8
 	v1, err1 := fmt.Println()
-	_ = rt.ResultFromGo(int64(v1), err1)
+	_ = result.FromGo(int64(v1), err1)
 //line go_zero_arg_call.gom:9
 	r := strings.NewReader("hi")
 //line go_zero_arg_call.gom:10

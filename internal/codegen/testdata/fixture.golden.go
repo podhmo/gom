@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/podhmo/gom/rt"
 	"github.com/podhmo/gom/stdlib/list"
+	"github.com/podhmo/gom/stdlib/option"
 	"github.com/podhmo/gom/stdlib/result"
 	"num"
 	"strconv"
@@ -277,7 +278,7 @@ func fetch(u struct{}) result.Result[int64, error] {
 	var res result.Result[int64, error]
 //line t.gom:28
 	v3, err1 := strconv.Atoi("1")
-	res = rt.ResultFromGo(v3, err1)
+	res = result.FromGo(v3, err1)
 //line t.gom:28
 	var n int64
 //line t.gom:28
@@ -295,7 +296,7 @@ func fetch(u struct{}) result.Result[int64, error] {
 	_ = int64(n)
 //line t.gom:29
 	v4, ok := cache.Get(0)
-	_ = rt.OptionFromGo(v4, ok)
+	_ = option.FromGo(v4, ok)
 //line t.gom:29
 	a1, b2 := num.DivMod(0)
 	_ = rt.Tuple2[int64, bool]{V0: a1, V1: b2}

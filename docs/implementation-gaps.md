@@ -240,3 +240,44 @@
   LSP で列・範囲単位の対応が要るかは open-questions 参照。
   参照: [SourceMap/SpanAt](../internal/diag/srcmap.go)、
   [decision](decisions/2026-11-03-source-location-correspondence.md)。
+
+- [x] **spec が規定する `[x, ..rest]` リテラルを parser だけが拒否していた**:
+  spec 6 章と grammar.ebnf はリストリテラルの `..rest` 末尾を書いていたが、
+  parse_expr.go は E0101「spread ".." is not allowed in a list literal」で落としていた
+  （checker/lower/codegen/eval は対応済み）。
+  対応: パターン同様に `..` 要素を受理し `syntax.Spread` を生成。
+  `stdlib/list` の `cons`/`append`/`rev_append` がこの構文を使う。
+  参照: [decision](decisions/2026-11-03-list-literal-spread.md)、
+  [spec fixture](../testdata/spec/ok_list_spread_lit.gom)。
+- [ ] **`.gomi` の `let` メンバーは表面に出るが外部参照との形が一致しない**:
+  generalized let は thunk 実装になるが、`internal/stdlib` は `MemberLet` を
+  KindVar シンボルとして登録し var 参照を生成する — 単相 let なら動くが
+  一般化 let は不整合。現行 stdlib の `.gomi` は `fn` しか宣言しないので不活性。
+  参照: [internal/stdlib](../internal/stdlib/stdlib.go)、
+  [iface](../internal/iface/iface.go)。
+- [ ] **`.gomi` の type メンバーはモジュールメンバ表に乗らない**:
+  `internal/stdlib` は `fn`/`let` メンバーだけを `Modules` 表に登録し、
+  `MemberType` はスキップする（モジュール内型 `List.Foo` の参照経路は未実装）。
+  現行の `.gomi` は型を宣言しないので不活性。
+  参照: [internal/stdlib](../internal/stdlib/stdlib.go)。
+- [ ] **`SelfImportPath` は `stdlib/<pkg>/` の予約ディレクトリ規約**:
+  `gomstd.SelfPath` は入力パスに `stdlib/list|option|result/` を含むと
+  そのパッケージの canonical import path を返す。ユーザーのモジュールが
+  同名レイアウトを使うと同じ規約が適用される（builtin 型の参照が
+  無修飾でそのローカルパッケージを指す）。
+  参照: [internal/stdlib](../internal/stdlib/stdlib.go)、
+  [decision](decisions/2026-11-03-stdlib-packaging.md)。
+- [ ] **`Result.to_option` / `Option.to_list` は存在しない（Go の循環参照禁止によるもの）**:
+  option→result（`to_result`）・list→option（`get`/`head` 等）が既にあるため、
+  逆向き変換はパッケージ間で import cycle になる。layering は
+  `result < option < list` に固定。各 `.gomi` の末尾に理由を記載済み。
+  参照: [decision](decisions/2026-11-03-stdlib-packaging.md)、
+  [stdlib/option/option.gomi](../stdlib/option/option.gomi)。
+
+- [x] **`docs/grammar.ebnf` の `list-expr` が `[x, ..xs]` を記していなかった**:
+  spec 6 章と実装はリストリテラルの末尾 `..` spread を受理するが、規範文法ファイルだけ
+  未更新だった（decision の「grammar.ebnf は既に書いていた」という記述は `list-pat` 側との
+  取り違え）。対応: `list-expr` の産出規則に末尾 `".." , expr` を追加しコメント修正、
+  decision に訂正を追記。
+  参照: [decision](decisions/2026-11-03-list-literal-spread.md)、
+  [grammar.ebnf](grammar.ebnf)。

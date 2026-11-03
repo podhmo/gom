@@ -601,16 +601,20 @@ wildcard, which is a different feature.
 strings.Repeat(_, _, 3)   // only one _ is allowed
 ```
 
-### E0505 — misplaced spread argument
+### E0505 — misplaced spread
 
 **Severity:** error · **Phase:** check · **Spec:** §8.1
 
-A spread argument "..xs" expands a list into a variadic Go call;
-it may only appear as the last argument of a Go function call (spec
-section 8.1.4). It is not a general list-splicing syntax.
+A spread "..xs" expands a list in place. It appears in three
+positions and is always the last element: a list literal ([x, ..xs]
+is cons), a list pattern ([x, ..rest] binds the tail), and the last
+argument of a variadic Go call (fmt.Println(..xs), spec section
+8.1.4). Anywhere else — mid-argument, mid-literal, or a non-list
+operand — is this diagnostic.
 
 ```gom
 fmt.Println(..xs, "end")   // the spread must be last
+[1, ..xs, 2]                 // and the literal tail must be last
 ```
 
 ### E0506 — unsupported generic constraint

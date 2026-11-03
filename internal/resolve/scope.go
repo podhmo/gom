@@ -115,10 +115,11 @@ func (t *tvScope) implicitScope() *tvScope {
 // builtin types (List.map, Chan.send, Task.spawn, ...).
 //
 // Builtin module member tables come from Config.Modules, consulted
-// at member-lookup time (builtinModuleTable) rather than here — they
-// are empty until the standard library exists (P4-8), so member
-// lookups into them fail with an undefined-name diagnostic rather
-// than silently deferring.
+// at member-lookup time (builtinModuleTable) rather than here.
+// internal/stdlib populates List/Option/Result from the shipped
+// .gomi files; Ref/Array/Chan/Task stay unimplemented, and a lookup
+// on a module with no table is E0201 — either a wiring gap or a
+// missing stdlib member set (undefinedMember distinguishes them).
 func builtinScope() *scope {
 	s := &scope{terms: map[string]*Symbol{}, types: map[string]*Symbol{}}
 	for _, name := range []string{
@@ -158,6 +159,16 @@ func builtinGoMembers() map[string]*Symbol {
 		"Slice": {Name: "Slice", Kind: KindType, Package: "Go"},
 		"Map":   {Name: "Map", Kind: KindType, Package: "Go"},
 	}
+}
+
+// stdlibModules names the builtin-scope modules the toolchain ships
+// a standard-library implementation for — internal/stdlib's
+// `packages` table, mirrored here by hand (resolve cannot import the
+// wiring package without a cycle). A member lookup on one of these
+// with no injected table is a wiring gap, not an unimplemented
+// feature, and the E0201 note says so.
+var stdlibModules = map[string]bool{
+	"List": true, "Option": true, "Result": true,
 }
 
 // builtinModuleTable returns the member table of a builtin-scope

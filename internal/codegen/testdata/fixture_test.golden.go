@@ -22,7 +22,7 @@ func TestResult(t *testing.T) {
 	var res result.Result[int64, error]
 //line t.gom:18
 	v1, err := strconv.Atoi("7")
-	res = rt.ResultFromGo(v1, err)
+	res = result.FromGo(v1, err)
 //line t.gom:18
 	switch res.Tag() {
 	case result.ResultTagOk:
@@ -38,5 +38,5 @@ func TestResult(t *testing.T) {
 //line t.gom:17
 	r1 = result.Ok[struct{}, error](struct{}{})
 //line t.gom:18
-	rt.AssertOk(t, r1)
+	result.AssertOk(t, r1)
 }

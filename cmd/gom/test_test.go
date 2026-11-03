@@ -125,7 +125,7 @@ func TestTestEmitsStream(t *testing.T) {
 }
 
 // TestTestResultBodyFailure: a test body that returns `Err _` fails
-// through rt.AssertOk, and the failure line maps back to the .gom
+// through result.AssertOk, and the failure line maps back to the .gom
 // position of the `try`/tail.
 func TestTestResultBodyFailure(t *testing.T) {
 	haveGo(t)

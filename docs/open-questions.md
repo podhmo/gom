@@ -36,6 +36,7 @@
 - [ ] 診断 JSON のスキーマ: 独自スキーマのままにするか、LSP の Diagnostic や SARIF に寄せるか（内部表現からの変換なので、どちらでも本体は変わらない）
 - [ ] ソース位置対応表（P4-5 のアンカー表）について、LSP はアンカー粒度（生成行 → 内側構文の span）より細かい列・範囲単位の対応を要するか。`//line` ドリフトの行エイリアシングの抜本対応（SourceMap-aware な逆引き＋曖昧時フォールバック）も P4-6 の設計入力
 - [ ] panic スタックをユーザー向け出力で `.gom` 位置付きに再描画するか。現状は内部復元 API（`ResolveStack`）のみで `gom test` は raw 出力を保持。出すなら spec §12 で挙動を明文化する
+- [ ] `.gomi` 適合検査（`checkInterfaces`）を `gom check`/`build` 以外のサブコマンドでも走らせるか。現状 `gom test`/`fix`/`info`/`dump` は `.gomi` 不整合のまま `Exports` 適用で生成物を書く（P4-8 レビュー指摘、仕様として build/check だけが契約ゲートなら問題なし）
 
 ## Future work（v1 では扱わないと決めたもの）
 

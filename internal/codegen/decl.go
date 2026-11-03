@@ -109,7 +109,7 @@ func (g *gen) testDecl(d *core.TestDecl) string {
 		// be set here.
 		g.body(d.Fn.Body, assign(r))
 		g.line(d.Sp)
-		g.raw(g.pkgQual(rtPath) + "AssertOk(t, " + r + ")")
+		g.raw(g.pkgQual(resultPath) + "AssertOk(t, " + r + ")")
 		g.nl()
 	} else {
 		g.funcBody(d.Fn, discard)

@@ -1,0 +1,18 @@
+package main
+
+// The builtin-scope stdlib modules emit qualified references to the
+// generated packages: List.map → list.Map, Option.get_or_else →
+// option.GetOrElse, Result.map_err → result.MapErr — exported Go
+// names because each package's .gomi lists the member (spec
+// section 5). Partial application through |> uses the declared
+// arity, so `List.map f` is a one-argument closure over the list.
+
+fn areas (xs: List Float) -> List Float = xs |> List.map (fn x -> x * 2.0)
+
+fn total (xs: List Float) -> Float = xs |> List.map (fn x -> x * 2.0) |> List.sum
+
+fn maybe (o: Option Int) -> Int = Option.get_or_else 9 o
+
+fn flagged (r: Result Int String) -> Result Int String = Result.map_err (fn e -> "${e}!") r
+
+fn main () -> Unit = ()

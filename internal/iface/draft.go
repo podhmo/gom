@@ -631,12 +631,16 @@ func declDoc(d syntax.Decl) *syntax.Comment {
 	}
 }
 
-// writeDoc emits `///` comment lines verbatim.
+// writeDoc emits `///` comment lines verbatim — one prefixed line
+// per source line of the merged doc comment (Comment.Text carries
+// the lines joined by "\n").
 func writeDoc(w *strings.Builder, c *syntax.Comment) {
 	if c == nil {
 		return
 	}
-	w.WriteString("///")
-	w.WriteString(c.Text)
-	w.WriteByte('\n')
+	for _, line := range strings.Split(c.Text, "\n") {
+		w.WriteString("///")
+		w.WriteString(line)
+		w.WriteByte('\n')
+	}
 }

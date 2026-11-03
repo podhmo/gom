@@ -1,0 +1,112 @@
+package option
+
+/// Option is the builtin `Some a | None` sum; these are the
+/// operations the `Option` module publishes
+/// (stdlib/option/option.gomi). The option being worked on is the
+/// LAST parameter so `o |> Option.map f` pipelines read naturally.
+fn is_some (o: Option a) -> Bool = match o {
+  Some _ -> true
+  None -> false
+}
+
+fn is_none (o: Option a) -> Bool = match o {
+  Some _ -> false
+  None -> true
+}
+
+/// get unwraps Some; on None it diverges — prefer get_or_else or a
+/// match when the case can arise.
+fn get (o: Option a) -> a = match o {
+  Some x -> x
+  None -> todo ()
+}
+
+/// get_or_else fallback o is the payload of o, or fallback on None.
+fn get_or_else (fallback: a) (o: Option a) -> a = match o {
+  Some x -> x
+  None -> fallback
+}
+
+fn map (f: a -> b) (o: Option a) -> Option b = match o {
+  Some x -> Some (f x)
+  None -> None
+}
+
+/// and_then f o is flat-map: f applies when o is Some.
+fn and_then (f: a -> Option b) (o: Option a) -> Option b = match o {
+  Some x -> f x
+  None -> None
+}
+
+/// or_else fallback o is o when Some, else the fallback option.
+fn or_else (fallback: Option a) (o: Option a) -> Option a = match o {
+  Some _ -> o
+  None -> fallback
+}
+
+/// filter f o keeps Some payloads that satisfy f; anything else is
+/// None.
+fn filter (f: a -> Bool) (o: Option a) -> Option a = match o {
+  Some x -> if f x { Some x } else { None }
+  None -> None
+}
+
+/// flatten joins a nested option: Some (Some x) → Some x.
+fn flatten (oo: Option (Option a)) -> Option a = match oo {
+  Some o -> o
+  None -> None
+}
+
+/// iter f o applies f to the payload when present.
+fn iter (f: a -> Unit) (o: Option a) -> Unit = match o {
+  Some x -> f x
+  None -> ()
+}
+
+// to_list ([x] for Some x, [] for None) cannot live here: it
+// would make this package import stdlib/list, while List.get
+// already makes list import this one — Go forbids the cycle.
+// The layering is result < option < list, so Option-to-List
+// lives nowhere; callers match instead.
+
+/// to_result err o is Ok x for Some x, Err err for None.
+fn to_result (err: e) (o: Option a) -> Result a e = match o {
+  Some x -> Ok x
+  None -> Err err
+}
+
+test "is_some / is_none" {
+  let none_i: Option Int = None
+  assert (is_some (Some 1))
+  assert (is_none none_i)
+  assert (not (is_some none_i))
+}
+
+test "get and get_or_else" {
+  assert_eq (get (Some 1)) 1
+  assert_eq (get_or_else 9 (Some 1)) 1
+  assert_eq (get_or_else 9 None) 9
+}
+
+test "map / and_then" {
+  assert_eq (map (fn x -> x + 1) (Some 1)) (Some 2)
+  assert_eq (map (fn x -> x + 1) None) None
+  assert_eq (and_then (fn x -> Some (x + 1)) (Some 1)) (Some 2)
+  assert_eq (and_then (fn x -> Some (x + 1)) None) None
+}
+
+test "or_else / filter / flatten" {
+  let none_i: Option Int = None
+  assert_eq (or_else (Some 9) (Some 1)) (Some 1)
+  assert_eq (or_else (Some 9) none_i) (Some 9)
+  assert_eq (filter (fn x -> x > 1) (Some 2)) (Some 2)
+  assert_eq (filter (fn x -> x > 9) (Some 2)) none_i
+  assert_eq (flatten (Some (Some 1))) (Some 1)
+  assert_eq (flatten (Some none_i)) none_i
+}
+
+test "to_result" {
+  let none_i: Option Int = None
+  assert_eq (to_result "missing" (Some 1)) (Ok 1)
+  assert_eq (to_result "missing" none_i) (Err "missing")
+}

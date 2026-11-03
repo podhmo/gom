@@ -1,0 +1,28 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0201",
+      "severity": "error",
+      "message": "`List` has no member `mapp`",
+      "span": {
+        "file": "E0201_list_member.gom",
+        "start": {
+          "line": 7,
+          "col": 40,
+          "offset": 279
+        },
+        "end": {
+          "line": 7,
+          "col": 44,
+          "offset": 283
+        }
+      },
+      "data": {
+        "in": "List",
+        "name": "mapp",
+        "namespace": "member"
+      }
+    }
+  ]
+}

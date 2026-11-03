@@ -187,11 +187,15 @@ generated from — useful when generated code surprises you.
   writes the `.go` plus a `_test.go` beside each input and runs the
   package's tests through `go test -json`; a failed `assert_eq`
   reports both values in the assertion message.
-- **Not-yet-implemented traps:** `List.map`, `Option.get`,
-  `Chan.make`, `Task.spawn`, `Ref.new` — the module names exist but
-  their member tables are empty (stdlib is task P4-8), so they
-  report E0201 "exposes no members yet". Recurse by hand over
-  `[x, ..rest]`; get channels from function parameters.
+- **Stdlib modules exist:** `List.map`, `List.filter`, `List.fold`,
+  `List.sum`, `List.rev`, `List.head`, `List.get`, `Option.get`,
+  `Option.map`, `Option.and_then`, `Result.map`, `Result.and_then`,
+  `Result.map_err` and friends resolve without an import — the
+  worked-on value is the last parameter so `xs |> List.map f`
+  pipelines. See `stdlib/{list,option,result}/*.gomi` for the full
+  surface. Still unimplemented: `Chan.*`, `Task.*`, `Ref.*`,
+  `Array.*` — those member tables are empty and report E0201
+  "exposes no members yet"; get channels from function parameters.
 
 ## Newlines (no indentation rules)
 
@@ -456,19 +460,18 @@ package main
 fn first (xs: List Int) -> Int = xs[0]   // NG: no index syntax
 ```
 
-```gom fail=E0101
+```gom
 package main
 
 fn prepend (x: Int) (xs: List Int) -> List Int =
-  [x, ..xs]                // NG: `..` is a pattern/spread, not a literal cons
+  [x, ..xs]                // OK: spread literal — cons, a fresh list
 ```
 
 No `xs[i]`, no `::`, no `h::t`, no `[]` access — destructure with
-`match` on `[x, ..rest]`. List *literals* are fixed-length
-`[a, b, c]` only (no spread/cons literal in v1): to build a list
-incrementally, define an ADT cons-list (`type Xs = | Nil | Cons Int
-Xs`) or wait for `List.*` (stdlib pending). Recursion over
-`[x, ..rest]` is the traversal idiom.
+`match` on `[x, ..rest]`. List *literals* are `[a, b, c]` or
+`[x, ..xs]` (a spread tail splices a whole list; `..rest` must be
+the last element). `List.cons`, `List.append`, `List.rev_append`
+and the other `List.*` stdlib functions cover the rest.
 
 ## Punctuation from other languages
 

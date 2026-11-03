@@ -1440,7 +1440,7 @@ func (c *checker) checkSelectExpr(e *syntax.SelectExpr, want types.Type) Expr {
 				// The bound name's declared type is the builtin
 				// `Option a` — under a file-local `type Option`
 				// that reading is the local ADT, which the
-				// emitted `rt.OptionFromGo` is not (E0415). An
+				// emitted `option.FromGo` is not (E0415). An
 				// unused bind never materializes the Option, so
 				// only a bind the arm's body consumes is an error.
 				if vp, isVar := bind.(*VarPat); isVar && vp.Sym != nil &&

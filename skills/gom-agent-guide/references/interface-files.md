@@ -4,11 +4,15 @@ Condensed from `docs/spec.md` chapter 7. The `.gomi` is Gom's
 `.mli`: a package's public API, written separately from its `.gom`
 implementation. Dependents compile against the `.gomi` alone.
 
-**Status:** `.gomi` files parse and check today (`gom check
-x.gomi`); enforcement of "library package must have exactly one" and
-implementation↔interface agreement is task P4-1 (the checking codes
-E0601–E0603 are reserved). A Gom-side `import "pkg"` (non-`go`) is
-still E0203 — only `import go "pkg"` resolves today.
+**Status:** `.gomi` files parse, check, and are enforced: `gom
+check` on a directory containing `x.gom` + `x.gomi` verifies
+implementation↔interface agreement (E0601–E0603) and the interface's
+listed names emit as exported Go identifiers (spec section 5). The
+canonical example is the standard library itself —
+`stdlib/{list,option,result}/*.gomi` is the public surface the
+compiler resolves `List.map`/`Option.get`/`Result.map` from. A
+Gom-side `import "pkg"` (non-`go`) is still E0203 — only `import go
+"pkg"` resolves today.
 
 ## Syntax
 
@@ -55,9 +59,11 @@ Rules:
 - Drafting command: planned as `gom info` (`moon info`-style; the
   CLI usage text still lists `gomi`) — not implemented.
 
-## Visibility without `.gomi` writing today
+## Visibility
 
-Until P4-1 lands there is no `pub`-style control to exercise: every
-top-level definition in a single-file package is visible to that
-file. Write the `.gomi` you intend and check it — it is verified
-syntax-checked — but cross-package imports remain future work.
+A `.gomi`-listed member exports as its capitalized Go name; an
+unlisted top-level definition stays a lowercase-private Go
+identifier. Inside Gom there is still no cross-package `import
+"pkg"` — dependents see interface members through the compiler's
+builtin module tables (the stdlib modules) today, and cross-package
+imports remain future work.

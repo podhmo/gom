@@ -1,0 +1,41 @@
+package result
+
+/// The `Result` module: operations over the builtin `Ok a | Err e`
+/// sum. The result being worked on is the last parameter so `|>`
+/// pipelines read naturally.
+/// is_ok r reports whether r is Ok.
+fn is_ok (r: Result a e) -> Bool
+
+/// is_err r reports whether r is Err.
+fn is_err (r: Result a e) -> Bool
+
+/// get r is the payload of Ok; it diverges on Err — prefer
+/// get_or_else or a match when the case can arise.
+fn get (r: Result a e) -> a
+
+/// get_or_else fallback r is the Ok payload of r, or fallback on
+/// Err.
+fn get_or_else (fallback: a) (r: Result a e) -> a
+
+/// get_err r is the payload of Err; it diverges on Ok.
+fn get_err (r: Result a e) -> e
+
+/// map f r applies f to the Ok payload, leaving Err alone.
+fn map (f: a -> b) (r: Result a e) -> Result b e
+
+/// map_err f r applies f to the error payload, leaving Ok alone.
+fn map_err (f: e -> e2) (r: Result a e) -> Result a e2
+
+/// and_then f r is flat-map: f applies when r is Ok.
+fn and_then (f: a -> Result b e) (r: Result a e) -> Result b e
+
+/// or_else fallback r is r when Ok, else the fallback result.
+fn or_else (fallback: Result a e) (r: Result a e) -> Result a e
+
+/// iter f r applies f to the Ok payload when present.
+fn iter (f: a -> Unit) (r: Result a e) -> Unit
+// There is no `to_option` (Ok x → Some x, Err → None): emitting
+// it would make this package import stdlib/option while
+// option.to_result already imports this one, and Go forbids the
+// cycle. The conversion lives on the Option side — use a match
+// or Option's combinators instead.

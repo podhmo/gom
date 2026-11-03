@@ -23,6 +23,7 @@ import (
 	"github.com/podhmo/gom/internal/build"
 	"github.com/podhmo/gom/internal/goimport"
 	"github.com/podhmo/gom/internal/lower"
+	gomstd "github.com/podhmo/gom/internal/stdlib"
 )
 
 // Reading fixtures in this process registers them with Go's test cache.
@@ -36,9 +37,9 @@ func compileStep(t *testing.T, root, src string, checkOnly bool) *build.Result {
 		t.Fatal(err)
 	}
 	loader := goimport.New(&goimport.Config{Dir: filepath.Join(root, "tutorial", filepath.Dir(src))})
-	compiled, err := build.Compile(build.Input{Path: src, Src: source}, &build.Options{
+	compiled, err := build.Compile(build.Input{Path: src, Src: source}, gomstd.Apply(&build.Options{
 		Loader: loader, Sigs: loader, Lower: &lower.Env{GoSig: loader.GoSigOf}, CheckOnly: checkOnly,
-	})
+	}))
 	if err != nil {
 		t.Fatalf("compiler API: %v", err)
 	}

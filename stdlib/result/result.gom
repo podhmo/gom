@@ -1,0 +1,108 @@
+package result
+
+/// Result is the builtin `Ok a | Err e` sum; these are the
+/// operations the `Result` module publishes
+/// (stdlib/result/result.gomi). The result being worked on is the
+/// LAST parameter so `r |> Result.map f` pipelines read naturally.
+fn is_ok (r: Result a e) -> Bool = match r {
+  Ok _ -> true
+  Err _ -> false
+}
+
+fn is_err (r: Result a e) -> Bool = match r {
+  Ok _ -> false
+  Err _ -> true
+}
+
+/// get unwraps Ok; on Err it diverges — prefer get_or_else or a
+/// match when the case can arise.
+fn get (r: Result a e) -> a = match r {
+  Ok x -> x
+  Err _ -> todo ()
+}
+
+/// get_or_else fallback r is the Ok payload of r, or fallback on
+/// Err.
+fn get_or_else (fallback: a) (r: Result a e) -> a = match r {
+  Ok x -> x
+  Err _ -> fallback
+}
+
+/// get_err unwraps Err; on Ok it diverges.
+fn get_err (r: Result a e) -> e = match r {
+  Ok _ -> todo ()
+  Err err -> err
+}
+
+fn map (f: a -> b) (r: Result a e) -> Result b e = match r {
+  Ok x -> Ok (f x)
+  Err err -> Err err
+}
+
+/// map_err f r transforms the error payload, leaving Ok alone.
+fn map_err (f: e -> e2) (r: Result a e) -> Result a e2 = match r {
+  Ok x -> Ok x
+  Err err -> Err (f err)
+}
+
+/// and_then f r is flat-map: f applies when r is Ok.
+fn and_then (f: a -> Result b e) (r: Result a e) -> Result b e = match r {
+  Ok x -> f x
+  Err err -> Err err
+}
+
+/// or_else fallback r is r when Ok, else the fallback result.
+fn or_else (fallback: Result a e) (r: Result a e) -> Result a e = match r {
+  Ok _ -> r
+  Err _ -> fallback
+}
+
+/// iter f r applies f to the Ok payload when present.
+fn iter (f: a -> Unit) (r: Result a e) -> Unit = match r {
+  Ok x -> f x
+  Err _ -> ()
+}
+
+// to_option would forget the error (Ok x → Some x, Err → None)
+// — but it cannot live here: emitting `option.Option_Some` would
+// make this package import stdlib/option, while option.to_result
+// already makes option import this one, and Go forbids the cycle.
+// The conversion exists on the Option side — there is no
+// Result.to_option.
+test "is_ok / is_err" {
+  let ok_r: Result Int String = Ok 1
+  let err_r: Result Int String = Err "bad"
+  assert (is_ok ok_r)
+  assert (is_err err_r)
+  assert (not (is_ok err_r))
+}
+
+test "get / get_or_else / get_err" {
+  let ok_r: Result Int String = Ok 1
+  let err_r: Result Int String = Err "bad"
+  assert_eq (get ok_r) 1
+  assert_eq (get_or_else 9 ok_r) 1
+  assert_eq (get_or_else 9 err_r) 9
+  assert_eq (get_err err_r) "bad"
+}
+
+test "map / map_err / and_then" {
+  let ok1: Result Int String = Ok 1
+  let ok2: Result Int String = Ok 2
+  let err_r: Result Int String = Err "bad"
+  let err_bang: Result Int String = Err "bad!"
+  assert_eq (map (fn x -> x + 1) ok1) ok2
+  assert_eq (map (fn x -> x + 1) err_r) err_r
+  assert_eq (map_err (fn e -> "${e}!") err_r) err_bang
+  assert_eq (map_err (fn e -> "${e}!") ok1) ok1
+  assert_eq (and_then (fn x -> Ok (x + 1)) ok1) ok2
+  assert_eq (and_then (fn x -> Ok (x + 1)) err_r) err_r
+}
+
+test "or_else" {
+  let ok1: Result Int String = Ok 1
+  let ok9: Result Int String = Ok 9
+  let err_r: Result Int String = Err "bad"
+  assert_eq (or_else ok9 ok1) ok1
+  assert_eq (or_else ok9 err_r) ok9
+}

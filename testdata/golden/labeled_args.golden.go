@@ -4,7 +4,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/podhmo/gom/rt"
+	"github.com/podhmo/gom/stdlib/result"
 	"strconv"
 )
 
@@ -36,7 +36,7 @@ func trace(tag, v string) string {
 	tmp3 := any(tmp2)
 //line labeled_args.gom:6
 	v1, err := fmt.Println(tmp3)
-	_ = rt.ResultFromGo(int64(v1), err)
+	_ = result.FromGo(int64(v1), err)
 //line labeled_args.gom:7
 	return v
 }
@@ -65,7 +65,7 @@ func main() {
 	tmp10 := any(tmp9)
 //line labeled_args.gom:21
 	v2, err1 := fmt.Println(tmp10)
-	_ = rt.ResultFromGo(int64(v2), err1)
+	_ = result.FromGo(int64(v2), err1)
 //line labeled_args.gom:23
 	to := "carol"
 //line labeled_args.gom:24
@@ -74,7 +74,7 @@ func main() {
 	tmp12 := any(tmp11)
 //line labeled_args.gom:24
 	v3, err2 := fmt.Println(tmp12)
-	_ = rt.ResultFromGo(int64(v3), err2)
+	_ = result.FromGo(int64(v3), err2)
 //line labeled_args.gom:27
 	partial := func(tmp13 int64) string {
 //line labeled_args.gom:27
@@ -86,7 +86,7 @@ func main() {
 	tmp15 := any(tmp14)
 //line labeled_args.gom:28
 	v4, err3 := fmt.Println(tmp15)
-	_ = rt.ResultFromGo(int64(v4), err3)
+	_ = result.FromGo(int64(v4), err3)
 //line labeled_args.gom:30
 	positionalOnly := func(tmp16 string) string {
 //line labeled_args.gom:30
@@ -98,7 +98,7 @@ func main() {
 	tmp18 := any(tmp17)
 //line labeled_args.gom:31
 	v5, err4 := fmt.Println(tmp18)
-	_ = rt.ResultFromGo(int64(v5), err4)
+	_ = result.FromGo(int64(v5), err4)
 //line labeled_args.gom:33
 	_ = Tx_Transfer{To: "bob", Amount: 5}
 //line labeled_args.gom:34

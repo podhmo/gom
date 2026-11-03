@@ -3,7 +3,6 @@
 package bridge
 
 import (
-	"github.com/podhmo/gom/rt"
 	"github.com/podhmo/gom/stdlib/result"
 	"io"
 	"net/http"
@@ -49,5 +48,5 @@ func request(_ struct{}) result.Result[*http.Request, error] {
 	tmp5 := io.Reader(tmp4)
 //line go_interface_fields.gom:12
 	v, err := http.NewRequest("POST", "http://example.invalid/gists", tmp5)
-	return rt.ResultFromGo(v, err)
+	return result.FromGo(v, err)
 }

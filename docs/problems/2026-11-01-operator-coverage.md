@@ -1,6 +1,6 @@
 # Operator coverage gaps: `!=`, `%`, `||`, `!`, bit ops, list spread
 
-- 状態: 未解決
+- 状態: 一部解決（2026-11-03、list-expression spread を受理）
 - 日付: 2026-11-01
 
 ## Situation
@@ -19,6 +19,10 @@ spec.md shows or implies these operators: `|>`, `<|`, `|?>`,
   need Go functions or new syntax
 - `..` spread inside a list expression `[x, ..rest]` — spec shows `..`
   only in list *patterns* and Go-call arguments `f(..xs)`
+  — *resolved 2026-11-03 by
+  [decisions/2026-11-03-list-literal-spread](../decisions/2026-11-03-list-literal-spread.md):
+  `[x, ..xs]` is accepted as cons; the `list-expr` production in
+  grammar.ebnf now documents the trailing `".." , expr` tail*
 
 ## Why it is a problem
 
@@ -39,4 +43,5 @@ that the parser implements. The grammar guesses the plausible set
 - Decide whether `!`/`not` exists and whether infix bit ops are wanted
   (`&&`/`||` are already logical, so Go-style `&`/`|`/`^`/`<<`/`>>`
   names are unavailable except maybe `&`/`^`)
-- Decide on `[a, ..rest]` list-expression spread
+- ~~Decide on `[a, ..rest]` list-expression spread~~ — resolved:
+  [decision](../decisions/2026-11-03-list-literal-spread.md)

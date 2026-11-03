@@ -76,8 +76,18 @@ func (r *resolver) undefinedMember(mod *Symbol, id *syntax.Ident, builtin bool) 
 		Set("in", mod.Name).
 		Set("namespace", "member")
 	if builtin {
-		d = d.AddNote(fmt.Sprintf("builtin module `%s` exposes no members yet — "+
-			"its standard library is not implemented (stdlib is task P4-8)", mod.Name))
+		if stdlibModules[mod.Name] {
+			// A member table exists in the toolchain — its absence
+			// here means the caller did not wire the standard
+			// library into this compile, not that it is
+			// unimplemented.
+			d = d.AddNote(fmt.Sprintf("builtin module `%s` is part of the standard library "+
+				"but this compile was not given its member table — "+
+				"wire it through internal/stdlib's Apply", mod.Name))
+		} else {
+			d = d.AddNote(fmt.Sprintf("builtin module `%s` exposes no members yet — "+
+				"its standard library is not implemented", mod.Name))
+		}
 	}
 	r.diags.Add(d)
 }

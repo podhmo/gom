@@ -1,6 +1,7 @@
 package build
 
 import (
+	"path/filepath"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -50,6 +51,22 @@ type Options struct {
 	// Sigs supplies signatures of symbols the file does not declare
 	// (nil: builtins only).
 	Sigs check.SignatureSource
+	// Exports reports the member names the input's package
+	// publishes through its .gomi (spec section 5): declarations
+	// whose names appear emit capitalized Go identifiers, the rest
+	// stay unexported. The hook is consulted once per compile —
+	// after checking, when the package name is known — with the
+	// input's directory and declared package name. Nil: nothing is
+	// exported (the package-main behavior; package main itself is
+	// never consulted).
+	Exports func(dir, pkg string) map[string]bool
+	// SelfImportPath is the Go import path the input's own output
+	// package occupies — set for sources compiled into a package
+	// the toolchain already has a path for (internal/stdlib's
+	// SelfPath answers for the stdlib directories). References
+	// into that path emit unqualified identifiers: a package never
+	// imports itself. Empty for ordinary inputs.
+	SelfImportPath string
 	// Lower supplies the lowering oracles (Types, FuncArity, GoSig).
 	// The Lines hook is per-file and is always set by Compile from
 	// the input's own source.
@@ -184,7 +201,20 @@ func Compile(in Input, opts *Options) (*Result, error) {
 		le = *o.Lower
 		le.Lines = diag.NewLineIndex(in.Src)
 	}
+	if o.Exports != nil && tf.Package != "main" {
+		exports := o.Exports(filepath.Dir(in.Path), tf.Package)
+		if len(exports) > 0 {
+			base := le.Exported
+			le.Exported = func(sym *resolve.Symbol) bool {
+				if sym.Package == "" && exports[sym.Name] {
+					return true
+				}
+				return base != nil && base(sym)
+			}
+		}
+	}
 	coref, ldiags := lower.File(tf, &le)
+	coref.SelfImportPath = o.SelfImportPath
 	r.Core = coref
 	r.Diagnostics = append(r.Diagnostics, ldiags...)
 	if diag.List(ldiags).HasError() {

@@ -467,7 +467,7 @@ func (l *lowerer) goCallTyp(sig GoSig, resTyp types.Type) types.Type {
 // resTyp is the Gom-facing type the consumer must produce. When the
 // raw Go result (call.Typ) differs from the Gom-facing payload —
 // `int` vs `int64` — the consumer records the conversion so codegen
-// renders `rt.ResultFromGo[int64](int64(v), err)` and friends.
+// renders `result.FromGo[int64](int64(v), err)` and friends.
 func (l *lowerer) wrapGoResult(s *seq, call *core.CallGo, resTyp types.Type) core.Expr {
 	base := core.Base{Sp: call.Sp, Typ: resTyp}
 	switch call.Results {

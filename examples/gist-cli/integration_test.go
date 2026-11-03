@@ -20,6 +20,7 @@ import (
 	"github.com/podhmo/gom/internal/build"
 	"github.com/podhmo/gom/internal/goimport"
 	"github.com/podhmo/gom/internal/lower"
+	gomstd "github.com/podhmo/gom/internal/stdlib"
 )
 
 // Embed non-Go input and the subprocess-built helper so Go test caching
@@ -47,9 +48,9 @@ func buildCLI(t *testing.T) string {
 	}
 	path := filepath.Join(root, "examples/gist-cli/main.gom")
 	loader := goimport.New(&goimport.Config{Dir: root})
-	compiled, err := build.Compile(build.Input{Path: path, Src: source}, &build.Options{
+	compiled, err := build.Compile(build.Input{Path: path, Src: source}, gomstd.Apply(&build.Options{
 		Loader: loader, Sigs: loader, Lower: &lower.Env{GoSig: loader.GoSigOf},
-	})
+	}))
 	if err != nil {
 		t.Fatalf("compile Gom: %v", err)
 	}

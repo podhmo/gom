@@ -1,0 +1,7 @@
+package ex
+
+// `List.mapp` is a member miss on a stdlib module whose member
+// table IS wired (stdlib/list/list.gomi): the diagnostic names the
+// missing member and carries no "not implemented" note — the
+// standard library exists now.
+fn f (xs: List Int) -> List Int = List.mapp (fn x -> x) xs

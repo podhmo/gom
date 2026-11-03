@@ -61,6 +61,17 @@ type gen struct {
 	ctors  map[*resolve.Symbol]*ctorDecl // locally declared variants
 	localT map[string]bool               // type names declared in this file
 
+	// exported is the package's public surface — the decl symbols
+	// lowering flagged Exported (spec section 5): they emit
+	// capitalized identifiers where private decls stay camelCase.
+	exported map[*resolve.Symbol]bool
+
+	// selfPath is the file's own Go import path (core.File's
+	// SelfImportPath): references into it emit bare identifiers
+	// because a package never imports itself. Empty for ordinary
+	// inputs, which never collide with a toolchain-known path.
+	selfPath string
+
 	fileImports []core.Import // the file's resolved imports (alias lookup)
 
 	testFn *core.Func // the test's fn: escapes targeting it call t.Errorf
@@ -82,15 +93,16 @@ type gen struct {
 
 func newGen(li *diag.LineIndex) *gen {
 	return &gen{
-		li:      li,
-		fset:    token.NewFileSet(),
-		imports: map[string]string{},
-		inames:  map[string]bool{},
-		names:   map[*resolve.Symbol]string{},
-		used:    map[string]bool{},
-		pused:   map[string]bool{},
-		ctors:   map[*resolve.Symbol]*ctorDecl{},
-		localT:  map[string]bool{},
+		li:       li,
+		fset:     token.NewFileSet(),
+		imports:  map[string]string{},
+		inames:   map[string]bool{},
+		names:    map[*resolve.Symbol]string{},
+		used:     map[string]bool{},
+		pused:    map[string]bool{},
+		ctors:    map[*resolve.Symbol]*ctorDecl{},
+		localT:   map[string]bool{},
+		exported: map[*resolve.Symbol]bool{},
 	}
 }
 
@@ -98,6 +110,27 @@ func newGen(li *diag.LineIndex) *gen {
 // name, every local variant constructor, and every local type name —
 // used names block fresh temps, local types shadow the builtin map.
 func (g *gen) indexDecls(f *core.File) {
+	// The public surface is settled before any name is claimed:
+	// exported decls claim their capitalized identifier.
+	for _, d := range f.Decls {
+		switch d := d.(type) {
+		case *core.FuncDecl:
+			if d.Sym != nil && d.Exported {
+				g.exported[d.Sym] = true
+			}
+		case *core.VarDecl:
+			if d.Sym != nil && d.Exported {
+				g.exported[d.Sym] = true
+			}
+		case *core.TypeDecl:
+			// no exported flag yet — type names are always
+			// emitted capitalized (see typeDeclName).
+		case *core.TestDecl:
+			// test functions are named from d.Name, deduplicated later
+		default:
+			panic("unreachable")
+		}
+	}
 	for _, d := range f.Decls {
 		switch d := d.(type) {
 		case *core.FuncDecl:
@@ -200,6 +233,11 @@ func (g *gen) claim(sym *resolve.Symbol, mark map[string]bool, blocks ...map[str
 		return n
 	}
 	base := g.safeIdent(valueName(sym.Name))
+	if g.exported[sym] {
+		// .gomi members emit with a capital letter (spec section
+		// 5): `fn is_some` → `IsSome`.
+		base = g.safeIdent(exportName(sym.Name))
+	}
 	n := base
 outer:
 	for i := 1; ; i++ {
@@ -280,9 +318,24 @@ func pathBase(p string) string {
 	return p
 }
 
-// pkgQual renders `pkg.` for the given import path.
+// pkgQual renders `pkg.` for the given import path — or the empty
+// qualifier for the file's own package, which never imports itself
+// (a stdlib package referencing its own representation).
 func (g *gen) pkgQual(path string) string {
+	if path != "" && path == g.selfPath {
+		return ""
+	}
 	return g.imp(path) + "."
+}
+
+// qualIdent renders an imported-package-qualified identifier —
+// `pkg.Name` — or a bare `Name` when path is the file's own import
+// path.
+func (g *gen) qualIdent(path, name string) ast.Expr {
+	if path != "" && path == g.selfPath {
+		return ast.NewIdent(name)
+	}
+	return &ast.SelectorExpr{X: ast.NewIdent(g.imp(path)), Sel: ast.NewIdent(name)}
 }
 
 // --- output helpers ---

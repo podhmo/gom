@@ -34,8 +34,7 @@ Key rules:
   `time.Now()` = `time.Now ()`.
 - Go calls are **not curried** — no partial application; a missing
   labeled param on a Go call is E0404, not a closure.
-- Go functions are values: `List.map strconv.Itoa xs`-style works
-  (once `List.map` exists).
+- Go functions are values: `List.map strconv.Itoa xs`-style works.
 - Variadic: `fmt.Println(a, b, c)` takes any count; spread a list
   into the tail with `f(..xs)` — `..xs` must be the **last** argument
   (E0505). A variadic call through `|>`/`<|` passes one element, not

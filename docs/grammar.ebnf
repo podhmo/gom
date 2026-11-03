@@ -468,10 +468,12 @@ paren-expr     = "(" , ")"                                    (* Unit literal *)
                   Go calls, "fmt.Println(..xs)"); it may only appear as
                   the LAST item and only in a Go call [SEMANTIC].       *)
 
-list-expr      = "[" , [ expr , { "," , expr } , [ "," ] ] , "]" ;
-               (* list literal; [PROVISIONAL operator-coverage: spec
-                  shows ".." spread only in patterns and in Go call
-                  arguments, not in list expressions.]                  *)
+list-expr      = "[" , [ expr , { "," , expr } , [ "," , ".." , expr ] ,
+                     [ "," ] ] , "]" ;
+               (* list literal; a trailing ".." expr splices a whole
+                  list ([x, ..xs] is cons), mirroring the list-pat tail —
+                  spec section 6 and
+                  decisions/2026-11-03-list-literal-spread.md.           *)
 
 brace-expr     = block | record-literal | record-update ;
                (* resolved by lookahead — see the disambiguation rule in

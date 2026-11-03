@@ -33,6 +33,12 @@ type FuncDecl struct {
 	// from the package and symbol names). Codegen emits it as
 	// `func main()`: no parameters, no result.
 	IsEntry bool
+	// Exported marks a member of the package's public surface —
+	// a `fn`/`let` the package's .gomi names (spec section 5).
+	// Lowering decides it from Env.Exported; codegen emits the
+	// capitalized identifier (`fn area` → `Area`) instead of the
+	// unexported camelCase it gives private declarations.
+	Exported bool
 	// TypeParams are the declared type parameters in source order —
 	// the order the type's instantiation arguments are given in.
 	// Nil while the definition is monomorphic.
@@ -48,9 +54,12 @@ func (n *FuncDecl) Span() diag.Span { return n.Sp }
 // `var name T = func() T { ... }()` when the initializer is not a
 // single expression.
 type VarDecl struct {
-	Sp   diag.Span
-	Sym  *resolve.Symbol // KindVar
-	Body *Body
+	Sp  diag.Span
+	Sym *resolve.Symbol // KindVar
+	// Exported marks a member of the package's public surface —
+	// see FuncDecl.Exported.
+	Exported bool
+	Body     *Body
 }
 
 func (*VarDecl) isDecl()           {}
@@ -173,7 +182,14 @@ type File struct {
 	Package string
 	PkgSp   diag.Span
 	Imports []Import
-	Decls   []Decl
+	// SelfImportPath is the Go import path the file's own output
+	// package occupies — set for sources compiled into a package
+	// the toolchain already has a path for (the stdlib packages).
+	// References into that path emit unqualified identifiers: a
+	// package never imports itself. Empty for ordinary inputs —
+	// codegen cannot know a user file's eventual import path.
+	SelfImportPath string
+	Decls          []Decl
 	// EqDecls are the generated structural comparators the file's
 	// Equal nodes and CallBuiltin{assert_eq} plans call — one per
 	// distinct composite type lowering compared. They are emitted

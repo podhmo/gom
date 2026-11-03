@@ -1333,6 +1333,52 @@ fn beq (xs: List Int) (ys: List Int) -> Bool = xs == ys
 	}
 }
 
+// TestSpecPreambleRuns compiles the specification's opening example —
+// `shapes |> List.map area |> List.sum` — and runs the generated
+// binary, pinning the runtime answer 9.14159. The fixture
+// testdata/spec/ok_stdlib_preamble.gom covers the diagnostic side;
+// this is the executable half, proving the builtin-scope `List`
+// members resolve into the Gom-written standard library end to end.
+func TestSpecPreambleRuns(t *testing.T) {
+	src := `package main
+
+import go "fmt"
+
+type Shape = Circle Float | Rect Float Float
+
+fn area (s: Shape) -> Float =
+  match s {
+    Circle r -> 3.14159 * r * r
+    Rect w h -> w * h
+  }
+
+fn main () -> Unit = {
+  let shapes = [Circle 1.0, Rect 2.0 3.0]
+  let total = shapes |> List.map area |> List.sum
+  ignore (fmt.Println(total))
+}
+`
+	r, err := build.Compile(
+		build.Input{Path: "main.gom", Src: []byte(src)},
+		suiteOptions(),
+	)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	for _, d := range r.Diagnostics {
+		if d.Severity == diag.SeverityError {
+			t.Fatalf("%s: %s", d.Code, d.Message)
+		}
+	}
+	if r.Output == nil {
+		t.Fatal("no generated output")
+	}
+	got := strings.TrimSuffix(runCompiled(t, r.Output.Source), "\n")
+	if got != "9.14159" {
+		t.Fatalf("binary stdout = %q, want 9.14159", got)
+	}
+}
+
 func TestEvalMatchesCompiled(t *testing.T) {
 	for _, c := range compareCases {
 		t.Run(c.name, func(t *testing.T) {

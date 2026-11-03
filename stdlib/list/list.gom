@@ -1,0 +1,135 @@
+package list
+
+/// List is the builtin immutable list; these are the operations the
+/// `List` module publishes (stdlib/list/list.gomi).
+///
+/// Conventions: the list being worked on is the LAST parameter so
+/// `xs |> List.map f` pipelines read naturally; functions that can
+/// miss return `Option` instead of panicking.
+fn of (x: a) -> List a = [x]
+
+fn cons (x: a) (xs: List a) -> List a = [x, ..xs]
+
+fn append (xs: List a) (ys: List a) -> List a = match xs {
+  [] -> ys
+  [x, ..rest] -> [x, ..append rest ys]
+}
+
+/// rev_append xs onto = rev xs ++ onto, in one pass.
+@tailrec
+fn rev_append (xs: List a) (onto: List a) -> List a = match xs {
+  [] -> onto
+  [x, ..rest] -> rev_append rest [x, ..onto]
+}
+
+fn rev (xs: List a) -> List a = rev_append xs []
+
+fn is_empty (xs: List a) -> Bool = match xs {
+  [] -> true
+  _ -> false
+}
+
+fn length (xs: List a) -> Int = length_go 0 xs
+
+fn head (xs: List a) -> Option a = match xs {
+  [] -> None
+  [x, ..rest] -> Some x
+}
+
+fn tail (xs: List a) -> Option (List a) = match xs {
+  [] -> None
+  [x, ..rest] -> Some rest
+}
+
+fn get (n: Int) (xs: List a) -> Option a = match xs {
+  [] -> None
+  [x, ..rest] -> if n == 0 { Some x } else { get (n - 1) rest }
+}
+
+fn map (f: a -> b) (xs: List a) -> List b = match xs {
+  [] -> []
+  [x, ..rest] -> [f x, ..map f rest]
+}
+
+fn filter (f: a -> Bool) (xs: List a) -> List a = match xs {
+  [] -> []
+  [x, ..rest] -> if f x { [x, ..filter f rest] } else { filter f rest }
+}
+
+/// fold f acc xs is the left fold f(...f(f(acc, x0), x1)..., xn).
+@tailrec
+fn fold (f: b -> a -> b) (acc: b) (xs: List a) -> b = match xs {
+  [] -> acc
+  [x, ..rest] -> fold f (f acc x) rest
+}
+
+fn iter (f: a -> Unit) (xs: List a) -> Unit = for x in xs { ignore f x }
+
+fn find (f: a -> Bool) (xs: List a) -> Option a = match xs {
+  [] -> None
+  [x, ..rest] -> if f x { Some x } else { find f rest }
+}
+
+/// concat xss = xss[0] ++ xss[1] ++ ... — `List.join` in OCaml.
+fn concat (xss: List (List a)) -> List a = fold append [] xss
+
+/// sum xs adds the elements of a Float list left to right.
+fn sum (xs: List Float) -> Float = fold (fn acc x -> acc + x) 0.0 xs
+
+/// range lo hi is [lo, lo+1, ..., hi-1]; empty when lo >= hi.
+fn range (lo: Int) (hi: Int) -> List Int = range_go lo hi []
+
+// --- private helpers ---
+@tailrec
+fn length_go (acc: Int) (xs: List a) -> Int = match xs {
+  [] -> acc
+  [_, ..rest] -> length_go (acc + 1) rest
+}
+
+@tailrec
+fn range_go (i: Int) (hi: Int) (acc: List Int) -> List Int = if i >= hi { rev acc } else {
+  range_go (i + 1) hi [i, ..acc]
+}
+
+test "of/cons build literals" { assert_eq (of 1) [1]; assert_eq (cons 1 [2, 3]) [1, 2, 3] }
+
+test "append and rev" {
+  assert_eq (append [1, 2] [3]) [1, 2, 3]
+  assert_eq (rev [1, 2, 3]) [3, 2, 1]
+  assert_eq (rev_append [2, 1] [3]) [1, 2, 3]
+}
+
+test "length and is_empty" {
+  let empty: List Int = []
+  assert_eq (length [1, 2, 3]) 3
+  assert (is_empty empty)
+  assert (not (is_empty [1]))
+}
+
+test "head/tail/get return Option" {
+  let empty: List Int = []
+  assert_eq (head [1, 2]) (Some 1)
+  assert_eq (head empty) None
+  assert_eq (tail [1, 2]) (Some [2])
+  assert_eq (tail empty) None
+  assert_eq (get 1 [10, 20, 30]) (Some 20)
+  assert_eq (get 9 [10]) None
+  assert_eq (get (-1) [10, 20]) None
+  assert_eq (get 3 [10, 20, 30]) None
+}
+
+test "map/filter/fold" {
+  assert_eq (map (fn x -> x + 1) [1, 2]) [2, 3]
+  assert_eq (filter (fn x -> x > 1) [1, 2, 3]) [2, 3]
+  assert_eq (fold (fn a x -> a + x) 0 [1, 2, 3]) 6
+}
+
+test "sum" { assert_eq (sum [1.5, 2.5]) 4.0 }
+
+test "range" { assert_eq (range 0 4) [0, 1, 2, 3]; assert_eq (range 3 3) [] }
+
+test "concat and find" {
+  assert_eq (concat [[1], [2, 3]]) [1, 2, 3]
+  assert_eq (find (fn x -> x > 1) [1, 2, 3]) (Some 2)
+  assert_eq (find (fn x -> x > 9) [1, 2]) None
+}

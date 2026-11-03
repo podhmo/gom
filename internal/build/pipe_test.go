@@ -48,7 +48,7 @@ fn twoUnguarded (r1: Result Int GoError) (r2: Result Int GoError) -> Result Int 
 	}
 	generated := string(r.Output.Source)
 	wrappedCode := generated[strings.Index(generated, "func wrapped("):strings.Index(generated, "func tried(")]
-	if strings.Contains(wrappedCode, "rt.ResultFromGo") {
+	if strings.Contains(wrappedCode, "result.FromGo") {
 		t.Fatal("direct pipeline calls should use fused raw Go result pairs")
 	}
 	// Imports are added to the same generated package; this is a real Go
