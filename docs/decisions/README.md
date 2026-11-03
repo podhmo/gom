@@ -80,7 +80,7 @@
 | [tailrec-requirement](2026-11-02-tailrec-requirement.md) | `@tailrec`: a requirement attribute for tail-call optimization | 採用（実装・検証済み: [sketch: tailrec-validation](../sketch/2026-11-02-tailrec-validation.md)） |
 | [test-harness](2026-11-02-test-harness.md) | テストハーネスの配置とファイル規約 (internal/gomtest) | 採用 |
 | [treedump-format](2026-11-02-treedump-format.md) | IR テキストダンプ形式 (internal/treedump) | draft |
-| [agent-skill-example-verification](2026-11-03-agent-skill-example-verification.md) | gom-agent-guide の例示コードを抽出テストで検証する方式 | 採用 |
+| [agent-skill-example-verification](2026-11-03-agent-skill-example-verification.md) | gom-agent-guide の例示コードを抽出テストで検証する方式（一部を [skill-vendoring-via-symlink](2026-11-03-skill-vendoring-via-symlink.md) で置き換え） | 採用 |
 | [gist-cli-host-boundary](2026-11-03-gist-cli-host-boundary.md) | Gist CLI as an executable Gom integration use case（一部を [go-interface-assignment-and-fields](2026-11-03-go-interface-assignment-and-fields.md) で置き換え） | 採用 |
 | [go-error-alias-results](2026-11-03-go-error-alias-results.md) | Go の error alias は error 戻り値規約を引き継ぐ | 採用 |
 | [go-interface-assignment-and-fields](2026-11-03-go-interface-assignment-and-fields.md) | Go interface assignments and read-only exported struct fields | 採用 |
@@ -88,6 +88,7 @@
 | [gom-fix-explain-schema](2026-11-03-gom-fix-explain-schema.md) | gom fix / explain / schema: wire shapes and the fix-application policy (P4-4) | 採用 |
 | [import-go-loading-mechanics](2026-11-03-import-go-loading-mechanics.md) | How `import go` loads Go packages: go/types + go/importer over `go list -export` | 採用（P1-9 の `internal/goimport` が実装・検証した — E2E で `strconv`/`bytes`/`os`/`fmt` の呼び出しが生成コードの build・run まで通る） |
 | [result-pipe-local-boundary](2026-11-03-result-pipe-local-boundary.md) | Result パイプの局所的な制御フロー | 採用 |
+| [skill-vendoring-via-symlink](2026-11-03-skill-vendoring-via-symlink.md) | `.devin/skills` への skill 公開は symlink で行う | 採用 |
 | [static-function-alias-declarations](2026-11-03-static-function-alias-declarations.md) | Static function aliases use named canonical function wrappers | 採用 |
 | [top-level-let-type-variable-scope](2026-11-03-top-level-let-type-variable-scope.md) | Top-level monomorphic lets cannot capture declaration type variables | 採用 |
 | [tutorial-dependency-tracking](2026-11-03-tutorial-dependency-tracking.md) | Track executable tutorial inputs and compiler dependencies | 採用 |

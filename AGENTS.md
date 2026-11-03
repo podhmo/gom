@@ -19,7 +19,7 @@ Gom は Go へトランスパイルする関数型言語。コンパイラは Go
 
 ## `.gom` を書くとき
 
-Gom のコード（`.gom` / `.gomi`）を書く・読む・直すときは、**最初に `$gom-agent-guide` を読む**こと。`skills/gom-agent-guide/` に canonical なスキルがあり、`.devin/skills/` に vendor してある（同期は `make vendor-skills`、一致は `skills/snippets_test.go` が検査する）。LLM の事前知識に Gom はほぼ存在しないため、OCaml / F# / Go の習慣で書くと構文を間違える — スキルに言語ツアーと「ありがちな間違い」集、ツールチェーンの使い方がまとめてある。この AGENTS.md はコンパイラ開発者向けの文書であり、言語知識はスキル側に置く（設計: [docs/sketch/2026-11-02-agent-skill-for-gom.md](docs/sketch/2026-11-02-agent-skill-for-gom.md)）。
+Gom のコード（`.gom` / `.gomi`）を書く・読む・直すときは、**最初に `$gom-agent-guide` を読む**こと。`skills/gom-agent-guide/` に canonical なスキルがあり、`.devin/skills/gom-agent-guide` はそこへの symlink（`skills/snippets_test.go` が解決先を検査する）。LLM の事前知識に Gom はほぼ存在しないため、OCaml / F# / Go の習慣で書くと構文を間違える — スキルに言語ツアーと「ありがちな間違い」集、ツールチェーンの使い方がまとめてある。この AGENTS.md はコンパイラ開発者向けの文書であり、言語知識はスキル側に置く（設計: [docs/sketch/2026-11-02-agent-skill-for-gom.md](docs/sketch/2026-11-02-agent-skill-for-gom.md)）。
 
 ## ドキュメント更新のルール
 

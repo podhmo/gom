@@ -20,9 +20,9 @@ package skills_test
 // matched at line start — the conventional form — so inline ``` in
 // prose is never mistaken for a block.
 //
-// TestVendoredSkills additionally asserts .devin/skills/ holds a
-// byte-identical copy of every skills/<name>/ tree; refresh it with
-// `make vendor-skills`.
+// TestSkillSymlinks additionally asserts each .devin/skills/<name>
+// entry is a symlink resolving into the canonical skills/<name>/
+// tree — .devin/skills/ is not a copy, so nothing can drift.
 
 import (
 	"bytes"
@@ -217,63 +217,38 @@ func TestSkillSnippets(t *testing.T) {
 	}
 }
 
-// TestVendoredSkills asserts .devin/skills mirrors skills/ — the two
-// copies must never drift; refresh with `make vendor-skills`.
-func TestVendoredSkills(t *testing.T) {
+// TestSkillSymlinks asserts every skills/<name>/ tree is exposed to
+// this repo's own Devin sessions through a .devin/skills/<name>
+// symlink (single source of truth — never a copy to keep in sync).
+func TestSkillSymlinks(t *testing.T) {
 	root := repoRoot(t)
-	collect := func(dir string) map[string][]byte {
-		files := map[string][]byte{}
-		err := filepath.WalkDir(dir, func(path string, d fs.DirEntry, err error) error {
-			if err != nil {
-				return err
-			}
-			if d.IsDir() {
-				return nil
-			}
-			rel, err := filepath.Rel(dir, path)
-			if err != nil {
-				return err
-			}
-			data, err := os.ReadFile(path)
-			if err != nil {
-				return err
-			}
-			files[filepath.ToSlash(rel)] = data
-			return nil
-		})
-		if err != nil {
-			if os.IsNotExist(err) {
-				return nil
-			}
-			t.Fatal(err)
-		}
-		return files
+	entries, err := os.ReadDir(filepath.Join(root, "skills"))
+	if err != nil {
+		t.Fatal(err)
 	}
-	canon := collect(filepath.Join(root, "skills", "gom-agent-guide"))
-	vend := collect(filepath.Join(root, ".devin", "skills", "gom-agent-guide"))
-	if len(canon) == 0 {
-		t.Fatal("skills/gom-agent-guide is empty or missing")
-	}
-	var problems []string
-	for rel, want := range canon {
-		got, ok := vend[rel]
-		if !ok {
-			problems = append(problems, fmt.Sprintf("%s missing from .devin/skills", rel))
+	for _, e := range entries {
+		if !e.IsDir() || e.Name() == "testdata" {
 			continue
 		}
-		if !bytes.Equal(want, got) {
-			problems = append(problems, fmt.Sprintf("%s differs from skills/ copy", rel))
+		name := e.Name()
+		link := filepath.Join(root, ".devin", "skills", name)
+		fi, err := os.Lstat(link)
+		if err != nil {
+			t.Errorf(".devin/skills/%s: %v", name, err)
+			continue
 		}
-	}
-	for rel := range vend {
-		if _, ok := canon[rel]; !ok {
-			problems = append(problems, fmt.Sprintf("%s exists only in .devin/skills", rel))
+		if fi.Mode()&os.ModeSymlink == 0 {
+			t.Errorf(".devin/skills/%s is not a symlink (must link to skills/%s, not a copy)", name, name)
+			continue
 		}
-	}
-	for _, p := range problems {
-		t.Error(p)
-	}
-	if len(problems) > 0 {
-		t.Log("run `make vendor-skills` to resync .devin/skills from skills/")
+		got, err := filepath.EvalSymlinks(link)
+		if err != nil {
+			t.Errorf(".devin/skills/%s: %v", name, err)
+			continue
+		}
+		want := filepath.Join(root, "skills", name)
+		if got != want {
+			t.Errorf(".devin/skills/%s resolves to %s, want %s", name, got, want)
+		}
 	}
 }
