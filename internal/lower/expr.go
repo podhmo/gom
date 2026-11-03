@@ -2105,7 +2105,16 @@ func (l *lowerer) lambdaExpr(e *check.Lambda) core.Expr {
 // nested functions keep their own boundary — their CallDirect nodes
 // are not in To's tail position. When the conversion applies,
 // snapshotCapturedParams repairs captured parameters (tail.go).
-func (l *lowerer) markTailCalls(fn *core.Func, self *resolve.Symbol) {
+//
+// Only the identity self-instantiation converts: the TailCall loop
+// reloads the same parameter registers, so the call's type arguments
+// must be the function's own TypeParams in order. A permutation like
+// `f y x` inside `fn f (x: a) (y: b)` calls `f[B,A]` — a legal
+// recursive call Go accepts as ordinary recursion — but reloading
+// `x, y = y, x` would move a B into an A. Those calls stay
+// CallDirect; under `@tailrec` they surface E0902 like any other
+// residual self-call.
+func (l *lowerer) markTailCalls(fn *core.Func, self *resolve.Symbol, tparams []*types.Var) {
 	found := false
 	var body func(b *core.Body)
 	var tail func(e core.Expr) core.Expr
@@ -2139,7 +2148,8 @@ func (l *lowerer) markTailCalls(fn *core.Func, self *resolve.Symbol) {
 		// Partial probes stay as if-assertions: core.Expr is a
 		// sumtype and the checker requires exhaustive switches.
 		if e, ok := e.(*core.CallDirect); ok {
-			if e.Callee == self && len(e.Args) == len(fn.Params) {
+			if e.Callee == self && len(e.Args) == len(fn.Params) &&
+				identityInstantiation(e.TypeArgs, tparams) {
 				found = true
 				return &core.TailCall{
 					Base: e.Base, To: fn, Args: e.Args,
@@ -2182,4 +2192,22 @@ func (l *lowerer) markTailCalls(fn *core.Func, self *resolve.Symbol) {
 		// capture can reach needs its own per-iteration copy.
 		l.snapshotCapturedParams(fn)
 	}
+}
+
+// identityInstantiation reports whether targs instantiates the
+// callee's type parameters with exactly those parameters in order —
+// the only self-instantiation whose TailCall parameter reload is
+// well-typed. Monomorphic calls (both sides empty) are trivially
+// the identity. See the markTailCalls doc comment for why
+// permutations and contractions stay CallDirect.
+func identityInstantiation(targs []types.Type, tparams []*types.Var) bool {
+	if len(targs) != len(tparams) {
+		return false
+	}
+	for i, v := range tparams {
+		if types.Chase(targs[i]) != v {
+			return false
+		}
+	}
+	return true
 }

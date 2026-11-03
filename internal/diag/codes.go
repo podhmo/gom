@@ -620,6 +620,25 @@ because the builtin is unreachable inside the file.`,
 
 fn f () -> Int = try compute ()   // try unwraps the builtin Result`,
 	},
+	{
+		Code:     "E0416",
+		Severity: SeverityError,
+		Title:    "recursive call instantiates a type parameter at a growing type",
+		Phase:    PhaseCheck,
+		Spec:     "3.3",
+		Explanation: `A recursive call — directly or through a cycle of
+generic functions — instantiates a type parameter at a strictly
+larger type: the call inside "fn wdepth (w: W a)" passes "W (List a)"
+to wdepth's "a". The emitted Go generics would need an unbounded
+set of instantiations (A, List[A], List[List[A]], …), which the Go
+compiler rejects as an instantiation cycle, so the program is
+diagnosed here. Renaming the parameters — "f (x: a) (y: b)" calling
+"f y x" — stays legal: the instantiation set is still finite.`,
+		Example: `type W a = | WLeaf a | WNode (W (List a))
+
+fn wdepth (w: W a) -> Int =
+  match w { WLeaf x -> 0; WNode inner -> wdepth inner + 1 }   // wdepth at W (List a)`,
+	},
 
 	{
 		Code:     "E0501",

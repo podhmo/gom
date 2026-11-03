@@ -44,7 +44,7 @@
 - [-] **P2-4 `try` と `|?>`**: 脱出境界は最も内側の関数（[decisions/try-boundary](docs/decisions/2026-11-01-try-boundary.md)）、`|?>` の `%w` 自動ラップ（[spec 9 章](docs/spec.md)）。中間の `Result` を作らない生成（design.md 4.6）。依存: P2-1, P1-13
   - [ ] **P2-4b 明示的 `try` を含むパイプの融合**: ユーザー関数への脱出先を保存したまま、決定木経路の Go 呼び出しと連続チェーンの中間 Result を削減する。現在は意味を優先した保守的経路であり、ラムダ内だけに `try` があるケースも含めて最適化できる（[検証](docs/sketch/2026-11-03-result-pipe-local-boundary.md)）。依存: P2-4a
 
-- [ ] **P2-5 Go ジェネリクスへの出力**: トップレベルの多相関数と多相 ADT を型パラメータ付きで出力する。依存: P2-2
+- [x] **P2-5 Go ジェネリクスへの出力**: トップレベルの多相関数と多相 ADT を型パラメータ付きで出力する。本体は既存実装（`poly_functions` / `variant_named_field` golden）を `poly_adts` golden・評価一致テストで確定。監査で見つかった成長する多相再帰（生成 Go が instantiation cycle で拒否される）は E0416 で拒否（[decision](docs/decisions/2026-11-03-generic-instantiation-cycles.md)、[検証](docs/sketch/2026-11-03-p2-5-generic-emission-verification.md)）。依存: P2-2
 
 ### P3 Go 相互運用の本格実装
 

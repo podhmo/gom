@@ -1,0 +1,27 @@
+package main
+
+type Pair a b = | MkPair (fst: a) (snd: b)
+type Box a = {v: a}
+type Phantom a = | MkP Int
+type W a = | WLeaf a | WNode (W (List a))
+type Tree a = | Leaf a | Node (Tree a) (Tree a)
+
+let none = None
+
+fn fst (p: Pair a b) -> a = p.fst
+fn unbox (b: Box a) -> a = b.v
+
+fn make (x: a) -> Phantom a = MkP 0
+fn leaf (x: a) -> W a = WLeaf x
+
+fn depth (t: Tree a) -> Int =
+  match t {
+    Leaf x -> 0
+    Node l r -> 1 + depth l + depth r
+  }
+
+fn answer () -> String = {
+  let p = MkPair 1 "one"
+  let q = MkPair "two" 2
+  "${fst p}:${p.snd}:${fst q}:${q.snd}:${unbox {v = 42}}:${depth (Node (Leaf 1) (Leaf 2))}"
+}

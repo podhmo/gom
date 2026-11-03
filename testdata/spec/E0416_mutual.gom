@@ -1,0 +1,4 @@
+package a
+
+fn f (x: a) -> Int = g [x]
+fn g (x: List b) -> Int = f x

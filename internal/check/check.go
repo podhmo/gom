@@ -56,6 +56,7 @@ func Check(res *resolve.Resolved, src SignatureSource) (*File, diag.List) {
 	c.checkDecls(res.File.Decls)
 	c.finalize()
 	c.checkTopLevelLetScopes()
+	c.checkInstantiationCycles()
 
 	f := &File{Sp: res.File.Sp}
 	if res.File.Package != nil {

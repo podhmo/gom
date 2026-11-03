@@ -83,6 +83,37 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 		want: "poly:2:40:3:captured:5",
 	},
 	{
+		name: "poly_adts",
+		src: `package main
+
+import go "fmt"
+
+type Pair a b = | MkPair (fst: a) (snd: b)
+type Box a = {v: a}
+type Tree a = | Leaf a | Node (Tree a) (Tree a)
+
+let none = None
+
+fn fst (p: Pair a b) -> a = p.fst
+fn unbox (b: Box a) -> a = b.v
+
+fn depth (t: Tree a) -> Int =
+  match t {
+    Leaf x -> 0
+    Node l r -> 1 + depth l + depth r
+  }
+
+fn answer () -> String = {
+  let p = MkPair 1 "one"
+  let q = MkPair "two" 2
+  "${fst p}:${p.snd}:${fst q}:${q.snd}:${unbox {v = 42}}:${depth (Node (Leaf 1) (Leaf 2))}"
+}
+
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "1:one:two:2:42:1",
+	},
+	{
 		name: "interp_and_int_let",
 		src: `package main
 

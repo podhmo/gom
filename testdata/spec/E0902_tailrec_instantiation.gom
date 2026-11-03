@@ -1,0 +1,4 @@
+package a
+
+@tailrec
+fn f (x: a) (y: b) -> Int = f y x

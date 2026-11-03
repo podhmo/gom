@@ -1,0 +1,30 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0416",
+      "severity": "error",
+      "message": "recursive call to `f` instantiates `f`'s `a` at the growing type `List b` — the instantiation does not converge",
+      "span": {
+        "file": "E0416_mutual.gom",
+        "start": {
+          "line": 4,
+          "col": 27,
+          "offset": 64
+        },
+        "end": {
+          "line": 4,
+          "col": 30,
+          "offset": 67
+        }
+      },
+      "data": {
+        "arg": "List b",
+        "callee": "f",
+        "fn": "g",
+        "grows": "b",
+        "param": "a"
+      }
+    }
+  ]
+}

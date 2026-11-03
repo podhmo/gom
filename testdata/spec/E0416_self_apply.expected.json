@@ -1,0 +1,30 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0416",
+      "severity": "error",
+      "message": "recursive call to `wdepth` instantiates `wdepth`'s `a` at the growing type `List a` — the instantiation does not converge",
+      "span": {
+        "file": "E0416_self_apply.gom",
+        "start": {
+          "line": 8,
+          "col": 20,
+          "offset": 130
+        },
+        "end": {
+          "line": 8,
+          "col": 32,
+          "offset": 142
+        }
+      },
+      "data": {
+        "arg": "List a",
+        "callee": "wdepth",
+        "fn": "wdepth",
+        "grows": "a",
+        "param": "a"
+      }
+    }
+  ]
+}

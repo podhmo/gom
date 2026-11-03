@@ -81,6 +81,7 @@
 | [test-harness](2026-11-02-test-harness.md) | テストハーネスの配置とファイル規約 (internal/gomtest) | 採用 |
 | [treedump-format](2026-11-02-treedump-format.md) | IR テキストダンプ形式 (internal/treedump) | draft |
 | [agent-skill-example-verification](2026-11-03-agent-skill-example-verification.md) | gom-agent-guide の例示コードを抽出テストで検証する方式（一部を [skill-vendoring-via-symlink](2026-11-03-skill-vendoring-via-symlink.md) で置き換え） | 採用 |
+| [generic-instantiation-cycles](2026-11-03-generic-instantiation-cycles.md) | Recursive generic calls must not grow a type argument (P2-5) | 採用（[sketch: p2-5-generic-emission-verification](../sketch/2026-11-03-p2-5-generic-emission-verification.md) で検証） |
 | [gist-cli-host-boundary](2026-11-03-gist-cli-host-boundary.md) | Gist CLI as an executable Gom integration use case（一部を [go-interface-assignment-and-fields](2026-11-03-go-interface-assignment-and-fields.md) で置き換え） | 採用 |
 | [go-error-alias-results](2026-11-03-go-error-alias-results.md) | Go の error alias は error 戻り値規約を引き継ぐ | 採用 |
 | [go-interface-assignment-and-fields](2026-11-03-go-interface-assignment-and-fields.md) | Go interface assignments and read-only exported struct fields | 採用 |

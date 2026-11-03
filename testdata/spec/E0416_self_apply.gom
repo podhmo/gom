@@ -1,0 +1,9 @@
+package a
+
+type W a = | WLeaf a | WNode (W (List a))
+
+fn wdepth (w: W a) -> Int =
+  match w {
+    WLeaf x -> 0
+    WNode inner -> wdepth inner + 1
+  }

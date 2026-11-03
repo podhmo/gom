@@ -183,3 +183,20 @@
   参照: [spec 8.3](spec.md#83-型の対応)、[spec 8.4](spec.md#84-extern上書き専用)、
   [spec 9.2](spec.md#92-意味)、[decision](decisions/2026-11-03-go-types-mapping.md)、
   [監査](sketch/2026-11-03-spec-examples-audit.md)。
+- [x] **成長する多相再帰が check を通るが生成 Go が拒否される**: `fn wdepth (w: W a)` が
+  `wdepth inner`（`W (List a)` で自己呼出）すると check/build は成功するが、
+  生成 Go は `instantiation cycle`（`@tailrec` 版は型不整合ループ）でコンパイルできなかった。
+  対応: 型パラメータ流グラフで成長エッジの循環を検出し E0416 で拒否。型変数の入れ替えだけの
+  再帰と ADT の型レベル再帰（`W (List a)` フィールド）は合法のまま。
+  参照: [spec 3.3](spec.md#33-型推論の範囲)、[decision](decisions/2026-11-03-generic-instantiation-cycles.md)、
+  [検証](sketch/2026-11-03-p2-5-generic-emission-verification.md)。
+- [x] **非恒等の自己インスタンシエーションが末尾呼出変換で型不整合ループになる**: `fn f (x: a) (y: b)` の
+  `f y x`（`f[B,A]` での自己呼出）は合法（E0416・Go とも受理）だが、`markTailCalls` が
+  `x, y = y, x` の `for` ループへ書き換え、生成 Go が型エラーになった（収縮 `f x x`・回転
+  `f z x y` も同じ）。main 上に存在したずれ。
+  対応: 恒等インスタンシエーション（`TypeArgs` が宣言 `TypeParams` と同一順）のみ `TailCall`
+  へ変換し、非恒等の自己呼出は `CallDirect` のまま Go の通常再帰として出力。`@tailrec` 下は
+  従来どおり E0902。
+  参照: [検証](sketch/2026-11-03-p2-5-generic-emission-verification.md)、
+  [golden](../testdata/golden/tailcall_instantiation.golden.go)、
+  [decision](decisions/2026-11-03-generic-instantiation-cycles.md)。

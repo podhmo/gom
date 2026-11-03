@@ -1,0 +1,5 @@
+package main
+
+fn ident (x: a) -> Int = ident x
+fn permute (x: a) (y: b) -> Int = permute y x
+fn contract (x: a) (y: b) -> Int = contract x x

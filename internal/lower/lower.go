@@ -653,7 +653,7 @@ func (l *lowerer) decl(d check.Decl, out *core.File) {
 		tail := l.expr(s, d.Body)
 		fn.Body = &core.Body{Lets: s.lets, Tail: tail}
 		l.fnStack = l.fnStack[:len(l.fnStack)-1]
-		l.markTailCalls(fn, d.Sym)
+		l.markTailCalls(fn, d.Sym, d.TypeParams)
 		if d.TailRec && d.Sym != nil {
 			l.tailrec = append(l.tailrec, tailrecMark{sym: d.Sym, sp: tailrecNameSpan(d)})
 		}
