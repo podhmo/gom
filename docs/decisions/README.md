@@ -91,6 +91,7 @@
 | [result-pipe-local-boundary](2026-11-03-result-pipe-local-boundary.md) | Result パイプの局所的な制御フロー | 採用 |
 | [skill-vendoring-via-symlink](2026-11-03-skill-vendoring-via-symlink.md) | `.devin/skills` への skill 公開は symlink で行う | 採用 |
 | [static-function-alias-declarations](2026-11-03-static-function-alias-declarations.md) | Static function aliases use named canonical function wrappers | 採用 |
+| [test-file-emission-layout](2026-11-03-test-file-emission-layout.md) | `@test` helper とテスト関数の出力先 | 採用 |
 | [top-level-let-type-variable-scope](2026-11-03-top-level-let-type-variable-scope.md) | Top-level monomorphic lets cannot capture declaration type variables | 採用 |
 | [tutorial-dependency-tracking](2026-11-03-tutorial-dependency-tracking.md) | Track executable tutorial inputs and compiler dependencies | 採用 |
 | [tutorial-go-module-inputs](2026-11-03-tutorial-go-module-inputs.md) | Track actual Go module inputs of tutorial subprocesses | 採用 |
