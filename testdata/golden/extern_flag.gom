@@ -1,0 +1,12 @@
+package ex
+
+import go "flag"
+
+// spec section 8.4: the extern-declared `Option (Ptr Flag)` view of
+// `flag.Lookup`'s `*Flag` result lowers to `option.FromGo(v, v != nil)`
+// — a *T result is tested for nil rather than paired with a bool.
+extern go "flag" {
+  fn Lookup (name: String) -> Option (Ptr Flag)
+}
+
+fn lookup (name: String) -> Option (Ptr flag.Flag) = flag.Lookup(name)

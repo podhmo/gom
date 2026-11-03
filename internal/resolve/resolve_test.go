@@ -671,6 +671,45 @@ func TestExternSignature(t *testing.T) {
 	}
 }
 
+// Inside `extern go "flag"`, an unqualified type name resolves to a
+// flag member only when that member is a type: `String` must reach
+// the builtin String, not flag.String the function — otherwise the
+// checker reads the function's signature as a type constructor and
+// blames its arity (P3-5's "Ptr takes 3 type argument(s)" report).
+func TestExternBuiltinTypeNotShadowedByMember(t *testing.T) {
+	b := newAstb()
+	flagString := &Symbol{Name: "String", Kind: KindFunc, IsGo: true, Package: "flag"}
+	flagFlag := &Symbol{Name: "Flag", Kind: KindType, IsGo: true, Package: "flag"}
+	flagLookup := &Symbol{Name: "Lookup", Kind: KindFunc, IsGo: true, Package: "flag"}
+	loader := MapLoader{
+		"go:flag": {Path: "flag", Members: map[string]*Symbol{
+			"String": flagString, "Flag": flagFlag, "Lookup": flagLookup}},
+	}
+	strTy := b.named("String")
+	flagTy := b.named("Flag")
+	ret := &syntax.TypeApp{Sp: b.sp(), Ctor: b.named("Option"),
+		Args: []syntax.TypeExpr{&syntax.TypeApp{Sp: b.sp(), Ctor: b.named("Ptr"), Args: []syntax.TypeExpr{flagTy}}}}
+	ext := &syntax.ExternDecl{Sp: b.sp(), Path: "flag", PathSp: b.sp(),
+		Entries: []syntax.ExternEntry{&syntax.ExternFn{Sp: b.sp(), Name: b.id("Lookup"),
+			Params: []syntax.Param{{
+				Sp:   b.sp(),
+				Pat:  b.vp("name"),
+				Type: strTy,
+			}},
+			Ret: ret}}}
+	f := b.file(ext)
+	res, diags := File(f, &Config{Loader: loader})
+	if diags.HasError() {
+		t.Fatalf("unexpected diagnostics: %v", codes(diags))
+	}
+	if got := useAt(t, res, strTy.Name); got == flagString || got == nil {
+		t.Errorf("extern `String` resolved to %v — the builtin String must win", got)
+	}
+	if got := useAt(t, res, flagTy.Name); got != flagFlag {
+		t.Errorf("extern `Flag` resolved to %v, want the flag.Flag type", got)
+	}
+}
+
 // ---------------------------------------------------------------------
 // Completeness oracle: after File, every identifier occurrence must be
 // either in Defs (binder), in Uses (reference), exempt (a positional

@@ -35,18 +35,19 @@ import (
 func Check(res *resolve.Resolved, src SignatureSource) (*File, diag.List) {
 	bv := &builtinTVar{}
 	c := &checker{
-		res:        res,
-		src:        src,
-		vals:       map[*resolve.Symbol]types.Type{},
-		referenced: map[*resolve.Symbol]bool{},
-		sigScope:   map[*resolve.Symbol]*tscope{},
-		thunks:     map[*resolve.Symbol]bool{},
-		tyCons:     map[conKey]*typeInfo{},
-		tyBySym:    map[*resolve.Symbol]*typeInfo{},
-		ctors:      map[*resolve.Symbol]*variantInfo{},
-		fieldSyms:  map[*resolve.Symbol]*fieldInfo{},
-		metas:      map[*types.Meta]*metaRec{},
-		builtins:   builtinSigs(bv),
+		res:         res,
+		src:         src,
+		vals:        map[*resolve.Symbol]types.Type{},
+		externBound: map[*resolve.Symbol]Signature{},
+		referenced:  map[*resolve.Symbol]bool{},
+		sigScope:    map[*resolve.Symbol]*tscope{},
+		thunks:      map[*resolve.Symbol]bool{},
+		tyCons:      map[conKey]*typeInfo{},
+		tyBySym:     map[*resolve.Symbol]*typeInfo{},
+		ctors:       map[*resolve.Symbol]*variantInfo{},
+		fieldSyms:   map[*resolve.Symbol]*fieldInfo{},
+		metas:       map[*types.Meta]*metaRec{},
+		builtins:    builtinSigs(bv),
 	}
 	c.registerBuiltinTypes(bv)
 	c.registerTypeDecls(res.File.Decls)
@@ -101,6 +102,13 @@ type checker struct {
 	// to its type. Identity is the symbol pointer; symbols not
 	// declared in this file resolve through src and the builtins.
 	vals map[*resolve.Symbol]types.Type
+
+	// externBound maps an `extern` fn's symbol to the signature the
+	// SignatureSource bound it with — the declared Gom-facing type
+	// plus the raw Go signature's facts (variadicness) — when
+	// binding succeeded. It shadows vals (the declared signature)
+	// in sigOf so call sites see the same view lowering emits for.
+	externBound map[*resolve.Symbol]Signature
 
 	// referenced records the value-level symbols a use site consumed
 	// — every valOf call for a known symbol sets it. checkLetDecl
@@ -318,6 +326,11 @@ func (c *checker) useSym(id *syntax.Ident) *resolve.Symbol {
 // file-local declaration, which the callee does not produce, so the
 // lookup reports E0415 (sp is the use site).
 func (c *checker) sigOf(sym *resolve.Symbol, sp diag.Span) (Signature, bool) {
+	if sig, ok := c.externBound[sym]; ok {
+		// A bound extern overrides its own declared signature —
+		// the bound one carries the Go signature's variadicness.
+		return sig, true
+	}
 	if t, ok := c.vals[sym]; ok {
 		// vals keeps the declared (unflattened) shape for fns, so the
 		// declared arity is recoverable from the type itself.
@@ -449,7 +462,7 @@ func (c *checker) checkDecls(decls []syntax.Decl) {
 		case *syntax.LetDecl:
 			c.checkLetDecl(d)
 		case *syntax.ExternDecl:
-			c.checkExternDecl(d)
+			// Bound by registerValueDecls — there are no bodies.
 		case *syntax.TestDecl:
 			c.checkTestDecl(d)
 		default:
@@ -934,10 +947,14 @@ func ctorADTArgs(t types.Type) []types.Type {
 	return nil
 }
 
-// checkExternDecl records an extern block's entries. Each `fn`
-// signature introduces a Go-bound function name with its declared
-// type; there are no bodies to check.
-func (c *checker) checkExternDecl(d *syntax.ExternDecl) {
+// bindExternDecl records an extern block's entries as value
+// bindings: each `fn` signature is the Gom-facing view of the Go
+// member it overrides. The SignatureSource — when it implements
+// ExternSource — is asked to bind the entry: it validates the
+// declaration against the raw Go signature (reporting E0509 at the
+// entry when it does not admit the override) and installs the Go-side
+// call facts lowering needs.
+func (c *checker) bindExternDecl(d *syntax.ExternDecl) {
 	for _, e := range d.Entries {
 		switch e := e.(type) {
 		case *syntax.ExternFn:
@@ -948,9 +965,16 @@ func (c *checker) checkExternDecl(d *syntax.ExternDecl) {
 				if p.Label != nil {
 					fp.Label = p.Label.Name
 				}
-				if p.Type != nil {
+				switch {
+				case p.Type != nil:
 					fp.Type = c.typeExpr(p.Type, sc)
-				} else {
+				case isUnitLitPat(p.Pat):
+					// `fn F ()` — the zero-argument Go function
+					// spelling: the `()` pattern binds a Unit
+					// value, so the param's type is Unit (not a
+					// meta that would report E0407 later).
+					fp.Type = types.Unit
+				default:
 					fp.Type = c.newMeta(p.Sp, fmt.Sprintf("the parameter of extern `%s`", e.Name.Name))
 				}
 				params[i] = fp
@@ -961,6 +985,8 @@ func (c *checker) checkExternDecl(d *syntax.ExternDecl) {
 			} else {
 				ret = types.Unit
 			}
+			// e.Name is never nil — the parser inserts a recovery
+			// `_` ident when the entry's name is missing.
 			sym := c.declSym(e.Name, resolve.KindFunc)
 			sym.IsGo = true
 			// Unflattened: the extern entry's parameter list is the
@@ -974,9 +1000,47 @@ func (c *checker) checkExternDecl(d *syntax.ExternDecl) {
 				c.shadowedErr(e.Sp, fmt.Sprintf("the signature of extern `%s`", e.Name.Name), name)
 			}
 			c.vals[sym] = sig
+			c.bindExtern(sym, e, sig)
 		default:
 			panic("unreachable")
 		}
+	}
+}
+
+// isUnitLitPat reports whether pat is the `()` literal pattern —
+// how the zero-argument parameter of an extern `fn` is spelled.
+func isUnitLitPat(pat syntax.Pat) bool {
+	lp, ok := pat.(*syntax.LitPat)
+	return ok && lp.Lit != nil && lp.Lit.Kind == syntax.LitUnit
+}
+
+// bindExtern asks the SignatureSource to bind one `extern fn` to its
+// Go member. Issues come back as E0509 diagnostics at the entry;
+// a clean bind records the override signature in externBound, which
+// sigOf prefers over the plain declared one (it knows the raw Go
+// signature's variadicness). Sources without ExternSource support
+// leave the declared signature standing on its own.
+func (c *checker) bindExtern(sym *resolve.Symbol, e *syntax.ExternFn, sig *types.Func) {
+	if c.src == nil {
+		return
+	}
+	es, ok := c.src.(ExternSource)
+	if !ok {
+		return
+	}
+	bound, issues := es.BindExtern(sym, Signature{Type: sig})
+	for _, issue := range issues {
+		d := diag.Error("E0509", issue.Message).
+			At(e.Sp).
+			Set("extern", e.Name.Name).
+			Set("member", sym.Package+"."+sym.Name)
+		for k, v := range issue.Data {
+			d = d.Set(k, v)
+		}
+		c.diags.Add(d)
+	}
+	if len(issues) == 0 && bound.Type != nil {
+		c.externBound[sym] = bound
 	}
 }
 
@@ -1232,7 +1296,13 @@ func (c *checker) registerValueDecls(decls []syntax.Decl) {
 					c.vals[sym] = c.newMeta(d.Sp, fmt.Sprintf("the type of `%s`", sym.Name))
 				}
 			}
-		case *syntax.TypeDecl, *syntax.ImportDecl, *syntax.ExternDecl,
+		case *syntax.ExternDecl:
+			// Extern entries are value bindings like fn decls —
+			// their signatures must be in place before the bodies
+			// that call them check (the resolver already merged
+			// them into the package's member table).
+			c.bindExternDecl(d)
+		case *syntax.TypeDecl, *syntax.ImportDecl,
 			*syntax.TestDecl:
 			// No value bindings to pre-register.
 		default:

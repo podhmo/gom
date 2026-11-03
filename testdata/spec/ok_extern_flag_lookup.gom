@@ -1,0 +1,13 @@
+package ex
+
+import go "flag"
+
+// spec section 8.4: `flag.Lookup` returns `*flag.Flag` — a pointer
+// that may be nil — so the extern declares the Gom view
+// `Option (Ptr Flag)`; the generated call stays `flag.Lookup(name)`
+// and the Option materializes through `option.FromGo(v, v != nil)`.
+extern go "flag" {
+  fn Lookup (name: String) -> Option (Ptr Flag)
+}
+
+fn lookup (name: String) -> Option (Ptr flag.Flag) = flag.Lookup(name)

@@ -1,0 +1,28 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0509",
+      "severity": "error",
+      "message": "extern `fn Nope` names no exported member of Go package `flag`",
+      "span": {
+        "file": "E0509_extern_missing_member.gom",
+        "start": {
+          "line": 8,
+          "col": 3,
+          "offset": 157
+        },
+        "end": {
+          "line": 8,
+          "col": 46,
+          "offset": 200
+        }
+      },
+      "data": {
+        "declared": "String -> Option (Ptr flag.Flag)",
+        "extern": "Nope",
+        "member": "flag.Nope"
+      }
+    }
+  ]
+}

@@ -74,6 +74,10 @@ const (
 	// GoResultsNone is a zero-result call, typed Unit but usable only
 	// as a discarded statement. Lowering supplies Unit separately.
 	GoResultsNone
+	// GoResultsNil is a single `*T` result — `v := f(...)` — an
+	// extern binding declared `Option` for. Type() is the raw
+	// pointer type; OptionFromGo tests `v != nil` (spec section 8.4).
+	GoResultsNil
 )
 
 // String returns the shape name for debugging.
@@ -91,6 +95,8 @@ func (r GoResults) String() string {
 		return "ok"
 	case GoResultsPair:
 		return "pair"
+	case GoResultsNil:
+		return "nil"
 	default:
 		return "GoResults(?)"
 	}
@@ -234,13 +240,13 @@ type ResultFromGo struct {
 
 func (*ResultFromGo) isExpr() {}
 
-// OptionFromGo materializes an `Option T` from a comma-ok `(T, bool)`
-// Go call — the conversion available only for callees whose binding
-// (standard bindings or `extern`) declares comma-ok semantics
-// (spec section 8.3).
+// OptionFromGo materializes an `Option T` from a Go call whose
+// absence is reported out-of-band — a comma-ok `(T, bool)` pair, or
+// a `*T` result an `extern` binding declared `Option` for
+// (spec section 8.3 and 8.4).
 type OptionFromGo struct {
 	Base
-	Call *CallGo // Results must be GoResultsOK
+	Call *CallGo // Results must be GoResultsOK or GoResultsNil
 	// ValConv wraps the payload variable in a Go conversion when the
 	// raw result type differs from the Option's payload spelling;
 	// zero means none. The conversion target is the Option's payload

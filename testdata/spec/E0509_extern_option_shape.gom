@@ -1,0 +1,10 @@
+package ex
+
+import go "strconv"
+
+// spec section 8.4: `Option` is only admissible over a (T, bool)
+// comma-ok pair or a *T result — `strconv.Itoa` returns a plain
+// `string`, so the declared Option has no presence channel.
+extern go "strconv" {
+  fn Itoa (i: Int) -> Option String
+}

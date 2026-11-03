@@ -203,6 +203,12 @@
   参照: [spec 8.3](spec.md#83-型の対応)、[spec 8.4](spec.md#84-extern上書き専用)、
   [spec 9.2](spec.md#92-意味)、[decision](decisions/2026-11-03-go-types-mapping.md)、
   [監査](sketch/2026-11-03-spec-examples-audit.md)。
+  追記（P3-5）: extern 側は解消 — `BindExtern` の view 照合が `Int64` ↔
+  `int`/`int64` の数値ペアを許すので 8.4 の `extern io.Copy` は実装通りコンパイルできる
+  （[extern.go](../internal/goimport/extern.go)、[検証](sketch/2026-11-03-extern-binding-verification.md)）。
+  残るのは 9.2 `parse_port` 側 — `strconv.ParseInt` を自動マッピングで読むと `Int` であり
+  `Int64` を宣言したいなら extern か `Go.conv` が要る。例を直すか対応表に `int64` の扱いを
+  明記するかは未決のまま。
 - [x] **成長する多相再帰が check を通るが生成 Go が拒否される**: `fn wdepth (w: W a)` が
   `wdepth inner`（`W (List a)` で自己呼出）すると check/build は成功するが、
   生成 Go は `instantiation cycle`（`@tailrec` 版は型不整合ループ）でコンパイルできなかった。

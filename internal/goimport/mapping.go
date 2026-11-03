@@ -228,6 +228,14 @@ func viewsCompatible(g, r gt.Type) bool {
 		rc.Qual == "Go" && rc.Name == "Int" && len(rc.Args) == 0 {
 		return true
 	}
+	// `Int64` spells the same int64 `Int` renders — an extern
+	// declaration may write it for a raw `int` or `int64` (the
+	// int64 case's raw view is Int itself, so only Go.Int needs
+	// pairing; the Equal check above already covers Int).
+	if gc.Qual == "" && gc.Name == "Int64" && len(gc.Args) == 0 &&
+		(rc.Qual == "" || rc.Qual == "Go") && rc.Name == "Int" && len(rc.Args) == 0 {
+		return true
+	}
 	if gc.Qual == "" && gc.Name == "List" && len(gc.Args) == 1 &&
 		rc.Qual == "Go" && rc.Name == "Slice" && len(rc.Args) == 1 {
 		return gt.Equal(gc.Args[0], rc.Args[0])

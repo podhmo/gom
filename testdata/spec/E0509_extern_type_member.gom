@@ -1,0 +1,9 @@
+package ex
+
+import go "flag"
+
+// spec section 8.4: an extern `fn` overrides a function member —
+// `flag.Flag` is a type, not a callable.
+extern go "flag" {
+  fn Flag (name: String) -> Unit
+}

@@ -506,6 +506,17 @@ func (l *lowerer) goResultsOf(t types.Type) core.GoResults {
 		}
 		return core.GoResultsErr
 	case l.isOptionCon(c) && len(c.Args) == 1:
+		// `Option (Ptr T)` spells a `*T`-resulting Go function an
+		// extern declared; other Option payloads mean comma-ok.
+		// The declared type alone is ambiguous: `Option (Ptr T)`
+		// may also stand for a comma-ok `(*T, bool)` result an
+		// extern overrode — the registered GoSig answers that
+		// correctly as GoResultsOK; this heuristic only serves
+		// sources without one (test stubs, unknown symbols) and
+		// guesses Nil.
+		if p, ok := isCon(c.Args[0], "", "Ptr"); ok && len(p.Args) == 1 {
+			return core.GoResultsNil
+		}
 		return core.GoResultsOK
 	}
 	if tup, ok := types.Chase(t).(*types.Tuple); ok && len(tup.Elems) == 2 {

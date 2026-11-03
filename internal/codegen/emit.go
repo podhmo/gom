@@ -781,17 +781,41 @@ func (g *gen) resultFromGo(e *core.ResultFromGo, d dest) {
 	}
 }
 
-// optionFromGo emits `v, ok := call` then `option.FromGo(v, ok)` —
-// the comma-ok boundary conversion (call.go OptionFromGo).
+// optionFromGo emits the presence/absence read a declared Option
+// needs: `v, ok := call` then `option.FromGo(v, ok)` for a comma-ok
+// result, or `v := call` then `option.FromGo(v, v != nil)` for a
+// `*T` result an extern declared `Option` for (call.go OptionFromGo,
+// spec section 8.4).
 func (g *gen) optionFromGo(e *core.OptionFromGo, d dest) {
 	g.line(e.Sp)
-	v, ok := g.fresh("v"), g.fresh("ok")
-	g.raw(v + ", " + ok + " := ")
-	g.expr(g.callGo(e.Call))
-	g.nl()
+	var okTest ast.Expr
+	switch e.Call.Results {
+	case core.GoResultsOK:
+		v, ok := g.fresh("v"), g.fresh("ok")
+		g.raw(v + ", " + ok + " := ")
+		g.expr(g.callGo(e.Call))
+		g.nl()
+		okTest = ast.NewIdent(ok)
+		g.optionFromGoDest(d, v, okTest, e)
+	case core.GoResultsNil:
+		v := g.fresh("v")
+		g.raw(v + " := ")
+		g.expr(g.callGo(e.Call))
+		g.nl()
+		okTest = &ast.BinaryExpr{X: ast.NewIdent(v), Op: token.NEQ, Y: ast.NewIdent("nil")}
+		g.optionFromGoDest(d, v, okTest, e)
+	default:
+		panic("codegen: OptionFromGo over non-option result shape")
+	}
+}
+
+// optionFromGoDest writes `option.FromGo(<conv>v, okTest)` to the
+// destination — the tail shared by the comma-ok and nil-test
+// readings.
+func (g *gen) optionFromGoDest(d dest, v string, okTest ast.Expr, e *core.OptionFromGo) {
 	g.writeDest(d, &ast.CallExpr{
 		Fun:  ast.NewIdent(g.pkgQual(optionPath) + "FromGo"),
-		Args: []ast.Expr{g.convOf(e.ValConv, payloadType(e.Type(), 0), ast.NewIdent(v)), ast.NewIdent(ok)},
+		Args: []ast.Expr{g.convOf(e.ValConv, payloadType(e.Type(), 0), ast.NewIdent(v)), okTest},
 	})
 }
 

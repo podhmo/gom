@@ -90,7 +90,13 @@ func (r *resolver) typeName(n *syntax.TypeName, sc *scope, extern map[string]*Sy
 		return
 	}
 	if extern != nil {
-		if member, ok := extern[n.Name.Name]; ok {
+		// Only a *type* member of the overridden package may be named
+		// here. A Go term member that happens to share a builtin
+		// name — flag.String the func versus String the type —
+		// must not shadow the builtin the extern signature means
+		// (its signature is not a type anyway; the checker would
+		// misread its arity).
+		if member, ok := extern[n.Name.Name]; ok && member.Kind == KindType {
 			r.use(n.Name, member)
 			return
 		}

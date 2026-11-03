@@ -1,0 +1,9 @@
+package ex
+
+import go "flag"
+
+// spec section 8.4: an extern declaration must be monomorphic —
+// a declared type variable has no Go-side meaning.
+extern go "flag" {
+  fn Lookup (name: a) -> Option (Ptr Flag)
+}

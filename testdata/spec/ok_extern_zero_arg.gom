@@ -1,0 +1,12 @@
+package ex
+
+import go "os"
+
+// spec section 8.4: `fn F ()` spells the zero-argument Go
+// function — the `()` pattern is not a counted parameter, so the
+// bound signature is the derived view's nullary `Fn`.
+extern go "os" {
+  fn Getpid () -> Int
+}
+
+fn pid () -> Int = os.Getpid ()

@@ -154,11 +154,13 @@ module in scope. This also covers the label punning form "~name",
 which is defined to reference a variable of the same name (spec
 section 2.7): "~to" without a variable named "to" reports "undefined
 variable `to`". The same code covers wrong-kind uses that
-have no legitimate reading — a name that resolves to a namespace
-where a value was written: a module is only valid as the qualifier
-of `mod.sel`, so a module name in expression or callee
-position reports "`fmt` is a module, not a value" rather
-than an internal-invariant diagnostic downstream.
+have no legitimate reading, in either direction of the value/type
+divide — a module name in expression or callee position reports
+"`fmt` is a module, not a value", and a value-level name
+used where a type was written (a parameter annotation spelling a
+variable or a Go member function) reports "`Ptr` is a func, not a type"
+— the checker emits that one, resolution the rest — rather than an
+arity diagnostic derived from the func's signature.
 
 ```gom
 transfer alice ~to ~amount: 100   // error when no variable
@@ -657,6 +659,24 @@ choose a type argument that is comparable.
 
 ```gom
 cmp.Or [1, 2] [3]   // List Int is not comparable
+```
+
+### E0509 — extern signature does not match the Go member
+
+**Severity:** error · **Phase:** check · **Spec:** §8.4
+
+An "extern" entry must name an exported function of the Go
+package the block overrides, and its declared signature must be a
+redeclaration the Go signature can support: same parameter count and
+view-compatible parameter types, and a result declaration the result
+shape admits — Option only over a (T, bool) comma-ok pair or a *T
+result, Result only over (T, error), a tuple over any other two-result
+shape (spec section 8.4).
+
+```gom
+extern go "flag" {
+  fn Lookup (name: Int) -> Option (Ptr Flag)   // error: name is String
+}
 ```
 
 ## 06xx — Packages and interfaces

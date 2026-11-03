@@ -116,7 +116,7 @@ let parse_i64 = strconv.ParseInt (_, 10, 64)
 - Non-`_` arguments are evaluated **once at function-creation time**
   (Scheme `cute` semantics) — not per call.
 
-## extern (escape hatch, P3-5 pending)
+## extern (signature override)
 
 ```gom
 package main
@@ -128,11 +128,26 @@ extern go "io" {
 fn main () -> Unit = ()
 ```
 
-`extern go "pkg" { fn sig }` overrides the imported signature —
-declared conversion rules include comma-ok `(T, bool)` → `Option T`
-and `*T` → `Option (Ptr T)`. The syntax parses and checks today;
-treat the declared-shape semantics as in-flight and prefer the
-automatic mapping plus `Go.conv` where possible.
+`extern go "pkg" { fn sig }` overrides one exported **function**
+member's imported signature. The declaration is validated against
+the raw Go signature (mismatch → E0509): same parameter count,
+compatible types per position, monomorphic only, and a result the
+raw shape admits — `(T, bool)` → `Option T` or `(T, Bool)`, `*T` →
+`Option (Ptr T)` (payload keeps the pointer), `(T, error)` →
+`Result T GoError`, `(A, B)` → `(A, B)`. The generated call stays
+`pkg.F(args)`; `Option` over `*T` materializes as
+`option.FromGo(v, v != nil)`. Type/var/const/method members cannot
+be overridden; generics neither. A zero-parameter Go function is
+declared `fn F () -> T` (or `(u: Unit)`), and the call spells
+`pkg.F ()` like any Go call. (P3-5 implemented — see
+docs/decisions/2026-11-03-extern-override-binding.md.)
+
+Evaluator note: `gom test`/eval does not run the Go side, so an
+extern-bound member still needs a stub — and the stub returns the
+*declared* shape directly. For `Option`/`Result` overrides that
+means a `Some`/`None`/`Ok`/`Err` variant value (`VCtor`), never a
+raw pointer or `(T, error)` pair; eval has no conversion path for
+extern result rewrites.
 
 ## nil and contract boundaries
 

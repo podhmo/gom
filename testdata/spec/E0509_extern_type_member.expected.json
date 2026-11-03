@@ -1,0 +1,28 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0509",
+      "severity": "error",
+      "message": "extern `fn Flag`: `flag.Flag` is a type, not a function",
+      "span": {
+        "file": "E0509_extern_type_member.gom",
+        "start": {
+          "line": 8,
+          "col": 3,
+          "offset": 161
+        },
+        "end": {
+          "line": 8,
+          "col": 33,
+          "offset": 191
+        }
+      },
+      "data": {
+        "declared": "String -> Unit",
+        "extern": "Flag",
+        "member": "flag.Flag"
+      }
+    }
+  ]
+}

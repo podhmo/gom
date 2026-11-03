@@ -515,17 +515,7 @@ func (c *checker) typeCtorOf(te syntax.TypeExpr) typeCtor {
 				return typeCtor{arity: -1}
 			}
 			if sig, ok := c.sigOf(sym, tn.Sp); ok {
-				if con, ok := types.Chase(sig.Type).(*types.Con); ok {
-					return typeCtor{con: con, arity: len(con.Args), params: varsOf(con.Args)}
-				}
-				if fn, ok := types.Chase(sig.Type).(*types.Func); ok {
-					if con, ok := types.Chase(fn.Ret).(*types.Con); ok {
-						return typeCtor{con: con, arity: len(fn.Params), params: varsOfFunc(fn)}
-					}
-				}
-				// The signature's type is the type the name denotes —
-				// a Go named type, a tuple, an opaque abstract type.
-				return typeCtor{exact: sig.Type, arity: -1}
+				return c.symTypeCtor(sym, sig, tn.Sp)
 			}
 			return typeCtor{con: &types.Con{Qual: qual, Name: sym.Name}, arity: -1}
 		}
@@ -545,15 +535,7 @@ func (c *checker) typeCtorOf(te syntax.TypeExpr) typeCtor {
 			return c.ctorOfInfo(ti)
 		}
 		if sig, ok := c.sigOf(sym, tn.Sp); ok {
-			if con, ok := types.Chase(sig.Type).(*types.Con); ok {
-				return typeCtor{con: con, arity: len(con.Args), params: varsOf(con.Args)}
-			}
-			if fn, ok := types.Chase(sig.Type).(*types.Func); ok {
-				if con, ok := types.Chase(fn.Ret).(*types.Con); ok {
-					return typeCtor{con: con, arity: len(fn.Params), params: varsOfFunc(fn)}
-				}
-			}
-			return typeCtor{exact: sig.Type, arity: -1}
+			return c.symTypeCtor(sym, sig, tn.Sp)
 		}
 	}
 	if arity, ok := builtinTypeArity[tn.Name.Name]; ok {
@@ -579,6 +561,54 @@ func (c *checker) typeCtorOf(te syntax.TypeExpr) typeCtor {
 		con:   &types.Con{Name: tn.Name.Name},
 		arity: -1,
 	}
+}
+
+// symTypeCtor reads a signature-bearing symbol in type position.
+// Only symbols that name a type may denote one: KindType (an
+// imported or declared type) and KindCtor (a constructor name spells
+// its parent ADT — `Some Int` is `Option Int`). Every other signature
+// — a Go function or method, a Go var, a Gom function, a builtin
+// value — is a term misused as a type. Reading such a signature as a
+// constructor would blame the *function's* parameter count for the
+// name's kind (`Ptr` resolved to a three-parameter Go func reported
+// "Ptr takes 3 type argument(s)" — P3-5).
+func (c *checker) symTypeCtor(sym *resolve.Symbol, sig Signature, sp diag.Span) typeCtor {
+	switch sym.Kind {
+	case resolve.KindType, resolve.KindCtor:
+	default:
+		c.notAType(sp, sym)
+		return typeCtor{arity: -1}
+	}
+	if con, ok := types.Chase(sig.Type).(*types.Con); ok {
+		return typeCtor{con: con, arity: len(con.Args), params: varsOf(con.Args)}
+	}
+	if sym.Kind == resolve.KindCtor {
+		if fn, ok := types.Chase(sig.Type).(*types.Func); ok {
+			if con, ok := types.Chase(fn.Ret).(*types.Con); ok {
+				// A constructor's signature returns the ADT — the
+				// type its name spells is that ADT, whose arity is
+				// the ADT's own parameter count, not the payload's
+				// (`Ok` declares one payload but spells `Result`,
+				// arity 2).
+				return typeCtor{con: con, arity: len(con.Args), params: varsOf(con.Args)}
+			}
+		}
+	}
+	// The signature's type is the type the name denotes — a Go
+	// named type, a tuple, an opaque abstract type.
+	return typeCtor{exact: sig.Type, arity: -1}
+}
+
+// notAType reports a term-level symbol used where a type was
+// expected — the type-position mirror of the resolver's "is a %s,
+// not a value" (E0201).
+func (c *checker) notAType(sp diag.Span, sym *resolve.Symbol) {
+	c.diags.Add(diag.Error("E0201",
+		fmt.Sprintf("`%s` is a %s, not a type", sym.Name, sym.Kind)).
+		At(sp).
+		Set("name", sym.Name).
+		Set("namespace", "type").
+		Set("resolved_kind", sym.Kind.String()))
 }
 
 // ctorOfInfo returns the typeCtor for a declared type.
@@ -668,15 +698,6 @@ func varsOf(ts []types.Type) []*types.Var {
 	for _, t := range ts {
 		out = append(out, rigidVars(t)...)
 	}
-	return out
-}
-
-func varsOfFunc(f *types.Func) []*types.Var {
-	var out []*types.Var
-	for _, p := range f.Params {
-		out = append(out, rigidVars(p.Type)...)
-	}
-	out = append(out, rigidVars(f.Ret)...)
 	return out
 }
 

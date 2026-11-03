@@ -51,9 +51,10 @@ Go 相互運用を変えたら両方向（Gom → Go、Go → Gom）のテスト
 
 - [-] **P3-2 named type と interface**: 名前的な型として扱い、`Go.conv` で明示変換、interface は `go/types` の代入規則に従う。依存: P3-1
 - [ ] **P3-4 メソッド呼び出しと `_` プレースホルダ**: `_` 以外の引数を作成時に評価する（[spec 8.2](docs/spec.md)、[decisions/cute-placeholder](docs/decisions/2026-11-01-cute-placeholder.md)）。依存: P3-1, P2-2
-- [ ] **P3-5 `extern` と標準のバインディング**: 型と変換規則の上書き、comma-ok の `Option` 化（[spec 8.4](docs/spec.md)）。依存: P3-1
+- [x] **P3-5 `extern` と標準のバインディング**: 型と変換規則の上書き、comma-ok の `Option` 化（[spec 8.4](docs/spec.md)）。実装済み: extern は関数メンバーのみ上書き可、`Option` は `(T, bool)` / `*T` のみ許可、不一致は E0509（[decision](docs/decisions/2026-11-03-extern-override-binding.md)、[検証](docs/sketch/2026-11-03-extern-binding-verification.md)）
 - [ ] **P3-6 Go から Gom を呼ぶ**: 生成 API を Go のテストから使うテスト、ADT の不正値（`nil`）に対する panic のテスト（[spec 8.6, 8.7](docs/spec.md)）。依存: P3-2, P3-3
 - [ ] **P3-7 P3 の完了確認**: `os`、`io`、`strconv`、`encoding/json` などを使うプログラムが動く。依存: P3-2, P3-3, P3-4, P3-5, P3-6
+- [ ] **[task] extern の「標準のバインディング」集の整備**: P3-5 で `extern` 機構は実装済みだが、それを使う標準バインディング集（`(T, bool)` → `Option` などの既定上書きの一覧）は未着手。管理場所は [open-questions](docs/open-questions.md) の未決事項。P3-7 の完了確認で `os`/`io`/`strconv`/`encoding/json` のプログラムが extern を必要とするかの判断材料になる。依存: P3-5
 
 ### P4 公開 API と開発体験
 
@@ -75,7 +76,7 @@ Go 相互運用を変えたら両方向（Gom → Go、Go → Gom）のテスト
 
 （見つけたバグはここに `- [ ]` で足す）
 
-- [ ] **[bug] extern 内の `Option (Ptr Flag)` が意味不明な arity 診断になる**: `extern go "flag" { fn Lookup(name: String) -> Option (Ptr Flag) }` が `` `Ptr` takes 3 type argument(s), got 0 `` とだけ報告する（3 引数の型コンストラクタは存在しない）。実際は `*T` → `Option (Ptr T)` の変換規則上書きが未実装（P3-5）の範囲だが、診断自体が壊れているので P3-5 着手時に経路と文言を直す。[監査](docs/sketch/2026-11-03-spec-examples-audit.md)
+- [x] **[bug] extern 内の `Option (Ptr Flag)` が意味不明な arity 診断になる**: 修復済み（P3-5）。原因は二重: ①extern 型位置で `flag.String`（func）が builtin `String` を覆い隠し ②その func シグネチャが型コンストラクタの arity と読み違えられた。resolve は extern の型表を KindType メンバーに限定し、check は型位置の項シンボルを E0201 "is a func, not a type" で報告する。`Option (Ptr Flag)` の変換規則上書きも実装（`option.FromGo(v, v != nil)`）。[監査](docs/sketch/2026-11-03-spec-examples-audit.md)、[検証](docs/sketch/2026-11-03-extern-binding-verification.md)
 - [ ] **[bug] 遅延束縛レシーバ上の Go メソッド呼び出しが誤分類される**: `fn apply3 (f: (time.Time -> time.Time)) (t: time.Time) -> time.Time = f t` + `apply3 (fn x -> x.AddDate 1 2 3) t` で `x.AddDate` のレシーバ型が適用チェック時点では未解決メタ → `MemberExpr.Sym=nil` → `calleeOf` が CallUnknown に倒し Gom 規約で引数を処理（`x.M ()` は Unit 引数化、複数引数はカリー化、`~l:` は E0408、spread は E0505）。`revisitSelects` は member だけを後付け解決し Apply 形状は戻せない → E0901×3 または誤 E0401。main では panic だった（改善だが残存）。修正は apply 分類の遅延化が要るため P2-1 の推論層の仕事（fix-lower-bugs レビューで発見。`x.f`/`x.M a`（位置1個）は動く。`{Go.conv}` も同族の E0901 "member builtin is not an expression" で未登録）。セカンドオピニオンからの構造論: 型が不明な段階で呼び出し方法を確定する設計が弱点 — 推論中は未解決の適用情報を保持し、制約解決後にメソッド選択・呼び出し規約・型引数・引数対応を一括確定する工程を設け、「lower に渡す時点で全件確定済み」の契約にすると個別修復を減らせる
 - [ ] **[divergence] Float リテラル演算が生成 Go の定数畳み込みで評価器と値がずれる**: `"${869.32 * 38.29}"` は eval がリテラルごとに float64 化してから乗算するため `33286.262800000004` を出すが、生成 Go は untyped 定数式のまま出力するため Go の任意精度定数畳み込み＋単一丸めで `33286.2628` になる。同じ `'g' -1` 表示を通るのに値自体がずれる。spec の Float 演算の意味を決める必要がある: IEEE754 ベースに寄せるなら codegen がオペランドを非定数化（変数経由か変換の挿入）する必要があり、Go の定数意味論に寄せるなら eval の各演算を定数畳み込み順に直す必要がある（V-3 の eval-vs-compiled 差分テストで発見、knownDivergences 登録済み。[docs/problems/2026-11-02-float-const-fold-arithmetic.md](docs/problems/2026-11-02-float-const-fold-arithmetic.md)）
 - [ ] **[divergence] 異なるバリアント値への名前付きペイロードアクセス `.f` で eval とコンパイルがずれる**: `fn getr (s: Shape) -> Float = s.r`（`Shape = | Circle (r: Float) | Rect (w: Float) (h: Float) | Empty`）に `Rect 2.0 3.0` を渡すと、eval は index 0 のスロット `w` の値 `2.0` を返すのに対し、コンパイル側は `s.(Shape_Circle).R` の型アサーションで panic する（`Empty` では eval も E9004 "variant has no such field" で失敗するが、コンパイル panic と失敗の形が違う）。check は「そのフィールド名を持つバリアントがちょうど 1 つ」のときだけ `.f` を受理するので、所有者が静的に証明できないケースの意味を spec が定めていないのが根。アサーション意味（違約 = panic、match の DPanic 系と同系）を spec に明文化して eval 側も ctor 一致を検査するのが自然案。生成コード側は `core.FieldGet.Ctor` でアサート対象を IR 確定済み（[docs/problems/2026-11-02-variant-field-wrong-variant.md](docs/problems/2026-11-02-variant-field-wrong-variant.md)。fix-diff-bugs の `s.r` 回帰修正中に検証で発見）

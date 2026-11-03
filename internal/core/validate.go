@@ -1057,7 +1057,7 @@ func (v *validator) expr(e Expr, inTail bool) {
 			v.err(e.Sp, "ResultFromGo", "type %s is not a Result", e.Typ)
 		}
 	case *OptionFromGo:
-		v.wrapCall(e, e.Call, "OptionFromGo", GoResultsOK)
+		v.wrapCall(e, e.Call, "OptionFromGo", GoResultsOK, GoResultsNil)
 		if !v.conIs(e.Typ, "", "Option", 1) && e.Typ != nil {
 			v.err(e.Sp, "OptionFromGo", "type %s is not an Option", e.Typ)
 		}
@@ -1143,7 +1143,7 @@ func (v *validator) callGo(c *CallGo) {
 		if !v.conIs(c.Type(), "", "Unit", 0) {
 			v.err(c.Sp, "CallGo", "zero-result Go call must have Unit type")
 		}
-	case GoResultsOne, GoResultsErr, GoResultsErrOnly, GoResultsOK, GoResultsPair:
+	case GoResultsOne, GoResultsErr, GoResultsErrOnly, GoResultsOK, GoResultsPair, GoResultsNil:
 	default:
 		v.err(c.Sp, "CallGo", "invalid result shape %d", int(c.Results))
 	}

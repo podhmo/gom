@@ -1,0 +1,28 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0509",
+      "severity": "error",
+      "message": "extern `Lookup` must be monomorphic — a declared type variable has no Go-side meaning",
+      "span": {
+        "file": "E0509_extern_polymorphic.gom",
+        "start": {
+          "line": 8,
+          "col": 3,
+          "offset": 170
+        },
+        "end": {
+          "line": 8,
+          "col": 43,
+          "offset": 210
+        }
+      },
+      "data": {
+        "declared": "a -> Option (Ptr flag.Flag)",
+        "extern": "Lookup",
+        "member": "flag.Lookup"
+      }
+    }
+  ]
+}

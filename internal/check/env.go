@@ -210,6 +210,33 @@ type MethodSource interface {
 	MethodOf(recv types.Type, name string) (*resolve.Symbol, Signature, bool)
 }
 
+// ExternIssue is one problem a source found while binding an `extern`
+// entry to its Go member — a missing member, a parameter the Go
+// signature cannot support, a result shape the declared type does not
+// admit. The checker reports each at the extern declaration (E0509);
+// Data carries the structured detail the diagnostic renders (the
+// declared view and the raw Go signature, when binding reached it).
+type ExternIssue struct {
+	Message string
+	Data    map[string]any
+}
+
+// ExternSource is an optional extension a SignatureSource may
+// implement to bind an `extern go "pkg" { fn F ... }` declaration to
+// the Go member it overrides. The checker hands the declared
+// (Gom-facing) signature down; the source answers the signature the
+// member exposes under the override — the declared type plus the
+// facts only the raw Go signature knows (variadicness) — or issues to
+// report. A non-empty issue list means the binding failed: the member
+// keeps no override and call sites fall back to the declared
+// signature alone.
+//
+// Sources that do not implement it leave extern entries checked
+// against their declared signature with no Go-side validation.
+type ExternSource interface {
+	BindExtern(sym *resolve.Symbol, decl Signature) (Signature, []ExternIssue)
+}
+
 // InterfaceSource checks concrete-to-Go-interface assignments at expression
 // boundaries. It never participates in invariant type unification.
 type InterfaceSource interface {
@@ -231,6 +258,17 @@ type ComparableSource interface {
 	// `comparable`. Only *types.Go handles reach it; a source answers
 	// false for anything it does not know.
 	GoComparable(t types.Type) bool
+}
+
+func (c chain) BindExtern(sym *resolve.Symbol, decl Signature) (Signature, []ExternIssue) {
+	for _, s := range c {
+		if src, ok := s.(ExternSource); ok {
+			if sig, issues := src.BindExtern(sym, decl); sig.Type != nil || len(issues) > 0 {
+				return sig, issues
+			}
+		}
+	}
+	return Signature{}, nil
 }
 
 func (c chain) InterfaceAssignable(from, to types.Type) bool {

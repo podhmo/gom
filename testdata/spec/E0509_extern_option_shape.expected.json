@@ -1,0 +1,29 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0509",
+      "severity": "error",
+      "message": "extern `fn Itoa` declares an Option result, but `strconv.Itoa` returns string — Option needs a (T, bool) or *T result",
+      "span": {
+        "file": "E0509_extern_option_shape.gom",
+        "start": {
+          "line": 9,
+          "col": 3,
+          "offset": 251
+        },
+        "end": {
+          "line": 9,
+          "col": 36,
+          "offset": 284
+        }
+      },
+      "data": {
+        "declared": "Int -> Option String",
+        "extern": "Itoa",
+        "go": "func(i int) string",
+        "member": "strconv.Itoa"
+      }
+    }
+  ]
+}

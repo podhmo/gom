@@ -1,0 +1,9 @@
+package ex
+
+import go "flag"
+
+// spec section 8.4: an extern `fn` must name an exported function of
+// the package the block overrides.
+extern go "flag" {
+  fn Nope (name: String) -> Option (Ptr Flag)
+}

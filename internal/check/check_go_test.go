@@ -278,7 +278,7 @@ func TestCallGomHole(t *testing.T) {
 // A Go method call is CallGo with the method as callee.
 func TestCallGoMethod(t *testing.T) {
 	b := newTB()
-	bufSym := b.gofnSym("bytes", "Buffer") // used as type sym below
+	bufSym := b.gotypeSym("bytes", "Buffer") // used as type sym below
 	bufT := &types.Go{Ref: types.NamedRef{Path: "bytes", Name: "Buffer"}}
 	writeString := b.methodSym("bytes", "WriteString")
 	src := MapSource{
@@ -428,6 +428,27 @@ func TestGoTypeMemberValue(t *testing.T) {
 	_, diags := b.check(nil, d)
 	requireCodes(t, diags, "E0201")
 	if got := diags[0].Message; got != "`Slice` is a type, not a value" {
+		t.Errorf("message = %q", got)
+	}
+}
+
+// A Go *function* in type position reports its kind, not its
+// signature's arity — a `Ptr` bound to a three-parameter Go func
+// used to claim "`Ptr` takes 3 type argument(s)" (the P3-5 extern
+// diagnostic; resolve keeps non-type members out of the extern
+// type table, and this gate covers qualified member names and
+// hand-built tables).
+func TestGoFuncMemberType(t *testing.T) {
+	b := newTB()
+	ptrSym := b.gofnSym("pkg", "Ptr")
+	src := MapSource{ptrSym: sig(types.Int,
+		types.P(types.String), types.P(types.String), types.P(types.String))}
+	vp, _ := b.vp("s")
+	d := b.letd(vp, b.tapp(b.tnBound("Ptr", ptrSym), b.tn("Int")), nil)
+
+	_, diags := b.check(src, d)
+	requireCodes(t, diags, "E0201")
+	if got := diags[0].Message; got != "`Ptr` is a func, not a type" {
 		t.Errorf("message = %q", got)
 	}
 }

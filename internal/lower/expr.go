@@ -445,6 +445,15 @@ func (l *lowerer) goCallTyp(sig GoSig, resTyp types.Type) types.Type {
 		if c, ok := isCon(resTyp, "", "Option"); ok && l.isOptionCon(c) && len(c.Args) == 1 {
 			return c.Args[0]
 		}
+	case core.GoResultsNil:
+		// A single `*T` result an extern declared `Option` for —
+		// the raw type is the pointer the Option's payload spells.
+		if len(raw) == 1 {
+			return raw[0]
+		}
+		if c, ok := isCon(resTyp, "", "Option"); ok && l.isOptionCon(c) && len(c.Args) == 1 {
+			return c.Args[0]
+		}
 	case core.GoResultsPair:
 		// TupleFromGo's operand reports the tuple itself — the raw
 		// element pair when ResTypes is known.
@@ -491,6 +500,16 @@ func (l *lowerer) wrapGoResult(s *seq, call *core.CallGo, resTyp types.Type) cor
 		}
 		return &core.TupleFromGo{Base: base, Call: call,
 			ElemConv: l.goElemConvs(call, resTyp)}
+	case core.GoResultsNil:
+		// `v := f(...)` where f returns *T and the extern
+		// declared Option — OptionFromGo tests `v != nil`. A
+		// non-Option resTyp contradicts the recorded shape.
+		if c, ok := isCon(resTyp, "", "Option"); ok && l.isOptionCon(c) && len(c.Args) == 1 {
+			return &core.OptionFromGo{Base: base, Call: call,
+				ValConv: l.goConvKind(call, call.Typ, c.Args[0])}
+		}
+		l.err(call.Sp, fmt.Sprintf("Go *T call typed %s, not an Option", resTyp))
+		return call
 	case core.GoResultsPair:
 		return &core.TupleFromGo{Base: base, Call: call,
 			ElemConv: l.goElemConvs(call, resTyp)}
@@ -1022,6 +1041,10 @@ func (l *lowerer) goCall(s *seq, sp diag.Span, resTyp types.Type, ci check.CallI
 		sig.Arity = ci.Arity
 		sig.Variadic = ci.Variadic
 		if sig.Results == 0 {
+			// goSig always answers a shape (Env's or the
+			// goResultsOf heuristic) — Results == 0 means an
+			// oracle answered a GoSig without one (a partial
+			// stub); fill it from the declared result view.
 			sig.Results = l.goResultsOf(resTyp)
 		}
 	}
@@ -1099,6 +1122,8 @@ func (l *lowerer) goCallNode(s *seq, ap *check.Apply) *core.CallGo {
 	args := l.argAtoms(s, ap.Args)
 	sig := instantiateGoSig(l.goSig(ci.Callee, ap.Type()), ci.TypeArgs)
 	if sig.Results == 0 {
+		// As in goCall: an oracle answered without a result
+		// shape — complete it from the declared result view.
 		sig.Results = l.goResultsOf(ap.Type())
 	}
 	spread := hasSpread(ap.Args)

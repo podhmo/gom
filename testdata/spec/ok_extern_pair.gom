@@ -1,0 +1,12 @@
+package ex
+
+import go "os"
+
+// spec section 8.4: a `(T, bool)` comma-ok result may also be
+// redeclared as the plain `(T, Bool)` pair — the same shape the
+// derived binding would give.
+extern go "os" {
+  fn LookupEnv (key: String) -> (String, Bool)
+}
+
+fn lookup (key: String) -> (String, Bool) = os.LookupEnv(key)

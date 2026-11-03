@@ -32,6 +32,11 @@ func (t *tb) govarSym(pkg, name string) *resolve.Symbol {
 	return &resolve.Symbol{Name: name, Kind: resolve.KindVar, IsGo: true, Package: pkg}
 }
 
+// gotypeSym is a Go named type, e.g. `bytes.Buffer`.
+func (t *tb) gotypeSym(pkg, name string) *resolve.Symbol {
+	return &resolve.Symbol{Name: name, Kind: resolve.KindType, IsGo: true, Package: pkg}
+}
+
 // ctorSym is an undeclared-in-this-file constructor symbol — used for
 // the builtin-scope constructors (Some, None, Ok, Err) the resolver
 // binds from the builtin scope.

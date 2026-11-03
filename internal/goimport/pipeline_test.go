@@ -74,6 +74,14 @@ func requireNoErrors(t *testing.T, ds diag.List) bool {
 // replaces github.com/podhmo/gom with the repository, then runs it.
 func runGenerated(t *testing.T, src []byte) (string, error) {
 	t.Helper()
+	return runGeneratedWith(t, map[string]string{"main.go": string(src)})
+}
+
+// runGeneratedWith is runGenerated with extra files alongside the
+// generated main.go — a Go caller exercising the generated API is
+// one caller.go away.
+func runGeneratedWith(t *testing.T, files map[string]string) (string, error) {
+	t.Helper()
 	root := repoRoot(t)
 	dir := t.TempDir()
 	gomod := fmt.Sprintf(`module e2e
@@ -87,8 +95,10 @@ replace github.com/podhmo/gom => %s
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(gomod), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "main.go"), src, 0o644); err != nil {
-		t.Fatal(err)
+	for name, src := range files {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(src), 0o644); err != nil {
+			t.Fatal(err)
+		}
 	}
 	cmd := exec.Command("go", "run", ".")
 	cmd.Dir = dir
@@ -362,6 +372,270 @@ fn main () -> Unit = {
 	}
 	if out != "63\n" {
 		t.Fatalf("output = %q, want \"63\\n\"\n---\n%s", out, gen)
+	}
+}
+
+// The headline extern case of P3-5: `flag.Lookup` returns `*Flag` —
+// a nil-able pointer — and the extern declares the Gom view
+// `Option (Ptr Flag)`. The generated call is the plain
+// `v := flag.Lookup(name)` followed by `option.FromGo(v, v != nil)`.
+func TestE2EExternPtrOption(t *testing.T) {
+	l := loaderFor(t)
+	src := `package main
+
+import go "flag"
+import go "fmt"
+
+extern go "flag" {
+  fn Lookup (name: String) -> Option (Ptr Flag)
+}
+
+fn main () -> Unit = {
+  let _ = flag.String("greeting", "hello", "doc")
+  match flag.Lookup("greeting") {
+    Some _ -> { let _ = fmt.Println("found"); () }
+    None -> { let _ = fmt.Println("missing"); () }
+  }
+  match flag.Lookup("absent") {
+    Some _ -> { let _ = fmt.Println("found"); () }
+    None -> { let _ = fmt.Println("missing"); () }
+  }
+  let lookup = flag.Lookup
+  match lookup("again") {
+    Some _ -> { let _ = fmt.Println("found"); () }
+    None -> { let _ = fmt.Println("missing"); () }
+  }
+}
+`
+	gen := compileSource(t, l, src)
+	if !strings.Contains(string(gen), "option.FromGo") {
+		t.Errorf("generated source lacks option.FromGo:\n%s", gen)
+	}
+	out, err := runGenerated(t, gen)
+	if err != nil {
+		t.Fatalf("generated program failed: %v\noutput: %s\n---\n%s", err, out, gen)
+	}
+	if out != "found\nmissing\nmissing\n" {
+		t.Fatalf("output = %q, want \"found\\nmissing\\nmissing\\n\"\n---\n%s", out, gen)
+	}
+}
+
+// An extern may keep the derived view of a `(T, bool)` result too:
+// declaring a tuple leaves the pair shape a plain import gives —
+// the override only renames what the Gom side sees.
+func TestE2EExternPairTuple(t *testing.T) {
+	l := loaderFor(t)
+	src := `package main
+
+import go "os"
+import go "fmt"
+
+extern go "os" {
+  fn LookupEnv (key: String) -> (String, Bool)
+}
+
+fn main () -> Unit = {
+  let (v, ok) = os.LookupEnv("PATH")
+  if ok {
+    let _ = fmt.Println("set")
+  }
+}
+`
+	gen := compileSource(t, l, src)
+	out, err := runGenerated(t, gen)
+	if err != nil {
+		t.Fatalf("generated program failed: %v\noutput: %s\n---\n%s", err, out, gen)
+	}
+	if out != "set\n" {
+		t.Fatalf("output = %q, want \"set\\n\"\n---\n%s", out, gen)
+	}
+}
+
+// The comma-ok override: `os.LookupEnv`'s `(string, bool)` declared
+// `Option String` emits `v, ok := os.LookupEnv(...)` and
+// `option.FromGo(v, ok)` — the other half of the Option rule
+// (spec section 8.4).
+func TestE2EExternCommaOKOption(t *testing.T) {
+	l := loaderFor(t)
+	src := `package main
+
+import go "os"
+import go "fmt"
+
+extern go "os" {
+  fn LookupEnv (key: String) -> Option String
+}
+
+fn main () -> Unit = {
+  match os.LookupEnv("PATH") {
+    Some _ -> { let _ = fmt.Println("set"); () }
+    None -> { let _ = fmt.Println("unset"); () }
+  }
+}
+`
+	gen := compileSource(t, l, src)
+	if !strings.Contains(string(gen), ", ok") {
+		t.Errorf("generated source lacks the comma-ok binding:\n%s", gen)
+	}
+	out, err := runGenerated(t, gen)
+	if err != nil {
+		t.Fatalf("generated program failed: %v\noutput: %s\n---\n%s", err, out, gen)
+	}
+	if out != "set\n" {
+		t.Fatalf("output = %q, want \"set\\n\"\n---\n%s", out, gen)
+	}
+}
+
+// The zero-argument spelling: `fn Getpid ()` binds `func() int`
+// and `os.Getpid ()` emits the plain `os.Getpid()` — the `()`
+// pattern is not a counted Go parameter.
+func TestE2EExternZeroArg(t *testing.T) {
+	l := loaderFor(t)
+	src := `package main
+
+import go "os"
+import go "fmt"
+
+extern go "os" {
+  fn Getpid () -> Int
+}
+
+fn main () -> Unit = {
+  let _ = fmt.Println(os.Getpid () > 0)
+  ()
+}
+`
+	gen := compileSource(t, l, src)
+	if !strings.Contains(string(gen), "os.Getpid()") {
+		t.Errorf("generated source lacks the niladic call:\n%s", gen)
+	}
+	out, err := runGenerated(t, gen)
+	if err != nil {
+		t.Fatalf("generated program failed: %v\noutput: %s\n---\n%s", err, out, gen)
+	}
+	if out != "true\n" {
+		t.Fatalf("output = %q, want \"true\\n\"\n---\n%s", out, gen)
+	}
+}
+
+// The spec's second extern example: `io.Copy` redeclared with named
+// labels and `Result Int64 GoError` over its (int64, error) Go
+// signature. `*bytes.Buffer` values pass the interface parameters
+// through the assignability conversion (spec sections 8.4, 8.5).
+func TestE2EExternIoCopy(t *testing.T) {
+	l := loaderFor(t)
+	src := `package main
+
+import go "bytes"
+import go "io"
+import go "fmt"
+
+extern go "io" {
+  fn Copy (~dst: Writer) (~src: Reader) -> Result Int64 GoError
+}
+
+fn main () -> Unit = {
+  let dst = bytes.NewBufferString("")
+  let src = bytes.NewBufferString("hello")
+  match io.Copy ~dst: dst ~src: src {
+    Ok n -> { let _ = fmt.Println(n); () }
+    Err _ -> { let _ = fmt.Println("err"); () }
+  }
+  let _ = fmt.Println(dst.String())
+}
+`
+	gen := compileSource(t, l, src)
+	if !strings.Contains(string(gen), "io.Copy(") {
+		t.Errorf("generated source lacks io.Copy call:\n%s", gen)
+	}
+	out, err := runGenerated(t, gen)
+	if err != nil {
+		t.Fatalf("generated program failed: %v\noutput: %s\n---\n%s", err, out, gen)
+	}
+	if out != "5\nhello\n" {
+		t.Fatalf("output = %q, want \"5\\nhello\\n\"\n---\n%s", out, gen)
+	}
+}
+
+// A declared List result keeps the boundary copy the derived view
+// gives a `[]string` Go result — the extern restates what the
+// default mapping would say (spec section 8.5's boundary copies).
+func TestE2EExternSliceBoundary(t *testing.T) {
+	l := loaderFor(t)
+	src := `package main
+
+import go "strings"
+import go "fmt"
+
+extern go "strings" {
+  fn Fields (s: String) -> List String
+}
+
+fn main () -> Unit = {
+  match strings.Fields("go fast") {
+    [a, b] -> { let _ = fmt.Println(a, b); () }
+    _ -> { let _ = fmt.Println("nope"); () }
+  }
+}
+`
+	gen := compileSource(t, l, src)
+	out, err := runGenerated(t, gen)
+	if err != nil {
+		t.Fatalf("generated program failed: %v\noutput: %s\n---\n%s", err, out, gen)
+	}
+	if out != "go fast\n" {
+		t.Fatalf("output = %q, want \"go fast\\n\"\n---\n%s", out, gen)
+	}
+}
+
+// The generated API stays ordinary Go: a Go file in the same
+// package calls the Gom wrapper of the extern-bound lookup and
+// reads the Option result through the stdlib option type (the
+// Go → generated-Gom direction of the interop test pair).
+func TestE2EExternGoCaller(t *testing.T) {
+	l := loaderFor(t)
+	src := `package main
+
+import go "flag"
+import go "fmt"
+
+extern go "flag" {
+  fn Lookup (name: String) -> Option (Ptr Flag)
+}
+
+fn lookup_flag (name: String) -> Option (Ptr flag.Flag) = flag.Lookup(name)
+
+fn main () -> Unit = {
+  ()
+}
+`
+	gen := compileSource(t, l, src)
+	caller := `package main
+
+import (
+	"flag"
+	"fmt"
+
+	"github.com/podhmo/gom/stdlib/option"
+)
+
+func init() {
+	flag.String("greeting", "hello", "doc")
+	got := lookupFlag("greeting")
+	switch o := got.(type) {
+	case option.Option_Some[*flag.Flag]:
+		fmt.Println(o.V0.Name)
+	default:
+		fmt.Println("none")
+	}
+}
+`
+	out, err := runGeneratedWith(t, map[string]string{"main.go": string(gen), "caller.go": caller})
+	if err != nil {
+		t.Fatalf("generated program failed: %v\noutput: %s\n---\n%s", err, out, gen)
+	}
+	if out != "greeting\n" {
+		t.Fatalf("output = %q, want \"greeting\\n\"\n---\n%s", out, gen)
 	}
 }
 
