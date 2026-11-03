@@ -76,7 +76,7 @@ Go 相互運用を変えたら両方向（Gom → Go、Go → Gom）のテスト
 
 ### 検証
 
-- [ ] **V-4 HM 推論のプロパティテスト**: gomgen typed モードが生成する型注釈をオラクルに `check` の推論結果と照合する（typed 生成が「この式は T を持つ」と保証しているのに check が別の型/E0401 を出せば推論バグ）。P2-1 着地で実行可能になった。依存: V-2 ✅, P2-1 ✅
+- [-] **V-4 follow-up（レビュー軽微指摘）**: witness 0 件プログラムが ~40%（decl のみ/型宣言のみ — infer スイープに最小 decl 数を要求する選択肢）、`witnessedNode` の tie-break が map 反復で非決定的（infer_test.go:258）、`parseWant` が `->` を識別子として受理（latent）。ブロッカー無し・merge 済み（ab3f235）
 - [x] **V-1 実行可能チュートリアル**: `tutorial/` に `.gom` のサンプル群と実行手順を作り、`gom build` / `gom check` / `gom test` で実際に動かす。エンドユーザー視点で不備・分かりにくい診断・壊れた UX を洗い出し、見つけたものは TODO.md の Bugs/タスクに追加してから実装に戻る。依存: P1-13
 - [x] **V-2 grammar ベースのランダムプログラム生成器**: `docs/grammar.ebnf`（または tree-sitter 文法を別途整備して二重実装相互検証）から妥当な `.gom` を生成し、パーサー fuzz・compile-canary・eval vs compiled 差分テストのシードとする。意味論の食い違い（評価順・`|?>`・構造的 `==`）を先回りで発見するためのもの。依存: なし（seed 消費側は parser/compile fuzz があると効果大） — `internal/gomgen` + `internal/build/gen_test.go`。差分テスト seed 化は V-3 で配線済み
 - [x] **V-3 gomgen → eval-vs-compiled 差分 fuzz の配線**: 文法的に妥当な生成プログラムを eval とコンパイルの両方で実行し、stdout/診断を差分比較する（V-2 の意図的繰越分）。評価順・意味論乖離の検出器。決定性が必要なので `go{}`・`select`・非決定的組み込みを生成から除く deterministic サブセットモードを gomgen に追加する形が自然。差分は既存の knownBugs ではなく別レジストリ（divergence はバグ確定ではなく両側の仕様確認が要るため）か、比較結果を分類して既知のものだけ抑制する。依存: V-2 ✅（`gomgen.Options.Deterministic` + `internal/build/diff_test.go` で実装。200 seed/mode 実測: typed 41・mechanical 65 が clean 比較に到達。既知 divergence は knownDivergences レジストリで抑制）

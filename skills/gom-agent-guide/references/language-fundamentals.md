@@ -292,8 +292,9 @@ fn add_res (a: Int) (b: Int) -> Result Int String = Ok (a + b)
   (E0803); `assert_eq` needs `==`-able types.
 - `@test` defs are test-scope-only (E0802), share the package
   namespace, never appear in `.gomi`.
-- `gom build`/`gom check` type-check tests; `gom test` (running
-  them) is not implemented yet.
+- `gom build`/`gom check` type-check tests but emit no test code;
+  `gom test` writes `<name>_test.go` next to the generated `.go`
+  and runs the whole package's tests via `go test -json`.
 
 ## Things that look plausible but don't exist
 

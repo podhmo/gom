@@ -620,14 +620,15 @@ test "parse then sum" {
 3. `message` は 1 行の英語。詳細は `data` に構造化して入れる
 4. 位置は 0 始まりの UTF-8 バイトオフセットを正とし、1 始まりの行・列（列は Unicode コードポイント単位）を出力時に計算して添える。LSP など別の座標系（UTF-16）が必要な出力では、オフセットから変換する
 5. `fixes` の `applicability` は `safe`（そのまま適用してよい）、`placeholder`（`todo ()` など実行すると panic する穴を含む）、`unsafe`（意味が変わり得る）の 3 段階。`gom fix` は `safe` だけを自動で適用する
-6. 生成した Go コードに対する `go build` / `go vet` のエラーも `.gom` の位置に戻し、`"source": "go"` を付けて同じ形式で出す
+6. 生成した Go コードに対する `go build` / `go vet` / `go test` のエラーも `.gom` の位置に戻し、`"source": "go"` を付けて同じ形式で出す
 7. 出力の JSON Schema は `gom schema` で取り出せる。互換性のない変更をしたらスキーマのバージョンを上げる
+8. `summary` の `ok` は error 診断がなく失敗したテストもないときだけ `true`。`gom test` の summary にはテストの集計として `"tests": {"run": N, "failed": N, "skipped": N}` が付く（他のコマンドでは `tests` 自体がない）
 
 | コマンド | 出力するメッセージの `kind` |
 | --- | --- |
 | `gom build` | `diagnostic`、`summary`（生成した `.go` ファイルの一覧を含む） |
 | `gom check` | `diagnostic`、`summary`（Go を生成せず、型検査とパターン検査だけ行う） |
-| `gom test` | `diagnostic`、`test`（テストごとの成否・所要時間・失敗時の値と位置）、`summary` |
+| `gom test` | `diagnostic`、`test`（テストごとの成否・所要時間・失敗時の値と位置）、`summary`（`tests` の集計を含む） |
 | `gom fmt --check` | `unformatted`（整形が必要なファイルと差分）、`summary` |
 | `gom fix` | `applied`（適用した編集）、`summary` |
 | `gom explain <code>` | `explanation`（エラーコードの説明・例・修正例） |
@@ -644,3 +645,11 @@ test "parse then sum" {
 ```json
 {"kind": "explanation", "code": "E0301", "severity": "error", "title": "non-exhaustive match", "phase": "pattern", "spec": "4", "explanation": "...", "example": "..."}
 ```
+
+`test` オブジェクトは `gom test` が `go test -json` から変換した 1 テストの結果で、`diagnostic` の後、`summary` の前に出る。`name` は `test "name"` の名前（Gom が生成していないテストは Go の関数名）、`func` は生成された Go のテスト関数名（`go test -run` のセレクタに使える）、`ok` は成否、`elapsed` は `go test` が報告した秒数。`skipped` はスキップ時だけ `true` で付く（スキップは `ok: true`）。`span` はテスト宣言の名前の位置で、Gom が生成していないテストでは付かない。`output` はそのテストが出した出力 — 失敗時は `assert_eq` の両方の値と、生成 `//line` 経由で `.gom` に戻した位置を含む。
+
+```json
+{"kind": "test", "name": "rect area", "func": "TestRectArea", "ok": false, "elapsed": 0.001, "span": {"file": "area.gom", "start": {"line": 15, "col": 6, "offset": 232}, "end": {"line": 15, "col": 16, "offset": 242}}, "output": "    area.gom:16: gom: assertion failed:\n          actual:   Rect ~w: 1 ~h: 1\n          expected: Rect ~w: 2 ~h: 2\n"}
+```
+
+`gom test` が実行するのは `go test` のパッケージ粒度である — 入力ファイルのあるディレクトリのパッケージ全体のテストが走るので、同じパッケージの他の `.gom` 由来や手書きのテストも結果に含まれる。それらは `span` のない `test` オブジェクトとして `func` と同名の `name` で報告される。コンパイルにエラーがあるとき `go test` は実行しない（`tests` の集計はすべて 0）。Go のツールチェーン側の失敗（テストバイナリがコンパイルできない、`go test` が起動できない）は `"source": "go"` の `diagnostic` として報告する。

@@ -43,3 +43,14 @@ values, and Go types.
   `display` through `fmt.Stringer` where available, or
 - spec the interpolation format for composites as "implementation
   defined" for P1 and revisit with `Show`/`Display` in P2.
+
+## Update 2026-11-03
+
+P4-3 added the machinery the first direction needs — but test-side only:
+`lower` mints a `core.ShowDecl` (`func gomShowN(v T) string`) per
+`assert_eq` operand type, rendering records/ADTs/lists/tuples in exactly
+the evaluator's comparison format, and codegen emits them into
+`_test.go` (docs/design.md section 4.8,
+docs/decisions/2026-11-03-gom-test-message-stream.md). Reusing the same
+plan for production `display` would close this gap; it is not wired
+there yet, so this stays 未解決.

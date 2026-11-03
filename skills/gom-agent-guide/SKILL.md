@@ -183,9 +183,10 @@ generated from — useful when generated code surprises you.
   loop; `@tailrec` on a `fn` *requires* it and errors otherwise.
 - **Tests live in the same file:** `test "name" { ... }` body is
   `Unit` or `Result Unit e`; `assert`/`assert_eq` exist only inside
-  `test`; `@test` marks test-only helpers. `gom test` is not yet
-  implemented — tests are type-checked by `gom check`/`gom build`
-  but cannot run.
+  `test`; `@test` marks test-only helpers. `gom test FILE|DIR ...`
+  writes the `.go` plus a `_test.go` beside each input and runs the
+  package's tests through `go test -json`; a failed `assert_eq`
+  reports both values in the assertion message.
 - **Not-yet-implemented traps:** `List.map`, `Option.get`,
   `Chan.make`, `Task.spawn`, `Ref.new` — the module names exist but
   their member tables are empty (stdlib is task P4-8), so they

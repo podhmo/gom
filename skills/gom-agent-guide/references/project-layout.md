@@ -51,11 +51,13 @@ testdata/fmt/       # formatter goldens
 | `gom build [-o OUT] FILE|DIR ...` | + lower → codegen; writes `.go`. `-o` file (single input) or dir. |
 | `gom dump -phase=NAME FILE` | `syntax`/`resolve`/`check`/`core` IR tree → stdout; diagnostics → stderr. |
 | `gom fmt [-w\|-d\|-l\|--check] FILE...` | canonical formatter; `-` = stdin→stdout. Streams go to stderr. |
+| `gom test FILE|DIR ...` | compiles in test mode, writes `.go` + `_test.go` beside each input, runs `go test -json` per package directory, reports one `test` message per test plus `summary.tests` counts. |
+| `gom fix FILE...` | applies the fixes diagnostics mark `safe`. |
+| `gom explain [CODE]` | error-code explanation(s). |
+| `gom schema` | JSON Schema of the message stream. |
 | `-format text` | human diagnostics instead of JSON on all the above. |
 
-Not implemented yet (CLI says so explicitly): `test`, `fix`, `gomi`,
-`explain`, `schema`. `gom test` in particular means `test` blocks
-today are type-checked but cannot execute.
+Not implemented yet (CLI says so explicitly): `gomi`.
 
 ## Running the tutorial
 
