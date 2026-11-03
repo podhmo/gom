@@ -2,6 +2,8 @@ package build
 
 import (
 	"strings"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/podhmo/gom/internal/check"
 	"github.com/podhmo/gom/internal/codegen"
@@ -113,6 +115,28 @@ func Compile(in Input, opts *Options) (*Result, error) {
 		o = *opts
 	}
 	r := &Result{Interface: in.Interface || IsInterfaceFile(in.Path)}
+
+	// Reject control characters and invalid UTF-8 in the path before
+	// anything consumes it: Path is written verbatim into //line
+	// operands (gen.line writes sp.File into a //gomsrc sentinel),
+	// diagnostic spans and JSON output — a '\n' would split an
+	// emitted line and inject a directive, and undecodable bytes
+	// would leak into the generated file. The check lives at the
+	// driver boundary so library callers get the same guard as the
+	// CLI.
+	if !utf8.ValidString(in.Path) {
+		r.Diagnostics = append(r.Diagnostics,
+			diag.Error("E0002", "input path is not valid UTF-8").
+				Set("path", in.Path))
+		return r, nil
+	}
+	if i := strings.IndexFunc(in.Path, unicode.IsControl); i >= 0 {
+		r.Diagnostics = append(r.Diagnostics,
+			diag.Error("E0002", "input path contains a control character").
+				Set("path", in.Path).
+				Set("offset", i))
+		return r, nil
+	}
 
 	parse := syntax.Parse
 	if r.Interface {

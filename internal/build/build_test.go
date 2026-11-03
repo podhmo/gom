@@ -47,6 +47,44 @@ fn f (x: Int) -> Int = x + 1
 	}
 }
 
+// TestCompileRejectsControlCharPath: the input path is written
+// verbatim into //line operands (gen.line writes sp.File into a
+// //gomsrc sentinel) — a control character in it would split an
+// emitted line and inject a directive. The driver refuses with
+// E0002 before parsing (P4-5 review).
+func TestCompileRejectsControlCharPath(t *testing.T) {
+	for _, path := range []string{
+		"evil\nline.gom",  // newline splits the sentinel
+		"evil\rret.gom",   // carriage return ditto
+		"tab\tt.gom",      // tab is a control character too
+		"nul\x00.gom",     // NUL
+		"del\x7f.gom",     // DEL
+		"c1\u0085.gom",    // C1 control (NEL, valid UTF-8)
+		"raw\x85byte.gom", // lone 0x85 — invalid UTF-8, also refused
+	} {
+		r, err := build.Compile(build.Input{Path: path, Src: []byte("package m\n")}, nil)
+		if err != nil {
+			t.Fatalf("Compile(%q): %v", path, err)
+		}
+		if len(r.Diagnostics) != 1 || r.Diagnostics[0].Code != "E0002" {
+			t.Fatalf("Compile(%q) diagnostics = %v, want one E0002", path, r.Diagnostics)
+		}
+		if r.File != nil || r.Output != nil {
+			t.Fatalf("Compile(%q) produced artifacts past the guard", path)
+		}
+	}
+	// Ordinary characters — spaces, non-ASCII — stay legal.
+	for _, path := range []string{"sp ace.gom", "日本語.gom"} {
+		r, err := build.Compile(build.Input{Path: path, Src: []byte("package m\n")}, nil)
+		if err != nil {
+			t.Fatalf("Compile(%q): %v", path, err)
+		}
+		if len(r.Diagnostics) != 0 {
+			t.Fatalf("Compile(%q) diagnostics = %v, want none", path, r.Diagnostics)
+		}
+	}
+}
+
 // TestTestsModeEmitsTestFile pins spec 11.6's `gom test` shape end
 // to end: with lower.Env.Tests the pipeline keeps `test` decls and
 // `@test` helpers, and codegen splits them into `<pkg>_test.go` —

@@ -56,6 +56,19 @@ original tool output is carried in the diagnostic's structured data.
 This usually indicates a compiler bug rather than a mistake in the .gom
 source: generated code is expected to always pass Go's own checks.
 
+### E0002 — invalid input path
+
+**Severity:** error · **Phase:** driver · **Spec:** §12
+
+The path of a .gom input contains a control character or invalid
+UTF-8 and was refused before compilation. The path is written verbatim
+into "//line" operands in generated Go (docs/design.md section 2.2),
+into diagnostic spans, and into JSON output — a newline or carriage
+return in it would split an emitted line and inject a spurious
+directive, and undecodable bytes would leak into the generated file.
+Rename the file; the check covers every Unicode control character (Cc)
+and rejects strings that are not valid UTF-8 at all.
+
 ## 01xx — Syntax
 
 ### E0101 — syntax error

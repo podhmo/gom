@@ -215,3 +215,24 @@
   参照: [checkExpr の bw 分岐](../internal/check/expr.go)（30-41 行目と 69-70 行目）、
   [checkBlock](../internal/check/expr.go)（`out.Base = baseOf(e.Sp, want)`）、
   [発見経緯](sketch/2026-11-03-inference-witness-oracle.md)。
+
+- [ ] **`go build` / `go vet` のエラーを `.gom` 位置へ戻す経路に実起動がない**:
+  design.md 2.2 は「`go build` / `go vet` のエラーと panic スタックを `.gom` の位置へ戻す」と定めるが、
+  `GoToolDiagnostics` は内部 API として用意されただけで、CLI が実際に `go build`/`go vet` を
+  起動して出力を変換する経路はない（検証は `go test` / `go run` 経路のみ）。
+  参照: [design 2.2](design.md#22-ソース位置の対応)、[GoToolDiagnostics](../internal/build/gopos.go)、
+  [decision](decisions/2026-11-03-source-location-correspondence.md)。
+
+- [ ] **`//line` ドリフトによる位置エイリアシング（近似のまま）**:
+  1 つの `.gom` 行が k 生成行に展開されると、`//line` は後続生成行を連番でドリフトさせるため
+  `GoPosIndex.Resolve` の報告行が実在する別の `.gom` 行に alias されうる。旧実装と同等の近似で
+  回帰ではないが、「対応表を使う」design.md 2.2 の意図とのずれ。抜本対応（アンカー表を使う
+  逆引き、曖昧時フォールバック）は P4-6 (LSP) の設計入力。
+  参照: [design 2.2](design.md#22-ソース位置の対応)、[GoPosIndex.Resolve](../internal/build/gopos.go)、
+  [decision Consequences](decisions/2026-11-03-source-location-correspondence.md)。
+
+- [ ] **`SpanAt` が「生成行」ではなく「内側構文の span」を返す粒度の差異**:
+  対応表の逆引きは Go の継続行番号より粗く、エディタが期待する行・列の対応とは意味論が違う。
+  LSP で列・範囲単位の対応が要るかは open-questions 参照。
+  参照: [SourceMap/SpanAt](../internal/diag/srcmap.go)、
+  [decision](decisions/2026-11-03-source-location-correspondence.md)。

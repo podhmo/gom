@@ -64,7 +64,7 @@
 | [eval-value-model](2026-11-02-eval-value-model.md) | Value model of the typed-AST evaluator (internal/eval) | draft |
 | [function-value-representation](2026-11-02-function-value-representation.md) | Function value representation: canonical curried form | 採用 |
 | [fuzz-strategy](2026-11-02-fuzz-strategy.md) | Fuzz strategy: parser oracle, compile canary, and the knownBugs registry | 採用 |
-| [generated-go-conventions](2026-11-02-generated-go-conventions.md) | Generated Go code conventions: names, unused binders, //line | draft |
+| [generated-go-conventions](2026-11-02-generated-go-conventions.md) | Generated Go code conventions: names, unused binders, //line（一部を [source-location-correspondence](2026-11-03-source-location-correspondence.md) で置き換え） | draft |
 | [generated-support-packages](2026-11-02-generated-support-packages.md) | Generated-code support packages: `rt/` and `stdlib/` | draft |
 | [gom-fmt-layout](2026-11-02-gom-fmt-layout.md) | `gom fmt` layout: engine, width, and canonical style (P4-2) | adopted |
 | [grammar-based-generator](2026-11-02-grammar-based-generator.md) | Grammar-based random program generator (internal/gomgen) | 採用 |
@@ -92,6 +92,7 @@
 | [inference-witness-oracle](2026-11-03-inference-witness-oracle.md) | Inference witness oracle: generator-side wanted types vs `check`'s inference | 採用 |
 | [result-pipe-local-boundary](2026-11-03-result-pipe-local-boundary.md) | Result パイプの局所的な制御フロー | 採用 |
 | [skill-vendoring-via-symlink](2026-11-03-skill-vendoring-via-symlink.md) | `.devin/skills` への skill 公開は symlink で行う | 採用 |
+| [source-location-correspondence](2026-11-03-source-location-correspondence.md) | Source-location correspondence: anchor table shape and Go-position restore | 採用 |
 | [static-function-alias-declarations](2026-11-03-static-function-alias-declarations.md) | Static function aliases use named canonical function wrappers | 採用 |
 | [test-file-emission-layout](2026-11-03-test-file-emission-layout.md) | `@test` helper とテスト関数の出力先 | 採用 |
 | [top-level-let-type-variable-scope](2026-11-03-top-level-let-type-variable-scope.md) | Top-level monomorphic lets cannot capture declaration type variables | 採用 |

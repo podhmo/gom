@@ -120,6 +120,8 @@ Computed initializers remain eager `VarDecl`s. See
 
 内部では「Gom ソースの範囲 → Core IR の由来 → 生成した Go ソースの範囲」の対応表を持つ。`//line` ディレクティブはこの対応を Go ツールチェーンに伝える手段の 1 つにすぎず、`go build` / `go vet` のエラーを Gom の位置に戻すときや、panic のスタックの変換にも対応表を使う。位置の正は UTF-8 のバイトオフセットで、行・列や UTF-16 の位置は出力時に計算する。
 
+対応表の実体は `diag.SourceMap`（生成 Go の行 → .gom の span の `Anchor` 列）で、codegen が `//gomsrc` センチネルの splice と同じ操作で組み立てる — エクスポートされる表と実際のディレクティブは構造上ずれ得ない。`codegen.Output.SourceMap` / `TestSourceMap` 経由で `build.Result` に載り、エディタ系の問い合わせ（生成行 → span は `SpanAt`、.gom オフセット → 生成行は `LineAt`）の内部 API になる（[source-location-correspondence](decisions/2026-11-03-source-location-correspondence.md)）。戻す側は `internal/build` の `GoPosIndex` — 表示された名前をコンパイル入力に解決し `line:col` をクランプした point span に写す。`GoToolDiagnostics` が `file:line:col:` 行を E0001 `source:"go"` の診断に畳み、panic・goroutine dump のフレームは `diag.ParseStack` で分けて `GoPosIndex.ResolveStack` が span に戻す。手書きの Go ファイルや toolchain のパスは入力に解決できないので位置なしのまま残る。
+
 ### 2.3 診断の内部表現
 
 診断はコンパイラ内部のデータ型（`internal/diag`）を正とし、JSON Lines・text・LSP（将来は SARIF など）はそこからの変換にする。コンパイラ本体は出力形式を知らない。

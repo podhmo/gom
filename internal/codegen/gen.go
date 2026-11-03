@@ -72,6 +72,12 @@ type gen struct {
 	// and gofmt will not re-indent it.
 	depth         int
 	pendingIndent bool
+
+	// marks collects the span of every `//gomsrc` sentinel in
+	// emission order; the sentinel carries its index so spliceLines
+	// can pair each spliced `//line` directive with the span it maps
+	// (docs/design.md section 2.2's correspondence table).
+	marks []diag.Span
 }
 
 func newGen(li *diag.LineIndex) *gen {
@@ -292,7 +298,9 @@ func (g *gen) line(sp diag.Span) {
 		return
 	}
 	g.pad()
-	fmt.Fprintf(&g.buf, "//gomsrc:%d:%s\n", g.li.Pos(sp.Start).Line, sp.File)
+	idx := len(g.marks)
+	g.marks = append(g.marks, sp)
+	fmt.Fprintf(&g.buf, "//gomsrc:%d:%d:%s\n", idx, g.li.Pos(sp.Start).Line, sp.File)
 	g.pendingIndent = true
 }
 

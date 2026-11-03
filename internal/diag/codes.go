@@ -203,6 +203,22 @@ source: generated code is expected to always pass Go's own checks.`,
 	},
 
 	{
+		Code:     "E0002",
+		Severity: SeverityError,
+		Title:    "invalid input path",
+		Phase:    PhaseDriver,
+		Spec:     "12",
+		Explanation: `The path of a .gom input contains a control character or invalid
+UTF-8 and was refused before compilation. The path is written verbatim
+into "//line" operands in generated Go (docs/design.md section 2.2),
+into diagnostic spans, and into JSON output — a newline or carriage
+return in it would split an emitted line and inject a spurious
+directive, and undecodable bytes would leak into the generated file.
+Rename the file; the check covers every Unicode control character (Cc)
+and rejects strings that are not valid UTF-8 at all.`,
+	},
+
+	{
 		Code:     "E0101",
 		Severity: SeverityError,
 		Title:    "syntax error",

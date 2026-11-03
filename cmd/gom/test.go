@@ -13,8 +13,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"regexp"
-	"strconv"
 	"strings"
 
 	"github.com/podhmo/gom/internal/build"
@@ -129,6 +127,7 @@ type testDir struct {
 	dir      string                         // absolute path go test runs in
 	inputs   []input                        // .gom inputs of this package
 	mappings map[string]codegen.TestMapping // generated Go func → `test "name"` decl
+	pos      *build.GoPosIndex              // go tool positions → .gom spans
 }
 
 // runGoTests runs `go test -json` in each input directory (first-seen
@@ -156,6 +155,17 @@ func runGoTests(inputs []input, results []*build.Result, rep *diag.Report) {
 		for _, m := range r.Output.Tests {
 			d.mappings[m.Func] = m
 		}
+	}
+
+	// The go→gom position index of each directory covers exactly the
+	// inputs go test sees — build errors in gom-generated code name
+	// the .gom file through its //line directives (design.md 2.2).
+	for _, d := range dirs {
+		srcs := make(map[string][]byte, len(d.inputs))
+		for _, in := range d.inputs {
+			srcs[in.path] = in.src
+		}
+		d.pos = build.NewGoPosIndex(d.dir, srcs)
 	}
 
 	for _, d := range dirs {
@@ -229,12 +239,6 @@ func runGoTests(inputs []input, results []*build.Result, rep *diag.Report) {
 	}
 }
 
-// goErrorLine matches the "file:line:col: msg" head of a Go build
-// error. The file group is greedy so a path containing ':' still
-// resolves — the last two colon-separated fields before the message
-// win.
-var goErrorLine = regexp.MustCompile(`^(.+):([0-9]+):([0-9]+):[ \t]+(.*)$`)
-
 // buildOutputDiagnostics turns a package's build-output events into
 // E0001 diagnostics: each "file:line:col: msg" line maps back to the
 // .gom input it names — the generated files' //line directives make
@@ -242,75 +246,7 @@ var goErrorLine = regexp.MustCompile(`^(.+):([0-9]+):([0-9]+):[ \t]+(.*)$`)
 // input (errors in hand-written .go files) and non-position lines
 // stay positionless, carrying the raw text in data.
 func (d *testDir) buildOutputDiagnostics(lines []string) []diag.Diagnostic {
-	var out []diag.Diagnostic
-	for _, chunk := range lines {
-		for _, line := range strings.Split(strings.TrimRight(chunk, "\n"), "\n") {
-			if line == "" || strings.HasPrefix(line, "# ") {
-				continue // "# pkg [pkg.test]" headers name the package
-			}
-			dg := diag.Error("E0001", "go test reported a build error").
-				From(diag.SourceGo).
-				Set("tool", "go test").
-				Set("raw", line)
-			if m := goErrorLine.FindStringSubmatch(line); m != nil {
-				if m[4] != "" {
-					dg.Message = m[4]
-				}
-				dg = dg.Set("file", m[1])
-				if ln, err := strconv.Atoi(m[2]); err == nil {
-					dg = dg.Set("line", ln)
-				}
-				if col, err := strconv.Atoi(m[3]); err == nil {
-					dg = dg.Set("col", col)
-				}
-				if sp, ok := d.resolveGoPos(m[1], atoi(m[2]), atoi(m[3])); ok {
-					dg = dg.At(sp)
-				}
-			}
-			out = append(out, dg)
-		}
-	}
-	if len(out) == 0 {
-		out = append(out, diag.Error("E0001", "go test reported a build error").
-			From(diag.SourceGo).
-			Set("tool", "go test"))
-	}
-	return out
-}
-
-// resolveGoPos maps a Go build error's file:line:col to a point span
-// in the .gom source — the file is matched against the directory's
-// inputs (as given on the command line, or relative to the run
-// directory), then Go's 1-based byte column resolves against the
-// input's line index.
-func (d *testDir) resolveGoPos(file string, line, col int) (diag.Span, bool) {
-	clean := strings.TrimPrefix(file, "./")
-	for _, in := range d.inputs {
-		if file != in.path && clean != in.path {
-			abs, err := filepath.Abs(filepath.Join(d.dir, clean))
-			if err != nil {
-				continue
-			}
-			inAbs, err := filepath.Abs(in.path)
-			if err != nil || abs != inAbs {
-				continue
-			}
-		}
-		li := diag.NewLineIndex(in.src)
-		ls, le := li.LineBounds(line)
-		off := ls + col - 1
-		if off > le {
-			off = le
-		}
-		return diag.Point(in.path, off), true
-	}
-	return diag.Span{}, false
-}
-
-// atoi converts a decimal string, returning 0 on any error.
-func atoi(s string) int {
-	n, _ := strconv.Atoi(s)
-	return n
+	return build.GoToolDiagnostics(lines, "go test", d.pos)
 }
 
 // isGomGenerated reports whether path names an existing file that
