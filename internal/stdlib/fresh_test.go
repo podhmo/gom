@@ -2,6 +2,7 @@ package stdlib_test
 
 import (
 	"bytes"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -25,6 +26,14 @@ import (
 // regenerating the artifacts: rerun `gom test stdlib/<pkg>` and
 // commit the result. The test only reads the checkout; it writes
 // nothing.
+//
+// Byte-for-byte comparison is only stable while no stdlib package
+// writes `import go`: generated imports of Go packages would bake
+// the goimport loader's view of the toolchain into the committed
+// files, making the gate Go-version (and platform) sensitive. If a
+// package ever gains `import go`, the comparison must soften to
+// whatever invariance survives that — pin it here before adding
+// the import.
 
 // repoRoot resolves the repository root — this test runs with the
 // package directory (internal/stdlib) as its working directory.
@@ -152,15 +161,29 @@ func TestStdlibGeneratedFilesAreFresh(t *testing.T) {
 				compareFresh(t, want, r.Output.Source)
 				testWant := filepath.Join(root, filepath.ToSlash(d.dir),
 					baseNoExt(d.inputs[i])+"_test.go")
-				if _, err := os.Stat(testWant); err == nil {
+				_, statErr := os.Stat(testWant)
+				switch {
+				case statErr == nil:
+					// A committed test artifact exists — the
+					// regenerated test source must exist too
+					// and match it byte-for-byte.
 					if r.Output.TestSource == nil {
 						t.Fatalf("%s: committed %s exists but compile produced no test source",
 							d.inputs[i], filepath.Base(testWant))
 					}
 					compareFresh(t, testWant, r.Output.TestSource)
-				} else if r.Output.TestSource != nil {
-					t.Fatalf("%s: compile produced test source but no committed %s exists",
-						d.inputs[i], filepath.Base(testWant))
+				case errors.Is(statErr, os.ErrNotExist):
+					// No committed artifact — the regenerated
+					// output must not produce one either.
+					if r.Output.TestSource != nil {
+						t.Fatalf("%s: compile produced test source but no committed %s exists",
+							d.inputs[i], filepath.Base(testWant))
+					}
+				default:
+					// Any other stat failure is neither
+					// "present" nor "absent" — an unreadable
+					// artifact must not masquerade as missing.
+					t.Fatalf("stat %s: %v", testWant, statErr)
 				}
 			}
 		})

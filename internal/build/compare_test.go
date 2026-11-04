@@ -1213,6 +1213,29 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 `,
 		want: "1.5/1/6.5",
 	},
+	{
+		// A Float-annotated integer literal wider than int64:
+		// codegen materializes float64(99999999999999999999)
+		// and `go build` accepts the constant conversion, but
+		// the evaluator used to run ParseInt first and die with
+		// an internal "invalid int literal" diagnostic. It must
+		// answer the same float the binary prints — a decimal
+		// spelling and, through the big-integer fallback, a
+		// base-prefixed one.
+		name: "float_annotated_huge_int_literal",
+		src: `package main
+
+import go "fmt"
+
+let m : Float = 99999999999999999999
+let w : Float = 0x1FFFFFFFFFFFFFFFFF
+
+fn answer () -> String = "${m}/${w}"
+
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "1e+20/5.902958103587057e+20",
+	},
 }
 
 // evalAnswer applies the file's `answer` through internal/eval and

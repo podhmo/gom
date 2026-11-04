@@ -338,6 +338,130 @@ func TestCompileFilesNoPartialOutputs(t *testing.T) {
 	}
 }
 
+// Package initialization is a unit property, not a file property:
+// `let x = y + 1` in a.gom and `let y = x + 1` in b.gom is the same
+// variable cycle Go reports ("x refers to y; y refers to x"), so
+// the unit pass must report E0907 against the .gom bindings of both
+// files — before the generated package reaches `go build`
+// (docs/decisions/2026-11-05-package-initialization-order.md).
+func TestCompileFilesInitCycleAcrossSiblings(t *testing.T) {
+	rs := compileFiles(t, map[string]string{
+		"a.gom": "package m\n\nlet x = y + 1\n",
+		"b.gom": "package m\n\nlet y = x + 1\n",
+	})
+	var saw []string
+	for i, r := range rs {
+		if r.Output != nil {
+			t.Fatalf("result %d kept its output though the package has an init cycle", i)
+		}
+		for _, d := range r.Diagnostics {
+			if d.Code == "E0907" {
+				saw = append(saw, d.Span.File+": "+d.Message)
+				if strings.Contains(d.Message, "tmp") {
+					t.Errorf("diagnostic leaked a generated name: %s", d.Message)
+				}
+			}
+		}
+	}
+	if len(saw) != 2 {
+		t.Fatalf("E0907 count = %d, want 2 (one per var on the cycle): %v", len(saw), saw)
+	}
+	// Each var on the cycle reports at its own file's span.
+	if !strings.HasPrefix(saw[0], "pkg/a.gom") || !strings.Contains(saw[0], "`x`") {
+		t.Fatalf("a.gom's diagnostic = %q, want an x-cycle message at a.gom", saw[0])
+	}
+	if !strings.HasPrefix(saw[1], "pkg/b.gom") || !strings.Contains(saw[1], "`y`") {
+		t.Fatalf("b.gom's diagnostic = %q, want a y-cycle message at b.gom", saw[1])
+	}
+}
+
+// The cross-file cycle also closes through a function body:
+// `let y = f 0` runs `f` during package initialization while `f`'s
+// body reads `y` back — a cycle with its two ends in different
+// files (var `y` in b.gom, function `f` in a.gom). The old
+// per-file pass could not see either edge; the unit pass reports
+// one E0907 for `y`, matching `go build`'s "y refers to f, f
+// refers to y".
+func TestCompileFilesInitCycleThroughSiblingFn(t *testing.T) {
+	rs := compileFiles(t, map[string]string{
+		"a.gom": "package m\n\nfn f (n: Int) -> Int = if n == 0 { y } else { n }\n",
+		"b.gom": "package m\n\nlet y = f 0\n",
+	})
+	var saw []string
+	for i, r := range rs {
+		for _, d := range r.Diagnostics {
+			if d.Code == "E0907" {
+				saw = append(saw, d.Span.File+": "+d.Message)
+			}
+		}
+		if r.Output != nil {
+			t.Fatalf("result %d kept its output though the package has an init cycle", i)
+		}
+	}
+	if len(saw) != 1 {
+		t.Fatalf("E0907 count = %d, want 1 (only `y` is a variable on the cycle): %v", len(saw), saw)
+	}
+	if !strings.HasPrefix(saw[0], "pkg/b.gom") || !strings.Contains(saw[0], "`f`") {
+		t.Fatalf("diagnostic = %q, want a y-through-f cycle message at b.gom", saw[0])
+	}
+}
+
+// A cross-file cycle can also route through a hidden lowering
+// temporary: `let (x, _) = ...` mints a package var whose DiagName
+// is the `let` spelling. The unit pass must report the tmp by that
+// user vocabulary — never a generated `tmpN` name — while still
+// attributing the real variables' diagnostics to their own files.
+func TestCompileFilesInitCycleThroughHiddenTmp(t *testing.T) {
+	rs := compileFiles(t, map[string]string{
+		"a.gom": "package m\n\nlet (x, _) = (y + 1, 0)\n",
+		"b.gom": "package m\n\nlet y = x + 1\n",
+	})
+	var saw []string
+	namedTmp := false
+	for i, r := range rs {
+		for _, d := range r.Diagnostics {
+			if d.Code != "E0907" {
+				continue
+			}
+			saw = append(saw, d.Span.File+": "+d.Message)
+			if strings.Contains(d.Message, "tmp") {
+				t.Errorf("diagnostic leaked a generated name: %s", d.Message)
+			}
+			if strings.Contains(d.Message, "`let (x, _)`") {
+				namedTmp = true
+			}
+		}
+		if r.Output != nil {
+			t.Fatalf("result %d kept its output though the package has an init cycle", i)
+		}
+	}
+	if len(saw) != 3 {
+		t.Fatalf("E0907 count = %d, want 3 (x, the hidden let-tmp, y): %v", len(saw), saw)
+	}
+	if !namedTmp {
+		t.Errorf("no diagnostic named the destructure by user vocabulary: %v", saw)
+	}
+}
+
+// Not every cross-file reference is a cycle: `x` in a.gom reads
+// `y` from b.gom, and `y` is dependency-free — the package
+// initializes `y` first and compiles cleanly. The unit pass must
+// not over-report.
+func TestCompileFilesSiblingInitOrderOK(t *testing.T) {
+	rs := compileFiles(t, map[string]string{
+		"a.gom": "package m\n\nlet x = y + 1\n",
+		"b.gom": "package m\n\nlet y = 41\n",
+	})
+	for i, r := range rs {
+		if r.Diagnostics.HasError() {
+			t.Fatalf("result %d diagnostics: %v", i, r.Diagnostics)
+		}
+		if r.Output == nil {
+			t.Fatalf("result %d produced no output", i)
+		}
+	}
+}
+
 // Inputs other than .gom (a .gomi in the batch) compile
 // independently of the package unit and keep their own results.
 func TestCompileFilesInterfaceInput(t *testing.T) {

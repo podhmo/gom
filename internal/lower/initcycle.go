@@ -16,49 +16,56 @@ import (
 // next free user-facing code after E0904–E0906).
 const codeInitCycle diag.Code = "E0907"
 
-// checkInitCycles applies Go's package-initialization dependency
-// rule to the lowered Core file, so a program `go build` would
-// reject is reported here — naming the user's bindings instead of
-// the generated temporaries. A package variable depends on every
-// variable referenced by its initializer, with references followed
-// transitively through the bodies of functions (and function
-// literals) the initializer mentions; a function-to-function edge
-// is not a dependency. A variable-to-variable cycle that remains —
-// including a self-loop through a function literal — has no valid
-// initialization order (docs/decisions/2026-11-05-aggregate-function-bindings.md).
+// CheckInitCycles applies Go's package-initialization dependency
+// rule to the lowered Core files of one compilation unit, so a
+// program `go build` would reject is reported here — naming the
+// user's bindings instead of the generated temporaries. A package
+// variable depends on every variable referenced by its initializer,
+// with references followed transitively through the bodies of
+// functions (and function literals) the initializer mentions; a
+// function-to-function edge is not a dependency. A
+// variable-to-variable cycle that remains — including a self-loop
+// through a function literal — has no valid initialization order
+// (docs/decisions/2026-11-05-aggregate-function-bindings.md).
 //
-// The graph is built on the emitted Core IR for the same reason
-// @tailrec's R4 runs post-lowering: the dependency set is exactly
-// the one codegen hands Go, so the diagnostic cannot drift from the
-// generated program. The pass sees only `out.Decls` — generated
-// comparators and display helpers attach to the File afterwards as
-// EqDecls/ShowDecls, not as declarations — and is per-file like R4;
-// a multi-file package would have to build the graph over every
-// file's Core to match Go's per-package analysis.
-func (l *lowerer) checkInitCycles(out *core.File) {
+// Package initialization is a property of the whole unit, not of
+// one file: the dependency graph is built over every file's
+// `Decls`, so a cycle routed through sibling `let`s — `a.gom`'s
+// `x` reading `b.gom`'s `y` while `y` reads `x` — is reported the
+// same as a same-file one (docs/decisions/
+// 2026-11-05-package-initialization-order.md). The graph is built
+// on the emitted Core IR for the same reason @tailrec's R4 runs
+// post-lowering: the dependency set is exactly the one codegen
+// hands Go, so the diagnostic cannot drift from the generated
+// program. The pass sees only `Decls` — generated comparators and
+// display helpers attach to the File afterwards as
+// EqDecls/ShowDecls, not as declarations.
+func CheckInitCycles(files []*core.File) []diag.Diagnostic {
 	funcs := map[*resolve.Symbol]bool{}
 	vars := map[*resolve.Symbol]*core.VarDecl{}
 	var order []*resolve.Symbol
-	for _, d := range out.Decls {
-		switch d := d.(type) {
-		case *core.FuncDecl:
-			if d.Sym != nil {
-				funcs[d.Sym] = true
+	for _, out := range files {
+		for _, d := range out.Decls {
+			switch d := d.(type) {
+			case *core.FuncDecl:
+				if d.Sym != nil {
+					funcs[d.Sym] = true
+				}
+			case *core.VarDecl:
+				if d.Sym != nil {
+					vars[d.Sym] = d
+					order = append(order, d.Sym)
+				}
+			case *core.TestDecl, *core.TypeDecl:
+				// Test bodies run at test time, not package
+				// init; type declarations carry no initializer.
+			default:
+				panic("unreachable")
 			}
-		case *core.VarDecl:
-			if d.Sym != nil {
-				vars[d.Sym] = d
-				order = append(order, d.Sym)
-			}
-		case *core.TestDecl, *core.TypeDecl:
-			// Test bodies run at test time, not package init;
-			// type declarations carry no initializer.
-		default:
-			panic("unreachable")
 		}
 	}
 	if len(vars) == 0 {
-		return
+		return nil
 	}
 	// refset[x] is the set of package-level declarations x's body
 	// references — Var and FuncRef atoms plus CallDirect callees.
@@ -66,56 +73,59 @@ func (l *lowerer) checkInitCycles(out *core.File) {
 	// initializer's references lexically, so `var x = func() { y() }`
 	// still depends on y.
 	refset := map[*resolve.Symbol]map[*resolve.Symbol]bool{}
-	for _, d := range out.Decls {
-		var from *resolve.Symbol
-		var b *core.Body
-		switch d := d.(type) {
-		case *core.FuncDecl:
-			if d.Sym == nil || d.Fn == nil {
+	for _, out := range files {
+		for _, d := range out.Decls {
+			var from *resolve.Symbol
+			var b *core.Body
+			switch d := d.(type) {
+			case *core.FuncDecl:
+				if d.Sym == nil || d.Fn == nil {
+					continue
+				}
+				from, b = d.Sym, d.Fn.Body
+			case *core.VarDecl:
+				if d.Sym == nil || d.Body == nil {
+					continue
+				}
+				from, b = d.Sym, d.Body
+			case *core.TestDecl, *core.TypeDecl:
 				continue
-			}
-			from, b = d.Sym, d.Fn.Body
-		case *core.VarDecl:
-			if d.Sym == nil || d.Body == nil {
-				continue
-			}
-			from, b = d.Sym, d.Body
-		case *core.TestDecl, *core.TypeDecl:
-			continue
-		default:
-			panic("unreachable")
-		}
-		walkTailrec(b, func(e core.Expr, _, _ bool) {
-			var to *resolve.Symbol
-			switch e := e.(type) {
-			case *core.Var:
-				to = e.Sym
-			case *core.FuncRef:
-				to = e.Sym
-			case *core.CallDirect:
-				to = e.Callee
-			case *core.Binary, *core.CallBuiltin, *core.CallFunc,
-				*core.CallGo, *core.Closure, *core.Conv, *core.CtorApp,
-				*core.CtorRef, *core.Equal, *core.EscapeCall,
-				*core.EscapeResult, *core.FieldGet, *core.ForRange,
-				*core.GoFuncRef, *core.If, *core.ListNew, *core.Lit,
-				*core.Match, *core.OptionFromGo, *core.RecordNew,
-				*core.RecordUpdate, *core.ResultFromGo, *core.SelectExpr,
-				*core.Spawn, *core.TailCall, *core.TupleFromGo,
-				*core.TupleNew, *core.Unary:
-				// Only direct symbol references join the init
-				// dependency set; every other expression kind
-				// contributes through walkTailrec's traversal.
 			default:
 				panic("unreachable")
 			}
-			if to != nil && (funcs[to] || vars[to] != nil) {
-				if refset[from] == nil {
-					refset[from] = map[*resolve.Symbol]bool{}
+			walkTailrec(b, func(e core.Expr, _, _ bool) {
+				var to *resolve.Symbol
+				switch e := e.(type) {
+				case *core.Var:
+					to = e.Sym
+				case *core.FuncRef:
+					to = e.Sym
+				case *core.CallDirect:
+					to = e.Callee
+				case *core.Binary, *core.CallBuiltin, *core.CallFunc,
+					*core.CallGo, *core.Closure, *core.Conv, *core.CtorApp,
+					*core.CtorRef, *core.Equal, *core.EscapeCall,
+					*core.EscapeResult, *core.FieldGet, *core.ForRange,
+					*core.GoFuncRef, *core.If, *core.ListNew, *core.Lit,
+					*core.Match, *core.OptionFromGo, *core.RecordNew,
+					*core.RecordUpdate, *core.ResultFromGo, *core.SelectExpr,
+					*core.Spawn, *core.TailCall, *core.TupleFromGo,
+					*core.TupleNew, *core.Unary:
+					// Only direct symbol references join the
+					// init dependency set; every other
+					// expression kind contributes through
+					// walkTailrec's traversal.
+				default:
+					panic("unreachable")
 				}
-				refset[from][to] = true
-			}
-		})
+				if to != nil && (funcs[to] || vars[to] != nil) {
+					if refset[from] == nil {
+						refset[from] = map[*resolve.Symbol]bool{}
+					}
+					refset[from][to] = true
+				}
+			})
+		}
 	}
 	// vardep[v] is the set of package variables v's initialization
 	// must wait for — every variable reachable from v over refset
@@ -143,9 +153,11 @@ func (l *lowerer) checkInitCycles(out *core.File) {
 		vardep[v] = deps
 	}
 	// A variable is on a cycle when it reaches itself through vardep.
-	// Each gets one diagnostic, the way `go build` reports one per
-	// variable on the cycle; the witness path is reconstructed on the
+	// Each gets one diagnostic — per-variable reporting like go/types
+	// (gc prints one chain), which also attributes each cycle member
+	// to its own .gom file; the witness path is reconstructed on the
 	// raw refset so the "refers to" chain names every step.
+	var diags []diag.Diagnostic
 	for _, v := range order {
 		if !reachesVar(vardep, v, v) {
 			continue
@@ -153,15 +165,16 @@ func (l *lowerer) checkInitCycles(out *core.File) {
 		path := cyclePath(refset, v)
 		names := make([]string, len(path))
 		for i, n := range path {
-			names[i] = "`" + l.nodeName(n) + "`"
+			names[i] = "`" + nodeName(vars, n) + "`"
 		}
-		l.diags = append(l.diags, diag.Error(codeInitCycle,
+		diags = append(diags, diag.Error(codeInitCycle,
 			fmt.Sprintf("initialization cycle for `%s`: %s",
-				l.nodeName(v), strings.Join(names, " refers to "))).
+				nodeName(vars, v), strings.Join(names, " refers to "))).
 			At(vars[v].Sp).
-			Set("var", l.nodeName(v)).
-			Set("path", pathNames(path, l)))
+			Set("var", nodeName(vars, v)).
+			Set("path", pathNames(vars, path)))
 	}
+	return diags
 }
 
 // reachesVar reports whether `to` is reachable from `from` through
@@ -216,22 +229,22 @@ func cyclePath(refset map[*resolve.Symbol]map[*resolve.Symbol]bool, v *resolve.S
 }
 
 // pathNames renders a witness path as node names for diagnostic data.
-func pathNames(path []*resolve.Symbol, l *lowerer) []string {
+func pathNames(vars map[*resolve.Symbol]*core.VarDecl, path []*resolve.Symbol) []string {
 	out := make([]string, len(path))
 	for i, n := range path {
-		out[i] = l.nodeName(n)
+		out[i] = nodeName(vars, n)
 	}
 	return out
 }
 
 // nodeName renders a graph node for diagnostics. Hidden temporaries
-// minted for a top-level `let` are named by the pattern they carry —
-// `let (again, _)` — so the refers-to chain stays in the user's
-// vocabulary. Every hidden `VarDecl` lowering mints must register in
-// `tmpLets`, or the fallback prints the generated `tmpN` name.
-func (l *lowerer) nodeName(sym *resolve.Symbol) string {
-	if d, ok := l.tmpLets[sym]; ok {
-		return "let " + patText(d.Pat)
+// minted for a top-level `let` carry their pattern name on the
+// VarDecl — `let (again, _)` — so the refers-to chain stays in the
+// user's vocabulary. Every hidden `VarDecl` lowering mints must set
+// DiagName, or the fallback prints the generated `tmpN` name.
+func nodeName(vars map[*resolve.Symbol]*core.VarDecl, sym *resolve.Symbol) string {
+	if vd := vars[sym]; vd != nil && vd.DiagName != "" {
+		return vd.DiagName
 	}
 	return sym.Name
 }

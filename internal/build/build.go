@@ -217,7 +217,12 @@ func Compile(in Input, opts *Options) (*Result, error) {
 	coref.SelfImportPath = o.SelfImportPath
 	r.Core = coref
 	r.Diagnostics = append(r.Diagnostics, ldiags...)
-	if diag.List(ldiags).HasError() {
+	// Package initialization is a property of the unit, not of one
+	// file — the residual-cycle check runs over the unit's lowered
+	// Core files, and a one-file unit is the degenerate case.
+	udiags := lower.CheckInitCycles([]*core.File{coref})
+	r.Diagnostics = append(r.Diagnostics, udiags...)
+	if diag.List(ldiags).HasError() || diag.List(udiags).HasError() {
 		return r, nil
 	}
 
@@ -403,6 +408,7 @@ func CompileFiles(ins []Input, opts *Options) ([]*Result, error) {
 	// member withholds every output — a partial package would emit
 	// files that reference declarations which never materialized.
 	unitFailed := false
+	cores := make([]*core.File, 0, len(impl))
 	for k, i := range impl {
 		in := ins[i]
 		r := results[i]
@@ -453,6 +459,7 @@ func CompileFiles(ins []Input, opts *Options) ([]*Result, error) {
 		coref, ldiags := lower.File(tf, &le)
 		coref.SelfImportPath = o.SelfImportPath
 		r.Core = coref
+		cores = append(cores, coref)
 		r.Diagnostics = append(r.Diagnostics, ldiags...)
 		if diag.List(ldiags).HasError() {
 			unitFailed = true
@@ -464,6 +471,16 @@ func CompileFiles(ins []Input, opts *Options) ([]*Result, error) {
 			return nil, err
 		}
 		r.Output = out
+	}
+	// Package initialization is a property of the unit, not of one
+	// file: the residual-cycle check builds its dependency graph
+	// over every member's lowered Core declarations, so a cycle
+	// routed through sibling `let`s is reported here rather than
+	// left for `go build` to name generated temporaries.
+	if len(cores) > 0 {
+		udiags := lower.CheckInitCycles(cores)
+		spread(results[impl[0]], byPath, udiags)
+		unitFailed = unitFailed || diag.List(udiags).HasError()
 	}
 	if unitFailed {
 		for _, i := range impl {

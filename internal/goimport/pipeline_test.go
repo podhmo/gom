@@ -18,6 +18,7 @@ import (
 
 	"github.com/podhmo/gom/internal/check"
 	"github.com/podhmo/gom/internal/codegen"
+	"github.com/podhmo/gom/internal/core"
 	"github.com/podhmo/gom/internal/diag"
 	"github.com/podhmo/gom/internal/lower"
 	"github.com/podhmo/gom/internal/pattern"
@@ -47,6 +48,7 @@ func compileSource(t *testing.T, l *Loader, src string) []byte {
 		t.Fatal("pattern failed")
 	}
 	xf, dd := lower.File(cf, &lower.Env{GoSig: l.GoSigOf})
+	dd = append(dd, lower.CheckInitCycles([]*core.File{xf})...)
 	if requireNoErrors(t, dd) {
 		t.Fatal("lower failed")
 	}

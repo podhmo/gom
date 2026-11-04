@@ -59,6 +59,12 @@ type VarDecl struct {
 	// Exported marks a member of the package's public surface —
 	// see FuncDecl.Exported.
 	Exported bool
+	// DiagName is the name diagnostics print for this variable
+	// instead of Sym.Name — set when lowering mints a hidden
+	// temporary for a top-level `let` pattern (`let (a, _)`), so a
+	// message never names a generated `tmpN`. Empty for ordinary
+	// bindings, which print Sym.Name. Codegen does not read it.
+	DiagName string
 	Body     *Body
 }
 

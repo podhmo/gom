@@ -157,6 +157,16 @@ func TestLiterals(t *testing.T) {
 		{"hex int", &check.Lit{Base: b(types.Int), Kind: syntax.LitInt, Text: "0x1F"}, "31"},
 		{"int underscores", &check.Lit{Base: b(types.Int), Kind: syntax.LitInt, Text: "1_000"}, "1000"},
 		{"float", floatLit(3.14), "3.14"},
+		// A Float-typed integer literal materializes as
+		// float64(text) in generated code — widths ParseInt
+		// would overflow are legal. ParseFloat carries the
+		// decimal spellings; base-prefixed spellings ParseFloat
+		// rejects route through a big integer.
+		{"float int literal", &check.Lit{Base: b(types.Float), Kind: syntax.LitInt, Text: "1"}, "1"},
+		{"float huge int literal", &check.Lit{Base: b(types.Float), Kind: syntax.LitInt, Text: "99999999999999999999"}, "1e+20"},
+		{"float int literal beyond precision", &check.Lit{Base: b(types.Float), Kind: syntax.LitInt, Text: "9007199254740993"}, "9.007199254740992e+15"},
+		{"float hex int literal", &check.Lit{Base: b(types.Float), Kind: syntax.LitInt, Text: "0x1F"}, "31"},
+		{"float huge hex int literal", &check.Lit{Base: b(types.Float), Kind: syntax.LitInt, Text: "0x1FFFFFFFFFFFFFFFFF"}, "5.902958103587057e+20"},
 		{"bool", boolLit(true), "true"},
 		{"unit", unitLit(), "()"},
 		{"string", strLit("hi"), `"hi"`},

@@ -148,7 +148,6 @@ func File(f *check.File, env *Env) (*core.File, []diag.Diagnostic) {
 		boundSyms:  map[*resolve.Symbol]bool{},
 		aliasElems: map[*resolve.Symbol]check.Expr{},
 		aliasInit:  map[*resolve.Symbol]bool{},
-		tmpLets:    map[*resolve.Symbol]*check.LetDecl{},
 	}
 	if env == nil {
 		env = &Env{}
@@ -190,7 +189,6 @@ func File(f *check.File, env *Env) (*core.File, []diag.Diagnostic) {
 		l.decl(d, out)
 	}
 	l.checkTailRec(out)
-	l.checkInitCycles(out)
 	out.EqDecls = l.eqOrder
 	out.ShowDecls = l.showOrder
 
@@ -341,11 +339,6 @@ type lowerer struct {
 	// so the initializer must still be emitted eagerly under a hidden
 	// variable or its effects would never run.
 	aliasInit map[*resolve.Symbol]bool
-	// tmpLets maps hidden temporaries minted for top-level `let`
-	// destructurings back to their let declaration, so the
-	// initialization-cycle diagnostic can name them by the pattern
-	// they carry instead of `tmp4`.
-	tmpLets map[*resolve.Symbol]*check.LetDecl
 	// typeD indexes the file's TypeDecls by qualified name key; ctorT
 	// maps a locally declared variant symbol to its TypeDecl.
 	typeD map[string]*check.TypeDecl
@@ -992,9 +985,9 @@ func (l *lowerer) letDecl(d *check.LetDecl, out *core.File) {
 			if l.aliasInit[v.Sym] {
 				tmpSym := l.pkgTmp()
 				tmpSym.TestOnly = testOnlyPat(d.Pat)
-				l.tmpLets[tmpSym] = d
 				out.Decls = append(out.Decls, &core.VarDecl{
 					Sp: d.Sp, Sym: tmpSym, Body: l.exprBody(d.Value),
+					DiagName: "let " + patText(d.Pat),
 				})
 			}
 			out.Decls = append(out.Decls, l.aliasWrapper(v.Span(), v.Sym))
@@ -1014,9 +1007,9 @@ func (l *lowerer) letDecl(d *check.LetDecl, out *core.File) {
 	testOnly := testOnlyPat(d.Pat)
 	tmpSym := l.pkgTmp()
 	tmpSym.TestOnly = testOnly
-	l.tmpLets[tmpSym] = d
 	out.Decls = append(out.Decls, &core.VarDecl{
 		Sp: d.Sp, Sym: tmpSym, Body: l.exprBody(d.Value),
+		DiagName: "let " + patText(d.Pat),
 	})
 	tmpVar := func() core.Atom {
 		return &core.Var{Base: core.Base{Sp: d.Sp, Typ: d.Value.Type()}, Sym: tmpSym}
@@ -1062,9 +1055,9 @@ func (l *lowerer) letDecl(d *check.LetDecl, out *core.File) {
 	discardDecl := func() {
 		dsym := l.pkgTmp()
 		dsym.TestOnly = testOnly
-		l.tmpLets[dsym] = d
 		out.Decls = append(out.Decls, &core.VarDecl{
 			Sp: d.Sp, Sym: dsym, Body: body,
+			DiagName: "let " + patText(d.Pat),
 		})
 	}
 	switch len(vars) {
@@ -1083,9 +1076,9 @@ func (l *lowerer) letDecl(d *check.LetDecl, out *core.File) {
 	default:
 		tupSym := l.pkgTmp()
 		tupSym.TestOnly = testOnly
-		l.tmpLets[tupSym] = d
 		out.Decls = append(out.Decls, &core.VarDecl{
 			Sp: d.Sp, Sym: tupSym, Body: body,
+			DiagName: "let " + patText(d.Pat),
 		})
 		for i, v := range vars {
 			if l.staticAliases[v.sym] {

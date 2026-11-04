@@ -2,6 +2,7 @@ package eval
 
 import (
 	"fmt"
+	"math/big"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -39,12 +40,28 @@ func litValue(kind syntax.LitKind, text string, typ types.Type, sp diag.Span) Va
 		}
 		failData(CodeInternal, "invalid bool literal", sp, "text", text)
 	case syntax.LitInt:
+		if isFloatCon(typ) {
+			// A Float-typed integer literal materializes as
+			// float64(text) in generated code, which accepts
+			// digits ParseInt would overflow (`let m: Float =
+			// 99999999999999999999`). Parse the value the same
+			// way: decimal spellings (the huge ones included)
+			// go through ParseFloat; base-prefixed spellings
+			// ParseFloat rejects (0x/0o/0b) go through a big
+			// integer so their width is not int64-limited
+			// either.
+			if f, err := strconv.ParseFloat(text, 64); err == nil {
+				return &VFloat{F: f}
+			}
+			if i, ok := new(big.Int).SetString(text, 0); ok {
+				f, _ := i.Float64()
+				return &VFloat{F: f}
+			}
+			failData(CodeInternal, "invalid int literal", sp, "text", text)
+		}
 		n, err := strconv.ParseInt(text, 0, 64)
 		if err != nil {
 			failData(CodeInternal, "invalid int literal", sp, "text", text)
-		}
-		if isFloatCon(typ) {
-			return &VFloat{F: float64(n)}
 		}
 		return &VInt{N: n}
 	case syntax.LitFloat:

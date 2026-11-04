@@ -75,6 +75,10 @@ func lower1(t *testing.T, decls ...check.Decl) (*core.File, []diag.Diagnostic) {
 	if out == nil {
 		t.Fatal("File returned nil")
 	}
+	// File does not run the unit-level checks the driver applies
+	// after lowering — CheckInitCycles is one of them, and these
+	// tests exercise it on a one-file unit.
+	diags = append(diags, CheckInitCycles([]*core.File{out})...)
 	return out, diags
 }
 
