@@ -585,3 +585,8 @@
   [initcycle.go](../internal/lower/initcycle.go) `checkTailRec`/`tailrecNeighbors`。
 
 - [ ] **`Go.conv` の `Go.Slice T ↔ List T` がコピーしない**: spec 8.4 は（[decision](decisions/2026-11-04-goconv-list-slice-copies.md) で）コピーすると定めたが、実装は `list.List[T](xs)` へのキャスト（pun）のまま。上の Go slice 項目の追記を参照。実装は [TODO](../TODO.md)。
+
+- [ ] **CLI では extern の照合（E0509）が走らない**: spec 8.4 は extern の宣言を生の Go シグネチャと照合し、合わなければ E0509 とする。
+  `skills/` のスニペット検査（`goimport.Loader` を直接 `Sigs` に渡す）では `fn New(text: String) -> GoError` が E0509 になるが、
+  `gom check`/`gom build` は `gomimport.Loader` を `Sigs` に渡し、これが `check.ExternSource`（`BindExtern`）を実装していないため素通りし、生成・実行まで通る。
+  参照: [spec 8.4](spec.md#84-extern上書き専用)、[実装](../cmd/gom/cli.go)、[extern-override-binding](decisions/2026-11-03-extern-override-binding.md)。
