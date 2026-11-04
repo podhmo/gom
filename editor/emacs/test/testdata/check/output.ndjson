@@ -1,0 +1,3 @@
+{"kind":"diagnostic","code":"E0201","severity":"error","message":"undefined name `undefined_x`","span":{"file":"@DIR@/bad.gom","start":{"line":4,"col":11,"offset":47},"end":{"line":4,"col":22,"offset":58}},"data":{"name":"undefined_x","namespace":"value"}}
+{"kind":"diagnostic","code":"E0201","severity":"error","message":"undefined name `zz`","span":{"file":"@DIR@/other.gom","start":{"line":2,"col":9,"offset":21},"end":{"line":2,"col":11,"offset":23}},"data":{"name":"zz","namespace":"value"}}
+{"kind":"summary","ok":false,"errors":2,"warnings":0,"files":["@DIR@/bad.gom","@DIR@/other.gom"],"outputs":[]}

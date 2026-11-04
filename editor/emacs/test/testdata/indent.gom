@@ -1,0 +1,42 @@
+package main
+
+import go "fmt"
+
+/// docs for Shape
+type Shape =
+  | Circle (radius: Float)
+  /// a rectangle
+  | Rect (w: Float) (h: Float)
+  | Empty
+
+fn area (s: Shape) -> Float =
+  match s {
+    Circle r -> 3.14159 * r * r
+    Rect w h -> w * h
+    Empty -> 0.0
+  }
+
+fn total (xs: List Shape) -> Float =
+  xs
+  |> List.map area
+  |> List.sum
+
+fn describe (s: Shape) -> String = match s {
+  Circle r if r > 10.0 -> "big circle"
+  // a comment between arms
+  Circle _ -> "circle"
+  _ -> "other"
+}
+
+fn main () -> Unit = {
+  let shapes = [Circle 1.0, Rect 2.0 3.0]
+  let msg = "total: ${total shapes}"
+  ignore fmt.Println(msg)
+  for s in shapes {
+    ignore fmt.Println(describe s)
+  }
+}
+
+test "area" {
+  assert_eq (area (Rect 2.0 3.0)) 6.0
+}

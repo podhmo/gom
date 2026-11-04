@@ -66,6 +66,7 @@ Go 相互運用を変えたら両方向（Gom → Go、Go → Gom）のテスト
 - [ ] **[task] 境界での別名と可変性の検証**: [sketch](docs/sketch/2026-11-04-boundary-aliasing-hypotheses.md) の仮説 H1–H7（Go struct の field 読み取り、`Ptr` 越しの観測、`[]T` 型 field、Go に渡した `List`・レコード・バリアントの書き換え）を fixture で確かめ、結果を同じ sketch に追記する。MoonBit・OCaml の比較はドキュメントで裏を取る。結果次第で spec 8.7 の契約か境界の扱いを decision にする
 - [ ] **gomtest spec ハーネスの複数ファイル対応**: testdata/spec の fixture は 1 case = 1 ファイルのため、パッケージ単位の規則（兄弟ファイルをまたぐ初期化サイクル、兄弟 test 名タグ付けなど）を spec fixture として書けない。現状は `internal/build` ドライバテストで代替済み（`TestCompileFilesInitCycleAcrossSiblings` 等）。複数ファイル case の fixture 形式を決めて対応する
 - [ ] **[task] `gom test` に `go test` フラグ透過がない**: `gom test` は内部で素の `go test` を呼ぶため、生成コードを `-race` 等のフラグ付きで走らせる手段がない。P5-3 の race 検証は `gom test` 出力を手で `go test -race` に掛けて代替した（[sketch](docs/sketch/2026-11-05-p5-3-generated-code-perf.md)）。フラグ透過か専用オプションの検討が要る
+- [ ] **[task] Emacs gom-mode を tree-sitter 化する**: `editor/emacs/gom-mode.el` は tree-sitter 文法が無いため正規表現ベースで書いた（[sketch](docs/sketch/2026-11-05-emacs-gom-mode.md)）。`docs/grammar.ebnf` から tree-sitter-gom（`grammar.js` + 改行 NL 挿入の外部 scanner）を書き、[podhmo/moonbit-mode](https://github.com/podhmo/moonbit-mode) と同じ `treesit` ベースの font-lock / imenu / インデントへ移す。`editor/emacs/test/` の ert-font-lock 注釈とインデントテストをそのまま回帰テストに使う
 
 ## Bugs
 

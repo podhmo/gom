@@ -1,0 +1,94 @@
+// font-lock.gom -- ert-font-lock annotations for gom-mode
+//   ^^^^ font-lock-comment-face
+package shapes
+// <- font-lock-keyword-face
+//      ^^^^^^ font-lock-constant-face
+
+import go "fmt"
+// <- font-lock-keyword-face
+//     ^^ font-lock-keyword-face
+//        ^^^^^ font-lock-string-face
+import go alias "strings"
+//        ^^^^^ font-lock-constant-face
+
+/// docs for Shape
+//   ^^^^ gom-doc-comment-face
+type Shape =
+// <- font-lock-keyword-face
+//   ^^^^^ font-lock-type-face
+  | Circle (radius: Float)
+//  ^^^^^^ font-lock-type-face
+//                  ^^^^^ font-lock-type-face
+  | Rect (w: Float) (h: Float)
+  | Empty
+
+/* block comment */
+//   ^^^^ font-lock-comment-face
+
+let pi = 3.14159
+// <- font-lock-keyword-face
+//  ^^ font-lock-variable-name-face
+//       ^^^^^^^ gom-number-face
+
+let big = 0x1F_FF
+//        ^^^^^^^ gom-number-face
+
+fn area (s: Shape) -> Float =
+// <- font-lock-keyword-face
+// ^^^^ font-lock-function-name-face
+//          ^^^^^ font-lock-type-face
+  match s {
+//^^^^^ font-lock-keyword-face
+    Circle r -> pi * r * r
+    Rect w h -> w * h
+    Empty -> 0.0
+  }
+
+fn label (~name: String) -> String = "hello ${name}"
+//        ^^^^^ gom-label-face
+//                                   ^^^^^^ font-lock-string-face
+//                                          ^^^^^^^ gom-interpolation-face
+
+let inc = fn x -> x + 1
+//        ^^ font-lock-keyword-face
+//           !font-lock-function-name-face
+
+let ch = Chan.send
+//            ^^^^ !font-lock-keyword-face
+
+let c = 'x'
+//      ^^^ font-lock-string-face
+
+extern go "bytes" {
+// <- font-lock-keyword-face
+//     ^^ font-lock-keyword-face
+  fn NewBufferString (s: String) -> Buffer
+//   ^^^^^^^^^^^^^^^ font-lock-function-name-face
+}
+
+let n = fmt.Println
+//          ^^^^^^^ !font-lock-type-face
+
+@tailrec
+// <- font-lock-preprocessor-face
+fn loop (n: Int) (acc: Int) -> Int = if n <= 0 { acc } else { loop (n - 1) (acc + n) }
+//                                   ^^ font-lock-keyword-face
+//                                                     ^^^^ font-lock-keyword-face
+
+@test
+fn helper () -> Int = 1
+
+test "rect area" {
+// <- font-lock-keyword-face
+//   ^^^^^^^^^^^ font-lock-string-face
+  assert_eq (area (Rect 2.0 3.0)) 6.0
+//^^^^^^^^^ font-lock-builtin-face
+}
+
+fn parse (s: String) -> Result Int GoError = {
+  let x = try strconv.Atoi(s)
+//        ^^^ font-lock-keyword-face
+  ignore x
+//^^^^^^ font-lock-keyword-face
+  Ok x
+}
