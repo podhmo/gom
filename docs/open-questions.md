@@ -28,10 +28,6 @@
 - [ ] `Go.Any` / `any` を `.gom`/`.gomi` のシグネチャに書けるようにするか。現状は Go 側の `any` 引数経由でしかボックス化を観測できない（`goTypeArity` は `Go.Slice`/`Go.Map` のみ受理）。P3-7 実測: `json.Decoder.Token` が `Go.Any` しか返さない唯一の stdlib decode 経路 — 推論位置でしか `Go.Any` を書けない制約が実害として観測された
 - [ ] `Go.conv` の `Go.Slice T ↔ List T`（raw pun、コピーしない）を、暗黙の境界変換と同じコピーありに揃えるか、現状の pun を spec 8.4/8.5 に明文化するか（[台帳](implementation-gaps.md) の Go slice 項目追記、P3-2/P3-6 worktree）
 
-### 並行処理
-
-- [ ] `select` の腕の選び方: Go と同じくランダムに選ぶままにするか、優先度付きの書き方を用意するか
-
 ### 最適化
 
 - [ ] 生成コード特殊化ポリシー: cons 構築ループの buffer 化をどの経路で行うか（`Array` builder＋`to_list` / intrinsic・extern-impl 経路 / lower の cons-recursion パターン特殊化）、curried HOF の flat 二面公開や呼出側 uncurry を入れるか。`Map`/`Filter`/`Append`/`Rev`/`Range` の O(n²) と `Fold` の要素ごとクロージャ確保が対象（[problems](problems/2026-11-05-stdlib-cons-built-combinators-quadratic.md)、[sketch](sketch/2026-11-05-p5-3-generated-code-perf.md)）
@@ -39,12 +35,10 @@
 
 ### ツール
 
-- [ ] 冗長な腕をエラーにするか警告にするか（開発中の書きかけコードでは警告の方が扱いやすい）
-- [ ] フォーマッタの空行: ブロック内の空行を保持するか、構文木だけから完全に決めるか
-- [ ] 診断 JSON のスキーマ: 独自スキーマのままにするか、LSP の Diagnostic や SARIF に寄せるか（内部表現からの変換なので、どちらでも本体は変わらない）
+- [ ] 冗長な腕は spec 4 章どおりエラーのまま。残る問いは、書きかけのコードで冗長な腕などの一部エラーを一時的にフィルタして書き進めたい用途（`--strict` の有無で切り替えるようなオプション）があるかどうか。オプション自体を入れるかも未決
 - [ ] ソース位置対応表（P4-5 のアンカー表）について、LSP はアンカー粒度（生成行 → 内側構文の span）より細かい列・範囲単位の対応を要するか。`//line` ドリフトの行エイリアシングの抜本対応（SourceMap-aware な逆引き＋曖昧時フォールバック）も P4-6 の設計入力
 - [ ] panic スタックをユーザー向け出力で `.gom` 位置付きに再描画するか。現状は内部復元 API（`ResolveStack`）のみで `gom test` は raw 出力を保持。出すなら spec §12 で挙動を明文化する
-- [ ] `.gomi` 適合検査（`checkInterfaces`）を `gom check`/`build` 以外のサブコマンドでも走らせるか。現状 `gom test`/`fix`/`info`/`dump` は `.gomi` 不整合のまま `Exports` 適用で生成物を書く（P4-8 レビュー指摘、仕様として build/check だけが契約ゲートなら問題なし）
+- [ ] `gom fix` でも `.gomi` 適合検査を走らせるか（`gom test` は走らせると決定済み — [decision](decisions/2026-11-04-gomi-conformance-in-gom-test.md)。`info`/`dump` は対象外）
 - [ ] eval（`eval.New` は単一 `check.File` 入力）は兄弟パッケージの `let` を見られない。パッケージ単位コンパイル（V-6）以降、eval-vs-compiled の比較ハーネスがパッケージスコープ `let` を含むプログラムを検証できない — マルチファイル eval の要否を決める（V-6 レビュー指摘）
 
 ## Future work（v1 では扱わないと決めたもの）

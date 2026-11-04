@@ -354,6 +354,7 @@ let unit_circle : Shape
 5. `gom info` は、`.gomi` がまだないパッケージについて、全トップレベル定義のシグネチャを型推論の結果から書き出した下書きを作る
 6. 実装の型はインターフェースと一致しなければならない（v1 では型変数の名前の違いだけを許す）
 7. 依存パッケージの再コンパイルは、インターフェース（コメントと書式を除く）が変わったときだけ起きる。実装だけの変更では起きない
+8. 実装とインターフェースの適合（4・6）は `gom check`・`gom build`・`gom test` が検査する。不適合のパッケージは生成物を書かない（`gom test` ではテストも実行しない。[decisions/gomi-conformance-in-gom-test](decisions/2026-11-04-gomi-conformance-in-gom-test.md)）
 
 ---
 
@@ -565,7 +566,7 @@ fn next_job (ctx: context.Context) (jobs: RecvChan Job) -> Result Job Stop =
 1. `go { e }` は `e` を新しい goroutine で評価する式で、型は `Unit`。`e` が `Unit` 以外ならエラー
 2. チャネル型は `Chan a`（双方向）、`RecvChan a`、`SendChan a`。方向の制限は `Chan.recvOnly` / `Chan.sendOnly` で明示的に変換する。Go 関数に渡すときだけは Go の代入規則に合わせて暗黙に変換する
 3. 操作: `Chan.make n`（`n = 0` でバッファなし）、`Chan.send ch v : Unit`、`Chan.recv ch : Option a`（閉じていれば `None`）、`Chan.close ch`。`for x in ch { ... }` はチャネルが閉じるまで受信する
-4. `select` は式で、すべての腕が同じ型を返す。腕は受信 `x <- ch -> e`、送信 `send ch v -> e`、`default -> e` の 3 種類。各腕は Go の `select` の 1 つの `case` にそのまま対応する
+4. `select` は式で、すべての腕が同じ型を返す。腕は受信 `x <- ch -> e`、送信 `send ch v -> e`、`default -> e` の 3 種類。各腕は Go の `select` の 1 つの `case` にそのまま対応する。複数の腕が同時に準備できていれば、Go と同じく一様ランダムに 1 つ選ぶ（優先度付きの書き方はない。[decisions/select-arm-choice](decisions/2026-11-04-select-arm-choice.md)）
 5. 受信腕の左辺は変数か `_` だけ（論駁不可能なパターンのみ）。`x` の型は `Option a` で、閉じたチャネルからの受信は `None`。値による分岐は腕の本体の `match` で書くので、閉じた場合の処理漏れは通常の `match` の網羅性検査で見つかる
 6. 評価順は Go と同じ: `select` に入った時点で、すべての腕のチャネル式と送信値を、ソースに書かれた順に 1 回ずつ評価する。選ばれなかった腕の式も評価される
 7. 同じチャネルを複数の腕に書いてもよい（Go と同じく、別々の `case` になる）
