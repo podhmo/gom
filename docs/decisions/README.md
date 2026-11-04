@@ -114,8 +114,10 @@
 | [goconv-list-slice-copies](2026-11-04-goconv-list-slice-copies.md) | `Go.conv` の `Go.Slice T ↔ List T` はコピーする | 採用（実装は TODO） |
 | [gomi-conformance-in-gom-test](2026-11-04-gomi-conformance-in-gom-test.md) | `gom test` でも `.gomi` 適合検査を走らせる | 採用 |
 | [mutable-sharing-lint](2026-11-04-mutable-sharing-lint.md) | Mutable-sharing lint: what W0701/W0702 check and where they run | 採用（P5-2 で実装・検証した — [検証](../sketch/2026-11-04-p5-2-mutable-lint-verification.md)） |
+| [result-pipe-step-must-return-result](2026-11-04-result-pipe-step-must-return-result.md) | `\|?>` の右辺は `Result` を返す関数に限る | 採用 |
 | [select-arm-choice](2026-11-04-select-arm-choice.md) | `select` の腕は Go と同じくランダムに選ぶ | 採用 |
 | [structural-equality-emission](2026-11-04-structural-equality-emission.md) | Structural `==`/`!=` emission: `rt.Equal` except provably comparable scalars（一部を [generated-equality-comparators](2026-11-05-generated-equality-comparators.md) で置き換え） | draft |
+| [try-no-auto-wrap](2026-11-04-try-no-auto-wrap.md) | `try` は `GoError` を自動ラップしない | 採用 |
 | [aggregate-function-bindings](2026-11-05-aggregate-function-bindings.md) | Aggregate-bound function values become named wrappers; residual initialization cycles are rejected | 採用（P2-2c の実装・検証: [検証レポート](../sketch/2026-11-05-aggregate-function-bindings-verification.md)） |
 | [deferred-member-application](2026-11-05-deferred-member-application.md) | Deferred member application: `x.M(args)` on an unresolved receiver | 採用 |
 | [eq-comparator-budget-and-names](2026-11-05-eq-comparator-budget-and-names.md) | Comparator minting is bounded and file-unique; ctor lets keep the declared interface | draft |
