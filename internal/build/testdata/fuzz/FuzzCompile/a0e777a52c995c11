@@ -1,0 +1,2 @@
+go test fuzz v1
+[]byte("package a\nimport go\"fmt\"\nfn transfer(a:g)(a00:g)(~amount:a)->Unit={let partial=transfer\"\"\nignore((partial~amount))}")

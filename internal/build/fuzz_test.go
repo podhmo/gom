@@ -113,6 +113,11 @@ var knownCompileBugs = map[[32]byte]fuzzutil.KnownBug{
 	// type no longer propagates into If/Match/SelectExpr, which
 	// infer their own type and conform to `any`. The seed runs
 	// live in compileSeeds.)
+	fuzzutil.Sum256Hex("87fc8864be855a70018f4df1fb8ee1cfbc95197bdcb6b5f2cbb009c114494d73"): {
+		Match: []string{"E0901", "binder type", "differs from bound expression type"},
+		TODO:  "ラベル付き部分適用を let 束縛すると E0901",
+		Desc:  "let-bound labeled-arg partial application reports E0901: binder `String -> Unit` vs bound `~amount: a -> Unit` (issue #11)",
+	},
 }
 
 // fuzzGoPkgs bounds which `import go` paths the loader will resolve
