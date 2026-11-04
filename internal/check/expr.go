@@ -1397,7 +1397,7 @@ func (c *checker) checkFor(e *syntax.For) Expr {
 			if t.Qual == "" && c.shadowedBuiltin(t.Name) &&
 				(t.Name == "List" || t.Name == "Chan" || t.Name == "RecvChan") {
 				c.shadowedErr(e.Iter.Span(),
-					"`for` iterates the builtin `List` or a channel type", t.Name)
+					"`for` iteration", t.Name)
 			} else {
 				c.mismatch(e.Iter.Span(), "a List or a channel", iter.Type())
 			}
@@ -1413,10 +1413,11 @@ func (c *checker) checkFor(e *syntax.For) Expr {
 		// The bound meta spells `List` — under a file-local `type
 		// List` that is the local ADT, which `for` cannot range
 		// over: the element type needs an explicit channel or
-		// builtin-List annotation.
+		// builtin-List annotation. Quiet the minted element meta so
+		// the E0415 does not grow a dangling-type cascade.
 		if c.shadowedBuiltin("List") {
-			c.shadowedErr(e.Iter.Span(),
-				"`for` iteration without a channel defaults to the builtin `List`", "List")
+			c.shadowedErr(e.Iter.Span(), "`for` iteration", "List")
+			c.markQuiet(elem)
 		}
 	case *types.Var, *types.Func, *types.Tuple, *types.Go:
 		c.mismatch(e.Iter.Span(), "a List or a channel", iter.Type())

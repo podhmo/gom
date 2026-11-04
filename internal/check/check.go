@@ -1028,8 +1028,9 @@ func (c *checker) bindExternDecl(d *syntax.ExternDecl) {
 			// An extern signature's unqualified builtin spellings
 			// resolve to the file's own `type` decls when they
 			// shadow — a shape the bound Go callee does not
-			// produce; reject the entry (E0415).
-			if name := c.shadowedInType(sig); name != "" {
+			// produce; reject the entry (E0415), one complaint per
+			// shadowed name the signature spells.
+			for _, name := range c.shadowedNamesInType(sig) {
 				c.shadowedErr(e.Sp, fmt.Sprintf("the signature of extern `%s`", e.Name.Name), name)
 			}
 			c.vals[sym] = sig
@@ -1253,59 +1254,58 @@ type shadowKey struct {
 // such a `Result` resolves to the file's own declaration, a type the
 // foreign callee neither takes nor returns.
 func (c *checker) shadowedSigDiag(sym *resolve.Symbol, sp diag.Span, t types.Type) {
-	name := c.shadowedInType(t)
-	if name == "" {
-		return
-	}
-	k := shadowKey{sym: sym, name: name}
 	if c.seenShadow == nil {
 		c.seenShadow = map[shadowKey]bool{}
 	}
-	if c.seenShadow[k] {
-		return
+	for _, name := range c.shadowedNamesInType(t) {
+		k := shadowKey{sym: sym, name: name}
+		if c.seenShadow[k] {
+			continue
+		}
+		c.seenShadow[k] = true
+		c.shadowedErr(sp, fmt.Sprintf("the signature of `%s`", sym.Name), name)
 	}
-	c.seenShadow[k] = true
-	c.shadowedErr(sp, fmt.Sprintf("the signature of `%s`", sym.Name), name)
 }
 
-// shadowedInType returns the name of the first unqualified Con in t
-// the file shadows — "" when there is none.
-func (c *checker) shadowedInType(t types.Type) string {
-	switch t := types.Chase(t).(type) {
-	case *types.Var, *types.Meta:
-	case *types.Con:
-		if t.Qual == "" && c.shadowedBuiltin(t.Name) {
-			return t.Name
-		}
-		for _, a := range t.Args {
-			if n := c.shadowedInType(a); n != "" {
-				return n
+// shadowedNamesInType returns every unqualified Con name in t the
+// file shadows, in first-occurrence order with duplicates removed —
+// a signature spelling two shadowed builtins earns one E0415 each,
+// not just the first name found.
+func (c *checker) shadowedNamesInType(t types.Type) []string {
+	var out []string
+	seen := map[string]bool{}
+	var walk func(t types.Type)
+	walk = func(t types.Type) {
+		switch t := types.Chase(t).(type) {
+		case *types.Var, *types.Meta:
+		case *types.Con:
+			if t.Qual == "" && c.shadowedBuiltin(t.Name) && !seen[t.Name] {
+				seen[t.Name] = true
+				out = append(out, t.Name)
 			}
-		}
-	case *types.Func:
-		ps, ret := flattenFunc(t)
-		for _, p := range ps {
-			if n := c.shadowedInType(p.Type); n != "" {
-				return n
+			for _, a := range t.Args {
+				walk(a)
 			}
-		}
-		return c.shadowedInType(ret)
-	case *types.Tuple:
-		for _, e := range t.Elems {
-			if n := c.shadowedInType(e); n != "" {
-				return n
+		case *types.Func:
+			ps, ret := flattenFunc(t)
+			for _, p := range ps {
+				walk(p.Type)
 			}
-		}
-	case *types.Go:
-		for _, a := range t.Args {
-			if n := c.shadowedInType(a); n != "" {
-				return n
+			walk(ret)
+		case *types.Tuple:
+			for _, e := range t.Elems {
+				walk(e)
 			}
+		case *types.Go:
+			for _, a := range t.Args {
+				walk(a)
+			}
+		default:
+			panic("unreachable")
 		}
-	default:
-		panic("unreachable")
 	}
-	return ""
+	walk(t)
+	return out
 }
 
 // isShadowedCon reports whether t spells the file-local declaration

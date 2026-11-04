@@ -80,10 +80,20 @@ func (g *gen) qualRef(sym *resolve.Symbol, targs []types.Type) ast.Expr {
 
 // lit renders a literal. Int/Float/Str/Char keep the source lexeme —
 // Gom and Go spell them alike. Unit is the zero-size struct value.
+// The one spelling/type mismatch: an integer literal whose checked
+// type is Float (`let m = 1` with `m` solving to Float, or `1/2`
+// under a Float binder) would emit Go's `int` default — `m := 1`
+// binds `int` and `float64(1/2)` is `0` — so the literal
+// materializes its own checked type as `float64(1)`
+// (docs/problems/2026-11-02-let-int-literal-go-type.md).
 func (g *gen) lit(l *core.Lit) ast.Expr {
 	switch l.Kind {
 	case syntax.LitInt:
-		return &ast.BasicLit{Kind: token.INT, Value: l.Text}
+		x := &ast.BasicLit{Kind: token.INT, Value: l.Text}
+		if g.floatTyped(l.Type()) {
+			return &ast.CallExpr{Fun: g.goType(l.Type()), Args: []ast.Expr{x}}
+		}
+		return x
 	case syntax.LitFloat:
 		return &ast.BasicLit{Kind: token.FLOAT, Value: l.Text}
 	case syntax.LitStr:

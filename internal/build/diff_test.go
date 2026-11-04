@@ -388,6 +388,62 @@ fn main () -> Unit = {
 	}
 }
 
+// TestDiffGoCallSpread: `..e` inside a Go call splices the list into
+// the variadic tail — Go's `f(xs...)`. The evaluator must produce
+// the same flat argument list the compiled `xs...` does: the stub
+// and fmt.Println both render their arguments space-separated.
+func TestDiffGoCallSpread(t *testing.T) {
+	opts, _ := compileOracles(t)
+	if opts == nil {
+		t.Skip("no go toolchain on PATH — cannot typecheck the probe")
+	}
+	gobin, err := exec.LookPath("go")
+	if err != nil {
+		t.Skip("no go toolchain on PATH — the compiled side cannot run")
+	}
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := `package main
+
+import go "fmt"
+
+fn main () -> Unit = {
+  let xs = ["a", "b"]
+  let ys : List String = []
+  let _ = fmt.Println(..xs)
+  let _ = fmt.Println(..ys)
+  ()
+}
+`
+	r, cerr := build.Compile(build.Input{Path: "gospread.gom", Src: []byte(src)}, opts)
+	if cerr != nil {
+		t.Fatalf("compile: %v", cerr)
+	}
+	if r.Diagnostics.HasError() || r.Output == nil {
+		t.Fatalf("probe program rejected: %v", r.Diagnostics)
+	}
+	eo := evalDiff(t, r, src)
+	if eo.class == dUnsupported {
+		t.Skipf("eval cannot stub the probe's Go calls: %s", eo.detail)
+	}
+	co, nondeterministic, buildErr := compiledDiff(t, gobin, root, r.Output.Source)
+	if buildErr != "" {
+		t.Fatalf("generated Go failed go build:\n%s", buildErr)
+	}
+	if nondeterministic {
+		t.Skip("compiled output is nondeterministic")
+	}
+	if div := diffCompare(eo, co); div != "" {
+		t.Fatalf("eval/compiled divergence on spread program: %s\neval=%s %q compiled=%s %q\n--- program ---\n%s",
+			div, className(eo.class), eo.stdout, className(co.class), co.stdout, src)
+	}
+	if eo.stdout != "a b\n\n" {
+		t.Fatalf("stdout = %q, want %q", eo.stdout, "a b\n\n")
+	}
+}
+
 // diffCompare reduces two outcomes to a divergence description —
 // "" means the observations agree.
 func diffCompare(e, c diffOutcome) string {

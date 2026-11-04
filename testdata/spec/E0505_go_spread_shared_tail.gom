@@ -1,0 +1,13 @@
+package main
+
+import go "fmt"
+
+// A `..e` spread must supply the variadic parameter alone: Go only
+// emits `f(xs...)` when the slice is the whole variadic argument
+// list, so `fmt.Println("tag:", ..xs)` — where the written "tag:"
+// shares the `...any` parameter — cannot compile to Go (E0505).
+fn main () -> Unit = {
+  let xs = ["a", "b"]
+  let _ = fmt.Println("tag:", ..xs)
+  ()
+}

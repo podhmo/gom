@@ -854,8 +854,15 @@ func labeledRun(ps []types.FuncParam) []types.FuncParam {
 	return ps[:n]
 }
 
-// mismatch reports the generic unification failure.
+// mismatch reports the generic unification failure. A complaint
+// whose type mentions a quiet meta is a consequence of the
+// diagnostic that quieted it — e.g. `Result ?a ?e` minted on top of
+// a shadowing `type Result` — so it stays silent instead of
+// cascading an E0401 behind the E0415 that owns the operand.
 func (c *checker) mismatch(sp diag.Span, want, got any) {
+	if c.mentionsQuiet(want) || c.mentionsQuiet(got) {
+		return
+	}
 	sp = c.pos(sp)
 	var w string
 	switch want := want.(type) {
@@ -878,6 +885,24 @@ func (c *checker) mismatch(sp diag.Span, want, got any) {
 	d := diag.Error("E0401", fmt.Sprintf("type mismatch: expected %s, got %s", w, g)).
 		At(sp).Set("expected", w).Set("actual", g)
 	c.diags.Add(d)
+}
+
+// mentionsQuiet reports whether t is a type spelling at least one
+// unbound quiet meta — the mark of a recovery type a diagnostic
+// already owns. Non-type arguments (a descriptive `want` string)
+// never count.
+func (c *checker) mentionsQuiet(t any) bool {
+	tt, ok := t.(types.Type)
+	if !ok {
+		return false
+	}
+	found := false
+	metasIn(tt, func(m *types.Meta) {
+		if c.isQuiet(m) {
+			found = true
+		}
+	})
+	return found
 }
 
 // rigidVars collects the rigid type variables of t in first-occurrence

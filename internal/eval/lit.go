@@ -8,12 +8,25 @@ import (
 
 	"github.com/podhmo/gom/internal/diag"
 	"github.com/podhmo/gom/internal/syntax"
+	"github.com/podhmo/gom/internal/types"
 )
+
+// isFloatCon reports whether t is the builtin Float constructor —
+// a numeric literal can never carry a file-local `type Float` ADT,
+// so the unqualified name check suffices here.
+func isFloatCon(t types.Type) bool {
+	c, ok := types.Chase(t).(*types.Con)
+	return ok && c.Qual == "" && c.Name == "Float"
+}
 
 // litValue builds the value of a literal node. Text is the source
 // lexeme (see doc.go for the quoting contract); failures are
-// CodeInternal diagnostics since check fixes literal meaning.
-func litValue(kind syntax.LitKind, text string, sp diag.Span) Value {
+// CodeInternal diagnostics since check fixes literal meaning. typ
+// is the node's checked type — an integer literal spelled `1` but
+// typed Float (`let m = 1` under a Float binder, a `1` pattern
+// under a Float scrutinee) is a float *value*, matching codegen's
+// per-literal `float64(...)` materialization.
+func litValue(kind syntax.LitKind, text string, typ types.Type, sp diag.Span) Value {
 	switch kind {
 	case syntax.LitUnit:
 		return &VUnit{}
@@ -29,6 +42,9 @@ func litValue(kind syntax.LitKind, text string, sp diag.Span) Value {
 		n, err := strconv.ParseInt(text, 0, 64)
 		if err != nil {
 			failData(CodeInternal, "invalid int literal", sp, "text", text)
+		}
+		if isFloatCon(typ) {
+			return &VFloat{F: float64(n)}
 		}
 		return &VInt{N: n}
 	case syntax.LitFloat:

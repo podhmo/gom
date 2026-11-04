@@ -47,6 +47,22 @@ func TestParseExpr(t *testing.T) {
 		{"member before apply", `f x.y z`, `(apply f (x.y) z)`},
 		{"select chains", `a.b.c`, `((a.b).c)`},
 		{"module select", `fmt.Println`, `(fmt.Println)`},
+
+		// A "." after a parenthesized argument continues the
+		// application — "x.M(1).N(2)" is "((x.M 1).N) 2" like Go
+		// (decisions/2026-11-05-post-arg-selector-binding).
+		{"call chain select", `x.M(1).N(2)`, `(apply ((apply (x.M) 1).N) 2)`},
+		{"call chain select bare", `x.M(1).N`, `((apply (x.M) 1).N)`},
+		{"call chain tuple arg", `x.M(1, 0, 0).N(0, 1, 0)`,
+			`(apply ((apply (x.M) (tuple 1 0 0)).N) (tuple 0 1 0))`},
+		{"call chain three", `x.M(1).N(2).O(3)`,
+			`(apply ((apply ((apply (x.M) 1).N) 2).O) 3)`},
+		{"select on apply arg", `f(x).y`, `((apply f x).y)`},
+		{"select inside arg parens", `f (x.y)`, `(apply f (x.y))`},
+		{"select on unparen arg", `f x.y`, `(apply f (x.y))`},
+		{"explicit paren chain", `(x.M(1)).N(2)`, `(apply ((apply (x.M) 1).N) 2)`},
+		{"single call unchanged", `x.M(1)`, `(apply (x.M) 1)`},
+		{"labeled arg paren chain", `f ~a: (v).m`, `((apply f ~a: v).m)`},
 		{"ascription loosest", `x : Int`, `(: x Int)`},
 		{"ascription type app", `x : List Int`, `(: x (List Int))`},
 

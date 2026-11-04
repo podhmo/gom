@@ -1,0 +1,13 @@
+package main
+
+import go "fmt"
+
+// An integer literal whose checked type is Float materializes as
+// `float64(...)` per literal — `let m = 1` must not emit Go `int`,
+// and `1/2` under a Float binder stays Float division (0.5), never
+// a whole-expression `float64(1/2)` wrap (Go integer division, 0).
+fn f () -> Float = { let n = 1; n + 0.5 }
+fn g () -> Float = { let m = 1 / 2; m + 0.5 }
+fn h (x: Float) -> Float = x + 2 - 1
+
+fn main () -> Unit = { ignore (fmt.Println (f (), g (), h 1.0)); () }

@@ -1,6 +1,6 @@
 # `let x = <int literal>` が Go の `int` で落ちる可能性
 
-- 状態: 一部再現確認、修正は TODO
+- 状態: 解消（codegen の `lit()` が `LitInt` のチェック済み型を見て Float なら `float64(...)` を出力。eval 側も同じ規則で VFloat を作る。回帰: `internal/build` compare `float_inferred_int_literal` + golden `float_int_literal`）
 - 発見: 2026-11-02, P1-8 レビュー修正中に観察（再現未確定、fixture は経路を回避）
 
 ## 観察

@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/podhmo/gom/internal/check"
@@ -1808,6 +1809,155 @@ func TestErrorPaths(t *testing.T) {
 		}
 		if len(got) != 2 || got[0] != "A" || got[1] != "B" {
 			t.Fatalf("host args = %v, want [A B]", got)
+		}
+	})
+
+	t.Run("CallGo ..e spread splices a List into the variadic tail", func(t *testing.T) {
+		// fmt.Println("tag", ..xs) — the host stub sees the flat
+		// arguments `f("tag", xs...)` produces in Go: ["tag", x0, x1].
+		goSym := &resolve.Symbol{Name: "Println", Kind: resolve.KindFunc, IsGo: true, Package: "fmt"}
+		env := eval.NewEnv()
+		var got []string
+		env.Bind(goSym, eval.NewHostFunc("fmt.Println", 3, func(args []eval.Value) (eval.Value, error) {
+			for _, a := range args {
+				s, ok := a.(*eval.VStr)
+				if !ok {
+					return nil, fmt.Errorf("non-string arg %s", a)
+				}
+				got = append(got, s.S)
+			}
+			return &eval.VUnit{}, nil
+		}))
+		listT := types.List(types.String)
+		xs := &check.ListLit{Base: b(listT), Elems: []check.Expr{strLit("x"), strLit("y")}}
+		member := &check.MemberExpr{
+			Base: b(types.Fn(types.Unit, types.P(types.String), types.P(types.GoSlice(types.GoAny)))),
+			Recv: vr(sym("fmt", resolve.KindModule), types.Unit),
+			Sel:  &syntax.Ident{Sp: sp, Name: "Println"}, Sym: goSym, Index: -1}
+		x := &check.Apply{Base: b(types.Unit), Fn: member,
+			Args: []check.Arg{arg(strLit("tag")),
+				{Value: &check.Spread{Base: b(listT), X: xs}}},
+			Call: check.CallInfo{Kind: check.CallGo, Callee: goSym, Arity: 2, Applied: 2,
+				ArgToParam: []int{0, 1}, HoleIndex: -1, Variadic: true}}
+		evalOK(t, env, x)
+		if strings.Join(got, ",") != "tag,x,y" {
+			t.Fatalf("host args = %v, want [tag x y]", got)
+		}
+	})
+
+	t.Run("CallGo ..e spread alone and empty", func(t *testing.T) {
+		// fmt.Println(..[]) splices nothing — the stub sees no args.
+		goSym := &resolve.Symbol{Name: "Println", Kind: resolve.KindFunc, IsGo: true, Package: "fmt"}
+		env := eval.NewEnv()
+		nargs := -1
+		env.Bind(goSym, eval.NewHostFunc("fmt.Println", 1, func(args []eval.Value) (eval.Value, error) {
+			nargs = len(args)
+			return &eval.VUnit{}, nil
+		}))
+		listT := types.List(types.String)
+		member := &check.MemberExpr{
+			Base: b(types.Fn(types.Unit, types.P(types.GoSlice(types.GoAny)))),
+			Recv: vr(sym("fmt", resolve.KindModule), types.Unit),
+			Sel:  &syntax.Ident{Sp: sp, Name: "Println"}, Sym: goSym, Index: -1}
+		x := &check.Apply{Base: b(types.Unit), Fn: member,
+			Args: []check.Arg{{Value: &check.Spread{Base: b(listT),
+				X: &check.ListLit{Base: b(listT)}}}},
+			Call: check.CallInfo{Kind: check.CallGo, Callee: goSym, Arity: 1, Applied: 1,
+				ArgToParam: []int{0}, HoleIndex: -1, Variadic: true}}
+		evalOK(t, env, x)
+		if nargs != 0 {
+			t.Fatalf("host arg count = %d, want 0", nargs)
+		}
+	})
+
+	t.Run("CallGo ..e spread of a host Go slice splices host elements", func(t *testing.T) {
+		// A Go.Slice arriving through a host binding is a VHost; its
+		// elements reach the variadic callee as further host values.
+		goSym := &resolve.Symbol{Name: "Println", Kind: resolve.KindFunc, IsGo: true, Package: "fmt"}
+		env := eval.NewEnv()
+		var got []string
+		env.Bind(goSym, eval.NewHostFunc("fmt.Println", 1, func(args []eval.Value) (eval.Value, error) {
+			for _, a := range args {
+				h, ok := a.(*eval.VHost)
+				if !ok {
+					return nil, fmt.Errorf("non-host arg %s", a)
+				}
+				got = append(got, h.V.(string))
+			}
+			return &eval.VUnit{}, nil
+		}))
+		sliceT := types.GoSlice(types.GoAny)
+		xsSym := sym("goslice", resolve.KindVar)
+		env.Bind(xsSym, &eval.VHost{V: []any{"a", "b"}})
+		member := &check.MemberExpr{
+			Base: b(types.Fn(types.Unit, types.P(sliceT))),
+			Recv: vr(sym("fmt", resolve.KindModule), types.Unit),
+			Sel:  &syntax.Ident{Sp: sp, Name: "Println"}, Sym: goSym, Index: -1}
+		x := &check.Apply{Base: b(types.Unit), Fn: member,
+			Args: []check.Arg{{Value: &check.Spread{Base: b(sliceT), X: vr(xsSym, sliceT)}}},
+			Call: check.CallInfo{Kind: check.CallGo, Callee: goSym, Arity: 1, Applied: 1,
+				ArgToParam: []int{0}, HoleIndex: -1, Variadic: true}}
+		evalOK(t, env, x)
+		if strings.Join(got, ",") != "a,b" {
+			t.Fatalf("host args = %v, want [a b]", got)
+		}
+	})
+
+	t.Run("CallGo cute placeholder with ..e spread", func(t *testing.T) {
+		// fmt.Println(_, ..xs) — the captured call holds the spliced
+		// tail; supplying the hole runs the flat invocation.
+		goSym := &resolve.Symbol{Name: "Println", Kind: resolve.KindFunc, IsGo: true, Package: "fmt"}
+		env := eval.NewEnv()
+		var got []string
+		env.Bind(goSym, eval.NewHostFunc("fmt.Println", 3, func(args []eval.Value) (eval.Value, error) {
+			for _, a := range args {
+				got = append(got, a.(*eval.VStr).S)
+			}
+			return &eval.VUnit{}, nil
+		}))
+		listT := types.List(types.String)
+		xs := &check.ListLit{Base: b(listT), Elems: []check.Expr{strLit("x"), strLit("y")}}
+		member := &check.MemberExpr{
+			Base: b(types.Fn(types.Unit, types.P(types.String), types.P(types.GoSlice(types.GoAny)))),
+			Recv: vr(sym("fmt", resolve.KindModule), types.Unit),
+			Sel:  &syntax.Ident{Sp: sp, Name: "Println"}, Sym: goSym, Index: -1}
+		x := &check.Apply{Base: b(types.Fn(types.Unit, types.P(types.String))), Fn: member,
+			Args: []check.Arg{{Value: &check.Hole{Base: b(types.String)}},
+				{Value: &check.Spread{Base: b(listT), X: xs}}},
+			Call: check.CallInfo{Kind: check.CallGo, Callee: goSym, Arity: 2, Applied: 2,
+				ArgToParam: []int{0, 1}, HoleIndex: 0, Variadic: true}}
+		r := eval.Expr(env, x)
+		if !r.OK() {
+			t.Fatalf("eval failed: %+v", r.Diags)
+		}
+		fSym := sym("spreadhole", resolve.KindVar)
+		env.Bind(fSym, r.Value)
+		done := eval.Expr(env, unknownCall(types.Unit, vr(fSym, types.Unit), 1, strLit("tag")))
+		if !done.OK() {
+			t.Fatalf("apply failed: %+v", done.Diags)
+		}
+		if strings.Join(got, ",") != "tag,x,y" {
+			t.Fatalf("host args = %v, want [tag x y]", got)
+		}
+	})
+
+	t.Run("CallGo ..e spread of a non-collection is an invariant error", func(t *testing.T) {
+		goSym := &resolve.Symbol{Name: "Println", Kind: resolve.KindFunc, IsGo: true, Package: "fmt"}
+		env := eval.NewEnv()
+		env.Bind(goSym, eval.NewHostFunc("fmt.Println", 1, func(args []eval.Value) (eval.Value, error) {
+			return &eval.VUnit{}, nil
+		}))
+		member := &check.MemberExpr{
+			Base: b(types.Fn(types.Unit, types.P(types.GoSlice(types.GoAny)))),
+			Recv: vr(sym("fmt", resolve.KindModule), types.Unit),
+			Sel:  &syntax.Ident{Sp: sp, Name: "Println"}, Sym: goSym, Index: -1}
+		x := &check.Apply{Base: b(types.Unit), Fn: member,
+			Args: []check.Arg{{Value: &check.Spread{Base: b(types.Int), X: intLit(1)}}},
+			Call: check.CallInfo{Kind: check.CallGo, Callee: goSym, Arity: 1, Applied: 1,
+				ArgToParam: []int{0}, HoleIndex: -1, Variadic: true}}
+		d := evalFail(t, env, x)
+		if d.Code != eval.CodeInternal {
+			t.Fatalf("code = %s, want %s", d.Code, eval.CodeInternal)
 		}
 	})
 }

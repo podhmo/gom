@@ -20,7 +20,7 @@ func (e *interp) matchPat(pat check.Pat, v Value, env *Env) bool {
 		env.Bind(p.Sym, v)
 		return true
 	case *check.LitPat:
-		want := litValue(p.Kind, p.Text, pat.Span())
+		want := litValue(p.Kind, p.Text, p.Type(), pat.Span())
 		return e.eqValue(want, v, pat.Span())
 	case *check.TuplePat:
 		t, ok := v.(*VTuple)

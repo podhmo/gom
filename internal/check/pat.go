@@ -486,8 +486,11 @@ func (c *checker) listElem(want types.Type, sp diag.Span) types.Type {
 
 // resultArgs decomposes want as `Result a e` — used by `try` and
 // `|?>`. An unbound meta becomes Result of fresh metas. A file-local
-// `type Result` is not the builtin: callers report E0415 via
-// isShadowedCon when the operand spells it.
+// `type Result` is not the builtin — the bound meta below spells the
+// local ADT, so callers reject it (E0415) via isShadowedCon. This
+// helper itself never reports: every caller names its own construct
+// in the complaint, and a second report at the same span would only
+// duplicate it.
 func (c *checker) resultArgs(want types.Type, sp diag.Span) (val, err types.Type, ok bool) {
 	switch t := types.Chase(want).(type) {
 	case *types.Con:
@@ -499,6 +502,13 @@ func (c *checker) resultArgs(want types.Type, sp diag.Span) (val, err types.Type
 	case *types.Meta:
 		a := c.newMeta(sp, "the Result's value type")
 		e := c.newMeta(sp, "the Result's error type")
+		// Under a shadowed `Result` the bind below poisons the
+		// operand for good — quiet it before binding so the metas
+		// minted inside `Result ?a ?e` do not cascade into E0407s
+		// on top of the E0415 the caller reports.
+		if c.shadowedBuiltin("Result") {
+			c.markQuiet(t)
+		}
 		if !c.bind(t, types.Result(a, e), sp) {
 			// The constraint on t rejected Result and already
 			// reported (e.g. `try 1`, whose numeric literal meta
@@ -509,10 +519,10 @@ func (c *checker) resultArgs(want types.Type, sp diag.Span) (val, err types.Type
 			return nil, nil, false
 		}
 		// The bound meta now spells `Result` — which a file-local
-		// `type Result` declares: the `try` would unwrap the local
-		// ADT through the builtin's tag machinery (E0415).
+		// `type Result` declares: the `try`/`|?>` would unwrap the
+		// local ADT through the builtin's tag machinery (E0415,
+		// reported by the caller).
 		if c.shadowedBuiltin("Result") {
-			c.shadowedErr(sp, "`try`", "Result")
 			return nil, nil, false
 		}
 		return a, e, true

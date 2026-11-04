@@ -1,0 +1,9 @@
+package ex
+
+// `try`'s operand with an undetermined type binds to `Result ?a ?e`
+// — under a file-local `type Result` that Con spells the local ADT,
+// so the operand earns exactly one E0415 (no duplicate report, no
+// minted-meta cascade behind it).
+type Result = | Ok Int | Err String
+
+fn f () -> Result = (fn r -> try r) (Ok 1)

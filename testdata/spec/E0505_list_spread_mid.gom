@@ -1,0 +1,11 @@
+package main
+
+// `..e` splices a whole list as the tail of a list literal — it is
+// a cons, so nothing may follow it: [0, ..xs, 3] has no spelling
+// (E0505), just like [x, ..rest] in a pattern.
+fn main () -> Unit = {
+  let xs = [1, 2]
+  let ys = [0, ..xs, 3]
+  let _ = ys
+  ()
+}

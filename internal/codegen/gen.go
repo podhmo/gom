@@ -584,7 +584,10 @@ func (g *gen) letConv(t types.Type, x core.Expr) ast.Expr {
 // the RHS is an untyped constant expression (`x := 6 * 7` would
 // bind `int`, not the `int64`/`int32` the type says — Go adapts
 // untyped constants at every other position, but `:=` locks the
-// default in). Empty for unaffected types or a typed RHS.
+// default in). Empty for unaffected types or a typed RHS. Float is
+// *not* here: an integral untyped constant under a Float binder is
+// typed per literal in lit() instead — a whole-RHS `float64(...)`
+// wrap would turn `1/2` into Go integer division (`0`, not `0.5`).
 func (g *gen) intLitConv(t types.Type, x core.Expr) string {
 	if !untypedConst(x) {
 		return ""
@@ -600,6 +603,15 @@ func (g *gen) intLitConv(t types.Type, x core.Expr) string {
 		return "int32"
 	}
 	return ""
+}
+
+// floatTyped reports whether t is the builtin Float constructor —
+// the check that lets lit() materialize `float64(...)` around an
+// integer-spelled literal. A file-local `type Float` ADT shadows
+// the builtin name and cannot type a numeric literal anyway.
+func (g *gen) floatTyped(t types.Type) bool {
+	c, ok := types.Chase(t).(*types.Con)
+	return ok && c.Qual == "" && c.Name == "Float" && !g.localT[exportName(c.Name)]
 }
 
 // untypedConst reports whether a core expr emits as a Go untyped

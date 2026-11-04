@@ -418,11 +418,16 @@ unary-expr     = "-" , unary-expr
                   explicit discard, same operand level as "try"         *)
                | apply-expr ;
 
-apply-expr     = postfix-expr , { app-arg } ;
-               (* juxtaposition, left-associative *)
+apply-expr     = postfix-expr , { app-arg } , { "." , member-name , { app-arg } } ;
+               (* juxtaposition, left-associative. A "." that follows
+                  a parenthesized argument continues the chain on the
+                  application's result — "x.M(1).N(2)" is
+                  "((x.M 1).N) 2", the same left-associative method
+                  chain Go parses
+                  (decisions/2026-11-05-post-arg-selector-binding).  *)
 
-app-arg        = simple-expr                            (* positional     *)
-               | "~" , ident , [ ":" , simple-expr ] ;  (* labeled / punned *)
+app-arg        = arg-expr                               (* positional     *)
+               | "~" , ident , [ ":" , arg-expr ] ;     (* labeled / punned *)
                (* "~to: e" and punning "~to" (spec 2.7). The value after
                   ":" is one simple-expr (spec 2.2): identifiers,
                   literals, parenthesized or "{"-led expressions —
@@ -432,6 +437,15 @@ app-arg        = simple-expr                            (* positional     *)
                   "f (~x: T)" — the ":" belongs to the labeled argument,
                   not to the expression-level ascription (ascribed-expr);
                   write "(f ~x) : T" to ascribe the call itself.       *)
+
+arg-expr       = paren-expr | simple-expr ;
+               (* a simple-expr — except that a leading "(" stops at
+                  the ")": a "." after it belongs to apply-expr's
+                  chain above, so "f(x).M(y)" selects `.M` on the
+                  call result like Go. To select on the
+                  parenthesized value itself write "(e.f)", or drop
+                  the parens — "f e.f" binds the "." inside the
+                  argument already.                              *)
 
 simple-expr    = postfix-expr ;
                (* atoms plus member access — the application-argument

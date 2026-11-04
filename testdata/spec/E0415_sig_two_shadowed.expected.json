@@ -1,0 +1,75 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0415",
+      "severity": "error",
+      "message": "the signature of extern `LookupEnv` needs the builtin `Option`, but the package declares a `type Option` shadowing it",
+      "span": {
+        "file": "E0415_sig_two_shadowed.gom",
+        "start": {
+          "line": 12,
+          "col": 3,
+          "offset": 261
+        },
+        "end": {
+          "line": 12,
+          "col": 60,
+          "offset": 318
+        }
+      },
+      "data": {
+        "builtin": "Option",
+        "construct": "the signature of extern `LookupEnv`"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0415",
+      "severity": "error",
+      "message": "the signature of extern `LookupEnv` needs the builtin `Result`, but the package declares a `type Result` shadowing it",
+      "span": {
+        "file": "E0415_sig_two_shadowed.gom",
+        "start": {
+          "line": 12,
+          "col": 3,
+          "offset": 261
+        },
+        "end": {
+          "line": 12,
+          "col": 60,
+          "offset": 318
+        }
+      },
+      "data": {
+        "builtin": "Result",
+        "construct": "the signature of extern `LookupEnv`"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0509",
+      "severity": "error",
+      "message": "extern `fn LookupEnv` declares parameter 0 as Option String, but `os.LookupEnv` takes string",
+      "span": {
+        "file": "E0415_sig_two_shadowed.gom",
+        "start": {
+          "line": 12,
+          "col": 3,
+          "offset": 261
+        },
+        "end": {
+          "line": 12,
+          "col": 60,
+          "offset": 318
+        }
+      },
+      "data": {
+        "declared": "Option String -> Result String String",
+        "extern": "LookupEnv",
+        "go": "func(key string) (string, bool)",
+        "member": "os.LookupEnv"
+      }
+    }
+  ]
+}

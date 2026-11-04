@@ -1,0 +1,8 @@
+package ex
+
+// `|?>`'s operand with an undetermined type binds to `Result ?a ?e`
+// the same way — the complaint names `|?>`, never the internal
+// `try` wording the shared resultArgs helper used to emit.
+type Result = | Ok Int | Err String
+
+fn f () -> Result = (fn v -> v |?> fn x -> Ok (x + 1)) (Ok 1)

@@ -33,6 +33,16 @@ type Options struct {
 	// default of 6.
 	MaxDecls int
 
+	// MinDecls raises the floor of the same repetition: when the draw
+	// lands below it the count climbs back to MinDecls (never beyond
+	// MaxDecls, and still 0 once the depth or token budget is spent).
+	// Sweeps that need a minimum of top-level material — the
+	// inference property test wants declarations carrying
+	// expressions, not the decl-free programs a bare geometric draw
+	// emits often — set it. 0 (the default) keeps the unclamped
+	// distribution.
+	MinDecls int
+
 	// MaxTokens is a soft cap on emitted tokens. Once spent,
 	// repetitions stop and alternatives are chosen by minimum depth —
 	// output still completes grammatically, it just shrinks. 0 uses a
@@ -1017,6 +1027,11 @@ func (g *Gen) repCount() int {
 	n := 0
 	for n < cap && g.rng.Float64() < p {
 		n++
+	}
+	if g.curRule == SourceFile && n < g.opts.MinDecls {
+		if n = g.opts.MinDecls; n > cap {
+			n = cap
+		}
 	}
 	return n
 }

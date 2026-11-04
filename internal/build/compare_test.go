@@ -1070,7 +1070,7 @@ fn ify (n: Int) (r: Result Int String) -> Result Int String = {
   Ok 99
 }
 fn fld (n: Int) (r: Result Box String) -> Result Int String = {
-  ignore (n |?> keep |?> step (try r).v |?> keep)
+  ignore (n |?> keep |?> step ((try r).v) |?> keep)
   Ok 99
 }
 fn answer () -> String = {
@@ -1164,6 +1164,54 @@ fn answer () -> String = {
 fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 `,
 		want: "1975-03-04/1971-01-01",
+	},
+	{
+		// Chained method calls: `x.M(1).N(2)` selects `.N` on the
+		// result of `x.M(1)` — left-associative like Go
+		// (decisions/2026-11-05-post-arg-selector-binding). Before
+		// the fix this mis-parsed as `x.M` applied to `(1).N` and
+		// `(2)`. The eval side rides the same `time.Time.AddDate`
+		// stub the single-call case uses.
+		name: "go_method_chain",
+		src: `package main
+
+import go "fmt"
+import go "time"
+
+fn answer () -> String = {
+  let t0 = time.Unix(0, 0)
+  let chained = t0.AddDate(1, 0, 0).AddDate(0, 1, 0)
+  let explicit = (t0.AddDate(1, 0, 0)).AddDate(0, 1, 0)
+  "${chained.Format "2006-01-02"}/${explicit.Format "2006-01-02"}"
+}
+
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "1971-02-01/1971-02-01",
+	},
+	{
+		// `let n = 1` where `n` solves to Float through the later
+		// `+ 0.5`: the literal's checked type is Float, so codegen
+		// materializes `float64(1)` — before the fix it emitted
+		// `n := 1` (Go `int`) and the file failed `go build` with
+		// "0.5 truncated to int". `1/2` under a Float binder is
+		// Float division (0.5), never Go's untyped integer
+		// division — a whole-expression `float64(...)` wrap would
+		// have produced `float64(1/2)` = 0.
+		name: "float_inferred_int_literal",
+		src: `package main
+
+import go "fmt"
+
+fn f () -> Float = { let n = 1; n + 0.5 }
+fn g () -> Float = { let m = 1 / 2; m + 0.5 }
+fn h () -> Float = { let k = 3 * 2; k + 0.5 }
+
+fn answer () -> String = "${f ()}/${g ()}/${h ()}"
+
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "1.5/1/6.5",
 	},
 }
 

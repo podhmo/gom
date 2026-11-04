@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0505",
+      "severity": "error",
+      "message": "`..e` must supply the variadic arguments alone",
+      "span": {
+        "file": "E0505_go_spread_shared_tail.gom",
+        "start": {
+          "line": 11,
+          "col": 31,
+          "offset": 376
+        },
+        "end": {
+          "line": 11,
+          "col": 35,
+          "offset": 380
+        }
+      }
+    }
+  ]
+}

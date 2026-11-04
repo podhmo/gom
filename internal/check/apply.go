@@ -512,7 +512,9 @@ func (c *checker) checkGoApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol,
 			}
 		}
 		var pt types.Type
+		claimed := false
 		if pi >= 0 {
+			claimed = used[pi]
 			used[pi] = true
 			pt = goParams[pi].Type
 			if variadic && pi == arity-1 {
@@ -544,16 +546,23 @@ func (c *checker) checkGoApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol,
 				argExpr = &Hole{Base: baseOf(av.Sp, pt)}
 			}
 		case *syntax.Spread:
-			if !variadic || !last || g.label != "" {
+			x := c.checkExpr(av.X, nil)
+			switch {
+			case !variadic || !last || g.label != "":
 				c.diags.Add(diag.Error("E0505",
 					"`..e` is only allowed as the last argument of a variadic Go call").At(av.Sp))
-				x := c.checkExpr(av.X, nil)
-				argExpr = &Spread{Base: baseOf(av.Sp, x.Type()), X: x}
-			} else {
-				x := c.checkExpr(av.X, nil)
+			case pi != arity-1 || claimed:
+				// `fmt.Println("tag:", ..xs)`: Go emits `f(xs...)`
+				// only when the slice supplies the whole variadic
+				// tail — sharing the parameter with a written
+				// argument (or missing a fixed parameter so the
+				// spread never reaches it) cannot compile to Go.
+				c.diags.Add(diag.Error("E0505",
+					"`..e` must supply the variadic arguments alone").At(av.Sp))
+			default:
 				c.spreadElem(x.Type(), pt, av.Sp)
-				argExpr = &Spread{Base: baseOf(av.Sp, x.Type()), X: x}
 			}
+			argExpr = &Spread{Base: baseOf(av.Sp, x.Type()), X: x}
 		case *syntax.Ident, *syntax.Lit, *syntax.StrInterp,
 			*syntax.Apply, *syntax.Select, *syntax.Unary,
 			*syntax.Binary, *syntax.Lambda, *syntax.If, *syntax.Match,
@@ -947,7 +956,9 @@ func (c *checker) replayGoApply(pa *pendingApply) {
 			}
 		}
 		var pt types.Type
+		claimed := false
 		if pi >= 0 {
+			claimed = used[pi]
 			used[pi] = true
 			pt = goParams[pi].Type
 			if variadic && pi == arity-1 {
@@ -978,10 +989,17 @@ func (c *checker) replayGoApply(pa *pendingApply) {
 			}
 		case *Spread:
 			pa.useMarker(v)
-			if !variadic || !last || g.label != "" {
+			switch {
+			case !variadic || !last || g.label != "":
 				c.diags.Add(diag.Error("E0505",
 					"`..e` is only allowed as the last argument of a variadic Go call").At(v.Sp))
-			} else {
+			case pi != arity-1 || claimed:
+				// Same constraint as checkGoApply: `x.M("t:", ..xs)`
+				// shares the variadic parameter with a written
+				// argument and has no Go spelling.
+				c.diags.Add(diag.Error("E0505",
+					"`..e` must supply the variadic arguments alone").At(v.Sp))
+			default:
 				c.spreadElem(v.X.Type(), pt, v.Sp)
 			}
 			argExpr = v

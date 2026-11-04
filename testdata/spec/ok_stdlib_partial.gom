@@ -1,0 +1,18 @@
+package ex
+
+import go "fmt"
+
+fn double (x: Int) -> Int = x * 2
+
+fn main () -> Unit = {
+  // `List.map` declares two parameters (stdlib/list/list.gomi), so
+  // applying just the function partially applies the stdlib member
+  // exactly like a local fn — the rest arrives on the next call.
+  let doubles = List.map double
+  let xs = doubles [1, 2, 3]
+  ignore (fmt.Println(xs))
+  // The pipeline form of the same partial application: the subject
+  // fills the member's trailing list parameter.
+  let ys = [1, 2] |> List.append [0]
+  ignore (fmt.Println(ys))
+}

@@ -369,8 +369,8 @@ fn report (xs: List String) -> Unit = {
 
 1. 0 引数の Go 関数は `()` を受け取る（`time.Now()`）。1 引数なら `strconv.Itoa(n)` と `strconv.Itoa n` は同じ意味
 2. 値として渡せる（`List.map strconv.Itoa xs`）
-3. メソッド呼び出しは `x.M(args)`。Go の型の値にだけ使え、Gom の型はメソッドを持たない
-4. 可変長引数は個数自由に渡せる（`fmt.Println(a, b, c)`）。リストを展開するときは `fmt.Println(..xs)`
+3. メソッド呼び出しは `x.M(args)`。Go の型の値にだけ使え、Gom の型はメソッドを持たない。`x.M(1).N(2)` のような連鎖は Go と同じく左結合で `(x.M(1)).N(2)` と読む（括弧つき引数に続く `.` は呼び出し結果への選択子になる。[decisions/post-arg-selector-binding](decisions/2026-11-05-post-arg-selector-binding.md)）
+4. 可変長引数は個数自由に渡せる（`fmt.Println(a, b, c)`）。リストを展開するときは `fmt.Println(..xs)`。`..e` は Go と同じく可変長引数の全体をそのリストで渡すので、固定引数（`fmt.Sprintf("%s", ..xs)`）との併用はできるが、同じ可変長パラメータに入る引数とは併用できない（`fmt.Println("tag:", ..xs)` は E0505）
 5. 数値型の暗黙変換は、Go の `int` / `int64` と Gom の `Int`、`float64` と `Float` のように情報が落ちないものに限る。それ以外は 8.4 節の `Go.conv` で明示する。Go の型なし定数（`math.Pi` など）は、期待される Gom の型になる
 6. Go のジェネリック関数（`slices.Contains(xs, x)`）は型引数を推論して呼ぶ
 7. `any` 型の引数には任意の Gom 値を渡せる。暗黙のボックス化はこの位置に限る

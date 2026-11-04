@@ -45,6 +45,7 @@ import (
 
 	"github.com/podhmo/gom/internal/build"
 	"github.com/podhmo/gom/internal/check"
+	"github.com/podhmo/gom/internal/diag"
 	"github.com/podhmo/gom/internal/fuzzutil"
 	"github.com/podhmo/gom/internal/gomgen"
 	"github.com/podhmo/gom/internal/types"
@@ -109,10 +110,13 @@ func TestGeneratedInfer(t *testing.T) {
 		name string
 		opts gomgen.Options
 	}{
-		{"typed", gomgen.Options{Typed: true}},
-		{"typed-det", gomgen.Options{Typed: true, Deterministic: true}},
+		// MinDecls keeps the sweep off the decl-free floor — a bare
+		// geometric draw emits zero-witness programs ~40% of the
+		// time, which the oracle has nothing to check on.
+		{"typed", gomgen.Options{Typed: true, MinDecls: 3}},
+		{"typed-det", gomgen.Options{Typed: true, Deterministic: true, MinDecls: 3}},
 	} {
-		var accepted, rejected, slipped, checked, contractViol, reported int
+		var accepted, rejected, slipped, checked, contractViol, reported, noWit int
 		for seed := uint64(0); seed < uint64(seeds); seed++ {
 			rng := rand.New(rand.NewPCG(seed, 0x9e3779b9+seed))
 			res := gomgen.GenerateResult(g, rng, mode.opts)
@@ -180,6 +184,9 @@ func TestGeneratedInfer(t *testing.T) {
 				continue
 			}
 			checked++
+			if len(res.Witnesses) == 0 {
+				noWit++
+			}
 			for _, failure := range checkWitnesses(r.Typed, res) {
 				if bug, ok := fuzzutil.BugOf(failure, knownInferBugs); ok {
 					t.Logf("%s seed %d: %s — matches %q", mode.name, seed, failure, bug.Desc)
@@ -192,8 +199,8 @@ func TestGeneratedInfer(t *testing.T) {
 				reported++
 			}
 		}
-		t.Logf("%s mode: %d programs — %d accepted (%d witness-checked), %d rejected, %d slipped, %d contract violations",
-			mode.name, seeds, accepted, checked, rejected, slipped, contractViol)
+		t.Logf("%s mode: %d programs — %d accepted (%d witness-checked, %d witness-free), %d rejected, %d slipped, %d contract violations",
+			mode.name, seeds, accepted, checked, noWit, rejected, slipped, contractViol)
 	}
 }
 
@@ -254,13 +261,19 @@ func checkWitnesses(tf *check.File, res gomgen.Result) []string {
 // The wanted node is therefore the largest expr wholly contained in
 // the witness span: the emission's root node always lies inside its
 // own witness span, and no child can match its length, so the
-// argmax is exactly that root.
+// argmax is exactly that root. Equal-length candidates are decided
+// by the smallest start — distinct same-length spans inside one
+// witness are possible and map iteration must not pick between them.
 func witnessedNode(bySpan map[[2]int]check.Expr, w gomgen.Witness) check.Expr {
 	var best check.Expr
-	bestLen := 0
+	bestLen, bestStart := 0, 0
 	for k, e := range bySpan {
-		if k[0] >= w.Start && k[1] <= w.End && k[1]-k[0] > bestLen {
-			best, bestLen = e, k[1]-k[0]
+		if k[0] < w.Start || k[1] > w.End {
+			continue
+		}
+		l := k[1] - k[0]
+		if l > bestLen || (l == bestLen && l > 0 && k[0] < bestStart) {
+			best, bestLen, bestStart = e, l, k[0]
 		}
 	}
 	return best
@@ -371,13 +384,15 @@ func (p *wantParser) peek() string {
 
 // ty parses one wanted type: "(...)" (Unit, a parenthesized
 // composite, or a tuple) or a name with atomic arguments
-// ("Result Int (Option Bool)").
+// ("Result Int (Option Bool)"). A `->` is never part of a wanted
+// type — the generator's wants name no function type, so the token
+// is a malformed want, not an identifier.
 func (p *wantParser) ty() (*wantExpr, error) {
 	if p.peek() == "(" {
 		return p.paren()
 	}
 	w := &wantExpr{name: p.peek()}
-	if w.name == "" || w.name == ")" || w.name == "," {
+	if !isWantIdent(w.name) {
 		return nil, fmt.Errorf("expected a type name, got %q", p.peek())
 	}
 	p.pos++
@@ -394,6 +409,9 @@ func (p *wantParser) ty() (*wantExpr, error) {
 func (p *wantParser) atom() (*wantExpr, error) {
 	if p.peek() == "(" {
 		return p.paren()
+	}
+	if !isWantIdent(p.peek()) {
+		return nil, fmt.Errorf("expected a type name, got %q", p.peek())
 	}
 	w := &wantExpr{name: p.peek()}
 	p.pos++
@@ -435,5 +453,47 @@ func (p *wantParser) paren() (*wantExpr, error) {
 }
 
 func isWantIdent(tok string) bool {
-	return tok != "" && tok != "(" && tok != ")" && tok != ","
+	return tok != "" && tok != "(" && tok != ")" && tok != "," &&
+		!strings.Contains(tok, "->")
+}
+
+// TestParseWantArrows pins the latent rejection: a `->` is never a
+// wanted-type token (no generated want names a function type), so
+// every spelling of an arrow is malformed input, not an identifier.
+func TestParseWantArrows(t *testing.T) {
+	for _, s := range []string{
+		"Int -> Int",
+		"Int->Int",
+		"List Int -> Bool",
+		"->",
+		"(Int -> Int, Bool)",
+	} {
+		if _, err := parseWant(s); err == nil {
+			t.Errorf("parseWant(%q) succeeded — the arrow read as an identifier", s)
+		}
+	}
+	// Valid wants still parse.
+	for _, s := range []string{"Int", "List (Option Bool)", "(Int, Result String GoError)", "()"} {
+		if _, err := parseWant(s); err != nil {
+			t.Errorf("parseWant(%q) = %v", s, err)
+		}
+	}
+}
+
+// TestWitnessedNodeDeterministic pins the argmax tie-break: two
+// candidates of equal length inside one witness span resolve to the
+// smallest start, not whatever order the map walked.
+func TestWitnessedNodeDeterministic(t *testing.T) {
+	mk := func(sp diag.Span) check.Expr {
+		return &check.Lit{Base: check.Base{Sp: sp, Typ: types.Int}}
+	}
+	a := mk(diag.Span{Start: 2, End: 6})
+	b := mk(diag.Span{Start: 8, End: 12})
+	bySpan := map[[2]int]check.Expr{{2, 6}: a, {8, 12}: b}
+	w := gomgen.Witness{Start: 0, End: 20}
+	for i := 0; i < 32; i++ {
+		if got := witnessedNode(bySpan, w); got != a {
+			t.Fatalf("iteration %d: picked the later-start candidate", i)
+		}
+	}
 }

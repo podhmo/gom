@@ -1,0 +1,13 @@
+package ex
+
+import go "os"
+
+// An extern signature that spells two shadowed builtins earns one
+// E0415 per shadowed name — not just the first name found in the
+// type.
+type Result a e = | OkR a | ErrR e
+type Option a = | SomeO a | NoneO
+
+extern go "os" {
+  fn LookupEnv (key: Option String) -> Result String String
+}

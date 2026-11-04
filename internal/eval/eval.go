@@ -2,6 +2,7 @@ package eval
 
 import (
 	"fmt"
+	"reflect"
 	"sort"
 	"strings"
 
@@ -349,7 +350,7 @@ func (e *interp) eval(x check.Expr, env *Env) Value {
 	}
 	switch x := x.(type) {
 	case *check.Lit:
-		return litValue(x.Kind, x.Text, x.Span())
+		return litValue(x.Kind, x.Text, x.Type(), x.Span())
 	case *check.Var:
 		return e.evalVar(x, env)
 	case *check.Apply:
@@ -1002,6 +1003,13 @@ func (e *interp) evalApply(x *check.Apply, env *Env) Value {
 			holeAt = i
 			continue
 		}
+		if sp, isSpread := a.Value.(*check.Spread); isSpread {
+			// `..e` evaluates to the collection itself; evalGoCall
+			// splices it into the flat argument tail, mirroring
+			// lower's atom + CallGo Spread flag → `f(xs...)`.
+			vals[i] = e.eval(sp.X, env)
+			continue
+		}
 		vals[i] = e.eval(a.Value, env)
 	}
 	// The CallInfo contract: at most one hole, and HoleIndex records
@@ -1038,19 +1046,31 @@ func (e *interp) evalGoCall(x *check.Apply, fv Value, vals []Value) Value {
 		failData(CodeInternal, "Go callee is not a host function", x.Span(),
 			"value", fv.String())
 	}
+	ordered := declOrderVals(x.Call, vals)
+	if n := len(x.Args); n > 0 {
+		if sp, isSpread := x.Args[n-1].Value.(*check.Spread); isSpread {
+			// `..e`: the trailing slot holds the evaluated
+			// collection — `f(xs...)` splices its elements into
+			// the flat tail. A saturated Go call fills every
+			// declared parameter, so the variadic spread always
+			// lands at the last declaration-order position.
+			ordered = e.spliceGoSpread(ordered, sp.Span())
+		}
+	}
 	if x.Call.HoleIndex < 0 {
-		return e.invokeGo(f, declOrderVals(x.Call, vals), x.Span())
+		return e.invokeGo(f, ordered, x.Span())
 	}
 	// cute partial call: capture evaluated args, one hole remains.
 	// kept and holeAt are in *declaration* order — the order the
 	// host callee's parameter list expects (declOrderVals is the
 	// eval counterpart of lowering's declOrderArgs), and a hole
-	// supplied under a label keeps its declaration slot.
+	// supplied under a label keeps its declaration slot. The hole
+	// position precedes the spliced tail, so the flat indexes stay
+	// aligned.
 	holePos := x.Call.HoleIndex
 	if x.Call.HoleIndex < len(x.Call.ArgToParam) {
 		holePos = x.Call.ArgToParam[x.Call.HoleIndex]
 	}
-	ordered := declOrderVals(x.Call, vals)
 	kept := make([]Value, 0, len(ordered)-1)
 	for i, v := range ordered {
 		if i != holePos {
@@ -1083,6 +1103,48 @@ func declOrderVals(ci check.CallInfo, vals []Value) []Value {
 		}
 	}
 	return out
+}
+
+// spliceGoSpread expands the collection the trailing `..e` argument
+// evaluated to — the eval counterpart of the CallGo Spread flag,
+// which codegen turns into `f(xs...)`. A List value contributes its
+// elements directly; a Go slice that arrived through a host binding
+// (a VHost) splices element-wise as further host values, the way
+// `xs...` would hand the variadic parameter the slice's elements.
+// Anything else is a checker-side contract break — spreadElem
+// guarantees a List or Go.Slice.
+func (e *interp) spliceGoSpread(ordered []Value, sp diag.Span) []Value {
+	if len(ordered) == 0 {
+		return ordered
+	}
+	var elems []Value
+	ok := true
+	switch c := ordered[len(ordered)-1].(type) {
+	case *VList:
+		elems = c.Elems
+	case *VHost:
+		if rv := reflect.ValueOf(c.V); rv.Kind() == reflect.Slice {
+			elems = make([]Value, rv.Len())
+			for i := range elems {
+				elems[i] = &VHost{V: rv.Index(i).Interface()}
+			}
+		} else {
+			ok = false
+		}
+	default:
+		ok = false
+	}
+	if !ok {
+		v := ordered[len(ordered)-1]
+		var vs string
+		if v != nil {
+			vs = v.String()
+		}
+		failData(CodeInternal, "spread of a non-collection", sp, "value", vs)
+	}
+	out := make([]Value, 0, len(ordered)-1+len(elems))
+	out = append(out, ordered[:len(ordered)-1]...)
+	return append(out, elems...)
 }
 
 // evalFor implements `for pat in iter { body }` over List values.

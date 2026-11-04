@@ -612,11 +612,14 @@ positions and is always the last element: a list literal ([x, ..xs]
 is cons), a list pattern ([x, ..rest] binds the tail), and the last
 argument of a variadic Go call (fmt.Println(..xs), spec section
 8.1.4). Anywhere else — mid-argument, mid-literal, or a non-list
-operand — is this diagnostic.
+operand — is this diagnostic. In a Go call the spread must also
+supply the variadic parameter alone: f("tag:", ..xs) shares the
+"...any" parameter with the written "tag:" and has no Go spelling.
 
 ```gom
 fmt.Println(..xs, "end")   // the spread must be last
-[1, ..xs, 2]                 // and the literal tail must be last
+fmt.Println("tag:", ..xs)  // and must own the variadic tail alone
+[1, ..xs, 2]               // the literal tail must be last too
 ```
 
 ### E0506 — unsupported generic constraint

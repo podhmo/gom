@@ -239,17 +239,29 @@ func (p *parser) parseUnary(nb bool) Expr {
 }
 
 // parseApply parses juxtaposition application: an expression
-// followed by one or more app-args.
+// followed by one or more app-args. A "." that follows a
+// parenthesized argument belongs to the application, continuing the
+// chain on its result — "x.M(1).N(2)" is "((x.M 1).N) 2", the same
+// left-associative method chain Go parses — rather than a selector
+// on the argument tuple
+// (docs/decisions/2026-11-05-post-arg-selector-binding.md).
 func (p *parser) parseApply(nb bool) Expr {
 	x := p.parsePostfix(nb)
-	var args []Arg
-	for p.atAppArg(nb) {
-		args = append(args, p.parseAppArg(nb))
+	for {
+		var args []Arg
+		for p.atAppArg(nb) {
+			args = append(args, p.parseAppArg(nb))
+		}
+		if len(args) == 0 {
+			return x
+		}
+		x = &Apply{Sp: p.span(x.Span().Start, p.prevEnd()), Fn: x, Args: args}
+		for p.at(tokDot) {
+			p.next()
+			m := p.memberName()
+			x = &Select{Sp: p.span(x.Span().Start, m.Span().End), Recv: x, Sel: m}
+		}
 	}
-	if len(args) == 0 {
-		return x
-	}
-	return &Apply{Sp: p.span(x.Span().Start, p.prevEnd()), Fn: x, Args: args}
 }
 
 // atAppArg reports whether the current token begins an application
@@ -287,7 +299,7 @@ func (p *parser) parseAppArg(nb bool) Arg {
 		label := &Ident{Sp: p.spanOf(nameTok), Name: p.text(nameTok)}
 		if p.at(tokColon) {
 			p.next()
-			v := p.parsePostfix(nb)
+			v := p.parseAppArgValue(nb)
 			return Arg{Sp: p.span(start, v.Span().End), Label: label, Value: v}
 		}
 		// Punned label "~x" is "~x: x".
@@ -298,8 +310,22 @@ func (p *parser) parseAppArg(nb bool) Arg {
 			Value:  &Ident{Sp: p.spanOf(nameTok), Name: label.Name},
 		}
 	}
-	v := p.parsePostfix(nb)
+	v := p.parseAppArgValue(nb)
 	return Arg{Sp: v.Span(), Value: v}
+}
+
+// parseAppArgValue parses the value of one application argument —
+// one simple-expr, except that a leading "(" stops at the
+// paren-expr itself: a selector following the ")" belongs to the
+// enclosing application so "f(x).M(y)" chains on the result like
+// Go (docs/decisions/2026-11-05-post-arg-selector-binding.md). To
+// select on the parenthesized value write "(e.f)" or drop the
+// parens — "f e.f" already binds the "." inside the argument.
+func (p *parser) parseAppArgValue(nb bool) Expr {
+	if p.at(tokLParen) {
+		return p.parseParen()
+	}
+	return p.parsePostfix(nb)
 }
 
 // parsePostfix parses atom { "." member-name }.

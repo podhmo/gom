@@ -36,6 +36,16 @@ func TestParseGoErrorLine(t *testing.T) {
 		{"# example.com/m", "", 0, 0, "", false},
 		{"", "", 0, 0, "", false},
 		{"go test failed", "", 0, 0, "", false},
+		// Edge shapes of the "file:line[:col]: msg" head.
+		{"x.gom:12:", "", 0, 0, "", false},         // trailing colon, no message
+		{"x.gom:12:5:", "", 0, 0, "", false},       // trailing colon after the column
+		{"x.gom:12: ", "x.gom", 12, 0, "", true},   // trailing colon+space: empty message
+		{"x.gom:12:5: ", "x.gom", 12, 5, "", true}, // same with a column
+		{"x.gom:1:1: msg: with: colons", "x.gom", 1, 1, "msg: with: colons", true},
+		{"x.gom:5:msg-no-space", "", 0, 0, "", false},                  // missing the space after ':'
+		{"x.gom:5: msg", "x.gom", 5, 0, "msg", true},                   // column group optional
+		{"dir:part/x.gom:3:4: ok", "dir:part/x.gom", 3, 4, "ok", true}, // ':' inside the path
+		{"x.gom:notnum: msg", "", 0, 0, "", false},                     // non-numeric line field
 	} {
 		file, ln, col, msg, ok := build.ParseGoErrorLine(tt.in)
 		if ok != tt.wantOK || file != tt.wantFile || ln != tt.wantLine || col != tt.wantCol || msg != tt.wantMsg {
@@ -120,6 +130,75 @@ func TestGoPosIndexDeterministic(t *testing.T) {
 		if !ok || sp.File != "a/../y.gom" {
 			t.Fatalf("iter %d: Resolve(y.gom) = (%v, %v), want a/../y.gom", i, sp, ok)
 		}
+	}
+}
+
+// TestGoPosIndexMultiInput: a package compiled from several .gom
+// inputs (the V-6 unit) resolves each printed name to its own
+// source — including files that share a basename in different
+// relative directories, since the tool prints the relative path it
+// was handed and never a bare basename.
+func TestGoPosIndexMultiInput(t *testing.T) {
+	aSrc := "package a\n\nfn f () -> Int = 1\n"   // fn f on line 3
+	bSrc := "package b\n\n\nfn g () -> Int = 2\n" // fn g on line 4
+	cSrc := "package c\nfn h () -> Int = 3\n"     // fn h on line 2
+	idx := build.NewGoPosIndex("", map[string][]byte{
+		"pkg/a/util.gom": []byte(aSrc),
+		"pkg/b/util.gom": []byte(bSrc), // same basename as pkg/a
+		"pkg/c.gom":      []byte(cSrc),
+	})
+
+	// Each input resolves through its own relative path with its
+	// own line arithmetic.
+	for _, tt := range []struct {
+		name string
+		line int
+		want diag.Span
+	}{
+		{"pkg/a/util.gom", 3, diag.Point("pkg/a/util.gom", 11)},
+		{"pkg/b/util.gom", 4, diag.Point("pkg/b/util.gom", 12)},
+		{"pkg/c.gom", 2, diag.Point("pkg/c.gom", 10)},
+	} {
+		sp, ok := idx.Resolve(tt.name, tt.line, 1)
+		if !ok {
+			t.Fatalf("Resolve(%q, %d) unmatched", tt.name, tt.line)
+		}
+		if sp != tt.want {
+			t.Errorf("Resolve(%q, %d) = %v, want %v", tt.name, tt.line, sp, tt.want)
+		}
+	}
+
+	// A bare basename is not a name the tool prints — it must not
+	// fuzzy-match one of the same-basename keys.
+	if _, ok := idx.Resolve("util.gom", 1, 1); ok {
+		t.Error("Resolve(util.gom) matched a same-basename key in a different directory")
+	}
+}
+
+// TestGoToolDiagnosticsMultiLineChunks: one output element carrying
+// several newline-separated lines folds each line into its own
+// diagnostic — the shape `go test`'s build-output events produce.
+func TestGoToolDiagnosticsMultiLineChunks(t *testing.T) {
+	idx := build.NewGoPosIndex("", map[string][]byte{"m.gom": []byte(gposSrc)})
+	lines := []string{
+		"m.gom:3:1: first\nm.gom:5:8: second\n", // two positions in one chunk
+		"\nplain complaint\n",                   // blank line skipped inside the chunk
+	}
+	ds := build.GoToolDiagnostics(lines, "go build", idx)
+	if len(ds) != 3 {
+		t.Fatalf("diagnostics = %d, want 3: %v", len(ds), ds)
+	}
+	if ds[0].Message != "first" || ds[1].Message != "second" || ds[2].Message == "" {
+		t.Fatalf("messages = %q / %q / %q", ds[0].Message, ds[1].Message, ds[2].Message)
+	}
+	if ds[0].Span != diag.Point("m.gom", 11) {
+		t.Errorf("first span = %v, want line-3 head (11)", ds[0].Span)
+	}
+	if ds[1].Span != diag.Point("m.gom", 48) {
+		t.Errorf("second span = %v, want line-5 col-8 (48)", ds[1].Span)
+	}
+	if ds[2].Span.Valid() {
+		t.Errorf("unpositioned complaint got a span: %v", ds[2].Span)
 	}
 }
 

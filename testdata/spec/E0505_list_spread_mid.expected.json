@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0505",
+      "severity": "error",
+      "message": "`..e` is only allowed as the last element of a list literal",
+      "span": {
+        "file": "E0505_list_spread_mid.gom",
+        "start": {
+          "line": 8,
+          "col": 16,
+          "offset": 254
+        },
+        "end": {
+          "line": 8,
+          "col": 20,
+          "offset": 258
+        }
+      }
+    }
+  ]
+}
