@@ -681,7 +681,7 @@ test "parse then sum" {
 {"kind": "explanation", "code": "E0301", "severity": "error", "title": "non-exhaustive match", "phase": "pattern", "spec": "4", "explanation": "...", "example": "..."}
 ```
 
-`test` オブジェクトは `gom test` が `go test -json` から変換した 1 テストの結果で、`diagnostic` の後、`summary` の前に出る。`name` は `test "name"` の名前（Gom が生成していないテストは Go の関数名）、`func` は生成された Go のテスト関数名（`go test -run` のセレクタに使える）、`ok` は成否、`elapsed` は `go test` が報告した秒数。`skipped` はスキップ時だけ `true` で付く（スキップは `ok: true`）。`span` はテスト宣言の名前の位置で、Gom が生成していないテストでは付かない。`output` はそのテストが出した出力 — 失敗時は `assert_eq` の両方の値と、生成 `//line` 経由で `.gom` に戻した位置を含む。
+`test` オブジェクトは `gom test` が `go test -json` から変換した 1 テストの結果で、`diagnostic` の後、`summary` の前に出る。`name` は `test "name"` の名前（Gom が生成していないテストは Go の関数名）、`func` は生成された Go のテスト関数名（`go test -run` のセレクタに使える）、`ok` は成否、`elapsed` は `go test` が報告した秒数。`skipped` はスキップ時だけ `true` で付く（スキップは `ok: true`）。`span` はテスト宣言の名前の位置で、Gom が生成していないテストでは付かない。`output` はそのテストが出した出力 — 失敗時は `assert_eq` の両方の値と、生成 `//line` 経由で `.gom` に戻した位置を含む。panic や goroutine dump が出たとき `output` は 2 部構成になる — 先にフレームを `.gom` の位置に戻したトレース（`.gom` に解決できないフレームは生の `file:line` のまま残る）、続いて生の Go スタックトレースをそのまま出す。`gom test -q` / `--quiet` は生のトレース側を抑制する（`.gom` 位置付きのトレースは残る）。`init` や `TestMain` のようなパッケージレベルの panic を運ぶ E0001 diagnostic の `output` も同じ 2 部構成にする。
 
 ```json
 {"kind": "test", "name": "rect area", "func": "TestRectArea", "ok": false, "elapsed": 0.001, "span": {"file": "area.gom", "start": {"line": 15, "col": 6, "offset": 232}, "end": {"line": 15, "col": 16, "offset": 242}}, "output": "    area.gom:16: gom: assertion failed:\n          actual:   Rect ~w: 1 ~h: 1\n          expected: Rect ~w: 2 ~h: 2\n"}

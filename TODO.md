@@ -57,6 +57,7 @@ Go 相互運用を変えたら両方向（Gom → Go、Go → Gom）のテスト
 - [ ] **P4-7 インクリメンタルビルドのキャッシュ**: キャッシュキーは [design.md 5 章](docs/design.md)。依存: P4-1
 
 - [ ] **[task] `gom test` で `.gomi` 適合検査を走らせる**: `runTest`（`cmd/gom/test.go`）でも `checkInterfaces` を呼び、E0601/E0603 のあるパッケージはテストを生成・実行しない（`runBuild` の withhold と同じ）。spec 7 章 8 項に追記済み。テストは `cmd/gom` の build 側テストに倣って足す（[decision](docs/decisions/2026-11-04-gomi-conformance-in-gom-test.md)）
+- [ ] **[task] `gom test` の panic スタックを `.gom` 位置付きで再描画する**: `runGoTests`（`cmd/gom/test.go`）の panic 出力経路（`TestResult.Output`、パッケージ級失敗の E0001 `output`）で `GoPosIndex.ResolveStack` を使い、`.gom` 位置に戻したトレース＋生の Go トレースの 2 部構成にする。解決できないフレームは生の `file:line` のまま残し、変換失敗で生トレースを消さない。`-q`/`--quiet` フラグを足し、生トレース側だけを抑制する。spec 12 節に記載済み（[decision](docs/decisions/2026-11-05-gom-test-panic-stack.md)）
 
 ### P5 並行処理と最適化
 
