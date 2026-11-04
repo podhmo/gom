@@ -460,7 +460,7 @@ extern のエントリは `fn` の関数シグネチャだけを持ち、ブロ�
 
 宣言した型が Gom 側で見える型になり、生成される呼び出しは生の Go シグネチャのまま `pkg.F(args)` で、結果は宣言した変換規則で物質化される — `(T, bool)` の `Option` は `v, ok := f(...)` の後 `option.FromGo(v, ok)`、`*T` の `Option` は `v := f(...)` の後 `option.FromGo(v, v != nil)`。
 
-明示的な変換は組み込みの `Go.conv` で書く: `Go.conv user_id : Int`。変換できるかどうかは Go の変換規則で検査する。
+明示的な変換は組み込みの `Go.conv` で書く: `Go.conv user_id : Int`。変換できるかどうかは Go の変換規則で検査する。`Go.Slice T` と `List T` の間の `Go.conv` は、8.5 節の境界変換と同じくコピーする（[decisions/goconv-list-slice-copies](decisions/2026-11-04-goconv-list-slice-copies.md)）。
 
 ### 8.5 境界でのデータの扱い
 
