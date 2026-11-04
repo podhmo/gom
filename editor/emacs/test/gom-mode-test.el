@@ -77,6 +77,11 @@
       (unless (equal orig got)
         (ert-fail (list file (gom-mode-test--first-diff orig got)))))))
 
+;; A trailing block comment ends in `/', which is also a continuation operator.
+(ert-deftest gom-mode-indent-trailing-block-comment ()
+  (let ((text "let a = 1 /* one */\nlet b = 2 /* x */ /* y */\nlet c = 3\n"))
+    (should (equal (gom-mode-test--reindent text) text))))
+
 (defun gom-mode-test--first-diff (a b)
   "Return the first differing line of A and B as (LINE EXPECTED GOT)."
   (let ((la (split-string a "\n")) (lb (split-string b "\n")) (n 1) res)

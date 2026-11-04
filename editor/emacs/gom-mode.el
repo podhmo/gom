@@ -175,10 +175,17 @@ After `.' any keyword is a plain member name (`Chan.send').")
   "Return the position after the last code character on the current line."
   (save-excursion
     (end-of-line)
-    (let ((ppss (syntax-ppss)))
-      (when (nth 4 ppss) (goto-char (nth 8 ppss))))
-    (skip-chars-backward " \t")
-    (point)))
+    (let ((bol (line-beginning-position))
+          (ppss (syntax-ppss)))
+      (when (nth 4 ppss) (goto-char (nth 8 ppss)))
+      (skip-chars-backward " \t" bol)
+      (while (and (> (point) (1+ bol))
+                  (eq (char-before) ?/)
+                  (eq (char-before (1- (point))) ?*)
+                  (nth 4 (syntax-ppss (1- (point)))))
+        (forward-comment -1)
+        (skip-chars-backward " \t" bol))
+      (max (point) bol))))
 
 (defun gom--previous-code-line ()
   "Move to the previous line that has code; return non-nil on success."
