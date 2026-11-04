@@ -1,0 +1,27 @@
+// datemath — `datemath YYYY-MM-DD N`: parses a date, adds N days,
+// and prints the result with its weekday. Exercises time.Parse,
+// time.Time methods, and strconv; named Go types like Weekday
+// arrive as opaque values whose methods still resolve.
+package main
+
+import go "fmt"
+import go "os"
+import go "strconv"
+import go "time"
+
+fn run (date: String) (days: String) -> Result String GoError = {
+  let t = try time.Parse ("2006-01-02", date)
+  let n = try strconv.Atoi days
+  let after = t.AddDate (0, 0, n)
+  Ok "${after.Format "2006-01-02"} (${(after.Weekday ()).String ()})"
+}
+
+fn main () -> Unit = {
+  match os.Args {
+    [_prog, date, days] -> match run date days {
+      Ok s -> ignore fmt.Println s
+      Err e -> { ignore fmt.Fprintln (os.Stderr, "datemath: ${e.Error ()}"); ignore os.Exit 1; () }
+    }
+    _ -> { ignore fmt.Fprintln (os.Stderr, "usage: datemath YYYY-MM-DD N"); ignore os.Exit 2; () }
+  }
+}

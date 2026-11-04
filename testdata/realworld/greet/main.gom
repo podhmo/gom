@@ -1,0 +1,41 @@
+// greet — a flag-driven program. flag.Bool/flag.Int hand out *T
+// handles and Gom has no pointer dereference, so flag values are
+// read back through flag.Lookup and the Flag record's Value
+// interface. flag.Lookup can return nil — extern remaps it to
+// Option (Ptr Flag), the only nil-safe view available.
+package main
+
+import go "flag"
+import go "fmt"
+import go "strconv"
+import go "strings"
+
+extern go "flag" {
+  fn Lookup (name: String) -> Option (Ptr Flag)
+}
+
+fn flag_value (name: String) (fallback: String) -> String = match flag.Lookup name {
+  Some f -> f.Value.String ()
+  None -> fallback
+}
+
+fn repeat (n: Int) (s: String) -> Unit = if n <= 0 { () } else {
+  ignore fmt.Println s
+  repeat (n - 1) s
+}
+
+fn main () -> Unit = {
+  ignore flag.Bool ("shout", false, "uppercase the greeting")
+  ignore flag.Int64 ("times", 1, "repeat count")
+  flag.Parse ()
+  let times = match strconv.Atoi (flag_value "times" "1") {
+    Ok n -> n
+    Err _ -> 1
+  }
+  let shout = flag_value "shout" "false" == "true"
+  let word = if shout { strings.ToUpper "hello" } else { "hello" }
+  match flag.Args () {
+    [] -> repeat times "${word}, world"
+    names -> for name in names { repeat times "${word}, ${name}" }
+  }
+}

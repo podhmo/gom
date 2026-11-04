@@ -1,0 +1,32 @@
+// httpfetch — a minimal `curl`: GET the URL, print the status line
+// and the first bytes of the body. http.DefaultClient because Go
+// composite literals don't exist — a custom http.Client cannot be
+// constructed. Body cleanup is explicit Close (no defer in Gom).
+package main
+
+import go "fmt"
+import go "io"
+import go "net/http"
+import go "os"
+
+fn fetch (url: String) -> Result Unit GoError = {
+  let req = try http.NewRequest ("GET", url, http.NoBody)
+  let headers = req.Header
+  headers.Set ("Accept", "text/plain")
+  let resp = try http.DefaultClient.Do req
+  ignore fmt.Println "status: ${resp.StatusCode}"
+  let n = try io.Copy (os.Stdout, io.LimitReader (resp.Body, 256))
+  try resp.Body.Close ()
+  ignore fmt.Println "(${n} bytes shown)"
+  Ok ()
+}
+
+fn main () -> Unit = {
+  match os.Args {
+    [_prog, url] -> match fetch url {
+      Ok _ -> ()
+      Err e -> { ignore fmt.Fprintln (os.Stderr, "httpfetch: ${e.Error ()}"); ignore os.Exit 1; () }
+    }
+    _ -> { ignore fmt.Fprintln (os.Stderr, "usage: httpfetch URL"); ignore os.Exit 2; () }
+  }
+}

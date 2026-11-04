@@ -1,0 +1,69 @@
+// wc — a small `wc -l -c` clone. os.ReadFile and io.ReadAll are not
+// exposed (their []byte results are unrepresentable), so line
+// counting goes through bufio.Scanner and byte counting through
+// io.Copy into io.Discard. `-` reads stdin: the stream is spooled
+// to a temp file so both counts come out of one read. Error paths
+// deliberately skip tmp.Close/os.Remove and bare `wc` exits 0
+// silently rather than reading stdin like POSIX wc — fixture
+// simplifications, not idioms.
+package main
+
+import go "bufio"
+import go "errors"
+import go "fmt"
+import go "io"
+import go "os"
+
+fn count_lines (s: Ptr bufio.Scanner) (n: Int) -> Result Int GoError = if s.Scan () {
+  count_lines s (n + 1)
+} else {
+  match s.Err () {
+    Ok _ -> Ok n
+    Err e -> Err e
+  }
+}
+
+fn count_file (path: String) -> Result (Int, Int) GoError = {
+  let f = try os.Open path
+  let lines = try count_lines (bufio.NewScanner f) 0
+  try f.Close ()
+  let f2 = try os.Open path
+  let bytes = try io.Copy (io.Discard, f2)
+  try f2.Close ()
+  Ok (lines, bytes)
+}
+
+fn count_stdin () -> Result (Int, Int) GoError = {
+  let tmp = try os.CreateTemp ("", "wc-stdin")
+  let name = tmp.Name ()
+  ignore try io.Copy (tmp, os.Stdin)
+  try tmp.Close ()
+  match count_file name {
+    Err e -> Err e
+    Ok counts -> { try os.Remove name; Ok counts }
+  }
+}
+
+fn report (path: String) -> Int = match (if path == "-" { count_stdin () } else { count_file path }) {
+  Ok (lines, bytes) -> { ignore fmt.Println "${lines}\t${bytes}\t${path}"; 0 }
+  Err e -> {
+    let msg = if errors.Is (e, os.ErrNotExist) { "no such file" } else { e.Error () }
+    ignore fmt.Fprintln (os.Stderr, "wc: ${path}: ${msg}")
+    1
+  }
+}
+
+fn loop (paths: List String) (code: Int) -> Int = match paths {
+  [] -> code
+  [p, ..rest] -> if report p == 0 { loop rest code } else { loop rest 1 }
+}
+
+fn main () -> Unit = {
+  match os.Args {
+    [_prog, ..paths] -> {
+      let code = loop paths 0
+      if code != 0 { ignore os.Exit code; () } else { () }
+    }
+    [] -> ()
+  }
+}

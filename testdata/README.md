@@ -14,6 +14,10 @@ the `internal/gomtest` harness:
   `.gomi` import end-to-end test
 - `gocall/` — scratch Go module for the Go-calls-Gom end-to-end test
   (the `geom` fixture exercises the generated API from Go tests)
+- `realworld/` — scratch module of small-but-real `package main`
+  programs exercising the Go-interop boundary (os/io/strconv/flag/
+  encoding/json+csv/net/http/time), run end-to-end by
+  `cmd/gom`'s realworld test through check → build → go build → run
 - `goiface/` — Go-side fixture package for `internal/goimport` and
   boundary tests
 - `voidhost/` — host-side fixture for `internal/build` void tests

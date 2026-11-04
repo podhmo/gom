@@ -1,0 +1,72 @@
+// jsoncfg — a config record round-trips through encoding/json.
+// json.Marshal/Unmarshal need []byte, so the program uses the
+// streaming API instead: Encoder for output (the Gom record
+// marshals through its generated Go struct with exported fields),
+// Decoder.Token for input — tokens arrive as `any` and can only be
+// rendered, never unwrapped, so the parse compares %v renderings.
+package main
+
+import go "bytes"
+import go "encoding/json"
+import go "errors"
+import go "fmt"
+import go "os"
+import go "strconv"
+import go "strings"
+
+type Config = { name: String, retries: Int, debug: Bool }
+
+fn to_json (cfg: Config) -> Result String GoError = {
+  let buf = bytes.NewBufferString ""
+  let enc = json.NewEncoder buf
+  enc.SetIndent ("", "  ")
+  try enc.Encode cfg
+  Ok (buf.String ())
+}
+
+// read_tokens renders the remaining tokens of one flat JSON object
+// through %v — "Name", "gom", "Retries", 3 ... — until the closing
+// delimiter, which is consumed but dropped.
+fn read_tokens (dec: Ptr json.Decoder) (acc: List String) -> Result (List String) GoError = if dec.More () {
+  let t = try dec.Token ()
+  read_tokens dec [fmt.Sprintf ("%v", t), ..acc]
+} else { ignore try dec.Token (); Ok (List.rev acc) }
+
+fn field (toks: List String) (key: String) -> String = match toks {
+  [k, v, ..rest] -> if k == key { v } else { field rest key }
+  _ -> ""
+}
+
+fn parse_config (doc: String) -> Result Config GoError = {
+  let dec = json.NewDecoder (strings.NewReader doc)
+  let open = try dec.Token ()
+  if fmt.Sprintf ("%v", open) != "{" { Err (mkerr "config: expected a JSON object") } else {
+    let toks = try read_tokens dec []
+    let retries = match strconv.Atoi (field toks "Retries") {
+      Ok n -> n
+      Err _ -> 0
+    }
+    Ok { name = field toks "Name", retries = retries, debug = field toks "Debug" == "true" }
+  }
+}
+
+fn mkerr (m: String) -> GoError = match errors.New m {
+  Err e -> e
+  Ok _ -> todo ()
+}
+
+fn main () -> Unit = {
+  let original: Config = { name = "gom", retries = 3, debug = true }
+  match to_json original {
+    Err e -> ignore fmt.Fprintln (os.Stderr, "encode: ${e.Error ()}")
+    Ok doc -> {
+      ignore fmt.Println doc
+      match parse_config doc {
+        Err e -> ignore fmt.Fprintln (os.Stderr, "decode: ${e.Error ()}")
+        Ok cfg -> if cfg == original { ignore fmt.Println "round-trip ok" } else {
+          ignore fmt.Println "round-trip MISMATCH: ${cfg}"
+        }
+      }
+    }
+  }
+}

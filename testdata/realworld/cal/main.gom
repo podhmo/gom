@@ -1,0 +1,57 @@
+// cal — a tiny integer calculator: `cal add|mul|max N...`.
+// os.Args arrives as a List; strconv.Atoi failures ride the |?>
+// pipeline and pick up the auto %w wrap naming the failed step.
+// `errors.New` cannot produce a GoError *value* (a lone `error`
+// result maps to `Result Unit GoError`), so mkerr peels the Err
+// constructor — the only way today to originate a GoError.
+package main
+
+import go "errors"
+import go "fmt"
+import go "os"
+import go "strconv"
+
+fn mkerr (m: String) -> GoError = match errors.New m {
+  Err e -> e
+  Ok _ -> todo ()
+}
+
+fn parse_ints (xs: List String) -> Result (List Int) GoError = match xs {
+  [] -> Ok []
+  [s, ..rest] -> strconv.Atoi s |?> fn n -> parse_ints rest |?> fn ns -> Ok [n, ..ns]
+}
+
+fn fold (f: Int -> Int -> Int) (acc: Int) (xs: List Int) -> Int = match xs {
+  [] -> acc
+  [x, ..rest] -> fold f (f acc x) rest
+}
+
+fn run (op: String) (xs: List String) -> Result Int GoError = {
+  let ns = try parse_ints xs
+  match op {
+    "add" -> Ok (fold (fn a b -> a + b) 0 ns)
+    "mul" -> Ok (fold (fn a b -> a * b) 1 ns)
+    "max" -> match ns {
+      [] -> Err (mkerr "max needs at least one number")
+      [x, ..rest] -> Ok (fold (fn a b -> if a > b { a } else { b }) x rest)
+    }
+    _ -> Err (mkerr "unknown op: ${op}")
+  }
+}
+
+fn usage () -> Unit = { ignore fmt.Fprintln (os.Stderr, "usage: cal add|mul|max N..."); () }
+
+fn main () -> Unit = {
+  match os.Args {
+    [_prog, op, ..nums] -> match run op nums {
+      Ok n -> ignore fmt.Println n
+      Err e -> {
+        usage ()
+        ignore fmt.Fprintln (os.Stderr, "cal: ${e.Error ()}")
+        ignore os.Exit 1
+        ()
+      }
+    }
+    _ -> { usage (); ignore os.Exit 2; () }
+  }
+}

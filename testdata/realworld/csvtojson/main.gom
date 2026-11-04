@@ -1,0 +1,35 @@
+// csvtojson — converts a CSV file to JSON-lines on stdout: one JSON
+// array per record (a List String marshals as a JSON array through
+// the Encoder). CSV round-trips strings without touching []byte
+// (encoding/xml can stream too; unprobed).
+package main
+
+import go "encoding/csv"
+import go "encoding/json"
+import go "errors"
+import go "fmt"
+import go "io"
+import go "os"
+
+fn emit_rows (r: Ptr csv.Reader) (enc: Ptr json.Encoder) -> Result Unit GoError = match r.Read () {
+  Err e -> if errors.Is (e, io.EOF) { Ok () } else { Err e }
+  Ok rec -> { try enc.Encode rec; emit_rows r enc }
+}
+
+fn run (path: String) -> Result Unit GoError = {
+  let f = try os.Open path
+  let rows = emit_rows (csv.NewReader f) (json.NewEncoder os.Stdout)
+  try rows
+  try f.Close ()
+  Ok ()
+}
+
+fn main () -> Unit = {
+  match os.Args {
+    [_prog, path] -> match run path {
+      Ok _ -> ()
+      Err e -> { ignore fmt.Fprintln (os.Stderr, "csvtojson: ${e.Error ()}"); ignore os.Exit 1; () }
+    }
+    _ -> { ignore fmt.Fprintln (os.Stderr, "usage: csvtojson FILE"); ignore os.Exit 2; () }
+  }
+}

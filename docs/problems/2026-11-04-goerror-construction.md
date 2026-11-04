@@ -88,3 +88,24 @@ holes follow from that mapping:
   `fn New (msg: String) -> GoError` rather than `Result Unit GoError`
   — decide whether single-`error` returns should even map to
   `Result` when the function *creates* rather than *fails*.
+
+## Update (P3-7, 2026-11-05): what the real-world fixture confirms
+
+The [realworld audit](../sketch/2026-11-05-p3-7-realworld-interop-audit.md)
+exercised this in programs, not probes:
+
+- `errors.Is (e, os.ErrNotExist)` / `(e, io.EOF)` work end to end —
+  sentinel *vars* are the reliable `GoError` source today (`wc`,
+  `csvtojson` rely on them).
+- The `Err e -> e` / `Ok _ -> todo ()` peel is a working fabrication
+  idiom — `cal` and `jsoncfg` use it as `mkerr` to originate their own
+  `GoError` inside `Result _ GoError` functions. So fabrication is
+  *possible*, only unergonomic and undiscoverable.
+- `fmt.Errorf` with `%w` wraps correctly (wrap chain verified through
+  `|?>` segments), so a `Go.error : String -> GoError` builtin is
+  *not* strictly needed for wrapping — the gap is specifically
+  originating an *unwrapped* `GoError` value as a first-class
+  expression.
+- `errors.As` remains unusable: it compiles (`any` param admits
+  `Ptr`) but the required `**T`/`*error` target cannot be produced —
+  see [ptr-t-no-deref](2026-11-05-ptr-t-no-deref.md).
