@@ -429,9 +429,14 @@ REPORT-FN is Flymake's callback."
                        (when (and (buffer-live-p source)
                                   (eq p (buffer-local-value
                                          'gom-flymake--proc source)))
-                         (with-current-buffer out
-                           (funcall report-fn
-                                    (gom-flymake--diagnostics source))))
+                         (if (memq (process-exit-status p) '(0 1))
+                             (with-current-buffer out
+                               (funcall report-fn
+                                        (gom-flymake--diagnostics source)))
+                           (funcall report-fn :panic
+                                    :explanation
+                                    (format "gom check exited with %d"
+                                            (process-exit-status p)))))
                      (kill-buffer out)))))))))))
 
 ;;; Major mode

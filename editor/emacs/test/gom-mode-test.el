@@ -158,6 +158,25 @@
                          "undefined_x")))
       (kill-buffer src))))
 
+;; `gom check' exits 2 when it cannot check (e.g. unreadable directory).
+(ert-deftest gom-mode-flymake-check-failure ()
+  "A failed `gom check' run panics instead of clearing diagnostics."
+  (let* ((script (make-temp-file "gom-fail"))
+         (gom-command script)
+         (src (find-file-noselect (gom-mode-test--testdata "check/bad.gom")))
+         result)
+    (unwind-protect
+        (progn
+          (with-temp-file script (insert "#!/bin/sh\nexit 2\n"))
+          (set-file-modes script #o755)
+          (with-current-buffer src
+            (gom-flymake (lambda (&rest args) (setq result args)))
+            (with-timeout (30 (ert-fail "backend timed out"))
+              (while (not result) (accept-process-output nil 0.1)))
+            (should (eq (car result) :panic))))
+      (kill-buffer src)
+      (delete-file script))))
+
 ;;; Formatting
 
 (ert-deftest gom-mode-format-buffer ()
