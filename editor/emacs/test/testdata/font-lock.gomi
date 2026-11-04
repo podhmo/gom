@@ -1,0 +1,29 @@
+package shapes
+// <- font-lock-keyword-face
+
+import go "os"
+// <- font-lock-keyword-face
+
+/// A shape.
+//   ^^^^ gom-doc-comment-face
+type Shape =
+  | Circle (radius: Float)
+//  ^^^^^^ font-lock-type-face
+  | Empty
+
+/// Abstract type.
+type Canvas
+// <- font-lock-keyword-face
+//   ^^^^^^ font-lock-type-face
+
+fn area (s: Shape) -> Float
+// <- font-lock-keyword-face
+// ^^^^ font-lock-function-name-face
+
+fn new_canvas (~width: Int) (~height: Int) -> Canvas
+//             ^^^^^^ gom-label-face
+
+let unit_circle : Shape
+// <- font-lock-keyword-face
+//  ^^^^^^^^^^^ font-lock-variable-name-face
+//                ^^^^^ font-lock-type-face

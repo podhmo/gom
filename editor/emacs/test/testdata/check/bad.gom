@@ -1,0 +1,6 @@
+package main
+
+fn main () -> Unit = {
+  let y = undefined_x
+  ()
+}
