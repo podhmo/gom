@@ -35,6 +35,32 @@ they are Go's own sentinels, not fresh errors. The constructor
 directions below (a `Go.error` builtin, an `extern` binding, or
 revisiting the single-`error`-return mapping) are all still open.
 
+## Update: direction for fabrication
+
+- Why the type alone cannot tell them apart: a Go `error` result is
+  both an error value and the success flag (nil = success). Go's
+  types cannot say "never nil", so the type-only default mapping
+  (`error` → `Result Unit GoError`, from
+  [go-calls-as-tuples](../decisions/2026-11-01-go-calls-as-tuples.md)
+  and [go-interop-boundary](../decisions/2026-11-01-go-interop-boundary.md))
+  cannot separate constructors (`errors.New`, `fmt.Errorf`) from
+  fallible operations (`os.Remove`). The mapping itself stays: it is
+  what keeps a possibly-nil `error` from entering Gom, which has no nil.
+  Special-casing only `|?>`/`try` would leak nil-able `GoError` into
+  tuples, `let`, and `match`.
+- Direction: same shape as `(T, bool)` → `Option` — the default is
+  decided by type, exceptions are declared by a standard binding or
+  `extern`. Tracked under the "standard bindings" item in
+  [open-questions](../open-questions.md).
+- Blocker for the `extern` route: the extern binding rejects
+  `error` → `GoError` with E0509 (only `Result Unit GoError` is
+  allowed, see
+  [extern-override-binding](../decisions/2026-11-03-extern-override-binding.md)),
+  because a nil-able `error` presented as `GoError` would be a lie.
+  A constructor binding needs a way to assert "never nil". Until
+  then the `mkerr` match idiom is the workaround (now in
+  gom-agent-guide).
+
 ## Original report (inspection part retained for the record)
 
 

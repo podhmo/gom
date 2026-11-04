@@ -615,6 +615,52 @@ Wrap the `try` in a lambda inside the goroutine (or use
 `Task.spawn`), and make the `try`ing function's return type a
 `Result` whose error type matches the tried value's.
 
+## Unparenthesized lambdas inside a `|?>` chain
+
+A lambda body extends as far right as possible, so a bare
+`|?> fn x -> ...` step swallows every later step into its body.
+It still type-checks, but the later steps become a nested pipeline
+and the error text changes (an extra `file.gom:LINE:` prefix).
+Parenthesize a lambda that only transforms one step:
+
+```gom
+package main
+
+import go "strconv"
+import go "strings"
+
+fn port (s: String) -> Result Int GoError =
+  Ok s
+  |?> (fn x -> Ok (strings.TrimSpace(x)))   // OK: the lambda ends here
+  |?> strconv.Atoi
+```
+
+Better still, put non-failing steps before the first `|?>` with `|>`
+(`s |> strings.TrimSpace |?> strconv.Atoi`), and after it with
+`|> Result.map f`. Leave the lambda bare only when you mean to capture
+the earlier result for the rest of the chain (`|?> fn x -> ... x ...`).
+
+## Fresh `GoError` values
+
+`errors.New`/`fmt.Errorf` return a Go `error`, which maps to
+`Result Unit GoError` like any fallible call — they do not hand you
+a `GoError`. An `extern` redeclaring them `-> GoError` is rejected
+(E0509). Until a standard binding exists, unwrap the `Err`:
+
+```gom
+package main
+
+import go "errors"
+
+fn mkerr (msg: String) -> GoError =
+  match errors.New(msg) {
+    Err e -> e
+    Ok _ -> todo ()
+  }
+
+fn fail (msg: String) -> Result Int GoError = Err (mkerr msg)
+```
+
 ## Things that don't exist
 
 ```gom fail=E0101
