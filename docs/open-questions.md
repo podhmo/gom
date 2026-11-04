@@ -26,11 +26,10 @@
 - [ ] 標準のバインディング（`(T, bool)` を `Option` にする関数の一覧など）をどこで管理するか
 - [ ] 外部モジュールから stdlib の Gom モジュール（`import "list"` 等）を import 可能にするか。現状はメイン module 外の Gom import が E0203 で拒否される（P3-6 で発見 — `testdata/gocall` の fixture は stdlib 依存を手書きで代替した）
 - [ ] `Go.Any` / `any` を `.gom`/`.gomi` のシグネチャに書けるようにするか。現状は Go 側の `any` 引数経由でしかボックス化を観測できない（`goTypeArity` は `Go.Slice`/`Go.Map` のみ受理）。P3-7 実測: `json.Decoder.Token` が `Go.Any` しか返さない唯一の stdlib decode 経路 — 推論位置でしか `Go.Any` を書けない制約が実害として観測された
-- [ ] `Go.conv` の `Go.Slice T ↔ List T`（raw pun、コピーしない）を、暗黙の境界変換と同じコピーありに揃えるか、現状の pun を spec 8.4/8.5 に明文化するか（[台帳](implementation-gaps.md) の Go slice 項目追記、P3-2/P3-6 worktree）
 
 ### 最適化
 
-- [ ] 生成コード特殊化ポリシー: cons 構築ループの buffer 化をどの経路で行うか（`Array` builder＋`to_list` / intrinsic・extern-impl 経路 / lower の cons-recursion パターン特殊化）、curried HOF の flat 二面公開や呼出側 uncurry を入れるか。`Map`/`Filter`/`Append`/`Rev`/`Range` の O(n²) と `Fold` の要素ごとクロージャ確保が対象（[problems](problems/2026-11-05-stdlib-cons-built-combinators-quadratic.md)、[sketch](sketch/2026-11-05-p5-3-generated-code-perf.md)）
+- [ ] 生成コード特殊化ポリシー: cons 構築ループの buffer 化をどの経路で行うか（`Array` builder＋`to_list` / intrinsic・extern-impl 経路 / lower の cons-recursion パターン特殊化）、curried HOF の flat 二面公開や呼出側 uncurry を入れるか。`Map`/`Filter`/`Append`/`Rev`/`Range` の O(n²) と `Fold` の要素ごとクロージャ確保が対象（[problems](problems/2026-11-05-stdlib-cons-built-combinators-quadratic.md)、[sketch](sketch/2026-11-05-p5-3-generated-code-perf.md)。コピーしない共有スライス型（View）の案は [problems](problems/2026-11-04-shared-slice-view-type.md)）
 - [ ] `concat` の O(k) スタック: 右畳み込み化で O(1) スタックの fold を O(k) 再帰に替えた（深さ = 部分リスト数）。buffer 経路ができたらより良い形状を再検討する余地
 
 ### ツール

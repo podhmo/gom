@@ -111,6 +111,7 @@
 | [formatter-blank-lines](2026-11-04-formatter-blank-lines.md) | `gom fmt` はブロック内の空行を保持する | 採用 |
 | [go-collections-and-generics](2026-11-04-go-collections-and-generics.md) | []T → List boundary copies, Go.Slice/Go.Map, and callable generic Go functions | 採用（P3-3 が実装・検証した — [検証](../sketch/2026-11-04-p3-3-go-collections-verification.md)） |
 | [goconv-gotypes-oracle](2026-11-04-goconv-gotypes-oracle.md) | `Go.conv` legality: delegate to `go/types`, recheck after metas solve | draft |
+| [goconv-list-slice-copies](2026-11-04-goconv-list-slice-copies.md) | `Go.conv` の `Go.Slice T ↔ List T` はコピーする | 採用（実装は TODO） |
 | [gomi-conformance-in-gom-test](2026-11-04-gomi-conformance-in-gom-test.md) | `gom test` でも `.gomi` 適合検査を走らせる | 採用 |
 | [mutable-sharing-lint](2026-11-04-mutable-sharing-lint.md) | Mutable-sharing lint: what W0701/W0702 check and where they run | 採用（P5-2 で実装・検証した — [検証](../sketch/2026-11-04-p5-2-mutable-lint-verification.md)） |
 | [select-arm-choice](2026-11-04-select-arm-choice.md) | `select` の腕は Go と同じくランダムに選ぶ | 採用 |

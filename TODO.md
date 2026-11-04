@@ -48,6 +48,9 @@ Go 相互運用を変えたら両方向（Gom → Go、Go → Gom）のテスト
 - [ ] **[task] `Go.Map` の操作面（member table またはモジュール）**: `Go.Map.make` が E0201 — `builtinGoMembers` は conv/Slice/Map の型名だけで操作がなく、`Go.Map` を持つ Go API は実質読めない。make/get/set/delete 相当の surface が要る。P3-7 監査で判明
 - [ ] **[task] `[]T` を in-place 変更する Go 関数への警告**: `sort.Strings` がコンパイルして**無音で no-op** になる（境界でコピーされる List/Slice の帰結）。lint 警告（W07xx 系）か `Go.Slice` pun の spec 明文化で対処する。[problems](docs/problems/2026-11-05-go-param-mutation-noop.md)
 
+- [ ] **[task] `Go.conv` の `Go.Slice T ↔ List T` をコピーにする**: 現状の pun（`list.List[T](xs)`）を、境界変換と同じ `list.FromSlice` / `.ToSlice()` に替える。`testdata/gocall` の `freeze`/`thaw` と golden を更新し、Go 側でスライスを書き換えても `List` が変わらないことを両方向のテストで確かめる（[decision](docs/decisions/2026-11-04-goconv-list-slice-copies.md)、[台帳](docs/implementation-gaps.md)）
+- [ ] **[task] `Go.Slice` の読み取り専用の操作面**: length / get / 部分の取り出し / fold / to_list（コピー）相当を足し、コピーせずに Go のスライスを読めるようにする。名前と形（member table かモジュールか）は `Go.Map` の操作面のタスクと揃えて決める。書き込みは足さない（[decision](docs/decisions/2026-11-04-goconv-list-slice-copies.md)）
+
 ### P4 公開 API と開発体験
 
 - [ ] **P4-6 LSP**: 型表示、網羅性エラーの即時表示、UTF-16 位置への変換。依存: P4-5

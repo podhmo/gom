@@ -583,3 +583,5 @@
   package-wide 化と同形）。
   参照: [decision Consequences](decisions/2026-11-05-package-initialization-order.md)、
   [initcycle.go](../internal/lower/initcycle.go) `checkTailRec`/`tailrecNeighbors`。
+
+- [ ] **`Go.conv` の `Go.Slice T ↔ List T` がコピーしない**: spec 8.4 は（[decision](decisions/2026-11-04-goconv-list-slice-copies.md) で）コピーすると定めたが、実装は `list.List[T](xs)` へのキャスト（pun）のまま。上の Go slice 項目の追記を参照。実装は [TODO](../TODO.md)。
