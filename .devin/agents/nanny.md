@@ -28,6 +28,13 @@ Context (verified 2026-11-04 in the gom orchestration session):
   a custom profile sets `max-nesting`, and custom profiles defined
   mid-session are not picked up (spawn fails with "failed to start").
   So you are a pure timer — not a resume courier.
+- The "different pool" assumption did not hold on this plan: an
+  `subagent_explore` reviewer (router-selected default model) died
+  with the same free-model rate-limit error as `subagent_general`
+  workers — the limit is effectively org/plan-wide. A nanny may
+  therefore also fail to start during the window; if it dies, its
+  death notification still wakes the orchestrator, which should just
+  re-check the clock and respawn.
 
 Procedure:
 
