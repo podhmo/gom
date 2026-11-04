@@ -32,6 +32,11 @@
 
 - [ ] `select` の腕の選び方: Go と同じくランダムに選ぶままにするか、優先度付きの書き方を用意するか
 
+### 最適化
+
+- [ ] 生成コード特殊化ポリシー: cons 構築ループの buffer 化をどの経路で行うか（`Array` builder＋`to_list` / intrinsic・extern-impl 経路 / lower の cons-recursion パターン特殊化）、curried HOF の flat 二面公開や呼出側 uncurry を入れるか。`Map`/`Filter`/`Append`/`Rev`/`Range` の O(n²) と `Fold` の要素ごとクロージャ確保が対象（[problems](problems/2026-11-05-stdlib-cons-built-combinators-quadratic.md)、[sketch](sketch/2026-11-05-p5-3-generated-code-perf.md)）
+- [ ] `concat` の O(k) スタック: 右畳み込み化で O(1) スタックの fold を O(k) 再帰に替えた（深さ = 部分リスト数）。buffer 経路ができたらより良い形状を再検討する余地
+
 ### ツール
 
 - [ ] 冗長な腕をエラーにするか警告にするか（開発中の書きかけコードでは警告の方が扱いやすい）

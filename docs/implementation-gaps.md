@@ -564,6 +564,18 @@
   参照: [problems](problems/2026-11-05-go-param-mutation-noop.md)、
   [監査](sketch/2026-11-05-p3-7-realworld-interop-audit.md)。
 
+- [ ] **`gom test` に `go test` フラグ透過がない**: `gom test` は内部で
+  素の `go test` を呼ぶため生成コードを `-race` 等で検証できない —
+  P5-3 の race 検証は生成物を手動で `go test -race` に掛けて代替した。
+  検証基盤の穴（TODO に task 登録済み）。
+  参照: [sketch](sketch/2026-11-05-p5-3-generated-code-perf.md)。
+
+- [ ] **`EscapeCall`/`EscapeResult` のスパン規約が unguarded/guarded で揃っていない**:
+  P2-4c で unguarded 融合側は `lv.Y.Span()`（ステップ operand）に統一したが、
+  guarded 側 `escapeStepPayload` は `e.Sp` を使う。`//line` の指す位置にのみ
+  影響、動作は無害（P2-4c+P5-3 レビュー nit）。
+  参照: [expr.go](../internal/lower/expr.go) `pipeRest`/`escapeStepPayload`。
+
 - [ ] **`@tailrec` R4 の直接参照グラフは file-local で兄弟経由の相互再帰を見逃す**:
   `checkInitCycles`（E0907）と同型の file-local 制限 — 相互再帰が *兄弟*
   ファイルの関数・let 経由で閉じると E0904 をすり抜ける。修正方向は同じ:

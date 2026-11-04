@@ -39,8 +39,8 @@
 
 ### P2 型推論と関数
 
-- [-] **P2-4 `try` と `|?>`**: 脱出境界は最も内側の関数（[decisions/try-boundary](docs/decisions/2026-11-01-try-boundary.md)）、`|?>` の `%w` 自動ラップ（[spec 9 章](docs/spec.md)）。中間の `Result` を作らない生成（design.md 4.6）。依存: P2-1, P1-13
-  - [ ] **P2-4c unguarded ステップの `EscapeCall` 融合（残る最適化）**: unguarded ステップの引数が Go `(T,error)` 呼び出しの場合、`ResultFromGo` で物質化してから次セグメントの `EscapeResult` が検査するため中間 Result が 1 個残る。引数評価（try を含むのでユーザー側の列）と呼び出し本体（セグメント内 `EscapeCall`）を分離すれば融合可能。併せて `pipeRest` の span 不統一（束縛は `lv.Y.Span()`・enter escape は `lv.Sp`）も直す（P2-4b レビュー F5/F6）。依存: P2-4b
+- [x] **P2-4 `try` と `|?>`**: 脱出境界は最も内側の関数（[decisions/try-boundary](docs/decisions/2026-11-01-try-boundary.md)）、`|?>` の `%w` 自動ラップ（[spec 9 章](docs/spec.md)）。中間の `Result` を作らない生成（design.md 4.6）。依存: P2-1, P1-13
+  - [x] **P2-4c unguarded ステップの `EscapeCall` 融合（残る最適化）**: unguarded ステップの引数が Go `(T,error)` 呼び出しの場合、`ResultFromGo` で物質化してから次セグメントの `EscapeResult` が検査するため中間 Result が 1 個残る。引数評価（try を含むのでユーザー側の列）と呼び出し本体（セグメント内 `EscapeCall`）を分離すれば融合可能。併せて `pipeRest` の span 不統一（束縛は `lv.Y.Span()`・enter escape は `lv.Sp`）も直す（P2-4b レビュー F5/F6）。依存: P2-4b
 
 
 ### P3 Go 相互運用の本格実装
@@ -61,11 +61,12 @@ Go 相互運用を変えたら両方向（Gom → Go、Go → Gom）のテスト
 ### P5 並行処理と最適化
 
 - [x] **P5-2 可変な値の送信・捕捉に対するリンター警告**。依存: P5-1
-- [ ] **P5-3 生成コードの最適化と性能検証**: `List.map` などの特殊化、ベンチマーク、エスケープ解析、`go test -race`。依存: P4-8
+- [x] **P5-3 生成コードの最適化と性能検証**: `List.map` などの特殊化、ベンチマーク、エスケープ解析、`go test -race`。依存: P4-8。ベンチ基盤・計測・stdlib/list の安全な最適化（`sum` 20.6×、`concat` 218×、`get`/`find` @tailrec 化）・race 検証まで実施済み（[sketch](docs/sketch/2026-11-05-p5-3-generated-code-perf.md)）。cons 構築系の O(n²) と curried HOF の特殊化ポリシーは [open-questions](docs/open-questions.md) へ移管
 
 ### 検証
 
 - [ ] **gomtest spec ハーネスの複数ファイル対応**: testdata/spec の fixture は 1 case = 1 ファイルのため、パッケージ単位の規則（兄弟ファイルをまたぐ初期化サイクル、兄弟 test 名タグ付けなど）を spec fixture として書けない。現状は `internal/build` ドライバテストで代替済み（`TestCompileFilesInitCycleAcrossSiblings` 等）。複数ファイル case の fixture 形式を決めて対応する
+- [ ] **[task] `gom test` に `go test` フラグ透過がない**: `gom test` は内部で素の `go test` を呼ぶため、生成コードを `-race` 等のフラグ付きで走らせる手段がない。P5-3 の race 検証は `gom test` 出力を手で `go test -race` に掛けて代替した（[sketch](docs/sketch/2026-11-05-p5-3-generated-code-perf.md)）。フラグ透過か専用オプションの検討が要る
 
 ## Bugs
 
