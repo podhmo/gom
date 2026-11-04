@@ -133,9 +133,7 @@ for f in "$OUT"/*.rec; do
 
 	if [ -n "$num" ]; then
 		echo "== signature already filed as issue #$num: $title"
-		body="🤖 devin
-
-再発を検出しました: $RUN_URL"
+		body="再発を検出しました: $RUN_URL"
 		if [ "$DRY_RUN" = 1 ]; then
 			echo "[dry-run] would comment on #$num"
 		else
@@ -144,9 +142,7 @@ for f in "$OUT"/*.rec; do
 		continue
 	fi
 
-	body="🤖 devin
-
-CI の fuzz advisory run が新しい失敗を検出しました。
+	body="CI の fuzz advisory run が新しい失敗を検出しました（自動起票）。
 
 - run: $RUN_URL
 - job: \`fuzz (advisory)\` → \`make check-fuzz\`

@@ -150,9 +150,7 @@ make check                            # full suite green
 ```sh
 git add <corpus> <pkg>/fuzz_test.go TODO.md
 git commit -m "test: register fuzz finding #<N> (<target> — <sig>)"
-gh issue comment <N> --body "🤖 devin
-
-knownBugs/TODO.md に登録しました（<commit sha>)。以降の正はレジストリ側です"
+gh issue comment <N> --body "knownBugs/TODO.md に登録しました（<commit sha>)。以降の正はレジストリ側です"
 gh issue close <N>
 ```
 
