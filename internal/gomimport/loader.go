@@ -35,13 +35,16 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 
 	"github.com/podhmo/gom/internal/build"
 	"github.com/podhmo/gom/internal/check"
+	"github.com/podhmo/gom/internal/core"
 	"github.com/podhmo/gom/internal/lower"
 	"github.com/podhmo/gom/internal/resolve"
+	"github.com/podhmo/gom/internal/syntax"
 	"github.com/podhmo/gom/internal/types"
 )
 
@@ -97,6 +100,19 @@ type Loader struct {
 	tdecls     []*check.TypeDecl
 	byCon      map[conKey]*check.TypeDecl
 	ctorFields map[*resolve.Symbol]map[string]*resolve.Symbol
+	typeCtors  map[*resolve.Symbol]map[string]*resolve.Symbol
+
+	// The implementation-import cycle check (E0606): .gom files of
+	// loaded packages may import back toward the entry package —
+	// a cycle the .gomi guard cannot see and `go build` would only
+	// reject after codegen. implEdges caches each package's .gom
+	// import paths; the DFS seeded at the entry package runs once.
+	entry        string
+	implScanned  bool
+	implEdges    map[string]map[string]bool
+	implDone     map[string]bool
+	implCycleErr *resolve.ImportCycleError
+	implCycleSet map[string]bool // the package paths *on* the found cycle
 }
 
 // conKey indexes loaded type declarations by nominal identity —
@@ -122,6 +138,9 @@ func New(cfg *Config) *Loader {
 		arities:    map[*resolve.Symbol]int{},
 		byCon:      map[conKey]*check.TypeDecl{},
 		ctorFields: map[*resolve.Symbol]map[string]*resolve.Symbol{},
+		typeCtors:  map[*resolve.Symbol]map[string]*resolve.Symbol{},
+		implEdges:  map[string]map[string]bool{},
+		implDone:   map[string]bool{},
 	}
 }
 
@@ -140,6 +159,15 @@ func (l *Loader) Load(path string, goPkg bool) (*resolve.Package, error) {
 	}
 	if err := l.errs[path]; err != nil {
 		return nil, err
+	}
+	// The implementation-import scan needs no load state — it reads
+	// .gom import clauses straight from disk — so it runs before the
+	// first Gom load. Its verdict applies only to loads *on* the
+	// found cycle: a clean import of a package that is not part of
+	// the loop is not a cycle edge and must not report E0606.
+	l.ensureImplScan()
+	if l.implCycleErr != nil && l.implCycleSet[path] {
+		return nil, l.implCycleErr
 	}
 	if l.loading[path] {
 		return nil, fmt.Errorf("cyclic Gom import of %q", path)
@@ -338,6 +366,9 @@ func (l *Loader) extract(path string, tf *check.File) (*resolve.Package, error) 
 			}
 			if s, ok := d.Body.(*check.SumType); ok {
 				parent := &types.Con{Qual: path, Name: d.Sym.Name, Args: conArgs(d.TypeParams)}
+				// The per-type ctor table `pkg.Type.Ctor`
+				// resolves against (resolve.CtorsOf).
+				ctab := make(map[string]*resolve.Symbol, len(s.Variants))
 				for i := range s.Variants {
 					v := &s.Variants[i]
 					if v.Sym == nil {
@@ -345,6 +376,7 @@ func (l *Loader) extract(path string, tf *check.File) (*resolve.Package, error) 
 					}
 					v.Sym.Package = path
 					p.Members[v.Sym.Name] = v.Sym
+					ctab[v.Sym.Name] = v.Sym
 					params := make([]types.FuncParam, len(v.Fields))
 					for j, f := range v.Fields {
 						params[j] = types.FuncParam{Label: f.Label, Type: f.Type}
@@ -356,6 +388,7 @@ func (l *Loader) extract(path string, tf *check.File) (*resolve.Package, error) 
 					l.sigs[v.Sym] = check.Signature{Type: sig}
 					l.ctorFields[v.Sym] = fieldTable(v.Fields)
 				}
+				l.typeCtors[d.Sym] = ctab
 			}
 			if rc, ok := d.Body.(*check.RecordType); ok {
 				l.ctorFields[d.Sym] = fieldTable(rc.Fields)
@@ -364,6 +397,52 @@ func (l *Loader) extract(path string, tf *check.File) (*resolve.Package, error) 
 			// Interfaces cannot declare tests.
 		default:
 			panic("unreachable")
+		}
+	}
+	// A member whose generated Go name another member claims
+	// misbinds every imported reference — `p.foo` compiles to
+	// `p.Foo`, the other member's name. The declaring package's
+	// conformance check reports the collision as E0607; marking the
+	// loser here lets an importer report E0607 at the reference
+	// too, instead of silently emitting the wrong name. The mark
+	// replays codegen's claiming over the member table: types take
+	// `ExportName` first, then term members in (base, Gom name)
+	// order — a constructor member emits type-qualified
+	// (`T_Variant`) and never claims a bare name.
+	var typeMembers, termMembers []*resolve.Symbol
+	for _, m := range p.Members {
+		switch m.Kind {
+		case resolve.KindType:
+			typeMembers = append(typeMembers, m)
+		case resolve.KindVar, resolve.KindFunc:
+			termMembers = append(termMembers, m)
+		}
+	}
+	sort.Slice(typeMembers, func(i, j int) bool {
+		return typeMembers[i].Name < typeMembers[j].Name
+	})
+	sort.Slice(termMembers, func(i, j int) bool {
+		bi, bj := core.ExportName(termMembers[i].Name), core.ExportName(termMembers[j].Name)
+		if bi != bj {
+			return bi < bj
+		}
+		return termMembers[i].Name < termMembers[j].Name
+	})
+	claimed := map[string]*resolve.Symbol{}
+	for _, m := range typeMembers {
+		base := core.ExportName(m.Name)
+		if claimed[base] == nil {
+			claimed[base] = m
+		} else {
+			m.EmitClash = base
+		}
+	}
+	for _, m := range termMembers {
+		base := core.ExportName(m.Name)
+		if claimed[base] == nil {
+			claimed[base] = m
+		} else {
+			m.EmitClash = base
 		}
 	}
 	return p, nil
@@ -467,6 +546,15 @@ func (l *Loader) GoConvertible(from, to types.Type) (bool, bool) {
 // the resolver's own tables.
 func (l *Loader) CtorFieldsOf(ctor *resolve.Symbol) map[string]*resolve.Symbol {
 	return l.ctorFields[ctor]
+}
+
+// CtorsOf returns the constructor table of a type the loaded
+// packages declare — the resolve.Config.Ctors hook that unlocks
+// `pkg.Type.Ctor`. Records, aliases and abstract types have no
+// constructors and answer nil, like a symbol this loader never
+// minted.
+func (l *Loader) CtorsOf(typeSym *resolve.Symbol) map[string]*resolve.Symbol {
+	return l.typeCtors[typeSym]
 }
 
 // --- the lowering seam ---
@@ -712,4 +800,153 @@ func requalifyAll(ts []types.Type, own map[string]bool, path string) []types.Typ
 		out[i] = requalify(t, own, path)
 	}
 	return out
+}
+
+// --- the implementation-import cycle check (E0606) ---
+
+// ensureImplScan runs the implementation-import cycle check once, on
+// the first Gom load. The .gomi loading guard catches interface
+// cycles, but a loaded package's .gom files may import back toward
+// the package being compiled — a cycle the generated Go packages
+// would only hit at `go build` ("import cycle not allowed"). The
+// check seeds the graph at the entry directory's own .gom files and
+// expands each reached package's .gom import clauses on demand; the
+// first cycle found becomes the loader's verdict for every Gom load.
+func (l *Loader) ensureImplScan() {
+	if l.implScanned {
+		return
+	}
+	l.implScanned = true
+	entry, err := l.entryPath()
+	if err != nil || entry == "" {
+		// No module context — no Gom package can load anyway (dirOf
+		// answers the same failure), so there is nothing to check.
+		return
+	}
+	l.entry = entry
+	visiting := map[string]bool{}
+	var stack []string
+	if chain := l.visitImpl(entry, visiting, &stack); chain != nil {
+		l.implCycleErr = &resolve.ImportCycleError{Chain: chain}
+		// The members of the loop are the distinct chain nodes —
+		// only their imports close a cycle; loads outside the set
+		// proceed normally even though a cycle exists elsewhere.
+		l.implCycleSet = map[string]bool{}
+		for _, u := range chain {
+			l.implCycleSet[u] = true
+		}
+	}
+}
+
+// visitImpl is the DFS over .gom import clauses: reaching the entry
+// package closes a mutual cycle, reaching an on-stack package closes
+// a cycle internal to the dependency graph. Children are visited in
+// sorted order so the reported chain is deterministic. A node that
+// cannot reach the entry or its own ancestors is marked done — the
+// graph is static (each package's .gom files are read once), so the
+// verdict is final.
+func (l *Loader) visitImpl(u string, visiting map[string]bool, stack *[]string) []string {
+	if u == l.entry && len(*stack) > 0 {
+		return append(append([]string{}, *stack...), u)
+	}
+	if visiting[u] {
+		// The cycle is the stack suffix that starts at u.
+		for i, s := range *stack {
+			if s == u {
+				return append(append([]string{}, (*stack)[i:]...), u)
+			}
+		}
+		return append(append([]string{}, u), u)
+	}
+	if l.implDone[u] {
+		return nil
+	}
+	visiting[u] = true
+	*stack = append(*stack, u)
+	edges := l.implImports(u)
+	keys := make([]string, 0, len(edges))
+	for q := range edges {
+		keys = append(keys, q)
+	}
+	sort.Strings(keys)
+	for _, q := range keys {
+		if chain := l.visitImpl(q, visiting, stack); chain != nil {
+			return chain
+		}
+	}
+	*stack = (*stack)[:len(*stack)-1]
+	delete(visiting, u)
+	l.implDone[u] = true
+	return nil
+}
+
+// implImports returns the Gom import paths declared by the .gom files
+// of package u — the edges the generated Go package will carry. The
+// entry package answers from Config.Dir; other packages resolve
+// through dirOf, so a package outside the main module (or one with no
+// .gom files) contributes no edges. Files that fail to parse still
+// yield whatever import clauses the parser recovered.
+func (l *Loader) implImports(u string) map[string]bool {
+	if m, ok := l.implEdges[u]; ok {
+		return m
+	}
+	m := map[string]bool{}
+	l.implEdges[u] = m
+	var dir string
+	if u == l.entry {
+		dir = l.cfg.Dir
+	} else {
+		d, err := l.dirOf(u)
+		if err != nil {
+			return m
+		}
+		dir = d
+	}
+	ms, err := filepath.Glob(filepath.Join(dir, "*.gom"))
+	if err != nil {
+		return m
+	}
+	for _, f := range ms {
+		src, err := os.ReadFile(f)
+		if err != nil {
+			continue
+		}
+		ast, _ := syntax.Parse(src, f)
+		if ast == nil {
+			continue
+		}
+		for _, d := range ast.Decls {
+			if imp, ok := d.(*syntax.ImportDecl); ok && !imp.Go {
+				m[imp.Path] = true
+			}
+		}
+	}
+	return m
+}
+
+// entryPath computes the entry package's import path: Config.Dir
+// rendered module-relative — the package generated output for the
+// current compile lands in. An empty result means Config.Dir sits
+// outside the main module, where no Gom package can resolve.
+func (l *Loader) entryPath() (string, error) {
+	modPath, modDir, err := l.module()
+	if err != nil {
+		return "", err
+	}
+	dir, err := filepath.Abs(l.cfg.Dir)
+	if err != nil {
+		return "", err
+	}
+	rel, err := filepath.Rel(modDir, dir)
+	if err != nil {
+		return "", err
+	}
+	switch {
+	case rel == ".":
+		return modPath, nil
+	case rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)):
+		return "", nil
+	default:
+		return modPath + "/" + filepath.ToSlash(rel), nil
+	}
 }

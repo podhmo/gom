@@ -1,7 +1,9 @@
 package resolve
 
 import (
+	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/podhmo/gom/internal/diag"
 	"github.com/podhmo/gom/internal/syntax"
@@ -49,6 +51,34 @@ type CtorFieldSource interface {
 	CtorFieldsOf(ctor *Symbol) map[string]*Symbol
 }
 
+// CtorSource is the optional Loader capability a .gomi-based loader
+// implements to publish the constructor tables of its exported
+// types — the seam Config.Ctors delegates to, unlocking the
+// `pkg.Type.Ctor` qualified spelling.
+type CtorSource interface {
+	// CtorsOf returns the constructor-name -> symbol table of a
+	// type the source's packages declare, or nil when the type has
+	// no constructors (records, aliases, abstract types) or the
+	// source does not know it.
+	CtorsOf(typeSym *Symbol) map[string]*Symbol
+}
+
+// ImportCycleError is the Loader error shape for an
+// implementation-import cycle among Gom packages: Chain is the
+// import-path chain that closes the loop, first and last element
+// equal. The resolver reports it as E0606 at the import site instead
+// of the generic E0203 — the cycle is a language-level error naming
+// the generated packages `go build` would reject with "import cycle
+// not allowed", not a package that failed to load.
+type ImportCycleError struct {
+	Chain []string
+}
+
+// Error renders the chain `a -> b -> a`.
+func (e *ImportCycleError) Error() string {
+	return "import cycle: " + strings.Join(e.Chain, " -> ")
+}
+
 // MapLoader is a Loader backed by a fixed map of packages — used in
 // tests of this and later phases until internal/goimport lands.
 type MapLoader map[string]*Package
@@ -87,6 +117,14 @@ type Config struct {
 	// Field.ParamName() like bindFields's table. The hook is the
 	// .gomi loader's seam; nil leaves imported ctors positional-only.
 	CtorFields func(ctor *Symbol) map[string]*Symbol
+
+	// Ctors supplies the constructor table of a type the unit does
+	// not declare — `pkg.Type.Ctor` and `pkg.Type.C` in pattern
+	// position resolve against it. The hook is the .gomi loader's
+	// seam (CtorSource), consulted once per type symbol and cached
+	// in the unit's ctorsOf table; nil leaves imported types
+	// opaque — `pkg.Type.C` reports "has no constructor".
+	Ctors func(typeSym *Symbol) map[string]*Symbol
 }
 
 // unit is the resolution context the .gom files of one package share:
@@ -624,11 +662,20 @@ func (r *resolver) loadPackage(decl *syntax.ImportDecl) (members map[string]*Sym
 	}
 	pkg, err := r.cfg.Loader.Load(decl.Path, decl.Go)
 	if err != nil {
-		r.diags.Add(diag.Error("E0203", fmt.Sprintf("cannot resolve import %q", decl.Path)).
-			At(decl.PathSp).
-			Set("path", decl.Path).
-			Set("go", decl.Go).
-			Set("reason", err.Error()))
+		var cyc *ImportCycleError
+		if errors.As(err, &cyc) {
+			r.diags.Add(diag.Error("E0606", cyc.Error()).
+				At(decl.PathSp).
+				Set("path", decl.Path).
+				Set("go", decl.Go).
+				Set("cycle", strings.Join(cyc.Chain, " -> ")))
+		} else {
+			r.diags.Add(diag.Error("E0203", fmt.Sprintf("cannot resolve import %q", decl.Path)).
+				At(decl.PathSp).
+				Set("path", decl.Path).
+				Set("go", decl.Go).
+				Set("reason", err.Error()))
+		}
 		r.pkgCache[key] = nil
 		return nil, true
 	}

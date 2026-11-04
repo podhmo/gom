@@ -231,14 +231,18 @@ func Compile(in Input, opts *Options) (*Result, error) {
 
 // resolveConfig builds the resolver configuration of a compile:
 // the package loader and builtin-module tables pass through, and a
-// loader that also publishes constructor field tables (the .gomi
-// reader's CtorFieldsOf) fills the CtorFields hook — `{ name = pat
-// }` fields and `~label:` arguments of imported-variant patterns
-// resolve against it.
+// loader that also publishes constructor field and per-type
+// constructor tables (the .gomi reader's CtorFieldsOf / CtorsOf)
+// fills the matching hooks — `{ name = pat }` fields and `~label:`
+// arguments of imported-variant patterns, and the `pkg.Type.Ctor`
+// qualified spelling, resolve against them.
 func resolveConfig(o *Options) *resolve.Config {
 	c := &resolve.Config{Loader: o.Loader, Modules: o.Modules}
 	if cf, ok := o.Loader.(resolve.CtorFieldSource); ok {
 		c.CtorFields = cf.CtorFieldsOf
+	}
+	if cs, ok := o.Loader.(resolve.CtorSource); ok {
+		c.Ctors = cs.CtorsOf
 	}
 	return c
 }

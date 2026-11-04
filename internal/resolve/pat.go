@@ -261,12 +261,13 @@ func (r *resolver) selectMemberCtor(mod *Symbol, sel *syntax.Ident, sc *scope) {
 	}
 	// member miss — a module and a type may share the name:
 	// `Option.Some` in pattern position reaches the Option type.
+	// ctorTable, not a raw ctorsOf read: the same caching and the
+	// Config.Ctors hook expression position relies on apply here
+	// too (a same-named type may live in another package).
 	if tsym := sc.lookupType(mod.Name); tsym != nil && tsym.Kind == KindType {
-		if ct, ok := r.ctorsOf[tsym]; ok {
-			if cs, ok := ct[sel.Name]; ok {
-				r.use(sel, cs)
-				return
-			}
+		if cs := r.ctorTable(tsym)[sel.Name]; cs != nil {
+			r.use(sel, cs)
+			return
 		}
 	}
 	r.undefinedMember(mod, sel, builtin)

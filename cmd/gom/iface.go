@@ -48,7 +48,13 @@ type pkgGroup struct {
 // the package, not the argument list. Package clauses of
 // not-compiled siblings are parsed for the completeness census —
 // their own diagnostics stay out (they are not inputs).
-func checkInterfaces(inputs []input, results []*build.Result, rep *diag.Report, srcs map[string][]byte) {
+//
+// It returns the results of failed package groups so `gom build`
+// can withhold their outputs: generated code for a package whose
+// interface contract failed is not an artifact to keep — writing
+// it would produce a stale, unverifiable package.
+func checkInterfaces(inputs []input, results []*build.Result, rep *diag.Report, srcs map[string][]byte) map[*build.Result]bool {
+	failed := map[*build.Result]bool{}
 	groups := map[string]*pkgGroup{}
 	gomiInputs := map[string]int{} // path → input index
 	for i, in := range inputs {
@@ -117,10 +123,15 @@ func checkInterfaces(inputs []input, results []*build.Result, rep *diag.Report, 
 			}
 			if gomiRes == nil {
 				rep.Diagnostics = append(rep.Diagnostics, missingInterface(g))
+				failGroup(failed, g)
 				continue
 			}
 			consumed[want] = true
 			if gomiRes.Diagnostics.HasError() || gomiRes.Typed == nil || g.errored {
+				// The contract could not be verified — the broken
+				// .gomi or errored member's own diagnostics explain;
+				// withhold the group's outputs all the same.
+				failGroup(failed, g)
 				continue // own diagnostics explain; no noisy E0603
 			}
 			if census == nil {
@@ -131,8 +142,11 @@ func checkInterfaces(inputs []input, results []*build.Result, rep *diag.Report, 
 			for _, r := range g.results {
 				impl.Merge(iface.Surface(r.Typed))
 			}
-			rep.Diagnostics = append(rep.Diagnostics,
-				iface.Check(iface.Surface(gomiRes.Typed), impl, complete)...)
+			ds := iface.Check(iface.Surface(gomiRes.Typed), impl, complete)
+			rep.Diagnostics = append(rep.Diagnostics, ds...)
+			if ds.HasError() {
+				failGroup(failed, g)
+			}
 		}
 
 		// Strays: a .gomi is the interface of package <name> iff it
@@ -147,6 +161,16 @@ func checkInterfaces(inputs []input, results []*build.Result, rep *diag.Report, 
 				rep.Diagnostics = append(rep.Diagnostics, *d)
 			}
 		}
+	}
+	return failed
+}
+
+// failGroup marks every result of a package group failed so `gom
+// build` withholds their outputs — the package's interface contract
+// did not hold, so its generated code is not a usable artifact.
+func failGroup(failed map[*build.Result]bool, g *pkgGroup) {
+	for _, r := range g.results {
+		failed[r] = true
 	}
 }
 

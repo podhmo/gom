@@ -85,6 +85,16 @@ type Symbol struct {
 	// alike) and for builtin-scope names (Option, assert_eq, ...),
 	// matching the reserved qualifier of types.Con.
 	Package string
+
+	// EmitClash, when non-empty, is the package-scope Go name this
+	// member's emitted reference collides with: `p.foo` compiles to
+	// `p.Foo`, which silently names the package's *other* member
+	// `Foo` (E0607). The .gomi loader sets it on members whose
+	// generated name another member claims — private decls are
+	// invisible to the interface, so only member-vs-member clashes
+	// are marked; the declaring package diagnoses the rest at its
+	// own conformance check.
+	EmitClash string
 }
 
 // DefSpan returns the span of the symbol's definition site, or the

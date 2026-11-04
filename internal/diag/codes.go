@@ -843,6 +843,38 @@ package ops    // conflicting package declaration`,
 	},
 
 	{
+		Code:     "E0606",
+		Severity: SeverityError,
+		Title:    "package import cycle",
+		Phase:    PhaseResolve,
+		Explanation: `Gom packages may not import each other in a cycle — through
+their .gom files, transitively, or back to the importing package —
+because the generated Go packages would not build ("import cycle not
+allowed"). Break the loop by moving the shared declarations into a
+third package both sides import.`,
+		Example: `// a/a.gom: import "example.com/m/b"
+// b/b.gom: import "example.com/m/a"
+// import cycle: example.com/m/a -> example.com/m/b -> example.com/m/a`,
+	},
+
+	{
+		Code:     "E0607",
+		Severity: SeverityError,
+		Title:    "member emits a colliding Go name",
+		Phase:    PhaseIface,
+		Explanation: `The .gomi surface must name members whose generated Go
+identifiers do not collide. Generated code claims package-scope
+names deterministically — type names verbatim, then values by
+emitted base — and a member that loses emits a suffixed name
+(Foo1) an importing package cannot spell: "lib.foo" compiles to
+"lib.Foo", the other claimant's name. Rename either member so the
+emitted names differ (docs/decisions/
+2026-11-05-exported-value-vs-type-name.md).`,
+		Example: `// lib.gomi:  let foo : Foo
+// lib.gom:   type Foo and let foo — "foo" would emit Foo1`,
+	},
+
+	{
 		Code:     "E0701",
 		Severity: SeverityError,
 		Title:    "go block must produce Unit",

@@ -736,6 +736,40 @@ move the file to its own directory.
 package ops    // conflicting package declaration
 ```
 
+### E0606 — package import cycle
+
+**Severity:** error · **Phase:** resolve
+
+Gom packages may not import each other in a cycle — through
+their .gom files, transitively, or back to the importing package —
+because the generated Go packages would not build ("import cycle not
+allowed"). Break the loop by moving the shared declarations into a
+third package both sides import.
+
+```gom
+// a/a.gom: import "example.com/m/b"
+// b/b.gom: import "example.com/m/a"
+// import cycle: example.com/m/a -> example.com/m/b -> example.com/m/a
+```
+
+### E0607 — member emits a colliding Go name
+
+**Severity:** error · **Phase:** iface
+
+The .gomi surface must name members whose generated Go
+identifiers do not collide. Generated code claims package-scope
+names deterministically — type names verbatim, then values by
+emitted base — and a member that loses emits a suffixed name
+(Foo1) an importing package cannot spell: "lib.foo" compiles to
+"lib.Foo", the other claimant's name. Rename either member so the
+emitted names differ (docs/decisions/
+2026-11-05-exported-value-vs-type-name.md).
+
+```gom
+// lib.gomi:  let foo : Foo
+// lib.gom:   type Foo and let foo — "foo" would emit Foo1
+```
+
 ## 07xx — Concurrency
 
 ### E0701 — go block must produce Unit

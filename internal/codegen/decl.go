@@ -122,9 +122,16 @@ func (g *gen) testDecl(d *core.TestDecl) string {
 
 // testName deduplicates generated test function names — repeated or
 // empty test names get a number suffix (spec section 12's renaming
-// note).
+// note). A test name a sibling file of the package unit also
+// declares (f.Unit.Tests names the same base) takes the file's
+// fnv32a tag instead — `TestX_a1b2c3d4` — the same convention the
+// lowering temps use, so two files' `test "x"` can never emit the
+// same `func TestX` into the shared Go package.
 func (g *gen) testName(name string) string {
 	base := testFuncName(name)
+	if g.testCollide[base] {
+		base = base + "_" + g.testTag
+	}
 	cand := base
 	for i := 2; g.used[cand]; i++ {
 		cand = base + fmt.Sprint(i)

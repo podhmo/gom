@@ -188,7 +188,7 @@ func (r *resolver) selectExpr(n *syntax.Select, sc *scope) {
 	}
 	recv, ok := n.Recv.(*syntax.Ident)
 	if !ok {
-		if _, isSel := n.Recv.(*syntax.Select); isSel {
+		if inner, isSel := n.Recv.(*syntax.Select); isSel {
 			// `pkg.Type.Ctor` — the inner select qualifies a
 			// further member, so its type member is a namespace
 			// hop, not a value: keep the notValue diagnostic for
@@ -196,6 +196,16 @@ func (r *resolver) selectExpr(n *syntax.Select, sc *scope) {
 			r.inQual++
 			r.expr(n.Recv, sc)
 			r.inQual--
+			// When the inner selector resolved to a type member
+			// (`pkg.Type`), the outer selector names a constructor
+			// of that type — declared types answer from the unit
+			// table, imported types through the loader's per-type
+			// table (Config.Ctors).
+			if inner.Sel != nil {
+				if tsym := r.uses[inner.Sel]; tsym != nil && tsym.Kind == KindType {
+					r.selectTypeCtor(tsym, n.Sel)
+				}
+			}
 			return
 		}
 		r.expr(n.Recv, sc)
@@ -254,6 +264,13 @@ func (r *resolver) selectMember(mod *Symbol, sel *syntax.Ident, sc *scope) {
 	}
 	if member, ok := table[sel.Name]; ok {
 		r.use(sel, member)
+		// `pkg.member` emits `pkg.<ExportName>` — when the
+		// member's own package binds that name to a *different*
+		// member the reference would silently name it instead
+		// (the `.gomi` loader marks the clash; E0607).
+		if member.EmitClash != "" {
+			r.emitClash(mod, member, sel)
+		}
 		// A type member (`Go.Slice`, `pkg.SomeRecord`) is a
 		// namespace, not a value — like a bare module name it can
 		// never be an expression. In qualifier position
@@ -268,23 +285,40 @@ func (r *resolver) selectMember(mod *Symbol, sel *syntax.Ident, sc *scope) {
 		return
 	}
 	if tsym := sc.lookupType(mod.Name); tsym != nil && tsym.Kind == KindType {
-		if ct, ok := r.ctorsOf[tsym]; ok {
-			if cs, ok := ct[sel.Name]; ok {
-				r.use(sel, cs)
-				return
-			}
+		if cs := r.ctorTable(tsym)[sel.Name]; cs != nil {
+			r.use(sel, cs)
+			return
 		}
 	}
 	r.undefinedMember(mod, sel, builtin)
 }
 
-// selectTypeCtor resolves `T.sel` as a constructor of type tsym.
+// selectTypeCtor resolves `T.sel` (or the final selector of
+// `pkg.T.sel`) as a constructor of type tsym.
 func (r *resolver) selectTypeCtor(tsym *Symbol, sel *syntax.Ident) {
-	if table, ok := r.ctorsOf[tsym]; ok {
-		if cs, ok := table[sel.Name]; ok {
-			r.use(sel, cs)
-			return
-		}
+	if cs := r.ctorTable(tsym)[sel.Name]; cs != nil {
+		r.use(sel, cs)
+		return
 	}
 	r.noSuchCtor(tsym, sel)
+}
+
+// ctorTable returns the constructor name -> symbol table of a type:
+// the unit's declared table first, then — once per type symbol —
+// the loader-supplied table of Config.Ctors for types the unit does
+// not declare (an imported package's `pkg.Type`). A miss caches an
+// empty table so the hook is not re-consulted; a type with no
+// constructors anywhere answers an empty table.
+func (r *resolver) ctorTable(tsym *Symbol) map[string]*Symbol {
+	if ct, ok := r.ctorsOf[tsym]; ok {
+		return ct
+	}
+	ct := map[string]*Symbol{}
+	if r.cfg.Ctors != nil {
+		if loaded := r.cfg.Ctors(tsym); loaded != nil {
+			ct = loaded
+		}
+	}
+	r.ctorsOf[tsym] = ct
+	return ct
 }

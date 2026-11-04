@@ -125,13 +125,42 @@ func (r *resolver) notCtor(id *syntax.Ident, sym *Symbol) {
 }
 
 // noSuchCtor reports `T.C` where T is a type that has no constructor
-// named C.
+// named C. A Go type can never have one — Gom constructors are a
+// Gom declaration — so the message says what the type is, not just
+// that the name missed.
 func (r *resolver) noSuchCtor(tsym *Symbol, id *syntax.Ident) {
+	if tsym.IsGo {
+		r.diags.Add(diag.Error("E0201", fmt.Sprintf("Go type `%s` has no constructor `%s` — Go types cannot declare Gom constructors", tsym.Name, id.Name)).
+			At(id.Sp).
+			Set("name", id.Name).
+			Set("in", tsym.Name).
+			Set("namespace", "constructor"))
+		return
+	}
 	r.diags.Add(diag.Error("E0201", fmt.Sprintf("`%s` has no constructor `%s`", tsym.Name, id.Name)).
 		At(id.Sp).
 		Set("name", id.Name).
 		Set("in", tsym.Name).
 		Set("namespace", "constructor"))
+}
+
+// emitClash reports `mod.sel` where the member's generated Go name
+// another member of the same package claims — `lib.foo` compiles to
+// `lib.Foo`, which names the other member in the generated package.
+// The declaring package diagnoses the same collision as E0607
+// through iface.Check; the .gomi loader marks it on the member
+// (EmitClash) so an importer reports it at the reference instead of
+// silently emitting the wrong name.
+func (r *resolver) emitClash(mod *Symbol, member *Symbol, id *syntax.Ident) {
+	r.diags.Add(diag.Error("E0607",
+		fmt.Sprintf("member `%s` emits Go name `%s`, which member `%s` of `%s` already claims",
+			member.Name, member.EmitClash, member.EmitClash, mod.Name)).
+		At(id.Sp).
+		Set("member", member.Name).
+		Set("collides_with", member.EmitClash).
+		Set("emitted", member.EmitClash).
+		Set("in", mod.Name).
+		AddNote("the declaring package's .gomi surface may not emit two members under one Go name — rename one at the source"))
 }
 
 // noSuchField reports a `{ name = pat }` field or `~label:` argument

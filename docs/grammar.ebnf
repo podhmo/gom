@@ -588,11 +588,12 @@ or-pattern     = ctor-pattern , { "|" , ctor-pattern } ;
 
 ctor-pattern   = ctor-name , { pat-arg }
                | pat-atom ;
-ctor-name      = [ ( ident | UIdent ) , "." ] , UIdent ;
+ctor-name      = [ ( ident | UIdent ) , { "." , UIdent } , "." ] , UIdent ;
                (* case distinguishes constructors from variable bindings:
                   "Some x" matches a constructor, "x" binds a variable.
-                  [PROVISIONAL: module-qualified "option.Some" /
-                  "Option.Some" — the spec never shows it.]               *)
+                  The qualifier is a module, a type, or a module plus a
+                  type ("option.Some", "Option.Some", "option.Option.Some");
+                  which it is is decided by name resolution.             *)
 
 pat-arg        = pat-atom
                | "~" , ident , [ ":" , pat-atom ] ;

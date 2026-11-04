@@ -6,6 +6,7 @@ import (
 	"go/ast"
 	"go/printer"
 	"go/token"
+	"hash/fnv"
 	"sort"
 	"strings"
 
@@ -72,6 +73,12 @@ type gen struct {
 	// because a package never imports itself. Empty for ordinary
 	// inputs, which never collide with a toolchain-known path.
 	selfPath string
+
+	// testTag is the file's fnv32a path tag — the suffix a
+	// sibling-colliding test name takes (testCollide names the
+	// colliding emitted bases, from f.Unit.Tests).
+	testTag     string
+	testCollide map[string]bool
 
 	fileImports []core.Import // the file's resolved imports (alias lookup)
 
@@ -147,6 +154,50 @@ func (g *gen) indexDecls(f *core.File) {
 			}
 		}
 	}
+	// Type names claim their exact spelling before any value name is
+	// assigned: a declared type emits its capitalized Gom name
+	// verbatim — signatures, struct literals and a .gomi type member
+	// all spell it — so an exported `let foo` that wants `Foo` must
+	// dedup against `type Foo`, not the other way around. Sibling
+	// type names register identically: a `type Unit`/`type Option`
+	// in a sibling file shadows the builtin map package-wide, and a
+	// sibling type blocks this file's value names just the same.
+	for _, d := range f.Decls {
+		if td, ok := d.(*core.TypeDecl); ok {
+			if td.Sym != nil {
+				name := g.typeDeclName(td.Sym)
+				g.localT[name] = true
+				g.pused[name] = true
+				g.used[name] = true
+			}
+			if sum, ok := td.Body.(*core.TSum); ok {
+				for i := range sum.Variants {
+					v := &sum.Variants[i]
+					if v.Sym != nil && td.Sym != nil {
+						g.ctors[v.Sym] = &ctorDecl{typeName: td.Sym.Name, fields: v.Fields}
+					}
+				}
+			}
+		}
+	}
+	if u := f.Unit; u != nil {
+		for tname := range u.Types {
+			name := exportName(tname)
+			g.localT[name] = true
+			g.pused[name] = true
+			g.used[name] = true
+		}
+		// A test name a sibling file also declares takes the file
+		// tag — the fnv32a-of-path convention the lowering temps
+		// use — so the two `func TestX` emissions cannot collide in
+		// the shared Go package.
+		if len(u.Tests) > 0 {
+			h := fnv.New32a()
+			_, _ = h.Write([]byte(f.Sp.File))
+			g.testTag = fmt.Sprintf("%08x", h.Sum32())
+			g.testCollide = u.Tests
+		}
+	}
 	// Every package-scope value symbol of the unit claims its
 	// emitted name in one canonical order — sorted by (emitted base,
 	// Gom name), not declaration order — so the claiming sequence is
@@ -185,45 +236,6 @@ func (g *gen) indexDecls(f *core.File) {
 	})
 	for _, sym := range pkgSyms {
 		g.declSymName(sym)
-	}
-	for _, d := range f.Decls {
-		switch d := d.(type) {
-		case *core.FuncDecl, *core.VarDecl:
-			// value names claimed in the unit pass above
-		case *core.TypeDecl:
-			if d.Sym != nil {
-				// The type name is a package-scope identifier too
-				// — `_foo` valueNames to `Foo` — so it must also
-				// block binder names, not just the builtin map.
-				name := g.typeDeclName(d.Sym)
-				g.localT[name] = true
-				g.pused[name] = true
-				g.used[name] = true
-			}
-			if sum, ok := d.Body.(*core.TSum); ok {
-				for i := range sum.Variants {
-					v := &sum.Variants[i]
-					if v.Sym != nil && d.Sym != nil {
-						g.ctors[v.Sym] = &ctorDecl{typeName: d.Sym.Name, fields: v.Fields}
-					}
-				}
-			}
-		case *core.TestDecl:
-			// test functions are named from d.Name, deduplicated later
-		default:
-			panic("unreachable")
-		}
-	}
-	// Sibling type names are package-scope too: a `type Unit` /
-	// `type Option` in a sibling file shadows the builtin map for
-	// this file's output as well.
-	if u := f.Unit; u != nil {
-		for tname := range u.Types {
-			name := exportName(tname)
-			g.localT[name] = true
-			g.pused[name] = true
-			g.used[name] = true
-		}
 	}
 	// Every binder anywhere also blocks temp naming. Binder names
 	// dedup inside their own declaration only — the emitted Go

@@ -246,6 +246,7 @@ func (l *lowerer) unitScope(siblings []check.Decl) *core.UnitScope {
 		Vars:    map[*resolve.Symbol]bool{},
 		Types:   map[string]bool{},
 		TParams: map[*resolve.Symbol]int{},
+		Tests:   map[string]bool{},
 	}
 	for _, d := range siblings {
 		switch d := d.(type) {
@@ -275,7 +276,11 @@ func (l *lowerer) unitScope(siblings []check.Decl) *core.UnitScope {
 				}
 			}
 		case *check.TestDecl:
-			// test blocks bind no package-scope values
+			// Test blocks bind no package-scope values, but the
+			// emitted `func TestX` is package-scope: a sibling's
+			// test name is recorded under its emitted base so this
+			// file's codegen can tell a collision apart.
+			u.Tests[core.TestFuncBase(d.Name)] = true
 		default:
 			panic("unreachable")
 		}

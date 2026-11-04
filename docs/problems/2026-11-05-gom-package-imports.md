@@ -1,6 +1,6 @@
 # Gom package imports: deferred boundaries of the first slice
 
-- 状態: 未解決
+- 状態: 一部解決（1, 2, 5, 6 は残件ラウンドで対応 — [verification](../sketch/2026-11-05-v6-residual-verification.md)）
 - 発見: 2026-11-05, V-6 vertical slice ([decision](../decisions/2026-11-05-package-compilation-unit.md), [verification](../sketch/2026-11-05-multifile-package-verification.md))
 
 ## Situation
@@ -10,35 +10,36 @@
 compile as one package unit. The first slice deliberately leaves
 these boundaries:
 
-1. **Type-qualified constructor spelling**: `pkg.Ctor` works;
-   `pkg.Type.Ctor` (the spelling a user reaches for when a package
-   exports several ADTs) is not — resolve has no per-type member
-   table for imported types.
-2. **`.gom`-level cyclic imports are unchecked**: `.gomi`-level
-   cycles are detected — the loader marks in-flight paths
-   (`loading`) and reports "cyclic Gom import". But package `a`'s
-   `.gom` files importing package `b` while `b`'s `.gom` files
-   import `a` compiles cleanly (each side only reads the other's
-   `.gomi`) and fails at `go build` with a Go import cycle — no
-   Gom diagnostic.
+1. ~~**Type-qualified constructor spelling**~~ **解決**:
+   `resolve.CtorSource` / `Config.Ctors` gives every type symbol a
+   per-type constructor table; the loader publishes `CtorsOf` from
+   the `.gomi`'s requalified variant symbols. `pkg.Type.Ctor`
+   resolves in expression and pattern position — see
+   [decision](../decisions/2026-11-05-pkg-type-ctor-spelling.md).
+2. ~~**`.gom`-level cyclic imports are unchecked**~~ **解決**:
+   the loader DFS-scans `.gom` import edges from the entry package;
+   a cycle surfaces as `resolve.ImportCycleError` → E0606 at the
+   import path span with the chain in `data.cycle`. See
+   [decision](../decisions/2026-11-05-gom-implementation-import-cycles.md).
 3. **`.gomi`-side `import "path"` is mechanical, not specified**:
    an `import` inside a `.gomi` resolves through the same loader
    (nested interface loads work), but spec §7 does not define
    `.gomi` imports and no test pins the behavior — types a
    signature mentions from another Gom package ride on this.
+   依然未決。
 4. **Module scope**: lookup reads the `go.mod` nearest the
    importing file — only packages inside the main module resolve;
    workspace siblings and dependency modules get a plain E0203.
-5. **Generated-name collisions across siblings**: generated names
-   carry per-file tags — `gomEq*`/`gomShow*` and the package-scope
-   `tmp*` temporaries of non-trivial `let` patterns — and package
-   decl names are E0202-checked, but two same-named `test` blocks
-   in sibling files emit two
-   `func TestX` — a duplicate-symbol failure from the Go compiler,
-   not a Gom diagnostic.
-6. **`gom dump` is single-file**: the debug command compiles one
-   file at a time, so dumping a member of a multi-file package
-   reports misleading E0201s for sibling names.
+   依然未決。
+5. ~~**Generated-name collisions across siblings**~~ **解決**:
+   `core.UnitScope.Tests` records every sibling's emitted test
+   base; a colliding name takes the file's fnv32a tag
+   (`TestX_<tag>`), a unique name stays bare. See
+   [decision](../decisions/2026-11-05-test-name-file-tag.md).
+6. ~~**`gom dump` is single-file**~~ **解決**: `runDump` compiles
+   the whole directory's `.gom` files through `build.CompileFiles`
+   and dumps only the requested file's tree — sibling names
+   resolve, diagnostics stay on stderr.
 
 ## Why it is a problem
 
@@ -47,7 +48,8 @@ as it composes ADTs across packages — 2 and 3 in particular let
 invalid or unspecified programs pass `gom check`/`gom build` and
 fail only inside the Go toolchain. 4 constrains which checkouts
 can depend on which. 5 and 6 produce raw Go or misleading Gom
-errors with no source mapping.
+errors with no source mapping. (2026-11-05 残件ラウンドで
+1, 2, 5, 6 は解消 — 残るは 3 の spec 規定と 4 の module scope。)
 
 ## Related
 

@@ -223,13 +223,28 @@ func (c *checker) checkSelect(e *syntax.Select) Expr {
 	// A type name in receiver position (`Option.Some`, `Shape.Circle`)
 	// is a namespace, not a value: checking it as an expression would
 	// mint a meta that can never solve. The same is true of a
-	// constructor or module bound the resolver already produced.
+	// constructor or module bound the resolver already produced, and
+	// of the qualified `pkg.Type` hop under `pkg.Type.Ctor` — its
+	// selector resolved to an imported type member.
 	var recv Expr
-	if id, ok := e.Recv.(*syntax.Ident); ok {
-		if rs := c.res.UseOf(id); rs != nil {
-			switch rs.Kind {
-			case resolve.KindType, resolve.KindCtor, resolve.KindModule, resolve.KindBuiltin:
-				recv = &Var{Base: baseOf(id.Sp, c.untypedMeta()), Sym: rs}
+	if inner, ok := e.Recv.(*syntax.Select); ok && inner.Sel != nil {
+		if tsym := c.res.UseOf(inner.Sel); tsym != nil && tsym.Kind == resolve.KindType {
+			if id, ok2 := inner.Recv.(*syntax.Ident); ok2 {
+				if msym := c.res.UseOf(id); msym != nil && msym.Kind == resolve.KindModule {
+					mrecv := &Var{Base: baseOf(id.Sp, c.untypedMeta()), Sym: msym}
+					recv = &MemberExpr{Base: baseOf(inner.Sp, c.untypedMeta()),
+						Recv: mrecv, Sel: inner.Sel, Sym: tsym, Index: -1}
+				}
+			}
+		}
+	}
+	if recv == nil {
+		if id, ok := e.Recv.(*syntax.Ident); ok {
+			if rs := c.res.UseOf(id); rs != nil {
+				switch rs.Kind {
+				case resolve.KindType, resolve.KindCtor, resolve.KindModule, resolve.KindBuiltin:
+					recv = &Var{Base: baseOf(id.Sp, c.untypedMeta()), Sym: rs}
+				}
 			}
 		}
 	}

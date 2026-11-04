@@ -11,6 +11,7 @@ import (
 	"testing"
 
 	"github.com/podhmo/gom/internal/check"
+	"github.com/podhmo/gom/internal/diag"
 	"github.com/podhmo/gom/internal/resolve"
 	"github.com/podhmo/gom/internal/types"
 )
@@ -329,5 +330,98 @@ func TestRequalify(t *testing.T) {
 	}
 	if got := requalify(fn, own, "q"); got.(*types.Func).Params[0].Type.(*types.Con).Qual != "q" {
 		t.Fatalf("nested own type not qualified: %v", got)
+	}
+}
+
+// A .gomi member whose emitted Go name another member of the same
+// package claims misbinds every imported reference — `lib.foo`
+// compiles to `lib.Foo`, the type's name. The loader marks the
+// clash on the member symbol so resolve reports E0607 at the use
+// site even when the declaring package was never checked.
+func TestImportedMemberEmitClash(t *testing.T) {
+	root := writeMod(t, "example.com/m", map[string]string{
+		"lib/lib.gomi": `package lib
+
+type Foo = { x: Int }
+let foo : Foo
+`,
+	})
+	r := compileEntry(t, root, filepath.Join(root, "a"), `package main
+
+import "example.com/m/lib"
+
+let v : lib.Foo = lib.foo
+`)
+	var codes []diag.Code
+	for _, d := range r.Diagnostics {
+		codes = append(codes, d.Code)
+		if d.Code == "E0607" {
+			if d.Data["member"] != "foo" || d.Data["collides_with"] != "Foo" || d.Data["emitted"] != "Foo" {
+				t.Fatalf("E0607 data = %v", d.Data)
+			}
+		}
+	}
+	if len(codes) != 1 || codes[0] != "E0607" {
+		t.Fatalf("codes = %v, want exactly E0607", codes)
+	}
+}
+
+// The same member table without a clash marks nothing — a `let pi`
+// that alone claims `Pi` stays a clean reference.
+func TestImportedMemberNoEmitClash(t *testing.T) {
+	root := writeMod(t, "example.com/m", map[string]string{
+		"lib/lib.gomi": `package lib
+
+let pi : Float
+`,
+	})
+	r := compileEntry(t, root, filepath.Join(root, "a"), `package main
+
+import "example.com/m/lib"
+
+let v : Float = lib.pi
+`)
+	for _, d := range r.Diagnostics {
+		if d.Code == "E0607" {
+			t.Fatalf("spurious emit clash: %v", r.Diagnostics)
+		}
+	}
+}
+
+// Value-vs-value clashes mark the loser too — `my_fn` and `myFn`
+// both emit `MyFn` and no member is literally named `MyFn`, so the
+// mark has to replay codegen's (base, Gom name) claiming order.
+func TestImportedMemberEmitClashValueValue(t *testing.T) {
+	root := writeMod(t, "example.com/m", map[string]string{
+		"lib/lib.gomi": `package lib
+
+let my_fn : Int
+let myFn : Int
+`,
+	})
+	r := compileEntry(t, root, filepath.Join(root, "a"), `package main
+
+import "example.com/m/lib"
+
+let v : Int = lib.my_fn
+`)
+	var codes []diag.Code
+	for _, d := range r.Diagnostics {
+		codes = append(codes, d.Code)
+	}
+	if len(codes) != 1 || codes[0] != "E0607" {
+		t.Fatalf("codes = %v, want exactly E0607", codes)
+	}
+	// The winner's reference stays clean.
+	r2 := compileEntry(t, root, filepath.Join(root, "a"), `package main
+
+import "example.com/m/lib"
+
+let v : Int = lib.myFn
+`)
+	for _, d := range r2.Diagnostics {
+		if d.Code == "E0607" {
+			t.Fatalf("the winning member was marked: %v", r2.Diagnostics)
+		}
 	}
 }

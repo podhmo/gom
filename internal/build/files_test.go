@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/podhmo/gom/internal/build"
+	"github.com/podhmo/gom/internal/lower"
 )
 
 func compileFiles(t *testing.T, srcs map[string]string) []*build.Result {
@@ -196,6 +197,121 @@ func TestCompileFilesTmpVarsDontCollide(t *testing.T) {
 	cmd.Env = append(os.Environ(), "GOWORK=off", "GOFLAGS=-mod=mod", "GOTOOLCHAIN=local")
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("generated package failed: %v\noutput: %s", err, out)
+	}
+}
+
+// Two sibling files declaring `test "x"` would both emit
+// `func TestX` into one Go package — the colliding base takes the
+// file's fnv32a tag, so each file's emission stays deterministic and
+// distinct. A name no sibling shares keeps the bare form.
+func TestCompileFilesTestNameCollision(t *testing.T) {
+	var ins []build.Input
+	for _, n := range []string{"a.gom", "b.gom"} {
+		src := map[string]string{
+			"a.gom": "package m\n\ntest \"x\" {\n  assert true\n}\ntest \"only a\" {\n  assert true\n}\n",
+			"b.gom": "package m\n\ntest \"x\" {\n  assert true\n}\n",
+		}[n]
+		ins = append(ins, build.Input{Path: "pkg/" + n, Src: []byte(src)})
+	}
+	rs, err := build.CompileFiles(ins, &build.Options{Lower: &lower.Env{Tests: true}})
+	if err != nil {
+		t.Fatalf("CompileFiles: %v", err)
+	}
+	var colliding, all []string
+	for i, r := range rs {
+		if r.Diagnostics.HasError() {
+			t.Fatalf("result %d diagnostics: %v", i, r.Diagnostics)
+		}
+		if r.Output == nil {
+			t.Fatalf("result %d produced no output", i)
+		}
+		for _, m := range r.Output.Tests {
+			all = append(all, m.Func)
+			if m.Name == "x" {
+				colliding = append(colliding, m.Func)
+			} else if m.Func != "TestOnlyA" {
+				t.Errorf("unshared test name emitted as %q, want TestOnlyA", m.Func)
+			}
+		}
+	}
+	if len(all) != 3 {
+		t.Fatalf("emitted test funcs = %v, want 3", all)
+	}
+	if len(colliding) != 2 || colliding[0] == colliding[1] {
+		t.Fatalf("colliding test funcs = %v, want two distinct names", colliding)
+	}
+	for _, f := range colliding {
+		if !strings.HasPrefix(f, "TestX_") {
+			t.Errorf("colliding test name %q lacks the file-tag suffix", f)
+		}
+	}
+}
+
+// An exported `let foo` wants the Go name `Foo` — colliding with
+// `type Foo`, which keeps its exact spelling: the value dedups to
+// `Foo1`. The same rule holds whether both live in one file or in
+// siblings — unit-wide claiming keeps the two files consistent.
+func TestCompileFilesExportedLetVsTypeCollision(t *testing.T) {
+	var ins []build.Input
+	for _, n := range []string{"a.gom", "b.gom"} {
+		src := map[string]string{
+			"a.gom": "package m\n\ntype Foo = { x: Int }\n",
+			"b.gom": "package m\n\nlet foo = { x = 1 }\n",
+		}[n]
+		ins = append(ins, build.Input{Path: "pkg/" + n, Src: []byte(src)})
+	}
+	rs, err := build.CompileFiles(ins, &build.Options{
+		Exports: func(dir, pkg string) map[string]bool {
+			return map[string]bool{"foo": true}
+		},
+	})
+	if err != nil {
+		t.Fatalf("CompileFiles: %v", err)
+	}
+	var bSrc string
+	for i, r := range rs {
+		if r.Diagnostics.HasError() {
+			t.Fatalf("result %d diagnostics: %v", i, r.Diagnostics)
+		}
+		if r.Output == nil {
+			t.Fatalf("result %d produced no output", i)
+		}
+		if ins[i].Path == "pkg/b.gom" {
+			bSrc = string(r.Output.Source)
+		}
+	}
+	if !strings.Contains(bSrc, "var Foo1 Foo") {
+		t.Fatalf("exported `let foo` did not dedup against `type Foo`:\n%s", bSrc)
+	}
+	if strings.Contains(bSrc, "var Foo ") {
+		t.Fatalf("the type's name leaked onto the value:\n%s", bSrc)
+	}
+	// And a.gom's `type Foo` still emits verbatim.
+	aSrc := string(rs[0].Output.Source)
+	if !strings.Contains(aSrc, "type Foo struct") {
+		t.Fatalf("the type lost its exact name:\n%s", aSrc)
+	}
+}
+
+// The same collision inside a single file — the exported value
+// dedups against the type the same way.
+func TestCompileExportedLetVsTypeCollisionSingleFile(t *testing.T) {
+	r := compile(t, `package m
+
+type Foo = { x: Int }
+
+let foo = { x = 1 }
+`, &build.Options{
+		Exports: func(dir, pkg string) map[string]bool {
+			return map[string]bool{"foo": true}
+		},
+	})
+	if r.Diagnostics.HasError() {
+		t.Fatalf("diagnostics: %v", r.Diagnostics)
+	}
+	src := string(r.Output.Source)
+	if !strings.Contains(src, "var Foo1 Foo") || !strings.Contains(src, "type Foo struct") {
+		t.Fatalf("collision not resolved — want `var Foo1` + `type Foo`:\n%s", src)
 	}
 }
 

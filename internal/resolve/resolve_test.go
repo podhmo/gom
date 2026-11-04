@@ -1355,8 +1355,39 @@ func TestTestOnlyLetBinding(t *testing.T) {
 }
 
 func TestNestedQualificationResolvesFirstHop(t *testing.T) {
-	// `pkg.Type.Ctor`: the first hop `pkg.Type` resolves; the second
-	// selector is left for check (flat member tables in P1-4).
+	// `pkg.Type.Ctor`: `pkg.Type` resolves as a member select and the
+	// outer selector resolves as a constructor of the type — through
+	// the Config.Ctors table when the type is imported.
+	b := newAstb()
+	ty := &Symbol{Name: "Shape", Kind: KindType, Package: "geom"}
+	ctor := &Symbol{Name: "Circle", Kind: KindCtor, Package: "geom"}
+	loader := MapLoader{"geom": {Path: "geom", Members: map[string]*Symbol{"Shape": ty}}}
+	imp := &syntax.ImportDecl{Sp: b.sp(), Path: "geom", PathSp: b.sp(), Name: b.id("geom")}
+	inner := b.sel(b.id("geom"), "Shape")
+	outer := b.sel(inner, "Circle")
+	f := b.file(imp, b.fn("f", nil, nil, outer))
+	res, diags := File(f, &Config{Loader: loader,
+		Ctors: func(ts *Symbol) map[string]*Symbol {
+			if ts == ty {
+				return map[string]*Symbol{"Circle": ctor}
+			}
+			return nil
+		}})
+	if diags.HasError() {
+		t.Fatalf("unexpected diagnostics: %v", codes(diags))
+	}
+	if got := useAt(t, res, inner.Sel); got != ty {
+		t.Error("`geom.Shape` did not resolve to the member")
+	}
+	if got := useAt(t, res, outer.Sel); got != ctor {
+		t.Error("`geom.Shape.Circle` did not resolve to the ctor")
+	}
+}
+
+func TestNestedQualificationUnknownCtor(t *testing.T) {
+	// `pkg.Type.C` with no such constructor: the type hop still
+	// resolves and the outer selector reports E0201 instead of being
+	// left silently unresolved.
 	b := newAstb()
 	ty := &Symbol{Name: "Shape", Kind: KindType, Package: "geom"}
 	loader := MapLoader{"geom": {Path: "geom", Members: map[string]*Symbol{"Shape": ty}}}
@@ -1365,14 +1396,14 @@ func TestNestedQualificationResolvesFirstHop(t *testing.T) {
 	outer := b.sel(inner, "Circle")
 	f := b.file(imp, b.fn("f", nil, nil, outer))
 	res, diags := File(f, &Config{Loader: loader})
-	if diags.HasError() {
-		t.Fatalf("unexpected diagnostics: %v", codes(diags))
+	if len(diags) != 1 || diags[0].Code != "E0201" {
+		t.Fatalf("diags = %v, want exactly E0201", codes(diags))
 	}
 	if got := useAt(t, res, inner.Sel); got != ty {
 		t.Error("`geom.Shape` did not resolve to the member")
 	}
 	if _, ok := res.Uses[outer.Sel]; ok {
-		t.Error("second-hop selector got a Uses entry — should be left for check")
+		t.Error("unresolved ctor selector got a Uses entry")
 	}
 }
 

@@ -1200,24 +1200,25 @@ func (p *parser) atCtorStart() bool {
 	}
 }
 
-// parseCtorName parses [(ident|UIdent) "."] UIdent.
+// parseCtorName parses [(ident|UIdent) {"." UIdent} "."] UIdent —
+// a bare `Some`, a one-hop `T.Some` / `pkg.Some`, or a deeper
+// `pkg.T.Some`. The name builds a left-leaning Select chain so the
+// resolver sees the same shape an expression `pkg.Type.Ctor` makes.
 func (p *parser) parseCtorName() Expr {
 	t := p.cur()
-	if (t.kind == tokIdent || t.kind == tokUIdent) &&
-		p.peek(1).kind == tokDot && p.peek(2).kind == tokUIdent {
+	if t.kind == tokIdent || t.kind == tokUIdent {
 		p.next()
-		p.next()
-		n := p.next()
-		qual := &Ident{Sp: p.spanOf(t), Name: p.text(t)}
-		return &Select{
-			Sp:   p.span(t.start, n.end),
-			Recv: qual,
-			Sel:  &Ident{Sp: p.spanOf(n), Name: p.text(n)},
+		e := Expr(&Ident{Sp: p.spanOf(t), Name: p.text(t)})
+		for p.at(tokDot) && p.peek(1).kind == tokUIdent {
+			p.next()
+			n := p.next()
+			e = &Select{
+				Sp:   p.span(t.start, n.end),
+				Recv: e,
+				Sel:  &Ident{Sp: p.spanOf(n), Name: p.text(n)},
+			}
 		}
-	}
-	if t.kind == tokUIdent {
-		p.next()
-		return &Ident{Sp: p.spanOf(t), Name: p.text(t)}
+		return e
 	}
 	p.expected("a constructor name")
 	return &Ident{Sp: diag.Point(p.file, t.start), Name: "_"}

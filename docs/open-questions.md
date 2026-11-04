@@ -8,6 +8,7 @@
 
 - [ ] 型クラスの代替: v2 で型クラスを入れるか、明示的な辞書渡し（`Eq a` レコードを引数で渡す）で済ませるか
 - [ ] 実装の型がインターフェースより一般的な場合（実装が多相、`.gomi` が単相）を許すか
+- [ ] `.gomi` の `let` メンバーに多相型（`let empty : List a`）を許すか。許すなら member table に thunk 表現が要る（実装の generalized let は `func X[T]()` を出すが、member 参照は `p.X` — check/lower の thunk oracle を import 越しに届ける）。v1 では E0602 で型変数を拒否する bounded 形（[検証](sketch/2026-11-05-v6-residual-verification.md)、[台帳](implementation-gaps.md)）
 - [ ] 可変性: `Ref a` と可変配列 `Array a` 以外に可変構造を許すか
 
 ### エラー処理

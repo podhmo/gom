@@ -271,23 +271,32 @@
   `stdlib/list` の `cons`/`append`/`rev_append` がこの構文を使う。
   参照: [decision](decisions/2026-11-03-list-literal-spread.md)、
   [spec fixture](../testdata/spec/ok_list_spread_lit.gom)。
-- [ ] **`.gomi` の `let` メンバーは表面に出るが外部参照との形が一致しない**:
-  generalized let は thunk 実装になるが、`internal/stdlib` は `MemberLet` を
+- [x] **`.gomi` の `let` メンバーは表面に出るが外部参照との形が一致しない**:
+  generalized let は thunk 実装になるが、member table は `MemberLet` を
   KindVar シンボルとして登録し var 参照を生成する — 単相 let なら動くが
-  一般化 let は不整合。現行 stdlib の `.gomi` は `fn` しか宣言しないので不活性。
-  参照: [internal/stdlib](../internal/stdlib/stdlib.go)、
-  [iface](../internal/iface/iface.go)。
+  一般化 let は不整合（gomimport 側も同じ形。conformance は alphaEqual で
+  通るため「適合するが実装不可能」な面だった）。
+  対応: `.gomi` の `let` シグネチャ内の型変数を parser が E0602 で拒否する
+  bounded fix — member table の let は常に単相になり var 参照と一致する。
+  多相 let メンバーの thunk 表現（check/lower の thunk oracle を import 越しに
+  通す方針）は future work として残る。
+  参照: [parser](../internal/syntax/parser.go) `mentionsTypeVar`、
+  [検証](sketch/2026-11-05-v6-residual-verification.md)。
 - [ ] **`.gomi` の type メンバーはモジュールメンバ表に乗らない**:
   `internal/stdlib` は `fn`/`let` メンバーだけを `Modules` 表に登録し、
   `MemberType` はスキップする（モジュール内型 `List.Foo` の参照経路は未実装）。
-  現行の `.gomi` は型を宣言しないので不活性。
-  参照: [internal/stdlib](../internal/stdlib/stdlib.go)。
+  現行の `.gomi` は型を宣言しないので不活性。V-6 監査で再確認: gomimport 側は
+  type メンバーが `p.Members` に乗るため `pkg.Type` / `pkg.Type.Ctor` は解決
+  する — ずれは stdlib builtin-module 側のみ。
+  参照: [internal/stdlib](../internal/stdlib/stdlib.go)、
+  [検証](sketch/2026-11-05-v6-residual-verification.md)。
 - [ ] **`SelfImportPath` は `stdlib/<pkg>/` の予約ディレクトリ規約**:
   `gomstd.SelfPath` は入力パスに `stdlib/list|option|result/` を含むと
   そのパッケージの canonical import path を返す。ユーザーのモジュールが
   同名レイアウトを使うと同じ規約が適用される（builtin 型の参照が
-  無修飾でそのローカルパッケージを指す）。
+  無修飾でそのローカルパッケージを指す）。V-6 監査で懸念を problems file に記録。
   参照: [internal/stdlib](../internal/stdlib/stdlib.go)、
+  [problem](problems/2026-11-05-self-import-path-layout-convention.md)、
   [decision](decisions/2026-11-03-stdlib-packaging.md)。
 - [ ] **`Result.to_option` / `Option.to_list` は存在しない（Go の循環参照禁止によるもの）**:
   option→result（`to_result`）・list→option（`get`/`head` 等）が既にあるため、
@@ -323,10 +332,13 @@
 
 - [ ] **`checkInitCycles` は file-local で Go のパッケージ単位の分析とずれる**:
   E0907 の初期化依存グラフは 1 ファイルの Core IR 上に構築するが、Go は
-  パッケージ単位で初期化順を決める。複数 `.gom` ファイルのパッケージが実現すると、
-  ファイル跨ぎの初期化サイクルが Gom 診断を通り抜け `go build` のエラーとして表れる。
+  パッケージ単位で初期化順を決める。**複数 `.gom` パッケージが実現した
+  （V-6）ため発生可能になった**: `a.gom: let x = y + 1` / `b.gom: let y = x + 1`
+  は Gom 診断なしに `var x = y + 1` / `var y = x + 1` を生成し、
+  `go build` が "initialization cycle" を報告する（2026-11-05 実測）。
   参照: [initcycle.go](../internal/lower/initcycle.go)、
-  [decision](decisions/2026-11-05-aggregate-function-bindings.md)。
+  [decision](decisions/2026-11-05-aggregate-function-bindings.md)、
+  [検証](sketch/2026-11-05-v6-residual-verification.md)。
 
 - [ ] **spec にパッケージ初期化順序の節がない**: E0907（初期化循環の拒否）の
   `Spec:` 参照先が未定義 — `@tailrec` 系の E09xx は spec 1.1 を参照するが、
@@ -372,12 +384,16 @@
   参照: [spec 5](spec.md#5-モジュールと可視性)、[grammar.ebnf](grammar.ebnf)、
   [problems](problems/2026-11-01-gom-import-syntax.md)、
   [problems](problems/2026-11-05-gom-package-imports.md)。
-- [ ] **兄弟ファイルで同名 `test` ブロックは Go 側で重複シンボルになる**:
+- [x] **兄弟ファイルで同名 `test` ブロックは Go 側で重複シンボルになる**:
   パッケージ単位コンパイルで `gomEq*`/`tmp*` 系はファイルタグで回避するが、
   `test "name"` 由来の `func TestX` は無修飾のため、2 ファイルに同名 test が
   あると生成コードの `go build` が重複定義で失敗する（Gom 診断ではない）。
-  参照: [problems](problems/2026-11-05-gom-package-imports.md)、
-  [decision](decisions/2026-11-05-package-compilation-unit.md)。
+  対応: `core.UnitScope.Tests` が兄弟ファイルの test base name を記録し、
+  衝突する名前だけファイルタグ（fnv32a of path、`pkgTmp` と同じ規約）付きの
+  `TestX_<tag>` になる。衝突しない名前は無修飾のまま。
+  参照: [decision](decisions/2026-11-05-test-name-file-tag.md)、
+  [core/names.go](../internal/core/names.go)、
+  [検証](sketch/2026-11-05-v6-residual-verification.md)。
 
 - [x] **兄弟ファイルのトップレベル `let` 分解・ワイルドカードが生成 `var tmpN` で衝突する**:
   lower の `tmp()` はファイルタグを持たず、`let _ =` / `let (a,b) =` が 2 ファイルあると
@@ -390,13 +406,45 @@
   [テスト](../internal/build/files_test.go) `TestCompileFilesTmpVarsDontCollide`、
   [decision](decisions/2026-11-05-package-compilation-unit.md)。
 
-- [ ] **`gom build` が E0601（`.gomi` 不整合）でも `.go` を書き出す**: `checkInterfaces` は
+- [x] **`gom build` が E0601（`.gomi` 不整合）でも `.go` を書き出す**: `checkInterfaces` は
   ファイルごとの codegen の後に走るため `r.Output` は既に設定済みで、exit 1 ながら出力は
   書かれる（サマリには正直に列挙される）。F3 のユニット原子性（失敗したユニットは出力を
-  出さない）との整合が取れていない — interface 不整合をコンパイルエラーと見なして
-  出力を抑止するかは spec 判断が要る。
-  参照: [cli.go](../cmd/gom/cli.go)、[build.go](../internal/build/build.go)。
+  出さない）との整合が取れていない。
+  対応: `checkInterfaces` が失敗した package group の全 result を返し、
+  `runBuild` がその出力を書き出さない（E0601/E0603 いずれも。パッケージ単位で
+  all-or-nothing、他ディレクトリのクリーンなパッケージは書き出す）。
+  参照: [decision](decisions/2026-11-05-interface-failure-withholds-output.md)、
+  [iface.go](../cmd/gom/iface.go)、[cli.go](../cmd/gom/cli.go)。
 
-- [ ] **exported `let foo` と `type Foo` が生成 Go で同名 `Foo` になる**: 単一ファイルでも
+- [x] **exported `let foo` と `type Foo` が生成 Go で同名 `Foo` になる**: 単一ファイルでも
   再現（pre-existing）。export 値名と型名が大文字名前空間を共有し dedup されない。
-  参照: [codegen/gen.go](../internal/codegen/gen.go)。
+  対応: codegen が型名を先に `Foo` として確保し、値シンボルは unit 全体を
+  (emitted base, Gom name) の canonical 順で確保する — `let foo` + `type Foo` は
+  `var Foo1 Foo = Foo{...}` になる（単一・複数ファイルとも）。
+  さらに `.gomi` member が dedup される衝突は E0607 で拒否する: dedup 済み名は
+  importer が綴れない（`lib.foo` は `lib.Foo` に emit され、型や先勝ちの値を指す）。
+  `iface.Check` が package surface 上で codegen の確保順を replay し、先勝ちの
+  claimant（impl 型・private を含む先の値）がいる interface member を報告する。
+  importer 側にも網を置いた: `.gomi` loader が member 名と `core.ExportName` が
+  衝突する member symbol に `EmitClash` を付け、resolve が参照位置で E0607 を
+  出す — member テーブルに見える衝突（type Foo + let foo）は宣言側未検査でも
+  誤参照しない。
+  参照: [decision](decisions/2026-11-05-exported-value-vs-type-name.md)、
+  [codegen/gen.go](../internal/codegen/gen.go) `indexDecls`、
+  [iface/compare.go](../internal/iface/compare.go) `checkEmittedNames`、
+  [gomimport/loader.go](../internal/gomimport/loader.go)、
+  [resolve/diags.go](../internal/resolve/diags.go) `emitClash`。
+
+- [x] **`.gom` 実装 import の循環が `go build` まで持ち越される**: `.gomi` 同士の
+  循環はローダが検出していたが、`.gom` ファイルの `import "path"` 相互・推移的・
+  自己循環はコンパイルを通り、生成 Go パッケージが "import cycle not allowed" で
+  落ちるだけだった（package-compilation-unit decision の deferred boundary）。
+  対応: `gomimport.Loader` が entry パッケージ起点で `.gom` import 辺を
+  deterministic DFS し、`resolve.ImportCycleError` を E0606 として import パス
+  span に報告（`data.cycle` に連鎖）。`.gomi`→`.gom` の逆向き参照は辺に含めない
+  （interface の参照はコード依存を作らない）。cycle の verdict は発見した
+  循環の構成員（`implCycleSet`）にのみ適用する — 循環外のパッケージへの
+  clean import は通常どおり load され、誤って E0606 を報告しない。
+  参照: [decision](decisions/2026-11-05-gom-implementation-import-cycles.md)、
+  [loader](../internal/gomimport/loader.go) `visitImpl`、
+  [検証](sketch/2026-11-05-v6-residual-verification.md)。

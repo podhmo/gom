@@ -242,6 +242,12 @@ type UnitScope struct {
 	// name a sibling declared (docs/decisions/
 	// 2026-11-05-package-compilation-unit.md section 3).
 	Decls []UnitDecl
+	// Tests are the sibling files' emitted test-function base names
+	// (core.TestFuncBase of each `test "name"`). Two files of one
+	// package declaring the same test name would emit the same
+	// `func TestX` into one Go package — codegen suffixes the base
+	// with the file tag when this set names it.
+	Tests map[string]bool
 }
 
 // UnitDecl is a sibling package-scope value declaration fact: the

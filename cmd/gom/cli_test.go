@@ -333,10 +333,12 @@ func TestBuildDefaultOutputBesideInput(t *testing.T) {
 
 func TestBuildDoesNotWriteOnErrors(t *testing.T) {
 	// Two separate packages (different directories): a failure in
-	// one does not stop the clean package's output.
+	// one does not stop the clean package's output. (The clean
+	// package is `package main` — a program root has no .gomi
+	// contract to fail.)
 	dir := writeFiles(t, map[string]string{
 		"bad/bad.gom":   badGom,
-		"good/good.gom": "package m\n\nfn f () -> Int = 1\n",
+		"good/good.gom": "package main\n\nfn f () -> Int = 1\n",
 	})
 	code, out, _ := invoke("build", filepath.Join(dir, "bad", "bad.gom"), filepath.Join(dir, "good", "good.gom"))
 
@@ -380,6 +382,43 @@ func TestBuildDoesNotWritePartialPackage(t *testing.T) {
 	outputs, _ := sum["outputs"].([]any)
 	if len(outputs) != 0 {
 		t.Errorf("summary.outputs = %v, want no entries", outputs)
+	}
+}
+
+func TestBuildWithholdsOnInterfaceFailure(t *testing.T) {
+	// The .gomi conformance pass runs after codegen, so its E0601 /
+	// E0603 arrive when the .go is ready to write — a package whose
+	// contract failed still writes nothing.
+	dir := writeFiles(t, map[string]string{
+		// E0601: a library package with no .gomi at all.
+		"noiface/lib.gom": "package lib\n\nfn f () -> Int = 1\n",
+		// E0603: implementation drifts from the interface.
+		"mismatch/mism.gom":  "package mism\n\nfn f () -> Int = 1\n",
+		"mismatch/mism.gomi": "package mism\n\nfn f () -> String\n",
+		// A clean main package beside them still writes — the
+		// failures are package-scoped, not run-scoped.
+		"app/main.gom": "package main\n\nfn f () -> Int = 1\n",
+	})
+	code, out, _ := invoke("build",
+		filepath.Join(dir, "noiface", "lib.gom"),
+		filepath.Join(dir, "mismatch", "mism.gom"),
+		filepath.Join(dir, "app", "main.gom"))
+
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1", code)
+	}
+	for _, rel := range []string{"noiface/lib.go", "mismatch/mism.go"} {
+		if _, err := os.Stat(filepath.Join(dir, rel)); !os.IsNotExist(err) {
+			t.Errorf("%s was written despite interface failure: %v", rel, err)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(dir, "app", "main.go")); err != nil {
+		t.Errorf("main.go missing — the clean package should still write: %v", err)
+	}
+	sum := lastSummary(t, out)
+	outputs, _ := sum["outputs"].([]any)
+	if len(outputs) != 1 {
+		t.Errorf("summary.outputs = %v, want 1 entry (the clean package)", outputs)
 	}
 }
 
@@ -467,6 +506,27 @@ func TestDumpPhases(t *testing.T) {
 	}
 	if !strings.Contains(out, "(?)") {
 		t.Errorf("dump -phase=check on .gomi: stdout missing nil-body marker: %q", out)
+	}
+}
+
+func TestDumpMultifilePackage(t *testing.T) {
+	// A .gom file shares its package scope with siblings: dumping one
+	// file of a multi-file package must not misreport its references
+	// to sibling declarations as E0201 — the dump compiles the
+	// directory's unit, like `gom build <dir>` would.
+	dir := writeFiles(t, map[string]string{
+		"a.gom": "package ex\n\nfn use () -> Int = helper 1\n",
+		"b.gom": "package ex\n\nfn helper (n: Int) -> Int = n + 1\n",
+	})
+	code, out, errout := invoke("dump", "-phase", "check", filepath.Join(dir, "a.gom"))
+	if code != 0 {
+		t.Fatalf("dump -phase=check: exit %d, want 0; stderr=%q", code, errout)
+	}
+	if strings.Contains(errout, "E0201") {
+		t.Errorf("sibling declaration misreported as undefined: %q", errout)
+	}
+	if !strings.Contains(out, "helper") {
+		t.Errorf("dump output missing the sibling reference: %q", out)
 	}
 }
 
@@ -1037,5 +1097,42 @@ func TestCheckInterfaceMismatch(t *testing.T) {
 	}
 	if len(codes) != 2 || codes[0] != "E0603" || codes[1] != "E0603" {
 		t.Errorf("diagnostic codes = %v, want [E0603 E0603]", codes)
+	}
+}
+
+// TestCheckEmittedNameCollision verifies the interface side of the
+// exported-name rule: a .gomi member whose emitted Go name another
+// declaration of the package claims first — `let foo` losing to
+// `type Foo` — is E0607 at the declaring package. Without the check
+// the value dedups to `Foo1`, which an importing package cannot
+// spell (`lib.foo` compiles to `lib.Foo`, the type's name).
+func TestCheckEmittedNameCollision(t *testing.T) {
+	dir := writeFiles(t, map[string]string{
+		"lib/lib.gom":  "package lib\n\ntype Foo = { x: Int }\nlet foo : Foo = { x = 1 }\n",
+		"lib/lib.gomi": "package lib\n\ntype Foo = { x: Int }\nlet foo : Foo\n",
+	})
+	code, out, _ := invoke("check", filepath.Join(dir, "lib"))
+	if code != 1 {
+		t.Fatalf("exit %d, want 1; stdout=%q", code, out)
+	}
+	var codes []string
+	for _, l := range jsonLines(t, out) {
+		c, ok := l["code"].(string)
+		if !ok {
+			continue // note lines carry no code
+		}
+		codes = append(codes, c)
+		if c == "E0607" {
+			d, ok := l["data"].(map[string]any)
+			if !ok {
+				t.Fatalf("E0607 carries no data: %v", l)
+			}
+			if d["emitted"] != "Foo" || d["collides_with"] != "Foo" {
+				t.Fatalf("E0607 data = %v", d)
+			}
+		}
+	}
+	if len(codes) != 1 || codes[0] != "E0607" {
+		t.Errorf("diagnostic codes = %v, want [E0607]", codes)
 	}
 }

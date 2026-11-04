@@ -1,9 +1,7 @@
 package codegen
 
 import (
-	"strings"
-	"unicode"
-	"unicode/utf8"
+	"github.com/podhmo/gom/internal/core"
 )
 
 // This file holds the Gom-name → Go-name conventions. Visibility is
@@ -50,34 +48,19 @@ var genReserved = map[string]bool{
 }
 
 // valueName renders a Gom value name as a Go identifier in the case
-// it was written: `use_answer` → `useAnswer`, `area` → `area`.
+// it was written: `use_answer` → `useAnswer`, `area` → `area`. The
+// rule is core.ValueName — shared with the .gomi conformance check.
 func valueName(s string) string {
-	parts := strings.Split(s, "_")
-	if len(parts) == 1 {
-		return s
-	}
-	var b strings.Builder
-	b.WriteString(parts[0])
-	for _, p := range parts[1:] {
-		b.WriteString(capitalize(p))
-	}
-	return b.String()
+	return core.ValueName(s)
 }
 
 // exportName renders a Gom name capitalized — type names, variant
 // names, record field and payload names: `radius` → `Radius`,
-// `point_x` → `PointX`.
+// `point_x` → `PointX`. The rule is core.ExportName — the contract
+// the .gomi conformance check and codegen agree on for emitted
+// package-scope names.
 func exportName(s string) string {
-	return capitalize(valueName(s))
-}
-
-// capitalize upper-cases the first letter of s.
-func capitalize(s string) string {
-	if s == "" {
-		return s
-	}
-	r, size := utf8.DecodeRuneInString(s)
-	return string(unicode.ToUpper(r)) + s[size:]
+	return core.ExportName(s)
 }
 
 // typeParamName renders a Gom type variable as a Go type parameter:
@@ -90,32 +73,11 @@ func typeParamName(name string, id int) string {
 }
 
 // testFuncName renders a test block's name as a Go test function:
-// `rect area` → `TestRectArea`. Non-identifier characters act as word
-// boundaries.
+// `rect area` → `TestRectArea`. The base-name rule is
+// core.TestFuncBase — the contract sibling files agree on through
+// UnitScope.Tests.
 func testFuncName(name string) string {
-	var b strings.Builder
-	b.WriteString("Test")
-	cap := true
-	for _, r := range name {
-		if r == '_' || unicode.IsSpace(r) || !isIdentRune(r) {
-			cap = true
-			continue
-		}
-		if cap {
-			b.WriteRune(unicode.ToUpper(r))
-			cap = false
-		} else {
-			b.WriteRune(r)
-		}
-	}
-	if b.Len() == len("Test") {
-		b.WriteString("Case")
-	}
-	return b.String()
-}
-
-func isIdentRune(r rune) bool {
-	return r == '_' || unicode.IsLetter(r) || unicode.IsDigit(r)
+	return core.TestFuncBase(name)
 }
 
 // mangleKeyword appends `_` when the name collides with a Go keyword

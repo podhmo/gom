@@ -183,6 +183,18 @@ func runBuild(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "gom build: %v\n", err)
 		return diag.ExitInternal
 	}
+	// -o is a usage contract checked before compiling: stdout can
+	// never carry generated code (it is the diagnostic stream), and
+	// a file destination only takes a single input — both must fail
+	// even when every package's outputs end up withheld.
+	if *out == "-" {
+		fmt.Fprintf(stderr, "gom build: -o - would write generated code to stdout, which is the diagnostic stream; use a file or directory\n")
+		return diag.ExitInternal
+	}
+	if *out != "" && !isDirFlag(*out) && len(inputs) != 1 {
+		fmt.Fprintf(stderr, "gom build: -o %s names a file, which requires a single input\n", *out)
+		return diag.ExitInternal
+	}
 
 	rep := diag.Report{Files: inputNames(inputs)}
 	srcs := map[string][]byte{}
@@ -199,13 +211,17 @@ func runBuild(args []string, stdout, stderr io.Writer) int {
 	}
 	// Same package-level interface pass as gom check — the .gomi
 	// contract binds the package even though codegen is per-file.
-	checkInterfaces(inputs, results, &rep, srcs)
+	// Results of failed groups are withheld below: a package whose
+	// contract failed (E0601/E0603, or an unverifiable interface)
+	// writes no output — generated code is only kept for packages
+	// that pass whole.
+	failed := checkInterfaces(inputs, results, &rep, srcs)
 
 	// Resolve every output path before writing anything so a bad -o
 	// fails fast instead of after partial writes.
 	dsts := make([]string, len(inputs))
 	for i, in := range inputs {
-		if results[i].Output == nil {
+		if results[i].Output == nil || failed[results[i]] {
 			continue
 		}
 		dst, err := outputPath(in.path, *out, len(inputs))
@@ -221,7 +237,7 @@ func runBuild(args []string, stdout, stderr io.Writer) int {
 	// the files actually written.
 	var writeErrs []error
 	for i, r := range results {
-		if r.Output == nil {
+		if r.Output == nil || failed[r] {
 			continue
 		}
 		dst := dsts[i]
@@ -280,14 +296,59 @@ func runDump(args []string, stdout, stderr io.Writer) int {
 	}
 	in := inputs[0]
 
-	r, err := build.Compile(build.Input{Path: in.path, Src: in.src, Interface: in.iface},
-		compileOptions(in, false))
-	if err != nil {
-		fmt.Fprintf(stderr, "gom dump: %s: %v\n", in.path, err)
-		return diag.ExitInternal
+	// A .gom file is not a compile unit by itself — the package is.
+	// Compiling only the named file would attribute E0201s to names
+	// its sibling files declare, so the dump gathers the directory's
+	// .gom files into one CompileFiles unit (the same grouping
+	// `gom build` gives a directory argument). The dump itself still
+	// prints only the named file's IR.
+	var r *build.Result
+	rep := diag.Report{}
+	sources := map[string][]byte{}
+	if !in.iface {
+		dir := filepath.Dir(filepath.Clean(in.path))
+		sibs, _ := filepath.Glob(filepath.Join(dir, "*.gom"))
+		var ins []build.Input
+		sources[in.path] = in.src
+		self := filepath.Clean(in.path)
+		for _, s := range sibs {
+			if filepath.Clean(s) == self {
+				ins = append(ins, build.Input{Path: in.path, Src: in.src})
+				continue
+			}
+			b, err := os.ReadFile(s)
+			if err != nil {
+				continue
+			}
+			sources[s] = b
+			ins = append(ins, build.Input{Path: s, Src: b})
+		}
+		if len(ins) > 1 {
+			rs, err := build.CompileFiles(ins, compileOptions(in, false))
+			if err != nil {
+				fmt.Fprintf(stderr, "gom dump: %s: %v\n", dir, err)
+				return diag.ExitInternal
+			}
+			for j, sj := range ins {
+				rep.Diagnostics = append(rep.Diagnostics, rs[j].Diagnostics...)
+				rep.Files = append(rep.Files, sj.Path)
+				if filepath.Clean(sj.Path) == self {
+					r = rs[j]
+				}
+			}
+		}
 	}
-	rep := diag.Report{Diagnostics: r.Diagnostics, Files: []string{in.path}}
-	if err := emitReport(stderr, *format, rep, map[string][]byte{in.path: in.src}); err != nil {
+	if r == nil {
+		r, err = build.Compile(build.Input{Path: in.path, Src: in.src, Interface: in.iface},
+			compileOptions(in, false))
+		if err != nil {
+			fmt.Fprintf(stderr, "gom dump: %s: %v\n", in.path, err)
+			return diag.ExitInternal
+		}
+		rep = diag.Report{Diagnostics: r.Diagnostics, Files: []string{in.path}}
+		sources = map[string][]byte{in.path: in.src}
+	}
+	if err := emitReport(stderr, *format, rep, sources); err != nil {
 		fmt.Fprintf(stderr, "gom dump: %v\n", err)
 		return diag.ExitInternal
 	}

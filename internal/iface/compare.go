@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/podhmo/gom/internal/check"
+	"github.com/podhmo/gom/internal/core"
 	"github.com/podhmo/gom/internal/diag"
 	"github.com/podhmo/gom/internal/types"
 )
@@ -56,6 +57,106 @@ func Check(iface, impl *Package, complete bool) diag.List {
 			// mismatch.
 			diags.Add(kindMismatch(m, w))
 		}
+	}
+	diags = append(diags, checkEmittedNames(iface, impl)...)
+	return diags
+}
+
+// checkEmittedNames reports interface members whose emitted Go name
+// another package-scope declaration claims first — the `exported
+// let foo` vs `type Foo` collision. Codegen claims emitted names
+// deterministically: type names verbatim, then every unit value in
+// (emitted base, Gom name) order — exported values via
+// core.ExportName, private ones via core.ValueName — with later
+// claimants deduplicated by a numeric suffix. A `.gomi` member that
+// loses emits `Foo1`, but an importing package only ever spells the
+// interface name — `lib.foo` compiles to `lib.Foo`, the winner's
+// name. The interface must therefore publish members that emit
+// unambiguously, or the collision is silently wrong code downstream
+// (docs/decisions/2026-11-05-exported-value-vs-type-name.md).
+//
+// The check models codegen's claiming over the impl surface: a
+// member reports the earliest claimant of its base — an impl type
+// (types precede all values) or the first same-base value — that is
+// not the member's own implementation.
+func checkEmittedNames(iface, impl *Package) diag.List {
+	var diags diag.List
+	// Type claims first — every impl type, public or private,
+	// takes its exported name verbatim.
+	typeClaims := map[string]*Member{}
+	for _, t := range sortedMembers(impl) {
+		if t.Kind != MemberType {
+			continue
+		}
+		base := core.ExportName(t.Name)
+		if prev, dup := typeClaims[base]; dup {
+			diags.Add(diag.Error("E0607",
+				fmt.Sprintf("types `%s` and `%s` emit the same Go name `%s`", prev.Name, t.Name, base)).
+				At(t.Sp).
+				Set("member", t.Name).
+				Set("collides_with", prev.Name).
+				Set("emitted", base))
+		} else {
+			typeClaims[base] = t
+		}
+	}
+	// Value claims in codegen's canonical order: (emitted base,
+	// Gom name). Exportedness mirrors codegen's Exported marking —
+	// a name the .gomi publishes.
+	type valueClaim struct {
+		m    *Member
+		base string
+	}
+	var values []valueClaim
+	for _, v := range impl.Members {
+		if v.Kind == MemberType {
+			continue
+		}
+		base := core.ValueName(v.Name)
+		if iface.Members[v.Name] != nil {
+			base = core.ExportName(v.Name)
+		}
+		values = append(values, valueClaim{v, base})
+	}
+	slices.SortStableFunc(values, func(a, b valueClaim) int {
+		return cmp.Or(strings.Compare(a.base, b.base),
+			strings.Compare(a.m.Name, b.m.Name))
+	})
+	// A base loses to a type whenever one claims it; else the
+	// first value claimant in canonical order wins it.
+	winners := map[string]*Member{}
+	for _, c := range values {
+		if typeClaims[c.base] == nil && winners[c.base] == nil {
+			winners[c.base] = c.m
+		}
+	}
+	for _, m := range sortedMembers(iface) {
+		if m.Kind == MemberType {
+			continue
+		}
+		var other *Member
+		base := core.ExportName(m.Name)
+		switch {
+		case typeClaims[base] != nil:
+			other = typeClaims[base]
+		case winners[base] != nil && winners[base].Name != m.Name:
+			other = winners[base]
+		default:
+			continue
+		}
+		sp := m.Sp
+		if w := impl.Members[m.Name]; w != nil {
+			sp = w.Sp // the .gom decl — where the deduped name emits
+		}
+		diags.Add(diag.Error("E0607",
+			fmt.Sprintf("member `%s` and %s `%s` emit the same Go name `%s`",
+				m.Name, memberKindName(other.Kind), other.Name, base)).
+			At(sp).
+			Set("member", m.Name).
+			Set("collides_with", other.Name).
+			Set("emitted", base).
+			AddNote(fmt.Sprintf("importing packages spell the member `%s`, which names %s `%s` in the generated package",
+				base, memberKindName(other.Kind), other.Name)))
 	}
 	return diags
 }

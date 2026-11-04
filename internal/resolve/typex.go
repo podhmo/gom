@@ -131,6 +131,12 @@ func (r *resolver) qualifiedTypeName(n *syntax.TypeName, sc *scope) {
 	}
 	if member, ok := table[n.Name.Name]; ok {
 		r.use(n.Name, member)
+		// Same emitted-name contract as term members —
+		// `pkg.My_Type` emits `pkg.MyType`, which another member
+		// may claim (E0607 via EmitClash).
+		if member.EmitClash != "" {
+			r.emitClash(sym, member, n.Name)
+		}
 		return
 	}
 	r.undefinedMember(sym, n.Name, builtin)

@@ -91,3 +91,52 @@ type TypeRecord struct {
 
 func (*TypeRecord) isTypeExpr()       {}
 func (n *TypeRecord) Span() diag.Span { return n.Sp }
+
+// mentionsTypeVar reports whether t contains a type variable. The
+// .gomi grammar applies it to constant signatures: a `let` member
+// with a quantified variable would publish a generalized let, whose
+// implementation emits a thunk the module-member surface cannot
+// express (internal/stdlib, internal/gomimport).
+func mentionsTypeVar(t TypeExpr) bool {
+	switch t := t.(type) {
+	case nil:
+		return false
+	case *TypeVar:
+		return true
+	case *TypeName:
+		return false
+	case *TypeApp:
+		if mentionsTypeVar(t.Ctor) {
+			return true
+		}
+		for _, a := range t.Args {
+			if mentionsTypeVar(a) {
+				return true
+			}
+		}
+		return false
+	case *TypeFn:
+		for _, prm := range t.Params {
+			if mentionsTypeVar(prm.Type) {
+				return true
+			}
+		}
+		return mentionsTypeVar(t.Ret)
+	case *TypeTuple:
+		for _, e := range t.Elems {
+			if mentionsTypeVar(e) {
+				return true
+			}
+		}
+		return false
+	case *TypeRecord:
+		for _, f := range t.Fields {
+			if mentionsTypeVar(f.Type) {
+				return true
+			}
+		}
+		return false
+	default:
+		panic("unreachable")
+	}
+}
