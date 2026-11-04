@@ -2,12 +2,7 @@ package genperf
 
 import "testing"
 
-var (
-	sinkI64 int64
-	sinkR   interface {
-		Tag() int
-	}
-)
+var sinkI64 int64
 
 var (
 	// opaque values keep Go from devirtualizing — this is what a call
