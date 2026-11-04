@@ -103,6 +103,9 @@
 | [tutorial-dependency-tracking](2026-11-03-tutorial-dependency-tracking.md) | Track executable tutorial inputs and compiler dependencies | 採用 |
 | [tutorial-go-module-inputs](2026-11-03-tutorial-go-module-inputs.md) | Track actual Go module inputs of tutorial subprocesses | 採用 |
 | [void-go-call-results](2026-11-03-void-go-call-results.md) | Zero-result Go calls are statements followed by Gom Unit | 採用 |
+| [builtin-chan-task-rt](2026-11-04-builtin-chan-task-rt.md) | `Chan`/`Task` ship as compiler-owned member tables backed by rt | 採用（P5-1 で実装・検証した — [検証](../sketch/2026-11-04-p5-1-concurrency-verification.md)） |
+| [chan-direction-go-boundary](2026-11-04-chan-direction-go-boundary.md) | Channel direction narrows implicitly only at Go-call boundaries | 採用（P5-1 で実装・検証した — [検証](../sketch/2026-11-04-p5-1-concurrency-verification.md)） |
+| [eval-concurrency-compiled-only](2026-11-04-eval-concurrency-compiled-only.md) | The evaluator keeps concurrency constructs compiled-only | 採用（P5-1 で実装・検証した — [検証](../sketch/2026-11-04-p5-1-concurrency-verification.md)） |
 | [fn-main-entrypoint](2026-11-04-fn-main-entrypoint.md) | `fn main () -> Unit` in `package main` is the Go entrypoint | 採用（`cmd/gom.TestEndToEnd_BuildAndRun` が shim なしで `gom build` → `go build` → 実行まで検証） |
 | [go-collections-and-generics](2026-11-04-go-collections-and-generics.md) | []T → List boundary copies, Go.Slice/Go.Map, and callable generic Go functions | 採用（P3-3 が実装・検証した — [検証](../sketch/2026-11-04-p3-3-go-collections-verification.md)） |
 | [goconv-gotypes-oracle](2026-11-04-goconv-gotypes-oracle.md) | `Go.conv` legality: delegate to `go/types`, recheck after metas solve | draft |

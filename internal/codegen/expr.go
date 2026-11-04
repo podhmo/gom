@@ -573,6 +573,11 @@ func (g *gen) conv(e *core.Conv) ast.Expr {
 	switch e.Kind {
 	case core.ConvNum, core.ConvNamed, core.ConvIface:
 		return &ast.CallExpr{Fun: g.goType(e.Type()), Args: []ast.Expr{x}}
+	case core.ConvChanDir:
+		// The target spells `chan<- T` or `<-chan T` — both need
+		// parens in call position (`<-chan T(x)` would read as a
+		// receive from the conversion `chan T(x)`).
+		return &ast.CallExpr{Fun: &ast.ParenExpr{X: g.goType(e.Type())}, Args: []ast.Expr{x}}
 	case core.ConvBoxAny:
 		return &ast.CallExpr{Fun: ast.NewIdent("any"), Args: []ast.Expr{x}}
 	case core.ConvSliceToGo:

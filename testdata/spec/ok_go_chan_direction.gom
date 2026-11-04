@@ -1,0 +1,24 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// A `Chan a` narrows implicitly at a Go-call boundary (spec
+// section 10.2): bidirectional channels feed `chan<-`/`<-chan`
+// parameters by Go's own assignability.
+fn send_into (v: String) -> Unit = {
+  let ch: Chan String = Chan.make 1
+  goiface.SendOn(ch, v)
+  ()
+}
+
+fn recv_into () -> Option String = {
+  let ch: Chan String = Chan.make 1
+  let (v, ok) = goiface.RecvOn ch
+  if ok { Some v } else { None }
+}
+
+fn bidir () -> Unit = {
+  let ch: Chan String = Chan.make 0
+  goiface.TakeChan ch
+  ()
+}

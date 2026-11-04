@@ -1,0 +1,8 @@
+package main
+
+// A `go` body must produce Unit (spec section 10, item 1): a value
+// the goroutine computes would be silently lost.
+fn main () -> Unit = {
+  let _ = go { 42 }
+  ()
+}

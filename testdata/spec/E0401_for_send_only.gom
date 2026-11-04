@@ -1,0 +1,8 @@
+package ex
+
+// `for x in ch` receives until the channel closes (spec section 10,
+// item 3): a send-only channel cannot be iterated.
+fn drain (jobs: SendChan Int) -> Unit =
+  for j in jobs {
+    ignore j
+  }

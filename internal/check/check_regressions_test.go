@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/podhmo/gom/internal/syntax"
+	"github.com/podhmo/gom/internal/types"
 )
 
 // ---- unifyFunc tail absorption ---------------------------------------
@@ -459,4 +460,19 @@ func TestDivZeroLetBoundOK(t *testing.T) {
 
 	_, diags := b.check(nil, f1)
 	requireCodes(t, diags)
+}
+
+// hasUnboundMeta must look through a Go named type's instantiation
+// args the same way it does Con args — a `gopkg.Box ?m` element
+// type still has unification work pending.
+func TestHasUnboundMetaGoArgs(t *testing.T) {
+	m := &types.Meta{ID: 7}
+	g := &types.Go{Ref: types.NamedRef{Path: "gopkg", Name: "Box"}, Args: []types.Type{m}}
+	if !hasUnboundMeta(g) {
+		t.Errorf("hasUnboundMeta(%v): expected true — meta inside Go args", g)
+	}
+	g.Args = []types.Type{&types.Con{Name: "Int"}}
+	if hasUnboundMeta(g) {
+		t.Errorf("hasUnboundMeta(%v): expected false — all args concrete", g)
+	}
 }

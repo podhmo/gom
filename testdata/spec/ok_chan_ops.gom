@@ -1,0 +1,34 @@
+package ex
+
+// The `Chan` module's operation surface (spec section 10, item 3):
+// make, send, recv (an `Option a` — closed channels yield `None`),
+// close, and the explicit direction views `recvOnly`/`sendOnly`.
+fn collect (ch: Chan Int) -> Int = {
+  let out = drain ch 0
+  out
+}
+
+fn drain (ch: Chan Int) (acc: Int) -> Int =
+  match Chan.recv ch {
+    Some v -> drain ch acc + v
+    None -> acc
+  }
+
+fn run () -> Int = {
+  let ch: Chan Int = Chan.make 2
+  Chan.send ch 1
+  Chan.send ch 2
+  Chan.close ch
+  collect ch
+}
+
+// `for x in ch` receives until the channel closes.
+fn drain_for (ch: RecvChan Int) -> Unit =
+  for v in ch {
+    ignore v
+  }
+
+// The explicit direction views a `Chan a` narrows to — required
+// outside Go-call boundaries.
+fn views (ch: Chan Int) -> (RecvChan Int, SendChan Int) =
+  (Chan.recvOnly ch, Chan.sendOnly ch)

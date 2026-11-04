@@ -70,3 +70,15 @@ func Clamp[T ~int](x, lo, hi T) T {
 	}
 	return x
 }
+
+// Sum64 is Sum over []int64 — the representable slice spelling — so
+// a `List Int` argument copies at the boundary (spec section 8.5),
+// including through `xs |> Sum64` where the piped value conforms to
+// the Go parameter.
+func Sum64(xs []int64) int64 {
+	var n int64
+	for _, x := range xs {
+		n += x
+	}
+	return n
+}

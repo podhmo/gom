@@ -1,0 +1,26 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0701",
+      "severity": "error",
+      "message": "a `go` body's type must be Unit, got Int",
+      "span": {
+        "file": "E0701_go_body_value.gom",
+        "start": {
+          "line": 6,
+          "col": 14,
+          "offset": 168
+        },
+        "end": {
+          "line": 6,
+          "col": 20,
+          "offset": 174
+        }
+      },
+      "data": {
+        "type": "Int"
+      }
+    }
+  ]
+}

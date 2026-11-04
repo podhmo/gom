@@ -1,0 +1,29 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// `<-chan struct{}` maps to `RecvChan Unit` — the `ctx.Done()`
+// shape (spec section 10, item 8): it arms a select directly, and
+// `Chan Unit` narrows to `chan<- struct{}` at the Go boundary.
+fn wait (done: RecvChan Unit) -> Bool =
+  select {
+    _ <- done -> true
+    default -> false
+  }
+
+fn wait_done () -> Bool = wait (goiface.Done ())
+
+fn close_sig (ch: Chan Unit) -> Unit = goiface.CloseSignal ch
+
+// `chan struct{}` maps to `Chan Unit` — a Go-supplied signal
+// channel takes the same `Chan.close` a Gom-made one does.
+fn close_go_sig () -> Unit = {
+  let s = goiface.Signal ()
+  Chan.close s
+}
+
+// `for` iterates any receivable channel, including one Go returns.
+fn waitall () -> Unit =
+  for v in goiface.Done () {
+    ignore v
+  }

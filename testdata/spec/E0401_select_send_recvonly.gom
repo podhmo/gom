@@ -1,0 +1,8 @@
+package ex
+
+// A send arm needs a sendable channel (spec section 10, item 4).
+fn pump (jobs: RecvChan Int) -> Int =
+  select {
+    send jobs 1 -> 1
+    default -> 0
+  }

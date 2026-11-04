@@ -341,7 +341,10 @@ func TestLoadRefusesGomPackages(t *testing.T) {
 	}
 }
 
-// A zero-result function is distinct from one-result Unit-like Go values.
+// A zero-result function is distinct from one-result Unit-like Go
+// values: `func() struct{}` keeps its single `struct{}{}` result —
+// which is what the Gom `Unit` renders as — rather than collapsing
+// to a no-result call.
 func TestZeroResultShape(t *testing.T) {
 	l := loaderFor(t)
 	runtime := membersOf(t, l, "runtime")
@@ -350,8 +353,17 @@ func TestZeroResultShape(t *testing.T) {
 		t.Fatalf("Gosched signature = %+v, %v", sig, ok)
 	}
 	fixture := membersOf(t, l, "github.com/podhmo/gom/testdata/voidhost")
-	if reason := fixture.Members["UnitValue"].Hidden; reason == "" {
-		t.Fatal("anonymous struct result should remain unsupported, not become void")
+	m := fixture.Members["UnitValue"]
+	if m.Hidden != "" {
+		t.Fatalf("struct{} result should load as Unit, hidden as %q", m.Hidden)
+	}
+	ck, ok := l.SignatureOf(m)
+	if !ok {
+		t.Fatal("UnitValue has no signature")
+	}
+	fn, isFn := gt.Chase(ck.Type).(*gt.Func)
+	if !isFn || len(fn.Params) != 0 || !gt.Equal(fn.Ret, gt.Unit) {
+		t.Fatalf("UnitValue signature = %v — want () -> Unit", ck.Type)
 	}
 }
 

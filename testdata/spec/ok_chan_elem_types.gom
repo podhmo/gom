@@ -1,0 +1,33 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// Channel element types follow the ordinary nested mapping: `[]T`
+// is `Go.Slice T` inside a channel (no boundary copy is possible —
+// the channel carries the value through), named Go types are
+// opaque elements, and `error` is `GoError`.
+fn slice_elem (v: Go.Slice Int) -> Unit = {
+  let ch = Chan.make 1
+  goiface.SendSlice(ch, v)
+  ()
+}
+
+fn dur_elem () -> Unit = {
+  let ch = Chan.make 1
+  goiface.TakeDurChan ch
+  ()
+}
+
+fn err_elem () -> Unit = {
+  let ch = Chan.make 1
+  goiface.TakeErrChan ch
+  ()
+}
+
+// A nil channel crosses as nil and is simply never ready in a
+// select — the default arm runs.
+fn nil_sig () -> Bool =
+  select {
+    _ <- goiface.NilSig () -> true
+    default -> false
+  }

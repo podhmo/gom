@@ -128,6 +128,9 @@ func (c *checker) conformExpr(out Expr, want types.Type, sp diag.Span) Expr {
 		if conv := c.sliceConv(want, out.Type(), out, sp); conv != nil {
 			return conv
 		}
+		if conv := c.chanDirConv(want, out, sp); conv != nil {
+			return conv
+		}
 	}
 	// A failed expectation left want unsolved: silence it — the
 	// mismatch diagnostic at sp already tells the user what to fix.
@@ -135,6 +138,96 @@ func (c *checker) conformExpr(out Expr, want types.Type, sp diag.Span) Expr {
 		c.markQuiet(want)
 	}
 	return out
+}
+
+// goWant marks want as a live Go-call parameter type for the extent
+// of the returned function — chanDirConv consults it for the
+// implicit channel direction conversion spec section 10.2 grants Go
+// boundaries. checkGoApply and replayGoApply register each
+// parameter's type around the argument check that conforms to it.
+func (c *checker) goWant(want types.Type) func() {
+	if want == nil {
+		return func() {}
+	}
+	if c.goParamWants == nil {
+		c.goParamWants = map[types.Type]bool{}
+	}
+	c.goParamWants[want] = true
+	return func() { delete(c.goParamWants, want) }
+}
+
+// chanDirConv converts a `Chan a` argument feeding a `SendChan a` or
+// `RecvChan a` Go-call parameter into an Ascribe — the implicit
+// direction narrowing of spec section 10.2 (`Chan a` may go anywhere
+// a directional channel is wanted, matching Go's assignability). The
+// conversion only fires when want is a live Go parameter type
+// (goParamWants): a Gom `SendChan` parameter or a type annotation
+// keeps the explicit `Chan.sendOnly`/`Chan.recvOnly` rule.
+func (c *checker) chanDirConv(want types.Type, out Expr, sp diag.Span) Expr {
+	if !c.goParamWants[want] {
+		return nil
+	}
+	we, wdir, wok := c.chanElem(want)
+	ge, gdir, gok := c.chanElem(out.Type())
+	if !wok || !gok || gdir != "both" || wdir == "both" {
+		return nil
+	}
+	if !types.Equal(we, ge) {
+		// The elements must agree. An unsolved element meta — a
+		// generic callee's type argument — binds through ordinary
+		// unification; a concrete mismatch is reported better by
+		// the outer unify ("expected SendChan String, got Chan Int").
+		if !hasUnboundMeta(we) && !hasUnboundMeta(ge) {
+			return nil
+		}
+		if !c.unify(we, ge, sp) {
+			c.markQuiet(want)
+			return out
+		}
+	}
+	return &Ascribe{Base: baseOf(sp, want), X: out, Conv: true}
+}
+
+// hasUnboundMeta reports whether t contains a meta still awaiting a
+// binding — the case element agreement needs real unification rather
+// than a type-equality check.
+func hasUnboundMeta(t types.Type) bool {
+	switch t := types.Chase(t).(type) {
+	case *types.Meta:
+		return true
+	case *types.Con:
+		for _, a := range t.Args {
+			if hasUnboundMeta(a) {
+				return true
+			}
+		}
+	case *types.Func:
+		for _, p := range t.Params {
+			if hasUnboundMeta(p.Type) {
+				return true
+			}
+		}
+		return hasUnboundMeta(t.Ret)
+	case *types.Tuple:
+		for _, e := range t.Elems {
+			if hasUnboundMeta(e) {
+				return true
+			}
+		}
+	case *types.Go:
+		// An instantiated Go named type — `gopkg.Box ?m` — can
+		// carry metas in its arguments like Con does.
+		for _, a := range t.Args {
+			if hasUnboundMeta(a) {
+				return true
+			}
+		}
+	case *types.Var:
+		return false
+	default:
+		panic("unreachable")
+	}
+	return false
 }
 
 // checkIdent resolves a value-position identifier.
@@ -905,6 +998,25 @@ func (c *checker) pipeCall(e *syntax.Binary, arg, fn Expr) Expr {
 					At(e.Sp).Set("expected", "0").Set("actual", "1"))
 				out.Base = baseOf(e.Sp, ret)
 				return out
+			case arity == 1 && len(params) == 1:
+				// `x |> f` where f is a one-parameter Go callee:
+				// the piped value conforms to the declared
+				// parameter as a Go-boundary argument — `Chan a`
+				// narrows to `chan<-`/`<-chan` (chanDirConv), a
+				// `List` copies to `[]T`, Go interfaces assign —
+				// exactly what `f x` admits (spec 8.5/10.2). The
+				// generic path below applies the callee by plain
+				// unify and would bypass every conversion.
+				undo := c.goWant(params[0].Type)
+				conv := c.conformExpr(arg, params[0].Type, arg.Span())
+				undo()
+				if e.Op == syntax.BinPipeBack {
+					out.Y = conv
+				} else {
+					out.X = conv
+				}
+				out.Base = baseOf(e.Sp, ret)
+				return out
 			}
 		}
 	}
@@ -1430,11 +1542,16 @@ func (c *checker) checkGoExpr(e *syntax.GoExpr) Expr {
 	switch t := types.Chase(body.Type()).(type) {
 	case *types.Meta:
 		// An unconstrained unknown may still be Unit; a
-		// constrained one can never be — that is E0701.
+		// constrained one can never be — that is E0701. A literal
+		// meta reports its default rather than the raw `?n`.
 		if r := c.recOf(t); r != nil && (r.num || r.flo || r.intg || r.ord) {
+			shown := body.Type()
+			if r.dflt != nil {
+				shown = r.dflt
+			}
 			c.diags.Add(diag.Error("E0701",
-				fmt.Sprintf("a `go` body's type must be Unit, got %s", body.Type())).
-				At(body.Span()).Set("type", body.Type().String()))
+				fmt.Sprintf("a `go` body's type must be Unit, got %s", shown)).
+				At(body.Span()).Set("type", shown.String()))
 		} else {
 			c.bind(t, types.Unit, body.Span())
 		}

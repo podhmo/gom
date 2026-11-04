@@ -4,7 +4,9 @@
 // signatures and declared arities — all derived once by running the
 // embedded .gomi interface files through the front half of the
 // pipeline (docs/design.md: the stdlib is built by the compiler
-// itself).
+// itself). The `Chan` and `Task` modules ship alongside them as
+// hand-built tables backed by rt functions (builtin.go): their
+// signatures are not expressible in a .gomi.
 //
 // The interface files are the single source of truth: they are what
 // `gom check stdlib/list` enforces the .gom implementation against
@@ -42,11 +44,13 @@ var packages = []struct {
 
 // env is the loaded standard library: resolver member tables keyed
 // by builtin module name, the check signatures of every member
-// symbol, and their declared arities for lowering.
+// symbol, their declared arities for lowering, and the GoSig oracles
+// of the rt-backed members (Chan/Task).
 type env struct {
 	modules map[string]map[string]*resolve.Symbol
 	sigs    check.MapSource
 	arities map[*resolve.Symbol]int
+	gosigs  map[*resolve.Symbol]lower.GoSig
 }
 
 // load compiles every embedded .gomi once and surfaces it into the
@@ -58,7 +62,9 @@ var load = sync.OnceValues(func() (*env, error) {
 		modules: map[string]map[string]*resolve.Symbol{},
 		sigs:    check.MapSource{},
 		arities: map[*resolve.Symbol]int{},
+		gosigs:  map[*resolve.Symbol]lower.GoSig{},
 	}
+	e.builtinModules()
 	for _, p := range packages {
 		gomiPath := p.pkg + "/" + p.pkg + ".gomi"
 		src, err := gomstdlib.Gomis.ReadFile(gomiPath)
@@ -168,6 +174,16 @@ func Apply(o *build.Options) *build.Options {
 			return base(sym)
 		}
 		return -1
+	}
+	baseGoSig := le.GoSig
+	le.GoSig = func(sym *resolve.Symbol) (lower.GoSig, bool) {
+		if s, ok := e.gosigs[sym]; ok {
+			return s, true
+		}
+		if baseGoSig != nil {
+			return baseGoSig(sym)
+		}
+		return lower.GoSig{}, false
 	}
 	o.Lower = &le
 	return o

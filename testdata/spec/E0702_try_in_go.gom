@@ -1,0 +1,11 @@
+package main
+
+import go "strconv"
+
+fn parse (s: String) -> Result Int GoError = strconv.Atoi(s)
+
+// `go { ... }` is not a function boundary (spec section 10): a
+// `try` inside it would escape across a goroutine boundary (E0702).
+fn main () -> Unit = {
+  go { let _ = try parse "1" }
+}

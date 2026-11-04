@@ -1665,6 +1665,33 @@ func TestErrorPaths(t *testing.T) {
 		}
 	})
 
+	// A host function can hand the evaluator a real channel as a
+	// VHost — but `for` iterates List values only; channel iteration
+	// is compiled-only like `go`/`select` (the concurrency decision
+	// in docs/decisions/2026-11-04-eval-concurrency-compiled-only.md).
+	t.Run("for over a host channel unsupported", func(t *testing.T) {
+		goSym := &resolve.Symbol{Name: "makeChan", Kind: resolve.KindFunc, IsGo: true, Package: "rt"}
+		env := eval.NewEnv()
+		env.Bind(goSym, eval.NewHostFunc("rt.makeChan", 0, func(args []eval.Value) (eval.Value, error) {
+			ch := make(chan int64, 1)
+			ch <- 1
+			close(ch)
+			return &eval.VHost{V: ch}, nil
+		}))
+		member := &check.MemberExpr{Base: b(types.Fn(types.Chan(types.Int))),
+			Recv: vr(sym("rt", resolve.KindModule), types.Unit),
+			Sel:  &syntax.Ident{Sp: sp, Name: "makeChan"}, Sym: goSym, Index: -1}
+		call := &check.Apply{Base: b(types.Chan(types.Int)), Fn: member,
+			Call: check.CallInfo{Kind: check.CallGo, Callee: goSym, Arity: 0, Applied: 0, HoleIndex: -1}}
+		p, _ := vpat("x", types.Int)
+		x := &check.For{Base: b(types.Unit), Pat: p, Iter: call,
+			Body: block(types.Unit, unitLit())}
+		d := evalFail(t, env, x)
+		if d.Code != eval.CodeUnsupported {
+			t.Fatalf("code = %s, want %s", d.Code, eval.CodeUnsupported)
+		}
+	})
+
 	t.Run("unbound Go call unsupported", func(t *testing.T) {
 		resT := types.Result(types.Int, types.GoError)
 		goSym := &resolve.Symbol{Name: "Atoi", Kind: resolve.KindFunc, IsGo: true, Package: "strconv"}

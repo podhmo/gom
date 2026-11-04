@@ -193,9 +193,13 @@ generated from — useful when generated code surprises you.
   `Result.map_err` and friends resolve without an import — the
   worked-on value is the last parameter so `xs |> List.map f`
   pipelines. See `stdlib/{list,option,result}/*.gomi` for the full
-  surface. Still unimplemented: `Chan.*`, `Task.*`, `Ref.*`,
+  surface. Concurrency is stdlib-backed too: `Chan.make`,
+  `Chan.send`, `Chan.recv` (`Option a` — `None` once closed),
+  `Chan.close`, `Chan.recvOnly`, `Chan.sendOnly`, `Task.spawn`
+  (`(Unit -> a) -> Task a`), `Task.await` (`Task a -> a`,
+  re-panics a captured panic). Still unimplemented: `Ref.*`,
   `Array.*` — those member tables are empty and report E0201
-  "exposes no members yet"; get channels from function parameters.
+  "exposes no members yet".
 
 ## Newlines (no indentation rules)
 
@@ -604,8 +608,8 @@ fn main () -> Unit = {
 }
 ```
 
-Wrap the `try` in a lambda inside the goroutine (or use `Task.spawn`
-once stdlib lands), and make the `try`ing function's return type a
+Wrap the `try` in a lambda inside the goroutine (or use
+`Task.spawn`), and make the `try`ing function's return type a
 `Result` whose error type matches the tried value's.
 
 ## Things that don't exist

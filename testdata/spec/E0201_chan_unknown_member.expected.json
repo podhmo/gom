@@ -1,0 +1,28 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0201",
+      "severity": "error",
+      "message": "`Chan` has no member `bogus`",
+      "span": {
+        "file": "E0201_chan_unknown_member.gom",
+        "start": {
+          "line": 4,
+          "col": 16,
+          "offset": 52
+        },
+        "end": {
+          "line": 4,
+          "col": 21,
+          "offset": 57
+        }
+      },
+      "data": {
+        "in": "Chan",
+        "name": "bogus",
+        "namespace": "member"
+      }
+    }
+  ]
+}

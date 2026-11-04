@@ -334,6 +334,16 @@ func (l *Loader) mapType(t types.Type, goView bool) (gt.Type, string) {
 		default:
 			return nil, fmt.Sprintf("unsupported channel direction %d", t.Dir())
 		}
+	case *types.Struct:
+		if t.NumFields() == 0 {
+			// `struct{}` is the element type of Go's signal
+			// channels (`chan struct{}`, `<-chan struct{}` —
+			// `ctx.Done()`); it maps to Unit, whose Go
+			// representation is `struct{}` (spec section 10 —
+			// `RecvChan Unit` receives `struct{}{}` values).
+			return gt.Unit, ""
+		}
+		return nil, "Go struct types are not supported yet"
 	case *types.Interface:
 		if isErrorIface(t) {
 			return gt.GoError, ""

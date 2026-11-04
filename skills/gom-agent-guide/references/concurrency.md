@@ -5,14 +5,13 @@ and channels directly; the language adds exactly three pieces of
 syntax: the `go` expression, channel types, and the `select`
 expression.
 
-**Implementation status:** the syntax, channel types, `select`, and
-`for x in ch` parse and type-check today. The channel/task helper
-functions (`Chan.make`, `Chan.send`, `Chan.recv`, `Chan.close`,
-`Chan.recvOnly`, `Chan.sendOnly`, `Task.spawn`, `Task.await`) are
-standard-library members that are **not implemented yet** (task
-P4-8) — references report E0201 "exposes no members yet". Obtain
-channel values from function parameters or Go calls meanwhile; the
-examples below are written that way so they `gom check` today.
+**Implementation status:** the syntax, channel types, `select`,
+`for x in ch`, and the channel/task helpers (`Chan.make`,
+`Chan.send`, `Chan.recv`, `Chan.close`, `Chan.recvOnly`,
+`Chan.sendOnly`, `Task.spawn`, `Task.await`) are implemented — they
+forward to `rt` helpers and work in compiled programs and `gom
+test`. The evaluator stays compiled-only for `go`/`select`/channel
+`for` (E9001).
 
 ## `go { }`
 
@@ -35,14 +34,14 @@ wrap the body in a lambda or `Task.spawn` to `try` inside it.
 ## Channel types
 
 `Chan a` (bidirectional), `RecvChan a`, `SendChan a`. Restrict
-direction with `Chan.recvOnly` / `Chan.sendOnly` (pending); when
-passed to a Go function, channels convert implicitly by Go's
-assignability rules.
+direction with `Chan.recvOnly` / `Chan.sendOnly` — required at
+Gom-call boundaries; when passed to a *Go* function, channels
+convert implicitly by Go's assignability rules.
 
-Planned stdlib surface (spec; pending): `Chan.make n` (`n = 0`
-unbuffered), `Chan.send ch v : Unit`, `Chan.recv ch : Option a`
-(`None` once closed), `Chan.close ch`, `Task.spawn : (Unit -> a) ->
-Task a`, `Task.await : Task a -> a` (re-panics a captured panic).
+Stdlib surface: `Chan.make n` (`n = 0` unbuffered),
+`Chan.send ch v : Unit`, `Chan.recv ch : Option a` (`None` once
+closed), `Chan.close ch`, `Task.spawn : (Unit -> a) -> Task a`,
+`Task.await : Task a -> a` (re-panics a captured panic).
 
 ## `select`
 

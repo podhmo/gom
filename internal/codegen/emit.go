@@ -850,6 +850,10 @@ func (g *gen) convOf(kind core.ConvKind, target types.Type, x ast.Expr) ast.Expr
 		return x
 	case core.ConvNum, core.ConvNamed, core.ConvIface:
 		return &ast.CallExpr{Fun: g.goType(target), Args: []ast.Expr{x}}
+	case core.ConvChanDir:
+		// Parenthesized like in conv — `<-chan T` cannot stand bare
+		// in call position.
+		return &ast.CallExpr{Fun: &ast.ParenExpr{X: g.goType(target)}, Args: []ast.Expr{x}}
 	case core.ConvBoxAny:
 		return &ast.CallExpr{Fun: ast.NewIdent("any"), Args: []ast.Expr{x}}
 	case core.ConvSliceToGo:

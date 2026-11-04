@@ -528,6 +528,9 @@ func (c *checker) checkGoApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol,
 			// reported the cause.
 			pt = c.quietMeta(g.sp, "the Go argument's parameter type")
 		}
+		// The argument conforms at a Go boundary — the channel
+		// direction conversion of spec section 10.2 may apply.
+		undo := c.goWant(pt)
 		var argExpr Expr
 		switch av := g.x.(type) {
 		case nil:
@@ -574,6 +577,7 @@ func (c *checker) checkGoApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol,
 		default:
 			panic("unreachable")
 		}
+		undo()
 		out.Args = append(out.Args, Arg{Label: g.label, LabelSp: g.labelSp, Value: argExpr})
 		mapping = append(mapping, pi)
 	}
@@ -969,6 +973,9 @@ func (c *checker) replayGoApply(pa *pendingApply) {
 		} else {
 			pt = c.quietMeta(g.sp, "the Go argument's parameter type")
 		}
+		// The argument conforms at a Go boundary — the channel
+		// direction conversion of spec section 10.2 may apply.
+		undo := c.goWant(pt)
 		var argExpr Expr
 		switch v := g.x.(type) {
 		case *Hole:
@@ -1011,6 +1018,7 @@ func (c *checker) replayGoApply(pa *pendingApply) {
 		default:
 			panic("unreachable")
 		}
+		undo()
 		newArgs = append(newArgs, Arg{Label: g.label, LabelSp: g.labelSp, Value: argExpr})
 		mapping = append(mapping, pi)
 	}

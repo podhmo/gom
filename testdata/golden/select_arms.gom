@@ -1,0 +1,20 @@
+package ex
+
+// Select arms map one-to-one to Go select cases: receive binds
+// `Option a` (converted from the (v, ok) pair), send takes channel
+// and value, default is the non-blocking arm.
+fn poll (jobs: RecvChan Int) (done: RecvChan Unit) -> Int =
+  select {
+    r <- jobs -> match r {
+      Some v -> v
+      None -> 0
+    }
+    _ <- done -> -1
+    default -> -2
+  }
+
+fn offer (ch: SendChan Int) (v: Int) -> Bool =
+  select {
+    send ch v -> true
+    default -> false
+  }

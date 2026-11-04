@@ -299,3 +299,144 @@ func TestTestGoBuildFailure(t *testing.T) {
 		t.Errorf("diagnostic message = %v", d["message"])
 	}
 }
+
+// concGom exercises spec section 10 end to end through `gom test`:
+// buffered sends and the closed-channel `None`, a `go` producer
+// rendezvousing on an unbuffered channel, `for` draining until
+// close, all three select arm kinds, the explicit direction views,
+// implicit narrowing at a `chan<-`/`<-chan`/`<-chan struct{}` Go
+// boundary, and Task.spawn/await. Every case is deterministic —
+// channels are buffered or the test body is the sole receiver, and
+// no select has more than one non-default arm ready.
+const concGom = `package m
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+test "buffered channel" {
+  let ch: Chan Int = Chan.make 2
+  Chan.send ch 1
+  Chan.send ch 2
+  Chan.close ch
+  assert_eq (Chan.recv ch) (Some 1)
+  assert_eq (Chan.recv ch) (Some 2)
+  assert_eq (Chan.recv ch) None
+}
+
+test "go rendezvous" {
+  let ch: Chan Int = Chan.make 0
+  go { Chan.send ch 42 }
+  assert_eq (Chan.recv ch) (Some 42)
+}
+
+test "for drains until close" {
+  let ch: Chan Int = Chan.make 0
+  go {
+    Chan.send ch 1
+    Chan.send ch 2
+    Chan.close ch
+  }
+  for v in ch {
+    ignore v
+  }
+}
+
+test "select default when empty" {
+  let ch: Chan Int = Chan.make 0
+  assert_eq (select {
+    _ <- ch -> 1
+    default -> -1
+  }) (-1)
+}
+
+test "select buffered recv" {
+  let ch: Chan Int = Chan.make 1
+  Chan.send ch 7
+  assert_eq (select {
+    r <- ch -> match r {
+      Some v -> v
+      None -> -1
+    }
+    default -> -2
+  }) 7
+}
+
+test "select send fires when buffered" {
+  let ch: Chan Int = Chan.make 1
+  assert_eq (select {
+    send ch 5 -> true
+    default -> false
+  }) true
+}
+
+test "direction views" {
+  let ch: Chan Int = Chan.make 1
+  let out = Chan.sendOnly ch
+  go { Chan.send out 1 }
+  assert_eq (Chan.recv (Chan.recvOnly ch)) (Some 1)
+}
+
+test "go chan boundary" {
+  let ch: Chan String = Chan.make 1
+  goiface.SendOn(ch, "hi")
+  assert_eq (goiface.RecvOn ch) ("hi", true)
+}
+
+test "ctx done shape" {
+  let done = goiface.Done ()
+  assert_eq (select {
+    _ <- done -> true
+    default -> false
+  }) false
+}
+
+test "nil chan never ready" {
+  let n = goiface.NilSig ()
+  assert_eq (select {
+    _ <- n -> true
+    default -> false
+  }) false
+}
+
+test "notify done" {
+  let done: Chan Unit = Chan.make 0
+  let out: Chan String = Chan.make 1
+  go { goiface.NotifyDone(done, out, "ok") }
+  Chan.close done
+  assert_eq (Chan.recv out) (Some "ok")
+}
+
+test "task await" {
+  let t = Task.spawn (fn () -> 6 * 7)
+  assert_eq (Task.await t) 42
+}
+`
+
+// TestTestConcurrency: the generated code for the section-10
+// surface compiles and behaves under the real Go toolchain — every
+// `test` in concGom reports ok.
+func TestTestConcurrency(t *testing.T) {
+	haveGo(t)
+	dir := writeFiles(t, map[string]string{"c.gom": concGom})
+	testModule(t, dir)
+
+	code, out, errout := invoke("test", filepath.Join(dir, "c.gom"))
+	if errout != "" {
+		t.Fatalf("stderr = %q", errout)
+	}
+	lines := jsonLines(t, out)
+	var tests []map[string]any
+	for _, l := range lines {
+		if l["kind"] == "test" {
+			tests = append(tests, l)
+		}
+	}
+	if code != 0 || len(tests) != 12 {
+		t.Fatalf("exit = %d, tests = %d, want 0 and 12; tests=%v out=%q",
+			code, len(tests), tests, out)
+	}
+	for _, tc := range tests {
+		if tc["ok"] != true {
+			t.Errorf("test %v failed: %v", tc["name"], tc)
+		}
+	}
+}

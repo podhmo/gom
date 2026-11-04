@@ -1,0 +1,8 @@
+package ex
+
+// The pipe's Go-boundary conformance applies to Go callees only:
+// a Gom `SendChan` parameter keeps requiring `Chan.sendOnly`,
+// piped or not.
+fn sink (ch: SendChan Int) -> Unit = ignore ch
+
+fn bad (jobs: Chan Int) -> Unit = jobs |> sink

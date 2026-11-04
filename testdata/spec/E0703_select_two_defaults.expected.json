@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0703",
+      "severity": "error",
+      "message": "a select may have at most one default arm",
+      "span": {
+        "file": "E0703_select_two_defaults.gom",
+        "start": {
+          "line": 9,
+          "col": 5,
+          "offset": 181
+        },
+        "end": {
+          "line": 9,
+          "col": 18,
+          "offset": 194
+        }
+      }
+    }
+  ]
+}

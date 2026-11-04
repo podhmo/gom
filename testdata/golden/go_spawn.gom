@@ -1,0 +1,12 @@
+package ex
+
+// `go { ... }` lowers to a Go goroutine; its Unit body is a
+// sequence of channel operations.
+fn later (ch: SendChan Int) (v: Int) -> Unit =
+  go { Chan.send ch v }
+
+fn keep () -> Unit = {
+  let ch: Chan Int = Chan.make 1
+  go { Chan.send ch 1 }
+  ()
+}

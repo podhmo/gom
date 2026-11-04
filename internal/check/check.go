@@ -151,6 +151,17 @@ type checker struct {
 	bounds  []boundary
 	goDepth int
 
+	// goParamWants is the set of want-types currently standing as a
+	// Go-call parameter type — the boundary the implicit channel
+	// direction conversion of spec section 10.2 applies to. It is
+	// keyed by the parameter's type object: checkExpr propagates the
+	// same object into the nested positions (block tails, if/match
+	// arms, select arms) that share the parameter's want, so the
+	// conversion stays scoped to exactly the wants a Go signature
+	// declared — a nested Gom call's own parameter types are never
+	// registered and keep the explicit-conversion rule.
+	goParamWants map[types.Type]bool
+
 	// inTest marks checking inside a `test` declaration's body —
 	// the only place assert and assert_eq may appear (E0803). The
 	// flag is syntactic: a lambda nested in a test still sees the

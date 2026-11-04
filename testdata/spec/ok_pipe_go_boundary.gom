@@ -1,0 +1,17 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// `x |> f` where f is a one-parameter Go callee conforms the piped
+// value to the Go parameter — the same boundary conversions `f x`
+// admits apply (spec 8.5, 10.2): a `Chan a` narrows to `chan<-`/
+// `<-chan`, a `List` copies to `[]T`, and the backpipe `<|` spells
+// the same call with the operands swapped. Go calls are not
+// curried, so only arity-1 callees can take a pipe.
+fn close_via_pipe (ch: Chan Unit) -> Unit = ch |> goiface.CloseSignal
+
+fn close_via_backpipe (ch: Chan Unit) -> Unit = goiface.CloseSignal <| ch
+
+fn recv_via_pipe (ch: Chan Int) -> Option Int = ch |> Chan.recv
+
+fn sum_via_pipe (xs: List Int) -> Int = xs |> goiface.Sum64

@@ -1272,6 +1272,13 @@ func (v *validator) conv(e *Conv) {
 	case ConvNum, ConvNamed, ConvBoxAny, ConvIface:
 		// operand/target legality is Go's conversion and
 		// assignability rules — settled at check time.
+	case ConvChanDir:
+		if t := atomType(e.X); t != nil && !v.conIs(t, "", "Chan", 1) {
+			v.err(e.Sp, "Conv", "chan-dir operand type %s is not a Chan", t)
+		}
+		if e.Typ != nil && !v.conIs(e.Typ, "", "SendChan", 1) && !v.conIs(e.Typ, "", "RecvChan", 1) {
+			v.err(e.Sp, "Conv", "chan-dir result type %s is not a SendChan or RecvChan", e.Typ)
+		}
 	case ConvSliceToGo:
 		if t := atomType(e.X); t != nil && !v.conIs(t, "", "List", 1) {
 			v.err(e.Sp, "Conv", "slice-to-go operand type %s is not a List", t)

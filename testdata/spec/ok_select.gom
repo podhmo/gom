@@ -1,0 +1,30 @@
+package ex
+
+// `select` is an expression: receive arms bind `Option a`, send
+// arms take the channel and value, and `default` makes the call
+// non-blocking (spec section 10, items 4-6).
+fn poll (jobs: RecvChan Int) (done: RecvChan Unit) -> Int =
+  select {
+    r <- jobs -> match r {
+      Some v -> v
+      None -> 0
+    }
+    _ <- done -> -1
+    default -> -2
+  }
+
+fn offer (ch: SendChan Int) (v: Int) -> Bool =
+  select {
+    send ch v -> true
+    default -> false
+  }
+
+fn both (jobs: Chan Int) (v: Int) -> Int =
+  select {
+    send jobs v -> v
+    r <- jobs -> match r {
+      Some got -> got
+      None -> -1
+    }
+    default -> 0
+  }

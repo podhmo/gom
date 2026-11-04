@@ -306,6 +306,10 @@ const (
 	// into a `...any` variadic needs, which Go itself cannot express
 	// (a []T cannot splice into ...any).
 	ConvSliceBox
+	// ConvChanDir narrows a `Chan a` to `SendChan a` or `RecvChan a` —
+	// the implicit channel direction conversion of spec section 10.2
+	// at Go-call boundaries (`chan<- T(x)` / `(<-chan T)(x)`).
+	ConvChanDir
 )
 
 // String returns the kind name for debugging.
@@ -325,6 +329,8 @@ func (k ConvKind) String() string {
 		return "slice-from-go"
 	case ConvSliceBox:
 		return "slice-box"
+	case ConvChanDir:
+		return "chan-dir"
 	default:
 		return "ConvKind(?)"
 	}

@@ -594,6 +594,10 @@ func (l *lowerer) goConvKindOf(from, to types.Type) (core.ConvKind, bool) {
 		// A Go slice reaching a List position — copy out
 		// (`list.FromSlice`).
 		return core.ConvSliceFromGo, true
+	case l.chanDirPair(from, to):
+		// A `Chan a` feeding a directional channel — the implicit
+		// narrowing of spec section 10.2.
+		return core.ConvChanDir, true
 	}
 	return 0, false
 }
@@ -2387,7 +2391,31 @@ func (l *lowerer) convKind(from, to types.Type) core.ConvKind {
 	if l.isNumericCon(from) && l.isNumericCon(to) {
 		return core.ConvNum
 	}
+	if l.chanDirPair(from, to) {
+		return core.ConvChanDir
+	}
 	return core.ConvNamed
+}
+
+// chanDirPair reports whether (from, to) names the channel direction
+// narrowing spec section 10.2 admits — a builtin `Chan a` feeding a
+// `SendChan a` or `RecvChan a` of the same element type (Go's
+// channel-direction assignability). A file-local `type Chan` (or a
+// local directional type) is an ADT, not a channel — declaredT keeps
+// the pair from matching it.
+func (l *lowerer) chanDirPair(from, to types.Type) bool {
+	fc, ok := types.Chase(from).(*types.Con)
+	if !ok || fc.Qual != "" || fc.Name != "Chan" || len(fc.Args) != 1 || l.declaredT(fc) {
+		return false
+	}
+	tc, ok := types.Chase(to).(*types.Con)
+	if !ok || tc.Qual != "" || len(tc.Args) != 1 || l.declaredT(tc) {
+		return false
+	}
+	if tc.Name != "SendChan" && tc.Name != "RecvChan" {
+		return false
+	}
+	return types.Equal(fc.Args[0], tc.Args[0])
 }
 
 // isNumericCon reports whether t is one of the numeric constructors

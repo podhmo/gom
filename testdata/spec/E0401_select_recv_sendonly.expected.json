@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "cannot receive on a send-only channel",
+      "span": {
+        "file": "E0401_select_recv_sendonly.gom",
+        "start": {
+          "line": 7,
+          "col": 10,
+          "offset": 201
+        },
+        "end": {
+          "line": 7,
+          "col": 14,
+          "offset": 205
+        }
+      }
+    }
+  ]
+}

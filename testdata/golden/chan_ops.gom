@@ -1,0 +1,25 @@
+package ex
+
+// The Chan module forwards to rt helpers: make, send, recv (as the
+// (v, ok) -> Option conversion), close, and for-in as range.
+fn run () -> Int = {
+  let ch: Chan Int = Chan.make 2
+  Chan.send ch 1
+  Chan.send ch 2
+  Chan.close ch
+  drain ch 0
+}
+
+fn drain (ch: Chan Int) (acc: Int) -> Int =
+  match Chan.recv ch {
+    Some v -> drain ch acc + v
+    None -> acc
+  }
+
+fn drain_for (ch: RecvChan Int) -> Unit =
+  for v in ch {
+    ignore v
+  }
+
+fn views (ch: Chan Int) -> (RecvChan Int, SendChan Int) =
+  (Chan.recvOnly ch, Chan.sendOnly ch)

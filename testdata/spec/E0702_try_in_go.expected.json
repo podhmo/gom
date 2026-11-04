@@ -1,0 +1,26 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0702",
+      "severity": "error",
+      "message": "`try` cannot escape across a `go` boundary; the spawned task cannot return a Result",
+      "span": {
+        "file": "E0702_try_in_go.gom",
+        "start": {
+          "line": 10,
+          "col": 16,
+          "offset": 268
+        },
+        "end": {
+          "line": 10,
+          "col": 29,
+          "offset": 281
+        }
+      },
+      "data": {
+        "boundary": "fn"
+      }
+    }
+  ]
+}

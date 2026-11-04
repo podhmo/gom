@@ -201,10 +201,10 @@ gom/
 │   ├── codegen/      Core IR → go/ast（宛先渡し、sum type、_test.go の出力）
 │   ├── diag/         診断の型、JSON / text 出力、エラーコード表、JSON Schema
 │   ├── build/        パッケージグラフ、インクリメンタルビルド、キャッシュ、go build / go test の呼び出し
-│   ├── stdlib/       埋め込み .gomi から組み込みモジュール表・シグネチャ・arity を作る配線（gomstd.Apply）
+│   ├── stdlib/       埋め込み .gomi から組み込みモジュール表・シグネチャ・arity を作る配線（gomstd.Apply）＋手書きの builtin 表（`Chan`/`Task` — [decision](decisions/2026-11-04-builtin-chan-task-rt.md)）
 │   └── tool/         リポジトリのツール（同期ジェネレータなど。コンパイラのフェーズではない）
 ├── rt/               生成コードが import する補助（Tuple、Task、アサーションなど）。stdlib の表現を参照しない葉
-├── stdlib/           Gom で書いた標準ライブラリ（list, option, result, chan, task）。各パッケージに .gomi。
+├── stdlib/           Gom で書いた標準ライブラリ（list, option, result）。各パッケージに .gomi。
 │                     types.go が手書きの Go 表現、.go / _test.go は `gom build` / `gom test` の生成物でコミットする
 ├── testdata/
 │   ├── spec/         仕様の規則ごとの .gom と、期待する診断 JSON

@@ -1,0 +1,27 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected Int, got String",
+      "span": {
+        "file": "E0401_select_arm_mismatch.gom",
+        "start": {
+          "line": 7,
+          "col": 19,
+          "offset": 184
+        },
+        "end": {
+          "line": 7,
+          "col": 22,
+          "offset": 187
+        }
+      },
+      "data": {
+        "actual": "String",
+        "expected": "Int"
+      }
+    }
+  ]
+}

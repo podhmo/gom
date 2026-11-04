@@ -1,0 +1,11 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// The mirror of E0401_go_chan_recv_as_send: a `SendChan a` can
+// never feed a `<-chan` parameter — Go has no such assignability
+// either direction.
+fn bad (jobs: SendChan String) -> String = {
+  let (v, ok) = goiface.RecvOn jobs
+  if ok { v } else { "closed" }
+}

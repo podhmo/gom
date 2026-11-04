@@ -27,7 +27,11 @@
 // values, and member selection of unbound module members. Go
 // functions CAN be supplied by the harness as host functions bound in
 // the environment (see NewHostFunc), which makes even CallGo nodes
-// evaluable — including the cute `_` placeholder.
+// evaluable — including the cute `_` placeholder. The `go`/`select`/
+// channel-`for` boundary is deliberate, not a gap: the evaluator is
+// the deterministic comparison oracle of design section 7, and
+// syntax-level concurrency has no host-function escape hatch —
+// docs/decisions/2026-11-04-eval-concurrency-compiled-only.md.
 //
 // # Errors
 //

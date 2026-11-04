@@ -89,6 +89,11 @@ func (l *Loader) boundaryType(t gt.Type) types.Type {
 		if gt.Equal(t, gt.GoError) {
 			return types.Universe.Lookup("error").Type()
 		}
+		if gt.Equal(t, gt.Unit) {
+			// Unit renders as `struct{}` — needed inside channel
+			// types so `Chan Unit` relates to `chan struct{}`.
+			return types.NewStruct(nil, nil)
+		}
 		for _, b := range []struct {
 			gom    gt.Type
 			goKind types.BasicKind

@@ -96,7 +96,7 @@ let task = Task.spawn <| fn () -> {
 let handle = parse >> validate >> render
 ```
 
-（`List.filter` / `List.map` / `List.sum` は `stdlib/list` として実装済み（P4-8）。`Task.spawn` は並行処理と `Task`（P5-1）の実装待ち）
+（`List.filter` / `List.map` / `List.sum` は `stdlib/list` として、`Task.spawn` は並行処理と `Task`（P5-1）として実装済み）
 
 - これらは二項演算子の中で最も優先順位が低く、左結合。`a + b |> f` は `f (a + b)`、`f <| a <| b` は `f a b`
 - 標準ライブラリはデータを最後の引数に取るので、`|>` で自然につながる
@@ -543,7 +543,7 @@ fn next_job (ctx: context.Context) (jobs: RecvChan Job) -> Result Job Stop =
   }
 ```
 
-（`Option.get` / `List.*` の各メンバーは `stdlib/{option,list}` として実装済み（P4-8）。`Chan` は並行処理（P5-1）の実装待ち。`ctx.Done()` の `<-chan struct{}` 戻り値も未対応 — [implementation-gaps](implementation-gaps.md) 参照）
+（`Option.get` / `List.*` は `stdlib/{option,list}`、`Chan` / `Task` は並行処理（P5-1）として実装済み。`ctx.Done()` の `<-chan struct{}` は `RecvChan Unit` として受け取れる）
 
 1. `go { e }` は `e` を新しい goroutine で評価する式で、型は `Unit`。`e` が `Unit` 以外ならエラー
 2. チャネル型は `Chan a`（双方向）、`RecvChan a`、`SendChan a`。方向の制限は `Chan.recvOnly` / `Chan.sendOnly` で明示的に変換する。Go 関数に渡すときだけは Go の代入規則に合わせて暗黙に変換する

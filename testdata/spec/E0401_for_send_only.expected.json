@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "cannot iterate a send-only channel",
+      "span": {
+        "file": "E0401_for_send_only.gom",
+        "start": {
+          "line": 6,
+          "col": 12,
+          "offset": 184
+        },
+        "end": {
+          "line": 6,
+          "col": 16,
+          "offset": 188
+        }
+      }
+    }
+  ]
+}

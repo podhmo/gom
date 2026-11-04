@@ -23,6 +23,11 @@ literal-lexical-details]:
 - identifiers: ASCII only; unicode letters and OCaml-style trailing `'`
   are unspecified
 - keywords usable as member names after `.` (needed for `Chan.send`)
+  — current behavior is split: `Chan.send ch v` and `(Chan.send)`
+  work, but a bare `Chan.send` in value position (e.g.
+  `let f = Chan.send`) does not parse — `send` lexes as the select
+  keyword and the mis-parse surfaces as E0101 at the following
+  block item (observed while wiring P5-1's `Chan` module, 2026-11-04)
 
 ## Why it is a problem
 

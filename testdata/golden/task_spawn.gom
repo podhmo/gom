@@ -1,0 +1,16 @@
+package ex
+
+// `Task.spawn` wraps the `Unit -> a` thunk in rt.SpawnTask —
+// `func(struct{}) T` on the Go side — and `Task.await` blocks on
+// rt.AwaitTask, re-throwing a captured panic.
+fn compute () -> Int = 6 * 7
+
+fn spawn_named () -> Int = {
+  let t = Task.spawn compute
+  Task.await t
+}
+
+fn spawn_lambda () -> Int = {
+  let t = Task.spawn (fn () -> 1 + 2)
+  Task.await t
+}

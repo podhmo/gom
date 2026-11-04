@@ -1,0 +1,27 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected SendChan String, got Chan String",
+      "span": {
+        "file": "E0401_gom_chan_direction.gom",
+        "start": {
+          "line": 10,
+          "col": 8,
+          "offset": 295
+        },
+        "end": {
+          "line": 10,
+          "col": 10,
+          "offset": 297
+        }
+      },
+      "data": {
+        "actual": "Chan String",
+        "expected": "SendChan String"
+      }
+    }
+  ]
+}

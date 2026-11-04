@@ -1,0 +1,9 @@
+package ex
+
+// A receive arm needs a receivable channel (spec section 10, item
+// 4): a send-only channel cannot appear on the left of a case.
+fn poll (jobs: SendChan Int) -> Int =
+  select {
+    r <- jobs -> 1
+    default -> 0
+  }

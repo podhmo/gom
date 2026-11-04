@@ -1,0 +1,18 @@
+package ex
+
+// `Task.spawn : (Unit -> a) -> Task a` starts a goroutine;
+// `Task.await : Task a -> a` blocks for its result (spec section
+// 10, item 9). A panic inside the task re-panics at the await.
+fn compute () -> Int = 6 * 7
+
+fn spawn_named () -> Int = {
+  let t = Task.spawn compute
+  Task.await t
+}
+
+fn spawn_lambda () -> Int = {
+  let t = Task.spawn (fn () -> 1 + 2)
+  Task.await t
+}
+
+fn await_value (t: Task String) -> String = Task.await t

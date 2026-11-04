@@ -1,0 +1,22 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// A `Chan a` narrows implicitly at a Go-call boundary: the same
+// channel value reaches `chan<-`/`<-chan` parameters with no
+// conversion expression — Go assignability does the work.
+fn send_into (v: String) -> Unit = {
+  let ch: Chan String = Chan.make 1
+  goiface.SendOn(ch, v)
+  ()
+}
+
+// `<-chan struct{}` arrives as `RecvChan Unit` (ctx.Done()'s
+// shape); `Chan Unit` narrows to `chan<- struct{}` outbound.
+fn wait (done: RecvChan Unit) -> Bool =
+  select {
+    _ <- done -> true
+    default -> false
+  }
+
+fn close_sig (ch: Chan Unit) -> Unit = goiface.CloseSignal ch

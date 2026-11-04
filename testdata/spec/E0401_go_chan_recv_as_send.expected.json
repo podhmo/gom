@@ -1,0 +1,27 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected SendChan String, got RecvChan String",
+      "span": {
+        "file": "E0401_go_chan_recv_as_send.gom",
+        "start": {
+          "line": 9,
+          "col": 18,
+          "offset": 303
+        },
+        "end": {
+          "line": 9,
+          "col": 22,
+          "offset": 307
+        }
+      },
+      "data": {
+        "actual": "RecvChan String",
+        "expected": "SendChan String"
+      }
+    }
+  ]
+}

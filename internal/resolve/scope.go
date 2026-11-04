@@ -117,9 +117,10 @@ func (t *tvScope) implicitScope() *tvScope {
 // Builtin module member tables come from Config.Modules, consulted
 // at member-lookup time (builtinModuleTable) rather than here.
 // internal/stdlib populates List/Option/Result from the shipped
-// .gomi files; Ref/Array/Chan/Task stay unimplemented, and a lookup
-// on a module with no table is E0201 — either a wiring gap or a
-// missing stdlib member set (undefinedMember distinguishes them).
+// .gomi files and Chan/Task from the rt-backed tables of its
+// builtin.go; Ref/Array stay unimplemented, and a lookup on a module
+// with no table is E0201 — either a wiring gap or a missing stdlib
+// member set (undefinedMember distinguishes them).
 func builtinScope() *scope {
 	s := &scope{terms: map[string]*Symbol{}, types: map[string]*Symbol{}}
 	for _, name := range []string{
@@ -169,6 +170,7 @@ func builtinGoMembers() map[string]*Symbol {
 // feature, and the E0201 note says so.
 var stdlibModules = map[string]bool{
 	"List": true, "Option": true, "Result": true,
+	"Chan": true, "Task": true,
 }
 
 // builtinModuleTable returns the member table of a builtin-scope

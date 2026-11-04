@@ -1,0 +1,11 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// The implicit narrowing of spec 10.2 only widens `Chan a` into a
+// directional parameter — a `RecvChan a` can never feed a `chan<-`
+// (Go has no such assignability either).
+fn bad (jobs: RecvChan String) -> Unit = {
+  goiface.SendOn(jobs, "x")
+  ()
+}

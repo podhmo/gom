@@ -1,0 +1,12 @@
+package main
+
+// The implicit direction conversion applies at Go-call boundaries
+// only (spec 10.2): a Gom `SendChan` parameter keeps requiring the
+// explicit `Chan.sendOnly`.
+fn sink (ch: SendChan String) -> Unit = ignore ch
+
+fn main () -> Unit = {
+  let ch: Chan String = Chan.make 1
+  sink ch
+  ()
+}

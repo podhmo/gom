@@ -1,0 +1,27 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected SendChan Int, got Chan Int",
+      "span": {
+        "file": "E0401_pipe_gom_direction.gom",
+        "start": {
+          "line": 8,
+          "col": 35,
+          "offset": 240
+        },
+        "end": {
+          "line": 8,
+          "col": 47,
+          "offset": 252
+        }
+      },
+      "data": {
+        "actual": "Chan Int",
+        "expected": "SendChan Int"
+      }
+    }
+  ]
+}

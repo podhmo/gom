@@ -1,0 +1,10 @@
+package ex
+
+// At most one `default` arm is allowed, matching Go's select
+// (spec section 10).
+fn poll (jobs: Chan Int) -> Int =
+  select {
+    r <- jobs -> 1
+    default -> 0
+    default -> -1
+  }
