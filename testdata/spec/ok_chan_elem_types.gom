@@ -5,7 +5,9 @@ import go "github.com/podhmo/gom/testdata/goiface"
 // Channel element types follow the ordinary nested mapping: `[]T`
 // is `Go.Slice T` inside a channel (no boundary copy is possible —
 // the channel carries the value through), named Go types are
-// opaque elements, and `error` is `GoError`.
+// opaque elements, and `error` is `GoError`. A `Go.Slice` element
+// also earns the mutable-sharing lint's W0701 — the program is
+// legal, the warning is advisory.
 fn slice_elem (v: Go.Slice Int) -> Unit = {
   let ch = Chan.make 1
   goiface.SendSlice(ch, v)

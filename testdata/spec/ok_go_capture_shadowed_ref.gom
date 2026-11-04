@@ -1,0 +1,14 @@
+package ex
+
+// A file-local `type Ref` shadows the builtin Ref — the name no
+// longer denotes the mutable-cell constructor, so the mutable-
+// sharing lint judges the local ADT by its declared body (Int:
+// immutable) rather than by its name, and the capture stays silent.
+type Ref = | Boxed Int
+
+fn worker (r: Ref) -> Unit = ignore r
+
+fn spawn (r: Ref) -> Unit = {
+  go { ignore (worker r); () }
+  ()
+}

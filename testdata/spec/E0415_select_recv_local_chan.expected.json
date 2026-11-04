@@ -1,0 +1,27 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0415",
+      "severity": "error",
+      "message": "a select receive arm's channel needs the builtin `Chan`, but the package declares a `type Chan` shadowing it",
+      "span": {
+        "file": "E0415_select_recv_local_chan.gom",
+        "start": {
+          "line": 10,
+          "col": 10,
+          "offset": 278
+        },
+        "end": {
+          "line": 10,
+          "col": 12,
+          "offset": 280
+        }
+      },
+      "data": {
+        "builtin": "Chan",
+        "construct": "a select receive arm's channel"
+      }
+    }
+  ]
+}

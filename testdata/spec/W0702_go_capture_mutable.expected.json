@@ -1,0 +1,119 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "W0702",
+      "severity": "warning",
+      "message": "`go {}` captures `r` whose type Ref Int contains mutable values",
+      "span": {
+        "file": "W0702_go_capture_mutable.gom",
+        "start": {
+          "line": 16,
+          "col": 23,
+          "offset": 635
+        },
+        "end": {
+          "line": 16,
+          "col": 24,
+          "offset": 636
+        }
+      },
+      "data": {
+        "name": "r",
+        "type": "Ref Int"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "W0702",
+      "severity": "warning",
+      "message": "`go {}` captures `xs` whose type Array Int contains mutable values",
+      "span": {
+        "file": "W0702_go_capture_mutable.gom",
+        "start": {
+          "line": 16,
+          "col": 34,
+          "offset": 646
+        },
+        "end": {
+          "line": 16,
+          "col": 36,
+          "offset": 648
+        }
+      },
+      "data": {
+        "name": "xs",
+        "type": "Array Int"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "W0702",
+      "severity": "warning",
+      "message": "`go {}` captures `c` whose type Counter contains mutable values",
+      "span": {
+        "file": "W0702_go_capture_mutable.gom",
+        "start": {
+          "line": 16,
+          "col": 45,
+          "offset": 657
+        },
+        "end": {
+          "line": 16,
+          "col": 46,
+          "offset": 658
+        }
+      },
+      "data": {
+        "name": "c",
+        "type": "Counter"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "W0702",
+      "severity": "warning",
+      "message": "`go {}` captures `r` whose type Ref Int contains mutable values",
+      "span": {
+        "file": "W0702_go_capture_mutable.gom",
+        "start": {
+          "line": 17,
+          "col": 28,
+          "offset": 692
+        },
+        "end": {
+          "line": 17,
+          "col": 29,
+          "offset": 693
+        }
+      },
+      "data": {
+        "name": "r",
+        "type": "Ref Int"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "W0702",
+      "severity": "warning",
+      "message": "`go {}` captures `r` whose type Ref Int contains mutable values",
+      "span": {
+        "file": "W0702_go_capture_mutable.gom",
+        "start": {
+          "line": 17,
+          "col": 28,
+          "offset": 692
+        },
+        "end": {
+          "line": 17,
+          "col": 29,
+          "offset": 693
+        }
+      },
+      "data": {
+        "name": "r",
+        "type": "Ref Int"
+      }
+    }
+  ]
+}

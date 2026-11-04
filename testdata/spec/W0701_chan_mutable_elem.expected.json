@@ -1,0 +1,180 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "W0701",
+      "severity": "warning",
+      "message": "a channel's element type Ref Int contains mutable values",
+      "span": {
+        "file": "W0701_chan_mutable_elem.gom",
+        "start": {
+          "line": 14,
+          "col": 28,
+          "offset": 475
+        },
+        "end": {
+          "line": 14,
+          "col": 39,
+          "offset": 486
+        }
+      },
+      "data": {
+        "type": "Ref Int"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "W0701",
+      "severity": "warning",
+      "message": "a channel's element type Array Int contains mutable values",
+      "span": {
+        "file": "W0701_chan_mutable_elem.gom",
+        "start": {
+          "line": 15,
+          "col": 30,
+          "offset": 516
+        },
+        "end": {
+          "line": 15,
+          "col": 41,
+          "offset": 527
+        }
+      },
+      "data": {
+        "type": "Array Int"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "W0701",
+      "severity": "warning",
+      "message": "a channel's element type Ptr Int contains mutable values",
+      "span": {
+        "file": "W0701_chan_mutable_elem.gom",
+        "start": {
+          "line": 16,
+          "col": 28,
+          "offset": 555
+        },
+        "end": {
+          "line": 16,
+          "col": 39,
+          "offset": 566
+        }
+      },
+      "data": {
+        "type": "Ptr Int"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "W0701",
+      "severity": "warning",
+      "message": "a channel's element type Go.Slice Int contains mutable values",
+      "span": {
+        "file": "W0701_chan_mutable_elem.gom",
+        "start": {
+          "line": 17,
+          "col": 33,
+          "offset": 599
+        },
+        "end": {
+          "line": 17,
+          "col": 44,
+          "offset": 610
+        }
+      },
+      "data": {
+        "type": "Go.Slice Int"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "W0701",
+      "severity": "warning",
+      "message": "a channel's element type Go.Map String Int contains mutable values",
+      "span": {
+        "file": "W0701_chan_mutable_elem.gom",
+        "start": {
+          "line": 18,
+          "col": 38,
+          "offset": 648
+        },
+        "end": {
+          "line": 18,
+          "col": 49,
+          "offset": 659
+        }
+      },
+      "data": {
+        "type": "Go.Map String Int"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "W0701",
+      "severity": "warning",
+      "message": "a channel's element type (Ref Int, Bool) contains mutable values",
+      "span": {
+        "file": "W0701_chan_mutable_elem.gom",
+        "start": {
+          "line": 19,
+          "col": 34,
+          "offset": 693
+        },
+        "end": {
+          "line": 19,
+          "col": 45,
+          "offset": 704
+        }
+      },
+      "data": {
+        "type": "(Ref Int, Bool)"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "W0701",
+      "severity": "warning",
+      "message": "a channel's element type Cell (Ref Int) contains mutable values",
+      "span": {
+        "file": "W0701_chan_mutable_elem.gom",
+        "start": {
+          "line": 20,
+          "col": 35,
+          "offset": 739
+        },
+        "end": {
+          "line": 20,
+          "col": 46,
+          "offset": 750
+        }
+      },
+      "data": {
+        "type": "Cell (Ref Int)"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "W0701",
+      "severity": "warning",
+      "message": "a channel's element type Counter contains mutable values",
+      "span": {
+        "file": "W0701_chan_mutable_elem.gom",
+        "start": {
+          "line": 21,
+          "col": 26,
+          "offset": 776
+        },
+        "end": {
+          "line": 21,
+          "col": 37,
+          "offset": 787
+        }
+      },
+      "data": {
+        "type": "Counter"
+      }
+    }
+  ]
+}

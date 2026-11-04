@@ -1,0 +1,49 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected SendChan ?3, got RecvChan ?4",
+      "span": {
+        "file": "E0401_close_of_recvonly.gom",
+        "start": {
+          "line": 9,
+          "col": 15,
+          "offset": 338
+        },
+        "end": {
+          "line": 9,
+          "col": 31,
+          "offset": 354
+        }
+      },
+      "data": {
+        "actual": "RecvChan ?4",
+        "expected": "SendChan ?3"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0407",
+      "severity": "error",
+      "message": "type annotation required: the type argument for `a` could not be determined",
+      "span": {
+        "file": "E0401_close_of_recvonly.gom",
+        "start": {
+          "line": 9,
+          "col": 20,
+          "offset": 343
+        },
+        "end": {
+          "line": 9,
+          "col": 28,
+          "offset": 351
+        }
+      },
+      "data": {
+        "type": "?4"
+      }
+    }
+  ]
+}

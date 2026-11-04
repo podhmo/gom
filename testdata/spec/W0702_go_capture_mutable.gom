@@ -1,0 +1,21 @@
+package ex
+
+// The mutable-sharing lint (spec section 10) warns — non-fatally —
+// when a `go { ... }` body captures a variable whose type contains
+// mutable values: the goroutine shares mutation with its parent.
+// Variables bound inside the body, immutable captures, and function
+// values do not warn. Nested `go` boundaries warn independently —
+// here the inner `go { go { ... } }` earns one warning per boundary
+// at the same use site.
+
+type Counter = { n: Ref Int }
+
+fn worker (r: Ref Int) -> Unit = ignore r
+
+fn spawn (r: Ref Int) (xs: Array Int) (c: Counter) (n: Int) (f: Int -> Int) -> Unit = {
+  go { ignore (worker r); ignore xs; ignore c; () }
+  go { go { ignore (worker r); () } }
+  go { ignore n; ignore (f 1); () }
+  go { let r2 : Ref Int = todo (); ignore (worker r2); () }
+  ()
+}

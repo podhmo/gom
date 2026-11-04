@@ -1,0 +1,25 @@
+package ex
+
+// The mutable-sharing lint (spec section 10) warns — non-fatally —
+// when `Chan.make` produces a channel whose element type contains
+// mutable values: Ref a, Array a, Ptr T, Go.Slice a, Go.Map k v, or
+// anything containing one through arguments, tuples, or declared
+// type bodies. `Chan Int` and `Chan (List Int)` stay silent.
+
+type Cell a = | Cell a | EmptyCell
+
+type Counter = { n: Ref Int }
+
+fn make_channels () -> Unit = {
+  let _ : Chan (Ref Int) = Chan.make 1
+  let _ : Chan (Array Int) = Chan.make 1
+  let _ : Chan (Ptr Int) = Chan.make 1
+  let _ : Chan (Go.Slice Int) = Chan.make 1
+  let _ : Chan (Go.Map String Int) = Chan.make 1
+  let _ : Chan (Ref Int, Bool) = Chan.make 1
+  let _ : Chan (Cell (Ref Int)) = Chan.make 1
+  let _ : Chan Counter = Chan.make 1
+  let _ : Chan Int = Chan.make 1
+  let _ : Chan (List Int) = Chan.make 1
+  ()
+}

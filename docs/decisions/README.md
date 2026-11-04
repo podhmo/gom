@@ -109,6 +109,7 @@
 | [fn-main-entrypoint](2026-11-04-fn-main-entrypoint.md) | `fn main () -> Unit` in `package main` is the Go entrypoint | 採用（`cmd/gom.TestEndToEnd_BuildAndRun` が shim なしで `gom build` → `go build` → 実行まで検証） |
 | [go-collections-and-generics](2026-11-04-go-collections-and-generics.md) | []T → List boundary copies, Go.Slice/Go.Map, and callable generic Go functions | 採用（P3-3 が実装・検証した — [検証](../sketch/2026-11-04-p3-3-go-collections-verification.md)） |
 | [goconv-gotypes-oracle](2026-11-04-goconv-gotypes-oracle.md) | `Go.conv` legality: delegate to `go/types`, recheck after metas solve | draft |
+| [mutable-sharing-lint](2026-11-04-mutable-sharing-lint.md) | Mutable-sharing lint: what W0701/W0702 check and where they run | 採用（P5-2 で実装・検証した — [検証](../sketch/2026-11-04-p5-2-mutable-lint-verification.md)） |
 | [structural-equality-emission](2026-11-04-structural-equality-emission.md) | Structural `==`/`!=` emission: `rt.Equal` except provably comparable scalars（一部を [generated-equality-comparators](2026-11-05-generated-equality-comparators.md) で置き換え） | draft |
 | [aggregate-function-bindings](2026-11-05-aggregate-function-bindings.md) | Aggregate-bound function values become named wrappers; residual initialization cycles are rejected | 採用（P2-2c の実装・検証: [検証レポート](../sketch/2026-11-05-aggregate-function-bindings-verification.md)） |
 | [deferred-member-application](2026-11-05-deferred-member-application.md) | Deferred member application: `x.M(args)` on an unresolved receiver | 採用 |

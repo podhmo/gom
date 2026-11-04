@@ -1,0 +1,27 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0415",
+      "severity": "error",
+      "message": "a select send arm's channel needs the builtin `SendChan`, but the package declares a `type SendChan` shadowing it",
+      "span": {
+        "file": "E0415_select_send_local_chan.gom",
+        "start": {
+          "line": 10,
+          "col": 10,
+          "offset": 290
+        },
+        "end": {
+          "line": 10,
+          "col": 12,
+          "offset": 292
+        }
+      },
+      "data": {
+        "builtin": "SendChan",
+        "construct": "a select send arm's channel"
+      }
+    }
+  ]
+}

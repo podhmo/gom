@@ -1,3 +1,26 @@
 {
-  "diagnostics": []
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "W0701",
+      "severity": "warning",
+      "message": "a channel's element type Go.Slice Int contains mutable values",
+      "span": {
+        "file": "ok_chan_elem_types.gom",
+        "start": {
+          "line": 12,
+          "col": 12,
+          "offset": 486
+        },
+        "end": {
+          "line": 12,
+          "col": 23,
+          "offset": 497
+        }
+      },
+      "data": {
+        "type": "Go.Slice Int"
+      }
+    }
+  ]
 }

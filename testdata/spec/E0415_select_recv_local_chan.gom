@@ -1,0 +1,12 @@
+package ex
+
+// A select receive arm's operand must be a channel — under a
+// file-local `type Chan` the spelling resolves to the ADT, which is
+// not receivable (E0415, not a bare E0401 type mismatch).
+type Chan = | Ch Int
+
+fn recv_arm (ch: Chan) -> Int =
+  select {
+    x <- ch -> 1
+    default -> 0
+  }

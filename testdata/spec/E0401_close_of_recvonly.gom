@@ -1,0 +1,11 @@
+package ex
+
+// `Chan.close` wants a send-capable channel: a `RecvChan` is E0401.
+// The direction mismatch silences the callee's own unbound type
+// argument, so the only E0407 left is the channel element the
+// argument never fixed — the `todo ()` seed's unsolved type.
+fn f () -> Unit = {
+  let ch = Chan.make (todo ())
+  Chan.close (Chan.recvOnly ch)
+  ()
+}

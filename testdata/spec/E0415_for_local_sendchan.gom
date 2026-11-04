@@ -1,0 +1,12 @@
+package ex
+
+// `for x in ch` iterates a List or a receivable channel — under a
+// file-local `type SendChan` the spelling resolves to the ADT, which
+// is not iterable (E0415, like the List/Chan/RecvChan cases already
+// covered).
+type SendChan = | Sc Int
+
+let ch : SendChan = Sc 1
+
+fn f () -> Unit =
+  for x in ch { ignore x }

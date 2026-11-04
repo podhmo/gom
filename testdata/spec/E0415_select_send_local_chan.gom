@@ -1,0 +1,12 @@
+package ex
+
+// A select send arm's operand must be a sendable channel — under a
+// file-local `type SendChan` the spelling resolves to the ADT, which
+// cannot send (E0415, not a bare E0401 type mismatch).
+type SendChan = | Sc Int
+
+fn send_arm (ch: SendChan) -> Int =
+  select {
+    send ch 1 -> 2
+    default -> 0
+  }

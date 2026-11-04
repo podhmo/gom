@@ -134,8 +134,16 @@ func (c *checker) conformExpr(out Expr, want types.Type, sp diag.Span) Expr {
 	}
 	// A failed expectation left want unsolved: silence it — the
 	// mismatch diagnostic at sp already tells the user what to fix.
+	// The silence reaches every meta inside want, not just a top
+	// one: `Chan.close (Chan.recvOnly ch)` reports "expected
+	// SendChan ?3, got RecvChan ?4" and the callee's still-unbound
+	// type argument ?3 must not pile on an E0407 of its own.
+	// Trade-off: quiet propagates through later bindings, so a
+	// shared unsolved want can also silence a genuine mismatch at
+	// a sibling if/match/select arm — accepted while want sharing
+	// stays narrow (docs/implementation-gaps.md).
 	if !c.unify(want, out.Type(), sp) {
-		c.markQuiet(want)
+		metasIn(want, func(m *types.Meta) { c.markQuiet(m) })
 	}
 	return out
 }
@@ -181,7 +189,7 @@ func (c *checker) chanDirConv(want types.Type, out Expr, sp diag.Span) Expr {
 			return nil
 		}
 		if !c.unify(we, ge, sp) {
-			c.markQuiet(want)
+			metasIn(want, func(m *types.Meta) { c.markQuiet(m) })
 			return out
 		}
 	}
@@ -1595,7 +1603,7 @@ func (c *checker) checkFor(e *syntax.For) Expr {
 			elem = el
 		} else {
 			if t.Qual == "" && c.shadowedBuiltin(t.Name) &&
-				(t.Name == "List" || t.Name == "Chan" || t.Name == "RecvChan") {
+				(t.Name == "List" || t.Name == "Chan" || t.Name == "RecvChan" || t.Name == "SendChan") {
 				c.shadowedErr(e.Iter.Span(),
 					"`for` iteration", t.Name)
 			} else {
@@ -1661,7 +1669,14 @@ func (c *checker) checkSelectExpr(e *syntax.SelectExpr, want types.Type) Expr {
 			if !ok {
 				_, isMeta := types.Chase(ch.Type()).(*types.Meta)
 				if !isMeta {
-					c.mismatch(a.Chan.Span(), "a receivable channel", ch.Type())
+					if con, isCon := types.Chase(ch.Type()).(*types.Con); isCon &&
+						con.Qual == "" && c.shadowedBuiltin(con.Name) &&
+						(con.Name == "Chan" || con.Name == "RecvChan" || con.Name == "SendChan") {
+						c.shadowedErr(a.Chan.Span(),
+							"a select receive arm's channel", con.Name)
+					} else {
+						c.mismatch(a.Chan.Span(), "a receivable channel", ch.Type())
+					}
 				}
 				elem = c.newMeta(a.Chan.Span(), "the received element's type")
 				if !isMeta || c.isQuiet(ch.Type()) {
@@ -1721,7 +1736,14 @@ func (c *checker) checkSelectExpr(e *syntax.SelectExpr, want types.Type) Expr {
 			if !ok {
 				_, isMeta := types.Chase(ch.Type()).(*types.Meta)
 				if !isMeta {
-					c.mismatch(a.Chan.Span(), "a sendable channel", ch.Type())
+					if con, isCon := types.Chase(ch.Type()).(*types.Con); isCon &&
+						con.Qual == "" && c.shadowedBuiltin(con.Name) &&
+						(con.Name == "Chan" || con.Name == "RecvChan" || con.Name == "SendChan") {
+						c.shadowedErr(a.Chan.Span(),
+							"a select send arm's channel", con.Name)
+					} else {
+						c.mismatch(a.Chan.Span(), "a sendable channel", ch.Type())
+					}
 				}
 				elem = c.newMeta(a.Chan.Span(), "the sent element's type")
 				if !isMeta || c.isQuiet(ch.Type()) {

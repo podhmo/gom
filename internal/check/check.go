@@ -62,6 +62,7 @@ func Check(res *resolve.Resolved, src SignatureSource) (*File, diag.List) {
 	c.checkTopLevelLetScopes()
 	c.checkInstantiationCycles()
 	c.validateGoGenerics()
+	c.lintMutableSharing()
 
 	f := &File{Sp: res.File.Sp}
 	if res.File.Package != nil {

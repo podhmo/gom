@@ -39,8 +39,9 @@ const (
 	// PhaseGoImport covers the Go-package import machinery
 	// (internal/goimport).
 	PhaseGoImport Phase = "goimport"
-	// PhaseLint covers opt-in lints such as the mutable-sharing
-	// warnings of spec section 10 (P5-2).
+	// PhaseLint covers lints such as the mutable-sharing warnings of
+	// spec section 10 (P5-2): advisory diagnostics emitted by the
+	// post-inference sweep inside check (lintMutableSharing).
 	PhaseLint Phase = "lint"
 	// PhaseEval covers the typed-AST evaluator (internal/eval), the
 	// tree-walking interpreter behind the semantics-comparison
