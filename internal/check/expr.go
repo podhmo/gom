@@ -537,10 +537,10 @@ func (c *checker) methodOf(recvT types.Type, name string, sp diag.Span) (*resolv
 
 // checkAscribe types `e : T` — and `Go.conv e : T`, the explicit Go
 // conversion. The ascribed type is authoritative: the expression must
-// have it. For Go.conv the checker also validates that Go's own
-// conversion rules could apply — between numeric types or involving
-// a Go handle (E0507). The full Go convertibility check belongs to
-// goimport (P1-9); here the rule is the conservative shape check.
+// have it. For Go.conv the checker validates the pair against Go's
+// own conversion rules — the local shape rules first, then the
+// ConvertSource oracle's go/types judgment (E0507). An operand whose
+// type is still an unsolved meta defers to revisitConvs.
 //
 // Ascribing an arbitrary expression `e : T` is rejected: the
 // ascription form is reserved for `Go.conv` until the open question
@@ -554,7 +554,12 @@ func (c *checker) checkAscribe(e *syntax.Ascribe) Expr {
 		if sym := c.calleeSym(app.Fn); sym != nil && isConv(sym) {
 			if len(app.Args) == 1 && app.Args[0].Label == nil {
 				x := c.checkExpr(app.Args[0].Value, nil)
-				c.checkConv(x.Type(), target, e.Sp)
+				if _, unsolved := types.Chase(x.Type()).(*types.Meta); unsolved {
+					c.pendingConvs = append(c.pendingConvs,
+						&pendingConv{x: x, to: target, sp: e.Sp})
+				} else {
+					c.checkConv(x.Type(), target, e.Sp)
+				}
 				return &Ascribe{Base: baseOf(e.Sp, target), X: x, Conv: true}
 			}
 			// Wrong shape: recover on the first argument (or a
@@ -599,12 +604,22 @@ func (c *checker) calleeSym(e syntax.Expr) *resolve.Symbol {
 	}
 }
 
+// revisitConvs rechecks the `Go.conv e : T` sites whose operand meta
+// was unsolved at ascription time — a `1` literal before its Int
+// default binds. A meta still unsolved passes convOK again, and its
+// own E0407 covers the position.
+func (c *checker) revisitConvs() {
+	for _, pc := range c.pendingConvs {
+		c.checkConv(pc.x.Type(), pc.to, pc.sp)
+	}
+}
+
 // checkConv reports E0507 for a conversion Go itself would reject:
 // conversions are allowed between numeric types, between a named Go
 // type and its underlying type (a builtin with the same shape), and
-// from a Go named type to another type it may convert to. Without
-// go/types the checker accepts anything that is not a statically
-// impossible pair — functions to scalars, records to numbers, etc.
+// from a Go named type to another type it may convert to. The
+// ConvertSource oracle carries the go/types judgment for pairs the
+// shape rules cannot decide (spec section 8.4).
 func (c *checker) checkConv(from, to types.Type, sp diag.Span) {
 	if !c.convOK(types.Chase(from), types.Chase(to)) {
 		c.diags.Add(diag.Error("E0507",
@@ -616,7 +631,10 @@ func (c *checker) checkConv(from, to types.Type, sp diag.Span) {
 // convOK approximates Go's assignability-by-conversion rule at the
 // type-shape level. Both sides concrete; metas defer (the conversion
 // is rechecked implicitly when the meta solves, since the ascription
-// keeps the target type).
+// keeps the target type). After the shape rules, a ConvertSource
+// decides Go-boundary pairs by go/types convertibility; pairs it
+// cannot judge keep the earlier acceptance only when a named Go
+// type participates.
 func (c *checker) convOK(from, to types.Type) bool {
 	if types.Equal(from, to) {
 		return true
@@ -645,17 +663,67 @@ func (c *checker) convOK(from, to types.Type) bool {
 	if numeric(from) && numeric(to) {
 		return true
 	}
-	// Named Go types convert freely for now — the underlying-type
-	// check needs go/types data (P1-9).
+	// A file-local `type` declaration is invisible to the oracle,
+	// and it can hide at any depth: boundaryType maps every
+	// unqualified Con by name alone, so a `type Int` ADT nested
+	// inside `List`/`Ptr`/`Go.Slice`/etc. args would convert to
+	// the builtin's Go representation and emit uncompilable code.
+	// Walk both sides for shadowed Cons before trusting it; a hit
+	// sends the pair to the fallback the way the old outermost
+	// check did.
+	var containsShadowed func(t types.Type) bool
+	containsShadowed = func(t types.Type) bool {
+		switch t := types.Chase(t).(type) {
+		case *types.Con:
+			if t.Qual == "" && c.shadowedBuiltin(t.Name) {
+				return true
+			}
+			for _, a := range t.Args {
+				if containsShadowed(a) {
+					return true
+				}
+			}
+		case *types.Func:
+			for _, p := range t.Params {
+				if containsShadowed(p.Type) {
+					return true
+				}
+			}
+			return containsShadowed(t.Ret)
+		case *types.Tuple:
+			for _, e := range t.Elems {
+				if containsShadowed(e) {
+					return true
+				}
+			}
+		case *types.Go:
+			for _, a := range t.Args {
+				if containsShadowed(a) {
+					return true
+				}
+			}
+		case *types.Var, *types.Meta:
+		default:
+			panic("unreachable")
+		}
+		return false
+	}
+	if !containsShadowed(from) && !containsShadowed(to) {
+		if src, ok := c.src.(ConvertSource); ok {
+			if decided, ok := src.GoConvertible(from, to); decided {
+				return ok
+			}
+		}
+	}
+	// Unproven pairs — an unmappable Go view or no oracle at all —
+	// keep the historical acceptance when a named Go handle is
+	// involved; two Gom-side shapes the rules did not pass fail.
 	if _, ok := from.(*types.Go); ok {
 		return true
 	}
 	if _, ok := to.(*types.Go); ok {
 		return true
 	}
-	// String and Char convert in Go's rules (rune slice, etc.) only
-	// in specific directions the checker does not model; accept the
-	// same-type cases already handled and reject the rest.
 	return false
 }
 

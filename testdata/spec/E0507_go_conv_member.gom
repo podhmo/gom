@@ -1,0 +1,11 @@
+package ex
+
+// The member-style spellings of `Go.conv` are malformed conversions —
+// the conv validation path reports E0507. They must never reach
+// lowering, where an unresolved member is the internal E0901
+// "member builtin is not an expression" (the reported regression).
+fn main () -> Unit = {
+  let f : Int -> Int = {Go.conv}
+  let g : Int -> Int = Go.conv 1
+  ()
+}

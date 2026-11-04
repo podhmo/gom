@@ -451,6 +451,14 @@ func (l *Loader) GoComparable(t types.Type) bool {
 	return false
 }
 
+// GoConvertible defers check.ConvertSource to Config.Sigs.
+func (l *Loader) GoConvertible(from, to types.Type) (bool, bool) {
+	if cs, ok := l.cfg.Sigs.(check.ConvertSource); ok {
+		return cs.GoConvertible(from, to)
+	}
+	return false, false
+}
+
 // --- the resolver seam ---
 
 // CtorFieldsOf returns the named payload slots of a constructor (or

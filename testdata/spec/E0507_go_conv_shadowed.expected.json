@@ -1,0 +1,73 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0507",
+      "severity": "error",
+      "message": "cannot convert Go.Slice Int64 to List Int",
+      "span": {
+        "file": "E0507_go_conv_shadowed.gom",
+        "start": {
+          "line": 11,
+          "col": 41,
+          "offset": 549
+        },
+        "end": {
+          "line": 11,
+          "col": 62,
+          "offset": 570
+        }
+      },
+      "data": {
+        "from": "Go.Slice Int64",
+        "to": "List Int"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0507",
+      "severity": "error",
+      "message": "cannot convert Go.Map String Int64 to Go.Map String Int",
+      "span": {
+        "file": "E0507_go_conv_shadowed.gom",
+        "start": {
+          "line": 13,
+          "col": 54,
+          "offset": 625
+        },
+        "end": {
+          "line": 13,
+          "col": 83,
+          "offset": 654
+        }
+      },
+      "data": {
+        "from": "Go.Map String Int64",
+        "to": "Go.Map String Int"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0507",
+      "severity": "error",
+      "message": "cannot convert Chan Int64 to Chan Int",
+      "span": {
+        "file": "E0507_go_conv_shadowed.gom",
+        "start": {
+          "line": 15,
+          "col": 36,
+          "offset": 691
+        },
+        "end": {
+          "line": 15,
+          "col": 56,
+          "offset": 711
+        }
+      },
+      "data": {
+        "from": "Chan Int64",
+        "to": "Chan Int"
+      }
+    }
+  ]
+}

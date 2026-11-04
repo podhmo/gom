@@ -1,0 +1,17 @@
+package ex
+
+// A file-local `type` shadows its builtin name at ANY depth, not
+// just at the conversion's outermost constructor: boundaryType maps
+// every unqualified Con by name alone, so `type Int` nested inside
+// a `List` / `Go.Map` / `Go.Slice` argument would be read as int64
+// and the pair "accepted" — emitting an uncompilable
+// `list.List[Int](xs)` where Int is the ADT below. Shadowed names
+// anywhere in the pair must keep the oracle out; the pair falls to
+// the fallback and reports E0507.
+fn f (xs: Go.Slice Int64) -> List Int = Go.conv xs : List Int
+
+fn g (m: Go.Map String Int64) -> Go.Map String Int = Go.conv m : Go.Map String Int
+
+fn h (c: Chan Int64) -> Chan Int = Go.conv c : Chan Int
+
+type Int = | Boxed

@@ -1,0 +1,93 @@
+package geom
+
+import go "example.com/gocall/helper"
+import go "fmt"
+import go "os"
+import go "time"
+
+/// A planar shape — the ADT surfaces in Go as a sealed interface
+/// plus per-variant structs (spec 8.7).
+type Shape =
+  | Circle (radius: Float)
+  | Rect (w: Float) (h: Float)
+
+fn area (s: Shape) -> Float = match s {
+  Circle r -> 3.14159 * r * r
+  Rect w h -> w * h
+}
+
+/// match on an invalid Shape (nil or a foreign implementation)
+/// panics with a type-named message on the Go side (spec 8.6).
+fn describe (s: Shape) -> String = match s {
+  Circle r -> "circle"
+  Rect w h -> "rect"
+}
+
+/// Named Go types are nominal both ways — `Go.conv` bridges to the
+/// underlying type per Go's own conversion rules (spec 8.4).
+fn nanos (d: time.Duration) -> Int = Go.conv d : Int
+
+fn duration (n: Int) -> time.Duration = Go.conv n : time.Duration
+
+/// A Go interface parameter: the generated function takes
+/// fmt.Stringer, so a Go caller passes any Stringer. Calling a
+/// method on a nil interface value panics Go-style (spec 8.6).
+fn nameOf (s: fmt.Stringer) -> String = s.String ()
+
+/// A nilable Go pointer — dereferencing nil panics Go-style.
+fn fileName (f: Ptr os.File) -> String = f.Name ()
+
+/// `Go.Slice` is the no-copy view: the Go caller hands over []int64
+/// and the same backing array stays visible on both sides (spec 8.5).
+fn keepSlice (xs: Go.Slice Int) -> Go.Slice Int = xs
+
+/// Boundary copies (spec 8.5): freeze copies the Go slice into an
+/// immutable List; thaw copies a List into a fresh Go slice — later
+/// mutations on one side never leak into the other. The copy lives
+/// in the implicit boundary conformance at the return position;
+/// `Go.conv` between the two is a raw same-representation pun and
+/// would NOT copy.
+fn freeze (xs: Go.Slice Int) -> List Int = xs
+
+fn thaw (xs: List Int) -> Go.Slice Int = xs
+
+fn total (xs: List Int) -> Int = match xs {
+  [] -> 0
+  [x, ..rest] -> x + total rest
+}
+
+fn isEmpty (xs: List Int) -> Bool = match xs {
+  [] -> true
+  [x, ..rest] -> false
+}
+
+/// Boxing into a Go `any` parameter keeps the concrete Gom numeric
+/// type — %T on the Go side reports int64 for a Gom Int, never the
+/// untyped-literal default int. The literal, binding, and arithmetic
+/// forms all go through the same materialization; helper.Kind reads
+/// the boxed value back through a Go type switch.
+fn typeOfLit () -> String = helper.TypeName 42
+
+fn typeOfVar (n: Int) -> String = helper.TypeName n
+
+fn typeOfSum (x: Int) (y: Int) -> String = helper.TypeName (x + y)
+
+fn kindOfLit () -> String = helper.Kind 42
+
+/// Result is the public tagged struct — Go callers build values
+/// with result.Ok / result.Err and inspect via Tag / Unwrap.
+fn headOr (xs: List Int) -> Result Int String = match xs {
+  [] -> Err "empty"
+  [x, ..rest] -> Ok x
+}
+
+fn isOk (r: Result Int String) -> Bool = match r {
+  Ok _ -> true
+  Err _ -> false
+}
+
+/// Option is the other builtin sum — Some a | None.
+fn headOpt (xs: List Int) -> Option Int = match xs {
+  [] -> None
+  [x, ..rest] -> Some x
+}

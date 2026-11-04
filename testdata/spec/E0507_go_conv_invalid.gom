@@ -1,0 +1,22 @@
+package ex
+
+import go "net/http"
+import go "os"
+
+// `Go.conv e : T` is checked against Go's conversion rules (spec 8.4):
+// pairs go/types itself rejects are E0507 — an Int into a struct
+// type, a List into a named type, and a Gom ADT either way. The bare
+// literal `5` targets the deferral: its operand meta is unsolved at
+// ascription time, so pendingConvs revalidates after the Int default
+// binds — the reject must fire there, not just on annotated operands.
+fn main () -> Unit = {
+  let x : Int = 5
+  let s = Go.conv x : http.Server
+  let l = Go.conv os.Args : http.Server
+  let a = Go.conv x : Shape
+  let sl = Go.conv "ab" : http.Server
+  let d = Go.conv 5 : http.Server
+  ()
+}
+
+type Shape = | Circle (r: Float) | Rect

@@ -1033,6 +1033,10 @@ func (c *checker) finalize() {
 	// default), so revisitDivs can tell integer divisions — always
 	// invalid — from Float ones, which need a constant dividend.
 	c.revisitDivs()
+	// Conversion operands deferred on an unsolved meta — a numeric
+	// literal's Int default — are concrete now too: revisitConvs
+	// gives the Go.conv validation its second look (spec 8.4).
+	c.revisitConvs()
 	if len(c.metas) != len(ms) {
 		ms = ms[:0]
 		for m, r := range c.metas {

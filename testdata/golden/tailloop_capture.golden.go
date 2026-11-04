@@ -81,9 +81,11 @@ func main() {
 //line tailloop_capture.gom:16
 	tmp7 := keep(10, tmp6)
 //line tailloop_capture.gom:16
-	tmp8 := any(tmp7)
+	tmp8 := int64(tmp7)
 //line tailloop_capture.gom:16
-	v, err := fmt.Println(tmp8)
+	tmp9 := any(tmp8)
+//line tailloop_capture.gom:16
+	v, err := fmt.Println(tmp9)
 	_ = result.FromGo(int64(v), err)
 //line tailloop_capture.gom:17
 	_ = struct{}{}

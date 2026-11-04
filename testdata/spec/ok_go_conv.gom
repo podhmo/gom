@@ -1,0 +1,18 @@
+package main
+
+import go "fmt"
+import go "os"
+import go "time"
+
+// `Go.conv e : T` accepts the pairs Go's own conversion rules accept
+// (spec 8.4): numeric widening, named Go types to and from their
+// underlying type, and the String-to-rune-list conversion.
+fn main () -> Unit = {
+  let d = Go.conv 5 : time.Duration
+  let n = Go.conv d : Int
+  let args = Go.conv os.Args : List String
+  let runes = Go.conv "ab" : List Char
+  let r = Go.conv 97 : Char
+  ignore (fmt.Println (d, n, args, runes, r))
+  ()
+}

@@ -642,8 +642,23 @@ func (l *lowerer) convGoArg(s *seq, sig GoSig, i int, a core.Atom, spreadArg boo
 		return a
 	}
 	return l.asAtom(s, a.Span(), &core.Conv{
-		Base: core.Base{Sp: a.Span(), Typ: pt}, Kind: k, X: a,
+		Base: core.Base{Sp: a.Span(), Typ: pt}, Kind: k, X: l.convBoxSrc(s, a, k),
 	})
+}
+
+// convBoxSrc materializes a numeric atom before a ConvBoxAny: a bare
+// `any(1)` would box Go's default `int`, not the `int64` Gom's `Int`
+// renders as — `any` supplies no concrete numeric context (the same
+// gap the interface-ascription path already closes, spec section
+// 8.3). The inner conversion emits `int64(x)` so the boxed dynamic
+// type is the Gom type's Go representation.
+func (l *lowerer) convBoxSrc(s *seq, a core.Atom, k core.ConvKind) core.Atom {
+	if k == core.ConvBoxAny && l.isNumericCon(a.Type()) {
+		return l.asAtom(s, a.Span(), &core.Conv{
+			Base: core.Base{Sp: a.Span(), Typ: a.Type()}, Kind: core.ConvNum, X: a,
+		})
+	}
+	return a
 }
 
 // goParamTypeAt is the raw Go parameter type the argument at index i
@@ -686,7 +701,7 @@ func (l *lowerer) goPayloadConv(s *seq, sp diag.Span, raw, want types.Type, x co
 		return x
 	}
 	a := l.asAtom(s, sp, x)
-	return &core.Conv{Base: core.Base{Sp: sp, Typ: want}, Kind: k, X: a}
+	return &core.Conv{Base: core.Base{Sp: sp, Typ: want}, Kind: k, X: l.convBoxSrc(s, a, k)}
 }
 
 // convAtomTo is goPayloadConv for a value already bound to an atom —
@@ -702,7 +717,7 @@ func (l *lowerer) convAtomTo(s *seq, sp diag.Span, a core.Atom, want types.Type)
 		return a
 	}
 	return l.asAtom(s, sp, &core.Conv{
-		Base: core.Base{Sp: sp, Typ: want}, Kind: k, X: a,
+		Base: core.Base{Sp: sp, Typ: want}, Kind: k, X: l.convBoxSrc(s, a, k),
 	})
 }
 

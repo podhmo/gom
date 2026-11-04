@@ -1,0 +1,42 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0507",
+      "severity": "error",
+      "message": "`Go.conv` is only valid as a conversion: `Go.conv e : T`",
+      "span": {
+        "file": "E0507_go_conv_member.gom",
+        "start": {
+          "line": 8,
+          "col": 25,
+          "offset": 327
+        },
+        "end": {
+          "line": 8,
+          "col": 32,
+          "offset": 334
+        }
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0507",
+      "severity": "error",
+      "message": "`Go.conv` is only valid as a conversion: `Go.conv e : T`",
+      "span": {
+        "file": "E0507_go_conv_member.gom",
+        "start": {
+          "line": 9,
+          "col": 24,
+          "offset": 359
+        },
+        "end": {
+          "line": 9,
+          "col": 31,
+          "offset": 366
+        }
+      }
+    }
+  ]
+}

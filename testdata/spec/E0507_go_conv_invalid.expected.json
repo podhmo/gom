@@ -1,0 +1,119 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0507",
+      "severity": "error",
+      "message": "cannot convert Int to net/http.Server",
+      "span": {
+        "file": "E0507_go_conv_invalid.gom",
+        "start": {
+          "line": 14,
+          "col": 11,
+          "offset": 522
+        },
+        "end": {
+          "line": 14,
+          "col": 34,
+          "offset": 545
+        }
+      },
+      "data": {
+        "from": "Int",
+        "to": "net/http.Server"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0507",
+      "severity": "error",
+      "message": "cannot convert List String to net/http.Server",
+      "span": {
+        "file": "E0507_go_conv_invalid.gom",
+        "start": {
+          "line": 15,
+          "col": 11,
+          "offset": 556
+        },
+        "end": {
+          "line": 15,
+          "col": 40,
+          "offset": 585
+        }
+      },
+      "data": {
+        "from": "List String",
+        "to": "net/http.Server"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0507",
+      "severity": "error",
+      "message": "cannot convert Int to Shape",
+      "span": {
+        "file": "E0507_go_conv_invalid.gom",
+        "start": {
+          "line": 16,
+          "col": 11,
+          "offset": 596
+        },
+        "end": {
+          "line": 16,
+          "col": 28,
+          "offset": 613
+        }
+      },
+      "data": {
+        "from": "Int",
+        "to": "Shape"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0507",
+      "severity": "error",
+      "message": "cannot convert String to net/http.Server",
+      "span": {
+        "file": "E0507_go_conv_invalid.gom",
+        "start": {
+          "line": 17,
+          "col": 12,
+          "offset": 625
+        },
+        "end": {
+          "line": 17,
+          "col": 38,
+          "offset": 651
+        }
+      },
+      "data": {
+        "from": "String",
+        "to": "net/http.Server"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0507",
+      "severity": "error",
+      "message": "cannot convert Int to net/http.Server",
+      "span": {
+        "file": "E0507_go_conv_invalid.gom",
+        "start": {
+          "line": 18,
+          "col": 11,
+          "offset": 662
+        },
+        "end": {
+          "line": 18,
+          "col": 34,
+          "offset": 685
+        }
+      },
+      "data": {
+        "from": "Int",
+        "to": "net/http.Server"
+      }
+    }
+  ]
+}

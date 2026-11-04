@@ -211,8 +211,23 @@ type checker struct {
 	// argument against its Go constraint (spec section 8.5).
 	pendingGens []*genericUse
 
+	// pendingConvs are `Go.conv e : T` sites whose operand type was
+	// still a meta at ascription time — a numeric literal before its
+	// Int default binds. finalize rechecks the conversion once the
+	// meta solves (spec 8.4: the pair obeys Go's conversion rules).
+	pendingConvs []*pendingConv
+
 	imports []Import
 	decls   []Decl
+}
+
+// pendingConv is a `Go.conv e : T` the first pass could not judge —
+// x's type was an unsolved meta. The recheck reports E0507 for a
+// solved pair Go's conversion rules reject.
+type pendingConv struct {
+	x  Expr
+	to types.Type
+	sp diag.Span
 }
 
 // genericUse is one use of a generic Go callee: the reference span

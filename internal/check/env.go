@@ -273,6 +273,21 @@ type ComparableSource interface {
 	GoComparable(t types.Type) bool
 }
 
+// ConvertSource answers whether a `Go.conv e : T` pair is a legal Go
+// conversion — spec section 8.4 checks explicit conversions against
+// Go's own rules, which need the go/types data behind *types.Go
+// handles. Sources that do not implement it leave the checker's
+// shape-level fallback in charge.
+type ConvertSource interface {
+	// GoConvertible reports decided=true when the source can judge
+	// the pair — both sides map to a Go boundary type, or one side
+	// is a Gom-only shape that can never be a Go conversion — and
+	// ok is the verdict. decided=false leaves the pair unproven
+	// (an unmappable Go view such as a generic instantiation or a
+	// function type) and the checker's own rule applies.
+	GoConvertible(from, to types.Type) (decided, ok bool)
+}
+
 func (c chain) BindExtern(sym *resolve.Symbol, decl Signature) (Signature, []ExternIssue) {
 	for _, s := range c {
 		if src, ok := s.(ExternSource); ok {
@@ -311,4 +326,17 @@ func (c chain) GoComparable(t types.Type) bool {
 		}
 	}
 	return false
+}
+
+// GoConvertible forwards the optional ConvertSource protocol through
+// the chain — the first source that can decide the pair wins.
+func (c chain) GoConvertible(from, to types.Type) (bool, bool) {
+	for _, s := range c {
+		if src, ok := s.(ConvertSource); ok {
+			if decided, ok := src.GoConvertible(from, to); decided {
+				return true, ok
+			}
+		}
+	}
+	return false, false
 }

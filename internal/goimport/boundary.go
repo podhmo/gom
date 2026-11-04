@@ -33,6 +33,9 @@ func (l *Loader) boundaryType(t gt.Type) types.Type {
 		}
 		return nil
 	case *gt.Con:
+		if t.Qual == "" && t.Name == "Unit" {
+			return types.NewStruct(nil, nil)
+		}
 		if t.Qual == "" && t.Name == "Ptr" && len(t.Args) == 1 {
 			if el := l.boundaryType(t.Args[0]); el != nil {
 				return types.NewPointer(el)
@@ -90,7 +93,8 @@ func (l *Loader) boundaryType(t gt.Type) types.Type {
 			gom    gt.Type
 			goKind types.BasicKind
 		}{
-			{gt.Int, types.Int64}, {gt.Int32, types.Int32}, {gt.Float, types.Float64},
+			{gt.Int, types.Int64}, {gt.Int32, types.Int32}, {gt.Int64, types.Int64},
+			{gt.Float, types.Float64},
 			{gt.Bool, types.Bool}, {gt.String, types.String}, {gt.Char, types.Int32}, {gt.GoInt, types.Int},
 		} {
 			if gt.Equal(t, b.gom) {
@@ -112,6 +116,49 @@ func (l *Loader) boundaryType(t gt.Type) types.Type {
 func (l *Loader) GoComparable(t gt.Type) bool {
 	bt := l.boundaryType(t)
 	return bt != nil && types.Comparable(bt)
+}
+
+// GoConvertible is the check.ConvertSource answer for `Go.conv e : T`
+// (spec section 8.4): a pair both sides map to a boundary type obeys
+// types.ConvertibleTo. A Gom-only shape on either side — a declared
+// ADT or record, a tuple, a type variable — can never be a Go
+// conversion and decides against; an unmappable Go view (a generic
+// instantiation, a function value) is unproven, not disproven.
+func (l *Loader) GoConvertible(from, to gt.Type) (bool, bool) {
+	src, dst := l.boundaryType(from), l.boundaryType(to)
+	if src != nil && dst != nil {
+		return true, types.ConvertibleTo(src, dst)
+	}
+	if gomOnly(from) || gomOnly(to) {
+		return true, false
+	}
+	return false, false
+}
+
+// gomOnly reports whether t is a shape with no Go-boundary reading —
+// for these a nil boundaryType is a proof the conversion cannot
+// exist, not mere ignorance. The mappable constructors and the Go
+// views the loader cannot map (instantiated named types, function
+// values, unsolved metas) are unproven instead.
+func gomOnly(t gt.Type) bool {
+	switch t := gt.Chase(t).(type) {
+	case *gt.Tuple, *gt.Var:
+		return true
+	case *gt.Con:
+		if t.Qual == "Go" {
+			return false
+		}
+		switch t.Name {
+		case "Unit", "Ptr", "List", "Chan", "RecvChan", "SendChan",
+			"Int", "Int32", "Int64", "Float", "Bool", "String", "Char", "GoError":
+			return false
+		}
+		return true
+	case *gt.Go, *gt.Func, *gt.Meta:
+		return false
+	default:
+		panic("unreachable")
+	}
 }
 
 // FieldOf resolves readable Go struct fields, including promoted selectors.
