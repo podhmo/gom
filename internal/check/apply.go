@@ -357,30 +357,24 @@ func labelSpan(labelSp, argSp diag.Span) diag.Span {
 // overApply applies extra arguments to the function value a saturated
 // call returns and yields the remaining result type.
 //
-// Positional extras pair off with the returned parameters in order —
-// including labeled ones, which a positional argument may not fill
-// (spec section 2 rule 3). Whether that should be an error or leave
-// the labeled parameter in the result is open; see
-// docs/problems/2026-11-03-overapply-labeled-params.md.
+// Each extra extends the result with a fresh curried step, unified
+// against the callee's return type as it stands: `Int -> Int -> Int`
+// with one extra solves `next` to `Int -> Int`, so unfilled parameters
+// (labeled or not) stay in the result. A positional extra can never
+// fill a labeled parameter — unifyFunc's labeled-run rule reports the
+// mismatch, enforcing spec section 2 rule 3 even when the returned
+// function's type became known only through a bound meta (`id mk 3`
+// used to slip through; docs/problems/2026-11-03-overapply-labeled-params.md).
 func (c *checker) overApply(ret types.Type, extras []Expr, sp diag.Span) types.Type {
-	rparams, rret := flattenFunc(ret)
-	i := 0
-	for ; i < len(extras); i++ {
-		if i < len(rparams) {
-			c.unify(rparams[i].Type, extras[i].Type(), extras[i].Span())
-			continue
-		}
-		// The returned function itself is exhausted: extend the
-		// result with a fresh curried step. A failed unify leaves
-		// next unsolved — the mismatch already reported it.
-		next := c.newMeta(extras[i].Span(), "the over-applied result")
-		if !c.unify(rret, types.Fn(next, types.P(extras[i].Type())), extras[i].Span()) {
+	rret := ret
+	for _, ex := range extras {
+		// A failed unify leaves next unsolved — the mismatch
+		// already reported it.
+		next := c.newMeta(ex.Span(), "the over-applied result")
+		if !c.unify(rret, types.Fn(next, types.P(ex.Type())), ex.Span()) {
 			c.markQuiet(next)
 		}
 		rret = next
-	}
-	if i < len(rparams) {
-		return types.Fn(rret, rparams[i:]...)
 	}
 	return rret
 }

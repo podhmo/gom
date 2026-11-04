@@ -1,0 +1,27 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected ~x: Int -> Int, got ?3 -> ?5",
+      "span": {
+        "file": "E0401_positional_for_labeled_via_meta.gom",
+        "start": {
+          "line": 11,
+          "col": 15,
+          "offset": 430
+        },
+        "end": {
+          "line": 11,
+          "col": 16,
+          "offset": 431
+        }
+      },
+      "data": {
+        "actual": "?3 -> ?5",
+        "expected": "~x: Int -> Int"
+      }
+    }
+  ]
+}

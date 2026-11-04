@@ -1,0 +1,11 @@
+package ex
+
+fn id (x: a) -> a = x
+fn mk (~x: Int) -> Int = x
+
+// spec section 2 rule 3: a positional argument may never fill a
+// labeled parameter — even when the returned function's type became
+// known only through a bound meta. `id` instantiates `?a` to
+// `~x: Int -> Int`, and `3` must not slip into `~x` the way the old
+// rparams unification allowed (docs/problems/2026-11-03-overapply-labeled-params.md).
+let x = id mk 3

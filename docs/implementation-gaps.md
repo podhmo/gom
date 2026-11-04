@@ -170,21 +170,30 @@
   runtime の破損と runtime ソース追加を検出することを実測。
   参照: [テスト本体](../tutorial/tutorial_test.go)、[独立レビューと追加検証](sketch/2026-11-03-tutorial-iteration.md#fresh-review-and-runtime-input-follow-up)。
 
-- [ ] **ignore の problem file が実装済みなのに未解決のまま**:
+- [x] **ignore の problem file が実装済みなのに未解決のまま**:
   problems/2026-11-04-ignore-discard-syntax-unparsed.md は「パーサーに ignore がない（E0201）」
   と主張するが、現在は `ignore` がキーワードとして実装済みで tutorial 全章も使用している。
   ファイル自体の状態が更新されていない。
-  参照: [problem](problems/2026-11-04-ignore-discard-syntax-unparsed.md)、[lexer](../internal/syntax/token.go)、[tutorial](../tutorial/01-hello/main.gom)。
+  対応: problem file を「解消」に更新し、解決の経緯（ignore キーワード実装済み、
+  `let _ =` は別形として残存）を追記。
+  参照: [problem](problems/2026-11-04-ignore-discard-syntax-unparsed.md)、[lexer](../internal/syntax/token.go)、
+  [decision](decisions/2026-11-02-ignore-keyword.md)、[tutorial](../tutorial/01-hello/main.gom)。
 
-- [ ] **overapply-labeled-params の problems doc の記述が陳腐化**:
+- [x] **overapply-labeled-params の problems doc の記述が陳腐化**:
   `mk () 5` が位置引数で `~x` を埋めると説明するが、`flattenFunc` が全
   arrow を畳むため `overApply` の `rparams` 分岐は到達不能になり、
   現在は常に meta 拡張で E0401 になる (spec 2 規則3と結果は整合)。
   到達不能分岐の削除と E0401 文言の是非が残る未決。
-  参照: [problem](problems/2026-11-03-overapply-labeled-params.md)（追記済み）、
+  対応: 「到達不能」は誤りだった — `ret` が未束縛 meta のとき引数チェック中に
+  Func 型へ束縛され、`id mk 3` が位置引数で `~x` を埋めて通ってしまう
+  （`gom check` で実測: `id mk 3` は受理、`mk 3` は E0401）。`rparams` 分岐を
+  削除し、extras は戻り値型に対する curried 拡張の unify に一本化 —
+  `unifyFunc` の labeled-run 規則が位置引数→labeled を裁くので `id mk 3` も
+  E0401 になった。正当な over-application（`id id 3`、`id add3 1 2`）は維持。
+  E0401 文言の是非は problem doc が引き続き追跡。
+  参照: [problem](problems/2026-11-03-overapply-labeled-params.md)、
   [overApply](../internal/check/apply.go)、
-  [fixture](../testdata/spec/E0401_positional_for_labeled.gom)、
-  [検証](sketch/2026-11-05-p2-3-labeled-args.md)。
+  [fixture](../testdata/spec/E0401_positional_for_labeled_via_meta.gom)。
 
 - [x] **E0404 のコード表の例が発火しない形を示していた**:
   例の `transfer alice ~to: bob` は Gom 呼び出しでは合法な部分適用で、
@@ -194,11 +203,13 @@
   [problem](problems/2026-11-02-gom-missing-label-is-partial.md)、
   [fixture](../testdata/spec/E0404_go_missing_label.gom)。
 
-- [ ] **CLI usage の計画中コマンド名が P4-1 の決定と食い違う**:
+- [x] **CLI usage の計画中コマンド名が P4-1 の決定と食い違う**:
   `cmd/gom/main.go` の usage は計画コマンドとして `gomi` を列挙するが、
   TODO P4-1 は `moon info` 流の `info` という名前を決めている（spec 7.5 も `gom gomi` 表記）。
   実装はまだ無いが、名前の正が文書間で不一致。
-  参照: [usage](../cmd/gom/main.go)、[TODO](../TODO.md)、[spec 7](spec.md#7-インターフェースファイル-gomi)、[sketch](sketch/2026-11-05-moon-cli-command-structure.md)。
+  対応: 下の [x] 項目と同一内容の重複登録 — `gom info` 実装済みで
+  `gomi` はリネーム通知（exit 2）。usage・spec 7.5 とも `gom info` 表記に統一済み。
+  参照: [usage](../cmd/gom/main.go)、[iface](../cmd/gom/iface.go)、[spec 7](spec.md#7-インターフェースファイル-gomi)、[sketch](sketch/2026-11-05-moon-cli-command-structure.md)。
 
 - [x] **`struct{}` の Gom 側の対応が定められていない**: spec 8.3 の対応表にも v1 未対応リストにも
   `struct{}` が現れないが、spec 10 章の例は `ctx.Done()` の `<-chan struct{}` を `select` の腕に書く

@@ -1,9 +1,17 @@
 # `ignore e` is spec'd but unparseable — the only discard is `let _`
 
-- 状態: 未解決
+- 状態: 解消（2026-11-05 — `ignore` was implemented as a keyword;
+  [decision](../decisions/2026-11-02-ignore-keyword.md)）
 - 日付: 2026-11-04
 
-## Situation
+## Resolution
+
+`ignore` is a keyword (`internal/syntax/token.go` maps `"ignore"` to
+`tokIgnore`) and the parser/checker produce the `Ignore` node the spec
+prescribes; the tutorial uses `ignore (...)` throughout. The
+`let _ = e` wildcard still exists as a separate form.
+
+## Situation (as reported)
 
 Spec 1.1 item 2 prescribes `ignore e` as the explicit discard for
 non-Unit middle expressions, and the spec 8.1 `report` example uses
