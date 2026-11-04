@@ -41,6 +41,7 @@ fn tail (xs: List a) -> Option (List a) = match xs {
   [x, ..rest] -> Some rest
 }
 
+@tailrec
 fn get (n: Int) (xs: List a) -> Option a = match xs {
   [] -> None
   [x, ..rest] -> if n == 0 { Some x } else { get (n - 1) rest }
@@ -65,16 +66,22 @@ fn fold (f: b -> a -> b) (acc: b) (xs: List a) -> b = match xs {
 
 fn iter (f: a -> Unit) (xs: List a) -> Unit = for x in xs { ignore f x }
 
+@tailrec
 fn find (f: a -> Bool) (xs: List a) -> Option a = match xs {
   [] -> None
   [x, ..rest] -> if f x { Some x } else { find f rest }
 }
 
 /// concat xss = xss[0] ++ xss[1] ++ ... — `List.join` in OCaml.
-fn concat (xss: List (List a)) -> List a = fold append [] xss
+/// Right-folds through concat_go so each inner `append` shares the
+/// already-built suffix; a left fold would re-copy the accumulated
+/// prefix at every step (cons is O(n) on the slice repr — P5-3).
+fn concat (xss: List (List a)) -> List a = concat_go xss
 
 /// sum xs adds the elements of a Float list left to right.
-fn sum (xs: List Float) -> Float = fold (fn acc x -> acc + x) 0.0 xs
+/// A dedicated loop: folding a curried `f acc x` would allocate one
+/// closure per element (the arity-one value repr — P5-3).
+fn sum (xs: List Float) -> Float = sum_go 0.0 xs
 
 /// range lo hi is [lo, lo+1, ..., hi-1]; empty when lo >= hi.
 fn range (lo: Int) (hi: Int) -> List Int = range_go lo hi []
@@ -89,6 +96,17 @@ fn length_go (acc: Int) (xs: List a) -> Int = match xs {
 @tailrec
 fn range_go (i: Int) (hi: Int) (acc: List Int) -> List Int = if i >= hi { rev acc } else {
   range_go (i + 1) hi [i, ..acc]
+}
+
+@tailrec
+fn sum_go (acc: Float) (xs: List Float) -> Float = match xs {
+  [] -> acc
+  [x, ..rest] -> sum_go (acc + x) rest
+}
+
+fn concat_go (xss: List (List a)) -> List a = match xss {
+  [] -> []
+  [xs, ..rest] -> append xs (concat_go rest)
 }
 
 test "of/cons build literals" { assert_eq (of 1) [1]; assert_eq (cons 1 [2, 3]) [1, 2, 3] }

@@ -817,6 +817,83 @@ func TestPipeTryMixed(t *testing.T) {
 	}
 }
 
+// TestPipeTryMixedGoStepFuses: `x |?> keep |?> parseInt (try r, 64)
+// |?> keep` — the unguarded step is a Go (T,error) call. Its
+// arguments (the `try` included) evaluate in the user sequence while
+// the call proper enters the next segment as a fused EscapeCall: no
+// intermediate Result is materialized between the two (P2-4c).
+func TestPipeTryMixedGoStepFuses(t *testing.T) {
+	resT := types.Result(types.Int, types.GoError)
+	keep := fsym("keep")
+	parseInt := gsym("parseInt")
+	x := vsym("x", resT)
+	r := vsym("r", resT)
+	tryR := &check.Try{Base: b(types.Int), X: vr(r, resT)}
+	goApp := app(vr(parseInt, types.Fn(resT, types.P(types.Int), types.P(types.Int), types.P(types.Int))),
+		[]check.Expr{tryR, intLit("64")},
+		check.CallInfo{Kind: check.CallGo, Callee: parseInt, Arity: 3, Applied: 2, HoleIndex: -1},
+		types.Fn(resT, types.P(types.Int)))
+	keepT := types.Fn(resT, types.P(types.Int))
+	l0 := &check.Binary{Base: b(resT), Op: syntax.BinPipeTry, X: vr(x, resT), Y: vr(keep, keepT)}
+	l1 := &check.Binary{Base: b(resT), Op: syntax.BinPipeTry, X: l0, Y: goApp}
+	l2 := &check.Binary{Base: b(resT), Op: syntax.BinPipeTry, X: l1, Y: vr(keep, keepT)}
+	d := decl("g", []check.Param{param(vpat(x, resT)), param(vpat(r, resT))}, l2,
+		types.Fn(resT, types.P(resT), types.P(resT)))
+	f := &check.File{Sp: sp, Package: "p", PkgSp: sp, Decls: []check.Decl{d}}
+	out, diags := File(f, &Env{GoSig: func(sym *resolve.Symbol) (GoSig, bool) {
+		return GoSig{Arity: 3, Results: core.GoResultsErr}, true
+	}})
+	if out == nil {
+		t.Fatal("File returned nil")
+	}
+	for _, dg := range diags {
+		t.Errorf("unexpected diagnostic: %v", dg)
+	}
+	g := fnDeclOf(t, out, 0).Fn
+
+	// seg1 covers `x |?> keep`; the feed match is the tail.
+	if _, ok := g.Body.Lets[0].X.(*core.Closure); !ok {
+		t.Fatalf("let0 = %T, want segment Closure", g.Body.Lets[0].X)
+	}
+	m, ok := g.Body.Tail.(*core.Match)
+	if !ok {
+		t.Fatalf("tail = %T, want feed Match", g.Body.Tail)
+	}
+	sw := m.Tree.(*core.DSwitch)
+	okArm := sw.Cases[0].Body
+	// Ok arm: try = escape(r)->user fn ; the segment's closure binds;
+	// its call is the arm tail. The Go call itself is nowhere in the
+	// user sequence — it moved inside the segment.
+	if len(okArm.Lets) != 2 {
+		t.Fatalf("ok arm lets = %d, want 2 (try escape, segment closure)", len(okArm.Lets))
+	}
+	escTry, ok := okArm.Lets[0].X.(*core.EscapeResult)
+	if !ok || escTry.To != g || escTry.Wrap != "" {
+		t.Fatalf("unguarded try escape = %+v, want EscapeResult to the user fn g, no wrap", okArm.Lets[0].X)
+	}
+	seg2, ok := okArm.Lets[1].X.(*core.Closure)
+	if !ok {
+		t.Fatalf("seg2 bind = %T, want segment Closure", okArm.Lets[1].X)
+	}
+	if _, ok := okArm.Tail.(*core.CallFunc); !ok {
+		t.Fatalf("ok arm tail = %T, want segment CallFunc", okArm.Tail)
+	}
+	// seg2 enters with the fused EscapeCall — three args (payload,
+	// try payload, 64), wrapped under the step's name — then runs
+	// the trailing guarded keep step.
+	if len(seg2.Fn.Body.Lets) != 3 {
+		t.Fatalf("seg2 lets = %d, want 3 (fused call, keep call, keep escape)", len(seg2.Fn.Body.Lets))
+	}
+	esc, ok := seg2.Fn.Body.Lets[0].X.(*core.EscapeCall)
+	if !ok || esc.To != seg2.Fn || esc.Wrap != "parseInt" || len(esc.Call.Args) != 3 {
+		t.Fatalf("seg2 enter = %+v, want EscapeCall to seg2 with Wrap \"parseInt\" and 3 args", seg2.Fn.Body.Lets[0].X)
+	}
+	escKeep, ok := seg2.Fn.Body.Lets[2].X.(*core.EscapeResult)
+	if !ok || escKeep.To != seg2.Fn || escKeep.Wrap != "keep" {
+		t.Fatalf("seg2 step escape = %+v, want EscapeResult to seg2 with Wrap \"keep\"", seg2.Fn.Body.Lets[2].X)
+	}
+}
+
 // TestPipeTryShieldedTryFuses: `x |?> (fn n -> Ok (try r + n)) |?> h`
 // — the only `try` sits under a lambda, which is its own escape
 // boundary wherever it is applied, so the whole chain still takes the

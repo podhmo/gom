@@ -1,0 +1,30 @@
+package pipes
+
+import go "strconv"
+import go "os"
+
+fn keep (n: Int) -> Result Int GoError = Ok n
+fn shout (s: String) -> Result String GoError = Ok s
+fn ukeep (u: Unit) -> Result String GoError = Ok "set"
+
+// An unguarded step that is a Go (T,error) call separates argument
+// evaluation — `try r` keeps the user boundary — from the call
+// proper, which fuses into the next segment: no Result materializes.
+fn first (s: String) (r: Result Int GoError) -> Result Int GoError =
+  s |?> strconv.ParseInt (_, try r, 64) |?> keep
+
+fn mid (s: String) (r: Result Int GoError) -> Result Int GoError =
+  s |?> shout |?> strconv.ParseInt (_, try r, 64) |?> keep |?> keep
+
+fn last (s: String) (r: Result Int GoError) -> Result Int GoError =
+  s |?> shout |?> strconv.ParseInt (_, try r, 64)
+
+// An error-only Go call fuses the same way.
+fn errOnly (k: String) (r: Result String GoError) -> Result String GoError =
+  k |?> shout |?> os.Setenv (_, try r) |?> ukeep
+
+// An unguarded step that is not a Go call still materializes its
+// Result for the next segment to inspect.
+fn bump (n: Int) (x: Int) -> Result Int GoError = Ok (n + x)
+fn gomStep (n: Int) (r: Result Int GoError) -> Result Int GoError =
+  n |?> keep |?> bump (try r) |?> keep

@@ -1940,9 +1940,13 @@ func (l *lowerer) pipeTryMixed(s *seq, e *check.Binary) core.Expr {
 // pipeRest continues a mixed chain from step i given the payload atom
 // p — already unwrapped and bound in cs, a sequence of the user
 // boundary. Guarded steps fuse inside one boundary segment; an
-// unguarded step applies in cs so its trys keep the user boundary, and
-// its Result either enters the next segment for inspection (when the
-// step name wraps the error) or feeds a plain decision-tree match.
+// unguarded step's arguments evaluate in cs so its trys keep the user
+// boundary, and its Result either enters the next segment for
+// inspection (when the step name wraps the error) or feeds a plain
+// decision-tree match. A Go (T,error) call splits further: only the
+// argument evaluation stays in cs — the call proper joins the next
+// segment as a fused EscapeCall, so no Result materializes between
+// the two sides.
 func (l *lowerer) pipeRest(cs *seq, e *check.Binary, levels []*check.Binary, unguarded []bool, i int, p core.Atom) core.Expr {
 	n := len(levels)
 	if i >= n {
@@ -1963,7 +1967,7 @@ func (l *lowerer) pipeRest(cs *seq, e *check.Binary, levels []*check.Binary, ung
 		})
 	}
 	lv := levels[i]
-	val := l.asAtom(cs, lv.Y.Span(), l.stepApply(cs, lv, lv.Y, p))
+	step := l.stepApply(cs, lv, lv.Y, p)
 	if wrap := l.pipeWrap(lv); wrap != "" {
 		// The wrap lives only on EscapeResult/EscapeCall — inspect
 		// the step's Result inside the next boundary segment, which
@@ -1972,12 +1976,31 @@ func (l *lowerer) pipeRest(cs *seq, e *check.Binary, levels []*check.Binary, ung
 		for j < n && !unguarded[j] {
 			j++
 		}
-		seg := l.pipeSegment(cs, levels[j-1], func(bs *seq) core.Atom {
-			return l.asAtom(bs, lv.Sp, &core.EscapeResult{
-				Base: core.Base{Sp: lv.Sp, Typ: l.payloadOf(val.Type())},
-				X:    val, To: l.curFn(), Wrap: wrap,
-			})
-		}, levels, i+1, j)
+		var enter func(bs *seq) core.Atom
+		if call, ok := unwrapToCallGo(step); ok &&
+			(call.Results == core.GoResultsErr || call.Results == core.GoResultsErrOnly) {
+			// The step is a Go (T,error) call: its receiver and
+			// arguments — including every unguarded try among them —
+			// already evaluated in cs, so the call proper moves
+			// inside the segment as a fused EscapeCall and no
+			// Result materializes between the two sides.
+			enter = func(bs *seq) core.Atom {
+				payload := l.asAtom(bs, lv.Y.Span(), &core.EscapeCall{
+					Base: core.Base{Sp: lv.Y.Span(), Typ: call.Typ},
+					Call: call, To: l.curFn(), Wrap: wrap,
+				})
+				return l.convAtomTo(bs, lv.Y.Span(), payload, l.payloadOf(lv.Type()))
+			}
+		} else {
+			val := l.asAtom(cs, lv.Y.Span(), step)
+			enter = func(bs *seq) core.Atom {
+				return l.asAtom(bs, lv.Y.Span(), &core.EscapeResult{
+					Base: core.Base{Sp: lv.Y.Span(), Typ: l.payloadOf(val.Type())},
+					X:    val, To: l.curFn(), Wrap: wrap,
+				})
+			}
+		}
+		seg := l.pipeSegment(cs, levels[j-1], enter, levels, i+1, j)
 		if j == n {
 			return seg
 		}
@@ -1989,7 +2012,7 @@ func (l *lowerer) pipeRest(cs *seq, e *check.Binary, levels []*check.Binary, ung
 	// No wrap to apply (the chain's error type is not GoError): a
 	// plain match continues the chain — no boundary is needed to
 	// rebuild the same Err value.
-	return l.pipeFeed(cs, e, val, func(as *seq, q core.Atom) core.Expr {
+	return l.pipeFeed(cs, e, l.asAtom(cs, lv.Y.Span(), step), func(as *seq, q core.Atom) core.Expr {
 		return l.pipeRest(as, e, levels, unguarded, i+1, q)
 	})
 }

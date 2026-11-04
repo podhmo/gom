@@ -107,6 +107,101 @@ func main() {
 	}
 }
 
+// P2-4c: an unguarded step that is itself a Go (T,error) call
+// separates argument evaluation — `try` operands keep the user
+// boundary — from the call proper, which fuses into the next
+// segment's EscapeCall. No Result materializes between the two;
+// the failure is still wrapped once under the step's name.
+func TestPipeUnguardedGoStepFuses(t *testing.T) {
+	src := `package main
+import go "strconv"
+import go "os"
+fn keep (n: Int) -> Result Int GoError = Ok n
+fn shout (s: String) -> Result String GoError = Ok s
+fn ukeep (u: Unit) -> Result String GoError = Ok "set"
+// The unguarded Go step is first — the inflow feeds it directly.
+fn first (s: String) (r: Result Int GoError) -> Result Int GoError =
+  s |?> strconv.ParseInt (_, try r, 64) |?> keep
+// The unguarded Go step sits between guarded steps.
+fn mid (s: String) (r: Result Int GoError) -> Result Int GoError =
+  s |?> shout |?> strconv.ParseInt (_, try r, 64) |?> keep |?> keep
+// The unguarded Go step is last — the segment exists only to
+// inspect the call with its wrap name.
+fn last (s: String) (r: Result Int GoError) -> Result Int GoError =
+  s |?> shout |?> strconv.ParseInt (_, try r, 64)
+// An error-only Go call fuses the same way.
+fn errOnly (k: String) (r: Result String GoError) -> Result String GoError =
+  k |?> shout |?> os.Setenv (_, try r) |?> ukeep
+`
+	r, err := build.Compile(build.Input{Path: "pipe%name.gom", Src: []byte(src)}, suiteOptions())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, d := range r.Diagnostics {
+		if d.Severity == diag.SeverityError {
+			t.Fatalf("%s: %s", d.Code, d.Message)
+		}
+	}
+	generated := string(r.Output.Source)
+	for _, fn := range []string{"first", "mid", "last", "errOnly"} {
+		start := strings.Index(generated, "func "+fn+"(")
+		if start < 0 {
+			t.Fatalf("generated code lacks func %s", fn)
+		}
+		end := strings.Index(generated[start+1:], "\nfunc ")
+		if end < 0 {
+			end = len(generated) - start - 1
+		}
+		seg := generated[start+1 : start+1+end]
+		if strings.Contains(seg, "result.FromGo") {
+			t.Fatalf("%s materializes an intermediate Result:\n%s", fn, seg)
+		}
+	}
+	// Imports are added to the same generated package; the caller
+	// exercises the fused steps directly.
+	generated = strings.Replace(generated, "import (", "import (\n\"strings\"\n\"errors\"", 1)
+	generated += `
+func main() {
+  boom := errors.New("boom")
+  // A failing unguarded-try argument escapes with the raw error —
+  // never wrapped — from the user function.
+  for _, f := range []func(string, result.Result[int64,error]) result.Result[int64,error]{first, mid, last} {
+    if r := f("5", result.Err[int64,error](boom)); r.Error != boom {
+      panic("try escape changed the error")
+    }
+  }
+  // A failing fused call wraps once under the step's name.
+  for _, f := range []func(string, result.Result[int64,error]) result.Result[int64,error]{first, mid, last} {
+    r := f("bad", result.Ok[int64,error](10))
+    if !errors.Is(r.Error, strconv.ErrSyntax) || !strings.HasPrefix(r.Error.Error(), "strconv.ParseInt: ") ||
+      errors.Unwrap(r.Error) == nil {
+      panic(r.Error)
+    }
+  }
+  // Success carries the payload through the remaining guarded steps.
+  if v := first("5", result.Ok[int64,error](10)); v.Value != 5 {
+    panic(v.Value)
+  }
+  if v := mid("6", result.Ok[int64,error](10)); v.Value != 6 {
+    panic(v.Value)
+  }
+  if v := last("7", result.Ok[int64,error](10)); v.Value != 7 {
+    panic(v.Value)
+  }
+  if v := errOnly("GOM_PIPE_TEST", result.Ok[string,error]("v")); v.Value != "set" {
+    panic(v.Value)
+  }
+  if v := errOnly("GOM_PIPE_TEST", result.Err[string,error](boom)); v.Error != boom {
+    panic("errOnly try escape changed the error")
+  }
+  fmt.Println("ok")
+}
+`
+	if got := strings.TrimSpace(runCompiled(t, []byte(generated))); got != "ok" {
+		t.Fatalf("Go caller output = %q", got)
+	}
+}
+
 func TestPipeGoInflowConversions(t *testing.T) {
 	src := `package main
 import go "fmt"

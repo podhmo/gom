@@ -208,6 +208,7 @@ gom/
 ├── rt/               生成コードが import する補助（Tuple、Task、アサーションなど）。stdlib の表現を参照しない葉
 ├── stdlib/           Gom で書いた標準ライブラリ（list, option, result）。各パッケージに .gomi。
 │                     types.go が手書きの Go 表現、.go / _test.go は `gom build` / `gom test` の生成物でコミットする
+│                     bench_test.go は生成物を直接測る手書きのベンチ（P5-3、[decision](decisions/2026-11-05-generated-code-benchmark-harness.md)）
 ├── testdata/
 │   ├── spec/         仕様の規則ごとの .gom と、期待する診断 JSON
 │   ├── golden/       生成される Go コードのゴールデンファイル
@@ -336,7 +337,7 @@ if n > 0 {
 
 ### 4.6 `|?>`
 
-`|?>` は spec 9.2 のとおり Result 値を返す式であり、失敗してもパイプ外の後続処理を中断しない。lower は連続するパイプチェーンを即時適用する Unit 引数の局所クロージャとして確定し、各ステップを `err` の確認と**その局所境界からの**早期リターンに展開する。連続チェーンでは成功 payload をそのまま次の段へ渡し、Go の既知の単項ステップと直接呼び出しは `EscapeCall` に融合して中間の `Result` 値を作らない。任意の Gom 関数・関数値が返す Result は実際の呼び出しの結果として検査する。明示的 `try` を含むチェーンは、ラムダに遮蔽されていない `try`（unguarded try）を持つステップを境界として分割する: `try` を含むステップの適用は利用者の関数側の列で評価して `try` の脱出先を保存し、その前後の `try` を含まない連続区間はそれぞれ局所境界のセグメントとして融合し、区間境界は Ok/Err の決定木で payload を渡す。ラムダ内の `try` はラムダ自身が脱出境界なので融合を妨げず、ラムダしか書かれていないチェーンは全体が一つのセグメントになる。決定と検証は [result-pipe-local-boundary](decisions/2026-11-03-result-pipe-local-boundary.md) と [pipe-try-segmented-fusion](decisions/2026-11-03-pipe-try-segmented-fusion.md)。`Result` は言語上は stdlib の sum type だが、Go 側の `Result`/`ResultTag`/コンストラクタはコンパイラが生成する標準ライブラリの `result` パッケージに置く（`List` など他の組み込み型の Go 側表現も stdlib 側の特別扱いとして生成する）。表現は `struct { state ResultTag; Value T; Error E }`（`state` は非公開、0=invalid・1=Ok・2=Err）で、コンストラクタは `result.Ok[T,E](v)` / `result.Err[T,E](e)`、判定は `r.Tag()`（[decisions/value-representation](decisions/2026-11-01-value-representation.md)）。ステップが返す `Result` の検査は必ず invalid を含む完全な分岐にする——bare な comma-ok 型アサーション（`r.(Result_Err[...])` 型）は invalid 値を Ok 側のパスに流すので使わない（P0-4 で確認）。
+`|?>` は spec 9.2 のとおり Result 値を返す式であり、失敗してもパイプ外の後続処理を中断しない。lower は連続するパイプチェーンを即時適用する Unit 引数の局所クロージャとして確定し、各ステップを `err` の確認と**その局所境界からの**早期リターンに展開する。連続チェーンでは成功 payload をそのまま次の段へ渡し、Go の既知の単項ステップと直接呼び出しは `EscapeCall` に融合して中間の `Result` 値を作らない。任意の Gom 関数・関数値が返す Result は実際の呼び出しの結果として検査する。明示的 `try` を含むチェーンは、ラムダに遮蔽されていない `try`（unguarded try）を持つステップを境界として分割する: `try` を含むステップの適用は利用者の関数側の列で評価して `try` の脱出先を保存し、その前後の `try` を含まない連続区間はそれぞれ局所境界のセグメントとして融合し、区間境界は Ok/Err の決定木で payload を渡す。unguarded ステップが Go `(T,error)` 呼び出しのときは、引数（`try` を含みうる）の評価を利用者側の列に残したまま呼び出し本体を次セグメントの `EscapeCall` として融合し、中間 `Result` を作らない（P2-4c）。ラムダ内の `try` はラムダ自身が脱出境界なので融合を妨げず、ラムダしか書かれていないチェーンは全体が一つのセグメントになる。決定と検証は [result-pipe-local-boundary](decisions/2026-11-03-result-pipe-local-boundary.md) と [pipe-try-segmented-fusion](decisions/2026-11-03-pipe-try-segmented-fusion.md)。`Result` は言語上は stdlib の sum type だが、Go 側の `Result`/`ResultTag`/コンストラクタはコンパイラが生成する標準ライブラリの `result` パッケージに置く（`List` など他の組み込み型の Go 側表現も stdlib 側の特別扱いとして生成する）。表現は `struct { state ResultTag; Value T; Error E }`（`state` は非公開、0=invalid・1=Ok・2=Err）で、コンストラクタは `result.Ok[T,E](v)` / `result.Err[T,E](e)`、判定は `r.Tag()`（[decisions/value-representation](decisions/2026-11-01-value-representation.md)）。ステップが返す `Result` の検査は必ず invalid を含む完全な分岐にする——bare な comma-ok 型アサーション（`r.(Result_Err[...])` 型）は invalid 値を Ok 側のパスに流すので使わない（P0-4 で確認）。
 
 ```go
 // load_config の局所パイプクロージャ内の生成コード（抜粋）
