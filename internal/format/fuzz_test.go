@@ -27,9 +27,19 @@ import (
 	"github.com/podhmo/gom/internal/syntax"
 )
 
-// knownFormatBugs is currently empty; new findings go here with their
-// TODO.md entry (see internal/fuzzutil).
-var knownFormatBugs = map[[32]byte]fuzzutil.KnownBug{}
+// knownFormatBugs pins filed bugs to their TODO.md entry (see
+// internal/fuzzutil). Idempotence findings share the single
+// "Source is not idempotent" failure line, so this signature
+// matches every input variant of the same class — a NEW
+// non-idempotent shape should get its own registry entry rather
+// than riding this one.
+var knownFormatBugs = map[[32]byte]fuzzutil.KnownBug{
+	fuzzutil.Sum256Hex("092f2beca713f4aabfa8eadbed6aa052621d7da4512af83e682b3955096fa893"): {
+		Match: []string{"Source is not idempotent"},
+		TODO:  "適用後セレクタが非冪等",
+		Desc:  "formatter emits `(0 ()).A` for `0 ().A` — pass 2 rewrites it again; not idempotent (issue #12)",
+	},
+}
 
 const formatBugsCap = 16
 
