@@ -6,9 +6,17 @@ the `internal/gomtest` harness:
 - `spec/` — one `.gom` file per spec rule, together with the expected
   diagnostics as JSON
 - `golden/` — golden files of the Go code produced by codegen
+- `dump/` — phase-IR dump goldens
 - `fmt/` — formatter inputs and their expected outputs
 - `sumtype/` — canary module for the go-check-sumtype CI step:
   `nonexhaustive/` MUST keep failing the check (scripts/check-sumtype.sh)
+- `multifile/` — scratch Go module for the multi-`.gom` package +
+  `.gomi` import end-to-end test
+- `gocall/` — scratch Go module for the Go-calls-Gom end-to-end test
+  (the `geom` fixture exercises the generated API from Go tests)
+- `goiface/` — Go-side fixture package for `internal/goimport` and
+  boundary tests
+- `voidhost/` — host-side fixture for `internal/build` void tests
 
 ## Case layout
 

@@ -33,6 +33,12 @@ fn main () -> Unit = () // package main + `fn main () -> Unit` = Go entrypoint
 Declaration order: `package`, then `import`/`extern`, then `fn` /
 `let` / `type` / `test` in any order. Top-level names are visible
 throughout the file regardless of order (forward references work).
+Sibling `.gom` files in the same directory are one package — their
+top-level names are shared without imports (and must declare the
+same `package` name, E0605). `import "mod/path"` (no `go` keyword)
+pulls in another Gom package through its `.gomi` (see
+interface-files.md); `import go "path"` pulls in a real Go
+package.
 
 ## Expressions
 
@@ -298,9 +304,10 @@ fn add_res (a: Int) (b: Int) -> Result Int String = Ok (a + b)
 
 ## Things that look plausible but don't exist
 
-`Chan.*`, `Task.*`, `Ref.*`, `Array.*` — module names are reserved,
-member tables are empty → E0201 "exposes no members yet". The
-`List.*`, `Option.*`, `Result.*` stdlib modules do exist (see
+`Ref.*`, `Array.*` — module names are reserved, member tables are
+empty → E0201 "exposes no members yet" (`Chan.*`/`Task.*` do exist
+— see `references/concurrency.md`). The `List.*`, `Option.*`,
+`Result.*` stdlib modules do exist (see
 `stdlib/{list,option,result}/*.gomi`). `let ... in`, `pub`, `var`,
 `return`, `break`, `while`,
 `switch`, `enum`, `interface`, `class`, `nil`, `null`, `void`,

@@ -72,7 +72,7 @@ fn parse (s: String) -> Result Int GoError =
 | `int` / `int64` / `int32` / `float64` | `Int` / `Int` / `Int32` / `Float` |
 | `string` / `bool` / `rune` | `String` / `Bool` / `Char` |
 | `*T` | `Ptr T` (nil deref panics, as in Go) |
-| `[]T` | `Go.Slice T` today — spec intends `List T` + boundary copies ([gap](../../docs/implementation-gaps.md)) |
+| `[]T` | `List T` at a signature boundary (param/result/member type — copied both ways); `Go.Slice T` when nested inside another type |
 | `map[K]V` | `Go.Map K V` (opaque; `Go.Map` module ops) |
 | `chan T` / `<-chan` / `chan<-` | `Chan T` / `RecvChan T` / `SendChan T` |
 | `error` | `GoError` |
@@ -155,9 +155,12 @@ extern result rewrites.
   Gom doesn't add null checks.
 - A Gom ADT value received from Go holding `nil`/an invalid variant
   panics at `match` with a type-named message (`rt.InvalidVariant`).
-- `List`↔slice copies at the boundary are spec'd both ways (the
-  `Go.Slice` view above is today's reality); `Go.Slice` is the
-  explicit no-copy mutable escape via `extern`.
+- Top-level `[]T` parameters and results copy to/from `List` at the
+  boundary; a `[]T` nested inside another type stays `Go.Slice T`
+  (no copy). `Go.Slice` is also the explicit no-copy mutable view —
+  note `Go.conv` between `List` and `Go.Slice` puns the underlying
+  representation *without* copying (unlike the implicit boundary,
+  which copies; see `docs/implementation-gaps.md`).
 - Generated `.go` is a normal package: Go code calls Gom functions
   directly; ADTs surface as sealed interfaces (type-switch them);
   `Result` is a tagged struct via `Ok`/`Err`/`Tag()`/`Unwrap()`.

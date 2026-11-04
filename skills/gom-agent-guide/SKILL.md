@@ -27,7 +27,9 @@ CI; blocks marked `fail` are verified to produce a diagnostic.
 # Agent Workflow
 
 1. **Locate the package.** One directory = one Gom package = one Go
-   package. Gom compiles *per file* today; a `package main` needs a
+   package: the `.gom` files in a directory compile together as one
+   unit and share scope (a top-level name in `b.gom` is visible in
+   `a.gom` with no import). A `package main` needs a
    `fn main () -> Unit` to be a runnable entrypoint. Non-`main`
    packages need exactly one `.gomi` to be usable.
 2. **Read before writing.** New syntax? Check `docs/spec.md` (or the
@@ -193,7 +195,8 @@ generated from — useful when generated code surprises you.
   `Result.map_err` and friends resolve without an import — the
   worked-on value is the last parameter so `xs |> List.map f`
   pipelines. See `stdlib/{list,option,result}/*.gomi` for the full
-  surface. Concurrency is stdlib-backed too: `Chan.make`,
+  surface. Concurrency builtins are compiler-provided (no `.gomi`,
+  they forward to `rt/`): `Chan.make`,
   `Chan.send`, `Chan.recv` (`Option a` — `None` once closed),
   `Chan.close`, `Chan.recvOnly`, `Chan.sendOnly`, `Task.spawn`
   (`(Unit -> a) -> Task a`), `Task.await` (`Task a -> a`,
@@ -632,9 +635,10 @@ fn main () -> Unit = ()
 
 - No `pub`/`private`/`internal` — a package's `.gomi` file decides
   what is public.
-- `import "pkg"` loads a Gom package through its `.gomi` (the
-  importing file must be inside the same Go module); Go packages
-  use `import go "pkg"`.
+- `import "mod/path"` loads a Gom package through its `.gomi` —
+  spelled as a full module path (`import "example.com/m/shapes"`)
+  and resolved inside the same Go module; Go packages use
+  `import go "pkg"`.
 - No `switch`/`case` → `match`; no `enum` → `type`; no
   `interface`/`struct`/`class` → records and ADTs; no `nil`/`null`/
   `None`-free references → `Option`; no `func`/`def`/`let fun` →
@@ -644,15 +648,21 @@ fn main () -> Unit = ()
 
 # Toolchain
 
-Implemented today: `build`, `check`, `dump`, `fmt`. Planned (not
-yet): `test`, `fix`, `gomi`/`info`, `explain`, `schema`.
+Implemented today: `build`, `check`, `dump`, `test`, `fmt`, `fix`,
+`info`, `explain`, `schema`. `gomi` was renamed `info` (`gom gomi`
+prints the pointer and exits 2).
 
 | Command | Use |
 | --- | --- |
-| `gom check FILE...` | Parse → resolve → type-check → pattern check; no output files. Directories expand to their `*.gom`/`*.gomi`. |
-| `gom build [-o out] FILE...` | Full pipeline; writes one `.go` per `.gom` next to the input (or under `-o` dir/file). |
-| `gom dump -phase=syntax\|resolve\|check\|core FILE` | Print one phase's IR (diagnostics go to stderr; stdout is the artifact). |
+| `gom check FILE\|DIR...` | Parse → resolve → type-check → pattern check; no output files. A directory's `*.gom`/`*.gomi` compile as one package. |
+| `gom build [-o out] FILE\|DIR...` | Full pipeline; writes one `.go` per `.gom` next to the input (or under `-o` dir/file). |
+| `gom dump -phase=syntax\|resolve\|check\|core FILE` | Print one phase's IR — sibling `.gom` files compile along so package members resolve; only the named file's IR prints (diagnostics go to stderr; stdout is the artifact). |
+| `gom test FILE\|DIR...` | Also writes `_test.go` beside the `.go` and runs the package's `go test -json`. |
 | `gom fmt [-w\|-d\|-l\|--check] FILE...` | Canonical formatter; `-` reads stdin. stdout carries the artifact; message stream to stderr. |
+| `gom fix FILE...` | Apply the `safe` fixes diagnostics carry. |
+| `gom info [-o OUT] FILE\|DIR...` | Draft `.gomi` interfaces from implementations; `-o -` prints to stdout. |
+| `gom explain [CODE]` | Error-code explanations; no argument lists them all. |
+| `gom schema` | JSON Schema of the diagnostic stream. |
 | `gom check -format text` | Human rendering instead of JSON Lines. |
 
 Diagnostics are JSON Lines: one object per line, `kind:

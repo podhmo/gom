@@ -25,7 +25,8 @@ mypkg/
 ## This repo
 
 ```text
-cmd/gom/            # the CLI: build / check / dump / fmt (thin over internal/)
+cmd/gom/            # the CLI: build / check / dump / test / fmt / fix /
+                    #   info / explain / schema (thin over internal/)
 internal/           # the compiler: syntax → resolve → check → pattern
                     #   → lower → codegen; diag + types are shared
 rt/, stdlib/        # runtime + builtin-type support used by generated Go
@@ -41,6 +42,11 @@ testdata/spec/      # rule → .gom + expected diagnostics JSON
 testdata/golden/    # .gom → expected generated .go
 testdata/dump/      # phase-IR dump goldens
 testdata/fmt/       # formatter goldens
+testdata/multifile/ # scratch module: multi-.gom package + `.gomi` import e2e
+testdata/gocall/    # scratch module: Go-calls-Gom API e2e (geom fixture)
+testdata/goiface/   # Go-side fixtures for import/boundary tests
+testdata/sumtype/   # canary module for the check-sumtype step
+testdata/voidhost/  # host-side fixture for build/void tests
 ```
 
 ## Commands
@@ -49,7 +55,7 @@ testdata/fmt/       # formatter goldens
 | --- | --- |
 | `gom check FILE|DIR ...` | parse → resolve → check → pattern; JSON-Lines diagnostics. `DIR` expands to its `*.gom`/`*.gomi`. |
 | `gom build [-o OUT] FILE|DIR ...` | + lower → codegen; writes `.go`. `-o` file (single input) or dir. |
-| `gom dump -phase=NAME FILE` | `syntax`/`resolve`/`check`/`core` IR tree → stdout; diagnostics → stderr. |
+| `gom dump -phase=NAME FILE` | `syntax`/`resolve`/`check`/`core` IR tree → stdout; diagnostics → stderr. The package's sibling `.gom` files compile along so member names resolve — only FILE's IR prints. |
 | `gom fmt [-w\|-d\|-l\|--check] FILE...` | canonical formatter; `-` = stdin→stdout. Streams go to stderr. |
 | `gom test FILE|DIR ...` | compiles in test mode, writes `.go` + `_test.go` beside each input, runs `go test -json` per package directory, reports one `test` message per test plus `summary.tests` counts. |
 | `gom fix FILE...` | applies the fixes diagnostics mark `safe`. |
@@ -57,7 +63,8 @@ testdata/fmt/       # formatter goldens
 | `gom schema` | JSON Schema of the message stream. |
 | `-format text` | human diagnostics instead of JSON on all the above. |
 
-Not implemented yet (CLI says so explicitly): `gomi`.
+`gomi` was renamed `info` — `gom gomi` prints the pointer and exits
+2. Everything in the table above is implemented.
 
 ## Running the tutorial
 
