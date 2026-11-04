@@ -81,10 +81,18 @@ jobs:
   # the fuzzer writes under testdata/fuzz/), which is deliberate
   # signal rather than something every green change should block
   # on. See docs/decisions/2026-11-02-fuzz-strategy.md.
+  #
+  # A failed run files one `fuzz-finding` issue per failure
+  # signature (duplicates get a recurrence comment) so findings
+  # can't sit unnoticed in a skipped-over advisory log — see
+  # docs/decisions/2026-11-04-fuzz-failures-file-issues.md.
   fuzz:
     name: fuzz (advisory)
     runs-on: ubuntu-latest
     continue-on-error: true
+    permissions:
+      contents: read
+      issues: write # the failure step files fuzz-finding issues
     steps:
       - uses: actions/checkout@v7
 
@@ -92,5 +100,19 @@ jobs:
         with:
           go-version-file: go.mod
 
+      # tee keeps the output parseable for the issue-filing step;
+      # the default -eo pipefail shell still propagates a make
+      # failure into the step result.
       - name: make check-fuzz
-        run: make check-fuzz
+        run: make check-fuzz 2>&1 | tee check-fuzz.log
+
+      # main pushes only: pull_request tokens are read-only, and
+      # one filing channel keeps dedup simple. Non-fatal itself —
+      # a filing failure must not turn the advisory red.
+      - name: file findings as issues
+        if: failure() && github.event_name == 'push'
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: sh scripts/file-fuzz-issues.sh check-fuzz.log

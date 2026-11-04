@@ -109,6 +109,7 @@
 | [eval-concurrency-compiled-only](2026-11-04-eval-concurrency-compiled-only.md) | The evaluator keeps concurrency constructs compiled-only | 採用（P5-1 で実装・検証した — [検証](../sketch/2026-11-04-p5-1-concurrency-verification.md)） |
 | [fn-main-entrypoint](2026-11-04-fn-main-entrypoint.md) | `fn main () -> Unit` in `package main` is the Go entrypoint | 採用（`cmd/gom.TestEndToEnd_BuildAndRun` が shim なしで `gom build` → `go build` → 実行まで検証） |
 | [formatter-blank-lines](2026-11-04-formatter-blank-lines.md) | `gom fmt` はブロック内の空行を保持する | 採用 |
+| [fuzz-failures-file-issues](2026-11-04-fuzz-failures-file-issues.md) | Fuzz failures file `fuzz-finding` issues automatically | 採用 |
 | [go-collections-and-generics](2026-11-04-go-collections-and-generics.md) | []T → List boundary copies, Go.Slice/Go.Map, and callable generic Go functions | 採用（P3-3 が実装・検証した — [検証](../sketch/2026-11-04-p3-3-go-collections-verification.md)） |
 | [goconv-gotypes-oracle](2026-11-04-goconv-gotypes-oracle.md) | `Go.conv` legality: delegate to `go/types`, recheck after metas solve | draft |
 | [goconv-list-slice-copies](2026-11-04-goconv-list-slice-copies.md) | `Go.conv` の `Go.Slice T ↔ List T` はコピーする | 採用（実装は TODO） |
