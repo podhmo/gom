@@ -116,6 +116,16 @@ for f in "$OUT"/*.rec; do
 		fullcorpus="(none)"
 	fi
 
+	# The knownBugs registry is a per-package map named after the
+	# fuzz target family, not the package: FuzzParse→knownParseBugs,
+	# FuzzCompile→knownCompileBugs, FuzzFormat*→knownFormatBugs.
+	case $pkg in
+	internal/build) reg=knownCompileBugs ;;
+	internal/format) reg=knownFormatBugs ;;
+	internal/syntax) reg=knownParseBugs ;;
+	*) reg='known*Bugs' ;;
+	esac
+
 	num=""
 	if [ -n "$existing" ]; then
 		num=$(printf '%s\n' "$existing" | grep -F -- "$sig" | cut -f1 | head -1)
@@ -164,8 +174,9 @@ $rerun
 ## 記録チェックリスト
 
 - [ ] corpus ファイルをコミット
-- [ ] \`knownBugs\` レジストリにエントリ追加（Match + TODO リンク）
+- [ ] \`$reg\` レジストリにエントリ追加（Match + TODO リンク）
 - [ ] TODO.md に修正タスクを追加
+- [ ] 上記3件が済んだらこの issue を close（以降の正は knownBugs/TODO.md）
 - [ ] 修正後に knownBugs エントリを除去し、corpus を regression seed として残す"
 
 	echo "== new signature: $title"

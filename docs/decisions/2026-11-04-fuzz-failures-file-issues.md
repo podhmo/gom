@@ -38,6 +38,17 @@ corpus path, a `go test` reproducer line, and a checklist pointing
 at the existing filing flow (corpus file → `knownBugs` entry →
 TODO.md item → registry cleanup on fix).
 
+## Issue lifecycle
+
+An open `fuzz-finding` issue means "found but not yet filed into
+the registry". Once the corpus file, `knownBugs` entry, and
+TODO.md item land, the issue is **closed** — the registry and
+TODO.md are the source of truth from there on. Dedup only scans
+open issues, which is safe: a registered bug's signature is
+suppressed by its `Match` entry, so a fresh issue after close
+means either a genuinely new bug or an incomplete registration —
+both worth a new look.
+
 ## Constraints and scope
 
 - **main pushes only.** `pull_request` tokens are read-only for
