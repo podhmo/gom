@@ -345,20 +345,27 @@
   参照: [decision](decisions/2026-11-04-go-collections-and-generics.md)、
   [fixture](../testdata/spec/E0501_go_container_view_split.gom)。
 
-- [ ] **`checkInitCycles` は file-local で Go のパッケージ単位の分析とずれる**:
+- [x] **`checkInitCycles` は file-local で Go のパッケージ単位の分析とずれる**:
   E0907 の初期化依存グラフは 1 ファイルの Core IR 上に構築するが、Go は
   パッケージ単位で初期化順を決める。**複数 `.gom` パッケージが実現した
   （V-6）ため発生可能になった**: `a.gom: let x = y + 1` / `b.gom: let y = x + 1`
   は Gom 診断なしに `var x = y + 1` / `var y = x + 1` を生成し、
   `go build` が "initialization cycle" を報告する（2026-11-05 実測）。
-  参照: [initcycle.go](../internal/lower/initcycle.go)、
-  [decision](decisions/2026-11-05-aggregate-function-bindings.md)、
-  [検証](sketch/2026-11-05-v6-residual-verification.md)。
+  対応: `lower.CheckInitCycles([]*core.File)` が全メンバーの `Decls` 上に
+  グラフを構築し、`build.CompileFiles` がユニット検査してファイルごとに
+  診断を振り分け・全出力を抑止。隠し tmp は `core.VarDecl.DiagName` で
+  `let <pat>` 綴りに報告される。検証: `internal/build` の 3+1 回帰テスト
+  （兄弟 var/fn/tmp 経由サイクル、前方参照 OK）。
+  参照: [decision](decisions/2026-11-05-package-initialization-order.md)、
+  [検証](sketch/2026-11-05-package-initialization-order-verification.md)。
 
-- [ ] **spec にパッケージ初期化順序の節がない**: E0907（初期化循環の拒否）の
+- [x] **spec にパッケージ初期化順序の節がない**: E0907（初期化循環の拒否）の
   `Spec:` 参照先が未定義 — `@tailrec` 系の E09xx は spec 1.1 を参照するが、
   初期化順序の言語仕様自体は spec にない。spec 節を新設するかは未決。
-  参照: [codes.go](../internal/diag/codes.go)、[spec](spec.md)。
+  対応: decision 採用（Go の依存解析をユニット単位で逐語採用）のうえ
+  spec.md §5.1 を新設し、E0907 のエントリに `Spec: "5.1"` を付与。
+  参照: [decision](decisions/2026-11-05-package-initialization-order.md)、
+  [spec](spec.md#51-パッケージの初期化順)、[codes.go](../internal/diag/codes.go)。
 
 - [x] **遅延メンバー適用の引数タプル内で `_` / `..e` が provisional 通過をすり抜ける**:
   `x.M((_, 1), 2)` のように arg タプルの *要素* に置かれた `_` は provisionalArg が
@@ -470,13 +477,15 @@
   [loader](../internal/gomimport/loader.go) `visitImpl`、
   [検証](sketch/2026-11-05-v6-residual-verification.md)。
 
-- [ ] **Float 型の巨大整数リテラルが eval で失敗し生成 Go では動く**:
+- [x] **Float 型の巨大整数リテラルが eval で失敗し生成 Go では動く**:
   `let m: Float = 99999999999999999999`（int64 超）は eval の `litValue` が
   `strconv.ParseInt` を Float 判定より先に呼ぶため CodeInternal "invalid int
   literal" で失敗するが、生成 Go は `float64(...)` を出してコンパイル・実行
   できる（exotic、Wave 5 hardening レビュー指摘）。
-  参照: [lit.go](../internal/eval/lit.go) `litValue`、
-  [TODO](../TODO.md) の同名 bug 項目。
+  対応: `isFloatCon` 時は `ParseFloat` → `big.Int.SetString` で評価
+  （codegen の `float64(text)` と一致）。検証: `eval_test.go` 回帰 +
+  `compare_test.go` の `float_annotated_huge_int_literal`。
+  参照: [lit.go](../internal/eval/lit.go) `litValue`。
 
 - [ ] **`Go.conv` の `gomOnly` 判定が修飾名 `Qual` を見ない残余の不健全性**:
   `Con{Qual:"geom",Name:"Int"}`（foreign ADT が builtin と同名）は名前検査で
@@ -493,3 +502,11 @@
   報告するが `type SendChan` は一覧に含まれず、shadowed `SendChan` 上の
   `for` は素の mismatch になる（pre-existing、Wave 5 hardening レビュー指摘）。
   参照: [expr.go](../internal/check/expr.go) `checkFor`。
+
+- [ ] **`@tailrec` R4 の直接参照グラフは file-local で兄弟経由の相互再帰を見逃す**:
+  `checkInitCycles`（E0907）と同型の file-local 制限 — 相互再帰が *兄弟*
+  ファイルの関数・let 経由で閉じると E0904 をすり抜ける。修正方向は同じ:
+  R4 のグラフをユニット `Decls` 上に構築する（wt/initorder-small の
+  package-wide 化と同形）。
+  参照: [decision Consequences](decisions/2026-11-05-package-initialization-order.md)、
+  [initcycle.go](../internal/lower/initcycle.go) `checkTailRec`/`tailrecNeighbors`。

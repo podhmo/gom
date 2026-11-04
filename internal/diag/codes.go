@@ -1096,6 +1096,7 @@ fn eq (x: W Int) (y: W Int) -> Bool = x == y   // no finite comparator set`,
 		Severity: SeverityError,
 		Title:    "package-level initialization cycle",
 		Phase:    PhaseLower,
+		Spec:     "5.1",
 		Explanation: `Package-level "let" bindings initialize eagerly in dependency
 order, following the same rule Go applies to "var" declarations:
 a binding's initializer must wait for every variable the

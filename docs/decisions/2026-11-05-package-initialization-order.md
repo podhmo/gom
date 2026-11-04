@@ -1,6 +1,6 @@
 # Package initialization order: Go's dependency analysis over the whole unit
 
-- 状態: draft（prototype で検証済み — [sketch](../sketch/2026-11-05-package-initialization-order-verification.md)。spec.md への反映は未実施）
+- 状態: 採用（prototype で検証済み — [sketch](../sketch/2026-11-05-package-initialization-order-verification.md)。spec.md §5.1 へ反映済み）
 - 日付: 2026-11-05
 
 ## Context
@@ -63,7 +63,7 @@ package unit rather than of any one file.
    the binding's own span, naming `.gom` bindings (`let (a, _)`)
    rather than generated `tmpN`s.
 
-### Proposed spec wording (docs/spec.md §5, not yet inserted)
+### Spec wording (inserted as docs/spec.md §5.1)
 
 ```markdown
 ### 5.1 パッケージの初期化順

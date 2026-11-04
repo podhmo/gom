@@ -62,11 +62,13 @@ Go 相互運用を変えたら両方向（Gom → Go、Go → Gom）のテスト
 
 ### 検証
 
+- [ ] **gomtest spec ハーネスの複数ファイル対応**: testdata/spec の fixture は 1 case = 1 ファイルのため、パッケージ単位の規則（兄弟ファイルをまたぐ初期化サイクル、兄弟 test 名タグ付けなど）を spec fixture として書けない。現状は `internal/build` ドライバテストで代替済み（`TestCompileFilesInitCycleAcrossSiblings` 等）。複数ファイル case の fixture 形式を決めて対応する
+
 ## Bugs
 
 （見つけたバグはここに `- [ ]` で足す）
 
-- [ ] **[bug] 兄弟ファイルをまたぐ初期化サイクルが Gom 診断をすり抜ける**: `a.gom: let x = y + 1` / `b.gom: let y = x + 1` は `gom build` を通り、`var x = y + 1` / `var y = x + 1` を生成して `go build` が "initialization cycle" で落ちる。`checkInitCycles` は file-local の Core IR 上でしか辺を張らない — unit スコープの初期化解析が要る（V-6 で複数 `.gom` パッケージが実現して到達可能になった）。[台帳](docs/implementation-gaps.md)、[実測](docs/sketch/2026-11-05-v6-residual-verification.md)
+- [x] **[bug] 兄弟ファイルをまたぐ初期化サイクルが Gom 診断をすり抜ける**: `a.gom: let x = y + 1` / `b.gom: let y = x + 1` は `gom build` を通り、`var x = y + 1` / `var y = x + 1` を生成して `go build` が "initialization cycle" で落ちる。`checkInitCycles` は file-local の Core IR 上でしか辺を張らない — unit スコープの初期化解析が要る（V-6 で複数 `.gom` パッケージが実現して到達可能になった）。[台帳](docs/implementation-gaps.md)、[実測](docs/sketch/2026-11-05-v6-residual-verification.md)
 
 - [ ] **[divergence] Float リテラル演算が生成 Go の定数畳み込みで評価器と値がずれる**: `"${869.32 * 38.29}"` は eval がリテラルごとに float64 化してから乗算するため `33286.262800000004` を出すが、生成 Go は untyped 定数式のまま出力するため Go の任意精度定数畳み込み＋単一丸めで `33286.2628` になる。同じ `'g' -1` 表示を通るのに値自体がずれる。spec の Float 演算の意味を決める必要がある: IEEE754 ベースに寄せるなら codegen がオペランドを非定数化（変数経由か変換の挿入）する必要があり、Go の定数意味論に寄せるなら eval の各演算を定数畳み込み順に直す必要がある（V-3 の eval-vs-compiled 差分テストで発見、knownDivergences 登録済み。[docs/problems/2026-11-02-float-const-fold-arithmetic.md](docs/problems/2026-11-02-float-const-fold-arithmetic.md)）
 - [ ] **[divergence] 異なるバリアント値への名前付きペイロードアクセス `.f` で eval とコンパイルがずれる**: `fn getr (s: Shape) -> Float = s.r`（`Shape = | Circle (r: Float) | Rect (w: Float) (h: Float) | Empty`）に `Rect 2.0 3.0` を渡すと、eval は index 0 のスロット `w` の値 `2.0` を返すのに対し、コンパイル側は `s.(Shape_Circle).R` の型アサーションで panic する（`Empty` では eval も E9004 "variant has no such field" で失敗するが、コンパイル panic と失敗の形が違う）。check は「そのフィールド名を持つバリアントがちょうど 1 つ」のときだけ `.f` を受理するので、所有者が静的に証明できないケースの意味を spec が定めていないのが根。アサーション意味（違約 = panic、match の DPanic 系と同系）を spec に明文化して eval 側も ctor 一致を検査するのが自然案。生成コード側は `core.FieldGet.Ctor` でアサート対象を IR 確定済み（[docs/problems/2026-11-02-variant-field-wrong-variant.md](docs/problems/2026-11-02-variant-field-wrong-variant.md)。fix-diff-bugs の `s.r` 回帰修正中に検証で発見）
@@ -74,5 +76,5 @@ Go 相互運用を変えたら両方向（Gom → Go、Go → Gom）のテスト
 
 - [-] **[task] Gist CLIのGo境界**: byte I/Oと`Go.Slice String`→`List String`を実装して残りのexample-local adapterを縮小する。最小再現と必要操作は[Gist prototype](docs/sketch/2026-11-03-gist-cli-prototype.md)、関連: P3-2/P3-3。
 
-- [ ] **[divergence] Float 型の巨大整数リテラルが eval で CodeInternal になる**: `let m: Float = 99999999999999999999`（int64 超）は eval の `litValue` が `strconv.ParseInt` を Float 判定より先に呼ぶため "invalid int literal" で失敗するが、生成 Go は `float64(...)` を出してコンパイル・実行できる（Wave 5 hardening レビュー指摘、exotic）。`isFloatCon` 時は `ParseFloat` を先に試す。[lit.go](internal/eval/lit.go)
+- [x] **[divergence] Float 型の巨大整数リテラルが eval で CodeInternal になる**: `let m: Float = 99999999999999999999`（int64 超）は eval の `litValue` が `strconv.ParseInt` を Float 判定より先に呼ぶため "invalid int literal" で失敗するが、生成 Go は `float64(...)` を出してコンパイル・実行できる（Wave 5 hardening レビュー指摘、exotic）。`isFloatCon` 時は `ParseFloat` を先に試す。[lit.go](internal/eval/lit.go)
 - [ ] **[bug] `for` の shadowed-con E0415 リストに `SendChan` がない**: `checkFor` の shadowed builtin 一覧は `List`/`Chan`/`RecvChan` を挙げるが `SendChan` を含まないため、ファイルローカルの `type SendChan` 下の `for` は E0415 ではなく素の mismatch になる（pre-existing、Wave 5 hardening レビュー指摘）。`internal/check/expr.go` の checkFor 付近
