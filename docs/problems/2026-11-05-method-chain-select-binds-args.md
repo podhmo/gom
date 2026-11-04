@@ -1,6 +1,6 @@
 # Method-call chains bind the selector to the argument tuple, not the call
 
-- 状態: 未決
+- 状態: 解消（post-argument selector を適用に結合させ、`x.M(1).N(2)` は左結合で `(x.M(1)).N(2)` に parse される。`f (e).m` の意味は変わる — decision + spec 8.1.3 に明記。Wave 5 hardening (a)。[decision](../decisions/2026-11-05-post-arg-selector-binding.md)、[検証](../sketch/2026-11-05-post-arg-selector-binding-verification.md)、fixture `ok_method_chain`）
 
 ## 状況
 

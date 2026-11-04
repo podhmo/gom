@@ -80,6 +80,11 @@
   参照: [decision](decisions/2026-11-04-go-collections-and-generics.md)、
   [検証](sketch/2026-11-04-p3-3-go-collections-verification.md)、
   [golden](../testdata/golden/go_slice_boundary.golden.go)。
+  追記（P3-2/P3-6 worktree）: `Go.conv` は go/types oracle 導入後 `Go.Slice T ↔ List T` を受理する
+  （同一 underlying の raw pun で**コピーしない** — `list.List[T](xs)` キャストを生成）。
+  spec 8.5 のコピーは暗黙の境界適合位置のみが `list.FromSlice`/`.ToSlice()` を生成する
+  （検証: `testdata/gocall` の `freeze`/`thaw`、[sketch](sketch/2026-11-04-p3-2-p3-6-interop-verification.md)）。
+  conv の pun 挙動を spec 明文化するかは open-questions の未決事項。
 
 - [x] **Go interface の代入規則が未実装**: spec 8.3 は Go 由来の値を代入規則に従って渡せるとするが、
   `*strings.Reader` → `io.Reader` や `*os.File` → `io.Writer` が E0401 になる。
@@ -92,10 +97,14 @@
   対応: named interface へ包む前に `ConvNum` で数値型を具体化し、動的型を実行検証。Go.Any は別項目。
   参照: [型の対応](spec.md#83-型の対応)、[レビュー対応と再レビュー](sketch/2026-11-03-go-http-boundary-verification.md)。
 
-- [ ] **既存の Go.Any 経路でも整数リテラルの動的型が int になる**:
+- [x] **既存の Go.Any 経路でも整数リテラルの動的型が int になる**:
   `fmt.Sprintf ("%T", 1)` を main `5e792f4` で生成・実行すると `int` を返した。
   Gom `Int` の `int64` 表現と異なり、named interface の修正だけではこの既存経路は直らない。
-  参照: [型の対応](spec.md#83-型の対応)、[実行記録](sketch/2026-11-03-parallel-implementation-round.md#goany-numeric-probe)。
+  対応: `ConvBoxAny` の全 emit サイトで `convBoxSrc` が `ConvNum` で数値型を具体化
+  （`any(int64(42))`、`any(float64(x))`）。実行検証は `testdata/gocall` の
+  `TestAnyBoxingFromGo`（literal/binding/arithmetic + Go 側型 switch）。
+  参照: [検証](sketch/2026-11-04-p3-2-p3-6-interop-verification.md)、
+  [lower/expr.go](../internal/lower/expr.go)。
 
 - [x] **Go チャネルを interface に渡せない**: 同じ修正試作で、Go から返る `chan string` を
   named empty interface の引数へ渡すと E0401 になった。Go の代入規則では可能。
@@ -136,10 +145,13 @@
   生成 Go は任意精度定数式を畳み込むため、同じ式の数値・文字列表示が異なる。
   参照: [詳細と未決の意味](problems/2026-11-02-float-const-fold-arithmetic.md)。
 
-- [ ] **Float に推論された整数リテラル束縛が Go では int のままになる**:
+- [x] **Float に推論された整数リテラル束縛が Go では int のままになる**:
   `fn f () -> Float = { let n = 1; n + 0.5 }` は Float に型解決されるが、
   生成 Go の `n := 1` が int を推論し `0.5 truncated to int` でコンパイルできない。
-  参照: [既存の懸念](problems/2026-11-02-let-int-literal-go-type.md)、[codegen](../internal/codegen/emit.go)。
+  対応: codegen/eval/パターンで整数リテラルを型ごとに物質化（`n := float64(1)`）。
+  `1 / 2` in Float context は `float64(1) / float64(2)` を出し float 除算を維持。
+  参照: [golden](../testdata/golden/float_int_literal.golden.go)、
+  [problems（解消済み）](problems/2026-11-02-let-int-literal-go-type.md)。
 
 - [ ] **別バリアントのペイロード参照の結果が異なる**: `s.r` を `Rect` に適用すると、
   eval は別名の同じ位置の値を返し、生成コードは型アサーションで panic する。spec の失敗時の意味も未定義。
@@ -188,12 +200,15 @@
   実装はまだ無いが、名前の正が文書間で不一致。
   参照: [usage](../cmd/gom/main.go)、[TODO](../TODO.md)、[spec 7](spec.md#7-インターフェースファイル-gomi)、[sketch](sketch/2026-11-05-moon-cli-command-structure.md)。
 
-- [ ] **`struct{}` の Gom 側の対応が定められていない**: spec 8.3 の対応表にも v1 未対応リストにも
+- [x] **`struct{}` の Gom 側の対応が定められていない**: spec 8.3 の対応表にも v1 未対応リストにも
   `struct{}` が現れないが、spec 10 章の例は `ctx.Done()` の `<-chan struct{}` を `select` の腕に書く
   （`Unit` → `struct{}` なら `RecvChan Unit` が自然）。実装は "unsupported Go type struct{}" で
   E0501 にするため、10 章の例はメンバー未実装とは別の理由でもコンパイルできない。
-  参照: [spec 8.3](spec.md#83-型の対応)、[spec 10](spec.md#10-並行処理)、
-  [mapping](../internal/goimport/mapping.go)、[監査](sketch/2026-11-03-spec-examples-audit.md)。
+  対応: `struct{}` → `Unit` のマッピングを採用（`goimport/mapping.go`）。実際の
+  `context.Context` + `ctx.Done()` + `time.After(time.Second)` を select 腕に書く
+  spec 例がコンパイル＆実行まで確認済み。
+  参照: [decision](decisions/2026-11-04-chan-direction-go-boundary.md)、
+  [検証](sketch/2026-11-04-p5-1-concurrency-verification.md)。
 
 - [ ] **spec の例の `Result Int64 GoError` が 8.3 節の対応表と食い違う**: 9.2 節の
   `parse_port`（`strconv.ParseInt` の結果）と 8.4 節の `extern io.Copy` は `Int64` を
@@ -355,20 +370,26 @@
   参照: [decision](decisions/2026-11-05-deferred-member-application.md)、
   [検証](sketch/2026-11-05-deferred-member-application.md)、
   [fixture](../testdata/spec/E0504_hole_in_go_arg_tuple.gom)。
-- [ ] **メソッド呼び出しの連鎖 `x.M(1).N(2)` が arg タプルへの select として parse される**:
+- [x] **メソッド呼び出しの連鎖 `x.M(1).N(2)` が arg タプルへの select として parse される**:
   postfix の selector が適用の引数タプルより強く結合するため、`.N` は `(1)` の
   後続ではなくタプル要素とみなされる。`x.AddDate(1,0,0).AddDate(0,1,0)` は
   E0401（arity / "tuple type has no AddDate"）になるが、明示的な
   `(x.AddDate(1,0,0)).AddDate(0,1,0)` は動く。解決済み receiver でも同じ
   失敗 — 推論の問題ではなく grammar の優先順位の問題（spec 8.1.3 は連鎖を定めていない）。
-  参照: [problem](problems/2026-11-05-method-chain-select-binds-args.md)、
-  [検証の観測](sketch/2026-11-05-deferred-member-application.md)。
+  対応: post-argument selector を適用に結合させ左結合で parse（`f (e).m` は
+  `(f e).m` に変化 — 意味変更は decision + spec 8.1.3 に明記）。spec fixture
+  `ok_method_chain`。
+  参照: [decision](decisions/2026-11-05-post-arg-selector-binding.md)、
+  [検証](sketch/2026-11-05-post-arg-selector-binding-verification.md)。
 
-- [ ] **eval が Go 呼び出し内の `..e` spread を評価できない**: `*check.Spread` は
+- [x] **eval が Go 呼び出し内の `..e` spread を評価できない**: `*check.Spread` は
   list literal 内でのみ処理され、Go call の引数位置では `CodeUnsupported`。
   CallGo/variadic を eval 側が完全にカバーするには spread 展開の実装が要る
   （P3-4 レビューで観測、pre-existing）。
-  参照: [検証](sketch/2026-11-05-deferred-member-application.md) の Remaining boundary。
+  対応: eval が `VList`/`VHost` スライスを splice（空リスト→引数 0 個）。
+  checker は spread-sole-variadic-tail（E0505）を eager/遅延 replay 両経路で強制。
+  参照: [eval.go](../internal/eval/eval.go) `spliceGoSpread`、
+  [fixture](../testdata/spec/E0505_go_spread_shared_tail.gom)。
 
 - [ ] **any-hole cute の結果型が callee unify で premature bind されると eager と診断がずれる**:
   deferred 経路だけ `expected String, got Go.Any`。`Go.Any` の受け入れが want 側
@@ -448,3 +469,27 @@
   参照: [decision](decisions/2026-11-05-gom-implementation-import-cycles.md)、
   [loader](../internal/gomimport/loader.go) `visitImpl`、
   [検証](sketch/2026-11-05-v6-residual-verification.md)。
+
+- [ ] **Float 型の巨大整数リテラルが eval で失敗し生成 Go では動く**:
+  `let m: Float = 99999999999999999999`（int64 超）は eval の `litValue` が
+  `strconv.ParseInt` を Float 判定より先に呼ぶため CodeInternal "invalid int
+  literal" で失敗するが、生成 Go は `float64(...)` を出してコンパイル・実行
+  できる（exotic、Wave 5 hardening レビュー指摘）。
+  参照: [lit.go](../internal/eval/lit.go) `litValue`、
+  [TODO](../TODO.md) の同名 bug 項目。
+
+- [ ] **`Go.conv` の `gomOnly` 判定が修飾名 `Qual` を見ない残余の不健全性**:
+  `Con{Qual:"geom",Name:"Int"}`（foreign ADT が builtin と同名）は名前検査で
+  「未証明」に倒れ、`*types.Go` fallback が `Go.conv <Go handle> : geom.Int`
+  を受理しうる（pre-existing、regression ではない — 旧 shape 規則でも受理）。
+  `t.Qual == ""` で絞ると `list.List[T]` 表記（qualified stdlib List は
+  真に変換可能）を誤拒否するため、真の「Gom 側型か」の答えが要る。
+  参照: [boundary.go](../internal/goimport/boundary.go) `gomOnly`、
+  [expr.go](../internal/check/expr.go) `convOK` の fallback、
+  [検証](sketch/2026-11-04-p3-2-p3-6-interop-verification.md)。
+
+- [ ] **`for` の shadowed-builtin E0415 一覧に `SendChan` がない**:
+  `checkFor` はファイルローカルの `type List`/`Chan`/`RecvChan` を E0415 で
+  報告するが `type SendChan` は一覧に含まれず、shadowed `SendChan` 上の
+  `for` は素の mismatch になる（pre-existing、Wave 5 hardening レビュー指摘）。
+  参照: [expr.go](../internal/check/expr.go) `checkFor`。
