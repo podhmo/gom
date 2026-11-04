@@ -11,11 +11,6 @@
 - [ ] `.gomi` の `let` メンバーに多相型（`let empty : List a`）を許すか。許すなら member table に thunk 表現が要る（実装の generalized let は `func X[T]()` を出すが、member 参照は `p.X` — check/lower の thunk oracle を import 越しに届ける）。v1 では E0602 で型変数を拒否する bounded 形（[検証](sketch/2026-11-05-v6-residual-verification.md)、[台帳](implementation-gaps.md)）
 - [ ] 可変性: `Ref a` と可変配列 `Array a` 以外に可変構造を許すか。なお W0701/W0702 lint の可変判定は spec 10 章の閉じた builtin リスト（`Ref`/`Array`/`Ptr`/`Go.Slice`/`Go.Map`）を使う — ユーザー宣言型の可変構造そのものは引き続き未決（[decision](decisions/2026-11-04-mutable-sharing-lint.md)）
 
-### エラー処理
-
-- [ ] `try` でも `|?>` と同じく `GoError` を自動ラップするか（今は `try` は包まない）
-- [ ] `|?>` の右辺に `Result` を返さない関数も置けるようにするか（今は `Result.map` か `Ok` で包む必要がある）
-
 ### Go 相互運用
 
 - [ ] `*T` の既定: `Ptr T`（Go と同じく nil で panic、書きやすい）と `Option (Ptr T)`（安全だが冗長）のどちらを既定にするか。P3-7 実測: nil literal が無いため `Option (Ptr T)` extern が唯一の nil 安全経路（`flag.Lookup`/`os.LookupEnv` で検証済み）。`Ptr` に deref/nil 操作が無い点は [problems](problems/2026-11-05-ptr-t-no-deref.md)

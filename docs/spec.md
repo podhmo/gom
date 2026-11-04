@@ -320,7 +320,7 @@ error[E0301]: non-exhaustive match on `Expr`
 1. 脱出先は、`try` を囲む最も内側の関数（`fn` 定義またはラムダ）。`test` ブロックも関数境界として扱う
 2. その関数の戻り値型は `Result _ e` でなければならず、`e` は `try` した値のエラー型と一致しなければならない
 3. `go { ... }` のブロックは関数境界ではない。その中で `try` を使うには、ラムダで包むか `Task.spawn` を使う
-4. `try` は `GoError` を自動ラップしない（`|?>` との違い。open-questions.md）
+4. `try` は `GoError` を自動ラップしない（`|?>` との違い。[decisions/try-no-auto-wrap](decisions/2026-11-04-try-no-auto-wrap.md)）
 
 ---
 
@@ -511,6 +511,7 @@ fn parse_port (s: String) -> Result Int64 GoError =
 5. 包むのはエラーが起きたステップでの 1 回だけ。後続のステップは `Err` を素通しする
 6. エラー型が `GoError` 以外のときは包まない
 7. 最初の値が `Result` でなければ `Ok` で包んで始める。`path |> os.ReadFile |?> ...` と書くと、最初の Go 呼び出しの失敗は包まずに流れる
+8. `Result` を返さない関数は右辺に置けない。最初の `|?>` より前なら `|>` で、後ろなら `|> Result.map f` でつなぐ: `s |> strings.TrimSpace |?> strconv.Atoi |> Result.map double`（[decisions/result-pipe-step-must-return-result](decisions/2026-11-04-result-pipe-step-must-return-result.md)）
 
 例: `validate` が `port must be > 0` で失敗すると、結果は `validate: port must be > 0`。
 
