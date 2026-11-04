@@ -497,11 +497,72 @@
   [expr.go](../internal/check/expr.go) `convOK` の fallback、
   [検証](sketch/2026-11-04-p3-2-p3-6-interop-verification.md)。
 
-- [ ] **`for` の shadowed-builtin E0415 一覧に `SendChan` がない**:
+- [x] **`for` の shadowed-builtin E0415 一覧に `SendChan` がない**:
   `checkFor` はファイルローカルの `type List`/`Chan`/`RecvChan` を E0415 で
   報告するが `type SendChan` は一覧に含まれず、shadowed `SendChan` 上の
   `for` は素の mismatch になる（pre-existing、Wave 5 hardening レビュー指摘）。
+  対応: `checkFor` の一覧に `SendChan` を追加（fixture
+  `E0415_for_local_sendchan`）。併せて select recv/send arm にも
+  shadowed-builtin 分岐を追加し E0415 ③ を解消（P5-2）。
   参照: [expr.go](../internal/check/expr.go) `checkFor`。
+
+- [ ] **`metasIn(want)` の quiet 化は共有 want の後続 mismatch を抑制しうる**:
+  `Chan.close (Chan.recvOnly ch)` の E0407 カスケード削減のため、unify 失敗時に
+  want 内の全未束縛メタを quiet にする（旧 `markQuiet(want)` は生のメタにのみ
+  効いた）。コンパウンド want（`SendChan ?a` 等）への拡大で、同じ未解決 want
+  オブジェクトを複数の conform 位置（if/match/select の兄弟腕）が共有すると、
+  最初の失敗で quiet 化されたメタ経由で 2 腕目以降の正当な E0401 が
+  `mentionsQuiet` に握り潰されうる — 例: `g (if c { 1 } else { "s" })` の
+  else 腕。wave-5 の ⑤ 残件と隣接する過剰抑制領域。狭い到達条件を理由に
+  現状容認（コードコメントにトレードオフ明記済み、P5-2 レビュー nit）。
+  参照: [expr.go](../internal/check/expr.go) `conformExpr`/`chanDirConv`、
+  [fixture](../testdata/spec/E0401_close_of_recvonly.expected.json)。
+
+- [ ] **E0401 の mismatch メッセージが未解決メタを `?n` で綴る**: quiet 化された
+  メタを含む型が「expected SendChan ?3, got RecvChan ?4」のように内部名の
+  まま表示される（P5-2 `close`/`recvOnly` 例で観測）。診断品質の残差。
+  参照: [fixture](../testdata/spec/E0401_close_of_recvonly.expected.json)。
+
+- [ ] **W0701/W0702 lint の捕捉範囲外**: `let mk = Chan.make` のエイリアス経由は
+  callee シンボル一致を外れ W0701 を逃げる。`Task.spawn` の thunk 捕捉・
+  クロージャ経由の捕捉（`let f = fn () -> r; go { f () }`）は値の可変性が
+  型に現れず W0702 を逃げる。decision の scope-out として記録済み。
+  参照: [decision](decisions/2026-11-04-mutable-sharing-lint.md)、
+  [lint.go](../internal/check/lint.go)。
+
+- [ ] **ネスト `go` で同一位置に W0702 が 2 件重複出力される**: 外側・内側の
+  `go` 境界がそれぞれ同一の捕捉を報告し、同一スパン・同一メッセージの
+  警告が 2 件になる。各 boundary が別の共有イベントという解釈で採用済みだが、
+  ユーザーからは判別不能 — boundary を特定する `data` を持たせる余地がある
+  （P5-2 レビュー nit）。
+  参照: [fixture](../testdata/spec/W0702_go_capture_mutable.expected.json)。
+
+- [ ] **`rune` → `Char` 表記と実装（`Int32`）のずれ**: spec の型対応は
+  `rune`/`Char` を書くが、goimport の basicType は `types.Int32` → `Int32`
+  に写し、 untyped rune リテラルのみ `Char` になる（`unicode.IsUpper` で実測、
+  `Char` とは `Go.conv` が要る）。
+  参照: [mapping.go](../internal/goimport/mapping.go) `basicType`、
+  [監査](sketch/2026-11-05-p3-7-realworld-interop-audit.md)。
+
+- [ ] **`Go.Map` に操作がない**: `builtinGoMembers` は `conv`/`Slice`/`Map` の
+  型名のみで、`Go.Map.make` 等の操作は E0201。`Go.Map` を持つ Go API は
+  実質使えない（P3-7 監査で判明、TODO に task 登録済み）。
+  参照: [scope.go](../internal/resolve/scope.go) `builtinGoMembers`、
+  [監査](sketch/2026-11-05-p3-7-realworld-interop-audit.md)。
+
+- [ ] **3+ 戻り値の Go 関数は非公開だが spec は arity 上限を書いていない**:
+  spec 8.3 は tuple 戻り値の行だけで、実装は 3 つ以上の結果を持つ関数を
+  E0501 で隠す（`strings.Cut` 等。P3-7 監査で判明）。spec 文言を足すか
+  N-ary 対応かの判断が残る。
+  参照: [spec 8.3](spec.md#83-型の対応)、
+  [監査](sketch/2026-11-05-p3-7-realworld-interop-audit.md)。
+
+- [ ] **`[]T` を in-place 変更する Go 関数はコンパイルして無音 no-op になる**:
+  `sort.Strings` 等は境界でコピーされる List/Slice 規則の帰結として呼べて
+  しまうが呼び出し側の値は変わらない。spec としては正しいが無意味 — lint
+  警告か `Go.Slice` pun 規則の明文化が要る（TODO に task 登録済み）。
+  参照: [problems](problems/2026-11-05-go-param-mutation-noop.md)、
+  [監査](sketch/2026-11-05-p3-7-realworld-interop-audit.md)。
 
 - [ ] **`@tailrec` R4 の直接参照グラフは file-local で兄弟経由の相互再帰を見逃す**:
   `checkInitCycles`（E0907）と同型の file-local 制限 — 相互再帰が *兄弟*

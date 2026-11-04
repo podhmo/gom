@@ -9,7 +9,7 @@
 - [ ] 型クラスの代替: v2 で型クラスを入れるか、明示的な辞書渡し（`Eq a` レコードを引数で渡す）で済ませるか
 - [ ] 実装の型がインターフェースより一般的な場合（実装が多相、`.gomi` が単相）を許すか
 - [ ] `.gomi` の `let` メンバーに多相型（`let empty : List a`）を許すか。許すなら member table に thunk 表現が要る（実装の generalized let は `func X[T]()` を出すが、member 参照は `p.X` — check/lower の thunk oracle を import 越しに届ける）。v1 では E0602 で型変数を拒否する bounded 形（[検証](sketch/2026-11-05-v6-residual-verification.md)、[台帳](implementation-gaps.md)）
-- [ ] 可変性: `Ref a` と可変配列 `Array a` 以外に可変構造を許すか
+- [ ] 可変性: `Ref a` と可変配列 `Array a` 以外に可変構造を許すか。なお W0701/W0702 lint の可変判定は spec 10 章の閉じた builtin リスト（`Ref`/`Array`/`Ptr`/`Go.Slice`/`Go.Map`）を使う — ユーザー宣言型の可変構造そのものは引き続き未決（[decision](decisions/2026-11-04-mutable-sharing-lint.md)）
 
 ### エラー処理
 
@@ -18,14 +18,14 @@
 
 ### Go 相互運用
 
-- [ ] `*T` の既定: `Ptr T`（Go と同じく nil で panic、書きやすい）と `Option (Ptr T)`（安全だが冗長）のどちらを既定にするか
+- [ ] `*T` の既定: `Ptr T`（Go と同じく nil で panic、書きやすい）と `Option (Ptr T)`（安全だが冗長）のどちらを既定にするか。P3-7 実測: nil literal が無いため `Option (Ptr T)` extern が唯一の nil 安全経路（`flag.Lookup`/`os.LookupEnv` で検証済み）。`Ptr` に deref/nil 操作が無い点は [problems](problems/2026-11-05-ptr-t-no-deref.md)
 - [ ] Go ABI の方針: 生成される Go の API（型名・関数のシグネチャ・バリアントの struct 名）を、Gom のバージョンをまたいでどこまで安定させるか
 - [ ] Gom の型が Go の interface を実装できるようにするか（v1 ではできない）。できるなら、どう宣言するか
 - [ ] Go のジェネリック関数のうち、`any` / `comparable` 以外の制約を持つものをどう扱うか。P0-5 で、`any`/`comparable` だけの厳格な境界では `slices.Contains`（`[S ~[]E, E comparable]`）など `slices`/`maps`/`cmp` の主要な関数がほぼ全部呼べないことが分かった。P3-3 で `any`/`comparable` は呼び出し可能になったが、`~[]E`/`~map[K]V` などの構造制約は引き続き E0506 で非公開 — spec 8.1.6 の例とのずれは [gaps](implementation-gaps.md) 参照。広げるか、spec を「`any`/`comparable` のみ」と修正するかの判断が残る（[problems](problems/2026-11-04-generic-go-fns-hidden.md)、[go-interop-boundary](decisions/2026-11-01-go-interop-boundary.md)、[sketch: P0-5](sketch/2026-11-02-p0-5-go-types-mapping.md)）
 - [ ] Go の struct 型の構築・書き込み: exported field の読み取りは [決定済み](decisions/2026-11-03-go-interface-assignment-and-fields.md)。コンポジットリテラル（`http.Server{Addr: ...}`）や field への代入を許すか、構築は Go の factory 関数や `extern` に限るか
 - [ ] 標準のバインディング（`(T, bool)` を `Option` にする関数の一覧など）をどこで管理するか
 - [ ] 外部モジュールから stdlib の Gom モジュール（`import "list"` 等）を import 可能にするか。現状はメイン module 外の Gom import が E0203 で拒否される（P3-6 で発見 — `testdata/gocall` の fixture は stdlib 依存を手書きで代替した）
-- [ ] `Go.Any` / `any` を `.gom`/`.gomi` のシグネチャに書けるようにするか。現状は Go 側の `any` 引数経由でしかボックス化を観測できない（`goTypeArity` は `Go.Slice`/`Go.Map` のみ受理）
+- [ ] `Go.Any` / `any` を `.gom`/`.gomi` のシグネチャに書けるようにするか。現状は Go 側の `any` 引数経由でしかボックス化を観測できない（`goTypeArity` は `Go.Slice`/`Go.Map` のみ受理）。P3-7 実測: `json.Decoder.Token` が `Go.Any` しか返さない唯一の stdlib decode 経路 — 推論位置でしか `Go.Any` を書けない制約が実害として観測された
 - [ ] `Go.conv` の `Go.Slice T ↔ List T`（raw pun、コピーしない）を、暗黙の境界変換と同じコピーありに揃えるか、現状の pun を spec 8.4/8.5 に明文化するか（[台帳](implementation-gaps.md) の Go slice 項目追記、P3-2/P3-6 worktree）
 
 ### 並行処理
