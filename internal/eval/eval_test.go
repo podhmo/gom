@@ -1520,6 +1520,42 @@ func TestControlAndSugar(t *testing.T) {
 		assertTrace(t, tr.calls, []string{"iter", "iter"})
 	})
 
+	t.Run("for over a Go.Slice", func(t *testing.T) {
+		tr := newTapper()
+		env := tapEnv(tr)
+		p, s := vpat("x", types.Int)
+		sliceSym := sym("xs", resolve.KindVar)
+		env.Bind(sliceSym, &eval.VHost{V: []int64{1, 2, 3}})
+		// The element must unbox to a VInt — `x + x` proves the
+		// bound var feeds arithmetic like the compiled element
+		// does, not an opaque host value.
+		x := &check.For{Base: b(types.Unit), Pat: p,
+			Iter: vr(sliceSym, types.GoSlice(types.Int)),
+			Body: block(types.Unit, &check.Ignore{Base: b(types.Unit),
+				X: bin(syntax.BinAdd, types.Int, vr(s, types.Int), vr(s, types.Int))})}
+		v := evalOK(t, env, x)
+		if v.String() != "()" {
+			t.Fatalf("got %s", v)
+		}
+	})
+
+	t.Run("for over a Go.Slice of strings", func(t *testing.T) {
+		env := eval.NewEnv()
+		p, s := vpat("x", types.String)
+		sliceSym := sym("xs", resolve.KindVar)
+		env.Bind(sliceSym, &eval.VHost{V: []string{"a", "b"}})
+		// `x < "c"` proves the element unboxed to a VStr — an
+		// opaque host value would bin-mismatch instead.
+		x := &check.For{Base: b(types.Unit), Pat: p,
+			Iter: vr(sliceSym, types.GoSlice(types.String)),
+			Body: block(types.Unit, &check.Ignore{Base: b(types.Unit),
+				X: bin(syntax.BinLt, types.Bool, vr(s, types.String), strLit("c"))})}
+		v := evalOK(t, env, x)
+		if v.String() != "()" {
+			t.Fatalf("got %s", v)
+		}
+	})
+
 	t.Run("pipe and back-pipe", func(t *testing.T) {
 		inc := eval.NewHostFunc("inc", 1, func(args []eval.Value) (eval.Value, error) {
 			return &eval.VInt{N: args[0].(*eval.VInt).N + 1}, nil
@@ -1799,9 +1835,10 @@ func TestErrorPaths(t *testing.T) {
 	})
 
 	// A host function can hand the evaluator a real channel as a
-	// VHost — but `for` iterates List values only; channel iteration
-	// is compiled-only like `go`/`select` (the concurrency decision
-	// in docs/decisions/2026-11-04-eval-concurrency-compiled-only.md).
+	// VHost — `for` iterates List values and host slices, but
+	// channel iteration is compiled-only like `go`/`select` (the
+	// concurrency decision in
+	// docs/decisions/2026-11-04-eval-concurrency-compiled-only.md).
 	t.Run("for over a host channel unsupported", func(t *testing.T) {
 		goSym := &resolve.Symbol{Name: "makeChan", Kind: resolve.KindFunc, IsGo: true, Package: "rt"}
 		env := eval.NewEnv()

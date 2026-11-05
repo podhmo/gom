@@ -1,6 +1,8 @@
 package main
 
+import go "os"
 import go "time"
+import go "regexp/syntax"
 
 // In-range spellings stay accepted (spec 3.3): the signed minima —
 // a literal that is the direct operand of a unary `-` folds into the
@@ -25,8 +27,14 @@ fn main () -> Unit = {
   let i = Go.conv 97 : Char
   let j = Go.conv 2.0 : Int32
   let v = Go.conv 2147483647.0 : Int32
+  let u = Go.conv 4000000000 : os.FileMode
+  let ux = Go.conv 4294967295 : os.FileMode
+  let dd = Go.conv 2.0 : time.Duration
+  let o = Go.conv 255 : syntax.Op
+  let oc = Go.conv 'a' : syntax.Op
   ignore (b, m, w, mx, mn, f, h)
   ignore (d, c, i, j, v)
+  ignore (u, ux, dd, o, oc)
   ()
 }
 

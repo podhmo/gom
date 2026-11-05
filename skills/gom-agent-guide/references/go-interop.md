@@ -160,13 +160,16 @@ fn slice_ops (gs: Go.Slice Int) -> Int = {
 ```
 
 Every member is a read — `to_list` is the only one that copies.
-`for` cannot iterate a `Go.Slice` today (it accepts only builtin
-`List` and channels — E0401); iterate through `Go.Slice.fold`, or
-snapshot with `Go.Slice.to_list` and use the `List` surface. To
-mutate, do it on the Go side or copy into a `List`; `Go.conv`
-between `List` and `Go.Slice` copies both ways (the same
-semantics as the implicit boundary), so `Go.Slice`-to-`Go.Slice`
-forwarding is the only no-copy path.
+`for x in gs { ... }` iterates a `Go.Slice` directly — index order,
+nil iterates zero times, same as Go's `range []T` — so
+`Go.Slice.fold` / `Go.Slice.to_list` are needed only for the fold
+result or a snapshot. The exclusions: `Go.Map` stays E0401, named
+Go slice types (`Go.Named`-style handles) are out of scope, and
+`Go.String`/`Go.Bytes` iteration is deferred. To mutate, do it on
+the Go side or copy into a `List`; `Go.conv` between `List` and
+`Go.Slice` copies both ways (the same semantics as the implicit
+boundary), so `Go.Slice`-to-`Go.Slice` forwarding is the only
+no-copy path.
 
 ## Copied-`List` warning (W0501)
 

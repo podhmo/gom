@@ -1199,15 +1199,38 @@ func (e *interp) spliceGoSpread(ordered []Value, sp diag.Span) []Value {
 	return append(out, elems...)
 }
 
-// evalFor implements `for pat in iter { body }` over List values.
+// evalFor implements `for pat in iter { body }` over List values —
+// and over Go.Slice values, which arrive as *VHost wrapping the
+// Go slice (the compiled path emits `for _, x := range s`, so eval
+// must iterate the same elements; the reflect shape is the spread's).
 func (e *interp) evalFor(x *check.For, env *Env) Value {
 	it := e.eval(x.Iter, env)
-	l, ok := it.(*VList)
+	var elems []Value
+	ok := true
+	switch it := it.(type) {
+	case *VList:
+		elems = it.Elems
+	case *VHost:
+		if rv := reflect.ValueOf(it.V); rv.Kind() == reflect.Slice || rv.Kind() == reflect.Array {
+			elems = make([]Value, rv.Len())
+			for i := range elems {
+				// Scalar elements unbox to their Value spelling so
+				// the bound variable feeds arithmetic and match
+				// like the compiled element does; anything else
+				// stays an opaque host value.
+				elems[i] = hostElem(x.Pat.Type(), rv.Index(i))
+			}
+		} else {
+			ok = false
+		}
+	default:
+		ok = false
+	}
 	if !ok {
 		failData(CodeUnsupported, "for over a non-List iterable", x.Iter.Span(),
 			"value", it.String())
 	}
-	for _, el := range l.Elems {
+	for _, el := range elems {
 		child := env.Child()
 		if !e.matchPat(x.Pat, el, child) {
 			failData(CodeInternal, "irrefutable for pattern failed", x.Pat.Span(),
@@ -1216,6 +1239,47 @@ func (e *interp) evalFor(x *check.For, env *Env) Value {
 		e.eval(x.Body, child)
 	}
 	return &VUnit{}
+}
+
+// hostElem boxes one element a host slice/array yields to `for`,
+// keyed by the pattern's static element type: the scalar kinds
+// become their Value spelling — an int64 element feeding `x + 1`
+// must be a VInt like a Go call's result, not an opaque VHost —
+// and everything else stays opaque (matching how host values move
+// through the evaluator elsewhere).
+func hostElem(t types.Type, rv reflect.Value) Value {
+	if con, ok := types.Chase(t).(*types.Con); ok && con.Qual == "" {
+		switch con.Name {
+		case "Int", "Int64", "Int32", "Char":
+			var n int64
+			switch rv.Kind() {
+			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+				n = rv.Int()
+			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+				n = int64(rv.Uint())
+			default:
+				return &VHost{V: rv.Interface()}
+			}
+			if con.Name == "Char" {
+				return &VChar{R: rune(n)}
+			}
+			return &VInt{N: n}
+		case "Float":
+			switch rv.Kind() {
+			case reflect.Float32, reflect.Float64:
+				return &VFloat{F: rv.Float()}
+			}
+		case "Bool":
+			if rv.Kind() == reflect.Bool {
+				return &VBool{B: rv.Bool()}
+			}
+		case "String":
+			if rv.Kind() == reflect.String {
+				return &VStr{S: rv.String()}
+			}
+		}
+	}
+	return &VHost{V: rv.Interface()}
 }
 
 // evalRecord builds or updates a record. With a declared record type

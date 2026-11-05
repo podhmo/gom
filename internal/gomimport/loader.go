@@ -33,6 +33,7 @@ package gomimport
 
 import (
 	"fmt"
+	gotypes "go/types"
 	"os"
 	"path/filepath"
 	"sort"
@@ -536,6 +537,14 @@ func (l *Loader) GoConvertible(from, to types.Type) (bool, bool) {
 		return cs.GoConvertible(from, to)
 	}
 	return false, false
+}
+
+// GoUnderlyingKind defers check.UnderlyingSource to Config.Sigs.
+func (l *Loader) GoUnderlyingKind(t types.Type) (gotypes.BasicKind, bool) {
+	if us, ok := l.cfg.Sigs.(check.UnderlyingSource); ok {
+		return us.GoUnderlyingKind(t)
+	}
+	return gotypes.Invalid, false
 }
 
 // --- the resolver seam ---

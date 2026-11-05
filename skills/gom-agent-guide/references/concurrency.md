@@ -84,7 +84,7 @@ fn drain (ch: Chan Int) -> Unit = {
 }
 ```
 
-Also iterates a `List`. `Unit` body only.
+Also iterates a `List` or a `Go.Slice`. `Unit` body only.
 
 ## Sharing rules (linter warnings)
 

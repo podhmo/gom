@@ -182,8 +182,9 @@ generated from — useful when generated code surprises you.
   (E0409 otherwise; `Float` is IEEE so `NaN != NaN`). Type variables
   cannot be `==` in v1.
 - **Loops are recursion or `for x in xs { ... }`** (`: Unit`,
-  iterates `List` or `Chan`). Self-tail-recursion lowers to a Go
-  loop; `@tailrec` on a `fn` *requires* it and errors otherwise.
+  iterates `List`, `Go.Slice`, or `Chan`). Self-tail-recursion
+  lowers to a Go loop; `@tailrec` on a `fn` *requires* it and
+  errors otherwise.
 - **Tests live in the same file:** `test "name" { ... }` body is
   `Unit` or `Result Unit e`; `assert`/`assert_eq` exist only inside
   `test`; `@test` marks test-only helpers. `gom test FILE|DIR ...`

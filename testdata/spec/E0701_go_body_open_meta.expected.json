@@ -1,0 +1,48 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0701",
+      "severity": "error",
+      "message": "a `go` body's type must be Unit, got ?1",
+      "span": {
+        "file": "E0701_go_body_open_meta.gom",
+        "start": {
+          "line": 14,
+          "col": 6,
+          "offset": 562
+        },
+        "end": {
+          "line": 14,
+          "col": 27,
+          "offset": 583
+        }
+      },
+      "data": {
+        "type": "?1"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0407",
+      "severity": "error",
+      "message": "type annotation required: the type argument for `todo_ret` could not be determined",
+      "span": {
+        "file": "E0701_go_body_open_meta.gom",
+        "start": {
+          "line": 14,
+          "col": 8,
+          "offset": 564
+        },
+        "end": {
+          "line": 14,
+          "col": 12,
+          "offset": 568
+        }
+      },
+      "data": {
+        "type": "?1"
+      }
+    }
+  ]
+}

@@ -29,8 +29,16 @@ position cannot represent — Go's constant rule, applied per literal:
   integer target applies Go's constant-conversion rule: the value
   must be integral (`int32(1.5)` is rejected, `int32(2.0)` is legal)
   and then in range (`int32(2147483648.0)` overflows). When the
-  target is not a range-bearing type (an interface, `String`, a
-  named Go type), the literal's own type judges as usual.
+  target is not a range-bearing type (an interface, `String`), the
+  literal's own type judges as usual.
+
+Follow-up (2026-11-05, same day): named Go type targets now *are*
+range-judged — `check.UnderlyingSource` consults the named type's
+`go/types` underlying kind, so `Go.conv 4294967296 : os.FileMode`
+(uint32 backing) is E0417 while `Go.conv 4294967295` passes. The
+fallback above applies only when the underlying is non-Basic (or
+the handle is instantiated/unresolved). See
+[the named-target sketch](../sketch/2026-11-05-goconv-named-target-lit-range.md).
 
 The unit of judgment is the literal, not the enclosing constant
 expression: `let k : Int32 = 0 - 2147483648` is rejected even though

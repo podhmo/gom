@@ -1,6 +1,8 @@
 package check
 
 import (
+	gotypes "go/types"
+
 	"github.com/podhmo/gom/internal/resolve"
 	"github.com/podhmo/gom/internal/types"
 )
@@ -288,6 +290,22 @@ type ConvertSource interface {
 	GoConvertible(from, to types.Type) (decided, ok bool)
 }
 
+// UnderlyingSource exposes the underlying basic kind of a named Go
+// type — knowledge a *types.Go handle hides behind its NamedRef, so
+// only the go/types oracle can answer it. The literal range judgment
+// consults it for `Go.conv` operands: the emitted `T(lit)` is a
+// constant conversion at T, and a named target's own width —
+// os.FileMode's uint32, time.Duration's int64 — is what bounds the
+// literal, not the literal's Gom-facing type.
+type UnderlyingSource interface {
+	// GoUnderlyingKind reports the go/types basic kind of the
+	// underlying type of the named Go type behind t, a *types.Go
+	// handle. ok is false for a non-Go type, an instantiated or
+	// unknown handle, and a non-basic underlying — the literal
+	// then judges at its own type.
+	GoUnderlyingKind(t types.Type) (gotypes.BasicKind, bool)
+}
+
 func (c chain) BindExtern(sym *resolve.Symbol, decl Signature) (Signature, []ExternIssue) {
 	for _, s := range c {
 		if src, ok := s.(ExternSource); ok {
@@ -339,4 +357,17 @@ func (c chain) GoConvertible(from, to types.Type) (bool, bool) {
 		}
 	}
 	return false, false
+}
+
+// GoUnderlyingKind forwards the optional UnderlyingSource protocol
+// through the chain — the first source that knows the handle wins.
+func (c chain) GoUnderlyingKind(t types.Type) (gotypes.BasicKind, bool) {
+	for _, s := range c {
+		if src, ok := s.(UnderlyingSource); ok {
+			if k, ok := src.GoUnderlyingKind(t); ok {
+				return k, true
+			}
+		}
+	}
+	return gotypes.Invalid, false
 }

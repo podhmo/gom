@@ -1,0 +1,27 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected a List, a Go.Slice, or a channel, got Go.Map String Int",
+      "span": {
+        "file": "E0401_for_go_map.gom",
+        "start": {
+          "line": 8,
+          "col": 12,
+          "offset": 279
+        },
+        "end": {
+          "line": 8,
+          "col": 13,
+          "offset": 280
+        }
+      },
+      "data": {
+        "actual": "Go.Map String Int",
+        "expected": "a List, a Go.Slice, or a channel"
+      }
+    }
+  ]
+}

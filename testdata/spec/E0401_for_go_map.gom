@@ -1,0 +1,10 @@
+package ex
+
+// `Go.Map` is not a `for` iterable (decisions/for-over-go-slice) —
+// Go map iteration order is deliberately unspecified, and Gom's
+// `for` means ordered iteration. `Go.Map.to_list` is the snapshot
+// surface.
+fn drain (m: Go.Map String Int) -> Unit =
+  for x in m {
+    ignore x
+  }

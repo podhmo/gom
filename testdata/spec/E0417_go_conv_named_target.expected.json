@@ -1,0 +1,119 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0417",
+      "severity": "error",
+      "message": "integer literal 5000000000 overflows io/fs.FileMode",
+      "span": {
+        "file": "E0417_go_conv_named_target.gom",
+        "start": {
+          "line": 15,
+          "col": 19,
+          "offset": 573
+        },
+        "end": {
+          "line": 15,
+          "col": 29,
+          "offset": 583
+        }
+      },
+      "data": {
+        "literal": "5000000000",
+        "type": "io/fs.FileMode"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0417",
+      "severity": "error",
+      "message": "float literal 1.5 is not an integer; cannot convert to time.Duration",
+      "span": {
+        "file": "E0417_go_conv_named_target.gom",
+        "start": {
+          "line": 16,
+          "col": 19,
+          "offset": 616
+        },
+        "end": {
+          "line": 16,
+          "col": 22,
+          "offset": 619
+        }
+      },
+      "data": {
+        "literal": "1.5",
+        "type": "time.Duration"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0417",
+      "severity": "error",
+      "message": "float literal 1e100 overflows time.Duration",
+      "span": {
+        "file": "E0417_go_conv_named_target.gom",
+        "start": {
+          "line": 17,
+          "col": 19,
+          "offset": 654
+        },
+        "end": {
+          "line": 17,
+          "col": 24,
+          "offset": 659
+        }
+      },
+      "data": {
+        "literal": "1e100",
+        "type": "time.Duration"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0417",
+      "severity": "error",
+      "message": "integer literal 300 overflows regexp/syntax.Op",
+      "span": {
+        "file": "E0417_go_conv_named_target.gom",
+        "start": {
+          "line": 18,
+          "col": 19,
+          "offset": 694
+        },
+        "end": {
+          "line": 18,
+          "col": 22,
+          "offset": 697
+        }
+      },
+      "data": {
+        "literal": "300",
+        "type": "regexp/syntax.Op"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0417",
+      "severity": "error",
+      "message": "char literal '𐀀' overflows regexp/syntax.Flags",
+      "span": {
+        "file": "E0417_go_conv_named_target.gom",
+        "start": {
+          "line": 19,
+          "col": 19,
+          "offset": 728
+        },
+        "end": {
+          "line": 19,
+          "col": 22,
+          "offset": 734
+        }
+      },
+      "data": {
+        "literal": "'𐀀'",
+        "type": "regexp/syntax.Flags"
+      }
+    }
+  ]
+}

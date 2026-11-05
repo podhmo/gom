@@ -44,7 +44,7 @@ fn main () -> Unit = {
 4. `let x = e` はブロック内で以降のスコープを導入する。再代入は不可（シャドーイングは可）
 5. `let` の左辺は論駁不可能なパターンのみ（タプル・レコード分解、単一コンストラクタ型）。論駁可能なら `match` を使う
 6. `return` / `break` / `continue` は持たない。早期脱出は `Result` と `try` 式で行う
-7. ループは再帰が基本。自己末尾再帰は Go の `for` に変換することを保証する。糖衣として `for x in xs { ... } : Unit` を用意する
+7. ループは再帰が基本。自己末尾再帰は Go の `for` に変換することを保証する。糖衣として `for x in xs { ... } : Unit` を用意する。反復対象は `List a`、`Go.Slice a`（Go の `range []T` と同じく添字順で、nil は 0 回反復）、受信可能なチャネル（10 章）で、パターンはそれぞれの要素型を束縛する
 8. `fn` 宣言には `@tailrec` を付けられる。「この関数の自己再帰呼び出しはすべて末尾位置にある」ことをコンパイラに要求する属性で、守れない場合はエラー（E0902–E0905）になる。`let` には付けられない。検査は lowering 段階で行うので `gom build`（テストコードは `gom test`）が報告し、型・パターン検査までの `gom check`（12 節）は対象外
    - **末尾位置**とは、関数の結果を直接決める位置のこと。ブロック末尾の式、`if` / `match` / `select` の各分岐の結果、および最外の `|>` / `<|` の適用だけが該当する
    - オペランドや `let` 束縛の中、`for` の本体、`try`、`|?>` の適用、ネストした `fn` / ラムダの内側にある自己呼び出しは末尾位置ではない
@@ -223,7 +223,7 @@ type Expr =
 - 公開関数のシグネチャは `.gomi` に必ず書く（7 章）
 - 算術演算子は組み込み数値型にのみオーバーロードし、型検査の最後で具体型に解決する。未解決なら注釈を求めるエラー
 - 数値演算は演算子ごとに機械型で 1 回ずつ評価する。`Float` のリテラルは書かれた値に最も近い `float64`（IEEE 754 binary64）を表し、各演算子は被演算子の `float64` に IEEE 演算を適用した結果を返す — `869.32 * 38.29` は `33286.262800000004` になる。整数演算は 64 ビット（`Int32` は 32 ビット）の 2 の補数 wrap-around で、オーバーフローはエラーではなく値が回る。定数畳み込みは言語の意味に含めないので、`let a = 869.32` のあとの `a * 38.29` とリテラルのままの `869.32 * 38.29` は同じ値を返し、`0.1 + 0.2 == 0.3` は `false` になる
-- 数値リテラルは自分の位置の静的型で表現できなければならない（E0417）— `Int`/`Int64` は int64 の、`Int32`/`Char` は int32 の、`Float` のリテラルは float64 で表現できる値に限る。判定の単位は式全体ではなくリテラルで、単項 `-` の直接の被演算子は符号込みで判定する（`-9223372036854775808` は `Int64` として合法）。`Go.conv` の直接の被演算子は変換先の型で判定する（`Go.conv 3000000000 : Int32` はエラー）— float リテラルの整数変換先への被演算子は Go の定数変換規則が効き、整数値でなければならない（`Go.conv 1.5 : Int32` はエラー、`Go.conv 2.0 : Int32` は合法で整数として範囲判定される）
+- 数値リテラルは自分の位置の静的型で表現できなければならない（E0417）— `Int`/`Int64` は int64 の、`Int32`/`Char` は int32 の、`Float` のリテラルは float64 で表現できる値に限る。判定の単位は式全体ではなくリテラルで、単項 `-` の直接の被演算子は符号込みで判定する（`-9223372036854775808` は `Int64` として合法）。`Go.conv` の直接の被演算子は変換先の型で判定する（`Go.conv 3000000000 : Int32` はエラー）— float リテラルの整数変換先への被演算子は Go の定数変換規則が効き、整数値でなければならない（`Go.conv 1.5 : Int32` はエラー、`Go.conv 2.0 : Int32` は合法で整数として範囲判定される）。named Go 型の変換先でも同じ — その underlying 基本型の幅と符号で判定する（`os.FileMode` は `uint32` なので `Go.conv 5000000000 : os.FileMode` はエラー、`time.Duration` は `int64` なので `Go.conv 1.5 : time.Duration` はエラー）。underlying が `float32`/`float64` ならその精度で表現可能かで判定し、underlying が数値の基本型でない（interface など）named target ではリテラル自身の型で判定する
 - `/` / `%` の右辺が定数のゼロのとき、その除算はコンパイルエラー（E0414）。ここで「定数」は数値リテラル・単項の `-`・それらからなる算術式・型の明示（ascription）で構成される式で、`let` 束縛の変数や関数呼び出しは含まない。判定は Go と同じ — 整数では被除数が定数でなくても `x / 0` はエラー（Go がその定数式を受理しない。実行時 panic しか起き得ないため）。`Float` では `x / 0.0` のように被除数が定数でなければ IEEE の除算として合法（`+Inf` / `-Inf` / `NaN`）だが、`10.0 / 0.0` のように式全体が定数ならエラーになる
 - `==` / `!=` / `assert_eq` は関数を含まない型にのみ使える構造的等価（同じ判定を共有し、違反は E0409）。型変数に対する `==` は v1 では使えない。判定は名前付き型の宣言を展開する — レコードのフィールド・ADT のペイロード・エイリアス・型引数で具現化したジェネリクスを辿るので、`type Box = {f: Int -> Int}` の `x == x` は関数名を書かなくてもエラーになる。等価の読みは次の通り（`internal/eval` の `eqValue` と生成コードは同じ答えを出す）:
   - スカラー・`Ref`・`Ptr`・チャネルは Go の `==` と同じ（`Float` は IEEE なので NaN は自分自身とも等しくない。`Ref`/`Ptr`/チャネルは同一性）
@@ -436,7 +436,7 @@ Go の名前付き struct 型の値またはそのポインタから、exported 
 
 `Go.Map K V` の操作は `Go.Map` の型メンバーとして解決する（[decisions/go-map-ops](decisions/2026-11-05-go-map-ops.md)）: `Go.Map.make : Unit -> Go.Map k v`、`Go.Map.get : Go.Map k v -> k -> Option v`（missing key は `None`）、`Go.Map.set : Go.Map k v -> k -> v -> Unit`、`Go.Map.delete : Go.Map k v -> k -> Unit`、`Go.Map.length : Go.Map k v -> Int`、`Go.Map.to_list : Go.Map k v -> List (k, v)`（順序不定のスナップショット。v1 の反復面）。`k` は Go の `comparable` 制約を持ち、`List` など比較できない表現のキーは E0508 で拒否される。nil マップの意味は Go のまま — get/delete/length は nil でも動き、set は panic する。
 
-`Go.Slice T` の操作も `Go.Slice` の型メンバーとして解決する（[decisions/go-slice-ops](decisions/2026-11-05-go-slice-ops.md)）。すべて読み取り専用 — Gom 側から Go が所有するスライスを書き換える操作はない: `Go.Slice.length : Go.Slice a -> Int`（nil では 0）、`Go.Slice.get : Go.Slice a -> Int -> Option a`（範囲外・負の添字は `None`）、`Go.Slice.slice : Go.Slice a -> Int -> Int -> Go.Slice a`（`s[lo:hi]` — バッキングを共有する部分ビュー。範囲外・逆転した境界は Go と同じく panic）、`Go.Slice.fold : Go.Slice a -> (b -> a -> b) -> b -> b`（左畳み込み。nil は acc のまま）、`Go.Slice.to_list : Go.Slice a -> List a`（スナップショット — コピーするのはこのメンバーだけ）。
+`Go.Slice T` の操作も `Go.Slice` の型メンバーとして解決する（[decisions/go-slice-ops](decisions/2026-11-05-go-slice-ops.md)）。すべて読み取り専用 — Gom 側から Go が所有するスライスを書き換える操作はない: `Go.Slice.length : Go.Slice a -> Int`（nil では 0）、`Go.Slice.get : Go.Slice a -> Int -> Option a`（範囲外・負の添字は `None`）、`Go.Slice.slice : Go.Slice a -> Int -> Int -> Go.Slice a`（`s[lo:hi]` — バッキングを共有する部分ビュー。範囲外・逆転した境界は Go と同じく panic）、`Go.Slice.fold : Go.Slice a -> (b -> a -> b) -> b -> b`（左畳み込み。nil は acc のまま）、`Go.Slice.to_list : Go.Slice a -> List a`（スナップショット — コピーするのはこのメンバーだけ）。`Go.Slice` は `for x in s { ... }` の反復対象にもなる — Go の `range` と同じく添字順に要素を読み、nil は 0 回反復する（[decisions/for-over-go-slice](decisions/2026-11-05-for-over-go-slice.md)）。
 
 ### 8.4 extern（上書き専用）
 

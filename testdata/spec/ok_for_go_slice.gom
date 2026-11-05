@@ -1,0 +1,23 @@
+package ex
+
+import go "strings"
+
+// `for x in s` iterates a `Go.Slice a` (spec 1.1 item 7, 8.3) —
+// Go's `range []T`: index order, nil iterates zero times. The
+// pattern binds `a` like the List form.
+fn drain (s: Go.Slice Int) -> Unit =
+  for x in s {
+    ignore x
+  }
+
+// A slice a Go call returns iterates the same way, and the
+// wildcard form needs no element.
+fn each_word () -> Unit = {
+  for w in strings.Split "a,b,c" "," {
+    ignore w
+  }
+  for _ in strings.Split "x" "y" {
+    ()
+  }
+  ()
+}

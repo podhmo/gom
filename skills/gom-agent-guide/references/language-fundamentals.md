@@ -253,7 +253,8 @@ fn ratio (a: Int) (b: Int) -> Result Int String = {
 
 ## for loops
 
-`for x in xs { body } : Unit` iterates a `List` or drains a `Chan`
+`for x in xs { body } : Unit` iterates a `List`, a `Go.Slice`
+(index order, nil iterates zero times), or drains a `Chan`
 (until closed). The pattern is irrefutable-only. The body is `Unit`;
 accumulation goes through recursion or `Ref`/`Array` (stdlib
 pending — today, prefer recursion):

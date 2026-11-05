@@ -1,0 +1,16 @@
+package main
+
+// A `go` body must produce Unit. When the body's type is still an
+// unsolved inference variable the diagnostic reports the renumbered
+// placeholder `?1` — not the checker's internal mint ID (the wave8
+// E0407/E0409/E0801 leak class, on the `go` body's Meta arm). The
+// intg-constrained `%` result keeps the meta constrained without a
+// default, so E0701 — not a silent Unit bind — fires.
+fn main () -> Unit = {
+  let pad = fn x -> fn y -> fn z -> x
+  ignore (pad 1 2 3)
+  let pad2 = fn x -> fn y -> fn z -> x
+  ignore (pad2 1 2 3)
+  go { todo () % todo () }
+  ()
+}

@@ -1,0 +1,27 @@
+package ex
+
+import go "os"
+import go "time"
+import go "regexp/syntax"
+
+// Acceptance side of the named-target rule (spec 3.3): a `Go.conv`
+// literal operand is judged at the named type's Go underlying kind —
+// os.FileMode is a uint32, time.Duration an int64, syntax.Op a
+// uint8, syntax.Flags a uint16 — so the boundary spellings that just
+// fit stay legal: the uint32 maximum, an integral float at an
+// integer underlying, a negative literal into a signed underlying
+// (`-` does not begin an application argument, so the operand is
+// parenthesized), and the narrow unsigned underlyings' maxima,
+// including a char at the rune-wide uint16 bound.
+fn f () -> Unit = {
+  let a = Go.conv 4000000000 : os.FileMode
+  let b = Go.conv 4294967295 : os.FileMode
+  let c = Go.conv 2.0 : time.Duration
+  let d = Go.conv (-9223372036854775808) : time.Duration
+  let e = Go.conv 255 : syntax.Op
+  let g = Go.conv 'a' : syntax.Op
+  let h = Go.conv '￿' : syntax.Flags
+  let i = Go.conv 0 : os.FileMode
+  ignore (a, b, c, d, e, g, h, i)
+  ()
+}

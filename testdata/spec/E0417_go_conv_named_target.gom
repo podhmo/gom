@@ -1,0 +1,22 @@
+package ex
+
+import go "os"
+import go "time"
+import go "regexp/syntax"
+
+// A `Go.conv` literal operand judges at the conversion's target
+// (spec 3.3) — including a named Go target, whose underlying width
+// is the Go oracle's knowledge: `os.FileMode` is a `uint32`,
+// `time.Duration` an `int64`, `syntax.Op` a `uint8`, `syntax.Flags`
+// a `uint16`. The emitted `T(lit)` is a constant conversion and must
+// be legal Go, so an out-of-range or non-integral literal is E0417 —
+// the same judgment the builtin targets already apply.
+fn f () -> Unit = {
+  let a = Go.conv 5000000000 : os.FileMode
+  let b = Go.conv 1.5 : time.Duration
+  let c = Go.conv 1e100 : time.Duration
+  let d = Go.conv 300 : syntax.Op
+  let e = Go.conv '𐀀' : syntax.Flags
+  ignore (a, b, c, d, e)
+  ()
+}
