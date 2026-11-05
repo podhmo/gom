@@ -637,7 +637,7 @@
   参照: [iface.go](../cmd/gom/iface.go) `checkInterfaces`、
   [cli.go](../cmd/gom/cli.go) `compileInputs`。
 
-- [ ] **eval は整数演算を型幅に関係なく int64 で計算する**: spec 3.3 は
+- [x] **eval は整数演算を型幅に関係なく int64 で計算する**: spec 3.3 は
   `Int32` が 32 ビットで wrap すると定めるが、eval の `VInt` は常に int64
   （`eval.go` の算術は `l.N + r.N` をそのまま返す）。`fn f (x: Int32) -> Int32 =
   x + 1` を `2147483647` に適用すると eval は `2147483648`、生成 Go（`int32`）
@@ -646,6 +646,13 @@
   顕在化。Int32 の `%`・`MinInt32 / -1`・単項 `-` も同じ制限）。
   参照: [spec 3.3](spec.md#33-型推論の範囲)、[eval](../internal/eval/eval.go)、
   [decision](decisions/2026-11-05-numeric-arithmetic-per-operation.md)。
+  対応: 演算位置の静的被演算子型で幅を引く方式を採用 — `VInt` は
+  sign-extended 済み canonical 値の不変条件を持ち、`evalPrim`/`evalUnary`/
+  `litValue` が幅に正規化して int64 で計算・wrap する
+  （[decision](decisions/2026-11-05-eval-int-width-aware-ops.md)、
+  [検証](docs/sketch/2026-11-05-eval-int-width.md)、
+  差分テスト `int32_width_arith`/`int64_min_literal`）。ホスト注入 VInt は
+  pre-normalized 前提（eval doc.go 契約参照）。
 
 - [x] **`EscapeCall`/`EscapeResult` のスパン規約が unguarded/guarded で揃っていない**:
   P2-4c で unguarded 融合側は `lv.Y.Span()`（ステップ operand）に統一したが、
@@ -724,3 +731,14 @@
   参照: [tailrec.go](../internal/lower/tailrec.go) `tailrecCycle`/`tailrecPath`、
   [initcycle.go](../internal/lower/initcycle.go) `nodeName`、
   [fixture](../testdata/spec/E0904_tailrec_var_destructure.expected.json)。
+
+- [ ] **check が整数リテラルの範囲を検査しない**: `let n : Int32 = 3000000000`
+  は型検査を通るが、生成される `var n int32 = 3000000000` は Go が build
+  できない。定数畳み込み回避（litFoldDiverges）で `0 - 2147483648` も
+  `tmp - 2147483648` に落ちるため裸の `2147483648` リテラルでも同様。
+  受理したプログラムが build 不能になる確定済みのずれ。解消方向（Go 型範囲
+  要求で拒否するか、wrap 実体化するか）は spec が沈黙しており決定が要る
+  （wave7 int32-eval 検証中に発見）。
+  参照: [problems](problems/2026-11-05-int-literal-range-check.md)、
+  [check/pat.go](../internal/check/pat.go) `litType`、
+  [codegen/decl.go](../internal/codegen/decl.go) `varDecl`。
