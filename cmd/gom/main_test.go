@@ -6,6 +6,8 @@ import (
 )
 
 func TestRun(t *testing.T) {
+	t.Parallel()
+
 	tests := []struct {
 		name     string
 		args     []string
@@ -45,6 +47,8 @@ func TestRun(t *testing.T) {
 // TestUsageListsAllSubcommands ensures the usage text stays in sync with
 // the subcommands the CLI claims to support.
 func TestUsageListsAllSubcommands(t *testing.T) {
+	t.Parallel()
+
 	var stdout strings.Builder
 	if code := run([]string{"-h"}, &stdout, &strings.Builder{}); code != 0 {
 		t.Fatalf("run(-h) exit code = %d, want 0", code)
@@ -61,6 +65,8 @@ func TestUsageListsAllSubcommands(t *testing.T) {
 // unknown command. Every other usage-listed subcommand is
 // implemented now, so no "not implemented" dispatch remains.
 func TestGomiReportsTheRename(t *testing.T) {
+	t.Parallel()
+
 	var stderr strings.Builder
 	code := run([]string{"gomi"}, &strings.Builder{}, &stderr)
 	if code != 2 || !strings.Contains(stderr.String(), `renamed to "gom info"`) {

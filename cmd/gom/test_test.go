@@ -43,6 +43,16 @@ test "mismatch" {
 }
 `
 
+// TestMain pins the Go toolchain environment once for the package:
+// `gom test`/`go run` children spawn from inside `run`, so per-test
+// t.Setenv is the only other reach — and it conflicts with t.Parallel.
+func TestMain(m *testing.M) {
+	os.Setenv("GOWORK", "off")
+	os.Setenv("GOFLAGS", "-mod=mod")
+	os.Setenv("GOTOOLCHAIN", "local")
+	os.Exit(m.Run())
+}
+
 // testModule writes a go.mod pointing at this worktree so the
 // generated code resolves gom's rt/stdlib packages under the real Go
 // toolchain.
@@ -56,9 +66,6 @@ func testModule(t *testing.T, dir string) {
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(gomod), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	t.Setenv("GOWORK", "off")
-	t.Setenv("GOFLAGS", "-mod=mod")
-	t.Setenv("GOTOOLCHAIN", "local")
 }
 
 func haveGo(t *testing.T) {
@@ -75,6 +82,8 @@ func TestTestEmitsStream(t *testing.T) {
 	if testing.Short() {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 0.55)
 	}
+
+	t.Parallel()
 
 	haveGo(t)
 	dir := writeFiles(t, map[string]string{"m.gom": testGom})
@@ -143,6 +152,8 @@ func TestTestResultBodyFailure(t *testing.T) {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.15)
 	}
 
+	t.Parallel()
+
 	haveGo(t)
 	src := `package main
 
@@ -184,6 +195,8 @@ test "fails" {
 // never reaches type-checking forms no package group, so the
 // interface gate does not fire on it at all.
 func TestTestCompileErrorSkipsRun(t *testing.T) {
+	t.Parallel()
+
 	haveGo(t)
 	dir := writeFiles(t, map[string]string{"bad.gom": badGom})
 	testModule(t, dir)
@@ -224,6 +237,8 @@ func TestTestSiblingPackage(t *testing.T) {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.15)
 	}
 
+	t.Parallel()
+
 	haveGo(t)
 	dir := writeFiles(t, map[string]string{
 		"a.gom": "package main\n\nlet base = 40\nfn bump (x: Int) -> Int = x + 1\n",
@@ -261,6 +276,8 @@ func TestTestStaleTestFileRemoved(t *testing.T) {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.13)
 	}
 
+	t.Parallel()
+
 	haveGo(t)
 	dir := writeFiles(t, map[string]string{
 		"m.gom":        "package main\n\nfn f () -> Int = 1\n",
@@ -288,6 +305,8 @@ func TestTestFormatText(t *testing.T) {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.14)
 	}
 
+	t.Parallel()
+
 	haveGo(t)
 	dir := writeFiles(t, map[string]string{"m.gom": testGom})
 	testModule(t, dir)
@@ -310,6 +329,8 @@ func TestTestFormatText(t *testing.T) {
 // symbol — folds go test's build-output into E0001 diagnostics with
 // source "go".
 func TestTestGoBuildFailure(t *testing.T) {
+	t.Parallel()
+
 	haveGo(t)
 	dir := writeFiles(t, map[string]string{
 		"m.gom":     "package main\n\nfn f () -> Int = 1\n",
@@ -346,6 +367,8 @@ func TestTestGoBuildFailure(t *testing.T) {
 // drift) writes no generated output and runs no tests, while a
 // clean package in the same run still writes.
 func TestTestWithholdsOnInterfaceFailure(t *testing.T) {
+	t.Parallel()
+
 	haveGo(t)
 	dir := writeFiles(t, map[string]string{
 		// E0601: a library package with no .gomi at all.
@@ -405,6 +428,8 @@ func TestTestInterfaceGatePass(t *testing.T) {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.07)
 	}
 
+	t.Parallel()
+
 	haveGo(t)
 	dir := writeFiles(t, map[string]string{
 		"p.gom":  "package p\n\nfn bump (x: Int) -> Int = x + 1\n\ntest \"bump\" {\n  assert_eq (bump 1) 2\n}\n",
@@ -446,6 +471,8 @@ func TestTestInterfaceGatePass(t *testing.T) {
 // test runs. Pre-existing behavior — the unclean-path bug was the
 // .gomi input key, not the grouping.
 func TestTestInterfaceEquivalentPaths(t *testing.T) {
+	t.Parallel()
+
 	haveGo(t)
 	dir := writeFiles(t, map[string]string{
 		"pkg/a.gom":  "package p\n\nfn f (x: Int) -> Int = x\n",
@@ -523,6 +550,8 @@ func TestTestPanicStackTwoPart(t *testing.T) {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 0.97)
 	}
 
+	t.Parallel()
+
 	haveGo(t)
 	dir := writeFiles(t, map[string]string{"m.gom": panicGom})
 	testModule(t, dir)
@@ -560,6 +589,8 @@ func TestTestPanicStackQuiet(t *testing.T) {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.88)
 	}
 
+	t.Parallel()
+
 	haveGo(t)
 	dir := writeFiles(t, map[string]string{"m.gom": panicGom})
 	testModule(t, dir)
@@ -592,6 +623,8 @@ func TestTestPanicStackPackageLevel(t *testing.T) {
 	if testing.Short() {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 0.36)
 	}
+
+	t.Parallel()
 
 	haveGo(t)
 	src := `package main
@@ -638,6 +671,8 @@ func TestTestGoFlagPassthrough(t *testing.T) {
 	if testing.Short() {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 2.71)
 	}
+
+	t.Parallel()
 
 	haveGo(t)
 	src := `package main
@@ -847,6 +882,8 @@ func TestTestConcurrency(t *testing.T) {
 	if testing.Short() {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 0.39)
 	}
+
+	t.Parallel()
 
 	haveGo(t)
 	dir := writeFiles(t, map[string]string{"c.gom": concGom})

@@ -118,6 +118,8 @@ func lastSummary(t *testing.T, out string) map[string]any {
 }
 
 func TestCheckDiagnosticsJSON(t *testing.T) {
+	t.Parallel()
+
 	dir := writeFiles(t, map[string]string{"bad.gom": badGom})
 	code, out, errout := invoke("check", filepath.Join(dir, "bad.gom"))
 
@@ -150,6 +152,8 @@ func TestCheckDiagnosticsJSON(t *testing.T) {
 }
 
 func TestCheckDiagnosticsText(t *testing.T) {
+	t.Parallel()
+
 	dir := writeFiles(t, map[string]string{"bad.gom": badGom})
 	code, out, _ := invoke("check", "-format", "text", filepath.Join(dir, "bad.gom"))
 
@@ -167,6 +171,8 @@ func TestCheckDiagnosticsText(t *testing.T) {
 // that drifts from the raw Go signature reports E0509 at the CLI
 // exactly like the snippet/library paths do.
 func TestCheckExternBinding(t *testing.T) {
+	t.Parallel()
+
 	dir := writeFiles(t, map[string]string{"m.gom": `package main
 
 import go "os"
@@ -187,6 +193,8 @@ extern go "os" {
 }
 
 func TestCheckClean(t *testing.T) {
+	t.Parallel()
+
 	dir := writeFiles(t, map[string]string{"a.gom": goodGom})
 	code, out, _ := invoke("check", filepath.Join(dir, "a.gom"))
 
@@ -203,6 +211,8 @@ func TestCheckClean(t *testing.T) {
 }
 
 func TestCheckDirectory(t *testing.T) {
+	t.Parallel()
+
 	dir := writeFiles(t, map[string]string{
 		"pkg/a.gom":    "package pkg\n\nfn a () -> Int = 1\n",
 		"pkg/b.gom":    "package pkg\n\nfn b () -> Int = nope\n",
@@ -229,6 +239,8 @@ func TestCheckDirectory(t *testing.T) {
 }
 
 func TestCheckInterfaceFile(t *testing.T) {
+	t.Parallel()
+
 	dir := writeFiles(t, map[string]string{
 		"i.gomi": "package shapes\n\ntype Shape\nfn area (s: Shape) -> Float\n",
 	})
@@ -242,6 +254,8 @@ func TestCheckInterfaceFile(t *testing.T) {
 }
 
 func TestBuildWritesGo(t *testing.T) {
+	t.Parallel()
+
 	dir := writeFiles(t, map[string]string{"m.gom": goodGom})
 	outDir := filepath.Join(dir, "out")
 	if err := os.MkdirAll(outDir, 0o755); err != nil {
@@ -272,6 +286,8 @@ func TestBuildWritesGo(t *testing.T) {
 // builtins inside them) but emits no test code — no lowering E0901,
 // no _test.go output.
 func TestBuildSkipsTestCode(t *testing.T) {
+	t.Parallel()
+
 	src := `package m
 
 @test
@@ -315,6 +331,8 @@ test "arith" {
 // comparators forever (gom check passed; gom build hung). The
 // eqDeclLimit cap must answer E0906 inside the timeout instead.
 func TestBuildEqBudgetTerminates(t *testing.T) {
+	t.Parallel()
+
 	dir := writeFiles(t, map[string]string{"w.gom": `package ex
 
 type W a = {next: List (W (W a))}
@@ -344,6 +362,8 @@ fn eq (x: W Int) (y: W Int) -> Bool = x == y
 }
 
 func TestBuildDefaultOutputBesideInput(t *testing.T) {
+	t.Parallel()
+
 	dir := writeFiles(t, map[string]string{
 		"m.gom":  "package m\n\nfn f () -> Int = 1\n",
 		"m.gomi": "package m\n\nfn f () -> Int\n",
@@ -358,6 +378,8 @@ func TestBuildDefaultOutputBesideInput(t *testing.T) {
 }
 
 func TestBuildDoesNotWriteOnErrors(t *testing.T) {
+	t.Parallel()
+
 	// Two separate packages (different directories): a failure in
 	// one does not stop the clean package's output. (The clean
 	// package is `package main` — a program root has no .gomi
@@ -386,6 +408,8 @@ func TestBuildDoesNotWriteOnErrors(t *testing.T) {
 }
 
 func TestBuildDoesNotWritePartialPackage(t *testing.T) {
+	t.Parallel()
+
 	// Files in one directory form one package: a diagnostic in any
 	// member blocks every output of the package — emitting a partial
 	// package would leave a directory whose generated files may not
@@ -412,6 +436,8 @@ func TestBuildDoesNotWritePartialPackage(t *testing.T) {
 }
 
 func TestBuildWithholdsOnInterfaceFailure(t *testing.T) {
+	t.Parallel()
+
 	// The .gomi conformance pass runs after codegen, so its E0601 /
 	// E0603 arrive when the .go is ready to write — a package whose
 	// contract failed still writes nothing.
@@ -449,6 +475,8 @@ func TestBuildWithholdsOnInterfaceFailure(t *testing.T) {
 }
 
 func TestCheckRejectsNonGomFile(t *testing.T) {
+	t.Parallel()
+
 	dir := writeFiles(t, map[string]string{"note.txt": "not gom\n"})
 	code, _, errout := invoke("check", filepath.Join(dir, "note.txt"))
 	if code != 2 || !strings.Contains(errout, "not a .gom source file") {
@@ -457,6 +485,8 @@ func TestCheckRejectsNonGomFile(t *testing.T) {
 }
 
 func TestBuildRejectsInterfaceFile(t *testing.T) {
+	t.Parallel()
+
 	dir := writeFiles(t, map[string]string{"i.gomi": "package p\n\nfn f (x: Int) -> Int\n"})
 	code, _, errout := invoke("build", filepath.Join(dir, "i.gomi"))
 	if code != 2 || !strings.Contains(errout, "interface file") {
@@ -465,6 +495,8 @@ func TestBuildRejectsInterfaceFile(t *testing.T) {
 }
 
 func TestBuildOutFileRequiresSingleInput(t *testing.T) {
+	t.Parallel()
+
 	dir := writeFiles(t, map[string]string{
 		"a.gom": "package m\n\nfn a () -> Int = 1\n",
 		"b.gom": "package m\n\nfn b () -> Int = 2\n",
@@ -478,6 +510,8 @@ func TestBuildOutFileRequiresSingleInput(t *testing.T) {
 }
 
 func TestBuildUnknownFormat(t *testing.T) {
+	t.Parallel()
+
 	dir := writeFiles(t, map[string]string{"a.gom": "package m\n\nfn a () -> Int = 1\n"})
 	code, _, errout := invoke("build", "-format", "xml", filepath.Join(dir, "a.gom"))
 	if code != 2 || !strings.Contains(errout, "unknown -format") {
@@ -486,6 +520,8 @@ func TestBuildUnknownFormat(t *testing.T) {
 }
 
 func TestDumpPhases(t *testing.T) {
+	t.Parallel()
+
 	dir := writeFiles(t, map[string]string{"a.gom": goodGom})
 	f := filepath.Join(dir, "a.gom")
 
@@ -536,6 +572,8 @@ func TestDumpPhases(t *testing.T) {
 }
 
 func TestDumpMultifilePackage(t *testing.T) {
+	t.Parallel()
+
 	// A .gom file shares its package scope with siblings: dumping one
 	// file of a multi-file package must not misreport its references
 	// to sibling declarations as E0201 — the dump compiles the
@@ -565,6 +603,8 @@ func TestEndToEnd_BuildAndRun(t *testing.T) {
 	if testing.Short() {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.99)
 	}
+
+	t.Parallel()
 
 	gobin, err := exec.LookPath("go")
 	if err != nil {
@@ -618,6 +658,8 @@ fn  f (x:Int) ->Int=x
 // the whole stdout — the summary goes to stderr so
 // `gom fmt a.gom > a.gom` is safe.
 func TestFmtStdout(t *testing.T) {
+	t.Parallel()
+
 	dir := writeFiles(t, map[string]string{"m.gom": messyGom})
 	code, out, errout := invoke("fmt", filepath.Join(dir, "m.gom"))
 	if code != 0 {
@@ -634,6 +676,8 @@ func TestFmtStdout(t *testing.T) {
 // TestFmtWrite rewrites a dirty file in place and lists it in the
 // summary's outputs; a second run finds nothing to do.
 func TestFmtWrite(t *testing.T) {
+	t.Parallel()
+
 	dir := writeFiles(t, map[string]string{"m.gom": messyGom})
 	p := filepath.Join(dir, "m.gom")
 	code, out, errout := invoke("fmt", "-w", p)
@@ -665,6 +709,8 @@ func TestFmtWrite(t *testing.T) {
 // TestFmtListDiffCheck covers the reporting modes: -l prints the
 // path, -d prints a diff, --check fails on dirty files.
 func TestFmtListDiffCheck(t *testing.T) {
+	t.Parallel()
+
 	dir := writeFiles(t, map[string]string{"m.gom": messyGom})
 	p := filepath.Join(dir, "m.gom")
 
@@ -714,6 +760,8 @@ func TestFmtListDiffCheck(t *testing.T) {
 // TestFmtStdin feeds "-" a source on stdin and gets the formatted
 // text on stdout, the message stream on stderr.
 func TestFmtStdin(t *testing.T) {
+	t.Parallel()
+
 	r, w, err := os.Pipe()
 	if err != nil {
 		t.Fatal(err)
@@ -738,6 +786,8 @@ func TestFmtStdin(t *testing.T) {
 // TestFmtParseError reports diagnostics and exits 1 without writing
 // anything for an unparseable file.
 func TestFmtParseError(t *testing.T) {
+	t.Parallel()
+
 	dir := writeFiles(t, map[string]string{"bad.gom": "package main\n\nfn = (\n"})
 	p := filepath.Join(dir, "bad.gom")
 	code, out, errout := invoke("fmt", "-w", p)
@@ -784,6 +834,8 @@ func TestEndToEnd_Strconv(t *testing.T) {
 	if testing.Short() {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.95)
 	}
+
+	t.Parallel()
 
 	gobin, err := exec.LookPath("go")
 	if err != nil {
@@ -850,6 +902,8 @@ fn main () -> Unit = {
 // "applied" object plus the summary, and the fixed file checks
 // clean.
 func TestFixAppliesSafeFix(t *testing.T) {
+	t.Parallel()
+
 	dir := writeFiles(t, map[string]string{"m.gom": midblockGom})
 	p := filepath.Join(dir, "m.gom")
 
@@ -904,6 +958,8 @@ func TestFixAppliesSafeFix(t *testing.T) {
 // E0301 "add the missing arms" suggestion stays a suggestion and the
 // stream is just the summary.
 func TestFixSkipsNonSafe(t *testing.T) {
+	t.Parallel()
+
 	src := `package main
 
 type Opt = | Some Int | None
@@ -935,6 +991,8 @@ fn is_some (o: Opt) -> Bool =
 // TestFixText renders the applied stream in text format: an
 // "applied[CODE]" block per fix ending in the text trailer.
 func TestFixText(t *testing.T) {
+	t.Parallel()
+
 	dir := writeFiles(t, map[string]string{"m.gom": midblockGom})
 	code, out, _ := invoke("fix", "-format", "text", filepath.Join(dir, "m.gom"))
 	if code != 0 {
@@ -951,6 +1009,8 @@ func TestFixText(t *testing.T) {
 // TestExplainCode: `gom explain E0301` emits one explanation object
 // plus the closing summary; lowercase codes are accepted.
 func TestExplainCode(t *testing.T) {
+	t.Parallel()
+
 	code, out, errout := invoke("explain", "e0301")
 	if code != 0 {
 		t.Fatalf("gom explain: exit %d; stderr=%q", code, errout)
@@ -980,6 +1040,8 @@ func TestExplainCode(t *testing.T) {
 // TestExplainCodeErrors: malformed and unregistered codes are usage
 // errors (exit 2), not diagnostics.
 func TestExplainCodeErrors(t *testing.T) {
+	t.Parallel()
+
 	for _, tt := range []struct {
 		arg  string
 		want string
@@ -1001,6 +1063,8 @@ func TestExplainCodeErrors(t *testing.T) {
 // TestExplainList: bare `gom explain` lists every registered code —
 // full explanation objects in JSON, a compact index in text.
 func TestExplainList(t *testing.T) {
+	t.Parallel()
+
 	code, out, _ := invoke("explain")
 	if code != 0 {
 		t.Fatalf("gom explain: exit %d", code)
@@ -1038,6 +1102,8 @@ func TestExplainList(t *testing.T) {
 // versioned document covering every kind of the spec section 12
 // vocabulary.
 func TestSchema(t *testing.T) {
+	t.Parallel()
+
 	code, out, errout := invoke("schema")
 	if code != 0 {
 		t.Fatalf("gom schema: exit %d; stderr=%q", code, errout)
@@ -1064,6 +1130,8 @@ func TestSchema(t *testing.T) {
 // interface file gets a draft .gomi generated beside its sources, and
 // a subsequent `gom check` accepts implementation and interface.
 func TestInfoDraftWritesGomi(t *testing.T) {
+	t.Parallel()
+
 	dir := writeFiles(t, map[string]string{
 		"shapes/shapes.gom": `package shapes
 
@@ -1099,6 +1167,8 @@ fn area (s: Shape) -> Float = match s {
 // TestCheckMissingInterface verifies spec 7 rule 4: a library package
 // with no <package>.gomi is E0601.
 func TestCheckMissingInterface(t *testing.T) {
+	t.Parallel()
+
 	dir := writeFiles(t, map[string]string{
 		"lib/lib.gom": "package lib\n\nfn f () -> Int = 1\n",
 	})
@@ -1115,6 +1185,8 @@ func TestCheckMissingInterface(t *testing.T) {
 // TestCheckInterfaceMismatch verifies spec 7 rule 6: implementation
 // signatures must match the .gomi (type vars may only be renamed).
 func TestCheckInterfaceMismatch(t *testing.T) {
+	t.Parallel()
+
 	dir := writeFiles(t, map[string]string{
 		"lib/lib.gom":  "package lib\n\nfn f () -> Int = 1\n",
 		"lib/lib.gomi": "package lib\n\nfn f () -> String\nfn ghost () -> Int\n",
@@ -1141,6 +1213,8 @@ func TestCheckInterfaceMismatch(t *testing.T) {
 // the value dedups to `Foo1`, which an importing package cannot
 // spell (`lib.foo` compiles to `lib.Foo`, the type's name).
 func TestCheckEmittedNameCollision(t *testing.T) {
+	t.Parallel()
+
 	dir := writeFiles(t, map[string]string{
 		"lib/lib.gom":  "package lib\n\ntype Foo = { x: Int }\nlet foo : Foo = { x = 1 }\n",
 		"lib/lib.gomi": "package lib\n\ntype Foo = { x: Int }\nlet foo : Foo\n",
@@ -1180,6 +1254,8 @@ func TestCheckEmittedNameCollision(t *testing.T) {
 // was never split; the unclean-path bug lived in the .gomi input
 // key (see TestCheckUncleanGomiInput).
 func TestCheckInterfaceEquivalentPaths(t *testing.T) {
+	t.Parallel()
+
 	dir := writeFiles(t, map[string]string{
 		"pkg/a.gom":  "package p\n\nfn f (x: Int) -> Int = x\n",
 		"pkg/b.gom":  "package p\n\nfn g (x: Int) -> Int = x\n",
@@ -1213,6 +1289,8 @@ func TestCheckInterfaceEquivalentPaths(t *testing.T) {
 // cleaned spelling). The fix stores gomiInputs under
 // filepath.Clean keys.
 func TestCheckUncleanGomiInput(t *testing.T) {
+	t.Parallel()
+
 	dir := writeFiles(t, map[string]string{
 		"pkg/a.gom":   "package ex\n\nfn f (x: Int) -> Int = x\n",
 		"pkg/ex.gomi": "package ex\n\nfn f (x: Int) -> Int\nfn g (x: Nope) -> Int\n",

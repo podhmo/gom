@@ -82,6 +82,8 @@ func TestEndToEnd_MultifilePackage(t *testing.T) {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 3.99)
 	}
 
+	t.Parallel()
+
 	gobin, err := exec.LookPath("go")
 	if err != nil {
 		t.Skip("no go toolchain on PATH")
