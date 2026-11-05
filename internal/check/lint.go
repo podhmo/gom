@@ -141,13 +141,34 @@ func (c *checker) lintGoSliceCopy(ap *Apply) {
 		gotSlice := isGoSliceCon(gotT) && materialized
 		wantList := c.isBuiltinCon(want, "List")
 		wantSlice := isGoSliceCon(want)
+		// An inline `Go.conv xs : Go.Slice T` copies a `List`
+		// operand into a fresh slice at the call site — the same
+		// miss the implicit boundary conversion warns for, in the
+		// Conv-marked spelling. Nested conv ascribes peel to the
+		// copied source; a `Go.Slice`-operand conv (the verbatim
+		// pun) shares backing and stays silent, and so does the
+		// let-bound shape: a variable holding the copy is a live
+		// `Go.Slice` value, passed verbatim.
+		convCopied := false
+		if as, ok := got.(*Ascribe); ok && as.Conv && isGoSliceCon(gotT) {
+			src := as.X
+			for {
+				inner, ok := src.(*Ascribe)
+				if !ok || !inner.Conv {
+					break
+				}
+				src = inner.X
+			}
+			convCopied = c.isBuiltinCon(types.Chase(src.Type()), "List")
+		}
 		// A `List` argument always crosses the boundary by copy —
 		// `.ToSlice()`/boxing — whether it reaches a `List`- or
 		// `Go.Slice`-spelled parameter. A `Go.Slice` argument
 		// copies only when the checker materialized it into a
 		// `List` first (the peeled ascribe); bare `Go.Slice`
 		// arguments pass their backing verbatim.
-		copied := (wantList && (gotList || gotSlice)) || (wantSlice && gotList)
+		copied := convCopied && (wantList || wantSlice) ||
+			(wantList && (gotList || gotSlice)) || (wantSlice && gotList)
 		if !copied {
 			continue
 		}

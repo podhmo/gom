@@ -32,7 +32,9 @@ func (c *checker) checkPat(p syntax.Pat, want types.Type) Pat {
 		if !c.unify(want, lt, p.Sp) {
 			c.markQuiet(lt)
 		}
-		return &LitPat{Base: baseOf(p.Sp, want), Kind: p.Lit.Kind, Text: p.Lit.Text}
+		out := &LitPat{Base: baseOf(p.Sp, want), Kind: p.Lit.Kind, Text: p.Lit.Text}
+		c.watchPatLit(out)
+		return out
 	case *syntax.CtorPat:
 		return c.checkCtorPat(p, want)
 	case *syntax.TuplePat:

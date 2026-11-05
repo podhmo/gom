@@ -414,6 +414,54 @@ func TestTestInterfaceGatePass(t *testing.T) {
 	}
 }
 
+// TestTestInterfaceEquivalentPaths pins, for `gom test`, the same
+// already-correct .gom grouping `gom check` shows:
+// `pkg/../pkg/a.gom` and `pkg/b.gom` are one package (filepath.Dir
+// already Cleans), so the member `h` p.gomi declares but no file
+// implements is E0603, the group's outputs are withheld, and no
+// test runs. Pre-existing behavior — the unclean-path bug was the
+// .gomi input key, not the grouping.
+func TestTestInterfaceEquivalentPaths(t *testing.T) {
+	haveGo(t)
+	dir := writeFiles(t, map[string]string{
+		"pkg/a.gom":  "package p\n\nfn f (x: Int) -> Int = x\n",
+		"pkg/b.gom":  "package p\n\nfn g (x: Int) -> Int = x\n\ntest \"never\" {\n  assert_eq 1 1\n}\n",
+		"pkg/p.gomi": "package p\n\nfn f (x: Int) -> Int\nfn g (x: Int) -> Int\nfn h (x: Int) -> Int\n",
+	})
+	testModule(t, dir)
+
+	// filepath.Join would clean the ".." away — spell the path
+	// with an explicit separator instead.
+	unclean := filepath.Join(dir, "pkg") + string(filepath.Separator) +
+		".." + string(filepath.Separator) + filepath.Join("pkg", "a.gom")
+	code, out, _ := invoke("test", unclean, filepath.Join(dir, "pkg", "b.gom"))
+	if code != 1 {
+		t.Fatalf("exit = %d, want 1; out=%q", code, out)
+	}
+	var codes []string
+	for _, l := range jsonLines(t, out) {
+		switch l["kind"] {
+		case "diagnostic":
+			codes = append(codes, l["code"].(string))
+		case "test":
+			t.Errorf("a test ran despite the interface failure: %v", l)
+		}
+	}
+	if len(codes) != 1 || codes[0] != "E0603" {
+		t.Errorf("diagnostic codes = %v, want [E0603] for the missing member `h`", codes)
+	}
+	for _, rel := range []string{"pkg/a.go", "pkg/b.go", "pkg/b_test.go"} {
+		if _, err := os.Stat(filepath.Join(dir, rel)); !os.IsNotExist(err) {
+			t.Errorf("%s was written despite the interface failure: %v", rel, err)
+		}
+	}
+	sum := lastSummary(t, out)
+	tc, _ := sum["tests"].(map[string]any)
+	if tc["run"] != float64(0) {
+		t.Errorf("tests ran despite the interface failure: %v", tc)
+	}
+}
+
 // panicGom dies inside the test body — `todo ()` compiles to a
 // call that panics, killing the test binary mid-test.
 const panicGom = `package main

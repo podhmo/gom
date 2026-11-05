@@ -25,6 +25,14 @@ fn calls () -> Unit = {
   ignore strings.Join xs ","
   let gs: Go.Slice String = Go.conv xs : Go.Slice String
   sort.Strings gs
+  // An inline `Go.conv xs : Go.Slice T` copies the List at the call
+  // site — the callee mutates a slice the Gom value never sees, so
+  // the same warning fires as for the implicit copy. Converting a
+  // `Go.Slice` operand is the verbatim pun: backing is shared, the
+  // callee's mutation does reach the value, and the lint stays
+  // silent.
+  sort.Strings (Go.conv xs : Go.Slice String)
+  sort.Strings (Go.conv gs : Go.Slice String)
   ()
 }
 

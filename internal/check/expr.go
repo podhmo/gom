@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"go/constant"
 	"go/token"
+	"math"
+	"strings"
 
 	"github.com/podhmo/gom/internal/diag"
 	"github.com/podhmo/gom/internal/resolve"
@@ -43,7 +45,9 @@ func (c *checker) checkExpr(e syntax.Expr, want types.Type) Expr {
 	case *syntax.Ident:
 		out = c.checkIdent(e)
 	case *syntax.Lit:
-		out = &Lit{Base: baseOf(e.Sp, c.litType(e)), Kind: e.Kind, Text: e.Text}
+		lit := &Lit{Base: baseOf(e.Sp, c.litType(e)), Kind: e.Kind, Text: e.Text}
+		c.watchLit(lit)
+		out = lit
 	case *syntax.StrInterp:
 		out = c.checkStrInterp(e)
 	case *syntax.Apply:
@@ -694,6 +698,12 @@ func (c *checker) checkAscribe(e *syntax.Ascribe) Expr {
 		if sym := c.calleeSym(app.Fn); sym != nil && isConv(sym) {
 			if len(app.Args) == 1 && app.Args[0].Label == nil {
 				x := c.checkExpr(app.Args[0].Value, nil)
+				// `Go.conv lit : T` emits `T(lit)` — a constant
+				// conversion — so the literal's range is judged at
+				// T rather than its own type.
+				if lit, ok := x.(*Lit); ok {
+					c.markLitConv(lit, target)
+				}
 				if _, unsolved := types.Chase(x.Type()).(*types.Meta); unsolved {
 					c.pendingConvs = append(c.pendingConvs,
 						&pendingConv{x: x, to: target, sp: e.Sp})
@@ -803,6 +813,20 @@ func (c *checker) convOK(from, to types.Type) bool {
 	if numeric(from) && numeric(to) {
 		return true
 	}
+	// A `Go.conv` between `Go.Slice T` and `List U` goes through the
+	// boundary copies of spec 8.5, which require the element types to
+	// agree. The oracle cannot see the mismatch — boundaryType maps
+	// both sides to their Go spelling, so `Go.Slice Int64` → `List Int`
+	// or `Go.Slice Int32` → `List Char` judge `[]int64` → `[]int64` —
+	// and the lowering's copy cases gate on the same equality, so an
+	// accepted mismatch falls through to `ConvNamed`: a raw named cast
+	// that shares backing and lets mutation reach a value Gom treats
+	// as immutable (decisions/2026-11-05-goconv-slice-list-element-
+	// mismatch). Reject mismatched element pairs here, at either
+	// nesting depth of the elements' own spelling.
+	if fe, te, ok := c.sliceListPair(from, to); ok && !types.Equal(fe, te) {
+		return false
+	}
 	// A file-local `type` declaration is invisible to the oracle,
 	// and it can hide at any depth: boundaryType maps every
 	// unqualified Con by name alone, so a `type Int` ADT nested
@@ -867,11 +891,280 @@ func (c *checker) convOK(from, to types.Type) bool {
 	return false
 }
 
+// sliceListPair decomposes (from, to) when one side is the builtin
+// `List` and the other `Go.Slice`, returning the two element types.
+// Either direction matches — the same element-equality gate guards
+// `List → Go.Slice` (the copy in) and `Go.Slice → List` (the copy
+// out). A file-local `type List` is an ADT, not the builtin — its
+// pairs fall through to the oracle like any other declared type.
+func (c *checker) sliceListPair(from, to types.Type) (fromElem, toElem types.Type, ok bool) {
+	elem := func(t types.Type) (types.Type, bool) {
+		con, ok := t.(*types.Con)
+		if !ok || len(con.Args) != 1 {
+			return nil, false
+		}
+		switch {
+		case con.Qual == "Go" && con.Name == "Slice":
+			return con.Args[0], true
+		case con.Qual == "" && con.Name == "List" && !c.shadowedBuiltin("List"):
+			return con.Args[0], true
+		}
+		return nil, false
+	}
+	fe, fok := elem(from)
+	te, tok := elem(to)
+	if !fok || !tok {
+		return nil, nil, false
+	}
+	fSlice := false
+	if con, ok := from.(*types.Con); ok {
+		fSlice = con.Qual == "Go" && con.Name == "Slice"
+	}
+	tSlice := false
+	if con, ok := to.(*types.Con); ok {
+		tSlice = con.Qual == "Go" && con.Name == "Slice"
+	}
+	if fSlice == tSlice {
+		// Both `Go.Slice` (a verbatim pun — allowed) or both `List`
+		// (types.Equal above already answered for equal element
+		// types; a `List T` → `List U` mismatch is a plain E0401
+		// elsewhere, not a conv question).
+		return nil, nil, false
+	}
+	return fe, te, true
+}
+
+// watchLit records an integer or float literal for the post-default
+// range judgment (revisitLitRanges). Other kinds carry concrete
+// types and cannot overflow — Char's lexer already bounds its code
+// point below int32.
+func (c *checker) watchLit(l *Lit) {
+	if l.Kind != syntax.LitInt && l.Kind != syntax.LitFloat {
+		return
+	}
+	pl := &pendingLit{lit: l}
+	c.pendingLits = append(c.pendingLits, pl)
+	if c.pendingLitOf == nil {
+		c.pendingLitOf = map[*Lit]*pendingLit{}
+	}
+	c.pendingLitOf[l] = pl
+}
+
+// watchPatLit is watchLit for a literal pattern — the pattern's own
+// type (the scrutinee's) supplies the range context, and its text
+// already spells a `-` when the pattern is negative.
+func (c *checker) watchPatLit(p *LitPat) {
+	if p.Kind != syntax.LitInt && p.Kind != syntax.LitFloat {
+		return
+	}
+	c.pendingLits = append(c.pendingLits, &pendingLit{pat: p})
+}
+
+// markLitNeg records that l is the direct operand of a unary `-`:
+// the emitted `-lit` is one Go constant expression, so the range
+// judgment reads the signed value.
+func (c *checker) markLitNeg(l *Lit) {
+	if pl, ok := c.pendingLitOf[l]; ok {
+		pl.neg = true
+	}
+}
+
+// markLitConv records that l is the direct operand of `Go.conv` —
+// the emitted `T(lit)` converts the constant to T, so the range
+// judgment reads the literal at the target type.
+func (c *checker) markLitConv(l *Lit, to types.Type) {
+	if pl, ok := c.pendingLitOf[l]; ok {
+		pl.conv = to
+	}
+}
+
+// revisitLitRanges judges every recorded literal against the range of
+// the type its emitted Go constant converts at — its own solved type,
+// or the `Go.conv` target when the literal is the direct conversion
+// operand (decisions/2026-11-05-int-literal-range-check, E0417). It
+// runs with revisitDivs/revisitConvs: only then is every literal
+// meta bound or defaulted. The unit of judgment is the literal, not
+// the enclosing expression — `0 - 2147483648` at Int32 emits
+// `tmp - 2147483648`, where the right literal converts alone. A
+// float literal's judgment is the representable-float64 question at
+// a float target and Go's constant-conversion rule at an integer
+// one — `Go.conv 1.5 : Int32` emits `int32(1.5)`, which Go rejects,
+// while `int32(2.0)` is legal and then range-checked as an int.
+func (c *checker) revisitLitRanges() {
+	for _, pl := range c.pendingLits {
+		var sp diag.Span
+		var text string
+		var typ types.Type
+		var kind syntax.LitKind
+		switch {
+		case pl.lit != nil:
+			sp, text, typ, kind = pl.lit.Sp, pl.lit.Text, pl.lit.Type(), pl.lit.Kind
+		case pl.pat != nil:
+			sp, text, typ, kind = pl.pat.Sp, pl.pat.Text, pl.pat.Type(), pl.pat.Kind
+		default:
+			panic("unreachable")
+		}
+		neg := pl.neg
+		if s, ok := strings.CutPrefix(text, "-"); ok {
+			// Pattern literals spell their sign.
+			text = s
+			neg = true
+		}
+		// litText is the signed spelling the emitted Go constant
+		// carries — `-lit` folds sign and digits into one constant,
+		// and a negative pattern literal's `-` was just cut from
+		// text — so diagnostics name the constant the code spells.
+		litText := text
+		if neg {
+			litText = "-" + text
+		}
+		judgeT := types.Chase(typ)
+		if pl.conv != nil {
+			// A `T(lit)` conversion judges at T when T is a
+			// range-bearing type; a named Go type, an interface or
+			// another non-numeric target falls back to the
+			// literal's own type (the emitted constant still has
+			// to convert at it).
+			if _, _, ok := c.litRange(pl.conv); ok {
+				judgeT = types.Chase(pl.conv)
+			}
+		}
+		bits, floating, ok := c.litRange(judgeT)
+		if !ok {
+			continue // still-unsolved meta (its E0407 stands) or a non-numeric type
+		}
+		if floating {
+			// float64-representable: an int literal can spell more
+			// digits than int64 holds (`let m : Float =
+			// 99999999999999999999` is legal — `float64(lit)`
+			// rounds); a float literal is judged directly.
+			var f float64
+			if kind == syntax.LitInt {
+				v := constant.MakeFromLiteral(text, token.INT, 0)
+				if v.Kind() == constant.Unknown {
+					continue
+				}
+				if neg {
+					v = constant.UnaryOp(token.SUB, v, 0)
+				}
+				f, _ = constant.Float64Val(v)
+			} else {
+				fv := constant.MakeFromLiteral(text, token.FLOAT, 0)
+				if fv.Kind() == constant.Unknown {
+					continue
+				}
+				if neg {
+					fv = constant.UnaryOp(token.SUB, fv, 0)
+				}
+				f, _ = constant.Float64Val(fv)
+			}
+			if math.IsInf(f, 0) {
+				c.diags.Add(diag.Error("E0417",
+					fmt.Sprintf("float literal %s overflows %s", litText, judgeT)).
+					At(sp).Set("literal", litText).Set("type", judgeT.String()))
+			}
+			continue
+		}
+		tok := token.INT
+		if kind == syntax.LitFloat {
+			// A float literal reaching an integer judgment is a
+			// `Go.conv` operand — `T(lit)` is a constant
+			// conversion, so Go's rule applies: `int32(2.0)` is
+			// legal, `int32(1.5)` is rejected as non-integral.
+			tok = token.FLOAT
+		}
+		v := constant.MakeFromLiteral(text, tok, 0)
+		if v.Kind() == constant.Unknown {
+			continue
+		}
+		if neg {
+			v = constant.UnaryOp(token.SUB, v, 0)
+		}
+		fromFloat := false
+		if v.Kind() == constant.Float {
+			// ToInt performs the conversion the generated constant
+			// spells: an integer-valued float converts and joins
+			// the range judgment, a fractional one is rejected
+			// before the range question is asked.
+			iv := constant.ToInt(v)
+			if iv.Kind() != constant.Int {
+				c.diags.Add(diag.Error("E0417",
+					fmt.Sprintf("float literal %s is not an integer; cannot convert to %s", litText, judgeT)).
+					At(sp).Set("literal", litText).Set("type", judgeT.String()))
+				continue
+			}
+			v = iv
+			fromFloat = true
+		}
+		// Signed two's-complement bounds: [-2^(bits-1), 2^(bits-1)-1].
+		hi := constant.Shift(constant.MakeInt64(1), token.SHL, uint(bits-1))
+		max := constant.BinaryOp(hi, token.SUB, constant.MakeInt64(1))
+		min := constant.UnaryOp(token.SUB, hi, 0)
+		if constant.Compare(v, token.LEQ, max) &&
+			constant.Compare(v, token.GEQ, min) {
+			continue
+		}
+		// An int literal reports its exact digits (hex spellings
+		// included); a float one keeps the spelled form —
+		// `float literal 1e100` reads truer than its 101-digit
+		// expansion.
+		msg, litStr := fmt.Sprintf("integer literal %s overflows %s", v.ExactString(), judgeT), v.ExactString()
+		if fromFloat {
+			msg, litStr = fmt.Sprintf("float literal %s overflows %s", litText, judgeT), litText
+		}
+		c.diags.Add(diag.Error("E0417", msg).
+			At(sp).Set("literal", litStr).Set("type", judgeT.String()))
+	}
+}
+
+// litRange classifies t for the literal range judgment: bits is the
+// signed width of the integer constructors (`Int`/`Int64`/`Go.Int`
+// are 64, `Int32`/`Char` 32) and floating reports `Float` — a
+// float64-representable judgment instead of a width. ok is false for
+// every other type — a named Go type (its underlying width is the
+// oracle's knowledge, not the checker's), String, Bool, an unsolved
+// meta (its own E0407 stands), or a file-local ADT spelling (a
+// shadowed `type Int32` never types a numeric literal — its own
+// E0415 covers the site).
+func (c *checker) litRange(t types.Type) (bits int64, floating, ok bool) {
+	con, isCon := types.Chase(t).(*types.Con)
+	if !isCon {
+		return 0, false, false
+	}
+	if con.Qual == "Go" && con.Name == "Int" {
+		// Defensive: `Go.Int` is not spellable in type position
+		// (goTypeArity reserves `Go` for Slice/Map), so no literal
+		// ever judges here — `int` is 64-bit if one ever did.
+		return 64, false, true // same range as Int64
+	}
+	if con.Qual != "" || c.shadowedBuiltin(con.Name) {
+		return 0, false, false
+	}
+	switch con.Name {
+	case "Int", "Int64":
+		return 64, false, true
+	case "Int32", "Char":
+		return 32, false, true
+	case "Float":
+		return 0, true, true
+	}
+	return 0, false, false
+}
+
 // checkUnary types `-x` (numeric) and `!x` (Bool).
 func (c *checker) checkUnary(e *syntax.Unary) Expr {
 	switch e.Op {
 	case syntax.UnNeg:
 		x := c.checkExpr(e.X, nil)
+		// A literal directly inside `-` folds into one Go constant
+		// expression with it — the range judgment reads the signed
+		// value (`-9223372036854775808` is a legal Int64 literal
+		// though its digits alone are not). Only the direct operand
+		// folds: `- -lit` binds the inner `-lit` to a temporary and
+		// the outer minus runs on the variable.
+		if lit, ok := x.(*Lit); ok {
+			c.markLitNeg(lit)
+		}
 		c.constrain(x.Type(), e.X.Span(), "the operand of `-`", func(r *metaRec) {
 			r.num = true
 		})

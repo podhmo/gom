@@ -626,16 +626,29 @@
   参照: [spec 12](spec.md)、[test.go](../cmd/gom/test.go) `renderTrace`、
   [design](design.md)。
 
-- [ ] **`checkInterfaces` が `filepath.Dir` を `filepath.Clean` せずに
-  グループ化する**: `iface.go` のグルーピングキーが未 clean のため、
-  `gom test pkg/../pkg/a.gom pkg/b.gom` のような入力で同一物理ディレクトリが
-  別グループに分裂する。分裂すると E0601/E0603 が重複するだけでなく、
-  両半分で `complete=false` となり missing-member の適合違反が双方で
-  免除され、違反のまま出力・テスト実行されうる（pre-existing —
-  `compileInputs`/`runGoTests` 側は clean 済み。check/build/test 全経路に
-  影響。wave7 gomtest レビューで発見）。
+- [x] **未 clean な `.gomi` 入力パスが `gomiInputs[want]` を外れて
+  `.gomi` が二重にコンパイル・診断が二重に出る**: `iface.go` の
+  `gomiInputs` が入力パスをそのままキーにするため、
+  `gom check pkg/../pkg/ex.gomi pkg/a.gom` のような入力で
+  `filepath.Join` が組む clean な `want` キーに一致せず、
+  `os.ReadFile`+`compileInput` のフォールバックに落ちて同じ
+  `.gomi` が二度コンパイルされ、その診断（例: 未定義型の E0201）
+  が入力スペリングと clean スペリングの 2 件として出る
+  （pre-existing。check/build/test 全経路に影響。
+  初版の登録は「`filepath.Dir` 未 clean で `.gom` グループが
+  分裂する」と書いていたが、`filepath.Dir` は内部で Clean する
+  ため `.gom` 側のグループ化は常に正しかった — 実際の穴は
+  `.gomi` 入力キーの方。wave7 gomtest レビューで発見、
+  wave8 レビューで機構を訂正）。
   参照: [iface.go](../cmd/gom/iface.go) `checkInterfaces`、
   [cli.go](../cmd/gom/cli.go) `compileInputs`。
+  対応: `gomiInputs` のキーと `dirCensus` の `byPath`（glob 結果の
+  clean スペリングと照合する側）を `filepath.Clean` して正規化。
+  `cmd/gom` の `TestCheckUncleanGomiInput` が未 clean `.gomi`
+  入力で診断が 1 件だけ出ることを pin（main では 2 件に重複）。
+  `TestCheckInterfaceEquivalentPaths` /
+  `TestTestInterfaceEquivalentPaths` は従来通り正しかった
+  `.gom` グループ化を pin する。
 
 - [x] **eval は整数演算を型幅に関係なく int64 で計算する**: spec 3.3 は
   `Int32` が 32 ビットで wrap すると定めるが、eval の `VInt` は常に int64
@@ -683,7 +696,7 @@
   [golden](../testdata/golden/go_conv.golden.go)、
   [検証](sketch/2026-11-05-go-slice-ops-verification.md)。
 
-- [ ] **要素型の異なる `Go.conv` `Go.Slice T ↔ List U` は依然 pun のまま**:
+- [x] **要素型の異なる `Go.conv` `Go.Slice T ↔ List U` は依然 pun のまま**:
   `convOK` の oracle は Go-convertible な対を受理するが、`goConvKindOf` の
   スライス対は要素の `types.Equal` を要求するため、`Go.Slice Int64 →
   List Int`・`Go.Slice Int32 → List Char` のような表現等値の異要素対は
@@ -696,8 +709,15 @@
   参照: [check/expr.go](../internal/check/expr.go) `convOK`、
   [lower/expr.go](../internal/lower/expr.go) `goConvKindOf`、
   [boundary.go](../internal/goimport/boundary.go)。
+  対応: 前者を採用 — `convOK` の `sliceListPair` が一方の `List` と他方の
+  `Go.Slice` の要素を `types.Equal` で比較し、不一致は oracle に回す前に
+  E0507 とする（同要素ペアのコピー変換と `Go.Slice↔Go.Slice` の verbatim
+  pun は不変。ネストした要素の不一致も同じ判定）。
+  参照: [decision](decisions/2026-11-05-goconv-slice-list-element-mismatch.md)、
+  [検証](sketch/2026-11-05-goconv-slice-list-element-mismatch.md)、
+  [fixture](../testdata/spec/E0507_go_conv_slice_elem_mismatch.gom)。
 
-- [ ] **W0501 がインライン `Go.conv e : Go.Slice T` 引数を見逃す**:
+- [x] **W0501 がインライン `Go.conv e : Go.Slice T` 引数を見逃す**:
   `helper.Mutate (Go.conv xs : Go.Slice Int)` のような「コピーを作って
   そのまま渡す」引数は `Ascribe{Conv:true, Slice:false}` のため lint の
   剥がし条件（`as.Slice`）に合わず、`Go.Slice` verbatim として沈黙する。
@@ -706,6 +726,11 @@
   （wave7 slice-ops レビュー。let 束縛版は値が生きるので沈黙が正しい）。
   参照: [lint.go](../internal/check/lint.go) `lintGoSliceCopy`、
   [check/expr.go](../internal/check/expr.go) `convOK`。
+  対応: `lintGoSliceCopy` が Conv な Ascribe を剥がし、剥いだソースが
+  builtin `List` ならコピー引数として警告（`Go.Slice` ソースの verbatim
+  pun・let 束縛の `Go.Slice`・読み取り専用呼び出しは従来通り沈黙）。
+  [fixture](../testdata/spec/W0501_go_slice_copy.gom) にインライン変換の
+  warn ケースと verbatim pun の沈黙ケースを追加。
 
 - [ ] **CLI では extern の照合（E0509）が走らない**: spec 8.4 は extern の宣言を生の Go シグネチャと照合し、合わなければ E0509 とする。
   `skills/` のスニペット検査（`goimport.Loader` を直接 `Sigs` に渡す）では `fn New(text: String) -> GoError` が E0509 になるが、
@@ -732,7 +757,7 @@
   [initcycle.go](../internal/lower/initcycle.go) `nodeName`、
   [fixture](../testdata/spec/E0904_tailrec_var_destructure.expected.json)。
 
-- [ ] **check が整数リテラルの範囲を検査しない**: `let n : Int32 = 3000000000`
+- [x] **check が整数リテラルの範囲を検査しない**: `let n : Int32 = 3000000000`
   は型検査を通るが、生成される `var n int32 = 3000000000` は Go が build
   できない。定数畳み込み回避（litFoldDiverges）で `0 - 2147483648` も
   `tmp - 2147483648` に落ちるため裸の `2147483648` リテラルでも同様。
@@ -742,3 +767,30 @@
   参照: [problems](problems/2026-11-05-int-literal-range-check.md)、
   [check/pat.go](../internal/check/pat.go) `litType`、
   [codegen/decl.go](../internal/codegen/decl.go) `varDecl`。
+  対応: Go の定数モデルに揃えて拒否する方を採用 — `pendingLit` が式・
+  パターンの整数・float リテラルを記録し、`finalize` の
+  `revisitLitRanges` が既定後の静的型（単項 `-` の直接の被演算子は符号込み、
+  `Go.conv` の直接の被演算子は変換先）で範囲判定、範囲外は E0417。
+  eval の wrap 実体化は到達不能の防御分岐になった。
+  参照: [decision](decisions/2026-11-05-int-literal-range-check.md)、
+  [検証](sketch/2026-11-05-int-literal-range-check.md)、
+  [fixture](../testdata/spec/E0417_int_lit_range.gom)、
+  [ok fixture](../testdata/spec/ok_int_lit_boundaries.gom)。
+
+- [ ] **`Go.conv` のリテラル被演算子は named Go 型の変換先で範囲判定を skip する**:
+  `revisitLitRanges` は `Go.conv` の直接のリテラル被演算子を変換先で判定するが、
+  変換先が named Go 型（`os.FileMode` のような `Qual != ""` の整数 named 型）だと
+  `litRange` が非対応でリテラル自身の型にフォールバックする。そのため
+  `Go.conv 5000000000 : os.FileMode` は受理されるが、生成される
+  `fs.FileMode(5000000000)` は定数変換の範囲外で Go が build できない
+  （E0417 レーン実装中に実測）。float リテラルでも同じ抜けがある:
+  `Go.conv 1.5 : time.Duration` はリテラル自身の `Float` 判定に
+  フォールバックして `1.5` が表現可能なため受理されるが、生成される
+  `time.Duration(1.5)` は非整数の定数変換で Go が拒否する
+  （`Go.conv 1e100 : time.Duration` も同様 — wave8 レビュー後の
+  float→整数変換対応でも builtin 変換先のみが届く範囲）。
+  named 型の基礎幅は oracle（`goimport.Loader`）
+  側の知識なので、oracle に underlying-kind を引く照会を足すか、
+  lowering で定数被演算子を型付き変換に逃がす必要がある。
+  参照: [expr.go](../internal/check/expr.go) `litRange`/`markLitConv`、
+  [decision](decisions/2026-11-05-int-literal-range-check.md)（残余として記録済み）。

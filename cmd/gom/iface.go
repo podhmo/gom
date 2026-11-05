@@ -59,9 +59,19 @@ func checkInterfaces(inputs []input, results []*build.Result, rep *diag.Report, 
 	groups := map[string]*pkgGroup{}
 	gomiInputs := map[string]int{} // path → input index
 	for i, in := range inputs {
+		// filepath.Dir already Cleans, so equivalent spellings like
+		// `pkg/../pkg/a.gom` and `pkg/b.gom` group correctly either
+		// way — the .gom grouping itself needs no normalization.
 		dir := filepath.Dir(in.path)
 		if in.iface {
-			gomiInputs[in.path] = i
+			// The map key must be the cleaned path: the `want`
+			// lookup below is built by filepath.Join, which is
+			// always clean. An input spelled
+			// `pkg/../pkg/ex.gomi` would otherwise miss
+			// gomiInputs[want], fall through to
+			// os.ReadFile+compileInput, and report the same
+			// .gomi's diagnostics a second time.
+			gomiInputs[filepath.Clean(in.path)] = i
 			continue
 		}
 		r := results[i]
@@ -96,6 +106,9 @@ func checkInterfaces(inputs []input, results []*build.Result, rep *diag.Report, 
 			gomiSet[m] = true
 		}
 		for p := range gomiInputs {
+			// Keys are stored cleaned so the Join'd `want`
+			// lookup hits; filepath.Dir Cleans anyway, so this
+			// dir comparison holds for any spelling.
 			if filepath.Dir(p) == dir {
 				gomiSet[p] = true
 			}
@@ -197,7 +210,9 @@ func dirCensus(dir string, inputs []input, results []*build.Result) map[string]i
 			continue
 		}
 		if r := results[i]; r != nil && r.Typed != nil {
-			byPath[in.path] = r.Typed.Package
+			// Clean so a spelled `pkg/../pkg/a.gom` matches the
+			// glob's `pkg/a.gom` — the same file either way.
+			byPath[filepath.Clean(in.path)] = r.Typed.Package
 		}
 	}
 	census := map[string]int{}

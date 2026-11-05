@@ -1060,6 +1060,10 @@ func (c *checker) finalize() {
 	// literal's Int default — are concrete now too: revisitConvs
 	// gives the Go.conv validation its second look (spec 8.4).
 	c.revisitConvs()
+	// Literal ranges judge last: every literal meta has solved or
+	// defaulted, so the static type at each literal's own position is
+	// final (spec 3.3; E0417).
+	c.revisitLitRanges()
 	if len(c.metas) != len(ms) {
 		ms = ms[:0]
 		for m, r := range c.metas {

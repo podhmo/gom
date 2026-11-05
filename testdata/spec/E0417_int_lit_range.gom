@@ -1,0 +1,49 @@
+package ex
+
+// An integer literal must be representable by the static type at its
+// own position (spec 3.3) — the emitted Go spelling is the lexeme
+// itself, so `let n : Int32 = 3000000000` renders
+// `var n int32 = 3000000000`, which cannot build. The judgment unit
+// is the literal, not the enclosing expression: `0 - 2147483648` at
+// Int32 emits `tmp - 2147483648`, where the right literal converts
+// at int32 alone (the fold-defeat keeps arithmetic per-operation).
+// A literal that is the direct operand of `Go.conv` judges at the
+// target — `int32(lit)` is a constant conversion — so a float
+// literal operand applies Go's constant-conversion rule:
+// `int32(1.5)` is rejected while `int32(2.0)` is legal and then
+// range-checked like an int. A literal pattern judges at the
+// scrutinee's type, and a float literal must be a representable
+// float64.
+fn main () -> Unit = {
+  let n : Int32 = 3000000000
+  let k : Int32 = 0 - 2147483648
+  let x : Int64 = 99999999999999999999
+  let c = Go.conv 3000000000 : Int32
+  let cf = Go.conv 1.5 : Int32
+  let ce = Go.conv 1e100 : Int64
+  let cc = Go.conv 1.5 : Char
+  let co = Go.conv 2147483648.0 : Int32
+  let g = 1e999
+  let ng = -1e999
+  ignore (n, k, x, c, cf, ce)
+  ignore (cc, co, g, ng)
+  ()
+}
+
+fn pat (n: Int32) -> Int =
+  match n {
+    3000000000 -> 1
+    _ -> 0
+  }
+
+fn fpat (f: Float) -> Int =
+  match f {
+    -1e999 -> 1
+    _ -> 0
+  }
+
+fn ipat (n: Int32) -> Int =
+  match n {
+    -1.5 -> 1
+    _ -> 0
+  }

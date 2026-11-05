@@ -1,0 +1,96 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0507",
+      "severity": "error",
+      "message": "cannot convert Go.Slice Int64 to List Int",
+      "span": {
+        "file": "E0507_go_conv_slice_elem_mismatch.gom",
+        "start": {
+          "line": 13,
+          "col": 46,
+          "offset": 706
+        },
+        "end": {
+          "line": 13,
+          "col": 67,
+          "offset": 727
+        }
+      },
+      "data": {
+        "from": "Go.Slice Int64",
+        "to": "List Int"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0507",
+      "severity": "error",
+      "message": "cannot convert List Int64 to Go.Slice Int",
+      "span": {
+        "file": "E0507_go_conv_slice_elem_mismatch.gom",
+        "start": {
+          "line": 15,
+          "col": 44,
+          "offset": 772
+        },
+        "end": {
+          "line": 15,
+          "col": 69,
+          "offset": 797
+        }
+      },
+      "data": {
+        "from": "List Int64",
+        "to": "Go.Slice Int"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0507",
+      "severity": "error",
+      "message": "cannot convert List Char to Go.Slice Int32",
+      "span": {
+        "file": "E0507_go_conv_slice_elem_mismatch.gom",
+        "start": {
+          "line": 17,
+          "col": 46,
+          "offset": 844
+        },
+        "end": {
+          "line": 17,
+          "col": 73,
+          "offset": 871
+        }
+      },
+      "data": {
+        "from": "List Char",
+        "to": "Go.Slice Int32"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0507",
+      "severity": "error",
+      "message": "cannot convert Go.Slice (Go.Slice Int64) to List (List Int)",
+      "span": {
+        "file": "E0507_go_conv_slice_elem_mismatch.gom",
+        "start": {
+          "line": 20,
+          "col": 3,
+          "offset": 936
+        },
+        "end": {
+          "line": 20,
+          "col": 31,
+          "offset": 964
+        }
+      },
+      "data": {
+        "from": "Go.Slice (Go.Slice Int64)",
+        "to": "List (List Int)"
+      }
+    }
+  ]
+}

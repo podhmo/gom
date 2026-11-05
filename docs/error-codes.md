@@ -547,6 +547,27 @@ fn wdepth (w: W a) -> Int =
   match w { WLeaf x -> 0; WNode inner -> wdepth inner + 1 }   // wdepth at W (List a)
 ```
 
+### E0417 — literal overflows its type
+
+**Severity:** error · **Phase:** check · **Spec:** §3.3
+
+An integer or float literal must be representable by the
+static type at its own position — the same rule Go applies to the
+constant the generated code emits. A literal typed Int or Int64
+must fit int64; Int32 or Char must fit int32; Float must be a
+representable float64. A literal that is the direct operand of a
+unary "-" is judged with the sign, so -9223372036854775808 is a
+legal Int64 while 9223372036854775808 alone is not. A literal that
+is the direct operand of "Go.conv" is judged at the conversion's
+target type, since the emitted "T(lit)" is a constant conversion
+to T — a float literal operand at an integer target must be
+integer-valued and in range ("int32(1.5)" is rejected while
+"int32(2.0)" is legal, matching Go's constant-conversion rule).
+
+```gom
+let n : Int32 = 3000000000   // does not fit int32
+```
+
 ## 05xx — Go interop
 
 ### E0501 — Go symbol cannot be represented in Gom

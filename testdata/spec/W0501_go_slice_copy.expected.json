@@ -50,18 +50,41 @@
       "kind": "diagnostic",
       "code": "W0501",
       "severity": "warning",
+      "message": "`sort.Strings` returns Unit and receives its `Go.Slice String` argument as a copied []T — a callee that mutates the slice in place has no effect on the Gom value",
+      "span": {
+        "file": "W0501_go_slice_copy.gom",
+        "start": {
+          "line": 34,
+          "col": 17,
+          "offset": 1278
+        },
+        "end": {
+          "line": 34,
+          "col": 45,
+          "offset": 1306
+        }
+      },
+      "data": {
+        "argument": "Go.Slice String",
+        "callee": "sort.Strings"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "W0501",
+      "severity": "warning",
       "message": "`goiface.MutSlices` returns Unit and receives its `List Int` argument as a copied []T — a callee that mutates the slice in place has no effect on the Gom value",
       "span": {
         "file": "W0501_go_slice_copy.gom",
         "start": {
-          "line": 39,
+          "line": 47,
           "col": 21,
-          "offset": 1366
+          "offset": 1809
         },
         "end": {
-          "line": 39,
+          "line": 47,
           "col": 27,
-          "offset": 1372
+          "offset": 1815
         }
       },
       "data": {

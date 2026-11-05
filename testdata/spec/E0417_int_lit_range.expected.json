@@ -1,0 +1,326 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0417",
+      "severity": "error",
+      "message": "integer literal 3000000000 overflows Int32",
+      "span": {
+        "file": "E0417_int_lit_range.gom",
+        "start": {
+          "line": 18,
+          "col": 19,
+          "offset": 913
+        },
+        "end": {
+          "line": 18,
+          "col": 29,
+          "offset": 923
+        }
+      },
+      "data": {
+        "literal": "3000000000",
+        "type": "Int32"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0417",
+      "severity": "error",
+      "message": "integer literal 2147483648 overflows Int32",
+      "span": {
+        "file": "E0417_int_lit_range.gom",
+        "start": {
+          "line": 19,
+          "col": 23,
+          "offset": 946
+        },
+        "end": {
+          "line": 19,
+          "col": 33,
+          "offset": 956
+        }
+      },
+      "data": {
+        "literal": "2147483648",
+        "type": "Int32"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0417",
+      "severity": "error",
+      "message": "integer literal 99999999999999999999 overflows Int64",
+      "span": {
+        "file": "E0417_int_lit_range.gom",
+        "start": {
+          "line": 20,
+          "col": 19,
+          "offset": 975
+        },
+        "end": {
+          "line": 20,
+          "col": 39,
+          "offset": 995
+        }
+      },
+      "data": {
+        "literal": "99999999999999999999",
+        "type": "Int64"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0417",
+      "severity": "error",
+      "message": "integer literal 3000000000 overflows Int32",
+      "span": {
+        "file": "E0417_int_lit_range.gom",
+        "start": {
+          "line": 21,
+          "col": 19,
+          "offset": 1014
+        },
+        "end": {
+          "line": 21,
+          "col": 29,
+          "offset": 1024
+        }
+      },
+      "data": {
+        "literal": "3000000000",
+        "type": "Int32"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0417",
+      "severity": "error",
+      "message": "float literal 1.5 is not an integer; cannot convert to Int32",
+      "span": {
+        "file": "E0417_int_lit_range.gom",
+        "start": {
+          "line": 22,
+          "col": 20,
+          "offset": 1052
+        },
+        "end": {
+          "line": 22,
+          "col": 23,
+          "offset": 1055
+        }
+      },
+      "data": {
+        "literal": "1.5",
+        "type": "Int32"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0417",
+      "severity": "error",
+      "message": "float literal 1e100 overflows Int64",
+      "span": {
+        "file": "E0417_int_lit_range.gom",
+        "start": {
+          "line": 23,
+          "col": 20,
+          "offset": 1083
+        },
+        "end": {
+          "line": 23,
+          "col": 25,
+          "offset": 1088
+        }
+      },
+      "data": {
+        "literal": "1e100",
+        "type": "Int64"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0417",
+      "severity": "error",
+      "message": "float literal 1.5 is not an integer; cannot convert to Char",
+      "span": {
+        "file": "E0417_int_lit_range.gom",
+        "start": {
+          "line": 24,
+          "col": 20,
+          "offset": 1116
+        },
+        "end": {
+          "line": 24,
+          "col": 23,
+          "offset": 1119
+        }
+      },
+      "data": {
+        "literal": "1.5",
+        "type": "Char"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0417",
+      "severity": "error",
+      "message": "float literal 2147483648.0 overflows Int32",
+      "span": {
+        "file": "E0417_int_lit_range.gom",
+        "start": {
+          "line": 25,
+          "col": 20,
+          "offset": 1146
+        },
+        "end": {
+          "line": 25,
+          "col": 32,
+          "offset": 1158
+        }
+      },
+      "data": {
+        "literal": "2147483648.0",
+        "type": "Int32"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0417",
+      "severity": "error",
+      "message": "float literal 1e999 overflows Float",
+      "span": {
+        "file": "E0417_int_lit_range.gom",
+        "start": {
+          "line": 26,
+          "col": 11,
+          "offset": 1177
+        },
+        "end": {
+          "line": 26,
+          "col": 16,
+          "offset": 1182
+        }
+      },
+      "data": {
+        "literal": "1e999",
+        "type": "Float"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0417",
+      "severity": "error",
+      "message": "float literal -1e999 overflows Float",
+      "span": {
+        "file": "E0417_int_lit_range.gom",
+        "start": {
+          "line": 27,
+          "col": 13,
+          "offset": 1195
+        },
+        "end": {
+          "line": 27,
+          "col": 18,
+          "offset": 1200
+        }
+      },
+      "data": {
+        "literal": "-1e999",
+        "type": "Float"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0417",
+      "severity": "error",
+      "message": "integer literal 3000000000 overflows Int32",
+      "span": {
+        "file": "E0417_int_lit_range.gom",
+        "start": {
+          "line": 35,
+          "col": 5,
+          "offset": 1307
+        },
+        "end": {
+          "line": 35,
+          "col": 15,
+          "offset": 1317
+        }
+      },
+      "data": {
+        "literal": "3000000000",
+        "type": "Int32"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0417",
+      "severity": "error",
+      "message": "float literal -1e999 overflows Float",
+      "span": {
+        "file": "E0417_int_lit_range.gom",
+        "start": {
+          "line": 41,
+          "col": 5,
+          "offset": 1383
+        },
+        "end": {
+          "line": 41,
+          "col": 11,
+          "offset": 1389
+        }
+      },
+      "data": {
+        "literal": "-1e999",
+        "type": "Float"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected a floating-point type, got Int32",
+      "span": {
+        "file": "E0417_int_lit_range.gom",
+        "start": {
+          "line": 47,
+          "col": 5,
+          "offset": 1455
+        },
+        "end": {
+          "line": 47,
+          "col": 9,
+          "offset": 1459
+        }
+      },
+      "data": {
+        "actual": "Int32",
+        "expected": "a floating-point type"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0417",
+      "severity": "error",
+      "message": "float literal -1.5 is not an integer; cannot convert to Int32",
+      "span": {
+        "file": "E0417_int_lit_range.gom",
+        "start": {
+          "line": 47,
+          "col": 5,
+          "offset": 1455
+        },
+        "end": {
+          "line": 47,
+          "col": 9,
+          "offset": 1459
+        }
+      },
+      "data": {
+        "literal": "-1.5",
+        "type": "Int32"
+      }
+    }
+  ]
+}

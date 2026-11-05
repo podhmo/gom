@@ -1,11 +1,24 @@
 # checker は整数リテラルの範囲を検査しない — 受理したプログラムの生成 Go が build できない
 
-- 状態: 未解決
+- 状態: 解決（選択肢 1 を採用 — E0417）
 - 日付: 2026-11-05
 
 Found while verifying width-aware eval arithmetic
 ([decision](../decisions/2026-11-05-eval-int-width-aware-ops.md),
 [sketch](../sketch/2026-11-05-eval-int-width.md)).
+
+解決: [decision](../decisions/2026-11-05-int-literal-range-check.md)
+（Go の定数モデルに揃え、リテラル位置の静的型で範囲検査する）と
+検証ログ [sketch](../sketch/2026-11-05-int-literal-range-check.md)。
+check は `Int`/`Int64`/`Go.Int` を int64 幅、`Int32`/`Char` を
+int32 幅、`Float` を float64 表現可能性で判定し、範囲外は
+E0417。単項 `-` の直接の被演算子は符号込み、`Go.conv` の直接の
+被演算子は変換先の型で判定する — 変換先が整数型なら float
+リテラルにも Go の定数変換規則が効き、整数値でなければ
+（`Go.conv 1.5 : Int32` → `int32(1.5)`）、整数値でも範囲外なら
+（`Go.conv 1e100 : Int64`）違反になる。判定の単位は式全体ではなく
+リテラルなので `0 - 2147483648 : Int32` は `2147483648` の位置で
+違反になる（選択肢 1 の揺れは「リテラル位置で判定」に決着）。
 
 ## What happens
 
@@ -63,5 +76,7 @@ spec の一文と check/codegen 側の対応が要る。
 
 eval は上記 (2) に相当する実体化を行う（`litValue` が Int32 型の
 リテラルを `int64(int32(text))` に丸め、int64 を超えるマグニチュードは
-uint64 経由で wrap）。範囲検査が入った場合は到達不能の防御分岐に
-なる; wrap が規範になった場合はそのまま正規の意味になる。
+uint64 経由で wrap）。範囲検査が入ったので、この wrap は到達不能の
+防御分岐になった — チェック済みのプログラムに範囲外リテラルは
+存在せず、wrap が効くのは checker を通らない手組みの型付き AST
+（eval のテストや in-process の呼び出し元）だけである。

@@ -223,6 +223,7 @@ type Expr =
 - 公開関数のシグネチャは `.gomi` に必ず書く（7 章）
 - 算術演算子は組み込み数値型にのみオーバーロードし、型検査の最後で具体型に解決する。未解決なら注釈を求めるエラー
 - 数値演算は演算子ごとに機械型で 1 回ずつ評価する。`Float` のリテラルは書かれた値に最も近い `float64`（IEEE 754 binary64）を表し、各演算子は被演算子の `float64` に IEEE 演算を適用した結果を返す — `869.32 * 38.29` は `33286.262800000004` になる。整数演算は 64 ビット（`Int32` は 32 ビット）の 2 の補数 wrap-around で、オーバーフローはエラーではなく値が回る。定数畳み込みは言語の意味に含めないので、`let a = 869.32` のあとの `a * 38.29` とリテラルのままの `869.32 * 38.29` は同じ値を返し、`0.1 + 0.2 == 0.3` は `false` になる
+- 数値リテラルは自分の位置の静的型で表現できなければならない（E0417）— `Int`/`Int64` は int64 の、`Int32`/`Char` は int32 の、`Float` のリテラルは float64 で表現できる値に限る。判定の単位は式全体ではなくリテラルで、単項 `-` の直接の被演算子は符号込みで判定する（`-9223372036854775808` は `Int64` として合法）。`Go.conv` の直接の被演算子は変換先の型で判定する（`Go.conv 3000000000 : Int32` はエラー）— float リテラルの整数変換先への被演算子は Go の定数変換規則が効き、整数値でなければならない（`Go.conv 1.5 : Int32` はエラー、`Go.conv 2.0 : Int32` は合法で整数として範囲判定される）
 - `/` / `%` の右辺が定数のゼロのとき、その除算はコンパイルエラー（E0414）。ここで「定数」は数値リテラル・単項の `-`・それらからなる算術式・型の明示（ascription）で構成される式で、`let` 束縛の変数や関数呼び出しは含まない。判定は Go と同じ — 整数では被除数が定数でなくても `x / 0` はエラー（Go がその定数式を受理しない。実行時 panic しか起き得ないため）。`Float` では `x / 0.0` のように被除数が定数でなければ IEEE の除算として合法（`+Inf` / `-Inf` / `NaN`）だが、`10.0 / 0.0` のように式全体が定数ならエラーになる
 - `==` / `!=` / `assert_eq` は関数を含まない型にのみ使える構造的等価（同じ判定を共有し、違反は E0409）。型変数に対する `==` は v1 では使えない。判定は名前付き型の宣言を展開する — レコードのフィールド・ADT のペイロード・エイリアス・型引数で具現化したジェネリクスを辿るので、`type Box = {f: Int -> Int}` の `x == x` は関数名を書かなくてもエラーになる。等価の読みは次の通り（`internal/eval` の `eqValue` と生成コードは同じ答えを出す）:
   - スカラー・`Ref`・`Ptr`・チャネルは Go の `==` と同じ（`Float` は IEEE なので NaN は自分自身とも等しくない。`Ref`/`Ptr`/チャネルは同一性）
@@ -471,13 +472,13 @@ extern のエントリは `fn` の関数シグネチャだけを持ち、ブロ�
 
 コンパイラが用意する**標準バインディング**は extern と同じ規則で宣言ビューをあてがう既定の上書きである（[decisions/error-result-bindings](decisions/2026-11-05-error-result-bindings.md)）。`errors.New` と `fmt.Errorf` は `-> GoError`（エラーを値として直接組み立てられる）、`errors.Join` と `errors.Unwrap` は `-> Option GoError` と見える。明示的な `extern` は標準バインディングに優先し、生の Go シグネチャと照合される — `extern go "errors" { fn New (msg: String) -> Result Unit GoError }` は型由来の既定に戻せる。
 
-明示的な変換は組み込みの `Go.conv` で書く: `Go.conv user_id : Int`。変換できるかどうかは Go の変換規則で検査する。`Go.Slice T` と `List T` の間の `Go.conv` は、8.5 節の境界変換と同じくコピーする（[decisions/goconv-list-slice-copies](decisions/2026-11-04-goconv-list-slice-copies.md)）。
+明示的な変換は組み込みの `Go.conv` で書く: `Go.conv user_id : Int`。変換できるかどうかは Go の変換規則で検査する。`Go.Slice T` と `List T` の間の `Go.conv` は、8.5 節の境界変換と同じくコピーする（[decisions/goconv-list-slice-copies](decisions/2026-11-04-goconv-list-slice-copies.md)）。このペアは要素型が一致するときに限る — `Go.Slice Int64` → `List Int` や `Go.Slice Int32` → `List Char` のように Go の表現では変換できても Gom の要素型が違うものは E0507 で、そのままの名前付きキャストはバッキングを共有して `List` の不変性を破るため（[decisions/goconv-slice-list-element-mismatch](decisions/2026-11-05-goconv-slice-list-element-mismatch.md)）。
 
 ### 8.5 境界でのデータの扱い
 
 - `List T` と Go の `[]T` は、境界を越えるときに両方向ともコピーする。Gom から渡したスライスを Go が書き換えても、Go から受け取ったスライスを Go が後で書き換えても、Gom の `List` は変わらない
 - コピーを避けたいときは、Go が所有する可変の値として `Go.Slice T` を使う（`extern` で宣言する）。`List` を `Go.Slice` パラメータへ渡してもやはりコピーする — no-copy は `Go.Slice` から `Go.Slice` への引き渡しだけ。`Go.Slice` の値のまま読むための操作は `Go.Slice` の型メンバー群（8.3 節。`length`/`get`/`slice`/`fold`/`to_list` — すべて読み取り専用）が持つ
-- このコピーのため、`sort.Strings xs` のような in-place 変更を契約に持つ Go 呼び出しはコンパイルできても Gom の値に効かない。結果が `Unit` の Go 呼び出しがコピーされる引数を `[]T` パラメータへ渡すとき、リンターは W0501 を警告する（[decisions/go-mutation-warning](decisions/2026-11-05-go-mutation-warning.md)）。コピーされるのは `List` 引数（`..xs` スプレッドと `Go.Slice` 宣言パラメータへの `List` を含む）と、`List` 位置へ物質化される `Go.Slice` 引数（チャネル送信の `[]T` パラメータなど）。素の `Go.Slice` が `[]T` スロットへそのまま渡る経路 — `Go.Slice` 宣言パラメータへの `Go.Slice` 引数、`..gs` スプレッド、`...[]T` の要素位置 — はバッキングを共有するので警告しない。読み取り専用の消費者は値を返すので（`strings.Join` など）警告されない。`signal.Notify` のように副作用を持つが slice を書き換えない Unit 関数も警告対象になり得る — 警告の文言は条件形で、事実としてコピーが起きることだけを述べる
+- このコピーのため、`sort.Strings xs` のような in-place 変更を契約に持つ Go 呼び出しはコンパイルできても Gom の値に効かない。結果が `Unit` の Go 呼び出しがコピーされる引数を `[]T` パラメータへ渡すとき、リンターは W0501 を警告する（[decisions/go-mutation-warning](decisions/2026-11-05-go-mutation-warning.md)）。コピーされるのは `List` 引数（`..xs` スプレッドと `Go.Slice` 宣言パラメータへの `List` を含む）、`List` 位置へ物質化される `Go.Slice` 引数（チャネル送信の `[]T` パラメータなど）、それに引数位置で `List` をコピーする `Go.conv xs : Go.Slice T` のインライン変換。素の `Go.Slice` が `[]T` スロットへそのまま渡る経路 — `Go.Slice` 宣言パラメータへの `Go.Slice` 引数、`..gs` スプレッド、`...[]T` の要素位置 — はバッキングを共有するので警告しない。読み取り専用の消費者は値を返すので（`strings.Join` など）警告されない。`signal.Notify` のように副作用を持つが slice を書き換えない Unit 関数も警告対象になり得る — 警告の文言は条件形で、事実としてコピーが起きることだけを述べる
 - Gom が表現できない型（`unsafe.Pointer`、制約付きの型パラメータを持つジェネリック関数など）を含むシンボルは公開しない。`import go` 自体は失敗せず、そのシンボルを参照したときに理由付きの診断を出す
 - Go のジェネリック関数は、制約が `any` か `comparable` のものだけを呼べる（v1）
 

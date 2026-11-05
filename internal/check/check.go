@@ -229,8 +229,36 @@ type checker struct {
 	// meta solves (spec 8.4: the pair obeys Go's conversion rules).
 	pendingConvs []*pendingConv
 
+	// pendingLits are the integer and float literals (expressions and
+	// patterns) whose range judgment waits for their metas to solve or
+	// default — the same post-default moment as revisitDivs and
+	// revisitConvs. A literal's emitted Go spelling must convert at
+	// its static type (spec 3.3): `let n : Int32 = 3000000000` would
+	// render `var n int32 = 3000000000`, which cannot build (E0417;
+	// decisions/2026-11-05-int-literal-range-check).
+	pendingLits []*pendingLit
+	// pendingLitOf indexes pendingLits by node so the enclosing forms
+	// that change the judgment — a direct unary `-` or a direct
+	// `Go.conv` target — can annotate the literal they wrap.
+	pendingLitOf map[*Lit]*pendingLit
+
 	imports []Import
 	decls   []Decl
+}
+
+// pendingLit is one integer or float literal awaiting its range
+// judgment. The judgment's type is the literal's own solved type —
+// overridden by conv when the literal is the direct operand of a
+// `Go.conv` (the emitted `T(lit)` is a constant conversion to T) —
+// and the judged value carries the sign when neg is set: a direct
+// unary `-` folds into the emitted constant exactly once, so
+// `-9223372036854775808` is in range at Int64 while the bare
+// literal is not. pat literals spell their sign in the text.
+type pendingLit struct {
+	lit  *Lit
+	pat  *LitPat
+	neg  bool
+	conv types.Type
 }
 
 // pendingConv is a `Go.conv e : T` the first pass could not judge —

@@ -1,0 +1,37 @@
+package main
+
+import go "time"
+
+// In-range spellings stay accepted (spec 3.3): the signed minima —
+// a literal that is the direct operand of a unary `-` folds into the
+// emitted constant, so `-9223372036854775808` is a legal Int64 even
+// though its bare digits are out of range — the maxima, an
+// int-spelled literal at Float (`float64(lit)` rounds rather than
+// overflowing), a negative literal pattern, and `Go.conv` operands
+// at both range-bearing and named targets. An integer-valued float
+// literal is a legal operand at an integer target — Go accepts
+// `int32(2.0)` as a constant conversion — and the converted value is
+// range-checked like an int.
+fn main () -> Unit = {
+  let b : Int32 = -2147483648
+  let m : Int64 = -9223372036854775808
+  let w : Int32 = - -2147483648
+  let mx : Int32 = 2147483647
+  let mn : Int64 = 9223372036854775807
+  let f : Float = 99999999999999999999
+  let h : Float = 1e308
+  let d = Go.conv 5 : time.Duration
+  let c = Go.conv 2147483647 : Int32
+  let i = Go.conv 97 : Char
+  let j = Go.conv 2.0 : Int32
+  let v = Go.conv 2147483647.0 : Int32
+  ignore (b, m, w, mx, mn, f, h)
+  ignore (d, c, i, j, v)
+  ()
+}
+
+fn pat (n: Int64) -> Int =
+  match n {
+    -9223372036854775808 -> 1
+    _ -> 0
+  }

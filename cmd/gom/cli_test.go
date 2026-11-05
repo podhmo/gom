@@ -1136,3 +1136,71 @@ func TestCheckEmittedNameCollision(t *testing.T) {
 		t.Errorf("diagnostic codes = %v, want [E0607]", codes)
 	}
 }
+
+// TestCheckInterfaceEquivalentPaths pins the .gom grouping's
+// existing normalization: filepath.Dir already Cleans, so
+// `pkg/../pkg/a.gom` and `pkg/b.gom` have always named files of one
+// package — one group checks the whole implementation against
+// p.gomi and the member `h` that no file implements surfaces as
+// E0603. This test guards the behavior, not a fix: the grouping
+// was never split; the unclean-path bug lived in the .gomi input
+// key (see TestCheckUncleanGomiInput).
+func TestCheckInterfaceEquivalentPaths(t *testing.T) {
+	dir := writeFiles(t, map[string]string{
+		"pkg/a.gom":  "package p\n\nfn f (x: Int) -> Int = x\n",
+		"pkg/b.gom":  "package p\n\nfn g (x: Int) -> Int = x\n",
+		"pkg/p.gomi": "package p\n\nfn f (x: Int) -> Int\nfn g (x: Int) -> Int\nfn h (x: Int) -> Int\n",
+	})
+	// filepath.Join would clean the ".." away — spell the path
+	// with an explicit separator instead.
+	unclean := filepath.Join(dir, "pkg") + string(filepath.Separator) +
+		".." + string(filepath.Separator) + filepath.Join("pkg", "a.gom")
+	code, out, _ := invoke("check", unclean, filepath.Join(dir, "pkg", "b.gom"))
+	if code != 1 {
+		t.Fatalf("exit %d, want 1; stdout=%q", code, out)
+	}
+	var codes []string
+	for _, l := range jsonLines(t, out) {
+		if c, ok := l["code"].(string); ok {
+			codes = append(codes, c)
+		}
+	}
+	if len(codes) != 1 || codes[0] != "E0603" {
+		t.Errorf("diagnostic codes = %v, want [E0603] for the missing member `h`", codes)
+	}
+}
+
+// TestCheckUncleanGomiInput is the actual unclean-path regression:
+// a `.gomi` INPUT spelled `pkg/../pkg/ex.gomi` must still be found
+// under the cleaned `want` key — otherwise checkInterfaces misses
+// gomiInputs[want], re-reads the file with os.ReadFile, compiles it
+// a second time, and appends the same .gomi's diagnostics twice
+// (observed: one copy under the input spelling, one under the
+// cleaned spelling). The fix stores gomiInputs under
+// filepath.Clean keys.
+func TestCheckUncleanGomiInput(t *testing.T) {
+	dir := writeFiles(t, map[string]string{
+		"pkg/a.gom":   "package ex\n\nfn f (x: Int) -> Int = x\n",
+		"pkg/ex.gomi": "package ex\n\nfn f (x: Int) -> Int\nfn g (x: Nope) -> Int\n",
+	})
+	// filepath.Join would clean the ".." away — spell the path
+	// with an explicit separator instead.
+	unclean := filepath.Join(dir, "pkg") + string(filepath.Separator) +
+		".." + string(filepath.Separator) + filepath.Join("pkg", "ex.gomi")
+	code, out, _ := invoke("check", unclean, filepath.Join(dir, "pkg", "a.gom"))
+	if code != 1 {
+		t.Fatalf("exit %d, want 1; stdout=%q", code, out)
+	}
+	var codes []string
+	for _, l := range jsonLines(t, out) {
+		if c, ok := l["code"].(string); ok {
+			codes = append(codes, c)
+		}
+	}
+	// Exactly one diagnostic: the .gomi's own undefined `Nope`,
+	// once. A second copy (or an E0601 for the "missing" interface)
+	// means the input was not consumed as the package's .gomi.
+	if len(codes) != 1 || codes[0] != "E0201" {
+		t.Errorf("diagnostic codes = %v, want [E0201] exactly once", codes)
+	}
+}

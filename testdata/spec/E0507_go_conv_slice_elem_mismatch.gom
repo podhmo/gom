@@ -1,0 +1,20 @@
+package ex
+
+// A `Go.conv` between `Go.Slice T` and `List U` requires equal
+// element types — the same equality the implicit boundary copy
+// needs (spec 8.5). The convertibility oracle judges the Go
+// *renderings*: `Go.Slice Int64` → `List Int` maps both sides to
+// `[]int64`, and `Go.Slice Int32` → `List Char` maps to `[]int32`,
+// so the oracle would accept. The lowering's copy cases gate on
+// equal elements, so an accepted mismatch falls through to a raw
+// named cast that shares backing — aliasing mutable Go storage into
+// a value Gom treats as immutable. E0507, both directions and at
+// any nesting depth of the elements' own spelling.
+fn freeze (xs: Go.Slice Int64) -> List Int = Go.conv xs : List Int
+
+fn thaw (xs: List Int64) -> Go.Slice Int = Go.conv xs : Go.Slice Int
+
+fn chars (xs: List Char) -> Go.Slice Int32 = Go.conv xs : Go.Slice Int32
+
+fn thru (xs: Go.Slice (Go.Slice Int64)) -> List (List Int) =
+  Go.conv xs : List (List Int)
