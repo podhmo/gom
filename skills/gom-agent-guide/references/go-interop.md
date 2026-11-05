@@ -259,3 +259,8 @@ extern result rewrites.
 - Generated `.go` is a normal package: Go code calls Gom functions
   directly; ADTs surface as sealed interfaces (type-switch them);
   `Result` is a tagged struct via `Ok`/`Err`/`Tag()`/`Unwrap()`.
+- At that generated API surface (Go calling Gom) the boundary places
+  no copies: `list.List[A]` args and results share backing with the
+  caller, and an exported `let` appears as a writable Go package `var`.
+  The contract (spec §8.7) forbids Go from writing elements or
+  rebinding — violations are undiagnosed, like OCaml's FFI posture.

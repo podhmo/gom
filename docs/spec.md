@@ -422,7 +422,7 @@ strconv.ParseInt(_, 10, 64)
 | `*T` | `Ptr T`（nil の参照は Go と同じく panic。操作は `Ptr` モジュール） |
 | `int` / `int64` / `int32` / `float64` | `Int` / `Int` / `Int32` / `Float` |
 | named type（`type UserID int64` など） | 別の名前的な型 `pkg.UserID`。基底型との変換は `Go.conv` で明示 |
-| `[]T` | `List T`。境界では両方向ともコピーする（8.5 節） |
+| `[]T` | `List T`。Gom 側の境界変換位置では両方向ともコピーする（8.5 節） |
 | `map[K]V` | 不透明型 `Go.Map K V`（操作は `Go.Map` の型メンバー群） |
 | `chan T` / `<-chan T` / `chan<- T` | `Chan T` / `RecvChan T` / `SendChan T` |
 | interface（`io.Reader`、`fmt.Stringer` など） | 名前的な型 `io.Reader` など。Go 由来の値を代入規則に従って渡せる |
@@ -478,7 +478,7 @@ extern のエントリは `fn` の関数シグネチャだけを持ち、ブロ�
 
 ### 8.5 境界でのデータの扱い
 
-- `List T` と Go の `[]T` は、Gom のコードの中で `[]T` と `List` の view が切り替わる位置（Go 呼び出しの引数と結果、Go の exported field・パッケージ変数の読み取り、`Go.conv`、`Chan.send` などの組み込みの要素位置）で両方向ともコピーする。Gom から渡したスライスを Go が書き換えても、Go から受け取ったスライスを Go が後で書き換えても、Gom の `List` は変わらない。コピーするのはスライスの 1 段目だけ — 要素の可変性は要素型の契約に従い、`[][]T` の読み取りは内側のスライスが Go のバッキングを共有する `List (Go.Slice T)` を返す（`Ref`・`Go.Map` などの要素も同様）。この規則は Gom が Go を呼ぶ側のもので、生成した API を Go から直接呼ぶ面では値はコピーされずに受け渡される — その側の契約は 8.7 節
+- `List T` と Go の `[]T` は、Gom のコードの中で `[]T` と `List` の view が切り替わる位置で両方向ともコピーする。切り替わるのは、Go 呼び出しの引数と結果、Go の exported field・パッケージ変数の読み取り、`List` と `Go.Slice` が適合する型の位置（型注釈・戻り値・宣言されたパラメータ・record のフィールドなど）、`Go.conv`、`Chan.send` などの組み込みの要素位置。Gom から渡したスライスを Go が書き換えても、Go から受け取ったスライスを Go が後で書き換えても、Gom の `List` は変わらない。コピーするのはスライスの 1 段目だけ — 要素の可変性は要素型の契約に従い、`[][]T` の読み取りは内側のスライスが Go のバッキングを共有する `List (Go.Slice T)` を返す（`Ref`・`Go.Map` などの要素も同様）。この規則は Gom が Go を呼ぶ側のもので、生成した API を Go から直接呼ぶ面では値はコピーされずに受け渡される — その側の契約は 8.7 節
 - コピーを避けたいときは、Go が所有する可変の値として `Go.Slice T` を使う（`extern` で宣言する）。`List` を `Go.Slice` パラメータへ渡してもやはりコピーする — no-copy は `Go.Slice` から `Go.Slice` への引き渡しだけ。`Go.Slice` の値のまま読むための操作は `Go.Slice` の型メンバー群（8.3 節。`length`/`get`/`slice`/`fold`/`to_list` — すべて読み取り専用）が持つ
 - このコピーのため、`sort.Strings xs` のような in-place 変更を契約に持つ Go 呼び出しはコンパイルできても Gom の値に効かない。結果が `Unit` の Go 呼び出しがコピーされる引数を `[]T` パラメータへ渡すとき、リンターは W0501 を警告する（[decisions/go-mutation-warning](decisions/2026-11-05-go-mutation-warning.md)）。コピーされるのは `List` 引数（`..xs` スプレッドと `Go.Slice` 宣言パラメータへの `List` を含む）、`List` 位置へ物質化される `Go.Slice` 引数（チャネル送信の `[]T` パラメータなど）、それに引数位置で `List` をコピーする `Go.conv xs : Go.Slice T` のインライン変換。素の `Go.Slice` が `[]T` スロットへそのまま渡る経路 — `Go.Slice` 宣言パラメータへの `Go.Slice` 引数、`..gs` スプレッド、`...[]T` の要素位置 — はバッキングを共有するので警告しない。読み取り専用の消費者は値を返すので（`strings.Join` など）警告されない。`signal.Notify` のように副作用を持つが slice を書き換えない Unit 関数も警告対象になり得る — 警告の文言は条件形で、事実としてコピーが起きることだけを述べる
 - Gom が表現できない型（`unsafe.Pointer`、制約付きの型パラメータを持つジェネリック関数など）を含むシンボルは公開しない。`import go` 自体は失敗せず、そのシンボルを参照したときに理由付きの診断を出す

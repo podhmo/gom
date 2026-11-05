@@ -853,7 +853,7 @@
   （`*T`/`error`）に限り許容（`ConvOptNil` で物質化）。spec 8.3/8.4 を更新。
   [検証](sketch/2026-11-05-error-pair-ok-payload-verification.md)。
 
-- [ ] **spec 8.5 の「両方向ともコピーする」は Gom 自身の呼び出し側にしか
+- [x] **spec 8.5 の「両方向ともコピーする」は Gom 自身の呼び出し側にしか
   適用されず、生成 API 面（8.7）では `list.List[A]` が verbatim に渡る**:
   boundary-aliasing 検証で実測 — `fn echo (xs: List Int) -> List Int` の
   生成形は `func(xs list.List[int64]) list.List[int64] { return xs }` で
@@ -868,8 +868,15 @@
   併記: 同じ面で `List (Go.Slice Int)`（`[][]int64` field の読み取り結果）
   は「不変の綴りの List が可変 Go 要素を保持する」形になり、`List` は
   不変という記述は要素単位の留保が要る。
+  対応: 文言契約で閉じた — 8.5 のコピー規則は Gom のコード内で `[]T`↔`List`
+  の view が切り替わる位置に限定すると明記し、生成 API 面はコピーせず
+  8.7 の Go 側契約（要素書き換え・`let` 再束縛は契約違反、診断なし）と
+  した。`List (Go.Slice Int)` の要素留保は 8.5（コピーは 1 段目）と
+  3.1 の `List a` 行に記載。
+  [decision](decisions/2026-11-05-boundary-mutation-contract.md)、
+  [検証](sketch/2026-11-05-boundary-mutation-contract-verification.md)。
 
-- [ ] **`.gomi` で export した `let` は Go 側から再束縛できる書き換え可能な
+- [x] **`.gomi` で export した `let` は Go 側から再束縛できる書き換え可能な
   package var になる**: spec 7 はトップレベルの `let` を「定数」として
   説明するが、生成コードは `var Shared list.List[int64]` であり、Go の
   テストから `boundary.Shared[1] = 42`（要素書き換え）と
@@ -880,6 +887,12 @@
   参照: [spec 7](spec.md)、[spec 8.7](spec.md)、
   [検証](sketch/2026-11-04-boundary-aliasing-hypotheses.md)、
   [codegen/decl.go](../internal/codegen/decl.go) `varDecl`。
+  対応: 文言契約で閉じた — `var` 形状を採用として明記（Go には読み取り
+  専用の exported 変数がない）。8.7 の契約が要素書き換え・再束縛を禁じる。
+  accessor/façade（`var shared` + `func Shared() T`）は再束縛は防げるが
+  要素書き換えは防げず `Ref`/`Go.Map` 系 `let` には効かないため、生成
+  API の硬化策として decision に記録し deferred。
+  [decision](decisions/2026-11-05-boundary-mutation-contract.md)。
 
 - [ ] **`(NamedIface, error)` / `(any, error)` の第 1 結果は nil-able だが
   `Result (Option T) GoError` を導出・宣言ともにできない**:
