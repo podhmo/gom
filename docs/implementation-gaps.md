@@ -545,10 +545,15 @@
   参照: [expr.go](../internal/check/expr.go) `conformExpr`/`chanDirConv`、
   [fixture](../testdata/spec/E0401_close_of_recvonly.expected.json)。
 
-- [ ] **E0401 の mismatch メッセージが未解決メタを `?n` で綴る**: quiet 化された
+- [x] **E0401 の mismatch メッセージが未解決メタを `?n` で綴る**: quiet 化された
   メタを含む型が「expected SendChan ?3, got RecvChan ?4」のように内部名の
   まま表示される（P5-2 `close`/`recvOnly` 例で観測）。診断品質の残差。
   参照: [fixture](../testdata/spec/E0401_close_of_recvonly.expected.json)。
+  対応: `types.Display` + `metaNamer` で診断ごとに未解決メタを `?1, ?2, ...`
+  へ再採番（occurs bind・mismatch・missing-member の E0401 系に適用。
+  [type.go](../internal/types/type.go) `Display`、[unify.go](../internal/check/unify.go)
+  `metaNamer`）。残件: E0407/E0409/E0801 の message/`data["type"]` は
+  依然 `String()` 由来の raw mint ID を出しうる（下記「`?n` 以外の残存 raw meta」）。
 
 - [ ] **W0701/W0702 lint の捕捉範囲外**: `let mk = Chan.make` のエイリアス経由は
   callee シンボル一致を外れ W0701 を逃げる。`Task.spawn` の thunk 捕捉・
@@ -557,12 +562,14 @@
   参照: [decision](decisions/2026-11-04-mutable-sharing-lint.md)、
   [lint.go](../internal/check/lint.go)。
 
-- [ ] **ネスト `go` で同一位置に W0702 が 2 件重複出力される**: 外側・内側の
+- [x] **ネスト `go` で同一位置に W0702 が 2 件重複出力される**: 外側・内側の
   `go` 境界がそれぞれ同一の捕捉を報告し、同一スパン・同一メッセージの
   警告が 2 件になる。各 boundary が別の共有イベントという解釈で採用済みだが、
   ユーザーからは判別不能 — boundary を特定する `data` を持たせる余地がある
   （P5-2 レビュー nit）。
   参照: [fixture](../testdata/spec/W0702_go_capture_mutable.expected.json)。
+  対応: `goWarned` の `reported` set でスパン単位に dedupe（[lint.go](../internal/check/lint.go)）。
+  異なる使用箇所は引き続き個別に警告される。
 
 - [ ] **`rune` → `Char` 表記と実装（`Int32`）のずれ**: spec の型対応は
   `rune`/`Char` を書くが、goimport の basicType は `types.Int32` → `Int32`
@@ -640,19 +647,26 @@
   参照: [spec 3.3](spec.md#33-型推論の範囲)、[eval](../internal/eval/eval.go)、
   [decision](decisions/2026-11-05-numeric-arithmetic-per-operation.md)。
 
-- [ ] **`EscapeCall`/`EscapeResult` のスパン規約が unguarded/guarded で揃っていない**:
+- [x] **`EscapeCall`/`EscapeResult` のスパン規約が unguarded/guarded で揃っていない**:
   P2-4c で unguarded 融合側は `lv.Y.Span()`（ステップ operand）に統一したが、
   guarded 側 `escapeStepPayload` は `e.Sp` を使う。`//line` の指す位置にのみ
   影響、動作は無害（P2-4c+P5-3 レビュー nit）。
   参照: [expr.go](../internal/lower/expr.go) `pipeRest`/`escapeStepPayload`。
+  対応: `escapeStepPayload` 全 5 箇所を `e.Y.Span()`（ステップ operand）に統一
+  （`try` 自体の `e.Sp` は別規約として維持）。`testdata/golden/result_pipe.gom`
+  の `parseWrapped` が行 13/14 の `//line` を pin。
 
-- [ ] **`@tailrec` R4 の直接参照グラフは file-local で兄弟経由の相互再帰を見逃す**:
+- [x] **`@tailrec` R4 の直接参照グラフは file-local で兄弟経由の相互再帰を見逃す**:
   `checkInitCycles`（E0907）と同型の file-local 制限 — 相互再帰が *兄弟*
   ファイルの関数・let 経由で閉じると E0904 をすり抜ける。修正方向は同じ:
   R4 のグラフをユニット `Decls` 上に構築する（wt/initorder-small の
   package-wide 化と同形）。
   参照: [decision Consequences](decisions/2026-11-05-package-initialization-order.md)、
   [initcycle.go](../internal/lower/initcycle.go) `checkTailRec`/`tailrecNeighbors`。
+  対応: `CheckTailRecMutual` がユニット全ファイルの `Decls` 上にグラフを構築
+  （[tailrec.go](../internal/lower/tailrec.go)）。`Compile`/`CompileFiles`/`lower1`
+  全経路で配線済み。`a.f → b.g → a.f` と兄弟 `let` 経由を driver test が pin
+  （[files_test.go](../internal/build/files_test.go)）。
 
 - [x] **`Go.conv` の `Go.Slice T ↔ List T` がコピーしない**: spec 8.4 は（[decision](decisions/2026-11-04-goconv-list-slice-copies.md) で）コピーすると定めたが、実装は `list.List[T](xs)` へのキャスト（pun）のまま。上の Go slice 項目の追記を参照。実装は [TODO](../TODO.md)。
   対応: `convKind` が `goConvKindOf` を先に照会し、同要素のスライス対は
@@ -690,3 +704,23 @@
   `skills/` のスニペット検査（`goimport.Loader` を直接 `Sigs` に渡す）では `fn New(text: String) -> GoError` が E0509 になるが、
   `gom check`/`gom build` は `gomimport.Loader` を `Sigs` に渡し、これが `check.ExternSource`（`BindExtern`）を実装していないため素通りし、生成・実行まで通る。
   参照: [spec 8.4](spec.md#84-extern上書き専用)、[実装](../cmd/gom/cli.go)、[extern-override-binding](decisions/2026-11-03-extern-override-binding.md)。
+
+- [ ] **E0407/E0409/E0801 の message/`data["type"]` が raw meta ID を出しうる**:
+  `types.Display`/`metaNamer` による `?n` 再採番は E0401 系（occurs bind・
+  mismatch・missing-member）にのみ適用。`unify.go` の E0409/E0407 報告と
+  `check.go` の E0801 は依然 `String()` 由来の内部 mint ID を綴りうる。
+  同じ `metaNamer()` を診断ごとに新規に作って適用するだけで揃う
+  （wave7 lower-residuals レビュー residual-2）。
+  参照: [unify.go](../internal/check/unify.go)（E0407/E0409 報告箇所）、
+  [check.go](../internal/check/check.go)（E0801 報告箇所）。
+
+- [ ] **E0904 の `through`/`path` が隠し `tmpN_xxxx` VarDecl 名を出しうる**:
+  `tailrecCycle`/`tailrecPath` は生の `sym.Name` を使うため、`let (g, _) = ...`
+  の分解で mint される隠し VarDecl が `data["path"]`・最小名選択の `through`
+  に漏れる（`E0904_tailrec_var_destructure.expected.json` で実測）。隣の
+  E0907 は `nodeName`/`DiagName` でこれを防いでいる — R4 側も同じ機構を
+  再利用すればよい（wave7 lower-residuals レビュー residual-1。pre-existing
+  だが今回書き換えた領域なので記録）。
+  参照: [tailrec.go](../internal/lower/tailrec.go) `tailrecCycle`/`tailrecPath`、
+  [initcycle.go](../internal/lower/initcycle.go) `nodeName`、
+  [fixture](../testdata/spec/E0904_tailrec_var_destructure.expected.json)。
