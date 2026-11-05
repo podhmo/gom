@@ -24,6 +24,8 @@ func TestAggregateAliasRuns(t *testing.T) {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 0.33)
 	}
 
+	t.Parallel()
+
 	src := `package main
 import go "fmt"
 
@@ -73,6 +75,8 @@ func TestAggregateAliasEagerInit(t *testing.T) {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 0.35)
 	}
 
+	t.Parallel()
+
 	src := `package main
 import go "fmt"
 
@@ -117,6 +121,8 @@ func TestAggregateAliasVarBlockRuns(t *testing.T) {
 	if testing.Short() {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 0.37)
 	}
+
+	t.Parallel()
 
 	src := `package main
 import go "fmt"

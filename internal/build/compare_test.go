@@ -1452,6 +1452,8 @@ func TestGeneratedTestFileRuns(t *testing.T) {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.85)
 	}
 
+	t.Parallel()
+
 	src := `package m
 
 fn main () -> Unit = ()
@@ -1532,6 +1534,8 @@ func TestTwoFilePackageCompiles(t *testing.T) {
 	if testing.Short() {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.72)
 	}
+
+	t.Parallel()
 
 	gobin, err := exec.LookPath("go")
 	if err != nil {
@@ -1621,6 +1625,8 @@ func TestSpecPreambleRuns(t *testing.T) {
 	if testing.Short() {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.80)
 	}
+
+	t.Parallel()
 
 	src := `package main
 
@@ -1738,6 +1744,8 @@ func TestWrongVariantFieldPanic(t *testing.T) {
 	if testing.Short() {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.50)
 	}
+
+	t.Parallel()
 
 	for _, tc := range []struct {
 		name string

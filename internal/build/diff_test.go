@@ -142,6 +142,8 @@ func TestEvalCompiledDiff(t *testing.T) {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 11.70)
 	}
 
+	t.Parallel()
+
 	g, err := gomgen.LoadGrammar("../../docs/grammar.ebnf")
 	if err != nil {
 		t.Fatalf("gomgen.LoadGrammar: %v", err)
@@ -325,6 +327,8 @@ func TestEvalCompiledDiff(t *testing.T) {
 // same class the compiled side reports when the lowered tail loop
 // spins into its timeout — never a dead process.
 func TestDiffEvalRecursion(t *testing.T) {
+	t.Parallel()
+
 	opts, _ := compileOracles(t)
 	if opts == nil {
 		t.Skip("no go toolchain on PATH — cannot typecheck the probe")
@@ -351,6 +355,8 @@ func TestDiffTailRec(t *testing.T) {
 	if testing.Short() {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 0.44)
 	}
+
+	t.Parallel()
 
 	opts, _ := compileOracles(t)
 	if opts == nil {
@@ -412,6 +418,8 @@ func TestDiffGoCallSpread(t *testing.T) {
 	if testing.Short() {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 0.50)
 	}
+
+	t.Parallel()
 
 	opts, _ := compileOracles(t)
 	if opts == nil {

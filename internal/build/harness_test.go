@@ -119,6 +119,8 @@ func TestSpec(t *testing.T) {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 3.56)
 	}
 
+	t.Parallel()
+
 	gomtest.RunSpecTests(t, "", specCompile(goimport.New(&goimport.Config{Dir: "../.."})))
 }
 
@@ -126,6 +128,8 @@ func TestGolden(t *testing.T) {
 	if testing.Short() {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.01)
 	}
+
+	t.Parallel()
 
 	gomtest.RunGoldenTests(t, "", goldenGenerate(goimport.New(&goimport.Config{Dir: "../.."})))
 }

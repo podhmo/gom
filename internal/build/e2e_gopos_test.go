@@ -58,6 +58,8 @@ func TestPanicStackResolvesToGom(t *testing.T) {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 0.34)
 	}
 
+	t.Parallel()
+
 	gobin := haveGoBin(t)
 
 	dir := t.TempDir()

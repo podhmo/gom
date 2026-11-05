@@ -14,6 +14,8 @@ func TestVoidGoCalls(t *testing.T) {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 0.44)
 	}
 
+	t.Parallel()
+
 	src := `package main
 import go "github.com/podhmo/gom/testdata/voidhost"
 import go "io"

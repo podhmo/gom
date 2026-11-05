@@ -25,6 +25,8 @@ func TestGoldenSourceMap(t *testing.T) {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.02)
 	}
 
+	t.Parallel()
+
 	root, err := filepath.Abs(filepath.Join("..", ".."))
 	if err != nil {
 		t.Fatal(err)

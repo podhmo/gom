@@ -16,6 +16,8 @@ func TestPipeGoErrorChain(t *testing.T) {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 0.44)
 	}
 
+	t.Parallel()
+
 	src := `package main
 import go "strconv"
 import go "errors"
@@ -127,6 +129,8 @@ func TestPipeUnguardedGoStepFuses(t *testing.T) {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 0.39)
 	}
 
+	t.Parallel()
+
 	src := `package main
 import go "strconv"
 import go "os"
@@ -220,6 +224,8 @@ func TestPipeGoInflowConversions(t *testing.T) {
 	if testing.Short() {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 0.44)
 	}
+
+	t.Parallel()
 
 	src := `package main
 import go "fmt"

@@ -49,6 +49,8 @@ func TestEagerFnChunkTiming(t *testing.T) {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 0.37)
 	}
 
+	t.Parallel()
+
 	r, err := build.Compile(build.Input{Path: "eager.gom", Src: []byte(eagerTimingSrc)}, suiteOptions())
 	if err != nil {
 		t.Fatal(err)
@@ -109,6 +111,8 @@ func TestStaticAliasEagerInitialization(t *testing.T) {
 	if testing.Short() {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 0.35)
 	}
+
+	t.Parallel()
 
 	src := `package main
 import go "fmt"

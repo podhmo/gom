@@ -322,3 +322,25 @@ runner の runner バイナリビルドも同じ `testbin.Build` に集約した
 `go build -o` 独自経路を廃止し、モード共有で `-trimpath` 恩恵を受ける）。
 `TestNativeBinaryCache*` はモードを明示するため既定変更の影響なし。
 パッケージ単独は ~26s → warm ~18.7s、`-race`・全パッケージ成功。
+
+## 2026-11-06: 中規模テストの並列化（internal/build 残り分）
+
+bundled runner と loader 共有・バイナリ再利用の既定化で縮小した残りを分解した
+（warm でパッケージ ~16.7s）:
+
+- `TestEvalCompiledDiff` ~5.3s — 直列前段（gomgen 生成 + sandbox compile +
+  compile + eval、~30ms×80 seed ≈ 2.5s）+ native パイプライン（44件、4 worker）。
+  worker を 4→8 にしても 5.16s で不変と確認（下限は直列前段）。
+- `TestNativeBinaryCacheInvalidation` ~2.4s — キャッシュ分離検証そのもので
+  複数 build は本質的コスト。`t.Setenv` 使用のため並列化不可でもある。据え置き。
+- 中規模 ~20件 計 ~7.4s — 全て直列実行されていた。`t.Setenv` 不使用、
+  パッケージレベル map は読み取り専用レジストリで、`suiteOptions()` が
+  テストごとに独立 loader を作るため共有状態なし。`t.Parallel()` を付与
+  （`FuzzCompile` は `testing.F` に Parallel がなく対象外）。
+- `TestEvalCompiledDiff` 自体にも `t.Parallel()`（内部の共有は全てローカル変数）。
+
+結果: パッケージ単独 16.7s → 13.0s（`-race` クリーン、全パッケージ成功）。
+起点からは 38.5s → 13.0s。残る下限は EvalCompiledDiff の直列 seed 前段と
+NativeBinaryCacheInvalidation の検証コスト、FuzzCompile の corpus 実行で、
+これ以上は seed 前段の並列化（per-goroutine loader が必要で複雑）など
+構造変更が要る領域。
