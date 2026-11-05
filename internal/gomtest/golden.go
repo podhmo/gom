@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -14,14 +16,17 @@ import (
 // testdata/golden).
 //
 // The expected output lives in <name>.golden.go next to the input
-// <name>.gom. Comparison is a literal string match after normalizing
-// CRLF to LF and ignoring any difference in trailing newlines —
-// generated code comes from go/printer, so whitespace is already
-// canonical and no fuzzier normalization is needed.
+// <name>.gom — one golden per generated file: a directory case
+// <name>/ pins each member output the same way, <name>/<base>.golden.go
+// for <base>.go and <name>/<base>_test.golden.go for its test half.
+// Comparison is a literal string match after normalizing CRLF to LF
+// and ignoring any difference in trailing newlines — generated code
+// comes from go/printer, so whitespace is already canonical and no
+// fuzzier normalization is needed.
 //
-// With -update the golden file is rewritten from the actual output
-// (and created if missing); the written file always ends with a
-// newline so it stays gofmt-clean.
+// With -update the golden files are rewritten from the actual output
+// (and created if missing); the written files always end with a
+// newline so they stay gofmt-clean.
 func RunGoldenTests(t *testing.T, dir string, generate GenerateFunc) {
 	t.Helper()
 	if generate == nil {
@@ -30,32 +35,120 @@ func RunGoldenTests(t *testing.T, dir string, generate GenerateFunc) {
 	suiteDir := resolveSuiteDir(t, dir, "golden")
 	runCases(t, suiteDir, "golden", func(t *testing.T, c testCase) {
 		t.Helper()
-		if c.isDir {
-			t.Fatalf("gomtest: directory cases are not supported in the golden suite (%s)", c.name)
+		hasGom := false
+		for _, f := range c.files {
+			if strings.HasSuffix(f.Path, gomExt) {
+				hasGom = true
+				break
+			}
 		}
-		got, err := generate(c.files[0])
+		if !hasGom {
+			t.Fatalf("gomtest: case %s has no .gom member to generate code from "+
+				"(.gomi members produce no output)", c.name)
+		}
+		got, err := generate(c.files, CaseOptions{Tests: c.tests})
 		if err != nil {
 			t.Fatalf("generate failed: %v", err)
 		}
-		goldenPath := c.sidePath(goldenExt)
-
-		if *update {
-			writeGolden(t, goldenPath, got)
-			return
+		if len(got) == 0 {
+			t.Fatalf("gomtest: generate returned no files for case %s", c.name)
 		}
-
-		want, err := os.ReadFile(goldenPath)
-		if errors.Is(err, fs.ErrNotExist) {
-			t.Fatalf("gomtest: missing golden file %s (run `go test -update`)", goldenPath)
+		if !c.isDir && len(got) != 1 {
+			t.Fatalf("gomtest: case %s generated %d files, want 1 "+
+				"(per-output goldens are for directory cases)", c.name, len(got))
 		}
-		if err != nil {
-			t.Fatalf("gomtest: cannot read %s: %v", goldenPath, err)
+		claimed := make(map[string]bool, len(got))
+		// Two outputs may not claim one golden — under -update the
+		// later would silently overwrite the earlier, so the check
+		// precedes compareGolden and fails in both modes.
+		seen := make(map[string]string, len(got))
+		for _, o := range got {
+			goldenPath := goldenFor(t, c, o)
+			if prev, dup := seen[goldenPath]; dup {
+				t.Fatalf("gomtest: generated files %q and %q both map to golden %s",
+					prev, o.Path, goldenPath)
+			}
+			seen[goldenPath] = o.Path
+			if c.isDir {
+				claimed[filepath.Base(goldenPath)] = true
+			}
+			compareGolden(t, goldenPath, o)
 		}
-		if !goldenEqual(want, got) {
-			t.Errorf("golden mismatch for %s:\n%s",
-				c.files[0].Path, simpleDiff(normalizeGolden(want), normalizeGolden(got)))
+		if c.isDir {
+			reportStrayGoldens(t, c, claimed)
 		}
 	})
+}
+
+// goldenFor maps a case's generated output to its golden file: the
+// same suite-relative path with .golden.go substituted for .go. A
+// flat case's output must be <name>.go — the golden then lands on
+// <name>.golden.go exactly as the flat convention has it — and a
+// directory case's output must sit directly inside the case
+// directory, so a generated file can never map a golden outside its
+// own case.
+func goldenFor(t *testing.T, c testCase, o GeneratedFile) string {
+	t.Helper()
+	base, ok := strings.CutSuffix(o.Path, ".go")
+	if !ok {
+		t.Fatalf("gomtest: generated file %q is not a .go file", o.Path)
+	}
+	if c.isDir {
+		if path.Dir(o.Path) != c.name {
+			t.Fatalf("gomtest: generated file %q is not directly inside directory case %s",
+				o.Path, c.name)
+		}
+	} else if want := strings.TrimSuffix(c.files[0].Path, gomExt) + ".go"; o.Path != want {
+		t.Fatalf("gomtest: generated file %q does not name case %s (want %q)",
+			o.Path, c.name, want)
+	}
+	return filepath.Join(c.files[0].Dir, filepath.FromSlash(base+".golden.go"))
+}
+
+// compareGolden checks one generated file against its golden,
+// honoring -update. Missing goldens explain the -update path rather
+// than diffing against nothing.
+func compareGolden(t *testing.T, goldenPath string, o GeneratedFile) {
+	t.Helper()
+	if *update {
+		writeGolden(t, goldenPath, o.Src)
+		return
+	}
+	want, err := os.ReadFile(goldenPath)
+	if errors.Is(err, fs.ErrNotExist) {
+		t.Fatalf("gomtest: missing golden file %s (run `go test -update`)", goldenPath)
+	}
+	if err != nil {
+		t.Fatalf("gomtest: cannot read %s: %v", goldenPath, err)
+	}
+	if !goldenEqual(want, o.Src) {
+		t.Errorf("golden mismatch for %s:\n%s",
+			o.Path, simpleDiff(normalizeGolden(want), normalizeGolden(o.Src)))
+	}
+}
+
+// reportStrayGoldens flags *.golden.go files inside a directory case
+// that no generated output claimed — the suite-level orphan check
+// cannot see inside case directories, so the runner checks the
+// correspondence itself.
+func reportStrayGoldens(t *testing.T, c testCase, claimed map[string]bool) {
+	t.Helper()
+	entries, err := os.ReadDir(c.absDir)
+	if err != nil {
+		t.Fatalf("gomtest: cannot read %s: %v", c.absDir, err)
+	}
+	for _, e := range entries {
+		// ignored() names are the suite's helper convention — a
+		// _- or .-prefixed file is not an expectation, so it can
+		// never be stray.
+		if e.IsDir() || ignored(e.Name()) || !strings.HasSuffix(e.Name(), goldenExt) {
+			continue
+		}
+		if !claimed[e.Name()] {
+			t.Errorf("gomtest: golden file %s in directory case %s has no generated output",
+				e.Name(), c.name)
+		}
+	}
 }
 
 // normalizeGolden converts CRLF to LF and strips trailing newlines so

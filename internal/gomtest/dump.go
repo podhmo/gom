@@ -82,12 +82,12 @@ func RunDumpTests(t *testing.T, dir string, dumps map[string]DumpFunc) {
 	for _, name := range names {
 		t.Run(name, func(t *testing.T) {
 			t.Helper()
-			skip, err := loadManifest(dumpPath(suiteDir, name, caseExt))
+			m, err := loadManifest(dumpPath(suiteDir, name, caseExt))
 			if err != nil {
 				t.Fatal(err)
 			}
-			if skip != "" {
-				t.Skipf("skipped: %s", skip)
+			if m.skip != "" {
+				t.Skipf("skipped: %s", m.skip)
 			}
 			got, err := dumps[name]()
 			if err != nil {

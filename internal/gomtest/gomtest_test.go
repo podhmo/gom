@@ -1,7 +1,9 @@
 package gomtest
 
 import (
+	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -260,39 +262,47 @@ func TestLoadManifest(t *testing.T) {
 	path := filepath.Join(dir, "x.case.json")
 
 	// missing file is fine
-	if skip, err := loadManifest(path); err != nil || skip != "" {
-		t.Errorf("missing: skip=%q err=%v", skip, err)
+	if m, err := loadManifest(path); err != nil || m.skip != "" || m.tests {
+		t.Errorf("missing: skip=%q tests=%v err=%v", m.skip, m.tests, err)
 	}
 
 	for _, tt := range []struct {
-		name    string
-		content string
-		want    string
-		wantErr bool
+		name      string
+		content   string
+		want      string
+		wantTests bool
+		wantErr   bool
 	}{
-		{"skip reason", `{"skip": "not implemented"}`, "not implemented", false},
-		{"empty manifest", `{}`, "", false},
-		{"unknown keys ignored", `{"flavor": "x"}`, "", false},
-		{"empty skip", `{"skip": ""}`, "", false},
-		{"non-string skip", `{"skip": true}`, "", true},
-		{"invalid json", `{`, "", true},
+		{"skip reason", `{"skip": "not implemented"}`, "not implemented", false, false},
+		{"empty manifest", `{}`, "", false, false},
+		{"unknown keys ignored", `{"flavor": "x"}`, "", false, false},
+		{"empty skip", `{"skip": ""}`, "", false, false},
+		{"tests option", `{"tests": true}`, "", true, false},
+		{"tests false", `{"tests": false}`, "", false, false},
+		{"skip and tests", `{"skip": "later", "tests": true}`, "later", true, false},
+		{"non-string skip", `{"skip": true}`, "", false, true},
+		{"non-bool tests", `{"tests": "yes"}`, "", false, true},
+		{"invalid json", `{`, "", false, true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			if err := os.WriteFile(path, []byte(tt.content), 0o644); err != nil {
 				t.Fatal(err)
 			}
-			skip, err := loadManifest(path)
+			m, err := loadManifest(path)
 			if tt.wantErr {
 				if err == nil {
-					t.Fatalf("want error, got skip=%q", skip)
+					t.Fatalf("want error, got %+v", m)
 				}
 				return
 			}
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
-			if skip != tt.want {
-				t.Errorf("skip = %q, want %q", skip, tt.want)
+			if m.skip != tt.want {
+				t.Errorf("skip = %q, want %q", m.skip, tt.want)
+			}
+			if m.tests != tt.wantTests {
+				t.Errorf("tests = %v, want %v", m.tests, tt.wantTests)
 			}
 		})
 	}
@@ -368,9 +378,70 @@ func TestRunSpecTestsDirCaseSmoke(t *testing.T) {
 }
 
 func TestRunGoldenTestsSmoke(t *testing.T) {
-	RunGoldenTests(t, filepath.Join("testdata", "golden"), func(f File) ([]byte, error) {
-		return []byte("package main\n\nfunc main() {}\n"), nil
+	RunGoldenTests(t, filepath.Join("testdata", "golden"), func(fs []File, _ CaseOptions) ([]GeneratedFile, error) {
+		var out []GeneratedFile
+		for _, f := range fs {
+			out = append(out, GeneratedFile{
+				Path: strings.TrimSuffix(f.Path, ".gom") + ".go",
+				Src:  []byte("package main\n\nfunc main() {}\n"),
+			})
+		}
+		return out, nil
 	})
+}
+
+// TestRunGoldenTestsDirCaseSmoke runs the golden path over the
+// goldenpkg fixture: the directory case reaches generate as one
+// two-member unit and each member output compares against its own
+// <member>.golden.go inside the case directory.
+func TestRunGoldenTestsDirCaseSmoke(t *testing.T) {
+	var got [][]string
+	RunGoldenTests(t, filepath.Join("testdata", "goldenpkg"), func(fs []File, _ CaseOptions) ([]GeneratedFile, error) {
+		var paths []string
+		var out []GeneratedFile
+		for _, f := range fs {
+			paths = append(paths, f.Path)
+			out = append(out, GeneratedFile{
+				Path: strings.TrimSuffix(f.Path, ".gom") + ".go",
+				Src:  []byte(fmt.Sprintf("package pkgcase\n\n// generated from %s\n", f.Path)),
+			})
+		}
+		got = append(got, paths)
+		return out, nil
+	})
+	want := [][]string{{"pkgcase/a.gom", "pkgcase/b.gom"}, {"testscase/a.gom"}}
+	if len(got) != len(want) {
+		t.Fatalf("generate calls = %v, want %v", got, want)
+	}
+	for i := range want {
+		if strings.Join(got[i], ",") != strings.Join(want[i], ",") {
+			t.Errorf("call %d files = %v, want %v", i, got[i], want[i])
+		}
+	}
+}
+
+// TestRunGoldenTestsTestsOption checks the manifest's "tests" key
+// reaches the compile function as CaseOptions.Tests: testscase's
+// case.json sets it, pkgcase's does not.
+func TestRunGoldenTestsTestsOption(t *testing.T) {
+	opts := map[string]CaseOptions{}
+	RunGoldenTests(t, filepath.Join("testdata", "goldenpkg"), func(fs []File, o CaseOptions) ([]GeneratedFile, error) {
+		var out []GeneratedFile
+		for _, f := range fs {
+			out = append(out, GeneratedFile{
+				Path: strings.TrimSuffix(f.Path, ".gom") + ".go",
+				Src:  []byte(fmt.Sprintf("package pkgcase\n\n// generated from %s\n", f.Path)),
+			})
+		}
+		opts[path.Dir(fs[0].Path)] = o
+		return out, nil
+	})
+	if got := opts["pkgcase"].Tests; got {
+		t.Errorf("pkgcase Tests = %v, want false", got)
+	}
+	if got := opts["testscase"].Tests; !got {
+		t.Errorf("testscase Tests = %v, want true", got)
+	}
 }
 
 // TestCompileFuncCalledWithFile checks that the compile function

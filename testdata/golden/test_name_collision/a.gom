@@ -1,0 +1,9 @@
+package m
+
+test "x" {
+  assert true
+}
+
+test "only a" {
+  assert true
+}

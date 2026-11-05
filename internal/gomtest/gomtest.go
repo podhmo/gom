@@ -71,9 +71,39 @@ func IsInterfaceFile(path string) bool {
 // with diag.List.Sort before comparing. An error fails the case.
 type DiagnosticsFunc func(fs []File) ([]diag.Diagnostic, error)
 
-// GenerateFunc compiles f and returns the generated Go source for the
-// golden suite. An error fails the case.
-type GenerateFunc func(f File) ([]byte, error)
+// GeneratedFile is one generated output file of a case — a member's
+// package source, or its _test.go half under the "tests" manifest
+// option. A single-file case produces one; a directory case one per
+// .gom member (a .gomi member produces none) plus any test halves.
+type GeneratedFile struct {
+	// Path is the output file's suite-relative slash path as
+	// `gom build`/`gom test` would write it (e.g. "a.go" for a flat
+	// case, "pkgcase/a_test.go" inside a directory case). The golden
+	// pinning it is the same path with .golden.go substituted for
+	// .go.
+	Path string
+	// Src is the generated file's contents.
+	Src []byte
+}
+
+// CaseOptions carries the case manifest's (case.json) per-case
+// options a suite runner hands the compile function. It is the
+// harness's pipeline-agnostic name for them — the caller maps each
+// option to its own compile settings.
+type CaseOptions struct {
+	// Tests asks for `gom test` mode compilation (spec section 11.6,
+	// lower.Env.Tests): test decls and @test helpers stay in the
+	// pipeline, so a member's generated output includes its
+	// _test.go half.
+	Tests bool
+}
+
+// GenerateFunc compiles a case's files and returns the generated Go
+// files for the golden suite — a case is one compilation unit, so
+// like DiagnosticsFunc it takes the whole member list; single-file
+// cases get a one-element slice and return a one-element result in
+// member order. An error fails the case.
+type GenerateFunc func(fs []File, opts CaseOptions) ([]GeneratedFile, error)
 
 // testCase is one discovered case — a single .gom file, or a
 // directory whose .gom files compile as one package unit — and its
@@ -86,6 +116,7 @@ type testCase struct {
 	absDir string // absolute path of the case directory (isDir only)
 
 	skip    string // manifest skip reason; "" runs the case
+	tests   bool   // manifest "tests" option: compile the case in test mode
 	loadErr error  // non-nil manifests a broken case, reported as a failure
 }
 
@@ -194,11 +225,12 @@ func discoverCases(suiteDir string) (cases []testCase, orphans []string, err err
 		if c.loadErr != nil {
 			continue
 		}
-		skip, err := loadManifest(c.sidePath(caseExt))
+		m, err := loadManifest(c.sidePath(caseExt))
 		if err != nil {
 			c.loadErr = err
 		}
-		c.skip = skip
+		c.skip = m.skip
+		c.tests = m.tests
 	}
 
 	for _, p := range sideFiles {
@@ -227,10 +259,14 @@ func discoverCases(suiteDir string) (cases []testCase, orphans []string, err err
 //
 // A directory without a marker is a pure namespace: the walk descends
 // into it and its .gom files stay individual cases. Inside a case
-// directory a member-named side file (a.expected.json) or a
-// subdirectory is a load error — a group has exactly one expectation
-// and is not subdivided further; a case with no members is an error
-// too, since a group always starts from real inputs.
+// directory a member-named expected.json/case.json side file
+// (a.expected.json) or a subdirectory is a load error — a group has
+// exactly one expectation and is not subdivided further; a case with
+// no members is an error too, since a group always starts from real
+// inputs. Member-named *.golden.go files are exempt: they are the
+// golden suite's per-output expectations (a.golden.go pins member
+// a.gom's generated a.go), so a group has one golden per generated
+// file rather than one expectation total.
 func dirCase(suiteDir, dir string) (testCase, bool, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
@@ -276,7 +312,7 @@ func dirCase(suiteDir, dir string) (testCase, bool, error) {
 			c.files = append(c.files, File{Path: c.name + "/" + n, Dir: suiteDir, Src: src})
 			continue
 		}
-		for _, ext := range []string{expectedExt, goldenExt, caseExt} {
+		for _, ext := range []string{expectedExt, caseExt} {
 			if strings.HasSuffix(n, ext) && n != ext[1:] {
 				named = append(named, n)
 				break
@@ -300,28 +336,48 @@ func ignored(name string) bool {
 	return strings.HasPrefix(name, "_") || strings.HasPrefix(name, ".")
 }
 
+// caseManifest is a case's parsed <name>.case.json — the per-case
+// options channel shared by the suites.
+type caseManifest struct {
+	// skip is the "skip" reason; "" runs the case.
+	skip string
+	// tests is the "tests" option: the golden suite compiles the
+	// case in `gom test` mode (lower.Env.Tests), so test-mode
+	// outputs — the members' _test.go halves — join the golden
+	// expectations.
+	tests bool
+}
+
 // loadManifest reads a <name>.case.json file. A missing file is not an
-// error. The only defined key is "skip".
-func loadManifest(path string) (skip string, err error) {
+// error. The defined keys are "skip" (string) and "tests" (bool).
+func loadManifest(path string) (caseManifest, error) {
 	data, err := os.ReadFile(path)
 	if errors.Is(err, fs.ErrNotExist) {
-		return "", nil
+		return caseManifest{}, nil
 	}
 	if err != nil {
-		return "", fmt.Errorf("gomtest: cannot read %s: %w", path, err)
+		return caseManifest{}, fmt.Errorf("gomtest: cannot read %s: %w", path, err)
 	}
 	var m map[string]any
 	if err := json.Unmarshal(data, &m); err != nil {
-		return "", fmt.Errorf("gomtest: invalid JSON in %s: %w", path, err)
+		return caseManifest{}, fmt.Errorf("gomtest: invalid JSON in %s: %w", path, err)
 	}
+	var out caseManifest
 	if v, ok := m["skip"]; ok {
 		s, ok := v.(string)
 		if !ok {
-			return "", fmt.Errorf("gomtest: %s: \"skip\" must be a string", path)
+			return caseManifest{}, fmt.Errorf("gomtest: %s: \"skip\" must be a string", path)
 		}
-		return s, nil
+		out.skip = s
 	}
-	return "", nil
+	if v, ok := m["tests"]; ok {
+		b, ok := v.(bool)
+		if !ok {
+			return caseManifest{}, fmt.Errorf("gomtest: %s: \"tests\" must be a bool", path)
+		}
+		out.tests = b
+	}
+	return out, nil
 }
 
 // resolveSuiteDir turns the dir argument of a runner into an absolute

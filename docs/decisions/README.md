@@ -139,7 +139,7 @@
 | [gom-test-go-test-flags](2026-11-05-gom-test-go-test-flags.md) | `gom test` passes the arguments after `--` through to `go test` | 採用（prototype verified — [sketch](../sketch/2026-11-05-gom-test-go-test-flags.md)） |
 | [gom-test-panic-stack](2026-11-05-gom-test-panic-stack.md) | `gom test` renders panic stacks with `.gom` positions and keeps the raw Go trace | 採用 |
 | [gomi-conformance-in-gom-fix](2026-11-05-gomi-conformance-in-gom-fix.md) | `gom fix` で `.gomi` 適合検査を走らせる（見送り） | 不採用（未決に戻した — 価値が具体化した時点で再検討） |
-| [gomtest-multifile-cases](2026-11-05-gomtest-multifile-cases.md) | Multi-file spec cases: directory cases in internal/gomtest | 採用（実装・検証した — [検証](../sketch/2026-11-05-gomtest-multifile-cases-verification.md)） |
+| [gomtest-multifile-cases](2026-11-05-gomtest-multifile-cases.md) | Multi-file spec cases: directory cases in internal/gomtest（一部を [gomtest-golden-dir-cases](2026-11-06-gomtest-golden-dir-cases.md) で置き換え） | 採用（実装・検証した — [検証](../sketch/2026-11-05-gomtest-multifile-cases-verification.md)） |
 | [int-literal-range-check](2026-11-05-int-literal-range-check.md) | Integer and float literals must fit their static type's range | 採用（実装・検証した — [検証](../sketch/2026-11-05-int-literal-range-check.md)。testdata/spec/E0417_int_lit_range と ok_int_lit_boundaries で固定。spec.md §3.3 と problems/2026-11-05-int-literal-range-check へ反映済み） |
 | [interface-failure-withholds-output](2026-11-05-interface-failure-withholds-output.md) | `gom build` withholds a failed package's generated output | draft（prototype verified — [sketch: V-6 residual verification](../sketch/2026-11-05-v6-residual-verification.md)） |
 | [numeric-arithmetic-per-operation](2026-11-05-numeric-arithmetic-per-operation.md) | 数値演算は演算ごとの機械演算（定数畳み込みは意味に含めない） | 採用（実装・検証した — [検証](../sketch/2026-11-05-numeric-arithmetic-per-operation.md)） |
@@ -152,5 +152,7 @@
 | [test-name-file-tag](2026-11-05-test-name-file-tag.md) | Same-named `test` blocks in sibling files take a file tag | draft（prototype verified — [sketch: V-6 residual verification](../sketch/2026-11-05-v6-residual-verification.md)） |
 | [test-performance](2026-11-05-test-performance.md) | テストを10倍速くするための設計と実施事項 | 採用（10倍の目標は未達） |
 | [variant-field-assert-owning-ctor](2026-11-05-variant-field-assert-owning-ctor.md) | バリアントの名前付きペイロード読み取りは所有者バリアントをアサートする | 採用（実装・検証した — [検証](../sketch/2026-11-05-variant-field-assert-owning-ctor.md)） |
+| [gomtest-golden-dir-cases](2026-11-06-gomtest-golden-dir-cases.md) | Golden directory cases: one `.golden.go` per generated file | 採用（実装・検証した — [検証](../sketch/2026-11-06-gomtest-golden-dir-cases-verification.md)） |
+| [gomtest-tests-option](2026-11-06-gomtest-tests-option.md) | The `case.json` `tests` option: test-mode generation in golden cases | 採用（実装・検証した — [検証](../sketch/2026-11-06-gomtest-tests-option-verification.md)） |
 | [spec-suite-root-bare-side-files](2026-11-06-spec-suite-root-bare-side-files.md) | A bare side file at the spec-suite root is a load error | 採用（実装・検証した — [検証](../sketch/2026-11-06-spec-suite-root-bare-side-files-verification.md)） |
 <!-- END GENERATED -->

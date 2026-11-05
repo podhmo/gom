@@ -2,6 +2,7 @@ package build_test
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/podhmo/gom/internal/build"
@@ -99,19 +100,69 @@ func specCompile(gl *goimport.Loader) func([]gomtest.File) ([]diag.Diagnostic, e
 }
 
 // goldenGenerate drives the pipeline to codegen and returns the
-// generated package source (the _test.go half is codegen's own
-// suite's concern). Same shared-loader rationale as specCompile.
-func goldenGenerate(gl *goimport.Loader) func(gomtest.File) ([]byte, error) {
-	return func(f gomtest.File) ([]byte, error) {
-		r, err := build.Compile(build.Input{Path: f.Path, Src: f.Src}, suiteOptionsWith(gl))
+// generated files — one per .gom member for a directory case, named
+// as `gom build`/`gom test` would write them (the _test.go half
+// appears under the manifest's "tests" option; interface members
+// yield none). Same shared-loader and unit rationale as specCompile:
+// the case's members compile together through build.CompileFiles.
+func goldenGenerate(gl *goimport.Loader) func([]gomtest.File, gomtest.CaseOptions) ([]gomtest.GeneratedFile, error) {
+	return func(fs []gomtest.File, opts gomtest.CaseOptions) ([]gomtest.GeneratedFile, error) {
+		ins := make([]build.Input, len(fs))
+		for i, f := range fs {
+			ins[i] = build.Input{Path: f.Path, Src: f.Src}
+		}
+		o := suiteOptionsWith(gl)
+		// The manifest's "tests" key selects `gom test` mode: test
+		// decls stay in the pipeline so members emit their _test.go
+		// half (the sibling test-name tagging surface).
+		o.Lower.Tests = opts.Tests
+		rs, err := build.CompileFiles(ins, o)
 		if err != nil {
 			return nil, err
 		}
-		if r.Output == nil {
-			return nil, fmt.Errorf("no output: %d diagnostic(s)", len(r.Diagnostics))
+		var out []gomtest.GeneratedFile
+		for i, r := range rs {
+			if r.Interface {
+				continue // .gomi members produce no generated file
+			}
+			if r.Output == nil {
+				return nil, fmt.Errorf("no output for %s: %s",
+					fs[i].Path, renderDiags(r.Diagnostics, fs[i].Dir))
+			}
+			base := strings.TrimSuffix(fs[i].Path, ".gom")
+			out = append(out, gomtest.GeneratedFile{Path: base + ".go", Src: r.Output.Source})
+			if r.Output.TestSource != nil {
+				out = append(out, gomtest.GeneratedFile{Path: base + "_test.go", Src: r.Output.TestSource})
+			}
 		}
-		return r.Output.Source, nil
+		return out, nil
 	}
+}
+
+// renderDiags renders a member's diagnostics into a golden-failure
+// message — the wire objects the spec suite compares, capped so a
+// flood of errors stays readable.
+func renderDiags(ds []diag.Diagnostic, dir string) string {
+	if len(ds) == 0 {
+		return "no diagnostics"
+	}
+	res := diag.NewDirResolver(dir)
+	var b strings.Builder
+	for i, d := range ds {
+		if i == 3 {
+			fmt.Fprintf(&b, " ... and %d more", len(ds)-3)
+			break
+		}
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		if raw, err := diag.MarshalDiagnostic(d, res); err == nil {
+			b.Write(raw)
+		} else {
+			fmt.Fprintf(&b, "%s %s", d.Code, d.Message)
+		}
+	}
+	return b.String()
 }
 
 func TestSpec(t *testing.T) {

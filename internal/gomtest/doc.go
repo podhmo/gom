@@ -19,14 +19,15 @@
 // files compile together as one package unit, in filename order,
 // while a *.gomi member compiles as an interface file in its own
 // scope. The group's side files are the bare names
-// (<case>/expected.json); member-named side files and nested
-// directories inside a case are errors. Without a marker the
-// directory is a pure namespace and its .gom files are individual
-// cases. A bare side file at the suite root is an error too — the
-// root is not a case directory, so a stray bare name there marks
-// nothing and almost always means a misplaced fixture. Only the
-// spec suite supports directory cases; the golden suite rejects
-// them.
+// (<case>/expected.json); member-named expected.json/case.json
+// side files and nested directories inside a case are errors —
+// member-named *.golden.go files are exempt, since a golden
+// group's expectation is one file per generated output.
+// Without a marker the directory is a pure namespace and its
+// .gom files are individual cases. A bare side file at the
+// suite root is an error too — the root is not a case
+// directory, so a stray bare name there marks nothing and
+// almost always means a misplaced fixture.
 //
 //	testdata/spec/    — expected-diagnostics cases (spec section 12)
 //	testdata/golden/  — generated-Go golden cases
@@ -58,14 +59,19 @@
 //
 // A golden case <name>.gom pairs with <name>.golden.go holding the
 // generated Go source, compared literally after CRLF and trailing
-// newline normalization.
+// newline normalization. A golden directory case <name>/ holds one
+// golden per generated output — member a.gom's a.go pins to
+// <name>/a.golden.go, and its test-mode _test.go half pins to
+// <name>/a_test.golden.go.
 //
 // Any case may add a manifest — <name>.case.json, or the bare
 // case.json inside a directory case — reserved for per-case options.
-// The only defined key is "skip": a non-empty string skips the case
-// with that text as the reported reason. The .gom input and the
-// expectations stay in place while skipped, so a case can be checked
-// in before the feature it tests exists.
+// Defined keys: "skip" (a non-empty string skips the case with that
+// text as the reported reason — the .gom input and the expectations
+// stay in place while skipped, so a case can be checked in before
+// the feature it tests exists) and "tests" (a bool asking the
+// golden suite for `gom test` mode generation, so a member's
+// _test.go half joins the case's golden files).
 //
 // # Wiring and updating
 //

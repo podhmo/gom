@@ -73,8 +73,8 @@ func TestGoldenUpdate(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "g.gom"), []byte("package g\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	gen := func(f File) ([]byte, error) {
-		return []byte("package main\n\nfunc g() {}\n"), nil
+	gen := func(fs []File, _ CaseOptions) ([]GeneratedFile, error) {
+		return []GeneratedFile{{Path: "g.go", Src: []byte("package main\n\nfunc g() {}\n")}}, nil
 	}
 	RunGoldenTests(t, dir, gen)
 	data, err := os.ReadFile(filepath.Join(dir, "g.golden.go"))
@@ -83,5 +83,49 @@ func TestGoldenUpdate(t *testing.T) {
 	}
 	if string(data) != "package main\n\nfunc g() {}\n" {
 		t.Errorf("golden = %q", data)
+	}
+}
+
+// TestGoldenUpdateDirCase exercises -update on a directory case: the
+// member goldens are created inside the case directory as
+// <member>.golden.go.
+func TestGoldenUpdateDirCase(t *testing.T) {
+	old := *update
+	*update = true
+	defer func() { *update = old }()
+
+	dir := t.TempDir()
+	pkg := filepath.Join(dir, "pkg")
+	if err := os.Mkdir(pkg, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for name, src := range map[string]string{
+		"a.gom":     "package pkg\n",
+		"b.gom":     "package pkg\n",
+		"case.json": "{}",
+	} {
+		if err := os.WriteFile(filepath.Join(pkg, name), []byte(src), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	gen := func(fs []File, _ CaseOptions) ([]GeneratedFile, error) {
+		var out []GeneratedFile
+		for _, f := range fs {
+			out = append(out, GeneratedFile{
+				Path: strings.TrimSuffix(f.Path, ".gom") + ".go",
+				Src:  []byte("package pkg\n"),
+			})
+		}
+		return out, nil
+	}
+	RunGoldenTests(t, dir, gen)
+	for _, name := range []string{"a.golden.go", "b.golden.go"} {
+		data, err := os.ReadFile(filepath.Join(pkg, name))
+		if err != nil {
+			t.Fatalf("-update did not write %s: %v", name, err)
+		}
+		if string(data) != "package pkg\n" {
+			t.Errorf("%s = %q", name, data)
+		}
 	}
 }

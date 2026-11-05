@@ -1,0 +1,5 @@
+package m
+
+test "x" {
+  assert true
+}
