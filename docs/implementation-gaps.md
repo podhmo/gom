@@ -920,6 +920,18 @@
   [check/reclassify.go](../internal/check/reclassify.go) ガード、
   [sketch](sketch/2026-11-05-reclassify-arg-to-param-guard.md)。
 
+- [ ] **`expr.go` に raw `.String()` 描画が残り `?n` リークの可能性
+  （到達性は未確認）**: E0402/E0403/E0410/E0411 は wave10 hygiene で
+  `types.Display`+`metaNamer` に修正済みだが、E0502 `data["type"]`
+  （expr.go ~363、`recv.Type()` raw）、E0401 `data["type"]`（~728）、
+  E0507 `data["from"/"to"]`（~773）が同クラス候補として残る。E0507 は
+  `convOK` がトップレベル meta のみ defer するため入れ子 meta が出うる
+  （例 `Go.conv ([todo ()]) : Go.Slice Int`）。E0417 `judgeT` は常に
+  具象で安全。メッセージは spec の診断形式と齟齬しうる。
+  参照: [check/expr.go](../internal/check/expr.go)、
+  [decision](decisions/2026-11-06-spec-suite-root-bare-side-files.md)
+  同 wave の修正対象外。wave10 hygiene レビュー・worker が独立に指摘。
+
 - [x] **panic 位置の E2E テストでコンパイル元と逆引きのパスが不一致**:
   `TestPanicStackResolvesToGom` は `main.gom` をコンパイラの cwd に対する相対パスで
   コンパイルするが、位置 index は実行用一時ディレクトリに対する相対パスとしていた。
