@@ -703,7 +703,7 @@ prints the pointer and exits 2).
 | `gom check FILE\|DIR...` | Parse → resolve → type-check → pattern check; no output files. A directory's `*.gom`/`*.gomi` compile as one package. |
 | `gom build [-o out] FILE\|DIR...` | Full pipeline; writes one `.go` per `.gom` next to the input (or under `-o` dir/file). |
 | `gom dump -phase=syntax\|resolve\|check\|core FILE` | Print one phase's IR — sibling `.gom` files compile along so package members resolve; only the named file's IR prints (diagnostics go to stderr; stdout is the artifact). |
-| `gom test FILE\|DIR...` | Also writes `_test.go` beside the `.go` and runs the package's `go test -json`. |
+| `gom test FILE\|DIR... [-- FLAGS]` | Also writes `_test.go` beside the `.go` and runs the package's `go test -json` — FLAGS after `--` pass through (`-race`, `-run`). Library packages need `<pkg>.gomi` (the conformance gate runs here too); `-q`/`--quiet` drops the raw half of panic stacks. |
 | `gom fmt [-w\|-d\|-l\|--check] FILE...` | Canonical formatter; `-` reads stdin. stdout carries the artifact; message stream to stderr. |
 | `gom fix FILE...` | Apply the `safe` fixes diagnostics carry. |
 | `gom info [-o OUT] FILE\|DIR...` | Draft `.gomi` interfaces from implementations; `-o -` prints to stdout. |

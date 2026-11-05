@@ -92,9 +92,9 @@ func TestParseStackPos(t *testing.T) {
 		{"x.gom", "", 0, false},
 		{":5", "", 5, true}, // empty file still parses — resolver decides
 	} {
-		file, line, ok := parseStackPos(tt.in)
+		file, line, ok := ParseStackPos(tt.in)
 		if ok != tt.wantOK || file != tt.wantFile || line != tt.wantLine {
-			t.Errorf("parseStackPos(%q) = (%q, %d, %v), want (%q, %d, %v)",
+			t.Errorf("ParseStackPos(%q) = (%q, %d, %v), want (%q, %d, %v)",
 				tt.in, file, line, ok, tt.wantFile, tt.wantLine, tt.wantOK)
 		}
 	}

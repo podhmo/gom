@@ -1,6 +1,6 @@
 # `gom test` renders panic stacks with `.gom` positions and keeps the raw Go trace
 
-- 状態: 採用（実装は TODO）
+- 状態: 採用
 - 日付: 2026-11-05
 
 ## Context
@@ -14,8 +14,8 @@ test's `output` and the package-level E0001 `output` carry the raw
 ## Decision
 
 - A panic or goroutine dump in `gom test` output is rendered as a
-  `.gom`-position trace first: each frame goes through `ResolveStack`,
-  resolvable frames get the `.gom` position, and frames that do not
+  `.gom`-position trace first: `GoPosIndex.RenderStack` rewrites each
+  frame's position line to the `.gom` position, and frames that do not
   resolve (toolchain, `rt`, hand-written Go) keep their raw `file:line`
   text. The raw Go stack trace is then printed verbatim after it —
   both halves appear by default.
@@ -43,5 +43,9 @@ classify. Dropping the raw trace would lose exactly that information.
   `--quiet` on `gom test`.
 - Work lands in TODO.md: the panic-output paths of `runGoTests`
   (`TestResult.Output` and the package-level failure `output`) gain the
-  rendered section via `GoPosIndex.ResolveStack`, and `gom test` gains
+  rendered section via `GoPosIndex.RenderStack`, and `gom test` gains
   the `-q`/`--quiet` flag.
+- Shipped detail: the raw half follows a `--- raw go stack trace ---`
+  marker line, and an output where no frame resolves at all stays
+  single-part — the rendered half would be byte-identical to the raw
+  one, so there is nothing `.gom`-flavored to show.

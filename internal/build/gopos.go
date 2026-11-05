@@ -118,6 +118,41 @@ func (x *GoPosIndex) ResolveStack(trace string) []StackPos {
 	return out
 }
 
+// RenderStack re-renders a panic or goroutine dump with .gom
+// positions: every tab-indented "file:line" frame position whose
+// file resolves through the index is rewritten to the input's .gom
+// path and line. Everything else stays verbatim — call lines,
+// goroutine headers, the panic message, and frames in the
+// toolchain, rt, or hand-written Go keep their raw text. The
+// PC-offset trailer drops from resolved lines; unresolved lines
+// keep it. An output identical to the input means no frame
+// resolved, so a caller can tell "nothing mapped" from "mapped".
+//
+// The rewrite is line-local: a line that fails to parse or resolve
+// can never corrupt a neighbour, so the rendered half of spec
+// section 12's two-part panic output degrades per frame rather than
+// per dump (docs/decisions/2026-11-05-gom-test-panic-stack.md).
+func (x *GoPosIndex) RenderStack(trace string) string {
+	lines := strings.Split(trace, "\n")
+	for i, l := range lines {
+		if !strings.HasPrefix(l, "\t") {
+			continue
+		}
+		pos := strings.TrimLeft(l, "\t")
+		file, ln, ok := diag.ParseStackPos(pos)
+		if !ok {
+			continue
+		}
+		sp, ok := x.Resolve(file, ln, 1)
+		if !ok {
+			continue
+		}
+		lines[i] = l[:len(l)-len(pos)] + sp.File + ":" +
+			strconv.Itoa(x.index(sp.File).Pos(sp.Start).Line)
+	}
+	return strings.Join(lines, "\n")
+}
+
 // index returns the (cached) line index for a resolved srcs key.
 func (x *GoPosIndex) index(path string) *diag.LineIndex {
 	if li, ok := x.lines[path]; ok {

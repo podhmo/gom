@@ -128,7 +128,8 @@
 | [go-map-ops](2026-11-05-go-map-ops.md) | `Go.Map` operations: `Go.Map.<op>` member table backed by `rt` | 採用（実装・検証した — [検証](../sketch/2026-11-05-p3-7-interop-ops-verification.md)。spec.md §8.3/§8.5 へ反映済み） |
 | [go-mutation-warning](2026-11-05-go-mutation-warning.md) | W0501: warn on Unit-result Go calls that copy a `List` argument | 採用（実装・検証した — [検証](../sketch/2026-11-05-p3-7-interop-ops-verification.md)。spec.md §8.5 へ反映済み） |
 | [gom-implementation-import-cycles](2026-11-05-gom-implementation-import-cycles.md) | `.gom` implementation imports must be acyclic (E0606) | draft（prototype verified — [sketch: V-6 residual verification](../sketch/2026-11-05-v6-residual-verification.md)） |
-| [gom-test-panic-stack](2026-11-05-gom-test-panic-stack.md) | `gom test` renders panic stacks with `.gom` positions and keeps the raw Go trace | 採用（実装は TODO） |
+| [gom-test-go-test-flags](2026-11-05-gom-test-go-test-flags.md) | `gom test` passes the arguments after `--` through to `go test` | 採用（prototype verified — [sketch](../sketch/2026-11-05-gom-test-go-test-flags.md)） |
+| [gom-test-panic-stack](2026-11-05-gom-test-panic-stack.md) | `gom test` renders panic stacks with `.gom` positions and keeps the raw Go trace | 採用 |
 | [gomi-conformance-in-gom-fix](2026-11-05-gomi-conformance-in-gom-fix.md) | `gom fix` で `.gomi` 適合検査を走らせる（見送り） | 不採用（未決に戻した — 価値が具体化した時点で再検討） |
 | [interface-failure-withholds-output](2026-11-05-interface-failure-withholds-output.md) | `gom build` withholds a failed package's generated output | draft（prototype verified — [sketch: V-6 residual verification](../sketch/2026-11-05-v6-residual-verification.md)） |
 | [numeric-arithmetic-per-operation](2026-11-05-numeric-arithmetic-per-operation.md) | 数値演算は演算ごとの機械演算（定数畳み込みは意味に含めない） | 採用（実装・検証した — [検証](../sketch/2026-11-05-numeric-arithmetic-per-operation.md)） |

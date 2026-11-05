@@ -43,7 +43,7 @@ func ParseStack(trace string) []StackFrame {
 		if !strings.HasPrefix(l, "\t") {
 			continue
 		}
-		file, line, ok := parseStackPos(strings.TrimLeft(l, "\t"))
+		file, line, ok := ParseStackPos(strings.TrimLeft(l, "\t"))
 		if !ok {
 			continue
 		}
@@ -56,11 +56,11 @@ func ParseStack(trace string) []StackFrame {
 	return frames
 }
 
-// parseStackPos parses the position half of a frame line:
+// ParseStackPos parses the position half of a frame line:
 // "file:line +0xoff" or "file:line". The file may itself contain
 // ':' or spaces — the last " +0x" suffix is stripped first and the
 // last ':' whose tail is all digits splits the line number.
-func parseStackPos(s string) (file string, line int, ok bool) {
+func ParseStackPos(s string) (file string, line int, ok bool) {
 	if i := strings.LastIndex(s, " +0x"); i >= 0 {
 		s = s[:i] // drop the PC-offset trailer
 	}

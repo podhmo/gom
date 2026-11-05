@@ -697,3 +697,5 @@ test "parse then sum" {
 ```
 
 `gom test` が実行するのは `go test` のパッケージ粒度である — 入力ファイルのあるディレクトリのパッケージ全体のテストが走るので、同じパッケージの他の `.gom` 由来や手書きのテストも結果に含まれる。それらは `span` のない `test` オブジェクトとして `func` と同名の `name` で報告される。コンパイルにエラーがあるとき `go test` は実行しない（`tests` の集計はすべて 0）。Go のツールチェーン側の失敗（テストバイナリがコンパイルできない、`go test` が起動できない）は `"source": "go"` の `diagnostic` として報告する。
+
+`gom test` の引数列のうち最初の `--` 以降は `go test` にそのまま渡す（`gom test -- -race`、`gom test -- -run Bump -count=1` など）。`-json` は gom が結果の取得に使うフラグなので、これを打ち消す指定（`-json=false`）は結果ストリームを壊し、Go ツール側の失敗として `"source": "go"` の E0001 で報告される。未知・不正なフラグも gom 側の使用エラーではなく同じ経路で報告される（[decisions/gom-test-go-test-flags](decisions/2026-11-05-gom-test-go-test-flags.md)）。

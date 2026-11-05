@@ -57,7 +57,7 @@ testdata/voidhost/  # host-side fixture for build/void tests
 | `gom build [-o OUT] FILE|DIR ...` | + lower → codegen; writes `.go`. `-o` file (single input) or dir. |
 | `gom dump -phase=NAME FILE` | `syntax`/`resolve`/`check`/`core` IR tree → stdout; diagnostics → stderr. The package's sibling `.gom` files compile along so member names resolve — only FILE's IR prints. |
 | `gom fmt [-w\|-d\|-l\|--check] FILE...` | canonical formatter; `-` = stdin→stdout. Streams go to stderr. |
-| `gom test FILE|DIR ...` | compiles in test mode, writes `.go` + `_test.go` beside each input, runs `go test -json` per package directory, reports one `test` message per test plus `summary.tests` counts. |
+| `gom test FILE|DIR ... [-- FLAGS]` | compiles in test mode, writes `.go` + `_test.go` beside each input, runs `go test -json` per package directory, reports one `test` message per test plus `summary.tests` counts. FLAGS after `--` pass verbatim to `go test` (`-race`, `-run`); `-q`/`--quiet` drops the raw half of panic stacks. Library packages need their `<pkg>.gomi` — the conformance gate runs here too. |
 | `gom fix FILE...` | applies the fixes diagnostics mark `safe`. |
 | `gom explain [CODE]` | error-code explanation(s). |
 | `gom schema` | JSON Schema of the message stream. |

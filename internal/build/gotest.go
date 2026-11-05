@@ -39,17 +39,20 @@ type GoTestRun struct {
 }
 
 // RunGoTest runs `go test -json` in dir and decodes the event stream.
-// Test and build failures are ordinary results — they set
-// GoTestRun.Failed, not the returned error. The error is non-nil only
-// when go test could not be invoked at all (missing go binary, dead
-// dir) or broke its output contract (undecodable stream) — the driver
-// reports those as E0001 diagnostics with source "go", like a build
-// failure.
-func RunGoTest(gobin, dir string) (*GoTestRun, error) {
+// args carries extra `go test` flags — `-race`, `-run`, `-count` —
+// appended verbatim after -json (`gom test`'s `--` passthrough,
+// docs/decisions/2026-11-05-gom-test-go-test-flags.md). Test and
+// build failures are ordinary results — they set GoTestRun.Failed,
+// not the returned error. The error is non-nil only when go test
+// could not be invoked at all (missing go binary, dead dir) or
+// broke its output contract (undecodable stream) — the driver
+// reports those as E0001 diagnostics with source "go", like a
+// build failure.
+func RunGoTest(gobin, dir string, args ...string) (*GoTestRun, error) {
 	if gobin == "" {
 		gobin = "go"
 	}
-	cmd := exec.Command(gobin, "test", "-json")
+	cmd := exec.Command(gobin, append([]string{"test", "-json"}, args...)...)
 	cmd.Dir = dir
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

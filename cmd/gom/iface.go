@@ -50,9 +50,10 @@ type pkgGroup struct {
 // their own diagnostics stay out (they are not inputs).
 //
 // It returns the results of failed package groups so `gom build`
-// can withhold their outputs: generated code for a package whose
-// interface contract failed is not an artifact to keep — writing
-// it would produce a stale, unverifiable package.
+// and `gom test` can withhold their outputs: generated code for a
+// package whose interface contract failed is not an artifact to
+// keep — writing it would produce a stale, unverifiable package
+// (`gom test` also keeps the package out of the `go test` run).
 func checkInterfaces(inputs []input, results []*build.Result, rep *diag.Report, srcs map[string][]byte) map[*build.Result]bool {
 	failed := map[*build.Result]bool{}
 	groups := map[string]*pkgGroup{}
@@ -165,9 +166,10 @@ func checkInterfaces(inputs []input, results []*build.Result, rep *diag.Report, 
 	return failed
 }
 
-// failGroup marks every result of a package group failed so `gom
-// build` withholds their outputs — the package's interface contract
-// did not hold, so its generated code is not a usable artifact.
+// failGroup marks every result of a package group failed so the
+// output-writing commands (`gom build`, `gom test`) withhold them —
+// the package's interface contract did not hold, so its generated
+// code is not a usable artifact.
 func failGroup(failed map[*build.Result]bool, g *pkgGroup) {
 	for _, r := range g.results {
 		failed[r] = true

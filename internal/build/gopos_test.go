@@ -277,3 +277,54 @@ exit status 2
 		t.Errorf("main() frame = %v", frames[2].Span)
 	}
 }
+
+// TestRenderStack: the .gom-position re-render rewrites the frame
+// positions that resolve — dropping the "+0x" trailer and clamping
+// past-EOF lines into the file — while call lines, goroutine
+// headers and toolchain frames stay verbatim. A dump with no
+// resolvable frame comes back byte-identical so the caller can
+// tell "nothing mapped" from "mapped".
+func TestRenderStack(t *testing.T) {
+	idx := build.NewGoPosIndex("", map[string][]byte{"m.gom": []byte(gposSrc)})
+	trace := `panic: gom: todo
+
+goroutine 1 [running]:
+github.com/podhmo/gom/rt.Todo[...](...)
+	/work/gom/rt/rt.go:25 +0x30
+main.g()
+	m.gom:5 +0x40
+main.main()
+	m.gom:9 +0x20
+exit status 2
+`
+	// m.gom:9 is past EOF — Resolve clamps it to the file's last
+	// line, so the rendered frame reports m.gom:6.
+	want := `panic: gom: todo
+
+goroutine 1 [running]:
+github.com/podhmo/gom/rt.Todo[...](...)
+	/work/gom/rt/rt.go:25 +0x30
+main.g()
+	m.gom:5
+main.main()
+	m.gom:6
+exit status 2
+`
+	if got := idx.RenderStack(trace); got != want {
+		t.Errorf("RenderStack =\n%s\nwant:\n%s", got, want)
+	}
+
+	// Ordinary test output has no frame lines — it returns
+	// byte-identical rather than picking up a partial rewrite.
+	plain := "    m.gom:4: gom: assertion failed:\n          actual:   1\n"
+	if got := idx.RenderStack(plain); got != plain {
+		t.Errorf("RenderStack on non-stack output = %q, want verbatim", got)
+	}
+
+	// A stack entirely in toolchain code resolves nothing — the
+	// caller sees the raw dump, not an empty rendered half.
+	alien := "panic: x\n\n\t/usr/lib/go/src/runtime/proc.go:1 +0x1\n"
+	if got := idx.RenderStack(alien); got != alien {
+		t.Errorf("RenderStack on unresolvable stack = %q, want verbatim", got)
+	}
+}

@@ -13,6 +13,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/podhmo/gom/internal/build"
@@ -20,12 +21,24 @@ import (
 	"github.com/podhmo/gom/internal/diag"
 )
 
-// runTest implements `gom test [-format F] [FILE|DIR ...]`.
+// runTest implements `gom test [-format F] [-q|--quiet] [FILE|DIR ...]
+// [-- GO-TEST-FLAGS]` — arguments after "--" pass verbatim to the
+// `go test` invocation of each input directory (spec section 12;
+// docs/decisions/2026-11-05-gom-test-go-test-flags.md).
 func runTest(args []string, stdout, stderr io.Writer) int {
+	// The split must happen before flag parsing: the FlagSet would
+	// swallow "--" itself and hand go test's flags to expandInputs
+	// as source paths.
+	gomArgs, goArgs := args, []string(nil)
+	if i := slices.Index(args, "--"); i >= 0 {
+		gomArgs, goArgs = args[:i], args[i+1:]
+	}
 	fs := flag.NewFlagSet("test", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	format := fs.String("format", "json", "diagnostic format: json or text")
-	if err := fs.Parse(args); err != nil {
+	quiet := fs.Bool("q", false, "suppress the raw Go stack trace in panic output")
+	fs.BoolVar(quiet, "quiet", false, "suppress the raw Go stack trace in panic output")
+	if err := fs.Parse(gomArgs); err != nil {
 		return flagError(err)
 	}
 	if err := checkFormat(*format); err != nil {
@@ -63,6 +76,12 @@ func runTest(args []string, stdout, stderr io.Writer) int {
 	for _, r := range results {
 		rep.Diagnostics = append(rep.Diagnostics, r.Diagnostics...)
 	}
+	// The same package-level interface pass as gom build — `gom
+	// test` writes generated code too, so a package whose .gomi
+	// contract failed (E0601/E0603, or an unverifiable interface)
+	// gets no output and no test run (spec section 7.8;
+	// docs/decisions/2026-11-04-gomi-conformance-in-gom-test.md).
+	failed := checkInterfaces(inputs, results, &rep, srcs)
 
 	// Write the generated files of every clean input — `gom test`
 	// is a build as well as a run. go test runs only when the whole
@@ -70,7 +89,7 @@ func runTest(args []string, stdout, stderr io.Writer) int {
 	// about code that is simply not regenerated.
 	var writeErrs []error
 	for i, r := range results {
-		if r.Output == nil {
+		if r.Output == nil || failed[r] {
 			continue
 		}
 		in := inputs[i]
@@ -115,7 +134,7 @@ func runTest(args []string, stdout, stderr io.Writer) int {
 	}
 
 	if !diag.List(rep.Diagnostics).HasError() {
-		runGoTests(inputs, results, &rep)
+		runGoTests(inputs, results, failed, *quiet, goArgs, &rep)
 	}
 	if err := emitReport(stdout, *format, rep, srcs); err != nil {
 		fmt.Fprintf(stderr, "gom test: %v\n", err)
@@ -136,12 +155,15 @@ type testDir struct {
 // runGoTests runs `go test -json` in each input directory (first-seen
 // order) and folds the events into the report: "test" results per
 // Go test function and E0001 diagnostics for toolchain failures.
-func runGoTests(inputs []input, results []*build.Result, rep *diag.Report) {
+// Results in failed — packages the interface pass withheld — do not
+// join a directory's test run, the same withhold gom build applies
+// to their .go output.
+func runGoTests(inputs []input, results []*build.Result, failed map[*build.Result]bool, quiet bool, goArgs []string, rep *diag.Report) {
 	var dirs []*testDir
 	byDir := map[string]*testDir{}
 	for i, in := range inputs {
 		r := results[i]
-		if r.Output == nil {
+		if r.Output == nil || failed[r] {
 			continue
 		}
 		dir, err := filepath.Abs(filepath.Dir(in.path))
@@ -172,7 +194,7 @@ func runGoTests(inputs []input, results []*build.Result, rep *diag.Report) {
 	}
 
 	for _, d := range dirs {
-		run, err := build.RunGoTest("", d.dir)
+		run, err := build.RunGoTest("", d.dir, goArgs...)
 		if err != nil {
 			// go test could not be invoked at all or broke its output
 			// contract — the toolchain itself failed, which is a
@@ -195,7 +217,7 @@ func runGoTests(inputs []input, results []*build.Result, rep *diag.Report) {
 				From(diag.SourceGo).
 				Set("tool", "go test")
 			if run.Stderr != "" {
-				dg = dg.Set("output", run.Stderr)
+				dg = dg.Set("output", d.renderTrace(run.Stderr, quiet))
 			}
 			rep.Diagnostics = append(rep.Diagnostics, dg)
 			continue
@@ -204,14 +226,14 @@ func runGoTests(inputs []input, results []*build.Result, rep *diag.Report) {
 		if res.BuildFailed {
 			rep.Diagnostics = append(rep.Diagnostics, d.buildOutputDiagnostics(res.BuildOutput)...)
 		}
-		failed := false
+		testFailed := false
 		for _, o := range res.Tests {
 			tr := diag.TestResult{
 				Func:    o.Func,
 				OK:      o.OK,
 				Skipped: o.Skipped,
 				Elapsed: o.Elapsed,
-				Output:  o.Output,
+				Output:  d.renderTrace(o.Output, quiet),
 			}
 			if m, ok := d.mappings[o.Func]; ok {
 				tr.Name, tr.Span = m.Name, m.NameSp
@@ -219,14 +241,14 @@ func runGoTests(inputs []input, results []*build.Result, rep *diag.Report) {
 				tr.Name = o.Func
 			}
 			if !tr.OK {
-				failed = true
+				testFailed = true
 			}
 			rep.Tests = append(rep.Tests, tr)
 		}
 		// A failed run no test explains — a panic in package init or
 		// TestMain — reports its package-level output as a toolchain
 		// error.
-		if run.Failed && !failed && !res.BuildFailed {
+		if run.Failed && !testFailed && !res.BuildFailed {
 			out := res.PackageOutput
 			if out == "" {
 				out = run.Stderr
@@ -235,7 +257,7 @@ func runGoTests(inputs []input, results []*build.Result, rep *diag.Report) {
 				From(diag.SourceGo).
 				Set("tool", "go test")
 			if out != "" {
-				dg = dg.Set("output", out)
+				dg = dg.Set("output", d.renderTrace(out, quiet))
 			}
 			rep.Diagnostics = append(rep.Diagnostics, dg)
 		}
@@ -250,6 +272,37 @@ func runGoTests(inputs []input, results []*build.Result, rep *diag.Report) {
 // stay positionless, carrying the raw text in data.
 func (d *testDir) buildOutputDiagnostics(lines []string) []diag.Diagnostic {
 	return build.GoToolDiagnostics(lines, "go test", d.pos)
+}
+
+// rawTraceMarker separates the .gom-position re-render of a panic or
+// goroutine dump from the verbatim go test output that follows it
+// (docs/decisions/2026-11-05-gom-test-panic-stack.md).
+const rawTraceMarker = "--- raw go stack trace ---"
+
+// renderTrace gives a panic or goroutine dump the spec section 12
+// two-part shape: the .gom-position re-render first, then the raw Go
+// trace under a marker line. quiet suppresses the raw half. Output
+// with no resolvable .gom frame — ordinary test text, a stack that
+// stays entirely in toolchain code — returns unchanged, so a failed
+// conversion can never lose the raw trace.
+func (d *testDir) renderTrace(out string, quiet bool) string {
+	rendered := d.pos.RenderStack(out)
+	if rendered == out {
+		return out
+	}
+	if quiet {
+		return rendered
+	}
+	var b strings.Builder
+	b.WriteString(rendered)
+	if !strings.HasSuffix(rendered, "\n") {
+		b.WriteByte('\n')
+	}
+	b.WriteByte('\n')
+	b.WriteString(rawTraceMarker)
+	b.WriteByte('\n')
+	b.WriteString(out)
+	return b.String()
 }
 
 // isGomGenerated reports whether path names an existing file that
