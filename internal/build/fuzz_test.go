@@ -499,6 +499,10 @@ func compileOracles(t testing.TB) (opts *build.Options, imp types.Importer) {
 const sandboxTimeout = 8 * time.Second
 
 func FuzzCompile(f *testing.F) {
+	if testing.Short() {
+		f.Skipf("long test: %.2fs on last run, skipping in short mode", 0.93)
+	}
+
 	if len(knownCompileBugs) > knownBugsCap {
 		f.Fatalf("knownBugs has %d entries, cap is %d", len(knownCompileBugs), knownBugsCap)
 	}

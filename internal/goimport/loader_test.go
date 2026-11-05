@@ -30,6 +30,8 @@ func membersOf(t *testing.T, l *Loader, path string) *resolve.Package {
 }
 
 func TestLoadStrconvMembers(t *testing.T) {
+	t.Parallel()
+
 	l := loaderFor(t)
 	pkg := membersOf(t, l, "strconv")
 	for _, name := range []string{"Atoi", "Itoa", "ParseBool", "FormatInt"} {
@@ -74,6 +76,8 @@ func TestLoadStrconvMembers(t *testing.T) {
 }
 
 func TestLoadItoaRawInt(t *testing.T) {
+	t.Parallel()
+
 	l := loaderFor(t)
 	pkg := membersOf(t, l, "strconv")
 	itoa := pkg.Members["Itoa"]
@@ -93,6 +97,8 @@ func TestLoadItoaRawInt(t *testing.T) {
 // A variadic signature keeps the Go slice in both views; the arity
 // counts the single declared (variadic) parameter.
 func TestLoadSprintfVariadic(t *testing.T) {
+	t.Parallel()
+
 	l := loaderFor(t)
 	pkg := membersOf(t, l, "fmt")
 	sprintf := pkg.Members["Sprintf"]
@@ -118,6 +124,8 @@ func TestLoadSprintfVariadic(t *testing.T) {
 // Members Gom cannot represent stay bound but Hidden — references
 // produce E0501 with the reason.
 func TestHiddenMembers(t *testing.T) {
+	t.Parallel()
+
 	l := loaderFor(t)
 	pkg := membersOf(t, l, "strconv")
 	// AppendUint writes into a []byte — byte/uint8 is unmapped.
@@ -140,6 +148,8 @@ func TestHiddenMembers(t *testing.T) {
 // untyped int consts (`math.MaxInt`, `math.MinInt`, `strconv.IntSize`)
 // stay exposed.
 func TestOverflowIntConstHidden(t *testing.T) {
+	t.Parallel()
+
 	l := loaderFor(t)
 	mp := membersOf(t, l, "math")
 	mx := mp.Members["MaxUint"]
@@ -163,6 +173,8 @@ func TestOverflowIntConstHidden(t *testing.T) {
 
 // A Go named type maps to a types.Go NamedRef with method lookup.
 func TestLoadNamedTypeAndMethods(t *testing.T) {
+	t.Parallel()
+
 	l := loaderFor(t)
 	pkg := membersOf(t, l, "bytes")
 	bufSym := pkg.Members["Buffer"]
@@ -210,6 +222,8 @@ func TestLoadNamedTypeAndMethods(t *testing.T) {
 // A Go const/var member maps like a value — math.Pi is an untyped
 // float const that behaves as `float64`.
 func TestLoadConst(t *testing.T) {
+	t.Parallel()
+
 	l := loaderFor(t)
 	pkg := membersOf(t, l, "math")
 	pi := pkg.Members["Pi"]
@@ -231,6 +245,8 @@ func TestLoadConst(t *testing.T) {
 // reference needs (spec 8.1.5). Regression: a reference used to die
 // on an internal E0901 in core validation.
 func TestLoadPkgVars(t *testing.T) {
+	t.Parallel()
+
 	l := loaderFor(t)
 	os := membersOf(t, l, "os")
 
@@ -303,6 +319,8 @@ func TestLoadPkgVars(t *testing.T) {
 // has no types.Named entry in l.named. `e.Error()` used to fail
 // E0401 "GoError has no field or method".
 func TestMethodOfGoError(t *testing.T) {
+	t.Parallel()
+
 	l := loaderFor(t)
 	msym, msig, ok := l.MethodOf(gt.GoError, "Error")
 	if !ok {
@@ -335,6 +353,8 @@ func TestMethodOfGoError(t *testing.T) {
 
 // A plain `import` never falls back to Go loading — E0203.
 func TestLoadRefusesGomPackages(t *testing.T) {
+	t.Parallel()
+
 	l := loaderFor(t)
 	if _, err := l.Load("strconv", false); err == nil {
 		t.Error("Load(strconv, goPkg=false) must fail")
@@ -346,6 +366,8 @@ func TestLoadRefusesGomPackages(t *testing.T) {
 // which is what the Gom `Unit` renders as — rather than collapsing
 // to a no-result call.
 func TestZeroResultShape(t *testing.T) {
+	t.Parallel()
+
 	l := loaderFor(t)
 	runtime := membersOf(t, l, "runtime")
 	sig, ok := l.GoSigOf(runtime.Members["Gosched"])
@@ -372,6 +394,8 @@ func TestZeroResultShape(t *testing.T) {
 // GoConstraints; a structural ~[]E constraint hides the callee under
 // E0506.
 func TestGenericSignatureViews(t *testing.T) {
+	t.Parallel()
+
 	l, _ := moduleLoader(t)
 	p := membersOf(t, l, "example.test/dependency/model")
 

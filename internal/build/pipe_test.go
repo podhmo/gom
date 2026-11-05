@@ -12,6 +12,12 @@ import (
 // error identities must survive exactly one %w wrap, and invalid
 // foreign Result values must retain the runtime contract.
 func TestPipeGoErrorChain(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 0.44)
+	}
+
+	t.Parallel()
+
 	src := `package main
 import go "strconv"
 import go "errors"
@@ -119,6 +125,12 @@ func main() {
 // segment's EscapeCall. No Result materializes between the two;
 // the failure is still wrapped once under the step's name.
 func TestPipeUnguardedGoStepFuses(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 0.39)
+	}
+
+	t.Parallel()
+
 	src := `package main
 import go "strconv"
 import go "os"
@@ -209,6 +221,12 @@ func main() {
 }
 
 func TestPipeGoInflowConversions(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 0.44)
+	}
+
+	t.Parallel()
+
 	src := `package main
 import go "fmt"
 import go "strings"

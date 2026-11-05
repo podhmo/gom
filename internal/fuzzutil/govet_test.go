@@ -198,6 +198,10 @@ func f(x int) { x = g() }
 }
 
 func TestVetUnusedResult(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 0.91)
+	}
+
 	for _, tc := range []struct {
 		name string
 		src  string

@@ -49,6 +49,8 @@ func wantDiag(t *testing.T, ds diag.List, code string, sub string) diag.Diagnost
 // "takes 3 type argument(s)" (E0401) nor "expected Ptr String"
 // (E0402) may fire.
 func TestExternFlagLookupSignature(t *testing.T) {
+	t.Parallel()
+
 	l := loaderFor(t)
 	ds := compileDiags(t, l, `package main
 
@@ -68,6 +70,8 @@ extern go "flag" {
 // An extern entry naming no exported member of the package reports
 // E0509 at the entry.
 func TestExternMissingMember(t *testing.T) {
+	t.Parallel()
+
 	l := loaderFor(t)
 	ds := compileDiags(t, l, `package main
 
@@ -83,6 +87,8 @@ extern go "flag" {
 // An extern `fn` cannot override a non-function member — `flag.Flag`
 // is a type, not a callable.
 func TestExternNonFunctionMember(t *testing.T) {
+	t.Parallel()
+
 	l := loaderFor(t)
 	ds := compileDiags(t, l, `package main
 
@@ -97,6 +103,8 @@ extern go "flag" {
 
 // Parameter count must agree with the Go signature.
 func TestExternParamCountMismatch(t *testing.T) {
+	t.Parallel()
+
 	l := loaderFor(t)
 	ds := compileDiags(t, l, `package main
 
@@ -113,6 +121,8 @@ extern go "flag" {
 // Go parameter's — `String` cannot stand for flag.Lookup's string
 // only because int and string cannot convert either.
 func TestExternParamTypeMismatch(t *testing.T) {
+	t.Parallel()
+
 	l := loaderFor(t)
 	ds := compileDiags(t, l, `package main
 
@@ -128,6 +138,8 @@ extern go "flag" {
 // `Option` for a single non-pointer result has no presence channel —
 // `strconv.Itoa` returns `string`, never absent.
 func TestExternOptionOverPlainResult(t *testing.T) {
+	t.Parallel()
+
 	l := loaderFor(t)
 	ds := compileDiags(t, l, `package main
 
@@ -143,6 +155,8 @@ extern go "strconv" {
 // `Result` for a comma-ok result is a lie the other way — `bool` is
 // not `error`.
 func TestExternResultOverCommaOK(t *testing.T) {
+	t.Parallel()
+
 	l := loaderFor(t)
 	ds := compileDiags(t, l, `package main
 
@@ -160,6 +174,8 @@ extern go "os" {
 // view's own shape) and the never-nil claim `Result GoError
 // GoError` — a `(nil, nil)` return then panics at the boundary.
 func TestExternErrorPairViews(t *testing.T) {
+	t.Parallel()
+
 	l := loaderFor(t)
 	for _, decl := range []string{
 		"fn TwoErrs (n: Int) -> Result (Option GoError) GoError",
@@ -185,6 +201,8 @@ extern go "github.com/podhmo/gom/testdata/goiface" {
 // Ok-side analogue of `Option` over a lone `*T`: the payload keeps
 // the pointer, nil reads as `Ok None`.
 func TestExternPtrPairOptionView(t *testing.T) {
+	t.Parallel()
+
 	l := loaderFor(t)
 	ds := compileDiags(t, l, `package main
 
@@ -205,6 +223,8 @@ extern go "github.com/podhmo/gom/testdata/goiface" {
 // `int` has no presence channel to read, so the declaration
 // mismatches `(int, error)` exactly like any other shape drift.
 func TestExternOptionPairOverPlainResult(t *testing.T) {
+	t.Parallel()
+
 	l := loaderFor(t)
 	ds := compileDiags(t, l, `package main
 
@@ -220,6 +240,8 @@ extern go "strconv" {
 // The payload inside the Option keeps the raw view — `Option
 // String` over `(error, error)` claims a different payload type.
 func TestExternOptionPairWrongPayload(t *testing.T) {
+	t.Parallel()
+
 	l := loaderFor(t)
 	ds := compileDiags(t, l, `package main
 
@@ -236,6 +258,8 @@ extern go "github.com/podhmo/gom/testdata/goiface" {
 // the failure channel, so the raw `(GoError, GoError)` tuple is
 // not an admitted view.
 func TestExternErrorPairTupleRejected(t *testing.T) {
+	t.Parallel()
+
 	l := loaderFor(t)
 	ds := compileDiags(t, l, `package main
 
@@ -251,6 +275,8 @@ extern go "github.com/podhmo/gom/testdata/goiface" {
 // A `(T, error)` result keeps its required `Result T GoError` shape —
 // declaring `Option` for it is rejected.
 func TestExternOptionOverError(t *testing.T) {
+	t.Parallel()
+
 	l := loaderFor(t)
 	ds := compileDiags(t, l, `package main
 
@@ -266,6 +292,8 @@ extern go "strconv" {
 // A declared type variable would claim the Go member is polymorphic —
 // it is not, so the bind rejects it.
 func TestExternPolymorphicDecl(t *testing.T) {
+	t.Parallel()
+
 	l := loaderFor(t)
 	ds := compileDiags(t, l, `package main
 
@@ -282,6 +310,8 @@ extern go "flag" {
 // binds — `*flag.Flag` cannot become `Option Flag` (the payload is
 // the pointer itself: `Option (Ptr Flag)`).
 func TestExternOptionPayloadNotPointer(t *testing.T) {
+	t.Parallel()
+
 	l := loaderFor(t)
 	ds := compileDiags(t, l, `package main
 
@@ -300,6 +330,8 @@ extern go "flag" {
 // Both bind `os.Getpid` cleanly (no E0509, and no E0407 for the
 // `()` pattern's once-dangling meta).
 func TestExternZeroArgUnitPattern(t *testing.T) {
+	t.Parallel()
+
 	l := loaderFor(t)
 	ds := compileDiags(t, l, `package main
 
@@ -317,6 +349,8 @@ extern go "os" {
 }
 
 func TestExternZeroArgUnitParam(t *testing.T) {
+	t.Parallel()
+
 	l := loaderFor(t)
 	ds := compileDiags(t, l, `package main
 
@@ -337,6 +371,8 @@ extern go "os" {
 // takes a real parameter it still mismatches (`strconv.Atoi` takes
 // a string the Unit parameter cannot stand for).
 func TestExternZeroArgOverNonNullary(t *testing.T) {
+	t.Parallel()
+
 	l := loaderFor(t)
 	ds := compileDiags(t, l, `package main
 
@@ -352,6 +388,8 @@ extern go "strconv" {
 // The bound signature drops the Unit parameter — the call shape is
 // the derived view's: `os.Getpid ()` emits `os.Getpid()`.
 func TestExternZeroArgBoundShape(t *testing.T) {
+	t.Parallel()
+
 	l := loaderFor(t)
 	ds := compileDiags(t, l, `package main
 
@@ -378,6 +416,8 @@ fn main () -> Unit = {
 // sites: the E0509 stands at the entry and the call falls back to
 // the declared signature — no cascade of confusing arity errors.
 func TestExternFallbackKeepsDeclaredSig(t *testing.T) {
+	t.Parallel()
+
 	l := loaderFor(t)
 	ds := compileDiags(t, l, `package main
 

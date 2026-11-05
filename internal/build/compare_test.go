@@ -17,6 +17,7 @@ package build_test
 // that match the emitted Go function shape.
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -27,6 +28,7 @@ import (
 	"github.com/podhmo/gom/internal/diag"
 	"github.com/podhmo/gom/internal/eval"
 	"github.com/podhmo/gom/internal/lower"
+	"github.com/podhmo/gom/internal/testbin"
 )
 
 var compareCases = []struct {
@@ -1383,8 +1385,8 @@ func lookupGo(t *testing.T) (string, error) {
 }
 
 // runCompiledCmd drops the generated file into a scratch module that
-// replaces github.com/podhmo/gom with the repository and runs
-// `go run .`, returning the combined output and the run error — the
+// replaces github.com/podhmo/gom with the repository, builds (or reuses)
+// a native binary, and runs it. It returns the output and run error — the
 // caller decides whether a non-zero exit is a failure.
 func runCompiledCmd(t *testing.T, gobin string, src []byte) (string, error) {
 	t.Helper()
@@ -1400,16 +1402,33 @@ func runCompiledCmd(t *testing.T, gobin string, src []byte) (string, error) {
 	if err := os.WriteFile(filepath.Join(dir, "main.go"), src, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	cmd := exec.Command(gobin, "run", ".")
-	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), "GOWORK=off", "GOFLAGS=-mod=mod", "GOTOOLCHAIN=local")
+	env := append(os.Environ(), "GOWORK=off", "GOFLAGS=-mod=mod", "GOTOOLCHAIN=local")
+	if mode := os.Getenv("GOM_TEST_BIN_CACHE"); mode == "off" || mode == "normalize" {
+		args := []string{"run", "."}
+		if mode == "normalize" {
+			args = []string{"run", "-trimpath", "-buildvcs=false", "."}
+		}
+		cmd := exec.Command(gobin, args...)
+		cmd.Dir, cmd.Env = dir, env
+		out, err := cmd.CombinedOutput()
+		return string(out), err
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), diffBuildTimeout)
+	defer cancel()
+	binary, err := testbin.Build(ctx, gobin, dir, env)
+	if err != nil {
+		return string(binary.Output), err
+	}
+	cmd := testbin.Command(binary.Path)
+	cmd.Dir, cmd.Env = dir, env
 	out, err := cmd.CombinedOutput()
 	return string(out), err
 }
 
 // runCompiled drops the generated file into a scratch module that
-// replaces github.com/podhmo/gom with the repository, then `go run`s
-// it. Skips when no Go toolchain is on PATH.
+// replaces github.com/podhmo/gom with the repository, then executes it.
+// The binary may be reused, but the execution is never cached.
+// Skips when no Go toolchain is on PATH.
 func runCompiled(t *testing.T, src []byte) string {
 	t.Helper()
 	gobin, err := lookupGo(t)
@@ -1429,6 +1448,12 @@ func runCompiled(t *testing.T, src []byte) string {
 // assert_eq cases pin the precomputed-verdict signature of
 // rt.AssertEq and the generated-comparator route for lists.
 func TestGeneratedTestFileRuns(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.85)
+	}
+
+	t.Parallel()
+
 	src := `package m
 
 fn main () -> Unit = ()
@@ -1506,6 +1531,12 @@ test "variants" {
 // comparator could be picked cross-file). The test proves the minted
 // names differ and the merged package builds.
 func TestTwoFilePackageCompiles(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.72)
+	}
+
+	t.Parallel()
+
 	gobin, err := exec.LookPath("go")
 	if err != nil {
 		t.Skip("no go toolchain on PATH")
@@ -1591,6 +1622,12 @@ fn beq (xs: List Int) (ys: List Int) -> Bool = xs == ys
 // this is the executable half, proving the builtin-scope `List`
 // members resolve into the Gom-written standard library end to end.
 func TestSpecPreambleRuns(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.80)
+	}
+
+	t.Parallel()
+
 	src := `package main
 
 import go "fmt"
@@ -1631,11 +1668,31 @@ fn main () -> Unit = {
 }
 
 func TestEvalMatchesCompiled(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 5.37)
+	}
+	gobin, err := lookupGo(t)
+	if err != nil {
+		t.Skip("no go toolchain on PATH")
+	}
+
+	// Prepare is serial and cheap once the loader is prewarmed:
+	// compile+eval are in-process (~10ms per case) while a subprocess
+	// `go run` costs ~0.3-0.9s. The runner harness therefore links all
+	// cases into one binary and pays only ~10ms per case to execute —
+	// see runner_test.go. Serial subtests keep t.Fatal attribution.
+	var srcs []string
 	for _, c := range compareCases {
+		srcs = append(srcs, c.src)
+	}
+	gl := sharedSuiteLoader(t, srcs...)
+	runner := newCaseRunner(t)
+	prepared := map[string]runnerCase{}
+	for i, c := range compareCases {
 		t.Run(c.name, func(t *testing.T) {
 			r, err := build.Compile(
 				build.Input{Path: c.name + ".gom", Src: []byte(c.src)},
-				suiteOptions(),
+				suiteOptionsWith(gl),
 			)
 			if err != nil {
 				t.Fatalf("compile: %v", err)
@@ -1648,11 +1705,25 @@ func TestEvalMatchesCompiled(t *testing.T) {
 			if r.Output == nil {
 				t.Fatal("no generated output")
 			}
-
 			if got := evalAnswer(t, r, c.src); got != c.want {
 				t.Fatalf("eval answer = %q, want %q", got, c.want)
 			}
-			got := strings.TrimSuffix(runCompiled(t, r.Output.Source), "\n")
+			prepared[c.name] = runner.add(t, i, c.name, r.Output.Source)
+		})
+	}
+	bin := runner.build(t, gobin)
+
+	for _, c := range compareCases {
+		t.Run("exec/"+c.name, func(t *testing.T) {
+			t.Parallel()
+			if _, ok := prepared[c.name]; !ok {
+				t.Skipf("prepare failed; see the %s subtest", c.name)
+			}
+			out, err := runner.run(bin, c.name)
+			got := strings.TrimSuffix(out, "\n")
+			if err != nil {
+				t.Fatalf("runner %s failed: %v\noutput: %s", c.name, err, out)
+			}
 			if got != c.want {
 				t.Fatalf("binary stdout = %q, want %q", got, c.want)
 			}
@@ -1670,6 +1741,12 @@ func TestEvalMatchesCompiled(t *testing.T) {
 // Rect's w slot and answered 2). A Circle value still reads
 // normally — variant_named_field covers the ok path.
 func TestWrongVariantFieldPanic(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.50)
+	}
+
+	t.Parallel()
+
 	for _, tc := range []struct {
 		name string
 		arg  string

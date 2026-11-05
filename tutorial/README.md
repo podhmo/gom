@@ -12,9 +12,11 @@ gom build main.gom   # writes main.go next to main.gom
 go run .           # or: go run main.go
 ```
 
-Each step directory is its own Go module — `go.mod` replaces
-`github.com/podhmo/gom` with this repository so the generated code's
-`rt`/`stdlib` imports resolve. `main.go` is generated, not committed.
+Steps share this repository's Go module, so the generated code's
+`rt`/`stdlib` imports resolve directly. `run.sh`/`go test` instead
+assemble a scratch module per step (`module tutorialrun/<step>` with
+`replace github.com/podhmo/gom => <repo root>`) for `go run`.
+`main.go` is generated, not committed.
 
 To run everything at once:
 
@@ -81,7 +83,6 @@ tutorial/
   NN-step/
     main.gom        the program
     expected.txt    its exact stdout when run
-    go.mod          scratch module for `go run .` (replace -> repo root)
   10-errors/
     badmatch.gom        intentionally non-exhaustive match
     expected-check.txt  the diagnostic code `gom check` must report

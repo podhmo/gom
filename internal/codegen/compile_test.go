@@ -18,6 +18,10 @@ import (
 // TestCompileSmoke generates the compile fixture, lays it out in a
 // temp module, and runs the Go toolchain over it.
 func TestCompileSmoke(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 2.43)
+	}
+
 	// runtime.GOROOT is deprecated since Go 1.24; the system path is
 	// the documented way to locate the `go` binary.
 	gobin, err := exec.LookPath("go")

@@ -10,6 +10,12 @@ import (
 // Both directions are exercised: a Go caller invokes generated Gom functions,
 // which call zero-result Go functions/methods and preserve their effect order.
 func TestVoidGoCalls(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 0.44)
+	}
+
+	t.Parallel()
+
 	src := `package main
 import go "github.com/podhmo/gom/testdata/voidhost"
 import go "io"

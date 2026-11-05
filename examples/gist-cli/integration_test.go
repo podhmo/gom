@@ -6,6 +6,7 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
+	"github.com/podhmo/gom/internal/testbin"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -80,7 +81,7 @@ func execute(t *testing.T, cli, endpoint, token string, args ...string) (string,
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	defer cancel()
 	args = append([]string{"--api-url", endpoint}, args...)
-	cmd := exec.CommandContext(ctx, cli, args...)
+	cmd := testbin.CommandContext(ctx, cli, args...)
 	for _, value := range os.Environ() {
 		if !strings.HasPrefix(value, "GITHUB_TOKEN=") {
 			cmd.Env = append(cmd.Env, value)
@@ -118,6 +119,10 @@ func writeFile(t *testing.T, dir, name, content string) string {
 }
 
 func TestGistCLI(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 2.60)
+	}
+
 	cli := buildCLI(t)
 	dir := t.TempDir()
 	first := writeFile(t, dir, "one/a.txt", "a quote: \"; slash: \\; tab:\t; 日本語\n")

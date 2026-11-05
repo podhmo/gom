@@ -50,6 +50,12 @@ func boundaryLoader(t *testing.T) (*Loader, string) {
 }
 
 func TestInterfaceAssignmentAndFieldsBothDirections(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 2.14)
+	}
+
+	t.Parallel()
+
 	l, dir := boundaryLoader(t)
 	src := `package bridge
  import go "example.test/dependency/model"
@@ -128,6 +134,12 @@ func TestInterfaceAssignmentAndFieldsBothDirections(t *testing.T) {
 }
 
 func TestFieldAndInterfaceDiagnostics(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 0.40)
+	}
+
+	t.Parallel()
+
 	cases := []struct{ name, body, code, reason string }{
 		{"unexported", "let x = (model.NewContainer ()).hidden", "E0401", "hidden"},
 		{"unsupported", "let x = (model.NewContainer ()).Bytes", "E0501", "byte/uint8"},
@@ -164,6 +176,8 @@ func TestFieldAndInterfaceDiagnostics(t *testing.T) {
 }
 
 func TestFieldLookupAndPointerMethodSet(t *testing.T) {
+	t.Parallel()
+
 	l, _ := boundaryLoader(t)
 	if l.InterfaceAssignable(&gt.Go{Ref: gt.NamedRef{Path: "missing", Name: "Unknown"}}, &gt.Go{Ref: gt.NamedRef{Path: "missing", Name: "Unknown"}}) {
 		t.Fatal("unknown named type accepted")
@@ -187,6 +201,8 @@ func TestFieldLookupAndPointerMethodSet(t *testing.T) {
 // An interface expectation must not bind or prematurely default a numeric meta.
 // The generated-Go literal-to-Float issue is tracked separately in TODO.md.
 func TestInterfaceAssignmentKeepsNumericInference(t *testing.T) {
+	t.Parallel()
+
 	l, _ := boundaryLoader(t)
 	src := `package bridge
  import go "example.test/dependency/model"

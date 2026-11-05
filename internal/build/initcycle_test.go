@@ -20,6 +20,12 @@ import (
 // tuple initializer runs, and the wrapper keeps the variable out of
 // the dependency graph entirely.
 func TestAggregateAliasRuns(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 0.33)
+	}
+
+	t.Parallel()
+
 	src := `package main
 import go "fmt"
 
@@ -65,6 +71,12 @@ fn main () -> Unit = {
 // became a wrapper: `mark` prints during package initialization,
 // before main runs.
 func TestAggregateAliasEagerInit(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 0.35)
+	}
+
+	t.Parallel()
+
 	src := `package main
 import go "fmt"
 
@@ -106,6 +118,12 @@ fn main () -> Unit = {
 // Regression: an earlier cut emitted the wrapper alone, and `mark`'s
 // print during package initialization silently disappeared.
 func TestAggregateAliasVarBlockRuns(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 0.37)
+	}
+
+	t.Parallel()
+
 	src := `package main
 import go "fmt"
 

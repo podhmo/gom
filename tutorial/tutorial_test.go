@@ -11,8 +11,7 @@ package tutorial_test
 // guard the cmd/gom end-to-end tests use).
 import (
 	"bytes"
-	"encoding/json"
-	"io"
+	"github.com/podhmo/gom/internal/testbin"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -28,8 +27,8 @@ import (
 
 // Reading fixtures in this process registers them with Go's test cache.
 // compileStep gives the test actual compiler dependencies and also checks
-// the real CLI's pipeline wiring. Each chapter is a separate module, so
-// Embedding cannot cross into a fixture directory in another Go module.
+// the real CLI's pipeline wiring. Chapters share the repository's module;
+// the scratch module each `go run` needs is synthesized, as in run.sh.
 func compileStep(t *testing.T, root, src string, checkOnly bool) *build.Result {
 	t.Helper()
 	source, err := os.ReadFile(src)
@@ -62,7 +61,10 @@ func repoRoot(t *testing.T) string {
 // only by generated Go (notably rt and stdlib).
 func trackGoInputs(t *testing.T, gobin, dir string, env []string, pattern string) {
 	t.Helper()
-	cmd := exec.Command(gobin, "list", "-deps", "-json", pattern)
+	// -f avoids the full -json package dump: emitting and decoding a
+	// struct per dependency dominated this helper's runtime.
+	const listFields = `{{.Dir}}|{{join .GoFiles " "}}|{{join .CgoFiles " "}}|{{join .SFiles " "}}|{{join .HFiles " "}}|{{join .SysoFiles " "}}|{{join .EmbedFiles " "}}|{{if .Module}}{{.Module.GoMod}}|{{.Module.Dir}}{{end}}`
+	cmd := exec.Command(gobin, "list", "-deps", "-f", listFields, pattern)
 	cmd.Dir = dir
 	cmd.Env = env
 	output, err := cmd.Output()
@@ -71,15 +73,6 @@ func trackGoInputs(t *testing.T, gobin, dir string, env []string, pattern string
 			t.Fatalf("listing Go dependencies: %v\n%s", err, exit.Stderr)
 		}
 		t.Fatalf("listing Go dependencies: %v", err)
-	}
-	type module struct {
-		Dir, GoMod string
-		Replace    *module
-	}
-	type pkg struct {
-		Dir                                                      string
-		GoFiles, CgoFiles, SFiles, HFiles, SysoFiles, EmbedFiles []string
-		Module                                                   *module
 	}
 	seen := map[string]bool{}
 	read := func(path string, optional bool) {
@@ -91,32 +84,25 @@ func trackGoInputs(t *testing.T, gobin, dir string, env []string, pattern string
 			t.Fatalf("reading Go build input %s: %v", path, err)
 		}
 	}
-	decoder := json.NewDecoder(bytes.NewReader(output))
-	for {
-		var dependency pkg
-		if err := decoder.Decode(&dependency); err == io.EOF {
-			break
-		} else if err != nil {
-			t.Fatalf("decoding Go dependencies: %v", err)
-		}
-		if dependency.Module == nil {
+	for _, line := range strings.Split(strings.TrimSpace(string(output)), "\n") {
+		fields := strings.Split(line, "|")
+		if len(fields) < 9 || fields[7] == "" {
 			continue // Standard-library inputs are tied to the test's Go toolchain.
 		}
+		pkgDir := fields[0]
 		// Track the directory as well as existing files, so adding a source
 		// to an already-used package cannot leave a cached success intact.
-		if _, err := os.ReadDir(dependency.Dir); err != nil {
+		if _, err := os.ReadDir(pkgDir); err != nil {
 			t.Fatal(err)
 		}
-		for _, files := range [][]string{dependency.GoFiles, dependency.CgoFiles, dependency.SFiles, dependency.HFiles, dependency.SysoFiles, dependency.EmbedFiles} {
-			for _, file := range files {
-				read(filepath.Join(dependency.Dir, file), false)
+		for _, files := range fields[1:7] {
+			for _, file := range strings.Fields(files) {
+				read(filepath.Join(pkgDir, file), false)
 			}
 		}
-		for manifest := dependency.Module; manifest != nil; manifest = manifest.Replace {
-			read(manifest.GoMod, false)
-			if manifest.Dir != "" {
-				read(filepath.Join(manifest.Dir, "go.sum"), true)
-			}
+		read(fields[7], false)
+		if fields[8] != "" {
+			read(filepath.Join(fields[8], "go.sum"), true)
 		}
 	}
 }
@@ -172,7 +158,7 @@ func runStep(t *testing.T, gom, gobin, root, dir string) {
 		t.Fatalf("compiler API failed: %+v", compiled.Diagnostics)
 	}
 
-	build := exec.Command(gom, "build", "-o", mod+string(filepath.Separator), src)
+	build := testbin.Command(gom, "build", "-o", mod+string(filepath.Separator), src)
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("gom build: %v\n%s", err, out)
 	}
@@ -184,11 +170,10 @@ func runStep(t *testing.T, gom, gobin, root, dir string) {
 	if !bytes.Equal(generated, compiled.Output.Source) {
 		t.Fatal("gom build output differs from the compiler API for the same source")
 	}
-	module, err := os.ReadFile(filepath.Join(dir, "go.mod"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	gomod := strings.ReplaceAll(string(module), "=> ../..", "=> "+root)
+	// The generated file carries the whole program — the scratch module
+	// only needs a go.mod pointing at the gom module (rt/stdlib) via
+	// this worktree; run.sh writes the same manifest.
+	gomod := "module tutorialrun/" + dir + "\n\ngo 1.27\n\nrequire github.com/podhmo/gom v0.0.0\n\nreplace github.com/podhmo/gom => " + root + "\n"
 	if err := os.WriteFile(filepath.Join(mod, "go.mod"), []byte(gomod), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -239,7 +224,7 @@ func checkStep(t *testing.T, gom, root, dir string) {
 		if !compiled.Diagnostics.HasError() || !found {
 			t.Fatalf("compiler API: %s missing expected error %s: %+v", src, wantCode, compiled.Diagnostics)
 		}
-		cmd := exec.Command(gom, "check", src)
+		cmd := testbin.Command(gom, "check", src)
 		out, err := cmd.CombinedOutput()
 		if err == nil {
 			t.Fatalf("%s: gom check unexpectedly succeeded\n%s", src, out)
@@ -251,6 +236,10 @@ func checkStep(t *testing.T, gom, root, dir string) {
 }
 
 func TestTutorial(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 16.36)
+	}
+
 	gobin, err := exec.LookPath("go")
 	if err != nil {
 		t.Skip("no go toolchain on PATH")
@@ -261,6 +250,7 @@ func TestTutorial(t *testing.T) {
 	for _, dir := range stepDirs(t) {
 		dir := dir
 		t.Run(dir, func(t *testing.T) {
+			t.Parallel()
 			if _, err := os.ReadFile(filepath.Join(dir, "main.gom")); err == nil {
 				runStep(t, gom, gobin, root, dir)
 			} else {

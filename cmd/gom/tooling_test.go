@@ -40,6 +40,8 @@ func fixDiag(code diag.Code, file string, start int, fixes ...diag.Fix) diag.Dia
 // applies — the first safe one; placeholder and unsafe candidates
 // are skipped over.
 func TestPlanFixesPicksFirstSafe(t *testing.T) {
+	t.Parallel()
+
 	files := map[string]bool{"a.gom": true}
 	unsafe := diag.Fix{
 		Title:         "maybe wrong",
@@ -75,6 +77,8 @@ func TestPlanFixesPicksFirstSafe(t *testing.T) {
 // already-accepted edit is skipped whole — even when only one of
 // several edits conflicts.
 func TestPlanFixesSkipsOverlapping(t *testing.T) {
+	t.Parallel()
+
 	files := map[string]bool{"a.gom": true}
 	diags := diag.List{
 		fixDiag("E0001", "a.gom", 0,
@@ -113,6 +117,8 @@ func TestPlanFixesSkipsOverlapping(t *testing.T) {
 // TestPlanFixesSkipsForeignFile: a fix is skipped whole when any of
 // its edits names a file that is not among the inputs.
 func TestPlanFixesSkipsForeignFile(t *testing.T) {
+	t.Parallel()
+
 	files := map[string]bool{"a.gom": true}
 	diags := diag.List{
 		fixDiag("E0001", "a.gom", 0,
@@ -136,6 +142,8 @@ func TestPlanFixesSkipsForeignFile(t *testing.T) {
 // TestPlanFixesRejectsBadFixes: an empty-edits or invalid-span fix
 // cannot apply; the next safe candidate is tried instead.
 func TestPlanFixesRejectsBadFixes(t *testing.T) {
+	t.Parallel()
+
 	files := map[string]bool{"a.gom": true}
 	diags := diag.List{
 		fixDiag("E0001", "a.gom", 0,

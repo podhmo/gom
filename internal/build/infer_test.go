@@ -83,6 +83,12 @@ func inferSeedCount(t *testing.T) int {
 // TestGeneratedInfer runs the witness oracle over deterministic
 // sweeps of typed-mode programs.
 func TestGeneratedInfer(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 0.55)
+	}
+
+	t.Parallel()
+
 	g, err := gomgen.LoadGrammar("../../docs/grammar.ebnf")
 	if err != nil {
 		t.Fatalf("gomgen.LoadGrammar: %v", err)

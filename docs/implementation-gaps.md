@@ -919,3 +919,39 @@
   参照: [check/apply.go](../internal/check/apply.go) `overDeclared`、
   [check/reclassify.go](../internal/check/reclassify.go) ガード、
   [sketch](sketch/2026-11-05-reclassify-arg-to-param-guard.md)。
+
+- [x] **panic 位置の E2E テストでコンパイル元と逆引きのパスが不一致**:
+  `TestPanicStackResolvesToGom` は `main.gom` をコンパイラの cwd に対する相対パスで
+  コンパイルするが、位置 index は実行用一時ディレクトリに対する相対パスとしていた。
+  実際のスタックにある絶対パスが index に一致せず、変更前の全テストでも失敗した。
+  対応: 入力と index に同じ絶対パスを渡し、元の行への復元という検査内容は維持。
+  参照: [テスト](../internal/build/e2e_gopos_test.go)、[検証](sketch/2026-11-05-test-performance.md)。
+
+- [ ] **`make check` の sumtype 検査が既存の部分 switch と未列挙ノードで失敗する**:
+  design 2.4 / AGENTS.md の sealed interface の網羅検査に対し、lower の Atom snapshot、
+  format の parenLed、codegen の二つの fixture walker、core の集合検査で5件失敗した。
+  今回の性能改善の変更前から該当コードには列挙がなく、完全チェックの計測を阻害している。
+  参照: [計測記録](sketch/2026-11-05-test-performance.md)、
+  [lower](../internal/lower/expr.go)、[format](../internal/format/expr.go)、
+  [codegen fixture](../internal/codegen/fixture_test.go)、[core test](../internal/core/core_test.go)。
+
+- [x] **生成Goがimportするruntime/stdlibを外側のテスト依存にも含める**:
+  buildテストは子Goプロセスでruntime/stdlibを使用するが、test binary側では明示的な
+  依存になっておらず、外側のGoテスト結果cacheが変更を見落とす可能性があった（再現は未確認）。
+  対応: test専用のblank importでGoの依存グラフに含め、子の実行ファイルcacheとは別に追跡する。
+  参照: [harness](../internal/build/harness_test.go)、[再利用の検証](sketch/2026-11-05-test-performance.md)。
+
+- [x] **tutorial のステップ go.mod 要求が run.sh とずれていた**:
+  `run.sh` は `module tutorialrun/<name>` の scratch go.mod を合成するが、
+  `tutorial_test.go` の `runStep` は各ステップの `go.mod` を読み `=> ../..` を
+  置換していた。"the same flow run.sh performs" という説明と実態がずれ、
+  パッケージ跨ぎも別モジュール検証もないステップに go.mod 11件が
+  テストから要求され続けていた（README・テストコメント・sketch の
+  「各ステップは独立 Go モジュール」という記述とも不整合）。
+  対応: runStep も run.sh と同じ合成に揃え、tutorial/*/go.mod を削除して
+  リポジトリルートの go.mod 1つに統一。README とテストコメントは実装に
+  合わせ、sketch は日付付き記録として残置。ステップ go.mod 不在での
+  全ステップ成功を確認済み。
+  参照: [テスト](../tutorial/tutorial_test.go)、[README](../tutorial/README.md)、
+  [decision](decisions/2026-11-05-test-performance.md)、
+  [sketch](sketch/2026-11-04-v1-tutorial-findings.md)。

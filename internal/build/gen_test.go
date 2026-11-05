@@ -36,6 +36,12 @@ import (
 // FuzzCompile's is: the compiler must never crash, leak internal
 // errors, or emit Go that does not typecheck.
 func TestGeneratedCompileCanary(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 0.72)
+	}
+
+	t.Parallel()
+
 	g, err := gomgen.LoadGrammar("../../docs/grammar.ebnf")
 	if err != nil {
 		t.Fatalf("gomgen.LoadGrammar: %v", err)
