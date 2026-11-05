@@ -30,7 +30,10 @@ func RunGoldenTests(t *testing.T, dir string, generate GenerateFunc) {
 	suiteDir := resolveSuiteDir(t, dir, "golden")
 	runCases(t, suiteDir, "golden", func(t *testing.T, c testCase) {
 		t.Helper()
-		got, err := generate(c.file)
+		if c.isDir {
+			t.Fatalf("gomtest: directory cases are not supported in the golden suite (%s)", c.name)
+		}
+		got, err := generate(c.files[0])
 		if err != nil {
 			t.Fatalf("generate failed: %v", err)
 		}
@@ -50,7 +53,7 @@ func RunGoldenTests(t *testing.T, dir string, generate GenerateFunc) {
 		}
 		if !goldenEqual(want, got) {
 			t.Errorf("golden mismatch for %s:\n%s",
-				c.file.Path, simpleDiff(normalizeGolden(want), normalizeGolden(got)))
+				c.files[0].Path, simpleDiff(normalizeGolden(want), normalizeGolden(got)))
 		}
 	})
 }

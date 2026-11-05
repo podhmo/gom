@@ -91,7 +91,10 @@ copy).
 ## Add or edit a compiler spec-fixture (this repo)
 
 A spec rule → a case in `testdata/spec/`: `<name>.gom` plus
-`<name>.expected.json` holding the expected diagnostics. Regenerate
+`<name>.expected.json` holding the expected diagnostics. A
+package-unit rule (sibling files sharing scope) → a directory case:
+`testdata/spec/<name>/` holding the member `.gom` files plus a bare
+`expected.json` — all members compile as one unit. Regenerate
 with `go test ./internal/build -run Spec -update`. Generated-Go
 changes → `testdata/golden/`. See `references/project-layout.md`.
 

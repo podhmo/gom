@@ -1,0 +1,3 @@
+package m
+
+let x = y + 1

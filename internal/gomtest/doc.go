@@ -13,6 +13,18 @@
 // '_' or '.' are ignored, which leaves room for multi-file fixtures
 // shared between cases.
 //
+// A subdirectory is a *directory case* — one case over all its
+// member files — when it directly holds a bare side file
+// (expected.json, golden.go, or case.json): its non-ignored *.gom
+// files compile together as one package unit, in filename order,
+// while a *.gomi member compiles as an interface file in its own
+// scope. The group's side files are the bare names
+// (<case>/expected.json); member-named side files and nested
+// directories inside a case are errors. Without a marker the
+// directory is a pure namespace and its .gom files are individual
+// cases. Only the spec suite supports directory cases; the golden
+// suite rejects them.
+//
 //	testdata/spec/    — expected-diagnostics cases (spec section 12)
 //	testdata/golden/  — generated-Go golden cases
 //	testdata/dump/    — phase-IR dump cases (see below)
@@ -28,24 +40,29 @@
 //
 // # Case files
 //
-// A spec case <name>.gom pairs with <name>.expected.json:
+// A spec case <name>.gom pairs with <name>.expected.json — a
+// directory case <name>/ with <name>/expected.json:
 //
 //	{"diagnostics": [ <expected diagnostic objects> ]}
 //
 // Each expected diagnostic uses the wire shape of spec section 12
 // (code, severity, message, span, data, notes, fixes, source). Only
 // the fields present in an expected object are checked — see
-// RunSpecTests for the matching semantics.
+// RunSpecTests for the matching semantics. A directory case compares
+// the aggregated diagnostics of its whole compilation unit; a span's
+// "file" names the member by its suite-relative path
+// (<case>/<member>.gom).
 //
 // A golden case <name>.gom pairs with <name>.golden.go holding the
 // generated Go source, compared literally after CRLF and trailing
 // newline normalization.
 //
-// Any case may add <name>.case.json, a manifest reserved for
-// per-case options. The only defined key is "skip": a non-empty
-// string skips the case with that text as the reported reason. The
-// .gom input and the expectations stay in place while skipped, so a
-// case can be checked in before the feature it tests exists.
+// Any case may add a manifest — <name>.case.json, or the bare
+// case.json inside a directory case — reserved for per-case options.
+// The only defined key is "skip": a non-empty string skips the case
+// with that text as the reported reason. The .gom input and the
+// expectations stay in place while skipped, so a case can be checked
+// in before the feature it tests exists.
 //
 // # Wiring and updating
 //
@@ -53,8 +70,8 @@
 // harness works before the pipeline exists:
 //
 //	func TestSpec(t *testing.T) {
-//		gomtest.RunSpecTests(t, "", func(f gomtest.File) ([]diag.Diagnostic, error) {
-//			return compile.Check(f.AbsPath(), f.Src)
+//		gomtest.RunSpecTests(t, "", func(fs []gomtest.File) ([]diag.Diagnostic, error) {
+//			return compile.CheckFiles(fs)
 //		})
 //	}
 //

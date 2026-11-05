@@ -39,6 +39,8 @@ docs/implementation-gaps.md  # spec↔impl divergence ledger
 tutorial/NN-*/      # executable tour — every chapter builds + runs
 examples/gist-cli/  # a complete CLI program (Go host bridge)
 testdata/spec/      # rule → .gom + expected diagnostics JSON
+                    #   (package-unit rule → <name>/ dir: member .gom files
+                    #    compiled as one unit + bare expected.json)
 testdata/golden/    # .gom → expected generated .go
 testdata/dump/      # phase-IR dump goldens
 testdata/fmt/       # formatter goldens

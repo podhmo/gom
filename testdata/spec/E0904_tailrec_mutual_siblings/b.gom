@@ -1,0 +1,3 @@
+package m
+
+fn odd (n: Int) -> Bool = if n == 0 { false } else { even (n - 1) }

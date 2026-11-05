@@ -22,9 +22,12 @@ var update = flag.Bool("update", false,
 
 // File extensions and suffixes making up a case, by suite. A spec case
 // is <name>.gom plus <name>.expected.json; a golden case is <name>.gom
-// plus <name>.golden.go; either may add <name>.case.json.
+// plus <name>.golden.go; either may add <name>.case.json. A directory
+// case drops the <name> prefix from its side files: <case>/ has bare
+// expected.json / golden.go / case.json next to its member .gom files.
 const (
 	gomExt      = ".gom"
+	gomiExt     = ".gomi"
 	expectedExt = ".expected.json"
 	goldenExt   = ".golden.go"
 	caseExt     = ".case.json"
@@ -49,34 +52,60 @@ func (f File) AbsPath() string {
 	return filepath.Join(f.Dir, filepath.FromSlash(f.Path))
 }
 
-// DiagnosticsFunc compiles f and returns the diagnostics produced by
-// the pipeline stages under test. The order does not matter: the
-// harness sorts a copy with diag.List.Sort before comparing. An error
-// fails the case.
-type DiagnosticsFunc func(f File) ([]diag.Diagnostic, error)
+// IsInterfaceFile reports whether path names a .gomi interface file.
+// A .gomi member of a directory case compiles in its own scope rather
+// than joining the group's package unit — the same convention
+// build.Input follows.
+func IsInterfaceFile(path string) bool {
+	return strings.HasSuffix(path, gomiExt)
+}
+
+// DiagnosticsFunc compiles a case's files and returns the
+// diagnostics produced by the pipeline stages under test. fs has one
+// entry for a single-file case and one per member — in filename
+// order — for a directory case, where the .gom members compile as
+// one package unit and a .gomi member compiles as an interface file
+// in its own scope (build.CompileFiles semantics; a one-file unit
+// degenerates to the single-file pipeline). The order of the
+// returned diagnostics does not matter: the harness sorts a copy
+// with diag.List.Sort before comparing. An error fails the case.
+type DiagnosticsFunc func(fs []File) ([]diag.Diagnostic, error)
 
 // GenerateFunc compiles f and returns the generated Go source for the
 // golden suite. An error fails the case.
 type GenerateFunc func(f File) ([]byte, error)
 
-// testCase is one discovered .gom file and its manifest.
+// testCase is one discovered case — a single .gom file, or a
+// directory whose .gom files compile as one package unit — and its
+// manifest.
 type testCase struct {
-	name string // Path minus ".gom"; the subtest name
-	file File   // the .gom input, Src already read
+	name  string // Path minus ".gom", or the directory's path; the subtest name
+	files []File // the .gom inputs, Src already read; one entry unless isDir
+
+	isDir  bool   // directory case: side files are bare names inside absDir
+	absDir string // absolute path of the case directory (isDir only)
 
 	skip    string // manifest skip reason; "" runs the case
 	loadErr error  // non-nil manifests a broken case, reported as a failure
 }
 
 // sidePath returns the path of the case file obtained by replacing
-// the .gom extension with ext (e.g. ".expected.json").
+// the .gom extension with ext (e.g. ".expected.json"). A directory
+// case drops the name prefix: its side files are the bare extension
+// names (<case>/expected.json).
 func (c testCase) sidePath(ext string) string {
-	return strings.TrimSuffix(c.file.AbsPath(), gomExt) + ext
+	if c.isDir {
+		return filepath.Join(c.absDir, ext[1:])
+	}
+	return strings.TrimSuffix(c.files[0].AbsPath(), gomExt) + ext
 }
 
-// discoverCases walks suiteDir for *.gom files, reads each case's
-// manifest, and reports side files (*.expected.json, *.golden.go,
-// *.case.json) whose .gom is missing as orphans.
+// discoverCases walks suiteDir for cases: a *.gom file is a
+// single-file case, and a directory holding a bare side file
+// (expected.json, golden.go or case.json) is a directory case over
+// its member *.gom/*.gomi files. It reads each case's manifest and
+// reports side files (*.expected.json, *.golden.go, *.case.json)
+// whose .gom is missing as orphans.
 func discoverCases(suiteDir string) (cases []testCase, orphans []string, err error) {
 	var sideFiles []string
 	err = filepath.WalkDir(suiteDir, func(path string, d fs.DirEntry, err error) error {
@@ -85,8 +114,18 @@ func discoverCases(suiteDir string) (cases []testCase, orphans []string, err err
 		}
 		name := d.Name()
 		if d.IsDir() {
-			if path != suiteDir && ignored(name) {
-				return fs.SkipDir
+			if path != suiteDir {
+				if ignored(name) {
+					return fs.SkipDir
+				}
+				c, isCase, err := dirCase(suiteDir, path)
+				if err != nil {
+					return err
+				}
+				if isCase {
+					cases = append(cases, c)
+					return fs.SkipDir
+				}
 			}
 			return nil
 		}
@@ -101,8 +140,8 @@ func discoverCases(suiteDir string) (cases []testCase, orphans []string, err err
 			}
 			src, err := os.ReadFile(path)
 			c := testCase{
-				name: strings.TrimSuffix(filepath.ToSlash(rel), gomExt),
-				file: File{Path: filepath.ToSlash(rel), Dir: suiteDir, Src: src},
+				name:  strings.TrimSuffix(filepath.ToSlash(rel), gomExt),
+				files: []File{{Path: filepath.ToSlash(rel), Dir: suiteDir, Src: src}},
 			}
 			if err != nil {
 				c.loadErr = err
@@ -123,9 +162,16 @@ func discoverCases(suiteDir string) (cases []testCase, orphans []string, err err
 	}
 
 	gomPaths := make(map[string]bool, len(cases))
+	seenNames := make(map[string]bool, len(cases))
 	for i := range cases {
 		c := &cases[i]
-		gomPaths[c.file.AbsPath()] = true
+		if seenNames[c.name] && c.loadErr == nil {
+			c.loadErr = fmt.Errorf("gomtest: case name %q is declared by both a .gom file and a directory case", c.name)
+		}
+		seenNames[c.name] = true
+		for _, f := range c.files {
+			gomPaths[f.AbsPath()] = true
+		}
 		if c.loadErr != nil {
 			continue
 		}
@@ -150,6 +196,82 @@ func discoverCases(suiteDir string) (cases []testCase, orphans []string, err err
 		}
 	}
 	return cases, orphans, nil
+}
+
+// dirCase reports whether dir is a directory case: a bare side file —
+// expected.json, golden.go or case.json, the side-file names without
+// their case-name prefix — sits directly inside it. When it is, the
+// returned testCase covers every non-ignored *.gom and *.gomi file
+// directly in dir, in filename order (os.ReadDir order), as one case
+// named by dir's suite-relative path (.gomi members compile as
+// interface files in their own scope).
+//
+// A directory without a marker is a pure namespace: the walk descends
+// into it and its .gom files stay individual cases. Inside a case
+// directory a member-named side file (a.expected.json) or a
+// subdirectory is a load error — a group has exactly one expectation
+// and is not subdivided further; a case with no members is an error
+// too, since a group always starts from real inputs.
+func dirCase(suiteDir, dir string) (testCase, bool, error) {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return testCase{}, false, fmt.Errorf("gomtest: cannot read %s: %w", dir, err)
+	}
+	marker := false
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		for _, ext := range []string{expectedExt, goldenExt, caseExt} {
+			if e.Name() == ext[1:] {
+				marker = true
+			}
+		}
+	}
+	if !marker {
+		return testCase{}, false, nil
+	}
+
+	rel, err := filepath.Rel(suiteDir, dir)
+	if err != nil {
+		return testCase{}, false, err
+	}
+	c := testCase{name: filepath.ToSlash(rel), isDir: true, absDir: dir}
+	var named []string
+	for _, e := range entries {
+		n := e.Name()
+		if e.IsDir() {
+			if c.loadErr == nil {
+				c.loadErr = fmt.Errorf("gomtest: directory case %s contains subdirectory %s", c.name, n)
+			}
+			continue
+		}
+		if ignored(n) {
+			continue
+		}
+		if strings.HasSuffix(n, gomExt) || IsInterfaceFile(n) {
+			src, rerr := os.ReadFile(filepath.Join(dir, n))
+			if rerr != nil && c.loadErr == nil {
+				c.loadErr = rerr
+			}
+			c.files = append(c.files, File{Path: c.name + "/" + n, Dir: suiteDir, Src: src})
+			continue
+		}
+		for _, ext := range []string{expectedExt, goldenExt, caseExt} {
+			if strings.HasSuffix(n, ext) && n != ext[1:] {
+				named = append(named, n)
+				break
+			}
+		}
+	}
+	if c.loadErr == nil && len(named) > 0 {
+		c.loadErr = fmt.Errorf("gomtest: named side file %s in directory case %s: "+
+			"a group's side files are bare (expected.json, case.json)", named[0], c.name)
+	}
+	if c.loadErr == nil && len(c.files) == 0 {
+		c.loadErr = fmt.Errorf("gomtest: directory case %s has no .gom/.gomi members", c.name)
+	}
+	return c, true, nil
 }
 
 // ignored reports whether a file or directory inside a suite is not a

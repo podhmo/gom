@@ -211,7 +211,7 @@ gom/
 │                     types.go が手書きの Go 表現、.go / _test.go は `gom build` / `gom test` の生成物でコミットする
 │                     bench_test.go は生成物を直接測る手書きのベンチ（P5-3、[decision](decisions/2026-11-05-generated-code-benchmark-harness.md)）
 ├── testdata/
-│   ├── spec/         仕様の規則ごとの .gom と、期待する診断 JSON
+│   ├── spec/         仕様の規則ごとの .gom と、期待する診断 JSON。パッケージ単位の規則は <name>/ ディレクトリ case（内部の .gom 群を 1 ユニットとしてコンパイル、bare な side file（expected.json / golden.go / case.json のいずれか）が目印 — [decision](decisions/2026-11-05-gomtest-multifile-cases.md)）
 │   ├── golden/       生成される Go コードのゴールデンファイル
 │   └── fmt/          フォーマッタの入力と期待する出力
 └── docs/

@@ -15,6 +15,11 @@ import (
 
 // RunSpecTests runs the expected-diagnostics suite in dir against
 // compile, one subtest per case ("" selects the repo's testdata/spec).
+// A case is a single <name>.gom file, or a directory <name>/ marked
+// by a bare side file (expected.json, golden.go or case.json) whose
+// member .gom files compile as one package unit — a .gomi member
+// compiles as an interface file in its own scope; the compile
+// function receives the whole member list either way.
 //
 // Matching semantics — every field present in an expected diagnostic
 // object constrains the actual one; absent fields are unchecked:
@@ -51,7 +56,7 @@ func RunSpecTests(t *testing.T, dir string, compile DiagnosticsFunc) {
 	suiteDir := resolveSuiteDir(t, dir, "spec")
 	runCases(t, suiteDir, "spec", func(t *testing.T, c testCase) {
 		t.Helper()
-		got, err := compile(c.file)
+		got, err := compile(c.files)
 		if err != nil {
 			t.Fatalf("compile failed: %v", err)
 		}

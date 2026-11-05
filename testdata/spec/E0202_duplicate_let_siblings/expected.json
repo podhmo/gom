@@ -1,0 +1,31 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0202",
+      "severity": "error",
+      "message": "duplicate definition of `x`",
+      "span": {
+        "file": "E0202_duplicate_let_siblings/b.gom",
+        "start": {
+          "line": 3,
+          "col": 5,
+          "offset": 15
+        },
+        "end": {
+          "line": 3,
+          "col": 6,
+          "offset": 16
+        }
+      },
+      "data": {
+        "first_defined_at": {
+          "end": 16,
+          "file": "E0202_duplicate_let_siblings/a.gom",
+          "start": 15
+        },
+        "name": "x"
+      }
+    }
+  ]
+}

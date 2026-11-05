@@ -34,13 +34,25 @@ func suiteOptions() *build.Options {
 }
 
 // specCompile drives the full pipeline — the superset of what
-// `gom check` reports — and returns the collected diagnostics.
-func specCompile(f gomtest.File) ([]diag.Diagnostic, error) {
-	r, err := build.Compile(build.Input{Path: f.Path, Src: f.Src}, suiteOptions())
+// `gom check` reports — and returns the collected diagnostics. A
+// case's files compile as one package unit (build.CompileFiles), so
+// directory cases exercise the same shared scope and unit checks the
+// CLI gives a real package; a single-file case degenerates to
+// build.Compile.
+func specCompile(fs []gomtest.File) ([]diag.Diagnostic, error) {
+	ins := make([]build.Input, len(fs))
+	for i, f := range fs {
+		ins[i] = build.Input{Path: f.Path, Src: f.Src}
+	}
+	rs, err := build.CompileFiles(ins, suiteOptions())
 	if err != nil {
 		return nil, err
 	}
-	return r.Diagnostics, nil
+	var out []diag.Diagnostic
+	for _, r := range rs {
+		out = append(out, r.Diagnostics...)
+	}
+	return out, nil
 }
 
 // goldenGenerate drives the pipeline to codegen and returns the

@@ -1,0 +1,3 @@
+package m
+
+@tailrec fn even (n: Int) -> Bool = if n < 0 { even (0 - n) } else { if n == 0 { true } else { odd (n - 1) } }

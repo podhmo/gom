@@ -78,7 +78,7 @@
 | [record-recursion-by-value](2026-11-02-record-recursion-by-value.md) | レコード型は自分自身を値として内包できない（E0413） | 採用 |
 | [sumtype-exhaustiveness-tool](2026-11-02-sumtype-exhaustiveness-tool.md) | Exhaustiveness checker for sealed interfaces (B-3) | 採用 |
 | [tailrec-requirement](2026-11-02-tailrec-requirement.md) | `@tailrec`: a requirement attribute for tail-call optimization | 採用（実装・検証済み: [sketch: tailrec-validation](../sketch/2026-11-02-tailrec-validation.md)） |
-| [test-harness](2026-11-02-test-harness.md) | テストハーネスの配置とファイル規約 (internal/gomtest) | 採用 |
+| [test-harness](2026-11-02-test-harness.md) | テストハーネスの配置とファイル規約 (internal/gomtest)（一部を [gomtest-multifile-cases](2026-11-05-gomtest-multifile-cases.md) で置き換え） | 採用 |
 | [treedump-format](2026-11-02-treedump-format.md) | IR テキストダンプ形式 (internal/treedump) | draft |
 | [agent-skill-example-verification](2026-11-03-agent-skill-example-verification.md) | gom-agent-guide の例示コードを抽出テストで検証する方式（一部を [skill-vendoring-via-symlink](2026-11-03-skill-vendoring-via-symlink.md) で置き換え） | 採用 |
 | [extern-override-binding](2026-11-03-extern-override-binding.md) | extern go binding: signature-level overrides with declared conversion rules | 採用（実装・検証した — [検証](../sketch/2026-11-03-extern-binding-verification.md)） |
@@ -138,6 +138,7 @@
 | [gom-test-go-test-flags](2026-11-05-gom-test-go-test-flags.md) | `gom test` passes the arguments after `--` through to `go test` | 採用（prototype verified — [sketch](../sketch/2026-11-05-gom-test-go-test-flags.md)） |
 | [gom-test-panic-stack](2026-11-05-gom-test-panic-stack.md) | `gom test` renders panic stacks with `.gom` positions and keeps the raw Go trace | 採用 |
 | [gomi-conformance-in-gom-fix](2026-11-05-gomi-conformance-in-gom-fix.md) | `gom fix` で `.gomi` 適合検査を走らせる（見送り） | 不採用（未決に戻した — 価値が具体化した時点で再検討） |
+| [gomtest-multifile-cases](2026-11-05-gomtest-multifile-cases.md) | Multi-file spec cases: directory cases in internal/gomtest | 採用（実装・検証した — [検証](../sketch/2026-11-05-gomtest-multifile-cases-verification.md)） |
 | [int-literal-range-check](2026-11-05-int-literal-range-check.md) | Integer and float literals must fit their static type's range | 採用（実装・検証した — [検証](../sketch/2026-11-05-int-literal-range-check.md)。testdata/spec/E0417_int_lit_range と ok_int_lit_boundaries で固定。spec.md §3.3 と problems/2026-11-05-int-literal-range-check へ反映済み） |
 | [interface-failure-withholds-output](2026-11-05-interface-failure-withholds-output.md) | `gom build` withholds a failed package's generated output | draft（prototype verified — [sketch: V-6 residual verification](../sketch/2026-11-05-v6-residual-verification.md)） |
 | [numeric-arithmetic-per-operation](2026-11-05-numeric-arithmetic-per-operation.md) | 数値演算は演算ごとの機械演算（定数畳み込みは意味に含めない） | 採用（実装・検証した — [検証](../sketch/2026-11-05-numeric-arithmetic-per-operation.md)） |

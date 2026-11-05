@@ -1,0 +1,32 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0605",
+      "severity": "error",
+      "message": "package clause \"n\" conflicts with earlier \"m\"",
+      "span": {
+        "file": "E0605_package_clause_siblings/b.gom",
+        "start": {
+          "line": 1,
+          "col": 9,
+          "offset": 8
+        },
+        "end": {
+          "line": 1,
+          "col": 10,
+          "offset": 9
+        }
+      },
+      "data": {
+        "first_declared_at": {
+          "end": 9,
+          "file": "E0605_package_clause_siblings/a.gom",
+          "start": 8
+        },
+        "name": "n",
+        "previous": "m"
+      }
+    }
+  ]
+}

@@ -1,0 +1,58 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0907",
+      "severity": "error",
+      "message": "initialization cycle for `x`: `x` refers to `y` refers to `x`",
+      "span": {
+        "file": "E0907_init_cycle_siblings/a.gom",
+        "start": {
+          "line": 3,
+          "col": 1,
+          "offset": 11
+        },
+        "end": {
+          "line": 3,
+          "col": 14,
+          "offset": 24
+        }
+      },
+      "data": {
+        "path": [
+          "x",
+          "y",
+          "x"
+        ],
+        "var": "x"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0907",
+      "severity": "error",
+      "message": "initialization cycle for `y`: `y` refers to `x` refers to `y`",
+      "span": {
+        "file": "E0907_init_cycle_siblings/b.gom",
+        "start": {
+          "line": 3,
+          "col": 1,
+          "offset": 11
+        },
+        "end": {
+          "line": 3,
+          "col": 14,
+          "offset": 24
+        }
+      },
+      "data": {
+        "path": [
+          "y",
+          "x",
+          "y"
+        ],
+        "var": "y"
+      }
+    }
+  ]
+}
