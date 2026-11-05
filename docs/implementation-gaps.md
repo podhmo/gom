@@ -237,7 +237,7 @@
   参照: [decision](decisions/2026-11-04-chan-direction-go-boundary.md)、
   [検証](sketch/2026-11-04-p5-1-concurrency-verification.md)。
 
-- [ ] **spec の例の `Result Int64 GoError` が 8.3 節の対応表と食い違う**: 9.2 節の
+- [x] **spec の例の `Result Int64 GoError` が 8.3 節の対応表と食い違う**: 9.2 節の
   `parse_port`（`strconv.ParseInt` の結果）と 8.4 節の `extern io.Copy` は `Int64` を
   宣言するが、対応表は Go の `int64` → `Int` と定める（decisions/go-types-mapping も同じ）。
   `check` は "expected Int64, got Int" を出す。extern の `Int64` は変換の上書きとして
@@ -251,6 +251,9 @@
   残るのは 9.2 `parse_port` 側 — `strconv.ParseInt` を自動マッピングで読むと `Int` であり
   `Int64` を宣言したいなら extern か `Go.conv` が要る。例を直すか対応表に `int64` の扱いを
   明記するかは未決のまま。
+  対応（wave8）: 9.2 の例を `Result Int GoError` に修正（ParseInt は自動マッピングで
+  `int64 → Int`）し、Int64 を得たい場合は extern 宣言か `Go.conv` を使う旨の注記を
+  同一節に追加 — 「例を直す」側を採用。
 - [x] **成長する多相再帰が check を通るが生成 Go が拒否される**: `fn wdepth (w: W a)` が
   `wdepth inner`（`W (List a)` で自己呼出）すると check/build は成功するが、
   生成 Go は `instantiation cycle`（`@tailrec` 版は型不整合ループ）でコンパイルできなかった。
@@ -733,9 +736,16 @@
   warn ケースと verbatim pun の沈黙ケースを追加。
 
 - [ ] **CLI では extern の照合（E0509）が走らない**: spec 8.4 は extern の宣言を生の Go シグネチャと照合し、合わなければ E0509 とする。
-  `skills/` のスニペット検査（`goimport.Loader` を直接 `Sigs` に渡す）では `fn New(text: String) -> GoError` が E0509 になるが、
+  `skills/` のスニペット検査（`goimport.Loader` を直接 `Sigs` に渡す）では `fn New (a: Int) (b: Int) -> GoError` のような arity 不一致が E0509 になるが、
   `gom check`/`gom build` は `gomimport.Loader` を `Sigs` に渡し、これが `check.ExternSource`（`BindExtern`）を実装していないため素通りし、生成・実行まで通る。
   参照: [spec 8.4](spec.md#84-extern上書き専用)、[実装](../cmd/gom/cli.go)、[extern-override-binding](decisions/2026-11-03-extern-override-binding.md)。
+  追記（wave8）: 従来の記録例 `fn New(text: String) -> GoError` は lone `error` の
+  宣言ビュー実装で受理されるようになったため例を arity 不一致に差し替え。
+  安全性は `lower` の `goResultsOf` フォールバックが宣言型から同じ shape を分類する
+  ため保たれるが、**宣言 arity のずれは救えない**（`fn Remove (n: Int) -> GoError`
+  は `os.Remove(int64)` を生成 → go build 失敗に回帰）。宣言ビューが codegen を
+  形作るようになった分、この gap の影響面は広がった（wave8 error-boundary
+  レビュー F-5）。
 
 - [ ] **E0407/E0409/E0801 の message/`data["type"]` が raw meta ID を出しうる**:
   `types.Display`/`metaNamer` による `?n` 再採番は E0401 系（occurs bind・
@@ -794,3 +804,16 @@
   lowering で定数被演算子を型付き変換に逃がす必要がある。
   参照: [expr.go](../internal/check/expr.go) `litRange`/`markLitConv`、
   [decision](decisions/2026-11-05-int-literal-range-check.md)（残余として記録済み）。
+
+- [ ] **`(error, error)` 系の結果で先頭の nil-able `error` が `Ok` ペイロードに
+  検査なしで入る**: `func F() (error, error)` の派生写像は
+  `Result GoError GoError` / `GoResultsErr` になり、`resultFromGo`（emit.go）
+  は Ok 側 payload に `convOf` のみで nil 検査を置かない。第 1 結果が nil
+  error のとき nil `GoError` が `Ok` に紛れ込み、`e.Error()` で Go 側
+  nil-interface panic する。lone `error` の宣言ビュー（`Option GoError` 相当を
+  Ok 側 payload に与える余地）で閉じられる同族の穴だが、
+  [error-result-bindings](decisions/2026-11-05-error-result-bindings.md) は
+  `(T, error)` 形状を明示的に対象外としている（pre-existing、wave8
+  error-boundary レビュー F-4 で顕在化）。
+  参照: [goimport/mapping.go](../internal/goimport/mapping.go) 派生写像、
+  [codegen/emit.go](../internal/codegen/emit.go) `resultFromGo`。

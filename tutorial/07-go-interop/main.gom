@@ -6,7 +6,9 @@
 // becomes `Result Unit GoError`, and `*T` becomes `Ptr T`. Methods
 // on Go values use `x.M(args)`; `_` in a Go call makes a one-hole
 // function. `|?>` on `GoError` results wraps each failing step's
-// error with the step name (`fmt.Errorf("name: %w", err)`).
+// error with the step name (`rt.StepErr("name", err)` —
+// renders "name: <message>" and `Unwrap` keeps
+// `errors.Is`/`errors.As` working).
 package main
 
 import go "bytes"

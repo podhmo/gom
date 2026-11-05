@@ -19,8 +19,7 @@
 - [ ] Gom の型が Go の interface を実装できるようにするか（v1 ではできない）。できるなら、どう宣言するか
 - [ ] Go のジェネリック関数のうち、`any` / `comparable` 以外の制約を持つものをどう扱うか。P0-5 で、`any`/`comparable` だけの厳格な境界では `slices.Contains`（`[S ~[]E, E comparable]`）など `slices`/`maps`/`cmp` の主要な関数がほぼ全部呼べないことが分かった。P3-3 で `any`/`comparable` は呼び出し可能になったが、`~[]E`/`~map[K]V` などの構造制約は引き続き E0506 で非公開 — spec 8.1.6 の例とのずれは [gaps](implementation-gaps.md) 参照。広げるか、spec を「`any`/`comparable` のみ」と修正するかの判断が残る（[problems](problems/2026-11-04-generic-go-fns-hidden.md)、[go-interop-boundary](decisions/2026-11-01-go-interop-boundary.md)、[sketch: P0-5](sketch/2026-11-02-p0-5-go-types-mapping.md)）
 - [ ] Go の struct 型の構築・書き込み: exported field の読み取りは [決定済み](decisions/2026-11-03-go-interface-assignment-and-fields.md)。コンポジットリテラル（`http.Server{Addr: ...}`）や field への代入を許すか、構築は Go の factory 関数や `extern` に限るか。境界での別名と可変性の仮説は [sketch](sketch/2026-11-04-boundary-aliasing-hypotheses.md)
-- [ ] 標準のバインディング（`(T, bool)` を `Option` にする関数の一覧など）をどこで管理するか
-  - エラーを**作る** Go 関数（`errors.New`/`fmt.Errorf`）もここに入れる。型だけを見る既定の対応付けでは `error` 単独の戻り値は `Result Unit GoError` になり、「エラー値の生成」と「失敗し得る操作」を区別できない（Go の `error` は値と nil=成功の印を兼ねるため、型からは原理的に分からない）。`(T, bool)` → `Option` と同じく、既定は型で決め、例外は標準のバインディングか `extern` で `-> GoError` と宣言する方針。ただし今の `extern` は `error` → `GoError` を「nil になり得るのに嘘をつく」として E0509 で拒否する（spec 8.4、[extern-override-binding](decisions/2026-11-03-extern-override-binding.md)）ので、「nil を返さない」と宣言できる例外の形を決める必要がある。[problems/goerror-construction](problems/2026-11-04-goerror-construction.md)
+- [ ] `errors.As` 系の「`any` だが非 nil ポインタを要求する」パラメータ契約を静的に表すか: `errors.As(e, p)` の第 2 引数は `any` で、`Ptr T`・`Ptr (Ptr U)`・`Ptr GoError` は受理されるが、非ポインタや nil を渡してもコンパイル時に落ちない（実行時に Go が panic）。標準バインディングに typed なビュー（`errors.As : GoError -> Ptr T -> Bool` など）を与えるか、lint でポインタ必須を警告するか、現状のままとするか（wave8 error-boundary で `errors.As` は `Ptr.new` 経由で動作確認済み — 残るのは誤用の静的検出のみ）
 - [ ] 外部モジュールから stdlib の Gom モジュール（`import "list"` 等）を import 可能にするか。現状はメイン module 外の Gom import が E0203 で拒否される（P3-6 で発見 — `testdata/gocall` の fixture は stdlib 依存を手書きで代替した）
 - [ ] `Go.Any` / `any` を `.gom`/`.gomi` のシグネチャに書けるようにするか。現状は Go 側の `any` 引数経由でしかボックス化を観測できない（`goTypeArity` は `Go.Slice`/`Go.Map` のみ受理）。P3-7 実測: `json.Decoder.Token` が `Go.Any` しか返さない唯一の stdlib decode 経路 — 推論位置でしか `Go.Any` を書けない制約が実害として観測された
 
@@ -40,7 +39,7 @@
 
 - ラベル付き引数の制限の緩和（型が未知の関数へのラベル付き適用、ラベル付き／なし関数の暗黙変換）
 - 省略可能引数とデフォルト値
-- `|?>` の自動ラップの文言を設定可能にする。候補は、書式（関数名・ソース位置・任意の文言）をパッケージ単位で指定する方法と、ステップごとに文言を書ける構文。`strconv` のようにエラーが関数名を含むパッケージで、関数名が二重に付く問題もここで扱う。エラーの構造化されたフレーム情報（呼び出しの由来の追跡）も候補
+- `|?>` の自動ラップの文言を設定可能にする。残る未決は文言のカスタマイズのみ — 書式（関数名・ソース位置・任意の文言）をパッケージ単位で指定する方法か、ステップごとに文言を書ける構文か。ステップ名由来の `step: message` 文言・構造化フレーム `rt.StepError{Step, Err}`・`strconv` 二重名は provenance として容認する方針は [result-pipe-wrap-frame](decisions/2026-11-05-result-pipe-wrap-frame.md) で採用済み
 - ローカル let 多相（入れる場合は relaxed value restriction を検討）
 - `List` のハイブリッド表現（chunked / unrolled list、所有権フラグ付きの反転ストレージなど）。先頭追加を償却 O(1) に戻す案。P0-3 でスライス表現（`type List[A] []A`）を採用したが、ユーザーレベルの `x :: acc` 型の逐次構築が支配的なワークロードで再検討する余地がある（[sketch: P0-3](sketch/2026-11-02-p0-3-list-representation.md)）
 - チャネルで送れる値を型で制限する仕組み（Rust の `Send` 相当）
