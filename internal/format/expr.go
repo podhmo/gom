@@ -377,6 +377,13 @@ func parenLed(e syntax.Expr, nb bool) bool {
 		return true
 	case *syntax.RecordLit, *syntax.Block:
 		return nb
+	case *syntax.Apply, *syntax.Ascribe, *syntax.Binary, *syntax.For,
+		*syntax.GoExpr, *syntax.Hole, *syntax.Ident, *syntax.If,
+		*syntax.Ignore, *syntax.Lambda, *syntax.Let, *syntax.ListLit,
+		*syntax.Lit, *syntax.Match, *syntax.Select, *syntax.SelectExpr,
+		*syntax.Spread, *syntax.StrInterp, *syntax.Try, *syntax.Unary:
+	default:
+		panic("unreachable")
 	}
 	return precOf(e) < pPost
 }

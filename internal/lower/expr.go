@@ -1139,13 +1139,15 @@ func (l *lowerer) unknownCall(s *seq, sp diag.Span, resTyp types.Type, callee ch
 	switch fn.(type) {
 	case *core.Var, *core.Lit:
 		// Stable references need no snapshot.
-	default:
+	case *core.CtorRef, *core.FieldGet, *core.FuncRef, *core.GoFuncRef:
 		// A FieldGet or GoFuncRef callee inside the Closure would
 		// re-evaluate at every call; the callee's own evaluation
 		// happens once, at application time — capture it now.
 		b := l.tmpBind(sp, fn.Type())
 		s.emit(b, fn)
 		fn = varOf(sp, b)
+	default:
+		panic("unreachable")
 	}
 	return l.closureChain(sp, resTyp, params, func(bs *seq, pv []core.Atom) core.Expr {
 		full := make([]core.Atom, ci.Arity)
