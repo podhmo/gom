@@ -77,6 +77,18 @@
 //     (types.Equal), so the remaining-parameter list of a partially
 //     applied function is a subset of the declared indices in
 //     declaration order — matching what check emits.
+//   - Integer values are canonical for their static type's width:
+//     a VInt an Int32-typed node produces holds a sign-extended
+//     int32. Op sites read the operand width from the node types
+//     (decision 2026-11-05-eval-int-width-aware-ops), so `==`,
+//     display and comparisons need no type information — matching
+//     generated code's per-operation int32 wrap (spec 3.3).
+//   - Host-injected VInts (NewHostFunc returns, Env.Bind,
+//     Evaluator.Apply args, hand-built lits) must arrive
+//     pre-normalized for their declared type: arithmetic, order
+//     and unary ops normalize operands at the op site, but
+//     `==`/`!=`, LitPat matching, display and assert_eq do not
+//     re-normalize width.
 //
 // # Recursion
 //

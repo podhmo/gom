@@ -175,7 +175,7 @@ bindings rather than left for `go build` to name hidden temporaries. See
 - `lower`: `typeD` → `declaredT` / `builtinName` / `isResultCon` / `isOptionCon`; `variantsOf` and the equality plans (`eqKindOf`) also try local declarations first
 - `core.Validate`: `localT` collected from the file's `TypeDecl` names → `conIs` / `resultType`
 - `codegen`: `g.localT`; Core carries the semantic decisions, so the guards only pick the generated representation
-- `eval`: `interp.localT` → `VVariant.IsResult` / `resultTag` / `errIsGoError` (the evaluator and generated code share the same reading)
+- `eval`: `interp.localT` → `VVariant.IsResult` / `resultTag` / `errIsGoError` / `intOperandWidth` (the evaluator and generated code share the same reading)
 
 Constructs that specifically need a shadowed builtin — `try`/`|?>`, builtin constructors, list literals, `for`/`select`, foreign signatures mentioning the name, and so on — report E0415 in check, and the validator rejects the same reading on hand-built IR.
 

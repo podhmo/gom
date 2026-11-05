@@ -122,6 +122,7 @@
 | [aggregate-function-bindings](2026-11-05-aggregate-function-bindings.md) | Aggregate-bound function values become named wrappers; residual initialization cycles are rejected | 採用（P2-2c の実装・検証: [検証レポート](../sketch/2026-11-05-aggregate-function-bindings-verification.md)） |
 | [deferred-member-application](2026-11-05-deferred-member-application.md) | Deferred member application: `x.M(args)` on an unresolved receiver | 採用 |
 | [eq-comparator-budget-and-names](2026-11-05-eq-comparator-budget-and-names.md) | Comparator minting is bounded and file-unique; ctor lets keep the declared interface | draft |
+| [eval-int-width-aware-ops](2026-11-05-eval-int-width-aware-ops.md) | eval の整数演算は演算位置の静的型の幅で計算する（VInt は幅を持たない） | 採用（実装・検証した — [検証](../sketch/2026-11-05-eval-int-width.md)） |
 | [exported-value-vs-type-name](2026-11-05-exported-value-vs-type-name.md) | Exported `let foo` vs `type Foo`: type names claim first | draft（prototype verified — [sketch: V-6 residual verification](../sketch/2026-11-05-v6-residual-verification.md)） |
 | [generated-code-benchmark-harness](2026-11-05-generated-code-benchmark-harness.md) | Generated-code benchmarks live beside the artifacts they measure | 採用（実装・計測は [sketch: P5-3 generated-code perf](../sketch/2026-11-05-p5-3-generated-code-perf.md)） |
 | [generated-equality-comparators](2026-11-05-generated-equality-comparators.md) | Generated per-type comparators for `==`/`!=`/`assert_eq` (core.Equal + File.EqDecls)（一部を [eq-comparator-budget-and-names](2026-11-05-eq-comparator-budget-and-names.md) で置き換え） | 採用 |

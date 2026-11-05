@@ -20,6 +20,13 @@ func isFloatCon(t types.Type) bool {
 	return ok && c.Qual == "" && c.Name == "Float"
 }
 
+// isInt32Con reports whether t is the builtin Int32 constructor —
+// the same name-check argument as isFloatCon applies.
+func isInt32Con(t types.Type) bool {
+	c, ok := types.Chase(t).(*types.Con)
+	return ok && c.Qual == "" && c.Name == "Int32"
+}
+
 // litValue builds the value of a literal node. Text is the source
 // lexeme (see doc.go for the quoting contract); failures are
 // CodeInternal diagnostics since check fixes literal meaning. typ
@@ -61,7 +68,24 @@ func litValue(kind syntax.LitKind, text string, typ types.Type, sp diag.Span) Va
 		}
 		n, err := strconv.ParseInt(text, 0, 64)
 		if err != nil {
-			failData(CodeInternal, "invalid int literal", sp, "text", text)
+			// An in-uint64-range magnitude means the spelled
+			// literal is the operand of a unary `-` whose result
+			// fits — `-9223372036854775808` materializes as
+			// MinInt64 exactly like the emitted Go constant.
+			// Wider literals are invalid programs the emitted
+			// code cannot build anyway, so they keep the
+			// malformed-text diagnostic.
+			u, uerr := strconv.ParseUint(text, 0, 64)
+			if uerr != nil {
+				failData(CodeInternal, "invalid int literal", sp, "text", text)
+			}
+			n = int64(u)
+		}
+		if isInt32Con(typ) {
+			// Width-aware materialization (spec 3.3): an Int32
+			// literal is an int32 value — sign-extended back to
+			// the VInt int64 like every Int32 operation's result.
+			n = int64(int32(n))
 		}
 		return &VInt{N: n}
 	case syntax.LitFloat:

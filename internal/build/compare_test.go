@@ -1281,6 +1281,61 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 `,
 		want: "33286.262800000004/0.2502424223466483/false/false/-9223372036854775808/33286.262800000004/true/+Inf/+Inf/-3/3",
 	},
+	{
+		// Int32 arithmetic wraps at 32 bits (spec 3.3, decision
+		// 2026-11-05-eval-int-width-aware-ops): the evaluator used
+		// to compute every integer op in int64 and answered
+		// 2147483648 where the int32 binary answers -2147483648.
+		// The pins cover every op at and around the boundary —
+		// `m / neg1` and `-m` wrap like Go's int32 (MinInt32/-1 =
+		// MinInt32, no panic), a wrapped result feeds `>`/`==`
+		// correctly, and the width survives a let binding, a
+		// function alias, and partial application.
+		name: "int32_width_arith",
+		src: `package main
+
+import go "fmt"
+
+fn f (x: Int32) -> Int32 = x + 1
+fn add (x: Int32) (y: Int32) -> Int32 = x + y
+
+let g = f
+let a : Int32 = 2147483647
+let m : Int32 = -2147483648
+let neg1 : Int32 = 0 - 1
+
+fn answer () -> String = {
+  let addA = add a
+  "${f 2147483647}/${f (-2147483648)}/${g 2147483647}/${a + 1}/${addA 1}/${m}/${m - 1}/${a * 2}/${(a + 1) > a}/${(a + 1) == m}/${-m}/${m / neg1}/${m % neg1}/${(0 - 7) % 3}"
+}
+
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "-2147483648/-2147483647/-2147483648/-2147483648/-2147483648/-2147483648/2147483647/-2/false/true/-2147483648/-2147483648/0/-1",
+	},
+	{
+		// Int/Int64 stay 64-bit and still wrap: the
+		// -9223372036854775808 spellings are the values the
+		// evaluator used to reject with an internal "invalid int
+		// literal" diagnostic while the binary answered MinInt64 —
+		// the magnitude exceeds int64 and must materialize through
+		// uint64 wrap. `m / neg1` and `-m` wrap the same way Go's
+		// int64 does (MinInt64/-1 = MinInt64).
+		name: "int64_min_literal",
+		src: `package main
+
+import go "fmt"
+
+let m : Int64 = -9223372036854775808
+let neg1 : Int64 = 0 - 1
+let big = -9223372036854775808
+
+fn answer () -> String = "${m}/${m / neg1}/${m % neg1}/${-m}/${big}/${big + 1}"
+
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "-9223372036854775808/-9223372036854775808/0/-9223372036854775808/-9223372036854775808/-9223372036854775807",
+	},
 }
 
 // evalAnswer applies the file's `answer` through internal/eval and

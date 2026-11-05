@@ -693,6 +693,30 @@ func (e *interp) evalMember(x *check.MemberExpr, env *Env) Value {
 	panic("unreachable")
 }
 
+// intOperandWidth returns the machine width of an integer operand
+// type: 32 for the builtin Int32, 64 for everything else (Int and
+// Int64 are both int64 at run time; an unresolved meta defaults to
+// Int). A file-local `type Int32` shadows the builtin the same way
+// the checker's num constraint rejects it — its Con is not an
+// integer type here.
+func (e *interp) intOperandWidth(t types.Type) int {
+	c, ok := types.Chase(t).(*types.Con)
+	if ok && c.Qual == "" && c.Name == "Int32" && !e.localT["Int32"] {
+		return 32
+	}
+	return 64
+}
+
+// wrapTo narrows n to width bits and sign-extends back to int64 —
+// the per-operation two's-complement wrap of spec 3.3. Width 64 is
+// the identity: int64 arithmetic already wraps.
+func wrapTo(width int, n int64) int64 {
+	if width == 32 {
+		return int64(int32(n))
+	}
+	return n
+}
+
 // evalUnary handles `-x` and `!x`.
 func (e *interp) evalUnary(x *check.Unary, env *Env) Value {
 	v := e.eval(x.X, env)
@@ -700,7 +724,7 @@ func (e *interp) evalUnary(x *check.Unary, env *Env) Value {
 	case syntax.UnNeg:
 		switch v := v.(type) {
 		case *VInt:
-			return &VInt{N: -v.N}
+			return &VInt{N: wrapTo(e.intOperandWidth(x.X.Type()), -v.N)}
 		case *VFloat:
 			return &VFloat{F: -v.F}
 		default:
@@ -781,31 +805,41 @@ func (e *interp) evalPrim(x *check.Binary, env *Env) Value {
 		if !ok {
 			e.binMismatch(x, l, r)
 		}
+		// Per-operation machine semantics (spec 3.3): the operands
+		// are normalized to their static width — every VInt a
+		// checked program produces is already canonical, so this
+		// only repairs host-supplied or hand-built values — then
+		// the operation runs in int64 and arithmetic results wrap
+		// back. MinInt32 / -1 lands on -2147483648 exactly like
+		// Go's int32 division, and normalized operands compare
+		// identically to int32 operands.
+		w := e.intOperandWidth(x.X.Type())
+		a, b := wrapTo(w, l.N), wrapTo(w, r.N)
 		switch x.Op {
 		case syntax.BinAdd:
-			return &VInt{N: l.N + r.N}
+			return &VInt{N: wrapTo(w, a+b)}
 		case syntax.BinSub:
-			return &VInt{N: l.N - r.N}
+			return &VInt{N: wrapTo(w, a-b)}
 		case syntax.BinMul:
-			return &VInt{N: l.N * r.N}
+			return &VInt{N: wrapTo(w, a*b)}
 		case syntax.BinDiv:
-			if r.N == 0 {
+			if b == 0 {
 				failData(CodePanic, "integer division by zero", x.Span(), "op", "/")
 			}
-			return &VInt{N: l.N / r.N}
+			return &VInt{N: wrapTo(w, a/b)}
 		case syntax.BinMod:
-			if r.N == 0 {
+			if b == 0 {
 				failData(CodePanic, "integer modulo by zero", x.Span(), "op", "%")
 			}
-			return &VInt{N: l.N % r.N}
+			return &VInt{N: wrapTo(w, a%b)}
 		case syntax.BinLt:
-			return &VBool{B: l.N < r.N}
+			return &VBool{B: a < b}
 		case syntax.BinLe:
-			return &VBool{B: l.N <= r.N}
+			return &VBool{B: a <= b}
 		case syntax.BinGt:
-			return &VBool{B: l.N > r.N}
+			return &VBool{B: a > b}
 		case syntax.BinGe:
-			return &VBool{B: l.N >= r.N}
+			return &VBool{B: a >= b}
 		}
 	case *VFloat:
 		r, ok := r.(*VFloat)

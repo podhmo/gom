@@ -29,6 +29,10 @@ func intLit(n int64) *check.Lit {
 	return &check.Lit{Base: b(types.Int), Kind: syntax.LitInt, Text: strconv.FormatInt(n, 10)}
 }
 
+func i32Lit(n int64) *check.Lit {
+	return &check.Lit{Base: b(types.Int32), Kind: syntax.LitInt, Text: strconv.FormatInt(n, 10)}
+}
+
 func floatLit(f float64) *check.Lit {
 	return &check.Lit{Base: b(types.Float), Kind: syntax.LitFloat, Text: strconv.FormatFloat(f, 'g', -1, 64)}
 }
@@ -156,6 +160,14 @@ func TestLiterals(t *testing.T) {
 		{"int", intLit(42), "42"},
 		{"hex int", &check.Lit{Base: b(types.Int), Kind: syntax.LitInt, Text: "0x1F"}, "31"},
 		{"int underscores", &check.Lit{Base: b(types.Int), Kind: syntax.LitInt, Text: "1_000"}, "1000"},
+		// Width-aware materialization (decision
+		// 2026-11-05-eval-int-width-aware-ops): an Int32-typed
+		// literal narrows to int32, and an int64-overflowing
+		// magnitude wraps through uint64 — the operand of a unary
+		// `-` spelling MinInt64.
+		{"int32 lit narrows", i32Lit(2147483647), "2147483647"},
+		{"int32 lit wraps", &check.Lit{Base: b(types.Int32), Kind: syntax.LitInt, Text: "3000000000"}, "-1294967296"},
+		{"int64 lit min magnitude", &check.Lit{Base: b(types.Int64), Kind: syntax.LitInt, Text: "9223372036854775808"}, "-9223372036854775808"},
 		{"float", floatLit(3.14), "3.14"},
 		// A Float-typed integer literal materializes as
 		// float64(text) in generated code — widths ParseInt
@@ -215,6 +227,21 @@ func TestArithmeticAndComparison(t *testing.T) {
 		{"float eq merged literals", bin(syntax.BinEq, types.Bool, floatLit(0.3), floatLit(0.29999999999999999)), "true"},
 		{"float mul overflow", bin(syntax.BinMul, types.Float, floatLit(1.5e308), floatLit(1e308)), "+Inf"},
 		{"int add wraps", bin(syntax.BinAdd, types.Int, intLit(9223372036854775807), intLit(1)), "-9223372036854775808"},
+		// Width-aware integer ops (spec 3.3, decision
+		// 2026-11-05-eval-int-width-aware-ops): Int32 operands wrap
+		// at 32 bits — the operand type on each node decides, so an
+		// Int32-typed node computes in int32 while the same nodes
+		// typed Int stay int64.
+		{"int32 add wraps", bin(syntax.BinAdd, types.Int32, i32Lit(2147483647), i32Lit(1)), "-2147483648"},
+		{"int32 sub wraps", bin(syntax.BinSub, types.Int32, i32Lit(-2147483648), i32Lit(1)), "2147483647"},
+		{"int32 mul wraps", bin(syntax.BinMul, types.Int32, i32Lit(2147483647), i32Lit(2)), "-2"},
+		{"int32 min div neg1", bin(syntax.BinDiv, types.Int32, i32Lit(-2147483648), i32Lit(-1)), "-2147483648"},
+		{"int32 min mod neg1", bin(syntax.BinMod, types.Int32, i32Lit(-2147483648), i32Lit(-1)), "0"},
+		{"int32 neg wraps", &check.Unary{Base: b(types.Int32), Op: syntax.UnNeg, X: i32Lit(-2147483648)}, "-2147483648"},
+		{"int32 wrapped feeds lt", bin(syntax.BinGt, types.Bool,
+			bin(syntax.BinAdd, types.Int32, i32Lit(2147483647), i32Lit(1)), i32Lit(2147483647)), "false"},
+		{"int32 wrapped feeds eq", bin(syntax.BinEq, types.Bool,
+			bin(syntax.BinAdd, types.Int32, i32Lit(2147483647), i32Lit(1)), i32Lit(-2147483648)), "true"},
 		{"lt", bin(syntax.BinLt, types.Bool, intLit(1), intLit(2)), "true"},
 		{"le", bin(syntax.BinLe, types.Bool, intLit(2), intLit(2)), "true"},
 		{"gt", bin(syntax.BinGt, types.Bool, intLit(1), intLit(2)), "false"},
@@ -240,6 +267,38 @@ func TestIntDivByZero(t *testing.T) {
 		bin(syntax.BinDiv, types.Int, intLit(1), intLit(0)))
 	if d.Code != eval.CodePanic {
 		t.Fatalf("code = %s, want %s", d.Code, eval.CodePanic)
+	}
+}
+
+// A file declaring `type Int32` shadows the builtin file-wide
+// (design 2.6): a Con spelling `Int32` in operand position then
+// denotes the local declaration, not an integer type, so
+// intOperandWidth must read 64 for it — the same localT guard the
+// Result/GoError paths use. check reports E0415 on arithmetic with
+// a shadowed Int32 before eval ever sees the node, so this path is
+// reachable only through a hand-built file — pinning it keeps the
+// guard honest rather than dead code.
+func TestIntOperandWidthLocalInt32Shadow(t *testing.T) {
+	local32 := &types.Con{Name: "Int32"}
+	decl := &check.TypeDecl{
+		Sp:   sp,
+		Sym:  sym("Int32", resolve.KindType),
+		Body: &check.AliasType{Sp: sp, Type: types.Int},
+	}
+	ev := eval.New(&check.File{Sp: sp, Decls: []check.Decl{decl}})
+
+	xs := sym("x", resolve.KindVar)
+	ev.Env().Bind(xs, &eval.VInt{N: 2147483647})
+
+	// Without the localT guard this Con reads as builtin Int32 and
+	// the sum wraps to -2147483648; with the declaration in scope
+	// the width is 64 and int64 arithmetic applies.
+	r := ev.Expr(bin(syntax.BinAdd, local32, vr(xs, local32), intLit(1)))
+	if !r.OK() {
+		t.Fatalf("eval failed: %+v", r.Diags)
+	}
+	if r.Value.String() != "2147483648" {
+		t.Fatalf("got %s, want 2147483648 (no wrap under a shadowed Int32)", r.Value)
 	}
 }
 
