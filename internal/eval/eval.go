@@ -609,6 +609,24 @@ func (e *interp) evalMember(x *check.MemberExpr, env *Env) Value {
 			failData(CodeInternal, "record has no such field", x.Sel.Sp,
 				"field", x.Sel.Name)
 		case *VVariant:
+			// A named payload read through the sum type asserts the
+			// value holds the owning variant (spec 3.2, decision
+			// 2026-11-05-variant-field-assert-owning-ctor): a wrong-
+			// variant value is a contract violation and panics, like
+			// generated code's `s.(Shape_Circle).R` assertion and the
+			// match decision tree's invalid-variant arm. The identity
+			// comparison mirrors matchPat's — a bare-name value
+			// (Ctor == nil, hand-built) compares by name.
+			if x.Ctor != nil &&
+				r.Ctor != x.Ctor &&
+				!(r.Ctor == nil && r.Name == x.Ctor.Name) {
+				panic(failure{d: diag.Error(CodePanic,
+					"field access on the wrong variant").
+					At(x.Sel.Sp).
+					Set("field", x.Sel.Name).
+					Set("ctor", x.Ctor.Name).
+					Set("value", r.String())})
+			}
 			if x.Index >= 0 {
 				if f, ok := r.FieldByIndex(x.Index); ok {
 					return f.V

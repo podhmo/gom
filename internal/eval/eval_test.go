@@ -207,6 +207,14 @@ func TestArithmeticAndComparison(t *testing.T) {
 		{"float add", bin(syntax.BinAdd, types.Float, floatLit(1.5), floatLit(0.5)), "2"},
 		{"float div", bin(syntax.BinDiv, types.Float, floatLit(1), floatLit(4)), "0.25"},
 		{"float div by zero", bin(syntax.BinDiv, types.Float, floatLit(1), floatLit(0)), "+Inf"},
+		// Per-operation semantics pins (spec 3.3, decision
+		// 2026-11-05-numeric-arithmetic-per-operation): literals a
+		// single float64 merges compare equal (exact folding would
+		// answer false), float overflow reaches +Inf instead of a
+		// constant error, and Int wraps on overflow.
+		{"float eq merged literals", bin(syntax.BinEq, types.Bool, floatLit(0.3), floatLit(0.29999999999999999)), "true"},
+		{"float mul overflow", bin(syntax.BinMul, types.Float, floatLit(1.5e308), floatLit(1e308)), "+Inf"},
+		{"int add wraps", bin(syntax.BinAdd, types.Int, intLit(9223372036854775807), intLit(1)), "-9223372036854775808"},
 		{"lt", bin(syntax.BinLt, types.Bool, intLit(1), intLit(2)), "true"},
 		{"le", bin(syntax.BinLe, types.Bool, intLit(2), intLit(2)), "true"},
 		{"gt", bin(syntax.BinGt, types.Bool, intLit(1), intLit(2)), "false"},
@@ -915,6 +923,62 @@ func TestADT(t *testing.T) {
 		r := ev.Expr(x)
 		if !r.OK() || r.Value.String() != "3" {
 			t.Fatalf("result = %v diags=%v", r.Value, r.Diags)
+		}
+	})
+
+	t.Run("variant field read asserts the owning ctor", func(t *testing.T) {
+		// A named payload read through the sum type asserts the
+		// value holds the owning variant (spec 3.2, decision
+		// 2026-11-05-variant-field-assert-owning-ctor): `s.radius`
+		// with Ctor=Circle on a Rect value is a contract violation
+		// — the read used to fall through to index 0 and answer w.
+		sPat, sSym := vpat("s", con)
+		mk := func(recv check.Expr) *check.MemberExpr {
+			return &check.MemberExpr{Base: b(types.Float), Recv: recv,
+				Sel: &syntax.Ident{Sp: sp, Name: "radius"}, Sym: syms["radius"],
+				Index: 0, Ctor: syms["Circle"]}
+		}
+		ok := block(types.Float,
+			let(sPat, directCall(con, syms["Circle"], circleSig, floatLit(1.5))),
+			mk(vr(sSym, con)))
+		if v := ev.Expr(ok); !v.OK() || v.Value.String() != "1.5" {
+			t.Fatalf("owning variant: result = %v diags=%v", v.Value, v.Diags)
+		}
+
+		for _, ctor := range []struct {
+			name string
+			x    check.Expr
+		}{
+			{"wrong variant", directCall(con, syms["Rect"], rectSig, floatLit(2), floatLit(3))},
+			{"nullary variant", vr(syms["Empty"], con)},
+		} {
+			t.Run(ctor.name, func(t *testing.T) {
+				sPat, sSym := vpat("s", con)
+				x := block(types.Float, let(sPat, ctor.x), mk(vr(sSym, con)))
+				d := evalFail(t, ev.Env(), x)
+				if d.Code != eval.CodePanic {
+					t.Fatalf("code = %s, want %s", d.Code, eval.CodePanic)
+				}
+			})
+		}
+
+		// A bare-name value (Ctor == nil, hand-built or host-bound)
+		// compares by name, like matchPat — `Circle 1.5` satisfies
+		// the assertion while `Rect 2 3` does not.
+		_, sSym2 := vpat("s", con)
+		env := eval.NewEnv()
+		env.Bind(sSym2, &eval.VVariant{Name: "Circle", Fields: []eval.VField{
+			{Name: "radius", Index: 0, V: &eval.VFloat{F: 1.5}}}})
+		r := eval.Expr(env, mk(vr(sSym2, con)))
+		if !r.OK() || r.Value.String() != "1.5" {
+			t.Fatalf("bare-name Circle: result = %v diags=%v", r.Value, r.Diags)
+		}
+		env.Bind(sSym2, &eval.VVariant{Name: "Rect", Fields: []eval.VField{
+			{Name: "w", Index: 0, V: &eval.VFloat{F: 2}},
+			{Name: "h", Index: 1, V: &eval.VFloat{F: 3}}}})
+		r = eval.Expr(env, mk(vr(sSym2, con)))
+		if r.OK() || len(r.Diags) == 0 || r.Diags[0].Code != eval.CodePanic {
+			t.Fatalf("bare-name Rect: result = %v diags=%v, want E9003", r.Value, r.Diags)
 		}
 	})
 

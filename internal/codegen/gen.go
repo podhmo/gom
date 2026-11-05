@@ -630,6 +630,12 @@ func (g *gen) floatTyped(t types.Type) bool {
 // constant expression: literals, unary ops, and binary ops composed
 // entirely of them. Every other node emits a value with a concrete
 // type, so `:=` over it is already safe.
+//
+// Keep this node-shape table in step with lower.litFoldDiverges's
+// op/type table (internal/lower/expr.go): they are the two
+// enumerations of "what emits a Go constant expression". A new
+// constant-shaped core node or a new fold-divergent op must be
+// reflected in both.
 func untypedConst(x core.Expr) bool {
 	switch e := x.(type) {
 	case *core.Lit:

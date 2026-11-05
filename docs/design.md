@@ -100,7 +100,8 @@ Go コード生成器に言語の意味を判断させない。次のことは C
 6. **型の具体化**: 多相な定義と、実行時の関数値を区別する。多相な定義を値として使う箇所では型引数が具体化済みで、必要なラッパーも確定済み（関数値の表現は [decisions/function-value-representation](decisions/2026-11-02-function-value-representation.md)、多相定義との区別は [decisions/function-representation](decisions/2026-11-01-function-representation.md)）
 7. **エントリポイントの判定**: `package main` の `fn main () -> Unit` という言語規則は `FuncDecl.IsEntry` として確定済み。codegen はパッケージ名・関数名を見ず、このフラグだけで `func main()` を出力する（[decisions/fn-main-entrypoint](decisions/2026-11-04-fn-main-entrypoint.md)）
 8. **等価のレシピ**: `==` / `!=` / `assert_eq` がどう比較するか（ネイティブ `==`・ランタイムのフォールバック・エラーの文字列比較・生成した比較関数の呼び出し）は `core.Equal` / `CallBuiltin.Eq` のプランとして確定済み（4.9 節）
-9. **ソースの由来**: すべてのノードが元の Gom ソースの範囲を指す
+9. **数値演算の定数回避**: `Float` の `+ - * / < <= > >= == !=` と整数系の `+ - * /` で被演算子が両方とも数値リテラルのとき、左オペランドを変数に束縛する。Go が定数式として畳むのは言語の「演算ごとの機械演算」の意味（spec 3.3）とずれるので、実行時評価を強いる束縛として Core IR で確定する（[decision](decisions/2026-11-05-numeric-arithmetic-per-operation.md)）
+10. **ソースの由来**: すべてのノードが元の Gom ソースの範囲を指す
 
 例: ラベル付き引数の並べ替え。
 

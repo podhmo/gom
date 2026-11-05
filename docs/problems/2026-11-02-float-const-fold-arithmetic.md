@@ -1,5 +1,8 @@
 # Float literal arithmetic constant-folds in generated Go but evaluates per-operation in the evaluator
 
+- 状態: 解消（[decision](../decisions/2026-11-05-numeric-arithmetic-per-operation.md) — 数値演算は演算ごとの機械演算と決定。lower がリテラルのみの被演算子を変数経由にして生成 Go の定数式を回避する。検証は [sketch](../sketch/2026-11-05-numeric-arithmetic-per-operation.md)、knownDivergences の 2 件は退役）
+- 日付: 2026-11-02
+
 Found by the V-3 eval-vs-compiled differential test
 (`internal/build/diff_test.go`, deterministic gomgen seed 52).
 Registered in `knownDivergences`.

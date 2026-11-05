@@ -129,9 +129,11 @@
 | [gom-test-panic-stack](2026-11-05-gom-test-panic-stack.md) | `gom test` renders panic stacks with `.gom` positions and keeps the raw Go trace | 採用（実装は TODO） |
 | [gomi-conformance-in-gom-fix](2026-11-05-gomi-conformance-in-gom-fix.md) | `gom fix` で `.gomi` 適合検査を走らせる（見送り） | 不採用（未決に戻した — 価値が具体化した時点で再検討） |
 | [interface-failure-withholds-output](2026-11-05-interface-failure-withholds-output.md) | `gom build` withholds a failed package's generated output | draft（prototype verified — [sketch: V-6 residual verification](../sketch/2026-11-05-v6-residual-verification.md)） |
+| [numeric-arithmetic-per-operation](2026-11-05-numeric-arithmetic-per-operation.md) | 数値演算は演算ごとの機械演算（定数畳み込みは意味に含めない） | 採用（実装・検証した — [検証](../sketch/2026-11-05-numeric-arithmetic-per-operation.md)） |
 | [package-compilation-unit](2026-11-05-package-compilation-unit.md) | The package compilation unit: shared top-level scope and .gomi imports | 採用（[sketch: multifile package verification](../sketch/2026-11-05-multifile-package-verification.md) — V-6 vertical slice verified end to end） |
 | [package-initialization-order](2026-11-05-package-initialization-order.md) | Package initialization order: Go's dependency analysis over the whole unit | 採用（prototype で検証済み — [sketch](../sketch/2026-11-05-package-initialization-order-verification.md)。spec.md §5.1 へ反映済み） |
 | [pkg-type-ctor-spelling](2026-11-05-pkg-type-ctor-spelling.md) | `pkg.Type.Ctor`: a per-type constructor table for imported types | draft（prototype verified — [sketch: V-6 residual verification](../sketch/2026-11-05-v6-residual-verification.md)） |
 | [post-arg-selector-binding](2026-11-05-post-arg-selector-binding.md) | Post-argument selector binding: `x.M(1).N(2)` chains like Go | 採用 |
 | [test-name-file-tag](2026-11-05-test-name-file-tag.md) | Same-named `test` blocks in sibling files take a file tag | draft（prototype verified — [sketch: V-6 residual verification](../sketch/2026-11-05-v6-residual-verification.md)） |
+| [variant-field-assert-owning-ctor](2026-11-05-variant-field-assert-owning-ctor.md) | バリアントの名前付きペイロード読み取りは所有者バリアントをアサートする | 採用（実装・検証した — [検証](../sketch/2026-11-05-variant-field-assert-owning-ctor.md)） |
 <!-- END GENERATED -->

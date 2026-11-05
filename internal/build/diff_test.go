@@ -122,33 +122,7 @@ type diffOutcome struct {
 // Match/TODO/Desc bookkeeping (see fuzzutil.KnownBug); every entry
 // needs an open TODO.md item and CheckRegistry keeps the list
 // bounded.
-var knownDivergences = map[[32]byte]fuzzutil.KnownBug{
-	// `"${(869.32)*(38.29)}"`: the evaluator multiplies float64
-	// values (each literal rounded, then the op rounded — IEEE754
-	// semantics), while the generated Go emits the untyped
-	// constant expression verbatim so Go's arbitrary-precision
-	// constant folding rounds once — the products differ in the
-	// last ulp and the same 'g' -1 display prints different
-	// strings. Which side owns the spec's Float semantics is the
-	// open question (docs/problems/2026-11-02-float-const-fold-
-	// arithmetic.md). Typed deterministic seed 52.
-	fuzzutil.Sum256([]byte("package main\nimport go\"fmt\"\nfn answer()->String=\"${(869.32)*(38.29)}hello hello\"\nfn main()->Unit={()\nlet _=fmt.Println(answer())\n()\n}\n")): {
-		Match: []string{"stdout differs", "33286.262800000004", "compiled=\"33286.2628hello"},
-		TODO:  "Float リテラル演算が生成 Go の定数畳み込みで評価器と値がずれる",
-		Desc:  "float literal arithmetic constant-folds in generated Go but evaluates per-op in eval",
-	},
-	// Same bug, second instance: `"lit${(24e1)/(959.07)}v="` —
-	// `lit0.2502424223466483v=` (eval, per-op float64) vs
-	// `lit0.25024242234664834v=` (compiled, folded). The digit
-	// tails are the signature; every new literal pair folds to a
-	// different last-ulp pair, so instances register separately.
-	// Typed deterministic seed 93.
-	fuzzutil.Sum256([]byte("package main\nimport go\"fmt\"\nfn answer()->String=\"lit${(24e1)/(959.07)}v=\"\nfn main()->Unit={()\n()\nlet _=fmt.Println(answer())\n()\n}\n")): {
-		Match: []string{"stdout differs", "lit0.2502424223466483v=", "lit0.25024242234664834v="},
-		TODO:  "Float リテラル演算が生成 Go の定数畳み込みで評価器と値がずれる",
-		Desc:  "float literal division constant-folds in generated Go (24e1/959.07)",
-	},
-}
+var knownDivergences = map[[32]byte]fuzzutil.KnownBug{}
 
 const knownDivergencesCap = 24
 

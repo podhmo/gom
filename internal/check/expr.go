@@ -1085,17 +1085,19 @@ func (c *checker) checkArith(e *syntax.Binary, constrain func(*metaRec)) Expr {
 }
 
 // revisitDivs reports E0414 for each `/` or `%` whose right operand
-// folded to a constant zero — the rule Go applies to the emitted
-// code. It runs from finalize, after the defaulting pass, so an
-// operand meta is judged by its solved type:
+// folded to a constant zero — a legality judgment on the written
+// expression, using constFold's source-level domain. It runs from
+// finalize, after the defaulting pass, so an operand meta is judged
+// by its solved type:
 //
 //   - integral operand (Int, Int32, Int64 — including metas that
 //     defaulted there): the division is reported, dividend or not —
-//     `x / 0` emits a division Go itself rejects, and for `x / (1-1)`
-//     folding the divisor is what Go does too;
+//     `x / 0` is a division by a constant zero, and for `x / (1-1)`
+//     folding the divisor is what makes the zero visible;
 //   - Float operand: reported only when the dividend is also a
-//     constant expression (`10.0 / 0.0` is an invalid Go constant;
-//     `x / 0.0` is the IEEE division to +Inf that Go allows);
+//     constant expression (`10.0 / 0.0` folds to an invalid
+//     constant; `x / 0.0` is the IEEE division to +Inf that Go
+//     allows — and the spec's per-operation semantics produces);
 //   - still-unbound operand meta: left alone — the meta's own E0407
 //     (or quiet recovery) covers the expression. A non-numeric
 //     operand (`true / 0`) already reports the num constraint —
@@ -1125,13 +1127,19 @@ func constZero(e Expr) bool {
 	return ok && constant.Sign(v) == 0
 }
 
-// constFold evaluates e as a Go constant expression and returns its
-// value, or false when e is not constant. The folded shapes are the
-// ones that emit Go constants — numeric literals, unary `-`, the
-// arithmetic binary operators over constants, and type ascriptions —
-// evaluated with go/constant's exact arithmetic (arbitrary precision
-// integers and rationals, so the fold agrees with the compiler's
-// judgment of the emitted code, not float64 arithmetic). Everything
+// constFold evaluates e as a source-level constant expression and
+// returns its value, or false when e is not constant. The folded
+// shapes are the ones spec 3.3's E0414 rule spells out — numeric
+// literals, unary `-`, the arithmetic binary operators over
+// constants, and type ascriptions — evaluated with go/constant's
+// exact arithmetic (arbitrary precision integers and rationals, so
+// the fold agrees with the compiler's judgment, not float64
+// arithmetic). This is a legality judgment on the written
+// expression, not on the emitted code: lowering binds literal-only
+// numeric operations through variables where a Go constant fold
+// could diverge from per-operation semantics, so the emitted Go is
+// never a *divergent* constant expression (decision
+// 2026-11-05-numeric-arithmetic-per-operation). Everything
 // else is not a constant: variables and named constants (a `let`
 // binding emits a Go variable, not a Go constant — `let z = 0`
 // leaves `x / z` a runtime panic, matching Go), function calls,

@@ -1,5 +1,8 @@
 # `.f` on a sum value holding a different variant — eval vs compiled
 
+- 状態: 解消（[decision](../decisions/2026-11-05-variant-field-assert-owning-ctor.md) — 名前付きペイロード読み取りは所有者バリアントをアサートすると決定。評価器が ctor 一致を検査して E9003 で panic するようになり生成コードの型アサーションと揃った。検証は [sketch](../sketch/2026-11-05-variant-field-assert-owning-ctor.md)、spec 3.2 / 8.6 節に反映）
+- 日付: 2026-11-02
+
 Spec section 3.2 lets a uniquely named payload slot be selected
 through the sum type: `s.r` on `s : Shape` typechecks when exactly
 one variant declares `r`, regardless of which variant the value

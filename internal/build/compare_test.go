@@ -1236,6 +1236,51 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 `,
 		want: "1e+20/5.902958103587057e+20",
 	},
+	{
+		// Numeric arithmetic is per-operation machine arithmetic
+		// (spec 3.3, decision
+		// 2026-11-05-numeric-arithmetic-per-operation): a
+		// literal-only subexpression emits runtime Go, so generated
+		// code can no longer fold it exactly. These are the two
+		// knownDivergences registrations — `"${(869.32)*(38.29)}"`
+		// and `"lit${(24e1)/(959.07)}v="` — plus the comparison
+		// edges of the same fold: exact `0.1 + 0.2` equals `0.3`,
+		// and `MaxInt + 1` does not compile as a Go constant at
+		// all. The let-bound `x` pins that literal and non-literal
+		// spellings agree. The remaining pins cover the fold's
+		// other edges: `0.3 == 0.29999999999999999` merges under
+		// IEEE — both literals round to the same float64, while
+		// exact folding keeps them distinct and answers `false`;
+		// `x / 0.0` is legal (the dividend is not constant, so no
+		// E0414) and yields +Inf; `1.5e308 * 1e308` overflows
+		// float64 — an invalid Go constant the binary used to be
+		// rejected for, now a runtime +Inf; and the Int `-`/`/`
+		// literal pairs run their machine operation.
+		name: "numeric_literal_arith",
+		src: `package main
+
+import go "fmt"
+
+fn answer () -> String = {
+  let a = 869.32 * 38.29
+  let b = 24e1 / 959.07
+  let c = 0.1 + 0.2 == 0.3
+  let d = 0.1 + 0.2 <= 0.3
+  let e = 9223372036854775807 + 1
+  let x = 869.32
+  let f = x * 38.29
+  let g = 0.3 == 0.29999999999999999
+  let h = x / 0.0
+  let i = 1.5e308 * 1e308
+  let j = 5 - 8
+  let k = 7 / 2
+  "${a}/${b}/${c}/${d}/${e}/${f}/${g}/${h}/${i}/${j}/${k}"
+}
+
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "33286.262800000004/0.2502424223466483/false/false/-9223372036854775808/33286.262800000004/true/+Inf/+Inf/-3/3",
+	},
 }
 
 // evalAnswer applies the file's `answer` through internal/eval and
@@ -1555,6 +1600,87 @@ func TestEvalMatchesCompiled(t *testing.T) {
 			got := strings.TrimSuffix(runCompiled(t, r.Output.Source), "\n")
 			if got != c.want {
 				t.Fatalf("binary stdout = %q, want %q", got, c.want)
+			}
+		})
+	}
+}
+
+// TestWrongVariantFieldPanic pins the assertion semantics of spec
+// 3.2 / decision 2026-11-05-variant-field-assert-owning-ctor: a
+// uniquely named payload read through the sum type typechecks for
+// any value of the ADT but panics at run time on a value holding a
+// different variant. eval reports the contract violation as E9003;
+// the binary's `s.(Shape_Circle).R` type assertion fails — both
+// sides must land in the panic class (the divergent behavior read
+// Rect's w slot and answered 2). A Circle value still reads
+// normally — variant_named_field covers the ok path.
+func TestWrongVariantFieldPanic(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		arg  string
+	}{
+		{"wrong_variant", "Rect 2.0 3.0"},
+		{"nullary_variant", "Empty"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			src := `package main
+
+import go "fmt"
+
+type Shape = | Circle (r: Float) | Rect (w: Float) (h: Float) | Empty
+
+fn getr (s: Shape) -> Float = s.r
+
+fn answer () -> String = "${getr (` + tc.arg + `)}"
+
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`
+			r, err := build.Compile(
+				build.Input{Path: tc.name + ".gom", Src: []byte(src)},
+				suiteOptions(),
+			)
+			if err != nil {
+				t.Fatalf("compile: %v", err)
+			}
+			for _, d := range r.Diagnostics {
+				if d.Severity == diag.SeverityError {
+					t.Fatalf("%s: %s", d.Code, d.Message)
+				}
+			}
+			if r.Output == nil {
+				t.Fatal("no generated output")
+			}
+
+			ev := eval.New(r.Typed)
+			ev.SetLineIndex(diag.NewLineIndex([]byte(src)))
+			fn := ev.Global("answer")
+			if fn == nil {
+				t.Fatal("no top-level `answer` binding for the evaluator")
+			}
+			res := ev.Apply(fn, &eval.VUnit{})
+			if res.OK() {
+				t.Fatalf("eval answered %s, want a panic", res.Value)
+			}
+			var code diag.Code
+			for _, d := range res.Diags {
+				if d.Severity == diag.SeverityError {
+					code = d.Code
+				}
+			}
+			if code != "E9003" {
+				t.Fatalf("eval diag code = %s, want E9003 (diags=%v)", code, res.Diags)
+			}
+
+			gobin, err := lookupGo(t)
+			if err != nil {
+				t.Skip("no go toolchain on PATH")
+			}
+			out, err := runCompiledCmd(t, gobin, r.Output.Source)
+			if err == nil {
+				t.Fatalf("binary exited cleanly with %q, want a panic", out)
+			}
+			if !strings.Contains(out, "interface conversion") {
+				t.Fatalf("binary panic did not name the failed assertion:\n%s", out)
 			}
 		})
 	}

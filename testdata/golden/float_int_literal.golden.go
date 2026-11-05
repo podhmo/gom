@@ -18,7 +18,9 @@ func f(_ struct{}) float64 {
 //line float_int_literal.gom:10
 func g(_ struct{}) float64 {
 //line float_int_literal.gom:10
-	m := float64(1) / float64(2)
+	tmp1 := float64(1)
+//line float_int_literal.gom:10
+	m := tmp1 / float64(2)
 //line float_int_literal.gom:10
 	return m + 0.5
 }
@@ -26,33 +28,33 @@ func g(_ struct{}) float64 {
 //line float_int_literal.gom:11
 func h(x float64) float64 {
 //line float_int_literal.gom:11
-	tmp1 := x + float64(2)
+	tmp2 := x + float64(2)
 //line float_int_literal.gom:11
-	return tmp1 - float64(1)
+	return tmp2 - float64(1)
 }
 
 //line float_int_literal.gom:13
 func main() {
 //line float_int_literal.gom:13
-	tmp2 := f(struct{}{})
+	tmp3 := f(struct{}{})
 //line float_int_literal.gom:13
-	tmp3 := g(struct{}{})
+	tmp4 := g(struct{}{})
 //line float_int_literal.gom:13
-	tmp4 := h(1.0)
+	tmp5 := h(1.0)
 //line float_int_literal.gom:13
-	tmp5 := float64(tmp2)
+	tmp6 := float64(tmp3)
 //line float_int_literal.gom:13
-	tmp6 := any(tmp5)
+	tmp7 := any(tmp6)
 //line float_int_literal.gom:13
-	tmp7 := float64(tmp3)
+	tmp8 := float64(tmp4)
 //line float_int_literal.gom:13
-	tmp8 := any(tmp7)
+	tmp9 := any(tmp8)
 //line float_int_literal.gom:13
-	tmp9 := float64(tmp4)
+	tmp10 := float64(tmp5)
 //line float_int_literal.gom:13
-	tmp10 := any(tmp9)
+	tmp11 := any(tmp10)
 //line float_int_literal.gom:13
-	v, err := fmt.Println(tmp6, tmp8, tmp10)
+	v, err := fmt.Println(tmp7, tmp9, tmp11)
 	_ = result.FromGo(int64(v), err)
 //line float_int_literal.gom:13
 	_ = struct{}{}

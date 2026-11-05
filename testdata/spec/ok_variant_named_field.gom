@@ -5,6 +5,8 @@ import go "fmt"
 // A uniquely named variant payload slot is selectable through the
 // sum type (spec 3.2): `s.r` resolves to the one variant declaring
 // `r` — on a parameter, a let-bound value, and a generic ADT.
+// The read asserts the value holds that variant at run time;
+// a wrong-variant value panics (spec 8.6) — compile-clean here.
 type Shape = | Circle (r: Float) | Empty
 
 type Pair a = | MkPair (fst: a) (snd: a)

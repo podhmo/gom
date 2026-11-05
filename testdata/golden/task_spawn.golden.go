@@ -9,7 +9,9 @@ import (
 //line task_spawn.gom:6
 func compute(_ struct{}) int64 {
 //line task_spawn.gom:6
-	return 6 * 7
+	tmp1 := int64(6)
+//line task_spawn.gom:6
+	return tmp1 * 7
 }
 
 //line task_spawn.gom:8
@@ -23,12 +25,14 @@ func spawnNamed(_ struct{}) int64 {
 //line task_spawn.gom:13
 func spawnLambda(_ struct{}) int64 {
 //line task_spawn.gom:14
-	tmp1 := func(_ struct{}) int64 {
+	tmp3 := func(_ struct{}) int64 {
 //line task_spawn.gom:14
-		return 1 + 2
+		tmp2 := int64(1)
+//line task_spawn.gom:14
+		return tmp2 + 2
 	}
 //line task_spawn.gom:14
-	t_ := rt.SpawnTask[int64](tmp1)
+	t_ := rt.SpawnTask[int64](tmp3)
 //line task_spawn.gom:15
 	return rt.AwaitTask[int64](t_)
 }

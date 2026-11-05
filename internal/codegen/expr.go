@@ -126,11 +126,10 @@ func (g *gen) goFuncRef(a *core.GoFuncRef) ast.Expr {
 // through the sealed sum interface (Ctor set) first asserts the
 // receiver to the owning variant's concrete struct —
 // `recv.(Shape_Circle).R` — which panics when the value holds a
-// different variant. The spec does not define the wrong-variant
-// case; the evaluator answers a fieldless variant with "variant has
-// no such field" but reads the wrong variant's same-index slot when
-// one exists — the divergence is filed in
-// docs/problems/2026-11-02-variant-field-wrong-variant.md.
+// different variant (spec 3.2, decision
+// 2026-11-05-variant-field-assert-owning-ctor). The evaluator
+// mirrors the assertion: evalMember checks the ctor identity first
+// and reports E9003 on a wrong-variant value.
 func (g *gen) fieldGet(a *core.FieldGet) ast.Expr {
 	sel := fmt.Sprintf("V%d", a.Index)
 	if a.Field != nil {

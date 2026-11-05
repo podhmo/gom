@@ -1455,11 +1455,73 @@ func (l *lowerer) binaryExpr(s *seq, e *check.Binary) core.Expr {
 	case syntax.BinEq, syntax.BinNe:
 		return l.eqExpr(s, e)
 	default:
-		return &core.Binary{
-			Base: baseOf(e), Op: e.Op,
-			X: l.atom(s, e.X), Y: l.atom(s, e.Y),
+		x := l.atom(s, e.X)
+		y := l.atom(s, e.Y)
+		if l.litFoldDiverges(e.Op, e.X.Type(), x, y) {
+			x = l.bindAtom(s, e.X.Span(), x)
+		}
+		return &core.Binary{Base: baseOf(e), Op: e.Op, X: x, Y: y}
+	}
+}
+
+// litFoldDiverges reports whether `x op y` would emit a Go constant
+// expression whose folded value can differ from the machine
+// operation the language specifies (decision
+// 2026-11-05-numeric-arithmetic-per-operation). That needs two
+// things: both operands lowered to literals — the only atomic core
+// node Go reads as a constant (Unary/Binary/Conv operands are not
+// atoms, so asAtom has already routed them through variables, and
+// Vars name variables, which Go never folds) — and an operator on a
+// type whose fold is not the machine operation: Float arithmetic
+// and Float comparisons fold in exact rationals, which both rounds
+// once instead of once per operation and merges literals a single
+// float64 also merges; Int-family arithmetic folds to a value the
+// emitted Go type may reject as a constant overflow. `%` never
+// overflows (|a % b| < |b|), integer comparisons are exact, and
+// every non-numeric fold agrees with the runtime value — none of
+// those can diverge.
+//
+// Keep this op/type table in step with codegen.untypedConst's
+// node-shape table (internal/codegen/gen.go): they are the two
+// enumerations of "what emits a Go constant expression". A new
+// fold-divergent op or a new constant-shaped core node must be
+// reflected in both.
+func (l *lowerer) litFoldDiverges(op syntax.BinOp, t types.Type, x, y core.Atom) bool {
+	if _, ok := x.(*core.Lit); !ok {
+		return false
+	}
+	if _, ok := y.(*core.Lit); !ok {
+		return false
+	}
+	c, ok := types.Chase(t).(*types.Con)
+	if !ok || c.Qual != "" || l.declaredT(c) {
+		return false
+	}
+	switch c.Name {
+	case "Float":
+		switch op {
+		case syntax.BinAdd, syntax.BinSub, syntax.BinMul, syntax.BinDiv,
+			syntax.BinLt, syntax.BinLe, syntax.BinGt, syntax.BinGe,
+			syntax.BinEq, syntax.BinNe:
+			return true
+		}
+	case "Int", "Int32", "Int64":
+		switch op {
+		case syntax.BinAdd, syntax.BinSub, syntax.BinMul, syntax.BinDiv:
+			return true
 		}
 	}
+	return false
+}
+
+// bindAtom emits `tmp = a` and answers a reference to tmp —
+// materializing an atom through a variable where the emitted shape
+// itself matters (defeating Go's constant fold for an all-literal
+// numeric operation).
+func (l *lowerer) bindAtom(s *seq, sp diag.Span, a core.Atom) core.Atom {
+	b := l.tmpBind(sp, a.Type())
+	s.emit(b, a)
+	return varOf(sp, b)
 }
 
 // (The `==`/`!=` lowering lives in equal.go: it emits a core.Equal

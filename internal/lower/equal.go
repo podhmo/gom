@@ -66,11 +66,22 @@ const eqWalkLimit = 256
 // comes from the operands' shared static type, already unified by
 // the checker.
 func (l *lowerer) eqExpr(s *seq, e *check.Binary) core.Expr {
+	x := l.atom(s, e.X)
+	y := l.atom(s, e.Y)
+	// Two Float literals would emit a Go constant comparison — its
+	// exact-rational fold can equate literals a single float64 also
+	// equates, but diverges from the per-operation reading whenever
+	// the literal values merge after rounding
+	// (litFoldDiverges — decision
+	// 2026-11-05-numeric-arithmetic-per-operation).
+	if l.litFoldDiverges(e.Op, e.X.Type(), x, y) {
+		x = l.bindAtom(s, e.X.Span(), x)
+	}
 	return &core.Equal{
 		Base: baseOf(e),
 		Neg:  e.Op == syntax.BinNe,
-		X:    l.atom(s, e.X),
-		Y:    l.atom(s, e.Y),
+		X:    x,
+		Y:    y,
 		How:  l.eqPlan(e.Span(), e.X.Type()),
 	}
 }
