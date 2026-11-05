@@ -602,9 +602,11 @@ func (c *checker) bind(m *types.Meta, t types.Type, sp diag.Span) bool {
 	sp = c.pos(sp)
 	r := c.recOf(m)
 	if occurs(m, t) {
+		name := metaNamer()
+		mv, in := types.Display(m, name), types.Display(t, name)
 		d := diag.Error("E0401",
-			fmt.Sprintf("type mismatch: %s occurs in %s (infinite type)", m, t)).
-			At(sp).Set("var", m.String()).Set("in", t.String())
+			fmt.Sprintf("type mismatch: %s occurs in %s (infinite type)", mv, in)).
+			At(sp).Set("var", mv).Set("in", in)
 		c.diags.Add(d)
 		return false
 	}
@@ -864,10 +866,11 @@ func (c *checker) mismatch(sp diag.Span, want, got any) {
 		return
 	}
 	sp = c.pos(sp)
+	name := metaNamer()
 	var w string
 	switch want := want.(type) {
 	case types.Type:
-		w = want.String()
+		w = types.Display(want, name)
 	case string:
 		w = want
 	default:
@@ -876,7 +879,7 @@ func (c *checker) mismatch(sp diag.Span, want, got any) {
 	var g string
 	switch got := got.(type) {
 	case types.Type:
-		g = got.String()
+		g = types.Display(got, name)
 	case string:
 		g = got
 	default:
@@ -885,6 +888,26 @@ func (c *checker) mismatch(sp diag.Span, want, got any) {
 	d := diag.Error("E0401", fmt.Sprintf("type mismatch: expected %s, got %s", w, g)).
 		At(sp).Set("expected", w).Set("actual", g)
 	c.diags.Add(d)
+}
+
+// metaNamer returns a types.Display namer spelling each unbound
+// meta `?1`, `?2`, ... in first-occurrence order. The mint order an
+// internal ID encodes is solver state — meaningless and unstable in
+// a message — while renumbering keeps the `?` marker for "a type
+// inference could not determine" and preserves which unknowns
+// coincide: a meta appearing twice keeps one spelling, distinct
+// metas keep distinct ones. One diagnostic shares one namer across
+// every type it renders.
+func metaNamer() func(*types.Meta) string {
+	names := map[*types.Meta]string{}
+	return func(m *types.Meta) string {
+		s, ok := names[m]
+		if !ok {
+			s = fmt.Sprintf("?%d", len(names)+1)
+			names[m] = s
+		}
+		return s
+	}
 }
 
 // mentionsQuiet reports whether t is a type spelling at least one

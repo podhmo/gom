@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/podhmo/gom/internal/check"
 	"github.com/podhmo/gom/internal/core"
 	"github.com/podhmo/gom/internal/diag"
 	"github.com/podhmo/gom/internal/resolve"
@@ -41,22 +40,30 @@ import (
 //     bound to that stack — it can leave the goroutine entirely
 //     (sent over a channel, handed to Go code) and be applied
 //     anywhere, including back inside the function's own loop;
-//   - R4: the function's strongly-connected component in the file's
-//     direct-reference graph is itself alone — Go has no general
-//     TCO, so a mutual cycle grows the stack even when every call
-//     sits "in tail position". The graph's nodes are the file's
-//     FuncDecls *and* VarDecls: a package-level `let` can hold a
-//     function value (`let g = f`, `let (g, _) = (fn ..., _)`), so
-//     a cycle routed through a var — `f` applies `g`, `g`'s value
-//     reaches `f` — grows the stack just the same. The analysis is
-//     still static: recursion hidden behind function values the
-//     compiler cannot resolve (a parameter fed back, a returned
-//     function) stays outside the guarantee.
+//   - R4: the function's strongly-connected component in the
+//     unit's direct-reference graph is itself alone — Go has no
+//     general TCO, so a mutual cycle grows the stack even when
+//     every call sits "in tail position". The graph's nodes are
+//     the unit's FuncDecls *and* VarDecls: a package-level `let`
+//     can hold a function value (`let g = f`, `let (g, _) = (fn
+//     ..., _)`), so a cycle routed through a var — `f` applies
+//     `g`, `g`'s value reaches `f` — grows the stack just the
+//     same. The analysis is still static: recursion hidden behind
+//     function values the compiler cannot resolve (a parameter
+//     fed back, a returned function) stays outside the guarantee.
 //
 // The check runs on the lowered Core IR, reading markTailCalls'
 // output, so it cannot drift from what codegen does: anything ANF
 // moved to a Let.X — an operand of a call, `try`, `|?>`, a tuple,
 // a `for` head — is automatically non-tail.
+//
+// R1–R3 inspect only the marked function's own body and run in the
+// per-file pass (checkTailRec). R4's reference graph is a property
+// of the whole compilation unit — a cycle routed through a
+// sibling file's declarations is the same unprovable recursion —
+// so it runs after every file lowers, in CheckTailRecMutual, the
+// same way CheckInitCycles covers the unit (docs/decisions/
+// 2026-11-05-package-initialization-order.md).
 
 // The lowering stage's user-facing codes; E0901 stays the internal
 // contract-gap code (docs/problems/2026-11-02-lower-input-contract-gaps.md).
@@ -67,44 +74,74 @@ const (
 	codeTailrecNoRec  diag.Code = "E0905" // no self-call in tail position
 )
 
-// tailrecMark is a declaration carrying the @tailrec requirement —
-// recorded by decl() and validated by checkTailRec once the whole
-// file is lowered.
-type tailrecMark struct {
-	sym *resolve.Symbol // the marked function (KindFunc)
-	sp  diag.Span       // the function name's span — where R1/R4 report
-}
-
-// tailrecNameSpan picks the span the requirement-level diagnostics
-// point at — the function's name when it can be recovered, else the
-// declaration itself.
-func tailrecNameSpan(d *check.FnDecl) diag.Span {
-	if d.Sym != nil {
-		if fd, ok := d.Sym.Def.(*syntax.FnDecl); ok && fd.Name != nil {
-			return fd.Name.Sp
+// tailrecSpan picks the span the requirement-level diagnostics
+// point at — the function's name when it can be recovered from the
+// symbol's syntax definition, else the declaration itself.
+func tailrecSpan(fd *core.FuncDecl) diag.Span {
+	if fd.Sym != nil {
+		if f, ok := fd.Sym.Def.(*syntax.FnDecl); ok && f.Name != nil {
+			return f.Name.Sp
 		}
 	}
-	return d.Sp
+	return fd.Sp
 }
 
-// checkTailRec validates every marked declaration against R1–R4 on
-// the lowered file. It runs after the decl loop — markTailCalls has
-// already rewritten the convertible self-calls — and before
-// core.Validate: a user-facing violation should be reported as such,
-// not masked behind an internal-invariant diagnostic.
+// checkTailRec validates every marked declaration against R1–R3 on
+// the lowered file — the rules the marked function's own body
+// decides. R4's direct-reference graph is a property of the whole
+// unit and runs in CheckTailRecMutual. The pass runs after the decl
+// loop — markTailCalls has already rewritten the convertible
+// self-calls — and before core.Validate: a user-facing violation
+// should be reported as such, not masked behind an
+// internal-invariant diagnostic.
 func (l *lowerer) checkTailRec(out *core.File) {
-	if len(l.tailrec) == 0 {
-		return
+	for _, d := range out.Decls {
+		fd, ok := d.(*core.FuncDecl)
+		if ok && fd.TailRec && fd.Sym != nil && fd.Fn != nil {
+			l.checkTailRecFn(fd)
+		}
 	}
+}
+
+// CheckTailRecMutual applies R4 — a marked function's
+// strongly-connected component in the direct-reference graph is
+// itself alone — over the lowered Core files of one compilation
+// unit. Mutual recursion is a unit property, not a file property:
+// a.gom's `fn f` calling b.gom's `fn g` while `g` calls `f` grows
+// the stack exactly like a same-file cycle, so the graph is built
+// over every member's Decls the same way CheckInitCycles builds its
+// initialization graph (docs/decisions/
+// 2026-11-05-package-initialization-order.md). A one-file unit is
+// the degenerate case. The per-file pass already ran R1–R3.
+func CheckTailRecMutual(files []*core.File) []diag.Diagnostic {
 	funcs := map[*resolve.Symbol]*core.FuncDecl{}
 	vars := map[*resolve.Symbol]*core.VarDecl{}
-	for _, d := range out.Decls {
-		if fd, ok := d.(*core.FuncDecl); ok && fd.Sym != nil {
-			funcs[fd.Sym] = fd
+	var marked []*core.FuncDecl
+	for _, out := range files {
+		for _, d := range out.Decls {
+			switch d := d.(type) {
+			case *core.FuncDecl:
+				if d.Sym == nil {
+					continue
+				}
+				funcs[d.Sym] = d
+				if d.TailRec && d.Fn != nil {
+					marked = append(marked, d)
+				}
+			case *core.VarDecl:
+				if d.Sym != nil {
+					vars[d.Sym] = d
+				}
+			case *core.TestDecl, *core.TypeDecl:
+				// Test bodies are not call-graph members; type
+				// declarations carry no code.
+			default:
+				panic("unreachable")
+			}
 		}
-		if vd, ok := d.(*core.VarDecl); ok && vd.Sym != nil {
-			vars[vd.Sym] = vd
-		}
+	}
+	if len(marked) == 0 {
+		return nil
 	}
 	// nodes is the vertex set of the reference graph — every symbol
 	// a cycle could route through.
@@ -115,20 +152,25 @@ func (l *lowerer) checkTailRec(out *core.File) {
 	for s := range vars {
 		nodes[s] = true
 	}
-	adj := tailrecGraph(out, funcs, vars)
-	for _, m := range l.tailrec {
-		fd := funcs[m.sym]
-		if fd == nil {
-			continue // unreachable: the mark is recorded when the FuncDecl is emitted
+	adj := tailrecGraph(files, funcs, vars)
+	var diags []diag.Diagnostic
+	for _, fd := range marked {
+		if through, path := tailrecCycle(fd.Sym, adj, nodes); through != nil {
+			diags = append(diags, diag.Error(codeTailrecMutual,
+				fmt.Sprintf("`@tailrec` function `%s` is mutually recursive through `%s`", fd.Sym.Name, through.Name)).
+				At(tailrecSpan(fd)).
+				Set("fn", fd.Sym.Name).
+				Set("through", through.Name).
+				Set("path", path))
 		}
-		l.checkTailRecFn(m, fd, adj, nodes)
 	}
+	return diags
 }
 
-// checkTailRecFn applies R1–R4 to one marked function.
-func (l *lowerer) checkTailRecFn(m tailrecMark, fd *core.FuncDecl,
-	adj map[*resolve.Symbol]map[*resolve.Symbol]bool,
-	nodes map[*resolve.Symbol]bool) {
+// checkTailRecFn applies R1–R3 to one marked function.
+func (l *lowerer) checkTailRecFn(fd *core.FuncDecl) {
+	m := fd.Sym
+	sp := tailrecSpan(fd)
 	residual := 0  // non-spawned CallDirects to self — each earns E0902
 	tailCalls := 0 // converted self TailCalls — R1's requirement
 	walkTailrec(fd.Fn.Body, func(e core.Expr, inSpawn, _ bool) {
@@ -136,7 +178,7 @@ func (l *lowerer) checkTailRecFn(m tailrecMark, fd *core.FuncDecl,
 		// kinds are irrelevant here and the sumtype check would
 		// demand a case for every one.
 		if c, ok := e.(*core.CallDirect); ok {
-			if c.Callee != m.sym {
+			if c.Callee != m {
 				return
 			}
 			if c.Adapter {
@@ -148,8 +190,8 @@ func (l *lowerer) checkTailRecFn(m tailrecMark, fd *core.FuncDecl,
 				// be applied on any stack. It is not a call
 				// site, so R1/R2 never count it.
 				l.diags = append(l.diags, diag.Error(codeTailrecRef,
-					fmt.Sprintf("`@tailrec` function `%s` is used as a value", m.sym.Name)).
-					At(c.Sp).Set("fn", m.sym.Name))
+					fmt.Sprintf("`@tailrec` function `%s` is used as a value", m.Name)).
+					At(c.Sp).Set("fn", m.Name))
 				return
 			}
 			if inSpawn {
@@ -159,8 +201,8 @@ func (l *lowerer) checkTailRecFn(m tailrecMark, fd *core.FuncDecl,
 			}
 			residual++
 			l.diags = append(l.diags, diag.Error(codeTailrecCall,
-				fmt.Sprintf("`@tailrec` function `%s` has a recursive call that is not in tail position", m.sym.Name)).
-				At(c.Sp).Set("fn", m.sym.Name))
+				fmt.Sprintf("`@tailrec` function `%s` has a recursive call that is not in tail position", m.Name)).
+				At(c.Sp).Set("fn", m.Name))
 			return
 		}
 		if t, ok := e.(*core.TailCall); ok {
@@ -170,12 +212,12 @@ func (l *lowerer) checkTailRecFn(m tailrecMark, fd *core.FuncDecl,
 			return
 		}
 		if r, ok := e.(*core.FuncRef); ok {
-			if r.Sym != m.sym {
+			if r.Sym != m {
 				return
 			}
 			l.diags = append(l.diags, diag.Error(codeTailrecRef,
-				fmt.Sprintf("`@tailrec` function `%s` is used as a value", m.sym.Name)).
-				At(r.Sp).Set("fn", m.sym.Name))
+				fmt.Sprintf("`@tailrec` function `%s` is used as a value", m.Name)).
+				At(r.Sp).Set("fn", m.Name))
 		}
 	})
 	if tailCalls == 0 && residual == 0 {
@@ -186,30 +228,22 @@ func (l *lowerer) checkTailRecFn(m tailrecMark, fd *core.FuncDecl,
 		// convertible. Residual calls are covered by E0902, so a
 		// function already reported there is not reported again.
 		l.diags = append(l.diags, diag.Error(codeTailrecNoRec,
-			fmt.Sprintf("`@tailrec` function `%s` has no self-recursive call in tail position", m.sym.Name)).
-			At(m.sp).Set("fn", m.sym.Name))
-	}
-	if through, path := tailrecCycle(m.sym, adj, nodes); through != nil {
-		l.diags = append(l.diags, diag.Error(codeTailrecMutual,
-			fmt.Sprintf("`@tailrec` function `%s` is mutually recursive through `%s`", m.sym.Name, through.Name)).
-			At(m.sp).
-			Set("fn", m.sym.Name).
-			Set("through", through.Name).
-			Set("path", path))
+			fmt.Sprintf("`@tailrec` function `%s` has no self-recursive call in tail position", m.Name)).
+			At(sp).Set("fn", m.Name))
 	}
 }
 
-// tailrecGraph builds the file's direct-reference graph for R4: an
+// tailrecGraph builds the unit's direct-reference graph for R4: an
 // edge g → h means g's body — nested Closures counted, Spawn bodies
 // not — can hand control to h inside one activation. Three node
 // kinds produce edges, over two declaration kinds:
 //
-//   - CallDirect to a file-local FuncDecl — a plain call;
-//   - FuncRef of a file-local FuncDecl — a function handed to a
+//   - CallDirect to a unit FuncDecl — a plain call;
+//   - FuncRef of a unit FuncDecl — a function handed to a
 //     combinator or bound to a variable can still be applied inside
 //     the caller's activation, which is the same stack-growing cycle
 //     a direct call would make;
-//   - Var naming a file-local VarDecl — a package-level `let` is a
+//   - Var naming a unit VarDecl — a package-level `let` is a
 //     graph node because it can hold a function value: applying it
 //     (`g (n - 1)` lowers to CallFunc on the Var) is a call, and any
 //     other use may carry the value to an application — the same
@@ -223,41 +257,43 @@ func (l *lowerer) checkTailRecFn(m tailrecMark, fd *core.FuncDecl,
 // so only they count — the FuncRef and Var edges elsewhere in the
 // body already cover `let g = f` aliases and `let (g, _) = (fn ...,
 // _)` destructurings (which route through a FieldGet's Var).
-func tailrecGraph(out *core.File, funcs map[*resolve.Symbol]*core.FuncDecl, vars map[*resolve.Symbol]*core.VarDecl) map[*resolve.Symbol]map[*resolve.Symbol]bool {
+func tailrecGraph(files []*core.File, funcs map[*resolve.Symbol]*core.FuncDecl, vars map[*resolve.Symbol]*core.VarDecl) map[*resolve.Symbol]map[*resolve.Symbol]bool {
 	adj := map[*resolve.Symbol]map[*resolve.Symbol]bool{}
-	for _, d := range out.Decls {
-		var from *resolve.Symbol
-		var b *core.Body
-		var init bool // a VarDecl initializer — see the doc comment
-		if fd, ok := d.(*core.FuncDecl); ok && fd.Sym != nil {
-			from, b = fd.Sym, fd.Fn.Body
-		} else if vd, ok := d.(*core.VarDecl); ok && vd.Sym != nil {
-			from, b, init = vd.Sym, vd.Body, true
-		} else {
-			continue
+	for _, out := range files {
+		for _, d := range out.Decls {
+			var from *resolve.Symbol
+			var b *core.Body
+			var init bool // a VarDecl initializer — see the doc comment
+			if fd, ok := d.(*core.FuncDecl); ok && fd.Sym != nil && fd.Fn != nil {
+				from, b = fd.Sym, fd.Fn.Body
+			} else if vd, ok := d.(*core.VarDecl); ok && vd.Sym != nil {
+				from, b, init = vd.Sym, vd.Body, true
+			} else {
+				continue
+			}
+			walkTailrec(b, func(e core.Expr, inSpawn, inClosure bool) {
+				if inSpawn {
+					return
+				}
+				var to *resolve.Symbol
+				// Assertions again — only three Expr kinds produce edges.
+				if c, ok := e.(*core.CallDirect); ok {
+					if !init || inClosure {
+						to = c.Callee
+					}
+				} else if r, ok := e.(*core.FuncRef); ok {
+					to = r.Sym
+				} else if v, ok := e.(*core.Var); ok {
+					to = v.Sym
+				}
+				if to != nil && (funcs[to] != nil || vars[to] != nil) {
+					if adj[from] == nil {
+						adj[from] = map[*resolve.Symbol]bool{}
+					}
+					adj[from][to] = true
+				}
+			})
 		}
-		walkTailrec(b, func(e core.Expr, inSpawn, inClosure bool) {
-			if inSpawn {
-				return
-			}
-			var to *resolve.Symbol
-			// Assertions again — only three Expr kinds produce edges.
-			if c, ok := e.(*core.CallDirect); ok {
-				if !init || inClosure {
-					to = c.Callee
-				}
-			} else if r, ok := e.(*core.FuncRef); ok {
-				to = r.Sym
-			} else if v, ok := e.(*core.Var); ok {
-				to = v.Sym
-			}
-			if to != nil && (funcs[to] != nil || vars[to] != nil) {
-				if adj[from] == nil {
-					adj[from] = map[*resolve.Symbol]bool{}
-				}
-				adj[from][to] = true
-			}
-		})
 	}
 	return adj
 }
@@ -269,7 +305,7 @@ func tailrecGraph(out *core.File, funcs map[*resolve.Symbol]*core.FuncDecl, vars
 // one such partner (the smallest name, for determinism) and a
 // witness path f → … → h → … → f of symbol names, or (nil, nil) when
 // f's strongly-connected component is {f} alone. The analysis is
-// file-local, which is complete: Go forbids import cycles, so
+// unit-wide, which is complete: Go forbids import cycles, so
 // recursion cannot cross packages.
 func tailrecCycle(f *resolve.Symbol, adj map[*resolve.Symbol]map[*resolve.Symbol]bool, nodes map[*resolve.Symbol]bool) (*resolve.Symbol, []string) {
 	fwd := tailrecReach(adj, f)

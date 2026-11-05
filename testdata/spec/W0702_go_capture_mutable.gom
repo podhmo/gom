@@ -4,9 +4,10 @@ package ex
 // when a `go { ... }` body captures a variable whose type contains
 // mutable values: the goroutine shares mutation with its parent.
 // Variables bound inside the body, immutable captures, and function
-// values do not warn. Nested `go` boundaries warn independently —
-// here the inner `go { go { ... } }` earns one warning per boundary
-// at the same use site.
+// values do not warn. A use reachable through several nested
+// boundaries — `go { go { ... } }` — warns once at the use site
+// (the per-boundary reports would be identical), while a variable
+// used at distinct sites warns at each.
 
 type Counter = { n: Ref Int }
 
@@ -15,6 +16,7 @@ fn worker (r: Ref Int) -> Unit = ignore r
 fn spawn (r: Ref Int) (xs: Array Int) (c: Counter) (n: Int) (f: Int -> Int) -> Unit = {
   go { ignore (worker r); ignore xs; ignore c; () }
   go { go { ignore (worker r); () } }
+  go { ignore r; go { ignore (worker r); () } }
   go { ignore n; ignore (f 1); () }
   go { let r2 : Ref Int = todo (); ignore (worker r2); () }
   ()

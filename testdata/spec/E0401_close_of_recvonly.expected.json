@@ -4,7 +4,7 @@
       "kind": "diagnostic",
       "code": "E0401",
       "severity": "error",
-      "message": "type mismatch: expected SendChan ?3, got RecvChan ?4",
+      "message": "type mismatch: expected SendChan ?1, got RecvChan ?2",
       "span": {
         "file": "E0401_close_of_recvonly.gom",
         "start": {
@@ -19,8 +19,8 @@
         }
       },
       "data": {
-        "actual": "RecvChan ?4",
-        "expected": "SendChan ?3"
+        "actual": "RecvChan ?2",
+        "expected": "SendChan ?1"
       }
     },
     {

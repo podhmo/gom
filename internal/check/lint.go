@@ -37,6 +37,11 @@ const (
 // every type the sweep consults is a post-default solution — an
 // unsolved leftover meta is simply not mutable.
 func (c *checker) lintMutableSharing() {
+	// W0702's capture walk descends into nested `go` bodies, so the
+	// same use site is seen once per enclosing boundary. Those
+	// reports are byte-identical — same span, same message, same
+	// data — so goWarned collapses them to the first.
+	goWarned := map[diag.Span]bool{}
 	for _, d := range c.decls {
 		WalkDecl(d, func(e Expr) {
 			switch e := e.(type) {
@@ -44,7 +49,7 @@ func (c *checker) lintMutableSharing() {
 				c.lintChanMake(e)
 				c.lintGoSliceCopy(e)
 			case *GoExpr:
-				c.lintGoCaptures(e)
+				c.lintGoCaptures(e, goWarned)
 			case *Lit, *Var, *MemberExpr, *Hole, *StrInterp, *Lambda,
 				*If, *Match, *Block, *Let, *Ignore, *Try, *For,
 				*SelectExpr, *ListLit, *TupleLit, *Spread, *RecordLit,
@@ -169,8 +174,12 @@ func isGoSliceCon(t types.Type) bool {
 // whose binder lies outside the body's span — Def positions make the
 // test purely lexical, so lets, lambda parameters and match binders
 // introduced inside the body never count. Nested `go` blocks warn
-// independently: each goroutine boundary is a separate sharing event.
-func (c *checker) lintGoCaptures(g *GoExpr) {
+// independently: each goroutine boundary is a separate sharing
+// event. When the same use site is reachable through several
+// boundaries — `go { go { r } }` — the events produce identical
+// warnings, so reported (shared across the sweep) keeps only the
+// first; a use inside exactly one boundary still warns once.
+func (c *checker) lintGoCaptures(g *GoExpr, reported map[diag.Span]bool) {
 	if g.Body == nil {
 		return
 	}
@@ -212,6 +221,14 @@ func (c *checker) lintGoCaptures(g *GoExpr) {
 		if !c.containsMutable(t, map[conKey]bool{}) {
 			return
 		}
+		if reported[sp] {
+			// An enclosing boundary already warned at this use
+			// site — the duplicate would carry no distinct
+			// information (span, message and data are the
+			// same). Distinct sites still warn apart.
+			return
+		}
+		reported[sp] = true
 		t = types.Chase(t)
 		c.diags.Add(diag.Warning("W0702",
 			fmt.Sprintf("`go {}` captures `%s` whose type %s contains mutable values", sym.Name, t)).

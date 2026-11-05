@@ -76,9 +76,11 @@ func lower1(t *testing.T, decls ...check.Decl) (*core.File, []diag.Diagnostic) {
 		t.Fatal("File returned nil")
 	}
 	// File does not run the unit-level checks the driver applies
-	// after lowering — CheckInitCycles is one of them, and these
-	// tests exercise it on a one-file unit.
+	// after lowering — CheckInitCycles and CheckTailRecMutual are
+	// two of them, and these tests exercise them on a one-file
+	// unit.
 	diags = append(diags, CheckInitCycles([]*core.File{out})...)
+	diags = append(diags, CheckTailRecMutual([]*core.File{out})...)
 	return out, diags
 }
 

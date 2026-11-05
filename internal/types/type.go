@@ -131,6 +131,18 @@ func (m *Meta) String() string {
 	return fmt.Sprintf("?%d", m.ID)
 }
 
+// Display renders t in Gom surface syntax like String does, except
+// each unbound meta spells name(m). Diagnostics use it to renumber
+// the inference mint IDs into message-local placeholders — `?1`,
+// `?2`, ... — so internal solver state never leaks and one meta
+// keeps one spelling inside a message. A nil name keeps the raw
+// `?ID` spelling String produces.
+func Display(t Type, name func(*Meta) string) string {
+	var sb strings.Builder
+	writeTypeN(&sb, t, precTop, name)
+	return sb.String()
+}
+
 // Chase follows bound metas to their solutions. An unbound meta (or
 // a non-meta type) returns itself. The checker's expression types
 // are not always fully zonked — a let-bound function value's type
@@ -266,6 +278,12 @@ func atom(t Type, p prec) bool {
 }
 
 func writeType(sb *strings.Builder, t Type, p prec) {
+	writeTypeN(sb, t, p, nil)
+}
+
+// writeTypeN is writeType carrying Display's meta namer through the
+// recursion; nil keeps the raw `?ID` spelling.
+func writeTypeN(sb *strings.Builder, t Type, p prec, name func(*Meta) string) {
 	wrap := p != precTop && !atom(t, p)
 	if wrap {
 		sb.WriteByte('(')
@@ -275,7 +293,9 @@ func writeType(sb *strings.Builder, t Type, p prec) {
 		sb.WriteString(t.String())
 	case *Meta:
 		if t.bound {
-			writeType(sb, t.sol, p)
+			writeTypeN(sb, t.sol, p, name)
+		} else if name != nil {
+			sb.WriteString(name(t))
 		} else {
 			sb.WriteString(t.String())
 		}
@@ -287,7 +307,7 @@ func writeType(sb *strings.Builder, t Type, p prec) {
 		sb.WriteString(t.Name)
 		for _, a := range t.Args {
 			sb.WriteByte(' ')
-			writeType(sb, a, precArg)
+			writeTypeN(sb, a, precArg, name)
 		}
 	case *Func:
 		for i, fp := range t.Params {
@@ -299,17 +319,17 @@ func writeType(sb *strings.Builder, t Type, p prec) {
 				sb.WriteString(fp.Label)
 				sb.WriteString(": ")
 			}
-			writeType(sb, fp.Type, precParam)
+			writeTypeN(sb, fp.Type, precParam, name)
 		}
 		sb.WriteString(" -> ")
-		writeType(sb, t.Ret, precTop)
+		writeTypeN(sb, t.Ret, precTop, name)
 	case *Tuple:
 		sb.WriteByte('(')
 		for i, e := range t.Elems {
 			if i > 0 {
 				sb.WriteString(", ")
 			}
-			writeType(sb, e, precTop)
+			writeTypeN(sb, e, precTop, name)
 		}
 		sb.WriteByte(')')
 	case *Go:
@@ -320,7 +340,7 @@ func writeType(sb *strings.Builder, t Type, p prec) {
 				if i > 0 {
 					sb.WriteString(", ")
 				}
-				writeType(sb, a, precTop)
+				writeTypeN(sb, a, precTop, name)
 			}
 			sb.WriteByte(']')
 		}

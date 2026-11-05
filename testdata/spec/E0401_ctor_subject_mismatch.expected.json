@@ -27,7 +27,7 @@
       "kind": "diagnostic",
       "code": "E0401",
       "severity": "error",
-      "message": "type mismatch: expected (String, Bool), got Option ?2",
+      "message": "type mismatch: expected (String, Bool), got Option ?1",
       "span": {
         "file": "E0401_ctor_subject_mismatch.gom",
         "start": {
@@ -42,7 +42,7 @@
         }
       },
       "data": {
-        "actual": "Option ?2",
+        "actual": "Option ?1",
         "expected": "(String, Bool)"
       }
     }

@@ -1789,7 +1789,7 @@ func (l *lowerer) pipeInflowAtom(s *seq, e *check.Binary) core.Atom {
 	if in == nil {
 		in = l.pipeInputAtom(s, e.X)
 		if _, _, isRes := l.resultArgs(in.Type()); isRes {
-			in = l.asAtom(s, e.Sp, &core.EscapeResult{
+			in = l.asAtom(s, e.X.Span(), &core.EscapeResult{
 				Base: core.Base{Sp: e.X.Span(), Typ: l.payloadOf(in.Type())}, X: in, To: fn,
 			})
 		}
@@ -2175,21 +2175,23 @@ func (l *lowerer) stepApply(s *seq, e *check.Binary, rhs check.Expr, in core.Ato
 // escapeStepPayload unwraps one step under the local pipeline boundary.
 // The caller wraps only the final payload in Ok. Direct Go error-returning
 // calls fuse to EscapeCall without materializing an intermediate Result.
+// The escapes and their bindings take the step operand's span — the
+// same convention pipeRest's unguarded side and pipeInflowAtom follow.
 func (l *lowerer) escapeStepPayload(s *seq, e *check.Binary, step core.Expr) core.Atom {
 	wrap := l.pipeWrap(e)
 	fn := l.curFn()
 	var payload core.Atom
 	if call, ok := unwrapToCallGo(step); ok &&
 		(call.Results == core.GoResultsErr || call.Results == core.GoResultsErrOnly) {
-		payload = l.asAtom(s, e.Sp, &core.EscapeCall{
-			Base: core.Base{Sp: e.Sp, Typ: call.Typ},
+		payload = l.asAtom(s, e.Y.Span(), &core.EscapeCall{
+			Base: core.Base{Sp: e.Y.Span(), Typ: call.Typ},
 			Call: call, To: fn, Wrap: wrap,
 		})
-		payload = l.convAtomTo(s, e.Sp, payload, l.payloadOf(e.Type()))
+		payload = l.convAtomTo(s, e.Y.Span(), payload, l.payloadOf(e.Type()))
 	} else {
 		stepAtom := l.asAtom(s, e.Y.Span(), step)
-		payload = l.asAtom(s, e.Sp, &core.EscapeResult{
-			Base: core.Base{Sp: e.Sp, Typ: l.payloadOf(stepAtom.Type())},
+		payload = l.asAtom(s, e.Y.Span(), &core.EscapeResult{
+			Base: core.Base{Sp: e.Y.Span(), Typ: l.payloadOf(stepAtom.Type())},
 			X:    stepAtom, To: fn, Wrap: wrap,
 		})
 	}

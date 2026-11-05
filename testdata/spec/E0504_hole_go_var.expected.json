@@ -4,7 +4,7 @@
       "kind": "diagnostic",
       "code": "E0401",
       "severity": "error",
-      "message": "type mismatch: expected List String, got ?0 -> ?1",
+      "message": "type mismatch: expected List String, got ?1 -> ?2",
       "span": {
         "file": "E0504_hole_go_var.gom",
         "start": {
@@ -19,7 +19,7 @@
         }
       },
       "data": {
-        "actual": "?0 -> ?1",
+        "actual": "?1 -> ?2",
         "expected": "List String"
       }
     },

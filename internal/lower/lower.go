@@ -394,11 +394,6 @@ type lowerer struct {
 	// arm body (or-patterns, wildcard expansion) stays well-scoped.
 	subst []map[*resolve.Symbol]*resolve.Symbol
 
-	// tailrec records the `@tailrec`-marked FnDecls checkTailRec
-	// validates once the file's bodies (and TailCall marks) are
-	// complete (tailrec.go).
-	tailrec []tailrecMark
-
 	diags []diag.Diagnostic
 }
 
@@ -863,14 +858,12 @@ func (l *lowerer) decl(d check.Decl, out *core.File) {
 		fn.Body = &core.Body{Lets: s.lets, Tail: tail}
 		l.fnStack = l.fnStack[:len(l.fnStack)-1]
 		l.markTailCalls(fn, d.Sym, d.TypeParams)
-		if d.TailRec && d.Sym != nil {
-			l.tailrec = append(l.tailrec, tailrecMark{sym: d.Sym, sp: tailrecNameSpan(d)})
-		}
 		out.Decls = append(out.Decls, &core.FuncDecl{
 			Sp: d.Sp, Sym: d.Sym, Fn: fn,
 			TypeParams: d.TypeParams,
 			IsEntry:    l.isEntryPoint(out.Package, d.Sym, fn),
 			Exported:   l.exported(d.Sym),
+			TailRec:    d.TailRec && d.Sym != nil,
 		})
 	case *check.LetDecl:
 		if !l.env.Tests && testOnlyPat(d.Pat) {

@@ -426,9 +426,10 @@ func (c *checker) checkSelect(e *syntax.Select) Expr {
 		c.pendingSels = append(c.pendingSels, me)
 		return me
 	}
+	rtd := types.Display(recv.Type(), metaNamer())
 	c.diags.Add(diag.Error("E0401",
-		fmt.Sprintf("%s has no field or method `%s`", recv.Type(), selName)).
-		At(e.Sel.Sp).Set("type", recv.Type().String()).Set("member", selName))
+		fmt.Sprintf("%s has no field or method `%s`", rtd, selName)).
+		At(e.Sel.Sp).Set("type", rtd).Set("member", selName))
 	return &MemberExpr{Base: baseOf(e.Sp, c.quietMeta(e.Sp, fmt.Sprintf("the type of `.%s`", selName))), Recv: recv, Sel: e.Sel, Sym: sel, Index: -1}
 }
 
@@ -514,9 +515,10 @@ func (c *checker) revisitSelects() {
 				}
 			}
 			if !resolved {
+				rtd := types.Display(rt, metaNamer())
 				c.diags.Add(diag.Error("E0401",
-					fmt.Sprintf("%s has no field or method `%s`", rt, selName)).
-					At(me.Sel.Sp).Set("type", rt.String()).Set("member", selName))
+					fmt.Sprintf("%s has no field or method `%s`", rtd, selName)).
+					At(me.Sel.Sp).Set("type", rtd).Set("member", selName))
 				// The selection failed; the member's standing meta — nothing
 				// bound it — must not pile an E0407 on the E0401.
 				c.markQuiet(me.Type())

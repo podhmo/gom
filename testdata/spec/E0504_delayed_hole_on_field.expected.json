@@ -4,7 +4,7 @@
       "kind": "diagnostic",
       "code": "E0401",
       "severity": "error",
-      "message": "type mismatch: expected Int, got ?9 -> ?10",
+      "message": "type mismatch: expected Int, got ?1 -> ?2",
       "span": {
         "file": "E0504_delayed_hole_on_field.gom",
         "start": {
@@ -19,7 +19,7 @@
         }
       },
       "data": {
-        "actual": "?9 -> ?10",
+        "actual": "?1 -> ?2",
         "expected": "Int"
       }
     },

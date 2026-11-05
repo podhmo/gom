@@ -14,6 +14,7 @@ import (
 	"testing"
 
 	"github.com/podhmo/gom/internal/build"
+	"github.com/podhmo/gom/internal/diag"
 	"github.com/podhmo/gom/internal/lower"
 )
 
@@ -451,6 +452,93 @@ func TestCompileFilesSiblingInitOrderOK(t *testing.T) {
 	rs := compileFiles(t, map[string]string{
 		"a.gom": "package m\n\nlet x = y + 1\n",
 		"b.gom": "package m\n\nlet y = 41\n",
+	})
+	for i, r := range rs {
+		if r.Diagnostics.HasError() {
+			t.Fatalf("result %d diagnostics: %v", i, r.Diagnostics)
+		}
+		if r.Output == nil {
+			t.Fatalf("result %d produced no output", i)
+		}
+	}
+}
+
+// @tailrec's R4 (the marked function's SCC is itself alone) is a
+// unit property like the init-cycle graph: a.gom's `even` calling
+// b.gom's `odd` while `odd` calls `even` back is the same
+// stack-growing cycle Go cannot turn into a loop. The file-local
+// graph could not see the closing edge in b.gom; the unit pass
+// reports E0904 at a.gom's marked `fn even`.
+func TestCompileFilesTailRecMutualAcrossSiblings(t *testing.T) {
+	rs := compileFiles(t, map[string]string{
+		// `even` self-recurses in tail position (R1 is met) *and*
+		// calls `odd`, which calls `even` back — the mutual cycle
+		// only R4 rejects.
+		"a.gom": "package m\n\n@tailrec fn even (n: Int) -> Bool = if n < 0 { even (0 - n) } else { if n == 0 { true } else { odd (n - 1) } }\n",
+		"b.gom": "package m\n\nfn odd (n: Int) -> Bool = if n == 0 { false } else { even (n - 1) }\n",
+	})
+	var mutual *diag.Diagnostic
+	for i, r := range rs {
+		if r.Output != nil {
+			t.Fatalf("result %d kept its output though the package has mutual recursion", i)
+		}
+		for _, d := range r.Diagnostics {
+			if d.Code == "E0904" {
+				dd := d
+				mutual = &dd
+			}
+		}
+	}
+	if mutual == nil {
+		t.Fatalf("no E0904; results = %v", rs)
+	}
+	if mutual.Span.File != "pkg/a.gom" {
+		t.Errorf("E0904 span file = %q, want pkg/a.gom", mutual.Span.File)
+	}
+	if mutual.Data["fn"] != "even" || mutual.Data["through"] != "odd" {
+		t.Errorf("E0904 data = %v, want fn=even through=odd", mutual.Data)
+	}
+	path, _ := mutual.Data["path"].([]string)
+	if fmt.Sprint(path) != "[even odd even]" {
+		t.Errorf("E0904 data[path] = %v", path)
+	}
+}
+
+// The cross-file R4 cycle also routes through a sibling `let`:
+// b.gom's `let g = even` is a package-level VarDecl node — f's
+// CallFunc on `g` and the initializer's FuncRef on `even` close
+// the cycle across the file boundary.
+func TestCompileFilesTailRecMutualThroughSiblingLet(t *testing.T) {
+	rs := compileFiles(t, map[string]string{
+		"a.gom": "package m\n\n@tailrec fn even (n: Int) -> Bool = if n < 0 { even (0 - n) } else { if n == 0 { true } else { g (n - 1) } }\n",
+		"b.gom": "package m\n\nlet g = even\n",
+	})
+	var sawE0904 bool
+	for i, r := range rs {
+		if r.Output != nil {
+			t.Fatalf("result %d kept its output though the package has mutual recursion", i)
+		}
+		for _, d := range r.Diagnostics {
+			if d.Code == "E0904" {
+				sawE0904 = true
+				if d.Span.File != "pkg/a.gom" {
+					t.Errorf("E0904 span file = %q, want pkg/a.gom", d.Span.File)
+				}
+			}
+		}
+	}
+	if !sawE0904 {
+		t.Fatalf("no E0904; results = %v", rs)
+	}
+}
+
+// A sibling call that does not close a cycle is fine: `even` is
+// genuinely tail-recursive and `bump` never calls back, so R4 finds
+// no partner and the package compiles.
+func TestCompileFilesTailRecSiblingCallOK(t *testing.T) {
+	rs := compileFiles(t, map[string]string{
+		"a.gom": "package m\n\n@tailrec fn even (n: Int) -> Bool = if n == 0 { true } else { even (bump n) }\n",
+		"b.gom": "package m\n\nfn bump (n: Int) -> Int = n - 1\n",
 	})
 	for i, r := range rs {
 		if r.Diagnostics.HasError() {

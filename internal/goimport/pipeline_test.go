@@ -49,6 +49,7 @@ func compileSource(t *testing.T, l *Loader, src string) []byte {
 	}
 	xf, dd := lower.File(cf, &lower.Env{GoSig: l.GoSigOf})
 	dd = append(dd, lower.CheckInitCycles([]*core.File{xf})...)
+	dd = append(dd, lower.CheckTailRecMutual([]*core.File{xf})...)
 	if requireNoErrors(t, dd) {
 		t.Fatal("lower failed")
 	}

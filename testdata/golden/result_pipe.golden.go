@@ -49,76 +49,110 @@ func parse(s string) result.Result[int64, error] {
 	return tmp6(struct{}{})
 }
 
-//line result_pipe.gom:7
-func use(s string) struct{} {
-//line result_pipe.gom:7
-	tmp10 := func(tmp7 struct{}) result.Result[int64, error] {
-//line result_pipe.gom:7
+//line result_pipe.gom:11
+func parseWrapped(s string) result.Result[int64, error] {
+//line result_pipe.gom:12
+	tmp12 := func(tmp7 struct{}) result.Result[int64, error] {
+//line result_pipe.gom:13
 		tmp8, err1 := strconv.Atoi(s)
 		if err1 != nil {
-//line result_pipe.gom:7
+//line result_pipe.gom:13
 			return result.Err[int64, error](fmt.Errorf("strconv.Atoi: %w", err1))
 		}
-//line result_pipe.gom:7
+//line result_pipe.gom:13
 		tmp9 := int64(tmp8)
-//line result_pipe.gom:7
-		return result.Ok[int64, error](tmp9)
+//line result_pipe.gom:14
+		tmp10 := keep(tmp9)
+//line result_pipe.gom:14
+		var tmp11 int64
+//line result_pipe.gom:14
+		switch tmp10.Tag() {
+		case result.ResultTagOk:
+			tmp11 = tmp10.Value
+		case result.ResultTagErr:
+//line result_pipe.gom:14
+			return result.Err[int64, error](fmt.Errorf("keep: %w", tmp10.Error))
+		default:
+//line result_pipe.gom:14
+			panic(rt.InvalidVariant("result.Result", tmp10))
+		}
+//line result_pipe.gom:12
+		return result.Ok[int64, error](tmp11)
 	}
-//line result_pipe.gom:7
-	tmp10(struct{}{})
-//line result_pipe.gom:7
+//line result_pipe.gom:12
+	return tmp12(struct{}{})
+}
+
+//line result_pipe.gom:15
+func use(s string) struct{} {
+//line result_pipe.gom:15
+	tmp16 := func(tmp13 struct{}) result.Result[int64, error] {
+//line result_pipe.gom:15
+		tmp14, err2 := strconv.Atoi(s)
+		if err2 != nil {
+//line result_pipe.gom:15
+			return result.Err[int64, error](fmt.Errorf("strconv.Atoi: %w", err2))
+		}
+//line result_pipe.gom:15
+		tmp15 := int64(tmp14)
+//line result_pipe.gom:15
+		return result.Ok[int64, error](tmp15)
+	}
+//line result_pipe.gom:15
+	tmp16(struct{}{})
+//line result_pipe.gom:15
 	return struct{}{}
 }
 
-//line result_pipe.gom:8
+//line result_pipe.gom:16
 func outer(_ struct{}) result.Result[int64, string] {
-//line result_pipe.gom:8
+//line result_pipe.gom:16
 	return result.Err[int64, string]("outer")
 }
 
-//line result_pipe.gom:9
+//line result_pipe.gom:17
 func step(n, x int64) result.Result[int64, bool] {
-//line result_pipe.gom:9
-	tmp11 := n + x
-//line result_pipe.gom:9
-	return result.Ok[int64, bool](tmp11)
+//line result_pipe.gom:17
+	tmp17 := n + x
+//line result_pipe.gom:17
+	return result.Ok[int64, bool](tmp17)
 }
 
-//line result_pipe.gom:10
+//line result_pipe.gom:18
 func explicit(_ struct{}) result.Result[int64, string] {
-//line result_pipe.gom:11
-	tmp12 := outer(struct{}{})
-//line result_pipe.gom:11
-	var tmp13 int64
-//line result_pipe.gom:11
-	switch tmp12.Tag() {
+//line result_pipe.gom:19
+	tmp18 := outer(struct{}{})
+//line result_pipe.gom:19
+	var tmp19 int64
+//line result_pipe.gom:19
+	switch tmp18.Tag() {
 	case result.ResultTagOk:
-		tmp13 = tmp12.Value
+		tmp19 = tmp18.Value
 	case result.ResultTagErr:
-//line result_pipe.gom:11
-		return result.Err[int64, string](tmp12.Error)
+//line result_pipe.gom:19
+		return result.Err[int64, string](tmp18.Error)
 	default:
-//line result_pipe.gom:11
-		panic(rt.InvalidVariant("result.Result", tmp12))
+//line result_pipe.gom:19
+		panic(rt.InvalidVariant("result.Result", tmp18))
 	}
-//line result_pipe.gom:11
-	tmp14 := step(tmp13, 1)
-//line result_pipe.gom:11
-	switch tmp14.Tag() {
-//line result_pipe.gom:11
+//line result_pipe.gom:19
+	tmp20 := step(tmp19, 1)
+//line result_pipe.gom:19
+	switch tmp20.Tag() {
+//line result_pipe.gom:19
 	case result.ResultTagOk:
-		tmp15 := tmp14.Value
-//line result_pipe.gom:11
-		result.Ok[int64, bool](tmp15)
-//line result_pipe.gom:11
+		tmp21 := tmp20.Value
+//line result_pipe.gom:19
+		result.Ok[int64, bool](tmp21)
+//line result_pipe.gom:19
 	case result.ResultTagErr:
-		tmp16 := tmp14.Error
-//line result_pipe.gom:11
-		result.Err[int64, bool](tmp16)
+		tmp22 := tmp20.Error
+//line result_pipe.gom:19
+		result.Err[int64, bool](tmp22)
 	default:
-//line result_pipe.gom:11
-		panic(rt.InvalidVariant("Result", tmp14))
+//line result_pipe.gom:19
+		panic(rt.InvalidVariant("Result", tmp20))
 	}
-//line result_pipe.gom:12
+//line result_pipe.gom:20
 	return result.Ok[int64, string](42)
 }

@@ -39,6 +39,13 @@ type FuncDecl struct {
 	// capitalized identifier (`fn area` → `Area`) instead of the
 	// unexported camelCase it gives private declarations.
 	Exported bool
+	// TailRec records the `@tailrec` requirement attribute — the
+	// declaration opts into the R1–R4 audit (lower/tailrec.go).
+	// R1–R3 run in the per-file pass; R4's reference-cycle check
+	// is a unit property and runs in lower.CheckTailRecMutual.
+	// Codegen does not read it: the TailCall → loop conversion is
+	// unconditional.
+	TailRec bool
 	// TypeParams are the declared type parameters in source order —
 	// the order the type's instantiation arguments are given in.
 	// Nil while the definition is monomorphic.

@@ -1,6 +1,7 @@
 package types
 
 import (
+	"fmt"
 	"testing"
 )
 
@@ -167,6 +168,35 @@ func TestFnFlattensCurriedReturn(t *testing.T) {
 	}
 	if !Equal(res, flat) {
 		t.Errorf("Subst.Apply = %s, want %s", res, flat)
+	}
+}
+
+func TestDisplay(t *testing.T) {
+	m1, m2 := &Meta{ID: 7}, &Meta{ID: 9}
+	// A nil namer keeps String's raw `?ID` spelling.
+	if got := Display(List(m1), nil); got != "List ?7" {
+		t.Errorf("Display nil namer = %q, want List ?7", got)
+	}
+	// The namer spells every unbound meta — one meta keeps one
+	// spelling across params and return, distinct metas stay
+	// distinct.
+	names := map[*Meta]string{}
+	name := func(m *Meta) string {
+		if s, ok := names[m]; ok {
+			return s
+		}
+		s := fmt.Sprintf("?%d", len(names)+1)
+		names[m] = s
+		return s
+	}
+	if got := Display(Fn(m1, P(m2), P(m1)), name); got != "?1 -> ?2 -> ?2" {
+		t.Errorf("Display shared meta = %q, want ?1 -> ?2 -> ?2", got)
+	}
+	// Bound metas chase to their solutions without consulting the
+	// namer; m2 keeps the spelling the shared map already gave it.
+	m1.Bind(List(Int))
+	if got := Display(Fn(m1, P(m2)), name); got != "?1 -> List Int" {
+		t.Errorf("Display bound meta = %q, want ?1 -> List Int", got)
 	}
 }
 

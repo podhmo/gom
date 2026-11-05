@@ -217,12 +217,16 @@ func Compile(in Input, opts *Options) (*Result, error) {
 	coref.SelfImportPath = o.SelfImportPath
 	r.Core = coref
 	r.Diagnostics = append(r.Diagnostics, ldiags...)
-	// Package initialization is a property of the unit, not of one
-	// file — the residual-cycle check runs over the unit's lowered
-	// Core files, and a one-file unit is the degenerate case.
+	// Package initialization and @tailrec's mutual recursion are
+	// properties of the unit, not of one file — the residual-cycle
+	// checks run over the unit's lowered Core files, and a one-file
+	// unit is the degenerate case.
 	udiags := lower.CheckInitCycles([]*core.File{coref})
 	r.Diagnostics = append(r.Diagnostics, udiags...)
-	if diag.List(ldiags).HasError() || diag.List(udiags).HasError() {
+	tdiags := lower.CheckTailRecMutual([]*core.File{coref})
+	r.Diagnostics = append(r.Diagnostics, tdiags...)
+	if diag.List(ldiags).HasError() || diag.List(udiags).HasError() ||
+		diag.List(tdiags).HasError() {
 		return r, nil
 	}
 
@@ -476,9 +480,15 @@ func CompileFiles(ins []Input, opts *Options) ([]*Result, error) {
 	// file: the residual-cycle check builds its dependency graph
 	// over every member's lowered Core declarations, so a cycle
 	// routed through sibling `let`s is reported here rather than
-	// left for `go build` to name generated temporaries.
+	// left for `go build` to name generated temporaries. The same
+	// unit scope applies to @tailrec's R4 — a mutual-recursion
+	// cycle routed through sibling declarations is reported here
+	// as E0904 rather than escaping the proof obligation.
 	if len(cores) > 0 {
 		udiags := lower.CheckInitCycles(cores)
+		spread(results[impl[0]], byPath, udiags)
+		unitFailed = unitFailed || diag.List(udiags).HasError()
+		udiags = lower.CheckTailRecMutual(cores)
 		spread(results[impl[0]], byPath, udiags)
 		unitFailed = unitFailed || diag.List(udiags).HasError()
 	}

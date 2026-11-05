@@ -4,7 +4,7 @@
       "kind": "diagnostic",
       "code": "E0401",
       "severity": "error",
-      "message": "type mismatch: expected ~x: Int -> Int, got ?3 -> ?5",
+      "message": "type mismatch: expected ~x: Int -> Int, got ?1 -> ?2",
       "span": {
         "file": "E0401_positional_for_labeled_via_meta.gom",
         "start": {
@@ -19,7 +19,7 @@
         }
       },
       "data": {
-        "actual": "?3 -> ?5",
+        "actual": "?1 -> ?2",
         "expected": "~x: Int -> Int"
       }
     }
