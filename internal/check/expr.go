@@ -1689,24 +1689,34 @@ func (c *checker) checkIf(e *syntax.If, want types.Type) Expr {
 		case *types.Meta:
 			// An unconstrained unknown may still be Unit; a
 			// constrained one (numeric, ordered, ...) can never
-			// be, so this is the missing-else shape.
+			// be, so this is the missing-else shape. A literal
+			// meta reports its default rather than the raw `?n`,
+			// and a defaultless one the renumbered placeholder —
+			// the E0701 convention.
 			if r := c.recOf(t); r != nil && (r.num || r.flo || r.intg || r.ord) {
+				shown := then.Type()
+				if r.dflt != nil {
+					shown = r.dflt
+				}
+				td := types.Display(shown, metaNamer())
 				c.diags.Add(diag.Error("E0403",
-					fmt.Sprintf("`if` without `else` requires a Unit then-branch, got %s", then.Type())).
-					At(e.Sp).Set("type", then.Type().String()))
+					fmt.Sprintf("`if` without `else` requires a Unit then-branch, got %s", td)).
+					At(e.Sp).Set("type", td))
 			} else {
 				c.bind(t, types.Unit, e.Then.Span())
 			}
 		case *types.Con:
 			if !isCon(t, "Unit") {
+				td := types.Display(then.Type(), metaNamer())
 				c.diags.Add(diag.Error("E0403",
-					fmt.Sprintf("`if` without `else` requires a Unit then-branch, got %s", then.Type())).
-					At(e.Sp).Set("type", then.Type().String()))
+					fmt.Sprintf("`if` without `else` requires a Unit then-branch, got %s", td)).
+					At(e.Sp).Set("type", td))
 			}
 		case *types.Var, *types.Func, *types.Tuple, *types.Go:
+			td := types.Display(then.Type(), metaNamer())
 			c.diags.Add(diag.Error("E0403",
-				fmt.Sprintf("`if` without `else` requires a Unit then-branch, got %s", then.Type())).
-				At(e.Sp).Set("type", then.Type().String()))
+				fmt.Sprintf("`if` without `else` requires a Unit then-branch, got %s", td)).
+				At(e.Sp).Set("type", td))
 		default:
 			panic("unreachable")
 		}
@@ -1771,9 +1781,16 @@ func (c *checker) checkBlock(e *syntax.Block, want types.Type) Expr {
 			case *types.Meta:
 				// An unknown mid-block result is discarded: it must
 				// be Unit. A constrained meta (numeric, ordered...)
-				// can never be — that is the E0402 shape too.
+				// can never be — that is the E0402 shape too. A
+				// literal meta reports its default rather than the
+				// raw `?n`, and a defaultless one the renumbered
+				// placeholder — the E0701 convention.
 				if r := c.recOf(t); r != nil && (r.num || r.flo || r.intg || r.ord) {
-					c.diags.Add(midBlockUnitDiag(s, st.Type()))
+					shown := st.Type()
+					if r.dflt != nil {
+						shown = r.dflt
+					}
+					c.diags.Add(midBlockUnitDiag(s, types.Display(shown, metaNamer())))
 				} else {
 					c.bind(t, types.Unit, s.Span())
 				}
@@ -1785,10 +1802,10 @@ func (c *checker) checkBlock(e *syntax.Block, want types.Type) Expr {
 						c.shadowedErr(s.Span(), "a mid-block expression", "Unit")
 					}
 				} else {
-					c.diags.Add(midBlockUnitDiag(s, st.Type()))
+					c.diags.Add(midBlockUnitDiag(s, types.Display(st.Type(), metaNamer())))
 				}
 			case *types.Var, *types.Func, *types.Tuple, *types.Go:
-				c.diags.Add(midBlockUnitDiag(s, st.Type()))
+				c.diags.Add(midBlockUnitDiag(s, types.Display(st.Type(), metaNamer())))
 			default:
 				panic("unreachable")
 			}
@@ -1807,18 +1824,20 @@ func (c *checker) checkBlock(e *syntax.Block, want types.Type) Expr {
 }
 
 // midBlockUnitDiag builds the E0402 diagnostic of a non-Unit
-// mid-block statement s. It carries the "discard the value with
-// `ignore`" fix: wrapping the statement in `ignore (...)` makes the
-// discard the code already performs explicit, so the fix is
-// ApplicabilitySafe and `gom fix` applies it (spec section 1.1.2,
-// section 12 item 5). The parens are needed — `ignore` binds at
-// unary level, so `ignore a + b` would parse as `(ignore a) + b`.
-func midBlockUnitDiag(s syntax.Expr, ty types.Type) diag.Diagnostic {
+// mid-block statement s; td is the statement's type already rendered
+// through types.Display (the renumbered `?n` convention). It carries
+// the "discard the value with `ignore`" fix: wrapping the statement
+// in `ignore (...)` makes the discard the code already performs
+// explicit, so the fix is ApplicabilitySafe and `gom fix` applies it
+// (spec section 1.1.2, section 12 item 5). The parens are needed —
+// `ignore` binds at unary level, so `ignore a + b` would parse as
+// `(ignore a) + b`.
+func midBlockUnitDiag(s syntax.Expr, td string) diag.Diagnostic {
 	sp := s.Span()
 	return diag.Error("E0402",
-		fmt.Sprintf("a mid-block expression must have type Unit, got %s", ty)).
+		fmt.Sprintf("a mid-block expression must have type Unit, got %s", td)).
 		At(sp).
-		Set("type", ty.String()).
+		Set("type", td).
 		AddFix(diag.Fix{
 			Title:         "discard the value with `ignore`",
 			Applicability: diag.ApplicabilitySafe,
@@ -1901,17 +1920,28 @@ func (c *checker) checkTry(e *syntax.Try) Expr {
 				c.shadowedErr(e.Sp,
 					fmt.Sprintf("the enclosing %s's declared return type", b.kind), "Result")
 			} else {
+				// A lambda boundary's ret is a meta, which the
+				// body's earlier inference may have bound to a
+				// non-Result shape carrying its own metas (`List
+				// (Result ?a ?e)`); display renumbers them.
+				rd := types.Display(b.ret, metaNamer())
 				c.diags.Add(diag.Error("E0410",
-					fmt.Sprintf("`try` requires the enclosing %s to return Result _ e, but it returns %s", b.kind, b.ret)).
-					At(e.Sp).Set("return", b.ret.String()).Set("boundary", b.kind))
+					fmt.Sprintf("`try` requires the enclosing %s to return Result _ e, but it returns %s", b.kind, rd)).
+					At(e.Sp).Set("return", rd).Set("boundary", b.kind))
 			}
 			return &Try{Base: baseOf(e.Sp, a), X: x}
 		}
 		_ = bv
 		if !c.unifyErr(berr, errT, e.X.Span()) {
+			// Either channel can still hold an unsolved meta —
+			// the tried error arg of an inferred `Result Int
+			// (Option ?a)` is one; both share the diagnostic's
+			// namer so coinciding unknowns keep one spelling.
+			name := metaNamer()
+			td, bd := types.Display(errT, name), types.Display(berr, name)
 			c.diags.Add(diag.Error("E0411",
-				fmt.Sprintf("the error type of the tried Result (%s) does not match the %s's error type (%s)", errT, b.kind, berr)).
-				At(e.Sp).Set("tried", errT.String()).Set("expected", berr.String()))
+				fmt.Sprintf("the error type of the tried Result (%s) does not match the %s's error type (%s)", td, b.kind, bd)).
+				At(e.Sp).Set("tried", td).Set("expected", bd))
 		}
 	}
 	return &Try{Base: baseOf(e.Sp, a), X: x}

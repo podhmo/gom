@@ -152,4 +152,5 @@
 | [test-name-file-tag](2026-11-05-test-name-file-tag.md) | Same-named `test` blocks in sibling files take a file tag | draft（prototype verified — [sketch: V-6 residual verification](../sketch/2026-11-05-v6-residual-verification.md)） |
 | [test-performance](2026-11-05-test-performance.md) | テストを10倍速くするための設計と実施事項 | 採用（10倍の目標は未達） |
 | [variant-field-assert-owning-ctor](2026-11-05-variant-field-assert-owning-ctor.md) | バリアントの名前付きペイロード読み取りは所有者バリアントをアサートする | 採用（実装・検証した — [検証](../sketch/2026-11-05-variant-field-assert-owning-ctor.md)） |
+| [spec-suite-root-bare-side-files](2026-11-06-spec-suite-root-bare-side-files.md) | A bare side file at the spec-suite root is a load error | 採用（実装・検証した — [検証](../sketch/2026-11-06-spec-suite-root-bare-side-files-verification.md)） |
 <!-- END GENERATED -->

@@ -1,0 +1,50 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: ?1 occurs in List (Result ?1 ?2) (infinite type)",
+      "span": {
+        "file": "E0410_try_lambda_boundary_meta.gom",
+        "start": {
+          "line": 10,
+          "col": 42,
+          "offset": 475
+        },
+        "end": {
+          "line": 10,
+          "col": 47,
+          "offset": 480
+        }
+      },
+      "data": {
+        "in": "List (Result ?1 ?2)",
+        "var": "?1"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0410",
+      "severity": "error",
+      "message": "`try` requires the enclosing lambda to return Result _ e, but it returns List (Result ?1 ?2)",
+      "span": {
+        "file": "E0410_try_lambda_boundary_meta.gom",
+        "start": {
+          "line": 10,
+          "col": 42,
+          "offset": 475
+        },
+        "end": {
+          "line": 10,
+          "col": 47,
+          "offset": 480
+        }
+      },
+      "data": {
+        "boundary": "lambda",
+        "return": "List (Result ?1 ?2)"
+      }
+    }
+  ]
+}

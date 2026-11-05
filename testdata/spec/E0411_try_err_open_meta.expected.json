@@ -1,0 +1,49 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0411",
+      "severity": "error",
+      "message": "the error type of the tried Result (Option ?1) does not match the fn's error type (GoError)",
+      "span": {
+        "file": "E0411_try_err_open_meta.gom",
+        "start": {
+          "line": 10,
+          "col": 3,
+          "offset": 411
+        },
+        "end": {
+          "line": 10,
+          "col": 28,
+          "offset": 436
+        }
+      },
+      "data": {
+        "expected": "GoError",
+        "tried": "Option ?1"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0407",
+      "severity": "error",
+      "message": "type annotation required: the type argument for `a` could not be determined",
+      "span": {
+        "file": "E0411_try_err_open_meta.gom",
+        "start": {
+          "line": 10,
+          "col": 13,
+          "offset": 421
+        },
+        "end": {
+          "line": 10,
+          "col": 17,
+          "offset": 425
+        }
+      },
+      "data": {
+        "type": "?1"
+      }
+    }
+  ]
+}

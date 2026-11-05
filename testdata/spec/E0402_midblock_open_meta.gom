@@ -1,0 +1,15 @@
+package ex
+
+// A mid-block expression must have type Unit. When its type is
+// still an unsolved inference variable the diagnostic reports the
+// renumbered placeholder `?1` — not the checker's internal mint ID
+// (the wave8 ?n leak class, on the E0402 report site). The `%`
+// result keeps an intg-constrained meta with no default; the list
+// literal pins a meta nested inside a concrete type; `1` reports
+// its Int default rather than a placeholder.
+fn main () -> Unit = {
+  todo () % todo ()
+  [todo ()]
+  1
+  ()
+}

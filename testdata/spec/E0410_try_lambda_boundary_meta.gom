@@ -1,0 +1,12 @@
+package ex
+
+// `try` escapes to the innermost enclosing fn/lambda/test, whose
+// return type must be `Result _ e` (E0410). A lambda's return type
+// is an inference variable the body itself solves: the `[x]` arm
+// bound it to `List ?p`, and the `try` operand then solved `?p` to
+// `Result ?a ?e`, so the report spells `List (Result ?1 ?2)` —
+// renumbered placeholders, not the checker's internal mint IDs.
+fn main () -> Unit = {
+  ignore (fn x -> if true { [x] } else { try x })
+  ()
+}

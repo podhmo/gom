@@ -1,0 +1,114 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0403",
+      "severity": "error",
+      "message": "`if` without `else` requires a Unit then-branch, got ?1",
+      "span": {
+        "file": "E0403_if_no_else_open_meta.gom",
+        "start": {
+          "line": 11,
+          "col": 3,
+          "offset": 475
+        },
+        "end": {
+          "line": 11,
+          "col": 32,
+          "offset": 504
+        }
+      },
+      "data": {
+        "type": "?1"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0407",
+      "severity": "error",
+      "message": "type annotation required: the type argument for `todo_ret` could not be determined",
+      "span": {
+        "file": "E0403_if_no_else_open_meta.gom",
+        "start": {
+          "line": 11,
+          "col": 13,
+          "offset": 485
+        },
+        "end": {
+          "line": 11,
+          "col": 17,
+          "offset": 489
+        }
+      },
+      "data": {
+        "type": "?1"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0403",
+      "severity": "error",
+      "message": "`if` without `else` requires a Unit then-branch, got List ?1",
+      "span": {
+        "file": "E0403_if_no_else_open_meta.gom",
+        "start": {
+          "line": 12,
+          "col": 3,
+          "offset": 507
+        },
+        "end": {
+          "line": 12,
+          "col": 24,
+          "offset": 528
+        }
+      },
+      "data": {
+        "type": "List ?1"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0407",
+      "severity": "error",
+      "message": "type annotation required: the list element type could not be determined",
+      "span": {
+        "file": "E0403_if_no_else_open_meta.gom",
+        "start": {
+          "line": 12,
+          "col": 13,
+          "offset": 517
+        },
+        "end": {
+          "line": 12,
+          "col": 22,
+          "offset": 526
+        }
+      },
+      "data": {
+        "type": "?1"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0403",
+      "severity": "error",
+      "message": "`if` without `else` requires a Unit then-branch, got Int",
+      "span": {
+        "file": "E0403_if_no_else_open_meta.gom",
+        "start": {
+          "line": 13,
+          "col": 3,
+          "offset": 531
+        },
+        "end": {
+          "line": 13,
+          "col": 16,
+          "offset": 544
+        }
+      },
+      "data": {
+        "type": "Int"
+      }
+    }
+  ]
+}

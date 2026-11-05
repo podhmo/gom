@@ -1,0 +1,222 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0407",
+      "severity": "error",
+      "message": "type annotation required: the type argument for `todo_ret` could not be determined",
+      "span": {
+        "file": "E0402_midblock_open_meta.gom",
+        "start": {
+          "line": 11,
+          "col": 3,
+          "offset": 481
+        },
+        "end": {
+          "line": 11,
+          "col": 7,
+          "offset": 485
+        }
+      },
+      "data": {
+        "type": "?1"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0402",
+      "severity": "error",
+      "message": "a mid-block expression must have type Unit, got ?1",
+      "span": {
+        "file": "E0402_midblock_open_meta.gom",
+        "start": {
+          "line": 11,
+          "col": 3,
+          "offset": 481
+        },
+        "end": {
+          "line": 11,
+          "col": 20,
+          "offset": 498
+        }
+      },
+      "data": {
+        "type": "?1"
+      },
+      "fixes": [
+        {
+          "title": "discard the value with `ignore`",
+          "applicability": "safe",
+          "edits": [
+            {
+              "file": "E0402_midblock_open_meta.gom",
+              "start": {
+                "line": 11,
+                "col": 3,
+                "offset": 481
+              },
+              "end": {
+                "line": 11,
+                "col": 3,
+                "offset": 481
+              },
+              "text": "ignore ("
+            },
+            {
+              "file": "E0402_midblock_open_meta.gom",
+              "start": {
+                "line": 11,
+                "col": 20,
+                "offset": 498
+              },
+              "end": {
+                "line": 11,
+                "col": 20,
+                "offset": 498
+              },
+              "text": ")"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0402",
+      "severity": "error",
+      "message": "a mid-block expression must have type Unit, got List ?1",
+      "span": {
+        "file": "E0402_midblock_open_meta.gom",
+        "start": {
+          "line": 12,
+          "col": 3,
+          "offset": 501
+        },
+        "end": {
+          "line": 12,
+          "col": 12,
+          "offset": 510
+        }
+      },
+      "data": {
+        "type": "List ?1"
+      },
+      "fixes": [
+        {
+          "title": "discard the value with `ignore`",
+          "applicability": "safe",
+          "edits": [
+            {
+              "file": "E0402_midblock_open_meta.gom",
+              "start": {
+                "line": 12,
+                "col": 3,
+                "offset": 501
+              },
+              "end": {
+                "line": 12,
+                "col": 3,
+                "offset": 501
+              },
+              "text": "ignore ("
+            },
+            {
+              "file": "E0402_midblock_open_meta.gom",
+              "start": {
+                "line": 12,
+                "col": 12,
+                "offset": 510
+              },
+              "end": {
+                "line": 12,
+                "col": 12,
+                "offset": 510
+              },
+              "text": ")"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0407",
+      "severity": "error",
+      "message": "type annotation required: the list element type could not be determined",
+      "span": {
+        "file": "E0402_midblock_open_meta.gom",
+        "start": {
+          "line": 12,
+          "col": 3,
+          "offset": 501
+        },
+        "end": {
+          "line": 12,
+          "col": 12,
+          "offset": 510
+        }
+      },
+      "data": {
+        "type": "?1"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0402",
+      "severity": "error",
+      "message": "a mid-block expression must have type Unit, got Int",
+      "span": {
+        "file": "E0402_midblock_open_meta.gom",
+        "start": {
+          "line": 13,
+          "col": 3,
+          "offset": 513
+        },
+        "end": {
+          "line": 13,
+          "col": 4,
+          "offset": 514
+        }
+      },
+      "data": {
+        "type": "Int"
+      },
+      "fixes": [
+        {
+          "title": "discard the value with `ignore`",
+          "applicability": "safe",
+          "edits": [
+            {
+              "file": "E0402_midblock_open_meta.gom",
+              "start": {
+                "line": 13,
+                "col": 3,
+                "offset": 513
+              },
+              "end": {
+                "line": 13,
+                "col": 3,
+                "offset": 513
+              },
+              "text": "ignore ("
+            },
+            {
+              "file": "E0402_midblock_open_meta.gom",
+              "start": {
+                "line": 13,
+                "col": 4,
+                "offset": 514
+              },
+              "end": {
+                "line": 13,
+                "col": 4,
+                "offset": 514
+              },
+              "text": ")"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

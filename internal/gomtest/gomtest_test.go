@@ -177,6 +177,53 @@ func TestDiscoverDirectoryCasesBroken(t *testing.T) {
 	}
 }
 
+// TestDiscoverRootSideFile covers a bare side file directly under
+// the suite root: the root is not a case directory and the bare
+// name never matches a file case's prefixed side-file suffix, so
+// without the check the file was silently ignored. It is a load
+// error like a malformed directory group — while a subdirectory
+// marker and a prefixed side file keep working.
+func TestDiscoverRootSideFile(t *testing.T) {
+	dir := filepath.Join("testdata", "rootside")
+	cases, orphans, err := discoverCases(dir)
+	if err != nil {
+		t.Fatalf("discoverCases: %v", err)
+	}
+	if len(orphans) != 0 {
+		t.Errorf("orphans = %v, want none", orphans)
+	}
+	got := map[string]testCase{}
+	for _, c := range cases {
+		got[c.name] = c
+	}
+	// case.json + expected.json + golden.go (broken) + ok + sub.
+	if len(cases) != 5 {
+		names := make([]string, 0, len(cases))
+		for _, c := range cases {
+			names = append(names, c.name)
+		}
+		t.Fatalf("discovered %d cases %v, want 5", len(cases), names)
+	}
+	for _, n := range []string{"case.json", "expected.json", "golden.go"} {
+		c, ok := got[n]
+		if !ok || c.loadErr == nil {
+			t.Errorf("case %s: loadErr = %v, want a load error", n, c.loadErr)
+			continue
+		}
+		if !strings.Contains(c.loadErr.Error(), "bare side file "+n) {
+			t.Errorf("case %s: loadErr = %v, want the bare-side-file error", n, c.loadErr)
+		}
+	}
+	// The neighbors keep their rules: ok's prefixed side file is
+	// not orphaned, and sub's bare marker still makes a group.
+	if c := got["ok"]; c.loadErr != nil {
+		t.Errorf("ok: loadErr = %v, want none", c.loadErr)
+	}
+	if c := got["sub"]; !c.isDir || c.loadErr != nil || len(c.files) != 1 {
+		t.Errorf("sub = %+v, want a working directory case over a.gom", c)
+	}
+}
+
 func TestDiscoverCasesOrphans(t *testing.T) {
 	dir := filepath.Join("testdata", "orphans")
 	cases, orphans, err := discoverCases(dir)

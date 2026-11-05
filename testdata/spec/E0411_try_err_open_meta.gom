@@ -1,0 +1,12 @@
+package ex
+
+// The error channel of a `try` operand must equal the enclosing
+// function's (E0411). `Err (Some (todo ()))` infers
+// `Result ?v (Option ?e)` — the tried error type `Option ?1`
+// carries an unsolved meta inside a concrete mismatching type, so
+// the report uses the renumbered placeholder rather than the
+// checker's internal mint ID.
+fn f (x: Result Int GoError) -> Result Int GoError = {
+  try (Err (Some (todo ())))
+  x
+}

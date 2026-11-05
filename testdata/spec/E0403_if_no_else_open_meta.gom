@@ -1,0 +1,15 @@
+package ex
+
+// `if` without `else` requires a Unit then-branch. When the
+// then-branch's type is still an unsolved inference variable the
+// diagnostic reports the renumbered placeholder `?1` — not the
+// checker's internal mint ID (the wave8 ?n leak class, on the E0403
+// report sites). The `%` result keeps an intg-constrained meta
+// with no default; the list literal pins a meta nested inside a
+// concrete type; `1` reports its Int default.
+fn main () -> Unit = {
+  if true { todo () % todo () }
+  if true { [todo ()] }
+  if true { 1 }
+  ()
+}

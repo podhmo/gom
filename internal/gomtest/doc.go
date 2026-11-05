@@ -22,8 +22,11 @@
 // (<case>/expected.json); member-named side files and nested
 // directories inside a case are errors. Without a marker the
 // directory is a pure namespace and its .gom files are individual
-// cases. Only the spec suite supports directory cases; the golden
-// suite rejects them.
+// cases. A bare side file at the suite root is an error too — the
+// root is not a case directory, so a stray bare name there marks
+// nothing and almost always means a misplaced fixture. Only the
+// spec suite supports directory cases; the golden suite rejects
+// them.
 //
 //	testdata/spec/    — expected-diagnostics cases (spec section 12)
 //	testdata/golden/  — generated-Go golden cases

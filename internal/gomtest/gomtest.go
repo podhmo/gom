@@ -103,9 +103,11 @@ func (c testCase) sidePath(ext string) string {
 // discoverCases walks suiteDir for cases: a *.gom file is a
 // single-file case, and a directory holding a bare side file
 // (expected.json, golden.go or case.json) is a directory case over
-// its member *.gom/*.gomi files. It reads each case's manifest and
+// its member *.gom/*.gomi files. It reads each case's manifest,
 // reports side files (*.expected.json, *.golden.go, *.case.json)
-// whose .gom is missing as orphans.
+// whose .gom is missing as orphans, and marks a bare side file
+// directly at the suite root a load error — the root is not a case
+// directory, so the bare name is a misplaced fixture, not a marker.
 func discoverCases(suiteDir string) (cases []testCase, orphans []string, err error) {
 	var sideFiles []string
 	err = filepath.WalkDir(suiteDir, func(path string, d fs.DirEntry, err error) error {
@@ -151,6 +153,23 @@ func discoverCases(suiteDir string) (cases []testCase, orphans []string, err err
 			for _, ext := range []string{expectedExt, goldenExt, caseExt} {
 				if strings.HasSuffix(name, ext) {
 					sideFiles = append(sideFiles, path)
+					break
+				}
+				if name == ext[1:] && filepath.Dir(path) == suiteDir {
+					// A bare side file at the suite root
+					// marks nothing — the root is not a
+					// case directory, and the name is too
+					// short for a file case's prefixed
+					// side-file suffix. It almost always
+					// means a misplaced fixture, so it
+					// reports like a malformed directory
+					// group rather than dropping silently.
+					cases = append(cases, testCase{
+						name: name,
+						loadErr: fmt.Errorf("gomtest: bare side file %s at the suite root: "+
+							"the bare name marks a directory case inside a subdirectory; "+
+							"a file case's side file is prefixed (<name>%s)", name, ext),
+					})
 					break
 				}
 			}
