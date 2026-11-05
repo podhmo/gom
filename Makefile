@@ -28,8 +28,12 @@ fmt-check:
 vet:
 	$(GO) vet ./...
 
+# A test can launch another Go toolchain. Letting every child use all
+# CPUs multiplies compiler/linker parallelism across packages and fixtures.
+# Keep an explicit GOMAXPROCS override; the default bounds each process,
+# while -parallel and fixture worker limits bound concurrent cases.
 test:
-	$(GO) test -race ./...
+	GOMAXPROCS=$${GOMAXPROCS:-2} $(GO) test -race -p=4 -parallel=4 ./...
 
 # Bounded fuzz run for the compiler fuzz targets
 # (docs/decisions/2026-11-02-fuzz-strategy.md). NOT part of `check`:

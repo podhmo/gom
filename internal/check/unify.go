@@ -251,9 +251,10 @@ func isOrdered(t types.Type) bool {
 // The walk expands *local* named types the way recordCycle does: a
 // record with a function field, an ADT whose payload carries one, or
 // `Box (Int -> Int)` all reach the Func through the declaration.
-// Visited declarations are memoized by (declaration, instantiated
-// arguments) and a step budget bounds generic expansion — a revisit
-// answers false, the "keep looking elsewhere" value.
+// Arguments are checked before declarations, including phantom arguments.
+// Consequently a declaration can be inspected once with its parameters
+// treated as already checked, without constructing its instantiations.
+// Recursive declarations form a finite graph even when their arguments grow.
 func (c *checker) hasFuncOrVar(t types.Type) bool {
 	w := &eqWalk{c: c}
 	return w.has(t)
@@ -271,8 +272,8 @@ func (c *checker) eqProbe(t types.Type, sink *[]*types.Meta) bool {
 // sink, when set, collects every unbound meta the walk crosses.
 type eqWalk struct {
 	c     *checker
-	seen  []recordVisit
-	steps int
+	seen  map[*typeInfo]bool
+	bound map[int]int
 	sink  *[]*types.Meta
 }
 
@@ -280,7 +281,7 @@ type eqWalk struct {
 func (w *eqWalk) has(t types.Type) bool {
 	switch t := types.Chase(t).(type) {
 	case *types.Var:
-		return true
+		return w.bound[t.ID] == 0
 	case *types.Meta:
 		if w.sink != nil {
 			*w.sink = append(*w.sink, t)
@@ -310,25 +311,25 @@ func (w *eqWalk) has(t types.Type) bool {
 		}
 		if w.expandable(t) {
 			ti := w.c.tyCons[conKey{qual: t.Qual, name: t.Name}]
-			return w.expand(t, ti, func(sub types.Subst) bool {
+			return w.expand(ti, func() bool {
 				switch ti.kind {
 				case kindRecord:
 					for _, f := range ti.fields {
-						if w.has(sub.Apply(f.typ)) {
+						if w.has(f.typ) {
 							return true
 						}
 					}
 				case kindSum:
 					for _, v := range ti.variants {
 						for _, f := range v.fields {
-							if w.has(sub.Apply(f.typ)) {
+							if w.has(f.typ) {
 								return true
 							}
 						}
 					}
 				case kindAlias:
 					if ti.aliasRes {
-						return w.has(sub.Apply(ti.alias))
+						return w.has(ti.alias)
 					}
 				}
 				return false
@@ -353,30 +354,28 @@ func (w *eqWalk) expandable(t *types.Con) bool {
 	return ok && ti.kind != kindAbstract
 }
 
-// expand runs f under the declaration's type-parameter substitution
-// unless the same (declaration, arguments) pair is already on the
-// path or the expansion budget ran out — both answer false, matching
-// recordCycle's "repeats cannot reach the answer" reading.
-func (w *eqWalk) expand(t *types.Con, ti *typeInfo, f func(types.Subst) bool) bool {
-	v := recordVisit{ti: ti, args: t.Args}
-	for _, s := range w.seen {
-		if s.ti == ti && sameTypes(s.args, v.args) {
-			return false
-		}
-	}
-	if w.steps >= recordCycleLimit {
+// expand visits a declaration's body without substituting its arguments.
+// has has already checked every argument, so parameter occurrences cannot
+// add a function, rigid variable, or unresolved meta to that judgment.
+// Keep parameter binding scoped: callers' rigid variables must still fail.
+func (w *eqWalk) expand(ti *typeInfo, f func() bool) bool {
+	if w.seen[ti] {
 		return false
 	}
-	w.seen = append(w.seen, v)
-	w.steps++
-	defer func() { w.seen = w.seen[:len(w.seen)-1] }()
-	sub := types.Subst{}
-	for i, p := range ti.params {
-		if i < len(t.Args) {
-			sub[p.ID] = t.Args[i]
-		}
+	if w.seen == nil {
+		w.seen = map[*typeInfo]bool{}
+		w.bound = map[int]int{}
 	}
-	return f(sub)
+	w.seen[ti] = true
+	for _, p := range ti.params {
+		w.bound[p.ID]++
+	}
+	defer func() {
+		for _, p := range ti.params {
+			w.bound[p.ID]--
+		}
+	}()
+	return f()
 }
 
 // goReprComparable reports whether t's emitted Go representation

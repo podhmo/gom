@@ -45,6 +45,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 	"unicode/utf8"
@@ -56,6 +57,7 @@ import (
 	"github.com/podhmo/gom/internal/fuzzutil"
 	"github.com/podhmo/gom/internal/gomgen"
 	"github.com/podhmo/gom/internal/resolve"
+	"github.com/podhmo/gom/internal/testbin"
 	"github.com/podhmo/gom/internal/types"
 )
 
@@ -161,6 +163,22 @@ func TestEvalCompiledDiff(t *testing.T) {
 	seeds := diffSeeds(t)
 	budget := diffBudget(t)
 	deadline := time.Now().Add(budget)
+	// Compiler sessions and eval stay on this goroutine. Only isolated
+	// native builds/runs overlap; collect outcomes in seed order below.
+	workers := make(chan struct{}, 4)
+	var running sync.WaitGroup
+	defer running.Wait()
+	type nativeResult struct {
+		out              diffOutcome
+		nondeterministic bool
+		err              string
+	}
+	type nativeJob struct {
+		seed   uint64
+		src    string
+		eval   diffOutcome
+		result <-chan nativeResult
+	}
 	for _, mode := range []struct {
 		name string
 		opts gomgen.Options
@@ -171,6 +189,7 @@ func TestEvalCompiledDiff(t *testing.T) {
 		var generated, contractBad, rejected, compared int
 		var evalUnsupported, evalInternal, evalFuel, compiledTimeout int
 		var nondet, divergent, known int
+		var jobs []nativeJob
 		seed := uint64(0)
 		for ; seed < uint64(seeds); seed++ {
 			if time.Now().After(deadline) {
@@ -231,7 +250,22 @@ func TestEvalCompiledDiff(t *testing.T) {
 				evalInternal++
 			}
 
-			co, nondeterministic, buildErr := compiledDiff(t, gobin, root, r.Output.Source)
+			dir := t.TempDir()
+			result := make(chan nativeResult, 1)
+			workers <- struct{}{}
+			running.Add(1)
+			go func(code []byte) {
+				defer running.Done()
+				defer func() { <-workers }()
+				co, nondeterministic, err := compiledDiffInDir(gobin, root, dir, code)
+				result <- nativeResult{co, nondeterministic, err}
+			}(r.Output.Source)
+			jobs = append(jobs, nativeJob{seed, src, eo, result})
+		}
+		for _, job := range jobs {
+			seed, src, eo := job.seed, job.src, job.eval
+			result := <-job.result
+			co, nondeterministic, buildErr := result.out, result.nondeterministic, result.err
 			if buildErr != "" {
 				// Generated Go that typechecks under the sandbox's
 				// gc importer but fails `go build` is a
@@ -1083,18 +1117,24 @@ func goBadArgs(name string, args []eval.Value) (eval.Value, error) {
 // generated file — a contract-side finding, not a divergence.
 func compiledDiff(t *testing.T, gobin, root string, src []byte) (out diffOutcome, nondeterministic bool, buildErr string) {
 	t.Helper()
-	dir := t.TempDir()
+	return compiledDiffInDir(gobin, root, t.TempDir(), src)
+}
+
+// compiledDiffInDir does not use testing.T, so bounded workers can run it
+// without sharing compiler state or calling FailNow from a child goroutine.
+func compiledDiffInDir(gobin, root, dir string, src []byte) (out diffOutcome, nondeterministic bool, buildErr string) {
 	gomod := "module e2e\n\ngo 1.27\n\nrequire github.com/podhmo/gom v0.0.0\n\nreplace github.com/podhmo/gom => " + root + "\n"
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(gomod), 0o644); err != nil {
-		t.Fatal(err)
+		return diffOutcome{}, false, fmt.Sprintf("writing generated fixture: %v", err)
 	}
 	if err := os.WriteFile(filepath.Join(dir, "main.go"), src, 0o644); err != nil {
-		t.Fatal(err)
+		return diffOutcome{}, false, fmt.Sprintf("writing generated fixture: %v", err)
 	}
 	env := append(os.Environ(), "GOWORK=off", "GOFLAGS=-mod=mod", "GOTOOLCHAIN=local")
 
 	bctx, bcancel := context.WithTimeout(context.Background(), diffBuildTimeout)
-	bout, berr := runCmd(bctx, dir, env, gobin, "build", "-o", "prog.bin", ".")
+	binary, berr := testbin.Build(bctx, gobin, dir, env)
+	bout := binary.Output
 	bcancel()
 	if berr != nil {
 		// The generated source goes into the failure text (bounded
@@ -1106,7 +1146,7 @@ func compiledDiff(t *testing.T, gobin, root string, src []byte) (out diffOutcome
 		return diffOutcome{}, false, fmt.Sprintf("%v\n%.500s\n--- generated ---\n%s",
 			berr, bout, src)
 	}
-	prog := filepath.Join(dir, "prog.bin")
+	prog := binary.Path
 	r1 := runOnce(dir, env, prog)
 	r2 := runOnce(dir, env, prog)
 	// Determinism check: every fully-observed output must be
@@ -1146,15 +1186,6 @@ func runOnce(dir string, env []string, prog string) diffOutcome {
 			detail: fmt.Sprintf("exit error: %v\n%.400s", err, tail(stderr.Bytes(), 400))}
 	}
 	return diffOutcome{class: dClean, stdout: stdout.String()}
-}
-
-// runCmd is exec.Command plumbing with combined output capped by the
-// caller.
-func runCmd(ctx context.Context, dir string, env []string, name string, args ...string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, name, args...)
-	cmd.Dir = dir
-	cmd.Env = env
-	return cmd.CombinedOutput()
 }
 
 // tail keeps the last n bytes of b — panic output puts the message

@@ -13,6 +13,12 @@ import (
 	gomstd "github.com/podhmo/gom/internal/stdlib"
 	// Keep the named-interface golden helper in the Go test dependency graph.
 	_ "github.com/podhmo/gom/testdata/goiface"
+	// Generated programs import these outside the test process. Keep
+	// their sources in the outer Go test result-cache dependency graph.
+	_ "github.com/podhmo/gom/rt"
+	_ "github.com/podhmo/gom/stdlib/list"
+	_ "github.com/podhmo/gom/stdlib/option"
+	_ "github.com/podhmo/gom/stdlib/result"
 )
 
 // These tests run the file-based suites under testdata/ end to end

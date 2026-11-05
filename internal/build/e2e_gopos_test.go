@@ -55,7 +55,12 @@ func moduleFor(t *testing.T, dir string) {
 func TestPanicStackResolvesToGom(t *testing.T) {
 	gobin := haveGoBin(t)
 
-	r, err := build.Compile(build.Input{Path: "main.gom", Src: []byte(panicSrc)}, nil)
+	dir := t.TempDir()
+	// Compile the same input path the index will later resolve. Relative
+	// //line paths are made absolute against the compiler's working
+	// directory, which differs from the generated program's directory.
+	srcPath := filepath.Join(dir, "main.gom")
+	r, err := build.Compile(build.Input{Path: srcPath, Src: []byte(panicSrc)}, nil)
 	if err != nil {
 		t.Fatalf("Compile: %v", err)
 	}
@@ -66,7 +71,6 @@ func TestPanicStackResolvesToGom(t *testing.T) {
 		t.Fatal("Result.Output.SourceMap is not set")
 	}
 
-	dir := t.TempDir()
 	moduleFor(t, dir)
 	if err := os.WriteFile(filepath.Join(dir, "main.go"), r.Output.Source, 0o644); err != nil {
 		t.Fatal(err)
@@ -96,7 +100,7 @@ func TestPanicStackResolvesToGom(t *testing.T) {
 		}
 	}
 
-	idx := build.NewGoPosIndex(dir, map[string][]byte{"main.gom": []byte(panicSrc)})
+	idx := build.NewGoPosIndex(dir, map[string][]byte{srcPath: []byte(panicSrc)})
 	frames := idx.ResolveStack(trace)
 	if len(frames) == 0 {
 		t.Fatalf("no frames parsed:\n%s", trace)
@@ -115,14 +119,14 @@ func TestPanicStackResolvesToGom(t *testing.T) {
 		t.Fatalf("no main.boom frame in %+v", frames)
 	}
 	ls, _ := li.LineBounds(3) // `fn boom ... = todo ()`
-	if boom.Span != diag.Point("main.gom", ls) {
+	if boom.Span != diag.Point(srcPath, ls) {
 		t.Errorf("boom frame = %v, want the fn boom line head %d", boom.Span, ls)
 	}
 	if mainFrame == nil {
 		t.Fatalf("no main.main frame in %+v", frames)
 	}
 	ls, _ = li.LineBounds(6) // `let _ = boom 1`
-	if mainFrame.Span != diag.Point("main.gom", ls) {
+	if mainFrame.Span != diag.Point(srcPath, ls) {
 		t.Errorf("main frame = %v, want line 6 head %d", mainFrame.Span, ls)
 	}
 }

@@ -23,7 +23,11 @@ func (s Subst) Apply(t Type) Type {
 		}
 		return s.Apply(t.sol)
 	case *Con:
-		return &Con{Qual: t.Qual, Name: t.Name, Args: s.applyAll(t.Args)}
+		args, changed := s.applyAllChanged(t.Args)
+		if !changed {
+			return t
+		}
+		return &Con{Qual: t.Qual, Name: t.Name, Args: args}
 	case *Func:
 		ps := make([]FuncParam, len(t.Params))
 		for i, p := range t.Params {
@@ -33,23 +37,39 @@ func (s Subst) Apply(t Type) Type {
 		// instantiate Ret to a function type.
 		return Fn(s.Apply(t.Ret), ps...)
 	case *Tuple:
-		return &Tuple{Elems: s.applyAll(t.Elems)}
+		elems, changed := s.applyAllChanged(t.Elems)
+		if !changed {
+			return t
+		}
+		return &Tuple{Elems: elems}
 	case *Go:
-		return &Go{Ref: t.Ref, Args: s.applyAll(t.Args)}
+		args, changed := s.applyAllChanged(t.Args)
+		if !changed {
+			return t
+		}
+		return &Go{Ref: t.Ref, Args: args}
 	default:
 		panic("unreachable")
 	}
 }
 
-func (s Subst) applyAll(ts []Type) []Type {
-	if ts == nil {
-		return nil
-	}
-	out := make([]Type, len(ts))
+// applyAllChanged allocates only after the first replacement. Type nodes
+// are immutable, so unchanged branches can be shared without copying.
+func (s Subst) applyAllChanged(ts []Type) ([]Type, bool) {
+	var out []Type
 	for i, t := range ts {
-		out[i] = s.Apply(t)
+		r := s.Apply(t)
+		if out == nil && r != t {
+			out = append([]Type(nil), ts...)
+		}
+		if out != nil {
+			out[i] = r
+		}
 	}
-	return out
+	if out == nil {
+		return ts, false
+	}
+	return out, true
 }
 
 // FreeVars returns the rigid type variables occurring in t, keyed by

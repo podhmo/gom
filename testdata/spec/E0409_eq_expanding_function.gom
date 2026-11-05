@@ -1,0 +1,6 @@
+package m
+
+type Phantom a = {value: Int}
+type W a = {next: List (W (W a)), hidden: Phantom (a -> a)}
+
+fn eq (x: W Int) (y: W Int) -> Bool = x == y

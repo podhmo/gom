@@ -17,6 +17,7 @@ package build_test
 // that match the emitted Go function shape.
 
 import (
+	"context"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -27,6 +28,7 @@ import (
 	"github.com/podhmo/gom/internal/diag"
 	"github.com/podhmo/gom/internal/eval"
 	"github.com/podhmo/gom/internal/lower"
+	"github.com/podhmo/gom/internal/testbin"
 )
 
 var compareCases = []struct {
@@ -1383,8 +1385,8 @@ func lookupGo(t *testing.T) (string, error) {
 }
 
 // runCompiledCmd drops the generated file into a scratch module that
-// replaces github.com/podhmo/gom with the repository and runs
-// `go run .`, returning the combined output and the run error — the
+// replaces github.com/podhmo/gom with the repository, builds (or reuses)
+// a native binary, and runs it. It returns the output and run error — the
 // caller decides whether a non-zero exit is a failure.
 func runCompiledCmd(t *testing.T, gobin string, src []byte) (string, error) {
 	t.Helper()
@@ -1400,16 +1402,33 @@ func runCompiledCmd(t *testing.T, gobin string, src []byte) (string, error) {
 	if err := os.WriteFile(filepath.Join(dir, "main.go"), src, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	cmd := exec.Command(gobin, "run", ".")
-	cmd.Dir = dir
-	cmd.Env = append(os.Environ(), "GOWORK=off", "GOFLAGS=-mod=mod", "GOTOOLCHAIN=local")
+	env := append(os.Environ(), "GOWORK=off", "GOFLAGS=-mod=mod", "GOTOOLCHAIN=local")
+	if mode := os.Getenv("GOM_TEST_BIN_CACHE"); mode == "" || mode == "off" || mode == "normalize" {
+		args := []string{"run", "."}
+		if mode == "normalize" {
+			args = []string{"run", "-trimpath", "-buildvcs=false", "."}
+		}
+		cmd := exec.Command(gobin, args...)
+		cmd.Dir, cmd.Env = dir, env
+		out, err := cmd.CombinedOutput()
+		return string(out), err
+	}
+	ctx, cancel := context.WithTimeout(t.Context(), diffBuildTimeout)
+	defer cancel()
+	binary, err := testbin.Build(ctx, gobin, dir, env)
+	if err != nil {
+		return string(binary.Output), err
+	}
+	cmd := exec.Command(binary.Path)
+	cmd.Dir, cmd.Env = dir, env
 	out, err := cmd.CombinedOutput()
 	return string(out), err
 }
 
 // runCompiled drops the generated file into a scratch module that
-// replaces github.com/podhmo/gom with the repository, then `go run`s
-// it. Skips when no Go toolchain is on PATH.
+// replaces github.com/podhmo/gom with the repository, then executes it.
+// The binary may be reused, but the execution is never cached.
+// Skips when no Go toolchain is on PATH.
 func runCompiled(t *testing.T, src []byte) string {
 	t.Helper()
 	gobin, err := lookupGo(t)
@@ -1631,8 +1650,14 @@ fn main () -> Unit = {
 }
 
 func TestEvalMatchesCompiled(t *testing.T) {
+	// Bound external tool work independently of -parallel: each case
+	// owns its compiler session, scratch module and generated process.
+	workers := make(chan struct{}, 4)
 	for _, c := range compareCases {
 		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			workers <- struct{}{}
+			defer func() { <-workers }()
 			r, err := build.Compile(
 				build.Input{Path: c.name + ".gom", Src: []byte(c.src)},
 				suiteOptions(),

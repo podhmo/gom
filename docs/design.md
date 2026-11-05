@@ -402,6 +402,13 @@ func TestRectArea(t *testing.T) {
 
 ### 4.9 構造的等価の生成
 
+型検査で等価の可否を調べる `eqWalk` は、まず全型引数を検査し、次にローカル型宣言の
+本体を宣言ごとに一度だけ辿る。本体では宣言の型パラメータを検査済みとして扱い、
+具体的な型引数の代入は行わない。これにより `W (W a)` のような拡大する再帰でも
+有限の宣言グラフを検査できる。未確定 meta の制約は各適用の実引数から集める。
+比較器を生成する lower 側の具体化と E0906 の上限は別の責務として維持する
+（[決定](decisions/2026-11-05-test-performance.md)）。
+
 `x == y` / `x != y` は `core.Equal` に下ろされる。`How` に載せる比較レシピ（`EqPlan`）を lowering が被演算子の静的型から決める — codegen はそれをレンダリングするだけで、型を見て判断し直さない（2.1 節の不変条件）。レシピは4種: スカラーや全フィールドがネイティブ比較できる複合は Go の `==`（`EqNative`）、`GoError` は nil 対応のメッセージ文字列比較（`EqError`）、Gom が表現を握らない型（名前付き Go 型・`Task`・`Go.Any`）は `rt.Equal`（`EqRuntime`）、それ以外の複合型は型ごとに生成する比較関数 `gomEq<N>` の呼び出し（`EqCall`）。`gomEq<N>` は `File.EqDecls` に集めてファイル末尾に出力し、リストは要素ごと・レコード/タプルはフィールドごと・ADT はバリアントの type switch＋ペイロード比較になる。再帰型は比較関数どうしの再帰呼び出しで表す（ネストした比較は必ず `EqCall` 経由なので、プラン自体が再帰しない）。`assert_eq` も同じ判定を `CallBuiltin.Eq` に載せ、`rt.AssertEq(t, 判定結果, actual, expected)` を生成する — `assert_eq` は常に `==` と同じ答えを報告する。詳細は [decisions/2026-11-05-generated-equality-comparators](decisions/2026-11-05-generated-equality-comparators.md)。
 
 ---
@@ -430,6 +437,18 @@ sum type にコンストラクタを足すとインターフェースが変わ�
 ---
 
 ## 7. 検証の方針
+
+外部 Go ツールを使う独立ケースは最大4並列で実行する。生成 differential の
+コンパイラセッションと評価器は直列に保ち、native build/run のみを並列化する。
+`make test` は Go 子プロセスごとの過剰並列を避けるため、明示指定がなければ
+`GOMAXPROCS=2` を使用し、パッケージは `-p=4` に制限する。ケース数・race 検査・停止上限は維持する
+（[決定と計測](decisions/2026-11-05-test-performance.md)）。
+
+生成バイナリの再利用は `GOM_TEST_BIN_CACHE=on` の試験機能とする。Go標準の
+`go run -trimpath -exec cp` に依存入力の検証と実行ファイルcacheを委ね、各ケースの
+一時ディレクトリへコピーしてから毎回実行する。既定のハーネスは維持し、位置復元を
+検査するE2Eには適用しない。実行結果と判定はcacheしない。詳細と制約は同じ決定を参照する。
+
 
 - **意味論の比較テスト**: 小さな Gom 評価器（単相の純粋な式、ADT、`match`、関数適用から始める）を作り、生成した Go コードの実行結果と比べる。評価順序、パターンマッチ、部分適用の検証に使う
 - **Go 相互運用テスト**: Gom → Go と Go → Gom の両方向。特に `nil`、スライス、named type、interface、ジェネリクス
