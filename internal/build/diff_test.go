@@ -161,19 +161,86 @@ func TestEvalCompiledDiff(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	sb := fuzzutil.NewSandbox("TestFuzzCompileSandbox", sandboxTimeout, 3<<20)
-	sb.SetPhaseTimeout("parse", 1500*time.Millisecond)
-	suspect := map[string]time.Duration{"parse": 500 * time.Millisecond}
-	defer sb.Close()
-
 	seeds := diffSeeds(t)
 	budget := diffBudget(t)
 	deadline := time.Now().Add(budget)
-	// Compiler sessions and eval stay on this goroutine. Only isolated
-	// native builds/runs overlap; collect outcomes in seed order below.
+	// Native builds/runs still funnel through one bounded pool — the
+	// bound covers external tool work across both modes.
 	workers := make(chan struct{}, 4)
 	var running sync.WaitGroup
 	defer running.Wait()
+
+	// Each mode runs on its own goroutine: the serial seed front
+	// (generate → sandbox → compile → eval) is about half the suite's
+	// cost and the two fronts overlap here. Per-mode resources are
+	// single-goroutine — the sandbox speaks a stdin/stdout protocol
+	// with one helper process, and the loader's caches are plain maps.
+	// The sandbox spawn is forced on this goroutine (RunCapped reports
+	// spawn failure via t.Fatalf) so worker-side calls only ever see a
+	// live child; an abnormal mid-run reap can still force a respawn on
+	// the worker, where FailNow merely exits that goroutine after
+	// marking the test failed.
+	reports := make(chan diffModeStats, 2)
+	var wg sync.WaitGroup
+	for _, mode := range []struct {
+		name string
+		opts gomgen.Options
+	}{
+		{"typed", gomgen.Options{Typed: true, Deterministic: true}},
+		{"mechanical", gomgen.Options{Deterministic: true}},
+	} {
+		opts, imp := compileOracles(t)
+		if opts == nil || imp == nil {
+			t.Skip("no go toolchain on PATH — the compiled side cannot run")
+		}
+		sb := fuzzutil.NewSandbox("TestFuzzCompileSandbox", sandboxTimeout, 3<<20)
+		sb.SetPhaseTimeout("parse", 1500*time.Millisecond)
+		defer sb.Close()
+		sb.RunCapped(t, []byte("package main\n"), nil) // force the helper spawn under the legal t
+		wg.Add(1)
+		go func(name string, genOpts gomgen.Options, sb *fuzzutil.Sandbox, opts *build.Options) {
+			defer wg.Done()
+			rep := diffModeStats{name: name}
+			defer func() { reports <- rep }()
+			runDiffMode(t, g, sb, opts, gobin, root, genOpts,
+				seeds, deadline, workers, &running, &rep)
+		}(mode.name, mode.opts, sb, opts)
+	}
+	wg.Wait()
+	close(reports)
+	for rep := range reports {
+		t.Logf(`%s mode: %d generated, %d compared cleanly, %d divergent
+    filtered out: %d user diagnostics, %d eval-unsupported (unstubbed Go member), %d compile-contract
+    resource bounds: %d eval fuel exhausted, %d compiled timeouts; %d nondeterministic programs, %d eval-internal, %d known-divergence hits`,
+			rep.name, rep.generated, rep.compared, rep.divergent,
+			rep.rejected, rep.evalUnsupported, rep.contractBad,
+			rep.evalFuel, rep.compiledTimeout, rep.nondet, rep.evalInternal, rep.known)
+	}
+}
+
+// diffModeStats is the per-mode tally of one differential session.
+type diffModeStats struct {
+	name            string
+	generated       int
+	compared        int
+	divergent       int
+	rejected        int
+	evalUnsupported int
+	contractBad     int
+	evalFuel        int
+	compiledTimeout int
+	nondet          int
+	evalInternal    int
+	known           int
+}
+
+// runDiffMode executes one generator mode's seed loop: contract-check
+// each generated program, eval it, and queue the accepted ones for an
+// isolated native build+run. Outcomes are replayed in seed order so
+// the verdicts are scheduling-independent. All counters land in rep —
+// every write happens on this goroutine.
+func runDiffMode(t *testing.T, g *gomgen.Grammar, sb *fuzzutil.Sandbox, opts *build.Options, gobin, root string, genOpts gomgen.Options, seeds int, deadline time.Time, workers chan struct{}, running *sync.WaitGroup, rep *diffModeStats) {
+	suspect := map[string]time.Duration{"parse": 500 * time.Millisecond}
 	type nativeResult struct {
 		out              diffOutcome
 		nondeterministic bool
@@ -185,136 +252,119 @@ func TestEvalCompiledDiff(t *testing.T) {
 		eval   diffOutcome
 		result <-chan nativeResult
 	}
-	for _, mode := range []struct {
-		name string
-		opts gomgen.Options
-	}{
-		{"typed", gomgen.Options{Typed: true, Deterministic: true}},
-		{"mechanical", gomgen.Options{Deterministic: true}},
-	} {
-		var generated, contractBad, rejected, compared int
-		var evalUnsupported, evalInternal, evalFuel, compiledTimeout int
-		var nondet, divergent, known int
-		var jobs []nativeJob
-		seed := uint64(0)
-		for ; seed < uint64(seeds); seed++ {
-			if time.Now().After(deadline) {
-				t.Logf("%s mode: budget %s exhausted at seed %d/%d",
-					mode.name, budget, seed, seeds)
-				break
-			}
-			generated++
-			rng := rand.New(rand.NewPCG(seed, 0x9e3779b9+seed))
-			src := gomgen.Generate(g, rng, mode.opts)
-
-			// Contract first: a compile hang/crash/internal-error is
-			// a canary finding, not a divergence.
-			var caps map[string]time.Duration
-			if fuzzutil.LooksHangSuspect([]byte(src)) {
-				caps = suspect
-			}
-			var violations []string
-			for _, f := range sb.RunCapped(t, []byte(src), caps) {
-				if bug, ok := fuzzutil.BugOf(f, knownCompileBugs); ok {
-					t.Logf("%s seed %d: compile failure matches known bug %q",
-						mode.name, seed, bug.Desc)
-					continue
-				}
-				violations = append(violations, f)
-			}
-			if len(violations) != 0 {
-				t.Errorf("%s seed %d: compile contract violations\n%s--- program ---\n%s",
-					mode.name, seed, joinAll(violations), src)
-				contractBad++
-				continue
-			}
-
-			// The sandbox run ended cleanly, so this compile is
-			// deterministic and safe in-process.
-			r, cerr := build.Compile(build.Input{Path: "gen.gom", Src: []byte(src)}, opts)
-			if cerr != nil || r == nil {
-				t.Errorf("%s seed %d: second compile failed where the sandboxed one did not: %v",
-					mode.name, seed, cerr)
-				contractBad++
-				continue
-			}
-			if r.Diagnostics.HasError() || r.Output == nil {
-				rejected++
-				continue
-			}
-
-			// Eval side first: an unsupported program costs no `go
-			// build`, and its eval fuel bound is cheap.
-			eo := evalDiff(t, r, src)
-			switch eo.class {
-			case dUnsupported:
-				evalUnsupported++
-				continue
-			case dNonterm:
-				evalFuel++
-			case dInternal:
-				evalInternal++
-			}
-
-			dir := t.TempDir()
-			result := make(chan nativeResult, 1)
-			workers <- struct{}{}
-			running.Add(1)
-			go func(code []byte) {
-				defer running.Done()
-				defer func() { <-workers }()
-				co, nondeterministic, err := compiledDiffInDir(gobin, root, dir, code)
-				result <- nativeResult{co, nondeterministic, err}
-			}(r.Output.Source)
-			jobs = append(jobs, nativeJob{seed, src, eo, result})
+	var jobs []nativeJob
+	seed := uint64(0)
+	for ; seed < uint64(seeds); seed++ {
+		if time.Now().After(deadline) {
+			t.Logf("%s mode: budget exhausted at seed %d/%d",
+				rep.name, seed, seeds)
+			break
 		}
-		for _, job := range jobs {
-			seed, src, eo := job.seed, job.src, job.eval
-			result := <-job.result
-			co, nondeterministic, buildErr := result.out, result.nondeterministic, result.err
-			if buildErr != "" {
-				// Generated Go that typechecks under the sandbox's
-				// gc importer but fails `go build` is a
-				// contract-side finding, not a divergence — and it
-				// goes through the same knownCompileBugs matching,
-				// since a registered bug can surface at either
-				// typecheck gate.
-				failure := fmt.Sprintf("%s seed %d: generated Go failed go build after passing the contract\n%s",
-					mode.name, seed, buildErr)
-				if bug, ok := fuzzutil.BugOf(failure, knownCompileBugs); ok {
-					t.Logf("%s — matches known bug %q", failure, bug.Desc)
-				} else {
-					t.Errorf("%s\n--- program ---\n%s", failure, src)
-				}
-				contractBad++
-				continue
-			}
-			if nondeterministic {
-				nondet++
-				if diffReport(t, mode.name, seed, src, "compiled output differs between two identical runs",
-					eo, co) {
-					known++
-				}
-				continue
-			}
-			if co.class == dNonterm {
-				compiledTimeout++
-			}
-			if div := diffCompare(eo, co); div != "" {
-				divergent++
-				if diffReport(t, mode.name, seed, src, div, eo, co) {
-					known++
-				}
-				continue
-			}
-			compared++
+		rep.generated++
+		rng := rand.New(rand.NewPCG(seed, 0x9e3779b9+seed))
+		src := gomgen.Generate(g, rng, genOpts)
+
+		// Contract first: a compile hang/crash/internal-error is
+		// a canary finding, not a divergence.
+		var caps map[string]time.Duration
+		if fuzzutil.LooksHangSuspect([]byte(src)) {
+			caps = suspect
 		}
-		t.Logf(`%s mode: %d generated, %d compared cleanly, %d divergent
-    filtered out: %d user diagnostics, %d eval-unsupported (unstubbed Go member), %d compile-contract
-    resource bounds: %d eval fuel exhausted, %d compiled timeouts; %d nondeterministic programs, %d eval-internal, %d known-divergence hits`,
-			mode.name, generated, compared, divergent,
-			rejected, evalUnsupported, contractBad,
-			evalFuel, compiledTimeout, nondet, evalInternal, known)
+		var violations []string
+		for _, f := range sb.RunCapped(t, []byte(src), caps) {
+			if bug, ok := fuzzutil.BugOf(f, knownCompileBugs); ok {
+				t.Logf("%s seed %d: compile failure matches known bug %q",
+					rep.name, seed, bug.Desc)
+				continue
+			}
+			violations = append(violations, f)
+		}
+		if len(violations) != 0 {
+			t.Errorf("%s seed %d: compile contract violations\n%s--- program ---\n%s",
+				rep.name, seed, joinAll(violations), src)
+			rep.contractBad++
+			continue
+		}
+
+		// The sandbox run ended cleanly, so this compile is
+		// deterministic and safe in-process.
+		r, cerr := build.Compile(build.Input{Path: "gen.gom", Src: []byte(src)}, opts)
+		if cerr != nil || r == nil {
+			t.Errorf("%s seed %d: second compile failed where the sandboxed one did not: %v",
+				rep.name, seed, cerr)
+			rep.contractBad++
+			continue
+		}
+		if r.Diagnostics.HasError() || r.Output == nil {
+			rep.rejected++
+			continue
+		}
+
+		// Eval side first: an unsupported program costs no `go
+		// build`, and its eval fuel bound is cheap.
+		eo := evalDiff(t, r, src)
+		switch eo.class {
+		case dUnsupported:
+			rep.evalUnsupported++
+			continue
+		case dNonterm:
+			rep.evalFuel++
+		case dInternal:
+			rep.evalInternal++
+		}
+
+		dir := t.TempDir()
+		result := make(chan nativeResult, 1)
+		workers <- struct{}{}
+		running.Add(1)
+		go func(code []byte) {
+			defer running.Done()
+			defer func() { <-workers }()
+			co, nondeterministic, err := compiledDiffInDir(gobin, root, dir, code)
+			result <- nativeResult{co, nondeterministic, err}
+		}(r.Output.Source)
+		jobs = append(jobs, nativeJob{seed, src, eo, result})
+	}
+	for _, job := range jobs {
+		seed, src, eo := job.seed, job.src, job.eval
+		result := <-job.result
+		co, nondeterministic, buildErr := result.out, result.nondeterministic, result.err
+		if buildErr != "" {
+			// Generated Go that typechecks under the sandbox's
+			// gc importer but fails `go build` is a
+			// contract-side finding, not a divergence — and it
+			// goes through the same knownCompileBugs matching,
+			// since a registered bug can surface at either
+			// typecheck gate.
+			failure := fmt.Sprintf("%s seed %d: generated Go failed go build after passing the contract\n%s",
+				rep.name, seed, buildErr)
+			if bug, ok := fuzzutil.BugOf(failure, knownCompileBugs); ok {
+				t.Logf("%s — matches known bug %q", failure, bug.Desc)
+			} else {
+				t.Errorf("%s\n--- program ---\n%s", failure, src)
+			}
+			rep.contractBad++
+			continue
+		}
+		if nondeterministic {
+			rep.nondet++
+			if diffReport(t, rep.name, seed, src, "compiled output differs between two identical runs",
+				eo, co) {
+				rep.known++
+			}
+			continue
+		}
+		if co.class == dNonterm {
+			rep.compiledTimeout++
+		}
+		if div := diffCompare(eo, co); div != "" {
+			rep.divergent++
+			if diffReport(t, rep.name, seed, src, div, eo, co) {
+				rep.known++
+			}
+			continue
+		}
+		rep.compared++
 	}
 }
 
