@@ -5,6 +5,12 @@
 // generated Go code, so the two semantics must agree on evaluation
 // order, pattern dispatch, partial application and error behavior.
 //
+// The unit of evaluation is a package: NewFiles takes every typed
+// file check.Files produced for the unit, so a sibling file's
+// top-level let resolves like a same-file one — the shared scope and
+// dependency-ordered initialization of spec 5.1. New is the one-file
+// wrapper.
+//
 // # Scope (P1)
 //
 // The evaluator is monomorphic and pure. Covered: literals (Int,
@@ -63,7 +69,7 @@
 //     Ctor.Name. Pattern and value sites should share the same
 //     *Symbol whenever possible.
 //   - Constructor and record-field metadata normally comes from
-//     TypeDecls in the evaluated File. Constructors whose Var is
+//     TypeDecls in the evaluated unit. Constructors whose Var is
 //     evaluated without a TypeDecl are derived lazily from the Var's
 //     type (fields take Func parameter order/labels). Labeled
 //     constructor pattern arguments require the constructor to be
@@ -92,9 +98,10 @@
 //
 // # Recursion
 //
-// Top-level FnDecls are bound into the global environment before any
-// body can run, so self-recursion and mutual recursion between
-// top-level functions work. `let` bindings (top-level and local) are
-// sequential and non-recursive — the right-hand side is evaluated
-// before the pattern is bound.
+// Top-level FnDecls of every file in the unit are bound into the
+// global environment before any body can run, so self-recursion and
+// mutual recursion between top-level functions work — across files
+// too. `let` bindings (top-level and local) are sequential and
+// non-recursive — the right-hand side is evaluated before the pattern
+// is bound.
 package eval

@@ -25,8 +25,10 @@ import (
 	"testing"
 
 	"github.com/podhmo/gom/internal/build"
+	"github.com/podhmo/gom/internal/check"
 	"github.com/podhmo/gom/internal/diag"
 	"github.com/podhmo/gom/internal/eval"
+	"github.com/podhmo/gom/internal/gomtest"
 	"github.com/podhmo/gom/internal/lower"
 	"github.com/podhmo/gom/internal/testbin"
 )
@@ -1340,6 +1342,78 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 	},
 }
 
+// compareUnitCases is the package-unit half of the comparison suite:
+// one program spread over sibling .gom files, so the compared
+// behavior depends on package-scope members a single-file evaluator
+// could not see (the multi-file-eval open question, resolved by
+// decisions/2026-11-06-eval-package-unit.md). Same convention as
+// compareCases: `fn answer () -> String` is the surface the evaluator
+// applies; `main` prints it.
+var compareUnitCases = []struct {
+	name  string
+	files []gomtest.File
+	want  string // the string `answer ()` produces — eval and binary must agree
+}{
+	{
+		// The cross-file twin of toplevel_let_forward_ref: a.gom's
+		// package var reads b.gom's z — a "later" declaration in
+		// file order (a < b), so Go's dependency analysis
+		// initializes z first and the evaluator must force the
+		// same sibling dependency on first read.
+		name: "sibling_let_init_order",
+		files: []gomtest.File{
+			{Path: "a.gom", Src: []byte(`package main
+
+import go "fmt"
+
+let y = z + 1
+
+fn answer () -> String = "${y}"
+
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`)},
+			{Path: "b.gom", Src: []byte(`package main
+
+let z = 40
+`)},
+		},
+		want: "41",
+	},
+	{
+		// The dependency also closes through a sibling fn body and
+		// a sibling type declaration: y's initializer calls b.gom's
+		// zed (whose body reads b.gom's z), and answer matches on
+		// w — b.gom's package var holding a b.gom ADT value. Both
+		// sides must register the sibling constructors and order
+		// the transitive initialization identically.
+		name: "sibling_let_through_fn_and_type",
+		files: []gomtest.File{
+			{Path: "a.gom", Src: []byte(`package main
+
+import go "fmt"
+
+let y = zed () + 1
+
+fn show (s: Score) -> String = match s { Score v -> "s${v}" }
+
+fn answer () -> String = "${y}:${show w}"
+
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`)},
+			{Path: "b.gom", Src: []byte(`package main
+
+type Score = | Score (v: Int)
+
+fn zed () -> Int = z
+
+let z = 40
+let w = Score 42
+`)},
+		},
+		want: "41:s42",
+	},
+}
+
 // evalAnswer applies the file's `answer` through internal/eval and
 // returns the produced String's contents. Go members the typed file
 // references and the audited stub table covers are bound first, so
@@ -1348,11 +1422,33 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 // itself.
 func evalAnswer(t *testing.T, r *build.Result, src string) string {
 	t.Helper()
-	ev := eval.New(r.Typed)
-	ev.SetLineIndex(diag.NewLineIndex([]byte(src)))
+	return evalAnswerFiles(t, []*build.Result{r},
+		map[string][]byte{r.Typed.Sp.File: []byte(src)})
+}
+
+// evalAnswerFiles is the package-unit form of evalAnswer: the
+// evaluator sees every typed file of the unit (eval.NewFiles), so
+// `answer` may read a sibling file's package let, call a sibling
+// function or match on a sibling type's constructors. srcs maps each
+// input path to its .gom source so |?> step labels resolve per file.
+func evalAnswerFiles(t *testing.T, rs []*build.Result, srcs map[string][]byte) string {
+	t.Helper()
+	var typed []*check.File
+	for _, r := range rs {
+		// .gomi results carry a Typed file too, but interfaces stop
+		// after check — they are not unit members and contribute no
+		// declarations to the package scope.
+		if !r.Interface && r.Typed != nil {
+			typed = append(typed, r.Typed)
+		}
+	}
+	ev := eval.NewFiles(typed)
+	for path, src := range srcs {
+		ev.SetLineIndexFor(path, diag.NewLineIndex(src))
+	}
 	var out strings.Builder
 	capture := &diffCapture{out: &out}
-	bindGoStubs(t, r.Typed, ev, capture)
+	bindGoStubs(t, ev, capture, typed...)
 	fn := ev.Global("answer")
 	if fn == nil {
 		t.Fatal("no top-level `answer` binding for the evaluator")
@@ -1390,6 +1486,15 @@ func lookupGo(t *testing.T) (string, error) {
 // caller decides whether a non-zero exit is a failure.
 func runCompiledCmd(t *testing.T, gobin string, src []byte) (string, error) {
 	t.Helper()
+	return runCompiledFilesCmd(t, gobin, map[string][]byte{"main.go": src})
+}
+
+// runCompiledFilesCmd is the package-unit form of runCompiledCmd:
+// every generated file of the unit drops into the same scratch module
+// — the shape `gom build dir/` produces — so a case whose behavior
+// depends on sibling package members runs the merged package.
+func runCompiledFilesCmd(t *testing.T, gobin string, files map[string][]byte) (string, error) {
+	t.Helper()
 	root, err := filepath.Abs(filepath.Join("..", ".."))
 	if err != nil {
 		t.Fatal(err)
@@ -1399,8 +1504,10 @@ func runCompiledCmd(t *testing.T, gobin string, src []byte) (string, error) {
 	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(gomod), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(dir, "main.go"), src, 0o644); err != nil {
-		t.Fatal(err)
+	for name, src := range files {
+		if err := os.WriteFile(filepath.Join(dir, name), src, 0o644); err != nil {
+			t.Fatal(err)
+		}
 	}
 	env := append(os.Environ(), "GOWORK=off", "GOFLAGS=-mod=mod", "GOTOOLCHAIN=local")
 	if mode := os.Getenv("GOM_TEST_BIN_CACHE"); mode == "off" || mode == "normalize" {
@@ -1725,6 +1832,68 @@ func TestEvalMatchesCompiled(t *testing.T) {
 				t.Fatalf("runner %s failed: %v\noutput: %s", c.name, err, out)
 			}
 			if got != c.want {
+				t.Fatalf("binary stdout = %q, want %q", got, c.want)
+			}
+		})
+	}
+}
+
+// TestEvalMatchesCompiledFiles is the package-unit twin of
+// TestEvalMatchesCompiled: each case's files compile as one unit
+// (build.CompileFiles), the evaluator sees every typed file
+// (eval.NewFiles), and the generated sources drop into one scratch
+// package. Two cases is too few to pay for the runner-binary link —
+// each gets a plain scratch-module build+run.
+func TestEvalMatchesCompiledFiles(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.20)
+	}
+	gobin, err := lookupGo(t)
+	if err != nil {
+		t.Skip("no go toolchain on PATH")
+	}
+
+	var srcs []string
+	for _, c := range compareUnitCases {
+		for _, f := range c.files {
+			srcs = append(srcs, string(f.Src))
+		}
+	}
+	gl := sharedSuiteLoader(t, srcs...)
+
+	for _, c := range compareUnitCases {
+		t.Run(c.name, func(t *testing.T) {
+			ins := make([]build.Input, len(c.files))
+			srcs := make(map[string][]byte, len(c.files))
+			for i, f := range c.files {
+				ins[i] = build.Input{Path: f.Path, Src: f.Src}
+				srcs[f.Path] = f.Src
+			}
+			rs, err := build.CompileFiles(ins, suiteOptionsWith(gl))
+			if err != nil {
+				t.Fatalf("compile: %v", err)
+			}
+			outs := make(map[string][]byte, len(rs))
+			for i, r := range rs {
+				for _, d := range r.Diagnostics {
+					if d.Severity == diag.SeverityError {
+						t.Fatalf("%s: %s: %s", ins[i].Path, d.Code, d.Message)
+					}
+				}
+				if r.Output == nil {
+					t.Fatalf("%s: no generated output", ins[i].Path)
+				}
+				name := strings.TrimSuffix(filepath.Base(ins[i].Path), ".gom") + ".go"
+				outs[name] = r.Output.Source
+			}
+			if got := evalAnswerFiles(t, rs, srcs); got != c.want {
+				t.Fatalf("eval answer = %q, want %q", got, c.want)
+			}
+			out, err := runCompiledFilesCmd(t, gobin, outs)
+			if err != nil {
+				t.Fatalf("generated program failed: %v\noutput: %s", err, out)
+			}
+			if got := strings.TrimSuffix(out, "\n"); got != c.want {
 				t.Fatalf("binary stdout = %q, want %q", got, c.want)
 			}
 		})

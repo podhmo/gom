@@ -23,11 +23,12 @@ type ctx struct {
 	ctors   map[*resolve.Symbol]*ctorInfo
 	records map[*resolve.Symbol]*recordInfo
 	// topLets maps each symbol bound by a top-level `let` pattern to
-	// its declaration's initializer — registered by Evaluator.New and
-	// forced by evalVar on first read. Top-level names are mutually
-	// visible regardless of source order, like the package vars the
-	// compiler emits, so a later `let` must be readable from an
-	// earlier one's initializer.
+	// its declaration's initializer — registered by
+	// Evaluator.New/NewFiles and forced by evalVar on first read.
+	// Top-level names are mutually visible regardless of source
+	// order (or of which file of the unit declared them), like the
+	// package vars the compiler emits, so a later `let` must be
+	// readable from an earlier one's initializer.
 	topLets map[*resolve.Symbol]*letInit
 }
 

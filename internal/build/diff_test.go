@@ -633,12 +633,12 @@ func evalDiff(t *testing.T, r *build.Result, sources ...string) (o diffOutcome) 
 				detail: fmt.Sprintf("evaluator panicked: %v", rec)}
 		}
 	}()
-	ev := eval.New(r.Typed)
+	ev := eval.NewFiles([]*check.File{r.Typed})
 	if len(sources) != 0 {
 		ev.SetLineIndex(diag.NewLineIndex([]byte(sources[0])))
 	}
 	ev.SetMaxSteps(diffEvalFuel)
-	bindGoStubs(t, r.Typed, ev, capture)
+	bindGoStubs(t, ev, capture, r.Typed)
 	res := ev.Run()
 
 	// An unfaithful print poisons EVERY outcome class, not only the
@@ -681,7 +681,7 @@ func evalDiff(t *testing.T, r *build.Result, sources ...string) (o diffOutcome) 
 	return o
 }
 
-// bindGoStubs walks the typed file for Go member references — the
+// bindGoStubs walks the typed files for Go member references — the
 // callee symbols of CallGo applications plus member/variable
 // expressions whose symbol carries IsGo — and binds each one the
 // stub table covers into the evaluator's environment. Members with
@@ -693,7 +693,7 @@ func evalDiff(t *testing.T, r *build.Result, sources ...string) (o diffOutcome) 
 // `pkg.Type.Method` derived from the receiver's checked type — the
 // same triple the loader interns it under — and the stub receives
 // the receiver as its first argument.
-func bindGoStubs(t *testing.T, f *check.File, ev *eval.Evaluator, capture *diffCapture) {
+func bindGoStubs(t *testing.T, ev *eval.Evaluator, capture *diffCapture, files ...*check.File) {
 	t.Helper()
 	bindNamed := func(sym *resolve.Symbol, name string, arity int) {
 		if sym == nil || !sym.IsGo {
@@ -713,33 +713,39 @@ func bindGoStubs(t *testing.T, f *check.File, ev *eval.Evaluator, capture *diffC
 		}
 		bindNamed(sym, sym.Package+"."+sym.Name, arity)
 	}
-	for _, d := range f.Decls {
-		check.WalkDecl(d, func(x check.Expr) {
-			// Single-case assertions, not a type switch: most Expr
-			// kinds carry no Go reference and the sumtype check
-			// would demand a case for every one.
-			if a, ok := x.(*check.Apply); ok && a.Call.Kind == check.CallGo {
-				arity := max(a.Call.Arity, 1)
-				if me, ok := a.Fn.(*check.MemberExpr); ok && a.Call.Callee != nil && a.Call.Callee.Kind == resolve.KindMethod {
-					bindNamed(a.Call.Callee, methodStubName(me), arity+1)
-				} else {
-					bind(a.Call.Callee, arity)
+	for _, f := range files {
+		if f == nil {
+			continue
+		}
+		for _, d := range f.Decls {
+			check.WalkDecl(d, func(x check.Expr) {
+				// Single-case assertions, not a type switch: most
+				// Expr kinds carry no Go reference and the sumtype
+				// check would demand a case for every one.
+				if a, ok := x.(*check.Apply); ok && a.Call.Kind == check.CallGo {
+					arity := max(a.Call.Arity, 1)
+					if me, ok := a.Fn.(*check.MemberExpr); ok && a.Call.Callee != nil && a.Call.Callee.Kind == resolve.KindMethod {
+						bindNamed(a.Call.Callee, methodStubName(me), arity+1)
+					} else {
+						bind(a.Call.Callee, arity)
+					}
 				}
-			}
-			if m, ok := x.(*check.MemberExpr); ok {
-				if m.Sym != nil && m.Sym.Kind == resolve.KindMethod {
-					// A method reference's arity is its value-type
-					// parameter count; the stub adds the receiver.
-					p, _ := flattenType(m.Type())
-					bindNamed(m.Sym, methodStubName(m), len(p)+1)
-				} else {
-					bind(m.Sym, 1)
+				if m, ok := x.(*check.MemberExpr); ok {
+					if m.Sym != nil && m.Sym.Kind == resolve.KindMethod {
+						// A method reference's arity is its
+						// value-type parameter count; the stub
+						// adds the receiver.
+						p, _ := flattenType(m.Type())
+						bindNamed(m.Sym, methodStubName(m), len(p)+1)
+					} else {
+						bind(m.Sym, 1)
+					}
 				}
-			}
-			if v, ok := x.(*check.Var); ok {
-				bind(v.Sym, 1)
-			}
-		})
+				if v, ok := x.(*check.Var); ok {
+					bind(v.Sym, 1)
+				}
+			})
+		}
 	}
 }
 

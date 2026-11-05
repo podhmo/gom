@@ -1713,6 +1713,260 @@ func TestProgram(t *testing.T) {
 	})
 }
 
+// TestProgramFiles covers the package-unit entry point
+// (eval.NewFiles): the typed files of one package share one scope,
+// so a sibling file's top-level let/fn/type resolves like a
+// same-file declaration (decisions/2026-11-06-eval-package-unit.md).
+func TestProgramFiles(t *testing.T) {
+	spa := diag.SpanIn("a.gom", 0, 1)
+	spb := diag.SpanIn("b.gom", 0, 1)
+
+	t.Run("sibling let reads across files", func(t *testing.T) {
+		// a.gom's `let x` reads b.gom's `let y` — the forward
+		// reference the single-file evaluator already resolves by
+		// first-read forcing, now spanning the unit. The files are
+		// passed out of lexical order on purpose: the unit's
+		// declaration order is file-name order, not input order.
+		xP, xS := vpat("x", types.Int)
+		yP, yS := vpat("y", types.Int)
+		letX := &check.LetDecl{Sp: spa, Pat: xP,
+			Value: bin(syntax.BinAdd, types.Int, vr(yS, types.Int), intLit(1))}
+		letY := &check.LetDecl{Sp: spb, Pat: yP, Value: intLit(40)}
+		uPat, _ := vpat("u", types.Unit)
+		mainD := &check.FnDecl{Sp: spa, Sym: sym("main", resolve.KindFunc),
+			Sig:    types.Fn(types.Int, types.P(types.Unit)),
+			Params: []check.Param{{Pat: uPat}},
+			Body:   vr(xS, types.Int)}
+		a := &check.File{Sp: spa, Package: "m", Decls: []check.Decl{letX, mainD}}
+		bf := &check.File{Sp: spb, Package: "m", Decls: []check.Decl{letY}}
+		r := eval.ProgramFiles([]*check.File{bf, a})
+		if !r.OK() || r.Value.String() != "41" {
+			t.Fatalf("got %v diags=%v", r.Value, r.Diags)
+		}
+	})
+
+	t.Run("sibling let dependency through a sibling fn", func(t *testing.T) {
+		// y's initializer calls b.gom's zed, whose body reads
+		// b.gom's z — Go's package-init dependency analysis
+		// counts z transitively; the evaluator forces it the
+		// same way when the call body reads it.
+		yP, yS := vpat("y", types.Int)
+		zP, zS := vpat("z", types.Int)
+		uPat, _ := vpat("u", types.Unit)
+		zedSym := sym("zed", resolve.KindFunc)
+		zedD := &check.FnDecl{Sp: spb, Sym: zedSym,
+			Sig:    types.Fn(types.Int, types.P(types.Unit)),
+			Params: []check.Param{{Pat: uPat}},
+			Body:   vr(zS, types.Int)}
+		letY := &check.LetDecl{Sp: spa, Pat: yP,
+			Value: bin(syntax.BinAdd, types.Int,
+				directCall(types.Int, zedSym, zedD.Sig, unitLit()), intLit(1))}
+		letZ := &check.LetDecl{Sp: spb, Pat: zP, Value: intLit(40)}
+		u2Pat, _ := vpat("u", types.Unit)
+		mainD := &check.FnDecl{Sp: spa, Sym: sym("main", resolve.KindFunc),
+			Sig:    types.Fn(types.Int, types.P(types.Unit)),
+			Params: []check.Param{{Pat: u2Pat}},
+			Body:   vr(yS, types.Int)}
+		a := &check.File{Sp: spa, Package: "m", Decls: []check.Decl{letY, mainD}}
+		bf := &check.File{Sp: spb, Package: "m", Decls: []check.Decl{zedD, letZ}}
+		r := eval.ProgramFiles([]*check.File{a, bf})
+		if !r.OK() || r.Value.String() != "41" {
+			t.Fatalf("got %v diags=%v", r.Value, r.Diags)
+		}
+	})
+
+	t.Run("cross-file initialization cycle reports E9003", func(t *testing.T) {
+		// The compiled unit's CheckInitCycles rejects this shape
+		// as E0907 before eval ever sees it; a hand-built unit
+		// still gets the re-entrant-read diagnostic instead of
+		// diverging.
+		xP, xS := vpat("x", types.Int)
+		yP, yS := vpat("y", types.Int)
+		letX := &check.LetDecl{Sp: spa, Pat: xP, Value: vr(yS, types.Int)}
+		letY := &check.LetDecl{Sp: spb, Pat: yP,
+			Value: bin(syntax.BinAdd, types.Int, vr(xS, types.Int), intLit(1))}
+		a := &check.File{Sp: spa, Package: "m", Decls: []check.Decl{letX}}
+		bf := &check.File{Sp: spb, Package: "m", Decls: []check.Decl{letY}}
+		r := eval.ProgramFiles([]*check.File{a, bf})
+		if r.OK() {
+			t.Fatal("expected initialization cycle diagnostic")
+		}
+		if r.Diags[0].Code != eval.CodePanic {
+			t.Fatalf("code = %s, want %s", r.Diags[0].Code, eval.CodePanic)
+		}
+	})
+
+	t.Run("run drives lets in lexical file order", func(t *testing.T) {
+		// `let _ = e` binds nothing and initializes for effect in
+		// declaration order — lexical file order across files, so
+		// a.gom's side effect precedes b.gom's even when the input
+		// slice lists b first.
+		var taps []string
+		tapSym := sym("tap", resolve.KindFunc)
+		letA := &check.LetDecl{Sp: spa, Pat: wild(types.Unit),
+			Value: directCall(types.Unit, tapSym, types.Fn(types.Unit, types.P(types.String)), strLit("a"))}
+		letB := &check.LetDecl{Sp: spb, Pat: wild(types.Unit),
+			Value: directCall(types.Unit, tapSym, types.Fn(types.Unit, types.P(types.String)), strLit("b"))}
+		a := &check.File{Sp: spa, Package: "m", Decls: []check.Decl{letA}}
+		bf := &check.File{Sp: spb, Package: "m", Decls: []check.Decl{letB}}
+		ev := eval.NewFiles([]*check.File{bf, a})
+		ev.Env().Bind(tapSym, eval.NewHostFunc("tap", 1, func(args []eval.Value) (eval.Value, error) {
+			taps = append(taps, args[0].(*eval.VStr).S)
+			return &eval.VUnit{}, nil
+		}))
+		r := ev.Run()
+		if !r.OK() {
+			t.Fatalf("run failed: %+v", r.Diags)
+		}
+		if fmt.Sprint(taps) != "[a b]" {
+			t.Fatalf("tap order = %v, want [a b]", taps)
+		}
+	})
+
+	t.Run("sibling type decl registers constructors", func(t *testing.T) {
+		// b.gom's `type W` contributes its constructor to the
+		// unit's metadata set: a.gom's let builds `W 42` and a.gom's
+		// main reads the payload through the sum type.
+		wType := sym("W", resolve.KindType)
+		wCtor := sym("W", resolve.KindCtor)
+		wFld := sym("v", resolve.KindField)
+		wCon := &types.Con{Name: "W"}
+		wDecl := &check.TypeDecl{Sp: spb, Sym: wType,
+			Body: &check.SumType{Sp: spb, Variants: []check.Variant{
+				{Sp: spb, Sym: wCtor, Fields: []check.TField{
+					{Sp: spb, Name: "v", Index: 0, Sym: wFld, Type: types.Int},
+				}},
+			}}}
+		wP, wS := vpat("w", wCon)
+		letW := &check.LetDecl{Sp: spb, Pat: wP,
+			Value: directCall(wCon, wCtor, types.Fn(wCon, types.P(types.Int)), intLit(42))}
+		uPat, _ := vpat("u", types.Unit)
+		mainD := &check.FnDecl{Sp: spa, Sym: sym("main", resolve.KindFunc),
+			Sig:    types.Fn(types.Int, types.P(types.Unit)),
+			Params: []check.Param{{Pat: uPat}},
+			Body: &check.MemberExpr{Base: b(types.Int), Recv: vr(wS, wCon),
+				Sel: &syntax.Ident{Sp: spa, Name: "v"}, Sym: wFld, Index: 0}}
+		a := &check.File{Sp: spa, Package: "m", Decls: []check.Decl{mainD}}
+		bf := &check.File{Sp: spb, Package: "m", Decls: []check.Decl{wDecl, letW}}
+		r := eval.ProgramFiles([]*check.File{a, bf})
+		if !r.OK() || r.Value.String() != "42" {
+			t.Fatalf("got %v diags=%v", r.Value, r.Diags)
+		}
+	})
+
+	t.Run("sibling type name shadows the builtin unit-wide", func(t *testing.T) {
+		// b.gom's `type Result` shadows the builtin for the whole
+		// package: localT unions every file's declared type names,
+		// so an `Err`-spelled value of the local Result built from
+		// a.gom's decls is an ordinary variant — `try` on it is
+		// the E9004 "not a Result" invariant, not an unwrap.
+		resType := sym("Result", resolve.KindType)
+		errCtor := sym("Err", resolve.KindCtor)
+		resCon := &types.Con{Name: "Result"}
+		resDecl := &check.TypeDecl{Sp: spb, Sym: resType,
+			Body: &check.SumType{Sp: spb, Variants: []check.Variant{
+				{Sp: spb, Sym: errCtor, Fields: []check.TField{
+					{Sp: spb, Name: "msg", Index: 0, Sym: sym("msg", resolve.KindField), Type: types.String},
+				}},
+			}}}
+		a := &check.File{Sp: spa, Package: "m"}
+		bf := &check.File{Sp: spb, Package: "m", Decls: []check.Decl{resDecl}}
+		ev := eval.NewFiles([]*check.File{a, bf})
+		r0 := ev.Expr(directCall(resCon, errCtor,
+			types.Fn(resCon, types.P(types.String)), strLit("x")))
+		if !r0.OK() {
+			t.Fatalf("ctor eval failed: %+v", r0.Diags)
+		}
+		errSym := sym("errv", resolve.KindVar)
+		ev.Env().Bind(errSym, r0.Value)
+		r := ev.Expr(&check.Try{Base: b(types.Int), X: vr(errSym, resCon)})
+		if r.OK() {
+			t.Fatalf("try on a file-local Result must not unwrap, got %s", r.Value)
+		}
+		if r.Diags[0].Code != eval.CodeInternal {
+			t.Fatalf("code = %s, want %s", r.Diags[0].Code, eval.CodeInternal)
+		}
+	})
+
+	t.Run("mutual recursion across files", func(t *testing.T) {
+		evenSym := sym("isEven", resolve.KindFunc)
+		oddSym := sym("isOdd", resolve.KindFunc)
+		sig := types.Fn(types.Bool, types.P(types.Int))
+		nP, nS := vpat("n", types.Int)
+		nP2, nS2 := vpat("n", types.Int)
+		even := &check.FnDecl{Sp: spa, Sym: evenSym, Sig: sig,
+			Params: []check.Param{{Pat: nP}},
+			Body: &check.If{Base: b(types.Bool),
+				Cond: bin(syntax.BinEq, types.Bool, vr(nS, types.Int), intLit(0)),
+				Then: boolLit(true),
+				Else: directCall(types.Bool, oddSym, sig,
+					bin(syntax.BinSub, types.Int, vr(nS, types.Int), intLit(1)))}}
+		odd := &check.FnDecl{Sp: spb, Sym: oddSym, Sig: sig,
+			Params: []check.Param{{Pat: nP2}},
+			Body: &check.If{Base: b(types.Bool),
+				Cond: bin(syntax.BinEq, types.Bool, vr(nS2, types.Int), intLit(0)),
+				Then: boolLit(false),
+				Else: directCall(types.Bool, evenSym, sig,
+					bin(syntax.BinSub, types.Int, vr(nS2, types.Int), intLit(1)))}}
+		a := &check.File{Sp: spa, Package: "m", Decls: []check.Decl{even}}
+		bf := &check.File{Sp: spb, Package: "m", Decls: []check.Decl{odd}}
+		ev := eval.NewFiles([]*check.File{a, bf})
+		r := ev.Expr(directCall(types.Bool, evenSym, sig, intLit(10)))
+		if !r.OK() || r.Value.String() != "true" {
+			t.Fatalf("isEven 10 = %v diags=%v", r.Value, r.Diags)
+		}
+	})
+
+	t.Run("step labels resolve per file", func(t *testing.T) {
+		// A |?> step sitting in b.gom names b.gom:LINE — the line
+		// index of its own file — not the primary file's bytes.
+		resT := types.Result(types.Int, types.GoError)
+		srcB := "package m\n\nlet r = 1 |?> fn n -> Err e\n"
+		lamSp := diag.SpanIn("b.gom", 25, 40) // the `fn n -> Err e` lambda
+		nP, _ := vpat("n", types.Int)
+		errSym := sym("e", resolve.KindVar)
+		lam := &check.Lambda{Base: check.Base{Sp: lamSp, Typ: types.Fn(resT, types.P(types.Int))},
+			Params: []check.Param{{Pat: nP}},
+			Body:   vr(errSym, resT)}
+		pipe := &check.Binary{Base: check.Base{Sp: lamSp, Typ: resT},
+			Op: syntax.BinPipeTry, X: intLit(1), Y: lam}
+		files := []*check.File{
+			{Sp: spa, Package: "m"},
+			{Sp: spb, Package: "m"},
+		}
+		bindErr := func(ev *eval.Evaluator) {
+			ev.Env().Bind(errSym, &eval.VVariant{Type: resT.(*types.Con), Name: "Err",
+				Fields: []eval.VField{{Index: 0, V: &eval.VGoErr{Text: "boom"}}}})
+		}
+		errText := func(ev *eval.Evaluator) string {
+			r := ev.Expr(pipe)
+			if !r.OK() {
+				t.Fatalf("pipe failed: %+v", r.Diags)
+			}
+			v, ok := r.Value.(*eval.VVariant)
+			if !ok || len(v.Fields) != 1 {
+				t.Fatalf("got %s, want Err", r.Value)
+			}
+			g, ok := v.Fields[0].V.(*eval.VGoErr)
+			if !ok {
+				t.Fatalf("err payload = %T, want VGoErr", v.Fields[0].V)
+			}
+			return g.Text
+		}
+		ev := eval.NewFiles(files)
+		bindErr(ev)
+		if got := errText(ev); got != "b.gom:25: boom" {
+			t.Fatalf("without an index the step names the offset: %q, want b.gom:25: boom", got)
+		}
+		ev2 := eval.NewFiles(files)
+		bindErr(ev2)
+		ev2.SetLineIndexFor("b.gom", diag.NewLineIndex([]byte(srcB)))
+		if got := errText(ev2); got != "b.gom:3: boom" {
+			t.Fatalf("with the per-file index the step names the line: %q, want b.gom:3: boom", got)
+		}
+	})
+}
+
 // divergingFile is `fn f (x: Int) -> Int = f x` applied from main —
 // unbounded recursion with no base case. Before the call-depth
 // budget existed this died on the ~1 GB goroutine stack ceiling

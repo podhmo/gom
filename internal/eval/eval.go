@@ -2,6 +2,7 @@ package eval
 
 import (
 	"fmt"
+	"path/filepath"
 	"reflect"
 	"sort"
 	"strings"
@@ -38,6 +39,10 @@ const defaultMaxDepth = 50_000
 type interp struct {
 	ctx   *ctx
 	lines *diag.LineIndex
+	// fileLines holds a per-file line index for step labels of a
+	// multi-file evaluation (Evaluator.SetLineIndexFor): a |?> step
+	// in b.gom must name its own file:line, not the primary file's.
+	fileLines map[string]*diag.LineIndex
 	// steps/maxSteps implement the evaluator's fuel budget
 	// (Evaluator.SetMaxSteps): every expression node evaluated costs
 	// one step, so a diverging program — unbounded recursion, a long
@@ -53,12 +58,13 @@ type interp struct {
 	// defaultMaxDepth applies when unset; <= 0 means unlimited.
 	depth    int64
 	maxDepth int64
-	// localT names the file's declared types — an unqualified
-	// *types.Con carrying one of these names denotes the file-local
+	// localT names the unit's declared types — an unqualified
+	// *types.Con carrying one of these names denotes a package-local
 	// declaration, never the builtin of the same spelling. It is
 	// the same guard check's shadowedBuiltin, lower's declaredT and
-	// codegen's localT apply: a file-local `type Result` makes
-	// IsResult answer false for its variants.
+	// codegen's localT apply: a `type Result` declared in any file
+	// of the unit makes IsResult answer false for its variants
+	// unit-wide.
 	localT map[string]bool
 }
 
@@ -80,58 +86,87 @@ type letInit struct {
 
 // --- public API ---
 
-// Evaluator evaluates one typed file: it registers type declarations
-// and binds top-level functions into a global environment at New;
-// Run then evaluates the value declarations, tests, and `main`.
+// Evaluator evaluates the typed files of one package unit: it
+// registers type declarations and binds top-level functions into a
+// global environment at New/NewFiles; Run then evaluates the value
+// declarations, tests, and `main`.
 type Evaluator struct {
 	env    *Env
-	file   *check.File
+	files  []*check.File
 	interp *interp
 }
 
-// New prepares evaluation of f: registers type declarations and binds
-// every top-level function symbol to its (recursion-ready) closure.
-// LetDecl values are not evaluated until Run.
+// New prepares evaluation of f — the one-file unit.
 func New(f *check.File) *Evaluator {
+	return NewFiles([]*check.File{f})
+}
+
+// NewFiles prepares evaluation of one package unit — the typed files
+// check.Files returns and build.CompileFiles hands out through
+// Result.Typed. Every file's declarations share one package scope:
+// type declarations register their constructors and fields into one
+// metadata set (a package-local `type Result` shadows the builtin in
+// every member file), every top-level function symbol binds its
+// (recursion-ready) closure, and every top-level let registers a lazy
+// initializer read on first demand.
+//
+// File order is the lexical file-name order spec 5.1 fixes as the
+// cross-file declaration order — the base name, the key the
+// generated package's .go files are written and compiled under — so
+// the order callers hand the slice in does not matter (and neither
+// do the paths' directory prefixes: a unit's files live in one
+// directory). Within a file, declarations keep source order.
+func NewFiles(files []*check.File) *Evaluator {
 	env := NewEnv()
-	ev := &Evaluator{env: env, file: f, interp: &interp{ctx: env.ctx, maxDepth: defaultMaxDepth}}
-	if f == nil {
-		return ev
-	}
-	for _, d := range f.Decls {
-		td, ok := d.(*check.TypeDecl)
-		if !ok {
-			continue
+	ev := &Evaluator{env: env, interp: &interp{ctx: env.ctx, maxDepth: defaultMaxDepth}}
+	for _, f := range files {
+		if f != nil {
+			ev.files = append(ev.files, f)
 		}
-		ev.registerTypeDecl(td)
-		if td.Sym != nil && td.Sym.Package == "" {
-			if ev.interp.localT == nil {
-				ev.interp.localT = map[string]bool{}
+	}
+	sort.SliceStable(ev.files, func(i, j int) bool {
+		return filepath.Base(ev.files[i].Sp.File) < filepath.Base(ev.files[j].Sp.File)
+	})
+	for _, f := range ev.files {
+		for _, d := range f.Decls {
+			td, ok := d.(*check.TypeDecl)
+			if !ok {
+				continue
 			}
-			ev.interp.localT[td.Sym.Name] = true
+			ev.registerTypeDecl(td)
+			if td.Sym != nil && td.Sym.Package == "" {
+				if ev.interp.localT == nil {
+					ev.interp.localT = map[string]bool{}
+				}
+				ev.interp.localT[td.Sym.Name] = true
+			}
 		}
 	}
-	for _, d := range f.Decls {
-		fd, ok := d.(*check.FnDecl)
-		if !ok || fd.Body == nil {
-			// A bodiless declaration (an interface-level signature
-			// that slipped into a .gom file) stays unbound — a use
-			// will report "unbound symbol".
-			continue
+	for _, f := range ev.files {
+		for _, d := range f.Decls {
+			fd, ok := d.(*check.FnDecl)
+			if !ok || fd.Body == nil {
+				// A bodiless declaration (an interface-level
+				// signature that slipped into a .gom file) stays
+				// unbound — a use will report "unbound symbol".
+				continue
+			}
+			env.Bind(fd.Sym, ev.fnValue(fd))
 		}
-		env.Bind(fd.Sym, ev.fnValue(fd))
 	}
 	// Top-level lets stay unbound until Run (or a first read through
 	// evalVar) initializes them — the compiled form is a package var,
 	// whose initialization follows dependencies, not source order.
-	for _, d := range f.Decls {
-		ld, ok := d.(*check.LetDecl)
-		if !ok {
-			continue
-		}
-		init := &letInit{decl: ld}
-		for _, sym := range boundSyms(ld.Pat) {
-			env.ctx.topLets[sym] = init
+	for _, f := range ev.files {
+		for _, d := range f.Decls {
+			ld, ok := d.(*check.LetDecl)
+			if !ok {
+				continue
+			}
+			init := &letInit{decl: ld}
+			for _, sym := range boundSyms(ld.Pat) {
+				env.ctx.topLets[sym] = init
+			}
 		}
 	}
 	return ev
@@ -144,6 +179,17 @@ func (e *Evaluator) Env() *Env { return e.env }
 // SetLineIndex supplies source lines for nameless pipeline step labels.
 // Without an index, hand-built AST evaluation uses byte offsets.
 func (e *Evaluator) SetLineIndex(lines *diag.LineIndex) { e.interp.lines = lines }
+
+// SetLineIndexFor registers the line index of one file of the unit.
+// A multi-file evaluation resolves each |?> step label against the
+// index of the file the step's span names — a step in b.gom must not
+// read its line through a.gom's bytes.
+func (e *Evaluator) SetLineIndexFor(path string, lines *diag.LineIndex) {
+	if e.interp.fileLines == nil {
+		e.interp.fileLines = map[string]*diag.LineIndex{}
+	}
+	e.interp.fileLines[path] = lines
+}
 
 // SetMaxSteps bounds how many expression nodes one evaluation may
 // reduce before it stops with an E9006 diagnostic — the fuel budget
@@ -175,46 +221,48 @@ func (e *Evaluator) Global(name string) Value {
 	return nil
 }
 
-// Run evaluates the file's top-level LetDecls in order, runs each
-// `test` block as a function boundary, and finally applies `main` to
-// `()` when a function named main exists. The first failure stops the
-// run.
+// Run evaluates the unit's top-level LetDecls in declaration order —
+// file order across files, source order within one — runs each `test`
+// block as a function boundary, and finally applies `main` to `()`
+// when a function named main exists. The first failure stops the run.
 func (e *Evaluator) Run() Result {
 	var diags diag.List
-	for _, d := range e.fileDecls() {
-		switch d := d.(type) {
-		case *check.LetDecl:
-			_, ds := runEval(func() Value {
-				e.interp.ensureTopLet(d, e.env)
-				return nil
-			})
-			diags = append(diags, ds...)
-			if ds.HasError() {
-				return Result{Diags: diags}
-			}
-		case *check.TestDecl:
-			v, ds := runEval(func() Value {
-				return runBody(func() Value { return e.interp.eval(d.Body, e.env.Child()) })
-			})
-			if !ds.HasError() && v != nil {
-				if isRes, isOk := e.interp.resultTag(v); isRes && !isOk {
-					ds = append(ds, diag.Error(CodeTestFail, "test returned Err").
-						At(d.Sp).Set("test", d.Name).Set("value", v.String()))
+	for _, f := range e.files {
+		for _, d := range f.Decls {
+			switch d := d.(type) {
+			case *check.LetDecl:
+				_, ds := runEval(func() Value {
+					e.interp.ensureTopLet(d, e.env)
+					return nil
+				})
+				diags = append(diags, ds...)
+				if ds.HasError() {
+					return Result{Diags: diags}
 				}
+			case *check.TestDecl:
+				v, ds := runEval(func() Value {
+					return runBody(func() Value { return e.interp.eval(d.Body, e.env.Child()) })
+				})
+				if !ds.HasError() && v != nil {
+					if isRes, isOk := e.interp.resultTag(v); isRes && !isOk {
+						ds = append(ds, diag.Error(CodeTestFail, "test returned Err").
+							At(d.Sp).Set("test", d.Name).Set("value", v.String()))
+					}
+				}
+				diags = append(diags, ds...)
+				if ds.HasError() {
+					return Result{Diags: diags}
+				}
+			case *check.FnDecl, *check.TypeDecl:
+				// Handled by NewFiles.
+			default:
+				panic("unreachable")
 			}
-			diags = append(diags, ds...)
-			if ds.HasError() {
-				return Result{Diags: diags}
-			}
-		case *check.FnDecl, *check.TypeDecl:
-			// Handled by New.
-		default:
-			panic("unreachable")
 		}
 	}
 	if g := e.Global("main"); g != nil {
 		v, ds := runEval(func() Value {
-			return e.interp.applyOne(g, &VUnit{}, e.sp())
+			return e.interp.applyOne(g, &VUnit{}, e.mainSpan())
 		})
 		diags = append(diags, ds...)
 		return Result{Value: v, Diags: diags}
@@ -245,6 +293,11 @@ func Program(f *check.File) Result {
 	return New(f).Run()
 }
 
+// ProgramFiles evaluates a package unit — NewFiles(files).Run().
+func ProgramFiles(files []*check.File) Result {
+	return NewFiles(files).Run()
+}
+
 // Expr evaluates a standalone expression against env (NewEnv() gives
 // an empty global scope; use Env.Bind to provide values).
 func Expr(env *Env, x check.Expr) Result {
@@ -256,21 +309,28 @@ func Expr(env *Env, x check.Expr) Result {
 	return Result{Value: v, Diags: ds}
 }
 
-// fileDecls returns f.Decls or nil for a nil file.
-func (e *Evaluator) fileDecls() []check.Decl {
-	if e.file == nil {
-		return nil
-	}
-	return e.file.Decls
-}
-
-// sp returns the file's span for diagnostics, or the zero span when
-// the evaluator was built with New(nil).
+// sp returns the first file's span for diagnostics, or the zero span
+// when the evaluator was built with no files.
 func (e *Evaluator) sp() diag.Span {
-	if e.file == nil {
+	if len(e.files) == 0 {
 		return diag.Span{}
 	}
-	return e.file.Sp
+	return e.files[0].Sp
+}
+
+// mainSpan returns the span of the FnDecl that declared `main` —
+// the declaration boundary the "applying main" diagnostics belong
+// to — and falls back to sp() when `main` is a non-declared binding
+// (a host stub bound by name through Env).
+func (e *Evaluator) mainSpan() diag.Span {
+	for _, f := range e.files {
+		for _, d := range f.Decls {
+			if fd, ok := d.(*check.FnDecl); ok && fd.Sym != nil && fd.Sym.Name == "main" {
+				return fd.Sp
+			}
+		}
+	}
+	return e.sp()
 }
 
 // fnValue builds the function value of a top-level FnDecl.
@@ -1027,10 +1087,21 @@ func (e *interp) stepName(x check.Expr) string {
 		return e.stepName(x.Fn)
 	}
 	sp := x.Span()
-	if e.lines != nil {
-		return fmt.Sprintf("%s:%d", sp.File, e.lines.Pos(sp.Start).Line)
+	if idx := e.lineIndexOf(sp.File); idx != nil {
+		return fmt.Sprintf("%s:%d", sp.File, idx.Pos(sp.Start).Line)
 	}
 	return fmt.Sprintf("%s:%d", sp.File, sp.Start)
+}
+
+// lineIndexOf returns the line index registered for file — the
+// per-file index of SetLineIndexFor when present, else the primary
+// SetLineIndex one (or nil, which the caller renders as a byte
+// offset).
+func (e *interp) lineIndexOf(file string) *diag.LineIndex {
+	if idx := e.fileLines[file]; idx != nil {
+		return idx
+	}
+	return e.lines
 }
 
 // errorText renders the message of an error-ish value.
