@@ -932,6 +932,28 @@
   [decision](decisions/2026-11-06-spec-suite-root-bare-side-files.md)
   同 wave の修正対象外。wave10 hygiene レビュー・worker が独立に指摘。
 
+- [ ] **eval の初期化順は Go の ready-in-declaration-order とずれうる
+  （pre-existing、multi-file eval で記録）**: eval は依存を forcing 順に
+  遅延駆動するが、Go は「準備完了の中で宣言が最も早い変数」を選ぶ。
+  先に宣言された変数が後の変数へ推移的に依存し、その間に独立な
+  ready 変数が挟まる形で順序がずれる — 観測は初期化子の副作用順
+  （host 呼出しの戻り値が状態依存なら束縛値自体もずれうる）。同じ
+  クラスで `test` 宣言も eval は宣言位置で実行・compiled は全 init
+  完了後。単一ファイル時代から存在する機序で、`eval.NewFiles` の
+  decision §6 が制約として文書化。正しく揃えるには
+  `lower.CheckInitCycles` の vardep グラフを `check.Decl` 上へ移植
+  する必要がある（wave10 eval-multifile レビュー、future work 扱い）。
+  参照: [decision](decisions/2026-11-06-eval-package-unit.md) §6、
+  [eval/eval.go](../internal/eval/eval.go) `topLets`、
+  [lower init-cycle](../internal/lower/) `CheckInitCycles`。
+
+- [x] **design.md §2.6 の "file-wide" が V-6 以降 unit-wide とずれ**:
+  builtin 名の `type` 宣言の shadowing はパッケージ単位（check の
+  `TypeDeclSource`、lower の `declaredT`、codegen の `g.localT` が
+  `f.Unit.Types` union）なのに文書だけ file-wide のままだった。
+  対応: §2.6 を unit-wide 表記に修正（wave10 eval-multifile レビュー
+  指摘、pre-existing）。
+
 - [x] **panic 位置の E2E テストでコンパイル元と逆引きのパスが不一致**:
   `TestPanicStackResolvesToGom` は `main.gom` をコンパイラの cwd に対する相対パスで
   コンパイルするが、位置 index は実行用一時ディレクトリに対する相対パスとしていた。

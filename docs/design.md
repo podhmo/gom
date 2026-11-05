@@ -169,11 +169,11 @@ bindings rather than left for `go build` to name hidden temporaries. See
 
 ### 2.6 Builtin type identity
 
-`types.Con{Qual: "", Name: "Result"}` cannot tell the builtin `Result` from a file-local `type Result`. When a file declares a `type` under a builtin name, the unqualified name denotes only the local declaration file-wide ([decisions/builtin-type-identity](decisions/2026-11-02-builtin-type-identity.md)). Every "is this `Con` the builtin X?" question consults the phase's own declaration index before the name:
+`types.Con{Qual: "", Name: "Result"}` cannot tell the builtin `Result` from a package-local `type Result`. When any file of the unit declares a `type` under a builtin name, the unqualified name denotes only the local declaration unit-wide ([decisions/builtin-type-identity](decisions/2026-11-02-builtin-type-identity.md) — V-6 以降はパッケージ単位). Every "is this `Con` the builtin X?" question consults the phase's own declaration index before the name:
 
 - `check`: `typeInfo.sym` on `tyCons` (non-nil for local declarations) → `shadowedBuiltin` / `isBuiltinCon`
 - `lower`: `typeD` → `declaredT` / `builtinName` / `isResultCon` / `isOptionCon`; `variantsOf` and the equality plans (`eqKindOf`) also try local declarations first
-- `core.Validate`: `localT` collected from the file's `TypeDecl` names → `conIs` / `resultType`
+- `core.Validate`: `localT` collected from the unit's `TypeDecl` names → `conIs` / `resultType`
 - `codegen`: `g.localT`; Core carries the semantic decisions, so the guards only pick the generated representation
 - `eval`: `interp.localT` → `VVariant.IsResult` / `resultTag` / `errIsGoError` / `intOperandWidth` (the evaluator and generated code share the same reading)
 

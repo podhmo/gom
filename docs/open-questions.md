@@ -31,9 +31,9 @@
 - [ ] 冗長な腕は spec 4 章どおりエラーのまま。残る問いは、書きかけのコードで冗長な腕などの一部エラーを一時的にフィルタして書き進めたい用途（`--strict` の有無で切り替えるようなオプション）があるかどうか。オプション自体を入れるかも未決
 - [ ] ソース位置対応表（P4-5 のアンカー表）について、LSP はアンカー粒度（生成行 → 内側構文の span）より細かい列・範囲単位の対応を要するか。`//line` ドリフトの行エイリアシングの抜本対応（SourceMap-aware な逆引き＋曖昧時フォールバック）も P4-6 の設計入力
 - [ ] `gom fix` でも `.gomi` 適合検査を走らせるか（`gom check`/`build`/`test` は走らせると決定済み — [decision](decisions/2026-11-04-gomi-conformance-in-gom-test.md)。`info`/`dump` は対象外）。2026-11-05 に検討して見送り: 適合診断は fix 候補プールに加わるだけ・ゲート無し・診断非表示という形が妥当だが、現状 E0601/E0603/E0604 に safe fix がなく観測差ゼロのため先送り。interface 診断に safe fix が付くなど価値が具体化した時点で再検討する（[検討の記録](decisions/2026-11-05-gomi-conformance-in-gom-fix.md)）
-- [ ] eval（`eval.New` は単一 `check.File` 入力）は兄弟パッケージの `let` を見られない。パッケージ単位コンパイル（V-6）以降、eval-vs-compiled の比較ハーネスがパッケージスコープ `let` を含むプログラムを検証できない — マルチファイル eval の要否を決める（V-6 レビュー指摘）
-
 ## Future work（v1 では扱わないと決めたもの）
+
+- eval の ready-in-declaration-order タイブレーク: `eval.NewFiles`（[decision](decisions/2026-11-06-eval-package-unit.md)）採用で兄弟 `let` は見えるようになったが、無関係な変数の初期化順は eval が forcing 順・Go が宣言順 ready 優先でずれうる（観測は初期化子の副作用順のみ。`test` 宣言も eval は宣言位置で実行・compiled は init 完了後）。ずれの記録は [台帳](implementation-gaps.md)
 
 - ラベル付き引数の制限の緩和（型が未知の関数へのラベル付き適用、ラベル付き／なし関数の暗黙変換）
 - 省略可能引数とデフォルト値
