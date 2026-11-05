@@ -135,6 +135,8 @@ func TestE2EStrconv(t *testing.T) {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 3.25)
 	}
 
+	t.Parallel()
+
 	l := loaderFor(t)
 	src := `package main
 
@@ -170,6 +172,8 @@ func TestE2EVariadic(t *testing.T) {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.38)
 	}
 
+	t.Parallel()
+
 	l := loaderFor(t)
 	src := `package main
 
@@ -197,6 +201,8 @@ func TestE2EFuncValueAdapter(t *testing.T) {
 	if testing.Short() {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.36)
 	}
+
+	t.Parallel()
 
 	l := loaderFor(t)
 	src := `package main
@@ -231,6 +237,8 @@ func TestE2EAliasResultAdapter(t *testing.T) {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.18)
 	}
 
+	t.Parallel()
+
 	l := loaderFor(t)
 	src := `package main
 
@@ -262,6 +270,8 @@ func TestE2EMethod(t *testing.T) {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.51)
 	}
 
+	t.Parallel()
+
 	l := loaderFor(t)
 	src := `package main
 
@@ -291,6 +301,8 @@ func TestE2EGoErrorMethod(t *testing.T) {
 	if testing.Short() {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.32)
 	}
+
+	t.Parallel()
 
 	l := loaderFor(t)
 	src := `package main
@@ -330,6 +342,8 @@ func TestE2EGoPkgVars(t *testing.T) {
 	if testing.Short() {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.34)
 	}
+
+	t.Parallel()
 
 	l := loaderFor(t)
 	src := `package main
@@ -380,6 +394,8 @@ func TestE2EUntypedIntConstLet(t *testing.T) {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.53)
 	}
 
+	t.Parallel()
+
 	l := loaderFor(t)
 	src := `package main
 
@@ -418,6 +434,8 @@ func TestE2EExternPtrOption(t *testing.T) {
 	if testing.Short() {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.57)
 	}
+
+	t.Parallel()
 
 	l := loaderFor(t)
 	src := `package main
@@ -467,6 +485,8 @@ func TestE2EExternPairTuple(t *testing.T) {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.31)
 	}
 
+	t.Parallel()
+
 	l := loaderFor(t)
 	src := `package main
 
@@ -502,6 +522,8 @@ func TestE2EExternCommaOKOption(t *testing.T) {
 	if testing.Short() {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.30)
 	}
+
+	t.Parallel()
 
 	l := loaderFor(t)
 	src := `package main
@@ -541,6 +563,8 @@ func TestE2EExternZeroArg(t *testing.T) {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 0.75)
 	}
 
+	t.Parallel()
+
 	l := loaderFor(t)
 	src := `package main
 
@@ -577,6 +601,8 @@ func TestE2EExternIoCopy(t *testing.T) {
 	if testing.Short() {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 0.74)
 	}
+
+	t.Parallel()
 
 	l := loaderFor(t)
 	src := `package main
@@ -620,6 +646,8 @@ func TestE2EExternSliceBoundary(t *testing.T) {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 0.39)
 	}
 
+	t.Parallel()
+
 	l := loaderFor(t)
 	src := `package main
 
@@ -655,6 +683,8 @@ func TestE2EExternGoCaller(t *testing.T) {
 	if testing.Short() {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.14)
 	}
+
+	t.Parallel()
 
 	l := loaderFor(t)
 	src := `package main
@@ -708,6 +738,8 @@ func TestE2EPairResult(t *testing.T) {
 	if testing.Short() {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.15)
 	}
+
+	t.Parallel()
 
 	l := loaderFor(t)
 	src := `package main

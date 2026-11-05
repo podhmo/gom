@@ -19,6 +19,8 @@ import (
 // view on both oracles: SignatureOf (the Gom-facing type) and
 // GoSigOf (the lowering shape).
 func TestStdBindErrorViews(t *testing.T) {
+	t.Parallel()
+
 	l := loaderFor(t)
 	for _, tc := range []struct {
 		path, name, want string
@@ -62,6 +64,8 @@ func TestStdBindErrorViews(t *testing.T) {
 // binding — stdbind applies at package-member derivation (member),
 // never at method lookup (methodSym shares sigOf only).
 func TestStdBindMethodIsolation(t *testing.T) {
+	t.Parallel()
+
 	l := loaderFor(t)
 	errType := types.Universe.Lookup("error").Type()
 	sig := types.NewSignatureType(nil, nil, nil,
@@ -84,6 +88,7 @@ func TestStdBindMethodIsolation(t *testing.T) {
 // no longer admits — must hide the member with the drift reason
 // rather than fall back or panic.
 func TestStdBindDriftHidesMember(t *testing.T) {
+	// Stays sequential: it mutates the package-global stdBinds table.
 	old, had := stdBinds["strconv"]
 	defer func() {
 		if had {

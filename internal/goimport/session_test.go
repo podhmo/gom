@@ -89,6 +89,8 @@ func moduleLoader(t *testing.T) (*Loader, string) {
 }
 
 func TestModuleSessionIdentity(t *testing.T) {
+	t.Parallel()
+
 	for _, reverse := range []bool{false, true} {
 		t.Run(fmt.Sprint(reverse), func(t *testing.T) {
 			l, _ := moduleLoader(t)
@@ -126,6 +128,8 @@ func TestModuleSessionIdentity(t *testing.T) {
 }
 
 func TestAliasedErrorResults(t *testing.T) {
+	t.Parallel()
+
 	l, _ := moduleLoader(t)
 	p := membersOf(t, l, "example.test/dependency/model")
 	sig, ok := l.SignatureOf(p.Members["Parse"])
@@ -146,6 +150,8 @@ func TestAliasedErrorResults(t *testing.T) {
 }
 
 func TestUnsupportedMemberOnlyDiagnosedOnUse(t *testing.T) {
+	t.Parallel()
+
 	l, _ := moduleLoader(t)
 	for _, use := range []bool{false, true} {
 		src := "package bridge\nimport go \"example.test/dependency/model\"\nfn value () -> Int = model.Number (model.New 42)\n"
@@ -181,6 +187,8 @@ func TestModuleInteropBothDirections(t *testing.T) {
 	if testing.Short() {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.17)
 	}
+
+	t.Parallel()
 
 	l, dir := moduleLoader(t)
 	src := `package bridge
@@ -239,6 +247,8 @@ func TestModuleInteropGenerics(t *testing.T) {
 	if testing.Short() {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.13)
 	}
+
+	t.Parallel()
 
 	l, dir := moduleLoader(t)
 	src := `package bridge
@@ -302,6 +312,8 @@ func TestModuleInteropGenerics(t *testing.T) {
 // E0506 at the use site, and a type argument that fails a
 // `comparable` constraint reports E0508.
 func TestModuleInteropGenericDiagnostics(t *testing.T) {
+	t.Parallel()
+
 	cases := []struct{ name, body, code, reason string }{
 		{"hidden_index", "fn f (xs: List Int) (n: Int) -> Int = model.Index xs n", "E0506", "~[]E"},
 		{"approx_subset", "fn f (n: Int) -> Int = model.Clamp n 0 9", "E0506", "~int"},
