@@ -141,9 +141,15 @@
   `let f = e.Error; f ()` は直接の `e.Error ()` と異なり E0401 になる。
   参照: [spec 8.1](spec.md#81-go-を呼ぶ)、[再現](problems/2026-11-02-go-nullary-fn-value.md)。
 
-- [ ] **Float の評価器と生成 Go で丸めが異なる**: 評価器は各リテラルを float64 にして演算し、
+- [x] **Float の評価器と生成 Go で丸めが異なる**: 評価器は各リテラルを float64 にして演算し、
   生成 Go は任意精度定数式を畳み込むため、同じ式の数値・文字列表示が異なる。
-  参照: [詳細と未決の意味](problems/2026-11-02-float-const-fold-arithmetic.md)。
+  対応: 数値演算は演算子ごとに機械型で 1 回評価する（eval 側の意味）と決定。
+  lower がリテラル同士の Float 演算・比較と Int 系 `+ - * /` の左被演算子を
+  変数に bind し、生成 Go が定数式にならないようにする（`litFoldDiverges`）。
+  Int リテラルオーバーフロー（`9223372036854775807 + 1`）の go build 失敗も解消。
+  参照: [decision](decisions/2026-11-05-numeric-arithmetic-per-operation.md)、
+  [検証](sketch/2026-11-05-numeric-arithmetic-per-operation.md)、
+  [詳細（解消済み）](problems/2026-11-02-float-const-fold-arithmetic.md)。
 
 - [x] **Float に推論された整数リテラル束縛が Go では int のままになる**:
   `fn f () -> Float = { let n = 1; n + 0.5 }` は Float に型解決されるが、
@@ -153,9 +159,15 @@
   参照: [golden](../testdata/golden/float_int_literal.golden.go)、
   [problems（解消済み）](problems/2026-11-02-let-int-literal-go-type.md)。
 
-- [ ] **別バリアントのペイロード参照の結果が異なる**: `s.r` を `Rect` に適用すると、
+- [x] **別バリアントのペイロード参照の結果が異なる**: `s.r` を `Rect` に適用すると、
   eval は別名の同じ位置の値を返し、生成コードは型アサーションで panic する。spec の失敗時の意味も未定義。
-  参照: [詳細](problems/2026-11-02-variant-field-wrong-variant.md)。
+  対応: assertion 意味を採用 — `.f` はそのフィールドを宣言する唯一のバリアントを
+  値が保持することを要求し、違うバリアントは契約違反として panic する
+  （eval は E9003、生成コードは既存の型アサーション panic。match の invalid-value
+  腕と同じ系統）。spec §3.2/§8.6 に明記。
+  参照: [decision](decisions/2026-11-05-variant-field-assert-owning-ctor.md)、
+  [検証](sketch/2026-11-05-variant-field-assert-owning-ctor.md)、
+  [詳細（解消済み）](problems/2026-11-02-variant-field-wrong-variant.md)。
 
 - [x] **チュートリアルが `ignore` を未実装と説明する**: chapter 1 はすでに `ignore` を使う一方、
   README は未実装とし、他章は `let _ =` を使っている。
@@ -580,6 +592,16 @@
   P5-3 の race 検証は生成物を手動で `go test -race` に掛けて代替した。
   検証基盤の穴（TODO に task 登録済み）。
   参照: [sketch](sketch/2026-11-05-p5-3-generated-code-perf.md)。
+
+- [ ] **eval は整数演算を型幅に関係なく int64 で計算する**: spec 3.3 は
+  `Int32` が 32 ビットで wrap すると定めるが、eval の `VInt` は常に int64
+  （`eval.go` の算術は `l.N + r.N` をそのまま返す）。`fn f (x: Int32) -> Int32 =
+  x + 1` を `2147483647` に適用すると eval は `2147483648`、生成 Go（`int32`）
+  は `-2147483648` を返す。生成コード側は spec 通りで、eval を型幅 aware に
+  する必要がある（pre-existing — per-operation 数値意味の spec 文言追加で
+  顕在化。Int32 の `%`・`MinInt32 / -1`・単項 `-` も同じ制限）。
+  参照: [spec 3.3](spec.md#33-型推論の範囲)、[eval](../internal/eval/eval.go)、
+  [decision](decisions/2026-11-05-numeric-arithmetic-per-operation.md)。
 
 - [ ] **`EscapeCall`/`EscapeResult` のスパン規約が unguarded/guarded で揃っていない**:
   P2-4c で unguarded 融合側は `lv.Y.Span()`（ステップ operand）に統一したが、
