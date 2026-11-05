@@ -187,3 +187,57 @@ in-processまたは一回だけbuildする経路が多く、この負荷を直�
 最終配置・既定offでは、vet・全raceテスト・通常の全テストが成功した。
 全体は61.647秒（race）/61.216秒（通常）で、既定有効化を支持する計測ではない。
 試験機能と再現手順を残し、全体の10倍を解消扱いにしない。
+
+## 2026-11-06: -short ゲートと tutorial の子プロセス計測
+
+### -short による長時間テストの除外
+
+`go test -json -count=1 ./...` の各テストの Elapsed から 0.3 秒以上のものを抽出し、
+トップレベル 66 関数（`FuzzCompile` 含む）の先頭に
+`if testing.Short() { t.Skipf(...) }` を挿入した。skip メッセージには計測値を残す。
+サブテスト名は `c.name` / `dir` など動的生成でソース上の位置を一意に特定できないため
+関数単位の粒度とし、親が閾値を超えた場合は配下の速いサブテストもまとめて skip
+される副作用を許容した。`-short` 実行で全対象が skip され、通常実行の振る舞いは
+変わらないことを確認した。
+
+### tutorial のボトルネック特定と対策
+
+`go test -cpuprofile -memprofile` で tutorial を単独計測したところ、テストプロセスの
+CPU は実時間 6.05 秒のうち 80ms（1.3%）しかなく、遅さのほぼ全てが `gom` / `go`
+子プロセス起動への待ちだった（memprofile も 30MB で問題なし）。子プロセス支配の
+テストでは cpuprofile がほぼ空になる点に注意が必要。個別計測では
+`go run .`（約0.45秒）、`go list -deps -json`（約0.19秒）、`gom build` 起動が
+ステップあたり約0.44秒を構成していた。これを踏まえ次を採用した。
+
+- `TestTutorial` の各ステップサブテストに `t.Parallel()` を付け、子プロセス起動を重ねた。
+  `TestEvalMatchesCompiled` の並列ケースと同じ構成で、各ステップは独立した一時
+  ディレクトリを持ち、gom バイナリは読み取り専用で共有する。
+- `trackGoInputs` の `go list -deps -json` を `-f` テンプレート（約10倍高速、
+  0.018秒/回）に替えた。追跡するファイル集合（Dir 一覧・GoFiles 等・module の
+  go.mod / go.sum）は変えない。
+- `runStep` は各ステップの `go.mod` を読むのをやめ、`run.sh` と同じ
+  `module tutorialrun/<name>` の scratch go.mod を合成する。
+  これにより `tutorial/*/go.mod` はテストから要求されなくなった。
+  goimport の Loader は最寄り go.mod を上方に辿るため、ステップ go.mod を
+  一時退避させた状態でも全件成功することを確認した。ファイルの集約・削除は
+  本変更とは別の作業として扱う。
+
+結果、単独実行 6.0 秒→3.8 秒、全パッケージ並列下では 16.6 秒→7.5 秒。
+残る直列分は gom バイナリを一度だけ build する `buildGom`（約1秒）と、
+並列化後も最遅のステップの `go run`（約0.45秒）である。
+
+併せて、実行バイナリを `GOM_TRACE_EXEC_WRAPPER` 経由で包み子プロセス時間を
+観測する `internal/testbin` の足場を導入した。既定では素通しで、テスト実行の
+振る舞いは変わらない。vet・gofmt・全テストは成功した。全体の10倍目標は
+変わらず未達のままとする。
+
+続けて go.mod の必須箇所を調査した。Gom パッケージ import 解決
+（`gomimport.Loader` の `dirOf`/`entryPath`、遅延評価で単一ファイルには不要）、
+`gomtest` のスイート dir 発見、E2E の scratch モジュール合成、モジュール解決
+自体を検証する fixture は正当な要求と判断した。一方 `tutorial/*/go.mod` 11件は
+`runStep` の読み取りだけが要求元で、パッケージ跨ぎも別モジュール検証もないため
+冗長と判断し削除した。`tutorial/go.mod` を新設すると入れ子モジュールで
+`./...` の対象外になるため置かず、リポジトリルートの1つに統一した。
+README と `tutorial_test.go` の "Each chapter is a separate module" という
+記述も整合させた。`testdata/` の fixture go.mod（multifile・gocall・
+realworld・sumtype）は別モジュール検証そのものなので残す。

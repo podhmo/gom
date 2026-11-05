@@ -940,3 +940,18 @@
   依存になっておらず、外側のGoテスト結果cacheが変更を見落とす可能性があった（再現は未確認）。
   対応: test専用のblank importでGoの依存グラフに含め、子の実行ファイルcacheとは別に追跡する。
   参照: [harness](../internal/build/harness_test.go)、[再利用の検証](sketch/2026-11-05-test-performance.md)。
+
+- [x] **tutorial のステップ go.mod 要求が run.sh とずれていた**:
+  `run.sh` は `module tutorialrun/<name>` の scratch go.mod を合成するが、
+  `tutorial_test.go` の `runStep` は各ステップの `go.mod` を読み `=> ../..` を
+  置換していた。"the same flow run.sh performs" という説明と実態がずれ、
+  パッケージ跨ぎも別モジュール検証もないステップに go.mod 11件が
+  テストから要求され続けていた（README・テストコメント・sketch の
+  「各ステップは独立 Go モジュール」という記述とも不整合）。
+  対応: runStep も run.sh と同じ合成に揃え、tutorial/*/go.mod を削除して
+  リポジトリルートの go.mod 1つに統一。README とテストコメントは実装に
+  合わせ、sketch は日付付き記録として残置。ステップ go.mod 不在での
+  全ステップ成功を確認済み。
+  参照: [テスト](../tutorial/tutorial_test.go)、[README](../tutorial/README.md)、
+  [decision](decisions/2026-11-05-test-performance.md)、
+  [sketch](sketch/2026-11-04-v1-tutorial-findings.md)。
