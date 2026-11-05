@@ -596,11 +596,35 @@
   [fixture](../testdata/spec/W0501_go_slice_copy.gom)、
   [problems（解消済み）](problems/2026-11-05-go-param-mutation-noop.md)。
 
-- [ ] **`gom test` に `go test` フラグ透過がない**: `gom test` は内部で
+- [x] **`gom test` に `go test` フラグ透過がない**: `gom test` は内部で
   素の `go test` を呼ぶため生成コードを `-race` 等で検証できない —
   P5-3 の race 検証は生成物を手動で `go test -race` に掛けて代替した。
   検証基盤の穴（TODO に task 登録済み）。
-  参照: [sketch](sketch/2026-11-05-p5-3-generated-code-perf.md)。
+  対応: `gom test -- FLAGS` で最初の `--` 以降を `go test -json` へ
+  verbatim 透過（decision 採用、`TestTestGoFlagPassthrough` でピン留め）。
+  参照: [decision](decisions/2026-11-05-gom-test-go-test-flags.md)、
+  [検証](sketch/2026-11-05-gom-test-go-test-flags.md)、
+  [test.go](../cmd/gom/test.go)、[gotest.go](../internal/build/gotest.go)。
+
+- [ ] **spec 12 節は panic 出力を「2 部構成」と限定なく書くが、実装は
+  解決フレーム 0 件なら単一部のまま返す**: `renderTrace` は `.gom` 位置へ
+  解決できるフレームが 1 つも無い出力（ツールチェーン・手書き Go だけの
+  スタック）では rendered==raw となるため raw をそのまま返す。fail-soft で
+  妥当な挙動（design.md §4.8 に記載済み）だが、spec の文言とはずれている。
+  `-q` でも同じ（全未解決なら raw が返る）。
+  参照: [spec 12](spec.md)、[test.go](../cmd/gom/test.go) `renderTrace`、
+  [design](design.md)。
+
+- [ ] **`checkInterfaces` が `filepath.Dir` を `filepath.Clean` せずに
+  グループ化する**: `iface.go` のグルーピングキーが未 clean のため、
+  `gom test pkg/../pkg/a.gom pkg/b.gom` のような入力で同一物理ディレクトリが
+  別グループに分裂する。分裂すると E0601/E0603 が重複するだけでなく、
+  両半分で `complete=false` となり missing-member の適合違反が双方で
+  免除され、違反のまま出力・テスト実行されうる（pre-existing —
+  `compileInputs`/`runGoTests` 側は clean 済み。check/build/test 全経路に
+  影響。wave7 gomtest レビューで発見）。
+  参照: [iface.go](../cmd/gom/iface.go) `checkInterfaces`、
+  [cli.go](../cmd/gom/cli.go) `compileInputs`。
 
 - [ ] **eval は整数演算を型幅に関係なく int64 で計算する**: spec 3.3 は
   `Int32` が 32 ビットで wrap すると定めるが、eval の `VInt` は常に int64
