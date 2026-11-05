@@ -76,9 +76,17 @@ func goldenGenerate(f gomtest.File) ([]byte, error) {
 }
 
 func TestSpec(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 3.56)
+	}
+
 	gomtest.RunSpecTests(t, "", specCompile)
 }
 
 func TestGolden(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.01)
+	}
+
 	gomtest.RunGoldenTests(t, "", goldenGenerate)
 }

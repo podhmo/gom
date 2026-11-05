@@ -72,6 +72,10 @@ func haveGo(t *testing.T) {
 // `go test -json`, and reports one "test" object per test — mapped
 // back to the `test "name"` position — then the summary's counts.
 func TestTestEmitsStream(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 0.55)
+	}
+
 	haveGo(t)
 	dir := writeFiles(t, map[string]string{"m.gom": testGom})
 	testModule(t, dir)
@@ -135,6 +139,10 @@ func TestTestEmitsStream(t *testing.T) {
 // through result.AssertOk, and the failure line maps back to the .gom
 // position of the `try`/tail.
 func TestTestResultBodyFailure(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.15)
+	}
+
 	haveGo(t)
 	src := `package main
 
@@ -212,6 +220,10 @@ func TestTestCompileErrorSkipsRun(t *testing.T) {
 // sibling file's declarations (the unit scope `compileInputs`
 // establishes), and both members' outputs land beside the inputs.
 func TestTestSiblingPackage(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.15)
+	}
+
 	haveGo(t)
 	dir := writeFiles(t, map[string]string{
 		"a.gom": "package main\n\nlet base = 40\nfn bump (x: Int) -> Int = x + 1\n",
@@ -245,6 +257,10 @@ func TestTestSiblingPackage(t *testing.T) {
 // `gom test` removes the stale generated _test.go — but never a
 // hand-written one (no generated marker).
 func TestTestStaleTestFileRemoved(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.13)
+	}
+
 	haveGo(t)
 	dir := writeFiles(t, map[string]string{
 		"m.gom":        "package main\n\nfn f () -> Int = 1\n",
@@ -268,6 +284,10 @@ func TestTestStaleTestFileRemoved(t *testing.T) {
 // TestTestFormatText: the text format renders test verdicts and the
 // failing-run trailer.
 func TestTestFormatText(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.14)
+	}
+
 	haveGo(t)
 	dir := writeFiles(t, map[string]string{"m.gom": testGom})
 	testModule(t, dir)
@@ -381,6 +401,10 @@ func TestTestWithholdsOnInterfaceFailure(t *testing.T) {
 // and _test.go and runs the tests. `test` blocks are not interface
 // members (spec section 11.5), so they need no .gomi entry.
 func TestTestInterfaceGatePass(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.07)
+	}
+
 	haveGo(t)
 	dir := writeFiles(t, map[string]string{
 		"p.gom":  "package p\n\nfn bump (x: Int) -> Int = x + 1\n\ntest \"bump\" {\n  assert_eq (bump 1) 2\n}\n",
@@ -495,6 +519,10 @@ func panicOutput(t *testing.T, out string) string {
 // first (PC offsets dropped, unresolvable toolchain frames
 // verbatim), then the raw Go trace under the marker.
 func TestTestPanicStackTwoPart(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 0.97)
+	}
+
 	haveGo(t)
 	dir := writeFiles(t, map[string]string{"m.gom": panicGom})
 	testModule(t, dir)
@@ -528,6 +556,10 @@ func TestTestPanicStackTwoPart(t *testing.T) {
 // TestTestPanicStackQuiet: -q/--quiet suppresses the raw half of a
 // panic output — the .gom-position trace still appears.
 func TestTestPanicStackQuiet(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.88)
+	}
+
 	haveGo(t)
 	dir := writeFiles(t, map[string]string{"m.gom": panicGom})
 	testModule(t, dir)
@@ -557,6 +589,10 @@ func TestTestPanicStackQuiet(t *testing.T) {
 // rendering. (The package needs one test for `go test` to build
 // and run a binary at all.)
 func TestTestPanicStackPackageLevel(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 0.36)
+	}
+
 	haveGo(t)
 	src := `package main
 
@@ -599,6 +635,10 @@ test "never reached" {
 // malformed flag surfaces as a go-tool E0001, not a gom usage
 // error (docs/decisions/2026-11-05-gom-test-go-test-flags.md).
 func TestTestGoFlagPassthrough(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 2.71)
+	}
+
 	haveGo(t)
 	src := `package main
 
@@ -804,6 +844,10 @@ test "task await" {
 // surface compiles and behaves under the real Go toolchain — every
 // `test` in concGom reports ok.
 func TestTestConcurrency(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 0.39)
+	}
+
 	haveGo(t)
 	dir := writeFiles(t, map[string]string{"c.gom": concGom})
 	testModule(t, dir)

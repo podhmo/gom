@@ -1448,6 +1448,10 @@ func runCompiled(t *testing.T, src []byte) string {
 // assert_eq cases pin the precomputed-verdict signature of
 // rt.AssertEq and the generated-comparator route for lists.
 func TestGeneratedTestFileRuns(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.85)
+	}
+
 	src := `package m
 
 fn main () -> Unit = ()
@@ -1525,6 +1529,10 @@ test "variants" {
 // comparator could be picked cross-file). The test proves the minted
 // names differ and the merged package builds.
 func TestTwoFilePackageCompiles(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.72)
+	}
+
 	gobin, err := exec.LookPath("go")
 	if err != nil {
 		t.Skip("no go toolchain on PATH")
@@ -1610,6 +1618,10 @@ fn beq (xs: List Int) (ys: List Int) -> Bool = xs == ys
 // this is the executable half, proving the builtin-scope `List`
 // members resolve into the Gom-written standard library end to end.
 func TestSpecPreambleRuns(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.80)
+	}
+
 	src := `package main
 
 import go "fmt"
@@ -1650,6 +1662,10 @@ fn main () -> Unit = {
 }
 
 func TestEvalMatchesCompiled(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 5.37)
+	}
+
 	// Bound external tool work independently of -parallel: each case
 	// owns its compiler session, scratch module and generated process.
 	workers := make(chan struct{}, 4)
@@ -1695,6 +1711,10 @@ func TestEvalMatchesCompiled(t *testing.T) {
 // Rect's w slot and answered 2). A Circle value still reads
 // normally — variant_named_field covers the ok path.
 func TestWrongVariantFieldPanic(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.50)
+	}
+
 	for _, tc := range []struct {
 		name string
 		arg  string

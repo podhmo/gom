@@ -119,6 +119,10 @@ func writeFile(t *testing.T, dir, name, content string) string {
 }
 
 func TestGistCLI(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 2.60)
+	}
+
 	cli := buildCLI(t)
 	dir := t.TempDir()
 	first := writeFile(t, dir, "one/a.txt", "a quote: \"; slash: \\; tab:\t; 日本語\n")

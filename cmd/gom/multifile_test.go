@@ -78,6 +78,10 @@ func goAtLeast(gobin, dir string, major, minor int) bool {
 }
 
 func TestEndToEnd_MultifilePackage(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 3.99)
+	}
+
 	gobin, err := exec.LookPath("go")
 	if err != nil {
 		t.Skip("no go toolchain on PATH")

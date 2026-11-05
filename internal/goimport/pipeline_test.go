@@ -131,6 +131,10 @@ func repoRoot(t *testing.T) string {
 // `strconv.Itoa` compile end to end and behave — `int` results
 // become `int64` payload values and `int64` arguments convert back.
 func TestE2EStrconv(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 3.25)
+	}
+
 	l := loaderFor(t)
 	src := `package main
 
@@ -162,6 +166,10 @@ fn main () -> Unit = {
 
 // A variadic Go call boxes arbitrary Gom values into `any`.
 func TestE2EVariadic(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.38)
+	}
+
 	l := loaderFor(t)
 	src := `package main
 
@@ -186,6 +194,10 @@ fn main () -> Unit = {
 // A Go function in value position needs the `int`/`int64` adapter —
 // Itoa's parameter is `int` while the Gom `Int` it sees is `int64`.
 func TestE2EFuncValueAdapter(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.36)
+	}
+
 	l := loaderFor(t)
 	src := `package main
 
@@ -215,6 +227,10 @@ fn main () -> Unit = {
 // docs/problems/2026-11-04-go-fn-value-multiresult-alias.md claimed
 // was broken.
 func TestE2EAliasResultAdapter(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.18)
+	}
+
 	l := loaderFor(t)
 	src := `package main
 
@@ -242,6 +258,10 @@ fn main () -> Unit = {
 // A method discovered through the named-type method set: Buffer's
 // WriteString returns (int, error) → Result, String returns String.
 func TestE2EMethod(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.51)
+	}
+
 	l := loaderFor(t)
 	src := `package main
 
@@ -268,6 +288,10 @@ fn main () -> Unit = {
 // set: `e.Error()` resolves through MethodOf and emits `e.Error()`.
 // Regression: it used to fail E0401 "GoError has no field or method".
 func TestE2EGoErrorMethod(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.32)
+	}
+
 	l := loaderFor(t)
 	src := `package main
 
@@ -303,6 +327,10 @@ fn main () -> Unit = {
 // `int` const the int64 conversion wraps), `time.Nanosecond` (a Go
 // named type's const) and `os.Args` (a real var).
 func TestE2EGoPkgVars(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.34)
+	}
+
 	l := loaderFor(t)
 	src := `package main
 
@@ -348,6 +376,10 @@ fn main () -> Unit = {
 // `sz` would bind a Go `int` and `id sz` would not compile. The
 // untyped `math.MaxInt`/`math.MinInt` take the same path.
 func TestE2EUntypedIntConstLet(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.53)
+	}
+
 	l := loaderFor(t)
 	src := `package main
 
@@ -383,6 +415,10 @@ fn main () -> Unit = {
 // `Option (Ptr Flag)`. The generated call is the plain
 // `v := flag.Lookup(name)` followed by `option.FromGo(v, v != nil)`.
 func TestE2EExternPtrOption(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.57)
+	}
+
 	l := loaderFor(t)
 	src := `package main
 
@@ -427,6 +463,10 @@ fn main () -> Unit = {
 // declaring a tuple leaves the pair shape a plain import gives —
 // the override only renames what the Gom side sees.
 func TestE2EExternPairTuple(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.31)
+	}
+
 	l := loaderFor(t)
 	src := `package main
 
@@ -459,6 +499,10 @@ fn main () -> Unit = {
 // `option.FromGo(v, ok)` — the other half of the Option rule
 // (spec section 8.4).
 func TestE2EExternCommaOKOption(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.30)
+	}
+
 	l := loaderFor(t)
 	src := `package main
 
@@ -493,6 +537,10 @@ fn main () -> Unit = {
 // and `os.Getpid ()` emits the plain `os.Getpid()` — the `()`
 // pattern is not a counted Go parameter.
 func TestE2EExternZeroArg(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 0.75)
+	}
+
 	l := loaderFor(t)
 	src := `package main
 
@@ -526,6 +574,10 @@ fn main () -> Unit = {
 // signature. `*bytes.Buffer` values pass the interface parameters
 // through the assignability conversion (spec sections 8.4, 8.5).
 func TestE2EExternIoCopy(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 0.74)
+	}
+
 	l := loaderFor(t)
 	src := `package main
 
@@ -564,6 +616,10 @@ fn main () -> Unit = {
 // gives a `[]string` Go result — the extern restates what the
 // default mapping would say (spec section 8.5's boundary copies).
 func TestE2EExternSliceBoundary(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 0.39)
+	}
+
 	l := loaderFor(t)
 	src := `package main
 
@@ -596,6 +652,10 @@ fn main () -> Unit = {
 // reads the Option result through the stdlib option type (the
 // Go → generated-Gom direction of the interop test pair).
 func TestE2EExternGoCaller(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.14)
+	}
+
 	l := loaderFor(t)
 	src := `package main
 
@@ -645,6 +705,10 @@ func init() {
 // A (T, bool) Go result becomes the (T, Bool) tuple — the pair
 // shape — and destructures through a tuple pattern.
 func TestE2EPairResult(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.15)
+	}
+
 	l := loaderFor(t)
 	src := `package main
 

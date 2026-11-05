@@ -252,6 +252,10 @@ func checkStep(t *testing.T, gom, root, dir string) {
 }
 
 func TestTutorial(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 16.36)
+	}
+
 	gobin, err := exec.LookPath("go")
 	if err != nil {
 		t.Skip("no go toolchain on PATH")

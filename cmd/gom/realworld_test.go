@@ -80,6 +80,10 @@ func runBin(t *testing.T, bin, dir, stdin string, args ...string) (int, string, 
 }
 
 func TestEndToEnd_RealWorldPrograms(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 13.37)
+	}
+
 	gobin, err := exec.LookPath("go")
 	if err != nil {
 		t.Skip("no go toolchain on PATH")

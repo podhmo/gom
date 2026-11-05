@@ -178,6 +178,10 @@ func TestUnsupportedMemberOnlyDiagnosedOnUse(t *testing.T) {
 // the []T boundary copies per spec section 8.5, even when the Gom
 // function's own signature spells the Go-owned `Go.Slice` view.
 func TestModuleInteropBothDirections(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.17)
+	}
+
 	l, dir := moduleLoader(t)
 	src := `package bridge
  import go "example.test/dependency/model"
@@ -232,6 +236,10 @@ func TestModuleInteropBothDirections(t *testing.T) {
 // Go.Map boundary in both directions. A `List` crossing into `[]E`
 // still copies, and nil lists stay nil (spec section 8.5).
 func TestModuleInteropGenerics(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.13)
+	}
+
 	l, dir := moduleLoader(t)
 	src := `package bridge
  import go "example.test/dependency/model"

@@ -54,6 +54,10 @@ func moduleFor(t *testing.T, dir string) {
 }
 
 func TestPanicStackResolvesToGom(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 0.34)
+	}
+
 	gobin := haveGoBin(t)
 
 	dir := t.TempDir()

@@ -138,6 +138,10 @@ func TestKnownDivergences(t *testing.T) {
 // clean compile run the program under eval and under the generated
 // Go, comparing stdout and exit class.
 func TestEvalCompiledDiff(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 11.70)
+	}
+
 	g, err := gomgen.LoadGrammar("../../docs/grammar.ebnf")
 	if err != nil {
 		t.Fatalf("gomgen.LoadGrammar: %v", err)
@@ -344,6 +348,10 @@ func TestDiffEvalRecursion(t *testing.T) {
 // the attribute is a requirement check (E0902–E0905), not a
 // semantics change.
 func TestDiffTailRec(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 0.44)
+	}
+
 	opts, _ := compileOracles(t)
 	if opts == nil {
 		t.Skip("no go toolchain on PATH — cannot typecheck the probe")
@@ -401,6 +409,10 @@ fn main () -> Unit = {
 // the same flat argument list the compiled `xs...` does: the stub
 // and fmt.Println both render their arguments space-separated.
 func TestDiffGoCallSpread(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 0.50)
+	}
+
 	opts, _ := compileOracles(t)
 	if opts == nil {
 		t.Skip("no go toolchain on PATH — cannot typecheck the probe")

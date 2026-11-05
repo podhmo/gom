@@ -24,6 +24,10 @@ func writeNativeInput(t *testing.T, path, text string) {
 }
 
 func TestNativeBinaryCacheInvalidation(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 2.51)
+	}
+
 	goBin, err := exec.LookPath("go")
 	if err != nil {
 		t.Skip("no Go toolchain")

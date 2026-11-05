@@ -562,6 +562,10 @@ func TestDumpMultifilePackage(t *testing.T) {
 // with no hand-written shim, and the binary runs and prints the
 // answer.
 func TestEndToEnd_BuildAndRun(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.99)
+	}
+
 	gobin, err := exec.LookPath("go")
 	if err != nil {
 		t.Skip("no go toolchain on PATH")
@@ -777,6 +781,10 @@ fn main () -> Unit = {
 // whole toolchain: `gom build` emits the .go file, `go vet` accepts
 // it, `go build` compiles it, and the binary prints "42".
 func TestEndToEnd_Strconv(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.95)
+	}
+
 	gobin, err := exec.LookPath("go")
 	if err != nil {
 		t.Skip("no go toolchain on PATH")

@@ -179,6 +179,10 @@ func render(diags diag.List) string {
 }
 
 func TestSkillSnippets(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 0.67)
+	}
+
 	root := repoRoot(t)
 	_, goErr := exec.LookPath("go")
 	skillDir := "gom-agent-guide"

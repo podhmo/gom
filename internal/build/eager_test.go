@@ -45,6 +45,10 @@ fn main () -> Unit = {
 `
 
 func TestEagerFnChunkTiming(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 0.37)
+	}
+
 	r, err := build.Compile(build.Input{Path: "eager.gom", Src: []byte(eagerTimingSrc)}, suiteOptions())
 	if err != nil {
 		t.Fatal(err)
@@ -102,6 +106,10 @@ func TestEagerFnChunkTiming(t *testing.T) {
 // Static aliases must not delay a declaration's first chunk or
 // recompute a partial application's initializer each time it is used.
 func TestStaticAliasEagerInitialization(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 0.35)
+	}
+
 	src := `package main
 import go "fmt"
 
