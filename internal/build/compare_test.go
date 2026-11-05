@@ -1665,18 +1665,28 @@ func TestEvalMatchesCompiled(t *testing.T) {
 	if testing.Short() {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 5.37)
 	}
+	gobin, err := lookupGo(t)
+	if err != nil {
+		t.Skip("no go toolchain on PATH")
+	}
 
-	// Bound external tool work independently of -parallel: each case
-	// owns its compiler session, scratch module and generated process.
-	workers := make(chan struct{}, 4)
+	// Prepare is serial and cheap once the loader is prewarmed:
+	// compile+eval are in-process (~10ms per case) while a subprocess
+	// `go run` costs ~0.3-0.9s. The runner harness therefore links all
+	// cases into one binary and pays only ~10ms per case to execute —
+	// see runner_test.go. Serial subtests keep t.Fatal attribution.
+	var srcs []string
 	for _, c := range compareCases {
+		srcs = append(srcs, c.src)
+	}
+	gl := sharedSuiteLoader(t, srcs...)
+	runner := newCaseRunner(t)
+	prepared := map[string]runnerCase{}
+	for i, c := range compareCases {
 		t.Run(c.name, func(t *testing.T) {
-			t.Parallel()
-			workers <- struct{}{}
-			defer func() { <-workers }()
 			r, err := build.Compile(
 				build.Input{Path: c.name + ".gom", Src: []byte(c.src)},
-				suiteOptions(),
+				suiteOptionsWith(gl),
 			)
 			if err != nil {
 				t.Fatalf("compile: %v", err)
@@ -1689,11 +1699,25 @@ func TestEvalMatchesCompiled(t *testing.T) {
 			if r.Output == nil {
 				t.Fatal("no generated output")
 			}
-
 			if got := evalAnswer(t, r, c.src); got != c.want {
 				t.Fatalf("eval answer = %q, want %q", got, c.want)
 			}
-			got := strings.TrimSuffix(runCompiled(t, r.Output.Source), "\n")
+			prepared[c.name] = runner.add(t, i, c.name, r.Output.Source)
+		})
+	}
+	bin := runner.build(t, gobin)
+
+	for _, c := range compareCases {
+		t.Run("exec/"+c.name, func(t *testing.T) {
+			t.Parallel()
+			if _, ok := prepared[c.name]; !ok {
+				t.Skipf("prepare failed; see the %s subtest", c.name)
+			}
+			out, err := runner.run(bin, c.name)
+			got := strings.TrimSuffix(out, "\n")
+			if err != nil {
+				t.Fatalf("runner %s failed: %v\noutput: %s", c.name, err, out)
+			}
 			if got != c.want {
 				t.Fatalf("binary stdout = %q, want %q", got, c.want)
 			}

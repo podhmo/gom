@@ -241,3 +241,61 @@ CPU は実時間 6.05 秒のうち 80ms（1.3%）しかなく、遅さのほぼ�
 README と `tutorial_test.go` の "Each chapter is a separate module" という
 記述も整合させた。`testdata/` の fixture go.mod（multifile・gocall・
 realworld・sumtype）は別モジュール検証そのものなので残す。
+
+## 2026-11-06: internal/build のアーキテクチャ変更 — bundled runner
+
+### 分解計測（パッケージ単独で 38.5 秒）
+
+- `TestEvalMatchesCompiled`（~10.2 秒）: 44 ケース。フェーズ計測で
+  compile=0.05 秒（うち `go list -export fmt` が 0.047 秒）、eval≈0 秒、
+  **`go run .` が 0.33–0.98 秒**と支配的。worker 上限を 4→8 にしても壁時計は
+  不変で、並列度はボトルネックではなかった。
+- `TestEvalCompiledDiff`（~9.8 秒）: seed 生成〜評価は直列、native build/run は
+  4 worker で既にパイプライン済み。
+- `TestSpec`/`TestGolden`/`TestGoldenSourceMap`（3.4/1.0/1.0 秒）:
+  ケースごとに新規 `goimport.Loader` を作るため `import go` ごとに
+  `go list -export` サブプロセス（~45ms）を連発していた。
+
+`go run` の内訳は main pkg コンパイル ~80ms + リンク ~150ms +
+**新規バイナリの初回実行ペナルティ ~200ms**（macOS 実測: 4 バイナリの初回 exec
+0.88s、2 回目 0.027s）+ go コマンド起動。ユニークなソースでは必ず全額掛かる。
+また `go build` は `go run` のキャッシュを温めない（action ID 系統が別）ことも
+実測した。同一ソースを sort+cat でハッシュ化する重複排除案は、44 ケース全てが
+ユニーク（`//line` 除去後も一致ゼロ）と分かり不採用。
+
+### 採用: bundled runner（`internal/build/runner_test.go`）
+
+ケースごとの scratch module + `go run` をやめ、生成コードを AST 書き換え
+（`package main`→`package cNNN`、`func main`→`func Run`）して 1 モジュール・
+1 バイナリにリンクし、`runner <name>` でケースごとのプロセスを実行する。
+プロセス分離・panic クラス・終了コード・`//line` 対応は `go run` と同一。
+リンク 1 回・初回 exec ペナルティ 1 回に縮約される。
+
+加えて loader の共有: `import go` パスを事前に全件読み込み
+（`sharedSuiteLoader`、直列 prewarm）するか、直列スイートでは loader を
+そのまま共有し遅延キャッシュに任せる（`suiteOptionsWith`）。loader の
+キャッシュは mutex なしの map なので、並列下では prewarm 済みパスのみ
+読み取りになる構成に限定した。
+
+### 結果（パッケージ単独）
+
+| 対象 | 変更前 | 変更後 |
+| --- | --- | --- |
+| TestEvalMatchesCompiled | 10.2s | 1.1s |
+| TestSpec | 3.4s | 0.56s |
+| TestGolden | 1.0s | 0.38s |
+| TestGoldenSourceMap | 1.0s | 0.44s |
+| パッケージ全体 | 38.5s | ~26s |
+| フルスイート内 | ~53s | ~43s |
+
+### 残存と未採用
+
+- `TestEvalCompiledDiff`（~10.5s、パッケージの 41%）は seed ストリーム型で
+  bundled runner 化は未着手。`GOM_TEST_BIN_CACHE=on`（content-hash による
+  `go run -exec cp` バイナリ再利用）は warm 再実行で両テストとも ~2 倍
+  （9.4→4.9s / 9.2→4.8s）だったが、cold では効かず既定有効化は保留。
+  gomgen は固定 PCG シードなので入力は run 間で安定している。
+- `TestNativeBinaryCacheInvalidation`（~2.8s）は分離検証そのもので据え置き。
+- 残る中規模直列テスト群（~10s 相当）の `t.Parallel()` 化は別検討。
+- `go run` を使い続ける単発テスト（`TestWrongVariantFieldPanic` 等）は
+  runner 化の効果が小さいため据え置き。

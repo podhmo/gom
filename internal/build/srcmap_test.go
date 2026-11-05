@@ -17,6 +17,7 @@ import (
 
 	"github.com/podhmo/gom/internal/build"
 	"github.com/podhmo/gom/internal/diag"
+	"github.com/podhmo/gom/internal/goimport"
 )
 
 func TestGoldenSourceMap(t *testing.T) {
@@ -32,6 +33,9 @@ func TestGoldenSourceMap(t *testing.T) {
 	if err != nil || len(entries) == 0 {
 		t.Fatalf("no golden cases under testdata/golden: %v", err)
 	}
+	// One serial suite shares one loader: the first `import go` pays
+	// `go list -export`, every later case hits the package cache.
+	gl := goimport.New(&goimport.Config{Dir: "../.."})
 	for _, path := range entries {
 		name := filepath.Base(path)
 		t.Run(strings.TrimSuffix(name, ".gom"), func(t *testing.T) {
@@ -39,7 +43,7 @@ func TestGoldenSourceMap(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			r, err := build.Compile(build.Input{Path: name, Src: src}, suiteOptions())
+			r, err := build.Compile(build.Input{Path: name, Src: src}, suiteOptionsWith(gl))
 			if err != nil {
 				t.Fatalf("Compile: %v", err)
 			}
