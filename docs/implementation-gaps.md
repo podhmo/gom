@@ -85,6 +85,10 @@
   spec 8.5 のコピーは暗黙の境界適合位置のみが `list.FromSlice`/`.ToSlice()` を生成する
   （検証: `testdata/gocall` の `freeze`/`thaw`、[sketch](sketch/2026-11-04-p3-2-p3-6-interop-verification.md)）。
   conv の pun 挙動を spec 明文化するかは open-questions の未決事項。
+  追記（2026-11-05）: pun は解消 — `Go.conv` も両方向コピーに。`convKind` が
+  `goConvKindOf` を経由して `ConvSliceToGo`/`ConvSliceFromGo` を返す実装
+  （golden `go_conv`、gocall `freeze`/`thaw`/`bump`）。spec 8.4 は先行して
+  コピーを明記していた。残る pun は要素型不一致対のみ（下の別項目）。
 
 - [x] **Go interface の代入規則が未実装**: spec 8.3 は Go 由来の値を代入規則に従って渡せるとするが、
   `*strings.Reader` → `io.Reader` や `*os.File` → `io.Writer` が E0401 になる。
@@ -650,7 +654,37 @@
   参照: [decision Consequences](decisions/2026-11-05-package-initialization-order.md)、
   [initcycle.go](../internal/lower/initcycle.go) `checkTailRec`/`tailrecNeighbors`。
 
-- [ ] **`Go.conv` の `Go.Slice T ↔ List T` がコピーしない**: spec 8.4 は（[decision](decisions/2026-11-04-goconv-list-slice-copies.md) で）コピーすると定めたが、実装は `list.List[T](xs)` へのキャスト（pun）のまま。上の Go slice 項目の追記を参照。実装は [TODO](../TODO.md)。
+- [x] **`Go.conv` の `Go.Slice T ↔ List T` がコピーしない**: spec 8.4 は（[decision](decisions/2026-11-04-goconv-list-slice-copies.md) で）コピーすると定めたが、実装は `list.List[T](xs)` へのキャスト（pun）のまま。上の Go slice 項目の追記を参照。実装は [TODO](../TODO.md)。
+  対応: `convKind` が `goConvKindOf` を先に照会し、同要素のスライス対は
+  `ConvSliceToGo`/`ConvSliceFromGo`（`list.FromSlice`/`.ToSlice()`）を返す。
+  数値・named・チャネル方向の変換は従来のフォールバックで不変。
+  参照: [expr.go](../internal/lower/expr.go) `convKind`/`goConvKindOf`、
+  [golden](../testdata/golden/go_conv.golden.go)、
+  [検証](sketch/2026-11-05-go-slice-ops-verification.md)。
+
+- [ ] **要素型の異なる `Go.conv` `Go.Slice T ↔ List U` は依然 pun のまま**:
+  `convOK` の oracle は Go-convertible な対を受理するが、`goConvKindOf` の
+  スライス対は要素の `types.Equal` を要求するため、`Go.Slice Int64 →
+  List Int`・`Go.Slice Int32 → List Char` のような表現等値の異要素対は
+  `ConvNamed` → `list.List[T](xs)` の pun に落ちる — Go.Slice 経由の
+  mutation が List に届く、コピー化で潰したクラスと同型の穴。暗黙の境界
+  （`sliceConv`）は要素の等値を要求するため `Go.conv` のみが到達経路
+  （main 由来、コピー化ブランチの適用範囲外。wave7 slice-ops レビューで発見）。
+  対処案: `convOK` で要素不一致対を拒否するか、`goConvKindOf` で
+  表現等値の要素対もコピー扱いにする。
+  参照: [check/expr.go](../internal/check/expr.go) `convOK`、
+  [lower/expr.go](../internal/lower/expr.go) `goConvKindOf`、
+  [boundary.go](../internal/goimport/boundary.go)。
+
+- [ ] **W0501 がインライン `Go.conv e : Go.Slice T` 引数を見逃す**:
+  `helper.Mutate (Go.conv xs : Go.Slice Int)` のような「コピーを作って
+  そのまま渡す」引数は `Ascribe{Conv:true, Slice:false}` のため lint の
+  剥がし条件（`as.Slice`）に合わず、`Go.Slice` verbatim として沈黙する。
+  `Go.conv` がコピー化した今、この形は真の no-op — 到達条件は狭い
+  （extern `Go.Slice` param + インライン conv 引数）が記録に値する
+  （wave7 slice-ops レビュー。let 束縛版は値が生きるので沈黙が正しい）。
+  参照: [lint.go](../internal/check/lint.go) `lintGoSliceCopy`、
+  [check/expr.go](../internal/check/expr.go) `convOK`。
 
 - [ ] **CLI では extern の照合（E0509）が走らない**: spec 8.4 は extern の宣言を生の Go シグネチャと照合し、合わなければ E0509 とする。
   `skills/` のスニペット検査（`goimport.Loader` を直接 `Sigs` に渡す）では `fn New(text: String) -> GoError` が E0509 になるが、

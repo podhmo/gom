@@ -13,6 +13,7 @@
 
 ### Go 相互運用
 
+- [ ] `for` が `Go.Slice` を反復できるようにすべきか: 現状 `checkFor` は builtin `List` とチャネルのみ受理し `Go.Slice` は E0401（反復は `Go.Slice.fold`/`to_list` 経由）。一方 core の `ForList` は `Go.Slice`/`Array` を許容する設計で、checker が通せば `for _, v := range s` が `[]T` にそのまま効く — 「意図したが checker に届いていない」形。受理するか文書側（skill/decision は既に「反復できない」と訂正済み）を維持するかの判断が残る（wave7 slice-ops レビューで顕在化）
 - [ ] `*T` の既定: `Ptr T`（Go と同じく nil で panic、書きやすい）と `Option (Ptr T)`（安全だが冗長）のどちらを既定にするか。`Ptr` モジュール採用で `Option (Ptr T)` extern はもはや唯一の nil 安全経路ではない — 生の `Ptr` 既定でも `Ptr.is_nil`/`Ptr.to_option`/`Ptr.nil` が使える（`Ptr.get`/`set` の nil panic は Go と同じ）。残る問いは自動の `*T` 結果・パラメータマッピングの既定だけ（[decision](decisions/2026-11-05-ptr-ops-surface.md)、[problems](problems/2026-11-05-ptr-t-no-deref.md)）
 - [ ] Go ABI の方針: 生成される Go の API（型名・関数のシグネチャ・バリアントの struct 名）を、Gom のバージョンをまたいでどこまで安定させるか
 - [ ] Gom の型が Go の interface を実装できるようにするか（v1 ではできない）。できるなら、どう宣言するか
