@@ -13,7 +13,7 @@
 
 ### Go 相互運用
 
-- [ ] `*T` の既定: `Ptr T`（Go と同じく nil で panic、書きやすい）と `Option (Ptr T)`（安全だが冗長）のどちらを既定にするか。P3-7 実測: nil literal が無いため `Option (Ptr T)` extern が唯一の nil 安全経路（`flag.Lookup`/`os.LookupEnv` で検証済み）。`Ptr` に deref/nil 操作が無い点は [problems](problems/2026-11-05-ptr-t-no-deref.md)
+- [ ] `*T` の既定: `Ptr T`（Go と同じく nil で panic、書きやすい）と `Option (Ptr T)`（安全だが冗長）のどちらを既定にするか。`Ptr` モジュール採用で `Option (Ptr T)` extern はもはや唯一の nil 安全経路ではない — 生の `Ptr` 既定でも `Ptr.is_nil`/`Ptr.to_option`/`Ptr.nil` が使える（`Ptr.get`/`set` の nil panic は Go と同じ）。残る問いは自動の `*T` 結果・パラメータマッピングの既定だけ（[decision](decisions/2026-11-05-ptr-ops-surface.md)、[problems](problems/2026-11-05-ptr-t-no-deref.md)）
 - [ ] Go ABI の方針: 生成される Go の API（型名・関数のシグネチャ・バリアントの struct 名）を、Gom のバージョンをまたいでどこまで安定させるか
 - [ ] Gom の型が Go の interface を実装できるようにするか（v1 ではできない）。できるなら、どう宣言するか
 - [ ] Go のジェネリック関数のうち、`any` / `comparable` 以外の制約を持つものをどう扱うか。P0-5 で、`any`/`comparable` だけの厳格な境界では `slices.Contains`（`[S ~[]E, E comparable]`）など `slices`/`maps`/`cmp` の主要な関数がほぼ全部呼べないことが分かった。P3-3 で `any`/`comparable` は呼び出し可能になったが、`~[]E`/`~map[K]V` などの構造制約は引き続き E0506 で非公開 — spec 8.1.6 の例とのずれは [gaps](implementation-gaps.md) 参照。広げるか、spec を「`any`/`comparable` のみ」と修正するかの判断が残る（[problems](problems/2026-11-04-generic-go-fns-hidden.md)、[go-interop-boundary](decisions/2026-11-01-go-interop-boundary.md)、[sketch: P0-5](sketch/2026-11-02-p0-5-go-types-mapping.md)）

@@ -567,11 +567,15 @@
   参照: [mapping.go](../internal/goimport/mapping.go) `basicType`、
   [監査](sketch/2026-11-05-p3-7-realworld-interop-audit.md)。
 
-- [ ] **`Go.Map` に操作がない**: `builtinGoMembers` は `conv`/`Slice`/`Map` の
+- [x] **`Go.Map` に操作がない**: `builtinGoMembers` は `conv`/`Slice`/`Map` の
   型名のみで、`Go.Map.make` 等の操作は E0201。`Go.Map` を持つ Go API は
   実質使えない（P3-7 監査で判明、TODO に task 登録済み）。
-  参照: [scope.go](../internal/resolve/scope.go) `builtinGoMembers`、
-  [監査](sketch/2026-11-05-p3-7-realworld-interop-audit.md)。
+  対応: ctor-table 経路の `Go.Map` メンバーテーブルで `make`/`get`/`set`/
+  `delete`/`length`/`to_list` を追加（rt バック）。nil map は Go のまま、
+  非 comparable key は E0508。
+  参照: [decision](decisions/2026-11-05-go-map-ops.md)、
+  [検証](sketch/2026-11-05-p3-7-interop-ops-verification.md)、
+  [builtin.go](../internal/stdlib/builtin.go)。
 
 - [ ] **3+ 戻り値の Go 関数は非公開だが spec は arity 上限を書いていない**:
   spec 8.3 は tuple 戻り値の行だけで、実装は 3 つ以上の結果を持つ関数を
@@ -580,12 +584,17 @@
   参照: [spec 8.3](spec.md#83-型の対応)、
   [監査](sketch/2026-11-05-p3-7-realworld-interop-audit.md)。
 
-- [ ] **`[]T` を in-place 変更する Go 関数はコンパイルして無音 no-op になる**:
+- [x] **`[]T` を in-place 変更する Go 関数はコンパイルして無音 no-op になる**:
   `sort.Strings` 等は境界でコピーされる List/Slice 規則の帰結として呼べて
   しまうが呼び出し側の値は変わらない。spec としては正しいが無意味 — lint
   警告か `Go.Slice` pun 規則の明文化が要る（TODO に task 登録済み）。
-  参照: [problems](problems/2026-11-05-go-param-mutation-noop.md)、
-  [監査](sketch/2026-11-05-p3-7-realworld-interop-audit.md)。
+  対応: W0501 lint で警告化 — Unit 結果 + コピーされる `List` 系引数で発火。
+  素の `Go.Slice`（verbatim 経路）は沈黙、`Go.Slice`→`Go.Slice` は逃げ道。
+  `signal.Notify` 系は文書化済みの偽陽性。
+  参照: [decision](decisions/2026-11-05-go-mutation-warning.md)、
+  [lint.go](../internal/check/lint.go) `lintGoSliceCopy`、
+  [fixture](../testdata/spec/W0501_go_slice_copy.gom)、
+  [problems（解消済み）](problems/2026-11-05-go-param-mutation-noop.md)。
 
 - [ ] **`gom test` に `go test` フラグ透過がない**: `gom test` は内部で
   素の `go test` を呼ぶため生成コードを `-race` 等で検証できない —

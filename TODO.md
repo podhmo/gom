@@ -44,12 +44,12 @@
 Go 相互運用を変えたら両方向（Gom → Go、Go → Gom）のテストを足す。`nil`、スライス、named type、interface を忘れない。
 
 - [ ] **[task] extern の「標準のバインディング」集の整備**: P3-5 で `extern` 機構は実装済みだが、それを使う標準バインディング集（`(T, bool)` → `Option` などの既定上書きの一覧）は未着手。管理場所は [open-questions](docs/open-questions.md) の未決事項。P3-7 の完了確認で `os`/`io`/`strconv`/`encoding/json` のプログラムが extern を必要とするかの判断材料になる。依存: P3-5
-- [ ] **[task] `Ptr` の操作面の設計**: P3-7 監査で `Ptr T` は read-through（メソッド・フィールド参照）はできるが deref・nil 比較・構築ができないと判明（`errors.As` はコンパイルして実行時 panic、`flag` 値は `extern` → `Option (Ptr T)` 経由でしか安全に読めない）。`Go.deref`/`Ptr.is_nil` 等の操作面か、open-questions の `*T` 既定と合わせた設計が要る。[problems](docs/problems/2026-11-05-ptr-t-no-deref.md)
-- [ ] **[task] `Go.Map` の操作面（member table またはモジュール）**: `Go.Map.make` が E0201 — `builtinGoMembers` は conv/Slice/Map の型名だけで操作がなく、`Go.Map` を持つ Go API は実質読めない。make/get/set/delete 相当の surface が要る。P3-7 監査で判明
-- [ ] **[task] `[]T` を in-place 変更する Go 関数への警告**: `sort.Strings` がコンパイルして**無音で no-op** になる（境界でコピーされる List/Slice の帰結）。lint 警告（W07xx 系）か `Go.Slice` pun の spec 明文化で対処する。[problems](docs/problems/2026-11-05-go-param-mutation-noop.md)
+- [x] **[task] `Ptr` の操作面の設計**: コンパイラ組み込みの `Ptr` モジュール（rt バック）として採用・実装 — `get`/`set`（nil で Go と同じく panic）、`is_nil`、`new`（`errors.As` 等の out-pointer 用）、`make`、`nil`、`to_option`（安全な読み出し）。`*T` 既定の問いは open-questions に残る（[decision](docs/decisions/2026-11-05-ptr-ops-surface.md)、[検証](docs/sketch/2026-11-05-p3-7-interop-ops-verification.md)）
+- [x] **[task] `Go.Map` の操作面（member table またはモジュール）**: ctor-table 経路の `Go.Map` メンバーテーブルとして採用・実装 — `make`/`get`（`Option` 返し）/`set`/`delete`/`length`/`to_list`（順序不定スナップショット、v1 の反復面）。nil map は Go のまま（set のみ panic）。非 comparable key は E0508（[decision](docs/decisions/2026-11-05-go-map-ops.md)、[検証](docs/sketch/2026-11-05-p3-7-interop-ops-verification.md)）
+- [x] **[task] `[]T` を in-place 変更する Go 関数への警告**: W0501 lint として採用・実装 — Unit 結果の Go 呼び出しがコピーされる `List` 引数（`..xs` spread、`Go.Slice` 宣言 param への `List`、List 位置へ物質化された `Go.Slice`）を受け取ると警告。素の `Go.Slice`（`..gs` spread、`...[]T` 要素、`Go.Slice`→`Go.Slice`）は verbatim で沈黙。`signal.Notify` 系は文書化済みの偽陽性（[decision](docs/decisions/2026-11-05-go-mutation-warning.md)）
 
 - [ ] **[task] `Go.conv` の `Go.Slice T ↔ List T` をコピーにする**: 現状の pun（`list.List[T](xs)`）を、境界変換と同じ `list.FromSlice` / `.ToSlice()` に替える。`testdata/gocall` の `freeze`/`thaw` と golden を更新し、Go 側でスライスを書き換えても `List` が変わらないことを両方向のテストで確かめる（[decision](docs/decisions/2026-11-04-goconv-list-slice-copies.md)、[台帳](docs/implementation-gaps.md)）
-- [ ] **[task] `Go.Slice` の読み取り専用の操作面**: length / get / 部分の取り出し / fold / to_list（コピー）相当を足し、コピーせずに Go のスライスを読めるようにする。名前と形（member table かモジュールか）は `Go.Map` の操作面のタスクと揃えて決める。書き込みは足さない（[decision](docs/decisions/2026-11-04-goconv-list-slice-copies.md)）
+- [ ] **[task] `Go.Slice` の読み取り専用の操作面**: length / get / 部分の取り出し / fold / to_list（コピー）相当を足し、コピーせずに Go のスライスを読めるようにする。機構は `Go.Map` と同じ ctor-table 経路（`Config.Modules` の `"Go.Slice"` キー、rt バック）で決定済み。書き込みは足さない（[decision](docs/decisions/2026-11-04-goconv-list-slice-copies.md)、[go-map-ops](docs/decisions/2026-11-05-go-map-ops.md)）
 
 ### P4 公開 API と開発体験
 
