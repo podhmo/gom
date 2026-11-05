@@ -26,3 +26,12 @@ func Kind(x any) string {
 		return "other"
 	}
 }
+
+// Bump adds delta to every element of xs in place — the in-place
+// slice mutator the copy-boundary tests pass converted slices
+// through.
+func Bump(xs []int64, delta int64) {
+	for i := range xs {
+		xs[i] += delta
+	}
+}

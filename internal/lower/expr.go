@@ -2470,9 +2470,18 @@ func (l *lowerer) ascribe(s *seq, e *check.Ascribe) core.Expr {
 }
 
 // convKind picks the conversion kind for `Go.conv` — numeric between
-// the numeric constructors, named-type conversion otherwise (the
-// checked legality table is the spec 8.4 contract).
+// the numeric constructors, the boundary slice copies of spec 8.5
+// (a `Go.conv` between `List` and `Go.Slice` copies like the
+// implicit boundary conformance — decisions/2026-11-04-goconv-list-
+// slice-copies), channel-direction narrowing, and named-type
+// conversion otherwise (the checked legality table is the spec 8.4
+// contract). goConvKindOf answers first: the pairs it accepts carry
+// the same ConvKinds here as at an implicit boundary, and its misses
+// are the named/numeric pairs only `Go.conv` admits.
 func (l *lowerer) convKind(from, to types.Type) core.ConvKind {
+	if k, ok := l.goConvKindOf(from, to); ok && k != 0 {
+		return k
+	}
 	if l.isNumericCon(from) && l.isNumericCon(to) {
 		return core.ConvNum
 	}

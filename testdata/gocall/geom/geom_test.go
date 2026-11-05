@@ -177,6 +177,45 @@ func TestSlicesFromGo(t *testing.T) {
 		t.Fatalf("Thaw: mutating the slice changed the list head to %v", got)
 	}
 
+	// freeze/thaw go through `Go.conv`, which copies like the
+	// implicit boundary. bump proves both directions through one
+	// round trip: the Go-side mutation lands on the converted copy,
+	// and the mutated slice copies back — the original List never
+	// changes.
+	pair := geom.Bump(list.FromSlice([]int64{1, 2, 3}), 10)
+	if got := pair.V0.ToSlice(); got[0] != 1 || got[1] != 2 || got[2] != 3 {
+		t.Fatalf("Bump: the in-place Go mutation reached the List: %v", got)
+	}
+	if got := pair.V1.ToSlice(); got[0] != 11 || got[1] != 12 || got[2] != 13 {
+		t.Fatalf("Bump: mutated slice = %v, want [11 12 13]", got)
+	}
+
+	// The `Go.Slice` ops surface reads the Go-owned slice in place:
+	// fold sums [1 2 3] = 6, `slice` gives the shared tail view
+	// (mutating the source afterwards still reaches the Gom side
+	// through that view — it is a read of the same backing), `get`
+	// wraps into Option, and `to_list` is the snapshot the tail's
+	// mutation afterwards cannot touch.
+	owned := []int64{1, 2, 3}
+	res := geom.SliceOps(owned)
+	if res.V0 != 6 {
+		t.Fatalf("SliceOps fold = %d, want 6", res.V0)
+	}
+	switch o := res.V1.(type) {
+	case option.Option_Some[int64]:
+		if o.V0 != 2 {
+			t.Fatalf("SliceOps get tail = %v, want Some 2", o.V0)
+		}
+	case option.Option_None[int64]:
+		t.Fatalf("SliceOps get tail = None, want Some 2")
+	default:
+		t.Fatalf("SliceOps get tail = %T, want option.Option", o)
+	}
+	owned[1] = 50
+	if got := res.V2.ToSlice(); got[0] != 2 {
+		t.Fatalf("SliceOps to_list snapshot moved with the source: %v", got)
+	}
+
 	if got := geom.Total(list.List[int64]{1, 2, 3}); got != 6 {
 		t.Fatalf("Total([1 2 3]) = %v, want 6", got)
 	}

@@ -6,13 +6,17 @@ import go "time"
 
 // `Go.conv e : T` accepts the pairs Go's own conversion rules accept
 // (spec 8.4): numeric widening, named Go types to and from their
-// underlying type, and the String-to-rune-list conversion.
+// underlying type, the String-to-rune-list conversion, and the
+// `Go.Slice T ↔ List T` boundary pair — which copies at emission
+// like the implicit conformance does (spec 8.5).
 fn main () -> Unit = {
   let d = Go.conv 5 : time.Duration
   let n = Go.conv d : Int
   let args = Go.conv os.Args : List String
   let runes = Go.conv "ab" : List Char
   let r = Go.conv 97 : Char
-  ignore (fmt.Println (d, n, args, runes, r))
+  let gs = Go.conv args : Go.Slice String
+  let back = Go.conv gs : List String
+  ignore (fmt.Println (d, n, args, runes, r, back))
   ()
 }

@@ -1,6 +1,6 @@
 # `Go.conv` の `Go.Slice T ↔ List T` はコピーする
 
-- 状態: 採用（実装は TODO）
+- 状態: 採用（実装・検証した — `Go.conv` のコピー化は testdata/golden/go_conv と testdata/gocall の freeze/thaw/bump で固定、`Go.Slice` 操作面は [検証](../sketch/2026-11-05-go-slice-ops-verification.md)。spec.md §8.4/§8.5 へ反映済み）
 - 日付: 2026-11-04
 
 ## Context

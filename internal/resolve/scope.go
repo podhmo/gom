@@ -174,16 +174,16 @@ var stdlibModules = map[string]bool{
 }
 
 // goTypeModules names the `Go`-namespace types that ship an
-// operation member table — `Go.Map.make`/`get`/... today, the
-// `Go.Slice` read-only surface when it lands. The tables are
-// compiler-owned and rt-backed like a builtin module's, but they
-// hang off a *type* member (`Go.Map` resolves through
-// builtinGoMembers), so they inject under the qualified
-// Config.Modules key "Go.<Name>" and the member lookup is the
-// ctor-table path (ctorTable), not builtinModuleTable. A type not
-// in this map genuinely has no member surface — noSuchCtor's note
-// distinguishes that from an unwired compile.
-var goTypeModules = map[string]bool{"Map": true}
+// operation member table — `Go.Map.make`/`get`/... and the
+// `Go.Slice` read-only surface (`length`/`get`/`slice`/`fold`/
+// `to_list`). The tables are compiler-owned and rt-backed like a
+// builtin module's, but they hang off a *type* member (`Go.Map`
+// resolves through builtinGoMembers), so they inject under the
+// qualified Config.Modules key "Go.<Name>" and the member lookup is
+// the ctor-table path (ctorTable), not builtinModuleTable. A type
+// not in this map genuinely has no member surface — noSuchCtor's
+// note distinguishes that from an unwired compile.
+var goTypeModules = map[string]bool{"Map": true, "Slice": true}
 
 // builtinModuleTable returns the member table of a builtin-scope
 // module: the `Go` namespace's hardcoded table, or a Config.Modules

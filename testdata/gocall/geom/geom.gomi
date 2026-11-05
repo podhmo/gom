@@ -28,6 +28,10 @@ fn freeze (xs: Go.Slice Int) -> List Int
 
 fn thaw (xs: List Int) -> Go.Slice Int
 
+fn bump (xs: List Int) (delta: Int) -> (List Int, List Int)
+
+fn sliceOps (xs: Go.Slice Int) -> (Int, Option Int, List Int)
+
 fn total (xs: List Int) -> Int
 
 fn isEmpty (xs: List Int) -> Bool

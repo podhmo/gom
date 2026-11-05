@@ -1,0 +1,21 @@
+package ex
+
+// The `Go.Slice` read-only operation surface: members emit
+// rt.Slice*[T](...) calls instantiated with the solved type
+// arguments — `get`'s (v, ok) shape wraps into Option, `to_list`
+// snapshots through `list.FromSlice` into a List, and `fold`
+// forwards the curried `b -> a -> b` callback verbatim.
+fn ops (gs: Go.Slice Int) -> Int = {
+  let n = Go.Slice.length gs
+  let first = match Go.Slice.get gs 0 {
+    Some v -> v
+    None -> 0
+  }
+  let sub: Go.Slice Int = Go.Slice.slice gs 1 n
+  let total = Go.Slice.fold sub (fn acc v -> acc + v) 0
+  let back: List Int = Go.Slice.to_list sub
+  first + total + List.length back
+}
+
+fn count (xs: List Int) -> Int =
+  Go.Slice.fold (Go.conv xs : Go.Slice Int) (fn n _ -> n + 1) 0

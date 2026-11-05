@@ -63,7 +63,12 @@ mutators), but `sort.Strings` is its representative.
   (`sort.SearchStrings`-style) are fine, and the Go signature alone
   does not reveal mutation. If a list of mutating APIs is needed, it
   belongs to the standard-bindings work.
-- Mutation through an explicit `Go.Slice` view (the `Go.conv` pun)
-  *does* land. One route: document `Go.Slice` conversion as the
-  idiom for "I want Go to mutate this" in the spec (the no-copy
-  `Go.conv` pun is already recorded in the gaps ledger).
+- Mutation through an explicit `Go.Slice` view *does* land — but
+  only on backing the Go side already shares: `Go.conv` between
+  `List` and `Go.Slice` now copies
+  ([decision](../decisions/2026-11-04-goconv-list-slice-copies.md)),
+  so the idiom is a `Go.Slice` value obtained from Go (or
+  forwarded `..gs` / `...[]T`), passed verbatim into a
+  `Go.Slice`-declared parameter. A `List` the user wants Go to
+  mutate in place has no spelling left — by design; the W0501
+  wording stays conditional for it.

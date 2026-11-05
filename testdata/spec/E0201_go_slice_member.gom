@@ -1,0 +1,12 @@
+package ex
+
+// `Go.Slice`'s members are the compiler-owned read-only operation
+// table — `Go.Slice.length`/`get`/`slice`/`fold`/`to_list`. Any
+// other selection is a member miss (E0201), not a constructor
+// miss: `Go.Slice` is a type member of the `Go` namespace and its
+// surface is members, not constructors.
+
+fn f () -> Unit = {
+  let _ = Go.Slice.bogus
+  ()
+}

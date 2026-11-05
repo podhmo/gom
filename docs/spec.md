@@ -435,6 +435,8 @@ Go の名前付き struct 型の値またはそのポインタから、exported 
 
 `Go.Map K V` の操作は `Go.Map` の型メンバーとして解決する（[decisions/go-map-ops](decisions/2026-11-05-go-map-ops.md)）: `Go.Map.make : Unit -> Go.Map k v`、`Go.Map.get : Go.Map k v -> k -> Option v`（missing key は `None`）、`Go.Map.set : Go.Map k v -> k -> v -> Unit`、`Go.Map.delete : Go.Map k v -> k -> Unit`、`Go.Map.length : Go.Map k v -> Int`、`Go.Map.to_list : Go.Map k v -> List (k, v)`（順序不定のスナップショット。v1 の反復面）。`k` は Go の `comparable` 制約を持ち、`List` など比較できない表現のキーは E0508 で拒否される。nil マップの意味は Go のまま — get/delete/length は nil でも動き、set は panic する。
 
+`Go.Slice T` の操作も `Go.Slice` の型メンバーとして解決する（[decisions/go-slice-ops](decisions/2026-11-05-go-slice-ops.md)）。すべて読み取り専用 — Gom 側から Go が所有するスライスを書き換える操作はない: `Go.Slice.length : Go.Slice a -> Int`（nil では 0）、`Go.Slice.get : Go.Slice a -> Int -> Option a`（範囲外・負の添字は `None`）、`Go.Slice.slice : Go.Slice a -> Int -> Int -> Go.Slice a`（`s[lo:hi]` — バッキングを共有する部分ビュー。範囲外・逆転した境界は Go と同じく panic）、`Go.Slice.fold : Go.Slice a -> (b -> a -> b) -> b -> b`（左畳み込み。nil は acc のまま）、`Go.Slice.to_list : Go.Slice a -> List a`（スナップショット — コピーするのはこのメンバーだけ）。
+
 ### 8.4 extern（上書き専用）
 
 自動の対応付けで不都合なときだけ書く。
@@ -472,7 +474,7 @@ extern のエントリは `fn` の関数シグネチャだけを持ち、ブロ�
 ### 8.5 境界でのデータの扱い
 
 - `List T` と Go の `[]T` は、境界を越えるときに両方向ともコピーする。Gom から渡したスライスを Go が書き換えても、Go から受け取ったスライスを Go が後で書き換えても、Gom の `List` は変わらない
-- コピーを避けたいときは、Go が所有する可変の値として `Go.Slice T` を使う（`extern` で宣言する）。`List` を `Go.Slice` パラメータへ渡してもやはりコピーする — no-copy は `Go.Slice` から `Go.Slice` への引き渡しだけ
+- コピーを避けたいときは、Go が所有する可変の値として `Go.Slice T` を使う（`extern` で宣言する）。`List` を `Go.Slice` パラメータへ渡してもやはりコピーする — no-copy は `Go.Slice` から `Go.Slice` への引き渡しだけ。`Go.Slice` の値のまま読むための操作は `Go.Slice` の型メンバー群（8.3 節。`length`/`get`/`slice`/`fold`/`to_list` — すべて読み取り専用）が持つ
 - このコピーのため、`sort.Strings xs` のような in-place 変更を契約に持つ Go 呼び出しはコンパイルできても Gom の値に効かない。結果が `Unit` の Go 呼び出しがコピーされる引数を `[]T` パラメータへ渡すとき、リンターは W0501 を警告する（[decisions/go-mutation-warning](decisions/2026-11-05-go-mutation-warning.md)）。コピーされるのは `List` 引数（`..xs` スプレッドと `Go.Slice` 宣言パラメータへの `List` を含む）と、`List` 位置へ物質化される `Go.Slice` 引数（チャネル送信の `[]T` パラメータなど）。素の `Go.Slice` が `[]T` スロットへそのまま渡る経路 — `Go.Slice` 宣言パラメータへの `Go.Slice` 引数、`..gs` スプレッド、`...[]T` の要素位置 — はバッキングを共有するので警告しない。読み取り専用の消費者は値を返すので（`strings.Join` など）警告されない。`signal.Notify` のように副作用を持つが slice を書き換えない Unit 関数も警告対象になり得る — 警告の文言は条件形で、事実としてコピーが起きることだけを述べる
 - Gom が表現できない型（`unsafe.Pointer`、制約付きの型パラメータを持つジェネリック関数など）を含むシンボルは公開しない。`import go` 自体は失敗せず、そのシンボルを参照したときに理由付きの診断を出す
 - Go のジェネリック関数は、制約が `any` か `comparable` のものだけを呼べる（v1）

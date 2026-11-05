@@ -1,0 +1,20 @@
+package ex
+
+import go "os"
+import go "time"
+
+// `Go.conv e : T` emits the conversion the pair names (spec 8.4):
+// numeric and named-type pairs are `T(x)`, while `Go.Slice T ↔
+// List T` is the boundary copy — `list.FromSlice` / `.ToSlice()` —
+// the same conversions the implicit conformance emits (spec 8.5).
+fn duration (n: Int) -> time.Duration = Go.conv n : time.Duration
+
+fn nanos (d: time.Duration) -> Int = Go.conv d : Int
+
+fn freeze (xs: Go.Slice Int) -> List Int = Go.conv xs : List Int
+
+fn thaw (xs: List Int) -> Go.Slice Int = Go.conv xs : Go.Slice Int
+
+fn runes (s: String) -> List Char = Go.conv s : List Char
+
+fn args () -> List String = Go.conv os.Args : List String

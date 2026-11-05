@@ -5,9 +5,9 @@
 // embedded .gomi interface files through the front half of the
 // pipeline (docs/design.md: the stdlib is built by the compiler
 // itself). The `Chan`, `Task`, and `Ptr` modules — and the
-// `Go`-namespace type-member table `Go.Map` — ship alongside them
-// as hand-built tables backed by rt functions (builtin.go): their
-// signatures are not expressible in a .gomi.
+// `Go`-namespace type-member tables `Go.Map` and `Go.Slice` —
+// ship alongside them as hand-built tables backed by rt functions
+// (builtin.go): their signatures are not expressible in a .gomi.
 //
 // The interface files are the single source of truth: they are what
 // `gom check stdlib/list` enforces the .gom implementation against
@@ -46,7 +46,7 @@ var packages = []struct {
 // env is the loaded standard library: resolver member tables keyed
 // by builtin module name, the check signatures of every member
 // symbol, their declared arities for lowering, and the GoSig oracles
-// of the rt-backed members (Chan/Task/Ptr/Go.Map).
+// of the rt-backed members (Chan/Task/Ptr/Go.Map/Go.Slice).
 type env struct {
 	modules map[string]map[string]*resolve.Symbol
 	sigs    check.MapSource

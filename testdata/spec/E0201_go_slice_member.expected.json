@@ -1,0 +1,28 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0201",
+      "severity": "error",
+      "message": "`Go.Slice` has no member `bogus`",
+      "span": {
+        "file": "E0201_go_slice_member.gom",
+        "start": {
+          "line": 10,
+          "col": 20,
+          "offset": 357
+        },
+        "end": {
+          "line": 10,
+          "col": 25,
+          "offset": 362
+        }
+      },
+      "data": {
+        "in": "Go.Slice",
+        "name": "bogus",
+        "namespace": "member"
+      }
+    }
+  ]
+}

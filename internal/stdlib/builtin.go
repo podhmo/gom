@@ -1,10 +1,11 @@
 package stdlib
 
 // The builtin `Chan`, `Task`, and `Ptr` modules — plus the
-// `Go`-namespace type-member table `Go.Map` — ship as
-// compiler-owned member tables backed by rt functions rather than
-// a .gomi stdlib package: the operation surfaces spec sections
-// 8.3 and 10 fix are not expressible in Gom signatures.
+// `Go`-namespace type-member tables `Go.Map` and `Go.Slice` — ship
+// as compiler-owned member tables backed by rt functions rather
+// than a .gomi stdlib package: the operation surfaces spec
+// sections 8.3, 8.5 and 10 fix are not expressible in Gom
+// signatures.
 // `Chan.send`/`recv`/`close` accept both `Chan a` and the matching
 // directional type, which only the implicit channel-direction
 // conversion at Go-call boundaries admits (spec section 10.2), and
@@ -37,11 +38,13 @@ const stdlibVarBase = 1 << 22
 // signatures below — every signature that mentions `a` shares the
 // variable, which is safe because each use site instantiates it with
 // a fresh meta. keyTVar/valTVar are the same for the two-parameter
-// Go.Map members (`k`/`v`).
+// Go.Map members (`k`/`v`), accTVar for the accumulator `b` of
+// `Go.Slice.fold`.
 var (
 	elemTVar = &types.Var{ID: stdlibVarBase, Name: "a"}
 	keyTVar  = &types.Var{ID: stdlibVarBase + 1, Name: "k"}
 	valTVar  = &types.Var{ID: stdlibVarBase + 2, Name: "v"}
+	accTVar  = &types.Var{ID: stdlibVarBase + 3, Name: "b"}
 )
 
 // builtinMember is one entry of a hand-built builtin-module member
@@ -87,6 +90,17 @@ func genericMapSig(t types.Type) check.Signature {
 		Type:          t,
 		TypeParams:    []*types.Var{keyTVar, valTVar},
 		GoConstraints: []check.GoConstraint{check.GoConstraintComparable, check.GoConstraintAny},
+	}
+}
+
+// genericPairSig builds the two-type-parameter `[a, b any]`
+// signature of `Go.Slice.fold` — the one member whose type mentions
+// a second variable (the accumulator). Both constraints are `any`.
+func genericPairSig(t types.Type) check.Signature {
+	return check.Signature{
+		Type:          t,
+		TypeParams:    []*types.Var{elemTVar, accTVar},
+		GoConstraints: []check.GoConstraint{check.GoConstraintAny, check.GoConstraintAny},
 	}
 }
 
@@ -195,18 +209,58 @@ var goMapMembers = []builtinMember{
 			TypeParams: []*types.Var{keyTVar, valTVar}}},
 }
 
+// goSliceMembers is `Go.Slice`'s read-only operation surface — a
+// member table on the *type* member like `Go.Map`'s, injected under
+// the qualified Modules key "Go.Slice"
+// (decisions/2026-11-04-goconv-list-slice-copies — the copy-avoiding
+// read path `Go.conv`'s copy semantics call for; the surface itself
+// is decisions/2026-11-05-go-slice-ops). Every member is a read:
+// `get`/`to_list` mirror `Go.Map`'s vocabulary, `slice` is the
+// `s[lo:hi]` shared sub-view (panics like Go on bad bounds), and
+// `fold` iterates without copying. There are no write operations —
+// a `Go.Slice` stays Go's own mutable view to write through, Gom
+// only reads it.
+var goSliceMembers = []builtinMember{
+	{name: "length", goSym: "SliceLen",
+		sig: genericSig(types.Fn(types.Int, types.P(types.GoSlice(elemTVar)))),
+		gosig: lower.GoSig{Arity: 1, Results: core.GoResultsOne,
+			TypeParams: []*types.Var{elemTVar}}},
+	{name: "get", goSym: "SliceGet",
+		sig: genericSig(types.Fn(types.Option(elemTVar), types.P(types.GoSlice(elemTVar)), types.P(types.Int))),
+		gosig: lower.GoSig{Arity: 2, Results: core.GoResultsOK,
+			TypeParams: []*types.Var{elemTVar}}},
+	{name: "slice", goSym: "SliceSub",
+		sig: genericSig(types.Fn(types.GoSlice(elemTVar), types.P(types.GoSlice(elemTVar)), types.P(types.Int), types.P(types.Int))),
+		gosig: lower.GoSig{Arity: 3, Results: core.GoResultsOne,
+			TypeParams: []*types.Var{elemTVar}}},
+	{name: "fold", goSym: "SliceFold",
+		sig: genericPairSig(types.Fn(accTVar,
+			types.P(types.GoSlice(elemTVar)),
+			types.P(types.Fn(accTVar, types.P(accTVar), types.P(elemTVar))),
+			types.P(accTVar))),
+		gosig: lower.GoSig{Arity: 3, Results: core.GoResultsOne,
+			TypeParams: []*types.Var{elemTVar, accTVar}}},
+	{name: "to_list", goSym: "SliceToList",
+		sig: genericSig(types.Fn(types.List(elemTVar), types.P(types.GoSlice(elemTVar)))),
+		gosig: lower.GoSig{Arity: 1, Results: core.GoResultsOne,
+			ResTypes:   []types.Type{types.GoSlice(elemTVar)},
+			TypeParams: []*types.Var{elemTVar}}},
+}
+
 // builtinModules populates e with the member tables, signatures,
 // GoSig oracles and declared arities of the rt-backed builtin
 // modules — `Chan`, `Task`, `Ptr` — and of the `Go`-namespace
-// type-member tables (`Go.Map`). Unlike the .gomi-derived tables
-// of `packages`, every fact here is written by hand because no Gom
-// interface file can spell these signatures.
+// type-member tables (`Go.Map`, `Go.Slice`). Unlike the
+// .gomi-derived tables of `packages`, every fact here is written
+// by hand because no Gom interface file can spell these
+// signatures.
 func (e *env) builtinModules() {
 	for module, members := range map[string][]builtinMember{
-		"Chan":   chanMembers,
-		"Task":   taskMembers,
-		"Ptr":    ptrMembers,
-		"Go.Map": goMapMembers,
+		"Chan":     chanMembers,
+		"Task":     taskMembers,
+		"Ptr":      ptrMembers,
+		"Go.Map":   goMapMembers,
+		"Go.Slice": goSliceMembers,
 	} {
 		table := map[string]*resolve.Symbol{}
 		for _, m := range members {

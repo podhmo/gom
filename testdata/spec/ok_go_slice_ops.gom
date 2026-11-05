@@ -1,0 +1,29 @@
+package ex
+
+// `Go.Slice`'s read-only operation surface (spec section 8.5):
+// length/get/slice/fold/to_list. Every member reads the Go slice
+// without copying — `slice` returns the shared `s[lo:hi]` view and
+// `to_list` is the only member that materializes a fresh snapshot.
+// `get` returns `Option a` like `Go.Map.get`/`List.get`; `slice`
+// panics on out-of-range bounds like Go's own slice expression.
+fn ops (xs: List Int) -> Int = {
+  let gs: Go.Slice Int = Go.conv xs : Go.Slice Int
+  let n = Go.Slice.length gs
+  let first = match Go.Slice.get gs 0 {
+    Some v -> v
+    None -> 0
+  }
+  let sub: Go.Slice Int = Go.Slice.slice gs 1 n
+  let total = Go.Slice.fold sub (fn acc v -> acc + v) 0
+  let back: List Int = Go.Slice.to_list sub
+  first + total + List.length back
+}
+
+fn missing (gs: Go.Slice Int) -> Bool =
+  match Go.Slice.get gs 99 {
+    Some _ -> false
+    None -> true
+  }
+
+fn count (xs: List Int) -> Int =
+  Go.Slice.fold (Go.conv xs : Go.Slice Int) (fn n _ -> n + 1) 0

@@ -112,7 +112,7 @@
 | [fuzz-failures-file-issues](2026-11-04-fuzz-failures-file-issues.md) | Fuzz failures file `fuzz-finding` issues automatically | 採用 |
 | [go-collections-and-generics](2026-11-04-go-collections-and-generics.md) | []T → List boundary copies, Go.Slice/Go.Map, and callable generic Go functions | 採用（P3-3 が実装・検証した — [検証](../sketch/2026-11-04-p3-3-go-collections-verification.md)） |
 | [goconv-gotypes-oracle](2026-11-04-goconv-gotypes-oracle.md) | `Go.conv` legality: delegate to `go/types`, recheck after metas solve | draft |
-| [goconv-list-slice-copies](2026-11-04-goconv-list-slice-copies.md) | `Go.conv` の `Go.Slice T ↔ List T` はコピーする | 採用（実装は TODO） |
+| [goconv-list-slice-copies](2026-11-04-goconv-list-slice-copies.md) | `Go.conv` の `Go.Slice T ↔ List T` はコピーする | 採用（実装・検証した — `Go.conv` のコピー化は testdata/golden/go_conv と testdata/gocall の freeze/thaw/bump で固定、`Go.Slice` 操作面は [検証](../sketch/2026-11-05-go-slice-ops-verification.md)。spec.md §8.4/§8.5 へ反映済み） |
 | [gomi-conformance-in-gom-test](2026-11-04-gomi-conformance-in-gom-test.md) | `gom test` でも `.gomi` 適合検査を走らせる | 採用 |
 | [mutable-sharing-lint](2026-11-04-mutable-sharing-lint.md) | Mutable-sharing lint: what W0701/W0702 check and where they run | 採用（P5-2 で実装・検証した — [検証](../sketch/2026-11-04-p5-2-mutable-lint-verification.md)） |
 | [result-pipe-step-must-return-result](2026-11-04-result-pipe-step-must-return-result.md) | `\|?>` の右辺は `Result` を返す関数に限る | 採用 |
@@ -127,6 +127,7 @@
 | [generated-equality-comparators](2026-11-05-generated-equality-comparators.md) | Generated per-type comparators for `==`/`!=`/`assert_eq` (core.Equal + File.EqDecls)（一部を [eq-comparator-budget-and-names](2026-11-05-eq-comparator-budget-and-names.md) で置き換え） | 採用 |
 | [go-map-ops](2026-11-05-go-map-ops.md) | `Go.Map` operations: `Go.Map.<op>` member table backed by `rt` | 採用（実装・検証した — [検証](../sketch/2026-11-05-p3-7-interop-ops-verification.md)。spec.md §8.3/§8.5 へ反映済み） |
 | [go-mutation-warning](2026-11-05-go-mutation-warning.md) | W0501: warn on Unit-result Go calls that copy a `List` argument | 採用（実装・検証した — [検証](../sketch/2026-11-05-p3-7-interop-ops-verification.md)。spec.md §8.5 へ反映済み） |
+| [go-slice-ops](2026-11-05-go-slice-ops.md) | `Go.Slice` operations: `Go.Slice.<op>` read-only member table backed by `rt` | 採用（実装・検証した — [検証](../sketch/2026-11-05-go-slice-ops-verification.md)。spec.md §8.3/§8.5 へ反映済み） |
 | [gom-implementation-import-cycles](2026-11-05-gom-implementation-import-cycles.md) | `.gom` implementation imports must be acyclic (E0606) | draft（prototype verified — [sketch: V-6 residual verification](../sketch/2026-11-05-v6-residual-verification.md)） |
 | [gom-test-go-test-flags](2026-11-05-gom-test-go-test-flags.md) | `gom test` passes the arguments after `--` through to `go test` | 採用（prototype verified — [sketch](../sketch/2026-11-05-gom-test-go-test-flags.md)） |
 | [gom-test-panic-stack](2026-11-05-gom-test-panic-stack.md) | `gom test` renders panic stacks with `.gom` positions and keeps the raw Go trace | 採用 |

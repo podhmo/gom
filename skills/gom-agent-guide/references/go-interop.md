@@ -142,6 +142,31 @@ fn map_ops () -> Int = {
 representation) is E0508. Nil-map semantics are Go's: get/delete/
 length work, set panics.
 
+## `Go.Slice` ops (read-only)
+
+```gom
+fn slice_ops (gs: Go.Slice Int) -> Int = {
+  let n = Go.Slice.length gs            // len(s) — nil is 0
+  let first = match Go.Slice.get gs 0 { // None on out-of-bounds / negative
+    Some v -> v
+    None -> 0
+  }
+  let tail : Go.Slice Int =
+    Go.Slice.slice gs 1 n               // s[lo:hi] — shared view, panics on bad bounds
+  let total = Go.Slice.fold tail (fn acc v -> acc + v) 0  // left fold; nil -> acc
+  first + total + List.length (Go.Slice.to_list tail)     // snapshot into a List
+}
+```
+
+Every member is a read — `to_list` is the only one that copies.
+`for` cannot iterate a `Go.Slice` today (it accepts only builtin
+`List` and channels — E0401); iterate through `Go.Slice.fold`, or
+snapshot with `Go.Slice.to_list` and use the `List` surface. To
+mutate, do it on the Go side or copy into a `List`; `Go.conv`
+between `List` and `Go.Slice` copies both ways (the same
+semantics as the implicit boundary), so `Go.Slice`-to-`Go.Slice`
+forwarding is the only no-copy path.
+
 ## Copied-`List` warning (W0501)
 
 A `List` crossing into a `[]T` parameter copies — so a Unit-result
@@ -211,10 +236,11 @@ extern result rewrites.
   panics at `match` with a type-named message (`rt.InvalidVariant`).
 - Top-level `[]T` parameters and results copy to/from `List` at the
   boundary; a `[]T` nested inside another type stays `Go.Slice T`
-  (no copy). `Go.Slice` is also the explicit no-copy mutable view —
-  note `Go.conv` between `List` and `Go.Slice` puns the underlying
-  representation *without* copying (unlike the implicit boundary,
-  which copies; see `docs/implementation-gaps.md`).
+  (no copy). `Go.Slice` is the explicit no-copy mutable view —
+  `Go.conv` between `List` and `Go.Slice` copies both ways like
+  the implicit boundary, so only `Go.Slice`-to-`Go.Slice`
+  forwarding shares backing. Read a `Go.Slice` in place with the
+  `Go.Slice.<op>` members above.
 - Generated `.go` is a normal package: Go code calls Gom functions
   directly; ADTs surface as sealed interfaces (type-switch them);
   `Result` is a tagged struct via `Ok`/`Err`/`Tag()`/`Unwrap()`.
