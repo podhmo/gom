@@ -1,0 +1,46 @@
+package ex
+
+import go "errors"
+import go "io"
+
+// The errors.As target lint (spec section 8.4): `errors.As`
+// derives `(GoError, Go.Any) -> Bool`, so the contract Go's types
+// do not express — a non-nil *T target where T implements error
+// or is an interface — is invisible to the checker. W0502 warns
+// on the provable violations: a non-Ptr argument, a literal
+// `Ptr.nil`, and `Ptr E` over a concrete shape (scalar, List,
+// declared record). The legal spellings — `Ptr GoError` and
+// `Ptr` over a declared sum (its Go representation is a sealed
+// interface, a legal target element) — stay silent.
+
+type Rec = { n: Int }
+type Sum =
+  | A
+  | B
+
+fn bad_scalar (e: GoError) -> Bool = errors.As e 42
+
+fn bad_opt_value (e: GoError) (o: Option Int) -> Bool = errors.As e o
+
+fn bad_sum_value (e: GoError) (s: Sum) -> Bool = errors.As e s
+
+fn bad_ptr_int (e: GoError) -> Bool = errors.As e (Ptr.make 1)
+
+fn bad_record (e: GoError) (p: Ptr Rec) -> Bool = errors.As e p
+
+// A literal `Ptr.nil` target warns on the non-nil half of the
+// contract — and, because the `Go.Any` parameter gives `a` no
+// constraint, also draws E0407 for the unresolved type argument.
+fn bad_nil (e: GoError) -> Bool = errors.As e (Ptr.nil ())
+
+fn ok_error_ptr (e: GoError) (p: Ptr GoError) -> Bool = errors.As e p
+
+fn ok_sum (e: GoError) (p: Ptr Sum) -> Bool = errors.As e p
+
+// The non-`Ptr` arm warns only on provable violations: an
+// `io.Reader` argument may hold a named pointer type at run time
+// and a rigid `a` may still instantiate to `Ptr`, so both stay
+// silent like the element-side arm's `types.Go`/meta cases.
+fn ok_iface_value (e: GoError) (r: io.Reader) -> Bool = errors.As e r
+
+fn ok_generic (x: a) (e: GoError) -> Bool = errors.As e x

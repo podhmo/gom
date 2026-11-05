@@ -1,0 +1,10 @@
+package ex
+
+import go "strconv"
+
+// spec section 8.4: `Result (Option T) GoError` is admitted only
+// over a nil-able first result — `int` has no presence channel to
+// read, so the declaration mismatches `(int, error)`.
+extern go "strconv" {
+  fn Atoi (s: String) -> Result (Option Int) GoError
+}

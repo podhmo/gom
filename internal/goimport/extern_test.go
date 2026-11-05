@@ -155,6 +155,99 @@ extern go "os" {
 	wantDiag(t, ds, "E0509", "Option T` or `(T, Bool)")
 }
 
+// The `(error, error)` pair admits the three payload readings:
+// the honest `Result (Option GoError) GoError` (the derived
+// view's own shape) and the never-nil claim `Result GoError
+// GoError` — a `(nil, nil)` return then panics at the boundary.
+func TestExternErrorPairViews(t *testing.T) {
+	l := loaderFor(t)
+	for _, decl := range []string{
+		"fn TwoErrs (n: Int) -> Result (Option GoError) GoError",
+		"fn TwoErrs (n: Int) -> Result GoError GoError",
+	} {
+		ds := compileDiags(t, l, `package main
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+extern go "github.com/podhmo/gom/testdata/goiface" {
+  `+decl+`
+}
+`)
+		for _, d := range ds {
+			if d.Severity == diag.SeverityError {
+				t.Fatalf("%s: unexpected diagnostic %s: %s", decl, d.Code, d.Message)
+			}
+		}
+	}
+}
+
+// `(*T, error)` admits `Result (Option (Ptr T)) GoError` — the
+// Ok-side analogue of `Option` over a lone `*T`: the payload keeps
+// the pointer, nil reads as `Ok None`.
+func TestExternPtrPairOptionView(t *testing.T) {
+	l := loaderFor(t)
+	ds := compileDiags(t, l, `package main
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+extern go "github.com/podhmo/gom/testdata/goiface" {
+  fn SoftPtr (n: Int) -> Result (Option (Ptr Int)) GoError
+}
+`)
+	for _, d := range ds {
+		if d.Severity == diag.SeverityError {
+			t.Fatalf("unexpected diagnostic %s: %s", d.Code, d.Message)
+		}
+	}
+}
+
+// `Result (Option T) GoError` needs a nil-able first result —
+// `int` has no presence channel to read, so the declaration
+// mismatches `(int, error)` exactly like any other shape drift.
+func TestExternOptionPairOverPlainResult(t *testing.T) {
+	l := loaderFor(t)
+	ds := compileDiags(t, l, `package main
+
+import go "strconv"
+
+extern go "strconv" {
+  fn Atoi (s: String) -> Result (Option Int) GoError
+}
+`)
+	wantDiag(t, ds, "E0509", "declare `Result T GoError`")
+}
+
+// The payload inside the Option keeps the raw view — `Option
+// String` over `(error, error)` claims a different payload type.
+func TestExternOptionPairWrongPayload(t *testing.T) {
+	l := loaderFor(t)
+	ds := compileDiags(t, l, `package main
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+extern go "github.com/podhmo/gom/testdata/goiface" {
+  fn TwoErrs (n: Int) -> Result (Option String) GoError
+}
+`)
+	wantDiag(t, ds, "E0509", "declare `Result T GoError` or `Result (Option T) GoError`")
+}
+
+// An `(error, error)` pair stays a Result — the second `error` is
+// the failure channel, so the raw `(GoError, GoError)` tuple is
+// not an admitted view.
+func TestExternErrorPairTupleRejected(t *testing.T) {
+	l := loaderFor(t)
+	ds := compileDiags(t, l, `package main
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+extern go "github.com/podhmo/gom/testdata/goiface" {
+  fn TwoErrs (n: Int) -> (GoError, GoError)
+}
+`)
+	wantDiag(t, ds, "E0509", "declare `Result T GoError` or `Result (Option T) GoError`")
+}
+
 // A `(T, error)` result keeps its required `Result T GoError` shape —
 // declaring `Option` for it is rejected.
 func TestExternOptionOverError(t *testing.T) {

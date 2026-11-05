@@ -48,6 +48,7 @@ func (c *checker) lintMutableSharing() {
 			case *Apply:
 				c.lintChanMake(e)
 				c.lintGoSliceCopy(e)
+				c.lintErrorsAsTarget(e)
 			case *GoExpr:
 				c.lintGoCaptures(e, goWarned)
 			case *Lit, *Var, *MemberExpr, *Hole, *StrInterp, *Lambda,
@@ -187,6 +188,208 @@ func (c *checker) lintGoSliceCopy(ap *Apply) {
 func isGoSliceCon(t types.Type) bool {
 	con, ok := t.(*types.Con)
 	return ok && con.Qual == "Go" && con.Name == "Slice"
+}
+
+// lintErrorsAsTarget reports W0502 when an `errors.As` call's
+// target argument provably violates the contract Go's types do
+// not express: the target must be a non-nil pointer whose element
+// type implements error or is an interface — anything else panics
+// at run time. `errors.As` derives `(GoError, Go.Any) -> Bool` and
+// `Go.Any` accepts every argument, so the trap typechecks today.
+// The lint fires only on statically provable violations — a
+// non-`Ptr` argument, a literal `Ptr.nil`, or a `Ptr E` over a
+// concrete shape that is neither an interface nor able to
+// implement error — and stays silent where it cannot disprove the
+// call cheaply: named Go types (types.Go — `Ptr <Go error type>`
+// is the intended spelling), `GoError`/`Go.Any` elements, nested
+// `Ptr` elements, and unsolved metas (docs/decisions/
+// 2026-11-05-errors-as-target-lint.md).
+func (c *checker) lintErrorsAsTarget(ap *Apply) {
+	if ap.Call.Kind != CallGo || ap.Call.Callee == nil ||
+		ap.Call.Callee.Name != "As" || ap.Call.Callee.Package != "errors" {
+		return
+	}
+	for i, a := range ap.Args {
+		pi := i
+		if ap.Call.ArgToParam != nil && i < len(ap.Call.ArgToParam) {
+			pi = ap.Call.ArgToParam[i]
+		}
+		if pi != 1 { // target is parameter 1 — the error parameter needs no check
+			continue
+		}
+		got := a.Value
+		for {
+			as, ok := got.(*Ascribe)
+			if !ok {
+				break
+			}
+			got = as.X
+		}
+		// A literal `Ptr.nil` target panics on the non-nil half of
+		// the contract — recognition goes through the rt-backed
+		// callee symbol like every builtin.
+		if inner, ok := got.(*Apply); ok && inner.Call.Callee != nil &&
+			inner.Call.Callee.Package == rtPath && inner.Call.Callee.Name == "PtrNil" {
+			c.diags.Add(diag.Warning("W0502",
+				"`errors.As` requires a non-nil pointer target — `Ptr.nil` panics at run time").
+				At(a.Span()).Set("argument", "Ptr.nil"))
+			return
+		}
+		gotT := types.Chase(got.Type())
+		con, ok := gotT.(*types.Con)
+		if !ok || con.Qual != "" || con.Name != "Ptr" || len(con.Args) != 1 ||
+			c.shadowedBuiltin("Ptr") {
+			// Not `Ptr` — warn only when the argument is
+			// *provably* not a pointer. `types.Go` may hide a
+			// named pointer type, `Go.Any` may hold one, and a
+			// meta/var may still resolve to `Ptr` — all stay
+			// silent, same as the element-side arm.
+			if c.provablyNotPtrTarget(gotT, map[conKey]bool{}) {
+				c.diags.Add(diag.Warning("W0502",
+					fmt.Sprintf("`errors.As` requires a non-nil pointer target — an argument of type %s panics at run time", gotT)).
+					At(a.Span()).Set("argument", gotT.String()))
+			}
+			return
+		}
+		if bad := c.notAsTargetElem(types.Chase(con.Args[0]), map[conKey]bool{}); bad {
+			elem := types.Chase(con.Args[0])
+			c.diags.Add(diag.Warning("W0502",
+				fmt.Sprintf("`errors.As` requires the target's element type to implement error or be an interface — %s is neither and panics at run time", elem)).
+				At(a.Span()).Set("argument", elem.String()))
+		}
+		return
+	}
+}
+
+// notAsTargetElem reports whether a `Ptr` element type is provably
+// a concrete shape that can neither implement error nor be an
+// interface — the shapes `errors.As` rejects outright. The
+// judgment is representation-level: emitted Go structs, scalars,
+// slices, maps, channels and function types carry no methods, so
+// `*T` over them is a guaranteed panic. `Option` and declared sums
+// stay silent — their Go representations are interfaces, a legal
+// target element — and so does anything the checker cannot place
+// (named Go types, `GoError`, `Go.Any`, `Ptr`, metas). Aliases
+// resolve to their body; the seen map guards cycles the same way
+// containsMutable does.
+func (c *checker) notAsTargetElem(t types.Type, seen map[conKey]bool) bool {
+	switch t := t.(type) {
+	case *types.Meta, *types.Var, *types.Go:
+		return false
+	case *types.Func, *types.Tuple:
+		return true
+	case *types.Con:
+		switch t.Qual {
+		case "Go":
+			// `Go.Any` — spelled `any` — is an interface, a legal
+			// target element; Slice/Map are concrete.
+			return t.Name == "Slice" || t.Name == "Map"
+		case "":
+			switch t.Name {
+			case "Unit", "Bool", "Int", "Int32", "Int64", "Float",
+				"Char", "String", "List", "Ref", "Array",
+				"Chan", "RecvChan", "SendChan", "Task", "Result":
+				if !c.shadowedBuiltin(t.Name) {
+					return true
+				}
+			case "GoError", "Option", "Ptr":
+				// `*error` and `*Option`/`Option`-shaped
+				// interfaces are legal targets; `**X` needs X's
+				// method set, which the checker cannot see.
+				if !c.shadowedBuiltin(t.Name) {
+					return false
+				}
+			}
+		}
+		// Declared names (file-local and imported alike) classify
+		// by declaration kind.
+		key := conKey{qual: t.Qual, name: t.Name}
+		ti := c.tyCons[key]
+		if ti == nil || seen[key] {
+			return false
+		}
+		seen[key] = true
+		switch ti.kind {
+		case kindAlias:
+			sub := types.Subst{}
+			for i, v := range ti.params {
+				if i < len(t.Args) {
+					sub[v.ID] = t.Args[i]
+				}
+			}
+			return c.notAsTargetElem(types.Chase(sub.Apply(ti.alias)), seen)
+		case kindRecord:
+			// A declared record emits a Go struct — `*T`
+			// over it can never satisfy the contract.
+			return true
+		case kindSum, kindAbstract:
+			// Sums emit sealed interfaces — a legal target
+			// element — and an abstract declaration hides a
+			// representation the checker cannot place.
+			return false
+		default:
+			panic("unreachable")
+		}
+	default:
+		panic("unreachable")
+	}
+}
+
+// provablyNotPtrTarget reports whether t is provably *not* a
+// pointer type — the shapes `errors.As` rejects in the target
+// position. It is the non-`Ptr` arm's mirror of
+// `notAsTargetElem`'s conservatism: `types.Go` may hide a named
+// pointer type, `Go.Any` may hold one, a meta or rigid var may
+// still resolve to `Ptr`, and abstract declarations hide their
+// representation — all stay silent. Declared sums warn here where
+// the element arm stays silent: a sealed-interface *value* is a
+// legal target element through `Ptr` but is never itself a
+// pointer.
+func (c *checker) provablyNotPtrTarget(t types.Type, seen map[conKey]bool) bool {
+	switch t := t.(type) {
+	case *types.Meta, *types.Var, *types.Go:
+		return false
+	case *types.Func, *types.Tuple:
+		return true
+	case *types.Con:
+		switch t.Qual {
+		case "Go":
+			// `Go.Any` may hold a pointer at run time; Slice and
+			// Map are provably not pointers.
+			return t.Name == "Slice" || t.Name == "Map"
+		case "":
+			if _, ok := builtinTypeArity[t.Name]; ok &&
+				t.Name != "Ptr" && !c.shadowedBuiltin(t.Name) {
+				return true
+			}
+		}
+		key := conKey{qual: t.Qual, name: t.Name}
+		ti := c.tyCons[key]
+		if ti == nil || seen[key] {
+			return false
+		}
+		seen[key] = true
+		switch ti.kind {
+		case kindAlias:
+			sub := types.Subst{}
+			for i, v := range ti.params {
+				if i < len(t.Args) {
+					sub[v.ID] = t.Args[i]
+				}
+			}
+			return c.provablyNotPtrTarget(types.Chase(sub.Apply(ti.alias)), seen)
+		case kindRecord, kindSum:
+			// A struct value or a sealed-interface value is
+			// provably not a pointer.
+			return true
+		case kindAbstract:
+			return false
+		default:
+			panic("unreachable")
+		}
+	default:
+		panic("unreachable")
+	}
 }
 
 // lintGoCaptures warns once per variable a `go` body closes over

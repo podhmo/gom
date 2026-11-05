@@ -678,6 +678,19 @@ func (g *gen) escapeCall(e *core.EscapeCall, d dest) {
 		g.expr(call)
 		g.nl()
 		g.errIf(e.Sp, err, e.Wrap, e.To)
+		if e.NilGuard {
+			// The declared `Result GoError GoError` view claims
+			// the payload is a real error whenever no error
+			// escapes — errIf already returned on a non-nil
+			// err, so a nil v here is exactly `(nil, nil)`:
+			// a contract violation (spec section 8.6).
+			g.raw("if " + v + " == nil")
+			g.open()
+			g.line(e.Sp)
+			g.raw("panic(" + strconv.Quote("gom: "+goCallName(e.Call)+" returned (nil, nil) — its binding declares a never-nil GoError payload") + ")")
+			g.nl()
+			g.close()
+		}
 		if d.kind != dDeclare {
 			g.writeDest(d, ast.NewIdent(v))
 		}
@@ -765,6 +778,19 @@ func (g *gen) resultFromGo(e *core.ResultFromGo, d dest) {
 		g.raw(v + ", " + err + " := ")
 		g.expr(call)
 		g.nl()
+		if e.NilGuard {
+			// `Result GoError GoError` claims the payload is a
+			// real error whenever the second result is nil —
+			// a `(nil, nil)` return violates it; a `(nil, err)`
+			// pair keeps the ordinary Err reading, so the
+			// check guards `err == nil` too.
+			g.raw("if " + err + " == nil && " + v + " == nil")
+			g.open()
+			g.line(e.Sp)
+			g.raw("panic(" + strconv.Quote("gom: "+goCallName(e.Call)+" returned (nil, nil) — its binding declares a never-nil GoError payload") + ")")
+			g.nl()
+			g.close()
+		}
 		g.writeDest(d, &ast.CallExpr{
 			Fun:  ast.NewIdent(g.pkgQual(resultPath) + "FromGo"),
 			Args: []ast.Expr{g.convOf(e.ValConv, payloadType(e.Type(), 0), ast.NewIdent(v)), ast.NewIdent(err)},
@@ -897,6 +923,13 @@ func (g *gen) convOf(kind core.ConvKind, target types.Type, x ast.Expr) ast.Expr
 		return &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual(listPath) + "FromSlice"), Args: []ast.Expr{x}}
 	case core.ConvSliceBox:
 		return &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual(rtPath) + "BoxSlice"), Args: []ast.Expr{x}}
+	case core.ConvOptNil:
+		// `option.FromGo(v, v != nil)` — the nil-able payload's
+		// absence read inside a consumer (spec section 8.4).
+		return &ast.CallExpr{
+			Fun:  ast.NewIdent(g.pkgQual(optionPath) + "FromGo"),
+			Args: []ast.Expr{x, &ast.BinaryExpr{X: x, Op: token.NEQ, Y: ast.NewIdent("nil")}},
+		}
 	default:
 		panic("unreachable")
 	}

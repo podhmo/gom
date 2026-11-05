@@ -435,6 +435,13 @@ func (l *lowerer) goCallTyp(sig GoSig, resTyp types.Type) types.Type {
 			return raw[0]
 		}
 		if a, _, ok := l.resultArgs(resTyp); ok {
+			// A `Result (Option T) GoError` view still calls the
+			// raw nil-able slot — the Option wraps it after the
+			// boundary (ConvOptNil), so the call's raw type
+			// unwraps it here.
+			if c, isOpt := isCon(a, "", "Option"); isOpt && l.isOptionCon(c) && len(c.Args) == 1 {
+				return c.Args[0]
+			}
 			return a
 		}
 	case core.GoResultsErrOnly:
@@ -496,12 +503,17 @@ func (l *lowerer) wrapGoResult(s *seq, call *core.CallGo, resTyp types.Type) cor
 		return call
 	case core.GoResultsErr, core.GoResultsErrOnly:
 		var vc core.ConvKind
+		var guard bool
 		if a, _, ok := l.resultArgs(resTyp); !ok {
 			l.err(call.Sp, fmt.Sprintf("Go (T, error) call typed %s, not a Result", resTyp))
 		} else if call.Results == core.GoResultsErr {
 			vc = l.goConvKind(call, call.Typ, a)
+			// A `GoError` payload over an `error`-typed first
+			// result is the never-nil claim — verify it at the
+			// boundary (spec section 8.6).
+			guard = l.isGoError(a) && l.isGoError(call.Typ)
 		}
-		return &core.ResultFromGo{Base: base, Call: call, ValConv: vc}
+		return &core.ResultFromGo{Base: base, Call: call, ValConv: vc, NilGuard: guard}
 	case core.GoResultsOK:
 		if c, ok := isCon(resTyp, "", "Option"); ok && l.isOptionCon(c) && len(c.Args) == 1 {
 			return &core.OptionFromGo{Base: base, Call: call,
@@ -588,6 +600,14 @@ func (l *lowerer) goConvKindOf(from, to types.Type) (core.ConvKind, bool) {
 	}
 	if l.isNumericCon(from) && l.isNumericCon(to) {
 		return core.ConvNum, true
+	}
+	if tc, tok := to.(*types.Con); tok && l.isOptionCon(tc) && len(tc.Args) == 1 &&
+		types.Equal(from, tc.Args[0]) {
+		// A nil-able Go result value (`*T` or `error`) reaching an
+		// `Option T` position — the derived `(error, error)` view's
+		// payload read and the declared `Result (Option T)
+		// GoError` view share it: `option.FromGo(v, v != nil)`.
+		return core.ConvOptNil, true
 	}
 	fc, fok := from.(*types.Con)
 	tc, tok := to.(*types.Con)
@@ -1774,6 +1794,7 @@ func (l *lowerer) tryExpr(s *seq, e *check.Try) core.Expr {
 			return l.goPayloadConv(s, e.Sp, call.Typ, e.Type(), &core.EscapeCall{
 				Base: core.Base{Sp: e.Sp, Typ: call.Typ},
 				Call: call, To: fn, Wrap: "",
+				NilGuard: l.payloadNilGuard(call, ap.Type()),
 			})
 		}
 		// Non-escapable shape — fall through to EscapeResult, which
@@ -1849,6 +1870,7 @@ func (l *lowerer) pipeInflowAtom(s *seq, e *check.Binary) core.Atom {
 		if call.Results == core.GoResultsErr || call.Results == core.GoResultsErrOnly {
 			in = l.asAtom(s, e.X.Span(), &core.EscapeCall{
 				Base: core.Base{Sp: e.X.Span(), Typ: call.Typ}, Call: call, To: fn,
+				NilGuard: l.payloadNilGuard(call, ap.Type()),
 			})
 			in = l.convAtomTo(s, e.X.Span(), in, l.payloadOf(ap.Type()))
 		} else {
@@ -2125,6 +2147,7 @@ func (l *lowerer) pipeRest(cs *seq, e *check.Binary, levels []*check.Binary, ung
 				payload := l.asAtom(bs, lv.Y.Span(), &core.EscapeCall{
 					Base: core.Base{Sp: lv.Y.Span(), Typ: call.Typ},
 					Call: call, To: l.curFn(), Wrap: wrap,
+					NilGuard: l.payloadNilGuard(call, lv.Type()),
 				})
 				return l.convAtomTo(bs, lv.Y.Span(), payload, l.payloadOf(lv.Type()))
 			}
@@ -2261,6 +2284,7 @@ func (l *lowerer) escapeStepPayload(s *seq, e *check.Binary, step core.Expr) cor
 		payload = l.asAtom(s, e.Y.Span(), &core.EscapeCall{
 			Base: core.Base{Sp: e.Y.Span(), Typ: call.Typ},
 			Call: call, To: fn, Wrap: wrap,
+			NilGuard: l.payloadNilGuard(call, e.Type()),
 		})
 		payload = l.convAtomTo(s, e.Y.Span(), payload, l.payloadOf(e.Type()))
 	} else {
@@ -2295,6 +2319,19 @@ func (l *lowerer) payloadOf(t types.Type) types.Type {
 		return a
 	}
 	return t
+}
+
+// payloadNilGuard reports whether a `(T, error)` Go call's payload
+// carries the declared never-nil claim — `Result GoError GoError`
+// over `(error, error)` — the boundary verifies with `if v == nil
+// { panic }` (spec section 8.6). want is the Gom-facing Result
+// type; the claim only exists when both the declared payload and
+// the raw first result spell `error`.
+func (l *lowerer) payloadNilGuard(call *core.CallGo, want types.Type) bool {
+	if call.Results != core.GoResultsErr || !l.isGoError(call.Typ) {
+		return false
+	}
+	return l.isGoError(l.payloadOf(want))
 }
 
 // isGoError reports whether the error half of a Result is the

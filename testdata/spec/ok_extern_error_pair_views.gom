@@ -1,0 +1,21 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// spec section 8.4: a `(T, error)` pair with a nil-able first
+// result (`*T` or `error`) admits `Result (Option T) GoError` —
+// the Ok-side analogue of `Option` over a lone `*T`/`error`:
+// payload nil materializes as `None` through
+// `option.FromGo(v, v != nil)`. The never-nil claim `Result
+// GoError GoError` binds too, verified at the boundary.
+extern go "github.com/podhmo/gom/testdata/goiface" {
+  fn TwoErrs (n: Int) -> Result (Option GoError) GoError
+  fn SoftPtr (n: Int) -> Result (Option (Ptr Int)) GoError
+  fn BothNil () -> Result GoError GoError
+}
+
+fn expair (n: Int) -> Result (Option GoError) GoError = goiface.TwoErrs n
+
+fn exsoft (n: Int) -> Result (Option (Ptr Int)) GoError = goiface.SoftPtr n
+
+fn exstrict () -> Result GoError GoError = goiface.BothNil ()

@@ -128,6 +128,22 @@ func (l *Loader) mapSignature(sig *types.Signature) (check.Signature, lower.GoSi
 			return check.Signature{}, lower.GoSig{}, hiddenSym{reason: fmt.Sprintf("result 0: %s", divergentReason(t0))}
 		}
 		if isError(t1) {
+			if isError(t0) {
+				// `(error, error)`: the Ok payload is itself
+				// nil-able, and `error` gives Gom no way to
+				// observe the nil (`GoError` has no is_nil
+				// probe), so the honest derived view wraps it
+				// — `Ok None` reads `(nil, nil)` instead of
+				// smuggling a nil interface into `Ok` where a
+				// later `Error()` would panic. The never-nil
+				// claim `Result GoError GoError` stays
+				// available as a *declared* view, verified at
+				// the boundary (docs/decisions/
+				// 2026-11-05-error-pair-ok-payload.md).
+				ret = gt.Result(gt.Option(m0), gt.GoError)
+				shape = core.GoResultsErr
+				break
+			}
 			ret = gt.Result(m0, gt.GoError)
 			shape = core.GoResultsErr
 			break

@@ -695,9 +695,11 @@ redeclaration the Go signature can support: same parameter count and
 view-compatible parameter types, and a result declaration the result
 shape admits — Option over a (T, bool) comma-ok pair, a *T result, or
 a lone error (Option GoError reads nil as None); Result over
-(T, error); a lone error also takes Result Unit GoError (the default
-view) or GoError itself — the never-nil claim, enforced by a panic
-check at the call boundary; a tuple over any other two-result shape
+(T, error) — Result (Option T) GoError admitted when the first
+result is nil-able (*T or error); a lone error also takes
+Result Unit GoError (the default view) or GoError itself — the
+never-nil claim, enforced by a panic check at the call boundary;
+a tuple over any other two-result shape
 (spec section 8.4). The compiler's standard bindings — errors.New and
 fmt.Errorf as GoError, errors.Join and errors.Unwrap as Option
 GoError — apply through this same admission, so an extern can also
@@ -733,6 +735,28 @@ data, pass a Go.Slice binding declared through extern instead.
 import go "sort"
 let xs = ["b", "a"]
 sort.Strings xs   // the copy is sorted; xs is unchanged
+```
+
+### W0502 — errors.As target cannot satisfy Go's contract
+
+**Severity:** warning · **Phase:** lint · **Spec:** §8.4
+
+errors.As requires its target argument to be a non-nil
+pointer whose element type either implements error or is an
+interface type — anything else panics at run time, a contract Go's
+type system does not express. The derived signature
+(GoError, Go.Any) -> Bool accepts every argument, so the lint
+warns on the provable violations: a non-Ptr argument, a literal
+Ptr.nil, or a Ptr over a concrete shape that is neither an
+interface nor able to implement error (builtin concrete types,
+function and tuple types, declared records). Named Go types stay
+silent — a *T over a Go error type is the intended spelling and
+the checker cannot disprove it cheaply.
+
+```gom
+import go "errors"
+let target = Ptr.new () : Ptr Int   // *int implements no error
+errors.As e target                  // W0502 — panics at run time
 ```
 
 ## 06xx — Packages and interfaces

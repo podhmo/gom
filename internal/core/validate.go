@@ -1071,6 +1071,9 @@ func (v *validator) expr(e Expr, inTail bool) {
 		if !v.conIs(e.Typ, "", "Result", 2) && e.Typ != nil {
 			v.err(e.Sp, "ResultFromGo", "type %s is not a Result", e.Typ)
 		}
+		if e.NilGuard && (e.Call == nil || e.Call.Results != GoResultsErr) {
+			v.err(e.Sp, "ResultFromGo", "NilGuard requires a (T, error) call — GoResultsErrOnly has no payload to guard")
+		}
 	case *OptionFromGo:
 		v.wrapCall(e, e.Call, "OptionFromGo", GoResultsOK, GoResultsNil)
 		if !v.conIs(e.Typ, "", "Option", 1) && e.Typ != nil {
@@ -1241,6 +1244,9 @@ func (v *validator) escapeCall(e *EscapeCall) {
 	if e.Call != nil && e.Call.Typ != nil && e.Typ != nil && !types.Equal(e.Typ, e.Call.Typ) {
 		v.err(e.Sp, "EscapeCall", "node type %s differs from call's first-result type %s", e.Typ, e.Call.Typ)
 	}
+	if e.NilGuard && (e.Call == nil || e.Call.Results != GoResultsErr) {
+		v.err(e.Sp, "EscapeCall", "NilGuard requires a (T, error) call — GoResultsErrOnly has no payload to guard")
+	}
 	be, ok := v.escapeTarget(e.Sp, e.To, "EscapeCall")
 	if ok && !v.conIs(be, "", "GoError", 0) {
 		v.err(e.Sp, "EscapeCall", "boundary error type %s is not GoError — the (T, error) escape needs Result _ GoError", be)
@@ -1305,6 +1311,18 @@ func (v *validator) conv(e *Conv) {
 		}
 		if e.Typ != nil && !v.conIs(e.Typ, "Go", "Slice", 1) {
 			v.err(e.Sp, "Conv", "slice-box result type %s is not Go.Slice", e.Typ)
+		}
+	case ConvOptNil:
+		// `option.FromGo(v, v != nil)` — the result must be
+		// `Option` over the operand's own type.
+		var arg types.Type
+		if c, ok := types.Chase(e.Typ).(*types.Con); ok && c.Qual == "" && c.Name == "Option" && len(c.Args) == 1 {
+			arg = c.Args[0]
+		} else if e.Typ != nil {
+			v.err(e.Sp, "Conv", "opt-nil result type %s is not an Option", e.Typ)
+		}
+		if t := atomType(e.X); t != nil && arg != nil && !types.Equal(t, arg) {
+			v.err(e.Sp, "Conv", "opt-nil operand type %s is not the Option payload %s", t, arg)
 		}
 	default:
 		v.err(e.Sp, "Conv", "invalid conversion kind %d", int(e.Kind))

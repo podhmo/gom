@@ -53,3 +53,11 @@ fn getWrap () -> Wrap
 fn getNum () -> Wrap
 
 fn wrapXsHead () -> Int
+
+/// The derived `(error, error)` view — `Result (Option GoError)
+/// GoError` — observed from Go as
+/// `result.Result[option.Option[error], error]`.
+fn errpair (n: Int) -> Result (Option GoError) GoError
+
+/// Reads the same value a Go caller hands back.
+fn errpairKind (r: Result (Option GoError) GoError) -> String

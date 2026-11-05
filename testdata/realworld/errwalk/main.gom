@@ -15,11 +15,20 @@ import go "strconv"
 // read the step name back as data even though its rendered text is
 // the same `step: message` wording.
 import go "github.com/podhmo/gom/rt"
+import go "github.com/podhmo/gom/testdata/goiface"
 
 extern go "os" {
   // A never-nil claim over a lone `error` result — os.Remove returns
   // nil on success, so `errwalk panic` hits the boundary panic.
   fn Remove (name: String) -> GoError
+}
+
+extern go "github.com/podhmo/gom/testdata/goiface" {
+  // Never-nil payload claims over `(error, error)` — BothNil and
+  // StrictPair return `(nil, nil)`, so `errwalk trypair`/`pipepair`
+  // hit the `v == nil` boundary panic.
+  fn BothNil () -> Result GoError GoError
+  fn StrictPair (n: Int) -> Result GoError GoError
 }
 
 fn walk () -> Unit = {
@@ -91,7 +100,77 @@ fn run_panic () -> Unit = match trigger () {
   Err e -> ignore fmt.Println "unreachable: ${e.Error ()}"
 }
 
+// pair — the `(error, error)` Ok-payload boundary end to end. The
+// derived `Result (Option GoError) GoError` view reads `(nil, nil)`
+// as `Ok None` and a soft payload error as `Ok (Some e)`; a `|?>`
+// step applies the same `option.FromGo` read.
+fn pair () -> Unit = {
+  match goiface.TwoErrs 0 {
+    Ok (Some e) -> ignore fmt.Println "pair-0: some ${e.Error ()}"
+    Ok (None) -> ignore fmt.Println "pair-0: none"
+    Err e -> ignore fmt.Println "pair-0: err ${e.Error ()}"
+  }
+  match goiface.TwoErrs 1 {
+    Ok (Some e) -> ignore fmt.Println "pair-1: some ${e.Error ()}"
+    Ok (None) -> ignore fmt.Println "pair-1: none"
+    Err e -> ignore fmt.Println "pair-1: err ${e.Error ()}"
+  }
+  match goiface.TwoErrs (0 - 1) {
+    Ok (Some e) -> ignore fmt.Println "pair-neg: some ${e.Error ()}"
+    Ok (None) -> ignore fmt.Println "pair-neg: none"
+    Err e -> ignore fmt.Println "pair-neg: err ${e.Error ()}"
+  }
+  match (1 |?> goiface.TwoErrs) {
+    Ok (Some e) -> ignore fmt.Println "pipe-pair: some ${e.Error ()}"
+    Ok (None) -> ignore fmt.Println "pipe-pair: none"
+    Err e -> ignore fmt.Println "pipe-pair: err ${e.Error ()}"
+  }
+  // `try` over the derived view yields `Option GoError` — the
+  // fused escape's payload flows through `option.FromGo`.
+  match try_opt () {
+    Ok _ -> ()
+    Err e -> ignore fmt.Println "try-opt err: ${e.Error ()}"
+  }
+}
+
+fn try_opt () -> Result Unit GoError = {
+  let o = try (goiface.TwoErrs 0)
+  match o {
+    Some e -> ignore fmt.Println "try-opt: some ${e.Error ()}"
+    None -> ignore fmt.Println "try-opt: none"
+  }
+  Ok ()
+}
+
+// trypair — `try` over the declared `Result GoError GoError`:
+// `(nil, nil)` violates the never-nil payload claim and the fused
+// EscapeCall panics at the boundary.
+fn trigger_pair () -> Result Unit GoError = {
+  let e = try (goiface.BothNil ())
+  ignore fmt.Println "unreachable: ${e.Error ()}"
+  Ok ()
+}
+
+fn run_trypair () -> Unit = match trigger_pair () {
+  Ok _ -> ignore fmt.Println "unreachable: pair returned nil"
+  Err e -> ignore fmt.Println "unreachable: ${e.Error ()}"
+}
+
+// pipepair — the same claim through a `|?>` step's EscapeCall.
+fn to_unit (e: GoError) -> Result Unit GoError = Ok ()
+
+fn trigger_pipe () -> Result Unit GoError =
+  1 |?> goiface.StrictPair |?> to_unit
+
+fn run_pipepair () -> Unit = match trigger_pipe () {
+  Ok _ -> ignore fmt.Println "unreachable: pipe returned nil"
+  Err e -> ignore fmt.Println "unreachable: ${e.Error ()}"
+}
+
 fn main () -> Unit = match os.Args {
   [_prog, "panic", ..rest] -> run_panic ()
+  [_prog, "trypair", ..rest] -> run_trypair ()
+  [_prog, "pipepair", ..rest] -> run_pipepair ()
+  [_prog, "pair", ..rest] -> pair ()
   _ -> walk ()
 }

@@ -1,0 +1,21 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// spec section 8.3: an `(error, error)` pair derives `Result
+// (Option GoError) GoError` — the first result is nil-able and
+// `error` has no Gom-side nil probe, so the honest view wraps it:
+// `(nil, nil)` reads as `Ok None`, a soft error as `Ok (Some e)`,
+// a fatal second error as `Err e`.
+
+fn dv_pair (n: Int) -> Result (Option GoError) GoError = goiface.TwoErrs n
+
+fn dv_payload (n: Int) -> Option GoError = match goiface.TwoErrs n {
+  Ok o -> o
+  Err _ -> None
+}
+
+fn dv_probe (n: Int) -> Result (Option GoError) GoError = {
+  let o = try (goiface.TwoErrs n)
+  Ok o
+}

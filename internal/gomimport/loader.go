@@ -547,6 +547,22 @@ func (l *Loader) GoUnderlyingKind(t types.Type) (gotypes.BasicKind, bool) {
 	return gotypes.Invalid, false
 }
 
+// BindExtern defers check.ExternSource to Config.Sigs — the Go
+// loader validates an `extern go` entry against the raw Go
+// signature, reporting E0509 issues on a mismatch and registering
+// the override's Go-view facts on the extern symbol on a clean
+// bind. A missing or non-implementing Sigs leaves the entry
+// unverified: the empty answer tells the checker (and a
+// check.chain wrapping this loader) the entry was not bound, so
+// the declared signature stands alone — the same fallback a
+// source with no ExternSource produces.
+func (l *Loader) BindExtern(sym *resolve.Symbol, decl check.Signature) (check.Signature, []check.ExternIssue) {
+	if es, ok := l.cfg.Sigs.(check.ExternSource); ok {
+		return es.BindExtern(sym, decl)
+	}
+	return check.Signature{}, nil
+}
+
 // --- the resolver seam ---
 
 // CtorFieldsOf returns the named payload slots of a constructor (or

@@ -237,6 +237,13 @@ type EscapeCall struct {
 	Call *CallGo // Results must be GoResultsErr or GoResultsErrOnly
 	To   *Func
 	Wrap string
+	// NilGuard marks a declared never-nil payload claim over an
+	// `(error, error)` call — `Result GoError GoError` where Go's
+	// types cannot prove the first result non-nil. The emitted
+	// code verifies it after the err escape: `if v == nil { panic }`
+	// — a `(nil, nil)` return is a contract violation (spec
+	// section 8.6). Valid only under GoResultsErr.
+	NilGuard bool
 }
 
 func (*EscapeCall) isExpr() {}
@@ -255,6 +262,12 @@ type ResultFromGo struct {
 	// the `int` → `int64` of `strconv.Atoi` (`int64(v)`). Zero means
 	// none. The conversion target is the Result's payload type.
 	ValConv ConvKind
+	// NilGuard marks a declared never-nil payload claim — `Result
+	// GoError GoError` over `(error, error)`. The emitted code
+	// verifies it before materializing: `if err == nil && v == nil
+	// { panic }` — a `(nil, nil)` return is a contract violation
+	// (spec section 8.6). Valid only under GoResultsErr.
+	NilGuard bool
 }
 
 func (*ResultFromGo) isExpr() {}
@@ -337,6 +350,13 @@ const (
 	// the implicit channel direction conversion of spec section 10.2
 	// at Go-call boundaries (`chan<- T(x)` / `(<-chan T)(x)`).
 	ConvChanDir
+	// ConvOptNil reads a nil-able Go result value into `Option T` —
+	// `option.FromGo(v, v != nil)`. It is the Ok-side analogue of
+	// OptionFromGo's `*T`/`error` materialization: a `Result
+	// (Option T) GoError` view over `(error, error)` (or a declared
+	// `*T`-payload pair) applies it to the first result (spec
+	// section 8.4).
+	ConvOptNil
 )
 
 // String returns the kind name for debugging.
@@ -358,6 +378,8 @@ func (k ConvKind) String() string {
 		return "slice-box"
 	case ConvChanDir:
 		return "chan-dir"
+	case ConvOptNil:
+		return "opt-nil"
 	default:
 		return "ConvKind(?)"
 	}

@@ -122,7 +122,9 @@
 | [aggregate-function-bindings](2026-11-05-aggregate-function-bindings.md) | Aggregate-bound function values become named wrappers; residual initialization cycles are rejected | 採用（P2-2c の実装・検証: [検証レポート](../sketch/2026-11-05-aggregate-function-bindings-verification.md)） |
 | [deferred-member-application](2026-11-05-deferred-member-application.md) | Deferred member application: `x.M(args)` on an unresolved receiver | 採用 |
 | [eq-comparator-budget-and-names](2026-11-05-eq-comparator-budget-and-names.md) | Comparator minting is bounded and file-unique; ctor lets keep the declared interface | draft |
+| [error-pair-ok-payload](2026-11-05-error-pair-ok-payload.md) | `(error, error)` の Ok ペイロード — 派生ビューは `Option`、never-nil は宣言して境界で検査 | 採用（実装・検証した — [検証](../sketch/2026-11-05-error-pair-ok-payload-verification.md)。spec.md §8.3/§8.4 へ反映済み） |
 | [error-result-bindings](2026-11-05-error-result-bindings.md) | `error` 単独の戻り値に対する宣言ビューと標準バインディングの置き場所 | 採用（実装・検証した — [検証](../sketch/2026-11-05-error-result-bindings-verification.md)。spec.md §8.3/§8.4 へ反映済み） |
+| [errors-as-target-lint](2026-11-05-errors-as-target-lint.md) | `errors.As` の target 契約 — 型付きバインディングではなく警告リント | 採用（実装・検証した — [検証](../sketch/2026-11-05-errors-as-target-lint-verification.md)。spec.md §8.4 へ反映済み） |
 | [eval-int-width-aware-ops](2026-11-05-eval-int-width-aware-ops.md) | eval の整数演算は演算位置の静的型の幅で計算する（VInt は幅を持たない） | 採用（実装・検証した — [検証](../sketch/2026-11-05-eval-int-width.md)） |
 | [exported-value-vs-type-name](2026-11-05-exported-value-vs-type-name.md) | Exported `let foo` vs `type Foo`: type names claim first | draft（prototype verified — [sketch: V-6 residual verification](../sketch/2026-11-05-v6-residual-verification.md)） |
 | [for-over-go-slice](2026-11-05-for-over-go-slice.md) | `for` iterates `Go.Slice a` — the checker admits what `ForList` already lowers | 採用（実装・検証した — [検証](../sketch/2026-11-05-for-over-go-slice.md)。spec.md §1.1/§8.3 と SKILL.md へ反映済み） |

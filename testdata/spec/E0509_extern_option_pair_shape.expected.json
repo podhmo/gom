@@ -1,0 +1,29 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0509",
+      "severity": "error",
+      "message": "extern `fn Atoi`: `strconv.Atoi` returns (int, error) — declare `Result T GoError`, not Result (Option Int) GoError",
+      "span": {
+        "file": "E0509_extern_option_pair_shape.gom",
+        "start": {
+          "line": 9,
+          "col": 3,
+          "offset": 247
+        },
+        "end": {
+          "line": 9,
+          "col": 53,
+          "offset": 297
+        }
+      },
+      "data": {
+        "declared": "String -> Result (Option Int) GoError",
+        "extern": "Atoi",
+        "go": "func(s string) (int, error)",
+        "member": "strconv.Atoi"
+      }
+    }
+  ]
+}

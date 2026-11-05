@@ -1,0 +1,36 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+extern go "github.com/podhmo/gom/testdata/goiface" {
+  fn BothNil () -> Result GoError GoError
+  fn StrictPair (n: Int) -> Result GoError GoError
+  fn SoftPtr (n: Int) -> Result (Option (Ptr Int)) GoError
+}
+
+// spec section 8.3/8.4: the `(error, error)` derived view wraps
+// the nil-able payload — `option.FromGo(v, v != nil)` inside the
+// ResultFromGo conversion.
+fn pair (n: Int) -> Result (Option GoError) GoError = goiface.TwoErrs n
+
+// A declared `Result GoError GoError` claims the payload is never
+// nil — `if err == nil && v == nil { panic }` guards it.
+fn strict () -> Result GoError GoError = goiface.BothNil ()
+
+// A declared `Result (Option (Ptr T)) GoError` over `(*T, error)`
+// reads a nil pointer payload as `Ok None`.
+fn soft (n: Int) -> Result (Option (Ptr Int)) GoError = goiface.SoftPtr n
+
+// `try` over the strict view fuses to EscapeCall — the `v == nil`
+// panic sits between the err escape and the payload bind.
+fn probe (n: Int) -> Result GoError GoError = {
+  let e = try (goiface.StrictPair n)
+  Ok e
+}
+
+// `try` over the derived view yields `Option GoError` — the
+// escape's payload flows through `option.FromGo(v, v != nil)`.
+fn probe_opt (n: Int) -> Result (Option GoError) GoError = {
+  let o = try (goiface.TwoErrs n)
+  Ok o
+}

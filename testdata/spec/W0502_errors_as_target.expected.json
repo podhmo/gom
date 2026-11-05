@@ -1,0 +1,158 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "W0502",
+      "severity": "warning",
+      "message": "`errors.As` requires a non-nil pointer target — an argument of type Int panics at run time",
+      "span": {
+        "file": "W0502_errors_as_target.gom",
+        "start": {
+          "line": 21,
+          "col": 50,
+          "offset": 711
+        },
+        "end": {
+          "line": 21,
+          "col": 52,
+          "offset": 713
+        }
+      },
+      "data": {
+        "argument": "Int"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "W0502",
+      "severity": "warning",
+      "message": "`errors.As` requires a non-nil pointer target — an argument of type Option Int panics at run time",
+      "span": {
+        "file": "W0502_errors_as_target.gom",
+        "start": {
+          "line": 23,
+          "col": 69,
+          "offset": 783
+        },
+        "end": {
+          "line": 23,
+          "col": 70,
+          "offset": 784
+        }
+      },
+      "data": {
+        "argument": "Option Int"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "W0502",
+      "severity": "warning",
+      "message": "`errors.As` requires a non-nil pointer target — an argument of type Sum panics at run time",
+      "span": {
+        "file": "W0502_errors_as_target.gom",
+        "start": {
+          "line": 25,
+          "col": 62,
+          "offset": 847
+        },
+        "end": {
+          "line": 25,
+          "col": 63,
+          "offset": 848
+        }
+      },
+      "data": {
+        "argument": "Sum"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "W0502",
+      "severity": "warning",
+      "message": "`errors.As` requires the target's element type to implement error or be an interface — Int is neither and panics at run time",
+      "span": {
+        "file": "W0502_errors_as_target.gom",
+        "start": {
+          "line": 27,
+          "col": 52,
+          "offset": 901
+        },
+        "end": {
+          "line": 27,
+          "col": 62,
+          "offset": 911
+        }
+      },
+      "data": {
+        "argument": "Int"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "W0502",
+      "severity": "warning",
+      "message": "`errors.As` requires the target's element type to implement error or be an interface — Rec is neither and panics at run time",
+      "span": {
+        "file": "W0502_errors_as_target.gom",
+        "start": {
+          "line": 29,
+          "col": 63,
+          "offset": 976
+        },
+        "end": {
+          "line": 29,
+          "col": 64,
+          "offset": 977
+        }
+      },
+      "data": {
+        "argument": "Rec"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "W0502",
+      "severity": "warning",
+      "message": "`errors.As` requires a non-nil pointer target — `Ptr.nil` panics at run time",
+      "span": {
+        "file": "W0502_errors_as_target.gom",
+        "start": {
+          "line": 34,
+          "col": 48,
+          "offset": 1220
+        },
+        "end": {
+          "line": 34,
+          "col": 58,
+          "offset": 1230
+        }
+      },
+      "data": {
+        "argument": "Ptr.nil"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0407",
+      "severity": "error",
+      "message": "type annotation required: the type argument for `a` could not be determined",
+      "span": {
+        "file": "W0502_errors_as_target.gom",
+        "start": {
+          "line": 34,
+          "col": 52,
+          "offset": 1224
+        },
+        "end": {
+          "line": 34,
+          "col": 55,
+          "offset": 1227
+        }
+      },
+      "data": {
+        "type": "?1"
+      }
+    }
+  ]
+}

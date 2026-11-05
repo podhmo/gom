@@ -585,6 +585,14 @@ func (g *gen) conv(e *core.Conv) ast.Expr {
 		return &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual(listPath) + "FromSlice"), Args: []ast.Expr{x}}
 	case core.ConvSliceBox:
 		return &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual(rtPath) + "BoxSlice"), Args: []ast.Expr{x}}
+	case core.ConvOptNil:
+		// `option.FromGo(v, v != nil)` — the nil-able payload
+		// read of a `Result (Option T) GoError` boundary (the
+		// `(error, error)` derived view among them, spec 8.4).
+		return &ast.CallExpr{
+			Fun:  ast.NewIdent(g.pkgQual(optionPath) + "FromGo"),
+			Args: []ast.Expr{x, &ast.BinaryExpr{X: x, Op: token.NEQ, Y: ast.NewIdent("nil")}},
+		}
 	default:
 		panic("unreachable")
 	}

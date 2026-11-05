@@ -10,10 +10,14 @@ package boundary_test
 // aliasing results are the finding, not a bug in the test.
 
 import (
+	"errors"
 	"testing"
 
 	"example.com/gocall/boundary"
 	"example.com/gocall/box"
+
+	"github.com/podhmo/gom/stdlib/option"
+	"github.com/podhmo/gom/stdlib/result"
 )
 
 // H1+H2: a value-typed struct detaches — Go's MutateN never reaches
@@ -155,5 +159,46 @@ func TestWrapFromGo(t *testing.T) {
 	n.N = 99 // scalar payload copy — stays local
 	if boundary.GetNum(struct{}{}).(boundary.Wrap_WNum).N != 8 {
 		t.Fatalf("GetNum().N = %d, want 8 — scalar variant payload is a copy", boundary.GetNum(struct{}{}).(boundary.Wrap_WNum).N)
+	}
+}
+
+// The `(error, error)` Ok-payload boundary (spec 8.3): the derived
+// view `Result (Option GoError) GoError` arrives as
+// `result.Result[option.Option[error], error]` — `(nil, nil)` is
+// `Ok None`, a non-nil payload `Ok (Some e)`, a failure `Err e` —
+// and a Go caller hands the same three shapes back through
+// ErrpairKind.
+func TestErrorPairViews(t *testing.T) {
+	none := boundary.Errpair(0)
+	if none.Tag() != result.ResultTagOk {
+		t.Fatalf("Errpair(0).Tag() = %v, want Ok", none.Tag())
+	}
+	if _, ok := none.Value.(option.Option_None[error]); !ok {
+		t.Fatalf("Errpair(0).Value = %T, want Option_None — (nil, nil) reads as Ok None", none.Value)
+	}
+
+	some := boundary.Errpair(1)
+	sv, ok := some.Value.(option.Option_Some[error])
+	if !ok || sv.V0 == nil || sv.V0.Error() != "soft" {
+		t.Fatalf("Errpair(1).Value = %#v, want Option_Some(soft)", some.Value)
+	}
+
+	fatal := boundary.Errpair(-1)
+	if fatal.Tag() != result.ResultTagErr || fatal.Error == nil || fatal.Error.Error() != "fatal" {
+		t.Fatalf("Errpair(-1) = %#v, want Err(fatal)", fatal)
+	}
+
+	// Go → Gom: the same three shapes a Go caller constructs.
+	if got := boundary.ErrpairKind(result.Ok[option.Option[error], error](
+		option.Option_Some[error]{V0: errors.New("x")})); got != "some:x" {
+		t.Fatalf("ErrpairKind(Ok Some x) = %q, want %q", got, "some:x")
+	}
+	if got := boundary.ErrpairKind(result.Ok[option.Option[error], error](
+		option.Option_None[error]{})); got != "none" {
+		t.Fatalf("ErrpairKind(Ok None) = %q, want %q", got, "none")
+	}
+	if got := boundary.ErrpairKind(result.Err[option.Option[error], error](
+		errors.New("y"))); got != "err:y" {
+		t.Fatalf("ErrpairKind(Err y) = %q, want %q", got, "err:y")
 	}
 }

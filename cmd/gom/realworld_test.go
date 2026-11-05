@@ -271,4 +271,26 @@ func TestEndToEnd_RealWorldPrograms(t *testing.T) {
 		!strings.Contains(errout, "declares a never-nil GoError result") {
 		t.Fatalf("errwalk panic: code=%d err=%q", code, errout)
 	}
+	// The `pair` path: the derived `(error, error)` view reads the
+	// nil-able payload as `Option GoError` — `(nil, nil)` is `Ok
+	// None`, a soft error `Ok (Some e)`, a fatal one `Err e` — and
+	// `|?>`/`try` apply the same `option.FromGo` read.
+	wantPair := "pair-0: none\npair-1: some soft\npair-neg: err fatal\n" +
+		"pipe-pair: some soft\ntry-opt: none\n"
+	if code, out, errout := runBin(t, errwalkBin, dir, "", "pair"); code != 0 ||
+		out != wantPair || errout != "" {
+		t.Fatalf("errwalk pair: code=%d out=%q err=%q\nwant %q", code, out, errout, wantPair)
+	}
+	// `trypair`/`pipepair`: the declared `Result GoError GoError`
+	// claims a never-nil payload — `(nil, nil)` violates it and the
+	// boundary panics, in the plain try and the fused |?> step
+	// alike.
+	if code, _, errout := runBin(t, errwalkBin, dir, "", "trypair"); code != 2 ||
+		!strings.Contains(errout, "declares a never-nil GoError payload") {
+		t.Fatalf("errwalk trypair: code=%d err=%q", code, errout)
+	}
+	if code, _, errout := runBin(t, errwalkBin, dir, "", "pipepair"); code != 2 ||
+		!strings.Contains(errout, "declares a never-nil GoError payload") {
+		t.Fatalf("errwalk pipepair: code=%d err=%q", code, errout)
+	}
 }

@@ -569,9 +569,17 @@ func (d *cdump) cexpr(e core.Expr) *form {
 	case *core.EscapeResult:
 		return nodef(d.escapeHead("escaperesult", e.Base, e.To, e.Wrap), d.cexpr(e.X))
 	case *core.EscapeCall:
-		return nodef(d.escapeHead("escapecall", e.Base, e.To, e.Wrap), d.cexpr(e.Call))
+		text := d.escapeHead("escapecall", e.Base, e.To, e.Wrap)
+		if e.NilGuard {
+			text += " nilguard"
+		}
+		return nodef(text, d.cexpr(e.Call))
 	case *core.ResultFromGo:
-		return nodef(chead("resultfromgo", e.Base), d.cexpr(e.Call))
+		text := chead("resultfromgo", e.Base)
+		if e.NilGuard {
+			text += " nilguard"
+		}
+		return nodef(text, d.cexpr(e.Call))
 	case *core.OptionFromGo:
 		return nodef(chead("optionfromgo", e.Base), d.cexpr(e.Call))
 	case *core.TupleFromGo:

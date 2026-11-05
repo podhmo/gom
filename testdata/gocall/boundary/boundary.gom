@@ -126,3 +126,18 @@ fn wrapXsHead () -> Int = match wrap_val {
   WList xs -> Option.get (List.head xs)
   WNum n -> n
 }
+
+// --- (error, error) Ok-payload boundary ---
+/// The derived `(error, error)` view — `Result (Option GoError)
+/// GoError` — observed from Go as
+/// `result.Result[option.Option[error], error]`: `(nil, nil)`
+/// arrives as `Ok None`.
+fn errpair (n: Int) -> Result (Option GoError) GoError = box.TwoErrs n
+
+/// Reads the same value a Go caller hands back — the three
+/// payload cases render distinctly.
+fn errpairKind (r: Result (Option GoError) GoError) -> String = match r {
+  Ok (Some e) -> "some:${e.Error ()}"
+  Ok (None) -> "none"
+  Err e -> "err:${e.Error ()}"
+}

@@ -735,7 +735,7 @@
   [fixture](../testdata/spec/W0501_go_slice_copy.gom) にインライン変換の
   warn ケースと verbatim pun の沈黙ケースを追加。
 
-- [ ] **CLI では extern の照合（E0509）が走らない**: spec 8.4 は extern の宣言を生の Go シグネチャと照合し、合わなければ E0509 とする。
+- [x] **CLI では extern の照合（E0509）が走らない**: spec 8.4 は extern の宣言を生の Go シグネチャと照合し、合わなければ E0509 とする。
   `skills/` のスニペット検査（`goimport.Loader` を直接 `Sigs` に渡す）では `fn New (a: Int) (b: Int) -> GoError` のような arity 不一致が E0509 になるが、
   `gom check`/`gom build` は `gomimport.Loader` を `Sigs` に渡し、これが `check.ExternSource`（`BindExtern`）を実装していないため素通りし、生成・実行まで通る。
   参照: [spec 8.4](spec.md#84-extern上書き専用)、[実装](../cmd/gom/cli.go)、[extern-override-binding](decisions/2026-11-03-extern-override-binding.md)。
@@ -746,6 +746,13 @@
   は `os.Remove(int64)` を生成 → go build 失敗に回帰）。宣言ビューが codegen を
   形作るようになった分、この gap の影響面は広がった（wave8 error-boundary
   レビュー F-5）。
+  対応: `gomimport.Loader` に `BindExtern` を追加 — 既存の `MethodOf` /
+  `InterfaceAssignable` と同じく `Config.Sigs` の `check.ExternSource` への転送で、
+  未実装・未設定の場合は空応答で checker の宣言どおりフォールバックを維持。
+  `go list` を走らせる面が Go 側のみで留まるため loader fork は不要。
+  CLI ドライバ回帰 [TestCheckExternBinding](../cmd/gom/cli_test.go) は
+  `gom check` が arity 不一致の extern を `error[E0509]` で落とし、修正前は
+  `success` を返していたことを検証（実測: 転送を外すと exit 0）。
 
 - [x] **E0407/E0409/E0801 の message/`data["type"]` が raw meta ID を出しうる**:
   `types.Display`/`metaNamer` による `?n` 再採番は E0401 系（occurs bind・
@@ -812,7 +819,7 @@
   参照: [expr.go](../internal/check/expr.go) `litRange`/`markLitConv`、
   [decision](decisions/2026-11-05-int-literal-range-check.md)（残余として記録済み）。
 
-- [ ] **`(error, error)` 系の結果で先頭の nil-able `error` が `Ok` ペイロードに
+- [x] **`(error, error)` 系の結果で先頭の nil-able `error` が `Ok` ペイロードに
   検査なしで入る**: `func F() (error, error)` の派生写像は
   `Result GoError GoError` / `GoResultsErr` になり、`resultFromGo`（emit.go）
   は Ok 側 payload に `convOf` のみで nil 検査を置かない。第 1 結果が nil
@@ -824,6 +831,12 @@
   error-boundary レビュー F-4 で顕在化）。
   参照: [goimport/mapping.go](../internal/goimport/mapping.go) 派生写像、
   [codegen/emit.go](../internal/codegen/emit.go) `resultFromGo`。
+  対応: [decision](decisions/2026-11-05-error-pair-ok-payload.md) を採用 — 派生
+  ビューは `Result (Option GoError) GoError`（`nil` は `Ok None`）、宣言による
+  `Result GoError GoError` は never-nil の契約として `NilGuard` で境界検査、
+  `(T, error)` 上の `Result (Option T) GoError` 宣言を nil 許容な第 1 結果
+  （`*T`/`error`）に限り許容（`ConvOptNil` で物質化）。spec 8.3/8.4 を更新。
+  [検証](sketch/2026-11-05-error-pair-ok-payload-verification.md)。
 
 - [ ] **spec 8.5 の「両方向ともコピーする」は Gom 自身の呼び出し側にしか
   適用されず、生成 API 面（8.7）では `list.List[A]` が verbatim に渡る**:

@@ -415,7 +415,7 @@ strconv.ParseInt(_, 10, 64)
 | Go 側の型 | Gom 側の型 |
 | --- | --- |
 | `func(a A, b B) R` | `(A, B) -> R`（タプルを取る関数） |
-| 戻り値 `(T, error)` | `Result T GoError` |
+| 戻り値 `(T, error)` | `Result T GoError`。`T` が `error` の場合（`(error, error)`）は `Result (Option GoError) GoError` — Ok 側のペイロードも nil 許容で、`nil` は `Ok None` として読む |
 | 戻り値 `(T, bool)` | タプル `(T, Bool)`。`Option T` にするのは、標準のバインディングか `extern` で comma-ok と宣言した関数だけ（`os.LookupEnv` など） |
 | 戻り値 `(A, B)`（上記以外の多値） | タプル `(A, B)` |
 | 戻り値 `error` のみ | `Result Unit GoError`（既定の型由来ビュー）。`extern` 宣言か標準バインディングで `GoError`（nil を返さない契約 — 違反は境界で panic）か `Option GoError`（nil 許容のエラー値）にもなる（8.4 節） |
@@ -463,14 +463,16 @@ extern のエントリは `fn` の関数シグネチャだけを持ち、ブロ�
   - `()` → `Unit`
   - `T` → `T`（対応する型）、`*T` → `Option (Ptr T)`（`Option` はポインタのまま保持する）
   - `error` → `Result Unit GoError`（既定）、`Option GoError`（nil を返し得る値）、`GoError`（nil を返さないという契約の宣言 — Go の型では表せないので境界で検査し、nil が来たら panic する）
-  - `(T, error)` → `Result T GoError`
+  - `(T, error)` → `Result T GoError`。第 1 結果が nil 許容な型（`*T` または `error`）のときは `Result (Option T) GoError` も宣言できる — 第 1 結果の `nil` を `Ok None` と読む。`(error, error)` への `Result GoError GoError` 宣言は「第 2 が nil なら第 1 は真のエラー値」という契約で、`(nil, nil)` は境界で panic する（型由来の既定は `Result (Option GoError) GoError` — 8.3 節）
   - `(T, bool)` → `Option T` または `(T, Bool)`
   - その他の `(A, B)` → `(A, B)` のタプル
 - 宣言に型変数は書けない（Go の関数は多相ではない）。ジェネリックな Go 関数の上書きも現時点ではできない。
 
-宣言した型が Gom 側で見える型になり、生成される呼び出しは生の Go シグネチャのまま `pkg.F(args)` で、結果は宣言した変換規則で物質化される — `(T, bool)` の `Option` は `v, ok := f(...)` の後 `option.FromGo(v, ok)`、`*T` の `Option` は `v := f(...)` の後 `option.FromGo(v, v != nil)`。`error` への `Option GoError` 宣言も同じ `option.FromGo(v, v != nil)` 形で、`GoError` 宣言は `if v == nil { panic(...) }` の境界検査を生成する。
+宣言した型が Gom 側で見える型になり、生成される呼び出しは生の Go シグネチャのまま `pkg.F(args)` で、結果は宣言した変換規則で物質化される — `(T, bool)` の `Option` は `v, ok := f(...)` の後 `option.FromGo(v, ok)`、`*T` の `Option` は `v := f(...)` の後 `option.FromGo(v, v != nil)`。`error` への `Option GoError` 宣言も同じ `option.FromGo(v, v != nil)` 形で、`GoError` 宣言は `if v == nil { panic(...) }` の境界検査を生成する。`(T, error)` への `Result (Option T) GoError` 宣言はペイロードを `option.FromGo(v, v != nil)` で物質化し、`(error, error)` への `Result GoError GoError` 宣言は `if err == nil && v == nil { panic(...) }`（`try`/`|?>` では `err` の脱出のあと `if v == nil { panic(...) }`）の境界検査を生成する。
 
 コンパイラが用意する**標準バインディング**は extern と同じ規則で宣言ビューをあてがう既定の上書きである（[decisions/error-result-bindings](decisions/2026-11-05-error-result-bindings.md)）。`errors.New` と `fmt.Errorf` は `-> GoError`（エラーを値として直接組み立てられる）、`errors.Join` と `errors.Unwrap` は `-> Option GoError` と見える。明示的な `extern` は標準バインディングに優先し、生の Go シグネチャと照合される — `extern go "errors" { fn New (msg: String) -> Result Unit GoError }` は型由来の既定に戻せる。
+
+`errors.As` のように Go の型では表せない契約（`target` は `*T` で、`T` が `error` を実装するか interface 型 — そうでなければ panic）は型付きビューでは追えない。`errors.As` は型由来の `(GoError, Go.Any) -> Bool` のまま公開され、リンターが証明できる違反に W0502 を警告する（[decisions/errors-as-target-lint](decisions/2026-11-05-errors-as-target-lint.md)）: `Ptr` でない引数、`Ptr.nil` リテラル、`Ptr E` で `E` が interface にも `error` の実装にもなり得ない具象形状（`Int` などの組み込み型、関数・タプル型、宣言された record）。named Go 型の `Ptr` — 意図した綴り — と `GoError`/`Go.Any`/`Ptr` の要素、宣言された sum（表現は interface）は警告しない。
 
 明示的な変換は組み込みの `Go.conv` で書く: `Go.conv user_id : Int`。変換できるかどうかは Go の変換規則で検査する。`Go.Slice T` と `List T` の間の `Go.conv` は、8.5 節の境界変換と同じくコピーする（[decisions/goconv-list-slice-copies](decisions/2026-11-04-goconv-list-slice-copies.md)）。このペアは要素型が一致するときに限る — `Go.Slice Int64` → `List Int` や `Go.Slice Int32` → `List Char` のように Go の表現では変換できても Gom の要素型が違うものは E0507 で、そのままの名前付きキャストはバッキングを共有して `List` の不変性を破るため（[decisions/goconv-slice-list-element-mismatch](decisions/2026-11-05-goconv-slice-list-element-mismatch.md)）。
 

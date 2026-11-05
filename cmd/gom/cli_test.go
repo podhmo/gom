@@ -160,6 +160,31 @@ func TestCheckDiagnosticsText(t *testing.T) {
 	}
 }
 
+// TestCheckExternBinding covers CLI-E0509 (implementation-gaps):
+// `gom check`/`build` route through the gomimport composite, which
+// forwards check.ExternSource to the Go loader — an extern entry
+// that drifts from the raw Go signature reports E0509 at the CLI
+// exactly like the snippet/library paths do.
+func TestCheckExternBinding(t *testing.T) {
+	dir := writeFiles(t, map[string]string{"m.gom": `package main
+
+import go "os"
+
+extern go "os" {
+  fn Remove (name: String) (n: Int) -> Result Unit GoError
+}
+`})
+	code, out, errout := invoke("check", "-format", "text", filepath.Join(dir, "m.gom"))
+
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1; stdout=%q stderr=%q", code, out, errout)
+	}
+	if !strings.Contains(out, "error[E0509]") ||
+		!strings.Contains(out, "declares 2 parameter(s)") {
+		t.Errorf("text output missing E0509 binding diagnostic: %q", out)
+	}
+}
+
 func TestCheckClean(t *testing.T) {
 	dir := writeFiles(t, map[string]string{"a.gom": goodGom})
 	code, out, _ := invoke("check", filepath.Join(dir, "a.gom"))

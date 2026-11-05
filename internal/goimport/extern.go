@@ -217,11 +217,25 @@ func (l *Loader) admitResults(what string, sym *resolve.Symbol, res *types.Tuple
 		switch {
 		case isError(t1):
 			a, e, ok := resultArgs(ret)
-			if !ok || !gt.Equal(e, gt.GoError) || !viewsCompatible(a, rawR[0]) {
-				return 0, fmt.Sprintf("%s: `%s.%s` returns (%s, error) — declare `Result T GoError`, not %s",
-					what, sym.Package, sym.Name, t0, ret)
+			if ok && gt.Equal(e, gt.GoError) {
+				if viewsCompatible(a, rawR[0]) {
+					return core.GoResultsErr, ""
+				}
+				// `Result (Option U) GoError` declares the
+				// honest nil-able reading of a nil-able first
+				// result — the Ok-side analogue of `Option`
+				// over a lone `*T`/`error` (the gate is the
+				// same: `*T` or `error` only, not
+				// slices/maps/chans). The payload keeps the
+				// raw view; nil materializes as `None`
+				// through `option.FromGo(v, v != nil)`.
+				if payload, isOpt := optionArgs(a); isOpt &&
+					nilablePresence(t0) && viewsCompatible(payload, rawR[0]) {
+					return core.GoResultsErr, ""
+				}
 			}
-			return core.GoResultsErr, ""
+			return 0, fmt.Sprintf("%s: `%s.%s` returns (%s, error) — declare `Result T GoError`%s, not %s",
+				what, sym.Package, sym.Name, t0, optionPayloadHint(t0), ret)
 		case isBoolType(t1):
 			if payload, ok := optionArgs(ret); ok {
 				if !viewsCompatible(payload, rawR[0]) {
@@ -286,6 +300,28 @@ func tupleArgs(t gt.Type) ([]gt.Type, bool) {
 func isBoolType(t types.Type) bool {
 	b, ok := t.(*types.Basic)
 	return ok && b.Kind() == types.Bool
+}
+
+// nilablePresence reports whether a Go result type admits the
+// declared `Option`-payload reading — the same surface the
+// lone-result `Option` gate uses: `*T` or `error`, whose nil reads
+// as absence through `v != nil`. Slices, maps, channels and
+// interfaces other than error stay out, matching 8.4.
+func nilablePresence(t types.Type) bool {
+	if _, ok := t.(*types.Pointer); ok {
+		return true
+	}
+	return isError(t)
+}
+
+// optionPayloadHint phrases the extra `Result (Option T) GoError`
+// admission a nil-able first result allows — "" when the raw type
+// offers no presence channel to read.
+func optionPayloadHint(t types.Type) string {
+	if nilablePresence(t) {
+		return " or `Result (Option T) GoError`"
+	}
+	return ""
 }
 
 // groundType reports whether t is fully concrete — no type
