@@ -666,7 +666,7 @@ func (g *Gen) blockOf(want *gty, d int) {
 	defer g.popScope()
 	g.emit("{")
 	n := g.rng.IntN(3)
-	for i := 0; i < n; i++ {
+	for range n {
 		if g.rng.Float64() < 0.7 {
 			g.typedLetDecl()
 		} else {
@@ -823,7 +823,6 @@ func (g *Gen) matchOf(want *gty, d int) {
 	switch s.kind {
 	case tADT, tOption, tResult:
 		for _, c := range g.ctorOf(s) {
-			c := c
 			arms = append(arms, wrap(func() {
 				g.patOfCtor(c, map[string]bool{})
 			}))

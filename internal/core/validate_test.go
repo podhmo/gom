@@ -119,7 +119,7 @@ func TestValidateAcceptsGoPkgVar(t *testing.T) {
 	// The shape lower emits for `let _ = os.O_RDONLY`: the raw-typed
 	// reference inside the int64 conversion.
 	f := fnFile(types.Int, &Body{Tail: &Conv{
-		Base: Base{Sp: sp(), Typ: types.Int},
+		Sp: sp(), Typ: types.Int,
 		Kind: ConvNum, X: vref(goVar, types.GoInt),
 	}})
 	if got := Validate(f); len(got) != 0 {
@@ -148,16 +148,16 @@ func TestValidateAcceptsAritySplitFunc(t *testing.T) {
 		Body: &Body{
 			Lets: []*Let{
 				{Sp: sp(), Name: nB, X: &EscapeResult{
-					Base: Base{Sp: sp(), Typ: types.Int},
-					X:    vref(rS, resIG),
+					Sp: sp(), Typ: types.Int,
+					X: vref(rS, resIG),
 				}},
 				{Sp: sp(), Name: sumB, X: &Binary{
-					Base: Base{Sp: sp(), Typ: types.Int},
-					Op:   syntax.BinAdd, X: vref(nS, types.Int), Y: vref(bS, types.Int),
+					Sp: sp(), Typ: types.Int,
+					Op: syntax.BinAdd, X: vref(nS, types.Int), Y: vref(bS, types.Int),
 				}},
 			},
 			Tail: &CtorApp{
-				Base: Base{Sp: sp(), Typ: resIG},
+				Sp: sp(), Typ: resIG,
 				Ctor: okCtor, Args: []Atom{vref(sumS, types.Int)}, Arity: 1,
 			},
 		},
@@ -170,8 +170,8 @@ func TestValidateAcceptsAritySplitFunc(t *testing.T) {
 			Sig:    types.Fn(resIG, types.P(resIG), types.P(types.Int)),
 			Params: []*Bind{rB},
 			Body: &Body{Tail: &Closure{
-				Base: Base{Sp: sp(), Typ: types.Fn(resIG, types.P(types.Int))},
-				Fn:   inner,
+				Sp: sp(), Typ: types.Fn(resIG, types.P(types.Int)),
+				Fn: inner,
 			}},
 		},
 	}}}
@@ -200,11 +200,11 @@ func TestValidateAcceptsGoLambdaEscape(t *testing.T) {
 		Params: []*Bind{uB},
 		Body: &Body{
 			Lets: []*Let{{Sp: sp(), Name: nB, X: &EscapeResult{
-				Base: Base{Sp: sp(), Typ: types.Int},
-				X:    vref(srcS, resIG),
+				Sp: sp(), Typ: types.Int,
+				X: vref(srcS, resIG),
 			}}},
 			Tail: &CtorApp{
-				Base: Base{Sp: sp(), Typ: resIG},
+				Sp: sp(), Typ: resIG,
 				Ctor: okCtor, Args: []Atom{vref(nS, types.Int)}, Arity: 1,
 			},
 		},
@@ -217,15 +217,15 @@ func TestValidateAcceptsGoLambdaEscape(t *testing.T) {
 			Sig:    types.Fn(types.Unit, types.P(resIG)),
 			Params: []*Bind{srcB},
 			Body: &Body{Tail: &Spawn{
-				Base: Base{Sp: sp(), Typ: types.Unit},
+				Sp: sp(), Typ: types.Unit,
 				Body: &Body{
 					Lets: []*Let{
 						{Sp: sp(), Name: gB, X: &Closure{
-							Base: Base{Sp: sp(), Typ: types.Fn(resIG, types.P(types.Unit))},
-							Fn:   gfn,
+							Sp: sp(), Typ: types.Fn(resIG, types.P(types.Unit)),
+							Fn: gfn,
 						}},
 						{Sp: sp(), Name: &Bind{Sp: sp(), Typ: resIG, Discard: true}, X: &CallFunc{
-							Base: Base{Sp: sp(), Typ: resIG},
+							Sp: sp(), Typ: resIG,
 							Fn:   vref(gS, types.Fn(resIG, types.P(types.Unit))),
 							Args: []Atom{unitLit()},
 						}},
@@ -266,13 +266,13 @@ func TestValidateViolations(t *testing.T) {
 		{
 			name: "node without span",
 			file: fnFile(types.Unit, &Body{Tail: &Lit{
-				Base: Base{Typ: types.Unit}, Kind: syntax.LitUnit, Text: "()"}}),
+				Typ: types.Unit, Kind: syntax.LitUnit, Text: "()"}}),
 			want: "no valid source span",
 		},
 		{
 			name: "node without type",
 			file: fnFile(types.Unit, &Body{Tail: &Lit{
-				Base: Base{Sp: sp()}, Kind: syntax.LitUnit, Text: "()"}}),
+				Sp: sp(), Kind: syntax.LitUnit, Text: "()"}}),
 			want: "nil type",
 		},
 		{
@@ -308,7 +308,7 @@ func TestValidateViolations(t *testing.T) {
 		{
 			name: "CallDirect not saturated",
 			file: fnFile(types.Int, &Body{Tail: &CallDirect{
-				Base:   Base{Sp: sp(), Typ: types.Int},
+				Sp: sp(), Typ: types.Int,
 				Callee: fnVal, Args: []Atom{intLit("1")}, Arity: 2,
 			}}),
 			want: "not saturated",
@@ -316,7 +316,7 @@ func TestValidateViolations(t *testing.T) {
 		{
 			name: "CallDirect to Go callee",
 			file: fnFile(types.Int, &Body{Tail: &CallDirect{
-				Base:   Base{Sp: sp(), Typ: types.Int},
+				Sp: sp(), Typ: types.Int,
 				Callee: goFn, Args: []Atom{intLit("1")}, Arity: 1,
 			}}),
 			want: "not a Gom function",
@@ -333,7 +333,7 @@ func TestValidateViolations(t *testing.T) {
 						Sig:    types.Fn(types.Int, types.P(types.Unit), types.P(fT)),
 						Params: []*Bind{uB, fB},
 						Body: &Body{Tail: &CallFunc{
-							Base: Base{Sp: sp(), Typ: types.Int},
+							Sp: sp(), Typ: types.Int,
 							Fn:   vref(fS, fT),
 							Args: []Atom{intLit("1"), intLit("2")},
 						}},
@@ -344,10 +344,10 @@ func TestValidateViolations(t *testing.T) {
 		{
 			name: "CallFunc on a known callee",
 			file: fnFile(types.Int, &Body{Tail: &CallFunc{
-				Base: Base{Sp: sp(), Typ: types.Int},
+				Sp: sp(), Typ: types.Int,
 				Fn: &FuncRef{
-					Base: Base{Sp: sp(), Typ: types.Fn(types.Int, types.P(types.Int))},
-					Sym:  fnVal, Arity: 1,
+					Sp: sp(), Typ: types.Fn(types.Int, types.P(types.Int)),
+					Sym: fnVal, Arity: 1,
 				},
 				Args: []Atom{intLit("1")},
 			}}),
@@ -356,7 +356,7 @@ func TestValidateViolations(t *testing.T) {
 		{
 			name: "bare multi-result Go call",
 			file: fnFile(types.Int, &Body{Tail: &CallGo{
-				Base:   Base{Sp: sp(), Typ: types.Int},
+				Sp: sp(), Typ: types.Int,
 				Callee: goPair, Args: []Atom{intLit("1")}, Arity: 1,
 				Results: GoResultsErr,
 			}}),
@@ -365,7 +365,7 @@ func TestValidateViolations(t *testing.T) {
 		{
 			name: "CallGo wrong arity",
 			file: fnFile(types.Int, &Body{Tail: &CallGo{
-				Base:   Base{Sp: sp(), Typ: types.Int},
+				Sp: sp(), Typ: types.Int,
 				Callee: goFn, Args: nil, Arity: 1,
 				Results: GoResultsOne,
 			}}),
@@ -394,7 +394,7 @@ func TestValidateViolations(t *testing.T) {
 		{
 			name: "CallGo spread on non-variadic",
 			file: fnFile(types.Int, &Body{Tail: &CallGo{
-				Base:   Base{Sp: sp(), Typ: types.Int},
+				Sp: sp(), Typ: types.Int,
 				Callee: goFn, Args: []Atom{intLit("1")}, Arity: 1,
 				Spread: true, Results: GoResultsOne,
 			}}),
@@ -403,16 +403,16 @@ func TestValidateViolations(t *testing.T) {
 		{
 			name: "sugared operator survived",
 			file: fnFile(types.Int, &Body{Tail: &Binary{
-				Base: Base{Sp: sp(), Typ: types.Int},
-				Op:   syntax.BinPipeFwd,
-				X:    intLit("1"), Y: intLit("2"),
+				Sp: sp(), Typ: types.Int,
+				Op: syntax.BinPipeFwd,
+				X:  intLit("1"), Y: intLit("2"),
 			}}),
 			want: "survived lowering",
 		},
 		{
 			name: "if condition not Bool",
 			file: fnFile(types.Int, &Body{Tail: &If{
-				Base: Base{Sp: sp(), Typ: types.Int},
+				Sp: sp(), Typ: types.Int,
 				Cond: intLit("1"),
 				Then: &Body{Tail: intLit("1")},
 				Else: &Body{Tail: intLit("2")},
@@ -422,8 +422,8 @@ func TestValidateViolations(t *testing.T) {
 		{
 			name: "else-less if non-Unit",
 			file: fnFile(types.Int, &Body{Tail: &If{
-				Base: Base{Sp: sp(), Typ: types.Int},
-				Cond: &Lit{Base: Base{Sp: sp(), Typ: types.Bool}, Kind: syntax.LitBool, Text: "true"},
+				Sp: sp(), Typ: types.Int,
+				Cond: &Lit{Sp: sp(), Typ: types.Bool, Kind: syntax.LitBool, Text: "true"},
 				Then: &Body{Tail: intLit("1")},
 			}}),
 			want: "non-Unit then",
@@ -434,12 +434,12 @@ func TestValidateViolations(t *testing.T) {
 				sB, sS := vbind("s", shapeT)
 				return fnFile(types.Int, &Body{
 					Lets: []*Let{{Sp: sp(), Name: sB, X: &Var{
-						Base: Base{Sp: sp(), Typ: shapeT}, Sym: vsym("w"),
+						Sp: sp(), Typ: shapeT, Sym: vsym("w"),
 					}}},
 					Tail: &Match{
-						Base: Base{Sp: sp(), Typ: types.Int},
+						Sp: sp(), Typ: types.Int,
 						Tree: &DSwitch{
-							Base: Base{Sp: sp(), Typ: types.Int},
+							Sp: sp(), Typ: types.Int,
 							Subj: vref(sS, shapeT), Kind: SwitchType,
 							Cases: []DCase{{
 								Sp:   sp(),
@@ -447,7 +447,7 @@ func TestValidateViolations(t *testing.T) {
 								Body: &Body{Tail: intLit("0")},
 							}},
 							Default: &DLeaf{
-								Base: Base{Sp: sp(), Typ: types.Int},
+								Sp: sp(), Typ: types.Int,
 								Body: &Body{Tail: intLit("9")},
 							},
 						},
@@ -459,9 +459,9 @@ func TestValidateViolations(t *testing.T) {
 		{
 			name: "literal test in type switch",
 			file: fnFile(types.Int, &Body{Tail: &Match{
-				Base: Base{Sp: sp(), Typ: types.Int},
+				Sp: sp(), Typ: types.Int,
 				Tree: &DSwitch{
-					Base: Base{Sp: sp(), Typ: types.Int},
+					Sp: sp(), Typ: types.Int,
 					Subj: vref(v, shapeT), Kind: SwitchType,
 					Cases: []DCase{{
 						Sp:   sp(),
@@ -469,7 +469,7 @@ func TestValidateViolations(t *testing.T) {
 						Body: &Body{Tail: intLit("0")},
 					}},
 					Default: &DPanic{
-						Base: Base{Sp: sp(), Typ: types.Int},
+						Sp: sp(), Typ: types.Int,
 						Subj: vref(v, shapeT), TypeName: "p.Shape",
 					},
 				},
@@ -483,8 +483,8 @@ func TestValidateViolations(t *testing.T) {
 				Decls: []Decl{&VarDecl{
 					Sp: sp(), Sym: vsym("top"),
 					Body: &Body{Tail: &EscapeResult{
-						Base: Base{Sp: sp(), Typ: types.Int},
-						X:    vref(v, resIG), To: nil,
+						Sp: sp(), Typ: types.Int,
+						X: vref(v, resIG), To: nil,
 					}},
 				}},
 			},
@@ -494,15 +494,15 @@ func TestValidateViolations(t *testing.T) {
 			name: "escape target not innermost",
 			file: func() *File {
 				f := fnFile(resIG, &Body{Tail: &If{
-					Base: Base{Sp: sp(), Typ: resIG},
-					Cond: &Lit{Base: Base{Sp: sp(), Typ: types.Bool}, Kind: syntax.LitBool, Text: "true"},
+					Sp: sp(), Typ: resIG,
+					Cond: &Lit{Sp: sp(), Typ: types.Bool, Kind: syntax.LitBool, Text: "true"},
 					Then: &Body{Tail: &EscapeResult{
-						Base: Base{Sp: sp(), Typ: types.Int},
-						X:    vref(v, resIG),
-						To:   &Func{Sp: sp(), Sig: fnSS}, // some other function
+						Sp: sp(), Typ: types.Int,
+						X:  vref(v, resIG),
+						To: &Func{Sp: sp(), Sig: fnSS}, // some other function
 					}},
 					Else: &Body{Tail: &CtorApp{
-						Base: Base{Sp: sp(), Typ: resIG}, Ctor: okCtor,
+						Sp: sp(), Typ: resIG, Ctor: okCtor,
 						Args: []Atom{intLit("0")}, Arity: 1,
 					}},
 				}})
@@ -513,8 +513,8 @@ func TestValidateViolations(t *testing.T) {
 		{
 			name: "escape boundary not Result",
 			file: fnFile(types.Int, &Body{Tail: &EscapeResult{
-				Base: Base{Sp: sp(), Typ: types.Int},
-				X:    vref(v, resIG), To: fnOf(fnFile(types.Int, &Body{Tail: intLit("0")})),
+				Sp: sp(), Typ: types.Int,
+				X: vref(v, resIG), To: fnOf(fnFile(types.Int, &Body{Tail: intLit("0")})),
 			}}),
 			want: "not the innermost",
 		},
@@ -523,8 +523,8 @@ func TestValidateViolations(t *testing.T) {
 			file: func() *File {
 				f := fnFile(types.Int, &Body{Tail: intLit("0")})
 				f.Decls[0].(*FuncDecl).Fn.Body.Tail = &EscapeResult{
-					Base: Base{Sp: sp(), Typ: types.Int},
-					X:    vref(v, resIG), To: fnOf(f),
+					Sp: sp(), Typ: types.Int,
+					X: vref(v, resIG), To: fnOf(f),
 				}
 				return f
 			}(),
@@ -535,8 +535,8 @@ func TestValidateViolations(t *testing.T) {
 			file: func() *File {
 				resTx := types.Result(types.Int, &types.Con{Name: "TxError"})
 				f := fnFile(resTx, &Body{Tail: &EscapeResult{
-					Base: Base{Sp: sp(), Typ: types.Int},
-					X:    vref(v, resTx),
+					Sp: sp(), Typ: types.Int,
+					X: vref(v, resTx),
 				}})
 				f.Decls[0].(*FuncDecl).Fn.Body.Tail.(*EscapeResult).To = fnOf(f)
 				f.Decls[0].(*FuncDecl).Fn.Body.Tail.(*EscapeResult).Wrap = "step"
@@ -548,10 +548,10 @@ func TestValidateViolations(t *testing.T) {
 			name: "escape inside go block",
 			file: func() *File {
 				f := fnFile(resIG, &Body{Tail: &Spawn{
-					Base: Base{Sp: sp(), Typ: types.Unit},
+					Sp: sp(), Typ: types.Unit,
 					Body: &Body{Tail: &EscapeResult{
-						Base: Base{Sp: sp(), Typ: types.Int},
-						X:    vref(v, resIG),
+						Sp: sp(), Typ: types.Int,
+						X: vref(v, resIG),
 					}},
 				}})
 				f.Decls[0].(*FuncDecl).Fn.Body.Tail.(*Spawn).Body.Tail.(*EscapeResult).To = fnOf(f)
@@ -563,9 +563,9 @@ func TestValidateViolations(t *testing.T) {
 			name: "escapeCall with single-result call",
 			file: func() *File {
 				f := fnFile(resIG, &Body{Tail: &EscapeCall{
-					Base: Base{Sp: sp(), Typ: types.Int},
+					Sp: sp(), Typ: types.Int,
 					Call: &CallGo{
-						Base:   Base{Sp: sp(), Typ: types.Int},
+						Sp: sp(), Typ: types.Int,
 						Callee: goFn, Args: []Atom{intLit("1")}, Arity: 1,
 						Results: GoResultsOne,
 					},
@@ -578,9 +578,9 @@ func TestValidateViolations(t *testing.T) {
 		{
 			name: "ResultFromGo with ok pair",
 			file: fnFile(resIG, &Body{Tail: &ResultFromGo{
-				Base: Base{Sp: sp(), Typ: resIG},
+				Sp: sp(), Typ: resIG,
 				Call: &CallGo{
-					Base:   Base{Sp: sp(), Typ: types.Int},
+					Sp: sp(), Typ: types.Int,
 					Callee: goPair, Args: []Atom{intLit("1")}, Arity: 1,
 					Results: GoResultsOK,
 				},
@@ -592,7 +592,7 @@ func TestValidateViolations(t *testing.T) {
 			file: func() *File {
 				f := fnFile(types.Int, &Body{
 					Lets: []*Let{{Sp: sp(), Name: bind(v, types.Int), X: &TailCall{
-						Base: Base{Sp: sp(), Typ: types.Int},
+						Sp: sp(), Typ: types.Int,
 						Args: []Atom{unitLit()},
 					}}},
 					Tail: vref(v, types.Int),
@@ -608,7 +608,7 @@ func TestValidateViolations(t *testing.T) {
 			name: "tail call without TailLoop",
 			file: func() *File {
 				f := fnFile(types.Int, &Body{Tail: &TailCall{
-					Base: Base{Sp: sp(), Typ: types.Int},
+					Sp: sp(), Typ: types.Int,
 					Args: []Atom{unitLit()},
 				}})
 				f.Decls[0].(*FuncDecl).Fn.Body.Tail.(*TailCall).To = fnOf(f)
@@ -619,7 +619,7 @@ func TestValidateViolations(t *testing.T) {
 		{
 			name: "select with two defaults",
 			file: fnFile(types.Int, &Body{Tail: &SelectExpr{
-				Base: Base{Sp: sp(), Typ: types.Int},
+				Sp: sp(), Typ: types.Int,
 				Arms: []SelArm{
 					&SelDefault{Sp: sp(), Body: &Body{Tail: intLit("0")}},
 					&SelDefault{Sp: sp(), Body: &Body{Tail: intLit("1")}},
@@ -638,7 +638,7 @@ func TestValidateViolations(t *testing.T) {
 					Sig:    types.Fn(types.Int, types.P(types.Unit), types.P(types.Chan(types.Int))),
 					Params: []*Bind{uB, bind(ch, types.Chan(types.Int))},
 					Body: &Body{Tail: &SelectExpr{
-						Base: Base{Sp: sp(), Typ: types.Int},
+						Sp: sp(), Typ: types.Int,
 						Arms: []SelArm{&SelRecv{
 							Sp:   sp(),
 							Chan: vref(ch, types.Chan(types.Int)),
@@ -655,7 +655,7 @@ func TestValidateViolations(t *testing.T) {
 		{
 			name: "go block non-Unit",
 			file: fnFile(types.Unit, &Body{Tail: &Spawn{
-				Base: Base{Sp: sp(), Typ: types.Unit},
+				Sp: sp(), Typ: types.Unit,
 				Body: &Body{Tail: intLit("1")},
 			}}),
 			want: "not Unit",
@@ -666,10 +666,10 @@ func TestValidateViolations(t *testing.T) {
 				l, _ := vbind("l", types.List(types.Int))
 				return fnFile(types.Unit, &Body{
 					Lets: []*Let{{Sp: sp(), Name: l, X: &ListNew{
-						Base: Base{Sp: sp(), Typ: types.List(types.Int)}, Elems: []Atom{intLit("1")},
+						Sp: sp(), Typ: types.List(types.Int), Elems: []Atom{intLit("1")},
 					}}},
 					Tail: &ForRange{
-						Base: Base{Sp: sp(), Typ: types.Unit},
+						Sp: sp(), Typ: types.Unit,
 						Kind: ForChan, Iter: vref(l.Sym, types.List(types.Int)),
 						Elem: &Bind{Sp: sp(), Typ: types.Int, Discard: true},
 						Body: &Body{Tail: unitLit()},
@@ -681,7 +681,7 @@ func TestValidateViolations(t *testing.T) {
 		{
 			name: "conv slice-to-go wrong operand",
 			file: fnFile(types.GoSlice(types.Int), &Body{Tail: &Conv{
-				Base: Base{Sp: sp(), Typ: types.GoSlice(types.Int)},
+				Sp: sp(), Typ: types.GoSlice(types.Int),
 				Kind: ConvSliceToGo,
 				X:    intLit("1"),
 			}}),
@@ -690,7 +690,7 @@ func TestValidateViolations(t *testing.T) {
 		{
 			name: "declared arity exceeds flat arity",
 			file: fnFile(types.Int, &Body{Tail: &Closure{
-				Base: Base{Sp: sp(), Typ: fnII},
+				Sp: sp(), Typ: fnII,
 				Fn: &Func{
 					Sp:  sp(),
 					Sig: fnII, // 1 signature param
@@ -706,10 +706,10 @@ func TestValidateViolations(t *testing.T) {
 		{
 			name: "GoFuncRef needing adapter used directly",
 			file: fnFile(types.Int, &Body{Tail: &CallFunc{
-				Base: Base{Sp: sp(), Typ: types.Int},
+				Sp: sp(), Typ: types.Int,
 				Fn: &GoFuncRef{
-					Base: Base{Sp: sp(), Typ: types.Fn(types.Int, types.P(types.Int))},
-					Sym:  goFn, Arity: 2, Results: GoResultsErr, // needs adapter
+					Sp: sp(), Typ: types.Fn(types.Int, types.P(types.Int)),
+					Sym: goFn, Arity: 2, Results: GoResultsErr, // needs adapter
 				},
 				Args: []Atom{intLit("1")},
 			}}),
@@ -718,8 +718,8 @@ func TestValidateViolations(t *testing.T) {
 		{
 			name: "FuncRef arity mismatch",
 			file: fnFile(fnII, &Body{Tail: &FuncRef{
-				Base: Base{Sp: sp(), Typ: types.Fn(types.Int, types.P(types.Int), types.P(types.Int))},
-				Sym:  fnVal, Arity: 2, // declared arity 2 — the direct-call shape, not the value shape
+				Sp: sp(), Typ: types.Fn(types.Int, types.P(types.Int), types.P(types.Int)),
+				Sym: fnVal, Arity: 2, // declared arity 2 — the direct-call shape, not the value shape
 			}}),
 			want: "adapter Closure",
 		},
@@ -728,7 +728,7 @@ func TestValidateViolations(t *testing.T) {
 			file: func() *File {
 				radius := fdsym("radius")
 				return fnFile(shapeT, &Body{Tail: &RecordNew{
-					Base: Base{Sp: sp(), Typ: shapeT},
+					Sp: sp(), Typ: shapeT,
 					Fields: []FieldInit{
 						{Sp: sp(), Sym: radius, Index: 0, Value: intLit("1")},
 						{Sp: sp(), Sym: radius, Index: 0, Value: intLit("2")},
@@ -741,7 +741,7 @@ func TestValidateViolations(t *testing.T) {
 			name: "binder type differs from bound expression",
 			file: fnFile(types.String, &Body{
 				Lets: []*Let{{Sp: sp(), Name: bind(vsym("s"), types.Float), X: intLit("1")}},
-				Tail: &Lit{Base: Base{Sp: sp(), Typ: types.String}, Kind: syntax.LitStr, Text: "\"x\""},
+				Tail: &Lit{Sp: sp(), Typ: types.String, Kind: syntax.LitStr, Text: "\"x\""},
 			}),
 			want: "binder type Float differs",
 		},
@@ -761,9 +761,9 @@ func TestValidateViolations(t *testing.T) {
 		{
 			name: "tuple field index out of range",
 			file: fnFile(types.Int, &Body{Tail: &CallFunc{
-				Base: Base{Sp: sp(), Typ: types.Int},
+				Sp: sp(), Typ: types.Int,
 				Fn: &FieldGet{
-					Base:  Base{Sp: sp(), Typ: fnII},
+					Sp: sp(), Typ: fnII,
 					Recv:  vref(v, types.Tup(types.Int, types.Int)),
 					Index: 5,
 				},
@@ -783,8 +783,8 @@ func TestValidateViolations(t *testing.T) {
 					Sig:    types.Fn(resIG, types.P(resIG), types.P(types.Int)),
 					Params: []*Bind{rB},
 					Body: &Body{Tail: &EscapeResult{
-						Base: Base{Sp: sp(), Typ: types.Int},
-						X:    vref(rS, resIG),
+						Sp: sp(), Typ: types.Int,
+						X: vref(rS, resIG),
 					}},
 				}
 				fn.Body.Tail.(*EscapeResult).To = fn
@@ -796,7 +796,7 @@ func TestValidateViolations(t *testing.T) {
 		{
 			name: "typed-nil atom",
 			file: fnFile(types.Int, &Body{Tail: &CallDirect{
-				Base:   Base{Sp: sp(), Typ: types.Int},
+				Sp: sp(), Typ: types.Int,
 				Callee: fnVal, Args: []Atom{(*Var)(nil)}, Arity: 1,
 			}}),
 			want: "missing atom",
@@ -809,8 +809,8 @@ func TestValidateViolations(t *testing.T) {
 		{
 			name: "if branch missing",
 			file: fnFile(types.Int, &Body{Tail: &If{
-				Base: Base{Sp: sp(), Typ: types.Int},
-				Cond: &Lit{Base: Base{Sp: sp(), Typ: types.Bool}, Kind: syntax.LitBool, Text: "true"},
+				Sp: sp(), Typ: types.Int,
+				Cond: &Lit{Sp: sp(), Typ: types.Bool, Kind: syntax.LitBool, Text: "true"},
 				Else: &Body{Tail: intLit("1")},
 			}}),
 			want: "missing body",
@@ -824,9 +824,9 @@ func TestValidateViolations(t *testing.T) {
 					Sig:    fnII,
 					Params: []*Bind{nB},
 					Body: &Body{Tail: &Match{
-						Base: Base{Sp: sp(), Typ: types.Int},
+						Sp: sp(), Typ: types.Int,
 						Tree: &DSwitch{
-							Base: Base{Sp: sp(), Typ: types.Int},
+							Sp: sp(), Typ: types.Int,
 							Subj: vref(nS, types.Int), Kind: SwitchValue,
 							Cases: []DCase{{
 								Sp:   sp(),
@@ -834,7 +834,7 @@ func TestValidateViolations(t *testing.T) {
 								Body: &Body{Tail: intLit("0")},
 							}},
 							Default: &DLeaf{
-								Base: Base{Sp: sp(), Typ: types.Int},
+								Sp: sp(), Typ: types.Int,
 								Body: &Body{Tail: intLit("1")},
 							},
 						},
@@ -848,7 +848,7 @@ func TestValidateViolations(t *testing.T) {
 		{
 			name: "spawn node type not Unit",
 			file: fnFile(types.Int, &Body{Tail: &Spawn{
-				Base: Base{Sp: sp(), Typ: types.Int},
+				Sp: sp(), Typ: types.Int,
 				Body: &Body{Tail: unitLit()},
 			}}),
 			want: "not Unit",
@@ -889,9 +889,9 @@ func TestValidateViolations(t *testing.T) {
 					Sig:    fnII,
 					Params: []*Bind{nB},
 					Body: &Body{Tail: &Match{
-						Base: Base{Sp: sp(), Typ: types.Int},
+						Sp: sp(), Typ: types.Int,
 						Tree: &DSwitch{
-							Base: Base{Sp: sp(), Typ: types.Int},
+							Sp: sp(), Typ: types.Int,
 							Subj: vref(nS, types.Int), Kind: SwitchList,
 							Cases: []DCase{{
 								Sp:   sp(),
@@ -899,7 +899,7 @@ func TestValidateViolations(t *testing.T) {
 								Body: &Body{Tail: intLit("0")},
 							}},
 							Default: &DPanic{
-								Base: Base{Sp: sp(), Typ: types.Int},
+								Sp: sp(), Typ: types.Int,
 								Subj: vref(nS, types.Int), TypeName: "List",
 							},
 						},
@@ -919,7 +919,7 @@ func TestValidateViolations(t *testing.T) {
 					Sig:    types.Fn(types.Unit, types.P(types.Int)),
 					Params: []*Bind{nB},
 					Body: &Body{Tail: &SelectExpr{
-						Base: Base{Sp: sp(), Typ: types.Unit},
+						Sp: sp(), Typ: types.Unit,
 						Arms: []SelArm{
 							&SelSend{
 								Sp: sp(), Chan: vref(nS, types.Int), Value: intLit("1"),
@@ -944,7 +944,7 @@ func TestValidateViolations(t *testing.T) {
 					Sig:    types.Fn(types.Unit, types.P(types.Int)),
 					Params: []*Bind{nB},
 					Body: &Body{Tail: &SelectExpr{
-						Base: Base{Sp: sp(), Typ: types.Unit},
+						Sp: sp(), Typ: types.Unit,
 						Arms: []SelArm{
 							&SelRecv{
 								Sp: sp(), Chan: vref(nS, types.Int), Bind: oB,
@@ -962,9 +962,9 @@ func TestValidateViolations(t *testing.T) {
 		{
 			name: "field get negative index",
 			file: fnFile(types.Int, &Body{Tail: &CallFunc{
-				Base: Base{Sp: sp(), Typ: types.Int},
+				Sp: sp(), Typ: types.Int,
 				Fn: &FieldGet{
-					Base:  Base{Sp: sp(), Typ: fnII},
+					Sp: sp(), Typ: fnII,
 					Recv:  vref(v, types.Tup(types.Int, types.Int)),
 					Index: -1,
 				},
@@ -981,9 +981,9 @@ func TestValidateViolations(t *testing.T) {
 					Sig:    fnII,
 					Params: []*Bind{nB},
 					Body: &Body{Tail: &Match{
-						Base: Base{Sp: sp(), Typ: types.Int},
+						Sp: sp(), Typ: types.Int,
 						Tree: &DSwitch{
-							Base: Base{Sp: sp(), Typ: types.Int},
+							Sp: sp(), Typ: types.Int,
 							Subj: vref(nS, types.Int), Kind: SwitchValue,
 							Cases: []DCase{{
 								Sp:   sp(),
@@ -991,15 +991,15 @@ func TestValidateViolations(t *testing.T) {
 								Body: &Body{Tail: intLit("0")},
 							}},
 							Default: &DGuard{
-								Base: Base{Sp: sp(), Typ: types.String}, // != parent's Int
-								Cond: &Lit{Base: Base{Sp: sp(), Typ: types.Bool}, Kind: syntax.LitBool, Text: "true"},
+								Sp: sp(), Typ: types.String, // != parent's Int
+								Cond: &Lit{Sp: sp(), Typ: types.Bool, Kind: syntax.LitBool, Text: "true"},
 								Then: &DLeaf{
-									Base: Base{Sp: sp(), Typ: types.String},
-									Body: &Body{Tail: &Lit{Base: Base{Sp: sp(), Typ: types.String}, Kind: syntax.LitStr, Text: "\"x\""}},
+									Sp: sp(), Typ: types.String,
+									Body: &Body{Tail: &Lit{Sp: sp(), Typ: types.String, Kind: syntax.LitStr, Text: "\"x\""}},
 								},
 								Else: &DLeaf{
-									Base: Base{Sp: sp(), Typ: types.String},
-									Body: &Body{Tail: &Lit{Base: Base{Sp: sp(), Typ: types.String}, Kind: syntax.LitStr, Text: "\"y\""}},
+									Sp: sp(), Typ: types.String,
+									Body: &Body{Tail: &Lit{Sp: sp(), Typ: types.String, Kind: syntax.LitStr, Text: "\"y\""}},
 								},
 							},
 						},
@@ -1068,8 +1068,8 @@ func TestValidateEquality(t *testing.T) {
 
 	valid := &File{Sp: sp(), Package: "p", PkgSp: sp(),
 		Decls: []Decl{&FuncDecl{Sp: sp(), Sym: fsym("f"), Fn: eqFn(&Equal{
-			Base: Base{Sp: sp(), Typ: types.Bool},
-			X:    vref(ls, listT), Y: vref(ms, listT),
+			Sp: sp(), Typ: types.Bool,
+			X: vref(ls, listT), Y: vref(ms, listT),
 			How: call,
 		})}},
 		EqDecls: []*EqDecl{cmpDecl}}
@@ -1087,8 +1087,8 @@ func TestValidateEquality(t *testing.T) {
 		{
 			name: "composite recipe on Equal",
 			file: eqFile(&Equal{
-				Base: Base{Sp: sp(), Typ: types.Bool},
-				X:    vref(ls, listT), Y: vref(ms, listT),
+				Sp: sp(), Typ: types.Bool,
+				X: vref(ls, listT), Y: vref(ms, listT),
 				How: &EqPlan{Kind: EqSlice, Elem: native},
 			}, nil),
 			want: "legal only at a comparator's root",
@@ -1096,16 +1096,16 @@ func TestValidateEquality(t *testing.T) {
 		{
 			name: "missing recipe",
 			file: eqFile(&Equal{
-				Base: Base{Sp: sp(), Typ: types.Bool},
-				X:    vref(xs, types.Int), Y: vref(ys, types.Int),
+				Sp: sp(), Typ: types.Bool,
+				X: vref(xs, types.Int), Y: vref(ys, types.Int),
 			}, nil),
 			want: "missing comparison recipe",
 		},
 		{
 			name: "comparator without plan",
 			file: eqFile(&Equal{
-				Base: Base{Sp: sp(), Typ: types.Bool},
-				X:    vref(xs, types.Int), Y: vref(ys, types.Int),
+				Sp: sp(), Typ: types.Bool,
+				X: vref(xs, types.Int), Y: vref(ys, types.Int),
 				How: native,
 			}, []*EqDecl{{Sp: sp(), Sym: fsym("gomEq9"), Typ: listT}}),
 			want: "missing comparison recipe",
@@ -1113,8 +1113,8 @@ func TestValidateEquality(t *testing.T) {
 		{
 			name: "comparator symbol of the wrong kind",
 			file: eqFile(&Equal{
-				Base: Base{Sp: sp(), Typ: types.Bool},
-				X:    vref(xs, types.Int), Y: vref(ys, types.Int),
+				Sp: sp(), Typ: types.Bool,
+				X: vref(xs, types.Int), Y: vref(ys, types.Int),
 				How: native,
 			}, []*EqDecl{{Sp: sp(), Sym: vsym("gomEq9"), Typ: listT,
 				Plan: &EqPlan{Kind: EqSlice, Elem: native}}}),
@@ -1123,7 +1123,7 @@ func TestValidateEquality(t *testing.T) {
 		{
 			name: "assert_eq without a plan",
 			file: eqFile(&CallBuiltin{
-				Base: Base{Sp: sp(), Typ: types.Unit},
+				Sp: sp(), Typ: types.Unit,
 				Sym:  &resolve.Symbol{Name: "assert_eq", Kind: resolve.KindBuiltin},
 				Args: []Atom{vref(ls, listT), vref(ms, listT)},
 			}, nil),
@@ -1132,7 +1132,7 @@ func TestValidateEquality(t *testing.T) {
 		{
 			name: "plan on a non-assert_eq builtin",
 			file: eqFile(&CallBuiltin{
-				Base: Base{Sp: sp(), Typ: types.Unit},
+				Sp: sp(), Typ: types.Unit,
 				Sym:  bsym(),
 				Args: []Atom{vref(ls, listT), vref(ms, listT)},
 				Eq:   native,
@@ -1167,7 +1167,7 @@ func TestViolationImplementsError(t *testing.T) {
 func TestErrorFromGoInvariants(t *testing.T) {
 	errCall := func(shape GoResults) *CallGo {
 		return &CallGo{
-			Base:    Base{Sp: sp(), Typ: types.GoError},
+			Sp: sp(), Typ: types.GoError,
 			Callee:  gsym("New", "errors"),
 			Args:    []Atom{intLit("1")},
 			Arity:   1,
@@ -1176,7 +1176,7 @@ func TestErrorFromGoInvariants(t *testing.T) {
 	}
 	errFromGo := func(shape GoResults, typ types.Type) *ErrorFromGo {
 		return &ErrorFromGo{
-			Base: Base{Sp: sp(), Typ: typ},
+			Sp: sp(), Typ: typ,
 			Call: errCall(shape),
 		}
 	}
@@ -1225,7 +1225,7 @@ func TestErrorFromGoInvariants(t *testing.T) {
 
 func TestZeroResultCallPositions(t *testing.T) {
 	makeCall := func(typ types.Type) *CallGo {
-		return &CallGo{Base: Base{Sp: sp(), Typ: typ}, Callee: &resolve.Symbol{
+		return &CallGo{Sp: sp(), Typ: typ, Callee: &resolve.Symbol{
 			Name: "Effect", Kind: resolve.KindFunc, IsGo: true, Package: "example",
 		}, Results: GoResultsNone}
 	}

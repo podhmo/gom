@@ -1,6 +1,7 @@
 package resolve
 
 import (
+	"slices"
 	"strings"
 	"testing"
 
@@ -1020,12 +1021,7 @@ func checkComplete(t *testing.T, res *Resolved, ds diag.List) {
 		return ok
 	}
 	exempt := func(id *syntax.Ident) bool {
-		for _, e := range w.exempt {
-			if e == id {
-				return true
-			}
-		}
-		return false
+		return slices.Contains(w.exempt, id)
 	}
 	for _, id := range w.occurrences {
 		if in(res.Defs, id) || in(res.Uses, id) || exempt(id) {

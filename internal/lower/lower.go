@@ -3,6 +3,7 @@ package lower
 import (
 	"fmt"
 	"hash/fnv"
+	"slices"
 
 	"github.com/podhmo/gom/internal/check"
 	"github.com/podhmo/gom/internal/core"
@@ -442,7 +443,7 @@ func (l *lowerer) namedBind(sp diag.Span, sym *resolve.Symbol, typ types.Type) *
 
 // varOf makes a reference to a binder's symbol.
 func varOf(sp diag.Span, b *core.Bind) *core.Var {
-	return &core.Var{Base: core.Base{Sp: sp, Typ: b.Typ}, Sym: b.Sym}
+	return &core.Var{Sp: sp, Typ: b.Typ, Sym: b.Sym}
 }
 
 // curFn is the innermost enclosing function boundary — the target of
@@ -465,8 +466,8 @@ func (l *lowerer) popSubst() {
 // substSym resolves a check-side variable symbol to the symbol its
 // binder was actually lowered to — the identity outside match arms.
 func (l *lowerer) substSym(sym *resolve.Symbol) *resolve.Symbol {
-	for i := len(l.subst) - 1; i >= 0; i-- {
-		if ns, ok := l.subst[i][sym]; ok {
+	for _, v := range slices.Backward(l.subst) {
+		if ns, ok := v[sym]; ok {
 			return ns
 		}
 	}
@@ -1014,7 +1015,7 @@ func (l *lowerer) letDecl(d *check.LetDecl, out *core.File) {
 		DiagName: "let " + patText(d.Pat),
 	})
 	tmpVar := func() core.Atom {
-		return &core.Var{Base: core.Base{Sp: d.Sp, Typ: d.Value.Type()}, Sym: tmpSym}
+		return &core.Var{Sp: d.Sp, Typ: d.Value.Type(), Sym: tmpSym}
 	}
 	if _, ok := d.Pat.(*check.WildPat); ok {
 		return
@@ -1045,7 +1046,7 @@ func (l *lowerer) letDecl(d *check.LetDecl, out *core.File) {
 	s := &seq{}
 	tree := l.compile(states, tmpVar(), s, resT)
 	body := &core.Body{Lets: s.lets, Tail: &core.Match{
-		Base: core.Base{Sp: d.Pat.Span(), Typ: resT}, Tree: tree,
+		Sp: d.Pat.Span(), Typ: resT, Tree: tree,
 	}}
 	if dl, ok := tree.(*core.DLeaf); ok {
 		body.Lets = append(body.Lets, dl.Body.Lets...)
@@ -1091,8 +1092,8 @@ func (l *lowerer) letDecl(d *check.LetDecl, out *core.File) {
 				Sp:  d.Sp,
 				Sym: v.sym,
 				Body: &core.Body{Tail: &core.FieldGet{
-					Base:  core.Base{Sp: d.Sp, Typ: v.typ},
-					Recv:  &core.Var{Base: core.Base{Sp: d.Sp, Typ: resT}, Sym: tupSym},
+					Sp: d.Sp, Typ: v.typ,
+					Recv:  &core.Var{Sp: d.Sp, Typ: resT, Sym: tupSym},
 					Index: i,
 				}},
 				Exported: l.exported(v.sym),

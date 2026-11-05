@@ -64,7 +64,7 @@ func baseOf(e check.Expr) core.Base {
 }
 
 func (l *lowerer) litUnit(sp diag.Span) *core.Lit {
-	return &core.Lit{Base: core.Base{Sp: sp, Typ: types.Unit}, Kind: syntax.LitUnit, Text: "()"}
+	return &core.Lit{Sp: sp, Typ: types.Unit, Kind: syntax.LitUnit, Text: "()"}
 }
 
 // expr is the expression dispatcher. The result is an Atom or a
@@ -208,7 +208,7 @@ func (l *lowerer) builtinRef(sp diag.Span, typ types.Type, sym *resolve.Symbol) 
 		})
 	}
 	l.err(sp, fmt.Sprintf("builtin %s used as a non-function value", sym.Name))
-	return &core.CallBuiltin{Base: core.Base{Sp: sp, Typ: typ}, Sym: sym}
+	return &core.CallBuiltin{Sp: sp, Typ: typ, Sym: sym}
 }
 
 // funcRefOrFlatten lowers a Gom function reference. The emitted
@@ -227,7 +227,7 @@ func (l *lowerer) funcRefOrFlatten(e *check.Var, sym *resolve.Symbol) core.Expr 
 		// generic declaration (P2-1): the reference is the value
 		// itself, so it emits the call `x[T]()`.
 		return &core.CallDirect{
-			Base:   core.Base{Sp: e.Sp, Typ: e.Type()},
+			Sp: e.Sp, Typ: e.Type(),
 			Callee: sym, TypeArgs: e.TypeArgs,
 			Arity: 0,
 		}
@@ -256,7 +256,7 @@ func (l *lowerer) funcRefOrFlatten(e *check.Var, sym *resolve.Symbol) core.Expr 
 		// escape, not a user-written call site — @tailrec's R3 reads
 		// it the way it reads a FuncRef.
 		prefix := &core.CallDirect{
-			Base:   core.Base{Sp: e.Sp, Typ: retAfter(sig, decl)},
+			Sp: e.Sp, Typ: retAfter(sig, decl),
 			Callee: sym, TypeArgs: e.TypeArgs,
 			Args: pv[:decl], Arity: decl,
 			Adapter: true,
@@ -284,7 +284,7 @@ func (l *lowerer) memberExpr(s *seq, e *check.MemberExpr) core.Expr {
 	switch e.Sym.Kind {
 	case resolve.KindField:
 		if e.GoFieldType != nil {
-			raw := &core.FieldGet{Base: core.Base{Sp: e.Sp, Typ: e.GoFieldType}, Recv: l.atom(s, e.Recv), Field: e.Sym, Index: e.Index}
+			raw := &core.FieldGet{Sp: e.Sp, Typ: e.GoFieldType, Recv: l.atom(s, e.Recv), Field: e.Sym, Index: e.Index}
 			// Go fields may mutate (and nil pointer reads may panic). Snapshot
 			// the selector now, before later source operands execute.
 			bind := l.tmpBind(e.Sp, e.GoFieldType)
@@ -308,7 +308,7 @@ func (l *lowerer) memberExpr(s *seq, e *check.MemberExpr) core.Expr {
 		if e.Sym.IsGo {
 			return l.goFuncRefOrAdapter(e.Sp, e.Type(), e.Sym, nil, e.TypeArgs)
 		}
-		return l.funcRefOrFlatten(&check.Var{Base: check.Base{Sp: e.Sp, Typ: e.Type()}, Sym: e.Sym, TypeArgs: e.TypeArgs}, e.Sym)
+		return l.funcRefOrFlatten(&check.Var{Sp: e.Sp, Typ: e.Type(), Sym: e.Sym, TypeArgs: e.TypeArgs}, e.Sym)
 	case resolve.KindVar:
 		if e.Sym.IsGo {
 			return l.goVarRef(e.Sp, e.Type(), e.Sym)
@@ -348,7 +348,7 @@ func (l *lowerer) goVarRef(sp diag.Span, typ types.Type, sym *resolve.Symbol) co
 	if sig := l.goSig(sym, typ); len(sig.ResTypes) == 1 {
 		raw = sig.ResTypes[0]
 	}
-	ref := &core.Var{Base: core.Base{Sp: sp, Typ: raw}, Sym: l.substSym(sym)}
+	ref := &core.Var{Sp: sp, Typ: raw, Sym: l.substSym(sym)}
 	if types.Equal(raw, typ) {
 		return ref
 	}
@@ -356,9 +356,9 @@ func (l *lowerer) goVarRef(sp diag.Span, typ types.Type, sym *resolve.Symbol) co
 	if !ok {
 		l.err(sp, fmt.Sprintf("Go member %s.%s has type %s, which cannot convert to %s — the boundary needs a value copy not yet supported",
 			sym.Package, sym.Name, typeName(raw), typeName(typ)))
-		return &core.Var{Base: core.Base{Sp: sp, Typ: typ}, Sym: l.substSym(sym)}
+		return &core.Var{Sp: sp, Typ: typ, Sym: l.substSym(sym)}
 	}
-	return &core.Conv{Base: core.Base{Sp: sp, Typ: typ}, Kind: k, X: ref}
+	return &core.Conv{Sp: sp, Typ: typ, Kind: k, X: ref}
 }
 
 // goFuncRefOrAdapter lowers a Go function or method in value
@@ -374,7 +374,7 @@ func (l *lowerer) goFuncRefOrAdapter(sp diag.Span, typ types.Type, sym *resolve.
 	fs := flatSig(typ)
 	if goBareRefOK(sig, fs) {
 		return &core.GoFuncRef{
-			Base: core.Base{Sp: sp, Typ: typ}, Sym: sym,
+			Sp: sp, Typ: typ, Sym: sym,
 			Recv: recv, Arity: sig.Arity, Results: sig.Results,
 			TypeArgs: targs,
 		}
@@ -385,7 +385,7 @@ func (l *lowerer) goFuncRefOrAdapter(sp diag.Span, typ types.Type, sym *resolve.
 	}
 	return l.closureChain(sp, typ, fs.Params, func(bs *seq, pv []core.Atom) core.Expr {
 		call := &core.CallGo{
-			Base:   core.Base{Sp: sp, Typ: l.goCallTyp(sig, fs.Ret)},
+			Sp: sp, Typ: l.goCallTyp(sig, fs.Ret),
 			Callee: sym, Recv: recv, TypeArgs: targs,
 			Args:     l.convGoArgs(bs, sig, pv, false),
 			Arity:    sig.Arity,
@@ -683,7 +683,7 @@ func (l *lowerer) convGoArg(s *seq, sig GoSig, i int, a core.Atom, spreadArg boo
 		return a
 	}
 	return l.asAtom(s, a.Span(), &core.Conv{
-		Base: core.Base{Sp: a.Span(), Typ: pt}, Kind: k, X: l.convBoxSrc(s, a, k),
+		Sp: a.Span(), Typ: pt, Kind: k, X: l.convBoxSrc(s, a, k),
 	})
 }
 
@@ -696,7 +696,7 @@ func (l *lowerer) convGoArg(s *seq, sig GoSig, i int, a core.Atom, spreadArg boo
 func (l *lowerer) convBoxSrc(s *seq, a core.Atom, k core.ConvKind) core.Atom {
 	if k == core.ConvBoxAny && l.isNumericCon(a.Type()) {
 		return l.asAtom(s, a.Span(), &core.Conv{
-			Base: core.Base{Sp: a.Span(), Typ: a.Type()}, Kind: core.ConvNum, X: a,
+			Sp: a.Span(), Typ: a.Type(), Kind: core.ConvNum, X: a,
 		})
 	}
 	return a
@@ -710,10 +710,7 @@ func (l *lowerer) goParamTypeAt(sig GoSig, i int, spreadArg bool) types.Type {
 	if sig.Arity == 0 || len(sig.Params) < sig.Arity {
 		return nil
 	}
-	j := i
-	if j > sig.Arity-1 {
-		j = sig.Arity - 1
-	}
+	j := min(i, sig.Arity-1)
 	pt := types.Chase(sig.Params[j])
 	if sig.Variadic && j == sig.Arity-1 && !spreadArg {
 		if c, ok := pt.(*types.Con); ok && len(c.Args) == 1 &&
@@ -742,7 +739,7 @@ func (l *lowerer) goPayloadConv(s *seq, sp diag.Span, raw, want types.Type, x co
 		return x
 	}
 	a := l.asAtom(s, sp, x)
-	return &core.Conv{Base: core.Base{Sp: sp, Typ: want}, Kind: k, X: l.convBoxSrc(s, a, k)}
+	return &core.Conv{Sp: sp, Typ: want, Kind: k, X: l.convBoxSrc(s, a, k)}
 }
 
 // convAtomTo is goPayloadConv for a value already bound to an atom —
@@ -758,7 +755,7 @@ func (l *lowerer) convAtomTo(s *seq, sp diag.Span, a core.Atom, want types.Type)
 		return a
 	}
 	return l.asAtom(s, sp, &core.Conv{
-		Base: core.Base{Sp: sp, Typ: want}, Kind: k, X: l.convBoxSrc(s, a, k),
+		Sp: sp, Typ: want, Kind: k, X: l.convBoxSrc(s, a, k),
 	})
 }
 
@@ -869,10 +866,7 @@ func (l *lowerer) finishCall(s *seq, sp diag.Span, resTyp types.Type, callee che
 // zero-argument `fmt.Print()` is legal) — padding to Arity would
 // plant nil atoms the Core contract rejects.
 func declOrderArgs(ci check.CallInfo, args []core.Atom, minLen int) []core.Atom {
-	n := len(args)
-	if minLen > n {
-		n = minLen
-	}
+	n := max(minLen, len(args))
 	out := make([]core.Atom, n)
 	for i, a := range args {
 		pos := i
@@ -915,7 +909,7 @@ func (l *lowerer) directCall(s *seq, sp diag.Span, resTyp types.Type, callee che
 		}
 		if ci.Applied <= ci.Arity {
 			return &core.CallDirect{
-				Base:   core.Base{Sp: sp, Typ: resTyp},
+				Sp: sp, Typ: resTyp,
 				Callee: sym, TypeArgs: ci.TypeArgs,
 				Args: ordered[:ci.Arity], Arity: ci.Arity,
 			}
@@ -924,7 +918,7 @@ func (l *lowerer) directCall(s *seq, sp diag.Span, resTyp types.Type, callee che
 		// the returned function value to the extras one argument per
 		// CallFunc, like CallUnknown.
 		first := &core.CallDirect{
-			Base:   core.Base{Sp: sp, Typ: overAppRetType(callee, ci)},
+			Sp: sp, Typ: overAppRetType(callee, ci),
 			Callee: sym, TypeArgs: ci.TypeArgs,
 			Args: ordered[:ci.Arity], Arity: ci.Arity,
 		}
@@ -935,7 +929,7 @@ func (l *lowerer) directCall(s *seq, sp diag.Span, resTyp types.Type, callee che
 			l.err(sp, fmt.Sprintf("constructor %s application is not saturated (%d/%d)", sym.Name, ci.Applied, ci.Arity))
 		}
 		return &core.CtorApp{
-			Base: core.Base{Sp: sp, Typ: resTyp},
+			Sp: sp, Typ: resTyp,
 			Ctor: sym, TypeArgs: ci.TypeArgs,
 			Args: ordered[:ci.Arity], Arity: ci.Arity,
 			Fields: l.ctorFields(sym, resTyp),
@@ -967,8 +961,8 @@ func (l *lowerer) builtinCall(sp diag.Span, typ types.Type, sym *resolve.Symbol,
 		l.err(sp, fmt.Sprintf("builtin %s may only be called inside a test block", sym.Name))
 	}
 	cb := &core.CallBuiltin{
-		Base: core.Base{Sp: sp, Typ: typ},
-		Sym:  sym, Args: args,
+		Sp: sp, Typ: typ,
+		Sym: sym, Args: args,
 	}
 	// assert_eq carries the operands' comparison recipe — the same
 	// judgment `x == y` applies, rendered by codegen as the
@@ -1036,13 +1030,13 @@ func (l *lowerer) partialCall(s *seq, sp diag.Span, resTyp types.Type, callee ch
 		switch sym.Kind {
 		case resolve.KindFunc:
 			return &core.CallDirect{
-				Base:   core.Base{Sp: sp, Typ: retAfter(calleeSig, ci.Arity)},
+				Sp: sp, Typ: retAfter(calleeSig, ci.Arity),
 				Callee: sym, TypeArgs: ci.TypeArgs,
 				Args: ordered[:ci.Arity], Arity: ci.Arity,
 			}
 		case resolve.KindCtor:
 			return &core.CtorApp{
-				Base: core.Base{Sp: sp, Typ: retAfter(calleeSig, ci.Arity)},
+				Sp: sp, Typ: retAfter(calleeSig, ci.Arity),
 				Ctor: sym, TypeArgs: ci.TypeArgs,
 				Args: ordered[:ci.Arity], Arity: ci.Arity,
 				Fields: l.ctorFields(sym, retAfter(calleeSig, ci.Arity)),
@@ -1208,7 +1202,7 @@ func (l *lowerer) goCall(s *seq, sp diag.Span, resTyp types.Type, ci check.CallI
 			filled[holePos] = l.convGoArg(bs, sig, holePos, pv[0],
 				spread && holePos == len(filled)-1)
 			call := &core.CallGo{
-				Base:   core.Base{Sp: sp, Typ: l.goCallTyp(sig, remTyp.Ret)},
+				Sp: sp, Typ: l.goCallTyp(sig, remTyp.Ret),
 				Callee: ci.Callee, Recv: recv, TypeArgs: ci.TypeArgs,
 				Args:  filled,
 				Arity: ci.Arity, Variadic: ci.Variadic,
@@ -1223,7 +1217,7 @@ func (l *lowerer) goCall(s *seq, sp diag.Span, resTyp types.Type, ci check.CallI
 	}
 
 	call := &core.CallGo{
-		Base:   core.Base{Sp: sp, Typ: l.goCallTyp(sig, resTyp)},
+		Sp: sp, Typ: l.goCallTyp(sig, resTyp),
 		Callee: ci.Callee, Recv: recv, TypeArgs: ci.TypeArgs,
 		Args:  ordered,
 		Arity: ci.Arity, Variadic: ci.Variadic,
@@ -1264,7 +1258,7 @@ func (l *lowerer) goCallNode(s *seq, ap *check.Apply) *core.CallGo {
 	}
 	spread := hasSpread(ap.Args)
 	return &core.CallGo{
-		Base:   core.Base{Sp: ap.Sp, Typ: l.goCallTyp(sig, ap.Type())},
+		Sp: ap.Sp, Typ: l.goCallTyp(sig, ap.Type()),
 		Callee: ci.Callee, Recv: recv, TypeArgs: ci.TypeArgs,
 		Args:  l.convGoArgs(s, sig, declOrderArgs(ci, args, 0), spread),
 		Arity: ci.Arity, Variadic: ci.Variadic,
@@ -1305,7 +1299,7 @@ func (l *lowerer) closureOf(sp diag.Span, typ types.Type, params []types.FuncPar
 	// spellings Equal-compare to (check.go keeps declared sigs
 	// nested for the same reason; this literal preserves the split).
 	exprTyp := &types.Func{Params: params, Ret: fn.ResidualType()}
-	return &core.Closure{Base: core.Base{Sp: sp, Typ: exprTyp}, Fn: fn}
+	return &core.Closure{Sp: sp, Typ: exprTyp, Fn: fn}
 }
 
 // closureOfType is closureOf for a signature the lowering already
@@ -1358,13 +1352,13 @@ func (l *lowerer) applyAtom(s *seq, sp diag.Span, resTyp types.Type, fn core.Ato
 		switch {
 		case len(args) == f.Arity:
 			return &core.CallDirect{
-				Base:   core.Base{Sp: sp, Typ: resTyp},
+				Sp: sp, Typ: resTyp,
 				Callee: f.Sym, TypeArgs: f.TypeArgs,
 				Args: args, Arity: f.Arity,
 			}
 		case len(args) > f.Arity:
 			first := &core.CallDirect{
-				Base:   core.Base{Sp: sp, Typ: overAppRet(f, f.Arity)},
+				Sp: sp, Typ: overAppRet(f, f.Arity),
 				Callee: f.Sym, TypeArgs: f.TypeArgs,
 				Args: args[:f.Arity], Arity: f.Arity,
 			}
@@ -1373,7 +1367,7 @@ func (l *lowerer) applyAtom(s *seq, sp diag.Span, resTyp types.Type, fn core.Ato
 		default:
 			return l.closureChainType(sp, resFunc(sigOf(f.Type()), len(args), f.Type()), func(bs *seq, pv []core.Atom) core.Expr {
 				return &core.CallDirect{
-					Base:   core.Base{Sp: sp, Typ: retAfter(sigOf(f.Type()), f.Arity)},
+					Sp: sp, Typ: retAfter(sigOf(f.Type()), f.Arity),
 					Callee: f.Sym, TypeArgs: f.TypeArgs,
 					Args:  append(append([]core.Atom{}, args...), pv...),
 					Arity: f.Arity,
@@ -1384,7 +1378,7 @@ func (l *lowerer) applyAtom(s *seq, sp diag.Span, resTyp types.Type, fn core.Ato
 		arity := flatArity(f.Type())
 		if len(args) == arity {
 			return &core.CtorApp{
-				Base: core.Base{Sp: sp, Typ: resTyp},
+				Sp: sp, Typ: resTyp,
 				Ctor: f.Sym, TypeArgs: f.TypeArgs,
 				Args: args, Arity: arity,
 				Fields: f.Fields,
@@ -1396,7 +1390,7 @@ func (l *lowerer) applyAtom(s *seq, sp diag.Span, resTyp types.Type, fn core.Ato
 		}
 		return l.closureChainType(sp, resFunc(sigOf(f.Type()), len(args), f.Type()), func(bs *seq, pv []core.Atom) core.Expr {
 			return &core.CtorApp{
-				Base: core.Base{Sp: sp, Typ: retAfter(sigOf(f.Type()), arity)},
+				Sp: sp, Typ: retAfter(sigOf(f.Type()), arity),
 				Ctor: f.Sym, TypeArgs: f.TypeArgs,
 				Args:   append(append([]core.Atom{}, args...), pv...),
 				Arity:  arity,
@@ -1409,7 +1403,7 @@ func (l *lowerer) applyAtom(s *seq, sp diag.Span, resTyp types.Type, fn core.Ato
 			return l.litUnit(sp)
 		}
 		call := &core.CallGo{
-			Base:   core.Base{Sp: sp, Typ: l.goCallTyp(GoSig{Results: f.Results}, resTyp)},
+			Sp: sp, Typ: l.goCallTyp(GoSig{Results: f.Results}, resTyp),
 			Callee: f.Sym, Recv: f.Recv, TypeArgs: f.TypeArgs,
 			Args:    args,
 			Arity:   f.Arity,
@@ -1442,8 +1436,8 @@ func (l *lowerer) callFuncChunks(s *seq, sp diag.Span, fn core.Atom, args []core
 			resTyp = &types.Func{Params: fs.Params[1:], Ret: fs.Ret}
 		}
 		call := &core.CallFunc{
-			Base: core.Base{Sp: sp, Typ: resTyp},
-			Fn:   fn, Args: args[:1],
+			Sp: sp, Typ: resTyp,
+			Fn: fn, Args: args[:1],
 		}
 		args = args[1:]
 		if len(args) == 0 {
@@ -1794,7 +1788,7 @@ func (l *lowerer) tryExpr(s *seq, e *check.Try) core.Expr {
 				return l.wrapGoResult(s, call, ap.Type())
 			}
 			return l.goPayloadConv(s, e.Sp, call.Typ, e.Type(), &core.EscapeCall{
-				Base: core.Base{Sp: e.Sp, Typ: call.Typ},
+				Sp: e.Sp, Typ: call.Typ,
 				Call: call, To: fn, Wrap: "",
 				NilGuard: l.payloadNilGuard(call, ap.Type()),
 			})
@@ -1802,9 +1796,9 @@ func (l *lowerer) tryExpr(s *seq, e *check.Try) core.Expr {
 		// Non-escapable shape — fall through to EscapeResult, which
 		// the validator will report against the operand's type.
 		return &core.EscapeResult{
-			Base: core.Base{Sp: e.Sp, Typ: e.Type()},
-			X:    l.asAtom(s, e.Sp, l.wrapGoResult(s, call, ap.Type())),
-			To:   l.curFn(), Wrap: "",
+			Sp: e.Sp, Typ: e.Type(),
+			X:  l.asAtom(s, e.Sp, l.wrapGoResult(s, call, ap.Type())),
+			To: l.curFn(), Wrap: "",
 		}
 	}
 	operand := l.atom(s, e.X)
@@ -1818,8 +1812,8 @@ func (l *lowerer) tryExpr(s *seq, e *check.Try) core.Expr {
 		typ = a
 	}
 	return &core.EscapeResult{
-		Base: core.Base{Sp: e.Sp, Typ: typ},
-		X:    operand, To: fn, Wrap: "",
+		Sp: e.Sp, Typ: typ,
+		X: operand, To: fn, Wrap: "",
 	}
 }
 
@@ -1871,7 +1865,7 @@ func (l *lowerer) pipeInflowAtom(s *seq, e *check.Binary) core.Atom {
 		call := l.goCallNode(s, ap)
 		if call.Results == core.GoResultsErr || call.Results == core.GoResultsErrOnly {
 			in = l.asAtom(s, e.X.Span(), &core.EscapeCall{
-				Base: core.Base{Sp: e.X.Span(), Typ: call.Typ}, Call: call, To: fn,
+				Sp: e.X.Span(), Typ: call.Typ, Call: call, To: fn,
 				NilGuard: l.payloadNilGuard(call, ap.Type()),
 			})
 			in = l.convAtomTo(s, e.X.Span(), in, l.payloadOf(ap.Type()))
@@ -1889,7 +1883,7 @@ func (l *lowerer) pipeInflowAtom(s *seq, e *check.Binary) core.Atom {
 		in = l.pipeInputAtom(s, e.X)
 		if _, _, isRes := l.resultArgs(in.Type()); isRes {
 			in = l.asAtom(s, e.X.Span(), &core.EscapeResult{
-				Base: core.Base{Sp: e.X.Span(), Typ: l.payloadOf(in.Type())}, X: in, To: fn,
+				Sp: e.X.Span(), Typ: l.payloadOf(in.Type()), X: in, To: fn,
 			})
 		}
 	}
@@ -2074,8 +2068,8 @@ func (l *lowerer) pipeTryMixed(s *seq, e *check.Binary) core.Expr {
 		if _, _, isRes := l.resultArgs(inAtom.Type()); isRes {
 			enter = func(bs *seq) core.Atom {
 				return l.asAtom(bs, in.Span(), &core.EscapeResult{
-					Base: core.Base{Sp: in.Span(), Typ: l.payloadOf(inAtom.Type())},
-					X:    inAtom, To: l.curFn(),
+					Sp: in.Span(), Typ: l.payloadOf(inAtom.Type()),
+					X: inAtom, To: l.curFn(),
 				})
 			}
 		} else {
@@ -2147,7 +2141,7 @@ func (l *lowerer) pipeRest(cs *seq, e *check.Binary, levels []*check.Binary, ung
 			// Result materializes between the two sides.
 			enter = func(bs *seq) core.Atom {
 				payload := l.asAtom(bs, lv.Y.Span(), &core.EscapeCall{
-					Base: core.Base{Sp: lv.Y.Span(), Typ: call.Typ},
+					Sp: lv.Y.Span(), Typ: call.Typ,
 					Call: call, To: l.curFn(), Wrap: wrap,
 					NilGuard: l.payloadNilGuard(call, lv.Type()),
 				})
@@ -2157,8 +2151,8 @@ func (l *lowerer) pipeRest(cs *seq, e *check.Binary, levels []*check.Binary, ung
 			val := l.asAtom(cs, lv.Y.Span(), step)
 			enter = func(bs *seq) core.Atom {
 				return l.asAtom(bs, lv.Y.Span(), &core.EscapeResult{
-					Base: core.Base{Sp: lv.Y.Span(), Typ: l.payloadOf(val.Type())},
-					X:    val, To: l.curFn(), Wrap: wrap,
+					Sp: lv.Y.Span(), Typ: l.payloadOf(val.Type()),
+					X: val, To: l.curFn(), Wrap: wrap,
 				})
 			}
 		}
@@ -2284,7 +2278,7 @@ func (l *lowerer) escapeStepPayload(s *seq, e *check.Binary, step core.Expr) cor
 	if call, ok := unwrapToCallGo(step); ok &&
 		(call.Results == core.GoResultsErr || call.Results == core.GoResultsErrOnly) {
 		payload = l.asAtom(s, e.Y.Span(), &core.EscapeCall{
-			Base: core.Base{Sp: e.Y.Span(), Typ: call.Typ},
+			Sp: e.Y.Span(), Typ: call.Typ,
 			Call: call, To: fn, Wrap: wrap,
 			NilGuard: l.payloadNilGuard(call, e.Type()),
 		})
@@ -2292,8 +2286,8 @@ func (l *lowerer) escapeStepPayload(s *seq, e *check.Binary, step core.Expr) cor
 	} else {
 		stepAtom := l.asAtom(s, e.Y.Span(), step)
 		payload = l.asAtom(s, e.Y.Span(), &core.EscapeResult{
-			Base: core.Base{Sp: e.Y.Span(), Typ: l.payloadOf(stepAtom.Type())},
-			X:    stepAtom, To: fn, Wrap: wrap,
+			Sp: e.Y.Span(), Typ: l.payloadOf(stepAtom.Type()),
+			X: stepAtom, To: fn, Wrap: wrap,
 		})
 	}
 	return payload
@@ -2559,7 +2553,7 @@ func (l *lowerer) ascribe(s *seq, e *check.Ascribe) core.Expr {
 			// A Go interface supplies no concrete numeric context: an untyped
 			// literal would otherwise acquire Go's default dynamic type (int).
 			// Materialize the oracle-validated Gom type before interface boxing.
-			x = l.asAtom(s, e.Sp, &core.Conv{Base: core.Base{Sp: e.Sp, Typ: x.Type()}, Kind: core.ConvNum, X: x})
+			x = l.asAtom(s, e.Sp, &core.Conv{Sp: e.Sp, Typ: x.Type(), Kind: core.ConvNum, X: x})
 		}
 	}
 	if e.Slice {
@@ -2657,14 +2651,14 @@ func (l *lowerer) strInterp(s *seq, e *check.StrInterp) core.Expr {
 		switch p := p.(type) {
 		case *check.StrText:
 			parts = append(parts, &core.Lit{
-				Base: core.Base{Sp: p.Sp, Typ: types.String},
+				Sp: p.Sp, Typ: types.String,
 				Kind: syntax.LitStr, Text: `"` + p.Text + `"`,
 			})
 		case *check.StrExpr:
 			x := l.atom(s, p.X)
 			d := l.asAtom(s, p.Sp, &core.CallBuiltin{
-				Base: core.Base{Sp: p.Sp, Typ: types.String},
-				Sym:  l.builtinSym("display"), Args: []core.Atom{x},
+				Sp: p.Sp, Typ: types.String,
+				Sym: l.builtinSym("display"), Args: []core.Atom{x},
 			})
 			parts = append(parts, d)
 		default:
@@ -2672,8 +2666,8 @@ func (l *lowerer) strInterp(s *seq, e *check.StrInterp) core.Expr {
 		}
 	}
 	return &core.CallBuiltin{
-		Base: core.Base{Sp: e.Sp, Typ: types.String},
-		Sym:  l.builtinSym("str_concat"), Args: parts,
+		Sp: e.Sp, Typ: types.String,
+		Sym: l.builtinSym("str_concat"), Args: parts,
 	}
 }
 
@@ -2726,7 +2720,7 @@ func (l *lowerer) lambdaExpr(e *check.Lambda) core.Expr {
 		if i == 0 {
 			typ = e.Type()
 		}
-		return &core.Closure{Base: core.Base{Sp: e.Sp, Typ: typ}, Fn: fn}
+		return &core.Closure{Sp: e.Sp, Typ: typ, Fn: fn}
 	}
 	return level(0)
 }

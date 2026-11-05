@@ -1,6 +1,7 @@
 package format
 
 import (
+	"slices"
 	"strings"
 	"unicode/utf8"
 )
@@ -159,7 +160,7 @@ func layout(width, ind int, d *doc) string {
 	stack := []frame{{ind: ind, mode: mBreak, d: d}}
 	newline := func(n int) {
 		b.WriteByte('\n')
-		for i := 0; i < n; i++ {
+		for range n {
 			b.WriteByte(' ')
 		}
 		col = n
@@ -173,8 +174,8 @@ func layout(width, ind int, d *doc) string {
 			b.WriteString(c.d.text)
 			col += utf8.RuneCountInString(c.d.text)
 		case dConcat:
-			for i := len(c.d.kids) - 1; i >= 0; i-- {
-				stack = append(stack, frame{c.ind, c.mode, c.d.kids[i]})
+			for _, v := range slices.Backward(c.d.kids) {
+				stack = append(stack, frame{c.ind, c.mode, v})
 			}
 		case dNest:
 			stack = append(stack, frame{c.ind + c.d.ind, c.mode, c.d.d})
@@ -222,8 +223,8 @@ func fits(w, base int, cmds []frame) bool {
 		case dText:
 			w -= utf8.RuneCountInString(c.d.text)
 		case dConcat:
-			for i := len(c.d.kids) - 1; i >= 0; i-- {
-				cmds = append(cmds, frame{c.ind, c.mode, c.d.kids[i]})
+			for _, v := range slices.Backward(c.d.kids) {
+				cmds = append(cmds, frame{c.ind, c.mode, v})
 			}
 		case dNest:
 			cmds = append(cmds, frame{c.ind + c.d.ind, c.mode, c.d.d})

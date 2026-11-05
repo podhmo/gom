@@ -73,7 +73,7 @@ func checkMap(t *testing.T, name string, gomSrc, gen []byte, sm *diag.SourceMap)
 		t.Fatal("Output.SourceMap is not set")
 	}
 	directives := 0
-	for _, l := range strings.Split(string(gen), "\n") {
+	for l := range strings.SplitSeq(string(gen), "\n") {
 		if strings.HasPrefix(l, "//line ") {
 			directives++
 		}

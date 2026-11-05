@@ -67,7 +67,7 @@ func (l *lowerer) snapshotCapturedParams(fn *core.Func) {
 		copies = append(copies, &core.Let{
 			Sp:   p.Sp,
 			Name: &core.Bind{Sp: p.Sp, Sym: fresh, Typ: p.Typ},
-			X:    &core.Var{Base: core.Base{Sp: p.Sp, Typ: p.Typ}, Sym: p.Sym},
+			X:    &core.Var{Sp: p.Sp, Typ: p.Typ, Sym: p.Sym},
 		})
 	}
 	eachVar(fn.Body, func(v *core.Var, _ bool) {

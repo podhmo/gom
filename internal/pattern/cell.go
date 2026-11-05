@@ -2,6 +2,7 @@ package pattern
 
 import (
 	"math/big"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -288,8 +289,8 @@ func (c conv) listAlts(p *check.ListPat) []*cell {
 	if p.Rest != nil {
 		tails = c.alts(p.Rest)
 	}
-	for i := len(p.Elems) - 1; i >= 0; i-- {
-		heads := c.alts(p.Elems[i])
+	for _, v := range slices.Backward(p.Elems) {
+		heads := c.alts(v)
 		var next []*cell
 		for _, h := range heads {
 			for _, tl := range tails {

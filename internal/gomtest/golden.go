@@ -105,10 +105,7 @@ func simpleDiff(want, got string) string {
 	fmt.Fprintf(&b, "--- expected\n+++ actual\n@@ lines %d-%d of %d / %d-%d of %d @@\n",
 		pre+1, len(wl)-suf, len(wl), pre+1, len(gl)-suf, len(gl))
 
-	lead := pre - context
-	if lead < 0 {
-		lead = 0
-	}
+	lead := max(pre-context, 0)
 	if lead > 0 {
 		fmt.Fprintf(&b, " ...\n")
 	}

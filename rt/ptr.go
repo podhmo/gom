@@ -22,7 +22,9 @@ func PtrNew[T any]() *T { return new(T) }
 
 // PtrMake returns a pointer to a fresh copy of v — `Ptr.make v`.
 // Mutating through the result never reaches v.
-func PtrMake[T any](v T) *T { return &v }
+//
+//go:fix inline
+func PtrMake[T any](v T) *T { return new(v) }
 
 // PtrNil returns the nil pointer — `Ptr.nil ()`, for Go calls whose
 // optional *T parameter takes nil (tls.Dial's *tls.Config).

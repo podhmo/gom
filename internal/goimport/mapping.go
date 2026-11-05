@@ -51,7 +51,7 @@ func (l *Loader) mapSignature(sig *types.Signature) (check.Signature, lower.GoSi
 		defer func() { l.tps = nil }()
 		tvars = make([]*gt.Var, n)
 		gcons = make([]check.GoConstraint, n)
-		for i := 0; i < n; i++ {
+		for i := range n {
 			tp := sig.TypeParams().At(i)
 			k, reason := callableConstraint(tp.Constraint())
 			if reason != "" {
@@ -70,18 +70,18 @@ func (l *Loader) mapSignature(sig *types.Signature) (check.Signature, lower.GoSi
 	params := sig.Params()
 	ps := make([]gt.FuncParam, 0, params.Len())
 	rawP := make([]gt.Type, 0, params.Len())
-	for i := 0; i < params.Len(); i++ {
-		pt := params.At(i).Type()
+	for v := range params.Variables() {
+		pt := v.Type()
 		mt, reason := l.mapBoundaryType(pt, false)
 		if reason != "" {
-			return check.Signature{}, lower.GoSig{}, hiddenSym{reason: fmt.Sprintf("parameter %s: %s", params.At(i).Name(), reason)}
+			return check.Signature{}, lower.GoSig{}, hiddenSym{reason: fmt.Sprintf("parameter %s: %s", v.Name(), reason)}
 		}
 		rt, reason := l.mapType(pt, true)
 		if reason != "" {
-			return check.Signature{}, lower.GoSig{}, hiddenSym{reason: fmt.Sprintf("parameter %s: %s", params.At(i).Name(), reason)}
+			return check.Signature{}, lower.GoSig{}, hiddenSym{reason: fmt.Sprintf("parameter %s: %s", v.Name(), reason)}
 		}
 		if !viewsCompatible(mt, rt) {
-			return check.Signature{}, lower.GoSig{}, hiddenSym{reason: fmt.Sprintf("parameter %s: %s", params.At(i).Name(), divergentReason(pt))}
+			return check.Signature{}, lower.GoSig{}, hiddenSym{reason: fmt.Sprintf("parameter %s: %s", v.Name(), divergentReason(pt))}
 		}
 		ps = append(ps, gt.P(mt))
 		rawP = append(rawP, rt)

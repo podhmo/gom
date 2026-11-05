@@ -63,11 +63,11 @@ func TestShowDeclInTestHalf(t *testing.T) {
 			Sig: types.Fn(types.Unit),
 			Body: &core.Body{
 				Lets: []*core.Let{{Sp: lsp(5), Name: xB, X: &core.TupleNew{
-					Base:  core.Base{Sp: lsp(5), Typ: tup},
-					Elems: []core.Atom{intLit("1"), &core.Lit{Base: core.Base{Sp: lsp(5), Typ: types.String}, Kind: syntax.LitStr, Text: `"a"`}},
+					Sp: lsp(5), Typ: tup,
+					Elems: []core.Atom{intLit("1"), &core.Lit{Sp: lsp(5), Typ: types.String, Kind: syntax.LitStr, Text: `"a"`}},
 				}}},
 				Tail: &core.CallBuiltin{
-					Base: core.Base{Sp: lsp(6), Typ: types.Unit},
+					Sp: lsp(6), Typ: types.Unit,
 					Sym:  bsym("assert_eq"),
 					Args: []core.Atom{vref(xS, tup), vref(xS, tup)},
 					Eq:   &core.EqPlan{Kind: core.EqNative},

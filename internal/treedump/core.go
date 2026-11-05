@@ -2,6 +2,7 @@ package treedump
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/podhmo/gom/internal/core"
@@ -73,9 +74,9 @@ func (d *cdump) toLabel(to *core.Func) string {
 	if to == nil {
 		return "?"
 	}
-	for i := len(d.fns) - 1; i >= 0; i-- {
-		if d.fns[i].fn == to {
-			return d.fns[i].label
+	for _, v := range slices.Backward(d.fns) {
+		if v.fn == to {
+			return v.label
 		}
 	}
 	return "fn" + at(to.Sp)

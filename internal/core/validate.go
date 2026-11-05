@@ -2,6 +2,8 @@ package core
 
 import (
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/podhmo/gom/internal/diag"
@@ -162,8 +164,8 @@ func (v *validator) bind(b *Bind, what string) {
 }
 
 func (v *validator) inScope(sym *resolve.Symbol) bool {
-	for i := len(v.scope) - 1; i >= 0; i-- {
-		if v.scope[i][sym] {
+	for _, v0 := range slices.Backward(v.scope) {
+		if v0[sym] {
 			return true
 		}
 	}
@@ -229,9 +231,7 @@ func (v *validator) file(f *File) {
 		for sym := range u.Vars {
 			v.top[sym] = true
 		}
-		for sym, n := range u.TParams {
-			v.tparams[sym] = n
-		}
+		maps.Copy(v.tparams, u.TParams)
 		for name := range u.Types {
 			v.localT[name] = true
 		}
@@ -531,16 +531,12 @@ func typeBodyVars(b TypeBody) map[int]*types.Var {
 	case *TSum:
 		for _, vr := range b.Variants {
 			for _, f := range vr.Fields {
-				for id, v := range types.FreeVars(f.Type) {
-					out[id] = v
-				}
+				maps.Copy(out, types.FreeVars(f.Type))
 			}
 		}
 	case *TRecord:
 		for _, f := range b.Fields {
-			for id, v := range types.FreeVars(f.Type) {
-				out[id] = v
-			}
+			maps.Copy(out, types.FreeVars(f.Type))
 		}
 	case *TAlias:
 		return types.FreeVars(b.Type)
@@ -1180,10 +1176,8 @@ func (v *validator) wrapCall(e Expr, c *CallGo, what string, want ...GoResults) 
 		return
 	}
 	v.callGo(c)
-	for _, w := range want {
-		if c.Results == w {
-			return
-		}
+	if slices.Contains(want, c.Results) {
+		return
 	}
 	v.err(c.Sp, what, "result shape %s not usable here", c.Results)
 }

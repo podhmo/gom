@@ -90,7 +90,7 @@ func invoke(args ...string) (int, string, string) {
 func jsonLines(t *testing.T, out string) []map[string]any {
 	t.Helper()
 	var lines []map[string]any
-	for _, l := range strings.Split(strings.TrimSpace(out), "\n") {
+	for l := range strings.SplitSeq(strings.TrimSpace(out), "\n") {
 		if l == "" {
 			continue
 		}

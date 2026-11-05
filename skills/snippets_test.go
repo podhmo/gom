@@ -68,7 +68,7 @@ func (s snippet) name() string { return fmt.Sprintf("%s:%d", s.mdFile, s.line) }
 // errors (wantErr) — optionally one with a specific code (wantCode)
 // — or the block is opted out of checking entirely (skip).
 func (s snippet) expectation() (wantErr bool, wantCode string, skip bool) {
-	for _, f := range strings.Fields(s.flags) {
+	for f := range strings.FieldsSeq(s.flags) {
 		switch {
 		case f == "skip":
 			skip = true
@@ -188,7 +188,6 @@ func TestSkillSnippets(t *testing.T) {
 	skillDir := "gom-agent-guide"
 	snippets := extractSnippets(t, skillDir)
 	for _, s := range snippets {
-		s := s
 		wantErr, wantCode, skip := s.expectation()
 		if skip {
 			continue

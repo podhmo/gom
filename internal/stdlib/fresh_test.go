@@ -129,7 +129,6 @@ func testCompileOptions(t *testing.T, root, relDir string) *build.Options {
 func TestStdlibGeneratedFilesAreFresh(t *testing.T) {
 	root := repoRoot(t)
 	for _, d := range stdlibDirs(t, root) {
-		d := d
 		t.Run(d.dir, func(t *testing.T) {
 			ins := make([]build.Input, len(d.inputs))
 			for i, rel := range d.inputs {

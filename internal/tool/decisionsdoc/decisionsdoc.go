@@ -95,7 +95,7 @@ func ParseDecision(name, src string) (Decision, error) {
 	d := Decision{Date: m[1], Slug: m[2], Filename: name}
 
 	var date string
-	for _, line := range strings.Split(src, "\n") {
+	for line := range strings.SplitSeq(src, "\n") {
 		if strings.HasPrefix(line, "## ") {
 			break // end of the frontmatter region
 		}

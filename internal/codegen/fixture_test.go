@@ -71,9 +71,9 @@ func buildFixture() *core.File {
 			Sig:    types.Fn(types.Float, types.P(shapeT)),
 			Params: []*core.Bind{sB},
 			Body: &core.Body{Tail: &core.Match{
-				Base: core.Base{Sp: tsp(), Typ: types.Float},
+				Sp: tsp(), Typ: types.Float,
 				Tree: &core.DSwitch{
-					Base: core.Base{Sp: tsp(), Typ: types.Float},
+					Sp: tsp(), Typ: types.Float,
 					Subj: vref(sS, shapeT),
 					Kind: core.SwitchType,
 					Cases: []core.DCase{
@@ -83,15 +83,15 @@ func buildFixture() *core.File {
 							Binds: []*core.Bind{cB},
 							Body: &core.Body{
 								Lets: []*core.Let{{Sp: tsp(), Name: rB, X: &core.FieldGet{
-									Base: core.Base{Sp: tsp(), Typ: types.Float},
+									Sp: tsp(), Typ: types.Float,
 									Recv: vref(cS, shapeT), Field: fdsym("radius"), Index: 0,
 								}}},
 								Tail: &core.Binary{
-									Base: core.Base{Sp: tsp(), Typ: types.Float},
-									Op:   syntax.BinMul,
-									X:    vref(rS, types.Float),
+									Sp: tsp(), Typ: types.Float,
+									Op: syntax.BinMul,
+									X:  vref(rS, types.Float),
 									Y: &core.Lit{
-										Base: core.Base{Sp: tsp(), Typ: types.Float},
+										Sp: tsp(), Typ: types.Float,
 										Kind: syntax.LitFloat, Text: "2.0",
 									},
 								},
@@ -101,13 +101,13 @@ func buildFixture() *core.File {
 							Sp:   tsp(),
 							Test: &core.DCtorTest{Sp: tsp(), Ctor: shapeEm},
 							Body: &core.Body{Tail: &core.Lit{
-								Base: core.Base{Sp: tsp(), Typ: types.Float},
+								Sp: tsp(), Typ: types.Float,
 								Kind: syntax.LitFloat, Text: "0.0",
 							}},
 						},
 					},
 					Default: &core.DPanic{
-						Base:     core.Base{Sp: tsp(), Typ: types.Float},
+						Sp: tsp(), Typ: types.Float,
 						Subj:     vref(sS, shapeT),
 						TypeName: "shapes.Shape",
 					},
@@ -129,8 +129,8 @@ func buildFixture() *core.File {
 				Sig:    fnIII,
 				Params: []*core.Bind{aB, bB},
 				Body: &core.Body{Tail: &core.Binary{
-					Base: core.Base{Sp: tsp(), Typ: types.Int},
-					Op:   syntax.BinAdd, X: vref(aS, types.Int), Y: vref(bS, types.Int),
+					Sp: tsp(), Typ: types.Int,
+					Op: syntax.BinAdd, X: vref(aS, types.Int), Y: vref(bS, types.Int),
 				}},
 			},
 		})
@@ -148,9 +148,9 @@ func buildFixture() *core.File {
 			Body: &core.Body{
 				Lets: []*core.Let{
 					{Sp: tsp(), Name: nB, X: &core.EscapeCall{
-						Base: core.Base{Sp: tsp(), Typ: types.Int},
+						Sp: tsp(), Typ: types.Int,
 						Call: &core.CallGo{
-							Base:    core.Base{Sp: tsp(), Typ: types.Int},
+							Sp: tsp(), Typ: types.Int,
 							Callee:  gsym("Atoi", "strconv"),
 							Args:    []core.Atom{vref(pS, types.String)},
 							Arity:   1,
@@ -159,7 +159,7 @@ func buildFixture() *core.File {
 						Wrap: "load",
 					}},
 					{Sp: tsp(), Name: rB, X: &core.CtorApp{
-						Base: core.Base{Sp: tsp(), Typ: resIG},
+						Sp: tsp(), Typ: resIG,
 						Ctor: okCtor, Args: []core.Atom{vref(nS, types.Int)}, Arity: 1,
 					}},
 				},
@@ -180,8 +180,8 @@ func buildFixture() *core.File {
 				Sig:    types.Fn(types.Int, types.P(fnII)),
 				Params: []*core.Bind{fB},
 				Body: &core.Body{Tail: &core.CallFunc{
-					Base: core.Base{Sp: tsp(), Typ: types.Int},
-					Fn:   vref(fS, fnII), Args: []core.Atom{intLit("2")},
+					Sp: tsp(), Typ: types.Int,
+					Fn: vref(fS, fnII), Args: []core.Atom{intLit("2")},
 				}},
 			},
 		})
@@ -201,13 +201,13 @@ func buildFixture() *core.File {
 
 		clB, clS := vbind("b", types.Int)
 		partial := &core.Closure{
-			Base: core.Base{Sp: tsp(), Typ: fnII},
+			Sp: tsp(), Typ: fnII,
 			Fn: &core.Func{
 				Sp:     tsp(),
 				Sig:    fnII,
 				Params: []*core.Bind{clB},
 				Body: &core.Body{Tail: &core.CallDirect{
-					Base:   core.Base{Sp: tsp(), Typ: types.Int},
+					Sp: tsp(), Typ: types.Int,
 					Callee: add2, Args: []core.Atom{intLit("1"), vref(clS, types.Int)}, Arity: 2,
 				}},
 			},
@@ -219,19 +219,19 @@ func buildFixture() *core.File {
 		adA, adAS := vbind("a", types.Int)
 		adB, adBS := vbind("b", types.Int)
 		adapter := &core.Closure{
-			Base: core.Base{Sp: tsp(), Typ: fnIII},
+			Sp: tsp(), Typ: fnIII,
 			Fn: &core.Func{
 				Sp:     tsp(),
 				Sig:    fnIII,
 				Params: []*core.Bind{adA},
 				Body: &core.Body{Tail: &core.Closure{
-					Base: core.Base{Sp: tsp(), Typ: fnII},
+					Sp: tsp(), Typ: fnII,
 					Fn: &core.Func{
 						Sp:     tsp(),
 						Sig:    fnII,
 						Params: []*core.Bind{adB},
 						Body: &core.Body{Tail: &core.CallDirect{
-							Base:   core.Base{Sp: tsp(), Typ: types.Int},
+							Sp: tsp(), Typ: types.Int,
 							Callee: add2, Args: []core.Atom{vref(adAS, types.Int), vref(adBS, types.Int)}, Arity: 2,
 						}},
 					},
@@ -250,19 +250,19 @@ func buildFixture() *core.File {
 					{Sp: tsp(), Name: pB, X: adapter},
 					{Sp: tsp(), Name: cB, X: partial},
 					{Sp: tsp(), Name: lB, X: &core.ListNew{
-						Base:  core.Base{Sp: tsp(), Typ: types.List(types.Int)},
+						Sp: tsp(), Typ: types.List(types.Int),
 						Elems: []core.Atom{intLit("1"), intLit("2")},
 					}},
 					{Sp: tsp(), Name: tB, X: &core.TupleNew{
-						Base:  core.Base{Sp: tsp(), Typ: types.Tup(types.Int, types.Int)},
+						Sp: tsp(), Typ: types.Tup(types.Int, types.Int),
 						Elems: []core.Atom{intLit("1"), intLit("2")},
 					}},
 					{Sp: tsp(), Name: iB, X: &core.CallFunc{
-						Base: core.Base{Sp: tsp(), Typ: types.Int},
-						Fn:   vref(cS, fnII), Args: []core.Atom{intLit("3")},
+						Sp: tsp(), Typ: types.Int,
+						Fn: vref(cS, fnII), Args: []core.Atom{intLit("3")},
 					}},
 					{Sp: tsp(), Name: jB, X: &core.SelectExpr{
-						Base: core.Base{Sp: tsp(), Typ: types.Int},
+						Sp: tsp(), Typ: types.Int,
 						Arms: []core.SelArm{
 							&core.SelRecv{
 								Sp:   tsp(),
@@ -275,17 +275,17 @@ func buildFixture() *core.File {
 					}},
 					{Sp: tsp(), Name: &core.Bind{Sp: tsp(), Typ: types.Unit, Discard: true},
 						X: &core.CallBuiltin{
-							Base: core.Base{Sp: tsp(), Typ: types.Unit},
-							Sym:  bsym("todo"), Args: []core.Atom{unitLit()},
+							Sp: tsp(), Typ: types.Unit,
+							Sym: bsym("todo"), Args: []core.Atom{unitLit()},
 						}},
 					{Sp: tsp(), Name: &core.Bind{Sp: tsp(), Typ: types.Unit, Discard: true},
 						X: &core.Spawn{
-							Base: core.Base{Sp: tsp(), Typ: types.Unit},
+							Sp: tsp(), Typ: types.Unit,
 							Body: &core.Body{Tail: unitLit()},
 						}},
 					{Sp: tsp(), Name: &core.Bind{Sp: tsp(), Typ: types.Unit, Discard: true},
 						X: &core.ForRange{
-							Base: core.Base{Sp: tsp(), Typ: types.Unit},
+							Sp: tsp(), Typ: types.Unit,
 							Kind: core.ForList,
 							Iter: vref(lS, types.List(types.Int)),
 							Elem: &core.Bind{Sp: tsp(), Typ: types.Int, Discard: true},
@@ -324,7 +324,7 @@ func buildFixture() *core.File {
 			Sp: tsp(), Sym: vsym("computed"),
 			Body: &core.Body{
 				Lets: []*core.Let{{Sp: tsp(), Name: nB, X: &core.CallDirect{
-					Base:   core.Base{Sp: tsp(), Typ: types.Int},
+					Sp: tsp(), Typ: types.Int,
 					Callee: add2, Args: []core.Atom{intLit("1"), intLit("2")},
 					Arity: 2,
 				}}},
@@ -382,9 +382,9 @@ func buildFixture() *core.File {
 				Sig:    types.Fn(types.Int, types.P(boxIntT)),
 				Params: []*core.Bind{bB},
 				Body: &core.Body{Tail: &core.Match{
-					Base: core.Base{Sp: tsp(), Typ: types.Int},
+					Sp: tsp(), Typ: types.Int,
 					Tree: &core.DSwitch{
-						Base: core.Base{Sp: tsp(), Typ: types.Int},
+						Sp: tsp(), Typ: types.Int,
 						Subj: vref(bS, boxIntT),
 						Kind: core.SwitchType,
 						Cases: []core.DCase{
@@ -393,7 +393,7 @@ func buildFixture() *core.File {
 								Test:  &core.DCtorTest{Sp: tsp(), Ctor: boxCt},
 								Binds: []*core.Bind{vB},
 								Body: &core.Body{Tail: &core.FieldGet{
-									Base:  core.Base{Sp: tsp(), Typ: types.Int},
+									Sp: tsp(), Typ: types.Int,
 									Recv:  vref(vS, boxIntT),
 									Field: fdsym("v"), Index: 0,
 								}},
@@ -405,7 +405,7 @@ func buildFixture() *core.File {
 							},
 						},
 						Default: &core.DPanic{
-							Base:     core.Base{Sp: tsp(), Typ: types.Int},
+							Sp: tsp(), Typ: types.Int,
 							Subj:     vref(bS, &types.Con{Name: "Box", Args: []types.Type{types.Int}}),
 							TypeName: "shapes.Box",
 						},
@@ -426,7 +426,7 @@ func buildFixture() *core.File {
 			Body: &core.Body{
 				Lets: []*core.Let{},
 				Tail: &core.CtorApp{
-					Base: core.Base{Sp: tsp(), Typ: resUE},
+					Sp: tsp(), Typ: resUE,
 					Ctor: okCtor, Args: []core.Atom{unitLit()}, Arity: 1,
 				},
 			},
@@ -435,20 +435,20 @@ func buildFixture() *core.File {
 		nB, _ := vbind("n", types.Int)
 		tf.Body.Lets = append(tf.Body.Lets,
 			&core.Let{Sp: tsp(), Name: rB, X: &core.ResultFromGo{
-				Base: core.Base{Sp: tsp(), Typ: resIG},
+				Sp: tsp(), Typ: resIG,
 				Call: &core.CallGo{
-					Base:   core.Base{Sp: tsp(), Typ: types.Int},
+					Sp: tsp(), Typ: types.Int,
 					Callee: gsym("Atoi", "strconv"),
 					Args: []core.Atom{&core.Lit{
-						Base: core.Base{Sp: tsp(), Typ: types.String},
+						Sp: tsp(), Typ: types.String,
 						Kind: syntax.LitStr, Text: `"7"`,
 					}},
 					Arity: 1, Results: core.GoResultsErr,
 				},
 			}},
 			&core.Let{Sp: tsp(), Name: nB, X: &core.EscapeResult{
-				Base: core.Base{Sp: tsp(), Typ: types.Int},
-				X:    vref(rS, resIG), To: tf,
+				Sp: tsp(), Typ: types.Int,
+				X: vref(rS, resIG), To: tf,
 			}},
 		)
 		f.Decls = append(f.Decls, &core.TestDecl{Sp: tsp(), Name: "result", NameSp: tsp(), Fn: tf})
@@ -490,9 +490,9 @@ func buildFixture() *core.File {
 				Sig:    types.Fn(types.Int, types.P(resIG)),
 				Params: []*core.Bind{rB},
 				Body: &core.Body{Tail: &core.Match{
-					Base: core.Base{Sp: tsp(), Typ: types.Int},
+					Sp: tsp(), Typ: types.Int,
 					Tree: &core.DSwitch{
-						Base: core.Base{Sp: tsp(), Typ: types.Int},
+						Sp: tsp(), Typ: types.Int,
 						Subj: vref(rS, resIG),
 						Kind: core.SwitchTag,
 						Cases: []core.DCase{
@@ -507,13 +507,13 @@ func buildFixture() *core.File {
 								Test:  &core.DCtorTest{Sp: tsp(), Ctor: errCtor},
 								Binds: []*core.Bind{{Sp: tsp(), Typ: types.GoError, Discard: true}},
 								Body: &core.Body{Tail: &core.Unary{
-									Base: core.Base{Sp: tsp(), Typ: types.Int},
-									Op:   syntax.UnNeg, X: intLit("1"),
+									Sp: tsp(), Typ: types.Int,
+									Op: syntax.UnNeg, X: intLit("1"),
 								}},
 							},
 						},
 						Default: &core.DPanic{
-							Base:     core.Base{Sp: tsp(), Typ: types.Int},
+							Sp: tsp(), Typ: types.Int,
 							Subj:     vref(rS, resIG),
 							TypeName: "Result",
 						},
@@ -536,13 +536,13 @@ func buildFixture() *core.File {
 				Params: []*core.Bind{nB},
 				Body: &core.Body{
 					Lets: []*core.Let{{Sp: tsp(), Name: gB, X: &core.Binary{
-						Base: core.Base{Sp: tsp(), Typ: types.Bool},
-						Op:   syntax.BinGt, X: vref(nS, types.Int), Y: intLit("0"),
+						Sp: tsp(), Typ: types.Bool,
+						Op: syntax.BinGt, X: vref(nS, types.Int), Y: intLit("0"),
 					}}},
 					Tail: &core.Match{
-						Base: core.Base{Sp: tsp(), Typ: types.Int},
+						Sp: tsp(), Typ: types.Int,
 						Tree: &core.DSwitch{
-							Base: core.Base{Sp: tsp(), Typ: types.Int},
+							Sp: tsp(), Typ: types.Int,
 							Subj: vref(nS, types.Int),
 							Kind: core.SwitchValue,
 							Cases: []core.DCase{{
@@ -551,17 +551,17 @@ func buildFixture() *core.File {
 								Body: &core.Body{Tail: intLit("0")},
 							}},
 							Default: &core.DGuard{
-								Base: core.Base{Sp: tsp(), Typ: types.Int},
+								Sp: tsp(), Typ: types.Int,
 								Cond: vref(gS, types.Bool),
 								Then: &core.DLeaf{
-									Base: core.Base{Sp: tsp(), Typ: types.Int},
+									Sp: tsp(), Typ: types.Int,
 									Body: &core.Body{Tail: intLit("1")},
 								},
 								Else: &core.DLeaf{
-									Base: core.Base{Sp: tsp(), Typ: types.Int},
+									Sp: tsp(), Typ: types.Int,
 									Body: &core.Body{Tail: &core.Unary{
-										Base: core.Base{Sp: tsp(), Typ: types.Int},
-										Op:   syntax.UnNeg, X: intLit("1"),
+										Sp: tsp(), Typ: types.Int,
+										Op: syntax.UnNeg, X: intLit("1"),
 									}},
 								},
 							},
@@ -585,9 +585,9 @@ func buildFixture() *core.File {
 				Sig:    types.Fn(types.Int, types.P(types.List(types.Int))),
 				Params: []*core.Bind{xsB},
 				Body: &core.Body{Tail: &core.Match{
-					Base: core.Base{Sp: tsp(), Typ: types.Int},
+					Sp: tsp(), Typ: types.Int,
 					Tree: &core.DSwitch{
-						Base: core.Base{Sp: tsp(), Typ: types.Int},
+						Sp: tsp(), Typ: types.Int,
 						Subj: vref(xsS, types.List(types.Int)),
 						Kind: core.SwitchList,
 						Cases: []core.DCase{
@@ -604,7 +604,7 @@ func buildFixture() *core.File {
 							},
 						},
 						Default: &core.DPanic{
-							Base:     core.Base{Sp: tsp(), Typ: types.Int},
+							Sp: tsp(), Typ: types.Int,
 							Subj:     vref(xsS, types.List(types.Int)),
 							TypeName: "List",
 						},
@@ -627,20 +627,20 @@ func buildFixture() *core.File {
 			Body: &core.Body{
 				Lets: []*core.Let{
 					{Sp: tsp(), Name: zB, X: &core.Binary{
-						Base: core.Base{Sp: tsp(), Typ: types.Bool},
-						Op:   syntax.BinEq, X: vref(nS, types.Int), Y: intLit("0"),
+						Sp: tsp(), Typ: types.Bool,
+						Op: syntax.BinEq, X: vref(nS, types.Int), Y: intLit("0"),
 					}},
 					{Sp: tsp(), Name: mB, X: &core.Binary{
-						Base: core.Base{Sp: tsp(), Typ: types.Int},
-						Op:   syntax.BinSub, X: vref(nS, types.Int), Y: intLit("1"),
+						Sp: tsp(), Typ: types.Int,
+						Op: syntax.BinSub, X: vref(nS, types.Int), Y: intLit("1"),
 					}},
 				},
 				Tail: &core.If{
-					Base: core.Base{Sp: tsp(), Typ: types.Int},
+					Sp: tsp(), Typ: types.Int,
 					Cond: vref(zS, types.Bool),
 					Then: &core.Body{Tail: intLit("0")},
 					Else: &core.Body{Tail: &core.TailCall{
-						Base: core.Base{Sp: tsp(), Typ: types.Int},
+						Sp: tsp(), Typ: types.Int,
 						Args: []core.Atom{vref(mS, types.Int)},
 					}},
 				},
@@ -667,45 +667,45 @@ func buildFixture() *core.File {
 			Body: &core.Body{
 				Lets: []*core.Let{
 					{Sp: tsp(), Name: resB, X: &core.ResultFromGo{
-						Base: core.Base{Sp: tsp(), Typ: resIG},
+						Sp: tsp(), Typ: resIG,
 						Call: &core.CallGo{
-							Base:   core.Base{Sp: tsp(), Typ: types.Int},
+							Sp: tsp(), Typ: types.Int,
 							Callee: gsym("Atoi", "strconv"),
 							Args: []core.Atom{&core.Lit{
-								Base: core.Base{Sp: tsp(), Typ: types.String},
+								Sp: tsp(), Typ: types.String,
 								Kind: syntax.LitStr, Text: `"1"`,
 							}},
 							Arity: 1, Results: core.GoResultsErr,
 						},
 					}},
 					{Sp: tsp(), Name: nB, X: &core.EscapeResult{
-						Base: core.Base{Sp: tsp(), Typ: types.Int},
-						X:    vref(resS, resIG),
+						Sp: tsp(), Typ: types.Int,
+						X: vref(resS, resIG),
 					}},
 					{Sp: tsp(), Name: i64B, X: &core.Conv{
-						Base: core.Base{Sp: tsp(), Typ: types.Int64},
+						Sp: tsp(), Typ: types.Int64,
 						Kind: core.ConvNum, X: vref(nS, types.Int),
 					}},
 					{Sp: tsp(), Name: optB, X: &core.OptionFromGo{
-						Base: core.Base{Sp: tsp(), Typ: types.Option(types.Int)},
+						Sp: tsp(), Typ: types.Option(types.Int),
 						Call: &core.CallGo{
-							Base:   core.Base{Sp: tsp(), Typ: types.Int},
+							Sp: tsp(), Typ: types.Int,
 							Callee: gsym("Get", "cache"),
 							Args:   []core.Atom{intLit("0")},
 							Arity:  1, Results: core.GoResultsOK,
 						},
 					}},
 					{Sp: tsp(), Name: tupB, X: &core.TupleFromGo{
-						Base: core.Base{Sp: tsp(), Typ: types.Tup(types.Int, types.Bool)},
+						Sp: tsp(), Typ: types.Tup(types.Int, types.Bool),
 						Call: &core.CallGo{
-							Base:   core.Base{Sp: tsp(), Typ: types.Tup(types.Int, types.Bool)},
+							Sp: tsp(), Typ: types.Tup(types.Int, types.Bool),
 							Callee: gsym("DivMod", "num"),
 							Args:   []core.Atom{intLit("0")},
 							Arity:  1, Results: core.GoResultsPair,
 						},
 					}},
 					{Sp: tsp(), Name: outB, X: &core.CtorApp{
-						Base: core.Base{Sp: tsp(), Typ: resIG},
+						Sp: tsp(), Typ: resIG,
 						Ctor: okCtor, Args: []core.Atom{vref(nS, types.Int)}, Arity: 1,
 					}},
 				},
@@ -728,14 +728,14 @@ func buildFixture() *core.File {
 				Sig:    fnIII,
 				Params: []*core.Bind{aB},
 				Body: &core.Body{Tail: &core.Closure{
-					Base: core.Base{Sp: tsp(), Typ: fnII},
+					Sp: tsp(), Typ: fnII,
 					Fn: &core.Func{
 						Sp:     tsp(),
 						Sig:    fnII,
 						Params: []*core.Bind{bB},
 						Body: &core.Body{Tail: &core.Binary{
-							Base: core.Base{Sp: tsp(), Typ: types.Int},
-							Op:   syntax.BinAdd, X: vref(aS, types.Int), Y: vref(bS, types.Int),
+							Sp: tsp(), Typ: types.Int,
+							Op: syntax.BinAdd, X: vref(aS, types.Int), Y: vref(bS, types.Int),
 						}},
 					},
 				}},
@@ -759,20 +759,20 @@ func buildFixture() *core.File {
 				Sig:    types.Fn(types.Int, types.P(types.Unit), types.P(types.Int), types.P(types.Int)),
 				Params: []*core.Bind{uB},
 				Body: &core.Body{Tail: &core.Closure{
-					Base: core.Base{Sp: tsp(), Typ: fnIII},
+					Sp: tsp(), Typ: fnIII,
 					Fn: &core.Func{
 						Sp:     tsp(),
 						Sig:    fnIII,
 						Params: []*core.Bind{xB},
 						Body: &core.Body{Tail: &core.Closure{
-							Base: core.Base{Sp: tsp(), Typ: fnII},
+							Sp: tsp(), Typ: fnII,
 							Fn: &core.Func{
 								Sp:     tsp(),
 								Sig:    fnII,
 								Params: []*core.Bind{yB},
 								Body: &core.Body{Tail: &core.Binary{
-									Base: core.Base{Sp: tsp(), Typ: types.Int},
-									Op:   syntax.BinAdd, X: vref(xS, types.Int), Y: vref(yS, types.Int),
+									Sp: tsp(), Typ: types.Int,
+									Op: syntax.BinAdd, X: vref(xS, types.Int), Y: vref(yS, types.Int),
 								}},
 							},
 						}},
@@ -795,11 +795,11 @@ func buildFixture() *core.File {
 			Params: []*core.Bind{guB},
 			Body: &core.Body{
 				Lets: []*core.Let{{Sp: tsp(), Name: nB, X: &core.EscapeResult{
-					Base: core.Base{Sp: tsp(), Typ: types.Int},
-					X:    vref(srcS, resIG),
+					Sp: tsp(), Typ: types.Int,
+					X: vref(srcS, resIG),
 				}}},
 				Tail: &core.CtorApp{
-					Base: core.Base{Sp: tsp(), Typ: resIG},
+					Sp: tsp(), Typ: resIG,
 					Ctor: okCtor, Args: []core.Atom{vref(nS, types.Int)}, Arity: 1,
 				},
 			},
@@ -813,20 +813,20 @@ func buildFixture() *core.File {
 				Sig:    types.Fn(types.Unit, types.P(types.Chan(types.Int)), types.P(resIG)),
 				Params: []*core.Bind{jB, srcB},
 				Body: &core.Body{Tail: &core.Spawn{
-					Base: core.Base{Sp: tsp(), Typ: types.Unit},
+					Sp: tsp(), Typ: types.Unit,
 					Body: &core.Body{
 						Lets: []*core.Let{
 							{Sp: tsp(), Name: gB, X: &core.Closure{
-								Base: core.Base{Sp: tsp(), Typ: types.Fn(resIG, types.P(types.Unit))},
-								Fn:   gfn,
+								Sp: tsp(), Typ: types.Fn(resIG, types.P(types.Unit)),
+								Fn: gfn,
 							}},
 							{Sp: tsp(), Name: &core.Bind{Sp: tsp(), Typ: resIG, Discard: true}, X: &core.CallFunc{
-								Base: core.Base{Sp: tsp(), Typ: resIG},
+								Sp: tsp(), Typ: resIG,
 								Fn:   vref(gS, types.Fn(resIG, types.P(types.Unit))),
 								Args: []core.Atom{unitLit()},
 							}},
 							{Sp: tsp(), Name: &core.Bind{Sp: tsp(), Typ: types.Unit, Discard: true}, X: &core.SelectExpr{
-								Base: core.Base{Sp: tsp(), Typ: types.Unit},
+								Sp: tsp(), Typ: types.Unit,
 								Arms: []core.SelArm{
 									&core.SelSend{
 										Sp:    tsp(),
@@ -838,7 +838,7 @@ func buildFixture() *core.File {
 								},
 							}},
 							{Sp: tsp(), Name: &core.Bind{Sp: tsp(), Typ: types.Unit, Discard: true}, X: &core.ForRange{
-								Base: core.Base{Sp: tsp(), Typ: types.Unit},
+								Sp: tsp(), Typ: types.Unit,
 								Kind: core.ForChan,
 								Iter: vref(jS, types.Chan(types.Int)),
 								Elem: &core.Bind{Sp: tsp(), Typ: types.Int, Discard: true},
@@ -872,31 +872,31 @@ func buildFixture() *core.File {
 				Body: &core.Body{
 					Lets: []*core.Let{
 						{Sp: tsp(), Name: cB, X: &core.CtorRef{
-							Base: core.Base{Sp: tsp(), Typ: types.Fn(shapeT, types.P(types.Float))},
-							Sym:  shapeCt,
+							Sp: tsp(), Typ: types.Fn(shapeT, types.P(types.Float)),
+							Sym: shapeCt,
 						}},
 						{Sp: tsp(), Name: itoaB, X: &core.GoFuncRef{
-							Base:  core.Base{Sp: tsp(), Typ: types.Fn(types.String, types.P(types.Int))},
+							Sp: tsp(), Typ: types.Fn(types.String, types.P(types.Int)),
 							Sym:   gsym("Itoa", "strconv"),
 							Arity: 1, Results: core.GoResultsOne,
 						}},
 						{Sp: tsp(), Name: pB, X: &core.RecordNew{
-							Base: core.Base{Sp: tsp(), Typ: pointT},
+							Sp: tsp(), Typ: pointT,
 							Fields: []core.FieldInit{
-								{Sp: tsp(), Sym: px, Index: 0, Value: &core.Lit{Base: core.Base{Sp: tsp(), Typ: types.Float}, Kind: syntax.LitFloat, Text: "1.0"}},
-								{Sp: tsp(), Sym: py, Index: 1, Value: &core.Lit{Base: core.Base{Sp: tsp(), Typ: types.Float}, Kind: syntax.LitFloat, Text: "2.0"}},
+								{Sp: tsp(), Sym: px, Index: 0, Value: &core.Lit{Sp: tsp(), Typ: types.Float, Kind: syntax.LitFloat, Text: "1.0"}},
+								{Sp: tsp(), Sym: py, Index: 1, Value: &core.Lit{Sp: tsp(), Typ: types.Float, Kind: syntax.LitFloat, Text: "2.0"}},
 							},
 						}},
 						{Sp: tsp(), Name: qB, X: &core.RecordUpdate{
-							Base: core.Base{Sp: tsp(), Typ: pointT},
-							Rec:  vref(pS, pointT),
+							Sp: tsp(), Typ: pointT,
+							Rec: vref(pS, pointT),
 							Fields: []core.FieldInit{
-								{Sp: tsp(), Sym: px, Index: 0, Value: &core.Lit{Base: core.Base{Sp: tsp(), Typ: types.Float}, Kind: syntax.LitFloat, Text: "3.0"}},
+								{Sp: tsp(), Sym: px, Index: 0, Value: &core.Lit{Sp: tsp(), Typ: types.Float, Kind: syntax.LitFloat, Text: "3.0"}},
 							},
 						}},
 					},
 					Tail: &core.FieldGet{
-						Base: core.Base{Sp: tsp(), Typ: types.Float},
+						Sp: tsp(), Typ: types.Float,
 						Recv: vref(qS, pointT), Field: px, Index: 0,
 					},
 				},
@@ -948,16 +948,16 @@ func buildFixture() *core.File {
 				Lets: []*core.Let{
 					{Sp: tsp(), Name: x1B, X: vref(dS, types.Int)},
 					{Sp: tsp(), Name: x2B, X: &core.Binary{
-						Base: core.Base{Sp: tsp(), Typ: types.Int},
-						Op:   syntax.BinAdd, X: vref(x1S, types.Int), Y: intLit("1"),
+						Sp: tsp(), Typ: types.Int,
+						Op: syntax.BinAdd, X: vref(x1S, types.Int), Y: intLit("1"),
 					}},
 					{Sp: tsp(), Name: nB, X: &core.If{
-						Base: core.Base{Sp: tsp(), Typ: types.Int},
+						Sp: tsp(), Typ: types.Int,
 						Cond: vref(cS, types.Bool),
 						Then: &core.Body{Tail: &core.EscapeCall{
-							Base: core.Base{Sp: tsp(), Typ: types.Int},
+							Sp: tsp(), Typ: types.Int,
 							Call: &core.CallGo{
-								Base:    core.Base{Sp: tsp(), Typ: types.Int},
+								Sp: tsp(), Typ: types.Int,
 								Callee:  gsym("Atoi", "strconv"),
 								Args:    []core.Atom{vref(pS, types.String)},
 								Arity:   1,
@@ -967,13 +967,13 @@ func buildFixture() *core.File {
 						Else: &core.Body{Tail: vref(x2S, types.Int)},
 					}},
 					{Sp: tsp(), Name: fB, X: &core.CtorRef{
-						Base: core.Base{Sp: tsp(), Typ: okFn},
-						Sym:  okCtor,
+						Sp: tsp(), Typ: okFn,
+						Sym: okCtor,
 					}},
 				},
 				Tail: &core.CallFunc{
-					Base: core.Base{Sp: tsp(), Typ: resIG},
-					Fn:   vref(fS, okFn), Args: []core.Atom{vref(nS, types.Int)},
+					Sp: tsp(), Typ: resIG,
+					Fn: vref(fS, okFn), Args: []core.Atom{vref(nS, types.Int)},
 				},
 			},
 		}
@@ -988,7 +988,7 @@ func buildFixture() *core.File {
 // lines of 100 bytes so a span offset n*10 lands roughly on line n.
 func fixtureSrc() []byte {
 	var b []byte
-	for i := 0; i < 60; i++ {
+	for i := range 60 {
 		b = append(b, []byte(fmt.Sprintf("// source line %03d %s\n", i,
 			"..........................................................................."))...)
 	}

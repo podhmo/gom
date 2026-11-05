@@ -765,7 +765,7 @@ func TestE0301WireShape(t *testing.T) {
 	env := NewEnv([]check.Decl{exprDecl()})
 	m := &check.Match{
 		Base: base(types.Int),
-		Subj: &check.Var{Base: check.Base{Sp: diag.SpanIn("E0301_nonexhaustive_match.gom", 149, 154), Typ: expr},
+		Subj: &check.Var{Sp: diag.SpanIn("E0301_nonexhaustive_match.gom", 149, 154), Typ: expr,
 			Sym: &resolve.Symbol{Name: "e", Kind: resolve.KindVar}},
 	}
 	m.Typ = types.Int

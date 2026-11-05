@@ -428,7 +428,7 @@ func (l *lexer) scanEscape() {
 			}
 			return
 		}
-		for i := 0; i < 4; i++ {
+		for range 4 {
 			if l.pos >= len(l.src) || !isHexDigit(l.src[l.pos]) {
 				l.err(start, l.pos, "E0104", "invalid escape sequence")
 				return

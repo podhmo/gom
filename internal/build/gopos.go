@@ -80,10 +80,9 @@ func (x *GoPosIndex) Resolve(file string, line, col int) (diag.Span, bool) {
 	}
 	li := x.index(path)
 	ls, le := li.LineBounds(line)
-	off := ls + col - 1
-	if off < ls {
-		off = ls // a line with no column resolves to the line head
-	}
+	off := max(ls+col-1,
+		// a line with no column resolves to the line head
+		ls)
 	if off > le {
 		off = le
 	}
@@ -252,7 +251,7 @@ func ParseGoErrorLine(line string) (file string, lineno, col int, msg string, ok
 func GoToolDiagnostics(lines []string, tool string, idx *GoPosIndex) []diag.Diagnostic {
 	var out []diag.Diagnostic
 	for _, chunk := range lines {
-		for _, line := range strings.Split(strings.TrimRight(chunk, "\n"), "\n") {
+		for line := range strings.SplitSeq(strings.TrimRight(chunk, "\n"), "\n") {
 			if line == "" || strings.HasPrefix(line, "# ") {
 				continue // "# pkg [pkg.test]" headers name the package
 			}

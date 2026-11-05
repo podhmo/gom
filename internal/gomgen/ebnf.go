@@ -304,10 +304,7 @@ func (g *Grammar) computeMinDepth() {
 	for i := 0; i < len(g.order)+8; i++ {
 		changed := false
 		for _, name := range g.order {
-			d := g.needCtx(g.rules[name], true)
-			if d > depthInfinite {
-				d = depthInfinite
-			}
+			d := min(g.needCtx(g.rules[name], true), depthInfinite)
 			if d != g.minDepth[name] {
 				g.minDepth[name] = d
 				changed = true

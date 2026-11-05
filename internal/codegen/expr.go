@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"go/ast"
 	"go/token"
+	"slices"
 
 	"github.com/podhmo/gom/internal/core"
 	"github.com/podhmo/gom/internal/resolve"
@@ -185,7 +186,7 @@ func (g *gen) ctorRef(a *core.CtorRef) ast.Expr {
 	// so a constructor reference has the same Go shape as every
 	// other function value of its type.
 	var x ast.Expr = lit
-	for i := len(fn.Params) - 1; i >= 0; i-- {
+	for i := range slices.Backward(fn.Params) {
 		resTyp := ast.Expr(g.goType(fn.Ret))
 		if i+1 < len(fn.Params) {
 			resTyp = g.goType(&types.Func{Params: fn.Params[i+1:], Ret: fn.Ret})

@@ -53,15 +53,15 @@ func vbind(name string, t types.Type) (*Bind, *resolve.Symbol) {
 }
 
 func vref(s *resolve.Symbol, t types.Type) *Var {
-	return &Var{Base: Base{Sp: sp(), Typ: t}, Sym: s}
+	return &Var{Sp: sp(), Typ: t, Sym: s}
 }
 
 func intLit(text string) *Lit {
-	return &Lit{Base: Base{Sp: sp(), Typ: types.Int}, Kind: syntax.LitInt, Text: text}
+	return &Lit{Sp: sp(), Typ: types.Int, Kind: syntax.LitInt, Text: text}
 }
 
 func unitLit() *Lit {
-	return &Lit{Base: Base{Sp: sp(), Typ: types.Unit}, Kind: syntax.LitUnit, Text: "()"}
+	return &Lit{Sp: sp(), Typ: types.Unit, Kind: syntax.LitUnit, Text: "()"}
 }
 
 var (
@@ -135,9 +135,9 @@ func buildOKFile() *File {
 			Sig:    types.Fn(types.Float, types.P(shapeT)),
 			Params: []*Bind{sB},
 			Body: &Body{Tail: &Match{
-				Base: Base{Sp: sp(), Typ: types.Float},
+				Sp: sp(), Typ: types.Float,
 				Tree: &DSwitch{
-					Base: Base{Sp: sp(), Typ: types.Float},
+					Sp: sp(), Typ: types.Float,
 					Subj: vref(sS, shapeT),
 					Kind: SwitchType,
 					Cases: []DCase{
@@ -148,15 +148,15 @@ func buildOKFile() *File {
 							Body: &Body{
 								Lets: []*Let{
 									{Sp: sp(), Name: rB, X: &FieldGet{
-										Base: Base{Sp: sp(), Typ: types.Float},
+										Sp: sp(), Typ: types.Float,
 										Recv: vref(cS, shapeT), Field: fdsym("radius"), Index: 0,
 									}},
 								},
 								Tail: &Binary{
-									Base: Base{Sp: sp(), Typ: types.Float},
-									Op:   syntax.BinMul,
-									X:    vref(rS, types.Float),
-									Y:    &Lit{Base: Base{Sp: sp(), Typ: types.Float}, Kind: syntax.LitFloat, Text: "2.0"},
+									Sp: sp(), Typ: types.Float,
+									Op: syntax.BinMul,
+									X:  vref(rS, types.Float),
+									Y:  &Lit{Sp: sp(), Typ: types.Float, Kind: syntax.LitFloat, Text: "2.0"},
 								},
 							},
 						},
@@ -164,12 +164,12 @@ func buildOKFile() *File {
 							Sp:   sp(),
 							Test: &DCtorTest{Sp: sp(), Ctor: shapeEm},
 							Body: &Body{Tail: &Lit{
-								Base: Base{Sp: sp(), Typ: types.Float}, Kind: syntax.LitFloat, Text: "0.0",
+								Sp: sp(), Typ: types.Float, Kind: syntax.LitFloat, Text: "0.0",
 							}},
 						},
 					},
 					Default: &DPanic{
-						Base:     Base{Sp: sp(), Typ: types.Float},
+						Sp: sp(), Typ: types.Float,
 						Subj:     vref(sS, shapeT),
 						TypeName: "shapes.Shape",
 					},
@@ -193,8 +193,8 @@ func buildOKFile() *File {
 				Sig:    types.Fn(types.Int, types.P(types.Int), types.P(types.Int)),
 				Params: []*Bind{aB, bB},
 				Body: &Body{Tail: &Binary{
-					Base: Base{Sp: sp(), Typ: types.Int},
-					Op:   syntax.BinAdd, X: vref(aS, types.Int), Y: vref(bS, types.Int),
+					Sp: sp(), Typ: types.Int,
+					Op: syntax.BinAdd, X: vref(aS, types.Int), Y: vref(bS, types.Int),
 				}},
 			},
 		})
@@ -212,9 +212,9 @@ func buildOKFile() *File {
 			Body: &Body{
 				Lets: []*Let{
 					{Sp: sp(), Name: nB, X: &EscapeCall{
-						Base: Base{Sp: sp(), Typ: types.Int},
+						Sp: sp(), Typ: types.Int,
 						Call: &CallGo{
-							Base:    Base{Sp: sp(), Typ: types.Int},
+							Sp: sp(), Typ: types.Int,
 							Callee:  gsym("Atoi", "strconv"),
 							Args:    []Atom{vref(pS, types.String)},
 							Arity:   1,
@@ -223,7 +223,7 @@ func buildOKFile() *File {
 						To: nil, // set below
 					}},
 					{Sp: sp(), Name: rB, X: &CtorApp{
-						Base: Base{Sp: sp(), Typ: resIG},
+						Sp: sp(), Typ: resIG,
 						Ctor: okCtor, Args: []Atom{vref(nS, types.Int)}, Arity: 1,
 					}},
 				},
@@ -246,7 +246,7 @@ func buildOKFile() *File {
 				Sig:    types.Fn(types.Int, types.P(fnII)),
 				Params: []*Bind{fB},
 				Body: &Body{Tail: &CallFunc{
-					Base: Base{Sp: sp(), Typ: types.Int},
+					Sp: sp(), Typ: types.Int,
 					Fn:   vref(fS, fnII),
 					Args: []Atom{intLit("2")},
 				}},
@@ -272,13 +272,13 @@ func buildOKFile() *File {
 		// Closure whose body is the saturated CallDirect.
 		clB, clS := vbind("b", types.Int)
 		partial := &Closure{
-			Base: Base{Sp: sp(), Typ: fnII},
+			Sp: sp(), Typ: fnII,
 			Fn: &Func{
 				Sp:     sp(),
 				Sig:    fnII,
 				Params: []*Bind{clB},
 				Body: &Body{Tail: &CallDirect{
-					Base:   Base{Sp: sp(), Typ: types.Int},
+					Sp: sp(), Typ: types.Int,
 					Callee: add2, Args: []Atom{intLit("1"), vref(clS, types.Int)}, Arity: 2,
 				}},
 			},
@@ -290,19 +290,19 @@ func buildOKFile() *File {
 		adA, adAS := vbind("a", types.Int)
 		adB, adBS := vbind("b", types.Int)
 		adapter := &Closure{
-			Base: Base{Sp: sp(), Typ: fnIII},
+			Sp: sp(), Typ: fnIII,
 			Fn: &Func{
 				Sp:     sp(),
 				Sig:    fnIII,
 				Params: []*Bind{adA},
 				Body: &Body{Tail: &Closure{
-					Base: Base{Sp: sp(), Typ: fnII},
+					Sp: sp(), Typ: fnII,
 					Fn: &Func{
 						Sp:     sp(),
 						Sig:    fnII,
 						Params: []*Bind{adB},
 						Body: &Body{Tail: &CallDirect{
-							Base:   Base{Sp: sp(), Typ: types.Int},
+							Sp: sp(), Typ: types.Int,
 							Callee: add2, Args: []Atom{vref(adAS, types.Int), vref(adBS, types.Int)}, Arity: 2,
 						}},
 					},
@@ -321,19 +321,19 @@ func buildOKFile() *File {
 					{Sp: sp(), Name: pB, X: adapter},
 					{Sp: sp(), Name: cB, X: partial},
 					{Sp: sp(), Name: lB, X: &ListNew{
-						Base:  Base{Sp: sp(), Typ: types.List(types.Int)},
+						Sp: sp(), Typ: types.List(types.Int),
 						Elems: []Atom{intLit("1"), intLit("2")},
 					}},
 					{Sp: sp(), Name: tB, X: &TupleNew{
-						Base:  Base{Sp: sp(), Typ: types.Tup(types.Int, types.Int)},
+						Sp: sp(), Typ: types.Tup(types.Int, types.Int),
 						Elems: []Atom{intLit("1"), intLit("2")},
 					}},
 					{Sp: sp(), Name: iB, X: &CallFunc{
-						Base: Base{Sp: sp(), Typ: types.Int},
-						Fn:   vref(cS, fnII), Args: []Atom{intLit("3")},
+						Sp: sp(), Typ: types.Int,
+						Fn: vref(cS, fnII), Args: []Atom{intLit("3")},
 					}},
 					{Sp: sp(), Name: jB, X: &SelectExpr{
-						Base: Base{Sp: sp(), Typ: types.Int},
+						Sp: sp(), Typ: types.Int,
 						Arms: []SelArm{
 							&SelRecv{
 								Sp:   sp(),
@@ -346,17 +346,17 @@ func buildOKFile() *File {
 					}},
 					{Sp: sp(), Name: &Bind{Sp: sp(), Typ: types.Unit, Discard: true},
 						X: &CallBuiltin{
-							Base: Base{Sp: sp(), Typ: types.Unit},
-							Sym:  bsym(), Args: []Atom{unitLit()},
+							Sp: sp(), Typ: types.Unit,
+							Sym: bsym(), Args: []Atom{unitLit()},
 						}},
 					{Sp: sp(), Name: &Bind{Sp: sp(), Typ: types.Unit, Discard: true},
 						X: &Spawn{
-							Base: Base{Sp: sp(), Typ: types.Unit},
+							Sp: sp(), Typ: types.Unit,
 							Body: &Body{Tail: unitLit()},
 						}},
 					{Sp: sp(), Name: &Bind{Sp: sp(), Typ: types.Unit, Discard: true},
 						X: &ForRange{
-							Base: Base{Sp: sp(), Typ: types.Unit},
+							Sp: sp(), Typ: types.Unit,
 							Kind: ForList,
 							Iter: vref(lS, types.List(types.Int)),
 							Elem: &Bind{Sp: sp(), Typ: types.Int, Discard: true},
@@ -424,9 +424,9 @@ func buildOKFile() *File {
 				Sig:    types.Fn(types.Int, types.P(resIG)),
 				Params: []*Bind{rB},
 				Body: &Body{Tail: &Match{
-					Base: Base{Sp: sp(), Typ: types.Int},
+					Sp: sp(), Typ: types.Int,
 					Tree: &DSwitch{
-						Base: Base{Sp: sp(), Typ: types.Int},
+						Sp: sp(), Typ: types.Int,
 						Subj: vref(rS, resIG),
 						Kind: SwitchTag,
 						Cases: []DCase{
@@ -441,13 +441,13 @@ func buildOKFile() *File {
 								Test:  &DCtorTest{Sp: sp(), Ctor: errCtor},
 								Binds: []*Bind{{Sp: sp(), Typ: types.GoError, Discard: true}},
 								Body: &Body{Tail: &Unary{
-									Base: Base{Sp: sp(), Typ: types.Int},
-									Op:   syntax.UnNeg, X: intLit("1"),
+									Sp: sp(), Typ: types.Int,
+									Op: syntax.UnNeg, X: intLit("1"),
 								}},
 							},
 						},
 						Default: &DPanic{
-							Base:     Base{Sp: sp(), Typ: types.Int},
+							Sp: sp(), Typ: types.Int,
 							Subj:     vref(rS, resIG),
 							TypeName: "Result",
 						},
@@ -472,13 +472,13 @@ func buildOKFile() *File {
 				Params: []*Bind{nB},
 				Body: &Body{
 					Lets: []*Let{{Sp: sp(), Name: gB, X: &Binary{
-						Base: Base{Sp: sp(), Typ: types.Bool},
-						Op:   syntax.BinGt, X: vref(nS, types.Int), Y: intLit("0"),
+						Sp: sp(), Typ: types.Bool,
+						Op: syntax.BinGt, X: vref(nS, types.Int), Y: intLit("0"),
 					}}},
 					Tail: &Match{
-						Base: Base{Sp: sp(), Typ: types.Int},
+						Sp: sp(), Typ: types.Int,
 						Tree: &DSwitch{
-							Base: Base{Sp: sp(), Typ: types.Int},
+							Sp: sp(), Typ: types.Int,
 							Subj: vref(nS, types.Int),
 							Kind: SwitchValue,
 							Cases: []DCase{{
@@ -487,17 +487,17 @@ func buildOKFile() *File {
 								Body: &Body{Tail: intLit("0")},
 							}},
 							Default: &DGuard{
-								Base: Base{Sp: sp(), Typ: types.Int},
+								Sp: sp(), Typ: types.Int,
 								Cond: vref(gS, types.Bool),
 								Then: &DLeaf{
-									Base: Base{Sp: sp(), Typ: types.Int},
+									Sp: sp(), Typ: types.Int,
 									Body: &Body{Tail: intLit("1")},
 								},
 								Else: &DLeaf{
-									Base: Base{Sp: sp(), Typ: types.Int},
+									Sp: sp(), Typ: types.Int,
 									Body: &Body{Tail: &Unary{
-										Base: Base{Sp: sp(), Typ: types.Int},
-										Op:   syntax.UnNeg, X: intLit("1"),
+										Sp: sp(), Typ: types.Int,
+										Op: syntax.UnNeg, X: intLit("1"),
 									}},
 								},
 							},
@@ -522,9 +522,9 @@ func buildOKFile() *File {
 				Sig:    types.Fn(types.Int, types.P(types.List(types.Int))),
 				Params: []*Bind{xsB},
 				Body: &Body{Tail: &Match{
-					Base: Base{Sp: sp(), Typ: types.Int},
+					Sp: sp(), Typ: types.Int,
 					Tree: &DSwitch{
-						Base: Base{Sp: sp(), Typ: types.Int},
+						Sp: sp(), Typ: types.Int,
 						Subj: vref(xsS, types.List(types.Int)),
 						Kind: SwitchList,
 						Cases: []DCase{
@@ -541,7 +541,7 @@ func buildOKFile() *File {
 							},
 						},
 						Default: &DPanic{
-							Base:     Base{Sp: sp(), Typ: types.Int},
+							Sp: sp(), Typ: types.Int,
 							Subj:     vref(xsS, types.List(types.Int)),
 							TypeName: "List",
 						},
@@ -566,20 +566,20 @@ func buildOKFile() *File {
 			Body: &Body{
 				Lets: []*Let{
 					{Sp: sp(), Name: zB, X: &Binary{
-						Base: Base{Sp: sp(), Typ: types.Bool},
-						Op:   syntax.BinEq, X: vref(nS, types.Int), Y: intLit("0"),
+						Sp: sp(), Typ: types.Bool,
+						Op: syntax.BinEq, X: vref(nS, types.Int), Y: intLit("0"),
 					}},
 					{Sp: sp(), Name: mB, X: &Binary{
-						Base: Base{Sp: sp(), Typ: types.Int},
-						Op:   syntax.BinSub, X: vref(nS, types.Int), Y: intLit("1"),
+						Sp: sp(), Typ: types.Int,
+						Op: syntax.BinSub, X: vref(nS, types.Int), Y: intLit("1"),
 					}},
 				},
 				Tail: &If{
-					Base: Base{Sp: sp(), Typ: types.Int},
+					Sp: sp(), Typ: types.Int,
 					Cond: vref(zS, types.Bool),
 					Then: &Body{Tail: intLit("0")},
 					Else: &Body{Tail: &TailCall{
-						Base: Base{Sp: sp(), Typ: types.Int},
+						Sp: sp(), Typ: types.Int,
 						Args: []Atom{vref(mS, types.Int)},
 					}},
 				},
@@ -610,42 +610,42 @@ func buildOKFile() *File {
 			Body: &Body{
 				Lets: []*Let{
 					{Sp: sp(), Name: resB, X: &ResultFromGo{
-						Base: Base{Sp: sp(), Typ: resIG},
+						Sp: sp(), Typ: resIG,
 						Call: &CallGo{
-							Base:   Base{Sp: sp(), Typ: types.Int},
+							Sp: sp(), Typ: types.Int,
 							Callee: gsym("Atoi", "strconv"),
-							Args:   []Atom{&Lit{Base: Base{Sp: sp(), Typ: types.String}, Kind: syntax.LitStr, Text: "\"1\""}},
+							Args:   []Atom{&Lit{Sp: sp(), Typ: types.String, Kind: syntax.LitStr, Text: "\"1\""}},
 							Arity:  1, Results: GoResultsErr,
 						},
 					}},
 					{Sp: sp(), Name: nB, X: &EscapeResult{
-						Base: Base{Sp: sp(), Typ: types.Int},
-						X:    vref(resS, resIG),
+						Sp: sp(), Typ: types.Int,
+						X: vref(resS, resIG),
 					}},
 					{Sp: sp(), Name: i64B, X: &Conv{
-						Base: Base{Sp: sp(), Typ: types.Int64},
+						Sp: sp(), Typ: types.Int64,
 						Kind: ConvNum, X: vref(nS, types.Int),
 					}},
 					{Sp: sp(), Name: optB, X: &OptionFromGo{
-						Base: Base{Sp: sp(), Typ: types.Option(types.Int)},
+						Sp: sp(), Typ: types.Option(types.Int),
 						Call: &CallGo{
-							Base:   Base{Sp: sp(), Typ: types.Int},
+							Sp: sp(), Typ: types.Int,
 							Callee: gsym("Get", "cache"),
 							Args:   []Atom{intLit("0")},
 							Arity:  1, Results: GoResultsOK,
 						},
 					}},
 					{Sp: sp(), Name: tupB, X: &TupleFromGo{
-						Base: Base{Sp: sp(), Typ: types.Tup(types.Int, types.Bool)},
+						Sp: sp(), Typ: types.Tup(types.Int, types.Bool),
 						Call: &CallGo{
-							Base:   Base{Sp: sp(), Typ: types.Tup(types.Int, types.Bool)},
+							Sp: sp(), Typ: types.Tup(types.Int, types.Bool),
 							Callee: gsym("DivMod", "num"),
 							Args:   []Atom{intLit("0")},
 							Arity:  1, Results: GoResultsPair,
 						},
 					}},
 					{Sp: sp(), Name: outB, X: &CtorApp{
-						Base: Base{Sp: sp(), Typ: resIG},
+						Sp: sp(), Typ: resIG,
 						Ctor: okCtor, Args: []Atom{vref(nS, types.Int)}, Arity: 1,
 					}},
 				},
@@ -670,14 +670,14 @@ func buildOKFile() *File {
 				Sig:    fnIII,
 				Params: []*Bind{aB},
 				Body: &Body{Tail: &Closure{
-					Base: Base{Sp: sp(), Typ: fnII},
+					Sp: sp(), Typ: fnII,
 					Fn: &Func{
 						Sp:     sp(),
 						Sig:    fnII,
 						Params: []*Bind{bB},
 						Body: &Body{Tail: &Binary{
-							Base: Base{Sp: sp(), Typ: types.Int},
-							Op:   syntax.BinAdd, X: vref(aS, types.Int), Y: vref(bS, types.Int),
+							Sp: sp(), Typ: types.Int,
+							Op: syntax.BinAdd, X: vref(aS, types.Int), Y: vref(bS, types.Int),
 						}},
 					},
 				}},
@@ -700,20 +700,20 @@ func buildOKFile() *File {
 				Sig:    types.Fn(types.Int, types.P(types.Unit), types.P(types.Int), types.P(types.Int)),
 				Params: []*Bind{uB},
 				Body: &Body{Tail: &Closure{
-					Base: Base{Sp: sp(), Typ: fnIII},
+					Sp: sp(), Typ: fnIII,
 					Fn: &Func{
 						Sp:     sp(),
 						Sig:    fnIII,
 						Params: []*Bind{xB},
 						Body: &Body{Tail: &Closure{
-							Base: Base{Sp: sp(), Typ: fnII},
+							Sp: sp(), Typ: fnII,
 							Fn: &Func{
 								Sp:     sp(),
 								Sig:    fnII,
 								Params: []*Bind{yB},
 								Body: &Body{Tail: &Binary{
-									Base: Base{Sp: sp(), Typ: types.Int},
-									Op:   syntax.BinAdd, X: vref(xS, types.Int), Y: vref(yS, types.Int),
+									Sp: sp(), Typ: types.Int,
+									Op: syntax.BinAdd, X: vref(xS, types.Int), Y: vref(yS, types.Int),
 								}},
 							},
 						}},
@@ -744,11 +744,11 @@ func buildOKFile() *File {
 			Params: []*Bind{guB},
 			Body: &Body{
 				Lets: []*Let{{Sp: sp(), Name: nB, X: &EscapeResult{
-					Base: Base{Sp: sp(), Typ: types.Int},
-					X:    vref(srcS, resIG),
+					Sp: sp(), Typ: types.Int,
+					X: vref(srcS, resIG),
 				}}},
 				Tail: &CtorApp{
-					Base: Base{Sp: sp(), Typ: resIG},
+					Sp: sp(), Typ: resIG,
 					Ctor: okCtor, Args: []Atom{vref(nS, types.Int)}, Arity: 1,
 				},
 			},
@@ -762,20 +762,20 @@ func buildOKFile() *File {
 				Sig:    types.Fn(types.Unit, types.P(types.Chan(types.Int)), types.P(resIG)),
 				Params: []*Bind{jB, srcB},
 				Body: &Body{Tail: &Spawn{
-					Base: Base{Sp: sp(), Typ: types.Unit},
+					Sp: sp(), Typ: types.Unit,
 					Body: &Body{
 						Lets: []*Let{
 							{Sp: sp(), Name: gB, X: &Closure{
-								Base: Base{Sp: sp(), Typ: types.Fn(resIG, types.P(types.Unit))},
-								Fn:   gfn,
+								Sp: sp(), Typ: types.Fn(resIG, types.P(types.Unit)),
+								Fn: gfn,
 							}},
 							{Sp: sp(), Name: &Bind{Sp: sp(), Typ: resIG, Discard: true}, X: &CallFunc{
-								Base: Base{Sp: sp(), Typ: resIG},
+								Sp: sp(), Typ: resIG,
 								Fn:   vref(gS, types.Fn(resIG, types.P(types.Unit))),
 								Args: []Atom{unitLit()},
 							}},
 							{Sp: sp(), Name: &Bind{Sp: sp(), Typ: types.Unit, Discard: true}, X: &SelectExpr{
-								Base: Base{Sp: sp(), Typ: types.Unit},
+								Sp: sp(), Typ: types.Unit,
 								Arms: []SelArm{
 									&SelSend{
 										Sp:    sp(),
@@ -787,7 +787,7 @@ func buildOKFile() *File {
 								},
 							}},
 							{Sp: sp(), Name: &Bind{Sp: sp(), Typ: types.Unit, Discard: true}, X: &ForRange{
-								Base: Base{Sp: sp(), Typ: types.Unit},
+								Sp: sp(), Typ: types.Unit,
 								Kind: ForChan,
 								Iter: vref(jS, types.Chan(types.Int)),
 								Elem: &Bind{Sp: sp(), Typ: types.Int, Discard: true},
@@ -821,31 +821,31 @@ func buildOKFile() *File {
 				Body: &Body{
 					Lets: []*Let{
 						{Sp: sp(), Name: cB, X: &CtorRef{
-							Base: Base{Sp: sp(), Typ: types.Fn(shapeT, types.P(types.Float))},
-							Sym:  shapeCt,
+							Sp: sp(), Typ: types.Fn(shapeT, types.P(types.Float)),
+							Sym: shapeCt,
 						}},
 						{Sp: sp(), Name: itoaB, X: &GoFuncRef{
-							Base:  Base{Sp: sp(), Typ: types.Fn(types.String, types.P(types.Int))},
+							Sp: sp(), Typ: types.Fn(types.String, types.P(types.Int)),
 							Sym:   gsym("Itoa", "strconv"),
 							Arity: 1, Results: GoResultsOne,
 						}},
 						{Sp: sp(), Name: pB, X: &RecordNew{
-							Base: Base{Sp: sp(), Typ: pointT},
+							Sp: sp(), Typ: pointT,
 							Fields: []FieldInit{
-								{Sp: sp(), Sym: pointX, Index: 0, Value: &Lit{Base: Base{Sp: sp(), Typ: types.Float}, Kind: syntax.LitFloat, Text: "1.0"}},
-								{Sp: sp(), Sym: pointY, Index: 1, Value: &Lit{Base: Base{Sp: sp(), Typ: types.Float}, Kind: syntax.LitFloat, Text: "2.0"}},
+								{Sp: sp(), Sym: pointX, Index: 0, Value: &Lit{Sp: sp(), Typ: types.Float, Kind: syntax.LitFloat, Text: "1.0"}},
+								{Sp: sp(), Sym: pointY, Index: 1, Value: &Lit{Sp: sp(), Typ: types.Float, Kind: syntax.LitFloat, Text: "2.0"}},
 							},
 						}},
 						{Sp: sp(), Name: qB, X: &RecordUpdate{
-							Base: Base{Sp: sp(), Typ: pointT},
-							Rec:  vref(pS, pointT),
+							Sp: sp(), Typ: pointT,
+							Rec: vref(pS, pointT),
 							Fields: []FieldInit{
-								{Sp: sp(), Sym: pointX, Index: 0, Value: &Lit{Base: Base{Sp: sp(), Typ: types.Float}, Kind: syntax.LitFloat, Text: "3.0"}},
+								{Sp: sp(), Sym: pointX, Index: 0, Value: &Lit{Sp: sp(), Typ: types.Float, Kind: syntax.LitFloat, Text: "3.0"}},
 							},
 						}},
 					},
 					Tail: &FieldGet{
-						Base: Base{Sp: sp(), Typ: types.Float},
+						Sp: sp(), Typ: types.Float,
 						Recv: vref(qS, pointT), Field: pointX, Index: 0,
 					},
 				},
@@ -962,7 +962,7 @@ func TestAtomsAreExprs(t *testing.T) {
 
 func TestSpanAndType(t *testing.T) {
 	s := diag.SpanIn("x.gom", 3, 9)
-	v := &Var{Base: Base{Sp: s, Typ: types.Int}, Sym: vsym("x")}
+	v := &Var{Sp: s, Typ: types.Int, Sym: vsym("x")}
 	if v.Span() != s {
 		t.Errorf("Span() = %v, want %v", v.Span(), s)
 	}

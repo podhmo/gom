@@ -393,7 +393,7 @@ func (p *printer) run(f *syntax.File) []byte {
 	// indentation alone — strip trailing whitespace line by line so
 	// output is clean (the layout engine indents on every newline).
 	var lines []string
-	for _, ln := range strings.Split(s, "\n") {
+	for ln := range strings.SplitSeq(s, "\n") {
 		lines = append(lines, strings.TrimRight(ln, " \t"))
 	}
 	s = strings.Join(lines, "\n")

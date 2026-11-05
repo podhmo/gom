@@ -3,6 +3,7 @@ package resolve
 import (
 	"errors"
 	"fmt"
+	"maps"
 	"strings"
 
 	"github.com/podhmo/gom/internal/diag"
@@ -629,12 +630,8 @@ func (r *resolver) bindImport(decl *syntax.ImportDecl, file *scope) {
 	}
 	if overlay, ok := r.externs[pkgKey{path: decl.Path, go_: decl.Go}]; ok {
 		merged := make(map[string]*Symbol, len(members)+len(overlay))
-		for k, v := range members {
-			merged[k] = v
-		}
-		for k, v := range overlay {
-			merged[k] = v
-		}
+		maps.Copy(merged, members)
+		maps.Copy(merged, overlay)
 		members = merged
 	}
 	r.members[sym] = members
@@ -662,8 +659,7 @@ func (r *resolver) loadPackage(decl *syntax.ImportDecl) (members map[string]*Sym
 	}
 	pkg, err := r.cfg.Loader.Load(decl.Path, decl.Go)
 	if err != nil {
-		var cyc *ImportCycleError
-		if errors.As(err, &cyc) {
+		if cyc, ok := errors.AsType[*ImportCycleError](err); ok {
 			r.diags.Add(diag.Error("E0606", cyc.Error()).
 				At(decl.PathSp).
 				Set("path", decl.Path).

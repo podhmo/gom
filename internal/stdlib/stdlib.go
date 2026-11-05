@@ -17,6 +17,7 @@ package stdlib
 
 import (
 	"fmt"
+	"maps"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -158,9 +159,7 @@ func Apply(o *build.Options) *build.Options {
 	if o.Modules == nil {
 		o.Modules = map[string]map[string]*resolve.Symbol{}
 	}
-	for m, t := range e.modules {
-		o.Modules[m] = t
-	}
+	maps.Copy(o.Modules, e.modules)
 	o.Sigs = check.Chain(e.sigs, o.Sigs)
 	le := lower.Env{}
 	if o.Lower != nil {

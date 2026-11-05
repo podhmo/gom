@@ -160,7 +160,7 @@ func (g *Gen) genIdent() {
 // freshBound picks an ident not already used as a top-level fn name
 // — a redefinition would spend the near-miss budget on E0204s.
 func (g *Gen) freshBound() string {
-	for tries := 0; tries < 20; tries++ {
+	for range 20 {
 		if n := g.freshIdent(); !g.boundSet[n] {
 			return n
 		}
@@ -170,7 +170,7 @@ func (g *Gen) freshBound() string {
 
 // freshAlias picks an ident not already used as an import alias.
 func (g *Gen) freshAlias() string {
-	for tries := 0; tries < 20; tries++ {
+	for range 20 {
 		if n := g.freshIdent(); !g.importSet[n] {
 			return n
 		}
@@ -268,7 +268,7 @@ func (g *Gen) genUIdent() {
 // freshUIdent picks an uppercase name not already present in set;
 // once the pool is exhausted it coins a suffixed one.
 func (g *Gen) freshUIdent(set map[string]bool) string {
-	for tries := 0; tries < 20; tries++ {
+	for range 20 {
 		if n := uidentPool[g.rng.IntN(len(uidentPool))]; !set[n] {
 			return n
 		}
@@ -399,7 +399,7 @@ func (g *Gen) genString() {
 		return
 	}
 	parts := 1 + g.rng.IntN(3)
-	for i := 0; i < parts; i++ {
+	for range parts {
 		if g.depth > 2 && g.rng.Float64() < 0.2 {
 			// Interpolation: "${" counts as an opening delimiter for
 			// the lexer, so embedded exprs may contain anything a

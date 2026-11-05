@@ -67,13 +67,13 @@ func vbind(name string, t types.Type) (*core.Bind, *resolve.Symbol) {
 	return bind(s, t), s
 }
 func vref(s *resolve.Symbol, t types.Type) *core.Var {
-	return &core.Var{Base: core.Base{Sp: tsp(), Typ: t}, Sym: s}
+	return &core.Var{Sp: tsp(), Typ: t, Sym: s}
 }
 func intLit(text string) *core.Lit {
-	return &core.Lit{Base: core.Base{Sp: tsp(), Typ: types.Int}, Kind: syntax.LitInt, Text: text}
+	return &core.Lit{Sp: tsp(), Typ: types.Int, Kind: syntax.LitInt, Text: text}
 }
 func unitLit() *core.Lit {
-	return &core.Lit{Base: core.Base{Sp: tsp(), Typ: types.Unit}, Kind: syntax.LitUnit, Text: "()"}
+	return &core.Lit{Sp: tsp(), Typ: types.Unit, Kind: syntax.LitUnit, Text: "()"}
 }
 
 var (
@@ -135,8 +135,8 @@ func TestFuncDecl(t *testing.T) {
 			Sig:    fnIII,
 			Params: []*core.Bind{aB, bB},
 			Body: &core.Body{Tail: &core.Binary{
-				Base: core.Base{Sp: lsp(4), Typ: types.Int},
-				Op:   syntax.BinAdd, X: vref(aS, types.Int), Y: vref(bS, types.Int),
+				Sp: lsp(4), Typ: types.Int,
+				Op: syntax.BinAdd, X: vref(aS, types.Int), Y: vref(bS, types.Int),
 			}},
 		},
 	})
@@ -220,14 +220,14 @@ func TestCtorLetConversion(t *testing.T) {
 			Body: &core.Body{
 				Lets: []*core.Let{
 					{Sp: lsp(6), Name: aB, X: &core.CtorApp{
-						Base: core.Base{Sp: lsp(6), Typ: shT}, Ctor: aCt, Arity: 0}},
+						Sp: lsp(6), Typ: shT, Ctor: aCt, Arity: 0}},
 					{Sp: lsp(7), Name: bB, X: &core.CtorApp{
-						Base: core.Base{Sp: lsp(7), Typ: shT}, Ctor: bCt,
+						Sp: lsp(7), Typ: shT, Ctor: bCt,
 						Args: []core.Atom{intLit("1")}, Arity: 1}},
 				},
 				Tail: &core.Equal{
-					Base: core.Base{Sp: lsp(8), Typ: types.Bool},
-					X:    vref(aS, shT), Y: vref(bS, shT),
+					Sp: lsp(8), Typ: types.Bool,
+					X: vref(aS, shT), Y: vref(bS, shT),
 					How: &core.EqPlan{Kind: core.EqNative},
 				},
 			},
@@ -286,7 +286,7 @@ func TestEqMapDecl(t *testing.T) {
 // 40-byte lines so tsp()'s `n*10` offsets map to line n/4-ish.
 func fakeSrc() []byte {
 	var b []byte
-	for i := 0; i < 200; i++ {
+	for i := range 200 {
 		b = append(b, []byte(fmt.Sprintf("// line %03d                      \n", i))...)
 	}
 	return b

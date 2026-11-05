@@ -68,7 +68,7 @@ func TestGeneratedCompileCanary(t *testing.T) {
 		{"typed", gomgen.Options{Typed: true}},
 	} {
 		var contractOK, rejected, known, internal int
-		for seed := uint64(0); seed < seeds; seed++ {
+		for seed := range uint64(seeds) {
 			rng := rand.New(rand.NewPCG(seed, 0x9e3779b9+seed))
 			src := gomgen.Generate(g, rng, mode.opts)
 			var caps map[string]time.Duration

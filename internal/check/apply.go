@@ -880,10 +880,7 @@ func (c *checker) replayGoApply(pa *pendingApply) {
 	me := pa.me
 	params, ret := flattenFunc(me.Type())
 	sig, _ := c.sigOf(me.Sym, me.Sel.Sp)
-	declArity := c.declArity(sig, len(params))
-	if declArity > len(params) {
-		declArity = len(params)
-	}
+	declArity := min(c.declArity(sig, len(params)), len(params))
 	goParams := params[:declArity]
 	arity := declArity
 	variadic := sig.Variadic && arity > 0

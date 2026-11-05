@@ -290,24 +290,12 @@ func (w *eqWalk) has(t types.Type) bool {
 	case *types.Func:
 		return true
 	case *types.Tuple:
-		for _, e := range t.Elems {
-			if w.has(e) {
-				return true
-			}
-		}
-		return false
+		return slices.ContainsFunc(t.Elems, w.has)
 	case *types.Go:
-		for _, a := range t.Args {
-			if w.has(a) {
-				return true
-			}
-		}
-		return false
+		return slices.ContainsFunc(t.Args, w.has)
 	case *types.Con:
-		for _, a := range t.Args {
-			if w.has(a) {
-				return true
-			}
+		if slices.ContainsFunc(t.Args, w.has) {
+			return true
 		}
 		if w.expandable(t) {
 			ti := w.c.tyCons[conKey{qual: t.Qual, name: t.Name}]

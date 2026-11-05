@@ -20,7 +20,7 @@ var transferSig = types.Fn(types.Result(types.Unit, &types.Con{Name: "TxError"})
 var transferSym = &resolve.Symbol{Name: "transfer", Kind: resolve.KindFunc}
 
 func v(name string, k resolve.Kind, t types.Type) *Var {
-	return &Var{Base: Base{Sp: sp, Typ: t}, Sym: &resolve.Symbol{Name: name, Kind: k}}
+	return &Var{Sp: sp, Typ: t, Sym: &resolve.Symbol{Name: name, Kind: k}}
 }
 
 func arg(v Expr) Arg { return Arg{Value: v} }
@@ -35,8 +35,8 @@ func TestCallInfoScenarios(t *testing.T) {
 	t.Run("saturated call", func(t *testing.T) {
 		// transfer alice ~to: bob ~amount: 100
 		app := &Apply{
-			Base: Base{Sp: sp, Typ: types.Result(types.Unit, &types.Con{Name: "TxError"})},
-			Fn:   &Var{Base: Base{Sp: sp, Typ: transferSig}, Sym: transferSym},
+			Sp: sp, Typ: types.Result(types.Unit, &types.Con{Name: "TxError"}),
+			Fn:   &Var{Sp: sp, Typ: transferSig, Sym: transferSym},
 			Args: []Arg{arg(alice), {Label: "to", Value: bob}, {Label: "amount", Value: m}},
 			Call: CallInfo{
 				Kind:       CallDirect,
@@ -60,8 +60,8 @@ func TestCallInfoScenarios(t *testing.T) {
 		// transfer ~to: bob ~amount: m alice — evaluated in source
 		// order, supplied to parameters 1, 2, 0.
 		app := &Apply{
-			Base: Base{Sp: sp},
-			Fn:   &Var{Base: Base{Sp: sp, Typ: transferSig}, Sym: transferSym},
+			Sp:   sp,
+			Fn:   &Var{Sp: sp, Typ: transferSig, Sym: transferSym},
 			Args: []Arg{{Label: "to", Value: bob}, {Label: "amount", Value: m}, arg(alice)},
 			Call: CallInfo{
 				Kind:       CallDirect,
@@ -83,8 +83,8 @@ func TestCallInfoScenarios(t *testing.T) {
 		rest := types.Fn(types.Result(types.Unit, &types.Con{Name: "TxError"}),
 			types.LP("amount", money))
 		app := &Apply{
-			Base: Base{Sp: sp, Typ: rest},
-			Fn:   &Var{Base: Base{Sp: sp, Typ: transferSig}, Sym: transferSym},
+			Sp: sp, Typ: rest,
+			Fn:   &Var{Sp: sp, Typ: transferSig, Sym: transferSym},
 			Args: []Arg{arg(alice), {Label: "to", Value: bob}},
 			Call: CallInfo{
 				Kind:       CallPartial,
@@ -108,8 +108,8 @@ func TestCallInfoScenarios(t *testing.T) {
 		// fmt.Println(a, b) — variadic Go function.
 		printlnSym := &resolve.Symbol{Name: "Println", Kind: resolve.KindFunc, IsGo: true, Package: "fmt"}
 		app := &Apply{
-			Base: Base{Sp: sp, Typ: types.Unit},
-			Fn:   &Var{Base: Base{Sp: sp}, Sym: printlnSym},
+			Sp: sp, Typ: types.Unit,
+			Fn:   &Var{Sp: sp, Sym: printlnSym},
 			Args: []Arg{arg(alice), arg(bob)},
 			Call: CallInfo{
 				Kind:      CallGo,
@@ -133,11 +133,11 @@ func TestCallInfoScenarios(t *testing.T) {
 		// strings.Repeat(_, 3) — a function value waiting for arg 0.
 		repeatSym := &resolve.Symbol{Name: "Repeat", Kind: resolve.KindFunc, IsGo: true, Package: "strings"}
 		app := &Apply{
-			Base: Base{Sp: sp, Typ: types.Fn(types.String, types.P(types.String))},
-			Fn:   &Var{Base: Base{Sp: sp}, Sym: repeatSym},
+			Sp: sp, Typ: types.Fn(types.String, types.P(types.String)),
+			Fn: &Var{Sp: sp, Sym: repeatSym},
 			Args: []Arg{
-				{Value: &Hole{Base: Base{Sp: sp, Typ: types.String}}},
-				{Value: &Lit{Base: Base{Sp: sp, Typ: types.Int}, Kind: syntax.LitInt, Text: "3"}},
+				{Value: &Hole{Sp: sp, Typ: types.String}},
+				{Value: &Lit{Sp: sp, Typ: types.Int, Kind: syntax.LitInt, Text: "3"}},
 			},
 			Call: CallInfo{
 				Kind:      CallGo,
@@ -156,9 +156,9 @@ func TestCallInfoScenarios(t *testing.T) {
 		// f x y where f : Int -> Int -> Int is a let-bound value.
 		fs := &resolve.Symbol{Name: "f", Kind: resolve.KindVar}
 		app := &Apply{
-			Base: Base{Sp: sp, Typ: types.Int},
-			Fn:   &Var{Base: Base{Sp: sp, Typ: types.Fn(types.Int, types.P(types.Int), types.P(types.Int))}, Sym: fs},
-			Args: []Arg{arg(&Lit{Base: Base{Sp: sp, Typ: types.Int}, Kind: syntax.LitInt, Text: "1"})},
+			Sp: sp, Typ: types.Int,
+			Fn:   &Var{Sp: sp, Typ: types.Fn(types.Int, types.P(types.Int), types.P(types.Int)), Sym: fs},
+			Args: []Arg{arg(&Lit{Sp: sp, Typ: types.Int, Kind: syntax.LitInt, Text: "1"})},
 			Call: CallInfo{
 				Kind:      CallUnknown,
 				Callee:    nil,
@@ -205,12 +205,12 @@ func TestCallInfoValidateFailures(t *testing.T) {
 func TestApplyValidate(t *testing.T) {
 	account := &types.Con{Name: "Account"}
 	alice := v("alice", resolve.KindVar, account)
-	fn := &Var{Base: Base{Sp: sp, Typ: transferSig}, Sym: transferSym}
+	fn := &Var{Sp: sp, Typ: transferSig, Sym: transferSym}
 	goSym := &resolve.Symbol{Name: "Repeat", Kind: resolve.KindFunc, IsGo: true, Package: "strings"}
 
 	t.Run("valid", func(t *testing.T) {
 		app := &Apply{
-			Base: Base{Sp: sp, Typ: account},
+			Sp: sp, Typ: account,
 			Fn:   fn,
 			Args: []Arg{arg(alice)},
 			Call: CallInfo{Kind: CallPartial, Callee: transferSym,
@@ -223,11 +223,11 @@ func TestApplyValidate(t *testing.T) {
 
 	t.Run("valid cute call", func(t *testing.T) {
 		app := &Apply{
-			Base: Base{Sp: sp, Typ: account},
-			Fn:   &Var{Base: Base{Sp: sp}, Sym: goSym},
+			Sp: sp, Typ: account,
+			Fn: &Var{Sp: sp, Sym: goSym},
 			Args: []Arg{
-				{Value: &Hole{Base: Base{Sp: sp, Typ: account}}},
-				{Value: &Lit{Base: Base{Sp: sp, Typ: types.Int}, Kind: syntax.LitInt, Text: "3"}},
+				{Value: &Hole{Sp: sp, Typ: account}},
+				{Value: &Lit{Sp: sp, Typ: types.Int, Kind: syntax.LitInt, Text: "3"}},
 			},
 			Call: CallInfo{Kind: CallGo, Callee: goSym, Arity: 2, Applied: 2, HoleIndex: 0},
 		}
@@ -251,18 +251,18 @@ func TestApplyValidate(t *testing.T) {
 			Call: CallInfo{Kind: CallPartial, Callee: transferSym, Arity: 3, Applied: 2, Unapplied: 1, HoleIndex: -1},
 		}},
 		{"hole index on non-hole arg", &Apply{
-			Fn:   &Var{Base: Base{Sp: sp}, Sym: goSym},
+			Fn:   &Var{Sp: sp, Sym: goSym},
 			Args: []Arg{arg(alice), arg(alice)},
 			Call: CallInfo{Kind: CallGo, Callee: goSym, Arity: 2, Applied: 2, HoleIndex: 0},
 		}},
 		{"hole without hole index", &Apply{
-			Fn:   &Var{Base: Base{Sp: sp}, Sym: goSym},
-			Args: []Arg{{Value: &Hole{Base: Base{Sp: sp}}}, arg(alice)},
+			Fn:   &Var{Sp: sp, Sym: goSym},
+			Args: []Arg{{Value: &Hole{Sp: sp}}, arg(alice)},
 			Call: CallInfo{Kind: CallGo, Callee: goSym, Arity: 2, Applied: 2, HoleIndex: -1},
 		}},
 		{"second stray hole", &Apply{
-			Fn:   &Var{Base: Base{Sp: sp}, Sym: goSym},
-			Args: []Arg{{Value: &Hole{Base: Base{Sp: sp}}}, {Value: &Hole{Base: Base{Sp: sp}}}},
+			Fn:   &Var{Sp: sp, Sym: goSym},
+			Args: []Arg{{Value: &Hole{Sp: sp}}, {Value: &Hole{Sp: sp}}},
 			Call: CallInfo{Kind: CallGo, Callee: goSym, Arity: 2, Applied: 2, HoleIndex: 0},
 		}},
 	}

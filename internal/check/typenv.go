@@ -2,6 +2,7 @@ package check
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/podhmo/gom/internal/diag"
 	"github.com/podhmo/gom/internal/resolve"
@@ -256,7 +257,6 @@ func (c *checker) resolveTypeBodies(decls []syntax.Decl) {
 				ti.kind = kindSum
 			}
 			for i, sv := range b.Variants {
-				sv := sv
 				vs[i] = c.variantInfoOf(&sv, i, ti)
 				variants[i] = c.variantOf(vs[i])
 			}
@@ -790,12 +790,7 @@ func (w *recordCycle) holds(t types.Type) bool {
 }
 
 func (w *recordCycle) args(ts []types.Type) bool {
-	for _, t := range ts {
-		if w.holds(t) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(ts, w.holds)
 }
 
 // con handles a constructor application: a local record expands its

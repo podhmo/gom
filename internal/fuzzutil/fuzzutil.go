@@ -142,7 +142,7 @@ func CheckRegistry(t *testing.T, bugs map[[32]byte]KnownBug, cap int, todoPath s
 // (still live work under .claude/skills/todo-md). Checked-off `- [x]`
 // lines and non-item text never satisfy a link: the entry is stale.
 func openItemsContain(todoSrc, needle string) bool {
-	for _, line := range strings.Split(todoSrc, "\n") {
+	for line := range strings.SplitSeq(todoSrc, "\n") {
 		item := strings.TrimLeft(line, " \t")
 		if !strings.HasPrefix(item, "- [ ]") && !strings.HasPrefix(item, "- [-]") {
 			continue
@@ -331,8 +331,8 @@ func (s *Sandbox) RunCapped(t *testing.T, src []byte, caps map[string]time.Durat
 				s.reap()
 				return s.abnormal(src, phase, budget)
 			}
-			if strings.HasPrefix(line, "PHASE ") {
-				phase = strings.TrimPrefix(line, "PHASE ")
+			if after, ok0 := strings.CutPrefix(line, "PHASE "); ok0 {
+				phase = after
 				d, ok := caps[phase]
 				if !ok {
 					d, ok = s.phases[phase]
@@ -353,8 +353,8 @@ func (s *Sandbox) RunCapped(t *testing.T, src []byte, caps map[string]time.Durat
 			if line == "DONE" {
 				return failures
 			}
-			if strings.HasPrefix(line, "FAIL ") {
-				dec, err := base64.StdEncoding.DecodeString(strings.TrimPrefix(line, "FAIL "))
+			if after, ok0 := strings.CutPrefix(line, "FAIL "); ok0 {
+				dec, err := base64.StdEncoding.DecodeString(after)
 				if err != nil {
 					failures = append(failures, fmt.Sprintf("sandbox helper emitted bad FAIL line %q", line))
 					continue

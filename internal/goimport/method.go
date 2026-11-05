@@ -80,8 +80,8 @@ func (l *Loader) MethodOf(recv gt.Type, name string) (*resolve.Symbol, check.Sig
 		}
 	}
 	for _, ms := range sets {
-		for i := 0; i < ms.Len(); i++ {
-			sel := ms.At(i)
+		for sel := range ms.Methods() {
+			sel := sel
 			fn, ok := sel.Obj().(*types.Func)
 			if !ok || fn.Name() != name {
 				continue

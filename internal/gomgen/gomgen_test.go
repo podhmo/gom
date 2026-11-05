@@ -52,7 +52,7 @@ func TestDeterministic(t *testing.T) {
 		{Depth: 2, MaxTokens: 60},
 	} {
 		var first string
-		for seed := uint64(0); seed < 5; seed++ {
+		for seed := range uint64(5) {
 			out := gomgen.Generate(g, rand.New(rand.NewPCG(seed, seed^0x9e37)), opts)
 			if seed == 0 {
 				first = out
@@ -110,7 +110,7 @@ func TestGeneratedParses(t *testing.T) {
 		{"typed", gomgen.Options{Typed: true}, 0.95},
 	} {
 		clean := 0
-		for seed := uint64(0); seed < n; seed++ {
+		for seed := range uint64(n) {
 			src := gomgen.Generate(g, rand.New(rand.NewPCG(seed, 0xbeef+seed)), mode.opts)
 			for _, f := range parseFailures([]byte(src)) {
 				t.Fatalf("mode %s seed %d: contract violation %s\n---\n%s", mode.name, seed, f, src)
@@ -136,7 +136,7 @@ func TestGenerationNeverPanics(t *testing.T) {
 			t.Fatalf("Generate panicked: %v", r)
 		}
 	}()
-	for seed := uint64(0); seed < 500; seed++ {
+	for seed := range uint64(500) {
 		opts := gomgen.Options{
 			Typed:   seed%3 == 0,
 			Perturb: map[uint64]float64{1: 0.05, 2: 0.15}[seed%3],

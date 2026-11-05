@@ -1,5 +1,7 @@
 package syntax
 
+import "slices"
+
 import "github.com/podhmo/gom/internal/diag"
 
 // TypeExpr is a surface-AST type expression (docs/spec.md section 3):
@@ -109,12 +111,7 @@ func mentionsTypeVar(t TypeExpr) bool {
 		if mentionsTypeVar(t.Ctor) {
 			return true
 		}
-		for _, a := range t.Args {
-			if mentionsTypeVar(a) {
-				return true
-			}
-		}
-		return false
+		return slices.ContainsFunc(t.Args, mentionsTypeVar)
 	case *TypeFn:
 		for _, prm := range t.Params {
 			if mentionsTypeVar(prm.Type) {
@@ -123,12 +120,7 @@ func mentionsTypeVar(t TypeExpr) bool {
 		}
 		return mentionsTypeVar(t.Ret)
 	case *TypeTuple:
-		for _, e := range t.Elems {
-			if mentionsTypeVar(e) {
-				return true
-			}
-		}
-		return false
+		return slices.ContainsFunc(t.Elems, mentionsTypeVar)
 	case *TypeRecord:
 		for _, f := range t.Fields {
 			if mentionsTypeVar(f.Type) {

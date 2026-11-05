@@ -253,7 +253,7 @@ func (l *Loader) module() (string, string, error) {
 			gm := filepath.Join(dir, "go.mod")
 			b, err := os.ReadFile(gm)
 			if err == nil {
-				for _, line := range strings.Split(string(b), "\n") {
+				for line := range strings.SplitSeq(string(b), "\n") {
 					fields := strings.Fields(line)
 					if len(fields) == 2 && fields[0] == "module" {
 						l.modPath, l.modDir = fields[1], dir

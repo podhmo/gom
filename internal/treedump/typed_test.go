@@ -81,8 +81,8 @@ func typedSample() *check.File {
 			&check.TestDecl{Sp: sp(91, 99), Name: "smoke", NameSp: sp(92, 98),
 				Body: &check.Block{Base: tb(99, 100, types.Unit), Stmts: []check.Expr{
 					&check.Ascribe{Base: tb(100, 101, types.Int), Conv: true, X: &check.Var{Base: tb(100, 101, types.Int), Sym: xS}},
-					&check.Apply{Base: check.Base{Sp: sp(102, 103)},
-						Fn:   &check.Var{Base: check.Base{Sp: sp(102, 103)}, Sym: drawS},
+					&check.Apply{Sp: sp(102, 103),
+						Fn:   &check.Var{Sp: sp(102, 103), Sym: drawS},
 						Call: check.CallInfo{Kind: check.CallPartial, Callee: drawS, Arity: 3, Applied: 1, Unapplied: 2, ArgToParam: []int{2}, HoleIndex: -1}},
 				}}},
 		},
@@ -150,7 +150,7 @@ func TestDumpTyped(t *testing.T) {
 func TestTypedDeterminism(t *testing.T) {
 	f := typedSample()
 	want := DumpTyped(f)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		if got := DumpTyped(f); got != want {
 			t.Fatalf("dump %d differs:\n%s", i, got)
 		}

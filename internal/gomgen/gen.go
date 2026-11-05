@@ -415,7 +415,7 @@ func (g *Gen) expand(e gexpr) {
 		}
 	case rep:
 		n := g.repCount()
-		for i := 0; i < n; i++ {
+		for range n {
 			g.expand(x.x)
 		}
 	default:
@@ -586,7 +586,7 @@ func (g *Gen) irrefutablePat(d int) {
 		// field puns a binding of the same name.
 		g.emit("{")
 		n := 1 + g.rng.IntN(3)
-		for i := 0; i < n; i++ {
+		for i := range n {
 			if i > 0 {
 				g.emit(",")
 			}

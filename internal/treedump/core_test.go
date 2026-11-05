@@ -1182,7 +1182,7 @@ func TestDumpCoreNilMarkers(t *testing.T) {
 func TestDumpCoreDeterminism(t *testing.T) {
 	f := coreSample()
 	want := DumpCore(f)
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		if got := DumpCore(f); got != want {
 			t.Fatalf("dump %d differs:\n%s", i, got)
 		}

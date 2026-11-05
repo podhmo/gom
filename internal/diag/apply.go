@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"slices"
+	"strings"
 )
 
 // Applied is the "applied" message gom fix emits once per fix it
@@ -125,15 +126,16 @@ func ApplyEdits(src []byte, edits []Edit) ([]byte, error) {
 	out := slices.Clone(src)
 	for i := 0; i < len(es); {
 		j := i + 1
-		text := es[i].Text
+		var text strings.Builder
+		text.WriteString(es[i].Text)
 		// Equal spans surviving the overlap check are all
 		// zero-width: fold same-point insertions into one edit so
 		// their texts land in the order the edits were given.
 		for j < len(es) && es[j].Span == es[i].Span {
-			text += es[j].Text
+			text.WriteString(es[j].Text)
 			j++
 		}
-		out = slices.Replace(out, es[i].Span.Start, es[i].Span.End, []byte(text)...)
+		out = slices.Replace(out, es[i].Span.Start, es[i].Span.End, []byte(text.String())...)
 		i = j
 	}
 	return out, nil

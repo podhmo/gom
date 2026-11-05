@@ -185,8 +185,8 @@ func discoverCases(suiteDir string) (cases []testCase, orphans []string, err err
 	for _, p := range sideFiles {
 		var gom string
 		for _, ext := range []string{expectedExt, goldenExt, caseExt} {
-			if strings.HasSuffix(p, ext) {
-				gom = strings.TrimSuffix(p, ext) + gomExt
+			if before, ok := strings.CutSuffix(p, ext); ok {
+				gom = before + gomExt
 				break
 			}
 		}

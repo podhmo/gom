@@ -572,7 +572,7 @@ func TestTestPanicStackTwoPart(t *testing.T) {
 			t.Errorf("%s half lacks the panic line or a gom frame: %q", name, half)
 		}
 	}
-	for _, l := range strings.Split(rendered, "\n") {
+	for l := range strings.SplitSeq(rendered, "\n") {
 		if strings.Contains(l, "m.gom:") && strings.Contains(l, "+0x") {
 			t.Errorf("rendered frame kept its PC offset: %q", l)
 		}

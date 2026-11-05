@@ -11,6 +11,7 @@ package gomgen
 
 import (
 	"fmt"
+	"slices"
 	"strings"
 )
 
@@ -263,12 +264,7 @@ func containsPh(t *gty) bool {
 	if t.kind == tPoly {
 		return true
 	}
-	for _, a := range t.args {
-		if containsPh(a) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(t.args, containsPh)
 }
 
 // varsOf collects in-scope bindings of the wanted kinds, innermost
@@ -286,10 +282,10 @@ func containsPh(t *gty) bool {
 func (g *Gen) varsOf(want *gty, kinds ...bindKind) []binding {
 	var out []binding
 	seen := map[string]bool{}
-	for i := len(g.scope) - 1; i >= 0; i-- {
-		frame := g.scope[i]
-		for j := len(frame) - 1; j >= 0; j-- {
-			b := frame[j]
+	for _, frame := range slices.Backward(g.scope) {
+
+		for _, b := range slices.Backward(frame) {
+
 			if seen[b.name] {
 				continue
 			}
@@ -562,7 +558,7 @@ func (g *Gen) freshTypeName() string {
 // pool is finite, so after enough misses it falls back to a numeric
 // suffix keyed by the set size, which stays deterministic.
 func (g *Gen) freshIn(used map[string]bool, draw func() string) string {
-	for i := 0; i < 64; i++ {
+	for range 64 {
 		n := draw()
 		if !used[n] {
 			used[n] = true
@@ -606,7 +602,7 @@ func (g *Gen) typedFnDecl() {
 	default:
 		n := 1 + g.rng.IntN(2)
 		seen := map[string]bool{}
-		for i := 0; i < n; i++ {
+		for range n {
 			p := paramDef{label: g.freshIn(seen, g.freshVar), ty: g.pickType(1)}
 			if g.rng.Float64() < 0.15 {
 				p.labeled = true
@@ -951,7 +947,7 @@ func (g *Gen) typedTypeDecl() {
 		nCtors := 1 + g.rng.IntN(3)
 		var ctors []ctorDef
 		g.emit("|")
-		for i := 0; i < nCtors; i++ {
+		for i := range nCtors {
 			if i > 0 {
 				g.emit("|")
 			}
@@ -961,7 +957,7 @@ func (g *Gen) typedTypeDecl() {
 			g.emit(c.name)
 			nf := g.rng.IntN(3)
 			labels := map[string]bool{}
-			for j := 0; j < nf; j++ {
+			for range nf {
 				ft := g.pickType(0)
 				if g.rng.Float64() < 0.3 {
 					label := g.freshIn(labels, g.freshVar)
@@ -998,7 +994,7 @@ func (g *Gen) typedTypeDecl() {
 		g.emit("{")
 		nf := 1 + g.rng.IntN(3)
 		labels := map[string]bool{}
-		for i := 0; i < nf; i++ {
+		for i := range nf {
 			if i > 0 {
 				g.emit(",")
 			}
@@ -1022,7 +1018,7 @@ func (g *Gen) typedTestDecl() {
 	g.inTest++
 	defer func() { g.inTest-- }()
 	items := 1 + g.rng.IntN(3)
-	for i := 0; i < items; i++ {
+	for i := range items {
 		if i > 0 {
 			g.newline()
 		}
@@ -1101,14 +1097,14 @@ func (g *Gen) typedExternDecl() {
 	g.emitRaw(fmt.Sprintf("%q", goPkgs[g.rng.IntN(len(goPkgs))]))
 	g.emit("{")
 	n := 1 + g.rng.IntN(2)
-	for i := 0; i < n; i++ {
+	for i := range n {
 		if i > 0 {
 			g.newline()
 		}
 		g.emit("fn")
 		g.emit(uidentPool[g.rng.IntN(len(uidentPool))])
 		m := 1 + g.rng.IntN(2)
-		for j := 0; j < m; j++ {
+		for range m {
 			g.emitFrag(fmt.Sprintf("(%s: %s)", g.freshVar(), g.pickType(0).text()))
 		}
 		g.emit("->")

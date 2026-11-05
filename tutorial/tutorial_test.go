@@ -248,7 +248,6 @@ func TestTutorial(t *testing.T) {
 	gom := buildGom(t, gobin, root, t.TempDir())
 
 	for _, dir := range stepDirs(t) {
-		dir := dir
 		t.Run(dir, func(t *testing.T) {
 			t.Parallel()
 			if _, err := os.ReadFile(filepath.Join(dir, "main.gom")); err == nil {

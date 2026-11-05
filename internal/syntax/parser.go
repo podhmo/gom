@@ -2,6 +2,7 @@ package syntax
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -356,8 +357,8 @@ func (p *parser) docBefore(off int) *Comment {
 	want := line - 1
 	var group []*Comment
 	// Walk backwards through the comments preceding off.
-	for i := len(p.comments) - 1; i >= 0; i-- {
-		c := p.comments[i]
+	for i, c := range slices.Backward(p.comments) {
+
 		m := p.meta[i]
 		if c.Sp.Start >= off {
 			continue // inside or after the declaration
@@ -376,8 +377,8 @@ func (p *parser) docBefore(off int) *Comment {
 	}
 	// Merge into one doc comment, first line first.
 	texts := make([]string, 0, len(group))
-	for i := len(group) - 1; i >= 0; i-- {
-		texts = append(texts, group[i].Text)
+	for _, g := range slices.Backward(group) {
+		texts = append(texts, g.Text)
 	}
 	return &Comment{
 		Sp:   diag.SpanIn(p.file, group[len(group)-1].Sp.Start, group[0].Sp.End),

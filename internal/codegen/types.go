@@ -3,6 +3,7 @@ package codegen
 import (
 	"fmt"
 	"go/ast"
+	"slices"
 
 	"github.com/podhmo/gom/internal/types"
 )
@@ -165,9 +166,9 @@ func (g *gen) funcType(f *types.Func) ast.Expr {
 			Results: &ast.FieldList{List: []*ast.Field{{Type: ret}}},
 		}
 	}
-	for i := len(f.Params) - 1; i >= 0; i-- {
+	for _, v := range slices.Backward(f.Params) {
 		ret = &ast.FuncType{
-			Params:  &ast.FieldList{List: []*ast.Field{{Type: g.goType(f.Params[i].Type)}}},
+			Params:  &ast.FieldList{List: []*ast.Field{{Type: g.goType(v.Type)}}},
 			Results: &ast.FieldList{List: []*ast.Field{{Type: ret}}},
 		}
 	}

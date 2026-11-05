@@ -1,6 +1,7 @@
 package treedump
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/podhmo/gom/internal/resolve"
@@ -130,15 +131,15 @@ func TestDeterminism(t *testing.T) {
 	for k := range r.Defs {
 		keys = append(keys, k)
 	}
-	for i := len(keys) - 1; i >= 0; i-- {
-		defs[keys[i]] = r.Defs[keys[i]]
+	for _, key := range slices.Backward(keys) {
+		defs[key] = r.Defs[key]
 	}
 	keys = keys[:0]
 	for k := range r.Uses {
 		keys = append(keys, k)
 	}
-	for i := len(keys) - 1; i >= 0; i-- {
-		uses[keys[i]] = r.Uses[keys[i]]
+	for _, key := range slices.Backward(keys) {
+		uses[key] = r.Uses[key]
 	}
 	r2 := &resolve.Resolved{File: r.File, Defs: defs, Uses: uses}
 
@@ -146,7 +147,7 @@ func TestDeterminism(t *testing.T) {
 	if got := DumpResolved(r2); got != want {
 		t.Errorf("dump differs when tables are built in another order:\n%s", got)
 	}
-	for i := 0; i < 10; i++ {
+	for i := range 10 {
 		if got := DumpResolved(r); got != want {
 			t.Fatalf("dump %d differs:\n%s", i, got)
 		}

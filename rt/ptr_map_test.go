@@ -28,7 +28,7 @@ func TestPtrOps(t *testing.T) {
 	// PtrMake copies: mutating through the pointer must not reach
 	// the argument it was made from.
 	v := int64(7)
-	q := rt.PtrMake(v)
+	q := new(v)
 	rt.PtrSet(q, 9)
 	if v != 7 {
 		t.Errorf("source mutated through PtrMake copy: v = %d", v)

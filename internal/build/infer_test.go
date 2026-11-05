@@ -491,13 +491,13 @@ func TestParseWantArrows(t *testing.T) {
 // smallest start, not whatever order the map walked.
 func TestWitnessedNodeDeterministic(t *testing.T) {
 	mk := func(sp diag.Span) check.Expr {
-		return &check.Lit{Base: check.Base{Sp: sp, Typ: types.Int}}
+		return &check.Lit{Sp: sp, Typ: types.Int}
 	}
 	a := mk(diag.Span{Start: 2, End: 6})
 	b := mk(diag.Span{Start: 8, End: 12})
 	bySpan := map[[2]int]check.Expr{{2, 6}: a, {8, 12}: b}
 	w := gomgen.Witness{Start: 0, End: 20}
-	for i := 0; i < 32; i++ {
+	for i := range 32 {
 		if got := witnessedNode(bySpan, w); got != a {
 			t.Fatalf("iteration %d: picked the later-start candidate", i)
 		}

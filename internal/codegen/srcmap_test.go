@@ -84,7 +84,7 @@ func checkSourceMap(t *testing.T, src []byte, sm *diag.SourceMap) {
 // string or a mid-line comment does not count.
 func lineCount(src, prefix string) int {
 	n := 0
-	for _, l := range strings.Split(src, "\n") {
+	for l := range strings.SplitSeq(src, "\n") {
 		if strings.HasPrefix(l, prefix) {
 			n++
 		}
@@ -107,8 +107,8 @@ func TestSourceMapLookup(t *testing.T) {
 			Sig:    fnIII,
 			Params: []*core.Bind{aB, bB},
 			Body: &core.Body{Tail: &core.Binary{
-				Base: core.Base{Sp: lsp(4), Typ: types.Int},
-				Op:   syntax.BinAdd, X: vref(aS, types.Int), Y: vref(bS, types.Int),
+				Sp: lsp(4), Typ: types.Int,
+				Op: syntax.BinAdd, X: vref(aS, types.Int), Y: vref(bS, types.Int),
 			}},
 		},
 	})

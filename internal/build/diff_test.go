@@ -719,10 +719,7 @@ func bindGoStubs(t *testing.T, f *check.File, ev *eval.Evaluator, capture *diffC
 			// kinds carry no Go reference and the sumtype check
 			// would demand a case for every one.
 			if a, ok := x.(*check.Apply); ok && a.Call.Kind == check.CallGo {
-				arity := a.Call.Arity
-				if arity < 1 {
-					arity = 1
-				}
+				arity := max(a.Call.Arity, 1)
 				if me, ok := a.Fn.(*check.MemberExpr); ok && a.Call.Callee != nil && a.Call.Callee.Kind == resolve.KindMethod {
 					bindNamed(a.Call.Callee, methodStubName(me), arity+1)
 				} else {

@@ -132,7 +132,7 @@ func (tw *textWriter) test(t TestResult) {
 				t.Span.File, start.Line, start.Col)
 		}
 	}
-	for _, line := range strings.Split(strings.TrimRight(t.Output, "\n"), "\n") {
+	for line := range strings.SplitSeq(strings.TrimRight(t.Output, "\n"), "\n") {
 		if line != "" {
 			tw.printf("    %s\n", line)
 		}

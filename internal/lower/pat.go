@@ -138,7 +138,7 @@ func (l *lowerer) expandStructural(w *armState, ob oblig) []oblig {
 		for i, e := range p.Elems {
 			head = append(head, oblig{
 				subj: &core.FieldGet{
-					Base: core.Base{Sp: p.Sp, Typ: e.Type()},
+					Sp: p.Sp, Typ: e.Type(),
 					Recv: ob.subj, Index: i,
 				},
 				pat: e,
@@ -158,7 +158,7 @@ func (l *lowerer) expandStructural(w *armState, ob oblig) []oblig {
 			}
 			head = append(head, oblig{
 				subj: &core.FieldGet{
-					Base: core.Base{Sp: fp.Sp, Typ: fp.Pat.Type()},
+					Sp: fp.Sp, Typ: fp.Pat.Type(),
 					Recv: ob.subj, Field: fp.Sym, Index: idx,
 				},
 				pat: fp.Pat,
@@ -208,9 +208,9 @@ func (l *lowerer) continueWith(states []*armState, subj core.Atom, resT types.Ty
 		return dl
 	}
 	return &core.DLeaf{
-		Base: core.Base{Sp: tree.Span(), Typ: resT},
+		Sp: tree.Span(), Typ: resT,
 		Body: &core.Body{Lets: cs.lets, Tail: &core.Match{
-			Base: core.Base{Sp: tree.Span(), Typ: resT},
+			Sp: tree.Span(), Typ: resT,
 			Tree: tree,
 		}},
 	}
@@ -271,7 +271,7 @@ func (l *lowerer) ctorSwitch(states []*armState, _ *seq, resT types.Type) core.D
 		}
 	}
 	sw := &core.DSwitch{
-		Base: core.Base{Sp: ob.pat.Span(), Typ: resT},
+		Sp: ob.pat.Span(), Typ: resT,
 		Subj: subj, Kind: kind,
 	}
 	for _, v := range variants {
@@ -383,7 +383,7 @@ func (l *lowerer) payloadObligs(p *check.CtorPat, v Variant, kind core.SwitchKin
 			ft = v.Fields[idx].Type
 		}
 		return &core.FieldGet{
-			Base: core.Base{Sp: p.Sp, Typ: ft},
+			Sp: p.Sp, Typ: ft,
 			Recv: narrowed, Field: fs, Index: idx,
 		}
 	}
@@ -463,7 +463,7 @@ func (l *lowerer) litSwitch(states []*armState, _ *seq, resT types.Type) core.DT
 		}
 	}
 	sw := &core.DSwitch{
-		Base: core.Base{Sp: ob.pat.Span(), Typ: resT},
+		Sp: ob.pat.Span(), Typ: resT,
 		Subj: subj, Kind: core.SwitchValue,
 	}
 	for _, lp := range lits {
@@ -560,7 +560,7 @@ func (l *lowerer) listSwitch(states []*armState, _ *seq, resT types.Type) core.D
 	ob := states[0].todo[0]
 	subj := ob.subj
 	sw := &core.DSwitch{
-		Base: core.Base{Sp: ob.pat.Span(), Typ: resT},
+		Sp: ob.pat.Span(), Typ: resT,
 		Subj: subj, Kind: core.SwitchList,
 	}
 	var nilStates, consStates []*armState
@@ -712,7 +712,7 @@ func (l *lowerer) caseBody(states []*armState, subj core.Atom, resT types.Type) 
 	return &core.Body{
 		Lets: cs.lets,
 		Tail: &core.Match{
-			Base: core.Base{Sp: tree.Span(), Typ: resT},
+			Sp: tree.Span(), Typ: resT,
 			Tree: tree,
 		},
 	}
@@ -733,17 +733,17 @@ func (l *lowerer) armLeaf(w *armState, rest []*armState, subj core.Atom, s *seq,
 		cond := l.atom(s, w.src.Guard)
 		l.popSubst()
 		return &core.DGuard{
-			Base: core.Base{Sp: w.src.Guard.Span(), Typ: resT},
+			Sp: w.src.Guard.Span(), Typ: resT,
 			Cond: cond,
 			Then: &core.DLeaf{
-				Base: core.Base{Sp: w.src.Body.Span(), Typ: resT},
+				Sp: w.src.Body.Span(), Typ: resT,
 				Body: l.armBody(w, subst),
 			},
 			Else: l.continueWith(rest, subj, resT),
 		}
 	}
 	return &core.DLeaf{
-		Base: core.Base{Sp: w.sp, Typ: resT},
+		Sp: w.sp, Typ: resT,
 		Body: l.armBody(w, subst),
 	}
 }
@@ -768,7 +768,7 @@ func (l *lowerer) armBody(w *armState, subst map[*resolve.Symbol]*resolve.Symbol
 // exactly this.
 func (l *lowerer) dpanic(subj core.Atom, resT types.Type) core.DTree {
 	return &core.DPanic{
-		Base:     core.Base{Sp: subj.Span(), Typ: resT},
+		Sp: subj.Span(), Typ: resT,
 		Subj:     subj,
 		TypeName: typeName(subj.Type()),
 	}
@@ -815,7 +815,7 @@ func (l *lowerer) destructure(s *seq, pat check.Pat, subj core.Atom) {
 	cs := &seq{}
 	tree := l.compile(states, subj, cs, resT)
 	var matchExpr core.Expr = &core.Match{
-		Base: core.Base{Sp: pat.Span(), Typ: resT}, Tree: tree,
+		Sp: pat.Span(), Typ: resT, Tree: tree,
 	}
 	if dl, ok := tree.(*core.DLeaf); ok {
 		cs.lets = append(cs.lets, dl.Body.Lets...)
@@ -832,7 +832,7 @@ func (l *lowerer) destructure(s *seq, pat check.Pat, subj core.Atom) {
 		s.emit(bound, matchExpr)
 		for i, v := range vars {
 			s.emit(l.namedBind(pat.Span(), v.sym, v.typ), &core.FieldGet{
-				Base: core.Base{Sp: pat.Span(), Typ: v.typ},
+				Sp: pat.Span(), Typ: v.typ,
 				Recv: varOf(pat.Span(), bound), Index: i,
 			})
 		}
@@ -863,8 +863,8 @@ func boundVarsLeaf(vars []boundVar) func(l *lowerer, w *armState, bs *seq, subst
 				return l.litUnit(w.sp)
 			}
 			atoms = append(atoms, &core.Var{
-				Base: core.Base{Sp: b.atom.Span(), Typ: b.atom.Type()},
-				Sym:  subst[b.sym],
+				Sp: b.atom.Span(), Typ: b.atom.Type(),
+				Sym: subst[b.sym],
 			})
 			ts = append(ts, b.atom.Type())
 		}
@@ -875,7 +875,7 @@ func boundVarsLeaf(vars []boundVar) func(l *lowerer, w *armState, bs *seq, subst
 			return atoms[0]
 		default:
 			return &core.TupleNew{
-				Base:  core.Base{Sp: w.sp, Typ: types.Tup(ts...)},
+				Sp: w.sp, Typ: types.Tup(ts...),
 				Elems: atoms,
 			}
 		}
@@ -941,7 +941,7 @@ func (l *lowerer) pureBinds(pat check.Pat, subj core.Atom) []pureBind {
 		case *check.TuplePat:
 			for i, e := range p.Elems {
 				walk(e, &core.FieldGet{
-					Base: core.Base{Sp: p.Sp, Typ: e.Type()},
+					Sp: p.Sp, Typ: e.Type(),
 					Recv: a, Index: i,
 				})
 			}
@@ -956,7 +956,7 @@ func (l *lowerer) pureBinds(pat check.Pat, subj core.Atom) []pureBind {
 					}
 				}
 				walk(fp.Pat, &core.FieldGet{
-					Base: core.Base{Sp: fp.Sp, Typ: fp.Pat.Type()},
+					Sp: fp.Sp, Typ: fp.Pat.Type(),
 					Recv: a, Field: fp.Sym, Index: idx,
 				})
 			}

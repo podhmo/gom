@@ -349,7 +349,6 @@ func TestRepoFiles(t *testing.T) {
 		t.Skip("no .gom files")
 	}
 	for _, path := range files {
-		path := path
 		t.Run(filepath.Base(path), func(t *testing.T) {
 			src, err := os.ReadFile(path)
 			if err != nil {

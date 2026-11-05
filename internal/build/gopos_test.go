@@ -117,7 +117,7 @@ func TestGoPosIndexDeterministic(t *testing.T) {
 	// "a/x.gom" is an exact srcs key; "sub/../a/x.gom" only matches
 	// by absolutization. The exact key must win regardless of which
 	// the map yields first.
-	for i := 0; i < 20; i++ {
+	for i := range 20 {
 		sp, ok := idx.Resolve("a/x.gom", 1, 1)
 		if !ok || sp.File != "a/x.gom" {
 			t.Fatalf("iter %d: Resolve(a/x.gom) = (%v, %v), want the exact key", i, sp, ok)
@@ -125,7 +125,7 @@ func TestGoPosIndexDeterministic(t *testing.T) {
 	}
 	// "y.gom" matches no key directly; both abs candidates point at
 	// the same file — the lexicographically-first spelling wins.
-	for i := 0; i < 20; i++ {
+	for i := range 20 {
 		sp, ok := idx.Resolve("y.gom", 1, 1)
 		if !ok || sp.File != "a/../y.gom" {
 			t.Fatalf("iter %d: Resolve(y.gom) = (%v, %v), want a/../y.gom", i, sp, ok)

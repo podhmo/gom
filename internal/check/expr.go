@@ -6,6 +6,7 @@ import (
 	"go/token"
 	gotypes "go/types"
 	"math"
+	"slices"
 	"strings"
 
 	"github.com/podhmo/gom/internal/diag"
@@ -209,10 +210,8 @@ func hasUnboundMeta(t types.Type) bool {
 	case *types.Meta:
 		return true
 	case *types.Con:
-		for _, a := range t.Args {
-			if hasUnboundMeta(a) {
-				return true
-			}
+		if slices.ContainsFunc(t.Args, hasUnboundMeta) {
+			return true
 		}
 	case *types.Func:
 		for _, p := range t.Params {
@@ -222,18 +221,14 @@ func hasUnboundMeta(t types.Type) bool {
 		}
 		return hasUnboundMeta(t.Ret)
 	case *types.Tuple:
-		for _, e := range t.Elems {
-			if hasUnboundMeta(e) {
-				return true
-			}
+		if slices.ContainsFunc(t.Elems, hasUnboundMeta) {
+			return true
 		}
 	case *types.Go:
 		// An instantiated Go named type — `gopkg.Box ?m` — can
 		// carry metas in its arguments like Con does.
-		for _, a := range t.Args {
-			if hasUnboundMeta(a) {
-				return true
-			}
+		if slices.ContainsFunc(t.Args, hasUnboundMeta) {
+			return true
 		}
 	case *types.Var:
 		return false
@@ -843,10 +838,8 @@ func (c *checker) convOK(from, to types.Type) bool {
 			if t.Qual == "" && c.shadowedBuiltin(t.Name) {
 				return true
 			}
-			for _, a := range t.Args {
-				if containsShadowed(a) {
-					return true
-				}
+			if slices.ContainsFunc(t.Args, containsShadowed) {
+				return true
 			}
 		case *types.Func:
 			for _, p := range t.Params {
@@ -856,16 +849,12 @@ func (c *checker) convOK(from, to types.Type) bool {
 			}
 			return containsShadowed(t.Ret)
 		case *types.Tuple:
-			for _, e := range t.Elems {
-				if containsShadowed(e) {
-					return true
-				}
+			if slices.ContainsFunc(t.Elems, containsShadowed) {
+				return true
 			}
 		case *types.Go:
-			for _, a := range t.Args {
-				if containsShadowed(a) {
-					return true
-				}
+			if slices.ContainsFunc(t.Args, containsShadowed) {
+				return true
 			}
 		case *types.Var, *types.Meta:
 		default:

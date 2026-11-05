@@ -642,7 +642,7 @@ func writeDoc(w *strings.Builder, c *syntax.Comment) {
 	if c == nil {
 		return
 	}
-	for _, line := range strings.Split(c.Text, "\n") {
+	for line := range strings.SplitSeq(c.Text, "\n") {
 		w.WriteString("///")
 		w.WriteString(line)
 		w.WriteByte('\n')

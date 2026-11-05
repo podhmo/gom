@@ -1,6 +1,8 @@
 package check
 
 import (
+	"maps"
+
 	"github.com/podhmo/gom/internal/diag"
 	"github.com/podhmo/gom/internal/resolve"
 	"github.com/podhmo/gom/internal/syntax"
@@ -35,12 +37,8 @@ func Files(ress []*resolve.Resolved, src SignatureSource) ([]*File, diag.List) {
 	}
 	for _, res := range ress {
 		merged.File.Decls = append(merged.File.Decls, res.File.Decls...)
-		for id, sym := range res.Defs {
-			merged.Defs[id] = sym
-		}
-		for id, sym := range res.Uses {
-			merged.Uses[id] = sym
-		}
+		maps.Copy(merged.Defs, res.Defs)
+		maps.Copy(merged.Uses, res.Uses)
 	}
 	f, diags := Check(merged, src)
 	files := make([]*File, len(ress))
