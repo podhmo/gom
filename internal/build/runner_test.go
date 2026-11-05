@@ -18,6 +18,7 @@ package build_test
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"go/ast"
 	"go/format"
@@ -30,6 +31,8 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"github.com/podhmo/gom/internal/testbin"
 )
 
 // runnerCase is one registered case pending in the runner module.
@@ -135,14 +138,14 @@ func (r *caseRunner) build(t *testing.T, gobin string) string {
 		t.Fatal(err)
 	}
 
-	bin := filepath.Join(r.dir, "runner.bin")
-	cmd := exec.Command(gobin, "build", "-o", bin, "./runner")
-	cmd.Dir = r.dir
-	cmd.Env = append(os.Environ(), "GOWORK=off", "GOFLAGS=-mod=mod", "GOTOOLCHAIN=local")
-	if out, err := cmd.CombinedOutput(); err != nil {
-		t.Fatalf("runner build failed: %v\n%s", err, out)
+	ctx, cancel := context.WithTimeout(t.Context(), diffBuildTimeout)
+	defer cancel()
+	env := append(os.Environ(), "GOWORK=off", "GOFLAGS=-mod=mod", "GOTOOLCHAIN=local")
+	res, err := testbin.Build(ctx, gobin, filepath.Join(r.dir, "runner"), env)
+	if err != nil {
+		t.Fatalf("runner build failed: %v\n%s", err, res.Output)
 	}
-	return bin
+	return res.Path
 }
 
 // run executes one case in its own process — the same observable

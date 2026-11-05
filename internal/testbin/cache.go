@@ -25,11 +25,12 @@ type Result struct {
 // Callers then run it directly, retaining their timeout, environment, exit
 // classification and number of executions. No dependency model or binary
 // store is maintained here; GOCACHE controls Go's ordinary cache location.
-// Reuse is opt-in with GOM_TEST_BIN_CACHE=on. An empty value or "off"
-// selects the original go build path. Without cp the
-// same build fallback applies, so the integration tests remain runnable.
-// GOM_TEST_BIN_CACHE=normalize isolates path normalization without retaining
-// executables, for performance comparisons.
+// Reuse is the default: an empty GOM_TEST_BIN_CACHE selects "on" — the
+// test inputs (static case sources, seeded generators) are stable across
+// runs, so identical programs reuse the cached executable. "off" selects
+// the plain `go build -o` path, "normalize" keeps -trimpath but disables
+// retention for comparisons. Without cp the same build fallback applies,
+// so the integration tests remain runnable.
 func Build(ctx context.Context, gobin, dir string, env []string) (Result, error) {
 	if gobin == "" {
 		gobin = "go"
@@ -37,7 +38,7 @@ func Build(ctx context.Context, gobin, dir string, env []string) (Result, error)
 	path := filepath.Join(dir, "prog.bin")
 	mode := os.Getenv("GOM_TEST_BIN_CACHE")
 	if mode == "" {
-		mode = "off"
+		mode = "on"
 	}
 	args := []string{"build", "-o", path, "."}
 	if mode != "off" {

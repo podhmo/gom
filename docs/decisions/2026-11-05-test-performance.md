@@ -299,3 +299,26 @@ realworld・sumtype）は別モジュール検証そのものなので残す。
 - 残る中規模直列テスト群（~10s 相当）の `t.Parallel()` 化は別検討。
 - `go run` を使い続ける単発テスト（`TestWrongVariantFieldPanic` 等）は
   runner 化の効果が小さいため据え置き。
+
+## 2026-11-06: バイナリ再利用の既定有効化（Supersedes 既定off の判断）
+
+`GOM_TEST_BIN_CACHE` 未設定時の既定を `off` から `on` に変更した。
+`-trimpath -buildvcs=false` による content-addressed な実行バイナリ再利用は
+試験機能のままにせず、次の根拠で既定化した。
+
+- 入力は run 間で安定している: compare 系ケースは静的ソース、gomgen は
+  固定 PCG シード列。bundled runner の runner バイナリも同一内容を再生成する。
+- 単独計測で warm 再実行が一貫して約2倍（EvalMatches 9.4→4.9s、
+  EvalCompiledDiff 9.2→4.8s）。cold 実行での悪化は見られない。
+- 前回「既定は無効」の根拠だった全体系計測（有効でも 56.044s で明確な改善なし）は
+  当時の直列構成で並列化が入る前の値であり、bundled runner で単体実行経路が
+  縮小した今は warm 反復の効果が支配的になった。
+- ローカル反復（`go test` 再実行）が主な受益者。CI の cold 1回は不変。
+  `GOM_TEST_BIN_CACHE=off`（従来経路）と `normalize`（normalizeのみ）は
+  デバッグ・比較用に残す。
+
+実装は `testbin.Build` の既定値反転に集約し、`runCompiledCmd` と bundled
+runner の runner バイナリビルドも同じ `testbin.Build` に集約した（runner は
+`go build -o` 独自経路を廃止し、モード共有で `-trimpath` 恩恵を受ける）。
+`TestNativeBinaryCache*` はモードを明示するため既定変更の影響なし。
+パッケージ単独は ~26s → warm ~18.7s、`-race`・全パッケージ成功。

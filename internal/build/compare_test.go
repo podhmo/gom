@@ -1403,7 +1403,7 @@ func runCompiledCmd(t *testing.T, gobin string, src []byte) (string, error) {
 		t.Fatal(err)
 	}
 	env := append(os.Environ(), "GOWORK=off", "GOFLAGS=-mod=mod", "GOTOOLCHAIN=local")
-	if mode := os.Getenv("GOM_TEST_BIN_CACHE"); mode == "" || mode == "off" || mode == "normalize" {
+	if mode := os.Getenv("GOM_TEST_BIN_CACHE"); mode == "off" || mode == "normalize" {
 		args := []string{"run", "."}
 		if mode == "normalize" {
 			args = []string{"run", "-trimpath", "-buildvcs=false", "."}
