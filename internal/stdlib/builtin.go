@@ -1,14 +1,17 @@
 package stdlib
 
-// The builtin `Chan` and `Task` modules ship as compiler-owned
-// member tables backed by rt functions rather than a .gomi stdlib
-// package — the operation surface spec section 10 fixes is not
-// expressible in Gom signatures: `Chan.send`/`recv`/`close` accept
-// both `Chan a` and the matching directional type, which only the
-// implicit channel-direction conversion at Go-call boundaries
-// admits (spec section 10.2). Making each member an IsGo symbol
-// forwarding to rt also makes the call a genuine Go boundary, so
-// the conversion applies exactly where the spec grants it.
+// The builtin `Chan`, `Task`, and `Ptr` modules — plus the
+// `Go`-namespace type-member table `Go.Map` — ship as
+// compiler-owned member tables backed by rt functions rather than
+// a .gomi stdlib package: the operation surfaces spec sections
+// 8.3 and 10 fix are not expressible in Gom signatures.
+// `Chan.send`/`recv`/`close` accept both `Chan a` and the matching
+// directional type, which only the implicit channel-direction
+// conversion at Go-call boundaries admits (spec section 10.2), and
+// `Go.Map`'s `k` carries a `comparable` constraint no .gomi can
+// spell. Making each member an IsGo symbol forwarding to rt also
+// makes the call a genuine Go boundary, so the boundary
+// conversions apply exactly where the spec grants them.
 
 import (
 	"github.com/podhmo/gom/internal/check"
@@ -33,8 +36,13 @@ const stdlibVarBase = 1 << 22
 // elemTVar is the shared rigid element/result variable of the
 // signatures below — every signature that mentions `a` shares the
 // variable, which is safe because each use site instantiates it with
-// a fresh meta.
-var elemTVar = &types.Var{ID: stdlibVarBase, Name: "a"}
+// a fresh meta. keyTVar/valTVar are the same for the two-parameter
+// Go.Map members (`k`/`v`).
+var (
+	elemTVar = &types.Var{ID: stdlibVarBase, Name: "a"}
+	keyTVar  = &types.Var{ID: stdlibVarBase + 1, Name: "k"}
+	valTVar  = &types.Var{ID: stdlibVarBase + 2, Name: "v"}
+)
 
 // builtinMember is one entry of a hand-built builtin-module member
 // table: the Gom surface name, the rt function it forwards to, and
@@ -66,6 +74,19 @@ func genericSig(t types.Type) check.Signature {
 		Type:          t,
 		TypeParams:    []*types.Var{elemTVar},
 		GoConstraints: []check.GoConstraint{check.GoConstraintAny},
+	}
+}
+
+// genericMapSig builds the two-type-parameter signature of the
+// Go.Map members — `[k comparable, v any]`: the key constraint is
+// what `map[K]V` needs to compile, and the post-inference E0508
+// check judges the caller's key choice on its emitted Go
+// representation (a `List Int` key never satisfies it).
+func genericMapSig(t types.Type) check.Signature {
+	return check.Signature{
+		Type:          t,
+		TypeParams:    []*types.Var{keyTVar, valTVar},
+		GoConstraints: []check.GoConstraint{check.GoConstraintComparable, check.GoConstraintAny},
 	}
 }
 
@@ -108,19 +129,89 @@ var taskMembers = []builtinMember{
 		gosig: lower.GoSig{Arity: 1, Results: core.GoResultsOne}},
 }
 
+// ptrMembers is the `Ptr` module's operation surface — the explicit
+// dereference, nil test and construction `Ptr T` needs for real Go
+// APIs (decisions/2026-11-05-ptr-ops-surface). get/set panic on nil
+// like Go's own dereference; is_nil and to_option are the safe
+// forms; new makes the zero-value target out-pointer APIs
+// (`errors.As`, decode destinations) want, and nil feeds the
+// optional `*T` parameters.
+var ptrMembers = []builtinMember{
+	{name: "get", goSym: "PtrGet",
+		sig:   genericSig(types.Fn(elemTVar, types.P(types.Ptr(elemTVar)))),
+		gosig: lower.GoSig{Arity: 1, Results: core.GoResultsOne}},
+	{name: "set", goSym: "PtrSet",
+		sig:   genericSig(types.Fn(types.Unit, types.P(types.Ptr(elemTVar)), types.P(elemTVar))),
+		gosig: lower.GoSig{Arity: 2, Results: core.GoResultsNone}},
+	{name: "is_nil", goSym: "PtrIsNil",
+		sig:   genericSig(types.Fn(types.Bool, types.P(types.Ptr(elemTVar)))),
+		gosig: lower.GoSig{Arity: 1, Results: core.GoResultsOne}},
+	{name: "new", goSym: "PtrNew",
+		sig:   genericSig(types.Fn(types.Ptr(elemTVar))),
+		gosig: lower.GoSig{Arity: 0, Results: core.GoResultsOne}},
+	{name: "make", goSym: "PtrMake",
+		sig:   genericSig(types.Fn(types.Ptr(elemTVar), types.P(elemTVar))),
+		gosig: lower.GoSig{Arity: 1, Results: core.GoResultsOne}},
+	{name: "nil", goSym: "PtrNil",
+		sig:   genericSig(types.Fn(types.Ptr(elemTVar))),
+		gosig: lower.GoSig{Arity: 0, Results: core.GoResultsOne}},
+	{name: "to_option", goSym: "PtrToOption",
+		sig:   genericSig(types.Fn(types.Option(elemTVar), types.P(types.Ptr(elemTVar)))),
+		gosig: lower.GoSig{Arity: 1, Results: core.GoResultsOK}},
+}
+
+// goMapMembers is `Go.Map`'s operation surface — a member table on
+// the *type* member rather than a builtin module, injected under
+// the qualified Modules key "Go.Map" that resolve's ctorTable
+// consults (decisions/2026-11-05-go-map-ops). `k` is `comparable`
+// because Go maps require it; `to_list` is the v1 iteration
+// surface — the []rt.Tuple2 result converts to a `List (k, v)`
+// through the ordinary Go-slice boundary conversion.
+var goMapMembers = []builtinMember{
+	{name: "make", goSym: "MapMake",
+		sig: genericMapSig(types.Fn(types.GoMap(keyTVar, valTVar))),
+		gosig: lower.GoSig{Arity: 0, Results: core.GoResultsOne,
+			TypeParams: []*types.Var{keyTVar, valTVar}}},
+	{name: "get", goSym: "MapGet",
+		sig: genericMapSig(types.Fn(types.Option(valTVar), types.P(types.GoMap(keyTVar, valTVar)), types.P(keyTVar))),
+		gosig: lower.GoSig{Arity: 2, Results: core.GoResultsOK,
+			TypeParams: []*types.Var{keyTVar, valTVar}}},
+	{name: "set", goSym: "MapSet",
+		sig: genericMapSig(types.Fn(types.Unit, types.P(types.GoMap(keyTVar, valTVar)), types.P(keyTVar), types.P(valTVar))),
+		gosig: lower.GoSig{Arity: 3, Results: core.GoResultsNone,
+			TypeParams: []*types.Var{keyTVar, valTVar}}},
+	{name: "delete", goSym: "MapDelete",
+		sig: genericMapSig(types.Fn(types.Unit, types.P(types.GoMap(keyTVar, valTVar)), types.P(keyTVar))),
+		gosig: lower.GoSig{Arity: 2, Results: core.GoResultsNone,
+			TypeParams: []*types.Var{keyTVar, valTVar}}},
+	{name: "length", goSym: "MapLen",
+		sig: genericMapSig(types.Fn(types.Int, types.P(types.GoMap(keyTVar, valTVar)))),
+		gosig: lower.GoSig{Arity: 1, Results: core.GoResultsOne,
+			TypeParams: []*types.Var{keyTVar, valTVar}}},
+	{name: "to_list", goSym: "MapToList",
+		sig: genericMapSig(types.Fn(types.List(types.Tup(keyTVar, valTVar)), types.P(types.GoMap(keyTVar, valTVar)))),
+		gosig: lower.GoSig{Arity: 1, Results: core.GoResultsOne,
+			ResTypes:   []types.Type{types.GoSlice(types.Tup(keyTVar, valTVar))},
+			TypeParams: []*types.Var{keyTVar, valTVar}}},
+}
+
 // builtinModules populates e with the member tables, signatures,
 // GoSig oracles and declared arities of the rt-backed builtin
-// modules — `Chan` and `Task`. Unlike the .gomi-derived tables of
-// `packages`, every fact here is written by hand because no Gom
+// modules — `Chan`, `Task`, `Ptr` — and of the `Go`-namespace
+// type-member tables (`Go.Map`). Unlike the .gomi-derived tables
+// of `packages`, every fact here is written by hand because no Gom
 // interface file can spell these signatures.
 func (e *env) builtinModules() {
 	for module, members := range map[string][]builtinMember{
-		"Chan": chanMembers,
-		"Task": taskMembers,
+		"Chan":   chanMembers,
+		"Task":   taskMembers,
+		"Ptr":    ptrMembers,
+		"Go.Map": goMapMembers,
 	} {
 		table := map[string]*resolve.Symbol{}
 		for _, m := range members {
 			sym := m.symbol()
+			sym.Surface = module + "." + m.name
 			table[m.name] = sym
 			e.sigs[sym] = m.sig
 			e.gosigs[sym] = m.gosig

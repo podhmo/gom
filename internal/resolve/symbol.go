@@ -86,6 +86,13 @@ type Symbol struct {
 	// matching the reserved qualifier of types.Con.
 	Package string
 
+	// Surface, when non-empty, is the user-facing spelling of the
+	// symbol — `Go.Map.make` — for diagnostics where Name (the rt
+	// backing symbol, `MapMake`) would mislead. Compiler-owned
+	// member tables set it; every other symbol leaves it empty and
+	// diagnostics fall back to Name.
+	Surface string
+
 	// EmitClash, when non-empty, is the package-scope Go name this
 	// member's emitted reference collides with: `p.foo` compiles to
 	// `p.Foo`, which silently names the package's *other* member

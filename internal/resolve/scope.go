@@ -141,9 +141,9 @@ func builtinScope() *scope {
 		s.terms[name] = &Symbol{Name: name, Kind: KindBuiltin}
 	}
 	// Standard-library modules named after builtin types (spec
-	// sections 1.4, 3.3, 10): the module names are in scope, their
-	// member tables are injected via Config.Modules.
-	for _, name := range []string{"List", "Option", "Result", "Ref", "Array", "Chan", "Task"} {
+	// sections 1.4, 3.3, 8.3, 10): the module names are in scope,
+	// their member tables are injected via Config.Modules.
+	for _, name := range []string{"List", "Option", "Result", "Ref", "Array", "Chan", "Task", "Ptr"} {
 		s.terms[name] = &Symbol{Name: name, Kind: KindModule}
 	}
 	// The compiler-owned `Go` namespace (types.Con reserved qualifier
@@ -170,8 +170,20 @@ func builtinGoMembers() map[string]*Symbol {
 // feature, and the E0201 note says so.
 var stdlibModules = map[string]bool{
 	"List": true, "Option": true, "Result": true,
-	"Chan": true, "Task": true,
+	"Chan": true, "Task": true, "Ptr": true,
 }
+
+// goTypeModules names the `Go`-namespace types that ship an
+// operation member table — `Go.Map.make`/`get`/... today, the
+// `Go.Slice` read-only surface when it lands. The tables are
+// compiler-owned and rt-backed like a builtin module's, but they
+// hang off a *type* member (`Go.Map` resolves through
+// builtinGoMembers), so they inject under the qualified
+// Config.Modules key "Go.<Name>" and the member lookup is the
+// ctor-table path (ctorTable), not builtinModuleTable. A type not
+// in this map genuinely has no member surface — noSuchCtor's note
+// distinguishes that from an unwired compile.
+var goTypeModules = map[string]bool{"Map": true}
 
 // builtinModuleTable returns the member table of a builtin-scope
 // module: the `Go` namespace's hardcoded table, or a Config.Modules

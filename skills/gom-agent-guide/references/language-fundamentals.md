@@ -305,9 +305,10 @@ fn add_res (a: Int) (b: Int) -> Result Int String = Ok (a + b)
 ## Things that look plausible but don't exist
 
 `Ref.*`, `Array.*` — module names are reserved, member tables are
-empty → E0201 "exposes no members yet" (`Chan.*`/`Task.*` do exist
-— see `references/concurrency.md`). The `List.*`, `Option.*`,
-`Result.*` stdlib modules do exist (see
+empty → E0201 "exposes no members yet" (`Chan.*`/`Task.*` —
+see `references/concurrency.md` — and `Ptr.*`/`Go.Map.*` —
+see `references/go-interop.md` — do exist). The `List.*`,
+`Option.*`, `Result.*` stdlib modules do exist (see
 `stdlib/{list,option,result}/*.gomi`). `let ... in`, `pub`, `var`,
 `return`, `break`, `while`,
 `switch`, `enum`, `interface`, `class`, `nil`, `null`, `void`,

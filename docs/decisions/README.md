@@ -125,6 +125,8 @@
 | [exported-value-vs-type-name](2026-11-05-exported-value-vs-type-name.md) | Exported `let foo` vs `type Foo`: type names claim first | draft（prototype verified — [sketch: V-6 residual verification](../sketch/2026-11-05-v6-residual-verification.md)） |
 | [generated-code-benchmark-harness](2026-11-05-generated-code-benchmark-harness.md) | Generated-code benchmarks live beside the artifacts they measure | 採用（実装・計測は [sketch: P5-3 generated-code perf](../sketch/2026-11-05-p5-3-generated-code-perf.md)） |
 | [generated-equality-comparators](2026-11-05-generated-equality-comparators.md) | Generated per-type comparators for `==`/`!=`/`assert_eq` (core.Equal + File.EqDecls)（一部を [eq-comparator-budget-and-names](2026-11-05-eq-comparator-budget-and-names.md) で置き換え） | 採用 |
+| [go-map-ops](2026-11-05-go-map-ops.md) | `Go.Map` operations: `Go.Map.<op>` member table backed by `rt` | 採用（実装・検証した — [検証](../sketch/2026-11-05-p3-7-interop-ops-verification.md)。spec.md §8.3/§8.5 へ反映済み） |
+| [go-mutation-warning](2026-11-05-go-mutation-warning.md) | W0501: warn on Unit-result Go calls that copy a `List` argument | 採用（実装・検証した — [検証](../sketch/2026-11-05-p3-7-interop-ops-verification.md)。spec.md §8.5 へ反映済み） |
 | [gom-implementation-import-cycles](2026-11-05-gom-implementation-import-cycles.md) | `.gom` implementation imports must be acyclic (E0606) | draft（prototype verified — [sketch: V-6 residual verification](../sketch/2026-11-05-v6-residual-verification.md)） |
 | [gom-test-panic-stack](2026-11-05-gom-test-panic-stack.md) | `gom test` renders panic stacks with `.gom` positions and keeps the raw Go trace | 採用（実装は TODO） |
 | [gomi-conformance-in-gom-fix](2026-11-05-gomi-conformance-in-gom-fix.md) | `gom fix` で `.gomi` 適合検査を走らせる（見送り） | 不採用（未決に戻した — 価値が具体化した時点で再検討） |
@@ -134,6 +136,7 @@
 | [package-initialization-order](2026-11-05-package-initialization-order.md) | Package initialization order: Go's dependency analysis over the whole unit | 採用（prototype で検証済み — [sketch](../sketch/2026-11-05-package-initialization-order-verification.md)。spec.md §5.1 へ反映済み） |
 | [pkg-type-ctor-spelling](2026-11-05-pkg-type-ctor-spelling.md) | `pkg.Type.Ctor`: a per-type constructor table for imported types | draft（prototype verified — [sketch: V-6 residual verification](../sketch/2026-11-05-v6-residual-verification.md)） |
 | [post-arg-selector-binding](2026-11-05-post-arg-selector-binding.md) | Post-argument selector binding: `x.M(1).N(2)` chains like Go | 採用 |
+| [ptr-ops-surface](2026-11-05-ptr-ops-surface.md) | `Ptr` module: an explicit operation surface for `Ptr T` | 採用（実装・検証した — [検証](../sketch/2026-11-05-p3-7-interop-ops-verification.md)。spec.md §8.3/§8.6 へ反映済み） |
 | [test-name-file-tag](2026-11-05-test-name-file-tag.md) | Same-named `test` blocks in sibling files take a file tag | draft（prototype verified — [sketch: V-6 residual verification](../sketch/2026-11-05-v6-residual-verification.md)） |
 | [variant-field-assert-owning-ctor](2026-11-05-variant-field-assert-owning-ctor.md) | バリアントの名前付きペイロード読み取りは所有者バリアントをアサートする | 採用（実装・検証した — [検証](../sketch/2026-11-05-variant-field-assert-owning-ctor.md)） |
 <!-- END GENERATED -->

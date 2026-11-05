@@ -1207,6 +1207,31 @@ only that it did not finish within the bound.`,
 	},
 
 	{
+		Code:     "W0501",
+		Severity: SeverityWarning,
+		Title:    "Go call receives a copied List where mutation may be expected",
+		Phase:    PhaseLint,
+		Spec:     "8.5",
+		Explanation: `A Go function whose signature returns Unit can only matter
+through a side effect — and when one of its parameters is a Gom List
+(Go's []T), the boundary hands it a copy (spec section 8.5), so a
+callee whose contract is to mutate the slice in place — sort.Strings
+is the canonical example — has no observable effect. The lint fires
+on that combination: a Unit-result Go call whose argument crosses
+the boundary by copy — a List argument (including ..xs spreads into
+variadic parameters and a List into an extern-declared Go.Slice
+parameter) or a Go.Slice argument the checker materialized into a
+List first. A bare Go.Slice reaches its []T slot verbatim — the
+extern Go.Slice parameter, a ..gs spread, a ...[]T element — so
+those stay silent. Read-only []T consumers never return Unit, so
+the shape keeps false positives rare (signal.Notify is the known
+one — the warning is advisory either way). To let Go mutate the
+data, pass a Go.Slice binding declared through extern instead.`,
+		Example: `import go "sort"
+let xs = ["b", "a"]
+sort.Strings xs   // the copy is sorted; xs is unchanged`,
+	},
+	{
 		Code:     "W0701",
 		Severity: SeverityWarning,
 		Title:    "channel of mutable element type",

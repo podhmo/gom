@@ -1,0 +1,41 @@
+package ex
+
+import go "sort"
+import go "strings"
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// The copied-List lint (spec section 8.5): a Unit-result Go call
+// that takes a `List` argument hands the callee a copy, so an
+// in-place mutator like `sort.Strings`/`sort.Float64s` has no
+// observable effect — W0501 warns. A read-only []T consumer
+// returns a value (strings.Join), so it never trips the rule; an
+// extern binding that declares the parameter `Go.Slice` passes the
+// slice itself, so a `Go.Slice` argument stays silent — though a
+// `List` argument into that signature still copies (and still
+// warns).
+extern go "sort" {
+  fn Strings (xs: Go.Slice String) -> Unit
+}
+
+fn calls () -> Unit = {
+  let fs = [2.0, 1.0]
+  sort.Float64s fs
+  let xs = ["b", "a", "c"]
+  sort.Strings xs
+  ignore strings.Join xs ","
+  let gs: Go.Slice String = Go.conv xs : Go.Slice String
+  sort.Strings gs
+  ()
+}
+
+// Bare `Go.Slice` arguments reach their []T slot verbatim — a
+// `..gs2` spread expands the slice itself and a `...[]T` element
+// shares backing — so mutations through the tail DO reach the
+// caller; no warning. A `List` element copies (`ToSlice`), so it
+// warns like any other copied boundary.
+fn verbatim (gs: Go.Slice Int) (gs2: Go.Slice (Go.Slice Int)) -> Unit = {
+  goiface.MutSlices gs
+  goiface.MutSlices(..gs2)
+  goiface.MutSlices [1, 2]
+  ()
+}

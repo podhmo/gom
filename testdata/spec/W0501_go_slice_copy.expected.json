@@ -1,0 +1,73 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "W0501",
+      "severity": "warning",
+      "message": "`sort.Float64s` returns Unit and receives its `List Float` argument as a copied []T — a callee that mutates the slice in place has no effect on the Gom value",
+      "span": {
+        "file": "W0501_go_slice_copy.gom",
+        "start": {
+          "line": 22,
+          "col": 17,
+          "offset": 759
+        },
+        "end": {
+          "line": 22,
+          "col": 19,
+          "offset": 761
+        }
+      },
+      "data": {
+        "argument": "List Float",
+        "callee": "sort.Float64s"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "W0501",
+      "severity": "warning",
+      "message": "`sort.Strings` returns Unit and receives its `List String` argument as a copied []T — a callee that mutates the slice in place has no effect on the Gom value",
+      "span": {
+        "file": "W0501_go_slice_copy.gom",
+        "start": {
+          "line": 24,
+          "col": 16,
+          "offset": 804
+        },
+        "end": {
+          "line": 24,
+          "col": 18,
+          "offset": 806
+        }
+      },
+      "data": {
+        "argument": "List String",
+        "callee": "sort.Strings"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "W0501",
+      "severity": "warning",
+      "message": "`goiface.MutSlices` returns Unit and receives its `List Int` argument as a copied []T — a callee that mutates the slice in place has no effect on the Gom value",
+      "span": {
+        "file": "W0501_go_slice_copy.gom",
+        "start": {
+          "line": 39,
+          "col": 21,
+          "offset": 1366
+        },
+        "end": {
+          "line": 39,
+          "col": 27,
+          "offset": 1372
+        }
+      },
+      "data": {
+        "argument": "List Int",
+        "callee": "goiface.MutSlices"
+      }
+    }
+  ]
+}

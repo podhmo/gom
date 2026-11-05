@@ -1,0 +1,28 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0201",
+      "severity": "error",
+      "message": "`Ptr` has no member `bogus`",
+      "span": {
+        "file": "E0201_ptr_member.gom",
+        "start": {
+          "line": 5,
+          "col": 32,
+          "offset": 148
+        },
+        "end": {
+          "line": 5,
+          "col": 37,
+          "offset": 153
+        }
+      },
+      "data": {
+        "in": "Ptr",
+        "name": "bogus",
+        "namespace": "member"
+      }
+    }
+  ]
+}

@@ -30,3 +30,15 @@ func NotifyDone(done <-chan struct{}, out chan<- string, v string) {
 	<-done
 	out <- v
 }
+
+// MutSlices is the Unit-result in-place mutator shape W0501 names:
+// a `..gs2` spread hands it gs2 verbatim, and `MutSlices(gs)` hands
+// it gs as one element — mutations through the tail reach the
+// caller's backing either way — while a `List` element copies.
+func MutSlices(xs ...[]int64) {
+	for _, s := range xs {
+		if len(s) > 0 {
+			s[0] = -1
+		}
+	}
+}

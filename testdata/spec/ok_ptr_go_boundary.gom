@@ -1,0 +1,27 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// The `Ptr` surface across the Go-boundary shapes the P3-7 audit
+// found unusable (spec section 8.3): an out-pointer taken through
+// an `any` parameter (the `errors.As`/`json.Unmarshal` target
+// shape), a `*T` result read back (the `flag.Int64` shape), and
+// `Ptr.nil` into an optional `*T` parameter (the `tls.Dial`
+// `*tls.Config` shape).
+fn out_pointer () -> Int = {
+  let t : Ptr Int = Ptr.new ()
+  let _ = goiface.FillPtr t 7
+  Ptr.get t
+}
+
+fn read_back () -> Int =
+  Ptr.get (goiface.Int64Box ())
+
+fn optional_nil () -> Bool =
+  goiface.UsesConfig (Ptr.nil ())
+
+fn written_through () -> Int = {
+  let p = goiface.Int64Box ()
+  Ptr.set p (Ptr.get p + 1)
+  Ptr.get p
+}

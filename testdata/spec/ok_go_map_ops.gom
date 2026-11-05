@@ -1,0 +1,27 @@
+package ex
+
+// The `Go.Map` operation surface (spec section 8.5): make/get/set/
+// delete/length/to_list. `k` carries Go's `comparable` constraint;
+// `get` returns `Option v` from the (v, ok) result shape, and
+// `to_list` is the v1 iteration surface — a snapshot List of
+// (key, value) pairs.
+fn ops () -> Int = {
+  let m: Go.Map String Int = Go.Map.make ()
+  Go.Map.set m "a" 1
+  Go.Map.set m "b" 2
+  let got = match Go.Map.get m "a" {
+    Some v -> v
+    None -> 0
+  }
+  Go.Map.delete m "b"
+  got + Go.Map.length m
+}
+
+fn entries (m: Go.Map String Int) -> List (String, Int) =
+  Go.Map.to_list m
+
+fn missing (m: Go.Map String Int) -> Bool =
+  match Go.Map.get m "absent" {
+    Some _ -> true
+    None -> false
+  }

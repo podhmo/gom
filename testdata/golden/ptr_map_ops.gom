@@ -1,0 +1,34 @@
+package ex
+
+// The rt-backed operation surfaces: `Ptr` members emit
+// rt.Ptr*[T](...) calls and `Go.Map` members emit rt.Map*[K,V](...)
+// calls — both instantiated with the solved type arguments, with
+// the (v, ok) result shapes wrapped into Option and the
+// Go-slice-of-tuples result of `to_list` converted into a List.
+fn ptrOps () -> Int = {
+  let p: Ptr Int = Ptr.make 1
+  Ptr.set p (Ptr.get p + 1)
+  let z: Ptr Int = Ptr.new ()
+  let n: Ptr Int = Ptr.nil ()
+  if Ptr.is_nil n {
+    Ptr.get p + Ptr.get z
+  } else {
+    0
+  }
+}
+
+fn optOf (p: Ptr Int) -> Option Int = Ptr.to_option p
+
+fn mapOps () -> Int = {
+  let m: Go.Map String Int = Go.Map.make ()
+  Go.Map.set m "k" 3
+  let v = match Go.Map.get m "k" {
+    Some x -> x
+    None -> 0
+  }
+  Go.Map.delete m "k"
+  v + Go.Map.length m
+}
+
+fn pairs (m: Go.Map String Int) -> List (String, Int) =
+  Go.Map.to_list m

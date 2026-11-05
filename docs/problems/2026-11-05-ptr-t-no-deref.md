@@ -1,6 +1,14 @@
 # `Ptr T` is write-only: no dereference, no nil, no construction
 
-- 状態: 未決
+- 状態: 一部解消（2026-11-05 — the `Ptr` module shipped:
+  `Ptr.get`/`Ptr.set`/`Ptr.is_nil`/`Ptr.new`/`Ptr.make`/`Ptr.nil`/
+  `Ptr.to_option`. Flag values read back, optional `*T` parameters
+  accept nil, out-pointer APIs get a target. See
+  [decision](../decisions/2026-11-05-ptr-ops-surface.md),
+  [verification](../sketch/2026-11-05-p3-7-interop-ops-verification.md).
+  Residual: the `errors.As`-family "an `any` that must be a non-nil
+  pointer" contract is still unstated — misuse panics at runtime;
+  a typed binding or lint is future work)
 - 日付: 2026-11-05 (found by the P3-7 real-program audit —
   [sketch](../sketch/2026-11-05-p3-7-realworld-interop-audit.md))
 

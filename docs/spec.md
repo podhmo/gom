@@ -418,11 +418,11 @@ strconv.ParseInt(_, 10, 64)
 | 戻り値 `(T, bool)` | タプル `(T, Bool)`。`Option T` にするのは、標準のバインディングか `extern` で comma-ok と宣言した関数だけ（`os.LookupEnv` など） |
 | 戻り値 `(A, B)`（上記以外の多値） | タプル `(A, B)` |
 | 戻り値 `error` のみ | `Result Unit GoError` |
-| `*T` | `Ptr T`（nil の参照は Go と同じく panic） |
+| `*T` | `Ptr T`（nil の参照は Go と同じく panic。操作は `Ptr` モジュール） |
 | `int` / `int64` / `int32` / `float64` | `Int` / `Int` / `Int32` / `Float` |
 | named type（`type UserID int64` など） | 別の名前的な型 `pkg.UserID`。基底型との変換は `Go.conv` で明示 |
 | `[]T` | `List T`。境界では両方向ともコピーする（8.5 節） |
-| `map[K]V` | 不透明型 `Go.Map K V`（操作は `Go.Map` モジュール） |
+| `map[K]V` | 不透明型 `Go.Map K V`（操作は `Go.Map` の型メンバー群） |
 | `chan T` / `<-chan T` / `chan<- T` | `Chan T` / `RecvChan T` / `SendChan T` |
 | interface（`io.Reader`、`fmt.Stringer` など） | 名前的な型 `io.Reader` など。Go 由来の値を代入規則に従って渡せる |
 | `error` | `GoError` |
@@ -430,6 +430,10 @@ strconv.ParseInt(_, 10, 64)
 v1 で対応していない型（符号なし整数 `uint8`–`uint64`/`byte`、`float32`、複素数、配列 `[N]T`、`unsafe.Pointer`、ジェネリック型・関数、メソッドを持つ無名 interface、関数型の引数・戻り値）をシグネチャに含むシンボルは公開されず、参照すると理由付きの診断になる（8.5 節）。ジェネリック関数については 8.5 節の記述と食い違いがある（[problem](problems/2026-11-04-generic-go-fns-hidden.md)）。
 
 Go の名前付き struct 型の値またはそのポインタから、exported field を `value.Field` で読み取れる。Go と同じ promoted field と曖昧性の規則を使い、unexported field は参照できない。field の型は上の対応に従い、未対応の型は参照位置で理由付き E0501 になる。読み取りはソースの評価順に行い、nil ポインタ経由の読み取りは Go と同じく panic する。field への代入と Go struct のコンポジットリテラルはまだ定めない。
+
+`Ptr T` の操作はコンパイラ組み込みの `Ptr` モジュールが持つ（[decisions/ptr-ops-surface](decisions/2026-11-05-ptr-ops-surface.md)）: `Ptr.get : Ptr a -> a`（`*p` — nil で panic）、`Ptr.set : Ptr a -> a -> Unit`（`*p = v` — nil で panic）、`Ptr.is_nil : Ptr a -> Bool`、`Ptr.new : Unit -> Ptr a`（`new(T)`。`errors.As` の target や decode 先のような out-pointer API 用）、`Ptr.make : a -> Ptr a`（`&v` — 新しいコピーへのポインタ）、`Ptr.nil : Unit -> Ptr a`（`tls.Dial` の `*tls.Config` のような任意の `*T` パラメータへ nil を渡す）、`Ptr.to_option : Ptr a -> Option a`（nil なら `None`、さもなくば `Some *p` — 安全な読み出し）。`Ptr` の `==`/`!=` は Go のポインタの `==` と同じ同一性比較（3.3 節の等価規則）。nil との比較は `Ptr.is_nil` / `Ptr.to_option` で行う。
+
+`Go.Map K V` の操作は `Go.Map` の型メンバーとして解決する（[decisions/go-map-ops](decisions/2026-11-05-go-map-ops.md)）: `Go.Map.make : Unit -> Go.Map k v`、`Go.Map.get : Go.Map k v -> k -> Option v`（missing key は `None`）、`Go.Map.set : Go.Map k v -> k -> v -> Unit`、`Go.Map.delete : Go.Map k v -> k -> Unit`、`Go.Map.length : Go.Map k v -> Int`、`Go.Map.to_list : Go.Map k v -> List (k, v)`（順序不定のスナップショット。v1 の反復面）。`k` は Go の `comparable` 制約を持ち、`List` など比較できない表現のキーは E0508 で拒否される。nil マップの意味は Go のまま — get/delete/length は nil でも動き、set は panic する。
 
 ### 8.4 extern（上書き専用）
 
@@ -468,7 +472,8 @@ extern のエントリは `fn` の関数シグネチャだけを持ち、ブロ�
 ### 8.5 境界でのデータの扱い
 
 - `List T` と Go の `[]T` は、境界を越えるときに両方向ともコピーする。Gom から渡したスライスを Go が書き換えても、Go から受け取ったスライスを Go が後で書き換えても、Gom の `List` は変わらない
-- コピーを避けたいときは、Go が所有する可変の値として `Go.Slice T` を使う（`extern` で宣言する）
+- コピーを避けたいときは、Go が所有する可変の値として `Go.Slice T` を使う（`extern` で宣言する）。`List` を `Go.Slice` パラメータへ渡してもやはりコピーする — no-copy は `Go.Slice` から `Go.Slice` への引き渡しだけ
+- このコピーのため、`sort.Strings xs` のような in-place 変更を契約に持つ Go 呼び出しはコンパイルできても Gom の値に効かない。結果が `Unit` の Go 呼び出しがコピーされる引数を `[]T` パラメータへ渡すとき、リンターは W0501 を警告する（[decisions/go-mutation-warning](decisions/2026-11-05-go-mutation-warning.md)）。コピーされるのは `List` 引数（`..xs` スプレッドと `Go.Slice` 宣言パラメータへの `List` を含む）と、`List` 位置へ物質化される `Go.Slice` 引数（チャネル送信の `[]T` パラメータなど）。素の `Go.Slice` が `[]T` スロットへそのまま渡る経路 — `Go.Slice` 宣言パラメータへの `Go.Slice` 引数、`..gs` スプレッド、`...[]T` の要素位置 — はバッキングを共有するので警告しない。読み取り専用の消費者は値を返すので（`strings.Join` など）警告されない。`signal.Notify` のように副作用を持つが slice を書き換えない Unit 関数も警告対象になり得る — 警告の文言は条件形で、事実としてコピーが起きることだけを述べる
 - Gom が表現できない型（`unsafe.Pointer`、制約付きの型パラメータを持つジェネリック関数など）を含むシンボルは公開しない。`import go` 自体は失敗せず、そのシンボルを参照したときに理由付きの診断を出す
 - Go のジェネリック関数は、制約が `any` か `comparable` のものだけを呼べる（v1）
 
@@ -476,7 +481,7 @@ extern のエントリは `fn` の関数シグネチャだけを持ち、ブロ�
 
 - Go から受け取った Gom の ADT 型の値が `nil` などの不正な値だった場合は契約違反とし、`match` の時点で型名を含むメッセージで panic する
 - 名前付きペイロードのフィールド参照 `s.f` も同じ族である — 値がそのフィールドを宣言するバリアントを保持していなければ契約違反として panic する（3.2 節）。これは Gom が作った正当なバリアント値にも起きる（値は正しくとも、期待するバリアントではない）
-- Go の interface 型やポインタ型の値は `nil` になり得る。メソッド呼び出しや参照で Go と同じく panic する（`*T` の既定は open-questions.md）
+- Go の interface 型やポインタ型の値は `nil` になり得る。メソッド呼び出しや参照で Go と同じく panic する（`*T` の既定は open-questions.md）。`Ptr T` の nil 判定は `Ptr.is_nil`、安全な読み出しは `Ptr.to_option`、nil の供給は `Ptr.nil` で行う（8.3 節）
 
 ### 8.7 Go から Gom を呼ぶ
 

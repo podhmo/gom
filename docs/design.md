@@ -86,7 +86,7 @@
 
 呼び出し情報の確定は `checkApply` の一回きりとは限らない。メンバー選択 `x.M` のレシーバ型がまだメタの間、check は選択を pendingSels に留め、その上の適用 `x.M(args)` も pendingApplies として規約を決めずに引数だけ暫定検査する（`_`・`..e`・ラベル・引数タプルは保持し、規約の診断は発行しない）。`finalize` の `revisitSelects` がレシーバ確定と同時にメンバーを解決し、適用を Go 規約（`replayGoApply`）か Gom 規約（`replayGomApply`）で replay して CallInfo を最終確定する。`revisitSelects` は不動点ループ——ある replay が更に先行のメンバーのレシーバを束縛しうるので、解決がある間繰り返す。lower に渡る時点で全件の規約が確定済みという契約は変わらない（[decisions/deferred-member-application](decisions/2026-11-05-deferred-member-application.md)）。
 
-spec 10 章のミュータブル共有警告（`Chan.make` の W0701、`go { ... }` 捕捉の W0702）は `check` 内の推論後スイープ（`lintMutableSharing`）として実装し、全メタが既定化または報告された後の `finalize` の後に走る。この位置決めが解析に必要なものを与える: 解決済みの要素型、宣言ボディを展開する `tyCons` 宣言表、綴りではなく宣言同一性で builtin を認識する `shadowedBuiltin`。「捕捉」は型付き AST 上の字句的な関係——ボディ内の `Var`/`MemberExpr` が、`go` ボディ外に束縛を持つ `KindVar` シンボルを名指すこと——であり、警告は後続フェーズをゲートしない（[decision](decisions/2026-11-04-mutable-sharing-lint.md)）。
+spec 10 章のミュータブル共有警告（`Chan.make` の W0701、`go { ... }` 捕捉の W0702）は `check` 内の推論後スイープ（`lintMutableSharing`）として実装し、全メタが既定化または報告された後の `finalize` の後に走る。同じスイープが spec 8.5 の境界コピー警告（W0501——`Unit` 結果の Go 呼び出しがコピーされる `List` 引数を `[]T` パラメータへ渡すとき）も担当し、コピーの判定はチェッカが引数に包んだ `Slice` 印つき Ascribe（`List` への物質化＝コピーの証拠）を観察して行う。この位置決めが解析に必要なものを与える: 解決済みの要素型、宣言ボディを展開する `tyCons` 宣言表、綴りではなく宣言同一性で builtin を認識する `shadowedBuiltin`。「捕捉」は型付き AST 上の字句的な関係——ボディ内の `Var`/`MemberExpr` が、`go` ボディ外に束縛を持つ `KindVar` シンボルを名指すこと——であり、警告は後続フェーズをゲートしない（[decision](decisions/2026-11-04-mutable-sharing-lint.md)、[decision](decisions/2026-11-05-go-mutation-warning.md)）。
 
 ### 2.1 Core IR の不変条件
 

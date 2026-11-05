@@ -518,7 +518,10 @@ func TestDeferredSpread(t *testing.T) {
 			b.app(b.ref(lSym), b.arg(b.ref(bs)))))
 
 	f, diags := b.check(Chain(src, MapSource{bufSym: {Type: bufT}}), lb, lxs, main)
-	requireCodes(t, diags)
+	// The stub method's Unit result plus `..xs` spread into its
+	// slice parameter is the copied-List shape W0501 names; the
+	// deferred-spread mechanics it verifies are unaffected.
+	requireCodes(t, diags, "W0501")
 	inner := firstApply(findDecl[*FnDecl](f, 0))
 	if inner == nil {
 		t.Fatal("no inner apply")

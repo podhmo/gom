@@ -21,6 +21,29 @@
       "data": {
         "type": "Go.Slice Int"
       }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "W0501",
+      "severity": "warning",
+      "message": "`goiface.SendSlice` returns Unit and receives its `Go.Slice Int` argument as a copied []T — a callee that mutates the slice in place has no effect on the Gom value",
+      "span": {
+        "file": "ok_chan_elem_types.gom",
+        "start": {
+          "line": 13,
+          "col": 25,
+          "offset": 522
+        },
+        "end": {
+          "line": 13,
+          "col": 26,
+          "offset": 523
+        }
+      },
+      "data": {
+        "argument": "Go.Slice Int",
+        "callee": "goiface.SendSlice"
+      }
     }
   ]
 }

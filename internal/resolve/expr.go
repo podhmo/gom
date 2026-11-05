@@ -305,16 +305,26 @@ func (r *resolver) selectTypeCtor(tsym *Symbol, sel *syntax.Ident) {
 
 // ctorTable returns the constructor name -> symbol table of a type:
 // the unit's declared table first, then — once per type symbol —
-// the loader-supplied table of Config.Ctors for types the unit does
-// not declare (an imported package's `pkg.Type`). A miss caches an
-// empty table so the hook is not re-consulted; a type with no
-// constructors anywhere answers an empty table.
+// the compiler-owned member table of a `Go`-namespace type
+// (`Go.Map.make`, injected under the qualified Config.Modules key),
+// then the loader-supplied table of Config.Ctors for types the unit
+// does not declare (an imported package's `pkg.Type`). A miss
+// caches an empty table so the hook is not re-consulted; a type
+// with no constructors anywhere answers an empty table.
 func (r *resolver) ctorTable(tsym *Symbol) map[string]*Symbol {
 	if ct, ok := r.ctorsOf[tsym]; ok {
 		return ct
 	}
 	ct := map[string]*Symbol{}
-	if r.cfg.Ctors != nil {
+	if tsym.Kind == KindType && tsym.Package == "Go" {
+		// `Go.Map`'s members are operations (`make`, `get`, ...),
+		// not constructors — the table reuses the Modules
+		// injection under the reserved qualified key so the
+		// `Go` namespace needs no second Config hook.
+		if t, ok := r.cfg.Modules["Go."+tsym.Name]; ok {
+			ct = t
+		}
+	} else if r.cfg.Ctors != nil {
 		if loaded := r.cfg.Ctors(tsym); loaded != nil {
 			ct = loaded
 		}

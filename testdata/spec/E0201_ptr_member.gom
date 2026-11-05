@@ -1,0 +1,5 @@
+package ex
+
+// An unknown member of the compiler-owned `Ptr` module reports
+// E0201 the same way `Chan.bogus` does.
+fn f (p: Ptr Int) -> Int = Ptr.bogus p

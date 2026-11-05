@@ -2,6 +2,7 @@ package check
 
 import (
 	"fmt"
+	"path"
 
 	"github.com/podhmo/gom/internal/diag"
 	"github.com/podhmo/gom/internal/resolve"
@@ -41,6 +42,7 @@ func (c *checker) lintMutableSharing() {
 			switch e := e.(type) {
 			case *Apply:
 				c.lintChanMake(e)
+				c.lintGoSliceCopy(e)
 			case *GoExpr:
 				c.lintGoCaptures(e)
 			case *Lit, *Var, *MemberExpr, *Hole, *StrInterp, *Lambda,
@@ -77,6 +79,88 @@ func (c *checker) lintChanMake(ap *Apply) {
 	c.diags.Add(diag.Warning("W0701",
 		fmt.Sprintf("a channel's element type %s contains mutable values", elem)).
 		At(ap.Span()).Set("type", elem.String()))
+}
+
+// lintGoSliceCopy reports W0501 for a Unit-result Go call that
+// passes a `List` argument into a `List` (slice) parameter: the
+// boundary copies the list into a fresh []T (spec 8.5), so a callee
+// whose contract is in-place mutation — sort.Strings is the
+// canonical case — has no observable effect on the Gom value. The
+// result-shape test is the false-positive control: a read-only
+// []T consumer returns a value (strings.Join, sort.SearchStrings),
+// so it never trips the rule; the signal.Notify family is the
+// documented exception, and the wording stays conditional for it.
+// A declared `a` type parameter is not a List — `Ptr.set p xs`
+// binds the list itself, no copy — so generic parameter positions
+// stay silent. The copy test is over the callee's *declared*
+// parameter and the argument's own type after peeling the implicit
+// slice Ascribe — and the Ascribe is itself the copy evidence: a
+// bare `Go.Slice` reaches its []T slot verbatim (a `..gs` spread
+// expands the slice itself, a `...[]T` element shares backing),
+// so only an ascribe-materialized `Go.Slice` counts as copied.
+func (c *checker) lintGoSliceCopy(ap *Apply) {
+	if ap.Call.Kind != CallGo || ap.Call.Callee == nil {
+		return
+	}
+	if !c.isBuiltinCon(types.Chase(ap.Type()), "Unit") {
+		return
+	}
+	sig, ok := c.sigOf(ap.Call.Callee, ap.Sp)
+	if !ok {
+		return
+	}
+	params, _ := flattenFunc(sig.Type)
+	for i, a := range ap.Args {
+		pi := i
+		if ap.Call.ArgToParam != nil && i < len(ap.Call.ArgToParam) {
+			pi = ap.Call.ArgToParam[i]
+		}
+		if pi < 0 || pi >= len(params) {
+			continue
+		}
+		got := a.Value
+		if sp, ok := got.(*Spread); ok {
+			got = sp.X
+		}
+		// The implicit List ↔ Go.Slice boundary conversion wraps
+		// the argument in a Slice-marked Ascribe — the copy
+		// question is decided by the value underneath, so peel it.
+		materialized := false
+		if as, ok := got.(*Ascribe); ok && as.Slice {
+			got = as.X
+			materialized = true
+		}
+		gotT := types.Chase(got.Type())
+		want := types.Chase(params[pi].Type)
+		gotList := c.isBuiltinCon(gotT, "List")
+		gotSlice := isGoSliceCon(gotT) && materialized
+		wantList := c.isBuiltinCon(want, "List")
+		wantSlice := isGoSliceCon(want)
+		// A `List` argument always crosses the boundary by copy —
+		// `.ToSlice()`/boxing — whether it reaches a `List`- or
+		// `Go.Slice`-spelled parameter. A `Go.Slice` argument
+		// copies only when the checker materialized it into a
+		// `List` first (the peeled ascribe); bare `Go.Slice`
+		// arguments pass their backing verbatim.
+		copied := (wantList && (gotList || gotSlice)) || (wantSlice && gotList)
+		if !copied {
+			continue
+		}
+		callee := ap.Call.Callee.Name
+		if ap.Call.Callee.Package != "" {
+			callee = path.Base(ap.Call.Callee.Package) + "." + callee
+		}
+		argT := got.Type().String()
+		c.diags.Add(diag.Warning("W0501",
+			fmt.Sprintf("`%s` returns Unit and receives its `%s` argument as a copied []T — a callee that mutates the slice in place has no effect on the Gom value", callee, argT)).
+			At(a.Span()).Set("callee", callee).Set("argument", argT))
+	}
+}
+
+// isGoSliceCon reports whether the chased type is `Go.Slice _`.
+func isGoSliceCon(t types.Type) bool {
+	con, ok := t.(*types.Con)
+	return ok && con.Qual == "Go" && con.Name == "Slice"
 }
 
 // lintGoCaptures warns once per variable a `go` body closes over

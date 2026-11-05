@@ -1,0 +1,12 @@
+package ex
+
+// `Go.Map`'s members are the compiler-owned operation table —
+// `Go.Map.make`/`get`/`set`/`delete`/`length`/`to_list`. Any other
+// selection is a member miss (E0201), not a constructor miss:
+// `Go.Map` is a type member of the `Go` namespace and its surface
+// is members, not constructors.
+
+fn f () -> Unit = {
+  let _ = Go.Map.bogus
+  ()
+}

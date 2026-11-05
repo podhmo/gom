@@ -138,7 +138,10 @@ func TestCallGoSpread(t *testing.T) {
 	main, _ := b.fn("main", []syntax.Param{up}, b.tn("Unit"), call)
 
 	f, diags := b.check(src, xs, main)
-	requireCodes(t, diags)
+	// The stub's Unit result plus `..xs` spread into a slice
+	// parameter is exactly the copied-List shape W0501 names —
+	// the spread mechanics it verifies are unaffected.
+	requireCodes(t, diags, "W0501")
 	d := findDecl[*FnDecl](f, 0)
 	a := applyAt(d.Body)
 	expectCall(t, a, CallGo, 1, 1, 0, nil)

@@ -1,0 +1,7 @@
+package ex
+
+// A `Go.Map` key must satisfy Go's `comparable` constraint (spec
+// section 8.5): `List Int` keys are rejected by E0508 — the key
+// parameter of the Go.Map members carries the constraint.
+
+fn bad () -> Go.Map (List Int) Int = Go.Map.make ()

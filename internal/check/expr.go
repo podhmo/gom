@@ -372,6 +372,15 @@ func (c *checker) checkSelect(e *syntax.Select) Expr {
 		ctyp, _ := c.valOf(sel, e.Sel.Sp)
 		return &MemberExpr{Base: baseOf(e.Sp, ctyp), Recv: recv, Sel: e.Sel, Sym: sel, Index: -1, TypeArgs: ctorADTArgs(ctyp)}
 	}
+	// A member of a `Go`-namespace type's operation table
+	// (`Go.Map.make`): resolve reached the symbol through the type's
+	// member-table path, so the receiver is a namespace hop — an
+	// untyped meta, never a value — and the selection types straight
+	// from the member's signature like a constructor would.
+	if sel != nil && namespaceRecv(recv) {
+		typ, targs := c.valOf(sel, e.Sel.Sp)
+		return &MemberExpr{Base: baseOf(e.Sp, typ), Recv: recv, Sel: e.Sel, Sym: sel, Index: -1, TypeArgs: targs}
+	}
 	// Field access on a declared record or a variant's uniquely named
 	// payload slot. The owning variant of a sum selection goes on
 	// the node: the receiver is the sealed interface, so emitting
@@ -421,6 +430,19 @@ func (c *checker) checkSelect(e *syntax.Select) Expr {
 		fmt.Sprintf("%s has no field or method `%s`", recv.Type(), selName)).
 		At(e.Sel.Sp).Set("type", recv.Type().String()).Set("member", selName))
 	return &MemberExpr{Base: baseOf(e.Sp, c.quietMeta(e.Sp, fmt.Sprintf("the type of `.%s`", selName))), Recv: recv, Sel: e.Sel, Sym: sel, Index: -1}
+}
+
+// namespaceRecv reports whether a select's receiver stands for a
+// namespace rather than a value — a module, type, constructor or
+// builtin name — recognized by the untyped marker meta the
+// namespace-hop builders above mint (untypedMeta). A genuine
+// unsolved receiver types at a real meta (ID >= 0) and takes the
+// deferred-selection path instead.
+func namespaceRecv(recv Expr) bool {
+	if m, ok := types.Chase(recv.Type()).(*types.Meta); ok && m.ID == -1 {
+		return true
+	}
+	return false
 }
 
 // valueMember reports whether a module member kind denotes a term —

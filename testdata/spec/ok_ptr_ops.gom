@@ -1,0 +1,27 @@
+package ex
+
+// The `Ptr` module's operation surface (spec section 8.3): explicit
+// dereference (get/set — nil panics like Go), the safe nil forms
+// (is_nil/to_option), and construction (new/make/nil) for
+// out-pointer APIs and optional `*T` parameters.
+fn round_trip () -> Int = {
+  let p: Ptr Int = Ptr.make 42
+  Ptr.set p (Ptr.get p + 1)
+  Ptr.get p
+}
+
+fn fresh () -> Int = {
+  let p: Ptr Int = Ptr.new ()
+  Ptr.set p 7
+  Ptr.get p
+}
+
+fn nulls () -> Bool = {
+  let p: Ptr Int = Ptr.nil ()
+  Ptr.is_nil p
+}
+
+fn safe_read (p: Ptr Int) -> Option Int = Ptr.to_option p
+
+fn write_through (p: Ptr String) -> Unit =
+  Ptr.set p "updated"

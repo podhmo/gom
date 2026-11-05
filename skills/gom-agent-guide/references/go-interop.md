@@ -71,9 +71,9 @@ fn parse (s: String) -> Result Int GoError =
 | --- | --- |
 | `int` / `int64` / `int32` / `float64` | `Int` / `Int` / `Int32` / `Float` |
 | `string` / `bool` / `rune` | `String` / `Bool` / `Char` |
-| `*T` | `Ptr T` (nil deref panics, as in Go) |
+| `*T` | `Ptr T` (nil deref panics, as in Go; ops in the `Ptr` module) |
 | `[]T` | `List T` at a signature boundary (param/result/member type — copied both ways); `Go.Slice T` when nested inside another type |
-| `map[K]V` | `Go.Map K V` (opaque; `Go.Map` module ops) |
+| `map[K]V` | `Go.Map K V` (opaque; `Go.Map.<op>` type-member ops) |
 | `chan T` / `<-chan` / `chan<-` | `Chan T` / `RecvChan T` / `SendChan T` |
 | `error` | `GoError` |
 | `interface{}` / `any` | `Go.Any` |
@@ -101,6 +101,60 @@ fn parse (s: String) -> Result Int GoError =
   taking/returning func types, anonymous interfaces with methods.
 - `error` return values become `GoError`; call `.Error ()` for the
   message or wrap `fmt.Errorf`-style via `|?>`'s auto-wrap.
+
+## `Ptr` module (pointer ops)
+
+```gom
+fn ptr_ops () -> Int = {
+  let p : Ptr Int = Ptr.make 1   // pointer to a fresh copy — set never reaches the arg
+  Ptr.set p (Ptr.get p + 1)      // *p = v / *p — nil panics, Go-style
+  let t : Ptr Int = Ptr.new ()   // new(T) — out-pointer APIs (errors.As targets, decode destinations)
+  let n : Ptr Int = Ptr.nil ()   // nil — optional *T params (tls.Dial's *tls.Config)
+  if Ptr.is_nil n {              // p == nil; to_option is the safe read (nil -> None)
+    Ptr.get p + Ptr.get t
+  } else {
+    0
+  }
+}
+```
+
+`p1 == p2` on `Ptr` is Go pointer identity; nil tests go through
+`is_nil`/`to_option`. Passing a `Ptr` to an `any`/`Go.Any`
+parameter is verbatim — `Ptr.new ()` + an annotation is the
+`errors.As` target shape.
+
+## `Go.Map` ops
+
+```gom
+fn map_ops () -> Int = {
+  let m = Go.Map.make ()           // make(map[K]V) — never nil
+  Go.Map.set m "k" 3               // m[k] = v — nil map panics, like Go
+  let v = match Go.Map.get m "k" { // v, ok := m[k] — nil map ok
+    Some x -> x
+    None -> 0
+  }
+  Go.Map.delete m "k"              // nil map is a no-op
+  v + Go.Map.length m              // len(m) — nil map is 0; to_list snapshots pairs
+}
+```
+
+`k` is `comparable` — a `List` key (or any non-comparable Go
+representation) is E0508. Nil-map semantics are Go's: get/delete/
+length work, set panics.
+
+## Copied-`List` warning (W0501)
+
+A `List` crossing into a `[]T` parameter copies — so a Unit-result
+Go call that could only matter by mutating that parameter
+(`sort.Strings`) has no effect on the Gom value, and W0501 warns
+at the argument. Read-only consumers return values
+(`strings.Join`), so they stay silent; `signal.Notify`-style
+Unit-but-non-mutating calls can still warn (wording is
+conditional). The escape hatch is verbatim `Go.Slice`: declare the
+parameter `Go.Slice` via `extern` and pass a `Go.Slice` value, or
+spread/fill with `..gs` / `...[]T` element — bare `Go.Slice`
+arguments never copy. A `List` argument warns even into a
+`Go.Slice`-declared parameter (it still copies).
 
 ## `_` placeholder (cute)
 

@@ -1,6 +1,13 @@
 # Go functions that mutate a slice parameter compile and silently do nothing
 
-- 状態: 未決
+- 状態: 解消（2026-11-05 — W0501 warns on the shape: a Unit-result
+  Go call that passes a `List` into a copied `[]T` boundary. It is a
+  heuristic, not a mutation detector — the `signal.Notify` family
+  warns without mutating, a mutator returning a real result escapes,
+  and `List`s nested in tuple/record arguments are uninspected. The
+  wording stays conditional so the message is true either way. See
+  [decision](../decisions/2026-11-05-go-mutation-warning.md),
+  [verification](../sketch/2026-11-05-p3-7-interop-ops-verification.md))
 - 日付: 2026-11-05 (found by the P3-7 real-program audit —
   [sketch](../sketch/2026-11-05-p3-7-realworld-interop-audit.md))
 

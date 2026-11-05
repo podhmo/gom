@@ -127,7 +127,9 @@ func (r *resolver) notCtor(id *syntax.Ident, sym *Symbol) {
 // noSuchCtor reports `T.C` where T is a type that has no constructor
 // named C. A Go type can never have one — Gom constructors are a
 // Gom declaration — so the message says what the type is, not just
-// that the name missed.
+// that the name missed. A `Go`-namespace type (`Go.Map`) has no
+// constructors either but *does* have an operation member table —
+// the miss is a member miss, diagnosed as one.
 func (r *resolver) noSuchCtor(tsym *Symbol, id *syntax.Ident) {
 	if tsym.IsGo {
 		r.diags.Add(diag.Error("E0201", fmt.Sprintf("Go type `%s` has no constructor `%s` — Go types cannot declare Gom constructors", tsym.Name, id.Name)).
@@ -135,6 +137,24 @@ func (r *resolver) noSuchCtor(tsym *Symbol, id *syntax.Ident) {
 			Set("name", id.Name).
 			Set("in", tsym.Name).
 			Set("namespace", "constructor"))
+		return
+	}
+	if tsym.Package == "Go" {
+		qual := "Go." + tsym.Name
+		d := diag.Error("E0201", fmt.Sprintf("`%s` has no member `%s`", qual, id.Name)).
+			At(id.Sp).
+			Set("name", id.Name).
+			Set("in", qual).
+			Set("namespace", "member")
+		if goTypeModules[tsym.Name] && r.cfg.Modules[qual] == nil {
+			// The ops table exists in the toolchain — its
+			// absence means the caller did not wire the
+			// standard library into this compile.
+			d = d.AddNote(fmt.Sprintf("`%s` operations are part of the standard library "+
+				"but this compile was not given its member table — "+
+				"wire it through internal/stdlib's Apply", qual))
+		}
+		r.diags.Add(d)
 		return
 	}
 	r.diags.Add(diag.Error("E0201", fmt.Sprintf("`%s` has no constructor `%s`", tsym.Name, id.Name)).

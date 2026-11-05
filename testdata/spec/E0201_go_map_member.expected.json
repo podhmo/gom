@@ -1,0 +1,28 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0201",
+      "severity": "error",
+      "message": "`Go.Map` has no member `bogus`",
+      "span": {
+        "file": "E0201_go_map_member.gom",
+        "start": {
+          "line": 10,
+          "col": 18,
+          "offset": 346
+        },
+        "end": {
+          "line": 10,
+          "col": 23,
+          "offset": 351
+        }
+      },
+      "data": {
+        "in": "Go.Map",
+        "name": "bogus",
+        "namespace": "member"
+      }
+    }
+  ]
+}

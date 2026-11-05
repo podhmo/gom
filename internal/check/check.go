@@ -274,9 +274,13 @@ func (c *checker) validateGoGenerics() {
 			if i < len(use.sig.TypeParams) {
 				param = use.sig.TypeParams[i].Name
 			}
+			callee := use.sym.Name
+			if use.sym.Surface != "" {
+				callee = use.sym.Surface
+			}
 			c.diags.Add(diag.Error("E0508",
 				fmt.Sprintf("type argument `%s` does not satisfy the `comparable` constraint of `%s`'s type parameter `%s`",
-					targ, use.sym.Name, param)).
+					targ, callee, param)).
 				At(use.sp).
 				Set("argument", targ.String()).
 				Set("constraint", "comparable").

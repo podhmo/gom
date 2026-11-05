@@ -1,0 +1,28 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0508",
+      "severity": "error",
+      "message": "type argument `List Int` does not satisfy the `comparable` constraint of `Go.Map.make`'s type parameter `k`",
+      "span": {
+        "file": "E0508_go_map_key.gom",
+        "start": {
+          "line": 7,
+          "col": 45,
+          "offset": 249
+        },
+        "end": {
+          "line": 7,
+          "col": 49,
+          "offset": 253
+        }
+      },
+      "data": {
+        "argument": "List Int",
+        "constraint": "comparable",
+        "parameter": "k"
+      }
+    }
+  ]
+}
