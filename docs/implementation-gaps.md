@@ -824,3 +824,31 @@
   error-boundary レビュー F-4 で顕在化）。
   参照: [goimport/mapping.go](../internal/goimport/mapping.go) 派生写像、
   [codegen/emit.go](../internal/codegen/emit.go) `resultFromGo`。
+
+- [ ] **spec 8.5 の「両方向ともコピーする」は Gom 自身の呼び出し側にしか
+  適用されず、生成 API 面（8.7）では `list.List[A]` が verbatim に渡る**:
+  boundary-aliasing 検証で実測 — `fn echo (xs: List Int) -> List Int` の
+  生成形は `func(xs list.List[int64]) list.List[int64] { return xs }` で
+  呼び出し側のバッキングがそのまま出入りし、`List` を返す生成 API も
+  コピーしない（Go 側の `out[0]=9` が次の Gom 呼び出しに届く）。spec は
+  コピー規則のスコープを「Gom が Go を呼ぶ位置」に限定するか、生成 API
+  の入口・出口にも defensive copy を置くかのどちらかを書く必要がある
+  （コストのトレードオフ。wave8 boundary-aliasing 検証で確認）。
+  参照: [spec 8.5](spec.md)、[spec 8.7](spec.md)、
+  [検証](sketch/2026-11-04-boundary-aliasing-hypotheses.md)、
+  [fixture](../testdata/gocall/boundary/boundary_test.go)。
+  併記: 同じ面で `List (Go.Slice Int)`（`[][]int64` field の読み取り結果）
+  は「不変の綴りの List が可変 Go 要素を保持する」形になり、`List` は
+  不変という記述は要素単位の留保が要る。
+
+- [ ] **`.gomi` で export した `let` は Go 側から再束縛できる書き換え可能な
+  package var になる**: spec 7 はトップレベルの `let` を「定数」として
+  説明するが、生成コードは `var Shared list.List[int64]` であり、Go の
+  テストから `boundary.Shared[1] = 42`（要素書き換え）と
+  `boundary.Shared = []int64{7}`（束縛ごとの再代入）の両方が効く —
+  Gom 側の不変性として最も強い違反形。export を読み取り専用にする意図
+  なら accessor/façade が要る; 意図どおりなら spec 7/8.7 の契約文言が
+  要る（wave8 boundary-aliasing 検証で実測、契約ギャップ）。
+  参照: [spec 7](spec.md)、[spec 8.7](spec.md)、
+  [検証](sketch/2026-11-04-boundary-aliasing-hypotheses.md)、
+  [codegen/decl.go](../internal/codegen/decl.go) `varDecl`。
