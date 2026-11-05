@@ -1,0 +1,55 @@
+package boundary
+
+/// A Gom record holding a scalar and a List payload — generated as a
+/// plain Go struct (spec 8.7).
+type Pair = { n: Int, xs: List Int }
+
+/// A sum type whose variants carry a List / a scalar — generated as
+/// a sealed interface plus per-variant structs.
+type Wrap =
+  | WList (xs: List Int)
+  | WNum (n: Int)
+
+/// H1: value-struct field reads snapshot; a Go mutation between
+/// reads is invisible to the detached copy.
+fn h1_value () -> (Int, Int, Int)
+
+/// H2: a `Ptr box.Box` read aliases Go's shared struct.
+fn h2_ptr () -> (Int, Int)
+
+/// H3: a `[]int64` field reads as `List Int` — a boundary copy per
+/// read, not a shared `Go.Slice`.
+fn h3_slice_field () -> (Int, Int)
+
+fn h3_slice_field_value () -> (Int, Int)
+
+/// One level deeper the copy stops: `[][]int64` reads as
+/// `List (Go.Slice Int)` — outer copied, inner slices shared.
+fn h3_nested_field () -> (Int, Int)
+
+/// H5: the shared package-level List — exposed as a Go package var.
+let shared : List Int
+
+fn sharedList () -> List Int
+
+fn sharedHead () -> Int
+
+fn freshList () -> List Int
+
+/// `List` parameters arrive un-copied — the caller's backing is what
+/// Gom sees and what the result returns.
+fn echo (xs: List Int) -> List Int
+
+/// H6: record accessor — a Go struct value copy sharing the List
+/// payload's backing.
+fn getPair () -> Pair
+
+fn pairXsHead () -> Int
+
+/// H7: variant accessors — sealed-interface copies sharing the
+/// payload's backing.
+fn getWrap () -> Wrap
+
+fn getNum () -> Wrap
+
+fn wrapXsHead () -> Int

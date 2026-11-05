@@ -1,0 +1,128 @@
+package boundary
+
+import go "example.com/gocall/box"
+
+// Boundary aliasing probes for
+// docs/sketch/2026-11-04-boundary-aliasing-hypotheses.md — the
+// Gom→Go read direction (H1–H3) above, the Go→Gom sharing
+// direction (H5–H7) below. box.Shared returns the same *Box every
+// call, so every re-read after a Go-side mutation reports whether
+// the Gom binding aliases or snapshots.
+/// A Gom record holding a scalar and a List payload — generated as a
+/// plain Go struct (spec 8.7).
+type Pair = { n: Int, xs: List Int }
+
+/// A sum type whose variants carry a List / a scalar — generated as
+/// a sealed interface plus per-variant structs.
+type Wrap =
+  | WList (xs: List Int)
+  | WNum (n: Int)
+
+// --- Go → Gom read direction (H1–H3) ---
+/// H1: reading fields of a value-typed Go struct snapshots at read
+/// time. `b` is a detached copy — Go's later MutateN never reaches
+/// it; only a fresh read of the shared pointer sees the write.
+fn h1_value () -> (Int, Int, Int) = {
+  let b: box.Box = box.Snapshot ()
+  let before = b.N
+  box.MutateN 100
+  let p: Ptr box.Box = box.Shared ()
+  (before, b.N, p.N)
+}
+
+/// H2: a `Ptr box.Box` aliases Go's struct — a Go-side write between
+/// two reads of `p.N` is visible to the second read.
+fn h2_ptr () -> (Int, Int) = {
+  let p: Ptr box.Box = box.Shared ()
+  let before = p.N
+  box.MutateN 100
+  (before, p.N)
+}
+
+/// H3: a `[]int64` field reads as `List Int` — the boundary copy, not
+/// the shared `Go.Slice` view. `before` keeps the read-time contents
+/// after Go mutates the backing; a second field read snapshots the
+/// new contents.
+fn h3_slice_field () -> (Int, Int) = {
+  let p: Ptr box.Box = box.Shared ()
+  let before: List Int = p.Xs
+  box.MutateX (0, 99)
+  let after: List Int = p.Xs
+  (Option.get (List.head before), Option.get (List.head after))
+}
+
+/// The same field read through a value copy is the same List copy —
+/// and the copy is of course insulated twice over.
+fn h3_slice_field_value () -> (Int, Int) = {
+  let b: box.Box = box.Snapshot ()
+  let before: List Int = b.Xs
+  box.MutateX (0, 77)
+  let p: Ptr box.Box = box.Shared ()
+  let after: List Int = p.Xs
+  (Option.get (List.head before), Option.get (List.head after))
+}
+
+/// One level deeper the copy stops: a `[][]int64` field reads as
+/// `List (Go.Slice Int)` — the outer list copies into a fresh List,
+/// but every inner slice stays a shared `Go.Slice` over Go's
+/// backing, so Go's MutateXX write is visible in both the
+/// pre-mutation "snapshot" and a fresh read.
+fn h3_nested_field () -> (Int, Int) = {
+  let p: Ptr box.Box = box.Shared ()
+  let xxs: List (Go.Slice Int) = p.XXs
+  let inner: Go.Slice Int = Option.get (List.get 0 xxs)
+  box.MutateXX (0, 0, 55)
+  let fresh: Go.Slice Int = Option.get (List.get 0 p.XXs)
+  (Option.get (Go.Slice.get inner 0), Option.get (Go.Slice.get fresh 0))
+}
+
+// --- Gom → Go direction (H5–H7): values the Go side mutates ---
+/// H5: a package-level `let` holding a List — monomorphic, so it is
+/// one shared package var, not a per-call thunk. A `List` is a Go
+/// `[]int64`; a caller that writes through the returned slice writes
+/// into this package's state.
+let shared: List Int = [1, 2, 3]
+
+/// Returned slice aliases the package var's backing — a Go caller's
+/// writes land inside the package.
+fn sharedList () -> List Int = shared
+
+/// Gom-side read of the same binding — changes when Go scribbles on
+/// a slice it received.
+fn sharedHead () -> Int = Option.get (List.head shared)
+
+/// A fresh literal per call — mutating the returned slice cannot
+/// reach the next call's list; contrast with `shared`.
+fn freshList () -> List Int = [7, 8, 9]
+
+/// `List` parameters arrive un-copied at the generated surface: the
+/// Go signature takes `list.List[int64]` (= `[]int64`), so the
+/// caller's own backing is what Gom sees and what the result hands
+/// back — the spec-8.5 boundary copies live at Gom's own call
+/// sites, not at this exported surface.
+fn echo (xs: List Int) -> List Int = xs
+
+// H6: a record is a Go struct value — GetPair hands Go a copy. Its
+// `xs` field still shares the backing array of the package value.
+let pair_val: Pair = { n = 7, xs = [10, 20, 30] }
+
+fn getPair () -> Pair = pair_val
+
+/// Gom-side read of the record's list payload.
+fn pairXsHead () -> Int = Option.get (List.head pair_val.xs)
+
+// H7: a variant is a value struct behind a sealed interface — the
+// interface copy shares the payload's backing like the record does.
+let wrap_val: Wrap = WList [40, 50]
+
+let num_val: Wrap = WNum 8
+
+fn getWrap () -> Wrap = wrap_val
+
+fn getNum () -> Wrap = num_val
+
+/// Gom-side read of the variant's list payload.
+fn wrapXsHead () -> Int = match wrap_val {
+  WList xs -> Option.get (List.head xs)
+  WNum n -> n
+}

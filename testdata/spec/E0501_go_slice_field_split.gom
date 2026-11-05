@@ -1,0 +1,9 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// A `[]int` field needs the same element-wise int/int64 conversion
+// inside the slice that the `[]int` parameter case (E0501_go_
+// container_view_split) hides — fields take the identical boundary
+// mapping, so the selector reports E0501 with the reason.
+fn f (b: Ptr goiface.SliceBox) -> Unit = ignore b.Is

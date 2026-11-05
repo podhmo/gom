@@ -1,0 +1,28 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0501",
+      "severity": "error",
+      "message": "Go symbol `github.com/podhmo/gom/testdata/goiface.Is` is not exposed: type []int splits int and int64 inside a container — element-wise boundary conversions are not supported yet",
+      "span": {
+        "file": "E0501_go_slice_field_split.gom",
+        "start": {
+          "line": 9,
+          "col": 51,
+          "offset": 374
+        },
+        "end": {
+          "line": 9,
+          "col": 53,
+          "offset": 376
+        }
+      },
+      "data": {
+        "package": "github.com/podhmo/gom/testdata/goiface",
+        "reason": "type []int splits int and int64 inside a container — element-wise boundary conversions are not supported yet",
+        "symbol": "Is"
+      }
+    }
+  ]
+}

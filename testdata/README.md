@@ -13,7 +13,9 @@ the `internal/gomtest` harness:
 - `multifile/` — scratch Go module for the multi-`.gom` package +
   `.gomi` import end-to-end test
 - `gocall/` — scratch Go module for the Go-calls-Gom end-to-end test
-  (the `geom` fixture exercises the generated API from Go tests)
+  (the `geom` fixture exercises the generated API from Go tests; the
+  `boundary`/`box` fixture pair probes cross-boundary aliasing —
+  see docs/sketch/2026-11-04-boundary-aliasing-hypotheses.md)
 - `realworld/` — scratch module of small-but-real `package main`
   programs exercising the Go-interop boundary (os/io/strconv/flag/
   encoding/json+csv/net/http/time), run end-to-end by

@@ -1,0 +1,11 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// Field writes are out of scope for v1 (decision
+// go-interface-assignment-and-fields): there is no assignment
+// syntax at all, so `b.N = 5` fails at the parser.
+fn f (b: Ptr goiface.SliceBox) -> Unit = {
+  b.N = 5
+  ()
+}

@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0101",
+      "severity": "error",
+      "message": "expected a newline, \";\" or \"}\" between block items, found \"=\"",
+      "span": {
+        "file": "E0101_go_field_write.gom",
+        "start": {
+          "line": 9,
+          "col": 7,
+          "offset": 278
+        },
+        "end": {
+          "line": 9,
+          "col": 8,
+          "offset": 279
+        }
+      }
+    }
+  ]
+}

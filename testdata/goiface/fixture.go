@@ -14,6 +14,20 @@ type Container struct{ Count int }
 
 func NewContainer() *Container { return &Container{Count: 41} }
 
+// SliceBox is the field-level counterpart of Sum's parameter split:
+// exported slice fields read through the same boundary mapping —
+// Xs ([]int64) is a per-read List copy, while Is ([]int) splits
+// int/int64 inside the field type and stays hidden (E0501).
+type SliceBox struct {
+	N  int64
+	Xs []int64
+	Is []int
+}
+
+func NewSliceBox() *SliceBox {
+	return &SliceBox{N: 1, Xs: []int64{1, 2}, Is: []int{1, 2}}
+}
+
 // Generic functions for the P3-3 generic-call fixtures. Second's
 // declared type-parameter order (A, B) is the reverse of first
 // occurrence (B, A), so the emitted `Second[A, B]` instantiation

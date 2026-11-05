@@ -1,0 +1,20 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// A `[]int64` field reads as `List Int` — the signature-boundary
+// mapping applies to fields, so the read is a per-read copy, not
+// the shared `Go.Slice` view (spec 8.3 field rule + 8.5 copy rule).
+fn f (b: Ptr goiface.SliceBox) -> List Int = b.Xs
+
+// The same read through a value copy.
+fn g (b: goiface.SliceBox) -> List Int = b.Xs
+
+// Reading the field where a `List Int` is expected also conforms —
+// the conversion is recorded on the selector.
+fn h (b: Ptr goiface.SliceBox) -> Int = List.length b.Xs
+
+// There is no shared-view escape: asking for `Go.Slice Int` still
+// goes through the List conversion (`xs.ToSlice()` — a second
+// copy), so the field's backing is never exposed verbatim.
+fn v (b: Ptr goiface.SliceBox) -> Go.Slice Int = b.Xs
