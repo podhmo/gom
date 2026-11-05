@@ -137,7 +137,7 @@ extern go "strconv" {
   fn Itoa (i: Int) -> Option String
 }
 `)
-	wantDiag(t, ds, "E0509", "Option needs a (T, bool) or *T result")
+	wantDiag(t, ds, "E0509", "Option needs a (T, bool), *T, or error result")
 }
 
 // `Result` for a comma-ok result is a lie the other way — `bool` is

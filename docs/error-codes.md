@@ -672,9 +672,15 @@ An "extern" entry must name an exported function of the Go
 package the block overrides, and its declared signature must be a
 redeclaration the Go signature can support: same parameter count and
 view-compatible parameter types, and a result declaration the result
-shape admits — Option only over a (T, bool) comma-ok pair or a *T
-result, Result only over (T, error), a tuple over any other two-result
-shape (spec section 8.4).
+shape admits — Option over a (T, bool) comma-ok pair, a *T result, or
+a lone error (Option GoError reads nil as None); Result over
+(T, error); a lone error also takes Result Unit GoError (the default
+view) or GoError itself — the never-nil claim, enforced by a panic
+check at the call boundary; a tuple over any other two-result shape
+(spec section 8.4). The compiler's standard bindings — errors.New and
+fmt.Errorf as GoError, errors.Join and errors.Unwrap as Option
+GoError — apply through this same admission, so an extern can also
+redeclare them back to their type-derived default.
 
 ```gom
 extern go "flag" {

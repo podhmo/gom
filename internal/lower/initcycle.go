@@ -104,7 +104,7 @@ func CheckInitCycles(files []*core.File) []diag.Diagnostic {
 					to = e.Callee
 				case *core.Binary, *core.CallBuiltin, *core.CallFunc,
 					*core.CallGo, *core.Closure, *core.Conv, *core.CtorApp,
-					*core.CtorRef, *core.Equal, *core.EscapeCall,
+					*core.CtorRef, *core.Equal, *core.ErrorFromGo, *core.EscapeCall,
 					*core.EscapeResult, *core.FieldGet, *core.ForRange,
 					*core.GoFuncRef, *core.If, *core.ListNew, *core.Lit,
 					*core.Match, *core.OptionFromGo, *core.RecordNew,

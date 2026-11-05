@@ -1,0 +1,97 @@
+// errwalk — the GoError value surface end to end. The standard
+// bindings give errors.New/fmt.Errorf a never-nil `-> GoError` view
+// and errors.Join/errors.Unwrap a nil-able `Option GoError` view;
+// errors.Is/errors.As inspect wrapped and joined chains. The `panic`
+// subcommand claims `-> GoError` over a function that can return nil
+// and trips the generated boundary check.
+package main
+
+import go "errors"
+import go "fmt"
+import go "os"
+import go "strconv"
+
+// The generated |?> wrap is a `*rt.StepError` frame — errors.As can
+// read the step name back as data even though its rendered text is
+// the same `step: message` wording.
+import go "github.com/podhmo/gom/rt"
+
+extern go "os" {
+  // A never-nil claim over a lone `error` result — os.Remove returns
+  // nil on success, so `errwalk panic` hits the boundary panic.
+  fn Remove (name: String) -> GoError
+}
+
+fn walk () -> Unit = {
+  // A failed parse hands us a *strconv.NumError as a GoError.
+  let base = match strconv.Atoi "x" {
+    Ok _ -> errors.New "unreachable"
+    Err e -> e
+  }
+  ignore fmt.Println "is-syntax: ${errors.Is (base, strconv.ErrSyntax)}"
+  let wrapped = fmt.Errorf("ctx: %w", base)
+  ignore fmt.Println "wrapped-is: ${errors.Is (wrapped, strconv.ErrSyntax)}"
+  // errors.As needs a pointer to the target type — `Ptr.new` at
+  // `Ptr (Ptr strconv.NumError)` is the `**NumError` it writes into.
+  let target : Ptr (Ptr strconv.NumError) = Ptr.new ()
+  ignore fmt.Println "as-numerr: ${errors.As (wrapped, target)}"
+  ignore fmt.Println "as-func: ${(Ptr.get target).Func}"
+  // errors.Unwrap is nil-able: Some over the %w layer and over
+  // NumError's own Unwrap (it wraps ErrSyntax), None on a bare
+  // errors.New leaf.
+  match errors.Unwrap wrapped {
+    Some inner -> ignore fmt.Println "unwrap-is: ${errors.Is (inner, strconv.ErrSyntax)}"
+    None -> ()
+  }
+  match errors.Unwrap base {
+    Some inner -> ignore fmt.Println "base-unwrap-is: ${errors.Is (inner, strconv.ErrSyntax)}"
+    None -> ignore fmt.Println "base-unwrap: none"
+  }
+  match errors.Unwrap (errors.New "leaf") {
+    Some _ -> ignore fmt.Println "leaf-unwrap: some"
+    None -> ignore fmt.Println "leaf-unwrap: none"
+  }
+  // errors.Join is nil-able too — two non-nil inputs give Some.
+  match errors.Join (base, errors.New "extra") {
+    Some j -> {
+      ignore fmt.Println "join-is: ${errors.Is (j, strconv.ErrSyntax)}"
+      ignore fmt.Println "join-text: ${j.Error ()}"
+    }
+    None -> ()
+  }
+  // |?>'s auto-wrap carries a structured frame: the rendered text
+  // keeps `step: message` (here the doubled `strconv.Atoi:` —
+  // the outer one is the call site's provenance, the inner the
+  // error's own) while errors.As hands the step back as data.
+  match parse_or_fail "x" {
+    Ok _ -> ()
+    Err e -> {
+      ignore fmt.Println "pipe-text: ${e.Error ()}"
+      let frame : Ptr (Ptr rt.StepError) = Ptr.new ()
+      ignore fmt.Println "frame-as: ${errors.As (e, frame)}"
+      ignore fmt.Println "frame-step: ${(Ptr.get frame).Step}"
+    }
+  }
+}
+
+fn parse_or_fail (s: String) -> Result Int GoError =
+  Ok s |?> strconv.Atoi
+
+fn trigger () -> Result Unit GoError = {
+  let f = try os.CreateTemp ("", "errwalk")
+  try f.Close ()
+  // Remove succeeds and returns nil — the claimed `-> GoError` view
+  // makes the boundary panic instead of handing back a nil error.
+  ignore (os.Remove (f.Name ()))
+  Ok ()
+}
+
+fn run_panic () -> Unit = match trigger () {
+  Ok _ -> ignore fmt.Println "unreachable: remove returned nil"
+  Err e -> ignore fmt.Println "unreachable: ${e.Error ()}"
+}
+
+fn main () -> Unit = match os.Args {
+  [_prog, "panic", ..rest] -> run_panic ()
+  _ -> walk ()
+}

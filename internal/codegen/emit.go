@@ -5,7 +5,6 @@ import (
 	"go/ast"
 	"go/token"
 	"strconv"
-	"strings"
 
 	"github.com/podhmo/gom/internal/core"
 	"github.com/podhmo/gom/internal/diag"
@@ -150,6 +149,8 @@ func (g *gen) emit(e core.Expr, d dest) {
 		g.optionFromGo(e, d)
 	case *core.TupleFromGo:
 		g.tupleFromGo(e, d)
+	case *core.ErrorFromGo:
+		g.errorFromGo(e, d)
 	case *core.RecordUpdate:
 		g.recordUpdate(e, d)
 	case *core.Closure,
@@ -624,9 +625,10 @@ func (g *gen) tailCall(e *core.TailCall) {
 // escapeResult emits the `try` / `|?>` unwrap on a Result value
 // (P0-4): a Tag() switch whose Ok arm writes the payload to the
 // destination and whose Err arm returns the boundary's Err —
-// `result.Err[T, E](err)`, `fmt.Errorf("step: %w", err)` around it
-// when Wrap names a pipeline step. Inside a test the Err arm fails
-// the test instead.
+// `result.Err[T, E](err)`, wrapped in an `rt.StepErr` frame when
+// Wrap names a pipeline step (rendered text `step: message`, same
+// wording as the old `fmt.Errorf("step: %w", err)`). Inside a test
+// the Err arm fails the test instead.
 func (g *gen) escapeResult(e *core.EscapeResult, d dest) {
 	g.line(e.Sp)
 	subj := g.atom(e.X)
@@ -709,9 +711,9 @@ func (g *gen) errIf(sp diag.Span, errVar, wrap string, to *core.Func) {
 func (g *gen) escapeErr(sp diag.Span, errExpr ast.Expr, wrap string, to *core.Func) {
 	if wrap != "" {
 		errExpr = &ast.CallExpr{
-			Fun: ast.NewIdent(g.pkgQual("fmt") + "Errorf"),
+			Fun: ast.NewIdent(g.pkgQual(rtPath) + "StepErr"),
 			Args: []ast.Expr{
-				&ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(strings.ReplaceAll(wrap, "%", "%%") + ": %w")},
+				&ast.BasicLit{Kind: token.STRING, Value: strconv.Quote(wrap)},
 				errExpr,
 			},
 		}
@@ -817,6 +819,39 @@ func (g *gen) optionFromGoDest(d dest, v string, okTest ast.Expr, e *core.Option
 		Fun:  ast.NewIdent(g.pkgQual(optionPath) + "FromGo"),
 		Args: []ast.Expr{g.convOf(e.ValConv, payloadType(e.Type(), 0), ast.NewIdent(v)), okTest},
 	})
+}
+
+// errorFromGo emits `v := call` then the never-nil check a
+// `-> GoError` declared view claims (call.go ErrorFromGo, spec
+// section 8.4): `if v == nil { panic }` — a nil result proves the
+// binding's claim false, a contract violation in the sense of spec
+// section 8.6, so it panics at the boundary instead of smuggling a
+// nil error into Gom. The check is uniform: it also guards the
+// compiler-curated standard bindings, where it doubles as drift
+// insurance (docs/decisions/2026-11-05-error-result-bindings.md).
+func (g *gen) errorFromGo(e *core.ErrorFromGo, d dest) {
+	g.line(e.Sp)
+	v := g.fresh("v")
+	g.raw(v + " := ")
+	g.expr(g.callGo(e.Call))
+	g.nl()
+	g.raw("if " + v + " == nil")
+	g.open()
+	g.line(e.Sp)
+	g.raw("panic(" + strconv.Quote("gom: "+goCallName(e.Call)+" returned nil error — its binding declares a never-nil GoError result") + ")")
+	g.nl()
+	g.close()
+	g.writeDest(d, ast.NewIdent(v))
+}
+
+// goCallName renders the callee for diagnostics — `errors.New`
+// style (`pkg.Name`, the package's base name); a method call (no
+// declared binding can produce one today) reports bare `Name`.
+func goCallName(c *core.CallGo) string {
+	if c.Recv != nil || c.Callee.Package == "" {
+		return c.Callee.Name
+	}
+	return pathBase(c.Callee.Package) + "." + c.Callee.Name
 }
 
 // tupleFromGo emits `a, b := call` then an rt.Tuple2 literal.

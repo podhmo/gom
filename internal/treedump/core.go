@@ -576,6 +576,8 @@ func (d *cdump) cexpr(e core.Expr) *form {
 		return nodef(chead("optionfromgo", e.Base), d.cexpr(e.Call))
 	case *core.TupleFromGo:
 		return nodef(chead("tuplefromgo", e.Base), d.cexpr(e.Call))
+	case *core.ErrorFromGo:
+		return nodef(chead("errorfromgo", e.Base), d.cexpr(e.Call))
 	case *core.Conv:
 		return nodef(chead("conv", e.Base)+" "+e.Kind.String(), d.cexpr(e.X))
 	default:

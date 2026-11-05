@@ -239,10 +239,12 @@ fn ratio (a: Int) (b: Int) -> Result Int String = {
   the tried expression's error type (E0410/E0411).
 - `r |?> f`: `r : Result a e`, `f : a -> Result b e` → `Result b e`.
   `Ok v → f v`, `Err →` skips the rest. Mixes freely with `|>`.
-- Auto-wrap: when `e` is `GoError`, a failing step wraps as
-  `fmt.Errorf("<stepname>: %w", err)` — once, at the failing step;
-  `errors.Is`/`As` still work. Step name = the source spelling of
-  the step's head (`strconv.ParseInt(_, 10, 64)` → `strconv.ParseInt`;
+- Auto-wrap: when `e` is `GoError`, a failing step wraps in a
+  `*rt.StepError` frame — `Error()` renders `<stepname>: <message>`,
+  `Unwrap()` returns the original, so `errors.Is`/`As` still work;
+  `errors.As` into `*rt.StepError` reads `.Step` back as data. Once,
+  at the failing step. Step name = the source spelling of the
+  step's head (`strconv.ParseInt(_, 10, 64)` → `strconv.ParseInt`;
   nameless lambda → `file.gom:NN`). Non-`GoError` errors are not
   wrapped.
 - A non-`Result` head is wrapped in `Ok`: `path |?> os.ReadFile`.

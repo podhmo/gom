@@ -193,6 +193,16 @@ func (l *Loader) member(path string, obj types.Object) (*resolve.Symbol, *member
 		sig, _ := obj.Type().(*types.Signature)
 		m.sig = sig
 		l.sigOf(sym, m, sig)
+		if b, ok := stdBindOf(path, sym.Name); ok && sym.Hidden == "" {
+			// A standard binding re-voices a package function
+			// through the same admission an extern entry passes
+			// — a drifted entry hides the member like any
+			// unrepresentable one (methods share sigOf but are
+			// never bound here).
+			if reason := l.applyStdBind(sym, b, sig, &m.ck, &m.gs); reason != "" {
+				sym.Hidden = reason
+			}
+		}
 	case *types.TypeName:
 		sym.Kind = resolve.KindType
 		mt, reason := l.gomType(obj.Type())

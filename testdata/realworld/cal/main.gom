@@ -1,9 +1,9 @@
 // cal — a tiny integer calculator: `cal add|mul|max N...`.
 // os.Args arrives as a List; strconv.Atoi failures ride the |?>
 // pipeline and pick up the auto %w wrap naming the failed step.
-// `errors.New` cannot produce a GoError *value* (a lone `error`
-// result maps to `Result Unit GoError`), so mkerr peels the Err
-// constructor — the only way today to originate a GoError.
+// `errors.New` is a standard binding: its declared `-> GoError`
+// view hands us an error value directly (the never-nil claim is
+// verified at the boundary).
 package main
 
 import go "errors"
@@ -11,10 +11,7 @@ import go "fmt"
 import go "os"
 import go "strconv"
 
-fn mkerr (m: String) -> GoError = match errors.New m {
-  Err e -> e
-  Ok _ -> todo ()
-}
+fn mkerr (m: String) -> GoError = errors.New m
 
 fn parse_ints (xs: List String) -> Result (List Int) GoError = match xs {
   [] -> Ok []

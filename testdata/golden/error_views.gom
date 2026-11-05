@@ -1,0 +1,17 @@
+package ex
+
+import go "errors"
+import go "fmt"
+
+// spec section 8.4: the standard bindings' declared views lower to
+// the boundary checks — `errors.New`/`fmt.Errorf` (never-nil claim)
+// emit `v := call; if v == nil { panic }`, `errors.Unwrap`/`errors.Join`
+// (nil-able values) emit `option.FromGo(v, v != nil)`.
+
+fn fresh (m: String) -> GoError = errors.New m
+
+fn wrapped (m: String) -> GoError = fmt.Errorf("ctx: %s", m)
+
+fn unwrapped (e: GoError) -> Option GoError = errors.Unwrap e
+
+fn joined (a: GoError) (b: GoError) -> Option GoError = errors.Join (a, b)

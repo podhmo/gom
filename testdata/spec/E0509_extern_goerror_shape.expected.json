@@ -1,0 +1,29 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0509",
+      "severity": "error",
+      "message": "extern `fn Itoa` declares result GoError, but `strconv.Itoa` returns string",
+      "span": {
+        "file": "E0509_extern_goerror_shape.gom",
+        "start": {
+          "line": 9,
+          "col": 3,
+          "offset": 236
+        },
+        "end": {
+          "line": 9,
+          "col": 30,
+          "offset": 263
+        }
+      },
+      "data": {
+        "declared": "Int -> GoError",
+        "extern": "Itoa",
+        "go": "func(i int) string",
+        "member": "strconv.Itoa"
+      }
+    }
+  ]
+}

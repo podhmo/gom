@@ -4,7 +4,7 @@
       "kind": "diagnostic",
       "code": "E0509",
       "severity": "error",
-      "message": "extern `fn Itoa` declares an Option result, but `strconv.Itoa` returns string — Option needs a (T, bool) or *T result",
+      "message": "extern `fn Itoa` declares an Option result, but `strconv.Itoa` returns string — Option needs a (T, bool), *T, or error result",
       "span": {
         "file": "E0509_extern_option_shape.gom",
         "start": {

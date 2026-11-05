@@ -51,7 +51,7 @@ Key rules:
 | `func f(a A, b B) R` | `(A, B) -> R` |
 | `func f(...) (T, error)` | `... -> Result T GoError` |
 | `func f(...) (T, bool)` | `... -> (T, Bool)` |
-| `func f(...) error` | `... -> Result Unit GoError` |
+| `func f(...) error` | `... -> Result Unit GoError` — unless a declared view applies: `GoError` (never-nil claim, panic-checked at the boundary) or `Option GoError` (nil-able value). `errors.New`/`fmt.Errorf` are `GoError`, `errors.Join`/`errors.Unwrap` are `Option GoError` by standard binding |
 | `func f(...) (A, B)` (other multi-value) | `... -> (A, B)` |
 
 A `(T, error)` call in `-> Unit` position still *produces* a
@@ -99,8 +99,9 @@ fn parse (s: String) -> Result Int GoError =
   generic types, generic fns with non-`any`/`comparable` constraints
   (see `docs/problems/2026-11-04-generic-go-fns-hidden.md`), funcs
   taking/returning func types, anonymous interfaces with methods.
-- `error` return values become `GoError`; call `.Error ()` for the
-  message or wrap `fmt.Errorf`-style via `|?>`'s auto-wrap.
+- `error` return values become `Result Unit GoError` (or `GoError`/
+  `Option GoError` under a declared view — see the result table);
+  call `.Error ()` for the message or wrap via `|?>`'s auto-wrap.
 
 ## `Ptr` module (pointer ops)
 
@@ -213,13 +214,24 @@ the raw Go signature (mismatch → E0509): same parameter count,
 compatible types per position, monomorphic only, and a result the
 raw shape admits — `(T, bool)` → `Option T` or `(T, Bool)`, `*T` →
 `Option (Ptr T)` (payload keeps the pointer), `(T, error)` →
-`Result T GoError`, `(A, B)` → `(A, B)`. The generated call stays
-`pkg.F(args)`; `Option` over `*T` materializes as
-`option.FromGo(v, v != nil)`. Type/var/const/method members cannot
-be overridden; generics neither. A zero-parameter Go function is
-declared `fn F () -> T` (or `(u: Unit)`), and the call spells
-`pkg.F ()` like any Go call. (P3-5 implemented — see
-docs/decisions/2026-11-03-extern-override-binding.md.)
+`Result T GoError`, a lone `error` → `Result Unit GoError` (the
+default), `Option GoError` (nil-able value, same
+`option.FromGo(v, v != nil)` materialization), or `GoError` (a
+never-nil claim — the call emits `if v == nil { panic(...) }`), and
+`(A, B)` → `(A, B)`. The generated call stays `pkg.F(args)`;
+`Option` over `*T` materializes as `option.FromGo(v, v != nil)`.
+Type/var/const/method members cannot be overridden; generics
+neither. A zero-parameter Go function is declared `fn F () -> T`
+(or `(u: Unit)`), and the call spells `pkg.F ()` like any Go call.
+
+**Standard bindings** are compiler-curated declared views through
+the same admission: `errors.New` and `fmt.Errorf` are `-> GoError`,
+`errors.Join` and `errors.Unwrap` are `-> Option GoError`. An
+explicit extern wins — `extern go "errors" { fn New (msg: String)
+-> Result Unit GoError }` restores the default. (P3-5 +
+error-result-bindings — see
+docs/decisions/2026-11-03-extern-override-binding.md and
+docs/decisions/2026-11-05-error-result-bindings.md.)
 
 Evaluator note: `gom test`/eval does not run the Go side, so an
 extern-bound member still needs a stub — and the stub returns the

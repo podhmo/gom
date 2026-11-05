@@ -3,7 +3,6 @@
 package pipes
 
 import (
-	"fmt"
 	"github.com/podhmo/gom/rt"
 	"github.com/podhmo/gom/stdlib/result"
 	"strconv"
@@ -23,7 +22,7 @@ func parse(s string) result.Result[int64, error] {
 		tmp2, err := strconv.Atoi(s)
 		if err != nil {
 //line result_pipe.gom:6
-			return result.Err[int64, error](fmt.Errorf("strconv.Atoi: %w", err))
+			return result.Err[int64, error](rt.StepErr("strconv.Atoi", err))
 		}
 //line result_pipe.gom:6
 		tmp3 := int64(tmp2)
@@ -37,7 +36,7 @@ func parse(s string) result.Result[int64, error] {
 			tmp5 = tmp4.Value
 		case result.ResultTagErr:
 //line result_pipe.gom:6
-			return result.Err[int64, error](fmt.Errorf("keep: %w", tmp4.Error))
+			return result.Err[int64, error](rt.StepErr("keep", tmp4.Error))
 		default:
 //line result_pipe.gom:6
 			panic(rt.InvalidVariant("result.Result", tmp4))
@@ -57,7 +56,7 @@ func parseWrapped(s string) result.Result[int64, error] {
 		tmp8, err1 := strconv.Atoi(s)
 		if err1 != nil {
 //line result_pipe.gom:13
-			return result.Err[int64, error](fmt.Errorf("strconv.Atoi: %w", err1))
+			return result.Err[int64, error](rt.StepErr("strconv.Atoi", err1))
 		}
 //line result_pipe.gom:13
 		tmp9 := int64(tmp8)
@@ -71,7 +70,7 @@ func parseWrapped(s string) result.Result[int64, error] {
 			tmp11 = tmp10.Value
 		case result.ResultTagErr:
 //line result_pipe.gom:14
-			return result.Err[int64, error](fmt.Errorf("keep: %w", tmp10.Error))
+			return result.Err[int64, error](rt.StepErr("keep", tmp10.Error))
 		default:
 //line result_pipe.gom:14
 			panic(rt.InvalidVariant("result.Result", tmp10))
@@ -91,7 +90,7 @@ func use(s string) struct{} {
 		tmp14, err2 := strconv.Atoi(s)
 		if err2 != nil {
 //line result_pipe.gom:15
-			return result.Err[int64, error](fmt.Errorf("strconv.Atoi: %w", err2))
+			return result.Err[int64, error](rt.StepErr("strconv.Atoi", err2))
 		}
 //line result_pipe.gom:15
 		tmp15 := int64(tmp14)

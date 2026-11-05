@@ -1,0 +1,29 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0509",
+      "severity": "error",
+      "message": "extern `fn CutPrefix` declares Option payload GoError, but `strings.CutPrefix` returns string",
+      "span": {
+        "file": "E0509_extern_option_error_payload.gom",
+        "start": {
+          "line": 10,
+          "col": 3,
+          "offset": 289
+        },
+        "end": {
+          "line": 10,
+          "col": 62,
+          "offset": 348
+        }
+      },
+      "data": {
+        "declared": "String -> String -> Option GoError",
+        "extern": "CutPrefix",
+        "go": "func(s string, prefix string) (after string, found bool)",
+        "member": "strings.CutPrefix"
+      }
+    }
+  ]
+}

@@ -3,6 +3,13 @@
 - 状態: 採用
 - 日付: 2026-11-01
 
+*Superseded in part:* the emitted frame is `rt.StepErr(step, err)`
+(`*rt.StepError`), not `fmt.Errorf("<step>: %w", err)` — see
+[result-pipe-wrap-frame](2026-11-05-result-pipe-wrap-frame.md). The
+rendered wording stays `step: message` and `Unwrap()` keeps
+`errors.Is`/`As`; what changed is that `Step` is readable back as
+structured data.
+
 ## 背景
 
 `strconv` をはじめ、Go の標準ライブラリの多くは `(T, error)` を返す。毎回 `match` や `try` で受けていては Go のパッケージを素直に使えない。また Go の慣習では、エラーに文脈を付けて `fmt.Errorf("...: %w", err)` で包む。

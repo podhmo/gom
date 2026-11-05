@@ -4,7 +4,6 @@ package shapes
 
 import (
 	"cache"
-	"fmt"
 	"github.com/podhmo/gom/rt"
 	"github.com/podhmo/gom/stdlib/list"
 	"github.com/podhmo/gom/stdlib/option"
@@ -62,7 +61,7 @@ func load(p string) result.Result[int64, error] {
 	n, err := strconv.Atoi(p)
 	if err != nil {
 //line t.gom:5
-		return result.Err[int64, error](fmt.Errorf("load: %w", err))
+		return result.Err[int64, error](rt.StepErr("load", err))
 	}
 //line t.gom:5
 	r := result.Ok[int64, error](n)

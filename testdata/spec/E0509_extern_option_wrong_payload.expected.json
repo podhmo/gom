@@ -1,0 +1,29 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0509",
+      "severity": "error",
+      "message": "extern `fn Unwrap`: `errors.Unwrap` returns error — an `Option` view's payload is `GoError`, not Int",
+      "span": {
+        "file": "E0509_extern_option_wrong_payload.gom",
+        "start": {
+          "line": 9,
+          "col": 3,
+          "offset": 242
+        },
+        "end": {
+          "line": 9,
+          "col": 41,
+          "offset": 280
+        }
+      },
+      "data": {
+        "declared": "GoError -> Option Int",
+        "extern": "Unwrap",
+        "go": "func(err error) error",
+        "member": "errors.Unwrap"
+      }
+    }
+  ]
+}

@@ -243,6 +243,8 @@ func eachVar(b *core.Body, f func(v *core.Var, captured bool)) {
 			callGo(e.Call, captured)
 		case *core.TupleFromGo:
 			callGo(e.Call, captured)
+		case *core.ErrorFromGo:
+			callGo(e.Call, captured)
 		case *core.Conv:
 			atom(e.X, captured)
 		default:

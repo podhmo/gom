@@ -53,10 +53,10 @@ func (v Violation) String() string {
 //     representation — CallGo arity/variadic/spread agree with
 //     the callee, and no node re-classifies a known callee as an
 //     unknown value
-//   - interop conversions are explicit: multi-result Go calls appear
+//   - interop conversions are explicit: non-plain Go calls appear
 //     only inside their consumer nodes (ResultFromGo / OptionFromGo /
-//     TupleFromGo / EscapeCall) and Conv kinds agree with the
-//     operand/result type shapes
+//     TupleFromGo / ErrorFromGo / EscapeCall) and Conv kinds agree
+//     with the operand/result type shapes
 //   - match is a decision tree: no patterns exist at this level,
 //     SwitchType/SwitchTag defaults are DPanic arms for invalid
 //     Go-side values, and sugared binary operators are absent
@@ -917,7 +917,7 @@ func (v *validator) expr(e Expr, inTail bool) {
 		if e.Results == GoResultsNone {
 			v.err(e.Sp, "CallGo", "zero-result Go call must be a discarded binding")
 		} else if e.Results != GoResultsOne {
-			v.err(e.Sp, "CallGo", "multi-result Go call (%s) must be wrapped by ResultFromGo/OptionFromGo/TupleFromGo/EscapeCall",
+			v.err(e.Sp, "CallGo", "non-plain Go call (%s) must be wrapped by ResultFromGo/OptionFromGo/TupleFromGo/ErrorFromGo/EscapeCall",
 				e.Results)
 		}
 	case *CallBuiltin:
@@ -1081,6 +1081,11 @@ func (v *validator) expr(e Expr, inTail bool) {
 		if _, ok := types.Chase(e.Typ).(*types.Tuple); !ok && e.Typ != nil {
 			v.err(e.Sp, "TupleFromGo", "type %s is not a tuple", e.Typ)
 		}
+	case *ErrorFromGo:
+		v.wrapCall(e, e.Call, "ErrorFromGo", GoResultsErrValue)
+		if !v.conIs(e.Typ, "", "GoError", 0) && e.Typ != nil {
+			v.err(e.Sp, "ErrorFromGo", "type %s is not GoError", e.Typ)
+		}
 	case *Conv:
 		v.conv(e)
 	default:
@@ -1158,7 +1163,7 @@ func (v *validator) callGo(c *CallGo) {
 		if !v.conIs(c.Type(), "", "Unit", 0) {
 			v.err(c.Sp, "CallGo", "zero-result Go call must have Unit type")
 		}
-	case GoResultsOne, GoResultsErr, GoResultsErrOnly, GoResultsOK, GoResultsPair, GoResultsNil:
+	case GoResultsOne, GoResultsErr, GoResultsErrOnly, GoResultsOK, GoResultsPair, GoResultsNil, GoResultsErrValue:
 	default:
 		v.err(c.Sp, "CallGo", "invalid result shape %d", int(c.Results))
 	}
@@ -1667,6 +1672,8 @@ func nilExpr(e Expr) bool {
 	case *OptionFromGo:
 		return e == nil
 	case *TupleFromGo:
+		return e == nil
+	case *ErrorFromGo:
 		return e == nil
 	case *Conv:
 		return e == nil

@@ -1,0 +1,28 @@
+package ex
+
+import go "errors"
+import go "os"
+
+// spec section 8.4: a lone `error` result admits three declared
+// views — `Result Unit GoError` (the default), `Option GoError`
+// (nil-able value), `GoError` (never-nil claim). An explicit extern
+// overrides a standard binding: this `New` restores the type-derived
+// default for the file, and a user function may claim never-nil for
+// its own callee (`os.Remove` lies — its boundary check would panic,
+// which is exactly what the claim costs).
+
+extern go "errors" {
+  fn New (text: String) -> Result Unit GoError
+}
+
+extern go "os" {
+  fn Remove (name: String) -> GoError
+}
+
+extern go "os" {
+  fn Open (name: String) -> Result (Ptr File) GoError
+}
+
+fn peel (m: String) -> Result Unit GoError = errors.New m
+
+fn rm (name: String) -> GoError = os.Remove name

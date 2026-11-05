@@ -74,10 +74,19 @@ const (
 	// GoResultsNone is a zero-result call, typed Unit but usable only
 	// as a discarded statement. Lowering supplies Unit separately.
 	GoResultsNone
-	// GoResultsNil is a single `*T` result — `v := f(...)` — an
-	// extern binding declared `Option` for. Type() is the raw
-	// pointer type; OptionFromGo tests `v != nil` (spec section 8.4).
+	// GoResultsNil is a single nil-able result — `v := f(...)` —
+	// an extern or standard binding declared `Option` for. Type()
+	// is the raw result type (a `*T`, or an `error` under an
+	// `Option GoError` declaration); OptionFromGo tests `v != nil`
+	// (spec section 8.4).
 	GoResultsNil
+	// GoResultsErrValue is a single `error` result — `v := f(...)` —
+	// a binding declared `GoError` for: the claim that the callee
+	// creates an error value and never returns nil. Type() is the
+	// raw error type; ErrorFromGo emits the boundary check
+	// `if v == nil { panic }` before yielding `v` (spec section
+	// 8.4 — a violated claim is a contract violation).
+	GoResultsErrValue
 )
 
 // String returns the shape name for debugging.
@@ -97,6 +106,8 @@ func (r GoResults) String() string {
 		return "pair"
 	case GoResultsNil:
 		return "nil"
+	case GoResultsErrValue:
+		return "err-value"
 	default:
 		return "GoResults(?)"
 	}
@@ -200,10 +211,12 @@ func (*TailCall) isExpr() {}
 // function boundary the escape leaves through — whose result type
 // must be `Result _ e` with e matching x's error type.
 //
-// Wrap is the `|?>` step name — `fmt.Errorf("<step>: %w", err)` is
-// emitted around the error before escaping; it is "" for `try`,
-// which never wraps, and for `|?>` steps whose error type is not
-// GoError. The choice is fixed at lowering.
+// Wrap is the `|?>` step name — the error escapes inside an
+// `rt.StepErr(Wrap, err)` frame whose rendered text is
+// `Wrap + ": " + err.Error()` and whose Unwrap preserves the
+// errors.Is/As chain; it is "" for `try`, which never wraps, and
+// for `|?>` steps whose error type is not GoError. The choice is
+// fixed at lowering.
 type EscapeResult struct {
 	Base
 	X    Atom   // a Result a e value
@@ -248,7 +261,7 @@ func (*ResultFromGo) isExpr() {}
 
 // OptionFromGo materializes an `Option T` from a Go call whose
 // absence is reported out-of-band — a comma-ok `(T, bool)` pair, or
-// a `*T` result an `extern` binding declared `Option` for
+// a `*T`/`error` result an `extern` binding declared `Option` for
 // (spec section 8.3 and 8.4).
 type OptionFromGo struct {
 	Base
@@ -261,6 +274,20 @@ type OptionFromGo struct {
 }
 
 func (*OptionFromGo) isExpr() {}
+
+// ErrorFromGo yields the `GoError` value of a lone `error`-result
+// Go call whose binding claims the result is never nil — an
+// `extern` or standard binding's `-> GoError` declaration
+// (spec section 8.4). Go's types cannot prove the claim, so the
+// emitted code verifies it: `v := f(...); if v == nil { panic }`,
+// then `v` is the value. A nil proves the claim false — a contract
+// violation in the sense of spec section 8.6.
+type ErrorFromGo struct {
+	Base
+	Call *CallGo // Results must be GoResultsErrValue
+}
+
+func (*ErrorFromGo) isExpr() {}
 
 // TupleFromGo materializes a tuple `(A, B)` from a two-result Go
 // call — covering both `(T, bool)` results kept as tuples and other

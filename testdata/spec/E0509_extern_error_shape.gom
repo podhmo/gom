@@ -1,0 +1,10 @@
+package ex
+
+import go "os"
+
+// spec section 8.4: a lone `error` result admits only the three
+// declared views — an `Option Int` payload is not an error view at
+// all, so the binding is rejected.
+extern go "os" {
+  fn Remove (name: String) -> Option Int
+}

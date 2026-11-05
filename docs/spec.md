@@ -417,7 +417,7 @@ strconv.ParseInt(_, 10, 64)
 | 戻り値 `(T, error)` | `Result T GoError` |
 | 戻り値 `(T, bool)` | タプル `(T, Bool)`。`Option T` にするのは、標準のバインディングか `extern` で comma-ok と宣言した関数だけ（`os.LookupEnv` など） |
 | 戻り値 `(A, B)`（上記以外の多値） | タプル `(A, B)` |
-| 戻り値 `error` のみ | `Result Unit GoError` |
+| 戻り値 `error` のみ | `Result Unit GoError`（既定の型由来ビュー）。`extern` 宣言か標準バインディングで `GoError`（nil を返さない契約 — 違反は境界で panic）か `Option GoError`（nil 許容のエラー値）にもなる（8.4 節） |
 | `*T` | `Ptr T`（nil の参照は Go と同じく panic。操作は `Ptr` モジュール） |
 | `int` / `int64` / `int32` / `float64` | `Int` / `Int` / `Int32` / `Float` |
 | named type（`type UserID int64` など） | 別の名前的な型 `pkg.UserID`。基底型との変換は `Go.conv` で明示 |
@@ -461,13 +461,15 @@ extern のエントリは `fn` の関数シグネチャだけを持ち、ブロ�
 - 結果の宣言は Go の結果の形が許すものだけ:
   - `()` → `Unit`
   - `T` → `T`（対応する型）、`*T` → `Option (Ptr T)`（`Option` はポインタのまま保持する）
-  - `error` → `Result Unit GoError`
+  - `error` → `Result Unit GoError`（既定）、`Option GoError`（nil を返し得る値）、`GoError`（nil を返さないという契約の宣言 — Go の型では表せないので境界で検査し、nil が来たら panic する）
   - `(T, error)` → `Result T GoError`
   - `(T, bool)` → `Option T` または `(T, Bool)`
   - その他の `(A, B)` → `(A, B)` のタプル
 - 宣言に型変数は書けない（Go の関数は多相ではない）。ジェネリックな Go 関数の上書きも現時点ではできない。
 
-宣言した型が Gom 側で見える型になり、生成される呼び出しは生の Go シグネチャのまま `pkg.F(args)` で、結果は宣言した変換規則で物質化される — `(T, bool)` の `Option` は `v, ok := f(...)` の後 `option.FromGo(v, ok)`、`*T` の `Option` は `v := f(...)` の後 `option.FromGo(v, v != nil)`。
+宣言した型が Gom 側で見える型になり、生成される呼び出しは生の Go シグネチャのまま `pkg.F(args)` で、結果は宣言した変換規則で物質化される — `(T, bool)` の `Option` は `v, ok := f(...)` の後 `option.FromGo(v, ok)`、`*T` の `Option` は `v := f(...)` の後 `option.FromGo(v, v != nil)`。`error` への `Option GoError` 宣言も同じ `option.FromGo(v, v != nil)` 形で、`GoError` 宣言は `if v == nil { panic(...) }` の境界検査を生成する。
+
+コンパイラが用意する**標準バインディング**は extern と同じ規則で宣言ビューをあてがう既定の上書きである（[decisions/error-result-bindings](decisions/2026-11-05-error-result-bindings.md)）。`errors.New` と `fmt.Errorf` は `-> GoError`（エラーを値として直接組み立てられる）、`errors.Join` と `errors.Unwrap` は `-> Option GoError` と見える。明示的な `extern` は標準バインディングに優先し、生の Go シグネチャと照合される — `extern go "errors" { fn New (msg: String) -> Result Unit GoError }` は型由来の既定に戻せる。
 
 明示的な変換は組み込みの `Go.conv` で書く: `Go.conv user_id : Int`。変換できるかどうかは Go の変換規則で検査する。`Go.Slice T` と `List T` の間の `Go.conv` は、8.5 節の境界変換と同じくコピーする（[decisions/goconv-list-slice-copies](decisions/2026-11-04-goconv-list-slice-copies.md)）。
 
@@ -507,17 +509,17 @@ fn load_config (path: String) -> Result Config GoError =
   |?> validate
   |?> fn c -> Ok { c with source = path }
 
-fn parse_port (s: String) -> Result Int64 GoError =
+fn parse_port (s: String) -> Result Int GoError =
   Ok (strings.TrimSpace(s))
   |?> strconv.ParseInt(_, 10, 64)
   |?> check_port_range
 ```
 
-（この例は現状コンパイルできない: `os.ReadFile` の `[]byte` 戻り値は v1 で対応していない型（8.3 節）で、戻り値の `Int64` も 8.3 節の対応表（`int64` → `Int`）とずれている — [implementation-gaps](implementation-gaps.md) 参照）
+（この例は現状コンパイルできない: `os.ReadFile` の `[]byte` 戻り値は v1 で対応していない型（8.3 節）— [implementation-gaps](implementation-gaps.md) 参照。`strconv.ParseInt` の `int64` 結果は対応表に従い `Int` に見える）
 
 1. `r |?> f` は `r : Result a e` と `f : a -> Result b e` を取り、`Result b e` を返す。`Ok v` なら `f v`、`Err e` ならそれ以降のステップを飛ばして `Err` のまま流す
 2. 優先順位と結合は `|>` と同じ。1 つの流れの中で `|>` と混ぜられる
-3. **自動ラップ**: エラー型が `GoError` のとき、失敗したステップで `fmt.Errorf("<ステップ名>: %w", err)` を自動で付ける。`errors.Is` / `errors.As` で元のエラーを判定できる
+3. **自動ラップ**: エラー型が `GoError` のとき、失敗したステップのエラーを `*rt.StepError` フレームで包む（`Step` はステップ名、`Unwrap()` は元のエラー — 描画される文言は `<ステップ名>: <元のメッセージ>`）。`errors.Is` / `errors.As` で元のエラーを判定できる
 4. ステップ名は、右辺の式の先頭にある名前をソースに書かれたとおりに使う（`os.ReadFile`、`parse_with opts` なら `parse_with`、`strconv.ParseInt(_, 10, 64)` なら `strconv.ParseInt`）。`let f = parse_toml` のあと `|?> f` と書けば名前は `f` になる。関数値の由来は追跡しない。右辺がラムダなどで名前がなければソース位置（`config.gom:14`）を使う
 5. 包むのはエラーが起きたステップでの 1 回だけ。後続のステップは `Err` を素通しする
 6. エラー型が `GoError` 以外のときは包まない
@@ -527,6 +529,8 @@ fn parse_port (s: String) -> Result Int64 GoError =
 例: `validate` が `port must be > 0` で失敗すると、結果は `validate: port must be > 0`。
 
 自動ラップは `errors.Is` / `errors.As` の結果を変えないが、`Error()` の文字列は変える。この文字列も公開される振る舞いの一部として扱い、規則を変えるときは決定記録を残す。
+
+ラップは `*rt.StepError` フレームとして付く（[decisions/result-pipe-wrap-frame](decisions/2026-11-05-result-pipe-wrap-frame.md)）: `Error()` は `ステップ名: 元のメッセージ` の文言を保ち、`Unwrap()` は元のエラーを返し、`Step` フィールドがステップ名を構造化したデータとして持つ。Go 側（または `import go "github.com/podhmo/gom/rt"` した Gom 側）から `errors.As` で `*rt.StepError` を取り出せる。`strconv.Atoi` のようにエラー自身が関数名を名乗る場合、文言は `strconv.Atoi: strconv.Atoi: parsing "x": ...` のように重複する — 外側は呼び出し箇所の由来、内側はエラー自身の文言で、別の情報源であり重複は許容する。
 
 ラップの文言の設定方法は future work（open-questions.md）。
 

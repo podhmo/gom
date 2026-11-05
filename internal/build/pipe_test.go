@@ -15,6 +15,12 @@ func TestPipeGoErrorChain(t *testing.T) {
 	src := `package main
 import go "strconv"
 import go "errors"
+// The chain needs a Result-returning step — restore errors.New's
+// type-derived view for this file (the extern overrides the
+// standard binding's GoError claim).
+extern go "errors" {
+  fn New (text: String) -> Result Unit GoError
+}
 fn keep (n: Int) -> Result Int GoError = Ok n
 fn wrapped (s: String) -> Result Int GoError = s |?> strconv.Atoi |?> keep
 fn tried (s: String) -> Result Int GoError = { let n = try (strconv.Atoi s); Ok n }
@@ -53,11 +59,11 @@ fn twoUnguarded (r1: Result Int GoError) (r2: Result Int GoError) -> Result Int 
 	}
 	// Imports are added to the same generated package; this is a real Go
 	// caller of the generated API, without a special evaluator stub.
-	generated = strings.Replace(generated, "import (", "import (\n\"strings\"", 1)
+	generated = strings.Replace(generated, "import (", "import (\n\"strings\"\n\"fmt\"", 1)
 	generated += `
 func main() {
   for _, f := range []struct { name string; run func(string) result.Result[int64,error] }{
-    {"strconv.Atoi", wrapped}, {"convert", renamed}, {"pipe%name.gom:9", anonymous},
+    {"strconv.Atoi", wrapped}, {"convert", renamed}, {"pipe%name.gom:15", anonymous},
   } {
     r := f.run("bad")
     var n *strconv.NumError
@@ -159,7 +165,7 @@ fn errOnly (k: String) (r: Result String GoError) -> Result String GoError =
 	}
 	// Imports are added to the same generated package; the caller
 	// exercises the fused steps directly.
-	generated = strings.Replace(generated, "import (", "import (\n\"strings\"\n\"errors\"", 1)
+	generated = strings.Replace(generated, "import (", "import (\n\"strings\"\n\"errors\"\n\"fmt\"", 1)
 	generated += `
 func main() {
   boom := errors.New("boom")

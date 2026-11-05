@@ -590,8 +590,9 @@ func (l *lowerer) goResultsOf(t types.Type) core.GoResults {
 		}
 		return core.GoResultsErr
 	case l.isOptionCon(c) && len(c.Args) == 1:
-		// `Option (Ptr T)` spells a `*T`-resulting Go function an
-		// extern declared; other Option payloads mean comma-ok.
+		// `Option (Ptr T)` or `Option GoError` spells a
+		// nil-able-resulting Go function a binding declared;
+		// other Option payloads mean comma-ok.
 		// The declared type alone is ambiguous: `Option (Ptr T)`
 		// may also stand for a comma-ok `(*T, bool)` result an
 		// extern overrode — the registered GoSig answers that
@@ -601,7 +602,15 @@ func (l *lowerer) goResultsOf(t types.Type) core.GoResults {
 		if p, ok := isCon(c.Args[0], "", "Ptr"); ok && len(p.Args) == 1 {
 			return core.GoResultsNil
 		}
+		if l.isGoError(c.Args[0]) {
+			return core.GoResultsNil
+		}
 		return core.GoResultsOK
+	case l.isGoError(t):
+		// A bare `GoError` result — only a declared never-nil
+		// binding produces it (the type-derived default is
+		// `Result Unit GoError`, not this shape).
+		return core.GoResultsErrValue
 	}
 	if tup, ok := types.Chase(t).(*types.Tuple); ok && len(tup.Elems) == 2 {
 		return core.GoResultsPair
@@ -611,9 +620,9 @@ func (l *lowerer) goResultsOf(t types.Type) core.GoResults {
 
 // codeLowering is the diagnostic code lowering uses for contract
 // gaps the checker cannot express — an input the typed AST claims is
-// valid but that cannot be represented in Core IR. The "09" lowering
-// category is not yet registered in the diag code table; see
-// docs/problems/2026-11-02-lower-input-contract-gaps.md.
+// valid but that cannot be represented in Core IR. Registered in the
+// diag code table (E0901 "lowering invariant violated"); the
+// problem record is docs/problems/2026-11-02-lower-input-contract-gaps.md.
 const codeLowering diag.Code = "E0901"
 
 // codeEqBudget is the registered user-facing code for the generated-

@@ -1,0 +1,28 @@
+package ex
+
+import go "errors"
+import go "fmt"
+import go "strconv"
+
+// spec section 8.4: the standard bindings give lone-`error`-result
+// constructors and combinators their declared views — `errors.New`
+// and `fmt.Errorf` hand back a `GoError` value (never-nil, verified
+// at the boundary), `errors.Unwrap`/`errors.Join` a nil-able
+// `Option GoError`.
+
+fn fresh (m: String) -> GoError = errors.New m
+
+fn wrapped (m: String) -> GoError = fmt.Errorf("ctx: %s", m)
+
+fn unwrapped (e: GoError) -> Option GoError = errors.Unwrap e
+
+fn joined (a: GoError) (b: GoError) -> Option GoError = errors.Join (a, b)
+
+fn is_a (e: GoError) -> Bool = errors.Is (e, strconv.ErrSyntax)
+
+fn as_a (e: GoError) -> Bool = {
+  let target : Ptr GoError = Ptr.new ()
+  errors.As (e, target)
+}
+
+fn fail (m: String) -> Result Int GoError = Err (errors.New m)

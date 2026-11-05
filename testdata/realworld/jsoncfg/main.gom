@@ -50,10 +50,9 @@ fn parse_config (doc: String) -> Result Config GoError = {
   }
 }
 
-fn mkerr (m: String) -> GoError = match errors.New m {
-  Err e -> e
-  Ok _ -> todo ()
-}
+// mkerr originates a fresh GoError — `errors.New` is a standard
+// binding whose `-> GoError` view hands us the error value directly.
+fn mkerr (m: String) -> GoError = errors.New m
 
 fn main () -> Unit = {
   let original: Config = { name = "gom", retries = 3, debug = true }

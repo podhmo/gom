@@ -104,7 +104,7 @@ func TestEndToEnd_RealWorldPrograms(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	progs := []string{"wc", "cal", "greet", "jsoncfg", "csvtojson", "httpfetch", "datemath"}
+	progs := []string{"wc", "cal", "greet", "jsoncfg", "csvtojson", "httpfetch", "datemath", "errwalk"}
 	dirs := make([]string, len(progs))
 	for i, p := range progs {
 		dirs[i] = filepath.Join(dir, p)
@@ -248,5 +248,27 @@ func TestEndToEnd_RealWorldPrograms(t *testing.T) {
 	if code, _, errout := runBin(t, httpfetchBin, dir, "", deadURL); code != 1 ||
 		!strings.Contains(errout, "httpfetch:") {
 		t.Fatalf("httpfetch refused: code=%d err=%q", code, errout)
+	}
+
+	// errwalk: the GoError value surface — the standard bindings'
+	// declared views plus Is/As/Unwrap/Join over a *strconv.NumError.
+	errwalkBin := buildOne("errwalk")
+	wantWalk := "is-syntax: true\nwrapped-is: true\n" +
+		"as-numerr: true\nas-func: Atoi\n" +
+		"unwrap-is: true\nbase-unwrap-is: true\nleaf-unwrap: none\n" +
+		"join-is: true\n" +
+		"join-text: strconv.Atoi: parsing \"x\": invalid syntax\nextra\n" +
+		"pipe-text: strconv.Atoi: strconv.Atoi: parsing \"x\": invalid syntax\n" +
+		"frame-as: true\nframe-step: strconv.Atoi\n"
+	if code, out, errout := runBin(t, errwalkBin, dir, ""); code != 0 ||
+		out != wantWalk || errout != "" {
+		t.Fatalf("errwalk: code=%d out=%q err=%q\nwant %q", code, out, errout, wantWalk)
+	}
+	// The `panic` path: `os.Remove` succeeds and returns nil, but the
+	// file's extern claims `-> GoError` — the boundary check panics
+	// rather than handing back a nil error value.
+	if code, _, errout := runBin(t, errwalkBin, dir, "", "panic"); code != 2 ||
+		!strings.Contains(errout, "declares a never-nil GoError result") {
+		t.Fatalf("errwalk panic: code=%d err=%q", code, errout)
 	}
 }

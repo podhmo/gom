@@ -344,18 +344,23 @@ if n > 0 {
 // load_config の局所パイプクロージャ内の生成コード（抜粋）
 b, err := os.ReadFile(path)
 if err != nil {
-	return result.Err[Config, error](fmt.Errorf("os.ReadFile: %w", err))
+	return result.Err[Config, error](rt.StepErr("os.ReadFile", err))
 }
 r := parseToml(b)
 switch r.Tag() {
 case result.ResultTag_Ok:
 	// r.Value を使って続行
 case result.ResultTag_Err:
-	return result.Err[Config, error](fmt.Errorf("parse_toml: %w", r.Error))
+	return result.Err[Config, error](rt.StepErr("parse_toml", r.Error))
 default:
 	panic(rt.InvalidVariant("result.Result", r))
 }
 ```
+
+`rt.StepErr` は `*rt.StepError{Step, Err}` を返す — `Error()` は
+`<step>: <message>`（旧来の `fmt.Errorf("<step>: %w", err)` と同じ
+文言）、`Unwrap()` が `Err` を返し、`Step` が構造化されたステップ
+名として `errors.As` で読み出せる（[decision](decisions/2026-11-05-result-pipe-wrap-frame.md)、spec 9.2）。
 
 ### 4.7 並行処理
 

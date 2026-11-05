@@ -447,14 +447,22 @@ func (l *lowerer) goCallTyp(sig GoSig, resTyp types.Type) types.Type {
 			return c.Args[0]
 		}
 	case core.GoResultsNil:
-		// A single `*T` result an extern declared `Option` for —
-		// the raw type is the pointer the Option's payload spells.
+		// A single `*T`/`error` result an extern or standard
+		// binding declared `Option` for — the raw type is the
+		// nil-able the Option's payload spells.
 		if len(raw) == 1 {
 			return raw[0]
 		}
 		if c, ok := isCon(resTyp, "", "Option"); ok && l.isOptionCon(c) && len(c.Args) == 1 {
 			return c.Args[0]
 		}
+	case core.GoResultsErrValue:
+		// A single `error` result a binding declared `GoError`
+		// for — the raw type is the error the Gom view also spells.
+		if len(raw) == 1 {
+			return raw[0]
+		}
+		return resTyp
 	case core.GoResultsPair:
 		// TupleFromGo's operand reports the tuple itself — the raw
 		// element pair when ResTypes is known.
@@ -502,15 +510,24 @@ func (l *lowerer) wrapGoResult(s *seq, call *core.CallGo, resTyp types.Type) cor
 		return &core.TupleFromGo{Base: base, Call: call,
 			ElemConv: l.goElemConvs(call, resTyp)}
 	case core.GoResultsNil:
-		// `v := f(...)` where f returns *T and the extern
-		// declared Option — OptionFromGo tests `v != nil`. A
-		// non-Option resTyp contradicts the recorded shape.
+		// `v := f(...)` where f returns *T or error and the
+		// binding declared Option — OptionFromGo tests
+		// `v != nil`. A non-Option resTyp contradicts the
+		// recorded shape.
 		if c, ok := isCon(resTyp, "", "Option"); ok && l.isOptionCon(c) && len(c.Args) == 1 {
 			return &core.OptionFromGo{Base: base, Call: call,
 				ValConv: l.goConvKind(call, call.Typ, c.Args[0])}
 		}
-		l.err(call.Sp, fmt.Sprintf("Go *T call typed %s, not an Option", resTyp))
+		l.err(call.Sp, fmt.Sprintf("Go nil-able call typed %s, not an Option", resTyp))
 		return call
+	case core.GoResultsErrValue:
+		// `v := f(...)` where the binding declared `-> GoError` —
+		// ErrorFromGo emits the never-nil boundary check. A
+		// non-GoError resTyp contradicts the recorded shape.
+		if !l.isGoError(resTyp) {
+			l.err(call.Sp, fmt.Sprintf("Go error-value call typed %s, not GoError", resTyp))
+		}
+		return &core.ErrorFromGo{Base: base, Call: call}
 	case core.GoResultsPair:
 		return &core.TupleFromGo{Base: base, Call: call,
 			ElemConv: l.goElemConvs(call, resTyp)}

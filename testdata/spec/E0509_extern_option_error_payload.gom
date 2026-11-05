@@ -1,0 +1,11 @@
+package ex
+
+import go "strings"
+
+// spec section 8.4: over a `(T, bool)` comma-ok pair an `Option`
+// view's payload is the first result `T` — `strings.CutPrefix`
+// returns `(string, bool)`, so `Option GoError` binds a payload the
+// signature does not produce.
+extern go "strings" {
+  fn CutPrefix (s: String) (prefix: String) -> Option GoError
+}

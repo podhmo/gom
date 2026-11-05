@@ -1160,6 +1160,69 @@ func TestViolationImplementsError(t *testing.T) {
 	}
 }
 
+// TestErrorFromGoInvariants pins the never-nil view's mandatory
+// consumer: a `GoResultsErrValue` call may not sit bare anywhere,
+// ErrorFromGo admits only that shape, and its node type must be the
+// builtin GoError (a file-local `type GoError` cannot stand in).
+func TestErrorFromGoInvariants(t *testing.T) {
+	errCall := func(shape GoResults) *CallGo {
+		return &CallGo{
+			Base:    Base{Sp: sp(), Typ: types.GoError},
+			Callee:  gsym("New", "errors"),
+			Args:    []Atom{intLit("1")},
+			Arity:   1,
+			Results: shape,
+		}
+	}
+	errFromGo := func(shape GoResults, typ types.Type) *ErrorFromGo {
+		return &ErrorFromGo{
+			Base: Base{Sp: sp(), Typ: typ},
+			Call: errCall(shape),
+		}
+	}
+	localGoError := &TypeDecl{
+		Sp: sp(), Sym: &resolve.Symbol{Name: "GoError", Kind: resolve.KindType},
+		Body: &TAlias{Sp: sp(), Type: types.Int},
+	}
+	tests := []struct {
+		name string
+		file *File
+		want string
+	}{
+		{"bare err-value call", fnFile(types.GoError, &Body{Tail: errCall(GoResultsErrValue)}),
+			"must be wrapped by ResultFromGo/OptionFromGo/TupleFromGo/ErrorFromGo/EscapeCall"},
+		{"err-only shape under ErrorFromGo", fnFile(types.GoError, &Body{Tail: errFromGo(GoResultsErrOnly, types.GoError)}),
+			"result shape err-only not usable here"},
+		{"wrong node type", fnFile(types.Int, &Body{Tail: errFromGo(GoResultsErrValue, types.Int)}),
+			"is not GoError"},
+		{"local GoError type is not the builtin", func() *File {
+			f := fnFile(types.GoError, &Body{Tail: errFromGo(GoResultsErrValue,
+				&types.Con{Name: "GoError"})})
+			f.Decls = append([]Decl{localGoError}, f.Decls...)
+			return f
+		}(), "is not GoError"},
+		{"valid err-value call", fnFile(types.GoError, &Body{Tail: errFromGo(GoResultsErrValue, types.GoError)}),
+			""},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			errs := Validate(tc.file)
+			if tc.want == "" {
+				if len(errs) != 0 {
+					t.Fatalf("unexpected errors: %v", errs)
+				}
+				return
+			}
+			for _, err := range errs {
+				if strings.Contains(err.Error(), tc.want) {
+					return
+				}
+			}
+			t.Fatalf("errors %v do not contain %q", errs, tc.want)
+		})
+	}
+}
+
 func TestZeroResultCallPositions(t *testing.T) {
 	makeCall := func(typ types.Type) *CallGo {
 		return &CallGo{Base: Base{Sp: sp(), Typ: typ}, Callee: &resolve.Symbol{

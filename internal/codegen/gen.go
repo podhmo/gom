@@ -651,7 +651,8 @@ func untypedConst(x core.Expr) bool {
 		*core.RecordUpdate, *core.Conv, *core.Closure, *core.If,
 		*core.Match, *core.SelectExpr, *core.Spawn, *core.ForRange,
 		*core.TailCall, *core.EscapeResult, *core.EscapeCall,
-		*core.ResultFromGo, *core.OptionFromGo, *core.TupleFromGo:
+		*core.ResultFromGo, *core.OptionFromGo, *core.TupleFromGo,
+		*core.ErrorFromGo:
 		return false
 	default:
 		panic("unreachable")

@@ -122,6 +122,7 @@
 | [aggregate-function-bindings](2026-11-05-aggregate-function-bindings.md) | Aggregate-bound function values become named wrappers; residual initialization cycles are rejected | 採用（P2-2c の実装・検証: [検証レポート](../sketch/2026-11-05-aggregate-function-bindings-verification.md)） |
 | [deferred-member-application](2026-11-05-deferred-member-application.md) | Deferred member application: `x.M(args)` on an unresolved receiver | 採用 |
 | [eq-comparator-budget-and-names](2026-11-05-eq-comparator-budget-and-names.md) | Comparator minting is bounded and file-unique; ctor lets keep the declared interface | draft |
+| [error-result-bindings](2026-11-05-error-result-bindings.md) | `error` 単独の戻り値に対する宣言ビューと標準バインディングの置き場所 | 採用（実装・検証した — [検証](../sketch/2026-11-05-error-result-bindings-verification.md)。spec.md §8.3/§8.4 へ反映済み） |
 | [eval-int-width-aware-ops](2026-11-05-eval-int-width-aware-ops.md) | eval の整数演算は演算位置の静的型の幅で計算する（VInt は幅を持たない） | 採用（実装・検証した — [検証](../sketch/2026-11-05-eval-int-width.md)） |
 | [exported-value-vs-type-name](2026-11-05-exported-value-vs-type-name.md) | Exported `let foo` vs `type Foo`: type names claim first | draft（prototype verified — [sketch: V-6 residual verification](../sketch/2026-11-05-v6-residual-verification.md)） |
 | [generated-code-benchmark-harness](2026-11-05-generated-code-benchmark-harness.md) | Generated-code benchmarks live beside the artifacts they measure | 採用（実装・計測は [sketch: P5-3 generated-code perf](../sketch/2026-11-05-p5-3-generated-code-perf.md)） |
@@ -140,6 +141,7 @@
 | [pkg-type-ctor-spelling](2026-11-05-pkg-type-ctor-spelling.md) | `pkg.Type.Ctor`: a per-type constructor table for imported types | draft（prototype verified — [sketch: V-6 residual verification](../sketch/2026-11-05-v6-residual-verification.md)） |
 | [post-arg-selector-binding](2026-11-05-post-arg-selector-binding.md) | Post-argument selector binding: `x.M(1).N(2)` chains like Go | 採用 |
 | [ptr-ops-surface](2026-11-05-ptr-ops-surface.md) | `Ptr` module: an explicit operation surface for `Ptr T` | 採用（実装・検証した — [検証](../sketch/2026-11-05-p3-7-interop-ops-verification.md)。spec.md §8.3/§8.6 へ反映済み） |
+| [result-pipe-wrap-frame](2026-11-05-result-pipe-wrap-frame.md) | `\|?>` 自動ラップの文言とフレーム表現 | 採用（実装・検証した — [検証](../sketch/2026-11-05-error-result-bindings-verification.md)。spec.md §9.2 へ反映済み） |
 | [test-name-file-tag](2026-11-05-test-name-file-tag.md) | Same-named `test` blocks in sibling files take a file tag | draft（prototype verified — [sketch: V-6 residual verification](../sketch/2026-11-05-v6-residual-verification.md)） |
 | [variant-field-assert-owning-ctor](2026-11-05-variant-field-assert-owning-ctor.md) | バリアントの名前付きペイロード読み取りは所有者バリアントをアサートする | 採用（実装・検証した — [検証](../sketch/2026-11-05-variant-field-assert-owning-ctor.md)） |
 <!-- END GENERATED -->

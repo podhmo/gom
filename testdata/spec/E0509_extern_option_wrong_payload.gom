@@ -1,0 +1,10 @@
+package ex
+
+import go "errors"
+
+// spec section 8.4: over a lone `error` result an `Option` view's
+// payload must be `GoError` — the nil-able value keeps the error
+// type. `Option Int` has no presence channel here.
+extern go "errors" {
+  fn Unwrap (err: GoError) -> Option Int
+}

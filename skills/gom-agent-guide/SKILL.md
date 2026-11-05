@@ -169,8 +169,9 @@ generated from — useful when generated code surprises you.
 - **Errors are values.** `try e` unwraps `Ok v → v` or returns `Err`
   from the innermost enclosing function — which must return
   `Result _ e`. `r |?> f` chains `Result` steps; on `GoError` it
-  auto-wraps failures as `fmt.Errorf("<step>: %w", err)`. No
-  exceptions; Go panics propagate (no `recover`).
+  auto-wraps each failure in a `*rt.StepError` frame — text
+  `<step>: <message>`, `Unwrap()` keeps `errors.Is`/`As` working.
+  No exceptions; Go panics propagate (no `recover`).
 - **Go interop is direct:** `import go "strconv"` then
   `strconv.Atoi s`. `(T, error)` → `Result T GoError`, `(T, bool)` →
   `(T, Bool)`, `error` → `Result Unit GoError`. Go calls are *not*
@@ -642,24 +643,27 @@ the earlier result for the rest of the chain (`|?> fn x -> ... x ...`).
 
 ## Fresh `GoError` values
 
-`errors.New`/`fmt.Errorf` return a Go `error`, which maps to
-`Result Unit GoError` like any fallible call — they do not hand you
-a `GoError`. An `extern` redeclaring them `-> GoError` is rejected
-(E0509). Until a standard binding exists, unwrap the `Err`:
+`errors.New` and `fmt.Errorf` are standard bindings — they hand you
+a `GoError` value directly (the never-nil claim is verified at the
+call boundary). `errors.Join`/`errors.Unwrap` are `Option GoError` —
+match `Some`/`None`:
 
 ```gom
 package main
 
 import go "errors"
 
-fn mkerr (msg: String) -> GoError =
-  match errors.New(msg) {
-    Err e -> e
-    Ok _ -> todo ()
-  }
+fn fail (msg: String) -> Result Int GoError = Err (errors.New msg)
 
-fn fail (msg: String) -> Result Int GoError = Err (mkerr msg)
+fn inner (e: GoError) -> Option GoError = errors.Unwrap e
 ```
+
+Any other lone-`error`-result Go function defaults to
+`Result Unit GoError`; a file's own `extern` may re-declare it
+`-> GoError` (never-nil claim — a nil return panics at the
+boundary) or `-> Option GoError` (nil-able value). `errors.As`
+needs an out-pointer: `Ptr.new ()` at `Ptr (Ptr T)` (a `**T`) or at
+`Ptr GoError` (a `*error`) is the target to pass.
 
 ## Things that don't exist
 

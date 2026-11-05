@@ -1,9 +1,12 @@
 # `GoError` is uninspectable and unfabricatable from inside Gom
 
-- 状態: 一部解消 — `GoError` values are inspectable now (`e.Error()`
-  resolves and emits `e.Error()`, and error-typed package vars such
-  as `strconv.ErrSyntax` work as `errors.Is` targets). Fabrication —
-  producing a `GoError` from nothing — is still open.
+- 状態: 解消 — inspection (`e.Error()`, `errors.Is`/`As` targets)
+  was fixed earlier; fabrication landed 2026-11-05 with the lone
+  `error` declared views
+  ([decision](../decisions/2026-11-05-error-result-bindings.md),
+  [verification](../sketch/2026-11-05-error-result-bindings-verification.md)):
+  `errors.New`/`fmt.Errorf` are `-> GoError` standard bindings and
+  `Ptr.new` produces the out-pointer `errors.As` needs.
 - 日付: 2026-11-04（V-1 実行可能チュートリアルで発見）
 
 ## Update: inspection is fixed
@@ -135,3 +138,21 @@ exercised this in programs, not probes:
 - `errors.As` remains unusable: it compiles (`any` param admits
   `Ptr`) but the required `**T`/`*error` target cannot be produced —
   see [ptr-t-no-deref](2026-11-05-ptr-t-no-deref.md).
+
+## Update (2026-11-05): resolved
+
+The lone-`error` declared views shipped —
+[error-result-bindings](../decisions/2026-11-05-error-result-bindings.md):
+
+- `errors.New` and `fmt.Errorf` are standard bindings with declared
+  `-> GoError` (never-nil, boundary-checked): `Err (errors.New m)`
+  fabricates, and the `mkerr` peel idiom is obsolete (`cal`/`jsoncfg`
+  now bind `errors.New` directly).
+- `errors.Join`/`errors.Unwrap` declare `-> Option GoError` — nil-able
+  values matchable on `Some`/`None`.
+- Any other lone-`error` result keeps `Result Unit GoError` unless a
+  file's own `extern` re-declares `GoError` or `Option GoError`.
+- `errors.As` is usable end to end: `Ptr.new` (ptr-ops-surface)
+  produces the out-pointer — `Ptr (Ptr T)` for a `**T` target,
+  `Ptr GoError` for `*error`. Verified in
+  [errwalk](../sketch/2026-11-05-error-result-bindings-verification.md).

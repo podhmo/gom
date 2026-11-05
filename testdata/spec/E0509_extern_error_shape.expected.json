@@ -1,0 +1,29 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0509",
+      "severity": "error",
+      "message": "extern `fn Remove`: `os.Remove` returns error — an `Option` view's payload is `GoError`, not Int",
+      "span": {
+        "file": "E0509_extern_error_shape.gom",
+        "start": {
+          "line": 9,
+          "col": 3,
+          "offset": 218
+        },
+        "end": {
+          "line": 9,
+          "col": 41,
+          "offset": 256
+        }
+      },
+      "data": {
+        "declared": "String -> Option Int",
+        "extern": "Remove",
+        "go": "func(name string) error",
+        "member": "os.Remove"
+      }
+    }
+  ]
+}

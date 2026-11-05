@@ -3,6 +3,12 @@
 - 状態: 採用（実装・検証した — [検証](../sketch/2026-11-03-extern-binding-verification.md)）
 - 日付: 2026-11-03
 
+*Superseded in part:* the admission table's `error` row is extended
+by [error-result-bindings](2026-11-05-error-result-bindings.md) —
+a lone `error` also admits `Option GoError` and `GoError` (a
+never-nil claim enforced at the call boundary), not only
+`Result Unit GoError`.
+
 `extern go "pkg" { fn F ... }` binds one exported *function* member
 of the named Go package. This file records what an extern may
 override, how the binding is validated, and which Core IR shape the

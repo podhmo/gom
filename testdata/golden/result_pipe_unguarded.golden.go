@@ -3,7 +3,6 @@
 package pipes
 
 import (
-	"fmt"
 	"github.com/podhmo/gom/rt"
 	"github.com/podhmo/gom/stdlib/result"
 	"os"
@@ -53,7 +52,7 @@ func first(s string, r result.Result[int64, error]) result.Result[int64, error] 
 		tmp5, err := strconv.ParseInt(s, tmp2, tmp3)
 		if err != nil {
 //line result_pipe_unguarded.gom:14
-			return result.Err[int64, error](fmt.Errorf("strconv.ParseInt: %w", err))
+			return result.Err[int64, error](rt.StepErr("strconv.ParseInt", err))
 		}
 //line result_pipe_unguarded.gom:14
 		tmp6 := keep(tmp5)
@@ -65,7 +64,7 @@ func first(s string, r result.Result[int64, error]) result.Result[int64, error] 
 			tmp7 = tmp6.Value
 		case result.ResultTagErr:
 //line result_pipe_unguarded.gom:14
-			return result.Err[int64, error](fmt.Errorf("keep: %w", tmp6.Error))
+			return result.Err[int64, error](rt.StepErr("keep", tmp6.Error))
 		default:
 //line result_pipe_unguarded.gom:14
 			panic(rt.InvalidVariant("result.Result", tmp6))
@@ -91,7 +90,7 @@ func mid(s string, r result.Result[int64, error]) result.Result[int64, error] {
 			tmp11 = tmp10.Value
 		case result.ResultTagErr:
 //line result_pipe_unguarded.gom:17
-			return result.Err[string, error](fmt.Errorf("shout: %w", tmp10.Error))
+			return result.Err[string, error](rt.StepErr("shout", tmp10.Error))
 		default:
 //line result_pipe_unguarded.gom:17
 			panic(rt.InvalidVariant("result.Result", tmp10))
@@ -129,7 +128,7 @@ func mid(s string, r result.Result[int64, error]) result.Result[int64, error] {
 			tmp20, err1 := strconv.ParseInt(tmp14, tmp17, tmp18)
 			if err1 != nil {
 //line result_pipe_unguarded.gom:17
-				return result.Err[int64, error](fmt.Errorf("strconv.ParseInt: %w", err1))
+				return result.Err[int64, error](rt.StepErr("strconv.ParseInt", err1))
 			}
 //line result_pipe_unguarded.gom:17
 			tmp21 := keep(tmp20)
@@ -141,7 +140,7 @@ func mid(s string, r result.Result[int64, error]) result.Result[int64, error] {
 				tmp22 = tmp21.Value
 			case result.ResultTagErr:
 //line result_pipe_unguarded.gom:17
-				return result.Err[int64, error](fmt.Errorf("keep: %w", tmp21.Error))
+				return result.Err[int64, error](rt.StepErr("keep", tmp21.Error))
 			default:
 //line result_pipe_unguarded.gom:17
 				panic(rt.InvalidVariant("result.Result", tmp21))
@@ -156,7 +155,7 @@ func mid(s string, r result.Result[int64, error]) result.Result[int64, error] {
 				tmp24 = tmp23.Value
 			case result.ResultTagErr:
 //line result_pipe_unguarded.gom:17
-				return result.Err[int64, error](fmt.Errorf("keep: %w", tmp23.Error))
+				return result.Err[int64, error](rt.StepErr("keep", tmp23.Error))
 			default:
 //line result_pipe_unguarded.gom:17
 				panic(rt.InvalidVariant("result.Result", tmp23))
@@ -191,7 +190,7 @@ func last(s string, r result.Result[int64, error]) result.Result[int64, error] {
 			tmp28 = tmp27.Value
 		case result.ResultTagErr:
 //line result_pipe_unguarded.gom:20
-			return result.Err[string, error](fmt.Errorf("shout: %w", tmp27.Error))
+			return result.Err[string, error](rt.StepErr("shout", tmp27.Error))
 		default:
 //line result_pipe_unguarded.gom:20
 			panic(rt.InvalidVariant("result.Result", tmp27))
@@ -229,7 +228,7 @@ func last(s string, r result.Result[int64, error]) result.Result[int64, error] {
 			tmp37, err2 := strconv.ParseInt(tmp31, tmp34, tmp35)
 			if err2 != nil {
 //line result_pipe_unguarded.gom:20
-				return result.Err[int64, error](fmt.Errorf("strconv.ParseInt: %w", err2))
+				return result.Err[int64, error](rt.StepErr("strconv.ParseInt", err2))
 			}
 //line result_pipe_unguarded.gom:20
 			return result.Ok[int64, error](tmp37)
@@ -261,7 +260,7 @@ func errOnly(k string, r result.Result[string, error]) result.Result[string, err
 			tmp41 = tmp40.Value
 		case result.ResultTagErr:
 //line result_pipe_unguarded.gom:24
-			return result.Err[string, error](fmt.Errorf("shout: %w", tmp40.Error))
+			return result.Err[string, error](rt.StepErr("shout", tmp40.Error))
 		default:
 //line result_pipe_unguarded.gom:24
 			panic(rt.InvalidVariant("result.Result", tmp40))
@@ -297,7 +296,7 @@ func errOnly(k string, r result.Result[string, error]) result.Result[string, err
 			err3 := os.Setenv(tmp44, tmp46)
 			if err3 != nil {
 //line result_pipe_unguarded.gom:24
-				return result.Err[string, error](fmt.Errorf("os.Setenv: %w", err3))
+				return result.Err[string, error](rt.StepErr("os.Setenv", err3))
 			}
 			tmp48 = struct{}{}
 //line result_pipe_unguarded.gom:24
@@ -310,7 +309,7 @@ func errOnly(k string, r result.Result[string, error]) result.Result[string, err
 				tmp50 = tmp49.Value
 			case result.ResultTagErr:
 //line result_pipe_unguarded.gom:24
-				return result.Err[string, error](fmt.Errorf("ukeep: %w", tmp49.Error))
+				return result.Err[string, error](rt.StepErr("ukeep", tmp49.Error))
 			default:
 //line result_pipe_unguarded.gom:24
 				panic(rt.InvalidVariant("result.Result", tmp49))
@@ -353,7 +352,7 @@ func gomStep(n int64, r result.Result[int64, error]) result.Result[int64, error]
 			tmp55 = tmp54.Value
 		case result.ResultTagErr:
 //line result_pipe_unguarded.gom:30
-			return result.Err[int64, error](fmt.Errorf("keep: %w", tmp54.Error))
+			return result.Err[int64, error](rt.StepErr("keep", tmp54.Error))
 		default:
 //line result_pipe_unguarded.gom:30
 			panic(rt.InvalidVariant("result.Result", tmp54))
@@ -393,7 +392,7 @@ func gomStep(n int64, r result.Result[int64, error]) result.Result[int64, error]
 				tmp63 = tmp61.Value
 			case result.ResultTagErr:
 //line result_pipe_unguarded.gom:30
-				return result.Err[int64, error](fmt.Errorf("bump: %w", tmp61.Error))
+				return result.Err[int64, error](rt.StepErr("bump", tmp61.Error))
 			default:
 //line result_pipe_unguarded.gom:30
 				panic(rt.InvalidVariant("result.Result", tmp61))
@@ -408,7 +407,7 @@ func gomStep(n int64, r result.Result[int64, error]) result.Result[int64, error]
 				tmp65 = tmp64.Value
 			case result.ResultTagErr:
 //line result_pipe_unguarded.gom:30
-				return result.Err[int64, error](fmt.Errorf("keep: %w", tmp64.Error))
+				return result.Err[int64, error](rt.StepErr("keep", tmp64.Error))
 			default:
 //line result_pipe_unguarded.gom:30
 				panic(rt.InvalidVariant("result.Result", tmp64))

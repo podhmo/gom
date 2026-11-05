@@ -558,6 +558,8 @@ func walkTailrec(b *core.Body, f func(e core.Expr, inSpawn, inClosure bool)) {
 			callGo(e.Call, inSpawn, inClosure)
 		case *core.TupleFromGo:
 			callGo(e.Call, inSpawn, inClosure)
+		case *core.ErrorFromGo:
+			callGo(e.Call, inSpawn, inClosure)
 		case *core.Conv:
 			atom(e.X, inSpawn, inClosure)
 		case *core.Equal:

@@ -1,0 +1,10 @@
+package ex
+
+import go "strconv"
+
+// spec section 8.4: `GoError` is the never-nil view over a lone
+// `error` result only — `strconv.Itoa` returns a plain `string`, so
+// the declared view has no error to bind.
+extern go "strconv" {
+  fn Itoa (i: Int) -> GoError
+}

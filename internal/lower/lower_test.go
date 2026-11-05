@@ -422,6 +422,94 @@ func TestGoMultiResultWrap(t *testing.T) {
 	}
 }
 
+// TestGoErrorResultViews: a lone Go `error` result has three
+// declared views and each picks its own shape+consumer pair. With no
+// Env.GoSig registration goResultsOf reads the declared Gom type —
+// `Result Unit GoError` is the fallible default (ErrOnly), `Option
+// GoError` the nil-able value view (Nil), `GoError` the never-nil
+// claim (ErrValue) — and wrapGoResult consumes it with the matching
+// FromGo node. The registered-GoSig cases pin the same consumer when
+// the loader records the raw `error` shape directly.
+func TestGoErrorResultViews(t *testing.T) {
+	goCall := func(sym *resolve.Symbol, viewT types.Type) *check.Apply {
+		return app(vr(sym, types.Fn(viewT, types.P(types.String))), []check.Expr{strLit("x")},
+			check.CallInfo{Kind: check.CallGo, Callee: sym, Arity: 1, Applied: 1, HoleIndex: -1}, viewT)
+	}
+	tests := []struct {
+		name    string
+		viewT   types.Type
+		sig     *GoSig // registered raw shape; nil → goResultsOf heuristic
+		wantR   core.GoResults
+		want    string // "ResultFromGo" | "OptionFromGo" | "ErrorFromGo"
+		wantErr string
+	}{
+		{"default result view", types.Result(types.Unit, types.GoError), nil,
+			core.GoResultsErrOnly, "ResultFromGo", ""},
+		{"option error view", types.Option(types.GoError), nil,
+			core.GoResultsNil, "OptionFromGo", ""},
+		{"never-nil error view", types.GoError, nil,
+			core.GoResultsErrValue, "ErrorFromGo", ""},
+		{"registered nil shape", types.Option(types.GoError),
+			&GoSig{Arity: 1, Results: core.GoResultsNil},
+			core.GoResultsNil, "OptionFromGo", ""},
+		{"registered err-value shape", types.GoError,
+			&GoSig{Arity: 1, Results: core.GoResultsErrValue},
+			core.GoResultsErrValue, "ErrorFromGo", ""},
+		{"err-value shape, wrong view", types.Option(types.GoError),
+			&GoSig{Arity: 1, Results: core.GoResultsErrValue},
+			core.GoResultsErrValue, "ErrorFromGo", "not GoError"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			g := gsym("mk")
+			call := goCall(g, tc.viewT)
+			var env *Env
+			if tc.sig != nil {
+				env = &Env{GoSig: func(sym *resolve.Symbol) (GoSig, bool) { return *tc.sig, true }}
+			}
+			f := &check.File{Sp: sp, Package: "p", PkgSp: sp,
+				Decls: []check.Decl{decl("f", nil, call, types.Fn(tc.viewT))}}
+			out, diags := File(f, env)
+			found := false
+			for _, d := range diags {
+				if strings.Contains(d.Message, tc.wantErr) && tc.wantErr != "" {
+					found = true
+					continue
+				}
+				t.Errorf("unexpected diagnostic: %v", d)
+			}
+			if tc.wantErr != "" && !found {
+				t.Fatalf("no diagnostic contains %q; got %v", tc.wantErr, diags)
+			}
+			tail := fnDeclOf(t, out, 0).Fn.Body.Tail
+			var callOut *core.CallGo
+			switch tc.want {
+			case "ResultFromGo":
+				x, ok := tail.(*core.ResultFromGo)
+				if !ok {
+					t.Fatalf("tail is %T, want ResultFromGo", tail)
+				}
+				callOut = x.Call
+			case "OptionFromGo":
+				x, ok := tail.(*core.OptionFromGo)
+				if !ok {
+					t.Fatalf("tail is %T, want OptionFromGo", tail)
+				}
+				callOut = x.Call
+			case "ErrorFromGo":
+				x, ok := tail.(*core.ErrorFromGo)
+				if !ok {
+					t.Fatalf("tail is %T, want ErrorFromGo", tail)
+				}
+				callOut = x.Call
+			}
+			if callOut.Results != tc.wantR {
+				t.Errorf("call results = %s, want %s", callOut.Results, tc.wantR)
+			}
+		})
+	}
+}
+
 // TestMatchCtorSwitch: ctor arms compile to SwitchType with a DPanic
 // default; a wildcard arm expands to the remaining variants' cases.
 func TestMatchCtorSwitch(t *testing.T) {
