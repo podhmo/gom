@@ -1171,7 +1171,7 @@ func compiledDiffInDir(gobin, root, dir string, src []byte) (out diffOutcome, no
 func runOnce(dir string, env []string, prog string) diffOutcome {
 	ctx, cancel := context.WithTimeout(context.Background(), diffRunTimeout)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, prog)
+	cmd := testbin.CommandContext(ctx, prog)
 	cmd.Dir = dir
 	cmd.Env = env
 	var stdout, stderr bytes.Buffer

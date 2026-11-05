@@ -12,6 +12,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/podhmo/gom/internal/testbin"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -59,7 +60,7 @@ func copyRealworld(t *testing.T, src, dst string) {
 // paths are asserted as part of the audit.
 func runBin(t *testing.T, bin, dir, stdin string, args ...string) (int, string, string) {
 	t.Helper()
-	cmd := exec.Command(bin, args...)
+	cmd := testbin.Command(bin, args...)
 	cmd.Dir = dir
 	if stdin != "" {
 		cmd.Stdin = strings.NewReader(stdin)

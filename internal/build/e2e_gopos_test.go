@@ -9,6 +9,7 @@ package build_test
 // interpret them.
 
 import (
+	"github.com/podhmo/gom/internal/testbin"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -85,7 +86,7 @@ func TestPanicStackResolvesToGom(t *testing.T) {
 		t.Fatalf("go build: %v\n%s", err, out)
 	}
 
-	run := exec.Command(prog)
+	run := testbin.Command(prog)
 	run.Dir = dir
 	out, err := run.CombinedOutput()
 	if err == nil {

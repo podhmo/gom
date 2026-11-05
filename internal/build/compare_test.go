@@ -1419,7 +1419,7 @@ func runCompiledCmd(t *testing.T, gobin string, src []byte) (string, error) {
 	if err != nil {
 		return string(binary.Output), err
 	}
-	cmd := exec.Command(binary.Path)
+	cmd := testbin.Command(binary.Path)
 	cmd.Dir, cmd.Env = dir, env
 	out, err := cmd.CombinedOutput()
 	return string(out), err

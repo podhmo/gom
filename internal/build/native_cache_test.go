@@ -58,7 +58,7 @@ func main() { fmt.Printf("%s:%s:%s\n", BuildMarker, dep.Value, os.Getenv("TESTBI
 	}
 	run := func(r testbin.Result, value, want string) {
 		t.Helper()
-		cmd := exec.Command(r.Path)
+		cmd := testbin.Command(r.Path)
 		cmd.Env = append(os.Environ(), "TESTBIN_VALUE="+value)
 		out, err := cmd.CombinedOutput()
 		if err != nil || string(out) != want {
@@ -134,7 +134,7 @@ func TestNativeBinaryCacheFallback(t *testing.T) {
 	if err != nil || r.ReuseEnabled {
 		t.Fatalf("fallback: %+v, %v", r, err)
 	}
-	out, err := exec.Command(r.Path).CombinedOutput()
+	out, err := testbin.Command(r.Path).CombinedOutput()
 	if err == nil || !strings.Contains(string(out), "runs only later") {
 		t.Fatalf("execution=%q %v", out, err)
 	}

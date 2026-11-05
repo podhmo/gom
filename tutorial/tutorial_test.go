@@ -12,6 +12,7 @@ package tutorial_test
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/podhmo/gom/internal/testbin"
 	"io"
 	"os"
 	"os/exec"
@@ -172,7 +173,7 @@ func runStep(t *testing.T, gom, gobin, root, dir string) {
 		t.Fatalf("compiler API failed: %+v", compiled.Diagnostics)
 	}
 
-	build := exec.Command(gom, "build", "-o", mod+string(filepath.Separator), src)
+	build := testbin.Command(gom, "build", "-o", mod+string(filepath.Separator), src)
 	if out, err := build.CombinedOutput(); err != nil {
 		t.Fatalf("gom build: %v\n%s", err, out)
 	}
@@ -239,7 +240,7 @@ func checkStep(t *testing.T, gom, root, dir string) {
 		if !compiled.Diagnostics.HasError() || !found {
 			t.Fatalf("compiler API: %s missing expected error %s: %+v", src, wantCode, compiled.Diagnostics)
 		}
-		cmd := exec.Command(gom, "check", src)
+		cmd := testbin.Command(gom, "check", src)
 		out, err := cmd.CombinedOutput()
 		if err == nil {
 			t.Fatalf("%s: gom check unexpectedly succeeded\n%s", src, out)

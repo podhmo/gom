@@ -6,6 +6,7 @@ package main
 
 import (
 	"encoding/json"
+	"github.com/podhmo/gom/internal/testbin"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -595,7 +596,7 @@ func TestEndToEnd_BuildAndRun(t *testing.T) {
 	if b, err := buildCmd.CombinedOutput(); err != nil {
 		t.Fatalf("go build: %v\n%s", err, b)
 	}
-	runCmd := exec.Command(bin)
+	runCmd := testbin.Command(bin)
 	if b, err := runCmd.CombinedOutput(); err != nil {
 		t.Fatalf("running binary: %v\n%s", err, b)
 	} else if !strings.Contains(string(b), "gom answer: 42") {
@@ -815,7 +816,7 @@ func TestEndToEnd_Strconv(t *testing.T) {
 	if b, err := buildCmd.CombinedOutput(); err != nil {
 		t.Fatalf("go build: %v\n%s", err, b)
 	}
-	runCmd := exec.Command(bin)
+	runCmd := testbin.Command(bin)
 	if b, err := runCmd.CombinedOutput(); err != nil {
 		t.Fatalf("running binary: %v\n%s", err, b)
 	} else if strings.TrimSpace(string(b)) != "42" {
