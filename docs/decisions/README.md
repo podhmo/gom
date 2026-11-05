@@ -120,6 +120,7 @@
 | [structural-equality-emission](2026-11-04-structural-equality-emission.md) | Structural `==`/`!=` emission: `rt.Equal` except provably comparable scalars（一部を [generated-equality-comparators](2026-11-05-generated-equality-comparators.md) で置き換え） | draft |
 | [try-no-auto-wrap](2026-11-04-try-no-auto-wrap.md) | `try` は `GoError` を自動ラップしない | 採用 |
 | [aggregate-function-bindings](2026-11-05-aggregate-function-bindings.md) | Aggregate-bound function values become named wrappers; residual initialization cycles are rejected | 採用（P2-2c の実装・検証: [検証レポート](../sketch/2026-11-05-aggregate-function-bindings-verification.md)） |
+| [boundary-mutation-contract](2026-11-05-boundary-mutation-contract.md) | Boundary mutability contract: Gom guarantees hold inside Gom; the generated Go surface does not defend | 採用（文言契約 — 生成コードは変えない。実測との照合は [検証](../sketch/2026-11-05-boundary-mutation-contract-verification.md)。spec.md §3.1/§7/§8.5/§8.7 へ反映済み） |
 | [deferred-member-application](2026-11-05-deferred-member-application.md) | Deferred member application: `x.M(args)` on an unresolved receiver | 採用 |
 | [eq-comparator-budget-and-names](2026-11-05-eq-comparator-budget-and-names.md) | Comparator minting is bounded and file-unique; ctor lets keep the declared interface | draft |
 | [error-pair-ok-payload](2026-11-05-error-pair-ok-payload.md) | `(error, error)` の Ok ペイロード — 派生ビューは `Option`、never-nil は宣言して境界で検査 | 採用（実装・検証した — [検証](../sketch/2026-11-05-error-pair-ok-payload-verification.md)。spec.md §8.3/§8.4 へ反映済み） |

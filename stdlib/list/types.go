@@ -7,10 +7,13 @@
 // The zero value (nil) is the empty list. A List is immutable: once a
 // List value exists, its backing array must never be written to again.
 // Operations either allocate a fresh array (Cons, FromSlice, Of) or
-// return a sub-slice that only reads the shared array (Tail). At the
-// Go boundary both directions copy — a Gom List must not change when
-// the caller keeps mutating the slice it came from, and a Go callee
-// must not scribble on a Gom list through the slice it received.
+// return a sub-slice that only reads the shared array (Tail). Where
+// Gom code calls into Go the compiler copies in both directions — a
+// Gom List must not change when the caller keeps mutating the slice
+// it came from, and a Go callee must not scribble on a Gom list
+// through the slice it received. Generated API surfaces pass a List
+// verbatim (it is []A by another name), so the no-write rule is the
+// contract Go callers are held to (spec 8.7).
 //
 // This file is the hand-written representation the compiler's
 // generated code references; the `List` module's functions

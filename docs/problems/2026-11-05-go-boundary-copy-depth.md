@@ -40,5 +40,14 @@ and what we promise users.
 
 ## Status
 
-Open. Related: `docs/decisions/2026-11-01-go-interop-boundary.md`,
+Open. Partially answered (2026-11-05): the third question —
+"do the same boundary conversions apply when Go calls generated
+APIs?" — is settled **no**: that surface is contract-governed, not
+copy-governed, and spec 8.7 now says so
+([boundary-mutation-contract](../decisions/2026-11-05-boundary-mutation-contract.md),
+spec 8.5/8.7). The depth question for Gom-originated crossings
+stays open — spec 8.5 records only that the copy is one level
+(`slices.Clone`), not a decided depth policy.
+
+Related: `docs/decisions/2026-11-01-go-interop-boundary.md`,
 P3-3/P3-4 (Go collections, named types) in TODO.md.

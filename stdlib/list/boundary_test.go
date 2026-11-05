@@ -2,9 +2,11 @@ package list_test
 
 // Boundary tests for the hand-written List representation
 // (stdlib/list/types.go): the immutability contract at the slice
-// boundary — both directions copy, so a Go caller's writes cannot
-// reach into a Gom list and a Gom list cannot change under a Go
-// callee's slice (docs/decisions/2026-11-01-value-representation.md).
+// boundary — the conversion helpers copy in both directions, so a
+// Go caller's writes cannot reach into a Gom list and a Gom list
+// cannot change under a Go callee's slice. Generated API surfaces
+// pass a List verbatim instead — the no-write contract on that side
+// is spec 8.7 (docs/decisions/2026-11-05-boundary-mutation-contract.md).
 
 import (
 	"testing"

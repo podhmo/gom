@@ -8,6 +8,15 @@ package boundary_test
 // what the generated API hands out and re-reading through the same
 // API. Every assertion below records *observed* behavior — the
 // aliasing results are the finding, not a bug in the test.
+//
+// Under the adopted contract
+// (docs/decisions/2026-11-05-boundary-mutation-contract.md, spec
+// 8.7) the writes below are deliberate contract violations: the
+// surface cannot prevent them; the state they corrupt is either
+// restored (Shared) or never re-read (pairVal, wrapVal). The
+// shapes they poke — verbatim List pass-through, the writable
+// package var, shared Go.Slice elements — are what the decision
+// blesses.
 
 import (
 	"errors"
