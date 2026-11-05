@@ -747,7 +747,7 @@
   形作るようになった分、この gap の影響面は広がった（wave8 error-boundary
   レビュー F-5）。
 
-- [ ] **E0407/E0409/E0801 の message/`data["type"]` が raw meta ID を出しうる**:
+- [x] **E0407/E0409/E0801 の message/`data["type"]` が raw meta ID を出しうる**:
   `types.Display`/`metaNamer` による `?n` 再採番は E0401 系（occurs bind・
   mismatch・missing-member）にのみ適用。`unify.go` の E0409/E0407 報告と
   `check.go` の E0801 は依然 `String()` 由来の内部 mint ID を綴りうる。
@@ -755,8 +755,13 @@
   （wave7 lower-residuals レビュー residual-2）。
   参照: [unify.go](../internal/check/unify.go)（E0407/E0409 報告箇所）、
   [check.go](../internal/check/check.go)（E0801 報告箇所）。
+  対応: E0409（satisfies・finalize 両箇所）・E0407・E0801 が診断ごとの fresh
+  `metaNamer()` で `types.Display` するよう変更。fixture
+  [E0409_eq_open_meta](../testdata/spec/E0409_eq_open_meta.gom)・
+  [E0801_test_body_open_meta](../testdata/spec/E0801_test_body_open_meta.gom) 追加。
+  残件: E0701 の Meta arm が同クラスの `?n` 漏れを持つ（TODO 参照、pre-existing）。
 
-- [ ] **E0904 の `through`/`path` が隠し `tmpN_xxxx` VarDecl 名を出しうる**:
+- [x] **E0904 の `through`/`path` が隠し `tmpN_xxxx` VarDecl 名を出しうる**:
   `tailrecCycle`/`tailrecPath` は生の `sym.Name` を使うため、`let (g, _) = ...`
   の分解で mint される隠し VarDecl が `data["path"]`・最小名選択の `through`
   に漏れる（`E0904_tailrec_var_destructure.expected.json` で実測）。隣の
@@ -766,6 +771,8 @@
   参照: [tailrec.go](../internal/lower/tailrec.go) `tailrecCycle`/`tailrecPath`、
   [initcycle.go](../internal/lower/initcycle.go) `nodeName`、
   [fixture](../testdata/spec/E0904_tailrec_var_destructure.expected.json)。
+  対応: `CheckTailRecMutual` が `vars` を渡し、`nodeName`/`DiagName` で描画。
+  上記 fixture は `tmp1_b96eea0a` → `let (g, _)` に更新済み。
 
 - [x] **check が整数リテラルの範囲を検査しない**: `let n : Int32 = 3000000000`
   は型検査を通るが、生成される `var n int32 = 3000000000` は Go が build
