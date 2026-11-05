@@ -29,6 +29,16 @@ fn main () -> Unit = {
   // Filling only labels leaves a positional-only function.
   let positional_only = transfer ~to: "dave" ~amount: 1
   ignore (fmt.Println (positional_only "mallory"))
+  // A labeled argument on a function *value* that skips an unfilled
+  // parameter cannot be a CallFunc (curried application is
+  // positional) — it eta-expands into a closure over the remaining
+  // parameters (issue #11).
+  let half = transfer "alice"
+  let eta = half ~amount: 9
+  ignore (fmt.Println (eta ~to: "erin"))
+  // A saturated out-of-order call on a function value reorders its
+  // arguments into declaration order.
+  ignore (fmt.Println (half ~amount: 8 ~to: "fred"))
   // Variant constructors reorder labeled payload arguments too.
   let t = Transfer ~amount: 5 ~to: "bob"
   ()

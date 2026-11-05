@@ -325,15 +325,60 @@ func (p *printer) arg(a *syntax.Arg, nb bool) *doc {
 
 func (p *printer) argRaw(a *syntax.Arg, nb bool) *doc {
 	mid := p.gapInline(a.Sp.Start, a.Value.Span().Start)
-	v := p.expr(a.Value, pPost, nb)
-	switch {
-	case a.Label == nil:
-		return concat(text(mid), v)
-	case a.Punned:
+	if a.Punned {
+		// "~x" is only the label — rendering a.Value (the punned
+		// Ident) would be dead work.
 		return text("~" + a.Label.Name + mid)
-	default:
-		return concat(text("~"+a.Label.Name+":"+pad(mid)), v)
 	}
+	v := p.expr(a.Value, pPost, nb)
+	if selectEscape(a.Value, nb) {
+		v = concat(text("("), v, text(")"))
+	}
+	if a.Label == nil {
+		return concat(text(mid), v)
+	}
+	return concat(text("~"+a.Label.Name+":"+pad(mid)), v)
+}
+
+// selectEscape reports whether a Select printed bare as an
+// application argument would lose its "." chain: a "(" -led
+// argument stops at the matching ")" in the grammar, so "0 ().A"
+// re-parses as "(0 ()).A" — the selector chaining on the
+// application rather than on the argument
+// (docs/decisions/2026-11-05-post-arg-selector-binding.md). Only a
+// Select reaches this shape; every other argument is either
+// atom-led or already fully parenthesized, so its ")" still closes
+// the whole argument.
+func selectEscape(e syntax.Expr, nb bool) bool {
+	s, ok := e.(*syntax.Select)
+	if !ok {
+		return false
+	}
+	for {
+		r, ok := s.Recv.(*syntax.Select)
+		if !ok {
+			return parenLed(s.Recv, nb)
+		}
+		s = r
+	}
+}
+
+// parenLed reports whether e renders "(" -led as a postfix operand
+// (pPost context under nb): the atoms "()" and "(a, b)" do it
+// literally, every expression below postfix precedence through
+// operand parens, and — under nb only — a "{" -led atom through
+// the head-position brace wrap in needsParens.
+func parenLed(e syntax.Expr, nb bool) bool {
+	if l, ok := e.(*syntax.Lit); ok {
+		return l.Kind == syntax.LitUnit
+	}
+	switch e.(type) {
+	case *syntax.TupleLit:
+		return true
+	case *syntax.RecordLit, *syntax.Block:
+		return nb
+	}
+	return precOf(e) < pPost
 }
 
 // inlineTextAny renders gap comments inline for unbracketed gaps:

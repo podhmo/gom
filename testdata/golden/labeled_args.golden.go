@@ -99,8 +99,39 @@ func main() {
 //line labeled_args.gom:31
 	v5, err4 := fmt.Println(tmp18)
 	_ = result.FromGo(int64(v5), err4)
-//line labeled_args.gom:33
+//line labeled_args.gom:36
+	half := func(tmp19 string) func(int64) string {
+//line labeled_args.gom:36
+		return func(tmp20 int64) string {
+//line labeled_args.gom:36
+			return transfer("alice", tmp19, tmp20)
+		}
+	}
+//line labeled_args.gom:37
+	eta := func(tmp21 string) string {
+//line labeled_args.gom:37
+		tmp22 := half(tmp21)
+//line labeled_args.gom:37
+		return tmp22(9)
+	}
+//line labeled_args.gom:38
+	tmp23 := eta("erin")
+//line labeled_args.gom:38
+	tmp24 := any(tmp23)
+//line labeled_args.gom:38
+	v6, err5 := fmt.Println(tmp24)
+	_ = result.FromGo(int64(v6), err5)
+//line labeled_args.gom:41
+	tmp25 := half("fred")
+//line labeled_args.gom:41
+	tmp26 := tmp25(8)
+//line labeled_args.gom:41
+	tmp27 := any(tmp26)
+//line labeled_args.gom:41
+	v7, err6 := fmt.Println(tmp27)
+	_ = result.FromGo(int64(v7), err6)
+//line labeled_args.gom:43
 	_ = Tx_Transfer{To: "bob", Amount: 5}
-//line labeled_args.gom:34
+//line labeled_args.gom:44
 	_ = struct{}{}
 }

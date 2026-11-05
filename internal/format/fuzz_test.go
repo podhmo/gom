@@ -34,11 +34,10 @@ import (
 // non-idempotent shape should get its own registry entry rather
 // than riding this one.
 var knownFormatBugs = map[[32]byte]fuzzutil.KnownBug{
-	fuzzutil.Sum256Hex("092f2beca713f4aabfa8eadbed6aa052621d7da4512af83e682b3955096fa893"): {
-		Match: []string{"Source is not idempotent"},
-		TODO:  "適用後セレクタが非冪等",
-		Desc:  "formatter emits `(0 ()).A` for `0 ().A` — pass 2 rewrites it again; not idempotent (issue #12)",
-	},
+	// (`0 (().A)` printing as `0 ().A` — a "(" -led Select argument
+	// whose "." escapes to the application on reparse — is fixed in
+	// argRaw via selectEscape/parenLed; TestSelectArgParens covers
+	// the class (issue #12). The corpus seed runs live.)
 }
 
 const formatBugsCap = 16

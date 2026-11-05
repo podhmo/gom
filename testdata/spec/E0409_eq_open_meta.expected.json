@@ -1,0 +1,70 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0407",
+      "severity": "error",
+      "message": "type annotation required: the lambda's return type could not be determined",
+      "span": {
+        "file": "E0409_eq_open_meta.gom",
+        "start": {
+          "line": 7,
+          "col": 12,
+          "offset": 243
+        },
+        "end": {
+          "line": 7,
+          "col": 21,
+          "offset": 252
+        }
+      },
+      "data": {
+        "type": "?1"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0407",
+      "severity": "error",
+      "message": "type annotation required: the list element type could not be determined",
+      "span": {
+        "file": "E0409_eq_open_meta.gom",
+        "start": {
+          "line": 7,
+          "col": 23,
+          "offset": 254
+        },
+        "end": {
+          "line": 7,
+          "col": 25,
+          "offset": 256
+        }
+      },
+      "data": {
+        "type": "?1"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0409",
+      "severity": "error",
+      "message": "`==` is not defined on (?1 -> ?1, List ?2): the type contains a function or a type variable",
+      "span": {
+        "file": "E0409_eq_open_meta.gom",
+        "start": {
+          "line": 8,
+          "col": 3,
+          "offset": 260
+        },
+        "end": {
+          "line": 8,
+          "col": 9,
+          "offset": 266
+        }
+      },
+      "data": {
+        "type": "(?1 -> ?1, List ?2)"
+      }
+    }
+  ]
+}

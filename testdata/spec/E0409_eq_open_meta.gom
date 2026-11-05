@@ -1,0 +1,9 @@
+package ex
+
+// E0409 renumbers unsolved metas in the reported type the same way
+// E0401 does: a tuple carrying a function and a still-open list
+// element prints `?1`/`?2`, not the solver's internal mint ids.
+fn bad () -> Bool = {
+  let p = (fn x -> x, [])
+  p == p
+}

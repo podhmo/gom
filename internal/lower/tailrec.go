@@ -155,13 +155,14 @@ func CheckTailRecMutual(files []*core.File) []diag.Diagnostic {
 	adj := tailrecGraph(files, funcs, vars)
 	var diags []diag.Diagnostic
 	for _, fd := range marked {
-		if through, path := tailrecCycle(fd.Sym, adj, nodes); through != nil {
+		if through, path := tailrecCycle(fd.Sym, adj, nodes, vars); through != nil {
+			name := nodeName(vars, through)
 			diags = append(diags, diag.Error(codeTailrecMutual,
-				fmt.Sprintf("`@tailrec` function `%s` is mutually recursive through `%s`", fd.Sym.Name, through.Name)).
+				fmt.Sprintf("`@tailrec` function `%s` is mutually recursive through `%s`", fd.Sym.Name, name)).
 				At(tailrecSpan(fd)).
 				Set("fn", fd.Sym.Name).
-				Set("through", through.Name).
-				Set("path", path))
+				Set("through", name).
+				Set("path", pathNames(vars, path)))
 		}
 	}
 	return diags
@@ -302,25 +303,41 @@ func tailrecGraph(files []*core.File, funcs map[*resolve.Symbol]*core.FuncDecl, 
 // f — f reaches h and h reaches f through the direct-reference
 // graph; h may be a FuncDecl or a VarDecl (a package-level `let`
 // holding a function value routes a cycle just the same). It returns
-// one such partner (the smallest name, for determinism) and a
-// witness path f → … → h → … → f of symbol names, or (nil, nil) when
-// f's strongly-connected component is {f} alone. The analysis is
+// one such partner (the smallest display name — the same spelling
+// nodeName reports — for determinism) and a witness path
+// f → … → h → … → f of symbols, or (nil, nil) when f's
+// strongly-connected component is {f} alone. The analysis is
 // unit-wide, which is complete: Go forbids import cycles, so
 // recursion cannot cross packages.
-func tailrecCycle(f *resolve.Symbol, adj map[*resolve.Symbol]map[*resolve.Symbol]bool, nodes map[*resolve.Symbol]bool) (*resolve.Symbol, []string) {
+func tailrecCycle(f *resolve.Symbol, adj map[*resolve.Symbol]map[*resolve.Symbol]bool, nodes map[*resolve.Symbol]bool, vars map[*resolve.Symbol]*core.VarDecl) (*resolve.Symbol, []*resolve.Symbol) {
 	fwd := tailrecReach(adj, f)
 	var best *resolve.Symbol
-	var bestPath []string
+	var bestPath []*resolve.Symbol
 	for h := range nodes {
 		if h == f || !fwd[h] || !tailrecReach(adj, h)[f] {
 			continue
 		}
 		path := append(tailrecPath(adj, f, h), tailrecPath(adj, h, f)[1:]...)
-		if best == nil || h.Name < best.Name {
+		if best == nil || tailrecLess(vars, h, best) {
 			best, bestPath = h, path
 		}
 	}
 	return best, bestPath
+}
+
+// tailrecLess orders two cycle partners for the "through" pick: by
+// display name first — the spelling the diagnostic prints, so a
+// hidden temporary's DiagName (`let (g, _)`) rather than its minted
+// `tmpN_xxxx` — then by the raw name and definition offset to keep
+// the pick deterministic when display names collide.
+func tailrecLess(vars map[*resolve.Symbol]*core.VarDecl, a, b *resolve.Symbol) bool {
+	if c := cmp.Compare(nodeName(vars, a), nodeName(vars, b)); c != 0 {
+		return c < 0
+	}
+	if c := cmp.Compare(a.Name, b.Name); c != 0 {
+		return c < 0
+	}
+	return a.DefSpan().Start < b.DefSpan().Start
 }
 
 // tailrecReach is the set of nodes reachable from `from` through
@@ -359,9 +376,10 @@ func tailrecNeighbors(set map[*resolve.Symbol]bool) []*resolve.Symbol {
 	return out
 }
 
-// tailrecPath returns a shortest symbol path from `from` to `to`
-// (names only, for diagnostic data). Callers guarantee one exists.
-func tailrecPath(adj map[*resolve.Symbol]map[*resolve.Symbol]bool, from, to *resolve.Symbol) []string {
+// tailrecPath returns a shortest symbol path from `from` to `to`.
+// Callers guarantee one exists; the caller renders names with
+// nodeName so hidden temporaries report their DiagName.
+func tailrecPath(adj map[*resolve.Symbol]map[*resolve.Symbol]bool, from, to *resolve.Symbol) []*resolve.Symbol {
 	prev := map[*resolve.Symbol]*resolve.Symbol{}
 	queue := []*resolve.Symbol{from}
 	prev[from] = nil
@@ -378,9 +396,9 @@ func tailrecPath(adj map[*resolve.Symbol]map[*resolve.Symbol]bool, from, to *res
 			}
 		}
 	}
-	var rev []string
+	var rev []*resolve.Symbol
 	for n := to; n != nil; n = prev[n] {
-		rev = append(rev, n.Name)
+		rev = append(rev, n)
 	}
 	slices.Reverse(rev)
 	return rev

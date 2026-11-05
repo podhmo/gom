@@ -335,6 +335,74 @@ func TestLabeledArgsOrder(t *testing.T) {
 	}
 }
 
+// TestUnknownCallEtaExpand: `let partial = transfer ""` followed by
+// `partial ~amount: 7` — a labeled fill that skips an open
+// parameter of a function *value* (CallUnknown) eta-expands into a
+// Closure over the unfilled parameters; the body applies the
+// arguments in declaration order (issue #11). A saturated
+// out-of-order call on the same value instead reorders into a
+// plain CallFunc chain.
+func TestUnknownCallEtaExpand(t *testing.T) {
+	psig := types.Fn(types.String, types.LP("to", types.String), types.LP("amount", types.Int))
+	pv := vsym("partial", psig)
+
+	t.Run("non-prefix labeled fill", func(t *testing.T) {
+		resTyp := types.Fn(types.String, types.LP("to", types.String))
+		call := app(vr(pv, psig), []check.Expr{intLit("7")},
+			check.CallInfo{Kind: check.CallUnknown, Arity: 2, Applied: 1,
+				ArgToParam: []int{1}, HoleIndex: -1}, resTyp)
+		out := mustLower(t, decl("f", []check.Param{param(vpat(pv, psig))}, call,
+			types.Fn(resTyp, types.P(psig))))
+		cl, ok := fnDeclOf(t, out, 0).Fn.Body.Tail.(*core.Closure)
+		if !ok {
+			t.Fatalf("tail is %T, want Closure", fnDeclOf(t, out, 0).Fn.Body.Tail)
+		}
+		if len(cl.Fn.Params) != 1 || cl.Fn.Sig.Params[0].Label != "to" {
+			t.Fatalf("closure params = %+v, want the one ~to slot", cl.Fn.Params)
+		}
+		// Body: tmp = partial(to-param); tmp(7) — declaration order.
+		if len(cl.Fn.Body.Lets) != 1 {
+			t.Fatalf("closure lets = %d, want 1 (the saturated prefix)", len(cl.Fn.Body.Lets))
+		}
+		step, ok := cl.Fn.Body.Lets[0].X.(*core.CallFunc)
+		if !ok {
+			t.Fatalf("let value is %T, want CallFunc", cl.Fn.Body.Lets[0].X)
+		}
+		if step.Fn.(*core.Var).Sym != pv {
+			t.Errorf("applied fn = %v, want partial", step.Fn)
+		}
+		if step.Args[0].(*core.Var).Sym != cl.Fn.Params[0].Sym {
+			t.Errorf("first applied arg should be the closure param")
+		}
+		fin, ok := cl.Fn.Body.Tail.(*core.CallFunc)
+		if !ok || fin.Args[0].(*core.Lit).Text != "7" {
+			t.Fatalf("closure tail = %+v, want CallFunc applying 7", cl.Fn.Body.Tail)
+		}
+	})
+
+	t.Run("saturated out-of-order", func(t *testing.T) {
+		call := app(vr(pv, psig), []check.Expr{intLit("1"), intLit("2")},
+			check.CallInfo{Kind: check.CallUnknown, Arity: 2, Applied: 2,
+				ArgToParam: []int{1, 0}, HoleIndex: -1}, types.String)
+		out := mustLower(t, decl("g", []check.Param{param(vpat(pv, psig))}, call,
+			types.Fn(types.String, types.P(psig))))
+		body := fnDeclOf(t, out, 0).Fn.Body
+		// Source order ~b:1 ~a:2 reorders to declaration order:
+		// partial(2)(1).
+		if len(body.Lets) != 1 {
+			t.Fatalf("lets = %d, want 1 (the saturated prefix)", len(body.Lets))
+		}
+		step, ok := body.Lets[0].X.(*core.CallFunc)
+		if !ok || step.Args[0].(*core.Lit).Text != "2" {
+			t.Fatalf("first chunk = %+v, want CallFunc applying 2", body.Lets[0].X)
+		}
+		fin, ok := body.Tail.(*core.CallFunc)
+		if !ok || fin.Args[0].(*core.Lit).Text != "1" {
+			t.Fatalf("tail = %+v, want CallFunc applying 1", body.Tail)
+		}
+	})
+}
+
 // TestCuteHole: `strconv.Atoi(_, 10)` becomes a one-param Closure
 // whose body is the saturated CallGo — the captured arg evaluated
 // once before the closure is built.

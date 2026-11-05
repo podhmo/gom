@@ -258,6 +258,70 @@ func TestTypeTailParens(t *testing.T) {
 	}
 }
 
+// TestSelectArgParens covers the "(" -led argument regression: a
+// "(":led application argument stops at ")" in the grammar, so a
+// selector chain printed bare after operand parens — "0 ().A",
+// "f (x + 1).m" — re-parses with the "." chaining on the
+// *application*, not the argument (issue #12;
+// docs/decisions/2026-11-05-post-arg-selector-binding.md). A Select
+// argument whose receiver renders "(" -led keeps an extra paren
+// pair; conversely "f (x).m" is the post-arg-selector shape and
+// prints "(f x).m".
+func TestSelectArgParens(t *testing.T) {
+	for _, tc := range []struct{ in, want string }{
+		// The seed that filed issue #12: "0 ().A" reads "(0()).A".
+		{`let a = 0 (().A)`, `0 (().A)`},
+		{`let a = f ((x + 1).m)`, `f ((x + 1).m)`},
+		{`let a = f ((g 1).m)`, `f ((g 1).m)`},
+		{`let a = f ((a, b).m)`, `f ((a, b).m)`},
+		{`let a = f ~l: (().m)`, `f ~l: (().m)`},
+		{`let a = f (g (().m))`, `f (g (().m))`},
+		// Chained selectors still only need one outer paren pair —
+		// and the escaped reading stays escaped.
+		{`let a = f (((a + b).c).d)`, `f ((a + b).c.d)`},
+		{`let a = f (((a + b)).c).d`, `(f ((a + b).c)).d`},
+		// A name-led receiver binds the "." inside the argument —
+		// no parens wanted, and redundant ones drop.
+		{`let a = f (x.m)`, `f x.m`},
+		{`let a = f ((x).y.z)`, `f x.y.z`},
+		// The post-arg-selector shape is the other reading and it
+		// is stable as spelled.
+		{`let a = (f x).m`, `(f x).m`},
+		{`let a = 0 ().A`, `(0 ()).A`},
+		{`let a = f ~l: (w).z`, `(f ~l: w).z`},
+		{`let a = g (h 2).n (a, b).p`, `((g (h 2)).n (a, b)).p`},
+		// Under nb (head position) a "{" -led receiver is wrapped by
+		// the head-brace rule, which makes the Select "(" -led all
+		// the same — it needs the outer paren pair too.
+		{`let a = if f ({x = 1}.m) { 1 } else { 2 }`, `if f (({ x = 1 }).m)`},
+		{"let b = match g ({x = 2}.n) {\n  1 -> 2\n  _ -> 0\n}", `match g (({ x = 2 }).n) {`},
+		{`let c = for v in h ({x = 3}.p) { v }`, `for v in h (({ x = 3 }).p)`},
+		// Away from a head the same "{" -led argument binds the "."
+		// inside — bare is the right spelling.
+		{`let d = { g {a = 1}.m }`, `{ g { a = 1 }.m }`},
+	} {
+		src := []byte("package m\n" + tc.in + "\n")
+		out, diags := Source(src, "t.gom", false)
+		if diags.HasError() {
+			t.Fatalf("%q: parse errors: %v", tc.in, diags)
+		}
+		if !strings.Contains(string(out), tc.want) {
+			t.Fatalf("%q: output missing %q:\n%s", tc.in, tc.want, out)
+		}
+		// The full contract: reparse, idempotent, same syntax tree.
+		out2, diags2 := Source(out, "t.gom", false)
+		if diags2.HasError() {
+			t.Fatalf("%q: output does not reparse: %v\n%s", tc.in, diags2, out)
+		}
+		if string(out) != string(out2) {
+			t.Fatalf("%q: not idempotent:\n%s\n--- vs ---\n%s", tc.in, out, out2)
+		}
+		if a, b := parseNorm(t, src, "t.gom", false), parseNorm(t, out, "t.gom", false); a != b {
+			t.Fatalf("%q: syntax tree changed:\n%s\n--- vs ---\n%s\n--- formatted ---\n%s", tc.in, a, b, out)
+		}
+	}
+}
+
 // TestRepoFiles formats every .gom/.gomi under the repo root,
 // checking for panics, reparsability and idempotency.
 func TestRepoFiles(t *testing.T) {

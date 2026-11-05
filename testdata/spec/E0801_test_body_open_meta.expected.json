@@ -1,0 +1,70 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0801",
+      "severity": "error",
+      "message": "a test body must have type Unit or Result Unit e, got (?1 -> ?1, List ?2)",
+      "span": {
+        "file": "E0801_test_body_open_meta.gom",
+        "start": {
+          "line": 5,
+          "col": 12,
+          "offset": 139
+        },
+        "end": {
+          "line": 7,
+          "col": 2,
+          "offset": 160
+        }
+      },
+      "data": {
+        "type": "(?1 -> ?1, List ?2)"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0407",
+      "severity": "error",
+      "message": "type annotation required: the lambda's return type could not be determined",
+      "span": {
+        "file": "E0801_test_body_open_meta.gom",
+        "start": {
+          "line": 6,
+          "col": 4,
+          "offset": 144
+        },
+        "end": {
+          "line": 6,
+          "col": 13,
+          "offset": 153
+        }
+      },
+      "data": {
+        "type": "?1"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0407",
+      "severity": "error",
+      "message": "type annotation required: the list element type could not be determined",
+      "span": {
+        "file": "E0801_test_body_open_meta.gom",
+        "start": {
+          "line": 6,
+          "col": 15,
+          "offset": 155
+        },
+        "end": {
+          "line": 6,
+          "col": 17,
+          "offset": 157
+        }
+      },
+      "data": {
+        "type": "?1"
+      }
+    }
+  ]
+}

@@ -830,7 +830,7 @@ func (l *lowerer) finishCall(s *seq, sp diag.Span, resTyp types.Type, callee che
 	case check.CallPartial:
 		return l.partialCall(s, sp, resTyp, callee, ci, args, spread)
 	case check.CallUnknown:
-		return l.unknownCall(s, sp, fnExpr, args)
+		return l.unknownCall(s, sp, resTyp, callee, fnExpr, ci, args)
 	case check.CallGo:
 		return l.goCall(s, sp, resTyp, ci, args, recv, spread)
 	default:
@@ -1063,7 +1063,17 @@ func retAfter(sig *types.Func, arity int) types.Type {
 // unknownCall applies a function value one argument per CallFunc —
 // the canonical chain means every application step is a real Go
 // call and a partial application is simply a shorter chain.
-func (l *lowerer) unknownCall(s *seq, sp diag.Span, fnExpr core.Expr, args []core.Atom) core.Expr {
+//
+// The CallFunc chain applies arguments in declaration order, so a
+// labeled argument reorders the operand list through
+// CallInfo.ArgToParam: `f ~b: v ~a: w` emits `f(w)(v)`. When a
+// labeled argument fills a *later* slot while an earlier one stays
+// open — `partial ~amount` — no CallFunc can express the result
+// (skipping a curried parameter is not a Go call): the application
+// eta-expands into a Closure over the remaining parameters in
+// declaration order, the same shape partialCall builds for a known
+// callee.
+func (l *lowerer) unknownCall(s *seq, sp diag.Span, resTyp types.Type, callee check.Expr, fnExpr core.Expr, ci check.CallInfo, args []core.Atom) core.Expr {
 	if fnExpr == nil {
 		l.err(sp, "CallUnknown with no callee value")
 		return l.litUnit(sp)
@@ -1076,7 +1086,55 @@ func (l *lowerer) unknownCall(s *seq, sp diag.Span, fnExpr core.Expr, args []cor
 	default:
 		panic("unreachable")
 	}
-	return l.callFuncChunks(s, sp, fn, args)
+	if len(ci.ArgToParam) == 0 {
+		// The identity mapping (or an unrepresentable one, which
+		// the checker already reported) keeps the plain chunk.
+		return l.callFuncChunks(s, sp, fn, args)
+	}
+	ordered := declOrderArgs(ci, args, ci.Arity)
+	filled := filledParams(ci, args)
+	var unapplied []int
+	for i := 0; i < ci.Arity; i++ {
+		if !filled[i] {
+			unapplied = append(unapplied, i)
+		}
+	}
+	if len(unapplied) == 0 {
+		// Saturated in declaration order — the reordered chain
+		// consumes every parameter positionally.
+		return l.callFuncChunks(s, sp, fn, ordered[:ci.Arity])
+	}
+	// A non-identity ArgToParam with unfilled slots is always a
+	// non-prefix fill (a prefix fill *is* the identity): the result
+	// is a function awaiting the earlier parameters.
+	sig := flatSig(callee.Type())
+	if sig == nil || len(sig.Params) != ci.Arity {
+		l.err(sp, fmt.Sprintf("CallUnknown arity %d does not match callee type %s", ci.Arity, callee.Type()))
+		return l.litUnit(sp)
+	}
+	params := make([]types.FuncParam, 0, len(unapplied))
+	for _, i := range unapplied {
+		params = append(params, sig.Params[i])
+	}
+	switch fn.(type) {
+	case *core.Var, *core.Lit:
+		// Stable references need no snapshot.
+	default:
+		// A FieldGet or GoFuncRef callee inside the Closure would
+		// re-evaluate at every call; the callee's own evaluation
+		// happens once, at application time — capture it now.
+		b := l.tmpBind(sp, fn.Type())
+		s.emit(b, fn)
+		fn = varOf(sp, b)
+	}
+	return l.closureChain(sp, resTyp, params, func(bs *seq, pv []core.Atom) core.Expr {
+		full := make([]core.Atom, ci.Arity)
+		copy(full, ordered[:ci.Arity])
+		for k, i := range unapplied {
+			full[i] = pv[k]
+		}
+		return l.callFuncChunks(bs, sp, fn, full)
+	})
 }
 
 // goCall lowers a Go call. A `_` hole becomes the parameter of a

@@ -178,9 +178,10 @@ func (c *checker) satisfies(r *metaRec, t types.Type, sp diag.Span) bool {
 		return false
 	}
 	if r.eq && c.hasFuncOrVar(t) {
+		td := types.Display(t, metaNamer())
 		d := diag.Error("E0409",
-			fmt.Sprintf("`==` is not defined on %s: the type contains a function or a type variable", t)).
-			At(sp).Set("type", t.String())
+			fmt.Sprintf("`==` is not defined on %s: the type contains a function or a type variable", td)).
+			At(sp).Set("type", td)
 		c.diags.Add(d)
 		return false
 	}
@@ -1086,14 +1087,15 @@ func (c *checker) finalize() {
 			}
 			d := diag.Error("E0407",
 				fmt.Sprintf("type annotation required: %s could not be determined", desc)).
-				At(sp).Set("type", m.String())
+				At(sp).Set("type", types.Display(m, metaNamer()))
 			c.diags.Add(d)
 			continue
 		}
 		if r.eq && c.hasFuncOrVar(m) {
+			td := types.Display(m.Solution(), metaNamer())
 			d := diag.Error("E0409",
-				fmt.Sprintf("`==` is not defined on %s: the type contains a function or a type variable", m.Solution())).
-				At(sp).Set("type", m.Solution().String())
+				fmt.Sprintf("`==` is not defined on %s: the type contains a function or a type variable", td)).
+				At(sp).Set("type", td)
 			c.diags.Add(d)
 		}
 	}

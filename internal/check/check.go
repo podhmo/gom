@@ -1217,9 +1217,10 @@ func (c *checker) testBodyError(sp diag.Span, t types.Type) {
 		c.shadowedErr(sp, "a test body (it must produce the builtin Unit or `Result Unit e`)", con.Name)
 		return
 	}
+	td := types.Display(t, metaNamer())
 	c.diags.Add(diag.Error("E0801",
-		fmt.Sprintf("a test body must have type Unit or Result Unit e, got %s", t)).
-		At(sp).Set("type", t.String()))
+		fmt.Sprintf("a test body must have type Unit or Result Unit e, got %s", td)).
+		At(sp).Set("type", td))
 }
 
 // isCon reports whether t is the nullary builtin constructor name.
