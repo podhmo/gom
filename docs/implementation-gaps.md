@@ -766,7 +766,11 @@
   `metaNamer()` で `types.Display` するよう変更。fixture
   [E0409_eq_open_meta](../testdata/spec/E0409_eq_open_meta.gom)・
   [E0801_test_body_open_meta](../testdata/spec/E0801_test_body_open_meta.gom) 追加。
-  残件: E0701 の Meta arm が同クラスの `?n` 漏れを持つ（TODO 参照、pre-existing）。
+  残件解消: E0701 の Meta arm（ほか 2 報告箇所）も `types.Display` + fresh
+  `metaNamer()` に統一（fixture
+  [E0701_go_body_open_meta](../testdata/spec/E0701_go_body_open_meta.gom) で
+  `?1` を pin）。さらなる残件: E0402/E0403（E0410/E0411 の可能性も）が
+  同クラス — wave9 small-bugs レビューで発見、TODO 参照。
 
 - [x] **E0904 の `through`/`path` が隠し `tmpN_xxxx` VarDecl 名を出しうる**:
   `tailrecCycle`/`tailrecPath` は生の `sym.Name` を使うため、`let (g, _) = ...`
@@ -801,7 +805,7 @@
   [fixture](../testdata/spec/E0417_int_lit_range.gom)、
   [ok fixture](../testdata/spec/ok_int_lit_boundaries.gom)。
 
-- [ ] **`Go.conv` のリテラル被演算子は named Go 型の変換先で範囲判定を skip する**:
+- [x] **`Go.conv` のリテラル被演算子は named Go 型の変換先で範囲判定を skip する**:
   `revisitLitRanges` は `Go.conv` の直接のリテラル被演算子を変換先で判定するが、
   変換先が named Go 型（`os.FileMode` のような `Qual != ""` の整数 named 型）だと
   `litRange` が非対応でリテラル自身の型にフォールバックする。そのため
@@ -818,6 +822,17 @@
   lowering で定数被演算子を型付き変換に逃がす必要がある。
   参照: [expr.go](../internal/check/expr.go) `litRange`/`markLitConv`、
   [decision](decisions/2026-11-05-int-literal-range-check.md)（残余として記録済み）。
+  対応: oracle 経路を採用 — `check.UnderlyingSource` プロトコルを追加し
+  `goimport.Loader.GoUnderlyingKind` が named 型の underlying `BasicKind`
+  を返す。`litRange` はその幅・符号で判定（unsigned は `[0,2^bits)`、
+  float32 は 32bit 判定、`LitChar` も監視）。非 Basic underlying
+  （struct/interface/func/complex/string/bool）は従来どおりリテラル自身の
+  型で判定にフォールバック。fixture
+  [E0417_go_conv_named_target](../testdata/spec/E0417_go_conv_named_target.gom)・
+  [ok_go_conv_named_boundaries](../testdata/spec/ok_go_conv_named_boundaries.gom)、
+  [検証](sketch/2026-11-05-goconv-named-target-lit-range.md)。
+  なお `let a : os.FileMode = 5000000000`（注釈位置）は従来どおり E0401 —
+  リテラル自身の型は num 制約メタで `*types.Go` になれない既存仕様。
 
 - [x] **`(error, error)` 系の結果で先頭の nil-able `error` が `Ok` ペイロードに
   検査なしで入る**: `func F() (error, error)` の派生写像は
@@ -865,3 +880,29 @@
   参照: [spec 7](spec.md)、[spec 8.7](spec.md)、
   [検証](sketch/2026-11-04-boundary-aliasing-hypotheses.md)、
   [codegen/decl.go](../internal/codegen/decl.go) `varDecl`。
+
+- [ ] **`(NamedIface, error)` / `(any, error)` の第 1 結果は nil-able だが
+  `Result (Option T) GoError` を導出・宣言ともにできない**:
+  [error-pair-ok-payload](decisions/2026-11-05-error-pair-ok-payload.md) は
+  `Result (Option T) GoError` の宣言を第 1 結果が `*T`/`error` の場合に限る
+  （`nilablePresence`）ため、`(net.Error, error)`・`(any, error)` は
+  `Result <named> GoError`（unwrap なし）に導出され Option ビューの宣言も
+  拒否される。named error interface や `any` の nil を `Ok` に紛れ込ませる
+  同族の小さな穴 — spec 8.4 の admission 表はこの制限を明記していない
+  （wave9 error-tail レビュー F）。広げるか文言を足すかの判断が要る。
+  参照: [goimport/extern.go](../internal/goimport/extern.go) `nilablePresence`、
+  [goimport/mapping.go](../internal/goimport/mapping.go) 派生写像、
+  [spec 8.4](spec.md)。
+
+- [ ] **返り値関数のパラメータを指す labeled 引数が無診断で位置適用に
+  潰れる**: `fn f (~a: Int) -> (~b: Str) -> Int` への `f ~b: "x"` は
+  `paramByLabel` が flat index 1 を返すが `pi >= declArity` で
+  `overDeclared` が無診断で立ち、`ArgToParam` が nil 化して位置適用
+  `f("x")` が出力される → 生成 Go が build 不能。同型なら
+  `f ~b: 5` → `f(5)` で `~a=5` の誤束縛が静かに走る。spec は labeled
+  引数を「名前で束縛」と規定するが、この経路だけ受理→誤訳に落ちる
+  （accept→unbuildable/misbind、wave9 small-bugs レビュー F、pre-existing。
+  `reclassifyCalls` の ArgToParam ガードが依存する不変条件でもある）。
+  参照: [check/apply.go](../internal/check/apply.go) `overDeclared`、
+  [check/reclassify.go](../internal/check/reclassify.go) ガード、
+  [sketch](sketch/2026-11-05-reclassify-arg-to-param-guard.md)。
