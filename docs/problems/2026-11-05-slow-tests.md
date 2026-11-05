@@ -99,3 +99,24 @@
   runner は未適用。native 側は `testbin.Build` + 2 回 exec、4 worker パイプライン済み。
 - 中規模の直列テスト群 ~10s 相当: `t.Parallel()` 化は未着手の別検討。
 - `TestNativeBinaryCacheInvalidation` ~2.8s: 分離検証そのもののため据え置き。
+
+## 2026-11-06: 全体比較（origin/main 同一条件）
+
+`git worktree` で origin/main を出して `go test -count=1 ./...` を同条件
+（共有 GOCACHE・同一マシン・連続実行）で比較した。
+
+| 計測 | origin/main | ブランチ | 倍率 |
+| --- | --- | --- | --- |
+| `go test -count=1 ./...` | 63.5s | 31.4s | 約2.0倍 |
+| `go test -short -count=1 ./...` | — | 4.0s | フル実行比 約16倍 |
+
+個別の重いパッケージは大きく削れた（internal/build 60.4→約13s、
+goimport 29→4.7s、cmd/gom 36→7.4s、tutorial 11.2→7.3s）が、全体は
+パッケージ並列実行時の CPU 競合と残存子プロセス（cmd/gom の E2E、
+diff の native job、NativeBinaryCache 検証、FuzzCompile）で約31秒に
+張り付く。**10倍の目標は未達**。ただし日常的な反復は `-short` ゲートで
+4.0秒に落ち、旧フル実行比で約16倍の確認速度になった。
+
+main 側の2失敗は本計測に影響しない既知のもの: `TestPanicStackResolvesToGom`
+は PR で修正済みの既存バグ、`TestSkillSymlinks` は worktree 展開先が
+/tmp シンボリックリンク配下であることによる環境由来の偽陽性。
