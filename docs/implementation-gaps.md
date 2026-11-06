@@ -342,12 +342,24 @@
   通す方針）は future work として残る。
   参照: [parser](../internal/syntax/parser.go) `mentionsTypeVar`、
   [検証](sketch/2026-11-05-v6-residual-verification.md)。
-- [ ] **`.gomi` の type メンバーはモジュールメンバ表に乗らない**:
+- [x] **`.gomi` の type メンバーはモジュールメンバ表に乗らない**:
   `internal/stdlib` は `fn`/`let` メンバーだけを `Modules` 表に登録し、
   `MemberType` はスキップする（モジュール内型 `List.Foo` の参照経路は未実装）。
   現行の `.gomi` は型を宣言しないので不活性。V-6 監査で再確認: gomimport 側は
   type メンバーが `p.Members` に乗るため `pkg.Type` / `pkg.Type.Ctor` は解決
   する — ずれは stdlib builtin-module 側のみ。
+  対応: `internal/stdlib` に gomimport extract 同形のテーブル（`tdecls`/
+  `byCon`/`ctorFields`/`typeCtors`）を追加し `MemberType` を登録 — `KindType`+
+  `KindCtor` の module メンバー、`Sigs` 経由の `TypeDecls`（memberSigs）、
+  `Loader` wrap の `CtorsOf`/`CtorFieldsOf`（ctorLoader）、`Lower.Types` の
+  `typeOracle` で `pkg.Type`/`pkg.Type.Ctor`/labeled payload/`match` が import
+  経路と同等に解決する。requalify 等は mirror（squash `8a0e136`、
+  [decision](decisions/2026-11-08-stdlib-gomi-type-members.md)、
+  [検証](sketch/2026-11-08-stdlib-gomi-type-members-verification.md)）。
+  レビュー修正ラウンドで member sigs の未 requalify（gomimport は `d.Sig` を
+  requalify 済みで登録）と `MemberLet` arity 誤記録（0 vs -1）の 2 件の真
+  divergence を追加修正。残る構造上不活性な divergence は末尾の `[ ]`
+  エントリ 2 件を参照。
   参照: [internal/stdlib](../internal/stdlib/stdlib.go)、
   [検証](sketch/2026-11-05-v6-residual-verification.md)。
 - [x] **`SelfImportPath` は `stdlib/<pkg>/` の予約ディレクトリ規約**:
@@ -1214,3 +1226,27 @@
   （`x := int64(42)`）は使用位置で再ボックスされるため無害で、
   壊れるのはコンテナ型引数位置のみ。残 gap 4（レビュー probe で確認）。
   参照: [検証](sketch/2026-11-06-go-any-spellable-prototype.md)。
+
+- [x] **spec §3.1 の qualified-name 例 `Go.Int` は現行 base で綴れない**:
+  `builtinGoMembers` が公開するのは `conv`/`Slice`/`Map` のみで `goTypeArity`
+  も `Go.Slice`/`Go.Map` のみ — spec の例が実装で書けない表記だった。
+  対応: 例を `Go.Slice` に置換（squash `8a0e136`、wave-13 tooling-hygiene
+  item c）。`Go.Any` は別 lane の admission 対象として既存記述のまま。
+
+- [ ] **stdlib の fn/let メンバーシンボルはチェック済み `d.Sym` ではなく新規 mint**:
+  `internal/stdlib` の `loadPackage` は `&resolve.Symbol{Name, Kind, Package}`
+  を新規生成する一方、gomimport の extract は checked `d.Sym`/`letSyms` を
+  そのまま `p.Members` に登録する（`Sp` 等の付随情報が失われる）。現在の
+  消費者はメンバー span を見ないため不活性。wave-13 tooling-hygiene
+  review fix round の sibling audit で確認。
+  参照: [internal/stdlib](../internal/stdlib/stdlib.go)、
+  [gomimport](../internal/gomimport/loader.go)。
+
+- [ ] **iface.Surface は thunk `fn` を `MemberLet`（`Type: d.Sig.Ret`）として
+  出すが gomimport は `() -> T` の完全 sig を登録する**: 同一 `.gomi`
+  メンバーが経路で異なるシグネチャを持つ。`.gomi` は body を持てないため
+  thunk `fn` は宣言不可能で構造上不活性 — stdlib 側も iface 経由のため
+  同じ MemberLet を見る。wave-13 tooling-hygiene review fix round の
+  sibling audit で確認。
+  参照: [iface](../internal/iface/iface.go)、
+  [gomimport](../internal/gomimport/loader.go)。
