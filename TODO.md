@@ -86,6 +86,9 @@ Go 相互運用を変えたら両方向（Gom → Go、Go → Gom）のテスト
 （見つけたバグはここに `- [ ]` で足す）
 
 - [x] **[bug] `internal/lsp/jsonrpc_test.go` の `frame` が未使用（staticcheck U1000）で `make check` が赤**: `1ffd6f6`（wave11 lsp lane）由来、呼び出し側ゼロ。wave13 lane3（lsp-gotool）で対応 — 未使用 helper 自体を削除（`a69f726`、squash `d181a80`）
+- [ ] **[bug] `Go.Any` 値の直接呼び出しが受理され無効な Go を emit**: `a : Go.Any` に対し `a "s"` が `conformCallee` fallback の `isGoAny` 早期受理を抜け `a("s")` を emit → `cannot call non-function` で `go build` 失敗（wave-13 go-any re-review P1、[gaps](docs/implementation-gaps.md)）
+- [ ] **[bug] `Go.Any` との `==` がリテラルの型不整合で恒偽**: `a == 42` で `g.lit` が素の `int` を emit し `rt.Equal` が `reflect.DeepEqual(int64, int)` で恒偽 — `any(int64(1))` で包むか比較演算の被演算子 conform を発行する必要（wave-13 go-any re-review P2、[gaps](docs/implementation-gaps.md)）
+- [ ] **[task] `Go.Any` 境界の残カバレッジ: 期待位置ラムダの結果側・meta/`types.Go` ret の pin・pipe 引数の ctor pin**: wave-13 re-review F1–F3 — `checkLambda` に want を通して `Int -> Go.Any` ラムダを届かせる、`checkApply` pin を `types.Meta`/`*types.Go` 戻りへ一般化、pipe でも ctor pin を効かせる。現状は全て正直な E0401（悪い emit ではない）。まず現行拒否形を fixture で pin してから緩める判断（[gaps](docs/implementation-gaps.md)）
 
 - [x] **[bug] ラベル付き部分適用を let 束縛すると E0901**: 原因は `CallUnknown` が `CallInfo.ArgToParam` を無視して常に位置順 `CallFunc` チェーンに落としていたこと — 非前置のラベル充填はカリー化チェーンで表現不能だった。`unknownCall` が ArgToParam を消費し、飽和は宣言順チェーン・非前置充填は `closureChain` で η 展開（eval と同じ意味論）、不安定 callee は `tmpBind` で 1 回評価に固定（issue #11、knownCompileBugs 解除、golden `labeled_args` に η/リオーダー形追加）
 - [x] **[bug] `gom fmt` の適用後セレクタが非冪等**: `argRaw` が `Select` 引数を `pPost` 裸出力し、レシーバ連の最左が `(` 先頭（`()`/タプル/低優先式、nb 下の `{`-led RecordLit/Block 含む）の場合 `.f` が適用側へエスケープして再パースでツリーが変わっていた。`selectEscape`/`parenLed` で外側を `(...)` に包む（`nb` 伝播込み、issue #12、knownFormatBugs 解除、`TestSelectArgParens` 17 ケース）

@@ -1322,3 +1322,74 @@
   sibling audit で確認。
   参照: [iface](../internal/iface/iface.go)、
   [gomimport](../internal/gomimport/loader.go)。
+
+- [ ] **`Int -> Go.Any` 宣言型へのラムダは結果 meta が早期に数値
+  フラグを持ち E0401 で届かない**: `checkLambda` は want を取らず
+  `?r` を fresh mint するため、`let f : Int -> Go.Any = fn x -> 1`
+  は本体が `?r` を Int に縛った後 `unifySub(Go.Any, ?r)` が
+  num フラグ meta の bind に失敗して E0401。宣言 `fn f (x:Int)
+  -> Go.Any = 1` は通る（`sig.Ret` への直接 conform）。
+  fix diff 前は `func[A any](x A)` のジェネリック脱出で暗黙の
+  シグネチャずれだったため、正直な拒否への引き締めとしては改善。
+  wave-13 go-any re-review F1。
+  参照: [check/expr.go](../internal/check/expr.go) `checkLambda`、
+  [decision](decisions/2026-11-06-go-any-conformance-materialize.md)。
+
+- [ ] **ctor seeding pin は Con-vs-Con のみ — meta/`types.Go` 戻り値の
+  callee では `Go.Any` 入り want が pin されない**: `id (Some 1)`
+  （`id : a -> a`、want `Option Go.Any`）は ret が共有 `?a` meta
+  のため pin を skip し `?a := Option num` → E0401。`pkg.NewBox v`
+  （`*types.Go` 戻り）も同型。`let s : Option Go.Any = Some 1;
+  id s` で回避可能。wave-13 go-any re-review F2。
+  参照: [check/apply.go](../internal/check/apply.go) `checkApply` pin。
+
+- [ ] **pipe 引数位置では ctor pin が効かない**: `Some 1 |> f`
+  （`f : Option Go.Any -> R`）は E0401 — `x` が `f` 判明前に
+  want=nil で確定するため `conformCallee` には settled
+  `Option num` が届く。直接適用 `f (Some 1)` は pin が効く。
+  fix diff 前は `Option_Some[int64]` を `func(Option[any])`
+  スロットへ無言 emit していた — 厳格化は改善だが非対称。
+  wave-13 go-any re-review F3。
+  参照: [check/expr.go](../internal/check/expr.go) `pipeCall`、
+  [check/apply.go](../internal/check/apply.go) `conformCallee`。
+
+- [ ] **`Go.Any` 値の直接呼び出しが受理され無効な Go を emit する**:
+  `a : Go.Any` に対し `a "s"` が `conformCallee` の fallback
+  `unify(any, Fn(res, P(argT)))` で `isGoAny` 早期受理を抜け、
+  `a("s")` を emit → `cannot call non-function a` で `go build`
+  失敗。admission 以前は extern 結果経由のみ到達可能だった
+  既存バグ（wave-13 go-any re-review P1）。
+  参照: [check/apply.go](../internal/check/apply.go)。
+
+- [ ] **`Go.Any` との `==` 比較がリテラルの int 脱ボックスで恒偽に
+  なる**: `a == 42`（`a : Go.Any`）は `eqKindOf` が `rt.Equal` に
+  流すが `g.lit` は素の `int` を emit し、`rt.Equal(a, int(1))`
+  が `reflect.DeepEqual(int64, int)` で恒偽。正しくは
+  `rt.Equal(a, any(int64(1)))`。checkBinary が被演算子 conform を
+  発行しない既存の穴（wave-13 go-any re-review P2）。
+  参照: [check/expr.go](../internal/check/expr.go) `checkBinary`、
+  [lower/equal.go](../internal/lower/equal.go)、
+  [codegen/expr.go](../internal/codegen/expr.go) `g.lit`。
+
+- [ ] **`match o { Some 42 -> … }`（`o : Option Go.Any`）のリテラル
+  腕は到達不能**: ctor pin が `?a := any` に束縛するため
+  `DLitTest` は `case 42` を verbatim emit し、`V0 == int(42)` は
+  `any(int64(42))` に決して一致しない。pin 前は `case
+  Option_Some[int64]` vs `Option[any]` subject で同クラスの
+  deadness — emit が変わっただけ。wave-13 go-any re-review P3。
+  参照: [lower/pat.go](../internal/lower/pat.go)、
+  [codegen/emit.go](../internal/codegen/emit.go) `dcaseValue`。
+
+- [ ] **素の `Go.Any` want 下で any/concrete 混在 if 腕が順序依存で
+  E0401 になる**: `let a : Go.Any = if b { 1 } else { v }`
+  （`v : any`）は `1` 側が先に join meta を数値に縛り E0401。逆順
+  （`v` 先）は `any` が先に bind され `1` が conform で通る。
+  `bw` のスカラー剥がしは既存動作で diff 非起因。
+  wave-13 go-any re-review P4。
+  参照: [check/expr.go](../internal/check/expr.go)。
+
+- [ ] **`xs |> f`（`f : Go.Slice T -> R`）は型 unify が先行して
+  E0401、直接適用 `f xs` は sliceConv で通る**: `conformCallee` の
+  型レベル `unify` が `conformFirstArg` の List→Slice 変換より
+  先に走る既存の非対称（diff 非起因）。wave-13 go-any re-review P5。
+  参照: [check/apply.go](../internal/check/apply.go) `conformCallee`。
