@@ -61,7 +61,7 @@ Go 相互運用を変えたら両方向（Gom → Go、Go → Gom）のテスト
 
 - [x] **P4-6 LSP**: 型表示、網羅性エラーの即時表示、UTF-16 位置への変換。依存: P4-5 — v1 foundation として採用: `internal/lsp`（stdio JSON-RPC、`didOpen`/`didChange`/`didClose`/`hover`/`publishDiagnostics`、単一 open-file モデル、`OffsetUTF16` で UTF-16 列→バイトオフセット逆変換）+ `gom lsp`。実 Emacs+Eglot で hover・診断 push を検証（wave11 lsp、[decision](docs/decisions/2026-11-06-lsp-v1-scope.md)、[検証](docs/sketch/2026-11-06-lsp-v1-verification.md)）
 - [x] **[task] LSP: 複数ファイルパッケージ単位のコンパイル**: `gom lsp` の compile unit をパッケージへ — dir の `*.gom` を overlay gather（open バッファがディスクをシャドウ、未オープン兄弟はディスク読み込み、絶対 `.gom` パスのみが member になる）し `build.CompileFiles` で単位ごと再コンパイル、診断はファイル単位で publish（未オープンは合成 file:// URI）+ 離脱メンバーの retract。Emacs/Eglot で兄弟解決・クロスファイル hover・didChange 反転を実証（wave12 lsp-multifile、[decision](docs/decisions/2026-11-06-lsp-package-unit.md)、[検証](docs/sketch/2026-11-06-lsp-package-unit-verification.md)）
-- [ ] **[task] LSP: go-tool 診断の取り込み（SourceMap-aware 逆引き）**: サーバ内で `go build`/`go vet` の診断を `.gom` 位置へ戻すには `//line` drift の逆引き（対応表+曖昧時フォールバック）が前提 — v1 では不要と決定し deferred（[gaps](docs/implementation-gaps.md) の `//line` drift/`SpanAt` 項目、design.md 2.2）
+- [ ] **[task] LSP: go-tool 診断の取り込み（SourceMap-aware 逆引き）**: 基盤は wave13 で着地 — `SourceMap.Candidates`/`ReportedLine` + `GoPosIndex.AddSourceMap`/`ResolveMatch`（exact/drift/ambiguous）と `gom test` fold への配線済み（[decision](docs/decisions/2026-11-06-gotool-position-inverse.md)、[検証](docs/sketch/2026-11-06-gotool-inverse-verification.md)）。残件は起動点: `gom lsp` は CheckOnly コンパイルで生成物がなく、`go build`/`go vet` を走らせる場所（codegen あり compile 経路 + 一時 pkg dir、~55–90ms/pkg/change の追加コスト）の設計が必要
 - [ ] **[task] LSP: completion/definition/references・incremental sync・`$/cancelRequest`・didSave/workspace**: v1 scope 外の機能群（hover・diagnostics のみ実装）。`gom lsp` の per-change コストは計測済み（`import go` あり ≈48–50ms、`go list -export` 支配）— ローダーセッション cache は deferred（wave11 lsp 残件 + wave12 計測）
 - [ ] **P4-7 インクリメンタルビルドのキャッシュ**: キャッシュキーは [design.md 5 章](docs/design.md)。依存: P4-1
 
@@ -85,7 +85,7 @@ Go 相互運用を変えたら両方向（Gom → Go、Go → Gom）のテスト
 
 （見つけたバグはここに `- [ ]` で足す）
 
-- [ ] **[bug] `internal/lsp/jsonrpc_test.go` の `frame` が未使用（staticcheck U1000）で `make check` が赤**: `1ffd6f6`（wave11 lsp lane）由来、呼び出し側ゼロ。wave13 lane3（lsp-gotool）で対応予定
+- [x] **[bug] `internal/lsp/jsonrpc_test.go` の `frame` が未使用（staticcheck U1000）で `make check` が赤**: `1ffd6f6`（wave11 lsp lane）由来、呼び出し側ゼロ。wave13 lane3（lsp-gotool）で対応 — 未使用 helper 自体を削除（`a69f726`、squash `d181a80`）
 
 - [x] **[bug] ラベル付き部分適用を let 束縛すると E0901**: 原因は `CallUnknown` が `CallInfo.ArgToParam` を無視して常に位置順 `CallFunc` チェーンに落としていたこと — 非前置のラベル充填はカリー化チェーンで表現不能だった。`unknownCall` が ArgToParam を消費し、飽和は宣言順チェーン・非前置充填は `closureChain` で η 展開（eval と同じ意味論）、不安定 callee は `tmpBind` で 1 回評価に固定（issue #11、knownCompileBugs 解除、golden `labeled_args` に η/リオーダー形追加）
 - [x] **[bug] `gom fmt` の適用後セレクタが非冪等**: `argRaw` が `Select` 引数を `pPost` 裸出力し、レシーバ連の最左が `(` 先頭（`()`/タプル/低優先式、nb 下の `{`-led RecordLit/Block 含む）の場合 `.f` が適用側へエスケープして再パースでツリーが変わっていた。`selectEscape`/`parenLed` で外側を `(...)` に包む（`nb` 伝播込み、issue #12、knownFormatBugs 解除、`TestSelectArgParens` 17 ケース）

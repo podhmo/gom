@@ -296,20 +296,26 @@
   [検証](sketch/2026-11-06-check-residuals-verification.md)、
   [fixture](../testdata/spec/ok_go_block_arg.gom)。
 
-- [ ] **`go build` / `go vet` のエラーを `.gom` 位置へ戻す経路に実起動がない**:
-  design.md 2.2 は「`go build` / `go vet` のエラーと panic スタックを `.gom` の位置へ戻す」と定めるが、
-  `GoToolDiagnostics` は内部 API として用意されただけで、CLI が実際に `go build`/`go vet` を
-  起動して出力を変換する経路はない（検証は `go test` / `go run` 経路のみ）。
+- [ ] **`go build` / `go vet` のエラーを `.gom` 位置へ戻す経路（CLI/LSP 側の実起動）**:
+  design.md 2.2 は「`go build` / `go vet` のエラーと panic スタックを `.gom` の位置へ戻す」と定める。
+  `gom test` の build-output イベントは go build 診断そのものであり、SourceMap 登録済みの fold が
+  実起動済み。残件: `gom build`/`gom run` に go tool 起動はなく、`gom lsp` は CheckOnly コンパイルで
+  生成物がなく go tool を呼ぶ場所自体が未決定。`go vet` の実起動経路もない
+  （`vet:` 前置詞つき出力は現状 raw text 扱い）。
   参照: [design 2.2](design.md#22-ソース位置の対応)、[GoToolDiagnostics](../internal/build/gopos.go)、
-  [decision](decisions/2026-11-03-source-location-correspondence.md)。
+  [decision](decisions/2026-11-06-gotool-position-inverse.md)。
 
-- [ ] **`//line` ドリフトによる位置エイリアシング（近似のまま）**:
+- [x] **`//line` ドリフトによる位置エイリアシング（近似のまま）**:
   1 つの `.gom` 行が k 生成行に展開されると、`//line` は後続生成行を連番でドリフトさせるため
   `GoPosIndex.Resolve` の報告行が実在する別の `.gom` 行に alias されうる。旧実装と同等の近似で
-  回帰ではないが、「対応表を使う」design.md 2.2 の意図とのずれ。抜本対応（アンカー表を使う
-  逆引き、曖昧時フォールバック）は P4-6 (LSP) の設計入力。
-  参照: [design 2.2](design.md#22-ソース位置の対応)、[GoPosIndex.Resolve](../internal/build/gopos.go)、
-  [decision Consequences](decisions/2026-11-03-source-location-correspondence.md)。
+  回帰ではないが、「対応表を使う」design.md 2.2 の意図とのずれ。
+  対応: アンカー表の逆引き（`SourceMap.Candidates`/`ReportedLine` + `GoPosIndex.ResolveMatch`）を実装。
+  報告行を生成しうる全生成行を列挙し、診断を乗せられない行（空行・コメント・`//line` 行）を除いた
+  候補集合で exact/drift/ambiguous に分類 — drifted は構文 span、ambiguous は候補 union
+  （`data["drifted"]`/`data["ambiguous"]`+`data["candidates"]`）。`GoToolDiagnostics`・`ResolveStack`・
+  `RenderStack`・`gom test` の fold が match-aware。`Resolve` 自体は naive 契約を維持。
+  参照: [decision](decisions/2026-11-06-gotool-position-inverse.md)、
+  [検証](sketch/2026-11-06-gotool-inverse-verification.md)。
 
 - [ ] **`SpanAt` が「生成行」ではなく「内側構文の span」を返す粒度の差異**:
   対応表の逆引きは Go の継続行番号より粗く、エディタが期待する行・列の対応とは意味論が違う。
