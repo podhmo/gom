@@ -31,8 +31,6 @@
 - [ ] `gom fix` でも `.gomi` 適合検査を走らせるか（`gom check`/`build`/`test` は走らせると決定済み — [decision](decisions/2026-11-04-gomi-conformance-in-gom-test.md)。`info`/`dump` は対象外）。2026-11-05 に検討して見送り: 適合診断は fix 候補プールに加わるだけ・ゲート無し・診断非表示という形が妥当だが、現状 E0601/E0603/E0604 に safe fix がなく観測差ゼロのため先送り。interface 診断に safe fix が付くなど価値が具体化した時点で再検討する（[検討の記録](decisions/2026-11-05-gomi-conformance-in-gom-fix.md)）
 ## Future work（v1 では扱わないと決めたもの）
 
-- eval 初期化順の static-alias 残差: ready-in-declaration-order の frontier 駆動は実装済み（[decision](decisions/2026-11-06-eval-init-ready-order.md)）で通常の let/fn は compiled と一致。残るのは lower が ValueAlias FuncDecl に落とす `let` のみ — 副作用つき alias 初期化式の temp 分割と、関数パスが alias 自身へ戻る pure-alias ループ（`let f = g` + `fn g = { ignore (f); … }`）で初期化順がずれうる。`internal/lower/alias.go` の分類は check 型上で完結しているため、共有層への引き上げはファイル移動に近い。ずれの記録は [台帳](implementation-gaps.md)
-
 - ラベル付き引数の制限の緩和（型が未知の関数へのラベル付き適用、ラベル付き／なし関数の暗黙変換）
 - 省略可能引数とデフォルト値
 - `|?>` の自動ラップの文言を設定可能にする。残る未決は文言のカスタマイズのみ — 書式（関数名・ソース位置・任意の文言）をパッケージ単位で指定する方法か、ステップごとに文言を書ける構文か。ステップ名由来の `step: message` 文言・構造化フレーム `rt.StepError{Step, Err}`・`strconv` 二重名は provenance として容認する方針は [result-pipe-wrap-frame](decisions/2026-11-05-result-pipe-wrap-frame.md) で採用済み

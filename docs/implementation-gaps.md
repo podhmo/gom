@@ -1023,7 +1023,7 @@
   [検証](sketch/2026-11-06-eval-init-ready-order-verification.md)、
   [比較テスト](../internal/build/diff_initorder_test.go)。
 
-- [ ] **残差: ValueAlias FuncDecl に下る let の初期化順ずれ**: lower が
+- [x] **残差: ValueAlias FuncDecl に下る let の初期化順ずれ**: lower が
   static 関数 alias（ValueAlias FuncDecl）へ落とす `check.LetDecl` は
   check レベルではまだ var のままで、eval のグラフは core とノードの
   種別がずれる。ずれは2形態で観測できる: (a) `let f = { …; count }`
@@ -1040,9 +1040,20 @@
   `static()`、`initNeedsEval`、arity/thunks index）はすべて
   check.Decl/check.Expr 上で動くため、共有層への引き上げは
   ファイル移動に近い。
-  参照: [decision](decisions/2026-11-06-eval-init-ready-order.md) §5、
-  [検証](sketch/2026-11-06-eval-init-ready-order-verification.md)、
-  [alias.go](../internal/lower/alias.go)。
+  対応: 分類を新規共通部品 `internal/staticalias` へ移動し、
+  `Classify(decls, universe)` で走査対象と関数 index を分離
+  （lower と同じファイル局所走査を eval も再現）。eval の
+  `buildInitGraph` は alias 束縛を peeled element を本体とする
+  関数ノードとして扱い、VarPat pure alias は var ノードを出さず、
+  副作用つき alias は宣言位置に hidden temp var ノードを残す。
+  `NewFiles` は alias sym を element を適用する wrapper VFunc に
+  先行束縛し初期化子強制から切り離した。両形態とも compiled と
+  一致（`w,a,f-tmp` / `w,z`）、集約・混在パターン・ファイル跨ぎの
+  敵対例も一致（wave13 eval-alias-lift）。
+  参照: [decision](decisions/2026-11-06-shared-static-alias-classification.md)、
+  [検証](sketch/2026-11-06-shared-static-alias-classification-verification.md)、
+  [staticalias](../internal/staticalias/alias.go)、
+  [比較テスト](../internal/build/diff_initorder_test.go)。
 
 - [x] **design.md §2.6 の "file-wide" が V-6 以降 unit-wide とずれ**:
   builtin 名の `type` 宣言の shadowing はパッケージ単位（check の

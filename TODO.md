@@ -85,6 +85,8 @@ Go 相互運用を変えたら両方向（Gom → Go、Go → Gom）のテスト
 
 （見つけたバグはここに `- [ ]` で足す）
 
+- [ ] **[bug] `internal/lsp/jsonrpc_test.go` の `frame` が未使用（staticcheck U1000）で `make check` が赤**: `1ffd6f6`（wave11 lsp lane）由来、呼び出し側ゼロ。wave13 lane3（lsp-gotool）で対応予定
+
 - [x] **[bug] ラベル付き部分適用を let 束縛すると E0901**: 原因は `CallUnknown` が `CallInfo.ArgToParam` を無視して常に位置順 `CallFunc` チェーンに落としていたこと — 非前置のラベル充填はカリー化チェーンで表現不能だった。`unknownCall` が ArgToParam を消費し、飽和は宣言順チェーン・非前置充填は `closureChain` で η 展開（eval と同じ意味論）、不安定 callee は `tmpBind` で 1 回評価に固定（issue #11、knownCompileBugs 解除、golden `labeled_args` に η/リオーダー形追加）
 - [x] **[bug] `gom fmt` の適用後セレクタが非冪等**: `argRaw` が `Select` 引数を `pPost` 裸出力し、レシーバ連の最左が `(` 先頭（`()`/タプル/低優先式、nb 下の `{`-led RecordLit/Block 含む）の場合 `.f` が適用側へエスケープして再パースでツリーが変わっていた。`selectEscape`/`parenLed` で外側を `(...)` に包む（`nb` 伝播込み、issue #12、knownFormatBugs 解除、`TestSelectArgParens` 17 ケース）
 - [x] **[divergence] Float リテラル演算が生成 Go の定数畳み込みで評価器と値がずれる**: 数値演算は演算子ごとに機械型で 1 回評価する（eval 側の意味）と決定。lower がリテラル同士の Float 演算・比較と Int 系 `+ - * /` の左被演算子を変数に bind して生成 Go を非定数式にする（`litFoldDiverges`）。Int リテラルオーバーフローの go build 失敗も解消（[decision](docs/decisions/2026-11-05-numeric-arithmetic-per-operation.md)、[検証](docs/sketch/2026-11-05-numeric-arithmetic-per-operation.md)）
