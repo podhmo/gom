@@ -453,7 +453,7 @@
   参照: [eval.go](../internal/eval/eval.go) `spliceGoSpread`、
   [fixture](../testdata/spec/E0505_go_spread_shared_tail.gom)。
 
-- [x] **any-hole cute の結果型が callee unify で premature bind されると eager と診断がずれる**:
+- [x] **any-hole の結果型が callee unify で premature bind されると eager と診断がずれる**:
   deferred 経路だけ `expected String, got Go.Any`。`Go.Any` の受け入れが want 側
   限定であることに起因し、仕様判断が必要。
   対応: premature pin は妥当な絞り込みと決定 — replayGoApply は hole meta を
