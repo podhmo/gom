@@ -18,8 +18,6 @@ package stdlib
 import (
 	"fmt"
 	"maps"
-	"path/filepath"
-	"strings"
 	"sync"
 
 	"github.com/podhmo/gom/internal/build"
@@ -112,29 +110,6 @@ var load = sync.OnceValues(func() (*env, error) {
 	}
 	return e, nil
 })
-
-// SelfPath answers build.Options.SelfImportPath for inputPath: a
-// source living under a `stdlib/<pkg>/` directory compiles into the
-// corresponding toolchain package, so references into that import
-// path are self-references emitted unqualified — generated code can
-// never produce a self-import. The stdlib directory names are
-// reserved: a user project that happens to place a package under
-// its own `stdlib/list/` takes the same convention. Other inputs
-// get "" — codegen cannot know a user file's import path.
-func SelfPath(inputPath string) string {
-	segs := strings.Split(filepath.ToSlash(inputPath), "/")
-	for i := 0; i+1 < len(segs); i++ {
-		if segs[i] != "stdlib" {
-			continue
-		}
-		for _, p := range packages {
-			if segs[i+1] == p.pkg {
-				return p.impPath
-			}
-		}
-	}
-	return ""
-}
 
 // Apply merges the standard library into opts and returns it:
 //

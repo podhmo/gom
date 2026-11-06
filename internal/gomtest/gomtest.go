@@ -136,9 +136,10 @@ func (c testCase) sidePath(ext string) string {
 // (expected.json, golden.go or case.json) is a directory case over
 // its member *.gom/*.gomi files. It reads each case's manifest,
 // reports side files (*.expected.json, *.golden.go, *.case.json)
-// whose .gom is missing as orphans, and marks a bare side file
-// directly at the suite root a load error — the root is not a case
-// directory, so the bare name is a misplaced fixture, not a marker.
+// whose .gom is missing as orphans, and marks a bare side file or a
+// bare *.gomi directly at the suite root a load error — the root is
+// not a case directory, so the bare name is a misplaced fixture,
+// and a .gomi takes part only as a member of a directory case.
 func discoverCases(suiteDir string) (cases []testCase, orphans []string, err error) {
 	var sideFiles []string
 	err = filepath.WalkDir(suiteDir, func(path string, d fs.DirEntry, err error) error {
@@ -180,6 +181,22 @@ func discoverCases(suiteDir string) (cases []testCase, orphans []string, err err
 				c.loadErr = err
 			}
 			cases = append(cases, c)
+		case IsInterfaceFile(name):
+			// A .gomi is a member of a directory case and nothing
+			// else — never a case of its own, and the walk never
+			// descends into a case directory to see one. Directly
+			// under the suite root it can take part in nothing, so
+			// it is a misplaced fixture like a bare side file.
+			// Inside a non-case subdirectory it stays ignored: that
+			// directory is a namespace whose files may be helpers.
+			if filepath.Dir(path) == suiteDir {
+				cases = append(cases, testCase{
+					name: name,
+					loadErr: fmt.Errorf("gomtest: bare interface file %s at the suite root: "+
+						"a .gomi takes part only as a member of a directory case; "+
+						"a single-file case has no .gomi side file", name),
+				})
+			}
 		default:
 			for _, ext := range []string{expectedExt, goldenExt, caseExt} {
 				if strings.HasSuffix(name, ext) {

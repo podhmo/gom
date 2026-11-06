@@ -295,6 +295,7 @@ error[E0301]: non-exhaustive match on `Expr`
 - 非公開定義は Go 側で先頭小文字。Go の予約語と衝突する名前は `_` 接尾辞を付けてマングルする
 - 同じディレクトリの `.gom` ファイルは 1 つのトップレベルスコープを共有する: 型・コンストラクタ・関数・`let` はファイルの順序に関係なく相互に見える。別ファイルの同名トップレベル宣言は E0202、`package` 句の不一致は E0605（後の句に位置付く）になる。`import` 宣言はファイルローカルのまま
 - `import "path"` は Gom パッケージを読み込む（Go パッケージは `import go "path"`）。公開面はパッケージの `.gomi` で決まり、import path は生成される Go パッケージのパスと一致する。v1 ではメインモジュール内のパッケージだけが解決できる（ワークスペースの兄弟モジュールや依存モジュール内の Gom パッケージは解決しない）
+- import で束縛されるモジュール名はパスの末尾の要素（`import "example.com/t/lib"` は `lib`）。`import alias "path"` で別名を付けられる。Go 側にも同じ形がある（`import go f "fmt"`）。別名はファイルローカルのモジュール名を置き換えるだけで、公開面や他ファイルには出ない。生成される Go の import が別名付きになるのは束縛名がパス末尾と違うときだけ — 末尾要素が相手の `package` 句と食い違う（`lib/` なのに `package other`）と、別名なしの import では `lib.X` が参照できない生成物になるので、`import other "example.com/t/lib"` のように明示の別名を付ける必要がある（v1 ではこの食い違いの救済は書き手の別名に委ねる — [decisions/gom-import-alias-and-gomi-imports](decisions/2026-11-06-gom-import-alias-and-gomi-imports.md)）
 - `package main` の `fn main () -> Unit` は Go のエントリポイント `func main()` になり、`gom build` の成果物はそのまま `go build` できる。使える引数を取る `main`（`(u: Unit)` など）や `Unit` 以外を返す `main` は特別扱いせず、通常の関数として生成される（Go と同じく `go build` が入口としては拒否する形になる）
 
 ### 5.1 パッケージの初期化順
@@ -352,7 +353,7 @@ fn draw (c: Canvas) (s: Shape) -> Canvas
 let unit_circle : Shape
 ```
 
-1. 1 パッケージに `.gomi` は 1 つ（`<パッケージ名>.gomi`）。書けるのは型定義・関数シグネチャ・定数の型と `///` のドキュメントコメントだけで、式は書けない。公開した定数は Gom 側では不変の束縛だが、生成される Go では package 変数（`var`）として見える — Go 側からの書き換えは 8.7 節の契約が禁じる
+1. 1 パッケージに `.gomi` は 1 つ（`<パッケージ名>.gomi`）。書けるのは `import` 宣言・型定義・関数シグネチャ・定数の型と `///` のドキュメントコメントだけで、式は書けない。シグネチャで他パッケージの型や Go の型を指すには `.gom` と同じ形の `import`（Gom パッケージ、`import go`、別名付きのいずれも）を書く — その名前はこの `.gomi` のシグネチャを読むためだけのスコープで、公開面にも実装側の `.gom` にも出ない（公開される型は完全な import path の型として記録されるので、利用側は `.gomi` の import 名を引き継がない）。`.gom`（実装側）の import を通る循環は `.gom` 同士と同じく経路付きの E0606 になる。`.gomi` 同士だけの循環は読み込み時に検出され、通常の読み込み失敗 E0203 として報告される（循環経路は出ない）。公開した定数は Gom 側では不変の束縛だが、生成される Go では package 変数（`var`）として見える — Go 側からの書き換えは 8.7 節の契約が禁じる
 2. 関数は `.gom` と同じ引数リストの形で書く（引数の数とラベルがインターフェースの一部になる）
 3. sum type はコンストラクタまで書けば透明、名前だけ書けば抽象。利用側で `match` できるのは透明な型だけ
 4. ライブラリパッケージ（`package main` 以外）は `.gomi` が必須で、ないとエラー
@@ -421,7 +422,7 @@ strconv.ParseInt(_, 10, 64)
 | 戻り値 `(A, B)`（上記以外の多値） | タプル `(A, B)` |
 | 戻り値 `error` のみ | `Result Unit GoError`（既定の型由来ビュー）。`extern` 宣言か標準バインディングで `GoError`（nil を返さない契約 — 違反は境界で panic）か `Option GoError`（nil 許容のエラー値）にもなる（8.4 節） |
 | `*T` | `Ptr T`（nil の参照は Go と同じく panic。操作は `Ptr` モジュール） |
-| `int` / `int64` / `int32` / `float64` | `Int` / `Int` / `Int32` / `Float` |
+| `int` / `int64` / `int32`（`rune` もここ） / `float64` | `Int` / `Int` / `Int32` / `Float` |
 | named type（`type UserID int64` など） | 別の名前的な型 `pkg.UserID`。基底型との変換は `Go.conv` で明示 |
 | `[]T` | `List T`。Gom 側の境界変換位置では両方向ともコピーする（8.5 節） |
 | `map[K]V` | 不透明型 `Go.Map K V`（操作は `Go.Map` の型メンバー群） |
@@ -429,7 +430,9 @@ strconv.ParseInt(_, 10, 64)
 | interface（`io.Reader`、`fmt.Stringer` など） | 名前的な型 `io.Reader` など。Go 由来の値を代入規則に従って渡せる |
 | `error` | `GoError` |
 
-v1 で対応していない型（符号なし整数 `uint8`–`uint64`/`byte`、`float32`、複素数、配列 `[N]T`、`unsafe.Pointer`、ジェネリック型・関数、メソッドを持つ無名 interface、関数型の引数・戻り値）をシグネチャに含むシンボルは公開されず、参照すると理由付きの診断になる（8.5 節）。ジェネリック関数については 8.5 節の記述と食い違いがある（[problem](problems/2026-11-04-generic-go-fns-hidden.md)）。
+`Char` はこの対応からは現れない。Go の `rune` は `int32` の別名なので `Int32` として読む（`unicode.IsUpper` の引数は `Int32`）。`Char` は `'a'` リテラルか、Go の型なし rune 定数（既定は `Char`）、または `Go.conv` で得る — `Char` の Go 表現も `rune` なので `Go.conv 'A' : Int32`・`Go.conv x : Char` の両方向が変換できる。
+
+v1 で対応していない型（符号なし整数 `uint8`–`uint64`/`byte`、`float32`、複素数、配列 `[N]T`、`unsafe.Pointer`、ジェネリック型・関数、メソッドを持つ無名 interface、関数型の引数・戻り値）をシグネチャに含むシンボルは公開されず、参照すると理由付きの診断になる（8.5 節）。戻り値が 3 つ以上ある関数も同じく公開されない — 多値のタプル対応は 2 要素までで、`extern` による上書きもできない（8.4 節）。ジェネリック関数については 8.5 節の記述と食い違いがある（[problem](problems/2026-11-04-generic-go-fns-hidden.md)）。
 
 Go の名前付き struct 型の値またはそのポインタから、exported field を `value.Field` で読み取れる。Go と同じ promoted field と曖昧性の規則を使い、unexported field は参照できない。field の型は上の対応に従い、未対応の型は参照位置で理由付き E0501 になる。読み取りはソースの評価順に行い、nil ポインタ経由の読み取りは Go と同じく panic する。field への代入と Go struct のコンポジットリテラルはまだ定めない。
 
@@ -467,6 +470,7 @@ extern のエントリは `fn` の関数シグネチャだけを持ち、ブロ�
   - `(T, error)` → `Result T GoError`。第 1 結果が nil 許容な型（`*T` または任意の interface 型 — `error`、`net.Error`、`io.Reader`、named な空 interface を含む）のときは `Result (Option T) GoError` も宣言できる — 第 1 結果の `nil` を `Ok None` と読む。第 1 結果がメソッドを持つ interface 型のとき、verbatim の `Result T GoError` 宣言（`(error, error)` への `Result GoError GoError`、`(net.Error, error)` への `Result net.Error GoError` など）は「第 2 が nil なら第 1 は真の値」という契約で、`(nil, nil)` は境界で panic する（型由来の既定は `Result (Option T) GoError` — 8.3 節）
   - `(T, bool)` → `Option T` または `(T, Bool)`
   - その他の `(A, B)` → `(A, B)` のタプル
+  - 3 つ以上の結果を持つ関数は `extern` の対象外 — 書いても E0509 で照合に落ちる（`extern` は公開面の見え方を変えるだけで、公開範囲そのものは広げない）
 - 宣言に型変数は書けない（Go の関数は多相ではない）。ジェネリックな Go 関数の上書きも現時点ではできない。
 
 宣言した型が Gom 側で見える型になり、生成される呼び出しは生の Go シグネチャのまま `pkg.F(args)` で、結果は宣言した変換規則で物質化される — `(T, bool)` の `Option` は `v, ok := f(...)` の後 `option.FromGo(v, ok)`、`*T` や interface 型への `Option` 宣言は `v := f(...)` の後 `option.FromGo(v, v != nil)`。`error` への `Option GoError` 宣言も同じ `option.FromGo(v, v != nil)` 形で、`GoError` 宣言は `if v == nil { panic(...) }` の境界検査を生成する。`(T, error)` への `Result (Option T) GoError` 宣言はペイロードを `option.FromGo(v, v != nil)` で物質化し、メソッドを持つ interface 第 1 結果への verbatim `Result T GoError` 宣言（`Result GoError GoError` など）は `if err == nil && v == nil { panic(...) }`（`try`/`|?>` では `err` の脱出のあと `if v == nil { panic(...) }`）の境界検査を生成する。
@@ -704,7 +708,7 @@ test "parse then sum" {
 {"kind": "explanation", "code": "E0301", "severity": "error", "title": "non-exhaustive match", "phase": "pattern", "spec": "4", "explanation": "...", "example": "..."}
 ```
 
-`test` オブジェクトは `gom test` が `go test -json` から変換した 1 テストの結果で、`diagnostic` の後、`summary` の前に出る。`name` は `test "name"` の名前（Gom が生成していないテストは Go の関数名）、`func` は生成された Go のテスト関数名（`go test -run` のセレクタに使える）、`ok` は成否、`elapsed` は `go test` が報告した秒数。`skipped` はスキップ時だけ `true` で付く（スキップは `ok: true`）。`span` はテスト宣言の名前の位置で、Gom が生成していないテストでは付かない。`output` はそのテストが出した出力 — 失敗時は `assert_eq` の両方の値と、生成 `//line` 経由で `.gom` に戻した位置を含む。panic や goroutine dump が出たとき `output` は 2 部構成になる — 先にフレームを `.gom` の位置に戻したトレース（`.gom` に解決できないフレームは生の `file:line` のまま残る）、続いて生の Go スタックトレースをそのまま出す。`gom test -q` / `--quiet` は生のトレース側を抑制する（`.gom` 位置付きのトレースは残る）。`init` や `TestMain` のようなパッケージレベルの panic を運ぶ E0001 diagnostic の `output` も同じ 2 部構成にする。
+`test` オブジェクトは `gom test` が `go test -json` から変換した 1 テストの結果で、`diagnostic` の後、`summary` の前に出る。`name` は `test "name"` の名前（Gom が生成していないテストは Go の関数名）、`func` は生成された Go のテスト関数名（`go test -run` のセレクタに使える）、`ok` は成否、`elapsed` は `go test` が報告した秒数。`skipped` はスキップ時だけ `true` で付く（スキップは `ok: true`）。`span` はテスト宣言の名前の位置で、Gom が生成していないテストでは付かない。`output` はそのテストが出した出力 — 失敗時は `assert_eq` の両方の値と、生成 `//line` 経由で `.gom` に戻した位置を含む。panic や goroutine dump が出たとき `output` は 2 部構成になる — 先にフレームを `.gom` の位置に戻したトレース（`.gom` に解決できないフレームは生の `file:line` のまま残る）、続いて生の Go スタックトレースをそのまま出す。ただし `.gom` の位置に解決できるフレームが 1 つもない出力（ツールチェーンや手書き Go だけのスタック）は、書き換えの対象がないため変換せずそのまま返す — 再現しないバグの情報を落とさないため生の内容を必ず残す（design.md 4.8 節）。`gom test -q` / `--quiet` は生のトレース側を抑制する（`.gom` 位置付きのトレースは残る — 1 行も解決できなければ出力は変わらない）。`init` や `TestMain` のようなパッケージレベルの panic を運ぶ E0001 diagnostic の `output` も同じ規則に従う。
 
 ```json
 {"kind": "test", "name": "rect area", "func": "TestRectArea", "ok": false, "elapsed": 0.001, "span": {"file": "area.gom", "start": {"line": 15, "col": 6, "offset": 232}, "end": {"line": 15, "col": 16, "offset": 242}}, "output": "    area.gom:16: gom: assertion failed:\n          actual:   Rect ~w: 1 ~h: 1\n          expected: Rect ~w: 2 ~h: 2\n"}

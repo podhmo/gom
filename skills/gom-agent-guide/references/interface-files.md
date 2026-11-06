@@ -14,13 +14,19 @@ compiler resolves `List.map`/`Option.get`/`Result.map` from.
 `import "mod/path"` (no `go` keyword) resolves a Gom package
 through its `.gomi` inside the same Go module — spelled as a full
 module path (`import "example.com/m/shapes"`), then members spell
-`shapes.Shape`, `shapes.Circle`, `shapes.area`.
+`shapes.Shape`, `shapes.Circle`, `shapes.area`. `import alias
+"mod/path"` renames the file-local binding; without an alias the
+bound name is the path's last segment.
 
 ## Syntax
 
-A `.gomi` contains **only** `package`, type declarations, `fn`/`let`
-signatures, and `///` doc comments — no expressions, no bodies
-(E0602).
+A `.gomi` contains **only** `package`, `import` declarations, type
+declarations, `fn`/`let` signatures, and `///` doc comments — no
+expressions, no bodies (E0602). Imports in a `.gomi` use the same
+forms as `.gom` (`import "path"`, `import go "path"`, aliased) and
+scope the interface's own signatures only — a signature can name
+`io.Reader` or another Gom package's `shapes.Shape`, and consumers
+never see the interface's local import names.
 
 ```gomi
 package shapes
@@ -84,5 +90,6 @@ unlisted top-level definition stays a lowercase-private Go
 identifier. `import "mod/path"` resolves a Gom package through its
 `.gomi` — the importing file must sit in the same Go module.
 `.gom`-side import cycles are detected as E0606 (only the actual
-cycle members are blamed); `.gomi`-side import rules are not yet
-specified (see problems/2026-11-05-gom-package-imports).
+cycle members are blamed); a cycle that exists only between
+`.gomi` files surfaces as an ordinary E0203 import-load failure
+instead.

@@ -1,9 +1,12 @@
 package stdlib_test
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/podhmo/gom/internal/build"
+	"github.com/podhmo/gom/internal/gomimport"
 	"github.com/podhmo/gom/internal/lower"
 	"github.com/podhmo/gom/internal/resolve"
 	gomstd "github.com/podhmo/gom/internal/stdlib"
@@ -89,26 +92,50 @@ func TestApplyChainsExistingOracles(t *testing.T) {
 	}
 }
 
-// TestSelfPath pins the stdlib-directory convention: a source under
-// `stdlib/<pkg>/` self-imports as the toolchain package so codegen
-// emits unqualified self-references; anything else gets "".
-func TestSelfPath(t *testing.T) {
+// TestEntryPath pins what cmd/gom feeds build.Options.SelfImportPath:
+// the input directory rendered module-relative — a source under the
+// toolchain's own stdlib/<pkg>/ resolves to the toolchain package so
+// codegen emits unqualified self-references, while a directory that
+// only *looks* like the layout under a different module answers that
+// module's own path (or "" outside any module), never the toolchain's.
+func TestEntryPath(t *testing.T) {
+	root := repoRoot(t)
 	for _, tc := range []struct {
-		in   string
+		dir  string
 		want string
 	}{
-		{"stdlib/list/list.gom", "github.com/podhmo/gom/stdlib/list"},
-		{"stdlib/option/option.gom", "github.com/podhmo/gom/stdlib/option"},
-		{"stdlib/result/result.gom", "github.com/podhmo/gom/stdlib/result"},
-		{"./stdlib/list/list.gom", "github.com/podhmo/gom/stdlib/list"},
-		{"deep/stdlib/list/x.gom", "github.com/podhmo/gom/stdlib/list"},
-		{"stdlibx/list/list.gom", ""},
-		{"list/list.gom", ""},
-		{"stdlib/main.gom", ""},
-		{"testdata/spec/ok.gom", ""},
+		{filepath.Join(root, "stdlib", "list"), "github.com/podhmo/gom/stdlib/list"},
+		{filepath.Join(root, "stdlib", "option"), "github.com/podhmo/gom/stdlib/option"},
+		{filepath.Join(root, "stdlib", "result"), "github.com/podhmo/gom/stdlib/result"},
+		// Any other in-module directory answers its own path —
+		// there is no stdlib-only special case anymore.
+		{filepath.Join(root, "testdata", "spec"), "github.com/podhmo/gom/testdata/spec"},
 	} {
-		if got := gomstd.SelfPath(tc.in); got != tc.want {
-			t.Errorf("SelfPath(%q) = %q, want %q", tc.in, got, tc.want)
+		ml := gomimport.New(&gomimport.Config{Dir: tc.dir})
+		if got := ml.EntryPath(); got != tc.want {
+			t.Errorf("EntryPath(%q) = %q, want %q", tc.dir, got, tc.want)
 		}
+	}
+
+	// A stdlib/<pkg> layout inside a *different* module answers that
+	// module's path — never the toolchain's.
+	foreign := t.TempDir()
+	if err := os.WriteFile(filepath.Join(foreign, "go.mod"),
+		[]byte("module example.com/m\n\ngo 1.27\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	dir := filepath.Join(foreign, "stdlib", "list")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	ml := gomimport.New(&gomimport.Config{Dir: dir})
+	if got := ml.EntryPath(); got != "example.com/m/stdlib/list" {
+		t.Errorf("EntryPath(foreign stdlib/list) = %q, want example.com/m/stdlib/list", got)
+	}
+
+	// No module at all → no importable identity → "".
+	bare := t.TempDir()
+	if got := gomimport.New(&gomimport.Config{Dir: bare}).EntryPath(); got != "" {
+		t.Errorf("EntryPath(module-less dir) = %q, want \"\"", got)
 	}
 }

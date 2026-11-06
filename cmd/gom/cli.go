@@ -55,7 +55,7 @@ func compileOptions(in input, checkOnly bool) *build.Options {
 		Modules:        mods,
 		Lower:          &lower.Env{GoSig: gl.GoSigOf, Types: ml, FuncArity: ml.ArityOf},
 		Exports:        iface.ExportNames,
-		SelfImportPath: gomstd.SelfPath(in.path),
+		SelfImportPath: ml.EntryPath(),
 		CheckOnly:      checkOnly,
 	})
 }

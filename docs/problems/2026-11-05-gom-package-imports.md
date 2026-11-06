@@ -1,6 +1,6 @@
 # Gom package imports: deferred boundaries of the first slice
 
-- 状態: 一部解決（1, 2, 5, 6 は残件ラウンドで対応 — [verification](../sketch/2026-11-05-v6-residual-verification.md)）
+- 状態: 一部解決（1, 2, 3, 5, 6 は対応済み — 3 は 2026-11-06 に spec §7 へ定義: [decision](../decisions/2026-11-06-gom-import-alias-and-gomi-imports.md)、[verification](../sketch/2026-11-06-import-alias-and-gomi-imports-verification.md)。残るは 4 の module scope のみ）
 - 発見: 2026-11-05, V-6 vertical slice ([decision](../decisions/2026-11-05-package-compilation-unit.md), [verification](../sketch/2026-11-05-multifile-package-verification.md))
 
 ## Situation
@@ -21,12 +21,14 @@ these boundaries:
    a cycle surfaces as `resolve.ImportCycleError` → E0606 at the
    import path span with the chain in `data.cycle`. See
    [decision](../decisions/2026-11-05-gom-implementation-import-cycles.md).
-3. **`.gomi`-side `import "path"` is mechanical, not specified**:
-   an `import` inside a `.gomi` resolves through the same loader
-   (nested interface loads work), but spec §7 does not define
-   `.gomi` imports and no test pins the behavior — types a
-   signature mentions from another Gom package ride on this.
-   依然未決。
+3. ~~**`.gomi`-side `import "path"` is mechanical, not specified**~~
+   **解決** (2026-11-06): spec §7 defines `.gomi` imports — same
+   forms as `.gom` (Gom / `import go` / alias), scoping the
+   interface's own signatures only; member types are recorded
+   under their absolute import path. `.gom`-edge cycles keep
+   E0606; interface-only cycles surface as E0203 load failures.
+   See [decision](../decisions/2026-11-06-gom-import-alias-and-gomi-imports.md),
+   [verification](../sketch/2026-11-06-import-alias-and-gomi-imports-verification.md).
 4. **Module scope**: lookup reads the `go.mod` nearest the
    importing file — only packages inside the main module resolve;
    workspace siblings and dependency modules get a plain E0203.
@@ -48,8 +50,8 @@ as it composes ADTs across packages — 2 and 3 in particular let
 invalid or unspecified programs pass `gom check`/`gom build` and
 fail only inside the Go toolchain. 4 constrains which checkouts
 can depend on which. 5 and 6 produce raw Go or misleading Gom
-errors with no source mapping. (2026-11-05 残件ラウンドで
-1, 2, 5, 6 は解消 — 残るは 3 の spec 規定と 4 の module scope。)
+errors with no source mapping. (1, 2, 3, 5, 6 は解消 — 残るは
+4 の module scope。)
 
 ## Related
 

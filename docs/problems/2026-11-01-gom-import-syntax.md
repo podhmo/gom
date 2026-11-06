@@ -1,6 +1,6 @@
 # Gom package import syntax and .gomi contents are unspecified
 
-- 状態: 一部解消（2026-11-05 — `import "path"` は実装済み: 生成 Go パッケージの import path で Gom パッケージを読み、`.gomi` が公開面になる。名前参照はパッケージ句の名前（通常はパス末尾）。残る未決は `.gomi` 側の import・alias 形式の仕様化。参照: [decision](../decisions/2026-11-05-package-compilation-unit.md)、[検証](../sketch/2026-11-05-multifile-package-verification.md)）
+- 状態: ほぼ解消（2026-11-06 — `import "path"`・`import alias "path"`・`.gomi` 内の import が spec §5/§7 で定義された。束縛名は別名があれば別名、なければパス末尾要素。参照: [decision](../decisions/2026-11-06-gom-import-alias-and-gomi-imports.md)、[検証](../sketch/2026-11-06-import-alias-and-gomi-imports-verification.md)。残件: 末尾要素と `package` 句の食い違いや末尾が識別子でないパス（`yaml.v3` 型）は明示の別名で救済 — 生成 import の無条件別名化はフォローアップ。`.gomi` 中の通常 `//` コメントは宣言ではなく字句 trivia として受け入れられるが spec は宣言の列挙のみで明言していない）
 - 日付: 2026-11-01
 
 ## Situation

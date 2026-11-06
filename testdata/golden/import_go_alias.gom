@@ -1,0 +1,8 @@
+package main
+
+// spec section 5: "import go alias \"path\"" renames the file-local
+// module name; the emitted Go import carries the alias verbatim
+// (an alias is emitted only because `s` differs from the path base).
+import go s "strconv"
+
+fn main () -> Unit = ignore (s.Itoa 42)

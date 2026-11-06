@@ -118,7 +118,7 @@ func testCompileOptions(t *testing.T, root, relDir string) *build.Options {
 		Exports: func(dir, pkg string) map[string]bool {
 			return iface.ExportNames(filepath.Join(root, dir), pkg)
 		},
-		SelfImportPath: gomstd.SelfPath(relDir + "/x.gom"),
+		SelfImportPath: ml.EntryPath(),
 	})
 }
 

@@ -1,0 +1,7 @@
+package m
+
+// spec section 7: a .gomi may carry imports; `io` scopes this
+// interface's signatures only and is not part of the public surface.
+import go "io"
+
+fn reader (r: io.Reader) -> Unit

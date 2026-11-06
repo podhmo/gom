@@ -1,6 +1,6 @@
 # SelfImportPath keys off the reserved `stdlib/<pkg>/` directory layout
 
-- 状態: 未決（記録済みの制約 — 不活性）
+- 状態: 解決（2026-11-06 — [decision](../decisions/2026-11-06-self-import-path-module-derived.md): SelfImportPath は入力ディレクトリの module-relative パス。lexical な `stdlib/<pkg>/` スキャンは廃止）
 
 ## 状況
 

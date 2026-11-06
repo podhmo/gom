@@ -72,7 +72,7 @@ attribute      = "@" , member-name ;      (* "test" and "tailrec" are defined;
 
 interface-file = package-decl , { sep , iface-decl } , [ sep ] ;
 
-iface-decl     = import-decl                             (* [PROVISIONAL gom-import-syntax] *)
+iface-decl     = import-decl
                | type-decl-iface
                | fn-sig
                | let-sig ;
@@ -83,10 +83,9 @@ fn-sig         = "fn" , ident , fn-param , { fn-param } , "->" , type-expr ;
 
 let-sig        = "let" , ident , ":" , type-expr ;
 
-(* spec 7.1 allows only type declarations, function signatures, constant
-   signatures and /// doc comments in .gomi. Whether import and ordinary
-   comments are permitted is unspecified — see docs/problems/
-   2026-11-01-gom-import-syntax.md.                                       *)
+(* spec 7.1 allows type declarations, function signatures, constant
+   signatures, import declarations and /// doc comments in .gomi.
+   Imports scope the interface's own signatures only (spec §7).       *)
 
 
 (* ==========================================================================
@@ -291,10 +290,9 @@ sep            = ( NL | ";" ) , { NL | ";" } ;
    ========================================================================== *)
 
 import-decl    = "import" , [ "go" ] , [ ident ] , STRING ;
-               (* [PROVISIONAL gom-import-syntax: spec only ever shows
-                  "import go \"pkg\"". The bare form is assumed to import
-                  a Gom package; the optional ident is a plausible alias
-                  syntax. Both are provisional.]                        *)
+               (* bare form imports a Gom package, "go" a Go package;
+                  the optional ident is a local alias for the bound
+                  module name (spec §5).                                 *)
 
 extern-decl    = "extern" , "go" , STRING , "{" ,
                  [ extern-item , { sep , extern-item } , [ sep ] ] , "}" ;
@@ -740,9 +738,10 @@ char-char      = ? any code point except "'" and '\' ? ;
      record-type-syntax         docs/problems/2026-11-01-record-type-syntax.md
                                  — record type declarations, literal
                                  resolution, field punning, "{}"
-     gom-import-syntax          docs/problems/2026-11-01-gom-import-syntax.md
-                                 — Gom package imports, aliasing, .gomi
-                                 contents
+     gom-import-syntax          resolved 2026-11-06 —
+                                 decisions/2026-11-06-gom-import-alias-
+                                 and-gomi-imports.md: alias and .gomi
+                                 imports are specified (spec §5, §7)
      select-send-arm-operands   docs/problems/2026-11-01-select-send-arm-operands.md
                                  — extent of "send ch v" operands
      type-ascription            docs/problems/2026-11-01-type-ascription.md

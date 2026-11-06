@@ -1,0 +1,5 @@
+package m
+
+import go "io"
+
+fn reader (r: io.Reader) -> Unit = ignore r

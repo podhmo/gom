@@ -27,7 +27,11 @@
 // .gom files are individual cases. A bare side file at the
 // suite root is an error too — the root is not a case
 // directory, so a stray bare name there marks nothing and
-// almost always means a misplaced fixture.
+// almost always means a misplaced fixture. A bare *.gomi
+// directly at the suite root is likewise an error: a .gomi
+// takes part only as a member of a directory case, while one
+// inside a marker-less subdirectory stays ignored with the
+// namespace's other helper files.
 //
 //	testdata/spec/    — expected-diagnostics cases (spec section 12)
 //	testdata/golden/  — generated-Go golden cases

@@ -1,0 +1,7 @@
+package ex
+
+// spec section 5: "import alias \"path\"" renames the locally bound
+// module name — here `s` stands for strconv inside this file only.
+import go s "strconv"
+
+fn itoa (n: Int) -> String = s.Itoa n

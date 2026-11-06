@@ -61,11 +61,11 @@ type Options struct {
 	// never consulted).
 	Exports func(dir, pkg string) map[string]bool
 	// SelfImportPath is the Go import path the input's own output
-	// package occupies — set for sources compiled into a package
-	// the toolchain already has a path for (internal/stdlib's
-	// SelfPath answers for the stdlib directories). References
+	// package occupies — the input's directory rendered relative to
+	// the main module (gomimport's EntryPath answers it). References
 	// into that path emit unqualified identifiers: a package never
-	// imports itself. Empty for ordinary inputs.
+	// imports itself, so generated code cannot self-import. Empty
+	// for inputs outside a module.
 	SelfImportPath string
 	// Lower supplies the lowering oracles (Types, FuncArity, GoSig).
 	// The Lines hook is per-file and is always set by Compile from

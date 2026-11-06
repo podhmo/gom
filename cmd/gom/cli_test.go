@@ -325,6 +325,77 @@ test "arith" {
 	}
 }
 
+// TestBuildSelfImportPath is the stdlib-layout self-import
+// regression (docs/problems/
+// 2026-11-05-self-import-path-layout-convention.md): SelfImportPath
+// is the input directory's module-relative import path, decided by
+// the nearest go.mod — not a lexical `stdlib/<pkg>` scan of the
+// input's spelling. The toolchain's own stdlib/list builds with
+// unqualified self-references (a `gom build` run inside that
+// directory with a basename input used to emit a self-import that
+// only `go build` would reject), while a foreign module reusing
+// the stdlib/<pkg> layout keeps the real toolchain import.
+func TestBuildSelfImportPath(t *testing.T) {
+	t.Parallel()
+
+	// The toolchain side: building the real stdlib/list must not
+	// self-import — references into its own package emit bare
+	// identifiers regardless of how the input path is spelled.
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	src := filepath.Join(root, "stdlib", "list", "list.gom")
+	out := filepath.Join(t.TempDir(), "list.go")
+	code, stdout, _ := invoke("build", "-o", out, src)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stdout=%q", code, stdout)
+	}
+	gen, err := os.ReadFile(out)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := string(gen)
+	if strings.Contains(body, `"github.com/podhmo/gom/stdlib/list"`) {
+		t.Errorf("toolchain stdlib source self-imports its own package:\n%s", body)
+	}
+	if !strings.Contains(body, "func Of[A any](x A) List[A]") {
+		t.Errorf("want unqualified self-references (func Of[A any](x A) List[A]):\n%s", body)
+	}
+	if !strings.Contains(body, `"github.com/podhmo/gom/stdlib/option"`) {
+		t.Errorf("sibling toolchain import went missing:\n%s", body)
+	}
+
+	// The user side: a foreign module reusing the stdlib/<pkg>
+	// layout is not the toolchain package — the generated file must
+	// import the real toolchain stdlib, not emit bare references.
+	dir := writeFiles(t, map[string]string{
+		"go.mod": "module example.com/m\n\ngo 1.27\n",
+		filepath.Join("stdlib", "list", "main.gom"): `package main
+
+fn main () -> Unit = {
+  ignore (List.length (List.of 3))
+}
+`,
+	})
+	upath := filepath.Join(dir, "stdlib", "list", "main.gom")
+	code, stdout, _ = invoke("build", upath)
+	if code != 0 {
+		t.Fatalf("exit code = %d, want 0; stdout=%q", code, stdout)
+	}
+	ugen, err := os.ReadFile(filepath.Join(dir, "stdlib", "list", "main.go"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ubody := string(ugen)
+	if !strings.Contains(ubody, `"github.com/podhmo/gom/stdlib/list"`) {
+		t.Errorf("user-layout package dropped the real toolchain import:\n%s", ubody)
+	}
+	if !strings.Contains(ubody, "list.Of[int64](") || !strings.Contains(ubody, "list.Length[int64](") {
+		t.Errorf("want qualified toolchain references (list.Of/list.Length):\n%s", ubody)
+	}
+}
+
 // TestBuildEqBudgetTerminates is the mint-budget regression:
 // `type W a = {next: List (W (W a))}` is a self-application whose
 // expansion grows at every level — `x == y` on it used to mint

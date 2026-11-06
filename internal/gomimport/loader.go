@@ -949,6 +949,21 @@ func (l *Loader) implImports(u string) map[string]bool {
 	return m
 }
 
+// EntryPath reports the Go import path the package compiled out of
+// Config.Dir occupies — the value build.Options.SelfImportPath wants:
+// references into it emit unqualified, so generated code can never
+// self-import. It is "" when module resolution fails or Config.Dir
+// sits outside the main module — the output then has no importable
+// identity, and an import of a toolchain-known path (the embedded
+// stdlib) is an ordinary import, not a self-reference.
+func (l *Loader) EntryPath() string {
+	p, err := l.entryPath()
+	if err != nil {
+		return ""
+	}
+	return p
+}
+
 // entryPath computes the entry package's import path: Config.Dir
 // rendered module-relative — the package generated output for the
 // current compile lands in. An empty result means Config.Dir sits

@@ -226,6 +226,61 @@ func TestDiscoverRootSideFile(t *testing.T) {
 	}
 }
 
+// TestDiscoverRootGomi covers a bare .gomi directly under the suite
+// root: a .gomi is only ever a member of a directory case, so at the
+// root it takes part in nothing and was silently ignored. It is a
+// load error like a bare side file — while a .gomi inside a case
+// directory stays a member, and a .gomi in a non-case subdirectory
+// stays ignored.
+func TestDiscoverRootGomi(t *testing.T) {
+	dir := filepath.Join("testdata", "rootgomi")
+	cases, orphans, err := discoverCases(dir)
+	if err != nil {
+		t.Fatalf("discoverCases: %v", err)
+	}
+	if len(orphans) != 0 {
+		t.Errorf("orphans = %v, want none", orphans)
+	}
+	got := map[string]testCase{}
+	for _, c := range cases {
+		got[c.name] = c
+	}
+	// stray.gomi (broken) + ok + sub. The helpers/ directory has no
+	// marker, so it is a pure namespace — its helper.gomi stays
+	// ignored instead of becoming a case or an error.
+	if len(cases) != 3 {
+		names := make([]string, 0, len(cases))
+		for _, c := range cases {
+			names = append(names, c.name)
+		}
+		t.Fatalf("discovered %d cases %v, want 3", len(cases), names)
+	}
+	if _, ok := got["helpers/helper.gomi"]; ok {
+		t.Errorf("helpers/helper.gomi became a case — a .gomi in a non-case subdirectory must stay ignored")
+	}
+	c, ok := got["stray.gomi"]
+	if !ok || c.loadErr == nil {
+		t.Fatalf("stray.gomi: loadErr = %v, want a load error", c.loadErr)
+	}
+	if !strings.Contains(c.loadErr.Error(), "bare interface file stray.gomi") {
+		t.Errorf("stray.gomi: loadErr = %v, want the bare-interface-file error", c.loadErr)
+	}
+	if c := got["ok"]; c.loadErr != nil {
+		t.Errorf("ok: loadErr = %v, want none", c.loadErr)
+	}
+	// sub's member .gomi still joins the member list.
+	wantSub := []string{"sub/m.gom", "sub/m.gomi"}
+	if c := got["sub"]; !c.isDir || c.loadErr != nil || len(c.files) != len(wantSub) {
+		t.Errorf("sub = %+v, want a working directory case over %v", c, wantSub)
+	} else {
+		for i, f := range c.files {
+			if f.Path != wantSub[i] {
+				t.Errorf("sub.files[%d].Path = %q, want %q", i, f.Path, wantSub[i])
+			}
+		}
+	}
+}
+
 func TestDiscoverCasesOrphans(t *testing.T) {
 	dir := filepath.Join("testdata", "orphans")
 	cases, orphans, err := discoverCases(dir)
