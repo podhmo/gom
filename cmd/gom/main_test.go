@@ -53,7 +53,7 @@ func TestUsageListsAllSubcommands(t *testing.T) {
 	if code := run([]string{"-h"}, &stdout, &strings.Builder{}); code != 0 {
 		t.Fatalf("run(-h) exit code = %d, want 0", code)
 	}
-	for _, c := range []string{"build", "check", "dump", "test", "fmt", "fix", "gomi", "explain", "schema"} {
+	for _, c := range []string{"build", "check", "dump", "test", "fmt", "fix", "gomi", "explain", "schema", "lsp"} {
 		if !strings.Contains(stdout.String(), c) {
 			t.Errorf("usage text does not list subcommand %q", c)
 		}

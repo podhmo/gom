@@ -49,6 +49,28 @@ func (li *LineIndex) PosUTF16(offset int) Pos {
 	return li.pos(offset, utf16Len)
 }
 
+// OffsetUTF16 is the inverse of PosUTF16: it converts a 1-based line
+// and a 1-based column counted in UTF-16 code units back to a byte
+// offset. line is clamped into [1, LineCount]; a column of 1 or less
+// resolves to the line's start and one past the line's last rune to
+// the line's end (the offset before the '\n' LineBounds excludes). A
+// column naming the middle of a multi-unit rune — the inside of a
+// UTF-16 surrogate pair — resolves to that rune's start.
+func (li *LineIndex) OffsetUTF16(line, col int) int {
+	start, end := li.LineBounds(line)
+	off := start
+	c := 1
+	for off < end && c < col {
+		r, size := utf8.DecodeRune(li.src[off:end])
+		if c+utf16Len(r) > col {
+			break // col lands inside this rune — keep its start
+		}
+		c += utf16Len(r)
+		off += size
+	}
+	return off
+}
+
 // pos computes line and column for offset, measuring columns with
 // colWidth, which returns the width of one rune in the target unit
 // (code points or UTF-16 code units).

@@ -3,6 +3,7 @@ package diag_test
 import (
 	"encoding/json"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/podhmo/gom/internal/diag"
 )
@@ -73,6 +74,49 @@ func TestLineIndexPosUTF16(t *testing.T) {
 	}
 	if got, want := li.PosUTF16(5), (diag.Pos{Line: 1, Col: 4, Offset: 5}); got != want {
 		t.Errorf("PosUTF16(5) = %+v, want %+v", got, want)
+	}
+}
+
+func TestLineIndexOffsetUTF16(t *testing.T) {
+	// "a𐐀b\ncd": a=0, 𐐀=1-4 (surrogate pair = 2 UTF-16 units),
+	// b=5, \n=6, c=7, d=8, len=9.
+	li := diag.NewLineIndex([]byte("a𐐀b\ncd"))
+
+	tests := []struct {
+		line, col int
+		want      int
+	}{
+		{1, 1, 0},  // line head
+		{1, 2, 1},  // past 'a' → 𐐀's start
+		{1, 3, 1},  // mid surrogate pair → the pair's start
+		{1, 4, 5},  // past the pair → b
+		{1, 5, 6},  // past b → end of line 1 (before '\n')
+		{1, 99, 6}, // column past the line's end clamps to its end
+		{1, 0, 0},  // column <= 1 clamps to the line's start
+		{2, 1, 7},
+		{2, 3, 9}, // past 'd' → EOF
+		{0, 1, 0}, // lines clamp into [1, LineCount]
+		{9, 1, 7}, // past last line → last line's start
+	}
+	for _, tt := range tests {
+		if got := li.OffsetUTF16(tt.line, tt.col); got != tt.want {
+			t.Errorf("OffsetUTF16(%d, %d) = %d, want %d",
+				tt.line, tt.col, got, tt.want)
+		}
+	}
+
+	// Round-trip: every rune-boundary offset returns through
+	// PosUTF16 → OffsetUTF16 to itself.
+	src := "x𐐀あ\nyz"
+	li = diag.NewLineIndex([]byte(src))
+	for off := 0; off <= len(src); off++ {
+		if !utf8.RuneStart(src[min(off, len(src)-1)]) && off < len(src) {
+			continue // skip mid-rune offsets
+		}
+		p := li.PosUTF16(off)
+		if got := li.OffsetUTF16(p.Line, p.Col); got != off {
+			t.Errorf("offset %d → %+v → %d", off, p, got)
+		}
 	}
 }
 
