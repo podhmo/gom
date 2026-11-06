@@ -9,6 +9,7 @@ import (
 	"github.com/podhmo/gom/internal/core"
 	"github.com/podhmo/gom/internal/diag"
 	"github.com/podhmo/gom/internal/resolve"
+	"github.com/podhmo/gom/internal/staticalias"
 	"github.com/podhmo/gom/internal/types"
 )
 
@@ -174,7 +175,15 @@ func File(f *check.File, env *Env) (*core.File, []diag.Diagnostic) {
 	for _, d := range env.Siblings {
 		l.indexDecl(d)
 	}
-	l.staticAliases = l.indexStaticAliases(f)
+	// The static-alias classification is shared with the
+	// evaluator's initialization graph (internal/staticalias): the
+	// file's own `let`s are candidates, while the local-function
+	// index spans the whole unit so a sibling `fn` still roots a
+	// chain.
+	aliasIdx := staticalias.Classify(f.Decls, slices.Concat(f.Decls, env.Siblings))
+	l.staticAliases = aliasIdx.Aliases
+	l.aliasElems = aliasIdx.Elems
+	l.aliasInit = aliasIdx.Init
 
 	// Generated comparators are package-scope declarations, but each
 	// file lowers independently — each mints its own — and they land
@@ -342,13 +351,14 @@ type lowerer struct {
 	staticAliases map[*resolve.Symbol]bool
 	// aliasElems maps each static-alias binding to the initializer
 	// element expression its wrapper applies — the `f` of `let g = f`
-	// or the `count` of `let (again, _) = (count, 0)`. Populated by
-	// indexStaticAliases alongside staticAliases.
+	// or the `count` of `let (again, _) = (count, 0)`.
 	aliasElems map[*resolve.Symbol]check.Expr
 	// aliasInit marks `let g = e` bindings whose `e` is not itself the
 	// pure reference — element tracing peeled a block to reach it —
 	// so the initializer must still be emitted eagerly under a hidden
 	// variable or its effects would never run.
+	// The three maps come from staticalias.Classify — the shared
+	// classification the evaluator's init graph mirrors.
 	aliasInit map[*resolve.Symbol]bool
 	// typeD indexes the file's TypeDecls by qualified name key; ctorT
 	// maps a locally declared variant symbol to its TypeDecl.
@@ -1116,7 +1126,7 @@ func (l *lowerer) letDecl(d *check.LetDecl, out *core.File) {
 // wrapper — the ValueAlias FuncDecl that applies the binding's
 // element expression directly. Callers guarantee staticAliases[sym],
 // which means a function-typed element rooted in a local function
-// (indexStaticAliases), so the flat signature exists and the call
+// (staticalias.Classify), so the flat signature exists and the call
 // convention is the same arity-one shape P2-2b established for
 // `let g = f`.
 func (l *lowerer) aliasWrapper(sp diag.Span, sym *resolve.Symbol) *core.FuncDecl {

@@ -120,7 +120,11 @@ Top-level `let` bindings that are pure references to local non-thunk functions
 (including alias chains) lower to canonical arity-one named wrappers.
 `core.FuncDecl.ValueAlias` preserves the variable symbol and `Var`/`CallFunc`
 references while making the absence of a Go package initializer explicit.
-Computed initializers remain eager `VarDecl`s. See
+Computed initializers remain eager `VarDecl`s. The classification that
+selects the wrapper candidates lives in `internal/staticalias`, shared with
+the evaluator's package-initialization graph so eval gives these `let`s the
+same node kinds the compiled unit has
+([shared-static-alias-classification](decisions/2026-11-06-shared-static-alias-classification.md)). See
 [static-function-alias-declarations](decisions/2026-11-03-static-function-alias-declarations.md).
 
 The same wrapper rule applies to function-typed variables bound by

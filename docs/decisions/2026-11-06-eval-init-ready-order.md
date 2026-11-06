@@ -86,6 +86,12 @@ evaluates — only when.
    lift is close to a file move plus an arity/thunks index, not a
    re-port. Recorded in the gaps ledger rather than duplicated into
    eval, where it would drift from the lowering it must mirror.
+   Closed by
+   [2026-11-06-shared-static-alias-classification](2026-11-06-shared-static-alias-classification.md):
+   the lift landed as described — a new `internal/staticalias`
+   package both lower and the evaluator's init graph consume —
+   and both residual shapes now match compiled output
+   ([verification](../sketch/2026-11-06-shared-static-alias-classification-verification.md)).
 
 ## Consequences
 

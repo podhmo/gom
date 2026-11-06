@@ -10,6 +10,7 @@ import (
 	"github.com/podhmo/gom/internal/check"
 	"github.com/podhmo/gom/internal/diag"
 	"github.com/podhmo/gom/internal/resolve"
+	"github.com/podhmo/gom/internal/staticalias"
 	"github.com/podhmo/gom/internal/syntax"
 	"github.com/podhmo/gom/internal/types"
 )
@@ -162,6 +163,38 @@ func NewFiles(files []*check.File) *Evaluator {
 			env.Bind(fd.Sym, ev.fnValue(fd))
 		}
 	}
+	// The static-alias classification is file-local like lowering's:
+	// the unit's declarations index the local functions, but only a
+	// file's own `let`s are alias candidates — a `let h = f` whose
+	// `f` is a sibling file's binding stays a plain variable in both
+	// the emitted Go and the graph buildInitGraph builds.
+	var unit []check.Decl
+	for _, f := range ev.files {
+		unit = append(unit, f.Decls...)
+	}
+	aliases := map[*check.File]*staticalias.Index{}
+	for _, f := range ev.files {
+		aliases[f] = staticalias.Classify(f.Decls, unit)
+	}
+	// A static-alias binding lowers to a ValueAlias FuncDecl — a
+	// function, not a package var — so it binds eagerly like the
+	// FnDecls above: applying the wrapper evaluates the binding's
+	// peeled element and never forces the hidden variable an
+	// effectful alias initializer still emits.
+	for _, f := range ev.files {
+		idx := aliases[f]
+		for _, d := range f.Decls {
+			ld, ok := d.(*check.LetDecl)
+			if !ok {
+				continue
+			}
+			for _, s := range boundSyms(ld.Pat) {
+				if s != nil && idx.Aliases[s] {
+					env.Bind(s, ev.aliasValue(s, idx.Elems[s]))
+				}
+			}
+		}
+	}
 	// Top-level lets stay unbound until Run (or a first read through
 	// evalVar) initializes them — the compiled form is a package var,
 	// whose initialization follows dependencies, not source order.
@@ -177,7 +210,7 @@ func NewFiles(files []*check.File) *Evaluator {
 			}
 		}
 	}
-	ev.initOrder = buildInitGraph(ev.files, env.ctx.topLets)
+	ev.initOrder = buildInitGraph(ev.files, env.ctx.topLets, aliases)
 	return ev
 }
 
@@ -399,6 +432,27 @@ func (e *Evaluator) fnValue(d *check.FnDecl) *VFunc {
 	f.body = d.Body
 	f.env = e.env
 	f.thunk = d.Thunk
+	return f
+}
+
+// aliasValue builds the ValueAlias wrapper the compiled unit emits
+// for a static function alias (the eval analogue of lower's
+// aliasWrapper): a function value that evaluates the binding's peeled
+// element expression — a pure reference to a local function — and
+// applies the result, so calling through the alias never forces the
+// hidden package variable an effectful `let` initializer still
+// lowers to. The element is resolved per call, like the emitted
+// wrapper's own body reading its target.
+func (e *Evaluator) aliasValue(sym *resolve.Symbol, elem check.Expr) *VFunc {
+	sig, _ := types.Chase(elem.Type()).(*types.Func)
+	f := funcOfType(sym.Name, fnBuiltin, sig)
+	f.builtin = func(args []Value) (Value, error) {
+		v := e.interp.eval(elem, e.env)
+		for _, a := range args {
+			v = e.interp.applyOne(v, a, elem.Span())
+		}
+		return v, nil
+	}
 	return f
 }
 

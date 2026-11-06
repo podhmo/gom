@@ -269,18 +269,17 @@ func TestInitReadyFrontier(t *testing.T) {
 		}
 	})
 
-	t.Run("known residual: pure alias on a function-path loop", func(t *testing.T) {
+	t.Run("pure alias on a function-path loop", func(t *testing.T) {
 		// `let f = g` is a pure alias lower emits as a ValueAlias
-		// FuncDecl — a wrapper, no package var. In core, w's call
-		// path w → f → g → f is functions only, so w is ready and
-		// the compiled binary initializes [w z]. On check.Decls f
-		// is still a LetDecl: g's body reference to f resolves to
-		// the var node, giving f a self-dependency — f is never
-		// ready, w waits on it, and the leftover sweep forces w
-		// only after every ready var. Eval prints [z w] — the
-		// residual decision 2026-11-06-eval-init-ready-order §5
-		// records, pinned so a fix lifting the alias
-		// classification updates this expectation to [w z].
+		// FuncDecl — a wrapper, no package var — and the shared
+		// classification gives f the same function-node shape here:
+		// w's call path w → f → g → {f, count} is functions only,
+		// so w is ready and the order is [w z] like the compiled
+		// binary. Before the classification was shared, g's body
+		// reference to f resolved to a var node — a self-dependency
+		// that stalled the frontier and forced [z w] through the
+		// leftover sweep (decision 2026-11-06-eval-init-ready-order
+		// §5's recorded residual).
 		seq := seqSym()
 		uP, _ := vpat("u", types.Unit)
 		retT := types.Fn(types.Int, types.P(types.Unit)) // () -> Int
@@ -304,8 +303,44 @@ func TestInitReadyFrontier(t *testing.T) {
 		var log []string
 		bindSeq(t, ev, seq, &log)
 		runOK(t, ev)
-		if fmt.Sprint(log) != "[z w]" {
-			t.Fatalf("init order = %v, want [z w] (compiled gives [w z] — known residual)", log)
+		if fmt.Sprint(log) != "[w z]" {
+			t.Fatalf("init order = %v, want [w z]", log)
+		}
+	})
+
+	t.Run("effectful alias initializer splits temp var and wrapper", func(t *testing.T) {
+		// `let f = { …; count }` lowers to a hidden temp var
+		// running the block *plus* a ValueAlias FuncDecl wrapper —
+		// and the shared classification gives eval the same split:
+		// `a`'s `f ()` call traverses the wrapper's body (count →
+		// the w it reads), not f's var node, so a waits on w only;
+		// f's block effects run at the declaration's own slot.
+		// Compiled prints [w a f]; before the lift eval treated the
+		// f reference as a var dependency and printed [w f a]
+		// (decision 2026-11-06-eval-init-ready-order §5 shape (a)).
+		seq := seqSym()
+		uP, _ := vpat("u", types.Unit)
+		retT := types.Fn(types.Int, types.P(types.Unit)) // () -> Int
+		wD, wS := letDecl("w", seqCall(types.Int, seq, "w", intLit(1)))
+		count := &check.FnDecl{Sp: sp, Sym: sym("count", resolve.KindFunc),
+			Sig:    retT,
+			Params: []check.Param{{Pat: uP}},
+			Body:   vr(wS, types.Int)}
+		fP, fS := vpat("f", retT)
+		fD := &check.LetDecl{Sp: sp, Pat: fP,
+			Value: block(retT,
+				&check.Ignore{Base: b(types.Unit), X: seqCall(types.Int, seq, "f", intLit(0))},
+				vr(count.Sym, retT))}
+		aD, _ := letDecl("a",
+			block(types.Int,
+				&check.Ignore{Base: b(types.Unit), X: seqCall(types.Int, seq, "a", intLit(0))},
+				unknownCall(types.Int, vr(fS, retT), 1, unitLit())))
+		ev := eval.New(&check.File{Sp: sp, Decls: []check.Decl{aD, fD, count, wD}})
+		var log []string
+		bindSeq(t, ev, seq, &log)
+		runOK(t, ev)
+		if fmt.Sprint(log) != "[w a f]" {
+			t.Fatalf("init order = %v, want [w a f]", log)
 		}
 	})
 

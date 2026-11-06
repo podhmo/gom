@@ -3,6 +3,7 @@ package eval
 import (
 	"github.com/podhmo/gom/internal/check"
 	"github.com/podhmo/gom/internal/resolve"
+	"github.com/podhmo/gom/internal/staticalias"
 )
 
 // initNode is one top-level `let` of the unit in the initialization
@@ -48,18 +49,28 @@ func (n *initNode) ready() bool {
 // lower.CheckInitCycles applies to the lowered Core files, recomputed
 // on the check.Decl universe the evaluator sees (spec 5.1; decision
 // 2026-11-06-eval-init-ready-order). The returned slice lists every
-// top-level let in declaration order — lexical file order across
-// files, source order within one — each carrying its vardep set.
+// variable-carrying top-level let in declaration order — lexical file
+// order across files, source order within one — each carrying its
+// vardep set.
 //
-// The two node kinds mirror the two core.Decl kinds the lowering
-// emits: a check.LetDecl is a variable node (its bound symbols share
-// one initializer, like the hidden temporary's VarDecl they lower
-// through), and a check.FnDecl — a `fn`, a flipped `let f = <lambda>`,
-// or a generalized value-let thunk — is a function node: never
-// initialized itself, but references through its body propagate
-// dependencies to its referencers, exactly like lower's FuncDecl set.
-// TypeDecls carry no initializer; TestDecl bodies run at test time —
-// neither joins the graph.
+// The node shapes mirror what lowering emits for each declaration
+// kind, read off the shared staticalias classification (one Index
+// per file — the scan is file-local like lower's): a check.LetDecl
+// is a variable node for its hidden temporary (the whole pattern
+// shares one effectful initializer), except the single shape that
+// lowers to a function alone — a VarPat static alias whose element
+// is the whole peeled initializer (`let f = g`) — which emits no
+// var at all. Symbols a pattern binds route by the same
+// classification: an alias symbol names the emitted ValueAlias
+// FuncDecl — a function node whose body is the element expression
+// the wrapper applies — while every other bound symbol names the
+// declaration's variable node (a projection is pure, so reading it
+// waits on the shared initializer). A check.FnDecl — a `fn`, a
+// flipped `let f = <lambda>`, or a generalized value-let thunk — is
+// a function node: never initialized itself, but references through
+// its body propagate dependencies to its referencers, exactly like
+// lower's FuncDecl set. TypeDecls carry no initializer; TestDecl
+// bodies run at test time — neither joins the graph.
 //
 // refset[n] is the set of package-level declarations n's body
 // references — Var, MemberExpr and Apply callees whose symbols name
@@ -74,25 +85,45 @@ func (n *initNode) ready() bool {
 // wait for — every variable reachable from v over refset paths that
 // pass only through functions. A var neighbour is a dependency in
 // itself; it is not traversed further.
-func buildInitGraph(files []*check.File, topLets map[*resolve.Symbol]*letInit) []*initNode {
+func buildInitGraph(files []*check.File, topLets map[*resolve.Symbol]*letInit, aliases map[*check.File]*staticalias.Index) []*initNode {
 	varNode := map[*resolve.Symbol]*initNode{}
 	funcs := map[*resolve.Symbol]*check.FnDecl{}
+	// aliasElem maps a static-alias bound symbol to the peeled
+	// element expression its emitted wrapper applies — the
+	// function-node body its references propagate through.
+	aliasElem := map[*resolve.Symbol]check.Expr{}
 	var nodes []*initNode
+	isFn := func(sym *resolve.Symbol) bool {
+		return funcs[sym] != nil || aliasElem[sym] != nil
+	}
 	for _, f := range files {
+		idx := aliases[f]
 		for _, d := range f.Decls {
 			switch d := d.(type) {
 			case *check.LetDecl:
-				n := &initNode{decl: d}
+				var n *initNode
+				if !pureAlias(d, idx) {
+					n = &initNode{decl: d}
+					nodes = append(nodes, n)
+				}
 				for _, s := range boundSyms(d.Pat) {
 					if s == nil {
 						continue
 					}
-					if n.init == nil {
+					if idx != nil && idx.Aliases[s] {
+						// An alias binding is the
+						// wrapper FuncDecl, not the
+						// shared variable node — a
+						// read resolves the function,
+						// never the hidden temp.
+						aliasElem[s] = idx.Elems[s]
+					} else if n != nil {
+						varNode[s] = n
+					}
+					if n != nil && n.init == nil {
 						n.init = topLets[s]
 					}
-					varNode[s] = n
 				}
-				nodes = append(nodes, n)
 			case *check.FnDecl:
 				if d.Sym != nil {
 					funcs[d.Sym] = d
@@ -126,7 +157,7 @@ func buildInitGraph(files []*check.File, topLets map[*resolve.Symbol]*letInit) [
 			// Only references into the unit's own declarations
 			// join the dependency set — constructor, builtin,
 			// module-member and Go symbols are not graph nodes.
-			if to != nil && (varNode[to] != nil || funcs[to] != nil) {
+			if to != nil && (varNode[to] != nil || isFn(to)) {
 				dst[to] = true
 			}
 		})
@@ -143,6 +174,13 @@ func buildInitGraph(files []*check.File, topLets map[*resolve.Symbol]*letInit) [
 		collect(dst, fd.Body)
 		fnRefs[sym] = dst
 	}
+	for sym, elem := range aliasElem {
+		// The emitted wrapper's body applies the element: its
+		// references are the element's own.
+		dst := map[*resolve.Symbol]bool{}
+		collect(dst, elem)
+		fnRefs[sym] = dst
+	}
 	for _, n := range nodes {
 		deps := map[*initNode]bool{}
 		seen := map[*resolve.Symbol]bool{}
@@ -154,7 +192,7 @@ func buildInitGraph(files []*check.File, topLets map[*resolve.Symbol]*letInit) [
 				// scan, not traversal order, picks each step.
 				if vn := varNode[h]; vn != nil {
 					deps[vn] = true
-				} else if funcs[h] != nil && !seen[h] {
+				} else if isFn(h) && !seen[h] {
 					seen[h] = true
 					rec(fnRefs[h])
 				}
@@ -164,4 +202,18 @@ func buildInitGraph(files []*check.File, topLets map[*resolve.Symbol]*letInit) [
 		n.deps = deps
 	}
 	return nodes
+}
+
+// pureAlias reports whether d lowers to a ValueAlias FuncDecl alone:
+// a VarPat static-alias binding whose element *is* the whole peeled
+// initializer (`let f = g`), so no hidden variable carries its
+// evaluation. Every other let shape — a non-alias pattern, an alias
+// with an effectful initializer the hidden temp still runs, an
+// aggregate destructure — emits a variable node.
+func pureAlias(d *check.LetDecl, idx *staticalias.Index) bool {
+	if idx == nil {
+		return false
+	}
+	vp, ok := d.Pat.(*check.VarPat)
+	return ok && idx.Aliases[vp.Sym] && !idx.Init[vp.Sym]
 }
