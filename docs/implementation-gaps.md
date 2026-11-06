@@ -1003,7 +1003,7 @@
   [fixture](../testdata/spec/E0401_ascribe_meta_id.gom)、
   [fixture](../testdata/spec/E0507_go_conv_meta_render.gom)。
 
-- [ ] **eval の初期化順は Go の ready-in-declaration-order とずれうる
+- [x] **eval の初期化順は Go の ready-in-declaration-order とずれうる
   （pre-existing、multi-file eval で記録）**: eval は依存を forcing 順に
   遅延駆動するが、Go は「準備完了の中で宣言が最も早い変数」を選ぶ。
   先に宣言された変数が後の変数へ推移的に依存し、その間に独立な
@@ -1011,12 +1011,38 @@
   （host 呼出しの戻り値が状態依存なら束縛値自体もずれうる）。同じ
   クラスで `test` 宣言も eval は宣言位置で実行・compiled は全 init
   完了後。単一ファイル時代から存在する機序で、`eval.NewFiles` の
-  decision §6 が制約として文書化。正しく揃えるには
-  `lower.CheckInitCycles` の vardep グラフを `check.Decl` 上へ移植
-  する必要がある（wave10 eval-multifile レビュー、future work 扱い）。
-  参照: [decision](decisions/2026-11-06-eval-package-unit.md) §6、
-  [eval/eval.go](../internal/eval/eval.go) `topLets`、
-  [lower init-cycle](../internal/lower/) `CheckInitCycles`。
+  decision §6 が制約として文書化。
+  対応: `lower.CheckInitCycles` の refset/vardep 解析を `check.Decl`
+  上に移植し（[internal/eval/initorder.go](../internal/eval/initorder.go)）、
+  eval の `Run` は「依存がすべて初期化済みの変数のうち宣言が最も早い
+  もの」を毎ステップ選ぶ frontier 駆動に変更。`test` 宣言は全 init
+  完了後に実行、`main` は最後。通常の let/fn では compiled と stdout
+  が一致することを検証済み。残るずれは直下の残差項目へ（wave12
+  eval-forcing）。
+  参照: [decision](decisions/2026-11-06-eval-init-ready-order.md)、
+  [検証](sketch/2026-11-06-eval-init-ready-order-verification.md)、
+  [比較テスト](../internal/build/diff_initorder_test.go)。
+
+- [ ] **残差: ValueAlias FuncDecl に下る let の初期化順ずれ**: lower が
+  static 関数 alias（ValueAlias FuncDecl）へ落とす `check.LetDecl` は
+  check レベルではまだ var のままで、eval のグラフは core とノードの
+  種別がずれる。ずれは2形態で観測できる: (a) `let f = { …; count }`
+  のような副作用つき alias 初期化式は hidden 一時 var + wrapper に
+  分割され、Go では呼び出し側は temp に依存しないのに eval では `f`
+  への参照が var 依存となり呼び出し側より先に副作用が走る（実測:
+  compiled `w,a,f-tmp` / eval `w,f,a`）。(b) `let f = g` のような
+  pure alias でも、関数パスが alias 自身へ戻るループ
+  （`fn g = { ignore (f); … }`）では `g` 本体の `f` 参照が varNode
+  を指し `f` に自己依存が生じて never-ready → leftover sweep で
+  宣言順強制される（実測: compiled `w,z` / eval `z,w`。ループを
+  含まない pure alias は `f` のスロットが不可視なため観測上一致）。
+  分類ロジック（`internal/lower/alias.go`: `bindElems`、推移的
+  `static()`、`initNeedsEval`、arity/thunks index）はすべて
+  check.Decl/check.Expr 上で動くため、共有層への引き上げは
+  ファイル移動に近い。
+  参照: [decision](decisions/2026-11-06-eval-init-ready-order.md) §5、
+  [検証](sketch/2026-11-06-eval-init-ready-order-verification.md)、
+  [alias.go](../internal/lower/alias.go)。
 
 - [x] **design.md §2.6 の "file-wide" が V-6 以降 unit-wide とずれ**:
   builtin 名の `type` 宣言の shadowing はパッケージ単位（check の
