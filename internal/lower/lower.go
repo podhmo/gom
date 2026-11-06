@@ -94,6 +94,16 @@ type GoSig struct {
 	// types the call binds at, in result order (the `(T, error)`
 	// shape has two). Nil means "each result is its Gom-view type".
 	ResTypes []types.Type
+	// ResNilable reports whether result 0's Go type is a
+	// method-bearing interface (`error`, `net.Error`, `io.Reader`,
+	// a user interface) — a nil there is a real claim the Gom side
+	// cannot observe by ordinary use. A declared non-Option
+	// `Result T GoError` payload over it is the never-nil claim the
+	// boundary checks (docs/decisions/
+	// 2026-11-06-nilable-iface-pair-ok-payload.md). `*T`, `any`,
+	// named empty interfaces, and slice/map/chan results do not
+	// count: their nils are observable or inert.
+	ResNilable bool
 	// TypeParams is the callee's own rigid type variables in
 	// declared order, parallel to the instantiation
 	// `check.CallInfo.TypeArgs` records for a generic Go callee.

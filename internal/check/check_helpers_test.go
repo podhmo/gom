@@ -433,8 +433,11 @@ func applys(d *FnDecl) []*Apply {
 	return out
 }
 
-// expectCall asserts the CallInfo fields of an apply node.
-func expectCall(t *testing.T, a *Apply, kind CallKind, arity, applied, unapplied int, argToParam []int) {
+// expectCall asserts the CallInfo fields of an apply node: kind,
+// declared arity, the flattened arity the ArgToParam positions
+// index (FlatArity — 0 encodes "same as Arity"), the applied and
+// unapplied counts, and the arg-to-parameter mapping.
+func expectCall(t *testing.T, a *Apply, kind CallKind, arity, flat, applied, unapplied int, argToParam []int) {
 	t.Helper()
 	if a == nil {
 		t.Fatal("no Apply node found")
@@ -448,6 +451,9 @@ func expectCall(t *testing.T, a *Apply, kind CallKind, arity, applied, unapplied
 	}
 	if c.Arity != arity {
 		t.Errorf("arity = %d, want %d", c.Arity, arity)
+	}
+	if c.Flat() != flat {
+		t.Errorf("flat arity = %d, want %d", c.Flat(), flat)
 	}
 	if c.Applied != applied {
 		t.Errorf("applied = %d, want %d", c.Applied, applied)

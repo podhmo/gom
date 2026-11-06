@@ -34,39 +34,115 @@ type goCall struct {
 	holeAt int     // the hole's declaration-order parameter position
 }
 
+// deepArg is a labeled argument whose parameter belongs to a level
+// deeper than the function value being applied — the `~b:` of
+// `f ~b: v` on `f (~a) -> ~b -> T`. CallInfo.ArgToParam indexes the
+// callee's whole flattened parameter list (docs/decisions/
+// 2026-11-06-label-args-into-returned-functions.md); the arg binds
+// once application reaches the level that owns it.
+type deepArg struct {
+	pos int   // the arg's flat position in the call's parameter list
+	arg Value // the already-evaluated argument
+}
+
 // applyArgs applies a function value to args whose positions index
-// f.Remaining() (per check.CallInfo.ArgToParam, identity when nil).
+// the call's flattened parameter list (per check.CallInfo.
+// ArgToParam, identity when nil). Positions inside this VFunc's own
+// level bind now — via Remaining(), the open slots in declaration
+// order; positions past it are deep args the result levels answer.
 // Extra args beyond the remaining arity are applied one at a time to
 // whatever the saturated call returns (over-application, spec
 // section 1.3 currying semantics).
 func (e *interp) applyArgs(f *VFunc, positions []int, args []Value, sp diag.Span) Value {
 	nf := cloneFunc(f)
 	rem := nf.Remaining()
+	var deep []deepArg
 	i := 0
 	for ; i < len(args); i++ {
-		if i >= len(rem) {
-			break // over-application: saturate first
+		if positions == nil && i >= len(rem) {
+			break // over-application: saturate this level first
 		}
 		pos := i
 		if positions != nil {
 			pos = positions[i]
 		}
-		if pos < 0 || pos >= len(rem) {
+		if pos < 0 {
 			failData(CodeInternal, "argument position out of range", sp,
 				"position", pos)
 		}
+		if pos >= len(rem) {
+			// The arg names a parameter of a level this VFunc
+			// does not span — it binds when the chain reaches
+			// that level.
+			deep = append(deep, deepArg{pos: pos, arg: args[i]})
+			continue
+		}
 		nf.bound[rem[pos]] = slot{set: true, v: args[i]}
 	}
-	var v Value
+	if len(deep) == 0 {
+		var v Value
+		if len(nf.Remaining()) == 0 {
+			v = e.invoke(nf, sp)
+		} else {
+			v = nf
+		}
+		for ; i < len(args); i++ {
+			v = e.applyOne(v, args[i], sp)
+		}
+		return v
+	}
 	if len(nf.Remaining()) == 0 {
-		v = e.invoke(nf, sp)
-	} else {
-		v = nf
+		// This level saturated: invoke, then feed the deep args
+		// to the levels the result carries.
+		v := e.invoke(nf, sp)
+		return e.applyDeep(v, deep, f.Arity(), sp)
 	}
-	for ; i < len(args); i++ {
-		v = e.applyOne(v, args[i], sp)
+	// A gap stays open at this level — the call is a partial
+	// application. Eta-expand: the returned function takes this
+	// level's remaining parameters in remaining order, invokes,
+	// then feeds the deep args to the result's levels — the
+	// evaluator's twin of the Closure partialCall emits.
+	rem2 := nf.Remaining()
+	ps := make([]types.FuncParam, len(rem2))
+	for k, r := range rem2 {
+		if r < len(nf.sig.Params) {
+			ps[k] = nf.sig.Params[r]
+		}
 	}
-	return v
+	consumed := f.Arity()
+	pending := deep
+	g := funcOfType(nf.name, fnBuiltin, &types.Func{Params: ps, Ret: types.Unit})
+	g.builtin = func(etas []Value) (Value, error) {
+		for k, a := range etas {
+			nf.bound[rem2[k]] = slot{set: true, v: a}
+		}
+		v := e.invoke(nf, sp)
+		return e.applyDeep(v, pending, consumed, sp), nil
+	}
+	return g
+}
+
+// applyDeep feeds deep args to the function levels a result value
+// carries: a flat position of the call's parameter list is position
+// pos-consumed of the chain left after this level. Positions still
+// out of range keep descending — `f ~c: v` on `(~a) -> (~b) ->
+// (~c) -> T` passes through every level until `~c`'s.
+func (e *interp) applyDeep(v Value, deep []deepArg, consumed int, sp diag.Span) Value {
+	if len(deep) == 0 {
+		return v
+	}
+	f, ok := v.(*VFunc)
+	if !ok {
+		failData(CodeInternal, "labeled argument applied to a non-function result", sp,
+			"value", v.String())
+	}
+	positions := make([]int, len(deep))
+	args := make([]Value, len(deep))
+	for i, d := range deep {
+		positions[i] = d.pos - consumed
+		args[i] = d.arg
+	}
+	return e.applyArgs(f, positions, args, sp)
 }
 
 // applyOne applies one positional argument to the next remaining

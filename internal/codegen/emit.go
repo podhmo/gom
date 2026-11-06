@@ -679,15 +679,17 @@ func (g *gen) escapeCall(e *core.EscapeCall, d dest) {
 		g.nl()
 		g.errIf(e.Sp, err, e.Wrap, e.To)
 		if e.NilGuard {
-			// The declared `Result GoError GoError` view claims
-			// the payload is a real error whenever no error
-			// escapes — errIf already returned on a non-nil
-			// err, so a nil v here is exactly `(nil, nil)`:
-			// a contract violation (spec section 8.6).
+			// The declared verbatim `Result T GoError` view
+			// (e.g. `Result GoError GoError`, `Result
+			// net.Error GoError`) claims the payload is a
+			// real value whenever no error escapes — errIf
+			// already returned on a non-nil err, so a nil v
+			// here is exactly `(nil, nil)`: a contract
+			// violation (spec section 8.6).
 			g.raw("if " + v + " == nil")
 			g.open()
 			g.line(e.Sp)
-			g.raw("panic(" + strconv.Quote("gom: "+goCallName(e.Call)+" returned (nil, nil) — its binding declares a never-nil GoError payload") + ")")
+			g.raw("panic(" + strconv.Quote("gom: "+goCallName(e.Call)+" returned (nil, nil) — its binding declares a never-nil payload") + ")")
 			g.nl()
 			g.close()
 		}
@@ -779,15 +781,15 @@ func (g *gen) resultFromGo(e *core.ResultFromGo, d dest) {
 		g.expr(call)
 		g.nl()
 		if e.NilGuard {
-			// `Result GoError GoError` claims the payload is a
-			// real error whenever the second result is nil —
-			// a `(nil, nil)` return violates it; a `(nil, err)`
-			// pair keeps the ordinary Err reading, so the
-			// check guards `err == nil` too.
+			// A verbatim `Result T GoError` payload claims the
+			// payload is a real value whenever the second
+			// result is nil — a `(nil, nil)` return violates
+			// it; a `(nil, err)` pair keeps the ordinary Err
+			// reading, so the check guards `err == nil` too.
 			g.raw("if " + err + " == nil && " + v + " == nil")
 			g.open()
 			g.line(e.Sp)
-			g.raw("panic(" + strconv.Quote("gom: "+goCallName(e.Call)+" returned (nil, nil) — its binding declares a never-nil GoError payload") + ")")
+			g.raw("panic(" + strconv.Quote("gom: "+goCallName(e.Call)+" returned (nil, nil) — its binding declares a never-nil payload") + ")")
 			g.nl()
 			g.close()
 		}

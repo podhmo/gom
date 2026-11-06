@@ -21,7 +21,7 @@ func strict(_ struct{}) result.Result[error, error] {
 	v1, err1 := goiface.BothNil()
 	if err1 == nil && v1 == nil {
 //line error_pair_views.gom:18
-		panic("gom: goiface.BothNil returned (nil, nil) — its binding declares a never-nil GoError payload")
+		panic("gom: goiface.BothNil returned (nil, nil) — its binding declares a never-nil payload")
 	}
 	return result.FromGo(v1, err1)
 }
@@ -43,7 +43,7 @@ func probe(n int64) result.Result[error, error] {
 	}
 	if e == nil {
 //line error_pair_views.gom:27
-		panic("gom: goiface.StrictPair returned (nil, nil) — its binding declares a never-nil GoError payload")
+		panic("gom: goiface.StrictPair returned (nil, nil) — its binding declares a never-nil payload")
 	}
 //line error_pair_views.gom:28
 	return result.Ok[error, error](e)

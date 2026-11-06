@@ -1,0 +1,15 @@
+package ex
+
+import go "fmt"
+
+fn inner (~b: Int) -> Int = b * 100
+
+// spec section 2: a `~label:` names a parameter anywhere in the
+// callee's flattened type — including a returned-function level's.
+// `same ~b: 3` is the partial application `fn ~a -> same ~a ~b: 3`;
+// `same ~b: 3 ~a: 1` applies `same(1)(3)`.
+fn same (~a: Int) -> ~b: Int -> Int = inner
+
+let h = same ~b: 3
+
+fn deep () -> Int = same ~b: 3 ~a: 1 + h ~a: 2

@@ -25,7 +25,7 @@ func TestCallDirect(t *testing.T) {
 	requireCodes(t, diags)
 	d := findDecl[*FnDecl](f, 1)
 	a := applyAt(d.Body)
-	expectCall(t, a, CallDirect, 2, 2, 0, nil)
+	expectCall(t, a, CallDirect, 2, 2, 2, 0, nil)
 	if a.Call.Callee != addSym {
 		t.Errorf("callee = %v, want the add symbol", a.Call.Callee)
 	}
@@ -52,7 +52,7 @@ func TestCallDirectRecursive(t *testing.T) {
 	requireCodes(t, diags)
 	d := findDecl[*FnDecl](f, 0)
 	a := firstApply(d)
-	expectCall(t, a, CallDirect, 1, 1, 0, nil)
+	expectCall(t, a, CallDirect, 1, 1, 1, 0, nil)
 	if a.Call.Callee != factSym {
 		t.Errorf("callee = %v, want fact", a.Call.Callee)
 	}
@@ -86,7 +86,7 @@ func TestCallPartial(t *testing.T) {
 	requireCodes(t, diags)
 	d := findDecl[*FnDecl](f, 1)
 	a := applyAt(d.Body)
-	expectCall(t, a, CallPartial, 3, 2, 1, nil)
+	expectCall(t, a, CallPartial, 3, 3, 2, 1, nil)
 	// The result type keeps the missing labeled parameter.
 	if got := a.Type().String(); got != "~amount: Int -> Unit" {
 		t.Errorf("partial type = %s, want `~amount: Int -> Unit`", got)
@@ -124,7 +124,7 @@ func TestCallLabeledReorder(t *testing.T) {
 	requireCodes(t, diags)
 	d := findDecl[*FnDecl](f, 1)
 	a := applyAt(d.Body)
-	expectCall(t, a, CallDirect, 3, 3, 0, []int{2, 1, 0})
+	expectCall(t, a, CallDirect, 3, 3, 3, 0, []int{2, 1, 0})
 	if a.Args[0].Label != "amount" || a.Args[1].Label != "to" || a.Args[2].Label != "" {
 		t.Errorf("args labels = %q,%q,%q — source order must be kept",
 			a.Args[0].Label, a.Args[1].Label, a.Args[2].Label)
@@ -154,7 +154,7 @@ func TestCallUnknownLabel(t *testing.T) {
 	d := findDecl[*FnDecl](f, 1)
 	a := applyAt(d.Body)
 	// One applied arg on a two-parameter function: under-applied.
-	expectCall(t, a, CallPartial, 2, 1, 1, nil)
+	expectCall(t, a, CallPartial, 2, 2, 1, 1, nil)
 }
 
 // The same recovery in a saturated call yields CallDirect.
@@ -173,7 +173,7 @@ func TestCallUnknownLabelSaturated(t *testing.T) {
 	requireCodes(t, diags, "E0406")
 	d := findDecl[*FnDecl](f, 1)
 	a := applyAt(d.Body)
-	expectCall(t, a, CallDirect, 2, 3, 0, nil)
+	expectCall(t, a, CallDirect, 2, 2, 3, 0, nil)
 }
 
 // A label supplied twice is E0405 at the second label.
@@ -224,7 +224,7 @@ func TestCallDeclaredArity(t *testing.T) {
 	requireCodes(t, diags)
 	d := findDecl[*FnDecl](f, 1)
 	a := applyAt(d.Body)
-	expectCall(t, a, CallDirect, 1, 2, 0, nil)
+	expectCall(t, a, CallDirect, 1, 2, 2, 0, nil)
 	if got := a.Type().String(); got != "Int" {
 		t.Errorf("over-applied type = %s, want Int", got)
 	}
@@ -248,7 +248,7 @@ func TestCallDeclaredAritySaturated(t *testing.T) {
 	requireCodes(t, diags)
 	d := findDecl[*FnDecl](f, 1)
 	a := applyAt(d.Body)
-	expectCall(t, a, CallDirect, 1, 1, 0, nil)
+	expectCall(t, a, CallDirect, 1, 2, 1, 0, nil)
 	if got := a.Type().String(); got != "Int -> Int" {
 		t.Errorf("type = %s, want `Int -> Int`", got)
 	}
@@ -269,7 +269,7 @@ func TestCallUnknown(t *testing.T) {
 	requireCodes(t, diags)
 	d := findDecl[*FnDecl](f, 0)
 	a := applyAt(d.Body)
-	expectCall(t, a, CallUnknown, 2, 2, 0, nil)
+	expectCall(t, a, CallUnknown, 2, 2, 2, 0, nil)
 	if a.Call.Callee != nil {
 		t.Errorf("CallUnknown with callee %v", a.Call.Callee)
 	}
@@ -290,7 +290,7 @@ func TestCallCtor(t *testing.T) {
 	requireCodes(t, diags)
 	d := findDecl[*FnDecl](f, 0)
 	a := applyAt(d.Body)
-	expectCall(t, a, CallDirect, 1, 1, 0, nil)
+	expectCall(t, a, CallDirect, 1, 1, 1, 0, nil)
 	if a.Call.Callee != circleSym {
 		t.Errorf("callee = %v, want Circle", a.Call.Callee)
 	}
@@ -312,7 +312,7 @@ func TestCallBuiltinCtor(t *testing.T) {
 	requireCodes(t, diags)
 	ld := findDecl[*LetDecl](f, 0)
 	a := applyAt(ld.Value)
-	expectCall(t, a, CallDirect, 1, 1, 0, nil)
+	expectCall(t, a, CallDirect, 1, 1, 1, 0, nil)
 	if got := a.Type().String(); got != "Option Int" {
 		t.Errorf("ctor type = %s, want `Option Int`", got)
 	}

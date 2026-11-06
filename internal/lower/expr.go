@@ -387,10 +387,11 @@ func (l *lowerer) goFuncRefOrAdapter(sp diag.Span, typ types.Type, sym *resolve.
 		call := &core.CallGo{
 			Sp: sp, Typ: l.goCallTyp(sig, fs.Ret),
 			Callee: sym, Recv: recv, TypeArgs: targs,
-			Args:     l.convGoArgs(bs, sig, pv, false),
-			Arity:    sig.Arity,
-			Variadic: sig.Variadic,
-			Results:  sig.Results,
+			Args:       l.convGoArgs(bs, sig, pv, false),
+			Arity:      sig.Arity,
+			Variadic:   sig.Variadic,
+			Results:    sig.Results,
+			ResNilable: sig.ResNilable,
 		}
 		x := l.wrapGoResult(bs, call, fs.Ret)
 		if sig.Results == core.GoResultsOne {
@@ -508,10 +509,10 @@ func (l *lowerer) wrapGoResult(s *seq, call *core.CallGo, resTyp types.Type) cor
 			l.err(call.Sp, fmt.Sprintf("Go (T, error) call typed %s, not a Result", resTyp))
 		} else if call.Results == core.GoResultsErr {
 			vc = l.goConvKind(call, call.Typ, a)
-			// A `GoError` payload over an `error`-typed first
-			// result is the never-nil claim — verify it at the
-			// boundary (spec section 8.6).
-			guard = l.isGoError(a) && l.isGoError(call.Typ)
+			// A verbatim non-Option payload over a
+			// method-iface-typed first result is the never-nil
+			// claim — verify it at the boundary (spec section 8.6).
+			guard = l.payloadNilGuard(call, resTyp)
 		}
 		return &core.ResultFromGo{Base: base, Call: call, ValConv: vc, NilGuard: guard}
 	case core.GoResultsOK:
@@ -900,7 +901,12 @@ func (l *lowerer) directCall(s *seq, sp diag.Span, resTyp types.Type, callee che
 		l.err(sp, "CallDirect with no callee")
 		return l.litUnit(sp)
 	}
-	ordered := declOrderArgs(ci, args, ci.Arity)
+	// The reorder domain is the flattened parameter list: a `~label:`
+	// may have filled a slot past the declared arity — those atoms
+	// land in ordered[ci.Arity:] and chain onto the returned
+	// function exactly like positional extras (docs/decisions/
+	// 2026-11-06-label-args-into-returned-functions.md).
+	ordered := declOrderArgs(ci, args, ci.Flat())
 	switch sym.Kind {
 	case resolve.KindFunc:
 		if sym.IsGo {
@@ -916,14 +922,23 @@ func (l *lowerer) directCall(s *seq, sp diag.Span, resTyp types.Type, callee che
 		}
 		// Over-application: saturate the declared arity, then apply
 		// the returned function value to the extras one argument per
-		// CallFunc, like CallUnknown.
+		// CallFunc, like CallUnknown. Slots past the highest filled
+		// position stay nil — a CallDirect's filled positions form
+		// a prefix, so every atom the tail carries is a real
+		// operand.
 		first := &core.CallDirect{
 			Sp: sp, Typ: overAppRetType(callee, ci),
 			Callee: sym, TypeArgs: ci.TypeArgs,
 			Args: ordered[:ci.Arity], Arity: ci.Arity,
 		}
 		t := l.asAtom(s, sp, first)
-		return l.callFuncChunks(s, sp, t, ordered[ci.Arity:])
+		var rest []core.Atom
+		for _, a := range ordered[ci.Arity:] {
+			if a != nil {
+				rest = append(rest, a)
+			}
+		}
+		return l.callFuncChunks(s, sp, t, rest)
 	case resolve.KindCtor:
 		if ci.Applied != ci.Arity {
 			l.err(sp, fmt.Sprintf("constructor %s application is not saturated (%d/%d)", sym.Name, ci.Applied, ci.Arity))
@@ -1004,10 +1019,18 @@ func (l *lowerer) partialCall(s *seq, sp diag.Span, resTyp types.Type, callee ch
 		l.err(sp, fmt.Sprintf("partial application typed %s, not a function", resTyp))
 		return l.litUnit(sp)
 	}
-	calleeSig := sigOf(callee.Type())
+	// The fill domain is the callee's flattened parameter list:
+	// a `~label:` may already have bound a returned-function
+	// level's slot while an earlier one stays open (`f ~b:`), so
+	// the closure binds every unfilled *flat* position in
+	// declaration order and the saturated call chains onto the
+	// deeper levels the written args filled (docs/decisions/
+	// 2026-11-06-label-args-into-returned-functions.md).
+	flat := ci.Flat()
+	calleeSig := flatSig(callee.Type())
 	filled := filledParams(ci, args)
 	var unapplied []int
-	for i := 0; i < ci.Arity; i++ {
+	for i := 0; i < flat; i++ {
 		if !filled[i] {
 			unapplied = append(unapplied, i)
 		}
@@ -1023,17 +1046,28 @@ func (l *lowerer) partialCall(s *seq, sp diag.Span, resTyp types.Type, callee ch
 		})
 	}
 	return l.closureChain(sp, resTyp, paramTyps, func(bs *seq, pv []core.Atom) core.Expr {
-		ordered := declOrderArgs(ci, args, ci.Arity)
+		ordered := declOrderArgs(ci, args, flat)
 		for k, i := range unapplied {
 			ordered[i] = pv[k]
 		}
 		switch sym.Kind {
 		case resolve.KindFunc:
-			return &core.CallDirect{
+			direct := &core.CallDirect{
 				Sp: sp, Typ: retAfter(calleeSig, ci.Arity),
 				Callee: sym, TypeArgs: ci.TypeArgs,
 				Args: ordered[:ci.Arity], Arity: ci.Arity,
 			}
+			var rest []core.Atom
+			for _, a := range ordered[ci.Arity:] {
+				if a != nil {
+					rest = append(rest, a)
+				}
+			}
+			if len(rest) == 0 {
+				return direct
+			}
+			t := l.asAtom(bs, sp, direct)
+			return l.callFuncChunks(bs, sp, t, rest)
 		case resolve.KindCtor:
 			return &core.CtorApp{
 				Sp: sp, Typ: retAfter(calleeSig, ci.Arity),
@@ -1207,6 +1241,7 @@ func (l *lowerer) goCall(s *seq, sp diag.Span, resTyp types.Type, ci check.CallI
 				Args:  filled,
 				Arity: ci.Arity, Variadic: ci.Variadic,
 				Spread: spread, Results: sig.Results,
+				ResNilable: sig.ResNilable,
 			}
 			x := l.wrapGoResult(bs, call, remTyp.Ret)
 			if sig.Results == core.GoResultsOne {
@@ -1222,6 +1257,7 @@ func (l *lowerer) goCall(s *seq, sp diag.Span, resTyp types.Type, ci check.CallI
 		Args:  ordered,
 		Arity: ci.Arity, Variadic: ci.Variadic,
 		Spread: spread, Results: sig.Results,
+		ResNilable: sig.ResNilable,
 	}
 	x := l.wrapGoResult(s, call, resTyp)
 	if sig.Results == core.GoResultsOne {
@@ -1262,8 +1298,9 @@ func (l *lowerer) goCallNode(s *seq, ap *check.Apply) *core.CallGo {
 		Callee: ci.Callee, Recv: recv, TypeArgs: ci.TypeArgs,
 		Args:  l.convGoArgs(s, sig, declOrderArgs(ci, args, 0), spread),
 		Arity: ci.Arity, Variadic: ci.Variadic,
-		Spread:  spread,
-		Results: sig.Results,
+		Spread:     spread,
+		Results:    sig.Results,
+		ResNilable: sig.ResNilable,
 	}
 }
 
@@ -1622,18 +1659,33 @@ func (l *lowerer) bindAtom(s *seq, sp diag.Span, a core.Atom) core.Atom {
 
 // appendArg adjusts a CallInfo for the pipe-synthesized trailing
 // argument: one more argument applied, filling the lowest unfilled
-// parameter (ArgToParam stays nil once the call is over-applied).
+// parameter. A nil ArgToParam is the identity mapping — the piped
+// argument lands on its own index — so it stays nil.
 func appendArg(ci *check.CallInfo) {
 	ci.Applied++
-	if len(ci.ArgToParam) > 0 || ci.Applied <= ci.Arity {
+	if len(ci.ArgToParam) > 0 {
 		pos := lowestUnfilled(*ci)
 		ci.ArgToParam = append(append([]int{}, ci.ArgToParam...), pos)
 	}
-	// A partial application saturated by the piped argument is an
-	// ordinary direct call now — no residual Closure.
-	if ci.Kind == check.CallPartial && ci.Applied >= ci.Arity {
-		ci.Kind = check.CallDirect
-		ci.Unapplied = 0
+	// A partial application saturated to a prefix covering the
+	// declared level is an ordinary direct call now — no residual
+	// Closure. Anything else stays partial: a `~label:` may hold a
+	// returned-function level's slot while a declared parameter is
+	// still open (`x |> g ~c: 7`), and a bare `Applied >= Arity`
+	// count would promote such a call into a CallDirect that either
+	// misbinds the deep argument or leaves a nil atom inside the
+	// saturated prefix. Re-classify on the filled flat positions —
+	// the rule the checker applies (check.ClassMappedCall) — and
+	// refresh the flat-domain unfilled count when partial.
+	if ci.Kind == check.CallPartial {
+		mapping := ci.ArgToParam
+		if len(mapping) == 0 {
+			mapping = make([]int, ci.Applied)
+			for i := range mapping {
+				mapping[i] = i
+			}
+		}
+		ci.Kind, ci.Unapplied = check.ClassMappedCall(mapping, ci.Flat(), ci.Arity)
 	}
 }
 
@@ -1734,18 +1786,21 @@ func (l *lowerer) pipeGoElemCall(s *seq, callee check.Expr, piped func() core.At
 }
 
 // lowestUnfilled is the smallest callee-parameter index no written
-// argument fills — where a pipe-appended argument lands.
+// argument fills — where a pipe-appended argument lands. The scan
+// runs over the flattened parameter list: a partial application may
+// already hold a returned-function level's slot while an earlier
+// one stays open.
 func lowestUnfilled(ci check.CallInfo) int {
 	used := map[int]bool{}
 	for _, p := range ci.ArgToParam {
 		used[p] = true
 	}
-	for i := 0; i < ci.Arity; i++ {
+	for i := 0; i < ci.Flat(); i++ {
 		if !used[i] {
 			return i
 		}
 	}
-	return ci.Arity
+	return ci.Flat()
 }
 
 // compose lowers `f >> g` / `g << f` into a closure
@@ -2319,15 +2374,22 @@ func (l *lowerer) payloadOf(t types.Type) types.Type {
 
 // payloadNilGuard reports whether a `(T, error)` Go call's payload
 // carries the declared never-nil claim — `Result GoError GoError`
-// over `(error, error)` — the boundary verifies with `if v == nil
+// over `(error, error)`, or `Result net.Error GoError` over
+// `(net.Error, error)` — the boundary verifies with `if v == nil
 // { panic }` (spec section 8.6). want is the Gom-facing Result
-// type; the claim only exists when both the declared payload and
-// the raw first result spell `error`.
+// type. The claim exists when the raw first result is a
+// method-bearing interface (call.ResNilable — a nil there is
+// unobservable by ordinary Gom use) and the declared payload spells
+// that same interface verbatim rather than Option-wrapping it.
 func (l *lowerer) payloadNilGuard(call *core.CallGo, want types.Type) bool {
-	if call.Results != core.GoResultsErr || !l.isGoError(call.Typ) {
+	if call.Results != core.GoResultsErr || !call.ResNilable {
 		return false
 	}
-	return l.isGoError(l.payloadOf(want))
+	p := l.payloadOf(want)
+	if c, isOpt := isCon(p, "", "Option"); isOpt && l.isOptionCon(c) {
+		return false // the declared view reads nil as None — no claim
+	}
+	return types.Equal(p, call.Typ)
 }
 
 // isGoError reports whether the error half of a Result is the

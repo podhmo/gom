@@ -139,6 +139,12 @@ type CallGo struct {
 	Variadic bool      // the callee's last parameter is variadic
 	Spread   bool      // the last arg is spliced `a...`; requires Variadic
 	Results  GoResults // result shape
+	// ResNilable reports whether result 0's Go type is a
+	// method-bearing interface — a declared non-Option `Result T
+	// GoError` payload over it is the never-nil claim the boundary
+	// panics on (`if err == nil && v == nil`). lower.GoSig carries
+	// the same fact from go/types.
+	ResNilable bool
 }
 
 func (*CallGo) isExpr() {}

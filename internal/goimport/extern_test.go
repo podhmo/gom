@@ -149,7 +149,7 @@ extern go "strconv" {
   fn Itoa (i: Int) -> Option String
 }
 `)
-	wantDiag(t, ds, "E0509", "Option needs a (T, bool), *T, or error result")
+	wantDiag(t, ds, "E0509", "Option needs a (T, bool) pair or a nil-able result (*T or interface)")
 }
 
 // `Result` for a comma-ok result is a lie the other way — `bool` is
@@ -180,6 +180,86 @@ func TestExternErrorPairViews(t *testing.T) {
 	for _, decl := range []string{
 		"fn TwoErrs (n: Int) -> Result (Option GoError) GoError",
 		"fn TwoErrs (n: Int) -> Result GoError GoError",
+	} {
+		ds := compileDiags(t, l, `package main
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+extern go "github.com/podhmo/gom/testdata/goiface" {
+  `+decl+`
+}
+`)
+		for _, d := range ds {
+			if d.Severity == diag.SeverityError {
+				t.Fatalf("%s: unexpected diagnostic %s: %s", decl, d.Code, d.Message)
+			}
+		}
+	}
+}
+
+// `(I, error)` for a method-bearing interface I admits both the
+// honest `Result (Option T) GoError` and the never-nil claim
+// `Result T GoError` — `net.Error` through the `NetError` alias,
+// and a user interface through `Tagger`.
+func TestExternIfacePairViews(t *testing.T) {
+	t.Parallel()
+
+	l := loaderFor(t)
+	for _, decl := range []string{
+		"fn NetErr (n: Int) -> Result (Option NetError) GoError",
+		"fn NetErr (n: Int) -> Result NetError GoError",
+		"fn TagOr (n: Int) -> Result (Option Tagger) GoError",
+		"fn TagOr (n: Int) -> Result Tagger GoError",
+	} {
+		ds := compileDiags(t, l, `package main
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+extern go "github.com/podhmo/gom/testdata/goiface" {
+  `+decl+`
+}
+`)
+		for _, d := range ds {
+			if d.Severity == diag.SeverityError {
+				t.Fatalf("%s: unexpected diagnostic %s: %s", decl, d.Code, d.Message)
+			}
+		}
+	}
+}
+
+// `(Empty, error)` — a named *empty* interface — admits the
+// declared `Result (Option Empty) GoError` view too: the nil-able
+// gate is interfaces generally, not only method-bearing ones.
+func TestExternEmptyIfacePairOptionView(t *testing.T) {
+	t.Parallel()
+
+	l := loaderFor(t)
+	ds := compileDiags(t, l, `package main
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+extern go "github.com/podhmo/gom/testdata/goiface" {
+  fn EmptyOr (n: Int) -> Result (Option Empty) GoError
+}
+`)
+	for _, d := range ds {
+		if d.Severity == diag.SeverityError {
+			t.Fatalf("unexpected diagnostic %s: %s", d.Code, d.Message)
+		}
+	}
+}
+
+// Lone interface results admit the `Option` view — `Option
+// Tagger` over `Tagger` and `Option Empty` over the named empty
+// interface (the `Option io.Reader`/`Option any` shapes of spec
+// 8.4).
+func TestExternLoneIfaceOptionView(t *testing.T) {
+	t.Parallel()
+
+	l := loaderFor(t)
+	for _, decl := range []string{
+		"fn LoneTagger (filled: Bool) -> Option Tagger",
+		"fn LoneEmpty (filled: Bool) -> Option Empty",
 	} {
 		ds := compileDiags(t, l, `package main
 
@@ -321,7 +401,7 @@ extern go "flag" {
   fn Lookup (name: String) -> Option Flag
 }
 `)
-	wantDiag(t, ds, "E0509", "Option (Ptr T)")
+	wantDiag(t, ds, "E0509", "Option (Ptr flag.Flag)")
 }
 
 // The zero-argument spelling: `fn F ()` declares a Go function

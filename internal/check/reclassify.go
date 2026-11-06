@@ -30,30 +30,40 @@ func (c *checker) reclassifyCalls(sym *resolve.Symbol, arity int, rhs Expr) {
 			return
 		}
 		ci := &a.Call
+		// CallUnknown recorded the whole flattened parameter list
+		// as its arity — ArgToParam's domain. Capture it before
+		// Arity narrows to the declared parameter list: a `~b:`
+		// naming a returned-function level's parameter keeps its
+		// mapping, and the call re-classifies against the flat
+		// prefix the way checkGomApply would have classified it
+		// had the kind already flipped (docs/decisions/
+		// 2026-11-06-label-args-into-returned-functions.md).
+		flat := ci.Flat()
+		if flat < arity {
+			flat = arity
+		}
 		ci.Callee = sym
 		ci.Arity = arity
-		if ci.Applied >= arity {
-			ci.Kind = CallDirect
-		} else {
-			ci.Kind = CallPartial
-			ci.Unapplied = arity - ci.Applied
-		}
-		// ArgToParam was normalized against the flattened
-		// parameter list, whose slots the declared arity may not
-		// cover: an over-applied call cannot carry a mapping at
-		// all, and an entry pointing into a parameter of the
-		// returned function is an over-application too.
+		ci.FlatArity = flat
 		if ci.ArgToParam != nil {
-			keep := ci.Applied <= arity
 			for _, p := range ci.ArgToParam {
-				if p < 0 || p >= arity {
-					keep = false
+				if p < 0 || p >= flat {
+					// A mapping entry outside the flat list is a
+					// broken invariant — drop the whole mapping
+					// and classify positionally rather than panic
+					// in Validate.
+					ci.ArgToParam = nil
 					break
 				}
 			}
-			if !keep {
-				ci.ArgToParam = nil
-			}
+		}
+		if ci.ArgToParam != nil {
+			ci.Kind, ci.Unapplied = ClassMappedCall(ci.ArgToParam, flat, arity)
+		} else if ci.Applied >= arity {
+			ci.Kind = CallDirect
+		} else {
+			ci.Kind = CallPartial
+			ci.Unapplied = flat - ci.Applied
 		}
 		if err := a.Validate(); err != nil {
 			panic(fmt.Sprintf("check: reclassified CallInfo for %s: %v", sym.Name, err))

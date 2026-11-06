@@ -161,8 +161,9 @@ transfer alice bob 100                  // エラー
 3. 位置引数をラベル付きの仮引数に充てることはできない。ラベルの欠落・重複・未知のラベルはすべてコンパイルエラー
 4. 評価順は呼び出し側に書いた順（左から右）
 5. 部分適用はラベル付きでも書ける。`transfer alice ~to: bob` の型は `~amount: Money -> Result Unit TxError`。ラベルを先に渡せば位置引数だけが残る: `List.map (transfer ~to: bob ~amount: 1) accounts`
-6. sum type のバリアントでも同じ記法を使える: 定義は `| Transfer (~to: Account) (~amount: Money)`、構築は `Transfer ~to: bob ~amount: 100`
-7. **パンニング**: 渡す値がラベルと同名の変数なら、`~to: to` を `~to` とだけ書ける。値を書かないラベルは、必ず同名の変数を参照する（その変数がなければ「未定義の変数 `to`」のエラー）。式や別名の変数を渡すときは `~to: x` と書く
+6. **ラベルはカリー化された鎖の全体を指す**: `fn f (~a: Int) -> ~b: Int -> Int` への `f ~b: 3` は `fn ~a -> f ~a ~b: 3` と同じ意味（戻り値関数のパラメータを先に束縛する部分適用）で、`f ~b: 3 ~a: 1` は `f ~a: 1 ~b: 3` と同じ `f(1)(3)` を適用する。位置引数はこの規則の対象外で、常に自分のレベルの未束縛パラメータを宣言順に埋める（[decision](decisions/2026-11-06-label-args-into-returned-functions.md)）
+7. sum type のバリアントでも同じ記法を使える: 定義は `| Transfer (~to: Account) (~amount: Money)`、構築は `Transfer ~to: bob ~amount: 100`
+8. **パンニング**: 渡す値がラベルと同名の変数なら、`~to: to` を `~to` とだけ書ける。値を書かないラベルは、必ず同名の変数を参照する（その変数がなければ「未定義の変数 `to`」のエラー）。式や別名の変数を渡すときは `~to: x` と書く
 
 ### 2.1 型の扱い
 
@@ -415,7 +416,7 @@ strconv.ParseInt(_, 10, 64)
 | Go 側の型 | Gom 側の型 |
 | --- | --- |
 | `func(a A, b B) R` | `(A, B) -> R`（タプルを取る関数） |
-| 戻り値 `(T, error)` | `Result T GoError`。`T` が `error` の場合（`(error, error)`）は `Result (Option GoError) GoError` — Ok 側のペイロードも nil 許容で、`nil` は `Ok None` として読む |
+| 戻り値 `(T, error)` | `Result T GoError`。`T` がメソッドを持つ interface 型の場合（`(error, error)`、`(net.Error, error)`、ユーザ定義 interface）は `Result (Option T) GoError` — Ok 側のペイロードも nil 許容で、nil interface は `Ok None` として読む（メソッド呼び出しが nil で panic するので、素のまま `Ok` に入れると観測できない穴になるため）。`any` や named な空 interface は verbatim の `Result T GoError` のまま — nil は値として素通しできる |
 | 戻り値 `(T, bool)` | タプル `(T, Bool)`。`Option T` にするのは、標準のバインディングか `extern` で comma-ok と宣言した関数だけ（`os.LookupEnv` など） |
 | 戻り値 `(A, B)`（上記以外の多値） | タプル `(A, B)` |
 | 戻り値 `error` のみ | `Result Unit GoError`（既定の型由来ビュー）。`extern` 宣言か標準バインディングで `GoError`（nil を返さない契約 — 違反は境界で panic）か `Option GoError`（nil 許容のエラー値）にもなる（8.4 節） |
@@ -461,14 +462,14 @@ extern のエントリは `fn` の関数シグネチャだけを持ち、ブロ�
 - 引数を取らない Go 関数は `fn F () -> T`（あるいは `(u: Unit)`）と宣言する。`()` は Unit パターンであり Go の引数として数えない。束縛されたシグネチャは自動導出の場合と同じく引数なしの形になり、呼び出しは `pkg.F ()` と書く。
 - 結果の宣言は Go の結果の形が許すものだけ:
   - `()` → `Unit`
-  - `T` → `T`（対応する型）、`*T` → `Option (Ptr T)`（`Option` はポインタのまま保持する）
+  - `T` → `T`（対応する型）、`*T` → `Option (Ptr T)`（`Option` はポインタのまま保持する）、interface 型の結果 → `Option T`（`Option io.Reader` のような `Option <interface 型>` — nil を `None` と読む）
   - `error` → `Result Unit GoError`（既定）、`Option GoError`（nil を返し得る値）、`GoError`（nil を返さないという契約の宣言 — Go の型では表せないので境界で検査し、nil が来たら panic する）
-  - `(T, error)` → `Result T GoError`。第 1 結果が nil 許容な型（`*T` または `error`）のときは `Result (Option T) GoError` も宣言できる — 第 1 結果の `nil` を `Ok None` と読む。`(error, error)` への `Result GoError GoError` 宣言は「第 2 が nil なら第 1 は真のエラー値」という契約で、`(nil, nil)` は境界で panic する（型由来の既定は `Result (Option GoError) GoError` — 8.3 節）
+  - `(T, error)` → `Result T GoError`。第 1 結果が nil 許容な型（`*T` または任意の interface 型 — `error`、`net.Error`、`io.Reader`、named な空 interface を含む）のときは `Result (Option T) GoError` も宣言できる — 第 1 結果の `nil` を `Ok None` と読む。第 1 結果がメソッドを持つ interface 型のとき、verbatim の `Result T GoError` 宣言（`(error, error)` への `Result GoError GoError`、`(net.Error, error)` への `Result net.Error GoError` など）は「第 2 が nil なら第 1 は真の値」という契約で、`(nil, nil)` は境界で panic する（型由来の既定は `Result (Option T) GoError` — 8.3 節）
   - `(T, bool)` → `Option T` または `(T, Bool)`
   - その他の `(A, B)` → `(A, B)` のタプル
 - 宣言に型変数は書けない（Go の関数は多相ではない）。ジェネリックな Go 関数の上書きも現時点ではできない。
 
-宣言した型が Gom 側で見える型になり、生成される呼び出しは生の Go シグネチャのまま `pkg.F(args)` で、結果は宣言した変換規則で物質化される — `(T, bool)` の `Option` は `v, ok := f(...)` の後 `option.FromGo(v, ok)`、`*T` の `Option` は `v := f(...)` の後 `option.FromGo(v, v != nil)`。`error` への `Option GoError` 宣言も同じ `option.FromGo(v, v != nil)` 形で、`GoError` 宣言は `if v == nil { panic(...) }` の境界検査を生成する。`(T, error)` への `Result (Option T) GoError` 宣言はペイロードを `option.FromGo(v, v != nil)` で物質化し、`(error, error)` への `Result GoError GoError` 宣言は `if err == nil && v == nil { panic(...) }`（`try`/`|?>` では `err` の脱出のあと `if v == nil { panic(...) }`）の境界検査を生成する。
+宣言した型が Gom 側で見える型になり、生成される呼び出しは生の Go シグネチャのまま `pkg.F(args)` で、結果は宣言した変換規則で物質化される — `(T, bool)` の `Option` は `v, ok := f(...)` の後 `option.FromGo(v, ok)`、`*T` や interface 型への `Option` 宣言は `v := f(...)` の後 `option.FromGo(v, v != nil)`。`error` への `Option GoError` 宣言も同じ `option.FromGo(v, v != nil)` 形で、`GoError` 宣言は `if v == nil { panic(...) }` の境界検査を生成する。`(T, error)` への `Result (Option T) GoError` 宣言はペイロードを `option.FromGo(v, v != nil)` で物質化し、メソッドを持つ interface 第 1 結果への verbatim `Result T GoError` 宣言（`Result GoError GoError` など）は `if err == nil && v == nil { panic(...) }`（`try`/`|?>` では `err` の脱出のあと `if v == nil { panic(...) }`）の境界検査を生成する。
 
 コンパイラが用意する**標準バインディング**は extern と同じ規則で宣言ビューをあてがう既定の上書きである（[decisions/error-result-bindings](decisions/2026-11-05-error-result-bindings.md)）。`errors.New` と `fmt.Errorf` は `-> GoError`（エラーを値として直接組み立てられる）、`errors.Join` と `errors.Unwrap` は `-> Option GoError` と見える。明示的な `extern` は標準バインディングに優先し、生の Go シグネチャと照合される — `extern go "errors" { fn New (msg: String) -> Result Unit GoError }` は型由来の既定に戻せる。
 

@@ -148,7 +148,7 @@ func TestGoErrorErrorMethod(t *testing.T) {
 	requireCodes(t, diags)
 	d := findDecl[*FnDecl](f, 0)
 	a := applyAt(d.Body)
-	expectCall(t, a, CallGo, 0, 0, 0, nil)
+	expectCall(t, a, CallGo, 0, 0, 0, 0, nil)
 	if got := a.Type().String(); got != "String" {
 		t.Errorf("e.Error() type = %s, want String", got)
 	}

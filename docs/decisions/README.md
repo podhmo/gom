@@ -155,5 +155,7 @@
 | [eval-package-unit](2026-11-06-eval-package-unit.md) | Multi-file evaluation: the evaluator takes the package unit | 採用（prototype で検証済み — [sketch](../sketch/2026-11-06-eval-package-unit-verification.md)） |
 | [gomtest-golden-dir-cases](2026-11-06-gomtest-golden-dir-cases.md) | Golden directory cases: one `.golden.go` per generated file | 採用（実装・検証した — [検証](../sketch/2026-11-06-gomtest-golden-dir-cases-verification.md)） |
 | [gomtest-tests-option](2026-11-06-gomtest-tests-option.md) | The `case.json` `tests` option: test-mode generation in golden cases | 採用（実装・検証した — [検証](../sketch/2026-11-06-gomtest-tests-option-verification.md)） |
+| [label-args-into-returned-functions](2026-11-06-label-args-into-returned-functions.md) | 返り値関数のパラメータを指すラベル引数 — カリー鎖をまたいだ並べ替え・充填を採用 | 採用（実装・検証した — [検証](../sketch/2026-11-06-label-args-into-returned-functions.md)。spec.md §2 へ反映済み） |
+| [nilable-iface-pair-ok-payload](2026-11-06-nilable-iface-pair-ok-payload.md) | `(NamedIface, error)` / `(any, error)` の Ok ペイロード — メソッド持ち interface は派生 `Option`、nil-able 宣言ゲートを interface 全般へ | 採用（実装・検証した — [検証](../sketch/2026-11-06-nilable-iface-pair-ok-payload.md)。spec.md §8.3/§8.4 へ反映済み） |
 | [spec-suite-root-bare-side-files](2026-11-06-spec-suite-root-bare-side-files.md) | A bare side file at the spec-suite root is a load error | 採用（実装・検証した — [検証](../sketch/2026-11-06-spec-suite-root-bare-side-files-verification.md)） |
 <!-- END GENERATED -->

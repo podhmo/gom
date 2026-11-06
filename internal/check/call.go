@@ -71,6 +71,15 @@ type CallInfo struct {
 	// curried chain.
 	Arity int
 
+	// FlatArity is the callee's flattened parameter count — the whole
+	// curried chain, including parameters a returned function level
+	// declares. A labeled argument may name any of them (docs/
+	// decisions/2026-11-06-label-args-into-returned-functions.md), so
+	// ArgToParam entries index this domain, and a CallPartial's
+	// Applied + Unapplied account for it. 0 means FlatArity == Arity
+	// — the value every Go call and every hand-built record carries.
+	FlatArity int
+
 	// Applied is the number of arguments supplied by this application.
 	Applied int
 
@@ -83,9 +92,11 @@ type CallInfo struct {
 	// arguments can fill parameters out of order; the evaluation order
 	// stays the Args order and reordering into declaration order is
 	// lowering's job (docs/design.md section 2.1). Nil means the
-	// identity mapping. Entries index the callee's declared
-	// parameters, so an over-applied call (Applied > Arity) has no
-	// parameter for the extras and must leave ArgToParam nil.
+	// identity mapping. Entries index the callee's *flattened*
+	// parameter list (FlatArity): a `~label:` may fill a parameter of
+	// a returned-function level. An argument with no parameter — a
+	// positional extra applied onto the result, or a label the call
+	// already reported — leaves the whole mapping nil.
 	ArgToParam []int
 
 	// HoleIndex is the index into Args of the `_` placeholder of a
@@ -96,6 +107,15 @@ type CallInfo struct {
 	// Variadic marks a Go callee with a variadic final parameter; the
 	// number of Args may then exceed Arity-1.
 	Variadic bool
+}
+
+// Flat returns the flattened parameter count the call's positions
+// index — FlatArity when recorded, Arity otherwise.
+func (c CallInfo) Flat() int {
+	if c.FlatArity > 0 {
+		return c.FlatArity
+	}
+	return c.Arity
 }
 
 // Validate checks the structural invariants of the call info —
@@ -116,6 +136,9 @@ func (c CallInfo) Validate() error {
 	if c.Arity < 0 {
 		return fmt.Errorf("check: negative arity %d", c.Arity)
 	}
+	if c.FlatArity != 0 && c.FlatArity < c.Arity {
+		return fmt.Errorf("check: flat arity %d below declared arity %d", c.FlatArity, c.Arity)
+	}
 	if c.Applied < 0 {
 		return fmt.Errorf("check: negative applied count %d", c.Applied)
 	}
@@ -127,9 +150,9 @@ func (c CallInfo) Validate() error {
 		if c.Unapplied <= 0 {
 			return fmt.Errorf("check: CallPartial with unapplied count %d", c.Unapplied)
 		}
-		if c.Applied+c.Unapplied != c.Arity {
-			return fmt.Errorf("check: CallPartial applied %d + unapplied %d != arity %d",
-				c.Applied, c.Unapplied, c.Arity)
+		if c.Applied+c.Unapplied != c.Flat() {
+			return fmt.Errorf("check: CallPartial applied %d + unapplied %d != flat arity %d",
+				c.Applied, c.Unapplied, c.Flat())
 		}
 	case CallDirect:
 		if c.Unapplied != 0 {
@@ -154,14 +177,14 @@ func (c CallInfo) Validate() error {
 			return fmt.Errorf("check: ArgToParam has %d entries for %d applied arguments",
 				len(c.ArgToParam), c.Applied)
 		}
-		if c.Applied > c.Arity {
-			return fmt.Errorf("check: over-applied call (applied %d > arity %d) with non-nil ArgToParam",
-				c.Applied, c.Arity)
+		if c.Applied > c.Flat() {
+			return fmt.Errorf("check: over-applied call (applied %d > flat arity %d) with non-nil ArgToParam",
+				c.Applied, c.Flat())
 		}
 		seen := make(map[int]bool, len(c.ArgToParam))
 		for i, p := range c.ArgToParam {
-			if p < 0 || p >= c.Arity {
-				return fmt.Errorf("check: ArgToParam[%d] = %d out of range [0, %d)", i, p, c.Arity)
+			if p < 0 || p >= c.Flat() {
+				return fmt.Errorf("check: ArgToParam[%d] = %d out of range [0, %d)", i, p, c.Flat())
 			}
 			if seen[p] {
 				return fmt.Errorf("check: ArgToParam fills parameter %d twice", p)

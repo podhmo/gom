@@ -1,0 +1,39 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+extern go "github.com/podhmo/gom/testdata/goiface" {
+  fn NetErrNil () -> Result NetError GoError
+  fn LoneTagger (filled: Bool) -> Option Tagger
+  fn LoneEmpty (filled: Bool) -> Option Empty
+}
+
+// spec section 8.3: an `(I, error)` pair whose first result's
+// underlying is a method-bearing interface derives `Result
+// (Option T) GoError` — the honest nil-able reading: `(nil,
+// nil)` is `Ok None`, a real value is `Ok (Some v)`, a fatal
+// second error is `Err e`. `(any, error)` and named-empty-
+// interface pairs keep the verbatim `Result T GoError` view —
+// their nils are inert.
+
+fn dv_pair (n: Int) -> Result (Option goiface.NetError) GoError = goiface.NetErr n
+
+fn dv_tag (n: Int) -> Result (Option goiface.Tagger) GoError = goiface.TagOr n
+
+fn dv_empty (n: Int) -> Result goiface.Empty GoError = goiface.EmptyOr n
+
+fn dv_probe (n: Int) -> Result (Option goiface.NetError) GoError = {
+  let o = try (goiface.NetErr n)
+  Ok o
+}
+
+// spec section 8.4: the declared Option view is admitted for
+// every nil-able first result — pointers and interface types —
+// and a lone interface result admits `Option T`.
+fn ex_pair (n: Int) -> Result (Option goiface.Tagger) GoError = goiface.TagOr n
+
+fn ex_strict () -> Result goiface.NetError GoError = goiface.NetErrNil ()
+
+fn ex_lone (filled: Bool) -> Option goiface.Tagger = goiface.LoneTagger filled
+
+fn ex_lone_empty (filled: Bool) -> Option goiface.Empty = goiface.LoneEmpty filled

@@ -145,9 +145,11 @@ func (c *checker) calleeOf(e syntax.Expr) (Expr, *resolve.Symbol, bool) {
 // flattened parameter list — positional arguments fill unlabeled
 // parameters in declaration order (a positional argument may never
 // fill a labeled parameter) and `~label:` arguments fill labeled
-// parameters by name — then classifies the call against the callee's
-// *declared* arity: under-application is CallPartial, saturation or
-// over-application is CallDirect.
+// parameters by name, including parameters of a returned-function
+// level (docs/decisions/2026-11-06-label-args-into-returned-functions.md)
+// — then classifies the call: a prefix fill covering the declared
+// arity is CallDirect, a call leaving an earlier flat slot open is
+// CallPartial.
 func (c *checker) checkGomApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol, params []types.FuncParam, ret types.Type, declArity int) Expr {
 	flat := len(params)
 	if declArity > flat {
@@ -157,7 +159,7 @@ func (c *checker) checkGomApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol
 	posIdx := 0
 	argToParam := make([]int, 0, len(e.Args))
 	var extras []Expr // positional args beyond the flat parameter list
-	overDeclared := false
+	unmapped := false // an argument no flat parameter position answers
 
 	out := &Apply{Base: baseOf(e.Sp, nil), Fn: fn}
 
@@ -247,11 +249,7 @@ func (c *checker) checkGomApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol
 			if label == "" {
 				extras = append(extras, argExpr)
 			}
-			overDeclared = true
-		} else if pi >= declArity {
-			// The arg filled a parameter of the returned function —
-			// still an over-application in CallInfo terms.
-			overDeclared = true
+			unmapped = true
 		}
 	}
 
@@ -270,30 +268,26 @@ func (c *checker) checkGomApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol
 	}
 	out.Base = baseOf(e.Sp, res)
 
-	// CallInfo: classify against the *declared* arity. Under-
-	// application is CallPartial; saturation and over-application are
-	// CallDirect. Unapplied counts by arity minus applied rather than
-	// by resolved slots so a call carrying unresolvable arguments
-	// (an unknown label already reported as E0406) still yields a
-	// structurally valid record. ArgToParam is only representable
-	// when every argument hit a declared parameter — over-applied
-	// calls (Applied > Arity) and error recoveries leave it nil.
+	// CallInfo: the mapping domain is the *flattened* parameter
+	// list — a `~label:` may name a returned-function level's
+	// parameter, and ArgToParam records the flat position it
+	// landed on. Classification reads the filled prefix: the call
+	// is CallDirect when the filled flat positions cover the
+	// declared level contiguously (deeper filled slots chain onto
+	// the returned function), CallPartial when an earlier flat
+	// slot stays open — the residual is a function awaiting it.
+	// Arguments no flat position answers (a positional extra
+	// applied onto the result, or a label the call already
+	// reported) leave ArgToParam nil and classify positionally.
 	out.Call = CallInfo{
 		Callee:    callee,
 		Applied:   len(out.Args),
 		Arity:     declArity,
+		FlatArity: flat,
 		HoleIndex: -1,
 		TypeArgs:  targsOf(fn),
 	}
-	allMapped := !overDeclared
-	if allMapped {
-		for _, pi := range argToParam {
-			if pi < 0 || pi >= declArity {
-				allMapped = false
-				break
-			}
-		}
-	}
+	allMapped := !unmapped
 	switch {
 	case callee == nil:
 		out.Call.Kind = CallUnknown
@@ -301,22 +295,42 @@ func (c *checker) checkGomApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol
 		if allMapped {
 			out.Call.ArgToParam = normalizeMapping(argToParam)
 		}
-	case out.Call.Applied < declArity:
-		out.Call.Kind = CallPartial
-		out.Call.Unapplied = declArity - out.Call.Applied
-		if allMapped {
-			out.Call.ArgToParam = normalizeMapping(argToParam)
-		}
-	default:
+	case allMapped:
+		out.Call.ArgToParam = normalizeMapping(argToParam)
+		out.Call.Kind, out.Call.Unapplied = ClassMappedCall(argToParam, flat, declArity)
+	case out.Call.Applied >= declArity:
 		out.Call.Kind = CallDirect
-		if allMapped {
-			out.Call.ArgToParam = normalizeMapping(argToParam)
-		}
+	default:
+		out.Call.Kind = CallPartial
+		out.Call.Unapplied = flat - out.Call.Applied
 	}
 	if err := out.Validate(); err != nil {
 		panic(fmt.Sprintf("check: invalid CallInfo for %T: %v", e.Fn, err))
 	}
 	return out
+}
+
+// ClassMappedCall classifies a declared-callee call whose every
+// argument resolved to a flat parameter position: CallDirect when
+// the filled positions form a prefix {0..k} covering the declared
+// level — the callee applies directly and any deeper filled slots
+// chain onto the returned function — CallPartial otherwise. The
+// second result is the count of still-unfilled flat positions —
+// the closure partialCall emits binds them in declaration order.
+// Lowering re-runs the same rule when a pipe-synthesized argument
+// joins an application (expr.appendArg), so the classification
+// stays in one place.
+func ClassMappedCall(mapping []int, flat, declArity int) (CallKind, int) {
+	highest := -1
+	for _, p := range mapping {
+		if p > highest {
+			highest = p
+		}
+	}
+	if len(mapping) == highest+1 && highest >= declArity-1 {
+		return CallDirect, 0
+	}
+	return CallPartial, flat - len(mapping)
 }
 
 // applyResidual rebuilds an application's result type from the
@@ -1103,12 +1117,11 @@ func (c *checker) replayGomApply(pa *pendingApply) {
 	me := pa.me
 	params, ret := flattenFunc(me.Type())
 	flat := len(params)
-	declArity := flat // a member value's arity is its whole signature
 	used := make([]bool, flat)
 	posIdx := 0
 	argToParam := make([]int, 0, len(e.Args))
 	var extras []Expr
-	overDeclared := false
+	unmapped := false // an argument no flat parameter position answers
 	newArgs := make([]Arg, 0, len(e.Args))
 
 	for _, a := range e.Args {
@@ -1185,9 +1198,7 @@ func (c *checker) replayGomApply(pa *pendingApply) {
 			if label == "" {
 				extras = append(extras, argExpr)
 			}
-			overDeclared = true
-		} else if pi >= declArity {
-			overDeclared = true
+			unmapped = true
 		}
 	}
 
@@ -1205,16 +1216,10 @@ func (c *checker) replayGomApply(pa *pendingApply) {
 		Applied:   len(newArgs),
 		HoleIndex: -1,
 	}
-	allMapped := !overDeclared
-	if allMapped {
-		for _, pi := range argToParam {
-			if pi < 0 || pi >= declArity {
-				allMapped = false
-				break
-			}
-		}
-	}
-	if allMapped {
+	// A member value's arity is its whole signature, so every
+	// resolved argument already maps inside the flat list; the
+	// mapping drops only for arguments no position answers.
+	if !unmapped {
 		e.Call.ArgToParam = normalizeMapping(argToParam)
 	}
 	c.flagStrayMarkers(pa)

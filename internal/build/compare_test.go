@@ -130,6 +130,143 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 		want: "poly:2:40:3:captured:5",
 	},
 	{
+		// Labels bind by name across the callee's whole curried
+		// chain — a `~label:` may fill a returned-function level's
+		// parameter. `same ~b: 3 ~a: 1` applies `same(1)(3)`; a
+		// gap left open is a partial application the evaluator
+		// eta-expands and the compiler emits as a Closure — the
+		// two semantics must agree (docs/decisions/
+		// 2026-11-06-label-args-into-returned-functions.md).
+		name: "deep_label_args",
+		src: `package main
+
+import go "fmt"
+
+fn inner (~b: Int) -> Int = b * 100
+fn same (~a: Int) -> ~b: Int -> Int = inner
+fn weigh (~a: Int) (~b: Int) (~c: Int) -> Int = a + b * 10 + c * 100
+fn third (~a: Int) (~b: Int) -> ~c: Int -> Int = weigh ~a: a ~b: b
+
+let g = same
+let h = same ~b: 3
+let gh = g ~b: 4
+
+fn answer () -> String = {
+  let deep = same ~b: 3
+  let skip = third ~c: 7
+  "${same ~b: 3 ~a: 1}:${(same ~b: 3) ~a: 2}:${h ~a: 1}:${g ~b: 4 ~a: 1}:${gh ~a: 1}:${deep ~a: 5}:${third ~c: 7 ~a: 1 ~b: 2}:${skip ~b: 2 ~a: 1}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "300:300:300:400:400:300:721:721",
+	},
+	{
+		// The CallUnknown → KindFunc reclassification keeps the
+		// flat-indexed ArgToParam — a call checked while the callee
+		// was still a variable labels into the returned function's
+		// level; reclassifyCalls re-runs the prefix/gap
+		// classification rather than nil-ing the mapping and
+		// falling back to positional order (the old guard made
+		// `use2 ()` answer 19 — `g(20, 1)` — instead of `g(1, 20)`).
+		name: "deep_label_reclassify",
+		src: `package main
+
+import go "fmt"
+
+fn g (~a: Int) (~b: Int) -> Int = a - b
+fn take () -> (Int -> ~a: Int -> ~b: Int -> Int) = f
+fn use2 () -> Int = f 0 ~b: 20 ~a: 1
+let f = fn x -> g
+
+fn answer () -> String = "${use2 ()}"
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "-19",
+	},
+	{
+		// A pipe into a CallPartial whose `~label:` already bound a
+		// returned-function level's slot must stay partial when a
+		// declared-level gap remains — promoting on `Applied >=
+		// Arity` alone made `x |> gap ~c: 7` emit `gap(x)(7)` (the
+		// deep argument landing on `b`), or planted a nil atom in
+		// the saturated prefix when the gap sits inside the
+		// declared level. The piped value fills `a`; `b` stays
+		// open on both sides. `gaps` is the same shape with `b`
+		// and `~c` at different types (the stale promotion would
+		// not even compile); `vg` exercises the CallUnknown pipe
+		// path, which eta-expands either way.
+		name: "deep_label_pipe",
+		src: `package main
+
+import go "fmt"
+
+fn probe2 (a: Int) (b: Int) (~c: Int) -> Int = a * 100 + b * 10 + c
+fn probe3 (a: Int) (b: String) (~c: Int) -> Int = a * 100 + c
+
+fn gap (a: Int) -> Int -> ~c: Int -> Int = fn b -> probe2 a b
+fn gaps (a: Int) -> String -> ~c: Int -> Int = fn b -> probe3 a b
+fn gap2 (a: Int) (b: Int) -> ~c: Int -> Int = probe2 a b
+let vg = gap
+
+fn answer () -> String =
+  "${(1 |> gap ~c: 7) 5}:${(gap ~c: 7 <| 2) 5}:${(3 |> gap2 ~c: 7) 5}:${(4 |> gaps ~c: 7) "x"}:${(6 |> vg ~c: 7) 5}"
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "157:257:357:407:657",
+	},
+	{
+		// `(I, error)` pairs derive `Result (Option T) GoError`
+		// for method-bearing interfaces — `(nil, nil)` reads
+		// `Ok None` for net.Error and the user Tagger — while
+		// `(any, error)` and the named empty interface keep the
+		// verbatim `Result T GoError` view: the same `(nil,
+		// nil)` is `Ok <nil>` there. `try` over the derived
+		// view yields `Option T` on both sides
+		// (docs/decisions/
+		// 2026-11-06-nilable-iface-pair-ok-payload.md).
+		name: "iface_pair_views",
+		src: `package main
+
+import go "fmt"
+import go "github.com/podhmo/gom/testdata/goiface"
+
+fn probe (n: Int) -> String = match goiface.NetErr n {
+  Ok (Some e) -> if e.Timeout () { "timeout" } else { "other" }
+  Ok (None) -> "none"
+  Err _ -> "err"
+}
+
+fn probe_tag (n: Int) -> String = match goiface.TagOr n {
+  Ok (Some t) -> "tag"
+  Ok (None) -> "none"
+  Err _ -> "err"
+}
+
+fn probe_any (n: Int) -> String = match goiface.AnyOr n {
+  Ok v -> "ok"
+  Err _ -> "err"
+}
+
+fn probe_empty (n: Int) -> String = match goiface.EmptyOr n {
+  Ok v -> "ok"
+  Err _ -> "err"
+}
+
+fn unwrap (r: Result String GoError) -> String = match r { Ok s -> s; Err _ -> "err" }
+
+fn probe_try (n: Int) -> Result String GoError = {
+  let o = try (goiface.NetErr n)
+  match o { Some e -> Ok "some"; None -> Ok "none" }
+}
+
+fn answer () -> String =
+  "${probe 1}:${probe 0}:${probe (0 - 1)}:${probe_tag 1}:${probe_tag 0}:${probe_any 0}:${probe_empty 0}:${unwrap (probe_try 1)}:${unwrap (probe_try 0)}"
+
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "timeout:none:err:tag:none:ok:ok:some:none",
+	},
+	{
 		name: "poly_adts",
 		src: `package main
 
@@ -1459,7 +1596,7 @@ func evalAnswerFiles(t *testing.T, rs []*build.Result, srcs map[string][]byte) s
 	}
 	if !res.OK() {
 		for _, d := range res.Diags {
-			t.Errorf("eval: %s: %s", d.Code, d.Message)
+			t.Errorf("eval: %s: %s %v", d.Code, d.Message, d.Data)
 		}
 		t.FailNow()
 	}
@@ -1984,5 +2121,88 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 				t.Fatalf("binary panic did not name the failed assertion:\n%s", out)
 			}
 		})
+	}
+}
+
+// TestNeverNilIfacePayloadPanic pins the strict-claim semantics of
+// spec 8.6 / decision 2026-11-06-nilable-iface-pair-ok-payload: a
+// declared `Result T GoError` over `(I, error)` where I's
+// underlying is a method-bearing interface claims the payload is
+// never nil. `goiface.NetErrNil` returns `(nil, nil)` — the
+// evaluator's faithful stub answers with the boundary panic
+// (E9003); the compiled side's `err == nil && v == nil` guard
+// panics with the same text.
+func TestNeverNilIfacePayloadPanic(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.50)
+	}
+
+	t.Parallel()
+
+	src := `package main
+
+import go "fmt"
+import go "github.com/podhmo/gom/testdata/goiface"
+
+extern go "github.com/podhmo/gom/testdata/goiface" {
+  fn NetErrNil () -> Result NetError GoError
+}
+
+fn answer () -> String = match (goiface.NetErrNil ()) {
+  Ok _ -> "ok"
+  Err _ -> "err"
+}
+
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`
+	r, err := build.Compile(
+		build.Input{Path: "never_nil_iface.gom", Src: []byte(src)},
+		suiteOptions(),
+	)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	for _, d := range r.Diagnostics {
+		if d.Severity == diag.SeverityError {
+			t.Fatalf("%s: %s", d.Code, d.Message)
+		}
+	}
+	if r.Output == nil {
+		t.Fatal("no generated output")
+	}
+
+	var out strings.Builder
+	capture := &diffCapture{out: &out}
+	ev := eval.New(r.Typed)
+	ev.SetLineIndex(diag.NewLineIndex([]byte(src)))
+	bindGoStubs(t, r.Typed, ev, capture)
+	fn := ev.Global("answer")
+	if fn == nil {
+		t.Fatal("no top-level `answer` binding for the evaluator")
+	}
+	res := ev.Apply(fn, &eval.VUnit{})
+	if res.OK() {
+		t.Fatalf("eval answered %s, want a panic", res.Value)
+	}
+	var code diag.Code
+	for _, d := range res.Diags {
+		if d.Severity == diag.SeverityError {
+			code = d.Code
+		}
+	}
+	if code != "E9003" {
+		t.Fatalf("eval diag code = %s, want E9003 (diags=%v)", code, res.Diags)
+	}
+
+	gobin, err := lookupGo(t)
+	if err != nil {
+		t.Skip("no go toolchain on PATH")
+	}
+	bout, err := runCompiledCmd(t, gobin, r.Output.Source)
+	if err == nil {
+		t.Fatalf("binary exited cleanly with %q, want a panic", bout)
+	}
+	if !strings.Contains(bout, "never-nil payload") {
+		t.Fatalf("binary panic did not name the never-nil claim:\n%s", bout)
 	}
 }

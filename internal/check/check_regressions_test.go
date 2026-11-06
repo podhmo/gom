@@ -303,7 +303,7 @@ func TestGomApplyMissingArgValue(t *testing.T) {
 	requireCodes(t, diags)
 	d := findDecl[*FnDecl](f, 1)
 	a := applyAt(d.Body)
-	expectCall(t, a, CallDirect, 2, 2, 0, nil)
+	expectCall(t, a, CallDirect, 2, 2, 2, 0, nil)
 }
 
 // A builtin-named symbol from a foreign package does not get the

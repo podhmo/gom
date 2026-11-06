@@ -6,8 +6,9 @@ package goimport
 // the block names: the declared signature must agree with the raw
 // Go signature in parameter count and view-compatible parameter
 // types, and the declared result must be one the result shape
-// admits — `Option T` over a (T, bool) comma-ok pair or a *T
-// result, `Result T GoError` over (T, error), `(A, B)` over any
+// admits — `Option T` over a (T, bool) comma-ok pair or a nil-able
+// result (*T or any interface), `Result T GoError` or
+// `Result (Option T) GoError` over (T, error), `(A, B)` over any
 // other two-result shape, `T` over a single result, `Unit` over
 // none.
 //
@@ -147,6 +148,13 @@ func (l *Loader) BindExtern(sym *resolve.Symbol, decl check.Signature) (check.Si
 			Results:  shape,
 			Params:   rawP,
 			ResTypes: rawR,
+			// A method-bearing-interface first result is the
+			// unobservable-nil channel — a declared verbatim
+			// payload over it is the never-nil claim the
+			// boundary verifies (mirror of mapSignature's
+			// resNilable).
+			ResNilable: res.Len() == 2 && isError(res.At(1).Type()) &&
+				methodIface(res.At(0).Type()),
 		},
 	}
 	return ck, nil
@@ -197,13 +205,13 @@ func (l *Loader) admitResults(what string, sym *resolve.Symbol, res *types.Tuple
 				what, sym.Package, sym.Name, ret)
 		}
 		if payload, ok := optionArgs(ret); ok {
-			if _, isPtr := t0.(*types.Pointer); !isPtr {
-				return 0, fmt.Sprintf("%s declares an Option result, but `%s.%s` returns %s — Option needs a (T, bool), *T, or error result",
+			if !nilablePresence(t0) {
+				return 0, fmt.Sprintf("%s declares an Option result, but `%s.%s` returns %s — Option needs a (T, bool) pair or a nil-able result (*T or interface)",
 					what, sym.Package, sym.Name, t0)
 			}
 			if !viewsCompatible(payload, rawR[0]) {
-				return 0, fmt.Sprintf("%s declares Option payload %s, but `%s.%s` returns %s — the payload keeps the pointer, declare `Option (Ptr T)`",
-					what, payload, sym.Package, sym.Name, t0)
+				return 0, fmt.Sprintf("%s declares Option payload %s, but `%s.%s` returns %s — the payload keeps the raw type, declare `Option (%s)`",
+					what, payload, sym.Package, sym.Name, t0, rawR[0])
 			}
 			return core.GoResultsNil, ""
 		}
@@ -225,7 +233,7 @@ func (l *Loader) admitResults(what string, sym *resolve.Symbol, res *types.Tuple
 				// honest nil-able reading of a nil-able first
 				// result — the Ok-side analogue of `Option`
 				// over a lone `*T`/`error` (the gate is the
-				// same: `*T` or `error` only, not
+				// same: `*T` or any interface type, not
 				// slices/maps/chans). The payload keeps the
 				// raw view; nil materializes as `None`
 				// through `option.FromGo(v, v != nil)`.
@@ -304,14 +312,19 @@ func isBoolType(t types.Type) bool {
 
 // nilablePresence reports whether a Go result type admits the
 // declared `Option`-payload reading — the same surface the
-// lone-result `Option` gate uses: `*T` or `error`, whose nil reads
-// as absence through `v != nil`. Slices, maps, channels and
-// interfaces other than error stay out, matching 8.4.
+// lone-result `Option` gate uses: `*T` or any interface type
+// (`error`, `any`, `net.Error`, `io.Reader`, named empty
+// interfaces), whose nil reads as absence through `v != nil`.
+// Slices, maps, channels, func types and named non-interface types
+// stay out — their nils are legitimate values with Gom-visible
+// semantics (docs/decisions/
+// 2026-11-06-nilable-iface-pair-ok-payload.md), matching 8.4.
 func nilablePresence(t types.Type) bool {
 	if _, ok := t.(*types.Pointer); ok {
 		return true
 	}
-	return isError(t)
+	_, ok := types.Unalias(t).Underlying().(*types.Interface)
+	return ok
 }
 
 // optionPayloadHint phrases the extra `Result (Option T) GoError`

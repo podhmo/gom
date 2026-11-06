@@ -98,6 +98,7 @@ func (l *Loader) mapSignature(sig *types.Signature) (check.Signature, lower.GoSi
 	}
 	var ret gt.Type
 	var shape core.GoResults
+	var resNilable bool
 	switch results.Len() {
 	case 0:
 		ret = gt.Unit
@@ -128,20 +129,27 @@ func (l *Loader) mapSignature(sig *types.Signature) (check.Signature, lower.GoSi
 			return check.Signature{}, lower.GoSig{}, hiddenSym{reason: fmt.Sprintf("result 0: %s", divergentReason(t0))}
 		}
 		if isError(t1) {
-			if isError(t0) {
-				// `(error, error)`: the Ok payload is itself
-				// nil-able, and `error` gives Gom no way to
-				// observe the nil (`GoError` has no is_nil
-				// probe), so the honest derived view wraps it
-				// — `Ok None` reads `(nil, nil)` instead of
-				// smuggling a nil interface into `Ok` where a
-				// later `Error()` would panic. The never-nil
-				// claim `Result GoError GoError` stays
-				// available as a *declared* view, verified at
-				// the boundary (docs/decisions/
-				// 2026-11-05-error-pair-ok-payload.md).
+			if methodIface(t0) {
+				// `(method-bearing interface, error)` —
+				// `(error, error)`, `(net.Error, error)`,
+				// `(io.Reader, error)`, user interfaces: the Ok
+				// payload is nil-able and a nil method-bearing
+				// interface is unobservable-dangerous — every
+				// Gom operation on it (a Go method call)
+				// panics on nil — so the honest derived view
+				// wraps it; `Ok None` reads `(nil, nil)`
+				// instead of smuggling a nil interface into
+				// `Ok`. The never-nil claim `Result I
+				// GoError` stays available as a *declared*
+				// view, verified at the boundary
+				// (docs/decisions/
+				// 2026-11-05-error-pair-ok-payload.md,
+				// 2026-11-06-nilable-iface-pair-ok-payload.md).
+				// `any` and named empty interfaces take the
+				// verbatim view below — their nil is inert.
 				ret = gt.Result(gt.Option(m0), gt.GoError)
 				shape = core.GoResultsErr
+				resNilable = true
 				break
 			}
 			ret = gt.Result(m0, gt.GoError)
@@ -162,11 +170,12 @@ func (l *Loader) mapSignature(sig *types.Signature) (check.Signature, lower.GoSi
 	}
 
 	gs := lower.GoSig{
-		Arity:    params.Len(),
-		Variadic: sig.Variadic(),
-		Results:  shape,
-		Params:   rawP,
-		ResTypes: rawR,
+		Arity:      params.Len(),
+		Variadic:   sig.Variadic(),
+		Results:    shape,
+		Params:     rawP,
+		ResTypes:   rawR,
+		ResNilable: resNilable,
 		// TypeParams records the callee's own rigid variables in
 		// declared order — lowering substitutes the call site's
 		// type arguments (CallInfo.TypeArgs) into Params/ResTypes
@@ -457,6 +466,18 @@ func (l *Loader) namedType(t *types.Named) (gt.Type, string) {
 		return nil, fmt.Sprintf("instantiated generic type %s is not supported yet", obj.Name())
 	}
 	return &gt.Go{Ref: ref}, ""
+}
+
+// methodIface reports whether t's underlying is an interface with
+// at least one method — `error`, `net.Error`, `io.Reader`, or a
+// user interface. A nil of such a type is unobservable-dangerous:
+// every Gom operation on it (a Go method call) panics on nil, so
+// derived `(I, error)` views wrap the payload and declared
+// verbatim views carry the boundary-checked never-nil claim. `any`
+// and named empty interfaces return false — their nil is inert.
+func methodIface(t types.Type) bool {
+	i, ok := types.Unalias(t).Underlying().(*types.Interface)
+	return ok && i.NumMethods() > 0
 }
 
 // isError reports whether t is Go's error — the named interface of

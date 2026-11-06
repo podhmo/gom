@@ -42,7 +42,7 @@ func TestCallGo(t *testing.T) {
 	requireCodes(t, diags)
 	d := findDecl[*FnDecl](f, 0)
 	a := applyAt(d.Body)
-	expectCall(t, a, CallGo, 2, 2, 0, nil)
+	expectCall(t, a, CallGo, 2, 2, 2, 0, nil)
 	if a.Call.Variadic {
 		t.Error("Repeat must not be variadic")
 	}
@@ -77,9 +77,9 @@ func TestCallGoArgForms(t *testing.T) {
 	d := findDecl[*FnDecl](f, 0)
 	blk := d.Body.(*Block)
 	a1 := applyAt(blk.Stmts[0].(*Let).Value)
-	expectCall(t, a1, CallGo, 1, 1, 0, nil)
+	expectCall(t, a1, CallGo, 1, 1, 1, 0, nil)
 	a2 := applyAt(blk.Stmts[1])
-	expectCall(t, a2, CallGo, 0, 0, 0, nil)
+	expectCall(t, a2, CallGo, 0, 0, 0, 0, nil)
 }
 
 // A variadic Go callee accepts any number of trailing arguments; a
@@ -101,7 +101,7 @@ func TestCallGoVariadic(t *testing.T) {
 	d := findDecl[*FnDecl](f, 0)
 	a := applyAt(d.Body)
 	// Arity counts the declared parameter list (the one slice).
-	expectCall(t, a, CallGo, 1, 3, 0, nil)
+	expectCall(t, a, CallGo, 1, 1, 3, 0, nil)
 	if !a.Call.Variadic {
 		t.Error("Println must be variadic")
 	}
@@ -144,7 +144,7 @@ func TestCallGoSpread(t *testing.T) {
 	requireCodes(t, diags, "W0501")
 	d := findDecl[*FnDecl](f, 0)
 	a := applyAt(d.Body)
-	expectCall(t, a, CallGo, 1, 1, 0, nil)
+	expectCall(t, a, CallGo, 1, 1, 1, 0, nil)
 	if _, ok := a.Args[0].Value.(*Spread); !ok {
 		t.Fatalf("arg 0 = %T, want *Spread", a.Args[0].Value)
 	}
@@ -235,7 +235,7 @@ func TestCallGoHole(t *testing.T) {
 	requireCodes(t, diags)
 	d := findDecl[*FnDecl](f, 0)
 	a := applyAt(d.Body)
-	expectCall(t, a, CallGo, 2, 2, 0, nil)
+	expectCall(t, a, CallGo, 2, 2, 2, 0, nil)
 	if a.Call.HoleIndex != 0 {
 		t.Fatalf("HoleIndex = %d, want 0", a.Call.HoleIndex)
 	}
@@ -304,7 +304,7 @@ func TestCallGoMethod(t *testing.T) {
 	requireCodes(t, diags, "E0402")
 	d := findDecl[*FnDecl](f, 0)
 	a := applyAt(d.Body.(*Block).Stmts[0])
-	expectCall(t, a, CallGo, 1, 1, 0, nil)
+	expectCall(t, a, CallGo, 1, 1, 1, 0, nil)
 	if a.Call.Callee != writeString {
 		t.Errorf("callee = %v, want WriteString", a.Call.Callee)
 	}
@@ -344,7 +344,7 @@ func TestCallGoVarNotCallable(t *testing.T) {
 	requireCodes(t, diags, "E0401")
 	d := findDecl[*FnDecl](f, 0)
 	a := applyAt(d.Body)
-	expectCall(t, a, CallUnknown, 0, 1, 0, nil)
+	expectCall(t, a, CallUnknown, 0, 0, 1, 0, nil)
 }
 
 // `os.Args _` takes the same path — the `_` placeholder is only

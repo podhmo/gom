@@ -103,7 +103,7 @@ func TestDeferredMethodCall(t *testing.T) {
 	if a == nil {
 		t.Fatal("no apply in main")
 	}
-	expectCall(t, a, CallGo, 1, 1, 0, nil)
+	expectCall(t, a, CallGo, 1, 1, 1, 0, nil)
 	if a.Call.Callee != m {
 		t.Errorf("callee = %v, want method M", a.Call.Callee)
 	}
@@ -146,7 +146,7 @@ func TestDeferredMethodHole(t *testing.T) {
 	if inner == nil {
 		t.Fatal("no inner apply")
 	}
-	expectCall(t, inner, CallGo, 2, 2, 0, nil)
+	expectCall(t, inner, CallGo, 2, 2, 2, 0, nil)
 	if inner.Call.HoleIndex != 0 {
 		t.Fatalf("HoleIndex = %d, want 0", inner.Call.HoleIndex)
 	}
@@ -195,7 +195,7 @@ func TestDeferredMethodTupleArgs(t *testing.T) {
 	if inner == nil {
 		t.Fatal("no inner apply")
 	}
-	expectCall(t, inner, CallGo, 2, 2, 0, nil)
+	expectCall(t, inner, CallGo, 2, 2, 2, 0, nil)
 	if len(inner.Args) != 2 {
 		t.Fatalf("go args = %d, want the tuple unpacked to 2", len(inner.Args))
 	}
@@ -443,7 +443,7 @@ func TestDeferredMemberFedByLaterApply(t *testing.T) {
 	if a == nil {
 		t.Fatal("no apply in g")
 	}
-	expectCall(t, a, CallGo, 0, 0, 0, nil)
+	expectCall(t, a, CallGo, 0, 0, 0, 0, nil)
 	if a.Call.Callee != n {
 		t.Errorf("callee = %v, want method N", a.Call.Callee)
 	}
@@ -526,7 +526,7 @@ func TestDeferredSpread(t *testing.T) {
 	if inner == nil {
 		t.Fatal("no inner apply")
 	}
-	expectCall(t, inner, CallGo, 1, 1, 0, nil)
+	expectCall(t, inner, CallGo, 1, 1, 1, 0, nil)
 	if _, ok := inner.Args[0].Value.(*Spread); !ok {
 		t.Errorf("arg 0 = %T, want *Spread", inner.Args[0].Value)
 	}
@@ -567,5 +567,5 @@ func TestDeferredLabeledArgs(t *testing.T) {
 	if inner == nil {
 		t.Fatal("no inner apply")
 	}
-	expectCall(t, inner, CallGo, 2, 2, 0, []int{1, 0})
+	expectCall(t, inner, CallGo, 2, 2, 2, 0, []int{1, 0})
 }

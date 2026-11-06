@@ -890,6 +890,115 @@ var diffGoStubs = map[string]func(capture *diffCapture) func([]eval.Value) (eval
 			return &eval.VGoErr{Text: s.S}, nil
 		}
 	},
+	// testdata/goiface's `(I, error)` family — the derived
+	// `Result (Option T) GoError` view for method-iface payloads,
+	// and the verbatim `Result T GoError` view for `any`/named
+	// empty interfaces. A `(nil, nil)` Go return is `Ok None`
+	// under the Option view and `Ok <nil>` verbatim.
+	"github.com/podhmo/gom/testdata/goiface.NetErr": func(capture *diffCapture) func([]eval.Value) (eval.Value, error) {
+		return func(args []eval.Value) (eval.Value, error) {
+			n, ok := args[0].(*eval.VInt)
+			if !ok {
+				return goBadArgs("github.com/podhmo/gom/testdata/goiface.NetErr", args)
+			}
+			switch {
+			case n.N < 0:
+				return goErrVariant("fatal"), nil
+			case n.N == 0:
+				return goOkVariant(&eval.VVariant{Name: "None"}), nil
+			default:
+				return goOkVariant(&eval.VVariant{Name: "Some",
+					Fields: []eval.VField{{Index: 0, V: &eval.VHost{V: timeoutErr{n.N}}}}}), nil
+			}
+		}
+	},
+	"github.com/podhmo/gom/testdata/goiface.TagOr": func(capture *diffCapture) func([]eval.Value) (eval.Value, error) {
+		return func(args []eval.Value) (eval.Value, error) {
+			n, ok := args[0].(*eval.VInt)
+			if !ok {
+				return goBadArgs("github.com/podhmo/gom/testdata/goiface.TagOr", args)
+			}
+			switch {
+			case n.N < 0:
+				return goErrVariant("fatal"), nil
+			case n.N == 0:
+				return goOkVariant(&eval.VVariant{Name: "None"}), nil
+			default:
+				return goOkVariant(&eval.VVariant{Name: "Some",
+					Fields: []eval.VField{{Index: 0, V: &eval.VHost{V: goifaceTag("it")}}}}), nil
+			}
+		}
+	},
+	"github.com/podhmo/gom/testdata/goiface.AnyOr": func(capture *diffCapture) func([]eval.Value) (eval.Value, error) {
+		return func(args []eval.Value) (eval.Value, error) {
+			n, ok := args[0].(*eval.VInt)
+			if !ok {
+				return goBadArgs("github.com/podhmo/gom/testdata/goiface.AnyOr", args)
+			}
+			switch {
+			case n.N < 0:
+				return goErrVariant("fatal"), nil
+			case n.N == 0:
+				// `(nil, nil)` under the verbatim view: `Ok`
+				// carrying the nil `any` itself.
+				return goOkVariant(&eval.VHost{V: nil}), nil
+			default:
+				return goOkVariant(&eval.VInt{N: n.N}), nil
+			}
+		}
+	},
+	"github.com/podhmo/gom/testdata/goiface.EmptyOr": func(capture *diffCapture) func([]eval.Value) (eval.Value, error) {
+		return func(args []eval.Value) (eval.Value, error) {
+			n, ok := args[0].(*eval.VInt)
+			if !ok {
+				return goBadArgs("github.com/podhmo/gom/testdata/goiface.EmptyOr", args)
+			}
+			switch {
+			case n.N < 0:
+				return goErrVariant("fatal"), nil
+			case n.N == 0:
+				return goOkVariant(&eval.VHost{V: nil}), nil
+			default:
+				return goOkVariant(&eval.VInt{N: n.N}), nil
+			}
+		}
+	},
+	// The declared `Result NetError GoError` never-nil claim —
+	// `NetErrNil` always returns `(nil, nil)`, so the faithful
+	// stub is the boundary panic the generated code raises.
+	"github.com/podhmo/gom/testdata/goiface.NetErrNil": func(capture *diffCapture) func([]eval.Value) (eval.Value, error) {
+		return func(args []eval.Value) (eval.Value, error) {
+			return nil, fmt.Errorf("gom: goiface.NetErrNil returned (nil, nil) — its binding declares a never-nil payload")
+		}
+	},
+	// Lone interface results under the declared `Option` view —
+	// `option.FromGo(v, v != nil)`.
+	"github.com/podhmo/gom/testdata/goiface.LoneTagger": func(capture *diffCapture) func([]eval.Value) (eval.Value, error) {
+		return func(args []eval.Value) (eval.Value, error) {
+			b, ok := args[0].(*eval.VBool)
+			if !ok {
+				return goBadArgs("github.com/podhmo/gom/testdata/goiface.LoneTagger", args)
+			}
+			if !b.B {
+				return &eval.VVariant{Name: "None"}, nil
+			}
+			return &eval.VVariant{Name: "Some",
+				Fields: []eval.VField{{Index: 0, V: &eval.VHost{V: goifaceTag("lone")}}}}, nil
+		}
+	},
+	"github.com/podhmo/gom/testdata/goiface.LoneEmpty": func(capture *diffCapture) func([]eval.Value) (eval.Value, error) {
+		return func(args []eval.Value) (eval.Value, error) {
+			b, ok := args[0].(*eval.VBool)
+			if !ok {
+				return goBadArgs("github.com/podhmo/gom/testdata/goiface.LoneEmpty", args)
+			}
+			if !b.B {
+				return &eval.VVariant{Name: "None"}, nil
+			}
+			return &eval.VVariant{Name: "Some",
+				Fields: []eval.VField{{Index: 0, V: &eval.VInt{N: 7}}}}, nil
+		}
+	},
 	"slices.Contains": func(capture *diffCapture) func([]eval.Value) (eval.Value, error) {
 		return func(args []eval.Value) (eval.Value, error) {
 			xs, ok := args[0].(*eval.VList)
@@ -981,6 +1090,22 @@ var diffGoStubs = map[string]func(capture *diffCapture) func([]eval.Value) (eval
 				return goErrVariant(err.Error()), nil
 			}
 			return goOkVariant(&eval.VInt{N: int64(n)}), nil
+		}
+	},
+	// `net.Error.Timeout` — the method a `Some` payload of
+	// goiface.NetErr can be observed through; the receiver is the
+	// VHost the stub wrapped.
+	"net.Error.Timeout": func(capture *diffCapture) func([]eval.Value) (eval.Value, error) {
+		return func(args []eval.Value) (eval.Value, error) {
+			recv, ok := args[0].(*eval.VHost)
+			if !ok || len(args) != 1 {
+				return goBadArgs("net.Error.Timeout", args)
+			}
+			e, ok := recv.V.(interface{ Timeout() bool })
+			if !ok {
+				return goBadArgs("net.Error.Timeout", args)
+			}
+			return &eval.VBool{B: e.Timeout()}, nil
 		}
 	},
 	// The builtin GoError receiver's only method: the checker's
@@ -1166,6 +1291,20 @@ func goOkVariant(v eval.Value) eval.Value {
 func goErrVariant(text string) eval.Value {
 	return &eval.VVariant{Name: "Err", Fields: []eval.VField{{Index: 0, V: &eval.VGoErr{Text: text}}}}
 }
+
+// timeoutErr is the stub's concrete `net.Error` — the host payload
+// `Some` wraps for goiface.NetErr.
+type timeoutErr struct{ n int64 }
+
+func (e timeoutErr) Error() string   { return "timed out" }
+func (e timeoutErr) Timeout() bool   { return true }
+func (e timeoutErr) Temporary() bool { return false }
+
+// goifaceTag is the stub's concrete `goiface.Tagger` — `Tag()`
+// string is the payload `Some` wraps.
+type goifaceTag string
+
+func (t goifaceTag) Tag() string { return string(t) }
 
 // goBadArgs reports an argument shape the stub does not model —
 // surfaced as a Go-level panic class (a wrong-typed call is a check

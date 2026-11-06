@@ -55,14 +55,17 @@ var errPairViews = []errPairView{
 }
 
 // errPairEnv is the Env.GoSig oracle for a `(rawT, error)` Go
-// callee of the given arity — the facts the import loader records.
+// callee of the given arity — the facts the import loader records,
+// including ResNilable (raw result 0 is a method-bearing interface;
+// `error` qualifies, `int` does not).
 func errPairEnv(mk *resolve.Symbol, arity int, rawT types.Type) *Env {
 	return &Env{GoSig: func(sym *resolve.Symbol) (GoSig, bool) {
 		if sym != mk {
 			return GoSig{}, false
 		}
 		return GoSig{Arity: arity, Results: core.GoResultsErr,
-			ResTypes: []types.Type{rawT, types.GoError}}, true
+			ResTypes: []types.Type{rawT, types.GoError},
+			ResNilable: rawT == types.GoError}, true
 	}}
 }
 
@@ -185,8 +188,9 @@ func collectBoundary(f *core.File) boundaryNodes {
 // or `|?>` fuses the call instead (tryExpr, pipeInflowAtom,
 // escapeStepPayload, pipeRest's unguarded-step emission). Every
 // site takes the never-nil claim's NilGuard only under the strict
-// view — payloadNilGuard requires both the raw result and the
-// declared payload to spell `error` — while the Option view's
+// view — payloadNilGuard requires a nil-able raw result
+// (ResNilable: a method-bearing interface) whose declared payload
+// equals the raw result type — while the Option view's
 // payload arrives through ConvOptNil and a non-error payload
 // through neither.
 func TestGoErrPairNilGuardPins(t *testing.T) {

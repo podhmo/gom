@@ -1,0 +1,55 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+extern go "github.com/podhmo/gom/testdata/goiface" {
+  fn NetErrNil () -> Result NetError GoError
+  fn LoneTagger (filled: Bool) -> Option Tagger
+  fn LoneEmpty (filled: Bool) -> Option Empty
+}
+
+// spec section 8.3/8.4: a `(method-iface, error)` pair derives
+// `Result (Option T) GoError` — `option.FromGo(v, v != nil)`
+// inside the ResultFromGo conversion — for `net.Error` just as
+// for the `(error, error)` family.
+fn pair (n: Int) -> Result (Option goiface.NetError) GoError = goiface.NetErr n
+
+// A user interface pair derives the same Option payload view.
+fn tag (n: Int) -> Result (Option goiface.Tagger) GoError = goiface.TagOr n
+
+// `(any, error)` keeps the verbatim `Result Go.Any GoError`
+// derived view — a nil `any` is inert, so `(nil, nil)` reads as
+// `Ok <nil payload>`, not `Ok None`. `Go.Any` spells nowhere in
+// source, so the view is exercised through inference.
+let any_pair = fn n -> goiface.AnyOr n
+
+// A named empty interface keeps the verbatim view too.
+fn empty_pair (n: Int) -> Result goiface.Empty GoError = goiface.EmptyOr n
+
+// A declared `Result NetError GoError` claims the payload is
+// never nil — `if err == nil && v == nil { panic }` guards it
+// exactly like the `(error, error)` strict view.
+fn strict () -> Result goiface.NetError GoError = goiface.NetErrNil ()
+
+// `try` over the strict view fuses to EscapeCall — the `v == nil`
+// panic sits between the err escape and the payload bind.
+fn strict_try () -> Result goiface.NetError GoError = {
+  let v = try (goiface.NetErrNil ())
+  Ok v
+}
+
+// A lone method-iface result admits the declared `Option` view —
+// `Option Tagger` materializes `option.FromGo(v, v != nil)`.
+fn lone_tag (filled: Bool) -> Option goiface.Tagger = goiface.LoneTagger filled
+
+// `Option` over a lone named empty interface — the widened
+// nil-able class covers interfaces without methods too.
+fn lone_empty (filled: Bool) -> Option goiface.Empty = goiface.LoneEmpty filled
+
+// `try` over the derived `net.Error` pair yields `Option
+// net.Error` — the escape payload flows through
+// `option.FromGo(v, v != nil)`.
+fn probe (n: Int) -> Result (Option goiface.NetError) GoError = {
+  let o = try (goiface.NetErr n)
+  Ok o
+}

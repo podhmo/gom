@@ -293,11 +293,11 @@ func TestEndToEnd_RealWorldPrograms(t *testing.T) {
 	// boundary panics, in the plain try and the fused |?> step
 	// alike.
 	if code, _, errout := runBin(t, errwalkBin, dir, "", "trypair"); code != 2 ||
-		!strings.Contains(errout, "declares a never-nil GoError payload") {
+		!strings.Contains(errout, "declares a never-nil payload") {
 		t.Fatalf("errwalk trypair: code=%d err=%q", code, errout)
 	}
 	if code, _, errout := runBin(t, errwalkBin, dir, "", "pipepair"); code != 2 ||
-		!strings.Contains(errout, "declares a never-nil GoError payload") {
+		!strings.Contains(errout, "declares a never-nil payload") {
 		t.Fatalf("errwalk pipepair: code=%d err=%q", code, errout)
 	}
 }
