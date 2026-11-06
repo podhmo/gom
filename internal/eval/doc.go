@@ -8,7 +8,11 @@
 // The unit of evaluation is a package: NewFiles takes every typed
 // file check.Files produced for the unit, so a sibling file's
 // top-level let resolves like a same-file one — the shared scope and
-// dependency-ordered initialization of spec 5.1. New is the one-file
+// initialization order of spec 5.1. Run drives top-level lets the
+// way Go drives package variables: dependencies first, and among
+// currently-ready vars the earliest declaration
+// (docs/decisions/2026-11-06-eval-init-ready-order.md); test decls
+// run after all initialization, then main. New is the one-file
 // wrapper.
 //
 // # Scope (P1)

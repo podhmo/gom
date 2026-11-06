@@ -73,8 +73,9 @@ type interp struct {
 // initialization order follows dependencies rather than source order
 // (`let y = z + 1; let z = 40` initializes z first and y = 41). The
 // evaluator matches that by computing the value on first demand —
-// either when Run reaches the declaration or when evalVar reads one
-// of its bound names. busy marks an in-progress initializer so a
+// when Run's ready-frontier reaches the declaration, when a ready
+// dependency's initializer reads it, or when evalVar reads one of
+// its bound names. busy marks an in-progress initializer so a
 // re-entrant read reports an initialization cycle instead of
 // diverging; done means the pattern has been bound into the global
 // environment already.
@@ -88,12 +89,19 @@ type letInit struct {
 
 // Evaluator evaluates the typed files of one package unit: it
 // registers type declarations and binds top-level functions into a
-// global environment at New/NewFiles; Run then evaluates the value
-// declarations, tests, and `main`.
+// global environment at New/NewFiles; Run then initializes the value
+// declarations in dependency order, runs the tests, and applies
+// `main`.
 type Evaluator struct {
 	env    *Env
 	files  []*check.File
 	interp *interp
+	// initOrder is the unit's top-level lets in declaration order —
+	// lexical file order across files, source order within one —
+	// each carrying its package-variable dependency set (spec 5.1).
+	// Run consumes it; lazy forcing through evalVar can mark a node
+	// done before the frontier reaches it.
+	initOrder []*initNode
 }
 
 // New prepares evaluation of f — the one-file unit.
@@ -169,6 +177,7 @@ func NewFiles(files []*check.File) *Evaluator {
 			}
 		}
 	}
+	ev.initOrder = buildInitGraph(ev.files, env.ctx.topLets)
 	return ev
 }
 
@@ -221,42 +230,77 @@ func (e *Evaluator) Global(name string) Value {
 	return nil
 }
 
-// Run evaluates the unit's top-level LetDecls in declaration order —
-// file order across files, source order within one — runs each `test`
-// block as a function boundary, and finally applies `main` to `()`
-// when a function named main exists. The first failure stops the run.
+// Run initializes the unit's top-level LetDecls the way the compiled
+// package does (spec 5.1): each step initializes the earliest-declared
+// let whose dependencies have all initialized, so an independent var
+// declared between a var and its dependency runs before either — the
+// ready-in-declaration-order pick pure lazy forcing could not
+// reproduce. Tests then run in declaration order — the compiled
+// binary's test entry points start after package init completes — and
+// `main` is applied to `()` last when a function named main exists.
+// The first failure stops the run.
 func (e *Evaluator) Run() Result {
 	var diags diag.List
+	force := func(n *initNode) bool {
+		_, ds := runEval(func() Value {
+			e.interp.ensureTopLet(n.decl, e.env)
+			return nil
+		})
+		diags = append(diags, ds...)
+		return !ds.HasError()
+	}
+	// The ready frontier: repeatedly take the first pending let in
+	// declaration order whose vardep set has fully initialized.
+	// Forcing one can mark others done through lazy reads, so each
+	// pick rescans rather than carrying a ready set.
+	for {
+		var next *initNode
+		for _, n := range e.initOrder {
+			if n.forced() || !n.ready() {
+				continue
+			}
+			next = n
+			break
+		}
+		if next == nil {
+			break
+		}
+		if !force(next) {
+			return Result{Diags: diags}
+		}
+		next.done = true
+	}
+	// Initializers still pending sit on (or downstream of) a
+	// dependency cycle the compiled unit rejects as E0907 — only
+	// hand-built units reach here. Forcing them in declaration order
+	// keeps the lazy re-entrant-read diagnostic (E9003) for them.
+	for _, n := range e.initOrder {
+		if n.forced() {
+			continue
+		}
+		if !force(n) {
+			return Result{Diags: diags}
+		}
+		n.done = true
+	}
 	for _, f := range e.files {
 		for _, d := range f.Decls {
-			switch d := d.(type) {
-			case *check.LetDecl:
-				_, ds := runEval(func() Value {
-					e.interp.ensureTopLet(d, e.env)
-					return nil
-				})
-				diags = append(diags, ds...)
-				if ds.HasError() {
-					return Result{Diags: diags}
+			td, ok := d.(*check.TestDecl)
+			if !ok {
+				continue
+			}
+			v, ds := runEval(func() Value {
+				return runBody(func() Value { return e.interp.eval(td.Body, e.env.Child()) })
+			})
+			if !ds.HasError() && v != nil {
+				if isRes, isOk := e.interp.resultTag(v); isRes && !isOk {
+					ds = append(ds, diag.Error(CodeTestFail, "test returned Err").
+						At(td.Sp).Set("test", td.Name).Set("value", v.String()))
 				}
-			case *check.TestDecl:
-				v, ds := runEval(func() Value {
-					return runBody(func() Value { return e.interp.eval(d.Body, e.env.Child()) })
-				})
-				if !ds.HasError() && v != nil {
-					if isRes, isOk := e.interp.resultTag(v); isRes && !isOk {
-						ds = append(ds, diag.Error(CodeTestFail, "test returned Err").
-							At(d.Sp).Set("test", d.Name).Set("value", v.String()))
-					}
-				}
-				diags = append(diags, ds...)
-				if ds.HasError() {
-					return Result{Diags: diags}
-				}
-			case *check.FnDecl, *check.TypeDecl:
-				// Handled by NewFiles.
-			default:
-				panic("unreachable")
+			}
+			diags = append(diags, ds...)
+			if ds.HasError() {
+				return Result{Diags: diags}
 			}
 		}
 	}
@@ -593,10 +637,10 @@ func (e *interp) evalVar(x *check.Var, env *Env) Value {
 }
 
 // ensureTopLet initializes a top-level let declaration exactly once.
-// Run drives declarations in source order while evalVar forces them
-// on first read, so a declaration may already be done when reached
-// here. A pattern binding no symbols (`let _ = e`) can never be
-// referenced and is evaluated straight away for effect.
+// Run drives declarations through the ready frontier while evalVar
+// forces them on first read, so a declaration may already be done
+// when reached here. A pattern binding no symbols (`let _ = e`) can
+// never be referenced and is evaluated straight away for effect.
 func (e *interp) ensureTopLet(d *check.LetDecl, env *Env) {
 	for _, sym := range boundSyms(d.Pat) {
 		if init := e.ctx.topLets[sym]; init != nil {

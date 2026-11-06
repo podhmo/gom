@@ -153,6 +153,7 @@
 | [test-performance](2026-11-05-test-performance.md) | テストを10倍速くするための設計と実施事項 | 採用（10倍の目標は未達） |
 | [variant-field-assert-owning-ctor](2026-11-05-variant-field-assert-owning-ctor.md) | バリアントの名前付きペイロード読み取りは所有者バリアントをアサートする | 採用（実装・検証した — [検証](../sketch/2026-11-05-variant-field-assert-owning-ctor.md)） |
 | [any-hole-deferred-pin](2026-11-06-any-hole-deferred-pin.md) | A consumer pin on a deferred `any`-hole result is a valid narrowing | 採用（実装・検証した — [検証](../sketch/2026-11-06-check-residuals-verification.md)） |
+| [eval-init-ready-order](2026-11-06-eval-init-ready-order.md) | Eval initialization: Go's ready-in-declaration-order frontier | 採用（prototype で検証済み — [sketch](../sketch/2026-11-06-eval-init-ready-order-verification.md)） |
 | [eval-package-unit](2026-11-06-eval-package-unit.md) | Multi-file evaluation: the evaluator takes the package unit | 採用（prototype で検証済み — [sketch](../sketch/2026-11-06-eval-package-unit-verification.md)） |
 | [generated-import-bound-name-alias](2026-11-06-generated-import-bound-name-alias.md) | Always emit the bound import name as a generated alias | 採用（実装・検証した — [検証](../sketch/2026-11-06-generated-import-bound-name-alias-verification.md)。spec.md §5 へ反映済み） |
 | [go-any-spellable](2026-11-06-go-any-spellable.md) | `Go.Any` の綴り — 型式の書けるすべての位置で `Go.Any` を認める。裸の `any` は型変数のまま | 採用（検証済み — [検証](../sketch/2026-11-06-go-any-spellable-prototype.md)。spec.md §8.3 へ反映済み。下流の残ギャップは implementation-gaps.md / TODO.md へ） |
