@@ -66,7 +66,8 @@
 // newline normalization. A golden directory case <name>/ holds one
 // golden per generated output — member a.gom's a.go pins to
 // <name>/a.golden.go, and its test-mode _test.go half pins to
-// <name>/a_test.golden.go.
+// <name>/a_test.golden.go. A flat case's test-mode half pins the
+// same way, to <name>_test.golden.go next to <name>.golden.go.
 //
 // Any case may add a manifest — <name>.case.json, or the bare
 // case.json inside a directory case — reserved for per-case options.

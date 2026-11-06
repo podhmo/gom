@@ -22,7 +22,8 @@ var update = flag.Bool("update", false,
 
 // File extensions and suffixes making up a case, by suite. A spec case
 // is <name>.gom plus <name>.expected.json; a golden case is <name>.gom
-// plus <name>.golden.go; either may add <name>.case.json. A directory
+// plus <name>.golden.go — and <name>_test.golden.go when its manifest
+// sets "tests": true. Either may add <name>.case.json. A directory
 // case drops the <name> prefix from its side files: <case>/ has bare
 // expected.json / golden.go / case.json next to its member .gom files.
 const (
@@ -73,12 +74,14 @@ type DiagnosticsFunc func(fs []File) ([]diag.Diagnostic, error)
 
 // GeneratedFile is one generated output file of a case — a member's
 // package source, or its _test.go half under the "tests" manifest
-// option. A single-file case produces one; a directory case one per
-// .gom member (a .gomi member produces none) plus any test halves.
+// option. A single-file case produces <name>.go plus <name>_test.go
+// under "tests"; a directory case one per .gom member (a .gomi
+// member produces none) plus any test halves.
 type GeneratedFile struct {
 	// Path is the output file's suite-relative slash path as
 	// `gom build`/`gom test` would write it (e.g. "a.go" for a flat
-	// case, "pkgcase/a_test.go" inside a directory case). The golden
+	// case — or "a_test.go" for its test half — and
+	// "pkgcase/a_test.go" inside a directory case). The golden
 	// pinning it is the same path with .golden.go substituted for
 	// .go.
 	Path string
@@ -230,6 +233,12 @@ func discoverCases(suiteDir string) (cases []testCase, orphans []string, err err
 
 	gomPaths := make(map[string]bool, len(cases))
 	seenNames := make(map[string]bool, len(cases))
+	// flatTestGoldens are the <name>_test.golden.go paths a flat
+	// case legitimately holds — the golden of its test-mode _test.go
+	// half — because its manifest sets "tests": true. Without the
+	// option the file is an orphan like any other unmatched side
+	// file.
+	flatTestGoldens := map[string]bool{}
 	for i := range cases {
 		c := &cases[i]
 		if seenNames[c.name] && c.loadErr == nil {
@@ -248,9 +257,15 @@ func discoverCases(suiteDir string) (cases []testCase, orphans []string, err err
 		}
 		c.skip = m.skip
 		c.tests = m.tests
+		if !c.isDir && c.tests && len(c.files) > 0 {
+			flatTestGoldens[strings.TrimSuffix(c.files[0].AbsPath(), gomExt)+"_test"+goldenExt] = true
+		}
 	}
 
 	for _, p := range sideFiles {
+		if flatTestGoldens[p] {
+			continue
+		}
 		var gom string
 		for _, ext := range []string{expectedExt, goldenExt, caseExt} {
 			if before, ok := strings.CutSuffix(p, ext); ok {
@@ -360,7 +375,8 @@ type caseManifest struct {
 	skip string
 	// tests is the "tests" option: the golden suite compiles the
 	// case in `gom test` mode (lower.Env.Tests), so test-mode
-	// outputs — the members' _test.go halves — join the golden
+	// outputs — <name>_test.go for a flat case, the members'
+	// _test.go halves for a directory case — join the golden
 	// expectations.
 	tests bool
 }

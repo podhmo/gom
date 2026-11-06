@@ -16,13 +16,15 @@ import (
 // testdata/golden).
 //
 // The expected output lives in <name>.golden.go next to the input
-// <name>.gom — one golden per generated file: a directory case
-// <name>/ pins each member output the same way, <name>/<base>.golden.go
-// for <base>.go and <name>/<base>_test.golden.go for its test half.
-// Comparison is a literal string match after normalizing CRLF to LF
-// and ignoring any difference in trailing newlines — generated code
-// comes from go/printer, so whitespace is already canonical and no
-// fuzzier normalization is needed.
+// <name>.gom — one golden per generated file: a flat case's
+// test-mode _test.go half pins to <name>_test.golden.go, and a
+// directory case <name>/ pins each member output the same way,
+// <name>/<base>.golden.go for <base>.go and
+// <name>/<base>_test.golden.go for its test half. Comparison is a
+// literal string match after normalizing CRLF to LF and ignoring any
+// difference in trailing newlines — generated code comes from
+// go/printer, so whitespace is already canonical and no fuzzier
+// normalization is needed.
 //
 // With -update the golden files are rewritten from the actual output
 // (and created if missing); the written files always end with a
@@ -53,14 +55,21 @@ func RunGoldenTests(t *testing.T, dir string, generate GenerateFunc) {
 		if len(got) == 0 {
 			t.Fatalf("gomtest: generate returned no files for case %s", c.name)
 		}
-		if !c.isDir && len(got) != 1 {
-			t.Fatalf("gomtest: case %s generated %d files, want 1 "+
-				"(per-output goldens are for directory cases)", c.name, len(got))
+		// A flat case's outputs are its <name>.go plus — under the
+		// manifest's "tests" option — the <name>_test.go half;
+		// more outputs belong to directory cases.
+		if max := flatMaxOutputs(c.tests); !c.isDir && len(got) > max {
+			t.Fatalf("gomtest: case %s generated %d files, want at most %d "+
+				"(more outputs are for directory cases)", c.name, len(got), max)
 		}
 		claimed := make(map[string]bool, len(got))
 		// Two outputs may not claim one golden — under -update the
 		// later would silently overwrite the earlier, so the check
-		// precedes compareGolden and fails in both modes.
+		// precedes compareGolden and fails in both modes. The map
+		// is per-case: a tests-mode case x and an unrelated case
+		// x_test can legitimately hold x_test.golden.go-shaped
+		// expectations on the same path, and the collision is
+		// caught only by the contents disagreeing at compare time.
 		seen := make(map[string]string, len(got))
 		for _, o := range got {
 			goldenPath := goldenFor(t, c, o)
@@ -77,16 +86,44 @@ func RunGoldenTests(t *testing.T, dir string, generate GenerateFunc) {
 		if c.isDir {
 			reportStrayGoldens(t, c, claimed)
 		}
+		if !c.isDir {
+			// Any flat golden the outputs did not claim is stale —
+			// the generated set shrank under it (the test-mode half
+			// disappeared, or the case stopped emitting its .go).
+			// Flag it like a directory case's stray golden; -update
+			// does not remove it either way.
+			base := strings.TrimSuffix(c.files[0].AbsPath(), gomExt)
+			strays := []string{base + goldenExt}
+			if c.tests {
+				strays = append(strays, base+"_test"+goldenExt)
+			}
+			for _, stray := range strays {
+				if _, err := os.Stat(stray); err == nil && seen[stray] == "" {
+					t.Errorf("gomtest: golden file %s has no generated output", stray)
+				}
+			}
+		}
 	})
+}
+
+// flatMaxOutputs is the number of generated files a flat case may
+// produce: its <name>.go always, plus <name>_test.go when the
+// manifest's "tests" option compiles the case in `gom test` mode.
+func flatMaxOutputs(tests bool) int {
+	if tests {
+		return 2
+	}
+	return 1
 }
 
 // goldenFor maps a case's generated output to its golden file: the
 // same suite-relative path with .golden.go substituted for .go. A
-// flat case's output must be <name>.go — the golden then lands on
-// <name>.golden.go exactly as the flat convention has it — and a
-// directory case's output must sit directly inside the case
-// directory, so a generated file can never map a golden outside its
-// own case.
+// flat case's outputs must be <name>.go — or <name>_test.go under
+// the manifest's "tests" option — the goldens then land on
+// <name>.golden.go and <name>_test.golden.go exactly as the flat
+// convention has them. A directory case's output must sit directly
+// inside the case directory, so a generated file can never map a
+// golden outside its own case.
 func goldenFor(t *testing.T, c testCase, o GeneratedFile) string {
 	t.Helper()
 	base, ok := strings.CutSuffix(o.Path, ".go")
@@ -98,9 +135,20 @@ func goldenFor(t *testing.T, c testCase, o GeneratedFile) string {
 			t.Fatalf("gomtest: generated file %q is not directly inside directory case %s",
 				o.Path, c.name)
 		}
-	} else if want := strings.TrimSuffix(c.files[0].Path, gomExt) + ".go"; o.Path != want {
-		t.Fatalf("gomtest: generated file %q does not name case %s (want %q)",
-			o.Path, c.name, want)
+	} else {
+		want := strings.TrimSuffix(c.files[0].Path, gomExt)
+		if o.Path != want+".go" {
+			if o.Path == want+"_test.go" {
+				if c.tests {
+					return filepath.Join(c.files[0].Dir, filepath.FromSlash(base+".golden.go"))
+				}
+				t.Fatalf("gomtest: generated file %q is a test-mode output "+
+					"but case %s does not set \"tests\": true in its manifest",
+					o.Path, c.name)
+			}
+			t.Fatalf("gomtest: generated file %q does not name case %s (want %q)",
+				o.Path, c.name, want+".go")
+		}
 	}
 	return filepath.Join(c.files[0].Dir, filepath.FromSlash(base+".golden.go"))
 }

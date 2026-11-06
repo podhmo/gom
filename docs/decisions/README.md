@@ -173,4 +173,6 @@
 | [spec-suite-root-bare-gomi](2026-11-06-spec-suite-root-bare-gomi.md) | A bare .gomi at the spec-suite root is a load error | 採用（実装・検証した — [検証](../sketch/2026-11-06-spec-suite-root-bare-gomi-verification.md)） |
 | [spec-suite-root-bare-side-files](2026-11-06-spec-suite-root-bare-side-files.md) | A bare side file at the spec-suite root is a load error | 採用（実装・検証した — [検証](../sketch/2026-11-06-spec-suite-root-bare-side-files-verification.md)） |
 | [tree-sitter-gom-grammar](2026-11-06-tree-sitter-gom-grammar.md) | tree-sitter grammar for Gom (tree-sitter-gom/) | 採用（実装・検証した — editor 向けの決定で spec.md / design.md の更新対象はなし） |
+| [gomtest-flat-tests-golden](2026-11-08-gomtest-flat-tests-golden.md) | Flat golden cases pin their `tests` output to `<name>_test.golden.go` | 採用（実装・検証した — [検証](../sketch/2026-11-08-gomtest-flat-tests-golden-verification.md)） |
+| [stdlib-gomi-type-members](2026-11-08-stdlib-gomi-type-members.md) | Stdlib `.gomi` type members register like imported-package ones | 採用（実装・検証した — [検証](../sketch/2026-11-08-stdlib-gomi-type-members-verification.md)） |
 <!-- END GENERATED -->

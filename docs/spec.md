@@ -193,7 +193,7 @@ Hindley–Milner（let 多相）を基礎とする。型はすべて名前的（
 | `Chan a` / `RecvChan a` / `SendChan a` | チャネル（10 章） |
 | `GoError` | Go の `error` |
 
-A `type` declaration in a file may reuse a builtin name. In that file the unqualified name then denotes only the local declaration — the builtin is unreachable (shadowing applies per name, file-wide). Inside a file declaring `type Result`, `Result` is that ADT; constructs that specifically require the builtin `Result a e` — `try`, `|?>`, calls to Go functions whose signature contains `Result`, and a `test` body typed `Result Unit e` — report E0415. `List`, `Option`, `Int`, `Unit` and the other builtin names behave the same way and are compiled and evaluated as ordinary local ADTs. Qualified names such as `pkg.Result` or `Go.Int` are never shadowed.
+A `type` declaration in a file may reuse a builtin name. In that file the unqualified name then denotes only the local declaration — the builtin is unreachable (shadowing applies per name, file-wide). Inside a file declaring `type Result`, `Result` is that ADT; constructs that specifically require the builtin `Result a e` — `try`, `|?>`, calls to Go functions whose signature contains `Result`, and a `test` body typed `Result Unit e` — report E0415. `List`, `Option`, `Int`, `Unit` and the other builtin names behave the same way and are compiled and evaluated as ordinary local ADTs. Qualified names such as `pkg.Result` or `Go.Slice` are never shadowed.
 
 ### 3.2 sum types
 
