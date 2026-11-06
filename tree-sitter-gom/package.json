@@ -1,0 +1,14 @@
+{
+  "name": "tree-sitter-gom",
+  "version": "0.1.0",
+  "description": "tree-sitter grammar for Gom, a functional language that transpiles to Go",
+  "repository": "https://github.com/podhmo/gom",
+  "keywords": [
+    "tree-sitter",
+    "gom"
+  ],
+  "scripts": {
+    "generate": "tree-sitter generate",
+    "test": "tree-sitter test"
+  }
+}

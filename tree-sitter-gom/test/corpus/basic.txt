@@ -1,0 +1,2266 @@
+================================================================================
+function and let declarations
+================================================================================
+
+package m
+
+let pi = 3.14159
+
+fn area (r: Float) -> Float = pi * r * r
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (package_decl
+    (ident))
+  (let_decl
+    (pattern
+      (or_pattern
+        (ctor_pattern
+          (pat_atom
+            (ident)))))
+    (expr
+      (ascribed_expr
+        (pipe_expr
+          (bool_or_expr
+            (bool_and_expr
+              (rel_expr
+                (add_expr
+                  (mul_expr
+                    (unary_expr
+                      (apply_expr
+                        (postfix_expr
+                          (atom
+                            (literal
+                              (float_literal)))))))))))))))
+  (fn_decl
+    (fn_sig
+      name: (ident)
+      (fn_param
+        (pattern
+          (or_pattern
+            (ctor_pattern
+              (pat_atom
+                (ident)))))
+        (type_expr
+          (arrow_type
+            (app_type
+              (type_atom
+                (uident))))))
+      (type_expr
+        (arrow_type
+          (app_type
+            (type_atom
+              (uident))))))
+    (expr
+      (ascribed_expr
+        (pipe_expr
+          (bool_or_expr
+            (bool_and_expr
+              (rel_expr
+                (add_expr
+                  (mul_expr
+                    (unary_expr
+                      (apply_expr
+                        (postfix_expr
+                          (atom
+                            (ident)))))
+                    (mul_op)
+                    (unary_expr
+                      (apply_expr
+                        (postfix_expr
+                          (atom
+                            (ident)))))
+                    (mul_op)
+                    (unary_expr
+                      (apply_expr
+                        (postfix_expr
+                          (atom
+                            (ident)))))))))))))))
+
+================================================================================
+variant type with fields
+================================================================================
+
+package m
+
+type Shape =
+  | Circle (radius: Float)
+  | Rect (w: Float) (h: Float)
+  | Empty
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (package_decl
+    (ident))
+  (type_decl
+    name: (uident)
+    (type_body
+      (variant_list
+        (variant
+          (uident)
+          (variant_field
+            (ident)
+            (type_expr
+              (arrow_type
+                (app_type
+                  (type_atom
+                    (uident)))))))
+        (variant
+          (uident)
+          (variant_field
+            (ident)
+            (type_expr
+              (arrow_type
+                (app_type
+                  (type_atom
+                    (uident))))))
+          (variant_field
+            (ident)
+            (type_expr
+              (arrow_type
+                (app_type
+                  (type_atom
+                    (uident)))))))
+        (variant
+          (uident))))))
+
+================================================================================
+match expression with guards
+================================================================================
+
+package m
+
+fn f (n: Int) -> String =
+  match n {
+    0 -> "zero"
+    n if n > 10 -> "big"
+    _ -> "rest"
+  }
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (package_decl
+    (ident))
+  (fn_decl
+    (fn_sig
+      name: (ident)
+      (fn_param
+        (pattern
+          (or_pattern
+            (ctor_pattern
+              (pat_atom
+                (ident)))))
+        (type_expr
+          (arrow_type
+            (app_type
+              (type_atom
+                (uident))))))
+      (type_expr
+        (arrow_type
+          (app_type
+            (type_atom
+              (uident))))))
+    (expr
+      (control_expr
+        (match_expr
+          (head_expr
+            (head_ascribed_expr
+              (head_pipe_expr
+                (head_bool_or_expr
+                  (head_bool_and_expr
+                    (head_rel_expr
+                      (head_add_expr
+                        (head_mul_expr
+                          (head_unary_expr
+                            (head_apply_expr
+                              (head_postfix_expr
+                                (head_atom
+                                  (ident)))))))))))))
+          (match_arm
+            (pattern
+              (or_pattern
+                (ctor_pattern
+                  (pat_atom
+                    (pat_literal
+                      (int_literal))))))
+            (expr
+              (ascribed_expr
+                (pipe_expr
+                  (bool_or_expr
+                    (bool_and_expr
+                      (rel_expr
+                        (add_expr
+                          (mul_expr
+                            (unary_expr
+                              (apply_expr
+                                (postfix_expr
+                                  (atom
+                                    (literal
+                                      (string
+                                        (string_content))))))))))))))))
+          (match_arm
+            (pattern
+              (or_pattern
+                (ctor_pattern
+                  (pat_atom
+                    (ident)))))
+            (expr
+              (ascribed_expr
+                (pipe_expr
+                  (bool_or_expr
+                    (bool_and_expr
+                      (rel_expr
+                        (add_expr
+                          (mul_expr
+                            (unary_expr
+                              (apply_expr
+                                (postfix_expr
+                                  (atom
+                                    (ident)))))))
+                        (rel_op)
+                        (add_expr
+                          (mul_expr
+                            (unary_expr
+                              (apply_expr
+                                (postfix_expr
+                                  (atom
+                                    (literal
+                                      (int_literal))))))))))))))
+            (expr
+              (ascribed_expr
+                (pipe_expr
+                  (bool_or_expr
+                    (bool_and_expr
+                      (rel_expr
+                        (add_expr
+                          (mul_expr
+                            (unary_expr
+                              (apply_expr
+                                (postfix_expr
+                                  (atom
+                                    (literal
+                                      (string
+                                        (string_content))))))))))))))))
+          (match_arm
+            (pattern
+              (or_pattern
+                (ctor_pattern
+                  (pat_atom))))
+            (expr
+              (ascribed_expr
+                (pipe_expr
+                  (bool_or_expr
+                    (bool_and_expr
+                      (rel_expr
+                        (add_expr
+                          (mul_expr
+                            (unary_expr
+                              (apply_expr
+                                (postfix_expr
+                                  (atom
+                                    (literal
+                                      (string
+                                        (string_content)))))))))))))))))))))
+
+================================================================================
+if else
+================================================================================
+
+package m
+
+fn f (n: Int) -> Int =
+  if n < 0 { 0 } else { n }
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (package_decl
+    (ident))
+  (fn_decl
+    (fn_sig
+      name: (ident)
+      (fn_param
+        (pattern
+          (or_pattern
+            (ctor_pattern
+              (pat_atom
+                (ident)))))
+        (type_expr
+          (arrow_type
+            (app_type
+              (type_atom
+                (uident))))))
+      (type_expr
+        (arrow_type
+          (app_type
+            (type_atom
+              (uident))))))
+    (expr
+      (control_expr
+        (if_expr
+          (head_expr
+            (head_ascribed_expr
+              (head_pipe_expr
+                (head_bool_or_expr
+                  (head_bool_and_expr
+                    (head_rel_expr
+                      (head_add_expr
+                        (head_mul_expr
+                          (head_unary_expr
+                            (head_apply_expr
+                              (head_postfix_expr
+                                (head_atom
+                                  (ident)))))))
+                      (rel_op)
+                      (head_add_expr
+                        (head_mul_expr
+                          (head_unary_expr
+                            (head_apply_expr
+                              (head_postfix_expr
+                                (head_atom
+                                  (literal
+                                    (int_literal))))))))))))))
+          (block
+            (block_item
+              (expr
+                (ascribed_expr
+                  (pipe_expr
+                    (bool_or_expr
+                      (bool_and_expr
+                        (rel_expr
+                          (add_expr
+                            (mul_expr
+                              (unary_expr
+                                (apply_expr
+                                  (postfix_expr
+                                    (atom
+                                      (literal
+                                        (int_literal))))))))))))))))
+          (block
+            (block_item
+              (expr
+                (ascribed_expr
+                  (pipe_expr
+                    (bool_or_expr
+                      (bool_and_expr
+                        (rel_expr
+                          (add_expr
+                            (mul_expr
+                              (unary_expr
+                                (apply_expr
+                                  (postfix_expr
+                                    (atom
+                                      (ident))))))))))))))))))))
+
+================================================================================
+pipes and labels
+================================================================================
+
+package m
+
+fn f (xs: List Int) -> Int =
+  xs |> map ~f: (fn x -> x + 1) |> fold ~init: 0
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (package_decl
+    (ident))
+  (fn_decl
+    (fn_sig
+      name: (ident)
+      (fn_param
+        (pattern
+          (or_pattern
+            (ctor_pattern
+              (pat_atom
+                (ident)))))
+        (type_expr
+          (arrow_type
+            (app_type
+              (type_atom
+                (uident))
+              (type_atom
+                (uident))))))
+      (type_expr
+        (arrow_type
+          (app_type
+            (type_atom
+              (uident))))))
+    (expr
+      (ascribed_expr
+        (pipe_expr
+          (bool_or_expr
+            (bool_and_expr
+              (rel_expr
+                (add_expr
+                  (mul_expr
+                    (unary_expr
+                      (apply_expr
+                        (postfix_expr
+                          (atom
+                            (ident))))))))))
+          (pipe_op)
+          (pipe_rhs
+            (bool_or_expr
+              (bool_and_expr
+                (rel_expr
+                  (add_expr
+                    (mul_expr
+                      (unary_expr
+                        (apply_expr
+                          (postfix_expr
+                            (atom
+                              (ident)))
+                          (app_arg
+                            (ident)
+                            (arg_expr
+                              (paren_expr
+                                (expr
+                                  (control_expr
+                                    (lambda
+                                      (lambda_param
+                                        (ident))
+                                      (expr
+                                        (ascribed_expr
+                                          (pipe_expr
+                                            (bool_or_expr
+                                              (bool_and_expr
+                                                (rel_expr
+                                                  (add_expr
+                                                    (mul_expr
+                                                      (unary_expr
+                                                        (apply_expr
+                                                          (postfix_expr
+                                                            (atom
+                                                              (ident))))))
+                                                    (add_op)
+                                                    (mul_expr
+                                                      (unary_expr
+                                                        (apply_expr
+                                                          (postfix_expr
+                                                            (atom
+                                                              (literal
+                                                                (int_literal))))))))))))))))))))))))))))
+          (pipe_op)
+          (pipe_rhs
+            (bool_or_expr
+              (bool_and_expr
+                (rel_expr
+                  (add_expr
+                    (mul_expr
+                      (unary_expr
+                        (apply_expr
+                          (postfix_expr
+                            (atom
+                              (ident)))
+                          (app_arg
+                            (ident)
+                            (arg_expr
+                              (simple_expr
+                                (postfix_expr
+                                  (atom
+                                    (literal
+                                      (int_literal))))))))))))))))))))
+
+================================================================================
+select statement
+================================================================================
+
+package m
+
+fn f (ch: Chan Int) (done: Chan Unit) -> Int =
+  select {
+    x <- ch -> x
+    send ch2 1 -> 0
+    default -> -1
+  }
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (package_decl
+    (ident))
+  (fn_decl
+    (fn_sig
+      name: (ident)
+      (fn_param
+        (pattern
+          (or_pattern
+            (ctor_pattern
+              (pat_atom
+                (ident)))))
+        (type_expr
+          (arrow_type
+            (app_type
+              (type_atom
+                (uident))
+              (type_atom
+                (uident))))))
+      (fn_param
+        (pattern
+          (or_pattern
+            (ctor_pattern
+              (pat_atom
+                (ident)))))
+        (type_expr
+          (arrow_type
+            (app_type
+              (type_atom
+                (uident))
+              (type_atom
+                (uident))))))
+      (type_expr
+        (arrow_type
+          (app_type
+            (type_atom
+              (uident))))))
+    (expr
+      (control_expr
+        (select_expr
+          (select_arm
+            (recv_arm
+              (ident)
+              (expr
+                (ascribed_expr
+                  (pipe_expr
+                    (bool_or_expr
+                      (bool_and_expr
+                        (rel_expr
+                          (add_expr
+                            (mul_expr
+                              (unary_expr
+                                (apply_expr
+                                  (postfix_expr
+                                    (atom
+                                      (ident)))))))))))))
+              (expr
+                (ascribed_expr
+                  (pipe_expr
+                    (bool_or_expr
+                      (bool_and_expr
+                        (rel_expr
+                          (add_expr
+                            (mul_expr
+                              (unary_expr
+                                (apply_expr
+                                  (postfix_expr
+                                    (atom
+                                      (ident)))))))))))))))
+          (select_arm
+            (send_arm
+              (simple_expr
+                (postfix_expr
+                  (atom
+                    (ident))))
+              (simple_expr
+                (postfix_expr
+                  (atom
+                    (literal
+                      (int_literal)))))
+              (expr
+                (ascribed_expr
+                  (pipe_expr
+                    (bool_or_expr
+                      (bool_and_expr
+                        (rel_expr
+                          (add_expr
+                            (mul_expr
+                              (unary_expr
+                                (apply_expr
+                                  (postfix_expr
+                                    (atom
+                                      (literal
+                                        (int_literal))))))))))))))))
+          (select_arm
+            (default_arm
+              (expr
+                (ascribed_expr
+                  (pipe_expr
+                    (bool_or_expr
+                      (bool_and_expr
+                        (rel_expr
+                          (add_expr
+                            (mul_expr
+                              (unary_expr
+                                (unary_expr
+                                  (apply_expr
+                                    (postfix_expr
+                                      (atom
+                                        (literal
+                                          (int_literal))))))))))))))))))))))
+
+================================================================================
+record literal and update
+================================================================================
+
+package m
+
+type Point = { x: Int, y: Int }
+
+fn f (p: Point) -> Point = { p with x = p.x + 1 }
+
+let q = { x = 1, y = 2 }
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (package_decl
+    (ident))
+  (type_decl
+    name: (uident)
+    (type_body
+      (record_type
+        (record_field
+          (ident)
+          (type_expr
+            (arrow_type
+              (app_type
+                (type_atom
+                  (uident))))))
+        (record_field
+          (ident)
+          (type_expr
+            (arrow_type
+              (app_type
+                (type_atom
+                  (uident)))))))))
+  (fn_decl
+    (fn_sig
+      name: (ident)
+      (fn_param
+        (pattern
+          (or_pattern
+            (ctor_pattern
+              (pat_atom
+                (ident)))))
+        (type_expr
+          (arrow_type
+            (app_type
+              (type_atom
+                (uident))))))
+      (type_expr
+        (arrow_type
+          (app_type
+            (type_atom
+              (uident))))))
+    (expr
+      (ascribed_expr
+        (pipe_expr
+          (bool_or_expr
+            (bool_and_expr
+              (rel_expr
+                (add_expr
+                  (mul_expr
+                    (unary_expr
+                      (apply_expr
+                        (postfix_expr
+                          (atom
+                            (brace_expr
+                              (record_update
+                                (expr
+                                  (ascribed_expr
+                                    (pipe_expr
+                                      (bool_or_expr
+                                        (bool_and_expr
+                                          (rel_expr
+                                            (add_expr
+                                              (mul_expr
+                                                (unary_expr
+                                                  (apply_expr
+                                                    (postfix_expr
+                                                      (atom
+                                                        (ident)))))))))))))
+                                (field_init
+                                  (ident)
+                                  (expr
+                                    (ascribed_expr
+                                      (pipe_expr
+                                        (bool_or_expr
+                                          (bool_and_expr
+                                            (rel_expr
+                                              (add_expr
+                                                (mul_expr
+                                                  (unary_expr
+                                                    (apply_expr
+                                                      (postfix_expr
+                                                        (atom
+                                                          (ident)))
+                                                      (post_arg_selector
+                                                        (member_name
+                                                          (ident))))))
+                                                (add_op)
+                                                (mul_expr
+                                                  (unary_expr
+                                                    (apply_expr
+                                                      (postfix_expr
+                                                        (atom
+                                                          (literal
+                                                            (int_literal))))))))))))))))))))))))))))))
+  (let_decl
+    (pattern
+      (or_pattern
+        (ctor_pattern
+          (pat_atom
+            (ident)))))
+    (expr
+      (ascribed_expr
+        (pipe_expr
+          (bool_or_expr
+            (bool_and_expr
+              (rel_expr
+                (add_expr
+                  (mul_expr
+                    (unary_expr
+                      (apply_expr
+                        (postfix_expr
+                          (atom
+                            (brace_expr
+                              (record_literal
+                                (field_init
+                                  (ident)
+                                  (expr
+                                    (ascribed_expr
+                                      (pipe_expr
+                                        (bool_or_expr
+                                          (bool_and_expr
+                                            (rel_expr
+                                              (add_expr
+                                                (mul_expr
+                                                  (unary_expr
+                                                    (apply_expr
+                                                      (postfix_expr
+                                                        (atom
+                                                          (literal
+                                                            (int_literal)))))))))))))))
+                                (field_init
+                                  (ident)
+                                  (expr
+                                    (ascribed_expr
+                                      (pipe_expr
+                                        (bool_or_expr
+                                          (bool_and_expr
+                                            (rel_expr
+                                              (add_expr
+                                                (mul_expr
+                                                  (unary_expr
+                                                    (apply_expr
+                                                      (postfix_expr
+                                                        (atom
+                                                          (literal
+                                                            (int_literal)))))))))))))))))))))))))))))))
+
+================================================================================
+list spread
+================================================================================
+
+package m
+
+fn cons (x: Int) (xs: List Int) -> List Int = [x, ..xs]
+
+fn dup (xs: List Int) -> List Int = [..xs]
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (package_decl
+    (ident))
+  (fn_decl
+    (fn_sig
+      name: (ident)
+      (fn_param
+        (pattern
+          (or_pattern
+            (ctor_pattern
+              (pat_atom
+                (ident)))))
+        (type_expr
+          (arrow_type
+            (app_type
+              (type_atom
+                (uident))))))
+      (fn_param
+        (pattern
+          (or_pattern
+            (ctor_pattern
+              (pat_atom
+                (ident)))))
+        (type_expr
+          (arrow_type
+            (app_type
+              (type_atom
+                (uident))
+              (type_atom
+                (uident))))))
+      (type_expr
+        (arrow_type
+          (app_type
+            (type_atom
+              (uident))
+            (type_atom
+              (uident))))))
+    (expr
+      (ascribed_expr
+        (pipe_expr
+          (bool_or_expr
+            (bool_and_expr
+              (rel_expr
+                (add_expr
+                  (mul_expr
+                    (unary_expr
+                      (apply_expr
+                        (postfix_expr
+                          (atom
+                            (list_expr
+                              (list_elem
+                                (expr
+                                  (ascribed_expr
+                                    (pipe_expr
+                                      (bool_or_expr
+                                        (bool_and_expr
+                                          (rel_expr
+                                            (add_expr
+                                              (mul_expr
+                                                (unary_expr
+                                                  (apply_expr
+                                                    (postfix_expr
+                                                      (atom
+                                                        (ident))))))))))))))
+                              (list_elem
+                                (expr
+                                  (ascribed_expr
+                                    (pipe_expr
+                                      (bool_or_expr
+                                        (bool_and_expr
+                                          (rel_expr
+                                            (add_expr
+                                              (mul_expr
+                                                (unary_expr
+                                                  (apply_expr
+                                                    (postfix_expr
+                                                      (atom
+                                                        (ident))))))))))))))))))))))))))))
+  (fn_decl
+    (fn_sig
+      name: (ident)
+      (fn_param
+        (pattern
+          (or_pattern
+            (ctor_pattern
+              (pat_atom
+                (ident)))))
+        (type_expr
+          (arrow_type
+            (app_type
+              (type_atom
+                (uident))
+              (type_atom
+                (uident))))))
+      (type_expr
+        (arrow_type
+          (app_type
+            (type_atom
+              (uident))
+            (type_atom
+              (uident))))))
+    (expr
+      (ascribed_expr
+        (pipe_expr
+          (bool_or_expr
+            (bool_and_expr
+              (rel_expr
+                (add_expr
+                  (mul_expr
+                    (unary_expr
+                      (apply_expr
+                        (postfix_expr
+                          (atom
+                            (list_expr
+                              (list_elem
+                                (expr
+                                  (ascribed_expr
+                                    (pipe_expr
+                                      (bool_or_expr
+                                        (bool_and_expr
+                                          (rel_expr
+                                            (add_expr
+                                              (mul_expr
+                                                (unary_expr
+                                                  (apply_expr
+                                                    (postfix_expr
+                                                      (atom
+                                                        (ident)))))))))))))))))))))))))))))
+
+================================================================================
+string interpolation
+================================================================================
+
+package m
+
+fn greet (name: String) -> String = "hello ${name}!"
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (package_decl
+    (ident))
+  (fn_decl
+    (fn_sig
+      name: (ident)
+      (fn_param
+        (pattern
+          (or_pattern
+            (ctor_pattern
+              (pat_atom
+                (ident)))))
+        (type_expr
+          (arrow_type
+            (app_type
+              (type_atom
+                (uident))))))
+      (type_expr
+        (arrow_type
+          (app_type
+            (type_atom
+              (uident))))))
+    (expr
+      (ascribed_expr
+        (pipe_expr
+          (bool_or_expr
+            (bool_and_expr
+              (rel_expr
+                (add_expr
+                  (mul_expr
+                    (unary_expr
+                      (apply_expr
+                        (postfix_expr
+                          (atom
+                            (literal
+                              (string
+                                (string_content)
+                                (interpolation
+                                  (expr
+                                    (ascribed_expr
+                                      (pipe_expr
+                                        (bool_or_expr
+                                          (bool_and_expr
+                                            (rel_expr
+                                              (add_expr
+                                                (mul_expr
+                                                  (unary_expr
+                                                    (apply_expr
+                                                      (postfix_expr
+                                                        (atom
+                                                          (ident))))))))))))))
+                                (string_content)))))))))))))))))
+
+================================================================================
+imports and extern
+================================================================================
+
+package m
+
+import "option"
+import go "fmt"
+import go alias "strings"
+
+extern go "bytes" {
+  fn NewBufferString (s: String) -> Buffer
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (package_decl
+    (ident))
+  (import_decl
+    (string
+      (string_content)))
+  (import_decl
+    (string
+      (string_content)))
+  (import_decl
+    (ident)
+    (string
+      (string_content)))
+  (extern_decl
+    (string
+      (string_content))
+    (extern_item
+      name: (uident)
+      (fn_param
+        (pattern
+          (or_pattern
+            (ctor_pattern
+              (pat_atom
+                (ident)))))
+        (type_expr
+          (arrow_type
+            (app_type
+              (type_atom
+                (uident))))))
+      (type_expr
+        (arrow_type
+          (app_type
+            (type_atom
+              (uident))))))))
+
+================================================================================
+test declaration
+================================================================================
+
+package m
+
+test "smoke" {
+  assert_eq 1 1
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (package_decl
+    (ident))
+  (test_decl
+    (string
+      (string_content))
+    (block
+      (block_item
+        (expr
+          (ascribed_expr
+            (pipe_expr
+              (bool_or_expr
+                (bool_and_expr
+                  (rel_expr
+                    (add_expr
+                      (mul_expr
+                        (unary_expr
+                          (apply_expr
+                            (postfix_expr
+                              (atom
+                                (ident)))
+                            (app_arg
+                              (arg_expr
+                                (simple_expr
+                                  (postfix_expr
+                                    (atom
+                                      (literal
+                                        (int_literal)))))))
+                            (app_arg
+                              (arg_expr
+                                (simple_expr
+                                  (postfix_expr
+                                    (atom
+                                      (literal
+                                        (int_literal)))))))))))))))))))))
+
+================================================================================
+line continuation operators
+================================================================================
+
+package m
+
+let x = aaaa
+  + bbbb
+  |> f
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (package_decl
+    (ident))
+  (let_decl
+    (pattern
+      (or_pattern
+        (ctor_pattern
+          (pat_atom
+            (ident)))))
+    (expr
+      (ascribed_expr
+        (pipe_expr
+          (bool_or_expr
+            (bool_and_expr
+              (rel_expr
+                (add_expr
+                  (mul_expr
+                    (unary_expr
+                      (apply_expr
+                        (postfix_expr
+                          (atom
+                            (ident))))))
+                  (add_op)
+                  (mul_expr
+                    (unary_expr
+                      (apply_expr
+                        (postfix_expr
+                          (atom
+                            (ident))))))))))
+          (pipe_op)
+          (pipe_rhs
+            (bool_or_expr
+              (bool_and_expr
+                (rel_expr
+                  (add_expr
+                    (mul_expr
+                      (unary_expr
+                        (apply_expr
+                          (postfix_expr
+                            (atom
+                              (ident))))))))))))))))
+
+================================================================================
+lambda
+================================================================================
+
+package m
+
+let inc = fn x -> x + 1
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (package_decl
+    (ident))
+  (let_decl
+    (pattern
+      (or_pattern
+        (ctor_pattern
+          (pat_atom
+            (ident)))))
+    (expr
+      (control_expr
+        (lambda
+          (lambda_param
+            (ident))
+          (expr
+            (ascribed_expr
+              (pipe_expr
+                (bool_or_expr
+                  (bool_and_expr
+                    (rel_expr
+                      (add_expr
+                        (mul_expr
+                          (unary_expr
+                            (apply_expr
+                              (postfix_expr
+                                (atom
+                                  (ident))))))
+                        (add_op)
+                        (mul_expr
+                          (unary_expr
+                            (apply_expr
+                              (postfix_expr
+                                (atom
+                                  (literal
+                                    (int_literal)))))))))))))))))))
+
+================================================================================
+block
+================================================================================
+
+package m
+
+fn f () -> Int = {
+  let x = 1
+  let y = 2
+  x + y
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (package_decl
+    (ident))
+  (fn_decl
+    (fn_sig
+      name: (ident)
+      (fn_param)
+      (type_expr
+        (arrow_type
+          (app_type
+            (type_atom
+              (uident))))))
+    (expr
+      (ascribed_expr
+        (pipe_expr
+          (bool_or_expr
+            (bool_and_expr
+              (rel_expr
+                (add_expr
+                  (mul_expr
+                    (unary_expr
+                      (apply_expr
+                        (postfix_expr
+                          (atom
+                            (brace_expr
+                              (block
+                                (block_item
+                                  (let_decl
+                                    (pattern
+                                      (or_pattern
+                                        (ctor_pattern
+                                          (pat_atom
+                                            (ident)))))
+                                    (expr
+                                      (ascribed_expr
+                                        (pipe_expr
+                                          (bool_or_expr
+                                            (bool_and_expr
+                                              (rel_expr
+                                                (add_expr
+                                                  (mul_expr
+                                                    (unary_expr
+                                                      (apply_expr
+                                                        (postfix_expr
+                                                          (atom
+                                                            (literal
+                                                              (int_literal))))))))))))))))
+                                (block_item
+                                  (let_decl
+                                    (pattern
+                                      (or_pattern
+                                        (ctor_pattern
+                                          (pat_atom
+                                            (ident)))))
+                                    (expr
+                                      (ascribed_expr
+                                        (pipe_expr
+                                          (bool_or_expr
+                                            (bool_and_expr
+                                              (rel_expr
+                                                (add_expr
+                                                  (mul_expr
+                                                    (unary_expr
+                                                      (apply_expr
+                                                        (postfix_expr
+                                                          (atom
+                                                            (literal
+                                                              (int_literal))))))))))))))))
+                                (block_item
+                                  (expr
+                                    (ascribed_expr
+                                      (pipe_expr
+                                        (bool_or_expr
+                                          (bool_and_expr
+                                            (rel_expr
+                                              (add_expr
+                                                (mul_expr
+                                                  (unary_expr
+                                                    (apply_expr
+                                                      (postfix_expr
+                                                        (atom
+                                                          (ident))))))
+                                                (add_op)
+                                                (mul_expr
+                                                  (unary_expr
+                                                    (apply_expr
+                                                      (postfix_expr
+                                                        (atom
+                                                          (ident))))))))))))))))))))))))))))))
+
+================================================================================
+constructor and or patterns
+================================================================================
+
+package m
+
+fn f (s: Shape) -> Int =
+  match s {
+    Circle r -> 1
+    Rect w h -> 2
+    A | B -> 3
+    p as q -> 4
+  }
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (package_decl
+    (ident))
+  (fn_decl
+    (fn_sig
+      name: (ident)
+      (fn_param
+        (pattern
+          (or_pattern
+            (ctor_pattern
+              (pat_atom
+                (ident)))))
+        (type_expr
+          (arrow_type
+            (app_type
+              (type_atom
+                (uident))))))
+      (type_expr
+        (arrow_type
+          (app_type
+            (type_atom
+              (uident))))))
+    (expr
+      (control_expr
+        (match_expr
+          (head_expr
+            (head_ascribed_expr
+              (head_pipe_expr
+                (head_bool_or_expr
+                  (head_bool_and_expr
+                    (head_rel_expr
+                      (head_add_expr
+                        (head_mul_expr
+                          (head_unary_expr
+                            (head_apply_expr
+                              (head_postfix_expr
+                                (head_atom
+                                  (ident)))))))))))))
+          (match_arm
+            (pattern
+              (or_pattern
+                (ctor_pattern
+                  (ctor_name
+                    (uident))
+                  (pat_arg
+                    (pat_atom
+                      (ident))))))
+            (expr
+              (ascribed_expr
+                (pipe_expr
+                  (bool_or_expr
+                    (bool_and_expr
+                      (rel_expr
+                        (add_expr
+                          (mul_expr
+                            (unary_expr
+                              (apply_expr
+                                (postfix_expr
+                                  (atom
+                                    (literal
+                                      (int_literal)))))))))))))))
+          (match_arm
+            (pattern
+              (or_pattern
+                (ctor_pattern
+                  (ctor_name
+                    (uident))
+                  (pat_arg
+                    (pat_atom
+                      (ident)))
+                  (pat_arg
+                    (pat_atom
+                      (ident))))))
+            (expr
+              (ascribed_expr
+                (pipe_expr
+                  (bool_or_expr
+                    (bool_and_expr
+                      (rel_expr
+                        (add_expr
+                          (mul_expr
+                            (unary_expr
+                              (apply_expr
+                                (postfix_expr
+                                  (atom
+                                    (literal
+                                      (int_literal)))))))))))))))
+          (match_arm
+            (pattern
+              (or_pattern
+                (ctor_pattern
+                  (ctor_name
+                    (uident)))
+                (ctor_pattern
+                  (ctor_name
+                    (uident)))))
+            (expr
+              (ascribed_expr
+                (pipe_expr
+                  (bool_or_expr
+                    (bool_and_expr
+                      (rel_expr
+                        (add_expr
+                          (mul_expr
+                            (unary_expr
+                              (apply_expr
+                                (postfix_expr
+                                  (atom
+                                    (literal
+                                      (int_literal)))))))))))))))
+          (match_arm
+            (pattern
+              (or_pattern
+                (ctor_pattern
+                  (pat_atom
+                    (ident))))
+              (ident))
+            (expr
+              (ascribed_expr
+                (pipe_expr
+                  (bool_or_expr
+                    (bool_and_expr
+                      (rel_expr
+                        (add_expr
+                          (mul_expr
+                            (unary_expr
+                              (apply_expr
+                                (postfix_expr
+                                  (atom
+                                    (literal
+                                      (int_literal))))))))))))))))))))
+
+================================================================================
+comment lines
+================================================================================
+
+package m
+
+// a comment before a decl
+let x = 1 // trailing
+/* block
+   comment */
+let y = 2
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (package_decl
+    (ident))
+  (comment)
+  (let_decl
+    (pattern
+      (or_pattern
+        (ctor_pattern
+          (pat_atom
+            (ident)))))
+    (expr
+      (ascribed_expr
+        (pipe_expr
+          (bool_or_expr
+            (bool_and_expr
+              (rel_expr
+                (add_expr
+                  (mul_expr
+                    (unary_expr
+                      (apply_expr
+                        (postfix_expr
+                          (atom
+                            (literal
+                              (int_literal)))))))))))))))
+  (comment)
+  (comment)
+  (let_decl
+    (pattern
+      (or_pattern
+        (ctor_pattern
+          (pat_atom
+            (ident)))))
+    (expr
+      (ascribed_expr
+        (pipe_expr
+          (bool_or_expr
+            (bool_and_expr
+              (rel_expr
+                (add_expr
+                  (mul_expr
+                    (unary_expr
+                      (apply_expr
+                        (postfix_expr
+                          (atom
+                            (literal
+                              (int_literal))))))))))))))))
+
+================================================================================
+gomi items
+================================================================================
+
+package m
+
+type Canvas
+
+fn area (s: Shape) -> Float
+
+let unit_circle : Shape
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (package_decl
+    (ident))
+  (type_decl
+    name: (uident))
+  (fn_sig
+    name: (ident)
+    (fn_param
+      (pattern
+        (or_pattern
+          (ctor_pattern
+            (pat_atom
+              (ident)))))
+      (type_expr
+        (arrow_type
+          (app_type
+            (type_atom
+              (uident))))))
+    (type_expr
+      (arrow_type
+        (app_type
+          (type_atom
+            (uident))))))
+  (let_decl
+    (pattern
+      (or_pattern
+        (ctor_pattern
+          (pat_atom
+            (ident)))))
+    (type_expr
+      (arrow_type
+        (app_type
+          (type_atom
+            (uident)))))))
+
+================================================================================
+block inside parens: NL-1 suspends separator but block items still split
+================================================================================
+
+package m
+
+fn f (xs: List Int) -> Int = 0
+let x = f ({
+    let a = 1
+    let b = 2
+    a + b
+  })
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (package_decl
+    (ident))
+  (fn_decl
+    (fn_sig
+      (ident)
+      (fn_param
+        (pattern
+          (or_pattern
+            (ctor_pattern
+              (pat_atom
+                (ident)))))
+        (type_expr
+          (arrow_type
+            (app_type
+              (type_atom
+                (uident))
+              (type_atom
+                (uident))))))
+      (type_expr
+        (arrow_type
+          (app_type
+            (type_atom
+              (uident))))))
+    (expr
+      (ascribed_expr
+        (pipe_expr
+          (bool_or_expr
+            (bool_and_expr
+              (rel_expr
+                (add_expr
+                  (mul_expr
+                    (unary_expr
+                      (apply_expr
+                        (postfix_expr
+                          (atom
+                            (literal
+                              (int_literal)))))))))))))))
+  (let_decl
+    (pattern
+      (or_pattern
+        (ctor_pattern
+          (pat_atom
+            (ident)))))
+    (expr
+      (ascribed_expr
+        (pipe_expr
+          (bool_or_expr
+            (bool_and_expr
+              (rel_expr
+                (add_expr
+                  (mul_expr
+                    (unary_expr
+                      (apply_expr
+                        (postfix_expr
+                          (atom
+                            (ident)))
+                        (app_arg
+                          (arg_expr
+                            (paren_expr
+                              (expr
+                                (ascribed_expr
+                                  (pipe_expr
+                                    (bool_or_expr
+                                      (bool_and_expr
+                                        (rel_expr
+                                          (add_expr
+                                            (mul_expr
+                                              (unary_expr
+                                                (apply_expr
+                                                  (postfix_expr
+                                                    (atom
+                                                      (brace_expr
+                                                        (block
+                                                          (block_item
+                                                            (let_decl
+                                                              (pattern
+                                                                (or_pattern
+                                                                  (ctor_pattern
+                                                                    (pat_atom
+                                                                      (ident)))))
+                                                              (expr
+                                                                (ascribed_expr
+                                                                  (pipe_expr
+                                                                    (bool_or_expr
+                                                                      (bool_and_expr
+                                                                        (rel_expr
+                                                                          (add_expr
+                                                                            (mul_expr
+                                                                              (unary_expr
+                                                                                (apply_expr
+                                                                                  (postfix_expr
+                                                                                    (atom
+                                                                                      (literal
+                                                                                        (int_literal))))))))))))))))
+                                                          (block_item
+                                                            (let_decl
+                                                              (pattern
+                                                                (or_pattern
+                                                                  (ctor_pattern
+                                                                    (pat_atom
+                                                                      (ident)))))
+                                                              (expr
+                                                                (ascribed_expr
+                                                                  (pipe_expr
+                                                                    (bool_or_expr
+                                                                      (bool_and_expr
+                                                                        (rel_expr
+                                                                          (add_expr
+                                                                            (mul_expr
+                                                                              (unary_expr
+                                                                                (apply_expr
+                                                                                  (postfix_expr
+                                                                                    (atom
+                                                                                      (literal
+                                                                                        (int_literal))))))))))))))))
+                                                          (block_item
+                                                            (expr
+                                                              (ascribed_expr
+                                                                (pipe_expr
+                                                                  (bool_or_expr
+                                                                    (bool_and_expr
+                                                                      (rel_expr
+                                                                        (add_expr
+                                                                          (mul_expr
+                                                                            (unary_expr
+                                                                              (apply_expr
+                                                                                (postfix_expr
+                                                                                  (atom
+                                                                                    (ident))))))
+                                                                          (add_op)
+                                                                          (mul_expr
+                                                                            (unary_expr
+                                                                              (apply_expr
+                                                                                (postfix_expr
+                                                                                  (atom
+                                                                                    (ident)))))))))))))))))))))))))))))))))))))))))))
+
+================================================================================
+else after closing brace: } then newline then else suppresses NL
+================================================================================
+
+package m
+
+let y = if c {
+    a
+  } else {
+    b
+  }
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (package_decl
+    (ident))
+  (let_decl
+    (pattern
+      (or_pattern
+        (ctor_pattern
+          (pat_atom
+            (ident)))))
+    (expr
+      (control_expr
+        (if_expr
+          (head_expr
+            (head_ascribed_expr
+              (head_pipe_expr
+                (head_bool_or_expr
+                  (head_bool_and_expr
+                    (head_rel_expr
+                      (head_add_expr
+                        (head_mul_expr
+                          (head_unary_expr
+                            (head_apply_expr
+                              (head_postfix_expr
+                                (head_atom
+                                  (ident)))))))))))))
+          (block
+            (block_item
+              (expr
+                (ascribed_expr
+                  (pipe_expr
+                    (bool_or_expr
+                      (bool_and_expr
+                        (rel_expr
+                          (add_expr
+                            (mul_expr
+                              (unary_expr
+                                (apply_expr
+                                  (postfix_expr
+                                    (atom
+                                      (ident)))))))))))))))
+          (block
+            (block_item
+              (expr
+                (ascribed_expr
+                  (pipe_expr
+                    (bool_or_expr
+                      (bool_and_expr
+                        (rel_expr
+                          (add_expr
+                            (mul_expr
+                              (unary_expr
+                                (apply_expr
+                                  (postfix_expr
+                                    (atom
+                                      (ident))))))))))))))))))))
+
+================================================================================
+variant continuation: newline before | suppresses NL
+================================================================================
+
+package m
+
+type Shape =
+  | Circle (radius: Float)
+  | Empty
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (package_decl
+    (ident))
+  (type_decl
+    (uident)
+    (type_body
+      (variant_list
+        (variant
+          (uident)
+          (variant_field
+            (ident)
+            (type_expr
+              (arrow_type
+                (app_type
+                  (type_atom
+                    (uident)))))))
+        (variant
+          (uident))))))
+
+================================================================================
+for and go blocks, attribute on decl
+================================================================================
+
+package m
+
+fn loop_items (xs: List Int) -> Unit =
+  for x in xs {
+    go {
+      work x
+    }
+  }
+
+@tailrec
+fn loop_forever (n: Int) -> Int = loop_forever (n + 1)
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (package_decl
+    (ident))
+  (fn_decl
+    (fn_sig
+      (ident)
+      (fn_param
+        (pattern
+          (or_pattern
+            (ctor_pattern
+              (pat_atom
+                (ident)))))
+        (type_expr
+          (arrow_type
+            (app_type
+              (type_atom
+                (uident))
+              (type_atom
+                (uident))))))
+      (type_expr
+        (arrow_type
+          (app_type
+            (type_atom
+              (uident))))))
+    (expr
+      (control_expr
+        (for_expr
+          (pattern
+            (or_pattern
+              (ctor_pattern
+                (pat_atom
+                  (ident)))))
+          (head_expr
+            (head_ascribed_expr
+              (head_pipe_expr
+                (head_bool_or_expr
+                  (head_bool_and_expr
+                    (head_rel_expr
+                      (head_add_expr
+                        (head_mul_expr
+                          (head_unary_expr
+                            (head_apply_expr
+                              (head_postfix_expr
+                                (head_atom
+                                  (ident)))))))))))))
+          (block
+            (block_item
+              (expr
+                (control_expr
+                  (go_expr
+                    (block
+                      (block_item
+                        (expr
+                          (ascribed_expr
+                            (pipe_expr
+                              (bool_or_expr
+                                (bool_and_expr
+                                  (rel_expr
+                                    (add_expr
+                                      (mul_expr
+                                        (unary_expr
+                                          (apply_expr
+                                            (postfix_expr
+                                              (atom
+                                                (ident)))
+                                            (app_arg
+                                              (arg_expr
+                                                (simple_expr
+                                                  (postfix_expr
+                                                    (atom
+                                                      (ident)))))))))))))))))))))))))))
+  (attribute
+    (member_name
+      (ident)))
+  (fn_decl
+    (fn_sig
+      (ident)
+      (fn_param
+        (pattern
+          (or_pattern
+            (ctor_pattern
+              (pat_atom
+                (ident)))))
+        (type_expr
+          (arrow_type
+            (app_type
+              (type_atom
+                (uident))))))
+      (type_expr
+        (arrow_type
+          (app_type
+            (type_atom
+              (uident))))))
+    (expr
+      (ascribed_expr
+        (pipe_expr
+          (bool_or_expr
+            (bool_and_expr
+              (rel_expr
+                (add_expr
+                  (mul_expr
+                    (unary_expr
+                      (apply_expr
+                        (postfix_expr
+                          (atom
+                            (ident)))
+                        (app_arg
+                          (arg_expr
+                            (paren_expr
+                              (expr
+                                (ascribed_expr
+                                  (pipe_expr
+                                    (bool_or_expr
+                                      (bool_and_expr
+                                        (rel_expr
+                                          (add_expr
+                                            (mul_expr
+                                              (unary_expr
+                                                (apply_expr
+                                                  (postfix_expr
+                                                    (atom
+                                                      (ident))))))
+                                            (add_op)
+                                            (mul_expr
+                                              (unary_expr
+                                                (apply_expr
+                                                  (postfix_expr
+                                                    (atom
+                                                      (literal
+                                                        (int_literal)))))))))))))))))))))))))))))
+
+================================================================================
+member chain and labeled application
+================================================================================
+
+package m
+
+let v = o.M 1 .N 2
+let w = transfer "alice" ~to: "bob" ~amount: 100
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (package_decl
+    (ident))
+  (let_decl
+    (pattern
+      (or_pattern
+        (ctor_pattern
+          (pat_atom
+            (ident)))))
+    (expr
+      (ascribed_expr
+        (pipe_expr
+          (bool_or_expr
+            (bool_and_expr
+              (rel_expr
+                (add_expr
+                  (mul_expr
+                    (unary_expr
+                      (apply_expr
+                        (postfix_expr
+                          (atom
+                            (ident)))
+                        (post_arg_selector
+                          (member_name
+                            (uident))
+                          (app_arg
+                            (arg_expr
+                              (simple_expr
+                                (postfix_expr
+                                  (atom
+                                    (literal
+                                      (int_literal))))))))
+                        (post_arg_selector
+                          (member_name
+                            (uident))
+                          (app_arg
+                            (arg_expr
+                              (simple_expr
+                                (postfix_expr
+                                  (atom
+                                    (literal
+                                      (int_literal)))))))))))))))))))
+  (let_decl
+    (pattern
+      (or_pattern
+        (ctor_pattern
+          (pat_atom
+            (ident)))))
+    (expr
+      (ascribed_expr
+        (pipe_expr
+          (bool_or_expr
+            (bool_and_expr
+              (rel_expr
+                (add_expr
+                  (mul_expr
+                    (unary_expr
+                      (apply_expr
+                        (postfix_expr
+                          (atom
+                            (ident)))
+                        (app_arg
+                          (arg_expr
+                            (simple_expr
+                              (postfix_expr
+                                (atom
+                                  (literal
+                                    (string
+                                      (string_content))))))))
+                        (app_arg
+                          (ident)
+                          (arg_expr
+                            (simple_expr
+                              (postfix_expr
+                                (atom
+                                  (literal
+                                    (string
+                                      (string_content))))))))
+                        (app_arg
+                          (ident)
+                          (arg_expr
+                            (simple_expr
+                              (postfix_expr
+                                (atom
+                                  (literal
+                                    (int_literal)))))))))))))))))))
+
+================================================================================
+labeled pattern arguments
+================================================================================
+
+package m
+
+fn f (x: T) -> Int =
+  match x {
+    Transfer _ ~to: t ~amount: n -> n
+  }
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (package_decl
+    (ident))
+  (fn_decl
+    (fn_sig
+      (ident)
+      (fn_param
+        (pattern
+          (or_pattern
+            (ctor_pattern
+              (pat_atom
+                (ident)))))
+        (type_expr
+          (arrow_type
+            (app_type
+              (type_atom
+                (uident))))))
+      (type_expr
+        (arrow_type
+          (app_type
+            (type_atom
+              (uident))))))
+    (expr
+      (control_expr
+        (match_expr
+          (head_expr
+            (head_ascribed_expr
+              (head_pipe_expr
+                (head_bool_or_expr
+                  (head_bool_and_expr
+                    (head_rel_expr
+                      (head_add_expr
+                        (head_mul_expr
+                          (head_unary_expr
+                            (head_apply_expr
+                              (head_postfix_expr
+                                (head_atom
+                                  (ident)))))))))))))
+          (match_arm
+            (pattern
+              (or_pattern
+                (ctor_pattern
+                  (ctor_name
+                    (uident))
+                  (pat_arg
+                    (pat_atom))
+                  (pat_arg
+                    (ident)
+                    (pat_atom
+                      (ident)))
+                  (pat_arg
+                    (ident)
+                    (pat_atom
+                      (ident))))))
+            (expr
+              (ascribed_expr
+                (pipe_expr
+                  (bool_or_expr
+                    (bool_and_expr
+                      (rel_expr
+                        (add_expr
+                          (mul_expr
+                            (unary_expr
+                              (apply_expr
+                                (postfix_expr
+                                  (atom
+                                    (ident)))))))))))))))))))
+
+================================================================================
+semicolon separators inside a block
+================================================================================
+
+package m
+
+fn g () -> Int = {
+  let a = 1; let b = 2; a + b
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (package_decl
+    (ident))
+  (fn_decl
+    (fn_sig
+      (ident)
+      (fn_param)
+      (type_expr
+        (arrow_type
+          (app_type
+            (type_atom
+              (uident))))))
+    (expr
+      (ascribed_expr
+        (pipe_expr
+          (bool_or_expr
+            (bool_and_expr
+              (rel_expr
+                (add_expr
+                  (mul_expr
+                    (unary_expr
+                      (apply_expr
+                        (postfix_expr
+                          (atom
+                            (brace_expr
+                              (block
+                                (block_item
+                                  (let_decl
+                                    (pattern
+                                      (or_pattern
+                                        (ctor_pattern
+                                          (pat_atom
+                                            (ident)))))
+                                    (expr
+                                      (ascribed_expr
+                                        (pipe_expr
+                                          (bool_or_expr
+                                            (bool_and_expr
+                                              (rel_expr
+                                                (add_expr
+                                                  (mul_expr
+                                                    (unary_expr
+                                                      (apply_expr
+                                                        (postfix_expr
+                                                          (atom
+                                                            (literal
+                                                              (int_literal))))))))))))))))
+                                (block_item
+                                  (let_decl
+                                    (pattern
+                                      (or_pattern
+                                        (ctor_pattern
+                                          (pat_atom
+                                            (ident)))))
+                                    (expr
+                                      (ascribed_expr
+                                        (pipe_expr
+                                          (bool_or_expr
+                                            (bool_and_expr
+                                              (rel_expr
+                                                (add_expr
+                                                  (mul_expr
+                                                    (unary_expr
+                                                      (apply_expr
+                                                        (postfix_expr
+                                                          (atom
+                                                            (literal
+                                                              (int_literal))))))))))))))))
+                                (block_item
+                                  (expr
+                                    (ascribed_expr
+                                      (pipe_expr
+                                        (bool_or_expr
+                                          (bool_and_expr
+                                            (rel_expr
+                                              (add_expr
+                                                (mul_expr
+                                                  (unary_expr
+                                                    (apply_expr
+                                                      (postfix_expr
+                                                        (atom
+                                                          (ident))))))
+                                                (add_op)
+                                                (mul_expr
+                                                  (unary_expr
+                                                    (apply_expr
+                                                      (postfix_expr
+                                                        (atom
+                                                          (ident))))))))))))))))))))))))))))))
+
+================================================================================
+CRLF line endings
+================================================================================
+
+package m
+
+let a = 1
+let b = a
+  + 2
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (package_decl
+    (ident))
+  (let_decl
+    (pattern
+      (or_pattern
+        (ctor_pattern
+          (pat_atom
+            (ident)))))
+    (expr
+      (ascribed_expr
+        (pipe_expr
+          (bool_or_expr
+            (bool_and_expr
+              (rel_expr
+                (add_expr
+                  (mul_expr
+                    (unary_expr
+                      (apply_expr
+                        (postfix_expr
+                          (atom
+                            (literal
+                              (int_literal)))))))))))))))
+  (let_decl
+    (pattern
+      (or_pattern
+        (ctor_pattern
+          (pat_atom
+            (ident)))))
+    (expr
+      (ascribed_expr
+        (pipe_expr
+          (bool_or_expr
+            (bool_and_expr
+              (rel_expr
+                (add_expr
+                  (mul_expr
+                    (unary_expr
+                      (apply_expr
+                        (postfix_expr
+                          (atom
+                            (ident))))))
+                  (add_op)
+                  (mul_expr
+                    (unary_expr
+                      (apply_expr
+                        (postfix_expr
+                          (atom
+                            (literal
+                              (int_literal))))))))))))))))

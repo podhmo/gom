@@ -1,0 +1,21 @@
+{
+  "$schema": "https://tree-sitter.github.io/tree-sitter/assets/schemas/config.schema.json",
+  "metadata": {
+    "version": "0.1.0",
+    "description": "tree-sitter grammar for Gom, a functional language that transpiles to Go",
+    "links": {
+      "repository": "https://github.com/podhmo/gom"
+    }
+  },
+  "grammars": [
+    {
+      "name": "gom",
+      "camelcase": "Gom",
+      "scope": "source.gom",
+      "file-types": [
+        "gom",
+        "gomi"
+      ]
+    }
+  ]
+}

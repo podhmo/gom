@@ -106,6 +106,22 @@
       (should (member "\"rect area\"" (funcall names "Test")))
       (should (member "NewBufferString" (funcall names "Extern"))))))
 
+;; A .gomi's `fn area (s: Shape) -> Float' is a bare `fn_sig' node in
+;; the grammar, not wrapped in `fn_decl' — under treesit it must not
+;; be swallowed by the nested-signature exclusion.
+(ert-deftest gom-mode-imenu-gomi ()
+  "Imenu lists .gomi declarations, including bare fn signatures."
+  (with-temp-buffer
+    (insert-file-contents (gom-mode-test--testdata "font-lock.gomi"))
+    (gom-mode)
+    (let* ((index (funcall imenu-create-index-function))
+           (names (lambda (group) (mapcar #'car (cdr (assoc group index))))))
+      (should (member "area" (mapcar #'car index)))
+      (should (member "new_canvas" (mapcar #'car index)))
+      (should (member "Shape" (funcall names "Type")))
+      (should (member "Canvas" (funcall names "Type")))
+      (should (member "unit_circle" (funcall names "Let"))))))
+
 ;;; auto-mode-alist
 
 (ert-deftest gom-mode-auto-mode ()
@@ -115,6 +131,38 @@
       (unwind-protect
           (with-current-buffer buf (should (eq major-mode 'gom-mode)))
         (kill-buffer buf)))))
+
+;;; Tree-sitter path
+
+;; The suite itself is engine-agnostic: the same font-lock annotations
+;; and indentation expectations hold under both engines.  These tests
+;; pin down which engine is active.
+
+(ert-deftest gom-mode-treesit-active ()
+  "With the grammar installed, `gom-mode' drives tree-sitter."
+  (skip-unless (and (fboundp 'treesit-ready-p)
+                    (treesit-ready-p 'gom t)))
+  (with-temp-buffer
+    (insert "package m\nlet x = 1\n")
+    (gom-mode)
+    (should (treesit-parser-list))
+    (should (eq indent-line-function #'treesit-indent))
+    (should (eq indent-region-function #'treesit-indent-region))
+    (should (eq imenu-create-index-function #'treesit-simple-imenu))))
+
+(ert-deftest gom-mode-treesit-fallback ()
+  "Binding `gom-use-tree-sitter' to nil keeps the regexp engine.
+This holds whether or not the grammar is installed, so the fallback is
+always exercised (see `make test-regex')."
+  (with-temp-buffer
+    (insert "package m\nlet x = 1\n")
+    (let ((gom-use-tree-sitter nil))
+      (gom-mode))
+    (should (eq indent-line-function #'gom-indent-line))
+    (should (eq imenu-create-index-function
+                #'imenu-default-create-index-function))
+    (should (null (and (fboundp 'treesit-parser-list)
+                       (treesit-parser-list))))))
 
 ;;; Flymake
 

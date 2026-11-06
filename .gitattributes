@@ -5,3 +5,14 @@
 # still duplicate the line, which is visible noise rather than lost
 # work).
 TODO.md merge=union
+
+# tree-sitter-gom: generated files committed for consumers without
+# the tree-sitter CLI (regenerate with `tree-sitter generate`).
+tree-sitter-gom/src/parser.c linguist-generated
+tree-sitter-gom/src/grammar.json linguist-generated
+tree-sitter-gom/src/node-types.json linguist-generated
+tree-sitter-gom/src/tree_sitter/** linguist-generated
+
+# Corpus files are byte-exact fixtures — one entry exercises CRLF
+# line endings, which autocrlf would otherwise normalize away.
+tree-sitter-gom/test/corpus/** -text

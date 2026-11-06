@@ -164,4 +164,5 @@
 | [self-import-path-module-derived](2026-11-06-self-import-path-module-derived.md) | SelfImportPath is the input's module-relative package path | 採用（実装・検証した — [検証](../sketch/2026-11-06-self-import-path-module-derived-verification.md)） |
 | [spec-suite-root-bare-gomi](2026-11-06-spec-suite-root-bare-gomi.md) | A bare .gomi at the spec-suite root is a load error | 採用（実装・検証した — [検証](../sketch/2026-11-06-spec-suite-root-bare-gomi-verification.md)） |
 | [spec-suite-root-bare-side-files](2026-11-06-spec-suite-root-bare-side-files.md) | A bare side file at the spec-suite root is a load error | 採用（実装・検証した — [検証](../sketch/2026-11-06-spec-suite-root-bare-side-files-verification.md)） |
+| [tree-sitter-gom-grammar](2026-11-06-tree-sitter-gom-grammar.md) | tree-sitter grammar for Gom (tree-sitter-gom/) | 採用（実装・検証した — editor 向けの決定で spec.md / design.md の更新対象はなし） |
 <!-- END GENERATED -->
