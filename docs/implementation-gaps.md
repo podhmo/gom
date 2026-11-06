@@ -1091,6 +1091,15 @@
   [loader](../internal/gomimport/loader.go) `l.loading`、
   [resolve](../internal/resolve/resolve.go) `visitImpl`、[TODO](../TODO.md)。
 
+- [ ] **`gom lsp` は open file を単独コンパイルするため兄弟ファイルの宣言が E0201 になる**:
+  v1 の single open-file モデルではパッケージ単位の入力がないため、
+  同一パッケージの兄弟 `.gom` で宣言されたシンボルを参照するファイルは
+  E0201（unbound）を報告する — `gom check <pkg>/` では出ない診断。
+  v1 scope 制限として記録済み、解消は「複数ファイルパッケージ単位」
+  タスク（wave-11 lsp）。
+  参照: [internal/lsp doc](../internal/lsp/doc.go)、
+  [decision](decisions/2026-11-06-lsp-v1-scope.md)、[TODO](../TODO.md)。
+
 - [ ] **`.gomi` の `package` 句食い違い時の E0601 が "no source registered" になる（未確認）**:
   `mismatch/mismatch.gom` が `package other` を宣言し `other.gomi`
   （正当な連動名）を持つ場合、E0601 報告で

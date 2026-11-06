@@ -53,7 +53,10 @@ Go 相互運用を変えたら両方向（Gom → Go、Go → Gom）のテスト
 
 ### P4 公開 API と開発体験
 
-- [ ] **P4-6 LSP**: 型表示、網羅性エラーの即時表示、UTF-16 位置への変換。依存: P4-5
+- [x] **P4-6 LSP**: 型表示、網羅性エラーの即時表示、UTF-16 位置への変換。依存: P4-5 — v1 foundation として採用: `internal/lsp`（stdio JSON-RPC、`didOpen`/`didChange`/`didClose`/`hover`/`publishDiagnostics`、単一 open-file モデル、`OffsetUTF16` で UTF-16 列→バイトオフセット逆変換）+ `gom lsp`。実 Emacs+Eglot で hover・診断 push を検証（wave11 lsp、[decision](docs/decisions/2026-11-06-lsp-v1-scope.md)、[検証](docs/sketch/2026-11-06-lsp-v1-verification.md)）
+- [ ] **[task] LSP: 複数ファイルパッケージ単位のコンパイル**: `gom lsp` は open file を単独でコンパイルするため、兄弟ファイル宣言のシンボルが E0201 になる既知の v1 制限（doc.go・decision 記録済み）。パッケージ単位 compileOptions + didOpen した兄弟の先行読込が要る（wave11 lsp 残件）
+- [ ] **[task] LSP: go-tool 診断の取り込み（SourceMap-aware 逆引き）**: サーバ内で `go build`/`go vet` の診断を `.gom` 位置へ戻すには `//line` drift の逆引き（対応表+曖昧時フォールバック）が前提 — v1 では不要と決定し deferred（[gaps](docs/implementation-gaps.md) の `//line` drift/`SpanAt` 項目、design.md 2.2）
+- [ ] **[task] LSP: completion/definition/references・incremental sync・`$/cancelRequest`・didSave/workspace**: v1 scope 外の機能群（hover・diagnostics のみ実装）。`gom lsp` の per-change `compileOptions`/`go list` セッションコストも未計測（wave11 lsp 残件）
 - [ ] **P4-7 インクリメンタルビルドのキャッシュ**: キャッシュキーは [design.md 5 章](docs/design.md)。依存: P4-1
 
 - [x] **[task] `gom test` で `.gomi` 適合検査を走らせる**: `runTest` が `runBuild` と同じ位置で `checkInterfaces` を呼び、E0601/E0603 のあるパッケージグループは `.go`/`_test.go` 書き出しと `go test` 実行の双方から withhold（[decision](docs/decisions/2026-11-04-gomi-conformance-in-gom-test.md)。`TestTestWithholdsOnInterfaceFailure` / `TestTestInterfaceGatePass`）
