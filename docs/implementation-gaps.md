@@ -343,6 +343,14 @@
   参照: [internal/stdlib](../internal/stdlib/stdlib.go)、
   [problem](problems/2026-11-05-self-import-path-layout-convention.md)、
   [decision](decisions/2026-11-03-stdlib-packaging.md)。
+  追記（2026-11-06）: 実害を観測 — `stdlib/list/` 内で `gom build`
+  （basename 入力 `list.gom`）を実行すると `SelfPath` が `""` を返し、
+  `List` 参照が stdlib `list` モジュール経由で修飾されるため、生成物
+  が `package list` 内で `import "...stdlib/list"` する **self-import**
+  になる（go build 不能）。正規の再生成は repo root から
+  `gom test stdlib/<pkg>`（`//line stdlib/list/list.gom:N` を持つ
+  コミット済み成果物がそれ）。ディレクトリ内ビルドを防ぐか、
+  SelfPath の判定をパッケージ宣言・go.mod 配置に拡げる余地あり。
 - [ ] **`Result.to_option` / `Option.to_list` は存在しない（Go の循環参照禁止によるもの）**:
   option→result（`to_result`）・list→option（`get`/`head` 等）が既にあるため、
   逆向き変換はパッケージ間で import cycle になる。layering は
@@ -894,7 +902,7 @@
   API の硬化策として decision に記録し deferred。
   [decision](decisions/2026-11-05-boundary-mutation-contract.md)。
 
-- [ ] **`(NamedIface, error)` / `(any, error)` の第 1 結果は nil-able だが
+- [x] **`(NamedIface, error)` / `(any, error)` の第 1 結果は nil-able だが
   `Result (Option T) GoError` を導出・宣言ともにできない**:
   [error-pair-ok-payload](decisions/2026-11-05-error-pair-ok-payload.md) は
   `Result (Option T) GoError` の宣言を第 1 結果が `*T`/`error` の場合に限る
@@ -906,8 +914,15 @@
   参照: [goimport/extern.go](../internal/goimport/extern.go) `nilablePresence`、
   [goimport/mapping.go](../internal/goimport/mapping.go) 派生写像、
   [spec 8.4](spec.md)。
+  対応: メソッド持ち interface を nil-able クラスとして採用 —
+  `(I,error)` の派生写像は `Result (Option T) GoError`、`ResNilable`
+  （`CallGo`/`GoSig`）で伝搬し verbatim 宣言は一般化 `payloadNilGuard`
+  で境界検査。`any` は methodIface でないので verbatim 維持。
+  spec 8.4 の admission 表も更新済み（wave10 call-honesty、
+  [decision](decisions/2026-11-06-nilable-iface-pair-ok-payload.md)、
+  [検証](sketch/2026-11-06-nilable-iface-pair-ok-payload.md)）。
 
-- [ ] **返り値関数のパラメータを指す labeled 引数が無診断で位置適用に
+- [x] **返り値関数のパラメータを指す labeled 引数が無診断で位置適用に
   潰れる**: `fn f (~a: Int) -> (~b: Str) -> Int` への `f ~b: "x"` は
   `paramByLabel` が flat index 1 を返すが `pi >= declArity` で
   `overDeclared` が無診断で立ち、`ArgToParam` が nil 化して位置適用
@@ -919,6 +934,12 @@
   参照: [check/apply.go](../internal/check/apply.go) `overDeclared`、
   [check/reclassify.go](../internal/check/reclassify.go) ガード、
   [sketch](sketch/2026-11-05-reclassify-arg-to-param-guard.md)。
+  対応: 意味拡張を採用 — カリー鎖をまたいだラベル引数は η 展開
+  （`f ~b: "x"` = `fn a -> f a ~b: "x"`）と決定し、`ArgToParam` を
+  flat ドメインに拡張、prefix 規則 `ClassMappedCall` で分類を共有。
+  spec §2 規則 6 として明記（wave10 call-honesty、
+  [decision](decisions/2026-11-06-label-args-into-returned-functions.md)、
+  [検証](sketch/2026-11-06-label-args-into-returned-functions.md)）。
 
 - [ ] **`expr.go` に raw `.String()` 描画が残り `?n` リークの可能性
   （到達性は未確認）**: E0402/E0403/E0410/E0411 は wave10 hygiene で
