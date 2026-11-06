@@ -1099,12 +1099,18 @@
   [loader](../internal/gomimport/loader.go) `Load`/`load`、
   [error-codes E0606](error-codes.md)。
 
-- [ ] **`gom lsp` は open file を単独コンパイルするため兄弟ファイルの宣言が E0201 になる**:
+- [x] **`gom lsp` は open file を単独コンパイルするため兄弟ファイルの宣言が E0201 になる**:
   v1 の single open-file モデルではパッケージ単位の入力がないため、
   同一パッケージの兄弟 `.gom` で宣言されたシンボルを参照するファイルは
   E0201（unbound）を報告する — `gom check <pkg>/` では出ない診断。
   v1 scope 制限として記録済み、解消は「複数ファイルパッケージ単位」
   タスク（wave-11 lsp）。
+  解消（2026-11-06, wave-12）: `gom lsp` がパッケージ単位コンパイルへ移行 — 兄弟宣言は解決され
+  E0201 誤報は消失。overlay gather（buffer shadows disk、member は絶対 `.gom` パスのみ）、
+  per-member publish（未オープンは合成 file:// URI）、離脱メンバーの retract は
+  [decision](decisions/2026-11-06-lsp-package-unit.md)、検証は
+  [sketch](sketch/2026-11-06-lsp-package-unit-verification.md)（Emacs/Eglot 実証 +
+  in-process tests）に記録。
   参照: [internal/lsp doc](../internal/lsp/doc.go)、
   [decision](decisions/2026-11-06-lsp-v1-scope.md)、[TODO](../TODO.md)。
 
