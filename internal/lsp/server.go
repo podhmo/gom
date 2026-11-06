@@ -7,28 +7,63 @@ import (
 	"fmt"
 	"io"
 	"net/url"
+	"os"
+	"path/filepath"
+	"sort"
+	"strings"
 
 	"github.com/podhmo/gom/internal/build"
 	"github.com/podhmo/gom/internal/diag"
 )
 
-// Compiler is the compile the server runs per document revision —
-// path is the file name diagnostics attach to and src the buffer
-// contents. cmd/gom wires the loader-backed driver; tests inject
-// stubs or a nil-options build.Compile.
-type Compiler func(path string, src []byte) (*build.Result, error)
+// Compiler is the compile the server runs per package revision —
+// inputs are the .gom members of one package, the standard LSP
+// overlay shape: open documents contribute their buffer contents
+// (unsaved edits compile), unopened members are read from disk.
+// Results come back one per input, in input order. cmd/gom wires
+// the loader-backed build.CompileFiles driver; tests inject stubs
+// or a nil-options CompileFiles.
+type Compiler func(inputs []build.Input) ([]*build.Result, error)
 
 // document is one open text document: the buffer the editor sees
 // (not necessarily what is on disk), its line index, and the latest
 // compile result — kept for hover lookups after every recompile.
 type document struct {
-	uri        string // the client's URI, also the publishDiagnostics target
-	path       string // file-path form — the name spans carry
-	version    int32
-	src        []byte
-	lines      *diag.LineIndex
-	result     *build.Result // nil while no compile has completed
-	compileErr error         // internal failure of the last compile, if any
+	uri     string // the client's URI, also the publishDiagnostics target
+	path    string // file-path form — the name spans carry
+	version int32
+	src     []byte
+	lines   *diag.LineIndex
+	result  *build.Result // nil while no compile has completed
+}
+
+// member is one .gom source of a package unit: an open document's
+// buffer shadowing the disk file, or a sibling read from disk whose
+// diagnostics still publish (under a synthesized URI) so a broken
+// unopened file cannot fail the package silently.
+type member struct {
+	path string    // the spelling spans carry
+	src  []byte    // what the compile saw
+	doc  *document // non-nil while the member is open
+}
+
+// unit is one gather+compile of a package: the members fed to the
+// compiler in input order, the per-input results handed back, the
+// scope the unit's published sets retract against, and the internal
+// failure of the compile itself, if any.
+type unit struct {
+	scope   string
+	members []member
+	results []*build.Result
+	err     error
+}
+
+// pubEntry records one pushed diagnostics set: the URI it went to
+// and the unit scope that owns it, so a later compile of the same
+// scope can retract a set whose file left the package.
+type pubEntry struct {
+	uri   string
+	scope string
 }
 
 // Server serves the LSP v1 slice over one JSON-RPC connection.
@@ -39,22 +74,32 @@ type Server struct {
 	docs     map[string]*document
 	inited   bool
 	shutdown bool
+	// published tracks every diagnostics set pushed this session,
+	// keyed by member path — a file that leaves its package (closed
+	// and deleted, or an unopened sibling that vanished) gets its
+	// last set retracted with an empty publish.
+	published map[string]pubEntry
 	// markup is the hover payload kind negotiated at initialize —
 	// "markdown" when the client offers it, "plaintext" otherwise.
 	markup string
 }
 
 // New returns a Server using compile for each recompile. A nil
-// compile falls back to a nil-options build.Compile — builtins only,
-// every import E0203 — useful for tests and for a server that never
-// sees imports anyway.
+// compile falls back to a nil-options build.CompileFiles — builtins
+// only, every import E0203 — useful for tests and for a server that
+// never sees imports anyway.
 func New(compile Compiler) *Server {
 	if compile == nil {
-		compile = func(path string, src []byte) (*build.Result, error) {
-			return build.Compile(build.Input{Path: path, Src: src}, nil)
+		compile = func(inputs []build.Input) ([]*build.Result, error) {
+			return build.CompileFiles(inputs, nil)
 		}
 	}
-	return &Server{compile: compile, docs: map[string]*document{}, markup: "markdown"}
+	return &Server{
+		compile:   compile,
+		docs:      map[string]*document{},
+		published: map[string]pubEntry{},
+		markup:    "markdown",
+	}
 }
 
 // ShutdownReceived reports whether the shutdown request arrived
@@ -210,26 +255,38 @@ func (s *Server) notify(c *conn, m *message) (stop bool, err error) {
 		if err := json.Unmarshal(m.Params, &p); err != nil {
 			return false, nil
 		}
-		s.didOpen(p)
-		return false, s.publish(c, p.TextDocument.URI)
+		u := s.didOpen(p)
+		return false, s.publishUnit(c, u)
 	case "textDocument/didChange":
 		var p DidChangeTextDocumentParams
 		if err := json.Unmarshal(m.Params, &p); err != nil {
 			return false, nil
 		}
-		s.didChange(p)
-		return false, s.publish(c, p.TextDocument.URI)
+		u := s.didChange(p)
+		if u == nil {
+			return false, nil
+		}
+		return false, s.publishUnit(c, u)
 	case "textDocument/didClose":
 		var p DidCloseTextDocumentParams
 		if err := json.Unmarshal(m.Params, &p); err != nil {
 			return false, nil
 		}
 		uri := p.TextDocument.URI
-		delete(s.docs, uri)
+		u := s.didClose(p)
 		// Clear the client's squiggles for the closed document.
-		return false, c.write(notification{JSONRPC: "2.0",
+		// When the file stays a package member — still on disk —
+		// the republish below replaces this with its disk-state
+		// set: diagnostics belong to the file, not to the tab.
+		if err := c.write(notification{JSONRPC: "2.0",
 			Method: "textDocument/publishDiagnostics",
-			Params: PublishDiagnosticsParams{URI: uri, Diagnostics: []Diagnostic{}}})
+			Params: PublishDiagnosticsParams{URI: uri, Diagnostics: []Diagnostic{}}}); err != nil {
+			return false, err
+		}
+		if u != nil {
+			return false, s.publishUnit(c, u)
+		}
+		return false, nil
 	default:
 		// Unknown notifications — initialized, $/setTrace,
 		// $/cancelRequest, methods outside v1 — are ignored.
@@ -237,8 +294,8 @@ func (s *Server) notify(c *conn, m *message) (stop bool, err error) {
 	}
 }
 
-// didOpen stores the document and compiles it.
-func (s *Server) didOpen(p DidOpenTextDocumentParams) {
+// didOpen stores the document and compiles its unit.
+func (s *Server) didOpen(p DidOpenTextDocumentParams) *unit {
 	d := &document{
 		uri:     p.TextDocument.URI,
 		path:    uriPath(p.TextDocument.URI),
@@ -246,87 +303,288 @@ func (s *Server) didOpen(p DidOpenTextDocumentParams) {
 		src:     []byte(p.TextDocument.Text),
 	}
 	s.docs[d.uri] = d
-	s.recompile(d)
+	return s.recompileFor(d)
 }
 
 // didChange replaces the document text with the last change event —
 // the server advertises full sync, so each event's Text is the whole
-// new buffer — and recompiles.
-func (s *Server) didChange(p DidChangeTextDocumentParams) {
+// new buffer — and recompiles the document's unit. Nil when the
+// document was never opened.
+func (s *Server) didChange(p DidChangeTextDocumentParams) *unit {
 	d := s.docs[p.TextDocument.URI]
 	if d == nil || len(p.ContentChanges) == 0 {
-		return
+		return nil
 	}
 	d.src = []byte(p.ContentChanges[len(p.ContentChanges)-1].Text)
 	d.version = p.TextDocument.Version
-	s.recompile(d)
+	return s.recompileFor(d)
 }
 
-// recompile refreshes the document's line index and compile result.
-func (s *Server) recompile(d *document) {
-	d.lines = diag.NewLineIndex(d.src)
-	r, err := s.guardedCompile(d.path, d.src)
-	d.result = r
-	d.compileErr = err
+// didClose drops the document and recompiles its package without the
+// overlay: remaining open members' diagnostics can flip when the
+// buffer that shadowed the disk file goes away. Nil when the
+// document was never open or names a singleton unit — then nothing
+// depends on it and only the empty publish above is owed.
+func (s *Server) didClose(p DidCloseTextDocumentParams) *unit {
+	d := s.docs[p.TextDocument.URI]
+	delete(s.docs, p.TextDocument.URI)
+	if d == nil {
+		return nil
+	}
+	// The caller's empty publish already covers the document's set —
+	// drop the record so a same-scope retraction does not push a
+	// second clear to the URI the client just closed. When the file
+	// stays a package member (still on disk), the republish below
+	// refills it under the synthesized URI.
+	delete(s.published, d.path)
+	if !isPackageMember(d.path) {
+		return nil
+	}
+	dir := filepath.Dir(filepath.Clean(d.path))
+	return s.recompileUnit("pkg:"+dir, s.packageMembers(dir))
 }
 
-// guardedCompile runs the document compile behind a panic boundary:
+// isPackageMember reports whether path can join a directory's
+// package unit: it must look like a .gom file AND carry an absolute
+// filesystem path — file:// URIs always resolve to one. The IsAbs
+// half is load-bearing, not hygiene: uriPath passes non-file URIs
+// through verbatim, and an opaque name like "untitled:scratch.gom"
+// still ends in .gom while filepath.Dir of it is "." — without the
+// guard the gather would glob the server's own working directory
+// into the unit.
+func isPackageMember(path string) bool {
+	return strings.HasSuffix(path, ".gom") && filepath.IsAbs(path)
+}
+
+// recompileFor compiles the unit d belongs to: the package of its
+// directory for an absolute .gom path, a singleton for anything
+// else — a .gomi interface file is its own scope, and a non-absolute
+// path (an untitled buffer's opaque name, a relative URI) has no
+// real directory to gather siblings from.
+func (s *Server) recompileFor(d *document) *unit {
+	if !isPackageMember(d.path) {
+		return s.recompileUnit("doc:"+d.path,
+			[]member{{path: d.path, src: d.src, doc: d}})
+	}
+	dir := filepath.Dir(filepath.Clean(d.path))
+	return s.recompileUnit("pkg:"+dir, s.packageMembers(dir))
+}
+
+// packageMembers gathers the .gom sources of dir into one unit's
+// input list, sorted by member path: the directory's *.gom files
+// with open documents' buffers shadowing disk contents, plus open
+// .gom documents of dir that exist only in the editor (new unsaved
+// files the glob cannot see). A sibling that vanishes between the
+// glob and the read drops out of the unit.
+func (s *Server) packageMembers(dir string) []member {
+	open := map[string]*document{}
+	for _, d := range s.docs {
+		if !strings.HasSuffix(d.path, ".gom") {
+			continue
+		}
+		key := filepath.Clean(d.path)
+		if filepath.Dir(key) != dir {
+			continue
+		}
+		open[key] = d
+	}
+	var ms []member
+	names, _ := filepath.Glob(filepath.Join(dir, "*.gom"))
+	for _, name := range names {
+		if d := open[filepath.Clean(name)]; d != nil {
+			ms = append(ms, member{path: d.path, src: d.src, doc: d})
+			delete(open, filepath.Clean(name))
+			continue
+		}
+		src, err := os.ReadFile(name)
+		if err != nil {
+			continue
+		}
+		ms = append(ms, member{path: name, src: src})
+	}
+	for _, d := range open {
+		ms = append(ms, member{path: d.path, src: d.src, doc: d})
+	}
+	sort.Slice(ms, func(i, j int) bool { return ms[i].path < ms[j].path })
+	return ms
+}
+
+// recompileUnit feeds the members to the compiler and hands each
+// open member's document its own result — the typed file hover
+// reads until the next unit compile.
+func (s *Server) recompileUnit(scope string, ms []member) *unit {
+	u := &unit{scope: scope, members: ms}
+	if len(ms) == 0 {
+		return u
+	}
+	inputs := make([]build.Input, len(ms))
+	for i, m := range ms {
+		inputs[i] = build.Input{
+			Path:      m.path,
+			Src:       m.src,
+			Interface: build.IsInterfaceFile(m.path),
+		}
+	}
+	results, err := s.guardedCompile(inputs)
+	u.results, u.err = results, err
+	for i, m := range ms {
+		if m.doc == nil {
+			continue
+		}
+		m.doc.lines = diag.NewLineIndex(m.doc.src)
+		if i < len(results) {
+			m.doc.result = results[i]
+		} else {
+			m.doc.result = nil
+		}
+	}
+	return u
+}
+
+// guardedCompile runs the unit compile behind a panic boundary:
 // a compiler panic (a checker gap tripping a house-style assert)
 // becomes an ordinary compile error, which publish then surfaces as
 // an "internal error" diagnostic — visible to the user without
 // killing the session.
-func (s *Server) guardedCompile(path string, src []byte) (r *build.Result, err error) {
+func (s *Server) guardedCompile(inputs []build.Input) (r []*build.Result, err error) {
 	defer func() {
 		if p := recover(); p != nil {
 			r, err = nil, fmt.Errorf("panic in compile: %v", p)
 		}
 	}()
-	return s.compile(path, src)
+	return s.compile(inputs)
 }
 
-// publish pushes the document's diagnostics to the client.
-func (s *Server) publish(c *conn, uri string) error {
-	d := s.docs[uri]
-	if d == nil {
-		return nil
-	}
-	ds := []Diagnostic{}
-	if d.compileErr != nil {
-		// An internal compile failure is transport-visible, not a
-		// compiler diagnostic — reported without a code at the
-		// document's head.
-		ds = append(ds, Diagnostic{
-			Severity: SeverityError,
-			Source:   "gom",
-			Message:  "internal error: " + d.compileErr.Error(),
-		})
-	}
-	if d.result != nil {
-		for _, dg := range d.result.Diagnostics {
-			if ld, ok := s.convertDiagnostic(d, dg); ok {
-				ds = append(ds, ld)
+// publishUnit pushes every member's diagnostics to the client:
+// open documents under their own URI and version, unopened members
+// under a synthesized file:// URI — the package's diagnostics
+// belong to the files whose spans carry them, not to the document
+// whose edit triggered the compile. A member with nothing to say
+// and nothing pushed before stays silent; members of this same unit
+// scope whose files left the package get their last set retracted
+// with an empty publish.
+func (s *Server) publishUnit(c *conn, u *unit) error {
+	live := make(map[string]bool, len(u.members))
+	for i := range u.members {
+		m := &u.members[i]
+		live[m.path] = true
+		uri := memberURI(m)
+		ds := s.memberDiagnostics(u, i)
+		old, ok := s.published[m.path]
+		if ok && old.uri != uri {
+			// The member's set moved URIs — an editor-opened URI
+			// replaced the synthesized one (or vice versa) — so
+			// the stale slot clears before the new one fills, and
+			// the record drops: an empty new set below would
+			// otherwise leave the dead URI registered forever.
+			if err := s.pushDiagnostics(c, old.uri, 0, nil); err != nil {
+				return err
 			}
+			delete(s.published, m.path)
+			ok = false
 		}
+		if !ok && len(ds) == 0 {
+			continue // silent member staying silent
+		}
+		var version int32
+		if m.doc != nil {
+			version = m.doc.version
+		}
+		if err := s.pushDiagnostics(c, uri, version, ds); err != nil {
+			return err
+		}
+		if len(ds) == 0 {
+			delete(s.published, m.path)
+		} else {
+			s.published[m.path] = pubEntry{uri: uri, scope: u.scope}
+		}
+	}
+	for path, e := range s.published {
+		if e.scope == u.scope && !live[path] {
+			if err := s.pushDiagnostics(c, e.uri, 0, nil); err != nil {
+				return err
+			}
+			delete(s.published, path)
+		}
+	}
+	return nil
+}
+
+// pushDiagnostics writes one publishDiagnostics notification; a nil
+// diagnostics list marshals as the protocol's empty array.
+func (s *Server) pushDiagnostics(c *conn, uri string, version int32, ds []Diagnostic) error {
+	if ds == nil {
+		ds = []Diagnostic{}
 	}
 	return c.write(notification{JSONRPC: "2.0",
 		Method: "textDocument/publishDiagnostics",
-		Params: PublishDiagnosticsParams{URI: uri, Version: d.version, Diagnostics: ds}})
+		Params: PublishDiagnosticsParams{URI: uri, Version: version, Diagnostics: ds}})
+}
+
+// memberDiagnostics renders one member's share of the unit result:
+// an internal compile failure lands on open documents only (it is a
+// session-level fault, not package truth), while real diagnostics
+// convert through the member's own line index — and only those
+// whose span names the member; a stray span pointing at another
+// file is that file's business, published with its own set.
+func (s *Server) memberDiagnostics(u *unit, i int) []Diagnostic {
+	m := &u.members[i]
+	ds := []Diagnostic{}
+	if u.err != nil {
+		if m.doc != nil {
+			ds = append(ds, Diagnostic{
+				Severity: SeverityError,
+				Source:   "gom",
+				Message:  "internal error: " + u.err.Error(),
+			})
+		}
+		return ds
+	}
+	var r *build.Result
+	if i < len(u.results) {
+		r = u.results[i]
+	}
+	if r == nil {
+		return ds
+	}
+	var lines *diag.LineIndex
+	if m.doc != nil {
+		lines = m.doc.lines
+	} else {
+		lines = diag.NewLineIndex(m.src)
+	}
+	for _, dg := range r.Diagnostics {
+		if ld, ok := s.convertDiagnostic(m.path, lines, dg); ok {
+			ds = append(ds, ld)
+		}
+	}
+	return ds
+}
+
+// memberURI is the publishDiagnostics target of a member: the open
+// document's own URI, or a file:// URI synthesized from the
+// member's path — good enough for the Problems list; a real
+// didOpen supersedes it (publishUnit retracts the stale slot).
+func memberURI(m *member) string {
+	if m.doc != nil {
+		return m.doc.uri
+	}
+	return (&url.URL{Scheme: "file", Path: m.path}).String()
 }
 
 // convertDiagnostic renders one diag.Diagnostic into its LSP form:
-// the span resolves through the document's own line index into
+// the span resolves through the member's own line index into
 // UTF-16 positions, notes fold into the message text, and a
 // diagnostic without a location degrades to a point at the
 // document's head. Diagnostics whose span names another file are
-// dropped — single-file compiles cannot produce them, and pushing
-// them under this document's URI would misplace them.
-func (s *Server) convertDiagnostic(d *document, dg diag.Diagnostic) (Diagnostic, bool) {
+// dropped — they publish under that file's own URI, not this one.
+func (s *Server) convertDiagnostic(path string, lines *diag.LineIndex, dg diag.Diagnostic) (Diagnostic, bool) {
 	var rng Range
 	if !dg.Span.IsZero() {
-		if dg.Span.File != d.path {
+		if dg.Span.File != path {
 			return Diagnostic{}, false
 		}
-		rng = s.lspRange(d, dg.Span)
+		rng = lspRange(lines, dg.Span)
 	}
 	sev := SeverityInformation
 	switch dg.Severity {
@@ -355,12 +613,12 @@ func (s *Server) convertDiagnostic(d *document, dg diag.Diagnostic) (Diagnostic,
 }
 
 // lspRange resolves a .gom byte span to an LSP range through the
-// document's line index — PosUTF16's 1-based units converted to
+// source's line index — PosUTF16's 1-based units converted to
 // LSP's 0-based line and UTF-16 character.
-func (s *Server) lspRange(d *document, sp diag.Span) Range {
+func lspRange(lines *diag.LineIndex, sp diag.Span) Range {
 	return Range{
-		Start: lspPosition(d.lines.PosUTF16(sp.Start)),
-		End:   lspPosition(d.lines.PosUTF16(sp.End)),
+		Start: lspPosition(lines.PosUTF16(sp.Start)),
+		End:   lspPosition(lines.PosUTF16(sp.End)),
 	}
 }
 
@@ -389,7 +647,7 @@ func (s *Server) hover(p TextDocumentPositionParams) *Hover {
 	if s.markup == "markdown" {
 		text = "```gom\n" + text + "\n```"
 	}
-	rng := s.lspRange(d, t.sp)
+	rng := lspRange(d.lines, t.sp)
 	return &Hover{
 		Contents: MarkupContent{Kind: s.markup, Value: text},
 		Range:    &rng,
@@ -397,9 +655,12 @@ func (s *Server) hover(p TextDocumentPositionParams) *Hover {
 }
 
 // uriPath converts a file:// URI into the path form compile inputs
-// carry — the name diagnostics attach to. Non-file URIs pass through
-// as opaque names: a document's path is only a span identity in this
-// in-memory model, never a filesystem promise.
+// carry — the name diagnostics attach to and, for absolute results,
+// the name sibling discovery globs from. Non-file URIs pass through
+// as opaque names ("untitled:scratch.gom" keeps its scheme-prefixed
+// form, which still ends in .gom): they form singleton units because
+// the package-unit path guards on filepath.IsAbs, not because the
+// glob could never see them.
 func uriPath(uri string) string {
 	u, err := url.Parse(uri)
 	if err != nil || u.Scheme != "file" {

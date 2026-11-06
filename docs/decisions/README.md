@@ -161,7 +161,8 @@
 | [gomtest-tests-option](2026-11-06-gomtest-tests-option.md) | The `case.json` `tests` option: test-mode generation in golden cases | 採用（実装・検証した — [検証](../sketch/2026-11-06-gomtest-tests-option-verification.md)） |
 | [iface-import-cycle-e0606](2026-11-06-iface-import-cycle-e0606.md) | Report .gomi-only import cycles as E0606 with the cycle path | 採用（実装・検証した — [検証](../sketch/2026-11-06-iface-import-cycle-e0606-verification.md)。spec.md §7 へ反映済み） |
 | [label-args-into-returned-functions](2026-11-06-label-args-into-returned-functions.md) | 返り値関数のパラメータを指すラベル引数 — カリー鎖をまたいだ並べ替え・充填を採用 | 採用（実装・検証した — [検証](../sketch/2026-11-06-label-args-into-returned-functions.md)。spec.md §2 へ反映済み） |
-| [lsp-v1-scope](2026-11-06-lsp-v1-scope.md) | LSP v1 scope: single-open-file hover + pushed diagnostics over stdio JSON-RPC | 採用 |
+| [lsp-package-unit](2026-11-06-lsp-package-unit.md) | LSP package compilation unit: overlay gather, per-member diagnostics | 採用 |
+| [lsp-v1-scope](2026-11-06-lsp-v1-scope.md) | LSP v1 scope: single-open-file hover + pushed diagnostics over stdio JSON-RPC | 採用 — compile-unit 部分は [2026-11-06-lsp-package-unit](2026-11-06-lsp-package-unit.md) が Supersede する（package 単位に拡張） |
 | [nilable-iface-pair-ok-payload](2026-11-06-nilable-iface-pair-ok-payload.md) | `(NamedIface, error)` / `(any, error)` の Ok ペイロード — メソッド持ち interface は派生 `Option`、nil-able 宣言ゲートを interface 全般へ | 採用（実装・検証した — [検証](../sketch/2026-11-06-nilable-iface-pair-ok-payload.md)。spec.md §8.3/§8.4 へ反映済み） |
 | [self-import-path-module-derived](2026-11-06-self-import-path-module-derived.md) | SelfImportPath is the input's module-relative package path | 採用（実装・検証した — [検証](../sketch/2026-11-06-self-import-path-module-derived-verification.md)） |
 | [spec-suite-root-bare-gomi](2026-11-06-spec-suite-root-bare-gomi.md) | A bare .gomi at the spec-suite root is a load error | 採用（実装・検証した — [検証](../sketch/2026-11-06-spec-suite-root-bare-gomi-verification.md)） |

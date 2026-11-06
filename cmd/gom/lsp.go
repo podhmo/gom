@@ -13,20 +13,25 @@ import (
 
 // runLSP implements `gom lsp`: the LSP v1 server over stdio —
 // didOpen/didChange/didClose, hover and pushed diagnostics
-// (docs/decisions/2026-11-06-lsp-v1-scope.md). Each open document
-// compiles alone with CheckOnly through the same loader-backed
-// options gom check uses; the buffer text the client sends is what
-// compiles, so unsaved edits are checked.
+// (docs/decisions/2026-11-06-lsp-v1-scope.md). The server compiles
+// at package granularity: each recompile hands the package's .gom
+// members — open documents' buffers shadowing disk, unopened
+// siblings read from disk — to build.CompileFiles with the same
+// loader-backed CheckOnly options gom check uses. Options rebuild
+// per compile (the members' own directory keys them), so a freshly
+// edited sibling always loads as it stands on disk.
 func runLSP(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("lsp", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	if err := fs.Parse(args); err != nil {
 		return flagError(err)
 	}
-	srv := lsp.New(func(path string, src []byte) (*build.Result, error) {
-		return build.Compile(
-			build.Input{Path: path, Src: src},
-			compileOptions(input{path: path, src: src}, true))
+	srv := lsp.New(func(ins []build.Input) ([]*build.Result, error) {
+		if len(ins) == 0 {
+			return nil, nil
+		}
+		return build.CompileFiles(ins,
+			compileOptions(input{path: ins[0].Path}, true))
 	})
 	if err := srv.Serve(os.Stdin, stdout); err != nil {
 		fmt.Fprintf(stderr, "gom lsp: %v\n", err)

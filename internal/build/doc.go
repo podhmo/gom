@@ -5,11 +5,11 @@
 // docs/design.md section 5), and invokes go build / go test on the
 // generated code.
 //
-// Today only the per-file driver exists: Compile runs the six phases
-// (parse → resolve → check → pattern → lower → codegen) over a single
-// source file and aggregates diagnostics. There is no package graph —
-// every file compiles independently, so sibling .gom files cannot
-// reference each other's top-level names — and no caching: everything
-// is recompiled on every call. cmd/gom stays a thin layer over build
-// and internal/format.
+// Today the per-package driver exists: CompileFiles runs the six
+// phases (parse → resolve → check → pattern → lower → codegen) over
+// the .gom files of one package as a unit — a top-level name one
+// file declares is visible in the others — and Compile is the
+// single-file degenerate case. There is no package graph beyond the
+// unit and no caching: everything is recompiled on every call.
+// cmd/gom stays a thin layer over build and internal/format.
 package build

@@ -12,12 +12,20 @@
 // diag.LineIndex (PosUTF16 for outbound spans, OffsetUTF16 for
 // inbound positions).
 //
-// Scope limits of v1: each open document compiles alone through
-// build.Compile with CheckOnly — parse, resolve, check and pattern
-// all run (so hover has a typed AST and exhaustiveness diagnostics
-// push immediately), while lowering, codegen and any `go` tool run
-// stay out of the loop. There is no workspace or multi-file package
-// unit, no incremental sync, no request cancellation, and no
-// generated-code position mapping — the SourceMap never enters this
-// path.
+// The compile unit is the package: opening or editing a .gom
+// document recompiles its directory's .gom files as one
+// build.CompileFiles unit — open documents' buffers shadow the disk
+// files (the standard LSP overlay shape), unopened siblings read
+// from disk — so a sibling-declared symbol resolves instead of
+// reporting E0201. Diagnostics publish per member file: open
+// documents under their own URI, unopened members under a
+// synthesized file:// URI. A document that is not a .gom path (a
+// .gomi interface, an untitled buffer) compiles as a singleton.
+//
+// Scope limits: CheckOnly — parse, resolve, check and pattern run
+// (so hover has a typed AST and exhaustiveness diagnostics push
+// immediately), while lowering, codegen and any `go` tool run stay
+// out of the loop. There is no workspace-wide indexing, no
+// incremental sync, no request cancellation, and no generated-code
+// position mapping — the SourceMap never enters this path.
 package lsp
