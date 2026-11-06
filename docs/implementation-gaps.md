@@ -335,7 +335,7 @@
   する — ずれは stdlib builtin-module 側のみ。
   参照: [internal/stdlib](../internal/stdlib/stdlib.go)、
   [検証](sketch/2026-11-05-v6-residual-verification.md)。
-- [ ] **`SelfImportPath` は `stdlib/<pkg>/` の予約ディレクトリ規約**:
+- [x] **`SelfImportPath` は `stdlib/<pkg>/` の予約ディレクトリ規約**:
   `gomstd.SelfPath` は入力パスに `stdlib/list|option|result/` を含むと
   そのパッケージの canonical import path を返す。ユーザーのモジュールが
   同名レイアウトを使うと同じ規約が適用される（builtin 型の参照が
@@ -351,6 +351,14 @@
   `gom test stdlib/<pkg>`（`//line stdlib/list/list.gom:N` を持つ
   コミット済み成果物がそれ）。ディレクトリ内ビルドを防ぐか、
   SelfPath の判定をパッケージ宣言・go.mod 配置に拡げる余地あり。
+  対応（wave11 wording-hygiene）: `gomstd.SelfPath` を削除し
+  `gomimport.Loader.EntryPath()`（go.mod 由来の module-relative 計算、
+  impl-scan の seed と同一規則）に一本化 — basename 入力の footgun と
+  ユーザーモジュール誤検出の双方が解消。self-import は構造的に
+  生成不能（emitted import は selfPath でない path 参照からしか
+  生まれない。明示的自己 import は既存 E0606 が捕捉）。
+  参照: [decision](decisions/2026-11-06-self-import-path-module-derived.md)、
+  [検証](sketch/2026-11-06-self-import-path-module-derived-verification.md)。
 - [ ] **`Result.to_option` / `Option.to_list` は存在しない（Go の循環参照禁止によるもの）**:
   option→result（`to_result`）・list→option（`get`/`head` 等）が既にあるため、
   逆向き変換はパッケージ間で import cycle になる。layering は
@@ -441,7 +449,7 @@
   限定であることに起因し、仕様判断が必要。
   参照: [problem](problems/2026-11-05-any-hole-deferred-result.md)。
 
-- [ ] **`import alias "path"` 形式と `.gomi` 内 import は文法だけが許す**: spec §5 が
+- [x] **`import alias "path"` 形式と `.gomi` 内 import は文法だけが許す**: spec §5 が
   `import "path"`（Gom パッケージ）を規定したのに対し、grammar.ebnf の
   `import-decl` の `[ ident ]` alias 部と `iface-decl` での import 受理は実装で
   未検証のまま（[PROVISIONAL gom-import-syntax] タグ付き）。`.gomi` 内 import は
@@ -450,6 +458,14 @@
   参照: [spec 5](spec.md#5-モジュールと可視性)、[grammar.ebnf](grammar.ebnf)、
   [problems](problems/2026-11-01-gom-import-syntax.md)、
   [problems](problems/2026-11-05-gom-package-imports.md)。
+  対応（wave11 wording-hygiene）: spec §5/§7 に定義を追加 — 束縛名はパス
+  末尾要素、`import alias "path"` / `import go f "fmt"` の別名は
+  ファイルローカル、`.gomi` 内 import はインターフェース自身のスコープ
+  （公開型は完全 import path で記録され利用側は引き継がない）。grammar.ebnf の
+  PROVISIONAL タグ除去。残るずれは別項目（生成 import の別名付与条件、
+  interface-only 循環の診断コード — いずれも本ファイル末尾に登録）。
+  参照: [decision](decisions/2026-11-06-gom-import-alias-and-gomi-imports.md)、
+  [検証](sketch/2026-11-06-import-alias-and-gomi-imports-verification.md)。
 - [x] **兄弟ファイルで同名 `test` ブロックは Go 側で重複シンボルになる**:
   パッケージ単位コンパイルで `gomEq*`/`tmp*` 系はファイルタグで回避するが、
   `test "name"` 由来の `func TestX` は無修飾のため、2 ファイルに同名 test が
@@ -582,12 +598,16 @@
   対応: `goWarned` の `reported` set でスパン単位に dedupe（[lint.go](../internal/check/lint.go)）。
   異なる使用箇所は引き続き個別に警告される。
 
-- [ ] **`rune` → `Char` 表記と実装（`Int32`）のずれ**: spec の型対応は
+- [x] **`rune` → `Char` 表記と実装（`Int32`）のずれ**: spec の型対応は
   `rune`/`Char` を書くが、goimport の basicType は `types.Int32` → `Int32`
   に写し、 untyped rune リテラルのみ `Char` になる（`unicode.IsUpper` で実測、
   `Char` とは `Go.conv` が要る）。
-  参照: [mapping.go](../internal/goimport/mapping.go) `basicType`、
-  [監査](sketch/2026-11-05-p3-7-realworld-interop-audit.md)。
+  対応（wave11 wording-hygiene）: spec §8.3 を実装に合わせ修正 — `rune`
+  （=`int32` 別名）は `Int32` に読まれ、`Char` は `'a'` リテラル・型なし
+  rune 定数・`Go.conv` で得る旨を明記。`Char ↔ Int32` の `Go.conv` 摩擦と
+  `byte` 類似問題は problems file に残件として記録。
+  参照: [spec 8.3](spec.md#83-型の対応)、
+  [problems](problems/2026-11-06-rune-char-correspondence.md)。
 
 - [x] **`Go.Map` に操作がない**: `builtinGoMembers` は `conv`/`Slice`/`Map` の
   型名のみで、`Go.Map.make` 等の操作は E0201。`Go.Map` を持つ Go API は
@@ -599,12 +619,14 @@
   [検証](sketch/2026-11-05-p3-7-interop-ops-verification.md)、
   [builtin.go](../internal/stdlib/builtin.go)。
 
-- [ ] **3+ 戻り値の Go 関数は非公開だが spec は arity 上限を書いていない**:
+- [x] **3+ 戻り値の Go 関数は非公開だが spec は arity 上限を書いていない**:
   spec 8.3 は tuple 戻り値の行だけで、実装は 3 つ以上の結果を持つ関数を
   E0501 で隠す（`strings.Cut` 等。P3-7 監査で判明）。spec 文言を足すか
   N-ary 対応かの判断が残る。
-  参照: [spec 8.3](spec.md#83-型の対応)、
-  [監査](sketch/2026-11-05-p3-7-realworld-interop-audit.md)。
+  対応（wave11 wording-hygiene）: spec 側に上限を明記（§8.3 対応表の直下と
+  §8.4 admission list — 3+ 結果は公開されず `extern` でも E0509 で救えない）。
+  N-ary 対応自体は未実装のまま（open-questions 側の未決事項）。
+  参照: [spec 8.3](spec.md#83-型の対応)、[spec 8.4](spec.md#84-extern上書き専用)。
 
 - [x] **`[]T` を in-place 変更する Go 関数はコンパイルして無音 no-op になる**:
   `sort.Strings` 等は境界でコピーされる List/Slice 規則の帰結として呼べて
@@ -628,14 +650,16 @@
   [検証](sketch/2026-11-05-gom-test-go-test-flags.md)、
   [test.go](../cmd/gom/test.go)、[gotest.go](../internal/build/gotest.go)。
 
-- [ ] **spec 12 節は panic 出力を「2 部構成」と限定なく書くが、実装は
+- [x] **spec 12 節は panic 出力を「2 部構成」と限定なく書くが、実装は
   解決フレーム 0 件なら単一部のまま返す**: `renderTrace` は `.gom` 位置へ
   解決できるフレームが 1 つも無い出力（ツールチェーン・手書き Go だけの
   スタック）では rendered==raw となるため raw をそのまま返す。fail-soft で
   妥当な挙動（design.md §4.8 に記載済み）だが、spec の文言とはずれている。
   `-q` でも同じ（全未解決なら raw が返る）。
-  参照: [spec 12](spec.md)、[test.go](../cmd/gom/test.go) `renderTrace`、
-  [design](design.md)。
+  対応（wave11 wording-hygiene）: spec §12 を実装どおりに修正 — 2 部構成は
+  「少なくとも 1 フレームが `.gom` 位置に解決される場合のみ」の条件付き
+  （design.md §4.8 準拠、`-q` 注記も追随）。
+  参照: [spec 12](spec.md)、[design](design.md)。
 
 - [x] **未 clean な `.gomi` 入力パスが `gomiInputs[want]` を外れて
   `.gomi` が二重にコンパイル・診断が二重に出る**: `iface.go` の
@@ -982,10 +1006,12 @@
   対応: 入力と index に同じ絶対パスを渡し、元の行への復元という検査内容は維持。
   参照: [テスト](../internal/build/e2e_gopos_test.go)、[検証](sketch/2026-11-05-test-performance.md)。
 
-- [ ] **`make check` の sumtype 検査が既存の部分 switch と未列挙ノードで失敗する**:
+- [x] **`make check` の sumtype 検査が既存の部分 switch と未列挙ノードで失敗する**:
   design 2.4 / AGENTS.md の sealed interface の網羅検査に対し、lower の Atom snapshot、
   format の parenLed、codegen の二つの fixture walker、core の集合検査で5件失敗した。
   今回の性能改善の変更前から該当コードには列挙がなく、完全チェックの計測を阻害している。
+  対応: `ab3d42f`（go-check-sumtype 網羅性違反の修正 — ErrorFromGo 等の列挙漏れ）で
+  解消済み。wave11 wording-hygiene で `make check-sumtype` exit 0（canary 検出のみ）を再確認。
   参照: [計測記録](sketch/2026-11-05-test-performance.md)、
   [lower](../internal/lower/expr.go)、[format](../internal/format/expr.go)、
   [codegen fixture](../internal/codegen/fixture_test.go)、[core test](../internal/core/core_test.go)。
@@ -1010,3 +1036,40 @@
   参照: [テスト](../tutorial/tutorial_test.go)、[README](../tutorial/README.md)、
   [decision](decisions/2026-11-05-test-performance.md)、
   [sketch](sketch/2026-11-04-v1-tutorial-findings.md)。
+
+- [ ] **生成 import の別名は束縛名がパス末尾と違うときだけ**:
+  codegen の `render`（internal/codegen/codegen.go）は `name == pathBase(p)`
+  なら別名なしの import を出す。`import "example.com/m/lib"` で `lib` に
+  束縛しても、相手の `package` 句が `other` なら生成物は
+  `import "example.com/m/lib"`（Go は `other` に束縛）＋ `lib.X` 参照で
+  `go build` 不可。reproducer: `mismatch/mismatch.gom`（`package other`）
+  ＋ `other.gomi`、importer が `import "example.com/t/mismatch"` で
+  `mismatch.double` 呼出 → `undefined: mismatch`。v1 の救済は明示別名
+  （`import other "..."`）。spec §5 と decision は実挙動を記述済み、
+  無条件別名化は TODO に残る（wave-11 wording-hygiene レビュー F-1）。
+  参照: [spec 5](spec.md#5-モジュールと可視性)、
+  [decision](decisions/2026-11-06-gom-import-alias-and-gomi-imports.md)、
+  [codegen](../internal/codegen/codegen.go)、[TODO](../TODO.md)。
+
+- [ ] **`.gomi` 同士だけの import 循環は E0203（経路なし）**:
+  impl scan は `*.gom` の import edge しか見ないため、interface-only の
+  循環は loader の in-flight guard が plain error を返し E0203
+  `cannot resolve import`（循環経路なし、理由は入れ子の
+  "does not check"）になる。`.gom` edge を通る循環は従来どおり経路付き
+  E0606。reproducer: `a.gomi` が `b`、`b.gomi` が `a` を import
+  （`.gom` 同士は import しない）→ `gom check` は両 `.gomi` の import
+  位置に E0203。spec §7・decision・sketch は実挙動を記述済み、
+  E0606 化するかの方針は TODO に残る（wave-11 wording-hygiene
+  レビュー F-2）。
+  参照: [spec 7](spec.md#7-インターフェースファイル-gomi)、
+  [loader](../internal/gomimport/loader.go) `l.loading`、
+  [resolve](../internal/resolve/resolve.go) `visitImpl`、[TODO](../TODO.md)。
+
+- [ ] **`.gomi` の `package` 句食い違い時の E0601 が "no source registered" になる（未確認）**:
+  `mismatch/mismatch.gom` が `package other` を宣言し `other.gomi`
+  （正当な連動名）を持つ場合、E0601 報告で
+  `cannot resolve span mismatch/mismatch.gomi ... no source registered`
+  という診断エミッション自体の不具合らしき出力が出た。再現条件・
+  影響範囲は未確認（wave-11 wording-hygiene worker の F-1 reproducer
+  作業中の副産物報告）。
+  参照: [iface](../cmd/gom/iface.go)、[diag](../internal/diag/)。
