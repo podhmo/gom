@@ -64,7 +64,7 @@ func errPairEnv(mk *resolve.Symbol, arity int, rawT types.Type) *Env {
 			return GoSig{}, false
 		}
 		return GoSig{Arity: arity, Results: core.GoResultsErr,
-			ResTypes: []types.Type{rawT, types.GoError},
+			ResTypes:   []types.Type{rawT, types.GoError},
 			ResNilable: rawT == types.GoError}, true
 	}}
 }

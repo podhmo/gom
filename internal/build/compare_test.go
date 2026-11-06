@@ -2175,7 +2175,7 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 	capture := &diffCapture{out: &out}
 	ev := eval.New(r.Typed)
 	ev.SetLineIndex(diag.NewLineIndex([]byte(src)))
-	bindGoStubs(t, r.Typed, ev, capture)
+	bindGoStubs(t, ev, capture, r.Typed)
 	fn := ev.Global("answer")
 	if fn == nil {
 		t.Fatal("no top-level `answer` binding for the evaluator")
