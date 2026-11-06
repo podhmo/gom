@@ -1,0 +1,15 @@
+package main
+
+// `Option Go.Any` selects the `Option[any]` instantiation — a
+// concrete `Option Int` is a different Go type (generics are
+// invariant), so it does not conform even though an `Int` alone
+// would feed an `any` slot (spec 8.1.7 vs element position).
+let oi : Option Int = Some 1
+let bad : Option Go.Any = oi
+
+fn takes (o: Option Go.Any) -> Unit = ignore o
+
+fn main () -> Unit = {
+  takes oi
+  ignore bad
+}

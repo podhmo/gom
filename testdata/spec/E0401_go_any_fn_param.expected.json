@@ -1,0 +1,165 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected Go.Any, got String",
+      "span": {
+        "file": "E0401_go_any_fn_param.gom",
+        "start": {
+          "line": 10,
+          "col": 25,
+          "offset": 392
+        },
+        "end": {
+          "line": 10,
+          "col": 26,
+          "offset": 393
+        }
+      },
+      "data": {
+        "actual": "String",
+        "expected": "Go.Any"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected Go.Any, got String",
+      "span": {
+        "file": "E0401_go_any_fn_param.gom",
+        "start": {
+          "line": 11,
+          "col": 39,
+          "offset": 432
+        },
+        "end": {
+          "line": 11,
+          "col": 40,
+          "offset": 433
+        }
+      },
+      "data": {
+        "actual": "String",
+        "expected": "Go.Any"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected Go.Any, got String",
+      "span": {
+        "file": "E0401_go_any_fn_param.gom",
+        "start": {
+          "line": 12,
+          "col": 32,
+          "offset": 465
+        },
+        "end": {
+          "line": 12,
+          "col": 38,
+          "offset": 471
+        }
+      },
+      "data": {
+        "actual": "String",
+        "expected": "Go.Any"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected Go.Any, got String",
+      "span": {
+        "file": "E0401_go_any_fn_param.gom",
+        "start": {
+          "line": 12,
+          "col": 33,
+          "offset": 466
+        },
+        "end": {
+          "line": 12,
+          "col": 34,
+          "offset": 467
+        }
+      },
+      "data": {
+        "actual": "String",
+        "expected": "Go.Any"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected Go.Any, got String",
+      "span": {
+        "file": "E0401_go_any_fn_param.gom",
+        "start": {
+          "line": 16,
+          "col": 31,
+          "offset": 583
+        },
+        "end": {
+          "line": 16,
+          "col": 32,
+          "offset": 584
+        }
+      },
+      "data": {
+        "actual": "String",
+        "expected": "Go.Any"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected Go.Any, got String",
+      "span": {
+        "file": "E0401_go_any_fn_param.gom",
+        "start": {
+          "line": 19,
+          "col": 13,
+          "offset": 621
+        },
+        "end": {
+          "line": 19,
+          "col": 14,
+          "offset": 622
+        }
+      },
+      "data": {
+        "actual": "String",
+        "expected": "Go.Any"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected Go.Any, got String",
+      "span": {
+        "file": "E0401_go_any_fn_param.gom",
+        "start": {
+          "line": 20,
+          "col": 19,
+          "offset": 642
+        },
+        "end": {
+          "line": 20,
+          "col": 20,
+          "offset": 643
+        }
+      },
+      "data": {
+        "actual": "String",
+        "expected": "Go.Any"
+      }
+    }
+  ]
+}

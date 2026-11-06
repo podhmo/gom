@@ -1,0 +1,13 @@
+package main
+
+import go "fmt"
+
+// `any` → `T` is a Go type assertion, not a conversion —
+// `Go.conv` does not admit it (spec sections 8.3 and 8.4). The
+// `any`-wards direction (`Go.conv x : Go.Any`) is fine.
+let v : Go.Any = 1
+
+fn main () -> Unit = {
+  ignore (Go.conv v : Int)
+  ignore (fmt.Println (Go.conv v : Go.Any))
+}

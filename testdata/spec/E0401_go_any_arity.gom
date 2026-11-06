@@ -1,0 +1,7 @@
+package main
+
+// `Go.Any` is a nullary type constructor — it takes no type
+// argument (spec section 8.3).
+let x : Go.Any Int = 1
+
+fn main () -> Unit = ignore x

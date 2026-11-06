@@ -1,0 +1,6 @@
+package m
+
+let x : Go.Any
+let o : Option Go.Any
+
+fn id (a: Go.Any) -> Go.Any

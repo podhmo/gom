@@ -650,27 +650,38 @@ func (c *checker) propagateFlags(r *metaRec, t types.Type) {
 	}
 }
 
+// bindWantMeta solves the wanted side's unbound meta against the
+// (already chased) got side — the shared head of unify and unifySub.
+// Two metas merge keeping the expected side canonical so descriptions
+// bias toward "what was required"; a concrete got binds outright.
+func (c *checker) bindWantMeta(m *types.Meta, g types.Type, sp diag.Span) bool {
+	if gm, ok := g.(*types.Meta); ok && gm == m {
+		return true
+	}
+	if gm, ok := g.(*types.Meta); ok {
+		mergeRec(c.recOf(m), c.recOf(gm))
+		delete(c.metas, gm)
+		gm.Bind(m)
+		return true
+	}
+	return c.bind(m, g, sp)
+}
+
 // unify makes two types equal, solving metas on either side. It
 // reports a type mismatch (E0401) at sp and returns false on failure.
 // The expected type is the first argument so diagnostics read
 // "expected X, got Y".
+//
+// unify is the *value-slot* judgment — the expression reaching the
+// slot carries its own type. Inside a composite type's parameters
+// the judgment changes to unifySub's: a `Container Go.Any` slot is
+// invariant, not accept-everything.
 func (c *checker) unify(want, got types.Type, sp diag.Span) bool {
 	w, g := types.Chase(want), types.Chase(got)
 
 	// Metas first: binding beats every structural rule.
 	if m, ok := w.(*types.Meta); ok {
-		if gm, ok := g.(*types.Meta); ok && gm == m {
-			return true
-		}
-		if gm, ok := g.(*types.Meta); ok {
-			// Keep the expected side canonical so descriptions
-			// bias toward "what was required".
-			mergeRec(c.recOf(m), c.recOf(gm))
-			delete(c.metas, gm)
-			gm.Bind(m)
-			return true
-		}
-		return c.bind(m, g, sp)
+		return c.bindWantMeta(m, g, sp)
 	}
 	// A `Go.Any` parameter accepts every argument — boxing a value
 	// into Go's empty interface is implicit at call sites
@@ -678,6 +689,37 @@ func (c *checker) unify(want, got types.Type, sp diag.Span) bool {
 	// `any` slot never captures an inference variable.
 	if isGoAny(w) {
 		return true
+	}
+	return c.unifySub(w, g, sp)
+}
+
+// unifySub unifies inside the parameters of a composite type — a Con
+// or Tuple or Go argument, a Func parameter or result — where a
+// `Go.Any` slot *selects the instantiation* rather than accepting
+// every payload: `Option Go.Any` demands `Option[any]` (Go generics
+// are invariant — `Option[int64]` is not `Option[any]`). An unsolved
+// meta on the got side binds to `Go.Any` — a constructor under this
+// expectation (`Ok v`, `Some v`, `None`, `[e]`) builds the
+// `any`-element composite directly — while a concrete got must equal
+// `Go.Any` itself. The `any`-in-element-position rule is what
+// distinguishes an `any`-parameterized container from the
+// value-level accept of spec 8.1.7, where `any(x)` boxes the whole
+// value whatever x's type is.
+func (c *checker) unifySub(want, got types.Type, sp diag.Span) bool {
+	w, g := types.Chase(want), types.Chase(got)
+
+	if m, ok := w.(*types.Meta); ok {
+		return c.bindWantMeta(m, g, sp)
+	}
+	if isGoAny(w) {
+		if isGoAny(g) {
+			return true
+		}
+		if m, ok := g.(*types.Meta); ok {
+			return c.bind(m, w, sp)
+		}
+		c.mismatch(sp, w, g)
+		return false
 	}
 	if m, ok := g.(*types.Meta); ok {
 		return c.bind(m, w, sp)
@@ -698,7 +740,7 @@ func (c *checker) unify(want, got types.Type, sp diag.Span) bool {
 		}
 		okAll := true
 		for i := range w.Args {
-			if !c.unify(w.Args[i], gc.Args[i], sp) {
+			if !c.unifySub(w.Args[i], gc.Args[i], sp) {
 				okAll = false
 			}
 		}
@@ -718,7 +760,7 @@ func (c *checker) unify(want, got types.Type, sp diag.Span) bool {
 		}
 		okAll := true
 		for i := range w.Elems {
-			if !c.unify(w.Elems[i], gt.Elems[i], sp) {
+			if !c.unifySub(w.Elems[i], gt.Elems[i], sp) {
 				okAll = false
 			}
 		}
@@ -731,7 +773,7 @@ func (c *checker) unify(want, got types.Type, sp diag.Span) bool {
 		}
 		okAll := true
 		for i := range w.Args {
-			if !c.unify(w.Args[i], gg.Args[i], sp) {
+			if !c.unifySub(w.Args[i], gg.Args[i], sp) {
 				okAll = false
 			}
 		}
@@ -743,6 +785,53 @@ func (c *checker) unify(want, got types.Type, sp diag.Span) bool {
 	default:
 		panic("unreachable")
 	}
+}
+
+// containsGoAny reports whether `Go.Any` occurs anywhere inside t —
+// a `Go.Any` nested in an expected constructor argument still
+// *selects* the ctor's instantiation: `Some (Some 42)` under
+// `Option (Option Go.Any)` pins the outer ctor's meta to
+// `Option Go.Any` so the inner apply's own pin chains through and
+// the payload boxes into the `any` element (`checkApply`). The walk
+// chases metas, so an already-bound meta's content counts too.
+func containsGoAny(t types.Type) bool {
+	switch t := types.Chase(t).(type) {
+	case *types.Con:
+		if isGoAny(t) {
+			return true
+		}
+		for _, a := range t.Args {
+			if containsGoAny(a) {
+				return true
+			}
+		}
+	case *types.Tuple:
+		for _, el := range t.Elems {
+			if containsGoAny(el) {
+				return true
+			}
+		}
+	case *types.Func:
+		for _, p := range t.Params {
+			if containsGoAny(p.Type) {
+				return true
+			}
+		}
+		return containsGoAny(t.Ret)
+	case *types.Go:
+		for _, a := range t.Args {
+			if containsGoAny(a) {
+				return true
+			}
+		}
+	case *types.Meta, *types.Var:
+		// Chased already: a Meta reaching here is unbound and
+		// contains nothing; a Var is a rigid type variable.
+		return false
+	default:
+		panic("unreachable")
+	}
+	return false
 }
 
 // unifyFunc unifies two function types on their flattened curried
@@ -765,10 +854,20 @@ func (c *checker) unify(want, got types.Type, sp diag.Span) bool {
 func (c *checker) unifyFunc(w, g *types.Func, sp diag.Span) bool {
 	wp, wr := flattenFunc(w)
 	gp, gr := flattenFunc(g)
+	// Parameters pair under the structural judgment — two function
+	// *types* are equal only parameter-for-parameter. A `Go.Any`
+	// parameter in the expected type does not accept a function
+	// whose parameter is a different type: `any -> R` and
+	// `String -> R` emit different Go func types and Go generics
+	// are invariant. The "callee accepts this argument" reading —
+	// an `any` parameter taking a `String` argument — is an
+	// *application* check, not type equality; pipeCall, overApply,
+	// `|?>` and the deferred replay perform it per parameter via
+	// conformCallee/unify (spec 8.1.7).
 	for len(wp) > 0 && len(gp) > 0 {
 		a, b := wp[0], gp[0]
 		if a.Label == "" && b.Label == "" {
-			if !c.unify(a.Type, b.Type, sp) {
+			if !c.unifySub(a.Type, b.Type, sp) {
 				return false
 			}
 			wp, gp = wp[1:], gp[1:]
@@ -801,7 +900,7 @@ func (c *checker) unifyFunc(w, g *types.Func, sp diag.Span) bool {
 				continue
 			}
 			matched[k] = true
-			if !c.unify(p.Type, rb[k].Type, sp) {
+			if !c.unifySub(p.Type, rb[k].Type, sp) {
 				return false
 			}
 		}
@@ -826,11 +925,11 @@ func (c *checker) unifyFunc(w, g *types.Func, sp diag.Span) bool {
 	// flattens.
 	switch {
 	case len(wp) > 0:
-		return c.unify(&types.Func{Params: wp, Ret: wr}, gr, sp)
+		return c.unifySub(&types.Func{Params: wp, Ret: wr}, gr, sp)
 	case len(gp) > 0:
-		return c.unify(wr, &types.Func{Params: gp, Ret: gr}, sp)
+		return c.unifySub(wr, &types.Func{Params: gp, Ret: gr}, sp)
 	default:
-		return c.unify(wr, gr, sp)
+		return c.unifySub(wr, gr, sp)
 	}
 }
 

@@ -1,0 +1,35 @@
+package main
+
+import go "fmt"
+
+// spec 8.3: a `Go.Any` parameter accepts every argument at
+// application boundaries — a lambda under the `any -> Int` shape
+// binds its parameter to `any` (`fn x -> 1` emits `func(x any)
+// int64`), the pipe conforms its argument (the box materializes,
+// `ga(any(int64(42)))` like `ga 42`), and the step of `|?>` accepts
+// the payload. Invariance applies to whole function *types* — the
+// parameter slot itself stays an application-time conformance.
+fn ga (a: Go.Any) -> Int = 7
+fn step (a: Go.Any) -> Result Int GoError = Ok 1
+
+let f : Go.Any -> Int = fn x -> 1
+fn h (cb: Go.Any -> Int) -> Int = cb 0
+fn hl (~cb: Go.Any -> Int) -> Int = cb 0
+
+let oo : Option (Option Go.Any) = Some (Some 42)
+let rl : Result (List Go.Any) GoError = Ok [1]
+
+fn main () -> Unit = {
+  ignore (f "s")
+  ignore (h (fn x -> 1))
+  let n = hl ~cb: (fn x -> 1)
+  ignore n
+  ignore (42 |> ga)
+  ignore ("s" |> ga)
+  ignore (ga >> ga)
+  ignore (Ok 3 |?> step)
+  ignore oo
+  ignore rl
+  ignore (x |> fmt.Println)
+}
+let x : Int = 1

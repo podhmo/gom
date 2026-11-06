@@ -1,0 +1,28 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0201",
+      "severity": "error",
+      "message": "`Any` is a type, not a value",
+      "span": {
+        "file": "E0201_go_any_value_position.gom",
+        "start": {
+          "line": 5,
+          "col": 12,
+          "offset": 156
+        },
+        "end": {
+          "line": 5,
+          "col": 15,
+          "offset": 159
+        }
+      },
+      "data": {
+        "name": "Any",
+        "namespace": "value",
+        "resolved_kind": "type"
+      }
+    }
+  ]
+}

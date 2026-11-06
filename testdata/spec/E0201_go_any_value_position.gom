@@ -1,0 +1,7 @@
+package main
+
+// `Go.Any` is a type constructor — it has no value-level meaning
+// and cannot stand in expression position (spec section 8.3).
+let x = Go.Any
+
+fn main () -> Unit = ignore x

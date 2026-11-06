@@ -157,6 +157,7 @@ func builtinScope() *scope {
 func builtinGoMembers() map[string]*Symbol {
 	return map[string]*Symbol{
 		"conv":  {Name: "conv", Kind: KindBuiltin, Package: "Go"},
+		"Any":   {Name: "Any", Kind: KindType, Package: "Go"},
 		"Slice": {Name: "Slice", Kind: KindType, Package: "Go"},
 		"Map":   {Name: "Map", Kind: KindType, Package: "Go"},
 	}

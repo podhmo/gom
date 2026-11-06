@@ -2656,7 +2656,11 @@ func (l *lowerer) ascribe(s *seq, e *check.Ascribe) core.Expr {
 	return &core.Conv{
 		Base: baseOf(e),
 		Kind: kind,
-		X:    x,
+		// A numeric boxing into `any` materializes the Gom numeric
+		// first — `any(1)` would box Go's default `int`, not the
+		// `int64` Gom's `Int` renders as. convBoxSrc is a no-op for
+		// every other kind.
+		X: l.convBoxSrc(s, x, kind),
 	}
 }
 

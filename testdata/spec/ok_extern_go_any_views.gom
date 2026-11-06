@@ -1,0 +1,19 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// spec section 8.4 + 8.3: `Go.Any` inside an extern's composite
+// result views — `any` is a nil-able interface result, so
+// `Option Go.Any` over the comma-ok pair and `Result (Option
+// Go.Any) GoError` over `(any, error)` are admitted; the payload
+// keeps the raw `any` type.
+extern go "github.com/podhmo/gom/testdata/goiface" {
+  fn AnyLookup (k: String) -> Option Go.Any
+  fn AnyPair (n: Int) -> Result (Option Go.Any) GoError
+}
+
+fn probe (k: String) (n: Int) -> Unit = {
+  ignore (goiface.AnyLookup k)
+  ignore (goiface.AnyPair n)
+  ()
+}

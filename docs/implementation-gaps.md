@@ -1184,48 +1184,120 @@
   参照: [iface](../cmd/gom/iface.go) `checkInterfaces`/`gomiDecl`、
   [iface compare](../internal/iface/compare.go)。
 
-- [ ] **spec §8.3 の `Go.Any` 段落は決定済み・実装前の規範記述**:
+- [x] **spec §8.3 の `Go.Any` 段落は決定済み・実装前の規範記述**:
   spec は `Go.Any` を型式の書ける全位置に書けると記述するが、現行
   コンパイラは resolve が E0201 で拒否する（admission は TODO タスク）。
   宣言結果位置のボックス有無も未決で実装レーンへ委任。spec-ahead-of-impl
   の状態は意図的（decision 採用→spec 先出し→impl 追従の順）。
+  対応: `builtinGoMembers` に `Any`（KindType）、`goTypeArity` に
+  `"Any": 0` を追加し admission を実装。宣言結果はボックス物質化を
+  採用（下の残 gap 1–4 の項目参照）。spec §8.3 を実装済みの規範に
+  更新。fixtures: `ok_go_any_positions`、`ok_go_any_gomi/`、
+  `ok_extern_go_any_views`（`Option Go.Any`・`Result (Option
+  Go.Any) GoError` の extern 結果ビュー）、`ok_any_lowercase_typevar`、
+  `E0401_go_any_arity`、`E0201_go_any_value_position`、`E0507_go_any_conv`、
+  `E0509_extern_option_go_any_param`。
   参照: [decision](decisions/2026-11-06-go-any-spellable.md)、
-  [検証](sketch/2026-11-06-go-any-spellable-prototype.md)、
-  [resolve scope](../internal/resolve/scope.go) `builtinGoMembers`、
-  [check typenv](../internal/check/typenv.go) `goTypeArity`。
+  [decision](decisions/2026-11-06-go-any-conformance-materialize.md)、
+  [検証](sketch/2026-11-06-go-any-conformance-verification.md)。
 
-- [ ] **`Go.Any` 宣言結果で check が受理する範囲と lower の materialize
+- [x] **`Go.Any` 宣言結果で check が受理する範囲と lower の materialize
   が不一致 → E0901**: `fn -> Go.Any` / `-> Result Go.Any GoError` の
   本体が named-iface（`json.Token`）や型変数のとき、check は
   `unify(Go.Any, ·)` で受理するが `Ascribe` を発行せず、lower は
   結果位置に変換を挿さないため validate の tailType≠ResidualType に
   落ちる。残 gap 1（admission パッチ適用下での観測）。
-  参照: [検証](sketch/2026-11-06-go-any-spellable-prototype.md)、
-  [check/expr.go](../internal/check/expr.go)、
-  [core/validate.go](../internal/core/validate.go)。
+  対応: `conformExpr` が `Go.Any` want への適合を
+  `Ascribe{Conv: true}` で包み、`ConvBoxAny` 経路で `any(body)` を
+  emit — 結果位置の materialize を採用（check 厳格化ではなく）。
+  `try dec.Token()` 経路は `result.Ok[any, error](any(t))` で通る。
+  参照: [decision](decisions/2026-11-06-go-any-conformance-materialize.md)、
+  [検証](sketch/2026-11-06-go-any-conformance-verification.md)、
+  [check/expr.go](../internal/check/expr.go)、golden `go_any`。
 
-- [ ] **`.gomi` exported `let` の `Go.Any` — 宣言は受理されるが生成
+- [x] **`.gomi` exported `let` の `Go.Any` — 宣言は受理されるが生成
   `var X` が具体型になる**: `.gomi` が `let x : Go.Any` を広告しても
   codegen の `varDecl` は `d.Body.Tail.Type()`（推論型）を出すため
   Go 側 API 面の型が `.gomi` の広告とずれる。残 gap 2。
-  参照: [検証](sketch/2026-11-06-go-any-spellable-prototype.md)、
-  [codegen/decl.go](../internal/codegen/decl.go)。
+  対応: 適合ボックスを Core の `Conv`（型 `Go.Any`）として物質化する
+  ため `d.Body.Tail.Type()` が宣言型を拾い `var X any` になる —
+  codegen に declared 型を運ぶ経路は要らなかった。
+  参照: [検証](sketch/2026-11-06-go-any-conformance-verification.md)、
+  spec `ok_go_any_gomi/`、golden `go_any`。
 
-- [ ] **`Option Go.Any` の `None` を式位置に書けない（E0407）**:
+- [x] **`Option Go.Any` の `None` を式位置に書けない（E0407）**:
   `let o : Option Go.Any = None` — `isGoAny(w)` の受理は meta を
   束縛しないため `None` の要素 meta が宙吊りになる。Go 呼び出し結果・
   パターン経由では `Option Go.Any` 値は得られる。残 gap 3。
-  参照: [検証](sketch/2026-11-06-go-any-spellable-prototype.md)、
-  [unify](../internal/check/unify.go) `isGoAny`。
+  対応: unify を値スロット判定と構造判定 `unifySub` に分け、
+  型引数位置の `Go.Any` は got 側未解決 meta を `Go.Any` に bind
+  する規則とした — `None`/`Some`/`Ok` は `any` 要素の合成を直接
+  組み立てる（`option.Option_None[any]{}`）。pat.go の手動 pin は
+  `unifySub` が包含するので撤去。スカラ `let x : Go.Any = None` は
+  制限として E0407 のまま（`Option Go.Any` 注釈が答え —
+  spec §8.3 明記、fixture `E0407_go_any_scalar_ctor`）。
+  参照: [decision](decisions/2026-11-06-go-any-conformance-materialize.md)、
+  [検証](sketch/2026-11-06-go-any-conformance-verification.md)。
 
-- [ ] **`Go.Any` コンテナ payload の型/表現乖離は `gom check`・`gom
+- [x] **`Go.Any` コンテナ payload の型/表現乖離は `gom check`・`gom
   build` を通って `go build` で落ちる**: `let o : Option Go.Any =
   Some 42`（`Ok 42`・`[1]` 同型）は bind が `Option[int64]` で emit
   される一方スロットは `Option[any]` — 型不変なジェネリック実引数
   位置で `does not implement` になる。スカラ let 注釈
   （`x := int64(42)`）は使用位置で再ボックスされるため無害で、
   壊れるのはコンテナ型引数位置のみ。残 gap 4（レビュー probe で確認）。
-  参照: [検証](sketch/2026-11-06-go-any-spellable-prototype.md)。
+  対応: 構造判定 `unifySub` が型引数位置の `Go.Any` をインスタンス化
+  の選択として裁き、payload は `any` 要素スロットへボックス —
+  `Some 42` は `option.Option_Some[any]{V0: any(int64(42))}`、
+  `[1]` は `list.List[any]{...}`、`Ok 42` は `result.Ok[any, error]`
+  を emit。既に concrete な `Option Int` は型不変で拒否
+  （`E0401_go_any_invariant`）。
+  参照: [検証](sketch/2026-11-06-go-any-conformance-verification.md)、
+  golden `go_any`。
+
+- [x] **関数型の等価判定が `Go.Any` パラメータを値スロット受理で
+  通し、`any -> Int` と `String -> Int` が同じ型になっていた**:
+  `unifyFunc` はパラメータ対を `unify`（値スロット判定）で裁いて
+  いたため、`let f : Go.Any -> Int = g`（`g : String -> Int`）が
+  受理され、`let` の型は宣言の `any -> Int` に留まる一方、emit される
+  `func f(x string) int64` は初期化子の型に倒れる — 下流で
+  `h : (Go.Any -> Int) -> …` のスロットに `f` を渡すと
+  `h(f)` は `func(string) int64` ≠ `func(any) int64` で
+  `go build` が落ちる（レビュー probe で確認 — Gom 側の
+  `any -> Int` 広告と生成シグネチャの乖離）。同じ穴は fn 型の
+  パラメータスロット・match スロット・`Option (Go.Any -> Int)`
+  型のような入れ子にも広がっていた — `unifySub` の「`Go.Any` を
+  含むか」の判定が `*types.Con` の直下の型引数だけを見ていた
+  ため、`Option (Go.Any -> Int)` は検知自体が漏れていた
+  （`Some (fn x -> 1)` が `Option[func(string) int64]` に
+  instantiate される）。また期待位置の materialize が fn 型を
+  見ていなかったため `let g : Go.Any -> Int = fn x -> 1` は
+  ラムダの `x` が `any` ではなく具象型に推論され、emit は
+  `func f[A any](x A) int64`（ジェネリック脱出 — 型は合うが
+  宣言の忠実度を失う）になっていた。
+  対応: `unifyFunc` のパラメータ対を `unifySub` に揃え（結果側は
+  元から `unifySub`）、関数型を全位置不変に — `any -> Int` と
+  `String -> Int` はどちら向きにも E0401。「`Go.Any` を含むか」の
+  判定は `containsGoAny` として型を深く歩く判定に差し替え、
+  `Option (Go.Any -> Int)` / `Result (List Go.Any) GoError` などの
+  入れ子も `unifyFunc` 入口で構造判定を選ばせる（`unify` の
+  `isGoAny(w)` 早期受理はトップレベル限定のまま）。期待位置の
+  materialize は `conformExpr` が want の関数型の `Go.Any`
+  パラメータをラムダの binder 注釈として流し、
+  `let g : Go.Any -> Int = fn x -> 1` → `func(x any) int64` と
+  宣言通りに emit する。`any -> R` の callee へ `String` 値を
+  渡す適用サイトの conform は従来通り値スロットで受理
+  （`ga "s"`、`42 |> ga` はボックス物質化を維持）。match 観察の
+  「`?a` 宙吊り」は `let x : Go.Any = None` と同じ E0407 の正直な
+  拒否として据え置き（暗黙の型スイッチ emit ではない）。
+  fixtures: `ok_go_any_fn`（直接・pipe・over-apply・`>>`・`|?>`・
+  期待位置ラムダ・入れ子コンテナ）、`E0401_go_any_fn_param`、
+  `E0401_go_any_fn_contra`（逆方向、注釈＋パラメータスロット）、
+  `E0509_extern_go_any_fn_param`（extern の関数型パラメータは
+  そもそも未対応で E0509 — `any` 適合以前に上流失効）。
+  参照: [decision](decisions/2026-11-06-go-any-conformance-materialize.md)、
+  [unifyFunc](../internal/check/unify.go)、
+  [検証](sketch/2026-11-06-go-any-conformance-verification.md)。
 
 - [x] **spec §3.1 の qualified-name 例 `Go.Int` は現行 base で綴れない**:
   `builtinGoMembers` が公開するのは `conv`/`Slice`/`Map` のみで `goTypeArity`

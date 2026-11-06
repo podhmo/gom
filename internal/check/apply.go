@@ -28,7 +28,7 @@ import (
 // `Go.conv` is not an ordinary call: `Go.conv e : T` reaches the
 // checker as an ascription over this node, so a bare `Go.conv e`
 // reports E0507.
-func (c *checker) checkApply(e *syntax.Apply) Expr {
+func (c *checker) checkApply(e *syntax.Apply, want types.Type) Expr {
 	fn, callee, goCall := c.calleeOf(e.Fn)
 	if callee == nil {
 		// A member selection deferred on an unresolved receiver meta
@@ -48,6 +48,30 @@ func (c *checker) checkApply(e *syntax.Apply) Expr {
 		return c.checkConvCall(e, fn)
 	}
 	params, ret := flattenFunc(fn.Type())
+	// A `Go.Any` element of an expected composite is the
+	// constructor's instantiation answer: pin it before the
+	// arguments check so the payload conforms into the `any`
+	// slot — `Ok v` under `Result Go.Any GoError` builds
+	// `Result[any, error]` (spec 8.1.7's box reaches generic
+	// element positions; `Result[int64, error]` is not
+	// `Result[any, error]`, Go generics are invariant). Only the
+	// unsolved metas facing a `Go.Any` argument pin here — a
+	// concrete mismatch stays the call's own conformance
+	// diagnostic rather than reporting twice. `containsGoAny`
+	// nests the answer one constructor deep: `Some (Some 42)`
+	// under `Option (Option Go.Any)` pins the outer meta to
+	// `Option Go.Any` so the inner apply's pin chains through.
+	if wc, ok := types.Chase(want).(*types.Con); ok {
+		if rc, ok := types.Chase(ret).(*types.Con); ok &&
+			rc.Qual == wc.Qual && rc.Name == wc.Name && len(rc.Args) == len(wc.Args) {
+			for i := range wc.Args {
+				if m, ok := types.Chase(rc.Args[i]).(*types.Meta); ok &&
+					containsGoAny(wc.Args[i]) {
+					c.bind(m, wc.Args[i], e.Sp)
+				}
+			}
+		}
+	}
 	if goCall {
 		sig, _ := c.sigOf(callee, e.Sp)
 		arity := c.declArity(sig, len(params))
@@ -158,8 +182,9 @@ func (c *checker) checkGomApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol
 	used := make([]bool, flat)
 	posIdx := 0
 	argToParam := make([]int, 0, len(e.Args))
-	var extras []Expr // positional args beyond the flat parameter list
-	unmapped := false // an argument no flat parameter position answers
+	var extras []Expr  // positional args beyond the flat parameter list
+	var extraIdx []int // each extra's index in out.Args
+	unmapped := false  // an argument no flat parameter position answers
 
 	out := &Apply{Base: baseOf(e.Sp, nil), Fn: fn}
 
@@ -312,6 +337,7 @@ func (c *checker) checkGomApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol
 		if pi < 0 {
 			if label == "" {
 				extras = append(extras, argExpr)
+				extraIdx = append(extraIdx, len(out.Args)-1)
 			}
 			unmapped = true
 		}
@@ -326,7 +352,7 @@ func (c *checker) checkGomApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol
 	// remains.
 	var res types.Type
 	if len(extras) > 0 {
-		res = c.overApply(ret, extras, e.Sp)
+		res = c.overApply(ret, extras, extraIdx, out.Args, e.Sp)
 	} else {
 		res = applyResidual(fn.Type(), used, 0)
 	}
@@ -443,14 +469,20 @@ func labelSpan(labelSp, argSp diag.Span) diag.Span {
 // mismatch, enforcing spec section 2 rule 3 even when the returned
 // function's type became known only through a bound meta (`id mk 3`
 // used to slip through; docs/problems/2026-11-03-overapply-labeled-params.md).
-func (c *checker) overApply(ret types.Type, extras []Expr, sp diag.Span) types.Type {
+func (c *checker) overApply(ret types.Type, extras []Expr, extraIdx []int, args []Arg, sp diag.Span) types.Type {
 	rret := ret
-	for _, ex := range extras {
+	for i, ex := range extras {
 		// A failed unify leaves next unsolved — the mismatch
 		// already reported it.
 		next := c.newMeta(ex.Span(), "the over-applied result")
-		if !c.unify(rret, types.Fn(next, types.P(ex.Type())), ex.Span()) {
+		if !c.conformCallee(rret, ex.Type(), next, ex.Span()) {
 			c.markQuiet(next)
+		} else {
+			// The extra conforms to the residual's first
+			// parameter like a direct call's argument — the
+			// `Go.Any` box and boundary conversions a type-only
+			// unify never wrapped (conformCallee).
+			args[extraIdx[i]].Value = c.conformFirstArg(rret, ex)
 		}
 		rret = next
 	}
@@ -1183,6 +1215,55 @@ func (c *checker) replayGoApply(pa *pendingApply) {
 	}
 }
 
+// conformCallee checks a one-argument application of `callee`: its
+// first positional parameter accepts `argT` under the value-slot
+// judgment — a `Go.Any` parameter takes every argument (spec
+// 8.1.7), exactly what `callee arg` admits — and the callee's
+// residual (the remaining curried parameters, or the bare result)
+// unifies with `res`, the caller's synthesized expectation.
+//
+// Synthesizing `argT -> res` and unifying whole function types is
+// *not* equivalent: unifyFunc's parameter pairs are structural now
+// (two function types are equal only parameter-for-parameter —
+// `func(any) int64` is not `func(string) int64`), so a `Go.Any`
+// parameter would reject the argument's concrete type. Application
+// is not equality — the pipe, overApply and `|?>` go through here
+// instead of types.Fn synthesis. A callee that is still a meta, a
+// non-function, or one whose first parameter is labeled falls back
+// to the synthesized `argT -> res` unify, which reports the shape
+// mismatch (or binds the meta) the same way it did before.
+func (c *checker) conformCallee(callee, argT, res types.Type, sp diag.Span) bool {
+	if fs, ok := types.Chase(callee).(*types.Func); ok &&
+		len(fs.Params) > 0 && fs.Params[0].Label == "" {
+		if !c.unify(fs.Params[0].Type, argT, sp) {
+			return false
+		}
+		var tail types.Type = fs.Ret
+		if len(fs.Params) > 1 {
+			tail = &types.Func{Params: fs.Params[1:], Ret: fs.Ret}
+		}
+		return c.unify(res, tail, sp)
+	}
+	return c.unify(callee, types.Fn(res, types.P(argT)), sp)
+}
+
+// conformFirstArg wraps `arg` for the callee's first positional
+// parameter — the same conformance a direct call applies to its
+// argument: a `Go.Any` parameter boxes (materializing a numeric
+// first, so `42 |> ga` emits `ga(any(int64(42)))` like `ga 42`),
+// an interface or `Go.Slice`/`Chan` parameter takes its boundary
+// conversion. When the callee's first parameter is not statically
+// known (a meta, a non-function, a labeled parameter) the argument
+// stands as checked — the synthesized `argT -> res` unify in
+// conformCallee covers the shape.
+func (c *checker) conformFirstArg(callee types.Type, arg Expr) Expr {
+	if fs, ok := types.Chase(callee).(*types.Func); ok &&
+		len(fs.Params) > 0 && fs.Params[0].Label == "" {
+		return c.conformExpr(arg, fs.Params[0].Type, arg.Span())
+	}
+	return arg
+}
+
 // unifyDeferredResult settles the deferred application's standing
 // result meta against the replayed convention's result type. The
 // meta is usually still open and simply binds; but a consumer that
@@ -1228,7 +1309,8 @@ func (c *checker) replayGomApply(pa *pendingApply) {
 	posIdx := 0
 	argToParam := make([]int, 0, len(e.Args))
 	var extras []Expr
-	unmapped := false // an argument no flat parameter position answers
+	var extraIdx []int // each extra's index in newArgs
+	unmapped := false  // an argument no flat parameter position answers
 	newArgs := make([]Arg, 0, len(e.Args))
 
 	// The `-> T` value rule of checkGomApply, second pass: a Go
@@ -1328,6 +1410,7 @@ func (c *checker) replayGomApply(pa *pendingApply) {
 		if pi < 0 {
 			if label == "" {
 				extras = append(extras, argExpr)
+				extraIdx = append(extraIdx, len(newArgs)-1)
 			}
 			unmapped = true
 		}
@@ -1335,7 +1418,7 @@ func (c *checker) replayGomApply(pa *pendingApply) {
 
 	var res types.Type
 	if len(extras) > 0 {
-		res = c.overApply(ret, extras, e.Sp)
+		res = c.overApply(ret, extras, extraIdx, newArgs, e.Sp)
 	} else {
 		res = applyResidual(me.Type(), used, 0)
 	}

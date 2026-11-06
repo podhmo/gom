@@ -1,0 +1,50 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected String, got Go.Any",
+      "span": {
+        "file": "E0401_go_any_fn_contra.gom",
+        "start": {
+          "line": 8,
+          "col": 25,
+          "offset": 331
+        },
+        "end": {
+          "line": 8,
+          "col": 26,
+          "offset": 332
+        }
+      },
+      "data": {
+        "actual": "Go.Any",
+        "expected": "String"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected String, got Go.Any",
+      "span": {
+        "file": "E0401_go_any_fn_contra.gom",
+        "start": {
+          "line": 12,
+          "col": 27,
+          "offset": 413
+        },
+        "end": {
+          "line": 12,
+          "col": 28,
+          "offset": 414
+        }
+      },
+      "data": {
+        "actual": "Go.Any",
+        "expected": "String"
+      }
+    }
+  ]
+}

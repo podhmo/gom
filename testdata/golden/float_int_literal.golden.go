@@ -38,23 +38,23 @@ func main() {
 //line float_int_literal.gom:13
 	tmp3 := f(struct{}{})
 //line float_int_literal.gom:13
-	tmp4 := g(struct{}{})
+	tmp4 := float64(tmp3)
 //line float_int_literal.gom:13
-	tmp5 := h(1.0)
+	tmp5 := any(tmp4)
 //line float_int_literal.gom:13
-	tmp6 := float64(tmp3)
+	tmp6 := g(struct{}{})
 //line float_int_literal.gom:13
-	tmp7 := any(tmp6)
+	tmp7 := float64(tmp6)
 //line float_int_literal.gom:13
-	tmp8 := float64(tmp4)
+	tmp8 := any(tmp7)
 //line float_int_literal.gom:13
-	tmp9 := any(tmp8)
+	tmp9 := h(1.0)
 //line float_int_literal.gom:13
-	tmp10 := float64(tmp5)
+	tmp10 := float64(tmp9)
 //line float_int_literal.gom:13
 	tmp11 := any(tmp10)
 //line float_int_literal.gom:13
-	v, err := fmt.Println(tmp7, tmp9, tmp11)
+	v, err := fmt.Println(tmp5, tmp8, tmp11)
 	_ = result.FromGo(int64(v), err)
 //line float_int_literal.gom:13
 	_ = struct{}{}

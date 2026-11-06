@@ -422,6 +422,7 @@ var builtinTypeArity = map[string]int{
 
 // goTypeArity is the arity of the reserved-qualifier Go types.
 var goTypeArity = map[string]int{
+	"Any":   0,
 	"Slice": 1,
 	"Map":   2,
 }

@@ -1,0 +1,15 @@
+package main
+
+// Bare lowercase `any` stays an implicit type variable (spec
+// section 2.1) — it is not `Go.Any`. `id` quantifies per use: `id
+// 1` is `Int` and `id "s"` is `String`, where an empty-interface
+// reading would produce `any` at both.
+fn id (x: any) -> any = x
+
+let n : Int = id 1
+let s : String = id "s"
+
+fn main () -> Unit = {
+  ignore n
+  ignore s
+}

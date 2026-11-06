@@ -1,0 +1,29 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0509",
+      "severity": "error",
+      "message": "extern `fn ValueOf` declares parameter 0 as Option Go.Any, but `reflect.ValueOf` takes any",
+      "span": {
+        "file": "E0509_extern_option_go_any_param.gom",
+        "start": {
+          "line": 9,
+          "col": 3,
+          "offset": 255
+        },
+        "end": {
+          "line": 9,
+          "col": 49,
+          "offset": 301
+        }
+      },
+      "data": {
+        "declared": "Option Go.Any -> reflect.Value",
+        "extern": "ValueOf",
+        "go": "func(i any) reflect.Value",
+        "member": "reflect.ValueOf"
+      }
+    }
+  ]
+}

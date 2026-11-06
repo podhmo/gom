@@ -1,0 +1,10 @@
+package m
+
+// spec section 8.3 and 7: `Go.Any` in an interface file's `let` and
+// `fn` declarations — the implementation carries the same type and
+// the generated package variable is `var X any` (the declared type
+// survives into code, not the initializer's concrete type).
+let x : Go.Any = 42
+let o : Option Go.Any = Some 1
+
+fn id (a: Go.Any) -> Go.Any = a

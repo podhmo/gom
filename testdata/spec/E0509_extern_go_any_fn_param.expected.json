@@ -1,0 +1,28 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0509",
+      "severity": "error",
+      "message": "extern `fn TakesAnyFn`: `github.com/podhmo/gom/testdata/goiface.TakesAnyFn` is not exposed: parameter f: func-typed parameters and results are not supported yet",
+      "span": {
+        "file": "E0509_extern_go_any_fn_param.gom",
+        "start": {
+          "line": 10,
+          "col": 3,
+          "offset": 381
+        },
+        "end": {
+          "line": 10,
+          "col": 42,
+          "offset": 420
+        }
+      },
+      "data": {
+        "declared": "(Go.Any -> Int) -> Int",
+        "extern": "TakesAnyFn",
+        "member": "github.com/podhmo/gom/testdata/goiface.TakesAnyFn"
+      }
+    }
+  ]
+}

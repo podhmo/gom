@@ -1,0 +1,10 @@
+package main
+
+// A scalar `Go.Any` slot accepts every value but does not pick a
+// constructor instantiation — `None`'s element argument stays
+// undetermined, so the binding still wants an annotation (the
+// composite form `Option Go.Any` is the way to name it; spec
+// 8.1.7's acceptance is at the value slot, not inside it).
+let x : Go.Any = None
+
+fn main () -> Unit = ignore x

@@ -1,0 +1,13 @@
+package main
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// A `Go.Any -> Int` extern parameter would smuggle an `any` type
+// argument into a `func(any) int64` slot — but func-typed extern
+// parameters are not supported at all, so the declaration is
+// rejected before the question of `any` conformance can arise.
+extern go "github.com/podhmo/gom/testdata/goiface" {
+  fn TakesAnyFn (f: Go.Any -> Int) -> Int
+}
+
+fn main () -> Unit = ignore 1

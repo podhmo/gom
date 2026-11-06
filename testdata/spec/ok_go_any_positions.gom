@@ -1,0 +1,49 @@
+package main
+
+import go "encoding/json"
+import go "reflect"
+import go "strings"
+
+// spec section 8.3: `Go.Any` spells Go's `any` in every type
+// position — a let annotation, a function parameter and result, an
+// extern signature, and the element argument of a generic
+// container. Inside a composite it *selects* the instantiation
+// (Go generics are invariant): `Option Go.Any` is `Option[any]`,
+// and a constructor under that expectation boxes its payload into
+// the `any` element — spec 8.1.7's box reaches generic element
+// positions.
+extern go "reflect" {
+  fn ValueOf (i: Go.Any) -> reflect.Value
+}
+
+let x : Go.Any = 42
+let s : Go.Any = "text"
+let n : Option Go.Any = None
+let o : Option Go.Any = Some 7
+let r : Result Go.Any GoError = Ok 3
+let l : List Go.Any = [1, 2]
+
+fn id (a: Go.Any) -> Go.Any = a
+fn box () -> Go.Any = "s"
+fn boxok () -> Result Go.Any GoError = Ok 9
+
+fn takes (xs: List Go.Any) -> Unit = ignore xs
+
+fn tok () -> Result Go.Any GoError = {
+  let dec = json.NewDecoder(strings.NewReader("{}"))
+  let t = try dec.Token()
+  Ok t
+}
+
+fn main () -> Unit = {
+  takes [5]
+  ignore (reflect.ValueOf x)
+  ignore (id s)
+  ignore (box ())
+  ignore (boxok ())
+  ignore (tok ())
+  ignore n
+  ignore o
+  ignore r
+  ignore l
+}

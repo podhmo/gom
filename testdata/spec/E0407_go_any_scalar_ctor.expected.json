@@ -1,0 +1,26 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0407",
+      "severity": "error",
+      "message": "type annotation required: the type argument for `a` could not be determined",
+      "span": {
+        "file": "E0407_go_any_scalar_ctor.gom",
+        "start": {
+          "line": 8,
+          "col": 18,
+          "offset": 347
+        },
+        "end": {
+          "line": 8,
+          "col": 22,
+          "offset": 351
+        }
+      },
+      "data": {
+        "type": "?1"
+      }
+    }
+  ]
+}

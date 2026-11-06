@@ -1,0 +1,12 @@
+package main
+
+// `Go.Any` inside a type is a marker for the emitted `any`, not a
+// supertype of Gom types (spec section 8.3). Function types are
+// invariant in every parameter and result position, so the two
+// directions below both fail — including inside a parameter slot.
+fn g (a: Go.Any) -> Int = 1
+let f : String -> Int = g
+
+fn sink (h: String -> Int) -> Unit = ignore (h "s")
+
+fn main () -> Unit = sink g

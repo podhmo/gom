@@ -53,7 +53,7 @@ func (c *checker) checkExpr(e syntax.Expr, want types.Type) Expr {
 	case *syntax.StrInterp:
 		out = c.checkStrInterp(e)
 	case *syntax.Apply:
-		out = c.checkApply(e)
+		out = c.checkApply(e, bw)
 	case *syntax.Select:
 		out = c.checkSelect(e)
 	case *syntax.Unary:
@@ -88,7 +88,7 @@ func (c *checker) checkExpr(e syntax.Expr, want types.Type) Expr {
 	case *syntax.SelectExpr:
 		out = c.checkSelectExpr(e, bw)
 	case *syntax.ListLit:
-		out = c.checkListLit(e, want)
+		out = c.checkListLit(e, bw)
 	case *syntax.Spread:
 		// A `..e` outside a list literal or a variadic Go argument.
 		x := c.checkExpr(e.X, nil)
@@ -97,7 +97,7 @@ func (c *checker) checkExpr(e syntax.Expr, want types.Type) Expr {
 			At(e.Sp))
 		out = &Spread{Base: baseOf(e.Sp, x.Type()), X: x}
 	case *syntax.TupleLit:
-		out = c.checkTupleLit(e)
+		out = c.checkTupleLit(e, bw)
 	case *syntax.RecordLit:
 		out = c.checkRecordLit(e, bw)
 	case *syntax.Ascribe:
@@ -150,6 +150,17 @@ func (c *checker) conformExpr(out Expr, want types.Type, sp diag.Span) Expr {
 	// stays narrow (docs/implementation-gaps.md).
 	if !c.unify(want, out.Type(), sp) {
 		metasIn(want, func(m *types.Meta) { c.markQuiet(m) })
+		return out
+	}
+	// A value conforming to a `Go.Any` slot materializes the box:
+	// the Ascribe lowers through ConvBoxAny so the emitted Go type
+	// is the declared `any`, not the value's natural type. Without
+	// it a `let x : Go.Any` keeps the concrete representation —
+	// `var X string` where the interface advertises `any` — and a
+	// `-> Go.Any` body never produces the residual type the Core
+	// validator demands.
+	if isGoAny(types.Chase(want)) && !isGoAny(types.Chase(out.Type())) {
+		return &Ascribe{Base: baseOf(sp, want), X: out, Conv: true}
 	}
 	return out
 }
@@ -1291,14 +1302,18 @@ func (c *checker) checkBinary(e *syntax.Binary) Expr {
 	case syntax.BinPipeTry:
 		return c.checkPipeTry(e)
 	case syntax.BinComposeFwd:
-		// f >> g is x -> g (f x).
+		// f >> g is x -> g (f x). The middle slot is an application:
+		// g's parameter must *accept* f's result — a `Go.Any`
+		// parameter takes whatever `f` produces (spec 8.1.7), not
+		// type equality, so the second check goes through
+		// conformCallee like the pipe's.
 		x := c.checkExpr(e.X, nil)
 		g := c.checkExpr(e.Y, nil)
 		a := c.newMeta(e.Sp, "the composed function's input")
 		b := c.newMeta(e.Sp, "the composed function's middle type")
 		r := c.newMeta(e.Sp, "the composed function's result")
 		ok1 := c.unify(x.Type(), types.Fn(b, types.P(a)), e.X.Span())
-		ok2 := c.unify(g.Type(), types.Fn(r, types.P(b)), e.Y.Span())
+		ok2 := c.conformCallee(g.Type(), b, r, e.Y.Span())
 		if !ok1 || !ok2 {
 			c.markQuiet(a)
 			c.markQuiet(b)
@@ -1306,14 +1321,15 @@ func (c *checker) checkBinary(e *syntax.Binary) Expr {
 		}
 		return &Binary{Base: baseOf(e.Sp, types.Fn(r, types.P(a))), Op: op, X: x, Y: g}
 	case syntax.BinComposeBack:
-		// g << f is x -> g (f x).
+		// g << f is x -> g (f x) — same middle-slot application as
+		// `>>` (see above).
 		g := c.checkExpr(e.X, nil)
 		f := c.checkExpr(e.Y, nil)
 		a := c.newMeta(e.Sp, "the composed function's input")
 		b := c.newMeta(e.Sp, "the composed function's middle type")
 		r := c.newMeta(e.Sp, "the composed function's result")
 		ok1 := c.unify(f.Type(), types.Fn(b, types.P(a)), e.Y.Span())
-		ok2 := c.unify(g.Type(), types.Fn(r, types.P(b)), e.X.Span())
+		ok2 := c.conformCallee(g.Type(), b, r, e.X.Span())
 		if !ok1 || !ok2 {
 			c.markQuiet(a)
 			c.markQuiet(b)
@@ -1443,7 +1459,20 @@ func (c *checker) pipeCall(e *syntax.Binary, arg, fn Expr) Expr {
 		return out
 	}
 	ret := c.newMeta(e.Sp, "the pipe's result type")
-	c.unify(fn.Type(), types.Fn(ret, types.P(arg.Type())), e.Sp)
+	// The piped argument conforms to the callee's first parameter
+	// the way `fn arg` would — a `Go.Any` parameter boxes (a
+	// numeric materializes first), an interface parameter takes
+	// the boundary conversion; the type-only application check
+	// never wrapped the argument. A failed check already reported
+	// the mismatch — wrapping again would echo it at the arg span.
+	if c.conformCallee(fn.Type(), arg.Type(), ret, e.Sp) {
+		conv := c.conformFirstArg(fn.Type(), arg)
+		if e.Op == syntax.BinPipeBack {
+			out.Y = conv
+		} else {
+			out.X = conv
+		}
+	}
 	out.Base = baseOf(e.Sp, ret)
 	return out
 }
@@ -1647,7 +1676,7 @@ func (c *checker) checkPipeTry(e *syntax.Binary) Expr {
 		errT = c.newMeta(e.Sp, "the pipeline error type")
 	}
 	resT := c.newMeta(e.Sp, "the |?> result type")
-	if !c.unify(f.Type(), types.Fn(types.Result(resT, errT), types.P(argT)), e.Y.Span()) {
+	if !c.conformCallee(f.Type(), argT, types.Result(resT, errT), e.Y.Span()) {
 		c.markQuiet(resT)
 		c.markQuiet(errT)
 	}
@@ -2212,7 +2241,11 @@ func (c *checker) checkSelectExpr(e *syntax.SelectExpr, want types.Type) Expr {
 }
 
 // checkListLit types `[e1, e2, ..rest]`: one element type, a spread
-// tail (a List or GoSlice of it), and `List a` as the node type.
+// tail (a List or GoSlice of it), and `List a` as the node type. An
+// expected `List T` pins the element before the elements check —
+// under `List Go.Any` each element conforms into the `any` slot and
+// the literal builds `[]any`, not `[]<concrete>` (Go generics are
+// invariant; a `List[int64]` cannot serve a `List[any]` parameter).
 func (c *checker) checkListLit(e *syntax.ListLit, want types.Type) Expr {
 	elem := c.newMeta(e.Sp, "the list element type")
 	// The literal produces the builtin `List a` — a file-local `type
@@ -2220,6 +2253,10 @@ func (c *checker) checkListLit(e *syntax.ListLit, want types.Type) Expr {
 	// declared type at all (E0415).
 	if c.shadowedBuiltin("List") {
 		c.shadowedErr(e.Sp, "a list literal `[...]`", "List")
+	}
+	if wc, ok := types.Chase(want).(*types.Con); ok && wc.Qual == "" &&
+		wc.Name == "List" && len(wc.Args) == 1 && !c.shadowedBuiltin("List") {
+		c.unifySub(wc.Args[0], elem, e.Sp)
 	}
 	out := &ListLit{Base: baseOf(e.Sp, types.List(elem))}
 	for i, el := range e.Elems {
@@ -2232,10 +2269,10 @@ func (c *checker) checkListLit(e *syntax.ListLit, want types.Type) Expr {
 			switch t := types.Chase(x.Type()).(type) {
 			case *types.Con:
 				if len(t.Args) == 1 && t.Qual == "Go" && t.Name == "Slice" {
-					c.unify(elem, t.Args[0], sp.Sp)
+					c.unifySub(elem, t.Args[0], sp.Sp)
 				} else if len(t.Args) == 1 && t.Qual == "" && t.Name == "List" &&
 					!c.shadowedBuiltin("List") {
-					c.unify(elem, t.Args[0], sp.Sp)
+					c.unifySub(elem, t.Args[0], sp.Sp)
 				} else if t.Qual == "" && c.shadowedBuiltin(t.Name) {
 					c.shadowedErr(sp.Sp, "the spread's element type", t.Name)
 				} else {
@@ -2258,12 +2295,23 @@ func (c *checker) checkListLit(e *syntax.ListLit, want types.Type) Expr {
 	return out
 }
 
-// checkTupleLit types `(e1, e2, ...)`.
-func (c *checker) checkTupleLit(e *syntax.TupleLit) Expr {
+// checkTupleLit types `(e1, e2, ...)`. An expected tuple of the same
+// arity supplies each element's want — under `(Int, Go.Any)` the
+// second element conforms into the `any` slot and the literal builds
+// `rt.Tuple2[int64, any]` rather than the element's concrete type.
+func (c *checker) checkTupleLit(e *syntax.TupleLit, want types.Type) Expr {
 	out := &TupleLit{Base: baseOf(e.Sp, nil), Elems: make([]Expr, len(e.Elems))}
 	ts := make([]types.Type, len(e.Elems))
+	var wt *types.Tuple
+	if w, ok := types.Chase(want).(*types.Tuple); ok && len(w.Elems) == len(e.Elems) {
+		wt = w
+	}
 	for i, el := range e.Elems {
-		out.Elems[i] = c.checkExpr(el, nil)
+		var ew types.Type
+		if wt != nil {
+			ew = wt.Elems[i]
+		}
+		out.Elems[i] = c.checkExpr(el, ew)
 		ts[i] = out.Elems[i].Type()
 	}
 	out.Base = baseOf(e.Sp, types.Tup(ts...))

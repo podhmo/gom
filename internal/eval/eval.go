@@ -622,6 +622,13 @@ func (e *interp) eval(x check.Expr, env *Env) Value {
 		return e.evalRecord(x, env)
 	case *check.Ascribe:
 		if x.Conv {
+			// The implicit `any` box (checker's `Go.Any`
+			// conformance materialization) is representation-only
+			// here: eval values are dynamically typed already.
+			// Other Conv ascriptions keep the existing verdict.
+			if !x.Iface && !x.Slice && isGoAnyCon(x.Type()) {
+				return e.eval(x.X, env)
+			}
 			failData(CodeUnsupported, "Go.conv conversions are not supported by the evaluator", x.Span(), "construct", "Go.conv")
 		}
 		return e.eval(x.X, env)
@@ -1145,6 +1152,13 @@ func (e *interp) evalPipeTry(x *check.Binary, env *Env) Value {
 	fields := append([]VField(nil), variant.Fields...)
 	fields[0].V = wrapped
 	return &VVariant{Type: variant.Type, Ctor: variant.Ctor, Name: variant.Name, Fields: fields}
+}
+
+// isGoAnyCon reports whether t is `Go.Any` — the empty interface the
+// checker's implicit boxing ascriptions target.
+func isGoAnyCon(t types.Type) bool {
+	con, ok := types.Chase(t).(*types.Con)
+	return ok && con.Qual == "Go" && con.Name == "Any"
 }
 
 // errIsGoError reports whether t is `Result _ GoError` — the

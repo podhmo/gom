@@ -1,0 +1,12 @@
+package main
+
+import go "reflect"
+
+// `Option T` in an extern parameter is only the `*T` nil channel —
+// a Go `any` parameter cannot be re-viewed as `Option Go.Any`
+// (spec section 8.4, same class as the `*T`-only param rule).
+extern go "reflect" {
+  fn ValueOf (i: Option Go.Any) -> reflect.Value
+}
+
+fn main () -> Unit = ignore 1

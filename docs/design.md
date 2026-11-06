@@ -171,6 +171,8 @@ bindings rather than left for `go build` to name hidden temporaries. See
 
 `check.InterfaceSource` は共有 `go/types` セッションの assignability を式の期待型境界で照会し、型付き `Ascribe.Iface` に記録する。型の単一化には代入関係を混ぜず、lower は数値の具体型を `ConvNum` で確定してから、この印に従って `core.ConvIface` を作る。未解決の field 型（別名経由を含む）は field 解決後まで代入判定を遅延する。`check.FieldSource` は exported field の型と raw Go 型を返し、型付き `MemberExpr.GoFieldType` が差を運ぶ。lower は field selector を即座に一時変数へ束縛し、副作用のある後続式より前の読み取りと nil panic を保持してから数値変換する。codegen は既存の `FieldGet` と `Conv` を出力するだけである。
 
+`Go.Any`（Go の `any`）の境界も同じ物質化の形を取る: `conformExpr` は `Go.Any` want への適合を `Ascribe{Conv: true}` で包み、lower は `ConvBoxAny`（`any(x)`、数値は `convBoxSrc` で Gom 表現へ先に物質化）を emit する。ボックスが Core の型として残るので、`-> Go.Any` の宣言結果や `.gomi` の `let x : Go.Any` は `d.Body.Tail.Type()` 経由で宣言型をそのまま拾う（`var X any`）。型引数位置では受理ではなくインスタンス化の選択になる — check の `unify`（値スロット判定）と `unifySub`（構造判定）を分け、`Option Go.Any` 型のもとでは ctor の未解決 meta を `Go.Any` に bind して `Option[any]` の合成を組み立て、concrete な `Option Int` は Go ジェネリックの型不変性どおりに拒否する（[decision](decisions/2026-11-06-go-any-conformance-materialize.md)）。
+
 検証と範囲は [HTTP boundary](sketch/2026-11-03-go-http-boundary-verification.md)、決定は [Go interface assignment and fields](decisions/2026-11-03-go-interface-assignment-and-fields.md)。
 
 ### 2.6 Builtin type identity

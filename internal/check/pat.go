@@ -123,27 +123,14 @@ func (c *checker) checkCtorPat(p *syntax.CtorPat, want types.Type) Pat {
 		for _, t := range targs {
 			c.markQuiet(t)
 		}
-	} else {
-		// `unify` never binds a meta to a `Go.Any` want — the
-		// accept-everything slot deliberately stays unpinned
-		// (unify.go). Here the want is the scrutinee's own type,
-		// so its `any` argument *is* the ctor instantiation's
-		// answer: `Result Go.Any GoError` pins `Ok`'s `a` to
-		// `Go.Any` — pin it, or the argument dangles into E0407
-		// (docs/decisions/
-		// 2026-11-06-nilable-iface-pair-ok-payload.md).
-		if wc, ok := types.Chase(want).(*types.Con); ok {
-			if rc, ok := types.Chase(ret).(*types.Con); ok &&
-				len(rc.Args) == len(wc.Args) {
-				for i := range rc.Args {
-					m, ok := types.Chase(rc.Args[i]).(*types.Meta)
-					if ok && isGoAny(types.Chase(wc.Args[i])) {
-						c.bind(m, wc.Args[i], p.Sp)
-					}
-				}
-			}
-		}
 	}
+	// The scrutinee's `any` argument is the ctor instantiation's
+	// answer — `Result Go.Any GoError` pins `Ok`'s `a` to `Go.Any`.
+	// unify's structural walk (unifySub) performs that binding
+	// itself now: a `Go.Any` element of the expected composite
+	// binds the constructor's unsolved meta rather than accepting
+	// the concrete payload (docs/decisions/
+	// 2026-11-06-nilable-iface-pair-ok-payload.md).
 	out.Rest = p.Rest
 
 	if len(p.Fields) != 0 {

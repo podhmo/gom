@@ -1,0 +1,26 @@
+package main
+
+// spec 8.3: `Go.Any` inside a function type is invariant — an
+// `any` parameter and a `String` parameter are different Go func
+// types (`func(any) int64` is not `func(string) int64`). The
+// callee-accepts reading lives at applications only: `h (fn x ->
+// 1)` still works because the lambda's parameter binds to `any`.
+fn g (s: String) -> Int = 1
+
+let f : Go.Any -> Int = g
+let o : Option (Go.Any -> Int) = Some g
+let t : (Go.Any -> Int, Int) = (g, 2)
+
+fn h (cb: Go.Any -> Int) -> Int = cb 0
+fn hl (~cb: Go.Any -> Int) -> Int = cb 0
+fn mk () -> (Go.Any -> Int) = g
+
+fn main () -> Unit = {
+  ignore (h g)
+  let n = hl ~cb: g
+  ignore n
+  ignore f
+  ignore o
+  ignore t
+  ignore (mk ())
+}

@@ -1,0 +1,38 @@
+package main
+
+import go "encoding/json"
+import go "strings"
+
+// spec section 8.3: `Go.Any` materializes the box — a value
+// conforming to a scalar `any` slot emits `any(x)` (a numeric
+// through its Gom representation first, `int64(...)`), and inside a
+// composite the `any` element *selects* the instantiation:
+// `Option Go.Any` builds `Option[any]`, `Some 7` boxes its payload
+// into the element slot (Go generics are invariant). A declared
+// `-> Go.Any` result boxes the body's natural type at the boundary.
+let x : Go.Any = 42
+let s : Go.Any = "text"
+let n : Option Go.Any = None
+let o : Option Go.Any = Some 7
+let r : Result Go.Any GoError = Ok 3
+let l : List Go.Any = [1, 2]
+
+fn id (a: Go.Any) -> Go.Any = a
+fn box () -> Go.Any = "s"
+fn boxok () -> Result Go.Any GoError = Ok 9
+
+fn tok () -> Result Go.Any GoError = {
+  let dec = json.NewDecoder(strings.NewReader("{}"))
+  let t = try dec.Token()
+  Ok t
+}
+
+fn takes (xs: List Go.Any) -> Unit = ignore xs
+
+fn main () -> Unit = {
+  takes [5]
+  ignore (id x)
+  ignore (box ())
+  ignore (boxok ())
+  ignore (tok ())
+}

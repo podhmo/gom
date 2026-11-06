@@ -1,0 +1,27 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: `Any` takes 0 type argument(s), got 1",
+      "span": {
+        "file": "E0401_go_any_arity.gom",
+        "start": {
+          "line": 5,
+          "col": 9,
+          "offset": 117
+        },
+        "end": {
+          "line": 5,
+          "col": 19,
+          "offset": 127
+        }
+      },
+      "data": {
+        "actual": "1",
+        "expected": "0"
+      }
+    }
+  ]
+}
