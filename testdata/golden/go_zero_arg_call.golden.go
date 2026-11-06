@@ -3,9 +3,9 @@
 package ex
 
 import (
-	"fmt"
-	"github.com/podhmo/gom/stdlib/result"
-	"strings"
+	fmt "fmt"
+	result "github.com/podhmo/gom/stdlib/result"
+	strings "strings"
 )
 
 //line go_zero_arg_call.gom:6

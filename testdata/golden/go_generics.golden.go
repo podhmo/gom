@@ -3,9 +3,9 @@
 package ex
 
 import (
-	"github.com/podhmo/gom/rt"
-	"github.com/podhmo/gom/stdlib/list"
-	"github.com/podhmo/gom/testdata/goiface"
+	rt "github.com/podhmo/gom/rt"
+	list "github.com/podhmo/gom/stdlib/list"
+	goiface "github.com/podhmo/gom/testdata/goiface"
 )
 
 //line go_generics.gom:9

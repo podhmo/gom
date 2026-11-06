@@ -3,10 +3,10 @@
 package option
 
 import (
-	"github.com/podhmo/gom/rt"
-	"github.com/podhmo/gom/stdlib/result"
-	"strconv"
-	"testing"
+	rt "github.com/podhmo/gom/rt"
+	result "github.com/podhmo/gom/stdlib/result"
+	strconv "strconv"
+	testing "testing"
 )
 
 //line stdlib/option/option.gom:78

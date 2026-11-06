@@ -3,9 +3,9 @@
 package ex
 
 import (
-	"errors"
-	"fmt"
-	"github.com/podhmo/gom/stdlib/option"
+	errors "errors"
+	fmt "fmt"
+	option "github.com/podhmo/gom/stdlib/option"
 )
 
 //line error_views.gom:11

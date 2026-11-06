@@ -64,13 +64,14 @@ type CtorSource interface {
 	CtorsOf(typeSym *Symbol) map[string]*Symbol
 }
 
-// ImportCycleError is the Loader error shape for an
-// implementation-import cycle among Gom packages: Chain is the
+// ImportCycleError is the Loader error shape for a package import
+// cycle — whether the edges run through .gom files (the generated
+// Go packages would cycle) or through .gomi files alone (the
+// interfaces can never be ordered for loading). Chain is the
 // import-path chain that closes the loop, first and last element
 // equal. The resolver reports it as E0606 at the import site instead
-// of the generic E0203 — the cycle is a language-level error naming
-// the generated packages `go build` would reject with "import cycle
-// not allowed", not a package that failed to load.
+// of the generic E0203 — the cycle is a language-level error, not a
+// package that failed to load.
 type ImportCycleError struct {
 	Chain []string
 }

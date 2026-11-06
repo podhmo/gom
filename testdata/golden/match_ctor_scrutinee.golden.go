@@ -3,9 +3,9 @@
 package main
 
 import (
-	"github.com/podhmo/gom/rt"
-	"github.com/podhmo/gom/stdlib/option"
-	"github.com/podhmo/gom/stdlib/result"
+	rt "github.com/podhmo/gom/rt"
+	option "github.com/podhmo/gom/stdlib/option"
+	result "github.com/podhmo/gom/stdlib/result"
 )
 
 //line match_ctor_scrutinee.gom:30

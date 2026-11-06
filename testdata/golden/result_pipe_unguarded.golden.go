@@ -3,10 +3,10 @@
 package pipes
 
 import (
-	"github.com/podhmo/gom/rt"
-	"github.com/podhmo/gom/stdlib/result"
-	"os"
-	"strconv"
+	rt "github.com/podhmo/gom/rt"
+	result "github.com/podhmo/gom/stdlib/result"
+	os "os"
+	strconv "strconv"
 )
 
 //line result_pipe_unguarded.gom:6

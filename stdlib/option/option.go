@@ -3,8 +3,8 @@
 package option
 
 import (
-	"github.com/podhmo/gom/rt"
-	"github.com/podhmo/gom/stdlib/result"
+	rt "github.com/podhmo/gom/rt"
+	result "github.com/podhmo/gom/stdlib/result"
 )
 
 //line stdlib/option/option.gom:7

@@ -3,9 +3,9 @@
 package ex
 
 import (
-	"fmt"
-	"github.com/podhmo/gom/stdlib/result"
-	"time"
+	fmt "fmt"
+	result "github.com/podhmo/gom/stdlib/result"
+	time "time"
 )
 
 //line go_method_cute.gom:12

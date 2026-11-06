@@ -295,7 +295,7 @@ error[E0301]: non-exhaustive match on `Expr`
 - 非公開定義は Go 側で先頭小文字。Go の予約語と衝突する名前は `_` 接尾辞を付けてマングルする
 - 同じディレクトリの `.gom` ファイルは 1 つのトップレベルスコープを共有する: 型・コンストラクタ・関数・`let` はファイルの順序に関係なく相互に見える。別ファイルの同名トップレベル宣言は E0202、`package` 句の不一致は E0605（後の句に位置付く）になる。`import` 宣言はファイルローカルのまま
 - `import "path"` は Gom パッケージを読み込む（Go パッケージは `import go "path"`）。公開面はパッケージの `.gomi` で決まり、import path は生成される Go パッケージのパスと一致する。v1 ではメインモジュール内のパッケージだけが解決できる（ワークスペースの兄弟モジュールや依存モジュール内の Gom パッケージは解決しない）
-- import で束縛されるモジュール名はパスの末尾の要素（`import "example.com/t/lib"` は `lib`）。`import alias "path"` で別名を付けられる。Go 側にも同じ形がある（`import go f "fmt"`）。別名はファイルローカルのモジュール名を置き換えるだけで、公開面や他ファイルには出ない。生成される Go の import が別名付きになるのは束縛名がパス末尾と違うときだけ — 末尾要素が相手の `package` 句と食い違う（`lib/` なのに `package other`）と、別名なしの import では `lib.X` が参照できない生成物になるので、`import other "example.com/t/lib"` のように明示の別名を付ける必要がある（v1 ではこの食い違いの救済は書き手の別名に委ねる — [decisions/gom-import-alias-and-gomi-imports](decisions/2026-11-06-gom-import-alias-and-gomi-imports.md)）
+- import で束縛されるモジュール名はパスの末尾の要素（`import "example.com/t/lib"` は `lib`）。`import alias "path"` で別名を付けられる。Go 側にも同じ形がある（`import go f "fmt"`）。別名はファイルローカルのモジュール名を置き換えるだけで、公開面や他ファイルには出ない。生成される Go の import は常に束縛名を明示の別名として持つ（`import "example.com/m/lib"` は `lib "example.com/m/lib"` と生成される）— パス末尾が相手の `package` 句と食い違っても（`lib/` なのに `package other`、あるいは `math/rand/v2` なのに `package rand`）、別名は束縛名を指すので `lib.X` はそのまま参照できる（[decisions/generated-import-bound-name-alias](decisions/2026-11-06-generated-import-bound-name-alias.md)）
 - `package main` の `fn main () -> Unit` は Go のエントリポイント `func main()` になり、`gom build` の成果物はそのまま `go build` できる。使える引数を取る `main`（`(u: Unit)` など）や `Unit` 以外を返す `main` は特別扱いせず、通常の関数として生成される（Go と同じく `go build` が入口としては拒否する形になる）
 
 ### 5.1 パッケージの初期化順
@@ -353,7 +353,7 @@ fn draw (c: Canvas) (s: Shape) -> Canvas
 let unit_circle : Shape
 ```
 
-1. 1 パッケージに `.gomi` は 1 つ（`<パッケージ名>.gomi`）。書けるのは `import` 宣言・型定義・関数シグネチャ・定数の型と `///` のドキュメントコメントだけで、式は書けない。シグネチャで他パッケージの型や Go の型を指すには `.gom` と同じ形の `import`（Gom パッケージ、`import go`、別名付きのいずれも）を書く — その名前はこの `.gomi` のシグネチャを読むためだけのスコープで、公開面にも実装側の `.gom` にも出ない（公開される型は完全な import path の型として記録されるので、利用側は `.gomi` の import 名を引き継がない）。`.gom`（実装側）の import を通る循環は `.gom` 同士と同じく経路付きの E0606 になる。`.gomi` 同士だけの循環は読み込み時に検出され、通常の読み込み失敗 E0203 として報告される（循環経路は出ない）。公開した定数は Gom 側では不変の束縛だが、生成される Go では package 変数（`var`）として見える — Go 側からの書き換えは 8.7 節の契約が禁じる
+1. 1 パッケージに `.gomi` は 1 つ（`<パッケージ名>.gomi`）。書けるのは `import` 宣言・型定義・関数シグネチャ・定数の型と `///` のドキュメントコメントだけで、式は書けない。シグネチャで他パッケージの型や Go の型を指すには `.gom` と同じ形の `import`（Gom パッケージ、`import go`、別名付きのいずれも）を書く — その名前はこの `.gomi` のシグネチャを読むためだけのスコープで、公開面にも実装側の `.gom` にも出ない（公開される型は完全な import path の型として記録されるので、利用側は `.gomi` の import 名を引き継がない）。`.gom`（実装側）の import を通る循環は `.gom` 同士と同じく経路付きの E0606 になる。`.gomi` 同士だけの循環も読み込み中の再入として検出され、同じく経路付きの E0606 になる（順序づけ不能なまま読み込みが止まるため）。ただし `.gomi` の辺だけが逆向きに依存する場合 — 例えば `a.gom` が `b` を import し `b.gomi` が `a` を import — は実装側の import グラフを循環させないので循環とは扱わない。公開した定数は Gom 側では不変の束縛だが、生成される Go では package 変数（`var`）として見える — Go 側からの書き換えは 8.7 節の契約が禁じる
 2. 関数は `.gom` と同じ引数リストの形で書く（引数の数とラベルがインターフェースの一部になる）
 3. sum type はコンストラクタまで書けば透明、名前だけ書けば抽象。利用側で `match` できるのは透明な型だけ
 4. ライブラリパッケージ（`package main` 以外）は `.gomi` が必須で、ないとエラー
@@ -391,7 +391,7 @@ fn report (xs: List String) -> Unit = {
 
 （`List.length` は `stdlib/list` として実装済み（P4-8）。`strings.Join` への `List String` 引数は `[]T` と `List T` の境界コピー（P3-3）の実装待ち）
 
-1. 0 引数の Go 関数は `()` を受け取る（`time.Now()`）。1 引数なら `strconv.Itoa(n)` と `strconv.Itoa n` は同じ意味。値として束ねた 0 引数関数の型は `-> T`（Go シグネチャそのままの形であって `Unit -> T` ではない）になり、`let f = e.Error` のあとの `f ()` は Go の `f()` 呼び出しになる — `()` は引数ではなく呼び出しの印で、型は適用結果の `T` になる
+1. 0 引数の Go 関数は `()` を受け取る（`time.Now()`）。1 引数なら `strconv.Itoa(n)` と `strconv.Itoa n` は同じ意味。値として束ねた 0 引数関数の型は `-> T`（Go シグネチャそのままの形であって `Unit -> T` ではない）になり、`let f = e.Error` のあとの `f ()` は Go の `f()` 呼び出しになる — `()` は引数ではなく呼び出しの印で、型は適用結果の `T` になる。`Unit -> T` の Gom 関数の `f ()` はこれと別物で、本物の Unit 引数を渡す普通の適用になる（生成される Go は `f(struct{}{})` — `()` が呼び出しの印になるのは `-> T` の値に対してだけ）
 2. 値として渡せる（`List.map strconv.Itoa xs`）
 3. メソッド呼び出しは `x.M(args)`。Go の型の値にだけ使え、Gom の型はメソッドを持たない。`x.M(1).N(2)` のような連鎖は Go と同じく左結合で `(x.M(1)).N(2)` と読む（括弧つき引数に続く `.` は呼び出し結果への選択子になる。[decisions/post-arg-selector-binding](decisions/2026-11-05-post-arg-selector-binding.md)）
 4. 可変長引数は個数自由に渡せる（`fmt.Println(a, b, c)`）。リストを展開するときは `fmt.Println(..xs)`。`..e` は Go と同じく可変長引数の全体をそのリストで渡すので、固定引数（`fmt.Sprintf("%s", ..xs)`）との併用はできるが、同じ可変長パラメータに入る引数とは併用できない（`fmt.Println("tag:", ..xs)` は E0505）

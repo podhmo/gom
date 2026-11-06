@@ -3,8 +3,8 @@
 package ex
 
 import (
-	"flag"
-	"github.com/podhmo/gom/stdlib/option"
+	flag "flag"
+	option "github.com/podhmo/gom/stdlib/option"
 )
 
 //line extern_flag.gom:12

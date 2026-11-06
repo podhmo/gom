@@ -3,10 +3,10 @@
 package ex
 
 import (
-	"github.com/podhmo/gom/stdlib/option"
-	"github.com/podhmo/gom/stdlib/result"
-	"github.com/podhmo/gom/testdata/goiface"
-	"net"
+	option "github.com/podhmo/gom/stdlib/option"
+	result "github.com/podhmo/gom/stdlib/result"
+	goiface "github.com/podhmo/gom/testdata/goiface"
+	net "net"
 )
 
 //line iface_pair_views.gom:15

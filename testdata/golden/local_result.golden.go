@@ -3,7 +3,7 @@
 package main
 
 import (
-	"github.com/podhmo/gom/rt"
+	rt "github.com/podhmo/gom/rt"
 )
 
 //line local_result.gom:9

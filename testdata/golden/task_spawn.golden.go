@@ -3,7 +3,7 @@
 package ex
 
 import (
-	"github.com/podhmo/gom/rt"
+	rt "github.com/podhmo/gom/rt"
 )
 
 //line task_spawn.gom:6

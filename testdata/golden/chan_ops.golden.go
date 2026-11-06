@@ -3,8 +3,8 @@
 package ex
 
 import (
-	"github.com/podhmo/gom/rt"
-	"github.com/podhmo/gom/stdlib/option"
+	rt "github.com/podhmo/gom/rt"
+	option "github.com/podhmo/gom/stdlib/option"
 )
 
 //line chan_ops.gom:5

@@ -3,8 +3,8 @@
 package main
 
 import (
-	"fmt"
-	"github.com/podhmo/gom/stdlib/result"
+	fmt "fmt"
+	result "github.com/podhmo/gom/stdlib/result"
 )
 
 //line float_int_literal.gom:9

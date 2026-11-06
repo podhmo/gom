@@ -152,7 +152,11 @@ func checkInterfaces(inputs []input, results []*build.Result, rep *diag.Report, 
 				census = dirCensus(dir, inputs, results)
 			}
 			complete := census[g.name] == len(g.inputs)
-			impl := &iface.Package{Members: map[string]*iface.Member{}}
+			// The group's name is the implementation's package
+			// clause — without it the interface-vs-implementation
+			// clause comparison in iface.Check sees an empty name
+			// and never reports the mismatch.
+			impl := &iface.Package{Name: g.name, Members: map[string]*iface.Member{}}
 			for _, r := range g.results {
 				impl.Merge(iface.Surface(r.Typed))
 			}
@@ -170,7 +174,13 @@ func checkInterfaces(inputs []input, results []*build.Result, rep *diag.Report, 
 			if consumed[path] {
 				continue
 			}
-			declared, sp := gomiDecl(path, gomiInputs, inputs, results)
+			declared, sp, src := gomiDecl(path, gomiInputs, inputs, results)
+			if src != nil {
+				// The E0604 span points into this file, so its
+				// source must join srcs — a discovered stray is
+				// not an input and was never registered.
+				srcs[path] = src
+			}
 			if d := strayInterface(path, declared, sp); d != nil {
 				rep.Diagnostics = append(rep.Diagnostics, *d)
 			}
@@ -240,21 +250,23 @@ func dirCensus(dir string, inputs []input, results []*build.Result) map[string]i
 // gomiDecl reports the package a .gomi file declares and its clause
 // span. Input files reuse their compiled result; discovered strays
 // get a cheap parse — the file is flagged for its name, not checked.
-func gomiDecl(path string, gomiInputs map[string]int, inputs []input, results []*build.Result) (string, diag.Span) {
+// The discovered file's bytes come back too, so a diagnostic span
+// into it can resolve (the caller registers them in srcs).
+func gomiDecl(path string, gomiInputs map[string]int, inputs []input, results []*build.Result) (string, diag.Span, []byte) {
 	if idx, ok := gomiInputs[path]; ok {
 		r := results[idx]
 		if r != nil && r.Typed != nil {
-			return r.Typed.Package, r.Typed.PkgSp
+			return r.Typed.Package, r.Typed.PkgSp, nil
 		}
-		return "", diag.Point(path, 0)
+		return "", diag.Point(path, 0), nil
 	}
 	src, err := os.ReadFile(path)
 	if err != nil {
-		return "", diag.Point(path, 0)
+		return "", diag.Point(path, 0), nil
 	}
 	f, _ := syntax.ParseInterface(src, path)
 	if f == nil {
-		return "", diag.Point(path, 0)
+		return "", diag.Point(path, 0), src
 	}
 	var sp diag.Span
 	if f.Package != nil {
@@ -262,7 +274,7 @@ func gomiDecl(path string, gomiInputs map[string]int, inputs []input, results []
 	} else {
 		sp = diag.Point(path, 0)
 	}
-	return f.PackageName(), sp
+	return f.PackageName(), sp, src
 }
 
 // missingInterface is the E0601 diagnostic: no <package>.gomi in the

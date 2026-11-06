@@ -3,8 +3,8 @@
 package ex
 
 import (
-	"github.com/podhmo/gom/rt"
-	"github.com/podhmo/gom/testdata/goiface"
+	rt "github.com/podhmo/gom/rt"
+	goiface "github.com/podhmo/gom/testdata/goiface"
 )
 
 //line chan_go_boundary.gom:8

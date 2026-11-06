@@ -3,7 +3,7 @@
 package bridge
 
 import (
-	"github.com/podhmo/gom/testdata/goiface"
+	goiface "github.com/podhmo/gom/testdata/goiface"
 )
 
 //line go_interface_review.gom:5

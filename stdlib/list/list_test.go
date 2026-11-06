@@ -3,11 +3,11 @@
 package list
 
 import (
-	"github.com/podhmo/gom/rt"
-	"github.com/podhmo/gom/stdlib/option"
-	"strconv"
-	"strings"
-	"testing"
+	rt "github.com/podhmo/gom/rt"
+	option "github.com/podhmo/gom/stdlib/option"
+	strconv "strconv"
+	strings "strings"
+	testing "testing"
 )
 
 //line stdlib/list/list.gom:112

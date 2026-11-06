@@ -1063,33 +1063,41 @@
   [decision](decisions/2026-11-05-test-performance.md)、
   [sketch](sketch/2026-11-04-v1-tutorial-findings.md)。
 
-- [ ] **生成 import の別名は束縛名がパス末尾と違うときだけ**:
+- [x] **生成 import の別名は束縛名がパス末尾と違うときだけだった**:
   codegen の `render`（internal/codegen/codegen.go）は `name == pathBase(p)`
-  なら別名なしの import を出す。`import "example.com/m/lib"` で `lib` に
+  なら別名なしの import を出していた。`import "example.com/m/lib"` で `lib` に
   束縛しても、相手の `package` 句が `other` なら生成物は
   `import "example.com/m/lib"`（Go は `other` に束縛）＋ `lib.X` 参照で
-  `go build` 不可。reproducer: `mismatch/mismatch.gom`（`package other`）
-  ＋ `other.gomi`、importer が `import "example.com/t/mismatch"` で
-  `mismatch.double` 呼出 → `undefined: mismatch`。v1 の救済は明示別名
-  （`import other "..."`）。spec §5 と decision は実挙動を記述済み、
-  無条件別名化は TODO に残る（wave-11 wording-hygiene レビュー F-1）。
-  参照: [spec 5](spec.md#5-モジュールと可視性)、
-  [decision](decisions/2026-11-06-gom-import-alias-and-gomi-imports.md)、
-  [codegen](../internal/codegen/codegen.go)、[TODO](../TODO.md)。
+  `go build` 不可だった（`import go "math/rand/v2"` が `rand` 句に食い違う
+  同型の穴も同根）。
+  対応: `render` が常に `name "path"` を出す — 束縛名を明示別名として
+  assert するので相手の `package` 句に依らず `lib.X` が正しく解決される。
+  golden 一式を再生成して差分確認済み。
+  参照: [decision](decisions/2026-11-06-generated-import-bound-name-alias.md)、
+  [検証](sketch/2026-11-06-generated-import-bound-name-alias-verification.md)、
+  [spec 5](spec.md#5-モジュールと可視性)、
+  [codegen](../internal/codegen/codegen.go) `render`（wave-11
+  wording-hygiene レビュー F-1、wave-12 item a）。
 
-- [ ] **`.gomi` 同士だけの import 循環は E0203（経路なし）**:
+- [x] **`.gomi` 同士だけの import 循環は E0203（経路なし）だった**:
   impl scan は `*.gom` の import edge しか見ないため、interface-only の
   循環は loader の in-flight guard が plain error を返し E0203
   `cannot resolve import`（循環経路なし、理由は入れ子の
-  "does not check"）になる。`.gom` edge を通る循環は従来どおり経路付き
-  E0606。reproducer: `a.gomi` が `b`、`b.gomi` が `a` を import
-  （`.gom` 同士は import しない）→ `gom check` は両 `.gomi` の import
-  位置に E0203。spec §7・decision・sketch は実挙動を記述済み、
-  E0606 化するかの方針は TODO に残る（wave-11 wording-hygiene
-  レビュー F-2）。
-  参照: [spec 7](spec.md#7-インターフェースファイル-gomi)、
-  [loader](../internal/gomimport/loader.go) `l.loading`、
-  [resolve](../internal/resolve/resolve.go) `visitImpl`、[TODO](../TODO.md)。
+  "does not check"）になっていた。
+  対応: in-flight guard が load stack を保持し、再入時に
+  `stack[i:] + [path]` の真の連鎖から `resolve.ImportCycleError` を
+  構築。`load` は内側の `.gomi` コンパイルが出した E0606 を
+  `data.cycle` から typed error へ復元して伝搬させるので、entry の
+  `import` 位置には `.gom` edge の循環と同じ経路付き E0606 が出る。
+  impl scan は `*.gom` のみのまま（`.gomi` edge は生成 Go の import に
+  ならず、scan に含めると `a.gom→b` + `b.gomi→a` の非循環を誤報する）。
+  fixture: `internal/gomimport/cycle_test.go` の
+  `TestIfaceImportCycleMutual`/`TestIfaceImportCycleInsideGraph`、
+  境界は `TestImplImportNoCycleWhenOnlyIfaceDepends` が維持。
+  参照: [decision](decisions/2026-11-06-iface-import-cycle-e0606.md)、
+  [検証](sketch/2026-11-06-iface-import-cycle-e0606-verification.md)、
+  [loader](../internal/gomimport/loader.go) `Load`/`load`、
+  [error-codes E0606](error-codes.md)。
 
 - [ ] **`gom lsp` は open file を単独コンパイルするため兄弟ファイルの宣言が E0201 になる**:
   v1 の single open-file モデルではパッケージ単位の入力がないため、
@@ -1100,11 +1108,17 @@
   参照: [internal/lsp doc](../internal/lsp/doc.go)、
   [decision](decisions/2026-11-06-lsp-v1-scope.md)、[TODO](../TODO.md)。
 
-- [ ] **`.gomi` の `package` 句食い違い時の E0601 が "no source registered" になる（未確認）**:
-  `mismatch/mismatch.gom` が `package other` を宣言し `other.gomi`
-  （正当な連動名）を持つ場合、E0601 報告で
-  `cannot resolve span mismatch/mismatch.gomi ... no source registered`
-  という診断エミッション自体の不具合らしき出力が出た。再現条件・
-  影響範囲は未確認（wave-11 wording-hygiene worker の F-1 reproducer
-  作業中の副産物報告）。
-  参照: [iface](../cmd/gom/iface.go)、[diag](../internal/diag/)。
+- [x] **stray `.gomi` 発見時の E0604 が "no source registered" でエミッション失敗する**:
+  （原記述は E0601 としていたが、再現調査で発生源は E0604 stray-interface
+  経路と確定 — `mismatch/mismatch.gom` が `package other` で `other.gomi` が
+  正当な連動名を持つ場合、残った `mismatch.gomi` は stray として E0604 の
+  span に `.gomi` ソースを指すが、`gomiDecl` が内容を `srcs` に登録していなかった。）
+  対応: `gomiDecl` が発見した `.gomi` のバイト列を返し `checkInterfaces` が
+  `srcs` へ登録してから E0601/E0604 を出す — stray `.gomi` でも通常の exit 1 +
+  解決可能な span で報告される。併せて CLI が組み立てる impl `iface.Package` に
+  `Name: g.name` を供給（従来は空で `iface.Check` の package 句比較が無効化され
+  E0603 が出なかった）。fixture: `cmd/gom/cli_test.go` の
+  `TestCheckInterfaceClauseMismatch`（E0603）と
+  `TestCheckStrayInterfaceSpanResolves`（E0601+E0604、span 解決可）。
+  参照: [iface](../cmd/gom/iface.go) `checkInterfaces`/`gomiDecl`、
+  [iface compare](../internal/iface/compare.go)。

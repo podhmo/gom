@@ -3,9 +3,9 @@
 package ex
 
 import (
-	"github.com/podhmo/gom/rt"
-	"github.com/podhmo/gom/stdlib/list"
-	"github.com/podhmo/gom/stdlib/option"
+	rt "github.com/podhmo/gom/rt"
+	list "github.com/podhmo/gom/stdlib/list"
+	option "github.com/podhmo/gom/stdlib/option"
 )
 
 //line ptr_map_ops.gom:8

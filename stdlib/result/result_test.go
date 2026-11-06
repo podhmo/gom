@@ -3,9 +3,9 @@
 package result
 
 import (
-	"github.com/podhmo/gom/rt"
-	"strconv"
-	"testing"
+	rt "github.com/podhmo/gom/rt"
+	strconv "strconv"
+	testing "testing"
 )
 
 //line stdlib/result/result.gom:72

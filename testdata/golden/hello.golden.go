@@ -3,8 +3,8 @@
 package main
 
 import (
-	"fmt"
-	"github.com/podhmo/gom/stdlib/result"
+	fmt "fmt"
+	result "github.com/podhmo/gom/stdlib/result"
 )
 
 //line hello.gom:5

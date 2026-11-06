@@ -184,12 +184,16 @@ func render(pkg string, g *gen) ([]byte, *diag.SourceMap, error) {
 		}
 		sort.Strings(paths)
 		for _, p := range paths {
-			name := g.imports[p]
-			if name == pathBase(p) {
-				fmt.Fprintf(&out, "\t%q\n", p)
-			} else {
-				fmt.Fprintf(&out, "\t%s %q\n", name, p)
-			}
+			// The bound name is always emitted as an explicit
+			// alias: Go binds an unqualified import under the
+			// imported package's own `package` clause, which may
+			// differ from the path's last element (a `lib/`
+			// directory declaring `package other`) — and the
+			// generated references all spell the bound name.
+			// `lib "example.com/m/lib"` keeps `lib.X` honest
+			// regardless of the clause the importer never sees
+			// (docs/decisions/2026-11-06-generated-import-bound-name-alias.md).
+			fmt.Fprintf(&out, "\t%s %q\n", g.imports[p], p)
 		}
 		out.WriteString(")\n")
 	}

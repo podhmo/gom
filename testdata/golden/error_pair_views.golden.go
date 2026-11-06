@@ -3,9 +3,9 @@
 package ex
 
 import (
-	"github.com/podhmo/gom/stdlib/option"
-	"github.com/podhmo/gom/stdlib/result"
-	"github.com/podhmo/gom/testdata/goiface"
+	option "github.com/podhmo/gom/stdlib/option"
+	result "github.com/podhmo/gom/stdlib/result"
+	goiface "github.com/podhmo/gom/testdata/goiface"
 )
 
 //line error_pair_views.gom:14

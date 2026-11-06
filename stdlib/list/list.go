@@ -3,8 +3,8 @@
 package list
 
 import (
-	"github.com/podhmo/gom/rt"
-	"github.com/podhmo/gom/stdlib/option"
+	rt "github.com/podhmo/gom/rt"
+	option "github.com/podhmo/gom/stdlib/option"
 )
 
 //line stdlib/list/list.gom:9

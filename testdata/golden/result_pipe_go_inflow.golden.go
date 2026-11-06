@@ -3,10 +3,10 @@
 package pipes
 
 import (
-	"github.com/podhmo/gom/rt"
-	"github.com/podhmo/gom/stdlib/result"
-	"runtime"
-	"strings"
+	rt "github.com/podhmo/gom/rt"
+	result "github.com/podhmo/gom/stdlib/result"
+	runtime "runtime"
+	strings "strings"
 )
 
 //line result_pipe_go_inflow.gom:6

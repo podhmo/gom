@@ -385,10 +385,10 @@ default:
 package shapes
 
 import (
-	"strconv"
-	"testing"
+	strconv "strconv"
+	testing "testing"
 
-	"github.com/example/gom/rt"
+	rt "github.com/example/gom/rt"
 )
 
 func unitSquare() Shape { return Shape_Rect{W: 1.0, H: 1.0} }

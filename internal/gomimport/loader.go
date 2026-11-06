@@ -87,11 +87,14 @@ type Loader struct {
 	modErr          error
 
 	// pkgs caches loaded member tables; errs the failures behind
-	// them; loading marks in-progress paths so a cyclic `import`
-	// reports instead of recursing.
+	// them; loading marks in-progress paths (as their index into
+	// stack) so a cyclic `import` reports instead of recursing —
+	// stack keeps the in-flight order, which is what a re-entered
+	// path's cycle chain is reconstructed from.
 	pkgs    map[string]*resolve.Package
 	errs    map[string]error
-	loading map[string]bool
+	loading map[string]int
+	stack   []string
 
 	// The cross-phase tables every loaded package contributes to —
 	// keyed by the same requalified symbols the member tables hand
@@ -105,9 +108,14 @@ type Loader struct {
 
 	// The implementation-import cycle check (E0606): .gom files of
 	// loaded packages may import back toward the entry package —
-	// a cycle the .gomi guard cannot see and `go build` would only
-	// reject after codegen. implEdges caches each package's .gom
-	// import paths; the DFS seeded at the entry package runs once.
+	// a cycle the in-flight guard cannot see (their .gom files are
+	// never compiled through Load) and `go build` would only reject
+	// after codegen. The mirror-image case, a cycle through .gomi
+	// edges alone, is the in-flight guard's job: it cannot appear
+	// in this static scan either way, because .gomi imports never
+	// become generated Go imports. implEdges caches each package's
+	// .gom import paths; the DFS seeded at the entry package runs
+	// once.
 	entry        string
 	implScanned  bool
 	implEdges    map[string]map[string]bool
@@ -134,7 +142,7 @@ func New(cfg *Config) *Loader {
 		cfg:        c,
 		pkgs:       map[string]*resolve.Package{},
 		errs:       map[string]error{},
-		loading:    map[string]bool{},
+		loading:    map[string]int{},
 		sigs:       map[*resolve.Symbol]check.Signature{},
 		arities:    map[*resolve.Symbol]int{},
 		byCon:      map[conKey]*check.TypeDecl{},
@@ -170,11 +178,21 @@ func (l *Loader) Load(path string, goPkg bool) (*resolve.Package, error) {
 	if l.implCycleErr != nil && l.implCycleSet[path] {
 		return nil, l.implCycleErr
 	}
-	if l.loading[path] {
-		return nil, fmt.Errorf("cyclic Gom import of %q", path)
+	if i, inFlight := l.loading[path]; inFlight {
+		// A load re-entered a package mid-load: only .gomi edges
+		// recurse through Load (a loaded package's .gom files are
+		// never compiled here), so the in-flight suffix is an
+		// interface-only import cycle — the same E0606 shape the
+		// .gom-edge scan reports, just detected dynamically.
+		chain := append(append([]string{}, l.stack[i:]...), path)
+		return nil, &resolve.ImportCycleError{Chain: chain}
 	}
-	l.loading[path] = true
-	defer delete(l.loading, path)
+	l.loading[path] = len(l.stack)
+	l.stack = append(l.stack, path)
+	defer func() {
+		delete(l.loading, path)
+		l.stack = l.stack[:len(l.stack)-1]
+	}()
 
 	p, err := l.load(path)
 	if err != nil {
@@ -210,6 +228,19 @@ func (l *Loader) load(path string) (*resolve.Package, error) {
 		return nil, fmt.Errorf("compile %s: %w", gomi, err)
 	}
 	if r.Diagnostics.HasError() {
+		// A cycle detected deeper in the graph surfaced inside this
+		// compile as E0606 — propagate the typed error so the next
+		// importer (and ultimately the entry file) reports the same
+		// cycle instead of the opaque "does not check" wrap. The
+		// chain round-trips through data.cycle: E0606 renders it
+		// `a -> b -> a` and no import path contains " -> ".
+		for _, d := range r.Diagnostics {
+			if d.Code == "E0606" {
+				if s, ok := d.Data["cycle"].(string); ok {
+					return nil, &resolve.ImportCycleError{Chain: strings.Split(s, " -> ")}
+				}
+			}
+		}
 		return nil, fmt.Errorf("%s does not check: %d diagnostic(s)", gomi, len(r.Diagnostics))
 	}
 	return l.extract(path, r.Typed)

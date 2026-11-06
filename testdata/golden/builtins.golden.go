@@ -3,8 +3,8 @@
 package main
 
 import (
-	"github.com/podhmo/gom/rt"
-	"github.com/podhmo/gom/stdlib/list"
+	rt "github.com/podhmo/gom/rt"
+	list "github.com/podhmo/gom/stdlib/list"
 )
 
 //line builtins.gom:7

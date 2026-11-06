@@ -3,7 +3,7 @@
 package main
 
 import (
-	"strconv"
+	strconv "strconv"
 )
 
 //line poly_functions.gom:3

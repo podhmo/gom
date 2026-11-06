@@ -3,13 +3,13 @@
 package shapes
 
 import (
-	"cache"
-	"github.com/podhmo/gom/rt"
-	"github.com/podhmo/gom/stdlib/list"
-	"github.com/podhmo/gom/stdlib/option"
-	"github.com/podhmo/gom/stdlib/result"
-	"num"
-	"strconv"
+	cache "cache"
+	rt "github.com/podhmo/gom/rt"
+	list "github.com/podhmo/gom/stdlib/list"
+	option "github.com/podhmo/gom/stdlib/option"
+	result "github.com/podhmo/gom/stdlib/result"
+	num "num"
+	strconv "strconv"
 )
 
 //line t.gom:1

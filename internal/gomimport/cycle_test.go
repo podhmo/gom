@@ -240,6 +240,110 @@ fn f () -> Int = d.h ()
 	}
 }
 
+// A cycle that exists only between .gomi files — a.gomi imports b,
+// b.gomi imports a, and neither .gom touches the other — is a load
+// re-entry the .gom-edge scan cannot see. The in-flight guard
+// reconstructs the chain and reports E0606 with the same data.cycle
+// the implementation scan produces.
+func TestIfaceImportCycleMutual(t *testing.T) {
+	root := writeMod(t, "example.com/m", map[string]string{
+		"a/a.gom": `package a
+`,
+		"a/a.gomi": `package a
+
+import "example.com/m/b"
+
+fn f () -> b.B
+`,
+		"b/b.gom": `package b
+`,
+		"b/b.gomi": `package b
+
+import "example.com/m/a"
+
+type B
+fn g () -> a.A
+`,
+		"main/main.gom": `package main
+
+import "example.com/m/a"
+
+fn h () -> Unit = ()
+`,
+	})
+	r := compileEntry(t, root, filepath.Join(root, "main"), `package main
+
+import "example.com/m/a"
+
+fn h () -> Unit = ()
+`)
+	var codes []diag.Code
+	for _, d := range r.Diagnostics {
+		codes = append(codes, d.Code)
+	}
+	if len(codes) != 1 || codes[0] != "E0606" {
+		t.Fatalf("codes = %v, want exactly E0606", codes)
+	}
+	want := "example.com/m/a -> example.com/m/b -> example.com/m/a"
+	if got := r.Diagnostics[0].Data["cycle"]; got != want {
+		t.Fatalf("cycle = %v, want %q", got, want)
+	}
+}
+
+// The in-flight chain is the true loop, not the path the entry
+// took to reach it: entry -> a -> (c <-> d) reports c -> d -> c.
+func TestIfaceImportCycleInsideGraph(t *testing.T) {
+	root := writeMod(t, "example.com/m", map[string]string{
+		"a/a.gom": `package a
+`,
+		"a/a.gomi": `package a
+
+import "example.com/m/c"
+
+fn f () -> Int
+`,
+		"c/c.gom": `package c
+`,
+		"c/c.gomi": `package c
+
+import "example.com/m/d"
+
+fn k () -> Int
+`,
+		"d/d.gom": `package d
+`,
+		"d/d.gomi": `package d
+
+import "example.com/m/c"
+
+fn m () -> Int
+`,
+		"main/main.gom": `package main
+
+import "example.com/m/a"
+
+fn h () -> Unit = ()
+`,
+	})
+	r := compileEntry(t, root, filepath.Join(root, "main"), `package main
+
+import "example.com/m/a"
+
+fn h () -> Unit = ()
+`)
+	var codes []diag.Code
+	for _, d := range r.Diagnostics {
+		codes = append(codes, d.Code)
+	}
+	if len(codes) != 1 || codes[0] != "E0606" {
+		t.Fatalf("codes = %v, want exactly E0606", codes)
+	}
+	want := "example.com/m/c -> example.com/m/d -> example.com/m/c"
+	if got := r.Diagnostics[0].Data["cycle"]; got != want {
+		t.Fatalf("cycle = %v, want %q", got, want)
+	}
+}
+
 func TestLoadReturnsTypedCycleError(t *testing.T) {
 	// The raw Loader hands out a *resolve.ImportCycleError — resolve
 	// needs the type to pick E0606 over E0203.

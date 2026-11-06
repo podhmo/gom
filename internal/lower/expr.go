@@ -1145,6 +1145,13 @@ func (l *lowerer) unknownCall(s *seq, sp diag.Span, resTyp types.Type, callee ch
 		if fs, ok := types.Chase(fn.Type()).(*types.Func); ok && len(fs.Params) == 0 {
 			return &core.CallFunc{Sp: sp, Typ: fs.Ret, Fn: fn}
 		}
+		// The checker's contract makes this unreachable — an
+		// argument-free CallUnknown is only the `-> T` call
+		// marker above — but falling through to callFuncChunks
+		// would silently return the bare callee and drop the
+		// application, so a malformed Apply reports instead.
+		l.err(sp, fmt.Sprintf("CallUnknown applied to () but the callee's type is %s, not `-> T`", fn.Type()))
+		return l.litUnit(sp)
 	}
 	if len(ci.ArgToParam) == 0 {
 		// The identity mapping (or an unrepresentable one, which

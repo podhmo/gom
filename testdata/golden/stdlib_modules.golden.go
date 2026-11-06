@@ -3,9 +3,9 @@
 package main
 
 import (
-	"github.com/podhmo/gom/stdlib/list"
-	"github.com/podhmo/gom/stdlib/option"
-	"github.com/podhmo/gom/stdlib/result"
+	list "github.com/podhmo/gom/stdlib/list"
+	option "github.com/podhmo/gom/stdlib/option"
+	result "github.com/podhmo/gom/stdlib/result"
 )
 
 //line stdlib_modules.gom:10

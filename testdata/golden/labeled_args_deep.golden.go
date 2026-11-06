@@ -3,9 +3,9 @@
 package main
 
 import (
-	"fmt"
-	"github.com/podhmo/gom/stdlib/result"
-	"strconv"
+	fmt "fmt"
+	result "github.com/podhmo/gom/stdlib/result"
+	strconv "strconv"
 )
 
 //line labeled_args_deep.gom:5

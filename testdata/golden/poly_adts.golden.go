@@ -3,10 +3,10 @@
 package main
 
 import (
-	"github.com/podhmo/gom/rt"
-	"github.com/podhmo/gom/stdlib/list"
-	"github.com/podhmo/gom/stdlib/option"
-	"strconv"
+	rt "github.com/podhmo/gom/rt"
+	list "github.com/podhmo/gom/stdlib/list"
+	option "github.com/podhmo/gom/stdlib/option"
+	strconv "strconv"
 )
 
 //line poly_adts.gom:3

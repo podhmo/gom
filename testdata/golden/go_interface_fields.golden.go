@@ -3,11 +3,11 @@
 package bridge
 
 import (
-	"github.com/podhmo/gom/stdlib/result"
-	"io"
-	"net/http"
-	"os"
-	"strings"
+	result "github.com/podhmo/gom/stdlib/result"
+	io "io"
+	http "net/http"
+	os "os"
+	strings "strings"
 )
 
 //line go_interface_fields.gom:8

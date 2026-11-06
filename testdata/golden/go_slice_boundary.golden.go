@@ -3,12 +3,12 @@
 package ex
 
 import (
-	"fmt"
-	"github.com/podhmo/gom/rt"
-	"github.com/podhmo/gom/stdlib/list"
-	"github.com/podhmo/gom/stdlib/result"
-	"os"
-	"strings"
+	fmt "fmt"
+	rt "github.com/podhmo/gom/rt"
+	list "github.com/podhmo/gom/stdlib/list"
+	result "github.com/podhmo/gom/stdlib/result"
+	os "os"
+	strings "strings"
 )
 
 //line go_slice_boundary.gom:11

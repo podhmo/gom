@@ -820,8 +820,13 @@ package ops    // conflicting package declaration
 Gom packages may not import each other in a cycle — through
 their .gom files, transitively, or back to the importing package —
 because the generated Go packages would not build ("import cycle not
-allowed"). Break the loop by moving the shared declarations into a
-third package both sides import.
+allowed"). The same applies to a cycle through .gomi files alone:
+the interfaces can never be ordered for loading, so the loader
+detects the re-entry and reports the same path. A .gomi edge that
+closes toward a package whose load is not in progress is not a
+cycle — interface imports never become generated Go imports. Break
+the loop by moving the shared declarations into a third package
+both sides import.
 
 ```gom
 // a/a.gom: import "example.com/m/b"

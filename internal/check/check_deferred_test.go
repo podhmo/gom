@@ -109,6 +109,62 @@ func TestDeferredMethodCall(t *testing.T) {
 	}
 }
 
+// `let m = x.Error; m ()` — the apply's callee is a Var standing
+// on the deferred member's standing meta, so once `x.Error`
+// settles to a Go method no CallGo can name its receiver: the
+// pendingApply's alwaysGom pin forces the Gom replay, where
+// `m ()` over the settled `-> Unit` is the zero-argument call
+// marker — CallUnknown with no arguments — not a tuple-convention
+// method call.
+func TestDeferredAlwaysGomUnitMarker(t *testing.T) {
+	b := newTB()
+	bufSym := b.gotypeSym("bytes", "Buffer")
+	bufT := bufType()
+	m := b.methodSym("bytes", "Error")
+	src := methodStub{
+		MapSource: MapSource{m: sig(types.Unit)}, // func()
+		recv:      bufT,
+		methods:   map[string]*resolve.Symbol{"Error": m},
+	}
+
+	bp, bs := b.vp("buf")
+	lb := b.letd(bp, b.tnBound("Buffer", bufSym), nil)
+
+	xp, xs := b.vp("x")
+	mp, mSym := b.vp("m")
+	lambda := b.lambda(
+		[]syntax.Param{{Sp: xp.Sp, Pat: xp}},
+		// { let m = x.Error; m () }
+		b.block(
+			b.letStmt(mp, b.sel(b.ref(xs), nil, "Error")),
+			b.app(b.ref(mSym), b.arg(b.ulit()))))
+	lp, lSym := b.vp("later")
+	up := b.unitParam()
+	main, _ := b.fn("main", []syntax.Param{up}, b.tn("Unit"),
+		b.block(
+			b.letStmt(lp, lambda),
+			b.app(b.ref(lSym), b.arg(b.ref(bs)))))
+
+	f, diags := b.check(Chain(src, MapSource{bufSym: {Type: bufT}}), lb, main)
+	requireCodes(t, diags)
+	a := firstApply(findDecl[*FnDecl](f, 0))
+	if a == nil {
+		t.Fatal("no apply in main")
+	}
+	// The `-> Unit` value applied as `m ()` saturates into the
+	// zero-argument call — no Go convention may claim the Var.
+	expectCall(t, a, CallUnknown, 0, 0, 0, 0, nil)
+	if a.Call.Callee != nil {
+		t.Errorf("callee = %v, want nil — `m` is a value, not the method", a.Call.Callee)
+	}
+	if len(a.Args) != 0 {
+		t.Errorf("args = %d, want 0 — the unit literal is the call marker", len(a.Args))
+	}
+	if got := a.Type().String(); got != "Unit" {
+		t.Errorf("apply type = %s, want Unit", got)
+	}
+}
+
 // `fn x -> x.M(_, 3)` — the `_` survives the provisional pass and
 // the replayed CallGo reports HoleIndex 0: the partial function's
 // parameter type is the hole's declared slot.

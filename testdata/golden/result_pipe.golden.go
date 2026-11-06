@@ -3,9 +3,9 @@
 package pipes
 
 import (
-	"github.com/podhmo/gom/rt"
-	"github.com/podhmo/gom/stdlib/result"
-	"strconv"
+	rt "github.com/podhmo/gom/rt"
+	result "github.com/podhmo/gom/stdlib/result"
+	strconv "strconv"
 )
 
 //line result_pipe.gom:5

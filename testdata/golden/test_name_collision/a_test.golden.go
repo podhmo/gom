@@ -3,8 +3,8 @@
 package m
 
 import (
-	"github.com/podhmo/gom/rt"
-	"testing"
+	rt "github.com/podhmo/gom/rt"
+	testing "testing"
 )
 
 //line test_name_collision/a.gom:3

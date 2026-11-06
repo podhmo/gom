@@ -3,9 +3,9 @@
 package ex
 
 import (
-	"github.com/podhmo/gom/stdlib/list"
-	"os"
-	"time"
+	list "github.com/podhmo/gom/stdlib/list"
+	os "os"
+	time "time"
 )
 
 //line go_conv.gom:10

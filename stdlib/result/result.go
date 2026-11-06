@@ -3,7 +3,7 @@
 package result
 
 import (
-	"github.com/podhmo/gom/rt"
+	rt "github.com/podhmo/gom/rt"
 )
 
 //line stdlib/result/result.gom:7

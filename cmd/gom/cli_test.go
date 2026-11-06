@@ -1277,6 +1277,73 @@ func TestCheckInterfaceMismatch(t *testing.T) {
 	}
 }
 
+// A .gomi named correctly for its directory's package but declaring
+// a different package clause is a conformance error: E0603 at the
+// interface's own clause. The clause comparison needs the
+// implementation's package name wired into the surface — it was
+// silently "" before, so the mismatch never reported.
+func TestCheckInterfaceClauseMismatch(t *testing.T) {
+	t.Parallel()
+
+	dir := writeFiles(t, map[string]string{
+		"lib/lib.gom":  "package lib\n\nfn f () -> Int = 1\n",
+		"lib/lib.gomi": "package other\n\nfn f () -> Int\n",
+	})
+	code, out, _ := invoke("check", filepath.Join(dir, "lib"))
+	if code != 1 {
+		t.Fatalf("exit %d, want 1; stdout=%q", code, out)
+	}
+	var codes []string
+	var clause map[string]any
+	for _, l := range jsonLines(t, out) {
+		if c, ok := l["code"].(string); ok {
+			codes = append(codes, c)
+			clause = l
+		}
+	}
+	if len(codes) != 1 || codes[0] != "E0603" {
+		t.Fatalf("diagnostic codes = %v, want [E0603]", codes)
+	}
+	if data, ok := clause["data"].(map[string]any); !ok ||
+		data["interface_package"] != "other" || data["implementation_package"] != "lib" {
+		t.Errorf("E0603 data = %v, want interface=other implementation=lib", clause["data"])
+	}
+}
+
+// A stray .gomi — `mismatch.gomi` beside `package other` files that
+// want `other.gomi` — is discovered on disk, not an input, so its
+// source never joined srcs: the E0604 span into it failed emission
+// with "no source registered" (ExitInternal) instead of reporting.
+// The discovered file's source is registered at discovery now.
+func TestCheckStrayInterfaceSpanResolves(t *testing.T) {
+	t.Parallel()
+
+	dir := writeFiles(t, map[string]string{
+		"mismatch/mismatch.gom":  "package other\n\nfn f () -> Int = 1\n",
+		"mismatch/mismatch.gomi": "package other\n\nfn f () -> Int\n",
+	})
+	code, out, errs := invoke("check", filepath.Join(dir, "mismatch", "mismatch.gom"))
+	if code != 1 {
+		t.Fatalf("exit %d, want 1 (was 2 on unresolvable span); stderr=%q", code, errs)
+	}
+	var codes []string
+	var straySpan map[string]any
+	for _, l := range jsonLines(t, out) {
+		if c, ok := l["code"].(string); ok {
+			codes = append(codes, c)
+			if c == "E0604" {
+				straySpan, _ = l["span"].(map[string]any)
+			}
+		}
+	}
+	if len(codes) != 2 || codes[0] != "E0601" || codes[1] != "E0604" {
+		t.Fatalf("diagnostic codes = %v, want [E0601 E0604]", codes)
+	}
+	if f, _ := straySpan["file"].(string); !strings.HasSuffix(f, "mismatch.gomi") {
+		t.Errorf("E0604 span.file = %v, want the stray .gomi", straySpan["file"])
+	}
+}
+
 // TestCheckEmittedNameCollision verifies the interface side of the
 // exported-name rule: a .gomi member whose emitted Go name another
 // declaration of the package claims first — `let foo` losing to

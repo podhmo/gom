@@ -3,7 +3,7 @@
 package effects
 
 import (
-	"runtime"
+	runtime "runtime"
 )
 
 //line void_go_calls.gom:5
