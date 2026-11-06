@@ -148,6 +148,7 @@ func runTest(args []string, stdout, stderr io.Writer) int {
 type testDir struct {
 	dir      string                         // absolute path go test runs in
 	inputs   []input                        // .gom inputs of this package
+	results  []*build.Result                // parallel to inputs — the unit results
 	mappings map[string]codegen.TestMapping // generated Go func → `test "name"` decl
 	pos      *build.GoPosIndex              // go tool positions → .gom spans
 }
@@ -177,6 +178,7 @@ func runGoTests(inputs []input, results []*build.Result, failed map[*build.Resul
 			dirs = append(dirs, d)
 		}
 		d.inputs = append(d.inputs, in)
+		d.results = append(d.results, r)
 		for _, m := range r.Output.Tests {
 			d.mappings[m.Func] = m
 		}
@@ -185,12 +187,25 @@ func runGoTests(inputs []input, results []*build.Result, failed map[*build.Resul
 	// The go→gom position index of each directory covers exactly the
 	// inputs go test sees — build errors in gom-generated code name
 	// the .gom file through its //line directives (design.md 2.2).
+	// Registering each output's anchor table makes the fold
+	// table-aware: a report on a drifted generated line lands on
+	// its real construct instead of a wrong-but-real .gom line.
 	for _, d := range dirs {
 		srcs := make(map[string][]byte, len(d.inputs))
 		for _, in := range d.inputs {
 			srcs[in.path] = in.src
 		}
 		d.pos = build.NewGoPosIndex(d.dir, srcs)
+		for j, in := range d.inputs {
+			out := d.results[j].Output
+			if out == nil {
+				continue
+			}
+			d.pos.AddSourceMap(in.path, out.Source, out.SourceMap)
+			if out.TestSourceMap != nil {
+				d.pos.AddSourceMap(in.path, out.TestSource, out.TestSourceMap)
+			}
+		}
 	}
 
 	for _, d := range dirs {

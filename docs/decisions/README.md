@@ -95,7 +95,7 @@
 | [pipe-try-segmented-fusion](2026-11-03-pipe-try-segmented-fusion.md) | 明示的 `try` を含む `\|?>` チェーンの分割融合 | 採用（評価器対生成 Go の比較・生成コード検査で確認。[検証レポート](../sketch/2026-11-03-pipe-try-segmented-fusion.md)） |
 | [result-pipe-local-boundary](2026-11-03-result-pipe-local-boundary.md) | Result パイプの局所的な制御フロー（一部を [pipe-try-segmented-fusion](2026-11-03-pipe-try-segmented-fusion.md) で置き換え） | 採用 |
 | [skill-vendoring-via-symlink](2026-11-03-skill-vendoring-via-symlink.md) | `.devin/skills` への skill 公開は symlink で行う | 採用 |
-| [source-location-correspondence](2026-11-03-source-location-correspondence.md) | Source-location correspondence: anchor table shape and Go-position restore | 採用 |
+| [source-location-correspondence](2026-11-03-source-location-correspondence.md) | Source-location correspondence: anchor table shape and Go-position restore（[gotool-position-inverse](2026-11-06-gotool-position-inverse.md) で置き換え） | 採用 |
 | [static-function-alias-declarations](2026-11-03-static-function-alias-declarations.md) | Static function aliases use named canonical function wrappers | 採用 |
 | [stdlib-packaging](2026-11-03-stdlib-packaging.md) | stdlib packaging: .gomi-driven exports, builtin module tables, leaf layering | 採用 |
 | [test-file-emission-layout](2026-11-03-test-file-emission-layout.md) | `@test` helper とテスト関数の出力先 | 採用 |
@@ -161,6 +161,7 @@
 | [gom-import-alias-and-gomi-imports](2026-11-06-gom-import-alias-and-gomi-imports.md) | Define `import alias "path"` and `.gomi` imports in the spec（一部を [generated-import-bound-name-alias](2026-11-06-generated-import-bound-name-alias.md)、[iface-import-cycle-e0606](2026-11-06-iface-import-cycle-e0606.md) で置き換え） | 採用（実装・検証した — [検証](../sketch/2026-11-06-import-alias-and-gomi-imports-verification.md)） |
 | [gomtest-golden-dir-cases](2026-11-06-gomtest-golden-dir-cases.md) | Golden directory cases: one `.golden.go` per generated file | 採用（実装・検証した — [検証](../sketch/2026-11-06-gomtest-golden-dir-cases-verification.md)） |
 | [gomtest-tests-option](2026-11-06-gomtest-tests-option.md) | The `case.json` `tests` option: test-mode generation in golden cases | 採用（実装・検証した — [検証](../sketch/2026-11-06-gomtest-tests-option-verification.md)） |
+| [gotool-position-inverse](2026-11-06-gotool-position-inverse.md) | Go-position inverse: anchor-table candidate enumeration and the ambiguity fallback | 採用（実装・検証した — [検証](../sketch/2026-11-06-gotool-inverse-verification.md)） |
 | [iface-import-cycle-e0606](2026-11-06-iface-import-cycle-e0606.md) | Report .gomi-only import cycles as E0606 with the cycle path | 採用（実装・検証した — [検証](../sketch/2026-11-06-iface-import-cycle-e0606-verification.md)。spec.md §7 へ反映済み） |
 | [label-args-into-returned-functions](2026-11-06-label-args-into-returned-functions.md) | 返り値関数のパラメータを指すラベル引数 — カリー鎖をまたいだ並べ替え・充填を採用 | 採用（実装・検証した — [検証](../sketch/2026-11-06-label-args-into-returned-functions.md)。spec.md §2 へ反映済み） |
 | [lsp-package-unit](2026-11-06-lsp-package-unit.md) | LSP package compilation unit: overlay gather, per-member diagnostics | 採用 |

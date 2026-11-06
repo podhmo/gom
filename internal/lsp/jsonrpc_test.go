@@ -11,16 +11,6 @@ import (
 	"testing"
 )
 
-// frame encodes one message the way the base protocol carries it.
-func frame(t *testing.T, v any) string {
-	t.Helper()
-	b, err := json.Marshal(v)
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
-	}
-	return "Content-Length: " + strconv.Itoa(len(b)) + "\r\n\r\n" + string(b)
-}
-
 // readAll drains every framed message out of s.
 func readAll(t *testing.T, s string) []*message {
 	t.Helper()

@@ -87,3 +87,87 @@ func (m *SourceMap) LineAt(off int) (int, bool) {
 	}
 	return m.Anchors[best].Line, true
 }
+
+// AnchorMatch is one generated line that prints a reported .gom
+// line under the file's `//line` directives, paired with the anchor
+// governing it — the shape a go tool position's ambiguity set is
+// made of (docs/design.md section 2.2's reverse direction).
+type AnchorMatch struct {
+	// Line is the generated line producing the report.
+	Line int
+	// Anchor is the anchor governing Line — its Span is the
+	// construct the generated line belongs to.
+	Anchor Anchor
+	// Drifted reports the report ran past the anchor span's own
+	// .gom line extent: the construct's generated region continues
+	// its directive's numbering into line numbers the construct
+	// does not occupy — the `//line` drift of the gaps ledger.
+	Drifted bool
+}
+
+// ReportedLine returns the .gom line the Go toolchain assigns to
+// the generated 1-based line gen under this file's `//line`
+// directives: the governing anchor's pinned line plus gen's
+// distance into its region. It is the forward direction of the
+// numbering Candidates inverts — a report at (file, L) names any
+// generated line whose ReportedLine is L. Lines before the first
+// anchor report false.
+func (m *SourceMap) ReportedLine(gen int, li *LineIndex) (int, bool) {
+	if m == nil {
+		return 0, false
+	}
+	i := sort.Search(len(m.Anchors), func(i int) bool {
+		return m.Anchors[i].Line > gen
+	}) - 1
+	if i < 0 {
+		return 0, false
+	}
+	a := &m.Anchors[i]
+	return li.Pos(a.Span.Start).Line + gen - a.Line, true
+}
+
+// Candidates returns every generated line whose `//line` numbering
+// prints the reported 1-based .gom line — the inverse of
+// ReportedLine and the ambiguity set of a go tool position. Anchor
+// a claims generated line g for report L when
+// g = a.Line + L - Pos(a.Span.Start).Line falls inside a's region
+// [a.Line, next.Line): a directive's numbering runs until the next
+// directive, so the region includes the next directive's own line,
+// which still prints under the old numbering.
+//
+// A report produced by several generated lines is the drift
+// ambiguity the ledger records: a construct's continuation
+// numbering collides with lines later constructs also claim, and
+// same-line siblings pin the same numbers. Each match flags Drifted
+// when L exceeds its span's .gom line extent. An empty result means
+// no anchor produced the report — a line below every pin, or a
+// line the directives cannot print at all.
+//
+// The raw set is the mathematical ambiguity: it counts lines that
+// can never carry a diagnostic (blanks, comments, the directive
+// lines themselves). Callers holding the generated text narrow it
+// further — GoPosIndex does.
+func (m *SourceMap) Candidates(reported int, li *LineIndex) []AnchorMatch {
+	if m == nil {
+		return nil
+	}
+	var out []AnchorMatch
+	for i := range m.Anchors {
+		a := &m.Anchors[i]
+		pin := li.Pos(a.Span.Start).Line
+		if reported < pin {
+			continue // a's region reports pin and upward only
+		}
+		g := a.Line + reported - pin
+		if i+1 < len(m.Anchors) && g >= m.Anchors[i+1].Line {
+			continue // the next directive re-pins before g
+		}
+		endLine := li.Pos(max(a.Span.End-1, a.Span.Start)).Line
+		out = append(out, AnchorMatch{
+			Line:    g,
+			Anchor:  *a,
+			Drifted: reported > endLine,
+		})
+	}
+	return out
+}

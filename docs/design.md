@@ -149,6 +149,8 @@ bindings rather than left for `go build` to name hidden temporaries. See
 
 対応表の実体は `diag.SourceMap`（生成 Go の行 → .gom の span の `Anchor` 列）で、codegen が `//gomsrc` センチネルの splice と同じ操作で組み立てる — エクスポートされる表と実際のディレクティブは構造上ずれ得ない。`codegen.Output.SourceMap` / `TestSourceMap` 経由で `build.Result` に載り、エディタ系の問い合わせ（生成行 → span は `SpanAt`、.gom オフセット → 生成行は `LineAt`）の内部 API になる（[source-location-correspondence](decisions/2026-11-03-source-location-correspondence.md)）。戻す側は `internal/build` の `GoPosIndex` — 表示された名前をコンパイル入力に解決し `line:col` をクランプした point span に写す。`GoToolDiagnostics` が `file:line:col:` 行を E0001 `source:"go"` の診断に畳み、panic・goroutine dump のフレームは `diag.ParseStack` で分けて `GoPosIndex.ResolveStack` が span に戻す。手書きの Go ファイルや toolchain のパスは入力に解決できないので位置なしのまま残る。
 
+`//line` の継続番号は「1 .gom 行 → 複数生成行」の展開で報告行をずらすため、`AddSourceMap` で生成物と対応表を登録した index は `ResolveMatch` でこの算術を逆にたどる — 報告行を印刷しうる全生成行を `SourceMap.Candidates` で列挙し、診断を乗せられない行（空行・コメント・ディレクティブ行）を除いた候補が 1 構文ならその span（範囲外なら構文全体 = drift）、複数なら union を ambiguous として返す（[gotool-position-inverse](decisions/2026-11-06-gotool-position-inverse.md)）。map 未登録の経路は従来の近似のまま。
+
 ### 2.3 診断の内部表現
 
 診断はコンパイラ内部のデータ型（`internal/diag`）を正とし、JSON Lines・text・LSP（将来は SARIF など）はそこからの変換にする。コンパイラ本体は出力形式を知らない。
