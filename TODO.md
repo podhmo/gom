@@ -51,6 +51,12 @@ Go 相互運用を変えたら両方向（Gom → Go、Go → Gom）のテスト
 - [x] **[task] `Go.conv` の `Go.Slice T ↔ List T` をコピーにする**: `convKind` が `goConvKindOf` を先に照会し `ConvSliceToGo`/`ConvSliceFromGo` を返す — `list.FromSlice` / `.ToSlice()` に。`freeze`/`thaw`/`bump` で両方向の分離を実測、golden `go_conv` で emission を固定（[decision](docs/decisions/2026-11-04-goconv-list-slice-copies.md)）
 - [x] **[task] `Go.Slice` の読み取り専用の操作面**: ctor-table 経路（`Config.Modules["Go.Slice"]`、rt バック）で `length`/`get`（`Option`）/`slice`（共有ビュー、不正境界は Go と同じく panic）/`fold`（`b -> a -> b` カリー形）/`to_list`（スナップショット）を実装。書き込みは非搭載（[decision](docs/decisions/2026-11-05-go-slice-ops.md)、[検証](docs/sketch/2026-11-05-go-slice-ops-verification.md)）
 
+- [ ] **[task] `Go.Any` の綴りを admission する**: `internal/resolve/scope.go` builtinGoMembers に `Any`（KindType/Go）、`internal/check/typenv.go` goTypeArity に `"Any": 0`。受理側の spec fixture（signature/annotation/extern Option+Result 宣言/コンテナ）と拒否側 fixture（式位置の `Go.Any` → E0201、`Go.Any Int` arity、`Option Go.Any` param → E0509、`Go.conv` from `Go.Any` → E0507）を testdata/spec に（[decision](docs/decisions/2026-11-06-go-any-spellable.md)、[sketch](docs/sketch/2026-11-06-go-any-spellable-prototype.md)。wave12 interop-decisions）
+- [ ] **[task] `Go.Any` 宣言結果位置のボックス materialize**: `fn -> Go.Any` / `-> Result Go.Any GoError` で本体が named-iface（`json.Token`）や型変数だと現状 lower が E0901。residual 位置の `any()` materialize を実装するか check 側を厳しくするかを実装レーンで決める（同 sketch 残ギャップ 1）
+- [ ] **[task] exported `let` の declared-type 忠実度**: `.gomi` が `let x : Go.Any` を広告するとき生成 Go は `var X any` を出す（現状は初期化子の具体型）。codegen の var 型に declared 型を届ける（同 sketch 残ギャップ 2）
+- [ ] **[task] `Option Go.Any` の `None`**: `let o : Option Go.Any = None` が E0407。明示 want への meta bind を精緻化するか制限として文書化するか判断（同 sketch 残ギャップ 3）
+- [ ] **[task] `Go.Any` コンテナ payload の materialize/拒否**: `let o : Option Go.Any = Some 42`（`Ok`・list リテラル同型）が check/build を通って `go build` で落ちる（emit は `Option[int64]`、スロットは `Option[any]`）。`Go.Any` 要素スロットへの payload materialize、または check での concrete-bind 拒否を実装する。スカラ let 注釈（`x := int64(42)`）は同じ乖離でも無害（同 sketch 残ギャップ 4 — レビュー probe で確認）
+
 ### P4 公開 API と開発体験
 
 - [x] **P4-6 LSP**: 型表示、網羅性エラーの即時表示、UTF-16 位置への変換。依存: P4-5 — v1 foundation として採用: `internal/lsp`（stdio JSON-RPC、`didOpen`/`didChange`/`didClose`/`hover`/`publishDiagnostics`、単一 open-file モデル、`OffsetUTF16` で UTF-16 列→バイトオフセット逆変換）+ `gom lsp`。実 Emacs+Eglot で hover・診断 push を検証（wave11 lsp、[decision](docs/decisions/2026-11-06-lsp-v1-scope.md)、[検証](docs/sketch/2026-11-06-lsp-v1-verification.md)）

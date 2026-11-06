@@ -1128,3 +1128,46 @@
   `TestCheckStrayInterfaceSpanResolves`（E0601+E0604、span 解決可）。
   参照: [iface](../cmd/gom/iface.go) `checkInterfaces`/`gomiDecl`、
   [iface compare](../internal/iface/compare.go)。
+
+- [ ] **spec §8.3 の `Go.Any` 段落は決定済み・実装前の規範記述**:
+  spec は `Go.Any` を型式の書ける全位置に書けると記述するが、現行
+  コンパイラは resolve が E0201 で拒否する（admission は TODO タスク）。
+  宣言結果位置のボックス有無も未決で実装レーンへ委任。spec-ahead-of-impl
+  の状態は意図的（decision 採用→spec 先出し→impl 追従の順）。
+  参照: [decision](decisions/2026-11-06-go-any-spellable.md)、
+  [検証](sketch/2026-11-06-go-any-spellable-prototype.md)、
+  [resolve scope](../internal/resolve/scope.go) `builtinGoMembers`、
+  [check typenv](../internal/check/typenv.go) `goTypeArity`。
+
+- [ ] **`Go.Any` 宣言結果で check が受理する範囲と lower の materialize
+  が不一致 → E0901**: `fn -> Go.Any` / `-> Result Go.Any GoError` の
+  本体が named-iface（`json.Token`）や型変数のとき、check は
+  `unify(Go.Any, ·)` で受理するが `Ascribe` を発行せず、lower は
+  結果位置に変換を挿さないため validate の tailType≠ResidualType に
+  落ちる。残 gap 1（admission パッチ適用下での観測）。
+  参照: [検証](sketch/2026-11-06-go-any-spellable-prototype.md)、
+  [check/expr.go](../internal/check/expr.go)、
+  [core/validate.go](../internal/core/validate.go)。
+
+- [ ] **`.gomi` exported `let` の `Go.Any` — 宣言は受理されるが生成
+  `var X` が具体型になる**: `.gomi` が `let x : Go.Any` を広告しても
+  codegen の `varDecl` は `d.Body.Tail.Type()`（推論型）を出すため
+  Go 側 API 面の型が `.gomi` の広告とずれる。残 gap 2。
+  参照: [検証](sketch/2026-11-06-go-any-spellable-prototype.md)、
+  [codegen/decl.go](../internal/codegen/decl.go)。
+
+- [ ] **`Option Go.Any` の `None` を式位置に書けない（E0407）**:
+  `let o : Option Go.Any = None` — `isGoAny(w)` の受理は meta を
+  束縛しないため `None` の要素 meta が宙吊りになる。Go 呼び出し結果・
+  パターン経由では `Option Go.Any` 値は得られる。残 gap 3。
+  参照: [検証](sketch/2026-11-06-go-any-spellable-prototype.md)、
+  [unify](../internal/check/unify.go) `isGoAny`。
+
+- [ ] **`Go.Any` コンテナ payload の型/表現乖離は `gom check`・`gom
+  build` を通って `go build` で落ちる**: `let o : Option Go.Any =
+  Some 42`（`Ok 42`・`[1]` 同型）は bind が `Option[int64]` で emit
+  される一方スロットは `Option[any]` — 型不変なジェネリック実引数
+  位置で `does not implement` になる。スカラ let 注釈
+  （`x := int64(42)`）は使用位置で再ボックスされるため無害で、
+  壊れるのはコンテナ型引数位置のみ。残 gap 4（レビュー probe で確認）。
+  参照: [検証](sketch/2026-11-06-go-any-spellable-prototype.md)。
