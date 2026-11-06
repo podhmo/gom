@@ -1,5 +1,11 @@
 # Wave 13 orchestration prompt drafts
 
+Wave 13 executed: all 4 lanes merged — eval-alias-lift (`047cf50`),
+lsp-gotool (`d181a80`), tooling-hygiene (`8a0e136`),
+go-any-boundary (`a5506cb`); ledgers `a37fa7b` `62fcdc1` `e4fb95e`
+`1c59cdf`. Round record:
+[2026-11-06-wave13-round.md](2026-11-06-wave13-round.md).
+
 State as of 2026-11-06: Wave 12 integrated — codegen-boundary
 (`f3147e6`), lsp-multifile (`e5f76aa`), eval-forcing (`9ce1d58`),
 interop-decisions (`5cff2f7`), ledgers (`60b2b27`, `5a23064`,
