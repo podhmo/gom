@@ -429,6 +429,7 @@ strconv.ParseInt(_, 10, 64)
 | `chan T` / `<-chan T` / `chan<- T` | `Chan T` / `RecvChan T` / `SendChan T` |
 | interface（`io.Reader`、`fmt.Stringer` など） | 名前的な型 `io.Reader` など。Go 由来の値を代入規則に従って渡せる |
 | `error` | `GoError` |
+| `any` / `interface{}` | `Go.Any` |
 
 `Char` はこの対応からは現れない。Go の `rune` は `int32` の別名なので `Int32` として読む（`unicode.IsUpper` の引数は `Int32`）。`Char` は `'a'` リテラルか、Go の型なし rune 定数（既定は `Char`）、または `Go.conv` で得る — `Char` の Go 表現も `rune` なので `Go.conv 'A' : Int32`・`Go.conv x : Char` の両方向が変換できる。
 
@@ -441,6 +442,8 @@ Go の名前付き struct 型の値またはそのポインタから、exported 
 `Go.Map K V` の操作は `Go.Map` の型メンバーとして解決する（[decisions/go-map-ops](decisions/2026-11-05-go-map-ops.md)）: `Go.Map.make : Unit -> Go.Map k v`、`Go.Map.get : Go.Map k v -> k -> Option v`（missing key は `None`）、`Go.Map.set : Go.Map k v -> k -> v -> Unit`、`Go.Map.delete : Go.Map k v -> k -> Unit`、`Go.Map.length : Go.Map k v -> Int`、`Go.Map.to_list : Go.Map k v -> List (k, v)`（順序不定のスナップショット。v1 の反復面）。`k` は Go の `comparable` 制約を持ち、`List` など比較できない表現のキーは E0508 で拒否される。nil マップの意味は Go のまま — get/delete/length は nil でも動き、set は panic する。
 
 `Go.Slice T` の操作も `Go.Slice` の型メンバーとして解決する（[decisions/go-slice-ops](decisions/2026-11-05-go-slice-ops.md)）。すべて読み取り専用 — Gom 側から Go が所有するスライスを書き換える操作はない: `Go.Slice.length : Go.Slice a -> Int`（nil では 0）、`Go.Slice.get : Go.Slice a -> Int -> Option a`（範囲外・負の添字は `None`）、`Go.Slice.slice : Go.Slice a -> Int -> Int -> Go.Slice a`（`s[lo:hi]` — バッキングを共有する部分ビュー。範囲外・逆転した境界は Go と同じく panic）、`Go.Slice.fold : Go.Slice a -> (b -> a -> b) -> b -> b`（左畳み込み。nil は acc のまま）、`Go.Slice.to_list : Go.Slice a -> List a`（スナップショット — コピーするのはこのメンバーだけ）。`Go.Slice` は `for x in s { ... }` の反復対象にもなる — Go の `range` と同じく添字順に要素を読み、nil は 0 回反復する（[decisions/for-over-go-slice](decisions/2026-11-05-for-over-go-slice.md)）。
+
+`Go.Any` は Go の `any`（`interface{}`）の綴りとして採用した（[decisions/go-any-spellable](decisions/2026-11-06-go-any-spellable.md)）。決定では型式の書けるすべての位置 — シグネチャのパラメータ・結果（`.gom`/`.gomi`/`extern`）、型注釈、`List Go.Any`・`Option Go.Any` などの型引数位置 — で認める。ただし admission の実装はこれからで、現行のコンパイラは `Go.Any` を書くと E0201 を返す — 決定と実装の差分は [implementation-gaps.md](implementation-gaps.md) に記録する。裸の `any` は小文字識別子なので型変数と読む（`fn f (x: any) -> any` は多相関数）— `any` の綴りは `Go.` 修飾の `Go.Any` だけ。`type Token any`（定義型 — `json.Token` がこの形）のような named な `any` は名前的な型のままで、`Go.Any` とは別の型として扱う。`type T = any` のエイリアスは `any` そのものに展開されて `Go.Any` に写る。want が `Go.Any` の位置（`Go.Any` パラメータへの引数、`Go.Any` の型注釈、`Go.Any` を宣言した record フィールドや sum ペイロードの構築位置）にはどの Gom の値でもそのまま置け、境界でボックスされる。宣言結果を `Go.Any` とした場合の扱い — ボックスを生成するか、check が本体に `Go.Any` そのものを要求するか — は未決で実装レーンに委ねる（同 decision）。逆向き — `Go.Any` から具象型への取り出し — は Go の型アサーションに相当し、`Go.conv` の変換では認めない（E0507）。
 
 ### 8.4 extern（上書き専用）
 
@@ -493,7 +496,7 @@ extern のエントリは `fn` の関数シグネチャだけを持ち、ブロ�
 
 - Go から受け取った Gom の ADT 型の値が `nil` などの不正な値だった場合は契約違反とし、`match` の時点で型名を含むメッセージで panic する
 - 名前付きペイロードのフィールド参照 `s.f` も同じ族である — 値がそのフィールドを宣言するバリアントを保持していなければ契約違反として panic する（3.2 節）。これは Gom が作った正当なバリアント値にも起きる（値は正しくとも、期待するバリアントではない）
-- Go の interface 型やポインタ型の値は `nil` になり得る。メソッド呼び出しや参照で Go と同じく panic する（`*T` の既定は open-questions.md）。`Ptr T` の nil 判定は `Ptr.is_nil`、安全な読み出しは `Ptr.to_option`、nil の供給は `Ptr.nil` で行う（8.3 節）
+- Go の interface 型やポインタ型の値は `nil` になり得る。メソッド呼び出しや参照で Go と同じく panic する。`*T` の既定は `Ptr T`（[decisions/ptr-t-default](decisions/2026-11-06-ptr-t-default.md)）。`Ptr T` の nil 判定は `Ptr.is_nil`、安全な読み出しは `Ptr.to_option`、nil の供給は `Ptr.nil` で行う（8.3 節）
 
 ### 8.7 Go から Gom を呼ぶ
 
