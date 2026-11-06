@@ -73,7 +73,7 @@ func (c *checker) checkExpr(e syntax.Expr, want types.Type) Expr {
 	case *syntax.Match:
 		out = c.checkMatch(e, bw)
 	case *syntax.Block:
-		out = c.checkBlock(e, want)
+		out = c.checkBlock(e, bw)
 	case *syntax.Let:
 		out = c.checkLet(e)
 	case *syntax.Ignore:
@@ -358,9 +358,10 @@ func (c *checker) checkSelect(e *syntax.Select) Expr {
 	// A method selected on a Go value.
 	if sel != nil && sel.Kind == resolve.KindMethod {
 		if c.gomValue(recv.Type()) {
+			rt := types.Display(recv.Type(), metaNamer())
 			c.diags.Add(diag.Error("E0502",
-				fmt.Sprintf("method calls are only valid on Go values; `%s` has Gom type %s", selName, recv.Type())).
-				At(e.Sel.Sp).Set("type", recv.Type().String()))
+				fmt.Sprintf("method calls are only valid on Go values; `%s` has Gom type %s", selName, rt)).
+				At(e.Sel.Sp).Set("type", rt))
 		}
 		mtyp, mtargs := c.valOf(sel, e.Sel.Sp)
 		return &MemberExpr{Base: baseOf(e.Sp, mtyp), Recv: recv, Sel: e.Sel, Sym: sel, Index: -1, TypeArgs: mtargs}
@@ -723,9 +724,10 @@ func (c *checker) checkAscribe(e *syntax.Ascribe) Expr {
 		}
 	}
 	x := c.checkExpr(e.X, target)
+	td := types.Display(target, metaNamer())
 	c.diags.Add(diag.Error("E0401",
 		"`e : T` is only allowed as `Go.conv e : T`; there is no general ascription").
-		At(e.Sp).Set("type", target.String()))
+		At(e.Sp).Set("type", td))
 	return &Ascribe{Base: baseOf(e.Sp, target), X: x}
 }
 
@@ -767,10 +769,14 @@ func (c *checker) revisitConvs() {
 // ConvertSource oracle carries the go/types judgment for pairs the
 // shape rules cannot decide (spec section 8.4).
 func (c *checker) checkConv(from, to types.Type, sp diag.Span) {
-	if !c.convOK(types.Chase(from), types.Chase(to)) {
+	from = types.Chase(from)
+	to = types.Chase(to)
+	if !c.convOK(from, to) {
+		name := metaNamer()
+		fd, td := types.Display(from, name), types.Display(to, name)
 		c.diags.Add(diag.Error("E0507",
-			fmt.Sprintf("cannot convert %s to %s", from, to)).
-			At(sp).Set("from", from.String()).Set("to", to.String()))
+			fmt.Sprintf("cannot convert %s to %s", fd, td)).
+			At(sp).Set("from", fd).Set("to", td))
 	}
 }
 
@@ -823,50 +829,62 @@ func (c *checker) convOK(from, to types.Type) bool {
 	if fe, te, ok := c.sliceListPair(from, to); ok && !types.Equal(fe, te) {
 		return false
 	}
-	// A file-local `type` declaration is invisible to the oracle,
-	// and it can hide at any depth: boundaryType maps every
-	// unqualified Con by name alone, so a `type Int` ADT nested
-	// inside `List`/`Ptr`/`Go.Slice`/etc. args would convert to
-	// the builtin's Go representation and emit uncompilable code.
-	// Walk both sides for shadowed Cons before trusting it; a hit
-	// sends the pair to the fallback the way the old outermost
-	// check did.
-	var containsShadowed func(t types.Type) bool
-	containsShadowed = func(t types.Type) bool {
+	// A Gom-side declaration is invisible to the oracle, and it can
+	// hide at any depth: boundaryType and gomOnly judge a Con by
+	// name alone, so a file-local `type Int` ADT reads as the
+	// builtin, a `type Foo` nested inside `List`/`Ptr`/`Go.Slice`
+	// args reads as an unmapped element, and a qualified
+	// `geom.Int` reads as `Int` too — any of them can come back
+	// "unproven", falling to the *types.Go acceptance below and
+	// emitting a conversion no Go compiler admits (`Int(x)` where
+	// Int is the ADT). tyCons is the declaration oracle: local
+	// declarations register under `{qual:""}` and foreign ones
+	// (registerForeignTypes) under their package path, so a Con
+	// naming a declared Gom type — at whatever nesting — rejects
+	// the pair directly rather than skipping only the oracle
+	// consult. A qualified Con the table does not know is still a
+	// declaration's spelling: `Qual` is only ever assigned to a
+	// package member or the `Go.` view.
+	var containsGomDecl func(t types.Type) bool
+	containsGomDecl = func(t types.Type) bool {
 		switch t := types.Chase(t).(type) {
 		case *types.Con:
-			if t.Qual == "" && c.shadowedBuiltin(t.Name) {
+			if t.Qual == "Go" {
+				// A Go-side view (Go.Slice, Go.Map, Go.Int, ...):
+				// mappable itself, but its arguments can still
+				// hide a Gom declaration.
+				return slices.ContainsFunc(t.Args, containsGomDecl)
+			}
+			if _, ok := c.tyCons[conKey{qual: t.Qual, name: t.Name}]; ok {
 				return true
 			}
-			if slices.ContainsFunc(t.Args, containsShadowed) {
+			if t.Qual != "" {
 				return true
 			}
+			return slices.ContainsFunc(t.Args, containsGomDecl)
 		case *types.Func:
 			for _, p := range t.Params {
-				if containsShadowed(p.Type) {
+				if containsGomDecl(p.Type) {
 					return true
 				}
 			}
-			return containsShadowed(t.Ret)
+			return containsGomDecl(t.Ret)
 		case *types.Tuple:
-			if slices.ContainsFunc(t.Elems, containsShadowed) {
-				return true
-			}
+			return slices.ContainsFunc(t.Elems, containsGomDecl)
 		case *types.Go:
-			if slices.ContainsFunc(t.Args, containsShadowed) {
-				return true
-			}
+			return slices.ContainsFunc(t.Args, containsGomDecl)
 		case *types.Var, *types.Meta:
 		default:
 			panic("unreachable")
 		}
 		return false
 	}
-	if !containsShadowed(from) && !containsShadowed(to) {
-		if src, ok := c.src.(ConvertSource); ok {
-			if decided, ok := src.GoConvertible(from, to); decided {
-				return ok
-			}
+	if containsGomDecl(from) || containsGomDecl(to) {
+		return false
+	}
+	if src, ok := c.src.(ConvertSource); ok {
+		if decided, ok := src.GoConvertible(from, to); decided {
+			return ok
 		}
 	}
 	// Unproven pairs — an unmappable Go view or no oracle at all —

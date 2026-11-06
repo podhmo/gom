@@ -1,0 +1,27 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0507",
+      "severity": "error",
+      "message": "cannot convert io/fs.FileMode to Int",
+      "span": {
+        "file": "E0507_go_conv_shadowed_handle.gom",
+        "start": {
+          "line": 14,
+          "col": 32,
+          "offset": 516
+        },
+        "end": {
+          "line": 14,
+          "col": 47,
+          "offset": 531
+        }
+      },
+      "data": {
+        "from": "io/fs.FileMode",
+        "to": "Int"
+      }
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+package main
+
+// E0507's `from`/`to` render through one types.Display namer: the
+// list element meta mints well past `?1` — after the `todo ()`
+// result meta — but reports `?1`; internal mint IDs never leak.
+fn main () -> Unit = {
+  let _ = todo ()
+  let _ = Go.conv [todo ()] : Go.Slice Int
+  ()
+}

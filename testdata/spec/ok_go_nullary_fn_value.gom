@@ -1,0 +1,27 @@
+package main
+
+import go "errors"
+import go "math/rand"
+
+// A Go zero-parameter signature bound as a *value* types as `-> T`
+// — the shape Go itself sees, not `Unit -> T` (spec 8.1). Its
+// `f ()` application is the Go `f()` call: the unit literal is the
+// call marker, not a Unit parameter, so the application takes no
+// arguments and emits a real `f()`. A bound method value and a
+// package-level function apply this way, and so do the deferred
+// forms — `x.Error ()` while `x` is still a meta, and `m ()` on a
+// let-bound method value — which replay once the member resolves.
+fn main () -> Unit = {
+  let m = (errors.New "x").Error
+  let _ = m ()
+  let r = rand.Int
+  let _ = r ()
+  let h = fn x -> {
+    let _ = x.Error ()
+    let mv = x.Error
+    let _ = mv ()
+    ()
+  }
+  ignore (h (errors.New "y"))
+  ()
+}

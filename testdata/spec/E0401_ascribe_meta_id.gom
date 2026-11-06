@@ -1,0 +1,11 @@
+package main
+
+// An ascription's rejected target renders through types.Display:
+// the second `{y: Int}` target is mint-internal `?4` but reports
+// `?1` — each diagnostic renumbers its metas from `?1` so internal
+// mint IDs never leak.
+fn main () -> Unit = {
+  let _ = 5 : {x: Int}
+  let _ = 6 : {y: Int}
+  ()
+}

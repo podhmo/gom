@@ -152,7 +152,9 @@
 | [test-name-file-tag](2026-11-05-test-name-file-tag.md) | Same-named `test` blocks in sibling files take a file tag | draft（prototype verified — [sketch: V-6 residual verification](../sketch/2026-11-05-v6-residual-verification.md)） |
 | [test-performance](2026-11-05-test-performance.md) | テストを10倍速くするための設計と実施事項 | 採用（10倍の目標は未達） |
 | [variant-field-assert-owning-ctor](2026-11-05-variant-field-assert-owning-ctor.md) | バリアントの名前付きペイロード読み取りは所有者バリアントをアサートする | 採用（実装・検証した — [検証](../sketch/2026-11-05-variant-field-assert-owning-ctor.md)） |
+| [any-hole-deferred-pin](2026-11-06-any-hole-deferred-pin.md) | A consumer pin on a deferred `any`-hole result is a valid narrowing | 採用（実装・検証した — [検証](../sketch/2026-11-06-check-residuals-verification.md)） |
 | [eval-package-unit](2026-11-06-eval-package-unit.md) | Multi-file evaluation: the evaluator takes the package unit | 採用（prototype で検証済み — [sketch](../sketch/2026-11-06-eval-package-unit-verification.md)） |
+| [go-nullary-fn-value-application](2026-11-06-go-nullary-fn-value-application.md) | Go zero-parameter function *values* apply as `f ()` — the `()` is a call marker | 採用（実装・検証した — [検証](../sketch/2026-11-06-check-residuals-verification.md)。spec.md §8.1 へ反映済み） |
 | [gom-import-alias-and-gomi-imports](2026-11-06-gom-import-alias-and-gomi-imports.md) | Define `import alias "path"` and `.gomi` imports in the spec | 採用（実装・検証した — [検証](../sketch/2026-11-06-import-alias-and-gomi-imports-verification.md)） |
 | [gomtest-golden-dir-cases](2026-11-06-gomtest-golden-dir-cases.md) | Golden directory cases: one `.golden.go` per generated file | 採用（実装・検証した — [検証](../sketch/2026-11-06-gomtest-golden-dir-cases-verification.md)） |
 | [gomtest-tests-option](2026-11-06-gomtest-tests-option.md) | The `case.json` `tests` option: test-mode generation in golden cases | 採用（実装・検証した — [検証](../sketch/2026-11-06-gomtest-tests-option-verification.md)） |

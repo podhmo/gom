@@ -141,9 +141,15 @@
   対応: Core の `GoResultsNone` と discard → Unit 正規化で区別し、各値位置・副作用順を検証。
   参照: [Gist probe](sketch/2026-11-03-gist-cli-prototype.md)、[検証と独立レビュー](sketch/2026-11-03-void-go-call-verification.md)。
 
-- [ ] **Go の引数なし関数は値にすると呼べない**: spec は Go 関数を値として公開するが、
+- [x] **Go の引数なし関数は値にすると呼べない**: spec は Go 関数を値として公開するが、
   `let f = e.Error; f ()` は直接の `e.Error ()` と異なり E0401 になる。
-  参照: [spec 8.1](spec.md#81-go-を呼ぶ)、[再現](problems/2026-11-02-go-nullary-fn-value.md)。
+  対応: `-> T` 値への `()` 適用を 0 引数呼び出しと決定し checkGomApply/replayGomApply・
+  lower の unknownCall・core の不変条件を実装。pendingSel の立つ meta 上の `m ()` は
+  メンバー確定まで defer（`pendingApply.alwaysGom`）。spec 8.1 項目 1 に型 `-> T` と
+  `f ()` = `f()` の規則を追記。
+  参照: [decision](decisions/2026-11-06-go-nullary-fn-value-application.md)、
+  [検証](sketch/2026-11-06-check-residuals-verification.md)、
+  [fixture](../testdata/spec/ok_go_nullary_fn_value.gom)。
 
 - [x] **Float の評価器と生成 Go で丸めが異なる**: 評価器は各リテラルを float64 にして演算し、
   生成 Go は任意精度定数式を畳み込むため、同じ式の数値・文字列表示が異なる。
@@ -277,15 +283,18 @@
   実装はまだ無いが、名前の正が文書間で不一致。
   対応: `gom info` を実装し `gomi` はリネーム通知に変更、spec 7.5 も `gom info` 表記に統一。
   参照: [usage](../cmd/gom/main.go)、[iface](../cmd/gom/iface.go)、[spec 7](spec.md#7-インターフェースファイル-gomi)、[sketch](sketch/2026-11-05-moon-cli-command-structure.md)。
-- [ ] **`...any` 位置で `checkBlock` だけが `want` をそのままノードに刻む非対称**:
+- [x] **`...any` 位置で `checkBlock` だけが `want` をそのままノードに刻む非対称**:
   if/match/select/recordLit は `bw`（`Go.Any` を nil に倒す）で推論するのに対し、
   `checkExpr` は `checkBlock` に生の `want` を渡し、`checkBlock` はそれを Block ノードの型にする。
   結果として `fmt.Println ({563.33})` の Block ノードは `Go.Any` を持ち、最終式は `Float` のまま —
   `bw` のコメントが lower の不変条件 (E0901) を心配する形と同じだが、`gom build`・lower は通る
   （実測 `ignore (fmt.Println ({563.33}))` → `ok:true`）。意図的な設計か未整合かは未確認。
-  参照: [checkExpr の bw 分岐](../internal/check/expr.go)（30-41 行目と 69-70 行目）、
-  [checkBlock](../internal/check/expr.go)（`out.Base = baseOf(e.Sp, want)`）、
-  [発見経緯](sketch/2026-11-03-inference-witness-oracle.md)。
+  対応: 未整合と判定 — checkBlock のコメント自体が「block の型は最終文の型」と
+  述べ、`bw` の対象一覧も分岐ノードを挙げていたため `checkBlock(e, bw)` に揃えた。
+  E0901 の懸念は want=nil で推論する側に影響しない。
+  参照: [checkExpr の bw 分岐](../internal/check/expr.go)、
+  [検証](sketch/2026-11-06-check-residuals-verification.md)、
+  [fixture](../testdata/spec/ok_go_block_arg.gom)。
 
 - [ ] **`go build` / `go vet` のエラーを `.gom` 位置へ戻す経路に実起動がない**:
   design.md 2.2 は「`go build` / `go vet` のエラーと panic スタックを `.gom` の位置へ戻す」と定めるが、
@@ -444,10 +453,16 @@
   参照: [eval.go](../internal/eval/eval.go) `spliceGoSpread`、
   [fixture](../testdata/spec/E0505_go_spread_shared_tail.gom)。
 
-- [ ] **any-hole cute の結果型が callee unify で premature bind されると eager と診断がずれる**:
+- [x] **any-hole cute の結果型が callee unify で premature bind されると eager と診断がずれる**:
   deferred 経路だけ `expected String, got Go.Any`。`Go.Any` の受け入れが want 側
   限定であることに起因し、仕様判断が必要。
-  参照: [problem](problems/2026-11-05-any-hole-deferred-result.md)。
+  対応: premature pin は妥当な絞り込みと決定 — replayGoApply は hole meta を
+  パラメータ型へ束縛（`unify(hole, pt)` の向き）し、立つ結果 meta が既に関数型へ
+  束縛済みのときは `any` パラメータを want 側に置いて尾部を統合
+  （`unifyDeferredResult`）。eager と同じ受理になり `f` は `String -> Unit` に狭まる。
+  参照: [decision](decisions/2026-11-06-any-hole-deferred-pin.md)、
+  [検証](sketch/2026-11-06-check-residuals-verification.md)、
+  [fixture](../testdata/spec/ok_go_hole_any_deferred.gom)。
 
 - [x] **`import alias "path"` 形式と `.gomi` 内 import は文法だけが許す**: spec §5 が
   `import "path"`（Gom パッケージ）を規定したのに対し、grammar.ebnf の
@@ -541,15 +556,20 @@
   `compare_test.go` の `float_annotated_huge_int_literal`。
   参照: [lit.go](../internal/eval/lit.go) `litValue`。
 
-- [ ] **`Go.conv` の `gomOnly` 判定が修飾名 `Qual` を見ない残余の不健全性**:
+- [x] **`Go.conv` の `gomOnly` 判定が修飾名 `Qual` を見ない残余の不健全性**:
   `Con{Qual:"geom",Name:"Int"}`（foreign ADT が builtin と同名）は名前検査で
   「未証明」に倒れ、`*types.Go` fallback が `Go.conv <Go handle> : geom.Int`
   を受理しうる（pre-existing、regression ではない — 旧 shape 規則でも受理）。
   `t.Qual == ""` で絞ると `list.List[T]` 表記（qualified stdlib List は
   真に変換可能）を誤拒否するため、真の「Gom 側型か」の答えが要る。
-  参照: [boundary.go](../internal/goimport/boundary.go) `gomOnly`、
-  [expr.go](../internal/check/expr.go) `convOK` の fallback、
-  [検証](sketch/2026-11-04-p3-2-p3-6-interop-verification.md)。
+  対応: `convOK` が `tyCons`（ファイル宣言 + `registerForeignTypes` の外部宣言）を
+  宣言 oracle として任意の深さで走査する `containsGomDecl` に置き換え、shadowed
+  builtin・入れ子の `type Foo`・修飾 Con を `*types.Go` fallback の前に一律拒否
+  （`type Int` 隣接の `fs.FileMode → Int` が生成 Go で `Int(x)` 不可を再現→E0507 化を確認）。
+  参照: [expr.go](../internal/check/expr.go) `convOK`、
+  [検証](sketch/2026-11-06-check-residuals-verification.md)、
+  [fixture](../testdata/spec/E0507_go_conv_shadowed_handle.gom)、
+  [unit test](../internal/check/check_go_test.go) `TestConvOKQualifiedGomDecl`。
 
 - [x] **`for` の shadowed-builtin E0415 一覧に `SendChan` がない**:
   `checkFor` はファイルローカルの `type List`/`Chan`/`RecvChan` を E0415 で
@@ -965,7 +985,7 @@
   [decision](decisions/2026-11-06-label-args-into-returned-functions.md)、
   [検証](sketch/2026-11-06-label-args-into-returned-functions.md)）。
 
-- [ ] **`expr.go` に raw `.String()` 描画が残り `?n` リークの可能性
+- [x] **`expr.go` に raw `.String()` 描画が残り `?n` リークの可能性
   （到達性は未確認）**: E0402/E0403/E0410/E0411 は wave10 hygiene で
   `types.Display`+`metaNamer` に修正済みだが、E0502 `data["type"]`
   （expr.go ~363、`recv.Type()` raw）、E0401 `data["type"]`（~728）、
@@ -973,9 +993,15 @@
   `convOK` がトップレベル meta のみ defer するため入れ子 meta が出うる
   （例 `Go.conv ([todo ()]) : Go.Slice Int`）。E0417 `judgeT` は常に
   具象で安全。メッセージは spec の診断形式と齟齬しうる。
+  対応: E0401 ascription と E0507 を実測で再現（`?4`→`?1`、`List ?n`→`?1` に
+  renumber）し fresh `metaNamer()` + `types.Display` に修正。E0502 は surface
+  構文では発火しない（値レシーバの `.M` は resolver が KindMethod に束縛せず
+  pendingSel へ遅延するため）が同じ修正を適用 — 到達しない旨を記録。
+  E0417 `judgeT` は具象であることを再確認して未変更。
   参照: [check/expr.go](../internal/check/expr.go)、
-  [decision](decisions/2026-11-06-spec-suite-root-bare-side-files.md)
-  同 wave の修正対象外。wave10 hygiene レビュー・worker が独立に指摘。
+  [検証](sketch/2026-11-06-check-residuals-verification.md)、
+  [fixture](../testdata/spec/E0401_ascribe_meta_id.gom)、
+  [fixture](../testdata/spec/E0507_go_conv_meta_render.gom)。
 
 - [ ] **eval の初期化順は Go の ready-in-declaration-order とずれうる
   （pre-existing、multi-file eval で記録）**: eval は依存を forcing 順に

@@ -1,0 +1,13 @@
+package main
+
+import go "fmt"
+
+// A block expression under a `...any` parameter types as its last
+// statement — the `want` Go.Any becomes nil for a block the same
+// way it does for if/match/select and record literals, so the
+// block keeps Float instead of stamping Go.Any on itself; the
+// `any` boxing stays at the argument edge (spec 8.5).
+fn main () -> Unit = {
+  ignore (fmt.Println ({563.33}))
+  ()
+}

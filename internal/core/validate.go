@@ -894,16 +894,21 @@ func (v *validator) expr(e Expr, inTail bool) {
 		if _, bad := e.Fn.(*CtorRef); bad {
 			v.err(e.Sp, "CallFunc", "Fn is a CtorRef — a known callee must be CtorApp")
 		}
+		nullary := false
 		if fn, ok := atomType(e.Fn).(*types.Func); ok {
-			if len(fn.Params) == 0 {
-				v.err(e.Sp, "CallFunc", "Fn type %s has no parameters", atomType(e.Fn))
-			}
+			nullary = len(fn.Params) == 0
 		} else if atomType(e.Fn) != nil {
 			v.err(e.Sp, "CallFunc", "Fn type %s is not a function type", atomType(e.Fn))
 		}
 		// The canonical value representation is one Go func per
-		// arrow, so every CallFunc supplies exactly one argument.
-		if len(e.Args) != 1 {
+		// arrow, so every CallFunc supplies exactly one argument —
+		// except a `-> T` callee, a Go zero-parameter signature,
+		// whose `f ()` application has no argument at all.
+		want := 1
+		if nullary {
+			want = 0
+		}
+		if len(e.Args) != want {
 			v.err(e.Sp, "CallFunc", "applying at %d args — the canonical function value takes exactly one",
 				len(e.Args))
 		}

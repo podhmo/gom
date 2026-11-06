@@ -43,11 +43,14 @@ func (*CallDirect) isExpr() {}
 // is one Go func per arrow (spec 1.3's currying made concrete), so
 // every application step is a real one-argument Go call and a
 // partial application is simply a value of the residual arrow type —
-// no extra Closure stands between `f 20` and `f 20 30`.
+// no extra Closure stands between `f 20` and `f 20 30`. The single
+// exception is a `-> T` callee — a Go zero-parameter signature's
+// shape — whose `f ()` application checks to no arguments at all;
+// it lowers to a zero-argument CallFunc, a real `f()` call.
 type CallFunc struct {
 	Base
 	Fn   Atom   // a function value — never FuncRef / CtorRef (those are CallDirect / CtorApp)
-	Args []Atom // exactly one argument — the canonical chain applies one arrow per call
+	Args []Atom // one argument per canonical chain step; empty only for the `-> T` `f()` call
 }
 
 func (*CallFunc) isExpr() {}

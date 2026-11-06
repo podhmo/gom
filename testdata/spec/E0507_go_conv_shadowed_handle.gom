@@ -1,0 +1,14 @@
+package main
+
+import go "io/fs"
+
+// A file-local `type Int` beside a *types.Go handle slipped
+// through the `*types.Go` fallback: the oracle judged the Con by
+// name alone — the builtin `Int` — found the pair "unproven", and
+// the handle-side acceptance emitted `Int(x)` where Int is the
+// ADT, which no Go compiler admits. A declared Gom type rejects
+// beside a Go handle the same way it does inside `List`/`Go.Map`
+// arguments (E0507_go_conv_shadowed).
+type Int = | Boxed
+
+fn f (x: fs.FileMode) -> Int = Go.conv x : Int

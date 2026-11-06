@@ -163,6 +163,70 @@ func (c *checker) checkGomApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol
 
 	out := &Apply{Base: baseOf(e.Sp, nil), Fn: fn}
 
+	// A Go zero-argument function *value* — `let f = e.Error`,
+	// `let g = time.Now` — types as `-> T` (the Go signature's
+	// shape), not `Unit -> T`. It applies the way the Go source
+	// does: `f ()`, where the unit literal is the call marker and
+	// not an argument (checkGoApply drops it the same way), so a
+	// bare `f ()` saturates into a zero-argument application.
+	// Anything else over-applies the `-> T` result like any other
+	// type.
+	if flat == 0 && len(e.Args) == 1 && e.Args[0].Label == nil {
+		if fty, ok := types.Chase(fn.Type()).(*types.Func); ok && len(fty.Params) == 0 {
+			if lit, ok := e.Args[0].Value.(*syntax.Lit); ok && lit.Kind == syntax.LitUnit {
+				out.Base = baseOf(e.Sp, ret)
+				out.Call = CallInfo{
+					Kind:      CallUnknown,
+					Applied:   0,
+					Arity:     flat,
+					FlatArity: flat,
+					HoleIndex: -1,
+					TypeArgs:  targsOf(fn),
+				}
+				if err := out.Validate(); err != nil {
+					panic(fmt.Sprintf("check: invalid CallInfo for %T: %v", e.Fn, err))
+				}
+				return out
+			}
+		}
+		// `m ()` where `m` stands on a deferred member's standing
+		// meta — `let m = x.Error` — cannot pick the unit
+		// literal's meaning yet: a `-> T` member reads it as the
+		// zero-argument call marker, a `Unit -> T` member as the
+		// parameter, and binding `Unit -> ?r` now would replay
+		// into `expected Unit -> ?r, got String` (or emit
+		// `m(struct{}{})` over a `func() string`). Defer the
+		// application to the member's replay the way `x.M ()`
+		// itself waits.
+		if lit, ok := e.Args[0].Value.(*syntax.Lit); ok && lit.Kind == syntax.LitUnit {
+			if m, ok := types.Chase(fn.Type()).(*types.Meta); ok {
+				for _, me := range c.pendingSels {
+					if types.Chase(me.Type()) != m {
+						continue
+					}
+					pa := &pendingApply{me: me, alwaysGom: true}
+					out.Base = baseOf(e.Sp, c.newMeta(e.Sp, "the deferred call's result"))
+					pa.ap = out
+					for _, a := range e.Args {
+						label := ""
+						var labelSp diag.Span
+						if a.Label != nil {
+							label = a.Label.Name
+							labelSp = a.Label.Sp
+						}
+						out.Args = append(out.Args, Arg{
+							Label: label, LabelSp: labelSp,
+							Value: c.provisionalArg(a.Value, pa),
+						})
+					}
+					out.Call = CallInfo{Kind: CallUnknown, Applied: len(out.Args), HoleIndex: -1}
+					c.pendingApplies = append(c.pendingApplies, pa)
+					return out
+				}
+			}
+		}
+	}
+
 	for _, a := range e.Args {
 		label := ""
 		var labelSp diag.Span
@@ -741,6 +805,13 @@ type pendingApply struct {
 	me   *MemberExpr // the deferred callee selection
 	done bool        // replayed — guards chained members
 
+	// alwaysGom forces the Gom replay even when the member settles
+	// to a Go method: the apply's callee is a plain value (a Var
+	// standing on the member's standing meta — `let m = x.Error`),
+	// not the member expression itself, so no CallGo can name the
+	// receiver. `m ()` applies the method *value*'s `-> T` shape.
+	alwaysGom bool
+
 	// holes and spreads record the `_` and `..e` markers the
 	// provisional pass minted (only direct arguments and elements
 	// of the surface arg tuple carry them — every other context
@@ -872,7 +943,7 @@ func (c *checker) replayApply(pa *pendingApply) {
 		return
 	}
 	pa.done = true
-	if me := pa.me; me.Sym != nil && me.Sym.IsGo && me.Sym.Kind == resolve.KindMethod {
+	if me := pa.me; !pa.alwaysGom && me.Sym != nil && me.Sym.IsGo && me.Sym.Kind == resolve.KindMethod {
 		c.replayGoApply(pa)
 		return
 	}
@@ -996,7 +1067,13 @@ func (c *checker) replayGoApply(pa *pendingApply) {
 			} else {
 				hole = len(newArgs)
 				holeT = pt
-				c.unify(pt, v.Type(), v.Sp)
+				// The hole's own meta must take the parameter type
+				// even when it is `any`: unify's want-side Go.Any
+				// acceptance deliberately never binds the *got*
+				// meta, so unifying (pt, hole) leaves the
+				// placeholder unsolved (E0407). The hole's type
+				// genuinely is pt — bind in this direction.
+				c.unify(v.Type(), pt, v.Sp)
 				argExpr = v
 			}
 		case *Spread:
@@ -1088,7 +1165,7 @@ func (c *checker) replayGoApply(pa *pendingApply) {
 		// nested — the emitted closure really is `func(hole) ret`.
 		res = &types.Func{Params: []types.FuncParam{types.P(holeT)}, Ret: ret}
 	}
-	c.unify(e.Type(), res, e.Sp)
+	c.unifyDeferredResult(e, res, hole >= 0)
 	e.Args = newArgs
 	e.Call = CallInfo{
 		Kind:       CallGo,
@@ -1104,6 +1181,36 @@ func (c *checker) replayGoApply(pa *pendingApply) {
 	if err := e.Validate(); err != nil {
 		panic(fmt.Sprintf("check: invalid CallInfo for %T: %v", e.Fn, err))
 	}
+}
+
+// unifyDeferredResult settles the deferred application's standing
+// result meta against the replayed convention's result type. The
+// meta is usually still open and simply binds; but a consumer that
+// ran before the member resolved may have pinned it already — `f
+// "a"` binds `String -> ?r` where the settled call is `any ->
+// Unit`. The hole's `any` parameter accepts every argument, so the
+// pin is a valid specialization the eager path accepts directly
+// (problems/2026-11-05-any-hole-deferred-result): conform the
+// pinned first parameter to `any` on the want side — which accepts
+// a concrete type and leaves a still-open meta free — and unify
+// the tails. A bound meta pinned to a narrower type stays the
+// narrowing (monomorphic: `f` is seen at `String -> Unit`).
+func (c *checker) unifyDeferredResult(e *Apply, res types.Type, hasHole bool) {
+	if hasHole {
+		bf, bok := types.Chase(e.Type()).(*types.Func)
+		rf, rok := types.Chase(res).(*types.Func)
+		if bok && rok && len(rf.Params) == 1 && len(bf.Params) > 0 &&
+			isGoAny(rf.Params[0].Type) {
+			c.unify(rf.Params[0].Type, bf.Params[0].Type, e.Sp)
+			var tail types.Type = bf.Ret
+			if len(bf.Params) > 1 {
+				tail = &types.Func{Params: bf.Params[1:], Ret: bf.Ret}
+			}
+			c.unify(tail, rf.Ret, e.Sp)
+			return
+		}
+	}
+	c.unify(e.Type(), res, e.Sp)
 }
 
 // replayGomApply is checkGomApply's second pass: the member resolved
@@ -1123,6 +1230,30 @@ func (c *checker) replayGomApply(pa *pendingApply) {
 	var extras []Expr
 	unmapped := false // an argument no flat parameter position answers
 	newArgs := make([]Arg, 0, len(e.Args))
+
+	// The `-> T` value rule of checkGomApply, second pass: a Go
+	// zero-argument function *value* — a member that settled to a
+	// `-> T` — applied as `x.M ()` saturates; the unit literal is
+	// the call marker, not an argument.
+	if flat == 0 && len(e.Args) == 1 && e.Args[0].Label == "" {
+		if fty, ok := types.Chase(me.Type()).(*types.Func); ok && len(fty.Params) == 0 {
+			if lit, ok := e.Args[0].Value.(*Lit); ok && lit.Kind == syntax.LitUnit {
+				c.unify(e.Type(), ret, e.Sp)
+				e.Args = nil
+				e.Call = CallInfo{
+					Kind:      CallUnknown,
+					Arity:     flat,
+					Applied:   0,
+					HoleIndex: -1,
+				}
+				c.flagStrayMarkers(pa)
+				if err := e.Validate(); err != nil {
+					panic(fmt.Sprintf("check: invalid CallInfo for %T: %v", e.Fn, err))
+				}
+				return
+			}
+		}
+	}
 
 	for _, a := range e.Args {
 		label := a.Label

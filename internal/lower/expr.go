@@ -1134,6 +1134,18 @@ func (l *lowerer) unknownCall(s *seq, sp diag.Span, resTyp types.Type, callee ch
 	default:
 		panic("unreachable")
 	}
+	if len(args) == 0 {
+		// A `-> T` callee — the shape a Go zero-parameter
+		// signature takes as a value (`let f = e.Error`) —
+		// applied as `f ()`: the surface unit literal is the
+		// call marker, so the whole application is a real
+		// zero-argument call `f()`. Every other CallUnknown
+		// carries at least one argument; a bare `f` value is no
+		// Apply at all.
+		if fs, ok := types.Chase(fn.Type()).(*types.Func); ok && len(fs.Params) == 0 {
+			return &core.CallFunc{Sp: sp, Typ: fs.Ret, Fn: fn}
+		}
+	}
 	if len(ci.ArgToParam) == 0 {
 		// The identity mapping (or an unrepresentable one, which
 		// the checker already reported) keeps the plain chunk.

@@ -1,6 +1,9 @@
 # `any`-hole cute calls lose to premature result binding in the deferred path
 
-- 状態: 未決
+- 状態: 解消（2026-11-06 — premature pin は妥当な絞り込みとして受理、
+  hole meta はパラメータ型へ束縛。
+  [decision](../decisions/2026-11-06-any-hole-deferred-pin.md)、
+  [検証](../sketch/2026-11-06-check-residuals-verification.md)）
 
 ## 状況
 

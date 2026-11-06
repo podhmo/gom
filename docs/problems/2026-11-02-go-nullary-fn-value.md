@@ -1,6 +1,8 @@
 # Go nullary functions and method values are `-> T` — capturable but not applicable
 
-- 状態: 未解決
+- 状態: 解消（2026-11-06 — `-> T` 値の `f ()` を 0 引数適用として受理。
+  [decision](../decisions/2026-11-06-go-nullary-fn-value-application.md)、
+  [検証](../sketch/2026-11-06-check-residuals-verification.md)）
 - 日付: 2026-11-02
 
 ## Situation

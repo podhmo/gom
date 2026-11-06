@@ -480,3 +480,76 @@ func TestAscribeNonConv(t *testing.T) {
 	_, diags := b.check(nil, main)
 	requireCodes(t, diags, "E0401")
 }
+
+// A Go zero-parameter signature bound as a *value* — `let f =
+// time.Now`, `let m = e.Error` — types as `-> T`, the shape Go
+// itself sees rather than `Unit -> T`. Its `f ()` application is
+// the Go `f()` call: the unit literal is the call marker
+// (checkGoApply drops it the same way), so the Apply checks to no
+// arguments at all — CallUnknown applied 0 — and lowering emits a
+// real `f()`.
+func TestCallNullaryGoValue(t *testing.T) {
+	b := newTB()
+	time := b.modSym("time", true)
+	now := b.gofnSym("time", "Now")
+	nowT := &types.Go{Ref: types.NamedRef{Path: "time", Name: "Time"}}
+	src := MapSource{now: sig(nowT)}
+
+	fp, fvs := b.vp("f")
+	lf := b.letd(fp, nil, b.member(time, now, "Now"))
+	up := b.unitParam()
+	call := b.app(b.ref(fvs), b.arg(b.ulit()))
+	main, _ := b.fn("main", []syntax.Param{up}, b.tn("Unit"),
+		b.block(b.letx(b.wp(), nil, call), b.ulit()))
+
+	f, diags := b.check(src, lf, main)
+	requireCodes(t, diags)
+	d := findDecl[*FnDecl](f, 0)
+	a := applyAt(d.Body.(*Block).Stmts[0])
+	expectCall(t, a, CallUnknown, 0, 0, 0, 0, nil)
+	if got := a.Type(); !types.Equal(types.Chase(got), nowT) {
+		t.Errorf("call type = %s, want %s", got, nowT)
+	}
+}
+
+// A `*types.Go` handle beside a *qualified* Gom constructor —
+// `geom.Int` — must not slip through the `*types.Go` fallback:
+// boundaryType and gomOnly read a Con by name alone (`Int`), come
+// back "unproven", and the old fallback accepted, emitting an
+// uncompilable `Int(x)` over the ADT. A qualified Con is a
+// declared Gom type at every nesting depth, so the pair rejects
+// outright — the same rule a file-local shadowed builtin follows.
+func TestConvOKQualifiedGomDecl(t *testing.T) {
+	c := &checker{tyCons: map[conKey]*typeInfo{}}
+	fileMode := &types.Go{Ref: types.NamedRef{Path: "io/fs", Name: "FileMode"}}
+	geomInt := &types.Con{Qual: "geom", Name: "Int"}
+
+	if c.convOK(fileMode, geomInt) {
+		t.Error("qualified Gom type slipped through the *types.Go fallback")
+	}
+	if c.convOK(fileMode, types.List(geomInt)) {
+		t.Error("qualified Gom type nested in List slipped through")
+	}
+	goSlice := &types.Con{Qual: "Go", Name: "Slice", Args: []types.Type{geomInt}}
+	if c.convOK(fileMode, goSlice) {
+		t.Error("qualified Gom type nested in a Go view slipped through")
+	}
+	if c.convOK(fileMode, types.Fn(types.Unit, types.P(geomInt))) {
+		t.Error("qualified Gom type nested in a function slipped through")
+	}
+	// The fallback itself is intact: an unproven handle pair with
+	// no declaration on either side still accepts (this unit has
+	// no ConvertSource oracle).
+	osFile := &types.Go{Ref: types.NamedRef{Path: "os", Name: "File"}}
+	if !c.convOK(fileMode, osFile) {
+		t.Error("handle pair without Gom decls should accept through the fallback")
+	}
+	// A shadowed builtin beside a Go handle rejects too — the
+	// pair is no more convertible than the spec's `List Int` case.
+	shadowed := &checker{tyCons: map[conKey]*typeInfo{
+		{name: "Int"}: {sym: &resolve.Symbol{Name: "Int"}},
+	}}
+	if shadowed.convOK(fileMode, types.Int) {
+		t.Error("shadowed builtin beside a Go handle slipped through")
+	}
+}

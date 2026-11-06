@@ -1,0 +1,27 @@
+package main
+
+import go "io"
+import go "log"
+
+// A `_` into a `...any` parameter types the partial function
+// `any -> T` — the hole keeps the parameter type rather than
+// binding it away. A consumer that pins a narrower shape first
+// (`f "a"`) keeps the specialization instead of reporting
+// `expected String, got Go.Any`: `any` accepts the argument the
+// same way the eager check does (spec 8.2;
+// docs/problems/2026-11-05-any-hole-deferred-result).
+fn main () -> Unit = {
+  // eager — a package function's member resolves at apply time.
+  let f = log.Println(_)
+  let _ = f "a"
+  // deferred — `x`'s type is still a meta, so `p "a"` pins
+  // `String -> ?r` before the replay settles `any -> Unit`.
+  let h = fn x -> {
+    let p = x.Print(_)
+    let _ = p "a"
+    ()
+  }
+  let l = log.New(io.Discard, "", 0)
+  ignore (h l)
+  ()
+}
