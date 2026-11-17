@@ -414,19 +414,31 @@ func (g *gen) switchValue(s *core.DSwitch, d dest) {
 	g.expr(g.atom(s.Subj))
 	g.open()
 	for _, c := range s.Cases {
-		g.dcaseValue(c, d)
+		g.dcaseValue(c, s.Subj, d)
 	}
 	g.ddefault(s, d)
 	g.close()
 }
 
-func (g *gen) dcaseValue(c core.DCase, d dest) {
+func (g *gen) dcaseValue(c core.DCase, subj core.Atom, d dest) {
 	g.line(c.Sp)
 	lt, ok := c.Test.(*core.DLitTest)
 	if !ok {
 		panic("codegen: SwitchValue case test is not a DLitTest")
 	}
 	g.caseLabel(func() {
+		// An `any` subject compares a boxed value, so the case
+		// literal must carry its Gom type's rep — `int64(42)`, not
+		// Go's untyped `int` default `42`, which never matches.
+		if con, ok := types.Chase(subj.Type()).(*types.Con); ok &&
+			con.Qual == "Go" && con.Name == "Any" && lt.Typ != nil {
+			g.raw("case ")
+			g.expr(&ast.CallExpr{
+				Fun:  g.goType(lt.Typ),
+				Args: []ast.Expr{ast.NewIdent(lt.Text)},
+			})
+			return
+		}
 		g.raw("case " + lt.Text)
 	})
 	g.body(c.Body, d)

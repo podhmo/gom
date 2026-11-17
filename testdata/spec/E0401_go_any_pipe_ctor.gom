@@ -1,0 +1,12 @@
+package main
+
+// `Some 1` settles to `Option Int` before the pipe can see the
+// callee's `Option Go.Any` parameter — the constructor pin runs
+// inside the pipe argument's own check, where no `Option` want
+// reaches it, and the settled `Int` element cannot reopen into
+// `any` (composites are invariant). The direct call `f (Some 1)`
+// does pin under the parameter's want; piping after the fact is
+// the honest reject.
+fn f (o: Option Go.Any) -> Int = 0
+fn r () -> Int = Some 1 |> f
+fn main () -> Unit = ()

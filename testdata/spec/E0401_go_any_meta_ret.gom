@@ -1,0 +1,11 @@
+package main
+
+// The ctor-seeding pin only answers Con-vs-Con: under `id`'s
+// shared `?a` result meta the `Option Go.Any` want cannot reach
+// the `Some 1` argument, so `?a` binds to the settled
+// `Option num` shape and the outer `unifySub` reports the numeric
+// flag against `any` (wave-13 F2 — pinned honest; a bound let
+// `let s : Option Go.Any = Some 1; id s` is the workaround).
+fn id (x: a) -> a = x
+fn r () -> Option Go.Any = id (Some 1)
+fn main () -> Unit = ()

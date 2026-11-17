@@ -1216,9 +1216,10 @@ func (c *checker) replayGoApply(pa *pendingApply) {
 }
 
 // conformCallee checks a one-argument application of `callee`: its
-// first positional parameter accepts `argT` under the value-slot
-// judgment — a `Go.Any` parameter takes every argument (spec
-// 8.1.7), exactly what `callee arg` admits — and the callee's
+// first positional parameter accepts `argT` under the conformance a
+// direct call applies — a `Go.Any` parameter takes every argument
+// (spec 8.1.7), a `Go.Slice`/`List` or interface pair takes its
+// boundary conversion, and other pairs unify — and the callee's
 // residual (the remaining curried parameters, or the bare result)
 // unifies with `res`, the caller's synthesized expectation.
 //
@@ -1228,14 +1229,19 @@ func (c *checker) replayGoApply(pa *pendingApply) {
 // `func(any) int64` is not `func(string) int64`), so a `Go.Any`
 // parameter would reject the argument's concrete type. Application
 // is not equality — the pipe, overApply and `|?>` go through here
-// instead of types.Fn synthesis. A callee that is still a meta, a
-// non-function, or one whose first parameter is labeled falls back
-// to the synthesized `argT -> res` unify, which reports the shape
-// mismatch (or binds the meta) the same way it did before.
+// instead of types.Fn synthesis. A callee that is still a meta or
+// one whose first parameter is labeled falls back to the
+// synthesized `argT -> res` unify, which reports the shape
+// mismatch (or binds the meta) the same way it did before. A
+// `Go.Any` callee never reaches that fallback: `unify`'s early
+// accept reads "an `any` slot takes every argument", which answers
+// the wrong question here — Go cannot call an `interface{}`, so the
+// structural judgment reports the mismatch instead of admitting an
+// `a("s")` the emitter then writes verbatim.
 func (c *checker) conformCallee(callee, argT, res types.Type, sp diag.Span) bool {
 	if fs, ok := types.Chase(callee).(*types.Func); ok &&
 		len(fs.Params) > 0 && fs.Params[0].Label == "" {
-		if !c.unify(fs.Params[0].Type, argT, sp) {
+		if !c.conformParam(fs.Params[0].Type, argT, sp) {
 			return false
 		}
 		var tail types.Type = fs.Ret
@@ -1244,7 +1250,78 @@ func (c *checker) conformCallee(callee, argT, res types.Type, sp diag.Span) bool
 		}
 		return c.unify(res, tail, sp)
 	}
+	if isGoAny(types.Chase(callee)) {
+		return c.unifySub(callee, types.Fn(res, types.P(argT)), sp)
+	}
 	return c.unify(callee, types.Fn(res, types.P(argT)), sp)
+}
+
+// conformParam is the type-level half of argument conformance —
+// what `fn arg` admits against the callee's first parameter — for
+// the type-only application check (conformCallee has no argument
+// expression to wrap; conformFirstArg emits the matching Ascribe
+// once the check passes). The admitted pairs mirror conformExpr:
+// ordinary unification first, then the boundary conversions a
+// settled argument type can take — `List`/`Go.Slice` in either
+// direction (element equality or an `any` element box) and a
+// Go-origin value assignable to a Go interface parameter. The
+// channel-direction narrowing stays gated to live Go parameters
+// (goParamWants), which a Gom callee's parameter is not.
+func (c *checker) conformParam(want, got types.Type, sp diag.Span) bool {
+	if c.slicePair(want, got, sp) {
+		return true
+	}
+	w, g := types.Chase(want), types.Chase(got)
+	if !types.Equal(w, g) && c.goOriginType(w) && c.goOriginType(g) &&
+		!isGoAny(w) {
+		if src, ok := c.src.(InterfaceSource); ok && src.InterfaceAssignable(g, w) {
+			return true
+		}
+	}
+	return c.unify(want, got, sp)
+}
+
+// slicePair reports whether `got` conforms to `want` through the
+// slice/list boundary conversion — the type-level decision of
+// sliceConv without an expression to wrap. `List T` copies into a
+// `Go.Slice T` and back (`Go.Slice T` materializing into `List T`),
+// and an `any`-element `Go.Slice` takes a concrete-element list or
+// slice by boxing each element. Element metas bind through the
+// ordinary unify so `Go.Slice a -> R` applied to a `List String`
+// pins `a := String`.
+func (c *checker) slicePair(want, got types.Type, sp diag.Span) bool {
+	wc, _ := types.Chase(want).(*types.Con)
+	gc, _ := types.Chase(got).(*types.Con)
+	if wc == nil || gc == nil || len(wc.Args) != 1 || len(gc.Args) != 1 {
+		return false
+	}
+	isGoSlice := func(con *types.Con) bool { return con.Qual == "Go" && con.Name == "Slice" }
+	isList := func(con *types.Con) bool {
+		return con.Qual == "" && con.Name == "List" && !c.shadowedBuiltin("List")
+	}
+	var we, ge types.Type
+	switch {
+	case isGoSlice(wc) && (isList(gc) || isGoSlice(gc)):
+		we, ge = wc.Args[0], gc.Args[0]
+		if isGoAny(types.Chase(we)) && !isGoAny(types.Chase(ge)) {
+			// `[]any` accepts any element — the box materializes
+			// element-wise at the emit.
+			return true
+		}
+	case isList(wc) && isGoSlice(gc):
+		we, ge = wc.Args[0], gc.Args[0]
+	default:
+		return false
+	}
+	if types.Equal(we, ge) {
+		return true
+	}
+	_, wmeta := types.Chase(we).(*types.Meta)
+	_, gmeta := types.Chase(ge).(*types.Meta)
+	if !wmeta && !gmeta {
+		return false
+	}
+	return c.unify(we, ge, sp)
 }
 
 // conformFirstArg wraps `arg` for the callee's first positional

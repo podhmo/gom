@@ -1,0 +1,27 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected Go.Any, got String -> ?1",
+      "span": {
+        "file": "E0401_go_any_apply.gom",
+        "start": {
+          "line": 9,
+          "col": 29,
+          "offset": 405
+        },
+        "end": {
+          "line": 9,
+          "col": 32,
+          "offset": 408
+        }
+      },
+      "data": {
+        "actual": "String -> ?1",
+        "expected": "Go.Any"
+      }
+    }
+  ]
+}

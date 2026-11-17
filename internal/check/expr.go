@@ -67,7 +67,7 @@ func (c *checker) checkExpr(e syntax.Expr, want types.Type) Expr {
 			"`_` is only allowed as an argument of a Go call").At(e.Sp))
 		out = &Hole{Base: baseOf(e.Sp, c.quietMeta(e.Sp, "the placeholder's type"))}
 	case *syntax.Lambda:
-		out = c.checkLambda(e)
+		out = c.checkLambda(e, bw)
 	case *syntax.If:
 		out = c.checkIf(e, bw)
 	case *syntax.Match:
@@ -1276,6 +1276,19 @@ func (c *checker) checkBinary(e *syntax.Binary) Expr {
 		// would restate the same mismatch.
 		if c.unify(x.Type(), y.Type(), e.Sp) {
 			c.constrain(x.Type(), e.Sp, "the operands of `==`", func(r *metaRec) { r.eq = true })
+			// `a == 42` under a `Go.Any` operand passed the `any`
+			// slot's early accept, which leaves the concrete side
+			// emitting its natural rep — `rt.Equal(a, 1)` compares
+			// `int64` to `int` and is always false (and lower's
+			// same-type invariant rejects the mix outright). Box
+			// the concrete side so both operands carry the `any`
+			// rep — the same materialization a `Go.Any` parameter
+			// applies (spec 8.1.7).
+			if isGoAny(types.Chase(x.Type())) && !isGoAny(types.Chase(y.Type())) {
+				y = c.conformExpr(y, types.Chase(x.Type()), e.Y.Span())
+			} else if isGoAny(types.Chase(y.Type())) && !isGoAny(types.Chase(x.Type())) {
+				x = c.conformExpr(x, types.Chase(y.Type()), e.X.Span())
+			}
 		}
 		return &Binary{Base: baseOf(e.Sp, c.boolResult(e.Sp, "`==`")), Op: op, X: x, Y: y}
 	case syntax.BinLt, syntax.BinLe, syntax.BinGt, syntax.BinGe:
@@ -1687,11 +1700,46 @@ func (c *checker) checkPipeTry(e *syntax.Binary) Expr {
 // Unannotated parameters get metas; the boundary stack grows so a
 // `try` inside escapes to this lambda's Result — which therefore
 // becomes `p1 ... -> Result a e` when it contains one.
-func (c *checker) checkLambda(e *syntax.Lambda) Expr {
+func (c *checker) checkLambda(e *syntax.Lambda, want types.Type) Expr {
 	sc := c.newTScope()
+	// An expected function type seeds the body's result want with
+	// the residual after the lambda's own parameters: `1` under
+	// `Int -> Go.Any` conforms to `any` and boxes at the body
+	// boundary, where a fresh result meta would bind Int first and
+	// then fail the outer `unifySub` on its num flag. Positional
+	// lambda parameters consume positional want parameters in
+	// order; a labeled one consumes the matching label from the
+	// labeled run at the consumption point, and anything it cannot
+	// pair leaves the residual unknown (the standing meta,
+	// unchanged from before).
+	var wparams []types.FuncParam
+	var wret types.Type
+	if f, ok := types.Chase(want).(*types.Func); ok {
+		wparams, wret = flattenFunc(f)
+	}
+	wi := 0       // want parameters consumed so far
+	known := true // the residual is still determinable
 	params := make([]Param, len(e.Params))
 	fparams := make([]types.FuncParam, len(e.Params))
 	for i, p := range e.Params {
+		if p.Label == nil {
+			if wi >= len(wparams) || wparams[wi].Label != "" {
+				known = false
+			} else {
+				wi++
+			}
+		} else {
+			matched := false
+			for k := wi; k < len(wparams) && wparams[k].Label != ""; k++ {
+				if wparams[k].Label == p.Label.Name {
+					matched = true
+					break
+				}
+			}
+			if wi >= len(wparams) || wparams[wi].Label == "" || !matched {
+				known = false
+			}
+		}
 		var pt types.Type
 		if p.Type != nil {
 			pt = c.typeExpr(p.Type, sc)
@@ -1705,7 +1753,16 @@ func (c *checker) checkLambda(e *syntax.Lambda) Expr {
 		params[i] = Param{Label: label, Pat: c.checkPat(p.Pat, pt)}
 		fparams[i] = types.FuncParam{Label: label, Type: pt}
 	}
-	ret := c.newMeta(e.Sp, "the lambda's return type")
+	// The residual seeds `ret` nested — `b -> ~c: Int -> Int`, not
+	// types.Fn's flat `b ~c: -> Int` — so the Lambda node keeps the
+	// level structure eval's partial-application model and lower's
+	// arity split consume.
+	ret := wret
+	if !known || wret == nil {
+		ret = c.newMeta(e.Sp, "the lambda's return type")
+	} else if wi < len(wparams) {
+		ret = &types.Func{Params: wparams[wi:], Ret: wret}
+	}
 	// The lambda's own annotation variables stay visible in its
 	// body — `fn (x: a) -> { let y : a = x; y }`.
 	prevScope := c.curTScope
@@ -1714,8 +1771,13 @@ func (c *checker) checkLambda(e *syntax.Lambda) Expr {
 	body := c.checkExpr(e.Body, ret)
 	c.bounds = c.bounds[:len(c.bounds)-1]
 	c.curTScope = prevScope
+	// No types.Fn here: it flattens a concrete `ret` into the
+	// parameter list, collapsing the level boundary partial
+	// application needs (`b -> (~c -> Int)` is one level, not two
+	// parameters of this lambda). The nested Func keeps the shape
+	// a fresh `ret` meta would have recorded.
 	return &Lambda{
-		Base:   baseOf(e.Sp, types.Fn(ret, fparams...)),
+		Base:   baseOf(e.Sp, &types.Func{Params: fparams, Ret: ret}),
 		Params: params,
 		Body:   body,
 	}

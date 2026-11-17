@@ -1,0 +1,27 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected a numeric type, got Go.Any",
+      "span": {
+        "file": "E0401_go_any_if_arm.gom",
+        "start": {
+          "line": 10,
+          "col": 51,
+          "offset": 505
+        },
+        "end": {
+          "line": 10,
+          "col": 52,
+          "offset": 506
+        }
+      },
+      "data": {
+        "actual": "Go.Any",
+        "expected": "a numeric type"
+      }
+    }
+  ]
+}

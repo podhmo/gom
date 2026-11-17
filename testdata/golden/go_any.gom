@@ -29,10 +29,28 @@ fn tok () -> Result Go.Any GoError = {
 
 fn takes (xs: List Go.Any) -> Unit = ignore xs
 
+// The residual-boundary pins (wave 14): a lambda body under an
+// expected `Int -> Go.Any` conforms to `any` at the body boundary;
+// `==` boxes the concrete operand when the other side is `any`;
+// a literal arm over an `any` subject materializes the literal's
+// rep (`case int64(42)`, not Go's untyped `int`); and a `List`
+// piped into a `Go.Slice` parameter takes the same `.ToSlice()`
+// copy the direct application applies.
+let g : Int -> Go.Any = fn x -> 1
+fn feq (a: Go.Any) -> Bool = a == 42
+fn m42 (a: Go.Any) -> String = match a { 42 -> "forty"; _ -> "other" }
+fn mSome (o: Option Go.Any) -> String = match o { Some 42 -> "forty"; _ -> "other" }
+fn take (l: Go.Slice String) -> Int = Go.Slice.length l
+
 fn main () -> Unit = {
   takes [5]
   ignore (id x)
   ignore (box ())
   ignore (boxok ())
   ignore (tok ())
+  ignore (g 0)
+  ignore (feq x)
+  ignore (m42 s)
+  ignore (mSome o)
+  ignore (["a", "b"] |> take)
 }
