@@ -104,7 +104,7 @@ func (l *lowerer) showKindOf(t types.Type) showKind {
 			}
 			switch t.Name {
 			case "Unit", "Bool", "Int", "Int32", "Int64", "Float",
-				"Char", "String":
+				"Char", "Byte", "String":
 				return showScalar
 			case "GoError":
 				return showError

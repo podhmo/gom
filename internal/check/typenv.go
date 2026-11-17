@@ -414,7 +414,7 @@ type typeCtor struct {
 // they are reached through the reserved `Go` qualifier.
 var builtinTypeArity = map[string]int{
 	"Unit": 0, "Bool": 0, "Int": 0, "Int32": 0, "Int64": 0,
-	"Float": 0, "Char": 0, "String": 0, "GoError": 0,
+	"Float": 0, "Char": 0, "Byte": 0, "String": 0, "GoError": 0,
 	"List": 1, "Option": 1, "Ref": 1, "Array": 1, "Ptr": 1,
 	"Chan": 1, "RecvChan": 1, "SendChan": 1, "Task": 1,
 	"Result": 2,

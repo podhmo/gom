@@ -816,7 +816,7 @@ func (c *checker) convOK(from, to types.Type) bool {
 		// conversion rule means.
 		if con.Qual == "" && !c.shadowedBuiltin(con.Name) {
 			switch con.Name {
-			case "Int", "Int32", "Int64", "Float", "Char":
+			case "Int", "Int32", "Int64", "Float", "Char", "Byte":
 				return true
 			}
 		}
@@ -1178,6 +1178,8 @@ func (c *checker) litRange(t types.Type) (bits int64, unsigned, floating, ok boo
 			return 64, false, false, true
 		case "Int32", "Char":
 			return 32, false, false, true
+		case "Byte":
+			return 8, true, false, true
 		case "Float":
 			return 64, false, true, true
 		}
@@ -2587,7 +2589,7 @@ func (c *checker) goOriginType(t types.Type) bool {
 		if (t.Name == "Ptr" || t.Name == "Chan" || t.Name == "RecvChan" || t.Name == "SendChan") && len(t.Args) == 1 {
 			return c.goOriginType(t.Args[0])
 		}
-		return c.isBuiltinCon(t, "Int") || c.isBuiltinCon(t, "Int32") || c.isBuiltinCon(t, "Float") || c.isBuiltinCon(t, "Bool") || c.isBuiltinCon(t, "String") || c.isBuiltinCon(t, "Char") || c.isBuiltinCon(t, "GoError")
+		return c.isBuiltinCon(t, "Int") || c.isBuiltinCon(t, "Int32") || c.isBuiltinCon(t, "Float") || c.isBuiltinCon(t, "Bool") || c.isBuiltinCon(t, "String") || c.isBuiltinCon(t, "Char") || c.isBuiltinCon(t, "Byte") || c.isBuiltinCon(t, "GoError")
 	case *types.Func, *types.Var, *types.Tuple, *types.Meta:
 		return false
 	default:

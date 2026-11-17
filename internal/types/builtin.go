@@ -14,6 +14,12 @@ var (
 	Char   Type = &Con{Name: "Char"}
 	String Type = &Con{Name: "String"}
 
+	// Byte is Go's `byte` (`uint8`) — a boundary type for byte
+	// slices (`List Byte` = `[]byte`). It has no literals or
+	// arithmetic; equality works and `Go.conv` moves it through
+	// the numeric conversions (spec section 8.3).
+	Byte Type = &Con{Name: "Byte"}
+
 	// GoError is Go's `error` (docs/spec.md sections 3.1 and 8.3).
 	GoError Type = &Con{Name: "GoError"}
 )

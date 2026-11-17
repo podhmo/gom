@@ -1,0 +1,50 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0417",
+      "severity": "error",
+      "message": "integer literal 300 overflows Byte",
+      "span": {
+        "file": "E0417_go_conv_byte.gom",
+        "start": {
+          "line": 7,
+          "col": 27,
+          "offset": 250
+        },
+        "end": {
+          "line": 7,
+          "col": 30,
+          "offset": 253
+        }
+      },
+      "data": {
+        "literal": "300",
+        "type": "Byte"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0417",
+      "severity": "error",
+      "message": "float literal 1.5 is not an integer; cannot convert to Byte",
+      "span": {
+        "file": "E0417_go_conv_byte.gom",
+        "start": {
+          "line": 11,
+          "col": 27,
+          "offset": 327
+        },
+        "end": {
+          "line": 11,
+          "col": 30,
+          "offset": 330
+        }
+      },
+      "data": {
+        "literal": "1.5",
+        "type": "Byte"
+      }
+    }
+  ]
+}

@@ -185,6 +185,7 @@ Hindley–Milner（let 多相）を基礎とする。型はすべて名前的（
 | --- | --- |
 | `Int` / `Float` / `Bool` | 64 ビット整数 / 64 ビット浮動小数点 / 真偽値。`Int32` 等のサイズ付き型も提供 |
 | `String` / `Char` / `Unit` | 文字列 / Unicode コードポイント / 単位型（値は `()`） |
+| `Byte` | Go の `byte`（`uint8`）。`List Byte` が `[]byte` に対応するバイト列 I/O 用の型（8.3 節）。リテラルと四則・比較演算子はなく、`==`/`!=` と `Go.conv` による数値型との変換だけ使える |
 | `(a, b)` | タプル |
 | `List a` | 不変リスト。不変なのはリスト自体で、要素の可変性は要素型の契約に従う（`List (Ref Int)` の要素は可変のまま。境界では 8.5 節） |
 | `Option a` / `Result a e` | 標準ライブラリで定義された通常の sum type |
@@ -423,6 +424,7 @@ strconv.ParseInt(_, 10, 64)
 | 戻り値 `error` のみ | `Result Unit GoError`（既定の型由来ビュー）。`extern` 宣言か標準バインディングで `GoError`（nil を返さない契約 — 違反は境界で panic）か `Option GoError`（nil 許容のエラー値）にもなる（8.4 節） |
 | `*T` | `Ptr T`（nil の参照は Go と同じく panic。操作は `Ptr` モジュール） |
 | `int` / `int64` / `int32`（`rune` もここ） / `float64` | `Int` / `Int` / `Int32` / `Float` |
+| `byte` / `uint8` | `Byte` |
 | named type（`type UserID int64` など） | 別の名前的な型 `pkg.UserID`。基底型との変換は `Go.conv` で明示 |
 | `[]T` | `List T`。Gom 側の境界変換位置では両方向ともコピーする（8.5 節） |
 | `map[K]V` | 不透明型 `Go.Map K V`（操作は `Go.Map` の型メンバー群） |
@@ -433,7 +435,9 @@ strconv.ParseInt(_, 10, 64)
 
 `Char` はこの対応からは現れない。Go の `rune` は `int32` の別名なので `Int32` として読む（`unicode.IsUpper` の引数は `Int32`）。`Char` は `'a'` リテラルか、Go の型なし rune 定数（既定は `Char`）、または `Go.conv` で得る — `Char` の Go 表現も `rune` なので `Go.conv 'A' : Int32`・`Go.conv x : Char` の両方向が変換できる。
 
-v1 で対応していない型（符号なし整数 `uint8`–`uint64`/`byte`、`float32`、複素数、配列 `[N]T`、`unsafe.Pointer`、ジェネリック型、`any`/`comparable` 以外の制約を持つジェネリック関数、メソッドを持つ無名 interface、関数型の引数・戻り値）をシグネチャに含むシンボルは公開されず、参照すると理由付きの診断になる（8.5 節）。戻り値が 3 つ以上ある関数も同じく公開されない — 多値のタプル対応は 2 要素までで、`extern` による上書きもできない（8.4 節）。
+`Byte` もリテラルを持たない。`byte`（`uint8`）の値は `[]byte` 由来の `List Byte` / `Go.Slice Byte` の要素として Go 境界から得るか、`Go.conv` で他の数値型から変換する（`Go.conv n : Byte` は 0–255 の範囲で判定し、`Go.conv 'a' : Byte` のような rune 変換も Go の規則に従う）。比較は `==`/`!=` のみ — `<` や四則演算は `Go.conv` で `Int` などに変換してから行う。
+
+v1 で対応していない型（`byte`/`uint8` 以外の符号なし整数と `int8`/`int16`、`float32`、複素数、配列 `[N]T`、`unsafe.Pointer`、ジェネリック型、`any`/`comparable` 以外の制約を持つジェネリック関数、メソッドを持つ無名 interface、関数型の引数・戻り値）をシグネチャに含むシンボルは公開されず、参照すると理由付きの診断になる（8.5 節）。戻り値が 3 つ以上ある関数も同じく公開されない — 多値のタプル対応は 2 要素までで、`extern` による上書きもできない（8.4 節）。
 
 Go の名前付き struct 型の値またはそのポインタから、exported field を `value.Field` で読み取れる。Go と同じ promoted field と曖昧性の規則を使い、unexported field は参照できない。field の型は上の対応に従い、未対応の型は参照位置で理由付き E0501 になる。読み取りはソースの評価順に行い、nil ポインタ経由の読み取りは Go と同じく panic する。field への代入と Go struct のコンポジットリテラルはまだ定めない。
 
@@ -530,7 +534,7 @@ fn parse_port (s: String) -> Result Int GoError =
   |?> check_port_range
 ```
 
-（この例は現状コンパイルできない: `os.ReadFile` の `[]byte` 戻り値は v1 で対応していない型（8.3 節）— [implementation-gaps](implementation-gaps.md) 参照。`strconv.ParseInt` の `int64` 結果は対応表に従い `Int` に見える）
+（`os.ReadFile` の `[]byte` 戻り値は `List Byte` と読む（8.3 節）— `parse_toml` は `List Byte` を受ける形でこの例はコンパイルできる。`strconv.ParseInt` の `int64` 結果は対応表に従い `Int` に見える）
 
 1. `r |?> f` は `r : Result a e` と `f : a -> Result b e` を取り、`Result b e` を返す。`Ok v` なら `f v`、`Err e` ならそれ以降のステップを飛ばして `Err` のまま流す
 2. 優先順位と結合は `|>` と同じ。1 つの流れの中で `|>` と混ぜられる

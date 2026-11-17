@@ -1,14 +1,17 @@
 // A complete CLI: application decisions stay in Gom; host bridges Go I/O.
 package main
 
+import go "encoding/json"
 import go "fmt"
 import go "github.com/podhmo/gom/examples/gist-cli/host"
+import go "io"
 import go "net/http"
 import go "os"
 import go "path"
 import go "path/filepath"
 import go "regexp"
 import go "strings"
+import go "unicode/utf8"
 
 type Files =
   | NoFiles
@@ -23,24 +26,31 @@ fn text_error (r: Result a GoError) -> Result a String = match r {
 
 fn usage () -> String = "usage: gist-cli [--api-url URL] [--gist URL] [--] FILE..."
 
-fn parse_args (index: Int) (cfg: Config) -> Result Config String = if index == host.ArgumentCount () {
+// `os.Args` is a `Go.Slice String`; element 0 is the executable
+// name, so the user-visible argument count excludes it and
+// `arg_at` reads one ahead.
+fn arg_count () -> Int = Go.Slice.length os.Args - 1
+
+fn arg_at (index: Int) -> String = Option.get (Go.Slice.get (os.Args, index + 1))
+
+fn parse_args (index: Int) (cfg: Config) -> Result Config String = if index == arg_count () {
   Ok cfg
 } else {
-  let arg = host.Argument index
+  let arg = arg_at index
   if cfg.literal { parse_args (index + 1) { cfg with files = File arg cfg.files } } else {
     match arg {
       "--help" -> Ok { cfg with help = true }
       "--" -> parse_args (index + 1) { cfg with literal = true }
-      "--gist" -> if index + 1 == host.ArgumentCount () { Err "--gist requires a URL" } else {
+      "--gist" -> if index + 1 == arg_count () { Err "--gist requires a URL" } else {
         if cfg.gist != "" { Err "--gist may only be supplied once" } else {
-          let url = host.Argument (index + 1)
+          let url = arg_at (index + 1)
           if url == "" { Err "--gist requires a URL" } else {
             parse_args (index + 2) { cfg with gist = url }
           }
         }
       }
-      "--api-url" -> if index + 1 == host.ArgumentCount () { Err "--api-url requires a URL" } else {
-        parse_args (index + 2) { cfg with api = host.Argument (index + 1) }
+      "--api-url" -> if index + 1 == arg_count () { Err "--api-url requires a URL" } else {
+        parse_args (index + 2) { cfg with api = arg_at (index + 1) }
       }
       _ -> if strings.HasPrefix (arg, "-") { Err "unknown option: ${arg}" } else {
         parse_args (index + 1) { cfg with files = File arg cfg.files }
@@ -54,13 +64,26 @@ fn contains (xs: Files) (value: String) -> Bool = match xs {
   File x rest -> if x == value { true } else { contains rest value }
 }
 
+fn read_text (path: String) -> Result String GoError = {
+  let data = try os.ReadFile path
+  if utf8.Valid data { Ok (Go.conv data : String) } else {
+    Err (fmt.Errorf ("%s: file is not UTF-8 text", path))
+  }
+}
+
+// `json.Marshal` cannot fail on a String.
+fn quote (value: String) -> String = match json.Marshal value {
+  Ok raw -> Go.conv raw : String
+  Err _ -> todo ()
+}
+
 fn file_entries (paths: Files) (seen: Files) (entries: String) (separator: String) -> Result String String = match paths {
   NoFiles -> Ok entries
   File file rest -> {
     let name = filepath.Base file
     if contains seen name { Err "duplicate filename: ${name}" } else {
-      let content = try text_error (host.ReadText file)
-      let entry = fmt.Sprintf ("%s:{\"content\":%s}", host.Quote name, host.Quote content)
+      let content = try text_error (read_text file)
+      let entry = fmt.Sprintf ("%s:{\"content\":%s}", quote name, quote content)
       file_entries rest (File name seen) (fmt.Sprintf ("%s%s%s", entries, separator, entry)) ","
     }
   }
@@ -100,7 +123,7 @@ fn run (cfg: Config) -> Result String String = {
           let client = host.NewClient ()
           let response = try text_error (client.Do request)
           let status = response.StatusCode
-          let response_body = try text_error (host.ReadResponse response)
+          let response_body = try text_error (read_response response)
           let expected = if creating { 201 } else { 200 }
           if status != expected { Err "HTTP ${status}: ${response_body}" } else {
             let result_url = try text_error (host.StringField (response_body, "html_url"))
@@ -111,6 +134,17 @@ fn run (cfg: Config) -> Result String String = {
         }
       }
     }
+  }
+}
+
+// Bounded response read: 2 MiB limit, Body closed on every path
+// (no defer — the close is explicit before the `try` propagates).
+fn read_response (response: Ptr http.Response) -> Result String GoError = {
+  let read = io.ReadAll (io.LimitReader (response.Body, 2097153))
+  ignore response.Body.Close ()
+  let data = try read
+  if List.length data > 2097152 { Err (fmt.Errorf ("response exceeds %d bytes", 2097152)) } else {
+    Ok (Go.conv data : String)
   }
 }
 

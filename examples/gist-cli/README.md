@@ -77,10 +77,14 @@ The remaining primitives cover operations Gom cannot yet express directly:
 
 | Primitive | Current reason |
 | --- | --- |
-| Argument count/index | Go slice → List conversion and indexing are not implemented |
-| Read UTF-8 file / response text | `byte`/`[]byte` are not exposed |
-| Quote JSON string / decode string field | `encoding/json` needs byte slices and destination pointers |
+| Decode string field | `encoding/json` decode needs a writable destination (pointer); a JSON binding is undecided |
 | HTTP client | Constructing configured Go structs and callback functions |
+
+Argument traversal (`Go.Slice` ops on `os.Args`), UTF-8 file reads
+(`os.ReadFile` → `List Byte` + `utf8.Valid`), bounded response reads
+(`io.LimitReader`/`io.ReadAll` + `List.length`), and JSON quoting
+(`json.Marshal` + `Go.conv` to `String`) are expressed in Gom since
+`byte`/`uint8` maps to `Byte`.
 
 The adapter has no Gist route, file schema, create/update decision, URL validation,
 or CLI argument policy. The initial audit records the exact compiler diagnostics

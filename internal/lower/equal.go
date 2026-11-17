@@ -202,7 +202,7 @@ func (l *lowerer) eqKindOf(w *eqClass, t types.Type) eqKind {
 			}
 			switch t.Name {
 			case "Unit", "Bool", "Int", "Int32", "Int64", "Float",
-				"Char", "String",
+				"Char", "Byte", "String",
 				"Ref", "Ptr", "Chan", "RecvChan", "SendChan":
 				return eqNative
 			case "GoError":
