@@ -483,17 +483,21 @@ func (l *Loader) gobin() string {
 // outright). Mirrors the go command's vendoring rule for modules
 // with go >= 1.14, which Gom requires anyway.
 func vendorEnabled() bool {
+	// Repeated -mod flags apply in order — the last value wins, as
+	// with the go command's own flag parsing.
+	mod := ""
 	fields := strings.Fields(os.Getenv("GOFLAGS"))
 	for i, f := range fields {
 		f = strings.TrimLeft(f, "-")
 		if f == "mod" {
-			return i+1 < len(fields) && fields[i+1] == "vendor"
-		}
-		if v, ok := strings.CutPrefix(f, "mod="); ok {
-			return v == "vendor"
+			if i+1 < len(fields) {
+				mod = fields[i+1]
+			}
+		} else if v, ok := strings.CutPrefix(f, "mod="); ok {
+			mod = v
 		}
 	}
-	return true
+	return mod == "" || mod == "vendor"
 }
 
 // module reports the main module's path and root directory, read

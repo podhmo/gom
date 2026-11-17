@@ -613,3 +613,24 @@ replace example.com/lib => ../lib
 		t.Fatal("area missing — stale vendored .gomi won over the -mod=mod source")
 	}
 }
+
+func TestVendorEnabledLastModWins(t *testing.T) {
+	for _, tc := range []struct {
+		flags string
+		want  bool
+	}{
+		{"", true},
+		{"-mod=vendor", true},
+		{"-mod=mod", false},
+		{"-mod=readonly", false},
+		{"-mod mod", false},
+		{"-mod=mod -mod=vendor", true},
+		{"-mod=vendor -mod=mod", false},
+		{"-tags netgo", true},
+	} {
+		t.Setenv("GOFLAGS", tc.flags)
+		if got := vendorEnabled(); got != tc.want {
+			t.Errorf("GOFLAGS=%q: vendorEnabled() = %v, want %v", tc.flags, got, tc.want)
+		}
+	}
+}
