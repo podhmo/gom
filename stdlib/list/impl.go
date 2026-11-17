@@ -44,6 +44,14 @@ func Filter[A any](f func(A) bool, xs List[A]) List[A] {
 
 // Append is xs ++ ys — `@extern fn append`.
 func Append[A any](xs, ys List[A]) List[A] {
+	// An empty side hands the other back verbatim — concatGo
+	// appends per inner list, so the copy must not run per call.
+	if len(xs) == 0 {
+		return ys
+	}
+	if len(ys) == 0 {
+		return xs
+	}
 	out := make(List[A], 0, len(xs)+len(ys))
 	out = append(out, xs...)
 	return append(out, ys...)
