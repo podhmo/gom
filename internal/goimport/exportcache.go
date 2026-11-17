@@ -11,15 +11,19 @@ package goimport
 //     and mtime (GOCACHE is content-addressed — a rebuild writes a
 //     new path and the old entry lingers until the cache trims it,
 //     so existence alone cannot prove freshness);
-//   - the recorded max *.go mtime of the package's source dir must
-//     still hold (covers edits under the same export path being
-//     reported while the toolchain has not rebuilt yet).
+//   - the recorded max *.go mtime of the package's source dir AND of
+//     every dependency's source dir must still hold (covers edits
+//     under the same export path being reported while the toolchain
+//     has not rebuilt yet — and a dependency's types are embedded
+//     in the importer's archive, so dep edits must miss too).
 //
 // The key carries the whole resolution context `go list` would see:
-// the package path, the effective Dir, the go binary's identity,
-// GOOS/GOARCH/GOFLAGS/GOWORK (plus the workspace file's mtime), and
-// the nearest go.mod/go.sum above Dir with their mtimes — a change
-// in any of them lands on a different key.
+// the package path, the effective Dir, the resolved go binary's
+// identity, GOOS/GOARCH/GOFLAGS/GOWORK, the workspace file actually
+// in effect (explicit GOWORK or a go.work found above Dir —
+// GOWORK=off disables either), and the nearest go.mod/go.sum above
+// Dir with their mtimes — a change in any of them lands on a
+// different key.
 //
 // Every failure is a plain miss or a skipped write: the cache must
 // never break a compile.
@@ -30,6 +34,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 )
@@ -44,13 +49,25 @@ const (
 
 // exportEntry is one cached `go list -export` answer.
 type exportEntry struct {
-	Pkg         string `json:"pkg"`
-	Dir         string `json:"dir"` // source dir of the package
-	Export      string `json:"export"`
-	ExportSize  int64  `json:"exportSize"`
-	ExportMtime int64  `json:"exportMtime"` // unix nano
-	SrcMtime    int64  `json:"srcMtime"`    // max *.go mtime under Dir, unix nano
-	SrcCount    int    `json:"srcCount"`    // *.go files directly under Dir
+	Pkg         string    `json:"pkg"`
+	Dir         string    `json:"dir"` // source dir of the package
+	Export      string    `json:"export"`
+	ExportSize  int64     `json:"exportSize"`
+	ExportMtime int64     `json:"exportMtime"` // unix nano
+	SrcMtime    int64     `json:"srcMtime"`    // max *.go mtime under Dir, unix nano
+	SrcCount    int       `json:"srcCount"`    // *.go files directly under Dir
+	Deps        []depStat `json:"deps,omitempty"`
+}
+
+// depStat records one dependency's source-dir freshness — the same
+// (max *.go mtime, count) pair the package's own Dir uses. A
+// dependency's exported API is baked into the importer's archive,
+// so an edit there must invalidate the entry even though the
+// package's own source is untouched.
+type depStat struct {
+	Dir      string `json:"dir"`
+	SrcMtime int64  `json:"srcMtime"`
+	SrcCount int    `json:"srcCount"`
 }
 
 // exportCache binds the lookup key material of one Loader (dir +
@@ -80,9 +97,16 @@ func newExportCache(gobin, dir string) *exportCache {
 	if err != nil {
 		effDir = dir
 	}
-	gobinAbs, err := filepath.Abs(gobin)
-	if err != nil {
-		gobinAbs = gobin
+	// Resolve a bare name ("go") to the executable `go list` would
+	// actually run — Abs alone would stat a working-directory file
+	// that usually does not exist, leaving every toolchain on PATH
+	// sharing one identity.
+	gobinAbs := gobin
+	if p, err := exec.LookPath(gobin); err == nil {
+		gobinAbs = p
+	}
+	if p, err := filepath.Abs(gobinAbs); err == nil {
+		gobinAbs = p
 	}
 	var b strings.Builder
 	b.WriteString(effDir)
@@ -95,11 +119,27 @@ func newExportCache(gobin, dir string) *exportCache {
 		b.WriteByte(0)
 		b.WriteString(k + "=" + os.Getenv(k))
 	}
-	if w := os.Getenv("GOWORK"); w != "" {
+	// The workspace file actually in effect: an explicit GOWORK, a
+	// go.work discovered above Dir when it is unset, or nothing when
+	// it is `off`.
+	gw := os.Getenv("GOWORK")
+	switch {
+	case gw == "off":
 		b.WriteByte(0)
-		b.WriteString("GOWORK=" + w)
-		if fi, err := os.Stat(w); err == nil {
+		b.WriteString("GOWORK=off")
+	case gw != "":
+		b.WriteByte(0)
+		b.WriteString("GOWORK=" + gw)
+		if fi, err := os.Stat(gw); err == nil {
 			fmt.Fprintf(&b, "|%d", fi.ModTime().UnixNano())
+		}
+	default:
+		if w := findGoWork(effDir); w != "" {
+			b.WriteByte(0)
+			b.WriteString("GOWORK=" + w)
+			if fi, err := os.Stat(w); err == nil {
+				fmt.Fprintf(&b, "|%d", fi.ModTime().UnixNano())
+			}
 		}
 	}
 	gomod := findGoMod(effDir)
@@ -115,6 +155,22 @@ func newExportCache(gobin, dir string) *exportCache {
 	}
 	c.pre = b.String()
 	return c
+}
+
+// findGoWork walks dir upward to the nearest go.work — the
+// workspace `go list` auto-discovers when GOWORK is unset
+// ("" = none found).
+func findGoWork(dir string) string {
+	for d := dir; ; {
+		if _, err := os.Stat(filepath.Join(d, "go.work")); err == nil {
+			return filepath.Join(d, "go.work")
+		}
+		p := filepath.Dir(d)
+		if p == d {
+			return ""
+		}
+		d = p
+	}
 }
 
 // findGoMod walks dir upward to the nearest directory holding a
@@ -156,13 +212,19 @@ func (c *exportCache) get(pkg string) (exportEntry, bool) {
 	if sm != e.SrcMtime || sc != e.SrcCount {
 		return e, false
 	}
+	for _, d := range e.Deps {
+		sm, sc := srcStat(d.Dir)
+		if sm != d.SrcMtime || sc != d.SrcCount {
+			return e, false
+		}
+	}
 	return e, true
 }
 
-// put writes the entry for pkg (export/dir are the `go list`
-// answers); failures are ignored — a cache that cannot write just
-// behaves like no cache.
-func (c *exportCache) put(pkg, export, dir string) {
+// put writes the entry for pkg (export/dir/depDirs are the `go
+// list` answers); failures are ignored — a cache that cannot write
+// just behaves like no cache.
+func (c *exportCache) put(pkg, export, dir string, depDirs []string) {
 	fi, err := os.Stat(export)
 	if err != nil {
 		return
@@ -176,6 +238,13 @@ func (c *exportCache) put(pkg, export, dir string) {
 		ExportMtime: fi.ModTime().UnixNano(),
 		SrcMtime:    sm,
 		SrcCount:    sc,
+	}
+	for _, d := range depDirs {
+		if d == dir {
+			continue
+		}
+		sm, sc := srcStat(d)
+		e.Deps = append(e.Deps, depStat{Dir: d, SrcMtime: sm, SrcCount: sc})
 	}
 	data, err := json.Marshal(e)
 	if err != nil {
