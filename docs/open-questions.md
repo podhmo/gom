@@ -15,7 +15,7 @@
 
 - [ ] Go ABI の方針: 生成される Go の API（型名・関数のシグネチャ・バリアントの struct 名）を、Gom のバージョンをまたいでどこまで安定させるか
 - [ ] Gom の型が Go の interface を実装できるようにするか（v1 ではできない）。できるなら、どう宣言するか
-- [ ] Go の struct 型の構築・書き込み: exported field の読み取りは [決定済み](decisions/2026-11-03-go-interface-assignment-and-fields.md)。コンポジットリテラル（`http.Server{Addr: ...}`）や field への代入を許すか、構築は Go の factory 関数や `extern` に限るか。境界での別名と可変性の仮説は [sketch](sketch/2026-11-04-boundary-aliasing-hypotheses.md)
+- [ ] Gom の関数値を Go の func 型として渡す方法（コールバック供給）。`http.Client` の `CheckRedirect` のような func-typed field を埋めるのに要る — struct 構築面とは独立した interop の問い（[decision](decisions/2026-11-17-struct-construction.md)、gist-cli `host.NewClient` の removal condition）
 - [ ] 外部モジュールから stdlib の Gom モジュール（`import "list"` 等）を import 可能にするか。現状はメイン module 外の Gom import が E0203 で拒否される（P3-6 で発見 — `testdata/gocall` の fixture は stdlib 依存を手書きで代替した）
 
 ### 最適化
