@@ -165,6 +165,8 @@ bindings rather than left for `go build` to name hidden temporaries. See
 
 `types.Identical` は named type の object 同一性を比較するので、1 回のコンパイルでは 1 つの `Loader`（`token.FileSet` と importer）を共有し、シンボルや import ごとにローダーを作り直さない。Gom 側の named type はパッケージパスと宣言名を持つ参照で表し、ローダーが同じ参照に対応する `go/types.Named` を保持してメソッド解決に使う。Go の alias は元の型へ正規化し、`error` への alias も単一 error / 末尾 error の戻り値規約を引き継ぐ（[error alias](decisions/2026-11-03-go-error-alias-results.md)）。
 
+process をまたぐ `go list` の繰り返しは exportCache で吸収する（[file cache](decisions/2026-11-18-golist-export-cache.md)）。key は package path・`Config.Dir`・go binary の identity・GOOS/GOARCH/GOFLAGS/GOWORK・最寄り go.mod/go.sum の mtime、hit 時は export file の stat とソース dir の max mtime で検証する。`GOM_GOIMPORT_CACHE_DIR` / `GOM_GOIMPORT_NOCACHE` で制御し、読み書きの失敗は常に素通りする。
+
 表現できない型を含むシンボルも理由を付けて名前解決の表に残し、参照されたときだけ E0501 を出す。パッケージとシンボルはローダー内でキャッシュし、export data は Go のビルドキャッシュを利用する。`extern` 宣言があれば導出したバインディングを上書きする。依存する Gom パッケージについては、実装ではなく `.gomi` だけを読み込む（`internal/gomimport` — 自前の型名は import path 修飾の `types.Con` に付け替え、コンストラクタのフィールド名や宣言 arity も公開する）。
 
 **Go interface と struct field の境界（P3-2a）**

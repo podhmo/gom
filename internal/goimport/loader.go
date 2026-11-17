@@ -117,10 +117,19 @@ func New(cfg *Config) *Loader {
 	if gobin == "" {
 		gobin = "go"
 	}
+	cache := newExportCache(gobin, c.Dir)
 	l.imp = importer.ForCompiler(l.fset, "gc", func(path string) (io.ReadCloser, error) {
-		export, err := goExport(gobin, c.Dir, path)
+		if cache != nil {
+			if e, ok := cache.get(path); ok {
+				return os.Open(e.Export)
+			}
+		}
+		export, dir, err := goExport(gobin, c.Dir, path)
 		if err != nil {
 			return nil, err
+		}
+		if cache != nil {
+			cache.put(path, export, dir)
 		}
 		return os.Open(export)
 	})
@@ -130,24 +139,27 @@ func New(cfg *Config) *Loader {
 // goExport resolves a package's compiled export data by asking the
 // toolchain — `go list -export` compiles it into the build cache and
 // reports the .a path, working uniformly for the standard library,
-// module dependencies and the module's own packages.
-func goExport(gobin, dir, path string) (string, error) {
-	cmd := exec.Command(gobin, "list", "-export", "-f", "{{.Export}}", path)
+// module dependencies and the module's own packages. The package's
+// source directory comes back with it so the file cache can record
+// what freshness it proved (exportcache.go).
+func goExport(gobin, dir, path string) (export, srcDir string, err error) {
+	cmd := exec.Command(gobin, "list", "-export", "-f", "{{.Export}}|{{.Dir}}", path)
 	if dir != "" {
 		cmd.Dir = dir
 	}
 	out, err := cmd.Output()
 	if err != nil {
 		if ee, ok := err.(*exec.ExitError); ok {
-			return "", fmt.Errorf("go list -export %s: %s", path, strings.TrimSpace(string(ee.Stderr)))
+			return "", "", fmt.Errorf("go list -export %s: %s", path, strings.TrimSpace(string(ee.Stderr)))
 		}
-		return "", fmt.Errorf("go list -export %s: %w", path, err)
+		return "", "", fmt.Errorf("go list -export %s: %w", path, err)
 	}
-	export := strings.TrimSpace(string(out))
+	line := strings.TrimSpace(string(out))
+	export, srcDir, _ = strings.Cut(line, "|")
 	if export == "" {
-		return "", fmt.Errorf("go list -export %s: no export data (is this a main package?)", path)
+		return "", "", fmt.Errorf("go list -export %s: no export data (is this a main package?)", path)
 	}
-	return export, nil
+	return export, srcDir, nil
 }
 
 // Load returns the exported member table of the Go package at path —
