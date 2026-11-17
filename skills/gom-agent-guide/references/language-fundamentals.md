@@ -36,7 +36,9 @@ throughout the file regardless of order (forward references work).
 Sibling `.gom` files in the same directory are one package — their
 top-level names are shared without imports (and must declare the
 same `package` name, E0605). `import "mod/path"` (no `go` keyword)
-pulls in another Gom package through its `.gomi` (see
+pulls in another Gom package through its `.gomi` — resolved
+through the module graph (any module in the build list); the
+stdlib also spells `import "list"`/`"option"`/`"result"` (see
 interface-files.md); `import go "path"` pulls in a real Go
 package.
 

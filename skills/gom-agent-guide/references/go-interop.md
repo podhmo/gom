@@ -102,7 +102,12 @@ fn parse (s: String) -> Result Int GoError =
   methods, 3+ return values. Func params/returns of arity 0–3
   surface as `Go.FuncN` raw views — a `func(...)` param accepts a
   Go-derived func value; pass a Gom fn via `Go.funcN f` (explicit
-  adapter, E0510 on non-fn/wrong-arity input).
+  adapter, E0510 on non-fn/wrong-arity input). The reverse
+  direction is `Go.fnN f` — it turns a `Go.FuncN` value (e.g. a
+  callback returned by a Go API) into an ordinary curried Gom fn:
+  `func() error` reads as `Result Unit GoError`,
+  `func(A) (T, error)` as `Result T GoError`, and a nil-able
+  interface payload wraps in `Option` (`(nil, nil)` → `Ok None`).
 - Generic Go fns: callable when every constraint is `any`,
   `comparable`, a structural constraint (`S ~[]E`, `M ~map[K]V`),
   or a type-param-free union (`cmp.Ordered` and friends — including

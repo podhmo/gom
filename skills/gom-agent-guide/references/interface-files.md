@@ -12,11 +12,19 @@ canonical example is the standard library itself —
 `stdlib/{list,option,result}/*.gomi` is the public surface the
 compiler resolves `List.map`/`Option.get`/`Result.map` from.
 `import "mod/path"` (no `go` keyword) resolves a Gom package
-through its `.gomi` inside the same Go module — spelled as a full
-module path (`import "example.com/m/shapes"`), then members spell
-`shapes.Shape`, `shapes.Circle`, `shapes.area`. `import alias
-"mod/path"` renames the file-local binding; without an alias the
-bound name is the path's last segment.
+through its `.gomi` — spelled as a full module path
+(`import "example.com/m/shapes"`), then members spell
+`shapes.Shape`, `shapes.Circle`, `shapes.area`. Resolution is
+not limited to the main module: any package a module in the
+build list provides works (`go list -m` resolution, vendored
+builds honored). `import alias "mod/path"` renames the
+file-local binding; without an alias the bound name is the
+path's last segment.
+
+The compiler's own stdlib also spells short: `import "list"`,
+`import "option"`, `import "result"` unfold to
+`github.com/podhmo/gom/stdlib/<name>` — handy in external
+modules where the full path is noise.
 
 ## Syntax
 
@@ -88,7 +96,8 @@ Importers spell members `pkg.Name`; variant constructors spell
 A `.gomi`-listed member exports as its capitalized Go name; an
 unlisted top-level definition stays a lowercase-private Go
 identifier. `import "mod/path"` resolves a Gom package through its
-`.gomi` — the importing file must sit in the same Go module.
+`.gomi` — including packages from other modules in the build
+list and the stdlib short names (`import "list"` …).
 `.gom`-side import cycles are detected as E0606 (only the actual
 cycle members are blamed); a cycle that exists only between
 `.gomi` files surfaces as an ordinary E0203 import-load failure

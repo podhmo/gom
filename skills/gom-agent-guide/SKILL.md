@@ -693,8 +693,9 @@ fn main () -> Unit = ()
   what is public.
 - `import "mod/path"` loads a Gom package through its `.gomi` —
   spelled as a full module path (`import "example.com/m/shapes"`)
-  and resolved inside the same Go module; Go packages use
-  `import go "pkg"`.
+  and resolved through the module graph (any module in the build
+  list, vendoring honored). `import "list"`/`"option"`/`"result"`
+  are the stdlib short names; Go packages use `import go "pkg"`.
 - No `switch`/`case` → `match`; no `enum` → `type`; no
   `interface`/`struct`/`class` → records and ADTs; no `nil`/`null`/
   `None`-free references → `Option`; no `func`/`def`/`let fun` →
@@ -726,6 +727,10 @@ Diagnostics are JSON Lines: one object per line, `kind:
 "diagnostic"` entries then a final `kind: "summary"`. Exit codes:
 `0` ok, `1` diagnostics, `2` usage/internal error. Details:
 `references/diagnostics.md`, `docs/error-codes.md`.
+
+`import go` answers are file-cached across `gom` invocations
+(`os.UserCacheDir()/gom/goexport/`) — `GOM_GOIMPORT_NOCACHE=1`
+bypasses it, `GOM_GOIMPORT_CACHE_DIR=DIR` relocates it.
 
 Useful: `gom check f.gom | jq -r 'select(.kind=="diagnostic") |
 .code + " " + .message'` — list codes first, fix top-down.
