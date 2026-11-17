@@ -1,0 +1,10 @@
+package main
+
+// A `Go.Any` value is not callable: `a "s"` cannot pass through
+// `unify`'s "an `any` slot takes every argument" early-accept —
+// that clause answers the argument question, not the callee one.
+// Go cannot call an `interface{}`, so the structural judgment
+// reports the shape mismatch (the user spells a dynamic call
+// through `Go.conv` or a type switch).
+fn f (a: Go.Any) -> Int = a "s"
+fn main () -> Unit = ()

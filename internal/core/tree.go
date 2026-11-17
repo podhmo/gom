@@ -130,10 +130,14 @@ func (n *DCtorTest) Span() diag.Span { return n.Sp }
 
 // DLitTest is a literal case for SwitchValue — `case 0, "ok", 'a'`.
 // Kind is never LitUnit (a Unit subject carries no information).
+// Typ is the literal's own type: under an `any` subject the case
+// value must materialize it (`int64(42)`, not Go's untyped `int`
+// default) or the comparison never matches the boxed rep.
 type DLitTest struct {
 	Sp   diag.Span
 	Kind syntax.LitKind
 	Text string
+	Typ  types.Type
 }
 
 func (*DLitTest) isDTest()          {}

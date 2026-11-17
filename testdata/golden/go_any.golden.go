@@ -4,6 +4,7 @@ package main
 
 import (
 	json "encoding/json"
+	rt "github.com/podhmo/gom/rt"
 	list "github.com/podhmo/gom/stdlib/list"
 	option "github.com/podhmo/gom/stdlib/option"
 	result "github.com/podhmo/gom/stdlib/result"
@@ -109,24 +110,103 @@ func takes(xs list.List[any]) struct{} {
 	return struct{}{}
 }
 
-//line go_any.gom:32
+//line go_any.gom:39
+func g(x1 int64) any {
+//line go_any.gom:39
+	tmp15 := int64(1)
+//line go_any.gom:39
+	return any(tmp15)
+}
+
+//line go_any.gom:40
+func feq(a any) bool {
+//line go_any.gom:40
+	tmp16 := int64(42)
+//line go_any.gom:40
+	tmp17 := any(tmp16)
+//line go_any.gom:40
+	return rt.Equal(a, tmp17)
+}
+
+//line go_any.gom:41
+func m42(a any) string {
+//line go_any.gom:41
+	switch a {
+//line go_any.gom:41
+	case int64(42):
+//line go_any.gom:41
+		return "forty"
+	default:
+//line go_any.gom:41
+		return "other"
+	}
+}
+
+//line go_any.gom:42
+func mSome(o1 option.Option[any]) string {
+//line go_any.gom:42
+	switch v := o1.(type) {
+//line go_any.gom:42
+	case option.Option_Some[any]:
+		tmp18 := v
+//line go_any.gom:42
+		switch tmp18.V0 {
+//line go_any.gom:42
+		case int64(42):
+//line go_any.gom:42
+			return "forty"
+		default:
+//line go_any.gom:42
+			return "other"
+		}
+//line go_any.gom:42
+	case option.Option_None[any]:
+//line go_any.gom:42
+		return "other"
+	default:
+//line go_any.gom:42
+		panic(rt.InvalidVariant("Option", o1))
+	}
+}
+
+//line go_any.gom:43
+func take(l1 []string) int64 {
+//line go_any.gom:43
+	return rt.SliceLen[string](l1)
+}
+
+//line go_any.gom:45
 func main() {
-//line go_any.gom:33
-	tmp15 := int64(5)
-//line go_any.gom:33
-	tmp16 := any(tmp15)
-//line go_any.gom:33
-	tmp17 := list.List[any]{tmp16}
-//line go_any.gom:33
-	takes(tmp17)
-//line go_any.gom:34
+//line go_any.gom:46
+	tmp19 := int64(5)
+//line go_any.gom:46
+	tmp20 := any(tmp19)
+//line go_any.gom:46
+	tmp21 := list.List[any]{tmp20}
+//line go_any.gom:46
+	takes(tmp21)
+//line go_any.gom:47
 	id(x)
-//line go_any.gom:35
+//line go_any.gom:48
 	box(struct{}{})
-//line go_any.gom:36
+//line go_any.gom:49
 	boxok(struct{}{})
-//line go_any.gom:37
+//line go_any.gom:50
 	tok(struct{}{})
-//line go_any.gom:37
+//line go_any.gom:51
+	g(0)
+//line go_any.gom:52
+	feq(x)
+//line go_any.gom:53
+	m42(s)
+//line go_any.gom:54
+	mSome(o)
+//line go_any.gom:55
+	tmp22 := list.List[string]{"a", "b"}
+//line go_any.gom:55
+	tmp23 := tmp22.ToSlice()
+//line go_any.gom:55
+	take(tmp23)
+//line go_any.gom:55
 	_ = struct{}{}
 }

@@ -1,0 +1,29 @@
+package main
+
+// Boundary conversions need an argument expression to hang the
+// Ascribe on. `>>`/`<<` compose synthesizes the middle application
+// inside the lowering and `|?>` applies the unwrapped payload, so
+// the List -> Go.Slice boundary they cannot carry stays a
+// unify-only judgment — an honest E0401 rather than a raw List
+// handed to a Go.Slice parameter.
+fn f (x : Int) -> List Int = [x, x]
+fn g (s : Go.Slice Int) -> Int = Go.Slice.length s
+fn ok (s : Go.Slice Int) -> Result Int String = Ok (Go.Slice.length s)
+
+let h = f >> g
+let h2 = g << f
+let xs : List Int = [1, 2]
+let r = xs |?> ok
+
+// Interface assignability needs no conversion node — the middle
+// value is already assignable at the emitted Go call — so these
+// stay admitted (no diagnostics).
+import go "github.com/podhmo/gom/testdata/goiface"
+
+fn fc (x : Int) -> Ptr goiface.Container = goiface.NewContainer ()
+fn ge (v : goiface.Empty) -> String = goiface.Kind v
+fn okE (v : goiface.Empty) -> Result String String = Ok (goiface.Kind v)
+
+let hi = fc >> ge
+let hi2 = ge << fc
+let r2 = goiface.NewContainer () |?> okE

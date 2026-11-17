@@ -36,11 +36,15 @@ type VarPat struct {
 
 func (*VarPat) isPat() {}
 
-// LitPat is a literal pattern.
+// LitPat is a literal pattern. `Typ` (via Base) is the matched
+// slot's type; `LitTyp` is the literal's own settled type — the
+// two differ under a `Go.Any` slot, where `42` means Gom `Int`
+// (`int64`) but the Go rep of the slot is `any`.
 type LitPat struct {
 	Base
-	Kind syntax.LitKind
-	Text string
+	Kind   syntax.LitKind
+	Text   string
+	LitTyp types.Type
 }
 
 func (*LitPat) isPat() {}

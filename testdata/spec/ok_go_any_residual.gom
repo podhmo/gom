@@ -1,0 +1,27 @@
+package main
+
+// spec section 8.1.7, residual-boundary rules: a lambda body under
+// an expected `... -> Go.Any` conforms to `any` at the body
+// boundary (`fn x -> 1` boxes `any(int64(1))`); `==`/`!=` box the
+// concrete operand when the other side is `any` so both operands
+// compare in the boxed rep; a literal arm over an `any` subject
+// materializes the literal's Gom rep (`case int64(42)`); and a
+// `List` piped into a `Go.Slice` parameter takes the same
+// `.ToSlice()` copy the direct application applies.
+let g : Int -> Go.Any = fn x -> 1
+fn feq (a: Go.Any) -> Bool = a == 42
+fn fne (a: Go.Any) -> Bool = a != 42
+fn m42 (a: Go.Any) -> String = match a { 42 -> "forty"; _ -> "other" }
+fn mSome (o: Option Go.Any) -> String = match o { Some 42 -> "forty"; _ -> "other" }
+fn take (l: Go.Slice String) -> Int = Go.Slice.length l
+fn applySome (x: Go.Any) -> Go.Any = x
+
+fn main () -> Unit = {
+  ignore (g 0)
+  ignore (feq (Some 1 |> applySome))
+  ignore (fne "s")
+  ignore (m42 7)
+  ignore (mSome (Some 42))
+  ignore (["a", "b"] |> take)
+  ()
+}

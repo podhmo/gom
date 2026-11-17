@@ -476,7 +476,7 @@ func (l *lowerer) litSwitch(states []*armState, _ *seq, resT types.Type) core.DT
 		}
 		sw.Cases = append(sw.Cases, core.DCase{
 			Sp:   lp.Sp,
-			Test: &core.DLitTest{Sp: lp.Sp, Kind: lp.Kind, Text: lp.Text},
+			Test: &core.DLitTest{Sp: lp.Sp, Kind: lp.Kind, Text: lp.Text, Typ: lp.LitTyp},
 			Body: l.caseBody(cs, subj, resT),
 		})
 	}
