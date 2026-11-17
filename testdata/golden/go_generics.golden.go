@@ -48,3 +48,13 @@ func lookupOr(m map[string]int64, k string) int64 {
 		return 0
 	}
 }
+
+//line go_generics.gom:21
+func index(xs list.List[int64], n int64) int64 {
+//line go_generics.gom:21
+	tmp3 := xs.ToSlice()
+//line go_generics.gom:21
+	tmp4 := goiface.Index[[]int64, int64](tmp3, n)
+//line go_generics.gom:21
+	return int64(tmp4)
+}

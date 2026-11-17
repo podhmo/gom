@@ -38,25 +38,78 @@ type Signature struct {
 	// first-occurrence order instantiate already derives).
 	TypeParams []*types.Var
 	// GoConstraints runs parallel to TypeParams for a generic Go
-	// callee: the constraint kind each type argument must satisfy at
-	// the boundary (spec section 8.5 — v1 admits any and comparable).
-	// The checker validates the solved type arguments against it once
-	// inference finishes (E0508).
+	// callee: the constraint each type argument must satisfy at the
+	// boundary (spec section 8.5). The checker validates the solved
+	// type arguments against it once inference finishes (E0508).
 	GoConstraints []GoConstraint
 }
 
-// GoConstraint is the admissible constraint kind of a generic Go
+// GoConstraintKind is the admitted constraint class of a generic Go
 // callee's type parameter (spec section 8.5).
-type GoConstraint int
+type GoConstraintKind int
 
 const (
 	// GoConstraintAny is the `any` constraint — every type argument
 	// satisfies it, so nothing is validated.
-	GoConstraintAny GoConstraint = iota + 1
+	GoConstraintAny GoConstraintKind = iota + 1
 	// GoConstraintComparable is the `comparable` constraint — the
 	// type argument's emitted Go representation must be comparable.
 	GoConstraintComparable
+	// GoConstraintSlice is the `~[]E` shape: the argument's emitted
+	// Go representation must underlie a slice whose element is the
+	// representation of the TypeParams entry at Elem.
+	GoConstraintSlice
+	// GoConstraintMap is the `~map[K]V` shape: the argument's repr
+	// must underlie a map whose key and value are the reprs of the
+	// TypeParams entries at Key and Val.
+	GoConstraintMap
+	// GoConstraintUnion is a union of concrete (type-parameter-free)
+	// terms — basic types under `~` like cmp.Ordered, or exact
+	// spellings like `[]byte | string`. The argument's repr must be
+	// a member of Terms.
+	GoConstraintUnion
 )
+
+// GoUnionTerm is one member of a union constraint: Approx is the
+// `~` flag — a tilde term admits representations whose underlying
+// type is Type, an exact term admits identical representations.
+// Type is the go/types identity of the term; the checker treats it
+// as opaque and hands membership to the GoConstraintSource oracle.
+type GoUnionTerm struct {
+	Type   gotypes.Type
+	Approx bool
+}
+
+// GoConstraint is the admissible constraint of one type parameter.
+// Kind selects the judgment; Elem/Key/Val index the same
+// signature's TypeParams for the structural shapes (-1 when unset);
+// Terms carries a union's members; Desc spells the constraint for
+// diagnostics (its Go-source form, e.g. `cmp.Ordered` or `~[]E`).
+type GoConstraint struct {
+	Kind  GoConstraintKind
+	Elem  int
+	Key   int
+	Val   int
+	Terms []GoUnionTerm
+	Desc  string
+}
+
+// GoConstraintSource answers membership of the widened spec-8.5
+// constraint set — the structural `~[]E`/`~map[K]V` shapes and the
+// concrete-term unions — over the emitted Go representation. The
+// checker cannot spell representation underliers or term
+// identities on its own (they live behind *types.Go handles and
+// the go/types oracle), so the source that mapped the signature
+// judges. Sources that do not implement it leave every widened
+// constraint unsatisfied — an honest rejection, never a silent
+// pass.
+type GoConstraintSource interface {
+	// GoSatisfies reports whether the solved type argument at index
+	// i of targs satisfies constraint c; targs is the call's full
+	// solved argument list so cross-parameter shapes (`S ~[]E`)
+	// read their operands from it.
+	GoSatisfies(targs []types.Type, i int, c GoConstraint) bool
+}
 
 // SignatureSource supplies the signatures of symbols not declared in
 // the file being checked: imported module members, Go functions and
@@ -341,6 +394,18 @@ func (c chain) GoComparable(t types.Type) bool {
 	for _, s := range c {
 		if src, ok := s.(ComparableSource); ok && src.GoComparable(t) {
 			return true
+		}
+	}
+	return false
+}
+
+// GoSatisfies forwards the optional GoConstraintSource protocol
+// through the chain — the first implementing source answers for
+// all widened constraints (it is the source that mapped them).
+func (c chain) GoSatisfies(targs []types.Type, i int, con GoConstraint) bool {
+	for _, s := range c {
+		if src, ok := s.(GoConstraintSource); ok {
+			return src.GoSatisfies(targs, i, con)
 		}
 	}
 	return false

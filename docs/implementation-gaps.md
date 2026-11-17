@@ -135,6 +135,10 @@
   限定の記述に置き換え、§8.3 の未対応一覧を「ジェネリック型、`any`/`comparable`
   以外の制約を持つジェネリック関数」に修正、§8.5 に E0506/E0508 を明記。
   構造制約の拡張は行わない（open-question / widening は別 decision）。
+  対応（wave15 lane 2）: `~[]E`/`~map[K]V`/基本型 union 制約を公開 — `S`/`M`
+  スロットは `Go.Slice`/`Go.Map` として読み、`List` 引数はコピーで渡る
+  （[decision](decisions/2026-11-17-structural-constraints.md)、
+  [検証](sketch/2026-11-17-wave15-structural-constraints.md)）。
   参照: [decision](decisions/2026-11-04-go-collections-and-generics.md)、
   [詳細](problems/2026-11-04-generic-go-fns-hidden.md)、
   [検証](sketch/2026-11-04-p3-3-go-collections-verification.md)。

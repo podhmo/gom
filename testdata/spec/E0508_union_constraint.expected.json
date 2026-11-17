@@ -1,0 +1,28 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0508",
+      "severity": "error",
+      "message": "type argument `Int` does not satisfy the `~int` constraint of `Clamp`'s type parameter `T`",
+      "span": {
+        "file": "E0508_union_constraint.gom",
+        "start": {
+          "line": 8,
+          "col": 32,
+          "offset": 299
+        },
+        "end": {
+          "line": 8,
+          "col": 37,
+          "offset": 304
+        }
+      },
+      "data": {
+        "argument": "Int",
+        "constraint": "~int",
+        "parameter": "T"
+      }
+    }
+  ]
+}

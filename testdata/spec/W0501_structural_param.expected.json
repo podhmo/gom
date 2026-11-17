@@ -1,0 +1,27 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "W0501",
+      "severity": "warning",
+      "message": "`slices.Sort` returns Unit and receives its `List Int` argument as a copied []T — a callee that mutates the slice in place has no effect on the Gom value",
+      "span": {
+        "file": "W0501_structural_param.gom",
+        "start": {
+          "line": 9,
+          "col": 47,
+          "offset": 288
+        },
+        "end": {
+          "line": 9,
+          "col": 49,
+          "offset": 290
+        }
+      },
+      "data": {
+        "argument": "List Int",
+        "callee": "slices.Sort"
+      }
+    }
+  ]
+}

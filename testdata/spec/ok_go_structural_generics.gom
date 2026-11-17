@@ -1,0 +1,16 @@
+package ex
+
+import go "slices"
+import go "maps"
+import go "cmp"
+
+// Structural constraints admitted by spec 8.5: `S ~[]E` solves S
+// from the container argument (a `List Int` emits
+// `slices.Contains[list.List[int64], int64]`), `~map[K]V` binds K
+// and V from the map argument's repr, and basic-term unions like
+// `cmp.Ordered` admit reprs whose underlying matches a term
+// (`Int` -> int64 satisfies `~int64`).
+fn has (xs: List Int) (n: Int) -> Bool = slices.Contains(xs, n)
+fn idx (xs: Go.Slice Int) (n: Int) -> Int = slices.Index(xs, n)
+fn eq (a: Go.Map String Int) (b: Go.Map String Int) -> Bool = maps.Equal(a, b)
+fn less (a: Int) (b: Int) -> Bool = cmp.Less(a, b)

@@ -390,9 +390,10 @@ func TestZeroResultShape(t *testing.T) {
 }
 
 // Generic Go functions keep their declared type-parameter order on
-// Signature.TypeParams with the any/comparable classification on
-// GoConstraints; a structural ~[]E constraint hides the callee under
-// E0506.
+// Signature.TypeParams with the constraint classification on
+// GoConstraints; the widened set (spec 8.5) admits structural
+// ~[]E shapes and concrete-term unions, while a method-set
+// constraint still hides the callee under E0506.
 func TestGenericSignatureViews(t *testing.T) {
 	t.Parallel()
 
@@ -404,7 +405,7 @@ func TestGenericSignatureViews(t *testing.T) {
 		t.Fatalf("Identity = %v, want T -> T", sig)
 	}
 	if len(sig.TypeParams) != 1 || sig.TypeParams[0].Name != "T" ||
-		len(sig.GoConstraints) != 1 || sig.GoConstraints[0] != check.GoConstraintAny {
+		len(sig.GoConstraints) != 1 || sig.GoConstraints[0].Kind != check.GoConstraintAny {
 		t.Fatalf("Identity generics = %v %v, want [T][any]", sig.TypeParams, sig.GoConstraints)
 	}
 
@@ -425,7 +426,7 @@ func TestGenericSignatureViews(t *testing.T) {
 	if !ok || sig.Type.String() != "List E -> E -> Int" {
 		t.Fatalf("Count = %v, want List E -> E -> Int", sig)
 	}
-	if len(sig.GoConstraints) != 1 || sig.GoConstraints[0] != check.GoConstraintComparable {
+	if len(sig.GoConstraints) != 1 || sig.GoConstraints[0].Kind != check.GoConstraintComparable {
 		t.Fatalf("Count constraints = %v, want [comparable]", sig.GoConstraints)
 	}
 
@@ -433,31 +434,47 @@ func TestGenericSignatureViews(t *testing.T) {
 	if !ok || sig.Type.String() != "Go.Map K V -> K -> (V, Bool)" {
 		t.Fatalf("Lookup = %v, want Go.Map K V -> K -> (V, Bool)", sig)
 	}
-	if len(sig.GoConstraints) != 2 || sig.GoConstraints[0] != check.GoConstraintComparable || sig.GoConstraints[1] != check.GoConstraintAny {
+	if len(sig.GoConstraints) != 2 || sig.GoConstraints[0].Kind != check.GoConstraintComparable || sig.GoConstraints[1].Kind != check.GoConstraintAny {
 		t.Fatalf("Lookup constraints = %v, want [comparable any]", sig.GoConstraints)
 	}
 
-	// The structural ~[]E constraint keeps Index hidden, under E0506.
-	idx := p.Members["Index"]
-	if idx.Hidden == "" || idx.HiddenCode != "E0506" {
-		t.Fatalf("Index = %+v, want hidden under E0506", idx)
+	// The structural ~[]E constraint makes Index's S a slice
+	// constraint referencing E — admitted under spec 8.5's widened
+	// set; membership is judged at the call site (E0508).
+	sig, ok = l.SignatureOf(p.Members["Index"])
+	if !ok || sig.Type.String() != "S -> E -> Int" {
+		t.Fatalf("Index = %v, want S -> E -> Int", sig)
 	}
-	if _, ok := l.SignatureOf(idx); ok {
-		t.Fatal("SignatureOf must not answer a hidden member")
+	if len(sig.GoConstraints) != 2 ||
+		sig.GoConstraints[0].Kind != check.GoConstraintSlice || sig.GoConstraints[0].Elem != 1 ||
+		sig.GoConstraints[1].Kind != check.GoConstraintComparable {
+		t.Fatalf("Index constraints = %+v, want [~[]E comparable]", sig.GoConstraints)
 	}
 
-	// Subsets of comparable are not comparable: ~int and int|string
-	// stay hidden under E0506, while the interface{comparable}
-	// spelling — the identical type set — stays callable.
+	// Concrete-term unions are callable too: Clamp's ~int and G's
+	// int|string map to union constraints.
 	for _, name := range []string{"Clamp", "G"} {
 		s := p.Members[name]
-		if s.Hidden == "" || s.HiddenCode != "E0506" {
-			t.Fatalf("%s = %+v, want hidden under E0506", name, s)
+		if s.Hidden != "" {
+			t.Fatalf("%s = %+v, want callable (union constraint)", name, s)
 		}
+		sig, ok = l.SignatureOf(s)
+		if !ok || len(sig.GoConstraints) != 1 || sig.GoConstraints[0].Kind != check.GoConstraintUnion ||
+			len(sig.GoConstraints[0].Terms) == 0 {
+			t.Fatalf("%s constraints = %+v, want a non-empty union", name, sig.GoConstraints)
+		}
+	}
+	// Run's method-set constraint still hides the callee (E0506).
+	run := p.Members["Run"]
+	if run.Hidden == "" || run.HiddenCode != "E0506" {
+		t.Fatalf("Run = %+v, want hidden under E0506", run)
+	}
+	if _, ok := l.SignatureOf(run); ok {
+		t.Fatal("SignatureOf must not answer a hidden member")
 	}
 	sig, ok = l.SignatureOf(p.Members["First"])
 	if !ok || sig.Type.String() != "T -> T -> T" ||
-		len(sig.GoConstraints) != 1 || sig.GoConstraints[0] != check.GoConstraintComparable {
+		len(sig.GoConstraints) != 1 || sig.GoConstraints[0].Kind != check.GoConstraintComparable {
 		t.Fatalf("First = %v %v, want T -> T -> T [comparable]", sig, sig.GoConstraints)
 	}
 

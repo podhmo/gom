@@ -1110,6 +1110,35 @@ func (c *checker) instantiateSig(sig Signature, sp diag.Span) (types.Type, []typ
 		sub[v.ID] = m
 		args[i] = m
 	}
+	// A structural constraint widens the parameter's own surface to
+	// its repr shape: `s S` where `S ~[]E` checks arguments as
+	// `Go.Slice ?E`. A `List` argument then takes its boundary copy
+	// — required, since a Go callee may mutate `s` and must not
+	// reach the List's backing — and a constraint-only operand
+	// (`S ~[]E` binding `E`) solves through the ordinary argument
+	// conformance, Go's constraint-type-inference step.
+	for i := range sig.TypeParams {
+		if i >= len(sig.GoConstraints) {
+			break
+		}
+		m, ok := args[i].(*types.Meta)
+		if !ok {
+			continue
+		}
+		switch gc := sig.GoConstraints[i]; gc.Kind {
+		case GoConstraintSlice:
+			if gc.Elem >= 0 && gc.Elem < len(args) {
+				m.Bind(types.GoSlice(args[gc.Elem]))
+			}
+		case GoConstraintMap:
+			if gc.Key >= 0 && gc.Key < len(args) && gc.Val >= 0 && gc.Val < len(args) {
+				m.Bind(types.GoMap(args[gc.Key], args[gc.Val]))
+			}
+		case GoConstraintAny, GoConstraintComparable, GoConstraintUnion:
+		default:
+			panic("unreachable")
+		}
+	}
 	return sub.Apply(sig.Type), args
 }
 

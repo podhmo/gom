@@ -66,3 +66,45 @@ Residuals recorded: named-type tildes whose member is a Gom-side
 rejected honestly); `~int` admitting Go's `int` but not Gom's `Int`
 (int64) — same honesty; `iter.Seq`-returning generics hidden on result
 mapping, unrelated to the constraint class.
+
+## Prototype (2026-11-17, this branch)
+
+Implementation settled on a refinement of the draft: instead of binding
+`S` to the argument's own type and judging the repr afterward, the
+constraint widens the parameter's *surface* — `instantiateSig`
+substitutes `S ~[]E` with `Go.Slice ?E` (and `M ~map[K]V` with
+`Go.Map ?K ?V`) across the whole signature, sharing the operand's meta.
+
+Why the substitution rather than repr-judging:
+
+- **Mutation soundness.** `S` spans the callee's mutable parameter —
+  `slices.Sort`, `slices.Reverse`, `slices.Delete` write into `s`.
+  Binding `S := List Int` would emit `Sort[list.List[int64], int64](xs)`
+  verbatim and let Go write into a `List`'s backing. With the `Go.Slice`
+  surface a `List` argument takes the ordinary boundary copy
+  (`xs.ToSlice()`), `List`'s immutability is preserved for free, and
+  `W0501` warns on the copied-in-place shape — the lint resolves a
+  `Var` parameter through `CallInfo.TypeArgs` to see it.
+- **CTI for free.** `maps.Equal`'s K/V occur only inside M's
+  constraint; the container surface binds them through ordinary
+  unification — no separate constraint-type-inference pass.
+- **Honest results.** `slices.Clip`'s `S` result surfaces `Go.Slice E`
+  — the emitted slice *is* Go-owned, which is what `Go.Slice` means.
+
+Verified:
+
+- `ok_go_structural_generics.gom`: `slices.Contains`/`Index` on
+  `List Int` (copy emitted), `maps.Equal` on `Go.Map` (shared),
+  `cmp.Less` — clean.
+- Emission: `goiface.Index[[]int64, int64](xs.ToSlice(), n)`,
+  `maps.Equal[map[string]int64, map[string]int64, string, int64](a, b)`
+  — bridge test compiles and runs.
+- `slices.Clip`/`Sort`/`Reverse` check clean; `Sort`/`Reverse` on a
+  `List` warn W0501 (sorted copy is discarded — honest no-effect).
+- Element mismatch (`List Int` + `String` element arg) is E0401
+  argument unification, not a repr-level report — better diagnostic.
+- Honest residuals: `maps.Keys` E0501 (result `iter.Seq` unmappable),
+  generic-Gom-fn forwarding (`xs : List a`) E0508 on `Go.Slice a` /
+  `a` comparable — a `Var` has no Go repr, same as `comparable`'s
+  existing rejection; `~int`-unions reject `Int` (repr int64);
+  `errors.AsType` E0506 "carries a method set".
