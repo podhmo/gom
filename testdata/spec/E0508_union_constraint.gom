@@ -1,0 +1,8 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// `Clamp`'s `~int` union constraint is callable (spec 8.5), but the
+// solved argument must satisfy a term: `Int` renders `int64`, whose
+// underlying is not `int` — E0508 reports the failed argument.
+fn f (n: Int) -> Int = goiface.Clamp n 0 9

@@ -178,4 +178,5 @@
 | [stdlib-gomi-type-members](2026-11-08-stdlib-gomi-type-members.md) | Stdlib `.gomi` type members register like imported-package ones | 採用（実装・検証した — [検証](../sketch/2026-11-08-stdlib-gomi-type-members-verification.md)） |
 | [byte-type](2026-11-17-byte-type.md) | `byte`/`uint8` → `Byte` を組み込み型として公開する | draft |
 | [cli-gotool-invocation](2026-11-17-cli-gotool-invocation.md) | go tool の実起動は `gom build -go`（CLI 面） | 採用 |
+| [structural-constraints](2026-11-17-structural-constraints.md) | Go ジェネリック関数の構造制約（`~[]E`・`~map[K]V`・基本型 union）を公開する | 採用 |
 <!-- END GENERATED -->

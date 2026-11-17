@@ -76,7 +76,7 @@ func genericSig(t types.Type) check.Signature {
 	return check.Signature{
 		Type:          t,
 		TypeParams:    []*types.Var{elemTVar},
-		GoConstraints: []check.GoConstraint{check.GoConstraintAny},
+		GoConstraints: []check.GoConstraint{{Kind: check.GoConstraintAny}},
 	}
 }
 
@@ -89,7 +89,7 @@ func genericMapSig(t types.Type) check.Signature {
 	return check.Signature{
 		Type:          t,
 		TypeParams:    []*types.Var{keyTVar, valTVar},
-		GoConstraints: []check.GoConstraint{check.GoConstraintComparable, check.GoConstraintAny},
+		GoConstraints: []check.GoConstraint{{Kind: check.GoConstraintComparable}, {Kind: check.GoConstraintAny}},
 	}
 }
 
@@ -100,7 +100,7 @@ func genericPairSig(t types.Type) check.Signature {
 	return check.Signature{
 		Type:          t,
 		TypeParams:    []*types.Var{elemTVar, accTVar},
-		GoConstraints: []check.GoConstraint{check.GoConstraintAny, check.GoConstraintAny},
+		GoConstraints: []check.GoConstraint{{Kind: check.GoConstraintAny}, {Kind: check.GoConstraintAny}},
 	}
 }
 

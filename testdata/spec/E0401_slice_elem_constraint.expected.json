@@ -1,0 +1,27 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected Int, got String",
+      "span": {
+        "file": "E0401_slice_elem_constraint.gom",
+        "start": {
+          "line": 9,
+          "col": 63,
+          "offset": 346
+        },
+        "end": {
+          "line": 9,
+          "col": 64,
+          "offset": 347
+        }
+      },
+      "data": {
+        "actual": "String",
+        "expected": "Int"
+      }
+    }
+  ]
+}

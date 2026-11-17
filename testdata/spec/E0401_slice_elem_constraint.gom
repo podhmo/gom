@@ -1,0 +1,9 @@
+package ex
+
+import go "slices"
+
+// `slices.Contains`'s S parameter requires `~[]E` — E's meta binds
+// `Int` from `xs`'s element, so `s : String` fails ordinary
+// argument unification. Element consistency is enforced at the
+// call, not by a separate repr-level constraint report.
+fn f (xs: List Int) (s: String) -> Bool = slices.Contains(xs, s)

@@ -1,0 +1,9 @@
+package ex
+
+import go "slices"
+
+// `slices.Sort`'s `x S` parameter reads as `Go.Slice E` under
+// `S ~[]E`, so a `List` argument crosses by copy — the in-place
+// sort has no observable effect. Same W0501 shape as a raw
+// `[]T` parameter.
+fn sortd (xs: List Int) -> Unit = slices.Sort(xs)

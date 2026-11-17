@@ -25,6 +25,7 @@ func moduleLoader(t *testing.T) (*Loader, string) {
 		"go.mod":            fmt.Sprintf("module example.test/bridge\n\ngo 1.27\n\nrequire (\nexample.test/dependency v0.0.0\ngithub.com/podhmo/gom v0.0.0\n)\nreplace example.test/dependency => ./dependency\nreplace github.com/podhmo/gom => %s\n", repoRoot(t)),
 		"dependency/go.mod": "module example.test/dependency\n\ngo 1.27\n",
 		"dependency/model/model.go": `package model
+ import "cmp"
  type Value struct{ N int64 }
  type Reader interface { Read() string }
  type Failure = error
@@ -46,16 +47,37 @@ func moduleLoader(t *testing.T) (*Loader, string) {
  func Lookup[K comparable, V any](m map[K]V, k K) (V, bool) { v, ok := m[k]; return v, ok }
  func Keys[K comparable, V any](m map[K]V) []K { ks := []K{}; for k := range m { ks = append(ks, k) }; return ks }
  // Index's S parameter carries a structural ~[]E constraint —
- // outside the any/comparable callable set, so it stays hidden.
+ // admitted by the widened callable set (spec 8.5), with E's
+ // repr checked against the slice element at the call site.
  func Index[S ~[]E, E comparable](s S, v E) int { for i, x := range s { if x == v { return i } }; return -1 }
- // Clamp's ~int and G's int|string type sets are proper subsets of
- // comparable — misclassifying them would emit an instantiation Go
- // rejects, so both stay hidden (E0506).
+ // Clamp's ~int and G's int|string type sets map to union
+ // constraints — callable, with each argument's repr checked
+ // against the terms at the call site (E0508).
  func Clamp[T ~int](x, lo, hi T) T { if x < lo { return lo }; if x > hi { return hi }; return x }
  func G[T int|string](v T) T { return v }
+ // Run's method-set constraint stays outside the callable set
+ // (E0506) — a named interface constraint is an intersection
+ // with a method set, not a union of concrete terms.
+ type Caller interface { Call() int64 }
+ func Run[T Caller](t T) int64 { return t.Call() }
  // First's constraint spells the identical type set as comparable —
  // it stays callable.
  func First[T interface{ comparable }](a, b T) T { return a }
+ // Wrapped's constraint is a named union interface — admitted like
+ // the direct "T cmp.Ordered" spelling.
+ func Wrapped[T interface{ cmp.Ordered }](a, b T) int { return cmp.Compare(a, b) }
+ // Rec's constraint references the constrained parameter itself —
+ // hidden; the recursive shape has no Gom spelling.
+ func Rec[S ~[]S](s S) S { return s }
+ // Inter is an intersection of unions — hidden; admitting its
+ // flattened terms would weaken the type set.
+ func Inter[T interface{ ~int64 | ~string; ~int64 | ~bool }](v T) T { return v }
+ // Bytef's ~[]byte and ByteOrStr's []byte|string are concrete
+ // unions — List arguments are rejected honestly: the emitted
+ // named list.List is no member, and a verbatim pass would share
+ // the backing with a callee free to mutate it.
+ func Bytef[T ~[]byte](b T) int { return len(b) }
+ func ByteOrStr[T []byte | string](v T) int { return len(v) }
  // Sum's []int and Tally's map[string]int split the Int/Go.Int view
  // inside a container — an element-wise conversion the boundary
  // cannot spell yet, so both stay hidden (E0501).
@@ -265,6 +287,7 @@ func TestModuleInteropGenerics(t *testing.T) {
 	l, dir := moduleLoader(t)
 	src := `package bridge
  import go "example.test/dependency/model"
+ import go "maps"
  fn ident (n: Int) -> Int = model.Identity n
  fn swap (s: String) (n: Int) -> Int = model.Second s n
  fn count (xs: List String) (s: String) -> Int = model.Count xs s
@@ -277,10 +300,28 @@ func TestModuleInteropGenerics(t *testing.T) {
  fn echo (xs: List String) -> List String = model.EchoSlice xs
  fn first (n: Int) (m: Int) -> Int = model.First n m
  fn dup (xs: List (Go.Slice String)) -> List (Go.Slice String) = model.Dup xs
+ // The widened constraint set (spec 8.5): ~[]E admits
+ // list.List[int64] as S with E=int64, ~map[K]V admits
+ // map[string]int64 as M1/M2 with K=string V=int64, and
+ // int | string admits String.
+ fn index (xs: List Int) (n: Int) -> Int = model.Index xs n
+ fn map_eq (a: Go.Map String Int) (b: Go.Map String Int) -> Bool = maps.Equal a b
+ fn gstr (s: String) -> String = model.G s
+ // The named-union spelling interface{cmp.Ordered} admits the
+ // same type set as the direct T cmp.Ordered constraint.
+ fn wrapped (a: Int) (b: Int) -> Int = model.Wrapped a b
+ fn bytef (xs: Go.Slice Byte) -> Int = model.Bytef xs
  `
 	gen := compileSource(t, l, src)
 	if !strings.Contains(string(gen), "model.Second[int64, string](") {
 		t.Fatalf("generated source lacks declared-order instantiation:\n%s", gen)
+	}
+	if !strings.Contains(string(gen), "model.Index[[]int64, int64](") ||
+		!strings.Contains(string(gen), "xs.ToSlice()") {
+		t.Fatalf("generated source lacks the ~[]E instantiation:\n%s", gen)
+	}
+	if !strings.Contains(string(gen), "maps.Equal[map[string]int64, map[string]int64, string, int64](a, b)") {
+		t.Fatalf("generated source lacks the ~map[K]V instantiation:\n%s", gen)
 	}
 	test := `package bridge
  import (
@@ -306,6 +347,11 @@ func TestModuleInteropGenerics(t *testing.T) {
   if first(3,4)!=3 {t.Fatal(first(3,4))}
   ns:=list.List[[]string]{{"a"}}
   if dup(ns)[0][0]!="a" {t.Fatal(dup(ns))}
+  if index(list.List[int64]{7,8,9},8)!=1 {t.Fatal(index(list.List[int64]{7,8,9},8))}
+  if !mapEq(m,m) {t.Fatal("mapEq")}
+  if gstr("x")!="x" {t.Fatal(gstr("x"))}
+  if wrapped(1,2)!=-1 {t.Fatal(wrapped(1,2))}
+  if bytef([]byte("a"))!=1 {t.Fatal(bytef(nil))}
  }
  `
 	for name, data := range map[string][]byte{"bridge.go": gen, "bridge_test.go": []byte(test)} {
@@ -320,19 +366,28 @@ func TestModuleInteropGenerics(t *testing.T) {
 	}
 }
 
-// Generic Go diagnostics: a structurally-constrained callee reports
-// E0506 at the use site, and a type argument that fails a
-// `comparable` constraint reports E0508.
+// Generic Go diagnostics: a callee behind a method-set constraint
+// reports E0506 at the use site, and a type argument that fails an
+// admitted constraint — comparable, ~[]E, or a union term —
+// reports E0508.
 func TestModuleInteropGenericDiagnostics(t *testing.T) {
 	t.Parallel()
 
 	cases := []struct{ name, body, code, reason string }{
-		{"hidden_index", "fn f (xs: List Int) (n: Int) -> Int = model.Index xs n", "E0506", "~[]E"},
-		{"approx_subset", "fn f (n: Int) -> Int = model.Clamp n 0 9", "E0506", "~int"},
-		{"union_subset", "fn f (n: Int) -> Int = model.G n", "E0506", "int | string"},
+		{"method_set", "fn f (v: Go.Any) -> Int = model.Run v", "E0506", "method set"},
+		{"slice_elem_mismatch", "fn f (xs: List Int) (s: String) -> Int = model.Index xs s", "E0401", "expected Int, got String"},
+		{"approx_subset", "fn f (n: Int) -> Int = model.Clamp n 0 9", "E0508", "~int"},
+		{"union_subset", "fn f (n: Int) -> Int = model.G n", "E0508", "int | string"},
 		{"split_slice", "fn f (xs: List Int) -> Int = model.Sum xs", "E0501", "element-wise"},
 		{"split_map", "fn f () -> Go.Map String Int = model.Tally ()", "E0501", "element-wise"},
 		{"non_comparable_arg", "fn f (xs: List (List Int)) (v: List Int) -> Int = model.Count xs v", "E0508", "comparable"},
+		// Constraint classification regressions: a self-referencing
+		// operand (~[]S) and an intersection of unions stay hidden;
+		// a List argument never satisfies a slice-typed union term.
+		{"recursive_constraint", "fn f (xs: List Int) -> List Int = model.Rec xs", "E0506", "type parameters"},
+		{"union_intersection", "fn f (n: Int64) -> Int64 = model.Inter n", "E0506", "intersection"},
+		{"approx_list_arg", "fn f (xs: List Byte) -> Int = model.Bytef xs", "E0508", "~[]byte"},
+		{"union_list_arg", "fn f (xs: List Byte) -> Int = model.ByteOrStr xs", "E0508", "[]byte | string"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

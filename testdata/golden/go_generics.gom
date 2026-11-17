@@ -13,3 +13,9 @@ fn lookup_or (m: Go.Map String Int) (k: String) -> Int = {
   let (v, ok) = goiface.Lookup m k
   if ok { v } else { 0 }
 }
+
+// A structural ~[]E constraint instantiates S to the argument's
+// own repr — `List Int` emits `Index[list.List[int64], int64]`
+// and the argument crosses without a copy (the constraint, not a
+// []E parameter, is what the raw signature sees).
+fn index (xs: List Int) (n: Int) -> Int = goiface.Index xs n

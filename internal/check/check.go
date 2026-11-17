@@ -282,20 +282,60 @@ type genericUse struct {
 
 // validateGoGenerics runs after inference settles: every recorded
 // use of a generic Go callee has its type arguments solved, so each
-// `comparable` parameter's argument is judged on its emitted Go
-// representation (spec section 8.5). An unsolved argument's E0407
-// already stands — the constraint check skips it rather than pile on.
+// constrained parameter's argument is judged on its emitted Go
+// representation (spec section 8.5): `comparable` is checked
+// structurally by the checker, the widened structural shapes
+// (`~[]E`, `~map[K]V`, concrete-term unions) delegate to the
+// GoConstraintSource oracle. An unsolved argument's E0407 already
+// stands — the constraint check skips it rather than pile on.
 func (c *checker) validateGoGenerics() {
 	for _, use := range c.pendingGens {
-		for i, k := range use.sig.GoConstraints {
-			if k != GoConstraintComparable || i >= len(use.targs) {
+		for i, gc := range use.sig.GoConstraints {
+			if i >= len(use.targs) || gc.Kind == GoConstraintAny {
 				continue
 			}
 			targ := types.Chase(use.targs[i])
-			if _, ok := targ.(*types.Meta); ok {
+			if _, unsolved := targ.(*types.Meta); unsolved {
 				continue
 			}
-			if c.goReprComparable(targ) {
+			var ok bool
+			var desc string
+			switch gc.Kind {
+			case GoConstraintComparable:
+				ok = c.goReprComparable(targ)
+				desc = "comparable"
+			case GoConstraintSlice, GoConstraintMap, GoConstraintUnion:
+				// A cross-parameter shape is undecided while one
+				// of its operands is still unsolved — the E0407
+				// on that argument already stands.
+				operands := []int{gc.Elem}
+				if gc.Kind == GoConstraintMap {
+					operands = []int{gc.Key, gc.Val}
+				} else if gc.Kind == GoConstraintUnion {
+					operands = nil
+				}
+				pending := false
+				for _, j := range operands {
+					if j < 0 || j >= len(use.targs) {
+						pending = true
+						break
+					}
+					if _, unsolved := types.Chase(use.targs[j]).(*types.Meta); unsolved {
+						pending = true
+						break
+					}
+				}
+				if pending {
+					continue
+				}
+				if src, sok := c.src.(GoConstraintSource); sok {
+					ok = src.GoSatisfies(use.targs, i, gc)
+				}
+				desc = gc.Desc
+			default:
+				continue
+			}
+			if ok {
 				continue
 			}
 			param := "?"
@@ -307,11 +347,11 @@ func (c *checker) validateGoGenerics() {
 				callee = use.sym.Surface
 			}
 			c.diags.Add(diag.Error("E0508",
-				fmt.Sprintf("type argument `%s` does not satisfy the `comparable` constraint of `%s`'s type parameter `%s`",
-					targ, callee, param)).
+				fmt.Sprintf("type argument `%s` does not satisfy the `%s` constraint of `%s`'s type parameter `%s`",
+					targ, desc, callee, param)).
 				At(use.sp).
 				Set("argument", targ.String()).
-				Set("constraint", "comparable").
+				Set("constraint", desc).
 				Set("parameter", param))
 		}
 	}

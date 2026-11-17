@@ -562,6 +562,14 @@ func (l *Loader) GoComparable(t types.Type) bool {
 	return false
 }
 
+// GoSatisfies defers check.GoConstraintSource to Config.Sigs.
+func (l *Loader) GoSatisfies(targs []types.Type, i int, con check.GoConstraint) bool {
+	if cs, ok := l.cfg.Sigs.(check.GoConstraintSource); ok {
+		return cs.GoSatisfies(targs, i, con)
+	}
+	return false
+}
+
 // GoConvertible defers check.ConvertSource to Config.Sigs.
 func (l *Loader) GoConvertible(from, to types.Type) (bool, bool) {
 	if cs, ok := l.cfg.Sigs.(check.ConvertSource); ok {

@@ -138,6 +138,18 @@ func (c *checker) lintGoSliceCopy(ap *Apply) {
 		}
 		gotT := types.Chase(got.Type())
 		want := types.Chase(params[pi].Type)
+		// A type parameter spells its use-site instantiation —
+		// `s S` under `S ~[]E` surfaces as the `Go.Slice` the
+		// argument actually crossed into (spec 8.1.6), so the
+		// copy question is decided on that shape, not on `S`.
+		if v, isVar := want.(*types.Var); isVar {
+			for j, tp := range sig.TypeParams {
+				if tp.ID == v.ID && j < len(ap.Call.TypeArgs) {
+					want = types.Chase(ap.Call.TypeArgs[j])
+					break
+				}
+			}
+		}
 		gotList := c.isBuiltinCon(gotT, "List")
 		gotSlice := isGoSliceCon(gotT) && materialized
 		wantList := c.isBuiltinCon(want, "List")

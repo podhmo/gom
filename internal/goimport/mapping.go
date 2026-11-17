@@ -29,9 +29,10 @@ import (
 // A generic Go function ([T any], [E comparable]) maps to a Gom
 // signature over rigid type variables in declared order — recorded
 // on Signature.TypeParams so CallInfo.TypeArgs lines up with the
-// emitted `pkg.F[T1, T2]`. Only `any` and `comparable` constraints
-// are callable (spec section 8.5); other constraints hide the
-// symbol with the reason E0501 surfaces.
+// emitted `pkg.F[T1, T2]`. The admitted constraint set of spec
+// section 8.5 — `any`, `comparable`, `~[]E`, `~map[K]V` and
+// concrete-term unions — is callable; other constraints hide the
+// symbol with the reason E0506 surfaces.
 // hiddenSym is why a member stays unexposed in Gom — the reason the
 // checker reports at each use site plus the diagnostic code to report
 // it under ("" = the E0501 default).
@@ -53,7 +54,7 @@ func (l *Loader) mapSignature(sig *types.Signature) (check.Signature, lower.GoSi
 		gcons = make([]check.GoConstraint, n)
 		for i := range n {
 			tp := sig.TypeParams().At(i)
-			k, reason := callableConstraint(tp.Constraint())
+			k, reason := callableConstraint(tp.Constraint(), i)
 			if reason != "" {
 				return check.Signature{}, lower.GoSig{}, hiddenSym{
 					reason: fmt.Sprintf("type parameter %s: %s", tp.Obj().Name(), reason),
@@ -209,25 +210,182 @@ func (l *Loader) mapSignature(sig *types.Signature) (check.Signature, lower.GoSi
 var universeComparable = types.Universe.Lookup("comparable").Type().Underlying()
 
 // callableConstraint classifies a Go type-parameter constraint for
-// the v1 callable set — `any` and `comparable` only (spec section
-// 8.5). Everything else — method sets, unions, `~` approximations,
-// intersections — hides the symbol with the reason E0506 surfaces.
-// The strictness is deliberate: widening to `IsMethodSet`-style or
-// structural `~[]E` constraints is a spec amendment, not an
-// oversight.
-func callableConstraint(c types.Type) (check.GoConstraint, string) {
+// the callable set of spec section 8.5: `any`, `comparable`, the
+// structural `~[]E`/`~map[K]V` shapes whose operands are other type
+// parameters of the same signature, and unions of concrete terms
+// (cmp.Ordered's basic terms, `[]byte | string`). Everything else —
+// method sets, unions mentioning type parameters beyond those two
+// shapes, intersections, `~` over other forms — hides the symbol
+// with the reason E0506 surfaces, named by class so the hidden set
+// never silently widens.
+func callableConstraint(c types.Type, self int) (check.GoConstraint, string) {
 	iface, ok := types.Unalias(c).Underlying().(*types.Interface)
 	if !ok {
-		return 0, fmt.Sprintf("constraint %s is not an interface", c)
+		return check.GoConstraint{}, fmt.Sprintf("constraint %s is not an interface", c)
 	}
 	switch {
 	case iface.Empty():
-		return check.GoConstraintAny, ""
+		return check.GoConstraint{Kind: check.GoConstraintAny}, ""
 	case types.Identical(iface, universeComparable):
-		return check.GoConstraintComparable, ""
-	default:
-		return 0, fmt.Sprintf("constraint %s is not supported (only any and comparable are)", c)
+		return check.GoConstraint{Kind: check.GoConstraintComparable}, ""
 	}
+	// IsMethodSet covers the all-methods spelling; a constraint
+	// mixing terms AND methods has IsMethodSet false but is a
+	// method-set constraint all the same — its type set requires
+	// the methods, so admitting it would drop that requirement.
+	if iface.IsMethodSet() || iface.NumMethods() > 0 {
+		return check.GoConstraint{}, fmt.Sprintf("constraint %s carries a method set", c)
+	}
+	terms, ok := unionTerms(iface)
+	if !ok {
+		return check.GoConstraint{}, fmt.Sprintf("constraint %s is an intersection outside the admitted set", c)
+	}
+	if gc, ok := structuralConstraint(terms, self); ok {
+		gc.Desc = c.String()
+		return gc, ""
+	}
+	for _, tm := range terms {
+		if hasTypeParam(tm.Type) {
+			return check.GoConstraint{}, fmt.Sprintf("constraint %s mixes type parameters into a union", c)
+		}
+	}
+	return check.GoConstraint{Kind: check.GoConstraintUnion, Terms: terms, Desc: c.String()}, ""
+}
+
+// unionTerms collects a constraint interface's type-set terms,
+// flattening embedded (possibly named) constraint interfaces such
+// as `interface{ cmp.Ordered }`. It fails on embedded shapes that
+// are not plain union members — `comparable`, method-bearing named
+// interfaces, type parameters — so intersections land on the
+// hidden set instead of being silently weakened to their union
+// part.
+func unionTerms(iface *types.Interface) ([]check.GoUnionTerm, bool) {
+	// More than one embedded element — or any explicit method —
+	// makes the interface an intersection: flattening every
+	// embedded union would admit the disjunction of all parts,
+	// a strictly larger set than the constraint's own.
+	if iface.NumMethods() > 0 || iface.NumEmbeddeds() != 1 {
+		return nil, false
+	}
+	var terms []check.GoUnionTerm
+	for i := 0; i < iface.NumEmbeddeds(); i++ {
+		switch e := types.Unalias(iface.EmbeddedType(i)).(type) {
+		case *types.Union:
+			for j := 0; j < e.Len(); j++ {
+				tm := e.Term(j)
+				terms = append(terms, check.GoUnionTerm{Type: tm.Type(), Approx: tm.Tilde()})
+			}
+		case *types.Interface:
+			ts, ok := unionTerms(e)
+			if !ok {
+				return nil, false
+			}
+			terms = append(terms, ts...)
+		case *types.Named:
+			i2, ok := e.Underlying().(*types.Interface)
+			if !ok {
+				// An embedded concrete named type is an exact
+				// one-type term.
+				terms = append(terms, check.GoUnionTerm{Type: e})
+				continue
+			}
+			// A named union interface keeps its terms — `cmp.Ordered`
+			// is itself comparable, which describes its terms, not a
+			// reason to hide it. A method-bearing named interface is
+			// not a union and stays hidden.
+			if i2.IsMethodSet() {
+				return nil, false
+			}
+			ts, ok := unionTerms(i2)
+			if !ok {
+				return nil, false
+			}
+			terms = append(terms, ts...)
+		case *types.Basic:
+			terms = append(terms, check.GoUnionTerm{Type: e})
+		default:
+			return nil, false
+		}
+	}
+	return terms, true
+}
+
+// structuralConstraint recognizes the two single-term `~` shapes
+// the callable set admits: `~[]E` and `~map[K]V`, where E/K/V are
+// type parameters of the same signature (TypeParam.Index is the
+// declared-order position, matching Signature.TypeParams).
+func structuralConstraint(terms []check.GoUnionTerm, self int) (check.GoConstraint, bool) {
+	if len(terms) != 1 || !terms[0].Approx {
+		return check.GoConstraint{}, false
+	}
+	// An operand naming the constrained parameter itself
+	// (`S ~[]S`) is a recursive constraint — no Gom argument
+	// can build an element of its own shape.
+	switch t := terms[0].Type.(type) {
+	case *types.Slice:
+		if tp, ok := t.Elem().(*types.TypeParam); ok && tp.Index() != self {
+			return check.GoConstraint{Kind: check.GoConstraintSlice, Elem: tp.Index(), Key: -1, Val: -1}, true
+		}
+	case *types.Map:
+		k, kok := t.Key().(*types.TypeParam)
+		v, vok := t.Elem().(*types.TypeParam)
+		if kok && vok && k.Index() != self && v.Index() != self {
+			return check.GoConstraint{Kind: check.GoConstraintMap, Key: k.Index(), Val: v.Index(), Elem: -1}, true
+		}
+	}
+	return check.GoConstraint{}, false
+}
+
+// hasTypeParam reports whether a union term mentions a type
+// parameter — unions that do are outside the admitted set (the
+// two structural shapes are intercepted before this check).
+func hasTypeParam(t types.Type) bool {
+	switch t := t.(type) {
+	case *types.TypeParam:
+		return true
+	case *types.Slice:
+		return hasTypeParam(t.Elem())
+	case *types.Array:
+		return hasTypeParam(t.Elem())
+	case *types.Pointer:
+		return hasTypeParam(t.Elem())
+	case *types.Chan:
+		return hasTypeParam(t.Elem())
+	case *types.Map:
+		return hasTypeParam(t.Key()) || hasTypeParam(t.Elem())
+	case *types.Struct:
+		for i := 0; i < t.NumFields(); i++ {
+			if hasTypeParam(t.Field(i).Type()) {
+				return true
+			}
+		}
+	case *types.Tuple:
+		for i := 0; i < t.Len(); i++ {
+			if hasTypeParam(t.At(i).Type()) {
+				return true
+			}
+		}
+	case *types.Signature:
+		return hasTypeParam(t.Params()) || hasTypeParam(t.Results())
+	case *types.Union:
+		for i := 0; i < t.Len(); i++ {
+			if hasTypeParam(t.Term(i).Type()) {
+				return true
+			}
+		}
+	case *types.Named:
+		if args := t.TypeArgs(); args != nil {
+			for i := 0; i < args.Len(); i++ {
+				if hasTypeParam(args.At(i)) {
+					return true
+				}
+			}
+		}
+	case *types.Basic, *types.Interface:
+	case nil:
+	default:
+	}
+	return false
 }
 
 // viewsCompatible reports whether the two views of one boundary type
