@@ -1,0 +1,314 @@
+package lsp
+
+import (
+	"bytes"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
+
+	"github.com/podhmo/gom/internal/build"
+	"github.com/podhmo/gom/internal/diag"
+)
+
+// GoTool is the pass recompileUnit runs after a successful unit
+// compile when the server surfaces go-tool diagnostics: it stages
+// the unit's generated output and folds the tool's report onto
+// .gom positions (docs/decisions/2026-11-17-lsp-gotool-invocation.md).
+// Nil on Server means no go-tool pass — the default.
+type GoTool func(inputs []build.Input, results []*build.Result) []diag.Diagnostic
+
+// NewGoTool returns the standard go-tool pass: `go build` in a
+// temp directory inside the package's own directory, its
+// diagnostics folded through the same GoPosIndex +
+// GoToolDiagnostics machinery `gom build -go` uses.
+//
+// The temp dir lives inside the package's own directory so the
+// stage sees exactly the module's visibility the real package
+// does — the same go.mod resolves upward and an `internal`
+// package importable from the real directory stays importable.
+// The pass is
+// all-or-nothing: it emits nothing while the unit has error
+// diagnostics, a member without generated output, generated code
+// that imports a sibling Gom package of the same module (its
+// compiled form does not exist on disk), or no governing go.mod —
+// gom diagnostics cover the first two, and the last is reported
+// once per compile as a positionless go-tool diagnostic so an
+// opted-in session is not silently inert.
+func NewGoTool() GoTool {
+	return func(inputs []build.Input, results []*build.Result) []diag.Diagnostic {
+		if len(inputs) == 0 {
+			return nil
+		}
+		dir := filepath.Dir(filepath.Clean(inputs[0].Path))
+		modRoot, modPath, err := findModule(dir)
+		if err != nil || modRoot == "" {
+			return []diag.Diagnostic{
+				diag.Error("E0001", "go build skipped: no go.mod above "+dir).
+					From(diag.SourceGo).
+					Set("tool", "go build"),
+			}
+		}
+		selfRe := regexp.MustCompile(`"` + regexp.QuoteMeta(modPath) + `(/[^"]*)?"`)
+		var stages []struct {
+			path string
+			src  []byte
+			out  *build.Result
+		}
+		for i, in := range inputs {
+			if i >= len(results) || results[i] == nil || results[i].Output == nil ||
+				results[i].Diagnostics.HasError() {
+				return nil // partial package — gom diagnostics cover it
+			}
+			gen := results[i].Output.Source
+			// A generated import of the module's own path means a
+			// sibling Gom package — its compiled form does not exist
+			// on disk and `go build` would report import errors the
+			// .gom source did not cause. A real Go package in the same
+			// module (rt, this repo's own helpers, the user's Go dirs)
+			// resolves on disk and builds fine, so resolve each match
+			// and skip when the target holds any .gom/.gomi source (a
+			// Gom package — handwritten .go helpers beside it do not
+			// supply the generated implementations) or no .go at all.
+			missing := false
+			for _, m := range selfRe.FindAllStringSubmatch(string(gen), -1) {
+				target := filepath.Join(modRoot, filepath.FromSlash(m[1]))
+				gos, _ := filepath.Glob(filepath.Join(target, "*.go"))
+				goms, _ := filepath.Glob(filepath.Join(target, "*.gom"))
+				gomis, _ := filepath.Glob(filepath.Join(target, "*.gomi"))
+				if len(gos) == 0 || len(goms) > 0 || len(gomis) > 0 {
+					missing = true
+					break
+				}
+			}
+			if missing {
+				return nil
+			}
+			stages = append(stages, struct {
+				path string
+				src  []byte
+				out  *build.Result
+			}{in.Path, in.Src, results[i]})
+		}
+		tmp, err := os.MkdirTemp(dir, ".gomlsp-*")
+		if err != nil {
+			return []diag.Diagnostic{
+				diag.Error("E0001", "go build could not run").
+					From(diag.SourceGo).
+					Set("tool", "go build").
+					Set("error", err.Error()),
+			}
+		}
+		defer os.RemoveAll(tmp)
+		// A package directory's real .go files build alongside the
+		// generated ones in `gom build -go` — stage them the same
+		// way (generated names win on collision).
+		stagedNames := map[string]bool{}
+		for _, s := range stages {
+			name := strings.TrimSuffix(filepath.Base(s.path), ".gom") + ".go"
+			stagedNames[name] = true
+		}
+		if siblings, err := filepath.Glob(filepath.Join(dir, "*.go")); err == nil {
+			for _, name := range siblings {
+				base := filepath.Base(name)
+				if stagedNames[base] {
+					continue
+				}
+				data, rerr := os.ReadFile(name)
+				if rerr != nil {
+					continue
+				}
+				_ = os.WriteFile(filepath.Join(tmp, base), data, 0o644)
+				// A sibling's //go:embed assets are part of the
+				// package's build — stage them too or the build
+				// fails on files the real directory provides.
+				for _, pat := range embedPatterns(data) {
+					copyEmbedAssets(dir, tmp, pat)
+				}
+			}
+		}
+		hasMain := false
+		for _, s := range stages {
+			name := strings.TrimSuffix(filepath.Base(s.path), ".gom") + ".go"
+			if err := os.WriteFile(filepath.Join(tmp, name), s.out.Output.Source, 0o644); err != nil {
+				return []diag.Diagnostic{
+					diag.Error("E0001", "go build could not run").
+						From(diag.SourceGo).
+						Set("tool", "go build").
+						Set("error", err.Error()),
+				}
+			}
+			if isMainSource(s.out.Output.Source) {
+				hasMain = true
+			}
+		}
+		srcs := make(map[string][]byte, len(stages))
+		for _, s := range stages {
+			srcs[s.path] = s.src
+		}
+		// The index's dir is the package dir, not the staging dir:
+		// names the tool prints come from `//line` directives, which
+		// spell .gom paths relative to the directory they were
+		// generated for.
+		pos := build.NewGoPosIndex(dir, srcs)
+		for _, s := range stages {
+			pos.AddSourceMap(s.path, s.out.Output.Source, s.out.Output.SourceMap)
+		}
+		run, err := build.RunGoBuild("", tmp, hasMain)
+		if err != nil {
+			return []diag.Diagnostic{
+				diag.Error("E0001", "go build could not run").
+					From(diag.SourceGo).
+					Set("tool", "go build").
+					Set("error", err.Error()),
+			}
+		}
+		if !run.Failed {
+			return nil
+		}
+		return build.GoToolDiagnostics(run.Lines(), "go build", pos)
+	}
+}
+
+// findModule walks dir upward to the nearest go.mod and reports its
+// directory and module path ("module example.com/m"). Zero values
+// mean none was found; a malformed go.mod's error is returned.
+func findModule(dir string) (root, path string, err error) {
+	for {
+		gm := filepath.Join(dir, "go.mod")
+		data, rerr := os.ReadFile(gm)
+		if rerr == nil {
+			for line := range strings.Lines(string(data)) {
+				if f := strings.Fields(line); len(f) >= 2 && f[0] == "module" {
+					return dir, strings.Trim(f[1], ` "`), nil
+				}
+			}
+			return "", "", nil // go.mod without a module directive
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			return "", "", nil
+		}
+		dir = parent
+	}
+}
+
+// embedPatterns collects the //go:embed patterns a Go source
+// file declares (one or more per directive, quoted or bare).
+func embedPatterns(src []byte) []string {
+	var pats []string
+	for _, line := range bytes.Split(src, []byte("\n")) {
+		rest, ok := bytes.CutPrefix(bytes.TrimSpace(line), []byte("//go:embed"))
+		if !ok {
+			continue
+		}
+		pats = append(pats, splitEmbedFields(string(rest))...)
+	}
+	return pats
+}
+
+// splitEmbedFields splits a directive's pattern list on
+// whitespace, keeping "double"- and `back`-quoted patterns whole.
+func splitEmbedFields(s string) []string {
+	var out []string
+	for i := 0; i < len(s); {
+		for i < len(s) && (s[i] == ' ' || s[i] == '\t') {
+			i++
+		}
+		if i >= len(s) {
+			break
+		}
+		j := i
+		if s[i] == '"' || s[i] == '`' {
+			q := s[i]
+			j++
+			for j < len(s) && s[j] != q {
+				j++
+			}
+			out = append(out, s[i+1:j])
+		} else {
+			for j < len(s) && s[j] != ' ' && s[j] != '\t' {
+				j++
+			}
+			out = append(out, s[i:j])
+		}
+		i = j + 1
+	}
+	return out
+}
+
+// copyEmbedAssets stages the files a //go:embed pattern refers to,
+// preserving their paths relative to the package dir. Directories
+// copy recursively minus the `_`/`.`-prefixed entries embed skips
+// (an `all:` prefix keeps them), matching the embed spec. Patterns
+// with `.`/`..` path elements — already invalid to the compiler —
+// are refused outright so a hostile directive cannot escape the
+// stage before `go build` rejects it.
+func copyEmbedAssets(srcDir, dstDir, pattern string) {
+	includeHidden := strings.HasPrefix(pattern, "all:")
+	pattern = strings.TrimPrefix(pattern, "all:")
+	for _, seg := range strings.Split(pattern, "/") {
+		if seg == ".." || seg == "." {
+			return
+		}
+	}
+	matches, err := filepath.Glob(filepath.Join(srcDir,
+		filepath.FromSlash(pattern)))
+	if err != nil {
+		return
+	}
+	copy := func(p string) {
+		rel, rerr := filepath.Rel(srcDir, p)
+		if rerr != nil || rel == ".." ||
+			strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			return
+		}
+		data, rerr2 := os.ReadFile(p)
+		if rerr2 != nil {
+			return
+		}
+		dst := filepath.Join(dstDir, rel)
+		if os.MkdirAll(filepath.Dir(dst), 0o755) == nil {
+			_ = os.WriteFile(dst, data, 0o644)
+		}
+	}
+	for _, m := range matches {
+		if info, err := os.Stat(m); err == nil && info.IsDir() {
+			_ = filepath.WalkDir(m, func(p string, d fs.DirEntry, err error) error {
+				if err != nil {
+					return nil
+				}
+				name := d.Name()
+				hidden := strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_")
+				if d.IsDir() {
+					if p != m && hidden && !includeHidden {
+						return filepath.SkipDir
+					}
+					return nil
+				}
+				if hidden && !includeHidden {
+					return nil
+				}
+				copy(p)
+				return nil
+			})
+			continue
+		}
+		copy(m)
+	}
+}
+
+// isMainSource reports whether generated Go declares `package main`
+// — `go build` on a main package links a binary, which RunGoBuild
+// redirects to a temp file so the invocation leaves no artifact.
+func isMainSource(src []byte) bool {
+	for len(src) > 0 {
+		var line []byte
+		line, src, _ = bytes.Cut(src, []byte("\n"))
+		if rest, ok := bytes.CutPrefix(line, []byte("package ")); ok {
+			return string(rest) == "main"
+		}
+	}
+	return false
+}
