@@ -2,6 +2,7 @@
 package main
 
 import go "encoding/json"
+import go "errors"
 import go "fmt"
 import go "github.com/podhmo/gom/examples/gist-cli/host"
 import go "io"
@@ -22,6 +23,32 @@ type Config = { api: String, gist: String, files: Files, literal: Bool, help: Bo
 fn text_error (r: Result a GoError) -> Result a String = match r {
   Ok value -> Ok value
   Err e -> Err (e.Error ())
+}
+
+// Decodes one JSON object and extracts a nonempty string field,
+// rejecting trailing JSON data, missing fields, non-string values,
+// and empty strings (what host.StringField did before the move).
+fn string_field (document: String) (key: String) -> Result String GoError = {
+  let object : Ptr (Go.Map String json.RawMessage) = Ptr.new ()
+  let dec = json.NewDecoder (strings.NewReader document)
+  try dec.Decode object
+  let extra : Ptr Go.Any = Ptr.new ()
+  match dec.Decode extra {
+    Err e -> if errors.Is (e, io.EOF) { () } else { try Err e }
+    Ok _ -> try Err (fmt.Errorf "response has trailing JSON data")
+  }
+  let raw = try (match Go.Map.get (Ptr.get object) key {
+    Some r -> Ok r
+    None -> Err (fmt.Errorf ("response has no %s field", key))
+  })
+  let bytes : Go.Slice Byte = Go.conv raw : Go.Slice Byte
+  let value : Ptr String = Ptr.new ()
+  match json.Unmarshal (bytes, value) {
+    Err e -> try Err (fmt.Errorf ("response %s must be a string: %v", key, e))
+    Ok _ -> ()
+  }
+  let v = Ptr.get value
+  if v == "" { Err (fmt.Errorf ("response %s is empty", key)) } else { Ok v }
 }
 
 fn usage () -> String = "usage: gist-cli [--api-url URL] [--gist URL] [--] FILE..."
@@ -126,7 +153,7 @@ fn run (cfg: Config) -> Result String String = {
           let response_body = try text_error (read_response response)
           let expected = if creating { 201 } else { 200 }
           if status != expected { Err "HTTP ${status}: ${response_body}" } else {
-            let result_url = try text_error (host.StringField (response_body, "html_url"))
+            let result_url = try text_error (string_field response_body "html_url")
             if valid_gist_url result_url { Ok result_url } else {
               Err "response html_url is not a Gist URL"
             }
