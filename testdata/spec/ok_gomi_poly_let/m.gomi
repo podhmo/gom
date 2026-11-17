@@ -5,3 +5,8 @@ package m
 // generalizes into — a thunk `func Empty[T]() T` on the Go side
 // (spec section 7).
 let empty : List a
+
+// A function-typed generalized member — implemented by a real fn
+// declaration, so the member keeps the `a -> a` signature rather
+// than a thunk.
+let ident : (a) -> a

@@ -141,7 +141,7 @@ func TestEndToEnd_MultifilePackage(t *testing.T) {
 	}
 
 	out := goCmd(t, gobin, dir, "run", "./gomapp")
-	want := "12.56636\ncircle 4\n2\n6.28318\n[]\n[]\n"
+	want := "12.56636\ncircle 4\n2\n6.28318\n[]\n[]\n7\n"
 	if out != want {
 		t.Fatalf("go run ./gomapp = %q, want %q", out, want)
 	}

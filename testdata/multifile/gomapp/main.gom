@@ -18,5 +18,6 @@ fn main () -> Unit = {
   let s : List String = shapes.empty
   ignore (fmt.Println e)
   ignore (fmt.Println s)
+  ignore (fmt.Println (shapes.ident 7))
   ()
 }

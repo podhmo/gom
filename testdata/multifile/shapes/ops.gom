@@ -22,3 +22,7 @@ let twice = fn f x -> f (f x)
 // empty generalizes to the thunk `Empty[T]` — the shape the
 // .gomi's `let empty : List a` publishes.
 let empty : List a = []
+
+// ident is the function-typed member — it generalizes into a real
+// `func Ident[A](x A) A` declaration (not a thunk).
+let ident : (a) -> a = fn x -> x

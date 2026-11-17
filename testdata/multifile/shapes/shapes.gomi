@@ -16,6 +16,11 @@ let tau : Float
 // `shapes.Empty[Int]()`.
 let empty : List a
 
+// ident is a function-typed generalized member — its .gom
+// implementation is a real fn declaration, so the member keeps the
+// `a -> a` signature rather than a thunk.
+let ident : (a) -> a
+
 fn scale (f: Float -> Float) (s: Shape) -> Shape
 
 fn twice (f: a -> a) (x: a) -> a

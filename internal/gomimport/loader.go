@@ -616,6 +616,26 @@ func (l *Loader) extract(path string, tf *check.File) (*resolve.Package, error) 
 				p.Members[sym.Name] = sym
 				mt := requalify(patType(d.Pat, sym), own, path)
 				if vars := memberVars(mt); len(vars) > 0 {
+					sym.Kind = resolve.KindFunc
+					if fnT, ok := types.Chase(mt).(*types.Func); ok {
+						// `let apply : (a) -> a` — a
+						// function-typed member. The
+						// implementation can only
+						// generalize it as a real fn
+						// declaration (`func Apply[A](x A)
+						// A`): a thunk wrapper `() -> (a ->
+						// a)` cannot exist — types.Fn
+						// flattens it away — so the member
+						// keeps the function signature and
+						// declared arity like an `fn` item.
+						l.sigs[sym] = check.Signature{
+							Type:       mt,
+							TypeParams: vars,
+							DeclArity:  len(fnT.Params),
+						}
+						l.arities[sym] = len(fnT.Params)
+						continue
+					}
 					// `let empty : List a` — a generalized
 					// value. The implementation emits the
 					// thunk `func Empty[T]() T` for its
@@ -624,10 +644,9 @@ func (l *Loader) extract(path string, tf *check.File) (*resolve.Package, error) 
 					// and the Thunk flag tells check's valOf
 					// to type `p.empty` at T and lower's
 					// funcRefOrFlatten to emit the call.
-					sym.Kind = resolve.KindFunc
 					sym.Thunk = true
 					l.sigs[sym] = check.Signature{
-						Type:       &types.Func{Ret: mt},
+						Type:       types.Fn(mt),
 						TypeParams: vars,
 					}
 					continue
