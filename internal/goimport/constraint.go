@@ -45,7 +45,24 @@ func (l *Loader) GoSatisfies(targs []gt.Type, i int, c check.GoConstraint) bool 
 		return k != nil && v != nil &&
 			types.Identical(m.Key(), k) && types.Identical(m.Elem(), v)
 	case check.GoConstraintUnion:
+		// A `List` argument never satisfies a union term over a
+		// slice or map underlying: the emitted type argument is
+		// the named `list.List[T]`, which no `[]T`-spelled term
+		// admits — and even the `~[]T` spelling it *would* pass is
+		// unsafe, since the verbatim call hands the callee the
+		// List's backing to mutate. `Go.Slice`/`Go.Map` spell
+		// anonymously and keep the honest check.
+		isList := false
+		if con, ok := gt.Chase(targs[i]).(*gt.Con); ok {
+			isList = con.Qual == "" && con.Name == "List"
+		}
 		for _, tm := range c.Terms {
+			switch tm.Type.Underlying().(type) {
+			case *types.Slice, *types.Map:
+				if isList {
+					continue
+				}
+			}
 			if tm.Approx {
 				if types.Identical(bt.Underlying(), tm.Type.Underlying()) {
 					return true

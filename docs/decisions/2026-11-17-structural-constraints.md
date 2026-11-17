@@ -19,7 +19,11 @@ union 制約は E0506 で非公開のままだった。調査の結果、3 ク�
 - `M ~map[K]V` — `M` の出現位置は `Go.Map K V` として読む
 - 型パラメータを含まない union（`~int64 | ~string` など、`cmp.Ordered` 相当）—
   項の判定は出力する Go の型で行う。`Int` の repr は `int64` なので `~int64` を
-  満たし `~int` は満たさない。`[]byte` 項は `Go.Slice Byte` / `List Byte` を認める
+  満たし `~int` は満たさない。`interface{ cmp.Ordered }` のような named union
+  interface を包んだ綴りも同じ型集合として扱う
+- union の項が slice / map を指すとき（`~[]byte`、`[]byte | string`）`List`
+  型引数は E0508 — 出力が named な `list.List[T]` で項に属さず、素通しは
+  callee の書き込みが backing に届く。`Go.Slice Byte` は匿名に綴れるので認める
 
 構造制約を「パラメータの表層を広げる」として扱う（`instantiateSig` が
 `S` を `Go.Slice ?E`・`M` を `Go.Map ?K ?V` に置き換える）ことで、2 つの
@@ -32,8 +36,12 @@ union 制約は E0506 で非公開のままだった。調査の結果、3 ク�
   推論される — Go の constraint type inference を別パスで実装しなくてよい
 
 公開しないもの（E0506、理由は診断に出す）: メソッドを持つ制約
-（`errors.AsType` の `T interface{ Unwrap() []error }` など）、
-近似項・union 項の交叉、型パラメータを含む union 項。
+（`errors.AsType` の `T interface{ Unwrap() []error }` など、interface の
+埋め込みが 1 つでもメソッドを持つ場合を含む）、近似項・union 項の交叉
+（`interface{ ~int64 | ~string; ~int64 | ~bool }` — 平坦化すると型集合を
+緩めるので union の包みは 1 個に限る）、型パラメータを含む union 項、
+そして制約自身を項に参照する再帰形（`S ~[]S` — Gom で綴れない形状を
+メタが再帰的に満たすのを防ぐ）。
 
 検証: [sketch](../sketch/2026-11-17-wave15-structural-constraints.md) の
 prototype 節。`ok_go_structural_generics.gom`、W0501 の構造パラメータ版
