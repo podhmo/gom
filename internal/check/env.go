@@ -279,17 +279,23 @@ type MethodSource interface {
 }
 
 // NilableSource is an optional extension a SignatureSource may
-// implement to answer whether a Go named type is a method-bearing
-// interface — the nil-able a derived `(I, error)` view's payload
-// wraps in Option (internal/goimport's mapping.go rule, mirrored
-// for `Go.fnN`'s derived type). Sources that do not implement it
-// leave named Go types judged non-nilable — every type a real
+// implement to answer nil-ability questions about Go named types
+// — knowledge only the go/types side has, since a *types.Go
+// handle carries just its NamedRef. Sources that do not implement
+// it leave named Go types judged non-nilable — every type a real
 // FuncN con carries comes through the loader, which does.
 type NilableSource interface {
 	// NilableGoRef reports whether the named Go type behind ref is
 	// a method-bearing interface (`net.Error`, `io.Reader`, user
-	// interfaces) — a nil there is unobservable by ordinary use.
+	// interfaces) — the nil-able a derived `(I, error)` view's
+	// payload wraps in Option (internal/goimport's mapping.go
+	// rule, mirrored for `Go.fnN`'s derived type).
 	NilableGoRef(ref types.NamedRef) bool
+	// NilableUnderlying reports whether ref's underlying type can
+	// hold nil at all — interfaces (method-bearing or empty),
+	// slices, maps, channels, funcs and pointers — the question
+	// `Option`'s Gom→Go boundary asks (`None` maps to nil).
+	NilableUnderlying(ref types.NamedRef) bool
 }
 
 // ExternIssue is one problem a source found while binding an `extern`

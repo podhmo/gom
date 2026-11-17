@@ -1038,3 +1038,12 @@ func (l *Loader) NilableGoRef(ref types.NamedRef) bool {
 	}
 	return false
 }
+
+// NilableUnderlying defers the same protocol — whether the named
+// Go type's underlying can hold nil at all.
+func (l *Loader) NilableUnderlying(ref types.NamedRef) bool {
+	if ns, ok := l.cfg.Sigs.(check.NilableSource); ok {
+		return ns.NilableUnderlying(ref)
+	}
+	return false
+}

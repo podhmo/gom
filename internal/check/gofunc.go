@@ -393,20 +393,19 @@ func (c *checker) fnSeedNilable(raw types.Type) bool {
 
 // goRawNilable reports whether a raw Go view can carry nil — the
 // types whose zero value is nil: `error`/`GoError`, `any`,
-// pointers, slices, maps, channels, func types (`Go.FuncN`), and
-// method-bearing named interfaces (answered through the same
-// NilableSource `Go.fnN`'s seed uses).
+// pointers, slices, maps, channels (each direction), func types
+// (`Go.FuncN`), and named types whose underlying is nil-able
+// (named empty interfaces, named slices, ... — answered through
+// NilableSource's broader underlying question).
 func (c *checker) goRawNilable(raw types.Type) bool {
 	switch t := types.Chase(raw).(type) {
 	case *types.Con:
 		if c.isBuiltinCon(t, "GoError") || t.Name == "Any" {
 			return true
 		}
-		if len(t.Args) == 1 {
-			switch t.Name {
-			case "Ptr", "Slice", "Map", "Chan":
-				return true
-			}
+		switch t.Name {
+		case "Ptr", "Slice", "Map", "Chan", "RecvChan", "SendChan":
+			return true
 		}
 		if t.Qual == "Go" {
 			_, isFn := goFuncTypeArity(t.Name)
@@ -415,7 +414,7 @@ func (c *checker) goRawNilable(raw types.Type) bool {
 		return false
 	case *types.Go:
 		if ns, ok := c.src.(NilableSource); ok {
-			return ns.NilableGoRef(t.Ref)
+			return ns.NilableUnderlying(t.Ref)
 		}
 		return false
 	case *types.Meta, *types.Var, *types.Func, *types.Tuple:
