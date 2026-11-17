@@ -731,14 +731,12 @@ func (p *parser) parseLetDeclWithFlag(testOnly bool, doc *Comment) Decl {
 		if !isVar && !isWild {
 			p.errGomi(pat.Span(), "a constant signature binds a plain name")
 		}
-		// A constant signature's type must be closed: `let x : List a`
-		// would publish a generalized let, and the module-member
-		// surface has no thunk shape for one — the implementation
-		// emits `func X[T]()` while member references emit a plain
-		// var (`p.X`), which cannot type-check in Go.
-		if typ != nil && mentionsTypeVar(typ) {
-			p.errGomi(typ.Span(), "a constant signature may not mention type variables")
-		}
+		// A constant signature may quantify type variables:
+		// `let empty : List a` publishes a generalized value. The
+		// member table carries it as a thunk — the same
+		// `func Empty[T]() T` the implementation's generalized let
+		// emits — and member references `p.empty` emit the call
+		// (gomimport's extract marks the symbol Thunk).
 	}
 	if p.at(tokEq) {
 		if p.gomi {

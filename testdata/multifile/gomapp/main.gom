@@ -14,5 +14,9 @@ fn main () -> Unit = {
   ignore (fmt.Println (describe (shapes.scale (fn r -> r * 2.0) c)))
   ignore (fmt.Println (shapes.twice (fn n -> n + 1) 0))
   ignore (fmt.Println shapes.tau)
+  let e : List Int = shapes.empty
+  let s : List String = shapes.empty
+  ignore (fmt.Println e)
+  ignore (fmt.Println s)
   ()
 }

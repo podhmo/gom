@@ -18,3 +18,7 @@ fn scale (f: Float -> Float) (s: Shape) -> Shape = match s {
 // twice is a function value: apply f to x twice. Declared with let
 // on purpose — the generalization flip makes it an ordinary fn.
 let twice = fn f x -> f (f x)
+
+// empty generalizes to the thunk `Empty[T]` — the shape the
+// .gomi's `let empty : List a` publishes.
+let empty : List a = []

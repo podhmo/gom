@@ -356,11 +356,16 @@
   KindVar シンボルとして登録し var 参照を生成する — 単相 let なら動くが
   一般化 let は不整合（gomimport 側も同じ形。conformance は alphaEqual で
   通るため「適合するが実装不可能」な面だった）。
-  対応: `.gomi` の `let` シグネチャ内の型変数を parser が E0602 で拒否する
-  bounded fix — member table の let は常に単相になり var 参照と一致する。
-  多相 let メンバーの thunk 表現（check/lower の thunk oracle を import 越しに
-  通す方針）は future work として残る。
-  参照: [parser](../internal/syntax/parser.go) `mentionsTypeVar`、
+  対応（初回）: `.gomi` の `let` シグネチャ内の型変数を parser が E0602 で
+  拒否する bounded fix — member table の let は常に単相になり var 参照と
+  一致する。
+  対応（解消）: 多相 `let` を許す形に変更 — `.gomi` の `let` シグネチャは
+  型変数を書け、member table は `resolve.Symbol.Thunk` と `() -> T` の
+  シグネチャで thunk 形を運ぶ。check の `valOf`・lower の
+  `funcRefOrFlatten`・lint の捕捉判定はローカルの `thunks` マップと
+  このフラグの両方を oracle にする。E0602 の型変数拒否は撤去。
+  参照: [decision](decisions/2026-11-18-gomi-poly-let.md)、
+  [spec fixture](../testdata/spec/ok_gomi_poly_let/)、
   [検証](sketch/2026-11-05-v6-residual-verification.md)。
 - [x] **`.gomi` の type メンバーはモジュールメンバ表に乗らない**:
   `internal/stdlib` は `fn`/`let` メンバーだけを `Modules` 表に登録し、

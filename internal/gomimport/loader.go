@@ -614,9 +614,25 @@ func (l *Loader) extract(path string, tf *check.File) (*resolve.Package, error) 
 				}
 				sym.Package = path
 				p.Members[sym.Name] = sym
-				l.sigs[sym] = check.Signature{
-					Type: requalify(patType(d.Pat, sym), own, path),
+				mt := requalify(patType(d.Pat, sym), own, path)
+				if vars := memberVars(mt); len(vars) > 0 {
+					// `let empty : List a` — a generalized
+					// value. The implementation emits the
+					// thunk `func Empty[T]() T` for its
+					// generalized let (checkLetDecl), so the
+					// member carries that niladic signature
+					// and the Thunk flag tells check's valOf
+					// to type `p.empty` at T and lower's
+					// funcRefOrFlatten to emit the call.
+					sym.Kind = resolve.KindFunc
+					sym.Thunk = true
+					l.sigs[sym] = check.Signature{
+						Type:       &types.Func{Ret: mt},
+						TypeParams: vars,
+					}
+					continue
 				}
+				l.sigs[sym] = check.Signature{Type: mt}
 			}
 		case *check.TypeDecl:
 			if d.Sym == nil {
@@ -1012,6 +1028,47 @@ func letSyms(p check.Pat) []*resolve.Symbol {
 		}
 	}
 	walk(p)
+	return out
+}
+
+// memberVars reports the rigid variables in t in first-occurrence
+// order — the order check.instantiateSig and lower's CallDirect
+// TypeArgs share with check's own rigidVars, and the order explicit
+// type arguments (`p.empty @Int`) bind in.
+func memberVars(t types.Type) []*types.Var {
+	var out []*types.Var
+	seen := map[int]bool{}
+	var walk func(t types.Type)
+	walk = func(t types.Type) {
+		switch t := types.Chase(t).(type) {
+		case *types.Var:
+			if !seen[t.ID] {
+				seen[t.ID] = true
+				out = append(out, t)
+			}
+		case *types.Meta:
+		case *types.Con:
+			for _, a := range t.Args {
+				walk(a)
+			}
+		case *types.Func:
+			for _, prm := range t.Params {
+				walk(prm.Type)
+			}
+			walk(t.Ret)
+		case *types.Tuple:
+			for _, e := range t.Elems {
+				walk(e)
+			}
+		case *types.Go:
+			for _, a := range t.Args {
+				walk(a)
+			}
+		default:
+			panic("unreachable")
+		}
+	}
+	walk(t)
 	return out
 }
 

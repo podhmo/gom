@@ -188,5 +188,6 @@
 | [external-gom-imports](2026-11-18-external-gom-imports.md) | 外部モジュールの Gom パッケージの import | 採用 |
 | [fn-interop](2026-11-18-fn-interop.md) | `Go.FuncN` 値を Gom 側から適用する(逆変換 `Go.fnN`) | 採用（実装・検証した — `Go.fn2`/`fn0`/`fn1` の変換+呼出、int/int64 境界、`func() error` と `func(A) (T, error)` の `Result` materialize が `gom check`/`build`→`go build`→実行まで通る。testdata/spec/ok_go_fn_adapter・E0510_go_fn_{arity,non_fn}、testdata/golden/go_fn_adapter で固定。spec.md §8.8 へ反映済み） |
 | [golist-export-cache](2026-11-18-golist-export-cache.md) | `go list -export` の process 越し file cache | 採用（実装・検証した — `TestExportCacheSecondLoaderSkipsGoList`（2 台目の Loader は `go list` 0 回）・`TestExportCacheSourceEditInvalidates`（ソース編集で invalidation）・`TestExportCacheDisabled`（NOCACHE 素通り）。実測: `gom check` で `go list` 3 回 ~253ms → cache hit 時 ~7ms に） |
+| [gomi-poly-let](2026-11-18-gomi-poly-let.md) | .gomi の多相 let | 採用 |
 | [incremental-build-cache](2026-11-18-incremental-build-cache.md) | インクリメンタルビルドキャッシュ | 採用 |
 <!-- END GENERATED -->

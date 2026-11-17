@@ -11,6 +11,11 @@ let pi : Float
 
 let tau : Float
 
+// empty is a generalized value — the member crosses the .gomi as
+// a thunk `func Empty[T]() list.List[T]`, and references emit
+// `shapes.Empty[Int]()`.
+let empty : List a
+
 fn scale (f: Float -> Float) (s: Shape) -> Shape
 
 fn twice (f: a -> a) (x: a) -> a

@@ -83,6 +83,10 @@ fn-sig         = "fn" , ident , fn-param , { fn-param } , "->" , type-expr ;
 
 let-sig        = "let" , ident , ":" , type-expr ;
 
+(* a let-sig whose type-expr quantifies variables publishes a
+   generalized value — the implementation emits the thunk
+   `func X[T]() T`, and references `p.x` emit the call (spec §7). *)
+
 (* spec 7.1 allows type declarations, function signatures, constant
    signatures, import declarations and /// doc comments in .gomi.
    Imports scope the interface's own signatures only (spec §7).       *)
