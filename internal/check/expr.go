@@ -1304,14 +1304,19 @@ func (c *checker) checkBinary(e *syntax.Binary) Expr {
 		y := c.checkExpr(e.Y, types.Bool)
 		return &Binary{Base: baseOf(e.Sp, c.boolResult(e.Sp, fmt.Sprintf("`%s`", e.Op))), Op: op, X: x, Y: y}
 	case syntax.BinPipeFwd:
-		// `x |> f` is `f x`.
-		x := c.checkExpr(e.X, nil)
+		// `x |> f` is `f x` — the callee checks first so its first
+		// parameter can seed the argument's want: `Some 1 |> f`
+		// (`f : Option Go.Any -> R`) pins `Option[any]` the way
+		// `f (Some 1)` does, rather than settling `Option num`
+		// before the callee's want can reach it.
 		f := c.checkExpr(e.Y, nil)
+		x := c.checkExpr(e.X, c.pipeArgWant(f))
 		return c.pipeCall(e, x, f)
 	case syntax.BinPipeBack:
-		// `f PIPE_BACK x` applies f to x — operands in source order.
+		// `f PIPE_BACK x` applies f to x — operands in source order;
+		// the callee still checks first for the same seeding reason.
 		f := c.checkExpr(e.X, nil)
-		x := c.checkExpr(e.Y, nil)
+		x := c.checkExpr(e.Y, c.pipeArgWant(f))
 		return c.pipeCall(e, x, f)
 	case syntax.BinPipeTry:
 		return c.checkPipeTry(e)
@@ -1378,6 +1383,32 @@ func goCalleeSym(e Expr) *resolve.Symbol {
 	}
 	if sym != nil && (sym.Kind == resolve.KindMethod || sym.IsGo) {
 		return sym
+	}
+	return nil
+}
+
+// pipeArgWant is the want a piped argument checks under — the
+// callee's first positional parameter when it carries `Go.Any` and
+// the callee takes the generic application path, mirroring
+// checkGomApply's `checkExpr(arg, paramType)`. Seeding only the
+// `Go.Any` case keeps honest mismatches single-reported: pipeCall
+// still unifies the arg against the parameter itself, and a want
+// the arg already failed would only echo the same mismatch at the
+// pipe's span. A bare Go callee or a saturated Go call result
+// answers nil: pipeCall's Go-boundary branches perform their own
+// conformExpr under goWant, and a premature want would skip the
+// live-parameter mark chanDirConv needs.
+func (c *checker) pipeArgWant(fn Expr) types.Type {
+	if goCalleeSym(fn) != nil {
+		return nil
+	}
+	if ap, ok := fn.(*Apply); ok && ap.Call.Kind == CallGo && ap.Call.HoleIndex < 0 {
+		return nil
+	}
+	if fs, ok := types.Chase(fn.Type()).(*types.Func); ok &&
+		len(fs.Params) > 0 && fs.Params[0].Label == "" &&
+		containsGoAny(types.Chase(fs.Params[0].Type)) {
+		return fs.Params[0].Type
 	}
 	return nil
 }
@@ -1790,6 +1821,44 @@ func (c *checker) checkLambda(e *syntax.Lambda, want types.Type) Expr {
 	}
 }
 
+// armDetached reports whether the shared arm-type slot settled into
+// a shape the next arm should no longer check against: a concrete
+// type carrying no `Go.Any`, or a constrained meta — an `any`-typed
+// arm could only fail the settled judgment, so it checks on its own
+// meta and the join absorbs it (the `any` arm wins the join, the
+// concrete side boxes — spec 8.1.7). An open join meta or a settled
+// type carrying `Go.Any` keeps sharing: the latter seeds the arm's
+// own constructor pins (`Some 1` under `Option Go.Any` builds
+// `Option[any]`).
+func (c *checker) armDetached(bt types.Type) bool {
+	cb := types.Chase(bt)
+	if containsGoAny(cb) {
+		return false
+	}
+	if m, ok := cb.(*types.Meta); ok {
+		r := c.recOf(m)
+		return r.num || r.ord || r.flo || r.intg || r.eq
+	}
+	return true
+}
+
+// joinArm folds a detached arm's checked body into the accumulated
+// branch type: a bare `Go.Any` arm absorbs the join — every prior
+// arm conforms into it (boxing whole values, spec 8.1.7) — and any
+// other pair conforms the arm into the settled type, the same
+// judgment the shared-slot path applies. It returns the new join
+// type and the arm body to record; prior arms needing the box are
+// rewritten through `prev`.
+func (c *checker) joinArm(bt types.Type, arm Expr, armSp diag.Span, prev []*Expr) (types.Type, Expr) {
+	if isGoAny(types.Chase(arm.Type())) && !isGoAny(types.Chase(bt)) {
+		for _, p := range prev {
+			*p = c.conformExpr(*p, arm.Type(), (*p).Span())
+		}
+		return arm.Type(), arm
+	}
+	return bt, c.conformExpr(arm, bt, armSp)
+}
+
 // checkIf types `if c { a } else { b }`. Without else the then-branch
 // must be Unit — a value-producing then without else is E0403.
 func (c *checker) checkIf(e *syntax.If, want types.Type) Expr {
@@ -1843,7 +1912,18 @@ func (c *checker) checkIf(e *syntax.If, want types.Type) Expr {
 		bt = c.newMeta(e.Sp, "the if branches' type")
 	}
 	then := c.checkExpr(e.Then, bt)
-	els := c.checkExpr(e.Else, bt)
+	elsW := bt
+	if want == nil && c.armDetached(bt) {
+		// The then arm settled the join to a concrete,
+		// `Go.Any`-free type — an `any`-typed else could only
+		// fail it. Detach the else and let the join absorb it:
+		// arm order stops mattering under a bare `Go.Any` want.
+		elsW = nil
+	}
+	els := c.checkExpr(e.Else, elsW)
+	if elsW == nil {
+		bt, els = c.joinArm(bt, els, e.Else.Span(), []*Expr{&then})
+	}
 	return &If{Base: baseOf(e.Sp, bt), Cond: cond, Then: then, Else: els}
 }
 
@@ -1857,6 +1937,7 @@ func (c *checker) checkMatch(e *syntax.Match, want types.Type) Expr {
 		bt = c.newMeta(e.Sp, "the match arms' type")
 	}
 	arms := make([]MatchArm, len(e.Arms))
+	prev := make([]*Expr, 0, len(e.Arms))
 	for i, a := range e.Arms {
 		// The pattern binds before the guard runs: `a == b` in a
 		// guard must see the pattern variables' own types, not
@@ -1869,12 +1950,22 @@ func (c *checker) checkMatch(e *syntax.Match, want types.Type) Expr {
 				c.shadowedErr(a.Guard.Span(), "a match guard", "Bool")
 			}
 		}
+		w := bt
+		detached := want == nil && c.armDetached(bt)
+		if detached {
+			w = nil
+		}
+		body := c.checkExpr(a.Body, w)
+		if detached {
+			bt, body = c.joinArm(bt, body, a.Body.Span(), prev)
+		}
 		arms[i] = MatchArm{
 			Sp:    a.Sp,
 			Pat:   pat,
 			Guard: guard,
-			Body:  c.checkExpr(a.Body, bt),
+			Body:  body,
 		}
+		prev = append(prev, &arms[i].Body)
 	}
 	return &Match{Base: baseOf(e.Sp, bt), Subj: subj, Arms: arms}
 }
@@ -2195,6 +2286,20 @@ func (c *checker) checkSelectExpr(e *syntax.SelectExpr, want types.Type) Expr {
 	}
 	out := &SelectExpr{Base: baseOf(e.Sp, bt)}
 	defaults := 0
+	var prev []*Expr
+	armBody := func(body syntax.Expr) Expr {
+		w := bt
+		detached := want == nil && c.armDetached(bt)
+		if detached {
+			w = nil
+		}
+		b := c.checkExpr(body, w)
+		if detached {
+			bt, b = c.joinArm(bt, b, body.Span(), prev)
+		}
+		prev = append(prev, &b)
+		return *prev[len(prev)-1]
+	}
 	for _, a := range e.Arms {
 		switch a := a.(type) {
 		case *syntax.RecvArm:
@@ -2262,7 +2367,7 @@ func (c *checker) checkSelectExpr(e *syntax.SelectExpr, want types.Type) Expr {
 			out.Arms = append(out.Arms, &RecvArm{
 				Bind: bind,
 				Chan: ch,
-				Body: c.checkExpr(a.Body, bt),
+				Body: armBody(a.Body),
 			})
 		case *syntax.SendArm:
 			ch := c.checkExpr(a.Chan, nil)
@@ -2290,7 +2395,7 @@ func (c *checker) checkSelectExpr(e *syntax.SelectExpr, want types.Type) Expr {
 			out.Arms = append(out.Arms, &SendArm{
 				Chan:  ch,
 				Value: c.checkExpr(a.Value, elem),
-				Body:  c.checkExpr(a.Body, bt),
+				Body:  armBody(a.Body),
 			})
 		case *syntax.DefaultArm:
 			defaults++
