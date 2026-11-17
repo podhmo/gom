@@ -20,3 +20,10 @@ fn maior (a: time.Duration) (b: time.Duration) -> Bool = a > b
 fn ticks () -> goiface.Ticks = 1 + 2
 
 fn ratio () -> goiface.Ratio = 1 / 2
+
+fn neg_min () -> goiface.Ticks = -9223372036854775808
+
+fn discard_named () -> Int = {
+  let _ : goiface.Ticks = 1
+  0
+}

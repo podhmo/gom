@@ -48,3 +48,19 @@ func ratio(_ struct{}) goiface.Ratio {
 	return goiface.Ratio(1) / goiface.Ratio(2)
 //line named_int_arith.gom:22
 }
+
+//line named_int_arith.gom:24
+func negMin(_ struct{}) goiface.Ticks {
+//line named_int_arith.gom:24
+	return goiface.Ticks(-9223372036854775808)
+//line named_int_arith.gom:24
+}
+
+//line named_int_arith.gom:26
+func discardNamed(_ struct{}) int64 {
+//line named_int_arith.gom:27
+	_ = goiface.Ticks(1)
+//line named_int_arith.gom:28
+	return 0
+//line named_int_arith.gom:26
+}

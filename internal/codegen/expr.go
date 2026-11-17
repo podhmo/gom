@@ -243,6 +243,19 @@ func (g *gen) simpleExpr(e core.Expr) ast.Expr {
 		*core.GoFuncRef, *core.FieldGet:
 		return g.atom(e.(core.Atom))
 	case *core.Unary:
+		// A negated int literal at a named Go type puts the sign
+		// inside the conversion — `-Duration(9223372036854775808)`
+		// overflows the positive magnitude before negating, while
+		// `Duration(-9223372036854775808)` is a legal constant.
+		if e.Op == syntax.UnNeg {
+			if l, ok := e.X.(*core.Lit); ok && l.Kind == syntax.LitInt {
+				if _, named := types.Chase(l.Type()).(*types.Go); named {
+					return &ast.CallExpr{Fun: g.goType(l.Type()), Args: []ast.Expr{
+						&ast.UnaryExpr{Op: token.SUB, X: &ast.BasicLit{Kind: token.INT, Value: l.Text}},
+					}}
+				}
+			}
+		}
 		return &ast.UnaryExpr{Op: unOp(e.Op), X: g.atom(e.X)}
 	case *core.Binary:
 		return &ast.BinaryExpr{X: g.atom(e.X), Op: binOp(e.Op), Y: g.atom(e.Y)}

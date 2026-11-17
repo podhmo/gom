@@ -39,3 +39,16 @@ fn ratio_let () -> goiface.Ratio = {
   let r : goiface.Ratio = 1 / 2
   r + 0.25
 }
+
+// `-min` keeps the sign inside the conversion — a bare
+// `-Ticks(9223372036854775808)` would overflow the magnitude before
+// negating.
+fn neg_min () -> goiface.Ticks = -9223372036854775808
+
+// A discarded literal at a named type still needs `_ =` — a bare
+// `Ticks(1)` statement is "not used" in Go (conversions are not
+// calls in statement position).
+fn discard_named () -> Int = {
+  let _ : goiface.Ticks = 1
+  0
+}
