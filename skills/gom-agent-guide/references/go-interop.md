@@ -70,6 +70,7 @@ fn parse (s: String) -> Result Int GoError =
 | Go | Gom |
 | --- | --- |
 | `int` / `int64` / `int32` / `float64` | `Int` / `Int` / `Int32` / `Float` |
+| `byte` / `uint8` | `Byte` — `List Byte` is `[]byte` (byte I/O); no literals or arithmetic, `==`/`!=` only, convert with `Go.conv` |
 | `string` / `bool` / `rune` | `String` / `Bool` / `Char` |
 | `*T` | `Ptr T` (nil deref panics, as in Go; ops in the `Ptr` module) |
 | `[]T` | `List T` at a signature boundary (param/result/member type — copied both ways); `Go.Slice T` when nested inside another type |
@@ -94,11 +95,33 @@ fn parse (s: String) -> Result Int GoError =
 - Exported struct fields read via `v.Field` (promoted fields and Go's
   ambiguity rules apply; unexported fields are invisible). Field
   writes and composite literals don't exist yet.
-- Not representable → hidden + reason on use (E0501): `uint8`–`uint64`
-  /`byte`, `float32`, complex, `[N]T` arrays, `unsafe.Pointer`,
-  generic types, generic fns with non-`any`/`comparable` constraints
-  (see `docs/problems/2026-11-04-generic-go-fns-hidden.md`), funcs
-  taking/returning func types, anonymous interfaces with methods.
+- Not representable → hidden + reason on use (E0501): unsigned
+  ints other than `byte`/`uint8`, `int8`/`int16`, `float32`,
+  complex, `[N]T` arrays, `unsafe.Pointer`, generic types, funcs
+  taking/returning func types, anonymous interfaces with methods,
+  3+ return values.
+- Generic Go fns: callable when every constraint is `any`,
+  `comparable`, a structural constraint (`S ~[]E`, `M ~map[K]V`),
+  or a type-param-free union (`cmp.Ordered` and friends — including
+  unions wrapped in a named interface). So `slices`/`maps`/`cmp`
+  mostly work now. How they read:
+  - `s S` under `S ~[]E` is a `Go.Slice E` parameter — a `List`
+    argument crosses the boundary's copy, so the callee can't
+    mutate your list; the copy means in-place shapes like
+    `slices.Sort xs` warn W0501 (sort the `Go.Slice` itself).
+  - Constraint-only type params (`maps.Equal`'s K/V) infer from
+    ordinary argument conformance; union terms are judged on the
+    emitted Go type — `Int` is `int64`, so `~int64` fits, `~int`
+    does not.
+  - A `List` type arg cannot satisfy a slice/map union term
+    (`~[]byte`, `[]byte | string`) → E0508 — the output is named
+    `list.List[T]` outside the term; write `Go.Slice Byte` where
+    you need the anonymous form. Forwarding a Gom-generic's type
+    var into a Go generic is also E0508 (no Go repr).
+  - Still hidden (E0506): constraints with methods, intersections
+    of approx/union terms, unions containing type params,
+    recursive `S ~[]S`. Instantiated generic result types like
+    `iter.Seq` are a separate gap → E0501 (e.g. `maps.Keys`).
 - `error` return values become `Result Unit GoError` (or `GoError`/
   `Option GoError` under a declared view — see the result table);
   call `.Error ()` for the message or wrap via `|?>`'s auto-wrap.

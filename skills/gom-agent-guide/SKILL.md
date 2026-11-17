@@ -153,7 +153,7 @@ generated from — useful when generated code surprises you.
   means call sites must write `~to:`; labeled args are order-free,
   `~to` puns `~to: to`. Omitting a label is *partial application*,
   not an error — it bites silently: see the mistakes section.
-- **Types** (all nominal): `Int Int32 Int64 Float Bool Char String
+- **Types** (all nominal): `Int Int32 Int64 Byte Float Bool Char String
   Unit`, tuples `(a, b)`, `List a`, `Option a` (`Some`/`None`),
   `Result a e` (`Ok`/`Err`), `Ref a`, `Array a`, `Ptr T`, `Chan a` /
   `RecvChan a` / `SendChan a`, `Task a`, `GoError`, `Go.Slice a`,
@@ -709,7 +709,8 @@ prints the pointer and exits 2).
 | Command | Use |
 | --- | --- |
 | `gom check FILE\|DIR...` | Parse → resolve → type-check → pattern check; no output files. A directory's `*.gom`/`*.gomi` compile as one package. |
-| `gom build [-o out] FILE\|DIR...` | Full pipeline; writes one `.go` per `.gom` next to the input (or under `-o` dir/file). |
+| `gom build [-o out] FILE\|DIR...` | Full pipeline; writes one `.go` per `.gom` next to the input (or under `-o` dir/file). `-go` additionally runs `go build` on the written package and folds its errors back to `.gom` spans. |
+| `gom lsp [-go]` | stdio LSP server (package-granular diagnostics). `-go` opt-in: staged `go build` diagnostics published as `source:"go"` (~200ms/change — off by default). |
 | `gom dump -phase=syntax\|resolve\|check\|core FILE` | Print one phase's IR — sibling `.gom` files compile along so package members resolve; only the named file's IR prints (diagnostics go to stderr; stdout is the artifact). |
 | `gom test FILE\|DIR... [-- FLAGS]` | Also writes `_test.go` beside the `.go` and runs the package's `go test -json` — FLAGS after `--` pass through (`-race`, `-run`). Library packages need `<pkg>.gomi` (the conformance gate runs here too); `-q`/`--quiet` drops the raw half of panic stacks. |
 | `gom fmt [-w\|-d\|-l\|--check] FILE...` | Canonical formatter; `-` reads stdin. stdout carries the artifact; message stream to stderr. |

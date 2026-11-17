@@ -135,12 +135,12 @@ let pending = transfer 0 ~to: 1         // partial: ~amount: Int -> Int
 
 ## Types
 
-All types are nominal. Builtin names (`Int`, `List`, `Option`,
-`Result`, `Bool`, `String`, `Unit`, `Float`, `Char`, `Int32`,
-`Int64`, `Ref`, `Array`, `Ptr`, `Chan`, `RecvChan`, `SendChan`,
-`Task`, `GoError`) live in the builtin scope — a file-local `type`
-may shadow them, and then constructs needing the builtin report
-E0415.
+All types are nominal. Builtin names (`Int`, `Int32`, `Int64`,
+`Byte`, `List`, `Option`, `Result`, `Bool`, `String`, `Unit`,
+`Float`, `Char`, `Ref`, `Array`, `Ptr`, `Chan`, `RecvChan`,
+`SendChan`, `Task`, `GoError`, `Go.Slice`, `Go.Map`, `Go.Any`)
+live in the builtin scope — a file-local `type` may shadow them,
+and then constructs needing the builtin report E0415.
 
 ```gom
 type Option2 a =          // type parameters are lowercase, juxtaposed
