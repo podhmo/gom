@@ -310,8 +310,12 @@
   対応（wave14 lane2・CLI 半分）: `gom build -go` を新設 — 書き出し後に出力先ディレクトリごと
   `go build` を走らせ、stderr を `GoToolDiagnostics`（tool=`"go build"`）で `.gom` span へ fold
   （opt-in、既定の transpile-only は不変。起動自体の失敗は E0001/SourceGo 診断）。
-  残件: `gom lsp` は CheckOnly コンパイルで生成物がなく go tool を呼ぶ場所自体が未決定
-  （TODO「LSP: go-tool 診断の取り込み」が引き継ぐ）。`gom run`・`go vet` の実起動経路もない
+  対応（wave15 lane4・LSP 半分）: `gom lsp -go` を新設 — opt-in でユニットを全面コンパイル
+  し、publish 前にモジュールルート下の temp dir で `go build` を同期的に走らせて
+  `.gom` span へ fold（実 Emacs+Eglot で検証。
+  [decision](decisions/2026-11-17-lsp-gotool-invocation.md)、
+  [検証](sketch/2026-11-17-lsp-gotool.md)）。
+  残件: `gom run`・`go vet` の実起動経路はない
   （`vet:` 前置詞つき出力は現状 raw text 扱い）。
   参照: [design 2.2](design.md#22-ソース位置の対応)、[GoToolDiagnostics](../internal/build/gopos.go)、
   [decision](decisions/2026-11-06-gotool-position-inverse.md)、

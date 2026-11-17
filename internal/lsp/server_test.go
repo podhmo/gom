@@ -66,6 +66,13 @@ func readOutputs(t *testing.T, s string) []map[string]any {
 // Server and returns every message it wrote.
 func runSession(t *testing.T, compile Compiler, msgs ...any) (*Server, []map[string]any) {
 	t.Helper()
+	return runServer(t, New(compile), msgs...)
+}
+
+// runServer serves msgs on an already-configured Server — tests
+// that set fields like GoTool build the Server first.
+func runServer(t *testing.T, srv *Server, msgs ...any) (*Server, []map[string]any) {
+	t.Helper()
 	var in bytes.Buffer
 	for _, m := range msgs {
 		b, err := json.Marshal(m)
@@ -75,7 +82,6 @@ func runSession(t *testing.T, compile Compiler, msgs ...any) (*Server, []map[str
 		fmt.Fprintf(&in, "Content-Length: %d\r\n\r\n%s", len(b), b)
 	}
 	var out bytes.Buffer
-	srv := New(compile)
 	if err := srv.Serve(&in, &out); err != nil {
 		t.Fatalf("Serve: %v", err)
 	}

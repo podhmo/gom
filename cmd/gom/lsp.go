@@ -23,6 +23,7 @@ import (
 func runLSP(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("lsp", flag.ContinueOnError)
 	fs.SetOutput(stderr)
+	goTool := fs.Bool("go", false, "run `go build` on the unit's generated output after each successful compile and fold its diagnostics onto .gom spans (source \"go\")")
 	if err := fs.Parse(args); err != nil {
 		return flagError(err)
 	}
@@ -30,9 +31,14 @@ func runLSP(args []string, stdout, stderr io.Writer) int {
 		if len(ins) == 0 {
 			return nil, nil
 		}
+		// -go needs generated output to stage, so the unit compiles
+		// the full pipeline instead of gom check's CheckOnly.
 		return build.CompileFiles(ins,
-			compileOptions(input{path: ins[0].Path}, true))
+			compileOptions(input{path: ins[0].Path}, !*goTool))
 	})
+	if *goTool {
+		srv.GoTool = lsp.NewGoTool()
+	}
 	if err := srv.Serve(os.Stdin, stdout); err != nil {
 		fmt.Fprintf(stderr, "gom lsp: %v\n", err)
 		return diag.ExitInternal

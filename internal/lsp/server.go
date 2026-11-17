@@ -49,13 +49,15 @@ type member struct {
 
 // unit is one gather+compile of a package: the members fed to the
 // compiler in input order, the per-input results handed back, the
-// scope the unit's published sets retract against, and the internal
-// failure of the compile itself, if any.
+// scope the unit's published sets retract against, the internal
+// failure of the compile itself, if any, and the go-tool pass's
+// diagnostics when GoTool ran.
 type unit struct {
 	scope   string
 	members []member
 	results []*build.Result
 	err     error
+	goDiags []diag.Diagnostic
 }
 
 // pubEntry records one pushed diagnostics set: the URI it went to
@@ -82,6 +84,11 @@ type Server struct {
 	// markup is the hover payload kind negotiated at initialize —
 	// "markdown" when the client offers it, "plaintext" otherwise.
 	markup string
+	// GoTool, when non-nil, runs on the read loop after every unit
+	// compile that itself succeeded — `gom lsp -go` wires NewGoTool
+	// here. Its diagnostics merge into the member sets like compile
+	// diagnostics, so the next compile's publish retracts them.
+	GoTool GoTool
 }
 
 // New returns a Server using compile for each recompile. A nil
@@ -427,6 +434,9 @@ func (s *Server) recompileUnit(scope string, ms []member) *unit {
 	}
 	results, err := s.guardedCompile(inputs)
 	u.results, u.err = results, err
+	if err == nil && s.GoTool != nil {
+		u.goDiags = s.guardedGoTool(inputs, results)
+	}
 	for i, m := range ms {
 		if m.doc == nil {
 			continue
@@ -439,6 +449,23 @@ func (s *Server) recompileUnit(scope string, ms []member) *unit {
 		}
 	}
 	return u
+}
+
+// guardedGoTool wraps the go-tool pass in the same panic boundary
+// the compile gets — a fault in staging or folding is an internal
+// error, not a dead session.
+func (s *Server) guardedGoTool(inputs []build.Input, results []*build.Result) (ds []diag.Diagnostic) {
+	defer func() {
+		if p := recover(); p != nil {
+			ds = []diag.Diagnostic{
+				diag.Error("E0001", "go-tool pass failed").
+					From(diag.SourceGo).
+					Set("tool", "go build").
+					Set("error", fmt.Sprintf("panic: %v", p)),
+			}
+		}
+	}()
+	return s.GoTool(inputs, results)
 }
 
 // guardedCompile runs the unit compile behind a panic boundary:
@@ -554,6 +581,18 @@ func (s *Server) memberDiagnostics(u *unit, i int) []Diagnostic {
 		lines = diag.NewLineIndex(m.src)
 	}
 	for _, dg := range r.Diagnostics {
+		if ld, ok := s.convertDiagnostic(m.path, lines, dg); ok {
+			ds = append(ds, ld)
+		}
+	}
+	// The go-tool pass's folded diagnostics route to the member whose
+	// file their span names; a positionless one (the tool could not
+	// run, or the report carried no parseable position) lands on the
+	// unit's first member so it is seen exactly once.
+	for _, dg := range u.goDiags {
+		if dg.Span.IsZero() && i != 0 {
+			continue
+		}
 		if ld, ok := s.convertDiagnostic(m.path, lines, dg); ok {
 			ds = append(ds, ld)
 		}
