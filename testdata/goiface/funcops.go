@@ -100,6 +100,13 @@ func ErrPair() func() (error, error) {
 	return func() (error, error) { return errors.New("first"), nil }
 }
 
+// ErrPairNil is the same `func() (error, error)` source returning
+// `(nil, nil)` — `Go.fn0` must read it as `Ok None` through the
+// `option.FromGo` payload rule.
+func ErrPairNil() func() (error, error) {
+	return func() (error, error) { return nil, nil }
+}
+
 // Ints is a `func([]int) int` source — `[]int` splits `int`/`int64`
 // inside a container the boundary cannot convert element-wise, so
 // `Go.fn1` on it rejects E0510.

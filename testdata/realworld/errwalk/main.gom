@@ -167,10 +167,30 @@ fn run_pipepair () -> Unit = match trigger_pipe () {
   Err e -> ignore fmt.Println "unreachable: ${e.Error ()}"
 }
 
+// fn0pair — the `Go.fn0` adapter reads `func() (error, error)`
+// with the same nil-able payload rule as the derived view:
+// `(nil, nil)` is `Ok None`, a soft error `Ok (Some e)`.
+fn report_pair (label: String) (r: Result (Option GoError) GoError) -> Unit =
+  match r {
+    Err e -> ignore fmt.Println "${label}: err ${e.Error ()}"
+    Ok payload -> match payload {
+      Some e -> ignore fmt.Println "${label}: ok-some ${e.Error ()}"
+      None -> ignore fmt.Println "${label}: ok-none"
+    }
+  }
+
+fn run_fn0pair () -> Unit = {
+  let soft = Go.fn0 (goiface.ErrPair ())
+  report_pair "fn0pair-soft" (soft ())
+  let nilp = Go.fn0 (goiface.ErrPairNil ())
+  report_pair "fn0pair-nil" (nilp ())
+}
+
 fn main () -> Unit = match os.Args {
   [_prog, "panic", ..rest] -> run_panic ()
   [_prog, "trypair", ..rest] -> run_trypair ()
   [_prog, "pipepair", ..rest] -> run_pipepair ()
   [_prog, "pair", ..rest] -> pair ()
+  [_prog, "fn0pair", ..rest] -> run_fn0pair ()
   _ -> walk ()
 }

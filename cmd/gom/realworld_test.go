@@ -300,4 +300,13 @@ func TestEndToEnd_RealWorldPrograms(t *testing.T) {
 		!strings.Contains(errout, "declares a never-nil payload") {
 		t.Fatalf("errwalk pipepair: code=%d err=%q", code, errout)
 	}
+	// `fn0pair`: the `Go.fn0` adapter reads `(nil, nil)` as `Ok
+	// None` and a soft first error as `Ok (Some e)` — the same
+	// nil-able payload rule as the derived view, through the
+	// FuncN adapter rather than a declared extern.
+	wantFn0 := "fn0pair-soft: ok-some first\nfn0pair-nil: ok-none\n"
+	if code, out, errout := runBin(t, errwalkBin, dir, "", "fn0pair"); code != 0 ||
+		out != wantFn0 || errout != "" {
+		t.Fatalf("errwalk fn0pair: code=%d out=%q err=%q\nwant %q", code, out, errout, wantFn0)
+	}
 }
