@@ -73,6 +73,11 @@ func (g *gen) conType(c *types.Con) ast.Expr {
 		case "Any":
 			return ast.NewIdent("any")
 		default:
+			if n, ok := goFuncArity(c.Name); ok {
+				// `Go.FuncN` — the flat Go func type: args are the
+				// N raw parameters then the raw results.
+				return g.goFuncType(n, c.Args)
+			}
 			panic(fmt.Sprintf("codegen: unknown Go namespace type %q", c.Name))
 		}
 	}
@@ -173,6 +178,35 @@ func (g *gen) funcType(f *types.Func) ast.Expr {
 		}
 	}
 	return ret
+}
+
+// goFuncArity reads the parameter count out of a `Go.FuncN` type
+// name — the arity lives in the name, and the type arguments are
+// the raw views of the N parameters then 0..2 results.
+func goFuncArity(name string) (int, bool) {
+	if len(name) != 5 || name[:4] != "Func" {
+		return 0, false
+	}
+	d := name[4]
+	if d < '0' || d > '0'+byte(types.GoFuncMaxArity) {
+		return 0, false
+	}
+	return int(d - '0'), true
+}
+
+// goFuncType renders `Go.FuncN args` as the flat `func(p...) (r...)`.
+func (g *gen) goFuncType(n int, args []types.Type) ast.Expr {
+	ft := &ast.FuncType{Params: &ast.FieldList{}}
+	for _, a := range args[:min(n, len(args))] {
+		ft.Params.List = append(ft.Params.List, &ast.Field{Type: g.goType(a)})
+	}
+	if len(args) > n {
+		ft.Results = &ast.FieldList{}
+		for _, a := range args[n:] {
+			ft.Results.List = append(ft.Results.List, &ast.Field{Type: g.goType(a)})
+		}
+	}
+	return ft
 }
 
 // tupleType renders `(A, B, ...)` as rt.TupleN[A, B, ...].

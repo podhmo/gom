@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0510",
+      "severity": "error",
+      "message": "`Go.func1` expects a function with 1 parameter(s), got Int -> Int -> Int",
+      "span": {
+        "file": "E0510_go_func_arity.gom",
+        "start": {
+          "line": 9,
+          "col": 35,
+          "offset": 241
+        },
+        "end": {
+          "line": 9,
+          "col": 47,
+          "offset": 253
+        }
+      }
+    }
+  ]
+}

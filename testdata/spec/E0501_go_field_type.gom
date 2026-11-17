@@ -1,3 +1,6 @@
 package bridge
-import go "net/http"
-fn bad (request: Ptr http.Request) -> Unit = ignore request.GetBody
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// A field whose func type exceeds `Go.FuncN`'s arity limit stays
+// hidden — the selector reports E0501 with the reason.
+fn bad (b: Ptr goiface.FnBox) -> Unit = ignore b.Many

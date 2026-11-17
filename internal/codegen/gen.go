@@ -650,7 +650,7 @@ func untypedConst(x core.Expr) bool {
 		*core.FieldGet, *core.CallDirect, *core.CallFunc,
 		*core.CallGo, *core.CallBuiltin, *core.CtorApp, *core.Equal,
 		*core.TupleNew, *core.ListNew, *core.RecordNew,
-		*core.RecordUpdate, *core.Conv, *core.Closure, *core.If,
+		*core.RecordUpdate, *core.Conv, *core.Closure, *core.GoFunc, *core.If,
 		*core.Match, *core.SelectExpr, *core.Spawn, *core.ForRange,
 		*core.TailCall, *core.EscapeResult, *core.EscapeCall,
 		*core.ResultFromGo, *core.OptionFromGo, *core.TupleFromGo,

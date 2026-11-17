@@ -56,6 +56,7 @@ Go 相互運用を変えたら両方向（Gom → Go、Go → Gom）のテスト
 - [x] **[task] exported `let` の declared-type 忠実度**: `var X any` を emit — 適合ボックスを Core の `Conv`（型 `Go.Any`）として物質化するので `d.Body.Tail.Type()` が宣言型を拾う（codegen への型伝搬は不要だった。残ギャップ 2、同検証、spec `ok_go_any_gomi/`・golden `go_any`）
 - [x] **[task] `Option Go.Any` の `None`**: 解決 — unify を値スロット判定と構造判定 `unifySub` に分け、型引数位置の `Go.Any` は ctor の未解決 meta を `Go.Any` に bind（`option.Option_None[any]{}` を emit）。スカラ `let x : Go.Any = None` は制限として E0407 のまま（残ギャップ 3、同 decision/検証、fixture `E0407_go_any_scalar_ctor`）
 - [x] **[task] `Go.Any` コンテナ payload の materialize/拒否**: materialize を採用 — `unifySub` が型引数位置の `Go.Any` をインスタンス化の選択として裁き `Some 42`/`Ok 42`/`[1]` は `…[any]` emit（`Option[int64]` の乖離を解消）。concrete `Option Int` は型不変で E0401 拒否（残ギャップ 4、同 decision/検証、fixture `E0401_go_any_invariant`・golden `go_any`）
+- [x] **[task] Gom fn → Go func 相互運用（typed adapter `Go.funcN`）**: (b) を採用・実装 — func 型は生ビュー引数の `Go.FuncN`（N=0..3、結果 ≤2）として surface、Gom 側は `Go.funcN` 明示変換のみで供給（暗黙変換なし）。check 側は produced-vs-want を `gomRawCompatible` で view-tolerant に比較（E0401）、引数の非関数・arity 違い・ラベル付き・未対応型は E0510、inline lambda は want から seed。`Unit -> R` は `Go.func0` で `func() R`。lower が `core.GoFunc` に変換計画（パラメータ conv・結果 shape）を確定して載せ、codegen は flat `func` リテラルを render。fixtures: spec `ok_go_func_adapter`・`E0510_go_func_{non_fn,arity,label}`・`E0401_go_func_want`、golden `go_func_adapter`、`E0509_extern_go_any_fn_param` は FuncN 公開に合わせて更新（wave-16 lane 2、[decision](docs/decisions/2026-11-17-func-interop.md)、spec 8.8）
 
 ### P4 公開 API と開発体験
 

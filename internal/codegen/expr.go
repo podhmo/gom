@@ -252,7 +252,7 @@ func (g *gen) simpleExpr(e core.Expr) ast.Expr {
 		return g.recordNew(e)
 	case *core.Conv:
 		return g.conv(e)
-	case *core.Closure, *core.If, *core.Match, *core.SelectExpr,
+	case *core.Closure, *core.GoFunc, *core.If, *core.Match, *core.SelectExpr,
 		*core.Spawn, *core.ForRange, *core.TailCall,
 		*core.EscapeResult, *core.EscapeCall,
 		*core.ResultFromGo, *core.OptionFromGo, *core.TupleFromGo,
@@ -274,7 +274,7 @@ func isSimpleExpr(e core.Expr) bool {
 		*core.Unary, *core.Binary, *core.Equal,
 		*core.CallDirect, *core.CallFunc, *core.CallGo, *core.CallBuiltin,
 		*core.CtorApp, *core.TupleNew, *core.ListNew, *core.RecordNew,
-		*core.Conv, *core.Closure:
+		*core.Conv, *core.Closure, *core.GoFunc:
 		return true
 	case *core.If, *core.Match, *core.SelectExpr,
 		*core.Spawn, *core.ForRange, *core.TailCall,

@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0510",
+      "severity": "error",
+      "message": "`Go.func1` cannot convert a function with labeled parameters — Go func types have no labels",
+      "span": {
+        "file": "E0510_go_func_label.gom",
+        "start": {
+          "line": 8,
+          "col": 37,
+          "offset": 171
+        },
+        "end": {
+          "line": 8,
+          "col": 51,
+          "offset": 185
+        }
+      }
+    }
+  ]
+}

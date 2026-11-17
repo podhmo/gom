@@ -156,6 +156,30 @@ type Closure struct {
 
 func (*Closure) isExpr() {}
 
+// GoFunc is a flat Go function literal `func(p0 T0', ...) (R'...)`
+// adapting a curried Gom function value to a Go func type — the body
+// of a `Go.funcN` conversion
+// (docs/decisions/2026-11-17-func-interop.md). Unlike Closure it
+// binds *all* parameters in one Go func because its value must be
+// a `func(A, B) R` the Go calling convention accepts.
+//
+// Every conversion is settled here: In[i] is the expression that
+// feeds the i-th curried application — the parameter Var itself or
+// a *Conv from its raw Go-view type to the Gom-facing parameter —
+// and ResConv is the conversion applied to the Ok payload (or the
+// sole result) before it is returned in the raw view.
+type GoFunc struct {
+	Base
+	X        Atom         // the curried Gom function value
+	Params   []*Bind      // flat parameters, raw Go-view types
+	In       []Expr       // len(Params) — *Var or *Conv over the parameter bind
+	Results  []types.Type // raw Go-view results — 0, 1, or the (T, error) pair
+	ResShape GoResults    // GoResultsNone / One / ErrOnly / Err
+	ResConv  ConvKind     // conversion on the returned payload; 0 = none
+}
+
+func (*GoFunc) isExpr() {}
+
 // Unary is a primitive unary operation `op x`.
 type Unary struct {
 	Base

@@ -308,6 +308,14 @@ func (c *checker) checkSelect(e *syntax.Select) Expr {
 				c.diags.Add(diag.Error("E0507",
 					"`Go.conv` is only valid as a conversion: `Go.conv e : T`").At(e.Sp))
 				typ = c.untypedMeta()
+			case sel != nil && funcCallMember(sel):
+				// `Go.funcN` is a conversion whose result type the
+				// apply itself computes — like `Go.conv` the bare
+				// member names no type. In callee position the
+				// apply path (checkGoFuncCall) does the real work
+				// and this meta is never inspected; a bare use
+				// surfaces as the unsolved-meta E0407.
+				typ = c.untypedMeta()
 			case sel != nil && !valueMember(sel.Kind):
 				// A namespace member (a type, or a builtin that is
 				// not a function) is not an expression. The resolver

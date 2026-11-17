@@ -483,6 +483,16 @@ func (d *cdump) cexpr(e core.Expr) *form {
 			fn = nodef("?")
 		}
 		return nodef(chead("closure", e.Base), fn)
+	case *core.GoFunc:
+		text := chead("gofunc", e.Base)
+		kids := []*form{d.cexpr(e.X)}
+		for i, b := range e.Params {
+			kids = append(kids, nodef(fmt.Sprintf("param%d", i), d.cbind("bind", b)))
+		}
+		for i, in := range e.In {
+			kids = append(kids, nodef(fmt.Sprintf("in%d", i), d.cexpr(in)))
+		}
+		return nodef(text, kids...)
 	case *core.Unary:
 		return nodef(chead("unary", e.Base)+" "+e.Op.String(), d.cexpr(e.X))
 	case *core.Binary:

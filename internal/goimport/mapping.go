@@ -536,7 +536,7 @@ func (l *Loader) mapType(t types.Type, goView bool) (gt.Type, string) {
 		}
 		return nil, "anonymous interfaces with methods are not supported yet"
 	case *types.Signature:
-		return nil, "func-typed parameters and results are not supported yet"
+		return l.mapFuncType(t)
 	case *types.Array:
 		return nil, "Go array types are not supported yet"
 	case *types.TypeParam:
@@ -554,6 +554,53 @@ func (l *Loader) mapType(t types.Type, goView bool) (gt.Type, string) {
 	default:
 		return nil, fmt.Sprintf("unsupported Go type %s", t)
 	}
+}
+
+// mapFuncType maps a Go func type — `func(A, B) R` — to the Go-owned
+// `Go.FuncN` type: the name carries the parameter count and the type
+// arguments are the raw Go views of the parameters followed by the
+// results (docs/decisions/2026-11-17-func-interop.md). The Gom and
+// Go views agree — both are the FuncN type — so it maps identically
+// in either view; a value of it is produced only by `Go.funcN`.
+//
+// The admitted shape is bounded: at most gt.GoFuncMaxArity
+// parameters, no variadic or generic signature, and at most two
+// results where a second must be `error`. Anything else keeps the
+// member hidden like any other unrepresentable type.
+func (l *Loader) mapFuncType(sig *types.Signature) (gt.Type, string) {
+	if sig.Variadic() {
+		return nil, "variadic func types are not supported yet"
+	}
+	if sig.TypeParams().Len() > 0 || sig.RecvTypeParams().Len() > 0 {
+		return nil, "generic func types are not supported yet"
+	}
+	n := sig.Params().Len()
+	if n > gt.GoFuncMaxArity {
+		return nil, fmt.Sprintf("func types with %d parameters are not supported yet (max %d)", n, gt.GoFuncMaxArity)
+	}
+	res := sig.Results()
+	if res.Len() > 2 {
+		return nil, fmt.Sprintf("func types with %d results are not supported yet", res.Len())
+	}
+	if res.Len() == 2 && !isError(res.At(1).Type()) {
+		return nil, "func types with two results are supported only as (T, error)"
+	}
+	args := make([]gt.Type, 0, n+res.Len())
+	for v := range sig.Params().Variables() {
+		rt, reason := l.mapType(v.Type(), true)
+		if reason != "" {
+			return nil, fmt.Sprintf("func parameter %s: %s", v.Name(), reason)
+		}
+		args = append(args, rt)
+	}
+	for i := 0; i < res.Len(); i++ {
+		rt, reason := l.mapType(res.At(i).Type(), true)
+		if reason != "" {
+			return nil, fmt.Sprintf("func result %d: %s", i, reason)
+		}
+		args = append(args, rt)
+	}
+	return gt.GoFunc(n, args...), ""
 }
 
 // basicType maps the Go builtin types; untyped kinds take their Go

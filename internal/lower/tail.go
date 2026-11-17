@@ -181,6 +181,11 @@ func eachVar(b *core.Body, f func(v *core.Var, captured bool)) {
 			if e.Fn != nil {
 				body(e.Fn.Body, true)
 			}
+		case *core.GoFunc:
+			atom(e.X, captured)
+			for _, in := range e.In {
+				expr(in, captured)
+			}
 		case *core.CallDirect:
 			atoms(e.Args, captured)
 		case *core.CallFunc:

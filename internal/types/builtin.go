@@ -1,5 +1,7 @@
 package types
 
+import "fmt"
+
 // Builtin types of spec section 3.1, as nullary constructors. They
 // are shared for convenience only — Equal is structural, so
 // &Con{Name: "Int"} from anywhere equals Int. They all live in the
@@ -73,6 +75,23 @@ func GoMap(k, v Type) Type {
 // (docs/decisions/2026-11-03-go-types-mapping.md). It never appears
 // in Gom-facing signatures; the GoSig oracle carries it for lowering.
 var GoInt Type = &Con{Qual: "Go", Name: "Int"}
+
+// GoFuncMaxArity is the largest parameter count a `Go.FuncN` type
+// names — `Go.Func0` .. `Go.Func3` cover the standard library's
+// callback surface (docs/decisions/2026-11-17-func-interop.md).
+const GoFuncMaxArity = 3
+
+// GoFunc returns `Go.FuncN p0 ... pN-1 r...` — a Go func type
+// `func(p0,...,pN-1) (r...)` with the parameter count in the name
+// and the trailing type arguments the Go-view results (0, 1, or the
+// `(T, error)` pair — no others are representable). Every argument
+// is the raw Go view: `int` is `Go.Int`, `[]T` is `Go.Slice T`,
+// `error` is `GoError`. It renders as a flat `func` type, not the
+// curried value representation; `Go.funcN` is the only conversion
+// that produces a value of it.
+func GoFunc(n int, args ...Type) Type {
+	return &Con{Qual: "Go", Name: fmt.Sprintf("Func%d", n), Args: args}
+}
 
 // Go.Any is Go's `any` — the empty interface. A wanted `Go.Any`
 // accepts every argument (implicit boxing, spec 8.1.7); a `Go.Any`

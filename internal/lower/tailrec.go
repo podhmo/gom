@@ -517,6 +517,11 @@ func walkTailrec(b *core.Body, f func(e core.Expr, inSpawn, inClosure bool)) {
 			if e.Fn != nil {
 				body(e.Fn.Body, inSpawn, true)
 			}
+		case *core.GoFunc:
+			atom(e.X, inSpawn, inClosure)
+			for _, in := range e.In {
+				expr(in, inSpawn, inClosure)
+			}
 		case *core.CallDirect:
 			atoms(e.Args, inSpawn, inClosure)
 		case *core.CallFunc:
