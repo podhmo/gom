@@ -1,0 +1,8 @@
+package ex
+
+// The apply result pin walks the *residual* type: under
+// `Go.Any -> String` the partial `keep "s"` checks "s" against
+// `keep`'s first parameter `a` — pin must not bind the shared
+// `?a` to the whole residual `Go.Any -> String` (wave-15 review).
+fn keep (x: a) (y: Go.Any) -> a = x
+fn g () -> (Go.Any -> String) = keep "s"

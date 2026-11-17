@@ -1361,10 +1361,17 @@
   として刻む（`types.Fn` の flatten は eval の level モデルと
   lower の arity split が要求する形状を潰す）。
   fixture: `ok_go_any_residual`、golden `go_any`。
+  追記（wave-15 lane 1）: residual の実測 — want がパラメータを
+  供給する場合のネストラムダ（`Int -> Int -> Go.Any` へ
+  `fn x -> fn y -> 1`）は位置対応消費で本体まで want が届き受理。
+  `Int -> Go.Any = fn x -> fn y -> 1` のような本体側ネストは
+  `?r` に残るため正直な E0407 のまま（pin として維持）。
+  pipe/match-arm 経路は wave-15 の `pipeArgWant`/arm detach で
+  want が届くようになり同じ挙動。
   参照: [check/expr.go](../internal/check/expr.go) `checkLambda`、
   [decision](decisions/2026-11-06-go-any-conformance-materialize.md)。
 
-- [ ] **ctor seeding pin は Con-vs-Con のみ — meta/`types.Go` 戻り値の
+- [x] **ctor seeding pin は Con-vs-Con のみ — meta/`types.Go` 戻り値の
   callee では `Go.Any` 入り want が pin されない**: `id (Some 1)`
   （`id : a -> a`、want `Option Go.Any`）は ret が共有 `?a` meta
   のため pin を skip し `?a := Option num` → E0401。`pkg.NewBox v`
@@ -1374,9 +1381,18 @@
   「reject のまま」（一般化は ret pin の推論系変更を要し、
   代替の `let` 束縛ワークアラウンドが単純）。
   fixture: `E0401_go_any_meta_ret`。
+  対応（wave-15 lane 1、pin 撤回）: `checkApply` の pin を
+  Con-vs-Con 限定から構造 walk へ一般化 — ret が meta なら want
+  自身に `Go.Any` を含む場合に直接 bind（`id (Some 1)` は
+  `?a := Option Go.Any`）、Con/`types.Go` は同名同 arity で
+  対 args を再帰、Func は flatten した params/ret を対応づけ、
+  Tuple も同型で辿る。num/ord/flo/intg/eq 制約付き meta は
+  `any` を抱えられないため bind を skip し従来どおり正直な
+  E0401 となる。
+  fixture: `ok_go_any_meta_ret`。
   参照: [check/apply.go](../internal/check/apply.go) `checkApply` pin。
 
-- [ ] **pipe 引数位置では ctor pin が効かない**: `Some 1 |> f`
+- [x] **pipe 引数位置では ctor pin が効かない**: `Some 1 |> f`
   （`f : Option Go.Any` パラメータ）は E0401 — `x` が `f` 判明前に
   want=nil で確定するため `conformCallee` には settled
   `Option num` が届く。直接適用 `f (Some 1)` は pin が効く。
@@ -1387,8 +1403,18 @@
   「reject のまま」: 確定済み ctor の再検査なしには pin し直せず、
   `Option Int` → `Option Go.Any` の事後変換は不変条件を壊す。
   fixture: `E0401_go_any_pipe_ctor`。
-  参照: [check/expr.go](../internal/check/expr.go) `pipeCall`、
-  [check/apply.go](../internal/check/apply.go) `conformCallee`。
+  対応（wave-15 lane 1、pin 撤回）: `checkBinary` の pipe 両経路
+  で callee を引数より先に check し、`pipeArgWant` が第1引数の
+  want として callee の第1パラメータを返す（`Go.Any` 含有時のみ）。
+  `Some 1 |> f` は `Option Go.Any` want 下で ctor pin が効き
+  `f (Some 1)` と一致する。`Go.Any` 非含有パラメータには want を
+  乗せない — 乗せると失敗時に引数 span と pipe span で診断が
+  二重化するため。Go callee / 飽和 Go 呼び出しは従来どおり
+  want=nil で goWant/chanDirConv 経路を維持。
+  fixture: `ok_go_any_pipe_ctor`。
+  参照: [check/expr.go](../internal/check/expr.go) `checkBinary`/
+  `pipeArgWant`、[check/apply.go](../internal/check/apply.go)
+  `conformCallee`。
 
 - [x] **`Go.Any` 値の直接呼び出しが受理され無効な Go を emit する**:
   `a : Go.Any` に対し `a "s"` が `conformCallee` の fallback
@@ -1435,7 +1461,7 @@
   [lower/pat.go](../internal/lower/pat.go)、
   [codegen/emit.go](../internal/codegen/emit.go) `dcaseValue`。
 
-- [ ] **素の `Go.Any` want 下で any/concrete 混在 if 腕が順序依存で
+- [x] **素の `Go.Any` want 下で any/concrete 混在 if 腕が順序依存で
   E0401 になる**: `let a : Go.Any = if b { 1 } else { v }`
   （`v : any`）は `1` 側が先に join meta を数値に縛り E0401。逆順
   （`v` 先）は `any` が先に bind され `1` が conform で通る。
@@ -1444,7 +1470,16 @@
   対応（wave-14 lane 1）: 現状の順序依存を pin — 決定は
   「順序非依存は two-pass join が必要で今回は見送り、`any`
   腕を先に書く」運用。fixture: `E0401_go_any_if_arm`。
-  参照: [check/expr.go](../internal/check/expr.go)。
+  対応（wave-15 lane 1、pin 撤回）: `armDetached`/`joinArm` で
+  順序非依存化 — want=nil のとき join が concrete（`Go.Any`
+  非含有）または制約付き meta に settled した後続腕は detach
+  して裸 check し、腕が `any` なら join ごと `any` に取り込んで
+  先行腕を `conformExpr` で box する。`if`/`match`/`select` の
+  3経路で同型。`Go.Any` 入りの settled join は共有を維持し、
+  腕自身の ctor pin（`Some 1` under `Option Go.Any`）は従来どおり
+  効く。fixture: `ok_go_any_if_arm`。
+  参照: [check/expr.go](../internal/check/expr.go) `checkIf`/
+  `checkMatch`/`checkSelectExpr`。
 
 - [x] **`xs |> f`（`f : Go.Slice T -> R`）は型 unify が先行して
   E0401、直接適用 `f xs` は sliceConv で通る**: `conformCallee` の

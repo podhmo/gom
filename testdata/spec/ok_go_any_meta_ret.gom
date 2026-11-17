@@ -1,0 +1,11 @@
+package main
+
+// Under `id`'s shared `?a` result meta the `Option Go.Any` want
+// reaches the `Some 1` argument: the ctor pin walks into the
+// apply's result meta and binds it to the `Option` shape first, so
+// the element meta lands on `Go.Any` and the literal boxes
+// (wave-15 F2 — pin generalized from Con-vs-Con to a structural
+// walk over meta results, Con/Go args, and Func params).
+fn id (x: a) -> a = x
+fn r () -> Option Go.Any = id (Some 1)
+fn main () -> Unit = ()

@@ -1,0 +1,13 @@
+package ex
+
+// A select arm join under no expected type absorbs a late `any`
+// arm the same way `if`/`match` do: the concrete arm boxes into
+// the join, the arm body stored in the typed arm is the boxed one,
+// and the select node's type is the join (wave-15 P4 — the arm
+// body rewrite must land on the stored body, not a discarded
+// local).
+fn poll (jobs: Chan Int) (v: Go.Any) -> Go.Any =
+  select {
+    x <- jobs -> 1
+    default -> v
+  }

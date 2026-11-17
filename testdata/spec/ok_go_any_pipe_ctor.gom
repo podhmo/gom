@@ -1,0 +1,12 @@
+package main
+
+// A piped argument checks under the callee's first parameter when
+// that parameter carries `Go.Any`: `Some 1` sees the `Option
+// Go.Any` want before it can settle to `Option Int`, the ctor pin
+// lands the element meta on `any`, and the literal boxes
+// (wave-15 F3 — callee checks before the argument and seeds the
+// pin-bearing want; non-`any` params still check bare so an honest
+// mismatch reports once, at the pipe).
+fn f (o: Option Go.Any) -> Int = 0
+fn r () -> Int = Some 1 |> f
+fn main () -> Unit = ()

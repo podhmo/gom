@@ -61,17 +61,78 @@ func (c *checker) checkApply(e *syntax.Apply, want types.Type) Expr {
 	// nests the answer one constructor deep: `Some (Some 42)`
 	// under `Option (Option Go.Any)` pins the outer meta to
 	// `Option Go.Any` so the inner apply's pin chains through.
-	if wc, ok := types.Chase(want).(*types.Con); ok {
-		if rc, ok := types.Chase(ret).(*types.Con); ok &&
-			rc.Qual == wc.Qual && rc.Name == wc.Name && len(rc.Args) == len(wc.Args) {
-			for i := range wc.Args {
-				if m, ok := types.Chase(rc.Args[i]).(*types.Meta); ok &&
-					containsGoAny(wc.Args[i]) {
-					c.bind(m, wc.Args[i], e.Sp)
+	//
+	// The pin pairs want and result structurally, not only
+	// Con-vs-Con: a bare result meta — `id (Some 1)` under
+	// `Option Go.Any`, where `?a` is shared between `id`'s
+	// parameter and return — binds to the whole want so the
+	// argument's own pin chains through it, and an instantiated
+	// Go named type or a residual function pairs its args/
+	// params/result the same way. A constrained meta (numeric,
+	// ordered, ...) is skipped rather than bound: it can never
+	// hold `any`, and the ordinary argument check reports the
+	// honest mismatch.
+	var pin func(w, r types.Type)
+	pin = func(w, r types.Type) {
+		wc, rc := types.Chase(w), types.Chase(r)
+		if wc == nil || rc == nil {
+			return
+		}
+		switch r := rc.(type) {
+		case *types.Meta:
+			if containsGoAny(wc) {
+				if rec := c.recOf(r); !(rec.num || rec.ord || rec.flo || rec.intg || rec.eq) {
+					c.bind(r, wc, e.Sp)
 				}
 			}
+		case *types.Con:
+			if w, ok := wc.(*types.Con); ok &&
+				r.Qual == w.Qual && r.Name == w.Name && len(r.Args) == len(w.Args) {
+				for i := range w.Args {
+					pin(w.Args[i], r.Args[i])
+				}
+			}
+		case *types.Go:
+			if w, ok := wc.(*types.Go); ok &&
+				r.Ref == w.Ref && len(r.Args) == len(w.Args) {
+				for i := range w.Args {
+					pin(w.Args[i], r.Args[i])
+				}
+			}
+		case *types.Func:
+			if w, ok := wc.(*types.Func); ok {
+				wp, wr := flattenFunc(w)
+				rp, rr := flattenFunc(r)
+				if len(wp) == len(rp) {
+					for i := range wp {
+						pin(wp[i].Type, rp[i].Type)
+					}
+					pin(wr, rr)
+				}
+			}
+		case *types.Tuple:
+			if w, ok := wc.(*types.Tuple); ok && len(w.Elems) == len(r.Elems) {
+				for i := range w.Elems {
+					pin(w.Elems[i], r.Elems[i])
+				}
+			}
+		case *types.Var:
+			// A rigid variable only ever pairs with itself under
+			// unification — no pin to propagate.
 		}
 	}
+	// The pin walks the application's *residual* type — for a
+	// partial application that is `Func(remaining params, ret)`,
+	// not `ret` itself. Pinning `ret` directly would bind a
+	// shared result meta to the whole expected function (`keep
+	// "s"` under `Go.Any -> String` would pin `?a := Go.Any ->
+	// String`, poisoning `keep`'s first parameter — a false
+	// E0401).
+	appRet := ret
+	if len(e.Args) < len(params) {
+		appRet = &types.Func{Params: params[len(e.Args):], Ret: ret}
+	}
+	pin(want, appRet)
 	if goCall {
 		sig, _ := c.sigOf(callee, e.Sp)
 		arity := c.declArity(sig, len(params))

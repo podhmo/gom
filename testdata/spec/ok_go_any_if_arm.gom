@@ -1,0 +1,11 @@
+package main
+
+// If-arm joining under a bare `Go.Any` want is order-independent:
+// once the `1` arm settles the join meta to a concrete type the
+// else arm detaches and checks bare, then the join absorbs its
+// `any` — the `any` arm wins and the concrete arm boxes. The
+// reversed order conforms through the shared slot as before
+// (wave-15 P4 — armDetached/joinArm).
+fn p (v: Go.Any) -> Go.Any = if true { 1 } else { v }
+fn q (v: Go.Any) -> Go.Any = if true { v } else { 1 }
+fn main () -> Unit = ()
