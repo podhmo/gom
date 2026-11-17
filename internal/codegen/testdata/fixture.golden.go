@@ -455,7 +455,9 @@ func worker(jobs chan int64, src result.Result[int64, error]) struct{} {
 func misc(u struct{}) float64 {
 //line t.gom:37
 	_ = func(v0 float64) Shape {
+//line t.gom:37
 		return Shape_Circle{Radius: v0}
+//line t.gom:37
 	}
 //line t.gom:37
 	_ = strconv.Itoa

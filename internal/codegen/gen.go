@@ -457,15 +457,22 @@ func (g *gen) pad() {
 	if !g.pendingIndent {
 		return
 	}
+	g.mark()
+	for i := 0; i < g.depth; i++ {
+		g.buf.WriteByte('\t')
+	}
+	g.pendingIndent = false
+}
+
+// mark emits the `//gomsrc` sentinel pinning the next line to
+// curSpan — called for every line head, including the continuation
+// lines a multi-line go/printer emission writes directly.
+func (g *gen) mark() {
 	if g.curSpan.Valid() {
 		idx := len(g.marks)
 		g.marks = append(g.marks, g.curSpan)
 		fmt.Fprintf(&g.buf, "//gomsrc:%d:%d:%s\n", idx, g.li.Pos(g.curSpan.Start).Line, g.curSpan.File)
 	}
-	for i := 0; i < g.depth; i++ {
-		g.buf.WriteByte('\t')
-	}
-	g.pendingIndent = false
 }
 
 // raw writes text verbatim, padding a fresh line first.
@@ -474,11 +481,31 @@ func (g *gen) raw(s string) { g.pad(); g.buf.WriteString(s) }
 // nl ends the output line; the next write pads to depth.
 func (g *gen) nl() { g.buf.WriteByte('\n'); g.pendingIndent = true }
 
-// expr renders a go/ast expression with go/printer.
+// expr renders a go/ast expression with go/printer. The printer
+// writes multi-line nodes — a curried function literal's body and
+// braces, for one — without pad ever seeing those line heads, so
+// the chunk is buffered and each continuation line gets its own
+// sentinel: a line written without a pin would drift onto the
+// .gom line after the expression's construct.
 func (g *gen) expr(e ast.Expr) {
 	g.pad()
-	if err := printer.Fprint(&g.buf, g.fset, e); err != nil {
+	var eb bytes.Buffer
+	if err := printer.Fprint(&eb, g.fset, e); err != nil {
 		panic(fmt.Sprintf("codegen: printing %T: %v", e, err))
+	}
+	b := eb.Bytes()
+	for len(b) > 0 {
+		i := bytes.IndexByte(b, '\n')
+		if i < 0 {
+			g.buf.Write(b)
+			break
+		}
+		g.buf.Write(b[:i])
+		b = b[i+1:]
+		if len(b) > 0 {
+			g.buf.WriteByte('\n')
+			g.mark()
+		}
 	}
 }
 
