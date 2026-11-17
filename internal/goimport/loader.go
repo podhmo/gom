@@ -158,14 +158,20 @@ func goExport(gobin, dir, path string) (export, srcDir string, depDirs []string,
 		}
 		return "", "", nil, fmt.Errorf("go list -export %s: %w", path, err)
 	}
-	seen := map[string]bool{}
-	for line := range strings.SplitSeq(strings.TrimSpace(string(out)), "\n") {
-		ip, rest, _ := strings.Cut(line, "|")
-		ex, d, _ := strings.Cut(rest, "|")
-		if ip == path {
-			export, srcDir = ex, d
-			continue
-		}
+	// `-deps` lists dependencies before their importers, so the
+	// named package is the last line — matching `.ImportPath ==
+	// path` would miss a relative path (`go list` canonicalizes
+	// "./foo" to the module path).
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	last := lines[len(lines)-1]
+	if last != "" {
+		_, rest, _ := strings.Cut(last, "|")
+		export, srcDir, _ = strings.Cut(rest, "|")
+	}
+	seen := map[string]bool{srcDir: true}
+	for _, line := range lines[:len(lines)-1] {
+		_, rest, _ := strings.Cut(line, "|")
+		_, d, _ := strings.Cut(rest, "|")
 		if d != "" && !seen[d] {
 			seen[d] = true
 			depDirs = append(depDirs, d)

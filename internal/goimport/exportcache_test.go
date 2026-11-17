@@ -174,3 +174,28 @@ func TestExportCacheDepEditInvalidates(t *testing.T) {
 		t.Error("NewMember missing after the dependency edit — stale cache served the old export data")
 	}
 }
+
+// A relative package path ("./foo") resolves through `go list`'s
+// canonical output — the root is the LAST line of `-deps`, not an
+// import-path match on the argument.
+func TestGoExportRelativePath(t *testing.T) {
+	if testing.Short() {
+		t.Skip("runs `go list -export`")
+	}
+	mod := t.TempDir()
+	if err := os.MkdirAll(filepath.Join(mod, "foo"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(mod, "go.mod"), []byte("module test.local/m\n\ngo 1.27\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(mod, "foo", "foo.go"),
+		[]byte("package foo\n\nfunc One() int { return 1 }\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	l := New(&Config{Dir: mod})
+	pkg := membersOf(t, l, "./foo")
+	if pkg.Members["One"] == nil {
+		t.Error("One missing — relative path did not reach export data")
+	}
+}
