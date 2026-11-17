@@ -68,3 +68,31 @@ func RunGoBuild(gobin, dir string, hasMain bool) (*GoBuildRun, error) {
 		Stderr: stderr.String(),
 	}, nil
 }
+
+// RunGoVet runs `go vet` in dir and reports it like RunGoBuild:
+// findings are ordinary results (Failed + Stderr), and the error
+// is non-nil only when go could not be invoked at all. vet emits
+// the same `file:line:col:` diagnostics as build — catastrophic
+// output arrives as raw `vet:`-prefixed lines, which
+// GoToolDiagnostics passes through unpositioned.
+func RunGoVet(gobin, dir string) (*GoBuildRun, error) {
+	if gobin == "" {
+		gobin = "go"
+	}
+	cmd := exec.Command(gobin, "vet", ".")
+	cmd.Dir = dir
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	err := cmd.Run()
+	var ee *exec.ExitError
+	switch {
+	case err == nil:
+	case errors.As(err, &ee):
+	default:
+		return nil, fmt.Errorf("vet: cannot run go vet: %w", err)
+	}
+	return &GoBuildRun{
+		Failed: cmd.ProcessState.ExitCode() != 0,
+		Stderr: stderr.String(),
+	}, nil
+}

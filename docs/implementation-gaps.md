@@ -315,8 +315,13 @@
   `.gom` span へ fold（実 Emacs+Eglot で検証。
   [decision](decisions/2026-11-17-lsp-gotool-invocation.md)、
   [検証](sketch/2026-11-17-lsp-gotool.md)）。
-  残件: `gom run`・`go vet` の実起動経路はない
-  （`vet:` 前置詞つき出力は現状 raw text 扱い）。
+  対応（wave18 lane4・`go vet` 半分）: `gom build -vet` を新設 — `-go` と
+  同じ directory grouping で `go vet`（`build.RunGoVet`）を走らせ
+  `GoToolDiagnostics`（tool=`"go vet"`）で `.gom` span へ fold。
+  `-vet` 時も incremental cache は無効。
+  [decision](decisions/2026-11-18-build-vet-flag.md)。
+  残件: `gom run` の実起動経路はない（open-questions へ移管）。
+  `vet:` 前置詞つき出力は raw text 扱いのまま許容。
   参照: [design 2.2](design.md#22-ソース位置の対応)、[GoToolDiagnostics](../internal/build/gopos.go)、
   [decision](decisions/2026-11-06-gotool-position-inverse.md)、
   [decision `gom build -go`](decisions/2026-11-17-cli-gotool-invocation.md)、
@@ -651,13 +656,24 @@
   [type.go](../internal/types/type.go) `Display`、[unify.go](../internal/check/unify.go)
   `metaNamer`）。残件: E0407/E0409/E0801 の message/`data["type"]` は
   依然 `String()` 由来の raw mint ID を出しうる（下記「`?n` 以外の残存 raw meta」）。
+  残件追記（wave18 lane4）: sibling の `.String()` サイト — E0508・E0413・
+  E0416・W0501・W0502・W0701・W0702 — も同じく `types.Display`+`metaNamer`
+  に掃き出し済み（E0417 の `judgeT` は `litRange` 由来の具象で安全なため未変更）。
 
-- [ ] **W0701/W0702 lint の捕捉範囲外**: `let mk = Chan.make` のエイリアス経由は
+- [x] **W0701/W0702 lint の捕捉範囲外**: `let mk = Chan.make` のエイリアス経由は
   callee シンボル一致を外れ W0701 を逃げる。`Task.spawn` の thunk 捕捉・
   クロージャ経由の捕捉（`let f = fn () -> r; go { f () }`）は値の可変性が
   型に現れず W0702 を逃げる。decision の scope-out として記録済み。
   参照: [decision](decisions/2026-11-04-mutable-sharing-lint.md)、
   [lint.go](../internal/check/lint.go)。
+  対応（wave18 lane4・W0701 半分）: `lintAliases`/`lintCallee` で
+  `let x = <symbol>` の値エイリアスを辿る callee 解決を導入 —
+  W0701・W0501・W0502 が alias 経由でも発火（W0501/W0502 のゲートは
+  `CallGo` から解決 callee の `IsGo` へ）。W0702 のクロージャ捕捉は
+  callee 同一性とは別問題なので scope-out を維持。
+  [decision](decisions/2026-11-18-lint-callee-alias.md)、
+  [fixture](../testdata/spec/W0701_chan_mutable_elem.gom)（`mk`/`mk2`
+  の多段 alias）、[fixture](../testdata/spec/W0502_errors_as_target.gom)。
 
 - [x] **ネスト `go` で同一位置に W0702 が 2 件重複出力される**: 外側・内側の
   `go` 境界がそれぞれ同一の捕捉を報告し、同一スパン・同一メッセージの

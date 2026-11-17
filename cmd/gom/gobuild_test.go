@@ -105,3 +105,79 @@ func TestBuildGoFlagOff(t *testing.T) {
 		}
 	}
 }
+
+// TestBuildVetFlagSilent: `gom build -vet` on a package `go vet`
+// accepts writes its .go and reports no go-source diagnostics.
+func TestBuildVetFlagSilent(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: go vet invocation, skipping in short mode")
+	}
+	t.Parallel()
+
+	haveGo(t)
+	dir := writeFiles(t, map[string]string{
+		"m.gom": "package main\n\nfn f () -> Int = 1\nfn main () -> Unit = { ignore (f ()); () }\n",
+	})
+	testModule(t, dir)
+
+	code, out, errOut := invoke("build", "-vet", filepath.Join(dir, "m.gom"))
+	if code != 0 {
+		t.Fatalf("exit = %d, want 0; out=%q err=%q", code, out, errOut)
+	}
+	for _, l := range jsonLines(t, out) {
+		if l["kind"] == "diagnostic" {
+			t.Fatalf("unexpected diagnostic on clean package: %v", l)
+		}
+	}
+}
+
+// TestBuildVetFlagFoldsFinding: a package that gom and `go build`
+// accept but `go vet` flags — via a sibling Go file whose //line
+// directive names the .gom input — folds the finding back onto the
+// .gom span (SourceGo, tool="go vet").
+func TestBuildVetFlagFoldsFinding(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: go vet invocation, skipping in short mode")
+	}
+	t.Parallel()
+
+	haveGo(t)
+	dir := writeFiles(t, map[string]string{
+		"m.gom": "package main\n\nfn f () -> Int = 1\nfn main () -> Unit = { ignore (f ()); () }\n",
+		// printf's format analyzer reports through the //line
+		// directive the same way a generated file's diagnostics do.
+		"z.go": "package main\n\nimport \"fmt\"\n\n//line m.gom:2\nfunc _() { fmt.Printf(\"%d\", \"x\") }\n",
+	})
+	testModule(t, dir)
+
+	code, out, _ := invoke("build", "-vet", filepath.Join(dir, "m.gom"))
+	if code == 0 {
+		t.Fatalf("exit = %d, want failure; out=%q", code, out)
+	}
+	var diags []map[string]any
+	for _, l := range jsonLines(t, out) {
+		if l["kind"] == "diagnostic" {
+			diags = append(diags, l)
+		}
+	}
+	if len(diags) == 0 {
+		t.Fatalf("go vet finding produced no diagnostics: %q", out)
+	}
+	d := diags[0]
+	if d["source"] != "go" {
+		t.Errorf("diagnostic source = %v, want go", d["source"])
+	}
+	if data, _ := d["data"].(map[string]any); data["tool"] != "go vet" {
+		t.Errorf("diagnostic tool = %v, want go vet", data["tool"])
+	}
+	if !strings.Contains(d["message"].(string), "%d") {
+		t.Errorf("diagnostic message = %v", d["message"])
+	}
+	span, ok := d["span"].(map[string]any)
+	if !ok {
+		t.Fatalf("diagnostic carries no span: %v", d)
+	}
+	if file, _ := span["file"].(string); !strings.HasSuffix(file, "m.gom") {
+		t.Errorf("span file = %v, want the .gom input", span["file"])
+	}
+}

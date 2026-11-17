@@ -42,13 +42,14 @@ func (c *checker) lintMutableSharing() {
 	// reports are byte-identical — same span, same message, same
 	// data — so goWarned collapses them to the first.
 	goWarned := map[diag.Span]bool{}
+	aliases := c.lintAliases()
 	for _, d := range c.decls {
 		WalkDecl(d, func(e Expr) {
 			switch e := e.(type) {
 			case *Apply:
-				c.lintChanMake(e)
-				c.lintGoSliceCopy(e)
-				c.lintErrorsAsTarget(e)
+				c.lintChanMake(e, aliases)
+				c.lintGoSliceCopy(e, aliases)
+				c.lintErrorsAsTarget(e, aliases)
 			case *GoExpr:
 				c.lintGoCaptures(e, goWarned)
 			case *Lit, *Var, *MemberExpr, *Hole, *StrInterp, *Lambda,
@@ -68,10 +69,89 @@ func (c *checker) lintMutableSharing() {
 // chanElem answers "is this really a builtin channel": under a
 // file-local `type Chan` the result type spells the local ADT and the
 // shadowed-signature E0415 already covers the site.
-func (c *checker) lintChanMake(ap *Apply) {
-	if ap.Call.Kind != CallGo || ap.Call.Callee == nil ||
-		ap.Call.Callee.Name != rtMakeChanSym ||
-		ap.Call.Callee.Package != rtPath {
+//
+// lintAliases maps a let-bound symbol to the symbol its value
+// denotes, for `let mk = Chan.make`-style aliases. Both top-level
+// and expression-level lets are collected so callee-matching lints
+// recognize builtin or Go calls made through an alias.
+func (c *checker) lintAliases() map[*resolve.Symbol]*resolve.Symbol {
+	add := func(aliases map[*resolve.Symbol]*resolve.Symbol, p Pat, v Expr) {
+		vp, ok := p.(*VarPat)
+		if !ok || vp.Sym == nil {
+			return
+		}
+		var target *resolve.Symbol
+		switch v := v.(type) {
+		case *Var:
+			target = v.Sym
+		case *MemberExpr:
+			target = v.Sym
+		case *Apply, *Ascribe, *Binary, *Block, *For, *GoExpr, *Hole,
+			*If, *Ignore, *Lambda, *Let, *ListLit, *Lit, *Match,
+			*RecordLit, *SelectExpr, *Spread, *StrInterp, *Try,
+			*TupleLit, *Unary:
+			// Only whole-symbol aliases are tracked.
+		default:
+			panic("unreachable")
+		}
+		if target != nil {
+			aliases[vp.Sym] = target
+		}
+	}
+	aliases := map[*resolve.Symbol]*resolve.Symbol{}
+	for _, d := range c.decls {
+		if ld, ok := d.(*LetDecl); ok {
+			add(aliases, ld.Pat, ld.Value)
+		}
+		WalkDecl(d, func(e Expr) {
+			if l, ok := e.(*Let); ok {
+				add(aliases, l.Pat, l.Value)
+			}
+		})
+	}
+	return aliases
+}
+
+// lintCallee resolves the static callee of an application, chasing
+// let-bound aliases (`let mk = Chan.make`). It returns the eventual
+// symbol the call invokes, or nil when it cannot see one. Each let
+// binds a fresh symbol, so the chase cannot cycle.
+func (c *checker) lintCallee(ap *Apply, aliases map[*resolve.Symbol]*resolve.Symbol) *resolve.Symbol {
+	sym := ap.Call.Callee
+	if sym == nil {
+		switch f := ap.Fn.(type) {
+		case *Var:
+			sym = f.Sym
+		case *MemberExpr:
+			sym = f.Sym
+		case *Apply, *Ascribe, *Binary, *Block, *For, *GoExpr, *Hole,
+			*If, *Ignore, *Lambda, *Let, *ListLit, *Lit, *Match,
+			*RecordLit, *SelectExpr, *Spread, *StrInterp, *Try,
+			*TupleLit, *Unary:
+			// No resolvable callee.
+		default:
+			panic("unreachable")
+		}
+	}
+	for sym != nil {
+		next, ok := aliases[sym]
+		if !ok {
+			break
+		}
+		sym = next
+	}
+	return sym
+}
+
+// lintChanMake warns when a `Chan.make` call's element type
+// contains mutable values (the full contract sits on
+// lintMutableSharing). The callee lookup chases value aliases —
+// `let mk = Chan.make` invokes the same builtin through a
+// CallUnknown use site, which name matching alone would miss.
+func (c *checker) lintChanMake(ap *Apply, aliases map[*resolve.Symbol]*resolve.Symbol) {
+	callee := c.lintCallee(ap, aliases)
+	if callee == nil || callee.Name != rtMakeChanSym ||
+		callee.Package != rtPath {
 		return
 	}
 	elem, _, ok := c.chanElem(ap.Type())
@@ -82,9 +162,10 @@ func (c *checker) lintChanMake(ap *Apply) {
 		return
 	}
 	elem = types.Chase(elem)
+	elemS := types.Display(elem, metaNamer())
 	c.diags.Add(diag.Warning("W0701",
-		fmt.Sprintf("a channel's element type %s contains mutable values", elem)).
-		At(ap.Span()).Set("type", elem.String()))
+		fmt.Sprintf("a channel's element type %s contains mutable values", elemS)).
+		At(ap.Span()).Set("type", elemS))
 }
 
 // lintGoSliceCopy reports W0501 for a Unit-result Go call that
@@ -104,14 +185,15 @@ func (c *checker) lintChanMake(ap *Apply) {
 // bare `Go.Slice` reaches its []T slot verbatim (a `..gs` spread
 // expands the slice itself, a `...[]T` element shares backing),
 // so only an ascribe-materialized `Go.Slice` counts as copied.
-func (c *checker) lintGoSliceCopy(ap *Apply) {
-	if ap.Call.Kind != CallGo || ap.Call.Callee == nil {
+func (c *checker) lintGoSliceCopy(ap *Apply, aliases map[*resolve.Symbol]*resolve.Symbol) {
+	callee := c.lintCallee(ap, aliases)
+	if callee == nil || !callee.IsGo {
 		return
 	}
 	if !c.isBuiltinCon(types.Chase(ap.Type()), "Unit") {
 		return
 	}
-	sig, ok := c.sigOf(ap.Call.Callee, ap.Sp)
+	sig, ok := c.sigOf(callee, ap.Sp)
 	if !ok {
 		return
 	}
@@ -185,14 +267,14 @@ func (c *checker) lintGoSliceCopy(ap *Apply) {
 		if !copied {
 			continue
 		}
-		callee := ap.Call.Callee.Name
-		if ap.Call.Callee.Package != "" {
-			callee = path.Base(ap.Call.Callee.Package) + "." + callee
+		calleeName := callee.Name
+		if callee.Package != "" {
+			calleeName = path.Base(callee.Package) + "." + calleeName
 		}
-		argT := got.Type().String()
+		argT := types.Display(got.Type(), metaNamer())
 		c.diags.Add(diag.Warning("W0501",
-			fmt.Sprintf("`%s` returns Unit and receives its `%s` argument as a copied []T — a callee that mutates the slice in place has no effect on the Gom value", callee, argT)).
-			At(a.Span()).Set("callee", callee).Set("argument", argT))
+			fmt.Sprintf("`%s` returns Unit and receives its `%s` argument as a copied []T — a callee that mutates the slice in place has no effect on the Gom value", calleeName, argT)).
+			At(a.Span()).Set("callee", calleeName).Set("argument", argT))
 	}
 }
 
@@ -216,9 +298,10 @@ func isGoSliceCon(t types.Type) bool {
 // is the intended spelling), `GoError`/`Go.Any` elements, nested
 // `Ptr` elements, and unsolved metas (docs/decisions/
 // 2026-11-05-errors-as-target-lint.md).
-func (c *checker) lintErrorsAsTarget(ap *Apply) {
-	if ap.Call.Kind != CallGo || ap.Call.Callee == nil ||
-		ap.Call.Callee.Name != "As" || ap.Call.Callee.Package != "errors" {
+func (c *checker) lintErrorsAsTarget(ap *Apply, aliases map[*resolve.Symbol]*resolve.Symbol) {
+	callee := c.lintCallee(ap, aliases)
+	if callee == nil || !callee.IsGo ||
+		callee.Name != "As" || callee.Package != "errors" {
 		return
 	}
 	for i, a := range ap.Args {
@@ -257,17 +340,19 @@ func (c *checker) lintErrorsAsTarget(ap *Apply) {
 			// meta/var may still resolve to `Ptr` — all stay
 			// silent, same as the element-side arm.
 			if c.provablyNotPtrTarget(gotT, map[conKey]bool{}) {
+				gotS := types.Display(gotT, metaNamer())
 				c.diags.Add(diag.Warning("W0502",
-					fmt.Sprintf("`errors.As` requires a non-nil pointer target — an argument of type %s panics at run time", gotT)).
-					At(a.Span()).Set("argument", gotT.String()))
+					fmt.Sprintf("`errors.As` requires a non-nil pointer target — an argument of type %s panics at run time", gotS)).
+					At(a.Span()).Set("argument", gotS))
 			}
 			return
 		}
 		if bad := c.notAsTargetElem(types.Chase(con.Args[0]), map[conKey]bool{}); bad {
 			elem := types.Chase(con.Args[0])
+			elemS := types.Display(elem, metaNamer())
 			c.diags.Add(diag.Warning("W0502",
-				fmt.Sprintf("`errors.As` requires the target's element type to implement error or be an interface — %s is neither and panics at run time", elem)).
-				At(a.Span()).Set("argument", elem.String()))
+				fmt.Sprintf("`errors.As` requires the target's element type to implement error or be an interface — %s is neither and panics at run time", elemS)).
+				At(a.Span()).Set("argument", elemS))
 		}
 		return
 	}
@@ -470,7 +555,8 @@ func (c *checker) lintGoCaptures(g *GoExpr, reported map[diag.Span]bool) {
 		t = types.Chase(t)
 		c.diags.Add(diag.Warning("W0702",
 			fmt.Sprintf("`go {}` captures `%s` whose type %s contains mutable values", sym.Name, t)).
-			At(sp).Set("name", sym.Name).Set("type", t.String()))
+			At(sp).Set("name", sym.Name).Set("type",
+			types.Display(t, metaNamer())))
 	})
 }
 

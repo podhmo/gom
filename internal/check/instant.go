@@ -152,15 +152,17 @@ func (c *checker) checkInstantiationCycles() {
 		if p == nil {
 			continue
 		}
+		namer := metaNamer()
 		c.diags.Add(diag.Error("E0416",
 			fmt.Sprintf("recursive call to `%s` instantiates `%s`'s `%s` at the growing type `%s` — the instantiation does not converge",
-				p.callee.Name, p.callee.Name, p.tparam, p.arg)).
+				p.callee.Name, p.callee.Name, p.tparam,
+				types.Display(p.arg, namer))).
 			At(p.sp).
 			Set("fn", p.from.sym.Name).
 			Set("callee", p.callee.Name).
 			Set("param", p.tparam.String()).
-			Set("grows", p.param.String()).
-			Set("arg", p.arg.String()))
+			Set("grows", types.Display(p.param, namer)).
+			Set("arg", types.Display(p.arg, namer)))
 	}
 }
 

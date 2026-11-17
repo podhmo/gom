@@ -346,11 +346,12 @@ func (c *checker) validateGoGenerics() {
 			if use.sym.Surface != "" {
 				callee = use.sym.Surface
 			}
+			targS := types.Display(targ, metaNamer())
 			c.diags.Add(diag.Error("E0508",
 				fmt.Sprintf("type argument `%s` does not satisfy the `%s` constraint of `%s`'s type parameter `%s`",
-					targ, desc, callee, param)).
+					targS, desc, callee, param)).
 				At(use.sp).
-				Set("argument", targ.String()).
+				Set("argument", targS).
 				Set("constraint", desc).
 				Set("parameter", param))
 		}
