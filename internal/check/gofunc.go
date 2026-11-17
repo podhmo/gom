@@ -32,11 +32,26 @@ func goFuncCallArity(sym *resolve.Symbol) (int, bool) {
 	return goFuncArityDigit(sym.Name[4:])
 }
 
-// funcCallMember reports whether sym is a `Go.funcN` conversion
-// member — a callee-only surface; checkSelect types it as an
-// untyped meta because the apply computes the result type.
+// goFnCallArity reports whether sym is a `Go.fnN` conversion
+// builtin — the `Go.FuncN` → Gom-fn direction
+// (docs/decisions/2026-11-18-fn-interop.md) — and returns its
+// parameter count.
+func goFnCallArity(sym *resolve.Symbol) (int, bool) {
+	if sym == nil || sym.Kind != resolve.KindBuiltin || sym.Package != "Go" ||
+		!strings.HasPrefix(sym.Name, "fn") {
+		return 0, false
+	}
+	return goFuncArityDigit(sym.Name[2:])
+}
+
+// funcCallMember reports whether sym is a `Go.funcN`/`Go.fnN`
+// conversion member — a callee-only surface; checkSelect types it
+// as an untyped meta because the apply computes the result type.
 func funcCallMember(sym *resolve.Symbol) bool {
-	_, ok := goFuncCallArity(sym)
+	if _, ok := goFuncCallArity(sym); ok {
+		return true
+	}
+	_, ok := goFnCallArity(sym)
 	return ok
 }
 
@@ -170,6 +185,81 @@ func (c *checker) checkGoFuncCall(e *syntax.Apply, fn Expr, callee *resolve.Symb
 		outTyp = wCon
 	}
 	out.Base = baseOf(e.Sp, outTyp)
+	out.Call = CallInfo{
+		Kind:      CallDirect,
+		Callee:    callee,
+		Arity:     1,
+		Applied:   1,
+		HoleIndex: -1,
+	}
+	if err := out.Validate(); err != nil {
+		panic(fmt.Sprintf("check: invalid CallInfo for %T: %v", e.Fn, err))
+	}
+	return out
+}
+
+// checkGoFnCall checks `Go.fnN f` — the reverse conversion of
+// `Go.funcN`: a `Go.FuncN` value becomes a Gom function value the
+// caller applies normally. The produced type is computed from the
+// argument's FuncN con alone — raw parameter views read as their
+// Gom views (goFuncSeedParams) and the raw results read as the
+// seed's result mapping (none → `Unit`, `error` → `Result Unit
+// GoError`, `(T, error)` → `Result T GoError`, lone `T` → `T`):
+// a lone `error` is always the honest Result, never the never-nil
+// `GoError` claim an extern binding could declare.
+func (c *checker) checkGoFnCall(e *syntax.Apply, fn Expr, callee *resolve.Symbol, n int) Expr {
+	out := &Apply{Base: baseOf(e.Sp, nil), Fn: fn}
+	if len(e.Args) != 1 || e.Args[0].Label != nil {
+		c.diags.Add(diag.Error("E0510",
+			fmt.Sprintf("`Go.fn%d` takes exactly one function argument", n)).At(e.Sp))
+		for _, a := range e.Args {
+			var v Expr
+			if a.Value != nil {
+				v = c.checkExpr(a.Value, nil)
+			}
+			out.Args = append(out.Args, Arg{Value: v})
+		}
+		out.Base = baseOf(e.Sp, c.quietMeta(e.Sp, "the conversion's result"))
+		out.Call = CallInfo{Kind: CallUnknown, Applied: len(out.Args), HoleIndex: -1}
+		return out
+	}
+	arg := c.checkExpr(e.Args[0].Value, nil)
+	out.Args = []Arg{{Value: arg}}
+
+	fc, isCon := types.Chase(arg.Type()).(*types.Con)
+	wn, isFuncN := 0, false
+	if isCon && fc.Qual == "Go" {
+		wn, isFuncN = goFuncTypeArity(fc.Name)
+	}
+	if !isFuncN {
+		c.diags.Add(diag.Error("E0510",
+			fmt.Sprintf("`Go.fn%d` expects a `Go.Func%d` value, got %s", n, n,
+				types.Display(arg.Type(), metaNamer()))).At(e.Sp))
+		out.Base = baseOf(e.Sp, c.quietMeta(e.Sp, "the conversion's result"))
+		out.Call = CallInfo{Kind: CallUnknown, Applied: 1, HoleIndex: -1}
+		return out
+	}
+	if wn != n {
+		c.diags.Add(diag.Error("E0510",
+			fmt.Sprintf("`Go.fn%d` converts a `Go.Func%d` value, got `%s`", n, n,
+				types.Display(fc, metaNamer()))).At(e.Sp))
+		out.Base = baseOf(e.Sp, c.quietMeta(e.Sp, "the conversion's result"))
+		out.Call = CallInfo{Kind: CallUnknown, Applied: 1, HoleIndex: -1}
+		return out
+	}
+	if len(fc.Args) < n || len(fc.Args) > n+2 ||
+		(len(fc.Args) == n+2 && !isGoErrorCon(types.Chase(fc.Args[n+1]))) {
+		c.diags.Add(diag.Error("E0510",
+			fmt.Sprintf("`Go.fn%d` cannot convert `%s` — not a `func` type's shape", n,
+				types.Display(fc, metaNamer()))).At(e.Sp))
+		out.Base = baseOf(e.Sp, c.quietMeta(e.Sp, "the conversion's result"))
+		out.Call = CallInfo{Kind: CallUnknown, Applied: 1, HoleIndex: -1}
+		return out
+	}
+	out.Base = baseOf(e.Sp, &types.Func{
+		Params: goFuncSeedParams(fc.Args[:n]),
+		Ret:    goFuncSeedRet(c, fc.Args[n:]),
+	})
 	out.Call = CallInfo{
 		Kind:      CallDirect,
 		Callee:    callee,

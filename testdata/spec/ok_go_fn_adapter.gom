@@ -1,0 +1,31 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// spec section 8.8: `Go.fnN` converts a `Go.FuncN` value into a Gom
+// function value — after the conversion the value is an ordinary
+// (curried) Gom function.
+
+// `func(int64, int64) int64` converts to `Int -> Int -> Int`.
+fn add_pair () -> Int = {
+  let f = Go.fn2 (goiface.Adder ())
+  f 1 2
+}
+
+// `func() int64` converts to `Unit -> Int`.
+fn tick () -> Int = {
+  let t = Go.fn0 (goiface.Ticker ())
+  t ()
+}
+
+// `func() error` converts to `Unit -> Result Unit GoError`.
+fn fail () -> Result Unit GoError = {
+  let g = Go.fn0 (goiface.Failer ())
+  g ()
+}
+
+// `func(int64) (string, error)` converts to `Int -> Result String GoError`.
+fn look (n: Int) -> Result String GoError = {
+  let g = Go.fn1 (goiface.Looker ())
+  g n
+}

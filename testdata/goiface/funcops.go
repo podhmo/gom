@@ -67,3 +67,28 @@ func Tick() int64 { return 7 }
 // on the Gom side it reads `Unit -> Int`, and the adapter's call
 // still passes the unit value `struct{}{}`.
 func U(x struct{}) int64 { return 3 }
+
+// Adder returns a two-parameter callback — a func-typed result
+// (`func(int64, int64) int64`) feeding the `Go.fnN` conversion.
+func Adder() func(int64, int64) int64 {
+	return func(a, b int64) int64 { return a + b }
+}
+
+// IntAdder returns a callback over Go `int` — the int/int64
+// boundary pair `Go.fnN`'s adapter converts in both directions.
+func IntAdder() func(int, int) int {
+	return func(a, b int) int { return a + b }
+}
+
+// Ticker returns a nullary callback — the `func() int64` shape.
+func Ticker() func() int64 { return Tick }
+
+// Failer returns an error-only callback — the `func() error`
+// shape `Go.fnN` reads back as `Result Unit GoError`.
+func Failer() func() error {
+	return func() error { return errors.New("boom") }
+}
+
+// Looker returns a `(T, error)` callback — the
+// `func(int64) (string, error)` shape.
+func Looker() func(int64) (string, error) { return Give }

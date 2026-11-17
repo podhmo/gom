@@ -1139,7 +1139,18 @@ func (v *validator) closure(e *Closure) {
 // callGo checks the CallGo shape shared by the bare call site and
 // the consumer nodes' Call operand.
 func (v *validator) callGo(c *CallGo) {
-	if c.Callee == nil || !c.Callee.IsGo {
+	if c.Fn != nil {
+		if c.Callee != nil || c.Recv != nil {
+			v.err(c.Sp, "CallGo", "a func-value callee takes no symbol or receiver")
+		}
+		v.atom(c.Fn, "CallGo.Fn")
+		if fc, ok := types.Chase(c.Fn.Type()).(*types.Con); !ok ||
+			fc.Qual != "Go" || len(fc.Name) != 5 ||
+			!strings.HasPrefix(fc.Name, "Func") ||
+			fc.Name[4] < '0' || fc.Name[4] > '0'+byte(types.GoFuncMaxArity) {
+			v.err(c.Sp, "CallGo", "value callee of type %s is not a Go.FuncN", c.Fn.Type())
+		}
+	} else if c.Callee == nil || !c.Callee.IsGo {
 		v.err(c.Sp, "CallGo", "callee is not a Go symbol")
 	} else {
 		switch c.Callee.Kind {

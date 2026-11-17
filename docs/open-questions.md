@@ -15,7 +15,6 @@
 
 - [ ] Go ABI の方針: 生成される Go の API（型名・関数のシグネチャ・バリアントの struct 名）を、Gom のバージョンをまたいでどこまで安定させるか
 - [ ] Gom の型が Go の interface を実装できるようにするか（v1 ではできない）。できるなら、どう宣言するか
-- [ ] `Go.FuncN` 値の Gom 側からの適用 — Gom → Go 向きの変換 `Go.funcN` は決着（[decision](decisions/2026-11-17-func-interop.md)）。逆方向（Go から受け取った `Go.FuncN` 値を Gom で呼ぶ）はまだで、コールバックを返す API に必要になる
 - [ ] 外部モジュールから stdlib の Gom モジュール（`import "list"` 等）を import 可能にするか。現状はメイン module 外の Gom import が E0203 で拒否される（P3-6 で発見 — `testdata/gocall` の fixture は stdlib 依存を手書きで代替した）
 
 ### 最適化

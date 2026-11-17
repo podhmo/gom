@@ -1,0 +1,8 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// `Go.fnN` converts a `Go.FuncN` value of the same arity — `Go.fn2`
+// applied to a `Go.Func1` is E0510.
+
+fn bad () -> Unit = ignore (Go.fn2 (goiface.Looker ()))

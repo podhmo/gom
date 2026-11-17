@@ -913,6 +913,9 @@ func (g *gen) errorFromGo(e *core.ErrorFromGo, d dest) {
 // style (`pkg.Name`, the package's base name); a method call (no
 // declared binding can produce one today) reports bare `Name`.
 func goCallName(c *core.CallGo) string {
+	if c.Fn != nil {
+		return "the func value"
+	}
 	if c.Recv != nil || c.Callee.Package == "" {
 		return c.Callee.Name
 	}

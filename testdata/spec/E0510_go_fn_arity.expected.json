@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0510",
+      "severity": "error",
+      "message": "`Go.fn2` converts a `Go.Func2` value, got `Go.Func1 Int String GoError`",
+      "span": {
+        "file": "E0510_go_fn_arity.gom",
+        "start": {
+          "line": 8,
+          "col": 29,
+          "offset": 201
+        },
+        "end": {
+          "line": 8,
+          "col": 55,
+          "offset": 227
+        }
+      }
+    }
+  ]
+}
