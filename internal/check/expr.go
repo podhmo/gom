@@ -1580,10 +1580,11 @@ func (c *checker) checkArith(e *syntax.Binary, constrain func(*metaRec)) Expr {
 func (c *checker) revisitDivs() {
 	for _, b := range c.pendingDivs {
 		t := types.Chase(b.X.Type())
+		gk, isGo := c.namedBasicKind(t)
 		switch {
-		case isIntegral(t):
+		case isIntegral(t) || (isGo && namedIntegral(gk)):
 			// Always invalid — see above.
-		case isFloat(t):
+		case isFloat(t) || (isGo && namedFloat(gk)):
 			if _, ok := constFold(b.X); !ok {
 				continue
 			}

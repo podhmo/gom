@@ -180,6 +180,7 @@
 | [cli-gotool-invocation](2026-11-17-cli-gotool-invocation.md) | go tool の実起動は `gom build -go`（CLI 面） | 採用 |
 | [func-interop](2026-11-17-func-interop.md) | Gom の関数値を Go の func 型として渡す(typed adapter `Go.funcN`) | draft |
 | [lsp-gotool-invocation](2026-11-17-lsp-gotool-invocation.md) | `gom lsp` の go-tool 診断は opt-in フラグ + per-change 同期起動 | 採用 |
+| [named-int-arith](2026-11-17-named-int-arith.md) | Named Go 整数型の算術・比較（`30 * time.Second` が `Duration` を生む） | accepted |
 | [sourcemap-repin](2026-11-17-sourcemap-repin.md) | 生成行ごとの `//line` 再置き（per-line re-pin）で drift を消す | accepted |
 | [struct-construction](2026-11-17-struct-construction.md) | Go struct の構築・書き込みは Go 側の factory 関数に限る | 採用 |
 | [structural-constraints](2026-11-17-structural-constraints.md) | Go ジェネリック関数の構造制約（`~[]E`・`~map[K]V`・基本型 union）を公開する | 採用 |

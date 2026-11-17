@@ -11,9 +11,11 @@ import (
 )
 
 // NewClient creates a client with a timeout and the supplied CheckRedirect
-// callback. Remove when Gom can write the client construction itself — the
-// Timeout field is arithmetic on time.Duration, which is outside the current
-// numerics surface; see docs/decisions/2026-11-17-struct-construction.md.
+// callback. Remove when Gom can write the client construction itself — named
+// Go integer arithmetic is now supported (`30 * time.Second` compiles,
+// decision 2026-11-17-named-int-arith), so the remaining blocker is Go
+// composite-literal construction `http.Client{...}`; see
+// docs/decisions/2026-11-17-struct-construction.md.
 // The CheckRedirect callback now comes from Gom via Go.func2 — preserve both
 // the 30-second timeout and the caller-supplied redirect behavior, not just
 // client creation.
