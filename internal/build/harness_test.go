@@ -8,9 +8,11 @@ import (
 	"github.com/podhmo/gom/internal/build"
 	"github.com/podhmo/gom/internal/diag"
 	"github.com/podhmo/gom/internal/goimport"
+	"github.com/podhmo/gom/internal/gomimport"
 	"github.com/podhmo/gom/internal/gomtest"
 	"github.com/podhmo/gom/internal/iface"
 	"github.com/podhmo/gom/internal/lower"
+	"github.com/podhmo/gom/internal/resolve"
 	gomstd "github.com/podhmo/gom/internal/stdlib"
 	// Keep the named-interface golden helper in the Go test dependency graph.
 	_ "github.com/podhmo/gom/testdata/goiface"
@@ -82,12 +84,25 @@ func sharedSuiteLoader(t *testing.T, srcs ...string) *goimport.Loader {
 // first `import go` lookup the per-package cache removes every
 // further `go list -export` subprocess.
 func specCompile(gl *goimport.Loader) func([]gomtest.File) ([]diag.Diagnostic, error) {
+	// Wire the Gom import oracle the same way cmd/gom does, so spec
+	// fixtures can exercise plain `import` rules (stdlib short
+	// names, sibling and external-module .gomi resolution) — a
+	// bare goimport.Loader rejects every Gom import with E0203.
+	mods := map[string]map[string]*resolve.Symbol{}
+	ml := gomimport.New(&gomimport.Config{Dir: "../..", Go: gl, Sigs: gl, Modules: mods})
+	opts := gomstd.Apply(&build.Options{
+		Loader:  ml,
+		Sigs:    ml,
+		Modules: mods,
+		Lower:   &lower.Env{GoSig: gl.GoSigOf, Types: ml, FuncArity: ml.ArityOf},
+		Exports: iface.ExportNames,
+	})
 	return func(fs []gomtest.File) ([]diag.Diagnostic, error) {
 		ins := make([]build.Input, len(fs))
 		for i, f := range fs {
 			ins[i] = build.Input{Path: f.Path, Src: f.Src}
 		}
-		rs, err := build.CompileFiles(ins, suiteOptionsWith(gl))
+		rs, err := build.CompileFiles(ins, opts)
 		if err != nil {
 			return nil, err
 		}

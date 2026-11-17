@@ -24,6 +24,11 @@ type Resolved struct {
 	File *syntax.File
 	Defs map[*syntax.Ident]*Symbol
 	Uses map[*syntax.Ident]*Symbol
+	// ImportPaths maps each import clause to the loaded package's
+	// canonical path — the written path may differ (a stdlib short
+	// name unfolds to the toolchain path). Clauses that failed to
+	// resolve are absent.
+	ImportPaths map[*syntax.ImportDecl]string
 }
 
 // DefOf returns the symbol bound by an identifier in binding
@@ -42,4 +47,13 @@ func (r *Resolved) UseOf(id *syntax.Ident) *Symbol {
 		return nil
 	}
 	return r.Uses[id]
+}
+
+// ImportPathOf returns the canonical path the clause resolved to,
+// or "" when it failed to resolve or was never loaded.
+func (r *Resolved) ImportPathOf(d *syntax.ImportDecl) string {
+	if r == nil {
+		return ""
+	}
+	return r.ImportPaths[d]
 }

@@ -1,0 +1,7 @@
+package ex
+
+// spec section 7: the toolchain stdlib also imports by its short
+// name — "list" stands for github.com/podhmo/gom/stdlib/list.
+import "list"
+
+fn total (xs: List Int) -> Int = xs |> list.fold (fn acc x -> acc + x) 0

@@ -1,5 +1,6 @@
 package geom
 
+import l "list"
 import go "example.com/gocall/helper"
 import go "fmt"
 import go "os"
@@ -78,15 +79,13 @@ fn sliceOps (xs: Go.Slice Int) -> (Int, Option Int, List Int) = {
    Go.Slice.to_list tail)
 }
 
-fn total (xs: List Int) -> Int = match xs {
-  [] -> 0
-  [x, ..rest] -> x + total rest
-}
+/// The toolchain's Gom stdlib imports like any other package —
+/// `import l "list"` unfolds to github.com/podhmo/gom/stdlib/list
+/// (spec 7: external-module Gom imports resolve through `go list`
+/// in this module's context, which `replace`s gom at the repo).
+fn total (xs: List Int) -> Int = xs |> l.fold (fn acc x -> acc + x) 0
 
-fn isEmpty (xs: List Int) -> Bool = match xs {
-  [] -> true
-  [x, ..rest] -> false
-}
+fn isEmpty (xs: List Int) -> Bool = l.is_empty xs
 
 /// Boxing into a Go `any` parameter keeps the concrete Gom numeric
 /// type — %T on the Go side reports int64 for a Gom Int, never the

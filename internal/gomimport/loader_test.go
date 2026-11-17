@@ -425,3 +425,212 @@ let v : Int = lib.myFn
 		}
 	}
 }
+
+// An external module's Gom package resolves through `go list` in
+// the consumer's module context — a replaced sibling carrying a
+// .gomi is a Gom package (the old "main module only" boundary
+// reported E0203 here).
+func TestLoadExternalModulePackage(t *testing.T) {
+	if testing.Short() {
+		t.Skip("runs `go list`")
+	}
+	gomod := `module example.com/ext
+
+go 1.27
+
+require example.com/lib v0.0.0
+
+replace example.com/lib => ../lib
+`
+	dir := t.TempDir()
+	ext := filepath.Join(dir, "ext")
+	if err := os.MkdirAll(ext, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(ext, "go.mod"), []byte(gomod), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// The lib module sits next to ext for the relative replace.
+	libDir := filepath.Join(dir, "lib")
+	if err := os.MkdirAll(filepath.Join(libDir, "shapes"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(libDir, "go.mod"),
+		[]byte("module example.com/lib\n\ngo 1.27\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(libDir, "shapes", "shapes.gomi"),
+		[]byte(shapesGomi), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	l := New(&Config{Dir: ext})
+	p, err := l.Load("example.com/lib/shapes", false)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if p.Members["area"] == nil {
+		t.Fatal("area missing — external module's .gomi did not load")
+	}
+}
+
+// `import "list"` unfolds to the toolchain's stdlib path in any
+// module: the members carry the canonical package path (which is
+// what the generated Go import names) while the clause binds the
+// short tail `list`.
+func TestLoadStdlibShortPath(t *testing.T) {
+	if testing.Short() {
+		t.Skip("runs `go list`")
+	}
+	root := repoRoot(t)
+	dir := t.TempDir()
+	gomod := `module example.com/ext
+
+go 1.27
+
+require github.com/podhmo/gom v0.0.0
+
+replace github.com/podhmo/gom => ` + root + "\n"
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(gomod), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	l := New(&Config{Dir: dir})
+	p, err := l.Load("list", false)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if p.Path != "github.com/podhmo/gom/stdlib/list" {
+		t.Fatalf("package path = %q — want the canonical toolchain path", p.Path)
+	}
+	if p.Members["fold"] == nil {
+		t.Fatal("fold missing — list.gomi did not load")
+	}
+}
+
+func repoRoot(t *testing.T) string {
+	t.Helper()
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatalf("resolve repo root: %v", err)
+	}
+	return root
+}
+
+// Vendored dependencies resolve from vendor/ directly — `go list
+// -m all` cannot see the build list under vendoring, and the
+// module cache may never have held the source.
+func TestLoadVendoredModulePackage(t *testing.T) {
+	if testing.Short() {
+		t.Skip("runs `go list`")
+	}
+	dir := t.TempDir()
+	ext := filepath.Join(dir, "ext")
+	vendored := filepath.Join(ext, "vendor", "example.com", "lib", "shapes")
+	if err := os.MkdirAll(vendored, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	gomod := `module example.com/ext
+
+go 1.27
+
+require example.com/lib v0.0.0
+`
+	if err := os.WriteFile(filepath.Join(ext, "go.mod"), []byte(gomod), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(ext, "vendor", "modules.txt"),
+		[]byte("# example.com/lib v0.0.0\n## explicit\nexample.com/lib/shapes\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vendored, "shapes.gomi"),
+		[]byte(shapesGomi), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	l := New(&Config{Dir: ext})
+	p, err := l.Load("example.com/lib/shapes", false)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if p.Members["area"] == nil {
+		t.Fatal("area missing — vendored .gomi did not load")
+	}
+}
+
+// GOFLAGS=-mod=mod disables vendoring for the go command — the
+// vendored copy must be ignored then too, or its stale interface
+// would disagree with the source the generated Go import uses.
+func TestLoadVendorDisabledByModFlag(t *testing.T) {
+	if testing.Short() {
+		t.Skip("runs `go list`")
+	}
+	t.Setenv("GOFLAGS", "-mod=mod")
+	dir := t.TempDir()
+	ext := filepath.Join(dir, "ext")
+	vendored := filepath.Join(ext, "vendor", "example.com", "lib", "shapes")
+	if err := os.MkdirAll(vendored, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	gomod := `module example.com/ext
+
+go 1.27
+
+require example.com/lib v0.0.0
+
+replace example.com/lib => ../lib
+`
+	if err := os.WriteFile(filepath.Join(ext, "go.mod"), []byte(gomod), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(ext, "vendor", "modules.txt"),
+		[]byte("# example.com/lib v0.0.0\n## explicit\nexample.com/lib/shapes\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// The vendored copy is stale — it lacks `area`.
+	if err := os.WriteFile(filepath.Join(vendored, "shapes.gomi"),
+		[]byte("package shapes\n\nfn legacy () -> Int\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	libDir := filepath.Join(dir, "lib")
+	if err := os.MkdirAll(filepath.Join(libDir, "shapes"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(libDir, "go.mod"),
+		[]byte("module example.com/lib\n\ngo 1.27\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(libDir, "shapes", "shapes.gomi"),
+		[]byte(shapesGomi), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	l := New(&Config{Dir: ext})
+	p, err := l.Load("example.com/lib/shapes", false)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if p.Members["area"] == nil {
+		t.Fatal("area missing — stale vendored .gomi won over the -mod=mod source")
+	}
+}
+
+func TestVendorEnabledLastModWins(t *testing.T) {
+	for _, tc := range []struct {
+		flags string
+		want  bool
+	}{
+		{"", true},
+		{"-mod=vendor", true},
+		{"-mod=mod", false},
+		{"-mod=readonly", false},
+		{"-mod mod", false},
+		{"-mod=mod -mod=vendor", true},
+		{"-mod=vendor -mod=mod", false},
+		{"-tags netgo", true},
+	} {
+		t.Setenv("GOFLAGS", tc.flags)
+		if got := vendorEnabled(); got != tc.want {
+			t.Errorf("GOFLAGS=%q: vendorEnabled() = %v, want %v", tc.flags, got, tc.want)
+		}
+	}
+}

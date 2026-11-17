@@ -24,17 +24,21 @@
 //   - FuncArity hook (ArityOf): declared arities for value
 //     references and partial application.
 //
-// Directory lookup is module-local: the import path must equal the
+// Directory lookup: the import path must equal the
 // main module's path or sit under it (the generated package's Go
-// import path); packages outside the main module — including
-// workspace siblings — are not importable and report an ordinary
-// load error, which resolution surfaces as E0203.
+// import path); packages outside the main module resolve through
+// `go list` in the importing file's module context — a dependency,
+// a replaced or workspace sibling that carries a .gomi is a Gom
+// package, everything else reports the ordinary load error that
+// surfaces as E0203.
 package gomimport
 
 import (
+	"encoding/json"
 	"fmt"
 	gotypes "go/types"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -74,6 +78,11 @@ type Config struct {
 	// Modules supplies the builtin-scope module tables interface
 	// compilation needs (internal/stdlib's Apply contribution).
 	Modules map[string]map[string]*resolve.Symbol
+
+	// GoBin is the go binary used to resolve external-module
+	// package directories (`go list` — "" = "go"). It is only
+	// consulted for import paths outside the main module.
+	GoBin string
 }
 
 // Loader is the Gom import oracle; see the package comment.
@@ -122,6 +131,16 @@ type Loader struct {
 	implDone     map[string]bool
 	implCycleErr *resolve.ImportCycleError
 	implCycleSet map[string]bool // the package paths *on* the found cycle
+
+	// extDirs caches external-module package directories resolved
+	// through `go list -m`; extErrs the failures behind them.
+	// extMods holds the importing module's build list, fetched
+	// once; extErr its error.
+	extDirs map[string]string
+	extErrs map[string]error
+	extOnce sync.Once
+	extMods map[string]string
+	extErr  error
 }
 
 // conKey indexes loaded type declarations by nominal identity —
@@ -150,6 +169,9 @@ func New(cfg *Config) *Loader {
 		typeCtors:  map[*resolve.Symbol]map[string]*resolve.Symbol{},
 		implEdges:  map[string]map[string]bool{},
 		implDone:   map[string]bool{},
+		extDirs:    map[string]string{},
+		extErrs:    map[string]error{},
+		extMods:    map[string]string{},
 	}
 }
 
@@ -194,7 +216,11 @@ func (l *Loader) Load(path string, goPkg bool) (*resolve.Package, error) {
 		l.stack = l.stack[:len(l.stack)-1]
 	}()
 
-	p, err := l.load(path)
+	// The package compiles and extracts under its canonical path
+	// (a stdlib short name unfolds to the toolchain path) — the
+	// generated Go import and the members' package identity are
+	// always the full path.
+	p, err := l.load(canonicalPath(path))
 	if err != nil {
 		l.errs[path] = err
 		return nil, err
@@ -246,22 +272,232 @@ func (l *Loader) load(path string) (*resolve.Package, error) {
 	return l.extract(path, r.Typed)
 }
 
+// stdlibPaths maps the toolchain's Gom-written standard-library
+// modules to their full Go import paths — `import "list"` names
+// github.com/podhmo/gom/stdlib/list in every module context, so
+// an external module reaches the toolchain's stdlib without
+// spelling the path (mirrored by hand from internal/stdlib's
+// `packages` table — gomimport cannot import the wiring package
+// without a cycle).
+var stdlibPaths = map[string]string{
+	"list":   "github.com/podhmo/gom/stdlib/list",
+	"option": "github.com/podhmo/gom/stdlib/option",
+	"result": "github.com/podhmo/gom/stdlib/result",
+}
+
+// canonicalPath resolves a clause path to the package's real
+// import path: the stdlib short names, otherwise the path itself.
+// The canonical path is what the .gomi's members and the
+// generated Go import record — the clause's short spelling stays
+// the caller's cache key and bound module name.
+func canonicalPath(path string) string {
+	if p, ok := stdlibPaths[path]; ok {
+		return p
+	}
+	return path
+}
+
 // dirOf maps an import path to its package directory: the main
 // module's root (found by walking up from Config.Dir to go.mod)
-// plus the module-relative remainder of the path.
+// plus the module-relative remainder of the path, or — for paths
+// outside the main module — the directory `go list` reports in
+// the importing file's module context (a dependency's directory
+// in the module cache, a replaced or workspace sibling). The
+// external case is a plain directory lookup: oneGoMi decides
+// whether the package is a Gom package at all.
 func (l *Loader) dirOf(path string) (string, error) {
-	modPath, modDir, err := l.module()
+	modPath, modDir, modErr := l.module()
+	if modErr == nil {
+		switch {
+		case path == modPath:
+			return modDir, nil
+		case strings.HasPrefix(path, modPath+"/"):
+			return filepath.Join(modDir, filepath.FromSlash(strings.TrimPrefix(path, modPath+"/"))), nil
+		}
+	}
+	if d, ok := l.extDirs[path]; ok {
+		return d, nil
+	}
+	if err := l.extErrs[path]; err != nil {
+		return "", err
+	}
+	d, err := l.pkgDir(path)
+	if err != nil {
+		l.extErrs[path] = err
+		return "", err
+	}
+	l.extDirs[path] = d
+	return d, nil
+}
+
+// pkgDir resolves an external-module package path to its
+// directory by asking `go list -m` for the module that owns it
+// (longest module-path prefix wins) and appending the remainder —
+// the same shape the main-module rule has. Package-level `go
+// list` would refuse a Gom-only directory: before `gom build` it
+// holds no .go files at all, and the .gomi is what makes it a
+// package here anyway. The module list is fetched once per
+// loader and run in Config.Dir, so the importing file's requires,
+// replaces and workspace are the resolution context — the same
+// visibility the generated Go import will have.
+func (l *Loader) pkgDir(path string) (string, error) {
+	// A vendored package lives at <modRoot>/vendor/<import path> —
+	// prefer it directly: `go list -m` cannot see the build list
+	// under vendoring (the -mod=mod retry below is a fallback), and
+	// the module cache may never have held the source. Only when
+	// vendor mode is actually in effect, though: `GOFLAGS=-mod=mod`
+	// (or =readonly) makes the go command ignore vendor/ entirely,
+	// and the generated Go import must see the same source the go
+	// tool will use.
+	if _, modDir, merr := l.module(); merr == nil && vendorEnabled() {
+		v := filepath.Join(modDir, "vendor", filepath.FromSlash(path))
+		if st, serr := os.Stat(v); serr == nil && st.IsDir() {
+			return v, nil
+		}
+	}
+	mods, err := l.extModules()
 	if err != nil {
 		return "", err
 	}
-	switch {
-	case path == modPath:
-		return modDir, nil
-	case strings.HasPrefix(path, modPath+"/"):
-		return filepath.Join(modDir, filepath.FromSlash(strings.TrimPrefix(path, modPath+"/"))), nil
-	default:
-		return "", fmt.Errorf("package %q is outside the main module %q — only module-local Gom packages are importable", path, modPath)
+	best := ""
+	dir := ""
+	for p, d := range mods {
+		if path == p || strings.HasPrefix(path, p+"/") {
+			if len(p) > len(best) {
+				best, dir = p, d
+			}
+		}
 	}
+	if best == "" {
+		return "", fmt.Errorf("package %q is not importable from %q — no module in the build list provides it", path, l.cfg.Dir)
+	}
+	if dir == "" {
+		dir, err = l.moduleDir(best)
+		if err != nil {
+			return "", err
+		}
+	}
+	if best == path {
+		return dir, nil
+	}
+	return filepath.Join(dir, filepath.FromSlash(strings.TrimPrefix(path, best+"/"))), nil
+}
+
+// extModules lists the importing module's build list — every
+// module it can see, with the directory it occupies (module
+// cache, replace target, or workspace member).
+func (l *Loader) extModules() (map[string]string, error) {
+	l.extOnce.Do(func() {
+		out, err := l.goListModules()
+		// A vendoring module rejects `go list -m all` outright
+		// ("can't compute 'all' using the vendor directory") — the
+		// go.mod build list is still authoritative, so retry with
+		// -mod=mod when a vendor directory is present. The retry
+		// sits behind the failure so workspace modules (where -mod
+		// is constrained) are untouched.
+		if err != nil {
+			if _, modDir, merr := l.module(); merr == nil {
+				if _, serr := os.Stat(filepath.Join(modDir, "vendor", "modules.txt")); serr == nil {
+					out, err = l.goListModules("-mod=mod")
+				}
+			}
+		}
+		if err != nil {
+			l.extErr = err
+			return
+		}
+		for line := range strings.SplitSeq(strings.TrimSpace(string(out)), "\n") {
+			p, d, _ := strings.Cut(line, "|")
+			if p != "" {
+				// An empty Dir means the module is in the
+				// build list but its source is not in the
+				// module cache yet; keep the entry so the
+				// longest-prefix match still works and let
+				// pkgDir fetch it on demand.
+				l.extMods[p] = d
+			}
+		}
+	})
+	return l.extMods, l.extErr
+}
+
+// goListModules runs `go list -m -f '{{.Path}}|{{.Dir}}' all` in
+// Config.Dir. Note `go list -m` only reads the module graph — it
+// does not download module sources, so an entry's .Dir can be
+// empty until something fetches it.
+func (l *Loader) goListModules(flags ...string) (string, error) {
+	args := append([]string{"list"}, flags...)
+	args = append(args, "-m", "-f", "{{.Path}}|{{.Dir}}", "all")
+	cmd := exec.Command(l.gobin(), args...)
+	if l.cfg.Dir != "" {
+		cmd.Dir = l.cfg.Dir
+	}
+	out, err := cmd.Output()
+	if err != nil {
+		if ee, ok := err.(*exec.ExitError); ok {
+			return "", fmt.Errorf("go list -m: %s", strings.TrimSpace(string(ee.Stderr)))
+		}
+		return "", fmt.Errorf("go list -m: %w", err)
+	}
+	return string(out), nil
+}
+
+// moduleDir fetches the source directory of a module in the build
+// list via `go mod download` — needed when `go list -m` reported
+// an empty Dir because nothing had downloaded the module yet
+// (a Gom-only dependency no Go package references). `go mod
+// download` works on the go.mod graph directly, so it is also
+// the answer under vendoring.
+func (l *Loader) moduleDir(path string) (string, error) {
+	cmd := exec.Command(l.gobin(), "mod", "download", "-json", path)
+	if l.cfg.Dir != "" {
+		cmd.Dir = l.cfg.Dir
+	}
+	out, err := cmd.Output()
+	if err != nil {
+		if ee, ok := err.(*exec.ExitError); ok {
+			return "", fmt.Errorf("go mod download %s: %s", path, strings.TrimSpace(string(ee.Stderr)))
+		}
+		return "", fmt.Errorf("go mod download %s: %w", path, err)
+	}
+	var dl struct {
+		Dir string
+	}
+	if err := json.Unmarshal(out, &dl); err != nil || dl.Dir == "" {
+		return "", fmt.Errorf("go mod download %s: no directory in result", path)
+	}
+	return dl.Dir, nil
+}
+
+func (l *Loader) gobin() string {
+	if l.cfg.GoBin != "" {
+		return l.cfg.GoBin
+	}
+	return "go"
+}
+
+// vendorEnabled reports whether the go command would resolve
+// imports through vendor/: a vendor directory exists and GOFLAGS
+// does not carry an explicit -mod value other than vendor (an
+// explicit -mod=mod or -mod=readonly makes Go ignore vendor/
+// outright). Mirrors the go command's vendoring rule for modules
+// with go >= 1.14, which Gom requires anyway.
+func vendorEnabled() bool {
+	// Repeated -mod flags apply in order — the last value wins, as
+	// with the go command's own flag parsing.
+	mod := ""
+	fields := strings.Fields(os.Getenv("GOFLAGS"))
+	for i, f := range fields {
+		f = strings.TrimLeft(f, "-")
+		if f == "mod" {
+			if i+1 < len(fields) {
+				mod = fields[i+1]
+			}
+		} else if v, ok := strings.CutPrefix(f, "mod="); ok {
+			mod = v
+		}
+	}
+	return mod == "" || mod == "vendor"
 }
 
 // module reports the main module's path and root directory, read
@@ -960,7 +1196,7 @@ func (l *Loader) implImports(u string) map[string]bool {
 	if u == l.entry {
 		dir = l.cfg.Dir
 	} else {
-		d, err := l.dirOf(u)
+		d, err := l.dirOf(canonicalPath(u))
 		if err != nil {
 			return m
 		}

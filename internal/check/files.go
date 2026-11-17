@@ -31,14 +31,16 @@ func Files(ress []*resolve.Resolved, src SignatureSource) ([]*File, diag.List) {
 		return []*File{f}, diags
 	}
 	merged := &resolve.Resolved{
-		File: &syntax.File{Sp: ress[0].File.Sp, Package: ress[0].File.Package},
-		Defs: make(map[*syntax.Ident]*resolve.Symbol),
-		Uses: make(map[*syntax.Ident]*resolve.Symbol),
+		File:        &syntax.File{Sp: ress[0].File.Sp, Package: ress[0].File.Package},
+		Defs:        make(map[*syntax.Ident]*resolve.Symbol),
+		Uses:        make(map[*syntax.Ident]*resolve.Symbol),
+		ImportPaths: make(map[*syntax.ImportDecl]string),
 	}
 	for _, res := range ress {
 		merged.File.Decls = append(merged.File.Decls, res.File.Decls...)
 		maps.Copy(merged.Defs, res.Defs)
 		maps.Copy(merged.Uses, res.Uses)
+		maps.Copy(merged.ImportPaths, res.ImportPaths)
 	}
 	f, diags := Check(merged, src)
 	files := make([]*File, len(ress))
