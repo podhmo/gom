@@ -1,0 +1,35 @@
+package main
+
+import go "os"
+import go "unicode/utf8"
+
+// spec section 8.3: `byte`/`uint8` reads as the `Byte` builtin.
+// `[]byte` maps to `List Byte` at a signature boundary (emitted
+// `list.List[byte]`) and `Go.Slice Byte` nested (emitted `[]byte`).
+// `Go.conv` narrows numerics with `byte(n)` and stringifies the
+// slice with `string(b)`; `Byte` keeps `==`/`!=` only.
+fn widen (b: Byte) -> Int = Go.conv b : Int
+fn narrow (n: Int) -> Byte = Go.conv n : Byte
+fn same (a: Byte) (b: Byte) -> Bool = a == b
+fn bytes_of (s: String) -> Go.Slice Byte = Go.conv s : Go.Slice Byte
+fn head (xs: List Byte) -> Option Byte = List.head xs
+
+fn valid_file (path: String) -> Result Bool GoError = {
+  let data = try os.ReadFile path
+  Ok (utf8.Valid data)
+}
+
+fn main () -> Unit = {
+  let b = narrow 65
+  ignore (widen b)
+  ignore (same b (narrow 66))
+  ignore (bytes_of "ab")
+  match valid_file "go.mod" {
+    Ok _ -> ()
+    Err _ -> ()
+  }
+  match os.ReadFile "go.mod" {
+    Ok data -> ignore (head data)
+    Err _ -> ()
+  }
+}
