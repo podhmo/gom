@@ -49,19 +49,22 @@ func pickAny(_ struct{}) int64 {
 //line go_func_adapter.gom:16
 func checkGive(n int64) result.Result[struct{}, error] {
 //line go_func_adapter.gom:17
-	tmp11 := func(tmp10 int64) result.Result[struct{}, error] {
+	tmp11 := func(tmp10 int64) error {
 //line go_func_adapter.gom:17
-		err := goiface.FailOnce(tmp10)
-		return result.FromErr(err)
+		v := goiface.FailOnce(tmp10)
+		if v == nil {
+//line go_func_adapter.gom:17
+			panic("gom: goiface.FailOnce returned nil error — its binding declares a never-nil GoError result")
+		}
+		return v
 	}
 //line go_func_adapter.gom:17
 	tmp13 := func(tmp12 int64) error {
-		_, err1 := tmp11(tmp12).Unwrap()
-		return err1
+		return tmp11(tmp12)
 	}
 //line go_func_adapter.gom:17
-	err2 := goiface.Check(tmp13)
-	return result.FromErr(err2)
+	err := goiface.Check(tmp13)
+	return result.FromErr(err)
 }
 
 //line go_func_adapter.gom:21
@@ -69,21 +72,21 @@ func lookupGive(_ struct{}) result.Result[string, error] {
 //line go_func_adapter.gom:22
 	tmp15 := func(tmp14 int64) result.Result[string, error] {
 //line go_func_adapter.gom:22
-		v, err3 := goiface.Give(tmp14)
-		return result.FromGo(v, err3)
+		v1, err1 := goiface.Give(tmp14)
+		return result.FromGo(v1, err1)
 	}
 //line go_func_adapter.gom:22
 	tmp17 := func(tmp16 int64) (string, error) {
-		v1, err4 := tmp15(tmp16).Unwrap()
-		if err4 != nil {
+		v2, err2 := tmp15(tmp16).Unwrap()
+		if err2 != nil {
 			var z string
-			return z, err4
+			return z, err2
 		}
-		return v1, nil
+		return v2, nil
 	}
 //line go_func_adapter.gom:22
-	v2, err5 := goiface.LookAll(tmp17)
-	return result.FromGo(v2, err5)
+	v3, err3 := goiface.LookAll(tmp17)
+	return result.FromGo(v3, err3)
 }
 
 //line go_func_adapter.gom:27
@@ -130,4 +133,71 @@ func applyZero(_ struct{}) int64 {
 	}
 //line go_func_adapter.gom:35
 	return goiface.Apply0(tmp27)
+}
+
+//line go_func_adapter.gom:39
+func tick(_ struct{}) int64 {
+//line go_func_adapter.gom:39
+	tmp28 := func() int64 {
+//line go_func_adapter.gom:39
+		return goiface.Tick()
+	}
+//line go_func_adapter.gom:39
+	tmp29 := func() int64 {
+		return tmp28()
+	}
+//line go_func_adapter.gom:39
+	return goiface.Apply0(tmp29)
+}
+
+//line go_func_adapter.gom:47
+func checkDirect(_ struct{}) result.Result[struct{}, error] {
+//line go_func_adapter.gom:48
+	tmp31 := func(tmp30 int64) error {
+//line go_func_adapter.gom:48
+		v4 := goiface.FailOnce(tmp30)
+		if v4 == nil {
+//line go_func_adapter.gom:48
+			panic("gom: goiface.FailOnce returned nil error — its binding declares a never-nil GoError result")
+		}
+		return v4
+	}
+//line go_func_adapter.gom:48
+	tmp33 := func(tmp32 int64) error {
+		return tmp31(tmp32)
+	}
+//line go_func_adapter.gom:48
+	err4 := goiface.Check(tmp33)
+	return result.FromErr(err4)
+}
+
+//line go_func_adapter.gom:53
+func drive(f func(int64) int64, n int64) int64 {
+	for {
+//line go_func_adapter.gom:53
+		f1 := f
+//line go_func_adapter.gom:54
+		cb := func(tmp34 int64) int64 {
+			return f1(tmp34)
+		}
+//line go_func_adapter.gom:55
+		tmp36 := n <= 0
+//line go_func_adapter.gom:55
+		if tmp36 {
+//line go_func_adapter.gom:55
+			return goiface.Apply1(cb)
+		} else {
+//line go_func_adapter.gom:55
+			tmp35 := n - 1
+//line go_func_adapter.gom:55
+			f, n = f1, tmp35
+			continue
+		}
+	}
+}
+
+//line go_func_adapter.gom:61
+var chkWrapped func(int64) error = func(tmp37 int64) error {
+	_, err5 := checkGive(tmp37).Unwrap()
+	return err5
 }

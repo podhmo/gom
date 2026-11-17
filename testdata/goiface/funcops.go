@@ -54,3 +54,11 @@ func (w *WithFn) Call() int64 { return w.Fn(1) }
 type FnBox struct {
 	Many func(int, int, int, int)
 }
+
+// Apply1 calls a one-parameter callback — the
+// `func(int64) int64` shape.
+func Apply1(f func(int64) int64) int64 { return f(0) }
+
+// Tick is a zero-parameter producer — the `func() int64`
+// signature a `Unit -> Int` member shape has on the Go side.
+func Tick() int64 { return 7 }

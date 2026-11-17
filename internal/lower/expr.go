@@ -1059,14 +1059,26 @@ func (l *lowerer) goFuncWrap(sp diag.Span, typ types.Type, sym *resolve.Symbol, 
 		}
 	}
 	if unitThunk {
-		// The niladic call applies the thunk to `()`.
-		gf.In = append(gf.In, l.litUnit(sp))
+		// The niladic call applies the thunk to `()` — for a Gom
+		// function. An imported `func() R` has no parameter to
+		// apply; its In stays empty and codegen emits `f()`.
+		if _, isGo := f.(*core.GoFuncRef); !isGo {
+			gf.In = append(gf.In, l.litUnit(sp))
+		}
 	}
 	switch len(fn.Args) - n {
 	case 0:
 		gf.ResShape = core.GoResultsNone
 	case 1:
 		if isGoErrorT(fn.Args[n]) {
+			// The produced FuncN's `error` reads back either
+			// `Result Unit GoError` (call returns a Result to
+			// Unwrap) or a declared `GoError` (the call itself
+			// returns the error — pass it through like One).
+			if isGoErrorT(types.Chase(fs.Ret)) {
+				gf.ResShape = core.GoResultsOne
+				break
+			}
 			gf.ResShape = core.GoResultsErrOnly
 			break
 		}

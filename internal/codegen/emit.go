@@ -1075,6 +1075,11 @@ func (g *gen) goFuncLit(c *core.GoFunc) {
 	}
 	g.open()
 	var call ast.Expr = g.atom(c.X)
+	if len(c.In) == 0 {
+		// A nullary adapter's call is a bare `f()` — the atom by
+		// itself would return the function value unapplied.
+		call = &ast.CallExpr{Fun: call}
+	}
 	for _, in := range c.In {
 		call = &ast.CallExpr{Fun: call, Args: []ast.Expr{g.simpleExpr(in)}}
 	}

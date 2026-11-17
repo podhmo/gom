@@ -33,3 +33,29 @@ fn take_pair () -> Int = goiface.TakeFuncPair (Go.func1 (fn cb -> 9))
 // `Go.func0` adapts a niladic thunk — `() -> Int` is
 // `func() int64`.
 fn apply_zero () -> Int = goiface.Apply0 (Go.func0 (fn () -> 41))
+
+// An imported zero-parameter function adapts too — the adapter's
+// call is `goiface.Tick()`, not `goiface.Tick` or a `struct{}` arg.
+fn tick () -> Int = goiface.Apply0 (Go.func0 goiface.Tick)
+
+// An extern declaration spelling the bare `error` result — the
+// call itself returns `error`, so the adapter returns it directly
+// rather than unwrapping a `Result` it does not have.
+extern go "github.com/podhmo/gom/testdata/goiface" {
+  fn FailOnce (x: Int) -> GoError
+}
+fn check_direct () -> Result Unit GoError =
+  goiface.Check (Go.func1 goiface.FailOnce)
+
+// A callback made inside a tail-recursive function captures its
+// function parameter — the loop's snapshot binding keeps the
+// current iteration's value.
+fn drive (f: Int -> Int) (n: Int) -> Int = {
+  let cb = Go.func1 f
+  if n <= 0 { goiface.Apply1 cb } else { drive f (n - 1) }
+}
+
+// A `Result Unit GoError` source unwraps inside the adapter —
+// `check_give` is a Gom function returning `Result`, so its
+// adapter calls `Unwrap`.
+let chk_wrapped : Go.Func1 Int GoError = Go.func1 check_give
