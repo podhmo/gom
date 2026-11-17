@@ -1821,6 +1821,28 @@ func (c *checker) checkLambda(e *syntax.Lambda, want types.Type) Expr {
 	}
 }
 
+// armSelfContained reports whether an arm body can check without
+// the join slot's contextual type: lambdas, record literals and
+// nested joins consume `want` for parameter types and field/name
+// disambiguation, so detaching them would drop the context they
+// need — they keep sharing the settled slot instead (the `any`
+// absorption then cannot reach them, which is the pre-fix
+// behavior preserved for those roots).
+func (c *checker) armSelfContained(e syntax.Expr) bool {
+	switch e.(type) {
+	case *syntax.Lambda, *syntax.RecordLit, *syntax.If, *syntax.Match, *syntax.SelectExpr:
+		return false
+	case *syntax.Apply, *syntax.Ascribe, *syntax.Binary, *syntax.Block,
+		*syntax.For, *syntax.GoExpr, *syntax.Hole, *syntax.Ident,
+		*syntax.Ignore, *syntax.Let, *syntax.ListLit, *syntax.Lit,
+		*syntax.Select, *syntax.Spread, *syntax.StrInterp, *syntax.Try,
+		*syntax.TupleLit, *syntax.Unary:
+		return true
+	default:
+		panic("unreachable")
+	}
+}
+
 // armDetached reports whether the shared arm-type slot settled into
 // a shape the next arm should no longer check against: a concrete
 // type carrying no `Go.Any`, or a constrained meta — an `any`-typed
@@ -1913,7 +1935,7 @@ func (c *checker) checkIf(e *syntax.If, want types.Type) Expr {
 	}
 	then := c.checkExpr(e.Then, bt)
 	elsW := bt
-	if want == nil && c.armDetached(bt) {
+	if want == nil && c.armSelfContained(e.Else) && c.armDetached(bt) {
 		// The then arm settled the join to a concrete,
 		// `Go.Any`-free type — an `any`-typed else could only
 		// fail it. Detach the else and let the join absorb it:
@@ -1951,7 +1973,7 @@ func (c *checker) checkMatch(e *syntax.Match, want types.Type) Expr {
 			}
 		}
 		w := bt
-		detached := want == nil && c.armDetached(bt)
+		detached := want == nil && c.armSelfContained(a.Body) && c.armDetached(bt)
 		if detached {
 			w = nil
 		}
@@ -2289,7 +2311,7 @@ func (c *checker) checkSelectExpr(e *syntax.SelectExpr, want types.Type) Expr {
 	var prev []*Expr
 	armBody := func(body syntax.Expr) Expr {
 		w := bt
-		detached := want == nil && c.armDetached(bt)
+		detached := want == nil && c.armSelfContained(body) && c.armDetached(bt)
 		if detached {
 			w = nil
 		}
@@ -2297,8 +2319,7 @@ func (c *checker) checkSelectExpr(e *syntax.SelectExpr, want types.Type) Expr {
 		if detached {
 			bt, b = c.joinArm(bt, b, body.Span(), prev)
 		}
-		prev = append(prev, &b)
-		return *prev[len(prev)-1]
+		return b
 	}
 	for _, a := range e.Arms {
 		switch a := a.(type) {
@@ -2364,11 +2385,13 @@ func (c *checker) checkSelectExpr(e *syntax.SelectExpr, want types.Type) Expr {
 			default:
 				panic("unreachable")
 			}
-			out.Arms = append(out.Arms, &RecvArm{
+			ra := &RecvArm{
 				Bind: bind,
 				Chan: ch,
 				Body: armBody(a.Body),
-			})
+			}
+			out.Arms = append(out.Arms, ra)
+			prev = append(prev, &ra.Body)
 		case *syntax.SendArm:
 			ch := c.checkExpr(a.Chan, nil)
 			elem, dir, ok := c.chanElem(ch.Type())
@@ -2392,25 +2415,34 @@ func (c *checker) checkSelectExpr(e *syntax.SelectExpr, want types.Type) Expr {
 				c.diags.Add(diag.Error("E0401",
 					"cannot send on a receive-only channel").At(a.Chan.Span()))
 			}
-			out.Arms = append(out.Arms, &SendArm{
+			sa := &SendArm{
 				Chan:  ch,
 				Value: c.checkExpr(a.Value, elem),
 				Body:  armBody(a.Body),
-			})
+			}
+			out.Arms = append(out.Arms, sa)
+			prev = append(prev, &sa.Body)
 		case *syntax.DefaultArm:
 			defaults++
 			if defaults > 1 {
 				c.diags.Add(diag.Error("E0703",
 					"a select may have at most one default arm").At(a.Sp))
 			}
-			out.Arms = append(out.Arms, &DefaultArm{
+			da := &DefaultArm{
 				Sp:   a.Sp,
-				Body: c.checkExpr(a.Body, bt),
-			})
+				Body: armBody(a.Body),
+			}
+			out.Arms = append(out.Arms, da)
+			prev = append(prev, &da.Body)
 		default:
 			panic("unreachable")
 		}
 	}
+	// A late `any` arm moves the join after the node was born —
+	// repin the select's type to the settled join (the `any`
+	// arm's conform rewrote prior arm bodies in place through
+	// `prev`).
+	out.Base = baseOf(e.Sp, bt)
 	return out
 }
 

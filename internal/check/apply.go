@@ -121,7 +121,18 @@ func (c *checker) checkApply(e *syntax.Apply, want types.Type) Expr {
 			// unification — no pin to propagate.
 		}
 	}
-	pin(want, ret)
+	// The pin walks the application's *residual* type — for a
+	// partial application that is `Func(remaining params, ret)`,
+	// not `ret` itself. Pinning `ret` directly would bind a
+	// shared result meta to the whole expected function (`keep
+	// "s"` under `Go.Any -> String` would pin `?a := Go.Any ->
+	// String`, poisoning `keep`'s first parameter — a false
+	// E0401).
+	appRet := ret
+	if len(e.Args) < len(params) {
+		appRet = &types.Func{Params: params[len(e.Args):], Ret: ret}
+	}
+	pin(want, appRet)
 	if goCall {
 		sig, _ := c.sigOf(callee, e.Sp)
 		arity := c.declArity(sig, len(params))
