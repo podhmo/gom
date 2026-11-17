@@ -426,7 +426,9 @@ func basicType(t *types.Basic, goView bool) (gt.Type, string) {
 	case types.String, types.UntypedString:
 		return gt.String, ""
 	case types.Uint8:
-		return nil, "byte/uint8 is not supported yet"
+		// `byte` and `uint8` are the same basic kind; both read
+		// as `Byte` in the Gom view.
+		return gt.Byte, ""
 	case types.Uint16, types.Uint32, types.Uint64, types.Uint, types.Uintptr:
 		return nil, fmt.Sprintf("%s is not supported yet", t.Name())
 	case types.Int8, types.Int16:

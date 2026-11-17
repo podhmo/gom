@@ -128,7 +128,7 @@ func TestHiddenMembers(t *testing.T) {
 
 	l := loaderFor(t)
 	pkg := membersOf(t, l, "strconv")
-	// AppendUint writes into a []byte — byte/uint8 is unmapped.
+	// AppendUint takes a uint64 — uint64 is unmapped.
 	au := pkg.Members["AppendUint"]
 	if au == nil {
 		t.Skip("AppendUint not exported")

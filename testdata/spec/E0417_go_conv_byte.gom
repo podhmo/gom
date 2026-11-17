@@ -1,0 +1,11 @@
+package ex
+
+// A `Go.conv` literal operand judges at the conversion's target
+// (spec 3.3) — `Byte` is unsigned 8-bit, so out-of-range, negative
+// and non-integral literals are E0417 like any other fixed-width
+// target.
+fn f () -> Byte = Go.conv 300 : Byte
+
+fn g () -> Byte = Go.conv (-1) : Byte
+
+fn h () -> Byte = Go.conv 1.5 : Byte

@@ -509,6 +509,8 @@ func builtinConKind(name string) conKind {
 		return conInt64
 	case "Int32":
 		return conSimple
+	case "Byte":
+		return conSimple
 	case "Float":
 		return conSimple
 	case "Char":
@@ -666,6 +668,8 @@ func simpleBuiltinName(name string) string {
 		return "bool"
 	case "Int32":
 		return "int32"
+	case "Byte":
+		return "byte"
 	case "Float":
 		return "float64"
 	case "Char":

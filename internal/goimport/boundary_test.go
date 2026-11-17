@@ -27,7 +27,7 @@ func boundaryLoader(t *testing.T) (*Loader, string) {
  func AnyChannel() chan any { return nil }
  type NamedString string
  type Embedded struct { Count int }
- type Container struct { Embedded; Text NamedString; Names []string; Reader Reader; Bytes []byte; hidden int }
+ type Container struct { Embedded; Text NamedString; Names []string; Reader Reader; Bytes []byte; Shorts []uint16; hidden int }
  func NewContainer() *Container { return &Container{Embedded:Embedded{Count:41},Text:"hello"} }
  func Change(c *Container) int { c.Count=99; return 2 }
  func Pair(a,b int) int { return a*100+b }
@@ -142,7 +142,7 @@ func TestFieldAndInterfaceDiagnostics(t *testing.T) {
 
 	cases := []struct{ name, body, code, reason string }{
 		{"unexported", "let x = (model.NewContainer ()).hidden", "E0401", "hidden"},
-		{"unsupported", "let x = (model.NewContainer ()).Bytes", "E0501", "byte/uint8"},
+		{"unsupported", "let x = (model.NewContainer ()).Shorts", "E0501", "uint16"},
 		{"nonimplementer", "let x = model.Use 42", "E0401", "model.Reader"},
 		{"pointer_only", "let x = model.Use (model.ConcreteValue ())", "E0401", "model.Reader"},
 		{"channel_nonimplementer", "let x = model.Use (model.Channel ())", "E0401", "model.Reader"},

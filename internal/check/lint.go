@@ -287,7 +287,7 @@ func (c *checker) notAsTargetElem(t types.Type, seen map[conKey]bool) bool {
 		case "":
 			switch t.Name {
 			case "Unit", "Bool", "Int", "Int32", "Int64", "Float",
-				"Char", "String", "List", "Ref", "Array",
+				"Char", "Byte", "String", "List", "Ref", "Array",
 				"Chan", "RecvChan", "SendChan", "Task", "Result":
 				if !c.shadowedBuiltin(t.Name) {
 					return true

@@ -447,9 +447,9 @@ func (w *cmpWalk) has(t types.Type) bool {
 		if t.Qual == "" && !w.c.shadowedBuiltin(t.Name) {
 			switch t.Name {
 			case "Unit", "Bool", "Int", "Int32", "Int64", "Float",
-				"Char", "String", "GoError":
-				// bool, the int widths, float64, rune, string,
-				// struct{} and the error interface — all
+				"Char", "Byte", "String", "GoError":
+				// bool, the int widths, byte, float64, rune,
+				// string, struct{} and the error interface — all
 				// comparable Go representations.
 				return true
 			case "List", "Array":

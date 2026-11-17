@@ -1,0 +1,37 @@
+package ex
+
+import go "encoding/json"
+import go "errors"
+import go "os"
+import go "unicode/utf8"
+
+// `byte`/`uint8` reads as `Byte` (spec 3.1, 8.3): `[]byte` is
+// `List Byte` at a signature boundary, so `os.ReadFile` yields one
+// and `utf8.Valid` takes it back across. `Go.conv` moves `[]byte` /
+// `List Byte` to `String` under the ordinary Go conversion rule and
+// converts `Byte` to and from the other numeric types; `==` works on
+// bytes. `Go.Slice Byte` reads elements through the `Go.Slice`
+// member table without copying.
+fn read (path: String) -> Result String GoError = {
+  let data = try os.ReadFile path
+  if utf8.Valid data {
+    Ok (Go.conv data : String)
+  } else {
+    Err (errors.New "not UTF-8")
+  }
+}
+
+fn quote (v: String) -> Result String GoError = {
+  let raw = try json.Marshal v
+  Ok (Go.conv raw : String)
+}
+
+fn bytes_of (s: String) -> Go.Slice Byte = Go.conv s : Go.Slice Byte
+
+fn nth (bs: Go.Slice Byte) (n: Int) -> Option Byte = Go.Slice.get (bs, n)
+
+fn same_byte (a: Byte) (b: Byte) -> Bool = a == b
+
+fn widen (b: Byte) -> Int = Go.conv b : Int
+
+fn narrow (n: Int) -> Byte = Go.conv n : Byte
