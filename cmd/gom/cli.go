@@ -288,6 +288,7 @@ func runBuild(args []string, stdout, stderr io.Writer) int {
 	// and reported after the message stream — spec's summary lists
 	// the files actually written.
 	var writeErrs []error
+	writeOK := map[*build.Result]bool{}
 	for i, r := range results {
 		if r == nil || r.Cached {
 			if r != nil {
@@ -311,6 +312,7 @@ func runBuild(args []string, stdout, stderr io.Writer) int {
 			writeErrs = append(writeErrs, fmt.Errorf("%s: %w", dst, err))
 			continue
 		}
+		writeOK[r] = true
 		rep.Outputs = append(rep.Outputs, dst)
 	}
 	// Manifests commit only for packages that wrote every output
@@ -321,7 +323,7 @@ func runBuild(args []string, stdout, stderr io.Writer) int {
 		broken := map[string]bool{}
 		for i, r := range results {
 			dir := filepath.Dir(filepath.Clean(inputs[i].path))
-			if r == nil || r.Cached || r.Output == nil || failed[r] {
+			if r == nil || r.Cached || r.Output == nil || failed[r] || !writeOK[r] {
 				broken[dir] = true
 				continue
 			}

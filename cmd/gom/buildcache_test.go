@@ -255,6 +255,57 @@ func TestBuildCache_NocacheDisables(t *testing.T) {
 	}
 }
 
+func TestBuildCache_FailedWriteCommitsNoManifest(t *testing.T) {
+	if testing.Short() {
+		t.Skip("invokes the go tool")
+	}
+	dir, shapesDir, _ := setupCacheFixture(t)
+	outDir := filepath.Join(dir, "out")
+	outFlag := outDir + string(filepath.Separator)
+
+	if code, out, errout := invoke("build", "-o", outFlag, shapesDir); code != 0 {
+		t.Fatalf("first build: exit %d; stdout=%q stderr=%q", code, out, errout)
+	}
+	// Drop the committed manifest, corrupt one output so writeFile
+	// really has to write it, then make that file read-only (an
+	// existing file rewrites without the dir's write bit, so the
+	// file itself must refuse): the recompile must not seed a
+	// manifest whose outputs were never written — a later run
+	// would hit on files that may be stale or missing.
+	cacheDir := filepath.Join(dir, ".gomcache")
+	if err := os.RemoveAll(cacheDir); err != nil {
+		t.Fatal(err)
+	}
+	ents, err := os.ReadDir(outDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ents) == 0 {
+		t.Fatal("first build wrote no outputs")
+	}
+	victim := filepath.Join(outDir, ents[0].Name())
+	sentinel(t, victim)
+	if err := os.Chmod(victim, 0o444); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { os.Chmod(victim, 0o644) })
+	if code, _, _ := invoke("build", "-o", outFlag, shapesDir); code == 0 {
+		t.Fatal("build into a read-only dir succeeded")
+	}
+	ents, err = os.ReadDir(cacheDir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return // no manifest committed — correct
+		}
+		t.Fatal(err)
+	}
+	for _, e := range ents {
+		if strings.HasSuffix(e.Name(), ".json") {
+			t.Fatalf("failed write seeded a manifest: %s", e.Name())
+		}
+	}
+}
+
 func TestBuildCache_MtimeUnchangedOnIdenticalOutput(t *testing.T) {
 	if testing.Short() {
 		t.Skip("invokes the go tool")
