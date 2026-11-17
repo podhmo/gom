@@ -115,9 +115,21 @@ func newExportCache(gobin, dir string) *exportCache {
 	if fi, err := os.Stat(gobinAbs); err == nil {
 		fmt.Fprintf(&b, "|%d|%d", fi.Size(), fi.ModTime().UnixNano())
 	}
-	for _, k := range []string{"GOOS", "GOARCH", "GOFLAGS"} {
-		b.WriteByte(0)
-		b.WriteString(k + "=" + os.Getenv(k))
+	// Effective build settings as the go tool sees them — `go env`
+	// folds the GOENV file (`go env -w` settings) under the process
+	// environment, which is exactly what a later `go list` will
+	// use. Reading only os.Getenv would keep serving exports
+	// selected under different tags after a `go env -w` change.
+	if out, err := exec.Command(gobinAbs, "env", "GOOS", "GOARCH", "GOFLAGS").Output(); err == nil {
+		for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+			b.WriteByte(0)
+			b.WriteString(line)
+		}
+	} else {
+		for _, k := range []string{"GOOS", "GOARCH", "GOFLAGS"} {
+			b.WriteByte(0)
+			b.WriteString(k + "=" + os.Getenv(k))
+		}
 	}
 	// The workspace file actually in effect: an explicit GOWORK, a
 	// go.work discovered above Dir when it is unset, or nothing when

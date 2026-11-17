@@ -46,8 +46,9 @@ func TestExportCacheSecondLoaderSkipsGoList(t *testing.T) {
 	cfg, countFile := countingGoBin(t)
 	l1 := New(cfg)
 	membersOf(t, l1, "strconv")
-	if n := countCalls(t, countFile); n != 1 {
-		t.Fatalf("first Load ran go list %d times, want 1", n)
+	// Wrapped-gobin calls: `go env` (cache key) + `go list -export`.
+	if n := countCalls(t, countFile); n != 2 {
+		t.Fatalf("first Load ran gobin %d times, want 2 (env+list)", n)
 	}
 
 	l2 := New(cfg)
@@ -55,8 +56,10 @@ func TestExportCacheSecondLoaderSkipsGoList(t *testing.T) {
 	if pkg.Members["Atoi"] == nil {
 		t.Error("Atoi missing on the cached load")
 	}
-	if n := countCalls(t, countFile); n != 1 {
-		t.Fatalf("second Load ran go list %d times, want 0 additional (total %d)", n-1, n)
+	// The second loader recomputes its key (go env) but must not
+	// re-run `go list`.
+	if n := countCalls(t, countFile); n != 3 {
+		t.Fatalf("second Load ran gobin %d times, want 1 additional (total %d)", n-2, n)
 	}
 }
 
@@ -122,6 +125,8 @@ func TestExportCacheDisabled(t *testing.T) {
 	membersOf(t, l1, "strconv")
 	l2 := New(cfg)
 	membersOf(t, l2, "strconv")
+	// NOCACHE still runs `go env` for the key probe path? No — the
+	// cache is disabled before keying, so each Load is one `go list`.
 	if n := countCalls(t, countFile); n != 2 {
 		t.Fatalf("nocache ran go list %d times, want 2", n)
 	}
@@ -162,16 +167,23 @@ func TestExportCacheDepEditInvalidates(t *testing.T) {
 	}
 	writeBar("package bar\n\nconst N = 1\n")
 
-	cfg := &Config{Dir: mod}
+	cfg, countFile := countingGoBin(t)
+	cfg.Dir = mod
 	l1 := New(cfg)
 	membersOf(t, l1, "test.local/m/foo")
 
 	writeBar("package bar\n\nconst N = 1\n\nfunc NewMember() int { return 2 }\n")
 
+	// Reload the IMPORTER (foo): bar's API is baked into foo's
+	// archive, so a fresh answer for foo is only possible if the
+	// dep-src-mtime validation noticed bar's edit — reloading bar
+	// itself would pass even without that check. The wrapped gobin
+	// pins it: the second load must pay for `go list` again.
+	before := countCalls(t, countFile)
 	l2 := New(cfg)
-	pkg2 := membersOf(t, l2, "test.local/m/bar")
-	if pkg2.Members["NewMember"] == nil {
-		t.Error("NewMember missing after the dependency edit — stale cache served the old export data")
+	membersOf(t, l2, "test.local/m/foo")
+	if n := countCalls(t, countFile) - before; n != 2 {
+		t.Fatalf("reloading foo after the bar edit ran gobin %d times, want 2 (env+list)", n)
 	}
 }
 
