@@ -1438,5 +1438,7 @@
   引数式を持たない（中間適用結果・unwrap 済み payload は lowering
   内部の値）ため、List↔Go.Slice 等の境界変換はそれら経路では
   conv=false でゲート — 受理を止めて正直な E0401 に戻した。
+  Go interface 代入可能性は実体化を伴わない（atom がそのまま
+  Go 代入可能）ため conv=false でも受理される。
   fixture: `E0401_slice_boundary_compose`。
   参照: [check/apply.go](../internal/check/apply.go) `conformCallee`。

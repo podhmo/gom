@@ -1238,14 +1238,16 @@ func (c *checker) replayGoApply(pa *pendingApply) {
 // the wrong question here — Go cannot call an `interface{}`, so the
 // structural judgment reports the mismatch instead of admitting an
 // `a("s")` the emitter then writes verbatim.
-// conv reports whether the caller can carry the boundary
+// conv reports whether the caller can carry the slice-boundary
 // conversions conformParam admits on a real argument expression:
 // `|>` and overApply wrap their argument in the Ascribe
 // conformFirstArg emits, so they pass true; `>>`/`<<` and `|?>`
 // apply a value that exists only inside the lowering (the middle
 // application result, the unwrapped payload), so they pass false
-// and the boundary stays an honest unify mismatch — admitting it
-// would emit the raw List where the callee takes a Go.Slice.
+// and the List↔Go.Slice boundary stays an honest unify mismatch —
+// admitting it would emit the raw List where the callee takes a
+// Go.Slice. (Interface assignability materializes no conversion,
+// so conv=false still admits it — see conformParam.)
 func (c *checker) conformCallee(callee, argT, res types.Type, sp diag.Span, conv bool) bool {
 	if fs, ok := types.Chase(callee).(*types.Func); ok &&
 		len(fs.Params) > 0 && fs.Params[0].Label == "" {
@@ -1277,18 +1279,16 @@ func (c *checker) conformCallee(callee, argT, res types.Type, sp diag.Span, conv
 // channel-direction narrowing stays gated to live Go parameters
 // (goParamWants), which a Gom callee's parameter is not.
 func (c *checker) conformParam(want, got types.Type, sp diag.Span, conv bool) bool {
-	if !conv {
-		// No argument expression can carry the conversion —
-		// only the equality admission is honest here.
-		return c.unify(want, got, sp)
-	}
-	if c.slicePair(want, got, sp) {
+	if conv && c.slicePair(want, got, sp) {
 		return true
 	}
 	w, g := types.Chase(want), types.Chase(got)
 	if !types.Equal(w, g) && c.goOriginType(w) && c.goOriginType(g) &&
 		!isGoAny(w) {
 		if src, ok := c.src.(InterfaceSource); ok && src.InterfaceAssignable(g, w) {
+			// Interface assignability materializes nothing —
+			// the emitted atom is already assignable at the Go
+			// call, so conv=false callers admit it too.
 			return true
 		}
 	}

@@ -14,3 +14,16 @@ let h = f >> g
 let h2 = g << f
 let xs : List Int = [1, 2]
 let r = xs |?> ok
+
+// Interface assignability needs no conversion node — the middle
+// value is already assignable at the emitted Go call — so these
+// stay admitted (no diagnostics).
+import go "github.com/podhmo/gom/testdata/goiface"
+
+fn fc (x : Int) -> Ptr goiface.Container = goiface.NewContainer ()
+fn ge (v : goiface.Empty) -> String = goiface.Kind v
+fn okE (v : goiface.Empty) -> Result String String = Ok (goiface.Kind v)
+
+let hi = fc >> ge
+let hi2 = ge << fc
+let r2 = goiface.NewContainer () |?> okE
