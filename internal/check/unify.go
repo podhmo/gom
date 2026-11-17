@@ -40,13 +40,13 @@ type metaRec struct {
 	span diag.Span // where the meta was created (diagnostic site)
 	desc string    // what the meta stands for ("the operand of +")
 
-	num   bool       // constrained to a built-in numeric type
-	ord   bool       // constrained to an ordered type
-	eq    bool       // must not contain functions or type variables
-	flo   bool       // constrained to a floating-point type (Float literals)
-	intg  bool       // constrained to an integral type (the `%` operator)
-	quiet bool       // another diagnostic already covers this meta — no E0407
-	silent bool      // a failed expectation covers its unsolvedness — no E0407,
+	num    bool // constrained to a built-in numeric type
+	ord    bool // constrained to an ordered type
+	eq     bool // must not contain functions or type variables
+	flo    bool // constrained to a floating-point type (Float literals)
+	intg   bool // constrained to an integral type (the `%` operator)
+	quiet  bool // another diagnostic already covers this meta — no E0407
+	silent bool // a failed expectation covers its unsolvedness — no E0407,
 	//   but unlike quiet a later mismatch that mentions it still reports
 	dflt types.Type // default solution, or nil for "ask for an annotation"
 }

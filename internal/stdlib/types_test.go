@@ -99,6 +99,19 @@ func TestLoadTypeMembers(t *testing.T) {
 		}
 	}
 
+	// Member syms are the checked declarations' own on both paths —
+	// Def (the decl node hover and diagnostics cite) survives.
+	for name, sym := range table {
+		if sym.Def == nil {
+			t.Errorf("module member %s lost its decl node", name)
+		}
+	}
+	for name, sym := range p.Members {
+		if sym.Def == nil {
+			t.Errorf("import member %s lost its decl node", name)
+		}
+	}
+
 	// The `pkg.Type.Ctor` table agrees with the loader's.
 	shape, gshape := table["Shape"], p.Members["Shape"]
 	ctors, gctors := e.typeCtors[shape], l.CtorsOf(gshape)

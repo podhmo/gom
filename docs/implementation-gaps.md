@@ -1312,21 +1312,27 @@
   対応: 例を `Go.Slice` に置換（squash `8a0e136`、wave-13 tooling-hygiene
   item c）。`Go.Any` は別 lane の admission 対象として既存記述のまま。
 
-- [ ] **stdlib の fn/let メンバーシンボルはチェック済み `d.Sym` ではなく新規 mint**:
+- [x] **stdlib の fn/let メンバーシンボルはチェック済み `d.Sym` ではなく新規 mint**:
   `internal/stdlib` の `loadPackage` は `&resolve.Symbol{Name, Kind, Package}`
   を新規生成する一方、gomimport の extract は checked `d.Sym`/`letSyms` を
-  そのまま `p.Members` に登録する（`Sp` 等の付随情報が失われる）。現在の
-  消費者はメンバー span を見ないため不活性。wave-13 tooling-hygiene
-  review fix round の sibling audit で確認。
+  そのまま `p.Members` に登録する（`Def` — hover/診断が参照する宣言ノード —
+  が失われる）。
+  対応（wave14 hygiene）: `loadPackage` を surface 走査から decl 走査へ揃え、
+  `d.Sym` をそのまま登録（let は `letPatMembers` — gomimport `letSyms`+`patType`
+  の mirror — で展開）。arity 記録も extract と同じ規則（非 thunk fn のみ）。
+  `TestLoadTypeMembers` に Def 生存の pin を追加。
   参照: [internal/stdlib](../internal/stdlib/stdlib.go)、
   [gomimport](../internal/gomimport/loader.go)。
 
-- [ ] **iface.Surface は thunk `fn` を `MemberLet`（`Type: d.Sig.Ret`）として
+- [x] **iface.Surface は thunk `fn` を `MemberLet`（`Type: d.Sig.Ret`）として
   出すが gomimport は `() -> T` の完全 sig を登録する**: 同一 `.gomi`
   メンバーが経路で異なるシグネチャを持つ。`.gomi` は body を持てないため
   thunk `fn` は宣言不可能で構造上不活性 — stdlib 側も iface 経由のため
-  同じ MemberLet を見る。wave-13 tooling-hygiene review fix round の
-  sibling audit で確認。
+  同じ MemberLet を見る。
+  対応（wave14 hygiene）: 上項の decl 走査への切替で stdlib 側は
+  `d.Sig`（thunk は `() -> T`）を登録するようになり gomimport と一致。
+  iface.Surface の MemberLet 表現自体は interface 比較の規約として
+  残る（Member.Type は値の型 T が正しい）。
   参照: [iface](../internal/iface/iface.go)、
   [gomimport](../internal/gomimport/loader.go)。
 

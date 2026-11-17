@@ -22,9 +22,9 @@ import (
 
 	"github.com/podhmo/gom/internal/build"
 	"github.com/podhmo/gom/internal/check"
-	"github.com/podhmo/gom/internal/iface"
 	"github.com/podhmo/gom/internal/lower"
 	"github.com/podhmo/gom/internal/resolve"
+	"github.com/podhmo/gom/internal/types"
 	gomstdlib "github.com/podhmo/gom/stdlib"
 )
 
@@ -114,55 +114,122 @@ func (e *env) loadPackage(module, gomiPath, impPath string, src []byte) error {
 		return fmt.Errorf("%s does not check: %d diagnostic(s)",
 			gomiPath, len(r.Diagnostics))
 	}
-	// Type members register from the checked declaration, not the
-	// surface member — the ctor tables, signatures and foreign-type
-	// registration all key on the declaration's own symbols.
-	tdeclByName := map[string]*check.TypeDecl{}
+	// Members register from the checked declarations — the same
+	// objects and shapes gomimport's extract registers for an
+	// imported package: `d.Sym` carries Def (the decl node hover
+	// and diagnostics cite), a thunk FnDecl keeps its `() -> T`
+	// signature rather than the let-style T the surface reports,
+	// and only real functions record a declared arity.
 	own := map[string]bool{}
 	for _, d := range r.Typed.Decls {
 		if td, ok := d.(*check.TypeDecl); ok && td.Sym != nil {
-			tdeclByName[td.Sym.Name] = td
 			own[td.Sym.Name] = true
 		}
 	}
 	table := map[string]*resolve.Symbol{}
-	for _, m := range iface.Surface(r.Typed).Members {
-		if m.Kind == iface.MemberType {
-			td := tdeclByName[m.Name]
-			if td == nil {
-				return fmt.Errorf("%s: type member %s has no declaration",
-					gomiPath, m.Name)
+	for _, d := range r.Typed.Decls {
+		switch d := d.(type) {
+		case *check.FnDecl:
+			sym := d.Sym
+			if sym == nil || sym.TestOnly {
+				continue
 			}
-			e.loadType(table, impPath, td, own)
-			continue
-		}
-		kind := resolve.KindFunc
-		if m.Kind == iface.MemberLet {
-			kind = resolve.KindVar
-		}
-		sym := &resolve.Symbol{
-			Name: m.Name, Kind: kind, Package: impPath,
-		}
-		table[m.Name] = sym
-		// Signature references to the interface's own types
-		// carry the import path — the same requalification
-		// gomimport's extract runs on member signatures.
-		e.sigs[sym] = check.Signature{
-			Type:      requalify(m.Type, own, impPath),
-			DeclArity: m.Arity,
-		}
-		// Only functions carry a declared arity — like
-		// gomimport's extract, which registers FnDecl/
-		// MethodDecl arities only. A let member's answer must
-		// stay unknown (lowering falls back to the flat arity
-		// of its type); recording m.Arity's zero would claim
-		// arity 0 for a function-valued let.
-		if m.Kind == iface.MemberFn {
-			e.arities[sym] = m.Arity
+			sym.Package = impPath
+			table[sym.Name] = sym
+			// Signature references to the interface's own types
+			// carry the import path — the same requalification
+			// gomimport's extract runs on member signatures.
+			sig := check.Signature{Type: requalify(d.Sig, own, impPath)}
+			// Only functions carry a declared arity — like
+			// gomimport's extract, which registers FnDecl/
+			// MethodDecl arities only. A let member's answer must
+			// stay unknown (lowering falls back to the flat arity
+			// of its type); recording zero would claim arity 0
+			// for a function-valued let.
+			if !d.Thunk && d.Sig != nil {
+				sig.DeclArity = len(d.Sig.Params)
+				e.arities[sym] = len(d.Sig.Params)
+			}
+			e.sigs[sym] = sig
+		case *check.LetDecl:
+			for _, m := range letPatMembers(d.Pat) {
+				if m.sym == nil || m.sym.TestOnly {
+					continue
+				}
+				m.sym.Package = impPath
+				table[m.sym.Name] = m.sym
+				e.sigs[m.sym] = check.Signature{
+					Type: requalify(m.typ, own, impPath),
+				}
+			}
+		case *check.TypeDecl:
+			if d.Sym == nil {
+				continue
+			}
+			e.loadType(table, impPath, d, own)
+		case *check.TestDecl:
+			// A .gomi cannot declare tests; nothing registers.
+		default:
+			panic("unreachable")
 		}
 	}
 	e.modules[module] = table
 	return nil
+}
+
+// letPatMember pairs a symbol bound by a `let` pattern with the type
+// it carries — mirroring gomimport's letSyms+patType for the member
+// table (types.go already mirrors that file's other helpers).
+type letPatMember struct {
+	sym *resolve.Symbol
+	typ types.Type
+}
+
+// letPatMembers expands a typed top-level `let` pattern into one
+// member per bound name — `let (a, b) = e` exposes two constants.
+// Wildcards and non-binding positions contribute nothing.
+func letPatMembers(p check.Pat) []letPatMember {
+	var out []letPatMember
+	var walk func(p check.Pat)
+	walk = func(p check.Pat) {
+		switch p := p.(type) {
+		case nil:
+		case *check.WildPat, *check.LitPat:
+		case *check.VarPat:
+			out = append(out, letPatMember{p.Sym, p.Type()})
+		case *check.CtorPat:
+			for _, a := range p.Args {
+				walk(a.Pat)
+			}
+			for i := range p.Fields {
+				walk(p.Fields[i].Pat)
+			}
+		case *check.TuplePat:
+			for _, e := range p.Elems {
+				walk(e)
+			}
+		case *check.RecordPat:
+			for i := range p.Fields {
+				walk(p.Fields[i].Pat)
+			}
+		case *check.ListPat:
+			for _, e := range p.Elems {
+				walk(e)
+			}
+			walk(p.Rest)
+		case *check.OrPat:
+			if len(p.Alts) > 0 {
+				walk(p.Alts[0]) // alternatives bind the same names
+			}
+		case *check.AsPat:
+			walk(p.Pat)
+			out = append(out, letPatMember{p.Sym, p.Type()})
+		default:
+			panic("unreachable")
+		}
+	}
+	walk(p)
+	return out
 }
 
 // Apply merges the standard library into opts and returns it:
