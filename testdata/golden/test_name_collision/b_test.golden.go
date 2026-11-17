@@ -11,4 +11,5 @@ import (
 func TestX_c83a3948(t *testing.T) {
 //line test_name_collision/b.gom:4
 	rt.Assert(t, true)
+//line test_name_collision/b.gom:3
 }

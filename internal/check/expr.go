@@ -308,6 +308,14 @@ func (c *checker) checkSelect(e *syntax.Select) Expr {
 				c.diags.Add(diag.Error("E0507",
 					"`Go.conv` is only valid as a conversion: `Go.conv e : T`").At(e.Sp))
 				typ = c.untypedMeta()
+			case sel != nil && funcCallMember(sel):
+				// `Go.funcN` is a conversion whose result type the
+				// apply itself computes — like `Go.conv` the bare
+				// member names no type. In callee position the
+				// apply path (checkGoFuncCall) does the real work
+				// and this meta is never inspected; a bare use
+				// surfaces as the unsolved-meta E0407.
+				typ = c.untypedMeta()
 			case sel != nil && !valueMember(sel.Kind):
 				// A namespace member (a type, or a builtin that is
 				// not a function) is not an expression. The resolver
@@ -1272,24 +1280,27 @@ func (c *checker) checkBinary(e *syntax.Binary) Expr {
 	case syntax.BinEq, syntax.BinNe:
 		x := c.checkExpr(e.X, nil)
 		y := c.checkExpr(e.Y, nil)
+		// `a == 42` under a `Go.Any` operand must not let the
+		// concrete side face `unify` in want position — a literal's
+		// constrained meta binds `any` and fails its own numeric
+		// record (`42 == a` reporting "expected a numeric type"),
+		// and a bare `int` rep would compare `int64` to `int` and
+		// stay false even when it passed. Box the concrete side
+		// first so both operands carry the `any` rep — the same
+		// materialization a `Go.Any` parameter applies (spec
+		// 8.1.7) — then the operand unify is `any == any` on both
+		// orderings.
+		switch {
+		case isGoAny(types.Chase(x.Type())) && !isGoAny(types.Chase(y.Type())):
+			y = c.conformExpr(y, types.Chase(x.Type()), e.Y.Span())
+		case isGoAny(types.Chase(y.Type())) && !isGoAny(types.Chase(x.Type())):
+			x = c.conformExpr(x, types.Chase(y.Type()), e.X.Span())
+		}
 		// The constraint check runs only when the operands agreed —
 		// a failed unify already reported; probing its type again
 		// would restate the same mismatch.
 		if c.unify(x.Type(), y.Type(), e.Sp) {
 			c.constrain(x.Type(), e.Sp, "the operands of `==`", func(r *metaRec) { r.eq = true })
-			// `a == 42` under a `Go.Any` operand passed the `any`
-			// slot's early accept, which leaves the concrete side
-			// emitting its natural rep — `rt.Equal(a, 1)` compares
-			// `int64` to `int` and is always false (and lower's
-			// same-type invariant rejects the mix outright). Box
-			// the concrete side so both operands carry the `any`
-			// rep — the same materialization a `Go.Any` parameter
-			// applies (spec 8.1.7).
-			if isGoAny(types.Chase(x.Type())) && !isGoAny(types.Chase(y.Type())) {
-				y = c.conformExpr(y, types.Chase(x.Type()), e.Y.Span())
-			} else if isGoAny(types.Chase(y.Type())) && !isGoAny(types.Chase(x.Type())) {
-				x = c.conformExpr(x, types.Chase(y.Type()), e.X.Span())
-			}
 		}
 		return &Binary{Base: baseOf(e.Sp, c.boolResult(e.Sp, "`==`")), Op: op, X: x, Y: y}
 	case syntax.BinLt, syntax.BinLe, syntax.BinGt, syntax.BinGe:
@@ -1569,10 +1580,11 @@ func (c *checker) checkArith(e *syntax.Binary, constrain func(*metaRec)) Expr {
 func (c *checker) revisitDivs() {
 	for _, b := range c.pendingDivs {
 		t := types.Chase(b.X.Type())
+		gk, isGo := c.namedBasicKind(t)
 		switch {
-		case isIntegral(t):
+		case isIntegral(t) || (isGo && namedIntegral(gk)):
 			// Always invalid — see above.
-		case isFloat(t):
+		case isFloat(t) || (isGo && namedFloat(gk)):
 			if _, ok := constFold(b.X); !ok {
 				continue
 			}

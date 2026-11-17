@@ -2,6 +2,7 @@ package lower
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/podhmo/gom/internal/check"
 	"github.com/podhmo/gom/internal/core"
@@ -979,6 +980,9 @@ func (l *lowerer) builtinCall(sp diag.Span, typ types.Type, sym *resolve.Symbol,
 		Sp: sp, Typ: typ,
 		Sym: sym, Args: args,
 	}
+	if n, ok := goFuncCallN(sym); ok {
+		return l.goFuncWrap(sp, typ, sym, args, n)
+	}
 	// assert_eq carries the operands' comparison recipe — the same
 	// judgment `x == y` applies, rendered by codegen as the
 	// pre-computed operand of rt.AssertEq — and the operand type's
@@ -989,6 +993,120 @@ func (l *lowerer) builtinCall(sp diag.Span, typ types.Type, sym *resolve.Symbol,
 		cb.Show = l.showPlan(sp, args[0].Type())
 	}
 	return cb
+}
+
+// goFuncCallN reports whether sym is a `Go.funcN` conversion
+// builtin and returns its parameter count — the suffix digit.
+func goFuncCallN(sym *resolve.Symbol) (int, bool) {
+	if sym == nil || sym.Package != "Go" || !strings.HasPrefix(sym.Name, "func") {
+		return 0, false
+	}
+	s := sym.Name[4:]
+	if len(s) != 1 || s[0] < '0' || s[0] > '0'+byte(types.GoFuncMaxArity) {
+		return 0, false
+	}
+	return int(s[0] - '0'), true
+}
+
+// goFuncWrap lowers `Go.funcN f` to the flat func literal that adapts
+// the curried Gom function value to the `func(A, B) R` Go calling
+// convention (docs/decisions/2026-11-17-func-interop.md). Every
+// conversion is recorded on the node — the parameter-side raw→Gom
+// reads and the result payload's Gom→raw write both reuse the
+// ordinary boundary table (goConvKindOf).
+func (l *lowerer) goFuncWrap(sp diag.Span, typ types.Type, sym *resolve.Symbol, args []core.Atom, n int) core.Expr {
+	if len(args) != 1 || args[0] == nil {
+		l.err(sp, fmt.Sprintf("Go.func%d expects one function argument", n))
+		return l.litUnit(sp)
+	}
+	f := args[0]
+	fn, ok := typ.(*types.Con)
+	if !ok || fn.Qual != "Go" || len(fn.Args) < n || len(fn.Args) > n+2 {
+		l.err(sp, fmt.Sprintf("Go.func%d result type %s is not a Go.Func%d type", n, typeName(typ), n))
+		return l.litUnit(sp)
+	}
+	fs := flatSig(types.Chase(f.Type()))
+	// `Go.func0` adapts the niladic shape — the thunk's lone Unit
+	// parameter drops out of the literal's signature.
+	unitThunk := false
+	if n == 0 && fs != nil && len(fs.Params) == 1 && l.isUnitCon(fs.Params[0].Type) {
+		fs = &types.Func{Ret: fs.Ret}
+		unitThunk = true
+	}
+	if fs == nil || len(fs.Params) != n {
+		l.err(sp, fmt.Sprintf("Go.func%d argument of type %s is not a %d-parameter function", n, typeName(f.Type()), n))
+		return l.litUnit(sp)
+	}
+	gf := &core.GoFunc{
+		Sp: sp, Typ: typ,
+		X:       f,
+		Results: fn.Args[n:],
+	}
+	for i := 0; i < n; i++ {
+		raw := fn.Args[i]
+		b := l.tmpBind(sp, raw)
+		gf.Params = append(gf.Params, b)
+		gom := fs.Params[i].Type
+		k, ok := l.goConvKindOf(raw, gom)
+		if !ok {
+			l.err(sp, fmt.Sprintf("Go.func%d parameter %d of type %s cannot convert to %s — the boundary needs a value copy not yet supported",
+				n, i, typeName(raw), typeName(gom)))
+		}
+		if k == 0 {
+			gf.In = append(gf.In, varOf(sp, b))
+		} else {
+			gf.In = append(gf.In, &core.Conv{Sp: sp, Typ: gom, Kind: k, X: varOf(sp, b)})
+		}
+	}
+	if unitThunk {
+		// The niladic call applies the thunk to `()`.
+		gf.In = append(gf.In, l.litUnit(sp))
+	}
+	switch len(fn.Args) - n {
+	case 0:
+		gf.ResShape = core.GoResultsNone
+	case 1:
+		if isGoErrorT(fn.Args[n]) {
+			// The produced FuncN's `error` reads back either
+			// `Result Unit GoError` (call returns a Result to
+			// Unwrap) or a declared `GoError` (the call itself
+			// returns the error — pass it through like One).
+			if isGoErrorT(types.Chase(fs.Ret)) {
+				gf.ResShape = core.GoResultsOne
+				break
+			}
+			gf.ResShape = core.GoResultsErrOnly
+			break
+		}
+		gf.ResShape = core.GoResultsOne
+		k, ok := l.goConvKindOf(types.Chase(fs.Ret), fn.Args[n])
+		if !ok {
+			l.err(sp, fmt.Sprintf("Go.func%d result of type %s cannot convert to %s — the boundary needs a value copy not yet supported",
+				n, typeName(fs.Ret), typeName(fn.Args[n])))
+		}
+		gf.ResConv = k
+	case 2:
+		gf.ResShape = core.GoResultsErr
+		var okT types.Type
+		if rc, isRes := types.Chase(fs.Ret).(*types.Con); isRes && rc.Name == "Result" && len(rc.Args) == 2 {
+			okT = rc.Args[0]
+		} else {
+			l.err(sp, fmt.Sprintf("Go.func%d result of type %s cannot produce (T, error)", n, typeName(fs.Ret)))
+		}
+		k, okk := l.goConvKindOf(types.Chase(okT), fn.Args[n])
+		if !okk {
+			l.err(sp, fmt.Sprintf("Go.func%d result of type %s cannot convert to %s — the boundary needs a value copy not yet supported",
+				n, typeName(okT), typeName(fn.Args[n])))
+		}
+		gf.ResConv = k
+	}
+	return gf
+}
+
+// isGoErrorT reports whether t is the builtin `GoError`.
+func isGoErrorT(t types.Type) bool {
+	cc, ok := types.Chase(t).(*types.Con)
+	return ok && cc.Qual == "" && cc.Name == "GoError" && len(cc.Args) == 0
 }
 
 // overAppRetType is the function type the saturated prefix of an

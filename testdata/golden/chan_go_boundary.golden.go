@@ -17,12 +17,14 @@ func sendInto(v string) struct{} {
 	goiface.SendOn(tmp1, v)
 //line chan_go_boundary.gom:11
 	return struct{}{}
+//line chan_go_boundary.gom:8
 }
 
 //line chan_go_boundary.gom:16
 func wait(done <-chan struct{}) bool {
 //line chan_go_boundary.gom:17
 	select {
+//line chan_go_boundary.gom:17
 	case <-done:
 //line chan_go_boundary.gom:18
 		return true
@@ -30,7 +32,9 @@ func wait(done <-chan struct{}) bool {
 	default:
 //line chan_go_boundary.gom:19
 		return false
+//line chan_go_boundary.gom:17
 	}
+//line chan_go_boundary.gom:16
 }
 
 //line chan_go_boundary.gom:22
@@ -41,4 +45,5 @@ func closeSig(ch chan struct{}) struct{} {
 	goiface.CloseSignal(tmp2)
 //line chan_go_boundary.gom:22
 	return struct{}{}
+//line chan_go_boundary.gom:22
 }

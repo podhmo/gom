@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: `Go.func1` produces `Go.Func1 Int Int`, expected `Go.Func1 Int String`",
+      "span": {
+        "file": "E0401_go_func_want.gom",
+        "start": {
+          "line": 11,
+          "col": 31,
+          "offset": 293
+        },
+        "end": {
+          "line": 11,
+          "col": 43,
+          "offset": 305
+        }
+      }
+    }
+  ]
+}

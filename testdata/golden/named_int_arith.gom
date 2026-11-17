@@ -1,0 +1,29 @@
+package ex
+
+import go "time"
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// Named Go integer arithmetic (decision 2026-11-17-named-int-arith):
+// the untyped literal conforms to the operand's named type, so
+// `30 * time.Second` emits Duration arithmetic directly.
+fn half_min () -> time.Duration = 30 * time.Second
+
+fn add (a: time.Duration) (b: time.Duration) -> time.Duration = a + b
+
+fn left (deadline: time.Duration) (now: time.Duration) -> time.Duration = deadline - now
+
+fn maior (a: time.Duration) (b: time.Duration) -> Bool = a > b
+
+// Named literal materialization: `let d : Ticks = 1 + 2` emits
+// `Ticks(1) + Ticks(2)` — a bare `1 + 2` would bind Go's `int`, and
+// `1 / 2` under Ratio would fold to Go's integer `0`.
+fn ticks () -> goiface.Ticks = 1 + 2
+
+fn ratio () -> goiface.Ratio = 1 / 2
+
+fn neg_min () -> goiface.Ticks = -9223372036854775808
+
+fn discard_named () -> Int = {
+  let _ : goiface.Ticks = 1
+  0
+}

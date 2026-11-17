@@ -12,11 +12,15 @@ import (
 func fresh(m string) error {
 //line error_views.gom:11
 	v := errors.New(m)
+//line error_views.gom:11
 	if v == nil {
 //line error_views.gom:11
 		panic("gom: errors.New returned nil error — its binding declares a never-nil GoError result")
+//line error_views.gom:11
 	}
+//line error_views.gom:11
 	return v
+//line error_views.gom:11
 }
 
 //line error_views.gom:13
@@ -25,23 +29,31 @@ func wrapped(m string) error {
 	tmp1 := any(m)
 //line error_views.gom:13
 	v1 := fmt.Errorf("ctx: %s", tmp1)
+//line error_views.gom:13
 	if v1 == nil {
 //line error_views.gom:13
 		panic("gom: fmt.Errorf returned nil error — its binding declares a never-nil GoError result")
+//line error_views.gom:13
 	}
+//line error_views.gom:13
 	return v1
+//line error_views.gom:13
 }
 
 //line error_views.gom:15
 func unwrapped(e error) option.Option[error] {
 //line error_views.gom:15
 	v2 := errors.Unwrap(e)
+//line error_views.gom:15
 	return option.FromGo(v2, v2 != nil)
+//line error_views.gom:15
 }
 
 //line error_views.gom:17
 func joined(a, b error) option.Option[error] {
 //line error_views.gom:17
 	v3 := errors.Join(a, b)
+//line error_views.gom:17
 	return option.FromGo(v3, v3 != nil)
+//line error_views.gom:17
 }

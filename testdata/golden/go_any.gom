@@ -38,6 +38,11 @@ fn takes (xs: List Go.Any) -> Unit = ignore xs
 // copy the direct application applies.
 let g : Int -> Go.Any = fn x -> 1
 fn feq (a: Go.Any) -> Bool = a == 42
+// Either operand order boxes (wave 16): `42 == a` conforms the
+// literal into `any` before the operand unify, so its numeric meta
+// never binds `any` and the emitted reps compare like-to-like.
+fn feq2 (a: Go.Any) -> Bool = 42 == a
+fn fne (a: Go.Any) -> Bool = "s" != a
 fn m42 (a: Go.Any) -> String = match a { 42 -> "forty"; _ -> "other" }
 fn mSome (o: Option Go.Any) -> String = match o { Some 42 -> "forty"; _ -> "other" }
 fn take (l: Go.Slice String) -> Int = Go.Slice.length l
@@ -50,6 +55,8 @@ fn main () -> Unit = {
   ignore (tok ())
   ignore (g 0)
   ignore (feq x)
+  ignore (feq2 x)
+  ignore (fne s)
   ignore (m42 s)
   ignore (mSome o)
   ignore (["a", "b"] |> take)

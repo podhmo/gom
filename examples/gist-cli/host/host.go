@@ -10,14 +10,15 @@ import (
 	"time"
 )
 
-// NewClient creates a client with a timeout and no automatic redirects.
-// Remove when Gom can supply the Go CheckRedirect callback — Go function
-// interop (a Gom callable passed as a Go func) is not decided, and the
-// struct-literal surface alone cannot set a func-typed field. The Timeout
-// field is arithmetic on time.Duration, which is also outside the current
-// numerics surface; see docs/decisions/2026-11-17-struct-construction.md.
-// Preserve both the 30-second timeout and http.ErrUseLastResponse behavior,
-// not just client creation.
-func NewClient() *http.Client {
-	return &http.Client{Timeout: 30 * time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+// NewClient creates a client with a timeout and the supplied CheckRedirect
+// callback. Remove when Gom can write the client construction itself — named
+// Go integer arithmetic is now supported (`30 * time.Second` compiles,
+// decision 2026-11-17-named-int-arith), so the remaining blocker is Go
+// composite-literal construction `http.Client{...}`; see
+// docs/decisions/2026-11-17-struct-construction.md.
+// The CheckRedirect callback now comes from Gom via Go.func2 — preserve both
+// the 30-second timeout and the caller-supplied redirect behavior, not just
+// client creation.
+func NewClient(checkRedirect func(*http.Request, []*http.Request) error) *http.Client {
+	return &http.Client{Timeout: 30 * time.Second, CheckRedirect: checkRedirect}
 }

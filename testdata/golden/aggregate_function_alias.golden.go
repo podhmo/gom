@@ -12,6 +12,7 @@ type Pair struct {
 	F func(int64) int64
 //line aggregate_function_alias.gom:11
 	X int64
+//line aggregate_function_alias.gom:11
 }
 
 //line aggregate_function_alias.gom:14
@@ -21,8 +22,10 @@ type Box interface{ isBox() }
 type Box_Box struct {
 //line aggregate_function_alias.gom:14
 	V0 func(int64) int64
+//line aggregate_function_alias.gom:14
 }
 
+//line aggregate_function_alias.gom:14
 func (Box_Box) isBox() {}
 
 //line aggregate_function_alias.gom:8
@@ -33,6 +36,7 @@ func count(n int64) int64 {
 	if tmp3 {
 //line aggregate_function_alias.gom:8
 		return 0
+//line aggregate_function_alias.gom:8
 	} else {
 //line aggregate_function_alias.gom:8
 		tmp1 := n - 1
@@ -40,7 +44,9 @@ func count(n int64) int64 {
 		tmp2 := again(tmp1)
 //line aggregate_function_alias.gom:8
 		return tmp2 + 1
+//line aggregate_function_alias.gom:8
 	}
+//line aggregate_function_alias.gom:8
 }
 
 //line aggregate_function_alias.gom:9
@@ -50,6 +56,7 @@ var tmp443e771d9 rt.Tuple2[func(int64) int64, int64] = rt.Tuple2[func(int64) int
 func again(tmp5 int64) int64 {
 //line aggregate_function_alias.gom:9
 	return count(tmp5)
+//line aggregate_function_alias.gom:9
 }
 
 //line aggregate_function_alias.gom:12
@@ -59,6 +66,7 @@ var tmp643e771d9 Pair = Pair{F: count, X: 7}
 func ragain(tmp7 int64) int64 {
 //line aggregate_function_alias.gom:12
 	return count(tmp7)
+//line aggregate_function_alias.gom:12
 }
 
 //line aggregate_function_alias.gom:12
@@ -73,27 +81,33 @@ var tmp1143e771d9 func(int64) int64 = func() func(int64) int64 {
 	switch v := tmp843e771d9.(type) {
 //line aggregate_function_alias.gom:15
 	case Box_Box:
+//line aggregate_function_alias.gom:15
 		tmp9 := v
 //line aggregate_function_alias.gom:15
 		tmp10 := tmp9.V0
 //line aggregate_function_alias.gom:15
 		return tmp10
+//line aggregate_function_alias.gom:15
 	default:
 //line aggregate_function_alias.gom:15
 		panic(rt.InvalidVariant("Box", tmp843e771d9))
+//line aggregate_function_alias.gom:15
 	}
+//line aggregate_function_alias.gom:15
 }()
 
 //line aggregate_function_alias.gom:15
 func g(tmp12 int64) int64 {
 //line aggregate_function_alias.gom:15
 	return count(tmp12)
+//line aggregate_function_alias.gom:15
 }
 
 //line aggregate_function_alias.gom:19
 func add(x, y int64) int64 {
 //line aggregate_function_alias.gom:19
 	return x + y
+//line aggregate_function_alias.gom:19
 }
 
 //line aggregate_function_alias.gom:20
@@ -104,10 +118,13 @@ var tmp1343e771d9 rt.Tuple2[func(int64) func(int64) int64, int64] = func() rt.Tu
 		return func(tmp15 int64) int64 {
 //line aggregate_function_alias.gom:20
 			return add(tmp14, tmp15)
+//line aggregate_function_alias.gom:20
 		}
+//line aggregate_function_alias.gom:20
 	}
 //line aggregate_function_alias.gom:20
 	return rt.Tuple2[func(int64) func(int64) int64, int64]{V0: tmp16, V1: 9}
+//line aggregate_function_alias.gom:20
 }()
 
 //line aggregate_function_alias.gom:20
@@ -118,10 +135,13 @@ func plus(tmp17 int64) func(int64) int64 {
 		return func(tmp19 int64) int64 {
 //line aggregate_function_alias.gom:20
 			return add(tmp18, tmp19)
+//line aggregate_function_alias.gom:20
 		}
+//line aggregate_function_alias.gom:20
 	}
 //line aggregate_function_alias.gom:20
 	return tmp20(tmp17)
+//line aggregate_function_alias.gom:20
 }
 
 //line aggregate_function_alias.gom:20
@@ -131,6 +151,7 @@ var px int64 = tmp1343e771d9.V1
 func mark(_ struct{}) struct{} {
 //line aggregate_function_alias.gom:25
 	return struct{}{}
+//line aggregate_function_alias.gom:25
 }
 
 //line aggregate_function_alias.gom:26
@@ -139,12 +160,14 @@ var tmp2143e771d9 func(int64) int64 = func() func(int64) int64 {
 	mark(struct{}{})
 //line aggregate_function_alias.gom:26
 	return count
+//line aggregate_function_alias.gom:26
 }()
 
 //line aggregate_function_alias.gom:26
 func g2(tmp22 int64) int64 {
 //line aggregate_function_alias.gom:26
 	return count(tmp22)
+//line aggregate_function_alias.gom:26
 }
 
 //line aggregate_function_alias.gom:28
@@ -169,4 +192,5 @@ func answer(_ struct{}) int64 {
 	tmp31 := g2(1)
 //line aggregate_function_alias.gom:28
 	return tmp30 + tmp31
+//line aggregate_function_alias.gom:28
 }

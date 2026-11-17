@@ -1,0 +1,10 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// spec section 11.4: `==` does not apply to function types — a
+// `Go.FuncN` value is a Go func type spelled as a constructor, so
+// equality on it is E0409 too.
+let a : Go.Func0 Int = Go.func0 goiface.Tick
+let b : Go.Func0 Int = Go.func0 goiface.Tick
+let same : Bool = a == b

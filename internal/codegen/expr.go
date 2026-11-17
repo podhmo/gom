@@ -81,28 +81,32 @@ func (g *gen) qualRef(sym *resolve.Symbol, targs []types.Type) ast.Expr {
 
 // lit renders a literal. Int/Float/Str/Char keep the source lexeme —
 // Gom and Go spell them alike. Unit is the zero-size struct value.
-// The one spelling/type mismatch: an integer literal whose checked
-// type is Float (`let m = 1` with `m` solving to Float, or `1/2`
-// under a Float binder) would emit Go's `int` default — `m := 1`
-// binds `int` and `float64(1/2)` is `0` — so the literal
-// materializes its own checked type as `float64(1)`
-// (docs/problems/2026-11-02-let-int-literal-go-type.md).
+// Two spelling/type mismatches materialize the checked type around
+// the lexeme — Go's default type for a bare literal would be wrong:
+//
+//   - an integer literal whose checked type is Float (`let m = 1`
+//     with `m` solving to Float, or `1/2` under a Float binder)
+//     would emit Go's `int` default — `m := 1` binds `int` and
+//     `float64(1/2)` is `0` — so the literal emits `float64(1)`
+//     (docs/problems/2026-11-02-let-int-literal-go-type.md);
+//   - a literal checked at a named Go type (`time.Duration`) —
+//     same default-type trap, fixed below.
 func (g *gen) lit(l *core.Lit) ast.Expr {
+	var x ast.Expr
 	switch l.Kind {
 	case syntax.LitInt:
-		x := &ast.BasicLit{Kind: token.INT, Value: l.Text}
+		x = &ast.BasicLit{Kind: token.INT, Value: l.Text}
 		if g.floatTyped(l.Type()) {
 			return &ast.CallExpr{Fun: g.goType(l.Type()), Args: []ast.Expr{x}}
 		}
-		return x
 	case syntax.LitFloat:
-		return &ast.BasicLit{Kind: token.FLOAT, Value: l.Text}
+		x = &ast.BasicLit{Kind: token.FLOAT, Value: l.Text}
 	case syntax.LitStr:
-		return &ast.BasicLit{Kind: token.STRING, Value: l.Text}
+		x = &ast.BasicLit{Kind: token.STRING, Value: l.Text}
 	case syntax.LitChar:
-		return &ast.BasicLit{Kind: token.CHAR, Value: l.Text}
+		x = &ast.BasicLit{Kind: token.CHAR, Value: l.Text}
 	case syntax.LitBool:
-		return ast.NewIdent(l.Text)
+		x = ast.NewIdent(l.Text)
 	case syntax.LitUnit:
 		// `struct{}{}` — spelled as an identifier because an empty
 		// positional struct type does not print cleanly (types.go).
@@ -110,6 +114,16 @@ func (g *gen) lit(l *core.Lit) ast.Expr {
 	default:
 		panic("unreachable")
 	}
+	// A literal checked at a named Go type materializes it —
+	// `d := 1 + 2` under a `time.Duration` binder would otherwise
+	// bind Go's default `int`, and `1 / 2` under a named float
+	// would be integer division. `T(lit)` keeps both the type and
+	// the arithmetic semantics (decision
+	// 2026-11-17-named-int-arith).
+	if _, ok := types.Chase(l.Type()).(*types.Go); ok {
+		return &ast.CallExpr{Fun: g.goType(l.Type()), Args: []ast.Expr{x}}
+	}
+	return x
 }
 
 // goFuncRef renders a Go function or bound method used as a value —
@@ -229,6 +243,19 @@ func (g *gen) simpleExpr(e core.Expr) ast.Expr {
 		*core.GoFuncRef, *core.FieldGet:
 		return g.atom(e.(core.Atom))
 	case *core.Unary:
+		// A negated int literal at a named Go type puts the sign
+		// inside the conversion — `-Duration(9223372036854775808)`
+		// overflows the positive magnitude before negating, while
+		// `Duration(-9223372036854775808)` is a legal constant.
+		if e.Op == syntax.UnNeg {
+			if l, ok := e.X.(*core.Lit); ok && l.Kind == syntax.LitInt {
+				if _, named := types.Chase(l.Type()).(*types.Go); named {
+					return &ast.CallExpr{Fun: g.goType(l.Type()), Args: []ast.Expr{
+						&ast.UnaryExpr{Op: token.SUB, X: &ast.BasicLit{Kind: token.INT, Value: l.Text}},
+					}}
+				}
+			}
+		}
 		return &ast.UnaryExpr{Op: unOp(e.Op), X: g.atom(e.X)}
 	case *core.Binary:
 		return &ast.BinaryExpr{X: g.atom(e.X), Op: binOp(e.Op), Y: g.atom(e.Y)}
@@ -252,7 +279,7 @@ func (g *gen) simpleExpr(e core.Expr) ast.Expr {
 		return g.recordNew(e)
 	case *core.Conv:
 		return g.conv(e)
-	case *core.Closure, *core.If, *core.Match, *core.SelectExpr,
+	case *core.Closure, *core.GoFunc, *core.If, *core.Match, *core.SelectExpr,
 		*core.Spawn, *core.ForRange, *core.TailCall,
 		*core.EscapeResult, *core.EscapeCall,
 		*core.ResultFromGo, *core.OptionFromGo, *core.TupleFromGo,
@@ -274,7 +301,7 @@ func isSimpleExpr(e core.Expr) bool {
 		*core.Unary, *core.Binary, *core.Equal,
 		*core.CallDirect, *core.CallFunc, *core.CallGo, *core.CallBuiltin,
 		*core.CtorApp, *core.TupleNew, *core.ListNew, *core.RecordNew,
-		*core.Conv, *core.Closure:
+		*core.Conv, *core.Closure, *core.GoFunc:
 		return true
 	case *core.If, *core.Match, *core.SelectExpr,
 		*core.Spawn, *core.ForRange, *core.TailCall,

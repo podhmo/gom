@@ -12,9 +12,11 @@ import (
 func main(_ struct{}) struct{} {
 //line go_zero_arg_call.gom:7
 	v, err := fmt.Print()
+//line go_zero_arg_call.gom:7
 	_ = result.FromGo(int64(v), err)
 //line go_zero_arg_call.gom:8
 	v1, err1 := fmt.Println()
+//line go_zero_arg_call.gom:8
 	_ = result.FromGo(int64(v1), err1)
 //line go_zero_arg_call.gom:9
 	r := strings.NewReader("hi")
@@ -24,4 +26,5 @@ func main(_ struct{}) struct{} {
 	_ = int64(tmp1)
 //line go_zero_arg_call.gom:11
 	return struct{}{}
+//line go_zero_arg_call.gom:6
 }

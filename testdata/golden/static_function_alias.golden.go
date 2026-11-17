@@ -10,6 +10,7 @@ func count(n int64) int64 {
 	if tmp3 {
 //line static_function_alias.gom:3
 		return 0
+//line static_function_alias.gom:3
 	} else {
 //line static_function_alias.gom:3
 		tmp1 := n - 1
@@ -17,25 +18,30 @@ func count(n int64) int64 {
 		tmp2 := again(tmp1)
 //line static_function_alias.gom:3
 		return tmp2 + 1
+//line static_function_alias.gom:3
 	}
+//line static_function_alias.gom:3
 }
 
 //line static_function_alias.gom:4
 func again(tmp4 int64) int64 {
 //line static_function_alias.gom:4
 	return count(tmp4)
+//line static_function_alias.gom:4
 }
 
 //line static_function_alias.gom:5
 func chained(tmp5 int64) int64 {
 //line static_function_alias.gom:5
 	return again(tmp5)
+//line static_function_alias.gom:5
 }
 
 //line static_function_alias.gom:7
 func add(x, y int64) int64 {
 //line static_function_alias.gom:7
 	return x + y
+//line static_function_alias.gom:7
 }
 
 //line static_function_alias.gom:8
@@ -46,10 +52,13 @@ func plus(tmp6 int64) func(int64) int64 {
 		return func(tmp8 int64) int64 {
 //line static_function_alias.gom:8
 			return add(tmp7, tmp8)
+//line static_function_alias.gom:8
 		}
+//line static_function_alias.gom:8
 	}
 //line static_function_alias.gom:8
 	return tmp9(tmp6)
+//line static_function_alias.gom:8
 }
 
 //line static_function_alias.gom:9
@@ -59,6 +68,7 @@ var add40 func(int64) int64 = plus(40)
 func apply(f func(int64) int64, x int64) int64 {
 //line static_function_alias.gom:11
 	return f(x)
+//line static_function_alias.gom:11
 }
 
 //line static_function_alias.gom:12
@@ -69,4 +79,5 @@ func answer(_ struct{}) int64 {
 	tmp11 := add40(2)
 //line static_function_alias.gom:12
 	return tmp10 + tmp11
+//line static_function_alias.gom:12
 }

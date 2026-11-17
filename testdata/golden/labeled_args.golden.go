@@ -17,13 +17,16 @@ type Tx_Transfer struct {
 	To string
 //line labeled_args.gom:14
 	Amount int64
+//line labeled_args.gom:14
 }
 
+//line labeled_args.gom:14
 func (Tx_Transfer) isTx() {}
 
 //line labeled_args.gom:15
 type Tx_Noop struct{}
 
+//line labeled_args.gom:15
 func (Tx_Noop) isTx() {}
 
 //line labeled_args.gom:5
@@ -36,9 +39,11 @@ func trace(tag, v string) string {
 	tmp3 := any(tmp2)
 //line labeled_args.gom:6
 	v1, err := fmt.Println(tmp3)
+//line labeled_args.gom:6
 	_ = result.FromGo(int64(v1), err)
 //line labeled_args.gom:7
 	return v
+//line labeled_args.gom:5
 }
 
 //line labeled_args.gom:10
@@ -51,6 +56,7 @@ func transfer(from, to string, amount int64) string {
 	tmp6 := strconv.FormatInt(amount, 10)
 //line labeled_args.gom:11
 	return tmp4 + " -> " + tmp5 + ": " + tmp6
+//line labeled_args.gom:10
 }
 
 //line labeled_args.gom:17
@@ -65,6 +71,7 @@ func main() {
 	tmp10 := any(tmp9)
 //line labeled_args.gom:21
 	v2, err1 := fmt.Println(tmp10)
+//line labeled_args.gom:21
 	_ = result.FromGo(int64(v2), err1)
 //line labeled_args.gom:23
 	to := "carol"
@@ -74,11 +81,13 @@ func main() {
 	tmp12 := any(tmp11)
 //line labeled_args.gom:24
 	v3, err2 := fmt.Println(tmp12)
+//line labeled_args.gom:24
 	_ = result.FromGo(int64(v3), err2)
 //line labeled_args.gom:27
 	partial := func(tmp13 int64) string {
 //line labeled_args.gom:27
 		return transfer("alice", "bob", tmp13)
+//line labeled_args.gom:27
 	}
 //line labeled_args.gom:28
 	tmp14 := partial(7)
@@ -86,11 +95,13 @@ func main() {
 	tmp15 := any(tmp14)
 //line labeled_args.gom:28
 	v4, err3 := fmt.Println(tmp15)
+//line labeled_args.gom:28
 	_ = result.FromGo(int64(v4), err3)
 //line labeled_args.gom:30
 	positionalOnly := func(tmp16 string) string {
 //line labeled_args.gom:30
 		return transfer(tmp16, "dave", 1)
+//line labeled_args.gom:30
 	}
 //line labeled_args.gom:31
 	tmp17 := positionalOnly("mallory")
@@ -98,6 +109,7 @@ func main() {
 	tmp18 := any(tmp17)
 //line labeled_args.gom:31
 	v5, err4 := fmt.Println(tmp18)
+//line labeled_args.gom:31
 	_ = result.FromGo(int64(v5), err4)
 //line labeled_args.gom:36
 	half := func(tmp19 string) func(int64) string {
@@ -105,7 +117,9 @@ func main() {
 		return func(tmp20 int64) string {
 //line labeled_args.gom:36
 			return transfer("alice", tmp19, tmp20)
+//line labeled_args.gom:36
 		}
+//line labeled_args.gom:36
 	}
 //line labeled_args.gom:37
 	eta := func(tmp21 string) string {
@@ -113,6 +127,7 @@ func main() {
 		tmp22 := half(tmp21)
 //line labeled_args.gom:37
 		return tmp22(9)
+//line labeled_args.gom:37
 	}
 //line labeled_args.gom:38
 	tmp23 := eta("erin")
@@ -120,6 +135,7 @@ func main() {
 	tmp24 := any(tmp23)
 //line labeled_args.gom:38
 	v6, err5 := fmt.Println(tmp24)
+//line labeled_args.gom:38
 	_ = result.FromGo(int64(v6), err5)
 //line labeled_args.gom:41
 	tmp25 := half("fred")
@@ -129,9 +145,11 @@ func main() {
 	tmp27 := any(tmp26)
 //line labeled_args.gom:41
 	v7, err6 := fmt.Println(tmp27)
+//line labeled_args.gom:41
 	_ = result.FromGo(int64(v7), err6)
 //line labeled_args.gom:43
 	_ = Tx_Transfer{To: "bob", Amount: 5}
 //line labeled_args.gom:44
 	_ = struct{}{}
+//line labeled_args.gom:17
 }

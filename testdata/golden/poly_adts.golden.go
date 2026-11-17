@@ -18,18 +18,25 @@ type Pair_MkPair[A, B any] struct {
 	Fst A
 //line poly_adts.gom:3
 	Snd B
+//line poly_adts.gom:3
 }
 
+//line poly_adts.gom:3
 func (Pair_MkPair[A, B]) isPair() (A, B) {
+//line poly_adts.gom:3
 	var z0 A
+//line poly_adts.gom:3
 	var z1 B
+//line poly_adts.gom:3
 	return z0, z1
+//line poly_adts.gom:3
 }
 
 //line poly_adts.gom:4
 type Box[A any] struct {
 //line poly_adts.gom:4
 	V A
+//line poly_adts.gom:4
 }
 
 //line poly_adts.gom:5
@@ -39,11 +46,16 @@ type Phantom[A any] interface{ isPhantom() A }
 type Phantom_MkP[A any] struct {
 //line poly_adts.gom:5
 	V0 int64
+//line poly_adts.gom:5
 }
 
+//line poly_adts.gom:5
 func (Phantom_MkP[A]) isPhantom() A {
+//line poly_adts.gom:5
 	var z0 A
+//line poly_adts.gom:5
 	return z0
+//line poly_adts.gom:5
 }
 
 //line poly_adts.gom:6
@@ -53,22 +65,32 @@ type W[A any] interface{ isW() A }
 type W_WLeaf[A any] struct {
 //line poly_adts.gom:6
 	V0 A
+//line poly_adts.gom:6
 }
 
+//line poly_adts.gom:6
 func (W_WLeaf[A]) isW() A {
+//line poly_adts.gom:6
 	var z0 A
+//line poly_adts.gom:6
 	return z0
+//line poly_adts.gom:6
 }
 
 //line poly_adts.gom:6
 type W_WNode[A any] struct {
 //line poly_adts.gom:6
 	V0 W[list.List[A]]
+//line poly_adts.gom:6
 }
 
+//line poly_adts.gom:6
 func (W_WNode[A]) isW() A {
+//line poly_adts.gom:6
 	var z0 A
+//line poly_adts.gom:6
 	return z0
+//line poly_adts.gom:6
 }
 
 //line poly_adts.gom:7
@@ -78,11 +100,16 @@ type Tree[A any] interface{ isTree() A }
 type Tree_Leaf[A any] struct {
 //line poly_adts.gom:7
 	V0 A
+//line poly_adts.gom:7
 }
 
+//line poly_adts.gom:7
 func (Tree_Leaf[A]) isTree() A {
+//line poly_adts.gom:7
 	var z0 A
+//line poly_adts.gom:7
 	return z0
+//line poly_adts.gom:7
 }
 
 //line poly_adts.gom:7
@@ -91,41 +118,51 @@ type Tree_Node[A any] struct {
 	V0 Tree[A]
 //line poly_adts.gom:7
 	V1 Tree[A]
+//line poly_adts.gom:7
 }
 
+//line poly_adts.gom:7
 func (Tree_Node[A]) isTree() A {
+//line poly_adts.gom:7
 	var z0 A
+//line poly_adts.gom:7
 	return z0
+//line poly_adts.gom:7
 }
 
 //line poly_adts.gom:9
 func none[A any]() option.Option[A] {
 //line poly_adts.gom:9
 	return option.Option_None[A]{}
+//line poly_adts.gom:9
 }
 
 //line poly_adts.gom:11
 func fst[A, B any](p Pair[A, B]) A {
 //line poly_adts.gom:11
 	return p.(Pair_MkPair[A, B]).Fst
+//line poly_adts.gom:11
 }
 
 //line poly_adts.gom:12
 func unbox[A any](b Box[A]) A {
 //line poly_adts.gom:12
 	return b.V
+//line poly_adts.gom:12
 }
 
 //line poly_adts.gom:14
 func make_[A any](x A) Phantom[A] {
 //line poly_adts.gom:14
 	return Phantom_MkP[A]{V0: 0}
+//line poly_adts.gom:14
 }
 
 //line poly_adts.gom:15
 func leaf[A any](x A) W[A] {
 //line poly_adts.gom:15
 	return W_WLeaf[A]{V0: x}
+//line poly_adts.gom:15
 }
 
 //line poly_adts.gom:17
@@ -134,6 +171,7 @@ func depth[A any](t_ Tree[A]) int64 {
 	switch v := t_.(type) {
 //line poly_adts.gom:19
 	case Tree_Leaf[A]:
+//line poly_adts.gom:19
 		tmp1 := v
 //line poly_adts.gom:19
 		_ = tmp1.V0
@@ -141,6 +179,7 @@ func depth[A any](t_ Tree[A]) int64 {
 		return 0
 //line poly_adts.gom:19
 	case Tree_Node[A]:
+//line poly_adts.gom:19
 		tmp3 := v
 //line poly_adts.gom:20
 		tmp4 := tmp3.V0
@@ -154,10 +193,13 @@ func depth[A any](t_ Tree[A]) int64 {
 		tmp8 := depth[A](tmp5)
 //line poly_adts.gom:20
 		return tmp7 + tmp8
+//line poly_adts.gom:20
 	default:
 //line poly_adts.gom:18
 		panic(rt.InvalidVariant("Tree", t_))
+//line poly_adts.gom:19
 	}
+//line poly_adts.gom:17
 }
 
 //line poly_adts.gom:23
@@ -196,4 +238,5 @@ func answer(_ struct{}) string {
 	tmp22 := strconv.FormatInt(tmp21, 10)
 //line poly_adts.gom:26
 	return tmp10 + ":" + tmp11 + ":" + tmp13 + ":" + tmp14 + ":" + tmp17 + ":" + tmp22
+//line poly_adts.gom:23
 }

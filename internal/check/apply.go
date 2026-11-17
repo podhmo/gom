@@ -47,6 +47,11 @@ func (c *checker) checkApply(e *syntax.Apply, want types.Type) Expr {
 	if callee != nil && isConv(callee) {
 		return c.checkConvCall(e, fn)
 	}
+	if callee != nil {
+		if n, ok := goFuncCallArity(callee); ok {
+			return c.checkGoFuncCall(e, fn, callee, n, want)
+		}
+	}
 	params, ret := flattenFunc(fn.Type())
 	// A `Go.Any` element of an expected composite is the
 	// constructor's instantiation answer: pin it before the

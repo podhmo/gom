@@ -223,7 +223,7 @@ type Expr =
 - `let` の型注釈が新しい型変数を導入できるのは、一般化されるトップレベルの `let` だけ（その変数は束縛自体の型パラメータになる）。`fn` や型定義のシグネチャが宣言した変数は内側の注釈からも参照できるが、それ以外で型変数を書いた注釈は未束縛変数としてエラーになる
 - 再帰呼び出しは型引数を成長させてはならない（E0416）。`fn wdepth (w: W a)` の本体で `wdepth` を `W (List a)` で呼ぶような、呼び出しのたびに型が大きくなる再帰（自己・相互を問わない）を許すと、生成される Go のジェネリクスは無限のインスタンシエーションを要求し、Go コンパイラが instantiation cycle として拒否する。型変数の入れ替えだけの再帰（`swap` が `swap2` を呼び `swap2` が `swap` を呼ぶ等）は合法。ADT のフィールドが `W (List a)` のような型で再帰すること自体は許可される — 制限されるのは関数呼び出しの型引数だけ
 - 公開関数のシグネチャは `.gomi` に必ず書く（7 章）
-- 算術演算子は組み込み数値型にのみオーバーロードし、型検査の最後で具体型に解決する。未解決なら注釈を求めるエラー
+- 算術演算子は組み込み数値型と、underlying が数値の基本型の named Go 型（`time.Duration` など）にオーバーロードし、型検査の最後で具体型に解決する。named Go 型の算術・比較は Go 自身の規則と同型 — 両被演算子が同じ named 型なら演算でき、結果もその型。型なしリテラルは被演算子の named 型へ conform する（`30 * time.Second` は `time.Duration`）。named 型と組み込み数値型の混在（`d + intVar`）は Go と同じく型不一致（E0401）。%（剰余）は underlying が整数種の named 型に限り、`<`/`>` は整数・浮動小数点種に限る。未解決なら注釈を求めるエラー
 - 数値演算は演算子ごとに機械型で 1 回ずつ評価する。`Float` のリテラルは書かれた値に最も近い `float64`（IEEE 754 binary64）を表し、各演算子は被演算子の `float64` に IEEE 演算を適用した結果を返す — `869.32 * 38.29` は `33286.262800000004` になる。整数演算は 64 ビット（`Int32` は 32 ビット）の 2 の補数 wrap-around で、オーバーフローはエラーではなく値が回る。定数畳み込みは言語の意味に含めないので、`let a = 869.32` のあとの `a * 38.29` とリテラルのままの `869.32 * 38.29` は同じ値を返し、`0.1 + 0.2 == 0.3` は `false` になる
 - 数値リテラルは自分の位置の静的型で表現できなければならない（E0417）— `Int`/`Int64` は int64 の、`Int32`/`Char` は int32 の、`Float` のリテラルは float64 で表現できる値に限る。判定の単位は式全体ではなくリテラルで、単項 `-` の直接の被演算子は符号込みで判定する（`-9223372036854775808` は `Int64` として合法）。`Go.conv` の直接の被演算子は変換先の型で判定する（`Go.conv 3000000000 : Int32` はエラー）— float リテラルの整数変換先への被演算子は Go の定数変換規則が効き、整数値でなければならない（`Go.conv 1.5 : Int32` はエラー、`Go.conv 2.0 : Int32` は合法で整数として範囲判定される）。named Go 型の変換先でも同じ — その underlying 基本型の幅と符号で判定する（`os.FileMode` は `uint32` なので `Go.conv 5000000000 : os.FileMode` はエラー、`time.Duration` は `int64` なので `Go.conv 1.5 : time.Duration` はエラー）。underlying が `float32`/`float64` ならその精度で表現可能かで判定し、underlying が数値の基本型でない（interface など）named target ではリテラル自身の型で判定する
 - `/` / `%` の右辺が定数のゼロのとき、その除算はコンパイルエラー（E0414）。ここで「定数」は数値リテラル・単項の `-`・それらからなる算術式・型の明示（ascription）で構成される式で、`let` 束縛の変数や関数呼び出しは含まない。判定は Go と同じ — 整数では被除数が定数でなくても `x / 0` はエラー（Go がその定数式を受理しない。実行時 panic しか起き得ないため）。`Float` では `x / 0.0` のように被除数が定数でなければ IEEE の除算として合法（`+Inf` / `-Inf` / `NaN`）だが、`10.0 / 0.0` のように式全体が定数ならエラーになる
@@ -425,7 +425,7 @@ strconv.ParseInt(_, 10, 64)
 | `*T` | `Ptr T`（nil の参照は Go と同じく panic。操作は `Ptr` モジュール） |
 | `int` / `int64` / `int32`（`rune` もここ） / `float64` | `Int` / `Int` / `Int32` / `Float` |
 | `byte` / `uint8` | `Byte` |
-| named type（`type UserID int64` など） | 別の名前的な型 `pkg.UserID`。基底型との変換は `Go.conv` で明示 |
+| named type（`type UserID int64` など） | 別の名前的な型 `pkg.UserID`。基底型との変換は `Go.conv` で明示。underlying が数値の基本型なら 3.3 節の named 算術・比較が使える |
 | `[]T` | `List T`。Gom 側の境界変換位置では両方向ともコピーする（8.5 節） |
 | `map[K]V` | 不透明型 `Go.Map K V`（操作は `Go.Map` の型メンバー群） |
 | `chan T` / `<-chan T` / `chan<- T` | `Chan T` / `RecvChan T` / `SendChan T` |
@@ -437,7 +437,7 @@ strconv.ParseInt(_, 10, 64)
 
 `Byte` もリテラルを持たない。`byte`（`uint8`）の値は `[]byte` 由来の `List Byte` / `Go.Slice Byte` の要素として Go 境界から得るか、`Go.conv` で他の数値型から変換する（`Go.conv n : Byte` は 0–255 の範囲で判定し、`Go.conv 'a' : Byte` のような rune 変換も Go の規則に従う）。比較は `==`/`!=` のみ — `<` や四則演算は `Go.conv` で `Int` などに変換してから行う。
 
-v1 で対応していない型（`byte`/`uint8` 以外の符号なし整数と `int8`/`int16`、`float32`、複素数、配列 `[N]T`、`unsafe.Pointer`、ジェネリック型、8.1.6 節の形でない制約（メソッドセット・交叉・型パラメータを含む union など）を持つジェネリック関数、メソッドを持つ無名 interface、関数型の引数・戻り値）をシグネチャに含むシンボルは公開されず、参照すると理由付きの診断になる（8.5 節）。戻り値が 3 つ以上ある関数も同じく公開されない — 多値のタプル対応は 2 要素までで、`extern` による上書きもできない（8.4 節）。
+v1 で対応していない型（`byte`/`uint8` 以外の符号なし整数と `int8`/`int16`、`float32`、複素数、配列 `[N]T`、`unsafe.Pointer`、ジェネリック型、8.1.6 節の形でない制約（メソッドセット・交叉・型パラメータを含む union など）を持つジェネリック関数、メソッドを持つ無名 interface、8.8 節の `Go.FuncN` の形を超える func 型の引数・戻り値）をシグネチャに含むシンボルは公開されず、参照すると理由付きの診断になる（8.5 節）。戻り値が 3 つ以上ある関数も同じく公開されない — 多値のタプル対応は 2 要素までで、`extern` による上書きもできない（8.4 節）。
 
 Go の名前付き struct 型の値またはそのポインタから、exported field を `value.Field` で読み取れる。Go と同じ promoted field と曖昧性の規則を使い、unexported field は参照できない。field の型は上の対応に従い、未対応の型は参照位置で理由付き E0501 になる。読み取りはソースの評価順に行い、nil ポインタ経由の読み取りは Go と同じく panic する。field への代入と Go struct のコンポジットリテラルによる構築は提供しない — Go struct の構築は Go 側の factory 関数（`extern` や `import go` で見える普通の関数）に限る（[decision](decisions/2026-11-17-struct-construction.md)）。
 
@@ -509,6 +509,14 @@ extern のエントリは `fn` の関数シグネチャだけを持ち、ブロ�
 この面では 8.5 節のコピーは置かれず、値は Gom の型の Go 表現（8.3 節）そのままで受け渡される — `List` の引数・戻り値は `list.List[A]`（`[]A` の名前付き型）のバッキングを共有し、record やバリアントの `List` ペイロードも同じである。`.gomi` で公開した `let`（7 章の定数）は Go の package 変数として公開される — Go には読み取り専用の exported 変数がないので、不変の束縛は `var` の形で見える。
 
 Gom の値の不変性は Gom 側の操作が守る契約であり、境界は Go 側の書き込みを防がない（[decisions/boundary-mutation-contract](decisions/2026-11-05-boundary-mutation-contract.md)）。Go 側は、受け取った `List` の要素を書き換えてはならず、export された `let` の変数へ代入してもいけない。`Ref`・`Array`・`Ptr`・`Go.Slice`・`Go.Map`・チャネル・関数値のように Gom の中でも可変または共有される表現を持つ値は、両側でそのまま共有される。違反は 8.6 節の契約違反であり、診断はされない — 違反したプログラムについて Gom の保証は効かない（OCaml の FFI が C 側に immutable ブロックへの書き込み禁止を委ねるのと同じ立場）。
+
+### 8.8 Go の func 型と関数値の変換
+
+Go の API が引数・フィールドに持つ `func(A, B) R` 型は `Go.FuncN` として読まれる（[decisions/func-interop](decisions/2026-11-17-func-interop.md)）。`Go.FuncN` は `Go.` 修飾の型で、型引数は **生の Go ビュー** — パラメータ N 個のあとに結果 0..2 個が続く可変長で、`func(A, B) R` は `Go.Func2 A' B' R'`、`func(A) error` は `Go.Func1 A' GoError`、`func(A) (T, error)` は `Go.Func1 A' T' GoError`、`func() R` は `Go.Func0 R'` と書く。`N` は 0..3、結果は 0・1 個または `(T, error)` の 2 個 — 4 個以上のパラメータ、3 個以上の結果、2 番目の結果が `error` でない多値、variadic な func 型を持つシンボルは従来どおり公開されない（E0501）。
+
+`Go.FuncN` 値は Go の func 値そのもので、Gom の中では値として束縛・受け渡しできる（Gom 側から適用は今のところできない — Go 側から返された func 値は `Go.FuncN` のまま引き回す）。Gom の関数値 `A1 -> ... -> AN -> R` を `Go.FuncN` に変換するのは明示変換 `Go.funcN` だけで、暗黙の変換はない — `Func` 型の値を `Go.FuncN` のパラメータに直接渡すと E0401 になる。
+
+`Go.funcN f` は 1 つの関数値だけを取る。`f` のパラメータ数は N と一致し（カリー化された `A -> B -> R` は 2 段に平坦化する）、ラベル付きパラメータ・非関数・Arity 違いは E0510。`Go.func0` は `Unit -> R` のサンクを `func() R` に対応させる。各パラメータ・結果は 8.5 節の境界変換表で橋渡しし、`Result Unit GoError` は `error`、`Result T GoError` は `(T', error)` に読む — Gom 側だけの型（`Option`・ユーザ ADT・タプルなど）を持つ引数・結果は E0510 で拒否する。期待される `Go.FuncN` がある位置では、produced と expected の型引数を raw ビューで互換比較し（`int`/`int64` 境界、`List`↔`Go.Slice` の要素毎のずれは許す）、食い違えば E0401。inline lambda への引数はその期待型からパラメータの型を引く（`http.HandleFunc` 相当へ渡す `Go.func2 (fn w r -> ...)` の `w`/`r` が具体化する）。
 
 ---
 

@@ -1,0 +1,26 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0409",
+      "severity": "error",
+      "message": "`==` is not defined on Go.Func0 Int: the type contains a function or a type variable",
+      "span": {
+        "file": "E0409_go_func_eq.gom",
+        "start": {
+          "line": 10,
+          "col": 19,
+          "offset": 337
+        },
+        "end": {
+          "line": 10,
+          "col": 25,
+          "offset": 343
+        }
+      },
+      "data": {
+        "type": "Go.Func0 Int"
+      }
+    }
+  ]
+}

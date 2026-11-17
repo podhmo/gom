@@ -155,7 +155,7 @@ func (g *gen) emit(e core.Expr, d dest) {
 		g.recordUpdate(e, d)
 	case *core.Closure,
 		*core.Var, *core.Lit, *core.FuncRef, *core.CtorRef,
-		*core.GoFuncRef, *core.FieldGet,
+		*core.GoFunc, *core.GoFuncRef, *core.FieldGet,
 		*core.Unary, *core.Binary, *core.Equal,
 		*core.CallDirect, *core.CallFunc, *core.CallGo, *core.CallBuiltin,
 		*core.CtorApp, *core.TupleNew, *core.ListNew, *core.RecordNew,
@@ -189,9 +189,13 @@ func (g *gen) valueExpr(e core.Expr, d dest) {
 			g.funcLit(c.Fn)
 			break
 		}
+		if c, ok := e.(*core.GoFunc); ok {
+			g.raw("_ = ")
+			g.goFuncLit(c)
+			break
+		}
 		x := g.simpleExpr(e)
-		_, isConv := e.(*core.Conv)
-		if _, ok := x.(*ast.CallExpr); ok && !isConv {
+		if _, ok := x.(*ast.CallExpr); ok && !emitsConversion(e) {
 			g.expr(x)
 		} else {
 			g.raw("_ = ")
@@ -203,11 +207,32 @@ func (g *gen) valueExpr(e core.Expr, d dest) {
 	g.nl()
 }
 
+// emitsConversion reports whether a discard-position expression
+// renders as a `T(x)` conversion — valid in expression position but
+// rejected as a statement, so it still needs `_ =` even though it
+// prints as a CallExpr. A Lit checked at a named Go type joins the
+// explicit Conv here (`Duration(1)` alone is "not used").
+func emitsConversion(e core.Expr) bool {
+	if _, ok := e.(*core.Conv); ok {
+		return true
+	}
+	l, ok := e.(*core.Lit)
+	if !ok {
+		return false
+	}
+	_, named := types.Chase(l.Type()).(*types.Go)
+	return named
+}
+
 // exprValue writes the expression part — a function literal for a
 // Closure, the single expression otherwise.
 func (g *gen) exprValue(e core.Expr) {
 	if c, ok := e.(*core.Closure); ok {
 		g.funcLit(c.Fn)
+		return
+	}
+	if c, ok := e.(*core.GoFunc); ok {
+		g.goFuncLit(c)
 		return
 	}
 	g.expr(g.simpleExpr(e))
@@ -1036,4 +1061,89 @@ func (g *gen) params(binds []*core.Bind) {
 			g.raw(" " + typeText[i])
 		}
 	}
+}
+
+// goFuncLit writes the flat `func(p0 T0', ...) (R'...) { ... }`
+// literal a `Go.funcN` conversion emits — parameters and results in
+// the raw Go view, the body applying the curried value and
+// re-converting what comes back per the node's recorded recipe
+// (docs/decisions/2026-11-17-func-interop.md). The error shapes
+// unwrap the Result with its own `Unwrap` — an invalid (zero)
+// Result still panics there like everywhere else.
+func (g *gen) goFuncLit(c *core.GoFunc) {
+	g.raw("func(")
+	g.params(c.Params)
+	g.raw(") ")
+	switch len(c.Results) {
+	case 0:
+	case 1:
+		g.typ(g.goType(c.Results[0]))
+		g.raw(" ")
+	default:
+		g.raw("(")
+		for i, r := range c.Results {
+			if i > 0 {
+				g.raw(", ")
+			}
+			g.typ(g.goType(r))
+		}
+		g.raw(") ")
+	}
+	g.open()
+	var call ast.Expr = g.atom(c.X)
+	if len(c.In) == 0 {
+		// A nullary adapter's call is a bare `f()` — the atom by
+		// itself would return the function value unapplied.
+		call = &ast.CallExpr{Fun: call}
+	}
+	for _, in := range c.In {
+		call = &ast.CallExpr{Fun: call, Args: []ast.Expr{g.simpleExpr(in)}}
+	}
+	switch c.ResShape {
+	case core.GoResultsNone:
+		g.expr(call)
+		g.nl()
+	case core.GoResultsOne:
+		if c.ResConv == 0 {
+			g.raw("return ")
+			g.expr(call)
+			g.nl()
+			break
+		}
+		r := g.fresh("r")
+		g.raw(r + " := ")
+		g.expr(call)
+		g.nl()
+		g.raw("return ")
+		g.expr(g.convOf(c.ResConv, c.Results[0], ast.NewIdent(r)))
+		g.nl()
+	case core.GoResultsErrOnly:
+		err := g.fresh("err")
+		g.raw("_, " + err + " := ")
+		g.expr(&ast.CallExpr{Fun: &ast.SelectorExpr{X: call, Sel: ast.NewIdent("Unwrap")}})
+		g.nl()
+		g.raw("return " + err)
+		g.nl()
+	case core.GoResultsErr:
+		v, err := g.fresh("v"), g.fresh("err")
+		g.raw(v + ", " + err + " := ")
+		g.expr(&ast.CallExpr{Fun: &ast.SelectorExpr{X: call, Sel: ast.NewIdent("Unwrap")}})
+		g.nl()
+		g.raw("if " + err + " != nil")
+		g.open()
+		z := g.fresh("z")
+		g.raw("var " + z + " ")
+		g.typ(g.goType(c.Results[0]))
+		g.nl()
+		g.raw("return " + z + ", " + err)
+		g.nl()
+		g.close()
+		g.raw("return ")
+		g.expr(g.convOf(c.ResConv, c.Results[0], ast.NewIdent(v)))
+		g.raw(", nil")
+		g.nl()
+	default:
+		panic("codegen: GoFunc with unexpected result shape")
+	}
+	g.closeInline()
 }

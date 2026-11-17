@@ -78,7 +78,7 @@ fn parse (s: String) -> Result Int GoError =
 | `chan T` / `<-chan` / `chan<-` | `Chan T` / `RecvChan T` / `SendChan T` |
 | `error` | `GoError` |
 | `interface{}` / `any` | `Go.Any` |
-| named type (`type UserID int64`) | nominal `pkg.UserID`; convert with `Go.conv` |
+| named type (`type UserID int64`) | nominal `pkg.UserID`; convert with `Go.conv`; if the underlying is numeric, `+ - * / %` and comparisons work on two values of the same named type, and an untyped literal conforms — `30 * time.Second` is `time.Duration` (mixing with `Int` is E0401, same as Go) |
 | named struct | nominal `pkg.T`; exported fields read `v.Field` |
 | interface (`io.Reader`) | nominal `io.Reader`; Go-assignable values pass |
 
@@ -98,8 +98,11 @@ fn parse (s: String) -> Result Int GoError =
 - Not representable → hidden + reason on use (E0501): unsigned
   ints other than `byte`/`uint8`, `int8`/`int16`, `float32`,
   complex, `[N]T` arrays, `unsafe.Pointer`, generic types, funcs
-  taking/returning func types, anonymous interfaces with methods,
-  3+ return values.
+  with arity > 3 or labeled params, anonymous interfaces with
+  methods, 3+ return values. Func params/returns of arity 0–3
+  surface as `Go.FuncN` raw views — a `func(...)` param accepts a
+  Go-derived func value; pass a Gom fn via `Go.funcN f` (explicit
+  adapter, E0510 on non-fn/wrong-arity input).
 - Generic Go fns: callable when every constraint is `any`,
   `comparable`, a structural constraint (`S ~[]E`, `M ~map[K]V`),
   or a type-param-free union (`cmp.Ordered` and friends — including

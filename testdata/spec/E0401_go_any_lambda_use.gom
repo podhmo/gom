@@ -1,0 +1,12 @@
+package main
+
+// The `Int -> Go.Any` want seeds only the lambda body's result —
+// an unannotated lambda parameter is a fresh meta that the body's
+// own uses bind first (lambda params have no annotation form —
+// docs/problems/2026-11-01-lambda-param-forms.md). `a == x` binds
+// `a` to `Int` from the use site, so the residual unify of
+// `Int -> Bool` against `Go.Any -> Bool` reports the honest
+// mismatch. The binding must name the parameter's type through a
+// `let`/`fn` signature on the surrounding declaration instead.
+fn g (x: Int) -> Go.Any -> Bool = fn a -> a == x
+fn main () -> Unit = ()

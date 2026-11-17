@@ -4,24 +4,24 @@
       "kind": "diagnostic",
       "code": "E0501",
       "severity": "error",
-      "message": "Go symbol `net/http.GetBody` is not exposed: func-typed parameters and results are not supported yet",
+      "message": "Go symbol `github.com/podhmo/gom/testdata/goiface.Many` is not exposed: func types with 4 parameters are not supported yet (max 3)",
       "span": {
         "file": "E0501_go_field_type.gom",
         "start": {
-          "line": 3,
-          "col": 61,
-          "offset": 96
+          "line": 6,
+          "col": 50,
+          "offset": 240
         },
         "end": {
-          "line": 3,
-          "col": 68,
-          "offset": 103
+          "line": 6,
+          "col": 54,
+          "offset": 244
         }
       },
       "data": {
-        "package": "net/http",
-        "reason": "func-typed parameters and results are not supported yet",
-        "symbol": "GetBody"
+        "package": "github.com/podhmo/gom/testdata/goiface",
+        "reason": "func types with 4 parameters are not supported yet (max 3)",
+        "symbol": "Many"
       }
     }
   ]

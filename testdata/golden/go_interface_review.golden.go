@@ -14,6 +14,7 @@ func intKind(_ struct{}) string {
 	tmp2 := goiface.Empty(tmp1)
 //line go_interface_review.gom:5
 	return goiface.Kind(tmp2)
+//line go_interface_review.gom:5
 }
 
 //line go_interface_review.gom:6
@@ -24,6 +25,7 @@ func channel(_ struct{}) string {
 	tmp4 := goiface.Empty(tmp3)
 //line go_interface_review.gom:6
 	return goiface.Kind(tmp4)
+//line go_interface_review.gom:6
 }
 
 //line go_interface_review.gom:7
@@ -34,6 +36,7 @@ func receiveChannel(_ struct{}) string {
 	tmp6 := goiface.Empty(tmp5)
 //line go_interface_review.gom:7
 	return goiface.Kind(tmp6)
+//line go_interface_review.gom:7
 }
 
 //line go_interface_review.gom:8
@@ -44,12 +47,14 @@ func sendChannel(_ struct{}) string {
 	tmp8 := goiface.Empty(tmp7)
 //line go_interface_review.gom:8
 	return goiface.Kind(tmp8)
+//line go_interface_review.gom:8
 }
 
 //line go_interface_review.gom:9
 func consume(f func(*goiface.Container) string, c *goiface.Container) string {
 //line go_interface_review.gom:9
 	return f(c)
+//line go_interface_review.gom:9
 }
 
 //line go_interface_review.gom:10
@@ -66,9 +71,11 @@ func delayedField(_ struct{}) string {
 		tmp12 := goiface.Empty(tmp11)
 //line go_interface_review.gom:10
 		return goiface.Kind(tmp12)
+//line go_interface_review.gom:10
 	}
 //line go_interface_review.gom:10
 	tmp14 := goiface.NewContainer()
 //line go_interface_review.gom:10
 	return consume(tmp13, tmp14)
+//line go_interface_review.gom:10
 }

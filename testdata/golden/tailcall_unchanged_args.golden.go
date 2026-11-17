@@ -4,14 +4,18 @@ package main
 
 //line tailcall_unchanged_args.gom:8
 func same(n int64) int64 {
+//line tailcall_unchanged_args.gom:8
 	for {
 //line tailcall_unchanged_args.gom:8
 		continue
+//line tailcall_unchanged_args.gom:8
 	}
+//line tailcall_unchanged_args.gom:8
 }
 
 //line tailcall_unchanged_args.gom:13
 func keep2(n, acc int64) int64 {
+//line tailcall_unchanged_args.gom:13
 	for {
 //line tailcall_unchanged_args.gom:14
 		tmp2 := n <= 0
@@ -19,12 +23,17 @@ func keep2(n, acc int64) int64 {
 		if tmp2 {
 //line tailcall_unchanged_args.gom:14
 			return acc
+//line tailcall_unchanged_args.gom:14
 		} else {
 //line tailcall_unchanged_args.gom:14
 			tmp1 := n - 1
 //line tailcall_unchanged_args.gom:14
 			n = tmp1
+//line tailcall_unchanged_args.gom:14
 			continue
+//line tailcall_unchanged_args.gom:14
 		}
+//line tailcall_unchanged_args.gom:13
 	}
+//line tailcall_unchanged_args.gom:13
 }

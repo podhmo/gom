@@ -160,6 +160,18 @@ func builtinGoMembers() map[string]*Symbol {
 		"Any":   {Name: "Any", Kind: KindType, Package: "Go"},
 		"Slice": {Name: "Slice", Kind: KindType, Package: "Go"},
 		"Map":   {Name: "Map", Kind: KindType, Package: "Go"},
+		// The func-typed interop surface: `Go.FuncN` names a Go
+		// `func` type and `Go.funcN` is the explicit conversion
+		// producing a value of it
+		// (docs/decisions/2026-11-17-func-interop.md).
+		"Func0": {Name: "Func0", Kind: KindType, Package: "Go"},
+		"Func1": {Name: "Func1", Kind: KindType, Package: "Go"},
+		"Func2": {Name: "Func2", Kind: KindType, Package: "Go"},
+		"Func3": {Name: "Func3", Kind: KindType, Package: "Go"},
+		"func0": {Name: "func0", Kind: KindBuiltin, Package: "Go"},
+		"func1": {Name: "func1", Kind: KindBuiltin, Package: "Go"},
+		"func2": {Name: "func2", Kind: KindBuiltin, Package: "Go"},
+		"func3": {Name: "func3", Kind: KindBuiltin, Package: "Go"},
 	}
 }
 

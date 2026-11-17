@@ -333,6 +333,9 @@
   `RenderStack`・`gom test` の fold が match-aware。`Resolve` 自体は naive 契約を維持。
   参照: [decision](decisions/2026-11-06-gotool-position-inverse.md)、
   [検証](sketch/2026-11-06-gotool-inverse-verification.md)。
+  さらに wave-16 で drift そのものを消去 — emit する全行に `//line` 再置き（per-line re-pin）
+  して未 pin の継続行を生成しない。`MatchDrift` 分類は旧生成物・map 未登録経路向けに残置。
+  [decision](decisions/2026-11-17-sourcemap-repin.md)。
 
 - [ ] **`SpanAt` が「生成行」ではなく「内側構文の span」を返す粒度の差異**:
   対応表の逆引きは Go の継続行番号より粗く、エディタが期待する行・列の対応とは意味論が違う。
@@ -1376,6 +1379,13 @@
   `?r` に残るため正直な E0407 のまま（pin として維持）。
   pipe/match-arm 経路は wave-15 の `pipeArgWant`/arm detach で
   want が届くようになり同じ挙動。
+  追記（wave-16 lane 1）: 残りの正直な拒否を pin —
+  `fn a -> a == x`（want `Go.Any -> Bool`）は未注釈ラムダ
+  パラメータが fresh meta で本体の使用箇所（`a == x`）から先に
+  `Int` に bind され、residual unify が E0401。ラムダ
+  パラメータには注釈構文がない
+  （[problems](problems/2026-11-01-lambda-param-forms.md)）ため
+  これが正直な境界。fixture: `E0401_go_any_lambda_use`。
   参照: [check/expr.go](../internal/check/expr.go) `checkLambda`、
   [decision](decisions/2026-11-06-go-any-conformance-materialize.md)。
 
@@ -1435,6 +1445,9 @@
   `E0401 "expected Go.Any, got String -> ?1"` — `a ()`、
   `a 1 2`、`(x : Go.Any) x`、`a "s" |> g` も同様に拒否。
   fixture: `E0401_go_any_apply`。
+  追記（wave-16 lane 1）: fixture に over-application
+  `a 1 "s"`（1 個目の extra で conformance 失敗・2 個目は
+  quiet）を追加。
   参照: [check/apply.go](../internal/check/apply.go)。
 
 - [x] **`Go.Any` との `==` 比較がリテラルの int 脱ボックスで恒偽に
@@ -1447,6 +1460,11 @@
   `Go.Any` のとき他側を `conformExpr` し `any(int64(42))` を emit。
   `<` 等の ordered 比較は既に `ord` 制約が `Go.Any` を拒否するため
   対象外。fixture: `ok_go_any_residual`、golden `go_any`。
+  追記（wave-16 lane 1）: 方向を対称化 — `42 == a` は従来
+  `unify` が先に走りリテラルの numeric meta が `any` に bind
+  して「expected a numeric type」で落ちていた。box を unify の
+  前に移し、どちらの順序でも `rt.Equal(any(int64(42)), a)` を
+  emit。fixture: `ok_go_any_eq`、golden `go_any`。
   参照: [check/expr.go](../internal/check/expr.go) `checkBinary`、
   [lower/equal.go](../internal/lower/equal.go)、
   [codegen/expr.go](../internal/codegen/expr.go) `g.lit`。

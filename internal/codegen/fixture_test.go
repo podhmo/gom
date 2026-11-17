@@ -1025,7 +1025,7 @@ func retarget(f *core.File, pkg string) {
 			*core.ResultFromGo, *core.OptionFromGo, *core.TupleFromGo,
 			*core.ErrorFromGo,
 			*core.Closure, *core.If, *core.Match, *core.SelectExpr,
-			*core.Spawn, *core.ForRange:
+			*core.Spawn, *core.ForRange, *core.GoFunc:
 			// no Go callee reference to rewrite
 		default:
 			panic("unreachable")
@@ -1111,6 +1111,11 @@ func walkExprNodes(e core.Expr, mut func(core.Expr)) {
 		mut(e.Call)
 	case *core.ErrorFromGo:
 		mut(e.Call)
+	case *core.GoFunc:
+		mut(e.X)
+		for _, in := range e.In {
+			walkExprNodes(in, mut)
+		}
 	case *core.Var, *core.Lit, *core.FuncRef, *core.CtorRef,
 		*core.GoFuncRef, *core.FieldGet,
 		*core.Unary, *core.Binary, *core.Equal,

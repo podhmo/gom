@@ -11,6 +11,7 @@ import (
 func compute(n int64) int64 {
 //line ignore.gom:5
 	return n + 1
+//line ignore.gom:5
 }
 
 //line ignore.gom:7
@@ -21,7 +22,9 @@ func main() {
 	tmp1 := any("discarded")
 //line ignore.gom:9
 	v, err := fmt.Println(tmp1)
+//line ignore.gom:9
 	_ = result.FromGo(int64(v), err)
 //line ignore.gom:10
 	_ = struct{}{}
+//line ignore.gom:7
 }

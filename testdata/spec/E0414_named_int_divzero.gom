@@ -1,0 +1,8 @@
+package main
+
+import go "time"
+
+// An integral named Go type follows the same division rules as the
+// builtins: `d / 0` is a division by a constant zero (E0414), the
+// same judgment Go itself applies.
+fn divz (d: time.Duration) -> time.Duration = d / 0

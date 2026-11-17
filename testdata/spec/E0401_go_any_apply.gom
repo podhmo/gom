@@ -7,4 +7,8 @@ package main
 // reports the shape mismatch (the user spells a dynamic call
 // through `Go.conv` or a type switch).
 fn f (a: Go.Any) -> Int = a "s"
+// Over-application takes the same callee judgment: `a 1 "s"` has
+// no parameter list to map onto, so the first extra already fails
+// conformance and the second is quieted.
+fn g (a: Go.Any) -> Int = a 1 "s"
 fn main () -> Unit = ()

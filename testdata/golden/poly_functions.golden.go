@@ -10,12 +10,14 @@ import (
 func choose[A any](x, y A) A {
 //line poly_functions.gom:3
 	return x
+//line poly_functions.gom:3
 }
 
 //line poly_functions.gom:4
 func id[A any](x A) A {
 //line poly_functions.gom:4
 	return x
+//line poly_functions.gom:4
 }
 
 //line poly_functions.gom:5
@@ -26,10 +28,13 @@ func alias(tmp1 int64) func(int64) int64 {
 		return func(tmp3 int64) int64 {
 //line poly_functions.gom:5
 			return choose[int64](tmp2, tmp3)
+//line poly_functions.gom:5
 		}
+//line poly_functions.gom:5
 	}
 //line poly_functions.gom:5
 	return tmp4(tmp1)
+//line poly_functions.gom:5
 }
 
 //line poly_functions.gom:7
@@ -40,7 +45,9 @@ func captured[A any](x A) func(A) A {
 	return func(y A) A {
 //line poly_functions.gom:9
 		return value
+//line poly_functions.gom:9
 	}
+//line poly_functions.gom:7
 }
 
 //line poly_functions.gom:12
@@ -49,6 +56,7 @@ func answer(_ struct{}) string {
 	pick := func(tmp5 int64) int64 {
 //line poly_functions.gom:13
 		return choose[int64](40, tmp5)
+//line poly_functions.gom:13
 	}
 //line poly_functions.gom:14
 	local := captured[string]("captured")
@@ -76,4 +84,5 @@ func answer(_ struct{}) string {
 	tmp16 := tmp15
 //line poly_functions.gom:15
 	return tmp7 + ":" + tmp9 + ":" + tmp11 + ":" + tmp14 + ":" + tmp16
+//line poly_functions.gom:12
 }

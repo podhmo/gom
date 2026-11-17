@@ -9,6 +9,7 @@ import (
 
 //line tailloop_capture.gom:5
 func keep(n int64, k func(struct{}) int64) int64 {
+//line tailloop_capture.gom:5
 	for {
 //line tailloop_capture.gom:5
 		n1 := n
@@ -22,10 +23,13 @@ func keep(n int64, k func(struct{}) int64) int64 {
 			kk = func(_ struct{}) int64 {
 //line tailloop_capture.gom:6
 				return n1
+//line tailloop_capture.gom:6
 			}
+//line tailloop_capture.gom:6
 		} else {
 //line tailloop_capture.gom:6
 			kk = k
+//line tailloop_capture.gom:6
 		}
 //line tailloop_capture.gom:7
 		tmp3 := n1 <= 0
@@ -33,18 +37,24 @@ func keep(n int64, k func(struct{}) int64) int64 {
 		if tmp3 {
 //line tailloop_capture.gom:7
 			return kk(struct{}{})
+//line tailloop_capture.gom:7
 		} else {
 //line tailloop_capture.gom:7
 			tmp2 := n1 - 1
 //line tailloop_capture.gom:7
 			n, k = tmp2, kk
+//line tailloop_capture.gom:7
 			continue
+//line tailloop_capture.gom:7
 		}
+//line tailloop_capture.gom:5
 	}
+//line tailloop_capture.gom:5
 }
 
 //line tailloop_capture.gom:10
 func countdown(n int64) struct{} {
+//line tailloop_capture.gom:10
 	for {
 //line tailloop_capture.gom:10
 		n1 := n
@@ -54,6 +64,7 @@ func countdown(n int64) struct{} {
 			_ = n1
 //line tailloop_capture.gom:11
 			_ = struct{}{}
+//line tailloop_capture.gom:11
 		}()
 //line tailloop_capture.gom:12
 		tmp5 := n1 <= 0
@@ -61,14 +72,19 @@ func countdown(n int64) struct{} {
 		if tmp5 {
 //line tailloop_capture.gom:12
 			return struct{}{}
+//line tailloop_capture.gom:12
 		} else {
 //line tailloop_capture.gom:12
 			tmp4 := n1 - 1
 //line tailloop_capture.gom:12
 			n = tmp4
+//line tailloop_capture.gom:12
 			continue
+//line tailloop_capture.gom:12
 		}
+//line tailloop_capture.gom:10
 	}
+//line tailloop_capture.gom:10
 }
 
 //line tailloop_capture.gom:15
@@ -77,6 +93,7 @@ func main() {
 	tmp6 := func(_ struct{}) int64 {
 //line tailloop_capture.gom:16
 		return 99
+//line tailloop_capture.gom:16
 	}
 //line tailloop_capture.gom:16
 	tmp7 := keep(10, tmp6)
@@ -86,7 +103,9 @@ func main() {
 	tmp9 := any(tmp8)
 //line tailloop_capture.gom:16
 	v, err := fmt.Println(tmp9)
+//line tailloop_capture.gom:16
 	_ = result.FromGo(int64(v), err)
 //line tailloop_capture.gom:17
 	_ = struct{}{}
+//line tailloop_capture.gom:15
 }

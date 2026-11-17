@@ -11,12 +11,14 @@ import (
 func id[A any](x A) A {
 //line let_poly.gom:5
 	return x
+//line let_poly.gom:5
 }
 
 //line let_poly.gom:6
 func e[A any]() list.List[A] {
 //line let_poly.gom:6
 	return list.List[A]{}
+//line let_poly.gom:6
 }
 
 //line let_poly.gom:8
@@ -29,7 +31,9 @@ func sum(xs list.List[int64]) int64 {
 		return 0
 //line let_poly.gom:9
 	case len(xs) != 0:
+//line let_poly.gom:9
 		tmp1 := xs[0]
+//line let_poly.gom:9
 		tmp2 := xs[1:]
 //line let_poly.gom:9
 		tmp3 := tmp1
@@ -39,10 +43,13 @@ func sum(xs list.List[int64]) int64 {
 		tmp5 := sum(tmp4)
 //line let_poly.gom:10
 		return tmp3 + tmp5
+//line let_poly.gom:10
 	default:
 //line let_poly.gom:8
 		panic(rt.InvalidVariant("List", xs))
+//line let_poly.gom:9
 	}
+//line let_poly.gom:8
 }
 
 //line let_poly.gom:13
@@ -57,6 +64,7 @@ func answer(_ struct{}) int64 {
 	tmp8 := id[int64](2)
 //line let_poly.gom:15
 	return tmp7 + tmp8
+//line let_poly.gom:13
 }
 
 //line let_poly.gom:18
@@ -65,4 +73,5 @@ func main() {
 	answer(struct{}{})
 //line let_poly.gom:20
 	_ = struct{}{}
+//line let_poly.gom:18
 }

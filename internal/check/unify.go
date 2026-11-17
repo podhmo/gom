@@ -3,6 +3,7 @@ package check
 import (
 	"cmp"
 	"fmt"
+	gotypes "go/types"
 	"slices"
 
 	"github.com/podhmo/gom/internal/diag"
@@ -178,19 +179,29 @@ func (c *checker) satisfies(r *metaRec, t types.Type, sp diag.Span) bool {
 		c.shadowedErr(sp, "the constraint on this type", con.Name)
 		return false
 	}
-	if r.num && !isNumeric(t) {
+	// Named Go types participate in arithmetic/comparison by Go's
+	// own rules (decision 2026-11-17-named-int-arith): the kind of
+	// the underlying basic type — known only to the UnderlyingSource
+	// oracle — decides admission, so `30 * time.Second` types and
+	// `deadline - now` land on Duration without `Go.conv`.
+	kind, isGoNamed := c.namedBasicKind(t)
+	num := isNumeric(t) || (isGoNamed && (namedIntegral(kind) || namedFloat(kind)))
+	flo := isFloat(t) || (isGoNamed && namedFloat(kind))
+	intg := isIntegral(t) || (isGoNamed && namedIntegral(kind))
+	ord := isOrdered(t) || (isGoNamed && (namedIntegral(kind) || namedFloat(kind)))
+	if r.num && !num {
 		c.mismatch(sp, "a numeric type", t)
 		return false
 	}
-	if r.flo && !isFloat(t) {
+	if r.flo && !flo {
 		c.mismatch(sp, "a floating-point type", t)
 		return false
 	}
-	if r.intg && !isIntegral(t) {
+	if r.intg && !intg {
 		c.mismatch(sp, "an integral type", t)
 		return false
 	}
-	if r.ord && !isOrdered(t) {
+	if r.ord && !ord {
 		c.mismatch(sp, "an ordered type", t)
 		return false
 	}
@@ -203,6 +214,42 @@ func (c *checker) satisfies(r *metaRec, t types.Type, sp diag.Span) bool {
 		return false
 	}
 	return true
+}
+
+// namedBasicKind returns the go/types basic kind of the underlying
+// type of a named Go type — knowledge a *types.Go handle hides
+// behind its NamedRef — via the UnderlyingSource oracle. ok is
+// false for non-Go types, a missing oracle, or a non-basic
+// underlying (struct, interface, ...).
+func (c *checker) namedBasicKind(t types.Type) (gotypes.BasicKind, bool) {
+	g, ok := types.Chase(t).(*types.Go)
+	if !ok {
+		return gotypes.Invalid, false
+	}
+	src, ok := c.src.(UnderlyingSource)
+	if !ok {
+		return gotypes.Invalid, false
+	}
+	return src.GoUnderlyingKind(g)
+}
+
+// namedIntegral reports whether k is an integral basic kind — the
+// underlyings that make a named Go type admit `+ - * / %` and
+// comparisons (`time.Duration` is int64).
+func namedIntegral(k gotypes.BasicKind) bool {
+	switch k {
+	case gotypes.Int, gotypes.Int8, gotypes.Int16, gotypes.Int32, gotypes.Int64,
+		gotypes.Uint, gotypes.Uint8, gotypes.Uint16, gotypes.Uint32, gotypes.Uint64,
+		gotypes.Uintptr:
+		return true
+	default:
+		return false
+	}
+}
+
+// namedFloat reports whether k is a floating-point basic kind.
+func namedFloat(k gotypes.BasicKind) bool {
+	return k == gotypes.Float32 || k == gotypes.Float64
 }
 
 // isNumeric reports whether t is one of the built-in numeric types of
@@ -311,6 +358,14 @@ func (w *eqWalk) has(t types.Type) bool {
 	case *types.Go:
 		return slices.ContainsFunc(t.Args, w.has)
 	case *types.Con:
+		// `Go.FuncN` is a Go func type spelled as a constructor —
+		// Go funcs are not comparable, so `==` on one is E0409
+		// the same as on a curried `Func`.
+		if t.Qual == "Go" {
+			if _, ok := goFuncTypeArity(t.Name); ok {
+				return true
+			}
+		}
 		if slices.ContainsFunc(t.Args, w.has) {
 			return true
 		}
