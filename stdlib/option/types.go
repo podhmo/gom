@@ -36,3 +36,16 @@ func FromGo[T any](v T, ok bool) Option[T] {
 	}
 	return Option_None[T]{}
 }
+
+// NilOr unmaterializes an Option back to the nil-able Go value —
+// Some's payload, or T's zero for None. It is the write side of the
+// `(T, error)` boundary: `Go.funcN` adapts a Gom callback whose
+// declared `Result (Option T) GoError` payload hands an interface
+// (or pointer) the Go caller may see as nil.
+func NilOr[T any](o Option[T]) T {
+	if s, ok := o.(Option_Some[T]); ok {
+		return s.V0
+	}
+	var zero T
+	return zero
+}

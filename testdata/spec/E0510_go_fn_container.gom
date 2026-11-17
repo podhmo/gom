@@ -1,0 +1,10 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// `Go.fnN` rejects a `Go.FuncN` whose raw views split `int`/`int64`
+// inside a container — `func([]int) int` would need an element-wise
+// conversion the boundary cannot spell (viewsCompatible's rule for
+// members, mirrored for the conversion's seed).
+
+fn bad () -> Unit = ignore (Go.fn1 (goiface.Ints ()))

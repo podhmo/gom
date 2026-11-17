@@ -67,3 +67,49 @@ func Tick() int64 { return 7 }
 // on the Gom side it reads `Unit -> Int`, and the adapter's call
 // still passes the unit value `struct{}{}`.
 func U(x struct{}) int64 { return 3 }
+
+// Adder returns a two-parameter callback — a func-typed result
+// (`func(int64, int64) int64`) feeding the `Go.fnN` conversion.
+func Adder() func(int64, int64) int64 {
+	return func(a, b int64) int64 { return a + b }
+}
+
+// IntAdder returns a callback over Go `int` — the int/int64
+// boundary pair `Go.fnN`'s adapter converts in both directions.
+func IntAdder() func(int, int) int {
+	return func(a, b int) int { return a + b }
+}
+
+// Ticker returns a nullary callback — the `func() int64` shape.
+func Ticker() func() int64 { return Tick }
+
+// Failer returns an error-only callback — the `func() error`
+// shape `Go.fnN` reads back as `Result Unit GoError`.
+func Failer() func() error {
+	return func() error { return errors.New("boom") }
+}
+
+// Looker returns a `(T, error)` callback — the
+// `func(int64) (string, error)` shape.
+func Looker() func(int64) (string, error) { return Give }
+
+// ErrPair is a `func() (error, error)` source for `Go.fnN` — the
+// method-bearing-interface payload whose derived view wraps in
+// Option (mapping.go's nil-able payload rule).
+func ErrPair() func() (error, error) {
+	return func() (error, error) { return errors.New("first"), nil }
+}
+
+// ErrPairNil is the same `func() (error, error)` source returning
+// `(nil, nil)` — `Go.fn0` must read it as `Ok None` through the
+// `option.FromGo` payload rule.
+func ErrPairNil() func() (error, error) {
+	return func() (error, error) { return nil, nil }
+}
+
+// Ints is a `func([]int) int` source — `[]int` splits `int`/`int64`
+// inside a container the boundary cannot convert element-wise, so
+// `Go.fn1` on it rejects E0510.
+func Ints() func([]int) int {
+	return func(xs []int) int { return len(xs) }
+}

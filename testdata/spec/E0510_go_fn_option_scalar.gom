@@ -1,0 +1,11 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// `Go.funcN` rejects an `Option` payload whose raw view is not
+// nil-able: `Result (Option Int) GoError` cannot spell `None` on
+// the `(int64, error)` boundary without materializing `0`.
+
+fn cb (u: Unit) -> Result (Option Int) GoError = Ok (Some 1)
+
+fn bad () -> Unit = ignore (Go.func0 cb)

@@ -51,6 +51,9 @@ func (c *checker) checkApply(e *syntax.Apply, want types.Type) Expr {
 		if n, ok := goFuncCallArity(callee); ok {
 			return c.checkGoFuncCall(e, fn, callee, n, want)
 		}
+		if n, ok := goFnCallArity(callee); ok {
+			return c.checkGoFnCall(e, fn, callee, n)
+		}
 	}
 	params, ret := flattenFunc(fn.Type())
 	// A `Go.Any` element of an expected composite is the

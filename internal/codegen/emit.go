@@ -913,6 +913,9 @@ func (g *gen) errorFromGo(e *core.ErrorFromGo, d dest) {
 // style (`pkg.Name`, the package's base name); a method call (no
 // declared binding can produce one today) reports bare `Name`.
 func goCallName(c *core.CallGo) string {
+	if c.Fn != nil {
+		return "the func value"
+	}
 	if c.Recv != nil || c.Callee.Package == "" {
 		return c.Callee.Name
 	}
@@ -968,6 +971,13 @@ func (g *gen) convOf(kind core.ConvKind, target types.Type, x ast.Expr) ast.Expr
 		return &ast.CallExpr{
 			Fun:  ast.NewIdent(g.pkgQual(optionPath) + "FromGo"),
 			Args: []ast.Expr{x, &ast.BinaryExpr{X: x, Op: token.NEQ, Y: ast.NewIdent("nil")}},
+		}
+	case core.ConvOptToNil:
+		// `option.NilOr(v)` — the write side of the `(T, error)`
+		// boundary: `Some` is the payload, `None` the nil.
+		return &ast.CallExpr{
+			Fun:  ast.NewIdent(g.pkgQual(optionPath) + "NilOr"),
+			Args: []ast.Expr{x},
 		}
 	default:
 		panic("unreachable")

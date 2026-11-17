@@ -1,0 +1,46 @@
+package main
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// `Go.fn2` converts the FuncN value and the call is a flat `f(a, b)`
+// inside a curried closure — the int/int64 boundary converts on the
+// way in.
+fn add_pair () -> Int = {
+  let f = Go.fn2 (goiface.IntAdder ())
+  f 3 4
+}
+
+// `Go.fn0` reads `func() R` as a `Unit -> R` thunk.
+fn tick () -> Int = {
+  let t = Go.fn0 (goiface.Ticker ())
+  t ()
+}
+
+// `func() error` materializes `Result Unit GoError`.
+fn fail () -> Result Unit GoError = {
+  let g = Go.fn0 (goiface.Failer ())
+  g ()
+}
+
+// `func(A) (T, error)` materializes `Result T GoError`.
+fn look (n: Int) -> Result String GoError = {
+  let g = Go.fn1 (goiface.Looker ())
+  g n
+}
+
+fn main () -> Unit = {
+  let _ = add_pair ()
+  let _ = tick ()
+  let _ = fail ()
+  let _ = look 0
+  ()
+}
+
+// `func() (error, error)` round-trip: `Go.fn0` reads the nil-able
+// interface payload as `Option` (`option.FromGo`), `Go.func0`
+// writes it back (`option.NilOr`).
+fn roundtrip () -> Unit = {
+  let g = Go.fn0 (goiface.ErrPair ())
+  let f = Go.func0 g
+  ignore f
+}

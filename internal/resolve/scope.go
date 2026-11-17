@@ -163,7 +163,9 @@ func builtinGoMembers() map[string]*Symbol {
 		// The func-typed interop surface: `Go.FuncN` names a Go
 		// `func` type and `Go.funcN` is the explicit conversion
 		// producing a value of it
-		// (docs/decisions/2026-11-17-func-interop.md).
+		// (docs/decisions/2026-11-17-func-interop.md). `Go.fnN` is
+		// the reverse conversion — a `Go.FuncN` value read as a
+		// Gom function (docs/decisions/2026-11-18-fn-interop.md).
 		"Func0": {Name: "Func0", Kind: KindType, Package: "Go"},
 		"Func1": {Name: "Func1", Kind: KindType, Package: "Go"},
 		"Func2": {Name: "Func2", Kind: KindType, Package: "Go"},
@@ -172,6 +174,10 @@ func builtinGoMembers() map[string]*Symbol {
 		"func1": {Name: "func1", Kind: KindBuiltin, Package: "Go"},
 		"func2": {Name: "func2", Kind: KindBuiltin, Package: "Go"},
 		"func3": {Name: "func3", Kind: KindBuiltin, Package: "Go"},
+		"fn0":   {Name: "fn0", Kind: KindBuiltin, Package: "Go"},
+		"fn1":   {Name: "fn1", Kind: KindBuiltin, Package: "Go"},
+		"fn2":   {Name: "fn2", Kind: KindBuiltin, Package: "Go"},
+		"fn3":   {Name: "fn3", Kind: KindBuiltin, Package: "Go"},
 	}
 }
 

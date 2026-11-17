@@ -1,0 +1,5 @@
+package ex
+
+// `Go.fnN` converts a `Go.FuncN` value — anything else is E0510.
+
+fn bad () -> Unit = ignore (Go.fn2 "x")

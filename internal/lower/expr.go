@@ -597,6 +597,15 @@ func (l *lowerer) goConvKindOf(from, to types.Type) (core.ConvKind, bool) {
 	if types.Equal(from, to) {
 		return 0, true
 	}
+	if fc, fok := from.(*types.Con); fok && l.isOptionCon(fc) && len(fc.Args) == 1 &&
+		types.Equal(to, fc.Args[0]) {
+		// The Gom→Go half of the `(T, error)` boundary: an `Option
+		// T` payload handed to the nil-able raw slot —
+		// `option.NilOr(v)` (`Some` is the value, `None` the nil).
+		// It must outrank isGoAny below: `Option Go.Any` is a sum
+		// value, not something to box.
+		return core.ConvOptToNil, true
+	}
 	if isGoAny(to) {
 		return core.ConvBoxAny, true
 	}
@@ -983,6 +992,9 @@ func (l *lowerer) builtinCall(sp diag.Span, typ types.Type, sym *resolve.Symbol,
 	if n, ok := goFuncCallN(sym); ok {
 		return l.goFuncWrap(sp, typ, sym, args, n)
 	}
+	if n, ok := goFnCallN(sym); ok {
+		return l.goFnWrap(sp, typ, args, n)
+	}
 	// assert_eq carries the operands' comparison recipe — the same
 	// judgment `x == y` applies, rendered by codegen as the
 	// pre-computed operand of rt.AssertEq — and the operand type's
@@ -1101,6 +1113,82 @@ func (l *lowerer) goFuncWrap(sp diag.Span, typ types.Type, sym *resolve.Symbol, 
 		gf.ResConv = k
 	}
 	return gf
+}
+
+// goFnCallN reports whether sym is a `Go.fnN` conversion builtin
+// and returns its parameter count — the suffix digit.
+func goFnCallN(sym *resolve.Symbol) (int, bool) {
+	if sym == nil || sym.Package != "Go" || !strings.HasPrefix(sym.Name, "fn") {
+		return 0, false
+	}
+	s := sym.Name[2:]
+	if len(s) != 1 || s[0] < '0' || s[0] > '0'+byte(types.GoFuncMaxArity) {
+		return 0, false
+	}
+	return int(s[0] - '0'), true
+}
+
+// goFnWrap lowers `Go.fnN f` — the mirror of goFuncWrap
+// (docs/decisions/2026-11-18-fn-interop.md): the FuncN-typed value
+// is applied flatly inside the canonical curried closure chain,
+// which is exactly the Gom function value check produced. The
+// emission is the Go-function-reference adapter's shape
+// (goFuncRefOrAdapter) with the callee a value rather than a
+// symbol — CallGo.Fn carries it, argument conversions reuse
+// convGoArgs in the Gom→raw direction, and the result's raw→Gom
+// materialization is the ordinary wrapGoResult consumer (a lone
+// `error` result comes back `Result Unit GoError`, a `(T, error)`
+// pair `Result T GoError`).
+func (l *lowerer) goFnWrap(sp diag.Span, typ types.Type, args []core.Atom, n int) core.Expr {
+	if len(args) != 1 || args[0] == nil {
+		l.err(sp, fmt.Sprintf("Go.fn%d expects one function argument", n))
+		return l.litUnit(sp)
+	}
+	f := args[0]
+	fc, ok := types.Chase(f.Type()).(*types.Con)
+	if !ok || fc.Qual != "Go" {
+		l.err(sp, fmt.Sprintf("Go.fn%d argument of type %s is not a Go.Func%d value", n, typeName(f.Type()), n))
+		return l.litUnit(sp)
+	}
+	if len(fc.Args) < n || len(fc.Args) > n+2 {
+		l.err(sp, fmt.Sprintf("Go.fn%d argument of type %s does not name a func signature", n, typeName(fc)))
+		return l.litUnit(sp)
+	}
+	rawRes := fc.Args[n:]
+	sig := GoSig{Arity: n, Params: fc.Args[:n], ResTypes: rawRes}
+	switch len(rawRes) {
+	case 0:
+		sig.Results = core.GoResultsNone
+	case 1:
+		if isGoErrorT(rawRes[0]) {
+			sig.Results = core.GoResultsErrOnly
+		} else {
+			sig.Results = core.GoResultsOne
+		}
+	case 2:
+		sig.Results = core.GoResultsErr
+	default:
+		panic("unreachable")
+	}
+	fs := flatSig(typ)
+	if fs == nil || len(fs.Params) != max(n, 1) {
+		l.err(sp, fmt.Sprintf("Go.fn%d result type %s is not a function type", n, typeName(typ)))
+		return l.litUnit(sp)
+	}
+	return l.closureChain(sp, typ, fs.Params, func(bs *seq, pv []core.Atom) core.Expr {
+		call := &core.CallGo{
+			Sp: sp, Typ: l.goCallTyp(sig, fs.Ret),
+			Fn:      f,
+			Args:    l.convGoArgs(bs, sig, pv[:n], false),
+			Arity:   n,
+			Results: sig.Results,
+		}
+		x := l.wrapGoResult(bs, call, fs.Ret)
+		if sig.Results == core.GoResultsOne {
+			return l.goPayloadConv(bs, sp, call.Typ, fs.Ret, x)
+		}
+		return x
+	})
 }
 
 // isGoErrorT reports whether t is the builtin `GoError`.

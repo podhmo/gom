@@ -285,7 +285,8 @@ func funcUses(fn *core.Func, sym *resolve.Symbol) bool {
 }
 
 func callGoUses(c *core.CallGo, sym *resolve.Symbol) bool {
-	return (c.Recv != nil && atomUses(c.Recv, sym)) || atomsUses(c.Args, sym)
+	return (c.Fn != nil && atomUses(c.Fn, sym)) ||
+		(c.Recv != nil && atomUses(c.Recv, sym)) || atomsUses(c.Args, sym)
 }
 
 func selArmUses(a core.SelArm, sym *resolve.Symbol) bool {

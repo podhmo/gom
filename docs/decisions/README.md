@@ -184,4 +184,5 @@
 | [sourcemap-repin](2026-11-17-sourcemap-repin.md) | 生成行ごとの `//line` 再置き（per-line re-pin）で drift を消す | accepted |
 | [struct-construction](2026-11-17-struct-construction.md) | Go struct の構築・書き込みは Go 側の factory 関数に限る | 採用 |
 | [structural-constraints](2026-11-17-structural-constraints.md) | Go ジェネリック関数の構造制約（`~[]E`・`~map[K]V`・基本型 union）を公開する | 採用 |
+| [fn-interop](2026-11-18-fn-interop.md) | `Go.FuncN` 値を Gom 側から適用する(逆変換 `Go.fnN`) | 採用（実装・検証した — `Go.fn2`/`fn0`/`fn1` の変換+呼出、int/int64 境界、`func() error` と `func(A) (T, error)` の `Result` materialize が `gom check`/`build`→`go build`→実行まで通る。testdata/spec/ok_go_fn_adapter・E0510_go_fn_{arity,non_fn}、testdata/golden/go_fn_adapter で固定。spec.md §8.8 へ反映済み） |
 <!-- END GENERATED -->

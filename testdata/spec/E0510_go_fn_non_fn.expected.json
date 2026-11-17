@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0510",
+      "severity": "error",
+      "message": "`Go.fn2` expects a `Go.Func2` value, got String",
+      "span": {
+        "file": "E0510_go_fn_non_fn.gom",
+        "start": {
+          "line": 5,
+          "col": 29,
+          "offset": 109
+        },
+        "end": {
+          "line": 5,
+          "col": 39,
+          "offset": 119
+        }
+      }
+    }
+  ]
+}

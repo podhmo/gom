@@ -548,7 +548,10 @@ func (d *cdump) cexpr(e core.Expr) *form {
 		kids = append(kids, d.catoms(e.Args)...)
 		return nodef(chead("callfunc", e.Base), kids...)
 	case *core.CallGo:
-		text := chead("callgo", e.Base) + " " + d.symRef(e.Callee)
+		text := chead("callgo", e.Base)
+		if e.Callee != nil {
+			text += " " + d.symRef(e.Callee)
+		}
 		text += fmt.Sprintf(" arity=%d results=%s", e.Arity, e.Results)
 		if e.Variadic {
 			text += " variadic"
@@ -558,6 +561,11 @@ func (d *cdump) cexpr(e core.Expr) *form {
 		}
 		text += targs(e.TypeArgs)
 		kids := []*form{}
+		// `Go.fnN`-adapted callees carry no Callee symbol — show the
+		// FuncN atom instead of a bare `?%`.
+		if e.Fn != nil {
+			kids = append(kids, nodef("fn", d.cexpr(e.Fn)))
+		}
 		if e.Recv != nil {
 			kids = append(kids, nodef("recv", d.cexpr(e.Recv)))
 		}

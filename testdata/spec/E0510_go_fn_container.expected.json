@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0510",
+      "severity": "error",
+      "message": "`Go.fn1` cannot convert `Go.Func1 (Go.Slice Go.Int) Go.Int` — its views split inside a container and the boundary needs an element-wise copy not yet supported",
+      "span": {
+        "file": "E0510_go_fn_container.gom",
+        "start": {
+          "line": 10,
+          "col": 29,
+          "offset": 350
+        },
+        "end": {
+          "line": 10,
+          "col": 53,
+          "offset": 374
+        }
+      }
+    }
+  ]
+}

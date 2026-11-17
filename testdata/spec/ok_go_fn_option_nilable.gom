@@ -1,0 +1,15 @@
+package ex
+
+// `Go.funcN` accepts an `Option` payload whose raw view is
+// nil-able: maps, slices, chans, pointers, `any`, func types,
+// and named types with nil-able underlying.
+
+fn mcb (u: Unit) -> Result (Option (Go.Map Int Int)) GoError = Ok None
+fn scb (u: Unit) -> Result (Option (Go.Slice Int)) GoError = Ok None
+fn acb (u: Unit) -> Result (Option Go.Any) GoError = Ok None
+
+fn good () -> Unit = {
+  ignore (Go.func0 mcb)
+  ignore (Go.func0 scb)
+  ignore (Go.func0 acb)
+}

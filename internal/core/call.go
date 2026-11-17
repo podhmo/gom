@@ -134,9 +134,15 @@ func (r GoResults) String() string {
 // consumer and may not appear directly at Let.X or Body.Tail.
 type CallGo struct {
 	Base
-	Callee   *resolve.Symbol // IsGo: KindFunc, or KindMethod with Recv
-	Recv     Atom            // receiver for method calls; nil for package functions
-	TypeArgs []types.Type    // instantiation for generic Go callees
+	Callee *resolve.Symbol // IsGo: KindFunc, or KindMethod with Recv; nil when Fn carries the callee
+	Recv   Atom            // receiver for method calls; nil for package functions
+	// Fn is the callee as a `Go.FuncN`-typed value — a Go func-typed
+	// value applied with the flat Go convention `f(a, b)`, the call
+	// a `Go.fnN` adapter emits (docs/decisions/2026-11-18-fn-interop.md).
+	// Callee and Recv are nil then; Fn, Recv and Callee are mutually
+	// exclusive.
+	Fn       Atom
+	TypeArgs []types.Type // instantiation for generic Go callees
 	Args     []Atom
 	Arity    int       // the callee's fixed parameter count (the variadic element counts once)
 	Variadic bool      // the callee's last parameter is variadic
@@ -366,6 +372,12 @@ const (
 	// `*T`-payload pair) applies it to the first result (spec
 	// section 8.4).
 	ConvOptNil
+	// ConvOptToNil writes an `Option T` back to the nil-able Go
+	// value — `option.NilOr(v)`: `Some` is the payload, `None` the
+	// nil. It is the Gom→Go half of the `(T, error)` boundary — a
+	// `Result (Option T) GoError` callback adapted by `Go.funcN`
+	// applies it to the first result.
+	ConvOptToNil
 )
 
 // String returns the kind name for debugging.
@@ -389,6 +401,8 @@ func (k ConvKind) String() string {
 		return "chan-dir"
 	case ConvOptNil:
 		return "opt-nil"
+	case ConvOptToNil:
+		return "opt-to-nil"
 	default:
 		return "ConvKind(?)"
 	}

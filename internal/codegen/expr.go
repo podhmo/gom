@@ -322,12 +322,16 @@ func (g *gen) atoms(as []core.Atom) []ast.Expr {
 	return out
 }
 
-// callGo renders `pkg.F(a, b)`, `recv.M(a)`, or the spread `f(a...)`.
+// callGo renders `pkg.F(a, b)`, `recv.M(a)`, the func-value call
+// `f(a, b)` (`Go.fnN`'s adapter), or the spread `f(a...)`.
 func (g *gen) callGo(c *core.CallGo) ast.Expr {
 	var fun ast.Expr
-	if c.Recv != nil {
+	switch {
+	case c.Fn != nil:
+		fun = g.atom(c.Fn)
+	case c.Recv != nil:
 		fun = &ast.SelectorExpr{X: g.atom(c.Recv), Sel: ast.NewIdent(c.Callee.Name)}
-	} else {
+	default:
 		fun = g.qualRef(c.Callee, c.TypeArgs)
 	}
 	call := &ast.CallExpr{Fun: fun, Args: g.atoms(c.Args)}
@@ -620,6 +624,13 @@ func (g *gen) conv(e *core.Conv) ast.Expr {
 		return &ast.CallExpr{
 			Fun:  ast.NewIdent(g.pkgQual(optionPath) + "FromGo"),
 			Args: []ast.Expr{x, &ast.BinaryExpr{X: x, Op: token.NEQ, Y: ast.NewIdent("nil")}},
+		}
+	case core.ConvOptToNil:
+		// `option.NilOr(v)` — the write side of the `(T, error)`
+		// boundary: `Some` is the payload, `None` the nil.
+		return &ast.CallExpr{
+			Fun:  ast.NewIdent(g.pkgQual(optionPath) + "NilOr"),
+			Args: []ast.Expr{x},
 		}
 	default:
 		panic("unreachable")
