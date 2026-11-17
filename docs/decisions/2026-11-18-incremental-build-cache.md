@@ -25,6 +25,15 @@
   `.gomi` を動かさないので downstream は hit し、ctor 追加などの
   意味的変更はハッシュを動かして再生成する — 5 章の非網羅
   `match` 保護が効くのはこの経路。
+- **import した Go パッケージ**: `goimport.Config.OnLoad` フック
+  で importer が解決した各パッケージのソース dir と
+  `go list -export` の dep dir を観測し、各 dir の
+  `*.go`/`*.gomi` 統計（`statTree` と同じ折りたたみ）を記録する。
+  Go API の変更・dep の編集は stat を動かして再生成する。
+- **モジュール解決の文脈**: 最寄りの go.mod/go.sum と最寄りの
+  go.work/go.work.sum の (path, size, mtime) を manifest に記録
+  し、hit 時に ancestor を再探索して集合ごと比較する — replace
+  の追加・変更や、後から現れた go.mod/go.work も miss になる。
 - **コンパイラ方式バージョン**: `genVersion` 定数
   （codegen/lower/extern の出力規則を変えたら bump）に、実行
   バイナリの (path, size, mtime) を併記する。
@@ -33,7 +42,7 @@
   `*.go`/`*.gomi` の (name, size, mtime)。replace された
   toolchain は別の dir に解決され別キーになる。
 - **Go バージョンとビルド条件**: `runtime.Version()` +
-  `go env GOOS GOARCH GOFLAGS`。
+  `go env GOOS GOARCH GOFLAGS GOWORK`。
 
 ### 失敗時の退化
 

@@ -41,19 +41,28 @@ type input struct {
 // builtin-module tables and the .gomi export hook of spec section
 // 5. The loaders run in the input file's own directory so imported
 // packages resolve in the module the file belongs to.
-func compileOptions(in input, checkOnly bool, seen *[]string) *build.Options {
+func compileOptions(in input, checkOnly bool, seen *depSeen) *build.Options {
 	dir := filepath.Dir(in.path)
 	if abs, err := filepath.Abs(dir); err == nil {
 		dir = abs
 	}
-	gl := goimport.New(&goimport.Config{Dir: dir})
+	glc := &goimport.Config{Dir: dir}
+	if seen != nil {
+		// The incremental build cache records every dependency the
+		// compile reached — its dep set for the next hit check
+		// (design.md section 5). A Go package's own dir plus the
+		// dep dirs `go list -export` reported stand in for its API
+		// surface.
+		glc.OnLoad = func(d string, deps []string) {
+			seen.godirs = append(seen.godirs, d)
+			seen.godirs = append(seen.godirs, deps...)
+		}
+	}
+	gl := goimport.New(glc)
 	mods := map[string]map[string]*resolve.Symbol{}
 	gc := &gomimport.Config{Dir: dir, Go: gl, Sigs: gl, Modules: mods}
 	if seen != nil {
-		// The incremental build cache records every interface the
-		// compile reached — its dependency set for the next hit
-		// check (design.md section 5).
-		gc.OnLoadGomi = func(p string) { *seen = append(*seen, p) }
+		gc.OnLoadGomi = func(p string) { seen.gomis = append(seen.gomis, p) }
 	}
 	ml := gomimport.New(gc)
 	return gomstd.Apply(&build.Options{
@@ -80,8 +89,14 @@ func compileInputs(inputs []input, checkOnly bool, bc *buildCache, outFlag strin
 	var order []string
 	for i, in := range inputs {
 		if in.iface {
+			// An interface's own imports are dependencies too —
+			// they load only while the .gomi itself compiles.
+			var seen *depSeen
+			if bc != nil {
+				seen = bc.depSink(filepath.Dir(filepath.Clean(in.path)))
+			}
 			r, err := build.Compile(build.Input{Path: in.path, Src: in.src, Interface: true},
-				compileOptions(in, checkOnly, nil))
+				compileOptions(in, checkOnly, seen))
 			if err != nil {
 				return nil, fmt.Errorf("%s: %w", in.path, err)
 			}
@@ -114,12 +129,11 @@ func compileInputs(inputs []input, checkOnly bool, bc *buildCache, outFlag strin
 				continue
 			}
 		}
-		var seen []string
-		var sp *[]string
+		var seen *depSeen
 		if bc != nil {
-			sp = &seen
+			seen = bc.depSink(dir)
 		}
-		opts := compileOptions(inputs[idxs[0]], checkOnly, sp)
+		opts := compileOptions(inputs[idxs[0]], checkOnly, seen)
 		if tweak != nil {
 			tweak(opts)
 		}
@@ -131,9 +145,7 @@ func compileInputs(inputs []input, checkOnly bool, bc *buildCache, outFlag strin
 			results[i] = rs[j]
 		}
 		if bc != nil {
-			// The package's own interfaces are dependencies too —
-			// their edit must regenerate just like an imported one.
-			bc.note(dir, ins, append(seen, filepathGomis(dir)...))
+			bc.note(dir, ins)
 		}
 	}
 	return results, nil
@@ -179,7 +191,7 @@ func runCheck(args []string, stdout, stderr io.Writer) int {
 	// The interface contract binds the package, not the argument
 	// list: sibling .gomi files are discovered and compared
 	// (spec section 7.4–7.6).
-	checkInterfaces(inputs, results, &rep, srcs)
+	checkInterfaces(inputs, results, &rep, srcs, nil)
 	if err := emitReport(stdout, *format, rep, srcs); err != nil {
 		fmt.Fprintf(stderr, "gom check: %v\n", err)
 		return diag.ExitInternal
@@ -255,7 +267,7 @@ func runBuild(args []string, stdout, stderr io.Writer) int {
 	// contract failed (E0601/E0603, or an unverifiable interface)
 	// writes no output — generated code is only kept for packages
 	// that pass whole.
-	failed := checkInterfaces(inputs, results, &rep, srcs)
+	failed := checkInterfaces(inputs, results, &rep, srcs, bc)
 
 	// Resolve every output path before writing anything so a bad -o
 	// fails fast instead of after partial writes.

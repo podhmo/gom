@@ -54,6 +54,13 @@ type Config struct {
 	Dir string
 	// GoBin is the go binary used for `go list -export` ("" = "go").
 	GoBin string
+	// OnLoad, when set, is called for every package whose export
+	// data the importer resolves — cache hit or fresh `go list` —
+	// with the package's own source dir and the dirs of the
+	// dependencies `go list -export` reported. The build cache
+	// records them: a dep dir's file stats stand in for the
+	// package's API surface.
+	OnLoad func(srcDir string, depDirs []string)
 }
 
 // Loader is the Go import oracle; see the package comment.
@@ -121,6 +128,13 @@ func New(cfg *Config) *Loader {
 	l.imp = importer.ForCompiler(l.fset, "gc", func(path string) (io.ReadCloser, error) {
 		if cache != nil {
 			if e, ok := cache.get(path); ok {
+				if c.OnLoad != nil {
+					deps := make([]string, len(e.Deps))
+					for i, d := range e.Deps {
+						deps[i] = d.Dir
+					}
+					c.OnLoad(e.Dir, deps)
+				}
 				return os.Open(e.Export)
 			}
 		}
@@ -130,6 +144,9 @@ func New(cfg *Config) *Loader {
 		}
 		if cache != nil {
 			cache.put(path, export, dir, deps)
+		}
+		if c.OnLoad != nil {
+			c.OnLoad(dir, deps)
 		}
 		return os.Open(export)
 	})

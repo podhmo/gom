@@ -16,12 +16,17 @@ package main
 //     loader read, each canonical-hashed — an interface's semantic
 //     change regenerates, an implementation-only dependency edit
 //     does not;
+//   - the source-dir file stats of every Go package the importer
+//     resolved (own dir plus `go list -export`'s dep dirs) — an
+//     imported Go API change regenerates;
+//   - the nearest go.mod/go.sum and go.work above the package dir —
+//     a replace or workspace change redirects resolution;
 //   - the compiler's generation version plus the resolved binary's
 //     identity — codegen/extern/lowering rule changes invalidate;
 //   - the rt/stdlib ABI: file stats of the toolchain packages the
 //     generated code calls into;
-//   - Go version and the effective GOOS/GOARCH/GOFLAGS — build
-//     conditions alter symbol resolution.
+//   - Go version and the effective GOOS/GOARCH/GOFLAGS/GOWORK —
+//     build conditions alter symbol resolution.
 //
 // Storage mirrors internal/goimport's export cache: one JSON
 // manifest per package directory under os.UserCacheDir (or
@@ -60,9 +65,10 @@ const (
 
 // buildCache binds the shared key material (compiler, ABI, Go
 // env) computed once per `gom build` invocation to the on-disk
-// manifests. notes latches each compiled dir group's inputs and
-// gomi dependencies until its outputs are written (a failed group
-// never commits).
+// manifests. notes latches each compiled dir group's inputs until
+// its outputs are written (a failed group never commits); seen
+// accumulates the dependencies every compile of the dir loaded —
+// including the interface pass, which resolves imports of its own.
 type buildCache struct {
 	dir string
 	// key is computed lazily: the `go list`/`go env` subprocesses
@@ -71,13 +77,16 @@ type buildCache struct {
 	// not pay them.
 	key   string
 	keyOk bool
-	notes map[string]bcNote
+	notes map[string][]build.Input
+	seen  map[string]*depSeen
 }
 
-// bcNote is one dir group's pending manifest data.
-type bcNote struct {
-	ins   []build.Input
-	gomis []string
+// depSeen is one dir's observed dependency set: the .gomi files
+// the Gom loader read and the source dirs of the Go packages the
+// Go importer resolved (each with its `go list -export` dep dirs).
+type depSeen struct {
+	gomis  []string
+	godirs []string
 }
 
 type bcHashed struct {
@@ -91,6 +100,8 @@ type bcManifest struct {
 	Key     string     `json:"key"`
 	Inputs  []bcHashed `json:"inputs"`
 	Gomis   []bcHashed `json:"gomis"`
+	GoDirs  []bcHashed `json:"goDirs,omitempty"`
+	Mods    []bcHashed `json:"mods,omitempty"`
 	Outputs []string   `json:"outputs"`
 }
 
@@ -108,7 +119,7 @@ func newBuildCache() *buildCache {
 		}
 		base = filepath.Join(ucd, "gom", "build")
 	}
-	return &buildCache{dir: base, notes: map[string]bcNote{}}
+	return &buildCache{dir: base, notes: map[string][]build.Input{}, seen: map[string]*depSeen{}}
 }
 
 // envKey returns the shared key material, computing it once.
@@ -146,14 +157,73 @@ func cacheKey() string {
 			statTree(h, d)
 		}
 	}
-	if out, err := exec.Command(gobin, "env", "GOOS", "GOARCH", "GOFLAGS").Output(); err == nil {
+	if out, err := exec.Command(gobin, "env", "GOOS", "GOARCH", "GOFLAGS", "GOWORK").Output(); err == nil {
 		h.Write(out)
 	} else {
-		for _, k := range []string{"GOOS", "GOARCH", "GOFLAGS"} {
+		for _, k := range []string{"GOOS", "GOARCH", "GOFLAGS", "GOWORK"} {
 			fmt.Fprintf(h, "%s=%s\n", k, os.Getenv(k))
 		}
 	}
 	return hex.EncodeToString(h.Sum(nil))
+}
+
+// statTreeHash is a dir's file-stat fingerprint — the same
+// (name, size, mtime) fold statTree writes, hashed. A Go dep
+// dir's API change lands here.
+func statTreeHash(dir string) string {
+	h := sha256.New()
+	statTree(h, dir)
+	return hex.EncodeToString(h.Sum(nil))
+}
+
+// fileStatHash fingerprints one file by size and mtime — the
+// granularity module-context files (go.mod, go.sum, go.work)
+// need: an edit flips the mtime, a rewrite that preserves it is
+// indistinguishable anyway.
+func fileStatHash(path string) string {
+	fi, err := os.Stat(path)
+	if err != nil {
+		return ""
+	}
+	return fmt.Sprintf("%d|%d", fi.Size(), fi.ModTime().UnixNano())
+}
+
+// modFiles lists the module-context files that steer dependency
+// resolution for dir: the nearest ancestor's go.mod and go.sum
+// (replace/exclude/version edits redirect imports) plus the
+// nearest go.work and go.work.sum (a workspace wins over the
+// module). Only the first of each counts — the innermost module
+// is the one `go` resolves in.
+func modFiles(dir string) []string {
+	var out []string
+	foundMod, foundWork := false, false
+	for d := dir; ; {
+		if !foundMod {
+			p := filepath.Join(d, "go.mod")
+			if fi, err := os.Stat(p); err == nil && !fi.IsDir() {
+				foundMod = true
+				out = append(out, p)
+				if fi, err := os.Stat(filepath.Join(d, "go.sum")); err == nil && !fi.IsDir() {
+					out = append(out, filepath.Join(d, "go.sum"))
+				}
+			}
+		}
+		if !foundWork {
+			p := filepath.Join(d, "go.work")
+			if fi, err := os.Stat(p); err == nil && !fi.IsDir() {
+				foundWork = true
+				out = append(out, p)
+				if fi, err := os.Stat(filepath.Join(d, "go.work.sum")); err == nil && !fi.IsDir() {
+					out = append(out, filepath.Join(d, "go.work.sum"))
+				}
+			}
+		}
+		parent := filepath.Dir(d)
+		if parent == d || (foundMod && foundWork) {
+			return out
+		}
+		d = parent
+	}
 }
 
 // statTree folds (name, size, mtime) of every *.go and *.gomi
@@ -179,6 +249,11 @@ func statTree(h hash.Hash, dir string) {
 	}
 }
 
+// dedup sorts and deduplicates a path list for manifest entries.
+func dedup(ps []string) []string {
+	return slices.Compact(slices.Sorted(slices.Values(ps)))
+}
+
 // canonHash is the normalized-source fingerprint: the canonical
 // token-stream hash. dropTests removes `test`/`@test` declaration
 // spans first — for .gom inputs, where test code never reaches a
@@ -192,17 +267,29 @@ func canonHash(src []byte, dropTests bool) string {
 	return hex.EncodeToString(sum[:])
 }
 
-// note latches a compiled dir group's dependency data for a
-// later commit. gomis carries the package's own interfaces plus
-// every .gomi the import loader reported.
-func (c *buildCache) note(dir string, ins []build.Input, gomis []string) {
-	c.notes[dir] = bcNote{ins: ins, gomis: slices.Sorted(slices.Values(gomis))}
+// depSink returns dir's dependency accumulator, creating it —
+// the compile hooks and the interface pass append into the same
+// bucket so every path a package resolves counts.
+func (c *buildCache) depSink(dir string) *depSeen {
+	s := c.seen[dir]
+	if s == nil {
+		s = &depSeen{}
+		c.seen[dir] = s
+	}
+	return s
+}
+
+// note latches a compiled dir group's inputs for a later commit.
+// Its dependencies are not arguments: they keep accumulating in
+// seen until commit runs, after the interface pass too.
+func (c *buildCache) note(dir string, ins []build.Input) {
+	c.notes[dir] = ins
 }
 
 // commit writes the manifest for a fully-written dir group —
 // outputs are the .go paths this build produced under `out`.
 func (c *buildCache) commit(dir, out string, outputs []string) {
-	n, ok := c.notes[dir]
+	ins, ok := c.notes[dir]
 	if !ok {
 		return
 	}
@@ -212,15 +299,29 @@ func (c *buildCache) commit(dir, out string, outputs []string) {
 		Key:     c.envKey(),
 		Outputs: slices.Clone(outputs),
 	}
-	for _, in := range n.ins {
+	for _, in := range ins {
 		m.Inputs = append(m.Inputs, bcHashed{Path: in.Path, Hash: canonHash(in.Src, true)})
 	}
-	for _, p := range n.gomis {
+	// The package's own interfaces are dependencies too — their
+	// edit must regenerate just like an imported one.
+	gomis := filepathGomis(dir)
+	godirs := []string{}
+	if s := c.seen[dir]; s != nil {
+		gomis = append(gomis, s.gomis...)
+		godirs = s.godirs
+	}
+	for _, p := range dedup(gomis) {
 		src, err := os.ReadFile(p)
 		if err != nil {
 			return // a dep that vanished cannot seed a hit
 		}
 		m.Gomis = append(m.Gomis, bcHashed{Path: p, Hash: canonHash(src, false)})
+	}
+	for _, d := range dedup(godirs) {
+		m.GoDirs = append(m.GoDirs, bcHashed{Path: d, Hash: statTreeHash(d)})
+	}
+	for _, p := range modFiles(dir) {
+		m.Mods = append(m.Mods, bcHashed{Path: p, Hash: fileStatHash(p)})
 	}
 	data, err := json.Marshal(m)
 	if err != nil {
@@ -276,6 +377,23 @@ func (c *buildCache) Hit(dir, out string, ins []build.Input) (outputs []string, 
 	for _, g := range m.Gomis {
 		src, err := os.ReadFile(g.Path)
 		if err != nil || canonHash(src, false) != g.Hash {
+			return nil, false
+		}
+	}
+	for _, g := range m.GoDirs {
+		if statTreeHash(g.Path) != g.Hash {
+			return nil, false
+		}
+	}
+	// Module context is recomputed, not just re-stated: a go.mod
+	// or go.work appearing where none was recorded redirects
+	// resolution exactly like an edit to a recorded one.
+	mods := modFiles(dir)
+	if len(mods) != len(m.Mods) {
+		return nil, false
+	}
+	for i, p := range mods {
+		if m.Mods[i].Path != p || m.Mods[i].Hash != fileStatHash(p) {
 			return nil, false
 		}
 	}

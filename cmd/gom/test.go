@@ -81,7 +81,7 @@ func runTest(args []string, stdout, stderr io.Writer) int {
 	// contract failed (E0601/E0603, or an unverifiable interface)
 	// gets no output and no test run (spec section 7.8;
 	// docs/decisions/2026-11-04-gomi-conformance-in-gom-test.md).
-	failed := checkInterfaces(inputs, results, &rep, srcs)
+	failed := checkInterfaces(inputs, results, &rep, srcs, nil)
 
 	// Write the generated files of every clean input — `gom test`
 	// is a build as well as a run. go test runs only when the whole

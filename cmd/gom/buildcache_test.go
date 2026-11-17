@@ -10,6 +10,9 @@ package main
 // would overwrite it.
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -140,6 +143,95 @@ func TestBuildCache_GomiChangeRegenerates(t *testing.T) {
 	}
 	if isSentinel(t, appGo) {
 		t.Fatal(".gomi change did not regenerate the consumer")
+	}
+}
+
+// manifestFor reads the committed manifest of one package dir.
+func manifestFor(t *testing.T, cacheBase, dir string) bcManifest {
+	t.Helper()
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sum := sha256.Sum256([]byte(abs))
+	b, err := os.ReadFile(filepath.Join(cacheBase, hex.EncodeToString(sum[:])+".json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m bcManifest
+	if err := json.Unmarshal(b, &m); err != nil {
+		t.Fatal(err)
+	}
+	return m
+}
+
+func TestBuildCache_RecordsGoDepsAndModuleFiles(t *testing.T) {
+	if testing.Short() {
+		t.Skip("invokes the go tool")
+	}
+	dir, _, gomappDir := setupCacheFixture(t)
+
+	if code, out, errout := invoke("build", gomappDir); code != 0 {
+		t.Fatalf("build: exit %d; stdout=%q stderr=%q", code, out, errout)
+	}
+	m := manifestFor(t, filepath.Join(dir, ".gomcache"), gomappDir)
+
+	// gomapp imports go "fmt" — its source dir (and the dep dirs
+	// `go list -export` reported) must be tracked so a Go API
+	// change regenerates.
+	if len(m.GoDirs) == 0 {
+		t.Fatal("no Go dep dirs recorded for an `import go` consumer")
+	}
+	foundFmt := false
+	for _, g := range m.GoDirs {
+		if strings.HasSuffix(g.Path, string(filepath.Separator)+"fmt") {
+			foundFmt = true
+		}
+	}
+	if !foundFmt {
+		t.Fatalf("fmt's dir missing from goDirs: %v", m.GoDirs)
+	}
+	// The fixture's go.mod steers resolution — its stat is the
+	// tripwire for replace/require edits.
+	foundMod := false
+	for _, mod := range m.Mods {
+		if mod.Path == filepath.Join(dir, "go.mod") {
+			foundMod = true
+		}
+	}
+	if !foundMod {
+		t.Fatalf("go.mod missing from mods: %v", m.Mods)
+	}
+}
+
+func TestBuildCache_GoModChangeRegenerates(t *testing.T) {
+	if testing.Short() {
+		t.Skip("invokes the go tool")
+	}
+	dir, _, gomappDir := setupCacheFixture(t)
+	appGo := filepath.Join(gomappDir, "main.go")
+
+	if code, out, errout := invoke("build", gomappDir); code != 0 {
+		t.Fatalf("first build: exit %d; stdout=%q stderr=%q", code, out, errout)
+	}
+	sentinel(t, appGo)
+
+	// A go.mod edit that changes nothing semantically still must
+	// miss — the file's stat is the only signal a replace or
+	// require changed.
+	f, err := os.OpenFile(filepath.Join(dir, "go.mod"), os.O_APPEND|os.O_WRONLY, 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.WriteString("\n// resolution bump\n"); err != nil {
+		t.Fatal(err)
+	}
+	f.Close()
+	if code, out, errout := invoke("build", gomappDir); code != 0 {
+		t.Fatalf("rebuild: exit %d; stdout=%q stderr=%q", code, out, errout)
+	}
+	if isSentinel(t, appGo) {
+		t.Fatal("go.mod edit did not regenerate the package")
 	}
 }
 
