@@ -1,0 +1,21 @@
+package ex
+
+// The `Array` module's operation surface (spec section 8.3): the
+// mutable build buffer behind the cons-built combinator fix —
+// make/length/get/set over the `[]T` representation, the copying
+// from_list, and the zero-copy to_list freeze.
+fn build (n: Int) -> List Int = {
+  let a = Array.make n
+  for i in List.range 0 n {
+    Array.set a i (i * 2)
+  }
+  Array.to_list a
+}
+
+fn read (a: Array Int) -> Int = Array.get a 0 + Array.length a
+
+fn thaw (xs: List Int) -> Array Int = {
+  let a = Array.from_list xs
+  Array.set a 0 99
+  a
+}

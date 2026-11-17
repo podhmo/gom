@@ -46,6 +46,11 @@ type FnDecl struct {
 	// while `fn f () -> T` stays an ordinary function whose value
 	// position is `f`. The shape alone cannot tell the two apart.
 	Thunk bool
+	// Extern marks a `@extern fn` signature (Body is nil): the
+	// implementation is a hand-written Go function in the same
+	// generated package — resolution, checking and .gomi
+	// conformance all treat it as an ordinary fn declaration.
+	Extern bool
 }
 
 func (*FnDecl) isDecl()           {}

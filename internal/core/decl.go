@@ -50,7 +50,12 @@ type FuncDecl struct {
 	// the order the type's instantiation arguments are given in.
 	// Nil while the definition is monomorphic.
 	TypeParams []*types.Var
-	Fn         *Func
+	// Extern marks an `@extern fn` signature: the node exists so
+	// indexDecls claims the package-scope name and sibling
+	// references emit it consistently, but codegen emits nothing —
+	// the body is hand-written Go in the same package.
+	Extern bool
+	Fn     *Func
 }
 
 func (*FuncDecl) isDecl()           {}

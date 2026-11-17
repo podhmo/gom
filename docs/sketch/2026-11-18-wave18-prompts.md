@@ -55,8 +55,11 @@ Review on each PR. podhmo merges.
 
 ### 1. cons 構築 combinator の buffer 化 — `devin/wave18-cons-buffer`
 
+採択（podhmo, 2026-11-18）: (a) + (b) — `Array` builder + `to_list`
+と intrinsic/extern-impl の両立。(c) lower 特殊化は future work。
+
 ```
-[decision+impl — 採択は podhmo] problems
+[decision+impl — 採択済: (a)+(b), (c) future work] problems
 2026-11-05-stdlib-cons-built-combinators-quadratic: slice 表現
 List の構築側 `[x, ..rest]` が O(n) で、`Map`/`Filter`/`Append`/
 `Rev`/`Range` が O(n²)（Map n=2048 ≈5.9ms/17.7MB、線形の ~55x）。

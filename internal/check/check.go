@@ -649,6 +649,7 @@ func (c *checker) checkFnDecl(d *syntax.FnDecl) {
 		Params:  params,
 		Body:    body,
 		TailRec: d.TailRec,
+		Extern:  d.Extern,
 		// A declared signature's rigid variables are the function's
 		// own type parameters — `fn len2 (t: Tree a) -> Int` emits
 		// `func len2[A](t Tree[A]) int64`.

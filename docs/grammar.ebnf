@@ -61,8 +61,8 @@ top-decl       = [ attribute ] , ( fn-decl | let-decl )
                | extern-decl
                | test-decl ;
 
-attribute      = "@" , member-name ;      (* "test" and "tailrec" are defined;
-                                             "tailrec" applies to fn-decl only [SEMANTIC] *)
+attribute      = "@" , member-name ;      (* "test", "tailrec" and "extern" are defined;
+                                             "tailrec" and "extern" apply to fn-decl only [SEMANTIC] *)
 
 (* --------------------------------------------------------------------
    1.1 Interface files (.gomi), spec §7
@@ -764,8 +764,8 @@ char-char      = ? any code point except "'" and '\' ? ;
    - "_" is an atom everywhere; Go-call-only usage is [SEMANTIC].
    - "{ a : T }" is a block containing an ascription, not a record.
    - "(x,)" is a parenthesized expression with a trailing comma.
-   - attributes other than "@test" are accepted by the grammar and
-     rejected in resolve.
+   - attributes other than "@test", "@tailrec" and "@extern" are
+     accepted by the grammar and rejected in the parser.
    - keywords are usable as member names after "." (needed for
      "Chan.send", "ctx.Done" uses UIdent, etc.).
 

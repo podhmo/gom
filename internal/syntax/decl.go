@@ -30,16 +30,19 @@ func (p Param) Span() diag.Span { return p.Sp }
 func (p Param) Labeled() bool { return p.Label != nil }
 
 // FnDecl is a function definition `fn name (p: T) (~l: U) -> R = body`
-// or, in .gomi and extern blocks, a signature without a body.
+// or, in .gomi and extern blocks, a signature without a body. A
+// `@extern` fn in .gom is also body-less: its implementation is the
+// hand-written Go function in the same generated package.
 type FnDecl struct {
 	Sp       diag.Span
 	Doc      *Comment // attached `///` doc comment, or nil
 	TestOnly bool     // declared with `@test` (docs/spec.md section 11)
 	TailRec  bool     // declared with `@tailrec` (docs/spec.md section 1)
+	Extern   bool     // declared with `@extern` — body supplied by hand-written Go in the same package
 	Name     *Ident
 	Params   []Param
 	Ret      TypeExpr // nil when unannotated
-	Body     Expr     // nil in .gomi signatures
+	Body     Expr     // nil in .gomi signatures and @extern declarations
 }
 
 func (*FnDecl) isDecl()           {}

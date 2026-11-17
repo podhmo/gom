@@ -19,7 +19,12 @@ import (
 func (g *gen) decl(d core.Decl) {
 	switch d := d.(type) {
 	case *core.FuncDecl:
-		g.funcDecl(d)
+		if !d.Extern {
+			// An `@extern fn` signature claims its name (indexDecls)
+			// but emits no code — the body is the hand-written Go
+			// function of the same name in this package.
+			g.funcDecl(d)
+		}
 	case *core.VarDecl:
 		g.varDecl(d)
 	case *core.TypeDecl:

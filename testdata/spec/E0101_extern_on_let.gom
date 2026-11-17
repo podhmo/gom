@@ -1,0 +1,6 @@
+package ex
+
+// `@extern` attaches to `fn` declarations only — a `let` cannot
+// carry it.
+@extern
+let x = 1

@@ -459,7 +459,16 @@ func (v *validator) decl(d Decl) {
 		if d.IsEntry {
 			v.entryDecl(d)
 		}
-		v.fnDecl(d.Fn, true, "FuncDecl")
+		if d.Extern {
+			// An `@extern fn` signature carries no Core body —
+			// the implementation is hand-written Go. Signature
+			// and symbol checks above still apply.
+			if d.Fn != nil {
+				v.err(d.Sp, "FuncDecl", "extern declaration must not carry a body")
+			}
+		} else {
+			v.fnDecl(d.Fn, true, "FuncDecl")
+		}
 	case *VarDecl:
 		v.declSym(d.Sp, d.Sym, resolve.KindVar, "VarDecl")
 		if d.Body == nil {

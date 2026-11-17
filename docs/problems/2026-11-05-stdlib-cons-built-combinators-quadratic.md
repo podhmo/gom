@@ -1,6 +1,6 @@
 # Cons-built stdlib list combinators are quadratic, and Gom cannot reach a mutable build buffer
 
-- 状態: 未決
+- 状態: 一部解消（2026-11-18 — `Array` builder + `to_list` と `@extern fn` extern-impl 機構を採択・実装。`Map`/`Filter`/`Append`/`Rev`/`Range` が buffer loop の hand-written Go 実装になり O(n) 化（n=2048 で ~1000×, 1 alloc）。参照: [decision](../decisions/2026-11-18-cons-buffer-array-extern-impl.md)、[検証](../sketch/2026-11-18-cons-buffer-verification.md)。残件: ユーザーコードの cons 蓄積を自動で救う lower cons-recursion 特殊化は podhmo 採択で future work、`Fold` の要素ごとクロージャ確保は未解決）
 - 日付: 2026-11-05
 
 ## Problem
@@ -30,6 +30,21 @@ route from `.gom` source to such a buffer**:
 - `extern` only re-binds exported Go package functions, cannot name
   generic ones, and cannot point a `fn` at a hand-written helper in
   the same package (`gom check` enforces `.gomi` against `.gom`).
+
+## Resolution
+
+Wave 18 (2026-11-18) adopted the first two options together:
+
+- **`Array` builder + `to_list`** — the `Array` builtin module ships
+  `make`/`length`/`get`/`set`/`from_list`/`to_list` (the freeze is
+  zero-copy with the documented hand-off contract).
+- **Intrinsic/extern-impl** — the `@extern fn` attribute declares a
+  signature whose body is a hand-written Go function in the same
+  generated package; stdlib's five quadratic combinators moved to
+  `stdlib/list/impl.go` buffer loops.
+
+The **compiler specialization** option is deferred future work, and
+the `Fold` per-element closure issue below remains open.
 
 ## Options seen so far
 

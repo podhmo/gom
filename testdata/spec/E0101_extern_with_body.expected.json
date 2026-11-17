@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0101",
+      "severity": "error",
+      "message": "an \"@extern\" function declares only a signature \u2014 no \"= body\" (its implementation is hand-written Go)",
+      "span": {
+        "file": "E0101_extern_with_body.gom",
+        "start": {
+          "line": 6,
+          "col": 22,
+          "offset": 129
+        },
+        "end": {
+          "line": 6,
+          "col": 23,
+          "offset": 130
+        }
+      }
+    }
+  ]
+}

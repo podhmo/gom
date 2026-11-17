@@ -48,23 +48,31 @@ var (
 )
 
 // builtinMember is one entry of a hand-built builtin-module member
-// table: the Gom surface name, the rt function it forwards to, and
+// table: the Gom surface name, the Go function it forwards to, and
 // its two signature views — the Gom-facing check.Signature and the
-// Go-facing lower.GoSig the boundary facts come from.
+// Go-facing lower.GoSig the boundary facts come from. pkg overrides
+// the backing package when the member forwards outside rt —
+// `Array.to_list`/`from_list` live in stdlib/list because rt cannot
+// import the generated package it is imported by.
 type builtinMember struct {
 	name  string          // member name in the Gom surface (`send`, `recv`, ...)
-	goSym string          // Go function name inside rt (`ChanSend`, ...)
+	goSym string          // Go function name in the backing package (`ChanSend`, ...)
+	pkg   string          // backing Go import path — empty means rt
 	sig   check.Signature // Gom view — what the checker unifies against
 	gosig lower.GoSig     // Go view — arity and result shape for lowering
 }
 
 // symbol mints the Go function symbol the member resolves to.
 func (m *builtinMember) symbol() *resolve.Symbol {
+	pkg := m.pkg
+	if pkg == "" {
+		pkg = rtPath
+	}
 	return &resolve.Symbol{
 		Name:    m.goSym,
 		Kind:    resolve.KindFunc,
 		IsGo:    true,
-		Package: rtPath,
+		Package: pkg,
 	}
 }
 
@@ -247,18 +255,56 @@ var goSliceMembers = []builtinMember{
 			TypeParams: []*types.Var{elemTVar}}},
 }
 
+// arrayMembers is the `Array` module's operation surface — the
+// mutable build buffer the cons-built combinator problem calls for
+// (decisions/2026-11-18-cons-buffer-array-extern-impl). `Array a`
+// emits as `[]A`, so make/set are verbatim Go indexing — out of
+// range panics like Go. `to_list` is the zero-copy freeze
+// (hand-off: writing the array after freezing violates the List
+// immutability contract, spec §8.7); `from_list` copies so array
+// writes can never corrupt the source list. The two list-boundary
+// members live in stdlib/list — rt is imported BY that package and
+// cannot import it back.
+var arrayMembers = []builtinMember{
+	{name: "make", goSym: "ArrayMake",
+		sig: genericSig(types.Fn(types.Array(elemTVar), types.P(types.Int))),
+		gosig: lower.GoSig{Arity: 1, Results: core.GoResultsOne,
+			TypeParams: []*types.Var{elemTVar}}},
+	{name: "length", goSym: "ArrayLen",
+		sig: genericSig(types.Fn(types.Int, types.P(types.Array(elemTVar)))),
+		gosig: lower.GoSig{Arity: 1, Results: core.GoResultsOne,
+			TypeParams: []*types.Var{elemTVar}}},
+	{name: "get", goSym: "ArrayGet",
+		sig: genericSig(types.Fn(elemTVar, types.P(types.Array(elemTVar)), types.P(types.Int))),
+		gosig: lower.GoSig{Arity: 2, Results: core.GoResultsOne,
+			TypeParams: []*types.Var{elemTVar}}},
+	{name: "set", goSym: "ArraySet",
+		sig: genericSig(types.Fn(types.Unit, types.P(types.Array(elemTVar)), types.P(types.Int), types.P(elemTVar))),
+		gosig: lower.GoSig{Arity: 3, Results: core.GoResultsNone,
+			TypeParams: []*types.Var{elemTVar}}},
+	{name: "from_list", goSym: "ArrayFromList", pkg: "github.com/podhmo/gom/stdlib/list",
+		sig: genericSig(types.Fn(types.Array(elemTVar), types.P(types.List(elemTVar)))),
+		gosig: lower.GoSig{Arity: 1, Results: core.GoResultsOne,
+			TypeParams: []*types.Var{elemTVar}}},
+	{name: "to_list", goSym: "ArrayFreeze", pkg: "github.com/podhmo/gom/stdlib/list",
+		sig: genericSig(types.Fn(types.List(elemTVar), types.P(types.Array(elemTVar)))),
+		gosig: lower.GoSig{Arity: 1, Results: core.GoResultsOne,
+			TypeParams: []*types.Var{elemTVar}}},
+}
+
 // builtinModules populates e with the member tables, signatures,
 // GoSig oracles and declared arities of the rt-backed builtin
-// modules — `Chan`, `Task`, `Ptr` — and of the `Go`-namespace
-// type-member tables (`Go.Map`, `Go.Slice`). Unlike the
-// .gomi-derived tables of `packages`, every fact here is written
-// by hand because no Gom interface file can spell these
+// modules — `Chan`, `Task`, `Ptr`, `Array` — and of the
+// `Go`-namespace type-member tables (`Go.Map`, `Go.Slice`). Unlike
+// the .gomi-derived tables of `packages`, every fact here is
+// written by hand because no Gom interface file can spell these
 // signatures.
 func (e *env) builtinModules() {
 	for module, members := range map[string][]builtinMember{
 		"Chan":     chanMembers,
 		"Task":     taskMembers,
 		"Ptr":      ptrMembers,
+		"Array":    arrayMembers,
 		"Go.Map":   goMapMembers,
 		"Go.Slice": goSliceMembers,
 	} {

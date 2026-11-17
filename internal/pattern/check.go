@@ -347,7 +347,10 @@ func CheckFile(f *check.File, opts Options) diag.List {
 			for _, p := range d.Params {
 				diags = append(diags, c.checkPattern(p.Pat, CtxParam)...)
 			}
-			c.walkExpr(d.Body, &diags)
+			if d.Body != nil {
+				// An `@extern fn` signature has no body to walk.
+				c.walkExpr(d.Body, &diags)
+			}
 		case *check.LetDecl:
 			diags = append(diags, c.checkPattern(d.Pat, CtxLet)...)
 			c.walkExpr(d.Value, &diags)

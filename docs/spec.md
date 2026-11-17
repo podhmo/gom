@@ -53,6 +53,7 @@ fn main () -> Unit = {
    - `f -> g -> f` のような相互再帰は `@tailrec` では認めない。Go には相互再帰の末尾呼び出し最適化がないため（E0904）。パッケージレベルの `let` を経由する循環も同じく相互再帰とみなす — `let g = f` や `let (g, _) = (fn ..., ...)` のように関数値を保持する `let` を呼び出しに使う経路でも、反復ごとに本物の呼び出しが起きてスタックは増える
    - この相互再帰の検査が辿るのはコンパイラが静的に解決できる参照だけである。引数として受け取った関数値を呼び戻すような、呼び出し先を特定できない経路の再帰は `@tailrec` の保証の対象外とする
    - 変換可能な自己末尾呼び出し（末尾位置にある直接の自己呼び出し）がひとつもなければエラー（E0905）。再帰呼び出し自体がない場合、別名経由でしか呼ばれない場合、`go` の中だけで再帰する場合がこれにあたる。末尾位置にない直接呼び出しは E0902 で報告される
+9. `fn` 宣言には `@extern` を付けられる。「この関数の本体は、生成される同じ Go パッケージに手書きの Go 関数としてある」ことを宣言する属性（[decisions/cons-buffer-array-extern-impl](decisions/2026-11-18-cons-buffer-array-extern-impl.md)）。宣言はシグネチャだけを持ち `= body` は書けない — 全パラメータと結果型に型注釈が必要になる。解決・型検査・`.gomi` との適合は通常の `fn` と同じで、呼び出しの出力形も変わらない。違いは宣言自身がコードを生成しないことだけで、実装は同じパッケージの手書き Go ファイルが同名（生成名 — `map` → `Map`）の関数として担う。名前・シグネチャのずれは Gom 側ではなく Go の `go build` / `go test` が報告する。`let` や `.gomi` には付けられない
 
 ### 1.2 その他の構文
 
@@ -359,7 +360,7 @@ let unit_circle : Shape
 3. sum type はコンストラクタまで書けば透明、名前だけ書けば抽象。利用側で `match` できるのは透明な型だけ
 4. ライブラリパッケージ（`package main` 以外）は `.gomi` が必須で、ないとエラー
 5. `gom info` は、`.gomi` がまだないパッケージについて、全トップレベル定義のシグネチャを型推論の結果から書き出した下書きを作る
-6. 実装の型はインターフェースと一致しなければならない（v1 では型変数の名前の違いだけを許す）
+6. 実装の型はインターフェースと一致しなければならない（v1 では型変数の名前の違いだけを許す）。`fn` 項目の実装側は本体を持つ定義でも `@extern fn` のシグネチャ宣言（1 章 9 項）でもよい — 適合検査はどちらにも同じく行う
 7. 依存パッケージの再コンパイルは、インターフェース（コメントと書式を除く）が変わったときだけ起きる。実装だけの変更では起きない
 8. 実装とインターフェースの適合（4・6）は `gom check`・`gom build`・`gom test` が検査する。不適合のパッケージは生成物を書かない（`gom test` ではテストも実行しない。[decisions/gomi-conformance-in-gom-test](decisions/2026-11-04-gomi-conformance-in-gom-test.md)）
 
@@ -446,6 +447,8 @@ Go の名前付き struct 型の値またはそのポインタから、exported 
 `Go.Map K V` の操作は `Go.Map` の型メンバーとして解決する（[decisions/go-map-ops](decisions/2026-11-05-go-map-ops.md)）: `Go.Map.make : Unit -> Go.Map k v`、`Go.Map.get : Go.Map k v -> k -> Option v`（missing key は `None`）、`Go.Map.set : Go.Map k v -> k -> v -> Unit`、`Go.Map.delete : Go.Map k v -> k -> Unit`、`Go.Map.length : Go.Map k v -> Int`、`Go.Map.to_list : Go.Map k v -> List (k, v)`（順序不定のスナップショット。v1 の反復面）。`k` は Go の `comparable` 制約を持ち、`List` など比較できない表現のキーは E0508 で拒否される。nil マップの意味は Go のまま — get/delete/length は nil でも動き、set は panic する。
 
 `Go.Slice T` の操作も `Go.Slice` の型メンバーとして解決する（[decisions/go-slice-ops](decisions/2026-11-05-go-slice-ops.md)）。すべて読み取り専用 — Gom 側から Go が所有するスライスを書き換える操作はない: `Go.Slice.length : Go.Slice a -> Int`（nil では 0）、`Go.Slice.get : Go.Slice a -> Int -> Option a`（範囲外・負の添字は `None`）、`Go.Slice.slice : Go.Slice a -> Int -> Int -> Go.Slice a`（`s[lo:hi]` — バッキングを共有する部分ビュー。範囲外・逆転した境界は Go と同じく panic）、`Go.Slice.fold : Go.Slice a -> (b -> a -> b) -> b -> b`（左畳み込み。nil は acc のまま）、`Go.Slice.to_list : Go.Slice a -> List a`（スナップショット — コピーするのはこのメンバーだけ）。`Go.Slice` は `for x in s { ... }` の反復対象にもなる — Go の `range` と同じく添字順に要素を読み、nil は 0 回反復する（[decisions/for-over-go-slice](decisions/2026-11-05-for-over-go-slice.md)）。
+
+`Array T` の操作はコンパイラ組み込みの `Array` モジュールが持つ（[decisions/cons-buffer-array-extern-impl](decisions/2026-11-18-cons-buffer-array-extern-impl.md)）。`Array a` は可変の構築バッファで、出力される Go は `[]T` — cons を積み上げる `List` 構築が O(n²) になるのに対し、添字への書き込みで線形の組み立てができる: `Array.make : Int -> Array a`（n 個のゼロ値。負の長さは Go と同じく panic）、`Array.length : Array a -> Int`、`Array.get : Array a -> Int -> a`（範囲外は panic）、`Array.set : Array a -> Int -> a -> Unit`（同）、`Array.from_list : List a -> Array a`（コピー — 配列への書き込みは元のリストへ届かない）、`Array.to_list : Array a -> List a`（コピーなしの凍結 — リスト化したあと同じ配列へ書いてはいけない。違反は 8.6/8.7 節の契約違反であり、診断はされない）。
 
 `Go.Any` は Go の `any`（`interface{}`）の綴りとして採用した（[decisions/go-any-spellable](decisions/2026-11-06-go-any-spellable.md)）。型式の書けるすべての位置 — シグネチャのパラメータ・結果（`.gom`/`.gomi`/`extern`）、型注釈、`List Go.Any`・`Option Go.Any` などの型引数位置 — で認める。裸の `any` は小文字識別子なので型変数と読む（`fn f (x: any) -> any` は多相関数）— `any` の綴りは `Go.` 修飾の `Go.Any` だけ。`type Token any`（定義型 — `json.Token` がこの形）のような named な `any` は名前的な型のままで、`Go.Any` とは別の型として扱う。`type T = any` のエイリアスは `any` そのものに展開されて `Go.Any` に写る。want が `Go.Any` の位置（`Go.Any` パラメータへの引数、`Go.Any` の型注釈、`Go.Any` を宣言した record フィールドや sum ペイロードの構築位置、`-> Go.Any` の本体）にはどの Gom の値でもそのまま置け、境界で `any(x)` のボックスが生成される（数値は Gom の型の Go 表現へ先に物質化する — `any(int64(42))`。8.1.7 節）。型引数の位置では `Go.Any` は受理規則ではなく実引数の選択になる — Go のジェネリックは型不変なので `Option Go.Any` は `Option[any]` だけを指し、`Option Go.Any` のスロットに `Some 42` を置けば payload は `any` 要素へボックスされるが、既に `Option Int` と型付いた値は合わない（`Option[int64]` は `Option[any]` ではない）。関数型のパラメータ・結果も同じで、`Go.Any` は emit される Go 型のマーカー — `any -> Int` と `String -> Int` は `func(any) int64` と `func(string) int64` で型不変なので、型が要求される位置（注釈・パラメータ・match の各スロット）ではどちら向きにも置き換えられない（E0401）。`any -> Int` のシグネチャを持つ callee へ `String` の値を渡せるのは適用サイトの引数 conform が値スロットで働くからで、型同士の代入可能性ではない — `let g : Go.Any -> Int = fn x -> 1` のような期待位置では `x` は `any` に bind されて `func(x any) int64` が生成される。スカラの `Go.Any` スロットは受理するだけでインスタンス化を選ばない — `let x : Go.Any = None` の `None` の要素型はそこからは決まらず、注釈が要る（E0407; `Option Go.Any` という書き方が合成の答え）（[decisions/go-any-conformance-materialize](decisions/2026-11-06-go-any-conformance-materialize.md)）。逆向き — `Go.Any` から具象型への取り出し — は Go の型アサーションに相当し、`Go.conv` の変換では認めない（E0507）。
 

@@ -10,10 +10,10 @@ fn of (x: a) -> List a = [x]
 
 fn cons (x: a) (xs: List a) -> List a = [x, ..xs]
 
-fn append (xs: List a) (ys: List a) -> List a = match xs {
-  [] -> ys
-  [x, ..rest] -> [x, ..append rest ys]
-}
+/// append xs ys is xs ++ ys. Buffer-built Go impl (impl.go) —
+/// the cons-per-step shape is O(n²) on the slice List repr.
+@extern
+fn append (xs: List a) (ys: List a) -> List a
 
 /// rev_append xs onto = rev xs ++ onto, in one pass.
 @tailrec
@@ -22,7 +22,9 @@ fn rev_append (xs: List a) (onto: List a) -> List a = match xs {
   [x, ..rest] -> rev_append rest [x, ..onto]
 }
 
-fn rev (xs: List a) -> List a = rev_append xs []
+/// rev xs is xs reversed. Buffer-built Go impl (impl.go).
+@extern
+fn rev (xs: List a) -> List a
 
 fn is_empty (xs: List a) -> Bool = match xs {
   [] -> true
@@ -47,15 +49,15 @@ fn get (n: Int) (xs: List a) -> Option a = match xs {
   [x, ..rest] -> if n == 0 { Some x } else { get (n - 1) rest }
 }
 
-fn map (f: a -> b) (xs: List a) -> List b = match xs {
-  [] -> []
-  [x, ..rest] -> [f x, ..map f rest]
-}
+/// map f xs applies f to every element in order. Buffer-built
+/// Go impl (impl.go).
+@extern
+fn map (f: a -> b) (xs: List a) -> List b
 
-fn filter (f: a -> Bool) (xs: List a) -> List a = match xs {
-  [] -> []
-  [x, ..rest] -> if f x { [x, ..filter f rest] } else { filter f rest }
-}
+/// filter f xs keeps the elements that satisfy f, in order.
+/// Buffer-built Go impl (impl.go).
+@extern
+fn filter (f: a -> Bool) (xs: List a) -> List a
 
 /// fold f acc xs is the left fold f(...f(f(acc, x0), x1)..., xn).
 @tailrec
@@ -84,18 +86,15 @@ fn concat (xss: List (List a)) -> List a = concat_go xss
 fn sum (xs: List Float) -> Float = sum_go 0.0 xs
 
 /// range lo hi is [lo, lo+1, ..., hi-1]; empty when lo >= hi.
-fn range (lo: Int) (hi: Int) -> List Int = range_go lo hi []
+/// Buffer-built Go impl (impl.go).
+@extern
+fn range (lo: Int) (hi: Int) -> List Int
 
 // --- private helpers ---
 @tailrec
 fn length_go (acc: Int) (xs: List a) -> Int = match xs {
   [] -> acc
   [_, ..rest] -> length_go (acc + 1) rest
-}
-
-@tailrec
-fn range_go (i: Int) (hi: Int) (acc: List Int) -> List Int = if i >= hi { rev acc } else {
-  range_go (i + 1) hi [i, ..acc]
 }
 
 @tailrec
