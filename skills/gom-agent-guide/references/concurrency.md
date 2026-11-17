@@ -89,7 +89,7 @@ Also iterates a `List` or a `Go.Slice`. `Unit` body only.
 ## Sharing rules (linter warnings)
 
 Immutable Gom values send freely. The linter warns (W0701/W0702,
-planned) when a channel's element type contains mutable values
+implemented) when a channel's element type contains mutable values
 (`Ref`, `Array`, `Ptr`, `Go.Slice`, `Go.Map`) or a `go` block
 captures such a variable. Uncaught panics in a non-`Task` goroutine
 stop the whole program; `Task` re-panics at `await`.

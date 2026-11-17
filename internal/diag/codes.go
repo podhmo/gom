@@ -814,6 +814,24 @@ redeclare them back to their type-derived default.`,
 	},
 
 	{
+		Code:     "E0510",
+		Severity: SeverityError,
+		Title:    "`Go.funcN` argument is not an admissible function",
+		Phase:    PhaseCheck,
+		Spec:     "8.8",
+		Explanation: `The explicit Gom fn → Go func adapter "Go.funcN" takes
+exactly one function value whose parameter count flattens to N
+(curried "A -> B -> R" counts as 2; "Go.func0" takes a "Unit -> R"
+thunk). A non-function argument, a labeled parameter, the wrong
+arity, or a parameter/result carrying a Gom-only type (Option,
+user ADTs, tuples) — a type the section-8.5 boundary table cannot
+bridge — is rejected. The produced "Go.FuncN" is compared to the
+expected one on raw views; a mismatch there is E0401.`,
+		Example: `let h = Go.func2 (fn w r -> ())
+// E0510 if a param/result is a Gom-only type or the arity ≠ 2`,
+	},
+
+	{
 		Code:     "E0601",
 		Severity: SeverityError,
 		Title:    "missing .gomi interface file",
