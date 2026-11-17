@@ -68,10 +68,11 @@ in [the prototype report](../../docs/sketch/2026-11-03-gist-cli-prototype.md).
 
 ## Current host boundary
 
-`main.gom` contains all Gist-specific behavior. `host/host.go` is a temporary
-compatibility package for the current compiler. Each
-definition documents what would let it move into Gom and be deleted, including
-undecided bindings and the behavior its replacement must preserve.
+`main.gom` contains all Gist-specific behavior. `host/host.go` shrank to a
+single adapter, `NewClient`: its removal needs Go composite-literal
+construction (`http.Client{...}`), which Gom deliberately does not provide
+today (docs/decisions/2026-11-17-struct-construction.md), so the package is
+expected to stay rather than be a staging area.
 
 The remaining primitives cover operations Gom cannot yet express directly:
 
