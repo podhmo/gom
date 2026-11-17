@@ -62,3 +62,8 @@ func Apply1(f func(int64) int64) int64 { return f(0) }
 // Tick is a zero-parameter producer — the `func() int64`
 // signature a `Unit -> Int` member shape has on the Go side.
 func Tick() int64 { return 7 }
+
+// U is a one-parameter function whose parameter is `struct{}` —
+// on the Gom side it reads `Unit -> Int`, and the adapter's call
+// still passes the unit value `struct{}{}`.
+func U(x struct{}) int64 { return 3 }

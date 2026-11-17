@@ -59,3 +59,7 @@ fn drive (f: Int -> Int) (n: Int) -> Int = {
 // `check_give` is a Gom function returning `Result`, so its
 // adapter calls `Unwrap`.
 let chk_wrapped : Go.Func1 Int GoError = Go.func1 check_give
+
+// An imported `func(struct{}) int64` reads `Unit -> Int` too, but
+// the adapter's call still passes the unit value.
+fn via_u () -> Int = goiface.Apply0 (Go.func0 goiface.U)

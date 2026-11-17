@@ -201,3 +201,13 @@ var chkWrapped func(int64) error = func(tmp37 int64) error {
 	_, err5 := checkGive(tmp37).Unwrap()
 	return err5
 }
+
+//line go_func_adapter.gom:65
+func viaU(_ struct{}) int64 {
+//line go_func_adapter.gom:65
+	tmp38 := func() int64 {
+		return goiface.U(struct{}{})
+	}
+//line go_func_adapter.gom:65
+	return goiface.Apply0(tmp38)
+}
