@@ -42,37 +42,42 @@ Review on each PR. podhmo merges.
 - **Don't edit on `main`** — lane work drifted onto `main`'s
   working tree once this wave after a branch switch for the
   merge; check `git branch --show-current` before editing.
-- open-question 由来の lane（本 wave では 1, 2）の回答は
-  podhmo が prompts 段階で決定すること — 分岐を残さない。
-  decision doc には却下した案も理由つきで記録すること。
+- open-question 由来の lane（本 wave では 1–3）の分岐は
+  podhmo が prompts 段階で決定済み — 各 prompt に採択が
+  書かれている。decision doc には却下した案も理由つきで
+  記録すること。
 
 ## Individual prompts
 
 ### 1. `Go.FuncN` の Gom 側からの適用 — `devin/wave17-func-apply`
 
 ```
-[impl] wave-16 lane 2 で `Go.FuncN`（func 型の生ビュー）を
-surface したが、残差として「Go から受け取った `Go.FuncN`
-値を Gom で呼ぶ」が open-questions に残っている
-（callback を返す API に必要）。
+[impl — 採択済: (b) 変換 API のみ] wave-16 lane 2 で
+`Go.FuncN`（func 型の生ビュー）を surface したが、残差と
+して「Go から受け取った `Go.FuncN` 値を Gom で呼ぶ」が
+open-questions に残っている（callback を返す API に必要）。
 
-(1) 現状 pin: `Go.FuncN` 型の値を `f a b` と適用しようと
+採択（podhmo, 2026-11-18）: (b) — `Go.fnN f` で Gom fn へ
+変換してから呼ぶ形のみ提供。直接 apply は含めない。
+
+(1) 難易度の軽い調査: 直接 apply の実装コストを読み見て
+    decision に記録（podhmo「大変だと思ってる」— 調査で
+    思いのほか小さければ記録して終わり、本 lane では
+    (b) を実装する）。
+(2) 現状 pin: `Go.FuncN` 型の値を `f a b` と適用しようと
     すると今何になるかを fixture で記録（E0401 or
     非関数扱いの診断）。
-(2) 設計を確定: (a) apply を admit — 生ビュー引数の呼び出しは
-    Gom fn と同じく curried/uncurried のどちらで解釈するか
-    （`Go.Func2 A B R` の `f a b` と `f a`）、Unit/2-結果
-    shape（`func() error` → `Result Unit GoError` か素の
-    GoError か）を含めてここで決める。(b) 変換 API のみ
-    （`Go.fn f` で Gom fn へ変換してから呼ぶ）、(c) 現状維持
-    — 却下なら理由つきで decision に記録。
-(3) Implement per decision, additive。
-(4) Tests: `Go.Func2` の全適用・部分適用、`func() R`、
-    `func(A) (T, error)` の 2 結果、なり得ない型の適用は
-    honest error、`gom build` まで。
-Ownership: internal/check (callee typing, FuncN apply),
-internal/lower/codegen (call emission, result-shape conv),
-spec.md, docs/decisions, testdata/spec.
+(3) `Go.fnN`（N=0..3 の想定）を実装: `Go.FuncN` の
+    引数/戻り shape を Gom fn 型へ写す規則を確定（`func()
+    error` の戻り → `Result Unit GoError` か素の `GoError`
+    か、2 結果 `(T, error)` の扱い、Unit 結果）。
+(4) Tests: `Go.fn2 f a b` の変換+呼出、`func() R`、
+    `func(A) (T, error)`、型の合わない変換は honest error、
+    `gom build` まで。
+Ownership: internal/check (Go.fnN typing), internal/lower/
+codegen (adapter emission, result-shape conv), spec.md,
+docs/decisions（(a) 却下理由と直接 apply コスト見積）,
+testdata/spec.
 ```
 
 ### 2. loader セッション cache — `devin/wave17-loader-cache`
@@ -85,16 +90,20 @@ loader の pkg loading をセッション/プロセス内で cache する。
 (1) 現状 pin: `gom check`/`build` 1 回あたりの `go list
     -export` 呼び出し数と時間を計測して記録（対象は
     goimport.Loader）。
-(2) 設計を確定: cache key（pkg path + module 状態）、
+(2) 設計を確定: cache key（pkg path + module 状態）と
     invalidation（ファイル mtime or `go list -deps` の
-    fingerprint）、CLI の一回限りプロセスと LSP の長居
-    プロセスで cache 戦略が同じか、をここで決める。
+    fingerprint）。**CLI 優先** — 一回限りプロセスでも
+    恩恵のある範囲で実装し、LSP プロセス間 reuse は
+    future work として open-questions に書くだけ
+    （podhmo 採択, 2026-11-18）。
 (3) Implement per decision。
 (4) Tests: 2 回目の `gom check` が `go list` を再実行
-    しない・依存ファイル更新で invalidation が効く・LSP
-    per-change が下がる、を計測つきで確認。
-Ownership: internal/goimport, internal/lsp (session reuse),
-docs/design.md, TODO check-off.
+    しない・依存ファイル更新で invalidation が効く、
+    を計測つきで確認。LSP 側は計測だけ記録して最適化は
+    しない。
+Ownership: internal/goimport, internal/lsp (計測のみ),
+docs/design.md, TODO check-off, open-questions (LSP reuse
+を future work として追加).
 ```
 
 ### 3. 外部 module からの stdlib import — `devin/wave17-stdlib-import`
@@ -105,14 +114,18 @@ import が E0203 で拒否され、stdlib の Gom module（`import
 "list"` 等）を外部 module から import できない（P3-6 発見、
 `testdata/gocall` fixture は stdlib 依存を手書きで代替した）。
 
+採択（podhmo, 2026-11-18）: (b) 一般の外部 Gom package
+も公開を目標。まず難易度を判定し、厳しいなら (a) stdlib
+module のみ公開へフォールバック。
+
 (1) 現状 pin: `testdata/gocall` 相当の外部 module から
     `import "list"` すると今何になるかを fixture で記録。
-(2) 設計を確定: stdlib の Gom source を外部 module の
-    loader が見えるか、生成 Go import にどう落とすか
-    （生成物の import path と .gomi の公開形）、をここで
-    決める。(a) stdlib module のみ公開、(b) 一般の外部
-    Gom package も公開、(c) 現状維持 — 却下理由つきで
-    decision に記録。
+(2) 難易度判定: (b) に必要な loader/resolve 経路の
+    実装コストを読み見て採択を確定（stdlib の Gom source
+    を外部 module の loader が見えるか、生成 Go import
+    にどう落とすか — 生成物の import path と .gomi の
+    公開形）。却下・縮退した案も理由つきで decision に
+    記録。
 (3) Implement per decision, additive。
 (4) Tests: 外部 module fixture で `import "list"` が
     check/build/test を通る、`testdata/gocall` の手書き
