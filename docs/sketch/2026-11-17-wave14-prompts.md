@@ -80,7 +80,7 @@ sessions. Consequences:
 | # | Task | Main areas touched | Branch | Order |
 |---|------|--------------------|--------|-------|
 | 1 | `Go.Any` residual boundary — P1/P2 silent-failure bugs, then F1–F3 pins + P3–P5 | internal/check (apply/expr/unify sites), internal/lower/equal.go, internal/codegen lit emit, testdata/spec | `devin/wave14-go-any-residuals` | first — silent-failure class |
-| 2 | LSP go-tool invocation point (decision+impl) | internal/lsp, internal/build, cmd/gom | `devin/wave14-lsp-gotool-invocation` | second |
+| 2 | CLI go-tool invocation — `gom build -go` (decision+impl) | cmd/gom, internal/build (additive) | `devin/wave14-cli-gotool` | second |
 | 3 | Hygiene: `metasIn` suppression, stdlib inert divergences, spec §8.5 generics wording | internal/check (narrow), internal/stdlib, internal/iface, spec.md | `devin/wave14-hygiene` | third |
 | 4 | gist-cli byte I/O + `Go.Slice String` boundary | experiments/gist (or wherever the example lives), internal/goimport or rt as needed | `devin/wave14-gist-cli` | fourth |
 
@@ -92,11 +92,11 @@ Overlap notes:
   Lane 3 may touch `internal/check` only for the `metasIn`
   suppression item (narrow, additive); sequence lanes 1 → 3 to
   avoid intra-check conflicts.
-- Lane 2 owns `internal/lsp`, `internal/build` (invocation-site
-  consumption — additive), `cmd/gom`. If the honest invocation
-  needs codegen output (a real `.go` to compile), flag in the
-  report — codegen emission is lane 1's surface this wave;
-  prefer a build/lsp-side additive path.
+- Lane 2 owns `cmd/gom` and `internal/build` (invocation-site
+  consumption — additive). Rewritten after podhmo's B-route
+  pick: the invocation surface is the CLI, not `gom lsp` — the
+  per-change latency and async-publish questions leave this
+  wave. `internal/lsp` is untouched.
 - `internal/diag/codes.go` is append-only for all lanes.
 - spec.md: lane 3 → §8.5-adjacent only; lane 1 may touch
   §8.3-adjacent wording if a residual resolution changes what
@@ -160,49 +160,63 @@ internal/stdlib, internal/eval (flag if a forced eval touch is
 semantically required like wave 13).
 ```
 
-### 2. LSP go-tool invocation point — `devin/wave14-lsp-gotool-invocation`
+### 2. CLI go-tool invocation — `gom build -go` — `devin/wave14-cli-gotool`
 
 ```
-[decision+impl] Close the recorded wall: `gom lsp` compiles
-CheckOnly and produces no output for `go build`/`go vet` to
-check, so the SourceMap-aware inverse (wave-13, ResolveMatch
-exact/drift/ambiguous + GoToolDiagnostics/`gom test` fold)
-has no invocation point on the LSP path. The go-build/vet
-diagnostics fold is implemented; where to RUN the tool is the
-remaining design decision (gaps entry "`go build`/`go vet` の
-エラーを `.gom` 位置へ戻す経路（CLI/LSP 側の実起動）" + TODO
-task "LSP: go-tool 診断の取り込み" residual paragraph).
+[Rewritten 2026-11-17 (podhmo's B-route pick): the
+invocation-point question is pinned to the CLI surface. The
+LSP per-change path — temp-pkg compile latency on top of the
+CheckOnly recompile, plus async publish/retract — leaves this
+wave as a recorded deferral, not a lane deliverable.]
+
+[decision+impl] `gom build` writes generated .go but never runs
+the go tool, and `gom lsp` compiles CheckOnly with no output —
+so the SourceMap-aware inverse (wave-13 ResolveMatch
+exact/drift/ambiguous + GoToolDiagnostics/`gom test` fold) has
+no invocation point on either surface. This lane lands the
+invocation where output already materializes: an opt-in
+`gom build -go` runs `go build` per output package directory
+(the runGoTests directory grouping + GoPosIndex construction
+is the template) and folds the tool's diagnostics back onto
+.gom spans through GoToolDiagnostics (gaps entry
+"`go build`/`go vet` のエラーを `.gom` 位置へ戻す経路" + TODO
+"LSP: go-tool 診断の取り込み" — the CLI half this lane closes;
+the LSP half splits off as its own open entry).
 
 Steps:
-(1) Decision draft FIRST: where the go tool runs — options
-    include codegen'd compile to a temp pkg dir on the LSP
-    per-change path (~55–90 ms/pkg/change measured on top of
-    the ~48–50 ms CheckOnly recompile — record whether the
-    added latency is acceptable and/or behind an option), a
-    debounced/async publish (diagnostics arrive after the
-    CheckOnly set, per-member publish/retract already exists),
-    or a CLI-first surface (`gom build` already emits for
-    `go build` — decide whether the recorded gap wants the
-    LSP path specifically). Record candidates + choice.
-(2) Implement the invocation + fold through ResolveMatch;
-    ambiguous reports fall back honestly (union or raw-text
-    pass-through — verify against the wave-13 decision).
-(3) Measure the per-change cost of the extra invocation and
-    record it; if a session-level cache is the recorded cut,
-    say so and leave the cache to a future lane.
-(4) E2E verify: real `go build` error in generated output lands
-    on the right .gom span in the editor path (Eglot if the
-    harness supports it, else the LSP-level test), drifted
-    lines map correctly, ambiguous maps honestly ambiguous.
+(1) Decision draft FIRST: invocation surface = `gom build -go`
+    (opt-in — default `gom build` stays transpile-only; a
+    mandatory go run would break the no-go.mod usage and slow
+    every build). `go vet` stays unfired (vet:-prefixed output
+    remains raw text — record that residual). draft → verify →
+    verified per docs/decisions/README.md.
+(2) Implement: after runBuild's write loop, group written
+    inputs per package dir (the runGoTests recipe), build each
+    dir's GoPosIndex from inputs + Result.Output source maps,
+    run `go build` there, and fold stderr lines via
+    GoToolDiagnostics into the report (SourceGo, tool="go
+    build"). Invocation failure itself is an honest E0001
+    go-tool diag. An -o destination outside the module is not
+    special-cased — the go build failure is the report.
+(3) Measure `gom build -go` vs plain `gom build` wall time on
+    a fixture package; record the number in the decision file.
+(4) E2E verify: a compile that passes gom check but trips
+    `go build` (e.g. a generated file referencing something the
+    module can't resolve, or a post-write corruption in a test
+    harness — the fold is what matters) lands on the right
+    .gom span; drifted lines and ambiguous positions follow
+    ResolveMatch honesty.
 
-Partial honest outcomes ship: decision + wired invocation on
-the cheapest honest surface + measured cost is a fine lane
-result; a recorded "why the LSP path can't afford it" is too.
+Partial honest outcomes ship: flag + fold + measured cost is a
+full lane; a recorded "still no honest invocation surface"
+with evidence is the fallback.
 
-Ownership: internal/lsp, internal/build (additive), cmd/gom.
-Do NOT touch internal/check, internal/lower, internal/codegen
-emission beyond what the wave-13 substrate already consumes —
-flag if a codegen change looks required.
+Ownership: cmd/gom, internal/build (additive helpers only —
+reuse, don't fork, the runGoTests machinery). Do NOT touch
+internal/check, internal/lower, internal/codegen,
+internal/lsp. Ledger edits stay lane-local: the gap row's CLI
+half gets the 対応 note; its LSP half moves to a new open
+entry (or TODO task) so nothing is falsely checked off.
 ```
 
 ### 3. Hygiene — `devin/wave14-hygiene`
