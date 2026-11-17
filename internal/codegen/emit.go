@@ -195,8 +195,7 @@ func (g *gen) valueExpr(e core.Expr, d dest) {
 			break
 		}
 		x := g.simpleExpr(e)
-		_, isConv := e.(*core.Conv)
-		if _, ok := x.(*ast.CallExpr); ok && !isConv {
+		if _, ok := x.(*ast.CallExpr); ok && !emitsConversion(e) {
 			g.expr(x)
 		} else {
 			g.raw("_ = ")
@@ -206,6 +205,23 @@ func (g *gen) valueExpr(e core.Expr, d dest) {
 		panic("unreachable")
 	}
 	g.nl()
+}
+
+// emitsConversion reports whether a discard-position expression
+// renders as a `T(x)` conversion — valid in expression position but
+// rejected as a statement, so it still needs `_ =` even though it
+// prints as a CallExpr. A Lit checked at a named Go type joins the
+// explicit Conv here (`Duration(1)` alone is "not used").
+func emitsConversion(e core.Expr) bool {
+	if _, ok := e.(*core.Conv); ok {
+		return true
+	}
+	l, ok := e.(*core.Lit)
+	if !ok {
+		return false
+	}
+	_, named := types.Chase(l.Type()).(*types.Go)
+	return named
 }
 
 // exprValue writes the expression part — a function literal for a

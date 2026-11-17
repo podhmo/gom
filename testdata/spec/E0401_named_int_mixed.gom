@@ -1,0 +1,8 @@
+package main
+
+import go "time"
+
+// A named Go integer and a builtin Int are still different types —
+// Go rejects `dur + intVar` as mismatched types and so does Gom.
+// The literal is untyped and conforms; a typed Int variable does not.
+fn bad (a: time.Duration) (n: Int) -> time.Duration = a + n

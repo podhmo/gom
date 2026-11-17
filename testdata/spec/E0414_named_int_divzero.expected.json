@@ -1,0 +1,26 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0414",
+      "severity": "error",
+      "message": "division by a constant zero",
+      "span": {
+        "file": "E0414_named_int_divzero.gom",
+        "start": {
+          "line": 8,
+          "col": 51,
+          "offset": 253
+        },
+        "end": {
+          "line": 8,
+          "col": 52,
+          "offset": 254
+        }
+      },
+      "data": {
+        "op": "/"
+      }
+    }
+  ]
+}

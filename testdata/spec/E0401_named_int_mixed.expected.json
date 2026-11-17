@@ -1,0 +1,27 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected time.Duration, got Int",
+      "span": {
+        "file": "E0401_named_int_mixed.gom",
+        "start": {
+          "line": 8,
+          "col": 55,
+          "offset": 293
+        },
+        "end": {
+          "line": 8,
+          "col": 60,
+          "offset": 298
+        }
+      },
+      "data": {
+        "actual": "Int",
+        "expected": "time.Duration"
+      }
+    }
+  ]
+}
