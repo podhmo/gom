@@ -126,12 +126,15 @@
   対応: exported field の読み取りを決定・実装し、Go の selector・nil・評価順・raw 型変換を検証。
   参照: [decision](decisions/2026-11-03-go-interface-assignment-and-fields.md)、[検証](sketch/2026-11-03-go-http-boundary-verification.md)。
 
-- [ ] **Go ジェネリック関数の扱いが文書内でも異なる**: spec 8.3 は未対応、8.5 は
+- [x] **Go ジェネリック関数の扱いが文書内でも異なる**: spec 8.3 は未対応、8.5 は
   `any` / `comparable` 制約なら呼べるとするが、loader はすべて非公開にする。
   対応（一部）: `any` / `comparable` 制約のジェネリック関数は宣言順の型引数で呼べる
-  （E0508 は comparable 違反）。残るずれ: spec 8.1.6 の例 `slices.Contains` は構造制約
-  `~[]E` のため非公開のまま（E0506）— 8.3 の「ジェネリック関数は未対応」という括弧書きも
-  `any`/`comparable` が呼べる現状と齟齬。spec の文言修正か制約の拡張が必要。
+  （E0508 は comparable 違反）。
+  対応（wave14 hygiene・文言側）: spec を実装に合わせた — §8.1.6 の例
+  `slices.Contains`（構造制約 `~[]E` で E0506 非公開のまま）を any/comparable
+  限定の記述に置き換え、§8.3 の未対応一覧を「ジェネリック型、`any`/`comparable`
+  以外の制約を持つジェネリック関数」に修正、§8.5 に E0506/E0508 を明記。
+  構造制約の拡張は行わない（open-question / widening は別 decision）。
   参照: [decision](decisions/2026-11-04-go-collections-and-generics.md)、
   [詳細](problems/2026-11-04-generic-go-fns-hidden.md)、
   [検証](sketch/2026-11-04-p3-3-go-collections-verification.md)。

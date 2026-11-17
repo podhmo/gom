@@ -1,6 +1,6 @@
 # Spec promises callable generic Go functions; the loader hides them all
 
-- 状態: 一部解消（P3-3 で `any`/`comparable` 制約のジェネリック関数は呼び出し可能になった。構造制約 `~[]E`/`~map[K]V` は引き続き非公開 — 仕様修正または拡張が必要）
+- 状態: 解消（P3-3 で `any`/`comparable` 制約のジェネリック関数は呼び出し可能になった。構造制約 `~[]E`/`~map[K]V` は引き続き非公開 — wave14 hygiene で spec §8.1.6/§8.3/§8.5 の文言を実装に合わせた。構造制約の拡張は open-question として残る）
 - 日付: 2026-11-04
 
 ## Resolution (P3-3)

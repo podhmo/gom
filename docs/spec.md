@@ -396,7 +396,7 @@ fn report (xs: List String) -> Unit = {
 3. メソッド呼び出しは `x.M(args)`。Go の型の値にだけ使え、Gom の型はメソッドを持たない。`x.M(1).N(2)` のような連鎖は Go と同じく左結合で `(x.M(1)).N(2)` と読む（括弧つき引数に続く `.` は呼び出し結果への選択子になる。[decisions/post-arg-selector-binding](decisions/2026-11-05-post-arg-selector-binding.md)）
 4. 可変長引数は個数自由に渡せる（`fmt.Println(a, b, c)`）。リストを展開するときは `fmt.Println(..xs)`。`..e` は Go と同じく可変長引数の全体をそのリストで渡すので、固定引数（`fmt.Sprintf("%s", ..xs)`）との併用はできるが、同じ可変長パラメータに入る引数とは併用できない（`fmt.Println("tag:", ..xs)` は E0505）
 5. 数値型の暗黙変換は、Go の `int` / `int64` と Gom の `Int`、`float64` と `Float` のように情報が落ちないものに限る。それ以外は 8.4 節の `Go.conv` で明示する。Go の型なし定数（`math.Pi` など）は、期待される Gom の型になる
-6. Go のジェネリック関数（`slices.Contains(xs, x)`）は型引数を推論して呼ぶ
+6. Go のジェネリック関数は、制約が `any` か `comparable` のものだけが呼べる。型引数は宣言順に推論される。`slices.Contains` のような構造制約（`~[]E` など）を持つ関数は公開されない（8.5 節）
 7. `any` 型の引数には任意の Gom 値を渡せる。暗黙のボックス化はこの位置に限る
 8. Go の interface 型の引数には、Go の代入規則（`go/types` の assignability）を満たす Go 由来の値を渡せる（`io.Copy(w, r)` に `*os.File` を渡すなど）。型注釈付きの束縛・戻り値・Gom 関数の引数でも、期待型が Go interface のときは同じ代入規則を使う。コンテナの要素型や関数型の同一性は変えない。Gom の型が Go の interface を実装することは v1 ではできない
 
@@ -433,7 +433,7 @@ strconv.ParseInt(_, 10, 64)
 
 `Char` はこの対応からは現れない。Go の `rune` は `int32` の別名なので `Int32` として読む（`unicode.IsUpper` の引数は `Int32`）。`Char` は `'a'` リテラルか、Go の型なし rune 定数（既定は `Char`）、または `Go.conv` で得る — `Char` の Go 表現も `rune` なので `Go.conv 'A' : Int32`・`Go.conv x : Char` の両方向が変換できる。
 
-v1 で対応していない型（符号なし整数 `uint8`–`uint64`/`byte`、`float32`、複素数、配列 `[N]T`、`unsafe.Pointer`、ジェネリック型・関数、メソッドを持つ無名 interface、関数型の引数・戻り値）をシグネチャに含むシンボルは公開されず、参照すると理由付きの診断になる（8.5 節）。戻り値が 3 つ以上ある関数も同じく公開されない — 多値のタプル対応は 2 要素までで、`extern` による上書きもできない（8.4 節）。ジェネリック関数については 8.5 節の記述と食い違いがある（[problem](problems/2026-11-04-generic-go-fns-hidden.md)）。
+v1 で対応していない型（符号なし整数 `uint8`–`uint64`/`byte`、`float32`、複素数、配列 `[N]T`、`unsafe.Pointer`、ジェネリック型、`any`/`comparable` 以外の制約を持つジェネリック関数、メソッドを持つ無名 interface、関数型の引数・戻り値）をシグネチャに含むシンボルは公開されず、参照すると理由付きの診断になる（8.5 節）。戻り値が 3 つ以上ある関数も同じく公開されない — 多値のタプル対応は 2 要素までで、`extern` による上書きもできない（8.4 節）。
 
 Go の名前付き struct 型の値またはそのポインタから、exported field を `value.Field` で読み取れる。Go と同じ promoted field と曖昧性の規則を使い、unexported field は参照できない。field の型は上の対応に従い、未対応の型は参照位置で理由付き E0501 になる。読み取りはソースの評価順に行い、nil ポインタ経由の読み取りは Go と同じく panic する。field への代入と Go struct のコンポジットリテラルはまだ定めない。
 
@@ -489,8 +489,8 @@ extern のエントリは `fn` の関数シグネチャだけを持ち、ブロ�
 - `List T` と Go の `[]T` は、Gom のコードの中で `[]T` と `List` の view が切り替わる位置で両方向ともコピーする。切り替わるのは、Go 呼び出しの引数と結果、Go の exported field・パッケージ変数の読み取り、`List` と `Go.Slice` が適合する型の位置（型注釈・戻り値・宣言されたパラメータ・record のフィールドなど）、`Go.conv`、`Chan.send` などの組み込みの要素位置。Gom から渡したスライスを Go が書き換えても、Go から受け取ったスライスを Go が後で書き換えても、Gom の `List` は変わらない。コピーするのはスライスの 1 段目だけ — 要素の可変性は要素型の契約に従い、`[][]T` の読み取りは内側のスライスが Go のバッキングを共有する `List (Go.Slice T)` を返す（`Ref`・`Go.Map` などの要素も同様）。この規則は Gom が Go を呼ぶ側のもので、生成した API を Go から直接呼ぶ面では値はコピーされずに受け渡される — その側の契約は 8.7 節
 - コピーを避けたいときは、Go が所有する可変の値として `Go.Slice T` を使う（`extern` で宣言する）。`List` を `Go.Slice` パラメータへ渡してもやはりコピーする — no-copy は `Go.Slice` から `Go.Slice` への引き渡しだけ。`Go.Slice` の値のまま読むための操作は `Go.Slice` の型メンバー群（8.3 節。`length`/`get`/`slice`/`fold`/`to_list` — すべて読み取り専用）が持つ
 - このコピーのため、`sort.Strings xs` のような in-place 変更を契約に持つ Go 呼び出しはコンパイルできても Gom の値に効かない。結果が `Unit` の Go 呼び出しがコピーされる引数を `[]T` パラメータへ渡すとき、リンターは W0501 を警告する（[decisions/go-mutation-warning](decisions/2026-11-05-go-mutation-warning.md)）。コピーされるのは `List` 引数（`..xs` スプレッドと `Go.Slice` 宣言パラメータへの `List` を含む）、`List` 位置へ物質化される `Go.Slice` 引数（チャネル送信の `[]T` パラメータなど）、それに引数位置で `List` をコピーする `Go.conv xs : Go.Slice T` のインライン変換。素の `Go.Slice` が `[]T` スロットへそのまま渡る経路 — `Go.Slice` 宣言パラメータへの `Go.Slice` 引数、`..gs` スプレッド、`...[]T` の要素位置 — はバッキングを共有するので警告しない。読み取り専用の消費者は値を返すので（`strings.Join` など）警告されない。`signal.Notify` のように副作用を持つが slice を書き換えない Unit 関数も警告対象になり得る — 警告の文言は条件形で、事実としてコピーが起きることだけを述べる
-- Gom が表現できない型（`unsafe.Pointer`、制約付きの型パラメータを持つジェネリック関数など）を含むシンボルは公開しない。`import go` 自体は失敗せず、そのシンボルを参照したときに理由付きの診断を出す
-- Go のジェネリック関数は、制約が `any` か `comparable` のものだけを呼べる（v1）
+- Gom が表現できない型（`unsafe.Pointer`、構造制約（`~[]E` など）を持つジェネリック関数など）を含むシンボルは公開しない。`import go` 自体は失敗せず、そのシンボルを参照したときに理由付きの診断を出す
+- Go のジェネリック関数は、制約が `any` か `comparable` のものだけを呼べる（v1）。`comparable` を満たさない実引数は E0508、それ以外の制約を持つ関数の参照は E0506 で報告される
 
 ### 8.6 nil と不正な値
 
