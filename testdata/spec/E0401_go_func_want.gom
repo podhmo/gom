@@ -1,0 +1,11 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// The conversion produces the FuncN of the argument's raw views;
+// when an expected FuncN names different ones the produced and
+// expected types mismatch (E0401).
+
+fn one (x: Int) -> Int = x + 1
+
+let f : Go.Func1 Int String = Go.func1 one

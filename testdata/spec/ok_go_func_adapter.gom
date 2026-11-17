@@ -1,0 +1,39 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// spec section 8.8: `Go.funcN` converts a Gom function value into
+// the `Go.FuncN` func type a Go member declares — the value is
+// produced explicitly at the conversion, never by applying a Gom
+// function where a `Go.FuncN` is expected.
+
+fn add (a: Int) (b: Int) -> Int = a + b
+
+// A named curried function adapts to `func(int64, int64) int64`.
+fn apply_add () -> Int = goiface.Apply2 (Go.func2 add)
+
+// An inline lambda's unannotated parameter takes the expected
+// FuncN's Gom view — `x` binds `Go.Any`.
+fn pick_any () -> Int = goiface.TakesAnyFn (Go.func1 (fn x -> 7))
+
+// `Result Unit GoError` reads back as `error`.
+fn check_give (n: Int) -> Result Unit GoError =
+  goiface.Check (Go.func1 goiface.FailOnce)
+
+// `Result T GoError` reads back as `(T, error)`.
+fn lookup_give () -> Result String GoError =
+  goiface.LookAll (Go.func1 goiface.Give)
+
+// A `Go.FuncN` annotation pins the conversion's produced type.
+let addf : Go.Func2 Int Int Int = Go.func2 add
+
+// A func-typed parameter nests: `func(func(int64)) int64`.
+fn take_pair () -> Int = goiface.TakeFuncPair (Go.func1 (fn cb -> 9))
+
+// `Go.func0` adapts a `Unit -> R` thunk to `func() R`.
+fn apply_zero () -> Int = goiface.Apply0 (Go.func0 (fn () -> 41))
+
+// Extern declarations name the same `Go.FuncN` member type.
+extern go "github.com/podhmo/gom/testdata/goiface" {
+  fn Check (f: Go.Func1 Int GoError) -> Result Unit GoError
+}

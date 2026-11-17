@@ -1,0 +1,5 @@
+package ex
+
+// `Go.funcN` converts a function value — anything else is E0510.
+
+fn apply_int () -> Unit = ignore (Go.func2 "x")

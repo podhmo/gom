@@ -53,6 +53,11 @@ func walkExpr(e core.Expr, f func(*core.Bind)) {
 	switch e := e.(type) {
 	case *core.Closure:
 		walkFunc(e.Fn, f)
+	case *core.GoFunc:
+		// The flat parameters are binders local to the literal.
+		for _, b := range e.Params {
+			f(b)
+		}
 	case *core.If:
 		walkBody(e.Then, f)
 		walkBody(e.Else, f)
@@ -192,6 +197,16 @@ func exprUses(e core.Expr, sym *resolve.Symbol) bool {
 		return atomUses(e.(core.Atom), sym)
 	case *core.Closure:
 		return funcUses(e.Fn, sym)
+	case *core.GoFunc:
+		if atomUses(e.X, sym) {
+			return true
+		}
+		for _, in := range e.In {
+			if exprUses(in, sym) {
+				return true
+			}
+		}
+		return false
 	case *core.CallDirect:
 		return atomsUses(e.Args, sym)
 	case *core.CtorApp:

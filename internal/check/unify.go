@@ -311,6 +311,14 @@ func (w *eqWalk) has(t types.Type) bool {
 	case *types.Go:
 		return slices.ContainsFunc(t.Args, w.has)
 	case *types.Con:
+		// `Go.FuncN` is a Go func type spelled as a constructor —
+		// Go funcs are not comparable, so `==` on one is E0409
+		// the same as on a curried `Func`.
+		if t.Qual == "Go" {
+			if _, ok := goFuncTypeArity(t.Name); ok {
+				return true
+			}
+		}
 		if slices.ContainsFunc(t.Args, w.has) {
 			return true
 		}

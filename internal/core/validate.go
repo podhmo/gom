@@ -876,6 +876,18 @@ func (v *validator) expr(e Expr, inTail bool) {
 		v.atom(e.(Atom), nodeName(e))
 	case *Closure:
 		v.closure(e)
+	case *GoFunc:
+		v.atom(e.X, "GoFunc.X")
+		for i, b := range e.Params {
+			v.bind(b, fmt.Sprintf("GoFunc.Params[%d]", i))
+		}
+		if len(e.In) != len(e.Params) && !(len(e.Params) == 0 && len(e.In) == 1) {
+			v.err(e.Sp, "GoFunc", "In has %d entries for %d parameters",
+				len(e.In), len(e.Params))
+		}
+		for _, in := range e.In {
+			v.expr(in, false)
+		}
 	case *CallDirect:
 		if e.Callee == nil || e.Callee.Kind != resolve.KindFunc || e.Callee.IsGo {
 			v.err(e.Sp, "CallDirect", "callee is not a Gom function symbol")
@@ -1643,6 +1655,8 @@ func nilExpr(e Expr) bool {
 	case *FieldGet:
 		return e == nil
 	case *Closure:
+		return e == nil
+	case *GoFunc:
 		return e == nil
 	case *CallDirect:
 		return e == nil

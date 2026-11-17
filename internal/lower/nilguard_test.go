@@ -153,6 +153,11 @@ func collectBoundary(f *core.File) boundaryNodes {
 			walkBody(x.Body)
 		case *core.ForRange:
 			walkBody(x.Body)
+		case *core.GoFunc:
+			walkExpr(x.X)
+			for _, in := range x.In {
+				walkExpr(in)
+			}
 		case *core.Var, *core.Lit, *core.FuncRef, *core.CtorRef,
 			*core.GoFuncRef, *core.FieldGet, *core.Unary, *core.Binary,
 			*core.TupleNew, *core.ListNew, *core.RecordNew,

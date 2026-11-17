@@ -1,0 +1,487 @@
+package check
+
+// `Go.funcN` — the explicit conversion of a Gom function value into
+// a Go `func` value of type `Go.FuncN`
+// (docs/decisions/2026-11-17-func-interop.md).
+//
+// The FuncN type's arguments are the *raw* Go views of the func
+// type's parameter and result types — `func(i int) bool` is
+// `Go.Func2 Go.Int Bool` — so the emitted literal's signature is a
+// faithful rendering of the Con. The converter's *argument* is a
+// Gom function in the Gom view (`Int -> Bool`); the conversions the
+// wrapper needs inside its body are lowering's job (lower reads the
+// two views off the checked types and records them on core.GoFunc).
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/podhmo/gom/internal/diag"
+	"github.com/podhmo/gom/internal/resolve"
+	"github.com/podhmo/gom/internal/syntax"
+	"github.com/podhmo/gom/internal/types"
+)
+
+// goFuncCallArity reports whether sym is a `Go.funcN` conversion
+// builtin and returns its parameter count.
+func goFuncCallArity(sym *resolve.Symbol) (int, bool) {
+	if sym == nil || sym.Kind != resolve.KindBuiltin || sym.Package != "Go" ||
+		!strings.HasPrefix(sym.Name, "func") {
+		return 0, false
+	}
+	return goFuncArityDigit(sym.Name[4:])
+}
+
+// funcCallMember reports whether sym is a `Go.funcN` conversion
+// member — a callee-only surface; checkSelect types it as an
+// untyped meta because the apply computes the result type.
+func funcCallMember(sym *resolve.Symbol) bool {
+	_, ok := goFuncCallArity(sym)
+	return ok
+}
+
+// goFuncTypeArity reports whether name is a `Go.FuncN` type name and
+// returns its parameter count.
+func goFuncTypeArity(name string) (int, bool) {
+	if !strings.HasPrefix(name, "Func") {
+		return 0, false
+	}
+	return goFuncArityDigit(name[4:])
+}
+
+// goFuncArityDigit reads the single-digit arity suffix of a
+// funcN/FuncN name — the parameter count lives in the name.
+func goFuncArityDigit(s string) (int, bool) {
+	if len(s) != 1 || s[0] < '0' || s[0] > '0'+byte(types.GoFuncMaxArity) {
+		return 0, false
+	}
+	return int(s[0] - '0'), true
+}
+
+// checkGoFuncCall checks `Go.funcN f`. When the expected type is a
+// `Go.FuncN` its raw views translate back to the Gom-facing
+// function type the argument is checked against, so an inline
+// lambda inherits concrete parameter types (`http.HandleFunc ("/",
+// Go.func2 (fn w r -> ...))`). Without that expectation the
+// argument's own type must already be concrete — an unsolved meta
+// names no raw Go view.
+func (c *checker) checkGoFuncCall(e *syntax.Apply, fn Expr, callee *resolve.Symbol, n int, want types.Type) Expr {
+	out := &Apply{Base: baseOf(e.Sp, nil), Fn: fn}
+	if len(e.Args) != 1 || e.Args[0].Label != nil {
+		c.diags.Add(diag.Error("E0510",
+			fmt.Sprintf("`Go.func%d` takes exactly one function argument", n)).At(e.Sp))
+		for _, a := range e.Args {
+			var v Expr
+			if a.Value != nil {
+				v = c.checkExpr(a.Value, nil)
+			}
+			out.Args = append(out.Args, Arg{Value: v})
+		}
+		out.Base = baseOf(e.Sp, c.quietMeta(e.Sp, "the conversion's result"))
+		out.Call = CallInfo{Kind: CallUnknown, Applied: len(out.Args), HoleIndex: -1}
+		return out
+	}
+
+	// Decode the expected `Go.FuncN` into the Gom-facing seed type —
+	// an inference hint so an inline lambda's unannotated parameters
+	// come out concrete. Conformance is decided afterwards by
+	// comparing the conversion's *produced* FuncN to the expected
+	// one with view-tolerant compatibility: `func(int)` admits a
+	// `x: Int` or `x: Go.Int` callback alike, since both readings of
+	// `int` are the boundary's.
+	var seed types.Type
+	var wCon *types.Con
+	if w, ok := types.Chase(want).(*types.Con); ok && w.Qual == "Go" {
+		if _, ok2 := goFuncTypeArity(w.Name); ok2 {
+			wCon = w
+		}
+	}
+	// The seed only serves an inline lambda — its parameters cannot
+	// be annotated, so they take the expected FuncN's Gom views.
+	// Anything else already knows its own type; seeding it would
+	// only double-report the produced-vs-expected mismatch.
+	_, isLambda := e.Args[0].Value.(*syntax.Lambda)
+	if wCon != nil && isLambda {
+		if wn, ok2 := goFuncTypeArity(wCon.Name); ok2 && wn == n &&
+			len(wCon.Args) >= n && len(wCon.Args) <= n+2 &&
+			(len(wCon.Args) != n+2 || c.isBuiltinCon(types.Chase(wCon.Args[n+1]), "GoError")) {
+			seed = &types.Func{
+				Params: goFuncSeedParams(wCon.Args[:n]),
+				Ret:    goFuncSeedRet(c, wCon.Args[n:]),
+			}
+		}
+	}
+	arg := c.checkExpr(e.Args[0].Value, seed)
+	out.Args = []Arg{{Value: arg}}
+
+	at := types.Chase(arg.Type())
+	if m, isMeta := at.(*types.Meta); isMeta && !m.Bound() && seed != nil {
+		// `Go.funcN x` with x an unsolved meta under a FuncN want —
+		// the seed pins the function shape.
+		c.unify(at, seed, e.Sp)
+		at = types.Chase(arg.Type())
+	}
+	// Flatten the curried arrow chain — `Int -> Int -> Int` is the
+	// two-parameter callback `Go.func2` adapts.
+	var ps []types.FuncParam
+	var ret types.Type
+	isFn := false
+	for cur := at; ; {
+		fn, ok := cur.(*types.Func)
+		if !ok {
+			ret = cur
+			break
+		}
+		isFn = true
+		ps = append(ps, fn.Params...)
+		cur = types.Chase(fn.Ret)
+	}
+	// `Go.func0` adapts the niladic shape — a Gom `Unit -> R`
+	// thunk is Go's `func() R`; the Unit parameter drops out.
+	if n == 0 && len(ps) == 1 && isGoFuncUnit(ps[0].Type) {
+		ps = nil
+	}
+	if !isFn {
+		c.diags.Add(diag.Error("E0510",
+			fmt.Sprintf("`Go.func%d` expects a function value, got %s", n, types.Display(arg.Type(), metaNamer()))).At(e.Sp))
+		out.Base = baseOf(e.Sp, c.quietMeta(e.Sp, "the conversion's result"))
+		out.Call = CallInfo{Kind: CallUnknown, Applied: 1, HoleIndex: -1}
+		return out
+	}
+	if len(ps) != n {
+		c.diags.Add(diag.Error("E0510",
+			fmt.Sprintf("`Go.func%d` expects a function with %d parameter(s), got %s", n, n, types.Display(arg.Type(), metaNamer()))).At(e.Sp))
+	}
+	for _, p := range ps {
+		if p.Label != "" {
+			c.diags.Add(diag.Error("E0510",
+				fmt.Sprintf("`Go.func%d` cannot convert a function with labeled parameters — Go func types have no labels", n)).At(e.Sp))
+			break
+		}
+	}
+	outTyp := c.goFuncNType(e, n, ps, ret)
+	if wCon != nil {
+		if pc, ok := types.Chase(outTyp).(*types.Con); ok &&
+			!gomRawCompatible(pc, wCon) {
+			c.diags.Add(diag.Error("E0401",
+				fmt.Sprintf("type mismatch: `Go.func%d` produces `%s`, expected `%s`", n,
+					types.Display(pc, metaNamer()), types.Display(wCon, metaNamer()))).At(e.Sp))
+		}
+		outTyp = wCon
+	}
+	out.Base = baseOf(e.Sp, outTyp)
+	out.Call = CallInfo{
+		Kind:      CallDirect,
+		Callee:    callee,
+		Arity:     1,
+		Applied:   1,
+		HoleIndex: -1,
+	}
+	if err := out.Validate(); err != nil {
+		panic(fmt.Sprintf("check: invalid CallInfo for %T: %v", e.Fn, err))
+	}
+	return out
+}
+
+// goFuncNType computes the `Go.FuncN` type a `Go.funcN` conversion
+// produces from the checked argument type — each parameter and
+// result argument is the raw Go view of the corresponding
+// Gom-facing type. A type with no raw view reports E0510.
+func (c *checker) goFuncNType(e *syntax.Apply, n int, ps []types.FuncParam, ret types.Type) types.Type {
+	args := make([]types.Type, 0, n+2)
+	for _, p := range ps {
+		rt, reason := goFuncRawView(p.Type)
+		if reason != "" {
+			c.diags.Add(diag.Error("E0510",
+				fmt.Sprintf("`Go.func%d` cannot convert the parameter type %s: %s", n, types.Display(p.Type, metaNamer()), reason)).At(e.Sp))
+			return c.quietMeta(e.Sp, "the conversion's result")
+		}
+		args = append(args, rt)
+	}
+	rs, reason := goFuncRawResults(types.Chase(ret))
+	if reason != "" {
+		c.diags.Add(diag.Error("E0510",
+			fmt.Sprintf("`Go.func%d` cannot convert the result type %s: %s", n, types.Display(ret, metaNamer()), reason)).At(e.Sp))
+		return c.quietMeta(e.Sp, "the conversion's result")
+	}
+	return types.GoFunc(n, append(args, rs...)...)
+}
+
+// goFuncSeedParams maps a FuncN con's raw parameter arguments back
+// to the Gom-facing parameter types they pair with — the mirror of
+// the boundary's import mapping (top-level `Go.Slice T` reads `List
+// T`, `Go.Int` reads `Int`). A `Go.Func0` seeds `Unit ->` — the
+// thunk's single Unit parameter.
+func goFuncSeedParams(raws []types.Type) []types.FuncParam {
+	if len(raws) == 0 {
+		return []types.FuncParam{{Type: types.Unit}}
+	}
+	ps := make([]types.FuncParam, len(raws))
+	for i, r := range raws {
+		ps[i] = types.FuncParam{Type: goFuncGomView(r, true)}
+	}
+	return ps
+}
+
+// isGoFuncUnit reports whether t is the builtin `Unit` — a
+// `Go.func0` argument's parameter.
+func isGoFuncUnit(t types.Type) bool {
+	cc, ok := types.Chase(t).(*types.Con)
+	return ok && cc.Qual == "" && cc.Name == "Unit" && len(cc.Args) == 0
+}
+
+// goFuncSeedRet maps a FuncN con's raw result arguments back to the
+// Gom-facing result: none → `Unit`, `error` → `Result Unit
+// GoError`, `(T, error)` → `Result T GoError`, a lone `T` → `T`.
+func goFuncSeedRet(c *checker, raws []types.Type) types.Type {
+	switch len(raws) {
+	case 0:
+		return types.Unit
+	case 1:
+		if c.isBuiltinCon(types.Chase(raws[0]), "GoError") {
+			return types.Result(types.Unit, types.GoError)
+		}
+		return goFuncGomView(raws[0], true)
+	case 2:
+		return types.Result(goFuncGomView(raws[0], true), types.GoError)
+	default:
+		panic("unreachable")
+	}
+}
+
+// goFuncGomView is the inverse of the import mapping's view pair:
+// the Gom-facing type a raw Go-view type corresponds to. boundary
+// marks a signature-boundary position — only there does `Go.Slice
+// T` read `List T`; nested it stays `Go.Slice`.
+func goFuncGomView(t types.Type, boundary bool) types.Type {
+	switch t := types.Chase(t).(type) {
+	case *types.Con:
+		if t.Qual == "Go" {
+			switch t.Name {
+			case "Int":
+				return types.Int
+			case "Slice":
+				if boundary {
+					return types.List(goFuncGomView(t.Args[0], false))
+				}
+				return types.GoSlice(goFuncGomView(t.Args[0], false))
+			case "Map":
+				return types.GoMap(goFuncGomView(t.Args[0], false), goFuncGomView(t.Args[1], false))
+			}
+			// Go.Any, Go.FuncN and friends keep their spelling —
+			// they are already the same type in both views.
+			return t
+		}
+		switch t.Name {
+		case "Ptr":
+			return types.Ptr(goFuncGomView(t.Args[0], false))
+		case "Chan":
+			return types.Chan(goFuncGomView(t.Args[0], false))
+		case "RecvChan":
+			return types.RecvChan(goFuncGomView(t.Args[0], false))
+		case "SendChan":
+			return types.SendChan(goFuncGomView(t.Args[0], false))
+		}
+		return t
+	case *types.Go:
+		if len(t.Args) == 0 {
+			return t
+		}
+		args := make([]types.Type, len(t.Args))
+		for i, a := range t.Args {
+			args[i] = goFuncGomView(a, false)
+		}
+		return &types.Go{Ref: t.Ref, Args: args}
+	case *types.Func, *types.Meta, *types.Tuple, *types.Var:
+		// These never appear in a raw Go-view type — pass through.
+		return t
+	default:
+		panic("unreachable")
+	}
+}
+
+// goFuncRawView maps a Gom-facing type to the raw Go view the
+// FuncN type argument names — `Int` is `Go.Int`, `List T` is
+// `Go.Slice T'`, and the Gom-only shapes (Option, Tuple, Func,
+// declared types) report why no Go func signature can carry them.
+func goFuncRawView(t types.Type) (types.Type, string) {
+	switch t := types.Chase(t).(type) {
+	case *types.Con:
+		if t.Qual == "Go" {
+			switch t.Name {
+			case "Slice":
+				rt, reason := goFuncRawView(t.Args[0])
+				if reason != "" {
+					return nil, reason
+				}
+				return types.GoSlice(rt), ""
+			case "Map":
+				rk, reason := goFuncRawView(t.Args[0])
+				if reason != "" {
+					return nil, reason
+				}
+				rv, reason := goFuncRawView(t.Args[1])
+				if reason != "" {
+					return nil, reason
+				}
+				return types.GoMap(rk, rv), ""
+			}
+			// Go.Int/Go.Any/Go.FuncN and the other Go-owned
+			// constructors are already raw views.
+			return t, ""
+		}
+		switch t.Name {
+		case "Int", "Int64":
+			// Both are int64 — the int64/int split only exists at
+			// `Go.Int` (mapping.go's basicType).
+			return types.Int, ""
+		case "Int32", "Float", "Bool", "String", "Char", "Byte", "GoError":
+			return t, ""
+		case "List":
+			rt, reason := goFuncRawView(t.Args[0])
+			if reason != "" {
+				return nil, reason
+			}
+			return types.GoSlice(rt), ""
+		case "Ptr":
+			rt, reason := goFuncRawView(t.Args[0])
+			if reason != "" {
+				return nil, reason
+			}
+			return types.Ptr(rt), ""
+		case "Chan":
+			rt, reason := goFuncRawView(t.Args[0])
+			if reason != "" {
+				return nil, reason
+			}
+			return types.Chan(rt), ""
+		case "RecvChan":
+			rt, reason := goFuncRawView(t.Args[0])
+			if reason != "" {
+				return nil, reason
+			}
+			return types.RecvChan(rt), ""
+		case "SendChan":
+			rt, reason := goFuncRawView(t.Args[0])
+			if reason != "" {
+				return nil, reason
+			}
+			return types.SendChan(rt), ""
+		}
+		return nil, "the type has no Go representation"
+	case *types.Go:
+		args := make([]types.Type, len(t.Args))
+		for i, a := range t.Args {
+			rt, reason := goFuncRawView(a)
+			if reason != "" {
+				return nil, reason
+			}
+			args[i] = rt
+		}
+		return &types.Go{Ref: t.Ref, Args: args}, ""
+	case *types.Meta:
+		return nil, "its type is not determined yet — add an annotation"
+	case *types.Var:
+		return nil, "a type variable names no concrete Go type"
+	case *types.Func:
+		return nil, "a curried Gom function type is not a Go func type — wrap it in `Go.funcN` first"
+	case *types.Tuple:
+		return nil, "tuples have no Go representation"
+	default:
+		panic("unreachable")
+	}
+}
+
+// goFuncRawResults maps a Gom-facing result type to the FuncN's raw
+// result arguments: `Unit` → none, `Result Unit GoError` → `error`,
+// `Result T GoError` → `(T', error)`, otherwise the lone raw view.
+func goFuncRawResults(ret types.Type) ([]types.Type, string) {
+	if rc, ok := ret.(*types.Con); ok && rc.Qual == "" {
+		if rc.Name == "Unit" && len(rc.Args) == 0 {
+			return nil, ""
+		}
+		if rc.Name == "Result" && len(rc.Args) == 2 &&
+			isGoErrorCon(rc.Args[1]) {
+			if uc, ok := types.Chase(rc.Args[0]).(*types.Con); ok &&
+				uc.Qual == "" && uc.Name == "Unit" && len(uc.Args) == 0 {
+				return []types.Type{types.GoError}, ""
+			}
+			rt, reason := goFuncRawView(rc.Args[0])
+			if reason != "" {
+				return nil, reason
+			}
+			return []types.Type{rt, types.GoError}, ""
+		}
+		if rc.Name == "Result" {
+			return nil, "only `Result Unit GoError` and `Result T GoError` map to Go results"
+		}
+	}
+	rt, reason := goFuncRawView(ret)
+	if reason != "" {
+		return nil, reason
+	}
+	return []types.Type{rt}, ""
+}
+
+// gomRawCompatible reports whether two FuncN cons — or the types
+// inside their arguments — name the same Go type through the
+// boundary's two readings: `Go.Int`/`Int`/`Int64` interchange (all
+// are `int` or `int64` spellings of the int/int64 pair the import
+// mapping reads into `Int`), `List T`/`Go.Slice T` interchange, and
+// otherwise equality recursing through type arguments. Both sides
+// sit in the raw view; strict `types.Equal` alone would reject a
+// callback written `x: Int` against a `func(int)` parameter.
+func gomRawCompatible(a, b types.Type) bool {
+	a, b = types.Chase(a), types.Chase(b)
+	if types.Equal(a, b) {
+		return true
+	}
+	ac, aok := a.(*types.Con)
+	bc, bok := b.(*types.Con)
+	if !aok || !bok {
+		return false
+	}
+	// The int/int64 pair — `Go.Int` against either bare `Int`.
+	if ac.Name == "Int" && len(ac.Args) == 0 && bc.Name == "Int" &&
+		len(bc.Args) == 0 && (ac.Qual == "Go") != (bc.Qual == "Go") &&
+		(ac.Qual == "" || ac.Qual == "Go") && (bc.Qual == "" || bc.Qual == "Go") {
+		return true
+	}
+	// `Int64` spells the same int64 `Int` renders (viewsCompatible's
+	// rule, mirrored).
+	if ac.Qual == "" && ac.Name == "Int64" && len(ac.Args) == 0 &&
+		bc.Name == "Int" && len(bc.Args) == 0 &&
+		(bc.Qual == "" || bc.Qual == "Go") {
+		return true
+	}
+	if bc.Qual == "" && bc.Name == "Int64" && len(bc.Args) == 0 &&
+		ac.Name == "Int" && len(ac.Args) == 0 &&
+		(ac.Qual == "" || ac.Qual == "Go") {
+		return true
+	}
+	// `List T` against `Go.Slice T` — element-wise.
+	if ac.Qual == "" && ac.Name == "List" && len(ac.Args) == 1 &&
+		bc.Qual == "Go" && bc.Name == "Slice" && len(bc.Args) == 1 {
+		return gomRawCompatible(ac.Args[0], bc.Args[0])
+	}
+	if bc.Qual == "" && bc.Name == "List" && len(bc.Args) == 1 &&
+		ac.Qual == "Go" && ac.Name == "Slice" && len(ac.Args) == 1 {
+		return gomRawCompatible(ac.Args[0], bc.Args[0])
+	}
+	// Same constructor, argument-wise.
+	if ac.Qual == bc.Qual && ac.Name == bc.Name && len(ac.Args) == len(bc.Args) {
+		for i := range ac.Args {
+			if !gomRawCompatible(ac.Args[i], bc.Args[i]) {
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}
+
+// isGoErrorCon reports whether t is the builtin `GoError`.
+func isGoErrorCon(t types.Type) bool {
+	cc, ok := types.Chase(t).(*types.Con)
+	return ok && cc.Qual == "" && cc.Name == "GoError" && len(cc.Args) == 0
+}

@@ -1,0 +1,8 @@
+package ex
+
+// Go func types have no parameter labels — a labeled Gom
+// parameter cannot adapt.
+
+fn named (~a: Int) -> Int = a + 1
+
+fn apply_named () -> Unit = ignore (Go.func1 named)

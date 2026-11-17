@@ -1,0 +1,9 @@
+package ex
+
+// The conversion's digit is the Go func's arity: `Go.func1` wants
+// a one-parameter Gom function — a curried `Int -> Int -> Int`
+// flattens to two.
+
+fn add (a: Int) (b: Int) -> Int = a + b
+
+fn apply_add () -> Unit = ignore (Go.func1 add)

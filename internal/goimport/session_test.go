@@ -36,7 +36,7 @@ func moduleLoader(t *testing.T) (*Loader, string) {
  func Slice() []string { return nil }
  func EchoSlice(s []string) []string { return s }
  func EchoReader(r Reader) Reader { return r }
- func Unsupported(f func()) {}
+ func Unsupported(f func(int, int, int, int, int)) {}
  func NewMap() map[string]int64 { return map[string]int64{"a": 1, "b": 2} }
  func Identity[T any](v T) T { return v }
  // Second's declared parameter order (A, B) is the reverse of first
@@ -199,7 +199,7 @@ func TestUnsupportedMemberOnlyDiagnosedOnUse(t *testing.T) {
 			}
 			continue
 		}
-		if len(ds) != 1 || ds[0].Code != "E0501" || !strings.Contains(ds[0].Message, "func-typed") {
+		if len(ds) != 1 || ds[0].Code != "E0501" || !strings.Contains(ds[0].Message, "func types") {
 			t.Fatalf("diagnostics = %+v", ds)
 		}
 	}
