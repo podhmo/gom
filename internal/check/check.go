@@ -822,9 +822,10 @@ func (c *checker) unboundVars(t types.Type, sp diag.Span, sc *tscope) {
 // returns them in first-occurrence order. env is the set of
 // value-level symbols bound before the binding's own pattern. A meta
 // carrying a constraint (numeric, ordered, equality, integral,
-// float, or the quiet recovery flag) is left for defaulting or E0407:
-// `1` generalizes to nothing because its literal meta is Int-bound by
-// default, and a quiet meta belongs to a diagnostic already reported.
+// float, or the quiet/silent recovery flags) is left for defaulting
+// or E0407: `1` generalizes to nothing because its literal meta is
+// Int-bound by default, and a quiet meta belongs to a diagnostic
+// already reported.
 func (c *checker) generalize(env map[*resolve.Symbol]bool, t types.Type) []*types.Var {
 	shared := map[*types.Meta]bool{}
 	markShared := func(m *types.Meta) { shared[m] = true }
@@ -862,7 +863,7 @@ func (c *checker) generalize(env map[*resolve.Symbol]bool, t types.Type) []*type
 			return
 		}
 		if r := c.metas[m]; r != nil &&
-			(r.num || r.ord || r.eq || r.flo || r.intg || r.quiet) {
+			(r.num || r.ord || r.eq || r.flo || r.intg || r.quiet || r.silent) {
 			return
 		}
 		v := &types.Var{ID: c.nextVar, Name: genName(used)}

@@ -126,12 +126,15 @@
   対応: exported field の読み取りを決定・実装し、Go の selector・nil・評価順・raw 型変換を検証。
   参照: [decision](decisions/2026-11-03-go-interface-assignment-and-fields.md)、[検証](sketch/2026-11-03-go-http-boundary-verification.md)。
 
-- [ ] **Go ジェネリック関数の扱いが文書内でも異なる**: spec 8.3 は未対応、8.5 は
+- [x] **Go ジェネリック関数の扱いが文書内でも異なる**: spec 8.3 は未対応、8.5 は
   `any` / `comparable` 制約なら呼べるとするが、loader はすべて非公開にする。
   対応（一部）: `any` / `comparable` 制約のジェネリック関数は宣言順の型引数で呼べる
-  （E0508 は comparable 違反）。残るずれ: spec 8.1.6 の例 `slices.Contains` は構造制約
-  `~[]E` のため非公開のまま（E0506）— 8.3 の「ジェネリック関数は未対応」という括弧書きも
-  `any`/`comparable` が呼べる現状と齟齬。spec の文言修正か制約の拡張が必要。
+  （E0508 は comparable 違反）。
+  対応（wave14 hygiene・文言側）: spec を実装に合わせた — §8.1.6 の例
+  `slices.Contains`（構造制約 `~[]E` で E0506 非公開のまま）を any/comparable
+  限定の記述に置き換え、§8.3 の未対応一覧を「ジェネリック型、`any`/`comparable`
+  以外の制約を持つジェネリック関数」に修正、§8.5 に E0506/E0508 を明記。
+  構造制約の拡張は行わない（open-question / widening は別 decision）。
   参照: [decision](decisions/2026-11-04-go-collections-and-generics.md)、
   [詳細](problems/2026-11-04-generic-go-fns-hidden.md)、
   [検証](sketch/2026-11-04-p3-3-go-collections-verification.md)。
@@ -604,17 +607,24 @@
   shadowed-builtin 分岐を追加し E0415 ③ を解消（P5-2）。
   参照: [expr.go](../internal/check/expr.go) `checkFor`。
 
-- [ ] **`metasIn(want)` の quiet 化は共有 want の後続 mismatch を抑制しうる**:
+- [x] **`metasIn(want)` の quiet 化は共有 want の後続 mismatch を抑制しうる**:
   `Chan.close (Chan.recvOnly ch)` の E0407 カスケード削減のため、unify 失敗時に
   want 内の全未束縛メタを quiet にする（旧 `markQuiet(want)` は生のメタにのみ
   効いた）。コンパウンド want（`SendChan ?a` 等）への拡大で、同じ未解決 want
   オブジェクトを複数の conform 位置（if/match/select の兄弟腕）が共有すると、
   最初の失敗で quiet 化されたメタ経由で 2 腕目以降の正当な E0401 が
   `mentionsQuiet` に握り潰されうる — 例: `g (if c { 1 } else { "s" })` の
-  else 腕。wave-5 の ⑤ 残件と隣接する過剰抑制領域。狭い到達条件を理由に
-  現状容認（コードコメントにトレードオフ明記済み、P5-2 レビュー nit）。
+  else 腕。
+  対応（wave14 hygiene）: conform 位置（`conformExpr`/`chanDirConv`）の
+  失敗マークを新 flag `metaRec.silent` に分離 — quiet と同じく E0407・
+  generalize・flag 伝播は抑止するが `mentionsQuiet` には数えない。
+  兄弟腕の mismatch は報告されるようになった（同時に握り潰されていた
+  `Option ?1` vs 戻り型の E0401 も顕在化）。quiet は quietMeta 生まれの
+  回復メタ専用として維持。
   参照: [expr.go](../internal/check/expr.go) `conformExpr`/`chanDirConv`、
-  [fixture](../testdata/spec/E0401_close_of_recvonly.expected.json)。
+  [unify.go](../internal/check/unify.go) `markSilent`、
+  [fixture](../testdata/spec/E0401_silent_want_sibling.gom)（再現 + 兄弟腕双方の
+  E0401 を pin）。
 
 - [x] **E0401 の mismatch メッセージが未解決メタを `?n` で綴る**: quiet 化された
   メタを含む型が「expected SendChan ?3, got RecvChan ?4」のように内部名の
@@ -1311,21 +1321,27 @@
   対応: 例を `Go.Slice` に置換（squash `8a0e136`、wave-13 tooling-hygiene
   item c）。`Go.Any` は別 lane の admission 対象として既存記述のまま。
 
-- [ ] **stdlib の fn/let メンバーシンボルはチェック済み `d.Sym` ではなく新規 mint**:
+- [x] **stdlib の fn/let メンバーシンボルはチェック済み `d.Sym` ではなく新規 mint**:
   `internal/stdlib` の `loadPackage` は `&resolve.Symbol{Name, Kind, Package}`
   を新規生成する一方、gomimport の extract は checked `d.Sym`/`letSyms` を
-  そのまま `p.Members` に登録する（`Sp` 等の付随情報が失われる）。現在の
-  消費者はメンバー span を見ないため不活性。wave-13 tooling-hygiene
-  review fix round の sibling audit で確認。
+  そのまま `p.Members` に登録する（`Def` — hover/診断が参照する宣言ノード —
+  が失われる）。
+  対応（wave14 hygiene）: `loadPackage` を surface 走査から decl 走査へ揃え、
+  `d.Sym` をそのまま登録（let は `letPatMembers` — gomimport `letSyms`+`patType`
+  の mirror — で展開）。arity 記録も extract と同じ規則（非 thunk fn のみ）。
+  `TestLoadTypeMembers` に Def 生存の pin を追加。
   参照: [internal/stdlib](../internal/stdlib/stdlib.go)、
   [gomimport](../internal/gomimport/loader.go)。
 
-- [ ] **iface.Surface は thunk `fn` を `MemberLet`（`Type: d.Sig.Ret`）として
+- [x] **iface.Surface は thunk `fn` を `MemberLet`（`Type: d.Sig.Ret`）として
   出すが gomimport は `() -> T` の完全 sig を登録する**: 同一 `.gomi`
   メンバーが経路で異なるシグネチャを持つ。`.gomi` は body を持てないため
   thunk `fn` は宣言不可能で構造上不活性 — stdlib 側も iface 経由のため
-  同じ MemberLet を見る。wave-13 tooling-hygiene review fix round の
-  sibling audit で確認。
+  同じ MemberLet を見る。
+  対応（wave14 hygiene）: 上項の decl 走査への切替で stdlib 側は
+  `d.Sig`（thunk は `() -> T`）を登録するようになり gomimport と一致。
+  iface.Surface の MemberLet 表現自体は interface 比較の規約として
+  残る（Member.Type は値の型 T が正しい）。
   参照: [iface](../internal/iface/iface.go)、
   [gomimport](../internal/gomimport/loader.go)。
 

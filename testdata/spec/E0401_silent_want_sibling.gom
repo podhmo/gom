@@ -1,0 +1,10 @@
+// A failed conform quiets the want's unsolved metas only for E0407
+// (markSilent): a sibling conform position sharing the same want —
+// another arm of this `if` — must still report its own E0401.
+// Previously the second arm's mismatch was swallowed by
+// mentionsQuiet (docs/implementation-gaps.md).
+package ex
+
+fn f (b: Bool) -> Int = {
+    List.head (if b { "s" } else { "t" })
+}

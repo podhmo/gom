@@ -40,13 +40,15 @@ type metaRec struct {
 	span diag.Span // where the meta was created (diagnostic site)
 	desc string    // what the meta stands for ("the operand of +")
 
-	num   bool       // constrained to a built-in numeric type
-	ord   bool       // constrained to an ordered type
-	eq    bool       // must not contain functions or type variables
-	flo   bool       // constrained to a floating-point type (Float literals)
-	intg  bool       // constrained to an integral type (the `%` operator)
-	quiet bool       // another diagnostic already covers this meta — no E0407
-	dflt  types.Type // default solution, or nil for "ask for an annotation"
+	num    bool // constrained to a built-in numeric type
+	ord    bool // constrained to an ordered type
+	eq     bool // must not contain functions or type variables
+	flo    bool // constrained to a floating-point type (Float literals)
+	intg   bool // constrained to an integral type (the `%` operator)
+	quiet  bool // another diagnostic already covers this meta — no E0407
+	silent bool // a failed expectation covers its unsolvedness — no E0407,
+	//   but unlike quiet a later mismatch that mentions it still reports
+	dflt types.Type // default solution, or nil for "ask for an annotation"
 }
 
 // newMeta creates an unbound unification variable recorded with the
@@ -79,6 +81,20 @@ func (c *checker) markQuiet(t types.Type) {
 	}
 }
 
+// markSilent flags t's record silent when t is an unbound meta — the
+// weak form of markQuiet for metas inside a failed expectation: the
+// mismatch the failed unify already reported covers the meta's
+// unsolved state, so it must not pile on an E0407, but a later
+// conform position that shares the want (a sibling if/match/select
+// arm) still gets its own E0401. markQuiet is reserved for recovery
+// metas a diagnostic owns outright — those silence complaints that
+// mention them too.
+func (c *checker) markSilent(t types.Type) {
+	if m, ok := types.Chase(t).(*types.Meta); ok {
+		c.recOf(m).silent = true
+	}
+}
+
 // isQuiet reports whether t is an unbound meta carrying the quiet
 // flag — used to keep recovery metas derived from a silenced value
 // from reporting E0407 of their own.
@@ -108,6 +124,7 @@ func mergeRec(dst, src *metaRec) {
 	dst.flo = dst.flo || src.flo
 	dst.intg = dst.intg || src.intg
 	dst.quiet = dst.quiet || src.quiet
+	dst.silent = dst.silent || src.silent
 	if dst.dflt == nil {
 		dst.dflt = src.dflt
 	}
@@ -604,7 +621,7 @@ func (c *checker) bind(m *types.Meta, t types.Type, sp diag.Span) bool {
 	// Constraints must outlive the meta itself: an eq-flagged meta
 	// bound to `Result ?a ?b` keeps the restriction on ?a and ?b, and
 	// a quiet meta keeps the metas inside its solution quiet too.
-	if r != nil && (r.num || r.ord || r.eq || r.flo || r.intg || r.quiet) {
+	if r != nil && (r.num || r.ord || r.eq || r.flo || r.intg || r.quiet || r.silent) {
 		c.propagateFlags(r, t)
 	}
 	m.Bind(t)
@@ -624,6 +641,7 @@ func (c *checker) propagateFlags(r *metaRec, t types.Type) {
 		inner.flo = inner.flo || r.flo
 		inner.intg = inner.intg || r.intg
 		inner.quiet = inner.quiet || r.quiet
+		inner.silent = inner.silent || r.silent
 		if inner.span.IsZero() {
 			inner.span = r.span
 		}
@@ -1164,7 +1182,7 @@ func (c *checker) finalize() {
 		m, r := e.m, e.r
 		sp := c.pos(r.span)
 		if !m.Bound() {
-			if r.quiet {
+			if r.quiet || r.silent {
 				continue
 			}
 			desc := r.desc
