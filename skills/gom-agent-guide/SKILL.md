@@ -157,7 +157,9 @@ generated from — useful when generated code surprises you.
   Unit`, tuples `(a, b)`, `List a`, `Option a` (`Some`/`None`),
   `Result a e` (`Ok`/`Err`), `Ref a`, `Array a`, `Ptr T`, `Chan a` /
   `RecvChan a` / `SendChan a`, `Task a`, `GoError`, `Go.Slice a`,
-  `Go.Map k v`, `Go.Any`. Type application is juxtaposed:
+  `Go.Map k v`, `Go.Any`, `Go.FuncN p0 … r` (raw view of a Go func
+  type, arity 0–3 — adapt a Gom fn in with `Go.funcN f`). Type
+  application is juxtaposed:
   `Result Int GoError`, `Option (List Int)`. Type variables are
   lowercase (`a`, `b`).
 - **Sum types:** `type Shape = | Circle (radius: Float) | Rect (w:
@@ -703,7 +705,7 @@ fn main () -> Unit = ()
 # Toolchain
 
 Implemented today: `build`, `check`, `dump`, `test`, `fmt`, `fix`,
-`info`, `explain`, `schema`. `gomi` was renamed `info` (`gom gomi`
+`info`, `explain`, `schema`, `lsp`. `gomi` was renamed `info` (`gom gomi`
 prints the pointer and exits 2).
 
 | Command | Use |

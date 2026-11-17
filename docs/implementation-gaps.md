@@ -1525,3 +1525,16 @@
   Go 代入可能）ため conv=false でも受理される。
   fixture: `E0401_slice_boundary_compose`。
   参照: [check/apply.go](../internal/check/apply.go) `conformCallee`。
+
+- [x] **E0510 がコード表から抜けていた**: `internal/check/gofunc.go`
+  が `Go.funcN` の不適格引数に E0510 を発行していたが、
+  [codes.go](../internal/diag/codes.go) / `docs/error-codes.md` に
+  未登録だった。対応（wave-16 skill 同期）: E0510 をコード表に
+  登録し `go generate ./internal/diag` でカタログ再生成。
+  fixture では既に E0510 を期待しており診断自体は従来どおり。
+- [x] **gom-agent-guide の wave-16 分のずれ**: SKILL.md の
+  implemented-commands 行に `lsp` がなく型一覧に `Go.FuncN` が
+  なかった、diagnostics.md のカテゴリ表が E0417/W0501/W0502/
+  E0510 を欠いていた、concurrency.md が W0701/W0702 を
+  "(planned)" としていた（`internal/check/lint.go` で実装済み）。
+  対応: 各記述を現行に同期（PR #34）。

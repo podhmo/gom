@@ -711,6 +711,24 @@ extern go "flag" {
 }
 ```
 
+### E0510 — `Go.funcN` argument is not an admissible function
+
+**Severity:** error · **Phase:** check · **Spec:** §8.8
+
+The explicit Gom fn → Go func adapter "Go.funcN" takes
+exactly one function value whose parameter count flattens to N
+(curried "A -> B -> R" counts as 2; "Go.func0" takes a "Unit -> R"
+thunk). A non-function argument, a labeled parameter, the wrong
+arity, or a parameter/result carrying a Gom-only type (Option,
+user ADTs, tuples) — a type the section-8.5 boundary table cannot
+bridge — is rejected. The produced "Go.FuncN" is compared to the
+expected one on raw views; a mismatch there is E0401.
+
+```gom
+let h = Go.func2 (fn w r -> ())
+// E0510 if a param/result is a Gom-only type or the arity ≠ 2
+```
+
 ### W0501 — Go call receives a copied List where mutation may be expected
 
 **Severity:** warning · **Phase:** lint · **Spec:** §8.5
