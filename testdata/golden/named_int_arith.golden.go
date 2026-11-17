@@ -3,33 +3,48 @@
 package ex
 
 import (
+	goiface "github.com/podhmo/gom/testdata/goiface"
 	time "time"
 )
 
-//line named_int_arith.gom:8
+//line named_int_arith.gom:9
 func halfMin(_ struct{}) time.Duration {
-//line named_int_arith.gom:8
-	return 30 * time.Second
-//line named_int_arith.gom:8
+//line named_int_arith.gom:9
+	return time.Duration(30) * time.Second
+//line named_int_arith.gom:9
 }
 
-//line named_int_arith.gom:10
+//line named_int_arith.gom:11
 func add(a, b time.Duration) time.Duration {
-//line named_int_arith.gom:10
+//line named_int_arith.gom:11
 	return a + b
-//line named_int_arith.gom:10
+//line named_int_arith.gom:11
 }
 
-//line named_int_arith.gom:12
+//line named_int_arith.gom:13
 func left(deadline, now time.Duration) time.Duration {
-//line named_int_arith.gom:12
+//line named_int_arith.gom:13
 	return deadline - now
-//line named_int_arith.gom:12
+//line named_int_arith.gom:13
 }
 
-//line named_int_arith.gom:14
+//line named_int_arith.gom:15
 func maior(a, b time.Duration) bool {
-//line named_int_arith.gom:14
+//line named_int_arith.gom:15
 	return a > b
-//line named_int_arith.gom:14
+//line named_int_arith.gom:15
+}
+
+//line named_int_arith.gom:20
+func ticks(_ struct{}) goiface.Ticks {
+//line named_int_arith.gom:20
+	return goiface.Ticks(1) + goiface.Ticks(2)
+//line named_int_arith.gom:20
+}
+
+//line named_int_arith.gom:22
+func ratio(_ struct{}) goiface.Ratio {
+//line named_int_arith.gom:22
+	return goiface.Ratio(1) / goiface.Ratio(2)
+//line named_int_arith.gom:22
 }

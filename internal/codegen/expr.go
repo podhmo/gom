@@ -81,28 +81,32 @@ func (g *gen) qualRef(sym *resolve.Symbol, targs []types.Type) ast.Expr {
 
 // lit renders a literal. Int/Float/Str/Char keep the source lexeme —
 // Gom and Go spell them alike. Unit is the zero-size struct value.
-// The one spelling/type mismatch: an integer literal whose checked
-// type is Float (`let m = 1` with `m` solving to Float, or `1/2`
-// under a Float binder) would emit Go's `int` default — `m := 1`
-// binds `int` and `float64(1/2)` is `0` — so the literal
-// materializes its own checked type as `float64(1)`
-// (docs/problems/2026-11-02-let-int-literal-go-type.md).
+// Two spelling/type mismatches materialize the checked type around
+// the lexeme — Go's default type for a bare literal would be wrong:
+//
+//   - an integer literal whose checked type is Float (`let m = 1`
+//     with `m` solving to Float, or `1/2` under a Float binder)
+//     would emit Go's `int` default — `m := 1` binds `int` and
+//     `float64(1/2)` is `0` — so the literal emits `float64(1)`
+//     (docs/problems/2026-11-02-let-int-literal-go-type.md);
+//   - a literal checked at a named Go type (`time.Duration`) —
+//     same default-type trap, fixed below.
 func (g *gen) lit(l *core.Lit) ast.Expr {
+	var x ast.Expr
 	switch l.Kind {
 	case syntax.LitInt:
-		x := &ast.BasicLit{Kind: token.INT, Value: l.Text}
+		x = &ast.BasicLit{Kind: token.INT, Value: l.Text}
 		if g.floatTyped(l.Type()) {
 			return &ast.CallExpr{Fun: g.goType(l.Type()), Args: []ast.Expr{x}}
 		}
-		return x
 	case syntax.LitFloat:
-		return &ast.BasicLit{Kind: token.FLOAT, Value: l.Text}
+		x = &ast.BasicLit{Kind: token.FLOAT, Value: l.Text}
 	case syntax.LitStr:
-		return &ast.BasicLit{Kind: token.STRING, Value: l.Text}
+		x = &ast.BasicLit{Kind: token.STRING, Value: l.Text}
 	case syntax.LitChar:
-		return &ast.BasicLit{Kind: token.CHAR, Value: l.Text}
+		x = &ast.BasicLit{Kind: token.CHAR, Value: l.Text}
 	case syntax.LitBool:
-		return ast.NewIdent(l.Text)
+		x = ast.NewIdent(l.Text)
 	case syntax.LitUnit:
 		// `struct{}{}` — spelled as an identifier because an empty
 		// positional struct type does not print cleanly (types.go).
@@ -110,6 +114,16 @@ func (g *gen) lit(l *core.Lit) ast.Expr {
 	default:
 		panic("unreachable")
 	}
+	// A literal checked at a named Go type materializes it —
+	// `d := 1 + 2` under a `time.Duration` binder would otherwise
+	// bind Go's default `int`, and `1 / 2` under a named float
+	// would be integer division. `T(lit)` keeps both the type and
+	// the arithmetic semantics (decision
+	// 2026-11-17-named-int-arith).
+	if _, ok := types.Chase(l.Type()).(*types.Go); ok {
+		return &ast.CallExpr{Fun: g.goType(l.Type()), Args: []ast.Expr{x}}
+	}
+	return x
 }
 
 // goFuncRef renders a Go function or bound method used as a value —

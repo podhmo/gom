@@ -28,6 +28,15 @@ func NewSliceBox() *SliceBox {
 	return &SliceBox{N: 1, Xs: []int64{1, 2}, Is: []int{1, 2}}
 }
 
+// Ratio is a named float type — the `type X float64` shape
+// named-numeric arithmetic covers (`1 / 2` under a Ratio binder is
+// 0.5, not Go's integer `0`).
+type Ratio float64
+
+// Ticks is a named integer type — the `type X int64` shape, a
+// lighter stand-in for time.Duration.
+type Ticks int64
+
 // Generic functions for the P3-3 generic-call fixtures. Second's
 // declared type-parameter order (A, B) is the reverse of first
 // occurrence (B, A), so the emitted `Second[A, B]` instantiation

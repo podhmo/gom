@@ -1,6 +1,7 @@
 package main
 
 import go "time"
+import go "github.com/podhmo/gom/testdata/goiface"
 
 // Named Go integer types participate in arithmetic and comparison
 // by Go's own rules (decision 2026-11-17-named-int-arith):
@@ -20,3 +21,21 @@ fn resto (a: time.Duration) (b: time.Duration) -> time.Duration = a % b
 fn maior (a: time.Duration) (b: time.Duration) -> Bool = a > b
 
 fn lit_named (d: time.Duration) -> time.Duration = d + 5
+
+// Literal-only expressions under a named binder materialize the
+// named type per literal — `1 + 2` stays a Ticks (not Go's default
+// `int`), and `1 / 2` under a Ratio binder is `0.5` (not the
+// integer `0` a bare constant would fold to).
+fn ticks () -> goiface.Ticks = 1 + 2
+
+fn ticks_let () -> goiface.Ticks = {
+  let t : goiface.Ticks = 3 * 4
+  t
+}
+
+fn ratio () -> goiface.Ratio = 1 / 2
+
+fn ratio_let () -> goiface.Ratio = {
+  let r : goiface.Ratio = 1 / 2
+  r + 0.25
+}
