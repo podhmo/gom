@@ -597,6 +597,15 @@ func (l *lowerer) goConvKindOf(from, to types.Type) (core.ConvKind, bool) {
 	if types.Equal(from, to) {
 		return 0, true
 	}
+	if fc, fok := from.(*types.Con); fok && l.isOptionCon(fc) && len(fc.Args) == 1 &&
+		types.Equal(to, fc.Args[0]) {
+		// The Gom→Go half of the `(T, error)` boundary: an `Option
+		// T` payload handed to the nil-able raw slot —
+		// `option.NilOr(v)` (`Some` is the value, `None` the nil).
+		// It must outrank isGoAny below: `Option Go.Any` is a sum
+		// value, not something to box.
+		return core.ConvOptToNil, true
+	}
 	if isGoAny(to) {
 		return core.ConvBoxAny, true
 	}
@@ -610,13 +619,6 @@ func (l *lowerer) goConvKindOf(from, to types.Type) (core.ConvKind, bool) {
 		// payload read and the declared `Result (Option T)
 		// GoError` view share it: `option.FromGo(v, v != nil)`.
 		return core.ConvOptNil, true
-	}
-	if fc, fok := from.(*types.Con); fok && l.isOptionCon(fc) && len(fc.Args) == 1 &&
-		types.Equal(to, fc.Args[0]) {
-		// The Gom→Go half: an `Option T` payload handed to the
-		// nil-able raw slot of `(T, error)` — `option.NilOr(v)`
-		// (`Some` is the value, `None` the nil).
-		return core.ConvOptToNil, true
 	}
 	fc, fok := from.(*types.Con)
 	tc, tok := to.(*types.Con)

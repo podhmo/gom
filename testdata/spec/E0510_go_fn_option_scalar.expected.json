@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0510",
+      "severity": "error",
+      "message": "`Go.func0` cannot convert the result type Result (Option Int) GoError: `Option Int`'s payload is not nil-able — `None` cannot map to a Go value",
+      "span": {
+        "file": "E0510_go_fn_option_scalar.gom",
+        "start": {
+          "line": 11,
+          "col": 29,
+          "offset": 345
+        },
+        "end": {
+          "line": 11,
+          "col": 40,
+          "offset": 356
+        }
+      }
+    }
+  ]
+}

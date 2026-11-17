@@ -303,7 +303,7 @@ func (c *checker) goFuncNType(e *syntax.Apply, n int, ps []types.FuncParam, ret 
 		}
 		args = append(args, rt)
 	}
-	rs, reason := goFuncRawResults(types.Chase(ret))
+	rs, reason := c.goFuncRawResults(types.Chase(ret))
 	if reason != "" {
 		c.diags.Add(diag.Error("E0510",
 			fmt.Sprintf("`Go.func%d` cannot convert the result type %s: %s", n, types.Display(ret, metaNamer()), reason)).At(e.Sp))
@@ -385,6 +385,40 @@ func (c *checker) fnSeedNilable(raw types.Type) bool {
 	case *types.Meta, *types.Var, *types.Func, *types.Tuple:
 		// A FuncN con's arguments are raw Go views — none of
 		// these can appear, and none is nilable anyway.
+		return false
+	default:
+		panic("unreachable")
+	}
+}
+
+// goRawNilable reports whether a raw Go view can carry nil — the
+// types whose zero value is nil: `error`/`GoError`, `any`,
+// pointers, slices, maps, channels, func types (`Go.FuncN`), and
+// method-bearing named interfaces (answered through the same
+// NilableSource `Go.fnN`'s seed uses).
+func (c *checker) goRawNilable(raw types.Type) bool {
+	switch t := types.Chase(raw).(type) {
+	case *types.Con:
+		if c.isBuiltinCon(t, "GoError") || t.Name == "Any" {
+			return true
+		}
+		if len(t.Args) == 1 {
+			switch t.Name {
+			case "Ptr", "Slice", "Map", "Chan":
+				return true
+			}
+		}
+		if t.Qual == "Go" {
+			_, isFn := goFuncTypeArity(t.Name)
+			return isFn
+		}
+		return false
+	case *types.Go:
+		if ns, ok := c.src.(NilableSource); ok {
+			return ns.NilableGoRef(t.Ref)
+		}
+		return false
+	case *types.Meta, *types.Var, *types.Func, *types.Tuple:
 		return false
 	default:
 		panic("unreachable")
@@ -569,7 +603,10 @@ func goFuncRawView(t types.Type) (types.Type, string) {
 // goFuncRawResults maps a Gom-facing result type to the FuncN's raw
 // result arguments: `Unit` → none, `Result Unit GoError` → `error`,
 // `Result T GoError` → `(T', error)`, otherwise the lone raw view.
-func goFuncRawResults(ret types.Type) ([]types.Type, string) {
+// An `Option` payload maps only when its raw view is nil-able —
+// `Result (Option Int) GoError` has no honest `(int64, error)`
+// reading (`None` would materialize as `0`).
+func (c *checker) goFuncRawResults(ret types.Type) ([]types.Type, string) {
 	if rc, ok := ret.(*types.Con); ok && rc.Qual == "" {
 		if rc.Name == "Unit" && len(rc.Args) == 0 {
 			return nil, ""
@@ -588,6 +625,14 @@ func goFuncRawResults(ret types.Type) ([]types.Type, string) {
 			if oc, isOpt := p.(*types.Con); isOpt && oc.Qual == "" &&
 				oc.Name == "Option" && len(oc.Args) == 1 {
 				p = types.Chase(oc.Args[0])
+				rt, reason := goFuncRawView(p)
+				if reason != "" {
+					return nil, reason
+				}
+				if !c.goRawNilable(rt) {
+					return nil, fmt.Sprintf("`Option %s`'s payload is not nil-able — `None` cannot map to a Go value", types.Display(p, metaNamer()))
+				}
+				return []types.Type{rt, types.GoError}, ""
 			}
 			rt, reason := goFuncRawView(p)
 			if reason != "" {
