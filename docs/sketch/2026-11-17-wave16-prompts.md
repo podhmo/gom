@@ -49,6 +49,12 @@ Review on each PR. podhmo merges.
 | 3 | LSP loader session cache | `devin/wave16-lsp-cache` | decision+impl |
 | 4 | SourceMap per-line re-pin | `devin/wave16-sourcemap-repin` | decision+impl |
 
+open-question 由来の lane（2, 3, 4）は「どれか 1 案を実装
+する」のではなく「問い/選択肢/影響の構造で全候補を比較し、
+podhmo が選べる decision draft を先に書く」ことが出力条件。
+wave-15 lane 3 の struct 構築（(a)/(b)/(c) 比較 → (c) 採用）
+がこの型の先例。
+
 ## Individual prompts
 
 ### 1. `Go.Any` residual bugs + F1 — `devin/wave16-go-any-bugs`
@@ -86,34 +92,55 @@ diag/codes.go append-only.
 ### 2. Gom fn → Go func interop — `devin/wave16-func-interop`
 
 ```
-[decision+impl] Open question "Gom の関数値を Go の func 型
-として渡す方法"（docs/open-questions.md、wave-15 lane 3 の
-verified residual: `http.Client.CheckRedirect` — gist-cli
-`host.NewClient` が host 側に残る唯一の理由。Duration 算術は
-別件）。Decision first, podhmo 判定用の draft から。
+[decision+impl — open question に回答を絞る lane]
 
-(1) Survey: where does a func-typed parameter/field actually
-    appear in the reachable stdlib surface (net/http,
-    sort.SliceFunc 不在、signal.Notify 系、filepath.Walk,
-    http.HandleFunc)? Which are func params vs struct fields?
-    gist-cli の NewClient を removal condition の具体例に。
-(2) Options: (a) codegen bridge — a Gom closure lowers to a Go
-    func literal calling the closure (arity/arity-known call
-    convention で包めるか。`fn` 値の Go 表現はどうなる),
-    (b) typed adapter — `Go.func1`/`func2` 型だけ admit して
-    Gom fn を明示変換（surface 最小、明示的）, (c) extern
-    only — 現状維持を決定として記録 (callback 供給は Go
-    adapter に残す。実害の大きさ次第で妥当)。
-    各案で `fn x -> x + 1` を `http.HandlerFunc` /
-    `func(int) int` に渡す emission を sketch する。callback
-    側で返り値・error 変換（Result ↔ error）が要る場合の
-    扱いも書く — callback は Gom→Go→Gom の双方向問題。
-(3) Implement per decision, additive. Conformance point: a
-    `Fn` type arg vs a `func(...)` Go param — which existing
-    channel (param conform / boundary conversion) carries it.
+問い: Gom の関数値を Go の func 型として渡す方法
+（docs/open-questions.md）。今 `let f = fn x -> x + 1` を
+`func(int) int` 型の引数・struct field に渡す手段がない。
+wave-15 lane 3 の verified residual: `http.Client` の
+`CheckRedirect` field がこの問いに依存し、gist-cli の
+`host.NewClient` が host 側に残る唯一の理由 — 本問が決着
+すれば struct 構築も再検討できる（残る障壁は Duration
+算術のみになる）。
+
+Decision first: podhmo が選べるよう、選択肢を 問い/選択肢/
+影響 の構造で decision draft に書くこと（open-question lane
+の出力は「どれか1案の実装」ではなく「全候補の比較表」）。
+
+選択肢の骨格（調査で増減してよい）:
+- (a) codegen bridge — Gom の closure を `func(...) T { ... }`
+    の Go func literal に lower する。`fn` 値の Go 表現
+    （closure struct? 裸 func? arity 規約）を決める必要。
+    surface 最大、`fn x -> x + 1` がそのまま `http.HandlerFunc`
+    に conform する世界
+- (b) typed adapter — `Go.func1`/`Go.func2` のような明示変換
+    面だけ admit。変換は user が書くので surface 最小、
+    interop の非対称性（Gom fn は curried 呼び出し規約）を
+    明示的に処理する場所ができる
+- (c) extern only — 現状維持を決定として記録。callback 供給は
+    永久に Go adapter に残る。実害が小さいなら妥当（現状
+    `CheckRedirect` 1 件のみが確認済み）
+
+各案で必ず sketch するもの:
+- `fn x -> x + 1` を `func(int) int` / `http.HandlerFunc` に
+    渡すときの emitted Go
+- callback の返り値・error 変換（Gom `Result` ↔ Go `error`、
+    `Try`/`try` との整合）— callback は Gom→Go→Gom の双方向
+    問題であり、Go 側から Gom 関数がどう呼ばれるかも書く
+- conformance point: `Fn` 型の arg が `func(...)` 型の Go param
+    に当たるとき、既存のどの channel（param conform /
+    boundary conversion）が変換を担うか
+
+手順:
+(1) Survey — 到達可能な stdlib 面で func-typed param/field が
+    どこに出るか (net/http, signal.Notify, filepath.Walk,
+    http.HandleFunc, sort.SliceFunc 等)。params vs fields の
+    分類付きで。
+(2) 上記の選択肢比較を decision draft に。
+(3) Implement per decision, additive.
 (4) Tests: both directions (Gom fn passed INTO Go; Go calling
-    back). gist-cli NewClient が removal condition を満たす
-    なら example を移動して end-to-end で検証。
+    back). gist-cli `host.NewClient` が removal condition を
+    満たすなら main.gom へ移動して end-to-end で検証。
 Ownership: internal/check (conform), internal/lower +
 internal/codegen (closure → func literal emission),
 internal/goimport (func-typed sig surface), docs/spec.md §8,
@@ -187,6 +214,14 @@ Ownership: internal/codegen (emission), internal/diag
 
 ## Backlog — wave-17+ 候補（順不同）
 
+- Go struct 構築の再検討 — wave-15 lane 3 は (c)
+  constructor-extern 採用だが、残障壁は callback interop
+  （wave-16 lane 2）+ Duration 算術の 2 件のみ。lane 2 が
+  (a)/(b) に決着し Duration 面も手当てされれば、コンポジット
+  リテラル構文 (a) を再評価する価値がある
+- Duration 算術 — `30 * time.Second`（int64 typed 定数の
+  乗算が Gom の Int 算術で Duration を生まない問題）。
+  lane 2 決着後の `NewClient` removal condition の残り半分
 - 外部 module からの Gom import 解禁（gom-package-imports
   問題の残り 4 — self-import が module-derived になった今、
   `.gomi` 経由の boundary を再検討）。
