@@ -1029,3 +1029,12 @@ func (l *Loader) entryPath() (string, error) {
 		return modPath + "/" + filepath.ToSlash(rel), nil
 	}
 }
+
+// NilableGoRef defers the optional check.NilableSource protocol to
+// Config.Sigs — this loader mints no Go type handles.
+func (l *Loader) NilableGoRef(ref types.NamedRef) bool {
+	if ns, ok := l.cfg.Sigs.(check.NilableSource); ok {
+		return ns.NilableGoRef(ref)
+	}
+	return false
+}

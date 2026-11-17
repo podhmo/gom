@@ -34,3 +34,14 @@ func (l *Loader) GoUnderlyingKind(t gt.Type) (types.BasicKind, bool) {
 	}
 	return b.Kind(), true
 }
+
+// NilableGoRef answers check's NilableSource: whether the named Go
+// type behind ref is a method-bearing interface (`net.Error`,
+// `io.Reader`, a user interface — error spells `GoError`, not a
+// *types.Go, so it never arrives here). It backs `Go.fnN`'s
+// derived `(I, error)` view, which wraps the payload in Option
+// exactly like the import mapping's own rule (mapping.go).
+func (l *Loader) NilableGoRef(ref gt.NamedRef) bool {
+	n, ok := l.named[ref]
+	return ok && methodIface(n)
+}

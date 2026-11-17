@@ -29,3 +29,10 @@ fn look (n: Int) -> Result String GoError = {
   let g = Go.fn1 (goiface.Looker ())
   g n
 }
+
+// `func() (error, error)` — the method-bearing-interface payload
+// wraps in Option, mirroring the import mapping.
+fn err_pair () -> Result (Option GoError) GoError = {
+  let g = Go.fn0 (goiface.ErrPair ())
+  g ()
+}

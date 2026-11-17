@@ -50,3 +50,11 @@ func(p0 int64) func(int64) int64 {
 - spec 8.8 に `Go.fnN` を追記(「Gom 側から適用はできない」の記述を変換経路ありに更新)
 - `Go` 名前空間に `fn0`..`fn3` を追加、`core.CallGo` に `Fn` フィールド
 - `docs/decisions/2026-11-17-func-interop.md` の「そのまま呼び出せないのか?」はこの決定で解消
+
+## 追記(PR #35 review findings への対応, 2026-11-18)
+
+Devin Review の指摘 3 件はいずれも実際の不整合で、以下を修正した:
+
+1. `snapshotCapturedParams` / `tailrec` の走査が `CallGo.Fn` を読んでおらず、ループ内で seed 値が capture されないケースがあった — 両 walker に `Fn` の走査を追加。
+2. seed した Gom ビューと raw ビューの間に変換可能性の検査がなく、`func([]int) int` のようなコンテナ内部で `int`/`int64` が割れる型が `gom check` を通って `gom build` で E0901 になった — `checkGoFnCall` に viewsCompatible(import の Hidden 判定)と同じ規則の `fnViewCompatible` を追加し E0510 で拒否。コンテナ内部の要素ごとの変換が将来書けるようになったら緩和できる。
+3. `(error, error)` 等のメソッドを持つ interface ペイロードに Option wrap がなく `(nil, nil)` が `Ok nil` になった — import mapping と同じ規則で `Result (Option T) GoError` を seed する(`GoError` は既知、`types.Go` の ref は新設の `check.NilableSource` optional protocol を `internal/goimport` が `l.named` + `methodIface` で実装)。

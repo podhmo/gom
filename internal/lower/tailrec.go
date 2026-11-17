@@ -461,6 +461,9 @@ func walkTailrec(b *core.Body, f func(e core.Expr, inSpawn, inClosure bool)) {
 		if c.Recv != nil {
 			atom(c.Recv, inSpawn, inClosure)
 		}
+		if c.Fn != nil {
+			atom(c.Fn, inSpawn, inClosure)
+		}
 		atoms(c.Args, inSpawn, inClosure)
 	}
 	tree = func(t core.DTree, inSpawn, inClosure bool) {

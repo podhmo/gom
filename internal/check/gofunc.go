@@ -256,6 +256,21 @@ func (c *checker) checkGoFnCall(e *syntax.Apply, fn Expr, callee *resolve.Symbol
 		out.Call = CallInfo{Kind: CallUnknown, Applied: 1, HoleIndex: -1}
 		return out
 	}
+	// Each seeded position must be one the boundary's conversions
+	// can spell — `[]int` and friends split `int`/`int64` inside a
+	// container where no element-wise conversion exists; admitting
+	// them here would only fail at lowering (E0901). viewsCompatible
+	// (internal/goimport/mapping.go) is the same rule for members.
+	for _, r := range fc.Args {
+		if !fnViewCompatible(goFuncGomView(r, true), r) {
+			c.diags.Add(diag.Error("E0510",
+				fmt.Sprintf("`Go.fn%d` cannot convert `%s` — its views split inside a container and the boundary needs an element-wise copy not yet supported", n,
+					types.Display(fc, metaNamer()))).At(e.Sp))
+			out.Base = baseOf(e.Sp, c.quietMeta(e.Sp, "the conversion's result"))
+			out.Call = CallInfo{Kind: CallUnknown, Applied: 1, HoleIndex: -1}
+			return out
+		}
+	}
 	out.Base = baseOf(e.Sp, &types.Func{
 		Params: goFuncSeedParams(fc.Args[:n]),
 		Ret:    goFuncSeedRet(c, fc.Args[n:]),
@@ -322,7 +337,9 @@ func isGoFuncUnit(t types.Type) bool {
 
 // goFuncSeedRet maps a FuncN con's raw result arguments back to the
 // Gom-facing result: none → `Unit`, `error` → `Result Unit
-// GoError`, `(T, error)` → `Result T GoError`, a lone `T` → `T`.
+// GoError`, `(T, error)` → `Result T GoError` — wrapping the payload
+// in `Option` when T is a method-bearing interface (fnSeedNilable,
+// mirroring the import mapping) — a lone `T` → `T`.
 func goFuncSeedRet(c *checker, raws []types.Type) types.Type {
 	switch len(raws) {
 	case 0:
@@ -333,10 +350,72 @@ func goFuncSeedRet(c *checker, raws []types.Type) types.Type {
 		}
 		return goFuncGomView(raws[0], true)
 	case 2:
-		return types.Result(goFuncGomView(raws[0], true), types.GoError)
+		p := goFuncGomView(raws[0], true)
+		// A method-bearing interface payload (`error`, `net.Error`,
+		// `io.Reader`) carries the unobservable nil — the derived
+		// view wraps it in Option exactly like the import mapping
+		// (internal/goimport/mapping.go): `Ok None` reads
+		// `(nil, nil)` instead of smuggling a nil interface in.
+		if c.fnSeedNilable(raws[0]) {
+			p = types.Option(p)
+		}
+		return types.Result(p, types.GoError)
 	default:
 		panic("unreachable")
 	}
+}
+
+// fnSeedNilable reports whether a FuncN con's first raw result
+// spells a method-bearing interface — `error` (the builtin
+// `GoError`) or a named Go type the source knows is one.
+func (c *checker) fnSeedNilable(raw types.Type) bool {
+	switch t := types.Chase(raw).(type) {
+	case *types.Con:
+		return c.isBuiltinCon(t, "GoError")
+	case *types.Go:
+		if ns, ok := c.src.(NilableSource); ok {
+			return ns.NilableGoRef(t.Ref)
+		}
+		return false
+	case *types.Meta, *types.Var, *types.Func, *types.Tuple:
+		// A FuncN con's arguments are raw Go views — none of
+		// these can appear, and none is nilable anyway.
+		return false
+	default:
+		panic("unreachable")
+	}
+}
+
+// fnViewCompatible reports whether the seeded Gom view of one
+// FuncN position can reach its raw view through the conversions
+// Core IR can express — viewsCompatible's rule (internal/goimport/
+// mapping.go) mirrored check-side: Equal views, the top-level
+// int ↔ Go.Int numeric pair, and the List ↔ Go.Slice boundary
+// copy only when the elements' views are Equal (an element-wise
+// conversion inside a container cannot be spelled yet).
+func fnViewCompatible(g, r types.Type) bool {
+	g, r = types.Chase(g), types.Chase(r)
+	if types.Equal(g, r) {
+		return true
+	}
+	gc, gok := g.(*types.Con)
+	rc, rok := r.(*types.Con)
+	if !gok || !rok {
+		return false
+	}
+	if gc.Qual == "" && gc.Name == "Int" && len(gc.Args) == 0 &&
+		rc.Qual == "Go" && rc.Name == "Int" && len(rc.Args) == 0 {
+		return true
+	}
+	if gc.Qual == "" && gc.Name == "Int64" && len(gc.Args) == 0 &&
+		(rc.Qual == "" || rc.Qual == "Go") && rc.Name == "Int" && len(rc.Args) == 0 {
+		return true
+	}
+	if gc.Qual == "" && gc.Name == "List" && len(gc.Args) == 1 &&
+		rc.Qual == "Go" && rc.Name == "Slice" && len(rc.Args) == 1 {
+		return types.Equal(gc.Args[0], rc.Args[0])
+	}
+	return false
 }
 
 // goFuncGomView is the inverse of the import mapping's view pair:

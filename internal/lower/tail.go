@@ -133,6 +133,9 @@ func eachVar(b *core.Body, f func(v *core.Var, captured bool)) {
 		if c.Recv != nil {
 			atom(c.Recv, captured)
 		}
+		if c.Fn != nil {
+			atom(c.Fn, captured)
+		}
 		atoms(c.Args, captured)
 	}
 	tree = func(t core.DTree, captured bool) {

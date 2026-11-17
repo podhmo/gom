@@ -92,3 +92,17 @@ func Failer() func() error {
 // Looker returns a `(T, error)` callback — the
 // `func(int64) (string, error)` shape.
 func Looker() func(int64) (string, error) { return Give }
+
+// ErrPair is a `func() (error, error)` source for `Go.fnN` — the
+// method-bearing-interface payload whose derived view wraps in
+// Option (mapping.go's nil-able payload rule).
+func ErrPair() func() (error, error) {
+	return func() (error, error) { return errors.New("first"), nil }
+}
+
+// Ints is a `func([]int) int` source — `[]int` splits `int`/`int64`
+// inside a container the boundary cannot convert element-wise, so
+// `Go.fn1` on it rejects E0510.
+func Ints() func([]int) int {
+	return func(xs []int) int { return len(xs) }
+}
