@@ -113,34 +113,44 @@ hash 入力), docs/design.md §5 check-off, TODO P4-7 check-off,
 docs/decisions.
 ```
 
-### 3. LSP completion — `devin/wave18-lsp-completion`
+### 3. `.gomi` の多相 `let` — `devin/wave18-gomi-polylet`
 
 ```
-[impl] TODO 残件のうち最も小さい実用面: `textDocument/
-completion`。definition/references・incremental sync・
-`$/cancelRequest`・didSave/workspace は別 lane 候補として
-open-questions に残す（本 lane に畳まない — wave の粒度を
-保つため）。
+[decision+impl — 採択は podhmo] open-questions 残件:
+`.gomi` の `let` メンバーに多相型（`let empty : List a`）を
+許すか。v1 は E0602 で型変数を拒否する bounded 形。
 
-(1) 現状 pin: 現在の server が completion を unimplemented
-    で返すか何もしないかを JSON-RPC fixture で記録。
-(2) 設計: 候補ソースを scope（lexer/parser 文脈で何が
-    完成対象か — 識別子、module member `p.`, Go member
-    `fmt.`）と出し分けの最小ルールを decision に記録。
-    trigger characters（`.`）と incomplete ident 位置の
-    扱い。
-(3) Implement: internal/lsp に completion handler。compile
-    unit は package（wave12 着地済み）なので scope は
-    resolve.Resolved から辿れるはず — 未 parse 可能な
-    partial input の回復（入力途中の構文）をどこまで
-    許すかは decision の論点。
-(4) Tests: in-process JSON-RPC で completion payload を pin
-    — `fmt.` → exported members、ローカル let/module
-    member、prefix filter。Emacs/Eglot は不要（podhmo ruling）。
-    per-change コストに completion が乗ることを計測コメント
-    で記録。
-Ownership: internal/lsp, internal/resolve (scope oracle),
-docs/design.md, TODO 該当行の部分 check-off.
+採択候補:
+(a) 許す — member table に thunk 表現が要る。実装側の
+    generalized let は `func X[T]()` を emit するが、
+    `.gomi` 経由の member 参照 `p.X` は呼出なしの値参照 —
+    check/lower の thunk oracle を import 越しに届ける
+    機構が本題
+(b) v1 bounded 形を維持して decision で閉じる —
+    stdlib に多相 let が要る実例が乏しければこれで確定
+    させて open-questions から外す
+
+(1) 現状 pin: `.gomi` に `let empty : List a` を書くと
+    今 E0602 で落ちることを fixture で記録。
+(2) (a) の実装コストを読み見: thunk oracle が今どこに
+    あるか（check の generalized-let 判定、lower の
+    `func X[T]()` emission、member 参照側の即時適用の
+    要否）、`.gomi` 経由で何を追加伝搬するか。stdlib の
+    `.gomi` に多相 let が欲しい実例があるか走査（例:
+    `list.empty`/`option.none` 相当）。
+(3) 採択を確定して decision に記録（却下案も理由つき）。
+    (b) なら open-questions の項目を採択結果つきで閉じて
+    本 lane は終了（fixture の pin だけ残す）。
+(4) (a) なら implement: `.gomi` member table の thunk
+    表現、`p.X` 参照の instantiation、codegen の
+    `X[T]()` 呼出。spec/.gomi 仕様の文言更新。
+    Tests: cross-package で `p.empty : List a` を両方の
+    concrete 型に instantiate、`empty` を部分適用しない
+    値として渡す、stdlib fixture。
+Ownership: internal/check (thunk oracle), internal/lower/
+codegen (emission), internal/gomimport (.gomi member
+table), docs/spec.md .gomi 節, docs/decisions,
+testdata/spec, open-questions check-off.
 ```
 
 ### 4. hygiene — `devin/wave18-hygiene`
