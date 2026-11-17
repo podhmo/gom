@@ -159,13 +159,17 @@ func runCheck(args []string, stdout, stderr io.Writer) int {
 	return rep.ExitCode()
 }
 
-// runBuild implements `gom build [-format F] [-o out] [FILE|DIR ...]`:
-// the full pipeline plus writing one .go per .gom input.
+// runBuild implements `gom build [-format F] [-o out] [-go] [FILE|DIR ...]`:
+// the full pipeline plus writing one .go per .gom input. `-go`
+// additionally runs `go build` in each directory that received
+// output and folds the tool's diagnostics back onto .gom spans
+// (docs/decisions/2026-11-17-cli-gotool-invocation.md).
 func runBuild(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("build", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	format := fs.String("format", "json", "diagnostic format: json or text")
 	out := fs.String("o", "", "output file (single input) or directory")
+	goBuild := fs.Bool("go", false, "run `go build` on written packages and fold its diagnostics")
 	if err := fs.Parse(args); err != nil {
 		return flagError(err)
 	}
@@ -246,6 +250,14 @@ func runBuild(args []string, stdout, stderr io.Writer) int {
 			continue
 		}
 		rep.Outputs = append(rep.Outputs, dst)
+	}
+
+	// -go invokes the go tool on what was just written — the only
+	// surface where a real generated .go exists for `go build` to
+	// check. The fold runs even when a write failed: the error a
+	// half-written directory produces is the honest report.
+	if *goBuild {
+		runGoBuilds(inputs, results, failed, dsts, &rep)
 	}
 	if err := emitReport(stdout, *format, rep, srcs); err != nil {
 		fmt.Fprintf(stderr, "gom build: %v\n", err)

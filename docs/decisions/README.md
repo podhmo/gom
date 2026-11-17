@@ -176,4 +176,5 @@
 | [tree-sitter-gom-grammar](2026-11-06-tree-sitter-gom-grammar.md) | tree-sitter grammar for Gom (tree-sitter-gom/) | 採用（実装・検証した — editor 向けの決定で spec.md / design.md の更新対象はなし） |
 | [gomtest-flat-tests-golden](2026-11-08-gomtest-flat-tests-golden.md) | Flat golden cases pin their `tests` output to `<name>_test.golden.go` | 採用（実装・検証した — [検証](../sketch/2026-11-08-gomtest-flat-tests-golden-verification.md)） |
 | [stdlib-gomi-type-members](2026-11-08-stdlib-gomi-type-members.md) | Stdlib `.gomi` type members register like imported-package ones | 採用（実装・検証した — [検証](../sketch/2026-11-08-stdlib-gomi-type-members-verification.md)） |
+| [cli-gotool-invocation](2026-11-17-cli-gotool-invocation.md) | go tool の実起動は `gom build -go`（CLI 面） | 採用 |
 <!-- END GENERATED -->
