@@ -582,11 +582,17 @@ func (c *checker) checkDecls(decls []syntax.Decl) {
 }
 
 // importOf translates a resolved import into the typed Import node.
-// The bound module symbol is kept; the path is copied verbatim.
+// The bound module symbol is kept; the path is the loaded package's
+// canonical path (a stdlib short name unfolds — codegen emits that
+// path with the clause's bound name as alias).
 func (c *checker) importOf(d *syntax.ImportDecl) (Import, bool) {
+	path := c.res.ImportPathOf(d)
+	if path == "" {
+		path = d.Path
+	}
 	return Import{
 		Sp:   d.Sp,
-		Path: d.Path,
+		Path: path,
 		IsGo: d.Go,
 		Sym:  c.res.DefOf(d.Name),
 	}, true

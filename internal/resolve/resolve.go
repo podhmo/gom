@@ -234,6 +234,11 @@ type resolver struct {
 	externs map[pkgKey]map[string]*Symbol
 	// pkgCache deduplicates Loader calls per (path, goPkg).
 	pkgCache map[pkgKey]*Package
+	// importPaths records the loaded package's canonical path per
+	// import clause — a stdlib short name (`import l "list"`)
+	// resolves to the toolchain path, which is what downstream
+	// phases and the generated Go import must name.
+	importPaths map[*syntax.ImportDecl]string
 
 	// inTest is true while resolving a `test` block or the body of an
 	// @test declaration — the contexts allowed to reference test-only
@@ -307,16 +312,17 @@ func Files(fs []*syntax.File, cfg *Config) ([]*Resolved, diag.List) {
 	for i, f := range fs {
 		u.checkPackage(f)
 		r := &resolver{
-			cfg:        c,
-			u:          u,
-			file:       pushScope(u.scope),
-			defs:       make(map[*syntax.Ident]*Symbol),
-			uses:       make(map[*syntax.Ident]*Symbol),
-			ctorsOf:    u.ctorsOf,
-			ctorFields: u.ctorFields,
-			members:    make(map[*Symbol]map[string]*Symbol),
-			externs:    make(map[pkgKey]map[string]*Symbol),
-			pkgCache:   make(map[pkgKey]*Package),
+			cfg:         c,
+			u:           u,
+			file:        pushScope(u.scope),
+			defs:        make(map[*syntax.Ident]*Symbol),
+			uses:        make(map[*syntax.Ident]*Symbol),
+			ctorsOf:     u.ctorsOf,
+			ctorFields:  u.ctorFields,
+			members:     make(map[*Symbol]map[string]*Symbol),
+			externs:     make(map[pkgKey]map[string]*Symbol),
+			pkgCache:    make(map[pkgKey]*Package),
+			importPaths: make(map[*syntax.ImportDecl]string),
 		}
 		r.collect(f)
 		rs[i] = r
@@ -328,7 +334,7 @@ func Files(fs []*syntax.File, cfg *Config) ([]*Resolved, diag.List) {
 	diags := diag.List(u.diags)
 	for i, r := range rs {
 		r.resolveDecls(fs[i], r.file)
-		out[i] = &Resolved{File: fs[i], Defs: r.defs, Uses: r.uses}
+		out[i] = &Resolved{File: fs[i], Defs: r.defs, Uses: r.uses, ImportPaths: r.importPaths}
 		diags = append(diags, r.diags...)
 	}
 	return out, diags
@@ -648,6 +654,7 @@ func (r *resolver) loadPackage(decl *syntax.ImportDecl) (members map[string]*Sym
 		if pkg == nil {
 			return nil, true
 		}
+		r.importPaths[decl] = pkg.Path
 		return pkg.Members, false
 	}
 	if r.cfg.Loader == nil {
@@ -677,5 +684,6 @@ func (r *resolver) loadPackage(decl *syntax.ImportDecl) (members map[string]*Sym
 		return nil, true
 	}
 	r.pkgCache[key] = pkg
+	r.importPaths[decl] = pkg.Path
 	return pkg.Members, false
 }

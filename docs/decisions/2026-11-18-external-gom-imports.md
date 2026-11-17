@@ -9,14 +9,14 @@ spec 7 節は `import "path"` をメインモジュール内に限定してい�
 
 ## 決定
 
-1. メインモジュール外のパスは `go list -f '{{.Dir}}'` を import ファイルのモジュールコンテキスト（Config.Dir）で実行してディレクトリを得る。依存モジュール・`replace`・ワークスペースの兄弟に `.gomi` があれば Gom パッケージとして読み込む。Go 側の可視性と同じ解決規則に揃うので「生成コードが import できるなら Gom 側も読める」。
+1. メインモジュール外のパスは `go list -m -f '{{.Path}}|{{.Dir}}' all` を import ファイルのモジュールコンテキスト（Config.Dir）で 1 回だけ実行し、モジュールグラフの最長プレフィックス + module-relative remainder でディレクトリを得る。依存モジュール・`replace`・ワークスペースの兄弟に `.gomi` があれば Gom パッケージとして読み込む。Go 側の可視性と同じ解決規則に揃うので「生成コードが import できるなら Gom 側も読める」。
 2. ツールチェーン同梱の Gom stdlib は短名を許す: `list` / `option` / `result` は `github.com/podhmo/gom/stdlib/<name>` に展開する。束縛名は従来どおりパス末尾要素（`list` など）、`.gomi` のメンバと生成される Go import は完全パスを記録する。短名は単一要素のパスなのでユーザのメインモジュールパスと衝突しない（衝突しうるのはモジュールパスが裸の `list` という異常な場合だけ）。
 3. `.gom` 実装側の import 走査（E0606 循環検出）も同じ解決を通すので、外部パッケージを介した循環も検出できる。
 
 ## 却下した案
 
 - **(a) stdlib だけ特別扱い（embed で同梱 .gomi を読む）**: gomstdlib.Gomis に .gomi は埋め込み済みだが、生成コードは結局 `github.com/podhmo/gom/stdlib/list` の Go パッケージを import するので consumer の go.mod に gom への依存は必須 — embed 版を読んでも build には意味がなく、`go list` 解決に一本化したほうが一貫する。stdlib 固有の分岐は短名展開だけに留めた。
-- **`go list -m` でモジュール単位に解決してからパスを切り出す**: ワークスペース・replace を考慮すると `-f {{.Dir}}` のパッケージ解決のほうが直接で、そのまま oneGoMi に渡せる。
+- **`go list -f '{{.Dir}}' <pkg>` でパッケージ単位に解決する**: 実装を進めると `-f {{.Dir}}` は「does not contain package」で Gom-only ディレクトリを拒否する（`gom build` 前には .go が 1 ファイルも存在しない）ことが判明 — .gomi があればこちらではパッケージなので、モジュール単位の `go list -m` + remainder 継ぎに切り替えた。モジュールグラフ側なら require/replace/workspace の可視性もそのまま反映される。
 - **メインモジュール外の解決を opt-in（フラグ）にする**: spec の v1 限定を破る拡張だが、生成 Go import がそもそも同じ可視性を要求するため言語レベルで別スイッチを置く意味がない。
 
 ## 影響
