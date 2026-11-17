@@ -46,8 +46,12 @@ Review on each PR. podhmo merges.
 | --- | --- | --- | --- |
 | 1 | `Go.Any` residual bugs + F1 | `devin/wave16-go-any-bugs` | impl |
 | 2 | Gom fn → Go func interop | `devin/wave16-func-interop` | decision+impl |
-| 3 | LSP loader session cache | `devin/wave16-lsp-cache` | decision+impl |
-| 4 | SourceMap per-line re-pin | `devin/wave16-sourcemap-repin` | decision+impl |
+| 3 | SourceMap per-line re-pin | `devin/wave16-sourcemap-repin` | decision+impl |
+| 4 | Go named-int 算術（Duration） | `devin/wave16-named-int-arith` | decision+impl |
+
+LSP 系は優先度低下（podhmo 指示 2026-11-17 — エージェント
+経由の開発では `gom lsp` を使わず CLI で足りるため）。
+loader cache と completion 系は backlog へ。
 
 open-question 由来の lane（2, 3, 4）は「どれか 1 案を実装
 する」のではなく「問い/選択肢/影響の構造で全候補を比較し、
@@ -147,41 +151,7 @@ internal/goimport (func-typed sig surface), docs/spec.md §8,
 docs/decisions, examples/gist-cli.
 ```
 
-### 3. LSP loader session cache — `devin/wave16-lsp-cache`
-
-```
-[decision+impl] TODO/deferred: `gom lsp` の per-change コスト
-~48–50ms は `go list -export`（compileOptions が毎コンパイルに
-fresh な goimport session を立てる）支配。wave-15 の `-go` で
-全面コンパイル＋staged build ~205–210ms にこの 50ms が上乗せ
-になっている。wave-11/12 で「loader session cache」として
-deferred されていた件を取る。
-
-(1) Decision draft: options (a) per-package-dir goimport
-    session cache keyed by dir — invalidate on (i) any overlay
-    change, (ii) any .gom/.gomi/.go disk mtime change in the
-    package dir, (iii) go.mod/go.sum change; (b) TTL/idle
-    eviction only; (c) 現状維持 (fresh-per-compile は常に
-    correct — cache は staleness 面を持つ) を決定として記録。
-    unsaved buffer とディスク更新の混在をどう invalidate
-    するかを具体的に書く — overlay gather が open buffer で
-    ディスクを shadow する現状の契約を壊さない。
-(2) 検証: in-process JSON-RPC テストで cache hit 時の per-
-    change コストを計測（TestGoToolCost 系の shape を真似る。
-    Emacs/Eglot は不要 — protocol 不変）。
-    重要: cached session が stale な .gomi/Go deps を返さない
-    ことを、兄弟ファイルを disk に書き換えて didChange する
-    テストで確認する（shadow された buffer ではなく disk
-    側の変更を拾えるか）。
-(3) `-go` 経路の staged build は cache 対象外のまま — この
-    lane は loader のみ。
-Ownership: internal/lsp (compileOptions/session 経路),
-internal/gomimport + internal/goimport (cache 境界 —
-additive、既存 API を変えない), docs/decisions, TODO
-check-off.
-```
-
-### 4. SourceMap per-line re-pin — `devin/wave16-sourcemap-repin`
+### 3. SourceMap per-line re-pin — `devin/wave16-sourcemap-repin`
 
 ```
 [decision+impl] open-questions ツール項 + gaps「SpanAt の
@@ -212,16 +182,68 @@ Ownership: internal/codegen (emission), internal/diag
 両系統を読む場合), testdata/golden.
 ```
 
+### 4. Go named-int 算術（Duration） — `devin/wave16-named-int-arith`
+
+```
+[decision+impl — open question に回答を絞る lane]
+
+問い: Go の named 整数型（`time.Duration` = int64 等）の
+値を Gom の算術でどう扱うか。`30 * time.Second` が綴れない
+— `time.Second` は int64 の typed 定数だが、Gom の Int 算術は
+Duration を生まず、Int × Duration はそもそも operand 型が
+揃わない（wave-15 lane 3 verified residual — `NewClient`
+removal condition の残り半分。struct 構築再検討の前提）。
+
+まず現状を pin する: `time.Second` が goimport でどう surface
+されるか（named type? Int 互換?）、`30 * time.Second` が今
+何になるか（E05xx? Int 算術が untyped literal を Duration に
+conform しない?）を fixture で記録してから選択肢を比較。
+
+選択肢の骨格（調査で増減してよい）:
+- (a) named-int 算術を admit — 両 operand が同じ named int
+    型なら演算可・結果もその型。untyped literal は operand の
+    named 型へ conform（`30 * time.Second` が `Duration`
+    を生む。Go の規則と同型）
+- (b) untyped literal のみ admit — literal 側だけ named 型に
+    conform させ、`Duration + Duration` などの named 同士
+    演算は現状のまま（小さいが半端。`Second * 2` は動き
+    `x * Second` は動かないかもしれない非対称）
+- (c) 変換 API のみ — `Go.conv`/`Duration.of_int` 的な明示
+    変換で書く（surface ゼロ、読みにくい:
+    `Duration.of_int (Int.of_duration Second * 30)`?）
+- (d) 現状維持 — host 側 factory に残す決定として記録
+
+各案で sketch するもの: `30 * time.Second` と
+`deadline - now`（`time.Until`/`Sub` の返り値）の両方の
+式の型付けと emitted Go。named 同士 + named×literal +
+named×Int 変数の 3 パターン。
+
+手順:
+(1) 現状 pin + survey: stdlib で named int/float 型がどこに
+    出るか (time.Duration, int64 系の sized types は別問い
+    として分離するか決める)。
+(2) 選択肢比較を decision draft に。
+(3) Implement per decision, additive。
+(4) Tests: `30 * time.Second` が要求型を生む・混在型は
+    honest error・`gom build` が通るところまで。
+Ownership: internal/check (arith operand typing, literal
+conform), internal/goimport (named type surface), spec.md §8,
+docs/decisions, testdata/spec.
+```
+
 ## Backlog — wave-17+ 候補（順不同）
 
 - Go struct 構築の再検討 — wave-15 lane 3 は (c)
   constructor-extern 採用だが、残障壁は callback interop
-  （wave-16 lane 2）+ Duration 算術の 2 件のみ。lane 2 が
-  (a)/(b) に決着し Duration 面も手当てされれば、コンポジット
+  （wave-16 lane 2）+ Duration 算術（wave-16 lane 4）の
+  2 件のみ。両 lane が (a)/(b) 系に決着すればコンポジット
   リテラル構文 (a) を再評価する価値がある
-- Duration 算術 — `30 * time.Second`（int64 typed 定数の
-  乗算が Gom の Int 算術で Duration を生まない問題）。
-  lane 2 決着後の `NewClient` removal condition の残り半分
+- LSP loader session cache — per-change コスト ~48–50ms の
+  `go list -export` 支配部分。優先度低下（podhmo、
+  2026-11-17: エージェント経由の開発では `gom lsp` を
+  使わない）。人間のエディタ用途が戻ったら取る。案の骨格:
+  (a) per-package-dir cache + overlay/disk mtime 無効化、
+  (b) TTL/idle eviction のみ、(c) 現状維持
 - 外部 module からの Gom import 解禁（gom-package-imports
   問題の残り 4 — self-import が module-derived になった今、
   `.gomi` 経由の boundary を再検討）。
