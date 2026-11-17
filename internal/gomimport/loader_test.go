@@ -556,3 +556,60 @@ require example.com/lib v0.0.0
 		t.Fatal("area missing — vendored .gomi did not load")
 	}
 }
+
+// GOFLAGS=-mod=mod disables vendoring for the go command — the
+// vendored copy must be ignored then too, or its stale interface
+// would disagree with the source the generated Go import uses.
+func TestLoadVendorDisabledByModFlag(t *testing.T) {
+	if testing.Short() {
+		t.Skip("runs `go list`")
+	}
+	t.Setenv("GOFLAGS", "-mod=mod")
+	dir := t.TempDir()
+	ext := filepath.Join(dir, "ext")
+	vendored := filepath.Join(ext, "vendor", "example.com", "lib", "shapes")
+	if err := os.MkdirAll(vendored, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	gomod := `module example.com/ext
+
+go 1.27
+
+require example.com/lib v0.0.0
+
+replace example.com/lib => ../lib
+`
+	if err := os.WriteFile(filepath.Join(ext, "go.mod"), []byte(gomod), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(ext, "vendor", "modules.txt"),
+		[]byte("# example.com/lib v0.0.0\n## explicit\nexample.com/lib/shapes\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// The vendored copy is stale — it lacks `area`.
+	if err := os.WriteFile(filepath.Join(vendored, "shapes.gomi"),
+		[]byte("package shapes\n\nfn legacy () -> Int\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	libDir := filepath.Join(dir, "lib")
+	if err := os.MkdirAll(filepath.Join(libDir, "shapes"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(libDir, "go.mod"),
+		[]byte("module example.com/lib\n\ngo 1.27\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(libDir, "shapes", "shapes.gomi"),
+		[]byte(shapesGomi), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	l := New(&Config{Dir: ext})
+	p, err := l.Load("example.com/lib/shapes", false)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if p.Members["area"] == nil {
+		t.Fatal("area missing — stale vendored .gomi won over the -mod=mod source")
+	}
+}

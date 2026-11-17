@@ -344,8 +344,12 @@ func (l *Loader) pkgDir(path string) (string, error) {
 	// A vendored package lives at <modRoot>/vendor/<import path> —
 	// prefer it directly: `go list -m` cannot see the build list
 	// under vendoring (the -mod=mod retry below is a fallback), and
-	// the module cache may never have held the source.
-	if _, modDir, merr := l.module(); merr == nil {
+	// the module cache may never have held the source. Only when
+	// vendor mode is actually in effect, though: `GOFLAGS=-mod=mod`
+	// (or =readonly) makes the go command ignore vendor/ entirely,
+	// and the generated Go import must see the same source the go
+	// tool will use.
+	if _, modDir, merr := l.module(); merr == nil && vendorEnabled() {
 		v := filepath.Join(modDir, "vendor", filepath.FromSlash(path))
 		if st, serr := os.Stat(v); serr == nil && st.IsDir() {
 			return v, nil
@@ -470,6 +474,26 @@ func (l *Loader) gobin() string {
 		return l.cfg.GoBin
 	}
 	return "go"
+}
+
+// vendorEnabled reports whether the go command would resolve
+// imports through vendor/: a vendor directory exists and GOFLAGS
+// does not carry an explicit -mod value other than vendor (an
+// explicit -mod=mod or -mod=readonly makes Go ignore vendor/
+// outright). Mirrors the go command's vendoring rule for modules
+// with go >= 1.14, which Gom requires anyway.
+func vendorEnabled() bool {
+	fields := strings.Fields(os.Getenv("GOFLAGS"))
+	for i, f := range fields {
+		f = strings.TrimLeft(f, "-")
+		if f == "mod" {
+			return i+1 < len(fields) && fields[i+1] == "vendor"
+		}
+		if v, ok := strings.CutPrefix(f, "mod="); ok {
+			return v == "vendor"
+		}
+	}
+	return true
 }
 
 // module reports the main module's path and root directory, read
