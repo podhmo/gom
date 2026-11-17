@@ -972,6 +972,13 @@ func (g *gen) convOf(kind core.ConvKind, target types.Type, x ast.Expr) ast.Expr
 			Fun:  ast.NewIdent(g.pkgQual(optionPath) + "FromGo"),
 			Args: []ast.Expr{x, &ast.BinaryExpr{X: x, Op: token.NEQ, Y: ast.NewIdent("nil")}},
 		}
+	case core.ConvOptToNil:
+		// `option.NilOr(v)` — the write side of the `(T, error)`
+		// boundary: `Some` is the payload, `None` the nil.
+		return &ast.CallExpr{
+			Fun:  ast.NewIdent(g.pkgQual(optionPath) + "NilOr"),
+			Args: []ast.Expr{x},
+		}
 	default:
 		panic("unreachable")
 	}

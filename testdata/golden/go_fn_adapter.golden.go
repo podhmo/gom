@@ -3,6 +3,7 @@
 package main
 
 import (
+	option "github.com/podhmo/gom/stdlib/option"
 	result "github.com/podhmo/gom/stdlib/result"
 	goiface "github.com/podhmo/gom/testdata/goiface"
 )
@@ -96,4 +97,39 @@ func main() {
 //line go_fn_adapter.gom:36
 	_ = struct{}{}
 //line go_fn_adapter.gom:31
+}
+
+//line go_fn_adapter.gom:42
+func roundtrip(_ struct{}) struct{} {
+//line go_fn_adapter.gom:43
+	tmp14 := goiface.ErrPair()
+//line go_fn_adapter.gom:43
+	g := func(tmp15 struct{}) result.Result[option.Option[error], error] {
+//line go_fn_adapter.gom:43
+		v1, err2 := tmp14()
+//line go_fn_adapter.gom:43
+		return result.FromGo(option.FromGo(v1, v1 != nil), err2)
+//line go_fn_adapter.gom:43
+	}
+//line go_fn_adapter.gom:44
+	f := func() (error, error) {
+//line go_fn_adapter.gom:44
+		v2, err3 := g(struct{}{}).Unwrap()
+//line go_fn_adapter.gom:44
+		if err3 != nil {
+//line go_fn_adapter.gom:44
+			var z error
+//line go_fn_adapter.gom:44
+			return z, err3
+//line go_fn_adapter.gom:44
+		}
+//line go_fn_adapter.gom:44
+		return option.NilOr(v2), nil
+//line go_fn_adapter.gom:44
+	}
+//line go_fn_adapter.gom:45
+	_ = f
+//line go_fn_adapter.gom:45
+	return struct{}{}
+//line go_fn_adapter.gom:42
 }

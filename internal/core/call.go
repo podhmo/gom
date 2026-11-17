@@ -372,6 +372,12 @@ const (
 	// `*T`-payload pair) applies it to the first result (spec
 	// section 8.4).
 	ConvOptNil
+	// ConvOptToNil writes an `Option T` back to the nil-able Go
+	// value — `option.NilOr(v)`: `Some` is the payload, `None` the
+	// nil. It is the Gom→Go half of the `(T, error)` boundary — a
+	// `Result (Option T) GoError` callback adapted by `Go.funcN`
+	// applies it to the first result.
+	ConvOptToNil
 )
 
 // String returns the kind name for debugging.
@@ -395,6 +401,8 @@ func (k ConvKind) String() string {
 		return "chan-dir"
 	case ConvOptNil:
 		return "opt-nil"
+	case ConvOptToNil:
+		return "opt-to-nil"
 	default:
 		return "ConvKind(?)"
 	}

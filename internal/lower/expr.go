@@ -611,6 +611,13 @@ func (l *lowerer) goConvKindOf(from, to types.Type) (core.ConvKind, bool) {
 		// GoError` view share it: `option.FromGo(v, v != nil)`.
 		return core.ConvOptNil, true
 	}
+	if fc, fok := from.(*types.Con); fok && l.isOptionCon(fc) && len(fc.Args) == 1 &&
+		types.Equal(to, fc.Args[0]) {
+		// The Gom→Go half: an `Option T` payload handed to the
+		// nil-able raw slot of `(T, error)` — `option.NilOr(v)`
+		// (`Some` is the value, `None` the nil).
+		return core.ConvOptToNil, true
+	}
 	fc, fok := from.(*types.Con)
 	tc, tok := to.(*types.Con)
 	if !fok || !tok || len(fc.Args) == 0 || len(tc.Args) == 0 {

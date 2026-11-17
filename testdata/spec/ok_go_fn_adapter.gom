@@ -36,3 +36,12 @@ fn err_pair () -> Result (Option GoError) GoError = {
   let g = Go.fn0 (goiface.ErrPair ())
   g ()
 }
+
+// Round-trip: `Go.fn0` reads `func() (error, error)` as
+// `Result (Option GoError) GoError`, and `Go.func0` writes that
+// declared view back to `func() (error, error)` — `Option` maps to
+// the nil-able slot (`option.NilOr`), `Some` the value, `None` nil.
+fn err_roundtrip () -> Go.Func0 GoError GoError = {
+  let g = Go.fn0 (goiface.ErrPair ())
+  Go.func0 g
+}

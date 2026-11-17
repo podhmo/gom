@@ -122,7 +122,7 @@ func (c *checker) checkGoFuncCall(e *syntax.Apply, fn Expr, callee *resolve.Symb
 			(len(wCon.Args) != n+2 || c.isBuiltinCon(types.Chase(wCon.Args[n+1]), "GoError")) {
 			seed = &types.Func{
 				Params: goFuncSeedParams(wCon.Args[:n]),
-				Ret:    goFuncSeedRet(c, wCon.Args[n:]),
+				Ret:    goFuncSeedRet(c, wCon.Args[n:], false),
 			}
 		}
 	}
@@ -273,7 +273,7 @@ func (c *checker) checkGoFnCall(e *syntax.Apply, fn Expr, callee *resolve.Symbol
 	}
 	out.Base = baseOf(e.Sp, &types.Func{
 		Params: goFuncSeedParams(fc.Args[:n]),
-		Ret:    goFuncSeedRet(c, fc.Args[n:]),
+		Ret:    goFuncSeedRet(c, fc.Args[n:], true),
 	})
 	out.Call = CallInfo{
 		Kind:      CallDirect,
@@ -337,10 +337,15 @@ func isGoFuncUnit(t types.Type) bool {
 
 // goFuncSeedRet maps a FuncN con's raw result arguments back to the
 // Gom-facing result: none → `Unit`, `error` → `Result Unit
-// GoError`, `(T, error)` → `Result T GoError` — wrapping the payload
-// in `Option` when T is a method-bearing interface (fnSeedNilable,
-// mirroring the import mapping) — a lone `T` → `T`.
-func goFuncSeedRet(c *checker, raws []types.Type) types.Type {
+// GoError`, `(T, error)` → `Result T GoError` — a lone `T` → `T`.
+// optWrap asks for the import mapping's `Option` wrap on a
+// method-bearing-interface payload (fnSeedNilable): `Go.fnN`'s
+// derived type wants it so `(nil, nil)` materializes `Ok None`;
+// `Go.funcN`'s lambda seed does not — there the verbatim
+// `Result GoError GoError` is the simple, always-non-nil reading
+// (`Option`-declared callbacks convert through goFuncRawResults'
+// own Option case instead).
+func goFuncSeedRet(c *checker, raws []types.Type, optWrap bool) types.Type {
 	switch len(raws) {
 	case 0:
 		return types.Unit
@@ -356,7 +361,7 @@ func goFuncSeedRet(c *checker, raws []types.Type) types.Type {
 		// view wraps it in Option exactly like the import mapping
 		// (internal/goimport/mapping.go): `Ok None` reads
 		// `(nil, nil)` instead of smuggling a nil interface in.
-		if c.fnSeedNilable(raws[0]) {
+		if optWrap && c.fnSeedNilable(raws[0]) {
 			p = types.Option(p)
 		}
 		return types.Result(p, types.GoError)
@@ -575,7 +580,16 @@ func goFuncRawResults(ret types.Type) ([]types.Type, string) {
 				uc.Qual == "" && uc.Name == "Unit" && len(uc.Args) == 0 {
 				return []types.Type{types.GoError}, ""
 			}
-			rt, reason := goFuncRawView(rc.Args[0])
+			// `Result (Option T) GoError` — the declared view of a
+			// `(T, error)` member whose payload is nil-able — reads
+			// back to the same raw pair: `Some` is the value,
+			// `None` the nil.
+			p := types.Chase(rc.Args[0])
+			if oc, isOpt := p.(*types.Con); isOpt && oc.Qual == "" &&
+				oc.Name == "Option" && len(oc.Args) == 1 {
+				p = types.Chase(oc.Args[0])
+			}
+			rt, reason := goFuncRawView(p)
 			if reason != "" {
 				return nil, reason
 			}

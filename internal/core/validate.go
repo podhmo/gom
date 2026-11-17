@@ -1346,6 +1346,15 @@ func (v *validator) conv(e *Conv) {
 		if t := atomType(e.X); t != nil && arg != nil && !types.Equal(t, arg) {
 			v.err(e.Sp, "Conv", "opt-nil operand type %s is not the Option payload %s", t, arg)
 		}
+	case ConvOptToNil:
+		// `option.NilOr(v)` — the operand must be `Option` whose
+		// payload is the result type.
+		if c, ok := types.Chase(atomType(e.X)).(*types.Con); !ok ||
+			c.Qual != "" || c.Name != "Option" || len(c.Args) != 1 {
+			v.err(e.Sp, "Conv", "opt-to-nil operand type %s is not an Option", atomType(e.X))
+		} else if e.Typ != nil && !types.Equal(types.Chase(c.Args[0]), types.Chase(e.Typ)) {
+			v.err(e.Sp, "Conv", "opt-to-nil result type %s is not the Option payload %s", e.Typ, c.Args[0])
+		}
 	default:
 		v.err(e.Sp, "Conv", "invalid conversion kind %d", int(e.Kind))
 	}

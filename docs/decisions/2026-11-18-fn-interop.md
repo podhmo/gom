@@ -58,3 +58,5 @@ Devin Review の指摘 3 件はいずれも実際の不整合で、以下を修�
 1. `snapshotCapturedParams` / `tailrec` の走査が `CallGo.Fn` を読んでおらず、ループ内で seed 値が capture されないケースがあった — 両 walker に `Fn` の走査を追加。
 2. seed した Gom ビューと raw ビューの間に変換可能性の検査がなく、`func([]int) int` のようなコンテナ内部で `int`/`int64` が割れる型が `gom check` を通って `gom build` で E0901 になった — `checkGoFnCall` に viewsCompatible(import の Hidden 判定)と同じ規則の `fnViewCompatible` を追加し E0510 で拒否。コンテナ内部の要素ごとの変換が将来書けるようになったら緩和できる。
 3. `(error, error)` 等のメソッドを持つ interface ペイロードに Option wrap がなく `(nil, nil)` が `Ok nil` になった — import mapping と同じ規則で `Result (Option T) GoError` を seed する(`GoError` は既知、`types.Go` の ref は新設の `check.NilableSource` optional protocol を `internal/goimport` が `l.named` + `methodIface` で実装)。
+
+4. (2nd review round) 上記 3 の `Option` wrap は `Go.funcN` の inline lambda seed にも共有され、`Ok payload` なコールバックが unification に落ちる回帰と、`Result (Option T) GoError` 宣言の fn が `Go.funcN` で往復できない既存 gap が露呈した — `Go.funcN` 側の seed は verbatim（`Result GoError GoError`、payload が nil になり得ない honest な読み）に戻し、`goFuncRawResults` が `Option` payload を受けるようにし、Gom→Go 方向の `ConvOptToNil`（`option.NilOr(v)` — Some→payload, None→nil）を新設して `(I, error)` 宣言の往復を完成させた。

@@ -35,3 +35,12 @@ fn main () -> Unit = {
   let _ = look 0
   ()
 }
+
+// `func() (error, error)` round-trip: `Go.fn0` reads the nil-able
+// interface payload as `Option` (`option.FromGo`), `Go.func0`
+// writes it back (`option.NilOr`).
+fn roundtrip () -> Unit = {
+  let g = Go.fn0 (goiface.ErrPair ())
+  let f = Go.func0 g
+  ignore f
+}
