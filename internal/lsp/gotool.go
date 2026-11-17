@@ -68,11 +68,16 @@ func NewGoTool() GoTool {
 			// .gom source did not cause. A real Go package in the same
 			// module (rt, this repo's own helpers, the user's Go dirs)
 			// resolves on disk and builds fine, so resolve each match
-			// and skip only when the target has no .go files.
+			// and skip when the target holds any .gom/.gomi source (a
+			// Gom package — handwritten .go helpers beside it do not
+			// supply the generated implementations) or no .go at all.
 			missing := false
 			for _, m := range selfRe.FindAllStringSubmatch(string(gen), -1) {
 				target := filepath.Join(modRoot, filepath.FromSlash(m[1]))
-				if gos, _ := filepath.Glob(filepath.Join(target, "*.go")); len(gos) == 0 {
+				gos, _ := filepath.Glob(filepath.Join(target, "*.go"))
+				goms, _ := filepath.Glob(filepath.Join(target, "*.gom"))
+				gomis, _ := filepath.Glob(filepath.Join(target, "*.gomi"))
+				if len(gos) == 0 || len(goms) > 0 || len(gomis) > 0 {
 					missing = true
 					break
 				}
@@ -236,18 +241,31 @@ func splitEmbedFields(s string) []string {
 // copyEmbedAssets stages the files a //go:embed pattern refers to,
 // preserving their paths relative to the package dir. Directories
 // copy recursively minus the `_`/`.`-prefixed entries embed skips
-// (an `all:` prefix keeps them), matching the embed spec.
+// (an `all:` prefix keeps them), matching the embed spec. Patterns
+// with `.`/`..` path elements — already invalid to the compiler —
+// are refused outright so a hostile directive cannot escape the
+// stage before `go build` rejects it.
 func copyEmbedAssets(srcDir, dstDir, pattern string) {
 	includeHidden := strings.HasPrefix(pattern, "all:")
+	pattern = strings.TrimPrefix(pattern, "all:")
+	for _, seg := range strings.Split(pattern, "/") {
+		if seg == ".." || seg == "." {
+			return
+		}
+	}
 	matches, err := filepath.Glob(filepath.Join(srcDir,
-		filepath.FromSlash(strings.TrimPrefix(pattern, "all:"))))
+		filepath.FromSlash(pattern)))
 	if err != nil {
 		return
 	}
 	copy := func(p string) {
 		rel, rerr := filepath.Rel(srcDir, p)
+		if rerr != nil || rel == ".." ||
+			strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			return
+		}
 		data, rerr2 := os.ReadFile(p)
-		if rerr != nil || rerr2 != nil {
+		if rerr2 != nil {
 			return
 		}
 		dst := filepath.Join(dstDir, rel)

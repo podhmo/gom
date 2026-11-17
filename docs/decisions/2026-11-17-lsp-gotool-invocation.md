@@ -46,9 +46,11 @@ go.mod（`require github.com/podhmo/gom`）がそのまま効き、実ディレ�
 同じ `internal` 可視性を持つ。兄弟の `.go` ファイルとその `//go:embed` 資産も
 併せてステージする（generated 名が衝突時に勝つ）。Gom パッケージ同士の
 import（`import "other"` → `"modPath/other"`）は生成物がそのモジュール内に
-存在しないため `go build` を skip する — 判定は import 先の解決後ディレクトリに
-`.go` があるかで行い、同一モジュール内の実在 Go パッケージ（gom 自身の
-`rt` など）は skip しない。その形の診断は gom 側が出す。
+存在しないため `go build` を skip する — 判定は import 先の解決後ディレクトリで行い、
+`.gom`/`.gomi` を含む（＝ Gom パッケージ。手書き `.go` helper があっても
+生成実装はディスクにない）または `.go` がない場合に skip。同一モジュール内の
+実在 Go パッケージ（gom 自身の `rt` など）は skip しない。その形の診断は
+gom 側が出す。
 
 skip 条件: ユニットに error 診断がある / いずれかの member が Output を
 持たない / 生成物が自モジュール import を含む。いずれの場合も go-tool

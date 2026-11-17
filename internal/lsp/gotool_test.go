@@ -305,6 +305,55 @@ func TestGoToolCopiesEmbedAssets(t *testing.T) {
 	}
 }
 
+// TestGoToolSkipsMixedGomSibling: a directory mixing .gom sources
+// with handwritten .go helpers is still a Gom package — the
+// helpers don't supply the generated implementations, so the pass
+// must skip rather than publish false undefined-symbol errors.
+func TestGoToolSkipsMixedGomSibling(t *testing.T) {
+	dir := t.TempDir()
+	writeModFile(t, dir)
+	sibling := filepath.Join(dir, "other")
+	if err := os.MkdirAll(sibling, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(sibling, "other.gom"), "package other\n")
+	writeFile(t, filepath.Join(sibling, "helper.go"),
+		"package other\n\nfunc Helper() {}\n")
+	gen := []byte("package main\n\nimport \"e2e/other\"\n\nvar _ = other.F\n\nfunc main() {}\n")
+	ds := NewGoTool()(
+		[]build.Input{{Path: filepath.Join(dir, "a.gom"),
+			Src: []byte("package main\n")}},
+		[]*build.Result{fakeResult(gen)})
+	if len(ds) != 0 {
+		t.Fatalf("expected silent skip for mixed gom sibling, got %v", ds)
+	}
+}
+
+// TestCopyEmbedAssetsRejectsTraversal: a `../` pattern — invalid to
+// the compiler anyway — must not let the stage touch files outside
+// itself before `go build` rejects the directive.
+func TestCopyEmbedAssetsRejectsTraversal(t *testing.T) {
+	root := t.TempDir()
+	srcDir := filepath.Join(root, "pkg")
+	dstDir := filepath.Join(root, "stage")
+	victim := filepath.Join(root, "payload.txt")
+	for _, d := range []string{srcDir, dstDir} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	writeFile(t, victim, "keep me")
+	writeFile(t, filepath.Join(srcDir, "evil.txt"), "attacker")
+	copyEmbedAssets(srcDir, dstDir, "../payload.txt")
+	if data, err := os.ReadFile(victim); err != nil ||
+		string(data) != "keep me" {
+		t.Fatalf("traversal pattern overwrote a workspace file: %s", data)
+	}
+	if _, err := os.ReadFile(filepath.Join(dstDir, "payload.txt")); err == nil {
+		t.Fatal("traversal pattern copied into the stage")
+	}
+}
+
 // TestGoToolNestedInternalImport: staging at the module root made
 // a package's legal sub/internal import unbuildable — the stage
 // lives inside the package's own directory so its internal
