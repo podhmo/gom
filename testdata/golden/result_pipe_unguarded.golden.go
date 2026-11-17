@@ -13,18 +13,21 @@ import (
 func keep(n int64) result.Result[int64, error] {
 //line result_pipe_unguarded.gom:6
 	return result.Ok[int64, error](n)
+//line result_pipe_unguarded.gom:6
 }
 
 //line result_pipe_unguarded.gom:7
 func shout(s string) result.Result[string, error] {
 //line result_pipe_unguarded.gom:7
 	return result.Ok[string, error](s)
+//line result_pipe_unguarded.gom:7
 }
 
 //line result_pipe_unguarded.gom:8
 func ukeep(u struct{}) result.Result[string, error] {
 //line result_pipe_unguarded.gom:8
 	return result.Ok[string, error]("set")
+//line result_pipe_unguarded.gom:8
 }
 
 //line result_pipe_unguarded.gom:13
@@ -33,14 +36,19 @@ func first(s string, r result.Result[int64, error]) result.Result[int64, error] 
 	var tmp1 int64
 //line result_pipe_unguarded.gom:14
 	switch r.Tag() {
+//line result_pipe_unguarded.gom:14
 	case result.ResultTagOk:
+//line result_pipe_unguarded.gom:14
 		tmp1 = r.Value
+//line result_pipe_unguarded.gom:14
 	case result.ResultTagErr:
 //line result_pipe_unguarded.gom:14
 		return result.Err[int64, error](r.Error)
+//line result_pipe_unguarded.gom:14
 	default:
 //line result_pipe_unguarded.gom:14
 		panic(rt.InvalidVariant("result.Result", r))
+//line result_pipe_unguarded.gom:14
 	}
 //line result_pipe_unguarded.gom:14
 	tmp2 := int(tmp1)
@@ -50,9 +58,11 @@ func first(s string, r result.Result[int64, error]) result.Result[int64, error] 
 	tmp8 := func(tmp4 struct{}) result.Result[int64, error] {
 //line result_pipe_unguarded.gom:14
 		tmp5, err := strconv.ParseInt(s, tmp2, tmp3)
+//line result_pipe_unguarded.gom:14
 		if err != nil {
 //line result_pipe_unguarded.gom:14
 			return result.Err[int64, error](rt.StepErr("strconv.ParseInt", err))
+//line result_pipe_unguarded.gom:14
 		}
 //line result_pipe_unguarded.gom:14
 		tmp6 := keep(tmp5)
@@ -60,20 +70,27 @@ func first(s string, r result.Result[int64, error]) result.Result[int64, error] 
 		var tmp7 int64
 //line result_pipe_unguarded.gom:14
 		switch tmp6.Tag() {
+//line result_pipe_unguarded.gom:14
 		case result.ResultTagOk:
+//line result_pipe_unguarded.gom:14
 			tmp7 = tmp6.Value
+//line result_pipe_unguarded.gom:14
 		case result.ResultTagErr:
 //line result_pipe_unguarded.gom:14
 			return result.Err[int64, error](rt.StepErr("keep", tmp6.Error))
+//line result_pipe_unguarded.gom:14
 		default:
 //line result_pipe_unguarded.gom:14
 			panic(rt.InvalidVariant("result.Result", tmp6))
+//line result_pipe_unguarded.gom:14
 		}
 //line result_pipe_unguarded.gom:14
 		return result.Ok[int64, error](tmp7)
+//line result_pipe_unguarded.gom:14
 	}
 //line result_pipe_unguarded.gom:14
 	return tmp8(struct{}{})
+//line result_pipe_unguarded.gom:13
 }
 
 //line result_pipe_unguarded.gom:16
@@ -86,17 +103,23 @@ func mid(s string, r result.Result[int64, error]) result.Result[int64, error] {
 		var tmp11 string
 //line result_pipe_unguarded.gom:17
 		switch tmp10.Tag() {
+//line result_pipe_unguarded.gom:17
 		case result.ResultTagOk:
+//line result_pipe_unguarded.gom:17
 			tmp11 = tmp10.Value
+//line result_pipe_unguarded.gom:17
 		case result.ResultTagErr:
 //line result_pipe_unguarded.gom:17
 			return result.Err[string, error](rt.StepErr("shout", tmp10.Error))
+//line result_pipe_unguarded.gom:17
 		default:
 //line result_pipe_unguarded.gom:17
 			panic(rt.InvalidVariant("result.Result", tmp10))
+//line result_pipe_unguarded.gom:17
 		}
 //line result_pipe_unguarded.gom:17
 		return result.Ok[string, error](tmp11)
+//line result_pipe_unguarded.gom:17
 	}
 //line result_pipe_unguarded.gom:17
 	tmp13 := tmp12(struct{}{})
@@ -104,19 +127,25 @@ func mid(s string, r result.Result[int64, error]) result.Result[int64, error] {
 	switch tmp13.Tag() {
 //line result_pipe_unguarded.gom:17
 	case result.ResultTagOk:
+//line result_pipe_unguarded.gom:17
 		tmp14 := tmp13.Value
 //line result_pipe_unguarded.gom:17
 		var tmp16 int64
 //line result_pipe_unguarded.gom:17
 		switch r.Tag() {
+//line result_pipe_unguarded.gom:17
 		case result.ResultTagOk:
+//line result_pipe_unguarded.gom:17
 			tmp16 = r.Value
+//line result_pipe_unguarded.gom:17
 		case result.ResultTagErr:
 //line result_pipe_unguarded.gom:17
 			return result.Err[int64, error](r.Error)
+//line result_pipe_unguarded.gom:17
 		default:
 //line result_pipe_unguarded.gom:17
 			panic(rt.InvalidVariant("result.Result", r))
+//line result_pipe_unguarded.gom:17
 		}
 //line result_pipe_unguarded.gom:17
 		tmp17 := int(tmp16)
@@ -126,9 +155,11 @@ func mid(s string, r result.Result[int64, error]) result.Result[int64, error] {
 		tmp25 := func(tmp19 struct{}) result.Result[int64, error] {
 //line result_pipe_unguarded.gom:17
 			tmp20, err1 := strconv.ParseInt(tmp14, tmp17, tmp18)
+//line result_pipe_unguarded.gom:17
 			if err1 != nil {
 //line result_pipe_unguarded.gom:17
 				return result.Err[int64, error](rt.StepErr("strconv.ParseInt", err1))
+//line result_pipe_unguarded.gom:17
 			}
 //line result_pipe_unguarded.gom:17
 			tmp21 := keep(tmp20)
@@ -136,14 +167,19 @@ func mid(s string, r result.Result[int64, error]) result.Result[int64, error] {
 			var tmp22 int64
 //line result_pipe_unguarded.gom:17
 			switch tmp21.Tag() {
+//line result_pipe_unguarded.gom:17
 			case result.ResultTagOk:
+//line result_pipe_unguarded.gom:17
 				tmp22 = tmp21.Value
+//line result_pipe_unguarded.gom:17
 			case result.ResultTagErr:
 //line result_pipe_unguarded.gom:17
 				return result.Err[int64, error](rt.StepErr("keep", tmp21.Error))
+//line result_pipe_unguarded.gom:17
 			default:
 //line result_pipe_unguarded.gom:17
 				panic(rt.InvalidVariant("result.Result", tmp21))
+//line result_pipe_unguarded.gom:17
 			}
 //line result_pipe_unguarded.gom:17
 			tmp23 := keep(tmp22)
@@ -151,29 +187,39 @@ func mid(s string, r result.Result[int64, error]) result.Result[int64, error] {
 			var tmp24 int64
 //line result_pipe_unguarded.gom:17
 			switch tmp23.Tag() {
+//line result_pipe_unguarded.gom:17
 			case result.ResultTagOk:
+//line result_pipe_unguarded.gom:17
 				tmp24 = tmp23.Value
+//line result_pipe_unguarded.gom:17
 			case result.ResultTagErr:
 //line result_pipe_unguarded.gom:17
 				return result.Err[int64, error](rt.StepErr("keep", tmp23.Error))
+//line result_pipe_unguarded.gom:17
 			default:
 //line result_pipe_unguarded.gom:17
 				panic(rt.InvalidVariant("result.Result", tmp23))
+//line result_pipe_unguarded.gom:17
 			}
 //line result_pipe_unguarded.gom:17
 			return result.Ok[int64, error](tmp24)
+//line result_pipe_unguarded.gom:17
 		}
 //line result_pipe_unguarded.gom:17
 		return tmp25(struct{}{})
 //line result_pipe_unguarded.gom:17
 	case result.ResultTagErr:
+//line result_pipe_unguarded.gom:17
 		tmp15 := tmp13.Error
 //line result_pipe_unguarded.gom:17
 		return result.Err[int64, error](tmp15)
+//line result_pipe_unguarded.gom:17
 	default:
 //line result_pipe_unguarded.gom:17
 		panic(rt.InvalidVariant("Result", tmp13))
+//line result_pipe_unguarded.gom:17
 	}
+//line result_pipe_unguarded.gom:16
 }
 
 //line result_pipe_unguarded.gom:19
@@ -186,17 +232,23 @@ func last(s string, r result.Result[int64, error]) result.Result[int64, error] {
 		var tmp28 string
 //line result_pipe_unguarded.gom:20
 		switch tmp27.Tag() {
+//line result_pipe_unguarded.gom:20
 		case result.ResultTagOk:
+//line result_pipe_unguarded.gom:20
 			tmp28 = tmp27.Value
+//line result_pipe_unguarded.gom:20
 		case result.ResultTagErr:
 //line result_pipe_unguarded.gom:20
 			return result.Err[string, error](rt.StepErr("shout", tmp27.Error))
+//line result_pipe_unguarded.gom:20
 		default:
 //line result_pipe_unguarded.gom:20
 			panic(rt.InvalidVariant("result.Result", tmp27))
+//line result_pipe_unguarded.gom:20
 		}
 //line result_pipe_unguarded.gom:20
 		return result.Ok[string, error](tmp28)
+//line result_pipe_unguarded.gom:20
 	}
 //line result_pipe_unguarded.gom:20
 	tmp30 := tmp29(struct{}{})
@@ -204,19 +256,25 @@ func last(s string, r result.Result[int64, error]) result.Result[int64, error] {
 	switch tmp30.Tag() {
 //line result_pipe_unguarded.gom:20
 	case result.ResultTagOk:
+//line result_pipe_unguarded.gom:20
 		tmp31 := tmp30.Value
 //line result_pipe_unguarded.gom:20
 		var tmp33 int64
 //line result_pipe_unguarded.gom:20
 		switch r.Tag() {
+//line result_pipe_unguarded.gom:20
 		case result.ResultTagOk:
+//line result_pipe_unguarded.gom:20
 			tmp33 = r.Value
+//line result_pipe_unguarded.gom:20
 		case result.ResultTagErr:
 //line result_pipe_unguarded.gom:20
 			return result.Err[int64, error](r.Error)
+//line result_pipe_unguarded.gom:20
 		default:
 //line result_pipe_unguarded.gom:20
 			panic(rt.InvalidVariant("result.Result", r))
+//line result_pipe_unguarded.gom:20
 		}
 //line result_pipe_unguarded.gom:20
 		tmp34 := int(tmp33)
@@ -226,24 +284,31 @@ func last(s string, r result.Result[int64, error]) result.Result[int64, error] {
 		tmp38 := func(tmp36 struct{}) result.Result[int64, error] {
 //line result_pipe_unguarded.gom:20
 			tmp37, err2 := strconv.ParseInt(tmp31, tmp34, tmp35)
+//line result_pipe_unguarded.gom:20
 			if err2 != nil {
 //line result_pipe_unguarded.gom:20
 				return result.Err[int64, error](rt.StepErr("strconv.ParseInt", err2))
+//line result_pipe_unguarded.gom:20
 			}
 //line result_pipe_unguarded.gom:20
 			return result.Ok[int64, error](tmp37)
+//line result_pipe_unguarded.gom:20
 		}
 //line result_pipe_unguarded.gom:20
 		return tmp38(struct{}{})
 //line result_pipe_unguarded.gom:20
 	case result.ResultTagErr:
+//line result_pipe_unguarded.gom:20
 		tmp32 := tmp30.Error
 //line result_pipe_unguarded.gom:20
 		return result.Err[int64, error](tmp32)
+//line result_pipe_unguarded.gom:20
 	default:
 //line result_pipe_unguarded.gom:20
 		panic(rt.InvalidVariant("Result", tmp30))
+//line result_pipe_unguarded.gom:20
 	}
+//line result_pipe_unguarded.gom:19
 }
 
 //line result_pipe_unguarded.gom:23
@@ -256,17 +321,23 @@ func errOnly(k string, r result.Result[string, error]) result.Result[string, err
 		var tmp41 string
 //line result_pipe_unguarded.gom:24
 		switch tmp40.Tag() {
+//line result_pipe_unguarded.gom:24
 		case result.ResultTagOk:
+//line result_pipe_unguarded.gom:24
 			tmp41 = tmp40.Value
+//line result_pipe_unguarded.gom:24
 		case result.ResultTagErr:
 //line result_pipe_unguarded.gom:24
 			return result.Err[string, error](rt.StepErr("shout", tmp40.Error))
+//line result_pipe_unguarded.gom:24
 		default:
 //line result_pipe_unguarded.gom:24
 			panic(rt.InvalidVariant("result.Result", tmp40))
+//line result_pipe_unguarded.gom:24
 		}
 //line result_pipe_unguarded.gom:24
 		return result.Ok[string, error](tmp41)
+//line result_pipe_unguarded.gom:24
 	}
 //line result_pipe_unguarded.gom:24
 	tmp43 := tmp42(struct{}{})
@@ -274,19 +345,25 @@ func errOnly(k string, r result.Result[string, error]) result.Result[string, err
 	switch tmp43.Tag() {
 //line result_pipe_unguarded.gom:24
 	case result.ResultTagOk:
+//line result_pipe_unguarded.gom:24
 		tmp44 := tmp43.Value
 //line result_pipe_unguarded.gom:24
 		var tmp46 string
 //line result_pipe_unguarded.gom:24
 		switch r.Tag() {
+//line result_pipe_unguarded.gom:24
 		case result.ResultTagOk:
+//line result_pipe_unguarded.gom:24
 			tmp46 = r.Value
+//line result_pipe_unguarded.gom:24
 		case result.ResultTagErr:
 //line result_pipe_unguarded.gom:24
 			return result.Err[string, error](r.Error)
+//line result_pipe_unguarded.gom:24
 		default:
 //line result_pipe_unguarded.gom:24
 			panic(rt.InvalidVariant("result.Result", r))
+//line result_pipe_unguarded.gom:24
 		}
 //line result_pipe_unguarded.gom:24
 		tmp51 := func(tmp47 struct{}) result.Result[string, error] {
@@ -294,10 +371,13 @@ func errOnly(k string, r result.Result[string, error]) result.Result[string, err
 			var tmp48 struct{}
 //line result_pipe_unguarded.gom:24
 			err3 := os.Setenv(tmp44, tmp46)
+//line result_pipe_unguarded.gom:24
 			if err3 != nil {
 //line result_pipe_unguarded.gom:24
 				return result.Err[string, error](rt.StepErr("os.Setenv", err3))
+//line result_pipe_unguarded.gom:24
 			}
+//line result_pipe_unguarded.gom:24
 			tmp48 = struct{}{}
 //line result_pipe_unguarded.gom:24
 			tmp49 := ukeep(tmp48)
@@ -305,29 +385,39 @@ func errOnly(k string, r result.Result[string, error]) result.Result[string, err
 			var tmp50 string
 //line result_pipe_unguarded.gom:24
 			switch tmp49.Tag() {
+//line result_pipe_unguarded.gom:24
 			case result.ResultTagOk:
+//line result_pipe_unguarded.gom:24
 				tmp50 = tmp49.Value
+//line result_pipe_unguarded.gom:24
 			case result.ResultTagErr:
 //line result_pipe_unguarded.gom:24
 				return result.Err[string, error](rt.StepErr("ukeep", tmp49.Error))
+//line result_pipe_unguarded.gom:24
 			default:
 //line result_pipe_unguarded.gom:24
 				panic(rt.InvalidVariant("result.Result", tmp49))
+//line result_pipe_unguarded.gom:24
 			}
 //line result_pipe_unguarded.gom:24
 			return result.Ok[string, error](tmp50)
+//line result_pipe_unguarded.gom:24
 		}
 //line result_pipe_unguarded.gom:24
 		return tmp51(struct{}{})
 //line result_pipe_unguarded.gom:24
 	case result.ResultTagErr:
+//line result_pipe_unguarded.gom:24
 		tmp45 := tmp43.Error
 //line result_pipe_unguarded.gom:24
 		return result.Err[string, error](tmp45)
+//line result_pipe_unguarded.gom:24
 	default:
 //line result_pipe_unguarded.gom:24
 		panic(rt.InvalidVariant("Result", tmp43))
+//line result_pipe_unguarded.gom:24
 	}
+//line result_pipe_unguarded.gom:23
 }
 
 //line result_pipe_unguarded.gom:28
@@ -336,6 +426,7 @@ func bump(n, x int64) result.Result[int64, error] {
 	tmp52 := n + x
 //line result_pipe_unguarded.gom:28
 	return result.Ok[int64, error](tmp52)
+//line result_pipe_unguarded.gom:28
 }
 
 //line result_pipe_unguarded.gom:29
@@ -348,17 +439,23 @@ func gomStep(n int64, r result.Result[int64, error]) result.Result[int64, error]
 		var tmp55 int64
 //line result_pipe_unguarded.gom:30
 		switch tmp54.Tag() {
+//line result_pipe_unguarded.gom:30
 		case result.ResultTagOk:
+//line result_pipe_unguarded.gom:30
 			tmp55 = tmp54.Value
+//line result_pipe_unguarded.gom:30
 		case result.ResultTagErr:
 //line result_pipe_unguarded.gom:30
 			return result.Err[int64, error](rt.StepErr("keep", tmp54.Error))
+//line result_pipe_unguarded.gom:30
 		default:
 //line result_pipe_unguarded.gom:30
 			panic(rt.InvalidVariant("result.Result", tmp54))
+//line result_pipe_unguarded.gom:30
 		}
 //line result_pipe_unguarded.gom:30
 		return result.Ok[int64, error](tmp55)
+//line result_pipe_unguarded.gom:30
 	}
 //line result_pipe_unguarded.gom:30
 	tmp57 := tmp56(struct{}{})
@@ -366,19 +463,25 @@ func gomStep(n int64, r result.Result[int64, error]) result.Result[int64, error]
 	switch tmp57.Tag() {
 //line result_pipe_unguarded.gom:30
 	case result.ResultTagOk:
+//line result_pipe_unguarded.gom:30
 		tmp58 := tmp57.Value
 //line result_pipe_unguarded.gom:30
 		var tmp60 int64
 //line result_pipe_unguarded.gom:30
 		switch r.Tag() {
+//line result_pipe_unguarded.gom:30
 		case result.ResultTagOk:
+//line result_pipe_unguarded.gom:30
 			tmp60 = r.Value
+//line result_pipe_unguarded.gom:30
 		case result.ResultTagErr:
 //line result_pipe_unguarded.gom:30
 			return result.Err[int64, error](r.Error)
+//line result_pipe_unguarded.gom:30
 		default:
 //line result_pipe_unguarded.gom:30
 			panic(rt.InvalidVariant("result.Result", r))
+//line result_pipe_unguarded.gom:30
 		}
 //line result_pipe_unguarded.gom:30
 		tmp61 := bump(tmp60, tmp58)
@@ -388,14 +491,19 @@ func gomStep(n int64, r result.Result[int64, error]) result.Result[int64, error]
 			var tmp63 int64
 //line result_pipe_unguarded.gom:30
 			switch tmp61.Tag() {
+//line result_pipe_unguarded.gom:30
 			case result.ResultTagOk:
+//line result_pipe_unguarded.gom:30
 				tmp63 = tmp61.Value
+//line result_pipe_unguarded.gom:30
 			case result.ResultTagErr:
 //line result_pipe_unguarded.gom:30
 				return result.Err[int64, error](rt.StepErr("bump", tmp61.Error))
+//line result_pipe_unguarded.gom:30
 			default:
 //line result_pipe_unguarded.gom:30
 				panic(rt.InvalidVariant("result.Result", tmp61))
+//line result_pipe_unguarded.gom:30
 			}
 //line result_pipe_unguarded.gom:30
 			tmp64 := keep(tmp63)
@@ -403,27 +511,37 @@ func gomStep(n int64, r result.Result[int64, error]) result.Result[int64, error]
 			var tmp65 int64
 //line result_pipe_unguarded.gom:30
 			switch tmp64.Tag() {
+//line result_pipe_unguarded.gom:30
 			case result.ResultTagOk:
+//line result_pipe_unguarded.gom:30
 				tmp65 = tmp64.Value
+//line result_pipe_unguarded.gom:30
 			case result.ResultTagErr:
 //line result_pipe_unguarded.gom:30
 				return result.Err[int64, error](rt.StepErr("keep", tmp64.Error))
+//line result_pipe_unguarded.gom:30
 			default:
 //line result_pipe_unguarded.gom:30
 				panic(rt.InvalidVariant("result.Result", tmp64))
+//line result_pipe_unguarded.gom:30
 			}
 //line result_pipe_unguarded.gom:30
 			return result.Ok[int64, error](tmp65)
+//line result_pipe_unguarded.gom:30
 		}
 //line result_pipe_unguarded.gom:30
 		return tmp66(struct{}{})
 //line result_pipe_unguarded.gom:30
 	case result.ResultTagErr:
+//line result_pipe_unguarded.gom:30
 		tmp59 := tmp57.Error
 //line result_pipe_unguarded.gom:30
 		return result.Err[int64, error](tmp59)
+//line result_pipe_unguarded.gom:30
 	default:
 //line result_pipe_unguarded.gom:30
 		panic(rt.InvalidVariant("Result", tmp57))
+//line result_pipe_unguarded.gom:30
 	}
+//line result_pipe_unguarded.gom:29
 }

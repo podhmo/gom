@@ -18,10 +18,13 @@ func IsOk[A, E any](r Result[A, E]) bool {
 	case ResultTagErr:
 //line stdlib/result/result.gom:9
 		return false
+//line stdlib/result/result.gom:9
 	default:
 //line stdlib/result/result.gom:7
 		panic(rt.InvalidVariant("Result", r))
+//line stdlib/result/result.gom:8
 	}
+//line stdlib/result/result.gom:7
 }
 
 //line stdlib/result/result.gom:12
@@ -36,10 +39,13 @@ func IsErr[A, E any](r Result[A, E]) bool {
 	case ResultTagErr:
 //line stdlib/result/result.gom:14
 		return true
+//line stdlib/result/result.gom:14
 	default:
 //line stdlib/result/result.gom:12
 		panic(rt.InvalidVariant("Result", r))
+//line stdlib/result/result.gom:13
 	}
+//line stdlib/result/result.gom:12
 }
 
 //line stdlib/result/result.gom:19
@@ -48,6 +54,7 @@ func Get[A, E any](r Result[A, E]) A {
 	switch r.Tag() {
 //line stdlib/result/result.gom:20
 	case ResultTagOk:
+//line stdlib/result/result.gom:20
 		tmp5 := r.Value
 //line stdlib/result/result.gom:20
 		tmp6 := tmp5
@@ -57,10 +64,13 @@ func Get[A, E any](r Result[A, E]) A {
 	case ResultTagErr:
 //line stdlib/result/result.gom:21
 		return rt.Todo[A]()
+//line stdlib/result/result.gom:21
 	default:
 //line stdlib/result/result.gom:19
 		panic(rt.InvalidVariant("Result", r))
+//line stdlib/result/result.gom:20
 	}
+//line stdlib/result/result.gom:19
 }
 
 //line stdlib/result/result.gom:26
@@ -69,6 +79,7 @@ func GetOrElse[A, E any](fallback A, r Result[A, E]) A {
 	switch r.Tag() {
 //line stdlib/result/result.gom:27
 	case ResultTagOk:
+//line stdlib/result/result.gom:27
 		tmp8 := r.Value
 //line stdlib/result/result.gom:27
 		tmp9 := tmp8
@@ -78,10 +89,13 @@ func GetOrElse[A, E any](fallback A, r Result[A, E]) A {
 	case ResultTagErr:
 //line stdlib/result/result.gom:28
 		return fallback
+//line stdlib/result/result.gom:28
 	default:
 //line stdlib/result/result.gom:26
 		panic(rt.InvalidVariant("Result", r))
+//line stdlib/result/result.gom:27
 	}
+//line stdlib/result/result.gom:26
 }
 
 //line stdlib/result/result.gom:32
@@ -94,15 +108,19 @@ func GetErr[A, E any](r Result[A, E]) E {
 		return rt.Todo[E]()
 //line stdlib/result/result.gom:33
 	case ResultTagErr:
+//line stdlib/result/result.gom:33
 		tmp12 := r.Error
 //line stdlib/result/result.gom:33
 		tmp13 := tmp12
 //line stdlib/result/result.gom:34
 		return tmp13
+//line stdlib/result/result.gom:34
 	default:
 //line stdlib/result/result.gom:32
 		panic(rt.InvalidVariant("Result", r))
+//line stdlib/result/result.gom:33
 	}
+//line stdlib/result/result.gom:32
 }
 
 //line stdlib/result/result.gom:37
@@ -111,6 +129,7 @@ func Map[A, B, E any](f func(A) B, r Result[A, E]) Result[B, E] {
 	switch r.Tag() {
 //line stdlib/result/result.gom:38
 	case ResultTagOk:
+//line stdlib/result/result.gom:38
 		tmp14 := r.Value
 //line stdlib/result/result.gom:38
 		tmp15 := tmp14
@@ -120,15 +139,19 @@ func Map[A, B, E any](f func(A) B, r Result[A, E]) Result[B, E] {
 		return Ok[B, E](tmp16)
 //line stdlib/result/result.gom:38
 	case ResultTagErr:
+//line stdlib/result/result.gom:38
 		tmp17 := r.Error
 //line stdlib/result/result.gom:38
 		tmp18 := tmp17
 //line stdlib/result/result.gom:39
 		return Err[B, E](tmp18)
+//line stdlib/result/result.gom:39
 	default:
 //line stdlib/result/result.gom:37
 		panic(rt.InvalidVariant("Result", r))
+//line stdlib/result/result.gom:38
 	}
+//line stdlib/result/result.gom:37
 }
 
 //line stdlib/result/result.gom:43
@@ -137,6 +160,7 @@ func MapErr[E, E2, A any](f func(E) E2, r Result[A, E]) Result[A, E2] {
 	switch r.Tag() {
 //line stdlib/result/result.gom:44
 	case ResultTagOk:
+//line stdlib/result/result.gom:44
 		tmp19 := r.Value
 //line stdlib/result/result.gom:44
 		tmp20 := tmp19
@@ -144,6 +168,7 @@ func MapErr[E, E2, A any](f func(E) E2, r Result[A, E]) Result[A, E2] {
 		return Ok[A, E2](tmp20)
 //line stdlib/result/result.gom:44
 	case ResultTagErr:
+//line stdlib/result/result.gom:44
 		tmp21 := r.Error
 //line stdlib/result/result.gom:44
 		tmp22 := tmp21
@@ -151,10 +176,13 @@ func MapErr[E, E2, A any](f func(E) E2, r Result[A, E]) Result[A, E2] {
 		tmp23 := f(tmp22)
 //line stdlib/result/result.gom:45
 		return Err[A, E2](tmp23)
+//line stdlib/result/result.gom:45
 	default:
 //line stdlib/result/result.gom:43
 		panic(rt.InvalidVariant("Result", r))
+//line stdlib/result/result.gom:44
 	}
+//line stdlib/result/result.gom:43
 }
 
 //line stdlib/result/result.gom:49
@@ -163,6 +191,7 @@ func AndThen[A, B, E any](f func(A) Result[B, E], r Result[A, E]) Result[B, E] {
 	switch r.Tag() {
 //line stdlib/result/result.gom:50
 	case ResultTagOk:
+//line stdlib/result/result.gom:50
 		tmp24 := r.Value
 //line stdlib/result/result.gom:50
 		tmp25 := tmp24
@@ -170,15 +199,19 @@ func AndThen[A, B, E any](f func(A) Result[B, E], r Result[A, E]) Result[B, E] {
 		return f(tmp25)
 //line stdlib/result/result.gom:50
 	case ResultTagErr:
+//line stdlib/result/result.gom:50
 		tmp26 := r.Error
 //line stdlib/result/result.gom:50
 		tmp27 := tmp26
 //line stdlib/result/result.gom:51
 		return Err[B, E](tmp27)
+//line stdlib/result/result.gom:51
 	default:
 //line stdlib/result/result.gom:49
 		panic(rt.InvalidVariant("Result", r))
+//line stdlib/result/result.gom:50
 	}
+//line stdlib/result/result.gom:49
 }
 
 //line stdlib/result/result.gom:55
@@ -193,10 +226,13 @@ func OrElse[A, E any](fallback, r Result[A, E]) Result[A, E] {
 	case ResultTagErr:
 //line stdlib/result/result.gom:57
 		return fallback
+//line stdlib/result/result.gom:57
 	default:
 //line stdlib/result/result.gom:55
 		panic(rt.InvalidVariant("Result", r))
+//line stdlib/result/result.gom:56
 	}
+//line stdlib/result/result.gom:55
 }
 
 //line stdlib/result/result.gom:61
@@ -205,6 +241,7 @@ func Iter[A, E any](f func(A) struct{}, r Result[A, E]) struct{} {
 	switch r.Tag() {
 //line stdlib/result/result.gom:62
 	case ResultTagOk:
+//line stdlib/result/result.gom:62
 		tmp30 := r.Value
 //line stdlib/result/result.gom:62
 		tmp31 := tmp30
@@ -214,8 +251,11 @@ func Iter[A, E any](f func(A) struct{}, r Result[A, E]) struct{} {
 	case ResultTagErr:
 //line stdlib/result/result.gom:63
 		return struct{}{}
+//line stdlib/result/result.gom:63
 	default:
 //line stdlib/result/result.gom:61
 		panic(rt.InvalidVariant("Result", r))
+//line stdlib/result/result.gom:62
 	}
+//line stdlib/result/result.gom:61
 }

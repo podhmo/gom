@@ -23,6 +23,7 @@ func main(_ struct{}) struct{} {
 	tmp2 := rt.BoxSlice(args)
 //line go_slice_boundary.gom:14
 	v, err := fmt.Println(tmp2...)
+//line go_slice_boundary.gom:14
 	_ = result.FromGo(int64(v), err)
 //line go_slice_boundary.gom:15
 	tmp3 := os.Environ()
@@ -32,4 +33,5 @@ func main(_ struct{}) struct{} {
 	_ = env
 //line go_slice_boundary.gom:17
 	return struct{}{}
+//line go_slice_boundary.gom:11
 }

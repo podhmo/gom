@@ -16,6 +16,7 @@ func ops(gs []int64) int64 {
 	var tmp1 option.Option[int64]
 //line go_slice_ops.gom:10
 	v1, ok := rt.SliceGet[int64](gs, 0)
+//line go_slice_ops.gom:10
 	tmp1 = option.FromGo(v1, ok)
 //line go_slice_ops.gom:10
 	var first int64
@@ -23,6 +24,7 @@ func ops(gs []int64) int64 {
 	switch v2 := tmp1.(type) {
 //line go_slice_ops.gom:11
 	case option.Option_Some[int64]:
+//line go_slice_ops.gom:11
 		tmp2 := v2
 //line go_slice_ops.gom:11
 		tmp3 := tmp2.V0
@@ -32,9 +34,11 @@ func ops(gs []int64) int64 {
 	case option.Option_None[int64]:
 //line go_slice_ops.gom:12
 		first = 0
+//line go_slice_ops.gom:12
 	default:
 //line go_slice_ops.gom:10
 		panic(rt.InvalidVariant("Option", tmp1))
+//line go_slice_ops.gom:11
 	}
 //line go_slice_ops.gom:14
 	sub := rt.SliceSub[int64](gs, 1, n)
@@ -44,7 +48,9 @@ func ops(gs []int64) int64 {
 		return func(v int64) int64 {
 //line go_slice_ops.gom:15
 			return acc + v
+//line go_slice_ops.gom:15
 		}
+//line go_slice_ops.gom:15
 	}
 //line go_slice_ops.gom:15
 	total := rt.SliceFold[int64, int64](sub, tmp4, 0)
@@ -58,6 +64,7 @@ func ops(gs []int64) int64 {
 	tmp7 := list.Length[int64](back)
 //line go_slice_ops.gom:17
 	return tmp6 + tmp7
+//line go_slice_ops.gom:8
 }
 
 //line go_slice_ops.gom:20
@@ -70,8 +77,11 @@ func count(xs list.List[int64]) int64 {
 		return func(_ int64) int64 {
 //line go_slice_ops.gom:21
 			return n + 1
+//line go_slice_ops.gom:21
 		}
+//line go_slice_ops.gom:21
 	}
 //line go_slice_ops.gom:21
 	return rt.SliceFold[int64, int64](tmp8, tmp9, 0)
+//line go_slice_ops.gom:20
 }

@@ -25,6 +25,7 @@ func run(_ struct{}) int64 {
 	rt.ChanClose[int64](tmp3)
 //line chan_ops.gom:10
 	return drain(ch, 0)
+//line chan_ops.gom:5
 }
 
 //line chan_ops.gom:13
@@ -35,11 +36,13 @@ func drain(ch chan int64, acc int64) int64 {
 	var tmp5 option.Option[int64]
 //line chan_ops.gom:14
 	v1, ok := rt.ChanRecv[int64](tmp4)
+//line chan_ops.gom:14
 	tmp5 = option.FromGo(v1, ok)
 //line chan_ops.gom:15
 	switch v2 := tmp5.(type) {
 //line chan_ops.gom:15
 	case option.Option_Some[int64]:
+//line chan_ops.gom:15
 		tmp6 := v2
 //line chan_ops.gom:15
 		tmp7 := tmp6.V0
@@ -51,10 +54,13 @@ func drain(ch chan int64, acc int64) int64 {
 	case option.Option_None[int64]:
 //line chan_ops.gom:16
 		return acc
+//line chan_ops.gom:16
 	default:
 //line chan_ops.gom:14
 		panic(rt.InvalidVariant("Option", tmp5))
+//line chan_ops.gom:15
 	}
+//line chan_ops.gom:13
 }
 
 //line chan_ops.gom:19
@@ -65,8 +71,11 @@ func drainFor(ch <-chan int64) struct{} {
 		_ = v
 //line chan_ops.gom:21
 		_ = struct{}{}
+//line chan_ops.gom:20
 	}
+//line chan_ops.gom:20
 	return struct{}{}
+//line chan_ops.gom:19
 }
 
 //line chan_ops.gom:24
@@ -77,4 +86,5 @@ func views(ch chan int64) rt.Tuple2[<-chan int64, chan<- int64] {
 	tmp10 := rt.ChanSendOnly[int64](ch)
 //line chan_ops.gom:25
 	return rt.Tuple2[<-chan int64, chan<- int64]{V0: tmp9, V1: tmp10}
+//line chan_ops.gom:24
 }

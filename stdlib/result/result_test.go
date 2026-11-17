@@ -28,6 +28,7 @@ func TestIsOkIsErr(t *testing.T) {
 	tmp36 := !tmp35
 //line stdlib/result/result.gom:77
 	rt.Assert(t, tmp36)
+//line stdlib/result/result.gom:72
 }
 
 //line stdlib/result/result.gom:80
@@ -52,6 +53,7 @@ func TestGetGetOrElseGetErr(t *testing.T) {
 	tmp40 := GetErr[int64, string](errR)
 //line stdlib/result/result.gom:86
 	rt.AssertEq(t, tmp40 == "bad", strconv.Quote(tmp40), strconv.Quote("bad"))
+//line stdlib/result/result.gom:80
 }
 
 //line stdlib/result/result.gom:89
@@ -68,6 +70,7 @@ func TestMapMapErrAndThen(t *testing.T) {
 	tmp41 := func(x int64) int64 {
 //line stdlib/result/result.gom:94
 		return x + 1
+//line stdlib/result/result.gom:94
 	}
 //line stdlib/result/result.gom:94
 	tmp42 := Map[int64, int64, string](tmp41, ok1)
@@ -77,6 +80,7 @@ func TestMapMapErrAndThen(t *testing.T) {
 	tmp43 := func(x1 int64) int64 {
 //line stdlib/result/result.gom:95
 		return x1 + 1
+//line stdlib/result/result.gom:95
 	}
 //line stdlib/result/result.gom:95
 	tmp44 := Map[int64, int64, string](tmp43, errR)
@@ -88,6 +92,7 @@ func TestMapMapErrAndThen(t *testing.T) {
 		tmp45 := e
 //line stdlib/result/result.gom:96
 		return tmp45 + "!"
+//line stdlib/result/result.gom:96
 	}
 //line stdlib/result/result.gom:96
 	tmp47 := MapErr[string, string, int64](tmp46, errR)
@@ -99,6 +104,7 @@ func TestMapMapErrAndThen(t *testing.T) {
 		tmp48 := e1
 //line stdlib/result/result.gom:97
 		return tmp48 + "!"
+//line stdlib/result/result.gom:97
 	}
 //line stdlib/result/result.gom:97
 	tmp50 := MapErr[string, string, int64](tmp49, ok1)
@@ -110,6 +116,7 @@ func TestMapMapErrAndThen(t *testing.T) {
 		tmp51 := x2 + 1
 //line stdlib/result/result.gom:98
 		return Ok[int64, string](tmp51)
+//line stdlib/result/result.gom:98
 	}
 //line stdlib/result/result.gom:98
 	tmp53 := AndThen[int64, int64, string](tmp52, ok1)
@@ -121,11 +128,13 @@ func TestMapMapErrAndThen(t *testing.T) {
 		tmp54 := x3 + 1
 //line stdlib/result/result.gom:99
 		return Ok[int64, string](tmp54)
+//line stdlib/result/result.gom:99
 	}
 //line stdlib/result/result.gom:99
 	tmp56 := AndThen[int64, int64, string](tmp55, errR)
 //line stdlib/result/result.gom:99
 	rt.AssertEq(t, tmp56 == errR, gomShow168abbcd6(tmp56), gomShow168abbcd6(errR))
+//line stdlib/result/result.gom:89
 }
 
 //line stdlib/result/result.gom:102
@@ -144,16 +153,26 @@ func TestOrElse(t *testing.T) {
 	tmp58 := OrElse[int64, string](ok9, errR)
 //line stdlib/result/result.gom:107
 	rt.AssertEq(t, tmp58 == ok9, gomShow168abbcd6(tmp58), gomShow168abbcd6(ok9))
+//line stdlib/result/result.gom:102
 }
 
 //line stdlib/result/result.gom:94
 func gomShow168abbcd6(v Result[int64, string]) string {
+//line stdlib/result/result.gom:94
 	switch v.Tag() {
+//line stdlib/result/result.gom:94
 	case ResultTagOk:
+//line stdlib/result/result.gom:94
 		return "" + "Ok" + " " + strconv.FormatInt(v.Value, 10)
+//line stdlib/result/result.gom:94
 	case ResultTagErr:
+//line stdlib/result/result.gom:94
 		return "" + "Err" + " " + strconv.Quote(v.Error)
+//line stdlib/result/result.gom:94
 	default:
+//line stdlib/result/result.gom:94
 		panic(rt.InvalidVariant("result.Result", v))
+//line stdlib/result/result.gom:94
 	}
+//line stdlib/result/result.gom:94
 }

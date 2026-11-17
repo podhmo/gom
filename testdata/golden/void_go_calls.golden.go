@@ -12,12 +12,14 @@ func schedule(_ struct{}) struct{} {
 	runtime.Gosched()
 //line void_go_calls.gom:5
 	return struct{}{}
+//line void_go_calls.gom:5
 }
 
 //line void_go_calls.gom:6
 func use(u struct{}) struct{} {
 //line void_go_calls.gom:6
 	return u
+//line void_go_calls.gom:6
 }
 
 //line void_go_calls.gom:7
@@ -28,6 +30,7 @@ func bound(_ struct{}) struct{} {
 	u := struct{}{}
 //line void_go_calls.gom:7
 	return use(u)
+//line void_go_calls.gom:7
 }
 
 //line void_go_calls.gom:8
@@ -36,6 +39,7 @@ func argument(_ struct{}) struct{} {
 	runtime.Gosched()
 //line void_go_calls.gom:8
 	return use(struct{}{})
+//line void_go_calls.gom:8
 }
 
 //line void_go_calls.gom:9
@@ -46,8 +50,11 @@ func branch(b bool) struct{} {
 		runtime.Gosched()
 //line void_go_calls.gom:9
 		return struct{}{}
+//line void_go_calls.gom:9
 	} else {
 //line void_go_calls.gom:9
 		return struct{}{}
+//line void_go_calls.gom:9
 	}
+//line void_go_calls.gom:9
 }

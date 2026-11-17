@@ -6,4 +6,5 @@ package m
 func use(_ struct{}) int64 {
 //line sibling_decls/b.gom:3
 	return base + 1
+//line sibling_decls/b.gom:3
 }

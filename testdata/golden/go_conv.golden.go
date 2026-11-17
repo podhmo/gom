@@ -12,30 +12,35 @@ import (
 func duration(n int64) time.Duration {
 //line go_conv.gom:10
 	return time.Duration(n)
+//line go_conv.gom:10
 }
 
 //line go_conv.gom:12
 func nanos(d time.Duration) int64 {
 //line go_conv.gom:12
 	return int64(d)
+//line go_conv.gom:12
 }
 
 //line go_conv.gom:14
 func freeze(xs []int64) list.List[int64] {
 //line go_conv.gom:14
 	return list.FromSlice(xs)
+//line go_conv.gom:14
 }
 
 //line go_conv.gom:16
 func thaw(xs list.List[int64]) []int64 {
 //line go_conv.gom:16
 	return xs.ToSlice()
+//line go_conv.gom:16
 }
 
 //line go_conv.gom:18
 func runes(s string) list.List[rune] {
 //line go_conv.gom:18
 	return list.List[rune](s)
+//line go_conv.gom:18
 }
 
 //line go_conv.gom:20
@@ -44,4 +49,5 @@ func args(_ struct{}) list.List[string] {
 	tmp1 := list.FromSlice(os.Args)
 //line go_conv.gom:20
 	return list.List[string](tmp1)
+//line go_conv.gom:20
 }

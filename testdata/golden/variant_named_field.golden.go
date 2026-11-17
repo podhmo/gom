@@ -9,13 +9,16 @@ type Shape interface{ isShape() }
 type Shape_Circle struct {
 //line variant_named_field.gom:15
 	R float64
+//line variant_named_field.gom:15
 }
 
+//line variant_named_field.gom:15
 func (Shape_Circle) isShape() {}
 
 //line variant_named_field.gom:15
 type Shape_Empty struct{}
 
+//line variant_named_field.gom:15
 func (Shape_Empty) isShape() {}
 
 //line variant_named_field.gom:31
@@ -27,17 +30,23 @@ type Pair_MkPair[A any] struct {
 	Fst A
 //line variant_named_field.gom:31
 	Snd A
+//line variant_named_field.gom:31
 }
 
+//line variant_named_field.gom:31
 func (Pair_MkPair[A]) isPair() A {
+//line variant_named_field.gom:31
 	var z0 A
+//line variant_named_field.gom:31
 	return z0
+//line variant_named_field.gom:31
 }
 
 //line variant_named_field.gom:17
 func getr(s Shape) float64 {
 //line variant_named_field.gom:17
 	return s.(Shape_Circle).R
+//line variant_named_field.gom:17
 }
 
 //line variant_named_field.gom:19
@@ -46,6 +55,7 @@ func letbound(_ struct{}) float64 {
 	s := Shape(Shape_Circle{R: 1.0})
 //line variant_named_field.gom:21
 	return s.(Shape_Circle).R
+//line variant_named_field.gom:19
 }
 
 //line variant_named_field.gom:24
@@ -54,16 +64,19 @@ func rebound(s Shape) float64 {
 	t_ := s
 //line variant_named_field.gom:26
 	return t_.(Shape_Circle).R
+//line variant_named_field.gom:24
 }
 
 //line variant_named_field.gom:33
 func pfst[A any](p Pair[A]) A {
 //line variant_named_field.gom:33
 	return p.(Pair_MkPair[A]).Fst
+//line variant_named_field.gom:33
 }
 
 //line variant_named_field.gom:35
 func main() {
 //line variant_named_field.gom:35
 	_ = struct{}{}
+//line variant_named_field.gom:35
 }

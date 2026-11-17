@@ -7,6 +7,12 @@ package build_test
 // lands on the construct that produced it, a report several
 // constructs claim is the honest union, and a report nothing
 // claims keeps the naive answer.
+//
+// Since wave-16's per-line re-pin (decision
+// 2026-11-17-sourcemap-repin) every generated line carries its own
+// directive, so no line drifts: the remaining ambiguity is real —
+// several constructs pinned to the *same* .gom line — and a .gom
+// line nothing emits reports unmapped.
 
 import (
 	"os"
@@ -23,16 +29,17 @@ import (
 )
 
 // driftSrc expands `fn pair` into five generated lines for four
-// source lines: each function's closing `}` drifts one line past
-// its construct's last pinned line. The pinned generated layout:
+// source lines. With the per-line re-pin every generated line
+// names its own construct's line — the closing `}` reports the
+// enclosing function's line, and line 9's three siblings pin the
+// same reported line:
 //
-//	gen 10 `func pair`  → 3     gen 15 `}` of pair → 6 (drift)
-//	gen 12 `tmp1`       → 4     gen 16 (blank)      → 7
-//	gen 14 `return …`   → 5     gen 18 `func use`   → 8
-//	                            gen 20..24         → 9 (3 siblings)
-//	                            gen 26 `z`         → 10
-//	                            gen 28 `return z`  → 11
-//	                            gen 29 `}` of use  → 12 (drift)
+//	gen 10 `func pair`  → 3     gen 16 `}` of pair → 3
+//	gen 12 `tmp1`       → 4     gen 19 `func use`   → 8
+//	gen 14 `return …`   → 5     gen 21..25         → 9 (3 siblings)
+//	                            gen 27 `z`         → 10
+//	                            gen 29 `return z`  → 11
+//	                            gen 31 `}` of use  → 8
 const driftSrc = `package m
 
 fn pair (x: Int) -> (Int, Int) = {
@@ -75,36 +82,35 @@ func TestResolveMatchDrift(t *testing.T) {
 		return diag.SpanIn("m.gom", s, e)
 	}
 
-	// Reported 6: only `fn pair`'s closing `}` prints 6 — drifted
-	// past the `(x, tmp1)` construct it belongs to. The naive
-	// mapping would land on .gom line 6, pair's real `}` line;
-	// the table lands inside the construct.
+	// Reported 6: `fn pair`'s real `}` line — no generated line
+	// prints it anymore (the `}` pins to its construct at line 3),
+	// so the naive line mapping answers, unmapped.
 	pm, ok := idx.ResolveMatch("m.gom", 6, 1)
-	if !ok || pm.Kind != build.MatchDrift || !pm.Mapped {
-		t.Fatalf("ResolveMatch(6) = %+v, want a mapped drift", pm)
+	if !ok || pm.Mapped {
+		t.Fatalf("ResolveMatch(6) = %+v, want the unmapped naive answer", pm)
 	}
-	if pm.Span != diag.SpanIn("m.gom", 71, 80) {
-		t.Errorf("drift span = %v, want the `(x, tmp1)` expr [71,80)", pm.Span)
-	}
-	if lineOf(t, driftSrc, pm.Span.Start) != 5 {
-		t.Errorf("drift answer lands on line %d, want 5", lineOf(t, driftSrc, pm.Span.Start))
-	}
-	naive, _ := idx.Resolve("m.gom", 6, 1)
-	if naive == pm.Span {
-		t.Error("naive and table answers agree — the drift shape is not exercised")
+	if pm.Span != diag.Point("m.gom", at(6).Start) {
+		t.Errorf("naive span = %v, want the line-6 head", pm.Span)
 	}
 
-	// Reported 12: `fn use`'s `}` — same shape, landing on the
-	// `z` expr at line 11 rather than line 12's real `}`.
+	// Reported 3 is claimed by `func pair` and by its `}` — both
+	// one span, so the answer is that span restricted to line 3.
+	pm, ok = idx.ResolveMatch("m.gom", 3, 1)
+	if !ok || pm.Kind != build.MatchExact || pm.Span != diag.SpanIn("m.gom", 11, 45) {
+		t.Errorf("ResolveMatch(3) = %+v, want exact [11,45)", pm)
+	}
+
+	// Reported 12: `fn use`'s real `}` line — nothing prints it
+	// (the `}` pins to line 8); the naive answer, unmapped.
 	pm, ok = idx.ResolveMatch("m.gom", 12, 1)
-	if !ok || pm.Kind != build.MatchDrift || pm.Span != diag.SpanIn("m.gom", 151, 152) {
-		t.Errorf("ResolveMatch(12) = %+v, want drift to the `z` expr", pm)
+	if !ok || pm.Mapped || pm.Span != diag.Point("m.gom", at(12).Start) {
+		t.Errorf("ResolveMatch(12) = %+v, want the unmapped line-12 head", pm)
 	}
 
 	// Reported 9: three anchored siblings pin it — the `pair 5`
-	// call and the `(a, b)` pattern are distinct constructs —
-	// and the pin-8 header's region drifts a directive line onto
-	// it (filtered). Two distinct spans claim the line.
+	// call and the `(a, b)` pattern are distinct constructs.
+	// Two distinct spans claim the line: the one surviving
+	// ambiguity, now genuine rather than drifted.
 	pm, ok = idx.ResolveMatch("m.gom", 9, 1)
 	if !ok || pm.Kind != build.MatchAmbiguous || !pm.Mapped {
 		t.Fatalf("ResolveMatch(9) = %+v, want a mapped ambiguous", pm)
@@ -150,10 +156,10 @@ func TestResolveMatchDrift(t *testing.T) {
 	_ = r
 }
 
-// driftSrcGo carries the mid-construct drift: `ignore fmt.Println z`
-// emits four anchored lines plus the unanchored
-// `_ = result.FromGo(...)` materialization — a generated code line
-// that reports the NEXT construct's line.
+// driftSrcGo carries a mid-construct expansion: `ignore
+// fmt.Println z` emits four lines that under the per-line re-pin
+// all report line 13 — including the `_ = result.FromGo(...)`
+// materialization, which previously drifted onto line 14.
 const driftSrcGo = `package m
 
 import go "fmt"
@@ -175,46 +181,43 @@ func TestResolveMatchDriftCollision(t *testing.T) {
 	gl := goimport.New(&goimport.Config{Dir: "../.."})
 	idx, _ := compileDrift(t, "main.gom", driftSrcGo, suiteOptionsWith(gl))
 
-	// Reported 14 is claimed by two real code lines: the
-	// unanchored `_ = result.FromGo(...)` — belonging to line
-	// 13's `ignore` construct — drifting onto 14, and the
-	// `return struct{}{}` pinned to it. The naive answer picks
-	// the line-14 point silently; the table answers the union
-	// of both constructs and says so.
+	// Reported 14: only the `()` literal's `return struct{}{}`
+	// prints it — the `ignore` construct's four lines all report
+	// their own line 13 now. One span claims the line: exact.
 	pm, ok := idx.ResolveMatch("main.gom", 14, 1)
-	if !ok || pm.Kind != build.MatchAmbiguous || !pm.Mapped {
-		t.Fatalf("ResolveMatch(14) = %+v, want a mapped ambiguous", pm)
+	if !ok || pm.Kind != build.MatchExact || !pm.Mapped {
+		t.Fatalf("ResolveMatch(14) = %+v, want a mapped exact", pm)
 	}
-	if len(pm.Candidates) != 2 {
-		t.Fatalf("candidates = %v, want the ignore construct and the `()`", pm.Candidates)
-	}
-	if pm.Span.Start != 177 || pm.Span.End != 197 {
-		t.Errorf("union = %v, want [177,197) covering lines 13-14", pm.Span)
-	}
-	naive, _ := idx.Resolve("main.gom", 14, 1)
-	if lineOf(t, driftSrcGo, naive.Start) != 14 {
-		t.Fatalf("naive answer = %v — expected the line-14 point for contrast", naive)
+	if pm.Span != diag.SpanIn("main.gom", 195, 197) {
+		t.Errorf("exact span = %v, want the `()` literal [195,197)", pm.Span)
 	}
 
-	// Reported 8: `fn pair`'s `}` drifts onto the real line 8 —
-	// no other construct claims it, so the answer is the
-	// enclosing construct's span rather than the `}` line.
+	// Reported 13 is claimed by the `ignore` construct's own
+	// lines — the materialization and the `fmt.Println` call are
+	// distinct spans under one line: the honest union.
+	pm, ok = idx.ResolveMatch("main.gom", 13, 1)
+	if !ok || pm.Kind != build.MatchAmbiguous || pm.Span != diag.SpanIn("main.gom", 177, 190) {
+		t.Errorf("ResolveMatch(13) = %+v, want ambiguous union [177,190)", pm)
+	}
+
+	// Reported 8: `fn pair`'s real `}` line — nothing prints it
+	// anymore (the `}` reports line 5), so the naive answer.
 	pm, ok = idx.ResolveMatch("main.gom", 8, 1)
-	if !ok || pm.Kind != build.MatchDrift || pm.Span != diag.SpanIn("main.gom", 88, 97) {
-		t.Errorf("ResolveMatch(8) = %+v, want drift to `(x, tmp1)`", pm)
+	if !ok || pm.Mapped {
+		t.Errorf("ResolveMatch(8) = %+v, want the unmapped naive answer", pm)
 	}
 
-	// Reported 15: `fn main`'s `}` alone claims it — drift to the
-	// `()` literal rather than line 15's `}`.
+	// Reported 15: `fn main`'s real `}` line — same, unmapped.
 	pm, ok = idx.ResolveMatch("main.gom", 15, 1)
-	if !ok || pm.Kind != build.MatchDrift || pm.Span != diag.SpanIn("main.gom", 195, 197) {
-		t.Errorf("ResolveMatch(15) = %+v, want drift to `()`", pm)
+	if !ok || pm.Mapped || pm.Span != diag.Point("main.gom", 198) {
+		t.Errorf("ResolveMatch(15) = %+v, want the unmapped line-15 head", pm)
 	}
 }
 
 // TestGoToolDiagnosticsDrift folds tool lines through a map-aware
-// index: drifted and ambiguous reports mark the diagnostic instead
-// of silently picking a line.
+// index: ambiguous reports mark the diagnostic instead of
+// silently picking a line; reports nothing claims keep their
+// printed position unflagged.
 func TestGoToolDiagnosticsDrift(t *testing.T) {
 	idx, _ := compileDrift(t, "m.gom", driftSrc, nil)
 	ds := build.GoToolDiagnostics([]string{
@@ -226,8 +229,8 @@ func TestGoToolDiagnosticsDrift(t *testing.T) {
 	if len(ds) != 4 {
 		t.Fatalf("diagnostics = %d, want 4: %v", len(ds), ds)
 	}
-	if ds[0].Span != diag.SpanIn("m.gom", 71, 80) || ds[0].Data["drifted"] != true {
-		t.Errorf("drifted fold = span %v data %v, want [71,80) + drifted", ds[0].Span, ds[0].Data)
+	if ds[0].Span != diag.SpanIn("m.gom", 81, 81) || ds[0].Data["drifted"] != nil || ds[0].Data["ambiguous"] != nil {
+		t.Errorf("unclaimed fold = span %v data %v, want the reported point unflagged", ds[0].Span, ds[0].Data)
 	}
 	if ds[1].Span != diag.SpanIn("m.gom", 113, 128) || ds[1].Data["ambiguous"] != true {
 		t.Errorf("ambiguous fold = span %v data %v, want the union + ambiguous", ds[1].Span, ds[1].Data)
@@ -308,36 +311,37 @@ test "one" {
 	}
 }
 
-// TestRenderStackDrift: a frame whose printed line is drifted
-// resolves to its construct's line rather than the wrong-but-real
-// line the trace printed.
+// TestRenderStackDrift: a frame on a reported line resolves to
+// its construct's pinned line — under the per-line re-pin every
+// printed line already names the construct that emitted it, so a
+// line-11 frame stays 11 and an unclaimed line reports untouched.
 func TestRenderStackDrift(t *testing.T) {
 	idx, _ := compileDrift(t, "m.gom", driftSrc, nil)
-	trace := "panic: x\n\nmain.use()\n\tm.gom:12 +0x20\n"
+	trace := "panic: x\n\nmain.use()\n\tm.gom:11 +0x20\n"
 	got := idx.RenderStack(trace)
 	if !strings.Contains(got, "\tm.gom:11\n") {
-		t.Errorf("RenderStack = %q, want the drifted frame rewritten to its construct line 11", got)
+		t.Errorf("RenderStack = %q, want the frame kept on its construct line 11", got)
 	}
 }
 
 // TestResolveStackDrift: resolved frames carry the match's
-// classification — a drifted frame says drift, an ambiguous one
+// classification — an ambiguous frame says so, an exact frame
 // says so, so callers can tell confidence without re-resolving.
 func TestResolveStackDrift(t *testing.T) {
 	gl := goimport.New(&goimport.Config{Dir: "../.."})
 	idx, _ := compileDrift(t, "main.gom", driftSrcGo, suiteOptionsWith(gl))
-	trace := "panic: x\n\nmain.f()\n\tmain.gom:8 +0x20\nmain.g()\n\tmain.gom:14 +0x20\n"
+	trace := "panic: x\n\nmain.f()\n\tmain.gom:13 +0x20\nmain.g()\n\tmain.gom:14 +0x20\n"
 	frames := idx.ResolveStack(trace)
 	if len(frames) != 2 {
 		t.Fatalf("frames = %d, want 2", len(frames))
 	}
-	if frames[0].Kind != build.MatchDrift || !frames[0].Mapped ||
-		frames[0].Span != diag.SpanIn("main.gom", 88, 97) {
-		t.Errorf("drifted frame = %+v, want drift to [88,97)", frames[0])
+	if frames[0].Kind != build.MatchAmbiguous || !frames[0].Mapped ||
+		frames[0].Span != diag.SpanIn("main.gom", 177, 190) {
+		t.Errorf("ambiguous frame = %+v, want the union [177,190)", frames[0])
 	}
-	if frames[1].Kind != build.MatchAmbiguous || !frames[1].Mapped ||
-		frames[1].Span != diag.SpanIn("main.gom", 177, 197) {
-		t.Errorf("ambiguous frame = %+v, want the union [177,197)", frames[1])
+	if frames[1].Kind != build.MatchExact || !frames[1].Mapped ||
+		frames[1].Span != diag.SpanIn("main.gom", 195, 197) {
+		t.Errorf("exact frame = %+v, want the `()` literal [195,197)", frames[1])
 	}
 }
 
@@ -389,32 +393,29 @@ func TestGoBuildDiagnosticsDriftE2E(t *testing.T) {
 		wantReport string
 	}{
 		{
-			// The `}` of `fn pair` drifts onto .gom line 8 — a real
-			// line inside the same decl. `missing return` reports
-			// there; the match lands inside the construct it
-			// belongs to instead of the `}` line the naive
-			// mapping would point at.
-			name: "missing return on a drifted }",
+			// `missing return` reports on `func pair`'s `}` line —
+			// pinned to its own construct now, so the report names
+			// `fn pair`'s head line rather than a drifted line.
+			name: "missing return on the pinned }",
 			old:  "return rt.Tuple2[int64, int64]{V0: x, V1: tmp1}",
 			new:  "_ = tmp1",
-			// go prints "./main.gom:8: missing return"
-			wantKind:   build.MatchDrift,
-			wantSpan:   diag.SpanIn("main.gom", 88, 97), // `(x, tmp1)`
-			wantReport: "main.gom:8",
+			// go prints "./main.gom:5: missing return"
+			wantKind:   build.MatchExact,
+			wantSpan:   diag.SpanIn("main.gom", 28, 62), // `fn pair`'s head
+			wantReport: "main.gom:5",
 		},
 		{
-			// The unanchored `_ = result.FromGo(...)` — line 13's
-			// `ignore` tail — drifts onto line 14, which the `()`
-			// literal pins. The naive answer blames the line-14
-			// construct for an error sitting in line 13's tail;
-			// the honest answer covers both.
-			name: "undefined ident on the drifted materialization",
+			// The `_ = result.FromGo(...)` materialization reports
+			// line 13 like the rest of the `ignore` construct — the
+			// line is claimed by two distinct spans, so the honest
+			// answer is the union.
+			name: "undefined ident on the pinned materialization",
 			old:  "_ = result.FromGo(int64(v), err)",
 			new:  "_ = nope.FromGo(int64(v), err)",
-			// go prints "./main.gom:14: undefined: nope"
+			// go prints "./main.gom:13: undefined: nope"
 			wantKind:   build.MatchAmbiguous,
-			wantSpan:   diag.SpanIn("main.gom", 177, 197), // lines 13-14
-			wantReport: "main.gom:14",
+			wantSpan:   diag.SpanIn("main.gom", 177, 190), // line 13's constructs
+			wantReport: "main.gom:13",
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {

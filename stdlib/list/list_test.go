@@ -26,6 +26,7 @@ func TestOfConsBuildLiterals(t *testing.T) {
 	tmp73 := List[int64]{1, 2, 3}
 //line stdlib/list/list.gom:112
 	rt.AssertEq(t, gomEq17fd05b20(tmp72, tmp73), gomShow17fd05b20(tmp72), gomShow17fd05b20(tmp73))
+//line stdlib/list/list.gom:112
 }
 
 //line stdlib/list/list.gom:114
@@ -58,6 +59,7 @@ func TestAppendAndRev(t *testing.T) {
 	tmp84 := List[int64]{1, 2, 3}
 //line stdlib/list/list.gom:117
 	rt.AssertEq(t, gomEq17fd05b20(tmp83, tmp84), gomShow17fd05b20(tmp83), gomShow17fd05b20(tmp84))
+//line stdlib/list/list.gom:114
 }
 
 //line stdlib/list/list.gom:120
@@ -82,6 +84,7 @@ func TestLengthAndIsEmpty(t *testing.T) {
 	tmp90 := !tmp89
 //line stdlib/list/list.gom:124
 	rt.Assert(t, tmp90)
+//line stdlib/list/list.gom:120
 }
 
 //line stdlib/list/list.gom:127
@@ -152,6 +155,7 @@ func TestHeadTailGetReturnOption(t *testing.T) {
 	tmp114 := option.Option[int64](option.Option_None[int64]{})
 //line stdlib/list/list.gom:136
 	rt.AssertEq(t, tmp113 == tmp114, gomShow27fd05b20(tmp113), gomShow27fd05b20(tmp114))
+//line stdlib/list/list.gom:127
 }
 
 //line stdlib/list/list.gom:139
@@ -160,6 +164,7 @@ func TestMapFilterFold(t *testing.T) {
 	tmp115 := func(x int64) int64 {
 //line stdlib/list/list.gom:140
 		return x + 1
+//line stdlib/list/list.gom:140
 	}
 //line stdlib/list/list.gom:140
 	tmp116 := List[int64]{1, 2}
@@ -173,6 +178,7 @@ func TestMapFilterFold(t *testing.T) {
 	tmp119 := func(x1 int64) bool {
 //line stdlib/list/list.gom:141
 		return x1 > 1
+//line stdlib/list/list.gom:141
 	}
 //line stdlib/list/list.gom:141
 	tmp120 := List[int64]{1, 2, 3}
@@ -188,7 +194,9 @@ func TestMapFilterFold(t *testing.T) {
 		return func(x2 int64) int64 {
 //line stdlib/list/list.gom:142
 			return a + x2
+//line stdlib/list/list.gom:142
 		}
+//line stdlib/list/list.gom:142
 	}
 //line stdlib/list/list.gom:142
 	tmp124 := List[int64]{1, 2, 3}
@@ -196,6 +204,7 @@ func TestMapFilterFold(t *testing.T) {
 	tmp125 := Fold[int64, int64](tmp123, 0, tmp124)
 //line stdlib/list/list.gom:142
 	rt.AssertEq(t, tmp125 == 6, strconv.FormatInt(tmp125, 10), strconv.FormatInt(6, 10))
+//line stdlib/list/list.gom:139
 }
 
 //line stdlib/list/list.gom:145
@@ -206,6 +215,7 @@ func TestSum(t *testing.T) {
 	tmp127 := Sum(tmp126)
 //line stdlib/list/list.gom:145
 	rt.AssertEq(t, tmp127 == 4.0, strconv.FormatFloat(tmp127, 'g', -1, 64), strconv.FormatFloat(4.0, 'g', -1, 64))
+//line stdlib/list/list.gom:145
 }
 
 //line stdlib/list/list.gom:147
@@ -222,6 +232,7 @@ func TestRange(t *testing.T) {
 	tmp131 := List[int64]{}
 //line stdlib/list/list.gom:147
 	rt.AssertEq(t, gomEq17fd05b20(tmp130, tmp131), gomShow17fd05b20(tmp130), gomShow17fd05b20(tmp131))
+//line stdlib/list/list.gom:147
 }
 
 //line stdlib/list/list.gom:149
@@ -242,6 +253,7 @@ func TestConcatAndFind(t *testing.T) {
 	tmp137 := func(x int64) bool {
 //line stdlib/list/list.gom:151
 		return x > 1
+//line stdlib/list/list.gom:151
 	}
 //line stdlib/list/list.gom:151
 	tmp138 := List[int64]{1, 2, 3}
@@ -255,6 +267,7 @@ func TestConcatAndFind(t *testing.T) {
 	tmp141 := func(x1 int64) bool {
 //line stdlib/list/list.gom:152
 		return x1 > 9
+//line stdlib/list/list.gom:152
 	}
 //line stdlib/list/list.gom:152
 	tmp142 := List[int64]{1, 2}
@@ -264,48 +277,84 @@ func TestConcatAndFind(t *testing.T) {
 	tmp144 := option.Option[int64](option.Option_None[int64]{})
 //line stdlib/list/list.gom:152
 	rt.AssertEq(t, tmp143 == tmp144, gomShow27fd05b20(tmp143), gomShow27fd05b20(tmp144))
+//line stdlib/list/list.gom:149
 }
 
 //line stdlib/list/list.gom:112
 func gomShow17fd05b20(v List[int64]) string {
+//line stdlib/list/list.gom:112
 	var sb strings.Builder
+//line stdlib/list/list.gom:112
 	sb.WriteByte('[')
+//line stdlib/list/list.gom:112
 	for i, e := range v {
+//line stdlib/list/list.gom:112
 		if i > 0 {
+//line stdlib/list/list.gom:112
 			sb.WriteString(", ")
+//line stdlib/list/list.gom:112
 		}
+//line stdlib/list/list.gom:112
 		sb.WriteString(strconv.FormatInt(e, 10))
+//line stdlib/list/list.gom:112
 	}
+//line stdlib/list/list.gom:112
 	sb.WriteByte(']')
+//line stdlib/list/list.gom:112
 	return sb.String()
+//line stdlib/list/list.gom:112
 }
 
 //line stdlib/list/list.gom:129
 func gomShow27fd05b20(v option.Option[int64]) string {
+//line stdlib/list/list.gom:129
 	if v == nil {
+//line stdlib/list/list.gom:129
 		return "nil"
+//line stdlib/list/list.gom:129
 	}
+//line stdlib/list/list.gom:129
 	switch x := v.(type) {
+//line stdlib/list/list.gom:129
 	case option.Option_Some[int64]:
+//line stdlib/list/list.gom:129
 		return "" + "Some" + " " + strconv.FormatInt(x.V0, 10)
+//line stdlib/list/list.gom:129
 	case option.Option_None[int64]:
+//line stdlib/list/list.gom:129
 		return "" + "None"
+//line stdlib/list/list.gom:129
 	default:
+//line stdlib/list/list.gom:129
 		panic(rt.InvalidVariant("Option Int", v))
+//line stdlib/list/list.gom:129
 	}
+//line stdlib/list/list.gom:129
 }
 
 //line stdlib/list/list.gom:131
 func gomShow37fd05b20(v option.Option[List[int64]]) string {
+//line stdlib/list/list.gom:131
 	if v == nil {
+//line stdlib/list/list.gom:131
 		return "nil"
+//line stdlib/list/list.gom:131
 	}
+//line stdlib/list/list.gom:131
 	switch x := v.(type) {
+//line stdlib/list/list.gom:131
 	case option.Option_Some[List[int64]]:
+//line stdlib/list/list.gom:131
 		return "" + "Some" + " " + gomShow17fd05b20(x.V0)
+//line stdlib/list/list.gom:131
 	case option.Option_None[List[int64]]:
+//line stdlib/list/list.gom:131
 		return "" + "None"
+//line stdlib/list/list.gom:131
 	default:
+//line stdlib/list/list.gom:131
 		panic(rt.InvalidVariant("Option (List Int)", v))
+//line stdlib/list/list.gom:131
 	}
+//line stdlib/list/list.gom:131
 }

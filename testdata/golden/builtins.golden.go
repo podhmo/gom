@@ -13,6 +13,7 @@ type Pair struct {
 	X int64
 //line builtins.gom:7
 	Xs list.List[int64]
+//line builtins.gom:7
 }
 
 //line builtins.gom:9
@@ -22,70 +23,83 @@ type Shape interface{ isShape() }
 type Shape_Circle struct {
 //line builtins.gom:9
 	V0 int64
+//line builtins.gom:9
 }
 
+//line builtins.gom:9
 func (Shape_Circle) isShape() {}
 
 //line builtins.gom:9
 type Shape_Square struct {
 //line builtins.gom:9
 	V0 list.List[int64]
+//line builtins.gom:9
 }
 
+//line builtins.gom:9
 func (Shape_Square) isShape() {}
 
 //line builtins.gom:3
 func notNeg(b bool) bool {
 //line builtins.gom:3
 	return !b
+//line builtins.gom:3
 }
 
 //line builtins.gom:5
 func pending(_ struct{}) int64 {
 //line builtins.gom:5
 	return rt.Todo[int64]()
+//line builtins.gom:5
 }
 
 //line builtins.gom:11
 func eqList(xs, ys list.List[int64]) bool {
 //line builtins.gom:11
 	return gomEq1A8f80f72(xs, ys)
+//line builtins.gom:11
 }
 
 //line builtins.gom:13
 func neList(xs, ys list.List[int64]) bool {
 //line builtins.gom:13
 	return !gomEq1A8f80f72(xs, ys)
+//line builtins.gom:13
 }
 
 //line builtins.gom:15
 func eqTuple(a, b rt.Tuple2[int64, list.List[int64]]) bool {
 //line builtins.gom:15
 	return gomEq2A8f80f72(a, b)
+//line builtins.gom:15
 }
 
 //line builtins.gom:17
 func eqRecord(a, b Pair) bool {
 //line builtins.gom:17
 	return gomEq3A8f80f72(a, b)
+//line builtins.gom:17
 }
 
 //line builtins.gom:19
 func eqAdt(a, b Shape) bool {
 //line builtins.gom:19
 	return gomEq4A8f80f72(a, b)
+//line builtins.gom:19
 }
 
 //line builtins.gom:21
 func eqScalars(a, b int64) bool {
 //line builtins.gom:21
 	return a == b
+//line builtins.gom:21
 }
 
 //line builtins.gom:23
 func eqScalarTuple(a, b rt.Tuple2[int64, string]) bool {
 //line builtins.gom:23
 	return a == b
+//line builtins.gom:23
 }
 
 //line builtins.gom:25
@@ -98,44 +112,73 @@ func main() {
 	gomEq1A8f80f72(tmp1, tmp2)
 //line builtins.gom:27
 	_ = struct{}{}
+//line builtins.gom:25
 }
 
 //line builtins.gom:11
 func gomEq1A8f80f72(a, b list.List[int64]) bool {
+//line builtins.gom:11
 	if len(a) != len(b) {
+//line builtins.gom:11
 		return false
+//line builtins.gom:11
 	}
+//line builtins.gom:11
 	for i := range a {
+//line builtins.gom:11
 		if !(a[i] == b[i]) {
+//line builtins.gom:11
 			return false
+//line builtins.gom:11
 		}
+//line builtins.gom:11
 	}
+//line builtins.gom:11
 	return true
+//line builtins.gom:11
 }
 
 //line builtins.gom:15
 func gomEq2A8f80f72(a, b rt.Tuple2[int64, list.List[int64]]) bool {
+//line builtins.gom:15
 	return a.V0 == b.V0 && gomEq1A8f80f72(a.V1, b.V1)
+//line builtins.gom:15
 }
 
 //line builtins.gom:17
 func gomEq3A8f80f72(a, b Pair) bool {
+//line builtins.gom:17
 	return a.X == b.X && gomEq1A8f80f72(a.Xs, b.Xs)
+//line builtins.gom:17
 }
 
 //line builtins.gom:19
 func gomEq4A8f80f72(a, b Shape) bool {
+//line builtins.gom:19
 	if a == nil || b == nil {
+//line builtins.gom:19
 		return a == nil && b == nil
+//line builtins.gom:19
 	}
+//line builtins.gom:19
 	switch av := a.(type) {
+//line builtins.gom:19
 	case Shape_Circle:
+//line builtins.gom:19
 		bv, ok := b.(Shape_Circle)
+//line builtins.gom:19
 		return ok && av.V0 == bv.V0
+//line builtins.gom:19
 	case Shape_Square:
+//line builtins.gom:19
 		bv, ok := b.(Shape_Square)
+//line builtins.gom:19
 		return ok && gomEq1A8f80f72(av.V0, bv.V0)
+//line builtins.gom:19
 	default:
+//line builtins.gom:19
 		return false
+//line builtins.gom:19
 	}
+//line builtins.gom:19
 }

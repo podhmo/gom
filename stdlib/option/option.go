@@ -19,10 +19,13 @@ func IsSome[A any](o Option[A]) bool {
 	case Option_None[A]:
 //line stdlib/option/option.gom:9
 		return false
+//line stdlib/option/option.gom:9
 	default:
 //line stdlib/option/option.gom:7
 		panic(rt.InvalidVariant("Option", o))
+//line stdlib/option/option.gom:8
 	}
+//line stdlib/option/option.gom:7
 }
 
 //line stdlib/option/option.gom:12
@@ -37,10 +40,13 @@ func IsNone[A any](o Option[A]) bool {
 	case Option_None[A]:
 //line stdlib/option/option.gom:14
 		return true
+//line stdlib/option/option.gom:14
 	default:
 //line stdlib/option/option.gom:12
 		panic(rt.InvalidVariant("Option", o))
+//line stdlib/option/option.gom:13
 	}
+//line stdlib/option/option.gom:12
 }
 
 //line stdlib/option/option.gom:19
@@ -49,6 +55,7 @@ func Get[A any](o Option[A]) A {
 	switch v := o.(type) {
 //line stdlib/option/option.gom:20
 	case Option_Some[A]:
+//line stdlib/option/option.gom:20
 		tmp3 := v
 //line stdlib/option/option.gom:20
 		tmp4 := tmp3.V0
@@ -58,10 +65,13 @@ func Get[A any](o Option[A]) A {
 	case Option_None[A]:
 //line stdlib/option/option.gom:21
 		return rt.Todo[A]()
+//line stdlib/option/option.gom:21
 	default:
 //line stdlib/option/option.gom:19
 		panic(rt.InvalidVariant("Option", o))
+//line stdlib/option/option.gom:20
 	}
+//line stdlib/option/option.gom:19
 }
 
 //line stdlib/option/option.gom:25
@@ -70,6 +80,7 @@ func GetOrElse[A any](fallback A, o Option[A]) A {
 	switch v1 := o.(type) {
 //line stdlib/option/option.gom:26
 	case Option_Some[A]:
+//line stdlib/option/option.gom:26
 		tmp5 := v1
 //line stdlib/option/option.gom:26
 		tmp6 := tmp5.V0
@@ -79,10 +90,13 @@ func GetOrElse[A any](fallback A, o Option[A]) A {
 	case Option_None[A]:
 //line stdlib/option/option.gom:27
 		return fallback
+//line stdlib/option/option.gom:27
 	default:
 //line stdlib/option/option.gom:25
 		panic(rt.InvalidVariant("Option", o))
+//line stdlib/option/option.gom:26
 	}
+//line stdlib/option/option.gom:25
 }
 
 //line stdlib/option/option.gom:30
@@ -91,6 +105,7 @@ func Map[A, B any](f func(A) B, o Option[A]) Option[B] {
 	switch v2 := o.(type) {
 //line stdlib/option/option.gom:31
 	case Option_Some[A]:
+//line stdlib/option/option.gom:31
 		tmp7 := v2
 //line stdlib/option/option.gom:31
 		tmp8 := tmp7.V0
@@ -102,10 +117,13 @@ func Map[A, B any](f func(A) B, o Option[A]) Option[B] {
 	case Option_None[A]:
 //line stdlib/option/option.gom:32
 		return Option_None[B]{}
+//line stdlib/option/option.gom:32
 	default:
 //line stdlib/option/option.gom:30
 		panic(rt.InvalidVariant("Option", o))
+//line stdlib/option/option.gom:31
 	}
+//line stdlib/option/option.gom:30
 }
 
 //line stdlib/option/option.gom:36
@@ -114,6 +132,7 @@ func AndThen[A, B any](f func(A) Option[B], o Option[A]) Option[B] {
 	switch v3 := o.(type) {
 //line stdlib/option/option.gom:37
 	case Option_Some[A]:
+//line stdlib/option/option.gom:37
 		tmp10 := v3
 //line stdlib/option/option.gom:37
 		tmp11 := tmp10.V0
@@ -123,10 +142,13 @@ func AndThen[A, B any](f func(A) Option[B], o Option[A]) Option[B] {
 	case Option_None[A]:
 //line stdlib/option/option.gom:38
 		return Option_None[B]{}
+//line stdlib/option/option.gom:38
 	default:
 //line stdlib/option/option.gom:36
 		panic(rt.InvalidVariant("Option", o))
+//line stdlib/option/option.gom:37
 	}
+//line stdlib/option/option.gom:36
 }
 
 //line stdlib/option/option.gom:42
@@ -141,10 +163,13 @@ func OrElse[A any](fallback, o Option[A]) Option[A] {
 	case Option_None[A]:
 //line stdlib/option/option.gom:44
 		return fallback
+//line stdlib/option/option.gom:44
 	default:
 //line stdlib/option/option.gom:42
 		panic(rt.InvalidVariant("Option", o))
+//line stdlib/option/option.gom:43
 	}
+//line stdlib/option/option.gom:42
 }
 
 //line stdlib/option/option.gom:49
@@ -153,6 +178,7 @@ func Filter[A any](f func(A) bool, o Option[A]) Option[A] {
 	switch v4 := o.(type) {
 //line stdlib/option/option.gom:50
 	case Option_Some[A]:
+//line stdlib/option/option.gom:50
 		tmp13 := v4
 //line stdlib/option/option.gom:50
 		tmp14 := tmp13.V0
@@ -162,18 +188,23 @@ func Filter[A any](f func(A) bool, o Option[A]) Option[A] {
 		if tmp15 {
 //line stdlib/option/option.gom:50
 			return Option_Some[A]{V0: tmp14}
+//line stdlib/option/option.gom:50
 		} else {
 //line stdlib/option/option.gom:50
 			return Option_None[A]{}
+//line stdlib/option/option.gom:50
 		}
 //line stdlib/option/option.gom:50
 	case Option_None[A]:
 //line stdlib/option/option.gom:51
 		return Option_None[A]{}
+//line stdlib/option/option.gom:51
 	default:
 //line stdlib/option/option.gom:49
 		panic(rt.InvalidVariant("Option", o))
+//line stdlib/option/option.gom:50
 	}
+//line stdlib/option/option.gom:49
 }
 
 //line stdlib/option/option.gom:55
@@ -182,6 +213,7 @@ func Flatten[A any](oo Option[Option[A]]) Option[A] {
 	switch v5 := oo.(type) {
 //line stdlib/option/option.gom:56
 	case Option_Some[Option[A]]:
+//line stdlib/option/option.gom:56
 		tmp16 := v5
 //line stdlib/option/option.gom:56
 		tmp17 := tmp16.V0
@@ -191,10 +223,13 @@ func Flatten[A any](oo Option[Option[A]]) Option[A] {
 	case Option_None[Option[A]]:
 //line stdlib/option/option.gom:57
 		return Option_None[A]{}
+//line stdlib/option/option.gom:57
 	default:
 //line stdlib/option/option.gom:55
 		panic(rt.InvalidVariant("Option", oo))
+//line stdlib/option/option.gom:56
 	}
+//line stdlib/option/option.gom:55
 }
 
 //line stdlib/option/option.gom:61
@@ -203,6 +238,7 @@ func Iter[A any](f func(A) struct{}, o Option[A]) struct{} {
 	switch v6 := o.(type) {
 //line stdlib/option/option.gom:62
 	case Option_Some[A]:
+//line stdlib/option/option.gom:62
 		tmp18 := v6
 //line stdlib/option/option.gom:62
 		tmp19 := tmp18.V0
@@ -212,10 +248,13 @@ func Iter[A any](f func(A) struct{}, o Option[A]) struct{} {
 	case Option_None[A]:
 //line stdlib/option/option.gom:63
 		return struct{}{}
+//line stdlib/option/option.gom:63
 	default:
 //line stdlib/option/option.gom:61
 		panic(rt.InvalidVariant("Option", o))
+//line stdlib/option/option.gom:62
 	}
+//line stdlib/option/option.gom:61
 }
 
 //line stdlib/option/option.gom:73
@@ -224,6 +263,7 @@ func ToResult[E, A any](err E, o Option[A]) result.Result[A, E] {
 	switch v7 := o.(type) {
 //line stdlib/option/option.gom:74
 	case Option_Some[A]:
+//line stdlib/option/option.gom:74
 		tmp20 := v7
 //line stdlib/option/option.gom:74
 		tmp21 := tmp20.V0
@@ -233,8 +273,11 @@ func ToResult[E, A any](err E, o Option[A]) result.Result[A, E] {
 	case Option_None[A]:
 //line stdlib/option/option.gom:75
 		return result.Err[A, E](err)
+//line stdlib/option/option.gom:75
 	default:
 //line stdlib/option/option.gom:73
 		panic(rt.InvalidVariant("Option", o))
+//line stdlib/option/option.gom:74
 	}
+//line stdlib/option/option.gom:73
 }

@@ -14,8 +14,11 @@ func later(ch chan<- int64, v int64) struct{} {
 		rt.ChanSend[int64](ch, v)
 //line go_spawn.gom:6
 		_ = struct{}{}
+//line go_spawn.gom:6
 	}()
+//line go_spawn.gom:6
 	return struct{}{}
+//line go_spawn.gom:5
 }
 
 //line go_spawn.gom:8
@@ -30,7 +33,9 @@ func keep(_ struct{}) struct{} {
 		rt.ChanSend[int64](tmp1, 1)
 //line go_spawn.gom:10
 		_ = struct{}{}
+//line go_spawn.gom:10
 	}()
 //line go_spawn.gom:11
 	return struct{}{}
+//line go_spawn.gom:8
 }

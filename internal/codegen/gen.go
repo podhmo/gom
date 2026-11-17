@@ -97,20 +97,34 @@ type gen struct {
 	// can pair each spliced `//line` directive with the span it maps
 	// (docs/design.md section 2.2's correspondence table).
 	marks []diag.Span
+
+	// curSpan is the .gom span the next emitted line belongs to —
+	// set by line at each construct head and re-pinned by pad on
+	// every fresh line, so a single .gom line expanding to several
+	// generated lines cannot drift the `//line` counter onto
+	// unrelated source lines. spanStack restores the enclosing
+	// construct's span when a `{`-block closes: `}` and the lines
+	// after it belong to the outer construct, not the last inner
+	// statement.
+	curSpan   diag.Span
+	spanStack []diag.Span
 }
 
 func newGen(li *diag.LineIndex) *gen {
 	return &gen{
-		li:       li,
-		fset:     token.NewFileSet(),
-		imports:  map[string]string{},
-		inames:   map[string]bool{},
-		names:    map[*resolve.Symbol]string{},
-		used:     map[string]bool{},
-		pused:    map[string]bool{},
-		ctors:    map[*resolve.Symbol]*ctorDecl{},
-		localT:   map[string]bool{},
-		exported: map[*resolve.Symbol]bool{},
+		li:   li,
+		fset: token.NewFileSet(),
+		// The buffer's first line is a fresh line like any other —
+		// pendingIndent starts set so its pad pins and indents it.
+		pendingIndent: true,
+		imports:       map[string]string{},
+		inames:        map[string]bool{},
+		names:         map[*resolve.Symbol]string{},
+		used:          map[string]bool{},
+		pused:         map[string]bool{},
+		ctors:         map[*resolve.Symbol]*ctorDecl{},
+		localT:        map[string]bool{},
+		exported:      map[*resolve.Symbol]bool{},
 	}
 }
 
@@ -420,33 +434,45 @@ func (g *gen) qualIdent(path, name string) ast.Expr {
 
 // --- output helpers ---
 
-// line emits a sentinel comment marking where a `//line file:N`
-// directive goes. A real `//line` directive can only be written at
-// column 1 *and* gofmt will not indent the line following one, so
-// the directive is spliced in after format.Source — the sentinel is
-// an ordinary comment that formats normally and is then replaced
-// textually (see render in codegen.go).
+// line sets the span the following emitted lines belong to. pad
+// re-pins every fresh line to curSpan, so the `//line` directive
+// each line carries names its own .gom position instead of
+// drifting forward from the construct head's anchor.
 func (g *gen) line(sp diag.Span) {
 	if !sp.Valid() {
 		return
 	}
-	g.pad()
-	idx := len(g.marks)
-	g.marks = append(g.marks, sp)
-	fmt.Fprintf(&g.buf, "//gomsrc:%d:%d:%s\n", idx, g.li.Pos(sp.Start).Line, sp.File)
-	g.pendingIndent = true
+	g.curSpan = sp
 }
 
 // pad writes the current indentation once at the start of a fresh
-// output line.
+// output line — and first emits the `//gomsrc` sentinel pinning
+// the line to curSpan. A real `//line` directive can only be
+// written at column 1 *and* gofmt will not indent the line
+// following one, so the directive is spliced in after
+// format.Source — the sentinel is an ordinary comment that formats
+// normally and is then replaced textually (see render in
+// codegen.go).
 func (g *gen) pad() {
 	if !g.pendingIndent {
 		return
 	}
+	g.mark()
 	for i := 0; i < g.depth; i++ {
 		g.buf.WriteByte('\t')
 	}
 	g.pendingIndent = false
+}
+
+// mark emits the `//gomsrc` sentinel pinning the next line to
+// curSpan — called for every line head, including the continuation
+// lines a multi-line go/printer emission writes directly.
+func (g *gen) mark() {
+	if g.curSpan.Valid() {
+		idx := len(g.marks)
+		g.marks = append(g.marks, g.curSpan)
+		fmt.Fprintf(&g.buf, "//gomsrc:%d:%d:%s\n", idx, g.li.Pos(g.curSpan.Start).Line, g.curSpan.File)
+	}
 }
 
 // raw writes text verbatim, padding a fresh line first.
@@ -455,33 +481,79 @@ func (g *gen) raw(s string) { g.pad(); g.buf.WriteString(s) }
 // nl ends the output line; the next write pads to depth.
 func (g *gen) nl() { g.buf.WriteByte('\n'); g.pendingIndent = true }
 
-// expr renders a go/ast expression with go/printer.
+// expr renders a go/ast expression with go/printer. The printer
+// writes multi-line nodes — a curried function literal's body and
+// braces, for one — without pad ever seeing those line heads, so
+// the chunk is buffered and each continuation line gets its own
+// sentinel: a line written without a pin would drift onto the
+// .gom line after the expression's construct.
 func (g *gen) expr(e ast.Expr) {
 	g.pad()
-	if err := printer.Fprint(&g.buf, g.fset, e); err != nil {
+	var eb bytes.Buffer
+	if err := printer.Fprint(&eb, g.fset, e); err != nil {
 		panic(fmt.Sprintf("codegen: printing %T: %v", e, err))
+	}
+	b := eb.Bytes()
+	for len(b) > 0 {
+		i := bytes.IndexByte(b, '\n')
+		if i < 0 {
+			g.buf.Write(b)
+			break
+		}
+		g.buf.Write(b[:i])
+		b = b[i+1:]
+		if len(b) > 0 {
+			g.buf.WriteByte('\n')
+			g.mark()
+		}
 	}
 }
 
 // typ renders a go/ast type expression with go/printer.
 func (g *gen) typ(e ast.Expr) { g.expr(e) }
 
-// open writes ` {`, ends the line, and increases the depth.
-func (g *gen) open() { g.raw(" {"); g.nl(); g.depth++ }
+// open writes ` {`, ends the line, and increases the depth. The
+// enclosing span is stacked so close can restore it — lines inside
+// the block re-pin to their own constructs.
+func (g *gen) open() {
+	g.spanStack = append(g.spanStack, g.curSpan)
+	g.raw(" {")
+	g.nl()
+	g.depth++
+}
 
-// close decreases the depth and writes `}` on its own line.
-func (g *gen) close() { g.depth--; g.raw("}"); g.nl() }
+// popSpan restores the span in force when the current `{`-block
+// opened; open and close are always paired.
+func (g *gen) popSpan() {
+	if n := len(g.spanStack); n > 0 {
+		g.curSpan = g.spanStack[n-1]
+		g.spanStack = g.spanStack[:n-1]
+	}
+}
+
+// close decreases the depth and writes `}` on its own line. The
+// enclosing span is restored first, so the `}` pins to the
+// construct it closes rather than to its last inner statement.
+func (g *gen) close() {
+	g.depth--
+	g.popSpan()
+	g.raw("}")
+	g.nl()
+}
 
 // closeInline decreases the depth and writes `}` without a newline
 // — for `}()` and the tail of an inline function literal.
-func (g *gen) closeInline() { g.depth--; g.raw("}") }
+func (g *gen) closeInline() { g.depth--; g.popSpan(); g.raw("}") }
 
 // midElse closes a block and opens the `else` on the same line.
 func (g *gen) midElse() {
 	g.depth--
+	g.popSpan()
 	g.raw("} else {")
 	g.nl()
 	g.depth++
+	// The else-body's own close pops to this same enclosing span.
+	g.spanStack = append(g.spanStack, g.curSpan)
 }
 
 // caseLabel writes a `case x:`/`default:` label at the switch's own

@@ -13,13 +13,16 @@ type W interface{ isW() }
 type W_A struct {
 //line match_neg_lit.gom:3
 	V0 int64
+//line match_neg_lit.gom:3
 }
 
+//line match_neg_lit.gom:3
 func (W_A) isW() {}
 
 //line match_neg_lit.gom:3
 type W_B struct{}
 
+//line match_neg_lit.gom:3
 func (W_B) isW() {}
 
 //line match_neg_lit.gom:9
@@ -34,10 +37,13 @@ func f(n int64) int64 {
 	case -17:
 //line match_neg_lit.gom:12
 		return 3
+//line match_neg_lit.gom:12
 	default:
 //line match_neg_lit.gom:13
 		return 2
+//line match_neg_lit.gom:11
 	}
+//line match_neg_lit.gom:9
 }
 
 //line match_neg_lit.gom:16
@@ -46,6 +52,7 @@ func g(w W) int64 {
 	switch v := w.(type) {
 //line match_neg_lit.gom:18
 	case W_A:
+//line match_neg_lit.gom:18
 		tmp1 := v
 //line match_neg_lit.gom:18
 		switch tmp1.V0 {
@@ -53,22 +60,28 @@ func g(w W) int64 {
 		case -80:
 //line match_neg_lit.gom:18
 			return 1
+//line match_neg_lit.gom:18
 		default:
 //line match_neg_lit.gom:19
 			return 2
+//line match_neg_lit.gom:18
 		}
 //line match_neg_lit.gom:18
 	case W_B:
 //line match_neg_lit.gom:20
 		return 0
+//line match_neg_lit.gom:20
 	default:
 //line match_neg_lit.gom:17
 		panic(rt.InvalidVariant("W", w))
+//line match_neg_lit.gom:18
 	}
+//line match_neg_lit.gom:16
 }
 
 //line match_neg_lit.gom:23
 func main() {
 //line match_neg_lit.gom:23
 	_ = struct{}{}
+//line match_neg_lit.gom:23
 }

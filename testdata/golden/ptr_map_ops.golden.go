@@ -32,17 +32,22 @@ func ptrOps(_ struct{}) int64 {
 		tmp5 := rt.PtrGet[int64](z)
 //line ptr_map_ops.gom:14
 		return tmp4 + tmp5
+//line ptr_map_ops.gom:13
 	} else {
 //line ptr_map_ops.gom:16
 		return 0
+//line ptr_map_ops.gom:13
 	}
+//line ptr_map_ops.gom:8
 }
 
 //line ptr_map_ops.gom:20
 func optOf(p *int64) option.Option[int64] {
 //line ptr_map_ops.gom:20
 	v1, ok := rt.PtrToOption[int64](p)
+//line ptr_map_ops.gom:20
 	return option.FromGo(v1, ok)
+//line ptr_map_ops.gom:20
 }
 
 //line ptr_map_ops.gom:22
@@ -55,6 +60,7 @@ func mapOps(_ struct{}) int64 {
 	var tmp6 option.Option[int64]
 //line ptr_map_ops.gom:25
 	v2, ok1 := rt.MapGet[string, int64](m, "k")
+//line ptr_map_ops.gom:25
 	tmp6 = option.FromGo(v2, ok1)
 //line ptr_map_ops.gom:25
 	var v int64
@@ -62,6 +68,7 @@ func mapOps(_ struct{}) int64 {
 	switch v3 := tmp6.(type) {
 //line ptr_map_ops.gom:26
 	case option.Option_Some[int64]:
+//line ptr_map_ops.gom:26
 		tmp7 := v3
 //line ptr_map_ops.gom:26
 		tmp8 := tmp7.V0
@@ -71,9 +78,11 @@ func mapOps(_ struct{}) int64 {
 	case option.Option_None[int64]:
 //line ptr_map_ops.gom:27
 		v = 0
+//line ptr_map_ops.gom:27
 	default:
 //line ptr_map_ops.gom:25
 		panic(rt.InvalidVariant("Option", tmp6))
+//line ptr_map_ops.gom:26
 	}
 //line ptr_map_ops.gom:29
 	rt.MapDelete[string, int64](m, "k")
@@ -81,6 +90,7 @@ func mapOps(_ struct{}) int64 {
 	tmp9 := rt.MapLen[string, int64](m)
 //line ptr_map_ops.gom:30
 	return v + tmp9
+//line ptr_map_ops.gom:22
 }
 
 //line ptr_map_ops.gom:33
@@ -89,4 +99,5 @@ func pairs(m map[string]int64) list.List[rt.Tuple2[string, int64]] {
 	tmp10 := rt.MapToList[string, int64](m)
 //line ptr_map_ops.gom:34
 	return list.FromSlice(tmp10)
+//line ptr_map_ops.gom:33
 }

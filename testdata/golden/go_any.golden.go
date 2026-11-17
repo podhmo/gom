@@ -18,6 +18,7 @@ var x any = func() any {
 	tmp1 := int64(42)
 //line go_any.gom:13
 	return any(tmp1)
+//line go_any.gom:13
 }()
 
 //line go_any.gom:14
@@ -34,6 +35,7 @@ var o option.Option[any] = func() option.Option[any] {
 	tmp3 := any(tmp2)
 //line go_any.gom:16
 	return option.Option_Some[any]{V0: tmp3}
+//line go_any.gom:16
 }()
 
 //line go_any.gom:17
@@ -44,6 +46,7 @@ var r result.Result[any, error] = func() result.Result[any, error] {
 	tmp5 := any(tmp4)
 //line go_any.gom:17
 	return result.Ok[any, error](tmp5)
+//line go_any.gom:17
 }()
 
 //line go_any.gom:18
@@ -58,18 +61,21 @@ var l list.List[any] = func() list.List[any] {
 	tmp9 := any(tmp8)
 //line go_any.gom:18
 	return list.List[any]{tmp7, tmp9}
+//line go_any.gom:18
 }()
 
 //line go_any.gom:20
 func id(a any) any {
 //line go_any.gom:20
 	return a
+//line go_any.gom:20
 }
 
 //line go_any.gom:21
 func box(_ struct{}) any {
 //line go_any.gom:21
 	return any("s")
+//line go_any.gom:21
 }
 
 //line go_any.gom:22
@@ -80,6 +86,7 @@ func boxok(_ struct{}) result.Result[any, error] {
 	tmp11 := any(tmp10)
 //line go_any.gom:22
 	return result.Ok[any, error](tmp11)
+//line go_any.gom:22
 }
 
 //line go_any.gom:24
@@ -92,14 +99,17 @@ func tok(_ struct{}) result.Result[any, error] {
 	dec := json.NewDecoder(tmp13)
 //line go_any.gom:26
 	t_, err := dec.Token()
+//line go_any.gom:26
 	if err != nil {
 //line go_any.gom:26
 		return result.Err[any, error](err)
+//line go_any.gom:26
 	}
 //line go_any.gom:27
 	tmp14 := any(t_)
 //line go_any.gom:27
 	return result.Ok[any, error](tmp14)
+//line go_any.gom:24
 }
 
 //line go_any.gom:30
@@ -108,6 +118,7 @@ func takes(xs list.List[any]) struct{} {
 	_ = xs
 //line go_any.gom:30
 	return struct{}{}
+//line go_any.gom:30
 }
 
 //line go_any.gom:39
@@ -116,6 +127,7 @@ func g(x1 int64) any {
 	tmp15 := int64(1)
 //line go_any.gom:39
 	return any(tmp15)
+//line go_any.gom:39
 }
 
 //line go_any.gom:40
@@ -126,6 +138,7 @@ func feq(a any) bool {
 	tmp17 := any(tmp16)
 //line go_any.gom:40
 	return rt.Equal(a, tmp17)
+//line go_any.gom:40
 }
 
 //line go_any.gom:44
@@ -136,6 +149,7 @@ func feq2(a any) bool {
 	tmp19 := any(tmp18)
 //line go_any.gom:44
 	return rt.Equal(tmp19, a)
+//line go_any.gom:44
 }
 
 //line go_any.gom:45
@@ -144,6 +158,7 @@ func fne(a any) bool {
 	tmp20 := any("s")
 //line go_any.gom:45
 	return !rt.Equal(tmp20, a)
+//line go_any.gom:45
 }
 
 //line go_any.gom:46
@@ -154,10 +169,13 @@ func m42(a any) string {
 	case int64(42):
 //line go_any.gom:46
 		return "forty"
+//line go_any.gom:46
 	default:
 //line go_any.gom:46
 		return "other"
+//line go_any.gom:46
 	}
+//line go_any.gom:46
 }
 
 //line go_any.gom:47
@@ -166,6 +184,7 @@ func mSome(o1 option.Option[any]) string {
 	switch v := o1.(type) {
 //line go_any.gom:47
 	case option.Option_Some[any]:
+//line go_any.gom:47
 		tmp21 := v
 //line go_any.gom:47
 		switch tmp21.V0 {
@@ -173,24 +192,30 @@ func mSome(o1 option.Option[any]) string {
 		case int64(42):
 //line go_any.gom:47
 			return "forty"
+//line go_any.gom:47
 		default:
 //line go_any.gom:47
 			return "other"
+//line go_any.gom:47
 		}
 //line go_any.gom:47
 	case option.Option_None[any]:
 //line go_any.gom:47
 		return "other"
+//line go_any.gom:47
 	default:
 //line go_any.gom:47
 		panic(rt.InvalidVariant("Option", o1))
+//line go_any.gom:47
 	}
+//line go_any.gom:47
 }
 
 //line go_any.gom:48
 func take(l1 []string) int64 {
 //line go_any.gom:48
 	return rt.SliceLen[string](l1)
+//line go_any.gom:48
 }
 
 //line go_any.gom:50
@@ -231,4 +256,5 @@ func main() {
 	take(tmp26)
 //line go_any.gom:62
 	_ = struct{}{}
+//line go_any.gom:50
 }

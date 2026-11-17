@@ -12,6 +12,7 @@ import (
 func keep(n int64) result.Result[int64, error] {
 //line result_pipe.gom:5
 	return result.Ok[int64, error](n)
+//line result_pipe.gom:5
 }
 
 //line result_pipe.gom:6
@@ -20,9 +21,11 @@ func parse(s string) result.Result[int64, error] {
 	tmp6 := func(tmp1 struct{}) result.Result[int64, error] {
 //line result_pipe.gom:6
 		tmp2, err := strconv.Atoi(s)
+//line result_pipe.gom:6
 		if err != nil {
 //line result_pipe.gom:6
 			return result.Err[int64, error](rt.StepErr("strconv.Atoi", err))
+//line result_pipe.gom:6
 		}
 //line result_pipe.gom:6
 		tmp3 := int64(tmp2)
@@ -32,20 +35,27 @@ func parse(s string) result.Result[int64, error] {
 		var tmp5 int64
 //line result_pipe.gom:6
 		switch tmp4.Tag() {
+//line result_pipe.gom:6
 		case result.ResultTagOk:
+//line result_pipe.gom:6
 			tmp5 = tmp4.Value
+//line result_pipe.gom:6
 		case result.ResultTagErr:
 //line result_pipe.gom:6
 			return result.Err[int64, error](rt.StepErr("keep", tmp4.Error))
+//line result_pipe.gom:6
 		default:
 //line result_pipe.gom:6
 			panic(rt.InvalidVariant("result.Result", tmp4))
+//line result_pipe.gom:6
 		}
 //line result_pipe.gom:6
 		return result.Ok[int64, error](tmp5)
+//line result_pipe.gom:6
 	}
 //line result_pipe.gom:6
 	return tmp6(struct{}{})
+//line result_pipe.gom:6
 }
 
 //line result_pipe.gom:11
@@ -54,9 +64,11 @@ func parseWrapped(s string) result.Result[int64, error] {
 	tmp12 := func(tmp7 struct{}) result.Result[int64, error] {
 //line result_pipe.gom:13
 		tmp8, err1 := strconv.Atoi(s)
+//line result_pipe.gom:13
 		if err1 != nil {
 //line result_pipe.gom:13
 			return result.Err[int64, error](rt.StepErr("strconv.Atoi", err1))
+//line result_pipe.gom:13
 		}
 //line result_pipe.gom:13
 		tmp9 := int64(tmp8)
@@ -66,20 +78,27 @@ func parseWrapped(s string) result.Result[int64, error] {
 		var tmp11 int64
 //line result_pipe.gom:14
 		switch tmp10.Tag() {
+//line result_pipe.gom:14
 		case result.ResultTagOk:
+//line result_pipe.gom:14
 			tmp11 = tmp10.Value
+//line result_pipe.gom:14
 		case result.ResultTagErr:
 //line result_pipe.gom:14
 			return result.Err[int64, error](rt.StepErr("keep", tmp10.Error))
+//line result_pipe.gom:14
 		default:
 //line result_pipe.gom:14
 			panic(rt.InvalidVariant("result.Result", tmp10))
+//line result_pipe.gom:14
 		}
 //line result_pipe.gom:12
 		return result.Ok[int64, error](tmp11)
+//line result_pipe.gom:12
 	}
 //line result_pipe.gom:12
 	return tmp12(struct{}{})
+//line result_pipe.gom:11
 }
 
 //line result_pipe.gom:15
@@ -88,25 +107,30 @@ func use(s string) struct{} {
 	tmp16 := func(tmp13 struct{}) result.Result[int64, error] {
 //line result_pipe.gom:15
 		tmp14, err2 := strconv.Atoi(s)
+//line result_pipe.gom:15
 		if err2 != nil {
 //line result_pipe.gom:15
 			return result.Err[int64, error](rt.StepErr("strconv.Atoi", err2))
+//line result_pipe.gom:15
 		}
 //line result_pipe.gom:15
 		tmp15 := int64(tmp14)
 //line result_pipe.gom:15
 		return result.Ok[int64, error](tmp15)
+//line result_pipe.gom:15
 	}
 //line result_pipe.gom:15
 	tmp16(struct{}{})
 //line result_pipe.gom:15
 	return struct{}{}
+//line result_pipe.gom:15
 }
 
 //line result_pipe.gom:16
 func outer(_ struct{}) result.Result[int64, string] {
 //line result_pipe.gom:16
 	return result.Err[int64, string]("outer")
+//line result_pipe.gom:16
 }
 
 //line result_pipe.gom:17
@@ -115,6 +139,7 @@ func step(n, x int64) result.Result[int64, bool] {
 	tmp17 := n + x
 //line result_pipe.gom:17
 	return result.Ok[int64, bool](tmp17)
+//line result_pipe.gom:17
 }
 
 //line result_pipe.gom:18
@@ -125,14 +150,19 @@ func explicit(_ struct{}) result.Result[int64, string] {
 	var tmp19 int64
 //line result_pipe.gom:19
 	switch tmp18.Tag() {
+//line result_pipe.gom:19
 	case result.ResultTagOk:
+//line result_pipe.gom:19
 		tmp19 = tmp18.Value
+//line result_pipe.gom:19
 	case result.ResultTagErr:
 //line result_pipe.gom:19
 		return result.Err[int64, string](tmp18.Error)
+//line result_pipe.gom:19
 	default:
 //line result_pipe.gom:19
 		panic(rt.InvalidVariant("result.Result", tmp18))
+//line result_pipe.gom:19
 	}
 //line result_pipe.gom:19
 	tmp20 := step(tmp19, 1)
@@ -140,18 +170,23 @@ func explicit(_ struct{}) result.Result[int64, string] {
 	switch tmp20.Tag() {
 //line result_pipe.gom:19
 	case result.ResultTagOk:
+//line result_pipe.gom:19
 		tmp21 := tmp20.Value
 //line result_pipe.gom:19
 		result.Ok[int64, bool](tmp21)
 //line result_pipe.gom:19
 	case result.ResultTagErr:
+//line result_pipe.gom:19
 		tmp22 := tmp20.Error
 //line result_pipe.gom:19
 		result.Err[int64, bool](tmp22)
+//line result_pipe.gom:19
 	default:
 //line result_pipe.gom:19
 		panic(rt.InvalidVariant("Result", tmp20))
+//line result_pipe.gom:19
 	}
 //line result_pipe.gom:20
 	return result.Ok[int64, string](42)
+//line result_pipe.gom:18
 }

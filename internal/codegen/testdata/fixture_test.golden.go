@@ -13,30 +13,40 @@ import (
 func TestSmoke(t *testing.T) {
 //line t.gom:13
 	_ = struct{}{}
+//line t.gom:13
 }
 
 //line t.gom:18
 func TestResult(t *testing.T) {
+//line t.gom:18
 	var r1 result.Result[struct{}, error]
 //line t.gom:17
 	var res result.Result[int64, error]
 //line t.gom:18
 	v1, err := strconv.Atoi("7")
+//line t.gom:18
 	res = result.FromGo(v1, err)
 //line t.gom:18
 	switch res.Tag() {
+//line t.gom:18
 	case result.ResultTagOk:
+//line t.gom:18
 		_ = res.Value
+//line t.gom:18
 	case result.ResultTagErr:
 //line t.gom:18
 		t.Errorf("%v", res.Error)
+//line t.gom:18
 		return
+//line t.gom:18
 	default:
 //line t.gom:18
 		panic(rt.InvalidVariant("result.Result", res))
+//line t.gom:18
 	}
 //line t.gom:17
 	r1 = result.Ok[struct{}, error](struct{}{})
 //line t.gom:18
 	result.AssertOk(t, r1)
+//line t.gom:18
 }

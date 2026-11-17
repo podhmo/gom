@@ -12,12 +12,14 @@ import (
 func inner(b int64) int64 {
 //line labeled_args_deep.gom:5
 	return b * 100
+//line labeled_args_deep.gom:5
 }
 
 //line labeled_args_deep.gom:9
 func same(a int64) func(int64) int64 {
 //line labeled_args_deep.gom:9
 	return inner
+//line labeled_args_deep.gom:9
 }
 
 //line labeled_args_deep.gom:11
@@ -30,6 +32,7 @@ func weigh(a, b, c int64) int64 {
 	tmp3 := c * 100
 //line labeled_args_deep.gom:11
 	return tmp2 + tmp3
+//line labeled_args_deep.gom:11
 }
 
 //line labeled_args_deep.gom:15
@@ -38,7 +41,9 @@ func third(a, b int64) func(int64) int64 {
 	return func(tmp4 int64) int64 {
 //line labeled_args_deep.gom:15
 		return weigh(a, b, tmp4)
+//line labeled_args_deep.gom:15
 	}
+//line labeled_args_deep.gom:15
 }
 
 //line labeled_args_deep.gom:17
@@ -55,6 +60,7 @@ func main() {
 	tmp9 := any(tmp8)
 //line labeled_args_deep.gom:20
 	v, err := fmt.Println(tmp9)
+//line labeled_args_deep.gom:20
 	_ = result.FromGo(int64(v), err)
 //line labeled_args_deep.gom:23
 	deep := func(tmp10 int64) int64 {
@@ -62,6 +68,7 @@ func main() {
 		tmp11 := same(tmp10)
 //line labeled_args_deep.gom:23
 		return tmp11(3)
+//line labeled_args_deep.gom:23
 	}
 //line labeled_args_deep.gom:24
 	tmp12 := deep(2)
@@ -73,6 +80,7 @@ func main() {
 	tmp15 := any(tmp14)
 //line labeled_args_deep.gom:24
 	v1, err1 := fmt.Println(tmp15)
+//line labeled_args_deep.gom:24
 	_ = result.FromGo(int64(v1), err1)
 //line labeled_args_deep.gom:26
 	g := same
@@ -88,6 +96,7 @@ func main() {
 	tmp20 := any(tmp19)
 //line labeled_args_deep.gom:27
 	v2, err2 := fmt.Println(tmp20)
+//line labeled_args_deep.gom:27
 	_ = result.FromGo(int64(v2), err2)
 //line labeled_args_deep.gom:29
 	skip := func(tmp21 int64) func(int64) int64 {
@@ -97,7 +106,9 @@ func main() {
 			tmp23 := third(tmp21, tmp22)
 //line labeled_args_deep.gom:29
 			return tmp23(7)
+//line labeled_args_deep.gom:29
 		}
+//line labeled_args_deep.gom:29
 	}
 //line labeled_args_deep.gom:30
 	tmp24 := skip(1)
@@ -111,6 +122,7 @@ func main() {
 	tmp28 := any(tmp27)
 //line labeled_args_deep.gom:30
 	v3, err3 := fmt.Println(tmp28)
+//line labeled_args_deep.gom:30
 	_ = result.FromGo(int64(v3), err3)
 //line labeled_args_deep.gom:33
 	tmp29 := third(1, 2)
@@ -124,7 +136,9 @@ func main() {
 	tmp33 := any(tmp32)
 //line labeled_args_deep.gom:33
 	v4, err4 := fmt.Println(tmp33)
+//line labeled_args_deep.gom:33
 	_ = result.FromGo(int64(v4), err4)
 //line labeled_args_deep.gom:34
 	_ = struct{}{}
+//line labeled_args_deep.gom:17
 }

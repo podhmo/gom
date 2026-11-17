@@ -11,10 +11,12 @@ import (
 func TestX_64f1a489(t *testing.T) {
 //line test_name_collision/a.gom:4
 	rt.Assert(t, true)
+//line test_name_collision/a.gom:3
 }
 
 //line test_name_collision/a.gom:7
 func TestOnlyA(t *testing.T) {
 //line test_name_collision/a.gom:8
 	rt.Assert(t, true)
+//line test_name_collision/a.gom:7
 }

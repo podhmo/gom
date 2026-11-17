@@ -4,20 +4,25 @@ package main
 
 //line tailcall_instantiation.gom:3
 func ident[A any](x A) int64 {
+//line tailcall_instantiation.gom:3
 	for {
 //line tailcall_instantiation.gom:3
 		continue
+//line tailcall_instantiation.gom:3
 	}
+//line tailcall_instantiation.gom:3
 }
 
 //line tailcall_instantiation.gom:4
 func permute[A, B any](x A, y B) int64 {
 //line tailcall_instantiation.gom:4
 	return permute[B, A](y, x)
+//line tailcall_instantiation.gom:4
 }
 
 //line tailcall_instantiation.gom:5
 func contract[A, B any](x A, y B) int64 {
 //line tailcall_instantiation.gom:5
 	return contract[A, A](x, x)
+//line tailcall_instantiation.gom:5
 }

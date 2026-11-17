@@ -11,5 +11,7 @@ import (
 func lookup(name string) option.Option[*flag.Flag] {
 //line extern_flag.gom:12
 	v := flag.Lookup(name)
+//line extern_flag.gom:12
 	return option.FromGo(v, v != nil)
+//line extern_flag.gom:12
 }
