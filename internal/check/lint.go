@@ -553,10 +553,10 @@ func (c *checker) lintGoCaptures(g *GoExpr, reported map[diag.Span]bool) {
 		}
 		reported[sp] = true
 		t = types.Chase(t)
+		tS := types.Display(t, metaNamer())
 		c.diags.Add(diag.Warning("W0702",
-			fmt.Sprintf("`go {}` captures `%s` whose type %s contains mutable values", sym.Name, t)).
-			At(sp).Set("name", sym.Name).Set("type",
-			types.Display(t, metaNamer())))
+			fmt.Sprintf("`go {}` captures `%s` whose type %s contains mutable values", sym.Name, tS)).
+			At(sp).Set("name", sym.Name).Set("type", tS))
 	})
 }
 
