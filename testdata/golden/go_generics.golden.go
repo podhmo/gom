@@ -12,12 +12,14 @@ import (
 func ident(n int64) int64 {
 //line go_generics.gom:9
 	return goiface.Identity[int64](n)
+//line go_generics.gom:9
 }
 
 //line go_generics.gom:10
 func swap(s string, n int64) int64 {
 //line go_generics.gom:10
 	return goiface.Second[int64, string](s, n)
+//line go_generics.gom:10
 }
 
 //line go_generics.gom:11
@@ -26,6 +28,7 @@ func count(xs list.List[string], s string) int64 {
 	tmp1 := xs.ToSlice()
 //line go_generics.gom:11
 	return goiface.Count[string](tmp1, s)
+//line go_generics.gom:11
 }
 
 //line go_generics.gom:12
@@ -34,6 +37,7 @@ func lookupOr(m map[string]int64, k string) int64 {
 	var tmp2 rt.Tuple2[int64, bool]
 //line go_generics.gom:13
 	a, b := goiface.Lookup[string, int64](m, k)
+//line go_generics.gom:13
 	tmp2 = rt.Tuple2[int64, bool]{V0: a, V1: b}
 //line go_generics.gom:13
 	v := tmp2.V0
@@ -43,10 +47,13 @@ func lookupOr(m map[string]int64, k string) int64 {
 	if ok {
 //line go_generics.gom:14
 		return v
+//line go_generics.gom:14
 	} else {
 //line go_generics.gom:14
 		return 0
+//line go_generics.gom:14
 	}
+//line go_generics.gom:12
 }
 
 //line go_generics.gom:21
@@ -57,4 +64,5 @@ func index(xs list.List[int64], n int64) int64 {
 	tmp4 := goiface.Index[[]int64, int64](tmp3, n)
 //line go_generics.gom:21
 	return int64(tmp4)
+//line go_generics.gom:21
 }

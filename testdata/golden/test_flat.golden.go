@@ -6,4 +6,5 @@ package flat
 func add(a, b int64) int64 {
 //line test_flat.gom:3
 	return a + b
+//line test_flat.gom:3
 }

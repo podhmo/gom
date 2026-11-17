@@ -15,13 +15,16 @@ type Shape interface{ isShape() }
 type Shape_Circle struct {
 //line match_ctor_scrutinee.gom:30
 	R float64
+//line match_ctor_scrutinee.gom:30
 }
 
+//line match_ctor_scrutinee.gom:30
 func (Shape_Circle) isShape() {}
 
 //line match_ctor_scrutinee.gom:30
 type Shape_Empty struct{}
 
+//line match_ctor_scrutinee.gom:30
 func (Shape_Empty) isShape() {}
 
 //line match_ctor_scrutinee.gom:10
@@ -32,6 +35,7 @@ func direct(_ struct{}) int64 {
 	switch v := tmp1.(type) {
 //line match_ctor_scrutinee.gom:12
 	case option.Option_Some[int64]:
+//line match_ctor_scrutinee.gom:12
 		tmp2 := v
 //line match_ctor_scrutinee.gom:12
 		tmp3 := tmp2.V0
@@ -41,10 +45,13 @@ func direct(_ struct{}) int64 {
 	case option.Option_None[int64]:
 //line match_ctor_scrutinee.gom:13
 		return 0
+//line match_ctor_scrutinee.gom:13
 	default:
 //line match_ctor_scrutinee.gom:11
 		panic(rt.InvalidVariant("Option", tmp1))
+//line match_ctor_scrutinee.gom:12
 	}
+//line match_ctor_scrutinee.gom:10
 }
 
 //line match_ctor_scrutinee.gom:16
@@ -55,6 +62,7 @@ func bound(_ struct{}) int64 {
 	switch v1 := x.(type) {
 //line match_ctor_scrutinee.gom:19
 	case option.Option_Some[int64]:
+//line match_ctor_scrutinee.gom:19
 		tmp4 := v1
 //line match_ctor_scrutinee.gom:19
 		tmp5 := tmp4.V0
@@ -64,10 +72,13 @@ func bound(_ struct{}) int64 {
 	case option.Option_None[int64]:
 //line match_ctor_scrutinee.gom:20
 		return 0
+//line match_ctor_scrutinee.gom:20
 	default:
 //line match_ctor_scrutinee.gom:18
 		panic(rt.InvalidVariant("Option", x))
+//line match_ctor_scrutinee.gom:19
 	}
+//line match_ctor_scrutinee.gom:16
 }
 
 //line match_ctor_scrutinee.gom:24
@@ -78,6 +89,7 @@ func none(_ struct{}) int64 {
 	switch v2 := tmp6.(type) {
 //line match_ctor_scrutinee.gom:26
 	case option.Option_Some[int64]:
+//line match_ctor_scrutinee.gom:26
 		tmp7 := v2
 //line match_ctor_scrutinee.gom:26
 		tmp8 := tmp7.V0
@@ -87,10 +99,13 @@ func none(_ struct{}) int64 {
 	case option.Option_None[int64]:
 //line match_ctor_scrutinee.gom:27
 		return 0
+//line match_ctor_scrutinee.gom:27
 	default:
 //line match_ctor_scrutinee.gom:25
 		panic(rt.InvalidVariant("Option", tmp6))
+//line match_ctor_scrutinee.gom:26
 	}
+//line match_ctor_scrutinee.gom:24
 }
 
 //line match_ctor_scrutinee.gom:32
@@ -101,6 +116,7 @@ func local(_ struct{}) float64 {
 	switch v3 := s.(type) {
 //line match_ctor_scrutinee.gom:35
 	case Shape_Circle:
+//line match_ctor_scrutinee.gom:35
 		tmp9 := v3
 //line match_ctor_scrutinee.gom:35
 		tmp10 := tmp9.R
@@ -110,10 +126,13 @@ func local(_ struct{}) float64 {
 	case Shape_Empty:
 //line match_ctor_scrutinee.gom:36
 		return 0.0
+//line match_ctor_scrutinee.gom:36
 	default:
 //line match_ctor_scrutinee.gom:34
 		panic(rt.InvalidVariant("Shape", s))
+//line match_ctor_scrutinee.gom:35
 	}
+//line match_ctor_scrutinee.gom:32
 }
 
 //line match_ctor_scrutinee.gom:40
@@ -124,6 +143,7 @@ func res(_ struct{}) int64 {
 	switch r.Tag() {
 //line match_ctor_scrutinee.gom:43
 	case result.ResultTagOk:
+//line match_ctor_scrutinee.gom:43
 		tmp11 := r.Value
 //line match_ctor_scrutinee.gom:43
 		tmp12 := tmp11
@@ -131,19 +151,24 @@ func res(_ struct{}) int64 {
 		return tmp12
 //line match_ctor_scrutinee.gom:43
 	case result.ResultTagErr:
+//line match_ctor_scrutinee.gom:43
 		tmp13 := r.Error
 //line match_ctor_scrutinee.gom:43
 		_ = tmp13
 //line match_ctor_scrutinee.gom:44
 		return 0
+//line match_ctor_scrutinee.gom:44
 	default:
 //line match_ctor_scrutinee.gom:42
 		panic(rt.InvalidVariant("Result", r))
+//line match_ctor_scrutinee.gom:43
 	}
+//line match_ctor_scrutinee.gom:40
 }
 
 //line match_ctor_scrutinee.gom:48
 func main() {
 //line match_ctor_scrutinee.gom:48
 	_ = struct{}{}
+//line match_ctor_scrutinee.gom:48
 }

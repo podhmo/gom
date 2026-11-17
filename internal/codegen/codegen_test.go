@@ -153,6 +153,7 @@ package shapes
 func add2(a, b int64) int64 {
 //line t.gom:4
 	return a + b
+//line t.gom:3
 }
 `
 	if string(out.Source) != want {
@@ -249,9 +250,9 @@ func TestCtorLetConversion(t *testing.T) {
 	}
 }
 
-// TestEqMapDecl: a Go.Map comparator emits the key-set/value loop,
-// and — like every comparator — carries its //line only on the
-// declaration, never on the generated body statements.
+// TestEqMapDecl: a Go.Map comparator emits the key-set/value loop
+// with every generated line pinned to the declaration's span
+// (per-line re-pin).
 func TestEqMapDecl(t *testing.T) {
 	mapT := &types.Con{Qual: "Go", Name: "Map",
 		Args: []types.Type{types.String, types.Int}}
@@ -277,8 +278,10 @@ func TestEqMapDecl(t *testing.T) {
 			t.Errorf("generated comparator lacks %q:\n%s", want, src)
 		}
 	}
-	if n := strings.Count(src, "//line"); n != 1 {
-		t.Errorf("comparator emitted %d //line directives, want the declaration's one:\n%s", n, src)
+	// Every emitted line is pinned (per-line re-pin); the
+	// synthesized comparator's lines all cite the declaration's span.
+	if n := strings.Count(src, "//line t.gom:3"); n == 0 || n != strings.Count(src, "//line") {
+		t.Errorf("comparator emitted directives citing other lines:\n%s", src)
 	}
 }
 

@@ -29,6 +29,7 @@ func TestIsSomeIsNone(t *testing.T) {
 	tmp26 := !tmp25
 //line stdlib/option/option.gom:82
 	rt.Assert(t, tmp26)
+//line stdlib/option/option.gom:78
 }
 
 //line stdlib/option/option.gom:85
@@ -51,6 +52,7 @@ func TestGetAndGetOrElse(t *testing.T) {
 	tmp32 := GetOrElse[int64](9, tmp31)
 //line stdlib/option/option.gom:88
 	rt.AssertEq(t, tmp32 == 9, strconv.FormatInt(tmp32, 10), strconv.FormatInt(9, 10))
+//line stdlib/option/option.gom:85
 }
 
 //line stdlib/option/option.gom:91
@@ -59,6 +61,7 @@ func TestMapAndThen(t *testing.T) {
 	tmp33 := func(x int64) int64 {
 //line stdlib/option/option.gom:92
 		return x + 1
+//line stdlib/option/option.gom:92
 	}
 //line stdlib/option/option.gom:92
 	tmp34 := Option[int64](Option_Some[int64]{V0: 1})
@@ -72,6 +75,7 @@ func TestMapAndThen(t *testing.T) {
 	tmp37 := func(x1 int64) int64 {
 //line stdlib/option/option.gom:93
 		return x1 + 1
+//line stdlib/option/option.gom:93
 	}
 //line stdlib/option/option.gom:93
 	tmp38 := Option[int64](Option_None[int64]{})
@@ -87,6 +91,7 @@ func TestMapAndThen(t *testing.T) {
 		tmp41 := x2 + 1
 //line stdlib/option/option.gom:94
 		return Option_Some[int64]{V0: tmp41}
+//line stdlib/option/option.gom:94
 	}
 //line stdlib/option/option.gom:94
 	tmp43 := Option[int64](Option_Some[int64]{V0: 1})
@@ -102,6 +107,7 @@ func TestMapAndThen(t *testing.T) {
 		tmp46 := x3 + 1
 //line stdlib/option/option.gom:95
 		return Option_Some[int64]{V0: tmp46}
+//line stdlib/option/option.gom:95
 	}
 //line stdlib/option/option.gom:95
 	tmp48 := Option[int64](Option_None[int64]{})
@@ -111,6 +117,7 @@ func TestMapAndThen(t *testing.T) {
 	tmp50 := Option[int64](Option_None[int64]{})
 //line stdlib/option/option.gom:95
 	rt.AssertEq(t, tmp49 == tmp50, gomShow1932b3742(tmp49), gomShow1932b3742(tmp50))
+//line stdlib/option/option.gom:91
 }
 
 //line stdlib/option/option.gom:98
@@ -139,6 +146,7 @@ func TestOrElseFilterFlatten(t *testing.T) {
 	tmp58 := func(x int64) bool {
 //line stdlib/option/option.gom:102
 		return x > 1
+//line stdlib/option/option.gom:102
 	}
 //line stdlib/option/option.gom:102
 	tmp59 := Option[int64](Option_Some[int64]{V0: 2})
@@ -152,6 +160,7 @@ func TestOrElseFilterFlatten(t *testing.T) {
 	tmp62 := func(x1 int64) bool {
 //line stdlib/option/option.gom:103
 		return x1 > 9
+//line stdlib/option/option.gom:103
 	}
 //line stdlib/option/option.gom:103
 	tmp63 := Option[int64](Option_Some[int64]{V0: 2})
@@ -175,6 +184,7 @@ func TestOrElseFilterFlatten(t *testing.T) {
 	tmp70 := Flatten[int64](tmp69)
 //line stdlib/option/option.gom:105
 	rt.AssertEq(t, tmp70 == noneI, gomShow1932b3742(tmp70), gomShow1932b3742(noneI))
+//line stdlib/option/option.gom:98
 }
 
 //line stdlib/option/option.gom:108
@@ -195,31 +205,53 @@ func TestToResult(t *testing.T) {
 	tmp75 := result.Err[int64, string]("missing")
 //line stdlib/option/option.gom:111
 	rt.AssertEq(t, tmp74 == tmp75, gomShow2932b3742(tmp74), gomShow2932b3742(tmp75))
+//line stdlib/option/option.gom:108
 }
 
 //line stdlib/option/option.gom:92
 func gomShow1932b3742(v Option[int64]) string {
+//line stdlib/option/option.gom:92
 	if v == nil {
+//line stdlib/option/option.gom:92
 		return "nil"
+//line stdlib/option/option.gom:92
 	}
+//line stdlib/option/option.gom:92
 	switch x := v.(type) {
+//line stdlib/option/option.gom:92
 	case Option_Some[int64]:
+//line stdlib/option/option.gom:92
 		return "" + "Some" + " " + strconv.FormatInt(x.V0, 10)
+//line stdlib/option/option.gom:92
 	case Option_None[int64]:
+//line stdlib/option/option.gom:92
 		return "" + "None"
+//line stdlib/option/option.gom:92
 	default:
+//line stdlib/option/option.gom:92
 		panic(rt.InvalidVariant("Option Int", v))
+//line stdlib/option/option.gom:92
 	}
+//line stdlib/option/option.gom:92
 }
 
 //line stdlib/option/option.gom:110
 func gomShow2932b3742(v result.Result[int64, string]) string {
+//line stdlib/option/option.gom:110
 	switch v.Tag() {
+//line stdlib/option/option.gom:110
 	case result.ResultTagOk:
+//line stdlib/option/option.gom:110
 		return "" + "Ok" + " " + strconv.FormatInt(v.Value, 10)
+//line stdlib/option/option.gom:110
 	case result.ResultTagErr:
+//line stdlib/option/option.gom:110
 		return "" + "Err" + " " + strconv.Quote(v.Error)
+//line stdlib/option/option.gom:110
 	default:
+//line stdlib/option/option.gom:110
 		panic(rt.InvalidVariant("result.Result", v))
+//line stdlib/option/option.gom:110
 	}
+//line stdlib/option/option.gom:110
 }

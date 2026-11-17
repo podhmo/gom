@@ -15,39 +15,46 @@ import (
 func widen(b byte) int64 {
 //line go_byte.gom:11
 	return int64(b)
+//line go_byte.gom:11
 }
 
 //line go_byte.gom:12
 func narrow(n int64) byte {
 //line go_byte.gom:12
 	return byte(n)
+//line go_byte.gom:12
 }
 
 //line go_byte.gom:13
 func same(a, b byte) bool {
 //line go_byte.gom:13
 	return a == b
+//line go_byte.gom:13
 }
 
 //line go_byte.gom:14
 func bytesOf(s string) []byte {
 //line go_byte.gom:14
 	return []byte(s)
+//line go_byte.gom:14
 }
 
 //line go_byte.gom:15
 func head(xs list.List[byte]) option.Option[byte] {
 //line go_byte.gom:15
 	return list.Head[byte](xs)
+//line go_byte.gom:15
 }
 
 //line go_byte.gom:17
 func validFile(path string) result.Result[bool, error] {
 //line go_byte.gom:18
 	tmp1, err := os.ReadFile(path)
+//line go_byte.gom:18
 	if err != nil {
 //line go_byte.gom:18
 		return result.Err[bool, error](err)
+//line go_byte.gom:18
 	}
 //line go_byte.gom:18
 	data := list.FromSlice(tmp1)
@@ -57,6 +64,7 @@ func validFile(path string) result.Result[bool, error] {
 	tmp3 := utf8.Valid(tmp2)
 //line go_byte.gom:19
 	return result.Ok[bool, error](tmp3)
+//line go_byte.gom:17
 }
 
 //line go_byte.gom:22
@@ -83,19 +91,23 @@ func main() {
 	case result.ResultTagErr:
 //line go_byte.gom:29
 		_ = struct{}{}
+//line go_byte.gom:29
 	default:
 //line go_byte.gom:27
 		panic(rt.InvalidVariant("Result", tmp5))
+//line go_byte.gom:28
 	}
 //line go_byte.gom:31
 	var tmp8 result.Result[list.List[byte], error]
 //line go_byte.gom:31
 	v, err1 := os.ReadFile("go.mod")
+//line go_byte.gom:31
 	tmp8 = result.FromGo(list.FromSlice(v), err1)
 //line go_byte.gom:32
 	switch tmp8.Tag() {
 //line go_byte.gom:32
 	case result.ResultTagOk:
+//line go_byte.gom:32
 		tmp9 := tmp8.Value
 //line go_byte.gom:32
 		tmp10 := tmp9
@@ -107,8 +119,11 @@ func main() {
 	case result.ResultTagErr:
 //line go_byte.gom:33
 		_ = struct{}{}
+//line go_byte.gom:33
 	default:
 //line go_byte.gom:31
 		panic(rt.InvalidVariant("Result", tmp8))
+//line go_byte.gom:32
 	}
+//line go_byte.gom:22
 }

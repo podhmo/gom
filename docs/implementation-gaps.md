@@ -333,6 +333,9 @@
   `RenderStack`・`gom test` の fold が match-aware。`Resolve` 自体は naive 契約を維持。
   参照: [decision](decisions/2026-11-06-gotool-position-inverse.md)、
   [検証](sketch/2026-11-06-gotool-inverse-verification.md)。
+  さらに wave-16 で drift そのものを消去 — emit する全行に `//line` 再置き（per-line re-pin）
+  して未 pin の継続行を生成しない。`MatchDrift` 分類は旧生成物・map 未登録経路向けに残置。
+  [decision](decisions/2026-11-17-sourcemap-repin.md)。
 
 - [ ] **`SpanAt` が「生成行」ではなく「内側構文の span」を返す粒度の差異**:
   対応表の逆引きは Go の継続行番号より粗く、エディタが期待する行・列の対応とは意味論が違う。

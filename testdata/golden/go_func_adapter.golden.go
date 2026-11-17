@@ -11,6 +11,7 @@ import (
 func add(a, b int64) int64 {
 //line go_func_adapter.gom:5
 	return a + b
+//line go_func_adapter.gom:5
 }
 
 //line go_func_adapter.gom:9
@@ -21,14 +22,19 @@ func applyAdd(_ struct{}) int64 {
 		return func(tmp2 int64) int64 {
 //line go_func_adapter.gom:9
 			return add(tmp1, tmp2)
+//line go_func_adapter.gom:9
 		}
+//line go_func_adapter.gom:9
 	}
 //line go_func_adapter.gom:9
 	tmp6 := func(tmp4, tmp5 int64) int64 {
+//line go_func_adapter.gom:9
 		return tmp3(tmp4)(tmp5)
+//line go_func_adapter.gom:9
 	}
 //line go_func_adapter.gom:9
 	return goiface.Apply2(tmp6)
+//line go_func_adapter.gom:9
 }
 
 //line go_func_adapter.gom:13
@@ -37,13 +43,17 @@ func pickAny(_ struct{}) int64 {
 	tmp7 := func(x any) int64 {
 //line go_func_adapter.gom:13
 		return 7
+//line go_func_adapter.gom:13
 	}
 //line go_func_adapter.gom:13
 	tmp9 := func(tmp8 any) int64 {
+//line go_func_adapter.gom:13
 		return tmp7(tmp8)
+//line go_func_adapter.gom:13
 	}
 //line go_func_adapter.gom:13
 	return goiface.TakesAnyFn(tmp9)
+//line go_func_adapter.gom:13
 }
 
 //line go_func_adapter.gom:16
@@ -52,19 +62,27 @@ func checkGive(n int64) result.Result[struct{}, error] {
 	tmp11 := func(tmp10 int64) error {
 //line go_func_adapter.gom:17
 		v := goiface.FailOnce(tmp10)
+//line go_func_adapter.gom:17
 		if v == nil {
 //line go_func_adapter.gom:17
 			panic("gom: goiface.FailOnce returned nil error — its binding declares a never-nil GoError result")
+//line go_func_adapter.gom:17
 		}
+//line go_func_adapter.gom:17
 		return v
+//line go_func_adapter.gom:17
 	}
 //line go_func_adapter.gom:17
 	tmp13 := func(tmp12 int64) error {
+//line go_func_adapter.gom:17
 		return tmp11(tmp12)
+//line go_func_adapter.gom:17
 	}
 //line go_func_adapter.gom:17
 	err := goiface.Check(tmp13)
+//line go_func_adapter.gom:17
 	return result.FromErr(err)
+//line go_func_adapter.gom:16
 }
 
 //line go_func_adapter.gom:21
@@ -73,20 +91,31 @@ func lookupGive(_ struct{}) result.Result[string, error] {
 	tmp15 := func(tmp14 int64) result.Result[string, error] {
 //line go_func_adapter.gom:22
 		v1, err1 := goiface.Give(tmp14)
+//line go_func_adapter.gom:22
 		return result.FromGo(v1, err1)
+//line go_func_adapter.gom:22
 	}
 //line go_func_adapter.gom:22
 	tmp17 := func(tmp16 int64) (string, error) {
+//line go_func_adapter.gom:22
 		v2, err2 := tmp15(tmp16).Unwrap()
+//line go_func_adapter.gom:22
 		if err2 != nil {
+//line go_func_adapter.gom:22
 			var z string
+//line go_func_adapter.gom:22
 			return z, err2
+//line go_func_adapter.gom:22
 		}
+//line go_func_adapter.gom:22
 		return v2, nil
+//line go_func_adapter.gom:22
 	}
 //line go_func_adapter.gom:22
 	v3, err3 := goiface.LookAll(tmp17)
+//line go_func_adapter.gom:22
 	return result.FromGo(v3, err3)
+//line go_func_adapter.gom:21
 }
 
 //line go_func_adapter.gom:27
@@ -97,12 +126,17 @@ var addf func(int64, int64) int64 = func() func(int64, int64) int64 {
 		return func(tmp19 int64) int64 {
 //line go_func_adapter.gom:27
 			return add(tmp18, tmp19)
+//line go_func_adapter.gom:27
 		}
+//line go_func_adapter.gom:27
 	}
 //line go_func_adapter.gom:27
 	return func(tmp21, tmp22 int64) int64 {
+//line go_func_adapter.gom:27
 		return tmp20(tmp21)(tmp22)
+//line go_func_adapter.gom:27
 	}
+//line go_func_adapter.gom:27
 }()
 
 //line go_func_adapter.gom:31
@@ -111,13 +145,17 @@ func takePair(_ struct{}) int64 {
 	tmp23 := func(cb func(int64)) int64 {
 //line go_func_adapter.gom:31
 		return 9
+//line go_func_adapter.gom:31
 	}
 //line go_func_adapter.gom:31
 	tmp25 := func(tmp24 func(int64)) int64 {
+//line go_func_adapter.gom:31
 		return tmp23(tmp24)
+//line go_func_adapter.gom:31
 	}
 //line go_func_adapter.gom:31
 	return goiface.TakeFuncPair(tmp25)
+//line go_func_adapter.gom:31
 }
 
 //line go_func_adapter.gom:35
@@ -126,13 +164,17 @@ func applyZero(_ struct{}) int64 {
 	tmp26 := func(_ struct{}) int64 {
 //line go_func_adapter.gom:35
 		return 41
+//line go_func_adapter.gom:35
 	}
 //line go_func_adapter.gom:35
 	tmp27 := func() int64 {
+//line go_func_adapter.gom:35
 		return tmp26(struct{}{})
+//line go_func_adapter.gom:35
 	}
 //line go_func_adapter.gom:35
 	return goiface.Apply0(tmp27)
+//line go_func_adapter.gom:35
 }
 
 //line go_func_adapter.gom:39
@@ -141,13 +183,17 @@ func tick(_ struct{}) int64 {
 	tmp28 := func() int64 {
 //line go_func_adapter.gom:39
 		return goiface.Tick()
+//line go_func_adapter.gom:39
 	}
 //line go_func_adapter.gom:39
 	tmp29 := func() int64 {
+//line go_func_adapter.gom:39
 		return tmp28()
+//line go_func_adapter.gom:39
 	}
 //line go_func_adapter.gom:39
 	return goiface.Apply0(tmp29)
+//line go_func_adapter.gom:39
 }
 
 //line go_func_adapter.gom:47
@@ -156,29 +202,40 @@ func checkDirect(_ struct{}) result.Result[struct{}, error] {
 	tmp31 := func(tmp30 int64) error {
 //line go_func_adapter.gom:48
 		v4 := goiface.FailOnce(tmp30)
+//line go_func_adapter.gom:48
 		if v4 == nil {
 //line go_func_adapter.gom:48
 			panic("gom: goiface.FailOnce returned nil error — its binding declares a never-nil GoError result")
+//line go_func_adapter.gom:48
 		}
+//line go_func_adapter.gom:48
 		return v4
+//line go_func_adapter.gom:48
 	}
 //line go_func_adapter.gom:48
 	tmp33 := func(tmp32 int64) error {
+//line go_func_adapter.gom:48
 		return tmp31(tmp32)
+//line go_func_adapter.gom:48
 	}
 //line go_func_adapter.gom:48
 	err4 := goiface.Check(tmp33)
+//line go_func_adapter.gom:48
 	return result.FromErr(err4)
+//line go_func_adapter.gom:47
 }
 
 //line go_func_adapter.gom:53
 func drive(f func(int64) int64, n int64) int64 {
+//line go_func_adapter.gom:53
 	for {
 //line go_func_adapter.gom:53
 		f1 := f
 //line go_func_adapter.gom:54
 		cb := func(tmp34 int64) int64 {
+//line go_func_adapter.gom:54
 			return f1(tmp34)
+//line go_func_adapter.gom:54
 		}
 //line go_func_adapter.gom:55
 		tmp36 := n <= 0
@@ -186,28 +243,39 @@ func drive(f func(int64) int64, n int64) int64 {
 		if tmp36 {
 //line go_func_adapter.gom:55
 			return goiface.Apply1(cb)
+//line go_func_adapter.gom:55
 		} else {
 //line go_func_adapter.gom:55
 			tmp35 := n - 1
 //line go_func_adapter.gom:55
 			f, n = f1, tmp35
+//line go_func_adapter.gom:55
 			continue
+//line go_func_adapter.gom:55
 		}
+//line go_func_adapter.gom:53
 	}
+//line go_func_adapter.gom:53
 }
 
 //line go_func_adapter.gom:61
 var chkWrapped func(int64) error = func(tmp37 int64) error {
+//line go_func_adapter.gom:61
 	_, err5 := checkGive(tmp37).Unwrap()
+//line go_func_adapter.gom:61
 	return err5
+//line go_func_adapter.gom:61
 }
 
 //line go_func_adapter.gom:65
 func viaU(_ struct{}) int64 {
 //line go_func_adapter.gom:65
 	tmp38 := func() int64 {
+//line go_func_adapter.gom:65
 		return goiface.U(struct{}{})
+//line go_func_adapter.gom:65
 	}
 //line go_func_adapter.gom:65
 	return goiface.Apply0(tmp38)
+//line go_func_adapter.gom:65
 }

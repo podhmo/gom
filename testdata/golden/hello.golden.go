@@ -13,7 +13,9 @@ func main() {
 	tmp1 := any("hello")
 //line hello.gom:6
 	v, err := fmt.Println(tmp1)
+//line hello.gom:6
 	_ = result.FromGo(int64(v), err)
 //line hello.gom:7
 	_ = struct{}{}
+//line hello.gom:5
 }

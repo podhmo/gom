@@ -14,9 +14,11 @@ func areas(xs list.List[float64]) list.List[float64] {
 	tmp1 := func(x float64) float64 {
 //line stdlib_modules.gom:10
 		return x * 2.0
+//line stdlib_modules.gom:10
 	}
 //line stdlib_modules.gom:10
 	return list.Map[float64, float64](tmp1, xs)
+//line stdlib_modules.gom:10
 }
 
 //line stdlib_modules.gom:12
@@ -25,17 +27,20 @@ func total(xs list.List[float64]) float64 {
 	tmp2 := func(x float64) float64 {
 //line stdlib_modules.gom:12
 		return x * 2.0
+//line stdlib_modules.gom:12
 	}
 //line stdlib_modules.gom:12
 	tmp3 := list.Map[float64, float64](tmp2, xs)
 //line stdlib_modules.gom:12
 	return list.Sum(tmp3)
+//line stdlib_modules.gom:12
 }
 
 //line stdlib_modules.gom:14
 func maybe(o option.Option[int64]) int64 {
 //line stdlib_modules.gom:14
 	return option.GetOrElse[int64](9, o)
+//line stdlib_modules.gom:14
 }
 
 //line stdlib_modules.gom:16
@@ -46,13 +51,16 @@ func flagged(r result.Result[int64, string]) result.Result[int64, string] {
 		tmp4 := e
 //line stdlib_modules.gom:16
 		return tmp4 + "!"
+//line stdlib_modules.gom:16
 	}
 //line stdlib_modules.gom:16
 	return result.MapErr[string, string, int64](tmp5, r)
+//line stdlib_modules.gom:16
 }
 
 //line stdlib_modules.gom:18
 func main() {
 //line stdlib_modules.gom:18
 	_ = struct{}{}
+//line stdlib_modules.gom:18
 }

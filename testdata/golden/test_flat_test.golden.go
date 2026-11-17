@@ -14,4 +14,5 @@ func TestAdd(t *testing.T) {
 	tmp1 := add(1, 2)
 //line test_flat.gom:6
 	rt.AssertEq(t, tmp1 == 3, strconv.FormatInt(tmp1, 10), strconv.FormatInt(3, 10))
+//line test_flat.gom:5
 }

@@ -16,6 +16,7 @@ func header(request1 *http.Request) http.Header {
 	tmp1 := request1.Header
 //line go_interface_fields.gom:8
 	return tmp1
+//line go_interface_fields.gom:8
 }
 
 //line go_interface_fields.gom:9
@@ -24,6 +25,7 @@ func status(response *http.Response) int64 {
 	tmp2 := response.StatusCode
 //line go_interface_fields.gom:9
 	return int64(tmp2)
+//line go_interface_fields.gom:9
 }
 
 //line go_interface_fields.gom:10
@@ -32,12 +34,14 @@ func body(response *http.Response) io.ReadCloser {
 	tmp3 := response.Body
 //line go_interface_fields.gom:10
 	return tmp3
+//line go_interface_fields.gom:10
 }
 
 //line go_interface_fields.gom:11
 func stderr(_ struct{}) io.Writer {
 //line go_interface_fields.gom:11
 	return io.Writer(os.Stderr)
+//line go_interface_fields.gom:11
 }
 
 //line go_interface_fields.gom:12
@@ -48,5 +52,7 @@ func request(_ struct{}) result.Result[*http.Request, error] {
 	tmp5 := io.Reader(tmp4)
 //line go_interface_fields.gom:12
 	v, err := http.NewRequest("POST", "http://example.invalid/gists", tmp5)
+//line go_interface_fields.gom:12
 	return result.FromGo(v, err)
+//line go_interface_fields.gom:12
 }

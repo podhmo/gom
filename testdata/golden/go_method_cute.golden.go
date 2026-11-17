@@ -32,7 +32,9 @@ func main(_ struct{}) struct{} {
 			tmp7 := int(tmp6)
 //line go_method_cute.gom:15
 			return x.AddDate(tmp7, tmp4, tmp5)
+//line go_method_cute.gom:15
 		}
+//line go_method_cute.gom:15
 	}
 //line go_method_cute.gom:16
 	tmp8 := later(t0)
@@ -44,6 +46,7 @@ func main(_ struct{}) struct{} {
 	tmp10 := any(tmp9)
 //line go_method_cute.gom:17
 	v, err := fmt.Println(tmp10)
+//line go_method_cute.gom:17
 	_ = result.FromGo(int64(v), err)
 //line go_method_cute.gom:18
 	tmp11 := delayed.Format("2006-01-02")
@@ -51,7 +54,9 @@ func main(_ struct{}) struct{} {
 	tmp12 := any(tmp11)
 //line go_method_cute.gom:18
 	v1, err1 := fmt.Println(tmp12)
+//line go_method_cute.gom:18
 	_ = result.FromGo(int64(v1), err1)
 //line go_method_cute.gom:19
 	return struct{}{}
+//line go_method_cute.gom:12
 }

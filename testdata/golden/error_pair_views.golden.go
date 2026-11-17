@@ -12,53 +12,69 @@ import (
 func pair(n int64) result.Result[option.Option[error], error] {
 //line error_pair_views.gom:14
 	v, err := goiface.TwoErrs(n)
+//line error_pair_views.gom:14
 	return result.FromGo(option.FromGo(v, v != nil), err)
+//line error_pair_views.gom:14
 }
 
 //line error_pair_views.gom:18
 func strict(_ struct{}) result.Result[error, error] {
 //line error_pair_views.gom:18
 	v1, err1 := goiface.BothNil()
+//line error_pair_views.gom:18
 	if err1 == nil && v1 == nil {
 //line error_pair_views.gom:18
 		panic("gom: goiface.BothNil returned (nil, nil) — its binding declares a never-nil payload")
+//line error_pair_views.gom:18
 	}
+//line error_pair_views.gom:18
 	return result.FromGo(v1, err1)
+//line error_pair_views.gom:18
 }
 
 //line error_pair_views.gom:22
 func soft(n int64) result.Result[option.Option[*int64], error] {
 //line error_pair_views.gom:22
 	v2, err2 := goiface.SoftPtr(n)
+//line error_pair_views.gom:22
 	return result.FromGo(option.FromGo(v2, v2 != nil), err2)
+//line error_pair_views.gom:22
 }
 
 //line error_pair_views.gom:26
 func probe(n int64) result.Result[error, error] {
 //line error_pair_views.gom:27
 	e, err3 := goiface.StrictPair(n)
+//line error_pair_views.gom:27
 	if err3 != nil {
 //line error_pair_views.gom:27
 		return result.Err[error, error](err3)
+//line error_pair_views.gom:27
 	}
+//line error_pair_views.gom:27
 	if e == nil {
 //line error_pair_views.gom:27
 		panic("gom: goiface.StrictPair returned (nil, nil) — its binding declares a never-nil payload")
+//line error_pair_views.gom:27
 	}
 //line error_pair_views.gom:28
 	return result.Ok[error, error](e)
+//line error_pair_views.gom:26
 }
 
 //line error_pair_views.gom:33
 func probeOpt(n int64) result.Result[option.Option[error], error] {
 //line error_pair_views.gom:34
 	tmp1, err4 := goiface.TwoErrs(n)
+//line error_pair_views.gom:34
 	if err4 != nil {
 //line error_pair_views.gom:34
 		return result.Err[option.Option[error], error](err4)
+//line error_pair_views.gom:34
 	}
 //line error_pair_views.gom:34
 	o := option.FromGo(tmp1, tmp1 != nil)
 //line error_pair_views.gom:35
 	return result.Ok[option.Option[error], error](o)
+//line error_pair_views.gom:33
 }

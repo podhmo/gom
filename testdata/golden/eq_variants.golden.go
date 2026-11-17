@@ -13,14 +13,17 @@ type Sh interface{ isSh() }
 //line eq_variants.gom:6
 type Sh_A struct{}
 
+//line eq_variants.gom:6
 func (Sh_A) isSh() {}
 
 //line eq_variants.gom:6
 type Sh_B struct {
 //line eq_variants.gom:6
 	V0 int64
+//line eq_variants.gom:6
 }
 
+//line eq_variants.gom:6
 func (Sh_B) isSh() {}
 
 //line eq_variants.gom:8
@@ -31,6 +34,7 @@ func neqVars(_ struct{}) bool {
 	b := Sh(Sh_B{V0: 1})
 //line eq_variants.gom:11
 	return a == b
+//line eq_variants.gom:8
 }
 
 //line eq_variants.gom:14
@@ -45,6 +49,7 @@ func neqCtorTail(s Sh) bool {
 		return false
 //line eq_variants.gom:17
 	case Sh_B:
+//line eq_variants.gom:17
 		tmp1 := v
 //line eq_variants.gom:18
 		tmp2 := tmp1.V0
@@ -52,10 +57,13 @@ func neqCtorTail(s Sh) bool {
 		tmp3 := Sh(Sh_B{V0: tmp2})
 //line eq_variants.gom:18
 		return a == tmp3
+//line eq_variants.gom:18
 	default:
 //line eq_variants.gom:16
 		panic(rt.InvalidVariant("Sh", s))
+//line eq_variants.gom:17
 	}
+//line eq_variants.gom:14
 }
 
 //line eq_variants.gom:22
@@ -66,6 +74,7 @@ func neqOpt(_ struct{}) bool {
 	tmp5 := option.Option[int64](option.Option_None[int64]{})
 //line eq_variants.gom:22
 	return tmp4 == tmp5
+//line eq_variants.gom:22
 }
 
 //line eq_variants.gom:24
@@ -76,4 +85,5 @@ func main() {
 	neqOpt(struct{}{})
 //line eq_variants.gom:27
 	_ = struct{}{}
+//line eq_variants.gom:24
 }

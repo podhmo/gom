@@ -15,6 +15,7 @@ func next(n int64) result.Result[int64, string] {
 	tmp1 := n + 1
 //line result_pipe_go_inflow.gom:6
 	return result.Ok[int64, string](tmp1)
+//line result_pipe_go_inflow.gom:6
 }
 
 //line result_pipe_go_inflow.gom:7
@@ -31,26 +32,34 @@ func count(_ struct{}) result.Result[int64, string] {
 		var tmp6 int64
 //line result_pipe_go_inflow.gom:7
 		switch tmp5.Tag() {
+//line result_pipe_go_inflow.gom:7
 		case result.ResultTagOk:
+//line result_pipe_go_inflow.gom:7
 			tmp6 = tmp5.Value
+//line result_pipe_go_inflow.gom:7
 		case result.ResultTagErr:
 //line result_pipe_go_inflow.gom:7
 			return result.Err[int64, string](tmp5.Error)
+//line result_pipe_go_inflow.gom:7
 		default:
 //line result_pipe_go_inflow.gom:7
 			panic(rt.InvalidVariant("result.Result", tmp5))
+//line result_pipe_go_inflow.gom:7
 		}
 //line result_pipe_go_inflow.gom:7
 		return result.Ok[int64, string](tmp6)
+//line result_pipe_go_inflow.gom:7
 	}
 //line result_pipe_go_inflow.gom:7
 	return tmp7(struct{}{})
+//line result_pipe_go_inflow.gom:7
 }
 
 //line result_pipe_go_inflow.gom:9
 func unit(u struct{}) result.Result[int64, string] {
 //line result_pipe_go_inflow.gom:9
 	return result.Ok[int64, string](7)
+//line result_pipe_go_inflow.gom:9
 }
 
 //line result_pipe_go_inflow.gom:10
@@ -65,18 +74,25 @@ func schedule(_ struct{}) result.Result[int64, string] {
 		var tmp10 int64
 //line result_pipe_go_inflow.gom:10
 		switch tmp9.Tag() {
+//line result_pipe_go_inflow.gom:10
 		case result.ResultTagOk:
+//line result_pipe_go_inflow.gom:10
 			tmp10 = tmp9.Value
+//line result_pipe_go_inflow.gom:10
 		case result.ResultTagErr:
 //line result_pipe_go_inflow.gom:10
 			return result.Err[int64, string](tmp9.Error)
+//line result_pipe_go_inflow.gom:10
 		default:
 //line result_pipe_go_inflow.gom:10
 			panic(rt.InvalidVariant("result.Result", tmp9))
+//line result_pipe_go_inflow.gom:10
 		}
 //line result_pipe_go_inflow.gom:10
 		return result.Ok[int64, string](tmp10)
+//line result_pipe_go_inflow.gom:10
 	}
 //line result_pipe_go_inflow.gom:10
 	return tmp11(struct{}{})
+//line result_pipe_go_inflow.gom:10
 }

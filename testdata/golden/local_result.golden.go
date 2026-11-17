@@ -13,16 +13,20 @@ type Result interface{ isResult() }
 type Result_Ok struct {
 //line local_result.gom:9
 	V0 int64
+//line local_result.gom:9
 }
 
+//line local_result.gom:9
 func (Result_Ok) isResult() {}
 
 //line local_result.gom:9
 type Result_Err struct {
 //line local_result.gom:9
 	V0 string
+//line local_result.gom:9
 }
 
+//line local_result.gom:9
 func (Result_Err) isResult() {}
 
 //line local_result.gom:11
@@ -34,6 +38,7 @@ var m int64 = func() int64 {
 	switch v := r.(type) {
 //line local_result.gom:12
 	case Result_Ok:
+//line local_result.gom:12
 		tmp1 := v
 //line local_result.gom:12
 		tmp2 := tmp1.V0
@@ -43,10 +48,13 @@ var m int64 = func() int64 {
 	case Result_Err:
 //line local_result.gom:12
 		return 0
+//line local_result.gom:12
 	default:
 //line local_result.gom:12
 		panic(rt.InvalidVariant("Result", r))
+//line local_result.gom:12
 	}
+//line local_result.gom:12
 }()
 
 //line local_result.gom:14
@@ -55,6 +63,7 @@ func describe(x Result) int64 {
 	switch v1 := x.(type) {
 //line local_result.gom:16
 	case Result_Ok:
+//line local_result.gom:16
 		tmp4 := v1
 //line local_result.gom:16
 		tmp5 := tmp4.V0
@@ -62,19 +71,24 @@ func describe(x Result) int64 {
 		return tmp5
 //line local_result.gom:16
 	case Result_Err:
+//line local_result.gom:16
 		tmp6 := v1
 //line local_result.gom:17
 		_ = tmp6.V0
 //line local_result.gom:17
 		return 0
+//line local_result.gom:17
 	default:
 //line local_result.gom:15
 		panic(rt.InvalidVariant("Result", x))
+//line local_result.gom:16
 	}
+//line local_result.gom:14
 }
 
 //line local_result.gom:20
 func main() {
 //line local_result.gom:20
 	_ = struct{}{}
+//line local_result.gom:20
 }

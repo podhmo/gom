@@ -11,12 +11,15 @@ import (
 func poll(jobs <-chan int64, done <-chan struct{}) int64 {
 //line select_arms.gom:7
 	select {
+//line select_arms.gom:7
 	case v1, ok := <-jobs:
+//line select_arms.gom:7
 		r := option.FromGo(v1, ok)
 //line select_arms.gom:9
 		switch v2 := r.(type) {
 //line select_arms.gom:9
 		case option.Option_Some[int64]:
+//line select_arms.gom:9
 			tmp1 := v2
 //line select_arms.gom:9
 			tmp2 := tmp1.V0
@@ -26,10 +29,13 @@ func poll(jobs <-chan int64, done <-chan struct{}) int64 {
 		case option.Option_None[int64]:
 //line select_arms.gom:10
 			return 0
+//line select_arms.gom:10
 		default:
 //line select_arms.gom:8
 			panic(rt.InvalidVariant("Option", r))
+//line select_arms.gom:9
 		}
+//line select_arms.gom:9
 	case <-done:
 //line select_arms.gom:12
 		return -1
@@ -37,13 +43,16 @@ func poll(jobs <-chan int64, done <-chan struct{}) int64 {
 	default:
 //line select_arms.gom:13
 		return -2
+//line select_arms.gom:7
 	}
+//line select_arms.gom:6
 }
 
 //line select_arms.gom:16
 func offer(ch chan<- int64, v int64) bool {
 //line select_arms.gom:17
 	select {
+//line select_arms.gom:17
 	case ch <- v:
 //line select_arms.gom:18
 		return true
@@ -51,5 +60,7 @@ func offer(ch chan<- int64, v int64) bool {
 	default:
 //line select_arms.gom:19
 		return false
+//line select_arms.gom:17
 	}
+//line select_arms.gom:16
 }

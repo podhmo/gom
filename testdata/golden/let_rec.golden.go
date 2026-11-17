@@ -10,6 +10,7 @@ func f(n int64) int64 {
 	if tmp3 {
 //line let_rec.gom:8
 		return 1
+//line let_rec.gom:8
 	} else {
 //line let_rec.gom:8
 		tmp1 := n - 1
@@ -17,7 +18,9 @@ func f(n int64) int64 {
 		tmp2 := f(tmp1)
 //line let_rec.gom:8
 		return n * tmp2
+//line let_rec.gom:8
 	}
+//line let_rec.gom:8
 }
 
 //line let_rec.gom:10
@@ -28,12 +31,15 @@ func even(n int64) bool {
 	if tmp5 {
 //line let_rec.gom:10
 		return true
+//line let_rec.gom:10
 	} else {
 //line let_rec.gom:10
 		tmp4 := n - 1
 //line let_rec.gom:10
 		return odd(tmp4)
+//line let_rec.gom:10
 	}
+//line let_rec.gom:10
 }
 
 //line let_rec.gom:11
@@ -44,12 +50,15 @@ func odd(n int64) bool {
 	if tmp7 {
 //line let_rec.gom:11
 		return false
+//line let_rec.gom:11
 	} else {
 //line let_rec.gom:11
 		tmp6 := n - 1
 //line let_rec.gom:11
 		return even(tmp6)
+//line let_rec.gom:11
 	}
+//line let_rec.gom:11
 }
 
 //line let_rec.gom:13
@@ -64,4 +73,5 @@ func main() {
 	_ = tmp8 && tmp9
 //line let_rec.gom:16
 	_ = struct{}{}
+//line let_rec.gom:13
 }

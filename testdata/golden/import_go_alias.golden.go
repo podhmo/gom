@@ -14,4 +14,5 @@ func main() {
 	s.Itoa(tmp1)
 //line import_go_alias.gom:8
 	_ = struct{}{}
+//line import_go_alias.gom:8
 }
