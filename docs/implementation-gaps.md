@@ -598,17 +598,24 @@
   shadowed-builtin 分岐を追加し E0415 ③ を解消（P5-2）。
   参照: [expr.go](../internal/check/expr.go) `checkFor`。
 
-- [ ] **`metasIn(want)` の quiet 化は共有 want の後続 mismatch を抑制しうる**:
+- [x] **`metasIn(want)` の quiet 化は共有 want の後続 mismatch を抑制しうる**:
   `Chan.close (Chan.recvOnly ch)` の E0407 カスケード削減のため、unify 失敗時に
   want 内の全未束縛メタを quiet にする（旧 `markQuiet(want)` は生のメタにのみ
   効いた）。コンパウンド want（`SendChan ?a` 等）への拡大で、同じ未解決 want
   オブジェクトを複数の conform 位置（if/match/select の兄弟腕）が共有すると、
   最初の失敗で quiet 化されたメタ経由で 2 腕目以降の正当な E0401 が
   `mentionsQuiet` に握り潰されうる — 例: `g (if c { 1 } else { "s" })` の
-  else 腕。wave-5 の ⑤ 残件と隣接する過剰抑制領域。狭い到達条件を理由に
-  現状容認（コードコメントにトレードオフ明記済み、P5-2 レビュー nit）。
+  else 腕。
+  対応（wave14 hygiene）: conform 位置（`conformExpr`/`chanDirConv`）の
+  失敗マークを新 flag `metaRec.silent` に分離 — quiet と同じく E0407・
+  generalize・flag 伝播は抑止するが `mentionsQuiet` には数えない。
+  兄弟腕の mismatch は報告されるようになった（同時に握り潰されていた
+  `Option ?1` vs 戻り型の E0401 も顕在化）。quiet は quietMeta 生まれの
+  回復メタ専用として維持。
   参照: [expr.go](../internal/check/expr.go) `conformExpr`/`chanDirConv`、
-  [fixture](../testdata/spec/E0401_close_of_recvonly.expected.json)。
+  [unify.go](../internal/check/unify.go) `markSilent`、
+  [fixture](../testdata/spec/E0401_silent_want_sibling.gom)（再現 + 兄弟腕双方の
+  E0401 を pin）。
 
 - [x] **E0401 の mismatch メッセージが未解決メタを `?n` で綴る**: quiet 化された
   メタを含む型が「expected SendChan ?3, got RecvChan ?4」のように内部名の

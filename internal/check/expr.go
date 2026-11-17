@@ -138,18 +138,17 @@ func (c *checker) conformExpr(out Expr, want types.Type, sp diag.Span) Expr {
 			return conv
 		}
 	}
-	// A failed expectation left want unsolved: silence it — the
-	// mismatch diagnostic at sp already tells the user what to fix.
-	// The silence reaches every meta inside want, not just a top
-	// one: `Chan.close (Chan.recvOnly ch)` reports "expected
+	// A failed expectation left want unsolved: silence its E0407 —
+	// the mismatch diagnostic at sp already tells the user what to
+	// fix. The silence reaches every meta inside want, not just a
+	// top one: `Chan.close (Chan.recvOnly ch)` reports "expected
 	// SendChan ?3, got RecvChan ?4" and the callee's still-unbound
 	// type argument ?3 must not pile on an E0407 of its own.
-	// Trade-off: quiet propagates through later bindings, so a
-	// shared unsolved want can also silence a genuine mismatch at
-	// a sibling if/match/select arm — accepted while want sharing
-	// stays narrow (docs/implementation-gaps.md).
+	// markSilent, not markQuiet: an unsolved want can be shared by
+	// sibling if/match/select arms, and a genuine mismatch at the
+	// next arm must still report (docs/implementation-gaps.md).
 	if !c.unify(want, out.Type(), sp) {
-		metasIn(want, func(m *types.Meta) { c.markQuiet(m) })
+		metasIn(want, func(m *types.Meta) { c.markSilent(m) })
 		return out
 	}
 	// A value conforming to a `Go.Any` slot materializes the box:
@@ -206,7 +205,7 @@ func (c *checker) chanDirConv(want types.Type, out Expr, sp diag.Span) Expr {
 			return nil
 		}
 		if !c.unify(we, ge, sp) {
-			metasIn(want, func(m *types.Meta) { c.markQuiet(m) })
+			metasIn(want, func(m *types.Meta) { c.markSilent(m) })
 			return out
 		}
 	}

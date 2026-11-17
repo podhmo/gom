@@ -1,0 +1,73 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected Int, got Option ?1",
+      "span": {
+        "file": "E0401_silent_want_sibling.gom",
+        "start": {
+          "line": 9,
+          "col": 5,
+          "offset": 350
+        },
+        "end": {
+          "line": 9,
+          "col": 42,
+          "offset": 387
+        }
+      },
+      "data": {
+        "actual": "Option ?1",
+        "expected": "Int"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected List ?1, got String",
+      "span": {
+        "file": "E0401_silent_want_sibling.gom",
+        "start": {
+          "line": 9,
+          "col": 23,
+          "offset": 368
+        },
+        "end": {
+          "line": 9,
+          "col": 26,
+          "offset": 371
+        }
+      },
+      "data": {
+        "actual": "String",
+        "expected": "List ?1"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected List ?1, got String",
+      "span": {
+        "file": "E0401_silent_want_sibling.gom",
+        "start": {
+          "line": 9,
+          "col": 36,
+          "offset": 381
+        },
+        "end": {
+          "line": 9,
+          "col": 39,
+          "offset": 384
+        }
+      },
+      "data": {
+        "actual": "String",
+        "expected": "List ?1"
+      }
+    }
+  ]
+}
