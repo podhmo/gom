@@ -74,14 +74,16 @@ construction (`http.Client{...}`), which Gom deliberately does not provide
 today (docs/decisions/2026-11-17-struct-construction.md), so the package is
 expected to stay rather than be a staging area.
 
-The remaining primitives cover operations Gom cannot yet express directly:
+The remaining primitive is the one operation Gom cannot yet express directly:
 
 | Primitive | Current reason |
 | --- | --- |
-| Decode string field | `encoding/json` decode needs a writable destination (pointer); a JSON binding is undecided |
-| HTTP client | Constructing configured Go structs and callback functions |
+| HTTP client | `http.Client{Timeout, CheckRedirect}` needs Go composite-literal construction — deliberately not provided (docs/decisions/2026-11-17-struct-construction.md) |
 
-Argument traversal (`Go.Slice` ops on `os.Args`), UTF-8 file reads
+String-field decoding (`json.NewDecoder`/`json.Unmarshal` into `Ptr`
+destinations over `Go.Map`/`Go.Any`),
+the `CheckRedirect` callback (`Go.func2`), argument traversal
+(`Go.Slice` ops on `os.Args`), UTF-8 file reads
 (`os.ReadFile` → `List Byte` + `utf8.Valid`), bounded response reads
 (`io.LimitReader`/`io.ReadAll` + `List.length`), and JSON quoting
 (`json.Marshal` + `Go.conv` to `String`) are expressed in Gom since
