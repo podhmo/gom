@@ -66,7 +66,7 @@ func runTest(args []string, stdout, stderr io.Writer) int {
 	// The .gom files of one directory compile as one package unit,
 	// like gom build — a test file sees its siblings' declarations,
 	// and a member's failure withholds the whole package's outputs.
-	results, err := compileInputs(inputs, false, func(o *build.Options) {
+	results, err := compileInputs(inputs, false, nil, "", func(o *build.Options) {
 		o.Lower.Tests = true
 	})
 	if err != nil {

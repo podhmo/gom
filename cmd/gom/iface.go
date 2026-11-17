@@ -317,7 +317,7 @@ func strayInterface(path, declared string, sp diag.Span) *diag.Diagnostic {
 // of a sibling .gomi.
 func compileInput(in input) *build.Result {
 	r, err := build.Compile(build.Input{Path: in.path, Src: in.src, Interface: in.iface},
-		compileOptions(in, true))
+		compileOptions(in, true, nil))
 	if err != nil {
 		return nil
 	}
@@ -375,7 +375,7 @@ func runInfo(args []string, stdout, stderr io.Writer) int {
 	for _, in := range inputs {
 		srcs[in.path] = in.src
 	}
-	results, err := compileInputs(inputs, true, nil)
+	results, err := compileInputs(inputs, true, nil, "", nil)
 	if err != nil {
 		fmt.Fprintf(stderr, "gom info: %v\n", err)
 		return diag.ExitInternal

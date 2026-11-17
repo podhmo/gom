@@ -41,14 +41,21 @@ type input struct {
 // builtin-module tables and the .gomi export hook of spec section
 // 5. The loaders run in the input file's own directory so imported
 // packages resolve in the module the file belongs to.
-func compileOptions(in input, checkOnly bool) *build.Options {
+func compileOptions(in input, checkOnly bool, seen *[]string) *build.Options {
 	dir := filepath.Dir(in.path)
 	if abs, err := filepath.Abs(dir); err == nil {
 		dir = abs
 	}
 	gl := goimport.New(&goimport.Config{Dir: dir})
 	mods := map[string]map[string]*resolve.Symbol{}
-	ml := gomimport.New(&gomimport.Config{Dir: dir, Go: gl, Sigs: gl, Modules: mods})
+	gc := &gomimport.Config{Dir: dir, Go: gl, Sigs: gl, Modules: mods}
+	if seen != nil {
+		// The incremental build cache records every interface the
+		// compile reached — its dependency set for the next hit
+		// check (design.md section 5).
+		gc.OnLoadGomi = func(p string) { *seen = append(*seen, p) }
+	}
+	ml := gomimport.New(gc)
 	return gomstd.Apply(&build.Options{
 		Loader:         ml,
 		Sigs:           ml,
@@ -67,14 +74,14 @@ func compileOptions(in input, checkOnly bool) *build.Options {
 // compilation-unit.md) — while each .gomi input compiles
 // individually through build.Compile (an interface is its own
 // scope). Diagnostics of all results concatenate in input order.
-func compileInputs(inputs []input, checkOnly bool, tweak func(*build.Options)) ([]*build.Result, error) {
+func compileInputs(inputs []input, checkOnly bool, bc *buildCache, outFlag string, tweak func(*build.Options)) ([]*build.Result, error) {
 	results := make([]*build.Result, len(inputs))
 	groups := map[string][]int{}
 	var order []string
 	for i, in := range inputs {
 		if in.iface {
 			r, err := build.Compile(build.Input{Path: in.path, Src: in.src, Interface: true},
-				compileOptions(in, checkOnly))
+				compileOptions(in, checkOnly, nil))
 			if err != nil {
 				return nil, fmt.Errorf("%s: %w", in.path, err)
 			}
@@ -96,7 +103,23 @@ func compileInputs(inputs []input, checkOnly bool, tweak func(*build.Options)) (
 		for j, i := range idxs {
 			ins[j] = build.Input{Path: inputs[i].path, Src: inputs[i].src}
 		}
-		opts := compileOptions(inputs[idxs[0]], checkOnly)
+		if bc != nil {
+			if _, ok := bc.Hit(dir, outFlag, ins); ok {
+				// The manifest still holds and its outputs are on
+				// disk — mark the inputs cached; runBuild lists
+				// their dsts without compiling or writing.
+				for _, i := range idxs {
+					results[i] = &build.Result{Cached: true}
+				}
+				continue
+			}
+		}
+		var seen []string
+		var sp *[]string
+		if bc != nil {
+			sp = &seen
+		}
+		opts := compileOptions(inputs[idxs[0]], checkOnly, sp)
 		if tweak != nil {
 			tweak(opts)
 		}
@@ -106,6 +129,11 @@ func compileInputs(inputs []input, checkOnly bool, tweak func(*build.Options)) (
 		}
 		for j, i := range idxs {
 			results[i] = rs[j]
+		}
+		if bc != nil {
+			// The package's own interfaces are dependencies too —
+			// their edit must regenerate just like an imported one.
+			bc.note(dir, ins, append(seen, filepathGomis(dir)...))
 		}
 	}
 	return results, nil
@@ -140,7 +168,7 @@ func runCheck(args []string, stdout, stderr io.Writer) int {
 	for _, in := range inputs {
 		srcs[in.path] = in.src
 	}
-	results, err := compileInputs(inputs, true, nil)
+	results, err := compileInputs(inputs, true, nil, "", nil)
 	if err != nil {
 		fmt.Fprintf(stderr, "gom check: %v\n", err)
 		return diag.ExitInternal
@@ -205,7 +233,15 @@ func runBuild(args []string, stdout, stderr io.Writer) int {
 	for _, in := range inputs {
 		srcs[in.path] = in.src
 	}
-	results, err := compileInputs(inputs, false, nil)
+	// The incremental cache is off under -go: a hit produces no
+	// compiled output to hand the go build check, so the flag
+	// forces a fresh compile (design.md section 5's opt-out is
+	// still GOM_BUILD_NOCACHE).
+	var bc *buildCache
+	if !*goBuild {
+		bc = newBuildCache()
+	}
+	results, err := compileInputs(inputs, false, bc, *out, nil)
 	if err != nil {
 		fmt.Fprintf(stderr, "gom build: %v\n", err)
 		return diag.ExitInternal
@@ -241,6 +277,20 @@ func runBuild(args []string, stdout, stderr io.Writer) int {
 	// the files actually written.
 	var writeErrs []error
 	for i, r := range results {
+		if r == nil || r.Cached {
+			if r != nil {
+				// Cache hit: the recorded outputs are still on
+				// disk — list them like a fresh write (design.md
+				// section 5's summary contract).
+				dst, err := outputPath(inputs[i].path, *out, len(inputs))
+				if err != nil {
+					fmt.Fprintf(stderr, "gom build: %v\n", err)
+					return diag.ExitInternal
+				}
+				rep.Outputs = append(rep.Outputs, dst)
+			}
+			continue
+		}
 		if r.Output == nil || failed[r] {
 			continue
 		}
@@ -250,6 +300,26 @@ func runBuild(args []string, stdout, stderr io.Writer) int {
 			continue
 		}
 		rep.Outputs = append(rep.Outputs, dst)
+	}
+	// Manifests commit only for packages that wrote every output
+	// clean — a failed member or interface leaves nothing to
+	// seed a hit from (the withheld package recompiles next run).
+	if bc != nil {
+		wrote := map[string][]string{}
+		broken := map[string]bool{}
+		for i, r := range results {
+			dir := filepath.Dir(filepath.Clean(inputs[i].path))
+			if r == nil || r.Cached || r.Output == nil || failed[r] {
+				broken[dir] = true
+				continue
+			}
+			wrote[dir] = append(wrote[dir], dsts[i])
+		}
+		for dir, outs := range wrote {
+			if !broken[dir] {
+				bc.commit(dir, *out, outs)
+			}
+		}
 	}
 
 	// -go invokes the go tool on what was just written — the only
@@ -336,7 +406,7 @@ func runDump(args []string, stdout, stderr io.Writer) int {
 			ins = append(ins, build.Input{Path: s, Src: b})
 		}
 		if len(ins) > 1 {
-			rs, err := build.CompileFiles(ins, compileOptions(in, false))
+			rs, err := build.CompileFiles(ins, compileOptions(in, false, nil))
 			if err != nil {
 				fmt.Fprintf(stderr, "gom dump: %s: %v\n", dir, err)
 				return diag.ExitInternal
@@ -352,7 +422,7 @@ func runDump(args []string, stdout, stderr io.Writer) int {
 	}
 	if r == nil {
 		r, err = build.Compile(build.Input{Path: in.path, Src: in.src, Interface: in.iface},
-			compileOptions(in, false))
+			compileOptions(in, false, nil))
 		if err != nil {
 			fmt.Fprintf(stderr, "gom dump: %s: %v\n", in.path, err)
 			return diag.ExitInternal
@@ -648,8 +718,14 @@ func outputPath(inPath, out string, nInputs int) (string, error) {
 	}
 }
 
-// writeFile writes generated source, creating the parent directory.
+// writeFile writes generated source, creating the parent
+// directory. Identical content is not rewritten — the mtime stays
+// so the Go build cache keeps its hit (design.md section 5's
+// write-if-different rule).
 func writeFile(path string, src []byte) error {
+	if same, err := fileEquals(path, src); err == nil && same {
+		return nil
+	}
 	if dir := filepath.Dir(path); dir != "." {
 		if err := os.MkdirAll(dir, 0o755); err != nil {
 			return err

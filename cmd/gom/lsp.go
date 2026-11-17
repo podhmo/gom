@@ -34,7 +34,7 @@ func runLSP(args []string, stdout, stderr io.Writer) int {
 		// -go needs generated output to stage, so the unit compiles
 		// the full pipeline instead of gom check's CheckOnly.
 		return build.CompileFiles(ins,
-			compileOptions(input{path: ins[0].Path}, !*goTool))
+			compileOptions(input{path: ins[0].Path}, !*goTool, nil))
 	})
 	if *goTool {
 		srv.GoTool = lsp.NewGoTool()
