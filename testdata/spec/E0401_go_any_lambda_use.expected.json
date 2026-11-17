@@ -1,0 +1,27 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected Go.Any, got Int",
+      "span": {
+        "file": "E0401_go_any_lambda_use.gom",
+        "start": {
+          "line": 11,
+          "col": 35,
+          "offset": 567
+        },
+        "end": {
+          "line": 11,
+          "col": 49,
+          "offset": 581
+        }
+      },
+      "data": {
+        "actual": "Int",
+        "expected": "Go.Any"
+      }
+    }
+  ]
+}
