@@ -140,13 +140,9 @@ internal/build, spec.md 7 章, docs/decisions, testdata/gocall.
 [impl] 低重心の台帳掃除。個別に PR 化するほどではないが、
 wave-16 の着地で生じた follow-up を一括で潰す:
 
-(a) gom-agent-guide の残る陳腐箇所を走査 — wave-16 で
-    `references/go-interop.md` を同期済みだが、SKILL.md /
-    language-fundamentals / project-layout の他の
-    references に func interop・named-int 算術・新しい
-    `gom test`/`dump` 経路と齟齬する記述が残っていないか
-    全部読み直して直す（podhmo 報告: 「skill 古かった」 —
-    #28 起因）。
+(a) ~~gom-agent-guide の残る陳腐箇所を走査~~ — prompts 段階で
+    別 PR（devin/skill-sync-wave16, #34）に分離済み。本 lane
+    からは外す。
 (b) `host.NewClient` の除去可否を再確認 — wave-16 で
     callback (lane 2) と Duration 算術 (lane 4) が着地した。
     decision 2026-11-17-struct-construction (c) どおり
@@ -157,7 +153,7 @@ wave-16 の着地で生じた follow-up を一括で潰す:
     追記するか open-questions に残さない旨を明記）。
 (c) implementation-gaps / TODO / open-questions の
     チェック漏れを sweep（wave-16 分）。
-Ownership: skills/gom-agent-guide, examples/gist-cli, docs/*.
+Ownership: examples/gist-cli, docs/*.
 ```
 
 ## Common instructions (append to every prompt)
