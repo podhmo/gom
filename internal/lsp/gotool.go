@@ -2,8 +2,10 @@ package lsp
 
 import (
 	"bytes"
+	"io/fs"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"github.com/podhmo/gom/internal/build"
@@ -18,13 +20,15 @@ import (
 type GoTool func(inputs []build.Input, results []*build.Result) []diag.Diagnostic
 
 // NewGoTool returns the standard go-tool pass: `go build` in a
-// temp directory inside the unit's own module, its diagnostics
-// folded through the same GoPosIndex + GoToolDiagnostics machinery
-// `gom build -go` uses.
+// temp directory inside the package's own directory, its
+// diagnostics folded through the same GoPosIndex +
+// GoToolDiagnostics machinery `gom build -go` uses.
 //
-// The temp dir lives under the module root so the unit's real
-// go.mod — and its `require github.com/podhmo/gom` — resolves the
-// generated imports; no synthetic module is written. The pass is
+// The temp dir lives inside the package's own directory so the
+// stage sees exactly the module's visibility the real package
+// does — the same go.mod resolves upward and an `internal`
+// package importable from the real directory stays importable.
+// The pass is
 // all-or-nothing: it emits nothing while the unit has error
 // diagnostics, a member without generated output, generated code
 // that imports a sibling Gom package of the same module (its
@@ -46,8 +50,7 @@ func NewGoTool() GoTool {
 					Set("tool", "go build"),
 			}
 		}
-		selfPrefix := `"` + modPath + `/`
-		selfExact := `"` + modPath + `"`
+		selfRe := regexp.MustCompile(`"` + regexp.QuoteMeta(modPath) + `(/[^"]*)?"`)
 		var stages []struct {
 			path string
 			src  []byte
@@ -59,12 +62,22 @@ func NewGoTool() GoTool {
 				return nil // partial package — gom diagnostics cover it
 			}
 			gen := results[i].Output.Source
-			if bytes.Contains(gen, []byte(selfPrefix)) ||
-				bytes.Contains(gen, []byte(selfExact)) {
-				// The generated code imports a sibling Gom package,
-				// which has no compiled form inside the module — a
-				// real `go build` would report import errors the
-				// .gom source did not cause.
+			// A generated import of the module's own path means a
+			// sibling Gom package — its compiled form does not exist
+			// on disk and `go build` would report import errors the
+			// .gom source did not cause. A real Go package in the same
+			// module (rt, this repo's own helpers, the user's Go dirs)
+			// resolves on disk and builds fine, so resolve each match
+			// and skip only when the target has no .go files.
+			missing := false
+			for _, m := range selfRe.FindAllStringSubmatch(string(gen), -1) {
+				target := filepath.Join(modRoot, filepath.FromSlash(m[1]))
+				if gos, _ := filepath.Glob(filepath.Join(target, "*.go")); len(gos) == 0 {
+					missing = true
+					break
+				}
+			}
+			if missing {
 				return nil
 			}
 			stages = append(stages, struct {
@@ -73,7 +86,7 @@ func NewGoTool() GoTool {
 				out  *build.Result
 			}{in.Path, in.Src, results[i]})
 		}
-		tmp, err := os.MkdirTemp(modRoot, ".gomlsp-*")
+		tmp, err := os.MkdirTemp(dir, ".gomlsp-*")
 		if err != nil {
 			return []diag.Diagnostic{
 				diag.Error("E0001", "go build could not run").
@@ -102,6 +115,12 @@ func NewGoTool() GoTool {
 					continue
 				}
 				_ = os.WriteFile(filepath.Join(tmp, base), data, 0o644)
+				// A sibling's //go:embed assets are part of the
+				// package's build — stage them too or the build
+				// fails on files the real directory provides.
+				for _, pat := range embedPatterns(data) {
+					copyEmbedAssets(dir, tmp, pat)
+				}
 			}
 		}
 		hasMain := false
@@ -156,8 +175,8 @@ func findModule(dir string) (root, path string, err error) {
 		data, rerr := os.ReadFile(gm)
 		if rerr == nil {
 			for line := range strings.Lines(string(data)) {
-				if rest, ok := strings.CutPrefix(strings.TrimSpace(line), "module "); ok {
-					return dir, strings.Trim(rest, ` "`), nil
+				if f := strings.Fields(line); len(f) >= 2 && f[0] == "module" {
+					return dir, strings.Trim(f[1], ` "`), nil
 				}
 			}
 			return "", "", nil // go.mod without a module directive
@@ -167,6 +186,98 @@ func findModule(dir string) (root, path string, err error) {
 			return "", "", nil
 		}
 		dir = parent
+	}
+}
+
+// embedPatterns collects the //go:embed patterns a Go source
+// file declares (one or more per directive, quoted or bare).
+func embedPatterns(src []byte) []string {
+	var pats []string
+	for _, line := range bytes.Split(src, []byte("\n")) {
+		rest, ok := bytes.CutPrefix(bytes.TrimSpace(line), []byte("//go:embed"))
+		if !ok {
+			continue
+		}
+		pats = append(pats, splitEmbedFields(string(rest))...)
+	}
+	return pats
+}
+
+// splitEmbedFields splits a directive's pattern list on
+// whitespace, keeping "double"- and `back`-quoted patterns whole.
+func splitEmbedFields(s string) []string {
+	var out []string
+	for i := 0; i < len(s); {
+		for i < len(s) && (s[i] == ' ' || s[i] == '\t') {
+			i++
+		}
+		if i >= len(s) {
+			break
+		}
+		j := i
+		if s[i] == '"' || s[i] == '`' {
+			q := s[i]
+			j++
+			for j < len(s) && s[j] != q {
+				j++
+			}
+			out = append(out, s[i+1:j])
+		} else {
+			for j < len(s) && s[j] != ' ' && s[j] != '\t' {
+				j++
+			}
+			out = append(out, s[i:j])
+		}
+		i = j + 1
+	}
+	return out
+}
+
+// copyEmbedAssets stages the files a //go:embed pattern refers to,
+// preserving their paths relative to the package dir. Directories
+// copy recursively minus the `_`/`.`-prefixed entries embed skips
+// (an `all:` prefix keeps them), matching the embed spec.
+func copyEmbedAssets(srcDir, dstDir, pattern string) {
+	includeHidden := strings.HasPrefix(pattern, "all:")
+	matches, err := filepath.Glob(filepath.Join(srcDir,
+		filepath.FromSlash(strings.TrimPrefix(pattern, "all:"))))
+	if err != nil {
+		return
+	}
+	copy := func(p string) {
+		rel, rerr := filepath.Rel(srcDir, p)
+		data, rerr2 := os.ReadFile(p)
+		if rerr != nil || rerr2 != nil {
+			return
+		}
+		dst := filepath.Join(dstDir, rel)
+		if os.MkdirAll(filepath.Dir(dst), 0o755) == nil {
+			_ = os.WriteFile(dst, data, 0o644)
+		}
+	}
+	for _, m := range matches {
+		if info, err := os.Stat(m); err == nil && info.IsDir() {
+			_ = filepath.WalkDir(m, func(p string, d fs.DirEntry, err error) error {
+				if err != nil {
+					return nil
+				}
+				name := d.Name()
+				hidden := strings.HasPrefix(name, ".") || strings.HasPrefix(name, "_")
+				if d.IsDir() {
+					if p != m && hidden && !includeHidden {
+						return filepath.SkipDir
+					}
+					return nil
+				}
+				if hidden && !includeHidden {
+					return nil
+				}
+				copy(p)
+				return nil
+			})
+			continue
+		}
+		copy(m)
 	}
 }
 

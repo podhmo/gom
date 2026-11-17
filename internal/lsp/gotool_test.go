@@ -1,12 +1,14 @@
 package lsp
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/podhmo/gom/internal/build"
+	"github.com/podhmo/gom/internal/codegen"
 	"github.com/podhmo/gom/internal/diag"
 	"github.com/podhmo/gom/internal/goimport"
 	"github.com/podhmo/gom/internal/gomimport"
@@ -213,6 +215,123 @@ func TestGoToolSkipsOnGomError(t *testing.T) {
 	}
 	if !gotGom {
 		t.Fatal("gom diagnostics missing on the broken unit")
+	}
+}
+
+// TestFindModuleTabDirective: go.mod whitespace is Fields, not a
+// literal "module " prefix — `module\te2e` governs the package.
+func TestFindModuleTabDirective(t *testing.T) {
+	dir := t.TempDir()
+	writeFile(t, filepath.Join(dir, "go.mod"), "module\te2e\n\ngo 1.27\n")
+	root, path, err := findModule(dir)
+	if err != nil || root != dir || path != "e2e" {
+		t.Fatalf("findModule = (%q, %q, %v), want (%q, e2e, nil)",
+			root, path, err, dir)
+	}
+}
+
+func fakeResult(gen []byte) *build.Result {
+	return &build.Result{Output: &codegen.Output{Source: gen}}
+}
+
+// TestGoToolSelfModuleGoPackage: a generated import of a same-module
+// Go package that exists on disk is not a sibling Gom package —
+// inside gom's own repo every generated file imports <mod>/rt, so a
+// blanket prefix check would silence the pass exactly where its
+// authors work.
+func TestGoToolSelfModuleGoPackage(t *testing.T) {
+	if testing.Short() {
+		t.Skip("go-tool pass runs the real go toolchain")
+	}
+	dir := t.TempDir()
+	writeModFile(t, dir)
+	helper := filepath.Join(dir, "helper")
+	if err := os.MkdirAll(helper, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(helper, "helper.go"),
+		"package helper\n\nvar _ int = \"broken\"\n")
+	gen := []byte("package main\n\nimport _ \"e2e/helper\"\n\nfunc main() {}\n")
+	ds := NewGoTool()(
+		[]build.Input{{Path: filepath.Join(dir, "a.gom"),
+			Src: []byte("package main\n")}},
+		[]*build.Result{fakeResult(gen)})
+	if len(ds) == 0 {
+		t.Fatal("no diagnostics — same-module Go import skipped the pass")
+	}
+}
+
+// TestGoToolSkipsGomSibling pins the half of the self-import check
+// that must stay: a same-module import resolving to a directory
+// with only .gom sources has no compiled form — skip, don't
+// fabricate import errors.
+func TestGoToolSkipsGomSibling(t *testing.T) {
+	dir := t.TempDir()
+	writeModFile(t, dir)
+	sibling := filepath.Join(dir, "other")
+	if err := os.MkdirAll(sibling, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	writeFile(t, filepath.Join(sibling, "other.gom"), "package other\n")
+	gen := []byte("package main\n\nimport _ \"e2e/other\"\n\nfunc main() {}\n")
+	ds := NewGoTool()(
+		[]build.Input{{Path: filepath.Join(dir, "a.gom"),
+			Src: []byte("package main\n")}},
+		[]*build.Result{fakeResult(gen)})
+	if len(ds) != 0 {
+		t.Fatalf("expected silent skip for gom sibling, got %v", ds)
+	}
+}
+
+// TestGoToolCopiesEmbedAssets: a sibling .go file's //go:embed
+// assets are part of the package — staging must copy them or a
+// clean package fails the staged build.
+func TestGoToolCopiesEmbedAssets(t *testing.T) {
+	if testing.Short() {
+		t.Skip("go-tool pass runs the real go toolchain")
+	}
+	dir := t.TempDir()
+	writeModFile(t, dir)
+	writeFile(t, filepath.Join(dir, "z.go"),
+		"package main\n\nimport _ \"embed\"\n\n//go:embed data.txt\nvar data string\n")
+	writeFile(t, filepath.Join(dir, "data.txt"), "x")
+	gen := []byte("package main\n\nfunc main() {}\n")
+	ds := NewGoTool()(
+		[]build.Input{{Path: filepath.Join(dir, "a.gom"),
+			Src: []byte("package main\n")}},
+		[]*build.Result{fakeResult(gen)})
+	if len(ds) != 0 {
+		t.Fatalf("embed asset missing from stage — false build error: %v", ds)
+	}
+}
+
+// TestGoToolNestedInternalImport: staging at the module root made
+// a package's legal sub/internal import unbuildable — the stage
+// lives inside the package's own directory so its internal
+// visibility matches the real one.
+func TestGoToolNestedInternalImport(t *testing.T) {
+	if testing.Short() {
+		t.Skip("go-tool pass runs the real go toolchain")
+	}
+	root := t.TempDir()
+	writeModFile(t, root)
+	pkg := filepath.Join(root, "sub", "pkg")
+	in := filepath.Join(root, "sub", "internal", "x")
+	for _, d := range []string{pkg, in} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	writeFile(t, filepath.Join(in, "x.go"), "package x\n\nconst X = 1\n")
+	writeFile(t, filepath.Join(pkg, "z.go"),
+		"package main\n\nimport _ \"e2e/sub/internal/x\"\n")
+	gen := []byte("package main\n\nfunc main() {}\n")
+	ds := NewGoTool()(
+		[]build.Input{{Path: filepath.Join(pkg, "a.gom"),
+			Src: []byte("package main\n")}},
+		[]*build.Result{fakeResult(gen)})
+	if len(ds) != 0 {
+		t.Fatalf("legal sub/internal import rejected by stage placement: %v", ds)
 	}
 }
 
