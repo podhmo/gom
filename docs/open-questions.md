@@ -36,6 +36,7 @@
 - `List` のハイブリッド表現（chunked / unrolled list、所有権フラグ付きの反転ストレージなど）。先頭追加を償却 O(1) に戻す案。P0-3 でスライス表現（`type List[A] []A`）を採用したが、ユーザーレベルの `x :: acc` 型の逐次構築が支配的なワークロードで再検討する余地がある（[sketch: P0-3](sketch/2026-11-02-p0-3-list-representation.md)）
 - チャネルで送れる値を型で制限する仕組み（Rust の `Send` 相当）
 - 型クラス、`deriving` 相当の自動生成
+- LSP の Go import oracle の共有: `go list -export` 自体は wave17 の file cache で消えた（[decision](decisions/2026-11-18-golist-export-cache.md)）が、compile 毎の Loader 作り直しで export data の parse と member table 構築は残る（per-change 数 ms オーダー）。`*types.Named` の identity が importer 単位のため session 間で member table を共有できない点が本筋の制約
 - インクリメンタルビルドのキャッシュ（P4。それまでは毎回変換し、Go のキャッシュに任せる）
 - cgo、`unsafe`、`reflect` の本格的な扱い
 - セルフホスト（コンパイラを Gom で書き直す）

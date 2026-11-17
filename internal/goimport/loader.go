@@ -117,10 +117,19 @@ func New(cfg *Config) *Loader {
 	if gobin == "" {
 		gobin = "go"
 	}
+	cache := newExportCache(gobin, c.Dir)
 	l.imp = importer.ForCompiler(l.fset, "gc", func(path string) (io.ReadCloser, error) {
-		export, err := goExport(gobin, c.Dir, path)
+		if cache != nil {
+			if e, ok := cache.get(path); ok {
+				return os.Open(e.Export)
+			}
+		}
+		export, dir, deps, err := goExport(gobin, c.Dir, path)
 		if err != nil {
 			return nil, err
+		}
+		if cache != nil {
+			cache.put(path, export, dir, deps)
 		}
 		return os.Open(export)
 	})
@@ -130,24 +139,48 @@ func New(cfg *Config) *Loader {
 // goExport resolves a package's compiled export data by asking the
 // toolchain — `go list -export` compiles it into the build cache and
 // reports the .a path, working uniformly for the standard library,
-// module dependencies and the module's own packages.
-func goExport(gobin, dir, path string) (string, error) {
-	cmd := exec.Command(gobin, "list", "-export", "-f", "{{.Export}}", path)
+// module dependencies and the module's own packages. `-deps` makes
+// the same subprocess also print each dependency's source directory,
+// which the file cache records: a dependency's exported API is
+// embedded in the importer's archive, so its edits must invalidate
+// the entry even while the package's own source is unchanged
+// (exportcache.go). Printing deps costs nothing — `-export` already
+// builds them.
+func goExport(gobin, dir, path string) (export, srcDir string, depDirs []string, err error) {
+	cmd := exec.Command(gobin, "list", "-export", "-deps", "-f", "{{.ImportPath}}|{{.Export}}|{{.Dir}}", path)
 	if dir != "" {
 		cmd.Dir = dir
 	}
 	out, err := cmd.Output()
 	if err != nil {
 		if ee, ok := err.(*exec.ExitError); ok {
-			return "", fmt.Errorf("go list -export %s: %s", path, strings.TrimSpace(string(ee.Stderr)))
+			return "", "", nil, fmt.Errorf("go list -export %s: %s", path, strings.TrimSpace(string(ee.Stderr)))
 		}
-		return "", fmt.Errorf("go list -export %s: %w", path, err)
+		return "", "", nil, fmt.Errorf("go list -export %s: %w", path, err)
 	}
-	export := strings.TrimSpace(string(out))
+	// `-deps` lists dependencies before their importers, so the
+	// named package is the last line — matching `.ImportPath ==
+	// path` would miss a relative path (`go list` canonicalizes
+	// "./foo" to the module path).
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	last := lines[len(lines)-1]
+	if last != "" {
+		_, rest, _ := strings.Cut(last, "|")
+		export, srcDir, _ = strings.Cut(rest, "|")
+	}
+	seen := map[string]bool{srcDir: true}
+	for _, line := range lines[:len(lines)-1] {
+		_, rest, _ := strings.Cut(line, "|")
+		_, d, _ := strings.Cut(rest, "|")
+		if d != "" && !seen[d] {
+			seen[d] = true
+			depDirs = append(depDirs, d)
+		}
+	}
 	if export == "" {
-		return "", fmt.Errorf("go list -export %s: no export data (is this a main package?)", path)
+		return "", "", nil, fmt.Errorf("go list -export %s: no export data (is this a main package?)", path)
 	}
-	return export, nil
+	return export, srcDir, depDirs, nil
 }
 
 // Load returns the exported member table of the Go package at path —
