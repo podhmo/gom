@@ -213,14 +213,15 @@ func (g *gen) valueExpr(e core.Expr, d dest) {
 // prints as a CallExpr. A Lit checked at a named Go type joins the
 // explicit Conv here (`Duration(1)` alone is "not used").
 func emitsConversion(e core.Expr) bool {
-	switch e := e.(type) {
-	case *core.Conv:
+	if _, ok := e.(*core.Conv); ok {
 		return true
-	case *core.Lit:
-		_, ok := types.Chase(e.Type()).(*types.Go)
-		return ok
 	}
-	return false
+	l, ok := e.(*core.Lit)
+	if !ok {
+		return false
+	}
+	_, named := types.Chase(l.Type()).(*types.Go)
+	return named
 }
 
 // exprValue writes the expression part — a function literal for a
