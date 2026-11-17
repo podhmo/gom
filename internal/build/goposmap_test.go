@@ -69,11 +69,6 @@ func compileDrift(t *testing.T, name, src string, opts *build.Options) (*build.G
 	return idx, r
 }
 
-func lineOf(t *testing.T, src string, off int) int {
-	t.Helper()
-	return diag.NewLineIndex([]byte(src)).Pos(off).Line
-}
-
 func TestResolveMatchDrift(t *testing.T) {
 	idx, r := compileDrift(t, "m.gom", driftSrc, nil)
 	li := diag.NewLineIndex([]byte(driftSrc))
