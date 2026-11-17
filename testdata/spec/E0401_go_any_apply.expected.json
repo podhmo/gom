@@ -22,6 +22,29 @@
         "actual": "String -> ?1",
         "expected": "Go.Any"
       }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected Go.Any, got ?1 -> ?2",
+      "span": {
+        "file": "E0401_go_any_apply.gom",
+        "start": {
+          "line": 13,
+          "col": 29,
+          "offset": 612
+        },
+        "end": {
+          "line": 13,
+          "col": 30,
+          "offset": 613
+        }
+      },
+      "data": {
+        "actual": "?1 -> ?2",
+        "expected": "Go.Any"
+      }
     }
   ]
 }

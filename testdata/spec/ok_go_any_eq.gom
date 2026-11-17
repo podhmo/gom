@@ -1,0 +1,27 @@
+package main
+
+// spec 8.1.7: `==`/`!=` under a `Go.Any` operand boxes the concrete
+// side on EITHER ordering — `42 == a` conforms its literal into
+// `any` exactly the way `a == 42` does, so both operands carry the
+// `any` rep and `rt.Equal` compares like reps (a bare `int` rep
+// would be DeepEqual(int64, int) — 恒偽). `Go.Any` against
+// `Go.Any`, a record field, and boxed composite literals take the
+// same path.
+fn h (a: Go.Any) -> Bool = a == 42
+fn h1 (a: Go.Any) -> Bool = 42 == a
+fn h2 (a: Go.Any) -> Bool = a != "str"
+fn h3 (a: Go.Any) -> Bool = "str" == a
+fn h4 (a: Go.Any) -> Bool = a == true
+fn h5 (a: Go.Any) -> Bool = true != a
+
+fn both (a: Go.Any) (b: Go.Any) -> Bool = a == b
+fn both2 (a: Go.Any) (b: Go.Any) -> Bool = a != b
+
+type R = { x: Go.Any, y: Int }
+fn rk (r: R) -> Bool = r.x == 42
+fn rk2 (r: R) -> Bool = 42 == r.x
+
+fn some (a: Go.Any) -> Bool = a == Some 1
+fn lst (a: Go.Any) -> Bool = a == [1, 2]
+
+fn main () -> Unit = ()

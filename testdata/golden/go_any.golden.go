@@ -128,85 +128,107 @@ func feq(a any) bool {
 	return rt.Equal(a, tmp17)
 }
 
-//line go_any.gom:41
+//line go_any.gom:44
+func feq2(a any) bool {
+//line go_any.gom:44
+	tmp18 := int64(42)
+//line go_any.gom:44
+	tmp19 := any(tmp18)
+//line go_any.gom:44
+	return rt.Equal(tmp19, a)
+}
+
+//line go_any.gom:45
+func fne(a any) bool {
+//line go_any.gom:45
+	tmp20 := any("s")
+//line go_any.gom:45
+	return !rt.Equal(tmp20, a)
+}
+
+//line go_any.gom:46
 func m42(a any) string {
-//line go_any.gom:41
+//line go_any.gom:46
 	switch a {
-//line go_any.gom:41
+//line go_any.gom:46
 	case int64(42):
-//line go_any.gom:41
+//line go_any.gom:46
 		return "forty"
 	default:
-//line go_any.gom:41
+//line go_any.gom:46
 		return "other"
 	}
 }
 
-//line go_any.gom:42
+//line go_any.gom:47
 func mSome(o1 option.Option[any]) string {
-//line go_any.gom:42
+//line go_any.gom:47
 	switch v := o1.(type) {
-//line go_any.gom:42
+//line go_any.gom:47
 	case option.Option_Some[any]:
-		tmp18 := v
-//line go_any.gom:42
-		switch tmp18.V0 {
-//line go_any.gom:42
+		tmp21 := v
+//line go_any.gom:47
+		switch tmp21.V0 {
+//line go_any.gom:47
 		case int64(42):
-//line go_any.gom:42
+//line go_any.gom:47
 			return "forty"
 		default:
-//line go_any.gom:42
+//line go_any.gom:47
 			return "other"
 		}
-//line go_any.gom:42
+//line go_any.gom:47
 	case option.Option_None[any]:
-//line go_any.gom:42
+//line go_any.gom:47
 		return "other"
 	default:
-//line go_any.gom:42
+//line go_any.gom:47
 		panic(rt.InvalidVariant("Option", o1))
 	}
 }
 
-//line go_any.gom:43
+//line go_any.gom:48
 func take(l1 []string) int64 {
-//line go_any.gom:43
+//line go_any.gom:48
 	return rt.SliceLen[string](l1)
 }
 
-//line go_any.gom:45
-func main() {
-//line go_any.gom:46
-	tmp19 := int64(5)
-//line go_any.gom:46
-	tmp20 := any(tmp19)
-//line go_any.gom:46
-	tmp21 := list.List[any]{tmp20}
-//line go_any.gom:46
-	takes(tmp21)
-//line go_any.gom:47
-	id(x)
-//line go_any.gom:48
-	box(struct{}{})
-//line go_any.gom:49
-	boxok(struct{}{})
 //line go_any.gom:50
-	tok(struct{}{})
+func main() {
 //line go_any.gom:51
-	g(0)
+	tmp22 := int64(5)
+//line go_any.gom:51
+	tmp23 := any(tmp22)
+//line go_any.gom:51
+	tmp24 := list.List[any]{tmp23}
+//line go_any.gom:51
+	takes(tmp24)
 //line go_any.gom:52
-	feq(x)
+	id(x)
 //line go_any.gom:53
-	m42(s)
+	box(struct{}{})
 //line go_any.gom:54
+	boxok(struct{}{})
+//line go_any.gom:55
+	tok(struct{}{})
+//line go_any.gom:56
+	g(0)
+//line go_any.gom:57
+	feq(x)
+//line go_any.gom:58
+	feq2(x)
+//line go_any.gom:59
+	fne(s)
+//line go_any.gom:60
+	m42(s)
+//line go_any.gom:61
 	mSome(o)
-//line go_any.gom:55
-	tmp22 := list.List[string]{"a", "b"}
-//line go_any.gom:55
-	tmp23 := tmp22.ToSlice()
-//line go_any.gom:55
-	take(tmp23)
-//line go_any.gom:55
+//line go_any.gom:62
+	tmp25 := list.List[string]{"a", "b"}
+//line go_any.gom:62
+	tmp26 := tmp25.ToSlice()
+//line go_any.gom:62
+	take(tmp26)
+//line go_any.gom:62
 	_ = struct{}{}
 }
