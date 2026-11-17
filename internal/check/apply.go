@@ -475,7 +475,7 @@ func (c *checker) overApply(ret types.Type, extras []Expr, extraIdx []int, args 
 		// A failed unify leaves next unsolved — the mismatch
 		// already reported it.
 		next := c.newMeta(ex.Span(), "the over-applied result")
-		if !c.conformCallee(rret, ex.Type(), next, ex.Span()) {
+		if !c.conformCallee(rret, ex.Type(), next, ex.Span(), true) {
 			c.markQuiet(next)
 		} else {
 			// The extra conforms to the residual's first
@@ -1238,10 +1238,18 @@ func (c *checker) replayGoApply(pa *pendingApply) {
 // the wrong question here — Go cannot call an `interface{}`, so the
 // structural judgment reports the mismatch instead of admitting an
 // `a("s")` the emitter then writes verbatim.
-func (c *checker) conformCallee(callee, argT, res types.Type, sp diag.Span) bool {
+// conv reports whether the caller can carry the boundary
+// conversions conformParam admits on a real argument expression:
+// `|>` and overApply wrap their argument in the Ascribe
+// conformFirstArg emits, so they pass true; `>>`/`<<` and `|?>`
+// apply a value that exists only inside the lowering (the middle
+// application result, the unwrapped payload), so they pass false
+// and the boundary stays an honest unify mismatch — admitting it
+// would emit the raw List where the callee takes a Go.Slice.
+func (c *checker) conformCallee(callee, argT, res types.Type, sp diag.Span, conv bool) bool {
 	if fs, ok := types.Chase(callee).(*types.Func); ok &&
 		len(fs.Params) > 0 && fs.Params[0].Label == "" {
-		if !c.conformParam(fs.Params[0].Type, argT, sp) {
+		if !c.conformParam(fs.Params[0].Type, argT, sp, conv) {
 			return false
 		}
 		var tail types.Type = fs.Ret
@@ -1260,14 +1268,20 @@ func (c *checker) conformCallee(callee, argT, res types.Type, sp diag.Span) bool
 // what `fn arg` admits against the callee's first parameter — for
 // the type-only application check (conformCallee has no argument
 // expression to wrap; conformFirstArg emits the matching Ascribe
-// once the check passes). The admitted pairs mirror conformExpr:
+// once the check passes — conv=false callers admit only what unify
+// admits since no Ascribe can be hung). The admitted pairs mirror conformExpr:
 // ordinary unification first, then the boundary conversions a
 // settled argument type can take — `List`/`Go.Slice` in either
 // direction (element equality or an `any` element box) and a
 // Go-origin value assignable to a Go interface parameter. The
 // channel-direction narrowing stays gated to live Go parameters
 // (goParamWants), which a Gom callee's parameter is not.
-func (c *checker) conformParam(want, got types.Type, sp diag.Span) bool {
+func (c *checker) conformParam(want, got types.Type, sp diag.Span, conv bool) bool {
+	if !conv {
+		// No argument expression can carry the conversion —
+		// only the equality admission is honest here.
+		return c.unify(want, got, sp)
+	}
 	if c.slicePair(want, got, sp) {
 		return true
 	}

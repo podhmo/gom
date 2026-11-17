@@ -1434,4 +1434,9 @@
   受理し、`conformFirstArg` が対応する Ascribe を emit。
   `Some 1 |> f` 等の settled-ctor pin は変わらず E0401（F3 参照）。
   fixture: `ok_go_any_residual`、golden `go_any`。
+  追記（wave-14 lane 1 review）: `>>`/`<<`/`|?>` は変換を載せる
+  引数式を持たない（中間適用結果・unwrap 済み payload は lowering
+  内部の値）ため、List↔Go.Slice 等の境界変換はそれら経路では
+  conv=false でゲート — 受理を止めて正直な E0401 に戻した。
+  fixture: `E0401_slice_boundary_compose`。
   参照: [check/apply.go](../internal/check/apply.go) `conformCallee`。
