@@ -1127,11 +1127,15 @@ func (c *checker) instantiateSig(sig Signature, sp diag.Span) (types.Type, []typ
 		}
 		switch gc := sig.GoConstraints[i]; gc.Kind {
 		case GoConstraintSlice:
-			if gc.Elem >= 0 && gc.Elem < len(args) {
+			// The operand must not be the constrained parameter
+			// itself (`S ~[]S`) — binding the meta to a shape that
+			// contains itself makes every later traversal loop.
+			if gc.Elem >= 0 && gc.Elem < len(args) && gc.Elem != i {
 				m.Bind(types.GoSlice(args[gc.Elem]))
 			}
 		case GoConstraintMap:
-			if gc.Key >= 0 && gc.Key < len(args) && gc.Val >= 0 && gc.Val < len(args) {
+			if gc.Key >= 0 && gc.Key < len(args) && gc.Key != i &&
+				gc.Val >= 0 && gc.Val < len(args) && gc.Val != i {
 				m.Bind(types.GoMap(args[gc.Key], args[gc.Val]))
 			}
 		case GoConstraintAny, GoConstraintComparable, GoConstraintUnion:

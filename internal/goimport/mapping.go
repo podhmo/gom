@@ -54,7 +54,7 @@ func (l *Loader) mapSignature(sig *types.Signature) (check.Signature, lower.GoSi
 		gcons = make([]check.GoConstraint, n)
 		for i := range n {
 			tp := sig.TypeParams().At(i)
-			k, reason := callableConstraint(tp.Constraint())
+			k, reason := callableConstraint(tp.Constraint(), i)
 			if reason != "" {
 				return check.Signature{}, lower.GoSig{}, hiddenSym{
 					reason: fmt.Sprintf("type parameter %s: %s", tp.Obj().Name(), reason),
@@ -218,7 +218,7 @@ var universeComparable = types.Universe.Lookup("comparable").Type().Underlying()
 // shapes, intersections, `~` over other forms — hides the symbol
 // with the reason E0506 surfaces, named by class so the hidden set
 // never silently widens.
-func callableConstraint(c types.Type) (check.GoConstraint, string) {
+func callableConstraint(c types.Type, self int) (check.GoConstraint, string) {
 	iface, ok := types.Unalias(c).Underlying().(*types.Interface)
 	if !ok {
 		return check.GoConstraint{}, fmt.Sprintf("constraint %s is not an interface", c)
@@ -229,14 +229,18 @@ func callableConstraint(c types.Type) (check.GoConstraint, string) {
 	case types.Identical(iface, universeComparable):
 		return check.GoConstraint{Kind: check.GoConstraintComparable}, ""
 	}
-	if iface.IsMethodSet() {
+	// IsMethodSet covers the all-methods spelling; a constraint
+	// mixing terms AND methods has IsMethodSet false but is a
+	// method-set constraint all the same — its type set requires
+	// the methods, so admitting it would drop that requirement.
+	if iface.IsMethodSet() || iface.NumMethods() > 0 {
 		return check.GoConstraint{}, fmt.Sprintf("constraint %s carries a method set", c)
 	}
 	terms, ok := unionTerms(iface)
 	if !ok {
 		return check.GoConstraint{}, fmt.Sprintf("constraint %s is an intersection outside the admitted set", c)
 	}
-	if gc, ok := structuralConstraint(terms); ok {
+	if gc, ok := structuralConstraint(terms, self); ok {
 		gc.Desc = c.String()
 		return gc, ""
 	}
@@ -256,6 +260,13 @@ func callableConstraint(c types.Type) (check.GoConstraint, string) {
 // hidden set instead of being silently weakened to their union
 // part.
 func unionTerms(iface *types.Interface) ([]check.GoUnionTerm, bool) {
+	// More than one embedded element — or any explicit method —
+	// makes the interface an intersection: flattening every
+	// embedded union would admit the disjunction of all parts,
+	// a strictly larger set than the constraint's own.
+	if iface.NumMethods() > 0 || iface.NumEmbeddeds() != 1 {
+		return nil, false
+	}
 	var terms []check.GoUnionTerm
 	for i := 0; i < iface.NumEmbeddeds(); i++ {
 		switch e := types.Unalias(iface.EmbeddedType(i)).(type) {
@@ -278,7 +289,11 @@ func unionTerms(iface *types.Interface) ([]check.GoUnionTerm, bool) {
 				terms = append(terms, check.GoUnionTerm{Type: e})
 				continue
 			}
-			if i2.IsComparable() || i2.IsMethodSet() {
+			// A named union interface keeps its terms — `cmp.Ordered`
+			// is itself comparable, which describes its terms, not a
+			// reason to hide it. A method-bearing named interface is
+			// not a union and stays hidden.
+			if i2.IsMethodSet() {
 				return nil, false
 			}
 			ts, ok := unionTerms(i2)
@@ -299,19 +314,22 @@ func unionTerms(iface *types.Interface) ([]check.GoUnionTerm, bool) {
 // the callable set admits: `~[]E` and `~map[K]V`, where E/K/V are
 // type parameters of the same signature (TypeParam.Index is the
 // declared-order position, matching Signature.TypeParams).
-func structuralConstraint(terms []check.GoUnionTerm) (check.GoConstraint, bool) {
+func structuralConstraint(terms []check.GoUnionTerm, self int) (check.GoConstraint, bool) {
 	if len(terms) != 1 || !terms[0].Approx {
 		return check.GoConstraint{}, false
 	}
+	// An operand naming the constrained parameter itself
+	// (`S ~[]S`) is a recursive constraint — no Gom argument
+	// can build an element of its own shape.
 	switch t := terms[0].Type.(type) {
 	case *types.Slice:
-		if tp, ok := t.Elem().(*types.TypeParam); ok {
+		if tp, ok := t.Elem().(*types.TypeParam); ok && tp.Index() != self {
 			return check.GoConstraint{Kind: check.GoConstraintSlice, Elem: tp.Index(), Key: -1, Val: -1}, true
 		}
 	case *types.Map:
 		k, kok := t.Key().(*types.TypeParam)
 		v, vok := t.Elem().(*types.TypeParam)
-		if kok && vok {
+		if kok && vok && k.Index() != self && v.Index() != self {
 			return check.GoConstraint{Kind: check.GoConstraintMap, Key: k.Index(), Val: v.Index(), Elem: -1}, true
 		}
 	}
