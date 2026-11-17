@@ -63,6 +63,10 @@ func moduleLoader(t *testing.T) (*Loader, string) {
  func Tally() map[string]int { return map[string]int{"a": 1} }
  // Dup nests a view-equal []string — representable, stays exposed.
  func Dup(xs [][]string) [][]string { return xs }
+ // EchoBytes / NthByte exercise the byte (uint8) → Byte
+ // mapping in both directions.
+ func EchoBytes(b []byte) []byte { return b }
+ func NthByte(b []byte, i int64) byte { return b[i] }
  func Parse(ok bool) (Value, Failure) {
   if !ok { return Value{}, bad{} }; return New(42), nil
  }
@@ -199,6 +203,8 @@ func TestModuleInteropBothDirections(t *testing.T) {
  fn reader (r: model.Reader) -> model.Reader = model.EchoReader r
  fn parse (ok: Bool) -> Result model.Value GoError = model.Parse ok
  fn fail () -> Result Unit GoError = model.Fail ()
+ fn echo_bytes (xs: Go.Slice Byte) -> Go.Slice Byte = model.EchoBytes xs
+ fn nth_byte (xs: Go.Slice Byte) (i: Int) -> Byte = model.NthByte xs i
  `
 	gen := compileSource(t, l, src)
 	test := `package bridge
@@ -216,6 +222,12 @@ func TestModuleInteropBothDirections(t *testing.T) {
   // copied into it, and the List result copied back out, so writes
   // through ys never reach xs (spec section 8.5).
   if xs[0]!="a" {t.Fatal("List boundary shared the backing array")}
+  if b := nthByte([]byte{0x61, 0x62}, 1); b != 'b' { t.Fatalf("nthByte = %v", b) }
+  bs := []byte{0x61}; out := echoBytes(bs); out[0] = 0x63
+  // Same List copy story as EchoSlice: []byte crosses as a List —
+  // writes through out never reach bs (spec section 8.5).
+  if bs[0]!=0x61 {t.Fatal("byte List boundary shared the backing array")}
+  if out[0]!=0x63 || len(out)!=1 {t.Fatalf("echoBytes = %v", out)}
   if reader(nil)!=nil {t.Fatal("nil interface changed")}
   var r model.Reader = readerValue{}
   if reader(r) != r || reader(r).Read()!="ok" {t.Fatal("interface identity lost")}
