@@ -23,3 +23,9 @@ spec 7 節は `import "path"` をメインモジュール内に限定してい�
 
 - spec 7 節の import 解決規則を更新（メインモジュール限定を撤廃、`go list` 解決と短名を記述）。
 - `testdata/gocall` の `total` / `isEmpty` は手書き再帰から `list.fold` / `list.is_empty` へ置き換え、外部 module からの `import "list"` が check/build/`go test` まで通る end-to-end の fixture とした。
+
+## 追記（レビュー修正）
+
+- vendoring 下は `go list -m all` が build list を返せないため、`<module root>/vendor/<import path>` を直接見る（vendor が module cache より優先なのは Go と同じ）
+- `go list -m` はモジュールソースを download しないため、build list にあって Dir の無いモジュールは `go mod download -json` で取得する（Go パッケージを持たない純 Gom 依存は何も download しないケースがある）
+- spec fixture 側: `internal/build` の spec ハーネスを cmd/gom と同じく gomimport 配線にし、`ok_import_stdlib_short`（短名）を pin。外部モジュール側は `internal/gomimport/loader_test.go`（replace 先・vendor）と testdata/gocall の e2e が pin — spec ハーネスの Dir はリポジトリのモジュール内なので外部モジュール fixture は表現できない

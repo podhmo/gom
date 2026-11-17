@@ -515,3 +515,44 @@ func repoRoot(t *testing.T) string {
 	}
 	return root
 }
+
+// Vendored dependencies resolve from vendor/ directly — `go list
+// -m all` cannot see the build list under vendoring, and the
+// module cache may never have held the source.
+func TestLoadVendoredModulePackage(t *testing.T) {
+	if testing.Short() {
+		t.Skip("runs `go list`")
+	}
+	dir := t.TempDir()
+	ext := filepath.Join(dir, "ext")
+	vendored := filepath.Join(ext, "vendor", "example.com", "lib", "shapes")
+	if err := os.MkdirAll(vendored, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	gomod := `module example.com/ext
+
+go 1.27
+
+require example.com/lib v0.0.0
+`
+	if err := os.WriteFile(filepath.Join(ext, "go.mod"), []byte(gomod), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(ext, "vendor", "modules.txt"),
+		[]byte("# example.com/lib v0.0.0\n## explicit\nexample.com/lib/shapes\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vendored, "shapes.gomi"),
+		[]byte(shapesGomi), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	l := New(&Config{Dir: ext})
+	p, err := l.Load("example.com/lib/shapes", false)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if p.Members["area"] == nil {
+		t.Fatal("area missing — vendored .gomi did not load")
+	}
+}

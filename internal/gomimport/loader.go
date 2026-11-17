@@ -34,6 +34,7 @@
 package gomimport
 
 import (
+	"encoding/json"
 	"fmt"
 	gotypes "go/types"
 	"os"
@@ -340,6 +341,16 @@ func (l *Loader) dirOf(path string) (string, error) {
 // replaces and workspace are the resolution context — the same
 // visibility the generated Go import will have.
 func (l *Loader) pkgDir(path string) (string, error) {
+	// A vendored package lives at <modRoot>/vendor/<import path> —
+	// prefer it directly: `go list -m` cannot see the build list
+	// under vendoring (the -mod=mod retry below is a fallback), and
+	// the module cache may never have held the source.
+	if _, modDir, merr := l.module(); merr == nil {
+		v := filepath.Join(modDir, "vendor", filepath.FromSlash(path))
+		if st, serr := os.Stat(v); serr == nil && st.IsDir() {
+			return v, nil
+		}
+	}
 	mods, err := l.extModules()
 	if err != nil {
 		return "", err
@@ -353,8 +364,14 @@ func (l *Loader) pkgDir(path string) (string, error) {
 			}
 		}
 	}
-	if dir == "" {
+	if best == "" {
 		return "", fmt.Errorf("package %q is not importable from %q — no module in the build list provides it", path, l.cfg.Dir)
+	}
+	if dir == "" {
+		dir, err = l.moduleDir(best)
+		if err != nil {
+			return "", err
+		}
 	}
 	if best == path {
 		return dir, nil
@@ -367,31 +384,92 @@ func (l *Loader) pkgDir(path string) (string, error) {
 // cache, replace target, or workspace member).
 func (l *Loader) extModules() (map[string]string, error) {
 	l.extOnce.Do(func() {
-		gobin := l.cfg.GoBin
-		if gobin == "" {
-			gobin = "go"
-		}
-		cmd := exec.Command(gobin, "list", "-m", "-f", "{{.Path}}|{{.Dir}}", "all")
-		if l.cfg.Dir != "" {
-			cmd.Dir = l.cfg.Dir
-		}
-		out, err := cmd.Output()
+		out, err := l.goListModules()
+		// A vendoring module rejects `go list -m all` outright
+		// ("can't compute 'all' using the vendor directory") — the
+		// go.mod build list is still authoritative, so retry with
+		// -mod=mod when a vendor directory is present. The retry
+		// sits behind the failure so workspace modules (where -mod
+		// is constrained) are untouched.
 		if err != nil {
-			if ee, ok := err.(*exec.ExitError); ok {
-				l.extErr = fmt.Errorf("go list -m: %s", strings.TrimSpace(string(ee.Stderr)))
-			} else {
-				l.extErr = fmt.Errorf("go list -m: %w", err)
+			if _, modDir, merr := l.module(); merr == nil {
+				if _, serr := os.Stat(filepath.Join(modDir, "vendor", "modules.txt")); serr == nil {
+					out, err = l.goListModules("-mod=mod")
+				}
 			}
+		}
+		if err != nil {
+			l.extErr = err
 			return
 		}
 		for line := range strings.SplitSeq(strings.TrimSpace(string(out)), "\n") {
 			p, d, _ := strings.Cut(line, "|")
-			if p != "" && d != "" {
+			if p != "" {
+				// An empty Dir means the module is in the
+				// build list but its source is not in the
+				// module cache yet; keep the entry so the
+				// longest-prefix match still works and let
+				// pkgDir fetch it on demand.
 				l.extMods[p] = d
 			}
 		}
 	})
 	return l.extMods, l.extErr
+}
+
+// goListModules runs `go list -m -f '{{.Path}}|{{.Dir}}' all` in
+// Config.Dir. Note `go list -m` only reads the module graph — it
+// does not download module sources, so an entry's .Dir can be
+// empty until something fetches it.
+func (l *Loader) goListModules(flags ...string) (string, error) {
+	args := append([]string{"list"}, flags...)
+	args = append(args, "-m", "-f", "{{.Path}}|{{.Dir}}", "all")
+	cmd := exec.Command(l.gobin(), args...)
+	if l.cfg.Dir != "" {
+		cmd.Dir = l.cfg.Dir
+	}
+	out, err := cmd.Output()
+	if err != nil {
+		if ee, ok := err.(*exec.ExitError); ok {
+			return "", fmt.Errorf("go list -m: %s", strings.TrimSpace(string(ee.Stderr)))
+		}
+		return "", fmt.Errorf("go list -m: %w", err)
+	}
+	return string(out), nil
+}
+
+// moduleDir fetches the source directory of a module in the build
+// list via `go mod download` — needed when `go list -m` reported
+// an empty Dir because nothing had downloaded the module yet
+// (a Gom-only dependency no Go package references). `go mod
+// download` works on the go.mod graph directly, so it is also
+// the answer under vendoring.
+func (l *Loader) moduleDir(path string) (string, error) {
+	cmd := exec.Command(l.gobin(), "mod", "download", "-json", path)
+	if l.cfg.Dir != "" {
+		cmd.Dir = l.cfg.Dir
+	}
+	out, err := cmd.Output()
+	if err != nil {
+		if ee, ok := err.(*exec.ExitError); ok {
+			return "", fmt.Errorf("go mod download %s: %s", path, strings.TrimSpace(string(ee.Stderr)))
+		}
+		return "", fmt.Errorf("go mod download %s: %w", path, err)
+	}
+	var dl struct {
+		Dir string
+	}
+	if err := json.Unmarshal(out, &dl); err != nil || dl.Dir == "" {
+		return "", fmt.Errorf("go mod download %s: no directory in result", path)
+	}
+	return dl.Dir, nil
+}
+
+func (l *Loader) gobin() string {
+	if l.cfg.GoBin != "" {
+		return l.cfg.GoBin
+	}
+	return "go"
 }
 
 // module reports the main module's path and root directory, read
