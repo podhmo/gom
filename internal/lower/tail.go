@@ -182,9 +182,13 @@ func eachVar(b *core.Body, f func(v *core.Var, captured bool)) {
 				body(e.Fn.Body, true)
 			}
 		case *core.GoFunc:
-			atom(e.X, captured)
+			// The adapter is a func literal — its callee and
+			// argument expressions evaluate when the callback
+			// runs, not synchronously. Every reference inside is
+			// a capture position like a Closure's body.
+			atom(e.X, true)
 			for _, in := range e.In {
-				expr(in, captured)
+				expr(in, true)
 			}
 		case *core.CallDirect:
 			atoms(e.Args, captured)
