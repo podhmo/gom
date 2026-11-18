@@ -101,11 +101,13 @@ func (l *lowerer) flatArg(s *seq, a check.Arg, arity int) core.Atom {
 		if sym != nil && sym.Kind == resolve.KindFunc && !sym.IsGo {
 			// `fold add` — the declaration is already flat at the
 			// matching arity: the reference emits `add_` verbatim.
+			decl := l.funcArity(sym, v.Type())
 			return l.asAtom(s, v.Span(), &core.Uncurry{
 				Base:  core.Base{Sp: v.Span(), Typ: v.Type()},
 				Arity: arity,
 				X: &core.FuncRef{Base: core.Base{Sp: v.Span(), Typ: v.Type()},
-					Sym: sym, Arity: l.funcArity(sym, v.Type()), TypeArgs: v.TypeArgs},
+					Sym: sym, Arity: decl, TypeArgs: v.TypeArgs,
+					FlatParams: declFlatArities(l.declParamTypes(sym, v.Type()), decl)},
 			})
 		}
 	case *check.Lambda:
@@ -116,6 +118,15 @@ func (l *lowerer) flatArg(s *seq, a check.Arg, arity int) core.Atom {
 			Arity: arity,
 			X:     l.lambdaExpr(v),
 		})
+	case *check.Apply, *check.Ascribe, *check.Binary, *check.Block,
+		*check.For, *check.GoExpr, *check.Hole, *check.If, *check.Ignore,
+		*check.Let, *check.ListLit, *check.Lit, *check.Match,
+		*check.MemberExpr, *check.RecordLit, *check.SelectExpr,
+		*check.Spread, *check.StrInterp, *check.Try, *check.TupleLit,
+		*check.Unary:
+		// Every other argument lowers through the generic atom path
+		// below — spelled out so the sumtype check verifies the
+		// split (Var and Lambda above return early).
 	}
 	atom := l.atom(s, v)
 	if l.flatAtomArity(atom) > 0 {
@@ -155,6 +166,20 @@ func (l *lowerer) flatifyCallArgs(s *seq, sp diag.Span, params []types.Type, arg
 		}
 	}
 	return args
+}
+
+// declFlatArities maps a declared callee's parameter types to the
+// per-parameter flat arity core.FuncRef carries — the declared
+// flat-slot convention codegen reads instead of re-deriving it
+// from the instantiated reference type. The result is exactly decl
+// entries; a slot the declared signature does not cover stays 0
+// (canonical).
+func declFlatArities(dps []types.Type, decl int) []int {
+	out := make([]int, decl)
+	for i := 0; i < decl && i < len(dps); i++ {
+		out[i] = flatParamArity(dps[i])
+	}
+	return out
 }
 
 // funcParamTypes unwraps a *types.Func's parameter types — the
