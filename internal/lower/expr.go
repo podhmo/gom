@@ -254,7 +254,14 @@ func (l *lowerer) funcRefOrFlatten(e *check.Var, sym *resolve.Symbol) core.Expr 
 	}
 	decl := l.funcArity(sym, e.Type())
 	flat := flatArity(e.Type())
-	if decl == 1 {
+	dps := l.declParamTypes(sym, e.Type())
+	flatParams := false
+	for _, pt := range dps[:min(len(dps), decl)] {
+		if flatParamArity(pt) >= 2 {
+			flatParams = true
+		}
+	}
+	if decl == 1 && !flatParams {
 		return &core.FuncRef{Base: baseOf(e), Sym: sym, Arity: decl, TypeArgs: e.TypeArgs}
 	}
 	if decl > flat {
@@ -278,8 +285,8 @@ func (l *lowerer) funcRefOrFlatten(e *check.Var, sym *resolve.Symbol) core.Expr 
 		prefix := &core.CallDirect{
 			Sp: e.Sp, Typ: retAfter(sig, decl),
 			Callee: sym, TypeArgs: e.TypeArgs,
-			Args: pv[:decl], Arity: decl,
-			Adapter: true,
+			Args:  l.flatifyCallArgs(bs, e.Sp, dps, pv[:decl], decl),
+			Arity: decl, Adapter: true,
 		}
 		rest := pv[decl:]
 		if len(rest) == 0 {
@@ -899,7 +906,7 @@ func (l *lowerer) argAtoms(s *seq, args []check.Arg, ci check.CallInfo, callee c
 	if ci.Callee != nil {
 		if _, conv := goFuncCallN(ci.Callee); !conv {
 			if _, conv := goFnCallN(ci.Callee); !conv {
-				params = funcParamTypes(flatSig(callee.Type()))
+				params = l.declParamTypes(ci.Callee, callee.Type())
 			}
 		}
 	}
@@ -999,7 +1006,7 @@ func (l *lowerer) directCall(s *seq, sp diag.Span, resTyp types.Type, callee che
 	// function exactly like positional extras (docs/decisions/
 	// 2026-11-06-label-args-into-returned-functions.md).
 	ordered := declOrderArgs(ci, args, ci.Flat())
-	ordered = l.flatifyCallArgs(s, sp, funcParamTypes(flatSig(callee.Type())), ordered, ci.Arity)
+	ordered = l.flatifyCallArgs(s, sp, l.declParamTypes(ci.Callee, callee.Type()), ordered, ci.Arity)
 	switch sym.Kind {
 	case resolve.KindFunc:
 		if sym.IsGo {
@@ -1379,6 +1386,9 @@ func (l *lowerer) partialCall(s *seq, sp diag.Span, resTyp types.Type, callee ch
 	// 2026-11-06-label-args-into-returned-functions.md).
 	flat := ci.Flat()
 	calleeSig := flatSig(callee.Type())
+	// The flat-slot arity decision reads the *declared* parameter
+	// types, not the instantiated callee type (declParamTypes).
+	calleePs := l.declParamTypes(ci.Callee, callee.Type())
 	filled := filledParams(ci, args)
 	var unapplied []int
 	for i := 0; i < flat; i++ {
@@ -1403,8 +1413,8 @@ func (l *lowerer) partialCall(s *seq, sp diag.Span, resTyp types.Type, callee ch
 			// it is a canonical value, so a ≥2-arrow slot needs
 			// the Uncurry adapter (flat.go).
 			ordered[i] = pv[k]
-			if calleeSig != nil && i < len(calleeSig.Params) {
-				if fa := flatParamArity(calleeSig.Params[i].Type); fa >= 2 {
+			if i < len(calleePs) {
+				if fa := flatParamArity(calleePs[i]); fa >= 2 {
 					ordered[i] = l.ensureFlatAtom(bs, sp, pv[k], fa)
 				}
 			}
@@ -1582,7 +1592,7 @@ func (l *lowerer) goCall(s *seq, sp diag.Span, resTyp types.Type, callee check.E
 		}
 	}
 	ordered := declOrderArgs(ci, args, 0)
-	ordered = l.flatifyCallArgs(s, sp, funcParamTypes(flatSig(callee.Type())), ordered, len(ordered))
+	ordered = l.flatifyCallArgs(s, sp, l.declParamTypes(ci.Callee, callee.Type()), ordered, len(ordered))
 	ordered = l.convGoArgs(s, sig, ordered, spread)
 
 	if ci.HoleIndex >= 0 {
@@ -1775,19 +1785,18 @@ func (l *lowerer) applyAtom(s *seq, sp diag.Span, resTyp types.Type, fn core.Ato
 	case *core.FuncRef:
 		// Pipe/composition arrivals: the written-argument adaptation
 		// never saw these atoms, so flat parameter slots wrap here.
-		fSig := flatSig(f.Type())
 		switch {
 		case len(args) == f.Arity:
 			return &core.CallDirect{
 				Sp: sp, Typ: resTyp,
 				Callee: f.Sym, TypeArgs: f.TypeArgs,
-				Args: l.flatifyCallArgs(s, sp, funcParamTypes(fSig), args, f.Arity), Arity: f.Arity,
+				Args: l.flatifyCallArgs(s, sp, l.declParamTypes(f.Sym, f.Type()), args, f.Arity), Arity: f.Arity,
 			}
 		case len(args) > f.Arity:
 			first := &core.CallDirect{
 				Sp: sp, Typ: overAppRet(f, f.Arity),
 				Callee: f.Sym, TypeArgs: f.TypeArgs,
-				Args: l.flatifyCallArgs(s, sp, funcParamTypes(fSig), args[:f.Arity], f.Arity), Arity: f.Arity,
+				Args: l.flatifyCallArgs(s, sp, l.declParamTypes(f.Sym, f.Type()), args[:f.Arity], f.Arity), Arity: f.Arity,
 			}
 			t := l.asAtom(s, sp, first)
 			return l.callFuncChunks(s, sp, t, args[f.Arity:])
@@ -1797,7 +1806,7 @@ func (l *lowerer) applyAtom(s *seq, sp diag.Span, resTyp types.Type, fn core.Ato
 				return &core.CallDirect{
 					Sp: sp, Typ: retAfter(sigOf(f.Type()), f.Arity),
 					Callee: f.Sym, TypeArgs: f.TypeArgs,
-					Args:  l.flatifyCallArgs(bs, sp, funcParamTypes(fSig), full, f.Arity),
+					Args:  l.flatifyCallArgs(bs, sp, l.declParamTypes(f.Sym, f.Type()), full, f.Arity),
 					Arity: f.Arity,
 				}
 			})
