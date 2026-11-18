@@ -40,16 +40,18 @@ Ownership: 採択候補に依存（構文系は syntax/resolve/check/
 lower/codegen + testdata、c' は examples + docs）。
 ```
 
-### C. LSP 全削除（lane2 採択なら）
+### C. LSP 全削除 — `devin/wave24-lsp-removal`（podhmo 採択済み: 「未対応」という体で削除）
 
 ```
-[impl] podhmo が LSP 撤去を採択した場合のみ。棚卸し
-（sketch 2026-11-19-wave23-lsp-removal）の 6 ステップ順に
+[impl] LSP 面を v1 の提供から取り下げて「未対応」に戻す（podhmo
+方針: 不要コードの除去ではなく、必要な状況が来るまで提供しない）。
+棚卸し（sketch 2026-11-19-wave23-lsp-removal）の 6 ステップ順に
 internal/lsp・cmd/gom/lsp.go・main.go・main_test・各 docs を
 削除し、lsp-v1-scope / lsp-package-unit / lsp-gotool-invocation
-を Supersede する decision を追加。gotool-position-inverse・
+を Supersede する decision を追加 — 文言は「需要が具体化したら
+別 decision で再導入を検討する」体。gotool-position-inverse・
 SourceMap/GoPosIndex・cli -go は残す。SKILL.md の toolchain
-表と spec.md §から lsp 記述を除去。
+表と spec.md から lsp 記述を除去。
 Ownership: internal/lsp, cmd/gom, docs/spec.md, docs/design.md,
 docs/decisions, docs/open-questions, TODO.md,
 skills/gom-agent-guide.
