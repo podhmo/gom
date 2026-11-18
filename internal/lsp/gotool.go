@@ -19,7 +19,8 @@ import (
 // Nil on Server means no go-tool pass — the default.
 type GoTool func(inputs []build.Input, results []*build.Result) []diag.Diagnostic
 
-// NewGoTool returns the standard go-tool pass: `go build` in a
+// NewGoTool returns the standard go-tool pass: `go build` and
+// `go vet` in a
 // temp directory inside the package's own directory, its
 // diagnostics folded through the same GoPosIndex +
 // GoToolDiagnostics machinery `gom build -go` uses.
@@ -155,6 +156,7 @@ func NewGoTool() GoTool {
 		for _, s := range stages {
 			pos.AddSourceMap(s.path, s.out.Output.Source, s.out.Output.SourceMap)
 		}
+		var diags []diag.Diagnostic
 		run, err := build.RunGoBuild("", tmp, hasMain)
 		if err != nil {
 			return []diag.Diagnostic{
@@ -164,10 +166,27 @@ func NewGoTool() GoTool {
 					Set("error", err.Error()),
 			}
 		}
-		if !run.Failed {
-			return nil
+		if run.Failed {
+			diags = append(diags,
+				build.GoToolDiagnostics(run.Lines(), "go build", pos)...)
 		}
-		return build.GoToolDiagnostics(run.Lines(), "go build", pos)
+		// `gom lsp -go` runs build+vet on one flag — the same
+		// staging and the same GoToolDiagnostics fold `gom build
+		// -vet` uses; vet runs even when the build failed, matching
+		// runGoTools' independent doBuild/doVet.
+		vrun, verr := build.RunGoVet("", tmp)
+		if verr != nil {
+			return append(diags,
+				diag.Error("E0001", "go vet could not run").
+					From(diag.SourceGo).
+					Set("tool", "go vet").
+					Set("error", verr.Error()))
+		}
+		if vrun.Failed {
+			diags = append(diags,
+				build.GoToolDiagnostics(vrun.Lines(), "go vet", pos)...)
+		}
+		return diags
 	}
 }
 

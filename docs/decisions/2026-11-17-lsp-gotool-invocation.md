@@ -69,3 +69,12 @@ deferral を決定に残す。
 検証: [sketch](../sketch/2026-11-17-lsp-gotool.md)（計測と検証手順）。
 `internal/lsp` の JSON-RPC テスト 3 件（fold / silent / skip）と
 Emacs+Eglot の実起動確認。
+
+## 追記（wave20 lane3）: `-go` に `go vet` を含める
+
+採択: フラグ形は「`gom lsp -go` に vet を含める（1 フラグで build+vet
+両方実行）」。`NewGoTool` が同じ staging・同じ `GoToolDiagnostics`
+fold で `go build` のあと `go vet` を実行する（`runGoTools` の独立
+doBuild/doVet と同じく build 失敗時も vet を試行）。tool 名は
+`"go vet"` — `gom build -vet` と同じ。台帳の「LSP 側の go build /
+go vet 実起動経路」の vet 半分はこれで閉じた。

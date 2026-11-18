@@ -23,7 +23,7 @@ import (
 func runLSP(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("lsp", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	goTool := fs.Bool("go", false, "run `go build` on the unit's generated output after each successful compile and fold its diagnostics onto .gom spans (source \"go\")")
+	goTool := fs.Bool("go", false, "run `go build` and `go vet` on the unit's generated output after each successful compile and fold their diagnostics onto .gom spans (source \"go\")")
 	if err := fs.Parse(args); err != nil {
 		return flagError(err)
 	}

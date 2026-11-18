@@ -108,13 +108,21 @@ func TestGoToolFoldsBuildError(t *testing.T) {
 			continue
 		}
 		for _, d := range ds {
-			if d["source"] == "go" {
+			if d["source"] != "go" {
+				continue
+			}
+			// `-go` runs build AND vet — vet re-reports the same
+			// compile failure at a differently folded position, so
+			// pick the entry the //line directive lands on.
+			rng, _ := d["range"].(map[string]any)
+			st, _ := rng["start"].(map[string]any)
+			if st["line"].(float64) == 1 {
 				found = d
 			}
 		}
 	}
 	if found == nil {
-		t.Fatalf("no go-source diagnostic published: %v", collectDiags(outs))
+		t.Fatalf("no go-source diagnostic folded to .gom line 2: %v", collectDiags(outs))
 	}
 	if !strings.Contains(found["message"].(string), "not-an-int") &&
 		!strings.Contains(found["message"].(string), "string") {
@@ -143,6 +151,39 @@ func TestGoToolFoldsBuildError(t *testing.T) {
 				t.Fatalf("stale go diagnostic after fix: %v", d)
 			}
 		}
+	}
+}
+
+// TestGoToolFoldsVetError: `gom lsp -go` runs `go vet` beside
+// `go build` — a sibling .go that compiles clean but trips vet
+// (Printf arg count) lands as a go-source diagnostic folded back
+// onto the .gom span its //line names.
+func TestGoToolFoldsVetError(t *testing.T) {
+	if testing.Short() {
+		t.Skip("go-tool pass runs the real go toolchain")
+	}
+	dir := t.TempDir()
+	writeModFile(t, dir)
+	gomSrc := "package main\n\nfn main () -> Unit = ()\n"
+	writeFile(t, filepath.Join(dir, "a.gom"), gomSrc)
+	writeFile(t, filepath.Join(dir, "z.go"),
+		"package main\n\nimport \"fmt\"\n\n//line a.gom:2\nvar _ = fmt.Sprintf(\"%d %d\", 1)\n")
+	gen := []byte("package main\n\nfunc main() {}\n")
+	ds := NewGoTool()(
+		[]build.Input{{Path: filepath.Join(dir, "a.gom"),
+			Src: []byte(gomSrc)}},
+		[]*build.Result{fakeResult(gen)})
+	if len(ds) == 0 {
+		t.Fatal("no diagnostics — vet finding did not fold")
+	}
+	var sawVet bool
+	for _, d := range ds {
+		if d.Source == diag.SourceGo {
+			sawVet = true
+		}
+	}
+	if !sawVet {
+		t.Fatalf("no go-source diagnostic: %v", ds)
 	}
 }
 

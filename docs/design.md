@@ -149,7 +149,7 @@ bindings rather than left for `go build` to name hidden temporaries. See
 
 対応表の実体は `diag.SourceMap`（生成 Go の行 → .gom の span の `Anchor` 列）で、codegen が `//gomsrc` センチネルの splice と同じ操作で組み立てる — エクスポートされる表と実際のディレクティブは構造上ずれ得ない。`codegen.Output.SourceMap` / `TestSourceMap` 経由で `build.Result` に載り、エディタ系の問い合わせ（生成行 → span は `SpanAt`、.gom オフセット → 生成行は `LineAt`）の内部 API になる（[source-location-correspondence](decisions/2026-11-03-source-location-correspondence.md)）。戻す側は `internal/build` の `GoPosIndex` — 表示された名前をコンパイル入力に解決し `line:col` をクランプした point span に写す。`GoToolDiagnostics` が `file:line:col:` 行を E0001 `source:"go"` の診断に畳み、panic・goroutine dump のフレームは `diag.ParseStack` で分けて `GoPosIndex.ResolveStack` が span に戻す。手書きの Go ファイルや toolchain のパスは入力に解決できないので位置なしのまま残る。
 
-go tool の実起動は opt-in: `gom build -go` は出力先ディレクトリごとに `go build`、`gom build -vet` は `go vet` を走らせ（両者は独立に併用できる）、出力を上記の fold で `.gom` の位置に戻す（[cli-gotool-invocation](decisions/2026-11-17-cli-gotool-invocation.md)、[build-vet-flag](decisions/2026-11-18-build-vet-flag.md)）。`gom lsp -go` は同じ仕組みを publish 前の temp dir で回す（[lsp-gotool-invocation](decisions/2026-11-17-lsp-gotool-invocation.md)）。`gom test` の `go test -json` も build-output / panic スタックを同じ経路で畳む。`gom run` は `go build` を temp バイナリへ向けてから直接起動する — 子の終了コードと stdio を素通しするため `go run` は使わない（[decisions/gom-run](decisions/2026-11-18-gom-run.md)）。リンク失敗の診断だけ同じ fold を通る。
+go tool の実起動は opt-in: `gom build -go` は出力先ディレクトリごとに `go build`、`gom build -vet` は `go vet` を走らせ（両者は独立に併用できる）、出力を上記の fold で `.gom` の位置に戻す（[cli-gotool-invocation](decisions/2026-11-17-cli-gotool-invocation.md)、[build-vet-flag](decisions/2026-11-18-build-vet-flag.md)）。`gom lsp -go` は同じ仕組みを publish 前の temp dir で回す（1 フラグで `go build` と `go vet` の両方）（[lsp-gotool-invocation](decisions/2026-11-17-lsp-gotool-invocation.md)）。`gom test` の `go test -json` も build-output / panic スタックを同じ経路で畳む。`gom run` は `go build` を temp バイナリへ向けてから直接起動する — 子の終了コードと stdio を素通しするため `go run` は使わない（[decisions/gom-run](decisions/2026-11-18-gom-run.md)）。リンク失敗の診断だけ同じ fold を通る。
 
 `//line` は emit する全行に再置きされる（per-line re-pin — `pad()` が行頭ごとに `curSpan` の sentinel を出し、`}` 系は括りの construct の span を名指す）ため継続行の drift は構造上発生しない。`AddSourceMap` で生成物と対応表を登録した index は `ResolveMatch` で報告行を印刷しうる全生成行を `SourceMap.Candidates` で列挙し、診断を乗せられない行（空行・コメント・ディレクティブ行）を除いた候補が 1 構文ならその span（範囲外なら構文全体 = drift）、複数なら union を ambiguous として返す（[gotool-position-inverse](decisions/2026-11-06-gotool-position-inverse.md)、[sourcemap-repin](decisions/2026-11-17-sourcemap-repin.md)）。残る ambiguous は同一 `.gom` 行を別 span が要求する真の曖昧性のみ。map 未登録の経路は従来の近似のまま。
 
@@ -437,7 +437,7 @@ func TestRectArea(t *testing.T) {
 3. 再コンパイルするのは、自分のソースか依存先のインターフェースのハッシュが変わったときだけ
 4. テストと `@test` 定義はハッシュに含めない
 5. 生成した `.go` が前回と同じ内容なら書き換えない。Go 側の再ビルドは `go build` のキャッシュに任せる
-6. 依存関係のないパッケージどうしは並列にコンパイルする — 未実装。dir グループの並列化は `CompileFiles` 呼び出しのスケジューリングで、キャッシュとは直交
+6. 依存関係のないパッケージどうしは並列にコンパイルする — 未実装。dir グループの並列化は `CompileFiles` 呼び出しのスケジューリングで、キャッシュとは直交。wave20 で評価: dep 順序づけと共有 Loader の同期が要り実装は小さくない（[implementation-gaps](implementation-gaps.md) の項参照）
 
 `.gomi` は Gom の意味論的な型（公開 API）を表す。生成される Go の API（型名・関数のシグネチャ）をどこまで安定させるか（Go ABI の方針）は open-questions.md。
 

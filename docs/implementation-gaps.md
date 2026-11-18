@@ -303,7 +303,7 @@
   [検証](sketch/2026-11-06-check-residuals-verification.md)、
   [fixture](../testdata/spec/ok_go_block_arg.gom)。
 
-- [ ] **LSP 側の `go build` / `go vet` 実起動経路**:
+- [x] **LSP 側の `go build` / `go vet` 実起動経路**:
   design.md 2.2 は「`go build` / `go vet` のエラーと panic スタックを `.gom` の位置へ戻す」と定める。
   `gom test` の build-output イベントは go build 診断そのものであり、SourceMap 登録済みの fold が
   実起動済み。
@@ -324,6 +324,9 @@
   compile → temp `go build -o` → exec で着地（引数 passthrough・
   exit code 保全・signal kill は 128+signal）。
   [decision](decisions/2026-11-18-gom-run.md)。
+  対応（wave20 lane3・LSP の vet 半分）: `gom lsp -go` が `go build` に加えて
+  `go vet` も同じ staging・同じ `GoToolDiagnostics` fold で走らせる（1 フラグで
+  build+vet — `runGoTools` の独立 doBuild/doVet と同じく、build 失敗時も vet を試行）。
   `vet:` 前置詞つき出力は raw text 扱いのまま許容。
   参照: [design 2.2](design.md#22-ソース位置の対応)、[GoToolDiagnostics](../internal/build/gopos.go)、
   [decision](decisions/2026-11-06-gotool-position-inverse.md)、
@@ -1574,3 +1577,6 @@
   E0510 を欠いていた、concurrency.md が W0701/W0702 を
   "(planned)" としていた（`internal/check/lint.go` で実装済み）。
   対応: 各記述を現行に同期（PR #34）。
+
+- [ ] **design §5-6 の独立 dir 並列コンパイル（P4-7 残件）**: wave20 lane3 で評価 — 実装は小さくないと判定し残件のまま。理由 2 点: (a) dir グループを並列にすると依存先 `.gomi` の再生成と依存側の読み取りが競合する — 現行は CLI 引数順の直列でレースしないが、並列化には dep 順序かロックが要る。(b) `compileOptions` が共有する `gomimport.Loader`（`l.pkgs`/member table/`go/importer` fset）は compile ごとに map を mutate しており並行安全でない — dir ごとの Loader 分離は共有の利点を潰す。`bc.Hit`/`depSink`/`bc.note`/`results[i]` の dir 分割は素直に並列化できるため、真のコストは dep 順序と Loader 同期の設計にある。
+  参照: [runBuild の dir ループ](../cmd/gom/cli.go)、[design 5 章](design.md)。
