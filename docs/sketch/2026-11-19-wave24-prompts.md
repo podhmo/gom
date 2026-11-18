@@ -75,20 +75,13 @@ wave23 lane3 のブランチで反映済み。
 Ownership: wave24 以降、必要なら。
 ```
 
-### E. 非 cons 蓄積の救済（lane4 の採択結果を反映）
+### E. 非 cons 蓄積の救済 — **wave23 で消化済み**
 
-```
-[impl-or-docs] podhmo 採択分（sketch
-2026-11-19-wave23-noncons-accum の α–δ、複数可）:
-- α SCC 拡張: markConsCalls を相互再帰に広げる内部実装。
-- β Array イディオム: guide/examples のみ、Array builder の
-  書き味を experiments/w23/noncons-accum 上で確認してから。
-- γ 診断ヒント: 除外形の検出 + 情報診断の診断族設計。
-- δ 表現変更: future work のまま保留が既定。
-problems ファイルの状態行を採択結果で更新。
-Ownership: α→internal/lower/consrec.go + golden、β→docs +
-skills、γ→internal/lower or check + diag 定義。
-```
+podhmo 採択（2026-11-19、[decision](../decisions/2026-11-19-noncons-accum-policy.md)）:
+β イディオム誘導 + γ 警告 lint を採用し、γ は wave23 lane4 で実装済み
+（`W0801`、lower の `lintQuadraticAccum`）。α SCC 拡張と δ 表現変更は
+先送りで problems ファイルに残す。wave24 の lane としては不要 — α を
+再検討するなら別途 lane を立てる。
 
 ## 申し送り
 

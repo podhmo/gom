@@ -1,7 +1,7 @@
 # wave23: cons 非適用形の蓄積 quadratic — 実測と残件の整理
 
 - 日付: 2026-11-19
-- 種別: 調査（採否は podhmo）— lane4 は実測 fixture + 候補の整理
+- 種別: 調査（podhmo 採択済み 2026-11-19: **β イディオム誘導 + γ 警告 lint 採用、α/δ は先送り** — [decision](../decisions/2026-11-19-noncons-accum-policy.md)）— lane4 は実測 fixture + 候補の整理 + γ の実験実装
 - 実測 fixture: `experiments/w23/noncons-accum/`（生成物 `noncons.go` もコミット）
 - 対象 problems: `docs/problems/2026-11-05-stdlib-cons-built-combinators-quadratic.md`
 
@@ -60,6 +60,18 @@ P0-3 で実測理由から却下済み（problems ファイルの Options 欄も
 - 対象外形の頻度見込み: FoldConcat/ChainAppend は初級者が書きがちな形（fold で積む・部分結果を継ぎ足す）。Mutual/ReadTwice はより稀
 - 前段との関係: cons-recursion 特殊化の決定文書が「外れた形は沈黙で従来どおり」を明記済み。(γ) はその「沈黙」を診断に変える最小拡張で、(α) と直交する（両方採れる）
 - (β) は wave18 の `Array` builder が機能している前提で動く — イディオムの提示先は gom-agent-guide が自然（言語構文の話なので）
+
+## γ の実験実装（2026-11-19 追加）
+
+podhmo の「検出の実装を実験してみるというのはあっても良いかもな。warningとか出ると良い」で γ を vet 的警告として実装した（実装箇所に制限なしの指示で、除外形と同じ IR を眺められる `lower` を選択）。
+
+- **仕組み**: `internal/lower/conswarn.go` の `lintQuadraticAccum` が Core IR 上で動く。ファイルローカル呼び出しグラフから再帰集合（自己ループと多関数サイクルを DFS で判定）を作り、3 形を検出:
+  - (A) 再帰呼び出しの結果を `[.., ..rest]` の rest に置く cons 末尾 — consLeaf が callee≠自分や read-twice で弾いた形
+  - (B) 再帰呼び出しの結果へ `List.append`/`concat` — ChainAppend 形
+  - (C) accumulator（自パラメータ）に append/concat する folder を持つ `List.fold`/`foldl` — FoldConcat 形
+- **診断**: `W0801`（warning severity、PhaseLint、「list accumulation shape is quadratic (cons-loop specialization does not apply)」）。`gom build`/`test`/`run` で発火（`gom check` は lower を走らせないので出ない — vet 的位置づけとして許容）
+- **実測結果**: `experiments/w23/noncons-accum` で 4 除外形すべてに発火（chain_append L20、fold_concat L26、mut_a L33、read_twice L43）、被覆形 `cons_map` は無発火。`go test ./...` 全件（testdata/spec・golden 含む）で誤検出ゼロ
+- **設計上の注意**: 検出は let 変数経由のデータフローのみ追う（bound map）。`List.append(xs, elem)` のように再帰 acc 経由でない append は無発火 — 線形な append もあるので正しいが、複雑な別名経路は取りこぼす（警告の取りこぼしは安全側）
 
 ## 未検証・残件
 

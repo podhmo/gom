@@ -1014,6 +1014,26 @@ test "ok" {
 fn prod () -> Unit = assert true   // no test function binds t
 ```
 
+### W0801 — list accumulation shape is quadratic (cons-loop specialization does not apply)
+
+**Severity:** warning · **Phase:** lint · **Spec:** §3.1
+
+The cons-recursion specialization compiles the leaf shape
+[h, .., f args] into a buffer loop, but only for its narrow accepted
+shape. The misses it leaves silent are still O(n^2): a second read of
+the accumulated rest, accumulation through a call to another function
+in the same recursion, List.append onto a recursive result, and
+List.fold folders that append onto their accumulator each step. On
+the slice List representation each of those copies the whole
+accumulator per iteration. Rewrite the accumulation with Array.make +
+Array.set and finish with Array.to_list, or collect conses and pay
+one List.concat at the end.
+
+```gom
+fn collect xs = List.fold (fn acc x -> List.append acc [x]) [] xs
+// W0801 — fold-internal concat copies acc every step
+```
+
 ## 09xx — Lowering
 
 ### E0901 — lowering invariant violated

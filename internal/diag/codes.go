@@ -1329,6 +1329,25 @@ the goroutine can mutate state shared with its parent (spec section
 10). Pass copies or immutable values instead.`,
 		Example: `go { Ref.set counter 1 }   // counter: Ref Int is shared`,
 	},
+	{
+		Code:     "W0801",
+		Severity: SeverityWarning,
+		Title:    "list accumulation shape is quadratic (cons-loop specialization does not apply)",
+		Phase:    PhaseLint,
+		Spec:     "3.1",
+		Explanation: `The cons-recursion specialization compiles the leaf shape
+[h, .., f args] into a buffer loop, but only for its narrow accepted
+shape. The misses it leaves silent are still O(n^2): a second read of
+the accumulated rest, accumulation through a call to another function
+in the same recursion, List.append onto a recursive result, and
+List.fold folders that append onto their accumulator each step. On
+the slice List representation each of those copies the whole
+accumulator per iteration. Rewrite the accumulation with Array.make +
+Array.set and finish with Array.to_list, or collect conses and pay
+one List.concat at the end.`,
+		Example: `fn collect xs = List.fold (fn acc x -> List.append acc [x]) [] xs
+// W0801 — fold-internal concat copies acc every step`,
+	},
 }
 
 // CodeTable returns the error-code table sorted by code. Use

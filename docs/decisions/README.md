@@ -204,6 +204,7 @@
 | [ad-hoc-poly-dict-passing](2026-11-19-ad-hoc-poly-dict-passing.md) | 型クラス相当の抽象は明示的辞書渡しで書く | adopted |
 | [errors-as-nested-ptr-lint](2026-11-19-errors-as-nested-ptr-lint.md) | `errors.As` target の `Ptr (Ptr E)` — 証明可能な要素側違反を W0502 に足す | 採用（wave22 prompts で podhmo 採択済み。実装・検証した — spec.md §8.4 と fixture を更新済み） |
 | [flat-partial-eval](2026-11-19-flat-partial-eval.md) | flat 宣言パラメータの部分適用 — eval 側を遅延させて divergence を消す | 採用（wave22 prompts で podhmo 採択済み。実装・検証した — `TestEagerFnChunkTiming` を新仕様に更新、spec.md §1.3 の注記を解消） |
+| [noncons-accum-policy](2026-11-19-noncons-accum-policy.md) | 非 cons 蓄積 quadratic の救済方針: β 誘導 + γ 警告 lint、α/δ は先送り | adopted（podhmo 採択 2026-11-19 —「検出の実装を実験してみるというのはあっても良いかもな。warningとか出ると良い。迂闊でもマシになるコードを目指したい」「コンパイル時じゃなくても良い。vet的なものでも良い」「実装が手軽な方で良い。実装箇所に制限は設けない」「α は今は未対応で良いかな」） |
 | [struct-construction-options](2026-11-19-struct-construction-options.md) | Go struct 構築機構の選択肢の固定（採否は未決） | draft（採否は部分決着: (b) 採用・(a) 先延ばし — |
 | [struct-field-write](2026-11-19-struct-field-write.md) | Go struct の構築は `Ptr` 経由の field 書き込みを採用（composite literal は先延ばし） | adopted |
 <!-- END GENERATED -->
