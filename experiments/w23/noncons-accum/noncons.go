@@ -251,3 +251,49 @@ func TwoSites(n int64) list.List[int64] {
 	}
 //line noncons.gom:67
 }
+
+//line noncons.gom:76
+func LitScalarA(n int64) list.List[int64] {
+//line noncons.gom:76
+	tmp50 := n == 0
+//line noncons.gom:76
+	if tmp50 {
+//line noncons.gom:77
+		return list.List[int64]{}
+//line noncons.gom:76
+	} else {
+//line noncons.gom:79
+		tmp46 := n - 1
+//line noncons.gom:79
+		tmp47 := LitScalarB(tmp46)
+//line noncons.gom:79
+		tmp48 := list.List[int64]{tmp47}
+//line noncons.gom:79
+		tmp49 := list.List[int64]{0}
+//line noncons.gom:79
+		return list.Append[int64](tmp48, tmp49)
+//line noncons.gom:76
+	}
+//line noncons.gom:76
+}
+
+//line noncons.gom:82
+func LitScalarB(n int64) int64 {
+//line noncons.gom:82
+	tmp53 := n == 0
+//line noncons.gom:82
+	if tmp53 {
+//line noncons.gom:83
+		return 0
+//line noncons.gom:82
+	} else {
+//line noncons.gom:85
+		tmp51 := n - 1
+//line noncons.gom:85
+		tmp52 := LitScalarA(tmp51)
+//line noncons.gom:85
+		return list.Length[int64](tmp52)
+//line noncons.gom:82
+	}
+//line noncons.gom:82
+}

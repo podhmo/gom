@@ -101,16 +101,24 @@ func (l *lowerer) lintAccumFn(f *core.FuncDecl, declOf map[*resolve.Symbol]*core
 			return c != nil && c.Callee != nil &&
 				sameCycle(edges, f.Sym, c.Callee)
 		}
-		// accumArg reports whether an atom is (or contains, through a
-		// let-bound list literal) a var bound to a recursive call —
-		// the shape `concat([rest, [x]])` where rest is the call.
+		// accumVar reports whether an atom is a var bound to a
+		// recursive call — the accumulated list itself.
+		accumVar := func(a core.Atom) bool {
+			v, ok := a.(*core.Var)
+			return ok && v.Sym != nil && isRecCall(bound[v.Sym])
+		}
+		// accumArg is accumVar plus a look through a let-bound list
+		// literal — for `concat([rest, [x]])` where the rec call's
+		// result (itself a list-of-lists element) sits inside the
+		// literal. Scalars inside a literal are NOT accumulation:
+		// `List.append [f (n-1)] [0]` copies one element.
 		accumArg := func(a core.Atom) bool {
+			if accumVar(a) {
+				return true
+			}
 			v, ok := a.(*core.Var)
 			if !ok || v.Sym == nil {
 				return false
-			}
-			if isRecCall(bound[v.Sym]) {
-				return true
 			}
 			if ln, ok := boundX[v.Sym].(*core.ListNew); ok {
 				for _, el := range ln.Elems {
@@ -142,7 +150,7 @@ func (l *lowerer) lintAccumFn(f *core.FuncDecl, declOf map[*resolve.Symbol]*core
 			}
 			switch cd.Callee.Name {
 			case "append":
-				if len(cd.Args) >= 2 && accumArg(cd.Args[0]) {
+				if len(cd.Args) >= 2 && accumVar(cd.Args[0]) {
 					warn("append", spanOf(cd.Args[0], boundSp),
 						"List.append onto the result of recursive call `"+nameOf(cd.Args[0], bound)+"` is O(n^2): every call copies the whole accumulated list — prefer Array builder or collect conses and one final List.concat")
 				}
@@ -221,11 +229,13 @@ func folderAppendsAcc(e core.Expr, declOf map[*resolve.Symbol]*core.FuncDecl) bo
 		if fn == nil {
 			return
 		}
+		// The accumulator is the folder's first parameter —
+		// `fold`'s convention `acc -> x -> acc`. Marking every
+		// parameter would flag folders that append onto the
+		// element `x` while ignoring acc (linear per step).
 		params := map[*resolve.Symbol]bool{}
-		for _, p := range fn.Params {
-			if p != nil && p.Sym != nil {
-				params[p.Sym] = true
-			}
+		if len(fn.Params) > 0 && fn.Params[0] != nil && fn.Params[0].Sym != nil {
+			params[fn.Params[0].Sym] = true
 		}
 		eachBody(fn.Body, func(b *core.Body) {
 			// Let values, so `concat([acc, [x]])` — arg bound to a
@@ -236,13 +246,22 @@ func folderAppendsAcc(e core.Expr, declOf map[*resolve.Symbol]*core.FuncDecl) bo
 					bnd[lt.Name.Sym] = lt.X
 				}
 			}
-			hasAcc := func(a core.Atom) bool {
+			// accVar: the accumulator parameter itself (append).
+			accVar := func(a core.Atom) bool {
+				v, ok := a.(*core.Var)
+				return ok && v.Sym != nil && params[v.Sym]
+			}
+			// accArg: accVar plus a let-bound list literal whose
+			// elements hold acc — `concat [acc, [x]]` (concat's
+			// list-of-lists elements are lists, so acc inside the
+			// literal is the accumulator).
+			accArg := func(a core.Atom) bool {
+				if accVar(a) {
+					return true
+				}
 				v, ok := a.(*core.Var)
 				if !ok || v.Sym == nil {
 					return false
-				}
-				if params[v.Sym] {
-					return true
 				}
 				if ln, ok := bnd[v.Sym].(*core.ListNew); ok {
 					for _, el := range ln.Elems {
@@ -261,11 +280,11 @@ func folderAppendsAcc(e core.Expr, declOf map[*resolve.Symbol]*core.FuncDecl) bo
 				}
 				switch c.Callee.Name {
 				case "append":
-					if len(c.Args) >= 2 && hasAcc(c.Args[0]) {
+					if len(c.Args) >= 2 && accVar(c.Args[0]) {
 						found = true
 					}
 				case "concat":
-					if len(c.Args) >= 1 && hasAcc(c.Args[0]) {
+					if len(c.Args) >= 1 && accArg(c.Args[0]) {
 						found = true
 					}
 				}

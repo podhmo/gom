@@ -21,3 +21,7 @@ fn appender (acc: List Int) (x: Int) -> List Int
 fn fold_named (xs: List Int) -> List Int
 
 fn two_sites (n: Int) -> List Int
+
+fn lit_scalar_a (n: Int) -> List Int
+
+fn lit_scalar_b (n: Int) -> Int

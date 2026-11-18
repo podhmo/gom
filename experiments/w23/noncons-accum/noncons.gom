@@ -70,3 +70,17 @@ fn two_sites (n: Int) -> List Int = if n == 0 {
   let a = List.append (two_sites (n - 1)) [n]
   List.append (two_sites (n - 1)) [List.length a]
 }
+
+// (ix) 誤検出しない: 再帰呼び出しの「スカラー」結果を 1 要素リテラル
+// に入れて append する形は O(1)/step（list-of-lists ではない）。
+fn lit_scalar_a (n: Int) -> List Int = if n == 0 {
+  []
+} else {
+  List.append [lit_scalar_b (n - 1)] [0]
+}
+
+fn lit_scalar_b (n: Int) -> Int = if n == 0 {
+  0
+} else {
+  List.length (lit_scalar_a (n - 1))
+}
