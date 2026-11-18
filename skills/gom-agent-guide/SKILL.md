@@ -43,6 +43,11 @@ CI; blocks marked `fail` are verified to produce a diagnostic.
    messages often vanish once the first is fixed.
 5. **Build:** `gom build file.gom` writes `file.go`; run it with the
    real Go toolchain (`go run .` in a module, or `go build`).
+   **Run:** `gom run file.gom -- args...` compiles to a temp binary
+   and executes it directly — child argv/exit codes pass through
+   (signal kills report 128+signal). On success the program owns
+   stdout/stderr; on compile or link failure gom emits the usual
+   JSON message stream.
 6. **Finish with `gom fmt -w`** — the canonical formatter has no
    configuration; whatever it prints is correct.
 
@@ -71,9 +76,9 @@ fn main () -> Unit = {
 - A block's value is its last expression: `()` (Unit) ends a
   `-> Unit` function.
 
-Then `gom build main.gom && go run .` in a Go module that can resolve
-`github.com/podhmo/gom` (each `tutorial/` step has a `go.mod` you can
-copy).
+Then `gom run main.gom` — or `gom build main.gom && go run .` — in a
+Go module that can resolve `github.com/podhmo/gom` (each `tutorial/`
+step has a `go.mod` you can copy).
 
 ## Fix a `.gom` that fails `gom check`
 
