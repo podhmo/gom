@@ -127,16 +127,8 @@ func newBuildCache() *buildCache {
 	return &buildCache{dir: base, notes: map[string][]build.Input{}, seen: map[string]*depSeen{}}
 }
 
-// envKey returns the shared key material, computing it once —
-// the lazy key computation is why envKey lives behind mu rather
-// than being read-only.
-func (c *buildCache) envKey() string {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-	return c.envKeyLocked()
-}
-
-// envKeyLocked is envKey's body for callers already holding mu —
+// envKeyLocked returns the shared key material, computing it once —
+// the lazy key computation is why it must be called with mu held;
 // commit/Hit cannot re-take the non-reentrant mutex.
 func (c *buildCache) envKeyLocked() string {
 	if !c.keyOk {
