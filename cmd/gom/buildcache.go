@@ -47,6 +47,7 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+	"sync"
 
 	"github.com/podhmo/gom/internal/build"
 	"github.com/podhmo/gom/internal/diag"
@@ -71,6 +72,10 @@ const (
 // including the interface pass, which resolves imports of its own.
 type buildCache struct {
 	dir string
+	// mu serializes map access — parallel dir compiles call
+	// depSink/note from separate goroutines (design.md section 5
+	// item 6). commit/Hit run under it too for a uniform rule.
+	mu sync.Mutex
 	// key is computed lazily: the `go list`/`go env` subprocesses
 	// behind it cost tens of milliseconds, so a run that never
 	// validates or writes a manifest (a fresh cache dir) should
@@ -122,8 +127,18 @@ func newBuildCache() *buildCache {
 	return &buildCache{dir: base, notes: map[string][]build.Input{}, seen: map[string]*depSeen{}}
 }
 
-// envKey returns the shared key material, computing it once.
+// envKey returns the shared key material, computing it once —
+// the lazy key computation is why envKey lives behind mu rather
+// than being read-only.
 func (c *buildCache) envKey() string {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.envKeyLocked()
+}
+
+// envKeyLocked is envKey's body for callers already holding mu —
+// commit/Hit cannot re-take the non-reentrant mutex.
+func (c *buildCache) envKeyLocked() string {
 	if !c.keyOk {
 		c.key = cacheKey()
 		c.keyOk = true
@@ -271,6 +286,8 @@ func canonHash(src []byte, dropTests bool) string {
 // the compile hooks and the interface pass append into the same
 // bucket so every path a package resolves counts.
 func (c *buildCache) depSink(dir string) *depSeen {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	s := c.seen[dir]
 	if s == nil {
 		s = &depSeen{}
@@ -283,12 +300,16 @@ func (c *buildCache) depSink(dir string) *depSeen {
 // Its dependencies are not arguments: they keep accumulating in
 // seen until commit runs, after the interface pass too.
 func (c *buildCache) note(dir string, ins []build.Input) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.notes[dir] = ins
 }
 
 // commit writes the manifest for a fully-written dir group —
 // outputs are the .go paths this build produced under `out`.
 func (c *buildCache) commit(dir, out string, outputs []string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	ins, ok := c.notes[dir]
 	if !ok {
 		return
@@ -296,7 +317,7 @@ func (c *buildCache) commit(dir, out string, outputs []string) {
 	m := bcManifest{
 		Dir:     dir,
 		Out:     out,
-		Key:     c.envKey(),
+		Key:     c.envKeyLocked(),
 		Outputs: slices.Clone(outputs),
 	}
 	for _, in := range ins {
@@ -309,6 +330,12 @@ func (c *buildCache) commit(dir, out string, outputs []string) {
 	if s := c.seen[dir]; s != nil {
 		gomis = append(gomis, s.gomis...)
 		godirs = s.godirs
+	}
+	// Go-side deps pool at module granularity — the shared
+	// goimport.Loader's OnLoad cannot tell which dir triggered a
+	// resolve, so every dir in the pool records the union.
+	if s := c.seen[goPoolKey(dir)]; s != nil {
+		godirs = append(godirs, s.godirs...)
 	}
 	for _, p := range dedup(gomis) {
 		src, err := os.ReadFile(p)
@@ -353,12 +380,14 @@ func (c *buildCache) commit(dir, out string, outputs []string) {
 // added or removed import changes the input hash first, so the
 // set comparison here is exact.
 func (c *buildCache) Hit(dir, out string, ins []build.Input) (outputs []string, ok bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	var m bcManifest
 	data, err := os.ReadFile(c.file(dir))
 	if err != nil || json.Unmarshal(data, &m) != nil {
 		return nil, false
 	}
-	if m.Dir != dir || m.Out != out || m.Key != c.envKey() {
+	if m.Dir != dir || m.Out != out || m.Key != c.envKeyLocked() {
 		return nil, false
 	}
 	if len(m.Inputs) != len(ins) {

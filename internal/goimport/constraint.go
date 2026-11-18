@@ -17,6 +17,8 @@ import (
 // fails rather than guesses — the emitted instantiation must
 // type-check under Go's rules, so honesty is a rejection.
 func (l *Loader) GoSatisfies(targs []gt.Type, i int, c check.GoConstraint) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	if i < 0 || i >= len(targs) {
 		return false
 	}

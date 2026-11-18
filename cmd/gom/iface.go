@@ -19,6 +19,7 @@ import (
 
 	"github.com/podhmo/gom/internal/build"
 	"github.com/podhmo/gom/internal/diag"
+	"github.com/podhmo/gom/internal/goimport"
 	"github.com/podhmo/gom/internal/iface"
 	"github.com/podhmo/gom/internal/syntax"
 )
@@ -323,8 +324,16 @@ func compileInput(in input, bc *buildCache) *build.Result {
 	if bc != nil {
 		seen = bc.depSink(filepath.Dir(filepath.Clean(in.path)))
 	}
+	dir := filepath.Dir(filepath.Clean(in.path))
+	glc := &goimport.Config{Dir: dir}
+	if seen != nil {
+		glc.OnLoad = func(d string, deps []string) {
+			seen.godirs = append(seen.godirs, d)
+			seen.godirs = append(seen.godirs, deps...)
+		}
+	}
 	r, err := build.Compile(build.Input{Path: in.path, Src: in.src, Interface: in.iface},
-		compileOptions(in, true, seen))
+		compileOptions(in, true, seen, goimport.New(glc)))
 	if err != nil {
 		return nil
 	}

@@ -198,5 +198,6 @@
 | [incremental-build-cache](2026-11-18-incremental-build-cache.md) | インクリメンタルビルドキャッシュ | 採用 |
 | [lint-callee-alias](2026-11-18-lint-callee-alias.md) | lint の callee 照合は let の値エイリアスを辿る | 採用 |
 | [nary-go-results](2026-11-18-nary-go-results.md) | N-ary Go 結果（3 個以上）の写像 — Tuple および `Result (Tuple) GoError` | 採用（wave20 lane 1 で実装・検証した — `testdata/goiface/nary.go` のフィクスチャと `testdata/golden/nary_results.gom` が全経路の生成コードを pin する） |
+| [parallel-dir-compile](2026-11-18-parallel-dir-compile.md) | dir グループの並列コンパイルと Loader の共有境界 | 採用 |
 | [stdlib-conv-placement](2026-11-18-stdlib-conv-placement.md) | stdlib 変換関数の配置 — 下層モジュール名・上層パッケージ実装 | 採用（wave21 lane 2 で実装・検証した — spec fixture・golden・ |
 <!-- END GENERATED -->

@@ -31,6 +31,8 @@ import (
 // GoError type is also admitted, standing for the universe `error`
 // interface.
 func (l *Loader) MethodOf(recv gt.Type, name string) (*resolve.Symbol, check.Signature, bool) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	t := gt.Chase(recv)
 	ptr := false
 	if c, ok := t.(*gt.Con); ok && c.Qual == "" && c.Name == "Ptr" && len(c.Args) == 1 {

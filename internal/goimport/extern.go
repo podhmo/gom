@@ -41,6 +41,8 @@ import (
 // still lowers against the signature the user wrote while the
 // entry-level diagnostic explains the entry.
 func (l *Loader) BindExtern(sym *resolve.Symbol, decl check.Signature) (check.Signature, []check.ExternIssue) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	var sig *types.Signature
 	issue := func(format string, args ...any) (check.Signature, []check.ExternIssue) {
 		data := map[string]any{"declared": fmt.Sprint(decl.Type)}
