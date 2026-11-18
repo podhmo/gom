@@ -1131,15 +1131,17 @@ func (l *lowerer) goFuncWrap(sp diag.Span, typ types.Type, sym *resolve.Symbol, 
 		gf.ResConv = k
 	default:
 		nRes := len(fn.Args) - n
-		tupErr := isGoErrorT(types.Chase(fn.Args[len(fn.Args)-1]))
+		// A trailing `error` reads as the `Result ... GoError` fold
+		// only when the callback's return type is `Result`. A bare
+		// tuple whose last element spells `GoError` (or `Option
+		// GoError`) produces the identical raw signature — check
+		// rejects it as ambiguous (goFuncRawResults), so the
+		// verbatim tuple emission here is only a fallback.
+		payloadT, _, isRes := l.resultArgs(fs.Ret)
+		tupErr := isRes && isGoErrorT(types.Chase(fn.Args[len(fn.Args)-1]))
 		var okT types.Type
 		if tupErr {
-			rc, isRes := types.Chase(fs.Ret).(*types.Con)
-			if isRes && rc.Name == "Result" && len(rc.Args) == 2 {
-				okT = rc.Args[0]
-			} else {
-				l.err(sp, fmt.Sprintf("Go.func%d result of type %s cannot produce (…, error)", n, typeName(fs.Ret)))
-			}
+			okT = payloadT
 			if nRes == 2 {
 				gf.ResShape = core.GoResultsErr
 				k, okk := l.goConvKindOf(types.Chase(okT), fn.Args[n])
