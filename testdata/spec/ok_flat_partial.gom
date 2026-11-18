@@ -1,0 +1,19 @@
+package ex
+
+// Flat calling convention (spec 1.3): a declared parameter whose
+// type is a >=2-arrow function carries the flat repr; `f a` is a
+// legal partial application that defers until the residual arrives.
+// Compile-only fixture — firing timing is pinned by
+// TestEagerFnChunkTiming in internal/build.
+
+fn stage (f: Int -> Int -> Int) -> (Int -> Int) = f 20
+
+fn apply2 (f: Int -> Int -> Int) (x: Int) (y: Int) -> Int = f x y
+
+fn add2 (a: Int) (b: Int) -> Int = a + b
+
+fn use () -> Int = {
+  let p = stage add2
+  let q = apply2 add2 1
+  p 0 + q 2
+}

@@ -47,6 +47,12 @@ fn answer () -> String = {
 
 fn probe () -> Int = (stage make) 0
 
+fn probeLam () -> Int = {
+  let stg : (Int -> Int -> Int) -> (Int -> Int) = fn f -> f 20
+  let _ = stg make
+  7
+}
+
 fn main () -> Unit = {
   let _ = fmt.Println "before"
   let _ = (stage make) 0
@@ -107,6 +113,24 @@ func TestEagerFnChunkTiming(t *testing.T) {
 	}
 	if mres.OK() || !sawPanic {
 		t.Fatalf("eval probe = %v diags %+v — the saturated flat call did not fire", mres.Value, mres.Diags)
+	}
+
+	// Lambda parameters keep the canonical repr — a `let`-bound
+	// `fn f -> f 20` is not a flat slot, so `stg make` fires make's
+	// chunk eagerly in both eval and generated code.
+	lf := ev.Global("probeLam")
+	if lf == nil {
+		t.Fatal("no top-level `probeLam` binding for the evaluator")
+	}
+	lres := ev.Apply(lf, &eval.VUnit{})
+	sawPanic = false
+	for _, d := range lres.Diags {
+		if d.Code == eval.CodePanic {
+			sawPanic = true
+		}
+	}
+	if lres.OK() || !sawPanic {
+		t.Fatalf("eval probeLam = %v diags %+v — the canonical lambda call did not fire eagerly", lres.Value, lres.Diags)
 	}
 
 	// The compiled binary: `stage make_` calls `make_(20)` — whose

@@ -24,9 +24,16 @@ eval を合わせる」— eval 側に residual partial の機構を移植する
 eval では、flat パラメータ枠に束縛される関数値を **facade** で包む
 （`internal/eval/call.go` の `flatSlot`）:
 
-- 束縛先のパラメータ型の flat arity が 2 以上なら、束縛値の VFunc を
-  `fnBuiltin` で包み、そのシグネチャをパラメータの flat 型全体
-  （`evalFlatSig` — lower の `flatSig` と同じ flat 化規則）にする
+- どのスロットが flat かは型ではなく **宣言由来のマーカー** で決める:
+  `fn` 宣言のパラメータ型の flat arity が 2 以上なら `fnValue` が
+  VFunc の `flatArity` にスロットごとの arity を記録する。lower が
+  `l.flat` を `funcDecl` でしか立てないのと同じく、lambda リテラル・
+  builtin・ctor の VFunc はマーカーを持たず canonical のまま —
+  `let stg = fn f -> f 20` のような lambda パラメータに渡した関数は
+  従来どおり最初のチャンクを即座に走らせる（生成コードと一致）
+- マーカー付きスロットに束縛される VFunc は `fnBuiltin` facade で包み、
+  そのシグネチャをパラメータの flat 型全体（`evalFlatSig` — lower の
+  `flatSig` と同じ flat 化規則）にする
 - 部分適用は facade のスロットが埋まるまで partial VFunc を返し続ける
   （= 生成コードの `closureChain` residual 相当）
 - flat arity を満たした時点で builtin が内側の canonical 値へ

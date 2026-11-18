@@ -10,10 +10,13 @@
 
 - `evalFlatSig` — lower `flatSig` と同じ規則で矢印チェーンを 1 つの
   `types.Func` に平坦化
-- `flatSlot` — 束縛先パラメータ型の flat arity が 2 以上なら束縛値の
-  VFunc を `fnBuiltin` facade で包む。facade の sig = flat 型全体なので
-  `applyArgs` は flat arity 分まで partial を返し、飽和時に builtin が
-  内側へ `applyOne` を繰り返す
+- `flatSlot` — 束縛先スロットが `fn` 宣言由来の flatArity マーカーを
+  持つとき（lambda・builtin 由来のスロットは対象外 — lower の `l.flat`
+  と同じ区分）、束縛値の VFunc を `fnBuiltin` facade で包む。facade の
+  sig = flat 型全体なので `applyArgs` は flat arity 分まで partial を
+  返し、飽和時に builtin が内側へ `applyOne` を繰り返す
+- VFunc.flatArity — `fnValue` が `fn` 宣言の >=2-arrow パラメータごとに
+  arity を記録する per-slot マーカー
 - 束縛点 2 箇所: `applyArgs` の `nf.bound[rem[pos]]` と、ラベル適用の
   eta 残尾部 `nf.bound[rem2[k]]`
 
@@ -27,6 +30,11 @@
     （make の第 1 チャンクが飽和時に発火）
   - 生成バイナリ: 従来どおり `(stage make) 0` の時点で `gom: todo` —
     "after" に到達しない（回帰なし、eval と同じ発火位置）
+- lambda パラメータ経路の回帰確認（review 指摘 BUG_0001）: `probeLam`
+  が `let stg = fn f -> f 20` の canonical 経路で引き続き eager に
+  panic — eval/生成コードとも発火位置一致
+- spec fixture `testdata/spec/ok_flat_partial.gom`（部分適用・飽和適用の
+  合法形、診断なし）
 - `go test ./...` 全緑、`go vet ./...` ・`gofmt -l .` クリーン
 
 ## divergence の残存確認
