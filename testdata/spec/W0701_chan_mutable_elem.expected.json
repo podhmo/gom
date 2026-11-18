@@ -175,6 +175,50 @@
       "data": {
         "type": "Counter"
       }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "W0701",
+      "severity": "warning",
+      "message": "a channel's element type Ref Int contains mutable values",
+      "span": {
+        "file": "W0701_chan_mutable_elem.gom",
+        "start": {
+          "line": 28,
+          "col": 28,
+          "offset": 1038
+        },
+        "end": {
+          "line": 28,
+          "col": 32,
+          "offset": 1042
+        }
+      },
+      "data": {
+        "type": "Ref Int"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "W0701",
+      "severity": "warning",
+      "message": "a channel's element type Ref Int contains mutable values",
+      "span": {
+        "file": "W0701_chan_mutable_elem.gom",
+        "start": {
+          "line": 29,
+          "col": 28,
+          "offset": 1070
+        },
+        "end": {
+          "line": 29,
+          "col": 33,
+          "offset": 1075
+        }
+      },
+      "data": {
+        "type": "Ref Int"
+      }
     }
   ]
 }

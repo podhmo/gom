@@ -44,3 +44,10 @@ fn ok_sum (e: GoError) (p: Ptr Sum) -> Bool = errors.As e p
 fn ok_iface_value (e: GoError) (r: io.Reader) -> Bool = errors.As e r
 
 fn ok_generic (x: a) (e: GoError) -> Bool = errors.As e x
+
+// A value alias reaches the same callee: `as2` resolves to
+// `errors.As` through the let.
+fn bad_alias (e: GoError) -> Bool = {
+  let as2 = errors.As
+  as2 e 42
+}

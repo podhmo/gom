@@ -179,6 +179,26 @@ follow-up を一括で潰す:
     チェック漏れ sweep（wave-17 分: LSP member table 共有の
     残件表記、`Go.fnN` の ledger 化 等）。
 Ownership: internal/check/lint, internal/build, docs/*.
+
+結果（2026-11-18 実行分）:
+- (a) 採用 — `lintAliases`/`lintCallee` が `let x = <symbol>`
+  の値エイリアス（多段含む）を辿り、W0701・W0501・W0502 が
+  alias 経由でも発火。W0501/W0502 のゲートは `CallGo` から
+  解決 callee の `IsGo` へ（ローカル関数の誤爆回避）。
+  W0702 のクロージャ捕捉は別問題として scope-out 維持
+  （decision: 2026-11-18-lint-callee-alias.md — 2026-11-04
+  の alias scope-out を supersede）。
+- (b) 採用 — E0407/E0409/E0801 は確認の結果すでに Display
+  済み。sibling の `.String()` サイト（E0508・E0413・E0416・
+  W0501・W0502・W0701・W0702）を `types.Display`+`metaNamer`
+  に掃き出し。E0417 の `judgeT` は `litRange` 由来の具象で
+  安全なため未変更。
+- (c) 半分採用 — `gom build -vet` を新設（decision:
+  2026-11-18-build-vet-flag.md）。`gom run` は実行形の設計が
+  要るため open-questions に移管。
+- (d) 実施 — LSP member table 共有（open-questions/TODO 両方
+  記載済み）・`Go.fnN`（spec §8 記載済み）の wave-17 残件は
+  登録済みを確認。新規の未登録漏れはなし。
 ```
 
 ## Lane candidates left on the shelf

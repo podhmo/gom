@@ -21,5 +21,11 @@ fn make_channels () -> Unit = {
   let _ : Chan Counter = Chan.make 1
   let _ : Chan Int = Chan.make 1
   let _ : Chan (List Int) = Chan.make 1
+  // Value aliases reach the same builtin: `mk` and `mk2` both
+  // resolve to `Chan.make` through the let chain.
+  let mk = Chan.make
+  let mk2 = mk
+  let _ : Chan (Ref Int) = mk 1
+  let _ : Chan (Ref Int) = mk2 1
   ()
 }

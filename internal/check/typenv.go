@@ -757,7 +757,8 @@ func (c *checker) checkRecordCycles() {
 					fmt.Sprintf("invalid recursive type: `%s` contains itself by value through field `%s`", name, fi.name)).
 					At(fi.sp).Set("type", name).Set("field", fi.name)
 				if fi.typ != nil {
-					d = d.Set("field_type", fi.typ.String())
+					d = d.Set("field_type",
+						types.Display(fi.typ, metaNamer()))
 				}
 				c.diags.Add(d)
 			}
