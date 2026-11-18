@@ -198,40 +198,67 @@ Constructs that specifically need a shadowed builtin — `try`/`|?>`, builtin co
 ```
 gom/
 ├── go.mod
-├── CLAUDE.md
+├── AGENTS.md / CLAUDE.md
 ├── TODO.md
 ├── cmd/
-│   └── gom/          CLI（build, check, test, fmt, fix, info, explain, schema）
+│   └── gom/          CLI（build, check, test, run, dump, fmt, fix, info, explain, schema, lsp）
 ├── internal/
 │   ├── syntax/       字句解析・構文解析・表層 AST（コメントと空行を trivia として保持）
 │   ├── format/       gom fmt（プリティプリンタ）
 │   ├── resolve/      名前解決、.gomi と Go パッケージの読み込み
+│   ├── gomimport/    依存 Gom パッケージの .gomi 読み込み（`import "path"` の公開面を作る）
 │   ├── goimport/     go/importer・go/types から Gom の型を作る、extern による上書き
 │   ├── types/        型の表現、単一化、HM 推論、ラベル付き引数
 │   ├── check/        型検査（型付き AST を作る）
 │   ├── pattern/      網羅性・冗長性の判定と反例の生成（match、let、関数引数で共用）
 │   ├── iface/        .gomi の検査とハッシュ、gom info の下書き生成
 │   ├── core/         Core IR の定義
+│   ├── staticalias/  パッケージ初期化の静的 alias 分類（lower と eval で共用。2.1 節）
 │   ├── lower/        脱糖、決定木へのコンパイル、arity 解析、テストの分離
 │   ├── codegen/      Core IR → go/ast（宛先渡し、sum type、_test.go の出力）
 │   ├── diag/         診断の型、JSON / text 出力、エラーコード表、JSON Schema
-│   ├── build/        パッケージグラフ、インクリメンタルビルド、キャッシュ、go build / go test の呼び出し
+│   ├── build/        パッケージグラフ、インクリメンタルビルド、キャッシュ、go build / go vet / go test の呼び出し
+│   ├── eval/         意味論オラクルの tree-walking 評価器（生成コードとの比較検証用。7 節）
+│   ├── gomtest/      testdata 配下のファイルベーステストのハーネス（spec・golden・dump 等）
+│   ├── gomgen/       grammar.ebnf からのランダム .gom 生成器（fuzz シード・プロパティテスト用）
+│   ├── fuzzutil/     Go fuzz ターゲットの共通部品（シード・watchdog・knownBugs）
+│   ├── testbin/      テスト用の native binary 構築（GOM_TEST_BIN_CACHE、7 節）
+│   ├── treedump/     `gom dump` の各フェーズ IR 表示
+│   ├── lsp/          `gom lsp` の JSON-RPC サーバー（publishDiagnostics、-go で go build + go vet を fold）
 │   ├── stdlib/       埋め込み .gomi から組み込みモジュール表・シグネチャ・arity を作る配線（gomstd.Apply）＋手書きの builtin 表（`Chan`/`Task` — [decision](decisions/2026-11-04-builtin-chan-task-rt.md)）
 │   └── tool/         リポジトリのツール（同期ジェネレータなど。コンパイラのフェーズではない）
 ├── rt/               生成コードが import する補助（Tuple、Task、アサーションなど）。stdlib の表現を参照しない葉
 ├── stdlib/           Gom で書いた標準ライブラリ（list, option, result）。各パッケージに .gomi。
 │                     types.go が手書きの Go 表現、.go / _test.go は `gom build` / `gom test` の生成物でコミットする
 │                     bench_test.go は生成物を直接測る手書きのベンチ（P5-3、[decision](decisions/2026-11-05-generated-code-benchmark-harness.md)）
+├── editor/           エディタ同梱物（emacs モード）
+├── tree-sitter-gom/  tree-sitter 文法（シンタックスハイライト用）
+├── examples/         実行可能なユースケース（gist-cli — 7 節）
+├── tutorial/         実行可能 tutorial 章（7 節）
+├── experiments/      設計検証のスクラッチ置き場
+├── skills/           エージェント向けスキル（gom-agent-guide など）
+├── scripts/          開発用スクリプト（check-sumtype / check-staticcheck など）
 ├── testdata/
 │   ├── spec/         仕様の規則ごとの .gom と、期待する診断 JSON。パッケージ単位の規則は <name>/ ディレクトリ case（内部の .gom 群を 1 ユニットとしてコンパイル、bare な side file（expected.json / golden.go / case.json のいずれか）が目印 — [decision](decisions/2026-11-05-gomtest-multifile-cases.md)。スイート root 直下の裸 side file は load error — [decision](decisions/2026-11-06-spec-suite-root-bare-side-files.md)）
 │   ├── golden/       生成される Go コードのゴールデンファイル。ディレクトリ case は生成ファイルごとに 1 ゴールデン（<name>/<member>.golden.go、[decision](decisions/2026-11-06-gomtest-golden-dir-cases.md)）
-│   └── fmt/          フォーマッタの入力と期待する出力
+│   ├── dump/         `gom dump` のフェーズ IR 表示のゴールデン
+│   ├── fmt/          フォーマッタの入力と期待する出力
+│   ├── gocall/       Go から Gom 生成 API を呼ぶ end-to-end フィクスチャ（scratch Go module）
+│   ├── goiface/      goimport・境界テストの Go 側フィクスチャパッケージ
+│   ├── multifile/    複数 .gom パッケージ＋.gomi import の end-to-end フィクスチャ
+│   ├── realworld/    実用規模の package main プログラム群（check → build → go build → run）
+│   ├── sumtype/      go-check-sumtype のカナリア（nonexhaustive は失敗し続けることが正）
+│   └── voidhost/     0 戻り値 Go 呼び出しのホスト側フィクスチャ
 └── docs/
     ├── spec.md
     ├── design.md
     ├── open-questions.md
+    ├── implementation-gaps.md
+    ├── error-codes.md
     ├── grammar.ebnf
-    └── decisions/
+    ├── decisions/
+    ├── problems/
+    └── sketch/
 ```
 
 - 依存の向きはパイプラインと同じく一方向: `syntax` → `resolve` → `check` → `pattern` → `lower` → `codegen`

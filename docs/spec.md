@@ -194,6 +194,10 @@ Hindley–Milner（let 多相）を基礎とする。型はすべて名前的（
 | `a -> b` | 関数 |
 | `Ref a` / `Array a` | 可変参照 / 可変配列（限定的な可変性） |
 | `Chan a` / `RecvChan a` / `SendChan a` | チャネル（10 章） |
+| `Task a` | 待ち合わせ可能な goroutine の結果（10 章） |
+| `Ptr a` | Go の `*T`（8.3 節） |
+| `Go.Slice a` / `Go.Map k v` / `Go.Any` | Go の `[]T` / `map[K]V` / `any` の書ける綴り（8.3 節） |
+| `Go.FuncN` | Go の func 型（8.8 節） |
 | `GoError` | Go の `error` |
 
 A `type` declaration in a file may reuse a builtin name. In that file the unqualified name then denotes only the local declaration — the builtin is unreachable (shadowing applies per name, file-wide). Inside a file declaring `type Result`, `Result` is that ADT; constructs that specifically require the builtin `Result a e` — `try`, `|?>`, calls to Go functions whose signature contains `Result`, and a `test` body typed `Result Unit e` — report E0415. `List`, `Option`, `Int`, `Unit` and the other builtin names behave the same way and are compiled and evaluated as ordinary local ADTs. Qualified names such as `pkg.Result` or `Go.Slice` are never shadowed.
@@ -392,7 +396,7 @@ fn report (xs: List String) -> Unit = {
 }
 ```
 
-（`List.length` は `stdlib/list` として実装済み（P4-8）。`strings.Join` への `List String` 引数は `[]T` と `List T` の境界コピー（P3-3）の実装待ち）
+（`List.length` は `stdlib/list` として実装済み（P4-8）。`strings.Join` への `List String` 引数は 8.5 節の `[]T` ↔ `List` 境界コピーを通る）
 
 1. 0 引数の Go 関数は `()` を受け取る（`time.Now()`）。1 引数なら `strconv.Itoa(n)` と `strconv.Itoa n` は同じ意味。値として束ねた 0 引数関数の型は `-> T`（Go シグネチャそのままの形であって `Unit -> T` ではない）になり、`let f = e.Error` のあとの `f ()` は Go の `f()` 呼び出しになる — `()` は引数ではなく呼び出しの印で、型は適用結果の `T` になる。`Unit -> T` の Gom 関数の `f ()` はこれと別物で、本物の Unit 引数を渡す普通の適用になる（生成される Go は `f(struct{}{})` — `()` が呼び出しの印になるのは `-> T` の値に対してだけ）
 2. 値として渡せる（`List.map strconv.Itoa xs`）
@@ -720,6 +724,9 @@ test "parse then sum" {
 | `gom fix` | `applied`（適用した編集）、`summary` |
 | `gom explain <code>` | `explanation`（エラーコードの説明・例・修正例） |
 | `gom schema` | メッセージ形式の JSON Schema |
+| `gom info` | `.gomi` 下書きをファイルまたは `-o -` で stdout に書く。診断は stderr の同形式ストリーム |
+| `gom dump -phase` | フェーズの IR ツリーを stdout に書く。診断は stderr の同形式ストリーム |
+| `gom lsp` | LSP サーバー（stdio 上の JSON-RPC）。このメッセージストリームは使わない |
 
 `applied` オブジェクトは適用した fix 1 件につき 1 つ。`code` は fix が答えた診断のコード、`title` は `fixes` にあった fix のタイトル、`edits` は診断の fix edit と同じ形（`file`・`start`・`end`・`text`）で、編集前のソースの座標系で解決される。
 
