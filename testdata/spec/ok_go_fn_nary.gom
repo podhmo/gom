@@ -1,0 +1,14 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// spec section 8.8: `Go.FuncN` lifts to 8 results — a `(T, U,
+// error)` func value reads back `Result (Int, Int) GoError`, a
+// plain triple a 3-tuple, and a Gom function with those views
+// adapts the other way through `Go.funcN`.
+let divmod_f : Int -> Int -> Result (Int, Int) GoError =
+  Go.fn2 (goiface.DivModFn ())
+let triple_f : Int -> (Int, String, Bool) = Go.fn1 (goiface.TripleFn ())
+
+let div : Go.Func2 Int Int Int Int GoError = Go.func2 goiface.DivMod
+let tri : Go.Func1 Int Int String Bool = Go.func1 goiface.Triple

@@ -479,6 +479,23 @@ func (l *lowerer) goCallTyp(sig GoSig, resTyp types.Type) types.Type {
 		if len(raw) == 2 {
 			return &types.Tuple{Elems: raw}
 		}
+	case core.GoResultsNary:
+		// The N-ary analogue of Pair — the raw tuple of every
+		// result element.
+		if len(raw) >= 3 {
+			return &types.Tuple{Elems: raw}
+		}
+	case core.GoResultsTupErr:
+		// The raw type is the payload tuple — every result but
+		// the trailing error.
+		if len(raw) >= 3 {
+			return &types.Tuple{Elems: raw[:len(raw)-1]}
+		}
+		if a, _, ok := l.resultArgs(resTyp); ok {
+			if tup, isTup := types.Chase(a).(*types.Tuple); isTup {
+				return tup
+			}
+		}
 	case core.GoResultsOne:
 		if len(raw) == 1 {
 			return raw[0]
@@ -543,9 +560,23 @@ func (l *lowerer) wrapGoResult(s *seq, call *core.CallGo, resTyp types.Type) cor
 			l.err(call.Sp, fmt.Sprintf("Go error-value call typed %s, not GoError", resTyp))
 		}
 		return &core.ErrorFromGo{Base: base, Call: call}
-	case core.GoResultsPair:
+	case core.GoResultsPair, core.GoResultsNary:
 		return &core.TupleFromGo{Base: base, Call: call,
 			ElemConv: l.goElemConvs(call, resTyp)}
+	case core.GoResultsTupErr:
+		// `v0, v1, ..., err := f()` → `Result (Tuple ...) GoError`
+		// — the Result wrapper of Err with a per-element
+		// conversion over the payload tuple.
+		if a, _, ok := l.resultArgs(resTyp); !ok {
+			l.err(call.Sp, fmt.Sprintf("Go (…, error) call typed %s, not a Result", resTyp))
+			return call
+		} else if _, isTup := types.Chase(a).(*types.Tuple); !isTup {
+			l.err(call.Sp, fmt.Sprintf("Go (…, error) call typed %s — payload is not a tuple", resTyp))
+			return call
+		} else {
+			return &core.ResultFromGo{Base: base, Call: call,
+				ElemConv: l.goElemConvs(call, a)}
+		}
 	default:
 		panic("unreachable")
 	}
@@ -1034,7 +1065,7 @@ func (l *lowerer) goFuncWrap(sp diag.Span, typ types.Type, sym *resolve.Symbol, 
 	}
 	f := args[0]
 	fn, ok := typ.(*types.Con)
-	if !ok || fn.Qual != "Go" || len(fn.Args) < n || len(fn.Args) > n+2 {
+	if !ok || fn.Qual != "Go" || len(fn.Args) < n || len(fn.Args) > n+8 {
 		l.err(sp, fmt.Sprintf("Go.func%d result type %s is not a Go.Func%d type", n, typeName(typ), n))
 		return l.litUnit(sp)
 	}
@@ -1098,22 +1129,66 @@ func (l *lowerer) goFuncWrap(sp diag.Span, typ types.Type, sym *resolve.Symbol, 
 				n, typeName(fs.Ret), typeName(fn.Args[n])))
 		}
 		gf.ResConv = k
-	case 2:
-		gf.ResShape = core.GoResultsErr
+	default:
+		nRes := len(fn.Args) - n
+		// A trailing `error` reads as the `Result ... GoError` fold
+		// only when the callback's return type is `Result`. A bare
+		// tuple whose last element spells `GoError` (or `Option
+		// GoError`) produces the identical raw signature — check
+		// rejects it as ambiguous (goFuncRawResults), so the
+		// verbatim tuple emission here is only a fallback.
+		payloadT, _, isRes := l.resultArgs(fs.Ret)
+		tupErr := isRes && isGoErrorT(types.Chase(fn.Args[len(fn.Args)-1]))
 		var okT types.Type
-		if rc, isRes := types.Chase(fs.Ret).(*types.Con); isRes && rc.Name == "Result" && len(rc.Args) == 2 {
-			okT = rc.Args[0]
+		if tupErr {
+			okT = payloadT
+			if nRes == 2 {
+				gf.ResShape = core.GoResultsErr
+				k, okk := l.goConvKindOf(types.Chase(okT), fn.Args[n])
+				if !okk {
+					l.err(sp, fmt.Sprintf("Go.func%d result of type %s cannot convert to %s — the boundary needs a value copy not yet supported",
+						n, typeName(okT), typeName(fn.Args[n])))
+				}
+				gf.ResConv = k
+				break
+			}
+			gf.ResShape = core.GoResultsTupErr
 		} else {
-			l.err(sp, fmt.Sprintf("Go.func%d result of type %s cannot produce (T, error)", n, typeName(fs.Ret)))
+			if nRes == 2 {
+				gf.ResShape = core.GoResultsPair
+			} else {
+				gf.ResShape = core.GoResultsNary
+			}
+			okT = fs.Ret
 		}
-		k, okk := l.goConvKindOf(types.Chase(okT), fn.Args[n])
-		if !okk {
-			l.err(sp, fmt.Sprintf("Go.func%d result of type %s cannot convert to %s — the boundary needs a value copy not yet supported",
-				n, typeName(okT), typeName(fn.Args[n])))
+		if okT == nil {
+			break
 		}
-		gf.ResConv = k
+		tup, isTup := types.Chase(okT).(*types.Tuple)
+		if !isTup || len(tup.Elems) != nRes-bool2int(tupErr) {
+			l.err(sp, fmt.Sprintf("Go.func%d result of type %s cannot produce %d results", n, typeName(fs.Ret), nRes))
+			break
+		}
+		gf.ResConvs = make([]core.ConvKind, len(tup.Elems))
+		for i, el := range tup.Elems {
+			k, okk := l.goConvKindOf(types.Chase(el), fn.Args[n+i])
+			if !okk {
+				l.err(sp, fmt.Sprintf("Go.func%d result element %d of type %s cannot convert to %s — the boundary needs a value copy not yet supported",
+					n, i, typeName(el), typeName(fn.Args[n+i])))
+			}
+			gf.ResConvs[i] = k
+		}
 	}
 	return gf
+}
+
+// bool2int renders a shape flag as the payload count it subtracts —
+// the trailing error is not a tuple element.
+func bool2int(b bool) int {
+	if b {
+		return 1
+	}
+	return 0
 }
 
 // goFnCallN reports whether sym is a `Go.fnN` conversion builtin
@@ -1151,7 +1226,7 @@ func (l *lowerer) goFnWrap(sp diag.Span, typ types.Type, args []core.Atom, n int
 		l.err(sp, fmt.Sprintf("Go.fn%d argument of type %s is not a Go.Func%d value", n, typeName(f.Type()), n))
 		return l.litUnit(sp)
 	}
-	if len(fc.Args) < n || len(fc.Args) > n+2 {
+	if len(fc.Args) < n || len(fc.Args) > n+8 {
 		l.err(sp, fmt.Sprintf("Go.fn%d argument of type %s does not name a func signature", n, typeName(fc)))
 		return l.litUnit(sp)
 	}
@@ -1166,10 +1241,18 @@ func (l *lowerer) goFnWrap(sp diag.Span, typ types.Type, args []core.Atom, n int
 		} else {
 			sig.Results = core.GoResultsOne
 		}
-	case 2:
-		sig.Results = core.GoResultsErr
 	default:
-		panic("unreachable")
+		if isGoErrorT(rawRes[len(rawRes)-1]) {
+			if len(rawRes) == 2 {
+				sig.Results = core.GoResultsErr
+			} else {
+				sig.Results = core.GoResultsTupErr
+			}
+		} else if len(rawRes) == 2 {
+			sig.Results = core.GoResultsPair
+		} else {
+			sig.Results = core.GoResultsNary
+		}
 	}
 	fs := flatSig(typ)
 	if fs == nil || len(fs.Params) != max(n, 1) {
@@ -2158,6 +2241,15 @@ func (l *lowerer) pipeInflowAtom(s *seq, e *check.Binary) core.Atom {
 				x = l.goPayloadConv(s, e.X.Span(), call.Typ, ap.Type(), x)
 			}
 			in = l.asAtom(s, e.X.Span(), x)
+			if call.Results == core.GoResultsTupErr {
+				// The materialized `Result (Tuple) GoError` still
+				// needs its Ok payload — EscapeCall does not fuse
+				// the multi-value call, so unwrap it here like a
+				// stored Result.
+				in = l.asAtom(s, e.X.Span(), &core.EscapeResult{
+					Sp: e.X.Span(), Typ: l.payloadOf(ap.Type()), X: in, To: fn,
+				})
+			}
 		}
 	}
 	if in == nil {

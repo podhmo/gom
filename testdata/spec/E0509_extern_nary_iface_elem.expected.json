@@ -1,0 +1,29 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0509",
+      "severity": "error",
+      "message": "extern `fn NetErrTriple` declares element 0 as net.Error, but `github.com/podhmo/gom/testdata/goiface.NetErrTriple` returns the nil-able interface net.Error — declare `Option (net.Error)`",
+      "span": {
+        "file": "E0509_extern_nary_iface_elem.gom",
+        "start": {
+          "line": 10,
+          "col": 3,
+          "offset": 368
+        },
+        "end": {
+          "line": 10,
+          "col": 61,
+          "offset": 426
+        }
+      },
+      "data": {
+        "declared": "Int -> Result (net.Error, Int) GoError",
+        "extern": "NetErrTriple",
+        "go": "func(n int64) (net.Error, int64, error)",
+        "member": "github.com/podhmo/gom/testdata/goiface.NetErrTriple"
+      }
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// spec section 8.3/8.4: N-ary (3+) results — a plain multi-result
+// declares the tuple, a trailing-error multi-result declares
+// `Result (Tuple ...) GoError`, and a method-iface element inside
+// the payload tuple spells `Option`.
+extern go "github.com/podhmo/gom/testdata/goiface" {
+  fn Triple (n: Int) -> (Int, String, Bool)
+  fn DivMod (a: Int) (b: Int) -> Result (Int, Int) GoError
+  fn NetErrTriple (n: Int) -> Result (Option NetError, Int) GoError
+}
+
+fn triple (n: Int) -> (Int, String, Bool) = goiface.Triple n
+fn divmod (a: Int) (b: Int) -> Result (Int, Int) GoError = goiface.DivMod a b
+fn neterr (n: Int) -> Result (Option goiface.NetError, Int) GoError = goiface.NetErrTriple n

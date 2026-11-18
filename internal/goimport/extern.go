@@ -9,8 +9,9 @@ package goimport
 // admits — `Option T` over a (T, bool) comma-ok pair or a nil-able
 // result (*T or any interface), `Result T GoError` or
 // `Result (Option T) GoError` over (T, error), `(A, B)` over any
-// other two-result shape, `T` over a single result, `Unit` over
-// none.
+// other two-result shape, `Result (A, B, ...) GoError` over a
+// trailing-error N-ary result, `(A, B, ...)` over any other N-ary
+// result, `T` over a single result, `Unit` over none.
 //
 // On a clean bind the declared signature becomes the member's
 // Gom-facing view and the classified GoSig — the raw parameter and
@@ -21,6 +22,7 @@ package goimport
 import (
 	"fmt"
 	"go/types"
+	"strings"
 
 	"github.com/podhmo/gom/internal/check"
 	"github.com/podhmo/gom/internal/core"
@@ -268,8 +270,65 @@ func (l *Loader) admitResults(what string, sym *resolve.Symbol, res *types.Tuple
 			}
 		}
 	default:
-		return 0, fmt.Sprintf("%s: `%s.%s` has %d results — only 0, 1 or 2 are representable",
-			what, sym.Package, sym.Name, res.Len())
+		// Three or more results — the N-ary shapes of spec section
+		// 8.3: a trailing `error` folds the payload into
+		// `Result (Tuple ...) GoError`; anything else spells a
+		// plain N-tuple (docs/decisions/2026-11-18-nary-go-results.md).
+		if res.Len() > 8 {
+			return 0, fmt.Sprintf("%s: `%s.%s` has %d results — at most 8 are representable",
+				what, sym.Package, sym.Name, res.Len())
+		}
+		n := res.Len()
+		payload := n
+		if isError(res.At(n - 1).Type()) {
+			payload = n - 1
+		}
+		els, isTup := tupleArgs(ret)
+		if payload < n {
+			// `(T, U, ..., error)` — the declared view is a Result
+			// over the payload tuple. Each element mirrors the
+			// `(T, error)` payload rule: verbatim over a
+			// non-interface type, and `Option x` over a nil-able
+			// one — except a verbatim element over a
+			// method-bearing interface, which the pair admits
+			// through the emitted never-nil NilGuard no tuple
+			// payload has, so the tuple form must spell Option.
+			a, e, ok := resultArgs(ret)
+			if !ok || !gt.Equal(e, gt.GoError) {
+				return 0, fmt.Sprintf("%s: `%s.%s` returns (%s, error) — declare `Result (%s) GoError`, not %s",
+					what, sym.Package, sym.Name, resTupleString(res, payload), resTupleString(res, payload), ret)
+			}
+			els, isTup = tupleArgs(a)
+			if !isTup || len(els) != payload {
+				return 0, fmt.Sprintf("%s: `%s.%s` returns (%s, error) — declare `Result (%s) GoError`, not %s",
+					what, sym.Package, sym.Name, resTupleString(res, payload), resTupleString(res, payload), ret)
+			}
+		} else if !isTup || len(els) != n {
+			return 0, fmt.Sprintf("%s: `%s.%s` returns a %d-tuple — declare `(%s)`, not %s",
+				what, sym.Package, sym.Name, n, resTupleString(res, n), ret)
+		}
+		for i := 0; i < payload; i++ {
+			ti := res.At(i).Type()
+			if viewsCompatible(els[i], rawR[i]) {
+				if payload < n && methodIface(ti) {
+					return 0, fmt.Sprintf("%s declares element %d as %s, but `%s.%s` returns the nil-able interface %s — declare `Option (%s)`",
+						what, i, els[i], sym.Package, sym.Name, ti, rawR[i])
+				}
+				continue
+			}
+			if payload < n {
+				if p, isOpt := optionArgs(els[i]); isOpt &&
+					nilablePresence(ti) && viewsCompatible(p, rawR[i]) {
+					continue
+				}
+			}
+			return 0, fmt.Sprintf("%s declares element %d as %s, but `%s.%s` returns %s",
+				what, i, els[i], sym.Package, sym.Name, ti)
+		}
+		if payload < n {
+			return core.GoResultsTupErr, ""
+		}
+		return core.GoResultsNary, ""
 	}
 }
 
@@ -302,6 +361,20 @@ func tupleArgs(t gt.Type) ([]gt.Type, bool) {
 		return nil, false
 	}
 	return tup.Elems, true
+}
+
+// resTupleString renders the first k raw result types as the
+// comma-joined spelling a declared tuple uses in admission
+// messages — `(int64, int64)` for a two-result payload.
+func resTupleString(res *types.Tuple, k int) string {
+	var sb strings.Builder
+	for i := 0; i < k; i++ {
+		if i > 0 {
+			sb.WriteString(", ")
+		}
+		sb.WriteString(res.At(i).Type().String())
+	}
+	return sb.String()
 }
 
 // isBoolType reports whether a Go result type is `bool`.

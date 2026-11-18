@@ -1095,7 +1095,7 @@ func (v *validator) expr(e Expr, inTail bool) {
 	case *EscapeCall:
 		v.escapeCall(e)
 	case *ResultFromGo:
-		v.wrapCall(e, e.Call, "ResultFromGo", GoResultsErr, GoResultsErrOnly)
+		v.wrapCall(e, e.Call, "ResultFromGo", GoResultsErr, GoResultsErrOnly, GoResultsTupErr)
 		if !v.conIs(e.Typ, "", "Result", 2) && e.Typ != nil {
 			v.err(e.Sp, "ResultFromGo", "type %s is not a Result", e.Typ)
 		}
@@ -1108,7 +1108,7 @@ func (v *validator) expr(e Expr, inTail bool) {
 			v.err(e.Sp, "OptionFromGo", "type %s is not an Option", e.Typ)
 		}
 	case *TupleFromGo:
-		v.wrapCall(e, e.Call, "TupleFromGo", GoResultsOK, GoResultsPair)
+		v.wrapCall(e, e.Call, "TupleFromGo", GoResultsOK, GoResultsPair, GoResultsNary)
 		if _, ok := types.Chase(e.Typ).(*types.Tuple); !ok && e.Typ != nil {
 			v.err(e.Sp, "TupleFromGo", "type %s is not a tuple", e.Typ)
 		}
@@ -1205,7 +1205,7 @@ func (v *validator) callGo(c *CallGo) {
 		if !v.conIs(c.Type(), "", "Unit", 0) {
 			v.err(c.Sp, "CallGo", "zero-result Go call must have Unit type")
 		}
-	case GoResultsOne, GoResultsErr, GoResultsErrOnly, GoResultsOK, GoResultsPair, GoResultsNil, GoResultsErrValue:
+	case GoResultsOne, GoResultsErr, GoResultsErrOnly, GoResultsOK, GoResultsPair, GoResultsNary, GoResultsTupErr, GoResultsNil, GoResultsErrValue:
 	default:
 		v.err(c.Sp, "CallGo", "invalid result shape %d", int(c.Results))
 	}

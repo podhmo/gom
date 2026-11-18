@@ -1,0 +1,13 @@
+package ex
+
+// `Go.FuncN` spells at most 8 results — a `Result (Tuple)
+// GoError` payload beyond 7 elements, or a bare tuple beyond 8,
+// exceeds the Go func signature the adapter must emit.
+
+fn big (x: Int) -> Result (Int, Int, Int, Int, Int, Int, Int, Int) GoError =
+  Ok (x, x, x, x, x, x, x, x)
+fn huge (x: Int) -> (Int, Int, Int, Int, Int, Int, Int, Int, Int) =
+  (x, x, x, x, x, x, x, x, x)
+
+fn use1 () -> Unit = ignore (Go.func1 big)
+fn use2 () -> Unit = ignore (Go.func1 huge)

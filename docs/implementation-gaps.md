@@ -722,7 +722,12 @@
   対応（wave11 wording-hygiene）: spec 側に上限を明記（§8.3 対応表の直下と
   §8.4 admission list — 3+ 結果は公開されず `extern` でも E0509 で救えない）。
   N-ary 対応自体は未実装のまま（open-questions 側の未決事項）。
-  参照: [spec 8.3](spec.md#83-型の対応)、[spec 8.4](spec.md#84-extern上書き専用)。
+  解消（wave20 lane 1）: 3+ 結果を N-ary 写像で公開 — 末尾 `error` は
+  `Result (Tuple) GoError` に、それ以外はタプルに写す（上限 8 結果）。
+  `Go.FuncN` の結果 arity も 0..8 に拡張。
+  参照: [decision](decisions/2026-11-18-nary-go-results.md)、
+  [spec 8.3](spec.md#83-型の対応)、[spec 8.4](spec.md#84-extern上書き専用)、
+  [fixture](../testdata/spec/ok_extern_nary_views.gom)。
 
 - [x] **`[]T` を in-place 変更する Go 関数はコンパイルして無音 no-op になる**:
   `sort.Strings` 等は境界でコピーされる List/Slice 規則の帰結として呼べて

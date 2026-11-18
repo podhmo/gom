@@ -167,7 +167,49 @@ func (l *Loader) mapSignature(sig *types.Signature) (check.Signature, lower.GoSi
 		ret = gt.Tup(m0, m1)
 		shape = core.GoResultsPair
 	default:
-		return check.Signature{}, lower.GoSig{}, hiddenSym{reason: fmt.Sprintf("%d results — only 0, 1 or 2 are representable", results.Len())}
+		// Three or more results — the N-ary mapping of spec
+		// section 8.3 (docs/decisions/2026-11-18-nary-go-results.md):
+		// a trailing `error` folds the payload into
+		// `Result (Tuple ...) GoError`, anything else becomes a
+		// plain N-tuple. The cap is rt.Tuple8's arity.
+		if results.Len() > 8 {
+			return check.Signature{}, lower.GoSig{}, hiddenSym{reason: fmt.Sprintf("%d results — at most 8 are representable", results.Len())}
+		}
+		n := results.Len()
+		lastIsErr := isError(results.At(n - 1).Type())
+		payload := n
+		if lastIsErr {
+			payload = n - 1
+		}
+		elems := make([]gt.Type, payload)
+		for i := 0; i < payload; i++ {
+			ti := results.At(i).Type()
+			mi, reason := l.mapBoundaryType(ti, false)
+			if reason != "" {
+				return check.Signature{}, lower.GoSig{}, hiddenSym{reason: fmt.Sprintf("result %d: %s", i, reason)}
+			}
+			if !viewsCompatible(mi, rawR[i]) {
+				return check.Signature{}, lower.GoSig{}, hiddenSym{reason: fmt.Sprintf("result %d: %s", i, divergentReason(ti))}
+			}
+			// Inside a Result payload, a method-bearing interface
+			// element is nil-able and dangerous, so the honest
+			// derived view wraps it in Option — the same rule the
+			// `(T, error)` pair applies to its payload (an
+			// `(error, error, error)` result is
+			// `Result (Tuple (Option GoError) GoError) GoError`).
+			// Plain tuples wrap nothing, like `(A, B)` pairs.
+			if lastIsErr && methodIface(ti) {
+				mi = gt.Option(mi)
+			}
+			elems[i] = mi
+		}
+		if lastIsErr {
+			ret = gt.Result(gt.Tup(elems...), gt.GoError)
+			shape = core.GoResultsTupErr
+		} else {
+			ret = gt.Tup(elems...)
+			shape = core.GoResultsNary
+		}
 	}
 
 	gs := lower.GoSig{
@@ -564,9 +606,12 @@ func (l *Loader) mapType(t types.Type, goView bool) (gt.Type, string) {
 // in either view; a value of it is produced only by `Go.funcN`.
 //
 // The admitted shape is bounded: at most gt.GoFuncMaxArity
-// parameters, no variadic or generic signature, and at most two
-// results where a second must be `error`. Anything else keeps the
-// member hidden like any other unrepresentable type.
+// parameters, no variadic or generic signature, and at most eight
+// results (rt.Tuple8's arity). A result list longer than one
+// reads back through the N-ary folding — a trailing `error`
+// spells `Result ... GoError`, anything else a tuple
+// (docs/decisions/2026-11-18-nary-go-results.md). Anything else
+// keeps the member hidden like any other unrepresentable type.
 func (l *Loader) mapFuncType(sig *types.Signature) (gt.Type, string) {
 	if sig.Variadic() {
 		return nil, "variadic func types are not supported yet"
@@ -579,11 +624,8 @@ func (l *Loader) mapFuncType(sig *types.Signature) (gt.Type, string) {
 		return nil, fmt.Sprintf("func types with %d parameters are not supported yet (max %d)", n, gt.GoFuncMaxArity)
 	}
 	res := sig.Results()
-	if res.Len() > 2 {
-		return nil, fmt.Sprintf("func types with %d results are not supported yet", res.Len())
-	}
-	if res.Len() == 2 && !isError(res.At(1).Type()) {
-		return nil, "func types with two results are supported only as (T, error)"
+	if res.Len() > 8 {
+		return nil, fmt.Sprintf("func types with %d results are not supported yet (max %d)", res.Len(), 8)
 	}
 	args := make([]gt.Type, 0, n+res.Len())
 	for v := range sig.Params().Variables() {

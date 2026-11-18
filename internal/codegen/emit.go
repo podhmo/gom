@@ -5,6 +5,7 @@ import (
 	"go/ast"
 	"go/token"
 	"strconv"
+	"strings"
 
 	"github.com/podhmo/gom/internal/core"
 	"github.com/podhmo/gom/internal/diag"
@@ -874,6 +875,38 @@ func (g *gen) resultFromGo(e *core.ResultFromGo, d dest) {
 			Fun:  ast.NewIdent(g.pkgQual(resultPath) + "FromErr"),
 			Args: []ast.Expr{ast.NewIdent(err)},
 		})
+	case core.GoResultsTupErr:
+		// `v0, v1, ..., err := call` →
+		// `result.FromGo(rt.TupleN{...}, err)` — the N-ary
+		// trailing-error fold (spec section 8.3).
+		tupT := payloadType(e.Type(), 0)
+		n := 0
+		if tup, ok := types.Chase(tupT).(*types.Tuple); ok {
+			n = len(tup.Elems)
+		}
+		vs := make([]string, n)
+		for i := range vs {
+			vs[i] = g.fresh("v")
+		}
+		err := g.fresh("err")
+		g.raw(strings.Join(append(vs, err), ", ") + " := ")
+		g.expr(call)
+		g.nl()
+		lit := &ast.CompositeLit{Type: g.goType(tupT)}
+		for i, v := range vs {
+			var conv core.ConvKind
+			if len(e.ElemConv) > i {
+				conv = e.ElemConv[i]
+			}
+			lit.Elts = append(lit.Elts, &ast.KeyValueExpr{
+				Key:   ast.NewIdent(fmt.Sprintf("V%d", i)),
+				Value: g.convOf(conv, payloadType(tupT, i), ast.NewIdent(v)),
+			})
+		}
+		g.writeDest(d, &ast.CallExpr{
+			Fun:  ast.NewIdent(g.pkgQual(resultPath) + "FromGo"),
+			Args: []ast.Expr{lit, ast.NewIdent(err)},
+		})
 	default:
 		panic("codegen: ResultFromGo over non-error result shape")
 	}
@@ -953,24 +986,37 @@ func goCallName(c *core.CallGo) string {
 	return pathBase(c.Callee.Package) + "." + c.Callee.Name
 }
 
-// tupleFromGo emits `a, b := call` then an rt.Tuple2 literal.
+// tupleFromGo emits `a, b := call` then an rt.TupleN literal — the
+// pair keeps the short `a, b` names, an N-ary call (three or more
+// results) binds `v0, v1, ...`.
 func (g *gen) tupleFromGo(e *core.TupleFromGo, d dest) {
 	g.line(e.Sp)
-	a, b := g.fresh("a"), g.fresh("b")
-	g.raw(a + ", " + b + " := ")
+	n := 2
+	if tup, ok := types.Chase(e.Type()).(*types.Tuple); ok {
+		n = len(tup.Elems)
+	}
+	vs := make([]string, n)
+	if n == 2 {
+		vs[0], vs[1] = g.fresh("a"), g.fresh("b")
+	} else {
+		for i := range vs {
+			vs[i] = g.fresh("v")
+		}
+	}
+	g.raw(strings.Join(vs, ", ") + " := ")
 	g.expr(g.callGo(e.Call))
 	g.nl()
-	var convA, convB core.ConvKind
-	if len(e.ElemConv) > 0 {
-		convA = e.ElemConv[0]
+	lit := &ast.CompositeLit{Type: g.goType(e.Type())}
+	for i, v := range vs {
+		var conv core.ConvKind
+		if len(e.ElemConv) > i {
+			conv = e.ElemConv[i]
+		}
+		lit.Elts = append(lit.Elts, &ast.KeyValueExpr{
+			Key:   ast.NewIdent(fmt.Sprintf("V%d", i)),
+			Value: g.convOf(conv, payloadType(e.Type(), i), ast.NewIdent(v)),
+		})
 	}
-	if len(e.ElemConv) > 1 {
-		convB = e.ElemConv[1]
-	}
-	lit := &ast.CompositeLit{Type: g.goType(e.Type()), Elts: []ast.Expr{
-		&ast.KeyValueExpr{Key: ast.NewIdent("V0"), Value: g.convOf(convA, payloadType(e.Type(), 0), ast.NewIdent(a))},
-		&ast.KeyValueExpr{Key: ast.NewIdent("V1"), Value: g.convOf(convB, payloadType(e.Type(), 1), ast.NewIdent(b))},
-	}}
 	g.writeDest(d, lit)
 }
 
@@ -1198,6 +1244,64 @@ func (g *gen) goFuncLit(c *core.GoFunc) {
 		g.close()
 		g.raw("return ")
 		g.expr(g.convOf(c.ResConv, c.Results[0], ast.NewIdent(v)))
+		g.raw(", nil")
+		g.nl()
+	case core.GoResultsPair, core.GoResultsNary:
+		// The Gom function returns a tuple value; each raw result
+		// is a converted element read.
+		v := g.fresh("v")
+		g.raw(v + " := ")
+		g.expr(call)
+		g.nl()
+		g.raw("return ")
+		for i, r := range c.Results {
+			if i > 0 {
+				g.raw(", ")
+			}
+			var conv core.ConvKind
+			if len(c.ResConvs) > i {
+				conv = c.ResConvs[i]
+			}
+			g.expr(g.convOf(conv, r, &ast.SelectorExpr{
+				X:   ast.NewIdent(v),
+				Sel: ast.NewIdent(fmt.Sprintf("V%d", i)),
+			}))
+		}
+		g.nl()
+	case core.GoResultsTupErr:
+		// `Result (Tuple ...) GoError` → the raw (…, error) list:
+		// Unwrap splits payload and error; an error escape returns
+		// zero payloads beside it.
+		v, err := g.fresh("v"), g.fresh("err")
+		g.raw(v + ", " + err + " := ")
+		g.expr(&ast.CallExpr{Fun: &ast.SelectorExpr{X: call, Sel: ast.NewIdent("Unwrap")}})
+		g.nl()
+		g.raw("if " + err + " != nil")
+		g.open()
+		zeros := make([]string, len(c.Results)-1)
+		for i := range zeros {
+			zeros[i] = g.fresh("z")
+			g.raw("var " + zeros[i] + " ")
+			g.typ(g.goType(c.Results[i]))
+			g.nl()
+		}
+		g.raw("return " + strings.Join(zeros, ", ") + ", " + err)
+		g.nl()
+		g.close()
+		g.raw("return ")
+		for i := range zeros {
+			if i > 0 {
+				g.raw(", ")
+			}
+			var conv core.ConvKind
+			if len(c.ResConvs) > i {
+				conv = c.ResConvs[i]
+			}
+			g.expr(g.convOf(conv, c.Results[i], &ast.SelectorExpr{
+				X:   ast.NewIdent(v),
+				Sel: ast.NewIdent(fmt.Sprintf("V%d", i)),
+			}))
+		}
 		g.raw(", nil")
 		g.nl()
 	default:
