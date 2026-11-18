@@ -21,3 +21,7 @@ fn client_timeout () -> time.Duration = {
   let c = new_client (Go.func2 redirect_policy)
   c.Timeout
 }
+
+// The built client itself, so callers can drive fields set through
+// the `Go.func2` adapter (CheckRedirect) end to end.
+fn client () -> Ptr http.Client = new_client (Go.func2 redirect_policy)

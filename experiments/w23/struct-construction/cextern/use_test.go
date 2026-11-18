@@ -28,4 +28,9 @@ func TestNewClientMatchesHost(t *testing.T) {
 	if ClientTimeout(struct{}{}) != 30*time.Second {
 		t.Fatalf("ClientTimeout = %v, want 30s", ClientTimeout(struct{}{}))
 	}
+	// The generated Client's CheckRedirect is the Go.func2 adapter:
+	// invoking it drives tmp13 -> RedirectPolicy -> error end to end.
+	if err := Client(struct{}{}).CheckRedirect(req, nil); !errors.Is(err, http.ErrUseLastResponse) {
+		t.Fatalf("generated CheckRedirect = %v, want ErrUseLastResponse", err)
+	}
 }

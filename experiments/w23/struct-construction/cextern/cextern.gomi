@@ -9,3 +9,5 @@ fn new_client (check_redirect: Go.Func2 (Ptr http.Request) (Go.Slice (Ptr http.R
 fn redirect_policy (req: Ptr http.Request) (via: List (Ptr http.Request)) -> Result Unit GoError
 
 fn client_timeout () -> time.Duration
+
+fn client () -> Ptr http.Client

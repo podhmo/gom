@@ -44,3 +44,28 @@ func ClientTimeout(_ struct{}) time.Duration {
 	return tmp7
 //line experiments/w23/struct-construction/cextern/a.gom:20
 }
+
+//line experiments/w23/struct-construction/cextern/a.gom:27
+func Client(_ struct{}) *http.Client {
+//line experiments/w23/struct-construction/cextern/a.gom:27
+	tmp10 := func(tmp8 *http.Request) func(list.List[*http.Request]) result.Result[struct{}, error] {
+//line experiments/w23/struct-construction/cextern/a.gom:27
+		return func(tmp9 list.List[*http.Request]) result.Result[struct{}, error] {
+//line experiments/w23/struct-construction/cextern/a.gom:27
+			return RedirectPolicy(tmp8, tmp9)
+//line experiments/w23/struct-construction/cextern/a.gom:27
+		}
+//line experiments/w23/struct-construction/cextern/a.gom:27
+	}
+//line experiments/w23/struct-construction/cextern/a.gom:27
+	tmp13 := func(tmp11 *http.Request, tmp12 []*http.Request) error {
+//line experiments/w23/struct-construction/cextern/a.gom:27
+		_, err1 := tmp10(tmp11)(list.FromSlice(tmp12)).Unwrap()
+//line experiments/w23/struct-construction/cextern/a.gom:27
+		return err1
+//line experiments/w23/struct-construction/cextern/a.gom:27
+	}
+//line experiments/w23/struct-construction/cextern/a.gom:27
+	return NewClient(tmp13)
+//line experiments/w23/struct-construction/cextern/a.gom:27
+}
