@@ -77,7 +77,7 @@ func (e *interp) applyArgs(f *VFunc, positions []int, args []Value, sp diag.Span
 			deep = append(deep, deepArg{pos: pos, arg: args[i]})
 			continue
 		}
-		nf.bound[rem[pos]] = slot{set: true, v: e.flatSlot(nf.sig.Params[rem[pos]].Type, args[i], sp)}
+		nf.bound[rem[pos]] = slot{set: true, v: e.flatSlot(nf, rem[pos], args[i], sp)}
 	}
 	if len(deep) == 0 {
 		var v Value
@@ -114,7 +114,7 @@ func (e *interp) applyArgs(f *VFunc, positions []int, args []Value, sp diag.Span
 	g := funcOfType(nf.name, fnBuiltin, &types.Func{Params: ps, Ret: types.Unit})
 	g.builtin = func(etas []Value) (Value, error) {
 		for k, a := range etas {
-			nf.bound[rem2[k]] = slot{set: true, v: e.flatSlot(nf.sig.Params[rem2[k]].Type, a, sp)}
+			nf.bound[rem2[k]] = slot{set: true, v: e.flatSlot(nf, rem2[k], a, sp)}
 		}
 		v := e.invoke(nf, sp)
 		return e.applyDeep(v, pending, consumed, sp), nil
@@ -149,9 +149,11 @@ func evalFlatSig(t types.Type) *types.Func {
 	return &types.Func{Params: params, Ret: ret}
 }
 
-// flatSlot adapts a function value bound into a declared
-// flat-parameter slot — a parameter whose type is an arrow chain
-// of arity 2 or more. The generated repr is one Go func for the
+// flatSlot adapts a function value bound into a slot carrying
+// the flat calling convention — the callee's flatArity marks
+// exactly the declared >=2-arrow parameters `lower` marks flat;
+// lambda and builtin parameters stay canonical like their
+// generated reprs. The generated repr is one Go func for the
 // whole chain, so `f a` there only builds a residual; the
 // canonical eval instead runs the callee's first chunk
 // immediately. Wrapping the bound value closes that divergence:
@@ -160,17 +162,19 @@ func evalFlatSig(t types.Type) *types.Func {
 // only sees its arguments — one at a time, preserving its own
 // chunk timing — when the flat arity is met.
 // (docs/decisions/2026-11-19-flat-partial-eval.md)
-func (e *interp) flatSlot(pt types.Type, v Value, sp diag.Span) Value {
-	fs := evalFlatSig(pt)
+func (e *interp) flatSlot(f *VFunc, idx int, v Value, sp diag.Span) Value {
+	if idx >= len(f.flatArity) || f.flatArity[idx] == 0 {
+		return v
+	}
+	fs := evalFlatSig(f.sig.Params[idx].Type)
 	if fs == nil || len(fs.Params) < 2 {
 		return v
 	}
-	f, ok := v.(*VFunc)
+	inner, ok := v.(*VFunc)
 	if !ok {
 		return v
 	}
-	g := funcOfType(f.name, fnBuiltin, fs)
-	inner := f
+	g := funcOfType(inner.name, fnBuiltin, fs)
 	g.builtin = func(args []Value) (Value, error) {
 		var out Value = inner
 		for _, a := range args {

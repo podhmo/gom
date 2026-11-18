@@ -20,6 +20,13 @@ set -eu
 GOM=${1:-gom}
 N=${2:-8}
 REPS=${3:-5}
+
+# A relative path like `./gom` dies on the first `cd` into the
+# fixture — make it absolute. A bare name stays as-is so PATH
+# lookup keeps working inside the subshells.
+case $GOM in
+*/*) GOM=$(cd "$(dirname "$GOM")" && pwd)/$(basename "$GOM") ;;
+esac
 ROOT=$(mktemp -d)
 trap 'rm -rf "$ROOT"' EXIT
 
@@ -77,7 +84,12 @@ done
 
 timed() { # env... -- runs the command timed, returns ms on stdout
 	start=$(date +%s%N)
-	(cd "$ROOT/m" && "$@" >/dev/null 2>&1)
+	# Check the status explicitly: inside $( ...) errexit is off
+	# under bash, so a failed compile would still print a sample.
+	if ! (cd "$ROOT/m" && "$@" >/dev/null 2>&1); then
+		echo "bench: failed: $*" >&2
+		exit 1
+	fi
 	end=$(date +%s%N)
 	echo $(( (end - start) / 1000000 ))
 }

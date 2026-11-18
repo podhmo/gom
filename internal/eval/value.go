@@ -285,6 +285,15 @@ type VFunc struct {
 	sig   *types.Func
 	bound []slot
 
+	// flatArity marks parameter slots carried under the flat
+	// calling convention (declared >=2-arrow function types on a
+	// `fn` declaration — the generated repr is one Go func for the
+	// chain). Indexed like bound; 0 or nil means canonical.
+	// fnLambda values built for declarations get it from fnValue;
+	// lambda literals and other kinds stay nil — their parameters
+	// keep the canonical repr in generated code too.
+	flatArity []int
+
 	// thunk marks a generalized value-let's FnDecl value (P2-1):
 	// the `() -> T` shape is a thunk whose references denote the
 	// *value* — forceThunk applies it on lookup. A declared

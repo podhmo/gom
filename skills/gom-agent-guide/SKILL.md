@@ -587,6 +587,34 @@ Unit` (a partial application where a statement was needed). If you
 see a function type where a call "should" have returned a value,
 check for missing labels first.
 
+## Flat parameters defer partial applications
+
+When a declared parameter is a function type with 2+ arrows
+(`fn g (f: A -> B -> C)`), `f` is passed under the flat calling
+convention. A partial application `f a` does **not** run the
+callee's first chunk — the call fires only once the flat arity is
+met, and a residual that is never applied never fires at all. This
+holds in both the generated code and the evaluator.
+
+```gom
+fn mk (x: Int) -> (Int -> Int) = {
+  let _ : Int = todo ()   // fires when mk's first chunk runs
+  fn y -> x + y
+}
+
+fn stage (f: Int -> Int -> Int) -> (Int -> Int) = f 20
+
+fn main () -> Unit = {
+  let p = stage mk     // NO panic: `f 20` only builds a residual
+  ignore p               // residual never applied → todo never fires
+  ()
+}
+```
+
+For ordinary (`fn`-level, single-arrow) parameters `f a` still runs
+the callee's first chunk immediately — only declared 2+-arrow
+parameter slots carry the flat convention.
+
 ## Discarding results
 
 ```gom fail=E0402
