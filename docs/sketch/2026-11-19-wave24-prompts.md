@@ -57,19 +57,22 @@ docs/decisions, docs/open-questions, TODO.md,
 skills/gom-agent-guide.
 ```
 
-### D. 辞書渡し / 型クラス（lane3 の採択結果を反映）
+### D. 辞書渡し / 型クラス（採択済み — podhmo 判定 2026-11-19）
+
+辞書渡しを採用、型クラスは不採用（[decision](../decisions/2026-11-19-ad-hoc-poly-dict-passing.md)）。
+decision 追加・open-questions 決着・イディオムガイド
+（`skills/gom-agent-guide/references/ad-hoc-polymorphism.md`）は
+wave23 lane3 のブランチで反映済み。
+
+残る後続作業の候補（採否は podhmo）:
 
 ```
-[impl-or-docs] podhmo 採択分:
-- 辞書渡し採用なら: 言語変更なし。stdlib への Eq/Ord 辞書
-  追加の要否と gom-agent-guide のイディオム化だけを実施
-  （experiments/w23/typeclass/dict を参考）。decision を採択に
-  更新して open-questions を閉じる。
-- 型クラス風採用なら: instance 解決・coherence 規則・.gomi
-  表現の設計 lane が先（spec 設計 → 実装は wave25 以降）。
-- 現状維持なら: open-questions の項を「辞書渡しで済ませる」
-  決定として閉じる decision だけ追加。
-Ownership: 採択に依存。
+[docs-or-stdlib] 辞書渡し採用の後始末（残りがあれば）:
+- stdlib への Eq/Ord 辞書追加の要否の判断と追加
+  （experiments/w23/typeclass/dict を参考、辞書引数は先頭）
+- deriving 相当の自動生成は open-questions の future work へ
+  移行済み — 着手するなら別 lane
+Ownership: wave24 以降、必要なら。
 ```
 
 ### E. 非 cons 蓄積の救済（lane4 の採択結果を反映）
