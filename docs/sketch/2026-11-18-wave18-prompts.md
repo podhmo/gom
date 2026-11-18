@@ -118,6 +118,8 @@ docs/decisions.
 
 ### 3. `.gomi` の多相 `let` — `devin/wave18-gomi-polylet`
 
+採択: **(a) 許す**（podhmo、2026-11-18）
+
 ```
 [decision+impl — 採択は podhmo] open-questions 残件:
 `.gomi` の `let` メンバーに多相型（`let empty : List a`）を

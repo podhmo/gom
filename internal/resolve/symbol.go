@@ -67,6 +67,17 @@ type Symbol struct {
 	IsGo     bool // defined by a Go package (import go)
 	TestOnly bool // lives in the test-only scope (@test, docs/spec.md section 11)
 
+	// Thunk marks a member loaded through a .gomi member table whose
+	// `let name : T` signature quantified type variables: the member
+	// denotes a generalized value, types at T, and emits the call
+	// `name[T]()`. It carries the same oracle check's local
+	// `thunks` map and lower's `thunks` map hold for a
+	// source-level generalized let — those maps key on symbols
+	// minted by this package's own declarations, so the flag is the
+	// import-crossing carrier (check.go's valOf, lower's
+	// funcRefOrFlatten).
+	Thunk bool
+
 	// Hidden, when non-empty, marks a loaded Go symbol whose
 	// signature cannot be represented in Gom (spec section 8.5):
 	// the member still binds — references resolve to it — but the

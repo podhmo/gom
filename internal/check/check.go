@@ -517,9 +517,10 @@ func (c *checker) valOf(sym *resolve.Symbol, sp diag.Span) (types.Type, []types.
 		if len(sig.GoConstraints) > 0 {
 			c.pendingGens = append(c.pendingGens, &genericUse{sym: sym, sig: sig, targs: targs, sp: sp})
 		}
-		if c.thunks[sym] {
+		if c.thunks[sym] || sym.Thunk {
 			// A generalized value-let's signature is the niladic
-			// thunk `() -> T` (checkLetDecl): the reference denotes
+			// thunk `() -> T` (checkLetDecl — or the .gomi member
+			// table's Thunk flag, sym.Thunk): the reference denotes
 			// the *value*, so it types at the instantiated T — the
 			// call is lowering's emission detail (`x[T]()`).
 			if inst, ok := types.Chase(typ).(*types.Func); ok {

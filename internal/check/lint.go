@@ -444,9 +444,11 @@ func (c *checker) lintGoCaptures(g *GoExpr, reported map[diag.Span]bool) {
 		// KindVar covers lets, parameters and pattern variables — the
 		// bindings a `go` body can share. A generalized value-let
 		// flips to KindFunc for emission but still denotes a value:
-		// thunks counts it. Functions, constructors, fields, methods
-		// and modules are not capturable state.
-		if sym.Kind != resolve.KindVar && !c.thunks[sym] {
+		// thunks counts it, and so does a polymorphic `let`
+		// signature loaded through a .gomi member table (sym.Thunk).
+		// Functions, constructors, fields, methods and modules are
+		// not capturable state.
+		if sym.Kind != resolve.KindVar && !c.thunks[sym] && !sym.Thunk {
 			return
 		}
 		if def := sym.DefSpan(); def.File == bsp.File &&

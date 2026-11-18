@@ -1,0 +1,12 @@
+package m
+
+// A `let` signature may quantify type variables: it publishes the
+// generalized value the implementation's `let empty : List a = []`
+// generalizes into — a thunk `func Empty[T]() T` on the Go side
+// (spec section 7).
+let empty : List a
+
+// A function-typed generalized member — implemented by a real fn
+// declaration, so the member keeps the `a -> a` signature rather
+// than a thunk.
+let ident : (a) -> a

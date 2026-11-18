@@ -1,0 +1,5 @@
+package m
+
+let empty : List a = []
+
+let ident : (a) -> a = fn x -> x

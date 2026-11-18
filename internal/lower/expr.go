@@ -223,10 +223,11 @@ func (l *lowerer) builtinRef(sp diag.Span, typ types.Type, sym *resolve.Symbol) 
 // fires when its last parameter arrives). A reference whose symbol
 // is a generalized value-let thunk is the call `x[T]()`.
 func (l *lowerer) funcRefOrFlatten(e *check.Var, sym *resolve.Symbol) core.Expr {
-	if l.thunks[sym] {
+	if l.thunks[sym] || sym.Thunk {
 		// A generalized `let x = <value>` lowered to a niladic
-		// generic declaration (P2-1): the reference is the value
-		// itself, so it emits the call `x[T]()`.
+		// generic declaration (P2-1) — or a polymorphic `let`
+		// member loaded through a .gomi (sym.Thunk): the reference
+		// is the value itself, so it emits the call `x[T]()`.
 		return &core.CallDirect{
 			Sp: e.Sp, Typ: e.Type(),
 			Callee: sym, TypeArgs: e.TypeArgs,

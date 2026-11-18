@@ -802,16 +802,16 @@ func TestParseInterface(t *testing.T) {
 			[]string{`E0602@14-20: a constant signature binds a plain name`},
 		},
 		{
-			"polymorphic let sig rejected",
+			"polymorphic let sig",
 			"package m\nlet empty : List a\n",
-			"",
-			[]string{`E0602@22-28: a constant signature may not mention type variables`},
+			"(file (package m)\n  (let empty : (List a)))",
+			nil,
 		},
 		{
-			"polymorphic fn-typed let sig rejected",
+			"polymorphic fn-typed let sig",
 			"package m\nlet apply : (a) -> a\n",
-			"",
-			[]string{`E0602@22-30: a constant signature may not mention type variables`},
+			"(file (package m)\n  (let apply : (-> a -> a)))",
+			nil,
 		},
 		{
 			"test decl rejected",

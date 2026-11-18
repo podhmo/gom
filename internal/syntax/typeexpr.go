@@ -1,7 +1,5 @@
 package syntax
 
-import "slices"
-
 import "github.com/podhmo/gom/internal/diag"
 
 // TypeExpr is a surface-AST type expression (docs/spec.md section 3):
@@ -93,42 +91,3 @@ type TypeRecord struct {
 
 func (*TypeRecord) isTypeExpr()       {}
 func (n *TypeRecord) Span() diag.Span { return n.Sp }
-
-// mentionsTypeVar reports whether t contains a type variable. The
-// .gomi grammar applies it to constant signatures: a `let` member
-// with a quantified variable would publish a generalized let, whose
-// implementation emits a thunk the module-member surface cannot
-// express (internal/stdlib, internal/gomimport).
-func mentionsTypeVar(t TypeExpr) bool {
-	switch t := t.(type) {
-	case nil:
-		return false
-	case *TypeVar:
-		return true
-	case *TypeName:
-		return false
-	case *TypeApp:
-		if mentionsTypeVar(t.Ctor) {
-			return true
-		}
-		return slices.ContainsFunc(t.Args, mentionsTypeVar)
-	case *TypeFn:
-		for _, prm := range t.Params {
-			if mentionsTypeVar(prm.Type) {
-				return true
-			}
-		}
-		return mentionsTypeVar(t.Ret)
-	case *TypeTuple:
-		return slices.ContainsFunc(t.Elems, mentionsTypeVar)
-	case *TypeRecord:
-		for _, f := range t.Fields {
-			if mentionsTypeVar(f.Type) {
-				return true
-			}
-		}
-		return false
-	default:
-		panic("unreachable")
-	}
-}
