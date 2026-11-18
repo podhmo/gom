@@ -64,9 +64,14 @@ Rules:
   construct and `match`); a bare `type Canvas` is **abstract**
   (opaque to callers).
 - Implementation types must agree with the interface — v1 allows
-  only type-variable renaming (E0603). A polymorphic `let`
-  signature is rejected for now (E0602 — thunk representation is
-  undecided).
+  only type-variable renaming (E0603). A `let` signature MAY
+  quantify type variables: `let empty : List a` publishes the
+  generalized value the impl's `let empty : List a = []`
+  generalizes into. A non-function polymorphic member crosses
+  the `.gomi` as a thunk — the member reads as a plain value
+  (`m.empty : List a` at use sites) but emits `m.Empty[T]()`;
+  a function-typed one (`let ident : (a) -> a`) stays a real
+  `fn` member and is called normally (spec §7).
 - `package main` needs no `.gomi` (binaries export nothing);
   every other package requires one (E0601). Sibling `.gom` files
   must all declare the same `package` name (E0605).
@@ -82,8 +87,10 @@ Rules:
   broken.
 - Recompilation of dependents triggers only on interface changes
   (comments/formatting excluded) — implementation-only edits don't
-  cascade. This is the build-cache key (the interface hash exists;
-  the incremental cache consuming it is still unimplemented).
+  cascade. `gom build` keys its incremental cache on this interface
+  hash plus a canonical token hash of each source (test decls
+  excluded); `GOM_BUILD_NOCACHE=1` disables it and
+  `GOM_BUILD_CACHE_DIR` relocates it.
 - Drafting command: `gom info FILE|DIR...` (`moon info`-style)
   writes or updates the `.gomi` draft; `-o -` prints it. `gom
   gomi` is a rename stub — it prints the pointer and exits 2.

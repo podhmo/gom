@@ -192,7 +192,10 @@ generated from — useful when generated code surprises you.
   errors otherwise.
 - **Tests live in the same file:** `test "name" { ... }` body is
   `Unit` or `Result Unit e`; `assert`/`assert_eq` exist only inside
-  `test`; `@test` marks test-only helpers. `gom test FILE|DIR ...`
+  `test`; `@test` marks test-only helpers. `@extern` on a `fn`
+  declares signature-only — the body is a same-named Go function
+  hand-written in the generated package (stdlib internals use it;
+  see go-interop). `gom test FILE|DIR ...`
   writes the `.go` plus a `_test.go` beside each input and runs the
   package's tests through `go test -json`; a failed `assert_eq`
   reports both values in the assertion message.
@@ -207,9 +210,12 @@ generated from — useful when generated code surprises you.
   `Chan.send`, `Chan.recv` (`Option a` — `None` once closed),
   `Chan.close`, `Chan.recvOnly`, `Chan.sendOnly`, `Task.spawn`
   (`(Unit -> a) -> Task a`), `Task.await` (`Task a -> a`,
-  re-panics a captured panic). Still unimplemented: `Ref.*`,
-  `Array.*` — those member tables are empty and report E0201
-  "exposes no members yet".
+  re-panics a captured panic). `Array a` is the mutable build
+  buffer (compiler-provided like `Chan`): `Array.make n`,
+  `Array.length a`, `Array.get a i`, `Array.set a i v`,
+  `Array.to_list a` (zero-copy freeze — do not write the array
+  after freezing, spec §8.7), `Array.from_list xs` (copies).
+  `Ref.*` still reports E0201 "exposes no members yet".
 
 ## Newlines (no indentation rules)
 
@@ -362,8 +368,9 @@ fn main () -> Unit = {
 ```
 
 `var`, `:=`, `+=`, `++` do not exist (E0101/E0201). Mutable state is
-explicit: `Ref a` / `Array a` (stdlib members pending) — default to
-immutability.
+explicit: `Array a` is the build buffer (`Array.make`/`get`/`set`,
+freeze with `Array.to_list`); `Ref a` members are still pending.
+Default to immutability.
 
 ## `let ... in`, `return`, `else if`
 
