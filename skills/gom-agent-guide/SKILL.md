@@ -507,6 +507,13 @@ No `xs[i]`, no `::`, no `h::t`, no `[]` access — destructure with
 the last element). `List.cons`, `List.append`, `List.rev_append`
 and the other `List.*` stdlib functions cover the rest.
 
+Building a list costs O(n) per cons or `List.append` step — a
+`match`-cons self-recursion compiles to a buffer loop, but
+accumulating through `List.append` (e.g. in a `fold` folder or a
+call chain) or through mutual recursion stays O(n²) in generated
+code. For a large or hot build, accumulate into `Array` and
+freeze with `Array.to_list` instead.
+
 ## Punctuation from other languages
 
 ```gom fail=E0101
