@@ -1,6 +1,7 @@
 package lower
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/podhmo/gom/internal/core"
@@ -21,10 +22,13 @@ import (
 //     rewrite declined (extra rest read, non-identity instantiation)
 //     or f is another file-local function in the same recursion
 //     (mutual accumulation).
-//   - `List.append` onto a value produced by a recursive call —
-//     chained-append accumulation.
-//   - `List.fold` whose folder appends onto its accumulator
-//     parameter — fold-internal concat accumulation.
+//   - `List.append`/`List.concat` onto a value produced by a
+//     recursive call — chained-append accumulation (concat's
+//     list-of-lists argument may carry the result inside a literal).
+//   - `List.fold`/`foldl` whose folder appends onto its accumulator
+//     parameter — fold-internal concat accumulation. The folder is
+//     followed through closures, uncurry adapters and file-local
+//     named functions.
 func (l *lowerer) lintQuadraticAccum(out *core.File) {
 	// File-local function symbols and their decls.
 	declOf := map[*resolve.Symbol]*core.FuncDecl{}
@@ -50,51 +54,73 @@ func (l *lowerer) lintQuadraticAccum(out *core.File) {
 			}
 		})
 	}
-	// The recursion set: syms that can reach themselves through the
-	// file-local call graph — self-loops and multi-function cycles
-	// alike.
-	rec := map[*resolve.Symbol]bool{}
 	for _, f := range fns {
-		if reaches(edges, f.Sym, f.Sym, map[*resolve.Symbol]bool{}) {
-			rec[f.Sym] = true
-		}
-	}
-	for _, f := range fns {
-		l.lintAccumFn(f, declOf, rec)
+		l.lintAccumFn(f, declOf, edges)
 	}
 }
 
-func (l *lowerer) lintAccumFn(f *core.FuncDecl, declOf map[*resolve.Symbol]*core.FuncDecl, rec map[*resolve.Symbol]bool) {
+func (l *lowerer) lintAccumFn(f *core.FuncDecl, declOf map[*resolve.Symbol]*core.FuncDecl, edges map[*resolve.Symbol][]*resolve.Symbol) {
 	if f.Sym == nil || f.Fn == nil || f.Fn.Body == nil {
 		return
 	}
+	// Dedup per (rule, site) — the same rule at a second accumulation
+	// site is a second warning, not a repeat.
 	warned := map[string]bool{}
 	warn := func(key string, sp diag.Span, msg string) {
-		if warned[key] {
+		k := key + "@" + strconv.Itoa(sp.Start)
+		if warned[k] {
 			return
 		}
-		warned[key] = true
+		warned[k] = true
 		l.diags = append(l.diags, diag.Warning(codeAccum, msg).At(sp))
 	}
 	name := f.Sym.Name
 
 	eachBody(f.Fn.Body, func(b *core.Body) {
-		// boundCall maps each let-bound var to its CallDirect value
-		// (nil for non-call bindings) for this body's lookups.
+		// bound/boundSp map each let-bound var to its CallDirect value
+		// and span; boundX keeps every let value so a concat's
+		// list-of-lists literal can be looked through.
 		bound := map[*resolve.Symbol]*core.CallDirect{}
 		boundSp := map[*resolve.Symbol]diag.Span{}
+		boundX := map[*resolve.Symbol]core.Expr{}
 		for _, lt := range b.Lets {
 			if lt == nil || lt.Name == nil || lt.Name.Sym == nil {
 				continue
 			}
+			boundX[lt.Name.Sym] = lt.X
+			boundSp[lt.Name.Sym] = lt.Sp
 			if c, ok := lt.X.(*core.CallDirect); ok {
 				bound[lt.Name.Sym] = c
-				boundSp[lt.Name.Sym] = lt.Sp
 			}
 		}
+		// A call counts as "recursive accumulation" only when the
+		// callee is in the same SCC as f — f reaches it and it
+		// reaches f back. A linear wrapper that calls a recursive
+		// sibling once copies that result once (O(n), no warning).
 		isRecCall := func(c *core.CallDirect) bool {
 			return c != nil && c.Callee != nil &&
-				(c.Callee == f.Sym || rec[c.Callee])
+				sameCycle(edges, f.Sym, c.Callee)
+		}
+		// accumArg reports whether an atom is (or contains, through a
+		// let-bound list literal) a var bound to a recursive call —
+		// the shape `concat([rest, [x]])` where rest is the call.
+		accumArg := func(a core.Atom) bool {
+			v, ok := a.(*core.Var)
+			if !ok || v.Sym == nil {
+				return false
+			}
+			if isRecCall(bound[v.Sym]) {
+				return true
+			}
+			if ln, ok := boundX[v.Sym].(*core.ListNew); ok {
+				for _, el := range ln.Elems {
+					if v2, ok := el.(*core.Var); ok && v2.Sym != nil &&
+						isRecCall(bound[v2.Sym]) {
+						return true
+					}
+				}
+			}
+			return false
 		}
 		// Rule A: tail `[.., ..rest]` where rest is a bound call
 		// that consLeaf declined — declined self-calls and calls to
@@ -115,14 +141,16 @@ func (l *lowerer) lintAccumFn(f *core.FuncDecl, declOf map[*resolve.Symbol]*core
 				return
 			}
 			switch cd.Callee.Name {
-			case "append", "concat":
-				if len(cd.Args) >= 2 {
-					if v, ok := cd.Args[0].(*core.Var); ok && v.Sym != nil {
-						if isRecCall(bound[v.Sym]) {
-							warn("append", boundSp[v.Sym],
-								"List.append onto the result of recursive call `"+bound[v.Sym].Callee.Name+"` is O(n^2): every call copies the whole accumulated list — prefer Array builder or collect conses and one final List.concat")
-						}
-					}
+			case "append":
+				if len(cd.Args) >= 2 && accumArg(cd.Args[0]) {
+					warn("append", spanOf(cd.Args[0], boundSp),
+						"List.append onto the result of recursive call `"+nameOf(cd.Args[0], bound)+"` is O(n^2): every call copies the whole accumulated list — prefer Array builder or collect conses and one final List.concat")
+				}
+			case "concat":
+				// concat : List (List a) -> List a — one argument.
+				if len(cd.Args) >= 1 && accumArg(cd.Args[0]) {
+					warn("concat", spanOf(cd.Args[0], boundSp),
+						"List.concat over the result of recursive call `"+nameOf(cd.Args[0], bound)+"` is O(n^2): every call re-flattens the accumulated lists — prefer Array builder or one final List.concat outside the recursion")
 				}
 			case "fold", "foldl":
 				if len(cd.Args) >= 1 {
@@ -131,7 +159,7 @@ func (l *lowerer) lintAccumFn(f *core.FuncDecl, declOf map[*resolve.Symbol]*core
 							if lt == nil || lt.Name == nil || lt.Name.Sym != v.Sym {
 								continue
 							}
-							if folderAppendsAcc(lt.X) {
+							if folderAppendsAcc(lt.X, declOf) {
 								warn("fold", lt.Sp,
 									"List.fold folder appends onto its accumulator each step — O(n^2) list concat; collect into an Array builder instead")
 							}
@@ -151,36 +179,45 @@ func (l *lowerer) lintAccumFn(f *core.FuncDecl, declOf map[*resolve.Symbol]*core
 
 // folderAppendsAcc reports whether a function-valued expression
 // (the closure/uncurry chain bound for a fold argument) contains an
-// inner Func that calls list.append with an enclosing parameter as
-// the first argument — the fold-internal concat shape.
-func folderAppendsAcc(e core.Expr) bool {
+// inner Func that calls list.append/concat with an enclosing
+// parameter in its first argument — the fold-internal concat shape.
+// File-local named folders are followed through FuncRef via declOf.
+func folderAppendsAcc(e core.Expr, declOf map[*resolve.Symbol]*core.FuncDecl) bool {
 	found := false
 	var inspect func(e core.Expr)
-	var scanFn func(fn *core.Func, outerParams map[*resolve.Symbol]bool)
+	var scanFn func(fn *core.Func)
 	inspect = func(e core.Expr) {
 		switch x := e.(type) {
 		case *core.Uncurry:
 			inspect(x.X)
 		case *core.Closure:
-			scanFn(x.Fn, nil)
+			scanFn(x.Fn)
 		case *core.GoFunc:
 			for _, in := range x.In {
 				inspect(in)
 			}
+		case *core.FuncRef:
+			// A named folder: `List.fold helper` where helper is a
+			// file-local fn.
+			if d := declOf[x.Sym]; d != nil {
+				scanFn(d.Fn)
+			}
 		// Everything else is a leaf for this check — calls, literals,
 		// atoms and control containers carry no function value worth
-		// inspecting (fold args are always closures/uncurry/adapters).
+		// inspecting.
 		case *core.Binary, *core.CallBuiltin, *core.CallDirect,
 			*core.CallFunc, *core.CallGo, *core.Conv, *core.CtorApp,
 			*core.CtorRef, *core.Equal, *core.ErrorFromGo, *core.EscapeCall,
-			*core.EscapeResult, *core.FieldGet, *core.ForRange, *core.FuncRef,
+			*core.EscapeResult, *core.FieldGet, *core.ForRange,
 			*core.GoFuncRef, *core.If, *core.ListNew, *core.Lit, *core.Match,
 			*core.OptionFromGo, *core.RecordNew, *core.RecordUpdate,
 			*core.ResultFromGo, *core.SelectExpr, *core.Spawn, *core.TailCall,
 			*core.TupleFromGo, *core.TupleNew, *core.Unary, *core.Var:
+		default:
+			panic("unreachable")
 		}
 	}
-	scanFn = func(fn *core.Func, _ map[*resolve.Symbol]bool) {
+	scanFn = func(fn *core.Func) {
 		if fn == nil {
 			return
 		}
@@ -190,17 +227,49 @@ func folderAppendsAcc(e core.Expr) bool {
 				params[p.Sym] = true
 			}
 		}
-		eachCallDirect(fn.Body, func(c *core.CallDirect) {
-			if found || c.Callee == nil ||
-				!strings.HasSuffix(c.Callee.Package, "/list") ||
-				(c.Callee.Name != "append" && c.Callee.Name != "concat") {
-				return
-			}
-			if len(c.Args) >= 2 {
-				if v, ok := c.Args[0].(*core.Var); ok && v.Sym != nil && params[v.Sym] {
-					found = true
+		eachBody(fn.Body, func(b *core.Body) {
+			// Let values, so `concat([acc, [x]])` — arg bound to a
+			// list literal — resolves its accumulator element.
+			bnd := map[*resolve.Symbol]core.Expr{}
+			for _, lt := range b.Lets {
+				if lt != nil && lt.Name != nil && lt.Name.Sym != nil {
+					bnd[lt.Name.Sym] = lt.X
 				}
 			}
+			hasAcc := func(a core.Atom) bool {
+				v, ok := a.(*core.Var)
+				if !ok || v.Sym == nil {
+					return false
+				}
+				if params[v.Sym] {
+					return true
+				}
+				if ln, ok := bnd[v.Sym].(*core.ListNew); ok {
+					for _, el := range ln.Elems {
+						if v2, ok := el.(*core.Var); ok && v2.Sym != nil &&
+							params[v2.Sym] {
+							return true
+						}
+					}
+				}
+				return false
+			}
+			eachCallDirect(b, func(c *core.CallDirect) {
+				if found || c.Callee == nil ||
+					!strings.HasSuffix(c.Callee.Package, "/list") {
+					return
+				}
+				switch c.Callee.Name {
+				case "append":
+					if len(c.Args) >= 2 && hasAcc(c.Args[0]) {
+						found = true
+					}
+				case "concat":
+					if len(c.Args) >= 1 && hasAcc(c.Args[0]) {
+						found = true
+					}
+				}
+			})
 		})
 	}
 	inspect(e)
@@ -208,6 +277,37 @@ func folderAppendsAcc(e core.Expr) bool {
 }
 
 const codeAccum = "W0801"
+
+// sameCycle reports whether two file-local syms sit in the same
+// cycle of the call graph — each reaches the other. `a == b` covers
+// the self-recursive case.
+func sameCycle(edges map[*resolve.Symbol][]*resolve.Symbol, a, b *resolve.Symbol) bool {
+	return a == b ||
+		(reaches(edges, a, b, map[*resolve.Symbol]bool{}) &&
+			reaches(edges, b, a, map[*resolve.Symbol]bool{}))
+}
+
+// spanOf returns the let-binding span of the var atom's value, for
+// warning placement (falls back to a zero span).
+func spanOf(a core.Atom, boundSp map[*resolve.Symbol]diag.Span) diag.Span {
+	if v, ok := a.(*core.Var); ok && v.Sym != nil {
+		if sp, ok := boundSp[v.Sym]; ok {
+			return sp
+		}
+	}
+	return diag.Span{}
+}
+
+// nameOf returns the callee name of the recursive call bound to the
+// var atom (for warning text); falls back to "recursive call".
+func nameOf(a core.Atom, bound map[*resolve.Symbol]*core.CallDirect) string {
+	if v, ok := a.(*core.Var); ok && v.Sym != nil {
+		if c := bound[v.Sym]; c != nil && c.Callee != nil {
+			return c.Callee.Name
+		}
+	}
+	return "recursive call"
+}
 
 // reaches reports whether `from` can reach `target` through the
 // file-local call graph (DFS; `from` itself counts when target ==
@@ -310,6 +410,8 @@ func eachBody(b *core.Body, f func(*core.Body)) {
 			*core.ListNew, *core.Lit, *core.OptionFromGo, *core.RecordNew,
 			*core.RecordUpdate, *core.ResultFromGo, *core.TailCall,
 			*core.TupleFromGo, *core.TupleNew, *core.Unary, *core.Var:
+		default:
+			panic("unreachable")
 		}
 	}
 	body(b)

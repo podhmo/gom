@@ -65,13 +65,13 @@ P0-3 で実測理由から却下済み（problems ファイルの Options 欄も
 
 podhmo の「検出の実装を実験してみるというのはあっても良いかもな。warningとか出ると良い」で γ を vet 的警告として実装した（実装箇所に制限なしの指示で、除外形と同じ IR を眺められる `lower` を選択）。
 
-- **仕組み**: `internal/lower/conswarn.go` の `lintQuadraticAccum` が Core IR 上で動く。ファイルローカル呼び出しグラフから再帰集合（自己ループと多関数サイクルを DFS で判定）を作り、3 形を検出:
+- **仕組み**: `internal/lower/conswarn.go` の `lintQuadraticAccum` が Core IR 上で動く。ファイルローカル呼び出しグラフを作り、「呼び出し先が自分と同じサイクル（SCC）にいるか」で再帰蓄積かを判定（線形ラッパが再帰 sibling を 1 回呼ぶだけの場合は O(n) のままなので警告しない）、3 形を検出:
   - (A) 再帰呼び出しの結果を `[.., ..rest]` の rest に置く cons 末尾 — consLeaf が callee≠自分や read-twice で弾いた形
-  - (B) 再帰呼び出しの結果へ `List.append`/`concat` — ChainAppend 形
-  - (C) accumulator（自パラメータ）に append/concat する folder を持つ `List.fold`/`foldl` — FoldConcat 形
-- **診断**: `W0801`（warning severity、PhaseLint、「list accumulation shape is quadratic (cons-loop specialization does not apply)」）。`gom build`/`test`/`run` で発火（`gom check` は lower を走らせないので出ない — vet 的位置づけとして許容）
-- **実測結果**: `experiments/w23/noncons-accum` で 4 除外形すべてに発火（chain_append L20、fold_concat L26、mut_a L33、read_twice L43）、被覆形 `cons_map` は無発火。`go test ./...` 全件（testdata/spec・golden 含む）で誤検出ゼロ
-- **設計上の注意**: 検出は let 変数経由のデータフローのみ追う（bound map）。`List.append(xs, elem)` のように再帰 acc 経由でない append は無発火 — 線形な append もあるので正しいが、複雑な別名経路は取りこぼす（警告の取りこぼしは安全側）
+  - (B) 再帰呼び出しの結果へ `List.append`/`List.concat` — ChainAppend 形。concat の 1 引数は list-of-lists なので、let バインド越しの `[rec_result, [x]]` リテラルも見る
+  - (C) accumulator（自パラメータ）に append/concat する folder を持つ `List.fold`/`foldl` — FoldConcat 形。名前付き folder は FuncRef 経由でファイル内 decl まで追う
+- **診断**: `W0801`（warning severity、PhaseLint、「list accumulation shape is quadratic (cons-loop specialization does not apply)」）。`gom build`/`test`/`run` で発火（`gom check` は lower を走らせないので出ない — vet 的位置づけとして許容）。警告は (rule, site) で dedup — 同一関数の 2 箇所は 2 件出る。なお incremental build cache が効く再ビルドではコンパイル自体がスキップされ警告も出ない（manifest ベースのキャッシュ。vet 的運用として許容）
+- **実測結果**: `experiments/w23/noncons-accum` で全除外形に発火（chain_append L20、fold_concat L26、mut_a L33、read_twice L43、concat_acc L57、fold_named L64、two_sites L70+L71 2 件）、被覆形 `cons_map` と線形ラッパ `wrap_once` は無発火。`go test ./...` 全件（testdata/spec・golden 含む）で誤検出ゼロ
+- **設計上の注意**: 検出は let 変数経由のデータフローのみ追う（bound map）。`List.append(xs, elem)` のように再帰 acc 経由でない append は無発火 — 線形な append もあるので正しいが、複雑な別名経路や他ファイルの folder は取りこぼす（警告の取りこぼしは安全側）
 
 ## 未検証・残件
 

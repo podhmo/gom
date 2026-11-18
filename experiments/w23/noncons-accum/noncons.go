@@ -160,3 +160,94 @@ func ReadTwice(xs list.List[int64]) list.List[int64] {
 	}
 //line noncons.gom:40
 }
+
+//line noncons.gom:50
+func WrapOnce(n int64) list.List[int64] {
+//line noncons.gom:50
+	tmp27 := MutA(n)
+//line noncons.gom:50
+	return append(list.List[int64]{0}, tmp27...)
+//line noncons.gom:50
+}
+
+//line noncons.gom:54
+func ConcatAcc(n int64) list.List[list.List[int64]] {
+//line noncons.gom:54
+	tmp33 := n == 0
+//line noncons.gom:54
+	if tmp33 {
+//line noncons.gom:55
+		tmp34 := list.List[int64]{}
+//line noncons.gom:55
+		return list.List[list.List[int64]]{tmp34}
+//line noncons.gom:54
+	} else {
+//line noncons.gom:57
+		tmp28 := n - 1
+//line noncons.gom:57
+		tmp29 := ConcatAcc(tmp28)
+//line noncons.gom:57
+		tmp30 := list.List[int64]{n}
+//line noncons.gom:57
+		tmp31 := list.List[list.List[int64]]{tmp30}
+//line noncons.gom:57
+		tmp32 := list.List[list.List[list.List[int64]]]{tmp29, tmp31}
+//line noncons.gom:57
+		return list.Concat[list.List[int64]](tmp32)
+//line noncons.gom:54
+	}
+//line noncons.gom:54
+}
+
+//line noncons.gom:62
+func Appender(acc list.List[int64], x int64) list.List[int64] {
+//line noncons.gom:62
+	tmp35 := list.List[int64]{x}
+//line noncons.gom:62
+	return list.Append[int64](acc, tmp35)
+//line noncons.gom:62
+}
+
+//line noncons.gom:64
+func FoldNamed(xs list.List[int64]) list.List[int64] {
+//line noncons.gom:64
+	tmp36 := Appender
+//line noncons.gom:64
+	tmp37 := list.List[int64]{}
+//line noncons.gom:64
+	return list.Fold[list.List[int64], int64](tmp36, tmp37, xs)
+//line noncons.gom:64
+}
+
+//line noncons.gom:67
+func TwoSites(n int64) list.List[int64] {
+//line noncons.gom:67
+	tmp45 := n == 0
+//line noncons.gom:67
+	if tmp45 {
+//line noncons.gom:68
+		return list.List[int64]{}
+//line noncons.gom:67
+	} else {
+//line noncons.gom:70
+		tmp38 := n - 1
+//line noncons.gom:70
+		tmp39 := TwoSites(tmp38)
+//line noncons.gom:70
+		tmp40 := list.List[int64]{n}
+//line noncons.gom:70
+		a := list.Append[int64](tmp39, tmp40)
+//line noncons.gom:71
+		tmp41 := n - 1
+//line noncons.gom:71
+		tmp42 := TwoSites(tmp41)
+//line noncons.gom:71
+		tmp43 := list.Length[int64](a)
+//line noncons.gom:71
+		tmp44 := list.List[int64]{tmp43}
+//line noncons.gom:71
+		return list.Append[int64](tmp42, tmp44)
+//line noncons.gom:67
+	}
+//line noncons.gom:67
+}

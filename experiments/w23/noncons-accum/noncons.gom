@@ -44,3 +44,29 @@ fn read_twice (xs: List Int) -> List Int = match xs {
     [List.length rest + h, ..rest]
   }
 }
+
+// (v) 線形ラッパは誤検出しない: mut_a を1回呼ぶだけ — コストは結果の
+// 一回コピーで O(n)。警告は mut_a 自身の箇所に出る。
+fn wrap_once (n: Int) -> List Int = [0, ..mut_a n]
+
+// (vi) concat 直掛け: 再帰結果を要素に持つ list-of-lists を concat —
+// 各レベルで蓄積分を flatten し直すので O(n²)。
+fn concat_acc (n: Int) -> List (List Int) = if n == 0 {
+  [[]]
+} else {
+  List.concat [concat_acc (n - 1), [[n]]]
+}
+
+// (vii) 名前付き folder: fold に渡す folder がファイル内の名前付き
+// fn でも検出する。
+fn appender (acc: List Int) (x: Int) -> List Int = List.append acc [x]
+
+fn fold_named (xs: List Int) -> List Int = List.fold appender [] xs
+
+// (viii) 同一関数内の複数箇所: let ごとに別 site として警告する。
+fn two_sites (n: Int) -> List Int = if n == 0 {
+  []
+} else {
+  let a = List.append (two_sites (n - 1)) [n]
+  List.append (two_sites (n - 1)) [List.length a]
+}
