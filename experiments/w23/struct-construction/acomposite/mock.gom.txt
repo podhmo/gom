@@ -1,0 +1,22 @@
+// (a) PROPOSED SYNTAX — composite literal for named Go struct types.
+// Not valid Gom today: `pkg.Type{ field = v, }` does not parse.
+// Kept as .txt so TestRepoFiles does not format it.
+//
+// Goal description: `host.NewClient` in pure Gom.
+
+package main
+
+import go "net/http"
+import go "time"
+
+fn redirect_policy (req: Ptr http.Request) (via: List (Ptr http.Request)) -> Result Go.Any GoError =
+  Err http.ErrUseLastResponse
+
+// `http.Client { ... }` — keyed composite literal, fields unlisted keep
+// their Go zero values. Yields a value of type `http.Client`; wrap in
+// `Ptr.make` to call pointer-receiver methods like `client.Do`.
+fn new_client () -> Ptr http.Client =
+  Ptr.make (http.Client {
+    Timeout = 30 * time.Second,
+    CheckRedirect = Go.func2 redirect_policy,
+  })

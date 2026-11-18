@@ -1,0 +1,23 @@
+// (c') REAL GOM — `@extern fn` in a user module, already supported.
+// The signature claims `newClient` in the generated package; the
+// body is the hand-written Go in impl.go (the same mechanism stdlib
+// uses in stdlib/list/impl.go). a.go is the compiler's real output
+// (`gom build experiments/w23/struct-construction/cextern`).
+package cextern
+
+import go "net/http"
+import go "time"
+
+// The body is the hand-written `newClient` in impl.go — the compiler
+// emits only the name claim, so `go build` reports signature drift.
+@extern
+fn new_client (check_redirect: Go.Func2 (Ptr http.Request) (Go.Slice (Ptr http.Request)) GoError) -> Ptr http.Client
+
+fn redirect_policy (req: Ptr http.Request) (via: List (Ptr http.Request)) -> Result Unit GoError =
+  Err http.ErrUseLastResponse
+
+// A caller: same shape `run` would use — build the client, then use it.
+fn client_timeout () -> time.Duration = {
+  let c = new_client (Go.func2 redirect_policy)
+  c.Timeout
+}

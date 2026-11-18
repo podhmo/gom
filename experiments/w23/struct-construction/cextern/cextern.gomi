@@ -1,0 +1,11 @@
+package cextern
+
+import go "net/http"
+import go "time"
+
+
+fn new_client (check_redirect: Go.Func2 (Ptr http.Request) (Go.Slice (Ptr http.Request)) GoError) -> Ptr http.Client
+
+fn redirect_policy (req: Ptr http.Request) (via: List (Ptr http.Request)) -> Result Unit GoError
+
+fn client_timeout () -> time.Duration

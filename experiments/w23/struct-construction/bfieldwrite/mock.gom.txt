@@ -1,0 +1,26 @@
+// (b) PROPOSED SYNTAX — field write through `Ptr T` of a named Go
+// struct type, plus zero-value construction (which `Ptr.new ()`
+// already provides). Not valid Gom today: field assignment
+// `ptr.Field = v` does not exist.
+// Kept as .txt so TestRepoFiles does not format it.
+//
+// Goal description: `host.NewClient` in pure Gom.
+
+package main
+
+import go "net/http"
+import go "time"
+
+fn redirect_policy (req: Ptr http.Request) (via: List (Ptr http.Request)) -> Result Go.Any GoError =
+  Err http.ErrUseLastResponse
+
+// `Ptr.new ()` gives `*http.Client` zero value (already available).
+// `c.Timeout = ...` writes the field through the pointer — allowed
+// only on `Ptr T` of a named Go struct (addressability rule), so
+// plain Gom values stay immutable.
+fn new_client () -> Ptr http.Client = {
+  let c : Ptr http.Client = Ptr.new ()
+  c.Timeout = 30 * time.Second
+  c.CheckRedirect = Go.func2 redirect_policy
+  c
+}
