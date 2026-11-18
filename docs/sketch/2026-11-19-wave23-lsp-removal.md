@@ -1,8 +1,15 @@
 # `gom lsp` 全削除の影響棚卸し（wave23 lane2）
 
-2026-11-19。podhmo の意向メモ「LSP の機能全部消しても良い気がする」
-（B テーマ・削減）に向けた準備調査。削除可否の決定は podhmo — 本書は
-「消すなら何が吹き飛ぶか」の全量と削除順序。
+2026-11-19。podhmo 方針: 「削除というよりは、本当に必要な状況が来るまで
+未対応という体で削除」。**位置づけは不要コードの除去ではなく、LSP という
+機能面を v1 の提供面から取り下げて「未対応」に戻すこと** — コードの
+消去はその実現手段で、復帰は需要が具体化した時点の再実装として扱う。
+本書は「消すなら何が吹き飛ぶか」の全量と削除順序。
+
+decision 化するときの文言はこれに合わせる: Supersedes で LSP 採用系の
+decision を繋ぎつつ、撤回理由は「需要が見えないまま面を持っていた」
+ではなく「必要性が具体化するまで提供しない」判断であることを記す
+（後者なら将来の再導入 decision が矛盾なく繋がる）。
 
 ## スコープの確定
 
@@ -75,7 +82,8 @@
 2. `internal/lsp/` をディレクトリごと削除
 3. spec/design/open-questions/TODO の上記箇所を更新
 4. 削除の decision を 1 件立て、3 件の LSP decision へ Supersedes を張る
-   （decisionsdoc で README 再生成）
+   （decisionsdoc で README 再生成）。decision の表現は「LSP は未対応に
+   戻す。需要が具体化したら別 decision で再導入を検討する」体で
 5. gom-agent-guide のコマンド一覧を同期
 6. 検証: `gofmt -l .` / `go vet ./...` / `go test ./...` / check-sumtype
 
