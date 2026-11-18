@@ -1,0 +1,12 @@
+package ex
+
+// A bare tuple ending in `GoError` (verbatim or `Option`-wrapped)
+// spells the same `func` signature as the `Result` fold — the
+// FuncN con cannot distinguish the two, so `Go.funcN` rejects the
+// tuple spelling (write `Result ... GoError`).
+
+fn cb (x: Int) (e: GoError) -> (Int, GoError) = (x, e)
+fn cb2 (x: Int) -> (Int, Option GoError) = (x, None)
+
+fn use1 () -> Unit = ignore (Go.func2 cb)
+fn use2 () -> Unit = ignore (Go.func1 cb2)

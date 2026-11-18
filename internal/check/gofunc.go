@@ -662,6 +662,9 @@ func (c *checker) goFuncRawResults(ret types.Type) ([]types.Type, string) {
 			if tup, isTup := p.(*types.Tuple); isTup {
 				// `Result (Tuple ...) GoError` — the N-ary
 				// trailing-error fold: element raws then `error`.
+				if len(tup.Elems)+1 > 8 {
+					return nil, fmt.Sprintf("a `Result (Tuple ...) GoError` callback may carry at most 7 payload elements — %d plus the trailing `error` exceeds the 8-result `Go.FuncN` maximum", len(tup.Elems))
+				}
 				rs := make([]types.Type, 0, len(tup.Elems)+1)
 				for _, el := range tup.Elems {
 					rt, reason := elemRaw(el)
@@ -683,6 +686,9 @@ func (c *checker) goFuncRawResults(ret types.Type) ([]types.Type, string) {
 		}
 	}
 	if tup, ok := ret.(*types.Tuple); ok {
+		if len(tup.Elems) > 8 {
+			return nil, fmt.Sprintf("a %d-element tuple callback result exceeds the 8-result `Go.FuncN` maximum", len(tup.Elems))
+		}
 		rs := make([]types.Type, 0, len(tup.Elems))
 		for _, el := range tup.Elems {
 			rt, reason := elemRaw(el)
@@ -690,6 +696,9 @@ func (c *checker) goFuncRawResults(ret types.Type) ([]types.Type, string) {
 				return nil, reason
 			}
 			rs = append(rs, rt)
+		}
+		if isGoErrorCon(types.Chase(rs[len(rs)-1])) {
+			return nil, "a tuple result ending in `GoError` spells the same `func` signature as `Result ... GoError` — write the `Result` fold instead"
 		}
 		return rs, ""
 	}

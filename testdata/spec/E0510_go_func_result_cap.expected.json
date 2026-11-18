@@ -1,0 +1,42 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0510",
+      "severity": "error",
+      "message": "`Go.func1` cannot convert the result type Result (Int, Int, Int, Int, Int, Int, Int, Int) GoError: a `Result (Tuple ...) GoError` callback may carry at most 7 payload elements — 8 plus the trailing `error` exceeds the 8-result `Go.FuncN` maximum",
+      "span": {
+        "file": "E0510_go_func_result_cap.gom",
+        "start": {
+          "line": 12,
+          "col": 30,
+          "offset": 430
+        },
+        "end": {
+          "line": 12,
+          "col": 42,
+          "offset": 442
+        }
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0510",
+      "severity": "error",
+      "message": "`Go.func1` cannot convert the result type (Int, Int, Int, Int, Int, Int, Int, Int, Int): a 9-element tuple callback result exceeds the 8-result `Go.FuncN` maximum",
+      "span": {
+        "file": "E0510_go_func_result_cap.gom",
+        "start": {
+          "line": 13,
+          "col": 30,
+          "offset": 473
+        },
+        "end": {
+          "line": 13,
+          "col": 43,
+          "offset": 486
+        }
+      }
+    }
+  ]
+}

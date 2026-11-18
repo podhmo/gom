@@ -44,6 +44,11 @@
 
 `Go.funcN` の Gom→Go 方向では、Gom の `Result (Tuple) GoError` 結果の関数は `(T', ..., error)` を返す Go func に、タプル結果の関数は多値を返す Go func に展開される（error arm は各要素のゼロ値を返す）。
 
+`Go.funcN` 側の曖昧性・上限の規則（レビュー起因で確定）:
+
+- 最終要素が `GoError`（`Option GoError` を含む）の裸タプル結果 — `(T, GoError)` — は `Result T GoError` と同じ `(T', error)` シグネチャを綴る。FuncN コンは両者を区別できないため、`Go.funcN` はこの形を E0510 で拒否し、`Result` 綴りを要求する（結果の arity 判定は emit 側と同じく fs.Ret の `Result` 性で行う — 末尾の raw が error でも Gom 側がタプルなら verbatim の `GoResultsPair`/`Nary` が対応する、のがフォールバックの意味）
+- `Result (Tuple8) GoError`（ペイロード 8 要素 + error = 9 結果）と 9 要素超の裸タプルは `Go.FuncN` の結果上限（8）を超えるため check で E0510 — 綴るなら `Result (Tuple7) GoError` まで
+
 ## 実装上の選択
 
 - 新しい `core.GoResults` 値 `GoResultsNary`（素の多値）と `GoResultsTupErr`（末尾 error の多値）を導入 — `GoResultsPair`/`GoResultsErr` の流用は「ちょうど 2 結果」を仮定する emit 地点（EscapeCall の `v, err := call` など）で誤 emit するため不採用

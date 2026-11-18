@@ -1,0 +1,42 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0510",
+      "severity": "error",
+      "message": "`Go.func2` cannot convert the result type (Int, GoError): a tuple result ending in `GoError` spells the same `func` signature as `Result ... GoError` — write the `Result` fold instead",
+      "span": {
+        "file": "E0510_go_func_err_tuple.gom",
+        "start": {
+          "line": 11,
+          "col": 30,
+          "offset": 398
+        },
+        "end": {
+          "line": 11,
+          "col": 41,
+          "offset": 409
+        }
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0510",
+      "severity": "error",
+      "message": "`Go.func1` cannot convert the result type (Int, Option GoError): a tuple result ending in `GoError` spells the same `func` signature as `Result ... GoError` — write the `Result` fold instead",
+      "span": {
+        "file": "E0510_go_func_err_tuple.gom",
+        "start": {
+          "line": 12,
+          "col": 30,
+          "offset": 440
+        },
+        "end": {
+          "line": 12,
+          "col": 42,
+          "offset": 452
+        }
+      }
+    }
+  ]
+}
