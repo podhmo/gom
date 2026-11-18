@@ -1,0 +1,15 @@
+package dsync
+
+import go "net/http"
+import go "sync"
+
+
+fn new_server () -> Ptr http.Server
+
+fn listen (s: Ptr http.Server) -> Result Unit GoError
+
+fn once_run (o: Ptr sync.Once) (f: Unit -> Unit) -> Unit
+
+fn wait_add (w: Ptr sync.WaitGroup) (n: Int) -> Unit
+
+fn wait_done (w: Ptr sync.WaitGroup) -> Unit

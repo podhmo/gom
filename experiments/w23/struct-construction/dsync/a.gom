@@ -1,0 +1,24 @@
+// REAL GOM — pointer-shaped construction of sync-containing Go structs.
+// `Ptr.new ()` already yields `new(T)`: no struct copy, so `go vet`
+// copylocks concerns (sync.Once / sync.Mutex / WaitGroup fields) never
+// materialize and pointer-receiver methods are directly callable.
+package dsync
+
+import go "net/http"
+import go "sync"
+
+// http.Server contains unexported sync/atomic fields — zero value is
+// the only honest construction anyway; `new(Server)` never copies.
+fn new_server () -> Ptr http.Server = Ptr.new ()
+
+// Pointer-receiver method calls on the Ptr resolve through the
+// pointer method set — `(&srv).ListenAndServe()` in Go terms.
+fn listen (s: Ptr http.Server) -> Result Unit GoError = s.ListenAndServe ()
+
+// sync.Once: Do's `func()` param reads Go.Func0; a Gom thunk adapts
+// via Go.func0.
+fn once_run (o: Ptr sync.Once) (f: Unit -> Unit) -> Unit = o.Do (Go.func0 f)
+
+// sync.WaitGroup: `Add`'s int param accepts Gom Int at the boundary.
+fn wait_add (w: Ptr sync.WaitGroup) (n: Int) -> Unit = w.Add n
+fn wait_done (w: Ptr sync.WaitGroup) -> Unit = w.Done ()

@@ -24,6 +24,10 @@
 
 ### 基盤（最初に着手。P0 と並列に進められる）
 
+### Go 相互運用
+
+- [ ] **G-1 `Ptr T` 経由の field 書き込みの実装**: `ptr.Field = v` の代入構文と addressability 規則。`Ptr T`（T は named Go struct）経由に限定し、record/`Ref` への field 代入は開かない（[decision](docs/decisions/2026-11-19-struct-field-write.md)、比較材料は [sketch](docs/sketch/2026-11-19-wave23-struct-construction.md)）。実装後に tutorial / examples の host パッケージ（`NewClient` factory）を撤去する — wave24 以降の lane 候補
+
 ### ドキュメント
 
 - [ ] **D-3 `README.md` を書く**: 言語の概要・ビルド/実行の quick start・ツール群（`gom build`/`check`/`fmt`/`info`）・ドキュメントへの導線（spec/design/tutorial）を載せる。**プロジェクト終盤に書く** — 機能が増えるたびに更新対象になるのを避けるため、内容が安定してから一括で書く（ユーザー指定）。PR #3 で英語 README の初版は入ったが、十分性の最終判定は終盤に行う

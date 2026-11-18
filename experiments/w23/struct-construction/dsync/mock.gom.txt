@@ -1,0 +1,15 @@
+// (b) FIELD-WRITE MOCK — proposed syntax, does not compile today.
+// Same zero-value + writes shape, on a struct containing unexported
+// sync internals. `new(http.Server)` + per-field assignment is the
+// idiomatic Go shape for a lock-containing struct: no copylocks.
+package dsync
+
+import go "net/http"
+import go "time"
+
+fn server () -> Ptr http.Server = {
+  let s : Ptr http.Server = Ptr.new ()
+  s.Addr = ":8080"
+  s.ReadTimeout = 30 * time.Second
+  s
+}
