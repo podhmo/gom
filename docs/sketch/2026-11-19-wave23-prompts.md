@@ -16,9 +16,9 @@ wave24 で採否・実装方針を決める。実行モデルは wave22 と同�
 成果物が「形の比較」ではないため実験は不要 — lane4 は実測
 fixture、lane2 は削除順序の試行（影響リストの検証）が検証の形。
 
-保留中の podhmo 判定（wave23 の lane にはしない）:
-- TypeArgs (b) 採否 — wave22 lane4 の棚卸し済み
-  （[sketch](2026-11-19-ctor-targs-b-inventory.md)）。採用なら
+podhmo 判定済み（wave23 の lane にはしない）:
+- TypeArgs (b) — **採用（廃止）**（podhmo 2026-11-19、PR #64
+  の棚卸し [sketch](2026-11-19-ctor-targs-b-inventory.md) を見て判定）。
   実装 lane は wave24 以降の候補。
 - LSP 全削除の意向 — lane2 の棚卸し結果を受けて決める。
 
