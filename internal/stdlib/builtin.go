@@ -304,6 +304,37 @@ var arrayMembers = []builtinMember{
 			TypeParams: []*types.Var{elemTVar}}},
 }
 
+// viewMembers is the `View` module's read-only operation surface —
+// the List-derived view type (decision 2026-11-18-list-view). The
+// backing functions live in stdlib/list beside `type View[A]`; the
+// module itself is compiler-registered like `Chan`/`Array` — there
+// is no `view` Gom package to hang a .gomi on.
+var viewMembers = []builtinMember{
+	{name: "length", goSym: "ViewLen", pkg: "github.com/podhmo/gom/stdlib/list",
+		sig: genericSig(types.Fn(types.Int, types.P(types.View(elemTVar)))),
+		gosig: lower.GoSig{Arity: 1, Results: core.GoResultsOne,
+			TypeParams: []*types.Var{elemTVar}}},
+	{name: "get", goSym: "ViewGet", pkg: "github.com/podhmo/gom/stdlib/list",
+		sig: genericSig(types.Fn(types.Option(elemTVar), types.P(types.View(elemTVar)), types.P(types.Int))),
+		gosig: lower.GoSig{Arity: 2, Results: core.GoResultsOK,
+			TypeParams: []*types.Var{elemTVar}}},
+	{name: "slice", goSym: "ViewSub", pkg: "github.com/podhmo/gom/stdlib/list",
+		sig: genericSig(types.Fn(types.View(elemTVar), types.P(types.View(elemTVar)), types.P(types.Int), types.P(types.Int))),
+		gosig: lower.GoSig{Arity: 3, Results: core.GoResultsOne,
+			TypeParams: []*types.Var{elemTVar}}},
+	{name: "fold", goSym: "ViewFold", pkg: "github.com/podhmo/gom/stdlib/list",
+		sig: genericPairSig(types.Fn(accTVar,
+			types.P(types.View(elemTVar)),
+			types.P(types.Fn(accTVar, types.P(accTVar), types.P(elemTVar))),
+			types.P(accTVar))),
+		gosig: lower.GoSig{Arity: 3, Results: core.GoResultsOne,
+			TypeParams: []*types.Var{elemTVar, accTVar}}},
+	{name: "to_list", goSym: "ViewToList", pkg: "github.com/podhmo/gom/stdlib/list",
+		sig: genericSig(types.Fn(types.List(elemTVar), types.P(types.View(elemTVar)))),
+		gosig: lower.GoSig{Arity: 1, Results: core.GoResultsOne,
+			TypeParams: []*types.Var{elemTVar}}},
+}
+
 // builtinModules populates e with the member tables, signatures,
 // GoSig oracles and declared arities of the rt-backed builtin
 // modules — `Chan`, `Task`, `Ptr`, `Array` — and of the
@@ -317,6 +348,7 @@ func (e *env) builtinModules() {
 		"Task":     taskMembers,
 		"Ptr":      ptrMembers,
 		"Array":    arrayMembers,
+		"View":     viewMembers,
 		"Go.Map":   goMapMembers,
 		"Go.Slice": goSliceMembers,
 	} {
@@ -358,6 +390,21 @@ func (e *env) conversionModules() {
 				sig: genericErrSig(types.Fn(types.Option(elemTVar), types.P(types.Result(elemTVar, errTVar)))),
 				gosig: lower.GoSig{Arity: 1, Results: core.GoResultsOne,
 					TypeParams: []*types.Var{elemTVar, errTVar}}},
+		},
+		"List": {
+			// `view`/`slice` produce a `View a` — the List-derived
+			// read-only view (decision 2026-11-18-list-view). They
+			// are compiler-registered rather than .gomi-declared:
+			// an @extern impl named `view` would generate `View`,
+			// colliding with `type View[A]` in the list package.
+			{name: "view", goSym: "ListView", pkg: "github.com/podhmo/gom/stdlib/list",
+				sig: genericSig(types.Fn(types.View(elemTVar), types.P(types.List(elemTVar)))),
+				gosig: lower.GoSig{Arity: 1, Results: core.GoResultsOne,
+					TypeParams: []*types.Var{elemTVar}}},
+			{name: "slice", goSym: "ListSub", pkg: "github.com/podhmo/gom/stdlib/list",
+				sig: genericSig(types.Fn(types.View(elemTVar), types.P(types.List(elemTVar)), types.P(types.Int), types.P(types.Int))),
+				gosig: lower.GoSig{Arity: 3, Results: core.GoResultsOne,
+					TypeParams: []*types.Var{elemTVar}}},
 		},
 		"Option": {
 			{name: "to_list", goSym: "OptionToList", pkg: "github.com/podhmo/gom/stdlib/list",

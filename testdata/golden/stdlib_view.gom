@@ -1,0 +1,17 @@
+// The List-derived read-only View (decision 2026-11-18-list-view):
+// List.view/List.slice produce it, View.* reads it, for iterates it.
+package ex
+
+fn main () -> Unit = {
+  let xs = [1, 2, 3, 4]
+  let v = List.slice xs 1 3
+  let _ = View.length v
+  let _ = View.get v 0
+  let w = View.slice v 0 1
+  for x in w {
+    let _ = x
+  }
+  let _ = View.fold v (fn acc x -> acc + x) 0
+  let _ = View.to_list v
+  let _ = List.view xs
+}
