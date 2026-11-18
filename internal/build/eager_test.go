@@ -10,6 +10,15 @@ package build_test
 // never applied. A lazy encoding (a `func()` thunk waiting for the
 // last argument) would survive to print "after"; the compiled
 // program and the evaluator must agree that it does not.
+//
+// `stage`'s `f` is a declared >=2-arrow parameter — it carries the
+// flat repr (docs/decisions/2026-11-18-flat-fn-params.md), so its
+// partial application `f 20` defers the whole flat call: main
+// applies the residual (`(stage make) 0`) for the compiled run to
+// reach `make`'s body. A partial app whose residual never runs now
+// skips the first chunk's effects in compiled code while the
+// evaluator still fires them — the residual repr mismatch the
+// decision records.
 
 import (
 	"strings"
@@ -38,7 +47,7 @@ fn answer () -> String = {
 
 fn main () -> Unit = {
   let _ = fmt.Println "before"
-  let _ = stage make
+  let _ = (stage make) 0
   let _ = fmt.Println "after"
   ()
 }

@@ -192,7 +192,7 @@ func Get[A any](n int64, xs List[A]) option.Option[A] {
 }
 
 //line stdlib/list/list.gom:64
-func Fold[B, A any](f func(B) func(A) B, acc B, xs List[A]) B {
+func Fold[B, A any](f func(B, A) B, acc B, xs List[A]) B {
 //line stdlib/list/list.gom:64
 	for {
 //line stdlib/list/list.gom:65
@@ -212,11 +212,9 @@ func Fold[B, A any](f func(B) func(A) B, acc B, xs List[A]) B {
 //line stdlib/list/list.gom:65
 			tmp25 := tmp23
 //line stdlib/list/list.gom:66
-			tmp26 := f(acc)
+			tmp26 := f(acc, tmp24)
 //line stdlib/list/list.gom:66
-			tmp27 := tmp26(tmp24)
-//line stdlib/list/list.gom:66
-			acc, xs = tmp27, tmp25
+			acc, xs = tmp26, tmp25
 //line stdlib/list/list.gom:66
 			continue
 //line stdlib/list/list.gom:66
@@ -258,23 +256,23 @@ func Find[A any](f func(A) bool, xs List[A]) option.Option[A] {
 //line stdlib/list/list.gom:73
 		case len(xs) != 0:
 //line stdlib/list/list.gom:73
-			tmp28 := xs[0]
+			tmp27 := xs[0]
 //line stdlib/list/list.gom:73
-			tmp29 := xs[1:]
+			tmp28 := xs[1:]
+//line stdlib/list/list.gom:73
+			tmp29 := tmp27
 //line stdlib/list/list.gom:73
 			tmp30 := tmp28
-//line stdlib/list/list.gom:73
-			tmp31 := tmp29
 //line stdlib/list/list.gom:74
-			tmp32 := f(tmp30)
+			tmp31 := f(tmp29)
 //line stdlib/list/list.gom:74
-			if tmp32 {
+			if tmp31 {
 //line stdlib/list/list.gom:74
-				return option.Option_Some[A]{V0: tmp30}
+				return option.Option_Some[A]{V0: tmp29}
 //line stdlib/list/list.gom:74
 			} else {
 //line stdlib/list/list.gom:74
-				xs = tmp31
+				xs = tmp30
 //line stdlib/list/list.gom:74
 				continue
 //line stdlib/list/list.gom:74
@@ -310,13 +308,13 @@ func lengthGo[A any](acc int64, xs List[A]) int64 {
 //line stdlib/list/list.gom:96
 		case len(xs) != 0:
 //line stdlib/list/list.gom:96
-			tmp34 := xs[1:]
+			tmp33 := xs[1:]
 //line stdlib/list/list.gom:96
-			tmp35 := tmp34
+			tmp34 := tmp33
 //line stdlib/list/list.gom:97
-			tmp36 := acc + 1
+			tmp35 := acc + 1
 //line stdlib/list/list.gom:97
-			acc, xs = tmp36, tmp35
+			acc, xs = tmp35, tmp34
 //line stdlib/list/list.gom:97
 			continue
 //line stdlib/list/list.gom:97
@@ -343,17 +341,17 @@ func sumGo(acc float64, xs List[float64]) float64 {
 //line stdlib/list/list.gom:102
 		case len(xs) != 0:
 //line stdlib/list/list.gom:102
-			tmp37 := xs[0]
+			tmp36 := xs[0]
 //line stdlib/list/list.gom:102
-			tmp38 := xs[1:]
+			tmp37 := xs[1:]
+//line stdlib/list/list.gom:102
+			tmp38 := tmp36
 //line stdlib/list/list.gom:102
 			tmp39 := tmp37
-//line stdlib/list/list.gom:102
-			tmp40 := tmp38
 //line stdlib/list/list.gom:103
-			tmp41 := acc + tmp39
+			tmp40 := acc + tmp38
 //line stdlib/list/list.gom:103
-			acc, xs = tmp41, tmp40
+			acc, xs = tmp40, tmp39
 //line stdlib/list/list.gom:103
 			continue
 //line stdlib/list/list.gom:103

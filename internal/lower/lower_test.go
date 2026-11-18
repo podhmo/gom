@@ -360,23 +360,23 @@ func TestUnknownCallEtaExpand(t *testing.T) {
 		if len(cl.Fn.Params) != 1 || cl.Fn.Sig.Params[0].Label != "to" {
 			t.Fatalf("closure params = %+v, want the one ~to slot", cl.Fn.Params)
 		}
-		// Body: tmp = partial(to-param); tmp(7) — declaration order.
-		if len(cl.Fn.Body.Lets) != 1 {
-			t.Fatalf("closure lets = %d, want 1 (the saturated prefix)", len(cl.Fn.Body.Lets))
-		}
-		step, ok := cl.Fn.Body.Lets[0].X.(*core.CallFunc)
-		if !ok {
-			t.Fatalf("let value is %T, want CallFunc", cl.Fn.Body.Lets[0].X)
-		}
-		if step.Fn.(*core.Var).Sym != pv {
-			t.Errorf("applied fn = %v, want partial", step.Fn)
-		}
-		if step.Args[0].(*core.Var).Sym != cl.Fn.Params[0].Sym {
-			t.Errorf("first applied arg should be the closure param")
+		// `partial` is flat — the body is one flat call in
+		// declaration order: partial(to-param, 7).
+		if len(cl.Fn.Body.Lets) != 0 {
+			t.Fatalf("closure lets = %d, want 0", len(cl.Fn.Body.Lets))
 		}
 		fin, ok := cl.Fn.Body.Tail.(*core.CallFunc)
-		if !ok || fin.Args[0].(*core.Lit).Text != "7" {
-			t.Fatalf("closure tail = %+v, want CallFunc applying 7", cl.Fn.Body.Tail)
+		if !ok || fin.FlatArity != 2 {
+			t.Fatalf("closure tail = %+v, want CallFunc{FlatArity:2}", cl.Fn.Body.Tail)
+		}
+		if fin.Fn.(*core.Var).Sym != pv {
+			t.Errorf("applied fn = %v, want partial", fin.Fn)
+		}
+		if fin.Args[0].(*core.Var).Sym != cl.Fn.Params[0].Sym {
+			t.Errorf("first applied arg should be the closure param")
+		}
+		if fin.Args[1].(*core.Lit).Text != "7" {
+			t.Errorf("second applied arg should be 7")
 		}
 	})
 
@@ -387,18 +387,18 @@ func TestUnknownCallEtaExpand(t *testing.T) {
 		out := mustLower(t, decl("g", []check.Param{param(vpat(pv, psig))}, call,
 			types.Fn(types.String, types.P(psig))))
 		body := fnDeclOf(t, out, 0).Fn.Body
-		// Source order ~b:1 ~a:2 reorders to declaration order:
-		// partial(2)(1).
-		if len(body.Lets) != 1 {
-			t.Fatalf("lets = %d, want 1 (the saturated prefix)", len(body.Lets))
-		}
-		step, ok := body.Lets[0].X.(*core.CallFunc)
-		if !ok || step.Args[0].(*core.Lit).Text != "2" {
-			t.Fatalf("first chunk = %+v, want CallFunc applying 2", body.Lets[0].X)
+		// `partial` is a declared >=2-arrow parameter — the flat
+		// repr — so source order ~b:1 ~a:2 reorders to the single
+		// flat call partial(2, 1).
+		if len(body.Lets) != 0 {
+			t.Fatalf("lets = %d, want 0 (the flat call is saturated)", len(body.Lets))
 		}
 		fin, ok := body.Tail.(*core.CallFunc)
-		if !ok || fin.Args[0].(*core.Lit).Text != "1" {
-			t.Fatalf("tail = %+v, want CallFunc applying 1", body.Tail)
+		if !ok || fin.FlatArity != 2 {
+			t.Fatalf("tail = %+v, want CallFunc{FlatArity:2}", body.Tail)
+		}
+		if fin.Args[0].(*core.Lit).Text != "2" || fin.Args[1].(*core.Lit).Text != "1" {
+			t.Fatalf("flat args = %+v, want declaration order (2, 1)", fin.Args)
 		}
 	})
 }
@@ -1442,8 +1442,9 @@ func TestStrInterp(t *testing.T) {
 	}
 }
 
-// TestUnknownCall: CallUnknown applies one argument per CallFunc —
-// the canonical chain emits `f(1)(2)`.
+// TestUnknownCall: a declared >=2-arrow parameter carries the flat
+// repr (docs/decisions/2026-11-18-flat-fn-params.md), so a saturated
+// call emits one flat CallFunc — `f(1, 2)`.
 func TestUnknownCall(t *testing.T) {
 	fT := types.Fn(types.Int, types.P(types.Int), types.P(types.Int))
 	f := vsym("f", fT)
@@ -1452,19 +1453,15 @@ func TestUnknownCall(t *testing.T) {
 	out := mustLower(t, decl("g", []check.Param{param(vpat(f, fT))}, call,
 		types.Fn(types.Int, types.P(fT))))
 	body := fnDeclOf(t, out, 0).Fn.Body
-	if len(body.Lets) != 1 {
-		t.Fatalf("lets = %d, want 1 (first application binds the residual)", len(body.Lets))
-	}
-	first, ok := body.Lets[0].X.(*core.CallFunc)
-	if !ok || len(first.Args) != 1 {
-		t.Fatalf("let0 = %T, want one-argument CallFunc", body.Lets[0].X)
+	if len(body.Lets) != 0 {
+		t.Fatalf("lets = %d, want 0 (the flat call is saturated)", len(body.Lets))
 	}
 	cf, ok := body.Tail.(*core.CallFunc)
 	if !ok {
 		t.Fatalf("tail = %T, want CallFunc", body.Tail)
 	}
-	if len(cf.Args) != 1 {
-		t.Fatalf("args = %d, want 1", len(cf.Args))
+	if cf.FlatArity != 2 || len(cf.Args) != 2 {
+		t.Fatalf("tail = %+v, want CallFunc{FlatArity:2, Args:2}", cf)
 	}
 }
 

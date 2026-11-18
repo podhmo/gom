@@ -525,6 +525,8 @@ func walkTailrec(b *core.Body, f func(e core.Expr, inSpawn, inClosure bool)) {
 			for _, in := range e.In {
 				expr(in, inSpawn, inClosure)
 			}
+		case *core.Uncurry:
+			expr(e.X, inSpawn, inClosure)
 		case *core.CallDirect:
 			atoms(e.Args, inSpawn, inClosure)
 		case *core.CallFunc:

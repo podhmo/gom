@@ -18,7 +18,7 @@
 
 ### 最適化
 
-- [ ] 生成コード特殊化ポリシー（curried HOF 側）: curried HOF の flat 二面公開や呼出側 uncurry を入れるか — `Fold` の要素ごとクロージャ確保が対象。buffer 化の経路問題は wave18 で決着（`Array` builder＋`@extern fn` — [decision](decisions/2026-11-18-cons-buffer-array-extern-impl.md)、[problems](problems/2026-11-05-stdlib-cons-built-combinators-quadratic.md)）。コピーしない共有スライス型（View）の案は [problems](problems/2026-11-04-shared-slice-view-type.md)
+- [x] 生成コード特殊化ポリシー（curried HOF 側）: 呼出側 uncurry（flat fn params）を採択 — 宣言 >=2 本矢印パラメータを flat `func(T1',...,Tk') R'` にし、`Fold` の要素ごと確保を解消（~12×）。wave20 lane 2、[decision](decisions/2026-11-18-flat-fn-params.md)、[検証](sketch/2026-11-18-flat-fn-params-verify.md)。コピーしない共有スライス型（View）の案は [problems](problems/2026-11-04-shared-slice-view-type.md)
 - [x] `concat` の O(k) スタック: `@extern fn` で `Concat` を impl.go の buffer loop へ — 総長 prealloc の 1 回コピー、O(1) スタック・O(n)・1 alloc（k=512 で 1.51ms → 21µs、~72×）。wave19 lane 3、[sketch](sketch/2026-11-18-concat-buffer-impl.md)
 
 ### ツール

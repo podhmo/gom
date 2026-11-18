@@ -103,6 +103,7 @@ type validator struct {
 	fn      *Func                      // innermost enclosing function (nil outside one)
 	fnTop   bool                       // fn belongs to a FuncDecl (TailCall may target it)
 	spawn   int                        // >0 inside a go{} block — escapes are illegal
+	uncurry int                        // >0 inside Uncurry.X — a bare FuncRef/CtorRef of any arity adapts there
 	pkg     string                     // the file's package clause — entry-point consistency
 }
 
@@ -772,7 +773,7 @@ func (v *validator) atom(a Atom, what string) {
 		// canonical one-func-per-arrow chain. The two coincide only
 		// at declared arity 1; any larger arity needs an adapter
 		// Closure instead of a bare reference.
-		if a.Arity != 1 {
+		if a.Arity != 1 && v.uncurry == 0 {
 			v.err(a.Sp, "FuncRef", "declared arity %d does not emit the canonical one-argument value — use an adapter Closure",
 				a.Arity)
 		}
@@ -903,6 +904,13 @@ func (v *validator) expr(e Expr, inTail bool) {
 		for _, in := range e.In {
 			v.expr(in, false)
 		}
+	case *Uncurry:
+		if e.Arity < 2 {
+			v.err(e.Sp, "Uncurry", "flat arity %d — the adapter exists for >=2-arrow slots", e.Arity)
+		}
+		v.uncurry++
+		v.expr(e.X, false)
+		v.uncurry--
 	case *CallDirect:
 		if e.Callee == nil || e.Callee.Kind != resolve.KindFunc || e.Callee.IsGo {
 			v.err(e.Sp, "CallDirect", "callee is not a Gom function symbol")
@@ -930,14 +938,27 @@ func (v *validator) expr(e Expr, inTail bool) {
 		// The canonical value representation is one Go func per
 		// arrow, so every CallFunc supplies exactly one argument —
 		// except a `-> T` callee, a Go zero-parameter signature,
-		// whose `f ()` application has no argument at all.
+		// whose `f ()` application has no argument at all. A FlatArity
+		// callee is a declared parameter carrying the flat repr: one
+		// call supplies every flat argument.
 		want := 1
 		if nullary {
 			want = 0
 		}
+		if e.FlatArity > 0 {
+			want = e.FlatArity
+			if nullary {
+				v.err(e.Sp, "CallFunc", "flat arity on a zero-parameter callee")
+			}
+		}
 		if len(e.Args) != want {
-			v.err(e.Sp, "CallFunc", "applying at %d args — the canonical function value takes exactly one",
-				len(e.Args))
+			if e.FlatArity > 0 {
+				v.err(e.Sp, "CallFunc", "applying at %d args — the flat repr takes %d",
+					len(e.Args), want)
+			} else {
+				v.err(e.Sp, "CallFunc", "applying at %d args — the canonical function value takes exactly one",
+					len(e.Args))
+			}
 		}
 		v.atoms(e.Args, "CallFunc.Args")
 	case *CallGo:
@@ -1696,6 +1717,8 @@ func nilExpr(e Expr) bool {
 	case *Closure:
 		return e == nil
 	case *GoFunc:
+		return e == nil
+	case *Uncurry:
 		return e == nil
 	case *CallDirect:
 		return e == nil

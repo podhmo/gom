@@ -158,6 +158,8 @@ func File(f *check.File, env *Env) (*core.File, []diag.Diagnostic) {
 		typeD:      map[string]*check.TypeDecl{},
 		ctorT:      map[*resolve.Symbol]*check.TypeDecl{},
 		boundSyms:  map[*resolve.Symbol]bool{},
+		flat:       map[*resolve.Symbol]int{},
+		flatSrc:    map[*resolve.Symbol]core.Expr{},
 		aliasElems: map[*resolve.Symbol]check.Expr{},
 		aliasInit:  map[*resolve.Symbol]bool{},
 	}
@@ -377,6 +379,19 @@ type lowerer struct {
 	// duplicated arm body (or-pattern, wildcard expansion, guard
 	// continuation) and needs a fresh binder.
 	boundSyms map[*resolve.Symbol]bool
+
+	// flat records the flat-repr parameters of the FuncDecl body
+	// currently lowering — bound symbol → arity (≥2) — for the
+	// flat-fn-param convention (flat.go): calls fuse to a single
+	// `f(a, b, ...)` and value positions eta-wrap to canonical.
+	flat map[*resolve.Symbol]int
+
+	// flatSrc records the canonical source an Uncurry-bound flat
+	// temp adapts — partial applications step the source one
+	// argument at a time so the callee's per-chunk lets keep the
+	// canonical eager semantics, and value positions reuse the
+	// canonical value instead of eta-wrapping the flat one.
+	flatSrc map[*resolve.Symbol]core.Expr
 
 	// fnStack is the stack of enclosing function boundaries — the
 	// innermost is the escape To target. Entries are *core.Func.
@@ -911,6 +926,18 @@ func (l *lowerer) decl(d check.Decl, out *core.File) {
 		}
 		fn := &core.Func{Sp: d.Sp, Sig: sig}
 		fn.Params = l.paramBinds(d.Params, fn)
+		// Parameters of ≥2-arrow function type carry the flat repr
+		// for this body (docs/decisions/2026-11-18-flat-fn-params.md).
+		savedFlat, savedFlatSrc := l.flat, l.flatSrc
+		l.flat, l.flatSrc = map[*resolve.Symbol]int{}, map[*resolve.Symbol]core.Expr{}
+		for _, b := range fn.Params {
+			if b == nil || b.Sym == nil {
+				continue
+			}
+			if k := flatParamArity(b.Typ); k >= 2 {
+				l.flat[b.Sym] = k
+			}
+		}
 		l.fnStack = append(l.fnStack, fn)
 		s := &seq{}
 		l.paramPrelude(d.Params, fn.Params, s)
@@ -919,6 +946,7 @@ func (l *lowerer) decl(d check.Decl, out *core.File) {
 		tail := l.expr(s, d.Body)
 		fn.Body = &core.Body{Lets: s.lets, Tail: tail}
 		l.fnStack = l.fnStack[:len(l.fnStack)-1]
+		l.flat, l.flatSrc = savedFlat, savedFlatSrc
 		l.markTailCalls(fn, d.Sym, d.TypeParams)
 		l.markConsCalls(fn, d.Sym, d.TypeParams)
 		if fn.TailLoop {

@@ -51,6 +51,12 @@ type CallFunc struct {
 	Base
 	Fn   Atom   // a function value — never FuncRef / CtorRef (those are CallDirect / CtorApp)
 	Args []Atom // one argument per canonical chain step; empty only for the `-> T` `f()` call
+	// FlatArity is the callee's flat arity when Fn names a value in
+	// the flat representation — a declared parameter of ≥2-arrow
+	// function type emits `func(T1', ..., Tk') R'`, so its full
+	// application is one `f(a, b, ...)` call. 0 is the canonical
+	// one-argument step (len(Args) is 1 or 0 for `-> T`).
+	FlatArity int
 }
 
 func (*CallFunc) isExpr() {}

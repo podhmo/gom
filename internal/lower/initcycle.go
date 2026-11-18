@@ -110,7 +110,7 @@ func CheckInitCycles(files []*core.File) []diag.Diagnostic {
 					*core.Match, *core.OptionFromGo, *core.RecordNew,
 					*core.RecordUpdate, *core.ResultFromGo, *core.SelectExpr,
 					*core.Spawn, *core.TailCall, *core.TupleFromGo,
-					*core.TupleNew, *core.Unary:
+					*core.TupleNew, *core.Unary, *core.Uncurry:
 					// Only direct symbol references join the
 					// init dependency set; every other
 					// expression kind contributes through

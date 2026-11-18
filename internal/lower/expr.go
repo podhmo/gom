@@ -56,6 +56,17 @@ func (l *lowerer) asAtom(s *seq, sp diag.Span, x core.Expr) core.Atom {
 		return a
 	}
 	b := l.tmpBind(sp, x.Type())
+	// An Uncurry binds the flat repr — record it so a later flat
+	// slot takes the bound Var verbatim instead of re-wrapping it
+	// in an adapter that would apply it curried (flat.go).
+	if u, ok := x.(*core.Uncurry); ok {
+		if l.flat != nil {
+			l.flat[b.Sym] = u.Arity
+		}
+		if l.flatSrc != nil {
+			l.flatSrc[b.Sym] = u.X
+		}
+	}
 	s.emit(b, x)
 	return varOf(sp, b)
 }
@@ -174,6 +185,13 @@ func (l *lowerer) varExpr(e *check.Var) core.Expr {
 		if sym.IsGo {
 			return l.goVarRef(e.Span(), e.Type(), sym)
 		}
+		ssym := l.substSym(sym)
+		if k := l.flat[ssym]; k > 0 {
+			// A declared flat parameter in *value* position takes
+			// the canonical repr — the eta `func(p0) func(p1)
+			// ... { f(p0, p1, ...) }` (flat.go).
+			return l.curryEta(e.Sp, e.Type(), &core.Var{Base: baseOf(e), Sym: ssym}, k)
+		}
 		return l.varRef(baseOf(e), sym)
 	case resolve.KindFunc:
 		if sym.IsGo {
@@ -205,7 +223,7 @@ func (l *lowerer) varExpr(e *check.Var) core.Expr {
 func (l *lowerer) builtinRef(sp diag.Span, typ types.Type, sym *resolve.Symbol) core.Expr {
 	if sig := sigOf(typ); sig != nil {
 		return l.closureChainType(sp, sig, func(bs *seq, pv []core.Atom) core.Expr {
-			return l.builtinCall(sp, sig.Ret, sym, pv)
+			return l.builtinCall(bs, sp, sig.Ret, sym, pv)
 		})
 	}
 	l.err(sp, fmt.Sprintf("builtin %s used as a non-function value", sym.Name))
@@ -813,7 +831,7 @@ func (l *lowerer) applyCall(s *seq, e *check.Apply) core.Expr {
 	// shape actually consumes a function value; a statically known
 	// callee is a pure ref (emitted work is nil).
 	fnExpr := l.calleeExpr(s, e.Fn, ci, recv)
-	args := l.argAtoms(s, e.Args)
+	args := l.argAtoms(s, e.Args, ci, e.Fn)
 	return l.finishCall(s, e.Sp, e.Type(), e.Fn, fnExpr, recv, ci, args, hasSpread(e.Args))
 }
 
@@ -844,6 +862,13 @@ func (l *lowerer) calleeExpr(s *seq, fn check.Expr, ci check.CallInfo, recv core
 		return nil
 	}
 	if ci.Kind == check.CallUnknown {
+		// A declared flat parameter applied as the call's callee
+		// stays the flat Var — the fused `f(a, b, ...)` emission
+		// is callFuncChunks' business (flat.go); wrapping it in
+		// the canonical eta here would forfeit the fusion.
+		if a := l.flatCalleeAtom(fn); a != nil {
+			return a
+		}
 		// The callee evaluates before the arguments (spec section
 		// 2 rule 4 — left-to-right; eval's evalApply agrees): a
 		// complex callee must be bound here, ahead of argAtoms'
@@ -862,7 +887,22 @@ func (l *lowerer) calleeExpr(s *seq, fn check.Expr, ci check.CallInfo, recv core
 // argAtoms lowers call arguments in source order. Holes and the
 // spread marker contribute no atom of their own — the spread flag is
 // recovered on the CallGo.
-func (l *lowerer) argAtoms(s *seq, args []check.Arg) []core.Atom {
+//
+// Arguments bound for a declared callee's ≥2-arrow parameter slot
+// adapt to the flat repr through flatArg (flat.go): the parameter
+// index comes from CallInfo.ArgToParam and the callee's flattened
+// signature. `Go.funcN`/`Go.fnN` conversions exempt themselves — the
+// conversion *is* the canonical→flat boundary and wants the source
+// value in canonical repr.
+func (l *lowerer) argAtoms(s *seq, args []check.Arg, ci check.CallInfo, callee check.Expr) []core.Atom {
+	var params []types.Type
+	if ci.Callee != nil {
+		if _, conv := goFuncCallN(ci.Callee); !conv {
+			if _, conv := goFnCallN(ci.Callee); !conv {
+				params = funcParamTypes(flatSig(callee.Type()))
+			}
+		}
+	}
 	out := make([]core.Atom, len(args))
 	for i, a := range args {
 		// Partial probes stay as if-assertions: check.Expr is a
@@ -873,6 +913,16 @@ func (l *lowerer) argAtoms(s *seq, args []check.Arg) []core.Atom {
 		if v, ok := a.Value.(*check.Spread); ok {
 			out[i] = l.atom(s, v.X)
 			continue
+		}
+		pos := i
+		if i < len(ci.ArgToParam) {
+			pos = ci.ArgToParam[i]
+		}
+		if pos >= 0 && pos < len(params) {
+			if k := flatParamArity(params[pos]); k >= 2 {
+				out[i] = l.flatArg(s, a, k)
+				continue
+			}
 		}
 		out[i] = l.atom(s, a.Value)
 	}
@@ -892,7 +942,7 @@ func (l *lowerer) finishCall(s *seq, sp diag.Span, resTyp types.Type, callee che
 	case check.CallUnknown:
 		return l.unknownCall(s, sp, resTyp, callee, fnExpr, ci, args)
 	case check.CallGo:
-		return l.goCall(s, sp, resTyp, ci, args, recv, spread)
+		return l.goCall(s, sp, resTyp, callee, ci, args, recv, spread)
 	default:
 		panic("unreachable")
 	}
@@ -949,11 +999,12 @@ func (l *lowerer) directCall(s *seq, sp diag.Span, resTyp types.Type, callee che
 	// function exactly like positional extras (docs/decisions/
 	// 2026-11-06-label-args-into-returned-functions.md).
 	ordered := declOrderArgs(ci, args, ci.Flat())
+	ordered = l.flatifyCallArgs(s, sp, funcParamTypes(flatSig(callee.Type())), ordered, ci.Arity)
 	switch sym.Kind {
 	case resolve.KindFunc:
 		if sym.IsGo {
 			l.err(sp, fmt.Sprintf("Go function %s classified CallDirect", sym.Name))
-			return l.goCall(s, sp, resTyp, ci, args, nil, spread)
+			return l.goCall(s, sp, resTyp, callee, ci, args, nil, spread)
 		}
 		if ci.Applied <= ci.Arity {
 			return &core.CallDirect{
@@ -998,7 +1049,7 @@ func (l *lowerer) directCall(s *seq, sp diag.Span, resTyp types.Type, callee che
 				flat = append(flat, a)
 			}
 		}
-		return l.builtinCall(sp, resTyp, sym, flat)
+		return l.builtinCall(s, sp, resTyp, sym, flat)
 	default:
 		l.err(sp, fmt.Sprintf("CallDirect callee %s has kind %s", sym.Name, sym.Kind))
 		return l.litUnit(sp)
@@ -1013,7 +1064,7 @@ func (l *lowerer) directCall(s *seq, sp diag.Span, resTyp types.Type, callee che
 // question (docs/problems/2026-11-02-assert-outside-test.md); until
 // check settles it, lowering reports the shape rather than produce
 // uncompilable Go.
-func (l *lowerer) builtinCall(sp diag.Span, typ types.Type, sym *resolve.Symbol, args []core.Atom) core.Expr {
+func (l *lowerer) builtinCall(s *seq, sp diag.Span, typ types.Type, sym *resolve.Symbol, args []core.Atom) core.Expr {
 	if !l.inTest && (sym.Name == "assert" || sym.Name == "assert_eq") {
 		l.err(sp, fmt.Sprintf("builtin %s may only be called inside a test block", sym.Name))
 	}
@@ -1022,7 +1073,7 @@ func (l *lowerer) builtinCall(sp diag.Span, typ types.Type, sym *resolve.Symbol,
 		Sym: sym, Args: args,
 	}
 	if n, ok := goFuncCallN(sym); ok {
-		return l.goFuncWrap(sp, typ, sym, args, n)
+		return l.goFuncWrap(s, sp, typ, sym, args, n)
 	}
 	if n, ok := goFnCallN(sym); ok {
 		return l.goFnWrap(sp, typ, args, n)
@@ -1058,12 +1109,22 @@ func goFuncCallN(sym *resolve.Symbol) (int, bool) {
 // conversion is recorded on the node — the parameter-side raw→Gom
 // reads and the result payload's Gom→raw write both reuse the
 // ordinary boundary table (goConvKindOf).
-func (l *lowerer) goFuncWrap(sp diag.Span, typ types.Type, sym *resolve.Symbol, args []core.Atom, n int) core.Expr {
+func (l *lowerer) goFuncWrap(s *seq, sp diag.Span, typ types.Type, sym *resolve.Symbol, args []core.Atom, n int) core.Expr {
 	if len(args) != 1 || args[0] == nil {
 		l.err(sp, fmt.Sprintf("Go.func%d expects one function argument", n))
 		return l.litUnit(sp)
 	}
 	f := args[0]
+	// A declared flat parameter fed to `Go.funcN` is already in the
+	// target repr — canonicalize first so the adapter body's curried
+	// applications stay valid (flat.go). `Go.funcN` is exempt from
+	// the argument-side flat adaptation precisely so the source
+	// arrives canonical; this guard covers symbols the exemption
+	// cannot see (e.g. a flat Var passed where the member's fn slot
+	// is arity ≥ 2).
+	if k := l.flatAtomArity(f); k > 0 {
+		f = l.asAtom(s, sp, l.curryEta(sp, f.Type(), f, k))
+	}
 	fn, ok := typ.(*types.Con)
 	if !ok || fn.Qual != "Go" || len(fn.Args) < n || len(fn.Args) > n+8 {
 		l.err(sp, fmt.Sprintf("Go.func%d result type %s is not a Go.Func%d type", n, typeName(typ), n))
@@ -1302,7 +1363,7 @@ func (l *lowerer) partialCall(s *seq, sp diag.Span, resTyp types.Type, callee ch
 		return l.litUnit(sp)
 	}
 	if sym.IsGo || sym.Kind == resolve.KindMethod {
-		return l.goCall(s, sp, resTyp, ci, args, nil, spread)
+		return l.goCall(s, sp, resTyp, callee, ci, args, nil, spread)
 	}
 	sig := sigOf(resTyp)
 	if sig == nil {
@@ -1338,7 +1399,15 @@ func (l *lowerer) partialCall(s *seq, sp diag.Span, resTyp types.Type, callee ch
 	return l.closureChain(sp, resTyp, paramTyps, func(bs *seq, pv []core.Atom) core.Expr {
 		ordered := declOrderArgs(ci, args, flat)
 		for k, i := range unapplied {
+			// The eta's own parameter fills a declaration slot:
+			// it is a canonical value, so a ≥2-arrow slot needs
+			// the Uncurry adapter (flat.go).
 			ordered[i] = pv[k]
+			if calleeSig != nil && i < len(calleeSig.Params) {
+				if fa := flatParamArity(calleeSig.Params[i].Type); fa >= 2 {
+					ordered[i] = l.ensureFlatAtom(bs, sp, pv[k], fa)
+				}
+			}
 		}
 		switch sym.Kind {
 		case resolve.KindFunc:
@@ -1372,7 +1441,7 @@ func (l *lowerer) partialCall(s *seq, sp diag.Span, resTyp types.Type, callee ch
 					flat = append(flat, a)
 				}
 			}
-			return l.builtinCall(sp, retAfter(calleeSig, ci.Arity), sym, flat)
+			return l.builtinCall(s, sp, retAfter(calleeSig, ci.Arity), sym, flat)
 		default:
 			panic("unreachable")
 		}
@@ -1498,7 +1567,7 @@ func (l *lowerer) unknownCall(s *seq, sp diag.Span, resTyp types.Type, callee ch
 
 // goCall lowers a Go call. A `_` hole becomes the parameter of a
 // cute-style Closure; a multi-result call is wrapped in its consumer.
-func (l *lowerer) goCall(s *seq, sp diag.Span, resTyp types.Type, ci check.CallInfo, args []core.Atom, recv core.Atom, spread bool) core.Expr {
+func (l *lowerer) goCall(s *seq, sp diag.Span, resTyp types.Type, callee check.Expr, ci check.CallInfo, args []core.Atom, recv core.Atom, spread bool) core.Expr {
 	sig := instantiateGoSig(l.goSig(ci.Callee, resTyp), ci.TypeArgs)
 	if sig.Arity == 0 && !sig.Variadic {
 		// The Env oracle did not know the signature: trust CallInfo.
@@ -1512,7 +1581,9 @@ func (l *lowerer) goCall(s *seq, sp diag.Span, resTyp types.Type, ci check.CallI
 			sig.Results = l.goResultsOf(resTyp)
 		}
 	}
-	ordered := l.convGoArgs(s, sig, declOrderArgs(ci, args, 0), spread)
+	ordered := declOrderArgs(ci, args, 0)
+	ordered = l.flatifyCallArgs(s, sp, funcParamTypes(flatSig(callee.Type())), ordered, len(ordered))
+	ordered = l.convGoArgs(s, sig, ordered, spread)
 
 	if ci.HoleIndex >= 0 {
 		// Cute partial application: the hole is the closure's single
@@ -1544,6 +1615,13 @@ func (l *lowerer) goCall(s *seq, sp diag.Span, resTyp types.Type, ci check.CallI
 			}
 			filled[holePos] = l.convGoArg(bs, sig, holePos, pv[0],
 				spread && holePos == len(filled)-1)
+			if cps := funcParamTypes(flatSig(callee.Type())); holePos < len(cps) {
+				if k := flatParamArity(cps[holePos]); k >= 2 {
+					filled[holePos] = l.ensureFlatAtom(bs, sp, pv[0], k)
+					filled[holePos] = l.convGoArg(bs, sig, holePos, filled[holePos],
+						spread && holePos == len(filled)-1)
+				}
+			}
 			call := &core.CallGo{
 				Sp: sp, Typ: l.goCallTyp(sig, remTyp.Ret),
 				Callee: ci.Callee, Recv: recv, TypeArgs: ci.TypeArgs,
@@ -1594,7 +1672,7 @@ func (l *lowerer) goCallNode(s *seq, ap *check.Apply) *core.CallGo {
 	ci := ap.Call
 	recv := l.methodRecv(s, ap.Fn, ci)
 	l.calleeExpr(s, ap.Fn, ci, recv)
-	args := l.argAtoms(s, ap.Args)
+	args := l.argAtoms(s, ap.Args, ci, ap.Fn)
 	sig := instantiateGoSig(l.goSig(ci.Callee, ap.Type()), ci.TypeArgs)
 	if sig.Results == 0 {
 		// As in goCall: an oracle answered without a result
@@ -1695,27 +1773,31 @@ func (l *lowerer) closureChainType(sp diag.Span, sig *types.Func, build func(bs 
 func (l *lowerer) applyAtom(s *seq, sp diag.Span, resTyp types.Type, fn core.Atom, args []core.Atom) core.Expr {
 	switch f := fn.(type) {
 	case *core.FuncRef:
+		// Pipe/composition arrivals: the written-argument adaptation
+		// never saw these atoms, so flat parameter slots wrap here.
+		fSig := flatSig(f.Type())
 		switch {
 		case len(args) == f.Arity:
 			return &core.CallDirect{
 				Sp: sp, Typ: resTyp,
 				Callee: f.Sym, TypeArgs: f.TypeArgs,
-				Args: args, Arity: f.Arity,
+				Args: l.flatifyCallArgs(s, sp, funcParamTypes(fSig), args, f.Arity), Arity: f.Arity,
 			}
 		case len(args) > f.Arity:
 			first := &core.CallDirect{
 				Sp: sp, Typ: overAppRet(f, f.Arity),
 				Callee: f.Sym, TypeArgs: f.TypeArgs,
-				Args: args[:f.Arity], Arity: f.Arity,
+				Args: l.flatifyCallArgs(s, sp, funcParamTypes(fSig), args[:f.Arity], f.Arity), Arity: f.Arity,
 			}
 			t := l.asAtom(s, sp, first)
 			return l.callFuncChunks(s, sp, t, args[f.Arity:])
 		default:
 			return l.closureChainType(sp, resFunc(sigOf(f.Type()), len(args), f.Type()), func(bs *seq, pv []core.Atom) core.Expr {
+				full := append(append([]core.Atom{}, args...), pv...)
 				return &core.CallDirect{
 					Sp: sp, Typ: retAfter(sigOf(f.Type()), f.Arity),
 					Callee: f.Sym, TypeArgs: f.TypeArgs,
-					Args:  append(append([]core.Atom{}, args...), pv...),
+					Args:  l.flatifyCallArgs(bs, sp, funcParamTypes(fSig), full, f.Arity),
 					Arity: f.Arity,
 				}
 			})
@@ -1770,6 +1852,42 @@ func (l *lowerer) applyAtom(s *seq, sp diag.Span, resTyp types.Type, fn core.Ato
 // so each application's type (the residual arrow) stays an atom's.
 func (l *lowerer) callFuncChunks(s *seq, sp diag.Span, fn core.Atom, args []core.Atom) core.Expr {
 	for len(args) > 0 {
+		// A declared flat parameter applies its whole arity in one
+		// `f(a, b, ...)` — the flat repr it carries (flat.go). Fewer
+		// arguments than the arity still eta-expand into the
+		// canonical residual.
+		if k := l.flatAtomArity(fn); k > 0 {
+			fs := flatSig(fn.Type())
+			if fs == nil || len(fs.Params) != k {
+				l.err(sp, fmt.Sprintf("flat function value of type %s applied with arity %d", fn.Type(), k))
+				return l.litUnit(sp)
+			}
+			if len(args) < k {
+				// A bound adapter keeps its canonical source —
+				// partial application steps it one argument at a
+				// time so the callee's per-chunk lets still run at
+				// each step (the eager chunk semantics the
+				// canonical repr pins).
+				if v, ok := fn.(*core.Var); ok && l.flatSrc[v.Sym] != nil {
+					fn = l.asAtom(s, sp, l.flatSrc[v.Sym])
+					continue
+				}
+				resTyp := &types.Func{Params: fs.Params[len(args):], Ret: fs.Ret}
+				return l.closureChain(sp, resTyp, fs.Params[len(args):], func(bs *seq, pv []core.Atom) core.Expr {
+					return &core.CallFunc{Sp: sp, Typ: fs.Ret, Fn: fn,
+						Args:      append(append([]core.Atom{}, args...), pv...),
+						FlatArity: k}
+				})
+			}
+			resTyp := fs.Ret
+			call := &core.CallFunc{Sp: sp, Typ: resTyp, Fn: fn, Args: args[:k], FlatArity: k}
+			args = args[k:]
+			if len(args) == 0 {
+				return call
+			}
+			fn = l.asAtom(s, sp, call)
+			continue
+		}
 		fs, ok := types.Chase(fn.Type()).(*types.Func)
 		if !ok {
 			l.err(sp, fmt.Sprintf("applying a non-function value of type %s", fn.Type()))
@@ -2041,7 +2159,7 @@ func (l *lowerer) pipeApplyInto(s *seq, sp diag.Span, ap *check.Apply, piped fun
 	ci := ap.Call
 	recv := l.methodRecv(s, ap.Fn, ci)
 	fnExpr := l.calleeExpr(s, ap.Fn, ci, recv)
-	args := l.argAtoms(s, ap.Args)
+	args := l.argAtoms(s, ap.Args, ci, ap.Fn)
 	atom := piped()
 	if ci.HoleIndex >= 0 {
 		// The piped value fills the placeholder: it takes the
@@ -2091,7 +2209,7 @@ func (l *lowerer) pipeGoElemCall(s *seq, callee check.Expr, piped func() core.At
 		Kind: check.CallGo, Callee: sym,
 		Arity: 1, Applied: 1, HoleIndex: -1, Variadic: true,
 	}
-	return l.goCall(s, callee.Span(), resTyp, ci, []core.Atom{piped()}, recv, false), true
+	return l.goCall(s, callee.Span(), resTyp, callee, ci, []core.Atom{piped()}, recv, false), true
 }
 
 // lowestUnfilled is the smallest callee-parameter index no written
@@ -2629,7 +2747,7 @@ func (l *lowerer) stepApply(s *seq, e *check.Binary, rhs check.Expr, in core.Ato
 				recv = l.atom(s, m.Recv)
 			}
 			ci := check.CallInfo{Kind: check.CallGo, Callee: sym, TypeArgs: targs, Arity: 1, Applied: 1, HoleIndex: -1}
-			return l.goCall(s, rhs.Span(), e.Type(), ci, []core.Atom{in}, recv, false)
+			return l.goCall(s, rhs.Span(), e.Type(), rhs, ci, []core.Atom{in}, recv, false)
 		}
 	}
 	if ap, ok := rhs.(*check.Apply); ok {

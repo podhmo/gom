@@ -44,8 +44,8 @@ func TestSliceOps(t *testing.T) {
 	}
 	s[1] = 20
 
-	sum := rt.SliceFold(s, func(acc int64) func(int64) int64 {
-		return func(v int64) int64 { return acc + v }
+	sum := rt.SliceFold(s, func(acc, v int64) int64 {
+		return acc + v
 	}, 0)
 	if sum != 60 {
 		t.Fatalf("SliceFold sum = %d, want 60", sum)
@@ -72,8 +72,8 @@ func TestSliceOpsNil(t *testing.T) {
 	if _, ok := rt.SliceGet(s, 0); ok {
 		t.Error("SliceGet(nil, 0) ok = true, want false")
 	}
-	if got := rt.SliceFold(s, func(acc int64) func(int64) int64 {
-		return func(v int64) int64 { return acc + v }
+	if got := rt.SliceFold(s, func(acc, v int64) int64 {
+		return acc + v
 	}, 5); got != 5 {
 		t.Fatalf("SliceFold(nil, f, 5) = %d, want 5", got)
 	}
@@ -103,10 +103,10 @@ func TestSliceSubPanics(t *testing.T) {
 }
 
 // TestSliceFoldOrder pins the left fold: index order, acc first —
-// `f(acc)(v)` as in the Gom `b -> a -> b` shape.
+// `f(acc, v)` — the flat repr of the Gom `b -> a -> b` shape.
 func TestSliceFoldOrder(t *testing.T) {
-	got := rt.SliceFold([]int64{1, 2, 3}, func(acc string) func(int64) string {
-		return func(v int64) string { return acc + " " + string(rune('0'+v)) }
+	got := rt.SliceFold([]int64{1, 2, 3}, func(acc string, v int64) string {
+		return acc + " " + string(rune('0'+v))
 	}, "x")
 	if got != "x 1 2 3" {
 		t.Fatalf("SliceFold order = %q, want %q", got, "x 1 2 3")

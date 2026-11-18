@@ -334,6 +334,8 @@ if n > 0 {
 
 関数値の表現はカリー化形（[decisions/function-value-representation](decisions/2026-11-02-function-value-representation.md) — P0-2 の flat 形を部分的に Supersede）: Gom の `T1 -> ... -> Tn -> R` の値は Go の `func(T1) func(T2) ... R` とし、矢印 1 本につき Go の関数を 1 つ生成する。`types.Equal` は矢印チェーンを平坦化して同一視するため、`Int -> Int -> Int` と `Int -> (Int -> Int)` は同じ型——表現を平坦化済みチェーンの純粋関数にすると、どの綴りでも同じ Go 型になり、境界に変換は要らない（P0-2 の flat 形は宣言 arity で表現を選んだため、check を通った `stage make` が型検査の通らない Go を生成していた）。宣言は従来どおり宣言 arity の Go 関数を出力する。値として参照できるのは宣言 arity 1 のときだけで、2 以上は `func(p0) func(p1) ... { f_(p0, p1, ...) }` のアダプタを生成する——アダプタの最後の矢印が宣言チャンク全体を起動するので、本体の副作用が最初のチャンク適用時に走る順序は変わらない。`.gomi` には引数リストの形でシグネチャを書くので、他パッケージの関数についても arity が分かる。
 
+例外として、宣言 FuncDecl のパラメータで型が >=2 本の矢印チェーンを持つものは flat 表現 `func(T1', ..., Tk') R'` をパラメータ型として emit する（[decisions/flat-fn-params](decisions/2026-11-18-flat-fn-params.md) — `Fold` の要素ごとクロージャ確保を消すため）。飽和呼出は `CallFunc{FlatArity: k}`、canonical 値からの適合は `Uncurry`、値位置での canonical 復元は `curryEta` で、いずれも Core IR で確定させる。flat パラメータへの部分適用は残り引数まで呼出全体を遅延する（作用の発火タイミングが residual 適用時に移る差は decision に記録）。
+
 ### 4.5 その他の変換
 
 - Go 関数の呼び出し → タプルを作らず `pkg.F(a, b)` に直接変換する。数値型の変換、`any` へのボックス化、`(T, error)` から `Result` への変換もここで挿入する
