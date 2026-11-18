@@ -131,7 +131,13 @@ func compileInputs(inputs []input, checkOnly bool, bc *buildCache, outFlag strin
 			continue
 		}
 		modKey[dir] = md
-		rel, err := filepath.Rel(md, dir)
+		// The group key is a CLI-given (possibly relative) path;
+		// Rel needs both sides absolute to reach the self path.
+		absDir, err := filepath.Abs(dir)
+		if err != nil {
+			continue
+		}
+		rel, err := filepath.Rel(md, absDir)
 		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
 			continue
 		}
@@ -194,8 +200,12 @@ func compileInputs(inputs []input, checkOnly bool, bc *buildCache, outFlag strin
 		}
 		if layer == nil {
 			// An import cycle among the inputs — E0606 reports it
-			// inside the compiles; schedule the remainder serially.
-			layer = rest
+			// inside the compiles; the remainder runs serially in
+			// CLI-arg order, one dir per layer.
+			for _, d := range rest {
+				layers = append(layers, []string{d})
+			}
+			break
 		}
 		layers = append(layers, layer)
 		remaining = rest
@@ -223,7 +233,7 @@ func compileInputs(inputs []input, checkOnly bool, bc *buildCache, outFlag strin
 				// Go-side deps pool at module granularity — a dep
 				// edit conservatively invalidates every dir sharing
 				// the loader (the dep set is the union).
-				p.seen = bc.depSink("go:" + key)
+				p.seen = bc.depSink(goPoolKey(dir))
 				glc.OnLoad = func(d string, deps []string) {
 					p.seen.godirs = append(p.seen.godirs, d)
 					p.seen.godirs = append(p.seen.godirs, deps...)
@@ -333,12 +343,39 @@ func moduleOf(dir string) (modPath, modDir string, ok bool) {
 
 // goPoolKey is the depSeen bucket shared by every dir in a module —
 // the key the pooled goimport.Loader's OnLoad appends Go dep dirs
-// under, and the one commit() merges back into a dir's manifest.
+// under, and the one commit() merges back into a dir's manifest. It
+// carries the effective workspace file too: a `go list` in a dir
+// resolves through the nearest go.work (or $GOWORK), so dirs sharing
+// a go.mod but seeing different workspaces must not share a loader.
 func goPoolKey(dir string) string {
 	if _, md, ok := moduleOf(dir); ok {
-		return "go:" + md
+		return "go:" + md + "|" + workFile(dir)
 	}
-	return "go:" + dir
+	return "go:" + dir + "|" + workFile(dir)
+}
+
+// workFile is the workspace `go list` would resolve through for dir:
+// $GOWORK when set ("" lets the walk run; "off" disables), else the
+// nearest ancestor go.work, else "".
+func workFile(dir string) string {
+	if w := os.Getenv("GOWORK"); w != "" {
+		return w
+	}
+	d, err := filepath.Abs(dir)
+	if err != nil {
+		return ""
+	}
+	for {
+		p := filepath.Join(d, "go.work")
+		if fi, err := os.Stat(p); err == nil && !fi.IsDir() {
+			return p
+		}
+		parent := filepath.Dir(d)
+		if parent == d {
+			return ""
+		}
+		d = parent
+	}
 }
 
 // canonicalImport unfolds the stdlib short names — the same mapping

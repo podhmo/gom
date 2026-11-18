@@ -1583,7 +1583,7 @@
   対応: 各記述を現行に同期（PR #34）。
 
 - [x] **design §5-6 の独立 dir 並列コンパイル（P4-7 残件）**: wave20 lane3 で評価 — 実装は小さくないと判定し残件のまま。理由 2 点: (a) dir グループを並列にすると依存先 `.gomi` の再生成と依存側の読み取りが競合する — 現行は CLI 引数順の直列でレースしないが、並列化には dep 順序かロックが要る。(b) `compileOptions` が共有する `gomimport.Loader`（`l.pkgs`/member table/`go/importer` fset）は compile ごとに map を mutate しており並行安全でない — dir ごとの Loader 分離は共有の利点を潰す。`bc.Hit`/`depSink`/`bc.note`/`results[i]` の dir 分割は素直に並列化できるため、真のコストは dep 順序と Loader 同期の設計にある。
-  - 対応: import 辺をソースの `import` 宣言から引いて Kahn 層を組み、層内 dir を `GOMAXPROCS` 上限で並列化（(a) 解決）。`goimport.Loader` はモジュール単位で共有・mutex 直列化、`gomimport.Loader` は `cfg.Dir` が entry identity のため dir ごとのまま（(b) 解決 — 共有の利点を潰さない実分配）。Go dep 集合はモジュール単位でプール。サイクル残件は直列フォールバック。[decision](decisions/2026-11-18-parallel-dir-compile.md) / 検証 [sketch](sketch/2026-11-18-parallel-compile-verify.md)
+  - 対応: import 辺をソースの `import` 宣言から引いて Kahn 層を組み、層内 dir を `GOMAXPROCS` 上限で並列化（(a) 解決）。`goimport.Loader` はモジュール単位で共有・mutex 直列化、`gomimport.Loader` は `cfg.Dir` が entry identity のため dir ごとのまま（(b) 解決 — 共有の利点を潰さない実分配）。Go dep 集合はモジュール＋workspace 単位でプール。サイクル残件は直列フォールバック。[decision](decisions/2026-11-18-parallel-dir-compile.md) / 検証 [sketch](sketch/2026-11-18-parallel-compile-verify.md)
   参照: [runBuild の dir ループ](../cmd/gom/cli.go)、[design 5 章](design.md)。
 - [x] **core validator が `CtorApp`/`CtorRef` の `TypeArgs` を検査しない**:
   `internal/core/validate.go` は CtorApp の callee kind と引数数、CtorRef の
