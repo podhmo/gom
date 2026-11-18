@@ -45,6 +45,31 @@ fn ok_iface_value (e: GoError) (r: io.Reader) -> Bool = errors.As e r
 
 fn ok_generic (x: a) (e: GoError) -> Bool = errors.As e x
 
+// `Ptr (Ptr E)`: the target's element `*E` is never an
+// interface and carries a method set only when E is a named,
+// non-interface type. Unnamed representations (Int, List,
+// `Ptr` itself — at any depth) and interface representations
+// (sums, `GoError`, `Option`) are provable panics.
+fn bad_pp_int (e: GoError) (p: Ptr (Ptr Int)) -> Bool = errors.As e p
+
+fn bad_pp_list (e: GoError) (p: Ptr (Ptr (List Int))) -> Bool = errors.As e p
+
+fn bad_pp_sum (e: GoError) (p: Ptr (Ptr Sum)) -> Bool = errors.As e p
+
+fn bad_pp_error (e: GoError) (p: Ptr (Ptr GoError)) -> Bool = errors.As e p
+
+fn bad_pp_deep (e: GoError) (p: Ptr (Ptr (Ptr Int))) -> Bool = errors.As e p
+
+// Silence is kept where `*E` may still carry a method set: a
+// declared record is a named struct (`*Rec`'s Error() cannot
+// be disproved), a named Go type may hide methods, and a
+// rigid `a` may instantiate to either.
+fn ok_pp_record (e: GoError) (p: Ptr (Ptr Rec)) -> Bool = errors.As e p
+
+fn ok_pp_go (e: GoError) (p: Ptr (Ptr io.Reader)) -> Bool = errors.As e p
+
+fn ok_pp_generic (x: Ptr (Ptr a)) (e: GoError) -> Bool = errors.As e x
+
 // A value alias reaches the same callee: `as2` resolves to
 // `errors.As` through the let.
 fn bad_alias (e: GoError) -> Bool = {

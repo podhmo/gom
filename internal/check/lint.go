@@ -295,9 +295,12 @@ func isGoSliceCon(t types.Type) bool {
 // concrete shape that is neither an interface nor able to
 // implement error — and stays silent where it cannot disprove the
 // call cheaply: named Go types (types.Go — `Ptr <Go error type>`
-// is the intended spelling), `GoError`/`Go.Any` elements, nested
-// `Ptr` elements, and unsolved metas (docs/decisions/
-// 2026-11-05-errors-as-target-lint.md).
+// is the intended spelling), `GoError`/`Go.Any` elements, and
+// unsolved metas (docs/decisions/
+// 2026-11-05-errors-as-target-lint.md). `Ptr (Ptr E)` warns when
+// E is provably not a named, non-interface type — `*E` is then a
+// guaranteed panic (docs/decisions/
+// 2026-11-19-errors-as-nested-ptr-lint.md).
 func (c *checker) lintErrorsAsTarget(ap *Apply, aliases map[*resolve.Symbol]*resolve.Symbol) {
 	callee := c.lintCallee(ap, aliases)
 	if callee == nil || !callee.IsGo ||
@@ -366,9 +369,10 @@ func (c *checker) lintErrorsAsTarget(ap *Apply, aliases map[*resolve.Symbol]*res
 // `*T` over them is a guaranteed panic. `Option` and declared sums
 // stay silent — their Go representations are interfaces, a legal
 // target element — and so does anything the checker cannot place
-// (named Go types, `GoError`, `Go.Any`, `Ptr`, metas). Aliases
-// resolve to their body; the seen map guards cycles the same way
-// containsMutable does.
+// (named Go types, `GoError`, `Go.Any`, metas). `Ptr` warns when
+// its own element is provably unusable (`Ptr (Ptr E)` —
+// ptrElemProvablyInvalid). Aliases resolve to their body; the
+// seen map guards cycles the same way containsMutable does.
 func (c *checker) notAsTargetElem(t types.Type, seen map[conKey]bool) bool {
 	switch t := t.(type) {
 	case *types.Meta, *types.Var, *types.Go:
@@ -389,13 +393,22 @@ func (c *checker) notAsTargetElem(t types.Type, seen map[conKey]bool) bool {
 				if !c.shadowedBuiltin(t.Name) {
 					return true
 				}
-			case "GoError", "Option", "Ptr":
+			case "GoError", "Option":
 				// `*error` and `*Option`/`Option`-shaped
-				// interfaces are legal targets; `**X` needs X's
-				// method set, which the checker cannot see.
+				// interfaces are legal targets.
 				if !c.shadowedBuiltin(t.Name) {
 					return false
 				}
+			case "Ptr":
+				// `Ptr (Ptr E)` makes the target `**E` —
+				// `*E` satisfies the contract only when E
+				// is a named, non-interface type, so an
+				// unnamed or interface-typed E is a
+				// provable panic (ptrElemProvablyInvalid).
+				if len(t.Args) == 1 && !c.shadowedBuiltin(t.Name) {
+					return c.ptrElemProvablyInvalid(types.Chase(t.Args[0]), seen)
+				}
+				return false
 			}
 		}
 		// Declared names (file-local and imported alike) classify
@@ -423,6 +436,77 @@ func (c *checker) notAsTargetElem(t types.Type, seen map[conKey]bool) bool {
 			// Sums emit sealed interfaces — a legal target
 			// element — and an abstract declaration hides a
 			// representation the checker cannot place.
+			return false
+		default:
+			panic("unreachable")
+		}
+	default:
+		panic("unreachable")
+	}
+}
+
+// ptrElemProvablyInvalid reports whether E in `Ptr (Ptr E)` —
+// the pointed-to type `*E` handed to `errors.As` — provably
+// cannot satisfy the target contract. `*E` is itself never an
+// interface type, and its method set is declared on E, so it
+// can implement error only when E is a named, non-interface
+// type. E's representation being unnamed (scalars, slices,
+// maps, function and composite literals, `Ptr` itself) or an
+// interface (sums, `Option`, `GoError`, `Go.Any`) is a
+// guaranteed panic. Silence is kept for everything that might
+// be a named non-interface type: `types.Go`, unsolved
+// metas/rigid vars, declared records (`*R`'s Error() cannot be
+// disproved) and abstract declarations. Aliases resolve to
+// their body; the seen map is shared with the caller's walk.
+func (c *checker) ptrElemProvablyInvalid(t types.Type, seen map[conKey]bool) bool {
+	switch t := t.(type) {
+	case *types.Meta, *types.Var, *types.Go:
+		return false
+	case *types.Func, *types.Tuple:
+		return true
+	case *types.Con:
+		switch t.Qual {
+		case "Go":
+			// `Go.Slice`/`Go.Map` emit unnamed composite
+			// types and `Go.Any` is an interface — `*T`
+			// over any of them has no method set.
+			return true
+		case "":
+			if _, ok := builtinTypeArity[t.Name]; ok &&
+				!c.shadowedBuiltin(t.Name) {
+				// Every builtin's representation is
+				// unnamed or an interface — scalars and
+				// composites the former; GoError, Option
+				// and `Ptr` itself the latter or unnamed
+				// at every depth.
+				return true
+			}
+		}
+		key := conKey{qual: t.Qual, name: t.Name}
+		ti := c.tyCons[key]
+		if ti == nil || seen[key] {
+			return false
+		}
+		seen[key] = true
+		switch ti.kind {
+		case kindAlias:
+			sub := types.Subst{}
+			for i, v := range ti.params {
+				if i < len(t.Args) {
+					sub[v.ID] = t.Args[i]
+				}
+			}
+			return c.ptrElemProvablyInvalid(types.Chase(sub.Apply(ti.alias)), seen)
+		case kindSum:
+			// A declared sum emits a sealed interface —
+			// `*I` has no method set and is not an
+			// interface.
+			return true
+		case kindRecord, kindAbstract:
+			// `*R` over a named struct may carry an
+			// Error method the checker cannot see, and
+			// an abstract declaration may hide a named
+			// representation — both stay silent.
 			return false
 		default:
 			panic("unreachable")
