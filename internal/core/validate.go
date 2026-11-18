@@ -576,11 +576,15 @@ func resultCon(t types.Type) *types.Con {
 
 // ctorTArgs enforces the optional-but-authoritative rule on a
 // constructor's recorded TypeArgs: when present it must spell the
-// same ADT instantiation as the node's result type — the Con that
-// CtorApp's type is, or the one a CtorRef's function type returns
-// (decision 2026-11-18-ctor-typeargs-authoritative). Absent TypeArgs
-// is legal — codegen's ctorTArgs falls back to the result type's own
-// arguments — so only the present-and-divergent shape is a violation.
+// same ADT instantiation the node lands on — for both CtorApp and
+// CtorRef that is the Con the eventual return type resolves to, so a
+// partially applied ctor (Typ is Func) anchors at its final result
+// the same way a ctor reference does (decision
+// 2026-11-18-ctor-typeargs-authoritative). Absent TypeArgs is legal
+// where the declared arity is not visible (imported/builtin ctors) —
+// codegen's ctorTArgs falls back to the result type's own arguments;
+// file-local generic ctors still require it via the existing `targs`
+// count check.
 func (v *validator) ctorTArgs(sp diag.Span, what string, targs []types.Type, ret types.Type) {
 	if len(targs) == 0 {
 		return

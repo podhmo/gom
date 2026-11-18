@@ -17,16 +17,21 @@ implementation-gaps 台帳済み）。codegen は `TypeArgs` があれば信用�
 
 **TypeArgs は optional-but-authoritative**:
 
-- 存在するとき（非空）は、ノードの結果型が綴る ADT インスタンシエーション
-  と完全一致を要求する — CtorApp は `Typ` 自身、CtorRef は関数型の最終
-  戻り値が chase して辿る `Con` の `Args`。不一致は violation。
+- 存在するとき（非空）は、ノードが最終的に辿る ADT インスタンシエーション
+  と完全一致を要求する — CtorApp・CtorRef ともに `Typ` の矢印列を chase
+  した終着 `Con` の `Args`。部分適用 CtorApp（`Typ` が Func）でも
+  TypeArgs は ctor 自身の instantiation を綴るので、終着の ADT に
+  アンカーするのは CtorRef と同じで正しい。不一致は violation。
 - ADT 型パラメータ arity との個数不一致も violation — 既存の
   `targs` 検査（宣言がファイル内・unit の sibling にある場合）が
   そのまま担う。imported ctor は宣言 arity を引けないが、結果型との
   完全一致検査で個数の不整合も検出できる（結果型自身が正しい arity
   で綴られる前提は checker が保証する）。
-- 欠損（nil / 空）は合法 — codegen の `ctorTArgs` フォールバックは
-  TypeArgs 欠損時の経路として残し、validator が一致を保証した上で使う。
+- 欠損（nil / 空）は宣言 arity が見えない ctor（imported・builtin）では
+  合法 — codegen の `ctorTArgs` フォールバックは TypeArgs 欠損時の経路
+  として残し、validator が一致を保証した上で使う。ファイル内・unit の
+  sibling に宣言がある generic ctor では arity が見えるため、従来どおり
+  `targs` が個数不一致（欠損含む）を violation とする。
 
 ### 却下した案
 

@@ -1305,10 +1305,9 @@ func TestCtorTypeArgs(t *testing.T) {
 		{"CtorRef divergent TypeArgs", use(mkRef(
 			[]types.Type{types.Int, types.Int}, fnSig)),
 			"differs from result type argument"},
-		{"CtorRef through nested arrow chain", use(mkRef(
+		{"CtorRef through multi-param ctor signature", use(mkRef(
 			[]types.Type{types.Int, types.GoError},
-			&types.Func{Params: []types.FuncParam{{Type: types.Int}},
-				Ret: &types.Func{Params: []types.FuncParam{{Type: types.Int}}, Ret: resIG}})), ""},
+			types.Fn(resIG, types.P(types.Int), types.P(types.Int)))), ""},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
