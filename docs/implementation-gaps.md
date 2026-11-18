@@ -320,7 +320,10 @@
   `GoToolDiagnostics`（tool=`"go vet"`）で `.gom` span へ fold。
   `-vet` 時も incremental cache は無効。
   [decision](decisions/2026-11-18-build-vet-flag.md)。
-  残件: `gom run` の実起動経路はない（open-questions へ移管）。
+  残件（wave19 で解消）: `gom run` の実起動経路 — `gom run` として
+  compile → temp `go build -o` → exec で着地（引数 passthrough・
+  exit code 保全・signal kill は 128+signal）。
+  [decision](decisions/2026-11-18-gom-run.md)。
   `vet:` 前置詞つき出力は raw text 扱いのまま許容。
   参照: [design 2.2](design.md#22-ソース位置の対応)、[GoToolDiagnostics](../internal/build/gopos.go)、
   [decision](decisions/2026-11-06-gotool-position-inverse.md)、
