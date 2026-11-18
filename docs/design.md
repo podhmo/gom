@@ -45,7 +45,7 @@
 | ファイル内テスト | Rust | 採用（`test "名前" { ... }`） |
 | 設定項目のない公式フォーマッタ | Go（gofmt）/ Elm | 採用（`gom fmt`） |
 | オフサイドルール | Haskell | 不採用（インデントは意味を持たない） |
-| `where` 節・`$`・型クラス | Haskell | 不採用（型クラスは v2 以降で検討） |
+| `where` 節・`$`・型クラス | Haskell | 不採用（型クラス相当は明示的辞書渡しで書く — [decision](decisions/2026-11-19-ad-hoc-poly-dict-passing.md)） |
 | `let ... in`・`begin ... end`・`;;` | SML / OCaml | 不採用（波括弧ブロックに一本化） |
 | ミュータブル参照 `ref` | OCaml | `Ref a` 型として限定採用 |
 

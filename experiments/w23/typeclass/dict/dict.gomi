@@ -1,0 +1,11 @@
+package dict
+
+fn min (ord: Ord a) (xs: List a) -> Option a
+
+fn sort (ord: Ord a) (xs: List a) -> List a
+
+type Ord a = { lt : a -> a -> Bool }
+
+let int_ord : Ord Int
+
+let desc_ord : Ord Int

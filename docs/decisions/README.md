@@ -201,6 +201,7 @@
 | [nary-go-results](2026-11-18-nary-go-results.md) | N-ary Go 結果（3 個以上）の写像 — Tuple および `Result (Tuple) GoError` | 採用（wave20 lane 1 で実装・検証した — `testdata/goiface/nary.go` のフィクスチャと `testdata/golden/nary_results.gom` が全経路の生成コードを pin する） |
 | [parallel-dir-compile](2026-11-18-parallel-dir-compile.md) | dir グループの並列コンパイルと Loader の共有境界 | 採用 |
 | [stdlib-conv-placement](2026-11-18-stdlib-conv-placement.md) | stdlib 変換関数の配置 — 下層モジュール名・上層パッケージ実装 | 採用（wave21 lane 2 で実装・検証した — spec fixture・golden・ |
+| [ad-hoc-poly-dict-passing](2026-11-19-ad-hoc-poly-dict-passing.md) | 型クラス相当の抽象は明示的辞書渡しで書く | adopted |
 | [errors-as-nested-ptr-lint](2026-11-19-errors-as-nested-ptr-lint.md) | `errors.As` target の `Ptr (Ptr E)` — 証明可能な要素側違反を W0502 に足す | 採用（wave22 prompts で podhmo 採択済み。実装・検証した — spec.md §8.4 と fixture を更新済み） |
 | [flat-partial-eval](2026-11-19-flat-partial-eval.md) | flat 宣言パラメータの部分適用 — eval 側を遅延させて divergence を消す | 採用（wave22 prompts で podhmo 採択済み。実装・検証した — `TestEagerFnChunkTiming` を新仕様に更新、spec.md §1.3 の注記を解消） |
 | [struct-construction-options](2026-11-19-struct-construction-options.md) | Go struct 構築機構の選択肢の固定（採否は未決） | draft（採否は部分決着: (b) 採用・(a) 先延ばし — |

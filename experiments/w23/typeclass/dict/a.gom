@@ -1,0 +1,41 @@
+// (1) REAL GOM — explicit dictionary passing, valid today.
+// `Ord a` is an ordinary record of operations; callers name the
+// dictionary explicitly (`int_ord`, `desc_ord`). No new language
+// surface — the question is whether this suffices without implicit
+// resolution.
+package dict
+
+fn min (ord: Ord a) (xs: List a) -> Option a = match xs {
+  [] -> None
+  [x, ..rest] -> Some (fold_min ord.lt x rest)
+}
+
+fn fold_min (lt: a -> a -> Bool) (best: a) (xs: List a) -> a = match xs {
+  [] -> best
+  [x, ..rest] -> fold_min lt (if lt x best { x } else { best }) rest
+}
+
+// Insertion sort: small, enough to compare the description shape.
+fn sort (ord: Ord a) (xs: List a) -> List a = match xs {
+  [] -> []
+  [x, ..rest] -> insert ord.lt x (sort ord rest)
+}
+
+fn insert (lt: a -> a -> Bool) (x: a) (xs: List a) -> List a = match xs {
+  [] -> [x]
+  [y, ..rest] -> if lt x y { [x, y, ..rest] } else { [y, ..(insert lt x rest)] }
+}
+
+// The dictionary record: one value per ordering.
+type Ord a = { lt: a -> a -> Bool }
+
+let int_ord : Ord Int = { lt = fn a b -> a < b }
+let desc_ord : Ord Int = { lt = fn a b -> b < a }
+
+test "min and sort by dictionary" {
+  assert_eq (min int_ord [3, 1, 2]) (Some 1)
+  assert_eq (min desc_ord [3, 1, 2]) (Some 3)
+  assert_eq (min int_ord []) None
+  assert_eq (sort int_ord [3, 1, 2]) [1, 2, 3]
+  assert_eq (sort desc_ord [3, 1, 2]) [3, 2, 1]
+}

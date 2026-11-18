@@ -805,5 +805,6 @@ Useful: `gom check f.gom | jq -r 'select(.kind=="diagnostic") |
 | `import go`, type mapping, methods, `_`, `Go.conv`, extern | [references/go-interop.md](references/go-interop.md) |
 | `go`/`select`/`Chan`/`Task`, `for`, sharing rules | [references/concurrency.md](references/concurrency.md) |
 | `.gomi` files, visibility, abstract types | [references/interface-files.md](references/interface-files.md) |
+| Typeclass-like polymorphism (dictionary passing, `Ord`/`Monoid`) | [references/ad-hoc-polymorphism.md](references/ad-hoc-polymorphism.md) |
 | JSON diagnostics, error codes, fixes, jq recipes | [references/diagnostics.md](references/diagnostics.md) |
 | Repo layout, testdata suites, tutorial, dev commands | [references/project-layout.md](references/project-layout.md) |
