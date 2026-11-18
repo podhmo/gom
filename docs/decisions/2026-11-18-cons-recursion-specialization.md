@@ -19,6 +19,7 @@ lower の `markTailCalls` の直後に `markConsCalls`（internal/lower/consrec.
 2. `rest` がその葉の**最後の `let`** で、自己 `*core.CallDirect` に束縛されている（ANF が `[e, ..f args]` を `let rest = f args; [e, ..rest]` に正規化した形だけを見る — 見かけの AST ではなく ANF の形で判定するので、「呼び出しの結果をそのまま cons する」コードはすべてこの形に落ちる）
 3. その `CallDirect` は `Callee == 自分`、`!Adapter`、`len(Args) == len(fn.Params)`、`TypeArgs` が宣言の `TypeParams` と位置ごとに同一（恒等インスタンシエーション — 末尾呼び出し変換と同じ要件）
 4. `rest` の使用が `..rest` の 1 箇所だけ（head 要素や他の式で `rest` を読む場合は呼び出し結果を 2 度消費するので変換できない — 例: `[List.length rest + h, ..rest]`）
+5. すべての head atom が読み出し時点に依存しない — 変換は head の読み出しを「再帰呼び出しが返ったあとの unwind」から「ループ継続の前」に移すので、atom のまま残る head が時間で値を変えてはいけない。複雑な head 式（Go field 読み出し `req.Form` など）は `listLit` が呼び出しより先に `let` に落とすので無関係。atom のまま残って時点依存になり得るのは Go package 変数（`os.Stdout` など、誰かが再代入し得る）だけで、それを含む head は変換しない
 
 `rest` を束縛する `let` より前にある `let` 列はそのまま残るので、head 要素が任意の式（`f h + 1` やネストした式）でも対象になる。
 

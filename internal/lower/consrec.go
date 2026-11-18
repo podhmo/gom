@@ -35,7 +35,14 @@ import (
 //     a value's firing call, not a call site — rewriting it would
 //     corrupt @tailrec's R3 accounting);
 //   - the rest var is read nowhere else in the leaf — the rewrite
-//     drops its let, so a second use would lose the value.
+//     drops its let, so a second use would lose the value;
+//   - every head atom is *stable* — its read yields the same value
+//     at the leaf and at the unwind point the recursive version
+//     reads it at (stableHead). Complex heads already sit in the
+//     leaf's lets as evaluated temporaries (Go field reads are
+//     snapshot-bound for exactly this reason); the only atom that
+//     still observes time is a Go package variable, which any deeper
+//     iteration may reassign.
 //
 // Equivalence of the accepted shape: appending the cons heads to the
 // buffer, rebinding the arguments and continuing is the same ordered
@@ -151,6 +158,14 @@ func (l *lowerer) consLeaf(b *core.Body, ln *core.ListNew, fn *core.Func, self *
 	if uses != 1 {
 		return
 	}
+	// The rewrite moves each head's read from the unwind point —
+	// after the self-call returns — to before the loop continues.
+	// Heads that can observe that shift stay recursive.
+	for _, h := range ln.Elems {
+		if !stableHead(h) {
+			return
+		}
+	}
 	b.Lets = b.Lets[:n-1]
 	b.Tail = &core.TailCall{
 		Base:    ln.Base,
@@ -159,4 +174,25 @@ func (l *lowerer) consLeaf(b *core.Body, ln *core.ListNew, fn *core.Func, self *
 		Prepend: ln.Elems,
 	}
 	*found = true
+}
+
+// stableHead reports whether an atom in Prepend position observes
+// the same value before the loop restart and at the unwind point
+// the recursive version reads it. Everything an atom can reach is
+// Gom data — immutable — except a Go package variable (`os.Stdout`,
+// a Go `var`), which a deeper iteration may reassign; rejecting
+// those keeps the head reads at their original timing.
+func stableHead(a core.Atom) bool {
+	switch a := a.(type) {
+	case *core.Var:
+		return a.Sym == nil || !a.Sym.IsGo
+	case *core.Lit, *core.FuncRef, *core.CtorRef:
+		return true
+	case *core.GoFuncRef:
+		return a.Recv == nil || stableHead(a.Recv)
+	case *core.FieldGet:
+		return stableHead(a.Recv)
+	default:
+		panic("unreachable")
+	}
 }

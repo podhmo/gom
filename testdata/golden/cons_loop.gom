@@ -1,5 +1,7 @@
 package main
 
+import go "os"
+
 // Cons-recursion specialization: a self call under a list cons in
 // tail position compiles to the cons-buffer loop (design.md 4.5).
 
@@ -33,6 +35,16 @@ fn keep (xs: List Int) -> List Int =
       let rest = keep t
       [List.length rest + h, ..rest]
     }
+  }
+
+// Unstable head: `os.Stdout` is a Go package variable — anyone may
+// reassign it, and the recursive version reads the head on unwind
+// (after the deeper calls). Specialization bails so the read keeps
+// its original timing.
+fn keepvar (xs: List Int) -> List (Ptr os.File) =
+  match xs {
+    [] -> []
+    [h, ..t] -> [os.Stdout, ..keepvar t]
   }
 
 fn main () -> Unit = ()
