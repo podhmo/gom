@@ -217,6 +217,35 @@ func TestGoToolSkipsStaleTestSibling(t *testing.T) {
 	}
 }
 
+// TestGoToolStagesTestCompanion: `gom test` writes the package's
+// `@test` helpers and TestXxx decls into x_test.go — staging must
+// include that fresh TestSource, or a handwritten *_test.go that
+// reaches for an @test helper reports it as undefined while the
+// real `go test` passes.
+func TestGoToolStagesTestCompanion(t *testing.T) {
+	if testing.Short() {
+		t.Skip("go-tool pass runs the real go toolchain")
+	}
+	dir := t.TempDir()
+	writeModFile(t, dir)
+	gomSrc := "package main\n\nfn main () -> Unit = ()\n"
+	writeFile(t, filepath.Join(dir, "a.gom"), gomSrc)
+	writeFile(t, filepath.Join(dir, "h_test.go"),
+		"package main\n\nimport \"testing\"\n\nfunc TestHandwritten(t *testing.T) { _ = testHelper() }\n")
+	gen := []byte("package main\n\nfunc main() {}\n")
+	testSrc := []byte("package main\n\nimport \"testing\"\n\nfunc testHelper() int64 { return 0 }\n\nfunc TestGom(t *testing.T) { _ = testHelper() }\n")
+	res := &build.Result{Output: &codegen.Output{Source: gen, TestSource: testSrc}}
+	ds := NewGoTool()(
+		[]build.Input{{Path: filepath.Join(dir, "a.gom"),
+			Src: []byte(gomSrc)}},
+		[]*build.Result{res})
+	for _, d := range ds {
+		if d.Source == diag.SourceGo {
+			t.Fatalf("unexpected go diagnostic on valid test companion use: %v", d)
+		}
+	}
+}
+
 // TestGoToolSilentOnClean: the pass publishes nothing when go build
 // is happy — the flag's cost is latency, not noise.
 func TestGoToolSilentOnClean(t *testing.T) {
