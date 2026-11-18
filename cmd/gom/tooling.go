@@ -67,7 +67,7 @@ func runFix(args []string, stdout, stderr io.Writer) int {
 	// fixes must see the same diagnostics `gom check` reports, so
 	// they attach to the same shared scope (sibling references
 	// resolve package-wide).
-	results, err := compileInputs(inputs, true, nil)
+	results, err := compileInputs(inputs, true, nil, "", nil)
 	if err != nil {
 		fmt.Fprintf(stderr, "gom fix: %v\n", err)
 		return diag.ExitInternal

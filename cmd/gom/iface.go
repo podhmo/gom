@@ -54,7 +54,7 @@ type pkgGroup struct {
 // package whose interface contract failed is not an artifact to
 // keep — writing it would produce a stale, unverifiable package
 // (`gom test` also keeps the package out of the `go test` run).
-func checkInterfaces(inputs []input, results []*build.Result, rep *diag.Report, srcs map[string][]byte) map[*build.Result]bool {
+func checkInterfaces(inputs []input, results []*build.Result, rep *diag.Report, srcs map[string][]byte, bc *buildCache) map[*build.Result]bool {
 	failed := map[*build.Result]bool{}
 	groups := map[string]*pkgGroup{}
 	gomiInputs := map[string]int{} // path → input index
@@ -129,7 +129,7 @@ func checkInterfaces(inputs []input, results []*build.Result, rep *diag.Report, 
 			if idx, ok := gomiInputs[want]; ok {
 				gomiRes = results[idx]
 			} else if b, err := os.ReadFile(want); err == nil {
-				gomiRes = compileInput(input{path: want, src: b, iface: true})
+				gomiRes = compileInput(input{path: want, src: b, iface: true}, bc)
 				if gomiRes != nil {
 					rep.Diagnostics = append(rep.Diagnostics, gomiRes.Diagnostics...)
 					srcs[want] = b
@@ -315,9 +315,16 @@ func strayInterface(path, declared string, sp diag.Span) *diag.Diagnostic {
 // compileInput compiles one file with the standard options — the
 // seam shared by the check loop and the interface pass's discovery
 // of a sibling .gomi.
-func compileInput(in input) *build.Result {
+func compileInput(in input, bc *buildCache) *build.Result {
+	// The interface's own imports are the dir's dependencies too —
+	// the .gom compile may never reach them, so they load only
+	// here (build-cache dep tracking; nil outside `gom build`).
+	var seen *depSeen
+	if bc != nil {
+		seen = bc.depSink(filepath.Dir(filepath.Clean(in.path)))
+	}
 	r, err := build.Compile(build.Input{Path: in.path, Src: in.src, Interface: in.iface},
-		compileOptions(in, true))
+		compileOptions(in, true, seen))
 	if err != nil {
 		return nil
 	}
@@ -375,7 +382,7 @@ func runInfo(args []string, stdout, stderr io.Writer) int {
 	for _, in := range inputs {
 		srcs[in.path] = in.src
 	}
-	results, err := compileInputs(inputs, true, nil)
+	results, err := compileInputs(inputs, true, nil, "", nil)
 	if err != nil {
 		fmt.Fprintf(stderr, "gom info: %v\n", err)
 		return diag.ExitInternal

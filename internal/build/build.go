@@ -107,6 +107,12 @@ type Result struct {
 	// Output is the generated Go source (nil when the run did not
 	// reach codegen).
 	Output *codegen.Output
+
+	// Cached marks a result synthesized by the driver's incremental
+	// build cache (cmd/gom): the package's manifest still held, so
+	// no compile ran — every field above stays nil and the
+	// recorded outputs stand as already written.
+	Cached bool
 }
 
 // Compile drives one file through the pipeline:

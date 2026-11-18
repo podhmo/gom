@@ -83,6 +83,13 @@ type Config struct {
 	// package directories (`go list` — "" = "go"). It is only
 	// consulted for import paths outside the main module.
 	GoBin string
+
+	// OnLoadGomi, when set, is called with the path of every .gomi
+	// file this loader reads — the incremental build cache records
+	// them as the package's interface dependencies (design.md
+	// section 5). Transitive .gomi imports load through here too,
+	// so one hook covers the whole dependency graph.
+	OnLoadGomi func(path string)
 }
 
 // Loader is the Gom import oracle; see the package comment.
@@ -239,6 +246,9 @@ func (l *Loader) load(path string) (*resolve.Package, error) {
 	gomi, err := oneGomi(dir)
 	if err != nil {
 		return nil, err
+	}
+	if l.cfg.OnLoadGomi != nil {
+		l.cfg.OnLoadGomi(gomi)
 	}
 	src, err := os.ReadFile(gomi)
 	if err != nil {
