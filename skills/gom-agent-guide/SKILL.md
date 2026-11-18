@@ -195,7 +195,8 @@ generated from — useful when generated code surprises you.
   (E0409 otherwise; `Float` is IEEE so `NaN != NaN`). Type variables
   cannot be `==` in v1.
 - **Loops are recursion or `for x in xs { ... }`** (`: Unit`,
-  iterates `List`, `Go.Slice`, or `Chan`). Self-tail-recursion
+  iterates `List`, `Go.Slice`, `View`, or `Chan`).
+  Self-tail-recursion
   lowers to a Go loop; `@tailrec` on a `fn` *requires* it and
   errors otherwise.
 - **Tests live in the same file:** `test "name" { ... }` body is
@@ -213,7 +214,11 @@ generated from — useful when generated code surprises you.
   `Result.map_err` and friends resolve without an import — the
   worked-on value is the last parameter so `xs |> List.map f`
   pipelines. See `stdlib/{list,option,result}/*.gomi` for the full
-  surface. Concurrency builtins are compiler-provided (no `.gomi`,
+  surface. **`View a`** is a read-only sub-view of a `List`
+  (`List.view`, `List.slice xs lo hi`; `View.length`/`get`/`slice`/
+  `fold`/`to_list`, `for x in v` also works) — sub-slicing and
+  indexing are O(1) because the view shares the immutable backing.
+  The View surface is compiler-registered (no `.gomi`). Concurrency builtins are compiler-provided (no `.gomi`,
   they forward to `rt/`): `Chan.make`,
   `Chan.send`, `Chan.recv` (`Option a` — `None` once closed),
   `Chan.close`, `Chan.recvOnly`, `Chan.sendOnly`, `Task.spawn`
