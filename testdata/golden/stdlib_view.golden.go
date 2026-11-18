@@ -38,10 +38,35 @@ func main(_ struct{}) struct{} {
 //line stdlib_view.gom:14
 	list.ViewFold[int64, int64](v, tmp1, 0)
 //line stdlib_view.gom:15
+	gomEq17a630de0(v, w)
+//line stdlib_view.gom:16
 	list.ViewToList[int64](v)
-//line stdlib_view.gom:16
+//line stdlib_view.gom:17
 	list.ListView[int64](xs)
-//line stdlib_view.gom:16
+//line stdlib_view.gom:17
 	return struct{}{}
 //line stdlib_view.gom:5
+}
+
+//line stdlib_view.gom:15
+func gomEq17a630de0(a, b list.View[int64]) bool {
+//line stdlib_view.gom:15
+	if len(a) != len(b) {
+//line stdlib_view.gom:15
+		return false
+//line stdlib_view.gom:15
+	}
+//line stdlib_view.gom:15
+	for i := range a {
+//line stdlib_view.gom:15
+		if !(a[i] == b[i]) {
+//line stdlib_view.gom:15
+			return false
+//line stdlib_view.gom:15
+		}
+//line stdlib_view.gom:15
+	}
+//line stdlib_view.gom:15
+	return true
+//line stdlib_view.gom:15
 }

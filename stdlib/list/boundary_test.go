@@ -84,6 +84,12 @@ func TestOptionToListInvalid(t *testing.T) {
 func TestListViewSub(t *testing.T) {
 	xs := list.List[int64]{1, 2, 3, 4}
 	v := list.ListSub(xs, 1, 3)
+	// Zero-copy: the view aliases the list's backing array, so the
+	// first view element is the same cell as xs[1] — a copying
+	// implementation would fail this.
+	if &v[0] != &xs[1] {
+		t.Fatal("ListSub: view does not share the list's backing")
+	}
 	if got := list.ViewLen(v); got != 2 {
 		t.Fatalf("len: got %d", got)
 	}
@@ -100,6 +106,9 @@ func TestListViewSub(t *testing.T) {
 	// The view reads the list's backing — no copy: share proven by
 	// ViewToList returning the same underlying array's subrange.
 	l := list.ViewToList(v)
+	if &l[0] != &xs[1] {
+		t.Fatal("ViewToList: does not share the backing")
+	}
 	if len(l) != 2 || l[0] != 2 || l[1] != 3 {
 		t.Fatalf("to_list: got %v", l)
 	}

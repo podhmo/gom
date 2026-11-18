@@ -12,6 +12,7 @@ fn main () -> Unit = {
     let _ = x
   }
   let _ = View.fold v (fn acc x -> acc + x) 0
+  let _ = v == w
   let _ = View.to_list v
   let _ = List.view xs
 }
