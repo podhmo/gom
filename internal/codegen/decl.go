@@ -55,7 +55,7 @@ func (g *gen) funcDecl(d *core.FuncDecl) {
 	g.raw("func " + g.symName(d.Sym))
 	g.typeParams(d.TypeParams)
 	g.raw("(")
-	g.params(d.Fn.Params)
+	g.paramsFlat(d.Fn.Params)
 	g.raw(") ")
 	g.typ(g.goType(d.Fn.ResidualType()))
 	g.open()

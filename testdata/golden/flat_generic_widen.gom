@@ -1,0 +1,17 @@
+package flatgen
+
+fn twice (f: a -> a) -> a -> a = fn x -> f (f x)
+
+fn inc (x: Int) -> Int = x + 1
+
+// `twice` goes into a declared flat (>= 2-arrow) parameter slot at
+// an instantiation that substitutes `Int -> Int` for `a`, widening
+// the reference type's first parameter to a 2-arrow shape. The
+// declared param `f: a -> a` stays canonical — the emitted
+// adapter must follow FuncRef.FlatParams, not the widened type.
+fn callw (h: ((Int -> Int) -> (Int -> Int)) -> ((Int -> Int) -> (Int -> Int))) -> Int =
+  h (fn i -> i) inc 0
+
+test "widen" {
+  assert_eq (callw twice) 1
+}

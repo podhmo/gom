@@ -180,6 +180,47 @@ func (g *gen) funcType(f *types.Func) ast.Expr {
 	return ret
 }
 
+// flatParamArity counts a type's whole arrow chain — the flat
+// arity a declaration parameter of function type carries when ≥ 2
+// (docs/decisions/2026-11-18-flat-fn-params.md).
+func flatArity(t types.Type) int {
+	n := 0
+	for {
+		fs, ok := types.Chase(t).(*types.Func)
+		if !ok {
+			return n
+		}
+		n += len(fs.Params)
+		t = fs.Ret
+	}
+}
+
+// flatArrow decomposes an arrow type's whole chain — params then
+// the non-function return.
+func flatArrow(t types.Type) ([]types.FuncParam, types.Type) {
+	var ps []types.FuncParam
+	for {
+		fs, ok := types.Chase(t).(*types.Func)
+		if !ok {
+			return ps, types.Chase(t)
+		}
+		ps = append(ps, fs.Params...)
+		t = fs.Ret
+	}
+}
+
+// flatFuncType renders a ≥2-arrow gom function type's flat
+// declaration repr — `func(T1', ..., Tk') R'`.
+func (g *gen) flatFuncType(t types.Type) ast.Expr {
+	ps, ret := flatArrow(t)
+	ft := &ast.FuncType{Params: &ast.FieldList{}}
+	for _, p := range ps {
+		ft.Params.List = append(ft.Params.List, &ast.Field{Type: g.goType(p.Type)})
+	}
+	ft.Results = &ast.FieldList{List: []*ast.Field{{Type: g.goType(ret)}}}
+	return ft
+}
+
 // goFuncArity reads the parameter count out of a `Go.FuncN` type
 // name — the arity lives in the name, and the type arguments are
 // the raw views of the N parameters then 0..2 results.

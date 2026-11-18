@@ -163,7 +163,8 @@ generated from — useful when generated code surprises you.
   `Result a e` (`Ok`/`Err`), `Ref a`, `Array a`, `Ptr T`, `Chan a` /
   `RecvChan a` / `SendChan a`, `Task a`, `GoError`, `Go.Slice a`,
   `Go.Map k v`, `Go.Any`, `Go.FuncN p0 … r` (raw view of a Go func
-  type, arity 0–3 — adapt a Gom fn in with `Go.funcN f`). Type
+  type, params 0–3 / results 0–8 — adapt a Gom fn in with
+  `Go.funcN f`, out with `Go.fnN f`). Type
   application is juxtaposed:
   `Result Int GoError`, `Option (List Int)`. Type variables are
   lowercase (`a`, `b`).
@@ -184,8 +185,10 @@ generated from — useful when generated code surprises you.
   No exceptions; Go panics propagate (no `recover`).
 - **Go interop is direct:** `import go "strconv"` then
   `strconv.Atoi s`. `(T, error)` → `Result T GoError`, `(T, bool)` →
-  `(T, Bool)`, `error` → `Result Unit GoError`. Go calls are *not*
-  curried: `f(a, b)` applies one tuple. Methods `x.M(args)` on Go
+  `(T, Bool)`, `error` → `Result Unit GoError`. 3+ results map onto
+  a tuple — trailing `error` folds to `Result (T, U, ...) GoError`,
+  otherwise `(T, U, ...)`; 9+ results stay hidden. Go calls are
+  *not* curried: `f(a, b)` applies one tuple. Methods `x.M(args)` on Go
   values only. `_` in a Go call makes a one-hole function.
 - **Equality is structural:** `==` / `!=` compare contents on any
   type containing no function — including ADTs, records, `List`
@@ -725,7 +728,7 @@ prints the pointer and exits 2).
 | --- | --- |
 | `gom check FILE\|DIR...` | Parse → resolve → type-check → pattern check; no output files. A directory's `*.gom`/`*.gomi` compile as one package. |
 | `gom build [-o out] FILE\|DIR...` | Full pipeline; writes one `.go` per `.gom` next to the input (or under `-o` dir/file). `-go` additionally runs `go build` on the written package and folds its errors back to `.gom` spans. |
-| `gom lsp [-go]` | stdio LSP server (package-granular diagnostics). `-go` opt-in: staged `go build` diagnostics published as `source:"go"` (~200ms/change — off by default). |
+| `gom lsp [-go]` | stdio LSP server (package-granular diagnostics). `-go` opt-in: staged `go build` + `go vet` diagnostics published as `source:"go"` (~200ms/change — off by default). |
 | `gom dump -phase=syntax\|resolve\|check\|core FILE` | Print one phase's IR — sibling `.gom` files compile along so package members resolve; only the named file's IR prints (diagnostics go to stderr; stdout is the artifact). |
 | `gom test FILE\|DIR... [-- FLAGS]` | Also writes `_test.go` beside the `.go` and runs the package's `go test -json` — FLAGS after `--` pass through (`-race`, `-run`). Library packages need `<pkg>.gomi` (the conformance gate runs here too); `-q`/`--quiet` drops the raw half of panic stacks. |
 | `gom fmt [-w\|-d\|-l\|--check] FILE...` | Canonical formatter; `-` reads stdin. stdout carries the artifact; message stream to stderr. |

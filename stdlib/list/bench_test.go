@@ -37,13 +37,12 @@ var inc = func(x int64) int64 { return x + 1 }
 
 // --- linear axis: read-only walks, sizes 1e3 / 1e5 ----------------
 
-// BenchmarkFold feeds the arity-one curried folder Gom callers
-// supply — `f(acc)(x)` per element is the allocation the function
-// value representation pays on HOFs (P0-2 sketch, "catastrophic
-// case").
+// BenchmarkFold feeds the flat folder the >=2-arrow parameter
+// repr carries — `f(acc, x)` per element, no per-step closure
+// (docs/decisions/2026-11-18-flat-fn-params.md).
 func BenchmarkFold(b *testing.B) {
-	addC := func(acc int64) func(int64) int64 {
-		return func(x int64) int64 { return acc + x }
+	addC := func(acc, x int64) int64 {
+		return acc + x
 	}
 	for _, n := range []int{1_000, 100_000} {
 		xs := ints(n)

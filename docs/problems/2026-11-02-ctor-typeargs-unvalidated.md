@@ -1,6 +1,6 @@
 # The validator never checks `CtorApp`/`CtorRef` `TypeArgs`
 
-- 状態: 未解決
+- 状態: 未解決（implementation-gaps に台帳化 — wave20 lane4）
 - 発見: 2026-11-02, P1-8 review follow-up
 
 ## Situation

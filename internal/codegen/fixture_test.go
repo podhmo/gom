@@ -1023,7 +1023,7 @@ func retarget(f *core.File, pkg string) {
 			*core.RecordNew, *core.RecordUpdate, *core.Conv,
 			*core.TailCall, *core.EscapeResult, *core.EscapeCall,
 			*core.ResultFromGo, *core.OptionFromGo, *core.TupleFromGo,
-			*core.ErrorFromGo,
+			*core.ErrorFromGo, *core.Uncurry,
 			*core.Closure, *core.If, *core.Match, *core.SelectExpr,
 			*core.Spawn, *core.ForRange, *core.GoFunc:
 			// no Go callee reference to rewrite
@@ -1116,6 +1116,8 @@ func walkExprNodes(e core.Expr, mut func(core.Expr)) {
 		for _, in := range e.In {
 			walkExprNodes(in, mut)
 		}
+	case *core.Uncurry:
+		walkExprNodes(e.X, mut)
 	case *core.Var, *core.Lit, *core.FuncRef, *core.CtorRef,
 		*core.GoFuncRef, *core.FieldGet,
 		*core.Unary, *core.Binary, *core.Equal,

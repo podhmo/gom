@@ -27,13 +27,14 @@ func SliceGet[T any](s []T, i int64) (T, bool) {
 func SliceSub[T any](s []T, lo, hi int64) []T { return s[lo:hi] }
 
 // SliceFold is `Go.Slice.fold s f acc` — a left fold over the
-// slice's elements: `acc = f(acc)(v)` in index order. The f
-// parameter is the canonical representation of the Gom `b -> a ->
-// b` — one Go func per arrow — so a curried Gom function value
-// passes through verbatim. A nil slice folds to acc.
-func SliceFold[T, B any](s []T, f func(B) func(T) B, acc B) B {
+// slice's elements: `acc = f(acc, v)` in index order. The f
+// parameter is the flat representation a declared >=2-arrow
+// parameter carries (`func(B, T) B`,
+// docs/decisions/2026-11-18-flat-fn-params.md) — the generated call
+// site adapts canonical values to it. A nil slice folds to acc.
+func SliceFold[T, B any](s []T, f func(B, T) B, acc B) B {
 	for _, v := range s {
-		acc = f(acc)(v)
+		acc = f(acc, v)
 	}
 	return acc
 }

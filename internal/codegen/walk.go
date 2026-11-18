@@ -58,6 +58,8 @@ func walkExpr(e core.Expr, f func(*core.Bind)) {
 		for _, b := range e.Params {
 			f(b)
 		}
+	case *core.Uncurry:
+		walkExpr(e.X, f)
 	case *core.If:
 		walkBody(e.Then, f)
 		walkBody(e.Else, f)
@@ -207,6 +209,8 @@ func exprUses(e core.Expr, sym *resolve.Symbol) bool {
 			}
 		}
 		return false
+	case *core.Uncurry:
+		return exprUses(e.X, sym)
 	case *core.CallDirect:
 		return atomsUses(e.Args, sym)
 	case *core.CtorApp:

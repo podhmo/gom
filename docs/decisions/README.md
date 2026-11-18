@@ -62,7 +62,7 @@
 | [diag-output-formats](2026-11-02-diag-output-formats.md) | Diagnostic output formats: JSON Lines and text emitters (P1-10) | draft |
 | [error-code-table](2026-11-02-error-code-table.md) | Error-code table and numbering scheme (D-2) | 採用 |
 | [eval-value-model](2026-11-02-eval-value-model.md) | Value model of the typed-AST evaluator (internal/eval) | draft |
-| [function-value-representation](2026-11-02-function-value-representation.md) | Function value representation: canonical curried form | 採用 |
+| [function-value-representation](2026-11-02-function-value-representation.md) | Function value representation: canonical curried form（一部を [flat-fn-params](2026-11-18-flat-fn-params.md) で置き換え） | 採用 |
 | [fuzz-strategy](2026-11-02-fuzz-strategy.md) | Fuzz strategy: parser oracle, compile canary, and the knownBugs registry | 採用 |
 | [generated-go-conventions](2026-11-02-generated-go-conventions.md) | Generated Go code conventions: names, unused binders, //line（一部を [source-location-correspondence](2026-11-03-source-location-correspondence.md) で置き換え） | draft |
 | [generated-support-packages](2026-11-02-generated-support-packages.md) | Generated-code support packages: `rt/` and `stdlib/` | draft |
@@ -189,6 +189,7 @@
 | [cons-buffer-array-extern-impl](2026-11-18-cons-buffer-array-extern-impl.md) | Cons 構築の buffer 化: `Array` 操作面 + `@extern fn` extern-impl 機構（一部を [concat-extern](2026-11-18-concat-extern.md) で置き換え） | 採用（prototype 検証済み — docs/sketch/2026-11-18-cons-buffer-verification.md） |
 | [cons-recursion-specialization](2026-11-18-cons-recursion-specialization.md) | lower の cons-recursion 特殊化: match-cons 蓄積形を buffer loop に変換する | 採択 |
 | [external-gom-imports](2026-11-18-external-gom-imports.md) | 外部モジュールの Gom パッケージの import | 採用 |
+| [flat-fn-params](2026-11-18-flat-fn-params.md) | >=2 本矢印の宣言パラメータは flat 表現（呼出側 uncurry） | 採用（wave20 lane 2 で実装・検証した — ベンチと生成コード差分は [sketch/2026-11-18-flat-fn-params-verify.md](../sketch/2026-11-18-flat-fn-params-verify.md)、全ゲート緑） |
 | [fn-interop](2026-11-18-fn-interop.md) | `Go.FuncN` 値を Gom 側から適用する(逆変換 `Go.fnN`) | 採用（実装・検証した — `Go.fn2`/`fn0`/`fn1` の変換+呼出、int/int64 境界、`func() error` と `func(A) (T, error)` の `Result` materialize が `gom check`/`build`→`go build`→実行まで通る。testdata/spec/ok_go_fn_adapter・E0510_go_fn_{arity,non_fn}、testdata/golden/go_fn_adapter で固定。spec.md §8.8 へ反映済み） |
 | [golist-export-cache](2026-11-18-golist-export-cache.md) | `go list -export` の process 越し file cache | 採用（実装・検証した — `TestExportCacheSecondLoaderSkipsGoList`（2 台目の Loader は `go list` 0 回）・`TestExportCacheSourceEditInvalidates`（ソース編集で invalidation）・`TestExportCacheDisabled`（NOCACHE 素通り）。実測: `gom check` で `go list` 3 回 ~253ms → cache hit 時 ~7ms に） |
 | [gom-run](2026-11-18-gom-run.md) | `gom run` サブコマンド: go build + temp バイナリ実行 | 採択 |

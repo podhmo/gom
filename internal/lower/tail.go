@@ -260,6 +260,8 @@ func eachVar(b *core.Body, f func(v *core.Var, captured bool)) {
 			callGo(e.Call, captured)
 		case *core.Conv:
 			atom(e.X, captured)
+		case *core.Uncurry:
+			expr(e.X, captured)
 		default:
 			panic("unreachable")
 		}

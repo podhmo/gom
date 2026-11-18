@@ -914,6 +914,18 @@ func (l *Loader) ArityOf(sym *resolve.Symbol) int {
 	return -1
 }
 
+// FuncTypeOf returns a loaded function member's declared signature —
+// the lower.Env.FuncType hook shape — with its own type parameters
+// still rigid, or false when sym is not a loaded function.
+func (l *Loader) FuncTypeOf(sym *resolve.Symbol) (*types.Func, bool) {
+	s, ok := l.sigs[sym]
+	if !ok {
+		return nil, false
+	}
+	f, ok := s.Type.(*types.Func)
+	return f, ok
+}
+
 // Variants returns the constructor set of a loaded sum type —
 // lower.TypeOracle — with field types instantiated at the queried
 // constructor's arguments.

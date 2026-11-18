@@ -73,6 +73,15 @@ type FuncRef struct {
 	Sym      *resolve.Symbol // KindFunc, not IsGo
 	TypeArgs []types.Type    // instantiation of a polymorphic callee; nil while monomorphic
 	Arity    int             // the callee's declared arity
+	// FlatParams records each declared parameter's flat arity (0 or
+	// 1 for canonical parameters, >= 2 for flat ones) — the declared
+	// convention, read from the declaration's own signature at
+	// lowering. Codegen must not re-derive it from the instantiated
+	// reference type: substitution can widen a declared 1-arrow
+	// parameter into a >= 2-arrow value without changing the
+	// emitted convention. Len is the declared Arity; a shorter
+	// slice leaves later slots unknown (hand-built nodes).
+	FlatParams []int
 }
 
 func (*FuncRef) isExpr() {}
@@ -186,6 +195,33 @@ type GoFunc struct {
 }
 
 func (*GoFunc) isExpr() {}
+
+// Uncurry adapts a function to the flat representation a declared
+// parameter of ≥2-arrow function type carries: `func(T1', ..., Tk')
+// R'` (docs/decisions/2026-11-18-flat-fn-params.md). The declared
+// callee's parameters take the flat repr — every application of the
+// parameter is one real Go call `f(a, b, ...)`, so a caller
+// supplying a function-typed argument must adapt the source's own
+// representation:
+//
+//   - *FuncRef  — a function declaration already emits its flat
+//     `func f_(p0, p1, ...) R` at the matching arity; the reference
+//     renders verbatim
+//   - *Closure  — a lambda's canonical one-level-per-arrow chain
+//     flattens into a single multi-parameter literal
+//   - any other Atom — a bound canonical value wraps as
+//     `func(p0, ..., pk-1) { return x(p0)...(pk-1) }`
+//
+// The node's own Typ stays the Gom arrow type `T1 -> ... -> Tk ->
+// R`; only the Go emission is flat. A Var already bound to a flat
+// value never appears as X — callers pass it through verbatim.
+type Uncurry struct {
+	Base
+	Arity int  // the target flat arity k (≥ 2)
+	X     Expr // FuncRef | Closure | Atom — the source in its own repr
+}
+
+func (*Uncurry) isExpr() {}
 
 // Unary is a primitive unary operation `op x`.
 type Unary struct {

@@ -43,13 +43,9 @@ func ops(gs []int64) int64 {
 //line go_slice_ops.gom:14
 	sub := rt.SliceSub[int64](gs, 1, n)
 //line go_slice_ops.gom:15
-	tmp4 := func(acc int64) func(int64) int64 {
+	tmp4 := func(acc, v int64) int64 {
 //line go_slice_ops.gom:15
-		return func(v int64) int64 {
-//line go_slice_ops.gom:15
-			return acc + v
-//line go_slice_ops.gom:15
-		}
+		return acc + v
 //line go_slice_ops.gom:15
 	}
 //line go_slice_ops.gom:15
@@ -72,13 +68,9 @@ func count(xs list.List[int64]) int64 {
 //line go_slice_ops.gom:21
 	tmp8 := xs.ToSlice()
 //line go_slice_ops.gom:21
-	tmp9 := func(n int64) func(int64) int64 {
+	tmp9 := func(n, _ int64) int64 {
 //line go_slice_ops.gom:21
-		return func(_ int64) int64 {
-//line go_slice_ops.gom:21
-			return n + 1
-//line go_slice_ops.gom:21
-		}
+		return n + 1
 //line go_slice_ops.gom:21
 	}
 //line go_slice_ops.gom:21

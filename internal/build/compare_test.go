@@ -994,6 +994,53 @@ fn main () -> Unit = {
 		want: "41 20 2 42",
 	},
 	{
+		// Flat function parameters at every value boundary: a decl
+		// taking a binary callback used as a value, a generic
+		// callback whose instantiation hides an arrow (A -> B with
+		// B = Int -> Int stays canonical), a constructor field and
+		// a constructor passed as the callback itself, and a
+		// @tailrec self-call forwarding a flat parameter.
+		name: "fn_value_flat_params",
+		src: `package main
+
+import go "fmt"
+
+type Pair = | MkPair Int Int
+type Box2 = | Box2 (Int -> Int -> Int)
+
+fn add2 (a: Int) (b: Int) -> Int = a + b
+
+fn apply3 (f: Int -> Int -> Int) (x: Int) -> Int = f x 1
+
+fn mapf (f: a -> b) (x: a) -> b = f x
+
+fn collect (f: Int -> Int -> Pair) (x: Int) -> Pair = f x x
+
+fn unpair (p: Pair) -> Int = match p {
+  MkPair a b -> a * 10 + b
+}
+
+@tailrec
+fn loop (f: Int -> Int -> Int) (acc: Int) (n: Int) -> Int =
+  if n == 0 { acc } else { loop f (f acc n) (n - 1) }
+
+fn answer () -> String = {
+  let a3 = apply3
+  let b2 = Box2 (fn a b -> a + b)
+  let got = match b2 {
+    Box2 f -> f 3 4
+  }
+  "${a3 add2 5} ${mapf (fn x -> fn y -> x + y) 10 5} ${unpair (collect MkPair 3)} ${loop add2 0 4} ${got}"
+}
+
+fn main () -> Unit = {
+  let _ = fmt.Println(answer ())
+  ()
+}
+`,
+		want: "6 15 33 10 7",
+	},
+	{
 		// A multi-parameter lambda whose body returns a function —
 		// the flat signature has more arrows than written parameters.
 		// The canonical lowering binds one written parameter per

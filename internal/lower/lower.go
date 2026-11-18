@@ -43,6 +43,17 @@ type Env struct {
 	// reports whether the signature is known.
 	GoSig func(sym *resolve.Symbol) (GoSig, bool)
 
+	// FuncType reports a Gom function symbol's *declared* signature —
+	// the type with its own type parameters still rigid. The
+	// flat-fn-param convention (docs/decisions/
+	// 2026-11-18-flat-fn-params.md) is positional on the declared
+	// arrow chain: call sites see the instantiated type, which may
+	// substitute a function type under a type variable and so must
+	// not widen a slot's flat arity. File-local FuncDecls are
+	// consulted automatically; the hook covers imported functions.
+	// False: the reference's (instantiated) type is the fallback.
+	FuncType func(sym *resolve.Symbol) (*types.Func, bool)
+
 	// Exported reports whether a package-level symbol is part of the
 	// package's public surface — a `fn`/`let` name the package's
 	// .gomi declares (spec section 5). It sets the Exported flag on
@@ -154,10 +165,13 @@ type TypeOracle interface {
 func File(f *check.File, env *Env) (*core.File, []diag.Diagnostic) {
 	l := &lowerer{
 		arity:      map[*resolve.Symbol]int{},
+		declTypes:  map[*resolve.Symbol]*types.Func{},
 		thunks:     map[*resolve.Symbol]bool{},
 		typeD:      map[string]*check.TypeDecl{},
 		ctorT:      map[*resolve.Symbol]*check.TypeDecl{},
 		boundSyms:  map[*resolve.Symbol]bool{},
+		flat:       map[*resolve.Symbol]int{},
+		flatSrc:    map[*resolve.Symbol]core.Expr{},
 		aliasElems: map[*resolve.Symbol]check.Expr{},
 		aliasInit:  map[*resolve.Symbol]bool{},
 	}
@@ -229,6 +243,7 @@ func (l *lowerer) indexDecl(d check.Decl) {
 	switch d := d.(type) {
 	case *check.FnDecl:
 		l.arity[d.Sym] = len(d.Params)
+		l.declTypes[d.Sym] = d.Sig
 		if d.Thunk {
 			l.thunks[d.Sym] = true
 		}
@@ -377,6 +392,25 @@ type lowerer struct {
 	// duplicated arm body (or-pattern, wildcard expansion, guard
 	// continuation) and needs a fresh binder.
 	boundSyms map[*resolve.Symbol]bool
+
+	// flat records the flat-repr parameters of the FuncDecl body
+	// currently lowering — bound symbol → arity (≥2) — for the
+	// flat-fn-param convention (flat.go): calls fuse to a single
+	// `f(a, b, ...)` and value positions eta-wrap to canonical.
+	flat map[*resolve.Symbol]int
+
+	// flatSrc records the canonical source an Uncurry-bound flat
+	// temp adapts — partial applications step the source one
+	// argument at a time so the callee's per-chunk lets keep the
+	// canonical eager semantics, and value positions reuse the
+	// canonical value instead of eta-wrapping the flat one.
+	flatSrc map[*resolve.Symbol]core.Expr
+
+	// declTypes records each same-file FuncDecl's declared
+	// signature (its own type parameters still rigid) for
+	// declParamTypes — the flat-slot convention reads the declared
+	// arrow chain, not the call site's instantiation.
+	declTypes map[*resolve.Symbol]*types.Func
 
 	// fnStack is the stack of enclosing function boundaries — the
 	// innermost is the escape To target. Entries are *core.Func.
@@ -531,6 +565,38 @@ func (l *lowerer) goSig(sym *resolve.Symbol, refTyp types.Type) GoSig {
 		}
 	}
 	return GoSig{Arity: flatArity(refTyp), Results: l.goResultsOf(refTyp)}
+}
+
+// declParamTypes reports a declared callee's *uninstantiated*
+// parameter types for the flat-slot convention (flat.go): flat
+// arity is positional on the declared arrow chain — instantiation
+// may substitute a function type under a type variable, which must
+// not widen a slot's arity (`map`'s `f: A -> B` stays arity 1 even
+// when B solves to `Int -> Int`). Symbols outside KindFunc — ctor
+// applications and value calls — answer nil: ctor fields and
+// canonical function *values* keep the canonical repr, so their
+// argument slots take no adaptation.
+func (l *lowerer) declParamTypes(sym *resolve.Symbol, refTyp types.Type) []types.Type {
+	if sym == nil || sym.Kind != resolve.KindFunc {
+		return nil
+	}
+	if sym.IsGo {
+		// The raw GoSig keeps the callee's own type parameters
+		// rigid — Params is the Go-side view of them.
+		if ps := l.goSig(sym, refTyp).Params; ps != nil {
+			return ps
+		}
+		return funcParamTypes(flatSig(refTyp))
+	}
+	if sig := l.declTypes[sym]; sig != nil {
+		return funcParamTypes(flatSig(sig))
+	}
+	if l.env.FuncType != nil {
+		if t, ok := l.env.FuncType(sym); ok {
+			return funcParamTypes(flatSig(t))
+		}
+	}
+	return funcParamTypes(flatSig(refTyp))
 }
 
 // instantiateGoSig substitutes a generic Go callee's solved type
@@ -911,6 +977,18 @@ func (l *lowerer) decl(d check.Decl, out *core.File) {
 		}
 		fn := &core.Func{Sp: d.Sp, Sig: sig}
 		fn.Params = l.paramBinds(d.Params, fn)
+		// Parameters of ≥2-arrow function type carry the flat repr
+		// for this body (docs/decisions/2026-11-18-flat-fn-params.md).
+		savedFlat, savedFlatSrc := l.flat, l.flatSrc
+		l.flat, l.flatSrc = map[*resolve.Symbol]int{}, map[*resolve.Symbol]core.Expr{}
+		for _, b := range fn.Params {
+			if b == nil || b.Sym == nil {
+				continue
+			}
+			if k := flatParamArity(b.Typ); k >= 2 {
+				l.flat[b.Sym] = k
+			}
+		}
 		l.fnStack = append(l.fnStack, fn)
 		s := &seq{}
 		l.paramPrelude(d.Params, fn.Params, s)
@@ -919,6 +997,7 @@ func (l *lowerer) decl(d check.Decl, out *core.File) {
 		tail := l.expr(s, d.Body)
 		fn.Body = &core.Body{Lets: s.lets, Tail: tail}
 		l.fnStack = l.fnStack[:len(l.fnStack)-1]
+		l.flat, l.flatSrc = savedFlat, savedFlatSrc
 		l.markTailCalls(fn, d.Sym, d.TypeParams)
 		l.markConsCalls(fn, d.Sym, d.TypeParams)
 		if fn.TailLoop {

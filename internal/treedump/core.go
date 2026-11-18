@@ -483,6 +483,8 @@ func (d *cdump) cexpr(e core.Expr) *form {
 			fn = nodef("?")
 		}
 		return nodef(chead("closure", e.Base), fn)
+	case *core.Uncurry:
+		return nodef(chead("uncurry", e.Base)+fmt.Sprintf(" :k%d", e.Arity), d.cexpr(e.X))
 	case *core.GoFunc:
 		text := chead("gofunc", e.Base)
 		kids := []*form{d.cexpr(e.X)}

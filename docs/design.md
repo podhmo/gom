@@ -149,7 +149,7 @@ bindings rather than left for `go build` to name hidden temporaries. See
 
 対応表の実体は `diag.SourceMap`（生成 Go の行 → .gom の span の `Anchor` 列）で、codegen が `//gomsrc` センチネルの splice と同じ操作で組み立てる — エクスポートされる表と実際のディレクティブは構造上ずれ得ない。`codegen.Output.SourceMap` / `TestSourceMap` 経由で `build.Result` に載り、エディタ系の問い合わせ（生成行 → span は `SpanAt`、.gom オフセット → 生成行は `LineAt`）の内部 API になる（[source-location-correspondence](decisions/2026-11-03-source-location-correspondence.md)）。戻す側は `internal/build` の `GoPosIndex` — 表示された名前をコンパイル入力に解決し `line:col` をクランプした point span に写す。`GoToolDiagnostics` が `file:line:col:` 行を E0001 `source:"go"` の診断に畳み、panic・goroutine dump のフレームは `diag.ParseStack` で分けて `GoPosIndex.ResolveStack` が span に戻す。手書きの Go ファイルや toolchain のパスは入力に解決できないので位置なしのまま残る。
 
-go tool の実起動は opt-in: `gom build -go` は出力先ディレクトリごとに `go build`、`gom build -vet` は `go vet` を走らせ（両者は独立に併用できる）、出力を上記の fold で `.gom` の位置に戻す（[cli-gotool-invocation](decisions/2026-11-17-cli-gotool-invocation.md)、[build-vet-flag](decisions/2026-11-18-build-vet-flag.md)）。`gom lsp -go` は同じ仕組みを publish 前の temp dir で回す（[lsp-gotool-invocation](decisions/2026-11-17-lsp-gotool-invocation.md)）。`gom test` の `go test -json` も build-output / panic スタックを同じ経路で畳む。`gom run` は `go build` を temp バイナリへ向けてから直接起動する — 子の終了コードと stdio を素通しするため `go run` は使わない（[decisions/gom-run](decisions/2026-11-18-gom-run.md)）。リンク失敗の診断だけ同じ fold を通る。
+go tool の実起動は opt-in: `gom build -go` は出力先ディレクトリごとに `go build`、`gom build -vet` は `go vet` を走らせ（両者は独立に併用できる）、出力を上記の fold で `.gom` の位置に戻す（[cli-gotool-invocation](decisions/2026-11-17-cli-gotool-invocation.md)、[build-vet-flag](decisions/2026-11-18-build-vet-flag.md)）。`gom lsp -go` は同じ仕組みを publish 前の temp dir で回す（1 フラグで `go build` と `go vet` の両方）（[lsp-gotool-invocation](decisions/2026-11-17-lsp-gotool-invocation.md)）。`gom test` の `go test -json` も build-output / panic スタックを同じ経路で畳む。`gom run` は `go build` を temp バイナリへ向けてから直接起動する — 子の終了コードと stdio を素通しするため `go run` は使わない（[decisions/gom-run](decisions/2026-11-18-gom-run.md)）。リンク失敗の診断だけ同じ fold を通る。
 
 `//line` は emit する全行に再置きされる（per-line re-pin — `pad()` が行頭ごとに `curSpan` の sentinel を出し、`}` 系は括りの construct の span を名指す）ため継続行の drift は構造上発生しない。`AddSourceMap` で生成物と対応表を登録した index は `ResolveMatch` で報告行を印刷しうる全生成行を `SourceMap.Candidates` で列挙し、診断を乗せられない行（空行・コメント・ディレクティブ行）を除いた候補が 1 構文ならその span（範囲外なら構文全体 = drift）、複数なら union を ambiguous として返す（[gotool-position-inverse](decisions/2026-11-06-gotool-position-inverse.md)、[sourcemap-repin](decisions/2026-11-17-sourcemap-repin.md)）。残る ambiguous は同一 `.gom` 行を別 span が要求する真の曖昧性のみ。map 未登録の経路は従来の近似のまま。
 
@@ -198,40 +198,67 @@ Constructs that specifically need a shadowed builtin — `try`/`|?>`, builtin co
 ```
 gom/
 ├── go.mod
-├── CLAUDE.md
+├── AGENTS.md / CLAUDE.md
 ├── TODO.md
 ├── cmd/
-│   └── gom/          CLI（build, check, test, fmt, fix, info, explain, schema）
+│   └── gom/          CLI（build, check, test, run, dump, fmt, fix, info, explain, schema, lsp）
 ├── internal/
 │   ├── syntax/       字句解析・構文解析・表層 AST（コメントと空行を trivia として保持）
 │   ├── format/       gom fmt（プリティプリンタ）
 │   ├── resolve/      名前解決、.gomi と Go パッケージの読み込み
+│   ├── gomimport/    依存 Gom パッケージの .gomi 読み込み（`import "path"` の公開面を作る）
 │   ├── goimport/     go/importer・go/types から Gom の型を作る、extern による上書き
 │   ├── types/        型の表現、単一化、HM 推論、ラベル付き引数
 │   ├── check/        型検査（型付き AST を作る）
 │   ├── pattern/      網羅性・冗長性の判定と反例の生成（match、let、関数引数で共用）
 │   ├── iface/        .gomi の検査とハッシュ、gom info の下書き生成
 │   ├── core/         Core IR の定義
+│   ├── staticalias/  パッケージ初期化の静的 alias 分類（lower と eval で共用。2.1 節）
 │   ├── lower/        脱糖、決定木へのコンパイル、arity 解析、テストの分離
 │   ├── codegen/      Core IR → go/ast（宛先渡し、sum type、_test.go の出力）
 │   ├── diag/         診断の型、JSON / text 出力、エラーコード表、JSON Schema
-│   ├── build/        パッケージグラフ、インクリメンタルビルド、キャッシュ、go build / go test の呼び出し
+│   ├── build/        パッケージグラフ、インクリメンタルビルド、キャッシュ、go build / go vet / go test の呼び出し
+│   ├── eval/         意味論オラクルの tree-walking 評価器（生成コードとの比較検証用。7 節）
+│   ├── gomtest/      testdata 配下のファイルベーステストのハーネス（spec・golden・dump 等）
+│   ├── gomgen/       grammar.ebnf からのランダム .gom 生成器（fuzz シード・プロパティテスト用）
+│   ├── fuzzutil/     Go fuzz ターゲットの共通部品（シード・watchdog・knownBugs）
+│   ├── testbin/      テスト用の native binary 構築（GOM_TEST_BIN_CACHE、7 節）
+│   ├── treedump/     `gom dump` の各フェーズ IR 表示
+│   ├── lsp/          `gom lsp` の JSON-RPC サーバー（publishDiagnostics、-go で go build + go vet を fold）
 │   ├── stdlib/       埋め込み .gomi から組み込みモジュール表・シグネチャ・arity を作る配線（gomstd.Apply）＋手書きの builtin 表（`Chan`/`Task` — [decision](decisions/2026-11-04-builtin-chan-task-rt.md)）
 │   └── tool/         リポジトリのツール（同期ジェネレータなど。コンパイラのフェーズではない）
 ├── rt/               生成コードが import する補助（Tuple、Task、アサーションなど）。stdlib の表現を参照しない葉
 ├── stdlib/           Gom で書いた標準ライブラリ（list, option, result）。各パッケージに .gomi。
 │                     types.go が手書きの Go 表現、.go / _test.go は `gom build` / `gom test` の生成物でコミットする
 │                     bench_test.go は生成物を直接測る手書きのベンチ（P5-3、[decision](decisions/2026-11-05-generated-code-benchmark-harness.md)）
+├── editor/           エディタ同梱物（emacs モード）
+├── tree-sitter-gom/  tree-sitter 文法（シンタックスハイライト用）
+├── examples/         実行可能なユースケース（gist-cli — 7 節）
+├── tutorial/         実行可能 tutorial 章（7 節）
+├── experiments/      設計検証のスクラッチ置き場
+├── skills/           エージェント向けスキル（gom-agent-guide など）
+├── scripts/          開発用スクリプト（check-sumtype / check-staticcheck など）
 ├── testdata/
 │   ├── spec/         仕様の規則ごとの .gom と、期待する診断 JSON。パッケージ単位の規則は <name>/ ディレクトリ case（内部の .gom 群を 1 ユニットとしてコンパイル、bare な side file（expected.json / golden.go / case.json のいずれか）が目印 — [decision](decisions/2026-11-05-gomtest-multifile-cases.md)。スイート root 直下の裸 side file は load error — [decision](decisions/2026-11-06-spec-suite-root-bare-side-files.md)）
 │   ├── golden/       生成される Go コードのゴールデンファイル。ディレクトリ case は生成ファイルごとに 1 ゴールデン（<name>/<member>.golden.go、[decision](decisions/2026-11-06-gomtest-golden-dir-cases.md)）
-│   └── fmt/          フォーマッタの入力と期待する出力
+│   ├── dump/         `gom dump` のフェーズ IR 表示のゴールデン
+│   ├── fmt/          フォーマッタの入力と期待する出力
+│   ├── gocall/       Go から Gom 生成 API を呼ぶ end-to-end フィクスチャ（scratch Go module）
+│   ├── goiface/      goimport・境界テストの Go 側フィクスチャパッケージ
+│   ├── multifile/    複数 .gom パッケージ＋.gomi import の end-to-end フィクスチャ
+│   ├── realworld/    実用規模の package main プログラム群（check → build → go build → run）
+│   ├── sumtype/      go-check-sumtype のカナリア（nonexhaustive は失敗し続けることが正）
+│   └── voidhost/     0 戻り値 Go 呼び出しのホスト側フィクスチャ
 └── docs/
     ├── spec.md
     ├── design.md
     ├── open-questions.md
+    ├── implementation-gaps.md
+    ├── error-codes.md
     ├── grammar.ebnf
-    └── decisions/
+    ├── decisions/
+    ├── problems/
+    └── sketch/
 ```
 
 - 依存の向きはパイプラインと同じく一方向: `syntax` → `resolve` → `check` → `pattern` → `lower` → `codegen`
@@ -334,6 +361,8 @@ if n > 0 {
 
 関数値の表現はカリー化形（[decisions/function-value-representation](decisions/2026-11-02-function-value-representation.md) — P0-2 の flat 形を部分的に Supersede）: Gom の `T1 -> ... -> Tn -> R` の値は Go の `func(T1) func(T2) ... R` とし、矢印 1 本につき Go の関数を 1 つ生成する。`types.Equal` は矢印チェーンを平坦化して同一視するため、`Int -> Int -> Int` と `Int -> (Int -> Int)` は同じ型——表現を平坦化済みチェーンの純粋関数にすると、どの綴りでも同じ Go 型になり、境界に変換は要らない（P0-2 の flat 形は宣言 arity で表現を選んだため、check を通った `stage make` が型検査の通らない Go を生成していた）。宣言は従来どおり宣言 arity の Go 関数を出力する。値として参照できるのは宣言 arity 1 のときだけで、2 以上は `func(p0) func(p1) ... { f_(p0, p1, ...) }` のアダプタを生成する——アダプタの最後の矢印が宣言チャンク全体を起動するので、本体の副作用が最初のチャンク適用時に走る順序は変わらない。`.gomi` には引数リストの形でシグネチャを書くので、他パッケージの関数についても arity が分かる。
 
+例外として、宣言 FuncDecl のパラメータで型が >=2 本の矢印チェーンを持つものは flat 表現 `func(T1', ..., Tk') R'` をパラメータ型として emit する（[decisions/flat-fn-params](decisions/2026-11-18-flat-fn-params.md) — `Fold` の要素ごとクロージャ確保を消すため）。飽和呼出は `CallFunc{FlatArity: k}`、canonical 値からの適合は `Uncurry`、値位置での canonical 復元は `curryEta` で、いずれも Core IR で確定させる。flat パラメータへの部分適用は残り引数まで呼出全体を遅延する（作用の発火タイミングが residual 適用時に移る差は decision に記録）。
+
 ### 4.5 その他の変換
 
 - Go 関数の呼び出し → タプルを作らず `pkg.F(a, b)` に直接変換する。数値型の変換、`any` へのボックス化、`(T, error)` から `Result` への変換もここで挿入する
@@ -435,7 +464,7 @@ func TestRectArea(t *testing.T) {
 3. 再コンパイルするのは、自分のソースか依存先のインターフェースのハッシュが変わったときだけ
 4. テストと `@test` 定義はハッシュに含めない
 5. 生成した `.go` が前回と同じ内容なら書き換えない。Go 側の再ビルドは `go build` のキャッシュに任せる
-6. 依存関係のないパッケージどうしは並列にコンパイルする — 未実装。dir グループの並列化は `CompileFiles` 呼び出しのスケジューリングで、キャッシュとは直交
+6. 依存関係のないパッケージどうしは並列にコンパイルする — 未実装。dir グループの並列化は `CompileFiles` 呼び出しのスケジューリングで、キャッシュとは直交。wave20 で評価: dep 順序づけと共有 Loader の同期が要り実装は小さくない（[implementation-gaps](implementation-gaps.md) の項参照）
 
 `.gomi` は Gom の意味論的な型（公開 API）を表す。生成される Go の API（型名・関数のシグネチャ）をどこまで安定させるか（Go ABI の方針）は open-questions.md。
 

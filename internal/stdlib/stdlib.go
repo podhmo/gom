@@ -296,6 +296,18 @@ func (e *env) apply(o *build.Options) *build.Options {
 		}
 		return -1
 	}
+	baseFuncType := le.FuncType
+	le.FuncType = func(sym *resolve.Symbol) (*types.Func, bool) {
+		if s, ok := e.sigs[sym]; ok {
+			if f, ok := s.Type.(*types.Func); ok {
+				return f, true
+			}
+		}
+		if baseFuncType != nil {
+			return baseFuncType(sym)
+		}
+		return nil, false
+	}
 	baseGoSig := le.GoSig
 	le.GoSig = func(sym *resolve.Symbol) (lower.GoSig, bool) {
 		if s, ok := e.gosigs[sym]; ok {

@@ -9,6 +9,7 @@ import (
 
 	"github.com/podhmo/gom/internal/core"
 	"github.com/podhmo/gom/internal/diag"
+	"github.com/podhmo/gom/internal/resolve"
 	"github.com/podhmo/gom/internal/types"
 )
 
@@ -166,7 +167,7 @@ func (g *gen) emit(e core.Expr, d dest) {
 		*core.Unary, *core.Binary, *core.Equal,
 		*core.CallDirect, *core.CallFunc, *core.CallGo, *core.CallBuiltin,
 		*core.CtorApp, *core.TupleNew, *core.ListNew, *core.RecordNew,
-		*core.Conv:
+		*core.Conv, *core.Uncurry:
 		g.valueExpr(e, d)
 	default:
 		panic("unreachable")
@@ -203,6 +204,11 @@ func (g *gen) valueExpr(e core.Expr, d dest) {
 		if c, ok := e.(*core.GoFunc); ok {
 			g.raw("_ = ")
 			g.goFuncLit(c)
+			break
+		}
+		if c, ok := e.(*core.Uncurry); ok {
+			g.raw("_ = ")
+			g.uncurryLit(c)
 			break
 		}
 		x := g.simpleExpr(e)
@@ -246,7 +252,230 @@ func (g *gen) exprValue(e core.Expr) {
 		g.goFuncLit(c)
 		return
 	}
+	if c, ok := e.(*core.Uncurry); ok {
+		g.uncurryLit(c)
+		return
+	}
 	g.expr(g.simpleExpr(e))
+}
+
+// uncurryLit emits the flat `func(p0 T0, ..., pk-1 Tk-1) R { ... }`
+// an Uncurry carries. A FuncRef or CtorRef whose declared arity is
+// the slot's arity already emits the flat face — the reference
+// stands verbatim; any other arity adapts through a direct call
+// (the codegen under-application eta covers a shorter source).
+// A Closure flattens its one-level-per-arrow chain into the single
+// literal — params and per-level Lets merge, evaluation order is
+// unchanged since the callee applies the flat argument in one shot.
+// Every other atom wraps canonically: `x(p0)(p1)...`; a GoFuncRef,
+// a flat Go function, takes the arguments at once.
+func (g *gen) uncurryLit(e *core.Uncurry) {
+	g.line(e.Sp)
+	ps, ret := flatArrow(e.Typ)
+	var binds []*core.Bind
+	var lets []*core.Let
+	var tail core.Expr
+
+	bindOf := func(x core.Expr) core.Atom {
+		if a, ok := x.(core.Atom); ok {
+			return a
+		}
+		tb := &core.Bind{Sp: e.Sp, Sym: &resolve.Symbol{
+			Name: fmt.Sprintf("u%d", len(lets)), Kind: resolve.KindVar}, Typ: x.Type()}
+		lets = append(lets, &core.Let{Sp: e.Sp, Name: tb, X: x})
+		return &core.Var{Sp: e.Sp, Typ: x.Type(), Sym: tb.Sym}
+	}
+
+	synth := func(j int) *core.Bind {
+		return &core.Bind{Sp: e.Sp, Sym: &resolve.Symbol{
+			Name: fmt.Sprintf("p%d", j), Kind: resolve.KindVar}, Typ: ps[min(j, len(ps)-1)].Type}
+	}
+	pvOf := func(b *core.Bind) core.Atom {
+		return &core.Var{Sp: e.Sp, Typ: b.Typ, Sym: b.Sym}
+	}
+
+	switch x := e.X.(type) {
+	case *core.FuncRef:
+		// Verbatim only when the declaration's emitted signature IS
+		// the flat slot shape — same arity AND no flat (≥2-arrow)
+		// declared params of its own. A decl taking binary
+		// callbacks (`func f_(g func(A,B)C, ...)`) is not the
+		// canonical-slot value (`func(g func(A)func(B)C, ...)`) the
+		// flat literal hands it, so its params need per-slot
+		// adaptation like any call site.
+		fps, _ := flatArrow(x.Type())
+		// The flat convention is positional on the *declared* arrow
+		// chain — FuncRef.FlatParams — not the instantiated
+		// reference type: substitution can widen a declared 1-arrow
+		// parameter into a >= 2-arrow value, which must not turn a
+		// canonical slot flat.
+		declFlat := func(i int) int {
+			if i < len(x.FlatParams) {
+				return x.FlatParams[i]
+			}
+			if i < len(fps) {
+				return flatArity(fps[i].Type)
+			}
+			return 0
+		}
+		flatParams := false
+		for i := 0; i < x.Arity; i++ {
+			if declFlat(i) >= 2 {
+				flatParams = true
+			}
+		}
+		if x.Arity == e.Arity && !flatParams {
+			g.expr(g.qualRef(x.Sym, x.TypeArgs))
+			return
+		}
+		for len(binds) < e.Arity {
+			binds = append(binds, synth(len(binds)))
+		}
+		n := min(e.Arity, x.Arity)
+		var args []core.Atom
+		for i, b := range binds[:n] {
+			var arg core.Atom = pvOf(b)
+			if fa := declFlat(i); fa >= 2 {
+				arg = bindOf(&core.Uncurry{Base: core.Base{Sp: e.Sp, Typ: b.Typ}, Arity: fa, X: arg})
+			}
+			args = append(args, arg)
+		}
+		if x.Arity > e.Arity {
+			// Under-application: the flat literal's result is the
+			// canonical chain saturating the rest of the call.
+			var qs []*core.Bind
+			for i := e.Arity; i < x.Arity; i++ {
+				qt := ret
+				if i < len(fps) {
+					qt = fps[i].Type
+				}
+				qs = append(qs, &core.Bind{Sp: e.Sp, Sym: &resolve.Symbol{
+					Name: fmt.Sprintf("q%d", i), Kind: resolve.KindVar}, Typ: qt})
+				var arg core.Atom = pvOf(qs[len(qs)-1])
+				if fa := declFlat(i); fa >= 2 {
+					arg = bindOf(&core.Uncurry{Base: core.Base{Sp: e.Sp, Typ: qt}, Arity: fa, X: arg})
+				}
+				args = append(args, arg)
+			}
+			var call core.Expr = &core.CallDirect{Base: core.Base{Sp: x.Sp, Typ: ret}, Callee: x.Sym,
+				Args: args, Arity: x.Arity, TypeArgs: x.TypeArgs}
+			for i := len(qs) - 1; i >= 0; i-- {
+				call = &core.Closure{Base: core.Base{Sp: e.Sp, Typ: ret},
+					Fn: &core.Func{Sp: e.Sp, Params: []*core.Bind{qs[i]},
+						Body: &core.Body{Tail: call}}}
+			}
+			tail = call
+		} else {
+			var call core.Expr = &core.CallDirect{Base: core.Base{Sp: x.Sp, Typ: ret}, Callee: x.Sym,
+				Args: args, Arity: x.Arity, TypeArgs: x.TypeArgs}
+			for i := n; i < e.Arity; i++ {
+				a := bindOf(call)
+				call = &core.CallFunc{Base: core.Base{Sp: e.Sp, Typ: ret}, Fn: a,
+					Args: []core.Atom{pvOf(binds[i])}}
+			}
+			tail = call
+		}
+	case *core.CtorRef:
+		// No verbatim shortcut: a ctor reference emits the
+		// canonical one-func-per-field chain (ctorRef), never a
+		// flat literal — always emit the adapter shape.
+		cArity := len(x.Fields)
+		for len(binds) < e.Arity {
+			binds = append(binds, synth(len(binds)))
+		}
+		n := min(e.Arity, cArity)
+		var args []core.Atom
+		for _, b := range binds[:n] {
+			args = append(args, pvOf(b))
+		}
+		if cArity > e.Arity {
+			var qs []*core.Bind
+			for i := e.Arity; i < cArity; i++ {
+				qs = append(qs, &core.Bind{Sp: e.Sp, Sym: &resolve.Symbol{
+					Name: fmt.Sprintf("q%d", i), Kind: resolve.KindVar}, Typ: ret})
+				args = append(args, pvOf(qs[len(qs)-1]))
+			}
+			var call core.Expr = &core.CtorApp{Base: core.Base{Sp: x.Sp, Typ: ret}, Ctor: x.Sym,
+				Args: args, Arity: cArity, TypeArgs: x.TypeArgs, Fields: x.Fields}
+			for i := len(qs) - 1; i >= 0; i-- {
+				call = &core.Closure{Base: core.Base{Sp: e.Sp, Typ: ret},
+					Fn: &core.Func{Sp: e.Sp, Params: []*core.Bind{qs[i]},
+						Body: &core.Body{Tail: call}}}
+			}
+			tail = call
+		} else {
+			var call core.Expr = &core.CtorApp{Base: core.Base{Sp: x.Sp, Typ: ret}, Ctor: x.Sym,
+				Args: args, Arity: cArity, TypeArgs: x.TypeArgs, Fields: x.Fields}
+			for i := n; i < e.Arity; i++ {
+				a := bindOf(call)
+				call = &core.CallFunc{Base: core.Base{Sp: e.Sp, Typ: ret}, Fn: a,
+					Args: []core.Atom{pvOf(binds[i])}}
+			}
+			tail = call
+		}
+	case *core.Closure:
+		cur := x
+		for cur != nil && len(binds) < e.Arity {
+			binds = append(binds, cur.Fn.Params...)
+			lets = append(lets, cur.Fn.Body.Lets...)
+			next, ok := cur.Fn.Body.Tail.(*core.Closure)
+			if !ok {
+				tail = cur.Fn.Body.Tail
+				cur = nil
+				break
+			}
+			cur = next
+		}
+		if cur != nil {
+			tail = cur
+		}
+		for len(binds) < e.Arity {
+			b := synth(len(binds))
+			binds = append(binds, b)
+			if tail != nil {
+				a := bindOf(tail)
+				tail = &core.CallFunc{Base: core.Base{Sp: e.Sp, Typ: ret}, Fn: a, Args: []core.Atom{
+					&core.Var{Sp: e.Sp, Typ: b.Typ, Sym: b.Sym}}}
+			}
+		}
+	case *core.GoFuncRef:
+		// A GoFuncRef taking the flat call.
+		for len(binds) < e.Arity {
+			binds = append(binds, synth(len(binds)))
+		}
+		args := make([]core.Atom, len(binds))
+		for i, b := range binds {
+			args[i] = &core.Var{Sp: e.Sp, Typ: b.Typ, Sym: b.Sym}
+		}
+		tail = &core.CallFunc{Base: core.Base{Sp: e.Sp, Typ: ret}, Fn: x, Args: args, FlatArity: len(args)}
+	case *core.Var, *core.Lit, *core.FieldGet, *core.GoFunc, *core.Uncurry,
+		*core.Unary, *core.Binary, *core.Equal, *core.If, *core.Match,
+		*core.SelectExpr, *core.Spawn, *core.ForRange,
+		*core.TupleNew, *core.ListNew, *core.RecordNew, *core.RecordUpdate,
+		*core.CallDirect, *core.CallFunc, *core.CallGo, *core.CallBuiltin,
+		*core.CtorApp, *core.TailCall, *core.EscapeResult, *core.EscapeCall,
+		*core.ResultFromGo, *core.OptionFromGo, *core.ErrorFromGo,
+		*core.TupleFromGo, *core.Conv:
+		// The generic adapter over a canonical atom.
+		tail = e.X
+		for len(binds) < e.Arity {
+			b := synth(len(binds))
+			binds = append(binds, b)
+			a := bindOf(tail)
+			tail = &core.CallFunc{Base: core.Base{Sp: e.Sp, Typ: ret}, Fn: a, Args: []core.Atom{
+				&core.Var{Sp: e.Sp, Typ: b.Typ, Sym: b.Sym}}}
+		}
+	default:
+		panic("unreachable")
+	}
+	if tail == nil {
+		// Defensive — the lowerer only emits an Uncurry whose Arity
+		// the source chain can cover.
+		panic("unreachable")
+	}
+	fn := &core.Func{Sp: e.Sp, Sig: &types.Func{Params: ps[:min(e.Arity, len(ps))], Ret: ret},
+		Params: binds, Body: &core.Body{Lets: lets, Tail: tail}}
+	g.funcLit(fn)
 }
 
 // writeDest writes an already-built expression to a destination.
@@ -1144,15 +1373,34 @@ func (g *gen) funcLit(fn *core.Func) {
 	g.closeInline()
 }
 
+// paramsFlat is params for a function *declaration*'s parameter
+// list — a parameter of ≥2-arrow function type emits the flat repr
+// `func(T1', ..., Tk') R'` (docs/decisions/2026-11-18-flat-fn-params.md).
+// Closure and adapter literals keep `params`: their values are
+// canonical.
+func (g *gen) paramsFlat(binds []*core.Bind) {
+	g.paramsGo(binds, func(b *core.Bind) ast.Expr {
+		if flatArity(b.Typ) >= 2 {
+			return g.flatFuncType(b.Typ)
+		}
+		return g.goType(b.Typ)
+	})
+}
+
 // params renders a parameter list `a T0, b T1` — consecutive
 // same-type parameters are grouped `a, b T`.
 func (g *gen) params(binds []*core.Bind) {
+	g.paramsGo(binds, func(b *core.Bind) ast.Expr { return g.goType(b.Typ) })
+}
+
+// paramsGo is params with a caller-chosen type renderer.
+func (g *gen) paramsGo(binds []*core.Bind, ty func(b *core.Bind) ast.Expr) {
 	// Render each parameter's type to a string so adjacent equal
 	// types can share one mention.
 	typeText := make([]string, len(binds))
 	for i, b := range binds {
 		mark := g.buf.Len()
-		g.typ(g.goType(b.Typ))
+		g.typ(ty(b))
 		typeText[i] = g.buf.String()[mark:]
 		g.buf.Truncate(mark)
 	}

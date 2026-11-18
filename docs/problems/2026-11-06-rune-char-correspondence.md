@@ -12,7 +12,7 @@ spec §8.3 の対応表は以前「Go の `rune` → `Char`」と読める記述
 ## 残る懸念
 
 - **摩擦**: Go の `rune` 引数 API（`unicode.IsUpper`、`strings.Map` など）には Gom 側から `Int32` を渡す必要があり、手元の `Char` 値は `Go.conv c : Int32` を通す。逆に rune を返す API の結果を `Char` として使うにも `Go.conv` が要る。境界変換なしに渡せる見た目の型が違う、という違和感が残る。
-- **`Char` の境界変換**: `Char` の Go 表現も `rune`（＝ `int32`）なので、`Int32` と `Char` の間は機械的に相互変換可能。`Go.conv` の明示を残すか、Char ↔ Int32 の暗黙の橋渡しを許すかは未決定。v1 は明示のまま。
+- **`Char` の境界変換**: `Char` の Go 表現も `rune`（＝ `int32`）なので、`Int32` と `Char` の間は機械的に相互変換可能。`Go.conv` の明示を残すか、Char ↔ Int32 の暗黙の橋渡しを許すかは未決定。v1 は明示のまま（open-questions に登録 — wave20 lane4）。
 - **`byte`（`uint8`）**: 同じ構図のエイリアス問題が `byte` にもある。wave14 で `byte`/`uint8` は組み込み型 `Byte` として公開面に載った（[decision](../decisions/2026-11-17-byte-type.md)）— `byte` と `uint8` は型レベルで区別できないため両方 `Byte` に読まれる。エイリアスを「別の Gom 型」に写像する方針自体が、エイリアスである以上一貫して成立しない、という構造的な懸念は残る。
 
 ## 現状の扱い
