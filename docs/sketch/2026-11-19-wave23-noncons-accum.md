@@ -23,7 +23,7 @@ cons-recursion 特殊化（[decision](../decisions/2026-11-18-cons-recursion-spe
 
 ¹ ChainAppend は総要素 1000/4000/16000（k=125/500/2000 × chunk 8）。
 
-- n=8000 で対照形の **~600–900 倍**。除外 3 形（FoldConcat/Mutual/ReadTwice）はほぼ同一プロファイル — 同じ機構（成長する acc の全コピー）に由来。
+- n=8000 で対照形の **~600–900 倍**。除外 3 形（FoldConcat/Mutual/ReadTwice）はほぼ同一プロファイル — 同じ機構（成長する acc の全コピー）に由来。なお ReadTwice は cons コピーに加えて `List.length rest` の線形走査が各レベルで乗るので 2 つの quadratic 源が混ざる（実測は上振れ側の推定として読む）。
 - ChainAppend は `List.append` 自体が buffer loop 化済みでも救えない: コストは append 内部ではなく**左辺 acc のコピー**にあり、レベルごとに acc が育つ。
 - Go 再帰はスタックが伸びるので n=8000 でも完走するが、深度制限が実質ない分、quadratic が最初の症状になる。
 
