@@ -118,8 +118,7 @@ func (c *checker) checkGoFuncCall(e *syntax.Apply, fn Expr, callee *resolve.Symb
 	_, isLambda := e.Args[0].Value.(*syntax.Lambda)
 	if wCon != nil && isLambda {
 		if wn, ok2 := goFuncTypeArity(wCon.Name); ok2 && wn == n &&
-			len(wCon.Args) >= n && len(wCon.Args) <= n+2 &&
-			(len(wCon.Args) != n+2 || c.isBuiltinCon(types.Chase(wCon.Args[n+1]), "GoError")) {
+			len(wCon.Args) >= n && len(wCon.Args) <= n+8 {
 			seed = &types.Func{
 				Params: goFuncSeedParams(wCon.Args[:n]),
 				Ret:    goFuncSeedRet(c, wCon.Args[n:], false),
@@ -204,7 +203,9 @@ func (c *checker) checkGoFuncCall(e *syntax.Apply, fn Expr, callee *resolve.Symb
 // argument's FuncN con alone — raw parameter views read as their
 // Gom views (goFuncSeedParams) and the raw results read as the
 // seed's result mapping (none → `Unit`, `error` → `Result Unit
-// GoError`, `(T, error)` → `Result T GoError`, lone `T` → `T`):
+// GoError`, `(T, error)` → `Result T GoError`, lone `T` → `T`,
+// `(T, U, ..., error)` → `Result (Tuple ...) GoError`, other
+// multi-results → a tuple):
 // a lone `error` is always the honest Result, never the never-nil
 // `GoError` claim an extern binding could declare.
 func (c *checker) checkGoFnCall(e *syntax.Apply, fn Expr, callee *resolve.Symbol, n int) Expr {
@@ -247,8 +248,7 @@ func (c *checker) checkGoFnCall(e *syntax.Apply, fn Expr, callee *resolve.Symbol
 		out.Call = CallInfo{Kind: CallUnknown, Applied: 1, HoleIndex: -1}
 		return out
 	}
-	if len(fc.Args) < n || len(fc.Args) > n+2 ||
-		(len(fc.Args) == n+2 && !isGoErrorCon(types.Chase(fc.Args[n+1]))) {
+	if len(fc.Args) < n || len(fc.Args) > n+8 {
 		c.diags.Add(diag.Error("E0510",
 			fmt.Sprintf("`Go.fn%d` cannot convert `%s` — not a `func` type's shape", n,
 				types.Display(fc, metaNamer()))).At(e.Sp))
@@ -337,7 +337,10 @@ func isGoFuncUnit(t types.Type) bool {
 
 // goFuncSeedRet maps a FuncN con's raw result arguments back to the
 // Gom-facing result: none → `Unit`, `error` → `Result Unit
-// GoError`, `(T, error)` → `Result T GoError` — a lone `T` → `T`.
+// GoError`, `(T, error)` → `Result T GoError`, a lone `T` → `T`,
+// and the N-ary shapes — a trailing `error` folds the payload into
+// `Result (Tuple ...) GoError`, anything else a plain tuple
+// (docs/decisions/2026-11-18-nary-go-results.md).
 // optWrap asks for the import mapping's `Option` wrap on a
 // method-bearing-interface payload (fnSeedNilable): `Go.fnN`'s
 // derived type wants it so `(nil, nil)` materializes `Ok None`;
@@ -346,6 +349,18 @@ func isGoFuncUnit(t types.Type) bool {
 // (`Option`-declared callbacks convert through goFuncRawResults'
 // own Option case instead).
 func goFuncSeedRet(c *checker, raws []types.Type, optWrap bool) types.Type {
+	wrap := func(raw types.Type) types.Type {
+		p := goFuncGomView(raw, true)
+		// A method-bearing interface payload (`error`, `net.Error`,
+		// `io.Reader`) carries the unobservable nil — the derived
+		// view wraps it in Option exactly like the import mapping
+		// (internal/goimport/mapping.go): `Ok None` reads
+		// `(nil, nil)` instead of smuggling a nil interface in.
+		if optWrap && c.fnSeedNilable(raw) {
+			p = types.Option(p)
+		}
+		return p
+	}
 	switch len(raws) {
 	case 0:
 		return types.Unit
@@ -355,18 +370,23 @@ func goFuncSeedRet(c *checker, raws []types.Type, optWrap bool) types.Type {
 		}
 		return goFuncGomView(raws[0], true)
 	case 2:
-		p := goFuncGomView(raws[0], true)
-		// A method-bearing interface payload (`error`, `net.Error`,
-		// `io.Reader`) carries the unobservable nil — the derived
-		// view wraps it in Option exactly like the import mapping
-		// (internal/goimport/mapping.go): `Ok None` reads
-		// `(nil, nil)` instead of smuggling a nil interface in.
-		if optWrap && c.fnSeedNilable(raws[0]) {
-			p = types.Option(p)
+		if isGoErrorCon(types.Chase(raws[1])) {
+			return types.Result(wrap(raws[0]), types.GoError)
 		}
-		return types.Result(p, types.GoError)
+		return types.Tup(goFuncGomView(raws[0], true), goFuncGomView(raws[1], true))
 	default:
-		panic("unreachable")
+		if isGoErrorCon(types.Chase(raws[len(raws)-1])) {
+			els := make([]types.Type, len(raws)-1)
+			for i := range els {
+				els[i] = wrap(raws[i])
+			}
+			return types.Result(types.Tup(els...), types.GoError)
+		}
+		els := make([]types.Type, len(raws))
+		for i := range els {
+			els[i] = goFuncGomView(raws[i], true)
+		}
+		return types.Tup(els...)
 	}
 }
 
@@ -601,47 +621,77 @@ func goFuncRawView(t types.Type) (types.Type, string) {
 
 // goFuncRawResults maps a Gom-facing result type to the FuncN's raw
 // result arguments: `Unit` → none, `Result Unit GoError` → `error`,
-// `Result T GoError` → `(T', error)`, otherwise the lone raw view.
-// An `Option` payload maps only when its raw view is nil-able —
-// `Result (Option Int) GoError` has no honest `(int64, error)`
-// reading (`None` would materialize as `0`).
+// `Result T GoError` → `(T', error)`, a tuple → its raw elements,
+// `Result (Tuple ...) GoError` → the raw elements plus `error`
+// (docs/decisions/2026-11-18-nary-go-results.md), otherwise the
+// lone raw view.
+// An `Option` payload — or an Option tuple element — maps only
+// when its raw view is nil-able — `Result (Option Int) GoError`
+// has no honest `(int64, error)` reading (`None` would
+// materialize as `0`).
 func (c *checker) goFuncRawResults(ret types.Type) ([]types.Type, string) {
+	// elemRaw reads one payload position: verbatim, or an Option
+	// spelling over a nil-able raw view.
+	elemRaw := func(el types.Type) (types.Type, string) {
+		p := types.Chase(el)
+		if oc, isOpt := p.(*types.Con); isOpt && oc.Qual == "" &&
+			oc.Name == "Option" && len(oc.Args) == 1 {
+			p = types.Chase(oc.Args[0])
+			rt, reason := goFuncRawView(p)
+			if reason != "" {
+				return nil, reason
+			}
+			if !c.goRawNilable(rt) {
+				return nil, fmt.Sprintf("`Option %s`'s payload is not nil-able — `None` cannot map to a Go value", types.Display(p, metaNamer()))
+			}
+			return rt, ""
+		}
+		return goFuncRawView(p)
+	}
 	if rc, ok := ret.(*types.Con); ok && rc.Qual == "" {
 		if rc.Name == "Unit" && len(rc.Args) == 0 {
 			return nil, ""
 		}
 		if rc.Name == "Result" && len(rc.Args) == 2 &&
 			isGoErrorCon(rc.Args[1]) {
-			if uc, ok := types.Chase(rc.Args[0]).(*types.Con); ok &&
+			p := types.Chase(rc.Args[0])
+			if uc, ok := p.(*types.Con); ok &&
 				uc.Qual == "" && uc.Name == "Unit" && len(uc.Args) == 0 {
 				return []types.Type{types.GoError}, ""
 			}
-			// `Result (Option T) GoError` — the declared view of a
-			// `(T, error)` member whose payload is nil-able — reads
-			// back to the same raw pair: `Some` is the value,
-			// `None` the nil.
-			p := types.Chase(rc.Args[0])
-			if oc, isOpt := p.(*types.Con); isOpt && oc.Qual == "" &&
-				oc.Name == "Option" && len(oc.Args) == 1 {
-				p = types.Chase(oc.Args[0])
-				rt, reason := goFuncRawView(p)
-				if reason != "" {
-					return nil, reason
+			if tup, isTup := p.(*types.Tuple); isTup {
+				// `Result (Tuple ...) GoError` — the N-ary
+				// trailing-error fold: element raws then `error`.
+				rs := make([]types.Type, 0, len(tup.Elems)+1)
+				for _, el := range tup.Elems {
+					rt, reason := elemRaw(el)
+					if reason != "" {
+						return nil, reason
+					}
+					rs = append(rs, rt)
 				}
-				if !c.goRawNilable(rt) {
-					return nil, fmt.Sprintf("`Option %s`'s payload is not nil-able — `None` cannot map to a Go value", types.Display(p, metaNamer()))
-				}
-				return []types.Type{rt, types.GoError}, ""
+				return append(rs, types.GoError), ""
 			}
-			rt, reason := goFuncRawView(p)
+			rt, reason := elemRaw(p)
 			if reason != "" {
 				return nil, reason
 			}
 			return []types.Type{rt, types.GoError}, ""
 		}
 		if rc.Name == "Result" {
-			return nil, "only `Result Unit GoError` and `Result T GoError` map to Go results"
+			return nil, "only `Result Unit GoError`, `Result T GoError` and `Result (Tuple ...) GoError` map to Go results"
 		}
+	}
+	if tup, ok := ret.(*types.Tuple); ok {
+		rs := make([]types.Type, 0, len(tup.Elems))
+		for _, el := range tup.Elems {
+			rt, reason := elemRaw(el)
+			if reason != "" {
+				return nil, reason
+			}
+			rs = append(rs, rt)
+		}
+		return rs, ""
 	}
 	rt, reason := goFuncRawView(ret)
 	if reason != "" {

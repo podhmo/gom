@@ -1,0 +1,28 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0501",
+      "severity": "error",
+      "message": "Go symbol `github.com/podhmo/gom/testdata/goiface.Nine` is not exposed: 9 results — at most 8 are representable",
+      "span": {
+        "file": "E0501_nary_result_cap.gom",
+        "start": {
+          "line": 7,
+          "col": 44,
+          "offset": 224
+        },
+        "end": {
+          "line": 7,
+          "col": 48,
+          "offset": 228
+        }
+      },
+      "data": {
+        "package": "github.com/podhmo/gom/testdata/goiface",
+        "reason": "9 results — at most 8 are representable",
+        "symbol": "Nine"
+      }
+    }
+  ]
+}

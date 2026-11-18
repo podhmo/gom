@@ -83,8 +83,10 @@ const GoFuncMaxArity = 3
 
 // GoFunc returns `Go.FuncN p0 ... pN-1 r...` — a Go func type
 // `func(p0,...,pN-1) (r...)` with the parameter count in the name
-// and the trailing type arguments the Go-view results (0, 1, or the
-// `(T, error)` pair — no others are representable). Every argument
+// and the trailing type arguments the Go-view results (0..8 of
+// them, read back through the N-ary folding — a trailing `GoError`
+// spells `Result ... GoError`, other multi-results a tuple;
+// docs/decisions/2026-11-18-nary-go-results.md). Every argument
 // is the raw Go view: `int` is `Go.Int`, `[]T` is `Go.Slice T`,
 // `error` is `GoError`. It renders as a flat `func` type, not the
 // curried value representation; `Go.funcN` is the only conversion

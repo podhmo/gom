@@ -74,6 +74,15 @@ const (
 	// GoResultsPair is `a, b := f(...)` — any other two-result shape,
 	// mapped to a tuple. Type() is the (A, B) tuple type.
 	GoResultsPair
+	// GoResultsNary is `v0, v1, v2, ... := f(...)` — three or more
+	// results without a trailing error, mapped to an N-tuple
+	// (spec section 8.3). Type() is the raw N-tuple type.
+	GoResultsNary
+	// GoResultsTupErr is `v0, v1, ..., err := f(...)` — three or
+	// more results whose last is an `error`, mapped to
+	// `Result (Tuple ...) GoError` (spec section 8.3). Type() is
+	// the raw payload tuple type.
+	GoResultsTupErr
 	// GoResultsNone is a zero-result call, typed Unit but usable only
 	// as a discarded statement. Lowering supplies Unit separately.
 	GoResultsNone
@@ -107,6 +116,10 @@ func (r GoResults) String() string {
 		return "ok"
 	case GoResultsPair:
 		return "pair"
+	case GoResultsNary:
+		return "nary"
+	case GoResultsTupErr:
+		return "tup-err"
 	case GoResultsNil:
 		return "nil"
 	case GoResultsErrValue:
@@ -274,17 +287,24 @@ func (*EscapeCall) isExpr() {}
 // ResultFromGo materializes a `Result T GoError` from a `(T, error)`
 // Go call — the naive (non-fused) boundary conversion, emitted as a
 // runtime/helper application over the call's result pair
-// (`result.FromGo(...)` / `result.FromErr(...)`). Use it for Go
-// results that are stored or returned, never inside `|?>` / `try`
-// (that is EscapeCall's job).
+// (`result.FromGo(...)` / `result.FromErr(...)`). Under
+// GoResultsTupErr the call is a `(T, U, ..., error)` shape and the
+// materialized payload is a tuple — `Result (Tuple ...) GoError`.
+// Use it for Go results that are stored or returned, never inside
+// `|?>` / `try` (that is EscapeCall's job).
 type ResultFromGo struct {
 	Base
-	Call *CallGo // Results must be GoResultsErr or GoResultsErrOnly
+	Call *CallGo // Results must be GoResultsErr, GoResultsErrOnly or GoResultsTupErr
 	// ValConv wraps the payload variable in a Go conversion when the
 	// raw result type differs from the payload's Gom spelling —
 	// the `int` → `int64` of `strconv.Atoi` (`int64(v)`). Zero means
 	// none. The conversion target is the Result's payload type.
 	ValConv ConvKind
+	// ElemConv wraps each payload element in a Go conversion under
+	// GoResultsTupErr — ElemConv[i] applies to result i; a nil
+	// slice or a zero element means none. Conversion targets are
+	// the payload Tuple's element types. Unused under GoResultsErr.
+	ElemConv []ConvKind
 	// NilGuard marks a declared never-nil payload claim — `Result
 	// GoError GoError` over `(error, error)`. The emitted code
 	// verifies it before materializing: `if err == nil && v == nil
@@ -325,12 +345,13 @@ type ErrorFromGo struct {
 
 func (*ErrorFromGo) isExpr() {}
 
-// TupleFromGo materializes a tuple `(A, B)` from a two-result Go
-// call — covering both `(T, bool)` results kept as tuples and other
-// `(A, B)` shapes (spec section 8.3).
+// TupleFromGo materializes a tuple `(A, B, ...)` from a multi-result
+// Go call — covering both `(T, bool)` results kept as tuples, other
+// `(A, B)` shapes, and three-or-more-result calls mapped to an
+// N-tuple (spec section 8.3).
 type TupleFromGo struct {
 	Base
-	Call *CallGo // Results must be GoResultsOK or GoResultsPair
+	Call *CallGo // Results must be GoResultsOK, GoResultsPair or GoResultsNary
 	// ElemConv wraps each result variable in a Go conversion when the
 	// raw result type differs from the tuple element's Gom spelling —
 	// ElemConv[i] applies to result i; a nil slice or a zero element

@@ -173,9 +173,16 @@ type GoFunc struct {
 	X        Atom         // the curried Gom function value
 	Params   []*Bind      // flat parameters, raw Go-view types
 	In       []Expr       // len(Params) — *Var or *Conv over the parameter bind
-	Results  []types.Type // raw Go-view results — 0, 1, or the (T, error) pair
-	ResShape GoResults    // GoResultsNone / One / ErrOnly / Err
+	Results  []types.Type // raw Go-view results — 0, 1, or the multi-result shapes
+	ResShape GoResults    // GoResultsNone / One / ErrOnly / Err / Pair / Nary / TupErr
 	ResConv  ConvKind     // conversion on the returned payload; 0 = none
+	// ResConvs is the per-result conversion list for the
+	// tuple-shaped returns — Pair, Nary, and TupErr's payload
+	// elements: ResConvs[i] converts the Gom-facing element i
+	// (a tuple field, Option-wrapped where the raw slot is a
+	// nil-able interface) into the raw Results[i] view. Nil
+	// under the single-payload shapes, which use ResConv.
+	ResConvs []ConvKind
 }
 
 func (*GoFunc) isExpr() {}

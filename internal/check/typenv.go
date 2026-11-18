@@ -489,7 +489,7 @@ func (c *checker) typeCtorOf(te syntax.TypeExpr) typeCtor {
 		// The reserved `Go` namespace covers Go.Slice / Go.Map.
 		if tn.Qual.Name == "Go" {
 			if _, ok := goFuncTypeArity(tn.Name.Name); ok {
-				// `Go.FuncN` takes N..N+2 type arguments
+				// `Go.FuncN` takes N..N+8 type arguments
 				// (parameters then results) — the count is
 				// validated in applyTypeCtor, which also
 				// attaches the arguments to the Con.
@@ -681,16 +681,13 @@ func (c *checker) applyTypeCtor(tc typeCtor, args []types.Type, sp diag.Span) (t
 	if tc.con.Qual == "Go" {
 		if n, ok := goFuncTypeArity(tc.con.Name); ok {
 			// `Go.FuncN` — arguments are the raw Go views of the
-			// N parameters then 0..2 results; a second result is
-			// always `error`.
-			if len(args) < n || len(args) > n+2 {
+			// N parameters then 0..8 results; a multi-result
+			// list reads through the N-ary folding (a trailing
+			// `GoError` spells `Result (Tuple ...) GoError`).
+			if len(args) < n || len(args) > n+8 {
 				c.diags.Add(diag.Error("E0401",
-					fmt.Sprintf("type mismatch: `Go.%s` takes %d, %d or %d type argument(s), got %d",
-						tc.con.Name, n, n+1, n+2, len(args))).At(sp))
-			} else if len(args) == n+2 && !isGoErrorCon(args[n+1]) {
-				c.diags.Add(diag.Error("E0401",
-					fmt.Sprintf("type mismatch: `Go.%s`'s second result type argument must be `GoError`",
-						tc.con.Name)).At(sp))
+					fmt.Sprintf("type mismatch: `Go.%s` takes between %d and %d type argument(s), got %d",
+						tc.con.Name, n, n+8, len(args))).At(sp))
 			}
 			return &types.Con{Qual: "Go", Name: tc.con.Name, Args: args}, nil
 		}

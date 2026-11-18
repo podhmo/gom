@@ -1,0 +1,48 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// spec section 8.3 (docs/decisions/2026-11-18-nary-go-results.md):
+// a plain 3-result call reads back as a 3-tuple — `v0, v1, v2 :=
+// f()` then the `rt.Tuple3` literal.
+fn triple (n: Int) -> (Int, String, Bool) = goiface.Triple n
+
+// `(T, U, error)` folds to `Result (Int, Int) GoError` —
+// `v0, v1, err := f()` wraps the payload pair in `rt.Tuple2`.
+fn divmod (a: Int) (b: Int) -> Result (Int, Int) GoError = goiface.DivMod a b
+
+// `try` over a trailing-error multi-result materializes the
+// Result — no EscapeCall fusion for the tuple payload.
+fn safe_divmod (a: Int) (b: Int) -> Result (Int, Int) GoError = {
+  let t = try (goiface.DivMod a b)
+  Ok t
+}
+
+// `|?>` over the same shape feeds the tuple to the step.
+fn pipe_divmod (a: Int) -> Result Int GoError =
+  goiface.DivMod a 0 |?> (fn t -> {
+    let (q, r) = t
+    Ok (q + r)
+  })
+
+extern go "github.com/podhmo/gom/testdata/goiface" {
+  // A declared TupErr view — the method-iface element spells
+  // `Option` (the element-level `option.FromGo` conversion).
+  fn NetErrTriple (n: Int) -> Result (Option NetError, Int) GoError
+}
+
+// `Go.func2` over a `Result (Int, Int) GoError` source reads back
+// as `func(int64, int64) (int64, int64, error)` — the FuncN con
+// spells raw result views and the error arm returns fresh zeros
+// per element.
+let div : Go.Func2 Int Int Int Int GoError = Go.func2 goiface.DivMod
+
+// `Go.func1` over a 3-tuple reads back `(int64, string, bool)`.
+let tri : Go.Func1 Int Int String Bool = Go.func1 goiface.Triple
+
+// `Go.fnN` reads a Go func value back the other way — the
+// `(int64, int64, error)` result folds to `Result (Int, Int)
+// GoError`, and the plain triple to a 3-tuple.
+let divmod_f : Int -> Int -> Result (Int, Int) GoError =
+  Go.fn2 (goiface.DivModFn ())
+let triple_f : Int -> (Int, String, Bool) = Go.fn1 (goiface.TripleFn ())

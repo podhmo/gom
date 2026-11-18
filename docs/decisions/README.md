@@ -86,7 +86,7 @@
 | [gist-cli-host-boundary](2026-11-03-gist-cli-host-boundary.md) | Gist CLI as an executable Gom integration use case（一部を [go-interface-assignment-and-fields](2026-11-03-go-interface-assignment-and-fields.md) で置き換え） | 採用 |
 | [go-error-alias-results](2026-11-03-go-error-alias-results.md) | Go の error alias は error 戻り値規約を引き継ぐ | 採用 |
 | [go-interface-assignment-and-fields](2026-11-03-go-interface-assignment-and-fields.md) | Go interface assignments and read-only exported struct fields | 採用 |
-| [go-types-mapping](2026-11-03-go-types-mapping.md) | go/types → Gom type mapping and where boundary conversions live（一部を [go-collections-and-generics](2026-11-04-go-collections-and-generics.md) で置き換え） | 採用（P1-9 の `internal/goimport` が実装・検証した — `strconv.Atoi`/`Itoa`・`os.LookupEnv`・`bytes.Buffer` メソッドが E2E で動く） |
+| [go-types-mapping](2026-11-03-go-types-mapping.md) | go/types → Gom type mapping and where boundary conversions live（一部を [go-collections-and-generics](2026-11-04-go-collections-and-generics.md)、[nary-go-results](2026-11-18-nary-go-results.md) で置き換え） | 採用（P1-9 の `internal/goimport` が実装・検証した — `strconv.Atoi`/`Itoa`・`os.LookupEnv`・`bytes.Buffer` メソッドが E2E で動く） |
 | [gom-fix-explain-schema](2026-11-03-gom-fix-explain-schema.md) | gom fix / explain / schema: wire shapes and the fix-application policy (P4-4) | 採用 |
 | [gom-test-message-stream](2026-11-03-gom-test-message-stream.md) | `gom test` message stream and `go test` execution granularity | 採用 |
 | [import-go-loading-mechanics](2026-11-03-import-go-loading-mechanics.md) | How `import go` loads Go packages: go/types + go/importer over `go list -export` | 採用（P1-9 の `internal/goimport` が実装・検証した — E2E で `strconv`/`bytes`/`os`/`fmt` の呼び出しが生成コードの build・run まで通る） |
@@ -178,7 +178,7 @@
 | [stdlib-gomi-type-members](2026-11-08-stdlib-gomi-type-members.md) | Stdlib `.gomi` type members register like imported-package ones | 採用（実装・検証した — [検証](../sketch/2026-11-08-stdlib-gomi-type-members-verification.md)） |
 | [byte-type](2026-11-17-byte-type.md) | `byte`/`uint8` → `Byte` を組み込み型として公開する | draft |
 | [cli-gotool-invocation](2026-11-17-cli-gotool-invocation.md) | go tool の実起動は `gom build -go`（CLI 面） | 採用 |
-| [func-interop](2026-11-17-func-interop.md) | Gom の関数値を Go の func 型として渡す(typed adapter `Go.funcN`) | draft |
+| [func-interop](2026-11-17-func-interop.md) | Gom の関数値を Go の func 型として渡す(typed adapter `Go.funcN`)（一部を [nary-go-results](2026-11-18-nary-go-results.md) で置き換え） | draft |
 | [lsp-gotool-invocation](2026-11-17-lsp-gotool-invocation.md) | `gom lsp` の go-tool 診断は opt-in フラグ + per-change 同期起動 | 採用 |
 | [named-int-arith](2026-11-17-named-int-arith.md) | Named Go 整数型の算術・比較（`30 * time.Second` が `Duration` を生む） | accepted |
 | [sourcemap-repin](2026-11-17-sourcemap-repin.md) | 生成行ごとの `//line` 再置き（per-line re-pin）で drift を消す | accepted |
@@ -195,4 +195,5 @@
 | [gomi-poly-let](2026-11-18-gomi-poly-let.md) | .gomi の多相 let | 採用 |
 | [incremental-build-cache](2026-11-18-incremental-build-cache.md) | インクリメンタルビルドキャッシュ | 採用 |
 | [lint-callee-alias](2026-11-18-lint-callee-alias.md) | lint の callee 照合は let の値エイリアスを辿る | 採用 |
+| [nary-go-results](2026-11-18-nary-go-results.md) | N-ary Go 結果（3 個以上）の写像 — Tuple および `Result (Tuple) GoError` | 採用（wave20 lane 1 で実装・検証した — `testdata/goiface/nary.go` のフィクスチャと `testdata/golden/nary_results.gom` が全経路の生成コードを pin する） |
 <!-- END GENERATED -->

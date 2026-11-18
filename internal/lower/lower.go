@@ -586,7 +586,9 @@ func flatArity(t types.Type) int {
 // goResultsOf derives a Go call's result shape from the Gom view of
 // its result type — the contract gaps the Env.GoSig hook overrides:
 // Result Unit GoError is read as GoResultsErrOnly, Option as a
-// comma-ok (T, bool), a 2-tuple as a two-result call, everything else
+// comma-ok (T, bool), a 2-tuple as a two-result call, a 3+-tuple as
+// an N-ary call, `Result (Tuple ...) e` as the N-ary trailing-error
+// fold, everything else
 // as a single result, except builtin Unit which denotes zero results.
 // Only the *builtin* Result/Option read this way —
 // a file-local `type Result` is one result like any other value.
@@ -599,7 +601,10 @@ func (l *lowerer) goResultsOf(t types.Type) core.GoResults {
 	}
 	c, ok := types.Chase(t).(*types.Con)
 	if !ok {
-		if tup, ok := types.Chase(t).(*types.Tuple); ok && len(tup.Elems) == 2 {
+		if tup, ok := types.Chase(t).(*types.Tuple); ok {
+			if len(tup.Elems) >= 3 {
+				return core.GoResultsNary
+			}
 			return core.GoResultsPair
 		}
 		return core.GoResultsOne
@@ -608,6 +613,12 @@ func (l *lowerer) goResultsOf(t types.Type) core.GoResults {
 	case l.isResultCon(c) && len(c.Args) == 2:
 		if types.Equal(c.Args[0], types.Unit) {
 			return core.GoResultsErrOnly
+		}
+		if tup, ok := types.Chase(c.Args[0]).(*types.Tuple); ok && len(tup.Elems) >= 2 {
+			// `Result (A, B, ...) e` — the payload tuple can only
+			// come from an N-ary result's trailing-error fold;
+			// Go never returns a tuple type.
+			return core.GoResultsTupErr
 		}
 		return core.GoResultsErr
 	case l.isOptionCon(c) && len(c.Args) == 1:
@@ -633,8 +644,13 @@ func (l *lowerer) goResultsOf(t types.Type) core.GoResults {
 		// `Result Unit GoError`, not this shape).
 		return core.GoResultsErrValue
 	}
-	if tup, ok := types.Chase(t).(*types.Tuple); ok && len(tup.Elems) == 2 {
-		return core.GoResultsPair
+	if tup, ok := types.Chase(t).(*types.Tuple); ok {
+		switch len(tup.Elems) {
+		case 2:
+			return core.GoResultsPair
+		case 3, 4, 5, 6, 7, 8:
+			return core.GoResultsNary
+		}
 	}
 	return core.GoResultsOne
 }

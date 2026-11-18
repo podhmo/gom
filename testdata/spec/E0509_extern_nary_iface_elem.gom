@@ -1,0 +1,11 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// spec section 8.4: inside a `Result (Tuple) GoError` payload, a
+// verbatim element over a method-bearing interface is rejected —
+// the tuple carries no never-nil boundary check the `(T, error)`
+// pair has, so the element must spell `Option`.
+extern go "github.com/podhmo/gom/testdata/goiface" {
+  fn NetErrTriple (n: Int) -> Result (NetError, Int) GoError
+}
