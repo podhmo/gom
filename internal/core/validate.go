@@ -576,10 +576,11 @@ func resultCon(t types.Type) *types.Con {
 
 // ctorTArgs enforces the optional-but-authoritative rule on a
 // constructor's recorded TypeArgs: when present it must spell the
-// same ADT instantiation the node lands on — for both CtorApp and
-// CtorRef that is the Con the eventual return type resolves to, so a
-// partially applied ctor (Typ is Func) anchors at its final result
-// the same way a ctor reference does (decision
+// same ADT instantiation the node lands on — the Con the eventual
+// return type resolves to. CtorApp is always saturated (partial
+// application lowers to a closure wrapping a saturated CtorApp), so
+// its Typ is that Con directly; the Func chase matters for CtorRef,
+// whose Typ is the ctor's arrow type (decision
 // 2026-11-18-ctor-typeargs-authoritative). Absent TypeArgs is legal
 // where the declared arity is not visible (imported/builtin ctors) —
 // codegen's ctorTArgs falls back to the result type's own arguments;

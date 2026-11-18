@@ -18,10 +18,11 @@ implementation-gaps 台帳済み）。codegen は `TypeArgs` があれば信用�
 **TypeArgs は optional-but-authoritative**:
 
 - 存在するとき（非空）は、ノードが最終的に辿る ADT インスタンシエーション
-  と完全一致を要求する — CtorApp・CtorRef ともに `Typ` の矢印列を chase
-  した終着 `Con` の `Args`。部分適用 CtorApp（`Typ` が Func）でも
-  TypeArgs は ctor 自身の instantiation を綴るので、終着の ADT に
-  アンカーするのは CtorRef と同じで正しい。不一致は violation。
+  と完全一致を要求する — `Typ` の矢印列を chase した終着 `Con` の
+  `Args`。CtorApp は常に saturated（部分適用は saturated CtorApp を
+  包む closure として lower される — internal/lower/expr.go）なので
+  `Typ` は終着の ADT 自身、chase が効くのは `Typ` が関数型の CtorRef
+  だけ。不一致は violation。
 - ADT 型パラメータ arity との個数不一致も violation — 既存の
   `targs` 検査（宣言がファイル内・unit の sibling にある場合）が
   そのまま担う。imported ctor は宣言 arity を引けないが、結果型との
