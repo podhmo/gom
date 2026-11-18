@@ -35,9 +35,17 @@ field 供給の障害は解消済み）。案:
     ゼロ値の綴り（new 相当）の2機能。
 (c') `@extern fn` impl.go 機構のユーザーモジュール開放 —
     Go コードの置き場所が変わるだけで host 消滅とは言いにくい。
-各案の言語面（spec 変更の大きさ）、Go 相互運用の一貫性、
-実装規模、生成コードの読み味を比較表にまとめ、推奨案を
-draft decision として書く。採否は podhmo（wave24）。
+比較は機構列挙ではなく、先に評価軸を立ててから当てはめる:
+- どういう記述が嬉しいか — `NewClient` 相当を Gom で
+  書くときのゴールの記述例を先に置く（record literal
+  との見た目の距離も含めて）。
+- その時の制約は何か — partial init・unexported フィールド・
+  embedded・addressability・生成コードの Go 慣習。
+- 何を守りたいか — 値の不変性・Go 相互運用の一貫性・
+  spec の面の小ささ・「読めてデバッグできる生成物」原則。
+その上で各案の言語面（spec 変更の大きさ）、実装規模、
+生成コードの読み味を比較表にまとめ、推奨案を draft
+decision として書く。採否は podhmo（wave24）。
 Ownership: docs/sketch, docs/decisions（draft のみ）,
 docs/spec.md・docs/design.md（変更はしない — 採否後）.
 ```
