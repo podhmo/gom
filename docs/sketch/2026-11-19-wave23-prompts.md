@@ -6,6 +6,13 @@ podhmo 方針: **wave23 は全 lane 調査専用**とし、結果を見て
 wave24 で採否・実装方針を決める。実行モデルは wave22 と同じ
 （単独実行・Devin Review レビュー・podhmo がマージ）。
 
+各 lane は実験フェイズを含む: 決定前に**どのようなカタチに
+なるのかを `experiments/` で確認する**（P0 と同じ手書き検証の
+型 — `experiments/w23/<topic>/` に案ごとの記述例・手書き Go
+実装・モック生成コードを置き、ビルド・使いやすさを比較して
+sketch に結果を書く）。型クラスの有無のように構文と機能の
+両方に跨がる問いは特に、構文の記述例レベルから実物を置く。
+
 保留中の podhmo 判定（wave23 の lane にはしない）:
 - TypeArgs (b) 採否 — wave22 lane4 の棚卸し済み
   （[sketch](2026-11-19-ctor-targs-b-inventory.md)）。採用なら
@@ -55,8 +62,15 @@ field 供給の障害は解消済み）。案:
   （不変条件を破る経路を新構文が開かないか）。
 その上で各案の言語面（spec 変更の大きさ）、実装規模、
 生成コードの読み味を比較表にまとめ、推奨案を draft
-decision として書く。採否は podhmo（wave24）。
+decision として書く。
+
+実験: 各案の「ゴールの記述例」を `experiments/w23/struct-construction/`
+に置く — Gom 側の記述モック（.gom の疑似コードでも良い）と、
+それが生成しうる Go の手書き実装を対で書き、ビルドして
+`NewClient` 相当がその記述で書けることを確認する。
+採否は podhmo（wave24）。
 Ownership: docs/sketch, docs/decisions（draft のみ）,
+experiments/w23/struct-construction,
 docs/spec.md・docs/design.md（変更はしない — 採否後）.
 ```
 
@@ -93,8 +107,17 @@ v1 の stdlib 設計（`Array.sort` 等の比較器渡し）にも絡む。
 各案で、言語面・推論・.gomi 表現・生成コードへの影響を
 整理する。v1 の記述可能範囲（HOF の境界・deriving 相当の
 需要）のユースケースを examples から拾って判定材料にする。
-sketch に設計空間と推奨の置き場所を書く。採否は podhmo。
+sketch に設計空間と推奨の置き場所を書く。
+
+実験: 型クラスの有無は構文と機能の両方に跨がるため、
+`experiments/w23/typeclass/` に各案の記述例を実物として置く —
+(1) 辞書渡し（`Eq a` record 引数）の Gom 記述例と手書き Go 展開、
+(2) 型クラス風構文のモック（構文案の見た目）とそれが意味する
+辞書の手書き Go。同じ処理（例: sort/min）を両案で書き切り、
+記述量・読みやすさ・生成コードの差を sketch の判定材料にする。
+採否は podhmo。
 Ownership: docs/sketch, docs/decisions（draft のみ）,
+experiments/w23/typeclass,
 docs/open-questions（該当項の更新）.
 ```
 
