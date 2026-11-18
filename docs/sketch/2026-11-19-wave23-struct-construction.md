@@ -3,7 +3,9 @@
 2026-11-19。A テーマ（examples/gist-cli の host パッケージ根絶）の調査 lane。
 decision [2026-11-17-struct-construction](../decisions/2026-11-17-struct-construction.md)
 の再検討 — 当時の採用 (c) factory-extern の前提だった 2 つの障害は
-解消済み:
+解消済み。**判定 (2026-11-19): (b) field 書き込み採用 + host パッケージ
+撤去、(a) は要検討で先延ばし、(c') は逃生路として残す**
+（[decision](../decisions/2026-11-19-struct-field-write.md)）。
 
 - `Timeout: 30 * time.Second` — named int 算術（decision
   2026-11-17-named-int-arith）で `time.Duration` 型の式が綴れる

@@ -1,6 +1,7 @@
 # Go struct 構築機構の選択肢の固定（採否は未決）
 
-- 状態: draft
+- 状態: draft（採否は部分決着: (b) 採用・(a) 先延ばし —
+  [decision](2026-11-19-struct-field-write.md)）
 - 日付: 2026-11-19
 - 問い: [decision 2026-11-17-struct-construction](2026-11-17-struct-construction.md)
   の再検討 — 採用 (c) factory-extern の前提だった障害（named int 算術・
