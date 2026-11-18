@@ -117,3 +117,43 @@ func TestRunMultipleDirs(t *testing.T) {
 		t.Fatalf("stderr = %q", errOut)
 	}
 }
+
+// TestRunBuildErrorFoldsSpan: a package gom accepts but `go build`
+// rejects — via a sibling Go file whose //line directive names the
+// .gom input — folds the link failure back onto the .gom span, the
+// same fold `gom build -go` uses.
+func TestRunBuildErrorFoldsSpan(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: go build invocation, skipping in short mode")
+	}
+	t.Parallel()
+
+	haveGo(t)
+	dir := writeFiles(t, map[string]string{
+		"m.gom": "package main\n\nfn f () -> Int = 1\nfn main () -> Unit = { ignore (f ()); () }\n",
+		"z.go":  "package main\n\n//line m.gom:2\nvar _ int = \"not-an-int\"\n",
+	})
+	testModule(t, dir)
+
+	code, out, _ := invoke("run", filepath.Join(dir, "m.gom"))
+	if code == 0 {
+		t.Fatalf("exit = %d, want failure; out=%q", code, out)
+	}
+	var saw bool
+	for _, l := range jsonLines(t, out) {
+		if l["kind"] != "diagnostic" {
+			continue
+		}
+		if l["source"] != "go" {
+			continue
+		}
+		span, _ := l["span"].(map[string]any)
+		if span == nil || span["file"] != filepath.Join(dir, "m.gom") {
+			t.Fatalf("diagnostic lost the .gom span: %v", l)
+		}
+		saw = true
+	}
+	if !saw {
+		t.Fatalf("no go-source diagnostic folded: %q", out)
+	}
+}

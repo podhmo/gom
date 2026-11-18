@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"slices"
+	"syscall"
 
 	"github.com/podhmo/gom/internal/build"
 	"github.com/podhmo/gom/internal/diag"
@@ -135,8 +136,7 @@ func runGomRun(args []string, stdout, stderr io.Writer) int {
 	if err != nil {
 		abs = dir
 	}
-	srcsByPath := map[string][]byte{}
-	pos := build.NewGoPosIndex(abs, srcsByPath)
+	pos := build.NewGoPosIndex(abs, srcs)
 	for i, r := range results {
 		if r == nil || r.Output == nil {
 			continue
@@ -174,7 +174,16 @@ func runGomRun(args []string, stdout, stderr io.Writer) int {
 	cmd.Stderr = stderr
 	if err := cmd.Run(); err != nil {
 		if ee, ok := err.(*exec.ExitError); ok {
-			return ee.ExitCode()
+			if code := ee.ExitCode(); code >= 0 {
+				return code
+			}
+			// A signal-killed child has no exit code: ExitCode()
+			// is -1, which os.Exit would truncate to 255. Report
+			// the shell-conventional 128+signal instead.
+			if ws, ok := ee.Sys().(syscall.WaitStatus); ok && ws.Signaled() {
+				return 128 + int(ws.Signal())
+			}
+			return diag.ExitInternal
 		}
 		fmt.Fprintf(stderr, "gom run: cannot run %s: %v\n", bin, err)
 		return diag.ExitInternal
