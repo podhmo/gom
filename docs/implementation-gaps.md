@@ -677,6 +677,13 @@
   [decision](decisions/2026-11-18-lint-callee-alias.md)、
   [fixture](../testdata/spec/W0701_chan_mutable_elem.gom)（`mk`/`mk2`
   の多段 alias）、[fixture](../testdata/spec/W0502_errors_as_target.gom)。
+  再評価（wave19 lane4）: `lintAliases` は `let sym = <whole symbol>` の
+  sym→sym 写像で `let f = fn () -> r` の Lambda 値は拾わない。実現経路は
+  ある — sym→let値（Expr）写像に拡げ、`go` 本体で捕捉される sym の let値が
+  Lambda ならその自由変数の型を `containsMutable` にかける（seen 集合で
+  間接参照を bounded に追う）— が、間接参照を1段以上追うと共有を「起き
+  うる」と警告するヒューリスティックとして誤検出面が広がる。scope-out は
+  維持し、有効化の道筋だけここに記録する。
 
 - [x] **ネスト `go` で同一位置に W0702 が 2 件重複出力される**: 外側・内側の
   `go` 境界がそれぞれ同一の捕捉を報告し、同一スパン・同一メッセージの
