@@ -13,10 +13,12 @@ fn redirect_policy (req: Ptr http.Request) (via: List (Ptr http.Request)) -> Res
   Err http.ErrUseLastResponse
 
 // `http.Client { ... }` — keyed composite literal, fields unlisted keep
-// their Go zero values. Yields a value of type `http.Client`; wrap in
-// `Ptr.make` to call pointer-receiver methods like `client.Do`.
+// their Go zero values. Under a `Ptr http.Client` expectation it emits
+// `&http.Client{...}` — emitting the pointer form directly avoids the
+// copylock trap of `Ptr.make` (`&v` copies, unsafe for sync-containing
+// structs). The gen.go sibling shows `&http.Client{...}`.
 fn new_client () -> Ptr http.Client =
-  Ptr.make (http.Client {
+  http.Client {
     Timeout = 30 * time.Second,
     CheckRedirect = Go.func2 redirect_policy,
-  })
+  }

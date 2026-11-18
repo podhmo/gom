@@ -60,6 +60,7 @@ podhmo 方針により本 lane は単一案を採ばず、複数候補の比較�
 | `acomposite/` | `mock.gom.txt` — `Ptr.make (http.Client { Timeout = ..., CheckRedirect = ... })` 提案構文 | `gen.go` 手書き — `&http.Client{Timeout: ..., CheckRedirect: ...}` |
 | `bfieldwrite/` | `mock.gom.txt` — `Ptr.new ()` + `c.Timeout = ...` 提案構文 | `gen.go` 手書き — `new(http.Client)` + field 代入 |
 | `cextern/` | `a.gom` — **今日コンパイルできる実物**（`@extern fn` + `Go.Func2` シグネチャ）。`a.go` は `gom build` の実際の出力 | `impl.go` 手書き body |
+| `dsync/` | `a.gom` — **実物**。`Ptr.new ()` が `new(http.Server)`/`new(sync.Once)`/`new(sync.WaitGroup)` を作り、pointer-receiver メソッド呼び出しと `Go.func0`/`Go.func2` adapter がそのまま動く（`a.go` は `gom build` の実際の出力）。`mock.gom.txt` — (b) の `srv.Addr = ...` 記述例 | `a.go` 実生成 + `use_test.go`（Once が 1 回だけ走る、WaitGroup が回る、`new(Server)` の sync 内部は無傷） |
 
 `cextern` は実物検証: `gom check`/`gom build` が通り、生成 `a.go` +
 手書き `impl.go` が `go test` で動く。`Go.func2` の emit は
@@ -71,8 +72,9 @@ podhmo 方針により本 lane は単一案を採ばず、複数候補の比較�
 ### (a) named Go struct 限定のコンポジットリテラル
 
 記述例: `http.Client { Timeout = 30 * time.Second, CheckRedirect = ... }`
-（record literal と同じ `{ f = v }` 形、先頭に型名）。`Ptr.make` で
-`*http.Client` を得る。
+（record literal と同じ `{ f = v }` 形、先頭に型名）。`Ptr T` が期待
+される位置では `&T{...}` を直接 emit する形が安全（`Ptr.make` は
+コピーを作るので sync 含有 struct に使えない — 後述の sync 節）。
 
 - spec の面: **大**。新しい literal 形式（型名 + keyed field）、
   partial init（未指定は Go ゼロ値）・unexported field 拒否・
@@ -123,12 +125,52 @@ podhmo 方針により本 lane は単一案を採ばず、複数候補の比較�
 | --- | --- | --- | --- | --- |
 | spec 変更量 | 大（新 literal + 規則群） | 中（代入構文 + addressability） | ゼロ | ゼロ |
 | 実装規模 | syntax→codegen 全面 | check/lower/codegen + lvalue | ゼロ | ゼロ |
-| NewClient が書ける | はい（値を Ptr.make で包む） | はい | Go 側に残る | Go 側に残る |
+| NewClient が書ける | はい（`&T{...}` emit で `Ptr T`） | はい | Go 側に残る | Go 側に残る |
 | 不変性への影響 | なし（値生成） | Ptr 限定なら既存枠内 | なし | なし |
 | host 根絶 | できる | できる | 同居で縮小 | できない |
 | 生成物の読み味 | Go 慣習そのまま | Go 慣習そのまま | 本体は手書き Go | 本体は手書き Go |
 | 不変条件の検証との整合 | Go 値は eval 圏外（既存と同じ） | 同左 | 同左 | 同左 |
 | 記述の嬉しさ | record literal に近い | 手続き的、後から値を組み立てる形 | Gom 側は見えない | Gom 側は見えない |
+
+## レコードとの見分け・sync 含有型への適合（podhmo からの問いへの検討）
+
+### Gom レコードとの見分け・使い分け
+
+- 現行のレコード literal は**型名を伴わない** `{ f = v }`（spec 2 節）。
+  更新は `{ p with age = 4 }`。フィールドは全列挙が必須（ゼロ値省略は
+  ない）、値は不変で `with` が新値を作る
+- (a) の `http.Client { Timeout = ... }` は前置きの `pkg.T` 修飾で見た目
+  上レコードと区別が立つ — ただし「同じ `{}` 構文が Gom 値と Go 値の両方を
+  作る」ことになるので、読み手が混乱し得る箇所は残る（型名の有無が唯一の
+  標識）。加えて意味の非対称がある: Go 側は **partial init が必須**
+  （unexported field を書けない以上、全列挙ルールを持ち込めない）のに
+  対し、レコードは全フィールド必須 — 同じ形で規則が違う
+- (b) はレコード構文と形が重ならないので見分けの問題自体が消える
+  （`v.Field = x` は record には存在しない構文 — record は不変で
+  `with` 経由）。「Go struct は手続き的に組み立て、Gom record は
+  リテラルで組み立て」という使い分けの物語が立つ
+- 案: (a) を入れるなら修飾子付き literal（`http.Client { ... }`）以外の
+  無修飾形を認めない縛りが最低線。より強い区別が要るならマーカー構文も
+  検討余地
+
+### ポインタ必須の値・sync 含有 struct（dsync 実測）
+
+- **今日動く範囲**: `Ptr.new ()` で `new(http.Server)`/`new(sync.Once)`/
+  `new(sync.WaitGroup)` が作れ、pointer-receiver メソッド
+  （`s.ListenAndServe ()`、`o.Do (Go.func0 f)`、`w.Add n`）はそのまま呼べる。
+  sync 内部を持つ struct は**コピーが一度も走らない**ので copylocks の
+  問題は実物で発生しないことを確認（`go vet` + 実動作テスト緑）
+- 設計への示唆: (a) を採るなら生成形は `&T{...}`（`Ptr T`）に限定するのが
+  安全 — 素の `T` を返す形にすると、`Ptr.make v`（`&v` のコピー）で
+  sync 含有 struct を素通しコピーする罠をユーザーに開ける。(a) の
+  「`Ptr.make` で包む」案は `Ptr.make` が**コピーを作る**ので、lock 含有
+  struct では使えない — `&T{...}` 直接 emit が正しい形
+- (b) は `Ptr.new` → `new(T)` なので構造上コピーが発生しようがない。
+  sync 含有型との相性は本質的に安全
+- 残る穴: (b) で「完成前の `Ptr T` を他関数に渡して構築の続きをさせる」
+  書き方ができる — これは copylocks とは別種の契約違反リスク
+  （部分的に初期化されたハンドルの共有）で、防ぐならブロックローカルな
+  構築パターンとして推奨する側の設計になる
 
 ## 判定材料（一意に定めない — podhmo の価値軸で選ぶ）
 
@@ -147,11 +189,13 @@ podhmo 方針により本 lane は単一案を採ばず、複数候補の比較�
 
 - 確認済み: (c') は今日動く（本実験で `gom build` + `go test` 緑）。
   `Ptr.new ()` は `Ptr http.Client` を型注釈で作れる（(b) の
-  ゼロ値側は実装済み）。named int 算術と Go.func2 は main.gom で
-  実働している
+  ゼロ値側は実装済み）— さらに `new(http.Server)`/`new(sync.Once)`/
+  `new(sync.WaitGroup)` で sync 含有・pointer-receiver 型が実動作する
+  （dsync）。named int 算術と Go.func2/Go.func0 は実働している
 - 未検証（採否時に要る設計作業）: (a) の embedded/unexported/
-  positional の規則、record literal との構文衝突の有無、(b) の
-  addressability を `Ptr` 限定にするか代入一般にするか、(a) で
+  positional の規則、(a) を `&T{...}` 専用形に制限するか（copylocks
+  回避のため）、(b) の addressability を `Ptr` 限定にするか代入一般に
+  するか、部分初期化ハンドルの引き回しをどう扱うか、(a) で
   func-typed field に `Go.func2` がそのまま置けるか（mock では
   置いたが型検査の設計は未着手）
 
