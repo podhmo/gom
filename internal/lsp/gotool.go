@@ -116,6 +116,13 @@ func NewGoTool() GoTool {
 				if stagedNames[base] {
 					continue
 				}
+				// Test files are never regenerated in this pass —
+				// any staged *_test.go is a stale artifact from an
+				// earlier `gom test`/`gom build` and fails `go vet`
+				// on renamed decls. `go build` ignores them anyway.
+				if strings.HasSuffix(base, "_test.go") {
+					continue
+				}
 				data, rerr := os.ReadFile(name)
 				if rerr != nil {
 					continue

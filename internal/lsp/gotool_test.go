@@ -187,6 +187,30 @@ func TestGoToolFoldsVetError(t *testing.T) {
 	}
 }
 
+// TestGoToolSkipsStaleTestSibling: staging skips *_test.go —
+// this pass only regenerates production Go, so a test file left
+// over from an earlier `gom test` is stale by construction
+// (references renamed decls) and must not feed `go vet`.
+func TestGoToolSkipsStaleTestSibling(t *testing.T) {
+	if testing.Short() {
+		t.Skip("go-tool pass runs the real go toolchain")
+	}
+	dir := t.TempDir()
+	writeModFile(t, dir)
+	gomSrc := "package main\n\nfn main () -> Unit = ()\n"
+	writeFile(t, filepath.Join(dir, "a.gom"), gomSrc)
+	writeFile(t, filepath.Join(dir, "z_test.go"),
+		"package main\n\nimport \"testing\"\n\nfunc TestStale(t *testing.T) { renamedAway() }\n")
+	gen := []byte("package main\n\nfunc main() {}\n")
+	ds := NewGoTool()(
+		[]build.Input{{Path: filepath.Join(dir, "a.gom"),
+			Src: []byte(gomSrc)}},
+		[]*build.Result{fakeResult(gen)})
+	if len(ds) != 0 {
+		t.Fatalf("stale test sibling leaked into the pass: %v", ds)
+	}
+}
+
 // TestGoToolSilentOnClean: the pass publishes nothing when go build
 // is happy — the flag's cost is latency, not noise.
 func TestGoToolSilentOnClean(t *testing.T) {
