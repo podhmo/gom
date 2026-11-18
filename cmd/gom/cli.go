@@ -118,9 +118,10 @@ func compileInputs(inputs []input, checkOnly bool, bc *buildCache, outFlag strin
 	// --- dep graph + topological layers (design.md section 5 item 6) ---
 	// Each dir's own Go import path inside its module and its import
 	// clauses to other input dirs give the scheduling edges; a dir's
-	// compile may read another input dir's interfaces, and `gom info`
-	// regenerates .gomi drafts — dependents must schedule after their
-	// dependencies.
+	// compile reads another input dir's interfaces (`.gomi` files are
+	// read-only inputs here — only `gom info` regenerates them, after
+	// all compiles finish), so dependents schedule after their
+	// dependencies for stable read ordering.
 	selfPath, modKey := map[string]string{}, map[string]string{}
 	for _, dir := range order {
 		mp, md, ok := moduleOf(dir)
