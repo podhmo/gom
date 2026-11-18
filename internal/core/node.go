@@ -96,6 +96,14 @@ type Func struct {
 	// wraps the body in `for { ... }` so TailCall nodes can emit
 	// reassign-and-continue (docs/design.md section 4.5).
 	TailLoop bool
+	// ConsLoop marks a function whose cons-positioned self calls
+	// (`[h, .., f args]` — lower's cons-recursion pass) were folded
+	// into the same loop: codegen declares a result buffer before
+	// the `for`, routes every tail result through
+	// `buf = append(buf, tail...)`, and TailCall.Prepend nodes push
+	// their cons heads before continuing. Set only together with
+	// TailLoop, and only on a List-returning function.
+	ConsLoop bool
 }
 
 // Span returns the function's source span.

@@ -1,0 +1,38 @@
+package main
+
+// Cons-recursion specialization: a self call under a list cons in
+// tail position compiles to the cons-buffer loop (design.md 4.5).
+
+fn mymap (f: (Int) -> Int) (xs: List Int) -> List Int =
+  match xs {
+    [] -> []
+    [h, ..t] -> [f h, ..mymap f t]
+  }
+
+// Mixed leaves: the cons arm pushes to the buffer, the bare
+// recursive arm is an ordinary TailCall — one loop serves both.
+fn myfilter (f: (Int) -> Bool) (xs: List Int) -> List Int =
+  match xs {
+    [] -> []
+    [h, ..t] -> if f h { [h, ..myfilter f t] } else { myfilter f t }
+  }
+
+// Several heads per step append in order.
+fn dup (xs: List Int) -> List Int =
+  match xs {
+    [] -> []
+    [h, ..t] -> [h, h, ..dup t]
+  }
+
+// Outside the detected shape: the rest var is used a second time,
+// so the call stays an ordinary recursion.
+fn keep (xs: List Int) -> List Int =
+  match xs {
+    [] -> []
+    [h, ..t] -> {
+      let rest = keep t
+      [List.length rest + h, ..rest]
+    }
+  }
+
+fn main () -> Unit = ()

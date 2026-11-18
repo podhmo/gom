@@ -260,7 +260,7 @@ func exprUses(e core.Expr, sym *resolve.Symbol) bool {
 		}
 		return false
 	case *core.TailCall:
-		return atomsUses(e.Args, sym)
+		return atomsUses(e.Args, sym) || atomsUses(e.Prepend, sym)
 	case *core.EscapeResult:
 		return atomUses(e.X, sym)
 	case *core.EscapeCall:

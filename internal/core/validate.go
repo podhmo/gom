@@ -658,6 +658,12 @@ func (v *validator) fnDecl(fn *Func, isDecl bool, what string) {
 		if bt := tailType(fn.Body); bt != nil && !types.Equal(bt, rt) {
 			v.err(fn.Sp, what, "body type %s differs from residual type %s", bt, rt)
 		}
+		if fn.ConsLoop && !v.conIs(rt, "", "List", 1) {
+			v.err(fn.Sp, what, "ConsLoop residual type %s is not a List", rt)
+		}
+	}
+	if fn.ConsLoop && !fn.TailLoop {
+		v.err(fn.Sp, what, "ConsLoop without TailLoop")
 	}
 	v.withFunc(fn, isDecl, func() { v.body(fn.Body, true) })
 }
@@ -1304,6 +1310,10 @@ func (v *validator) tailCall(e *TailCall, inTail bool) {
 			len(e.Args), len(e.To.Params))
 	}
 	v.atoms(e.Args, "TailCall.Args")
+	v.atoms(e.Prepend, "TailCall.Prepend")
+	if len(e.Prepend) > 0 && !e.To.ConsLoop {
+		v.err(e.Sp, "TailCall", "cons-prepend call in a function lacking ConsLoop")
+	}
 	if v.spawn > 0 {
 		v.err(e.Sp, "TailCall", "self-tail call across a go{} boundary")
 	}

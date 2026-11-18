@@ -1,0 +1,12 @@
+package ex
+
+// A cons-recursive self call also discharges @tailrec: lower's
+// cons-recursion specialization compiles `[h, ..f args]` to the
+// same loop restart a bare tail call gets, so the function still
+// grows no stack.
+@tailrec
+fn m (xs: List Int) -> List Int =
+  match xs {
+    [] -> []
+    [h, ..t] -> [h + 1, ..m t]
+  }
