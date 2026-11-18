@@ -1,0 +1,46 @@
+// wave23 lane4 — cons-recursion 特殊化が救えない蓄積形の実測 fixture.
+// 生成される Go（`gom build` の a.go 相当: noncons.go）を bench_test.go
+// が計測する。shape ごとの説明は各 fn のコメントと sketch
+// docs/sketch/2026-11-19-wave23-noncons-accum.md を見る。
+package noncons
+
+// 比較基準: match-cons 自己再帰 — cons-recursion 特殊化で buffer loop
+// 化される被覆形（decision 2026-11-18-cons-recursion-specialization）。
+fn cons_map (xs: List Int) -> List Int = match xs {
+  [] -> []
+  [h, ..t] -> [h + 1, ..cons_map t]
+}
+
+// (i) 連鎖 append: 蓄積済みの結果を append の左辺に置く — `List.append`
+// は buffer loop 化済みでも左辺コピーは O(len acc) で、レベルごとに
+// acc が育つので全体 O(k²·chunk)。
+fn chain_append (k: Int) -> List Int = if k == 0 {
+  []
+} else {
+  List.append (chain_append (k - 1)) (List.range (k * 8) (k * 8 + 8))
+}
+
+// (ii) fold 内 concat: ユーザーが書く folder が append で acc を積む
+// 形。特殊化は match-cons 自己再帰しか見ないので対象外。
+fn fold_concat (xs: List Int) -> List Int =
+  List.fold (fn acc x -> List.append acc [x * 2]) [] xs
+
+// (iii) 相互再帰の蓄積: Callee == 自分 の要件を外れる — mut_a の
+// cons 呼び出しは mut_b 宛、mut_b は素の委譲。
+fn mut_a (n: Int) -> List Int = if n == 0 {
+  []
+} else {
+  [n, ..mut_b (n - 1)]
+}
+
+fn mut_b (n: Int) -> List Int = mut_a n
+
+// (iv) 呼び出し結果の 2 度読み: `rest` を head と ..rest の両方で
+// 読むため要件 4 で除外される形。
+fn read_twice (xs: List Int) -> List Int = match xs {
+  [] -> []
+  [h, ..t] -> {
+    let rest = read_twice t
+    [List.length rest + h, ..rest]
+  }
+}
