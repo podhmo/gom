@@ -25,19 +25,19 @@ docs/decisions, docs/open-questions (閉じ).
 
 ## wave23 採否待ち（podhmo が lane ごとに採択/却下）
 
-### B. struct 構築（lane1 の採択結果を反映）
+### B. `Ptr T` field 書き込みの実装 — `devin/wave24-struct-field-write`（podhmo 採択済み 2026-11-19: (b) 採用 + host 撤去、(a) 先延ばし）
 
 ```
-[impl] wave23 lane1（PR #66）の候補から podhmo 採択分を実装。
-(a) composite literal なら syntax→codegen の新構文、
-(b) field write なら代入規則と不変条件（immutability lint・
-handle 型の可変性契約）、(c') のみなら言語変更なしで
-docs/examples への適用のみ。decision
-2026-11-19-struct-construction-options（draft）を採択内容に
-更新 → spec.md/design.md → testdata/spec + golden →
-examples/gist-cli の NewClient を採択機構で書き換え検証。
-Ownership: 採択候補に依存（構文系は syntax/resolve/check/
-lower/codegen + testdata、c' は examples + docs）。
+[impl] TODO G-1: `ptr.Field = v` 代入構文と addressability
+規則を実装。`Ptr T`（T は named Go struct）経由に限定し、
+record/`Ref` への field 代入は開かない（decision
+2026-11-19-struct-field-write）。spec 8.3 節「field 代入と
+コンポジットリテラルは提供しない」を更新 → testdata/spec +
+golden → tutorial/examples の host パッケージ（NewClient
+factory）を撤去して Ptr.new + field write で書き換え検証。
+composite literal (a) は対象外（要検討で先延ばし）。
+Ownership: syntax/resolve/check/lower/codegen + testdata +
+examples。
 ```
 
 ### C. LSP 全削除 — `devin/wave24-lsp-removal`（podhmo 採択済み: 「未対応」という体で削除）
