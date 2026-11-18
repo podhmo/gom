@@ -41,6 +41,9 @@ lower の `markTailCalls` の直後に `markConsCalls`（internal/lower/consrec.
 
 ## 検証
 
+検証記録: [sketch/2026-11-18-cons-recursion-specialization-verification](../sketch/2026-11-18-cons-recursion-specialization-verification.md)。
+
+
 `testdata/golden/cons_loop.gom` が変換・混在・複数 head・取りこぼし（`rest` 2 度読み）の 4 形を固定する。手動検証で 100,000 要素の `mymap` が 0.17s で完走することを確認した（再帰版はスタック超過）。多相関数（`fn pmap [a,b] ...`）の恒等インスタンシエーション要件も手動で確認。
 
 ## 関連

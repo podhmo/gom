@@ -96,3 +96,41 @@ func RunGoVet(gobin, dir string) (*GoBuildRun, error) {
 		Stderr: stderr.String(),
 	}, nil
 }
+
+// RunGoRunBin builds the package in dir — a main package — into a
+// fresh temp binary and returns its path for the caller to exec and
+// remove (os.RemoveAll on the binary's dir). It is the `gom run`
+// link step: unlike RunGoBuild the artifact survives because the
+// caller runs it, and unlike `go run` the exit status stays the
+// program's own — `go run` collapses any child failure to "exit
+// status 1" while the built binary's code and stderr pass through
+// untouched. Failure semantics match RunGoBuild: compile failures
+// are ordinary results (Failed + Stderr), the error is non-nil only
+// when the build could not be staged or invoked.
+func RunGoRunBin(gobin, dir string) (string, *GoBuildRun, error) {
+	if gobin == "" {
+		gobin = "go"
+	}
+	tmp, err := os.MkdirTemp("", "gom-run-*")
+	if err != nil {
+		return "", nil, fmt.Errorf("run: cannot stage go build output: %w", err)
+	}
+	bin := filepath.Join(tmp, "out")
+	cmd := exec.Command(gobin, "build", "-o", bin)
+	cmd.Dir = dir
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	err = cmd.Run()
+	var ee *exec.ExitError
+	switch {
+	case err == nil:
+	case errors.As(err, &ee):
+	default:
+		os.RemoveAll(tmp)
+		return "", nil, fmt.Errorf("run: cannot run go build: %w", err)
+	}
+	return bin, &GoBuildRun{
+		Failed: cmd.ProcessState.ExitCode() != 0,
+		Stderr: stderr.String(),
+	}, nil
+}
