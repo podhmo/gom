@@ -2,7 +2,9 @@
 
 2026-11-19。open-questions「型クラスの代替」（D テーマ v2 設計の
 先取り）の設計空間棚卸し。podhmo 方針により一意には定めず、
-候補と判定材料を残す（採否は podhmo / wave24 以降）。
+候補と判定材料を残した。**判定 (2026-11-19): (1) 明示的辞書渡しを採用、
+型クラスは導入しない**（[decision](../decisions/2026-11-19-ad-hoc-poly-dict-passing.md)）。
+書き方ガイドは `skills/gom-agent-guide/references/ad-hoc-polymorphism.md`。
 
 ## 起点: 現状の等値・比較
 

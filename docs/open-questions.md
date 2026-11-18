@@ -6,7 +6,6 @@
 
 ### 型システム
 
-- [ ] 型クラスの代替: v2 で型クラスを入れるか、明示的な辞書渡し（`Eq a` レコードを引数で渡す）で済ませるか — wave23 lane3 で設計空間を棚卸し済み（[sketch](sketch/2026-11-19-wave23-typeclass-vs-dict.md)、[実験](../experiments/w23/typeclass/)）: (1) 辞書渡しは現行言語のまま動作確認済みで生成コードは (2) と同型、(2) 型クラス風の差は解決機構と coherence 規則に集中。採否は podhmo
 - [ ] 実装の型がインターフェースより一般的な場合（実装が多相、`.gomi` が単相）を許すか
 
 - [ ] 可変性: `Ref a` と可変配列 `Array a` 以外に可変構造を許すか。なお W0701/W0702 lint の可変判定は spec 10 章の閉じた builtin リスト（`Ref`/`Array`/`Ptr`/`Go.Slice`/`Go.Map`）を使う — ユーザー宣言型の可変構造そのものは引き続き未決（[decision](decisions/2026-11-04-mutable-sharing-lint.md)）
@@ -37,7 +36,7 @@
 - `List` のハイブリッド表現（chunked / unrolled list、所有権フラグ付きの反転ストレージなど）。先頭追加を償却 O(1) に戻す案。P0-3 でスライス表現（`type List[A] []A`）を採用したが、ユーザーレベルの `x :: acc` 型の逐次構築が支配的なワークロードで再検討する余地がある（[sketch: P0-3](sketch/2026-11-02-p0-3-list-representation.md)）
 - チャネルで送れる値を型で制限する仕組み（Rust の `Send` 相当）
 - `Char` ↔ `Int32` の暗黙の橋渡しを許すか: Go の `rune` 引数 API には `Int32` を渡す必要があり `Char` 値は `Go.conv` を通す。両者の Go 表現は同じ `rune` なので機械的に相互変換可能だが、暗黙変換や専用組み込みを足すかは未決 — v1 は `Go.conv` 明示のまま、ユースケースが集まってから再検討（[problem](problems/2026-11-06-rune-char-correspondence.md)、wave20 lane4 で台帳化判定）
-- 型クラス、`deriving` 相当の自動生成
+- `deriving` 相当の自動生成（辞書渡しの辞書値をコンパイラが合成する方向）
 - LSP の Go import oracle の共有: `go list -export` 自体は wave17 の file cache で消えた（[decision](decisions/2026-11-18-golist-export-cache.md)）が、compile 毎の Loader 作り直しで export data の parse と member table 構築は残る（per-change 数 ms オーダー）。`*types.Named` の identity が importer 単位のため session 間で member table を共有できない点が本筋の制約。wave19 再評価: 制約は importer を compile 毎に捨てていること自体にある — LSP が workspace dir ごとに**長寿命な `goimport.Loader` を1本持ち回る**（session-scoped shared importer）設計にすれば `*types.Named` identity は安定し、member table も compile 間で共有できる。invalidation の粒度は **Loader 全体** — `Loader.Load` の `l.pkgs` と `go/importer` の fset キャッシュは exportCache の freshness 検証より先に hit するため、compile のたびに exportcache fingerprint（srcStat: dep dir 単位の max ファイル mtime+件数）を先に照合し、miss なら Loader ごと作り直す（go.mod/go.sum の変更だけでなく同一バージョンの dep ソース編集も拾える）。srcStat はファイル単位の mtime を見るため既存ファイルへの編集も検出される。実装コストは LSP server が Loader を fingerprint つきで保持・差し替える程度 — 実行経路はあり、per-change の ms オーダー削減としては費用対効果は中程度
 - インクリメンタルビルドのキャッシュ（P4。それまでは毎回変換し、Go のキャッシュに任せる）
 - cgo、`unsafe`、`reflect` の本格的な扱い
@@ -45,4 +44,4 @@
 - [x] W0502 `lintErrorsAsTarget` の `Ptr (Ptr E)` ケース: `**int` は `*int` が error 非実装かつ非 interface なので panic が証明可能（wave9 error-tail レビュー nit） → wave22 lane2 で実装済み: E が unnamed/interface 表現なら warn、named Go 型・record・abstract・メタは沈黙維持（[decision](decisions/2026-11-19-errors-as-nested-ptr-lint.md)）
 - `CtorApp`/`CtorRef` の `TypeArgs` を廃止して `Typ` の `Con.Args` を唯一の正にするか: wave21 lane1 は (a) optional-but-authoritative（存在時は結果型と完全一致を要求）を採択した（[decision](decisions/2026-11-18-ctor-typeargs-authoritative.md)）。wave22 lane4 で撤去の規模と利得を棚卸し済み（[sketch](sketch/2026-11-19-ctor-targs-b-inventory.md)）→ **podhmo 判定 (b) 採用（廃止）2026-11-19** — 実装 lane は wave24 以降の候補
 
-型クラス、エフェクトシステム、高度な所有権型、独自 GC は急いで導入しない。
+エフェクトシステム、高度な所有権型、独自 GC は急いで導入しない。型クラスは不採用（明示的辞書渡し — [decision](decisions/2026-11-19-ad-hoc-poly-dict-passing.md)）。
