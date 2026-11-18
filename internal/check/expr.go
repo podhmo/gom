@@ -2249,6 +2249,11 @@ func (c *checker) checkFor(e *syntax.For) Expr {
 		if t.Qual == "" && t.Name == "List" && len(t.Args) == 1 &&
 			!c.shadowedBuiltin("List") {
 			elem = t.Args[0]
+		} else if t.Qual == "" && t.Name == "View" && len(t.Args) == 1 &&
+			!c.shadowedBuiltin("View") {
+			// `for x in v` over a List-derived `View a` ranges the
+			// shared backing slice — same `range` lowering as List.
+			elem = t.Args[0]
 		} else if t.Qual == "Go" && t.Name == "Slice" && len(t.Args) == 1 {
 			// `for x in s` over `Go.Slice a` is the `range []T` the
 			// ForList lowering already emits — index order, nil
@@ -2262,7 +2267,7 @@ func (c *checker) checkFor(e *syntax.For) Expr {
 			elem = el
 		} else {
 			if t.Qual == "" && c.shadowedBuiltin(t.Name) &&
-				(t.Name == "List" || t.Name == "Chan" || t.Name == "RecvChan" || t.Name == "SendChan") {
+				(t.Name == "List" || t.Name == "View" || t.Name == "Chan" || t.Name == "RecvChan" || t.Name == "SendChan") {
 				c.shadowedErr(e.Iter.Span(),
 					"`for` iteration", t.Name)
 			} else {

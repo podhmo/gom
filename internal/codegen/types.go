@@ -16,7 +16,7 @@ import (
 //	Float → float64   Char → rune   String → string     GoError → error
 //	List a → list.List[A]        Option a → option.Option[A]
 //	Result a e → result.Result[T, E]          Task a → rt.Task[A]
-//	Ref a / Ptr a → *T           Array a / Go.Slice a → []T
+//	Ref a / Ptr a → *T           Array a / Go.Slice a → []T    View a → list.View[A]
 //	Chan a → chan T  RecvChan a → <-chan T   SendChan a → chan<- T
 //	Go.Map k v → map[K]V         (a, b) → rt.TupleN[A, B]
 //	T1 -> .. -> R → func(T1) func(T2) ... R  Go named → pkg.Name
@@ -116,6 +116,9 @@ func (g *gen) conType(c *types.Con) ast.Expr {
 			return &ast.ChanType{Dir: ast.SEND, Value: g.goType(c.Args[0])}
 		case conTask:
 			return &ast.IndexExpr{X: ast.NewIdent(g.pkgQual(rtPath) + "Task"),
+				Index: g.goType(c.Args[0])}
+		case conView:
+			return &ast.IndexExpr{X: ast.NewIdent(g.pkgQual(listPath) + "View"),
 				Index: g.goType(c.Args[0])}
 		case conOther:
 			// a builtin-scope type codegen does not know: fall

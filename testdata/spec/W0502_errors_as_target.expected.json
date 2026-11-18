@@ -4,7 +4,7 @@
       "kind": "diagnostic",
       "code": "W0502",
       "severity": "warning",
-      "message": "`errors.As` requires a non-nil pointer target \u2014 an argument of type Int panics at run time",
+      "message": "`errors.As` requires a non-nil pointer target — an argument of type Int panics at run time",
       "span": {
         "file": "W0502_errors_as_target.gom",
         "start": {
@@ -26,7 +26,7 @@
       "kind": "diagnostic",
       "code": "W0502",
       "severity": "warning",
-      "message": "`errors.As` requires a non-nil pointer target \u2014 an argument of type Option Int panics at run time",
+      "message": "`errors.As` requires a non-nil pointer target — an argument of type Option Int panics at run time",
       "span": {
         "file": "W0502_errors_as_target.gom",
         "start": {
@@ -48,7 +48,7 @@
       "kind": "diagnostic",
       "code": "W0502",
       "severity": "warning",
-      "message": "`errors.As` requires a non-nil pointer target \u2014 an argument of type Sum panics at run time",
+      "message": "`errors.As` requires a non-nil pointer target — an argument of type Sum panics at run time",
       "span": {
         "file": "W0502_errors_as_target.gom",
         "start": {
@@ -70,7 +70,7 @@
       "kind": "diagnostic",
       "code": "W0502",
       "severity": "warning",
-      "message": "`errors.As` requires the target's element type to implement error or be an interface \u2014 Int is neither and panics at run time",
+      "message": "`errors.As` requires the target's element type to implement error or be an interface — Int is neither and panics at run time",
       "span": {
         "file": "W0502_errors_as_target.gom",
         "start": {
@@ -92,7 +92,7 @@
       "kind": "diagnostic",
       "code": "W0502",
       "severity": "warning",
-      "message": "`errors.As` requires the target's element type to implement error or be an interface \u2014 Rec is neither and panics at run time",
+      "message": "`errors.As` requires the target's element type to implement error or be an interface — Rec is neither and panics at run time",
       "span": {
         "file": "W0502_errors_as_target.gom",
         "start": {
@@ -114,7 +114,7 @@
       "kind": "diagnostic",
       "code": "W0502",
       "severity": "warning",
-      "message": "`errors.As` requires a non-nil pointer target \u2014 `Ptr.nil` panics at run time",
+      "message": "`errors.As` requires a non-nil pointer target — `Ptr.nil` panics at run time",
       "span": {
         "file": "W0502_errors_as_target.gom",
         "start": {
@@ -158,7 +158,7 @@
       "kind": "diagnostic",
       "code": "W0502",
       "severity": "warning",
-      "message": "`errors.As` requires a non-nil pointer target \u2014 an argument of type Int panics at run time",
+      "message": "`errors.As` requires a non-nil pointer target — an argument of type Int panics at run time",
       "span": {
         "file": "W0502_errors_as_target.gom",
         "start": {

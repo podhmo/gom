@@ -1,6 +1,6 @@
 # コピーせずに共有するスライス型（View）を足すか
 
-- 状態: 未決（パフォーマンスチューニングに着手するときに再検討する）
+- 状態: 部分的に決着 — List 由来の `View a` を採用（[decision](../decisions/2026-11-18-list-view.md)、wave21 lane4）。Go 由来の共有 View は不採用のまま
 - 日付: 2026-11-04
 
 ## Situation
@@ -36,4 +36,4 @@ View の安全性は、元のデータの持ち主で決まる。
 
 ## 当面の方針
 
-新しい型は足さない。`Go.Slice` に読み取り専用の操作を足し、`Go.conv` はコピーありに揃える（[decision](../decisions/2026-11-04-goconv-list-slice-copies.md)）。`List` 由来の安全な View は、パフォーマンスチューニングで必要になったらこのファイルから再検討する。
+~~新しい型は足さない。~~ 2026-11-18 に `List` 由来の読み取り専用 `View a` を採用した（[decision](../decisions/2026-11-18-list-view.md)）— 分析通り元が不変なので安全。Go のスライス由来の共有 View は方針どおり不採用のまま、`Go.Slice` の読み取り専用面が担う（[decision](../decisions/2026-11-04-goconv-list-slice-copies.md)）。

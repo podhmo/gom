@@ -4,7 +4,7 @@
       "kind": "diagnostic",
       "code": "E0101",
       "severity": "error",
-      "message": "an \"@extern\" function declares only a signature \u2014 no \"= body\" (its implementation is hand-written Go)",
+      "message": "an \"@extern\" function declares only a signature — no \"= body\" (its implementation is hand-written Go)",
       "span": {
         "file": "E0101_extern_with_body.gom",
         "start": {

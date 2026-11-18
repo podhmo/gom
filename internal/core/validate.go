@@ -1545,8 +1545,9 @@ func (v *validator) forRange(e *ForRange) {
 	switch e.Kind {
 	case ForList:
 		if t := atomType(e.Iter); t != nil &&
-			!v.conIs(t, "", "List", 1) && !v.conIs(t, "", "Array", 1) && !v.conIs(t, "Go", "Slice", 1) {
-			v.err(e.Sp, "ForRange", "list-loop iterable type %s is not List/Array/Go.Slice", t)
+			!v.conIs(t, "", "List", 1) && !v.conIs(t, "", "Array", 1) && !v.conIs(t, "Go", "Slice", 1) &&
+			!v.conIs(t, "", "View", 1) {
+			v.err(e.Sp, "ForRange", "list-loop iterable type %s is not List/Array/Go.Slice/View", t)
 		}
 	case ForChan:
 		if t := atomType(e.Iter); t != nil &&

@@ -58,3 +58,12 @@ fn sum (xs: List Float) -> Float
 
 /// range lo hi is [lo, lo+1, ..., hi-1]; empty when lo >= hi.
 fn range (lo: Int) (hi: Int) -> List Int
+
+// `view` and `slice` exist on the module surface but are not
+// declared here — registered by the compiler (they produce the
+// builtin `View a`; an @extern named `view` would emit `View`,
+// colliding with the hand-written `type View[A]` in this package).
+// The `View` module's member surface (`length`/`get`/`slice`/`fold`/
+// `to_list`) is likewise compiler-registered, backed by hand-written
+// functions in this package. See decision
+// 2026-11-18-list-view.
