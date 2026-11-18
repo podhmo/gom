@@ -3,6 +3,7 @@ package list
 import (
 	"slices"
 
+	"github.com/podhmo/gom/rt"
 	"github.com/podhmo/gom/stdlib/option"
 )
 
@@ -106,8 +107,14 @@ func Range(lo, hi int64) List[int64] {
 // member of the Option module (decision
 // stdlib-conv-placement).
 func OptionToList[A any](o option.Option[A]) List[A] {
-	if s, ok := o.(option.Option_Some[A]); ok {
-		return List[A]{s.V0}
+	switch o := o.(type) {
+	case option.Option_Some[A]:
+		return List[A]{o.V0}
+	case option.Option_None[A]:
+		return nil
+	default:
+		// A nil Option is not None — it is the invalid zero
+		// value every match's default arm panics on.
+		panic(rt.InvalidVariant("Option", o))
 	}
-	return nil
 }

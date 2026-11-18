@@ -1,6 +1,9 @@
 package option
 
-import "github.com/podhmo/gom/stdlib/result"
+import (
+	"github.com/podhmo/gom/rt"
+	"github.com/podhmo/gom/stdlib/result"
+)
 
 // Conversions into this package — the upward half of the
 // result < option < list layering (docs/decisions/
@@ -10,10 +13,16 @@ import "github.com/podhmo/gom/stdlib/result"
 // Go cycle.
 
 // ResultToOption is `Result.to_option`: Ok x → Some x, Err → None.
+// The switch is complete on the tag — an invalid Result (the zero
+// value) panics like every match's default arm instead of reading
+// as a silent None.
 func ResultToOption[T, E any](r result.Result[T, E]) Option[T] {
-	if r.IsOk() {
-		v, _ := r.Unwrap()
-		return Option_Some[T]{V0: v}
+	switch r.Tag() {
+	case result.ResultTagOk:
+		return Option_Some[T]{V0: r.Value}
+	case result.ResultTagErr:
+		return Option_None[T]{}
+	default:
+		panic(rt.InvalidVariant("Result", r))
 	}
-	return Option_None[T]{}
 }

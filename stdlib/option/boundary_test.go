@@ -78,3 +78,12 @@ func TestResultToOption(t *testing.T) {
 		t.Fatalf("ResultToOption(Err) = %#v, want Option_None", none)
 	}
 }
+
+func TestResultToOptionInvalid(t *testing.T) {
+	// The zero Result is not Err — the conversion panics like a
+	// match's default arm instead of reading it as None.
+	assertPanics(t, "ResultToOption(zero)", func() {
+		var zero result.Result[int, error]
+		option.ResultToOption(zero)
+	})
+}

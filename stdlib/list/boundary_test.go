@@ -69,3 +69,14 @@ func TestOptionToList(t *testing.T) {
 		t.Fatalf("OptionToList(None) = %#v, want []", empty)
 	}
 }
+
+func TestOptionToListInvalid(t *testing.T) {
+	// A nil Option is not None — the conversion panics like a
+	// match's default arm.
+	defer func() {
+		if recover() == nil {
+			t.Fatal("OptionToList(nil) did not panic")
+		}
+	}()
+	list.OptionToList[int](nil)
+}
