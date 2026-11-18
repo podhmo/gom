@@ -3023,8 +3023,9 @@ func (l *lowerer) lambdaExpr(e *check.Lambda) core.Expr {
 // the function's own tail position into TailCall, then sets TailLoop.
 // Runs after the body is lowered so it sees the final tree shape;
 // nested functions keep their own boundary — their CallDirect nodes
-// are not in To's tail position. When the conversion applies,
-// snapshotCapturedParams repairs captured parameters (tail.go).
+// are not in To's tail position. The caller runs markConsCalls next
+// and then snapshotCapturedParams once for either loop kind
+// (tail.go).
 //
 // Only the identity self-instantiation converts: the TailCall loop
 // reloads the same parameter registers, so the call's type arguments
@@ -3107,11 +3108,6 @@ func (l *lowerer) markTailCalls(fn *core.Func, self *resolve.Symbol, tparams []*
 	}
 	body(fn.Body)
 	fn.TailLoop = found
-	if found {
-		// The loop rebinds the parameter registers, so anything a
-		// capture can reach needs its own per-iteration copy.
-		l.snapshotCapturedParams(fn)
-	}
 }
 
 // identityInstantiation reports whether targs instantiates the

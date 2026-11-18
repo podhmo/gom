@@ -28,10 +28,11 @@ const (
 	dAssign                      // into a `var` declared in an outer block
 	dDeclare                     // the node declares the name itself — `let`'s selfDeclares path only
 	dDiscard                     // evaluate and drop
+	dConsBuf                     // a ConsLoop function's build buffer — `buf = append(buf, tail...)`
 )
 
-// dest is the destination context. name is set for dAssign and
-// dDeclare.
+// dest is the destination context. name is set for dAssign, dDeclare
+// and dConsBuf (the buffer variable).
 type dest struct {
 	kind destKind
 	name string
@@ -44,6 +45,11 @@ var (
 
 func assign(name string) dest  { return dest{kind: dAssign, name: name} }
 func declare(name string) dest { return dest{kind: dDeclare, name: name} }
+
+// consBuf is the destination a ConsLoop body's tails write to — the
+// result list accumulates in the named buffer variable (docs/design.md
+// section 4.5).
+func consBuf(name string) dest { return dest{kind: dConsBuf, name: name} }
 
 // body emits an ordered binding sequence then the tail under d.
 func (g *gen) body(b *core.Body, d dest) {
@@ -138,7 +144,7 @@ func (g *gen) emit(e core.Expr, d dest) {
 	case *core.ForRange:
 		g.forExpr(e, d)
 	case *core.TailCall:
-		g.tailCall(e)
+		g.tailCall(e, d)
 	case *core.EscapeResult:
 		g.escapeResult(e, d)
 	case *core.EscapeCall:
@@ -178,6 +184,10 @@ func (g *gen) valueExpr(e core.Expr, d dest) {
 	case dAssign:
 		g.raw(d.name + " = ")
 		g.exprValue(e)
+	case dConsBuf:
+		g.raw(d.name + " = append(" + d.name + ", ")
+		g.exprValue(e)
+		g.raw("...)")
 	case dDiscard:
 		// A call discards its results cleanly as a bare statement —
 		// needed for zero- and multi-result Go calls, which `_ =`
@@ -247,6 +257,13 @@ func (g *gen) writeDest(d dest, x ast.Expr) {
 		g.raw(d.name + " = ")
 	case dDiscard:
 		g.raw("_ = ")
+	case dConsBuf:
+		g.raw(d.name + " = ")
+		g.expr(&ast.CallExpr{Fun: ast.NewIdent("append"),
+			Args:     []ast.Expr{ast.NewIdent(d.name), x},
+			Ellipsis: token.Pos(1)})
+		g.nl()
+		return
 	default:
 		panic("unreachable")
 	}
@@ -621,15 +638,29 @@ func (g *gen) forExpr(e *core.ForRange, d dest) {
 // tailCall emits reassign-and-continue inside the enclosing TailLoop
 // `for` — `p0, p1 = a0, a1` then `continue` (design.md section 4.5).
 // The multi-assignment evaluates arguments before rebinding, which is
-// the semantics the node guarantees.
+// the semantics the node guarantees. A cons-prepend call — the
+// `[h, .., f args]` shape a ConsLoop carries — first pushes its heads
+// to the destination's build buffer: `buf = append(buf, h, ...)`.
 //
 // A pair `p = p` rebinds a parameter to itself — a no-op that
 // `go vet` reports as self-assignment (and the compile canary's
 // vet-equivalent checks flag the same way). Such pairs are dropped:
 // a self-call passing every parameter unchanged emits the bare
 // `continue`, and a mixed call keeps only the changing parameters.
-func (g *gen) tailCall(e *core.TailCall) {
+func (g *gen) tailCall(e *core.TailCall, d dest) {
 	g.line(e.Sp)
+	if len(e.Prepend) > 0 {
+		if d.kind != dConsBuf {
+			panic("unreachable")
+		}
+		g.raw(d.name + " = append(" + d.name)
+		for _, a := range e.Prepend {
+			g.raw(", ")
+			g.expr(g.atom(a))
+		}
+		g.raw(")")
+		g.nl()
+	}
 	var lhs, rhs []ast.Expr
 	for i, p := range e.To.Params {
 		a := e.Args[i]
@@ -1025,8 +1056,25 @@ func (g *gen) recordUpdate(e *core.RecordUpdate, d dest) {
 }
 
 // funcBody emits a Func's body — wrapped in `for { ... }` when the
-// TailLoop flag says self-tail calls reassign-and-continue.
+// TailLoop flag says self-tail calls reassign-and-continue. A
+// ConsLoop body adds the build buffer: `var consN List` before the
+// loop, every tail appends to it, and the loop's fall-through edge
+// — the base leaf — returns it (a TailCall's `continue` never
+// reaches the return).
 func (g *gen) funcBody(fn *core.Func, d dest) {
+	if fn.ConsLoop {
+		out := g.fresh("cons")
+		g.raw("var " + out + " ")
+		g.typ(g.goType(fn.ResidualType()))
+		g.nl()
+		g.raw("for")
+		g.open()
+		g.body(fn.Body, consBuf(out))
+		g.raw("return " + out)
+		g.nl()
+		g.close()
+		return
+	}
 	if fn.TailLoop {
 		g.raw("for")
 		g.open()

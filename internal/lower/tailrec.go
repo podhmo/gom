@@ -574,6 +574,7 @@ func walkTailrec(b *core.Body, f func(e core.Expr, inSpawn, inClosure bool)) {
 			}
 		case *core.TailCall:
 			atoms(e.Args, inSpawn, inClosure)
+			atoms(e.Prepend, inSpawn, inClosure)
 		case *core.EscapeResult:
 			atom(e.X, inSpawn, inClosure)
 		case *core.EscapeCall:

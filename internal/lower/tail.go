@@ -245,6 +245,7 @@ func eachVar(b *core.Body, f func(v *core.Var, captured bool)) {
 			}
 		case *core.TailCall:
 			atoms(e.Args, captured)
+			atoms(e.Prepend, captured)
 		case *core.EscapeResult:
 			atom(e.X, captured)
 		case *core.EscapeCall:

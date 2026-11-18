@@ -1,6 +1,6 @@
 # Cons-built stdlib list combinators are quadratic, and Gom cannot reach a mutable build buffer
 
-- 状態: 一部解消（2026-11-18 — `Array` builder + `to_list` と `@extern fn` extern-impl 機構を採択・実装。`Map`/`Filter`/`Append`/`Rev`/`Range` が buffer loop の hand-written Go 実装になり O(n) 化（n=2048 で ~1000×, 1 alloc）。参照: [decision](../decisions/2026-11-18-cons-buffer-array-extern-impl.md)、[検証](../sketch/2026-11-18-cons-buffer-verification.md)。残件: ユーザーコードの cons 蓄積を自動で救う lower cons-recursion 特殊化は podhmo 採択で future work、`Fold` の要素ごとクロージャ確保は未解決）
+- 状態: 一部解消（2026-11-18 — `Array` builder + `to_list` と `@extern fn` extern-impl 機構を採択・実装。`Map`/`Filter`/`Append`/`Rev`/`Range` が buffer loop の hand-written Go 実装になり O(n) 化（n=2048 で ~1000×, 1 alloc）。参照: [decision](../decisions/2026-11-18-cons-buffer-array-extern-impl.md)、[検証](../sketch/2026-11-18-cons-buffer-verification.md)。残件: ユーザーコードの cons 蓄積を自動で救う lower cons-recursion 特殊化は podhmo 採択で future work、`Fold` の要素ごとクロージャ確保は未解決。追記 2026-11-18: lower の cons-recursion 特殊化（[decision](../decisions/2026-11-18-cons-recursion-specialization.md)）でユーザーコードの match-cons 蓄積も buffer loop 化 — concat のような非 cons 形は残る）
 - 日付: 2026-11-05
 
 ## Problem

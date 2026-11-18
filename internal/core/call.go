@@ -215,6 +215,14 @@ type TailCall struct {
 	Base
 	To   *Func  // the enclosing FuncDecl's function — always the innermost enclosing Func
 	Args []Atom // exactly len(To.Params)
+	// Prepend is the cons-loop specialization's element payload
+	// (docs/design.md section 4.5 — lower's cons-recursion pass).
+	// The node's source shape was `[h0, .., hk, ..self args]` — a
+	// self call feeding a list cons — so the loop restart first
+	// appends the cons heads to the function's build buffer, then
+	// rebinds and continues. Non-empty only when To.ConsLoop is
+	// set; nil for an ordinary tail call.
+	Prepend []Atom
 }
 
 func (*TailCall) isExpr() {}

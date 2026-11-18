@@ -38,7 +38,6 @@
 - 型クラス、`deriving` 相当の自動生成
 - LSP の Go import oracle の共有: `go list -export` 自体は wave17 の file cache で消えた（[decision](decisions/2026-11-18-golist-export-cache.md)）が、compile 毎の Loader 作り直しで export data の parse と member table 構築は残る（per-change 数 ms オーダー）。`*types.Named` の identity が importer 単位のため session 間で member table を共有できない点が本筋の制約
 - インクリメンタルビルドのキャッシュ（P4。それまでは毎回変換し、Go のキャッシュに任せる）
-- lower の cons-recursion 特殊化: match-cons 再帰形（`map`/`filter`/`append` 様）を検出して buffer loop を emit する自動変換 — ユーザーコードの cons 蓄積も救えるが検出ポリシー・等価性検証の保守が重い。wave18 で (a) `Array` builder と (b) `@extern fn` を先に採択し、本項は future work として後送り（[decision](decisions/2026-11-18-cons-buffer-array-extern-impl.md)）
 - cgo、`unsafe`、`reflect` の本格的な扱い
 - セルフホスト（コンパイラを Gom で書き直す）
 - W0502 `lintErrorsAsTarget` の `Ptr (Ptr E)` ケース: `**int` は `*int` が error 非実装かつ非 interface なので panic が証明可能だが、現状は nested-Ptr 除外で沈黙。証明可能な違反の網羅を広げるかは将来の検討（wave9 error-tail レビュー nit）

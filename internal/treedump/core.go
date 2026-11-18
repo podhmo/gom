@@ -584,7 +584,11 @@ func (d *cdump) cexpr(e core.Expr) *form {
 		text := chead("ctorapp", e.Base) + " " + d.symRef(e.Ctor)
 		return nodef(text+fmt.Sprintf(" arity=%d", e.Arity)+targs(e.TypeArgs), d.catoms(e.Args)...)
 	case *core.TailCall:
-		return nodef(chead("tailcall", e.Base)+" to="+d.toLabel(e.To), d.catoms(e.Args)...)
+		text := chead("tailcall", e.Base) + " to=" + d.toLabel(e.To)
+		if len(e.Prepend) > 0 {
+			text += fmt.Sprintf(" prepend=%d", len(e.Prepend))
+		}
+		return nodef(text, d.catoms(append(e.Prepend, e.Args...))...)
 	case *core.EscapeResult:
 		return nodef(d.escapeHead("escaperesult", e.Base, e.To, e.Wrap), d.cexpr(e.X))
 	case *core.EscapeCall:

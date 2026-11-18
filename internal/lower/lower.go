@@ -904,6 +904,12 @@ func (l *lowerer) decl(d check.Decl, out *core.File) {
 		fn.Body = &core.Body{Lets: s.lets, Tail: tail}
 		l.fnStack = l.fnStack[:len(l.fnStack)-1]
 		l.markTailCalls(fn, d.Sym, d.TypeParams)
+		l.markConsCalls(fn, d.Sym, d.TypeParams)
+		if fn.TailLoop {
+			// The loop rebinds the parameter registers, so anything
+			// a capture can reach needs its own per-iteration copy.
+			l.snapshotCapturedParams(fn)
+		}
 		out.Decls = append(out.Decls, &core.FuncDecl{
 			Sp: d.Sp, Sym: d.Sym, Fn: fn,
 			TypeParams: d.TypeParams,
