@@ -11,6 +11,8 @@ import (
 // InterfaceAssignable uses the same Go type identities as signature loading.
 // It is deliberately an assignment relation, never type unification.
 func (l *Loader) InterfaceAssignable(from, to gt.Type) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	dst := l.boundaryType(to)
 	if dst == nil {
 		return false
@@ -120,6 +122,8 @@ func (l *Loader) boundaryType(t gt.Type) types.Type {
 // generic-call constraint check consults for *types.Go handles.
 // The named type behind the handle answers with types.Comparable.
 func (l *Loader) GoComparable(t gt.Type) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	bt := l.boundaryType(t)
 	return bt != nil && types.Comparable(bt)
 }
@@ -131,6 +135,8 @@ func (l *Loader) GoComparable(t gt.Type) bool {
 // conversion and decides against; an unmappable Go view (a generic
 // instantiation, a function value) is unproven, not disproven.
 func (l *Loader) GoConvertible(from, to gt.Type) (bool, bool) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	src, dst := l.boundaryType(from), l.boundaryType(to)
 	if src != nil && dst != nil {
 		return true, types.ConvertibleTo(src, dst)
@@ -170,6 +176,8 @@ func gomOnly(t gt.Type) bool {
 // FieldOf resolves readable Go struct fields, including promoted selectors.
 // Unsupported field types remain discoverable and produce E0501 on use only.
 func (l *Loader) FieldOf(recv gt.Type, name string) (*resolve.Symbol, check.Signature, gt.Type, bool) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	rt := l.boundaryType(recv)
 	if rt == nil {
 		return nil, check.Signature{}, nil, false

@@ -36,6 +36,7 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"sync"
 
 	"github.com/podhmo/gom/internal/check"
 	"github.com/podhmo/gom/internal/core"
@@ -65,6 +66,12 @@ type Config struct {
 
 // Loader is the Go import oracle; see the package comment.
 type Loader struct {
+	// mu serializes every public method — a Loader shared across
+	// concurrent dir compiles (design.md section 5 item 6) hands
+	// out symbols and mutates pkgs/syms/msyms/named/nextVar (and
+	// the importer's fset) only under it.
+	mu sync.Mutex
+
 	fset *token.FileSet
 	imp  types.Importer
 
@@ -205,6 +212,12 @@ func goExport(gobin, dir, path string) (export, srcDir string, depDirs []string,
 // from `import "path"`; a plain import is refused so the resolver
 // reports E0203 rather than loading Go members under a Gom name.
 func (l *Loader) Load(path string, goPkg bool) (*resolve.Package, error) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.load(path, goPkg)
+}
+
+func (l *Loader) load(path string, goPkg bool) (*resolve.Package, error) {
 	if !goPkg {
 		return nil, fmt.Errorf("package %q is not a Go package (use `import go`)", path)
 	}
@@ -338,6 +351,12 @@ func (l *Loader) sigOf(sym *resolve.Symbol, m *member, sig *types.Signature) {
 // SignatureOf returns the Gom-view signature of a member symbol —
 // the check.SignatureSource entry.
 func (l *Loader) SignatureOf(sym *resolve.Symbol) (check.Signature, bool) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.signatureOf(sym)
+}
+
+func (l *Loader) signatureOf(sym *resolve.Symbol) (check.Signature, bool) {
 	m, ok := l.syms[sym]
 	if !ok || sym.Hidden != "" {
 		return check.Signature{}, false
@@ -352,6 +371,12 @@ func (l *Loader) SignatureOf(sym *resolve.Symbol) (check.Signature, bool) {
 // member's raw Go type (lowering needs it to place the `int`/`Int`
 // conversion — see member).
 func (l *Loader) GoSigOf(sym *resolve.Symbol) (lower.GoSig, bool) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	return l.goSigOf(sym)
+}
+
+func (l *Loader) goSigOf(sym *resolve.Symbol) (lower.GoSig, bool) {
 	m, ok := l.syms[sym]
 	if !ok || sym.Hidden != "" {
 		return lower.GoSig{}, false

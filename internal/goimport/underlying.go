@@ -20,6 +20,8 @@ import (
 // instantiated or unknown handle, and a non-basic underlying (a
 // struct, an interface) — the literal then judges at its own type.
 func (l *Loader) GoUnderlyingKind(t gt.Type) (types.BasicKind, bool) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	g, ok := gt.Chase(t).(*gt.Go)
 	if !ok || len(g.Args) != 0 {
 		return types.Invalid, false
@@ -42,6 +44,8 @@ func (l *Loader) GoUnderlyingKind(t gt.Type) (types.BasicKind, bool) {
 // derived `(I, error)` view, which wraps the payload in Option
 // exactly like the import mapping's own rule (mapping.go).
 func (l *Loader) NilableGoRef(ref gt.NamedRef) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	n, ok := l.named[ref]
 	return ok && methodIface(n)
 }
@@ -54,6 +58,8 @@ func (l *Loader) NilableGoRef(ref gt.NamedRef) bool {
 // `type S []int` result is as nil-able as the slice itself, so
 // `Result (Option S) GoError` is honest on the `(S, error)` side.
 func (l *Loader) NilableUnderlying(ref gt.NamedRef) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
 	n, ok := l.named[ref]
 	if !ok {
 		return false

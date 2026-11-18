@@ -464,7 +464,7 @@ func TestRectArea(t *testing.T) {
 3. 再コンパイルするのは、自分のソースか依存先のインターフェースのハッシュが変わったときだけ
 4. テストと `@test` 定義はハッシュに含めない
 5. 生成した `.go` が前回と同じ内容なら書き換えない。Go 側の再ビルドは `go build` のキャッシュに任せる
-6. 依存関係のないパッケージどうしは並列にコンパイルする — 未実装。dir グループの並列化は `CompileFiles` 呼び出しのスケジューリングで、キャッシュとは直交。wave20 で評価: dep 順序づけと共有 Loader の同期が要り実装は小さくない（[implementation-gaps](implementation-gaps.md) の項参照）
+6. 依存関係のないパッケージどうしは並列にコンパイルする。`compileInputs` は dir グループ間の import 辺をソースの `import` 宣言から引き（short name は canonical パスに展開）、Kahn の層構造にして、層内の dir だけ `GOMAXPROCS` 上限のワーカーで並列に `CompileFiles` する — 依存側は必ず依存先より後の層に来るので、`gom info` が書き出す依存先 `.gomi` の再生成も依存側の読み取りより先に終わる。Loader は二段に分ける: `goimport.Loader` は解決がモジュール文脈だけに依存するので go.mod の dir 単位で共有し、全 public メソッドを内部 mutex で直列化する（`pkgs`/member table/importer fset の mutation もその下）。`gomimport.Loader` は `cfg.Dir` が entry identity（`EntryPath`/`SelfImportPath`・impl-scan の seed）を担うため dir ごとのまま — 共有すると self-import と E0606 の検出を誤解決する。増分キャッシュは `buildCache` の mutex で直列化し、Go 側の dep 集合は Loader と同じモジュール単位で集約する（dep 編集で共有する dir 全てが保守的に無効化される）。import サイクルの残件は引数順の直列にフォールバック（E0606 は各コンパイルが報告する）
 
 `.gomi` は Gom の意味論的な型（公開 API）を表す。生成される Go の API（型名・関数のシグネチャ）をどこまで安定させるか（Go ABI の方針）は open-questions.md。
 

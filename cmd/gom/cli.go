@@ -11,8 +11,10 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/podhmo/gom/internal/build"
 	"github.com/podhmo/gom/internal/diag"
@@ -23,6 +25,7 @@ import (
 	"github.com/podhmo/gom/internal/lower"
 	"github.com/podhmo/gom/internal/resolve"
 	gomstd "github.com/podhmo/gom/internal/stdlib"
+	"github.com/podhmo/gom/internal/syntax"
 	"github.com/podhmo/gom/internal/treedump"
 )
 
@@ -41,24 +44,11 @@ type input struct {
 // builtin-module tables and the .gomi export hook of spec section
 // 5. The loaders run in the input file's own directory so imported
 // packages resolve in the module the file belongs to.
-func compileOptions(in input, checkOnly bool, seen *depSeen) *build.Options {
+func compileOptions(in input, checkOnly bool, seen *depSeen, gl *goimport.Loader) *build.Options {
 	dir := filepath.Dir(in.path)
 	if abs, err := filepath.Abs(dir); err == nil {
 		dir = abs
 	}
-	glc := &goimport.Config{Dir: dir}
-	if seen != nil {
-		// The incremental build cache records every dependency the
-		// compile reached — its dep set for the next hit check
-		// (design.md section 5). A Go package's own dir plus the
-		// dep dirs `go list -export` reported stand in for its API
-		// surface.
-		glc.OnLoad = func(d string, deps []string) {
-			seen.godirs = append(seen.godirs, d)
-			seen.godirs = append(seen.godirs, deps...)
-		}
-	}
-	gl := goimport.New(glc)
 	mods := map[string]map[string]*resolve.Symbol{}
 	gc := &gomimport.Config{Dir: dir, Go: gl, Sigs: gl, Modules: mods}
 	if seen != nil {
@@ -90,13 +80,25 @@ func compileInputs(inputs []input, checkOnly bool, bc *buildCache, outFlag strin
 	for i, in := range inputs {
 		if in.iface {
 			// An interface's own imports are dependencies too —
-			// they load only while the .gomi itself compiles.
+			// they load only while the .gomi itself compiles. One-off
+			// compiles get an unshared Go loader (the dep set is the
+			// interface's own, not a package pool's).
 			var seen *depSeen
+			var gl *goimport.Loader
+			dir := filepath.Dir(filepath.Clean(in.path))
 			if bc != nil {
-				seen = bc.depSink(filepath.Dir(filepath.Clean(in.path)))
+				seen = bc.depSink(dir)
 			}
+			glc := &goimport.Config{Dir: dir}
+			if seen != nil {
+				glc.OnLoad = func(d string, deps []string) {
+					seen.godirs = append(seen.godirs, d)
+					seen.godirs = append(seen.godirs, deps...)
+				}
+			}
+			gl = goimport.New(glc)
 			r, err := build.Compile(build.Input{Path: in.path, Src: in.src, Interface: true},
-				compileOptions(in, checkOnly, seen))
+				compileOptions(in, checkOnly, seen, gl))
 			if err != nil {
 				return nil, fmt.Errorf("%s: %w", in.path, err)
 			}
@@ -112,7 +114,128 @@ func compileInputs(inputs []input, checkOnly bool, bc *buildCache, outFlag strin
 		}
 		groups[dir] = append(groups[dir], i)
 	}
+
+	// --- dep graph + topological layers (design.md section 5 item 6) ---
+	// Each dir's own Go import path inside its module and its import
+	// clauses to other input dirs give the scheduling edges; a dir's
+	// compile may read another input dir's interfaces, and `gom info`
+	// regenerates .gomi drafts — dependents must schedule after their
+	// dependencies.
+	selfPath, modKey := map[string]string{}, map[string]string{}
 	for _, dir := range order {
+		mp, md, ok := moduleOf(dir)
+		if !ok {
+			// No module context — nothing resolves the dir's Gom
+			// imports anyway; pool it under its own dir.
+			modKey[dir] = dir
+			continue
+		}
+		modKey[dir] = md
+		rel, err := filepath.Rel(md, dir)
+		if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+			continue
+		}
+		if rel == "." {
+			selfPath[dir] = mp
+		} else {
+			selfPath[dir] = mp + "/" + filepath.ToSlash(rel)
+		}
+	}
+	deps := map[string]map[string]bool{}
+	for _, dir := range order {
+		for _, i := range groups[dir] {
+			ast, _ := syntax.Parse(inputs[i].src, inputs[i].path)
+			if ast == nil {
+				continue
+			}
+			for _, d := range ast.Decls {
+				imp, ok := d.(*syntax.ImportDecl)
+				if !ok || imp.Go {
+					continue
+				}
+				path := canonicalImport(imp.Path)
+				for other, sp := range selfPath {
+					if other != dir && path == sp {
+						if deps[dir] == nil {
+							deps[dir] = map[string]bool{}
+						}
+						deps[dir][other] = true
+					}
+				}
+			}
+		}
+	}
+	// Kahn layers in CLI-arg order: everything a dir depends on sits
+	// in an earlier layer, so dependents never start before their
+	// dependencies finish.
+	remaining := append([]string{}, order...)
+	var layers [][]string
+	for len(remaining) > 0 {
+		done := map[string]bool{}
+		for _, l := range layers {
+			for _, d := range l {
+				done[d] = true
+			}
+		}
+		var layer, rest []string
+		for _, dir := range remaining {
+			ready := true
+			for dep := range deps[dir] {
+				if !done[dep] {
+					ready = false
+					break
+				}
+			}
+			if ready {
+				layer = append(layer, dir)
+			} else {
+				rest = append(rest, dir)
+			}
+		}
+		if layer == nil {
+			// An import cycle among the inputs — E0606 reports it
+			// inside the compiles; schedule the remainder serially.
+			layer = rest
+		}
+		layers = append(layers, layer)
+		remaining = rest
+	}
+
+	// Shared Go import loaders, pooled by module context (modKey):
+	// `go list -export` resolution is module-scoped, so one loader
+	// per module dedupes the subprocess+export-data work across dirs.
+	// The loader serializes every entry point internally.
+	type goPool struct {
+		gl   *goimport.Loader
+		seen *depSeen
+	}
+	var poolMu sync.Mutex
+	pools := map[string]*goPool{}
+	poolLoader := func(dir string) (*goimport.Loader, *depSeen) {
+		key := modKey[dir]
+		poolMu.Lock()
+		defer poolMu.Unlock()
+		p := pools[key]
+		if p == nil {
+			p = &goPool{}
+			glc := &goimport.Config{Dir: dir}
+			if bc != nil {
+				// Go-side deps pool at module granularity — a dep
+				// edit conservatively invalidates every dir sharing
+				// the loader (the dep set is the union).
+				p.seen = bc.depSink("go:" + key)
+				glc.OnLoad = func(d string, deps []string) {
+					p.seen.godirs = append(p.seen.godirs, d)
+					p.seen.godirs = append(p.seen.godirs, deps...)
+				}
+			}
+			p.gl = goimport.New(glc)
+			pools[key] = p
+		}
+		return p.gl, p.seen
+	}
+
+	compileDir := func(dir string) error {
 		idxs := groups[dir]
 		ins := make([]build.Input, len(idxs))
 		for j, i := range idxs {
@@ -126,20 +249,21 @@ func compileInputs(inputs []input, checkOnly bool, bc *buildCache, outFlag strin
 				for _, i := range idxs {
 					results[i] = &build.Result{Cached: true}
 				}
-				continue
+				return nil
 			}
 		}
 		var seen *depSeen
 		if bc != nil {
 			seen = bc.depSink(dir)
 		}
-		opts := compileOptions(inputs[idxs[0]], checkOnly, seen)
+		gl, _ := poolLoader(dir)
+		opts := compileOptions(inputs[idxs[0]], checkOnly, seen, gl)
 		if tweak != nil {
 			tweak(opts)
 		}
 		rs, err := build.CompileFiles(ins, opts)
 		if err != nil {
-			return nil, fmt.Errorf("%s: %w", dir, err)
+			return fmt.Errorf("%s: %w", dir, err)
 		}
 		for j, i := range idxs {
 			results[i] = rs[j]
@@ -147,8 +271,89 @@ func compileInputs(inputs []input, checkOnly bool, bc *buildCache, outFlag strin
 		if bc != nil {
 			bc.note(dir, ins)
 		}
+		return nil
+	}
+
+	workers := runtime.GOMAXPROCS(0)
+	if workers < 1 {
+		workers = 1
+	}
+	for _, layer := range layers {
+		var wg sync.WaitGroup
+		sem := make(chan struct{}, workers)
+		errs := make([]error, len(layer))
+		for li, dir := range layer {
+			wg.Add(1)
+			go func(li int, dir string) {
+				defer wg.Done()
+				sem <- struct{}{}
+				defer func() { <-sem }()
+				errs[li] = compileDir(dir)
+			}(li, dir)
+		}
+		wg.Wait()
+		for _, err := range errs {
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
 	return results, nil
+}
+
+// moduleOf walks up from dir for the nearest go.mod and parses its
+// module line — the module path and root dir a dir's imports resolve
+// against. Mirrors gomimport's own module lookup; kept local because
+// scheduling (not loading) needs it here.
+func moduleOf(dir string) (modPath, modDir string, ok bool) {
+	d, err := filepath.Abs(dir)
+	if err != nil {
+		return "", "", false
+	}
+	for {
+		b, err := os.ReadFile(filepath.Join(d, "go.mod"))
+		if err == nil {
+			for line := range strings.SplitSeq(string(b), "\n") {
+				if f := strings.Fields(line); len(f) == 2 && f[0] == "module" {
+					return f[1], d, true
+				}
+			}
+			return "", "", false
+		}
+		if !os.IsNotExist(err) {
+			return "", "", false
+		}
+		parent := filepath.Dir(d)
+		if parent == d {
+			return "", "", false
+		}
+		d = parent
+	}
+}
+
+// goPoolKey is the depSeen bucket shared by every dir in a module —
+// the key the pooled goimport.Loader's OnLoad appends Go dep dirs
+// under, and the one commit() merges back into a dir's manifest.
+func goPoolKey(dir string) string {
+	if _, md, ok := moduleOf(dir); ok {
+		return "go:" + md
+	}
+	return "go:" + dir
+}
+
+// canonicalImport unfolds the stdlib short names — the same mapping
+// gomimport's canonicalPath applies (mirrored here; cmd cannot reach
+// the loader's unexported table).
+func canonicalImport(path string) string {
+	switch path {
+	case "list":
+		return "github.com/podhmo/gom/stdlib/list"
+	case "option":
+		return "github.com/podhmo/gom/stdlib/option"
+	case "result":
+		return "github.com/podhmo/gom/stdlib/result"
+	}
+	return path
 }
 
 // runCheck implements `gom check [-format F] [FILE|DIR ...]`:
@@ -423,7 +628,7 @@ func runDump(args []string, stdout, stderr io.Writer) int {
 			ins = append(ins, build.Input{Path: s, Src: b})
 		}
 		if len(ins) > 1 {
-			rs, err := build.CompileFiles(ins, compileOptions(in, false, nil))
+			rs, err := build.CompileFiles(ins, compileOptions(in, false, nil, goimport.New(&goimport.Config{Dir: dir})))
 			if err != nil {
 				fmt.Fprintf(stderr, "gom dump: %s: %v\n", dir, err)
 				return diag.ExitInternal
@@ -439,7 +644,7 @@ func runDump(args []string, stdout, stderr io.Writer) int {
 	}
 	if r == nil {
 		r, err = build.Compile(build.Input{Path: in.path, Src: in.src, Interface: in.iface},
-			compileOptions(in, false, nil))
+			compileOptions(in, false, nil, goimport.New(&goimport.Config{Dir: filepath.Dir(in.path)})))
 		if err != nil {
 			fmt.Fprintf(stderr, "gom dump: %s: %v\n", in.path, err)
 			return diag.ExitInternal
