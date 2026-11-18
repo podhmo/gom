@@ -56,7 +56,7 @@ testdata/voidhost/  # host-side fixture for build/void tests
 | Command | Meaning |
 | --- | --- |
 | `gom check FILE|DIR ...` | parse → resolve → check → pattern; JSON-Lines diagnostics. `DIR` expands to its `*.gom`/`*.gomi`. |
-| `gom build [-o OUT] FILE|DIR ...` | + lower → codegen; writes `.go`. `-o` file (single input) or dir. |
+| `gom build [-o OUT] FILE|DIR ...` | + lower → codegen; writes `.go`. `-o` file (single input) or dir. `-go` runs `go build` per output dir, `-vet` runs `go vet` (both opt-in, foldable back to `.gom` spans; cache off under either). |
 | `gom dump -phase=NAME FILE` | `syntax`/`resolve`/`check`/`core` IR tree → stdout; diagnostics → stderr. The package's sibling `.gom` files compile along so member names resolve — only FILE's IR prints. |
 | `gom fmt [-w\|-d\|-l\|--check] FILE...` | canonical formatter; `-` = stdin→stdout. Streams go to stderr. |
 | `gom test FILE|DIR ... [-- FLAGS]` | compiles in test mode, writes `.go` + `_test.go` beside each input, runs `go test -json` per package directory, reports one `test` message per test plus `summary.tests` counts. FLAGS after `--` pass verbatim to `go test` (`-race`, `-run`); `-q`/`--quiet` drops the raw half of panic stacks. Library packages need their `<pkg>.gomi` — the conformance gate runs here too. |

@@ -274,6 +274,19 @@ means a `Some`/`None`/`Ok`/`Err` variant value (`VCtor`), never a
 raw pointer or `(T, error)` pair; eval has no conversion path for
 extern result rewrites.
 
+## @extern fn (hand-written Go body)
+
+`@extern` on a `fn` declaration makes it signature-only — `= body`
+is forbidden and every parameter plus the result needs an
+annotation. Resolution, type checking, `.gomi` conformance, and
+call-site output are identical to a normal `fn`; the declaration
+just emits no code. The body is a hand-written Go function in the
+generated package with the emitted name (`fn map` → `func Map`),
+so name/signature drift is reported by `go build`/`go test`, not
+Gom. stdlib uses it to give the cons-built combinators buffer
+loops (`stdlib/list/impl.go`). Not allowed on `let` or in `.gomi`
+(decisions/2026-11-18-cons-buffer-array-extern-impl.md).
+
 ## nil and contract boundaries
 
 - Go-side `nil` on `*T`/interface values panics on use, Go-style —

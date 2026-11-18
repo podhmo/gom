@@ -60,6 +60,9 @@ marked).
 | `09xx` | lowering | E0901 IR invariant (compiler bug), E0902–E0905 `@tailrec` violations, E0906 eq-comparator budget, E0907 initialization cycle |
 | `90xx` | evaluator | E9001–E9006 interpreter limits/invariants (test harness) |
 
+Callee-identity warnings (W0701/W0501/W0502) see through `let
+mk = Chan.make`-style value aliases, including multi-hop chains.
+
 ## Diagnostic work loop
 
 1. `gom check f.gom` → read first error only (phases stop at the
