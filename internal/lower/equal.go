@@ -207,7 +207,7 @@ func (l *lowerer) eqKindOf(w *eqClass, t types.Type) eqKind {
 				return eqNative
 			case "GoError":
 				return eqError
-			case "List", "Array":
+			case "List", "Array", "View":
 				// Slices never compile under `==`.
 				return eqDecl
 			case "Option", "Result":
@@ -365,7 +365,7 @@ func (l *lowerer) eqDeclPlan(sp diag.Span, t types.Type) *core.EqPlan {
 		}
 		if t.Qual == "" {
 			switch t.Name {
-			case "List", "Array":
+			case "List", "Array", "View":
 				return &core.EqPlan{Kind: core.EqSlice, Elem: l.eqPlan(sp, t.Args[0])}
 			case "Option":
 				return &core.EqPlan{Kind: core.EqSum, Variants: l.eqBuiltinVariants(sp, t)}
