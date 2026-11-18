@@ -65,13 +65,11 @@ docs/decisions, docs/implementation-gaps (gap 閉じ).
 ```
 [decide+impl] implementation-gaps open gap（425 行目）+ shelf:
 `Result.to_option` / `Option.to_list` が存在しない — Go の
-循環参照禁止で stdlib の module 構成上置けない。採択が要る:
-
-  (a) stdlib を別モジュール化（list/option/result を分割 or
-      層を追加）して正当に配置
-  (b) ユーザー側で書くものとして仕様化（組み込みにしない
-      判断を decision で pin）
-  (c) 現状維持（台帳だけ残す）
+循環参照禁止で stdlib の module 構成上置けない。**採択済み
+（podhmo, wave21 prompts 作成時）: (a) stdlib を別モジュール化**
+（list/option/result を分割 or 層を追加）して正当に配置する。
+分割構成の具体形は lane 内で決め、decision (draft) → spec/
+design 更新の順で記録する。
 Ownership: stdlib/, internal/stdlib, docs/spec (stdlib 節),
 docs/decisions, docs/implementation-gaps (gap 閉じ).
 ```
@@ -91,11 +89,10 @@ docs/decisions, docs/implementation-gaps (gap 閉じ).
       Loader 全体の read-lock 共有か dir ごとの分離（共有の
       利点を潰す）かを採択する。
   `bc.Hit`/`depSink`/`bc.note`/`results[i]` の dir 分割は素直に
-  並列化できる — 真の設計費用は上記 2 点。採択はここで行う:
-
-  (a) dep 順序 + Loader 共有ロック（実装案）
-  (b) dir ごと Loader 分離
-  (c) 見送り（台帳に残件明記して閉じる）
+  並列化できる — 真の設計費用は上記 2 点。**採択済み（podhmo,
+  wave21 prompts 作成時）: (a) dep 順序 + Loader 共有ロック** —
+  dep グラフからの topological ワーカー配置（または .gomi
+  書き込みロック）と Loader 全体の同期で実装する。
 Ownership: cmd/gom/cli.go (runBuild), internal/build,
 internal/gomimport, docs/design §5-6,
 docs/implementation-gaps (gap 閉じ).
