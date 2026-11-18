@@ -111,6 +111,41 @@ Ownership: internal/lower (consrec), stdlib/list,
 docs/sketch, docs/problems（該当項の更新）.
 ```
 
+## Handoff notes（このセッションからの引き継ぎ）
+
+ロードマップ方向（podhmo 2026-11-19 確定）: **A + B + D**。
+A（Go 相互運用の完成 = host 根絶）が最初、B（削減）は
+いつでもできる位置づけ、D（v2 設計）は「頭を使う必要が
+ある」重い作業 — 問い1件ずつ。wave23 が全調査なのは
+「結果を見て wave24 で a/b を決める」ための前段。
+
+- CI の発火条件: `.github/workflows/ci.yml` は
+  `push: [main]` と `pull_request: [main]` のみ。
+  チェーン PR（base が lane ブランチ）では check/fuzz が
+  走らず Devin Review のみ。**base を main に retarget
+  しても `edited` 型では check/fuzz は発火しない** —
+  新規 push（synchronize）時のみ。各 lane のローカル
+  `gofmt -l .` / `go vet ./...` / `go test ./...` 緑が
+  実質のゲートになり、最終的には main への push CI が
+  累積結果を検査する。
+- チェーンのマージ手順（確立済み）: 下から順に
+  `git_update_pr_base` で base→main → `gh pr merge --merge`
+  （マージコミット方式、squash ではない）→ fetch して次へ。
+- Devin Review の triage API（triage_review_findings /
+  end_triage）は「triage が別セッションに hand off された」
+  と 403 になることがある — reclaim=true でも不可。その場合は
+  各コメントスレッドへ `in_reply_to` + `resolve_thread_id` で
+  返信するフォールバックで閉じる（wave22 lane3 で実績）。
+- ブランチ移動時の未コミット持ち越し事故に注意: `git add -A`
+  が意図しないファイルを巻き込み、コミットが誤ブランチに
+  乗った事例が wave22 に2件ある（cherry-pick で処理済み）。
+  checkout 前に `git status` を確認する。
+- wave22 lane3 の教訓: 型ベースの判定は lambda 経路を巻き込む
+  —「宣言 fn のパラメータのみ flat」は per-slot マーカー
+  （VFunc.flatArity）で表現した。生成コードと eval の対称性を
+  確認するときは decl/lambda の両経路を fixture に置く
+  （`probe` と `probeLam`、internal/build/eager_test.go）。
+
 ## Post-lane work（lane 全完了後 — 締め作業）
 
 ```
