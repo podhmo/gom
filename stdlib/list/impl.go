@@ -57,6 +57,24 @@ func Append[A any](xs, ys List[A]) List[A] {
 	return append(out, ys...)
 }
 
+// Concat is xss[0] ++ xss[1] ++ ... — `@extern fn concat`. One
+// pass over the precomputed total size: the .gom right-fold
+// (`append xs (concat_go rest)`) kept O(n) copies but stacked a
+// frame per sublist — O(k) depth, which a deep list-of-lists blows
+// through. The buffer walk is O(1) stack, O(n) time, one
+// allocation.
+func Concat[A any](xss List[List[A]]) List[A] {
+	n := 0
+	for _, xs := range xss {
+		n += len(xs)
+	}
+	out := make(List[A], 0, n)
+	for _, xs := range xss {
+		out = append(out, xs...)
+	}
+	return out
+}
+
 // Rev reverses xs — `@extern fn rev`.
 func Rev[A any](xs List[A]) List[A] {
 	out := make(List[A], len(xs))
