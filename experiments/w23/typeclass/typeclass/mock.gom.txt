@@ -1,0 +1,45 @@
+// (2) PROPOSED SYNTAX — typeclass-style constraint + implicit
+// instance resolution. Not valid Gom today. Kept as .txt so
+// TestRepoFiles does not format it.
+//
+// The dictionary a class means is identical to (1) — the difference
+// is that the compiler supplies it at use sites instead of the
+// caller naming it.
+
+package main
+
+// --- declaration spellings (candidates) ---
+//
+//   class Ord a = { lt: a -> a -> Bool }
+//   interface Ord a = { lt: a -> a -> Bool }
+//   constraint Ord a = { lt: a -> a -> Bool }
+
+// --- constraint on a function (candidate spellings) ---
+//
+//   fn min [Ord a] (xs: List a) -> Option a
+//   fn min (xs: List a) -> Option a where Ord a
+
+fn min [Ord a] (xs: List a) -> Option a = match xs {
+  [] -> None
+  [x, ..rest] -> Some (fold_min lt x rest)
+}
+// ^ `lt` is in scope from the `Ord a` constraint — the dictionary's
+// fields are names, not projections the caller writes.
+
+fn sort [Ord a] (xs: List a) -> List a = match xs {
+  [] -> []
+  [x, ..rest] -> insert lt x (sort rest)
+}
+
+// --- instance declaration: one canonical dictionary per type ---
+instance Ord Int = { lt = fn a b -> a < b }
+instance Ord String = { lt = fn a b -> a < b }   // if String had `<`
+
+// --- use sites: no dictionary argument ---
+test "implicit resolution" {
+  assert_eq (min [3, 1, 2]) (Some 1)
+  assert_eq (sort [3, 1, 2]) [1, 2, 3]
+  // What the caller cannot write: a second, non-canonical ordering
+  // for Int (coherence forbids it — cf. Rust/Haskell orphan rules).
+  // Sorting descending needs a newtype or a different class method.
+}

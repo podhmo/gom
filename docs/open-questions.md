@@ -6,7 +6,7 @@
 
 ### 型システム
 
-- [ ] 型クラスの代替: v2 で型クラスを入れるか、明示的な辞書渡し（`Eq a` レコードを引数で渡す）で済ませるか
+- [ ] 型クラスの代替: v2 で型クラスを入れるか、明示的な辞書渡し（`Eq a` レコードを引数で渡す）で済ませるか — wave23 lane3 で設計空間を棚卸し済み（[sketch](sketch/2026-11-19-wave23-typeclass-vs-dict.md)、[実験](../experiments/w23/typeclass/)）: (1) 辞書渡しは現行言語のまま動作確認済みで生成コードは (2) と同型、(2) 型クラス風の差は解決機構と coherence 規則に集中。採否は podhmo
 - [ ] 実装の型がインターフェースより一般的な場合（実装が多相、`.gomi` が単相）を許すか
 
 - [ ] 可変性: `Ref a` と可変配列 `Array a` 以外に可変構造を許すか。なお W0701/W0702 lint の可変判定は spec 10 章の閉じた builtin リスト（`Ref`/`Array`/`Ptr`/`Go.Slice`/`Go.Map`）を使う — ユーザー宣言型の可変構造そのものは引き続き未決（[decision](decisions/2026-11-04-mutable-sharing-lint.md)）
