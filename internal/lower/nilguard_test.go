@@ -158,6 +158,8 @@ func collectBoundary(f *core.File) boundaryNodes {
 			for _, in := range x.In {
 				walkExpr(in)
 			}
+		case *core.Uncurry:
+			walkExpr(x.X)
 		case *core.Var, *core.Lit, *core.FuncRef, *core.CtorRef,
 			*core.GoFuncRef, *core.FieldGet, *core.Unary, *core.Binary,
 			*core.TupleNew, *core.ListNew, *core.RecordNew,
