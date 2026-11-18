@@ -75,10 +75,10 @@ fn find (f: a -> Bool) (xs: List a) -> Option a = match xs {
 }
 
 /// concat xss = xss[0] ++ xss[1] ++ ... — `List.join` in OCaml.
-/// Right-folds through concat_go so each inner `append` shares the
-/// already-built suffix; a left fold would re-copy the accumulated
-/// prefix at every step (cons is O(n) on the slice repr — P5-3).
-fn concat (xss: List (List a)) -> List a = concat_go xss
+/// Buffer-built Go impl (impl.go) — one pass over the total size;
+/// the right-fold shape stacked a frame per sublist (O(k) depth).
+@extern
+fn concat (xss: List (List a)) -> List a
 
 /// sum xs adds the elements of a Float list left to right.
 /// A dedicated loop: folding a curried `f acc x` would allocate one
@@ -101,11 +101,6 @@ fn length_go (acc: Int) (xs: List a) -> Int = match xs {
 fn sum_go (acc: Float) (xs: List Float) -> Float = match xs {
   [] -> acc
   [x, ..rest] -> sum_go (acc + x) rest
-}
-
-fn concat_go (xss: List (List a)) -> List a = match xss {
-  [] -> []
-  [xs, ..rest] -> append xs (concat_go rest)
 }
 
 test "of/cons build literals" { assert_eq (of 1) [1]; assert_eq (cons 1 [2, 3]) [1, 2, 3] }

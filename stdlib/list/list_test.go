@@ -10,396 +10,396 @@ import (
 	testing "testing"
 )
 
-//line stdlib/list/list.gom:111
+//line stdlib/list/list.gom:106
 func TestOfConsBuildLiterals(t *testing.T) {
-//line stdlib/list/list.gom:111
-	tmp47 := Of[int64](1)
-//line stdlib/list/list.gom:111
-	tmp48 := List[int64]{1}
-//line stdlib/list/list.gom:111
-	rt.AssertEq(t, gomEq17fd05b20(tmp47, tmp48), gomShow17fd05b20(tmp47), gomShow17fd05b20(tmp48))
-//line stdlib/list/list.gom:111
-	tmp49 := List[int64]{2, 3}
-//line stdlib/list/list.gom:111
-	tmp50 := Cons[int64](1, tmp49)
-//line stdlib/list/list.gom:111
-	tmp51 := List[int64]{1, 2, 3}
-//line stdlib/list/list.gom:111
-	rt.AssertEq(t, gomEq17fd05b20(tmp50, tmp51), gomShow17fd05b20(tmp50), gomShow17fd05b20(tmp51))
-//line stdlib/list/list.gom:111
+//line stdlib/list/list.gom:106
+	tmp42 := Of[int64](1)
+//line stdlib/list/list.gom:106
+	tmp43 := List[int64]{1}
+//line stdlib/list/list.gom:106
+	rt.AssertEq(t, gomEq17fd05b20(tmp42, tmp43), gomShow17fd05b20(tmp42), gomShow17fd05b20(tmp43))
+//line stdlib/list/list.gom:106
+	tmp44 := List[int64]{2, 3}
+//line stdlib/list/list.gom:106
+	tmp45 := Cons[int64](1, tmp44)
+//line stdlib/list/list.gom:106
+	tmp46 := List[int64]{1, 2, 3}
+//line stdlib/list/list.gom:106
+	rt.AssertEq(t, gomEq17fd05b20(tmp45, tmp46), gomShow17fd05b20(tmp45), gomShow17fd05b20(tmp46))
+//line stdlib/list/list.gom:106
 }
 
-//line stdlib/list/list.gom:113
+//line stdlib/list/list.gom:108
 func TestAppendAndRev(t *testing.T) {
-//line stdlib/list/list.gom:114
-	tmp52 := List[int64]{1, 2}
-//line stdlib/list/list.gom:114
-	tmp53 := List[int64]{3}
-//line stdlib/list/list.gom:114
-	tmp54 := Append[int64](tmp52, tmp53)
-//line stdlib/list/list.gom:114
-	tmp55 := List[int64]{1, 2, 3}
-//line stdlib/list/list.gom:114
-	rt.AssertEq(t, gomEq17fd05b20(tmp54, tmp55), gomShow17fd05b20(tmp54), gomShow17fd05b20(tmp55))
-//line stdlib/list/list.gom:115
-	tmp56 := List[int64]{1, 2, 3}
-//line stdlib/list/list.gom:115
-	tmp57 := Rev[int64](tmp56)
-//line stdlib/list/list.gom:115
-	tmp58 := List[int64]{3, 2, 1}
-//line stdlib/list/list.gom:115
-	rt.AssertEq(t, gomEq17fd05b20(tmp57, tmp58), gomShow17fd05b20(tmp57), gomShow17fd05b20(tmp58))
-//line stdlib/list/list.gom:116
-	tmp59 := List[int64]{2, 1}
-//line stdlib/list/list.gom:116
-	tmp60 := List[int64]{3}
-//line stdlib/list/list.gom:116
-	tmp61 := RevAppend[int64](tmp59, tmp60)
-//line stdlib/list/list.gom:116
-	tmp62 := List[int64]{1, 2, 3}
-//line stdlib/list/list.gom:116
-	rt.AssertEq(t, gomEq17fd05b20(tmp61, tmp62), gomShow17fd05b20(tmp61), gomShow17fd05b20(tmp62))
-//line stdlib/list/list.gom:113
+//line stdlib/list/list.gom:109
+	tmp47 := List[int64]{1, 2}
+//line stdlib/list/list.gom:109
+	tmp48 := List[int64]{3}
+//line stdlib/list/list.gom:109
+	tmp49 := Append[int64](tmp47, tmp48)
+//line stdlib/list/list.gom:109
+	tmp50 := List[int64]{1, 2, 3}
+//line stdlib/list/list.gom:109
+	rt.AssertEq(t, gomEq17fd05b20(tmp49, tmp50), gomShow17fd05b20(tmp49), gomShow17fd05b20(tmp50))
+//line stdlib/list/list.gom:110
+	tmp51 := List[int64]{1, 2, 3}
+//line stdlib/list/list.gom:110
+	tmp52 := Rev[int64](tmp51)
+//line stdlib/list/list.gom:110
+	tmp53 := List[int64]{3, 2, 1}
+//line stdlib/list/list.gom:110
+	rt.AssertEq(t, gomEq17fd05b20(tmp52, tmp53), gomShow17fd05b20(tmp52), gomShow17fd05b20(tmp53))
+//line stdlib/list/list.gom:111
+	tmp54 := List[int64]{2, 1}
+//line stdlib/list/list.gom:111
+	tmp55 := List[int64]{3}
+//line stdlib/list/list.gom:111
+	tmp56 := RevAppend[int64](tmp54, tmp55)
+//line stdlib/list/list.gom:111
+	tmp57 := List[int64]{1, 2, 3}
+//line stdlib/list/list.gom:111
+	rt.AssertEq(t, gomEq17fd05b20(tmp56, tmp57), gomShow17fd05b20(tmp56), gomShow17fd05b20(tmp57))
+//line stdlib/list/list.gom:108
 }
 
-//line stdlib/list/list.gom:119
+//line stdlib/list/list.gom:114
 func TestLengthAndIsEmpty(t *testing.T) {
-//line stdlib/list/list.gom:120
+//line stdlib/list/list.gom:115
 	empty := List[int64]{}
-//line stdlib/list/list.gom:121
-	tmp63 := List[int64]{1, 2, 3}
-//line stdlib/list/list.gom:121
-	tmp64 := Length[int64](tmp63)
-//line stdlib/list/list.gom:121
-	rt.AssertEq(t, tmp64 == 3, strconv.FormatInt(tmp64, 10), strconv.FormatInt(3, 10))
-//line stdlib/list/list.gom:122
-	tmp65 := IsEmpty[int64](empty)
-//line stdlib/list/list.gom:122
-	rt.Assert(t, tmp65)
-//line stdlib/list/list.gom:123
-	tmp66 := List[int64]{1}
-//line stdlib/list/list.gom:123
-	tmp67 := IsEmpty[int64](tmp66)
-//line stdlib/list/list.gom:123
-	tmp68 := !tmp67
-//line stdlib/list/list.gom:123
-	rt.Assert(t, tmp68)
-//line stdlib/list/list.gom:119
+//line stdlib/list/list.gom:116
+	tmp58 := List[int64]{1, 2, 3}
+//line stdlib/list/list.gom:116
+	tmp59 := Length[int64](tmp58)
+//line stdlib/list/list.gom:116
+	rt.AssertEq(t, tmp59 == 3, strconv.FormatInt(tmp59, 10), strconv.FormatInt(3, 10))
+//line stdlib/list/list.gom:117
+	tmp60 := IsEmpty[int64](empty)
+//line stdlib/list/list.gom:117
+	rt.Assert(t, tmp60)
+//line stdlib/list/list.gom:118
+	tmp61 := List[int64]{1}
+//line stdlib/list/list.gom:118
+	tmp62 := IsEmpty[int64](tmp61)
+//line stdlib/list/list.gom:118
+	tmp63 := !tmp62
+//line stdlib/list/list.gom:118
+	rt.Assert(t, tmp63)
+//line stdlib/list/list.gom:114
 }
 
-//line stdlib/list/list.gom:126
+//line stdlib/list/list.gom:121
 func TestHeadTailGetReturnOption(t *testing.T) {
-//line stdlib/list/list.gom:127
+//line stdlib/list/list.gom:122
 	empty := List[int64]{}
-//line stdlib/list/list.gom:128
+//line stdlib/list/list.gom:123
+	tmp64 := List[int64]{1, 2}
+//line stdlib/list/list.gom:123
+	tmp65 := Head[int64](tmp64)
+//line stdlib/list/list.gom:123
+	tmp66 := option.Option[int64](option.Option_Some[int64]{V0: 1})
+//line stdlib/list/list.gom:123
+	rt.AssertEq(t, tmp65 == tmp66, gomShow27fd05b20(tmp65), gomShow27fd05b20(tmp66))
+//line stdlib/list/list.gom:124
+	tmp67 := Head[int64](empty)
+//line stdlib/list/list.gom:124
+	tmp68 := option.Option[int64](option.Option_None[int64]{})
+//line stdlib/list/list.gom:124
+	rt.AssertEq(t, tmp67 == tmp68, gomShow27fd05b20(tmp67), gomShow27fd05b20(tmp68))
+//line stdlib/list/list.gom:125
 	tmp69 := List[int64]{1, 2}
-//line stdlib/list/list.gom:128
-	tmp70 := Head[int64](tmp69)
-//line stdlib/list/list.gom:128
-	tmp71 := option.Option[int64](option.Option_Some[int64]{V0: 1})
-//line stdlib/list/list.gom:128
-	rt.AssertEq(t, tmp70 == tmp71, gomShow27fd05b20(tmp70), gomShow27fd05b20(tmp71))
-//line stdlib/list/list.gom:129
-	tmp72 := Head[int64](empty)
-//line stdlib/list/list.gom:129
-	tmp73 := option.Option[int64](option.Option_None[int64]{})
-//line stdlib/list/list.gom:129
-	rt.AssertEq(t, tmp72 == tmp73, gomShow27fd05b20(tmp72), gomShow27fd05b20(tmp73))
-//line stdlib/list/list.gom:130
-	tmp74 := List[int64]{1, 2}
-//line stdlib/list/list.gom:130
-	tmp75 := Tail[int64](tmp74)
-//line stdlib/list/list.gom:130
-	tmp76 := List[int64]{2}
-//line stdlib/list/list.gom:130
-	tmp77 := option.Option[List[int64]](option.Option_Some[List[int64]]{V0: tmp76})
-//line stdlib/list/list.gom:130
-	rt.AssertEq(t, gomEq27fd05b20(tmp75, tmp77), gomShow37fd05b20(tmp75), gomShow37fd05b20(tmp77))
-//line stdlib/list/list.gom:131
-	tmp78 := Tail[int64](empty)
-//line stdlib/list/list.gom:131
-	tmp79 := option.Option[List[int64]](option.Option_None[List[int64]]{})
-//line stdlib/list/list.gom:131
-	rt.AssertEq(t, gomEq27fd05b20(tmp78, tmp79), gomShow37fd05b20(tmp78), gomShow37fd05b20(tmp79))
-//line stdlib/list/list.gom:132
-	tmp80 := List[int64]{10, 20, 30}
-//line stdlib/list/list.gom:132
-	tmp81 := Get[int64](1, tmp80)
-//line stdlib/list/list.gom:132
-	tmp82 := option.Option[int64](option.Option_Some[int64]{V0: 20})
-//line stdlib/list/list.gom:132
-	rt.AssertEq(t, tmp81 == tmp82, gomShow27fd05b20(tmp81), gomShow27fd05b20(tmp82))
-//line stdlib/list/list.gom:133
-	tmp83 := List[int64]{10}
-//line stdlib/list/list.gom:133
-	tmp84 := Get[int64](9, tmp83)
-//line stdlib/list/list.gom:133
-	tmp85 := option.Option[int64](option.Option_None[int64]{})
-//line stdlib/list/list.gom:133
-	rt.AssertEq(t, tmp84 == tmp85, gomShow27fd05b20(tmp84), gomShow27fd05b20(tmp85))
-//line stdlib/list/list.gom:134
-	tmp86 := int64(-1)
-//line stdlib/list/list.gom:134
-	tmp87 := List[int64]{10, 20}
-//line stdlib/list/list.gom:134
-	tmp88 := Get[int64](tmp86, tmp87)
-//line stdlib/list/list.gom:134
-	tmp89 := option.Option[int64](option.Option_None[int64]{})
-//line stdlib/list/list.gom:134
-	rt.AssertEq(t, tmp88 == tmp89, gomShow27fd05b20(tmp88), gomShow27fd05b20(tmp89))
-//line stdlib/list/list.gom:135
-	tmp90 := List[int64]{10, 20, 30}
-//line stdlib/list/list.gom:135
-	tmp91 := Get[int64](3, tmp90)
-//line stdlib/list/list.gom:135
-	tmp92 := option.Option[int64](option.Option_None[int64]{})
-//line stdlib/list/list.gom:135
-	rt.AssertEq(t, tmp91 == tmp92, gomShow27fd05b20(tmp91), gomShow27fd05b20(tmp92))
+//line stdlib/list/list.gom:125
+	tmp70 := Tail[int64](tmp69)
+//line stdlib/list/list.gom:125
+	tmp71 := List[int64]{2}
+//line stdlib/list/list.gom:125
+	tmp72 := option.Option[List[int64]](option.Option_Some[List[int64]]{V0: tmp71})
+//line stdlib/list/list.gom:125
+	rt.AssertEq(t, gomEq27fd05b20(tmp70, tmp72), gomShow37fd05b20(tmp70), gomShow37fd05b20(tmp72))
 //line stdlib/list/list.gom:126
+	tmp73 := Tail[int64](empty)
+//line stdlib/list/list.gom:126
+	tmp74 := option.Option[List[int64]](option.Option_None[List[int64]]{})
+//line stdlib/list/list.gom:126
+	rt.AssertEq(t, gomEq27fd05b20(tmp73, tmp74), gomShow37fd05b20(tmp73), gomShow37fd05b20(tmp74))
+//line stdlib/list/list.gom:127
+	tmp75 := List[int64]{10, 20, 30}
+//line stdlib/list/list.gom:127
+	tmp76 := Get[int64](1, tmp75)
+//line stdlib/list/list.gom:127
+	tmp77 := option.Option[int64](option.Option_Some[int64]{V0: 20})
+//line stdlib/list/list.gom:127
+	rt.AssertEq(t, tmp76 == tmp77, gomShow27fd05b20(tmp76), gomShow27fd05b20(tmp77))
+//line stdlib/list/list.gom:128
+	tmp78 := List[int64]{10}
+//line stdlib/list/list.gom:128
+	tmp79 := Get[int64](9, tmp78)
+//line stdlib/list/list.gom:128
+	tmp80 := option.Option[int64](option.Option_None[int64]{})
+//line stdlib/list/list.gom:128
+	rt.AssertEq(t, tmp79 == tmp80, gomShow27fd05b20(tmp79), gomShow27fd05b20(tmp80))
+//line stdlib/list/list.gom:129
+	tmp81 := int64(-1)
+//line stdlib/list/list.gom:129
+	tmp82 := List[int64]{10, 20}
+//line stdlib/list/list.gom:129
+	tmp83 := Get[int64](tmp81, tmp82)
+//line stdlib/list/list.gom:129
+	tmp84 := option.Option[int64](option.Option_None[int64]{})
+//line stdlib/list/list.gom:129
+	rt.AssertEq(t, tmp83 == tmp84, gomShow27fd05b20(tmp83), gomShow27fd05b20(tmp84))
+//line stdlib/list/list.gom:130
+	tmp85 := List[int64]{10, 20, 30}
+//line stdlib/list/list.gom:130
+	tmp86 := Get[int64](3, tmp85)
+//line stdlib/list/list.gom:130
+	tmp87 := option.Option[int64](option.Option_None[int64]{})
+//line stdlib/list/list.gom:130
+	rt.AssertEq(t, tmp86 == tmp87, gomShow27fd05b20(tmp86), gomShow27fd05b20(tmp87))
+//line stdlib/list/list.gom:121
 }
 
-//line stdlib/list/list.gom:138
+//line stdlib/list/list.gom:133
 func TestMapFilterFold(t *testing.T) {
-//line stdlib/list/list.gom:139
-	tmp93 := func(x int64) int64 {
-//line stdlib/list/list.gom:139
+//line stdlib/list/list.gom:134
+	tmp88 := func(x int64) int64 {
+//line stdlib/list/list.gom:134
 		return x + 1
-//line stdlib/list/list.gom:139
+//line stdlib/list/list.gom:134
 	}
-//line stdlib/list/list.gom:139
-	tmp94 := List[int64]{1, 2}
-//line stdlib/list/list.gom:139
-	tmp95 := Map[int64, int64](tmp93, tmp94)
-//line stdlib/list/list.gom:139
-	tmp96 := List[int64]{2, 3}
-//line stdlib/list/list.gom:139
-	rt.AssertEq(t, gomEq17fd05b20(tmp95, tmp96), gomShow17fd05b20(tmp95), gomShow17fd05b20(tmp96))
-//line stdlib/list/list.gom:140
-	tmp97 := func(x1 int64) bool {
-//line stdlib/list/list.gom:140
+//line stdlib/list/list.gom:134
+	tmp89 := List[int64]{1, 2}
+//line stdlib/list/list.gom:134
+	tmp90 := Map[int64, int64](tmp88, tmp89)
+//line stdlib/list/list.gom:134
+	tmp91 := List[int64]{2, 3}
+//line stdlib/list/list.gom:134
+	rt.AssertEq(t, gomEq17fd05b20(tmp90, tmp91), gomShow17fd05b20(tmp90), gomShow17fd05b20(tmp91))
+//line stdlib/list/list.gom:135
+	tmp92 := func(x1 int64) bool {
+//line stdlib/list/list.gom:135
 		return x1 > 1
-//line stdlib/list/list.gom:140
+//line stdlib/list/list.gom:135
 	}
-//line stdlib/list/list.gom:140
-	tmp98 := List[int64]{1, 2, 3}
-//line stdlib/list/list.gom:140
-	tmp99 := Filter[int64](tmp97, tmp98)
-//line stdlib/list/list.gom:140
-	tmp100 := List[int64]{2, 3}
-//line stdlib/list/list.gom:140
-	rt.AssertEq(t, gomEq17fd05b20(tmp99, tmp100), gomShow17fd05b20(tmp99), gomShow17fd05b20(tmp100))
-//line stdlib/list/list.gom:141
-	tmp101 := func(a int64) func(int64) int64 {
-//line stdlib/list/list.gom:141
+//line stdlib/list/list.gom:135
+	tmp93 := List[int64]{1, 2, 3}
+//line stdlib/list/list.gom:135
+	tmp94 := Filter[int64](tmp92, tmp93)
+//line stdlib/list/list.gom:135
+	tmp95 := List[int64]{2, 3}
+//line stdlib/list/list.gom:135
+	rt.AssertEq(t, gomEq17fd05b20(tmp94, tmp95), gomShow17fd05b20(tmp94), gomShow17fd05b20(tmp95))
+//line stdlib/list/list.gom:136
+	tmp96 := func(a int64) func(int64) int64 {
+//line stdlib/list/list.gom:136
 		return func(x2 int64) int64 {
-//line stdlib/list/list.gom:141
+//line stdlib/list/list.gom:136
 			return a + x2
-//line stdlib/list/list.gom:141
+//line stdlib/list/list.gom:136
 		}
-//line stdlib/list/list.gom:141
+//line stdlib/list/list.gom:136
 	}
-//line stdlib/list/list.gom:141
-	tmp102 := List[int64]{1, 2, 3}
-//line stdlib/list/list.gom:141
-	tmp103 := Fold[int64, int64](tmp101, 0, tmp102)
-//line stdlib/list/list.gom:141
-	rt.AssertEq(t, tmp103 == 6, strconv.FormatInt(tmp103, 10), strconv.FormatInt(6, 10))
-//line stdlib/list/list.gom:138
+//line stdlib/list/list.gom:136
+	tmp97 := List[int64]{1, 2, 3}
+//line stdlib/list/list.gom:136
+	tmp98 := Fold[int64, int64](tmp96, 0, tmp97)
+//line stdlib/list/list.gom:136
+	rt.AssertEq(t, tmp98 == 6, strconv.FormatInt(tmp98, 10), strconv.FormatInt(6, 10))
+//line stdlib/list/list.gom:133
 }
 
-//line stdlib/list/list.gom:144
+//line stdlib/list/list.gom:139
 func TestSum(t *testing.T) {
-//line stdlib/list/list.gom:144
-	tmp104 := List[float64]{1.5, 2.5}
-//line stdlib/list/list.gom:144
-	tmp105 := Sum(tmp104)
-//line stdlib/list/list.gom:144
-	rt.AssertEq(t, tmp105 == 4.0, strconv.FormatFloat(tmp105, 'g', -1, 64), strconv.FormatFloat(4.0, 'g', -1, 64))
-//line stdlib/list/list.gom:144
+//line stdlib/list/list.gom:139
+	tmp99 := List[float64]{1.5, 2.5}
+//line stdlib/list/list.gom:139
+	tmp100 := Sum(tmp99)
+//line stdlib/list/list.gom:139
+	rt.AssertEq(t, tmp100 == 4.0, strconv.FormatFloat(tmp100, 'g', -1, 64), strconv.FormatFloat(4.0, 'g', -1, 64))
+//line stdlib/list/list.gom:139
 }
 
-//line stdlib/list/list.gom:146
+//line stdlib/list/list.gom:141
 func TestRange(t *testing.T) {
-//line stdlib/list/list.gom:146
-	tmp106 := Range(0, 4)
-//line stdlib/list/list.gom:146
-	tmp107 := List[int64]{0, 1, 2, 3}
-//line stdlib/list/list.gom:146
-	rt.AssertEq(t, gomEq17fd05b20(tmp106, tmp107), gomShow17fd05b20(tmp106), gomShow17fd05b20(tmp107))
-//line stdlib/list/list.gom:146
-	tmp108 := Range(3, 3)
-//line stdlib/list/list.gom:146
-	tmp109 := List[int64]{}
-//line stdlib/list/list.gom:146
-	rt.AssertEq(t, gomEq17fd05b20(tmp108, tmp109), gomShow17fd05b20(tmp108), gomShow17fd05b20(tmp109))
-//line stdlib/list/list.gom:146
+//line stdlib/list/list.gom:141
+	tmp101 := Range(0, 4)
+//line stdlib/list/list.gom:141
+	tmp102 := List[int64]{0, 1, 2, 3}
+//line stdlib/list/list.gom:141
+	rt.AssertEq(t, gomEq17fd05b20(tmp101, tmp102), gomShow17fd05b20(tmp101), gomShow17fd05b20(tmp102))
+//line stdlib/list/list.gom:141
+	tmp103 := Range(3, 3)
+//line stdlib/list/list.gom:141
+	tmp104 := List[int64]{}
+//line stdlib/list/list.gom:141
+	rt.AssertEq(t, gomEq17fd05b20(tmp103, tmp104), gomShow17fd05b20(tmp103), gomShow17fd05b20(tmp104))
+//line stdlib/list/list.gom:141
 }
 
-//line stdlib/list/list.gom:148
+//line stdlib/list/list.gom:143
 func TestArrayBuilderRoundTrip(t *testing.T) {
-//line stdlib/list/list.gom:149
+//line stdlib/list/list.gom:144
 	a := rt.ArrayMake[int64](3)
-//line stdlib/list/list.gom:150
-	tmp110 := Range(0, 3)
-//line stdlib/list/list.gom:150
-	for _, i := range tmp110 {
-//line stdlib/list/list.gom:150
-		tmp111 := i * 10
-//line stdlib/list/list.gom:150
-		rt.ArraySet[int64](a, i, tmp111)
-//line stdlib/list/list.gom:150
+//line stdlib/list/list.gom:145
+	tmp105 := Range(0, 3)
+//line stdlib/list/list.gom:145
+	for _, i := range tmp105 {
+//line stdlib/list/list.gom:145
+		tmp106 := i * 10
+//line stdlib/list/list.gom:145
+		rt.ArraySet[int64](a, i, tmp106)
+//line stdlib/list/list.gom:145
 		_ = struct{}{}
-//line stdlib/list/list.gom:150
+//line stdlib/list/list.gom:145
 	}
+//line stdlib/list/list.gom:146
+	tmp107 := ArrayFreeze[int64](a)
+//line stdlib/list/list.gom:146
+	tmp108 := List[int64]{0, 10, 20}
+//line stdlib/list/list.gom:146
+	rt.AssertEq(t, gomEq17fd05b20(tmp107, tmp108), gomShow17fd05b20(tmp107), gomShow17fd05b20(tmp108))
+//line stdlib/list/list.gom:147
+	tmp109 := rt.ArrayLen[int64](a)
+//line stdlib/list/list.gom:147
+	rt.AssertEq(t, tmp109 == 3, strconv.FormatInt(tmp109, 10), strconv.FormatInt(3, 10))
+//line stdlib/list/list.gom:148
+	tmp110 := rt.ArrayGet[int64](a, 1)
+//line stdlib/list/list.gom:148
+	rt.AssertEq(t, tmp110 == 10, strconv.FormatInt(tmp110, 10), strconv.FormatInt(10, 10))
+//line stdlib/list/list.gom:149
+	tmp111 := List[int64]{1, 2}
+//line stdlib/list/list.gom:149
+	b := ArrayFromList[int64](tmp111)
+//line stdlib/list/list.gom:150
+	rt.ArraySet[int64](b, 0, 9)
 //line stdlib/list/list.gom:151
-	tmp112 := ArrayFreeze[int64](a)
+	tmp112 := ArrayFreeze[int64](b)
 //line stdlib/list/list.gom:151
-	tmp113 := List[int64]{0, 10, 20}
+	tmp113 := List[int64]{9, 2}
 //line stdlib/list/list.gom:151
 	rt.AssertEq(t, gomEq17fd05b20(tmp112, tmp113), gomShow17fd05b20(tmp112), gomShow17fd05b20(tmp113))
-//line stdlib/list/list.gom:152
-	tmp114 := rt.ArrayLen[int64](a)
-//line stdlib/list/list.gom:152
-	rt.AssertEq(t, tmp114 == 3, strconv.FormatInt(tmp114, 10), strconv.FormatInt(3, 10))
-//line stdlib/list/list.gom:153
-	tmp115 := rt.ArrayGet[int64](a, 1)
-//line stdlib/list/list.gom:153
-	rt.AssertEq(t, tmp115 == 10, strconv.FormatInt(tmp115, 10), strconv.FormatInt(10, 10))
-//line stdlib/list/list.gom:154
-	tmp116 := List[int64]{1, 2}
-//line stdlib/list/list.gom:154
-	b := ArrayFromList[int64](tmp116)
-//line stdlib/list/list.gom:155
-	rt.ArraySet[int64](b, 0, 9)
-//line stdlib/list/list.gom:156
-	tmp117 := ArrayFreeze[int64](b)
-//line stdlib/list/list.gom:156
-	tmp118 := List[int64]{9, 2}
-//line stdlib/list/list.gom:156
-	rt.AssertEq(t, gomEq17fd05b20(tmp117, tmp118), gomShow17fd05b20(tmp117), gomShow17fd05b20(tmp118))
-//line stdlib/list/list.gom:148
+//line stdlib/list/list.gom:143
 }
 
-//line stdlib/list/list.gom:159
+//line stdlib/list/list.gom:154
 func TestConcatAndFind(t *testing.T) {
-//line stdlib/list/list.gom:160
-	tmp119 := List[int64]{1}
-//line stdlib/list/list.gom:160
-	tmp120 := List[int64]{2, 3}
-//line stdlib/list/list.gom:160
-	tmp121 := List[List[int64]]{tmp119, tmp120}
-//line stdlib/list/list.gom:160
-	tmp122 := Concat[int64](tmp121)
-//line stdlib/list/list.gom:160
-	tmp123 := List[int64]{1, 2, 3}
-//line stdlib/list/list.gom:160
-	rt.AssertEq(t, gomEq17fd05b20(tmp122, tmp123), gomShow17fd05b20(tmp122), gomShow17fd05b20(tmp123))
-//line stdlib/list/list.gom:161
-	tmp124 := func(x int64) bool {
-//line stdlib/list/list.gom:161
+//line stdlib/list/list.gom:155
+	tmp114 := List[int64]{1}
+//line stdlib/list/list.gom:155
+	tmp115 := List[int64]{2, 3}
+//line stdlib/list/list.gom:155
+	tmp116 := List[List[int64]]{tmp114, tmp115}
+//line stdlib/list/list.gom:155
+	tmp117 := Concat[int64](tmp116)
+//line stdlib/list/list.gom:155
+	tmp118 := List[int64]{1, 2, 3}
+//line stdlib/list/list.gom:155
+	rt.AssertEq(t, gomEq17fd05b20(tmp117, tmp118), gomShow17fd05b20(tmp117), gomShow17fd05b20(tmp118))
+//line stdlib/list/list.gom:156
+	tmp119 := func(x int64) bool {
+//line stdlib/list/list.gom:156
 		return x > 1
-//line stdlib/list/list.gom:161
+//line stdlib/list/list.gom:156
 	}
-//line stdlib/list/list.gom:161
-	tmp125 := List[int64]{1, 2, 3}
-//line stdlib/list/list.gom:161
-	tmp126 := Find[int64](tmp124, tmp125)
-//line stdlib/list/list.gom:161
-	tmp127 := option.Option[int64](option.Option_Some[int64]{V0: 2})
-//line stdlib/list/list.gom:161
-	rt.AssertEq(t, tmp126 == tmp127, gomShow27fd05b20(tmp126), gomShow27fd05b20(tmp127))
-//line stdlib/list/list.gom:162
-	tmp128 := func(x1 int64) bool {
-//line stdlib/list/list.gom:162
+//line stdlib/list/list.gom:156
+	tmp120 := List[int64]{1, 2, 3}
+//line stdlib/list/list.gom:156
+	tmp121 := Find[int64](tmp119, tmp120)
+//line stdlib/list/list.gom:156
+	tmp122 := option.Option[int64](option.Option_Some[int64]{V0: 2})
+//line stdlib/list/list.gom:156
+	rt.AssertEq(t, tmp121 == tmp122, gomShow27fd05b20(tmp121), gomShow27fd05b20(tmp122))
+//line stdlib/list/list.gom:157
+	tmp123 := func(x1 int64) bool {
+//line stdlib/list/list.gom:157
 		return x1 > 9
-//line stdlib/list/list.gom:162
+//line stdlib/list/list.gom:157
 	}
-//line stdlib/list/list.gom:162
-	tmp129 := List[int64]{1, 2}
-//line stdlib/list/list.gom:162
-	tmp130 := Find[int64](tmp128, tmp129)
-//line stdlib/list/list.gom:162
-	tmp131 := option.Option[int64](option.Option_None[int64]{})
-//line stdlib/list/list.gom:162
-	rt.AssertEq(t, tmp130 == tmp131, gomShow27fd05b20(tmp130), gomShow27fd05b20(tmp131))
-//line stdlib/list/list.gom:159
+//line stdlib/list/list.gom:157
+	tmp124 := List[int64]{1, 2}
+//line stdlib/list/list.gom:157
+	tmp125 := Find[int64](tmp123, tmp124)
+//line stdlib/list/list.gom:157
+	tmp126 := option.Option[int64](option.Option_None[int64]{})
+//line stdlib/list/list.gom:157
+	rt.AssertEq(t, tmp125 == tmp126, gomShow27fd05b20(tmp125), gomShow27fd05b20(tmp126))
+//line stdlib/list/list.gom:154
 }
 
-//line stdlib/list/list.gom:111
+//line stdlib/list/list.gom:106
 func gomShow17fd05b20(v List[int64]) string {
-//line stdlib/list/list.gom:111
+//line stdlib/list/list.gom:106
 	var sb strings.Builder
-//line stdlib/list/list.gom:111
+//line stdlib/list/list.gom:106
 	sb.WriteByte('[')
-//line stdlib/list/list.gom:111
+//line stdlib/list/list.gom:106
 	for i, e := range v {
-//line stdlib/list/list.gom:111
+//line stdlib/list/list.gom:106
 		if i > 0 {
-//line stdlib/list/list.gom:111
+//line stdlib/list/list.gom:106
 			sb.WriteString(", ")
-//line stdlib/list/list.gom:111
+//line stdlib/list/list.gom:106
 		}
-//line stdlib/list/list.gom:111
+//line stdlib/list/list.gom:106
 		sb.WriteString(strconv.FormatInt(e, 10))
-//line stdlib/list/list.gom:111
+//line stdlib/list/list.gom:106
 	}
-//line stdlib/list/list.gom:111
+//line stdlib/list/list.gom:106
 	sb.WriteByte(']')
-//line stdlib/list/list.gom:111
+//line stdlib/list/list.gom:106
 	return sb.String()
-//line stdlib/list/list.gom:111
+//line stdlib/list/list.gom:106
 }
 
-//line stdlib/list/list.gom:128
+//line stdlib/list/list.gom:123
 func gomShow27fd05b20(v option.Option[int64]) string {
-//line stdlib/list/list.gom:128
+//line stdlib/list/list.gom:123
 	if v == nil {
-//line stdlib/list/list.gom:128
+//line stdlib/list/list.gom:123
 		return "nil"
-//line stdlib/list/list.gom:128
+//line stdlib/list/list.gom:123
 	}
-//line stdlib/list/list.gom:128
+//line stdlib/list/list.gom:123
 	switch x := v.(type) {
-//line stdlib/list/list.gom:128
+//line stdlib/list/list.gom:123
 	case option.Option_Some[int64]:
-//line stdlib/list/list.gom:128
+//line stdlib/list/list.gom:123
 		return "" + "Some" + " " + strconv.FormatInt(x.V0, 10)
-//line stdlib/list/list.gom:128
+//line stdlib/list/list.gom:123
 	case option.Option_None[int64]:
-//line stdlib/list/list.gom:128
+//line stdlib/list/list.gom:123
 		return "" + "None"
-//line stdlib/list/list.gom:128
+//line stdlib/list/list.gom:123
 	default:
-//line stdlib/list/list.gom:128
+//line stdlib/list/list.gom:123
 		panic(rt.InvalidVariant("Option Int", v))
-//line stdlib/list/list.gom:128
+//line stdlib/list/list.gom:123
 	}
-//line stdlib/list/list.gom:128
+//line stdlib/list/list.gom:123
 }
 
-//line stdlib/list/list.gom:130
+//line stdlib/list/list.gom:125
 func gomShow37fd05b20(v option.Option[List[int64]]) string {
-//line stdlib/list/list.gom:130
+//line stdlib/list/list.gom:125
 	if v == nil {
-//line stdlib/list/list.gom:130
+//line stdlib/list/list.gom:125
 		return "nil"
-//line stdlib/list/list.gom:130
+//line stdlib/list/list.gom:125
 	}
-//line stdlib/list/list.gom:130
+//line stdlib/list/list.gom:125
 	switch x := v.(type) {
-//line stdlib/list/list.gom:130
+//line stdlib/list/list.gom:125
 	case option.Option_Some[List[int64]]:
-//line stdlib/list/list.gom:130
+//line stdlib/list/list.gom:125
 		return "" + "Some" + " " + gomShow17fd05b20(x.V0)
-//line stdlib/list/list.gom:130
+//line stdlib/list/list.gom:125
 	case option.Option_None[List[int64]]:
-//line stdlib/list/list.gom:130
+//line stdlib/list/list.gom:125
 		return "" + "None"
-//line stdlib/list/list.gom:130
+//line stdlib/list/list.gom:125
 	default:
-//line stdlib/list/list.gom:130
+//line stdlib/list/list.gom:125
 		panic(rt.InvalidVariant("Option (List Int)", v))
-//line stdlib/list/list.gom:130
+//line stdlib/list/list.gom:125
 	}
-//line stdlib/list/list.gom:130
+//line stdlib/list/list.gom:125
 }

@@ -19,7 +19,7 @@
 ### 最適化
 
 - [ ] 生成コード特殊化ポリシー（curried HOF 側）: curried HOF の flat 二面公開や呼出側 uncurry を入れるか — `Fold` の要素ごとクロージャ確保が対象。buffer 化の経路問題は wave18 で決着（`Array` builder＋`@extern fn` — [decision](decisions/2026-11-18-cons-buffer-array-extern-impl.md)、[problems](problems/2026-11-05-stdlib-cons-built-combinators-quadratic.md)）。コピーしない共有スライス型（View）の案は [problems](problems/2026-11-04-shared-slice-view-type.md)
-- [ ] `concat` の O(k) スタック: 右畳み込み化で O(1) スタックの fold を O(k) 再帰に替えた（深さ = 部分リスト数）。buffer 経路ができたらより良い形状を再検討する余地
+- [x] `concat` の O(k) スタック: `@extern fn` で `Concat` を impl.go の buffer loop へ — 総長 prealloc の 1 回コピー、O(1) スタック・O(n)・1 alloc（k=512 で 1.51ms → 21µs、~72×）。wave19 lane 3、[sketch](sketch/2026-11-18-concat-buffer-impl.md)
 
 ### ツール
 
