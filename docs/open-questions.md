@@ -43,6 +43,6 @@
 - cgo、`unsafe`、`reflect` の本格的な扱い
 - セルフホスト（コンパイラを Gom で書き直す）
 - [x] W0502 `lintErrorsAsTarget` の `Ptr (Ptr E)` ケース: `**int` は `*int` が error 非実装かつ非 interface なので panic が証明可能（wave9 error-tail レビュー nit） → wave22 lane2 で実装済み: E が unnamed/interface 表現なら warn、named Go 型・record・abstract・メタは沈黙維持（[decision](decisions/2026-11-19-errors-as-nested-ptr-lint.md)）
-- `CtorApp`/`CtorRef` の `TypeArgs` を廃止して `Typ` の `Con.Args` を唯一の正にするか: wave21 lane1 は (a) optional-but-authoritative（存在時は結果型と完全一致を要求）を採択した（[decision](decisions/2026-11-18-ctor-typeargs-authoritative.md)）。(b) への移行は lower/codegen のフィールド撤去を伴う規模のため future work とする。wave22 lane4 で撤去の規模と利得を棚卸し済み（[sketch](sketch/2026-11-19-ctor-targs-b-inventory.md)）— 採用/不採用は podhmo の判定待ち
+- `CtorApp`/`CtorRef` の `TypeArgs` を廃止して `Typ` の `Con.Args` を唯一の正にするか: wave21 lane1 は (a) optional-but-authoritative（存在時は結果型と完全一致を要求）を採択した（[decision](decisions/2026-11-18-ctor-typeargs-authoritative.md)）。wave22 lane4 で撤去の規模と利得を棚卸し済み（[sketch](sketch/2026-11-19-ctor-targs-b-inventory.md)）→ **podhmo 判定 (b) 採用（廃止）2026-11-19** — 実装 lane は wave24 以降の候補
 
 型クラス、エフェクトシステム、高度な所有権型、独自 GC は急いで導入しない。
