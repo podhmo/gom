@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0101",
+      "severity": "error",
+      "message": "the \"@extern\" attribute applies only to a \"fn\" declaration",
+      "span": {
+        "file": "E0101_extern_on_let.gom",
+        "start": {
+          "line": 5,
+          "col": 2,
+          "offset": 93
+        },
+        "end": {
+          "line": 5,
+          "col": 8,
+          "offset": 99
+        }
+      }
+    }
+  ]
+}

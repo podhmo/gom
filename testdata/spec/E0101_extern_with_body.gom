@@ -1,0 +1,6 @@
+package ex
+
+// An `@extern` function declares only a signature — writing
+// `= body` is rejected.
+@extern
+fn f (x: Int) -> Int = x + 1

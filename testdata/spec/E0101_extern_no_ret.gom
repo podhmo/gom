@@ -1,0 +1,6 @@
+package ex
+
+// With no body to infer from, an `@extern` function needs a
+// result type annotation.
+@extern
+fn f (x: Int)

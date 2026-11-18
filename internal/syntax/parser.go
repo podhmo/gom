@@ -544,25 +544,30 @@ func (p *parser) parseAttrDecl() Decl {
 		// attribute is simply dropped.
 		return p.parseTopDecl()
 	}
-	attrs := declAttrs{testOnly: name == "test", tailRec: name == "tailrec"}
-	if !attrs.testOnly && !attrs.tailRec {
+	attrs := declAttrs{
+		testOnly: name == "test",
+		tailRec:  name == "tailrec",
+		extern:   name == "extern",
+	}
+	if !attrs.testOnly && !attrs.tailRec && !attrs.extern {
 		// The AST cannot carry an unknown attribute (no field
 		// records it): report at parse time so the error is not
 		// silently lost. E0204 remains the resolve-phase code once
 		// the AST gains an attribute slot.
 		p.errf(p.spanOf(nameTok),
-			"unknown attribute \"@%s\": only \"@test\" and \"@tailrec\" are defined", name)
+			"unknown attribute \"@%s\": only \"@test\", \"@tailrec\" and \"@extern\" are defined", name)
 	}
 	doc := p.docBefore(at.start)
 	if p.at(tokFn) {
 		return p.parseFnDecl(attrs, doc)
 	}
-	if attrs.tailRec {
+	if attrs.tailRec || attrs.extern {
 		// A let-bound function calls itself through the package
 		// variable, which the tail-call conversion cannot see —
-		// @tailrec is defined on fn only (spec section 1).
+		// @tailrec is defined on fn only (spec section 1). @extern
+		// binds a function signature to hand-written Go.
 		p.errf(p.spanOf(nameTok),
-			"the \"@tailrec\" attribute applies only to a \"fn\" declaration")
+			"the \"@%s\" attribute applies only to a \"fn\" declaration", name)
 	}
 	return p.parseLetDeclWithFlag(attrs.testOnly, doc)
 }
@@ -573,6 +578,7 @@ func (p *parser) parseAttrDecl() Decl {
 type declAttrs struct {
 	testOnly bool // `@test` (fn or let)
 	tailRec  bool // `@tailrec` (fn only)
+	extern   bool // `@extern` (fn only — signature bound to hand-written Go)
 }
 
 // parseFnDecl parses a fn declaration or signature:
@@ -612,6 +618,7 @@ func (p *parser) parseFnDecl(attrs declAttrs, doc *Comment) Decl {
 		Doc:      doc,
 		TestOnly: attrs.testOnly,
 		TailRec:  attrs.tailRec,
+		Extern:   attrs.extern,
 		Name:     name,
 		Params:   params,
 		Ret:      ret,
@@ -621,11 +628,22 @@ func (p *parser) parseFnDecl(attrs declAttrs, doc *Comment) Decl {
 			eq := p.cur()
 			p.errGomi(p.spanOf(eq), "a signature in an interface file has no \"= body\"")
 		}
+		if attrs.extern {
+			eq := p.cur()
+			p.errf(p.spanOf(eq),
+				"an \"@extern\" function declares only a signature — no \"= body\" (its implementation is hand-written Go)")
+		}
 		p.next()
 		d.Body = p.parseExpr()
 		d.Sp.End = d.Body.Span().End
-	} else if !p.gomi {
+	} else if !p.gomi && !attrs.extern {
 		p.expected("\"=\" followed by the function body")
+	}
+	if attrs.extern && ret == nil {
+		// With no body to infer from, the result must be annotated —
+		// the signature IS the declaration. Parameters already carry
+		// the general "needs a : Type annotation" requirement.
+		p.errf(d.Sp, "an \"@extern\" function needs a result type annotation")
 	}
 	return d
 }

@@ -1,0 +1,46 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0101",
+      "severity": "error",
+      "message": "an \"@extern\" function needs a result type annotation",
+      "span": {
+        "file": "E0101_extern_no_ret.gom",
+        "start": {
+          "line": 6,
+          "col": 1,
+          "offset": 108
+        },
+        "end": {
+          "line": 6,
+          "col": 14,
+          "offset": 121
+        }
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0101",
+      "severity": "error",
+      "message": "expected \"->\" followed by the return type, found newline",
+      "span": {
+        "file": "E0101_extern_no_ret.gom",
+        "start": {
+          "line": 6,
+          "col": 14,
+          "offset": 121
+        },
+        "end": {
+          "line": 7,
+          "col": 1,
+          "offset": 122
+        }
+      },
+      "data": {
+        "expected": "\"->\" followed by the return type",
+        "found": "newline"
+      }
+    }
+  ]
+}

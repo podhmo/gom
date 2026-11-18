@@ -503,7 +503,7 @@ func TestParseDiagnostics(t *testing.T) {
 		{
 			"unknown attribute",
 			"package m\n@wat fn f () -> Unit = ()\n",
-			[]string{`E0101@11-14: unknown attribute "@wat": only "@test" and "@tailrec" are defined`},
+			[]string{`E0101@11-14: unknown attribute "@wat": only "@test", "@tailrec" and "@extern" are defined`},
 		},
 		{
 			"tailrec on let",

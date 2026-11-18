@@ -1,0 +1,14 @@
+package main
+
+/// fast_map is implemented by handwritten Go beside this file's
+/// generated output; the compiler emits only the declaration's name
+/// claim so callers spell it `FastMap`.
+@extern
+fn fast_map (f: Int -> Int) (xs: List Int) -> List Int
+
+@extern
+fn no_args () -> Int
+
+fn entry () -> Int = no_args ()
+
+let xs = fast_map (fn x -> x * 2) [1, 2]

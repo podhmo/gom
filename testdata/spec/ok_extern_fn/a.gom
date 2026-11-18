@@ -1,0 +1,15 @@
+package ex
+
+// `@extern fn` is a signature-only declaration: the body is a
+// hand-written Go function in the same generated package (spec
+// section 1, item 9). Resolution, checking and calls treat it as
+// an ordinary fn.
+@extern
+fn fast_map (f: Int -> Int) (xs: List Int) -> List Int
+
+@extern
+fn no_args () -> Int
+
+fn apply (xs: List Int) -> List Int = fast_map (fn x -> x + 1) xs
+
+fn entry () -> Int = no_args ()

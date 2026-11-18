@@ -869,6 +869,22 @@ func (l *lowerer) decl(d check.Decl, out *core.File) {
 			// lowered under gom build (spec 11.6).
 			return
 		}
+		if d.Body == nil {
+			// An `@extern fn` signature declares a function whose
+			// body is hand-written Go in the same generated
+			// package. No Core body exists to lower, but the
+			// declaration node stays so codegen claims the
+			// package-scope name under the exported spelling —
+			// sibling references must emit the same identifier the
+			// hand-written implementation defines.
+			out.Decls = append(out.Decls, &core.FuncDecl{
+				Sp: d.Sp, Sym: d.Sym,
+				TypeParams: d.TypeParams,
+				Exported:   l.exported(d.Sym),
+				Extern:     true,
+			})
+			return
+		}
 		sig := flatSig(d.Sig)
 		if sig == nil {
 			var ps []types.FuncParam
