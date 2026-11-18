@@ -296,7 +296,21 @@ func (g *gen) uncurryLit(e *core.Uncurry) {
 
 	switch x := e.X.(type) {
 	case *core.FuncRef:
-		if x.Arity == e.Arity {
+		// Verbatim only when the declaration's emitted signature IS
+		// the flat slot shape — same arity AND no flat (≥2-arrow)
+		// declared params of its own. A decl taking binary
+		// callbacks (`func f_(g func(A,B)C, ...)`) is not the
+		// canonical-slot value (`func(g func(A)func(B)C, ...)`) the
+		// flat literal hands it, so its params need per-slot
+		// adaptation like any call site.
+		fps, _ := flatArrow(x.Type())
+		flatParams := false
+		for i := 0; i < x.Arity && i < len(fps); i++ {
+			if flatArity(fps[i].Type) >= 2 {
+				flatParams = true
+			}
+		}
+		if x.Arity == e.Arity && !flatParams {
 			g.expr(g.qualRef(x.Sym, x.TypeArgs))
 			return
 		}
@@ -305,17 +319,33 @@ func (g *gen) uncurryLit(e *core.Uncurry) {
 		}
 		n := min(e.Arity, x.Arity)
 		var args []core.Atom
-		for _, b := range binds[:n] {
-			args = append(args, pvOf(b))
+		for i, b := range binds[:n] {
+			var arg core.Atom = pvOf(b)
+			if i < len(fps) {
+				if fa := flatArity(fps[i].Type); fa >= 2 {
+					arg = bindOf(&core.Uncurry{Base: core.Base{Sp: e.Sp, Typ: b.Typ}, Arity: fa, X: arg})
+				}
+			}
+			args = append(args, arg)
 		}
 		if x.Arity > e.Arity {
 			// Under-application: the flat literal's result is the
 			// canonical chain saturating the rest of the call.
 			var qs []*core.Bind
 			for i := e.Arity; i < x.Arity; i++ {
+				qt := ret
+				if i < len(fps) {
+					qt = fps[i].Type
+				}
 				qs = append(qs, &core.Bind{Sp: e.Sp, Sym: &resolve.Symbol{
-					Name: fmt.Sprintf("q%d", i), Kind: resolve.KindVar}, Typ: ret})
-				args = append(args, pvOf(qs[len(qs)-1]))
+					Name: fmt.Sprintf("q%d", i), Kind: resolve.KindVar}, Typ: qt})
+				var arg core.Atom = pvOf(qs[len(qs)-1])
+				if i < len(fps) {
+					if fa := flatArity(fps[i].Type); fa >= 2 {
+						arg = bindOf(&core.Uncurry{Base: core.Base{Sp: e.Sp, Typ: qt}, Arity: fa, X: arg})
+					}
+				}
+				args = append(args, arg)
 			}
 			var call core.Expr = &core.CallDirect{Base: core.Base{Sp: x.Sp, Typ: ret}, Callee: x.Sym,
 				Args: args, Arity: x.Arity, TypeArgs: x.TypeArgs}
@@ -336,11 +366,10 @@ func (g *gen) uncurryLit(e *core.Uncurry) {
 			tail = call
 		}
 	case *core.CtorRef:
+		// No verbatim shortcut: a ctor reference emits the
+		// canonical one-func-per-field chain (ctorRef), never a
+		// flat literal — always emit the adapter shape.
 		cArity := len(x.Fields)
-		if cArity == e.Arity {
-			g.expr(g.ctorRef(x))
-			return
-		}
 		for len(binds) < e.Arity {
 			binds = append(binds, synth(len(binds)))
 		}
