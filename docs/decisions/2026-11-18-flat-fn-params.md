@@ -21,9 +21,11 @@
 
 `Go.funcN`/`Go.fnN`（canonical→flat の境界 builtin）自体はこの変換の対象外。
 
-## セマンティクス上の差（残存）
+## セマンティクス上の差（解消済み — 2026-11-19）
 
-宣言された flat パラメータ `f` への部分適用 `f a` は、flat 呼出全体を残余引数の到着まで遅延する。canonical 表現では `f a` の時点で被呼側の最初のチャンク（let 群）が走っていたため、`todo` 等の作用の発火タイミングが「residual を適用したとき」に移る — residual が一度も適用されなければ作用は走らない。eval は canonical 適用のままなので、この限定的なケース（flat 型パラメータの部分適用で residual 未適用）では eval と生成コードの発火タイミングがずれる。`TestEagerFnChunkTiming` を residual 適用形に更新してこの差を pin した。Uncurry で束縛された一時変数経由の部分適用は `flatSrc` 経由で canonical 順序を維持する。
+宣言された flat パラメータ `f` への部分適用 `f a` は、flat 呼出全体を残余引数の到着まで遅延する。canonical 表現では `f a` の時点で被呼側の最初のチャンク（let 群）が走っていたため、`todo` 等の作用の発火タイミングが「residual を適用したとき」に移る — residual が一度も適用されなければ作用は走らない。
+
+~~eval は canonical 適用のままなので、この限定的なケース（flat 型パラメータの部分適用で residual 未適用）では eval と生成コードの発火タイミングがずれる。~~ → wave22 lane3 で eval 側に residual partial を移植し、生成コード側のタイミングに揃えて解消した（[decision](2026-11-19-flat-partial-eval.md)）。`TestEagerFnChunkTiming` は両側の発火位置を同じテストで pin している。Uncurry で束縛された一時変数経由の部分適用は `flatSrc` 経由で canonical 順序を維持する。
 
 ## 実装位置
 
