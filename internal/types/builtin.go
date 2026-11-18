@@ -63,6 +63,11 @@ func Task(t Type) Type { return &Con{Name: "Task", Args: []Type{t}} }
 // (docs/spec.md section 8.5).
 func GoSlice(t Type) Type { return &Con{Qual: "Go", Name: "Slice", Args: []Type{t}} }
 
+// View returns `View t` — the read-only partial view of a List
+// (decision 2026-11-18-list-view). A plain builtin qualifier: `View`
+// is shadowable like `List`.
+func View(t Type) Type { return &Con{Name: "View", Args: []Type{t}} }
+
 // GoMap returns `Go.Map k v` — the opaque map type of spec
 // section 8.3.
 func GoMap(k, v Type) Type {
