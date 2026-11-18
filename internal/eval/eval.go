@@ -432,6 +432,18 @@ func (e *Evaluator) fnValue(d *check.FnDecl) *VFunc {
 	f.body = d.Body
 	f.env = e.env
 	f.thunk = d.Thunk
+	// Declared >=2-arrow parameters carry the flat calling
+	// convention in generated code — mark the same slots so
+	// applyArgs can defer partial applications the way the
+	// emitted closure does (decision 2026-11-19-flat-partial-eval).
+	for i, p := range sig.Params {
+		if fs := evalFlatSig(p.Type); fs != nil && len(fs.Params) >= 2 {
+			if f.flatArity == nil {
+				f.flatArity = make([]int, len(sig.Params))
+			}
+			f.flatArity[i] = len(fs.Params)
+		}
+	}
 	return f
 }
 

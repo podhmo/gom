@@ -45,6 +45,14 @@ fn answer () -> String = {
   "survived"
 }
 
+fn probe () -> Int = (stage make) 0
+
+fn probeLam () -> Int = {
+  let stg : (Int -> Int -> Int) -> (Int -> Int) = fn f -> f 20
+  let _ = stg make
+  7
+}
+
 fn main () -> Unit = {
   let _ = fmt.Println "before"
   let _ = (stage make) 0
@@ -70,27 +78,59 @@ func TestEagerFnChunkTiming(t *testing.T) {
 		}
 	}
 
-	// The evaluator: `stage make` already runs make's body, so the
-	// unused `p` binding still reaches `todo` — answer must fail
-	// with the panic diagnostic, not return "survived".
+	// The evaluator: `stage make` partially applies the flat
+	// parameter `f`, so make's body is deferred until the residual
+	// is applied — the unused `p` binding never reaches `todo` and
+	// answer returns "survived", matching the compiled code
+	// (docs/decisions/2026-11-19-flat-partial-eval.md).
 	ev := eval.New(r.Typed)
 	fn := ev.Global("answer")
 	if fn == nil {
 		t.Fatal("no top-level `answer` binding for the evaluator")
 	}
 	res := ev.Apply(fn, &eval.VUnit{})
-	if res.OK() {
-		t.Fatalf("eval answer = %v — the todo did not fire; the first chunk ran lazily", res.Value)
+	if !res.OK() {
+		t.Fatalf("eval answer failed — the deferred flat call fired early: %+v", res.Diags)
 	}
+	if res.Value.String() != `"survived"` {
+		t.Fatalf("eval answer = %v, want \"survived\"", res.Value)
+	}
+
+	// Applying the residual does fire make's chunk: eval `probe`
+	// runs `(stage make) 0`, which saturates the flat slot — the
+	// todo must panic there.
+	mn := ev.Global("probe")
+	if mn == nil {
+		t.Fatal("no top-level `probe` binding for the evaluator")
+	}
+	mres := ev.Apply(mn, &eval.VUnit{})
 	var sawPanic bool
-	for _, d := range res.Diags {
+	for _, d := range mres.Diags {
 		if d.Code == eval.CodePanic {
 			sawPanic = true
 		}
 		t.Logf("diag %s %s", d.Code, d.Message)
 	}
-	if !sawPanic {
-		t.Fatalf("eval answer failed without the todo panic: %+v", res.Diags)
+	if mres.OK() || !sawPanic {
+		t.Fatalf("eval probe = %v diags %+v — the saturated flat call did not fire", mres.Value, mres.Diags)
+	}
+
+	// Lambda parameters keep the canonical repr — a `let`-bound
+	// `fn f -> f 20` is not a flat slot, so `stg make` fires make's
+	// chunk eagerly in both eval and generated code.
+	lf := ev.Global("probeLam")
+	if lf == nil {
+		t.Fatal("no top-level `probeLam` binding for the evaluator")
+	}
+	lres := ev.Apply(lf, &eval.VUnit{})
+	sawPanic = false
+	for _, d := range lres.Diags {
+		if d.Code == eval.CodePanic {
+			sawPanic = true
+		}
+	}
+	if lres.OK() || !sawPanic {
+		t.Fatalf("eval probeLam = %v diags %+v — the canonical lambda call did not fire eagerly", lres.Value, lres.Diags)
 	}
 
 	// The compiled binary: `stage make_` calls `make_(20)` — whose

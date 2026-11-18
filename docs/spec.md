@@ -71,7 +71,7 @@ fn main () -> Unit = {
 
 Gom の関数はすべてカリー化され、`add 1` は `Int -> Int` の関数になる。部分適用のための専用構文は持たない（Go 関数の `_` プレースホルダは 8.2 節）。
 
-宣言パラメータが 2 本以上の矢印を持つ関数型（`fn g (f: A -> B -> C) -> ...` の `f`）は flat 呼出規約で渡る。この場合 `f a` の部分適用は呼出全体を残余引数の到着まで遅延する — canonical 表現では `f a` の時点で被呼側の最初のチャンクが走っていたため、`todo` 等の作用の発火タイミングが residual 適用時に移る（residual が一度も適用されなければ作用は走らない。[decision](decisions/2026-11-18-flat-fn-params.md)）。
+宣言パラメータが 2 本以上の矢印を持つ関数型（`fn g (f: A -> B -> C) -> ...` の `f`）は flat 呼出規約で渡る。この場合 `f a` の部分適用は呼出全体を残余引数の到着まで遅延する — `todo` 等の作用は flat arity を満たす適用の時点で発火し、residual が一度も適用されなければ作用は走らない。生成コードと eval の両方で同じタイミング（[decision](decisions/2026-11-18-flat-fn-params.md)、[decision](decisions/2026-11-19-flat-partial-eval.md)）。
 
 ### 1.4 パイプラインと関数合成
 

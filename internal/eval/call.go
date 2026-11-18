@@ -77,7 +77,7 @@ func (e *interp) applyArgs(f *VFunc, positions []int, args []Value, sp diag.Span
 			deep = append(deep, deepArg{pos: pos, arg: args[i]})
 			continue
 		}
-		nf.bound[rem[pos]] = slot{set: true, v: args[i]}
+		nf.bound[rem[pos]] = slot{set: true, v: e.flatSlot(nf, rem[pos], args[i], sp)}
 	}
 	if len(deep) == 0 {
 		var v Value
@@ -114,10 +114,73 @@ func (e *interp) applyArgs(f *VFunc, positions []int, args []Value, sp diag.Span
 	g := funcOfType(nf.name, fnBuiltin, &types.Func{Params: ps, Ret: types.Unit})
 	g.builtin = func(etas []Value) (Value, error) {
 		for k, a := range etas {
-			nf.bound[rem2[k]] = slot{set: true, v: a}
+			nf.bound[rem2[k]] = slot{set: true, v: e.flatSlot(nf, rem2[k], a, sp)}
 		}
 		v := e.invoke(nf, sp)
 		return e.applyDeep(v, pending, consumed, sp), nil
+	}
+	return g
+}
+
+// evalFlatSig flattens a possibly nested arrow chain into one
+// Func — the eval twin of lower's flatSig (expr.go). nil for
+// non-function types.
+func evalFlatSig(t types.Type) *types.Func {
+	fs, _ := types.Chase(t).(*types.Func)
+	if fs == nil {
+		return nil
+	}
+	var tail []types.FuncParam
+	ret := fs.Ret
+	for {
+		inner, ok := types.Chase(ret).(*types.Func)
+		if !ok {
+			break
+		}
+		tail = append(tail, inner.Params...)
+		ret = inner.Ret
+	}
+	if tail == nil {
+		return fs
+	}
+	params := make([]types.FuncParam, 0, len(fs.Params)+len(tail))
+	params = append(params, fs.Params...)
+	params = append(params, tail...)
+	return &types.Func{Params: params, Ret: ret}
+}
+
+// flatSlot adapts a function value bound into a slot carrying
+// the flat calling convention — the callee's flatArity marks
+// exactly the declared >=2-arrow parameters `lower` marks flat;
+// lambda and builtin parameters stay canonical like their
+// generated reprs. The generated repr is one Go func for the
+// whole chain, so `f a` there only builds a residual; the
+// canonical eval instead runs the callee's first chunk
+// immediately. Wrapping the bound value closes that divergence:
+// the facade collects the flat arity in one level, so a partial
+// application stays a partial VFunc and the inner canonical value
+// only sees its arguments — one at a time, preserving its own
+// chunk timing — when the flat arity is met.
+// (docs/decisions/2026-11-19-flat-partial-eval.md)
+func (e *interp) flatSlot(f *VFunc, idx int, v Value, sp diag.Span) Value {
+	if idx >= len(f.flatArity) || f.flatArity[idx] == 0 {
+		return v
+	}
+	fs := evalFlatSig(f.sig.Params[idx].Type)
+	if fs == nil || len(fs.Params) < 2 {
+		return v
+	}
+	inner, ok := v.(*VFunc)
+	if !ok {
+		return v
+	}
+	g := funcOfType(inner.name, fnBuiltin, fs)
+	g.builtin = func(args []Value) (Value, error) {
+		var out Value = inner
+		for _, a := range args {
+			out = e.applyOne(out, a, sp)
+		}
+		return out, nil
 	}
 	return g
 }
