@@ -1259,3 +1259,72 @@ func TestZeroResultCallPositions(t *testing.T) {
 		})
 	}
 }
+
+// TestCtorTypeArgs pins the optional-but-authoritative rule on a
+// constructor's TypeArgs (decision 2026-11-18-ctor-typeargs-authoritative):
+// absent is legal (codegen falls back to the result Con's own args),
+// present must spell exactly the result type's instantiation.
+func TestCtorTypeArgs(t *testing.T) {
+	nB, nS := vbind("n", types.Int)
+	mkApp := func(targs []types.Type, ret types.Type) *CtorApp {
+		return &CtorApp{Sp: sp(), Typ: ret, Ctor: okCtor,
+			Args: []Atom{vref(nS, types.Int)}, Arity: 1, TypeArgs: targs}
+	}
+	fnSig := types.Fn(resIG, types.P(types.Int)) // ctor function type: Int -> Result Int GoError
+	mkRef := func(targs []types.Type, typ types.Type) *CtorRef {
+		return &CtorRef{Sp: sp(), Typ: typ, Sym: okCtor, TypeArgs: targs}
+	}
+	use := func(x Expr) *Body {
+		return &Body{
+			Lets: []*Let{
+				{Sp: sp(), Name: nB, X: intLit("1")},
+				{Sp: sp(), Name: &Bind{Sp: sp(), Typ: x.Type(), Discard: true}, X: x},
+			},
+			Tail: unitLit(),
+		}
+	}
+	tests := []struct {
+		name string
+		body *Body
+		want string
+	}{
+		{"CtorApp absent TypeArgs", use(mkApp(nil, resIG)), ""},
+		{"CtorApp matching TypeArgs", use(
+			mkApp([]types.Type{types.Int, types.GoError}, resIG)), ""},
+		{"CtorApp divergent TypeArgs", use(
+			mkApp([]types.Type{types.String, types.GoError}, resIG)),
+			"differs from result type argument"},
+		{"CtorApp wrong count", use(
+			mkApp([]types.Type{types.Int}, resIG)),
+			"instantiates 2"},
+		{"CtorApp TypeArgs on non-ADT result", use(
+			mkApp([]types.Type{types.Int}, &types.Var{ID: 91, Name: "a"})),
+			"is not an ADT result"},
+		{"CtorRef matching TypeArgs", use(mkRef(
+			[]types.Type{types.Int, types.GoError}, fnSig)), ""},
+		{"CtorRef divergent TypeArgs", use(mkRef(
+			[]types.Type{types.Int, types.Int}, fnSig)),
+			"differs from result type argument"},
+		{"CtorRef through nested arrow chain", use(mkRef(
+			[]types.Type{types.Int, types.GoError},
+			&types.Func{Params: []types.FuncParam{{Type: types.Int}},
+				Ret: &types.Func{Params: []types.FuncParam{{Type: types.Int}}, Ret: resIG}})), ""},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			errs := Validate(fnFile(types.Unit, tc.body))
+			if tc.want == "" {
+				if len(errs) != 0 {
+					t.Fatalf("unexpected errors: %v", errs)
+				}
+				return
+			}
+			for _, err := range errs {
+				if strings.Contains(err.Error(), tc.want) {
+					return
+				}
+			}
+			t.Fatalf("errors %v do not contain %q", errs, tc.want)
+		})
+	}
+}

@@ -1580,7 +1580,7 @@
 
 - [ ] **design §5-6 の独立 dir 並列コンパイル（P4-7 残件）**: wave20 lane3 で評価 — 実装は小さくないと判定し残件のまま。理由 2 点: (a) dir グループを並列にすると依存先 `.gomi` の再生成と依存側の読み取りが競合する — 現行は CLI 引数順の直列でレースしないが、並列化には dep 順序かロックが要る。(b) `compileOptions` が共有する `gomimport.Loader`（`l.pkgs`/member table/`go/importer` fset）は compile ごとに map を mutate しており並行安全でない — dir ごとの Loader 分離は共有の利点を潰す。`bc.Hit`/`depSink`/`bc.note`/`results[i]` の dir 分割は素直に並列化できるため、真のコストは dep 順序と Loader 同期の設計にある。
   参照: [runBuild の dir ループ](../cmd/gom/cli.go)、[design 5 章](design.md)。
-- [ ] **core validator が `CtorApp`/`CtorRef` の `TypeArgs` を検査しない**:
+- [x] **core validator が `CtorApp`/`CtorRef` の `TypeArgs` を検査しない**:
   `internal/core/validate.go` は CtorApp の callee kind と引数数、CtorRef の
   シンボル kind と関数型しか見ず、TypeArgs の個数（ADT 型パラメータ arity
   との一致）や `Typ` との整合を検査しない。codegen は TypeArgs があれば
@@ -1588,4 +1588,8 @@
   不正形ノードは violation ではなく誤った instantiation を emit する。
   TypeArgs と `Typ` が食い違うときどちらが正かも未規定。
   wave20 lane4 で problems から台帳化。
-  参照: [problems](problems/2026-11-02-ctor-typeargs-unvalidated.md)。
+  対応: wave21 lane1 — TypeArgs は optional-but-authoritative（存在時は
+  結果型の `Con.Args` と完全一致を要求）として validator が検査。
+  参照: [decision](decisions/2026-11-18-ctor-typeargs-authoritative.md)、
+  [検証](sketch/2026-11-18-ctor-typeargs-verify.md)、
+  [problems](problems/2026-11-02-ctor-typeargs-unvalidated.md)。

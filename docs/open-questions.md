@@ -42,5 +42,6 @@
 - cgo、`unsafe`、`reflect` の本格的な扱い
 - セルフホスト（コンパイラを Gom で書き直す）
 - W0502 `lintErrorsAsTarget` の `Ptr (Ptr E)` ケース: `**int` は `*int` が error 非実装かつ非 interface なので panic が証明可能だが、現状は nested-Ptr 除外で沈黙。証明可能な違反の網羅を広げるかは将来の検討（wave9 error-tail レビュー nit）
+- `CtorApp`/`CtorRef` の `TypeArgs` を廃止して `Typ` の `Con.Args` を唯一の正にするか: wave21 lane1 は (a) optional-but-authoritative（存在時は結果型と完全一致を要求）を採択した（[decision](decisions/2026-11-18-ctor-typeargs-authoritative.md)）。(b) への移行は lower/codegen のフィールド撤去を伴う規模のため future work とする
 
 型クラス、エフェクトシステム、高度な所有権型、独自 GC は急いで導入しない。

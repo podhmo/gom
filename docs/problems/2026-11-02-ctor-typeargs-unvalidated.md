@@ -1,6 +1,6 @@
 # The validator never checks `CtorApp`/`CtorRef` `TypeArgs`
 
-- 状態: 未解決（implementation-gaps に台帳化 — wave20 lane4）
+- 状態: 解決（wave21 lane1 — TypeArgs は optional-but-authoritative として validator が検査。`Typ` を正とする (b) 案は open-questions の future work に移管。[decision](../decisions/2026-11-18-ctor-typeargs-authoritative.md)）
 - 発見: 2026-11-02, P1-8 review follow-up
 
 ## Situation

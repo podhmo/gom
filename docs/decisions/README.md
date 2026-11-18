@@ -188,6 +188,7 @@
 | [concat-extern](2026-11-18-concat-extern.md) | concat を @extern buffer loop 化する | 採用（wave19 lane 3 で実装。根拠: [sketch](../sketch/2026-11-18-concat-buffer-impl.md)） |
 | [cons-buffer-array-extern-impl](2026-11-18-cons-buffer-array-extern-impl.md) | Cons 構築の buffer 化: `Array` 操作面 + `@extern fn` extern-impl 機構（一部を [concat-extern](2026-11-18-concat-extern.md) で置き換え） | 採用（prototype 検証済み — docs/sketch/2026-11-18-cons-buffer-verification.md） |
 | [cons-recursion-specialization](2026-11-18-cons-recursion-specialization.md) | lower の cons-recursion 特殊化: match-cons 蓄積形を buffer loop に変換する | 採択 |
+| [ctor-typeargs-authoritative](2026-11-18-ctor-typeargs-authoritative.md) | `CtorApp`/`CtorRef` の `TypeArgs` は optional-but-authoritative | 採用（wave21 lane 1 で実装・検証した — `TestCtorTypeArgs` が合法・違反の両形を pin。[検証](../sketch/2026-11-18-ctor-typeargs-verify.md)） |
 | [external-gom-imports](2026-11-18-external-gom-imports.md) | 外部モジュールの Gom パッケージの import | 採用 |
 | [flat-fn-params](2026-11-18-flat-fn-params.md) | >=2 本矢印の宣言パラメータは flat 表現（呼出側 uncurry） | 採用（wave20 lane 2 で実装・検証した — ベンチと生成コード差分は [sketch/2026-11-18-flat-fn-params-verify.md](../sketch/2026-11-18-flat-fn-params-verify.md)、全ゲート緑） |
 | [fn-interop](2026-11-18-fn-interop.md) | `Go.FuncN` 値を Gom 側から適用する(逆変換 `Go.fnN`) | 採用（実装・検証した — `Go.fn2`/`fn0`/`fn1` の変換+呼出、int/int64 境界、`func() error` と `func(A) (T, error)` の `Result` materialize が `gom check`/`build`→`go build`→実行まで通る。testdata/spec/ok_go_fn_adapter・E0510_go_fn_{arity,non_fn}、testdata/golden/go_fn_adapter で固定。spec.md §8.8 へ反映済み） |
