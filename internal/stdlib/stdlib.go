@@ -79,6 +79,7 @@ var load = sync.OnceValues(func() (*env, error) {
 			return nil, err
 		}
 	}
+	e.conversionModules()
 	return e, nil
 })
 

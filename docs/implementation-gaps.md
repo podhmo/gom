@@ -422,12 +422,16 @@
   生まれない。明示的自己 import は既存 E0606 が捕捉）。
   参照: [decision](decisions/2026-11-06-self-import-path-module-derived.md)、
   [検証](sketch/2026-11-06-self-import-path-module-derived-verification.md)。
-- [ ] **`Result.to_option` / `Option.to_list` は存在しない（Go の循環参照禁止によるもの）**:
+- [x] **`Result.to_option` / `Option.to_list` は存在しない（Go の循環参照禁止によるもの）**:
   option→result（`to_result`）・list→option（`get`/`head` 等）が既にあるため、
   逆向き変換はパッケージ間で import cycle になる。layering は
   `result < option < list` に固定。各 `.gomi` の末尾に理由を記載済み。
-  参照: [decision](decisions/2026-11-03-stdlib-packaging.md)、
-  [stdlib/option/option.gomi](../stdlib/option/option.gomi)。
+  対応（wave21 lane 2）: メンバーは下層モジュールの面に、実装は上層パッケージに
+  置く `builtinMember.pkg` 上書きパターンで解消 — `Result.to_option` は
+  `option.ResultToOption`、`Option.to_list` は `list.OptionToList` に forward
+  する手組みメンバーとして `internal/stdlib.conversionModules` が登録する。
+  参照: [decision](decisions/2026-11-18-stdlib-conv-placement.md)、
+  [検証](sketch/2026-11-18-stdlib-conv-verify.md)。
 
 - [x] **`docs/grammar.ebnf` の `list-expr` が `[x, ..xs]` を記していなかった**:
   spec 6 章と実装はリストリテラルの末尾 `..` spread を受理するが、規範文法ファイルだけ

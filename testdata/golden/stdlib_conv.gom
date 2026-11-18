@@ -1,0 +1,11 @@
+package ex
+
+// `Result.to_option` / `Option.to_list` emit the upper-layer
+// package's function with the solved instantiation —
+// option.ResultToOption / list.OptionToList.
+fn maybe (r: Result Int GoError) -> Option Int = Result.to_option r
+
+fn items (o: Option Int) -> List Int = Option.to_list o
+
+fn chain (r: Result Int GoError) -> List Int =
+  r |> Result.to_option |> Option.to_list
