@@ -158,18 +158,128 @@
       "kind": "diagnostic",
       "code": "W0502",
       "severity": "warning",
+      "message": "`errors.As` requires the target's element type to implement error or be an interface — Ptr Int is neither and panics at run time",
+      "span": {
+        "file": "W0502_errors_as_target.gom",
+        "start": {
+          "line": 53,
+          "col": 69,
+          "offset": 2106
+        },
+        "end": {
+          "line": 53,
+          "col": 70,
+          "offset": 2107
+        }
+      },
+      "data": {
+        "argument": "Ptr Int"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "W0502",
+      "severity": "warning",
+      "message": "`errors.As` requires the target's element type to implement error or be an interface — Ptr (List Int) is neither and panics at run time",
+      "span": {
+        "file": "W0502_errors_as_target.gom",
+        "start": {
+          "line": 55,
+          "col": 77,
+          "offset": 2185
+        },
+        "end": {
+          "line": 55,
+          "col": 78,
+          "offset": 2186
+        }
+      },
+      "data": {
+        "argument": "Ptr (List Int)"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "W0502",
+      "severity": "warning",
+      "message": "`errors.As` requires the target's element type to implement error or be an interface — Ptr Sum is neither and panics at run time",
+      "span": {
+        "file": "W0502_errors_as_target.gom",
+        "start": {
+          "line": 57,
+          "col": 69,
+          "offset": 2256
+        },
+        "end": {
+          "line": 57,
+          "col": 70,
+          "offset": 2257
+        }
+      },
+      "data": {
+        "argument": "Ptr Sum"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "W0502",
+      "severity": "warning",
+      "message": "`errors.As` requires the target's element type to implement error or be an interface — Ptr GoError is neither and panics at run time",
+      "span": {
+        "file": "W0502_errors_as_target.gom",
+        "start": {
+          "line": 59,
+          "col": 75,
+          "offset": 2333
+        },
+        "end": {
+          "line": 59,
+          "col": 76,
+          "offset": 2334
+        }
+      },
+      "data": {
+        "argument": "Ptr GoError"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "W0502",
+      "severity": "warning",
+      "message": "`errors.As` requires the target's element type to implement error or be an interface — Ptr (Ptr Int) is neither and panics at run time",
+      "span": {
+        "file": "W0502_errors_as_target.gom",
+        "start": {
+          "line": 61,
+          "col": 76,
+          "offset": 2411
+        },
+        "end": {
+          "line": 61,
+          "col": 77,
+          "offset": 2412
+        }
+      },
+      "data": {
+        "argument": "Ptr (Ptr Int)"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "W0502",
+      "severity": "warning",
       "message": "`errors.As` requires a non-nil pointer target — an argument of type Int panics at run time",
       "span": {
         "file": "W0502_errors_as_target.gom",
         "start": {
-          "line": 52,
+          "line": 77,
           "col": 9,
-          "offset": 1905
+          "offset": 3016
         },
         "end": {
-          "line": 52,
+          "line": 77,
           "col": 11,
-          "offset": 1907
+          "offset": 3018
         }
       },
       "data": {
