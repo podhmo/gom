@@ -1,0 +1,22 @@
+package ex
+
+// The layering conversions `Result.to_option` / `Option.to_list`:
+// surfaced on the lower module but backed by the upper package —
+// option.ResultToOption and list.OptionToList (decision
+// stdlib-conv-placement).
+
+fn maybe (r: Result Int GoError) -> Option Int = Result.to_option r
+
+fn items (o: Option Int) -> List Int = Option.to_list o
+
+fn chain (r: Result Int GoError) -> List Int =
+  r |> Result.to_option |> Option.to_list
+
+// Bare references keep their declared arity (1), so the members
+// adapt like any function value.
+fn run (f: Result Int GoError -> Option Int) (r: Result Int GoError) -> Option Int = f r
+
+test "ref" {
+  let _ = run Result.to_option (Ok 1)
+  ()
+}

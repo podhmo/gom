@@ -35,9 +35,12 @@ fn flatten (oo: Option (Option a)) -> Option a
 /// iter f o applies f to the payload when present.
 fn iter (f: a -> Unit) (o: Option a) -> Unit
 
-// There is no `to_list` ([x] for Some, [] for None): it would
-// import stdlib/list while List.get already imports this
-// package — Go forbids the cycle. The layering is
-// result < option < list.
+// `Option.to_list` ([x] for Some, [] for None) exists on the
+// Option module's surface but is not declared here: a .gom
+// implementation would import stdlib/list while list already
+// imports this package — a Go cycle. The member is registered by
+// the compiler (internal/stdlib) and forwards to
+// list.OptionToList.
+// (decisions/2026-11-18-stdlib-conv-placement)
 /// to_result err o is Ok x for Some x, Err err for None.
 fn to_result (err: e) (o: Option a) -> Result a e

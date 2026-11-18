@@ -55,3 +55,17 @@ func TestNilListIsEmpty(t *testing.T) {
 		t.Fatalf("Head(nil List) = %#v, want Option_None", list.Head(l))
 	}
 }
+
+// TestOptionToList pins the layering conversion that backs
+// `Option.to_list` — surfaced on the Option module but living in
+// this package (decision stdlib-conv-placement).
+func TestOptionToList(t *testing.T) {
+	one := list.OptionToList(option.Option_Some[int]{V0: 7})
+	if len(one) != 1 || one[0] != 7 {
+		t.Fatalf("OptionToList(Some 7) = %#v, want [7]", one)
+	}
+	empty := list.OptionToList(option.Option_None[int]{})
+	if len(empty) != 0 {
+		t.Fatalf("OptionToList(None) = %#v, want []", empty)
+	}
+}

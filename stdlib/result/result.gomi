@@ -34,8 +34,10 @@ fn or_else (fallback: Result a e) (r: Result a e) -> Result a e
 
 /// iter f r applies f to the Ok payload when present.
 fn iter (f: a -> Unit) (r: Result a e) -> Unit
-// There is no `to_option` (Ok x → Some x, Err → None): emitting
-// it would make this package import stdlib/option while
-// option.to_result already imports this one, and Go forbids the
-// cycle. The conversion lives on the Option side — use a match
-// or Option's combinators instead.
+// `Result.to_option` (Ok x → Some x, Err → None) exists on the
+// Result module's surface but is not declared here: a .gom
+// implementation in this package would import stdlib/option while
+// option.to_result already imports this one — a Go cycle. The
+// member is registered by the compiler (internal/stdlib) and
+// forwards to option.ResultToOption.
+// (decisions/2026-11-18-stdlib-conv-placement)

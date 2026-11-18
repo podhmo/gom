@@ -39,12 +39,13 @@ const stdlibVarBase = 1 << 22
 // variable, which is safe because each use site instantiates it with
 // a fresh meta. keyTVar/valTVar are the same for the two-parameter
 // Go.Map members (`k`/`v`), accTVar for the accumulator `b` of
-// `Go.Slice.fold`.
+// `Go.Slice.fold`, errTVar for the error `e` of `Result.to_option`.
 var (
 	elemTVar = &types.Var{ID: stdlibVarBase, Name: "a"}
 	keyTVar  = &types.Var{ID: stdlibVarBase + 1, Name: "k"}
 	valTVar  = &types.Var{ID: stdlibVarBase + 2, Name: "v"}
 	accTVar  = &types.Var{ID: stdlibVarBase + 3, Name: "b"}
+	errTVar  = &types.Var{ID: stdlibVarBase + 4, Name: "e"}
 )
 
 // builtinMember is one entry of a hand-built builtin-module member
@@ -108,6 +109,17 @@ func genericPairSig(t types.Type) check.Signature {
 	return check.Signature{
 		Type:          t,
 		TypeParams:    []*types.Var{elemTVar, accTVar},
+		GoConstraints: []check.GoConstraint{{Kind: check.GoConstraintAny}, {Kind: check.GoConstraintAny}},
+	}
+}
+
+// genericErrSig builds the two-type-parameter `[a, e any]`
+// signature of `Result.to_option` — `a` is the payload and `e` the
+// error the conversion drops. Both constraints are `any`.
+func genericErrSig(t types.Type) check.Signature {
+	return check.Signature{
+		Type:          t,
+		TypeParams:    []*types.Var{elemTVar, errTVar},
 		GoConstraints: []check.GoConstraint{{Kind: check.GoConstraintAny}, {Kind: check.GoConstraintAny}},
 	}
 }
@@ -310,15 +322,52 @@ func (e *env) builtinModules() {
 	} {
 		table := map[string]*resolve.Symbol{}
 		for _, m := range members {
-			sym := m.symbol()
-			sym.Surface = module + "." + m.name
-			table[m.name] = sym
-			e.sigs[sym] = m.sig
-			e.gosigs[sym] = m.gosig
-			// DeclArity: every member's declared parameter count is
-			// its Go arity — bare references adapt by it.
-			e.arities[sym] = m.gosig.Arity
+			e.addMember(module, table, m)
 		}
 		e.modules[module] = table
+	}
+}
+
+// addMember registers one hand-built member in a module's table and
+// in the env's cross-phase oracle tables.
+func (e *env) addMember(module string, table map[string]*resolve.Symbol, m builtinMember) {
+	sym := m.symbol()
+	sym.Surface = module + "." + m.name
+	table[m.name] = sym
+	e.sigs[sym] = m.sig
+	e.gosigs[sym] = m.gosig
+	// DeclArity: every member's declared parameter count is its Go
+	// arity — bare references adapt by it.
+	e.arities[sym] = m.gosig.Arity
+}
+
+// conversionModules extends the .gomi-derived `Result` and `Option`
+// member tables with the layering conversions — `Result.to_option`
+// and `Option.to_list`. Neither can be a .gomi fn: the conversion
+// reaches *upward* in the result < option < list DAG, and a
+// lower package's .gom implementation importing its upper layer
+// would close a Go import cycle. Instead each member is surfaced
+// on the lower module but forwards to a hand-written function in
+// the upper package — the `Array.to_list` → stdlib/list precedent.
+// Called after the packages loop so the .gomi-derived tables it
+// mutates exist.
+func (e *env) conversionModules() {
+	for module, members := range map[string][]builtinMember{
+		"Result": {
+			{name: "to_option", goSym: "ResultToOption", pkg: "github.com/podhmo/gom/stdlib/option",
+				sig: genericErrSig(types.Fn(types.Option(elemTVar), types.P(types.Result(elemTVar, errTVar)))),
+				gosig: lower.GoSig{Arity: 1, Results: core.GoResultsOne,
+					TypeParams: []*types.Var{elemTVar, errTVar}}},
+		},
+		"Option": {
+			{name: "to_list", goSym: "OptionToList", pkg: "github.com/podhmo/gom/stdlib/list",
+				sig: genericSig(types.Fn(types.List(elemTVar), types.P(types.Option(elemTVar)))),
+				gosig: lower.GoSig{Arity: 1, Results: core.GoResultsOne,
+					TypeParams: []*types.Var{elemTVar}}},
+		},
+	} {
+		for _, m := range members {
+			e.addMember(module, e.modules[module], m)
+		}
 	}
 }

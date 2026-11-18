@@ -7,9 +7,11 @@ package option_test
 // arm panics on.
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/podhmo/gom/stdlib/option"
+	"github.com/podhmo/gom/stdlib/result"
 )
 
 func TestFromGo(t *testing.T) {
@@ -61,4 +63,18 @@ func assertNotPanics(t *testing.T, name string, f func()) {
 		}
 	}()
 	f()
+}
+
+// TestResultToOption pins the layering conversion that backs
+// `Result.to_option` — surfaced on the Result module but living in
+// this package (decision stdlib-conv-placement).
+func TestResultToOption(t *testing.T) {
+	some := option.ResultToOption(result.Ok[int, error](7))
+	if sv, ok := some.(option.Option_Some[int]); !ok || sv.V0 != 7 {
+		t.Fatalf("ResultToOption(Ok 7) = %#v, want Option_Some{V0: 7}", some)
+	}
+	none := option.ResultToOption(result.Err[int, error](errors.New("x")))
+	if _, ok := none.(option.Option_None[int]); !ok {
+		t.Fatalf("ResultToOption(Err) = %#v, want Option_None", none)
+	}
 }

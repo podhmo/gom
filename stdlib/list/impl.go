@@ -1,6 +1,10 @@
 package list
 
-import "slices"
+import (
+	"slices"
+
+	"github.com/podhmo/gom/stdlib/option"
+)
 
 // Hand-written implementations backing the `@extern fn` signatures in
 // list.gom plus the `Array`↔`List` hand-off members (decision
@@ -94,4 +98,16 @@ func Range(lo, hi int64) List[int64] {
 		out[i] = lo + int64(i)
 	}
 	return out
+}
+
+// OptionToList is `Option.to_list`: Some x → [x], None → []. It
+// lives in this package — the upward half of the
+// result < option < list layering — while being surfaced as a
+// member of the Option module (decision
+// stdlib-conv-placement).
+func OptionToList[A any](o option.Option[A]) List[A] {
+	if s, ok := o.(option.Option_Some[A]); ok {
+		return List[A]{s.V0}
+	}
+	return nil
 }
