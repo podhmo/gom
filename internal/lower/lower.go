@@ -223,6 +223,7 @@ func File(f *check.File, env *Env) (*core.File, []diag.Diagnostic) {
 		l.decl(d, out)
 	}
 	l.checkTailRec(out)
+	l.lintQuadraticAccum(out)
 	out.EqDecls = l.eqOrder
 	out.ShowDecls = l.showOrder
 

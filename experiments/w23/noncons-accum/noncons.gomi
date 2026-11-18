@@ -1,0 +1,27 @@
+package noncons
+
+fn cons_map (xs: List Int) -> List Int
+
+fn chain_append (k: Int) -> List Int
+
+fn fold_concat (xs: List Int) -> List Int
+
+fn mut_a (n: Int) -> List Int
+
+fn mut_b (n: Int) -> List Int
+
+fn read_twice (xs: List Int) -> List Int
+
+fn wrap_once (n: Int) -> List Int
+
+fn concat_acc (n: Int) -> List (List Int)
+
+fn appender (acc: List Int) (x: Int) -> List Int
+
+fn fold_named (xs: List Int) -> List Int
+
+fn two_sites (n: Int) -> List Int
+
+fn lit_scalar_a (n: Int) -> List Int
+
+fn lit_scalar_b (n: Int) -> Int
