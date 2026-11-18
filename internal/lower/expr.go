@@ -262,11 +262,13 @@ func (l *lowerer) funcRefOrFlatten(e *check.Var, sym *resolve.Symbol) core.Expr 
 		}
 	}
 	if decl == 1 && !flatParams {
-		return &core.FuncRef{Base: baseOf(e), Sym: sym, Arity: decl, TypeArgs: e.TypeArgs}
+		return &core.FuncRef{Base: baseOf(e), Sym: sym, Arity: decl,
+			FlatParams: declFlatArities(dps, decl), TypeArgs: e.TypeArgs}
 	}
 	if decl > flat {
 		l.err(e.Sp, fmt.Sprintf("function %s has declared arity %d exceeding its type arity %d", sym.Name, decl, flat))
-		return &core.FuncRef{Base: baseOf(e), Sym: sym, Arity: decl, TypeArgs: e.TypeArgs}
+		return &core.FuncRef{Base: baseOf(e), Sym: sym, Arity: decl,
+			FlatParams: declFlatArities(dps, decl), TypeArgs: e.TypeArgs}
 	}
 	// Declared arity >= 2: the declaration's `func f_(p0, p1, ...)`
 	// is the direct-call shape, not the value representation —

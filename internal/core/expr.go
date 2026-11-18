@@ -73,6 +73,15 @@ type FuncRef struct {
 	Sym      *resolve.Symbol // KindFunc, not IsGo
 	TypeArgs []types.Type    // instantiation of a polymorphic callee; nil while monomorphic
 	Arity    int             // the callee's declared arity
+	// FlatParams records each declared parameter's flat arity (0 or
+	// 1 for canonical parameters, >= 2 for flat ones) — the declared
+	// convention, read from the declaration's own signature at
+	// lowering. Codegen must not re-derive it from the instantiated
+	// reference type: substitution can widen a declared 1-arrow
+	// parameter into a >= 2-arrow value without changing the
+	// emitted convention. Len is the declared Arity; a shorter
+	// slice leaves later slots unknown (hand-built nodes).
+	FlatParams []int
 }
 
 func (*FuncRef) isExpr() {}

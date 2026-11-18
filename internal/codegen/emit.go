@@ -304,9 +304,23 @@ func (g *gen) uncurryLit(e *core.Uncurry) {
 		// flat literal hands it, so its params need per-slot
 		// adaptation like any call site.
 		fps, _ := flatArrow(x.Type())
+		// The flat convention is positional on the *declared* arrow
+		// chain — FuncRef.FlatParams — not the instantiated
+		// reference type: substitution can widen a declared 1-arrow
+		// parameter into a >= 2-arrow value, which must not turn a
+		// canonical slot flat.
+		declFlat := func(i int) int {
+			if i < len(x.FlatParams) {
+				return x.FlatParams[i]
+			}
+			if i < len(fps) {
+				return flatArity(fps[i].Type)
+			}
+			return 0
+		}
 		flatParams := false
-		for i := 0; i < x.Arity && i < len(fps); i++ {
-			if flatArity(fps[i].Type) >= 2 {
+		for i := 0; i < x.Arity; i++ {
+			if declFlat(i) >= 2 {
 				flatParams = true
 			}
 		}
@@ -321,10 +335,8 @@ func (g *gen) uncurryLit(e *core.Uncurry) {
 		var args []core.Atom
 		for i, b := range binds[:n] {
 			var arg core.Atom = pvOf(b)
-			if i < len(fps) {
-				if fa := flatArity(fps[i].Type); fa >= 2 {
-					arg = bindOf(&core.Uncurry{Base: core.Base{Sp: e.Sp, Typ: b.Typ}, Arity: fa, X: arg})
-				}
+			if fa := declFlat(i); fa >= 2 {
+				arg = bindOf(&core.Uncurry{Base: core.Base{Sp: e.Sp, Typ: b.Typ}, Arity: fa, X: arg})
 			}
 			args = append(args, arg)
 		}
@@ -340,10 +352,8 @@ func (g *gen) uncurryLit(e *core.Uncurry) {
 				qs = append(qs, &core.Bind{Sp: e.Sp, Sym: &resolve.Symbol{
 					Name: fmt.Sprintf("q%d", i), Kind: resolve.KindVar}, Typ: qt})
 				var arg core.Atom = pvOf(qs[len(qs)-1])
-				if i < len(fps) {
-					if fa := flatArity(fps[i].Type); fa >= 2 {
-						arg = bindOf(&core.Uncurry{Base: core.Base{Sp: e.Sp, Typ: qt}, Arity: fa, X: arg})
-					}
+				if fa := declFlat(i); fa >= 2 {
+					arg = bindOf(&core.Uncurry{Base: core.Base{Sp: e.Sp, Typ: qt}, Arity: fa, X: arg})
 				}
 				args = append(args, arg)
 			}
@@ -428,30 +438,35 @@ func (g *gen) uncurryLit(e *core.Uncurry) {
 					&core.Var{Sp: e.Sp, Typ: b.Typ, Sym: b.Sym}}}
 			}
 		}
-	default:
-		// The generic adapter over a canonical atom — or a GoFuncRef
-		// taking the flat call.
-		if _, isGo := e.X.(*core.GoFuncRef); isGo {
-			for len(binds) < e.Arity {
-				binds = append(binds, synth(len(binds)))
-			}
-			args := make([]core.Atom, len(binds))
-			for i, b := range binds {
-				args[i] = &core.Var{Sp: e.Sp, Typ: b.Typ, Sym: b.Sym}
-			}
-			if a, ok := e.X.(core.Atom); ok {
-				tail = &core.CallFunc{Base: core.Base{Sp: e.Sp, Typ: ret}, Fn: a, Args: args, FlatArity: len(args)}
-			}
-		} else {
-			tail = e.X
-			for len(binds) < e.Arity {
-				b := synth(len(binds))
-				binds = append(binds, b)
-				a := bindOf(tail)
-				tail = &core.CallFunc{Base: core.Base{Sp: e.Sp, Typ: ret}, Fn: a, Args: []core.Atom{
-					&core.Var{Sp: e.Sp, Typ: b.Typ, Sym: b.Sym}}}
-			}
+	case *core.GoFuncRef:
+		// A GoFuncRef taking the flat call.
+		for len(binds) < e.Arity {
+			binds = append(binds, synth(len(binds)))
 		}
+		args := make([]core.Atom, len(binds))
+		for i, b := range binds {
+			args[i] = &core.Var{Sp: e.Sp, Typ: b.Typ, Sym: b.Sym}
+		}
+		tail = &core.CallFunc{Base: core.Base{Sp: e.Sp, Typ: ret}, Fn: x, Args: args, FlatArity: len(args)}
+	case *core.Var, *core.Lit, *core.FieldGet, *core.GoFunc, *core.Uncurry,
+		*core.Unary, *core.Binary, *core.Equal, *core.If, *core.Match,
+		*core.SelectExpr, *core.Spawn, *core.ForRange,
+		*core.TupleNew, *core.ListNew, *core.RecordNew, *core.RecordUpdate,
+		*core.CallDirect, *core.CallFunc, *core.CallGo, *core.CallBuiltin,
+		*core.CtorApp, *core.TailCall, *core.EscapeResult, *core.EscapeCall,
+		*core.ResultFromGo, *core.OptionFromGo, *core.ErrorFromGo,
+		*core.TupleFromGo, *core.Conv:
+		// The generic adapter over a canonical atom.
+		tail = e.X
+		for len(binds) < e.Arity {
+			b := synth(len(binds))
+			binds = append(binds, b)
+			a := bindOf(tail)
+			tail = &core.CallFunc{Base: core.Base{Sp: e.Sp, Typ: ret}, Fn: a, Args: []core.Atom{
+				&core.Var{Sp: e.Sp, Typ: b.Typ, Sym: b.Sym}}}
+		}
+	default:
+		panic("unreachable")
 	}
 	if tail == nil {
 		// Defensive — the lowerer only emits an Uncurry whose Arity
