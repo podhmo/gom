@@ -934,6 +934,9 @@ type pendingApply struct {
 	// replay time it chases to the resolved signature.
 	calleeT types.Type
 	done    bool // replayed — guards chained members
+	// dropped marks an apply abandoned as dead work when its member
+	// failed — distinct from done, which replay also sets on success.
+	dropped bool
 
 	// alwaysGom forces the Gom replay even when the member settles
 	// to a Go method: the apply's callee is a plain value (a Var
