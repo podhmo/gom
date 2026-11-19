@@ -82,6 +82,21 @@ func (c *checker) markQuiet(t types.Type) {
 	}
 }
 
+// quietMetasIn silences every still-unbound meta whose creation site
+// lies inside sp — the debris a dead speculative check left in the
+// meta table. Metas minted elsewhere that only unified with the dead
+// node's metas keep their own diagnostic behavior.
+func (c *checker) quietMetasIn(sp diag.Span) {
+	for m, r := range c.metas {
+		if types.Chase(m) != m {
+			continue
+		}
+		if r.span.File == sp.File && r.span.Start >= sp.Start && r.span.End <= sp.End {
+			r.quiet = true
+		}
+	}
+}
+
 // markSilent flags t's record silent when t is an unbound meta — the
 // weak form of markQuiet for metas inside a failed expectation: the
 // mismatch the failed unify already reported covers the meta's

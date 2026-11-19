@@ -1,0 +1,12 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// A deferred field write whose member fails reports the target's
+// shape (E0511) and the member's absence (E0401) — nothing more.
+// The provisional `Go.funcN` check ran with no want, so its lambda's
+// metas and conversion diagnostics are debris: before the cleanup
+// they piled a spurious E0510 and E0407 on top.
+fn f () -> Unit = {
+  (fn x -> x.F = Go.func1 (fn _a -> 0)) 0
+}
