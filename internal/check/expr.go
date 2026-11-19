@@ -153,7 +153,12 @@ func (c *checker) checkAssign(e *syntax.Assign) Expr {
 				Recv: me.Recv,
 				Sel:  sel.Sel,
 			}
-			c.pendingAssigns = append(c.pendingAssigns, &assignTarget{Sel: sel, Member: me, Assign: fa, ValueSyn: e.Value})
+			c.pendingAssigns = append(c.pendingAssigns, &assignTarget{
+				Sel: sel, Member: me, Assign: fa, ValueSyn: e.Value,
+				bounds:  append([]boundary{}, c.bounds...),
+				goDepth: c.goDepth, inTest: c.inTest, tscope: c.curTScope,
+				diagMark: -1,
+			})
 			return fa
 		}
 	}
@@ -181,6 +186,36 @@ type assignTarget struct {
 	Member   *MemberExpr
 	Assign   *FieldAssign
 	ValueSyn syntax.Expr // the surface RHS — checked at revisit under the resolved member's want
+
+	// The RHS is checked during finalize — after the enclosing fn/
+	// lambda boundary, test context and rigid-variable scope were
+	// torn down. The deferred checkExpr restores them so `try`,
+	// `assert` and `let y : List a` behave as written.
+	bounds  []boundary
+	goDepth int
+	inTest  bool
+	tscope  *tscope
+
+	// diagMark/diagEnd delimit the diagnostics the provisional
+	// nil-want fill emitted — a member that resolves later re-checks
+	// the value under its real signature, and the speculative pass's
+	// diagnostics are stale (a `Go.funcN` under no want rejects the
+	// very lambda the field accepts). Only that range is rolled
+	// back; errors a later round emitted for OTHER deferred work sit
+	// after diagEnd and must survive. -1 while unfilled.
+	diagMark int
+	diagEnd  int
+}
+
+// checkAssignRHS runs the deferred RHS check under the context
+// captured when the assignment deferred — finalize-time c.bounds,
+// inTest and curTScope are already empty.
+func (c *checker) checkAssignRHS(pa *assignTarget, want types.Type) Expr {
+	savedBounds, savedDepth, savedTest, savedScope := c.bounds, c.goDepth, c.inTest, c.curTScope
+	c.bounds, c.goDepth, c.inTest, c.curTScope = pa.bounds, pa.goDepth, pa.inTest, pa.tscope
+	v := c.checkExpr(pa.ValueSyn, want)
+	c.bounds, c.goDepth, c.inTest, c.curTScope = savedBounds, savedDepth, savedTest, savedScope
+	return v
 }
 
 // assignShapeDiag validates the resolved shape of a `ptr.Field = v`
@@ -690,21 +725,36 @@ func (c *checker) revisitSelects() {
 			doneAssigns[pa] = true
 			progress = true
 			me := pa.Member
+			if pa.diagMark >= 0 {
+				// A provisional fill already checked this RHS with no
+				// want — its diagnostics are superseded by the real
+				// signature's check below. Drop exactly that range:
+				// diagnostics emitted later (an unrelated deferred
+				// select diagnosed in this same round) belong to
+				// entries already marked done and would be lost.
+				// Removing the range shifts every later index, so
+				// other unfilled assigns' marks move with it.
+				removed := pa.diagEnd - pa.diagMark
+				c.diags = append(c.diags[:pa.diagMark], c.diags[pa.diagEnd:]...)
+				mark := pa.diagMark
+				pa.diagMark = -1
+				for _, q := range c.pendingAssigns {
+					if q.diagMark > mark {
+						q.diagMark -= removed
+						q.diagEnd -= removed
+					}
+				}
+			}
 			if d := c.assignShapeDiag(pa.Sel, me); d != nil {
 				c.diags.Add(*d)
-				pa.Assign.Value = c.checkExpr(pa.ValueSyn, nil)
+				pa.Assign.Value = c.checkAssignRHS(pa, nil)
 				continue
 			}
 			pa.Assign.Sym = me.Sym
 			pa.Assign.GoFieldType = me.GoFieldType
-			pa.Assign.Value = c.checkExpr(pa.ValueSyn, me.Type())
+			pa.Assign.Value = c.checkAssignRHS(pa, me.Type())
 		}
 	}
-	// Applications whose member never resolved still need a final
-	// CallInfo: they replay under the Gom convention so the
-	// diagnostics the first pass withheld (a `_`, a label on an
-	// unknown callee) fire and lowering sees a valid record.
-	c.replayDeferredApplies()
 }
 
 // finishAssigns completes the field assignments whose receiver never
@@ -713,13 +763,18 @@ func (c *checker) revisitSelects() {
 // still needs a checked node for lowering, and the dead member meta
 // is no want: feeding it would only leak an E0407 onto an innocent
 // literal.
-func (c *checker) finishAssigns() {
+func (c *checker) finishAssigns() bool {
+	filled := false
 	for _, pa := range c.pendingAssigns {
 		if c.assignDone[pa] || pa.Assign.Value != nil {
 			continue
 		}
-		pa.Assign.Value = c.checkExpr(pa.ValueSyn, nil)
+		filled = true
+		pa.diagMark = len(c.diags)
+		pa.Assign.Value = c.checkAssignRHS(pa, nil)
+		pa.diagEnd = len(c.diags)
 	}
+	return filled
 }
 
 // nameOfSel returns the selector name a resolved member symbol
