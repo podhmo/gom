@@ -7,7 +7,6 @@ import (
 	"strconv"
 
 	"github.com/podhmo/gom/internal/core"
-	"github.com/podhmo/gom/internal/types"
 )
 
 // This file renders the display recipes lowering fixed on
@@ -228,13 +227,9 @@ func (g *gen) showSum(d *core.ShowDecl) {
 	g.close()
 	g.raw("switch x := v.(type)")
 	g.open()
-	var targs []types.Type
-	if c, ok := types.Chase(d.Typ).(*types.Con); ok {
-		targs = c.Args
-	}
 	for i := range d.Plan.Variants {
 		v := &d.Plan.Variants[i]
-		vt := g.ctorGoType(v.Sym, d.Typ, targs)
+		vt := g.ctorGoType(v.Sym, d.Typ)
 		g.caseLabel(func() {
 			g.raw("case ")
 			g.typ(vt)

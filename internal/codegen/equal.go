@@ -6,7 +6,6 @@ import (
 	"go/token"
 
 	"github.com/podhmo/gom/internal/core"
-	"github.com/podhmo/gom/internal/types"
 )
 
 // This file renders the comparison recipes lowering fixed on
@@ -196,13 +195,9 @@ func (g *gen) eqSum(d *core.EqDecl) {
 	g.close()
 	g.raw("switch av := a.(type)")
 	g.open()
-	var targs []types.Type
-	if c, ok := types.Chase(d.Typ).(*types.Con); ok {
-		targs = c.Args
-	}
 	for i := range d.Plan.Variants {
 		v := &d.Plan.Variants[i]
-		vt := g.ctorGoType(v.Sym, d.Typ, targs)
+		vt := g.ctorGoType(v.Sym, d.Typ)
 		g.caseLabel(func() {
 			g.raw("case ")
 			g.typ(vt)

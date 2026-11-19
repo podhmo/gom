@@ -200,12 +200,12 @@ func (l *lowerer) varExpr(e *check.Var) core.Expr {
 		return l.funcRefOrFlatten(e, sym)
 	case resolve.KindCtor:
 		if sig := sigOf(e.Type()); sig != nil {
-			return &core.CtorRef{Base: baseOf(e), Sym: sym, TypeArgs: e.TypeArgs,
+			return &core.CtorRef{Base: baseOf(e), Sym: sym,
 				Fields: l.ctorFields(sym, sig.Ret)}
 		}
 		// Nullary constructor in value position: a saturated
 		// application of zero arguments.
-		return &core.CtorApp{Base: baseOf(e), Ctor: sym, Arity: 0, TypeArgs: e.TypeArgs}
+		return &core.CtorApp{Base: baseOf(e), Ctor: sym, Arity: 0}
 	case resolve.KindBuiltin:
 		return l.builtinRef(e.Sp, e.Type(), sym)
 	default:
@@ -345,10 +345,10 @@ func (l *lowerer) memberExpr(s *seq, e *check.MemberExpr) core.Expr {
 		return l.varRef(baseOf(e), e.Sym)
 	case resolve.KindCtor:
 		if sig := sigOf(e.Type()); sig != nil {
-			return &core.CtorRef{Base: baseOf(e), Sym: e.Sym, TypeArgs: e.TypeArgs,
+			return &core.CtorRef{Base: baseOf(e), Sym: e.Sym,
 				Fields: l.ctorFields(e.Sym, sig.Ret)}
 		}
-		return &core.CtorApp{Base: baseOf(e), Ctor: e.Sym, Arity: 0, TypeArgs: e.TypeArgs}
+		return &core.CtorApp{Base: baseOf(e), Ctor: e.Sym, Arity: 0}
 	case resolve.KindMethod:
 		recv := l.atom(s, e.Recv)
 		return l.goFuncRefOrAdapter(e.Sp, e.Type(), e.Sym, recv, e.TypeArgs)
@@ -1047,7 +1047,7 @@ func (l *lowerer) directCall(s *seq, sp diag.Span, resTyp types.Type, callee che
 		}
 		return &core.CtorApp{
 			Sp: sp, Typ: resTyp,
-			Ctor: sym, TypeArgs: ci.TypeArgs,
+			Ctor: sym,
 			Args: ordered[:ci.Arity], Arity: ci.Arity,
 			Fields: l.ctorFields(sym, resTyp),
 		}
@@ -1442,7 +1442,7 @@ func (l *lowerer) partialCall(s *seq, sp diag.Span, resTyp types.Type, callee ch
 		case resolve.KindCtor:
 			return &core.CtorApp{
 				Sp: sp, Typ: retAfter(calleeSig, ci.Arity),
-				Ctor: sym, TypeArgs: ci.TypeArgs,
+				Ctor: sym,
 				Args: ordered[:ci.Arity], Arity: ci.Arity,
 				Fields: l.ctorFields(sym, retAfter(calleeSig, ci.Arity)),
 			}
@@ -1818,7 +1818,7 @@ func (l *lowerer) applyAtom(s *seq, sp diag.Span, resTyp types.Type, fn core.Ato
 		if len(args) == arity {
 			return &core.CtorApp{
 				Sp: sp, Typ: resTyp,
-				Ctor: f.Sym, TypeArgs: f.TypeArgs,
+				Ctor: f.Sym,
 				Args: args, Arity: arity,
 				Fields: f.Fields,
 			}
@@ -1830,7 +1830,7 @@ func (l *lowerer) applyAtom(s *seq, sp diag.Span, resTyp types.Type, fn core.Ato
 		return l.closureChainType(sp, resFunc(sigOf(f.Type()), len(args), f.Type()), func(bs *seq, pv []core.Atom) core.Expr {
 			return &core.CtorApp{
 				Sp: sp, Typ: retAfter(sigOf(f.Type()), arity),
-				Ctor: f.Sym, TypeArgs: f.TypeArgs,
+				Ctor:   f.Sym,
 				Args:   append(append([]core.Atom{}, args...), pv...),
 				Arity:  arity,
 				Fields: f.Fields,

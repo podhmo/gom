@@ -207,10 +207,9 @@ func (*CallBuiltin) isExpr() {}
 // constructor value is a CtorRef.
 type CtorApp struct {
 	Base
-	Ctor     *resolve.Symbol // KindCtor
-	TypeArgs []types.Type    // instantiation of the ADT's type parameters
-	Args     []Atom
-	Arity    int // the variant's declared payload count; len(Args) == Arity
+	Ctor  *resolve.Symbol // KindCtor
+	Args  []Atom
+	Arity int // the variant's declared payload count; len(Args) == Arity
 	// Fields are the variant's declared payload slots — their names
 	// and labels — so the variant literal emits `T_C{Name: v}` for
 	// constructors codegen has no declaration table for (sibling-

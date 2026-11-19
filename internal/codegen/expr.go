@@ -156,13 +156,9 @@ func (g *gen) fieldGet(a *core.FieldGet) ast.Expr {
 	}
 	var recv ast.Expr = g.atom(a.Recv)
 	if a.Ctor != nil {
-		var targs []types.Type
-		if con, ok := types.Chase(a.Recv.Type()).(*types.Con); ok {
-			targs = con.Args
-		}
 		recv = &ast.TypeAssertExpr{
 			X:    recv,
-			Type: g.ctorGoType(a.Ctor, a.Recv.Type(), targs),
+			Type: g.ctorGoType(a.Ctor, a.Recv.Type()),
 		}
 	}
 	return &ast.SelectorExpr{X: recv, Sel: ast.NewIdent(sel)}
@@ -182,7 +178,7 @@ func (g *gen) ctorRef(a *core.CtorRef) ast.Expr {
 	}
 	if isResultCon(fn.Ret) && !g.localT["Result"] {
 		x := ast.Expr(ast.NewIdent(g.pkgQual(resultPath) + exportName(a.Sym.Name)))
-		switch args := g.goTypeArgs(ctorTArgs(a.TypeArgs, fn.Ret)); len(args) {
+		switch args := g.goTypeArgs(ctorTArgs(fn.Ret)); len(args) {
 		case 0:
 			// No instantiation info — the bare generic name still
 			// resolves where the target type guides inference.
@@ -193,8 +189,8 @@ func (g *gen) ctorRef(a *core.CtorRef) ast.Expr {
 			return &ast.IndexListExpr{X: x, Indices: args}
 		}
 	}
-	params, args := g.variantParams(fn, a.TypeArgs)
-	lit := g.ctorLit(a.Sym, fn.Ret, a.TypeArgs, args, a.Fields)
+	params, args := g.variantParams(fn)
+	lit := g.ctorLit(a.Sym, fn.Ret, args, a.Fields)
 	// Canonical value representation: one func literal per
 	// parameter — `func(v0) func(v1) ... T { return T_C{...} }` —
 	// so a constructor reference has the same Go shape as every
@@ -223,7 +219,7 @@ func (g *gen) ctorRef(a *core.CtorRef) ast.Expr {
 // instantiated types come from the type's own parameter list — a
 // ctor's TypeArgs instantiate the ADT, and the params already carry
 // the substituted types when the resolver produced them.
-func (g *gen) variantParams(fn *types.Func, targs []types.Type) (params []*ast.Field, args []ast.Expr) {
+func (g *gen) variantParams(fn *types.Func) (params []*ast.Field, args []ast.Expr) {
 	params = make([]*ast.Field, 0, len(fn.Params))
 	args = make([]ast.Expr, 0, len(fn.Params))
 	for i, p := range fn.Params {
@@ -456,7 +452,7 @@ func (g *gen) ctorApp(e *core.CtorApp) ast.Expr {
 	if isResultCon(e.Type()) && !g.localT["Result"] {
 		name := g.pkgQual(resultPath) + exportName(e.Ctor.Name) // result.Ok / result.Err
 		fun := ast.Expr(ast.NewIdent(name))
-		args := g.goTypeArgs(ctorTArgs(e.TypeArgs, e.Type()))
+		args := g.goTypeArgs(ctorTArgs(e.Type()))
 		switch len(args) {
 		case 0:
 			// No instantiation anywhere — the bare name is better
@@ -469,16 +465,14 @@ func (g *gen) ctorApp(e *core.CtorApp) ast.Expr {
 		}
 		return &ast.CallExpr{Fun: fun, Args: g.atoms(e.Args)}
 	}
-	return g.ctorLit(e.Ctor, e.Type(), e.TypeArgs, g.atoms(e.Args), e.Fields)
+	return g.ctorLit(e.Ctor, e.Type(), g.atoms(e.Args), e.Fields)
 }
 
-// ctorTArgs returns a constructor's ADT instantiation: the node's
-// recorded TypeArgs, else the result type's own arguments — a
-// saturated application always lands on a Con.
-func ctorTArgs(targs []types.Type, ret types.Type) []types.Type {
-	if len(targs) > 0 {
-		return targs
-	}
+// ctorTArgs returns a constructor's ADT instantiation: the result
+// type's own arguments — a saturated application always lands on a
+// Con. CtorRef's function type resolves to the same Con through
+// resultCon's chase.
+func ctorTArgs(ret types.Type) []types.Type {
 	if c, ok := types.Chase(ret).(*types.Con); ok {
 		return c.Args
 	}
@@ -490,8 +484,8 @@ func ctorTArgs(targs []types.Type, ret types.Type) []types.Type {
 // slots use V0, V1, ... The node-carried fields win — they cover
 // constructors no file-local declaration table describes (sibling-
 // file and imported ADTs) — with g.ctors as the fallback.
-func (g *gen) ctorLit(sym *resolve.Symbol, typ types.Type, targs []types.Type, args []ast.Expr, fields []core.TField) ast.Expr {
-	t := g.ctorGoType(sym, typ, targs)
+func (g *gen) ctorLit(sym *resolve.Symbol, typ types.Type, args []ast.Expr, fields []core.TField) ast.Expr {
+	t := g.ctorGoType(sym, typ)
 	elts := make([]ast.Expr, 0, len(args))
 	if fields == nil {
 		if d, ok := g.ctors[sym]; ok {
@@ -511,7 +505,7 @@ func (g *gen) ctorLit(sym *resolve.Symbol, typ types.Type, targs []types.Type, a
 // ctorGoType renders the variant struct's type name —
 // `Shape_Circle`, `Shape_Circle[A]`, `option.Option_Some[A]` —
 // deriving the owning ADT from the node's result type.
-func (g *gen) ctorGoType(sym *resolve.Symbol, typ types.Type, targs []types.Type) ast.Expr {
+func (g *gen) ctorGoType(sym *resolve.Symbol, typ types.Type) ast.Expr {
 	typeName := ""
 	if d, ok := g.ctors[sym]; ok {
 		typeName = d.typeName
@@ -534,7 +528,7 @@ func (g *gen) ctorGoType(sym *resolve.Symbol, typ types.Type, targs []types.Type
 			x = ast.NewIdent(variant)
 		}
 	}
-	args := g.goTypeArgs(ctorTArgs(targs, typ))
+	args := g.goTypeArgs(ctorTArgs(typ))
 	switch len(args) {
 	case 0:
 		return x

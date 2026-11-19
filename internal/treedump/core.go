@@ -457,7 +457,7 @@ func (d *cdump) cexpr(e core.Expr) *form {
 		text := chead("funcref", e.Base) + " " + d.symRef(e.Sym)
 		return nodef(text + fmt.Sprintf(" arity=%d", e.Arity) + targs(e.TypeArgs))
 	case *core.CtorRef:
-		return nodef(chead("ctorref", e.Base) + " " + d.symRef(e.Sym) + targs(e.TypeArgs))
+		return nodef(chead("ctorref", e.Base) + " " + d.symRef(e.Sym))
 	case *core.GoFuncRef:
 		text := chead("gofuncref", e.Base) + " " + d.symRef(e.Sym)
 		text += fmt.Sprintf(" arity=%d results=%s", e.Arity, e.Results) + targs(e.TypeArgs)
@@ -584,7 +584,7 @@ func (d *cdump) cexpr(e core.Expr) *form {
 		return nodef(text, d.catoms(e.Args)...)
 	case *core.CtorApp:
 		text := chead("ctorapp", e.Base) + " " + d.symRef(e.Ctor)
-		return nodef(text+fmt.Sprintf(" arity=%d", e.Arity)+targs(e.TypeArgs), d.catoms(e.Args)...)
+		return nodef(text+fmt.Sprintf(" arity=%d", e.Arity), d.catoms(e.Args)...)
 	case *core.TailCall:
 		text := chead("tailcall", e.Base) + " to=" + d.toLabel(e.To)
 		if len(e.Prepend) > 0 {
