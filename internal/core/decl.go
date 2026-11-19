@@ -277,4 +277,9 @@ type UnitScope struct {
 type UnitDecl struct {
 	Sym      *resolve.Symbol
 	Exported bool
+	// Entry marks a sibling `fn main () -> Unit` in `package main`
+	// — the package's entry point. Codegen keeps its emitted name
+	// `main` (it emits `func main()` by contract) instead of the
+	// reserved-name escape other `main`/`init` declarations take.
+	Entry bool
 }

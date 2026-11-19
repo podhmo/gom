@@ -88,7 +88,7 @@ func apply2(f func(int64) int64) int64 {
 }
 
 //line t.gom:13
-func main(u struct{}, jobs chan int64) struct{} {
+func main_(u struct{}, jobs chan int64) struct{} {
 //line t.gom:8
 	_ = func(a int64) func(int64) int64 {
 //line t.gom:8

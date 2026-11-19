@@ -67,6 +67,11 @@ type gen struct {
 	// lowering flagged Exported (spec section 5): they emit
 	// capitalized identifiers where private decls stay camelCase.
 	exported map[*resolve.Symbol]bool
+	// entry is the unit's entry-point symbols — `fn main () -> Unit`
+	// in `package main`, from the file's own FuncDecls and from
+	// sibling UnitDecls: they keep the emitted name `main` while
+	// every other `main`/`init` package decl escapes (pkgReserved).
+	entry map[*resolve.Symbol]bool
 
 	// selfPath is the file's own Go import path (core.File's
 	// SelfImportPath): references into it emit bare identifiers
@@ -125,6 +130,7 @@ func newGen(li *diag.LineIndex) *gen {
 		ctors:         map[*resolve.Symbol]*ctorDecl{},
 		localT:        map[string]bool{},
 		exported:      map[*resolve.Symbol]bool{},
+		entry:         map[*resolve.Symbol]bool{},
 	}
 }
 
@@ -148,6 +154,9 @@ func (g *gen) indexDecls(f *core.File) {
 			if d.Sym != nil && d.Exported {
 				g.exported[d.Sym] = true
 			}
+			if d.Sym != nil && d.IsEntry {
+				g.entry[d.Sym] = true
+			}
 		case *core.VarDecl:
 			if d.Sym != nil && d.Exported {
 				g.exported[d.Sym] = true
@@ -165,6 +174,9 @@ func (g *gen) indexDecls(f *core.File) {
 		for _, d := range u.Decls {
 			if d.Sym != nil && d.Exported {
 				g.exported[d.Sym] = true
+			}
+			if d.Sym != nil && d.Entry {
+				g.entry[d.Sym] = true
 			}
 		}
 	}
@@ -296,9 +308,15 @@ func (g *gen) symName(sym *resolve.Symbol) string {
 // VarDecl name. Only other package names block: a same-named binder
 // is mangled instead (bindSymName), and even without mangling the
 // decl could not be referenced inside the binder's scope anyway
-// (Gom shadowing).
+// (Gom shadowing). A decl colliding with a pkgReserved name —
+// `init` or `main` — escapes with `_` unless it is the unit's
+// entry point, which emits `func main()` by contract.
 func (g *gen) declSymName(sym *resolve.Symbol) string {
-	return g.claim(sym, g.pused, g.pused)
+	base := g.declBase(sym)
+	if pkgReserved[base] && !g.entry[sym] {
+		base += "_"
+	}
+	return g.claimBase(sym, base, g.pused, g.pused)
 }
 
 // bindSymName resolves a binder inside the declaration being
@@ -328,10 +346,16 @@ func (g *gen) declBase(sym *resolve.Symbol) string {
 // candidate not taken in any blocks set and registering it in mark
 // and in the file-wide used set.
 func (g *gen) claim(sym *resolve.Symbol, mark map[string]bool, blocks ...map[string]bool) string {
+	return g.claimBase(sym, g.declBase(sym), mark, blocks...)
+}
+
+// claimBase is claim with a caller-chosen base — declSymName needs
+// it for the pkgReserved escape, which must not leak into the sort
+// key and binder stems declBase serves elsewhere.
+func (g *gen) claimBase(sym *resolve.Symbol, base string, mark map[string]bool, blocks ...map[string]bool) string {
 	if n, ok := g.names[sym]; ok {
 		return n
 	}
-	base := g.declBase(sym)
 	n := base
 outer:
 	for i := 1; ; i++ {

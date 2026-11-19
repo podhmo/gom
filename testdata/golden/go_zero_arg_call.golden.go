@@ -9,7 +9,7 @@ import (
 )
 
 //line go_zero_arg_call.gom:6
-func main(_ struct{}) struct{} {
+func main_(_ struct{}) struct{} {
 //line go_zero_arg_call.gom:7
 	v, err := fmt.Print()
 //line go_zero_arg_call.gom:7

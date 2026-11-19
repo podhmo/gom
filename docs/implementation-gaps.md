@@ -1618,7 +1618,7 @@
   [fixture](../testdata/spec/ok_fn_body_field_write.gom)、
   [decision](decisions/2026-11-19-ptr-meta-defer.md)。
 
-- [ ] **トップレベル `let`/`fn` の束縛名が Go の予約関数名と衝突する**:
+- [x] **トップレベル `let`/`fn` の束縛名が Go の予約関数名と衝突する**:
   `let init : Ptr goiface.WithFn -> Unit = fn w -> { ... }` は gom 側の
   型検査を通るが、生成コードがそのまま `func init(w ...)` を吐き、
   `go build` が "func init must have no arguments and no return
@@ -1630,3 +1630,8 @@
   はこの衝突を避けるため束縛名を `initw` に退避させた検証 fixture で、
   生成コードの失敗そのものは再現しない。参照:
   [codegen](../internal/codegen/)。
+  対応（wave27 lane A）: codegen の pkgReserved 退避を採用 — `init`/
+  `main` は package-scope 宣言で `_` 接尾辞にマングルし、参照は同一
+  シンボル解決で揃う。エントリ `fn main () -> Unit` は `func main()`
+  を維持（UnitDecl.Entry）。検証: [golden](../testdata/golden/reserved_names.gom)、
+  [decision](decisions/2026-11-19-reserved-name-escape.md)。

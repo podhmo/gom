@@ -47,6 +47,16 @@ var genReserved = map[string]bool{
 	"t": true,
 }
 
+// pkgReserved are Go names a package-level declaration may not keep:
+// `init` is a special package-init slot in *every* package (a decl
+// named init either fails to build or silently runs at import), and
+// `main` in `package main` belongs to the entry point alone. A
+// non-entry decl escapes with `_` (the spec section 5 keyword rule);
+// the entry `fn main () -> Unit` keeps `main` — it emits
+// `func main()` by contract. Binders are unaffected: a local `init`
+// is legal Go.
+var pkgReserved = map[string]bool{"init": true, "main": true}
+
 // valueName renders a Gom value name as a Go identifier in the case
 // it was written: `use_answer` → `useAnswer`, `area` → `area`. The
 // rule is core.ValueName — shared with the .gomi conformance check.

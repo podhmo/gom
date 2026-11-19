@@ -210,6 +210,7 @@
 | [noncons-accum-policy](2026-11-19-noncons-accum-policy.md) | 非 cons 蓄積 quadratic の救済方針: β 誘導 + γ 警告 lint、α/δ は先送り | adopted（podhmo 採択 2026-11-19 —「検出の実装を実験してみるというのはあっても良いかもな。warningとか出ると良い。迂闊でもマシになるコードを目指したい」「コンパイル時じゃなくても良い。vet的なものでも良い」「実装が手軽な方で良い。実装箇所に制限は設けない」「α は今は未対応で良いかな」） |
 | [ptr-meta-defer](2026-11-19-ptr-meta-defer.md) | メンバー選択の遅延を「受け手に未解決メタを含む型」まで拡張（`Ptr ?m`） | adopted |
 | [ref-members](2026-11-19-ref-members.md) | `Ref a` のメンバー面: `Ref.new`/`get`/`set`（rt-backed builtin module） | 採用 |
+| [reserved-name-escape](2026-11-19-reserved-name-escape.md) | トップレベル宣言の `init`/`main` 予約名は codegen で `_` 退避 | adopted |
 | [stdlib-cmp-module](2026-11-19-stdlib-cmp-module.md) | stdlib に Eq/Ord 辞書を取る cmp モジュールを追加する | adopted |
 | [struct-construction-options](2026-11-19-struct-construction-options.md) | Go struct 構築機構の選択肢の固定（採否は未決） | draft（採否は部分決着: (b) 採用・(a) 先延ばし — |
 | [struct-field-write](2026-11-19-struct-field-write.md) | Go struct の構築は `Ptr` 経由の field 書き込みを採用（composite literal は先延ばし） | adopted |
