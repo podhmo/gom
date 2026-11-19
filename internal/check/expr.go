@@ -703,6 +703,12 @@ func (c *checker) revisitSelects() {
 				// The selection failed; the member's standing meta — nothing
 				// bound it — must not pile an E0407 on the E0401.
 				c.markQuiet(me.Type())
+				// The standing meta may already be bound (`let f =
+				// x.M; f args` — markQuiet only flags the meta itself,
+				// it does not re-propagate into an existing solution):
+				// quiet what the solution holds too, or the shape a
+				// dead call pinned on it leaks E0407s.
+				metasIn(me.Type(), func(m *types.Meta) { c.markQuiet(m) })
 				// Deferred writes and calls waiting on this member are
 				// dead too: their provisional checks ran with no want,
 				// so their diagnostics and minted metas are debris that
@@ -797,13 +803,22 @@ func (c *checker) dropDeferredOn(me *MemberExpr, doneAssigns map[*assignTarget]b
 			c.rollbackFill(pa)
 		}
 		c.quietMetasIn(pa.Assign.Value.Span())
+		metasIn(pa.Assign.Value.Type(), func(m *types.Meta) { c.markQuiet(m) })
 	}
 	for _, pa := range c.pendingApplies {
 		if pa.me != me || pa.done {
 			continue
 		}
 		pa.done = true
+		// Span-based quieting misses metas the call supplies from
+		// outside its own span — a lambda's shared param/return type
+		// is minted inside the lambda, referenced through the arg's
+		// type. Walk the types as well.
 		c.quietMetasIn(pa.ap.Span())
+		metasIn(pa.ap.Type(), func(m *types.Meta) { c.markQuiet(m) })
+		for _, a := range pa.ap.Args {
+			metasIn(a.Value.Type(), func(m *types.Meta) { c.markQuiet(m) })
+		}
 	}
 }
 

@@ -1,0 +1,27 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "Int has no field or method `M`",
+      "span": {
+        "file": "E0401_missing_member_call.gom",
+        "start": {
+          "line": 10,
+          "col": 15,
+          "offset": 397
+        },
+        "end": {
+          "line": 10,
+          "col": 16,
+          "offset": 398
+        }
+      },
+      "data": {
+        "member": "M",
+        "type": "Int"
+      }
+    }
+  ]
+}
