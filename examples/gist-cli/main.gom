@@ -147,9 +147,12 @@ fn run (cfg: Config) -> Result String String = {
           headers.Set ("Content-Type", "application/json")
           headers.Set ("Authorization", fmt.Sprintf ("Bearer %s", token))
           headers.Set ("X-GitHub-Api-Version", "2026-03-10")
-          let client : Ptr http.Client = Ptr.new ()
-          client.Timeout = 30 * time.Second
-          client.CheckRedirect = Go.func2 (fn _req _via -> Err http.ErrUseLastResponse)
+          let client : Ptr http.Client = {
+            let c : Ptr http.Client = Ptr.new ()
+            c.Timeout = 30 * time.Second
+            c.CheckRedirect = Go.func2 (fn _req _via -> Err http.ErrUseLastResponse)
+            c
+          }
           let response = try text_error (client.Do request)
           let status = response.StatusCode
           let response_body = try text_error (read_response response)
