@@ -1216,33 +1216,47 @@ type metaEntry struct {
 }
 
 func (c *checker) finalize() {
-	ms := make([]metaEntry, 0, len(c.metas))
-	for m, r := range c.metas {
-		ms = append(ms, metaEntry{m, r})
-	}
-	sortEntries(ms)
-
-	// First pass: defaults. Binding one may chase-solve others. A
-	// default that violates the meta's own constraints (a `%` operand
-	// defaulting to Float) still binds — satisfies already reported
-	// the constraint failure once, and an unbound leftover would only
-	// add a redundant E0407.
-	for _, e := range ms {
-		if e.m.Bound() {
-			continue
-		}
-		if d := defaultOf(e.r); d != nil {
-			c.satisfies(e.r, d, c.pos(e.r.span))
-			e.m.Bind(d)
-		}
-	}
+	// First pass: defaults, interleaved with the deferred-selection
+	// retry. Binding one may chase-solve others. A default that
+	// violates the meta's own constraints (a `%` operand defaulting
+	// to Float) still binds — satisfies already reported the
+	// constraint failure once, and an unbound leftover would only add
+	// a redundant E0407.
+	//
 	// With the defaults bound, member selections deferred on an
-	// unknown receiver type can retry: `0.f` now sees the literal's
-	// Int. The retry may mint metas (an instantiated method
-	// signature), so rebuild the table for the reporting pass — the
-	// new entries carry no defaults, so the default pass need not
-	// run again.
-	c.revisitSelects()
+	// unknown receiver type can retry: `0.f` sees the literal's Int.
+	// The retry itself mints metas — an instantiated method
+	// signature, and now also a deferred field-write RHS checked
+	// only at revisit time (a literal inside it needs its own Int
+	// default) — so the pair repeats until a round binds nothing:
+	// each round's defaults can enable the next round's resolutions.
+	var ms []metaEntry
+	for {
+		bound := 0
+		ms = ms[:0]
+		for m, r := range c.metas {
+			ms = append(ms, metaEntry{m, r})
+		}
+		sortEntries(ms)
+		for _, e := range ms {
+			if e.m.Bound() {
+				continue
+			}
+			if d := defaultOf(e.r); d != nil {
+				c.satisfies(e.r, d, c.pos(e.r.span))
+				e.m.Bind(d)
+				bound++
+			}
+		}
+		c.revisitSelects()
+		if bound == 0 {
+			break
+		}
+	}
+	// Field writes deferred on a receiver that never settled get
+	// their RHS checked once — the member's own diagnostic covers
+	// the failure, the node just needs to be complete.
+	c.finishAssigns()
 	c.revisitInterfaces()
 	// The same post-default moment settles the pending constant-zero
 	// divisors: their operand types are now concrete (or bound to a

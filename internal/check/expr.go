@@ -139,17 +139,21 @@ func (c *checker) checkAssign(e *syntax.Assign) Expr {
 		return unit()
 	}
 	if me.Sym == nil && me.GoFieldType == nil {
-		if _, isMeta := types.Chase(me.Recv.Type()).(*types.Meta); isMeta {
-			// The selection deferred on the receiver meta (pendingSels);
+		if hasUnsolvedMeta(me.Recv.Type()) {
+			// The selection deferred on the receiver's unsolved meta
+			// (pendingSels) — a bare `?m` or a shape like `Ptr ?m`;
 			// admit the write provisionally — revisitSelects validates
 			// the shape and completes Sym once the member resolves.
+			// The RHS is checked then too, not here: its want is the
+			// member's standing meta, so checking eagerly would leave
+			// `Go.funcN` conversions and inline lambdas blind to the
+			// field's real signature.
 			fa := &FieldAssign{
-				Base:  baseOf(e.Sp, c.unitResult(e.Sp, "field assignment")),
-				Recv:  me.Recv,
-				Sel:   sel.Sel,
-				Value: c.checkExpr(e.Value, me.Type()),
+				Base: baseOf(e.Sp, c.unitResult(e.Sp, "field assignment")),
+				Recv: me.Recv,
+				Sel:  sel.Sel,
 			}
-			c.pendingAssigns = append(c.pendingAssigns, &assignTarget{Sel: sel, Member: me, Assign: fa})
+			c.pendingAssigns = append(c.pendingAssigns, &assignTarget{Sel: sel, Member: me, Assign: fa, ValueSyn: e.Value})
 			return fa
 		}
 	}
@@ -173,9 +177,10 @@ func (c *checker) checkAssign(e *syntax.Assign) Expr {
 // selection its target checked — revisitSelects validates the
 // resolved shape and completes the FieldAssign's Sym/GoFieldType.
 type assignTarget struct {
-	Sel    *syntax.Select
-	Member *MemberExpr
-	Assign *FieldAssign
+	Sel      *syntax.Select
+	Member   *MemberExpr
+	Assign   *FieldAssign
+	ValueSyn syntax.Expr // the surface RHS — checked at revisit under the resolved member's want
 }
 
 // assignShapeDiag validates the resolved shape of a `ptr.Field = v`
@@ -531,17 +536,22 @@ func (c *checker) checkSelect(e *syntax.Select) Expr {
 			return &MemberExpr{Base: baseOf(e.Sp, typ), Recv: recv, Sel: e.Sel, Sym: msym, Index: -1, TypeArgs: mtargs}
 		}
 	}
-	if _, ok := types.Chase(recv.Type()).(*types.Meta); ok {
-		// The receiver's type is still unknown. The node keeps a
-		// meta type; Index stays -1 — and the selection is deferred:
-		// finalize retries the lookup once the receiver's meta has
-		// bound (`0.f` waits for the literal's Int default). When the
-		// receiver's own meta is quiet (an unresolved name), the
-		// member's is too.
+	if hasUnsolvedMeta(recv.Type()) {
+		// The receiver's type is still unknown — either a bare meta
+		// or a shape like `Ptr ?m` whose member set cannot be read
+		// until the inner meta binds (a `let x = Ptr.new ()` handle
+		// later pinned by its use). The node keeps a meta type;
+		// Index stays -1 — and the selection is deferred: finalize
+		// retries the lookup once the receiver's metas have bound
+		// (`0.f` waits for the literal's Int default). When an
+		// unsolved meta inside the receiver is quiet (a recovery
+		// artifact), the member's is too.
 		mt := c.newMeta(e.Sp, fmt.Sprintf("the type of `.%s`", selName))
-		if c.isQuiet(recv.Type()) {
-			c.markQuiet(mt)
-		}
+		metasIn(recv.Type(), func(m *types.Meta) {
+			if c.recOf(m).quiet {
+				c.markQuiet(mt)
+			}
+		})
 		me := &MemberExpr{Base: baseOf(e.Sp, mt), Recv: recv, Sel: e.Sel, Sym: sel, Index: -1}
 		c.pendingSels = append(c.pendingSels, me)
 		return me
@@ -600,15 +610,31 @@ func (c *checker) revisitSelects() {
 	// an earlier `r.Year` receiver — must still get its pass, so the
 	// loop repeats while any member newly resolved. Registration
 	// order decides only the diagnostic order, never the outcome.
-	done := map[*MemberExpr]bool{}
+	// The done marks live on the checker: finalize may call this once
+	// per defaults round, and an entry processed in an earlier round
+	// must not re-resolve (duplicate E0401) or re-check its RHS.
+	if c.selDone == nil {
+		c.selDone = map[*MemberExpr]bool{}
+	}
+	done := c.selDone
+	// Field assignments deferred on a pending selection run inside
+	// the same fixpoint: completing one checks its RHS, which may
+	// itself register deferred selections for the next pass.
+	if c.assignDone == nil {
+		c.assignDone = map[*assignTarget]bool{}
+	}
+	doneAssigns := c.assignDone
 	for progress := true; progress; {
 		progress = false
-		for _, me := range c.pendingSels {
+		// Index-driven: selections a revisited RHS registers mid-pass
+		// are visible to the next iteration.
+		for i := 0; i < len(c.pendingSels); i++ {
+			me := c.pendingSels[i]
 			if done[me] {
 				continue
 			}
 			rt := types.Chase(me.Recv.Type())
-			if _, ok := rt.(*types.Meta); ok {
+			if hasUnsolvedMeta(rt) {
 				continue
 			}
 			done[me] = true
@@ -653,27 +679,46 @@ func (c *checker) revisitSelects() {
 			// resolve on the next pass.
 			c.replayAppliesOf(me)
 		}
+		// Deferred field assignments validate their resolved shape
+		// and check the RHS under the member's real signature — a
+		// `Go.funcN` conversion or inline lambda sees the field's
+		// `Go.FuncN` want exactly as an eagerly checked write would.
+		for _, pa := range c.pendingAssigns {
+			if doneAssigns[pa] || hasUnsolvedMeta(pa.Member.Recv.Type()) {
+				continue
+			}
+			doneAssigns[pa] = true
+			progress = true
+			me := pa.Member
+			if d := c.assignShapeDiag(pa.Sel, me); d != nil {
+				c.diags.Add(*d)
+				pa.Assign.Value = c.checkExpr(pa.ValueSyn, nil)
+				continue
+			}
+			pa.Assign.Sym = me.Sym
+			pa.Assign.GoFieldType = me.GoFieldType
+			pa.Assign.Value = c.checkExpr(pa.ValueSyn, me.Type())
+		}
 	}
 	// Applications whose member never resolved still need a final
 	// CallInfo: they replay under the Gom convention so the
 	// diagnostics the first pass withheld (a `_`, a label on an
 	// unknown callee) fire and lowering sees a valid record.
 	c.replayDeferredApplies()
+}
 
-	// Field assignments deferred on a pending selection validate
-	// their resolved shape now; a member still dangling on a meta
-	// already carries its own E0401/E0407.
+// finishAssigns completes the field assignments whose receiver never
+// settled — finalize runs it once after the last defaults round.
+// The member's own E0401/E0407 already covers the failure; the RHS
+// still needs a checked node for lowering, and the dead member meta
+// is no want: feeding it would only leak an E0407 onto an innocent
+// literal.
+func (c *checker) finishAssigns() {
 	for _, pa := range c.pendingAssigns {
-		me := pa.Member
-		if _, isMeta := types.Chase(me.Recv.Type()).(*types.Meta); isMeta {
+		if c.assignDone[pa] || pa.Assign.Value != nil {
 			continue
 		}
-		if d := c.assignShapeDiag(pa.Sel, me); d != nil {
-			c.diags.Add(*d)
-			continue
-		}
-		pa.Assign.Sym = me.Sym
-		pa.Assign.GoFieldType = me.GoFieldType
+		pa.Assign.Value = c.checkExpr(pa.ValueSyn, nil)
 	}
 }
 

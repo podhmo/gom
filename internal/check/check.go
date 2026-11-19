@@ -195,6 +195,11 @@ type checker struct {
 	// once the receiver is known (or asks for its annotation).
 	pendingSels []*MemberExpr
 
+	// selDone marks the deferred selections already resolved (or
+	// failed) — revisitSelects runs once per finalize round, so the
+	// mark lives on the checker, not the call.
+	selDone map[*MemberExpr]bool
+
 	// pendingApplies are applications whose callee is one of the
 	// deferred member selections above: `x.M(args)` cannot pick the
 	// calling convention (curried Gom vs Go tuple) until `.M`'s
@@ -209,6 +214,10 @@ type checker struct {
 	// resolved shape (or rejects it with E0511) once the member
 	// settles.
 	pendingAssigns []*assignTarget
+
+	// assignDone marks the deferred field assignments already
+	// completed — same multi-round revisit lifetime as selDone.
+	assignDone map[*assignTarget]bool
 
 	// pendingIfaces keep numeric and selector inference independent of interface assignment.
 	pendingIfaces []*Ascribe
@@ -982,6 +991,16 @@ func metasIn(t types.Type, fn func(*types.Meta)) {
 		}
 	}
 	walk(t)
+}
+
+// hasUnsolvedMeta reports whether t's chased form still contains an
+// unbound meta anywhere — the deferral test for member selections
+// and field writes whose receiver's shape is known but not yet
+// concrete (`Ptr ?m` waits for the use site to pin `?m`).
+func hasUnsolvedMeta(t types.Type) bool {
+	found := false
+	metasIn(t, func(*types.Meta) { found = true })
+	return found
 }
 
 // isValue reports whether x is a syntactic value per the value

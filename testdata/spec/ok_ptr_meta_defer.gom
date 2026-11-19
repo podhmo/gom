@@ -1,0 +1,22 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// A field write through a `Ptr ?m` defers the member lookup until
+// the use site pins `?m` — the inner binding needs no annotation
+// (spec 8.3; `let x = Ptr.new ()` under an outer want).
+fn client () -> Ptr goiface.SliceBox = {
+  let b = Ptr.new ()
+  b.N = 7
+  b.Xs = [1, 2]
+  b
+}
+
+// The write's RHS checks under the resolved member's signature, so
+// a `Go.funcN` conversion sees the field's `Go.FuncN` want even when
+// the receiver bound late.
+fn withfn () -> Ptr goiface.WithFn = {
+  let w = Ptr.new ()
+  w.Fn = Go.func1 (fn x -> x + 1)
+  w
+}
