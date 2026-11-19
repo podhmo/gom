@@ -832,6 +832,24 @@ expected one on raw views; a mismatch there is E0401.`,
 	},
 
 	{
+		Code:     "E0511",
+		Severity: SeverityError,
+		Title:    "invalid field assignment target",
+		Phase:    PhaseCheck,
+		Spec:     "8.3",
+		Explanation: `Field assignment "ptr.Field = v" is legal only for an
+exported field of a "Ptr T" handle where T is a named Go struct
+(spec section 8.3) — the write lands on the pointed-to struct. Every
+other shape is rejected: a bare variable, a record or Ref field, an
+unexported Go field, a package member, or a field reached through a
+non-pointer receiver — a write to a value copy would silently drop
+the effect.`,
+		Example: `let b : Ptr SliceBox = Ptr.new ()
+b.N = 5   // ok — N is an exported field of SliceBox
+b = other // E0511 — the target must be ptr.Field`,
+	},
+
+	{
 		Code:     "E0601",
 		Severity: SeverityError,
 		Title:    "missing .gomi interface file",
