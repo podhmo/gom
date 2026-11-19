@@ -56,6 +56,10 @@ type WithFloat struct {
 // CallF invokes the stored float callback.
 func (w *WithFloat) CallF(x float64) float64 { return w.F(x) }
 
+// Rep returns a slice — the iterable-result member call (`Go.Slice
+// Int`) a `for` deferred on a meta receiver consumes.
+func (w *WithFloat) Rep(n int64) []int64 { return nil }
+
 // Call invokes the stored callback.
 func (w *WithFn) Call() int64 { return w.Fn(1) }
 

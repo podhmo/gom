@@ -219,6 +219,15 @@ type checker struct {
 	// completed — same multi-round revisit lifetime as selDone.
 	assignDone map[*assignTarget]bool
 
+	// pendingIters are `for` loops whose iterable's type waits on a
+	// deferred member or call — `for v in f a` where `f` is an alias
+	// of a member that has not resolved. Binding `List elem` at
+	// check time would pin the pending result meta before the
+	// member's real signature (View, Slice, channel) arrives, so the
+	// element meta is minted provisionally and finishIters
+	// reconciles it once the iterable settles at finalize.
+	pendingIters []*pendingIter
+
 	// pendingIfaces keep numeric and selector inference independent of interface assignment.
 	pendingIfaces []*Ascribe
 
