@@ -1,0 +1,15 @@
+package ex
+
+// A `lhs = rhs` statement whose target is not a `ptr.Field`
+// selection reports E0511 and is dead work: the discarded RHS
+// check's metas go quiet, so the dead write reports only the
+// shape error and the target's own diagnostics — not an E0407
+// for the `[]` element type nobody can give.
+
+type Rec = { x: Int }
+
+fn main () -> Unit = {
+  let p = Ref.new { x = 1 }
+  Ref.get p.Nope = []
+  ()
+}

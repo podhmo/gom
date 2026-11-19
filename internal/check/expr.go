@@ -127,6 +127,10 @@ func (c *checker) checkAssign(e *syntax.Assign) Expr {
 			At(e.Target.Span()))
 		c.checkExpr(e.Target, nil)
 		c.checkExpr(e.Value, nil)
+		// The write is dead — metas the discarded RHS check minted
+		// (an untyped `[]`, a bare lambda param) are debris that would
+		// only pile an E0407 onto the E0511.
+		c.quietMetasIn(e.Value.Span())
 		return unit()
 	}
 	t := c.checkExpr(sel, nil)
@@ -136,6 +140,7 @@ func (c *checker) checkAssign(e *syntax.Assign) Expr {
 			"the assignment target must be an exported field of a `Ptr T` where T is a named Go struct").
 			At(sel.Sp))
 		c.checkExpr(e.Value, nil)
+		c.quietMetasIn(e.Value.Span())
 		return unit()
 	}
 	if me.Sym == nil && me.GoFieldType == nil {
@@ -165,6 +170,7 @@ func (c *checker) checkAssign(e *syntax.Assign) Expr {
 	if d := c.assignShapeDiag(sel, me); d != nil {
 		c.diags.Add(*d)
 		c.checkExpr(e.Value, nil)
+		c.quietMetasIn(e.Value.Span())
 		return unit()
 	}
 	v := c.checkExpr(e.Value, me.Type())
