@@ -283,40 +283,46 @@ func (c *checker) checkGomApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol
 				return out
 			}
 		}
-		// `m ()` where `m` stands on a deferred member's standing
-		// meta — `let m = x.Error` — cannot pick the unit
-		// literal's meaning yet: a `-> T` member reads it as the
+		// `m args` where `m` stands on a deferred member's standing
+		// meta — `let m = x.Error` — cannot pick a calling
+		// convention yet: a `-> T` member reads `m ()` as the
 		// zero-argument call marker, a `Unit -> T` member as the
-		// parameter, and binding `Unit -> ?r` now would replay
+		// parameter, and any argument list may be the curried Gom
+		// form or the tuple-shaped call of a Go method. Binding
+		// `Unit -> ?r` (or the arg tuple's shape) now would replay
 		// into `expected Unit -> ?r, got String` (or emit
-		// `m(struct{}{})` over a `func() string`). Defer the
+		// `m(struct{}{})` over a `func() string`) — and the eager
+		// binding leaks the metas it mints into the member's
+		// solution when the member turns out missing. Defer the
 		// application to the member's replay the way `x.M ()`
 		// itself waits.
-		if lit, ok := e.Args[0].Value.(*syntax.Lit); ok && lit.Kind == syntax.LitUnit {
-			if m, ok := types.Chase(fn.Type()).(*types.Meta); ok {
-				for _, me := range c.pendingSels {
-					if types.Chase(me.Type()) != m {
-						continue
-					}
-					pa := &pendingApply{me: me, alwaysGom: true}
-					out.Base = baseOf(e.Sp, c.newMeta(e.Sp, "the deferred call's result"))
-					pa.ap = out
-					for _, a := range e.Args {
-						label := ""
-						var labelSp diag.Span
-						if a.Label != nil {
-							label = a.Label.Name
-							labelSp = a.Label.Sp
-						}
-						out.Args = append(out.Args, Arg{
-							Label: label, LabelSp: labelSp,
-							Value: c.provisionalArg(a.Value, pa),
-						})
-					}
-					out.Call = CallInfo{Kind: CallUnknown, Applied: len(out.Args), HoleIndex: -1}
-					c.pendingApplies = append(c.pendingApplies, pa)
-					return out
+		if m, ok := types.Chase(fn.Type()).(*types.Meta); ok {
+			for _, me := range c.pendingSels {
+				if types.Chase(me.Type()) != m {
+					continue
 				}
+				// `m ()` keeps the Gom reading of the unit literal
+				// (alwaysGom); other arg lists replay by whatever
+				// kind the member settles to.
+				lit, isLit := e.Args[0].Value.(*syntax.Lit)
+				pa := &pendingApply{me: me, alwaysGom: isLit && lit.Kind == syntax.LitUnit}
+				out.Base = baseOf(e.Sp, c.newMeta(e.Sp, "the deferred call's result"))
+				pa.ap = out
+				for _, a := range e.Args {
+					label := ""
+					var labelSp diag.Span
+					if a.Label != nil {
+						label = a.Label.Name
+						labelSp = a.Label.Sp
+					}
+					out.Args = append(out.Args, Arg{
+						Label: label, LabelSp: labelSp,
+						Value: c.provisionalArg(a.Value, pa),
+					})
+				}
+				out.Call = CallInfo{Kind: CallUnknown, Applied: len(out.Args), HoleIndex: -1}
+				c.pendingApplies = append(c.pendingApplies, pa)
+				return out
 			}
 		}
 	}

@@ -1,14 +1,27 @@
 package ex
 
-// A member that fails to resolve must not leave the standing meta's
-// bound solution noisy: `f` aliased `x.M` and its call pinned
-// `?M -> ?r` shapes on it — the lambda's shared return meta is part
-// of that solution, so without solution-wide quieting the failure
-// reports a bogus "annotation required" (E0407) next to the E0401.
+// A var-bound call of a member that fails to resolve defers like
+// the member call itself: `f` aliases `x.M`, so `f (fn y -> y)`
+// waits in pendingApplies — when `.M` fails, the drop quiets metas
+// minted inside the dead call (the lambda's shared return type) and
+// reports the E0401 alone instead of a bogus annotation request.
 fn f () -> Unit = {
   (fn x -> {
     let f = x.M
     f (fn y -> y)
+    ()
+  }) 0
+}
+
+// The quiet is scoped to metas minted inside the dead call: `g`'s
+// lambda type is shared from outside, so its own "annotation
+// required" (E0407) must still report — only the member's E0401
+// and `g`'s own undetermined type appear.
+fn g () -> Unit = {
+  (fn x -> {
+    let f = x.M
+    let g = (fn y -> y)
+    f g
     ()
   }) 0
 }
