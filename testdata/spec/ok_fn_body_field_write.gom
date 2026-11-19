@@ -9,6 +9,9 @@ import go "github.com/podhmo/gom/testdata/goiface"
 // revisit, and the `Go.funcN` RHS checks under the field's
 // `Go.FuncN` signature — no inner annotations needed (the
 // implementation-gaps "fn 本体の期待型伝播" case).
+// `initw` dodges the reserved-name collision: a top-level `init`
+// or `main` binding would emit `func init(w ...)` that `go build`
+// rejects — see the "束縛名が Go の予約関数名と衝突する" gap.
 let initw : Ptr goiface.WithFn -> Unit = fn w -> {
   w.Fn = Go.func1 (fn x -> x + 1)
   ()
