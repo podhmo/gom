@@ -937,6 +937,9 @@ type pendingApply struct {
 	// dropped marks an apply abandoned as dead work when its member
 	// failed — distinct from done, which replay also sets on success.
 	dropped bool
+	// failed marks an apply whose replay emitted diagnostics — its
+	// result meta is error debris, not a live type.
+	failed bool
 
 	// alwaysGom forces the Gom replay even when the member settles
 	// to a Go method: the apply's callee is a plain value (a Var
@@ -1103,6 +1106,7 @@ func (c *checker) replayApply(pa *pendingApply) {
 		return
 	}
 	pa.done = true
+	diagMark := len(c.diags)
 	// The Go method replay builds a CallGo naming the member's
 	// receiver — it applies only when the callee *is* the member
 	// (`x.M(args)`). A variable or call result standing on the
@@ -1111,9 +1115,10 @@ func (c *checker) replayApply(pa *pendingApply) {
 	// Go method (the callee's signature already holds the arity).
 	if me := pa.me; !pa.alwaysGom && pa.ap.Fn == Expr(me) && me.Sym != nil && me.Sym.IsGo && me.Sym.Kind == resolve.KindMethod {
 		c.replayGoApply(pa)
-		return
+	} else {
+		c.replayGomApply(pa)
 	}
-	c.replayGomApply(pa)
+	pa.failed = len(c.diags) > diagMark
 }
 
 // replayGoApply is checkGoApply's second pass over an already-typed

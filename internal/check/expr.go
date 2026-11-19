@@ -2584,10 +2584,11 @@ func (c *checker) iterFailedOn(t *types.Meta) bool {
 		}
 	}
 	for _, q := range c.pendingApplies {
-		// Only applies dropped as dead work — a committed apply whose
-		// result is still an open meta is a live iterable, not a
-		// failure, and must still take the List default.
-		if q.dropped && types.Chase(q.ap.Type()) == types.Type(t) {
+		// Only applies dropped as dead work or whose replay failed —
+		// a committed apply whose result is still an open meta is a
+		// live iterable, not a failure, and must still take the
+		// List default.
+		if (q.dropped || q.failed) && types.Chase(q.ap.Type()) == types.Type(t) {
 			return true
 		}
 	}
