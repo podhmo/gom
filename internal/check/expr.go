@@ -2635,36 +2635,62 @@ func (c *checker) finishIters() {
 	c.pendingIters = nil
 }
 
-// unifySlicePair reconciles the List ↔ Go.Slice boundary pair — the
-// same runtime slice — by element unify. A deferred type (a member's
-// standing meta, a deferred call's result) can bind across the
-// boundary before its real type arrives: an argument slot expecting
-// `Go.Slice` pins the meta ahead of the member's `List`. Returns
-// true when the pair matched — a failed element unify already
-// reported itself.
-func (c *checker) unifySlicePair(want, got types.Type, sp diag.Span) bool {
+// unifySlicePair reconciles the List ↔ Go.Slice boundary pair —
+// same runtime slice — when a deferred type (a member's standing
+// meta, a deferred call's result) bound across it before its real
+// type arrived: an argument slot expecting `Go.Slice` pins the meta
+// ahead of the member's `List`. The return tells the caller what
+// the pair implied:
+//
+//	0 — not a List↔Go.Slice pair; unify normally
+//	1 — reconciled; no copy needed (the producer's view outranks
+//	    the pin, and the standard conv paths still see it)
+//	2 — reconciled, but the claimed side is `Go.Slice` while the
+//	    producer yields `List`: the value must still be copied, so
+//	    the caller records the declared type for lowering
+//
+// A `Go.Any` element never reconciles — the implicit copy only
+// boxes INTO `Go.Slice Go.Any` (sliceConv), so an `any` mismatch
+// falls back to the ordinary unify's diagnostic.
+func (c *checker) unifySlicePair(want, got types.Type, sp diag.Span) int {
 	wc, wok := types.Chase(want).(*types.Con)
 	gc, gok := types.Chase(got).(*types.Con)
 	if !wok || !gok || len(wc.Args) != 1 || len(gc.Args) != 1 {
-		return false
+		return 0
 	}
 	isGoSlice := func(con *types.Con) bool { return con.Qual == "Go" && con.Name == "Slice" }
 	isList := func(con *types.Con) bool {
 		return con.Qual == "" && con.Name == "List" && !c.shadowedBuiltin("List")
 	}
-	if !((isGoSlice(wc) && isList(gc)) || (isList(wc) && isGoSlice(gc))) {
-		return false
+	we, ge := wc.Args[0], gc.Args[0]
+	if isGoAny(types.Chase(we)) || isGoAny(types.Chase(ge)) {
+		return 0
 	}
-	c.unify(wc.Args[0], gc.Args[0], sp)
-	return true
+	switch {
+	case isGoSlice(wc) && isList(gc):
+		if !c.unify(we, ge, sp) {
+			return 1
+		}
+		return 2
+	case isList(wc) && isGoSlice(gc):
+		c.unify(we, ge, sp)
+		return 1
+	default:
+		return 0
+	}
 }
 
 // unifyMember solves a deferred member's standing meta against the
 // member's resolved type, reconciling a standing meta an earlier
-// constraint already bound across the List ↔ Go.Slice boundary.
+// constraint already bound across the List ↔ Go.Slice boundary. A
+// `Go.Slice` claim over a `List` member marks the read: lowering
+// emits the copy the List view promises.
 func (c *checker) unifyMember(me *MemberExpr, typ types.Type) {
-	if !c.unifySlicePair(me.Type(), typ, me.Sel.Sp) {
+	switch c.unifySlicePair(me.Type(), typ, me.Sel.Sp) {
+	case 0:
 		c.unify(me.Type(), typ, me.Sel.Sp)
+	case 2:
+		me.CopyFrom = typ
 	}
 }
 

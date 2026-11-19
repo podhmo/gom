@@ -84,6 +84,12 @@ type Apply struct {
 	Fn   Expr
 	Args []Arg
 	Call CallInfo
+	// CopyFrom records the deferred call's real result type when a
+	// consumer's `Go.Slice` want pinned the result meta before the
+	// replay supplied its `List` — the producer still yields the
+	// List, so lowering emits the copy the boundary promises
+	// (`.ToSlice()`), not a raw alias into callee-owned storage.
+	CopyFrom types.Type
 }
 
 func (*Apply) isExpr() {}
@@ -120,6 +126,12 @@ type MemberExpr struct {
 	// symbol quantifies type variables (`List.map`, `Option.Some`,
 	// a generic fn reached through a module).
 	TypeArgs []types.Type
+	// CopyFrom records the member's declared `List` type when a
+	// consumer's `Go.Slice` want pinned the standing meta before
+	// the member resolved — the read still owes its per-read copy
+	// (`FromSlice` then `ToSlice`), or the callee would share the
+	// field's backing array.
+	CopyFrom types.Type
 }
 
 func (*MemberExpr) isExpr() {}

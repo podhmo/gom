@@ -74,6 +74,10 @@ func (w *WithFloat) Ratios(n int64) []Ratio { return nil }
 // variable's type.
 func (w *WithFloat) Anys(n int64) []any { return nil }
 
+// Ch returns a channel — the non-list iterable a deferred `for`'s
+// List default must not pre-empt.
+func (w *WithFloat) Ch(n int64) chan int64 { return nil }
+
 // Call invokes the stored callback.
 func (w *WithFn) Call() int64 { return w.Fn(1) }
 
