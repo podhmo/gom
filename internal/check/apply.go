@@ -1513,8 +1513,14 @@ func (c *checker) unifyDeferredResult(e *Apply, res types.Type, hasHole bool) {
 			return
 		}
 	}
-	if !c.unifySlicePair(e.Type(), res, e.Sp) {
+	switch c.unifySlicePair(e.Type(), res, e.Sp) {
+	case 0:
 		c.unify(e.Type(), res, e.Sp)
+	case 2:
+		// A consumer pinned the result to `Go.Slice` before the
+		// callee's `List` arrived — the lowering still owes the
+		// boundary copy.
+		e.CopyFrom = res
 	}
 }
 

@@ -71,3 +71,13 @@ fn via_slice_param () -> Ptr goiface.SliceBox = {
   ignore (goiface.Sum64 xs)
   b
 }
+
+// A deferred call resolving to a channel — the `List` default must
+// wait until the committed signature supplies its real shape.
+fn via_chan () -> Ptr goiface.WithFloat = {
+  let w = Ptr.new ()
+  for v in w.Ch 0 {
+    ignore v
+  }
+  w
+}
