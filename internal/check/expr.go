@@ -131,28 +131,30 @@ func (c *checker) checkAssign(e *syntax.Assign) Expr {
 	}
 	t := c.checkExpr(sel, nil)
 	me, ok := t.(*MemberExpr)
-	if !ok || me.Sym == nil || me.GoFieldType == nil {
+	if !ok {
 		c.diags.Add(diag.Error("E0511",
 			"the assignment target must be an exported field of a `Ptr T` where T is a named Go struct").
 			At(sel.Sp))
 		c.checkExpr(e.Value, nil)
 		return unit()
 	}
-	rt := types.Chase(me.Recv.Type())
-	ptr, isPtr := rt.(*types.Con)
-	if !isPtr || !c.isBuiltinCon(ptr, "Ptr") || len(ptr.Args) != 1 {
-		rd := types.Display(me.Recv.Type(), metaNamer())
-		c.diags.Add(diag.Error("E0511",
-			fmt.Sprintf("field assignment is only allowed through a `Ptr T` (T a named Go struct); the receiver has type %s", rd)).
-			At(sel.Recv.Span()).Set("type", rd))
-		c.checkExpr(e.Value, nil)
-		return unit()
+	if me.Sym == nil && me.GoFieldType == nil {
+		if _, isMeta := types.Chase(me.Recv.Type()).(*types.Meta); isMeta {
+			// The selection deferred on the receiver meta (pendingSels);
+			// admit the write provisionally — revisitSelects validates
+			// the shape and completes Sym once the member resolves.
+			fa := &FieldAssign{
+				Base:  baseOf(e.Sp, c.unitResult(e.Sp, "field assignment")),
+				Recv:  me.Recv,
+				Sel:   sel.Sel,
+				Value: c.checkExpr(e.Value, me.Type()),
+			}
+			c.pendingAssigns = append(c.pendingAssigns, &assignTarget{Sel: sel, Member: me, Assign: fa})
+			return fa
+		}
 	}
-	if _, isGo := types.Chase(ptr.Args[0]).(*types.Go); !isGo {
-		rd := types.Display(me.Recv.Type(), metaNamer())
-		c.diags.Add(diag.Error("E0511",
-			fmt.Sprintf("field assignment is only allowed on a `Ptr T` where T is a named Go struct; the receiver has type %s", rd)).
-			At(sel.Recv.Span()).Set("type", rd))
+	if d := c.assignShapeDiag(sel, me); d != nil {
+		c.diags.Add(*d)
 		c.checkExpr(e.Value, nil)
 		return unit()
 	}
@@ -165,6 +167,46 @@ func (c *checker) checkAssign(e *syntax.Assign) Expr {
 		GoFieldType: me.GoFieldType,
 		Value:       v,
 	}
+}
+
+// assignTarget pairs a deferred field assignment with the syntax
+// selection its target checked — revisitSelects validates the
+// resolved shape and completes the FieldAssign's Sym/GoFieldType.
+type assignTarget struct {
+	Sel    *syntax.Select
+	Member *MemberExpr
+	Assign *FieldAssign
+}
+
+// assignShapeDiag validates the resolved shape of a `ptr.Field = v`
+// target: an exported Go field reached through a `Ptr T` over a
+// named Go struct. Shared by checkAssign for members resolved on
+// the spot and by revisitSelects for selections deferred on a
+// receiver meta. A nil result admits the write.
+func (c *checker) assignShapeDiag(sel *syntax.Select, me *MemberExpr) *diag.Diagnostic {
+	if me.Sym == nil || me.GoFieldType == nil {
+		d := diag.Error("E0511",
+			"the assignment target must be an exported field of a `Ptr T` where T is a named Go struct").
+			At(sel.Sp)
+		return &d
+	}
+	rt := types.Chase(me.Recv.Type())
+	ptr, isPtr := rt.(*types.Con)
+	if !isPtr || !c.isBuiltinCon(ptr, "Ptr") || len(ptr.Args) != 1 {
+		rd := types.Display(me.Recv.Type(), metaNamer())
+		d := diag.Error("E0511",
+			fmt.Sprintf("field assignment is only allowed through a `Ptr T` (T a named Go struct); the receiver has type %s", rd)).
+			At(sel.Recv.Span()).Set("type", rd)
+		return &d
+	}
+	if _, isGo := types.Chase(ptr.Args[0]).(*types.Go); !isGo {
+		rd := types.Display(me.Recv.Type(), metaNamer())
+		d := diag.Error("E0511",
+			fmt.Sprintf("field assignment is only allowed on a `Ptr T` where T is a named Go struct; the receiver has type %s", rd)).
+			At(sel.Recv.Span()).Set("type", rd)
+		return &d
+	}
+	return nil
 }
 
 // conformExpr applies the want-context conformance to an already
@@ -617,6 +659,22 @@ func (c *checker) revisitSelects() {
 	// diagnostics the first pass withheld (a `_`, a label on an
 	// unknown callee) fire and lowering sees a valid record.
 	c.replayDeferredApplies()
+
+	// Field assignments deferred on a pending selection validate
+	// their resolved shape now; a member still dangling on a meta
+	// already carries its own E0401/E0407.
+	for _, pa := range c.pendingAssigns {
+		me := pa.Member
+		if _, isMeta := types.Chase(me.Recv.Type()).(*types.Meta); isMeta {
+			continue
+		}
+		if d := c.assignShapeDiag(pa.Sel, me); d != nil {
+			c.diags.Add(*d)
+			continue
+		}
+		pa.Assign.Sym = me.Sym
+		pa.Assign.GoFieldType = me.GoFieldType
+	}
 }
 
 // nameOfSel returns the selector name a resolved member symbol

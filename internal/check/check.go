@@ -203,6 +203,13 @@ type checker struct {
 	// at finalize's end when the receiver never does.
 	pendingApplies []*pendingApply
 
+	// pendingAssigns are field assignments `x.F = v` whose target
+	// selection deferred on an unresolved receiver meta — the write
+	// is admitted provisionally and revisitSelects validates the
+	// resolved shape (or rejects it with E0511) once the member
+	// settles.
+	pendingAssigns []*assignTarget
+
 	// pendingIfaces keep numeric and selector inference independent of interface assignment.
 	pendingIfaces []*Ascribe
 
