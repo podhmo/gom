@@ -566,6 +566,10 @@ Gom-typed receiver's method reports E0502. Gom functions are plain
 values: write `area s`. Conversely, Go values only expose their own
 Go methods — you cannot add methods to them.
 
+`List` has no members either: `xs.fold` / `xs.map` are E0401.
+Use the module functions — `List.fold (fn acc v -> ...) acc xs`,
+`List.map f xs` — or the pipe: `xs |> List.map f`.
+
 ## Missing labels are partial application, not an error
 
 ```gom fail=E0401
@@ -751,6 +755,19 @@ fn main () -> Unit = ()
 
 - No `pub`/`private`/`internal` — a package's `.gomi` file decides
   what is public.
+- No `Type.new` constructor for records — a record value is a
+  literal (`{ x = 1, iter = fn n -> [n] }`) or a `with` update.
+  E0201 says `Box` has no constructor `new`.
+- No `fn (x: T)` parameter annotation — annotate the binding
+  instead (`let f : T -> U = fn x -> ...`), which propagates the
+  type into the body (wave26: `Ptr ?m` receivers and `Go.funcN`
+  lambdas resolve without inner annotations).
+- No `init`/`main` as top-level `let`/`fn` names — the generated
+  `func init(w ...)`/`func main(...)` collides with Go's reserved
+  forms and `go build` rejects it (implementation-gaps open item).
+  Rename, e.g. `initw`.
+- `&&`/`||` are NOT short-circuit in generated Go — both operands
+  evaluate. Use `if` when evaluation order or side effects matter.
 - `import "mod/path"` loads a Gom package through its `.gomi` —
   spelled as a full module path (`import "example.com/m/shapes"`)
   and resolved through the module graph (any module in the build
