@@ -2569,6 +2569,22 @@ func (c *checker) iterPendingOn(t *types.Meta) bool {
 	return false
 }
 
+// iterFailedOn reports whether the meta the iterable's type chases
+// to is the standing meta of a selection that already failed — its
+// type was never established, so the iterable must not take the
+// List default (or its shadowing diagnostic) at all.
+func (c *checker) iterFailedOn(t *types.Meta) bool {
+	if c.selDone == nil {
+		return false
+	}
+	for _, me := range c.pendingSels {
+		if c.selDone[me] && types.Chase(me.Type()) == types.Type(t) {
+			return true
+		}
+	}
+	return false
+}
+
 // fillIters drains the pendingIters whose iterable has settled:
 // a concrete shape reconciles the real element type with the
 // pattern's meta — early, inside the finalize rounds, so member
@@ -2599,6 +2615,18 @@ func (c *checker) fillIters(defaults bool) bool {
 			// (and its labeled parameters) instead of a committed
 			// `Unit -> ?r` fallback.
 			if c.iterPendingOn(t) {
+				continue
+			}
+			if c.iterFailedOn(t) {
+				// Claimed by a selection that already FAILED: no
+				// type was ever established, so binding `List`
+				// would both invent an iterable and (when List is
+				// shadowed) pile a spurious shadowing error on the
+				// missing-member diagnostic. Leave the quiet meta
+				// alone; the member's own error covers the loop.
+				c.markQuiet(pi.elem)
+				pi.done = true
+				progressed = true
 				continue
 			}
 			if !c.bind(t, types.List(pi.elem), sp) {

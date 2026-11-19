@@ -1,0 +1,14 @@
+package ex
+
+// Same deferred-iterable failure as E0401_iter_missing_member, but
+// under a file-local `type List`: the failed selection's quiet meta
+// must not take the List default, so no spurious E0415 shadows the
+// missing-member error.
+type List = | L
+
+fn f () -> Unit = {
+  let x = 1
+  for v in x.missing {
+    ignore v
+  }
+}
