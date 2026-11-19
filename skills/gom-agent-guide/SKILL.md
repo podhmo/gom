@@ -135,8 +135,9 @@ generated from — useful when generated code surprises you.
   `(f x) + (g y)`. Field/module access binds tighter still:
   `f p.name` is `f (p.name)`.
 - **Lambdas:** `fn x -> x + 1`, `fn a b -> a + b` — parameters are
-  bare identifiers, `_`, or `()` only (no types, patterns, or labels
-  in lambda params). The body extends as far right as possible.
+  bare identifiers, `_`, `()`, or `(x: T)` (an annotated parameter;
+  no patterns or labels in lambda params). The body extends as far
+  right as possible.
 - **Unit takes the place of `void`.** A no-arg function is
   `fn f () -> Unit` and is *called* `f ()`.
 - **Pipes and composition** (lowest-precedence binary ops, left
@@ -758,14 +759,9 @@ fn main () -> Unit = ()
 - No `Type.new` constructor for records — a record value is a
   literal (`{ x = 1, iter = fn n -> [n] }`) or a `with` update.
   E0201 says `Box` has no constructor `new`.
-- No `fn (x: T)` parameter annotation — annotate the binding
-  instead (`let f : T -> U = fn x -> ...`), which propagates the
-  type into the body (wave26: `Ptr ?m` receivers and `Go.funcN`
-  lambdas resolve without inner annotations).
-- No `init`/`main` as top-level `let`/`fn` names — the generated
-  `func init(w ...)`/`func main(...)` collides with Go's reserved
-  forms and `go build` rejects it (implementation-gaps open item).
-  Rename, e.g. `initw`.
+- A lambda parameter's own type variable must be bound —
+  `fn (x: a) -> x` is E0412 unless the enclosing signature or a
+  generalizing top-level `let` owns `a` (spec 3.3).
 - `&&`/`||` are NOT short-circuit in generated Go — both operands
   evaluate. Use `if` when evaluation order or side effects matter.
 - `import "mod/path"` loads a Gom package through its `.gomi` —
