@@ -1281,10 +1281,11 @@ func (c *checker) finalize() {
 		// member retry — a resolved member re-checks the value under
 		// its real want on the next round.
 		filled := c.finishAssigns()
+		filled = c.fillIters(false) || filled
 		if len(c.metas) != nMetas || replayed != 0 || filled {
 			continue
 		}
-		if c.applyDefaults() == 0 {
+		if c.applyDefaults() == 0 && !c.fillIters(true) {
 			break
 		}
 	}
@@ -1307,10 +1308,11 @@ func (c *checker) finalize() {
 		replayed := c.replayResolvedApplies()
 		c.revisitSelects()
 		filled := c.finishAssigns()
+		filled = c.fillIters(false) || filled
 		if replayed != 0 || len(c.metas) != nMetas || filled {
 			continue
 		}
-		if c.applyDefaults() != 0 {
+		if c.applyDefaults() != 0 || c.fillIters(true) {
 			continue
 		}
 		if c.replayUnresolvedApplies() == 0 {

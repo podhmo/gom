@@ -60,6 +60,20 @@ func (w *WithFloat) CallF(x float64) float64 { return w.F(x) }
 // Int`) a `for` deferred on a meta receiver consumes.
 func (w *WithFloat) Rep(n int64) []int64 { return nil }
 
+// Boxes returns struct values — a record-element iterable: a `for`
+// body's `v.N` read resolves only once the deferred iterable binds
+// its element.
+func (w *WithFloat) Boxes(n int64) []SliceBox { return nil }
+
+// Ratios returns a named-numeric iterable — `v + 1` in a deferred
+// `for` body must see Ratio, not a premature Int default.
+func (w *WithFloat) Ratios(n int64) []Ratio { return nil }
+
+// Anys returns an `any`-element slice — the `Go.Slice Go.Any`
+// element that `unify` would accept without binding the loop
+// variable's type.
+func (w *WithFloat) Anys(n int64) []any { return nil }
+
 // Call invokes the stored callback.
 func (w *WithFn) Call() int64 { return w.Fn(1) }
 

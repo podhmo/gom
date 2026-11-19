@@ -681,17 +681,17 @@ func (c *checker) revisitSelects() {
 				if owner != nil {
 					me.Ctor = owner.sym
 				}
-				c.unify(me.Type(), typ, me.Sel.Sp)
+				c.unifyMember(me, typ)
 				resolved = true
 			} else if me.Sym == nil {
 				if field, typ, raw, ok := c.goFieldOf(rt, selName, me.Sel.Sp); ok {
 					me.Sym, me.Index, me.GoFieldType = field, 0, raw
-					c.unify(me.Type(), typ, me.Sel.Sp)
+					c.unifyMember(me, typ)
 					resolved = true
 				} else if msym, typ, targs, ok := c.methodOf(rt, selName, me.Sel.Sp); ok {
 					me.Sym = msym
 					me.TypeArgs = targs
-					c.unify(me.Type(), typ, me.Sel.Sp)
+					c.unifyMember(me, typ)
 					resolved = true
 				}
 			}
@@ -2516,6 +2516,7 @@ type pendingIter struct {
 	t    types.Type // the meta the iterable's type chases to
 	elem types.Type // the element meta the pattern checked against
 	iter Expr       // the checked iterable node (span, resolved type)
+	done bool       // fillIters drained it
 }
 
 // iterElemCon extracts the element type of a concrete iterable —
@@ -2563,16 +2564,26 @@ func (c *checker) iterPendingOn(t *types.Meta) bool {
 	return false
 }
 
-// finishIters reconciles the `for` loops deferred by checkFor once
-// every member and call has replayed: a settled iterable re-runs the
-// concrete shape rules and unifies the real element type with the
-// pattern's meta, and one that stayed a meta gets the `List elem`
-// default the eager path would have bound.
-func (c *checker) finishIters() {
+// fillIters drains the pendingIters whose iterable has settled:
+// a concrete shape reconciles the real element type with the
+// pattern's meta — early, inside the finalize rounds, so member
+// selections and literals minted on the loop variable (`v.N`,
+// `v + 1`) still resolve under it. With defaults=true a still-
+// unbound iterable takes the `List elem` default the eager path
+// would have bound at check time — same stable-round gate as
+// applyDefaults. Returns whether it did work.
+func (c *checker) fillIters(defaults bool) bool {
+	progressed := false
 	for _, pi := range c.pendingIters {
+		if pi.done {
+			continue
+		}
 		sp := pi.iter.Span()
 		switch t := types.Chase(pi.t).(type) {
 		case *types.Meta:
+			if !defaults {
+				continue
+			}
 			if !c.bind(t, types.List(pi.elem), sp) {
 				c.markQuiet(pi.elem)
 			}
@@ -2582,7 +2593,19 @@ func (c *checker) finishIters() {
 			}
 		case *types.Con:
 			if el, ok := c.iterElemCon(t, sp); ok {
-				c.unify(el, pi.elem, sp)
+				if isGoAny(types.Chase(el)) && types.Chase(pi.elem) != el {
+					// `unify` treats a `Go.Any` want as a slot
+					// that accepts any value — it would leave
+					// elem unbound and the loop variable
+					// typeless. The element IS `Go.Any`.
+					if m, isMeta := types.Chase(pi.elem).(*types.Meta); isMeta {
+						c.bind(m, el, sp)
+					} else {
+						c.unify(el, pi.elem, sp)
+					}
+				} else {
+					c.unify(el, pi.elem, sp)
+				}
 			} else {
 				if t.Qual == "" && c.shadowedBuiltin(t.Name) &&
 					(t.Name == "List" || t.Name == "View" || t.Name == "Chan" || t.Name == "RecvChan" || t.Name == "SendChan") {
@@ -2598,8 +2621,51 @@ func (c *checker) finishIters() {
 		default:
 			panic("unreachable")
 		}
+		pi.done = true
+		progressed = true
 	}
+	return progressed
+}
+
+// finishIters is the tail pass for iterables that never settled —
+// dead deferred work whose quiet meta takes the List default (quiet
+// propagates through the bind).
+func (c *checker) finishIters() {
+	c.fillIters(true)
 	c.pendingIters = nil
+}
+
+// unifySlicePair reconciles the List ↔ Go.Slice boundary pair — the
+// same runtime slice — by element unify. A deferred type (a member's
+// standing meta, a deferred call's result) can bind across the
+// boundary before its real type arrives: an argument slot expecting
+// `Go.Slice` pins the meta ahead of the member's `List`. Returns
+// true when the pair matched — a failed element unify already
+// reported itself.
+func (c *checker) unifySlicePair(want, got types.Type, sp diag.Span) bool {
+	wc, wok := types.Chase(want).(*types.Con)
+	gc, gok := types.Chase(got).(*types.Con)
+	if !wok || !gok || len(wc.Args) != 1 || len(gc.Args) != 1 {
+		return false
+	}
+	isGoSlice := func(con *types.Con) bool { return con.Qual == "Go" && con.Name == "Slice" }
+	isList := func(con *types.Con) bool {
+		return con.Qual == "" && con.Name == "List" && !c.shadowedBuiltin("List")
+	}
+	if !((isGoSlice(wc) && isList(gc)) || (isList(wc) && isGoSlice(gc))) {
+		return false
+	}
+	c.unify(wc.Args[0], gc.Args[0], sp)
+	return true
+}
+
+// unifyMember solves a deferred member's standing meta against the
+// member's resolved type, reconciling a standing meta an earlier
+// constraint already bound across the List ↔ Go.Slice boundary.
+func (c *checker) unifyMember(me *MemberExpr, typ types.Type) {
+	if !c.unifySlicePair(me.Type(), typ, me.Sel.Sp) {
+		c.unify(me.Type(), typ, me.Sel.Sp)
+	}
 }
 
 // checkFor types `for pat in iter { body }`: iter is a List, a

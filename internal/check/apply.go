@@ -1513,7 +1513,9 @@ func (c *checker) unifyDeferredResult(e *Apply, res types.Type, hasHole bool) {
 			return
 		}
 	}
-	c.unify(e.Type(), res, e.Sp)
+	if !c.unifySlicePair(e.Type(), res, e.Sp) {
+		c.unify(e.Type(), res, e.Sp)
+	}
 }
 
 // replayGomApply is checkGomApply's second pass: the member resolved

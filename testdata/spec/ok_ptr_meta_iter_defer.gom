@@ -31,3 +31,43 @@ fn via_alias () -> Ptr goiface.WithFloat = {
   }
   w
 }
+
+// Element constraints minted inside the body resolve under the
+// settled iterable: `v.N` reads a field of the record element,
+// `v + 1` keeps the named-numeric Ratio rather than a premature
+// Int default.
+fn via_record_elem () -> Ptr goiface.WithFloat = {
+  let w = Ptr.new ()
+  for v in w.Boxes 1 {
+    ignore v.N
+  }
+  w
+}
+
+fn via_named_num () -> Ptr goiface.WithFloat = {
+  let w = Ptr.new ()
+  for v in w.Ratios 1 {
+    ignore (v + 1)
+  }
+  w
+}
+
+// A `Go.Slice Go.Any` element binds the loop variable to `Go.Any`
+// itself — the `any` accept slot must not leave its type unsolved.
+fn via_any () -> Ptr goiface.WithFloat = {
+  let w = Ptr.new ()
+  for v in w.Anys 1 {
+    ignore v
+  }
+  w
+}
+
+// A member alias a `Go.Slice` parameter bound before the member
+// supplied its `List` — the boundary pair shares one slice, so the
+// elements reconcile instead of rejecting the real `List Int`.
+fn via_slice_param () -> Ptr goiface.SliceBox = {
+  let b = Ptr.new ()
+  let xs = b.Xs
+  ignore (goiface.Sum64 xs)
+  b
+}
