@@ -119,11 +119,11 @@ func (l *lowerer) flatArg(s *seq, a check.Arg, arity int) core.Atom {
 			X:     l.lambdaExpr(v),
 		})
 	case *check.Apply, *check.Ascribe, *check.Binary, *check.Block,
-		*check.For, *check.GoExpr, *check.Hole, *check.If, *check.Ignore,
-		*check.Let, *check.ListLit, *check.Lit, *check.Match,
-		*check.MemberExpr, *check.RecordLit, *check.SelectExpr,
-		*check.Spread, *check.StrInterp, *check.Try, *check.TupleLit,
-		*check.Unary:
+		*check.FieldAssign, *check.For, *check.GoExpr, *check.Hole,
+		*check.If, *check.Ignore, *check.Let, *check.ListLit,
+		*check.Lit, *check.Match, *check.MemberExpr, *check.RecordLit,
+		*check.SelectExpr, *check.Spread, *check.StrInterp, *check.Try,
+		*check.TupleLit, *check.Unary:
 		// Every other argument lowers through the generic atom path
 		// below — spelled out so the sumtype check verifies the
 		// split (Var and Lambda above return early).

@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0511",
+      "severity": "error",
+      "message": "the assignment target must be a field selection `ptr.Field`",
+      "span": {
+        "file": "E0511_assign_ident.gom",
+        "start": {
+          "line": 6,
+          "col": 25,
+          "offset": 200
+        },
+        "end": {
+          "line": 6,
+          "col": 26,
+          "offset": 201
+        }
+      }
+    }
+  ]
+}

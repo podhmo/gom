@@ -1107,6 +1107,12 @@ func (v *validator) expr(e Expr, inTail bool) {
 	case *RecordUpdate:
 		v.atom(e.Rec, "RecordUpdate.Rec")
 		v.fieldInits(e.Fields, "RecordUpdate")
+	case *FieldSet:
+		v.atom(e.Recv, "FieldSet.Recv")
+		v.atom(e.Value, "FieldSet.Value")
+		if e.Field == nil || e.Field.Kind != resolve.KindField || !e.Field.IsGo {
+			v.err(e.Sp, "FieldSet", "target is not a Go field symbol")
+		}
 	case *TailCall:
 		v.tailCall(e, inTail)
 	case *EscapeResult:
@@ -1712,6 +1718,8 @@ func nilExpr(e Expr) bool {
 	case *GoFuncRef:
 		return e == nil
 	case *FieldGet:
+		return e == nil
+	case *FieldSet:
 		return e == nil
 	case *Closure:
 		return e == nil

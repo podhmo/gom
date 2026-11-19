@@ -147,6 +147,21 @@ type FieldGet struct {
 func (*FieldGet) isExpr() {}
 func (*FieldGet) isAtom() {}
 
+// FieldSet is a Go struct field write `recv.Field = v` through a
+// `Ptr T` handle where T is a named Go struct (spec 8.3,
+// decisions/2026-11-19-struct-field-write.md). Recv and Value are
+// atoms; operand order is fixed by the seq that emitted the node.
+// It carries effects and yields no value — Typ is Unit and codegen
+// emits it only as a discard-bound statement.
+type FieldSet struct {
+	Base
+	Recv  Atom
+	Field *resolve.Symbol // KindField, IsGo — the Go struct field
+	Value Atom
+}
+
+func (*FieldSet) isExpr() {}
+
 // Closure is a function literal `func(p) R' { ... }` — one canonical
 // level of the value representation, binding at most one parameter.
 // A value of an n-arrow type nests n Closures; `func() R` is the

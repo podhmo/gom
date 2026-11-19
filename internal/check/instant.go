@@ -100,10 +100,10 @@ func (c *checker) checkInstantiationCycles() {
 					return
 				}
 				callee, targs, sp = e.Sym, e.TypeArgs, e.Sp
-			case *Ascribe, *Binary, *Block, *For, *GoExpr, *Hole, *If,
-				*Ignore, *Lambda, *Let, *ListLit, *Lit, *Match,
-				*RecordLit, *SelectExpr, *Spread, *StrInterp, *Try,
-				*TupleLit, *Unary:
+			case *Ascribe, *Binary, *Block, *FieldAssign, *For,
+				*GoExpr, *Hole, *If, *Ignore, *Lambda, *Let,
+				*ListLit, *Lit, *Match, *RecordLit, *SelectExpr,
+				*Spread, *StrInterp, *Try, *TupleLit, *Unary:
 				return
 			default:
 				panic("unreachable")

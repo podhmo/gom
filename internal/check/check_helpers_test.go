@@ -313,10 +313,10 @@ func applyAt(e Expr) *Apply {
 			e = n.Value
 		case *Binary:
 			e = n.Y
-		case *Ascribe, *For, *GoExpr, *Hole, *If, *Ignore, *Lambda,
-			*ListLit, *Lit, *Match, *MemberExpr, *RecordLit,
-			*SelectExpr, *Spread, *StrInterp, *Try, *TupleLit,
-			*Unary, *Var:
+		case *Ascribe, *FieldAssign, *For, *GoExpr, *Hole, *If,
+			*Ignore, *Lambda, *ListLit, *Lit, *Match, *MemberExpr,
+			*RecordLit, *SelectExpr, *Spread, *StrInterp, *Try,
+			*TupleLit, *Unary, *Var:
 			return nil
 		default:
 			panic("unreachable")
@@ -364,9 +364,9 @@ func firstApply(d *FnDecl) *Apply {
 			walk(e.X)
 		case *Ascribe:
 			walk(e.X)
-		case *Apply, *For, *GoExpr, *Hole, *Ignore, *ListLit, *Lit,
-			*MemberExpr, *RecordLit, *SelectExpr, *Spread,
-			*StrInterp, *TupleLit, *Unary, *Var:
+		case *Apply, *FieldAssign, *For, *GoExpr, *Hole, *Ignore,
+			*ListLit, *Lit, *MemberExpr, *RecordLit, *SelectExpr,
+			*Spread, *StrInterp, *TupleLit, *Unary, *Var:
 			// Already handled, or no nested Apply to find.
 		default:
 			panic("unreachable")
@@ -422,7 +422,8 @@ func applys(d *FnDecl) []*Apply {
 			for _, el := range e.Elems {
 				walk(el)
 			}
-		case *Apply, *For, *GoExpr, *Hole, *Ignore, *Lit, *MemberExpr,
+		case *Apply, *FieldAssign, *For, *GoExpr, *Hole, *Ignore,
+			*Lit, *MemberExpr,
 			*RecordLit, *SelectExpr, *Spread, *StrInterp, *Unary, *Var:
 			// No nested Apply shapes needed by current tests.
 		default:

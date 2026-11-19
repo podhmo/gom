@@ -202,6 +202,12 @@ func dumpExpr(b *strings.Builder, e Expr) {
 		b.WriteByte('.')
 		b.WriteString(e.Sel.Name)
 		b.WriteByte(')')
+	case *Assign:
+		b.WriteString("(assign ")
+		dumpExpr(b, e.Target)
+		b.WriteString(" = ")
+		dumpExpr(b, e.Value)
+		b.WriteByte(')')
 	case *Unary:
 		fmt.Fprintf(b, "(%s ", e.Op)
 		dumpExpr(b, e.X)

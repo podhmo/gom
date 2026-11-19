@@ -1,0 +1,21 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// `ptr.Field = v` emits a plain Go field assignment. The value
+// converts from its gom type to the Go field type at the boundary —
+// `List Int` here becomes `[]int64`.
+fn set_n (b: Ptr goiface.SliceBox) -> Unit = {
+  b.N = 5
+  b.Xs = [1, 2, 3]
+  ()
+}
+
+// Zero-value construction plus a write: `Ptr.new` makes `new(T)`,
+// the field write then installs the value — the pattern that
+// replaces host-side composite-literal factories.
+fn make_box () -> Ptr goiface.SliceBox = {
+  let b : Ptr goiface.SliceBox = Ptr.new ()
+  b.N = 7
+  b
+}

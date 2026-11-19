@@ -461,6 +461,9 @@ func (c *checker) walkExpr(e check.Expr, diags *diag.List) {
 		for _, f := range e.Fields {
 			c.walkExpr(f.Value, diags)
 		}
+	case *check.FieldAssign:
+		c.walkExpr(e.Recv, diags)
+		c.walkExpr(e.Value, diags)
 	case *check.Ascribe:
 		c.walkExpr(e.X, diags)
 	default:

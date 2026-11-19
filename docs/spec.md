@@ -450,7 +450,11 @@ strconv.ParseInt(_, 10, 64)
 
 v1 で対応していない型（`byte`/`uint8` 以外の符号なし整数と `int8`/`int16`、`float32`、複素数、配列 `[N]T`、`unsafe.Pointer`、ジェネリック型、8.1.6 節の形でない制約（メソッドセット・交叉・型パラメータを含む union など）を持つジェネリック関数、メソッドを持つ無名 interface、8.8 節の `Go.FuncN` の形を超える func 型の引数・戻り値）をシグネチャに含むシンボルは公開されず、参照すると理由付きの診断になる（8.5 節）。戻り値が 9 つ以上ある関数も同じく公開されない — 多値のタプル対応は 8 要素までで、末尾が `error` の多値は `Result` に畳まれる（8.4 節）。
 
-Go の名前付き struct 型の値またはそのポインタから、exported field を `value.Field` で読み取れる。Go と同じ promoted field と曖昧性の規則を使い、unexported field は参照できない。field の型は上の対応に従い、未対応の型は参照位置で理由付き E0501 になる。読み取りはソースの評価順に行い、nil ポインタ経由の読み取りは Go と同じく panic する。field への代入と Go struct のコンポジットリテラルによる構築は提供しない — Go struct の構築は Go 側の factory 関数（`extern` や `import go` で見える普通の関数）に限る（[decision](decisions/2026-11-17-struct-construction.md)）。
+Go の名前付き struct 型の値またはそのポインタから、exported field を `value.Field` で読み取れる。Go と同じ promoted field と曖昧性の規則を使い、unexported field は参照できない。field の型は上の対応に従い、未対応の型は参照位置で理由付き E0501 になる。読み取りはソースの評価順に行い、nil ポインタ経由の読み取りは Go と同じく panic する。
+
+`Ptr T` からの exported field への書き込みは `ptr.Field = v` と書く（T は Go の名前付き struct 型に限る）。代入の左辺はこの field selection の形だけで、変数や record のフィールドへの代入は E0511 になる — record は不変で、変数の再束縛はない。`Ptr` でない Go struct 値経由の代入はコピーの書き換えで効果が落ちるため、同じく E0511 にする。代入式は `Unit` に型付き、受取側の field の評価のあと値を評価し、値の型は読み取りと同じ対応（コピー規則を含む）で Go の field 型へ変換する。
+
+Go struct のコンポジットリテラルによる構築は提供しない — 構築は `Ptr.new ()` からの field への代入か、Go 側の factory 関数（`extern` や `import go` で見える普通の関数）で行う（[decision](decisions/2026-11-17-struct-construction.md)、[decision](decisions/2026-11-19-struct-field-write.md)）。
 
 `Ptr T` の操作はコンパイラ組み込みの `Ptr` モジュールが持つ（[decisions/ptr-ops-surface](decisions/2026-11-05-ptr-ops-surface.md)）: `Ptr.get : Ptr a -> a`（`*p` — nil で panic）、`Ptr.set : Ptr a -> a -> Unit`（`*p = v` — nil で panic）、`Ptr.is_nil : Ptr a -> Bool`、`Ptr.new : Unit -> Ptr a`（`new(T)`。`errors.As` の target や decode 先のような out-pointer API 用）、`Ptr.make : a -> Ptr a`（`&v` — 新しいコピーへのポインタ）、`Ptr.nil : Unit -> Ptr a`（`tls.Dial` の `*tls.Config` のような任意の `*T` パラメータへ nil を渡す）、`Ptr.to_option : Ptr a -> Option a`（nil なら `None`、さもなくば `Some *p` — 安全な読み出し）。`Ptr` の `==`/`!=` は Go のポインタの `==` と同じ同一性比較（3.3 節の等価規則）。nil との比較は `Ptr.is_nil` / `Ptr.to_option` で行う。
 

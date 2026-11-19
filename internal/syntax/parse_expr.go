@@ -58,6 +58,17 @@ func (p *parser) parseExprNB(nb bool) Expr {
 		// ":" is non-associative (grammar.ebnf section 5's
 		// precedence table): a second ":" does not parse.
 	}
+	if p.at(tokEq) {
+		p.next()
+		v := p.parseExprNB(nb)
+		e = &Assign{
+			Sp:     p.span(e.Span().Start, v.Span().End),
+			Target: e,
+			Value:  v,
+		}
+		// "=" is non-associative as well: "a = b = c" does not
+		// parse a second level.
+	}
 	return e
 }
 

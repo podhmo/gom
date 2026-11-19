@@ -4,7 +4,6 @@ package main
 import go "encoding/json"
 import go "errors"
 import go "fmt"
-import go "github.com/podhmo/gom/examples/gist-cli/host"
 import go "io"
 import go "net/http"
 import go "os"
@@ -12,6 +11,7 @@ import go "path"
 import go "path/filepath"
 import go "regexp"
 import go "strings"
+import go "time"
 import go "unicode/utf8"
 
 type Files =
@@ -147,7 +147,9 @@ fn run (cfg: Config) -> Result String String = {
           headers.Set ("Content-Type", "application/json")
           headers.Set ("Authorization", fmt.Sprintf ("Bearer %s", token))
           headers.Set ("X-GitHub-Api-Version", "2026-03-10")
-          let client = host.NewClient (Go.func2 (fn _req _via -> Err http.ErrUseLastResponse))
+          let client : Ptr http.Client = Ptr.new ()
+          client.Timeout = 30 * time.Second
+          client.CheckRedirect = Go.func2 (fn _req _via -> Err http.ErrUseLastResponse)
           let response = try text_error (client.Do request)
           let status = response.StatusCode
           let response_body = try text_error (read_response response)

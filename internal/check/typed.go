@@ -124,6 +124,23 @@ type MemberExpr struct {
 
 func (*MemberExpr) isExpr() {}
 
+// FieldAssign is `ptr.Field = v` — a field write through a `Ptr T`
+// handle where T is a named Go struct (spec 8.3,
+// decisions/2026-11-19-struct-field-write.md). Recv/Sel/Sym/
+// GoFieldType describe the resolved Go field, exactly as the read
+// side's MemberExpr does; Value checked against the field's
+// Gom-facing type. The node's own type is Unit.
+type FieldAssign struct {
+	Base
+	Recv        Expr
+	Sel         *syntax.Ident
+	Sym         *resolve.Symbol // KindField (a Go struct field)
+	GoFieldType types.Type      // raw Go field type — the write's target type
+	Value       Expr
+}
+
+func (*FieldAssign) isExpr() {}
+
 // Unary is a unary operation.
 type Unary struct {
 	Base

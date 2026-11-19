@@ -68,17 +68,11 @@ in [the prototype report](../../docs/sketch/2026-11-03-gist-cli-prototype.md).
 
 ## Current host boundary
 
-`main.gom` contains all Gist-specific behavior. `host/host.go` shrank to a
-single adapter, `NewClient`: its removal needs Go composite-literal
-construction (`http.Client{...}`), which Gom deliberately does not provide
-today (docs/decisions/2026-11-17-struct-construction.md), so the package is
-expected to stay rather than be a staging area.
-
-The remaining primitive is the one operation Gom cannot yet express directly:
-
-| Primitive | Current reason |
-| --- | --- |
-| HTTP client | `http.Client{Timeout, CheckRedirect}` needs Go composite-literal construction — deliberately not provided (docs/decisions/2026-11-17-struct-construction.md) |
+`main.gom` contains all Gist-specific behavior — there is no host package
+anymore. The HTTP client is built in Gom with `Ptr.new` plus field writes
+(`client.Timeout = 30 * time.Second`, `client.CheckRedirect = ...`), the
+zero-value-construction pattern chosen over Go composite literals
+(docs/decisions/2026-11-19-struct-field-write.md).
 
 String-field decoding (`json.NewDecoder`/`json.Unmarshal` into `Ptr`
 destinations over `Go.Map`/`Go.Any`),

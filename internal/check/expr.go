@@ -56,6 +56,8 @@ func (c *checker) checkExpr(e syntax.Expr, want types.Type) Expr {
 		out = c.checkApply(e, bw)
 	case *syntax.Select:
 		out = c.checkSelect(e)
+	case *syntax.Assign:
+		out = c.checkAssign(e)
 	case *syntax.Unary:
 		out = c.checkUnary(e)
 	case *syntax.Binary:
@@ -106,6 +108,63 @@ func (c *checker) checkExpr(e syntax.Expr, want types.Type) Expr {
 		panic("unreachable")
 	}
 	return c.conformExpr(out, want, e.Span())
+}
+
+// checkAssign types `ptr.Field = v` — a field write through a
+// `Ptr T` handle where T is a named Go struct (spec 8.3,
+// decisions/2026-11-19-struct-field-write.md). Only that shape is
+// legal: record fields, Ref values, and Go values held directly
+// (not through a pointer) are rejected — a write to a value copy
+// would silently drop the effect.
+func (c *checker) checkAssign(e *syntax.Assign) Expr {
+	unit := func() Expr {
+		return &Lit{Base: baseOf(e.Sp, types.Unit), Kind: syntax.LitUnit, Text: "()"}
+	}
+	sel, ok := e.Target.(*syntax.Select)
+	if !ok || sel.Sel == nil {
+		c.diags.Add(diag.Error("E0511",
+			"the assignment target must be a field selection `ptr.Field`").
+			At(e.Target.Span()))
+		c.checkExpr(e.Target, nil)
+		c.checkExpr(e.Value, nil)
+		return unit()
+	}
+	t := c.checkExpr(sel, nil)
+	me, ok := t.(*MemberExpr)
+	if !ok || me.Sym == nil || me.GoFieldType == nil {
+		c.diags.Add(diag.Error("E0511",
+			"the assignment target must be an exported field of a `Ptr T` where T is a named Go struct").
+			At(sel.Sp))
+		c.checkExpr(e.Value, nil)
+		return unit()
+	}
+	rt := types.Chase(me.Recv.Type())
+	ptr, isPtr := rt.(*types.Con)
+	if !isPtr || !c.isBuiltinCon(ptr, "Ptr") || len(ptr.Args) != 1 {
+		rd := types.Display(me.Recv.Type(), metaNamer())
+		c.diags.Add(diag.Error("E0511",
+			fmt.Sprintf("field assignment is only allowed through a `Ptr T` (T a named Go struct); the receiver has type %s", rd)).
+			At(sel.Recv.Span()).Set("type", rd))
+		c.checkExpr(e.Value, nil)
+		return unit()
+	}
+	if _, isGo := types.Chase(ptr.Args[0]).(*types.Go); !isGo {
+		rd := types.Display(me.Recv.Type(), metaNamer())
+		c.diags.Add(diag.Error("E0511",
+			fmt.Sprintf("field assignment is only allowed on a `Ptr T` where T is a named Go struct; the receiver has type %s", rd)).
+			At(sel.Recv.Span()).Set("type", rd))
+		c.checkExpr(e.Value, nil)
+		return unit()
+	}
+	v := c.checkExpr(e.Value, me.Type())
+	return &FieldAssign{
+		Base:        baseOf(e.Sp, c.unitResult(e.Sp, "field assignment")),
+		Recv:        me.Recv,
+		Sel:         sel.Sel,
+		Sym:         me.Sym,
+		GoFieldType: me.GoFieldType,
+		Value:       v,
+	}
 }
 
 // conformExpr applies the want-context conformance to an already
@@ -762,7 +821,7 @@ func (c *checker) calleeSym(e syntax.Expr) *resolve.Symbol {
 		*syntax.Binary, *syntax.Hole, *syntax.Lambda, *syntax.If,
 		*syntax.Match, *syntax.Block, *syntax.Let, *syntax.Ignore,
 		*syntax.Try, *syntax.GoExpr, *syntax.For, *syntax.SelectExpr,
-		*syntax.ListLit, *syntax.Spread, *syntax.TupleLit,
+		*syntax.Assign, *syntax.ListLit, *syntax.Spread, *syntax.TupleLit,
 		*syntax.Ascribe, *syntax.RecordLit:
 		return nil
 	default:
@@ -1384,10 +1443,10 @@ func goCalleeSym(e Expr) *resolve.Symbol {
 		sym = e.Sym
 	case *MemberExpr:
 		sym = e.Sym
-	case *Apply, *Ascribe, *Binary, *Block, *For, *GoExpr, *Hole,
-		*If, *Ignore, *Lambda, *Let, *ListLit, *Lit, *Match,
-		*RecordLit, *SelectExpr, *Spread, *StrInterp, *Try,
-		*TupleLit, *Unary:
+	case *Apply, *Ascribe, *Binary, *Block, *FieldAssign, *For,
+		*GoExpr, *Hole, *If, *Ignore, *Lambda, *Let, *ListLit,
+		*Lit, *Match, *RecordLit, *SelectExpr, *Spread,
+		*StrInterp, *Try, *TupleLit, *Unary:
 		return nil
 	default:
 		panic("unreachable")
@@ -1692,8 +1751,9 @@ func constFold(e Expr) (constant.Value, bool) {
 		// transparent to folding.
 		return constFold(e.X)
 	case *Var, *Apply, *Hole, *MemberExpr, *StrInterp, *Lambda, *If,
-		*Match, *Block, *Let, *Ignore, *Try, *GoExpr, *For,
-		*SelectExpr, *ListLit, *Spread, *TupleLit, *RecordLit:
+		*Match, *Block, *Let, *Ignore, *Try, *FieldAssign,
+		*GoExpr, *For, *SelectExpr, *ListLit, *Spread, *TupleLit,
+		*RecordLit:
 		return nil, false
 	default:
 		panic("unreachable")
@@ -1846,7 +1906,7 @@ func (c *checker) armSelfContained(e syntax.Expr) bool {
 		return false
 	case *syntax.Apply, *syntax.Ascribe, *syntax.Binary, *syntax.Block,
 		*syntax.For, *syntax.GoExpr, *syntax.Hole, *syntax.Ident,
-		*syntax.Ignore, *syntax.Let, *syntax.ListLit, *syntax.Lit,
+		*syntax.Assign, *syntax.Ignore, *syntax.Let, *syntax.ListLit, *syntax.Lit,
 		*syntax.Select, *syntax.Spread, *syntax.StrInterp, *syntax.Try,
 		*syntax.TupleLit, *syntax.Unary:
 		return true

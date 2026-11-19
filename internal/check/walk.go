@@ -76,6 +76,9 @@ func WalkExpr(e Expr, fn func(Expr)) {
 		WalkExpr(e.X, fn)
 	case *Try:
 		WalkExpr(e.X, fn)
+	case *FieldAssign:
+		WalkExpr(e.Recv, fn)
+		WalkExpr(e.Value, fn)
 	case *GoExpr:
 		WalkExpr(e.Body, fn)
 	case *For:

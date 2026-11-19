@@ -456,6 +456,8 @@ func precOf(e syntax.Expr) int {
 		return pPost
 	case *syntax.Ascribe:
 		return 1 // loosest of all
+	case *syntax.Assign:
+		return 0 // looser even than ascription
 	case *syntax.Ident, *syntax.Lit, *syntax.StrInterp, *syntax.Hole,
 		*syntax.TupleLit, *syntax.ListLit, *syntax.RecordLit,
 		*syntax.Block:
@@ -514,9 +516,10 @@ func colonTail(e syntax.Expr) bool {
 			e = x.X
 		case *syntax.Ident, *syntax.Hole, *syntax.Lit, *syntax.StrInterp,
 			*syntax.TupleLit, *syntax.ListLit, *syntax.RecordLit,
-			*syntax.Select, *syntax.Ascribe, *syntax.If, *syntax.Match,
-			*syntax.For, *syntax.GoExpr, *syntax.SelectExpr,
-			*syntax.Lambda, *syntax.Let, *syntax.Spread, *syntax.Block:
+			*syntax.Select, *syntax.Ascribe, *syntax.Assign, *syntax.If,
+			*syntax.Match, *syntax.For, *syntax.GoExpr,
+			*syntax.SelectExpr, *syntax.Lambda, *syntax.Let,
+			*syntax.Spread, *syntax.Block:
 			return false
 		default:
 			panic("unreachable")
@@ -572,8 +575,9 @@ func typeTail(e syntax.Expr) bool {
 		case *syntax.Ident, *syntax.Hole, *syntax.Lit, *syntax.StrInterp,
 			*syntax.TupleLit, *syntax.ListLit, *syntax.RecordLit,
 			*syntax.Select, *syntax.Apply, *syntax.Unary, *syntax.Try,
-			*syntax.Ignore, *syntax.If, *syntax.Match, *syntax.For,
-			*syntax.GoExpr, *syntax.SelectExpr, *syntax.Block:
+			*syntax.Ignore, *syntax.Assign, *syntax.If, *syntax.Match,
+			*syntax.For, *syntax.GoExpr, *syntax.SelectExpr,
+			*syntax.Block:
 			return false
 		default:
 			panic("unreachable")

@@ -371,10 +371,15 @@ test-decl      = "test" , STRING , block ;                    (* spec 11 *)
      [SEMANTIC — PROVISIONAL type-ascription].                          *)
 
 expr           = control-expr
-               | ascribed-expr ;
+               | assign-expr ;
 
 control-expr   = if-expr | match-expr | for-expr | go-expr | select-expr
                | lambda ;
+
+(* a field write "ptr.Field = v" — the only assignment form; the
+   target must be an exported field through "Ptr T" over a named Go
+   struct (spec 8.3) [SEMANTIC] *)
+assign-expr    = ascribed-expr , [ "=" , expr ] ;
 
 ascribed-expr  = pipe-expr , [ ":" , type-expr ] ;
 
@@ -391,7 +396,9 @@ ascribed-expr  = pipe-expr , [ ":" , type-expr ] ;
      &&                         left
      ||                         left
      "|>" "<|" "|?>" ">>" "<<"   left — the lowest binary ops
-     :  ascription              non-associative, loosest
+     :  ascription              non-associative
+     =  field assignment        loosest — "x.f = a : T" writes the
+                                ascribed value
    [PROVISIONAL operator-coverage: "!=", "%", "||" are assumed to exist
    alongside the spec-shown "==", "&&"; "!" alone, unary "+", and infix
    bit operators do not exist.]                                        *)
@@ -679,9 +686,10 @@ tuple-type     = "(" , type-expr , "," , type-expr ,
                       start an expr, so "{ let x = 1; x }" (the common
                       block form, used by spec's own "fn main") is
                       unambiguous
-     ident "="      → record literal (a block can never contain "=" —
-                      there is no assignment and "==" is a different
-                      token, so "{ a = 1 }" is unambiguous)
+     ident "="      → record literal (a field write "recv.Field = v"
+                      starts with more than one token, so only a bare
+                      "ident =" reaches this row and "{ a = 1 }" stays
+                      unambiguous; "==" is a different token)
      a token that can begin an expr
                     → parse an expr; if it is followed by "with" the
                       result is a record update "{ e with f = v }",

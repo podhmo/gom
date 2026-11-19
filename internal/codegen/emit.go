@@ -161,6 +161,8 @@ func (g *gen) emit(e core.Expr, d dest) {
 		g.errorFromGo(e, d)
 	case *core.RecordUpdate:
 		g.recordUpdate(e, d)
+	case *core.FieldSet:
+		g.fieldSet(e, d)
 	case *core.Closure,
 		*core.Var, *core.Lit, *core.FuncRef, *core.CtorRef,
 		*core.GoFunc, *core.GoFuncRef, *core.FieldGet,
@@ -455,7 +457,7 @@ func (g *gen) uncurryLit(e *core.Uncurry) {
 		*core.CallDirect, *core.CallFunc, *core.CallGo, *core.CallBuiltin,
 		*core.CtorApp, *core.TailCall, *core.EscapeResult, *core.EscapeCall,
 		*core.ResultFromGo, *core.OptionFromGo, *core.ErrorFromGo,
-		*core.TupleFromGo, *core.Conv:
+		*core.TupleFromGo, *core.Conv, *core.FieldSet:
 		// The generic adapter over a canonical atom.
 		tail = e.X
 		for len(binds) < e.Arity {
@@ -1324,6 +1326,20 @@ func (g *gen) recordUpdate(e *core.RecordUpdate, d dest) {
 		g.nl()
 	}
 	g.writeDest(d, ast.NewIdent(u))
+}
+
+// fieldSet emits `recv.Name = v` — a statement-only node. Only the
+// discard destination is reachable: lower binds the write to `_`.
+// The Go field name is used verbatim, like fieldGet's IsGo branch.
+func (g *gen) fieldSet(e *core.FieldSet, d dest) {
+	if d.kind != dDiscard {
+		panic("unreachable")
+	}
+	g.line(e.Sp)
+	g.expr(&ast.SelectorExpr{X: g.atom(e.Recv), Sel: ast.NewIdent(e.Field.Name)})
+	g.raw(" = ")
+	g.expr(g.atom(e.Value))
+	g.nl()
 }
 
 // funcBody emits a Func's body — wrapped in `for { ... }` when the

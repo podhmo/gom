@@ -475,6 +475,12 @@ func (d *cdump) cexpr(e core.Expr) *form {
 			text += " :ctor " + e.Ctor.Name
 		}
 		return nodef(text+fmt.Sprintf(" :i%d", e.Index), d.cexpr(e.Recv))
+	case *core.FieldSet:
+		text := chead("fieldset", e.Base)
+		if e.Field != nil {
+			text += " " + d.symRef(e.Field)
+		}
+		return nodef(text, d.cexpr(e.Recv), d.cexpr(e.Value))
 	case *core.Closure:
 		var fn *form
 		if e.Fn != nil {

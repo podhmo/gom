@@ -286,7 +286,7 @@ func (c *checker) ctorOf(e syntax.Expr) (*variantInfo, *syntax.Ident) {
 		*syntax.Binary, *syntax.Hole, *syntax.Lambda, *syntax.If,
 		*syntax.Match, *syntax.Block, *syntax.Let, *syntax.Ignore,
 		*syntax.Try, *syntax.GoExpr, *syntax.For, *syntax.SelectExpr,
-		*syntax.ListLit, *syntax.Spread, *syntax.TupleLit,
+		*syntax.Assign, *syntax.ListLit, *syntax.Spread, *syntax.TupleLit,
 		*syntax.Ascribe, *syntax.RecordLit:
 		// A constructor name is always an Ident or a Select.
 		panic("unreachable")

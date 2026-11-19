@@ -58,6 +58,8 @@ func exprKind(e Expr) string {
 		return "tuple"
 	case *RecordLit:
 		return "record"
+	case *FieldAssign:
+		return "fieldassign"
 	case *Ascribe:
 		return "ascribe"
 	default:
@@ -97,6 +99,7 @@ func TestTypedExprKinds(t *testing.T) {
 		{&RecordLit{Base: base(), With: v,
 			Fields: []FieldInit{{Sp: sp, Name: "x", Sym: &resolve.Symbol{Name: "x", Kind: resolve.KindField}, Value: v}}}, "record"},
 		{&Ascribe{Base: base(), X: v}, "ascribe"},
+		{&FieldAssign{Base: base(), Recv: v, Value: v}, "fieldassign"},
 	}
 	for _, tc := range exprs {
 		if got := exprKind(tc.expr); got != tc.kind {
