@@ -203,6 +203,7 @@
 | [stdlib-conv-placement](2026-11-18-stdlib-conv-placement.md) | stdlib 変換関数の配置 — 下層モジュール名・上層パッケージ実装 | 採用（wave21 lane 2 で実装・検証した — spec fixture・golden・ |
 | [ad-hoc-poly-dict-passing](2026-11-19-ad-hoc-poly-dict-passing.md) | 型クラス相当の抽象は明示的辞書渡しで書く | adopted |
 | [ctor-typeargs-removed](2026-11-19-ctor-typeargs-removed.md) | `CtorApp`/`CtorRef` の `TypeArgs` を廃止し `Typ` の `Con.Args` を唯一の正にする | 採用（wave24 lane A で実装） |
+| [deriving-declined](2026-11-19-deriving-declined.md) | deriving（コンパイラ mint の辞書生成）— `Ord` のための導入は見送り | adopted |
 | [errors-as-nested-ptr-lint](2026-11-19-errors-as-nested-ptr-lint.md) | `errors.As` target の `Ptr (Ptr E)` — 証明可能な要素側違反を W0502 に足す | 採用（wave22 prompts で podhmo 採択済み。実装・検証した — spec.md §8.4 と fixture を更新済み） |
 | [flat-partial-eval](2026-11-19-flat-partial-eval.md) | flat 宣言パラメータの部分適用 — eval 側を遅延させて divergence を消す | 採用（wave22 prompts で podhmo 採択済み。実装・検証した — `TestEagerFnChunkTiming` を新仕様に更新、spec.md §1.3 の注記を解消） |
 | [lsp-withdrawn](2026-11-19-lsp-withdrawn.md) | LSP は未対応に戻す — `gom lsp` と `internal/lsp` を除去 | adopted |

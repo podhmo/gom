@@ -91,7 +91,10 @@ fn parse (s: String) -> Result Int GoError =
 - Go interface params accept Go-derived values satisfying `go/types`
   assignability (`*os.File` → `io.Writer`); the same rule applies at
   annotated bindings, returns, and Gom-param boundaries. Gom types
-  cannot implement Go interfaces in v1.
+  cannot implement Go interfaces in v1 — a hand-written `.go` file in
+  the generated package's directory can still attach methods to a
+  record's emitted `type Name struct` (the host-package idiom), so
+  `fmt.Stringer`/`error` are reachable today without compiler support.
 - Exported struct fields read via `v.Field` (promoted fields and Go's
   ambiguity rules apply; unexported fields are invisible). Through
   `Ptr T` (T a named Go struct) they also write — `p.Field = v` —
