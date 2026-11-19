@@ -2570,15 +2570,20 @@ func (c *checker) iterPendingOn(t *types.Meta) bool {
 }
 
 // iterFailedOn reports whether the meta the iterable's type chases
-// to is the standing meta of a selection that already failed — its
-// type was never established, so the iterable must not take the
-// List default (or its shadowing diagnostic) at all.
+// to is the standing meta of a selection that already failed or the
+// result of an application dropped as dead work — its type was
+// never established, so the iterable must not take the List
+// default (or its shadowing diagnostic) at all.
 func (c *checker) iterFailedOn(t *types.Meta) bool {
-	if c.selDone == nil {
-		return false
+	if c.selDone != nil {
+		for _, me := range c.pendingSels {
+			if c.selDone[me] && types.Chase(me.Type()) == types.Type(t) {
+				return true
+			}
+		}
 	}
-	for _, me := range c.pendingSels {
-		if c.selDone[me] && types.Chase(me.Type()) == types.Type(t) {
+	for _, q := range c.pendingApplies {
+		if q.done && types.Chase(q.ap.Type()) == types.Type(t) {
 			return true
 		}
 	}
@@ -2630,6 +2635,13 @@ func (c *checker) fillIters(defaults bool) bool {
 				continue
 			}
 			if !c.bind(t, types.List(pi.elem), sp) {
+				c.markQuiet(pi.elem)
+			}
+			// A quiet iterable meta — dead deferred work whose own
+			// diagnostic already reported the failure — quiets the
+			// element the default introduces too: otherwise an
+			// unrelated E0407 piles onto the member's error.
+			if c.recOf(t).quiet {
 				c.markQuiet(pi.elem)
 			}
 			if c.shadowedBuiltin("List") {

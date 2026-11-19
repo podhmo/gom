@@ -1,0 +1,14 @@
+package iterdefer
+
+import go "example.com/gocall/box"
+import go "github.com/podhmo/gom/testdata/goiface"
+
+type IterBox = {iter: Int -> List Int}
+
+fn staleSum () -> Int
+
+fn freshSum () -> Int
+
+fn nilSum () -> Int
+
+fn viaCallResult () -> Int

@@ -94,3 +94,19 @@ fn via_any_param () -> Ptr goiface.SliceBox = {
 // The bare-iterable-as-receiver counterpart lives in
 // E0401_iter_recv_default.gom — `x.fold` must report the member
 // failure, not a labeled-argument rejection.
+
+// A deferred call result pinned to `Go.Slice` by a later argument
+// position: the record's `iter` returns `List`, `f 0` resolves as
+// the pending apply's claimed result, `Sum64` pins `Go.Slice`, and
+// the committed `List` earns a boundary copy (`ToSlice`) at the
+// argument instead of a failed rebind.
+type IterBox = {iter: Int -> List Int}
+
+fn via_call_result () -> Int = {
+  let g = fn x -> {
+    let f = x.iter
+    let y = f 0
+    goiface.Sum64 y
+  }
+  g ({iter = fn n -> [1, 2]})
+}

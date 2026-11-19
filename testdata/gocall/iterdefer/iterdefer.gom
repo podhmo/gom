@@ -1,0 +1,64 @@
+package iterdefer
+
+import go "example.com/gocall/box"
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// Runtime probes for the deferred-iterator boundary copies: the
+// iterable's meta stays claimed while the receiver settles, then
+// the committed `Go.Slice`/`List` pair copies at the boundary.
+
+// A record field returning `List` — the deferred call whose
+// result `Sum64` pins to `Go.Slice`.
+type IterBox = {iter: Int -> List Int}
+
+/// The deferred field read copies at read time: `xs` is captured
+/// before `MutateX`, so the `for` over it sees the pre-mutation
+/// backing — a detached `List`, not shared `[]int64`.
+fn staleSum () -> Int = {
+  let g = fn b -> {
+    let xs = b.Xs
+    box.MutateX 0 99
+    let s = Ref.new 0
+    for v in xs {
+      Ref.set s (Ref.get s + v)
+    }
+    Ref.get s
+  }
+  g (box.Shared ())
+}
+
+/// Re-reading after the mutation reports the new backing.
+fn freshSum () -> Int = {
+  let g = fn b -> {
+    let s = Ref.new 0
+    for v in b.Xs {
+      Ref.set s (Ref.get s + v)
+    }
+    Ref.get s
+  }
+  g (box.Shared ())
+}
+
+/// A nil `[]int64` field reads as an empty `List` — no
+/// iterations, sum stays 0.
+fn nilSum () -> Int = {
+  let g = fn b -> {
+    let s = Ref.new 0
+    for v in b.Xs {
+      Ref.set s (Ref.get s + v)
+    }
+    Ref.get s
+  }
+  g (box.Nil ())
+}
+
+/// The deferred apply's `List` result copies to `Go.Slice` at the
+/// `Sum64` argument (`y.ToSlice()` in the generated code).
+fn viaCallResult () -> Int = {
+  let g = fn x -> {
+    let f = x.iter
+    let y = f 0
+    goiface.Sum64 y
+  }
+  g ({iter = fn n -> [1, 2]})
+}
