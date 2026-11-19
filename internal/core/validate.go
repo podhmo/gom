@@ -557,23 +557,6 @@ func typeBodyVars(b TypeBody) map[int]*types.Var {
 	return out
 }
 
-// resultCon returns the ADT Con a constructor node's result type
-// lands on: CtorApp's own type, or the final return of a CtorRef's
-// arrow chain. nil when the type never reaches a Con.
-func resultCon(t types.Type) *types.Con {
-	for {
-		x := types.Chase(t)
-		if f, ok := x.(*types.Func); ok {
-			t = f.Ret
-			continue
-		}
-		if c, ok := x.(*types.Con); ok {
-			return c
-		}
-		return nil
-	}
-}
-
 // targs checks a TypeArgs instantiation against the target's
 // declared type-parameter count — when the target is declared in
 // this file and the count is known (imported symbols carry no decl
