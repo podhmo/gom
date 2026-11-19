@@ -52,6 +52,36 @@ fn eq_of (ord: Ord a) -> Eq a
 /// under the dictionary e.
 fn member (e: Eq a) (x: a) (xs: List a) -> Bool
 
+/// option_eq e lifts equality onto Option: None equals None,
+/// `Some x` equals `Some y` iff the payloads equal.
+fn option_eq (e: Eq a) -> Eq (Option a)
+
+/// option_ord o lifts ordering onto Option: None precedes every
+/// Some, Somes compare by payload.
+fn option_ord (o: Ord a) -> Ord (Option a)
+
+/// list_eq e lifts equality onto List — same length, elementwise.
+fn list_eq (e: Eq a) -> Eq (List a)
+
+/// list_ord o lifts ordering onto List — lexicographic: shorter is
+/// smaller on a shared prefix.
+fn list_ord (o: Ord a) -> Ord (List a)
+
+/// pair_eq ea eb lifts equality onto pairs — both halves equal.
+fn pair_eq (ea: Eq a) (eb: Eq b) -> Eq (a, b)
+
+/// pair_ord oa ob lifts ordering onto pairs — lexicographic on the
+/// first component, then the second.
+fn pair_ord (oa: Ord a) (ob: Ord b) -> Ord (a, b)
+
+/// result_eq ea ee lifts equality onto Result — Ok pairs by payload,
+/// Err pairs by payload, Ok never equals Err.
+fn result_eq (ea: Eq a) (ee: Eq e) -> Eq (Result a e)
+
+/// result_ord oa oe lifts ordering onto Result — every Ok precedes
+/// every Err; same constructors compare by payload.
+fn result_ord (oa: Ord a) (oe: Ord e) -> Ord (Result a e)
+
 /// min ord xs is the least element under ord, or None on [].
 fn min (ord: Ord a) (xs: List a) -> Option a
 

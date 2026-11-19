@@ -6,6 +6,7 @@ import (
 	rt "github.com/podhmo/gom/rt"
 	list "github.com/podhmo/gom/stdlib/list"
 	option "github.com/podhmo/gom/stdlib/option"
+	result "github.com/podhmo/gom/stdlib/result"
 )
 
 //line stdlib/cmp/cmp.gom:14
@@ -471,63 +472,719 @@ func FoldMax[A any](lt func(A, A) bool, best A, xs list.List[A]) A {
 //line stdlib/cmp/cmp.gom:70
 }
 
-//line stdlib/cmp/cmp.gom:76
-func Sort[A any](ord Ord[A], xs list.List[A]) list.List[A] {
-//line stdlib/cmp/cmp.gom:76
-	tmp54 := func(p02, p12 A) bool {
-//line stdlib/cmp/cmp.gom:76
-		u02 := ord.Lt(p02)
-//line stdlib/cmp/cmp.gom:76
+//line stdlib/cmp/cmp.gom:77
+func OptionEq[A any](e Eq[A]) Eq[option.Option[A]] {
+//line stdlib/cmp/cmp.gom:78
+	tmp60 := func(x option.Option[A]) func(option.Option[A]) bool {
+//line stdlib/cmp/cmp.gom:78
+		return func(y option.Option[A]) bool {
+//line stdlib/cmp/cmp.gom:79
+			switch v := x.(type) {
+//line stdlib/cmp/cmp.gom:79
+			case option.Option_Some[A]:
+//line stdlib/cmp/cmp.gom:79
+				tmp54 := v
+//line stdlib/cmp/cmp.gom:83
+				tmp55 := tmp54.V0
+//line stdlib/cmp/cmp.gom:84
+				switch v1 := y.(type) {
+//line stdlib/cmp/cmp.gom:84
+				case option.Option_Some[A]:
+//line stdlib/cmp/cmp.gom:84
+					tmp56 := v1
+//line stdlib/cmp/cmp.gom:84
+					tmp57 := tmp56.V0
+//line stdlib/cmp/cmp.gom:84
+					tmp58 := e.Eq(tmp55)
+//line stdlib/cmp/cmp.gom:84
+					return tmp58(tmp57)
+//line stdlib/cmp/cmp.gom:84
+				case option.Option_None[A]:
+//line stdlib/cmp/cmp.gom:85
+					return false
+//line stdlib/cmp/cmp.gom:85
+				default:
+//line stdlib/cmp/cmp.gom:83
+					panic(rt.InvalidVariant("Option", y))
+//line stdlib/cmp/cmp.gom:84
+				}
+//line stdlib/cmp/cmp.gom:79
+			case option.Option_None[A]:
+//line stdlib/cmp/cmp.gom:80
+				switch y.(type) {
+//line stdlib/cmp/cmp.gom:80
+				case option.Option_Some[A]:
+//line stdlib/cmp/cmp.gom:81
+					return false
+//line stdlib/cmp/cmp.gom:80
+				case option.Option_None[A]:
+//line stdlib/cmp/cmp.gom:80
+					return true
+//line stdlib/cmp/cmp.gom:80
+				default:
+//line stdlib/cmp/cmp.gom:79
+					panic(rt.InvalidVariant("Option", y))
+//line stdlib/cmp/cmp.gom:80
+				}
+//line stdlib/cmp/cmp.gom:80
+			default:
+//line stdlib/cmp/cmp.gom:78
+				panic(rt.InvalidVariant("Option", x))
+//line stdlib/cmp/cmp.gom:79
+			}
+//line stdlib/cmp/cmp.gom:78
+		}
+//line stdlib/cmp/cmp.gom:78
+	}
+//line stdlib/cmp/cmp.gom:78
+	return Eq[option.Option[A]]{Eq: tmp60}
+//line stdlib/cmp/cmp.gom:77
+}
+
+//line stdlib/cmp/cmp.gom:91
+func OptionOrd[A any](o Ord[A]) Ord[option.Option[A]] {
+//line stdlib/cmp/cmp.gom:92
+	tmp67 := func(x option.Option[A]) func(option.Option[A]) bool {
+//line stdlib/cmp/cmp.gom:92
+		return func(y option.Option[A]) bool {
+//line stdlib/cmp/cmp.gom:93
+			switch v2 := x.(type) {
+//line stdlib/cmp/cmp.gom:93
+			case option.Option_Some[A]:
+//line stdlib/cmp/cmp.gom:93
+				tmp61 := v2
+//line stdlib/cmp/cmp.gom:97
+				tmp62 := tmp61.V0
+//line stdlib/cmp/cmp.gom:98
+				switch v3 := y.(type) {
+//line stdlib/cmp/cmp.gom:98
+				case option.Option_Some[A]:
+//line stdlib/cmp/cmp.gom:98
+					tmp63 := v3
+//line stdlib/cmp/cmp.gom:98
+					tmp64 := tmp63.V0
+//line stdlib/cmp/cmp.gom:98
+					tmp65 := o.Lt(tmp62)
+//line stdlib/cmp/cmp.gom:98
+					return tmp65(tmp64)
+//line stdlib/cmp/cmp.gom:98
+				case option.Option_None[A]:
+//line stdlib/cmp/cmp.gom:99
+					return false
+//line stdlib/cmp/cmp.gom:99
+				default:
+//line stdlib/cmp/cmp.gom:97
+					panic(rt.InvalidVariant("Option", y))
+//line stdlib/cmp/cmp.gom:98
+				}
+//line stdlib/cmp/cmp.gom:93
+			case option.Option_None[A]:
+//line stdlib/cmp/cmp.gom:94
+				switch y.(type) {
+//line stdlib/cmp/cmp.gom:94
+				case option.Option_Some[A]:
+//line stdlib/cmp/cmp.gom:95
+					return true
+//line stdlib/cmp/cmp.gom:94
+				case option.Option_None[A]:
+//line stdlib/cmp/cmp.gom:94
+					return false
+//line stdlib/cmp/cmp.gom:94
+				default:
+//line stdlib/cmp/cmp.gom:93
+					panic(rt.InvalidVariant("Option", y))
+//line stdlib/cmp/cmp.gom:94
+				}
+//line stdlib/cmp/cmp.gom:94
+			default:
+//line stdlib/cmp/cmp.gom:92
+				panic(rt.InvalidVariant("Option", x))
+//line stdlib/cmp/cmp.gom:93
+			}
+//line stdlib/cmp/cmp.gom:92
+		}
+//line stdlib/cmp/cmp.gom:92
+	}
+//line stdlib/cmp/cmp.gom:92
+	return Ord[option.Option[A]]{Lt: tmp67}
+//line stdlib/cmp/cmp.gom:91
+}
+
+//line stdlib/cmp/cmp.gom:104
+func ListEq[A any](e Eq[A]) Eq[list.List[A]] {
+//line stdlib/cmp/cmp.gom:104
+	tmp68 := func(p02, p12 A) bool {
+//line stdlib/cmp/cmp.gom:104
+		u02 := e.Eq(p02)
+//line stdlib/cmp/cmp.gom:104
 		return u02(p12)
-//line stdlib/cmp/cmp.gom:76
+//line stdlib/cmp/cmp.gom:104
 	}
-//line stdlib/cmp/cmp.gom:76
-	return SortBy[A](tmp54, xs)
-//line stdlib/cmp/cmp.gom:76
+//line stdlib/cmp/cmp.gom:104
+	tmp71 := func(tmp69 list.List[A]) func(list.List[A]) bool {
+//line stdlib/cmp/cmp.gom:104
+		return func(tmp70 list.List[A]) bool {
+//line stdlib/cmp/cmp.gom:104
+			return listEqLoop[A](tmp68, tmp69, tmp70)
+//line stdlib/cmp/cmp.gom:104
+		}
+//line stdlib/cmp/cmp.gom:104
+	}
+//line stdlib/cmp/cmp.gom:104
+	return Eq[list.List[A]]{Eq: tmp71}
+//line stdlib/cmp/cmp.gom:104
 }
 
+//line stdlib/cmp/cmp.gom:106
+func listEqLoop[A any](eq func(A, A) bool, xs, ys list.List[A]) bool {
+//line stdlib/cmp/cmp.gom:107
+	switch {
+//line stdlib/cmp/cmp.gom:107
+	case len(xs) == 0:
+//line stdlib/cmp/cmp.gom:108
+		switch {
+//line stdlib/cmp/cmp.gom:108
+		case len(ys) == 0:
+//line stdlib/cmp/cmp.gom:108
+			return true
+//line stdlib/cmp/cmp.gom:108
+		case len(ys) != 0:
+//line stdlib/cmp/cmp.gom:109
+			return false
+//line stdlib/cmp/cmp.gom:109
+		default:
+//line stdlib/cmp/cmp.gom:107
+			panic(rt.InvalidVariant("List", ys))
+//line stdlib/cmp/cmp.gom:108
+		}
+//line stdlib/cmp/cmp.gom:107
+	case len(xs) != 0:
+//line stdlib/cmp/cmp.gom:107
+		tmp74 := xs[0]
+//line stdlib/cmp/cmp.gom:107
+		tmp75 := xs[1:]
+//line stdlib/cmp/cmp.gom:107
+		tmp76 := tmp74
+//line stdlib/cmp/cmp.gom:107
+		tmp77 := tmp75
 //line stdlib/cmp/cmp.gom:112
-func gomEq10943da16(a, b list.List[int64]) bool {
+		switch {
 //line stdlib/cmp/cmp.gom:112
-	if len(a) != len(b) {
-//line stdlib/cmp/cmp.gom:112
-		return false
-//line stdlib/cmp/cmp.gom:112
-	}
-//line stdlib/cmp/cmp.gom:112
-	for i := range a {
-//line stdlib/cmp/cmp.gom:112
-		if !(a[i] == b[i]) {
+		case len(ys) == 0:
 //line stdlib/cmp/cmp.gom:112
 			return false
 //line stdlib/cmp/cmp.gom:112
+		case len(ys) != 0:
+//line stdlib/cmp/cmp.gom:112
+			tmp78 := ys[0]
+//line stdlib/cmp/cmp.gom:112
+			tmp79 := ys[1:]
+//line stdlib/cmp/cmp.gom:112
+			tmp80 := tmp78
+//line stdlib/cmp/cmp.gom:112
+			tmp81 := tmp79
+//line stdlib/cmp/cmp.gom:113
+			tmp82 := eq(tmp76, tmp80)
+//line stdlib/cmp/cmp.gom:113
+			tmp83 := listEqLoop[A](eq, tmp77, tmp81)
+//line stdlib/cmp/cmp.gom:113
+			return tmp82 && tmp83
+//line stdlib/cmp/cmp.gom:113
+		default:
+//line stdlib/cmp/cmp.gom:111
+			panic(rt.InvalidVariant("List", ys))
+//line stdlib/cmp/cmp.gom:112
 		}
 //line stdlib/cmp/cmp.gom:112
+	default:
+//line stdlib/cmp/cmp.gom:106
+		panic(rt.InvalidVariant("List", xs))
+//line stdlib/cmp/cmp.gom:107
 	}
-//line stdlib/cmp/cmp.gom:112
-	return true
-//line stdlib/cmp/cmp.gom:112
+//line stdlib/cmp/cmp.gom:106
 }
 
-//line stdlib/cmp/cmp.gom:114
-func gomEq20943da16(a, b list.List[string]) bool {
-//line stdlib/cmp/cmp.gom:114
-	if len(a) != len(b) {
-//line stdlib/cmp/cmp.gom:114
-		return false
-//line stdlib/cmp/cmp.gom:114
+//line stdlib/cmp/cmp.gom:119
+func ListOrd[A any](o Ord[A]) Ord[list.List[A]] {
+//line stdlib/cmp/cmp.gom:119
+	tmp84 := func(p03, p13 A) bool {
+//line stdlib/cmp/cmp.gom:119
+		u03 := o.Lt(p03)
+//line stdlib/cmp/cmp.gom:119
+		return u03(p13)
+//line stdlib/cmp/cmp.gom:119
 	}
-//line stdlib/cmp/cmp.gom:114
-	for i := range a {
-//line stdlib/cmp/cmp.gom:114
-		if !(a[i] == b[i]) {
-//line stdlib/cmp/cmp.gom:114
-			return false
-//line stdlib/cmp/cmp.gom:114
+//line stdlib/cmp/cmp.gom:119
+	tmp87 := func(tmp85 list.List[A]) func(list.List[A]) bool {
+//line stdlib/cmp/cmp.gom:119
+		return func(tmp86 list.List[A]) bool {
+//line stdlib/cmp/cmp.gom:119
+			return listLtLoop[A](tmp84, tmp85, tmp86)
+//line stdlib/cmp/cmp.gom:119
 		}
-//line stdlib/cmp/cmp.gom:114
+//line stdlib/cmp/cmp.gom:119
 	}
-//line stdlib/cmp/cmp.gom:114
+//line stdlib/cmp/cmp.gom:119
+	return Ord[list.List[A]]{Lt: tmp87}
+//line stdlib/cmp/cmp.gom:119
+}
+
+//line stdlib/cmp/cmp.gom:121
+func listLtLoop[A any](lt func(A, A) bool, xs, ys list.List[A]) bool {
+//line stdlib/cmp/cmp.gom:122
+	switch {
+//line stdlib/cmp/cmp.gom:122
+	case len(xs) == 0:
+//line stdlib/cmp/cmp.gom:123
+		switch {
+//line stdlib/cmp/cmp.gom:123
+		case len(ys) == 0:
+//line stdlib/cmp/cmp.gom:123
+			return false
+//line stdlib/cmp/cmp.gom:123
+		case len(ys) != 0:
+//line stdlib/cmp/cmp.gom:124
+			return true
+//line stdlib/cmp/cmp.gom:124
+		default:
+//line stdlib/cmp/cmp.gom:122
+			panic(rt.InvalidVariant("List", ys))
+//line stdlib/cmp/cmp.gom:123
+		}
+//line stdlib/cmp/cmp.gom:122
+	case len(xs) != 0:
+//line stdlib/cmp/cmp.gom:122
+		tmp90 := xs[0]
+//line stdlib/cmp/cmp.gom:122
+		tmp91 := xs[1:]
+//line stdlib/cmp/cmp.gom:122
+		tmp92 := tmp90
+//line stdlib/cmp/cmp.gom:122
+		tmp93 := tmp91
+//line stdlib/cmp/cmp.gom:127
+		switch {
+//line stdlib/cmp/cmp.gom:127
+		case len(ys) == 0:
+//line stdlib/cmp/cmp.gom:127
+			return false
+//line stdlib/cmp/cmp.gom:127
+		case len(ys) != 0:
+//line stdlib/cmp/cmp.gom:127
+			tmp94 := ys[0]
+//line stdlib/cmp/cmp.gom:127
+			tmp95 := ys[1:]
+//line stdlib/cmp/cmp.gom:127
+			tmp96 := tmp94
+//line stdlib/cmp/cmp.gom:127
+			tmp97 := tmp95
+//line stdlib/cmp/cmp.gom:128
+			tmp98 := lt(tmp92, tmp96)
+//line stdlib/cmp/cmp.gom:128
+			tmp99 := lt(tmp96, tmp92)
+//line stdlib/cmp/cmp.gom:128
+			tmp100 := !tmp99
+//line stdlib/cmp/cmp.gom:128
+			tmp101 := listLtLoop[A](lt, tmp93, tmp97)
+//line stdlib/cmp/cmp.gom:128
+			tmp102 := tmp100 && tmp101
+//line stdlib/cmp/cmp.gom:128
+			return tmp98 || tmp102
+//line stdlib/cmp/cmp.gom:128
+		default:
+//line stdlib/cmp/cmp.gom:126
+			panic(rt.InvalidVariant("List", ys))
+//line stdlib/cmp/cmp.gom:127
+		}
+//line stdlib/cmp/cmp.gom:127
+	default:
+//line stdlib/cmp/cmp.gom:121
+		panic(rt.InvalidVariant("List", xs))
+//line stdlib/cmp/cmp.gom:122
+	}
+//line stdlib/cmp/cmp.gom:121
+}
+
+//line stdlib/cmp/cmp.gom:133
+func PairEq[A, B any](ea Eq[A], eb Eq[B]) Eq[rt.Tuple2[A, B]] {
+//line stdlib/cmp/cmp.gom:134
+	tmp111 := func(x rt.Tuple2[A, B]) func(rt.Tuple2[A, B]) bool {
+//line stdlib/cmp/cmp.gom:134
+		return func(y rt.Tuple2[A, B]) bool {
+//line stdlib/cmp/cmp.gom:135
+			tmp103 := x.V0
+//line stdlib/cmp/cmp.gom:135
+			tmp104 := x.V1
+//line stdlib/cmp/cmp.gom:136
+			tmp105 := y.V0
+//line stdlib/cmp/cmp.gom:136
+			tmp106 := y.V1
+//line stdlib/cmp/cmp.gom:136
+			tmp107 := ea.Eq(tmp103)
+//line stdlib/cmp/cmp.gom:136
+			tmp108 := tmp107(tmp105)
+//line stdlib/cmp/cmp.gom:136
+			tmp109 := eb.Eq(tmp104)
+//line stdlib/cmp/cmp.gom:136
+			tmp110 := tmp109(tmp106)
+//line stdlib/cmp/cmp.gom:136
+			return tmp108 && tmp110
+//line stdlib/cmp/cmp.gom:134
+		}
+//line stdlib/cmp/cmp.gom:134
+	}
+//line stdlib/cmp/cmp.gom:134
+	return Eq[rt.Tuple2[A, B]]{Eq: tmp111}
+//line stdlib/cmp/cmp.gom:133
+}
+
+//line stdlib/cmp/cmp.gom:142
+func PairOrd[A, B any](oa Ord[A], ob Ord[B]) Ord[rt.Tuple2[A, B]] {
+//line stdlib/cmp/cmp.gom:143
+	tmp124 := func(x rt.Tuple2[A, B]) func(rt.Tuple2[A, B]) bool {
+//line stdlib/cmp/cmp.gom:143
+		return func(y rt.Tuple2[A, B]) bool {
+//line stdlib/cmp/cmp.gom:144
+			tmp112 := x.V0
+//line stdlib/cmp/cmp.gom:144
+			tmp113 := x.V1
+//line stdlib/cmp/cmp.gom:145
+			tmp114 := y.V0
+//line stdlib/cmp/cmp.gom:145
+			tmp115 := y.V1
+//line stdlib/cmp/cmp.gom:145
+			tmp116 := oa.Lt(tmp112)
+//line stdlib/cmp/cmp.gom:145
+			tmp117 := tmp116(tmp114)
+//line stdlib/cmp/cmp.gom:145
+			tmp118 := oa.Lt(tmp114)
+//line stdlib/cmp/cmp.gom:145
+			tmp119 := tmp118(tmp112)
+//line stdlib/cmp/cmp.gom:145
+			tmp120 := !tmp119
+//line stdlib/cmp/cmp.gom:145
+			tmp121 := ob.Lt(tmp113)
+//line stdlib/cmp/cmp.gom:145
+			tmp122 := tmp121(tmp115)
+//line stdlib/cmp/cmp.gom:145
+			tmp123 := tmp120 && tmp122
+//line stdlib/cmp/cmp.gom:145
+			return tmp117 || tmp123
+//line stdlib/cmp/cmp.gom:143
+		}
+//line stdlib/cmp/cmp.gom:143
+	}
+//line stdlib/cmp/cmp.gom:143
+	return Ord[rt.Tuple2[A, B]]{Lt: tmp124}
+//line stdlib/cmp/cmp.gom:142
+}
+
+//line stdlib/cmp/cmp.gom:151
+func ResultEq[A, E any](ea Eq[A], ee Eq[E]) Eq[result.Result[A, E]] {
+//line stdlib/cmp/cmp.gom:152
+	tmp137 := func(x result.Result[A, E]) func(result.Result[A, E]) bool {
+//line stdlib/cmp/cmp.gom:152
+		return func(y result.Result[A, E]) bool {
+//line stdlib/cmp/cmp.gom:153
+			switch x.Tag() {
+//line stdlib/cmp/cmp.gom:153
+			case result.ResultTagOk:
+//line stdlib/cmp/cmp.gom:153
+				tmp125 := x.Value
+//line stdlib/cmp/cmp.gom:153
+				tmp126 := tmp125
+//line stdlib/cmp/cmp.gom:154
+				switch y.Tag() {
+//line stdlib/cmp/cmp.gom:154
+				case result.ResultTagOk:
+//line stdlib/cmp/cmp.gom:154
+					tmp127 := y.Value
+//line stdlib/cmp/cmp.gom:154
+					tmp128 := tmp127
+//line stdlib/cmp/cmp.gom:154
+					tmp129 := ea.Eq(tmp126)
+//line stdlib/cmp/cmp.gom:154
+					return tmp129(tmp128)
+//line stdlib/cmp/cmp.gom:154
+				case result.ResultTagErr:
+//line stdlib/cmp/cmp.gom:155
+					return false
+//line stdlib/cmp/cmp.gom:155
+				default:
+//line stdlib/cmp/cmp.gom:153
+					panic(rt.InvalidVariant("Result", y))
+//line stdlib/cmp/cmp.gom:154
+				}
+//line stdlib/cmp/cmp.gom:153
+			case result.ResultTagErr:
+//line stdlib/cmp/cmp.gom:153
+				tmp131 := x.Error
+//line stdlib/cmp/cmp.gom:153
+				tmp132 := tmp131
+//line stdlib/cmp/cmp.gom:158
+				switch y.Tag() {
+//line stdlib/cmp/cmp.gom:158
+				case result.ResultTagOk:
+//line stdlib/cmp/cmp.gom:159
+					return false
+//line stdlib/cmp/cmp.gom:158
+				case result.ResultTagErr:
+//line stdlib/cmp/cmp.gom:158
+					tmp134 := y.Error
+//line stdlib/cmp/cmp.gom:158
+					tmp135 := tmp134
+//line stdlib/cmp/cmp.gom:158
+					tmp136 := ee.Eq(tmp132)
+//line stdlib/cmp/cmp.gom:158
+					return tmp136(tmp135)
+//line stdlib/cmp/cmp.gom:158
+				default:
+//line stdlib/cmp/cmp.gom:157
+					panic(rt.InvalidVariant("Result", y))
+//line stdlib/cmp/cmp.gom:158
+				}
+//line stdlib/cmp/cmp.gom:158
+			default:
+//line stdlib/cmp/cmp.gom:152
+				panic(rt.InvalidVariant("Result", x))
+//line stdlib/cmp/cmp.gom:153
+			}
+//line stdlib/cmp/cmp.gom:152
+		}
+//line stdlib/cmp/cmp.gom:152
+	}
+//line stdlib/cmp/cmp.gom:152
+	return Eq[result.Result[A, E]]{Eq: tmp137}
+//line stdlib/cmp/cmp.gom:151
+}
+
+//line stdlib/cmp/cmp.gom:165
+func ResultOrd[A, E any](oa Ord[A], oe Ord[E]) Ord[result.Result[A, E]] {
+//line stdlib/cmp/cmp.gom:166
+	tmp150 := func(x result.Result[A, E]) func(result.Result[A, E]) bool {
+//line stdlib/cmp/cmp.gom:166
+		return func(y result.Result[A, E]) bool {
+//line stdlib/cmp/cmp.gom:167
+			switch x.Tag() {
+//line stdlib/cmp/cmp.gom:167
+			case result.ResultTagOk:
+//line stdlib/cmp/cmp.gom:167
+				tmp138 := x.Value
+//line stdlib/cmp/cmp.gom:167
+				tmp139 := tmp138
+//line stdlib/cmp/cmp.gom:168
+				switch y.Tag() {
+//line stdlib/cmp/cmp.gom:168
+				case result.ResultTagOk:
+//line stdlib/cmp/cmp.gom:168
+					tmp140 := y.Value
+//line stdlib/cmp/cmp.gom:168
+					tmp141 := tmp140
+//line stdlib/cmp/cmp.gom:168
+					tmp142 := oa.Lt(tmp139)
+//line stdlib/cmp/cmp.gom:168
+					return tmp142(tmp141)
+//line stdlib/cmp/cmp.gom:168
+				case result.ResultTagErr:
+//line stdlib/cmp/cmp.gom:169
+					return true
+//line stdlib/cmp/cmp.gom:169
+				default:
+//line stdlib/cmp/cmp.gom:167
+					panic(rt.InvalidVariant("Result", y))
+//line stdlib/cmp/cmp.gom:168
+				}
+//line stdlib/cmp/cmp.gom:167
+			case result.ResultTagErr:
+//line stdlib/cmp/cmp.gom:167
+				tmp144 := x.Error
+//line stdlib/cmp/cmp.gom:167
+				tmp145 := tmp144
+//line stdlib/cmp/cmp.gom:172
+				switch y.Tag() {
+//line stdlib/cmp/cmp.gom:172
+				case result.ResultTagOk:
+//line stdlib/cmp/cmp.gom:173
+					return false
+//line stdlib/cmp/cmp.gom:172
+				case result.ResultTagErr:
+//line stdlib/cmp/cmp.gom:172
+					tmp147 := y.Error
+//line stdlib/cmp/cmp.gom:172
+					tmp148 := tmp147
+//line stdlib/cmp/cmp.gom:172
+					tmp149 := oe.Lt(tmp145)
+//line stdlib/cmp/cmp.gom:172
+					return tmp149(tmp148)
+//line stdlib/cmp/cmp.gom:172
+				default:
+//line stdlib/cmp/cmp.gom:171
+					panic(rt.InvalidVariant("Result", y))
+//line stdlib/cmp/cmp.gom:172
+				}
+//line stdlib/cmp/cmp.gom:172
+			default:
+//line stdlib/cmp/cmp.gom:166
+				panic(rt.InvalidVariant("Result", x))
+//line stdlib/cmp/cmp.gom:167
+			}
+//line stdlib/cmp/cmp.gom:166
+		}
+//line stdlib/cmp/cmp.gom:166
+	}
+//line stdlib/cmp/cmp.gom:166
+	return Ord[result.Result[A, E]]{Lt: tmp150}
+//line stdlib/cmp/cmp.gom:165
+}
+
+//line stdlib/cmp/cmp.gom:178
+func Sort[A any](ord Ord[A], xs list.List[A]) list.List[A] {
+//line stdlib/cmp/cmp.gom:178
+	tmp151 := func(p04, p14 A) bool {
+//line stdlib/cmp/cmp.gom:178
+		u04 := ord.Lt(p04)
+//line stdlib/cmp/cmp.gom:178
+		return u04(p14)
+//line stdlib/cmp/cmp.gom:178
+	}
+//line stdlib/cmp/cmp.gom:178
+	return SortBy[A](tmp151, xs)
+//line stdlib/cmp/cmp.gom:178
+}
+
+//line stdlib/cmp/cmp.gom:221
+func gomEq10943da16(a, b list.List[option.Option[int64]]) bool {
+//line stdlib/cmp/cmp.gom:221
+	if len(a) != len(b) {
+//line stdlib/cmp/cmp.gom:221
+		return false
+//line stdlib/cmp/cmp.gom:221
+	}
+//line stdlib/cmp/cmp.gom:221
+	for i := range a {
+//line stdlib/cmp/cmp.gom:221
+		if !(a[i] == b[i]) {
+//line stdlib/cmp/cmp.gom:221
+			return false
+//line stdlib/cmp/cmp.gom:221
+		}
+//line stdlib/cmp/cmp.gom:221
+	}
+//line stdlib/cmp/cmp.gom:221
 	return true
-//line stdlib/cmp/cmp.gom:114
+//line stdlib/cmp/cmp.gom:221
+}
+
+//line stdlib/cmp/cmp.gom:237
+func gomEq20943da16(a, b list.List[list.List[int64]]) bool {
+//line stdlib/cmp/cmp.gom:237
+	if len(a) != len(b) {
+//line stdlib/cmp/cmp.gom:237
+		return false
+//line stdlib/cmp/cmp.gom:237
+	}
+//line stdlib/cmp/cmp.gom:237
+	for i := range a {
+//line stdlib/cmp/cmp.gom:237
+		if !(gomEq30943da16(a[i], b[i])) {
+//line stdlib/cmp/cmp.gom:237
+			return false
+//line stdlib/cmp/cmp.gom:237
+		}
+//line stdlib/cmp/cmp.gom:237
+	}
+//line stdlib/cmp/cmp.gom:237
+	return true
+//line stdlib/cmp/cmp.gom:237
+}
+
+//line stdlib/cmp/cmp.gom:237
+func gomEq30943da16(a, b list.List[int64]) bool {
+//line stdlib/cmp/cmp.gom:237
+	if len(a) != len(b) {
+//line stdlib/cmp/cmp.gom:237
+		return false
+//line stdlib/cmp/cmp.gom:237
+	}
+//line stdlib/cmp/cmp.gom:237
+	for i := range a {
+//line stdlib/cmp/cmp.gom:237
+		if !(a[i] == b[i]) {
+//line stdlib/cmp/cmp.gom:237
+			return false
+//line stdlib/cmp/cmp.gom:237
+		}
+//line stdlib/cmp/cmp.gom:237
+	}
+//line stdlib/cmp/cmp.gom:237
+	return true
+//line stdlib/cmp/cmp.gom:237
+}
+
+//line stdlib/cmp/cmp.gom:250
+func gomEq40943da16(a, b list.List[rt.Tuple2[int64, string]]) bool {
+//line stdlib/cmp/cmp.gom:250
+	if len(a) != len(b) {
+//line stdlib/cmp/cmp.gom:250
+		return false
+//line stdlib/cmp/cmp.gom:250
+	}
+//line stdlib/cmp/cmp.gom:250
+	for i := range a {
+//line stdlib/cmp/cmp.gom:250
+		if !(a[i] == b[i]) {
+//line stdlib/cmp/cmp.gom:250
+			return false
+//line stdlib/cmp/cmp.gom:250
+		}
+//line stdlib/cmp/cmp.gom:250
+	}
+//line stdlib/cmp/cmp.gom:250
+	return true
+//line stdlib/cmp/cmp.gom:250
+}
+
+//line stdlib/cmp/cmp.gom:264
+func gomEq50943da16(a, b list.List[result.Result[int64, string]]) bool {
+//line stdlib/cmp/cmp.gom:264
+	if len(a) != len(b) {
+//line stdlib/cmp/cmp.gom:264
+		return false
+//line stdlib/cmp/cmp.gom:264
+	}
+//line stdlib/cmp/cmp.gom:264
+	for i := range a {
+//line stdlib/cmp/cmp.gom:264
+		if !(a[i] == b[i]) {
+//line stdlib/cmp/cmp.gom:264
+			return false
+//line stdlib/cmp/cmp.gom:264
+		}
+//line stdlib/cmp/cmp.gom:264
+	}
+//line stdlib/cmp/cmp.gom:264
+	return true
+//line stdlib/cmp/cmp.gom:264
+}
+
+//line stdlib/cmp/cmp.gom:274
+func gomEq60943da16(a, b list.List[string]) bool {
+//line stdlib/cmp/cmp.gom:274
+	if len(a) != len(b) {
+//line stdlib/cmp/cmp.gom:274
+		return false
+//line stdlib/cmp/cmp.gom:274
+	}
+//line stdlib/cmp/cmp.gom:274
+	for i := range a {
+//line stdlib/cmp/cmp.gom:274
+		if !(a[i] == b[i]) {
+//line stdlib/cmp/cmp.gom:274
+			return false
+//line stdlib/cmp/cmp.gom:274
+		}
+//line stdlib/cmp/cmp.gom:274
+	}
+//line stdlib/cmp/cmp.gom:274
+	return true
+//line stdlib/cmp/cmp.gom:274
 }
