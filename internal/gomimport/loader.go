@@ -293,6 +293,7 @@ var stdlibPaths = map[string]string{
 	"list":   "github.com/podhmo/gom/stdlib/list",
 	"option": "github.com/podhmo/gom/stdlib/option",
 	"result": "github.com/podhmo/gom/stdlib/result",
+	"cmp":    "github.com/podhmo/gom/stdlib/cmp",
 }
 
 // canonicalPath resolves a clause path to the package's real

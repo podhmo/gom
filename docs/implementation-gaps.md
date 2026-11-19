@@ -1602,3 +1602,12 @@
   参照: [decision](decisions/2026-11-18-ctor-typeargs-authoritative.md)、
   [検証](sketch/2026-11-18-ctor-typeargs-verify.md)、
   [problems](problems/2026-11-02-ctor-typeargs-unvalidated.md)。
+- [ ] **`let` アノテーション付き `fn` 本体の内部で期待型伝播が弱い**:
+  `let init : Ptr http.Client -> Unit = fn c -> { … }` の中で
+  `c.CheckRedirect = Go.func2 (fn _req _via -> Err …)` を書くと
+  `_req`/`_via`/`Err` の型引数が E0407 になる。同じ式が `let` で
+  束ねたブロック直下（`let c : Ptr http.Client = { … c.CheckRedirect = Go.func2 (fn _req _via -> …) … }`）
+  では型検査を通る（gist-cli bce91d6 で検証）。`fn` パラメータに
+  アノテーションが書けない（`fn (c: T)` は E0101）ため、回避策は
+  束ね側の `let` にだけ型を書くことだが、入れ子 lambda で壁になる。
+  2026-11-19 の `tap` 代替調査（wave25 prompts B 項）で実測。

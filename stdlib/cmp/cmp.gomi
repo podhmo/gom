@@ -1,0 +1,71 @@
+package cmp
+
+/// Comparison dictionaries — the explicit-dictionary idiom the
+/// ad-hoc-polymorphism decision picks over type classes
+/// (docs/decisions/2026-11-19-ad-hoc-poly-dict-passing.md). A
+/// dictionary is an ordinary record passed as the FIRST argument;
+/// callers name the instance (`int_ord`, `desc int_ord`).
+///
+/// `Eq a` carries `eq`, `Ord a` carries `lt`. The records stay
+/// minimal — everything else (`member`, `min`, `sort`) derives from
+/// the one operation.
+///
+/// `Eq a` is a dictionary of equality operations over a.
+type Eq a = { eq : a -> a -> Bool }
+
+/// Ord a is a dictionary of ordering operations over a — `lt x y`
+/// reports whether x comes before y.
+type Ord a = { lt : a -> a -> Bool }
+
+let int_eq : Eq Int
+
+let int_ord : Ord Int
+
+let float_eq : Eq Float
+
+/// float_ord is a TOTAL order: NaN sorts before every finite value
+/// (a != a marks a NaN; b == b a non-NaN). Raw `<` alone would make
+/// lt(NaN, x) and lt(x, NaN) both false — then `eq_of float_ord`
+/// calls NaN equal to everything and SortBy loses strict weak order.
+let float_ord : Ord Float
+
+let string_eq : Eq String
+
+let string_ord : Ord String
+
+let bool_eq : Eq Bool
+
+let byte_eq : Eq Byte
+
+let char_eq : Eq Char
+
+let char_ord : Ord Char
+
+/// desc ord flips the ordering — `desc int_ord` sorts descending.
+fn desc (ord: Ord a) -> Ord a
+
+/// eq_of ord derives the equality an ordering induces:
+/// x == y iff neither is less than the other.
+fn eq_of (ord: Ord a) -> Eq a
+
+/// member e x xs reports whether some element of xs equals x
+/// under the dictionary e.
+fn member (e: Eq a) (x: a) (xs: List a) -> Bool
+
+/// min ord xs is the least element under ord, or None on [].
+fn min (ord: Ord a) (xs: List a) -> Option a
+
+/// max ord xs is the greatest element under ord, or None on [].
+fn max (ord: Ord a) (xs: List a) -> Option a
+
+fn fold_min (lt: a -> a -> Bool) (best: a) (xs: List a) -> a
+
+fn fold_max (lt: a -> a -> Bool) (best: a) (xs: List a) -> a
+
+/// sort ord xs is xs sorted ascending under ord — a fresh list.
+fn sort (ord: Ord a) (xs: List a) -> List a
+
+/// sort_by lt xs is the comparator form sort lowers onto — a
+/// slices.SortFunc-backed Go impl (impl.go), so the ordering is
+/// O(n log n), not insertion sort.
+fn sort_by (lt: a -> a -> Bool) (xs: List a) -> List a
