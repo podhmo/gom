@@ -1,0 +1,18 @@
+package ex
+
+// Annotated lambda parameters — `fn (x: T) -> ...`, the same
+// "(name: Type)" shape a fn-decl parameter takes (spec 1.2).
+
+fn apply (f: Int -> Int) (x: Int) -> Int = f x
+
+let inc : Int -> Int = fn (x: Int) -> x + 1
+
+let add : Int -> Int -> Int = fn (x: Int) (y: Int) -> x + y
+
+let twice : Int = apply (fn (x: Int) -> x * 2) 3
+
+fn main () -> Unit = {
+  let g = fn (x: Int) -> x + 1
+  let _ = g 1
+  ()
+}

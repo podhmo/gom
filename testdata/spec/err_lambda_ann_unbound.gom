@@ -1,0 +1,17 @@
+package ex
+
+// A lambda annotation variable with no binder is E0412 — the same
+// rule a local let's annotation follows (spec 3.3). Without it the
+// generated closure would reference an undeclared Go type parameter.
+// The enclosing `id` signature's `a` stays bound and is not reported.
+
+fn id (x: a) -> a = {
+  let g = fn (y: a) -> y
+  g x
+}
+
+fn dup () -> Unit = {
+  let g = fn (x: b) -> x
+  let _ = g
+  ()
+}

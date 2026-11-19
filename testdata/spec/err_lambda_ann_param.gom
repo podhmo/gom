@@ -1,0 +1,6 @@
+package ex
+
+// `(x)` without ": Type" in a lambda parameter is a parse error —
+// the annotated form is "(x: T)", matching parseFnParam's rule.
+
+let inc = fn (x) -> x + 1

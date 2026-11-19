@@ -206,6 +206,7 @@
 | [deriving-declined](2026-11-19-deriving-declined.md) | deriving（コンパイラ mint の辞書生成）— `Ord` のための導入は見送り | adopted |
 | [errors-as-nested-ptr-lint](2026-11-19-errors-as-nested-ptr-lint.md) | `errors.As` target の `Ptr (Ptr E)` — 証明可能な要素側違反を W0502 に足す | 採用（wave22 prompts で podhmo 採択済み。実装・検証した — spec.md §8.4 と fixture を更新済み） |
 | [flat-partial-eval](2026-11-19-flat-partial-eval.md) | flat 宣言パラメータの部分適用 — eval 側を遅延させて divergence を消す | 採用（wave22 prompts で podhmo 採択済み。実装・検証した — `TestEagerFnChunkTiming` を新仕様に更新、spec.md §1.3 の注記を解消） |
+| [lambda-param-annotation](2026-11-19-lambda-param-annotation.md) | ラムダパラメータの `(x: T)` 型注釈 | adopted |
 | [lsp-withdrawn](2026-11-19-lsp-withdrawn.md) | LSP は未対応に戻す — `gom lsp` と `internal/lsp` を除去 | adopted |
 | [noncons-accum-policy](2026-11-19-noncons-accum-policy.md) | 非 cons 蓄積 quadratic の救済方針: β 誘導 + γ 警告 lint、α/δ は先送り | adopted（podhmo 採択 2026-11-19 —「検出の実装を実験してみるというのはあっても良いかもな。warningとか出ると良い。迂闊でもマシになるコードを目指したい」「コンパイル時じゃなくても良い。vet的なものでも良い」「実装が手軽な方で良い。実装箇所に制限は設けない」「α は今は未対応で良いかな」） |
 | [ptr-meta-defer](2026-11-19-ptr-meta-defer.md) | メンバー選択の遅延を「受け手に未解決メタを含む型」まで拡張（`Ptr ?m`） | adopted |

@@ -35,19 +35,21 @@ import (
 func Check(res *resolve.Resolved, src SignatureSource) (*File, diag.List) {
 	bv := &builtinTVar{}
 	c := &checker{
-		res:         res,
-		src:         src,
-		vals:        map[*resolve.Symbol]types.Type{},
-		externBound: map[*resolve.Symbol]Signature{},
-		referenced:  map[*resolve.Symbol]bool{},
-		sigScope:    map[*resolve.Symbol]*tscope{},
-		thunks:      map[*resolve.Symbol]bool{},
-		tyCons:      map[conKey]*typeInfo{},
-		tyBySym:     map[*resolve.Symbol]*typeInfo{},
-		ctors:       map[*resolve.Symbol]*variantInfo{},
-		fieldSyms:   map[*resolve.Symbol]*fieldInfo{},
-		metas:       map[*types.Meta]*metaRec{},
-		builtins:    builtinSigs(bv),
+		res:             res,
+		src:             src,
+		vals:            map[*resolve.Symbol]types.Type{},
+		externBound:     map[*resolve.Symbol]Signature{},
+		referenced:      map[*resolve.Symbol]bool{},
+		sigScope:        map[*resolve.Symbol]*tscope{},
+		thunks:          map[*resolve.Symbol]bool{},
+		tyCons:          map[conKey]*typeInfo{},
+		tyBySym:         map[*resolve.Symbol]*typeInfo{},
+		ctors:           map[*resolve.Symbol]*variantInfo{},
+		fieldSyms:       map[*resolve.Symbol]*fieldInfo{},
+		metas:           map[*types.Meta]*metaRec{},
+		builtins:        builtinSigs(bv),
+		adoptedAnnVars:  map[*types.Var]bool{},
+		reportedUnbound: map[*types.Var]bool{},
 	}
 	c.registerBuiltinTypes(bv)
 	c.registerTypeDecls(res.File.Decls)
@@ -59,6 +61,7 @@ func Check(res *resolve.Resolved, src SignatureSource) (*File, diag.List) {
 	c.registerValueDecls(res.File.Decls)
 	c.checkDecls(res.File.Decls)
 	c.finalize()
+	c.checkLambdaAnnScopes()
 	c.checkTopLevelLetScopes()
 	c.checkInstantiationCycles()
 	c.validateGoGenerics()
@@ -126,6 +129,20 @@ type checker struct {
 	// solved their metas: a later generic use may bind an ordinary
 	// top-level let to variables owned by another declaration.
 	monomorphicLets []Pat
+
+	// lambdaAnnScopes are the rigid-variable scopes lambda parameter
+	// annotations minted (`fn (x: a) -> ...`). A variable in one is
+	// bound either by an enclosing signature — resolved through the
+	// scope chain, so not owned by the lambda scope — or by a
+	// top-level let's generalization adopting it into TypeParams;
+	// anything left has no quantifier and reports E0412 at finalize.
+	lambdaAnnScopes []lambdaAnnScope
+	// adoptedAnnVars are the rigid variables a binding's
+	// generalization adopted — the `a` of `let f = fn (x: a) -> x`.
+	adoptedAnnVars map[*types.Var]bool
+	// reportedUnbound dedupes E0412 between the lambda-scope check
+	// and the monomorphic-let check when both cover one variable.
+	reportedUnbound map[*types.Var]bool
 
 	// The type-declaration tables.
 	tyCons    map[conKey]*typeInfo          // declared + builtin types by identity
@@ -803,6 +820,9 @@ func (c *checker) checkLetDecl(d *syntax.LetDecl) {
 						// callee is statically known now.
 						c.reclassifyCalls(vp.Sym, len(sig.Params), val)
 					}
+					for _, v := range vars {
+						c.adoptedAnnVars[v] = true
+					}
 					c.decls = append(c.decls, &FnDecl{
 						Sp: d.Sp, Sym: vp.Sym, Sig: sig,
 						Params: lam.Params, Body: lam.Body,
@@ -825,6 +845,9 @@ func (c *checker) checkLetDecl(d *syntax.LetDecl) {
 					vp.Sym.Kind = resolve.KindFunc
 					c.vals[vp.Sym] = sig
 					c.thunks[vp.Sym] = true
+					for _, v := range vars {
+						c.adoptedAnnVars[v] = true
+					}
 					c.decls = append(c.decls, &FnDecl{
 						Sp: d.Sp, Sym: vp.Sym, Sig: sig,
 						Body: val, TypeParams: vars, Thunk: true,
@@ -867,9 +890,40 @@ func (c *checker) checkLetDecl(d *syntax.LetDecl) {
 func (c *checker) checkTopLevelLetScopes() {
 	for _, pat := range c.monomorphicLets {
 		for _, v := range rigidVars(pat.Type()) {
+			if c.reportedUnbound[v] {
+				continue
+			}
+			c.reportedUnbound[v] = true
 			c.diags.Add(diag.Error("E0412",
 				fmt.Sprintf("unbound type variable `%s`", v)).
 				At(pat.Span()).Set("var", v.String()))
+		}
+	}
+}
+
+// lambdaAnnScope is a lambda's own rigid-variable scope plus the
+// span its unbound variables report at.
+type lambdaAnnScope struct {
+	sc *tscope
+	sp diag.Span
+}
+
+// checkLambdaAnnScopes reports E0412 for rigid variables a lambda
+// parameter annotation minted that nothing binds: variables the
+// enclosing signature owns resolve through the scope chain (never
+// owned by the lambda scope), and variables a top-level let's
+// generalization adopted into the binding's TypeParams are bound —
+// anything left would emit an undeclared Go type parameter.
+func (c *checker) checkLambdaAnnScopes() {
+	for _, e := range c.lambdaAnnScopes {
+		for v := range e.sc.owned {
+			if c.adoptedAnnVars[v] || c.reportedUnbound[v] {
+				continue
+			}
+			c.reportedUnbound[v] = true
+			c.diags.Add(diag.Error("E0412",
+				fmt.Sprintf("unbound type variable `%s`", v)).
+				At(e.sp).Set("var", v.String()))
 		}
 	}
 }

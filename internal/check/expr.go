@@ -2021,6 +2021,9 @@ func (c *checker) checkPipeTry(e *syntax.Binary) Expr {
 // becomes `p1 ... -> Result a e` when it contains one.
 func (c *checker) checkLambda(e *syntax.Lambda, want types.Type) Expr {
 	sc := c.newTScope()
+	// A variable this scope mints stays registered so finalize can
+	// report the ones no enclosing signature or top-level let binds.
+	c.lambdaAnnScopes = append(c.lambdaAnnScopes, lambdaAnnScope{sc: sc, sp: e.Sp})
 	// An expected function type seeds the body's result want with
 	// the residual after the lambda's own parameters: `1` under
 	// `Int -> Go.Any` conforms to `any` and boxes at the body

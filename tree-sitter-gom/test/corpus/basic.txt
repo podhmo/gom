@@ -2401,3 +2401,54 @@ fn f (b: Ptr goiface.SliceBox) -> Unit = {
                                                       (postfix_expr
                                                         (atom
                                                           (paren_expr))))))))))))))))))))))))))))))
+
+================================================================================
+lambda annotated param
+================================================================================
+
+package m
+
+let inc = fn (x: Int) -> x + 1
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (package_decl
+    (ident))
+  (let_decl
+    (pattern
+      (or_pattern
+        (ctor_pattern
+          (pat_atom
+            (ident)))))
+    (expr
+      (control_expr
+        (lambda
+          (lambda_param
+            (ident)
+            (type_expr
+              (arrow_type
+                (app_type
+                  (type_atom
+                    (uident))))))
+          (expr
+            (ascribed_expr
+              (pipe_expr
+                (bool_or_expr
+                  (bool_and_expr
+                    (rel_expr
+                      (add_expr
+                        (mul_expr
+                          (unary_expr
+                            (apply_expr
+                              (postfix_expr
+                                (atom
+                                  (ident))))))
+                        (add_op)
+                        (mul_expr
+                          (unary_expr
+                            (apply_expr
+                              (postfix_expr
+                                (atom
+                                  (literal
+                                    (int_literal)))))))))))))))))))

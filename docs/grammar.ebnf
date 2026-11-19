@@ -558,11 +558,13 @@ default-arm    = "default" , "->" , expr ;
                (* [SEMANTIC: at most one default arm, like Go.]         *)
 
 lambda         = "fn" , lambda-param , { lambda-param } , "->" , expr ;
-lambda-param   = ident | "_" | "(" , ")" ;
+lambda-param   = ident | "_" | "(" , ")" | "(" , ident , ":" , type-expr , ")" ;
                (* "fn x -> x + 1", "fn a b -> a + b", "fn () -> e",
-                  "fn _ -> e". The body extends as far right as possible.
-                  [PROVISIONAL lambda-param-forms: typed "(x: T)" and
-                  pattern parameters are not shown by the spec.]        *)
+                  "fn _ -> e", "fn (x: Int) -> x + 1". The annotated
+                  form matches the fn-decl "(name: Type)" convention.
+                  The body extends as far right as possible.
+                  [PROVISIONAL lambda-param-forms: pattern parameters
+                  are not shown by the spec.]                        *)
 
 (* ---- head-expr: the brace restriction (spec 1.6) ---------------------
 

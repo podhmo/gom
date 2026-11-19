@@ -635,8 +635,13 @@ func (p *printer) lambdaDoc(e *syntax.Lambda, nb bool) *doc {
 		group(concat(text(" ->"+mid), nest(indentStep, concat(docLine, p.expr(e.Body, pAny, nb))))))
 }
 
-// lambdaParam renders a lambda parameter — ident, "_" or "()".
+// lambdaParam renders a lambda parameter — ident, "_", "()" or
+// "(name: Type)". An annotated (or labeled) parameter is the same
+// "(x: T)" shape a fn-decl parameter takes.
 func (p *printer) lambdaParam(pr *syntax.Param) *doc {
+	if pr.Label != nil || pr.Type != nil {
+		return p.paramRaw(pr)
+	}
 	switch pt := pr.Pat.(type) {
 	case *syntax.VarPat:
 		return text(pt.Name.Name)
