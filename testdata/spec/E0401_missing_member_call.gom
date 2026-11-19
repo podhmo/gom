@@ -25,3 +25,15 @@ fn g () -> Unit = {
     ()
   }) 0
 }
+
+// A multi-argument var-callee call defers the same way — `f a b`
+// is one application of two arguments, not nested applies — so the
+// whole `f (fn y -> y) 0` node quiets on the failed member and
+// reports the E0401 alone.
+fn h () -> Unit = {
+  (fn x -> {
+    let f = x.M
+    f (fn y -> y) 0
+    ()
+  }) 0
+}
