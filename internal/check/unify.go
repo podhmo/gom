@@ -1248,23 +1248,28 @@ func (c *checker) finalize() {
 	//
 	// With the defaults bound, member selections deferred on an
 	// unknown receiver type can retry: `0.f` sees the literal's Int.
-	// The retry itself mints metas — an instantiated method
-	// signature, and now also a deferred field-write RHS checked
-	// only at revisit time (a literal inside it needs its own Int
-	// default) — so the pair repeats until a round binds nothing:
-	// each round's defaults can enable the next round's resolutions.
+	// Defaults must wait for a stable round, though: a literal's
+	// real constraint can still be sitting in deferred work (a
+	// field-write RHS re-checked under its field's signature), and
+	// binding Int before that re-check runs pins the meta early —
+	// the later `Int64` constraint then rejects a `let n = 1` the
+	// eager path would have accepted. So each round drains members,
+	// replays and fills first; only a round that changed nothing
+	// defaults, and the loop repeats because a default can enable
+	// the next round's resolutions.
 	for {
-		bound := c.applyDefaults()
 		nMetas := len(c.metas)
 		c.revisitSelects()
-		if bound != 0 || len(c.metas) != nMetas {
-			continue
-		}
+		replayed := c.replayResolvedApplies()
 		// A deferred RHS may itself pin the receiver it sits on
 		// (`b.N = readN b`): fill pending values once, then let the
 		// member retry — a resolved member re-checks the value under
 		// its real want on the next round.
-		if !c.finishAssigns() {
+		filled := c.finishAssigns()
+		if len(c.metas) != nMetas || replayed != 0 || filled {
+			continue
+		}
+		if c.applyDefaults() == 0 {
 			break
 		}
 	}
@@ -1273,21 +1278,24 @@ func (c *checker) finalize() {
 	// diagnostic covers the failure, the node just needs to be
 	// complete.
 	// Applications deferred on an unsettled member still need a
-	// final CallInfo. Two stages per round: settled members replay
-	// first — a replay's argument unifications can pin the receiver
-	// another apply or selection waits on — and only a fully quiet
-	// round commits the rest to the Gom convention. Committing
-	// early pins the member's standing meta to a Gom shape
-	// (`Unit -> ?r`): a member resolving later would both lose its
-	// Go convention and mis-unify. Re-checked fills and replays
-	// mint fresh metas, so defaulting and the deferred-write
-	// fixpoint rerun here too.
+	// final CallInfo. The stages rank by how reversible they are:
+	// settled members replay first — a replay's argument
+	// unifications can pin the receiver another apply or selection
+	// waits on — then defaults (still delayed past every resolver,
+	// as above), and only a fully quiet round commits the rest to
+	// the Gom convention. Committing early pins the member's
+	// standing meta to a Gom shape (`Unit -> ?r`): a member
+	// resolving later would both lose its Go convention and
+	// mis-unify.
 	for {
 		nMetas := len(c.metas)
 		replayed := c.replayResolvedApplies()
-		bound := c.applyDefaults()
 		c.revisitSelects()
-		if replayed != 0 || bound != 0 || len(c.metas) != nMetas || c.finishAssigns() {
+		filled := c.finishAssigns()
+		if replayed != 0 || len(c.metas) != nMetas || filled {
+			continue
+		}
+		if c.applyDefaults() != 0 {
 			continue
 		}
 		if c.replayUnresolvedApplies() == 0 {

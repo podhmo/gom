@@ -46,6 +46,16 @@ type WithFn struct {
 	Fn func(int64) int64
 }
 
+// WithFloat keeps a float64 callback field — a non-Int numeric
+// signature for the deferred-assignment default-ordering fixture.
+type WithFloat struct {
+	F func(float64) float64
+	G func(float64) float64
+}
+
+// CallF invokes the stored float callback.
+func (w *WithFloat) CallF(x float64) float64 { return w.F(x) }
+
 // Call invokes the stored callback.
 func (w *WithFn) Call() int64 { return w.Fn(1) }
 
