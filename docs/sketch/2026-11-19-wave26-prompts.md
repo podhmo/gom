@@ -60,13 +60,13 @@ test), skills/gom-agent-guide/references/ad-hoc-polymorphism.md.
 ### D. wave25 調査 lane の採否に応じた実装 — `devin/wave26-followups`
 
 ```
-[decide→impl] podhmo の lane B/C/D 採否次第で 1 本選ぶ:
+[decide→impl] podhmo の lane B/D 採否次第で 1 本選ぶ:
 - (a) composite literal 採用なら `pkg.T { F = v }`（`&T{...}`
   専用形）の syntax→check→codegen
-- `@derive` 採用なら `Eq`+`Ord` の構造 derive（多相フィールドは
-  v2 以降に分離）
 - interface impl 採用なら `fmt.Stringer`/`error` の最小スコープ
   （値レシーバ・引数なしから）
+（deriving は podhmo 判定で不採用に確定 —
+decisions/2026-11-19-deriving-declined.md）
 採否が出なければ本 lane はスキップして予備候補（省略可能引数・
 ラベル付き引数の制限緩和の調査 — open-questions 残件）を回す。
 Ownership: 採択 lane の sketch に記載の経路。
