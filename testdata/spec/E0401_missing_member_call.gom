@@ -1,0 +1,14 @@
+package ex
+
+// A member that fails to resolve must not leave the standing meta's
+// bound solution noisy: `f` aliased `x.M` and its call pinned
+// `?M -> ?r` shapes on it — the lambda's shared return meta is part
+// of that solution, so without solution-wide quieting the failure
+// reports a bogus "annotation required" (E0407) next to the E0401.
+fn f () -> Unit = {
+  (fn x -> {
+    let f = x.M
+    f (fn y -> y)
+    ()
+  }) 0
+}
