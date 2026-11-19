@@ -1248,15 +1248,23 @@ func (c *checker) finalize() {
 				bound++
 			}
 		}
+		nMetas := len(c.metas)
 		c.revisitSelects()
-		if bound == 0 {
+		if bound != 0 || len(c.metas) != nMetas {
+			continue
+		}
+		// A deferred RHS may itself pin the receiver it sits on
+		// (`b.N = readN b`): fill pending values once, then let the
+		// member retry — a resolved member re-checks the value under
+		// its real want on the next round.
+		if !c.finishAssigns() {
 			break
 		}
 	}
-	// Field writes deferred on a receiver that never settled get
-	// their RHS checked once — the member's own diagnostic covers
-	// the failure, the node just needs to be complete.
-	c.finishAssigns()
+	// Field writes deferred on a receiver that never settled keep
+	// the RHS their nil-want fill produced — the member's own
+	// diagnostic covers the failure, the node just needs to be
+	// complete.
 	c.revisitInterfaces()
 	// The same post-default moment settles the pending constant-zero
 	// divisors: their operand types are now concrete (or bound to a

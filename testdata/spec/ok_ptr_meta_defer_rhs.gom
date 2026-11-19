@@ -1,0 +1,32 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// A deferred RHS pins its own receiver: `readN b` constrains `b`
+// to `Ptr SliceBox`, so `.N` resolves on the next member retry
+// rather than after the last one.
+fn readN (b: Ptr goiface.SliceBox) -> Int = b.N
+
+fn pinned () -> Int = {
+  let b = Ptr.new ()
+  b.N = readN b
+  b.N
+}
+
+// Literals minted by a deferred RHS's check take a default pass of
+// their own — `ignore 1` keeps its Int, not an unsolved E0407.
+fn blocky () -> Ptr goiface.SliceBox = {
+  let b = Ptr.new ()
+  b.N = { ignore 1; 7 }
+  b
+}
+
+// The deferred RHS keeps the enclosing boundary: `try` inside it
+// still escapes to this Result-returning fn.
+fn mk () -> Result Int GoError = Ok 1
+
+fn tried () -> Result (Ptr goiface.SliceBox) GoError = {
+  let w = Ptr.new ()
+  w.N = try (mk ())
+  Ok w
+}
