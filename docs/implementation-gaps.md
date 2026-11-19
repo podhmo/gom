@@ -1617,3 +1617,16 @@
   real want で check — `Go.funcN` の seed が届く。検証:
   [fixture](../testdata/spec/ok_fn_body_field_write.gom)、
   [decision](decisions/2026-11-19-ptr-meta-defer.md)。
+
+- [ ] **トップレベル `let`/`fn` の束縛名が Go の予約関数名と衝突する**:
+  `let init : Ptr goiface.WithFn -> Unit = fn w -> { ... }` は gom 側の
+  型検査を通るが、生成コードがそのまま `func init(w ...)` を吐き、
+  `go build` が "func init must have no arguments and no return
+  values" で失敗する（FuzzCompile seed で 2026-11-19 検出）。
+  `main` も同様。codegen で予約名を退避させるか、check で E0xxx として
+  拒否するかが要る。再現は上記の `let init` そのもの（`gom check` は
+  通り、`gom build` 出力の `func init(w ...)` が `go build` で失敗）。
+  [ok_fn_body_field_write.gom](../testdata/spec/ok_fn_body_field_write.gom)
+  はこの衝突を避けるため束縛名を `initw` に退避させた検証 fixture で、
+  生成コードの失敗そのものは再現しない。参照:
+  [codegen](../internal/codegen/)。

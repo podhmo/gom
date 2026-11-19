@@ -1215,6 +1215,29 @@ type metaEntry struct {
 	r *metaRec
 }
 
+// applyDefaults binds every unbound meta that has a default —
+// literal roots and the like — reporting the constraint the
+// default satisfies. Returns how many bound.
+func (c *checker) applyDefaults() int {
+	var ms []metaEntry
+	for m, r := range c.metas {
+		ms = append(ms, metaEntry{m, r})
+	}
+	sortEntries(ms)
+	bound := 0
+	for _, e := range ms {
+		if e.m.Bound() {
+			continue
+		}
+		if d := defaultOf(e.r); d != nil {
+			c.satisfies(e.r, d, c.pos(e.r.span))
+			e.m.Bind(d)
+			bound++
+		}
+	}
+	return bound
+}
+
 func (c *checker) finalize() {
 	// First pass: defaults, interleaved with the deferred-selection
 	// retry. Binding one may chase-solve others. A default that
@@ -1230,33 +1253,47 @@ func (c *checker) finalize() {
 	// only at revisit time (a literal inside it needs its own Int
 	// default) — so the pair repeats until a round binds nothing:
 	// each round's defaults can enable the next round's resolutions.
-	var ms []metaEntry
 	for {
-		bound := 0
-		ms = ms[:0]
-		for m, r := range c.metas {
-			ms = append(ms, metaEntry{m, r})
-		}
-		sortEntries(ms)
-		for _, e := range ms {
-			if e.m.Bound() {
-				continue
-			}
-			if d := defaultOf(e.r); d != nil {
-				c.satisfies(e.r, d, c.pos(e.r.span))
-				e.m.Bind(d)
-				bound++
-			}
-		}
+		bound := c.applyDefaults()
+		nMetas := len(c.metas)
 		c.revisitSelects()
-		if bound == 0 {
+		if bound != 0 || len(c.metas) != nMetas {
+			continue
+		}
+		// A deferred RHS may itself pin the receiver it sits on
+		// (`b.N = readN b`): fill pending values once, then let the
+		// member retry — a resolved member re-checks the value under
+		// its real want on the next round.
+		if !c.finishAssigns() {
 			break
 		}
 	}
-	// Field writes deferred on a receiver that never settled get
-	// their RHS checked once — the member's own diagnostic covers
-	// the failure, the node just needs to be complete.
-	c.finishAssigns()
+	// Field writes deferred on a receiver that never settled keep
+	// the RHS their nil-want fill produced — the member's own
+	// diagnostic covers the failure, the node just needs to be
+	// complete.
+	// Applications deferred on an unsettled member still need a
+	// final CallInfo. Two stages per round: settled members replay
+	// first — a replay's argument unifications can pin the receiver
+	// another apply or selection waits on — and only a fully quiet
+	// round commits the rest to the Gom convention. Committing
+	// early pins the member's standing meta to a Gom shape
+	// (`Unit -> ?r`): a member resolving later would both lose its
+	// Go convention and mis-unify. Re-checked fills and replays
+	// mint fresh metas, so defaulting and the deferred-write
+	// fixpoint rerun here too.
+	for {
+		nMetas := len(c.metas)
+		replayed := c.replayResolvedApplies()
+		bound := c.applyDefaults()
+		c.revisitSelects()
+		if replayed != 0 || bound != 0 || len(c.metas) != nMetas || c.finishAssigns() {
+			continue
+		}
+		if c.replayUnresolvedApplies() == 0 {
+			break
+		}
+	}
 	c.revisitInterfaces()
 	// The same post-default moment settles the pending constant-zero
 	// divisors: their operand types are now concrete (or bound to a
@@ -1271,13 +1308,11 @@ func (c *checker) finalize() {
 	// defaulted, so the static type at each literal's own position is
 	// final (spec 3.3; E0417).
 	c.revisitLitRanges()
-	if len(c.metas) != len(ms) {
-		ms = ms[:0]
-		for m, r := range c.metas {
-			ms = append(ms, metaEntry{m, r})
-		}
-		sortEntries(ms)
+	var ms []metaEntry
+	for m, r := range c.metas {
+		ms = append(ms, metaEntry{m, r})
 	}
+	sortEntries(ms)
 	// Second pass: report what is left. A meta marked quiet is a
 	// recovery artifact — the diagnostic that created it already ran.
 	for _, e := range ms {

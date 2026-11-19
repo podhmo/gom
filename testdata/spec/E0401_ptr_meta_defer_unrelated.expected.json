@@ -1,0 +1,27 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "Ptr github.com/podhmo/gom/testdata/goiface.WithFn has no field or method `Nope`",
+      "span": {
+        "file": "E0401_ptr_meta_defer_unrelated.gom",
+        "start": {
+          "line": 11,
+          "col": 12,
+          "offset": 293
+        },
+        "end": {
+          "line": 11,
+          "col": 16,
+          "offset": 297
+        }
+      },
+      "data": {
+        "member": "Nope",
+        "type": "Ptr github.com/podhmo/gom/testdata/goiface.WithFn"
+      }
+    }
+  ]
+}
