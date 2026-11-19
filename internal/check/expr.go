@@ -196,12 +196,15 @@ type assignTarget struct {
 	inTest  bool
 	tscope  *tscope
 
-	// diagMark checkpoints c.diags before the provisional nil-want
-	// fill — a member that resolves later re-checks the value under
-	// its real signature, and the speculative pass's diagnostics are
-	// stale (a `Go.funcN` under no want rejects the very lambda the
-	// field would accept). -1 while unfilled.
+	// diagMark/diagEnd delimit the diagnostics the provisional
+	// nil-want fill emitted — a member that resolves later re-checks
+	// the value under its real signature, and the speculative pass's
+	// diagnostics are stale (a `Go.funcN` under no want rejects the
+	// very lambda the field accepts). Only that range is rolled
+	// back; errors a later round emitted for OTHER deferred work sit
+	// after diagEnd and must survive. -1 while unfilled.
 	diagMark int
+	diagEnd  int
 }
 
 // checkAssignRHS runs the deferred RHS check under the context
@@ -725,8 +728,11 @@ func (c *checker) revisitSelects() {
 			if pa.diagMark >= 0 {
 				// A provisional fill already checked this RHS with no
 				// want — its diagnostics are superseded by the real
-				// signature's check below.
-				c.diags = c.diags[:pa.diagMark]
+				// signature's check below. Drop exactly that range:
+				// diagnostics emitted later (an unrelated deferred
+				// select diagnosed in this same round) belong to
+				// entries already marked done and would be lost.
+				c.diags = append(c.diags[:pa.diagMark], c.diags[pa.diagEnd:]...)
 				pa.diagMark = -1
 			}
 			if d := c.assignShapeDiag(pa.Sel, me); d != nil {
@@ -756,6 +762,7 @@ func (c *checker) finishAssigns() bool {
 		filled = true
 		pa.diagMark = len(c.diags)
 		pa.Assign.Value = c.checkAssignRHS(pa, nil)
+		pa.diagEnd = len(c.diags)
 	}
 	return filled
 }

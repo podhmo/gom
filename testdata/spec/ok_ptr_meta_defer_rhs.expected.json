@@ -1,1 +1,27 @@
-{"diagnostics": []}
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected Unit, got Int",
+      "span": {
+        "file": "ok_ptr_meta_defer_rhs.gom",
+        "start": {
+          "line": 52,
+          "col": 3,
+          "offset": 1467
+        },
+        "end": {
+          "line": 52,
+          "col": 12,
+          "offset": 1476
+        }
+      },
+      "data": {
+        "actual": "Int",
+        "expected": "Unit"
+      }
+    }
+  ]
+}

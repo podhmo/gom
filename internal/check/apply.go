@@ -1028,10 +1028,16 @@ func (c *checker) replayAppliesOf(me *MemberExpr) {
 // member selection never resolved replay under the Gom convention —
 // the convention diagnostics the first pass withheld (E0504 for a
 // `_`, E0408 for a label on an unknown callee) still fire.
-func (c *checker) replayDeferredApplies() {
+func (c *checker) replayDeferredApplies() int {
+	n := 0
 	for _, pa := range c.pendingApplies {
+		if pa.done {
+			continue
+		}
 		c.replayApply(pa)
+		n++
 	}
+	return n
 }
 
 // replayApply gives a deferred application its final Args and

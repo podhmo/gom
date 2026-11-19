@@ -1273,7 +1273,13 @@ func (c *checker) finalize() {
 	// whose member a later round still resolves (a field write's
 	// RHS pinning its receiver turns `x.M ()` into a Go method
 	// call after the Gom replay already ran).
-	c.replayDeferredApplies()
+	// A replay's unifications can themselves bind a deferred
+	// selection's receiver (an argument pin through the callee's
+	// standing meta) — revisit so that member resolves too, then
+	// replay anything the revisit registered.
+	for c.replayDeferredApplies() > 0 {
+		c.revisitSelects()
+	}
 	c.revisitInterfaces()
 	// The same post-default moment settles the pending constant-zero
 	// divisors: their operand types are now concrete (or bound to a
