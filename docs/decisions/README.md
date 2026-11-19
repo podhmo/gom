@@ -165,8 +165,8 @@
 | [gotool-position-inverse](2026-11-06-gotool-position-inverse.md) | Go-position inverse: anchor-table candidate enumeration and the ambiguity fallback | 採用（実装・検証した — [検証](../sketch/2026-11-06-gotool-inverse-verification.md)） |
 | [iface-import-cycle-e0606](2026-11-06-iface-import-cycle-e0606.md) | Report .gomi-only import cycles as E0606 with the cycle path | 採用（実装・検証した — [検証](../sketch/2026-11-06-iface-import-cycle-e0606-verification.md)。spec.md §7 へ反映済み） |
 | [label-args-into-returned-functions](2026-11-06-label-args-into-returned-functions.md) | 返り値関数のパラメータを指すラベル引数 — カリー鎖をまたいだ並べ替え・充填を採用 | 採用（実装・検証した — [検証](../sketch/2026-11-06-label-args-into-returned-functions.md)。spec.md §2 へ反映済み） |
-| [lsp-package-unit](2026-11-06-lsp-package-unit.md) | LSP package compilation unit: overlay gather, per-member diagnostics | 採用 |
-| [lsp-v1-scope](2026-11-06-lsp-v1-scope.md) | LSP v1 scope: single-open-file hover + pushed diagnostics over stdio JSON-RPC | 採用 — compile-unit 部分は [2026-11-06-lsp-package-unit](2026-11-06-lsp-package-unit.md) が Supersede する（package 単位に拡張） |
+| [lsp-package-unit](2026-11-06-lsp-package-unit.md) | LSP package compilation unit: overlay gather, per-member diagnostics（[lsp-withdrawn](2026-11-19-lsp-withdrawn.md) で置き換え） | 採用 |
+| [lsp-v1-scope](2026-11-06-lsp-v1-scope.md) | LSP v1 scope: single-open-file hover + pushed diagnostics over stdio JSON-RPC（[lsp-withdrawn](2026-11-19-lsp-withdrawn.md) で置き換え） | 採用 — compile-unit 部分は [2026-11-06-lsp-package-unit](2026-11-06-lsp-package-unit.md) が Supersede する（package 単位に拡張） |
 | [nilable-iface-pair-ok-payload](2026-11-06-nilable-iface-pair-ok-payload.md) | `(NamedIface, error)` / `(any, error)` の Ok ペイロード — メソッド持ち interface は派生 `Option`、nil-able 宣言ゲートを interface 全般へ | 採用（実装・検証した — [検証](../sketch/2026-11-06-nilable-iface-pair-ok-payload.md)。spec.md §8.3/§8.4 へ反映済み） |
 | [ptr-t-default](2026-11-06-ptr-t-default.md) | `*T` の既定マッピング — 派生ビュー・extern ともに `Ptr T`、`Option (Ptr T)` は宣言による上書き | 採用（検証済み — [検証](../sketch/2026-11-06-ptr-t-default-prototype.md)。spec.md §8.3/§8.6 へ反映済み） |
 | [self-import-path-module-derived](2026-11-06-self-import-path-module-derived.md) | SelfImportPath is the input's module-relative package path | 採用（実装・検証した — [検証](../sketch/2026-11-06-self-import-path-module-derived-verification.md)） |
@@ -179,7 +179,7 @@
 | [byte-type](2026-11-17-byte-type.md) | `byte`/`uint8` → `Byte` を組み込み型として公開する | draft |
 | [cli-gotool-invocation](2026-11-17-cli-gotool-invocation.md) | go tool の実起動は `gom build -go`（CLI 面） | 採用 |
 | [func-interop](2026-11-17-func-interop.md) | Gom の関数値を Go の func 型として渡す(typed adapter `Go.funcN`)（一部を [nary-go-results](2026-11-18-nary-go-results.md) で置き換え） | draft |
-| [lsp-gotool-invocation](2026-11-17-lsp-gotool-invocation.md) | `gom lsp` の go-tool 診断は opt-in フラグ + per-change 同期起動 | 採用 |
+| [lsp-gotool-invocation](2026-11-17-lsp-gotool-invocation.md) | `gom lsp` の go-tool 診断は opt-in フラグ + per-change 同期起動（[lsp-withdrawn](2026-11-19-lsp-withdrawn.md) で置き換え） | 採用 |
 | [named-int-arith](2026-11-17-named-int-arith.md) | Named Go 整数型の算術・比較（`30 * time.Second` が `Duration` を生む） | accepted |
 | [sourcemap-repin](2026-11-17-sourcemap-repin.md) | 生成行ごとの `//line` 再置き（per-line re-pin）で drift を消す | accepted |
 | [struct-construction](2026-11-17-struct-construction.md) | Go struct の構築・書き込みは Go 側の factory 関数に限る | 採用 |
@@ -205,6 +205,7 @@
 | [ctor-typeargs-removed](2026-11-19-ctor-typeargs-removed.md) | `CtorApp`/`CtorRef` の `TypeArgs` を廃止し `Typ` の `Con.Args` を唯一の正にする | 採用（wave24 lane A で実装） |
 | [errors-as-nested-ptr-lint](2026-11-19-errors-as-nested-ptr-lint.md) | `errors.As` target の `Ptr (Ptr E)` — 証明可能な要素側違反を W0502 に足す | 採用（wave22 prompts で podhmo 採択済み。実装・検証した — spec.md §8.4 と fixture を更新済み） |
 | [flat-partial-eval](2026-11-19-flat-partial-eval.md) | flat 宣言パラメータの部分適用 — eval 側を遅延させて divergence を消す | 採用（wave22 prompts で podhmo 採択済み。実装・検証した — `TestEagerFnChunkTiming` を新仕様に更新、spec.md §1.3 の注記を解消） |
+| [lsp-withdrawn](2026-11-19-lsp-withdrawn.md) | LSP は未対応に戻す — `gom lsp` と `internal/lsp` を除去 | adopted |
 | [noncons-accum-policy](2026-11-19-noncons-accum-policy.md) | 非 cons 蓄積 quadratic の救済方針: β 誘導 + γ 警告 lint、α/δ は先送り | adopted（podhmo 採択 2026-11-19 —「検出の実装を実験してみるというのはあっても良いかもな。warningとか出ると良い。迂闊でもマシになるコードを目指したい」「コンパイル時じゃなくても良い。vet的なものでも良い」「実装が手軽な方で良い。実装箇所に制限は設けない」「α は今は未対応で良いかな」） |
 | [struct-construction-options](2026-11-19-struct-construction-options.md) | Go struct 構築機構の選択肢の固定（採否は未決） | draft（採否は部分決着: (b) 採用・(a) 先延ばし — |
 | [struct-field-write](2026-11-19-struct-field-write.md) | Go struct の構築は `Ptr` 経由の field 書き込みを採用（composite literal は先延ばし） | adopted |

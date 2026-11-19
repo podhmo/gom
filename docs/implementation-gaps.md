@@ -348,9 +348,13 @@
   して未 pin の継続行を生成しない。`MatchDrift` 分類は旧生成物・map 未登録経路向けに残置。
   [decision](decisions/2026-11-17-sourcemap-repin.md)。
 
-- [ ] **`SpanAt` が「生成行」ではなく「内側構文の span」を返す粒度の差異**:
+- [x] **`SpanAt` が「生成行」ではなく「内側構文の span」を返す粒度の差異**:
   対応表の逆引きは Go の継続行番号より粗く、エディタが期待する行・列の対応とは意味論が違う。
   LSP で列・範囲単位の対応が要るかは open-questions 参照。
+  解消（wave24 lane C）: 列・範囲単位の対応を要する consumer は LSP のみだったが、
+  LSP は「必要な状況が来るまで未対応」として撤回 — 逆引きの現行 consumer は
+  `gom test`/`gom build -go`/`-vet` の fold で行粒度で足りる
+  （[decision](decisions/2026-11-19-lsp-withdrawn.md)）。
   参照: [SourceMap/SpanAt](../internal/diag/srcmap.go)、
   [decision](decisions/2026-11-03-source-location-correspondence.md)。
 
