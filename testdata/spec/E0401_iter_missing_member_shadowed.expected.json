@@ -1,0 +1,27 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "Int has no field or method `missing`",
+      "span": {
+        "file": "E0401_iter_missing_member_shadowed.gom",
+        "start": {
+          "line": 11,
+          "col": 14,
+          "offset": 304
+        },
+        "end": {
+          "line": 11,
+          "col": 21,
+          "offset": 311
+        }
+      },
+      "data": {
+        "member": "missing",
+        "type": "Int"
+      }
+    }
+  ]
+}
