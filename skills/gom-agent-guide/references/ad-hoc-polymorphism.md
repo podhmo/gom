@@ -14,6 +14,12 @@ record 値を関数に渡す。言語機能の追加はなく、record と普通
 // 辞書型: 操作を束ねた record（型変数を残して多相にする）
 type Ord a = { lt: a -> a -> Bool }
 
+// 内部補助は辞書ではなく部品の関数だけを受け取る
+fn insert (lt: a -> a -> Bool) (x: a) (xs: List a) -> List a = match xs {
+  [] -> [x]
+  [y, ..rest] -> if lt x y { [x, ..xs] } else { [y, ..insert lt x rest] }
+}
+
 // 使う側は辞書を第 1 引数に取る
 fn sort (ord: Ord a) (xs: List a) -> List a = match xs {
   [] -> []
@@ -93,10 +99,13 @@ fn concat (m: Monoid a) (xs: List a) -> a =
 するとネストが浅い:
 
 ```gom
+type Ord a = { lt: a -> a -> Bool }
+
 fn pair_ord (o1: Ord a) (o2: Ord b) -> Ord (a, b) =
   { lt = fn p q -> match (p, q) {
       ((x1, x2), (y1, y2)) ->
-        if o1.lt x1 y1 { true } else
-        if o1.lt y1 x1 { false } else { o2.lt x2 y2 }
+        if o1.lt x1 y1 { true } else {
+          if o1.lt y1 x1 { false } else { o2.lt x2 y2 }
+        }
     } }
 ```
