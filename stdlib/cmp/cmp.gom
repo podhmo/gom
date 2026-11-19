@@ -110,7 +110,7 @@ fn list_eq_loop (eq: a -> a -> Bool) (xs: List a) (ys: List a) -> Bool = match x
   }
   [x, ..xr] -> match ys {
     [] -> false
-    [y, ..yr] -> eq x y && list_eq_loop eq xr yr
+    [y, ..yr] -> if eq x y { list_eq_loop eq xr yr } else { false }
   }
 }
 
@@ -125,7 +125,9 @@ fn list_lt_loop (lt: a -> a -> Bool) (xs: List a) (ys: List a) -> Bool = match x
   }
   [x, ..xr] -> match ys {
     [] -> false
-    [y, ..yr] -> lt x y || (not (lt y x) && list_lt_loop lt xr yr)
+    [y, ..yr] -> if lt x y { true } else {
+      if lt y x { false } else { list_lt_loop lt xr yr }
+    }
   }
 }
 
@@ -133,7 +135,7 @@ fn list_lt_loop (lt: a -> a -> Bool) (xs: List a) (ys: List a) -> Bool = match x
 fn pair_eq (ea: Eq a) (eb: Eq b) -> Eq (a, b) =
   { eq = fn x y -> match x {
     (a1, b1) -> match y {
-      (a2, b2) -> ea.eq a1 a2 && eb.eq b1 b2
+      (a2, b2) -> if ea.eq a1 a2 { eb.eq b1 b2 } else { false }
     }
   } }
 
@@ -142,7 +144,9 @@ fn pair_eq (ea: Eq a) (eb: Eq b) -> Eq (a, b) =
 fn pair_ord (oa: Ord a) (ob: Ord b) -> Ord (a, b) =
   { lt = fn x y -> match x {
     (a1, b1) -> match y {
-      (a2, b2) -> oa.lt a1 a2 || (not (oa.lt a2 a1) && ob.lt b1 b2)
+      (a2, b2) -> if oa.lt a1 a2 { true } else {
+        if oa.lt a2 a1 { false } else { ob.lt b1 b2 }
+      }
     }
   } }
 
