@@ -1,0 +1,23 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// An annotated `let`'s `fn` body propagates the expected type into
+// field writes: the unannotated parameter `w` binds `Ptr WithFn`
+// from the outer annotation, the deferred member resolves at
+// revisit, and the `Go.funcN` RHS checks under the field's
+// `Go.FuncN` signature — no inner annotations needed (the
+// implementation-gaps "fn 本体の期待型伝播" case).
+let init : Ptr goiface.WithFn -> Unit = fn w -> {
+  w.Fn = Go.func1 (fn x -> x + 1)
+  ()
+}
+
+// The same under the `tap` initialization idiom:
+// `Ptr.new () |> tap init`.
+let tap : (a -> Unit) -> a -> a = fn f x -> {
+  f x
+  x
+}
+
+fn make () -> Ptr goiface.WithFn = Ptr.new () |> tap init
