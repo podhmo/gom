@@ -81,3 +81,16 @@ fn via_chan () -> Ptr goiface.WithFloat = {
   }
   w
 }
+
+// An any-element pair — `List Go.Any` and `Go.Slice Go.Any` name
+// the same element, so the boundary pair reconciles.
+fn via_any_param () -> Ptr goiface.SliceBox = {
+  let b = Ptr.new ()
+  let a = b.As
+  ignore (goiface.LenAny a)
+  b
+}
+
+// The bare-iterable-as-receiver counterpart lives in
+// E0401_iter_recv_default.gom — `x.fold` must report the member
+// failure, not a labeled-argument rejection.

@@ -21,6 +21,9 @@ func NewContainer() *Container { return &Container{Count: 41} }
 type SliceBox struct {
 	N  int64
 	Xs []int64
+	// As is `[]any` — its Gom `List Go.Any` view must still
+	// reconcile with a `Go.Slice Go.Any` use.
+	As []any
 	Is []int
 }
 
@@ -105,3 +108,7 @@ func Sum64(xs []int64) int64 {
 	}
 	return n
 }
+
+// LenAny takes `[]any` — the any-element slice a `List Go.Any`
+// view reconciles against.
+func LenAny(xs []any) int64 { return int64(len(xs)) }
