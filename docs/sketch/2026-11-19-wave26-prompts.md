@@ -1,14 +1,33 @@
 # Wave 26 orchestration prompt drafts
 
 State as of 2026-11-19: wave25 の 4 lane（#75–#78）を PR 済み・
-チェーンでマージ待ち。A は Ref メンバー実装、B–D は調査 wave
-（採否は podhmo 判断待ち）。このファイルは wave26 の prompts
-草案。実行モデルは wave25 と同じ前提（単独実行・Devin Review・
-podhmo がマージ）。lane 順は下からチェーンする。
+チェーンでマージ待ち。A は Ref メンバー実装、B–D は調査 wave。
+#76 スレッドで podhmo が lane A/B（遅延 select 拡張・壁2 の
+`fn` 本体 want 伝播）を採択 — ともに「次に入れたい」と明記。
+このファイルは wave26 の prompts 草案。実行モデルは wave25 と
+同じ前提（単独実行・Devin Review・podhmo がマージ）。
+lane 順は下からチェーンする。
 
 ## 候補（採否は podhmo が lane ごとに決める）
 
-### A. `fn` 本体の期待型伝播（`tap` イディオム解放）— `devin/wave26-fn-body-want`
+### A. `Ptr ?m` への遅延 select/assign（内側注釈不要化）— `devin/wave26-ptr-meta-defer` — **採択済み**（#76 スレッド 2026-11-19）
+
+```
+[impl] `let client : Ptr http.Client = { let c = Ptr.new ();
+c.Timeout = ...; c }` が内側注釈なしで通るようにする。現状は
+`c : Ptr ?1` が裸メタでないため select が遅延されず即
+E0511/E0401。checkSelect の遅延条件を「受け手の中に未解決
+メタを持つ Con（`Ptr ?m` 等）」まで広げ、finalize の
+revisitSelects fixpoint で解く — 外側 want と最終式 `c` の
+unify で `?1` が束縛されたあと member が引ける。pendingAssigns
+経由で代入 RHS の want（`Go.FuncN`）も revisit 時に届くはず。
+メタが最後まで解けないときの正直な E0407/E0401 と診断順序の
+変化に注意。spec 振る舞い追加なら testdata/spec にケース。
+Ownership: internal/check (expr.go checkSelect/revisitSelects/
+pendingAssigns), testdata/spec.
+```
+
+### B. `fn` 本体の期待型伝播（`tap` イディオム解放・壁2）— `devin/wave26-fn-body-want` — **採択済み**（#76 スレッド 2026-11-19）
 
 ```
 [impl] wave25 lane B の副産物: 注釈付き `fn` 本体の内部で
@@ -17,13 +36,14 @@ podhmo がマージ）。lane 順は下からチェーンする。
 `let` ブロック直下では動くので修復は `check` の伝播接続のみ —
 これが直れば `Ptr.new () |> tap init` 形の初期化イディオムが
 書ける。`fn` パラメータ注釈（E0101）は本 lane のスコープ外。
-spec 振る舞い追加なら testdata/spec にケースを足し、
-implementation-gaps の項を閉じる。
+lane A と同じ領域（check の want 伝播）なので衝突に注意 —
+A の遅延経路とどちらが先に効くか fixture で確認。
+testdata/spec にケースを足し、implementation-gaps の項を閉じる。
 Ownership: internal/check, testdata/spec,
 docs/implementation-gaps.md.
 ```
 
-### B. `cmp` 合成関数 — `devin/wave26-cmp-composers`
+### C. `cmp` 合成関数 — `devin/wave26-cmp-composers`
 
 ```
 [impl] wave25 lane C 案 1（採否を待たずに進められる低コスト側）:
@@ -37,7 +57,7 @@ Ownership: stdlib/cmp (cmp.gom, cmp.gomi, cmp_test.go か gom
 test), skills/gom-agent-guide/references/ad-hoc-polymorphism.md.
 ```
 
-### C. wave25 調査 lane の採否に応じた実装 — `devin/wave26-followups`
+### D. wave25 調査 lane の採否に応じた実装 — `devin/wave26-followups`
 
 ```
 [decide→impl] podhmo の lane B/C/D 採否次第で 1 本選ぶ:
@@ -47,20 +67,9 @@ test), skills/gom-agent-guide/references/ad-hoc-polymorphism.md.
   v2 以降に分離）
 - interface impl 採用なら `fmt.Stringer`/`error` の最小スコープ
   （値レシーバ・引数なしから）
-採否が出なければ本 lane はスキップして D だけ回す。
+採否が出なければ本 lane はスキップして予備候補（省略可能引数・
+ラベル付き引数の制限緩和の調査 — open-questions 残件）を回す。
 Ownership: 採択 lane の sketch に記載の経路。
-```
-
-### D. 省略可能引数・ラベル付き引数の制限緩和の調査 — `devin/wave26-labeled-args`
-
-```
-[investigate] open-questions 残件: 「ラベル付き引数の制限の緩和
-（型が未知の関数へのラベル付き適用、ラベル付き／なし関数の暗黙
-変換）」と「省略可能引数とデフォルト値」の設計空間。現行の
-ラベル付き呼び出し規則（spec 該当節）と、緩和した場合の unify・
-arity 検査への影響範囲を調査。
-Ownership: docs 調査 →（採用なら）internal/check/unify, syntax,
-docs/spec.md.
 ```
 
 ## 申し送り
@@ -72,5 +81,7 @@ docs/spec.md.
   member module は `resolve.stdlibModules` 登録必須（E0201 note
   の嘘）、`Ref` は境界変換なしの Gom-only 型、`Go.funcN` seed
   は field-write 直下では動くが `fn` 本体では `want` 切れ。
-- lane A は wave25 lane B（E0407）の修復 lane — lane B スケッチ
-  の「壁 2」節が実装の入口。
+- lane A/B は同じ領域（`internal/check` の select 遅延と want
+  伝播）に触れる — A→B のチェーン順で衝突を最小化。A が先に
+  効くケース（内側注釈なし + フィールド代入の RHS lambda）は
+  B 側で再テストが要る。
