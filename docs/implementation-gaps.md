@@ -1610,4 +1610,7 @@
   では型検査を通る（gist-cli bce91d6 で検証）。`fn` パラメータに
   アノテーションが書けない（`fn (c: T)` は E0101）ため、回避策は
   束ね側の `let` にだけ型を書くことだが、入れ子 lambda で壁になる。
-  2026-11-19 の `tap` 代替調査（wave25 prompts B 項）で実測。
+  2026-11-19 の `tap` 代替調査（wave25 lane B）で再現確認 — 記録は
+  [sketch](sketch/2026-11-19-wave25-composite-literal.md)。
+  `Go.funcN` の seed 機構自体は field-write 直下では働くので、
+  修復は `fn` 本体への `want` 伝播の接続で局所的に収まる見込み。
