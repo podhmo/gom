@@ -23,17 +23,37 @@ syntax/check（代入形の場合）, stdlib/ か internal/,
 testdata/spec, docs/spec.md, skills/gom-agent-guide.
 ```
 
-### B. composite literal (a) の再検討 — `devin/wave25-composite-literal`
+### B. composite literal (a) — リテラル構文か、推論強化で代替可能か — `devin/wave25-composite-literal`
 
 ```
 [investigate] wave23 lane1 で先延ばしされた (a) Go struct の
-composite literal（`http.Client{Timeout: ...}` 形）。field
-書き込み（wave24 lane B）で `Ptr.new ()` + 逐一代入は動くが、
-ネスト struct・多数フィールド・`[]T` 要素では記述が回りくどい。
-要否の判断材料: gist-cli 等の実用例での記述差、CheckRedirect
-のような func field・embedded struct のカバー率、value
-restriction/可変性との整合。実装するなら syntax/check/codegen
-+ spec 8.3 節更新。
+composite literal（`http.Client{Timeout: ...}` 形）の要否を、
+「初期化ブロック + Ruby の tap 相当」で代替できるかの観点で
+再判定する。wave24 lane B で `Ptr.new ()` + 逐一代入、自由
+ブロックで囲む形（gist-cli bce91d6）は動く。残る回りくどさは
+型記述の重複 — 現状は `let c : Ptr T` をブロック内で再宣言
+する必要がある。
+
+代替案 `tap`: `fn tap (f: a -> Unit) (x: a) -> a = { f x; x }`
+（pipe は値を最終引数に置くため引数順に注意）で
+`Ptr.new () |> tap init` は型検査を通る — ライブラリ関数で
+書ける。しかし 2026-11-19 実測で 3 つの推論の壁:
+  - `fn` のパラメータにアノテーションが書けない
+    （`fn (c: T)` は E0101）— 型を書く場所が束ねる側の
+    `let init : Ptr http.Client -> Unit` に移るだけ
+  - `let` アノテーション付き `fn` 本体の内部では入れ子
+    lambda（`Go.func2 (fn _req _via -> …)`）が E0407 —
+    ブロック直下では通る期待型伝播が `fn` 本体で弱い
+    （implementation-gaps に記録）
+  - 上記が直れば `Ptr.new () |> tap (fn c -> {…})` で
+    型記述ゼロの初期化が可能 — その場合 composite literal
+    は不要という結論になり得る
+
+判断材料: 推論強化（lambda パラメータへの期待型伝播・
+アノテーション構文）のコスト vs literal 構文のコスト、
+ネスト struct・多数フィールド・`[]T` 要素での記述差、
+value restriction/可変性との整合。実装するなら
+syntax/check/codegen + spec 8.3 節更新。
 Ownership: docs 調査 →（採用なら）syntax/resolve/check/lower/
 codegen, testdata/spec, testdata/golden, docs/spec.md.
 ```
