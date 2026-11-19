@@ -65,7 +65,8 @@ test), skills/gom-agent-guide/references/ad-hoc-polymorphism.md.
   専用形）の syntax→check→codegen
 - interface impl 採用なら `fmt.Stringer`/`error` の最小スコープ
   （値レシーバ・引数なしから）
-（deriving は podhmo 判定で不採用に確定 —
+（deriving は「`Ord` だけのための導入は見送り」に確定 —
+対象が広がるなら再考の余地あり。
 decisions/2026-11-19-deriving-declined.md）
 採否が出なければ本 lane はスキップして予備候補（省略可能引数・
 ラベル付き引数の制限緩和の調査 — open-questions 残件）を回す。
