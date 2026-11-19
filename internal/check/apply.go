@@ -1024,14 +1024,35 @@ func (c *checker) replayAppliesOf(me *MemberExpr) {
 	}
 }
 
-// replayDeferredApplies is the trailing pass: applications whose
-// member selection never resolved replay under the Gom convention —
-// the convention diagnostics the first pass withheld (E0504 for a
-// `_`, E0408 for a label on an unknown callee) still fire.
-func (c *checker) replayDeferredApplies() int {
+// replayResolvedApplies replays the deferred applications whose
+// member already settled — replayAppliesOf covers members resolved
+// inside revisitSelects; this sweep catches applies a re-checked
+// fill registered on an already-settled member. A replay's
+// unifications can pin the receiver another apply or selection
+// waits on, so callers drive it inside a fixpoint.
+func (c *checker) replayResolvedApplies() int {
 	n := 0
 	for _, pa := range c.pendingApplies {
-		if pa.done {
+		if pa.done || pa.me.Sym == nil {
+			continue
+		}
+		c.replayApply(pa)
+		n++
+	}
+	return n
+}
+
+// replayUnresolvedApplies commits the still-undecided applications
+// to the Gom convention — the convention diagnostics the first
+// pass withheld (a `_`, a label on an unknown callee) fire and
+// lowering sees a valid record. Call it only once nothing can
+// bind receivers any more: an early commit pins the member's
+// standing meta to a Gom shape (`Unit -> ?r`), so a member that
+// resolves later both loses its Go convention and mis-unifies.
+func (c *checker) replayUnresolvedApplies() int {
+	n := 0
+	for _, pa := range c.pendingApplies {
+		if pa.done || pa.me.Sym != nil {
 			continue
 		}
 		c.replayApply(pa)

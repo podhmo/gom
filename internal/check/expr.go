@@ -732,8 +732,18 @@ func (c *checker) revisitSelects() {
 				// diagnostics emitted later (an unrelated deferred
 				// select diagnosed in this same round) belong to
 				// entries already marked done and would be lost.
+				// Removing the range shifts every later index, so
+				// other unfilled assigns' marks move with it.
+				removed := pa.diagEnd - pa.diagMark
 				c.diags = append(c.diags[:pa.diagMark], c.diags[pa.diagEnd:]...)
+				mark := pa.diagMark
 				pa.diagMark = -1
+				for _, q := range c.pendingAssigns {
+					if q.diagMark > mark {
+						q.diagMark -= removed
+						q.diagEnd -= removed
+					}
+				}
 			}
 			if d := c.assignShapeDiag(pa.Sel, me); d != nil {
 				c.diags.Add(*d)

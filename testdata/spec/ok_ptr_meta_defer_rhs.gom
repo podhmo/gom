@@ -49,7 +49,7 @@ fn pass (w: Ptr goiface.WithFn) -> Go.Func1 Int Int = w.Fn
 
 fn pinvia () -> Int = {
   let w = Ptr.new ()
-  w.Call ()
+  ignore w.Call ()
   w.Fn = pass w
   w.Call ()
 }
