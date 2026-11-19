@@ -4,7 +4,11 @@ State as of 2026-11-19: wave25 の 4 lane（#75–#78）を PR 済み・
 チェーンでマージ待ち。A は Ref メンバー実装、B–D は調査 wave。
 #76 スレッドで podhmo が lane A/B（遅延 select 拡張・壁2 の
 `fn` 本体 want 伝播）を採択 — ともに「次に入れたい」と明記。
-このファイルは wave26 の prompts 草案。実行モデルは wave25 と
+lane C も採択（「辞書を先に定義して渡す部品として stdlib 提供は
+便利」— 2026-11-19 チャット）。lane D はラベル引数の調査を
+採択（同上）。deriving は「`Ord` だけのための導入は見送り」に
+確定（decisions/2026-11-19-deriving-declined.md）。
+このファイルは wave26 の prompts。実行モデルは wave25 と
 同じ前提（単独実行・Devin Review・podhmo がマージ）。
 lane 順は下からチェーンする。
 
@@ -43,7 +47,7 @@ Ownership: internal/check, testdata/spec,
 docs/implementation-gaps.md.
 ```
 
-### C. `cmp` 合成関数 — `devin/wave26-cmp-composers`
+### C. `cmp` 合成関数 — `devin/wave26-cmp-composers` — **採択済み**（2026-11-19 チャット）
 
 ```
 [impl] wave25 lane C 案 1（採否を待たずに進められる低コスト側）:
@@ -57,21 +61,23 @@ Ownership: stdlib/cmp (cmp.gom, cmp.gomi, cmp_test.go か gom
 test), skills/gom-agent-guide/references/ad-hoc-polymorphism.md.
 ```
 
-### D. wave25 調査 lane の採否に応じた実装 — `devin/wave26-followups`
+### D. ラベル付き引数の制限緩和・省略可能引数の調査 — `devin/wave26-labeled-args` — **採択済み**（2026-11-19 チャット）
 
 ```
-[decide→impl] podhmo の lane B/D 採否次第で 1 本選ぶ:
-- (a) composite literal 採用なら `pkg.T { F = v }`（`&T{...}`
-  専用形）の syntax→check→codegen
-- interface impl 採用なら `fmt.Stringer`/`error` の最小スコープ
-  （値レシーバ・引数なしから）
-（deriving は「`Ord` だけのための導入は見送り」に確定 —
-対象が広がるなら再考の余地あり。
-decisions/2026-11-19-deriving-declined.md）
-採否が出なければ本 lane はスキップして予備候補（省略可能引数・
-ラベル付き引数の制限緩和の調査 — open-questions 残件）を回す。
-Ownership: 採択 lane の sketch に記載の経路。
+[investigate] open-questions 残件: 「ラベル付き引数の制限の緩和
+（型が未知の関数へのラベル付き適用、ラベル付き／なし関数の暗黙
+変換）」と「省略可能引数とデフォルト値」の設計空間を調査。
+現行のラベル付き呼び出し規則（spec 該当節）と unify・arity
+検査への影響範囲を測り、導入する場合の構文・推論コストと
+`.gomi`/境界への影響を整理する。
+Ownership: docs 調査 →（採用なら）internal/check/unify, syntax,
+docs/spec.md.
 ```
+
+（wave25 調査 lane の残り採否 — composite literal (a) と Go
+interface 実装 — は未確定のまま。採択されたら別 lane として
+追加する。deriving は「`Ord` だけのための導入は見送り」に確定
+— decisions/2026-11-19-deriving-declined.md）
 
 ## 申し送り
 
