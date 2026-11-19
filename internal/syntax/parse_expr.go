@@ -707,8 +707,8 @@ func (p *parser) expectArmArrow(lhs string, operand Expr, format string, args ..
 }
 
 // parseLambda parses "fn" lambda-param { lambda-param } "->" expr.
-// Only the minimal parameter forms ident, "_" and "()" are parsed
-// [PROVISIONAL — docs/problems/2026-11-01-lambda-param-forms.md].
+// Parameters are ident, "_", "()" or the annotated "(name: Type)"
+// (spec section 1.2).
 // nb propagates to the body: a lambda inside a head expression
 // cannot contain a bare "{" either.
 func (p *parser) parseLambda(nb bool) Expr {
@@ -738,6 +738,8 @@ func (p *parser) parseLambda(nb bool) Expr {
 				Sp:  sp,
 				Pat: &LitPat{Sp: sp, Lit: &Lit{Sp: sp, Kind: LitUnit, Text: "()"}},
 			})
+		case t.kind == tokLParen && p.peek(1).kind == tokIdent:
+			params = append(params, p.parseLambdaAnnParam())
 		default:
 			goto paramsDone
 		}
@@ -757,6 +759,34 @@ paramsDone:
 		Params: params,
 		Body:   body,
 	}
+}
+
+// parseLambdaAnnParam parses "(" ident ":" type ")" — a lambda
+// parameter with a type annotation, matching the fn-decl
+// "(name: Type)" convention. "(x)" without a type is a targeted
+// error like in parseFnParam.
+func (p *parser) parseLambdaAnnParam() Param {
+	open := p.next() // '('
+	name := p.next() // ident
+	id := &Ident{Sp: p.spanOf(name), Name: p.text(name)}
+	pat := &VarPat{Sp: p.spanOf(name), Name: id}
+	var typ TypeExpr
+	var end int
+	if p.at(tokRParen) {
+		close := p.next()
+		end = close.end
+		p.errf(p.span(open.start, close.end),
+			"an annotated lambda parameter needs a \": Type\" annotation")
+		typ = p.errType(diag.Point(p.file, close.end))
+	} else {
+		p.expect(tokColon)
+		typ = p.parseTypeExpr()
+		end = p.prevEnd()
+		if t, ok := p.expect(tokRParen); ok {
+			end = t.end
+		}
+	}
+	return Param{Sp: p.span(open.start, end), Pat: pat, Type: typ}
 }
 
 // ------------------------------------------------------------------

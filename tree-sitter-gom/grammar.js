@@ -432,7 +432,12 @@ module.exports = grammar({
       $.expr,
     ),
 
-    lambda_param: $ => choice($.ident, '_', seq('(', ')')),
+    lambda_param: $ => choice(
+      $.ident,
+      '_',
+      seq('(', ')'),
+      seq('(', $.ident, ':', $.type_expr, ')'),
+    ),
 
     // ------------------------------------------------------------------
     // head_expr: expression grammar minus "{" as an atom starter

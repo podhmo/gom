@@ -1090,11 +1090,15 @@
     "named": true,
     "fields": {},
     "children": {
-      "multiple": false,
+      "multiple": true,
       "required": false,
       "types": [
         {
           "type": "ident",
+          "named": true
+        },
+        {
+          "type": "type_expr",
           "named": true
         }
       ]

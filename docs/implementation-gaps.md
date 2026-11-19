@@ -1429,10 +1429,14 @@
   追記（wave-16 lane 1）: 残りの正直な拒否を pin —
   `fn a -> a == x`（want `Go.Any -> Bool`）は未注釈ラムダ
   パラメータが fresh meta で本体の使用箇所（`a == x`）から先に
-  `Int` に bind され、residual unify が E0401。ラムダ
-  パラメータには注釈構文がない
-  （[problems](problems/2026-11-01-lambda-param-forms.md)）ため
-  これが正直な境界。fixture: `E0401_go_any_lambda_use`。
+  `Int` に bind され、residual unify が E0401。fixture:
+  `E0401_go_any_lambda_use`。
+  追記（wave27 lane B）: この拒否の脱出手段 — ラムダ
+  パラメータの `(x: T)` 注釈構文を採用（spec 1.2、
+  [problems](problems/2026-11-01-lambda-param-forms.md) の
+  typed-param 項目が解決）。`fn (a: Go.Any) -> a == x` と
+  書けば先の pin ケースは受理される。fixture:
+  `ok_lambda_ann_param`。
   参照: [check/expr.go](../internal/check/expr.go) `checkLambda`、
   [decision](decisions/2026-11-06-go-any-conformance-materialize.md)。
 

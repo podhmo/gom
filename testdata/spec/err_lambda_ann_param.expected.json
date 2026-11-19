@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0101",
+      "severity": "error",
+      "message": "an annotated lambda parameter needs a \": Type\" annotation",
+      "span": {
+        "file": "err_lambda_ann_param.gom",
+        "start": {
+          "line": 6,
+          "col": 14,
+          "offset": 160
+        },
+        "end": {
+          "line": 6,
+          "col": 17,
+          "offset": 163
+        }
+      }
+    }
+  ]
+}
