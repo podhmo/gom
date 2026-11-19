@@ -8,6 +8,14 @@ record 値を関数に渡す。言語機能の追加はなく、record と普通
 
 動作確認済みの実物は `experiments/w23/typeclass/dict/`。
 
+基本形は toolchain 同梱の `cmp` モジュールとして stdlib に収録済み
+（`import "cmp"`）: `cmp.Eq a` / `cmp.Ord a` の辞書型、スカラー型
+ごとのインスタンス（`cmp.int_ord` など、byte は eq のみ）、そして
+辞書を第 1 引数・コレクションを末尾に取る
+`cmp.sort` / `cmp.min` / `cmp.max` / `cmp.member`、辞書合成の
+`cmp.desc` / `cmp.eq_of`。`xs |> cmp.sort cmp.int_ord` の形で
+pipe に乗せられる。
+
 ## 基本パターン
 
 ```gom

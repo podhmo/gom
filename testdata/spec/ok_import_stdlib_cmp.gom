@@ -1,0 +1,17 @@
+package ex
+
+// spec section 7: the "cmp" short name unfolds to the toolchain
+// stdlib Cmp module — explicit Eq/Ord dictionaries (decision
+// 2026-11-19-ad-hoc-poly-dict-passing) with the dict argument first
+// and the collection last, so `|>` pipelines read naturally.
+import "cmp"
+
+fn smallest (xs: List Int) -> Option Int = xs |> cmp.min cmp.int_ord
+
+fn ordered (xs: List Int) -> List Int = xs |> cmp.sort cmp.int_ord
+
+fn has_two (xs: List Int) -> Bool = xs |> cmp.member cmp.int_eq 2
+
+fn descending (xs: List Int) -> List Int = xs |> cmp.sort (cmp.desc cmp.int_ord)
+
+fn eq (x: Int) (y: Int) -> Bool = (cmp.eq_of cmp.int_ord).eq x y
