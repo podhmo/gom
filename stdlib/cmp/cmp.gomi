@@ -23,6 +23,10 @@ let int_ord : Ord Int
 
 let float_eq : Eq Float
 
+/// float_ord is a TOTAL order: NaN sorts before every finite value
+/// (a != a marks a NaN; b == b a non-NaN). Raw `<` alone would make
+/// lt(NaN, x) and lt(x, NaN) both false — then `eq_of float_ord`
+/// calls NaN equal to everything and SortBy loses strict weak order.
 let float_ord : Ord Float
 
 let string_eq : Eq String

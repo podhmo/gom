@@ -20,7 +20,12 @@ type Ord a = { lt: a -> a -> Bool }
 let int_eq : Eq Int = { eq = fn a b -> a == b }
 let int_ord : Ord Int = { lt = fn a b -> a < b }
 let float_eq : Eq Float = { eq = fn a b -> a == b }
-let float_ord : Ord Float = { lt = fn a b -> a < b }
+/// float_ord is a TOTAL order: NaN sorts before every finite value
+/// (a != a marks a NaN; b == b a non-NaN). Raw `<` alone would make
+/// lt(NaN, x) and lt(x, NaN) both false — then `eq_of float_ord`
+/// calls NaN equal to everything and SortBy loses strict weak order.
+let float_ord : Ord Float =
+  { lt = fn a b -> a < b || (a != a && b == b) }
 let string_eq : Eq String = { eq = fn a b -> a == b }
 let string_ord : Ord String = { lt = fn a b -> a < b }
 let bool_eq : Eq Bool = { eq = fn a b -> a == b }
@@ -82,6 +87,21 @@ test "member / eq_of" {
   assert (not (member int_eq 9 [1, 2, 3]))
   let eqi : Eq Int = eq_of int_ord
   assert (member eqi 5 [5])
+}
+
+test "float_ord is a total order — NaN first" {
+  let z = 0.0
+  let nan = z / z   // non-constant divisor: 0.0/0.0 -> NaN at run time
+  assert (float_ord.lt nan 1.0)
+  assert (not (float_ord.lt 1.0 nan))
+  assert (not (float_ord.lt nan nan))
+  assert (not ((eq_of float_ord).eq nan 1.0))
+  assert ((eq_of float_ord).eq nan nan)
+  assert (not (member (eq_of float_ord) nan [1.0]))
+  assert (match (sort float_ord [2.0, nan, 1.0]) {
+    [h, .._] -> h != h
+    _ -> false
+  })
 }
 
 test "min / max / sort" {
