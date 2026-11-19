@@ -36,6 +36,11 @@ func (r *resolver) expr(e syntax.Expr, sc *scope) {
 		}
 	case *syntax.Select:
 		r.selectExpr(n, sc)
+	case *syntax.Assign:
+		// The target's `recv.sel` resolves like any select — the
+		// field member is type-directed, left for check.
+		r.expr(n.Target, sc)
+		r.expr(n.Value, sc)
 	case *syntax.Unary:
 		r.expr(n.X, sc)
 	case *syntax.Binary:

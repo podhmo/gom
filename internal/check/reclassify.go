@@ -93,8 +93,8 @@ func calleeSymOf(e Expr) *resolve.Symbol {
 			e = x.X
 		case *Lit, *Apply, *Hole, *Unary, *Binary, *StrInterp,
 			*Lambda, *If, *Match, *Block, *Let, *Ignore, *Try,
-			*GoExpr, *For, *SelectExpr, *ListLit, *Spread,
-			*TupleLit, *RecordLit:
+			*FieldAssign, *GoExpr, *For, *SelectExpr, *ListLit,
+			*Spread, *TupleLit, *RecordLit:
 			return nil
 		default:
 			panic("unreachable")

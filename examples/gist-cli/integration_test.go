@@ -28,7 +28,7 @@ import (
 // invalidates this integration suite when either changes. Direct compiler
 // imports below likewise track compiler implementation changes.
 //
-//go:embed main.gom host/*.go
+//go:embed main.gom
 var exampleSources embed.FS
 
 const resultURL = "https://gist.github.com/octocat/deadbeef"

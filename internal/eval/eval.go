@@ -529,6 +529,8 @@ func (e *interp) eval(x check.Expr, env *Env) Value {
 		failData(CodeInternal, "misplaced _ placeholder", x.Span(), "kind", "bare")
 	case *check.MemberExpr:
 		return e.evalMember(x, env)
+	case *check.FieldAssign:
+		return e.evalFieldAssign(x, env)
 	case *check.Unary:
 		return e.evalUnary(x, env)
 	case *check.Binary:
@@ -763,6 +765,68 @@ func rootEnv(env *Env) *Env {
 		env = env.parent
 	}
 	return env
+}
+
+// evalFieldAssign performs `ptr.Field = v` on a host-bound Go struct
+// pointer: the receiver must be a VHost carrying *T, the field is
+// set by reflection — the same mutation compiled code emits.
+func (e *interp) evalFieldAssign(x *check.FieldAssign, env *Env) Value {
+	recv := e.eval(x.Recv, env)
+	v := e.eval(x.Value, env)
+	h, ok := recv.(*VHost)
+	if !ok {
+		failData(CodeUnsupported,
+			"field assignment on a non-Go value", x.Recv.Span(),
+			"value", recv.String())
+	}
+	rv := reflect.ValueOf(h.V)
+	if rv.Kind() != reflect.Ptr || rv.IsNil() || rv.Elem().Kind() != reflect.Struct {
+		failData(CodeInternal,
+			"field assignment receiver is not a struct pointer", x.Recv.Span(),
+			"value", recv.String())
+	}
+	f := rv.Elem().FieldByName(x.Sym.Name)
+	if !f.IsValid() || !f.CanSet() {
+		failData(CodeInternal, "Go field is not settable", x.Sel.Sp,
+			"field", x.Sym.Name)
+	}
+	gv, ok := goFieldValue(v, f.Type())
+	if !ok {
+		failData(CodeUnsupported,
+			"field assignment value cannot convert to the Go field type", x.Value.Span(),
+			"field", x.Sym.Name)
+	}
+	f.Set(gv)
+	return &VUnit{}
+}
+
+// goFieldValue unboxes an eval value into the Go field type of a
+// host-bound struct — the write-side mirror of hostElem's Go→Value
+// read. Scalars and opaque host values convert; gom aggregates do
+// not.
+func goFieldValue(v Value, t reflect.Type) (reflect.Value, bool) {
+	var x any
+	switch v := v.(type) {
+	case *VHost:
+		x = v.V
+	case *VInt:
+		x = v.N
+	case *VChar:
+		x = v.R
+	case *VFloat:
+		x = v.F
+	case *VBool:
+		x = v.B
+	case *VStr:
+		x = v.S
+	default:
+		return reflect.Value{}, false
+	}
+	rv := reflect.ValueOf(x)
+	if !rv.IsValid() || !rv.Type().AssignableTo(t) {
+		return reflect.Value{}, false
+	}
+	return rv, true
 }
 
 // evalMember handles `recv.sel`: record/variant field access, module

@@ -26,7 +26,8 @@
 
 ### Go 相互運用
 
-- [ ] **G-1 `Ptr T` 経由の field 書き込みの実装**: `ptr.Field = v` の代入構文と addressability 規則。`Ptr T`（T は named Go struct）経由に限定し、record/`Ref` への field 代入は開かない（[decision](docs/decisions/2026-11-19-struct-field-write.md)、比較材料は [sketch](docs/sketch/2026-11-19-wave23-struct-construction.md)）。実装後に tutorial / examples の host パッケージ（`NewClient` factory）を撤去する — wave24 以降の lane 候補
+- [x] **G-1 `Ptr T` 経由の field 書き込みの実装**: `ptr.Field = v` の代入構文と addressability 規則。`Ptr T`（T は named Go struct）経由に限定し、record/`Ref` への field 代入は開かない（[decision](docs/decisions/2026-11-19-struct-field-write.md)、比較材料は [sketch](docs/sketch/2026-11-19-wave23-struct-construction.md)）。実装後に tutorial / examples の host パッケージ（`NewClient` factory）を撤去する — wave24 以降の lane 候補
+  - 対応（wave24 lane B）: `Assign`/`FieldAssign`/`FieldSet` を syntax→check→lower→codegen に通し、左辺は `ptr.Field` の形のみ（変数・record field・`Ptr` でない Go 値経由は E0511）。代入式は `Unit`。examples/gist-cli の host パッケージは撤去 — `NewClient` は `Ptr.new` + `client.Timeout`/`client.CheckRedirect` への代入に置換。composite literal は引き続き非提供
 
 ### ドキュメント
 

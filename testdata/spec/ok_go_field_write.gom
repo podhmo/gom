@@ -1,0 +1,28 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// `ptr.Field = v` writes an exported Go struct field through a `Ptr T`
+// handle where T is a named Go struct (spec 8.3;
+// decisions/2026-11-19-struct-field-write).
+fn f (b: Ptr goiface.SliceBox) -> Unit = {
+  b.N = 5
+  ()
+}
+
+// The same write on a `Ptr.new` allocation — the idiomatic zero-value
+// construction the decision picks over Go composite literals.
+fn g () -> Unit = {
+  let b : Ptr goiface.SliceBox = Ptr.new ()
+  b.N = 7
+  ()
+}
+
+// The receiver may be inferred too — a lambda parameter's select
+// defers until the argument pins `Ptr T`; the write's shape is
+// validated when the deferred selection resolves.
+fn h () -> Unit = {
+  let b : Ptr goiface.SliceBox = Ptr.new ()
+  (fn p -> p.N = 9) b
+  ()
+}

@@ -142,6 +142,25 @@
     }
   },
   {
+    "type": "assign_expr",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "ascribed_expr",
+          "named": true
+        },
+        {
+          "type": "expr",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "atom",
     "named": true,
     "fields": {},
@@ -395,6 +414,10 @@
       "types": [
         {
           "type": "ascribed_expr",
+          "named": true
+        },
+        {
+          "type": "assign_expr",
           "named": true
         },
         {
@@ -682,6 +705,25 @@
     }
   },
   {
+    "type": "head_assign_expr",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "head_ascribed_expr",
+          "named": true
+        },
+        {
+          "type": "head_expr",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "head_atom",
     "named": true,
     "fields": {},
@@ -787,6 +829,10 @@
       "types": [
         {
           "type": "head_ascribed_expr",
+          "named": true
+        },
+        {
+          "type": "head_assign_expr",
           "named": true
         },
         {

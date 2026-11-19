@@ -93,11 +93,11 @@ fn parse (s: String) -> Result Int GoError =
   annotated bindings, returns, and Gom-param boundaries. Gom types
   cannot implement Go interfaces in v1.
 - Exported struct fields read via `v.Field` (promoted fields and Go's
-  ambiguity rules apply; unexported fields are invisible). Field
-  writes and composite literals don't exist yet — to construct a
-  struct like `http.Client{Timeout: ...}`, declare an `@extern fn`
-  signature and hand-write the Go body in the generated package
-  (see `@extern fn` below).
+  ambiguity rules apply; unexported fields are invisible). Through
+  `Ptr T` (T a named Go struct) they also write — `p.Field = v` —
+  which with `Ptr.new ()` covers construction like
+  `http.Client{Timeout: ...}`; composite literals still don't exist
+  (decisions/2026-11-19-struct-field-write).
 - Not representable → hidden + reason on use (E0501): unsigned
   ints other than `byte`/`uint8`, `int8`/`int16`, `float32`,
   complex, `[N]T` arrays, `unsafe.Pointer`, generic types, funcs

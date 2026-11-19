@@ -118,6 +118,9 @@ func (p *printer) exprRaw(e syntax.Expr, nb bool) *doc {
 			x = concat(text("("), x, text(")"))
 		}
 		return concat(x, text(" :"+pad(mid)), p.typeExpr(e.Type))
+	case *syntax.Assign:
+		mid := p.gapInline(e.Target.Span().End, e.Value.Span().Start)
+		return concat(p.expr(e.Target, pAny, nb), text(" ="+pad(mid)), p.expr(e.Value, pAny, nb))
 	case *syntax.If:
 		return p.ifDoc(e)
 	case *syntax.Match:
@@ -377,11 +380,12 @@ func parenLed(e syntax.Expr, nb bool) bool {
 		return true
 	case *syntax.RecordLit, *syntax.Block:
 		return nb
-	case *syntax.Apply, *syntax.Ascribe, *syntax.Binary, *syntax.For,
-		*syntax.GoExpr, *syntax.Hole, *syntax.Ident, *syntax.If,
-		*syntax.Ignore, *syntax.Lambda, *syntax.Let, *syntax.ListLit,
-		*syntax.Lit, *syntax.Match, *syntax.Select, *syntax.SelectExpr,
-		*syntax.Spread, *syntax.StrInterp, *syntax.Try, *syntax.Unary:
+	case *syntax.Apply, *syntax.Ascribe, *syntax.Assign, *syntax.Binary,
+		*syntax.For, *syntax.GoExpr, *syntax.Hole, *syntax.Ident,
+		*syntax.If, *syntax.Ignore, *syntax.Lambda, *syntax.Let,
+		*syntax.ListLit, *syntax.Lit, *syntax.Match, *syntax.Select,
+		*syntax.SelectExpr, *syntax.Spread, *syntax.StrInterp,
+		*syntax.Try, *syntax.Unary:
 	default:
 		panic("unreachable")
 	}

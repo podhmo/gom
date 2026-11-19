@@ -895,6 +895,9 @@ func (w *identWalker) expr(e syntax.Expr) {
 	case *syntax.Select:
 		w.expr(n.Recv)
 		w.exc(n.Sel) // member selection — resolved for module/type qualifiers only
+	case *syntax.Assign:
+		w.expr(n.Target)
+		w.expr(n.Value)
 	case *syntax.Unary:
 		w.expr(n.X)
 	case *syntax.Binary:

@@ -203,6 +203,13 @@ type checker struct {
 	// at finalize's end when the receiver never does.
 	pendingApplies []*pendingApply
 
+	// pendingAssigns are field assignments `x.F = v` whose target
+	// selection deferred on an unresolved receiver meta — the write
+	// is admitted provisionally and revisitSelects validates the
+	// resolved shape (or rejects it with E0511) once the member
+	// settles.
+	pendingAssigns []*assignTarget
+
 	// pendingIfaces keep numeric and selector inference independent of interface assignment.
 	pendingIfaces []*Ascribe
 
@@ -1039,8 +1046,8 @@ func isValue(x Expr) bool {
 		}
 		return true
 	case *Hole, *Unary, *Binary, *StrInterp, *If, *Match, *Block,
-		*Let, *Ignore, *Try, *GoExpr, *For, *SelectExpr, *Spread,
-		*Ascribe:
+		*Let, *Ignore, *Try, *FieldAssign, *GoExpr, *For,
+		*SelectExpr, *Spread, *Ascribe:
 		return false
 	default:
 		panic("unreachable")
@@ -1065,9 +1072,9 @@ func targsOf(e Expr) []types.Type {
 	case *MemberExpr:
 		return e.TypeArgs
 	case *Lit, *Apply, *Hole, *Unary, *Binary, *StrInterp, *Lambda,
-		*If, *Match, *Block, *Let, *Ignore, *Try, *GoExpr, *For,
-		*SelectExpr, *ListLit, *Spread, *TupleLit, *RecordLit,
-		*Ascribe:
+		*If, *Match, *Block, *Let, *Ignore, *Try, *FieldAssign,
+		*GoExpr, *For, *SelectExpr, *ListLit, *Spread, *TupleLit,
+		*RecordLit, *Ascribe:
 		return nil
 	default:
 		panic("unreachable")

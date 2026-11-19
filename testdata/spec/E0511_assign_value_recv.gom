@@ -1,0 +1,11 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// A write through a Go value (not `Ptr T`) would mutate a copy and
+// silently drop the effect — only `Ptr T` receivers are allowed
+// (spec 8.3).
+fn f (b: goiface.SliceBox) -> Unit = {
+  b.N = 5
+  ()
+}

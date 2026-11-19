@@ -2264,3 +2264,140 @@ let b = a
                           (atom
                             (literal
                               (int_literal))))))))))))))))
+
+================================================================================
+field write assignment
+================================================================================
+
+package ex
+
+fn f (b: Ptr goiface.SliceBox) -> Unit = {
+  b.N = 5
+  let r = { x = 1 }
+  ()
+}
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (package_decl
+    (ident))
+  (fn_decl
+    (fn_sig
+      (ident)
+      (fn_param
+        (pattern
+          (or_pattern
+            (ctor_pattern
+              (pat_atom
+                (ident)))))
+        (type_expr
+          (arrow_type
+            (app_type
+              (type_atom
+                (uident))
+              (type_atom
+                (ident)
+                (uident))))))
+      (type_expr
+        (arrow_type
+          (app_type
+            (type_atom
+              (uident))))))
+    (expr
+      (ascribed_expr
+        (pipe_expr
+          (bool_or_expr
+            (bool_and_expr
+              (rel_expr
+                (add_expr
+                  (mul_expr
+                    (unary_expr
+                      (apply_expr
+                        (postfix_expr
+                          (atom
+                            (brace_expr
+                              (block
+                                (block_item
+                                  (expr
+                                    (assign_expr
+                                      (ascribed_expr
+                                        (pipe_expr
+                                          (bool_or_expr
+                                            (bool_and_expr
+                                              (rel_expr
+                                                (add_expr
+                                                  (mul_expr
+                                                    (unary_expr
+                                                      (apply_expr
+                                                        (postfix_expr
+                                                          (atom
+                                                            (ident)))
+                                                        (post_arg_selector
+                                                          (member_name
+                                                            (uident))))))))))))
+                                      (expr
+                                        (ascribed_expr
+                                          (pipe_expr
+                                            (bool_or_expr
+                                              (bool_and_expr
+                                                (rel_expr
+                                                  (add_expr
+                                                    (mul_expr
+                                                      (unary_expr
+                                                        (apply_expr
+                                                          (postfix_expr
+                                                            (atom
+                                                              (literal
+                                                                (int_literal)))))))))))))))))
+                                (block_item
+                                  (let_decl
+                                    (pattern
+                                      (or_pattern
+                                        (ctor_pattern
+                                          (pat_atom
+                                            (ident)))))
+                                    (expr
+                                      (ascribed_expr
+                                        (pipe_expr
+                                          (bool_or_expr
+                                            (bool_and_expr
+                                              (rel_expr
+                                                (add_expr
+                                                  (mul_expr
+                                                    (unary_expr
+                                                      (apply_expr
+                                                        (postfix_expr
+                                                          (atom
+                                                            (brace_expr
+                                                              (record_literal
+                                                                (field_init
+                                                                  (ident)
+                                                                  (expr
+                                                                    (ascribed_expr
+                                                                      (pipe_expr
+                                                                        (bool_or_expr
+                                                                          (bool_and_expr
+                                                                            (rel_expr
+                                                                              (add_expr
+                                                                                (mul_expr
+                                                                                  (unary_expr
+                                                                                    (apply_expr
+                                                                                      (postfix_expr
+                                                                                        (atom
+                                                                                          (literal
+                                                                                            (int_literal)))))))))))))))))))))))))))))))
+                                (block_item
+                                  (expr
+                                    (ascribed_expr
+                                      (pipe_expr
+                                        (bool_or_expr
+                                          (bool_and_expr
+                                            (rel_expr
+                                              (add_expr
+                                                (mul_expr
+                                                  (unary_expr
+                                                    (apply_expr
+                                                      (postfix_expr
+                                                        (atom
+                                                          (paren_expr))))))))))))))))))))))))))))))

@@ -174,6 +174,12 @@ func (h *hoverSearch) expr(e check.Expr) {
 			h.pick(e.Sel.Span(), e.Sel.Name+" : "+h.display(e.Type()))
 		}
 		h.expr(e.Recv)
+	case *check.FieldAssign:
+		if e.Sel != nil {
+			h.pick(e.Sel.Span(), e.Sel.Name+" : "+h.display(e.GoFieldType))
+		}
+		h.expr(e.Recv)
+		h.expr(e.Value)
 	case *check.Unary:
 		h.expr(e.X)
 	case *check.Binary:

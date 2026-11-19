@@ -1,0 +1,6 @@
+package ex
+
+// Assignment targets a field selection `ptr.Field` only — a bare
+// variable is rejected (spec 8.3). Inside a block `{x = v}` keeps
+// meaning a record literal.
+fn f (x: Int) -> Unit = x = 5

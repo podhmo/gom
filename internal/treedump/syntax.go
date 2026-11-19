@@ -431,6 +431,8 @@ func (d *dumper) expr(e syntax.Expr) *form {
 		return nodef("apply"+at(e.Sp), kids...)
 	case *syntax.Select:
 		return nodef("sel"+at(e.Sp), d.expr(e.Recv), d.ident(e.Sel))
+	case *syntax.Assign:
+		return nodef("assign"+at(e.Sp), d.expr(e.Target), d.expr(e.Value))
 	case *syntax.Unary:
 		return nodef("unary"+at(e.Sp)+" "+e.Op.String(), d.expr(e.X))
 	case *syntax.Binary:

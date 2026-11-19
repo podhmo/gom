@@ -49,6 +49,16 @@ module.exports = grammar({
     // "x <- e : T -> body": "->" may extend the type or open the arm
     // body; only one tree survives.
     [$.arrow_type],
+    // "{x = v}": record literal vs a one-item block holding a field
+    // write "x = v" — the record reading wins (dynamic prec), like the
+    // parser's "ident =" lookahead.
+    [$.atom, $.field_init],
+    // "e = ..." at reduce time: extend into a field write vs close the
+    // expression and let an enclosing rule (field_init, let_decl)
+    // consume "=". Both parses survive only where the enclosing rule
+    // actually needs the "=".
+    [$.expr, $.assign_expr],
+    [$.head_expr, $.head_assign_expr],
   ],
 
   rules: {
@@ -175,7 +185,7 @@ module.exports = grammar({
     // 5. Expressions
     // ------------------------------------------------------------------
 
-    expr: $ => choice($.control_expr, $.ascribed_expr),
+    expr: $ => choice($.control_expr, $.assign_expr, $.ascribed_expr),
 
     control_expr: $ => choice(
       $.if_expr,
@@ -184,6 +194,13 @@ module.exports = grammar({
       $.go_expr,
       $.select_expr,
       $.lambda,
+    ),
+
+    // "ptr.Field = v" — the field write is the only assignment form
+    // (spec 8.3). prec.right lets the target take an ascription first,
+    // like the parser's parseExprNB.
+    assign_expr: $ => prec.right(
+      seq($.ascribed_expr, '=', $.expr),
     ),
 
     // prec.right prefers extending the innermost expression with ":" —
@@ -329,13 +346,13 @@ module.exports = grammar({
 
     block_item: $ => choice($.let_decl, $.expr),
 
-    record_literal: $ => seq(
+    record_literal: $ => prec.dynamic(1, seq(
       '{',
       $.field_init,
       repeat(seq(',', $.field_init)),
       optional(','),
       '}',
-    ),
+    )),
 
     record_update: $ => seq(
       '{',
@@ -424,7 +441,15 @@ module.exports = grammar({
     // full rules.
     // ------------------------------------------------------------------
 
-    head_expr: $ => choice($.head_control_expr, $.head_ascribed_expr),
+    head_expr: $ => choice(
+      $.head_control_expr,
+      $.head_assign_expr,
+      $.head_ascribed_expr,
+    ),
+
+    head_assign_expr: $ => prec.right(
+      seq($.head_ascribed_expr, '=', $.head_expr),
+    ),
 
     head_control_expr: $ => choice(
       $.if_expr,

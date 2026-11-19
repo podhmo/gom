@@ -729,6 +729,24 @@ let h = Go.func2 (fn w r -> ())
 // E0510 if a param/result is a Gom-only type or the arity ≠ 2
 ```
 
+### E0511 — invalid field assignment target
+
+**Severity:** error · **Phase:** check · **Spec:** §8.3
+
+Field assignment "ptr.Field = v" is legal only for an
+exported field of a "Ptr T" handle where T is a named Go struct
+(spec section 8.3) — the write lands on the pointed-to struct. Every
+other shape is rejected: a bare variable, a record or Ref field, an
+unexported Go field, a package member, or a field reached through a
+non-pointer receiver — a write to a value copy would silently drop
+the effect.
+
+```gom
+let b : Ptr SliceBox = Ptr.new ()
+b.N = 5   // ok — N is an exported field of SliceBox
+b = other // E0511 — the target must be ptr.Field
+```
+
 ### W0501 — Go call receives a copied List where mutation may be expected
 
 **Severity:** warning · **Phase:** lint · **Spec:** §8.5

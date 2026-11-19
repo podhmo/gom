@@ -53,9 +53,9 @@ func (c *checker) lintMutableSharing() {
 			case *GoExpr:
 				c.lintGoCaptures(e, goWarned)
 			case *Lit, *Var, *MemberExpr, *Hole, *StrInterp, *Lambda,
-				*If, *Match, *Block, *Let, *Ignore, *Try, *For,
-				*SelectExpr, *ListLit, *TupleLit, *Spread, *RecordLit,
-				*Ascribe, *Unary, *Binary:
+				*If, *Match, *Block, *Let, *Ignore, *Try, *FieldAssign,
+				*For, *SelectExpr, *ListLit, *TupleLit, *Spread,
+				*RecordLit, *Ascribe, *Unary, *Binary:
 			default:
 				panic("unreachable")
 			}
@@ -86,10 +86,10 @@ func (c *checker) lintAliases() map[*resolve.Symbol]*resolve.Symbol {
 			target = v.Sym
 		case *MemberExpr:
 			target = v.Sym
-		case *Apply, *Ascribe, *Binary, *Block, *For, *GoExpr, *Hole,
-			*If, *Ignore, *Lambda, *Let, *ListLit, *Lit, *Match,
-			*RecordLit, *SelectExpr, *Spread, *StrInterp, *Try,
-			*TupleLit, *Unary:
+		case *Apply, *Ascribe, *Binary, *Block, *FieldAssign, *For,
+			*GoExpr, *Hole, *If, *Ignore, *Lambda, *Let, *ListLit,
+			*Lit, *Match, *RecordLit, *SelectExpr, *Spread,
+			*StrInterp, *Try, *TupleLit, *Unary:
 			// Only whole-symbol aliases are tracked.
 		default:
 			panic("unreachable")
@@ -124,10 +124,10 @@ func (c *checker) lintCallee(ap *Apply, aliases map[*resolve.Symbol]*resolve.Sym
 			sym = f.Sym
 		case *MemberExpr:
 			sym = f.Sym
-		case *Apply, *Ascribe, *Binary, *Block, *For, *GoExpr, *Hole,
-			*If, *Ignore, *Lambda, *Let, *ListLit, *Lit, *Match,
-			*RecordLit, *SelectExpr, *Spread, *StrInterp, *Try,
-			*TupleLit, *Unary:
+		case *Apply, *Ascribe, *Binary, *Block, *FieldAssign, *For,
+			*GoExpr, *Hole, *If, *Ignore, *Lambda, *Let, *ListLit,
+			*Lit, *Match, *RecordLit, *SelectExpr, *Spread,
+			*StrInterp, *Try, *TupleLit, *Unary:
 			// No resolvable callee.
 		default:
 			panic("unreachable")
@@ -600,9 +600,9 @@ func (c *checker) lintGoCaptures(g *GoExpr, reported map[diag.Span]bool) {
 		case *MemberExpr:
 			sym, t, sp = e.Sym, e.Type(), e.Sp
 		case *Lit, *Apply, *Hole, *StrInterp, *Lambda, *If, *Match,
-			*Block, *Let, *Ignore, *Try, *GoExpr, *For, *SelectExpr,
-			*ListLit, *TupleLit, *Spread, *RecordLit, *Ascribe, *Unary,
-			*Binary:
+			*Block, *Let, *Ignore, *Try, *FieldAssign, *GoExpr, *For,
+			*SelectExpr, *ListLit, *TupleLit, *Spread, *RecordLit,
+			*Ascribe, *Unary, *Binary:
 			return
 		default:
 			panic("unreachable")

@@ -206,10 +206,10 @@ func (c *checker) calleeOf(e syntax.Expr) (Expr, *resolve.Symbol, bool) {
 		sym = fn.Sym
 	case *MemberExpr:
 		sym = fn.Sym
-	case *Apply, *Ascribe, *Binary, *Block, *For, *GoExpr, *Hole,
-		*If, *Ignore, *Lambda, *Let, *ListLit, *Lit, *Match,
-		*RecordLit, *SelectExpr, *Spread, *StrInterp, *Try,
-		*TupleLit, *Unary:
+	case *Apply, *Ascribe, *Binary, *Block, *FieldAssign, *For,
+		*GoExpr, *Hole, *If, *Ignore, *Lambda, *Let, *ListLit,
+		*Lit, *Match, *RecordLit, *SelectExpr, *Spread,
+		*StrInterp, *Try, *TupleLit, *Unary:
 		// Not a named callee: an arbitrary function-typed value.
 	default:
 		panic("unreachable")
@@ -395,7 +395,7 @@ func (c *checker) checkGomApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol
 			*syntax.Binary, *syntax.Lambda, *syntax.If, *syntax.Match,
 			*syntax.Block, *syntax.Let, *syntax.Ignore, *syntax.Try,
 			*syntax.GoExpr, *syntax.For, *syntax.SelectExpr,
-			*syntax.ListLit, *syntax.TupleLit, *syntax.Ascribe,
+			*syntax.Assign, *syntax.ListLit, *syntax.TupleLit, *syntax.Ascribe,
 			*syntax.RecordLit:
 			argExpr = c.checkExpr(a.Value, pt)
 		default:
@@ -637,7 +637,7 @@ func (c *checker) checkGoApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol,
 				*syntax.Match, *syntax.Block, *syntax.Let,
 				*syntax.Ignore, *syntax.Try, *syntax.GoExpr,
 				*syntax.For, *syntax.SelectExpr, *syntax.ListLit,
-				*syntax.Spread, *syntax.Ascribe, *syntax.RecordLit:
+				*syntax.Assign, *syntax.Spread, *syntax.Ascribe, *syntax.RecordLit:
 				// An ordinary argument.
 			default:
 				panic("unreachable")
@@ -744,7 +744,7 @@ func (c *checker) checkGoApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol,
 			*syntax.Binary, *syntax.Lambda, *syntax.If, *syntax.Match,
 			*syntax.Block, *syntax.Let, *syntax.Ignore, *syntax.Try,
 			*syntax.GoExpr, *syntax.For, *syntax.SelectExpr,
-			*syntax.ListLit, *syntax.TupleLit, *syntax.Ascribe,
+			*syntax.Assign, *syntax.ListLit, *syntax.TupleLit, *syntax.Ascribe,
 			*syntax.RecordLit:
 			argExpr = c.checkExpr(av, pt)
 		default:
@@ -1004,7 +1004,7 @@ func (c *checker) provisionalArg(e syntax.Expr, pa *pendingApply) Expr {
 		*syntax.Binary, *syntax.Lambda, *syntax.If, *syntax.Match,
 		*syntax.Block, *syntax.Let, *syntax.Ignore, *syntax.Try,
 		*syntax.GoExpr, *syntax.For, *syntax.SelectExpr,
-		*syntax.ListLit, *syntax.Ascribe, *syntax.RecordLit:
+		*syntax.Assign, *syntax.ListLit, *syntax.Ascribe, *syntax.RecordLit:
 		return c.checkExpr(e, nil)
 	default:
 		panic("unreachable")
@@ -1195,7 +1195,7 @@ func (c *checker) replayGoApply(pa *pendingApply) {
 			argExpr = v
 		case *Var, *Lit, *StrInterp, *Apply, *MemberExpr, *Unary,
 			*Binary, *Lambda, *If, *Match, *Block, *Let, *Ignore,
-			*Try, *GoExpr, *For, *SelectExpr, *ListLit, *TupleLit,
+			*Try, *FieldAssign, *GoExpr, *For, *SelectExpr, *ListLit, *TupleLit,
 			*Ascribe, *RecordLit:
 			argExpr = c.conformExpr(v, pt, g.sp)
 		default:
@@ -1559,7 +1559,7 @@ func (c *checker) replayGomApply(pa *pendingApply) {
 			argExpr = v
 		case *Var, *Lit, *StrInterp, *Apply, *MemberExpr, *Unary,
 			*Binary, *Lambda, *If, *Match, *Block, *Let, *Ignore,
-			*Try, *GoExpr, *For, *SelectExpr, *ListLit, *TupleLit,
+			*Try, *FieldAssign, *GoExpr, *For, *SelectExpr, *ListLit, *TupleLit,
 			*Ascribe, *RecordLit:
 			argExpr = c.conformExpr(v, pt, a.Span())
 		default:

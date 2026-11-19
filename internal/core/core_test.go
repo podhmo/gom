@@ -879,7 +879,8 @@ func TestSealedFamiliesIsExpr(t *testing.T) {
 	if e != nil {
 		switch e.(type) {
 		case *Var, *Lit, *FuncRef, *CtorRef, *GoFuncRef, *FieldGet,
-			*Closure, *CallDirect, *CallFunc, *CallGo, *CallBuiltin, *CtorApp,
+			*FieldSet, *Closure, *CallDirect, *CallFunc, *CallGo,
+			*CallBuiltin, *CtorApp,
 			*Unary, *Binary, *Equal, *If, *Match, *SelectExpr, *Spawn, *ForRange,
 			*TupleNew, *ListNew, *RecordNew, *RecordUpdate, *GoFunc, *Uncurry,
 			*TailCall, *EscapeResult, *EscapeCall,

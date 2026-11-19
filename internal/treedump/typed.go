@@ -217,6 +217,12 @@ func (d *dumper) texpr(e check.Expr) *form {
 			text += " :ctor " + e.Ctor.Name
 		}
 		return nodef(text+fmt.Sprintf(" :i%d", e.Index), recv)
+	case *check.FieldAssign:
+		text := head("fieldassign", e.Base) + " " + d.nameText(e.Sel)
+		if e.Sym != nil {
+			text += " -> " + d.symRef(e.Sym)
+		}
+		return nodef(text, d.texpr(e.Recv), d.texpr(e.Value))
 	case *check.Unary:
 		return nodef(head("unary", e.Base)+" "+e.Op.String(), d.texpr(e.X))
 	case *check.Binary:

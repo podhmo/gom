@@ -1,0 +1,8 @@
+package ex
+
+// A field-assignment target whose selection deferred on an
+// unresolved receiver is still validated once the receiver
+// settles — an `Int` receiver is not a `Ptr T` (spec 8.3).
+fn f () -> Unit = {
+  (fn x -> x.F = 5) 0
+}

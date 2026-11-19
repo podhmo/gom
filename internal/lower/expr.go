@@ -127,6 +127,8 @@ func (l *lowerer) expr(s *seq, e check.Expr) core.Expr {
 		return l.litUnit(e.Sp)
 	case *check.Try:
 		return l.tryExpr(s, e)
+	case *check.FieldAssign:
+		return l.fieldAssign(s, e)
 	case *check.GoExpr:
 		return &core.Spawn{Base: baseOf(e), Body: l.exprBody(e.Body)}
 	case *check.For:
@@ -297,6 +299,34 @@ func (l *lowerer) funcRefOrFlatten(e *check.Var, sym *resolve.Symbol) core.Expr 
 		fn := l.asAtom(bs, e.Sp, prefix)
 		return l.callFuncChunks(bs, e.Sp, fn, rest)
 	})
+}
+
+// fieldAssign lowers `ptr.Field = v` — a Go struct field write
+// through a `Ptr T` handle. The write emits under a discard bind
+// inside the seq (it is a statement, not a value); the expression's
+// result is unit. Both operands are atoms, evaluated in source
+// order; the value converts to the field's raw Go type, the mirror
+// of the read side's goPayloadConv.
+func (l *lowerer) fieldAssign(s *seq, e *check.FieldAssign) core.Expr {
+	if e.Sym == nil || e.GoFieldType == nil {
+		l.err(e.Sp, "field assignment with no resolved Go field")
+		return l.litUnit(e.Sp)
+	}
+	recv := l.atom(s, e.Recv)
+	if _, ok := recv.(*core.Var); !ok {
+		// A non-Var atom — a promoted field read, say — resolves at
+		// the write site, after the value's binds already ran. Source
+		// order reads the receiver first, so force it into a
+		// temporary before the value lowers.
+		b := l.tmpBind(e.Sp, recv.Type())
+		s.emit(b, recv)
+		recv = varOf(e.Sp, b)
+	}
+	val := l.convAtomTo(s, e.Value.Span(), l.atom(s, e.Value), e.GoFieldType)
+	s.emit(l.discardBind(e.Sp, e.Type()), &core.FieldSet{
+		Sp: e.Sp, Typ: e.Type(), Recv: recv, Field: e.Sym, Value: val,
+	})
+	return l.litUnit(e.Sp)
 }
 
 // memberExpr lowers `recv.sel` — field projection, module member, or
@@ -2504,6 +2534,9 @@ func hasUnguardedTry(e check.Expr) bool {
 			for _, f := range x.Fields {
 				walk(f.Value)
 			}
+		case *check.FieldAssign:
+			walk(x.Recv)
+			walk(x.Value)
 		case *check.Ascribe:
 			walk(x.X)
 		default:

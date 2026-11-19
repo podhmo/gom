@@ -162,6 +162,20 @@ type Select struct {
 func (*Select) isExpr()           {}
 func (n *Select) Span() diag.Span { return n.Sp }
 
+// Assign is `target = value` — a field write through a `Ptr T`
+// handle where T is a named Go struct (`ptr.Field = v`, spec 8.3,
+// decisions/2026-11-19-struct-field-write.md). The parser accepts
+// any expression as Target; check restricts it to a Select on such
+// a pointer.
+type Assign struct {
+	Sp     diag.Span
+	Target Expr
+	Value  Expr
+}
+
+func (*Assign) isExpr()           {}
+func (n *Assign) Span() diag.Span { return n.Sp }
+
 // UnOp is a unary operator.
 type UnOp int
 

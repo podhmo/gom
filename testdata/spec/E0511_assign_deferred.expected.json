@@ -1,0 +1,46 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0511",
+      "severity": "error",
+      "message": "the assignment target must be an exported field of a `Ptr T` where T is a named Go struct",
+      "span": {
+        "file": "E0511_assign_deferred.gom",
+        "start": {
+          "line": 7,
+          "col": 12,
+          "offset": 225
+        },
+        "end": {
+          "line": 7,
+          "col": 15,
+          "offset": 228
+        }
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "Int has no field or method `F`",
+      "span": {
+        "file": "E0511_assign_deferred.gom",
+        "start": {
+          "line": 7,
+          "col": 14,
+          "offset": 227
+        },
+        "end": {
+          "line": 7,
+          "col": 15,
+          "offset": 228
+        }
+      },
+      "data": {
+        "member": "F",
+        "type": "Int"
+      }
+    }
+  ]
+}

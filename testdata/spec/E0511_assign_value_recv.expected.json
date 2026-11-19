@@ -1,0 +1,26 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0511",
+      "severity": "error",
+      "message": "field assignment is only allowed through a `Ptr T` (T a named Go struct); the receiver has type github.com/podhmo/gom/testdata/goiface.SliceBox",
+      "span": {
+        "file": "E0511_assign_value_recv.gom",
+        "start": {
+          "line": 9,
+          "col": 3,
+          "offset": 255
+        },
+        "end": {
+          "line": 9,
+          "col": 4,
+          "offset": 256
+        }
+      },
+      "data": {
+        "type": "github.com/podhmo/gom/testdata/goiface.SliceBox"
+      }
+    }
+  ]
+}

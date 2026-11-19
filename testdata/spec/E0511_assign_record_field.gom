@@ -1,0 +1,10 @@
+package ex
+
+type P = { x: Int }
+
+// A record field is not a Go struct field — record values are
+// immutable, so `p.x = v` is rejected (spec 8.3).
+fn f (p: P) -> Unit = {
+  p.x = 5
+  ()
+}

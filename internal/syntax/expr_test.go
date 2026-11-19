@@ -56,6 +56,8 @@ func exprKind(e Expr) string {
 		return "tuple"
 	case *RecordLit:
 		return "record"
+	case *Assign:
+		return "assign"
 	case *Ascribe:
 		return "ascribe"
 	default:

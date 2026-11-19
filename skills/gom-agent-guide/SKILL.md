@@ -360,12 +360,12 @@ For a Gom `fn`, use `f x y`.
 
 ## Assignment and mutation
 
-```gom fail=E0101
+```gom fail=E0511
 package main
 
 fn main () -> Unit = {
   let x = 1
-  x = 2                // NG: no assignment operator
+  x = 2                // NG: `=` assigns only `ptr.Field` on a `Ptr T`
   ()
 }
 ```
@@ -380,10 +380,14 @@ fn main () -> Unit = {
 }
 ```
 
-`var`, `:=`, `+=`, `++` do not exist (E0101/E0201). Mutable state is
-explicit: `Array a` is the build buffer (`Array.make`/`get`/`set`,
-freeze with `Array.to_list`); `Ref a` members are still pending.
-Default to immutability.
+`var`, `:=`, `+=`, `++` do not exist (E0101/E0201). The one `=`
+assignment form writes an exported Go struct field through `Ptr T`
+— `client.Timeout = 30 * time.Second` — the `Ptr.new ()` +
+field-writes pattern replaces Go composite literals; anything else
+as the target is E0511. Other mutable state is explicit: `Array a`
+is the build buffer (`Array.make`/`get`/`set`, freeze with
+`Array.to_list`); `Ref a` members are still pending. Default to
+immutability.
 
 ## `let ... in`, `return`, `else if`
 
