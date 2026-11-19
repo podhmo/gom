@@ -1,0 +1,12 @@
+package ex
+
+// An application deferred on a member that fails to resolve is
+// dead work: the member's E0401 is the only diagnostic — the
+// metas the dropped call minted (its standing result, each
+// argument's check debris) are quieted at drop time, so no E0407
+// piles on.
+
+fn call (x: a) -> Int = {
+  let _ = x.Nope 1 [2]
+  0
+}

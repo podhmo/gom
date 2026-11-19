@@ -1,0 +1,46 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0511",
+      "severity": "error",
+      "message": "the assignment target must be a field selection `ptr.Field`",
+      "span": {
+        "file": "err_assign_dead_rhs.gom",
+        "start": {
+          "line": 13,
+          "col": 3,
+          "offset": 386
+        },
+        "end": {
+          "line": 13,
+          "col": 17,
+          "offset": 400
+        }
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "Ref Rec has no field or method `Nope`",
+      "span": {
+        "file": "err_assign_dead_rhs.gom",
+        "start": {
+          "line": 13,
+          "col": 13,
+          "offset": 396
+        },
+        "end": {
+          "line": 13,
+          "col": 17,
+          "offset": 400
+        }
+      },
+      "data": {
+        "member": "Nope",
+        "type": "Ref Rec"
+      }
+    }
+  ]
+}
