@@ -6,269 +6,888 @@ import (
 	rt "github.com/podhmo/gom/rt"
 	list "github.com/podhmo/gom/stdlib/list"
 	option "github.com/podhmo/gom/stdlib/option"
+	result "github.com/podhmo/gom/stdlib/result"
 	strconv "strconv"
 	strings "strings"
 	testing "testing"
 )
 
-//line stdlib/cmp/cmp.gom:84
+//line stdlib/cmp/cmp.gom:190
 func TestMemberEqOf(t *testing.T) {
-//line stdlib/cmp/cmp.gom:85
-	tmp55 := list.List[int64]{1, 2, 3}
-//line stdlib/cmp/cmp.gom:85
-	tmp56 := Member[int64](IntEq, 2, tmp55)
-//line stdlib/cmp/cmp.gom:85
-	rt.Assert(t, tmp56)
-//line stdlib/cmp/cmp.gom:86
-	tmp57 := list.List[string]{"a", "b"}
-//line stdlib/cmp/cmp.gom:86
-	tmp58 := Member[string](StringEq, "b", tmp57)
-//line stdlib/cmp/cmp.gom:86
-	rt.Assert(t, tmp58)
-//line stdlib/cmp/cmp.gom:87
-	tmp59 := list.List[int64]{1, 2, 3}
-//line stdlib/cmp/cmp.gom:87
-	tmp60 := Member[int64](IntEq, 9, tmp59)
-//line stdlib/cmp/cmp.gom:87
-	tmp61 := !tmp60
-//line stdlib/cmp/cmp.gom:87
-	rt.Assert(t, tmp61)
-//line stdlib/cmp/cmp.gom:88
+//line stdlib/cmp/cmp.gom:191
+	tmp144 := list.List[int64]{1, 2, 3}
+//line stdlib/cmp/cmp.gom:191
+	tmp145 := Member[int64](IntEq, 2, tmp144)
+//line stdlib/cmp/cmp.gom:191
+	rt.Assert(t, tmp145)
+//line stdlib/cmp/cmp.gom:192
+	tmp146 := list.List[string]{"a", "b"}
+//line stdlib/cmp/cmp.gom:192
+	tmp147 := Member[string](StringEq, "b", tmp146)
+//line stdlib/cmp/cmp.gom:192
+	rt.Assert(t, tmp147)
+//line stdlib/cmp/cmp.gom:193
+	tmp148 := list.List[int64]{1, 2, 3}
+//line stdlib/cmp/cmp.gom:193
+	tmp149 := Member[int64](IntEq, 9, tmp148)
+//line stdlib/cmp/cmp.gom:193
+	tmp150 := !tmp149
+//line stdlib/cmp/cmp.gom:193
+	rt.Assert(t, tmp150)
+//line stdlib/cmp/cmp.gom:194
 	eqi := EqOf[int64](IntOrd)
-//line stdlib/cmp/cmp.gom:89
-	tmp62 := list.List[int64]{5}
-//line stdlib/cmp/cmp.gom:89
-	tmp63 := Member[int64](eqi, 5, tmp62)
-//line stdlib/cmp/cmp.gom:89
-	rt.Assert(t, tmp63)
-//line stdlib/cmp/cmp.gom:84
+//line stdlib/cmp/cmp.gom:195
+	tmp151 := list.List[int64]{5}
+//line stdlib/cmp/cmp.gom:195
+	tmp152 := Member[int64](eqi, 5, tmp151)
+//line stdlib/cmp/cmp.gom:195
+	rt.Assert(t, tmp152)
+//line stdlib/cmp/cmp.gom:190
 }
 
-//line stdlib/cmp/cmp.gom:92
+//line stdlib/cmp/cmp.gom:198
 func TestFloatOrdIsATotalOrderNaNFirst(t *testing.T) {
-//line stdlib/cmp/cmp.gom:93
+//line stdlib/cmp/cmp.gom:199
 	z := 0.0
-//line stdlib/cmp/cmp.gom:94
+//line stdlib/cmp/cmp.gom:200
 	nan := z / z
-//line stdlib/cmp/cmp.gom:95
-	tmp64 := FloatOrd.Lt(nan)
-//line stdlib/cmp/cmp.gom:95
-	tmp65 := tmp64(1.0)
-//line stdlib/cmp/cmp.gom:95
-	rt.Assert(t, tmp65)
-//line stdlib/cmp/cmp.gom:96
-	tmp66 := FloatOrd.Lt(1.0)
-//line stdlib/cmp/cmp.gom:96
-	tmp67 := tmp66(nan)
-//line stdlib/cmp/cmp.gom:96
-	tmp68 := !tmp67
-//line stdlib/cmp/cmp.gom:96
-	rt.Assert(t, tmp68)
-//line stdlib/cmp/cmp.gom:97
-	tmp69 := FloatOrd.Lt(nan)
-//line stdlib/cmp/cmp.gom:97
-	tmp70 := tmp69(nan)
-//line stdlib/cmp/cmp.gom:97
-	tmp71 := !tmp70
-//line stdlib/cmp/cmp.gom:97
-	rt.Assert(t, tmp71)
-//line stdlib/cmp/cmp.gom:98
-	tmp72 := EqOf[float64](FloatOrd)
-//line stdlib/cmp/cmp.gom:98
-	tmp73 := tmp72.Eq(nan)
-//line stdlib/cmp/cmp.gom:98
-	tmp74 := tmp73(1.0)
-//line stdlib/cmp/cmp.gom:98
-	tmp75 := !tmp74
-//line stdlib/cmp/cmp.gom:98
-	rt.Assert(t, tmp75)
-//line stdlib/cmp/cmp.gom:99
-	tmp76 := EqOf[float64](FloatOrd)
-//line stdlib/cmp/cmp.gom:99
-	tmp77 := tmp76.Eq(nan)
-//line stdlib/cmp/cmp.gom:99
-	tmp78 := tmp77(nan)
-//line stdlib/cmp/cmp.gom:99
-	rt.Assert(t, tmp78)
-//line stdlib/cmp/cmp.gom:100
-	tmp79 := EqOf[float64](FloatOrd)
-//line stdlib/cmp/cmp.gom:100
-	tmp80 := list.List[float64]{1.0}
-//line stdlib/cmp/cmp.gom:100
-	tmp81 := Member[float64](tmp79, nan, tmp80)
-//line stdlib/cmp/cmp.gom:100
-	tmp82 := !tmp81
-//line stdlib/cmp/cmp.gom:100
-	rt.Assert(t, tmp82)
-//line stdlib/cmp/cmp.gom:101
-	tmp83 := list.List[float64]{2.0, nan, 1.0}
-//line stdlib/cmp/cmp.gom:101
-	tmp84 := Sort[float64](FloatOrd, tmp83)
-//line stdlib/cmp/cmp.gom:101
-	var tmp88 bool
-//line stdlib/cmp/cmp.gom:102
+//line stdlib/cmp/cmp.gom:201
+	tmp153 := FloatOrd.Lt(nan)
+//line stdlib/cmp/cmp.gom:201
+	tmp154 := tmp153(1.0)
+//line stdlib/cmp/cmp.gom:201
+	rt.Assert(t, tmp154)
+//line stdlib/cmp/cmp.gom:202
+	tmp155 := FloatOrd.Lt(1.0)
+//line stdlib/cmp/cmp.gom:202
+	tmp156 := tmp155(nan)
+//line stdlib/cmp/cmp.gom:202
+	tmp157 := !tmp156
+//line stdlib/cmp/cmp.gom:202
+	rt.Assert(t, tmp157)
+//line stdlib/cmp/cmp.gom:203
+	tmp158 := FloatOrd.Lt(nan)
+//line stdlib/cmp/cmp.gom:203
+	tmp159 := tmp158(nan)
+//line stdlib/cmp/cmp.gom:203
+	tmp160 := !tmp159
+//line stdlib/cmp/cmp.gom:203
+	rt.Assert(t, tmp160)
+//line stdlib/cmp/cmp.gom:204
+	tmp161 := EqOf[float64](FloatOrd)
+//line stdlib/cmp/cmp.gom:204
+	tmp162 := tmp161.Eq(nan)
+//line stdlib/cmp/cmp.gom:204
+	tmp163 := tmp162(1.0)
+//line stdlib/cmp/cmp.gom:204
+	tmp164 := !tmp163
+//line stdlib/cmp/cmp.gom:204
+	rt.Assert(t, tmp164)
+//line stdlib/cmp/cmp.gom:205
+	tmp165 := EqOf[float64](FloatOrd)
+//line stdlib/cmp/cmp.gom:205
+	tmp166 := tmp165.Eq(nan)
+//line stdlib/cmp/cmp.gom:205
+	tmp167 := tmp166(nan)
+//line stdlib/cmp/cmp.gom:205
+	rt.Assert(t, tmp167)
+//line stdlib/cmp/cmp.gom:206
+	tmp168 := EqOf[float64](FloatOrd)
+//line stdlib/cmp/cmp.gom:206
+	tmp169 := list.List[float64]{1.0}
+//line stdlib/cmp/cmp.gom:206
+	tmp170 := Member[float64](tmp168, nan, tmp169)
+//line stdlib/cmp/cmp.gom:206
+	tmp171 := !tmp170
+//line stdlib/cmp/cmp.gom:206
+	rt.Assert(t, tmp171)
+//line stdlib/cmp/cmp.gom:207
+	tmp172 := list.List[float64]{2.0, nan, 1.0}
+//line stdlib/cmp/cmp.gom:207
+	tmp173 := Sort[float64](FloatOrd, tmp172)
+//line stdlib/cmp/cmp.gom:207
+	var tmp177 bool
+//line stdlib/cmp/cmp.gom:208
 	switch {
-//line stdlib/cmp/cmp.gom:102
-	case len(tmp84) == 0:
-//line stdlib/cmp/cmp.gom:103
-		tmp88 = false
-//line stdlib/cmp/cmp.gom:102
-	case len(tmp84) != 0:
-//line stdlib/cmp/cmp.gom:102
-		tmp85 := tmp84[0]
-//line stdlib/cmp/cmp.gom:102
-		tmp87 := tmp85
-//line stdlib/cmp/cmp.gom:102
-		tmp88 = tmp87 != tmp87
-//line stdlib/cmp/cmp.gom:102
+//line stdlib/cmp/cmp.gom:208
+	case len(tmp173) == 0:
+//line stdlib/cmp/cmp.gom:209
+		tmp177 = false
+//line stdlib/cmp/cmp.gom:208
+	case len(tmp173) != 0:
+//line stdlib/cmp/cmp.gom:208
+		tmp174 := tmp173[0]
+//line stdlib/cmp/cmp.gom:208
+		tmp176 := tmp174
+//line stdlib/cmp/cmp.gom:208
+		tmp177 = tmp176 != tmp176
+//line stdlib/cmp/cmp.gom:208
 	default:
-//line stdlib/cmp/cmp.gom:101
-		panic(rt.InvalidVariant("List", tmp84))
-//line stdlib/cmp/cmp.gom:102
+//line stdlib/cmp/cmp.gom:207
+		panic(rt.InvalidVariant("List", tmp173))
+//line stdlib/cmp/cmp.gom:208
 	}
-//line stdlib/cmp/cmp.gom:101
-	rt.Assert(t, tmp88)
-//line stdlib/cmp/cmp.gom:92
+//line stdlib/cmp/cmp.gom:207
+	rt.Assert(t, tmp177)
+//line stdlib/cmp/cmp.gom:198
 }
 
-//line stdlib/cmp/cmp.gom:107
+//line stdlib/cmp/cmp.gom:213
+func TestOptionEqOptionOrd(t *testing.T) {
+//line stdlib/cmp/cmp.gom:214
+	oe := OptionEq[int64](IntEq)
+//line stdlib/cmp/cmp.gom:215
+	tmp178 := option.Option[int64](option.Option_None[int64]{})
+//line stdlib/cmp/cmp.gom:215
+	tmp179 := option.Option[int64](option.Option_None[int64]{})
+//line stdlib/cmp/cmp.gom:215
+	tmp180 := oe.Eq(tmp178)
+//line stdlib/cmp/cmp.gom:215
+	tmp181 := tmp180(tmp179)
+//line stdlib/cmp/cmp.gom:215
+	rt.Assert(t, tmp181)
+//line stdlib/cmp/cmp.gom:216
+	tmp182 := option.Option[int64](option.Option_Some[int64]{V0: 1})
+//line stdlib/cmp/cmp.gom:216
+	tmp183 := option.Option[int64](option.Option_Some[int64]{V0: 1})
+//line stdlib/cmp/cmp.gom:216
+	tmp184 := oe.Eq(tmp182)
+//line stdlib/cmp/cmp.gom:216
+	tmp185 := tmp184(tmp183)
+//line stdlib/cmp/cmp.gom:216
+	rt.Assert(t, tmp185)
+//line stdlib/cmp/cmp.gom:217
+	tmp186 := option.Option[int64](option.Option_Some[int64]{V0: 1})
+//line stdlib/cmp/cmp.gom:217
+	tmp187 := option.Option[int64](option.Option_Some[int64]{V0: 2})
+//line stdlib/cmp/cmp.gom:217
+	tmp188 := oe.Eq(tmp186)
+//line stdlib/cmp/cmp.gom:217
+	tmp189 := tmp188(tmp187)
+//line stdlib/cmp/cmp.gom:217
+	tmp190 := !tmp189
+//line stdlib/cmp/cmp.gom:217
+	rt.Assert(t, tmp190)
+//line stdlib/cmp/cmp.gom:218
+	tmp191 := option.Option[int64](option.Option_Some[int64]{V0: 1})
+//line stdlib/cmp/cmp.gom:218
+	tmp192 := option.Option[int64](option.Option_None[int64]{})
+//line stdlib/cmp/cmp.gom:218
+	tmp193 := oe.Eq(tmp191)
+//line stdlib/cmp/cmp.gom:218
+	tmp194 := tmp193(tmp192)
+//line stdlib/cmp/cmp.gom:218
+	tmp195 := !tmp194
+//line stdlib/cmp/cmp.gom:218
+	rt.Assert(t, tmp195)
+//line stdlib/cmp/cmp.gom:219
+	oo := OptionOrd[int64](IntOrd)
+//line stdlib/cmp/cmp.gom:220
+	tmp196 := option.Option[int64](option.Option_None[int64]{})
+//line stdlib/cmp/cmp.gom:220
+	tmp197 := option.Option[int64](option.Option_Some[int64]{V0: 0})
+//line stdlib/cmp/cmp.gom:220
+	tmp198 := oo.Lt(tmp196)
+//line stdlib/cmp/cmp.gom:220
+	tmp199 := tmp198(tmp197)
+//line stdlib/cmp/cmp.gom:220
+	rt.Assert(t, tmp199)
+//line stdlib/cmp/cmp.gom:221
+	tmp200 := option.Option[int64](option.Option_Some[int64]{V0: 0})
+//line stdlib/cmp/cmp.gom:221
+	tmp201 := option.Option[int64](option.Option_None[int64]{})
+//line stdlib/cmp/cmp.gom:221
+	tmp202 := oo.Lt(tmp200)
+//line stdlib/cmp/cmp.gom:221
+	tmp203 := tmp202(tmp201)
+//line stdlib/cmp/cmp.gom:221
+	tmp204 := !tmp203
+//line stdlib/cmp/cmp.gom:221
+	rt.Assert(t, tmp204)
+//line stdlib/cmp/cmp.gom:222
+	tmp205 := option.Option[int64](option.Option_None[int64]{})
+//line stdlib/cmp/cmp.gom:222
+	tmp206 := option.Option[int64](option.Option_None[int64]{})
+//line stdlib/cmp/cmp.gom:222
+	tmp207 := oo.Lt(tmp205)
+//line stdlib/cmp/cmp.gom:222
+	tmp208 := tmp207(tmp206)
+//line stdlib/cmp/cmp.gom:222
+	tmp209 := !tmp208
+//line stdlib/cmp/cmp.gom:222
+	rt.Assert(t, tmp209)
+//line stdlib/cmp/cmp.gom:223
+	tmp210 := option.Option[int64](option.Option_Some[int64]{V0: 1})
+//line stdlib/cmp/cmp.gom:223
+	tmp211 := option.Option[int64](option.Option_Some[int64]{V0: 2})
+//line stdlib/cmp/cmp.gom:223
+	tmp212 := oo.Lt(tmp210)
+//line stdlib/cmp/cmp.gom:223
+	tmp213 := tmp212(tmp211)
+//line stdlib/cmp/cmp.gom:223
+	rt.Assert(t, tmp213)
+//line stdlib/cmp/cmp.gom:224
+	tmp214 := option.Option[int64](option.Option_Some[int64]{V0: 2})
+//line stdlib/cmp/cmp.gom:224
+	tmp215 := option.Option[int64](option.Option_Some[int64]{V0: 1})
+//line stdlib/cmp/cmp.gom:224
+	tmp216 := oo.Lt(tmp214)
+//line stdlib/cmp/cmp.gom:224
+	tmp217 := tmp216(tmp215)
+//line stdlib/cmp/cmp.gom:224
+	tmp218 := !tmp217
+//line stdlib/cmp/cmp.gom:224
+	rt.Assert(t, tmp218)
+//line stdlib/cmp/cmp.gom:225
+	tmp219 := option.Option[int64](option.Option_Some[int64]{V0: 2})
+//line stdlib/cmp/cmp.gom:225
+	tmp220 := option.Option[int64](option.Option_None[int64]{})
+//line stdlib/cmp/cmp.gom:225
+	tmp221 := option.Option[int64](option.Option_Some[int64]{V0: 1})
+//line stdlib/cmp/cmp.gom:225
+	tmp222 := list.List[option.Option[int64]]{tmp219, tmp220, tmp221}
+//line stdlib/cmp/cmp.gom:225
+	tmp223 := Sort[option.Option[int64]](oo, tmp222)
+//line stdlib/cmp/cmp.gom:225
+	tmp224 := option.Option[int64](option.Option_None[int64]{})
+//line stdlib/cmp/cmp.gom:225
+	tmp225 := option.Option[int64](option.Option_Some[int64]{V0: 1})
+//line stdlib/cmp/cmp.gom:225
+	tmp226 := option.Option[int64](option.Option_Some[int64]{V0: 2})
+//line stdlib/cmp/cmp.gom:225
+	tmp227 := list.List[option.Option[int64]]{tmp224, tmp225, tmp226}
+//line stdlib/cmp/cmp.gom:225
+	rt.AssertEq(t, gomEq10943da16(tmp223, tmp227), gomShow10943da16(tmp223), gomShow10943da16(tmp227))
+//line stdlib/cmp/cmp.gom:213
+}
+
+//line stdlib/cmp/cmp.gom:228
+func TestListEqListOrd(t *testing.T) {
+//line stdlib/cmp/cmp.gom:229
+	le := ListEq[int64](IntEq)
+//line stdlib/cmp/cmp.gom:230
+	tmp228 := list.List[int64]{}
+//line stdlib/cmp/cmp.gom:230
+	tmp229 := list.List[int64]{}
+//line stdlib/cmp/cmp.gom:230
+	tmp230 := le.Eq(tmp228)
+//line stdlib/cmp/cmp.gom:230
+	tmp231 := tmp230(tmp229)
+//line stdlib/cmp/cmp.gom:230
+	rt.Assert(t, tmp231)
+//line stdlib/cmp/cmp.gom:231
+	tmp232 := list.List[int64]{1, 2}
+//line stdlib/cmp/cmp.gom:231
+	tmp233 := list.List[int64]{1, 2}
+//line stdlib/cmp/cmp.gom:231
+	tmp234 := le.Eq(tmp232)
+//line stdlib/cmp/cmp.gom:231
+	tmp235 := tmp234(tmp233)
+//line stdlib/cmp/cmp.gom:231
+	rt.Assert(t, tmp235)
+//line stdlib/cmp/cmp.gom:232
+	tmp236 := list.List[int64]{1, 2}
+//line stdlib/cmp/cmp.gom:232
+	tmp237 := list.List[int64]{1}
+//line stdlib/cmp/cmp.gom:232
+	tmp238 := le.Eq(tmp236)
+//line stdlib/cmp/cmp.gom:232
+	tmp239 := tmp238(tmp237)
+//line stdlib/cmp/cmp.gom:232
+	tmp240 := !tmp239
+//line stdlib/cmp/cmp.gom:232
+	rt.Assert(t, tmp240)
+//line stdlib/cmp/cmp.gom:233
+	tmp241 := list.List[int64]{1, 2}
+//line stdlib/cmp/cmp.gom:233
+	tmp242 := list.List[int64]{1, 3}
+//line stdlib/cmp/cmp.gom:233
+	tmp243 := le.Eq(tmp241)
+//line stdlib/cmp/cmp.gom:233
+	tmp244 := tmp243(tmp242)
+//line stdlib/cmp/cmp.gom:233
+	tmp245 := !tmp244
+//line stdlib/cmp/cmp.gom:233
+	rt.Assert(t, tmp245)
+//line stdlib/cmp/cmp.gom:234
+	lo := ListOrd[int64](IntOrd)
+//line stdlib/cmp/cmp.gom:235
+	tmp246 := list.List[int64]{}
+//line stdlib/cmp/cmp.gom:235
+	tmp247 := list.List[int64]{1}
+//line stdlib/cmp/cmp.gom:235
+	tmp248 := lo.Lt(tmp246)
+//line stdlib/cmp/cmp.gom:235
+	tmp249 := tmp248(tmp247)
+//line stdlib/cmp/cmp.gom:235
+	rt.Assert(t, tmp249)
+//line stdlib/cmp/cmp.gom:236
+	tmp250 := list.List[int64]{1}
+//line stdlib/cmp/cmp.gom:236
+	tmp251 := list.List[int64]{}
+//line stdlib/cmp/cmp.gom:236
+	tmp252 := lo.Lt(tmp250)
+//line stdlib/cmp/cmp.gom:236
+	tmp253 := tmp252(tmp251)
+//line stdlib/cmp/cmp.gom:236
+	tmp254 := !tmp253
+//line stdlib/cmp/cmp.gom:236
+	rt.Assert(t, tmp254)
+//line stdlib/cmp/cmp.gom:237
+	tmp255 := list.List[int64]{}
+//line stdlib/cmp/cmp.gom:237
+	tmp256 := list.List[int64]{}
+//line stdlib/cmp/cmp.gom:237
+	tmp257 := lo.Lt(tmp255)
+//line stdlib/cmp/cmp.gom:237
+	tmp258 := tmp257(tmp256)
+//line stdlib/cmp/cmp.gom:237
+	tmp259 := !tmp258
+//line stdlib/cmp/cmp.gom:237
+	rt.Assert(t, tmp259)
+//line stdlib/cmp/cmp.gom:238
+	tmp260 := list.List[int64]{1, 2}
+//line stdlib/cmp/cmp.gom:238
+	tmp261 := list.List[int64]{1, 3}
+//line stdlib/cmp/cmp.gom:238
+	tmp262 := lo.Lt(tmp260)
+//line stdlib/cmp/cmp.gom:238
+	tmp263 := tmp262(tmp261)
+//line stdlib/cmp/cmp.gom:238
+	rt.Assert(t, tmp263)
+//line stdlib/cmp/cmp.gom:239
+	tmp264 := list.List[int64]{1}
+//line stdlib/cmp/cmp.gom:239
+	tmp265 := list.List[int64]{1, 0}
+//line stdlib/cmp/cmp.gom:239
+	tmp266 := lo.Lt(tmp264)
+//line stdlib/cmp/cmp.gom:239
+	tmp267 := tmp266(tmp265)
+//line stdlib/cmp/cmp.gom:239
+	rt.Assert(t, tmp267)
+//line stdlib/cmp/cmp.gom:240
+	tmp268 := list.List[int64]{1, 3}
+//line stdlib/cmp/cmp.gom:240
+	tmp269 := list.List[int64]{1, 2}
+//line stdlib/cmp/cmp.gom:240
+	tmp270 := lo.Lt(tmp268)
+//line stdlib/cmp/cmp.gom:240
+	tmp271 := tmp270(tmp269)
+//line stdlib/cmp/cmp.gom:240
+	tmp272 := !tmp271
+//line stdlib/cmp/cmp.gom:240
+	rt.Assert(t, tmp272)
+//line stdlib/cmp/cmp.gom:241
+	tmp273 := list.List[int64]{1, 2}
+//line stdlib/cmp/cmp.gom:241
+	tmp274 := list.List[int64]{}
+//line stdlib/cmp/cmp.gom:241
+	tmp275 := list.List[int64]{1, 1}
+//line stdlib/cmp/cmp.gom:241
+	tmp276 := list.List[list.List[int64]]{tmp273, tmp274, tmp275}
+//line stdlib/cmp/cmp.gom:241
+	tmp277 := Sort[list.List[int64]](lo, tmp276)
+//line stdlib/cmp/cmp.gom:241
+	tmp278 := list.List[int64]{}
+//line stdlib/cmp/cmp.gom:241
+	tmp279 := list.List[int64]{1, 1}
+//line stdlib/cmp/cmp.gom:241
+	tmp280 := list.List[int64]{1, 2}
+//line stdlib/cmp/cmp.gom:241
+	tmp281 := list.List[list.List[int64]]{tmp278, tmp279, tmp280}
+//line stdlib/cmp/cmp.gom:241
+	rt.AssertEq(t, gomEq20943da16(tmp277, tmp281), gomShow30943da16(tmp277), gomShow30943da16(tmp281))
+//line stdlib/cmp/cmp.gom:228
+}
+
+//line stdlib/cmp/cmp.gom:244
+func TestPairEqPairOrd(t *testing.T) {
+//line stdlib/cmp/cmp.gom:245
+	pe := PairEq[int64, string](IntEq, StringEq)
+//line stdlib/cmp/cmp.gom:246
+	tmp282 := rt.Tuple2[int64, string]{V0: 1, V1: "a"}
+//line stdlib/cmp/cmp.gom:246
+	tmp283 := rt.Tuple2[int64, string]{V0: 1, V1: "a"}
+//line stdlib/cmp/cmp.gom:246
+	tmp284 := pe.Eq(tmp282)
+//line stdlib/cmp/cmp.gom:246
+	tmp285 := tmp284(tmp283)
+//line stdlib/cmp/cmp.gom:246
+	rt.Assert(t, tmp285)
+//line stdlib/cmp/cmp.gom:247
+	tmp286 := rt.Tuple2[int64, string]{V0: 1, V1: "a"}
+//line stdlib/cmp/cmp.gom:247
+	tmp287 := rt.Tuple2[int64, string]{V0: 2, V1: "a"}
+//line stdlib/cmp/cmp.gom:247
+	tmp288 := pe.Eq(tmp286)
+//line stdlib/cmp/cmp.gom:247
+	tmp289 := tmp288(tmp287)
+//line stdlib/cmp/cmp.gom:247
+	tmp290 := !tmp289
+//line stdlib/cmp/cmp.gom:247
+	rt.Assert(t, tmp290)
+//line stdlib/cmp/cmp.gom:248
+	tmp291 := rt.Tuple2[int64, string]{V0: 1, V1: "a"}
+//line stdlib/cmp/cmp.gom:248
+	tmp292 := rt.Tuple2[int64, string]{V0: 1, V1: "b"}
+//line stdlib/cmp/cmp.gom:248
+	tmp293 := pe.Eq(tmp291)
+//line stdlib/cmp/cmp.gom:248
+	tmp294 := tmp293(tmp292)
+//line stdlib/cmp/cmp.gom:248
+	tmp295 := !tmp294
+//line stdlib/cmp/cmp.gom:248
+	rt.Assert(t, tmp295)
+//line stdlib/cmp/cmp.gom:249
+	po := PairOrd[int64, string](IntOrd, StringOrd)
+//line stdlib/cmp/cmp.gom:250
+	tmp296 := rt.Tuple2[int64, string]{V0: 1, V1: "z"}
+//line stdlib/cmp/cmp.gom:250
+	tmp297 := rt.Tuple2[int64, string]{V0: 2, V1: "a"}
+//line stdlib/cmp/cmp.gom:250
+	tmp298 := po.Lt(tmp296)
+//line stdlib/cmp/cmp.gom:250
+	tmp299 := tmp298(tmp297)
+//line stdlib/cmp/cmp.gom:250
+	rt.Assert(t, tmp299)
+//line stdlib/cmp/cmp.gom:251
+	tmp300 := rt.Tuple2[int64, string]{V0: 1, V1: "a"}
+//line stdlib/cmp/cmp.gom:251
+	tmp301 := rt.Tuple2[int64, string]{V0: 1, V1: "b"}
+//line stdlib/cmp/cmp.gom:251
+	tmp302 := po.Lt(tmp300)
+//line stdlib/cmp/cmp.gom:251
+	tmp303 := tmp302(tmp301)
+//line stdlib/cmp/cmp.gom:251
+	rt.Assert(t, tmp303)
+//line stdlib/cmp/cmp.gom:252
+	tmp304 := rt.Tuple2[int64, string]{V0: 2, V1: "a"}
+//line stdlib/cmp/cmp.gom:252
+	tmp305 := rt.Tuple2[int64, string]{V0: 1, V1: "z"}
+//line stdlib/cmp/cmp.gom:252
+	tmp306 := po.Lt(tmp304)
+//line stdlib/cmp/cmp.gom:252
+	tmp307 := tmp306(tmp305)
+//line stdlib/cmp/cmp.gom:252
+	tmp308 := !tmp307
+//line stdlib/cmp/cmp.gom:252
+	rt.Assert(t, tmp308)
+//line stdlib/cmp/cmp.gom:253
+	tmp309 := rt.Tuple2[int64, string]{V0: 1, V1: "a"}
+//line stdlib/cmp/cmp.gom:253
+	tmp310 := rt.Tuple2[int64, string]{V0: 1, V1: "a"}
+//line stdlib/cmp/cmp.gom:253
+	tmp311 := po.Lt(tmp309)
+//line stdlib/cmp/cmp.gom:253
+	tmp312 := tmp311(tmp310)
+//line stdlib/cmp/cmp.gom:253
+	tmp313 := !tmp312
+//line stdlib/cmp/cmp.gom:253
+	rt.Assert(t, tmp313)
+//line stdlib/cmp/cmp.gom:254
+	tmp314 := rt.Tuple2[int64, string]{V0: 2, V1: "a"}
+//line stdlib/cmp/cmp.gom:254
+	tmp315 := rt.Tuple2[int64, string]{V0: 1, V1: "b"}
+//line stdlib/cmp/cmp.gom:254
+	tmp316 := rt.Tuple2[int64, string]{V0: 1, V1: "a"}
+//line stdlib/cmp/cmp.gom:254
+	tmp317 := list.List[rt.Tuple2[int64, string]]{tmp314, tmp315, tmp316}
+//line stdlib/cmp/cmp.gom:254
+	tmp318 := Sort[rt.Tuple2[int64, string]](po, tmp317)
+//line stdlib/cmp/cmp.gom:254
+	tmp319 := rt.Tuple2[int64, string]{V0: 1, V1: "a"}
+//line stdlib/cmp/cmp.gom:254
+	tmp320 := rt.Tuple2[int64, string]{V0: 1, V1: "b"}
+//line stdlib/cmp/cmp.gom:254
+	tmp321 := rt.Tuple2[int64, string]{V0: 2, V1: "a"}
+//line stdlib/cmp/cmp.gom:254
+	tmp322 := list.List[rt.Tuple2[int64, string]]{tmp319, tmp320, tmp321}
+//line stdlib/cmp/cmp.gom:254
+	rt.AssertEq(t, gomEq40943da16(tmp318, tmp322), gomShow50943da16(tmp318), gomShow50943da16(tmp322))
+//line stdlib/cmp/cmp.gom:244
+}
+
+//line stdlib/cmp/cmp.gom:257
+func TestResultEqResultOrd(t *testing.T) {
+//line stdlib/cmp/cmp.gom:258
+	re := ResultEq[int64, string](IntEq, StringEq)
+//line stdlib/cmp/cmp.gom:259
+	tmp323 := result.Ok[int64, string](1)
+//line stdlib/cmp/cmp.gom:259
+	tmp324 := result.Ok[int64, string](1)
+//line stdlib/cmp/cmp.gom:259
+	tmp325 := re.Eq(tmp323)
+//line stdlib/cmp/cmp.gom:259
+	tmp326 := tmp325(tmp324)
+//line stdlib/cmp/cmp.gom:259
+	rt.Assert(t, tmp326)
+//line stdlib/cmp/cmp.gom:260
+	tmp327 := result.Err[int64, string]("e")
+//line stdlib/cmp/cmp.gom:260
+	tmp328 := result.Err[int64, string]("e")
+//line stdlib/cmp/cmp.gom:260
+	tmp329 := re.Eq(tmp327)
+//line stdlib/cmp/cmp.gom:260
+	tmp330 := tmp329(tmp328)
+//line stdlib/cmp/cmp.gom:260
+	rt.Assert(t, tmp330)
+//line stdlib/cmp/cmp.gom:261
+	tmp331 := result.Ok[int64, string](1)
+//line stdlib/cmp/cmp.gom:261
+	tmp332 := result.Err[int64, string]("e")
+//line stdlib/cmp/cmp.gom:261
+	tmp333 := re.Eq(tmp331)
+//line stdlib/cmp/cmp.gom:261
+	tmp334 := tmp333(tmp332)
+//line stdlib/cmp/cmp.gom:261
+	tmp335 := !tmp334
+//line stdlib/cmp/cmp.gom:261
+	rt.Assert(t, tmp335)
+//line stdlib/cmp/cmp.gom:262
+	tmp336 := result.Ok[int64, string](1)
+//line stdlib/cmp/cmp.gom:262
+	tmp337 := result.Ok[int64, string](2)
+//line stdlib/cmp/cmp.gom:262
+	tmp338 := re.Eq(tmp336)
+//line stdlib/cmp/cmp.gom:262
+	tmp339 := tmp338(tmp337)
+//line stdlib/cmp/cmp.gom:262
+	tmp340 := !tmp339
+//line stdlib/cmp/cmp.gom:262
+	rt.Assert(t, tmp340)
+//line stdlib/cmp/cmp.gom:263
+	ro := ResultOrd[int64, string](IntOrd, StringOrd)
+//line stdlib/cmp/cmp.gom:264
+	tmp341 := result.Ok[int64, string](9)
+//line stdlib/cmp/cmp.gom:264
+	tmp342 := result.Err[int64, string]("a")
+//line stdlib/cmp/cmp.gom:264
+	tmp343 := ro.Lt(tmp341)
+//line stdlib/cmp/cmp.gom:264
+	tmp344 := tmp343(tmp342)
+//line stdlib/cmp/cmp.gom:264
+	rt.Assert(t, tmp344)
+//line stdlib/cmp/cmp.gom:265
+	tmp345 := result.Err[int64, string]("a")
+//line stdlib/cmp/cmp.gom:265
+	tmp346 := result.Ok[int64, string](0)
+//line stdlib/cmp/cmp.gom:265
+	tmp347 := ro.Lt(tmp345)
+//line stdlib/cmp/cmp.gom:265
+	tmp348 := tmp347(tmp346)
+//line stdlib/cmp/cmp.gom:265
+	tmp349 := !tmp348
+//line stdlib/cmp/cmp.gom:265
+	rt.Assert(t, tmp349)
+//line stdlib/cmp/cmp.gom:266
+	tmp350 := result.Ok[int64, string](1)
+//line stdlib/cmp/cmp.gom:266
+	tmp351 := result.Ok[int64, string](2)
+//line stdlib/cmp/cmp.gom:266
+	tmp352 := ro.Lt(tmp350)
+//line stdlib/cmp/cmp.gom:266
+	tmp353 := tmp352(tmp351)
+//line stdlib/cmp/cmp.gom:266
+	rt.Assert(t, tmp353)
+//line stdlib/cmp/cmp.gom:267
+	tmp354 := result.Err[int64, string]("a")
+//line stdlib/cmp/cmp.gom:267
+	tmp355 := result.Err[int64, string]("b")
+//line stdlib/cmp/cmp.gom:267
+	tmp356 := ro.Lt(tmp354)
+//line stdlib/cmp/cmp.gom:267
+	tmp357 := tmp356(tmp355)
+//line stdlib/cmp/cmp.gom:267
+	rt.Assert(t, tmp357)
+//line stdlib/cmp/cmp.gom:268
+	tmp358 := result.Err[int64, string]("a")
+//line stdlib/cmp/cmp.gom:268
+	tmp359 := result.Ok[int64, string](2)
+//line stdlib/cmp/cmp.gom:268
+	tmp360 := result.Ok[int64, string](1)
+//line stdlib/cmp/cmp.gom:268
+	tmp361 := list.List[result.Result[int64, string]]{tmp358, tmp359, tmp360}
+//line stdlib/cmp/cmp.gom:268
+	tmp362 := Sort[result.Result[int64, string]](ro, tmp361)
+//line stdlib/cmp/cmp.gom:268
+	tmp363 := result.Ok[int64, string](1)
+//line stdlib/cmp/cmp.gom:268
+	tmp364 := result.Ok[int64, string](2)
+//line stdlib/cmp/cmp.gom:268
+	tmp365 := result.Err[int64, string]("a")
+//line stdlib/cmp/cmp.gom:268
+	tmp366 := list.List[result.Result[int64, string]]{tmp363, tmp364, tmp365}
+//line stdlib/cmp/cmp.gom:268
+	rt.AssertEq(t, gomEq50943da16(tmp362, tmp366), gomShow70943da16(tmp362), gomShow70943da16(tmp366))
+//line stdlib/cmp/cmp.gom:257
+}
+
+//line stdlib/cmp/cmp.gom:271
 func TestMinMaxSort(t *testing.T) {
-//line stdlib/cmp/cmp.gom:108
-	tmp89 := list.List[int64]{3, 1, 2}
-//line stdlib/cmp/cmp.gom:108
-	tmp90 := Min[int64](IntOrd, tmp89)
-//line stdlib/cmp/cmp.gom:108
-	tmp91 := option.Option[int64](option.Option_Some[int64]{V0: 1})
-//line stdlib/cmp/cmp.gom:108
-	rt.AssertEq(t, tmp90 == tmp91, gomShow10943da16(tmp90), gomShow10943da16(tmp91))
-//line stdlib/cmp/cmp.gom:109
-	tmp92 := list.List[int64]{3, 1, 2}
-//line stdlib/cmp/cmp.gom:109
-	tmp93 := Max[int64](IntOrd, tmp92)
-//line stdlib/cmp/cmp.gom:109
-	tmp94 := option.Option[int64](option.Option_Some[int64]{V0: 3})
-//line stdlib/cmp/cmp.gom:109
-	rt.AssertEq(t, tmp93 == tmp94, gomShow10943da16(tmp93), gomShow10943da16(tmp94))
-//line stdlib/cmp/cmp.gom:110
-	tmp95 := list.List[int64]{}
-//line stdlib/cmp/cmp.gom:110
-	tmp96 := Min[int64](IntOrd, tmp95)
-//line stdlib/cmp/cmp.gom:110
-	tmp97 := option.Option[int64](option.Option_None[int64]{})
-//line stdlib/cmp/cmp.gom:110
-	rt.AssertEq(t, tmp96 == tmp97, gomShow10943da16(tmp96), gomShow10943da16(tmp97))
-//line stdlib/cmp/cmp.gom:111
-	tmp98 := Desc[int64](IntOrd)
-//line stdlib/cmp/cmp.gom:111
-	tmp99 := list.List[int64]{3, 1, 2}
-//line stdlib/cmp/cmp.gom:111
-	tmp100 := Max[int64](tmp98, tmp99)
-//line stdlib/cmp/cmp.gom:111
-	tmp101 := option.Option[int64](option.Option_Some[int64]{V0: 1})
-//line stdlib/cmp/cmp.gom:111
-	rt.AssertEq(t, tmp100 == tmp101, gomShow10943da16(tmp100), gomShow10943da16(tmp101))
-//line stdlib/cmp/cmp.gom:112
-	tmp102 := list.List[int64]{3, 1, 2}
-//line stdlib/cmp/cmp.gom:112
-	tmp103 := Sort[int64](IntOrd, tmp102)
-//line stdlib/cmp/cmp.gom:112
-	tmp104 := list.List[int64]{1, 2, 3}
-//line stdlib/cmp/cmp.gom:112
-	rt.AssertEq(t, gomEq10943da16(tmp103, tmp104), gomShow20943da16(tmp103), gomShow20943da16(tmp104))
-//line stdlib/cmp/cmp.gom:113
-	tmp105 := Desc[int64](IntOrd)
-//line stdlib/cmp/cmp.gom:113
-	tmp106 := list.List[int64]{3, 1, 2}
-//line stdlib/cmp/cmp.gom:113
-	tmp107 := Sort[int64](tmp105, tmp106)
-//line stdlib/cmp/cmp.gom:113
-	tmp108 := list.List[int64]{3, 2, 1}
-//line stdlib/cmp/cmp.gom:113
-	rt.AssertEq(t, gomEq10943da16(tmp107, tmp108), gomShow20943da16(tmp107), gomShow20943da16(tmp108))
-//line stdlib/cmp/cmp.gom:114
-	tmp109 := list.List[string]{"b", "a"}
-//line stdlib/cmp/cmp.gom:114
-	tmp110 := Sort[string](StringOrd, tmp109)
-//line stdlib/cmp/cmp.gom:114
-	tmp111 := list.List[string]{"a", "b"}
-//line stdlib/cmp/cmp.gom:114
-	rt.AssertEq(t, gomEq20943da16(tmp110, tmp111), gomShow30943da16(tmp110), gomShow30943da16(tmp111))
-//line stdlib/cmp/cmp.gom:107
+//line stdlib/cmp/cmp.gom:272
+	tmp367 := list.List[int64]{3, 1, 2}
+//line stdlib/cmp/cmp.gom:272
+	tmp368 := Min[int64](IntOrd, tmp367)
+//line stdlib/cmp/cmp.gom:272
+	tmp369 := option.Option[int64](option.Option_Some[int64]{V0: 1})
+//line stdlib/cmp/cmp.gom:272
+	rt.AssertEq(t, tmp368 == tmp369, gomShow20943da16(tmp368), gomShow20943da16(tmp369))
+//line stdlib/cmp/cmp.gom:273
+	tmp370 := list.List[int64]{3, 1, 2}
+//line stdlib/cmp/cmp.gom:273
+	tmp371 := Max[int64](IntOrd, tmp370)
+//line stdlib/cmp/cmp.gom:273
+	tmp372 := option.Option[int64](option.Option_Some[int64]{V0: 3})
+//line stdlib/cmp/cmp.gom:273
+	rt.AssertEq(t, tmp371 == tmp372, gomShow20943da16(tmp371), gomShow20943da16(tmp372))
+//line stdlib/cmp/cmp.gom:274
+	tmp373 := list.List[int64]{}
+//line stdlib/cmp/cmp.gom:274
+	tmp374 := Min[int64](IntOrd, tmp373)
+//line stdlib/cmp/cmp.gom:274
+	tmp375 := option.Option[int64](option.Option_None[int64]{})
+//line stdlib/cmp/cmp.gom:274
+	rt.AssertEq(t, tmp374 == tmp375, gomShow20943da16(tmp374), gomShow20943da16(tmp375))
+//line stdlib/cmp/cmp.gom:275
+	tmp376 := Desc[int64](IntOrd)
+//line stdlib/cmp/cmp.gom:275
+	tmp377 := list.List[int64]{3, 1, 2}
+//line stdlib/cmp/cmp.gom:275
+	tmp378 := Max[int64](tmp376, tmp377)
+//line stdlib/cmp/cmp.gom:275
+	tmp379 := option.Option[int64](option.Option_Some[int64]{V0: 1})
+//line stdlib/cmp/cmp.gom:275
+	rt.AssertEq(t, tmp378 == tmp379, gomShow20943da16(tmp378), gomShow20943da16(tmp379))
+//line stdlib/cmp/cmp.gom:276
+	tmp380 := list.List[int64]{3, 1, 2}
+//line stdlib/cmp/cmp.gom:276
+	tmp381 := Sort[int64](IntOrd, tmp380)
+//line stdlib/cmp/cmp.gom:276
+	tmp382 := list.List[int64]{1, 2, 3}
+//line stdlib/cmp/cmp.gom:276
+	rt.AssertEq(t, gomEq30943da16(tmp381, tmp382), gomShow40943da16(tmp381), gomShow40943da16(tmp382))
+//line stdlib/cmp/cmp.gom:277
+	tmp383 := Desc[int64](IntOrd)
+//line stdlib/cmp/cmp.gom:277
+	tmp384 := list.List[int64]{3, 1, 2}
+//line stdlib/cmp/cmp.gom:277
+	tmp385 := Sort[int64](tmp383, tmp384)
+//line stdlib/cmp/cmp.gom:277
+	tmp386 := list.List[int64]{3, 2, 1}
+//line stdlib/cmp/cmp.gom:277
+	rt.AssertEq(t, gomEq30943da16(tmp385, tmp386), gomShow40943da16(tmp385), gomShow40943da16(tmp386))
+//line stdlib/cmp/cmp.gom:278
+	tmp387 := list.List[string]{"b", "a"}
+//line stdlib/cmp/cmp.gom:278
+	tmp388 := Sort[string](StringOrd, tmp387)
+//line stdlib/cmp/cmp.gom:278
+	tmp389 := list.List[string]{"a", "b"}
+//line stdlib/cmp/cmp.gom:278
+	rt.AssertEq(t, gomEq60943da16(tmp388, tmp389), gomShow90943da16(tmp388), gomShow90943da16(tmp389))
+//line stdlib/cmp/cmp.gom:271
 }
 
-//line stdlib/cmp/cmp.gom:108
-func gomShow10943da16(v option.Option[int64]) string {
-//line stdlib/cmp/cmp.gom:108
+//line stdlib/cmp/cmp.gom:225
+func gomShow10943da16(v list.List[option.Option[int64]]) string {
+//line stdlib/cmp/cmp.gom:225
+	var sb strings.Builder
+//line stdlib/cmp/cmp.gom:225
+	sb.WriteByte('[')
+//line stdlib/cmp/cmp.gom:225
+	for i, e := range v {
+//line stdlib/cmp/cmp.gom:225
+		if i > 0 {
+//line stdlib/cmp/cmp.gom:225
+			sb.WriteString(", ")
+//line stdlib/cmp/cmp.gom:225
+		}
+//line stdlib/cmp/cmp.gom:225
+		sb.WriteString(gomShow20943da16(e))
+//line stdlib/cmp/cmp.gom:225
+	}
+//line stdlib/cmp/cmp.gom:225
+	sb.WriteByte(']')
+//line stdlib/cmp/cmp.gom:225
+	return sb.String()
+//line stdlib/cmp/cmp.gom:225
+}
+
+//line stdlib/cmp/cmp.gom:225
+func gomShow20943da16(v option.Option[int64]) string {
+//line stdlib/cmp/cmp.gom:225
 	if v == nil {
-//line stdlib/cmp/cmp.gom:108
+//line stdlib/cmp/cmp.gom:225
 		return "nil"
-//line stdlib/cmp/cmp.gom:108
+//line stdlib/cmp/cmp.gom:225
 	}
-//line stdlib/cmp/cmp.gom:108
+//line stdlib/cmp/cmp.gom:225
 	switch x := v.(type) {
-//line stdlib/cmp/cmp.gom:108
+//line stdlib/cmp/cmp.gom:225
 	case option.Option_Some[int64]:
-//line stdlib/cmp/cmp.gom:108
+//line stdlib/cmp/cmp.gom:225
 		return "" + "Some" + " " + strconv.FormatInt(x.V0, 10)
-//line stdlib/cmp/cmp.gom:108
+//line stdlib/cmp/cmp.gom:225
 	case option.Option_None[int64]:
-//line stdlib/cmp/cmp.gom:108
+//line stdlib/cmp/cmp.gom:225
 		return "" + "None"
-//line stdlib/cmp/cmp.gom:108
+//line stdlib/cmp/cmp.gom:225
 	default:
-//line stdlib/cmp/cmp.gom:108
+//line stdlib/cmp/cmp.gom:225
 		panic(rt.InvalidVariant("Option Int", v))
-//line stdlib/cmp/cmp.gom:108
+//line stdlib/cmp/cmp.gom:225
 	}
-//line stdlib/cmp/cmp.gom:108
+//line stdlib/cmp/cmp.gom:225
 }
 
-//line stdlib/cmp/cmp.gom:112
-func gomShow20943da16(v list.List[int64]) string {
-//line stdlib/cmp/cmp.gom:112
+//line stdlib/cmp/cmp.gom:241
+func gomShow30943da16(v list.List[list.List[int64]]) string {
+//line stdlib/cmp/cmp.gom:241
 	var sb strings.Builder
-//line stdlib/cmp/cmp.gom:112
+//line stdlib/cmp/cmp.gom:241
 	sb.WriteByte('[')
-//line stdlib/cmp/cmp.gom:112
+//line stdlib/cmp/cmp.gom:241
 	for i, e := range v {
-//line stdlib/cmp/cmp.gom:112
+//line stdlib/cmp/cmp.gom:241
 		if i > 0 {
-//line stdlib/cmp/cmp.gom:112
+//line stdlib/cmp/cmp.gom:241
 			sb.WriteString(", ")
-//line stdlib/cmp/cmp.gom:112
+//line stdlib/cmp/cmp.gom:241
 		}
-//line stdlib/cmp/cmp.gom:112
+//line stdlib/cmp/cmp.gom:241
+		sb.WriteString(gomShow40943da16(e))
+//line stdlib/cmp/cmp.gom:241
+	}
+//line stdlib/cmp/cmp.gom:241
+	sb.WriteByte(']')
+//line stdlib/cmp/cmp.gom:241
+	return sb.String()
+//line stdlib/cmp/cmp.gom:241
+}
+
+//line stdlib/cmp/cmp.gom:241
+func gomShow40943da16(v list.List[int64]) string {
+//line stdlib/cmp/cmp.gom:241
+	var sb strings.Builder
+//line stdlib/cmp/cmp.gom:241
+	sb.WriteByte('[')
+//line stdlib/cmp/cmp.gom:241
+	for i, e := range v {
+//line stdlib/cmp/cmp.gom:241
+		if i > 0 {
+//line stdlib/cmp/cmp.gom:241
+			sb.WriteString(", ")
+//line stdlib/cmp/cmp.gom:241
+		}
+//line stdlib/cmp/cmp.gom:241
 		sb.WriteString(strconv.FormatInt(e, 10))
-//line stdlib/cmp/cmp.gom:112
+//line stdlib/cmp/cmp.gom:241
 	}
-//line stdlib/cmp/cmp.gom:112
+//line stdlib/cmp/cmp.gom:241
 	sb.WriteByte(']')
-//line stdlib/cmp/cmp.gom:112
+//line stdlib/cmp/cmp.gom:241
 	return sb.String()
-//line stdlib/cmp/cmp.gom:112
+//line stdlib/cmp/cmp.gom:241
 }
 
-//line stdlib/cmp/cmp.gom:114
-func gomShow30943da16(v list.List[string]) string {
-//line stdlib/cmp/cmp.gom:114
+//line stdlib/cmp/cmp.gom:254
+func gomShow50943da16(v list.List[rt.Tuple2[int64, string]]) string {
+//line stdlib/cmp/cmp.gom:254
 	var sb strings.Builder
-//line stdlib/cmp/cmp.gom:114
+//line stdlib/cmp/cmp.gom:254
 	sb.WriteByte('[')
-//line stdlib/cmp/cmp.gom:114
+//line stdlib/cmp/cmp.gom:254
 	for i, e := range v {
-//line stdlib/cmp/cmp.gom:114
+//line stdlib/cmp/cmp.gom:254
 		if i > 0 {
-//line stdlib/cmp/cmp.gom:114
+//line stdlib/cmp/cmp.gom:254
 			sb.WriteString(", ")
-//line stdlib/cmp/cmp.gom:114
+//line stdlib/cmp/cmp.gom:254
 		}
-//line stdlib/cmp/cmp.gom:114
-		sb.WriteString(strconv.Quote(e))
-//line stdlib/cmp/cmp.gom:114
+//line stdlib/cmp/cmp.gom:254
+		sb.WriteString(gomShow60943da16(e))
+//line stdlib/cmp/cmp.gom:254
 	}
-//line stdlib/cmp/cmp.gom:114
+//line stdlib/cmp/cmp.gom:254
 	sb.WriteByte(']')
-//line stdlib/cmp/cmp.gom:114
+//line stdlib/cmp/cmp.gom:254
 	return sb.String()
-//line stdlib/cmp/cmp.gom:114
+//line stdlib/cmp/cmp.gom:254
+}
+
+//line stdlib/cmp/cmp.gom:254
+func gomShow60943da16(v rt.Tuple2[int64, string]) string {
+//line stdlib/cmp/cmp.gom:254
+	return "" + "(" + strconv.FormatInt(v.V0, 10) + ", " + strconv.Quote(v.V1) + ")"
+//line stdlib/cmp/cmp.gom:254
+}
+
+//line stdlib/cmp/cmp.gom:268
+func gomShow70943da16(v list.List[result.Result[int64, string]]) string {
+//line stdlib/cmp/cmp.gom:268
+	var sb strings.Builder
+//line stdlib/cmp/cmp.gom:268
+	sb.WriteByte('[')
+//line stdlib/cmp/cmp.gom:268
+	for i, e := range v {
+//line stdlib/cmp/cmp.gom:268
+		if i > 0 {
+//line stdlib/cmp/cmp.gom:268
+			sb.WriteString(", ")
+//line stdlib/cmp/cmp.gom:268
+		}
+//line stdlib/cmp/cmp.gom:268
+		sb.WriteString(gomShow80943da16(e))
+//line stdlib/cmp/cmp.gom:268
+	}
+//line stdlib/cmp/cmp.gom:268
+	sb.WriteByte(']')
+//line stdlib/cmp/cmp.gom:268
+	return sb.String()
+//line stdlib/cmp/cmp.gom:268
+}
+
+//line stdlib/cmp/cmp.gom:268
+func gomShow80943da16(v result.Result[int64, string]) string {
+//line stdlib/cmp/cmp.gom:268
+	switch v.Tag() {
+//line stdlib/cmp/cmp.gom:268
+	case result.ResultTagOk:
+//line stdlib/cmp/cmp.gom:268
+		return "" + "Ok" + " " + strconv.FormatInt(v.Value, 10)
+//line stdlib/cmp/cmp.gom:268
+	case result.ResultTagErr:
+//line stdlib/cmp/cmp.gom:268
+		return "" + "Err" + " " + strconv.Quote(v.Error)
+//line stdlib/cmp/cmp.gom:268
+	default:
+//line stdlib/cmp/cmp.gom:268
+		panic(rt.InvalidVariant("result.Result", v))
+//line stdlib/cmp/cmp.gom:268
+	}
+//line stdlib/cmp/cmp.gom:268
+}
+
+//line stdlib/cmp/cmp.gom:278
+func gomShow90943da16(v list.List[string]) string {
+//line stdlib/cmp/cmp.gom:278
+	var sb strings.Builder
+//line stdlib/cmp/cmp.gom:278
+	sb.WriteByte('[')
+//line stdlib/cmp/cmp.gom:278
+	for i, e := range v {
+//line stdlib/cmp/cmp.gom:278
+		if i > 0 {
+//line stdlib/cmp/cmp.gom:278
+			sb.WriteString(", ")
+//line stdlib/cmp/cmp.gom:278
+		}
+//line stdlib/cmp/cmp.gom:278
+		sb.WriteString(strconv.Quote(e))
+//line stdlib/cmp/cmp.gom:278
+	}
+//line stdlib/cmp/cmp.gom:278
+	sb.WriteByte(']')
+//line stdlib/cmp/cmp.gom:278
+	return sb.String()
+//line stdlib/cmp/cmp.gom:278
 }
