@@ -117,3 +117,30 @@ fn pair_ord (o1: Ord a) (o2: Ord b) -> Ord (a, b) =
         }
     } }
 ```
+
+## 辞書→辞書の合成（stdlib/cmp の composers）
+
+多相フィールドを持つ辞書の手作業は、`cmp` の合成関数で
+Option/List/tuple/Result について消せる。どれも部品の辞書を
+引数に取り完成形の辞書を返す:
+
+| 合成関数 | 結果の辞書 | 規約 |
+| --- | --- | --- |
+| `option_eq` / `option_ord` | `Eq (Option a)` / `Ord (Option a)` | None < Some |
+| `list_eq` / `list_ord` | `Eq (List a)` / `Ord (List a)` | 辞書順（短い方が先） |
+| `pair_eq` / `pair_ord` | `Eq (a, b)` / `Ord (a, b)` | 第 1 成分→第 2 成分の辞書順 |
+| `result_eq` / `result_ord` | `Eq (Result a e)` / `Ord (Result a e)` | Ok < Err、同 constructor は payload 順 |
+
+```gom noexec
+import "cmp"
+
+let task_ord : Ord (Int, List String) =
+  cmp.pair_ord cmp.int_ord (cmp.list_ord cmp.string_ord)
+
+fn sort_tasks (xs: List (Int, List String)) -> List (Int, List String) =
+  cmp.sort task_ord xs
+```
+
+合成した辞書も普通の値なので `sort`/`min`/`member` にそのまま
+渡せる。中間補助は辞書でなく `lt`/`eq` 関数だけを運ぶと浅い
+（`cmp.list_eq_loop` の形）。

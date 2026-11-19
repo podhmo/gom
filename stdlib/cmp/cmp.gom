@@ -72,6 +72,108 @@ fn fold_max (lt: a -> a -> Bool) (best: a) (xs: List a) -> a = match xs {
   [x, ..rest] -> fold_max lt (if lt best x { x } else { best }) rest
 }
 
+/// option_eq e lifts equality onto Option: None equals None,
+/// `Some x` equals `Some y` iff the payloads equal.
+fn option_eq (e: Eq a) -> Eq (Option a) =
+  { eq = fn x y -> match x {
+    None -> match y {
+      None -> true
+      Some _ -> false
+    }
+    Some a -> match y {
+      Some b -> e.eq a b
+      None -> false
+    }
+  } }
+
+/// option_ord o lifts ordering onto Option: None precedes every
+/// Some, Somes compare by payload.
+fn option_ord (o: Ord a) -> Ord (Option a) =
+  { lt = fn x y -> match x {
+    None -> match y {
+      None -> false
+      Some _ -> true
+    }
+    Some a -> match y {
+      Some b -> o.lt a b
+      None -> false
+    }
+  } }
+
+/// list_eq e lifts equality onto List — same length, elementwise.
+fn list_eq (e: Eq a) -> Eq (List a) = { eq = list_eq_loop e.eq }
+
+fn list_eq_loop (eq: a -> a -> Bool) (xs: List a) (ys: List a) -> Bool = match xs {
+  [] -> match ys {
+    [] -> true
+    _ -> false
+  }
+  [x, ..xr] -> match ys {
+    [] -> false
+    [y, ..yr] -> eq x y && list_eq_loop eq xr yr
+  }
+}
+
+/// list_ord o lifts ordering onto List — lexicographic: shorter is
+/// smaller on a shared prefix.
+fn list_ord (o: Ord a) -> Ord (List a) = { lt = list_lt_loop o.lt }
+
+fn list_lt_loop (lt: a -> a -> Bool) (xs: List a) (ys: List a) -> Bool = match xs {
+  [] -> match ys {
+    [] -> false
+    _ -> true
+  }
+  [x, ..xr] -> match ys {
+    [] -> false
+    [y, ..yr] -> lt x y || (not (lt y x) && list_lt_loop lt xr yr)
+  }
+}
+
+/// pair_eq ea eb lifts equality onto pairs — both halves equal.
+fn pair_eq (ea: Eq a) (eb: Eq b) -> Eq (a, b) =
+  { eq = fn x y -> match x {
+    (a1, b1) -> match y {
+      (a2, b2) -> ea.eq a1 a2 && eb.eq b1 b2
+    }
+  } }
+
+/// pair_ord oa ob lifts ordering onto pairs — lexicographic on the
+/// first component, then the second.
+fn pair_ord (oa: Ord a) (ob: Ord b) -> Ord (a, b) =
+  { lt = fn x y -> match x {
+    (a1, b1) -> match y {
+      (a2, b2) -> oa.lt a1 a2 || (not (oa.lt a2 a1) && ob.lt b1 b2)
+    }
+  } }
+
+/// result_eq ea ee lifts equality onto Result — Ok pairs by payload,
+/// Err pairs by payload, Ok never equals Err.
+fn result_eq (ea: Eq a) (ee: Eq e) -> Eq (Result a e) =
+  { eq = fn x y -> match x {
+    Ok a1 -> match y {
+      Ok a2 -> ea.eq a1 a2
+      Err _ -> false
+    }
+    Err e1 -> match y {
+      Err e2 -> ee.eq e1 e2
+      Ok _ -> false
+    }
+  } }
+
+/// result_ord oa oe lifts ordering onto Result — every Ok precedes
+/// every Err; same constructors compare by payload.
+fn result_ord (oa: Ord a) (oe: Ord e) -> Ord (Result a e) =
+  { lt = fn x y -> match x {
+    Ok a1 -> match y {
+      Ok a2 -> oa.lt a1 a2
+      Err _ -> true
+    }
+    Err e1 -> match y {
+      Err e2 -> oe.lt e1 e2
+      Ok _ -> false
+    }
+  } }
+
 /// sort ord xs is xs sorted ascending under ord — a fresh list.
 fn sort (ord: Ord a) (xs: List a) -> List a = sort_by ord.lt xs
 
@@ -102,6 +204,64 @@ test "float_ord is a total order — NaN first" {
     [h, .._] -> h != h
     _ -> false
   })
+}
+
+test "option_eq / option_ord" {
+  let oe = option_eq int_eq
+  assert (oe.eq None None)
+  assert (oe.eq (Some 1) (Some 1))
+  assert (not (oe.eq (Some 1) (Some 2)))
+  assert (not (oe.eq (Some 1) None))
+  let oo = option_ord int_ord
+  assert (oo.lt None (Some 0))
+  assert (not (oo.lt (Some 0) None))
+  assert (not (oo.lt None None))
+  assert (oo.lt (Some 1) (Some 2))
+  assert (not (oo.lt (Some 2) (Some 1)))
+  assert_eq (sort oo [Some 2, None, Some 1]) [None, Some 1, Some 2]
+}
+
+test "list_eq / list_ord" {
+  let le = list_eq int_eq
+  assert (le.eq [] [])
+  assert (le.eq [1, 2] [1, 2])
+  assert (not (le.eq [1, 2] [1]))
+  assert (not (le.eq [1, 2] [1, 3]))
+  let lo = list_ord int_ord
+  assert (lo.lt [] [1])
+  assert (not (lo.lt [1] []))
+  assert (not (lo.lt [] []))
+  assert (lo.lt [1, 2] [1, 3])
+  assert (lo.lt [1] [1, 0])
+  assert (not (lo.lt [1, 3] [1, 2]))
+  assert_eq (sort lo [[1, 2], [], [1, 1]]) [[], [1, 1], [1, 2]]
+}
+
+test "pair_eq / pair_ord" {
+  let pe = pair_eq int_eq string_eq
+  assert (pe.eq (1, "a") (1, "a"))
+  assert (not (pe.eq (1, "a") (2, "a")))
+  assert (not (pe.eq (1, "a") (1, "b")))
+  let po = pair_ord int_ord string_ord
+  assert (po.lt (1, "z") (2, "a"))
+  assert (po.lt (1, "a") (1, "b"))
+  assert (not (po.lt (2, "a") (1, "z")))
+  assert (not (po.lt (1, "a") (1, "a")))
+  assert_eq (sort po [(2, "a"), (1, "b"), (1, "a")]) [(1, "a"), (1, "b"), (2, "a")]
+}
+
+test "result_eq / result_ord" {
+  let re = result_eq int_eq string_eq
+  assert (re.eq (Ok 1) (Ok 1))
+  assert (re.eq (Err "e") (Err "e"))
+  assert (not (re.eq (Ok 1) (Err "e")))
+  assert (not (re.eq (Ok 1) (Ok 2)))
+  let ro = result_ord int_ord string_ord
+  assert (ro.lt (Ok 9) (Err "a"))
+  assert (not (ro.lt (Err "a") (Ok 0)))
+  assert (ro.lt (Ok 1) (Ok 2))
+  assert (ro.lt (Err "a") (Err "b"))
+  assert_eq (sort ro [Err "a", Ok 2, Ok 1]) [Ok 1, Ok 2, Err "a"]
 }
 
 test "min / max / sort" {
