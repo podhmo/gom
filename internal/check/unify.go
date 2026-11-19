@@ -1265,6 +1265,15 @@ func (c *checker) finalize() {
 	// the RHS their nil-want fill produced — the member's own
 	// diagnostic covers the failure, the node just needs to be
 	// complete.
+	// Applications whose member never resolved still need a final
+	// CallInfo: they replay under the Gom convention so the
+	// diagnostics the first pass withheld (a `_`, a label on an
+	// unknown callee) fire and lowering sees a valid record. Runs
+	// once, after the loop — replaying earlier would commit a call
+	// whose member a later round still resolves (a field write's
+	// RHS pinning its receiver turns `x.M ()` into a Go method
+	// call after the Gom replay already ran).
+	c.replayDeferredApplies()
 	c.revisitInterfaces()
 	// The same post-default moment settles the pending constant-zero
 	// divisors: their operand types are now concrete (or bound to a

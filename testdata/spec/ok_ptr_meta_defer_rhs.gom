@@ -30,3 +30,26 @@ fn tried () -> Result (Ptr goiface.SliceBox) GoError = {
   w.N = try (mk ())
   Ok w
 }
+
+// The RHS both pins `?m` and carries a lambda needing the field's
+// `Go.FuncN` signature — the provisional nil-want fill's
+// diagnostics must not survive the real re-check.
+fn calln (w: Ptr goiface.WithFn) -> Int = w.Call ()
+
+fn callback () -> Ptr goiface.WithFn = {
+  let w = Ptr.new ()
+  w.Fn = Go.func1 (fn x -> x + calln w)
+  w
+}
+
+// `w.Call ()` is a Go method call on a receiver the field write's
+// RHS pins — the deferred apply must wait for that resolution
+// instead of committing as a curried Gom call early.
+fn pass (w: Ptr goiface.WithFn) -> Go.Func1 Int Int = w.Fn
+
+fn pinvia () -> Int = {
+  let w = Ptr.new ()
+  w.Call ()
+  w.Fn = pass w
+  w.Call ()
+}

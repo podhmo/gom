@@ -157,6 +157,7 @@ func (c *checker) checkAssign(e *syntax.Assign) Expr {
 				Sel: sel, Member: me, Assign: fa, ValueSyn: e.Value,
 				bounds:  append([]boundary{}, c.bounds...),
 				goDepth: c.goDepth, inTest: c.inTest, tscope: c.curTScope,
+				diagMark: -1,
 			})
 			return fa
 		}
@@ -194,6 +195,13 @@ type assignTarget struct {
 	goDepth int
 	inTest  bool
 	tscope  *tscope
+
+	// diagMark checkpoints c.diags before the provisional nil-want
+	// fill — a member that resolves later re-checks the value under
+	// its real signature, and the speculative pass's diagnostics are
+	// stale (a `Go.funcN` under no want rejects the very lambda the
+	// field would accept). -1 while unfilled.
+	diagMark int
 }
 
 // checkAssignRHS runs the deferred RHS check under the context
@@ -714,6 +722,13 @@ func (c *checker) revisitSelects() {
 			doneAssigns[pa] = true
 			progress = true
 			me := pa.Member
+			if pa.diagMark >= 0 {
+				// A provisional fill already checked this RHS with no
+				// want — its diagnostics are superseded by the real
+				// signature's check below.
+				c.diags = c.diags[:pa.diagMark]
+				pa.diagMark = -1
+			}
 			if d := c.assignShapeDiag(pa.Sel, me); d != nil {
 				c.diags.Add(*d)
 				pa.Assign.Value = c.checkAssignRHS(pa, nil)
@@ -724,11 +739,6 @@ func (c *checker) revisitSelects() {
 			pa.Assign.Value = c.checkAssignRHS(pa, me.Type())
 		}
 	}
-	// Applications whose member never resolved still need a final
-	// CallInfo: they replay under the Gom convention so the
-	// diagnostics the first pass withheld (a `_`, a label on an
-	// unknown callee) fire and lowering sees a valid record.
-	c.replayDeferredApplies()
 }
 
 // finishAssigns completes the field assignments whose receiver never
@@ -744,6 +754,7 @@ func (c *checker) finishAssigns() bool {
 			continue
 		}
 		filled = true
+		pa.diagMark = len(c.diags)
 		pa.Assign.Value = c.checkAssignRHS(pa, nil)
 	}
 	return filled
