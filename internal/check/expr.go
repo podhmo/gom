@@ -153,7 +153,11 @@ func (c *checker) checkAssign(e *syntax.Assign) Expr {
 				Recv: me.Recv,
 				Sel:  sel.Sel,
 			}
-			c.pendingAssigns = append(c.pendingAssigns, &assignTarget{Sel: sel, Member: me, Assign: fa, ValueSyn: e.Value})
+			c.pendingAssigns = append(c.pendingAssigns, &assignTarget{
+				Sel: sel, Member: me, Assign: fa, ValueSyn: e.Value,
+				bounds:  append([]boundary{}, c.bounds...),
+				goDepth: c.goDepth, inTest: c.inTest, tscope: c.curTScope,
+			})
 			return fa
 		}
 	}
@@ -181,6 +185,26 @@ type assignTarget struct {
 	Member   *MemberExpr
 	Assign   *FieldAssign
 	ValueSyn syntax.Expr // the surface RHS — checked at revisit under the resolved member's want
+
+	// The RHS is checked during finalize — after the enclosing fn/
+	// lambda boundary, test context and rigid-variable scope were
+	// torn down. The deferred checkExpr restores them so `try`,
+	// `assert` and `let y : List a` behave as written.
+	bounds  []boundary
+	goDepth int
+	inTest  bool
+	tscope  *tscope
+}
+
+// checkAssignRHS runs the deferred RHS check under the context
+// captured when the assignment deferred — finalize-time c.bounds,
+// inTest and curTScope are already empty.
+func (c *checker) checkAssignRHS(pa *assignTarget, want types.Type) Expr {
+	savedBounds, savedDepth, savedTest, savedScope := c.bounds, c.goDepth, c.inTest, c.curTScope
+	c.bounds, c.goDepth, c.inTest, c.curTScope = pa.bounds, pa.goDepth, pa.inTest, pa.tscope
+	v := c.checkExpr(pa.ValueSyn, want)
+	c.bounds, c.goDepth, c.inTest, c.curTScope = savedBounds, savedDepth, savedTest, savedScope
+	return v
 }
 
 // assignShapeDiag validates the resolved shape of a `ptr.Field = v`
@@ -692,12 +716,12 @@ func (c *checker) revisitSelects() {
 			me := pa.Member
 			if d := c.assignShapeDiag(pa.Sel, me); d != nil {
 				c.diags.Add(*d)
-				pa.Assign.Value = c.checkExpr(pa.ValueSyn, nil)
+				pa.Assign.Value = c.checkAssignRHS(pa, nil)
 				continue
 			}
 			pa.Assign.Sym = me.Sym
 			pa.Assign.GoFieldType = me.GoFieldType
-			pa.Assign.Value = c.checkExpr(pa.ValueSyn, me.Type())
+			pa.Assign.Value = c.checkAssignRHS(pa, me.Type())
 		}
 	}
 	// Applications whose member never resolved still need a final
@@ -713,13 +737,16 @@ func (c *checker) revisitSelects() {
 // still needs a checked node for lowering, and the dead member meta
 // is no want: feeding it would only leak an E0407 onto an innocent
 // literal.
-func (c *checker) finishAssigns() {
+func (c *checker) finishAssigns() bool {
+	filled := false
 	for _, pa := range c.pendingAssigns {
 		if c.assignDone[pa] || pa.Assign.Value != nil {
 			continue
 		}
-		pa.Assign.Value = c.checkExpr(pa.ValueSyn, nil)
+		filled = true
+		pa.Assign.Value = c.checkAssignRHS(pa, nil)
 	}
+	return filled
 }
 
 // nameOfSel returns the selector name a resolved member symbol
