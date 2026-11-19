@@ -27,7 +27,7 @@
       "kind": "diagnostic",
       "code": "E0401",
       "severity": "error",
-      "message": "type mismatch: expected Int, got (?1, Int)",
+      "message": "type mismatch: expected Int, got (?1, ?2)",
       "span": {
         "file": "E0504_hole_in_go_arg_tuple.gom",
         "start": {
@@ -42,7 +42,7 @@
         }
       },
       "data": {
-        "actual": "(?1, Int)",
+        "actual": "(?1, ?2)",
         "expected": "Int"
       }
     },

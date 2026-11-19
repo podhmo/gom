@@ -139,17 +139,26 @@ func (c *checker) checkAssign(e *syntax.Assign) Expr {
 		return unit()
 	}
 	if me.Sym == nil && me.GoFieldType == nil {
-		if _, isMeta := types.Chase(me.Recv.Type()).(*types.Meta); isMeta {
-			// The selection deferred on the receiver meta (pendingSels);
+		if hasUnsolvedMeta(me.Recv.Type()) {
+			// The selection deferred on the receiver's unsolved meta
+			// (pendingSels) — a bare `?m` or a shape like `Ptr ?m`;
 			// admit the write provisionally — revisitSelects validates
 			// the shape and completes Sym once the member resolves.
+			// The RHS is checked then too, not here: its want is the
+			// member's standing meta, so checking eagerly would leave
+			// `Go.funcN` conversions and inline lambdas blind to the
+			// field's real signature.
 			fa := &FieldAssign{
-				Base:  baseOf(e.Sp, c.unitResult(e.Sp, "field assignment")),
-				Recv:  me.Recv,
-				Sel:   sel.Sel,
-				Value: c.checkExpr(e.Value, me.Type()),
+				Base: baseOf(e.Sp, c.unitResult(e.Sp, "field assignment")),
+				Recv: me.Recv,
+				Sel:  sel.Sel,
 			}
-			c.pendingAssigns = append(c.pendingAssigns, &assignTarget{Sel: sel, Member: me, Assign: fa})
+			c.pendingAssigns = append(c.pendingAssigns, &assignTarget{
+				Sel: sel, Member: me, Assign: fa, ValueSyn: e.Value,
+				bounds:  append([]boundary{}, c.bounds...),
+				goDepth: c.goDepth, inTest: c.inTest, tscope: c.curTScope,
+				diagMark: -1,
+			})
 			return fa
 		}
 	}
@@ -173,9 +182,40 @@ func (c *checker) checkAssign(e *syntax.Assign) Expr {
 // selection its target checked — revisitSelects validates the
 // resolved shape and completes the FieldAssign's Sym/GoFieldType.
 type assignTarget struct {
-	Sel    *syntax.Select
-	Member *MemberExpr
-	Assign *FieldAssign
+	Sel      *syntax.Select
+	Member   *MemberExpr
+	Assign   *FieldAssign
+	ValueSyn syntax.Expr // the surface RHS — checked at revisit under the resolved member's want
+
+	// The RHS is checked during finalize — after the enclosing fn/
+	// lambda boundary, test context and rigid-variable scope were
+	// torn down. The deferred checkExpr restores them so `try`,
+	// `assert` and `let y : List a` behave as written.
+	bounds  []boundary
+	goDepth int
+	inTest  bool
+	tscope  *tscope
+
+	// diagMark/diagEnd delimit the diagnostics the provisional
+	// nil-want fill emitted — a member that resolves later re-checks
+	// the value under its real signature, and the speculative pass's
+	// diagnostics are stale (a `Go.funcN` under no want rejects the
+	// very lambda the field accepts). Only that range is rolled
+	// back; errors a later round emitted for OTHER deferred work sit
+	// after diagEnd and must survive. -1 while unfilled.
+	diagMark int
+	diagEnd  int
+}
+
+// checkAssignRHS runs the deferred RHS check under the context
+// captured when the assignment deferred — finalize-time c.bounds,
+// inTest and curTScope are already empty.
+func (c *checker) checkAssignRHS(pa *assignTarget, want types.Type) Expr {
+	savedBounds, savedDepth, savedTest, savedScope := c.bounds, c.goDepth, c.inTest, c.curTScope
+	c.bounds, c.goDepth, c.inTest, c.curTScope = pa.bounds, pa.goDepth, pa.inTest, pa.tscope
+	v := c.checkExpr(pa.ValueSyn, want)
+	c.bounds, c.goDepth, c.inTest, c.curTScope = savedBounds, savedDepth, savedTest, savedScope
+	return v
 }
 
 // assignShapeDiag validates the resolved shape of a `ptr.Field = v`
@@ -531,17 +571,22 @@ func (c *checker) checkSelect(e *syntax.Select) Expr {
 			return &MemberExpr{Base: baseOf(e.Sp, typ), Recv: recv, Sel: e.Sel, Sym: msym, Index: -1, TypeArgs: mtargs}
 		}
 	}
-	if _, ok := types.Chase(recv.Type()).(*types.Meta); ok {
-		// The receiver's type is still unknown. The node keeps a
-		// meta type; Index stays -1 — and the selection is deferred:
-		// finalize retries the lookup once the receiver's meta has
-		// bound (`0.f` waits for the literal's Int default). When the
-		// receiver's own meta is quiet (an unresolved name), the
-		// member's is too.
+	if hasUnsolvedMeta(recv.Type()) {
+		// The receiver's type is still unknown — either a bare meta
+		// or a shape like `Ptr ?m` whose member set cannot be read
+		// until the inner meta binds (a `let x = Ptr.new ()` handle
+		// later pinned by its use). The node keeps a meta type;
+		// Index stays -1 — and the selection is deferred: finalize
+		// retries the lookup once the receiver's metas have bound
+		// (`0.f` waits for the literal's Int default). When an
+		// unsolved meta inside the receiver is quiet (a recovery
+		// artifact), the member's is too.
 		mt := c.newMeta(e.Sp, fmt.Sprintf("the type of `.%s`", selName))
-		if c.isQuiet(recv.Type()) {
-			c.markQuiet(mt)
-		}
+		metasIn(recv.Type(), func(m *types.Meta) {
+			if c.recOf(m).quiet {
+				c.markQuiet(mt)
+			}
+		})
 		me := &MemberExpr{Base: baseOf(e.Sp, mt), Recv: recv, Sel: e.Sel, Sym: sel, Index: -1}
 		c.pendingSels = append(c.pendingSels, me)
 		return me
@@ -600,15 +645,31 @@ func (c *checker) revisitSelects() {
 	// an earlier `r.Year` receiver — must still get its pass, so the
 	// loop repeats while any member newly resolved. Registration
 	// order decides only the diagnostic order, never the outcome.
-	done := map[*MemberExpr]bool{}
+	// The done marks live on the checker: finalize may call this once
+	// per defaults round, and an entry processed in an earlier round
+	// must not re-resolve (duplicate E0401) or re-check its RHS.
+	if c.selDone == nil {
+		c.selDone = map[*MemberExpr]bool{}
+	}
+	done := c.selDone
+	// Field assignments deferred on a pending selection run inside
+	// the same fixpoint: completing one checks its RHS, which may
+	// itself register deferred selections for the next pass.
+	if c.assignDone == nil {
+		c.assignDone = map[*assignTarget]bool{}
+	}
+	doneAssigns := c.assignDone
 	for progress := true; progress; {
 		progress = false
-		for _, me := range c.pendingSels {
+		// Index-driven: selections a revisited RHS registers mid-pass
+		// are visible to the next iteration.
+		for i := 0; i < len(c.pendingSels); i++ {
+			me := c.pendingSels[i]
 			if done[me] {
 				continue
 			}
 			rt := types.Chase(me.Recv.Type())
-			if _, ok := rt.(*types.Meta); ok {
+			if hasUnsolvedMeta(rt) {
 				continue
 			}
 			done[me] = true
@@ -620,17 +681,17 @@ func (c *checker) revisitSelects() {
 				if owner != nil {
 					me.Ctor = owner.sym
 				}
-				c.unify(me.Type(), typ, me.Sel.Sp)
+				c.unifyMember(me, typ)
 				resolved = true
 			} else if me.Sym == nil {
 				if field, typ, raw, ok := c.goFieldOf(rt, selName, me.Sel.Sp); ok {
 					me.Sym, me.Index, me.GoFieldType = field, 0, raw
-					c.unify(me.Type(), typ, me.Sel.Sp)
+					c.unifyMember(me, typ)
 					resolved = true
 				} else if msym, typ, targs, ok := c.methodOf(rt, selName, me.Sel.Sp); ok {
 					me.Sym = msym
 					me.TypeArgs = targs
-					c.unify(me.Type(), typ, me.Sel.Sp)
+					c.unifyMember(me, typ)
 					resolved = true
 				}
 			}
@@ -642,6 +703,11 @@ func (c *checker) revisitSelects() {
 				// The selection failed; the member's standing meta — nothing
 				// bound it — must not pile an E0407 on the E0401.
 				c.markQuiet(me.Type())
+				// Deferred writes and calls waiting on this member are
+				// dead too: their provisional checks ran with no want,
+				// so their diagnostics and minted metas are debris that
+				// would only pile spurious E0407/E0510 on the E0401.
+				c.dropDeferredOn(me, doneAssigns)
 			}
 			// Applications sitting on this member (pendingApplies)
 			// now know their calling convention — a Go method
@@ -653,28 +719,113 @@ func (c *checker) revisitSelects() {
 			// resolve on the next pass.
 			c.replayAppliesOf(me)
 		}
+		// Deferred field assignments validate their resolved shape
+		// and check the RHS under the member's real signature — a
+		// `Go.funcN` conversion or inline lambda sees the field's
+		// `Go.FuncN` want exactly as an eagerly checked write would.
+		for _, pa := range c.pendingAssigns {
+			if doneAssigns[pa] || hasUnsolvedMeta(pa.Member.Recv.Type()) {
+				continue
+			}
+			doneAssigns[pa] = true
+			progress = true
+			me := pa.Member
+			if pa.diagMark >= 0 {
+				// A provisional fill already checked this RHS with no
+				// want — its diagnostics are superseded by the real
+				// signature's check below. Drop exactly that range:
+				// diagnostics emitted later (an unrelated deferred
+				// select diagnosed in this same round) belong to
+				// entries already marked done and would be lost.
+				c.rollbackFill(pa)
+			}
+			if d := c.assignShapeDiag(pa.Sel, me); d != nil {
+				c.diags.Add(*d)
+				pa.Assign.Value = c.checkAssignRHS(pa, nil)
+				continue
+			}
+			pa.Assign.Sym = me.Sym
+			pa.Assign.GoFieldType = me.GoFieldType
+			pa.Assign.Value = c.checkAssignRHS(pa, me.Type())
+		}
 	}
-	// Applications whose member never resolved still need a final
-	// CallInfo: they replay under the Gom convention so the
-	// diagnostics the first pass withheld (a `_`, a label on an
-	// unknown callee) fire and lowering sees a valid record.
-	c.replayDeferredApplies()
+}
 
-	// Field assignments deferred on a pending selection validate
-	// their resolved shape now; a member still dangling on a meta
-	// already carries its own E0401/E0407.
+// rollbackFill drops the diagnostics a provisional nil-want fill
+// emitted and shifts every later fill's marks by the removed count —
+// removing the range moves every index after it.
+func (c *checker) rollbackFill(pa *assignTarget) {
+	removed := pa.diagEnd - pa.diagMark
+	c.diags = append(c.diags[:pa.diagMark], c.diags[pa.diagEnd:]...)
+	mark := pa.diagMark
+	pa.diagMark = -1
+	for _, q := range c.pendingAssigns {
+		if q.diagMark > mark {
+			q.diagMark -= removed
+			q.diagEnd -= removed
+		}
+	}
+}
+
+// dropDeferredOn abandons the deferred field writes and applications
+// waiting on a member that just failed to resolve: each provisional
+// fill's diagnostic range rolls back, and every unbound meta its
+// check minted (spans inside the dead node) goes quiet — a dead
+// `x.F = Go.funcN (fn _ -> …)` reports the member's E0401 alone
+// instead of a stack of annotation errors for a callback that never
+// had a signature to check against.
+func (c *checker) dropDeferredOn(me *MemberExpr, doneAssigns map[*assignTarget]bool) {
 	for _, pa := range c.pendingAssigns {
-		me := pa.Member
-		if _, isMeta := types.Chase(me.Recv.Type()).(*types.Meta); isMeta {
+		if pa.Member != me {
 			continue
 		}
+		doneAssigns[pa] = true
+		// The target's shape is validated independently of member
+		// resolution — a non-`Ptr T` receiver still earns its E0511.
 		if d := c.assignShapeDiag(pa.Sel, me); d != nil {
 			c.diags.Add(*d)
+		}
+		if pa.diagMark >= 0 {
+			c.rollbackFill(pa)
+		}
+		if pa.Assign.Value == nil {
+			// The fill never ran — lower still needs a checked
+			// node, so produce one and drop its debris at once.
+			pa.diagMark = len(c.diags)
+			pa.Assign.Value = c.checkAssignRHS(pa, nil)
+			pa.diagEnd = len(c.diags)
+			c.rollbackFill(pa)
+		}
+		c.quietMetasIn(pa.Assign.Value.Span())
+	}
+	for _, pa := range c.pendingApplies {
+		if pa.me != me || pa.done {
 			continue
 		}
-		pa.Assign.Sym = me.Sym
-		pa.Assign.GoFieldType = me.GoFieldType
+		pa.done = true
+		pa.dropped = true
+		c.quietMetasIn(pa.ap.Span())
 	}
+}
+
+// finishAssigns completes the field assignments whose receiver never
+// settled — finalize runs it once after the last defaults round.
+// The member's own E0401/E0407 already covers the failure; the RHS
+// still needs a checked node for lowering, and the dead member meta
+// is no want: feeding it would only leak an E0407 onto an innocent
+// literal.
+func (c *checker) finishAssigns() bool {
+	filled := false
+	for _, pa := range c.pendingAssigns {
+		if c.assignDone[pa] || pa.Assign.Value != nil {
+			continue
+		}
+		filled = true
+		pa.diagMark = len(c.diags)
+		pa.Assign.Value = c.checkAssignRHS(pa, nil)
+		pa.diagEnd = len(c.diags)
+	}
+	return filled
 }
 
 // nameOfSel returns the selector name a resolved member symbol
@@ -2356,6 +2507,265 @@ func (c *checker) checkGoExpr(e *syntax.GoExpr) Expr {
 	return &GoExpr{Base: baseOf(e.Sp, c.unitResult(e.Sp, "`go {}`")), Body: body}
 }
 
+// pendingIter records a `for` loop whose iterable's type was a meta
+// tied to deferred work — a member alias's standing meta or a
+// deferred call's result meta. checkFor minted the element meta
+// without pinning `List`; finishIters runs the iterable-shape rules
+// once the meta settles (or binds the List default when it never
+// does).
+type pendingIter struct {
+	t    types.Type // the meta the iterable's type chases to
+	elem types.Type // the element meta the pattern checked against
+	iter Expr       // the checked iterable node (span, resolved type)
+	done bool       // fillIters drained it
+}
+
+// iterElemCon extracts the element type of a concrete iterable —
+// builtin List, a List-derived View (same `range` lowering as List:
+// the shared backing slice), `Go.Slice` (decisions/for-over-go-slice:
+// index order, nil iterates zero times), or a receivable channel.
+// ok=false means the shape does not iterate.
+func (c *checker) iterElemCon(t *types.Con, sp diag.Span) (types.Type, bool) {
+	if t.Qual == "" && t.Name == "List" && len(t.Args) == 1 &&
+		!c.shadowedBuiltin("List") {
+		return t.Args[0], true
+	}
+	if t.Qual == "" && t.Name == "View" && len(t.Args) == 1 &&
+		!c.shadowedBuiltin("View") {
+		return t.Args[0], true
+	}
+	if t.Qual == "Go" && t.Name == "Slice" && len(t.Args) == 1 {
+		return t.Args[0], true
+	}
+	if el, dir, ok := c.chanElem(t); ok {
+		if dir == "send" {
+			c.diags.Add(diag.Error("E0401",
+				"cannot iterate a send-only channel").At(sp))
+		}
+		return el, true
+	}
+	return nil, false
+}
+
+// iterPendingOn reports whether the meta the iterable's type chases
+// to is owned by deferred work still awaiting resolution — a pending
+// member selection's standing meta or a pending application's
+// result meta — whose real solution a later finalize round
+// supplies. A processed selection (resolved or already failed:
+// its quiet standing meta is debris) no longer claims the iterable.
+func (c *checker) iterPendingOn(t *types.Meta) bool {
+	for _, me := range c.pendingSels {
+		if c.selDone[me] {
+			continue
+		}
+		if types.Chase(me.Type()) == types.Type(t) {
+			return true
+		}
+	}
+	for _, q := range c.pendingApplies {
+		if !q.done && types.Chase(q.ap.Type()) == types.Type(t) {
+			return true
+		}
+	}
+	return false
+}
+
+// iterFailedOn reports whether the meta the iterable's type chases
+// to is the standing meta of a selection that already failed or the
+// result of an application dropped as dead work — its type was
+// never established, so the iterable must not take the List
+// default (or its shadowing diagnostic) at all.
+func (c *checker) iterFailedOn(t *types.Meta) bool {
+	if c.selDone != nil {
+		for _, me := range c.pendingSels {
+			if c.selDone[me] && types.Chase(me.Type()) == types.Type(t) {
+				return true
+			}
+		}
+	}
+	for _, q := range c.pendingApplies {
+		// Only applies dropped as dead work or whose replay failed —
+		// a committed apply whose result is still an open meta is a
+		// live iterable, not a failure, and must still take the
+		// List default.
+		if (q.dropped || q.failed) && types.Chase(q.ap.Type()) == types.Type(t) {
+			return true
+		}
+	}
+	return false
+}
+
+// fillIters drains the pendingIters whose iterable has settled:
+// a concrete shape reconciles the real element type with the
+// pattern's meta — early, inside the finalize rounds, so member
+// selections and literals minted on the loop variable (`v.N`,
+// `v + 1`) still resolve under it. With defaults=true a still-
+// unbound iterable takes the `List elem` default the eager path
+// would have bound at check time — same stable-round gate as
+// applyDefaults. Returns whether it did work.
+func (c *checker) fillIters(defaults bool) bool {
+	progressed := false
+	for _, pi := range c.pendingIters {
+		if pi.done {
+			continue
+		}
+		sp := pi.iter.Span()
+		switch t := types.Chase(pi.t).(type) {
+		case *types.Meta:
+			if !defaults {
+				continue
+			}
+			// A meta claimed as pending work's RESULT — a member's
+			// standing meta or a deferred call's result — is left
+			// for that resolution: its real shape (a channel, a
+			// Go.Slice) must arrive before any List default would
+			// pin it. A meta claimed only as pending work's
+			// RECEIVER defaults here so the member can resolve —
+			// the call's replay then sees the List's signature
+			// (and its labeled parameters) instead of a committed
+			// `Unit -> ?r` fallback.
+			if c.iterPendingOn(t) {
+				continue
+			}
+			if c.iterFailedOn(t) {
+				// Claimed by a selection that already FAILED: no
+				// type was ever established, so binding `List`
+				// would both invent an iterable and (when List is
+				// shadowed) pile a spurious shadowing error on the
+				// missing-member diagnostic. Leave the quiet meta
+				// alone; the member's own error covers the loop.
+				// Quieting `t` itself matters for failed replays —
+				// their result meta was never quieted by the drop,
+				// and leaving it loud asks for a type annotation
+				// on top of the replay's own diagnostic.
+				c.markQuiet(t)
+				c.markQuiet(pi.elem)
+				pi.done = true
+				progressed = true
+				continue
+			}
+			if !c.bind(t, types.List(pi.elem), sp) {
+				c.markQuiet(pi.elem)
+			}
+			// A quiet iterable meta — dead deferred work whose own
+			// diagnostic already reported the failure — quiets the
+			// element the default introduces too: otherwise an
+			// unrelated E0407 piles onto the member's error.
+			if c.recOf(t).quiet {
+				c.markQuiet(pi.elem)
+			}
+			if c.shadowedBuiltin("List") {
+				c.shadowedErr(sp, "`for` iteration", "List")
+				c.markQuiet(pi.elem)
+			}
+		case *types.Con:
+			if el, ok := c.iterElemCon(t, sp); ok {
+				if isGoAny(types.Chase(el)) && types.Chase(pi.elem) != el {
+					// `unify` treats a `Go.Any` want as a slot
+					// that accepts any value — it would leave
+					// elem unbound and the loop variable
+					// typeless. The element IS `Go.Any`.
+					if m, isMeta := types.Chase(pi.elem).(*types.Meta); isMeta {
+						c.bind(m, el, sp)
+					} else {
+						c.unify(el, pi.elem, sp)
+					}
+				} else {
+					c.unify(el, pi.elem, sp)
+				}
+			} else {
+				if t.Qual == "" && c.shadowedBuiltin(t.Name) &&
+					(t.Name == "List" || t.Name == "View" || t.Name == "Chan" || t.Name == "RecvChan" || t.Name == "SendChan") {
+					c.shadowedErr(sp, "`for` iteration", t.Name)
+				} else {
+					c.mismatch(sp, "a List, a Go.Slice, or a channel", pi.iter.Type())
+				}
+				c.markQuiet(pi.elem)
+			}
+		case *types.Var, *types.Func, *types.Tuple, *types.Go:
+			c.mismatch(sp, "a List, a Go.Slice, or a channel", pi.iter.Type())
+			c.markQuiet(pi.elem)
+		default:
+			panic("unreachable")
+		}
+		pi.done = true
+		progressed = true
+	}
+	return progressed
+}
+
+// finishIters is the tail pass for iterables that never settled —
+// dead deferred work whose quiet meta takes the List default (quiet
+// propagates through the bind).
+func (c *checker) finishIters() {
+	c.fillIters(true)
+	c.pendingIters = nil
+}
+
+// unifySlicePair reconciles the List ↔ Go.Slice boundary pair —
+// same runtime slice — when a deferred type (a member's standing
+// meta, a deferred call's result) bound across it before its real
+// type arrived: an argument slot expecting `Go.Slice` pins the meta
+// ahead of the member's `List`. The return tells the caller what
+// the pair implied:
+//
+//	0 — not a List↔Go.Slice pair; unify normally
+//	1 — reconciled; no copy needed (the producer's view outranks
+//	    the pin, and the standard conv paths still see it)
+//	2 — reconciled, but the claimed side is `Go.Slice` while the
+//	    producer yields `List`: the value must still be copied, so
+//	    the caller records the declared type for lowering
+//
+// A `Go.Any` element never reconciles — the implicit copy only
+// boxes INTO `Go.Slice Go.Any` (sliceConv), so an `any` mismatch
+// falls back to the ordinary unify's diagnostic.
+func (c *checker) unifySlicePair(want, got types.Type, sp diag.Span) int {
+	wc, wok := types.Chase(want).(*types.Con)
+	gc, gok := types.Chase(got).(*types.Con)
+	if !wok || !gok || len(wc.Args) != 1 || len(gc.Args) != 1 {
+		return 0
+	}
+	isGoSlice := func(con *types.Con) bool { return con.Qual == "Go" && con.Name == "Slice" }
+	isList := func(con *types.Con) bool {
+		return con.Qual == "" && con.Name == "List" && !c.shadowedBuiltin("List")
+	}
+	we, ge := wc.Args[0], gc.Args[0]
+	if !types.Equal(we, ge) &&
+		(isGoAny(types.Chase(we)) || isGoAny(types.Chase(ge))) {
+		// An `any` element reconciles only when both sides name
+		// it — the implicit copy boxes INTO `Go.Slice Go.Any`
+		// (sliceConv), so a one-sided any falls back to the
+		// ordinary mismatch.
+		return 0
+	}
+	switch {
+	case isGoSlice(wc) && isList(gc):
+		if !c.unify(we, ge, sp) {
+			return 1
+		}
+		return 2
+	case isList(wc) && isGoSlice(gc):
+		c.unify(we, ge, sp)
+		return 1
+	default:
+		return 0
+	}
+}
+
+// unifyMember solves a deferred member's standing meta against the
+// member's resolved type, reconciling a standing meta an earlier
+// constraint already bound across the List ↔ Go.Slice boundary. A
+// `Go.Slice` claim over a `List` member marks the read: lowering
+// emits the copy the List view promises.
+func (c *checker) unifyMember(me *MemberExpr, typ types.Type) {
+	switch c.unifySlicePair(me.Type(), typ, me.Sel.Sp) {
+	case 0:
+		c.unify(me.Type(), typ, me.Sel.Sp)
+	case 2:
+		me.CopyFrom = typ
+	}
+}
+
 // checkFor types `for pat in iter { body }`: iter is a List, a
 // Go.Slice, or a receivable channel; the pattern binds each element;
 // the body is Unit.
@@ -2364,24 +2774,7 @@ func (c *checker) checkFor(e *syntax.For) Expr {
 	var elem types.Type
 	switch t := types.Chase(iter.Type()).(type) {
 	case *types.Con:
-		if t.Qual == "" && t.Name == "List" && len(t.Args) == 1 &&
-			!c.shadowedBuiltin("List") {
-			elem = t.Args[0]
-		} else if t.Qual == "" && t.Name == "View" && len(t.Args) == 1 &&
-			!c.shadowedBuiltin("View") {
-			// `for x in v` over a List-derived `View a` ranges the
-			// shared backing slice — same `range` lowering as List.
-			elem = t.Args[0]
-		} else if t.Qual == "Go" && t.Name == "Slice" && len(t.Args) == 1 {
-			// `for x in s` over `Go.Slice a` is the `range []T` the
-			// ForList lowering already emits — index order, nil
-			// iterates zero times (decisions/for-over-go-slice).
-			elem = t.Args[0]
-		} else if el, dir, ok := c.chanElem(t); ok {
-			if dir == "send" {
-				c.diags.Add(diag.Error("E0401",
-					"cannot iterate a send-only channel").At(e.Iter.Span()))
-			}
+		if el, ok := c.iterElemCon(t, e.Iter.Span()); ok {
 			elem = el
 		} else {
 			if t.Qual == "" && c.shadowedBuiltin(t.Name) &&
@@ -2397,6 +2790,18 @@ func (c *checker) checkFor(e *syntax.For) Expr {
 		}
 	case *types.Meta:
 		elem = c.newMeta(e.Iter.Span(), "the iterated element's type")
+		if c.iterPendingOn(t) {
+			// The iterable's type waits on a deferred member or
+			// call (`for v in f a` with `f` a member alias):
+			// binding `List elem` here would pin the pending
+			// result meta before the member's signature —
+			// possibly View, a Go slice or a channel — arrives.
+			// finishIters reconciles the element once the
+			// iterable settles at finalize.
+			c.pendingIters = append(c.pendingIters,
+				&pendingIter{t: t, elem: elem, iter: iter})
+			break
+		}
 		if !c.bind(t, types.List(elem), e.Iter.Span()) {
 			c.markQuiet(elem)
 		}

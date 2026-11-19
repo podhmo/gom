@@ -1,0 +1,112 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// `for` over an iterable whose type waits on a deferred member: the
+// loop must not pin `List` before the member resolves — `b.Xs`
+// settles to `Go.Slice Int`, `w.Rep` to `Int64 -> Go.Slice Int`.
+
+fn via_field () -> Ptr goiface.SliceBox = {
+  let b = Ptr.new ()
+  let xs = b.Xs
+  for v in xs {
+    ignore v
+  }
+  b
+}
+
+fn via_call () -> Ptr goiface.WithFloat = {
+  let w = Ptr.new ()
+  for v in w.Rep 2 {
+    ignore v
+  }
+  w
+}
+
+fn via_alias () -> Ptr goiface.WithFloat = {
+  let w = Ptr.new ()
+  let f = w.Rep
+  for v in f 2 {
+    ignore v
+  }
+  w
+}
+
+// Element constraints minted inside the body resolve under the
+// settled iterable: `v.N` reads a field of the record element,
+// `v + 1` keeps the named-numeric Ratio rather than a premature
+// Int default.
+fn via_record_elem () -> Ptr goiface.WithFloat = {
+  let w = Ptr.new ()
+  for v in w.Boxes 1 {
+    ignore v.N
+  }
+  w
+}
+
+fn via_named_num () -> Ptr goiface.WithFloat = {
+  let w = Ptr.new ()
+  for v in w.Ratios 1 {
+    ignore (v + 1)
+  }
+  w
+}
+
+// A `Go.Slice Go.Any` element binds the loop variable to `Go.Any`
+// itself — the `any` accept slot must not leave its type unsolved.
+fn via_any () -> Ptr goiface.WithFloat = {
+  let w = Ptr.new ()
+  for v in w.Anys 1 {
+    ignore v
+  }
+  w
+}
+
+// A member alias a `Go.Slice` parameter bound before the member
+// supplied its `List` — the boundary pair shares one slice, so the
+// elements reconcile instead of rejecting the real `List Int`.
+fn via_slice_param () -> Ptr goiface.SliceBox = {
+  let b = Ptr.new ()
+  let xs = b.Xs
+  ignore (goiface.Sum64 xs)
+  b
+}
+
+// A deferred call resolving to a channel — the `List` default must
+// wait until the committed signature supplies its real shape.
+fn via_chan () -> Ptr goiface.WithFloat = {
+  let w = Ptr.new ()
+  for v in w.Ch 0 {
+    ignore v
+  }
+  w
+}
+
+// An any-element pair — `List Go.Any` and `Go.Slice Go.Any` name
+// the same element, so the boundary pair reconciles.
+fn via_any_param () -> Ptr goiface.SliceBox = {
+  let b = Ptr.new ()
+  let a = b.As
+  ignore (goiface.LenAny a)
+  b
+}
+
+// The bare-iterable-as-receiver counterpart lives in
+// E0401_iter_recv_default.gom — `x.fold` must report the member
+// failure, not a labeled-argument rejection.
+
+// A deferred call result pinned to `Go.Slice` by a later argument
+// position: the record's `iter` returns `List`, `f 0` resolves as
+// the pending apply's claimed result, `Sum64` pins `Go.Slice`, and
+// the committed `List` earns a boundary copy (`ToSlice`) at the
+// argument instead of a failed rebind.
+type IterBox = {iter: Int -> List Int}
+
+fn via_call_result () -> Int = {
+  let g = fn x -> {
+    let f = x.iter
+    let y = f 0
+    goiface.Sum64 y
+  }
+  g ({iter = fn n -> [1, 2]})
+}

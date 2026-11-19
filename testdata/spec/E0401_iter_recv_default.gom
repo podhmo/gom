@@ -1,0 +1,27 @@
+// Two iterable shapes whose receiver meta is shared with a member
+// call — `for v in x` takes the eager `List` default while `for v
+// in x.iter ()` waits on the deferred apply's result. In each the
+// member failure must report E0401, not a labeled-argument
+// rejection of the still-deferred call.
+
+package ex
+
+fn f () -> Int = {
+  let g = fn x -> {
+    for v in x {
+      ignore v
+    }
+    x.fold ~f: (fn acc v -> acc + v) ~acc: 0 x
+  }
+  g [1, 2]
+}
+
+fn f2 () -> Int = {
+  let g = fn x -> {
+    for v in x.iter () {
+      ignore v
+    }
+    x.g ~a: 1
+  }
+  g 0
+}

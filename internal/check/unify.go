@@ -82,6 +82,21 @@ func (c *checker) markQuiet(t types.Type) {
 	}
 }
 
+// quietMetasIn silences every still-unbound meta whose creation site
+// lies inside sp — the debris a dead speculative check left in the
+// meta table. Metas minted elsewhere that only unified with the dead
+// node's metas keep their own diagnostic behavior.
+func (c *checker) quietMetasIn(sp diag.Span) {
+	for m, r := range c.metas {
+		if types.Chase(m) != m {
+			continue
+		}
+		if r.span.File == sp.File && r.span.Start >= sp.Start && r.span.End <= sp.End {
+			r.quiet = true
+		}
+	}
+}
+
 // markSilent flags t's record silent when t is an unbound meta — the
 // weak form of markQuiet for metas inside a failed expectation: the
 // mismatch the failed unify already reported covers the meta's
@@ -1215,18 +1230,16 @@ type metaEntry struct {
 	r *metaRec
 }
 
-func (c *checker) finalize() {
-	ms := make([]metaEntry, 0, len(c.metas))
+// applyDefaults binds every unbound meta that has a default —
+// literal roots and the like — reporting the constraint the
+// default satisfies. Returns how many bound.
+func (c *checker) applyDefaults() int {
+	var ms []metaEntry
 	for m, r := range c.metas {
 		ms = append(ms, metaEntry{m, r})
 	}
 	sortEntries(ms)
-
-	// First pass: defaults. Binding one may chase-solve others. A
-	// default that violates the meta's own constraints (a `%` operand
-	// defaulting to Float) still binds — satisfies already reported
-	// the constraint failure once, and an unbound leftover would only
-	// add a redundant E0407.
+	bound := 0
 	for _, e := range ms {
 		if e.m.Bound() {
 			continue
@@ -1234,15 +1247,83 @@ func (c *checker) finalize() {
 		if d := defaultOf(e.r); d != nil {
 			c.satisfies(e.r, d, c.pos(e.r.span))
 			e.m.Bind(d)
+			bound++
 		}
 	}
+	return bound
+}
+
+func (c *checker) finalize() {
+	// First pass: defaults, interleaved with the deferred-selection
+	// retry. Binding one may chase-solve others. A default that
+	// violates the meta's own constraints (a `%` operand defaulting
+	// to Float) still binds — satisfies already reported the
+	// constraint failure once, and an unbound leftover would only add
+	// a redundant E0407.
+	//
 	// With the defaults bound, member selections deferred on an
-	// unknown receiver type can retry: `0.f` now sees the literal's
-	// Int. The retry may mint metas (an instantiated method
-	// signature), so rebuild the table for the reporting pass — the
-	// new entries carry no defaults, so the default pass need not
-	// run again.
-	c.revisitSelects()
+	// unknown receiver type can retry: `0.f` sees the literal's Int.
+	// Defaults must wait for a stable round, though: a literal's
+	// real constraint can still be sitting in deferred work (a
+	// field-write RHS re-checked under its field's signature), and
+	// binding Int before that re-check runs pins the meta early —
+	// the later `Int64` constraint then rejects a `let n = 1` the
+	// eager path would have accepted. So each round drains members,
+	// replays and fills first; only a round that changed nothing
+	// defaults, and the loop repeats because a default can enable
+	// the next round's resolutions.
+	for {
+		nMetas := len(c.metas)
+		c.revisitSelects()
+		replayed := c.replayResolvedApplies()
+		// A deferred RHS may itself pin the receiver it sits on
+		// (`b.N = readN b`): fill pending values once, then let the
+		// member retry — a resolved member re-checks the value under
+		// its real want on the next round.
+		filled := c.finishAssigns()
+		filled = c.fillIters(false) || filled
+		if len(c.metas) != nMetas || replayed != 0 || filled {
+			continue
+		}
+		if c.applyDefaults() == 0 && !c.fillIters(true) {
+			break
+		}
+	}
+	// Field writes deferred on a receiver that never settled keep
+	// the RHS their nil-want fill produced — the member's own
+	// diagnostic covers the failure, the node just needs to be
+	// complete.
+	// Applications deferred on an unsettled member still need a
+	// final CallInfo. The stages rank by how reversible they are:
+	// settled members replay first — a replay's argument
+	// unifications can pin the receiver another apply or selection
+	// waits on — then defaults (still delayed past every resolver,
+	// as above), and only a fully quiet round commits the rest to
+	// the Gom convention. Committing early pins the member's
+	// standing meta to a Gom shape (`Unit -> ?r`): a member
+	// resolving later would both lose its Go convention and
+	// mis-unify.
+	for {
+		nMetas := len(c.metas)
+		replayed := c.replayResolvedApplies()
+		c.revisitSelects()
+		filled := c.finishAssigns()
+		filled = c.fillIters(false) || filled
+		if replayed != 0 || len(c.metas) != nMetas || filled {
+			continue
+		}
+		if c.applyDefaults() != 0 || c.fillIters(true) {
+			continue
+		}
+		if c.replayUnresolvedApplies() == 0 {
+			break
+		}
+	}
+	// Iterables deferred on pending work (`for v in f a` with `f` a
+	// member alias) settle now — every call has replayed or committed,
+	// so each iterable's meta carries its real shape (or stays unbound
+	// and takes the List default inside finishIters).
+	c.finishIters()
 	c.revisitInterfaces()
 	// The same post-default moment settles the pending constant-zero
 	// divisors: their operand types are now concrete (or bound to a
@@ -1257,13 +1338,11 @@ func (c *checker) finalize() {
 	// defaulted, so the static type at each literal's own position is
 	// final (spec 3.3; E0417).
 	c.revisitLitRanges()
-	if len(c.metas) != len(ms) {
-		ms = ms[:0]
-		for m, r := range c.metas {
-			ms = append(ms, metaEntry{m, r})
-		}
-		sortEntries(ms)
+	var ms []metaEntry
+	for m, r := range c.metas {
+		ms = append(ms, metaEntry{m, r})
 	}
+	sortEntries(ms)
 	// Second pass: report what is left. A meta marked quiet is a
 	// recovery artifact — the diagnostic that created it already ran.
 	for _, e := range ms {

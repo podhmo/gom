@@ -348,7 +348,16 @@ func (l *lowerer) memberExpr(s *seq, e *check.MemberExpr) core.Expr {
 			// the selector now, before later source operands execute.
 			bind := l.tmpBind(e.Sp, e.GoFieldType)
 			s.emit(bind, raw)
-			return l.goPayloadConv(s, e.Sp, e.GoFieldType, e.Type(), varOf(e.Sp, bind))
+			v := varOf(e.Sp, bind)
+			if e.CopyFrom != nil {
+				// A `Go.Slice` want claimed the standing meta before
+				// the member's `List` view resolved: the read still
+				// owes its per-read copy — FromSlice snapshots the
+				// field, ToSlice hands the fresh slice out.
+				payload := l.goPayloadConv(s, e.Sp, e.GoFieldType, e.CopyFrom, v)
+				return &core.Conv{Sp: e.Sp, Typ: e.Type(), Kind: core.ConvSliceToGo, X: l.asAtom(s, e.Sp, payload)}
+			}
+			return l.goPayloadConv(s, e.Sp, e.GoFieldType, e.Type(), v)
 		}
 		idx := e.Index
 		if idx < 0 {
@@ -871,7 +880,20 @@ func (l *lowerer) applyCall(s *seq, e *check.Apply) core.Expr {
 	// callee is a pure ref (emitted work is nil).
 	fnExpr := l.calleeExpr(s, e.Fn, ci, recv)
 	args := l.argAtoms(s, e.Args, ci, e.Fn)
-	return l.finishCall(s, e.Sp, e.Type(), e.Fn, fnExpr, recv, ci, args, hasSpread(e.Args))
+	resTyp := e.Type()
+	if e.CopyFrom != nil {
+		// A `Go.Slice` want claimed the result meta before the
+		// deferred call's `List` result arrived — the callee's
+		// list still needs its boundary copy. Emit the call at
+		// its real List type (the Core the callee produces),
+		// then hand the fresh slice out.
+		resTyp = e.CopyFrom
+	}
+	out := l.finishCall(s, e.Sp, resTyp, e.Fn, fnExpr, recv, ci, args, hasSpread(e.Args))
+	if e.CopyFrom != nil {
+		return &core.Conv{Sp: e.Sp, Typ: e.Type(), Kind: core.ConvSliceToGo, X: l.asAtom(s, e.Sp, out)}
+	}
+	return out
 }
 
 // methodRecv extracts a method call's receiver — evaluated first,

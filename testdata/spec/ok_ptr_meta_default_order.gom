@@ -1,0 +1,20 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// A numeric literal whose only constraint arrives through deferred
+// work must stay open until that constraint lands: `n` is used
+// inside a field-write RHS that re-checks under the field's
+// `func(float64) float64` signature, so `n` settles as Float — an
+// early Int default would reject `n + x` with "expected Float, got
+// Int" (the eager path infers Float because `let` literals unify
+// before they default).
+fn passg (w: Ptr goiface.WithFloat) -> Go.Func1 Float Float = w.G
+
+fn deferlit () -> Float = {
+  let n = 1
+  let w = Ptr.new ()
+  w.G = passg w
+  w.F = Go.func1 (fn x -> n + x)
+  w.CallF 2.0
+}

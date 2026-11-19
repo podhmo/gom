@@ -1,0 +1,95 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "Int has no field or method `M`",
+      "span": {
+        "file": "E0401_missing_member_call.gom",
+        "start": {
+          "line": 10,
+          "col": 15,
+          "offset": 395
+        },
+        "end": {
+          "line": 10,
+          "col": 16,
+          "offset": 396
+        }
+      },
+      "data": {
+        "member": "M",
+        "type": "Int"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "Int has no field or method `M`",
+      "span": {
+        "file": "E0401_missing_member_call.gom",
+        "start": {
+          "line": 22,
+          "col": 15,
+          "offset": 718
+        },
+        "end": {
+          "line": 22,
+          "col": 16,
+          "offset": 719
+        }
+      },
+      "data": {
+        "member": "M",
+        "type": "Int"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0407",
+      "severity": "error",
+      "message": "type annotation required: the lambda's return type could not be determined",
+      "span": {
+        "file": "E0401_missing_member_call.gom",
+        "start": {
+          "line": 23,
+          "col": 14,
+          "offset": 733
+        },
+        "end": {
+          "line": 23,
+          "col": 23,
+          "offset": 742
+        }
+      },
+      "data": {
+        "type": "?1"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "Int has no field or method `M`",
+      "span": {
+        "file": "E0401_missing_member_call.gom",
+        "start": {
+          "line": 35,
+          "col": 15,
+          "offset": 1046
+        },
+        "end": {
+          "line": 35,
+          "col": 16,
+          "offset": 1047
+        }
+      },
+      "data": {
+        "member": "M",
+        "type": "Int"
+      }
+    }
+  ]
+}

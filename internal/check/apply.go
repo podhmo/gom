@@ -257,6 +257,64 @@ func (c *checker) checkGomApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol
 
 	out := &Apply{Base: baseOf(e.Sp, nil), Fn: fn}
 
+	// `g args` where `g`'s type waits on a deferred member —
+	// a variable aliasing the member's standing meta
+	// (`let f = x.M`) or the result of a call still waiting
+	// on one (`x.M(a) (b)`) — cannot pick a calling
+	// convention either: a `-> T` member reads `f ()` as the
+	// zero-argument call marker, a `Unit -> T` member as the
+	// parameter, and the arg list may be the curried Gom
+	// form or the tuple-shaped call of a Go method. Binding
+	// `Unit -> ?r` (or the arg tuple's shape) now would
+	// replay into `expected Unit -> ?r, got String` — and
+	// the eager binding leaks the metas it mints into the
+	// member's solution when the member turns out missing.
+	// Defer the application to the member's replay the way
+	// `x.M ()` itself waits.
+	if len(e.Args) > 0 {
+		if m, ok := types.Chase(fn.Type()).(*types.Meta); ok {
+			var host *MemberExpr
+			for _, me := range c.pendingSels {
+				if types.Chase(me.Type()) == m {
+					host = me
+					break
+				}
+			}
+			if host == nil {
+				for _, q := range c.pendingApplies {
+					if !q.done && types.Chase(q.ap.Type()) == m {
+						host = q.me
+						break
+					}
+				}
+			}
+			if host != nil {
+				// `f ()` keeps the Gom reading of the unit literal
+				// (alwaysGom); other arg lists replay by whatever
+				// kind the member settles to.
+				lit, isLit := e.Args[0].Value.(*syntax.Lit)
+				pa := &pendingApply{me: host, calleeT: m, alwaysGom: isLit && lit.Kind == syntax.LitUnit}
+				out.Base = baseOf(e.Sp, c.newMeta(e.Sp, "the deferred call's result"))
+				pa.ap = out
+				for _, a := range e.Args {
+					label := ""
+					var labelSp diag.Span
+					if a.Label != nil {
+						label = a.Label.Name
+						labelSp = a.Label.Sp
+					}
+					out.Args = append(out.Args, Arg{
+						Label: label, LabelSp: labelSp,
+						Value: c.provisionalArg(a.Value, pa),
+					})
+				}
+				out.Call = CallInfo{Kind: CallUnknown, Applied: len(out.Args), HoleIndex: -1}
+				c.pendingApplies = append(c.pendingApplies, pa)
+				return out
+			}
+		}
+	}
+
 	// A Go zero-argument function *value* — `let f = e.Error`,
 	// `let g = time.Now` — types as `-> T` (the Go signature's
 	// shape), not `Unit -> T`. It applies the way the Go source
@@ -281,42 +339,6 @@ func (c *checker) checkGomApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol
 					panic(fmt.Sprintf("check: invalid CallInfo for %T: %v", e.Fn, err))
 				}
 				return out
-			}
-		}
-		// `m ()` where `m` stands on a deferred member's standing
-		// meta — `let m = x.Error` — cannot pick the unit
-		// literal's meaning yet: a `-> T` member reads it as the
-		// zero-argument call marker, a `Unit -> T` member as the
-		// parameter, and binding `Unit -> ?r` now would replay
-		// into `expected Unit -> ?r, got String` (or emit
-		// `m(struct{}{})` over a `func() string`). Defer the
-		// application to the member's replay the way `x.M ()`
-		// itself waits.
-		if lit, ok := e.Args[0].Value.(*syntax.Lit); ok && lit.Kind == syntax.LitUnit {
-			if m, ok := types.Chase(fn.Type()).(*types.Meta); ok {
-				for _, me := range c.pendingSels {
-					if types.Chase(me.Type()) != m {
-						continue
-					}
-					pa := &pendingApply{me: me, alwaysGom: true}
-					out.Base = baseOf(e.Sp, c.newMeta(e.Sp, "the deferred call's result"))
-					pa.ap = out
-					for _, a := range e.Args {
-						label := ""
-						var labelSp diag.Span
-						if a.Label != nil {
-							label = a.Label.Name
-							labelSp = a.Label.Sp
-						}
-						out.Args = append(out.Args, Arg{
-							Label: label, LabelSp: labelSp,
-							Value: c.provisionalArg(a.Value, pa),
-						})
-					}
-					out.Call = CallInfo{Kind: CallUnknown, Applied: len(out.Args), HoleIndex: -1}
-					c.pendingApplies = append(c.pendingApplies, pa)
-					return out
-				}
 			}
 		}
 	}
@@ -902,9 +924,22 @@ func (c *checker) spreadElem(t types.Type, elem types.Type, sp diag.Span) {
 // once revisitSelects resolves the member, or at the end of finalize
 // under the Gom rule when the receiver never does.
 type pendingApply struct {
-	ap   *Apply      // the provisional node; Fn is me
-	me   *MemberExpr // the deferred callee selection
-	done bool        // replayed — guards chained members
+	ap *Apply      // the provisional node
+	me *MemberExpr // the deferred member the callee's type waits on
+	// calleeT is the type the replay consumes arguments against:
+	// me's standing meta when the callee is the member itself
+	// (`x.M(args)`), the aliased standing meta when the callee is a
+	// variable bound to the member (`let f = x.M; f args`), or the
+	// result meta of an earlier pending apply (`x.M(a) (b)`). At
+	// replay time it chases to the resolved signature.
+	calleeT types.Type
+	done    bool // replayed — guards chained members
+	// dropped marks an apply abandoned as dead work when its member
+	// failed — distinct from done, which replay also sets on success.
+	dropped bool
+	// failed marks an apply whose replay emitted diagnostics — its
+	// result meta is error debris, not a live type.
+	failed bool
 
 	// alwaysGom forces the Gom replay even when the member settles
 	// to a Go method: the apply's callee is a plain value (a Var
@@ -941,7 +976,7 @@ func (pa *pendingApply) useMarker(e Expr) {
 // node's standing result meta is what context constraints see; the
 // replay unifies it with the convention-correct result.
 func (c *checker) checkDeferredApply(e *syntax.Apply, me *MemberExpr) Expr {
-	pa := &pendingApply{me: me}
+	pa := &pendingApply{me: me, calleeT: me.Type()}
 	out := &Apply{Base: baseOf(e.Sp, c.newMeta(e.Sp, "the deferred call's result")), Fn: me}
 	pa.ap = out
 	for _, a := range e.Args {
@@ -1024,14 +1059,41 @@ func (c *checker) replayAppliesOf(me *MemberExpr) {
 	}
 }
 
-// replayDeferredApplies is the trailing pass: applications whose
-// member selection never resolved replay under the Gom convention —
-// the convention diagnostics the first pass withheld (E0504 for a
-// `_`, E0408 for a label on an unknown callee) still fire.
-func (c *checker) replayDeferredApplies() {
+// replayResolvedApplies replays the deferred applications whose
+// member already settled — replayAppliesOf covers members resolved
+// inside revisitSelects; this sweep catches applies a re-checked
+// fill registered on an already-settled member. A replay's
+// unifications can pin the receiver another apply or selection
+// waits on, so callers drive it inside a fixpoint.
+func (c *checker) replayResolvedApplies() int {
+	n := 0
 	for _, pa := range c.pendingApplies {
+		if pa.done || pa.me.Sym == nil {
+			continue
+		}
 		c.replayApply(pa)
+		n++
 	}
+	return n
+}
+
+// replayUnresolvedApplies commits the still-undecided applications
+// to the Gom convention — the convention diagnostics the first
+// pass withheld (a `_`, a label on an unknown callee) fire and
+// lowering sees a valid record. Call it only once nothing can
+// bind receivers any more: an early commit pins the member's
+// standing meta to a Gom shape (`Unit -> ?r`), so a member that
+// resolves later both loses its Go convention and mis-unifies.
+func (c *checker) replayUnresolvedApplies() int {
+	n := 0
+	for _, pa := range c.pendingApplies {
+		if pa.done || pa.me.Sym != nil {
+			continue
+		}
+		c.replayApply(pa)
+		n++
+	}
+	return n
 }
 
 // replayApply gives a deferred application its final Args and
@@ -1044,11 +1106,19 @@ func (c *checker) replayApply(pa *pendingApply) {
 		return
 	}
 	pa.done = true
-	if me := pa.me; !pa.alwaysGom && me.Sym != nil && me.Sym.IsGo && me.Sym.Kind == resolve.KindMethod {
+	diagMark := len(c.diags)
+	// The Go method replay builds a CallGo naming the member's
+	// receiver — it applies only when the callee *is* the member
+	// (`x.M(args)`). A variable or call result standing on the
+	// member's type carries the receiver inside its own value, so
+	// it replays the Gom rule even when the member settled to a
+	// Go method (the callee's signature already holds the arity).
+	if me := pa.me; !pa.alwaysGom && pa.ap.Fn == Expr(me) && me.Sym != nil && me.Sym.IsGo && me.Sym.Kind == resolve.KindMethod {
 		c.replayGoApply(pa)
-		return
+	} else {
+		c.replayGomApply(pa)
 	}
-	c.replayGomApply(pa)
+	pa.failed = len(c.diags) > diagMark
 }
 
 // replayGoApply is checkGoApply's second pass over an already-typed
@@ -1451,7 +1521,15 @@ func (c *checker) unifyDeferredResult(e *Apply, res types.Type, hasHole bool) {
 			return
 		}
 	}
-	c.unify(e.Type(), res, e.Sp)
+	switch c.unifySlicePair(e.Type(), res, e.Sp) {
+	case 0:
+		c.unify(e.Type(), res, e.Sp)
+	case 2:
+		// A consumer pinned the result to `Go.Slice` before the
+		// callee's `List` arrived — the lowering still owes the
+		// boundary copy.
+		e.CopyFrom = res
+	}
 }
 
 // replayGomApply is checkGomApply's second pass: the member resolved
@@ -1462,8 +1540,7 @@ func (c *checker) unifyDeferredResult(e *Apply, res types.Type, hasHole bool) {
 // errors E0405/E0406/E0408.
 func (c *checker) replayGomApply(pa *pendingApply) {
 	e := pa.ap
-	me := pa.me
-	params, ret := flattenFunc(me.Type())
+	params, ret := flattenFunc(pa.calleeT)
 	flat := len(params)
 	used := make([]bool, flat)
 	posIdx := 0
@@ -1478,7 +1555,7 @@ func (c *checker) replayGomApply(pa *pendingApply) {
 	// `-> T` — applied as `x.M ()` saturates; the unit literal is
 	// the call marker, not an argument.
 	if flat == 0 && len(e.Args) == 1 && e.Args[0].Label == "" {
-		if fty, ok := types.Chase(me.Type()).(*types.Func); ok && len(fty.Params) == 0 {
+		if fty, ok := types.Chase(pa.calleeT).(*types.Func); ok && len(fty.Params) == 0 {
 			if lit, ok := e.Args[0].Value.(*Lit); ok && lit.Kind == syntax.LitUnit {
 				c.unify(e.Type(), ret, e.Sp)
 				e.Args = nil
@@ -1504,7 +1581,7 @@ func (c *checker) replayGomApply(pa *pendingApply) {
 		if label != "" {
 			pi = c.paramByLabel(params, label)
 			if pi < 0 {
-				if _, unresolved := types.Chase(me.Type()).(*types.Meta); unresolved || flat == 0 {
+				if _, unresolved := types.Chase(pa.calleeT).(*types.Meta); unresolved || flat == 0 {
 					c.diags.Add(diag.Error("E0408",
 						"a labeled call requires the callee's type to be known").
 						At(labelSpan(labelSp, a.Span())).Set("label", label))
@@ -1580,7 +1657,7 @@ func (c *checker) replayGomApply(pa *pendingApply) {
 	if len(extras) > 0 {
 		res = c.overApply(ret, extras, extraIdx, newArgs, e.Sp)
 	} else {
-		res = applyResidual(me.Type(), used, 0)
+		res = applyResidual(pa.calleeT, used, 0)
 	}
 	c.unify(e.Type(), res, e.Sp)
 	e.Args = newArgs

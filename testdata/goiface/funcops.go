@@ -46,6 +46,38 @@ type WithFn struct {
 	Fn func(int64) int64
 }
 
+// WithFloat keeps a float64 callback field — a non-Int numeric
+// signature for the deferred-assignment default-ordering fixture.
+type WithFloat struct {
+	F func(float64) float64
+	G func(float64) float64
+}
+
+// CallF invokes the stored float callback.
+func (w *WithFloat) CallF(x float64) float64 { return w.F(x) }
+
+// Rep returns a slice — the iterable-result member call (`Go.Slice
+// Int`) a `for` deferred on a meta receiver consumes.
+func (w *WithFloat) Rep(n int64) []int64 { return nil }
+
+// Boxes returns struct values — a record-element iterable: a `for`
+// body's `v.N` read resolves only once the deferred iterable binds
+// its element.
+func (w *WithFloat) Boxes(n int64) []SliceBox { return nil }
+
+// Ratios returns a named-numeric iterable — `v + 1` in a deferred
+// `for` body must see Ratio, not a premature Int default.
+func (w *WithFloat) Ratios(n int64) []Ratio { return nil }
+
+// Anys returns an `any`-element slice — the `Go.Slice Go.Any`
+// element that `unify` would accept without binding the loop
+// variable's type.
+func (w *WithFloat) Anys(n int64) []any { return nil }
+
+// Ch returns a channel — the non-list iterable a deferred `for`'s
+// List default must not pre-empt.
+func (w *WithFloat) Ch(n int64) chan int64 { return nil }
+
 // Call invokes the stored callback.
 func (w *WithFn) Call() int64 { return w.Fn(1) }
 

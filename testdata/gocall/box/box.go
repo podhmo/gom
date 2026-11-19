@@ -37,6 +37,10 @@ func Shared() *Box { return shared }
 // value-struct direction (H1).
 func Snapshot() Box { return *shared }
 
+// Nil returns a detached Box whose Xs is nil — the nil-slice edge
+// of the boundary copy.
+func Nil() Box { return Box{Xs: nil} }
+
 // MutateN adds delta to shared.N — the Go-side write that decides
 // whether a Gom field read produced an alias or a snapshot.
 func MutateN(delta int64) { shared.N += delta }
