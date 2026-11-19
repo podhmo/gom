@@ -2547,11 +2547,16 @@ func (c *checker) iterElemCon(t *types.Con, sp diag.Span) (types.Type, bool) {
 }
 
 // iterPendingOn reports whether the meta the iterable's type chases
-// to is owned by deferred work — a pending member selection's
-// standing meta or a pending application's result meta — whose real
-// solution a later finalize round supplies.
+// to is owned by deferred work still awaiting resolution — a pending
+// member selection's standing meta or a pending application's
+// result meta — whose real solution a later finalize round
+// supplies. A processed selection (resolved or already failed:
+// its quiet standing meta is debris) no longer claims the iterable.
 func (c *checker) iterPendingOn(t *types.Meta) bool {
 	for _, me := range c.pendingSels {
+		if c.selDone[me] {
+			continue
+		}
 		if types.Chase(me.Type()) == types.Type(t) {
 			return true
 		}

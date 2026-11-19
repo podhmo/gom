@@ -1,0 +1,14 @@
+// An iterable deferred on a member lookup that fails: `x.missing`
+// reports E0401 and marks its standing meta quiet, but the failed
+// selection still owns the iterable's meta — the loop element must
+// take the quiet List default instead of piling an E0407
+// annotation request on the missing-member error.
+
+package main
+
+fn f () -> Unit = {
+  let x = 1
+  for v in x.missing {
+    ignore v
+  }
+}
