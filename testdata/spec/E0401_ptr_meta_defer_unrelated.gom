@@ -1,0 +1,14 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+fn calln (w: Ptr goiface.WithFn) -> Int = w.Call ()
+
+// `w.Nope` is diagnosed the same round `.Fn` resolves — the
+// provisional fill's rollback must not erase its E0401.
+fn broken () -> Int = {
+  let w = Ptr.new ()
+  ignore w.Nope
+  w.Fn = Go.func1 (fn x -> x + calln w)
+  1
+}
