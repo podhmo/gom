@@ -1317,6 +1317,11 @@ func (c *checker) finalize() {
 			break
 		}
 	}
+	// Iterables deferred on pending work (`for v in f a` with `f` a
+	// member alias) settle now — every call has replayed or committed,
+	// so each iterable's meta carries its real shape (or stays unbound
+	// and takes the List default inside finishIters).
+	c.finishIters()
 	c.revisitInterfaces()
 	// The same post-default moment settles the pending constant-zero
 	// divisors: their operand types are now concrete (or bound to a

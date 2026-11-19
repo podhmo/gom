@@ -2506,6 +2506,102 @@ func (c *checker) checkGoExpr(e *syntax.GoExpr) Expr {
 	return &GoExpr{Base: baseOf(e.Sp, c.unitResult(e.Sp, "`go {}`")), Body: body}
 }
 
+// pendingIter records a `for` loop whose iterable's type was a meta
+// tied to deferred work — a member alias's standing meta or a
+// deferred call's result meta. checkFor minted the element meta
+// without pinning `List`; finishIters runs the iterable-shape rules
+// once the meta settles (or binds the List default when it never
+// does).
+type pendingIter struct {
+	t    types.Type // the meta the iterable's type chases to
+	elem types.Type // the element meta the pattern checked against
+	iter Expr       // the checked iterable node (span, resolved type)
+}
+
+// iterElemCon extracts the element type of a concrete iterable —
+// builtin List, a List-derived View (same `range` lowering as List:
+// the shared backing slice), `Go.Slice` (decisions/for-over-go-slice:
+// index order, nil iterates zero times), or a receivable channel.
+// ok=false means the shape does not iterate.
+func (c *checker) iterElemCon(t *types.Con, sp diag.Span) (types.Type, bool) {
+	if t.Qual == "" && t.Name == "List" && len(t.Args) == 1 &&
+		!c.shadowedBuiltin("List") {
+		return t.Args[0], true
+	}
+	if t.Qual == "" && t.Name == "View" && len(t.Args) == 1 &&
+		!c.shadowedBuiltin("View") {
+		return t.Args[0], true
+	}
+	if t.Qual == "Go" && t.Name == "Slice" && len(t.Args) == 1 {
+		return t.Args[0], true
+	}
+	if el, dir, ok := c.chanElem(t); ok {
+		if dir == "send" {
+			c.diags.Add(diag.Error("E0401",
+				"cannot iterate a send-only channel").At(sp))
+		}
+		return el, true
+	}
+	return nil, false
+}
+
+// iterPendingOn reports whether the meta the iterable's type chases
+// to is owned by deferred work — a pending member selection's
+// standing meta or a pending application's result meta — whose real
+// solution a later finalize round supplies.
+func (c *checker) iterPendingOn(t *types.Meta) bool {
+	for _, me := range c.pendingSels {
+		if types.Chase(me.Type()) == types.Type(t) {
+			return true
+		}
+	}
+	for _, q := range c.pendingApplies {
+		if !q.done && types.Chase(q.ap.Type()) == types.Type(t) {
+			return true
+		}
+	}
+	return false
+}
+
+// finishIters reconciles the `for` loops deferred by checkFor once
+// every member and call has replayed: a settled iterable re-runs the
+// concrete shape rules and unifies the real element type with the
+// pattern's meta, and one that stayed a meta gets the `List elem`
+// default the eager path would have bound.
+func (c *checker) finishIters() {
+	for _, pi := range c.pendingIters {
+		sp := pi.iter.Span()
+		switch t := types.Chase(pi.t).(type) {
+		case *types.Meta:
+			if !c.bind(t, types.List(pi.elem), sp) {
+				c.markQuiet(pi.elem)
+			}
+			if c.shadowedBuiltin("List") {
+				c.shadowedErr(sp, "`for` iteration", "List")
+				c.markQuiet(pi.elem)
+			}
+		case *types.Con:
+			if el, ok := c.iterElemCon(t, sp); ok {
+				c.unify(el, pi.elem, sp)
+			} else {
+				if t.Qual == "" && c.shadowedBuiltin(t.Name) &&
+					(t.Name == "List" || t.Name == "View" || t.Name == "Chan" || t.Name == "RecvChan" || t.Name == "SendChan") {
+					c.shadowedErr(sp, "`for` iteration", t.Name)
+				} else {
+					c.mismatch(sp, "a List, a Go.Slice, or a channel", pi.iter.Type())
+				}
+				c.markQuiet(pi.elem)
+			}
+		case *types.Var, *types.Func, *types.Tuple, *types.Go:
+			c.mismatch(sp, "a List, a Go.Slice, or a channel", pi.iter.Type())
+			c.markQuiet(pi.elem)
+		default:
+			panic("unreachable")
+		}
+	}
+	c.pendingIters = nil
+}
+
 // checkFor types `for pat in iter { body }`: iter is a List, a
 // Go.Slice, or a receivable channel; the pattern binds each element;
 // the body is Unit.
@@ -2514,24 +2610,7 @@ func (c *checker) checkFor(e *syntax.For) Expr {
 	var elem types.Type
 	switch t := types.Chase(iter.Type()).(type) {
 	case *types.Con:
-		if t.Qual == "" && t.Name == "List" && len(t.Args) == 1 &&
-			!c.shadowedBuiltin("List") {
-			elem = t.Args[0]
-		} else if t.Qual == "" && t.Name == "View" && len(t.Args) == 1 &&
-			!c.shadowedBuiltin("View") {
-			// `for x in v` over a List-derived `View a` ranges the
-			// shared backing slice — same `range` lowering as List.
-			elem = t.Args[0]
-		} else if t.Qual == "Go" && t.Name == "Slice" && len(t.Args) == 1 {
-			// `for x in s` over `Go.Slice a` is the `range []T` the
-			// ForList lowering already emits — index order, nil
-			// iterates zero times (decisions/for-over-go-slice).
-			elem = t.Args[0]
-		} else if el, dir, ok := c.chanElem(t); ok {
-			if dir == "send" {
-				c.diags.Add(diag.Error("E0401",
-					"cannot iterate a send-only channel").At(e.Iter.Span()))
-			}
+		if el, ok := c.iterElemCon(t, e.Iter.Span()); ok {
 			elem = el
 		} else {
 			if t.Qual == "" && c.shadowedBuiltin(t.Name) &&
@@ -2547,6 +2626,18 @@ func (c *checker) checkFor(e *syntax.For) Expr {
 		}
 	case *types.Meta:
 		elem = c.newMeta(e.Iter.Span(), "the iterated element's type")
+		if c.iterPendingOn(t) {
+			// The iterable's type waits on a deferred member or
+			// call (`for v in f a` with `f` a member alias):
+			// binding `List elem` here would pin the pending
+			// result meta before the member's signature —
+			// possibly View, a Go slice or a channel — arrives.
+			// finishIters reconciles the element once the
+			// iterable settles at finalize.
+			c.pendingIters = append(c.pendingIters,
+				&pendingIter{t: t, elem: elem, iter: iter})
+			break
+		}
 		if !c.bind(t, types.List(elem), e.Iter.Span()) {
 			c.markQuiet(elem)
 		}

@@ -1,0 +1,33 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// `for` over an iterable whose type waits on a deferred member: the
+// loop must not pin `List` before the member resolves — `b.Xs`
+// settles to `Go.Slice Int`, `w.Rep` to `Int64 -> Go.Slice Int`.
+
+fn via_field () -> Ptr goiface.SliceBox = {
+  let b = Ptr.new ()
+  let xs = b.Xs
+  for v in xs {
+    ignore v
+  }
+  b
+}
+
+fn via_call () -> Ptr goiface.WithFloat = {
+  let w = Ptr.new ()
+  for v in w.Rep 2 {
+    ignore v
+  }
+  w
+}
+
+fn via_alias () -> Ptr goiface.WithFloat = {
+  let w = Ptr.new ()
+  let f = w.Rep
+  for v in f 2 {
+    ignore v
+  }
+  w
+}
