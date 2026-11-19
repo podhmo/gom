@@ -25,3 +25,6 @@ let j = ((g x) |> f) y
 let k : (F A B) C D = y
 let l : ((A -> B) C) D = y
 let m = if a |> f { 1 } else { 2 }
+let n = match (b.N = v : Int) {
+  _ -> 0
+}

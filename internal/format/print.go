@@ -514,9 +514,13 @@ func colonTail(e syntax.Expr) bool {
 				return false
 			}
 			e = x.X
+		case *syntax.Assign:
+			// `x.F = v : T` ascribes the value, not the write —
+			// a `:` after the assignment sinks into its bare tail.
+			e = x.Value
 		case *syntax.Ident, *syntax.Hole, *syntax.Lit, *syntax.StrInterp,
 			*syntax.TupleLit, *syntax.ListLit, *syntax.RecordLit,
-			*syntax.Select, *syntax.Ascribe, *syntax.Assign, *syntax.If,
+			*syntax.Select, *syntax.Ascribe, *syntax.If,
 			*syntax.Match, *syntax.For, *syntax.GoExpr,
 			*syntax.SelectExpr, *syntax.Lambda, *syntax.Let,
 			*syntax.Spread, *syntax.Block:
@@ -572,10 +576,14 @@ func typeTail(e syntax.Expr) bool {
 				return false
 			}
 			e = x.Y
+		case *syntax.Assign:
+			// The value renders bare, so the assignment's tail is the
+			// value's own tail — `x.F = v : T` ends in a type.
+			e = x.Value
 		case *syntax.Ident, *syntax.Hole, *syntax.Lit, *syntax.StrInterp,
 			*syntax.TupleLit, *syntax.ListLit, *syntax.RecordLit,
 			*syntax.Select, *syntax.Apply, *syntax.Unary, *syntax.Try,
-			*syntax.Ignore, *syntax.Assign, *syntax.If, *syntax.Match,
+			*syntax.Ignore, *syntax.If, *syntax.Match,
 			*syntax.For, *syntax.GoExpr, *syntax.SelectExpr,
 			*syntax.Block:
 			return false
