@@ -29,10 +29,11 @@ deriving 全般を今後も否定する決定ではない — `Ord` 以外にも
 
 ## 影響
 
-- open-questions の「`deriving` 相当の自動生成」項は本決定の
-  記録に置き換えて閉じる — 再検討の入口（設計空間）は
+- open-questions の「`deriving` 相当の自動生成」項は本決定への
+  参照つきで残す — `Ord` 限定は見送り確定だが、対象が広がる
+  場合の再考余地が残るため。設計空間の整理は
   [sketch](../sketch/2026-11-19-wave25-deriving.md) の案 2 節に
-  残る（多相フィールドの辞書引数 plan kind・宣言駆動 mint 経路）
+  ある（多相フィールドの辞書引数 plan kind・宣言駆動 mint 経路）
 - `stdlib/cmp` への辞書合成関数（`option_ord`/`list_ord`/
   `pair_ord` 形 — 「辞書→辞書」の普通の Gom 関数）は言語機能
   ではなくライブラリ拡張なので本決定と矛盾しない。導入するかは
