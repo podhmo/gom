@@ -1,13 +1,12 @@
 // Command gom is the CLI of the Gom compiler, which transpiles Gom
 // sources to Go.
 //
-// build, check, dump, test, run, fmt, fix, info, explain, schema, and lsp
+// build, check, dump, test, run, fmt, fix, info, explain, and schema
 // are implemented; `gomi` reports its rename to `info`
 // (docs/design.md section 3). The command stays a thin layer over
 // internal/build, internal/format and internal/diag: cli.go holds
 // flag parsing, file walking, and message-stream emission;
-// tooling.go holds the fix/explain/schema bodies; lsp.go the
-// language-server entry point.
+// tooling.go holds the fix/explain/schema bodies.
 package main
 
 import (
@@ -35,7 +34,6 @@ The commands are:
 	info      generate or update .gomi interface drafts
 	explain   explain an error code
 	schema    print the JSON Schema of the message format
-	lsp       serve the language server protocol over stdio
 
 Run "gom <command> -h" for command-specific help.
 `
@@ -77,8 +75,6 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return runTest(args[1:], stdout, stderr)
 	case "run":
 		return runGomRun(args[1:], stdout, stderr)
-	case "lsp":
-		return runLSP(args[1:], stdout, stderr)
 	case "gomi":
 		fmt.Fprintln(stderr, `gom gomi: the command was renamed to "gom info"`)
 		return 2

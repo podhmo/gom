@@ -735,7 +735,6 @@ test "parse then sum" {
 | `gom schema` | メッセージ形式の JSON Schema |
 | `gom info` | `.gomi` 下書きをファイルまたは `-o -` で stdout に書く。診断は stderr の同形式ストリーム |
 | `gom dump -phase` | フェーズの IR ツリーを stdout に書く。診断は stderr の同形式ストリーム |
-| `gom lsp` | LSP サーバー（stdio 上の JSON-RPC）。このメッセージストリームは使わない |
 
 `applied` オブジェクトは適用した fix 1 件につき 1 つ。`code` は fix が答えた診断のコード、`title` は `fixes` にあった fix のタイトル、`edits` は診断の fix edit と同じ形（`file`・`start`・`end`・`text`）で、編集前のソースの座標系で解決される。
 
