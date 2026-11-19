@@ -93,8 +93,7 @@ func (*FuncRef) isAtom() {}
 // is the constructor's curried function type.
 type CtorRef struct {
 	Base
-	Sym      *resolve.Symbol // KindCtor
-	TypeArgs []types.Type
+	Sym *resolve.Symbol // KindCtor
 	// Fields are the variant's declared payload slots, as on
 	// CtorApp — the materializing closure's literal needs the names
 	// for constructors codegen has no declaration table for.

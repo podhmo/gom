@@ -557,59 +557,6 @@ func typeBodyVars(b TypeBody) map[int]*types.Var {
 	return out
 }
 
-// resultCon returns the ADT Con a constructor node's result type
-// lands on: CtorApp's own type, or the final return of a CtorRef's
-// arrow chain. nil when the type never reaches a Con.
-func resultCon(t types.Type) *types.Con {
-	for {
-		x := types.Chase(t)
-		if f, ok := x.(*types.Func); ok {
-			t = f.Ret
-			continue
-		}
-		if c, ok := x.(*types.Con); ok {
-			return c
-		}
-		return nil
-	}
-}
-
-// ctorTArgs enforces the optional-but-authoritative rule on a
-// constructor's recorded TypeArgs: when present it must spell the
-// same ADT instantiation the node lands on — the Con the eventual
-// return type resolves to. CtorApp is always saturated (partial
-// application lowers to a closure wrapping a saturated CtorApp), so
-// its Typ is that Con directly; the Func chase matters for CtorRef,
-// whose Typ is the ctor's arrow type (decision
-// 2026-11-18-ctor-typeargs-authoritative). Absent TypeArgs is legal
-// where the declared arity is not visible (imported/builtin ctors) —
-// codegen's ctorTArgs falls back to the result type's own arguments;
-// file-local generic ctors still require it via the existing `targs`
-// count check.
-func (v *validator) ctorTArgs(sp diag.Span, what string, targs []types.Type, ret types.Type) {
-	if len(targs) == 0 {
-		return
-	}
-	c := resultCon(ret)
-	if c == nil {
-		v.err(sp, what, "TypeArgs present but result type %s is not an ADT result", ret)
-		return
-	}
-	if len(targs) != len(c.Args) {
-		v.err(sp, what, "TypeArgs carries %d argument(s); result type %s instantiates %d",
-			len(targs), c, len(c.Args))
-		return
-	}
-	for i := range targs {
-		if targs[i] == nil {
-			v.err(sp, what, "TypeArgs[%d] is nil", i)
-		} else if !types.Equal(targs[i], c.Args[i]) {
-			v.err(sp, what, "TypeArgs[%d] %s differs from result type argument %s",
-				i, targs[i], c.Args[i])
-		}
-	}
-}
-
 // targs checks a TypeArgs instantiation against the target's
 // declared type-parameter count — when the target is declared in
 // this file and the count is known (imported symbols carry no decl
@@ -837,13 +784,11 @@ func (v *validator) atom(a Atom, what string) {
 		if a.Sym == nil || a.Sym.Kind != resolve.KindCtor {
 			v.err(a.Sp, "CtorRef", "not a constructor symbol")
 		}
-		v.targs(a.Sp, "CtorRef", a.Sym, a.TypeArgs)
 		if a.Typ != nil {
 			if _, ok := types.Chase(a.Typ).(*types.Func); !ok {
 				v.err(a.Sp, "CtorRef", "type %s is not a function type", a.Typ)
 			}
 		}
-		v.ctorTArgs(a.Sp, "CtorRef", a.TypeArgs, a.Typ)
 	case *GoFuncRef:
 		if a.Sym == nil || !a.Sym.IsGo {
 			v.err(a.Sp, "GoFuncRef", "not a Go symbol")
@@ -1046,8 +991,6 @@ func (v *validator) expr(e Expr, inTail bool) {
 		if e.Ctor == nil || e.Ctor.Kind != resolve.KindCtor {
 			v.err(e.Sp, "CtorApp", "callee is not a constructor symbol")
 		}
-		v.targs(e.Sp, "CtorApp", e.Ctor, e.TypeArgs)
-		v.ctorTArgs(e.Sp, "CtorApp", e.TypeArgs, e.Typ)
 		if len(e.Args) != e.Arity {
 			v.err(e.Sp, "CtorApp", "constructor takes %d args for declared arity %d",
 				len(e.Args), e.Arity)

@@ -396,7 +396,7 @@ func (g *gen) uncurryLit(e *core.Uncurry) {
 				args = append(args, pvOf(qs[len(qs)-1]))
 			}
 			var call core.Expr = &core.CtorApp{Base: core.Base{Sp: x.Sp, Typ: ret}, Ctor: x.Sym,
-				Args: args, Arity: cArity, TypeArgs: x.TypeArgs, Fields: x.Fields}
+				Args: args, Arity: cArity, Fields: x.Fields}
 			for i := len(qs) - 1; i >= 0; i-- {
 				call = &core.Closure{Base: core.Base{Sp: e.Sp, Typ: ret},
 					Fn: &core.Func{Sp: e.Sp, Params: []*core.Bind{qs[i]},
@@ -405,7 +405,7 @@ func (g *gen) uncurryLit(e *core.Uncurry) {
 			tail = call
 		} else {
 			var call core.Expr = &core.CtorApp{Base: core.Base{Sp: x.Sp, Typ: ret}, Ctor: x.Sym,
-				Args: args, Arity: cArity, TypeArgs: x.TypeArgs, Fields: x.Fields}
+				Args: args, Arity: cArity, Fields: x.Fields}
 			for i := n; i < e.Arity; i++ {
 				a := bindOf(call)
 				call = &core.CallFunc{Base: core.Base{Sp: e.Sp, Typ: ret}, Fn: a,
@@ -624,13 +624,9 @@ func (g *gen) dcaseType(c core.DCase, guard string, s *core.DSwitch, d dest) {
 	if !ok {
 		panic("codegen: SwitchType case test is not a DCtorTest")
 	}
-	var targs []types.Type
-	if con, ok := types.Chase(s.Subj.Type()).(*types.Con); ok {
-		targs = con.Args
-	}
 	g.caseLabel(func() {
 		g.raw("case ")
-		g.expr(g.ctorGoType(ct.Ctor, s.Subj.Type(), targs))
+		g.expr(g.ctorGoType(ct.Ctor, s.Subj.Type()))
 	})
 	// A SwitchType case carries at most one bind — the narrowed
 	// subject alias (tree.go).

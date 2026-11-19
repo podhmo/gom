@@ -175,7 +175,7 @@
         (callgo@759:763 :Int WriteString%69 arity=1 results=err-only
           (recv (var@760:763 :bytes.Buffer buf%66))
           (lit@763:764 :Int int 0)))
-      (let@764:770 :(Box Int) bx%75@764:766 (ctorapp@767:771 :(Box Int) Box%13 arity=1 targs=[Int] (lit@770:771 :Int int 7)))
+      (let@764:770 :(Box Int) bx%75@764:766 (ctorapp@767:771 :(Box Int) Box%13 arity=1 (lit@770:771 :Int int 7)))
       (let@772:786 :Int j%76@772:773
         (select@775:786 :Int
           (recv@778:782
