@@ -2,10 +2,7 @@
 
 - 状態: adopted
 - 日付: 2026-11-19
-- Supersedes:
-  [lsp-v1-scope](2026-11-06-lsp-v1-scope.md)、
-  [lsp-package-unit](2026-11-06-lsp-package-unit.md)、
-  [lsp-gotool-invocation](2026-11-17-lsp-gotool-invocation.md)
+- Supersedes: [lsp-v1-scope](2026-11-06-lsp-v1-scope.md)、[lsp-package-unit](2026-11-06-lsp-package-unit.md)、[lsp-gotool-invocation](2026-11-17-lsp-gotool-invocation.md)
 - 問い: LSP 面を v1 の提供面に置き続けるか — wave24 lane C
 
 ## 決定

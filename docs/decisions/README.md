@@ -165,8 +165,8 @@
 | [gotool-position-inverse](2026-11-06-gotool-position-inverse.md) | Go-position inverse: anchor-table candidate enumeration and the ambiguity fallback | 採用（実装・検証した — [検証](../sketch/2026-11-06-gotool-inverse-verification.md)） |
 | [iface-import-cycle-e0606](2026-11-06-iface-import-cycle-e0606.md) | Report .gomi-only import cycles as E0606 with the cycle path | 採用（実装・検証した — [検証](../sketch/2026-11-06-iface-import-cycle-e0606-verification.md)。spec.md §7 へ反映済み） |
 | [label-args-into-returned-functions](2026-11-06-label-args-into-returned-functions.md) | 返り値関数のパラメータを指すラベル引数 — カリー鎖をまたいだ並べ替え・充填を採用 | 採用（実装・検証した — [検証](../sketch/2026-11-06-label-args-into-returned-functions.md)。spec.md §2 へ反映済み） |
-| [lsp-package-unit](2026-11-06-lsp-package-unit.md) | LSP package compilation unit: overlay gather, per-member diagnostics | 採用 |
-| [lsp-v1-scope](2026-11-06-lsp-v1-scope.md) | LSP v1 scope: single-open-file hover + pushed diagnostics over stdio JSON-RPC | 採用 — compile-unit 部分は [2026-11-06-lsp-package-unit](2026-11-06-lsp-package-unit.md) が Supersede する（package 単位に拡張） |
+| [lsp-package-unit](2026-11-06-lsp-package-unit.md) | LSP package compilation unit: overlay gather, per-member diagnostics（[lsp-withdrawn](2026-11-19-lsp-withdrawn.md) で置き換え） | 採用 |
+| [lsp-v1-scope](2026-11-06-lsp-v1-scope.md) | LSP v1 scope: single-open-file hover + pushed diagnostics over stdio JSON-RPC（[lsp-withdrawn](2026-11-19-lsp-withdrawn.md) で置き換え） | 採用 — compile-unit 部分は [2026-11-06-lsp-package-unit](2026-11-06-lsp-package-unit.md) が Supersede する（package 単位に拡張） |
 | [nilable-iface-pair-ok-payload](2026-11-06-nilable-iface-pair-ok-payload.md) | `(NamedIface, error)` / `(any, error)` の Ok ペイロード — メソッド持ち interface は派生 `Option`、nil-able 宣言ゲートを interface 全般へ | 採用（実装・検証した — [検証](../sketch/2026-11-06-nilable-iface-pair-ok-payload.md)。spec.md §8.3/§8.4 へ反映済み） |
 | [ptr-t-default](2026-11-06-ptr-t-default.md) | `*T` の既定マッピング — 派生ビュー・extern ともに `Ptr T`、`Option (Ptr T)` は宣言による上書き | 採用（検証済み — [検証](../sketch/2026-11-06-ptr-t-default-prototype.md)。spec.md §8.3/§8.6 へ反映済み） |
 | [self-import-path-module-derived](2026-11-06-self-import-path-module-derived.md) | SelfImportPath is the input's module-relative package path | 採用（実装・検証した — [検証](../sketch/2026-11-06-self-import-path-module-derived-verification.md)） |
@@ -179,7 +179,7 @@
 | [byte-type](2026-11-17-byte-type.md) | `byte`/`uint8` → `Byte` を組み込み型として公開する | draft |
 | [cli-gotool-invocation](2026-11-17-cli-gotool-invocation.md) | go tool の実起動は `gom build -go`（CLI 面） | 採用 |
 | [func-interop](2026-11-17-func-interop.md) | Gom の関数値を Go の func 型として渡す(typed adapter `Go.funcN`)（一部を [nary-go-results](2026-11-18-nary-go-results.md) で置き換え） | draft |
-| [lsp-gotool-invocation](2026-11-17-lsp-gotool-invocation.md) | `gom lsp` の go-tool 診断は opt-in フラグ + per-change 同期起動 | 採用 |
+| [lsp-gotool-invocation](2026-11-17-lsp-gotool-invocation.md) | `gom lsp` の go-tool 診断は opt-in フラグ + per-change 同期起動（[lsp-withdrawn](2026-11-19-lsp-withdrawn.md) で置き換え） | 採用 |
 | [named-int-arith](2026-11-17-named-int-arith.md) | Named Go 整数型の算術・比較（`30 * time.Second` が `Duration` を生む） | accepted |
 | [sourcemap-repin](2026-11-17-sourcemap-repin.md) | 生成行ごとの `//line` 再置き（per-line re-pin）で drift を消す | accepted |
 | [struct-construction](2026-11-17-struct-construction.md) | Go struct の構築・書き込みは Go 側の factory 関数に限る | 採用 |
