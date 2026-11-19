@@ -134,3 +134,20 @@ CallPartial）。下流の lower/codegen はこの写像だけを見る。
 - (3) のデフォルト式の評価時点（宣言時の const 化か、呼出し
   毎の再評価か — Go/C++ なら後者、参照型デフォルトの共有は
   罠）と、`.gomi` で式を晒すか名前だけ晒すか。
+
+## 結論の追記（2026-11-19, podhmo と協議）
+
+- **省略可能引数は言語機能としては持たない方向** — 「モジュールが
+  defaults record を公開し、呼び出し側が `{defaults with x = v}`
+  で潰して record 引数として渡す」パターンで十分。`with` 更新は
+  既存構文で、省略した項目は defaults の値が残るので事実上の
+  optional 引数になる。実装コストが高い `?x:` 構文・スロット
+  fill・`.gomi` デフォルト式照合は見送り。
+- **Go との対応整理** — labeled-unrequired は options record
+  相当、unlabeled required は positionals、labeled required
+  `~x:` は Go にない概念なので生成コードでは positional に
+  潰れる（必須性は gom check が保証する呼出し契約）。
+- **record→ラベル引数の spread（`f ~..opts` 的な TS `...` /
+  Python `**` 相当）は未実装** — record 引数1個で受ける方式が
+  あれば要らないが、labeled 呼び出し互換がほしくなったら
+  future work として検討。
