@@ -313,6 +313,15 @@ func (l *lowerer) fieldAssign(s *seq, e *check.FieldAssign) core.Expr {
 		return l.litUnit(e.Sp)
 	}
 	recv := l.atom(s, e.Recv)
+	if _, ok := recv.(*core.Var); !ok {
+		// A non-Var atom — a promoted field read, say — resolves at
+		// the write site, after the value's binds already ran. Source
+		// order reads the receiver first, so force it into a
+		// temporary before the value lowers.
+		b := l.tmpBind(e.Sp, recv.Type())
+		s.emit(b, recv)
+		recv = varOf(e.Sp, b)
+	}
 	val := l.convAtomTo(s, e.Value.Span(), l.atom(s, e.Value), e.GoFieldType)
 	s.emit(l.discardBind(e.Sp, e.Type()), &core.FieldSet{
 		Sp: e.Sp, Typ: e.Type(), Recv: recv, Field: e.Sym, Value: val,
