@@ -9,7 +9,7 @@ import (
 )
 
 //line go_method_cute.gom:12
-func main(_ struct{}) struct{} {
+func main_(_ struct{}) struct{} {
 //line go_method_cute.gom:13
 	t0 := time.Unix(0, 0)
 //line go_method_cute.gom:14

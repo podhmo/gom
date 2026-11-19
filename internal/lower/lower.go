@@ -212,7 +212,7 @@ func File(f *check.File, env *Env) (*core.File, []diag.Diagnostic) {
 		Sp:      f.Sp,
 		Package: f.Package,
 		PkgSp:   f.PkgSp,
-		Unit:    l.unitScope(env.Siblings),
+		Unit:    l.unitScope(f.Package, env.Siblings),
 	}
 	for _, im := range f.Imports {
 		out.Imports = append(out.Imports, core.Import{
@@ -272,7 +272,7 @@ func (l *lowerer) indexDecl(d check.Decl) {
 // declaring files emit the same identifier. Symbols carrying
 // Package (imported member decls mixed into Env.Siblings) need no
 // entries — they resolve by qualification.
-func (l *lowerer) unitScope(siblings []check.Decl) *core.UnitScope {
+func (l *lowerer) unitScope(pkg string, siblings []check.Decl) *core.UnitScope {
 	if len(siblings) == 0 {
 		return nil
 	}
@@ -288,7 +288,7 @@ func (l *lowerer) unitScope(siblings []check.Decl) *core.UnitScope {
 			if d.Sym != nil {
 				u.TParams[d.Sym] = len(d.TypeParams)
 				if d.Sym.Package == "" {
-					u.Decls = append(u.Decls, core.UnitDecl{Sym: d.Sym, Exported: l.exported(d.Sym)})
+					u.Decls = append(u.Decls, core.UnitDecl{Sym: d.Sym, Exported: l.exported(d.Sym), Entry: l.isEntryDecl(pkg, d)})
 				}
 			}
 		case *check.TypeDecl:
@@ -342,6 +342,31 @@ func (l *lowerer) isEntryPoint(pkg string, sym *resolve.Symbol, fn *core.Func) b
 		return false
 	}
 	return l.isUnitCon(fn.ResidualType())
+}
+
+// isEntryDecl is isEntryPoint's check-level twin for sibling
+// declarations carried on UnitScope.Decls: codegen needs the same
+// entry knowledge for sibling `fn main` symbols to keep the
+// reserved-name escape consistent across member files. The discard
+// test counts bound names — the `()` literal and `_` bind none,
+// while a named `(u: Unit)` does.
+func (l *lowerer) isEntryDecl(pkg string, d *check.FnDecl) bool {
+	if pkg != "main" || d.Sym == nil || d.Sym.Name != "main" || d.Extern {
+		return false
+	}
+	if len(d.Params) != 1 || len(boundVars(d.Params[0].Pat)) != 0 ||
+		!l.isUnitCon(d.Params[0].Pat.Type()) {
+		return false
+	}
+	res := types.Type(d.Sig)
+	for {
+		if f, ok := types.Chase(res).(*types.Func); ok {
+			res = f.Ret
+			continue
+		}
+		break
+	}
+	return l.isUnitCon(res)
 }
 
 // isUnitCon reports whether t spells the *builtin* Unit — an

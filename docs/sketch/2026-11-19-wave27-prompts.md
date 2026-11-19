@@ -10,6 +10,9 @@ podhmo がマージ）。lane 順は下からチェーンする。
 
 ## 候補（採否は podhmo が lane ごとに決める）
 
+**採択（podhmo、2026-11-19）: A〜D の 4 lane 全部。lane A は (b)
+codegen 退避 rename。wave25 残件の追加 lane なし。**
+
 ### A. トップレベル束縛名の Go 予約名衝突 — `devin/wave27-reserved-names`
 
 ```

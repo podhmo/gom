@@ -1,0 +1,16 @@
+package main
+
+// `init` and `main` collide with Go's special package-level names:
+// every non-entry declaration escapes with `_` (spec section 5),
+// while the entry `fn main () -> Unit` keeps `func main()`.
+
+fn init (a: Int) -> Int = a
+
+let boot : Int = init 1
+
+fn helper () -> Int = init 2
+
+fn main () -> Unit = {
+  let _ = init 3
+  ()
+}

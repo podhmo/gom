@@ -12,7 +12,7 @@ import (
 )
 
 //line go_slice_boundary.gom:11
-func main(_ struct{}) struct{} {
+func main_(_ struct{}) struct{} {
 //line go_slice_boundary.gom:12
 	args := list.FromSlice(os.Args)
 //line go_slice_boundary.gom:13

@@ -8,7 +8,7 @@ import (
 )
 
 //line stdlib_view.gom:5
-func main(_ struct{}) struct{} {
+func main_(_ struct{}) struct{} {
 //line stdlib_view.gom:6
 	xs := list.List[int64]{1, 2, 3, 4}
 //line stdlib_view.gom:7
