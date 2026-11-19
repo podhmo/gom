@@ -490,17 +490,18 @@ func TestUndefinedMember(t *testing.T) {
 func TestUndefinedBuiltinMemberNotes(t *testing.T) {
 	b := newAstb()
 	// A member miss on a builtin-scope module with no injected
-	// table splits two ways: List/Option/Result/Chan/Task are
-	// implemented by internal/stdlib — the miss means this compile
-	// was not wired for them — while Ref/Array have no members
-	// anywhere yet. The E0201 note must say which.
+	// table splits two ways: every builtin module is implemented
+	// by internal/stdlib — the miss means this compile was not
+	// wired for it — while a builtin module with no stdlib table
+	// at all would get the "exposes no members yet" note. Only the
+	// first kind exists today; the E0201 note must say which.
 	cases := []struct {
 		name     string
 		mod      string
 		wantNote string
 	}{
 		{"stdlib not wired", "List", "not given its member table"},
-		{"stdlib not implemented", "Ref", "exposes no members yet"},
+		{"stdlib not wired", "Ref", "not given its member table"},
 	}
 	for _, tt := range cases {
 		t.Run(tt.name, func(t *testing.T) {

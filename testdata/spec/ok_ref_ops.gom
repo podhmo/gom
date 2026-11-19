@@ -1,0 +1,28 @@
+package ex
+
+// The `Ref` module's operation surface (spec section 3.1): the
+// mutable cell — `Ref.new` allocates an initialized cell, `Ref.get`
+// reads and `Ref.set` writes through plain dereference.
+fn bump (r: Ref Int) -> Int = {
+  Ref.set r (Ref.get r + 1)
+  Ref.get r
+}
+
+fn swap (a: Ref Int) (b: Ref Int) -> Unit = {
+  let va = Ref.get a
+  Ref.set a (Ref.get b)
+  Ref.set b va
+}
+
+fn counter () -> Int = {
+  let r = Ref.new 0
+  ignore (bump r)
+  bump r
+}
+
+// A cell can hold any value — including another Ref or a record.
+fn nested () -> Int = {
+  let rr = Ref.new (Ref.new 7)
+  Ref.set (Ref.get rr) 8
+  Ref.get (Ref.get rr)
+}

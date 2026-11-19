@@ -1,0 +1,6 @@
+package ex
+
+// An unknown member of the compiler-owned `Ref` module reports
+// E0201 the same way `Ptr.bogus` does — the module's member table
+// is wired, the name just misses.
+fn f (r: Ref Int) -> Int = Ref.bogus r

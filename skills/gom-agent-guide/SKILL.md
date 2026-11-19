@@ -228,7 +228,8 @@ generated from — useful when generated code surprises you.
   `Array.length a`, `Array.get a i`, `Array.set a i v`,
   `Array.to_list a` (zero-copy freeze — do not write the array
   after freezing, spec §8.7), `Array.from_list xs` (copies).
-  `Ref.*` still reports E0201 "exposes no members yet".
+  `Ref a` is the mutable cell: `Ref.new v`, `Ref.get r`,
+  `Ref.set r v` — always initialized, no nil form.
 
 ## Newlines (no indentation rules)
 
@@ -386,8 +387,8 @@ assignment form writes an exported Go struct field through `Ptr T`
 field-writes pattern replaces Go composite literals; anything else
 as the target is E0511. Other mutable state is explicit: `Array a`
 is the build buffer (`Array.make`/`get`/`set`, freeze with
-`Array.to_list`); `Ref a` members are still pending. Default to
-immutability.
+`Array.to_list`); `Ref a` is the mutable cell (`Ref.new`/`get`/
+`set`). Default to immutability.
 
 ## `let ... in`, `return`, `else if`
 

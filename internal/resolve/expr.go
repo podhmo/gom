@@ -242,9 +242,9 @@ func (r *resolver) selectExpr(n *syntax.Select, sc *scope) {
 
 // memberTable returns the member table of a module symbol. builtin is
 // true for a builtin-scope module with no injected table — either an
-// unimplemented stdlib module (Ref/Array/Chan/Task) or a stdlib
-// module this compile was not wired for (undefinedMember picks the
-// note). A nil table with builtin=false marks a package that failed
+// unimplemented stdlib module or a stdlib module this compile was not
+// wired for (undefinedMember picks the note). A nil table with
+// builtin=false marks a package that failed
 // to load: member lookups are left unresolved without further
 // diagnostics, since the import site already reported E0203.
 func (r *resolver) memberTable(mod *Symbol) (table map[string]*Symbol, builtin bool) {
