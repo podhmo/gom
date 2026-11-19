@@ -38,7 +38,9 @@ import (
 	"github.com/podhmo/gom/internal/build"
 	"github.com/podhmo/gom/internal/diag"
 	"github.com/podhmo/gom/internal/goimport"
+	"github.com/podhmo/gom/internal/gomimport"
 	"github.com/podhmo/gom/internal/lower"
+	"github.com/podhmo/gom/internal/resolve"
 	gomstd "github.com/podhmo/gom/internal/stdlib"
 )
 
@@ -157,9 +159,16 @@ func checkSnippet(t *testing.T, root string, s snippet) diag.List {
 	}
 	name := fmt.Sprintf("%s#%d.gom", s.mdFile, s.line)
 	in := build.Input{Path: name, Src: src, Interface: s.lang == "gomi"}
-	loader := goimport.New(&goimport.Config{Dir: root})
+	gl := goimport.New(&goimport.Config{Dir: root})
+	// cmd/gom's compileOptions stacks gomimport over the Go loader so
+	// plain `import "..."` resolves Gom packages (stdlib short names
+	// included); a bare goimport Loader makes every such import
+	// E0203.
+	mods := map[string]map[string]*resolve.Symbol{}
+	ml := gomimport.New(&gomimport.Config{Dir: root, Go: gl, Sigs: gl, Modules: mods})
 	r, err := build.Compile(in, gomstd.Apply(&build.Options{
-		Loader: loader, Sigs: loader, Lower: &lower.Env{GoSig: loader.GoSigOf},
+		Loader: ml, Sigs: ml, Modules: mods,
+		Lower:     &lower.Env{GoSig: gl.GoSigOf, Types: ml, FuncArity: ml.ArityOf, FuncType: ml.FuncTypeOf},
 		CheckOnly: true,
 	}))
 	if err != nil {
