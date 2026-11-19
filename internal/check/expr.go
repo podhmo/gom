@@ -703,6 +703,11 @@ func (c *checker) revisitSelects() {
 				// The selection failed; the member's standing meta — nothing
 				// bound it — must not pile an E0407 on the E0401.
 				c.markQuiet(me.Type())
+				// Deferred writes and calls waiting on this member are
+				// dead too: their provisional checks ran with no want,
+				// so their diagnostics and minted metas are debris that
+				// would only pile spurious E0407/E0510 on the E0401.
+				c.dropDeferredOn(me, doneAssigns)
 			}
 			// Applications sitting on this member (pendingApplies)
 			// now know their calling convention — a Go method
@@ -732,18 +737,7 @@ func (c *checker) revisitSelects() {
 				// diagnostics emitted later (an unrelated deferred
 				// select diagnosed in this same round) belong to
 				// entries already marked done and would be lost.
-				// Removing the range shifts every later index, so
-				// other unfilled assigns' marks move with it.
-				removed := pa.diagEnd - pa.diagMark
-				c.diags = append(c.diags[:pa.diagMark], c.diags[pa.diagEnd:]...)
-				mark := pa.diagMark
-				pa.diagMark = -1
-				for _, q := range c.pendingAssigns {
-					if q.diagMark > mark {
-						q.diagMark -= removed
-						q.diagEnd -= removed
-					}
-				}
+				c.rollbackFill(pa)
 			}
 			if d := c.assignShapeDiag(pa.Sel, me); d != nil {
 				c.diags.Add(*d)
@@ -754,6 +748,62 @@ func (c *checker) revisitSelects() {
 			pa.Assign.GoFieldType = me.GoFieldType
 			pa.Assign.Value = c.checkAssignRHS(pa, me.Type())
 		}
+	}
+}
+
+// rollbackFill drops the diagnostics a provisional nil-want fill
+// emitted and shifts every later fill's marks by the removed count —
+// removing the range moves every index after it.
+func (c *checker) rollbackFill(pa *assignTarget) {
+	removed := pa.diagEnd - pa.diagMark
+	c.diags = append(c.diags[:pa.diagMark], c.diags[pa.diagEnd:]...)
+	mark := pa.diagMark
+	pa.diagMark = -1
+	for _, q := range c.pendingAssigns {
+		if q.diagMark > mark {
+			q.diagMark -= removed
+			q.diagEnd -= removed
+		}
+	}
+}
+
+// dropDeferredOn abandons the deferred field writes and applications
+// waiting on a member that just failed to resolve: each provisional
+// fill's diagnostic range rolls back, and every unbound meta its
+// check minted (spans inside the dead node) goes quiet — a dead
+// `x.F = Go.funcN (fn _ -> …)` reports the member's E0401 alone
+// instead of a stack of annotation errors for a callback that never
+// had a signature to check against.
+func (c *checker) dropDeferredOn(me *MemberExpr, doneAssigns map[*assignTarget]bool) {
+	for _, pa := range c.pendingAssigns {
+		if pa.Member != me {
+			continue
+		}
+		doneAssigns[pa] = true
+		// The target's shape is validated independently of member
+		// resolution — a non-`Ptr T` receiver still earns its E0511.
+		if d := c.assignShapeDiag(pa.Sel, me); d != nil {
+			c.diags.Add(*d)
+		}
+		if pa.diagMark >= 0 {
+			c.rollbackFill(pa)
+		}
+		if pa.Assign.Value == nil {
+			// The fill never ran — lower still needs a checked
+			// node, so produce one and drop its debris at once.
+			pa.diagMark = len(c.diags)
+			pa.Assign.Value = c.checkAssignRHS(pa, nil)
+			pa.diagEnd = len(c.diags)
+			c.rollbackFill(pa)
+		}
+		c.quietMetasIn(pa.Assign.Value.Span())
+	}
+	for _, pa := range c.pendingApplies {
+		if pa.me != me || pa.done {
+			continue
+		}
+		pa.done = true
+		c.quietMetasIn(pa.ap.Span())
 	}
 }
 
