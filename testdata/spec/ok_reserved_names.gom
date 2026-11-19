@@ -1,0 +1,14 @@
+package ex
+
+// `init`/`main` are legal declaration names in Gom — the generated
+// side escapes them (pkgReserved, spec section 5) instead of a
+// checker diagnostic, so this case pins acceptance only.
+
+fn init (a: Int) -> Int = a
+
+let boot : Int = init 1
+
+fn main () -> Unit = {
+  let _ = init 3
+  ()
+}

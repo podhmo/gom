@@ -1,0 +1,11 @@
+package main
+
+// File a declares the unit's entry point plus a colliding
+// package-scope name: `init` escapes, entry `main` keeps `main`.
+
+fn init (a: Int) -> Int = a
+
+fn main () -> Unit = {
+  let _ = init 1
+  ()
+}

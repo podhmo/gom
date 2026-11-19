@@ -358,15 +358,16 @@ func (l *lowerer) isEntryDecl(pkg string, d *check.FnDecl) bool {
 		!l.isUnitCon(d.Params[0].Pat.Type()) {
 		return false
 	}
-	res := types.Type(d.Sig)
-	for {
-		if f, ok := types.Chase(res).(*types.Func); ok {
-			res = f.Ret
-			continue
-		}
-		break
+	// flatSig flattens a curried result into trailing parameters —
+	// `() -> (Int -> Unit)` reads as two params returning Unit. Only
+	// when the flat parameter count equals the declared one is the
+	// residual a value the emitted `func main()` may produce
+	// (isEntryPoint's ResidualType rule).
+	sig := flatSig(d.Sig)
+	if sig == nil || len(sig.Params) != len(d.Params) {
+		return false
 	}
-	return l.isUnitCon(res)
+	return l.isUnitCon(sig.Ret)
 }
 
 // isUnitCon reports whether t spells the *builtin* Unit — an

@@ -1,0 +1,10 @@
+package main
+
+// File b references a's decls: the sibling `init` emits `init_`,
+// the sibling entry `main` emits `main` — the same names a.go
+// emits, pinned cross-file.
+
+fn invoke () -> Unit = {
+  let _ = init 2
+  main ()
+}
