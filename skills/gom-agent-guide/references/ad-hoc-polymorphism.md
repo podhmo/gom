@@ -134,7 +134,7 @@ Option/List/tuple/Result について消せる。どれも部品の辞書を
 ```gom noexec
 import "cmp"
 
-let task_ord : Ord (Int, List String) =
+let task_ord : cmp.Ord (Int, List String) =
   cmp.pair_ord cmp.int_ord (cmp.list_ord cmp.string_ord)
 
 fn sort_tasks (xs: List (Int, List String)) -> List (Int, List String) =

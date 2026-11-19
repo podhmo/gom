@@ -29,7 +29,7 @@
 ## Future work（v1 では扱わないと決めたもの）
 
 - ラベル付き引数の制限の緩和（型が未知の関数へのラベル付き適用、ラベル付き／なし関数の暗黙変換）
-- 省略可能引数とデフォルト値
+- 省略可能引数とデフォルト値 → defaults record + `{base with x = v}` パターンで代替する方針に収束（2026-11-19、[sketch](sketch/2026-11-19-labeled-args.md)）。record→ラベル引数の spread（`f ~..opts` 相当）は必要になれば別途検討
 - `|?>` の自動ラップの文言を設定可能にする。残る未決は文言のカスタマイズのみ — 書式（関数名・ソース位置・任意の文言）をパッケージ単位で指定する方法か、ステップごとに文言を書ける構文か。ステップ名由来の `step: message` 文言・構造化フレーム `rt.StepError{Step, Err}`・`strconv` 二重名は provenance として容認する方針は [result-pipe-wrap-frame](decisions/2026-11-05-result-pipe-wrap-frame.md) で採用済み
 - ローカル let 多相（入れる場合は relaxed value restriction を検討）
 - `List` のハイブリッド表現（chunked / unrolled list、所有権フラグ付きの反転ストレージなど）。先頭追加を償却 O(1) に戻す案。P0-3 でスライス表現（`type List[A] []A`）を採用したが、ユーザーレベルの `x :: acc` 型の逐次構築が支配的なワークロードで再検討する余地がある（[sketch: P0-3](sketch/2026-11-02-p0-3-list-representation.md)）
