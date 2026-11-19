@@ -880,15 +880,18 @@ func (l *lowerer) applyCall(s *seq, e *check.Apply) core.Expr {
 	// callee is a pure ref (emitted work is nil).
 	fnExpr := l.calleeExpr(s, e.Fn, ci, recv)
 	args := l.argAtoms(s, e.Args, ci, e.Fn)
-	out := l.finishCall(s, e.Sp, e.Type(), e.Fn, fnExpr, recv, ci, args, hasSpread(e.Args))
+	resTyp := e.Type()
 	if e.CopyFrom != nil {
 		// A `Go.Slice` want claimed the result meta before the
 		// deferred call's `List` result arrived — the callee's
-		// list still needs its boundary copy. Bind under the
-		// List type so ConvSliceToGo's operand check holds.
-		bind := l.tmpBind(e.Sp, e.CopyFrom)
-		s.emit(bind, out)
-		return &core.Conv{Sp: e.Sp, Typ: e.Type(), Kind: core.ConvSliceToGo, X: varOf(e.Sp, bind)}
+		// list still needs its boundary copy. Emit the call at
+		// its real List type (the Core the callee produces),
+		// then hand the fresh slice out.
+		resTyp = e.CopyFrom
+	}
+	out := l.finishCall(s, e.Sp, resTyp, e.Fn, fnExpr, recv, ci, args, hasSpread(e.Args))
+	if e.CopyFrom != nil {
+		return &core.Conv{Sp: e.Sp, Typ: e.Type(), Kind: core.ConvSliceToGo, X: l.asAtom(s, e.Sp, out)}
 	}
 	return out
 }

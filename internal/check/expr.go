@@ -2584,6 +2584,18 @@ func (c *checker) fillIters(defaults bool) bool {
 			if !defaults {
 				continue
 			}
+			// A meta claimed as pending work's RESULT — a member's
+			// standing meta or a deferred call's result — is left
+			// for that resolution: its real shape (a channel, a
+			// Go.Slice) must arrive before any List default would
+			// pin it. A meta claimed only as pending work's
+			// RECEIVER defaults here so the member can resolve —
+			// the call's replay then sees the List's signature
+			// (and its labeled parameters) instead of a committed
+			// `Unit -> ?r` fallback.
+			if c.iterPendingOn(t) {
+				continue
+			}
 			if !c.bind(t, types.List(pi.elem), sp) {
 				c.markQuiet(pi.elem)
 			}
@@ -2663,7 +2675,12 @@ func (c *checker) unifySlicePair(want, got types.Type, sp diag.Span) int {
 		return con.Qual == "" && con.Name == "List" && !c.shadowedBuiltin("List")
 	}
 	we, ge := wc.Args[0], gc.Args[0]
-	if isGoAny(types.Chase(we)) || isGoAny(types.Chase(ge)) {
+	if !types.Equal(we, ge) &&
+		(isGoAny(types.Chase(we)) || isGoAny(types.Chase(ge))) {
+		// An `any` element reconciles only when both sides name
+		// it — the implicit copy boxes INTO `Go.Slice Go.Any`
+		// (sliceConv), so a one-sided any falls back to the
+		// ordinary mismatch.
 		return 0
 	}
 	switch {

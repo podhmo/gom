@@ -1285,7 +1285,7 @@ func (c *checker) finalize() {
 		if len(c.metas) != nMetas || replayed != 0 || filled {
 			continue
 		}
-		if c.applyDefaults() == 0 {
+		if c.applyDefaults() == 0 && !c.fillIters(true) {
 			break
 		}
 	}
@@ -1312,21 +1312,12 @@ func (c *checker) finalize() {
 		if replayed != 0 || len(c.metas) != nMetas || filled {
 			continue
 		}
-		if c.applyDefaults() != 0 {
+		if c.applyDefaults() != 0 || c.fillIters(true) {
 			continue
 		}
-		// Committing the last applies may itself settle an iterable
-		// (the committed signature can name a channel or a slice),
-		// so the List default waits until after the commit pass —
-		// an early default would pin `?r` to `List` and make a
-		// perfectly valid channel-returning call mismatch.
-		if c.replayUnresolvedApplies() != 0 {
-			continue
+		if c.replayUnresolvedApplies() == 0 {
+			break
 		}
-		if c.fillIters(true) {
-			continue
-		}
-		break
 	}
 	// Iterables deferred on pending work (`for v in f a` with `f` a
 	// member alias) settle now — every call has replayed or committed,
