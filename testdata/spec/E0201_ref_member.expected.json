@@ -1,0 +1,28 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0201",
+      "severity": "error",
+      "message": "`Ref` has no member `bogus`",
+      "span": {
+        "file": "E0201_ref_member.gom",
+        "start": {
+          "line": 6,
+          "col": 32,
+          "offset": 211
+        },
+        "end": {
+          "line": 6,
+          "col": 37,
+          "offset": 216
+        }
+      },
+      "data": {
+        "in": "Ref",
+        "name": "bogus",
+        "namespace": "member"
+      }
+    }
+  ]
+}

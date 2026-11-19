@@ -1,11 +1,11 @@
 package stdlib
 
-// The builtin `Chan`, `Task`, and `Ptr` modules — plus the
-// `Go`-namespace type-member tables `Go.Map` and `Go.Slice` — ship
-// as compiler-owned member tables backed by rt functions rather
-// than a .gomi stdlib package: the operation surfaces spec
-// sections 8.3, 8.5 and 10 fix are not expressible in Gom
-// signatures.
+// The builtin `Chan`, `Task`, `Ptr`, `Ref`, `Array` and `View`
+// modules — plus the `Go`-namespace type-member tables `Go.Map`
+// and `Go.Slice` — ship as compiler-owned member tables backed
+// by rt functions rather than a .gomi stdlib package: the
+// operation surfaces spec sections 3.1, 8.3, 8.5 and 10 fix are
+// not expressible in Gom signatures.
 // `Chan.send`/`recv`/`close` accept both `Chan a` and the matching
 // directional type, which only the implicit channel-direction
 // conversion at Go-call boundaries admits (spec section 10.2), and
@@ -161,6 +161,24 @@ var taskMembers = []builtinMember{
 	{name: "await", goSym: "AwaitTask",
 		sig:   genericSig(types.Fn(elemTVar, types.P(types.Task(elemTVar)))),
 		gosig: lower.GoSig{Arity: 1, Results: core.GoResultsOne}},
+}
+
+// refMembers is the `Ref` module's operation surface — the mutable
+// cell of spec section 3.1 (decisions/2026-11-19-ref-members).
+// `Ref a` emits as `*T` like `Ptr a`, but a `Ref` is always
+// initialized: `new` allocates the cell holding its argument, and
+// get/set are plain dereferences — there is no nil form, so the
+// surface has no is_nil/nil member.
+var refMembers = []builtinMember{
+	{name: "new", goSym: "RefNew",
+		sig:   genericSig(types.Fn(types.Ref(elemTVar), types.P(elemTVar))),
+		gosig: lower.GoSig{Arity: 1, Results: core.GoResultsOne}},
+	{name: "get", goSym: "RefGet",
+		sig:   genericSig(types.Fn(elemTVar, types.P(types.Ref(elemTVar)))),
+		gosig: lower.GoSig{Arity: 1, Results: core.GoResultsOne}},
+	{name: "set", goSym: "RefSet",
+		sig:   genericSig(types.Fn(types.Unit, types.P(types.Ref(elemTVar)), types.P(elemTVar))),
+		gosig: lower.GoSig{Arity: 2, Results: core.GoResultsNone}},
 }
 
 // ptrMembers is the `Ptr` module's operation surface — the explicit
@@ -337,16 +355,17 @@ var viewMembers = []builtinMember{
 
 // builtinModules populates e with the member tables, signatures,
 // GoSig oracles and declared arities of the rt-backed builtin
-// modules — `Chan`, `Task`, `Ptr`, `Array` — and of the
-// `Go`-namespace type-member tables (`Go.Map`, `Go.Slice`). Unlike
-// the .gomi-derived tables of `packages`, every fact here is
-// written by hand because no Gom interface file can spell these
-// signatures.
+// modules — `Chan`, `Task`, `Ptr`, `Ref`, `Array`, `View` — and
+// of the `Go`-namespace type-member tables (`Go.Map`, `Go.Slice`).
+// Unlike the .gomi-derived tables of `packages`, every fact here
+// is written by hand because no Gom interface file can spell
+// these signatures.
 func (e *env) builtinModules() {
 	for module, members := range map[string][]builtinMember{
 		"Chan":     chanMembers,
 		"Task":     taskMembers,
 		"Ptr":      ptrMembers,
+		"Ref":      refMembers,
 		"Array":    arrayMembers,
 		"View":     viewMembers,
 		"Go.Map":   goMapMembers,

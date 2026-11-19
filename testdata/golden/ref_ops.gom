@@ -1,0 +1,15 @@
+package ex
+
+// The `Ref` module is rt-backed like `Ptr`: members emit
+// rt.Ref*[T](...) calls instantiated with the solved element type.
+fn cell () -> Int = {
+  let r: Ref Int = Ref.new 0
+  Ref.set r (Ref.get r + 1)
+  Ref.get r
+}
+
+fn swap (a: Ref Int) (b: Ref Int) -> Unit = {
+  let va = Ref.get a
+  Ref.set a (Ref.get b)
+  Ref.set b va
+}

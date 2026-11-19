@@ -8,7 +8,7 @@
 
 - [ ] 実装の型がインターフェースより一般的な場合（実装が多相、`.gomi` が単相）を許すか
 
-- [ ] 可変性: `Ref a` と可変配列 `Array a` 以外に可変構造を許すか。なお W0701/W0702 lint の可変判定は spec 10 章の閉じた builtin リスト（`Ref`/`Array`/`Ptr`/`Go.Slice`/`Go.Map`）を使う — ユーザー宣言型の可変構造そのものは引き続き未決（[decision](decisions/2026-11-04-mutable-sharing-lint.md)）
+- [ ] 可変性: `Ref a` と可変配列 `Array a` 以外に可変構造を許すか。`Ref` のメンバー面（`Ref.new`/`get`/`set`、rt-backed builtin module）は wave25 で実装済み（[decision](decisions/2026-11-19-ref-members.md)）。なお W0701/W0702 lint の可変判定は spec 10 章の閉じた builtin リスト（`Ref`/`Array`/`Ptr`/`Go.Slice`/`Go.Map`）を使う — ユーザー宣言型の可変構造そのものは引き続き未決（[decision](decisions/2026-11-04-mutable-sharing-lint.md)）
 
 ### Go 相互運用
 
