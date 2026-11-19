@@ -2634,6 +2634,11 @@ func (c *checker) fillIters(defaults bool) bool {
 				// shadowed) pile a spurious shadowing error on the
 				// missing-member diagnostic. Leave the quiet meta
 				// alone; the member's own error covers the loop.
+				// Quieting `t` itself matters for failed replays —
+				// their result meta was never quieted by the drop,
+				// and leaving it loud asks for a type annotation
+				// on top of the replay's own diagnostic.
+				c.markQuiet(t)
 				c.markQuiet(pi.elem)
 				pi.done = true
 				progressed = true
