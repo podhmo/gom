@@ -44,6 +44,9 @@ func TakeFuncPair(f func(func(int64)) int64) int64 {
 // survey's field shape.
 type WithFn struct {
 	Fn func(int64) int64
+	// Guard mirrors the redirect-callback shape — two parameters and
+	// a bare `error` result, like http.Client.CheckRedirect.
+	Guard func(int64, string) error
 }
 
 // Call invokes the stored callback.
