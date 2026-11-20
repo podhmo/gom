@@ -88,216 +88,291 @@ func copyFile(log *fake.Log, src, dst, data string) result.Result[struct{}, erro
 }
 
 //line scenarios.gom:31
-func guarded(log *fake.Log, mu *fake.Mutex, need bool) struct{} {
+func writePair(log *fake.Log, a, b string) result.Result[struct{}, error] {
 //line scenarios.gom:32
-	tmp8 := func(s *scope.Scope) struct{} {
+	tmp10 := func(s *scope.Scope) result.Result[struct{}, error] {
 //line scenarios.gom:33
-		if need {
-//line scenarios.gom:34
-			mu.Lock()
-//line scenarios.gom:35
-			tmp6 := func(_ struct{}) struct{} {
-//line scenarios.gom:35
-				mu.Unlock()
-//line scenarios.gom:35
-				return struct{}{}
-//line scenarios.gom:35
-			}
-//line scenarios.gom:35
-			tmp7 := func() {
-//line scenarios.gom:35
-				tmp6(struct{}{})
-//line scenarios.gom:35
-			}
-//line scenarios.gom:35
-			s.Defer(tmp7)
-//line scenarios.gom:35
-			_ = struct{}{}
+		x, err7 := fake.Open(log, a)
+//line scenarios.gom:33
+		if err7 != nil {
+//line scenarios.gom:33
+			return result.Err[struct{}, error](err7)
 //line scenarios.gom:33
 		}
+//line scenarios.gom:34
+		tmp6 := func(_ struct{}) result.Result[struct{}, error] {
+//line scenarios.gom:34
+			err8 := x.Close()
+//line scenarios.gom:34
+			return result.FromErr(err8)
+//line scenarios.gom:34
+		}
+//line scenarios.gom:34
+		tmp7 := func() error {
+//line scenarios.gom:34
+			_, err9 := tmp6(struct{}{}).Unwrap()
+//line scenarios.gom:34
+			return err9
+//line scenarios.gom:34
+		}
+//line scenarios.gom:34
+		s.DeferErr(tmp7)
+//line scenarios.gom:35
+		y, err10 := fake.Open(log, b)
+//line scenarios.gom:35
+		if err10 != nil {
+//line scenarios.gom:35
+			return result.Err[struct{}, error](err10)
+//line scenarios.gom:35
+		}
+//line scenarios.gom:36
+		tmp8 := func(_ struct{}) result.Result[struct{}, error] {
+//line scenarios.gom:36
+			err11 := y.Close()
+//line scenarios.gom:36
+			return result.FromErr(err11)
+//line scenarios.gom:36
+		}
+//line scenarios.gom:36
+		tmp9 := func() error {
+//line scenarios.gom:36
+			_, err12 := tmp8(struct{}{}).Unwrap()
+//line scenarios.gom:36
+			return err12
+//line scenarios.gom:36
+		}
+//line scenarios.gom:36
+		s.DeferErr(tmp9)
 //line scenarios.gom:37
-		log.Add("work")
+		err13 := x.Write("x")
 //line scenarios.gom:37
-		return struct{}{}
+		if err13 != nil {
+//line scenarios.gom:37
+			return result.Err[struct{}, error](err13)
+//line scenarios.gom:37
+		}
+//line scenarios.gom:38
+		err14 := y.Write("y")
+//line scenarios.gom:38
+		return result.FromErr(err14)
 //line scenarios.gom:32
 	}
 //line scenarios.gom:32
-	return withScope[struct{}](tmp8)
+	return withScopeResult[struct{}](tmp10)
 //line scenarios.gom:31
 }
 
-//line scenarios.gom:41
-func transfer(log *fake.Log, q1, q2 string) result.Result[struct{}, error] {
-//line scenarios.gom:42
-	tmp11 := func(s *scope.Scope) result.Result[struct{}, error] {
 //line scenarios.gom:43
-		tx := fake.Begin(log)
+func guarded(log *fake.Log, mu *fake.Mutex, need bool) struct{} {
 //line scenarios.gom:44
-		tmp9 := func(_ struct{}) struct{} {
-//line scenarios.gom:44
-			tx.Rollback()
-//line scenarios.gom:44
-			return struct{}{}
-//line scenarios.gom:44
-		}
-//line scenarios.gom:44
-		tmp10 := func() {
-//line scenarios.gom:44
-			tmp9(struct{}{})
-//line scenarios.gom:44
-		}
-//line scenarios.gom:44
-		s.OnError(tmp10)
+	tmp13 := func(s *scope.Scope) struct{} {
 //line scenarios.gom:45
-		err7 := tx.Exec(q1)
-//line scenarios.gom:45
-		if err7 != nil {
-//line scenarios.gom:45
-			return result.Err[struct{}, error](err7)
-//line scenarios.gom:45
-		}
+		if need {
 //line scenarios.gom:46
-		err8 := tx.Exec(q2)
-//line scenarios.gom:46
-		if err8 != nil {
-//line scenarios.gom:46
-			return result.Err[struct{}, error](err8)
-//line scenarios.gom:46
-		}
+			mu.Lock()
 //line scenarios.gom:47
-		err9 := tx.Commit()
+			tmp11 := func(_ struct{}) struct{} {
 //line scenarios.gom:47
-		return result.FromErr(err9)
-//line scenarios.gom:42
-	}
-//line scenarios.gom:42
-	return withScopeResult[struct{}](tmp11)
-//line scenarios.gom:41
-}
-
-//line scenarios.gom:52
-func eachFile(log *fake.Log, names list.List[string]) result.Result[struct{}, error] {
-//line scenarios.gom:52
-	for {
-//line scenarios.gom:52
-		log1 := log
-//line scenarios.gom:53
-		switch {
-//line scenarios.gom:53
-		case len(names) == 0:
-//line scenarios.gom:53
-			return result.Ok[struct{}, error](struct{}{})
-//line scenarios.gom:53
-		case len(names) != 0:
-//line scenarios.gom:53
-			tmp12 := names[0]
-//line scenarios.gom:53
-			tmp13 := names[1:]
-//line scenarios.gom:53
-			tmp14 := tmp12
-//line scenarios.gom:53
-			tmp15 := tmp13
-//line scenarios.gom:55
-			tmp18 := func(s *scope.Scope) result.Result[struct{}, error] {
-//line scenarios.gom:56
-				r, err10 := fake.Open(log1, tmp14)
-//line scenarios.gom:56
-				if err10 != nil {
-//line scenarios.gom:56
-					return result.Err[struct{}, error](err10)
-//line scenarios.gom:56
-				}
-//line scenarios.gom:57
-				tmp16 := func(_ struct{}) result.Result[struct{}, error] {
-//line scenarios.gom:57
-					err11 := r.Close()
-//line scenarios.gom:57
-					return result.FromErr(err11)
-//line scenarios.gom:57
-				}
-//line scenarios.gom:57
-				tmp17 := func() error {
-//line scenarios.gom:57
-					_, err12 := tmp16(struct{}{}).Unwrap()
-//line scenarios.gom:57
-					return err12
-//line scenarios.gom:57
-				}
-//line scenarios.gom:57
-				s.DeferErr(tmp17)
-//line scenarios.gom:58
-				err13 := r.Write("x")
-//line scenarios.gom:58
-				return result.FromErr(err13)
-//line scenarios.gom:55
+				mu.Unlock()
+//line scenarios.gom:47
+				return struct{}{}
+//line scenarios.gom:47
 			}
-//line scenarios.gom:55
-			tmp19 := withScopeResult[struct{}](tmp18)
-//line scenarios.gom:55
-			switch tmp19.Tag() {
-//line scenarios.gom:55
-			case result.ResultTagOk:
-//line scenarios.gom:55
-				_ = tmp19.Value
-//line scenarios.gom:55
-			case result.ResultTagErr:
-//line scenarios.gom:55
-				return result.Err[struct{}, error](tmp19.Error)
-//line scenarios.gom:55
-			default:
-//line scenarios.gom:55
-				panic(rt.InvalidVariant("result.Result", tmp19))
-//line scenarios.gom:55
+//line scenarios.gom:47
+			tmp12 := func() {
+//line scenarios.gom:47
+				tmp11(struct{}{})
+//line scenarios.gom:47
 			}
-//line scenarios.gom:60
-			log, names = log1, tmp15
-//line scenarios.gom:60
-			continue
-//line scenarios.gom:60
-		default:
-//line scenarios.gom:52
-			panic(rt.InvalidVariant("List", names))
-//line scenarios.gom:53
+//line scenarios.gom:47
+			s.Defer(tmp12)
+//line scenarios.gom:47
+			_ = struct{}{}
+//line scenarios.gom:45
 		}
-//line scenarios.gom:52
-	}
-//line scenarios.gom:52
-}
-
-//line scenarios.gom:65
-func boom(log *fake.Log) struct{} {
-//line scenarios.gom:66
-	tmp22 := func(s *scope.Scope) struct{} {
-//line scenarios.gom:67
-		tmp20 := func(_ struct{}) struct{} {
-//line scenarios.gom:67
-			log.Add("cleanup")
-//line scenarios.gom:67
-			return struct{}{}
-//line scenarios.gom:67
-		}
-//line scenarios.gom:67
-		tmp21 := func() {
-//line scenarios.gom:67
-			tmp20(struct{}{})
-//line scenarios.gom:67
-		}
-//line scenarios.gom:67
-		s.Defer(tmp21)
-//line scenarios.gom:68
-		fake.Boom(log)
-//line scenarios.gom:68
+//line scenarios.gom:49
+		log.Add("work")
+//line scenarios.gom:49
 		return struct{}{}
-//line scenarios.gom:66
+//line scenarios.gom:44
 	}
-//line scenarios.gom:66
-	return withScope[struct{}](tmp22)
-//line scenarios.gom:65
+//line scenarios.gom:44
+	return withScope[struct{}](tmp13)
+//line scenarios.gom:43
 }
 
-//line scenarios.gom:71
+//line scenarios.gom:53
+func transfer(log *fake.Log, q1, q2 string) result.Result[struct{}, error] {
+//line scenarios.gom:54
+	tmp16 := func(s *scope.Scope) result.Result[struct{}, error] {
+//line scenarios.gom:55
+		tx := fake.Begin(log)
+//line scenarios.gom:56
+		tmp14 := func(_ struct{}) struct{} {
+//line scenarios.gom:56
+			tx.Rollback()
+//line scenarios.gom:56
+			return struct{}{}
+//line scenarios.gom:56
+		}
+//line scenarios.gom:56
+		tmp15 := func() {
+//line scenarios.gom:56
+			tmp14(struct{}{})
+//line scenarios.gom:56
+		}
+//line scenarios.gom:56
+		s.OnError(tmp15)
+//line scenarios.gom:57
+		err15 := tx.Exec(q1)
+//line scenarios.gom:57
+		if err15 != nil {
+//line scenarios.gom:57
+			return result.Err[struct{}, error](err15)
+//line scenarios.gom:57
+		}
+//line scenarios.gom:58
+		err16 := tx.Exec(q2)
+//line scenarios.gom:58
+		if err16 != nil {
+//line scenarios.gom:58
+			return result.Err[struct{}, error](err16)
+//line scenarios.gom:58
+		}
+//line scenarios.gom:59
+		err17 := tx.Commit()
+//line scenarios.gom:59
+		return result.FromErr(err17)
+//line scenarios.gom:54
+	}
+//line scenarios.gom:54
+	return withScopeResult[struct{}](tmp16)
+//line scenarios.gom:53
+}
+
+//line scenarios.gom:64
+func eachFile(log *fake.Log, names list.List[string]) result.Result[struct{}, error] {
+//line scenarios.gom:64
+	for {
+//line scenarios.gom:64
+		log1 := log
+//line scenarios.gom:65
+		switch {
+//line scenarios.gom:65
+		case len(names) == 0:
+//line scenarios.gom:65
+			return result.Ok[struct{}, error](struct{}{})
+//line scenarios.gom:65
+		case len(names) != 0:
+//line scenarios.gom:65
+			tmp17 := names[0]
+//line scenarios.gom:65
+			tmp18 := names[1:]
+//line scenarios.gom:65
+			tmp19 := tmp17
+//line scenarios.gom:65
+			tmp20 := tmp18
+//line scenarios.gom:67
+			tmp23 := func(s *scope.Scope) result.Result[struct{}, error] {
+//line scenarios.gom:68
+				r, err18 := fake.Open(log1, tmp19)
+//line scenarios.gom:68
+				if err18 != nil {
+//line scenarios.gom:68
+					return result.Err[struct{}, error](err18)
+//line scenarios.gom:68
+				}
+//line scenarios.gom:69
+				tmp21 := func(_ struct{}) result.Result[struct{}, error] {
+//line scenarios.gom:69
+					err19 := r.Close()
+//line scenarios.gom:69
+					return result.FromErr(err19)
+//line scenarios.gom:69
+				}
+//line scenarios.gom:69
+				tmp22 := func() error {
+//line scenarios.gom:69
+					_, err20 := tmp21(struct{}{}).Unwrap()
+//line scenarios.gom:69
+					return err20
+//line scenarios.gom:69
+				}
+//line scenarios.gom:69
+				s.DeferErr(tmp22)
+//line scenarios.gom:70
+				err21 := r.Write("x")
+//line scenarios.gom:70
+				return result.FromErr(err21)
+//line scenarios.gom:67
+			}
+//line scenarios.gom:67
+			tmp24 := withScopeResult[struct{}](tmp23)
+//line scenarios.gom:67
+			switch tmp24.Tag() {
+//line scenarios.gom:67
+			case result.ResultTagOk:
+//line scenarios.gom:67
+				_ = tmp24.Value
+//line scenarios.gom:67
+			case result.ResultTagErr:
+//line scenarios.gom:67
+				return result.Err[struct{}, error](tmp24.Error)
+//line scenarios.gom:67
+			default:
+//line scenarios.gom:67
+				panic(rt.InvalidVariant("result.Result", tmp24))
+//line scenarios.gom:67
+			}
+//line scenarios.gom:72
+			log, names = log1, tmp20
+//line scenarios.gom:72
+			continue
+//line scenarios.gom:72
+		default:
+//line scenarios.gom:64
+			panic(rt.InvalidVariant("List", names))
+//line scenarios.gom:65
+		}
+//line scenarios.gom:64
+	}
+//line scenarios.gom:64
+}
+
+//line scenarios.gom:77
+func boom(log *fake.Log) struct{} {
+//line scenarios.gom:78
+	tmp27 := func(s *scope.Scope) struct{} {
+//line scenarios.gom:79
+		tmp25 := func(_ struct{}) struct{} {
+//line scenarios.gom:79
+			log.Add("cleanup")
+//line scenarios.gom:79
+			return struct{}{}
+//line scenarios.gom:79
+		}
+//line scenarios.gom:79
+		tmp26 := func() {
+//line scenarios.gom:79
+			tmp25(struct{}{})
+//line scenarios.gom:79
+		}
+//line scenarios.gom:79
+		s.Defer(tmp26)
+//line scenarios.gom:80
+		fake.Boom(log)
+//line scenarios.gom:80
+		return struct{}{}
+//line scenarios.gom:78
+	}
+//line scenarios.gom:78
+	return withScope[struct{}](tmp27)
+//line scenarios.gom:77
+}
+
+//line scenarios.gom:83
 func main() {
-//line scenarios.gom:71
+//line scenarios.gom:83
 	_ = struct{}{}
-//line scenarios.gom:71
+//line scenarios.gom:83
 }

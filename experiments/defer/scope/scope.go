@@ -5,7 +5,11 @@
 // runs them LIFO when the body returns, fails, or panics.
 package scope
 
-import "github.com/podhmo/gom/stdlib/result"
+import (
+	"errors"
+
+	"github.com/podhmo/gom/stdlib/result"
+)
 
 type Scope struct {
 	cleanups []cleanup
@@ -20,7 +24,7 @@ type cleanup struct {
 // Defer registers a cleanup whose own failure is not interesting.
 func (s *Scope) Defer(f func()) { s.push(cleanup{run: func() error { f(); return nil }}) }
 
-// DeferErr registers a cleanup whose error joins the scope result when
+// DeferErr registers a cleanup whose error becomes the scope result when
 // the body itself succeeded (the "close error on a written file" case).
 func (s *Scope) DeferErr(f func() error) { s.push(cleanup{run: f}) }
 
@@ -37,18 +41,21 @@ func (s *Scope) push(c cleanup) {
 	s.cleanups = append(s.cleanups, c)
 }
 
-// close runs the cleanups LIFO. Each one is its own Go defer, so a
-// cleanup that panics does not skip the earlier registrations (the
-// panic resumes after all of them ran, as with stacked Go defers).
-func (s *Scope) close(failed bool) (first error) {
+// close runs the cleanups LIFO and joins their errors in run order.
+// Each one is its own Go defer, so a cleanup that panics does not skip
+// the earlier registrations (the panic resumes after all of them ran,
+// as with stacked Go defers).
+func (s *Scope) close(failed bool) (joined error) {
 	s.closed = true
+	var errs []error
+	defer func() { joined = errors.Join(errs...) }()
 	for _, c := range s.cleanups {
 		if c.onError && !failed {
 			continue
 		}
 		defer func() {
-			if err := c.run(); err != nil && first == nil {
-				first = err
+			if err := c.run(); err != nil {
+				errs = append(errs, err)
 			}
 		}()
 	}
@@ -67,9 +74,9 @@ func Run[A any](body func(*Scope) A) A {
 }
 
 // RunResult is the Result-aware combinator: an Err body runs the
-// OnError cleanups too, and the first cleanup error replaces an Ok
-// result (the body's own error wins otherwise — the Go idiom
-// `if cerr := f.Close(); err == nil { err = cerr }`).
+// OnError cleanups too. The body's own error wins (the Go idiom
+// `if cerr := f.Close(); err == nil { err = cerr }`); otherwise the
+// cleanup errors, joined with errors.Join, replace an Ok result.
 func RunResult[A any](body func(*Scope) result.Result[A, error]) (r result.Result[A, error]) {
 	s := &Scope{}
 	ok := false

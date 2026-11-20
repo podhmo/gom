@@ -26,6 +26,18 @@ fn copy_file (log: Ptr fake.Log) (src: String) (dst: String) (data: String) -> R
     w.Write(data)
   }
 
+// P5: two written resources. When both Close calls fail, the errors are
+// joined in run order (LIFO); a body error would still win.
+fn write_pair (log: Ptr fake.Log) (a: String) (b: String) -> Result Unit GoError =
+  with_scope_result <| fn s -> {
+    let x = try fake.Open(log, a)
+    s.DeferErr(Go.func0 (fn () -> x.Close()))
+    let y = try fake.Open(log, b)
+    s.DeferErr(Go.func0 (fn () -> y.Close()))
+    try x.Write("x")
+    y.Write("y")
+  }
+
 // P2: conditional acquisition. The unlock must run after `work`, i.e.
 // it outlives the `if` that registered it.
 fn guarded (log: Ptr fake.Log) (mu: Ptr fake.Mutex) (need: Bool) -> Unit =

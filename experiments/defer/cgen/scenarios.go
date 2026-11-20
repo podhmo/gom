@@ -7,6 +7,8 @@
 package main
 
 import (
+	"errors"
+
 	"github.com/podhmo/gom/experiments/defer/fake"
 	"github.com/podhmo/gom/stdlib/result"
 )
@@ -30,6 +32,39 @@ func copyFile(log *fake.Log, src, dst, data string) (res result.Result[struct{},
 		return result.Err[struct{}, error](err)
 	}
 	return result.FromErr(w.Write(data))
+}
+
+// Several result-observing cleanups share one error list; the defer
+// registered at scope entry runs last and folds it into the result.
+func writePair(log *fake.Log, a, b string) (res result.Result[struct{}, error]) {
+	var cerrs []error
+	defer func() {
+		if len(cerrs) > 0 && res.IsOk() {
+			res = result.Err[struct{}, error](errors.Join(cerrs...))
+		}
+	}()
+	x, err := fake.Open(log, a)
+	if err != nil {
+		return result.Err[struct{}, error](err)
+	}
+	defer func() {
+		if cerr := x.Close(); cerr != nil {
+			cerrs = append(cerrs, cerr)
+		}
+	}()
+	y, err := fake.Open(log, b)
+	if err != nil {
+		return result.Err[struct{}, error](err)
+	}
+	defer func() {
+		if cerr := y.Close(); cerr != nil {
+			cerrs = append(cerrs, cerr)
+		}
+	}()
+	if err := x.Write("x"); err != nil {
+		return result.Err[struct{}, error](err)
+	}
+	return result.FromErr(y.Write("y"))
 }
 
 func guarded(log *fake.Log, mu *fake.Mutex, need bool) struct{} {
