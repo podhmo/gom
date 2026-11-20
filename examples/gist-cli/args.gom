@@ -1,0 +1,94 @@
+package main
+
+import go "os"
+import go "path"
+import go "regexp"
+import go "strings"
+
+// The command line, parsed: `--help` wins wherever it appears before
+// `--`; otherwise every value has already been validated.
+type Command =
+  | Help
+  | Upload Options
+
+type Target =
+  | Create
+  | Update (id: String)
+
+type Options = { api: String, target: Target, files: List String }
+
+let usage = "usage: gist-cli [--api-url URL] [--gist URL] [--] FILE..."
+
+let default_api = "https://api.github.com"
+
+// Element 0 of `os.Args` is the executable name.
+fn program_args () -> List String = match Go.Slice.to_list os.Args {
+  [] -> []
+  [_, ..args] -> args
+}
+
+fn parse_args (args: List String) -> Result Command String =
+  parse_options args { api = default_api, target = Create, files = [] }
+
+// `files` accumulates in reverse; `finish` restores the order.
+fn parse_options (args: List String) (opts: Options) -> Result Command String = match args {
+  [] -> finish opts
+  ["--help", .._] -> Ok Help
+  ["--", ..rest] -> finish { opts with files = List.rev_append rest opts.files }
+  ["--gist", ..rest] -> match (opts.target, rest) {
+    (Update _, _) -> Err "--gist may only be supplied once"
+    (Create, [url, ..rest]) if url != "" -> {
+      let id = try parse_gist_url url
+      parse_options rest { opts with target = Update id }
+    }
+    (Create, _) -> Err "--gist requires a URL"
+  }
+  ["--api-url", url, ..rest] -> parse_options rest { opts with api = url }
+  ["--api-url"] -> Err "--api-url requires a URL"
+  [arg, ..rest] -> if strings.HasPrefix (arg, "-") { Err "unknown option: ${arg}" } else {
+    parse_options rest { opts with files = [arg, ..opts.files] }
+  }
+}
+
+fn finish (opts: Options) -> Result Command String = {
+  try require (opts.files != []) usage
+  try require (valid_api_url opts.api) "invalid API URL: ${opts.api}"
+  Ok (Upload { opts with files = List.rev opts.files })
+}
+
+fn valid_api_url (url: String) -> Bool = match regexp.MatchString (
+  "^https?://[^/?#]+(/[^?#]*)?$",
+  url,
+) {
+  Ok matches -> matches
+  Err _ -> false
+}
+
+fn parse_gist_url (url: String) -> Result String String = if valid_gist_url url {
+  Ok (path.Base url)
+} else { Err "invalid Gist URL: ${url}" }
+
+fn require (ok: Bool) (message: String) -> Result Unit String = if ok { Ok () } else { Err message }
+
+test "files keep their order and -- ends option parsing" {
+  let got = try parse_args ["a.txt", "--", "--help", "-b"]
+  assert_eq got (Upload { api = default_api, target = Create, files = ["a.txt", "--help", "-b"] })
+  Ok ()
+}
+
+test "--help wins over later errors" { assert_eq (parse_args ["--help", "--unknown"]) (Ok Help) }
+
+test "--gist parses the Gist id" {
+  let got = try parse_args ["--gist", "https://gist.github.com/octocat/deadbeef/", "a.txt"]
+  assert_eq got (Upload { api = default_api, target = Update "deadbeef", files = ["a.txt"] })
+  Ok ()
+}
+
+test "option errors" {
+  assert_eq (parse_args []) (Err usage)
+  assert_eq (parse_args ["--gist"]) (Err "--gist requires a URL")
+  assert_eq (parse_args ["--gist", "", "a"]) (Err "--gist requires a URL")
+  assert_eq (parse_args ["--api-url"]) (Err "--api-url requires a URL")
+  assert_eq (parse_args ["--api-url", "file:///tmp", "a"]) (Err "invalid API URL: file:///tmp")
+  assert_eq (parse_args ["-x", "a"]) (Err "unknown option: -x")
+}
