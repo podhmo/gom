@@ -1,0 +1,517 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light dark"><title>Gomトランスパイラー — ASTからGoソースまで</title><style>
+:root{color-scheme:light;--fg:#22333a;--bg:#fbfcfa;--sub:#5f7479;--border:#d6e2e1;--accent:#176972;--soft:#edf4f2}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.85 system-ui,-apple-system,'Noto Sans JP',sans-serif}a{color:var(--accent);text-underline-offset:3px}header{padding:24px clamp(18px,4vw,65px);background:white;border-bottom:1px solid var(--border)}header .label{font:700 12px/1.4 monospace;color:var(--accent);letter-spacing:2px}header h1{font-size:clamp(25px,3vw,38px);margin:9px 0 4px;line-height:1.35}header p{color:var(--sub);font-size:13px;margin:0}.layout{display:grid;grid-template-columns:minmax(235px,285px) minmax(0,860px);justify-content:center;gap:40px;padding:32px clamp(18px,4vw,65px)}nav{position:sticky;top:20px;max-height:calc(100vh - 40px);overflow:auto;align-self:start;border:1px solid var(--border);background:var(--soft);padding:18px;border-radius:12px}nav h2{font-size:12px;letter-spacing:2px;margin:0 0 12px;color:var(--sub)}nav a{display:flex;gap:12px;padding:6px 0;font-size:12.5px;text-decoration:none;color:var(--fg);line-height:1.55}nav a span{color:var(--accent);font:12px monospace;min-width:23px}main{min-width:0;padding-bottom:100px}main>h1{display:none}main h2{font-size:clamp(21px,2.2vw,27px);line-height:1.5;border-bottom:2px solid var(--border);padding-bottom:11px;margin:56px 0 16px;scroll-margin-top:20px}main h3{font-size:17px;margin:30px 0 12px}p{margin:12px 0}main>p:first-of-type{font-size:13px;color:var(--sub)}blockquote{border-left:3px solid var(--accent);margin:20px 0;padding:12px 20px;background:var(--soft);color:var(--sub)}blockquote p{margin:0}pre{background:#132931;color:#e8f4f1;padding:20px;border-radius:9px;overflow:auto;line-height:1.65;font:12.5px/1.7 ui-monospace,Menlo,Consolas,monospace}code{background:var(--soft);padding:1px 4px;border-radius:4px;font:0.86em ui-monospace,Menlo,Consolas,monospace;overflow-wrap:anywhere}pre code{background:none;padding:0;color:inherit;font-size:inherit;overflow-wrap:normal;white-space:pre}table{border-collapse:collapse;display:block;overflow-x:auto;margin:18px 0;font-size:13px;line-height:1.7;width:100%}th,td{text-align:left;vertical-align:top;border-bottom:1px solid var(--border);padding:10px 12px;min-width:90px}th{background:var(--soft)}ol,ul{padding-left:1.5em}li{padding-left:4px;margin:5px 0}footer{border-top:1px solid var(--border);padding:15px;text-align:center;color:var(--sub);font-size:12px}
+@media(max-width:920px){.layout{display:block;padding:22px}nav{position:static;max-height:none;margin-bottom:40px}nav .links{columns:2}}@media(max-width:600px){nav .links{columns:1}header{padding:20px}pre{margin-left:-4px;margin-right:-4px;padding:15px}main h2{font-size:21px}}@media(prefers-color-scheme:dark){:root{color-scheme:dark;--fg:#dfefed;--bg:#111c20;--sub:#afc4c3;--border:#364c50;--accent:#75d7cf;--soft:#203236}header{background:#19282d}pre{background:#09151b}}@media print{body{font-size:11px;background:white;color:black}.layout{display:block;padding:0 8mm}nav{display:none}header{padding:8mm}pre{color:black;background:#f2f6f5;border:1px solid #ccc}h2{break-after:avoid}table,pre,blockquote{break-inside:avoid}}
+</style></head><body><header><div class="label">GOM / COMPILER INTERNALS / 2026.11.20</div><h1>Gomトランスパイラーの実装</h1><p>ASTからGoソースまで — コード読解と理論的背景</p></header><div class="layout"><nav aria-label="目次"><h2>CONTENTS</h2><div class="links"><a href="#section-1"><span>01</span>1. AST生成後のコンパイラ全体像</a>
+<a href="#section-2"><span>02</span>2. コンパイル単位: ファイルとパッケージを区別する</a>
+<a href="#section-3"><span>03</span>3. 名前解決 — 識別子の綴りから宣言オブジェクトへ</a>
+<a href="#section-4"><span>04</span>4. 型推論 — 型の未知数を解く</a>
+<a href="#section-5"><span>05</span>5. 関数適用の規約を型付きASTで固定する</a>
+<a href="#section-6"><span>06</span>6. パターン検査: 網羅性と冗長性の証明</a>
+<a href="#section-7"><span>07</span>7. Core IRとANF: 構文上の複雑さを減らす</a>
+<a href="#section-8"><span>08</span>8. パターンを実行用の決定木に変換する</a>
+<a href="#section-9"><span>09</span>9. 部分適用、カリー化、関数値の表現</a>
+<a href="#section-10"><span>10</span>10. Go相互運用: 型と呼び出し規約の橋渡し</a>
+<a href="#section-11"><span>11</span>11. tryと|?&gt;: 制御効果の脱出境界</a>
+<a href="#section-12"><span>12</span>12. 末尾再帰と初期化依存グラフ</a>
+<a href="#section-13"><span>13</span>13. データ型をGoへ写像する</a>
+<a href="#section-14"><span>14</span>14. Goコード生成: destination passing</a>
+<a href="#section-15"><span>15</span>15. 簡単な例を段階別に追跡する</a>
+<a href="#section-16"><span>16</span>16. 実装を読みながら検証する方法</a>
+<a href="#section-17"><span>17</span>17. 理論用語と実装の対応</a>
+<a href="#section-18"><span>18</span>18. 設計変更時に確認すべきこと</a>
+<a href="#section-19"><span>19</span>19. 参考資料</a></div></nav><main><h1>Gomトランスパイラーの実装 — ASTからGoソースまで</h1>
+<p>調査日: 2026-11-20。対象: <a href="https://github.com/podhmo/gom"><code>podhmo/gom</code></a>、<code>main</code> のコミット <code>e14baa034cf716ec6f1964ce6d1f481535a77722</code>。本書はGo/Python/TypeScriptを使用できる読者に向けた、実装のコード読解資料である。プログラミング言語処理系の用語は必要に応じて定義する。Go/Python/TypeScriptにたとえる比喩は用いない。</p>
+<p>現行実装を説明する文書であって、言語仕様の規範ではない。言語として保証することは <a href="https://github.com/podhmo/gom/blob/main/docs/spec.md"><code>docs/spec.md</code></a>、設計意図は <a href="https://github.com/podhmo/gom/blob/main/docs/design.md"><code>docs/design.md</code></a>、実装選択の経緯は <a href="https://github.com/podhmo/gom/tree/main/docs/decisions"><code>docs/decisions</code></a> が正となる。例示する「概念的なIR」「概念的なGo」は実際のダンプをそのまま写したものではない。</p>
+<h2 id="section-1">1. AST生成後のコンパイラ全体像</h2>
+<p>Gomは式指向、静的型付けの言語である。型推論、代数的データ型（ADT）、パターン照合、関数の部分適用、Goパッケージ呼び出しを持つ。パーサーが生成した構文木をすぐにGoの構文へ置換するわけではない。後続フェーズは意味を一つずつ決定し、最後のコード生成には未解決の意味判断を持ち込まない。</p>
+<pre><code class="language-text">Gomソース .gom / インターフェース .gomi
+  │ syntax: 字句解析・構文解析
+  ▼
+表層 AST  (*syntax.File)
+  │ resolve: 名前解決・import・Symbolへの束縛
+  ▼
+Resolved  (表層AST + Defs/Usesなどの対応表)
+  │ check: 型検査・制約解決・関数呼び出し分類
+  ▼
+型付き AST  (*check.File)
+  │ pattern: パターンの網羅性・冗長性検査
+  ▼
+検査済み型付き AST （新しい中間表現は作らない）
+  │ lower: ANF化、match決定木、部分適用・脱出・Go変換
+  ▼
+Core IR  (*core.File)
+  │ core.Validate、初期化循環、@tailrecの検査
+  ▼
+codegen: 宛先指定によるGoコード出力
+  │ Goの式・型の一部にgo/astとgo/printerを使用
+  ▼
+Goソース文字列 → go/format → //lineとSourceMap
+  ▼
+.go / _test.go → Goツールチェーン
+</code></pre>
+<table>
+<thead>
+<tr>
+  <th>段階</th>
+  <th>入力</th>
+  <th>生成物または結果</th>
+  <th>主な責任</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td><code>resolve</code></td>
+  <td><code>syntax.File</code></td>
+  <td><code>resolve.Resolved</code></td>
+  <td>名前を宣言の同一性に結び付ける</td>
+</tr>
+<tr>
+  <td><code>check</code></td>
+  <td><code>Resolved</code></td>
+  <td><code>check.File</code></td>
+  <td>各式の型、関数適用の規約、型引数を決定する</td>
+</tr>
+<tr>
+  <td><code>pattern</code></td>
+  <td><code>check.File</code></td>
+  <td>診断</td>
+  <td><code>match</code>の網羅性・冗長性を判定する</td>
+</tr>
+<tr>
+  <td><code>lower</code></td>
+  <td><code>check.File</code></td>
+  <td><code>core.File</code></td>
+  <td>評価順、分岐、制御効果、関数値の実装表現を確定する</td>
+</tr>
+<tr>
+  <td>Unit-level checks</td>
+  <td>複数<code>core.File</code></td>
+  <td>診断</td>
+  <td>パッケージ初期化の循環、相互再帰を検査する</td>
+</tr>
+<tr>
+  <td><code>codegen</code></td>
+  <td>検証済み<code>core.File</code></td>
+  <td>Goソース、SourceMap</td>
+  <td>既に決まった意味をGoへ出力する</td>
+</tr>
+</tbody>
+</table>
+<p>このフェーズの順序は <a href="https://github.com/podhmo/gom/blob/main/internal/build/build.go"><code>internal/build/build.go</code></a> の <code>Compile</code> が示している。エラーがあれば次の意味解析フェーズへ進まない。<code>.gomi</code>は型検査までで止まり、<code>gom check</code>はパターン検査までで止まる。ソースコード生成の成功と生成後のGoコンパイラでの成功は別段階である。</p>
+<p>設計境界として最も重要なのは、<code>codegen</code>にGomの意味を再判断させないことである。たとえば関数が既知か、適用が飽和しているか、Goとの変換が要るかという判断は型検査・loweringで決定済みの情報を受け取る。</p>
+<h2 id="section-2">2. コンパイル単位: ファイルとパッケージを区別する</h2>
+<p>同一ディレクトリの<code>.gom</code>はひとつのパッケージを構成する。別ファイルにある宣言を参照できるので、ファイル単位で名前解決・型検査を独立して完了させると前方参照が壊れる。</p>
+<p><code>build.CompileFiles</code>は先に全ソースを構文解析する。次に<code>resolve.Files</code>がパッケージ共通スコープで名前を集め、<code>check.Files</code>がファイルをまたぐ宣言集合を型検査する。結果は各ファイルの<code>check.File</code>へ分配する。その後は兄弟ファイルの宣言を<code>pattern.Options.Decls</code>、<code>lower.Env.Siblings</code>に渡してファイルごとに処理する。初期化循環・相互再帰は再びパッケージ単位で検査する。</p>
+<p>つまり次の二種類の集約がある。</p>
+<ul>
+<li>名前・型の解析では、複数ファイルにまたがる定義の同一性を共有する。</li>
+<li>Core生成とGo出力では各ファイルの成果物を維持し、ファイル横断的な性質だけを後で集約して調べる。</li>
+</ul>
+<p><code>import</code>はファイルローカルであり、トップレベル宣言はパッケージで共有する。この区別は<code>resolve.Files</code>のスコープ構築で実装されている。</p>
+<p><code>CompileFiles</code>の現行コードはファイルごとのGoコードを先に生成し、その後でパッケージ単位のCore検査を実施する。検査でエラーがあれば全ファイルの<code>Output</code>を破棄するので、完成物は部分的には返らない。ただし不要なコード生成が起きる余地がある。後述の調査記録に改善候補として記載した。</p>
+<p>参照: <a href="https://github.com/podhmo/gom/blob/main/internal/build/build.go"><code>build.go</code></a>、<a href="https://github.com/podhmo/gom/blob/main/internal/check/files.go"><code>check/files.go</code></a>。</p>
+<h2 id="section-3">3. 名前解決 — 識別子の綴りから宣言オブジェクトへ</h2>
+<h3>3.1 なぜ必要か</h3>
+<p>パーサーが生成した<code>syntax.Ident</code>は識別子の綴り・位置を持つが、それだけでは<code>x</code>がどの宣言か分からない。同名のローカル束縛、パターン変数、トップレベル関数、型コンストラクタ、外部パッケージのメンバーを区別する必要がある。以後の型検査・置換・コード出力が、その識別子の同一性に依存する。</p>
+<p><code>resolve.Resolved</code>は表層ASTを保持し、<code>Defs map[*syntax.Ident]*Symbol</code>および<code>Uses map[*syntax.Ident]*Symbol</code>などの対応表を持つ。<code>Defs</code>は定義を導入する位置、<code>Uses</code>は参照である。対応する<code>*resolve.Symbol</code>が同じであることが、綴りの一致より強い意味を持つ。</p>
+<h3>3.2 スコープとは</h3>
+<p>スコープは、ある位置で参照可能な名前を宣言へ対応させる環境である。実装は項（term/value）と型（type）の名前空間を区別し、親スコープをたどって探索する。パッケージのトップレベルスコープと、ファイルのimportスコープ、式や関数の局所スコープは役割が異なる。シャドウイングした同名の変数は、それぞれ異なるSymbolを指す。</p>
+<h3>3.3 複数パスで収集してから本体を読む</h3>
+<p><code>resolve.Files</code>は、各ファイルで<code>collect</code>し、全ファイルで<code>bindTerms</code>し、最後に本体を<code>resolveDecls</code>する。外部宣言、型、コンストラクタなどを先に集めた後にトップレベルの項を束縛し、それから式やパターンの識別子を解決する。</p>
+<p>これにより、後に宣言した関数や別ファイルの名前が参照できる。反対に、同じスコープへの重複定義を検出できる。名前を見つけることと、その名前の型・実行規約を決めることは別処理である。</p>
+<h3>3.4 型検査へ保留する参照</h3>
+<p><code>x.M</code>の<code>M</code>が何かは<code>x</code>の型が分からなければ判定できない場合がある。レコードのフィールド、Goメソッド、Gom側のメンバーなどは型依存である。すべての識別子を名前解決だけで強制的に確定するわけではない。<code>check</code>が受け手の型を解いた後に確定する部分を残す。</p>
+<h3>3.5 外部宣言のロード</h3>
+<p><code>import &quot;path&quot;</code>では<code>internal/gomimport</code>が<code>.gomi</code>インターフェースを読み込み、公開面の型・メンバー・コンストラクタを提供する。Goの<code>import go</code>では<code>internal/goimport</code>が<code>go list -export</code>、Goの型情報（<code>go/types</code>）を利用する。ローダーは複数利用者に対して同じセッション内のシンボルを共有し、型同一性を保つ。外部の名前を毎回文字列から再構築する方式ではない。</p>
+<p>参照: <a href="https://github.com/podhmo/gom/blob/main/internal/resolve/resolve.go"><code>resolve/resolve.go</code></a>、<a href="https://github.com/podhmo/gom/blob/main/internal/resolve/scope.go"><code>resolve/scope.go</code></a>、<a href="https://github.com/podhmo/gom/blob/main/internal/gomimport/loader.go"><code>gomimport/loader.go</code></a>、<a href="https://github.com/podhmo/gom/blob/main/internal/goimport/loader.go"><code>goimport/loader.go</code></a>。</p>
+<h2 id="section-4">4. 型推論 — 型の未知数を解く</h2>
+<h3>4.1 型表現を理解する</h3>
+<p><code>internal/types</code>は、名付き型<code>Con</code>、剛性型変数<code>Var</code>、推論用のメタ変数<code>Meta</code>、関数<code>Func</code>、タプル<code>Tuple</code>、Go由来の型<code>Go</code>などを持つ。剛性型変数<code>a</code>は多相シグネチャに現れ、ある使用箇所で恣意的に<code>Int</code>へ固定しない。メタ変数<code>?m</code>は未解決の未知型であり、制約から<code>Int</code>などへ束縛できる。<code>types.Chase</code>は既に束縛されたメタ変数を追って具体型を取り出す。</p>
+<p>例: 多相な同一性関数を二回呼ぶ場合、第一の使用箇所では<code>a</code>を<code>?m1</code>へ、第二では独立した<code>?m2</code>へ置換する。これがインスタンス化（instantiation）であり、それぞれ<code>Int</code>と<code>String</code>に解決できる。</p>
+<h3>4.2 単一化（unification）</h3>
+<p>単一化は、二つの型が等しくなるようなメタ変数への代入を計算する操作である。<code>unify(want, got)</code>は期待型と実際の型を受け取る。未知型なら束縛し、複合型なら型コンストラクタとその引数を再帰的に比較する。</p>
+<pre><code class="language-text">want: List ?a
+ got: List Int
+------------------
+? a := Int     （概念図）
+</code></pre>
+<p><code>?a = List ?a</code>という代入は無限型を要求する。<code>occurs</code>は未知型が代入先の内部に現れるか検査し、自己包含を拒否する。これをoccurs checkと呼ぶ。Gomにはさらに数値、整数、順序、等価性などの制約フラグがあり、メタ変数が具体化した時点で検証する。</p>
+<p><code>Go.Any</code>は値位置ではボックス化の受け皿になる。しかし<code>Option Go.Any</code>という型の引数位置では<code>Option Int</code>を同じ型として扱わない。これらを区別するため<code>unify</code>（値スロット）と<code>unifySub</code>（複合型の内部）の規則が分かれている。</p>
+<h3>4.3 Hindley–Milner型推論の構成要素</h3>
+<p>Hindley–Milner（HM）型推論には、型の制約を解く単一化のほか、<code>let</code>束縛での型一般化（generalization）と、参照時の具体化（instantiation）がある。一般化は、環境と共有されていない未解決の型変数を<code>∀a</code>のような多相型へ変える。参照時は型変数ごとに新しいメタ変数を生成する。</p>
+<pre><code class="language-text">let id = fn x -&gt; x
+  推論型: ?a -&gt; ?a
+  一般化: forall a. a -&gt; a
+
+id 10    : a -&gt; a を ?u -&gt; ?u に具体化、?u = Int
+id &quot;foo&quot; : a -&gt; a を ?v -&gt; ?v に具体化、?v = String
+</code></pre>
+<p>ただしGomの実装は教科書のAlgorithm Wをそのまま走らせるわけではない。明示的アノテーション、期待型の伝播、Go型との適合、遅延される選択・適用、複数回の制約処理が加わる。</p>
+<h3>4.4 Value restriction（値制限）</h3>
+<p>一般化を無条件に許すと、型変数を含んだ計算結果が可変状態などを通じて共有され、使用箇所ごとに別の具体型を想定することが問題になり得る。Gomの<code>checkLetDecl</code>は、主にトップレベルの<code>let</code>で右辺が構文的な値（ラムダ、リテラル、値のみで作った集約など）かを検査し、一般化を制限する。通常の関数呼び出しの結果は構文的な値ではない。ローカル<code>let</code>が自由に多相化される設計ではない。</p>
+<p>既に前方参照や再帰的参照で単相の形が使われた束縛は、一般化によって先の参照と食い違わないように制限する。トップレベルの<code>let</code>がラムダを保持すると、<code>FnDecl</code>へ再分類してGoの関数宣言を生成することもある。これには初期化依存グラフを不正に循環させない効果がある。</p>
+<h3>4.5 双方向の型付け（bidirectional typing）</h3>
+<p>式から型を合成する方向だけでなく、周囲が要求する型を式へ渡す方向もある。<code>checkExpr(e, want)</code>は必要に応じて期待型<code>want</code>を子の式へ伝える。ラムダの引数や空のコレクションなど、自身だけでは型を決めにくい式は、期待型があると確定できる。</p>
+<p>型の誤りは<code>check</code>で診断される。エラーが起きても診断を集めるため部分的な型付きASTを返す場合があるが、それを<code>lower</code>へ渡してはならない。</p>
+<h3>4.6 型の最終確定は固定点反復</h3>
+<p><code>check.finalize</code>は保留案件を一回だけ再訪するのではない。<code>revisitSelects</code>、<code>replayResolvedApplies</code>、フィールド代入や反復可能な型の保留処理を繰り返し、解決が進まなくなった場合にデフォルトの型を適用する。新しく解けた型が、別のメンバー参照を解決し、さらにその呼び出しが別の型変数を解くためである。</p>
+<p>この「新たな情報が得られなくなるまで繰り返す」操作を固定点反復（fixed-point iteration）という。デフォルトの数値型を早く適用すると、本来は周囲の<code>Int64</code>などから決まるはずのメタ変数を誤って固定する可能性がある。最後に型リテラル範囲、変換、未解決変数なども検査する。</p>
+<p>参照: <a href="https://github.com/podhmo/gom/blob/main/internal/check/check.go"><code>check/check.go</code></a>、<a href="https://github.com/podhmo/gom/blob/main/internal/check/unify.go"><code>check/unify.go</code></a>、<a href="https://github.com/podhmo/gom/blob/main/internal/check/expr.go"><code>check/expr.go</code></a>。</p>
+<h2 id="section-5">5. 関数適用の規約を型付きASTで固定する</h2>
+<h3>5.1 呼び出しの分類</h3>
+<p><code>f a b</code>という構文だけでGo出力は決まらない。<code>f</code>が既知のGom関数か、未知の関数値か、Go関数・メソッドか、指定された引数数が足りるかによって実装が異なる。</p>
+<p><code>check.Apply</code>は<code>CallInfo</code>を持つ。<code>Kind</code>は<code>CallDirect</code>（既知Gom関数の飽和呼び出し）、<code>CallPartial</code>（既知Gom関数の部分適用）、<code>CallUnknown</code>（関数値）、<code>CallGo</code>（Go関数規約）を区別する。<code>Callee</code>、<code>TypeArgs</code>、<code>Arity</code>、<code>FlatArity</code>、<code>Applied</code>、<code>Unapplied</code>、<code>ArgToParam</code>、<code>HoleIndex</code>、<code>Variadic</code>なども記録する。</p>
+<p><code>Arity</code>は宣言上の引数数であり、<code>FlatArity</code>は戻り値がさらに関数である場合の引数列まで平坦化した数である。ラベル付き引数が返された関数のパラメータを指定することもあるため、この違いは必要になる。</p>
+<h3>5.2 実引数の評価順と引数配置は別</h3>
+<p><code>ArgToParam[i]</code>は「ソース上のi番目の実引数が宣言側の何番目の引数を埋めるか」の対応を表す。ラベル引数を宣言順に並べ替えるときも、副作用を持つ実引数の評価順序はソース順に維持しなければならない。loweringは一度ソース順で値を束縛した後、呼び出しの引数スロットへ配置する。</p>
+<h3>5.3 メンバー選択が未確定なら呼び出しも保留</h3>
+<p><code>x.M</code>で<code>x</code>の型がまだメタ変数なら、<code>M</code>がGoメソッドかGomメンバーか判定できない。<code>check</code>は<code>pendingSels</code>と<code>pendingApplies</code>を用いて選択と適用を保留する。受け手型が確定したら<code>replayGoApply</code>または<code>replayGomApply</code>で引数規約を検査し直す。<code>CallInfo</code>はこの最終処理で確定され、lowerでは名前の綴りやASTの形から判断をやり直さない。</p>
+<p>参照: <a href="https://github.com/podhmo/gom/blob/main/internal/check/call.go"><code>check/call.go</code></a>、<a href="https://github.com/podhmo/gom/blob/main/internal/check/apply.go"><code>check/apply.go</code></a>。</p>
+<h2 id="section-6">6. パターン検査: 網羅性と冗長性の証明</h2>
+<h3>6.1 これは実行用の決定木生成ではない</h3>
+<p>型付きASTの<code>match</code>に対し<code>internal/pattern</code>が行うのは、全値がいずれかの腕に一致するかという網羅性（exhaustiveness）と、到達不能な腕がないかという冗長性（redundancy）の検査である。ここでは新しいCore IRを作らず、診断を出す。実際に分岐して値を計算するための決定木は後段の<code>lower/pat.go</code>が生成する。</p>
+<h3>6.2 パターン行列（pattern matrix）</h3>
+<p>実装はLuc Marangetの <em>Warnings for pattern matching</em>（JFP, 2007）に基づく。パターン行列<code>P</code>は既に登場したパターン列を行として保持する。新しい候補パターン列<code>q</code>が、<code>P</code>にまだ覆われていない値を一つでも受理するなら、<code>q</code>は有用（useful）である。</p>
+<p>形式的には<code>U(P,q)</code>を「<code>q</code>に一致し、<code>P</code>のいずれの行にも一致しない値が存在する」という命題として考える。<code>U(P,q)=false</code>なら候補の腕が既存の腕によって覆われ、到達不能と判断できる。</p>
+<pre><code class="language-text">Shape = Circle(Float) | Rect(Float, Float)
+P = [Circle _]
+q = [Rect _ _]
+U(P,q) = true
+
+P = [Circle _, Rect _ _]
+q = [_]
+U(P,q) = false
+</code></pre>
+<h3>6.3 specialize と defaultMatrix</h3>
+<p><code>specialize(P,C)</code>は先頭のパターンがコンストラクタ<code>C</code>に一致する行を取り、そのペイロードの各フィールドへ列を展開する。先頭がワイルドカードの行も<code>C</code>の引数数だけワイルドカードに展開される。他のコンストラクタの行は除外する。これによって入れ子の照合問題を再帰的に扱える。</p>
+<p><code>defaultMatrix(P)</code>は先頭がワイルドカードの行だけを残し、その先頭列を落とす。先頭列に現れたコンストラクタ集合が型の全候補を覆わないとき、列挙されていない値を扱う可能性はワイルドカード行によって判定する。</p>
+<p><code>useful</code>は候補がコンストラクタで始まればspecializeし、ワイルドカードなら既出のコンストラクタ集合が完全なときに各コンストラクタへ分岐、不完全ならdefaultへ進む。再帰型のワイルドカードを無限展開しないためにも、この分岐が必要になる。</p>
+<h3>6.4 反例の生成とguard</h3>
+<p><code>missing</code>は未被覆のパターンを構築する。コンストラクタの宣言順と深さ優先で決定的に反例を生成し、診断<code>E0301</code>の<code>missing_patterns</code>に格納する。腕の到達不能は<code>E0302</code>である。<code>or</code>パターンは代替を展開する。</p>
+<p><code>guard</code>付きの腕は、guardの条件が偽になり得るため網羅性を保証しない。したがって網羅性行列には無条件の腕のみを投入する。引数や<code>let</code>のような反駁不能（irrefutable）パターンが求められる位置も別途検査される。</p>
+<p>参照: <a href="https://github.com/podhmo/gom/blob/main/internal/pattern/matrix.go"><code>pattern/matrix.go</code></a>、<a href="https://github.com/podhmo/gom/blob/main/internal/pattern/cell.go"><code>pattern/cell.go</code></a>、<a href="https://github.com/podhmo/gom/blob/main/internal/pattern/check.go"><code>pattern/check.go</code></a>。</p>
+<h2 id="section-7">7. Core IRとANF: 構文上の複雑さを減らす</h2>
+<h3>7.1 Core IRが表す契約</h3>
+<p>中間表現（Intermediate Representation, IR）とは、ある処理段階が次段階へ引き渡すプログラムの構造化表現である。CoreはGo出力に必要な意味を明示し、表層の糖衣構文を消したIRである。</p>
+<p><code>core.Expr</code>は、副作用を生まず安価に参照できる<code>Atom</code>と、<code>Let.X</code>や<code>Body.Tail</code>に配置する複合式の二種類に大きく分かれる。<code>core.Body</code>は順番のある<code>Lets</code>と結果となる<code>Tail</code>を持つ。Coreには元のパターンや<code>_</code>プレースホルダやパイプ演算子は残らず、それに相当する<code>DSwitch</code>、<code>Closure</code>、<code>Conv</code>、<code>EscapeResult</code>などの具体的ノードを持つ。</p>
+<h3>7.2 A-normal form（ANF）</h3>
+<p>A-normal formは、複合式の評価を一時変数へ分離し、各演算の入力を単純なオペランドへ揃える表現である。Gomでは厳密な純粋ANFというよりANF風の順序付き束縛を採用する。</p>
+<pre><code class="language-text">入力の概念例:
+  f (g ()) (h ())
+
+Coreの概念例:
+  let t1 = g()
+  let t2 = h()
+  tail = f(t1, t2)
+</code></pre>
+<p>これらの一時変数は単なる最適化ではなく評価順序の意味を保持する。<code>g()</code>と<code>h()</code>に副作用があるとき、引数を宣言順へ並べ替える前にソース順で評価する必要がある。<code>lower/expr.go</code>の<code>seq.emit</code>は順序付きの<code>Let</code>を追加し、<code>atom</code>/<code>asAtom</code>は複合式を必要に応じて一時束縛へする。<code>exprBody</code>は<code>Let</code>の列と末尾式を組み立てる。</p>
+<p>ブロックの途中の式はその値を捨てても、作用のある計算を実行する必要がある。<code>stmt</code>と<code>blockExpr</code>がこの扱いを担う。</p>
+<h3>7.3 不変条件（invariant）</h3>
+<p>不変条件とは、そのフェーズの成果物が必ず満たすと次段階が仮定してよい性質である。Coreには、オペランドが単純なこと、複合評価の順序が確定していること、型とソース位置を保持すること、適用規約・引数配置・型変換・脱出先が確定済みであること、パターンが残っていないことなどの条件がある。</p>
+<p><code>lower.File</code>は構築したCoreを<code>core.Validate</code>へ渡し、<code>codegen.File</code>もコード出力の前にCoreを検証する。後段で意味判断を再発明せず、入力の契約が壊れれば失敗とする設計である。</p>
+<p>参照: <a href="https://github.com/podhmo/gom/blob/main/internal/core/expr.go"><code>core/expr.go</code></a>、<a href="https://github.com/podhmo/gom/blob/main/internal/core/node.go"><code>core/node.go</code></a>、<a href="https://github.com/podhmo/gom/blob/main/internal/core/validate.go"><code>core/validate.go</code></a>、<a href="https://github.com/podhmo/gom/blob/main/internal/lower/expr.go"><code>lower/expr.go</code></a>。</p>
+<h2 id="section-8">8. パターンを実行用の決定木に変換する</h2>
+<p><code>lower/pat.go</code>は「未処理の照合義務」のキューを持つ<code>armState</code>を処理する。各義務は「この対象AtomがこのPatternと一致するか」という組である。<code>armState</code>には照合待ちの<code>todo</code>、一致の途中で得た<code>binds</code>、腕本体の情報などがある。</p>
+<ol>
+<li>先頭の腕に照合義務が残っていなければ、その腕を実行する葉を作る。guardがあれば条件分岐する。</li>
+<li>変数、ワイルドカード、タプル・レコードの分解など、失敗しないパターンは部分対象への義務を追加する。</li>
+<li><code>or</code>パターンは状態を各代替に複製する。</li>
+<li>コンストラクタ、リテラル、リスト形状など、値の判定が必要なパターンが来たら、その判定による分岐を構成し、各枝で残った腕群を再帰的に処理する。</li>
+</ol>
+<p>Coreの決定木は<code>DLeaf</code>、<code>DGuard</code>、<code>DSwitch</code>、<code>DPanic</code>などのノードを用いる。<code>DSwitch.Kind</code>には<code>SwitchType</code>（ADTの型）、<code>SwitchTag</code>（Result等のタグ）、<code>SwitchValue</code>（値）、<code>SwitchList</code>（リスト形状）がある。</p>
+<pre><code class="language-text">概念的な決定木:
+  switch Shape のコンストラクタ
+    Circle → payloadを取り出す → 円の計算
+    Rect   → payloadを取り出す → 矩形の計算
+    default → invalid-variant panic
+</code></pre>
+<p>静的検査が網羅性を証明していても、Go側の不正な値やゼロ値の侵入を考慮して<code>DPanic</code>を残す。パターン変数を分岐の複数箇所へ展開しても束縛が衝突しないよう、Symbolの置換も行う。</p>
+<p>「網羅性を判定するパターン行列」と「実行分岐を組み立てる義務キュー」は目的も出力も異なる。前者は診断を出し、後者はGoに変換できる決定木を作る。</p>
+<p>参照: <a href="https://github.com/podhmo/gom/blob/main/internal/lower/pat.go"><code>lower/pat.go</code></a>、<a href="https://github.com/podhmo/gom/blob/main/internal/core/tree.go"><code>core/tree.go</code></a>。</p>
+<h2 id="section-9">9. 部分適用、カリー化、関数値の表現</h2>
+<h3>9.1 <code>CallInfo</code>をCoreのノードへ写す</h3>
+<p><code>lower.applyCall</code>は型検査が確定した<code>CallInfo.Kind</code>を受け、<code>directCall</code>、<code>partialCall</code>、<code>unknownCall</code>、<code>goCall</code>へ分岐する。</p>
+<table>
+<thead>
+<tr>
+  <th><code>CallKind</code></th>
+  <th>Coreの主な表現</th>
+  <th>意味</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td><code>CallDirect</code></td>
+  <td><code>CallDirect</code></td>
+  <td>既知のGom宣言の飽和呼び出し</td>
+</tr>
+<tr>
+  <td><code>CallPartial</code></td>
+  <td><code>Closure</code>の列</td>
+  <td>不足引数を受け取る関数を生成し、その中で飽和させる</td>
+</tr>
+<tr>
+  <td><code>CallUnknown</code></td>
+  <td><code>CallFunc</code></td>
+  <td>実行時の関数値へ引数を適用する</td>
+</tr>
+<tr>
+  <td><code>CallGo</code></td>
+  <td><code>CallGo</code></td>
+  <td>Goの引数規約に従い呼ぶ</td>
+</tr>
+</tbody>
+</table>
+<p>過剰適用はまず既知の宣言を飽和させ、その戻り値の関数へ残りの引数を適用する。部分適用の場合、中途半端な<code>CallDirect</code>を残さず、未適用の引数を受け取る<code>Closure</code>の連鎖を組み立てる。</p>
+<h3>9.2 canonical関数値と宣言のarity</h3>
+<p>Gomの関数値の標準的な表現は、引数1つにつきGo関数を1つ持つカリー化表現である。たとえば<code>A -&gt; B -&gt; R</code>は概念的に<code>func(A) func(B) R</code>となる。他方でトップレベルの<code>fn f a b</code>宣言はGoの<code>func f(a A,b B) R</code>に対応する。多引数宣言を「関数値」として渡すときは、必要に応じてカリー化アダプタを作る。</p>
+<h3>9.3 高階関数引数のflat表現</h3>
+<p>現行実装には、高階関数の宣言された複数引数の関数型パラメータを、flatなGo関数型へ適合させる規則がある。<code>lower/flat.go</code>の<code>Uncurry</code>、<code>curryEta</code>、<code>CallFunc.FlatArity</code>などが、canonicalな値とflatなパラメータを区別する。繰り返し使われるコールバックが<code>func(A,B)R</code>なら、各呼び出しでの中間クロージャの生成を減らせる。</p>
+<p>重要なのは最適化だけでなく、部分適用によって副作用がいつ実行されるかという意味である。呼び出しの平坦化は型だけでなく適用タイミングに関係するため、Coreで規約を確定させる。</p>
+<p>参照: <a href="https://github.com/podhmo/gom/blob/main/internal/lower/expr.go"><code>lower/expr.go</code></a>、<a href="https://github.com/podhmo/gom/blob/main/internal/lower/flat.go"><code>lower/flat.go</code></a>、<a href="https://github.com/podhmo/gom/blob/main/internal/core/call.go"><code>core/call.go</code></a>。</p>
+<h2 id="section-10">10. Go相互運用: 型と呼び出し規約の橋渡し</h2>
+<p>Goの関数は、カリー化、エラー表現、スライス、<code>any</code>、named type、複数戻り値などに関してGomと異なる。<code>goimport</code>はGoの元シグネチャを読み、<code>check</code>にはGom側から見た型を、<code>lower</code>には元のGo呼び出しを実装するための情報（<code>GoSig</code>）を提供する。</p>
+<p><code>core.GoResults</code>は戻り値の形を区別する。戻り値がない場合、単一値、errorだけ、<code>(T,error)</code>、ペア、一般の複数戻り値、末尾errorを持つ多値などである。<code>ResultFromGo</code>、<code>OptionFromGo</code>、<code>TupleFromGo</code>、<code>ErrorFromGo</code>、<code>EscapeCall</code>といったノードに分ける。</p>
+<table>
+<thead>
+<tr>
+  <th>Goの戻り値</th>
+  <th>必要な意味変換</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>0個</td>
+  <td>効果として呼び、Gomの<code>Unit</code>を得る</td>
+</tr>
+<tr>
+  <td>1個</td>
+  <td>必要なら型変換する</td>
+</tr>
+<tr>
+  <td><code>(T,error)</code></td>
+  <td>Resultに組み立てる、または脱出条件へ融合する</td>
+</tr>
+<tr>
+  <td><code>(T,bool)</code>等</td>
+  <td>ペアの意味に従ってタプルやOptionを形成する</td>
+</tr>
+<tr>
+  <td>3個以上</td>
+  <td>要素をタプル化し、末尾errorを必要に応じてResult化する</td>
+</tr>
+</tbody>
+</table>
+<p><code>List</code>とGoのスライスを結ぶ際にはコピーが必要な場合がある。<code>any</code>へのボックス化、Goのinterfaceへの適合、nilの可否、数値変換も同じ境界で決定する。Goの戻り値が「二つ」というだけで<code>Result</code>にしてはいけない。正しい分類には元のGo型とGomで利用するときの型の両方が必要である。</p>
+<p>参照: <a href="https://github.com/podhmo/gom/blob/main/internal/goimport/mapping.go"><code>goimport/mapping.go</code></a>、<a href="https://github.com/podhmo/gom/blob/main/internal/lower/expr.go"><code>lower/expr.go</code></a>、<a href="https://github.com/podhmo/gom/blob/main/internal/core/call.go"><code>core/call.go</code></a>。</p>
+<h2 id="section-11">11. <code>try</code>と<code>|?&gt;</code>: 制御効果の脱出境界</h2>
+<p><code>try e</code>はResultの成功値を取り出し、失敗なら周囲の関数から早期returnする。コンパイラが保存しなければならないのは「どの関数から脱出するか」である。<code>EscapeResult</code>は既に作られたResultを調べ、<code>EscapeCall</code>はGoの<code>(T,error)</code>を受け取る呼び出しと脱出条件を融合する。どちらも<code>To *core.Func</code>で脱出先を表す。</p>
+<p><code>|?&gt;</code>はResultを返すパイプを、合成した局所的な脱出境界の中で評価できる。連続する成功経路は中間Resultを毎回構築せずに融合する。しかし、もともとユーザー関数を脱出先とする明示的な<code>try</code>を、合成クロージャの内側へ移すとreturnの行き先が変わる。</p>
+<p>そこで<code>hasUnguardedTry</code>で局所ラムダに遮られていない<code>try</code>を検出し、必要なら<code>pipeTryMixed</code>でチェーンを分割する。明示的<code>try</code>のある部分は元の境界で評価し、安全な連続区間は局所境界内で融合する。制御効果のスコープを保ったまま変換する操作である。</p>
+<p>参照: <a href="https://github.com/podhmo/gom/blob/main/internal/lower/expr.go"><code>lower/expr.go</code></a>、<a href="https://github.com/podhmo/gom/blob/main/docs/decisions/2026-11-03-pipe-try-segmented-fusion.md"><code>pipe-try-segmented-fusion</code></a>。</p>
+<h2 id="section-12">12. 末尾再帰と初期化依存グラフ</h2>
+<h3>12.1 Tail position</h3>
+<p>関数の結果をそのまま返す位置を末尾位置（tail position）という。自己再帰呼び出しがその位置なら、呼び出しを<code>TailCall</code>としてループへ変換できる。戻ってからさらに演算する位置や、他の引数の計算の内側は同じ変換ができない。ANF化後のCoreを調べることで位置を明確に判断できる。</p>
+<h3>12.2 <code>@tailrec</code>が要求する保証</h3>
+<p><code>@tailrec</code>は単に変換を試みる指示ではなく、変換が成立することを要求する。少なくとも一つの末尾自己再帰があること、許されない非末尾自己再帰がないこと、関数値として自己参照しないこと、相互再帰により保証が崩れないことを検査する。</p>
+<p>相互再帰は参照グラフの強連結成分（strongly connected component, SCC）で考えられる。SCCは各頂点から他の頂点に相互に到達可能な集合である。関数・変数の参照関係が循環し、自分だけの成分ではないなら、単一関数の自己再帰をループにするだけでは一般にスタック消費を防げない。<code>CheckTailRecMutual</code>はパッケージ横断でこれを調べる。</p>
+<h3>12.3 パッケージ初期化循環</h3>
+<p>Goのトップレベル変数初期化には依存順がある。<code>CheckInitCycles</code>はCoreの変数・関数の参照関係を調べ、関数本体を経由する参照も含めて変数間の循環を検出する。元のGomの宣言ではなく生成するCoreの宣言形を基礎にするため、実際のGo出力に近い依存を調べられる。</p>
+<p>参照: <a href="https://github.com/podhmo/gom/blob/main/internal/lower/tailrec.go"><code>lower/tailrec.go</code></a>、<a href="https://github.com/podhmo/gom/blob/main/internal/lower/tail.go"><code>lower/tail.go</code></a>、<a href="https://github.com/podhmo/gom/blob/main/internal/lower/initcycle.go"><code>lower/initcycle.go</code></a>。</p>
+<h2 id="section-13">13. データ型をGoへ写像する</h2>
+<p>一般的なGomのADTはGoで閉じたインターフェースとバリアントごとの構造体として表現する。概念的には次のようになる。</p>
+<pre><code class="language-go">type Shape interface { isShape() }
+type Shape_Circle struct { Radius float64 }
+type Shape_Rect struct { W, H float64 }
+func (Shape_Circle) isShape() {}
+func (Shape_Rect) isShape() {}
+</code></pre>
+<p><code>match</code>は<code>type switch</code>などへ変換される。コンストラクタは構造体の生成、分解はフィールドの取得である。<code>Result</code>は例外的に専用のタグ、成功値、失敗値を持つ表現を使い、<code>SwitchTag</code>で分岐する。<code>Unit</code>は<code>struct{}</code>、Gomの<code>Int</code>は<code>int64</code>に対応し、Goの<code>int</code>とは区別される。</p>
+<p>型の論理的同一性と、Goでの物理的表現を混同してはいけない。型の写像は<code>codegen/types.go</code>にあり、選択した表現に応じてCoreに別のノードが現れる。コード生成が毎回元のGom構文から型表現を選び直すわけではない。</p>
+<p>参照: <a href="https://github.com/podhmo/gom/blob/main/internal/codegen/types.go"><code>codegen/types.go</code></a>、<a href="https://github.com/podhmo/gom/blob/main/internal/codegen/decl.go"><code>codegen/decl.go</code></a>。</p>
+<h2 id="section-14">14. Goコード生成: destination passing</h2>
+<h3>14.1 式の結果をどこへ置くか</h3>
+<p>Goの<code>if</code>や<code>switch</code>自体は値を返さない。一方Gomには値を返す<code>if</code>や<code>match</code>がある。<code>codegen/emit.go</code>は式を出力する際に宛先（destination）を渡す。宛先には<code>Return</code>、<code>Assign(name)</code>、<code>Declare(name)</code>、<code>Discard</code>、リスト構築用の宛先がある。</p>
+<pre><code class="language-text">概念的なCore:
+  let label = if n &gt; 0 then &quot;pos&quot; else &quot;neg&quot;
+  tail = label
+
+概念的なGo:
+  var label string
+  if n &gt; 0 { label = &quot;pos&quot; } else { label = &quot;neg&quot; }
+  return label
+</code></pre>
+<p>各分岐は同じ宛先へ代入し、末尾ならreturnする。不要な一時クロージャを挿入しなくても式指向の意味をGoの文へ変換できる。使われていない中間値でも副作用は実行する。Goは未使用ローカル変数を拒否するので、値が不要な場合には束縛の宣言を省き、評価だけを出力する。</p>
+<h3>14.2 Go全体を<code>go/ast.File</code>で組み立ててはいない</h3>
+<p>現行実装の重要な詳細として、Goソースはハイブリッド方式で作る。型や式の一部を<code>go/ast</code>で表し<code>go/printer</code>で書き出す一方、宣言や制御文の多くはコード生成バッファへ直接テキストとして追加する。最後に<code>codegen.render</code>が<code>go/format.Source</code>で整形する。<code>Output.ParseFile()</code>は完成済みの出力をGo ASTへ再解析する補助関数である。</p>
+<p>そのため、既存の<code>docs/design.md</code>にある「Core IR → go/ast」という説明は、現行のコード生成経路を厳密には表していない。今回の調査記録で文書と実装の差として扱った。</p>
+<h3>14.3 ソース位置の保持</h3>
+<p>すべてのCoreノードが<code>diag.Span</code>を保持する。出力時には一時的な<code>//gomsrc</code>印を入れ、<code>go/format</code>の後に<code>//line path.gom:N</code>へ置換する。この印を利用して<code>SourceMap</code>のアンカーも作る。生成Goのエラーやpanicの位置をGomソースへ対応させるためである。</p>
+<p><code>test</code>宣言と<code>@test</code>ヘルパーは<code>_test.go</code>へ分離でき、<code>TestMapping</code>がGom側のテスト名と生成したGoテスト関数名を対応させる。</p>
+<p>参照: <a href="https://github.com/podhmo/gom/blob/main/internal/codegen/codegen.go"><code>codegen/codegen.go</code></a>、<a href="https://github.com/podhmo/gom/blob/main/internal/codegen/gen.go"><code>codegen/gen.go</code></a>、<a href="https://github.com/podhmo/gom/blob/main/internal/codegen/emit.go"><code>codegen/emit.go</code></a>。</p>
+<h2 id="section-15">15. 簡単な例を段階別に追跡する</h2>
+<p>次の例は構造を説明するためのものであり、出力コードとIRの具体的な綴りは実際のダンプで確認する。</p>
+<pre><code class="language-gom">package main
+
+type Shape =
+  | Circle (radius: Float)
+  | Rect (w: Float) (h: Float)
+
+fn area (s: Shape) -&gt; Float = match s {
+  Circle r -&gt; 3.14159 * r * r
+  Rect w h -&gt; w * h
+}
+</code></pre>
+<table>
+<thead>
+<tr>
+  <th>段階</th>
+  <th>処理の結果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>parse</td>
+  <td><code>TypeDecl</code>、<code>FnDecl</code>、<code>Match</code>、<code>CtorPat</code>、乗算式のAST</td>
+</tr>
+<tr>
+  <td>resolve</td>
+  <td><code>Shape</code>、各コンストラクタ、<code>area</code>、<code>s</code>、<code>r/w/h</code>のシンボル束縛</td>
+</tr>
+<tr>
+  <td>check</td>
+  <td>対象とパターンの型、各演算と各腕の<code>Float</code>型を確定</td>
+</tr>
+<tr>
+  <td>pattern</td>
+  <td><code>Circle</code>と<code>Rect</code>がバリアントを覆うことを確認</td>
+</tr>
+<tr>
+  <td>lower</td>
+  <td>コンストラクタ別の<code>DSwitch</code>、フィールドの取り出し、腕の<code>DLeaf</code>を組み立てる</td>
+</tr>
+<tr>
+  <td>codegen</td>
+  <td>Goの型宣言、<code>type switch</code>、分岐内の計算とreturnを出力する</td>
+</tr>
+</tbody>
+</table>
+<p>この例で<code>check</code>は型と呼び出し規約、<code>pattern</code>は値の集合に対する被覆、<code>lower</code>は実行する分岐構造をそれぞれ扱う。三者を同じ「matchの処理」として一括りにしないことが重要である。</p>
+<h2 id="section-16">16. 実装を読みながら検証する方法</h2>
+<p>コードを読む際は、まず<code>build.Compile</code> / <code>CompileFiles</code>を確認し、次に<code>resolve.Files</code>、<code>check.Files</code>、<code>check.unify</code>、<code>check.Apply</code>の順で追う。その後、静的検査の<code>pattern/matrix.go</code>と実行木生成の<code>lower/pat.go</code>を比較し、<code>lower/expr.go</code>のANF化・呼び出し分類を追って、<code>core.Validate</code>、<code>codegen/emit.go</code>へ進む。</p>
+<p><code>gom dump</code>には<code>syntax</code>、<code>resolve</code>、<code>check</code>、<code>core</code>の四フェーズがある。</p>
+<pre><code class="language-sh">gom dump -phase=syntax main.gom
+gom dump -phase=resolve main.gom
+gom dump -phase=check main.gom
+gom dump -phase=core main.gom
+gom check main.gom
+gom build main.gom
+</code></pre>
+<p>ダンプはS式風のツリーで、<code>name%N</code>は同一シンボルを、<code>@start:end</code>はUTF-8のバイト範囲を示す。<code>pattern</code>は独立したIRを作るフェーズではないため、専用の<code>dump -phase=pattern</code>はない。複数ファイルのパッケージでは、<code>gom dump</code>も同じディレクトリの兄弟ファイルをコンパイル単位に含める。</p>
+<p>変更の検証では、型付きAST・Core・生成Goの差分をそれぞれ見て、Goコンパイルと実行結果による確認を加える。<code>core.Validate</code>の不変条件テストだけで実行意味の一致を保証したとはしない。</p>
+<h2 id="section-17">17. 理論用語と実装の対応</h2>
+<table>
+<thead>
+<tr>
+  <th>理論概念</th>
+  <th>意味</th>
+  <th>対応箇所</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+  <td>スコープ</td>
+  <td>位置ごとの名前と宣言の環境</td>
+  <td><code>resolve/scope.go</code></td>
+</tr>
+<tr>
+  <td>シンボル同一性</td>
+  <td>同名でも異なる宣言を区別する識別</td>
+  <td><code>resolve.Symbol</code></td>
+</tr>
+<tr>
+  <td>単一化</td>
+  <td>二つの型を等しくする代入の計算</td>
+  <td><code>check/unify.go</code></td>
+</tr>
+<tr>
+  <td>occurs check</td>
+  <td>無限型となる自己包含を禁止する</td>
+  <td><code>check/unify.go</code></td>
+</tr>
+<tr>
+  <td>一般化・具体化</td>
+  <td><code>let</code>の型変数の量化と使用時の新しい未知型への置換</td>
+  <td><code>check/check.go</code> / <code>check/unify.go</code></td>
+</tr>
+<tr>
+  <td>value restriction</td>
+  <td>多相化を許す<code>let</code>の値の条件</td>
+  <td><code>check/check.go</code></td>
+</tr>
+<tr>
+  <td>固定点反復</td>
+  <td>解決が進まなくなるまで保留制約を再訪</td>
+  <td><code>check.finalize</code></td>
+</tr>
+<tr>
+  <td>パターン行列</td>
+  <td>値集合の被覆を再帰的に計算</td>
+  <td><code>pattern/matrix.go</code></td>
+</tr>
+<tr>
+  <td>決定木</td>
+  <td>実行用の条件分岐を表す木</td>
+  <td><code>lower/pat.go</code>, <code>core.DTree</code></td>
+</tr>
+<tr>
+  <td>ANF</td>
+  <td>複合評価を順序付き束縛へ分離</td>
+  <td><code>lower/expr.go</code>, <code>core.Body</code></td>
+</tr>
+<tr>
+  <td>η展開・uncurry</td>
+  <td>関数値の表現を変換する</td>
+  <td><code>lower/expr.go</code>, <code>lower/flat.go</code></td>
+</tr>
+<tr>
+  <td>制御効果の境界</td>
+  <td><code>try</code>の脱出先を明示する</td>
+  <td><code>core.EscapeResult</code>, <code>core.EscapeCall</code></td>
+</tr>
+<tr>
+  <td>SCC</td>
+  <td>互いに到達できる参照グラフの成分</td>
+  <td><code>lower/tailrec.go</code></td>
+</tr>
+<tr>
+  <td>destination passing</td>
+  <td>値の格納先を指定して文を生成する</td>
+  <td><code>codegen/emit.go</code></td>
+</tr>
+<tr>
+  <td>source map</td>
+  <td>生成位置をソース位置に対応付ける</td>
+  <td><code>diag.SourceMap</code></td>
+</tr>
+</tbody>
+</table>
+<h2 id="section-18">18. 設計変更時に確認すべきこと</h2>
+<ol>
+<li>新しい構文は既存の型付きASTに正しく意味を持たせられるか。そうでなければ<code>syntax</code>・<code>check</code>で表現を追加する。</li>
+<li>定義の同一性を<code>resolve</code>で固定できるか。受け手の型が必要な参照は<code>check</code>で保留すべきか。</li>
+<li>型制約を解くには何が必要か。期待型、デフォルト型、Goとの変換が既存の規則と干渉しないか。</li>
+<li>パターンの網羅性と実行用の決定木を別々に定義・検証できるか。</li>
+<li>Coreに評価順序、部分適用の実行タイミング、脱出先、Go境界の変換を明示できるか。<code>core.Validate</code>で不正形を検出できるか。</li>
+<li>最後にGo出力を決める。<code>codegen</code>へ新しい意味規則を持ち込まず、Goによる型検査・実行テストまで行う。</li>
+</ol>
+<p>本調査中に確認した設計文書とコードのずれ、および未検証の改善候補は別紙<a href="../sketch/ja/2026-11-20-transpiler-pipeline-review.md"><code>docs/sketch/ja/2026-11-20-transpiler-pipeline-review.md</code></a>に分離した。GitHubの接続権限で403エラーとなり、リポジトリへの書き込みは未実施である。</p>
+<h2 id="section-19">19. 参考資料</h2>
+<ul>
+<li><a href="https://github.com/podhmo/gom/blob/main/docs/spec.md">Gomの言語仕様</a></li>
+<li><a href="https://github.com/podhmo/gom/blob/main/docs/design.md">Gomの実装設計</a></li>
+<li><a href="https://github.com/podhmo/gom/tree/main/docs/decisions">決定の記録</a></li>
+<li>Luc Maranget, <em>Warnings for pattern matching</em>, Journal of Functional Programming, 2007（実装の<code>pattern/matrix.go</code>が明示している直接のアルゴリズム上の基礎）</li>
+</ul>
+</main></div><footer>podhmo/gom · 2026-11-20 · JavaScript不使用・印刷対応</footer></body></html>
