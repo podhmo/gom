@@ -113,7 +113,7 @@ Go のランタイム（`scope.Run` / `scope.RunResult`）だけで動いた。
 | P2 | `if need { mu.Lock (); s.Defer ... }` | unlock は `work` の後 |
 | P3 | `s.Defer (... Ptr.set p old ...)` | P1 と同じ機構 |
 | P4 | 反復の中で `with_scope_result` を開く | 反復ごとに解放。tail call のループ化も維持（生成 Go は `for` + 即時関数呼び出し） |
-| P5 | `s.DeferErr` | Ok の結果だけを close エラーが置き換える（body のエラーが優先） |
+| P5 | `s.DeferErr` | Ok の結果だけを close エラーが置き換える（body のエラーが優先、cleanup 同士は `errors.Join`） |
 | P6 | `s.OnError` | Err か panic のときだけ rollback |
 | P7 | 何もしない | panic 時も cleanup が走り、panic は再送出 |
 | P8 | 対象外 | spec の「recover は提供しない」を維持 |
@@ -166,13 +166,27 @@ func copyFile(log *fake.Log, src, dst, data string) (res result.Result[struct{},
 `OnError` を panic 時にも走らせるには `ok` フラグが要る（`cgen/transfer`）。
 `cgen` は手書きで、(D) と同じシナリオテストを通す。
 
-## 4. 未決の論点
+## 4. 論点への回答（2026-11-21、podhmo）
 
-- cleanup 失敗の合流規則: 最初のエラー優先（Go の慣用、現実装）か `errors.Join` か
-- `OnError` を panic 時にも走らせるか（現実装は走らせる）
-- `s` の脱出を静的に禁じるか（第二級値・E コード）、実行時検査で済ますか
-- 登録 API の面: `Scope.defer s (fn () -> ...)` のようなモジュール関数か、
-  `use` 束縛のような糖衣（`use r = acquire; release`）を足すか
+(E) を選択。回答の全文は [decision](../decisions/2026-11-21-scoped-cleanup.md)。
+
+| 論点 | 回答 |
+| --- | --- |
+| cleanup 失敗の合流 | 本体の `Err` を優先し、cleanup 同士は実行順に `errors.Join` |
+| 独自エラー型 | `defer_err` は `GoError` に限る。結合関数を受け取る版は future work |
+| `on_err` と panic | panic 時にも走らせる。問題が出たら把握して見直す |
+| `s` の脱出 | 「逃げない値」として静的に限定する |
+| 逃げないラムダの判定 | パッケージ内は推論、`.gomi` 境界は注釈。Go の関数は常に逃げる扱い |
+| 綴り | 関数とメソッドだけ。糖衣は困ってから考える |
+
+合流規則の変更に合わせて実験を直した。`scope.close` は cleanup のエラーを
+実行順に集めて `errors.Join` し、`dscope/write_pair` と `cgen/writePair` で
+「両方の Close が失敗したら 2 件をまとめる」「本体のエラーが勝つ」を確認する。
+生成 Go の目標形では、結果に触る cleanup が複数あるとき、スコープ入口で
+登録した defer（最後に走る）が共有のエラー列を結果へ畳み込む。
+
+残る細目:
+
 - 登録時に引数を評価する Go の挙動（115 件）は Gom ではラムダの捕捉で表すので
   意味の差はないが、捕捉が `let` 束縛の値であることを明記する
 - P8（recover）は対象外のまま別の問いにする。テスト側の 330 件は
