@@ -4,15 +4,19 @@ import go "os"
 import go "regexp"
 import go "strings"
 
-// The command line, parsed: `--help` wins wherever it appears before
-// `--`; otherwise every value has already been validated.
 let api_url = regexp.MustCompile "^https?://[^/?#]+(/[^?#]*)?$"
 
+// The command line, parsed: `--help` wins wherever it appears before
+// `--`; otherwise every value has already been validated.
 type Command =
   | Help
   | Upload Options
 
 type Options = { api: String, target: Target, files: List String }
+
+// Option values as written; `finish` validates them only once `--help`
+// can no longer appear.
+type Raw = { api: String, gist: Option String, files: List String }
 
 let usage = "usage: gist-cli [--api-url URL] [--gist URL] [--] FILE..."
 
@@ -25,20 +29,17 @@ fn program_args () -> List String = match Go.Slice.to_list os.Args {
 }
 
 fn parse_args (args: List String) -> Result Command String =
-  parse_options args { api = default_api, target = Create, files = [] }
+  parse_options args { api = default_api, gist = None, files = [] }
 
 // `files` accumulates in reverse; `finish` restores the order.
-fn parse_options (args: List String) (opts: Options) -> Result Command String = match args {
+fn parse_options (args: List String) (opts: Raw) -> Result Command String = match args {
   [] -> finish opts
   ["--help", .._] -> Ok Help
   ["--", ..rest] -> finish { opts with files = List.rev_append rest opts.files }
-  ["--gist", ..rest] -> match (opts.target, rest) {
-    (Update _, _) -> Err "--gist may only be supplied once"
-    (Create, [url, ..rest]) if url != "" -> {
-      let id = try parse_gist_url url
-      parse_options rest { opts with target = Update id }
-    }
-    (Create, _) -> Err "--gist requires a URL"
+  ["--gist", ..rest] -> match (opts.gist, rest) {
+    (Some _, _) -> Err "--gist may only be supplied once"
+    (None, [url, ..rest]) if url != "" -> parse_options rest { opts with gist = Some url }
+    (None, _) -> Err "--gist requires a URL"
   }
   ["--api-url", url, ..rest] -> parse_options rest { opts with api = url }
   ["--api-url"] -> Err "--api-url requires a URL"
@@ -47,10 +48,14 @@ fn parse_options (args: List String) (opts: Options) -> Result Command String = 
   }
 }
 
-fn finish (opts: Options) -> Result Command String = {
+fn finish (opts: Raw) -> Result Command String = {
   try require (opts.files != []) usage
+  let target = match opts.gist {
+    None -> Create
+    Some url -> Update (try parse_gist_url url)
+  }
   try require (api_url.MatchString opts.api) "invalid API URL: ${opts.api}"
-  Ok (Upload { opts with files = List.rev opts.files })
+  Ok (Upload { api = opts.api, target = target, files = List.rev opts.files })
 }
 
 fn require (ok: Bool) (message: String) -> Result Unit String = if ok { Ok () } else { Err message }
@@ -61,7 +66,11 @@ test "files keep their order and -- ends option parsing" {
   Ok ()
 }
 
-test "--help wins over later errors" { assert_eq (parse_args ["--help", "--unknown"]) (Ok Help) }
+test "--help wins over later errors and unvalidated values" {
+  assert_eq (parse_args ["--help", "--unknown"]) (Ok Help)
+  assert_eq (parse_args ["--gist", "not-a-url", "--help"]) (Ok Help)
+  assert_eq (parse_args ["--api-url", "file:///tmp", "--help"]) (Ok Help)
+}
 
 test "--gist parses the Gist id" {
   let got = try parse_args ["--gist", "https://gist.github.com/octocat/deadbeef/", "a.txt"]
@@ -76,4 +85,10 @@ test "option errors" {
   assert_eq (parse_args ["--api-url"]) (Err "--api-url requires a URL")
   assert_eq (parse_args ["--api-url", "file:///tmp", "a"]) (Err "invalid API URL: file:///tmp")
   assert_eq (parse_args ["-x", "a"]) (Err "unknown option: -x")
+  (assert_eq
+    (parse_args ["--gist", "x", "--gist", "y", "a"])
+    (Err "--gist may only be supplied once"))
+  (assert_eq
+    (parse_args ["--gist", "https://example.com/1", "a"])
+    (Err "invalid Gist URL: https://example.com/1"))
 }

@@ -72,6 +72,11 @@ main
 - `help: Bool` と `literal: Bool` も同様。`help` は結果の種類（`Command = Help | Upload`）、
   `literal`（`--` 以降）は解析の状態であって設定ではないので、`Options` から外して
   解析関数の分岐（`parse_options` / `parse_files`）にした。
+- ただし「解析しながら検証する」と優先順位が変わる。最初の分割では `--gist` の値を
+  その場で `parse_gist_url` していたため、`--gist not-a-url --help` が help ではなく
+  エラーになった（レビューで指摘）。書かれたままの値を `Raw` record に集め、`--help`
+  がもう現れない `finish` で `Options` に変換する 2 段にした。「生の入力」と
+  「検証済みの値」を別の型にすると、どこで検証するかが型の境界として見える。
 - 「検証済みの値」を作る関数（`parse_gist_url : String -> Result String String`）は、
   bool を返す `valid_gist_url` + 後段の `path.Base` より安全。id の取り出しと検証が
   同じ正規表現 1 つで行われ、両者がずれない。
