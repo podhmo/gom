@@ -23,13 +23,9 @@ fn run (opts: Options) -> Result String String = {
   gist_html_url opts.target response
 }
 
-fn text_error (r: Result a GoError) -> Result a String = match r {
-  Ok value -> Ok value
-  Err e -> Err (e.Error ())
-}
+fn text_error (r: Result a GoError) -> Result a String = Result.map_err (fn e -> e.Error ()) r
 
 fn fail (message: String) -> Unit = {
-  ignore fmt.Fprintln (os.Stderr, fmt.Sprintf ("gist-cli: %s", message))
-  ignore os.Exit 1
-  ()
+  ignore fmt.Fprintln (os.Stderr, "gist-cli: ${message}")
+  os.Exit 1
 }
