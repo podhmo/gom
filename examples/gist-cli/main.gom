@@ -18,7 +18,7 @@ fn run (opts: Options) -> Result String String = {
   let token = os.Getenv "GITHUB_TOKEN"
   try require (token != "") "GITHUB_TOKEN is required"
   let files = try load_files opts.files
-  let request = gist_request opts.api token opts.target files
+  let request = try text_error (gist_request opts.api token opts.target files)
   let response = try text_error (perform request)
   gist_html_url opts.target response
 }
