@@ -71,8 +71,9 @@ main
   「更新なのにidがない」状態が作れなくなる。
 - `help: Bool` と `literal: Bool` も同様で、どちらも設定ではないので `Options` から外した。
   - `help` は結果の種類なので、`Command = Help | Upload` にした
-  - `--` 以降を表す `literal` は解析の状態なので、解析関数の分岐にした。
-    `parse_options` / `parse_files` がその分岐である
+  - `--` 以降を表す `literal` は解析の状態なので、`parse_options` の分岐にした。
+    `["--", ..rest]` の腕が残りをすべてファイルとして `finish` へ渡すので、
+    フラグを持ち回る必要がない
 - ただし、解析しながら検証すると `--help` の優先順位が変わる。最初の分割では `--gist` の値を
   その場で `parse_gist_url` していたため、`--gist not-a-url --help` がhelpではなく
   エラーになった。これはレビューで指摘された。書かれたままの値を `Raw` record に集め、
@@ -103,7 +104,7 @@ transportを差し替える余地も生まれる。
 - 引数文法を `match` とリストパターンで書く。`os.Args` を `Go.Slice.to_list` で
   `List String` にし、`["--gist", url, ..rest]` のように「オプションとその値」を
   1つのパターンで取る。Goの `for i := 0; i < len(args); i++ { ... args[i+1] ... }`
-  にある添字の境界チェックが、`["--gist"] -> Err "--gist requires a URL"` という
+  にある添字の境界チェックが、`["--api-url"] -> Err "--api-url requires a URL"` という
   網羅的な腕になる。
 - regexpのキャプチャを直接パターンマッチする。`FindStringSubmatch` の `[]string` は
   `List String` として受け取れるので、
