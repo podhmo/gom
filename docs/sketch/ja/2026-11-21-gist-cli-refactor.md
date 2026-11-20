@@ -1,37 +1,37 @@
-# examples/gist-cli のリファクタリングで得た知見
+# examples/gist-cliのリファクタリングで得た知見
 
 - 日付: 2026-11-21
-- 対象: `examples/gist-cli`（ブランチ `devin/*-gist-cli-refactor` の一連のコミット）
+- 対象: ブランチ `devin/*-gist-cli-refactor` の一連のコミットによる `examples/gist-cli` の変更
 - 関連: [prototype](../2026-11-03-gist-cli-prototype.md)、
   [wave23 struct 構築](../2026-11-19-wave23-struct-construction.md)、
   [struct-field-write decision](../../decisions/2026-11-19-struct-field-write.md)
-- 状態: 調査記録（規範ではない）
+- 状態: 調査記録。規範ではない
 
 ## 目的
 
-gist-cli は「host パッケージ（Go 側の adapter）に寄せる部分」と「Gom に残す部分」
-という境界で切られて育った。host が消えた今、その切り口は意味を失い、逆に 1 本の
-`run` に argument・ファイル・JSON・HTTP・Gist の判断が接着されていた。これを
+gist-cliは「hostパッケージに寄せる部分」と「Gomに残す部分」という境界で切られて育った。
+hostパッケージはGo側のadapterである。hostが消えた今、その切り口には意味がない。
+一方で、引数・ファイル・JSON・HTTP・Gistの判断は1本の `run` に接着されていた。これを
 
-1. 全体: すべての操作を 1 本の木として捉え直し、用途とサイズで切り分ける
+1. 全体: すべての操作を1本の木として捉え直し、用途とサイズで切り分ける
 2. 局所: 不要になった型注釈や手作りの補助を、今の言語機能でより小さく書く
 
 の順に書き直し、その過程で分かった「今どう書くべきか」「今の限界」「将来ほしいもの」を残す。
 
 ## 手順
 
-コミット単位（古い順）:
+コミットの単位を古い順に並べる:
 
-1. 例をディレクトリ単位（1 パッケージ）でコンパイルし、Gom の `test` ブロックも走らせる
-   ハーネスに変更（`integration_test.go`、`build.sh`）
+1. `integration_test.go` と `build.sh` を、例をディレクトリ単位の1パッケージとしてコンパイルし、
+   Gomの `test` ブロックも走らせるハーネスに変更
 2. 引数を `Command`/`Options`/`Target` に解析する `args.gom` を分離
-3. 操作の木を files / gist / transport / json の層に分割
-4. 以降は局所: client の内側の型注釈削除と上限値の命名、`Go.Map` + `json.Marshal` による
-   body 構築、regexp キャプチャによる Gist id 抽出、`Result.map_err`/`Option.to_result`
+3. 操作の木をfiles / gist / transport / jsonの層に分割
+4. 以降は局所: clientの内側の型注釈削除と上限値の命名、`Go.Map` + `json.Marshal` による
+   body構築、regexpキャプチャによるGist id抽出、`Result.map_err`/`Option.to_result`
    による短縮
 
-各コミットで `gom check`、`go test ./examples/gist-cli`（既存の httptest 結合テスト全件 +
-新設の Gom `test` ブロック）を通した。
+各コミットで `gom check` と `go test ./examples/gist-cli` を通した。後者は既存のhttptest
+結合テスト全件と、新設したGomの `test` ブロックを走らせる。
 
 ## 1. 言語非依存の観点
 
@@ -52,8 +52,8 @@ main
 ```
 
 旧コードでは「検証」が `run` の先頭に、「引数の意味づけ」が `parse_args` の
-`cfg.gist != ""` という文字列フラグに、「Gist の知識」が `run` の中の `if creating`
-の連鎖に散っていた。葉の性質で分けると次の 3 種類になる。
+`cfg.gist != ""` という文字列フラグに、「Gistの知識」が `run` の中の `if creating`
+の連鎖に散っていた。葉の性質で分けると次の3種類になる。
 
 | 種類 | 例 | 置き場所 |
 | --- | --- | --- |
@@ -61,109 +61,111 @@ main
 | 純粋で Gist を知らない | 引数文法, 重複検出, JSON の 1 フィールド取り出し | `args.gom` / `files.gom` / `json.gom` |
 | 副作用 | ファイル読み取り, HTTP, 終了 | `files.gom` / `transport.gom` / `main.gom` |
 
-`main.gom` の `run` は木の幹だけ（6 行）になり、各枝は単独で `test` できる。
+`main.gom` の `run` は木の幹だけを持つ6行になり、各枝は単独で `test` できる。
 
 ### 判断は型にする
 
-- `gist: String` + `if gist == ""` は「作成か更新か」という 2 値の判断を空文字という
+- `gist: String` + `if gist == ""` は「作成か更新か」という2値の判断を、空文字という
   番兵で表していた。`type Target = | Create | Update (id: String)` にすると、
-  method・route・期待 status・visibility がすべて `match target` に揃い、
-  「更新なのに id がない」状態が作れなくなる。
-- `help: Bool` と `literal: Bool` も同様。`help` は結果の種類（`Command = Help | Upload`）、
-  `literal`（`--` 以降）は解析の状態であって設定ではないので、`Options` から外して
-  解析関数の分岐（`parse_options` / `parse_files`）にした。
-- ただし「解析しながら検証する」と優先順位が変わる。最初の分割では `--gist` の値を
-  その場で `parse_gist_url` していたため、`--gist not-a-url --help` が help ではなく
-  エラーになった（レビューで指摘）。書かれたままの値を `Raw` record に集め、`--help`
-  がもう現れない `finish` で `Options` に変換する 2 段にした。「生の入力」と
+  method・route・期待status・visibilityがすべて `match target` に揃い、
+  「更新なのにidがない」状態が作れなくなる。
+- `help: Bool` と `literal: Bool` も同様で、どちらも設定ではないので `Options` から外した。
+  - `help` は結果の種類なので、`Command = Help | Upload` にした
+  - `--` 以降を表す `literal` は解析の状態なので、解析関数の分岐にした。
+    `parse_options` / `parse_files` がその分岐である
+- ただし、解析しながら検証すると `--help` の優先順位が変わる。最初の分割では `--gist` の値を
+  その場で `parse_gist_url` していたため、`--gist not-a-url --help` がhelpではなく
+  エラーになった。これはレビューで指摘された。書かれたままの値を `Raw` record に集め、
+  `--help` がもう現れない `finish` で `Options` に変換する2段にした。「生の入力」と
   「検証済みの値」を別の型にすると、どこで検証するかが型の境界として見える。
-- 「検証済みの値」を作る関数（`parse_gist_url : String -> Result String String`）は、
-  bool を返す `valid_gist_url` + 後段の `path.Base` より安全。id の取り出しと検証が
-  同じ正規表現 1 つで行われ、両者がずれない。
+- `parse_gist_url : String -> Result String String` のように「検証済みの値」を作る関数は、
+  boolを返す `valid_gist_url` と後段の `path.Base` の組より安全である。idの取り出しと
+  検証を1つの正規表現で行うので、両者がずれない。
 
 ### 汎用部分と方針部分を分ける
 
-`transport.gom` は `HttpRequest`/`HttpResponse` という自前の小さな record だけを
-受け渡し、Gist を知らない。timeout・redirect 拒否・2 MiB 上限という「この CLI の
-transport 方針」はここに閉じる。逆に `gist.gom` は `net/http` を import しない。
-こうすると request の組み立てを HTTP なしでテストでき（`request_body` のテスト）、
-transport を差し替える余地も生まれる。
+`transport.gom` は `HttpRequest`/`HttpResponse` という自前の小さなrecordだけを
+受け渡し、Gistを知らない。timeout・redirect拒否・2 MiB上限という「このCLIの
+transport方針」はここに閉じる。逆に `gist.gom` は `net/http` をimportしない。
+こうするとrequestの組み立てをHTTPなしでテストできる。`request_body` のテストがその例である。
+transportを差し替える余地も生まれる。
 
 ### 失敗は早く、送信前に
 
-重複 basename の検出を「読みながら」から「読む前に全体で」に移した
-（`load_files` → `first_duplicate`）。挙動（送信前に失敗）は同じだが、
-副作用の前に純粋な検査を済ませる形になり、テストも純粋関数に対して書ける。
+重複basenameの検出を「読みながら」から「読む前に全体で」に移した。`load_files` は
+ファイルを読む前に `first_duplicate` で検査する。送信前に失敗するという挙動は同じである。
+副作用の前に純粋な検査を済ませる形になったので、テストを純粋関数に対して書ける。
 
-## 2. 今の Gom でどう書くか
+## 2. 今のGomでどう書くか
 
-### Go ではできなかった/冗長だったが Gom で良くなった書き方
+### Goではできなかった/冗長だったがGomで良くなった書き方
 
-- **`match` + リストパターンで引数文法**: `os.Args` を `Go.Slice.to_list` で
+- 引数文法を `match` とリストパターンで書く。`os.Args` を `Go.Slice.to_list` で
   `List String` にし、`["--gist", url, ..rest]` のように「オプションとその値」を
-  1 つのパターンで取る。Go の `for i := 0; i < len(args); i++ { ... args[i+1] ... }`
+  1つのパターンで取る。Goの `for i := 0; i < len(args); i++ { ... args[i+1] ... }`
   にある添字の境界チェックが、`["--gist"] -> Err "--gist requires a URL"` という
   網羅的な腕になる。
-- **regexp のキャプチャを直接パターンマッチ**: `FindStringSubmatch` の `[]string` は
+- regexpのキャプチャを直接パターンマッチする。`FindStringSubmatch` の `[]string` は
   `List String` として受け取れるので、
   `match gist_url.FindStringSubmatch url { [_, id] -> Ok id  _ -> Err ... }`
-  と書ける。Go の `if m == nil` + `m[1]` より境界が明確。
-- **sum type で分岐を集約**: `Target` への `match` が method/route/status/visibility を
-  網羅的に決める。Go の `if creating` の散在は網羅性検査が効かない。
-- **`try` + `require`**: `try require (cond) "message"` で、Go の
+  と書ける。Goの `if m == nil` と `m[1]` より境界が明確である。
+- sum typeで分岐を集約する。`Target` への `match` がmethod/route/status/visibilityを
+  網羅的に決める。Goで `if creating` を散在させると、網羅性検査が効かない。
+- `try` と `require` で検査を平らにする。`try require (cond) "message"` で、Goの
   `if !cond { return ..., errors.New(...) }` の階段を平らにできる。
-  `run` は 6 行の直線になった。
-- **`Result.map_err` での誤差の型変換**: `GoError` → `String` の変換は
-  `Result.map_err (fn e -> e.Error ()) r` の 1 行。
-- **Gom の `test` ブロック**: 定義の隣に純粋部分のテストを置ける。生成 Go の
-  `_test.go` に落ちるので `go test` からも走る。
+  `run` は6行の直線になった。
+- `Result.map_err` でエラーの型を変換する。`GoError` から `String` への変換は
+  `Result.map_err (fn e -> e.Error ()) r` の1行で済む。
+- Gomの `test` ブロックで、純粋部分のテストを定義の隣に置ける。生成されたGoの
+  `_test.go` に出力されるので、`go test` からも走る。
 
-### Go の API を直接使う（host 不要になった部分）
+### hostが不要になった部分: GoのAPIを直接使う
 
-- `Ptr.new ()` + exported field 書き込みで `http.Client` を構築。外側の
-  `let client : Ptr http.Client` があれば内側の `let c = Ptr.new ()` に注釈は要らない
-  （型は外側の期待から決まる）。
-- `Go.func2 (fn _req _via -> Err http.ErrUseLastResponse)` で `CheckRedirect`。
-- JSON の生成は `Go.Map` + `json.Marshal`。文字列結合による JSON 組み立て
-  （`quote` と `Sprintf`）が不要になり、エスケープの正しさを自前で担保する必要がなくなった。
-  `Go.Map String (Go.Map String String)` と `Go.Map String Go.Any` を入れ子にでき、
-  Go の map キー順ソートで出力は決定的（テストで完全一致を確認できる）。
-- `for (name, value) in req.headers { request.Header.Set (name, value) }` で
-  タプルのリストを Go のメソッドへ流す。
-- `else` のない `if`（`if target == Create { Go.Map.set document "public" false }`）
-  は Unit の文として書ける。
+- `Ptr.new ()` とexported fieldへの書き込みで `http.Client` を構築する。外側の
+  `let client : Ptr http.Client` があれば、内側の `let c = Ptr.new ()` に注釈は要らない。
+  型が外側の期待から決まるためである。
+- `Go.func2 (fn _req _via -> Err http.ErrUseLastResponse)` で `CheckRedirect` を設定する。
+- JSONの生成は `Go.Map` と `json.Marshal` で行う。`quote` と `Sprintf` の文字列結合で
+  JSONを組み立てる必要がなくなり、エスケープの正しさを自前で担保しなくてよくなった。
+  `Go.Map String (Go.Map String String)` と `Go.Map String Go.Any` は入れ子にできる。
+  Goはmapをキー順にソートして出力するので、出力は決定的である。そのため、テストで
+  完全一致を確認できる。
+- `for (name, value) in req.headers { request.Header.Set (name, value) }` で、
+  タプルのリストをGoのメソッドへ流す。
+- `else` のない `if` は、`if target == Create { Go.Map.set document "public" false }`
+  のようにUnitの文として書ける。
 
-### 今の限界（このリファクタで踏んだもの）
+### このリファクタで踏んだ今の限界
 
-- **一般の型注釈式がない**: `decoder.Decode (Ptr.new () : Ptr Go.Any)` は
-  E0401（`e : T` は `Go.conv e : T` 専用）。型を決めるためだけに
-  `let rest : Ptr Go.Any = Ptr.new ()` と名前を付ける必要がある。
-- **入れ子のコンストラクタパターンは括弧必須**: `Ok Help ->` は構文エラー
-  （E0101 "expected `->`… found identifier 'Help'"）、`Ok (Help) ->` と書く。
-  仕様（4.1 節「ネストしたパターンは括弧で囲む」）どおりだが、引数なしの
-  コンストラクタでも括弧が要るのは見落としやすく、エラーメッセージも理由を示さない。
-- **`send` はキーワード**: `select` の送信腕のため予約されており、`fn send` は
+- 一般の型注釈式がない。`decoder.Decode (Ptr.new () : Ptr Go.Any)` はE0401になる。
+  `e : T` は `Go.conv e : T` 専用だからである。型を決めるためだけに
+  `let rest : Ptr Go.Any = Ptr.new ()` と名前を付けなければならない。
+- 入れ子のコンストラクタパターンには括弧が要る。`Ok Help ->` は構文エラー
+  E0101 "expected `->`… found identifier 'Help'" になり、`Ok (Help) ->` と書く。
+  これは仕様4.1節の「ネストしたパターンは括弧で囲む」どおりである。ただし、引数なしの
+  コンストラクタでも括弧が要る点は見落としやすく、エラーメッセージも理由を示さない。
+- `send` はキーワードである。`select` の送信腕のために予約されており、`fn send` は
   "a function declaration needs at least one (param: Type) group, found send" という
-  分かりにくい診断になる。仕様に予約語の一覧がない
-  （[implementation-gaps](../../implementation-gaps.md) に記録）。ここでは `perform` に改名。
-- **`defer` がない**: `read_body` では `io.ReadAll` の結果を `try` する前に
-  `response.Body.Close ()` を明示的に呼ぶ順序で「すべての経路で閉じる」を保証している。
-  順序に意味があることをコメントで残すしかない。
-- **struct リテラルがない**: `Ptr.new ()` + field 書き込みのブロックを書く
-  （decision どおり。ただし 3 行以上の初期化ブロックが値の定義に混ざる）。
-- **`&&`/`||` が正格**: `a != "" && f a` は `f` を常に評価する。短絡が意味を持つ
-  検査は `if` に分ける必要がある（今回の `require` 連鎖はこの理由でも都合がよい）。
-- **`Go.Map.get` は `Option`**、`json.Unmarshal` は `Ptr` 先: Go の
-  `var v string; json.Unmarshal(raw, &v)` 相当に `let value : Ptr String = Ptr.new ()`
-  と `Ptr.get value` が要る。
-- **`gom fmt` の折り返し**: 長い `try require (...) "..."` が
-  `try (require\n  (...)\n  "...")` という形に折られる。読みやすさのために
-  中間の `let` を挟むかどうか迷う箇所。
-- **テストからの `try`**: `test` ブロックは `try` の脱出先になるので
+  分かりにくい診断になる。仕様に予約語の一覧がないことは
+  [implementation-gaps](../../implementation-gaps.md) に記録した。ここでは `perform` に改名した。
+- `defer` がない。`read_body` は、`io.ReadAll` の結果を `try` する前に
+  `response.Body.Close ()` を明示的に呼ぶ。この順序によって、すべての経路で閉じることを
+  保証している。順序に意味があることは、コメントで残すしかない。
+- structリテラルがない。decisionどおり、`Ptr.new ()` とfield書き込みのブロックを書く。
+  そのため、3行以上の初期化ブロックが値の定義に混ざる。
+- `&&`/`||` は正格に評価する。`a != "" && f a` は `f` を常に評価する。短絡が意味を持つ
+  検査は `if` に分ける必要がある。今回の `require` 連鎖が都合がよいのは、この理由もある。
+- `Go.Map.get` は `Option` を返し、`json.Unmarshal` は `Ptr` の先へ書き込む。そのため、
+  Goの `var v string; json.Unmarshal(raw, &v)` に相当する処理に
+  `let value : Ptr String = Ptr.new ()` と `Ptr.get value` が要る。
+- `gom fmt` は長い `try require (...) "..."` を
+  `try (require\n  (...)\n  "...")` という形に折り返す。読みやすさのために
+  中間の `let` を挟むかどうか迷う箇所である。
+- `test` ブロックは `try` の脱出先になるので、テストの中で
   `try request_body Create files` と書ける。今回はブロックの最後に `Ok ()` を置いた。
   `Result` を返さない純粋関数なら `assert_eq` だけで済む。
 
-## 3. 将来の機能でどう書きたいか（要求と pitfalls）
+## 3. 将来の機能でどう書きたいか: 要求とpitfalls
 
 | 欲しいもの | 今の書き方 | 書きたい形 | pitfalls |
 | --- | --- | --- | --- |
@@ -178,9 +180,9 @@ transport を差し替える余地も生まれる。
 
 ## 結論
 
-- host が消えた後のファイル分割は「Go に渡すかどうか」ではなく「Gist を知るか」
-  「副作用か」で切るのがよい。`run` は幹だけ、枝は純粋で `test` 可能になった。
-- 文字列フラグ（`gist == ""`、`help: Bool`）を sum type にしたことが最大の改善で、
-  局所的な短縮（注釈削除、`map_err` など）はその後でないと効果が小さい。
+- hostが消えた後のファイル分割は、「Goに渡すかどうか」ではなく「Gistを知るか」
+  「副作用か」で切るのがよい。`run` は幹だけになり、枝は純粋で `test` できるようになった。
+- `gist == ""` や `help: Bool` といった文字列フラグをsum typeにしたことが最大の改善である。
+  注釈削除や `map_err` などの局所的な短縮は、その後でないと効果が小さい。
 - 限界の多くは「型を決めるためだけの `let`」と「資源の後始末」に集中している。
   型注釈式と struct リテラル（または資源括りの慣用句）が次の候補。
