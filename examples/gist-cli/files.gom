@@ -1,0 +1,44 @@
+package main
+
+import go "fmt"
+import go "os"
+import go "path/filepath"
+import go "unicode/utf8"
+
+// Reads every input as (remote name, content). The remote name is the
+// basename, so two paths sharing one are rejected before any read.
+fn load_files (paths: List String) -> Result (List (String, String)) String = {
+  let names = List.map filepath.Base paths
+  match first_duplicate names {
+    Some name -> Err "duplicate filename: ${name}"
+    None -> read_all paths
+  }
+}
+
+fn first_duplicate (names: List String) -> Option String = match names {
+  [] -> None
+  [name, ..rest] -> if Option.is_some (List.find (fn other -> other == name) rest) { Some name } else {
+    first_duplicate rest
+  }
+}
+
+fn read_all (paths: List String) -> Result (List (String, String)) String = match paths {
+  [] -> Ok []
+  [path, ..rest] -> {
+    let content = try text_error (read_text path)
+    let others = try read_all rest
+    Ok [(filepath.Base path, content), ..others]
+  }
+}
+
+fn read_text (path: String) -> Result String GoError = {
+  let data = try os.ReadFile path
+  if utf8.Valid data { Ok (Go.conv data : String) } else {
+    Err (fmt.Errorf ("%s: file is not UTF-8 text", path))
+  }
+}
+
+test "duplicate basenames" {
+  assert_eq (first_duplicate ["a", "b", "c"]) None
+  assert_eq (first_duplicate ["a", "b", "a"]) (Some "a")
+}

@@ -5,10 +5,11 @@ adds/replaces those files in an existing Gist when `--gist URL` is supplied.
 The only successful command output is the Gist's `html_url`, followed by a newline.
 An update leaves unspecified remote files unchanged.
 
-This is a larger executable language example: argument parsing, recursive ADTs,
-record updates, polymorphic Result conversion, `try`, Go imports and methods,
-file traversal, JSON object construction, HTTP request selection, and error
-handling work together. It does not require a third-party Go dependency.
+This is a larger executable language example: a multi-file package, list
+patterns, sum types with payloads, record updates, polymorphic Result
+conversion, `try`, Gom `test` blocks, Go imports and methods, Go maps for JSON,
+regexp captures, HTTP request construction, and error handling work together.
+It does not require a third-party Go dependency.
 
 ## Build and run the tests
 
@@ -21,7 +22,8 @@ go test ./examples/gist-cli -v
 go test ./...
 ```
 
-The test compiles `main.gom` using the real Gom compiler pipeline, builds the generated Go
+The test compiles every `.gom` file of this directory as one package using the
+real Gom compiler pipeline, runs the Gom `test` blocks, builds the generated Go
 into a CLI, starts local `httptest` servers, and executes the CLI against them.
 It uses a dummy token, overrides the API endpoint on every request, and never
 contacts GitHub. It tests creation followed by an update, exact file contents,
@@ -66,28 +68,31 @@ The official [Gists REST API](https://docs.github.com/en/rest/gists/gists)
 defines the request/response shape. Investigation and compiler gaps are recorded
 in [the prototype report](../../docs/sketch/2026-11-03-gist-cli-prototype.md).
 
-## Current host boundary
+## Layout
 
-`main.gom` contains all Gist-specific behavior — there is no host package
-anymore. The HTTP client is built in Gom with `Ptr.new` plus field writes
-(`client.Timeout = 30 * time.Second`, `client.CheckRedirect = ...`), the
-zero-value-construction pattern chosen over Go composite literals
-(docs/decisions/2026-11-19-struct-field-write.md).
+The program is one Gom package split along the operation tree
+(`parse → load → build request → send → decode → validate`):
 
-String-field decoding (`json.NewDecoder`/`json.Unmarshal` into `Ptr`
-destinations over `Go.Map`/`Go.Any`),
-the `CheckRedirect` callback (`Go.func2`), argument traversal
-(`Go.Slice` ops on `os.Args`), UTF-8 file reads
-(`os.ReadFile` → `List Byte` + `utf8.Valid`), bounded response reads
-(`io.LimitReader`/`io.ReadAll` + `List.length`), and JSON quoting
-(`json.Marshal` + `Go.conv` to `String`) are expressed in Gom since
-`byte`/`uint8` maps to `Byte`.
+| File | Responsibility | Knows about Gists? |
+| --- | --- | --- |
+| `main.gom` | `main`/`run` orchestration, exit status | only through `gist.gom` |
+| `args.gom` | `Command`/`Options`, argument grammar, usage | the `--gist` URL |
+| `files.gom` | basenames, duplicate check, UTF-8 reads | no |
+| `gist.gom` | `Target`, routes, headers, body, status, `html_url` check | yes |
+| `transport.gom` | `HttpRequest`/`HttpResponse`, client policy, bounded read | no |
+| `json.gom` | one-object, nonempty string-field decoding | no |
 
-The adapter has no Gist route, file schema, create/update decision, URL validation,
-or CLI argument policy. The initial audit records the exact compiler diagnostics
-and related TODOs so future interop work can remove these adapters. Generated
-Go is kept in a temporary directory; the source of truth remains `main.gom`.
+Pure parts (argument grammar, duplicate detection, URL parsing, request body,
+JSON field decoding) carry `test` blocks next to their definitions; process
+and network behaviour is covered by `integration_test.go`.
 
-Reader/writer interface assignments and exported HTTP field reads are expressed
-in Gom directly; the [HTTP boundary verification](../../docs/sketch/2026-11-03-go-http-boundary-verification.md)
-records the compiler support and regression tests that removed those adapters.
+There is no host package. The HTTP client is built in Gom with `Ptr.new` plus
+field writes, the zero-value-construction pattern chosen over Go composite
+literals (docs/decisions/2026-11-19-struct-field-write.md); the redirect
+callback is `Go.func2`; the request body is a `Go.Map` passed to
+`json.Marshal`. Generated Go is kept in a temporary directory; the source of
+truth remains the `.gom` files. Findings from restructuring the example are in
+[the refactoring report](../../docs/sketch/ja/2026-11-21-gist-cli-refactor.md);
+the history of the former host adapter is in
+[the prototype report](../../docs/sketch/2026-11-03-gist-cli-prototype.md) and
+[the HTTP boundary verification](../../docs/sketch/2026-11-03-go-http-boundary-verification.md).

@@ -1,0 +1,41 @@
+package main
+
+import go "fmt"
+import go "io"
+import go "net/http"
+import go "strings"
+import go "time"
+
+// Generic HTTP: nothing here knows about Gists.
+type HttpRequest = { method: String, url: String, headers: List (String, String), body: String }
+
+type HttpResponse = { status: Int, body: String }
+
+let max_response_bytes = 2 * 1024 * 1024
+
+// 30-second timeout; redirects are reported, never followed.
+let client: Ptr http.Client = {
+  let c = Ptr.new ()
+  c.Timeout = 30 * time.Second
+  c.CheckRedirect = Go.func2 (fn _req _via -> Err http.ErrUseLastResponse)
+  c
+}
+
+fn perform (req: HttpRequest) -> Result HttpResponse GoError = {
+  let request = try http.NewRequest (req.method, req.url, strings.NewReader req.body)
+  for (name, value) in req.headers { request.Header.Set (name, value) }
+  let response = try client.Do request
+  let body = try read_body response
+  Ok { status = response.StatusCode, body = body }
+}
+
+// Reads at most `max_response_bytes`; Body is closed on every path
+// (no defer — the close happens before `try` can propagate).
+fn read_body (response: Ptr http.Response) -> Result String GoError = {
+  let read = io.ReadAll (io.LimitReader (response.Body, max_response_bytes + 1))
+  ignore response.Body.Close ()
+  let data = try read
+  if List.length data > max_response_bytes {
+    Err (fmt.Errorf ("response exceeds %d bytes", max_response_bytes))
+  } else { Ok (Go.conv data : String) }
+}

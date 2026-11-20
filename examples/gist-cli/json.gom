@@ -1,0 +1,41 @@
+package main
+
+import go "encoding/json"
+import go "errors"
+import go "fmt"
+import go "io"
+import go "strings"
+
+// Decodes exactly one JSON object and extracts a nonempty string
+// field: trailing data, a missing field, a non-string value, and ""
+// (which is also what `null` decodes to) are all errors.
+fn string_field (document: String) (key: String) -> Result String GoError = {
+  let object: Ptr (Go.Map String json.RawMessage) = Ptr.new ()
+  let decoder = json.NewDecoder (strings.NewReader document)
+  try decoder.Decode object
+  let rest: Ptr Go.Any = Ptr.new ()
+  match decoder.Decode rest {
+    Err e -> if errors.Is (e, io.EOF) { () } else { try Err e }
+    Ok _ -> try Err (fmt.Errorf "response has trailing JSON data")
+  }
+  let raw =
+    try (Go.Map.get (Ptr.get object) key
+    |> Option.to_result (fmt.Errorf ("response has no %s field", key)))
+  let value: Ptr String = Ptr.new ()
+  match json.Unmarshal (Go.conv raw : Go.Slice Byte, value) {
+    Err e -> try Err (fmt.Errorf ("response %s must be a string: %v", key, e))
+    Ok _ -> ()
+  }
+  match Ptr.get value {
+    "" -> Err (fmt.Errorf ("response %s is empty", key))
+    v -> Ok v
+  }
+}
+
+test "string_field" {
+  assert_eq (string_field "{\"k\":\"v\"}" "k" |> Result.is_ok) true
+  assert (Result.is_err (string_field "{\"k\":\"v\"} {}" "k"))
+  assert (Result.is_err (string_field "{}" "k"))
+  assert (Result.is_err (string_field "{\"k\":null}" "k"))
+  assert (Result.is_err (string_field "{\"k\":1}" "k"))
+}
