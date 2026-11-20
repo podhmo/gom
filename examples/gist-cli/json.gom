@@ -6,31 +6,30 @@ import go "fmt"
 import go "io"
 import go "strings"
 
-// Decodes one JSON object and extracts a nonempty string field,
-// rejecting trailing JSON data, missing fields, non-string values,
-// and empty strings.
+// Decodes exactly one JSON object and extracts a nonempty string
+// field: trailing data, a missing field, a non-string value, and ""
+// (which is also what `null` decodes to) are all errors.
 fn string_field (document: String) (key: String) -> Result String GoError = {
   let object: Ptr (Go.Map String json.RawMessage) = Ptr.new ()
-  let dec = json.NewDecoder (strings.NewReader document)
-  try dec.Decode object
-  let extra: Ptr Go.Any = Ptr.new ()
-  match dec.Decode extra {
+  let decoder = json.NewDecoder (strings.NewReader document)
+  try decoder.Decode object
+  let rest: Ptr Go.Any = Ptr.new ()
+  match decoder.Decode rest {
     Err e -> if errors.Is (e, io.EOF) { () } else { try Err e }
     Ok _ -> try Err (fmt.Errorf "response has trailing JSON data")
   }
   let raw =
-    try (match Go.Map.get (Ptr.get object) key {
-      Some r -> Ok r
-      None -> Err (fmt.Errorf ("response has no %s field", key))
-    })
-  let bytes: Go.Slice Byte = Go.conv raw : Go.Slice Byte
+    try (Go.Map.get (Ptr.get object) key
+    |> Option.to_result (fmt.Errorf ("response has no %s field", key)))
   let value: Ptr String = Ptr.new ()
-  match json.Unmarshal (bytes, value) {
+  match json.Unmarshal (Go.conv raw : Go.Slice Byte, value) {
     Err e -> try Err (fmt.Errorf ("response %s must be a string: %v", key, e))
     Ok _ -> ()
   }
-  let v = Ptr.get value
-  if v == "" { Err (fmt.Errorf ("response %s is empty", key)) } else { Ok v }
+  match Ptr.get value {
+    "" -> Err (fmt.Errorf ("response %s is empty", key))
+    v -> Ok v
+  }
 }
 
 test "string_field" {
