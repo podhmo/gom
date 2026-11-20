@@ -1,0 +1,83 @@
+package main
+
+import go "github.com/podhmo/gom/experiments/defer/fake"
+import go "github.com/podhmo/gom/experiments/defer/scope"
+
+// Candidate (D): an explicit scope handle. Cleanups are ordinary method
+// calls on `s`, so they can be registered inside `if`, `match` arms or
+// nested lambdas; the scope ends where the lambda passed to
+// `with_scope*` ends.
+
+@extern
+fn with_scope (body: Ptr scope.Scope -> a) -> a
+
+@extern
+fn with_scope_result (body: Ptr scope.Scope -> Result a GoError) -> Result a GoError
+
+// P1/P5: two resources, LIFO; the written side's Close error is part
+// of the result, the read side's is dropped.
+fn copy_file (log: Ptr fake.Log) (src: String) (dst: String) (data: String) -> Result Unit GoError =
+  with_scope_result <| fn s -> {
+    let r = try fake.Open(log, src)
+    s.Defer(Go.func0 (fn () -> ignore (r.Close())))
+    let w = try fake.Open(log, dst)
+    s.DeferErr(Go.func0 (fn () -> w.Close()))
+    let _ = try r.Read()
+    w.Write(data)
+  }
+
+// P5: two written resources. When both Close calls fail, the errors are
+// joined in run order (LIFO); a body error would still win.
+fn write_pair (log: Ptr fake.Log) (a: String) (b: String) -> Result Unit GoError =
+  with_scope_result <| fn s -> {
+    let x = try fake.Open(log, a)
+    s.DeferErr(Go.func0 (fn () -> x.Close()))
+    let y = try fake.Open(log, b)
+    s.DeferErr(Go.func0 (fn () -> y.Close()))
+    try x.Write("x")
+    y.Write("y")
+  }
+
+// P2: conditional acquisition. The unlock must run after `work`, i.e.
+// it outlives the `if` that registered it.
+fn guarded (log: Ptr fake.Log) (mu: Ptr fake.Mutex) (need: Bool) -> Unit =
+  with_scope <| fn s -> {
+    if need {
+      mu.Lock()
+      s.Defer(Go.func0 (fn () -> mu.Unlock()))
+    }
+    log.Add("work")
+  }
+
+// P6: errdefer. Rollback only when a later step fails.
+fn transfer (log: Ptr fake.Log) (q1: String) (q2: String) -> Result Unit GoError =
+  with_scope_result <| fn s -> {
+    let tx = fake.Begin(log)
+    s.OnError(Go.func0 (fn () -> tx.Rollback()))
+    try tx.Exec(q1)
+    try tx.Exec(q2)
+    tx.Commit()
+  }
+
+// P4: per-iteration lifetime. Each element gets its own scope, so the
+// tail call still lowers to a Go loop and nothing piles up.
+fn each_file (log: Ptr fake.Log) (names: List String) -> Result Unit GoError = match names {
+  [] -> Ok ()
+  [n, ..rest] -> {
+    try with_scope_result (fn s -> {
+      let r = try fake.Open(log, n)
+      s.DeferErr(Go.func0 (fn () -> r.Close()))
+      r.Write("x")
+    })
+    each_file log rest
+  }
+}
+
+// P7: a panicking callee still runs the registered cleanups.
+fn boom (log: Ptr fake.Log) -> Unit =
+  with_scope <| fn s -> {
+    s.Defer(Go.func0 (fn () -> log.Add("cleanup")))
+    fake.Boom(log)
+  }
+
+fn main () -> Unit = ()

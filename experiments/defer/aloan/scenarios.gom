@@ -1,0 +1,45 @@
+package main
+
+import go "github.com/podhmo/gom/experiments/defer/fake"
+
+// Candidate (A): loan pattern written in today's Gom, no runtime help.
+
+fn with_res (log: Ptr fake.Log) (name: String) (body: Ptr fake.Res -> Result a GoError) -> Result a GoError = {
+  let r = try fake.Open(log, name)
+  let out = body r
+  let closed = r.Close()
+  match (out, closed) {
+    (Err e, _) -> Err e
+    (Ok _, Err e) -> Err e
+    (Ok v, Ok _) -> Ok v
+  }
+}
+
+// P1: nesting works but every resource adds a lambda level, and the
+// read side's close error has to be merged by the same helper.
+fn copy_file (log: Ptr fake.Log) (src: String) (dst: String) (data: String) -> Result Unit GoError =
+  with_res log src <| fn r -> with_res log dst <| fn w -> {
+    let _ = try r.Read()
+    w.Write(data)
+  }
+
+// P2: the unlock must outlive the `if`. A loan cannot open "maybe";
+// the rest of the body becomes a continuation passed to both arms.
+fn with_lock_if (mu: Ptr fake.Mutex) (need: Bool) (k: Unit -> a) -> a =
+  if need {
+    mu.Lock()
+    let v = k ()
+    mu.Unlock()
+    v
+  } else {
+    k ()
+  }
+
+fn guarded (log: Ptr fake.Log) (mu: Ptr fake.Mutex) (need: Bool) -> Unit =
+  with_lock_if mu need <| fn () -> log.Add("work")
+
+// P7: a panic inside the loan skips the release (no recover in Gom).
+fn boom (log: Ptr fake.Log) (mu: Ptr fake.Mutex) -> Unit =
+  with_lock_if mu true <| fn () -> fake.Boom(log)
+
+fn main () -> Unit = ()

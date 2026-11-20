@@ -1,0 +1,96 @@
+// Package scope is the runtime half of candidate (D): an explicit
+// cleanup-stack handle. A Gom function opens a scope with a loan
+// combinator, registers cleanups on the handle wherever it likes
+// (inside an if, a match arm, a nested lambda), and the combinator
+// runs them LIFO when the body returns, fails, or panics.
+package scope
+
+import (
+	"errors"
+
+	"github.com/podhmo/gom/stdlib/result"
+)
+
+type Scope struct {
+	cleanups []cleanup
+	closed   bool
+}
+
+type cleanup struct {
+	run     func() error
+	onError bool // errdefer: run only when the body failed or panicked
+}
+
+// Defer registers a cleanup whose own failure is not interesting.
+func (s *Scope) Defer(f func()) { s.push(cleanup{run: func() error { f(); return nil }}) }
+
+// DeferErr registers a cleanup whose error becomes the scope result when
+// the body itself succeeded (the "close error on a written file" case).
+func (s *Scope) DeferErr(f func() error) { s.push(cleanup{run: f}) }
+
+// OnError registers a cleanup that runs only when the body returns Err
+// or panics (rollback, remove a half-written file).
+func (s *Scope) OnError(f func()) {
+	s.push(cleanup{run: func() error { f(); return nil }, onError: true})
+}
+
+func (s *Scope) push(c cleanup) {
+	if s.closed {
+		panic("scope: cleanup registered after the scope closed")
+	}
+	s.cleanups = append(s.cleanups, c)
+}
+
+// close runs the cleanups LIFO and joins their errors in run order.
+// Each one is its own Go defer, so a cleanup that panics does not skip
+// the earlier registrations (the panic resumes after all of them ran,
+// as with stacked Go defers).
+func (s *Scope) close(failed bool) (joined error) {
+	s.closed = true
+	var errs []error
+	defer func() { joined = errors.Join(errs...) }()
+	for _, c := range s.cleanups {
+		if c.onError && !failed {
+			continue
+		}
+		defer func() {
+			if err := c.run(); err != nil {
+				errs = append(errs, err)
+			}
+		}()
+	}
+	return nil
+}
+
+// Run is the plain loan combinator: cleanups run LIFO on return and
+// on panic; cleanup errors are dropped.
+func Run[A any](body func(*Scope) A) A {
+	s := &Scope{}
+	ok := false
+	defer func() { _ = s.close(!ok) }()
+	a := body(s)
+	ok = true
+	return a
+}
+
+// RunResult is the Result-aware combinator: an Err body runs the
+// OnError cleanups too. The body's own error wins (the Go idiom
+// `if cerr := f.Close(); err == nil { err = cerr }`); otherwise the
+// cleanup errors, joined with errors.Join, replace an Ok result.
+func RunResult[A any](body func(*Scope) result.Result[A, error]) (r result.Result[A, error]) {
+	s := &Scope{}
+	ok := false
+	defer func() {
+		if !ok { // panicking: run everything, keep the panic
+			_ = s.close(true)
+			return
+		}
+		failed := !r.IsOk()
+		if err := s.close(failed); err != nil && !failed {
+			r = result.Err[A, error](err)
+		}
+	}()
+	r = body(s)
+	ok = true
+	return r
+}
