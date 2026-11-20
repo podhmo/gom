@@ -1,0 +1,92 @@
+package main
+
+import go "encoding/json"
+import go "fmt"
+import go "path"
+import go "regexp"
+import go "strings"
+
+// What the upload does to GitHub: create a secret Gist, or add and
+// replace files in an existing one.
+type Target =
+  | Create
+  | Update (id: String)
+
+fn valid_gist_url (url: String) -> Bool = match regexp.MatchString (
+  "^https://gist\\.github\\.com/([A-Za-z0-9-]+/)?[0-9a-fA-F]+/?$",
+  url,
+) {
+  Ok matches -> matches
+  Err _ -> false
+}
+
+fn parse_gist_url (url: String) -> Result String String = if valid_gist_url url {
+  Ok (path.Base url)
+} else { Err "invalid Gist URL: ${url}" }
+
+fn expected_status (target: Target) -> Int = match target {
+  Create -> 201
+  Update _ -> 200
+}
+
+// The REST request for `target`; files are (remote name, content).
+fn gist_request (api: String) (token: String) (target: Target) (files: List (String, String)) -> HttpRequest = {
+  let (method, route) = match target {
+    Create -> ("POST", "/gists")
+    Update id -> ("PATCH", "/gists/${id}")
+  }
+  {
+    method = method,
+    url = "${strings.TrimRight (api, "/")}${route}",
+    headers = [
+      ("Accept", "application/vnd.github+json"),
+      ("Content-Type", "application/json"),
+      ("Authorization", "Bearer ${token}"),
+      ("X-GitHub-Api-Version", "2026-03-10"),
+    ],
+    body = request_body target files,
+  }
+}
+
+// `json.Marshal` cannot fail on a String.
+fn quote (value: String) -> String = match json.Marshal value {
+  Ok raw -> Go.conv raw : String
+  Err _ -> todo ()
+}
+
+fn entries_json (files: List (String, String)) -> String = match files {
+  [] -> ""
+  [(name, content)] -> fmt.Sprintf ("%s:{\"content\":%s}", quote name, quote content)
+  [(name, content), ..rest] ->
+    fmt.Sprintf ("%s:{\"content\":%s},%s", quote name, quote content, entries_json rest)
+}
+
+// An update leaves visibility alone; a creation is explicitly secret.
+fn request_body (target: Target) (files: List (String, String)) -> String = {
+  let visibility = if target == Create { ",\"public\":false" } else { "" }
+  fmt.Sprintf ("{\"files\":{%s}%s}", entries_json files, visibility)
+}
+
+fn gist_html_url (target: Target) (response: HttpResponse) -> Result String String = {
+  try (require
+    (response.status == expected_status target)
+    "HTTP ${response.status}: ${response.body}")
+  let url = try text_error (string_field response.body "html_url")
+  try require (valid_gist_url url) "response html_url is not a Gist URL"
+  Ok url
+}
+
+test "Gist URLs with and without owner" {
+  assert_eq (parse_gist_url "https://gist.github.com/octocat/deadbeef") (Ok "deadbeef")
+  assert_eq (parse_gist_url "https://gist.github.com/deadbeef/") (Ok "deadbeef")
+  assert (Result.is_err (parse_gist_url "https://gist.github.com/octocat/nope"))
+  assert (Result.is_err (parse_gist_url "https://gist.github.com/octocat/deadbeef?x=1"))
+}
+
+test "create is secret, update keeps visibility" {
+  let files = [("a.txt", "x\"y")]
+  (assert_eq
+    (request_body Create files)
+    "{\"files\":{\"a.txt\":{\"content\":\"x\\\"y\"}},\"public\":false}")
+  assert_eq (request_body (Update "1") files) "{\"files\":{\"a.txt\":{\"content\":\"x\\\"y\"}}}"
+}

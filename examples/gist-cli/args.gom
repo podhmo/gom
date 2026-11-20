@@ -1,7 +1,6 @@
 package main
 
 import go "os"
-import go "path"
 import go "regexp"
 import go "strings"
 
@@ -10,10 +9,6 @@ import go "strings"
 type Command =
   | Help
   | Upload Options
-
-type Target =
-  | Create
-  | Update (id: String)
 
 type Options = { api: String, target: Target, files: List String }
 
@@ -63,10 +58,6 @@ fn valid_api_url (url: String) -> Bool = match regexp.MatchString (
   Ok matches -> matches
   Err _ -> false
 }
-
-fn parse_gist_url (url: String) -> Result String String = if valid_gist_url url {
-  Ok (path.Base url)
-} else { Err "invalid Gist URL: ${url}" }
 
 fn require (ok: Bool) (message: String) -> Result Unit String = if ok { Ok () } else { Err message }
 
