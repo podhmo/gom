@@ -30,10 +30,11 @@ type site struct {
 }
 
 type stats struct {
-	sites      []site
-	funcs      int // functions (decl+lit) that contain >=1 direct defer
-	multiDefer int // functions with >=2 direct defers
-	files      int
+	sites       []site
+	funcs       int // functions (decl+lit) that contain >=1 direct defer
+	multiDefer  int // functions with >=2 direct defers
+	files       int
+	parseErrors int
 }
 
 func main() {
@@ -55,7 +56,7 @@ func scanRoot(st *stats, root string, tests bool) error {
 	fset := token.NewFileSet()
 	return filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
-			return nil
+			return err
 		}
 		if d.IsDir() {
 			name := d.Name()
@@ -69,6 +70,8 @@ func scanRoot(st *stats, root string, tests bool) error {
 		}
 		f, err := parser.ParseFile(fset, path, nil, parser.SkipObjectResolution)
 		if err != nil {
+			st.parseErrors++
+			fmt.Fprintln(os.Stderr, "skip:", err)
 			return nil
 		}
 		st.files++
@@ -107,6 +110,21 @@ func scanFunc(st *stats, fset *token.FileSet, ft *ast.FuncType, body *ast.BlockS
 	count := 0
 	ifShape := map[*ast.BlockStmt]string{}
 	var walk func(n ast.Node, place []string)
+	var walkIf func(c *ast.IfStmt, place []string)
+	walkIf = func(c *ast.IfStmt, place []string) {
+		ifShape[c.Body] = "if-then"
+		walk(c.Body, append(place, "if"))
+		switch e := c.Else.(type) {
+		case nil:
+		case *ast.BlockStmt:
+			ifShape[e] = "if-else"
+			walk(e, append(place, "if"))
+		case *ast.IfStmt: // else if: same nesting level as the head
+			walkIf(e, place)
+		default:
+			panic("unreachable")
+		}
+	}
 	walk = func(n ast.Node, place []string) {
 		ast.Inspect(n, func(c ast.Node) bool {
 			if c == n {
@@ -140,14 +158,7 @@ func scanFunc(st *stats, fset *token.FileSet, ft *ast.FuncType, body *ast.BlockS
 				st.sites = append(st.sites, s)
 				return false
 			case *ast.IfStmt:
-				ifShape[c.Body] = "if-then"
-				walk(c.Body, append(place, "if"))
-				if c.Else != nil {
-					if b, ok := c.Else.(*ast.BlockStmt); ok {
-						ifShape[b] = "if-else"
-					}
-					walk(c.Else, append(place, "if"))
-				}
+				walkIf(c, place)
 				return false
 			case *ast.ForStmt:
 				walk(c.Body, append(place, "loop"))
@@ -285,7 +296,7 @@ func normFunc(f string) string {
 
 func report(w *os.File, st *stats, nsamples int, r *rand.Rand) {
 	total := len(st.sites)
-	fmt.Fprintf(w, "files=%d defers=%d funcs-with-defer=%d funcs-with->=2-defers=%d\n\n", st.files, total, st.funcs, st.multiDefer)
+	fmt.Fprintf(w, "files=%d parse-errors=%d defers=%d funcs-with-defer=%d funcs-with->=2-defers=%d\n\n", st.files, st.parseErrors, total, st.funcs, st.multiDefer)
 	pct := func(n int) string { return fmt.Sprintf("%5d (%4.1f%%)", n, 100*float64(n)/float64(max(total, 1))) }
 	by := func(key func(site) []string) map[string][]site {
 		m := map[string][]site{}
