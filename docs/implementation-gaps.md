@@ -1639,3 +1639,9 @@
   シンボル解決で揃う。エントリ `fn main () -> Unit` は `func main()`
   を維持（UnitDecl.Entry）。検証: [golden](../testdata/golden/reserved_names.gom)、
   [decision](decisions/2026-11-19-reserved-name-escape.md)。
+
+- [ ] **予約語の一覧が仕様にない（`send` など）**: `send`/`select`/`default` は
+  lexer のキーワード（[token.go](../internal/syntax/token.go)）だが、spec に
+  予約語の一覧がなく、`fn send (x: T)` は "a function declaration needs at least
+  one (param: Type) group, found send" という理由の分からない診断になる。
+  [sketch](sketch/ja/2026-11-21-gist-cli-refactor.md)
