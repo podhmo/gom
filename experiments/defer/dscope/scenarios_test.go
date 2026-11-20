@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/podhmo/gom/experiments/defer/fake"
+	"github.com/podhmo/gom/experiments/defer/scope"
 	"github.com/podhmo/gom/stdlib/result"
 )
 
@@ -74,6 +75,25 @@ func TestPanicRunsCleanup(t *testing.T) {
 		boom(l)
 	}()
 	if got, want := l.String(), "boom cleanup"; got != want {
+		t.Errorf("got %q want %q", got, want)
+	}
+}
+
+func TestPanickingCleanupDoesNotSkipOthers(t *testing.T) {
+	l := fake.NewLog()
+	func() {
+		defer func() {
+			if recover() == nil {
+				t.Fatal("expected panic to propagate")
+			}
+		}()
+		scope.Run(func(s *scope.Scope) struct{} {
+			s.Defer(func() { l.Add("first") })
+			s.Defer(func() { l.Add("second"); panic("cleanup") })
+			return struct{}{}
+		})
+	}()
+	if got, want := l.String(), "second first"; got != want {
 		t.Errorf("got %q want %q", got, want)
 	}
 }

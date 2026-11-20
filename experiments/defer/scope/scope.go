@@ -37,19 +37,22 @@ func (s *Scope) push(c cleanup) {
 	s.cleanups = append(s.cleanups, c)
 }
 
-func (s *Scope) close(failed bool) error {
+// close runs the cleanups LIFO. Each one is its own Go defer, so a
+// cleanup that panics does not skip the earlier registrations (the
+// panic resumes after all of them ran, as with stacked Go defers).
+func (s *Scope) close(failed bool) (first error) {
 	s.closed = true
-	var first error
-	for i := len(s.cleanups) - 1; i >= 0; i-- {
-		c := s.cleanups[i]
+	for _, c := range s.cleanups {
 		if c.onError && !failed {
 			continue
 		}
-		if err := c.run(); err != nil && first == nil {
-			first = err
-		}
+		defer func() {
+			if err := c.run(); err != nil && first == nil {
+				first = err
+			}
+		}()
 	}
-	return first
+	return nil
 }
 
 // Run is the plain loan combinator: cleanups run LIFO on return and
