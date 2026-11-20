@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/podhmo/gom/internal/testbin"
+	"io/fs"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -28,52 +29,95 @@ import (
 // invalidates this integration suite when either changes. Direct compiler
 // imports below likewise track compiler implementation changes.
 //
-//go:embed main.gom
+//go:embed *.gom
 var exampleSources embed.FS
 
 const resultURL = "https://gist.github.com/octocat/deadbeef"
 const fakeToken = "fake-not-a-real-token"
 
-// Compile the actual Gom source and then the generated Go, once for this suite.
-// The generated program runs in subprocesses against httptest only.
-func buildCLI(t *testing.T) string {
+// generateModule compiles every .gom file of the example as one package
+// unit (as `gom build examples/gist-cli` does), including the Gom `test`
+// blocks, into a scratch module that resolves the runtime from this
+// repository. Generated Go never lands in the source directory.
+func generateModule(t *testing.T) (root, dir string) {
 	t.Helper()
 	root, err := filepath.Abs("../..")
 	if err != nil {
 		t.Fatal(err)
 	}
-	tmp := t.TempDir()
-	source, err := exampleSources.ReadFile("main.gom")
+	entries, err := fs.Glob(exampleSources, "*.gom")
 	if err != nil {
 		t.Fatal(err)
 	}
-	path := filepath.Join(root, "examples/gist-cli/main.gom")
+	var inputs []build.Input
+	for _, name := range entries {
+		source, err := exampleSources.ReadFile(name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		inputs = append(inputs, build.Input{Path: filepath.Join(root, "examples/gist-cli", name), Src: source})
+	}
 	loader := goimport.New(&goimport.Config{Dir: root})
-	compiled, err := build.Compile(build.Input{Path: path, Src: source}, gomstd.Apply(&build.Options{
-		Loader: loader, Sigs: loader, Lower: &lower.Env{GoSig: loader.GoSigOf},
+	results, err := build.CompileFiles(inputs, gomstd.Apply(&build.Options{
+		Loader: loader, Sigs: loader, Lower: &lower.Env{GoSig: loader.GoSigOf, Tests: true},
 	}))
 	if err != nil {
 		t.Fatalf("compile Gom: %v", err)
 	}
-	if compiled.Diagnostics.HasError() || compiled.Output == nil {
-		t.Fatalf("compile Gom: %+v", compiled.Diagnostics)
-	}
-	generated := filepath.Join(tmp, "main.go")
-	if err := os.WriteFile(generated, compiled.Output.Source, 0o644); err != nil {
+	dir = t.TempDir()
+	gomod := "module gistcli\n\ngo 1.27\n\nrequire github.com/podhmo/gom v0.0.0\n\nreplace github.com/podhmo/gom => " + root + "\n"
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(gomod), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	vet := exec.Command("go", "vet", generated)
-	vet.Dir = root
-	if out, err := vet.CombinedOutput(); err != nil {
+	for i, compiled := range results {
+		if compiled.Diagnostics.HasError() || compiled.Output == nil {
+			t.Fatalf("compile Gom %s: %+v", entries[i], compiled.Diagnostics)
+		}
+		base := strings.TrimSuffix(entries[i], ".gom")
+		if err := os.WriteFile(filepath.Join(dir, base+".go"), compiled.Output.Source, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if compiled.Output.TestSource != nil {
+			if err := os.WriteFile(filepath.Join(dir, base+"_test.go"), compiled.Output.TestSource, 0o644); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	return root, dir
+}
+
+func goCommand(dir string, args ...string) *exec.Cmd {
+	command := exec.Command("go", args...)
+	command.Dir = dir
+	command.Env = append(os.Environ(), "GOFLAGS=-mod=mod")
+	return command
+}
+
+// Compile the actual Gom source and then the generated Go, once for this suite.
+// The generated program runs in subprocesses against httptest only.
+func buildCLI(t *testing.T) string {
+	t.Helper()
+	_, dir := generateModule(t)
+	if out, err := goCommand(dir, "vet", ".").CombinedOutput(); err != nil {
 		t.Fatalf("vet generated CLI: %v\n%s", err, out)
 	}
-	cli := filepath.Join(tmp, "gist-cli")
-	command := exec.Command("go", "build", "-o", cli, generated)
-	command.Dir = root
-	if out, err := command.CombinedOutput(); err != nil {
+	cli := filepath.Join(dir, "gist-cli")
+	if out, err := goCommand(dir, "build", "-o", cli, ".").CombinedOutput(); err != nil {
 		t.Fatalf("build generated CLI: %v\n%s", err, out)
 	}
 	return cli
+}
+
+// TestGomTests runs the `test` blocks written next to the pure parts of the
+// CLI (argument grammar, request building, response decoding).
+func TestGomTests(t *testing.T) {
+	if testing.Short() {
+		t.Skip("long test: builds a scratch module")
+	}
+	_, dir := generateModule(t)
+	if out, err := goCommand(dir, "test", ".").CombinedOutput(); err != nil {
+		t.Fatalf("Gom tests: %v\n%s", err, out)
+	}
 }
 
 func execute(t *testing.T, cli, endpoint, token string, args ...string) (string, string, int) {
