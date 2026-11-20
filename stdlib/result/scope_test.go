@@ -70,3 +70,18 @@ func TestScopeRunResultOk(t *testing.T) {
 		t.Fatalf("log = %v, want %v", log, want)
 	}
 }
+
+func TestScopeDeferErrInvalidResultPanics(t *testing.T) {
+	defer func() {
+		if recover() == nil {
+			t.Fatal("an invalid cleanup Result must panic")
+		}
+	}()
+	result.ScopeRunResult(func(s *rt.Scope) result.Result[int, error] {
+		result.ScopeDeferErr(s, func(struct{}) result.Result[struct{}, error] {
+			return result.Result[struct{}, error]{}
+		})
+		return result.Ok[int, error](1)
+	})
+	t.Fatal("unreachable: ScopeRunResult returned")
+}

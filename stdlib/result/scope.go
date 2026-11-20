@@ -26,13 +26,11 @@ func ScopeRunResult[A any](body func(*rt.Scope) Result[A, error]) (r Result[A, e
 }
 
 // ScopeDeferErr is `Scope.defer_err`: f runs when the scope closes and
-// its Err joins the scope result (see ScopeRunResult).
+// its Err joins the scope result (see ScopeRunResult). An invalid
+// (zero) Result panics rather than counting as a successful cleanup.
 func ScopeDeferErr(s *rt.Scope, f func(struct{}) Result[struct{}, error]) {
 	s.Push(func() error {
-		r := f(struct{}{})
-		if r.IsOk() {
-			return nil
-		}
-		return r.Error
+		_, err := f(struct{}{}).Unwrap()
+		return err
 	}, false)
 }
