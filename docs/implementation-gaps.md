@@ -1639,3 +1639,11 @@
   シンボル解決で揃う。エントリ `fn main () -> Unit` は `func main()`
   を維持（UnitDecl.Entry）。検証: [golden](../testdata/golden/reserved_names.gom)、
   [decision](decisions/2026-11-19-reserved-name-escape.md)。
+
+- [ ] **Goコード生成の中間表現の説明が現行実装と異なる**: 設計文書の2節では Core IR → `go/ast` と説明している。
+  実装は宣言と文をバッファへ直接出力し、式と型の一部に `go/ast` と `go/printer` を使い、全体を `go/format.Source` で整形する。
+  参照 [設計文書](design.md)、[コード生成](../internal/codegen/codegen.go)、[調査](sketch/ja/2026-11-20-transpiler-pipeline-review.md)。
+
+- [ ] **フェーズの純粋性に関する設計文書の記述が現行実装と合っていない**: 設計文書の2節では各フェーズを純粋関数として実装すると記している。
+  型検査は型メタ変数やシンボルを更新し、ローダーはセッション内にキャッシュを保持する。
+  参照 [設計文書](design.md)、[調査](sketch/ja/2026-11-20-transpiler-pipeline-review.md)。
