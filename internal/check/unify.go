@@ -540,7 +540,7 @@ func (w *cmpWalk) has(t types.Type) bool {
 					return w.has(t.Args[0])
 				}
 				return true
-			case "Option", "Ref", "Ptr", "Chan", "RecvChan", "SendChan":
+			case "Option", "Ref", "Ptr", "Chan", "RecvChan", "SendChan", "Scope":
 				// option.Option[A] is an interface; Ref and Ptr are
 				// pointers; channels are channels — all comparable.
 				return true

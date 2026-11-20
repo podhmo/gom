@@ -635,6 +635,8 @@ func builtinConKind(name string) conKind {
 		return conSendChan
 	case "Task":
 		return conTask
+	case "Scope":
+		return conScope
 	case "View":
 		return conView
 	default:
@@ -660,6 +662,7 @@ const (
 	conSendChan                // chan<- T
 	conTask                    // rt.Task[A]
 	conView                    // list.View[A]
+	conScope                   // *rt.Scope
 )
 
 // letConv is the conversion a `name := rhs` let needs when the RHS's

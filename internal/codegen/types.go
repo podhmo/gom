@@ -117,6 +117,8 @@ func (g *gen) conType(c *types.Con) ast.Expr {
 		case conTask:
 			return &ast.IndexExpr{X: ast.NewIdent(g.pkgQual(rtPath) + "Task"),
 				Index: g.goType(c.Args[0])}
+		case conScope:
+			return &ast.StarExpr{X: ast.NewIdent(g.pkgQual(rtPath) + "Scope")}
 		case conView:
 			return &ast.IndexExpr{X: ast.NewIdent(g.pkgQual(listPath) + "View"),
 				Index: g.goType(c.Args[0])}

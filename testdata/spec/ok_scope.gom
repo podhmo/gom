@@ -1,0 +1,22 @@
+package ex
+
+import go "errors"
+
+// The `Scope` module's operation surface: `Scope.run` opens a scope
+// whose cleanups run LIFO when the body ends; registrations may sit
+// inside an `if` and still outlive it.
+fn guarded (held: Ref Int) (need: Bool) -> Int =
+  Scope.run
+  <| fn s -> { if need { Ref.set held 1; Scope.defer s (fn () -> Ref.set held 0) }; Ref.get held }
+
+// `Scope.run_result`: `try` escapes the body, not the function, and
+// still closes the scope; `on_err` runs only on failure and
+// `defer_err` joins a cleanup error into an Ok result.
+fn transfer (fail: Bool) -> Result Int GoError =
+  Scope.run_result
+  <| fn s -> {
+    Scope.on_err s (fn () -> ())
+    Scope.defer_err s (fn () -> Ok ())
+    try (if fail { Err (errors.New "boom") } else { Ok () })
+    Ok 2
+  }

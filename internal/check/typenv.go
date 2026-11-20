@@ -417,6 +417,7 @@ var builtinTypeArity = map[string]int{
 	"Float": 0, "Char": 0, "Byte": 0, "String": 0, "GoError": 0,
 	"List": 1, "Option": 1, "Ref": 1, "Array": 1, "Ptr": 1, "View": 1,
 	"Chan": 1, "RecvChan": 1, "SendChan": 1, "Task": 1,
+	"Scope":  0,
 	"Result": 2,
 }
 
