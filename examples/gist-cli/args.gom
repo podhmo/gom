@@ -6,6 +6,8 @@ import go "strings"
 
 // The command line, parsed: `--help` wins wherever it appears before
 // `--`; otherwise every value has already been validated.
+let api_url = regexp.MustCompile "^https?://[^/?#]+(/[^?#]*)?$"
+
 type Command =
   | Help
   | Upload Options
@@ -47,16 +49,8 @@ fn parse_options (args: List String) (opts: Options) -> Result Command String = 
 
 fn finish (opts: Options) -> Result Command String = {
   try require (opts.files != []) usage
-  try require (valid_api_url opts.api) "invalid API URL: ${opts.api}"
+  try require (api_url.MatchString opts.api) "invalid API URL: ${opts.api}"
   Ok (Upload { opts with files = List.rev opts.files })
-}
-
-fn valid_api_url (url: String) -> Bool = match regexp.MatchString (
-  "^https?://[^/?#]+(/[^?#]*)?$",
-  url,
-) {
-  Ok matches -> matches
-  Err _ -> false
 }
 
 fn require (ok: Bool) (message: String) -> Result Unit String = if ok { Ok () } else { Err message }

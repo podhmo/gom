@@ -1,7 +1,6 @@
 package main
 
 import go "encoding/json"
-import go "path"
 import go "regexp"
 import go "strings"
 
@@ -11,17 +10,13 @@ type Target =
   | Create
   | Update (id: String)
 
-fn valid_gist_url (url: String) -> Bool = match regexp.MatchString (
-  "^https://gist\\.github\\.com/([A-Za-z0-9-]+/)?[0-9a-fA-F]+/?$",
-  url,
-) {
-  Ok matches -> matches
-  Err _ -> false
-}
+let gist_url =
+  regexp.MustCompile "^https://gist\\.github\\.com/(?:[A-Za-z0-9-]+/)?([0-9a-fA-F]+)/?$"
 
-fn parse_gist_url (url: String) -> Result String String = if valid_gist_url url {
-  Ok (path.Base url)
-} else { Err "invalid Gist URL: ${url}" }
+fn parse_gist_url (url: String) -> Result String String = match gist_url.FindStringSubmatch url {
+  [_, id] -> Ok id
+  _ -> Err "invalid Gist URL: ${url}"
+}
 
 fn expected_status (target: Target) -> Int = match target {
   Create -> 201
@@ -68,7 +63,7 @@ fn gist_html_url (target: Target) (response: HttpResponse) -> Result String Stri
     (response.status == expected_status target)
     "HTTP ${response.status}: ${response.body}")
   let url = try text_error (string_field response.body "html_url")
-  try require (valid_gist_url url) "response html_url is not a Gist URL"
+  try require (Result.is_ok (parse_gist_url url)) "response html_url is not a Gist URL"
   Ok url
 }
 
