@@ -116,13 +116,43 @@ walker が再帰的にパスを流し、固定 N 個の matcher（ワーカー�
   相互運用は未検証（`signal.NotifyContext`・`time.NewTicker`・
   `ctx.Done ()` はコンパイル確認済み）
 
+### G. `examples/parallel` 系 — Go の並行プリミティブをそのまま使う（優先度: 中）
+
+linkcheck/rgrep がチャネルと `go {}` のイディオムを見せるのに対し、
+「Go 側の並行ライブラリを Gom から直接使う」方向を見せる例。
+題材は複数ジョブを `errgroup` で回して最初のエラーで畳むもの、
+あるいは `sync.WaitGroup` + Mutex のカウンタ集計。
+
+- 見せるもの: `Go.funcN`（Gom 関数 → `func() error` 等に変換して
+  Go API へ渡す）と `Go.fnN`（Go から受け取った `func()` 値を Gom で
+  呼ぶ）の双方向ブリッジ、`import go` が外部モジュールの依存も
+  解決すること（go.mod に `golang.org/x/sync` を足すだけ）
+- 実証済みの知見（rgrep 実装中のプローブ）: `errgroup.WithContext` +
+  `g.Go (Go.func0 (fn () -> ...))` + `g.Wait ()` は警告 0 で動く。
+  goroutine を立てるのが Go 側なので共有 lint が見えない。
+  `context.AfterFunc` の戻り値 `func() bool` を `Go.fn0` で
+  `go {}` 内から呼ぶことも確認済み
+- 教訓として見せられるもの: **named func 型の壁** —
+  `func() error` リテラルの引数・戻り値（`errgroup.Go`、`AfterFunc`）
+  は橋が架かるが `type CancelFunc func()` のような named 型は
+  `Go.FuncN` に読まれず Gom から呼べない（implementation-gaps 登録済み。
+  `fs.WalkDirFunc` 等も同じ壁）。**W0702 の false positive** —
+  `Ptr sync.WaitGroup`/`Ptr errgroup.Group` を `go {}` がキャプチャ
+  すると共有 lint が鳴るが、これらは共有前提で設計された型
+  （errgroup はメイン側で `g.Go` する形にすれば回避できる）
+- 対比軸: 「チャネルで countdown（rgrep の `fin`）」vs
+  「Go の WaitGroup/errgroup をそのまま使う」— どちらが自然か、
+  どちらが警告 0 で書けるか
+
 ## 推奨順
 
 1. **A linkcheck**（並行処理は言語の 3 構文を占めるのに例が皆無）— 実装済み
    （[レポート](2026-11-21-linkcheck-example.md)）
 2. **B semver**（`.gomi` と Go からの利用はライブラリ作者向けの最重要経路）
-3. **F rgrep**（A の語り残し — キャンセル伝播と多段パイプライン）
-4. C → D → E
+3. **F rgrep**（A の語り残し — キャンセル伝播と多段パイプライン）— 実装済み
+   （[レポート](2026-11-21-rgrep-example.md)）
+4. **G parallel**（Go 並行プリミティブの相互運用 — func 値の双方向ブリッジ）
+5. C → D → E
 
 A と B は gist-cli と同じく「ディレクトリ単位でコンパイル + Gom `test` + Go の結合テスト」の
 ハーネス（`examples/gist-cli/integration_test.go`）をそのまま流用できる。

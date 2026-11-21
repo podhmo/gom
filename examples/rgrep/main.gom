@@ -1,0 +1,39 @@
+// A recursive grep written in Gom: walk paths, match lines on a
+// fixed pool of workers, print — with cancellation on --max-count
+// and SIGINT. Exit status: 0 matches, 1 none, 2 errors, 130 interrupted.
+package main
+
+import go "fmt"
+import go "os"
+import go "regexp"
+
+fn main () -> Unit = match parse_args (program_args ()) {
+  Ok (Help) -> ignore fmt.Println usage
+  Ok (Search opts) -> match run opts {
+    Ok code -> os.Exit code
+    Err message -> fail message
+  }
+  Err message -> fail message
+}
+
+fn run (opts: Options) -> Result Int String = {
+  let re = try compile_pattern opts.pattern opts.ignore_case
+  let summary = search opts.paths (fn line -> re.MatchString line) opts.concurrency opts.max_count
+  Ok (exit_code summary)
+}
+
+fn compile_pattern (pattern: String) (ignore_case: Bool) -> Result (Ptr regexp.Regexp) String = {
+  let source = if ignore_case { "(?i)${pattern}" } else { pattern }
+  regexp.Compile source |> Result.map_err (fn e -> "invalid pattern ${pattern}: ${e.Error ()}")
+}
+
+// GNU grep conventions: errors outrank matches, matches outrank none;
+// 130 is the shell's SIGINT code.
+fn exit_code (s: Summary) -> Int = if s.interrupted { 130 } else {
+  if s.warned > 0 { 2 } else { if s.found > 0 { 0 } else { 1 } }
+}
+
+fn fail (message: String) -> Unit = {
+  ignore fmt.Fprintln (os.Stderr, "rgrep: ${message}")
+  os.Exit 2
+}
