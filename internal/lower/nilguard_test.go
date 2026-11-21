@@ -161,7 +161,7 @@ func collectBoundary(f *core.File) boundaryNodes {
 		case *core.Uncurry:
 			walkExpr(x.X)
 		case *core.Var, *core.Lit, *core.FuncRef, *core.CtorRef,
-			*core.GoFuncRef, *core.FieldGet, *core.FieldSet, *core.Unary,
+			*core.GoFuncRef, *core.FieldGet, *core.FieldSet, *core.Defer, *core.Unary,
 			*core.Binary,
 			*core.TupleNew, *core.ListNew, *core.RecordNew,
 			*core.RecordUpdate, *core.Equal,

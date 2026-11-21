@@ -1,6 +1,10 @@
 package result
 
-import rt "github.com/podhmo/gom/rt"
+import (
+	"errors"
+
+	rt "github.com/podhmo/gom/rt"
+)
 
 // ScopeRunResult is `Scope.run_result`: like rt.ScopeRun, but an Err
 // body also runs the on_err cleanups, and the body's own error wins
@@ -33,4 +37,23 @@ func ScopeDeferErr(s *rt.Scope, f func(struct{}) Result[struct{}, error]) {
 		_, err := f(struct{}{}).Unwrap()
 		return err
 	}, false)
+}
+
+// ScopeCollect appends the error a native-defer `Scope.defer_err`
+// cleanup returned (SC-3). An invalid zero-valued Result panics in
+// Unwrap, as with ScopeDeferErr.
+func ScopeCollect(errs []error, r Result[struct{}, error]) []error {
+	if _, err := r.Unwrap(); err != nil {
+		return append(errs, err)
+	}
+	return errs
+}
+
+// ScopeFold folds the cleanup errors a native-defer
+// `Scope.run_result` body collected into an Ok result: the body's
+// Err wins, cleanup errors join in the order they ran.
+func ScopeFold[A any](r *Result[A, error], errs []error) {
+	if len(errs) > 0 && r.IsOk() {
+		*r = Err[A, error](errors.Join(errs...))
+	}
 }

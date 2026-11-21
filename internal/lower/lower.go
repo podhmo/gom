@@ -222,6 +222,7 @@ func File(f *check.File, env *Env) (*core.File, []diag.Diagnostic) {
 	for _, d := range f.Decls {
 		l.decl(d, out)
 	}
+	l.nativeScopes(out)
 	l.checkTailRec(out)
 	l.lintQuadraticAccum(out)
 	out.EqDecls = l.eqOrder

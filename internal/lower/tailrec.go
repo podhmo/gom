@@ -597,6 +597,8 @@ func walkTailrec(b *core.Body, f func(e core.Expr, inSpawn, inClosure bool)) {
 		case *core.FieldSet:
 			atom(e.Recv, inSpawn, inClosure)
 			atom(e.Value, inSpawn, inClosure)
+		case *core.Defer:
+			atom(e.F, inSpawn, inClosure)
 		default:
 			panic("unreachable")
 		}

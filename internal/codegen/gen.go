@@ -60,6 +60,10 @@ type gen struct {
 	// own emitted function, so the set resets per declaration.
 	fnames map[string]bool
 
+	// scopes names each native-defer Scope body's temporaries for
+	// the Defer nodes inside it (scopeFuncLit).
+	scopes map[*core.Func]scopeNames
+
 	ctors  map[*resolve.Symbol]*ctorDecl // locally declared variants
 	localT map[string]bool               // type names declared in this file
 
@@ -749,7 +753,7 @@ func untypedConst(x core.Expr) bool {
 	case *core.Binary:
 		return untypedConst(e.X) && untypedConst(e.Y)
 	case *core.Var, *core.FuncRef, *core.CtorRef, *core.GoFuncRef,
-		*core.FieldGet, *core.FieldSet, *core.CallDirect, *core.CallFunc,
+		*core.FieldGet, *core.FieldSet, *core.Defer, *core.CallDirect, *core.CallFunc,
 		*core.CallGo, *core.CallBuiltin, *core.CtorApp, *core.Equal,
 		*core.TupleNew, *core.ListNew, *core.RecordNew,
 		*core.RecordUpdate, *core.Conv, *core.Closure, *core.GoFunc, *core.Uncurry, *core.If,

@@ -455,3 +455,46 @@ type Conv struct {
 }
 
 func (*Conv) isExpr() {}
+
+// DeferKind selects when a Defer's cleanup runs at its Scope's close.
+type DeferKind int
+
+const (
+	// DeferAlways is `Scope.defer`: the cleanup always runs.
+	DeferAlways DeferKind = iota + 1
+	// DeferErr is `Scope.defer_err`: the cleanup's Err joins the
+	// scope's cleanup errors (folded into an Ok result only).
+	DeferErr
+	// DeferOnErr is `Scope.on_err`: the cleanup runs only when the
+	// body failed — an Err result, or a panic.
+	DeferOnErr
+)
+
+// String returns the kind name for debugging.
+func (k DeferKind) String() string {
+	switch k {
+	case DeferAlways:
+		return "always"
+	case DeferErr:
+		return "err"
+	case DeferOnErr:
+		return "on_err"
+	default:
+		return "DeferKind(?)"
+	}
+}
+
+// Defer is a Scope cleanup registered as a native Go `defer` (SC-3,
+// docs/decisions/2026-11-21-scoped-cleanup.md): lowering rewrites a
+// `Scope.defer s f` / `defer_err` / `on_err` whose Scope body is To
+// — a Func carrying ScopeInfo — and whose registration sits in To's
+// own Go function. F is the `Unit -> Unit` (or `Unit -> Result Unit
+// GoError` for DeferErr) cleanup; the node is typed Unit.
+type Defer struct {
+	Base
+	Kind DeferKind
+	F    Atom
+	To   *Func
+}
+
+func (*Defer) isExpr() {}

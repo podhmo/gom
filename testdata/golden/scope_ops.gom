@@ -10,3 +10,24 @@ fn tracked (s: Scope) (r: Ref Int) -> Unit = Scope.on_err s (fn () -> Ref.set r 
 
 fn checked (r: Ref Int) -> Result Int GoError =
   Scope.run_result <| fn s -> { tracked s r; Scope.defer_err s (fn () -> Ok ()); Ok (Ref.get r) }
+
+// Registrations in the body's own Go function lower to native Go
+// defers (SC-3): on_err reads a finished flag and the named result,
+// defer_err collects into a list folded into an Ok result last.
+fn native (r: Ref Int) (c: Bool) -> Result Int GoError =
+  Scope.run_result <| fn s -> {
+    Scope.defer s (fn () -> Ref.set r 1)
+    if c { Scope.on_err s (fn () -> Ref.set r 2) }
+    Scope.defer_err s (fn () -> Ok ())
+    let x = try (Ok 1)
+    Ok (x + 1)
+  }
+
+type Job = { undo: Unit -> Unit }
+
+// A cleanup read from a field is evaluated at registration.
+fn field_cleanup (j: Job) -> Result Int GoError =
+  Scope.run_result <| fn s -> {
+    Scope.on_err s j.undo
+    Ok 1
+  }

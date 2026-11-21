@@ -36,7 +36,7 @@
   - [x] **SC-2 `Scope` 値の脱出の静的検査**: 依存: SC-1
     - [x] **SC-2a パッケージ内の検査**: 型による禁止と、捕捉したラムダを逃げない引数へだけ渡せる規則（E0418）。同じパッケージの `fn` の引数は推論する
     - [x] **SC-2b `.gomi` の `@noescape(f)` 属性**: `.gomi` の `fn` に逃げない引数を書けるようにし、実装側の推論との適合を検査し、`gom info` が下書きに出す。stdlib の `List.iter` などに付ける
-  - [ ] **SC-3 ネイティブ `defer` への lowering**: 登録が `Scope.run` と同じ Go 関数内にあるとき、Core IR で判定して登録位置に Go の `defer` を出し、結果に触る cleanup だけ生成 Go 側で named result を使う（目標形は `experiments/defer/cgen`）。それ以外は SC-1 のランタイムスタックのまま。依存: SC-1, SC-2
+  - [x] **SC-3 ネイティブ `defer` への lowering**: 登録が `Scope.run` と同じ Go 関数内にあるとき、Core IR で判定して登録位置に Go の `defer` を出し、結果に触る cleanup だけ生成 Go 側で named result を使う（目標形は `experiments/defer/cgen`）。それ以外は SC-1 のランタイムスタックのまま。依存: SC-1, SC-2
 
 ### ドキュメント
 
