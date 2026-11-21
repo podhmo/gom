@@ -88,6 +88,13 @@ func (p *printer) declItem(d syntax.Decl) item {
 		if d.Extern {
 			lead = append(lead, "@extern")
 		}
+		if len(d.NoEscape) > 0 {
+			names := make([]string, len(d.NoEscape))
+			for i, id := range d.NoEscape {
+				names[i] = id.Name
+			}
+			lead = append(lead, "@noescape("+strings.Join(names, ", ")+")")
+		}
 		dd = p.fnDecl(d)
 	case *syntax.LetDecl:
 		lead = append(lead, docLines(d.Doc)...)

@@ -42,6 +42,11 @@ type Signature struct {
 	// boundary (spec section 8.5). The checker validates the solved
 	// type arguments against it once inference finishes (E0508).
 	GoConstraints []GoConstraint
+	// NoEscape marks, per flattened parameter, a function-typed
+	// parameter the callee only calls or forwards to another
+	// non-escaping parameter — never stores, returns or hands to Go.
+	// A closure capturing a `Scope` may be passed there (scopeescape.go).
+	NoEscape []bool
 }
 
 // GoConstraintKind is the admitted constraint class of a generic Go

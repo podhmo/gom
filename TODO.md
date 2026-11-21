@@ -33,7 +33,9 @@
 
 - [-] **SC scoped cleanup（Go の `defer` が解く問題）**: 組み込み `Scope` モジュールでスコープを値として開き、cleanup を `if`・`match` の腕・その場で呼ばれるラムダから登録する（[decision](docs/decisions/2026-11-21-scoped-cleanup.md)、[sketch](docs/sketch/2026-11-21-defer-survey.md)、実験 `experiments/defer/`）
   - [x] **SC-1 `Scope` 型と rt-backed モジュール**: `Scope.run`/`run_result`/`defer`/`defer_err`/`on_err` を builtin module として配線する（LIFO、cleanup 同士は `errors.Join`、本体の `Err` 優先、`on_err` は panic 時も走る、閉じた後の登録は panic）。spec fixture・golden・spec 8.3 を足す
-  - [ ] **SC-2 `Scope` 値の脱出の静的検査**: `Scope` を返す・record/コンストラクタ/可変セルに格納する・`Task.spawn` や Go の関数値へ渡すのを型エラーにする。ラムダ引数が逃げないかはパッケージ内で推論し、`.gomi` に注釈として出す。Go の関数は常に「逃げる」扱い。依存: SC-1
+  - [x] **SC-2 `Scope` 値の脱出の静的検査**: 依存: SC-1
+    - [x] **SC-2a パッケージ内の検査**: 型による禁止と、捕捉したラムダを逃げない引数へだけ渡せる規則（E0418）。同じパッケージの `fn` の引数は推論する
+    - [x] **SC-2b `.gomi` の `@noescape(f)` 属性**: `.gomi` の `fn` に逃げない引数を書けるようにし、実装側の推論との適合を検査し、`gom info` が下書きに出す。stdlib の `List.iter` などに付ける
   - [ ] **SC-3 ネイティブ `defer` への lowering**: 登録が `Scope.run` と同じ Go 関数内にあるとき、Core IR で判定して登録位置に Go の `defer` を出し、結果に触る cleanup だけ生成 Go 側で named result を使う（目標形は `experiments/defer/cgen`）。それ以外は SC-1 のランタイムスタックのまま。依存: SC-1, SC-2
 
 ### ドキュメント

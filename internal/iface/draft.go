@@ -168,6 +168,15 @@ func (d *drafter) file(w *strings.Builder, s Source) {
 // typed parameters, the type from the signature.
 func (d *drafter) fnDecl(name string, td *check.FnDecl) string {
 	var sb strings.Builder
+	var ne []string
+	for i, on := range td.NoEscape {
+		if on && i < len(td.Params) {
+			ne = append(ne, patText(td.Params[i].Pat))
+		}
+	}
+	if len(ne) > 0 && !td.Extern {
+		fmt.Fprintf(&sb, "@noescape(%s)\n", strings.Join(ne, ", "))
+	}
 	fmt.Fprintf(&sb, "fn %s", name)
 	for i, p := range td.Params {
 		if i < len(td.Sig.Params) {

@@ -1645,3 +1645,10 @@
   予約語の一覧がなく、`fn send (x: T)` は "a function declaration needs at least
   one (param: Type) group, found send" という理由の分からない診断になる。
   [sketch](sketch/ja/2026-11-21-gist-cli-refactor.md)
+
+- [ ] **関数型を返す `Scope.run` の生成 Go がコンパイルできない**: spec 6.1 の `Scope.run : (Scope -> a) -> a` は
+  `a` が関数型でも書けるが、`fn f () -> Int -> Int = Scope.run <| fn s -> add 1` は Core 検証で E0901
+  （`call has 2 args for Go arity 1`）になる。括弧の形 `Scope.run (fn s -> add 1)` は lowering を通るものの、
+  平坦化した本体 `func(*rt.Scope, int64) int64` を `func(*rt.Scope) func(int64) int64` へ渡すので go build が失敗する。
+  Go の型引数が関数型に具体化されたときの、Go 呼び出しの arity 分割とコールバックの変換の問題で、Scope に限らない可能性がある（未確認）。
+  参照: [spec 6.1](spec.md)、[実装](../internal/lower/expr.go)（`goFuncRefOrAdapter`）。

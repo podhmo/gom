@@ -140,7 +140,7 @@ func (e *env) loadPackage(module, gomiPath, impPath string, src []byte) error {
 			// Signature references to the interface's own types
 			// carry the import path — the same requalification
 			// gomimport's extract runs on member signatures.
-			sig := check.Signature{Type: requalify(d.Sig, own, impPath)}
+			sig := check.Signature{Type: requalify(d.Sig, own, impPath), NoEscape: d.NoEscape}
 			// Only functions carry a declared arity — like
 			// gomimport's extract, which registers FnDecl/
 			// MethodDecl arities only. A let member's answer must

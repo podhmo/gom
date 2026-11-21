@@ -88,8 +88,10 @@ fn min (ord: Ord a) (xs: List a) -> Option a
 /// max ord xs is the greatest element under ord, or None on [].
 fn max (ord: Ord a) (xs: List a) -> Option a
 
+@noescape(lt)
 fn fold_min (lt: a -> a -> Bool) (best: a) (xs: List a) -> a
 
+@noescape(lt)
 fn fold_max (lt: a -> a -> Bool) (best: a) (xs: List a) -> a
 
 /// sort ord xs is xs sorted ascending under ord — a fresh list.
@@ -98,4 +100,5 @@ fn sort (ord: Ord a) (xs: List a) -> List a
 /// sort_by lt xs is the comparator form sort lowers onto — a
 /// slices.SortFunc-backed Go impl (impl.go), so the ordering is
 /// O(n log n), not insertion sort.
+@noescape(lt)
 fn sort_by (lt: a -> a -> Bool) (xs: List a) -> List a

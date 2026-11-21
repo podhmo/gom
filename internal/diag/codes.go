@@ -681,6 +681,36 @@ integer-valued and in range ("int32(1.5)" is rejected while
 	},
 
 	{
+		Code:     "E0418",
+		Severity: SeverityError,
+		Title:    "Scope value escapes its scope",
+		Phase:    PhaseCheck,
+		Spec:     "6.1",
+		Explanation: `A Scope handle is only valid while its Scope.run body runs, so it
+must not outlive it. A Scope value cannot be returned, stored in a
+record, constructor, list, tuple or mutable cell, or used to
+instantiate a type variable. A closure or "go" body that captures a
+Scope may only be called on the spot or passed directly to a
+non-escaping function parameter — one the callee only calls or
+forwards, such as Scope.defer's cleanup. Parameters of functions in
+the same package are inferred; Go functions and Task.spawn always
+let their argument escape.`,
+		Example: `fn leak () -> Scope = Scope.run <| fn s -> s   // returns the handle`,
+	},
+	{
+		Code:     "E0419",
+		Severity: SeverityError,
+		Title:    "invalid @noescape parameter",
+		Phase:    PhaseCheck,
+		Spec:     "6.1",
+		Explanation: `A .gomi "@noescape(f, ...)" lists the parameters a function only
+calls or forwards to another non-escaping parameter. Each name must be
+a function-typed parameter of the declaration it is attached to.`,
+		Example: `@noescape(xs)
+fn iter (f: a -> Unit) (xs: List a) -> Unit`,
+	},
+
+	{
 		Code:     "E0501",
 		Severity: SeverityError,
 		Title:    "Go symbol cannot be represented in Gom",
@@ -943,6 +973,18 @@ emitted names differ (docs/decisions/
 2026-11-05-exported-value-vs-type-name.md).`,
 		Example: `// lib.gomi:  let foo : Foo
 // lib.gom:   type Foo and let foo — "foo" would emit Foo1`,
+	},
+	{
+		Code:     "E0608",
+		Severity: SeverityError,
+		Title:    "implementation lets a @noescape parameter escape",
+		Phase:    PhaseIface,
+		Spec:     "7",
+		Explanation: `A parameter the .gomi marks "@noescape" must be inferred
+non-escaping from the implementation's body: it is only called, or
+passed to another non-escaping parameter. Storing, returning, or
+handing it to Go or Task.spawn breaks the promise. Either drop the
+annotation or change the implementation. @extern bodies are trusted.`,
 	},
 
 	{

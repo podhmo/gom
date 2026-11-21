@@ -568,6 +568,37 @@ integer-valued and in range ("int32(1.5)" is rejected while
 let n : Int32 = 3000000000   // does not fit int32
 ```
 
+### E0418 — Scope value escapes its scope
+
+**Severity:** error · **Phase:** check · **Spec:** §6.1
+
+A Scope handle is only valid while its Scope.run body runs, so it
+must not outlive it. A Scope value cannot be returned, stored in a
+record, constructor, list, tuple or mutable cell, or used to
+instantiate a type variable. A closure or "go" body that captures a
+Scope may only be called on the spot or passed directly to a
+non-escaping function parameter — one the callee only calls or
+forwards, such as Scope.defer's cleanup. Parameters of functions in
+the same package are inferred; Go functions and Task.spawn always
+let their argument escape.
+
+```gom
+fn leak () -> Scope = Scope.run <| fn s -> s   // returns the handle
+```
+
+### E0419 — invalid @noescape parameter
+
+**Severity:** error · **Phase:** check · **Spec:** §6.1
+
+A .gomi "@noescape(f, ...)" lists the parameters a function only
+calls or forwards to another non-escaping parameter. Each name must be
+a function-typed parameter of the declaration it is attached to.
+
+```gom
+@noescape(xs)
+fn iter (f: a -> Unit) (xs: List a) -> Unit
+```
+
 ## 05xx — Go interop
 
 ### E0501 — Go symbol cannot be represented in Gom
@@ -887,6 +918,16 @@ emitted names differ (docs/decisions/
 // lib.gomi:  let foo : Foo
 // lib.gom:   type Foo and let foo — "foo" would emit Foo1
 ```
+
+### E0608 — implementation lets a @noescape parameter escape
+
+**Severity:** error · **Phase:** iface · **Spec:** §7
+
+A parameter the .gomi marks "@noescape" must be inferred
+non-escaping from the implementation's body: it is only called, or
+passed to another non-escaping parameter. Storing, returning, or
+handing it to Go or Task.spawn breaks the promise. Either drop the
+annotation or change the implementation. @extern bodies are trusted.
 
 ## 07xx — Concurrency
 

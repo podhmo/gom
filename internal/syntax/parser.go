@@ -522,7 +522,6 @@ func (p *parser) gomOnly(sp diag.Span, what string) {
 func (p *parser) parseAttrDecl() Decl {
 	at := p.next() // '@'
 	attrSp := p.spanOf(at)
-	p.gomOnly(attrSp, "an attribute")
 	nameTok := p.cur()
 	var name string
 	switch {
@@ -533,6 +532,12 @@ func (p *parser) parseAttrDecl() Decl {
 		p.expected("an attribute name after \"@\"")
 		p.syncDecl()
 		return nil
+	}
+	var noEscape []*Ident
+	if name == "noescape" {
+		noEscape = p.parseNoEscapeArgs(diag.SpanIn(p.file, at.start, nameTok.end))
+	} else {
+		p.gomOnly(attrSp, "an attribute")
 	}
 	p.skipSep()
 	if !p.at(tokFn) && !p.at(tokLet) {
@@ -548,20 +553,21 @@ func (p *parser) parseAttrDecl() Decl {
 		testOnly: name == "test",
 		tailRec:  name == "tailrec",
 		extern:   name == "extern",
+		noEscape: noEscape,
 	}
-	if !attrs.testOnly && !attrs.tailRec && !attrs.extern {
+	if !attrs.testOnly && !attrs.tailRec && !attrs.extern && name != "noescape" {
 		// The AST cannot carry an unknown attribute (no field
 		// records it): report at parse time so the error is not
 		// silently lost. E0204 remains the resolve-phase code once
 		// the AST gains an attribute slot.
 		p.errf(p.spanOf(nameTok),
-			"unknown attribute \"@%s\": only \"@test\", \"@tailrec\" and \"@extern\" are defined", name)
+			"unknown attribute \"@%s\": only \"@test\", \"@tailrec\", \"@extern\" and \"@noescape\" are defined", name)
 	}
 	doc := p.docBefore(at.start)
 	if p.at(tokFn) {
 		return p.parseFnDecl(attrs, doc)
 	}
-	if attrs.tailRec || attrs.extern {
+	if attrs.tailRec || attrs.extern || name == "noescape" {
 		// A let-bound function calls itself through the package
 		// variable, which the tail-call conversion cannot see —
 		// @tailrec is defined on fn only (spec section 1). @extern
@@ -576,9 +582,38 @@ func (p *parser) parseAttrDecl() Decl {
 // written with. The grammar admits one attribute per declaration
 // (docs/grammar.ebnf: [ attribute ] , ( fn-decl | let-decl )).
 type declAttrs struct {
-	testOnly bool // `@test` (fn or let)
-	tailRec  bool // `@tailrec` (fn only)
-	extern   bool // `@extern` (fn only — signature bound to hand-written Go)
+	testOnly bool     // `@test` (fn or let)
+	tailRec  bool     // `@tailrec` (fn only)
+	extern   bool     // `@extern` (fn only — signature bound to hand-written Go)
+	noEscape []*Ident // `@noescape(f, ...)` (.gomi fn only)
+}
+
+// parseNoEscapeArgs parses the `(name, ...)` list after `@noescape`:
+// the parameters a .gomi function only calls, never stores or
+// returns (docs/spec.md section 6.1).
+func (p *parser) parseNoEscapeArgs(sp diag.Span) []*Ident {
+	if !p.gomi {
+		p.errf(sp, "the \"@noescape\" attribute is allowed only in an interface file; a .gom function's parameters are inferred")
+	}
+	if _, ok := p.expect(tokLParen); !ok {
+		return nil
+	}
+	var names []*Ident
+	for !p.at(tokRParen) {
+		t := p.cur()
+		if t.kind != tokIdent {
+			p.expected("a parameter name in \"@noescape(...)\"")
+			break
+		}
+		p.next()
+		names = append(names, &Ident{Sp: p.spanOf(t), Name: p.text(t)})
+		if !p.at(tokComma) {
+			break
+		}
+		p.next()
+	}
+	p.expect(tokRParen)
+	return names
 }
 
 // parseFnDecl parses a fn declaration or signature:
@@ -619,6 +654,7 @@ func (p *parser) parseFnDecl(attrs declAttrs, doc *Comment) Decl {
 		TestOnly: attrs.testOnly,
 		TailRec:  attrs.tailRec,
 		Extern:   attrs.extern,
+		NoEscape: attrs.noEscape,
 		Name:     name,
 		Params:   params,
 		Ret:      ret,

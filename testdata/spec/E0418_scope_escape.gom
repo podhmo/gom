@@ -1,0 +1,48 @@
+package ex
+
+// E0418: a Scope must not outlive its `Scope.run` body — returned,
+// held in a type constructor, or captured by a closure handed to an
+// escaping parameter (Task.spawn, or a local fn that returns it).
+fn keep (f: Unit -> Unit) -> Unit -> Unit = f
+
+fn leak () -> Scope = Scope.run <| fn s -> s
+
+fn spawned (r: Ref Int) -> Int =
+  Scope.run
+  <| fn s -> {
+    let t = Task.spawn (fn () -> Scope.defer s (fn () -> Ref.set r 0))
+    Task.await t
+    let g = keep (fn () -> Scope.defer s (fn () -> ()))
+    let o = Some s
+    Ref.get r
+  }
+
+// A cleanup runs when its Scope closes, after the inner Scope it
+// captured has already closed.
+fn nested () -> Int =
+  Scope.run <| fn outer ->
+    Scope.run <| fn inner -> {
+      Scope.defer outer (fn () -> Scope.defer inner (fn () -> ()))
+      1
+    }
+
+// A partial application holds its arguments like a closure.
+fn reg (s: Scope) (f: Unit -> Unit) -> Unit = Scope.defer s f
+
+fn partial () -> (Unit -> Unit) -> Unit = Scope.run <| fn s -> reg s
+
+// A field typed Scope is rejected where it is declared, so no
+// constructor — direct or piped — can hold one.
+type Held = Held Scope
+
+type Box = { scope: Scope }
+
+// A generic body may keep a Scope where no type shows it.
+fn later (x: a) (g: a -> Unit) -> (Unit -> Unit) = fn () -> g x
+
+fn hidden () -> Unit -> Unit =
+  Scope.run <| fn s -> later s (fn t -> Scope.defer t (fn () -> ()))
+
+// A Scope computed by an expression is held as well.
+fn partial_if (c: Bool) -> (Unit -> Unit) -> Unit =
+  Scope.run <| fn s -> reg (if c { s } else { s })

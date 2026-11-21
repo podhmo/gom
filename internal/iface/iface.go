@@ -36,6 +36,10 @@ type Member struct {
 	Arity   int
 	TParams int
 	Body    check.TypeBody
+	// NoEscape and Extern carry a fn's non-escaping parameters and
+	// whether its body is hand-written Go (checkFnMember).
+	NoEscape []bool
+	Extern   bool
 }
 
 // Package is the public surface of one compiled file — or the merged
@@ -85,7 +89,8 @@ func Surface(f *check.File) *Package {
 				continue
 			}
 			p.add(&Member{Kind: MemberFn, Name: name, Sp: d.Sp,
-				Type: d.Sig, Arity: len(d.Sig.Params)})
+				Type: d.Sig, Arity: len(d.Sig.Params),
+				NoEscape: d.NoEscape, Extern: d.Extern})
 		case *check.LetDecl:
 			for _, m := range letMembers(d) {
 				p.add(m)

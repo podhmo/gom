@@ -1,0 +1,50 @@
+package ex
+
+// A closure capturing a Scope may be passed to a local higher-order
+// function whose parameter is inferred non-escaping (only called or
+// forwarded), piped into one, or called on the spot.
+fn each (f: Int -> Unit) (xs: List Int) -> Unit = for x in xs { f x }
+
+fn twice (f: Unit -> Unit) -> Unit = { f (); each (fn _ -> f ()) [1] }
+
+fn helper (s: Scope) (r: Ref Int) -> Unit = Scope.defer s (fn () -> Ref.set r 0)
+
+fn ok1 (r: Ref Int) (xs: List Int) -> Int =
+  Scope.run
+  <| fn s -> {
+    each (fn x -> Scope.defer s (fn () -> Ref.set r x)) xs
+    xs |> each (fn x -> Scope.defer s (fn () -> Ref.set r x))
+    twice (fn () -> helper s r)
+    (fn () -> helper s r) ()
+    Ref.get r
+  }
+
+// Stdlib higher-order functions publish `@noescape` in their .gomi.
+fn each_std (xs: List Int) (r: Ref Int) -> Int =
+  Scope.run <| fn s -> {
+    List.iter (fn x -> Scope.defer s (fn () -> Ref.set r x)) xs
+    xs |> List.iter (fn x -> Scope.defer s (fn () -> Ref.set r x))
+    Ref.get r
+  }
+
+// A partial application may go where a closure may.
+fn reg (s: Scope) (f: Unit -> Unit) -> Unit = Scope.defer s f
+
+fn partial_ok (fs: List (Unit -> Unit)) -> Int =
+  Scope.run <| fn s -> {
+    List.iter (reg s) fs
+    0
+  }
+
+// An argument evaluated on the spot leaves only its value behind.
+fn read (s: Scope) -> Int = 0
+
+fn add (x: Int) (y: Int) -> Int = x + y
+
+fn keep (f: Int -> Int) -> Int -> Int = f
+
+fn eager () -> Int =
+  Scope.run <| fn s -> {
+    let g = keep (add (read s))
+    g 1
+  }

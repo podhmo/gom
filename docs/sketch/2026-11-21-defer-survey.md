@@ -208,3 +208,17 @@ func copyFile(log *fake.Log, src, dst, data string) (res result.Result[struct{},
   golden、上記のランタイムテスト。`gom build` した main で `if` 内登録・`on_err`・
   `defer_err` の Join を実行して確認した
 - 残り: 静的な脱出検査（SC-2）、同一 Go 関数内の登録を Go の `defer` に直接出す lowering（SC-3）
+
+## SC-2a: in-package escape check (2026-11-21)
+
+`internal/check/scopeescape.go`（E0418）。
+
+- 型: `Scope` は値そのものか関数の引数としてだけ現れてよい。`Option Scope`、`Unit -> Scope`、
+  コンストラクタ・record フィールドへの格納、`Go.conv` を拒否する。参照（Var/MemberExpr）の
+  インスタンス化された型は原因の反響なので報告しない
+- 捕捉: `Scope` を捕捉したラムダ・`go` 本体は、その場で呼ぶか `Signature.NoEscape` な引数へ
+  直接渡すときだけ許す。パイプ（`xs |> each (fn ...)`）は飽和する部分適用として扱う
+- 推論: パッケージ内 `fn` の関数型引数を最大不動点で推論する（初期値は全部「逃げない」、違反した
+  引数を外して収束まで繰り返す）。再帰・相互再帰もこれで扱える
+- 検証: `testdata/spec/ok_scope_noescape`、`testdata/spec/E0418_scope_escape`
+- `.gomi` の注釈は podhmo の回答で (a) `@noescape(f)` 属性に決まった（SC-2b）
