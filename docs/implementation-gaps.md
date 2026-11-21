@@ -1640,11 +1640,21 @@
   を維持（UnitDecl.Entry）。検証: [golden](../testdata/golden/reserved_names.gom)、
   [decision](decisions/2026-11-19-reserved-name-escape.md)。
 
-- [ ] **予約語の一覧が仕様にない（`send` など）**: `send`/`select`/`default` は
+- [x] **予約語の一覧が仕様にない（`send` など）**: `send`/`select`/`default` は
   lexer のキーワード（[token.go](../internal/syntax/token.go)）だが、spec に
   予約語の一覧がなく、`fn send (x: T)` は "a function declaration needs at least
   one (param: Type) group, found send" という理由の分からない診断になる。
   [sketch](sketch/ja/2026-11-21-gist-cli-refactor.md)
+  対応: spec [1.8](spec.md) に予約語一覧と「束縛位置に予約語は使えない」
+  規則を追加し、名前の位置のキーワードを 1 件の E0106
+  （"reserved word used as a name"）として報告するようにした
+  （`errReserved` はキーワードを消費して `*Ident` として回復するため
+  後続の E0101 カスケードが出ない）。`.` の後のメンバ名は従来どおり
+  キーワードを許す。検証:
+  [err_fn_keyword_send](../testdata/spec/err_fn_keyword_send.gom)、
+  [err_let_keyword_select](../testdata/spec/err_let_keyword_select.gom)、
+  [err_param_keyword](../testdata/spec/err_param_keyword.gom)、
+  [ok_keyword_member_name](../testdata/spec/ok_keyword_member_name.gom)。
 
 - [x] **`Array.make` の「ゼロ値」が sum type / `Option` の要素には作れない**:
   spec 8.3 は `Array.make` を「n 個のゼロ値」と説明するが、生成される

@@ -1,0 +1,8 @@
+package ex
+
+// spec section 1.8: after "." a keyword is still a member name —
+// `Chan.send`, `Chan.select`-style names are admitted by the
+// member-name production even though `send` is a keyword.
+fn f (ch : Chan Int) -> Unit = {
+  Chan.send ch 1
+}

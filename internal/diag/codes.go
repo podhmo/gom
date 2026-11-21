@@ -283,6 +283,19 @@ UTF-8, so arbitrary bytes cannot be spelled in a literal.`,
 	},
 
 	{
+		Code:     "E0106",
+		Severity: SeverityError,
+		Title:    "reserved word used as a name",
+		Phase:    PhaseSyntax,
+		Spec:     "1.8",
+		Explanation: `A keyword of the language appears where a binding name is
+expected — a function, let, type, parameter, pattern, import alias,
+or "as" name. Reserved words cannot name bindings; pick another
+identifier. The full keyword list is spec section 1.8.`,
+		Example: `fn send () -> Unit = ignore 1`,
+	},
+
+	{
 		Code:     "E0201",
 		Severity: SeverityError,
 		Title:    "undefined name",

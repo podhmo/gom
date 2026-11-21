@@ -1,0 +1,5 @@
+package ex
+
+// spec 1.8: a keyword cannot name a function — one E0106, no
+// cascade of E0101s.
+fn send () -> Unit = ignore 1

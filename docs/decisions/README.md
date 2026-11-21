@@ -186,7 +186,7 @@
 | [structural-constraints](2026-11-17-structural-constraints.md) | Go ジェネリック関数の構造制約（`~[]E`・`~map[K]V`・基本型 union）を公開する | 採用 |
 | [build-vet-flag](2026-11-18-build-vet-flag.md) | `gom build -vet` — `go vet` の実起動経路 | 採用 |
 | [concat-extern](2026-11-18-concat-extern.md) | concat を @extern buffer loop 化する | 採用（wave19 lane 3 で実装。根拠: [sketch](../sketch/2026-11-18-concat-buffer-impl.md)） |
-| [cons-buffer-array-extern-impl](2026-11-18-cons-buffer-array-extern-impl.md) | Cons 構築の buffer 化: `Array` 操作面 + `@extern fn` extern-impl 機構（一部を [concat-extern](2026-11-18-concat-extern.md) で置き換え） | 採用（prototype 検証済み — docs/sketch/2026-11-18-cons-buffer-verification.md） |
+| [cons-buffer-array-extern-impl](2026-11-18-cons-buffer-array-extern-impl.md) | Cons 構築の buffer 化: `Array` 操作面 + `@extern fn` extern-impl 機構（一部を [concat-extern](2026-11-18-concat-extern.md)、[array-make-init](2026-11-21-array-make-init.md) で置き換え） | 採用（prototype 検証済み — docs/sketch/2026-11-18-cons-buffer-verification.md） |
 | [cons-recursion-specialization](2026-11-18-cons-recursion-specialization.md) | lower の cons-recursion 特殊化: match-cons 蓄積形を buffer loop に変換する | 採択 |
 | [ctor-typeargs-authoritative](2026-11-18-ctor-typeargs-authoritative.md) | `CtorApp`/`CtorRef` の `TypeArgs` は optional-but-authoritative（[ctor-typeargs-removed](2026-11-19-ctor-typeargs-removed.md) で置き換え） | 採用（wave21 lane 1 で実装・検証した — `TestCtorTypeArgs` が合法・違反の両形を pin。[検証](../sketch/2026-11-18-ctor-typeargs-verify.md)） |
 | [external-gom-imports](2026-11-18-external-gom-imports.md) | 外部モジュールの Gom パッケージの import | 採用 |

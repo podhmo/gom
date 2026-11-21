@@ -144,6 +144,17 @@ let page =
 - 冗長な括弧は外し、必要な括弧は付け直す
 - 保証: `fmt(fmt(x)) = fmt(x)`（冪等性）、および `parse(fmt(x))` が `parse(x)` と同じ構文木になること
 
+### 1.8 予約語
+
+次の 22 語は予約語であり、変数名・関数名・型名・パラメータ名・import 別名など名前を束ねる位置では使えない:
+
+```
+as default else extern false fn for go if ignore import in let
+match package select send test true try type with
+```
+
+束ねる位置に予約語を書くと E0106（"X is a reserved word and cannot be used as a name"）を報告する — パーサはその単語を名前とみなして回復するので、続くトークンの二次エラーをできるだけ出さない。ただし `let` / `fn` / `type` / `import` / `extern` / `test` / `@` のように宣言そのものを始める語は例外で、名前として取り込むと続く本物の宣言を飲み込んでしまうため、従来どおり E0101 の回復に任せる（E0106 は出ない）。`.` のあとのメンバー名も例外で、`Chan.send` のようなエクスポート名のためにあらゆる予約語が使える（grammar.ebnf 2.2、member-name）。`assert` / `todo` / `not` / `show` は予約語ではなく普通の関数（§11）。
+
 ---
 
 ## 2. ラベル付き必須引数

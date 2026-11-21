@@ -1,0 +1,4 @@
+package ex
+
+// spec 1.8: a keyword cannot name a parameter either.
+fn f (send : Int) -> Unit = ignore 1

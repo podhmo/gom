@@ -615,6 +615,9 @@ func (p *parser) parseSelectArm() SelectArm {
 	start := p.cur()
 	switch start.kind {
 	case tokSend:
+		if p.peek(1).kind == tokLArrow {
+			return p.parseReservedRecvArm(start)
+		}
 		p.next()
 		ch := p.parsePostfix(false)
 		val := p.parsePostfix(false)
@@ -629,6 +632,9 @@ func (p *parser) parseSelectArm() SelectArm {
 			Body:  body,
 		}
 	case tokDefault:
+		if p.peek(1).kind == tokLArrow {
+			return p.parseReservedRecvArm(start)
+		}
 		p.next()
 		if _, ok := p.expect(tokArrow); !ok && p.syncArmArrow() {
 			p.next()
@@ -639,14 +645,15 @@ func (p *parser) parseSelectArm() SelectArm {
 			Body: body,
 		}
 	case tokIdent, tokUnder:
-		p.next()
 		var bind Pat
 		if start.kind == tokIdent {
+			p.next()
 			bind = &VarPat{
 				Sp:   p.spanOf(start),
 				Name: &Ident{Sp: p.spanOf(start), Name: p.text(start)},
 			}
 		} else {
+			p.next()
 			bind = &WildPat{Sp: p.spanOf(start)}
 		}
 		p.expect(tokLArrow)
@@ -662,11 +669,34 @@ func (p *parser) parseSelectArm() SelectArm {
 			Body: body,
 		}
 	default:
+		if nameKeyword(start.kind) && p.peek(1).kind == tokLArrow {
+			return p.parseReservedRecvArm(start)
+		}
 		p.errf(p.spanOf(start),
 			"expected a select arm (\"send\", \"default\", or \"name <-\"), found %s",
 			p.describe(start))
 		p.syncItem()
 		return nil
+	}
+}
+
+// parseReservedRecvArm parses a receive arm whose binding name is a
+// reserved word — `send <- ch`, `default <- ch` and the other
+// name-position keywords all land here so they earn E0106 instead
+// of being read as a send or default arm's operands.
+func (p *parser) parseReservedRecvArm(start token) SelectArm {
+	bind := &VarPat{Sp: p.spanOf(start), Name: p.errReserved(start)}
+	p.expect(tokLArrow)
+	ch := p.parseExpr()
+	p.expectArmArrow(p.srcText(bind.Span())+" <-", ch,
+		"expected \"->\" after the receive arm's channel, found %s",
+		p.describe(p.cur()))
+	body := p.parseExpr()
+	return &RecvArm{
+		Sp:   p.span(start.start, body.Span().End),
+		Bind: bind,
+		Chan: ch,
+		Body: body,
 	}
 }
 
@@ -717,9 +747,14 @@ func (p *parser) parseLambda(nb bool) Expr {
 	for {
 		t := p.cur()
 		switch {
-		case t.kind == tokIdent:
-			p.next()
-			id := &Ident{Sp: p.spanOf(t), Name: p.text(t)}
+		case t.kind == tokIdent || nameKeyword(t.kind):
+			var id *Ident
+			if nameKeyword(t.kind) {
+				id = p.errReserved(t)
+			} else {
+				p.next()
+				id = &Ident{Sp: p.spanOf(t), Name: p.text(t)}
+			}
 			params = append(params, Param{
 				Sp:  p.spanOf(t),
 				Pat: &VarPat{Sp: p.spanOf(t), Name: id},
@@ -738,7 +773,7 @@ func (p *parser) parseLambda(nb bool) Expr {
 				Sp:  sp,
 				Pat: &LitPat{Sp: sp, Lit: &Lit{Sp: sp, Kind: LitUnit, Text: "()"}},
 			})
-		case t.kind == tokLParen && p.peek(1).kind == tokIdent:
+		case t.kind == tokLParen && (p.peek(1).kind == tokIdent || nameKeyword(p.peek(1).kind)):
 			params = append(params, p.parseLambdaAnnParam())
 		default:
 			goto paramsDone
@@ -767,9 +802,15 @@ paramsDone:
 // error like in parseFnParam.
 func (p *parser) parseLambdaAnnParam() Param {
 	open := p.next() // '('
-	name := p.next() // ident
-	id := &Ident{Sp: p.spanOf(name), Name: p.text(name)}
-	pat := &VarPat{Sp: p.spanOf(name), Name: id}
+	nameTok := p.cur()
+	var id *Ident
+	if nameKeyword(nameTok.kind) {
+		id = p.errReserved(nameTok)
+	} else {
+		name := p.next() // ident
+		id = &Ident{Sp: p.spanOf(name), Name: p.text(name)}
+	}
+	pat := &VarPat{Sp: p.spanOf(nameTok), Name: id}
 	var typ TypeExpr
 	var end int
 	if p.at(tokRParen) {
@@ -1162,7 +1203,13 @@ func (p *parser) parsePattern() Pat {
 	if p.at(tokAs) {
 		p.next()
 		t := p.cur()
-		if t.kind == tokIdent {
+		if nameKeyword(t.kind) {
+			pat = &AsPat{
+				Sp:   p.span(pat.Span().Start, t.end),
+				Pat:  pat,
+				Name: p.errReserved(t),
+			}
+		} else if t.kind == tokIdent {
 			p.next()
 			pat = &AsPat{
 				Sp:   p.span(pat.Span().Start, t.end),
@@ -1276,7 +1323,13 @@ func (p *parser) atPatArgStart() bool {
 		tokTilde, tokMinus:
 		return true
 	default:
-		return false
+		// A name-position keyword is a malformed argument — admit it
+		// so parsePatAtom reports E0106 instead of the arm's left
+		// side ending early on E0101 recovery. The keywords that
+		// legitimately follow a pattern — "as", "in", "if" — stay
+		// out so a complete argument list still terminates.
+		return nameKeyword(p.kind()) &&
+			p.kind() != tokAs && p.kind() != tokIn && p.kind() != tokIf
 	}
 }
 
@@ -1380,6 +1433,10 @@ func (p *parser) parsePatAtom() Pat {
 	case tokLBrace:
 		return p.parseBracePat()
 	default:
+		if nameKeyword(t.kind) {
+			sp := p.spanOf(t)
+			return &VarPat{Sp: sp, Name: p.errReserved(t)}
+		}
 		p.errf(p.spanOf(t), "expected a pattern, found %s", p.describe(t))
 		return p.errPat(p.spanOf(t))
 	}
@@ -1489,11 +1546,13 @@ func (p *parser) parseListPat() Pat {
 			dd = p.next()
 			hadRest = true
 			t := p.cur()
-			switch t.kind {
-			case tokIdent:
+			switch {
+			case nameKeyword(t.kind):
+				l.Rest = &VarPat{Sp: p.spanOf(t), Name: p.errReserved(t)}
+			case t.kind == tokIdent:
 				p.next()
 				l.Rest = &VarPat{Sp: p.spanOf(t), Name: &Ident{Sp: p.spanOf(t), Name: p.text(t)}}
-			case tokUnder:
+			case t.kind == tokUnder:
 				p.next()
 				l.Rest = &WildPat{Sp: p.spanOf(t)}
 			default:

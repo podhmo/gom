@@ -143,6 +143,19 @@ UTF-8, so arbitrary bytes cannot be spelled in a literal.
 let s = "<0xEB>"
 ```
 
+### E0106 — reserved word used as a name
+
+**Severity:** error · **Phase:** syntax · **Spec:** §1.8
+
+A keyword of the language appears where a binding name is
+expected — a function, let, type, parameter, pattern, import alias,
+or "as" name. Reserved words cannot name bindings; pick another
+identifier. The full keyword list is spec section 1.8.
+
+```gom
+fn send () -> Unit = ignore 1
+```
+
 ## 02xx — Name resolution
 
 ### E0201 — undefined name
