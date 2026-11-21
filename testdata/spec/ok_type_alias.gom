@@ -15,3 +15,14 @@ let u : UserId = n
 let back : Int = u
 let ws : Wrap Int = [1, 2]
 let m : Id = u
+
+// A forward reference to a later alias expands through it (the
+// registration pass marks alias decls before bodies resolve), and a
+// generic alias forwards its parameters.
+type alias Fwd = UserId2
+type alias UserId2 = Int
+type alias W a = Wrap2 a
+type alias Wrap2 a = List a
+
+fn fw (x: Fwd) -> Int = x
+fn wg (xs: W Int) -> Int = List.length xs

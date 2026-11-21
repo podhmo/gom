@@ -1,0 +1,4 @@
+package main
+
+type alias P = Q
+type alias Q = P
