@@ -36,13 +36,13 @@ type item struct {
 
 // seqSpec describes one collection's separators and trivia policy.
 type seqSpec struct {
-	sep      string // separator after each item when broken ("", ",", ";")
-	flatSep  string // separator between items when flat ("; ", ", ")
-	trailSep bool   // separator after the last item too (trailing comma)
-	flatTrail bool  // also emit sep after the last item in the flat shape
-	blanks   bool   // preserve blank lines between items (collapse to one)
-	always   bool   // never render flat (match, select, extern, sum type)
-	lines    int    // newlines separating items: 1 in braces, 2 between decls
+	sep       string // separator after each item when broken ("", ",", ";")
+	flatSep   string // separator between items when flat ("; ", ", ")
+	trailSep  bool   // separator after the last item too (trailing comma)
+	flatTrail bool   // also emit sep after the last item in the flat shape
+	blanks    bool   // preserve blank lines between items (collapse to one)
+	always    bool   // never render flat (match, select, extern, sum type)
+	lines     int    // newlines separating items: 1 in braces, 2 between decls
 }
 
 // gap holds the trivia between two adjacent items (or between a
