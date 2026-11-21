@@ -428,6 +428,7 @@ func eachBody(b *core.Body, f func(*core.Body)) {
 			*core.EscapeResult, *core.FieldGet, *core.FieldSet, *core.FuncRef, *core.GoFuncRef,
 			*core.ListNew, *core.Lit, *core.OptionFromGo, *core.RecordNew,
 			*core.RecordUpdate, *core.ResultFromGo, *core.TailCall,
+			*core.Defer,
 			*core.TupleFromGo, *core.TupleNew, *core.Unary, *core.Var:
 		default:
 			panic("unreachable")

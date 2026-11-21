@@ -61,6 +61,10 @@ func (l *lowerer) nativeScopeRuns(out *core.File) {
 					sym = a.Sym
 				case *core.FuncRef:
 					sym = a.Sym
+				case *core.Lit, *core.CtorRef, *core.GoFuncRef, *core.FieldGet:
+					// no fn symbol to record
+				default:
+					panic("unreachable")
 				}
 				if sym != nil {
 					if p.runKinds[sym] == nil {
@@ -84,6 +88,20 @@ func (l *lowerer) nativeScopeRuns(out *core.File) {
 				}
 			case *core.CallDirect:
 				p.nonRun[x.Callee] = true
+			case *core.Binary, *core.CallBuiltin, *core.CallFunc,
+				*core.CallGo, *core.Closure, *core.Conv, *core.CtorApp,
+				*core.CtorRef, *core.Defer, *core.Equal, *core.ErrorFromGo,
+				*core.EscapeCall, *core.EscapeResult, *core.FieldGet,
+				*core.FieldSet, *core.ForRange, *core.GoFunc,
+				*core.GoFuncRef, *core.If, *core.ListNew, *core.Lit,
+				*core.Match, *core.OptionFromGo, *core.RecordNew,
+				*core.RecordUpdate, *core.ResultFromGo, *core.SelectExpr,
+				*core.Spawn, *core.TailCall, *core.TupleFromGo,
+				*core.TupleNew, *core.Unary, *core.Uncurry:
+				// walkTailrec descends into these itself; only the
+				// direct symbol references above matter here.
+			default:
+				panic("unreachable")
 			}
 		})
 	})
@@ -113,6 +131,10 @@ func (p *scopeDeferPass) eachBody(out *core.File, f func(*core.Body)) {
 			if d.Fn != nil {
 				f(d.Fn.Body)
 			}
+		case *core.TypeDecl:
+			// no body to scan
+		default:
+			panic("unreachable")
 		}
 	}
 }
@@ -272,6 +294,8 @@ func (p *scopeDeferPass) tryRun(e core.Expr, b *core.Body, i int, ctx *scopeCtx)
 		if fr, ok := ctx.lets[a.Sym].(*core.FuncRef); ok {
 			bodySyms = append(bodySyms, fr.Sym)
 		}
+	case *core.Lit, *core.CtorRef, *core.GoFuncRef, *core.FieldGet:
+		// not a fn symbol — no runner-body tracking
 	case *core.FuncRef:
 		bodySyms = append(bodySyms, a.Sym)
 	}
@@ -465,6 +489,9 @@ func (p *scopeDeferPass) invokeRun(call *core.CallGo, s2 *core.Bind) core.Expr {
 			Sp: call.Sp, Typ: call.Typ,
 			Fn: a, Args: []core.Atom{sarg}, FlatArity: 1,
 		}
+	case *core.Lit, *core.CtorRef, *core.GoFuncRef, *core.FieldGet:
+		// bodyFn accepted only Var and FuncRef arguments.
+		panic("unreachable")
 	default:
 		// bodyFn accepted only Var and FuncRef arguments.
 		panic("unreachable")
@@ -482,6 +509,20 @@ func (p *scopeDeferPass) bodyFn(a core.Atom, ctx *scopeCtx) *core.Func {
 				return x.Fn
 			case *core.FuncRef:
 				return p.fns[x.Sym]
+			case *core.Var, *core.Binary, *core.CallBuiltin, *core.CallDirect,
+				*core.CallFunc, *core.CallGo, *core.Conv, *core.CtorApp,
+				*core.CtorRef, *core.Defer, *core.Equal,
+				*core.ErrorFromGo, *core.EscapeCall, *core.EscapeResult,
+				*core.FieldGet, *core.FieldSet, *core.ForRange,
+				*core.GoFunc, *core.GoFuncRef, *core.If, *core.ListNew,
+				*core.Lit, *core.Match, *core.OptionFromGo,
+				*core.RecordNew, *core.RecordUpdate, *core.ResultFromGo,
+				*core.SelectExpr, *core.Spawn, *core.TailCall,
+				*core.TupleFromGo, *core.TupleNew, *core.Unary,
+				*core.Uncurry:
+				// let-bound to a non-fn value — no body to convert
+			default:
+				panic("unreachable")
 			}
 		}
 		if fd, ok := p.fns[a.Sym]; ok {

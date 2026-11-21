@@ -473,6 +473,9 @@ func (g *gen) uncurryLit(e *core.Uncurry) {
 			tail = &core.CallFunc{Base: core.Base{Sp: e.Sp, Typ: ret}, Fn: a, Args: []core.Atom{
 				&core.Var{Sp: e.Sp, Typ: b.Typ, Sym: b.Sym}}}
 		}
+	case *core.Defer:
+		// A statement-level node — never the callee of a flat literal.
+		panic("unreachable")
 	default:
 		panic("unreachable")
 	}
