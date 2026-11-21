@@ -1,0 +1,32 @@
+package ex
+
+// spec section 8.3 + decisions/2026-11-21-array-make-init:
+// `Array.make n init` fills n copies of the explicit init — the
+// Option element case the zero-value version could not spell.
+
+// An `Array (Option a)` initializes every slot to `None` — the
+// element type has no zero value of its own.
+fn options (n: Int) -> Array (Option Int) = {
+  let a = Array.make n None
+  a
+}
+
+// The init is a real element: `Array.get` reads `None` back as a
+// declared variant, not the Go nil that used to panic.
+fn first_none () -> Bool = {
+  let a = Array.make 2 None
+  match Array.get a 0 {
+    None -> true
+    Some _ -> false
+  }
+}
+
+// A set slot still distinguishes Some from the init.
+fn set_some () -> Int = {
+  let a = Array.make 3 None
+  Array.set a 1 (Some 7)
+  match Array.get a 1 {
+    Some x -> x
+    None -> 0
+  }
+}

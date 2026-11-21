@@ -2,6 +2,7 @@
 
 - 状態: 採用（実装・検証した — `Array.make n init` が `[]A` に n 個の init コピーを emit し、`Array (Option T)` も `None` で初期化できる。stdlib/list の利用と testdata/spec/ok_array_ops を機械移行済み。spec.md §8.3 へ反映済み）
 - 日付: 2026-11-21
+- Supersedes: [cons-buffer-array-extern-impl](2026-11-18-cons-buffer-array-extern-impl.md) のうち `Array.make` のシグネチャ（`Int -> Array a` → `Int -> a -> Array a`）
 - 問い: [implementation-gaps](../implementation-gaps.md)「`Array.make` の ADT/`Option` 要素ゼロ値」
 
 ## 問題

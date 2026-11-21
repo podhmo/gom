@@ -1,0 +1,26 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0407",
+      "severity": "error",
+      "message": "type annotation required: the type argument for `a` could not be determined",
+      "span": {
+        "file": "ok_array_make_init.gom",
+        "start": {
+          "line": 17,
+          "col": 24,
+          "offset": 570
+        },
+        "end": {
+          "line": 17,
+          "col": 28,
+          "offset": 574
+        }
+      },
+      "data": {
+        "type": "?1"
+      }
+    }
+  ]
+}

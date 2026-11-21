@@ -1659,7 +1659,9 @@
   対応: `Array.make n init` と初期値を必須引数にした（採用の根拠は
   [decisions/array-make-init](decisions/2026-11-21-array-make-init.md) —
   ADT 要素の「None だけ特別扱い」案より一貫する）。`Option` 要素も
-  `Array.make n None` で作れる。stdlib/list と testdata/spec の利用は機械移行済み。
+  `Array.make n None` で作れる — `Array.get` が `None` を読み戻すことは
+  [ok_array_make_init](../testdata/spec/ok_array_make_init.gom) が検証する。
+  stdlib/list と testdata/spec の利用は機械移行済み。
 
 - [x] **named func 型（`context.CancelFunc` など `func()` の別名）の値を Gom から呼ぶ方法がない**:
   spec 8.8 の `Go.FuncN` 対応は unnamed の func 型に適用されるため、`context.WithCancel` や
