@@ -460,7 +460,7 @@ func (g *gen) uncurryLit(e *core.Uncurry) {
 		*core.CallDirect, *core.CallFunc, *core.CallGo, *core.CallBuiltin,
 		*core.CtorApp, *core.TailCall, *core.EscapeResult, *core.EscapeCall,
 		*core.ResultFromGo, *core.OptionFromGo, *core.ErrorFromGo,
-		*core.TupleFromGo, *core.Conv, *core.FieldSet:
+		*core.TupleFromGo, *core.Conv, *core.FieldSet, *core.Defer:
 		// The generic adapter over a canonical atom.
 		tail = e.X
 		for len(binds) < e.Arity {

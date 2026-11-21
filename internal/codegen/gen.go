@@ -753,7 +753,7 @@ func untypedConst(x core.Expr) bool {
 	case *core.Binary:
 		return untypedConst(e.X) && untypedConst(e.Y)
 	case *core.Var, *core.FuncRef, *core.CtorRef, *core.GoFuncRef,
-		*core.FieldGet, *core.FieldSet, *core.CallDirect, *core.CallFunc,
+		*core.FieldGet, *core.FieldSet, *core.Defer, *core.CallDirect, *core.CallFunc,
 		*core.CallGo, *core.CallBuiltin, *core.CtorApp, *core.Equal,
 		*core.TupleNew, *core.ListNew, *core.RecordNew,
 		*core.RecordUpdate, *core.Conv, *core.Closure, *core.GoFunc, *core.Uncurry, *core.If,

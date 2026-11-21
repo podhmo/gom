@@ -151,11 +151,11 @@ func (l *lowerer) nativeScope(c *core.Closure, call *core.CallGo, result bool, k
 		return r, kind
 	}
 	note := func(e core.Expr) {
-		switch e := e.(type) {
-		case *core.EscapeResult:
-			escapes = escapes || e.To == fn
-		case *core.EscapeCall:
-			escapes = escapes || e.To == fn
+		if x, ok := e.(*core.EscapeResult); ok && x.To == fn {
+			escapes = true
+		}
+		if x, ok := e.(*core.EscapeCall); ok && x.To == fn {
+			escapes = true
 		}
 	}
 	scopeOwnBodies(fn.Body, func(b *core.Body) {
