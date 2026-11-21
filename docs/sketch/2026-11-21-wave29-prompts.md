@@ -115,6 +115,16 @@ docs/spec.md, testdata/spec, decision.
   wave29 lane 開始時は最終 lane の head
   （`devin/wave28-type-alias`）から分岐するか、podhmo の
   マージ後に main から分岐する。
+- prompts-drafting ルール（wave21 制定、wave24 以降の prompts
+  から本文が脱落していたので復元）: 採択が要る点は prompts
+  作成時点で podhmo に聞いて確定し、lane 本文に「計測結果なら
+  (a)、そうでなければ (b)」型の実行時採択を残さない。実装中の
+  細かい設計決定は decision (draft) → 検証の通常手順で記録する。
+- wave の締め作業（wave21–23 に明示、wave24 以降脱落）: lane
+  ではなく全 lane 完了後にやる独立作業 — round 記録、
+  `skills/gom-agent-guide` の同期（ユーザー可視分）、次 wave
+  prompts 草案、台帳（open-questions / implementation-gaps /
+  TODO.md）の掃除。
 - lane C/E が grammar を触る場合: tree-sitter-cli は
   0.27.1/0.26.3 がこの VM では GLIBC 不足で動かない。
   `npm exec --yes --package=tree-sitter-cli@0.25.10 -- tree-sitter
