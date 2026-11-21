@@ -709,10 +709,33 @@ func (l *Loader) namedType(t *types.Named) (gt.Type, string) {
 	if t.TypeParams().Len() > 0 {
 		return nil, fmt.Sprintf("generic named type %s is not supported yet", obj.Name())
 	}
-	ref := gt.NamedRef{Path: obj.Pkg().Path(), Name: obj.Name()}
-	l.named[ref] = t
 	if t.TypeArgs().Len() > 0 {
 		return nil, fmt.Sprintf("instantiated generic type %s is not supported yet", obj.Name())
+	}
+	ref := gt.NamedRef{Path: obj.Pkg().Path(), Name: obj.Name()}
+	l.named[ref] = t
+	// A method-less named type over a signature the FuncN mapping
+	// admits is the `Go.FuncN` itself — `context.CancelFunc` reads
+	// `func()`, `fs.WalkDirFunc` its four-parameter shape — so both
+	// directions (`Go.funcN` in, `Go.fnN` out) apply and the Go
+	// boundary's own assignability rules pair the spellings. A
+	// method-bearing one (`http.HandlerFunc`'s ServeHTTP) keeps the
+	// named handle: the name owns the methods a FuncN cannot spell.
+	// The l.mapping guard answers the named handle to a signature
+	// that names itself (`type F func() F`) — the outer occurrence
+	// still reads FuncN, its own reference the ref.
+	if t.NumMethods() == 0 && !l.mapping[ref] {
+		if sig, ok := t.Underlying().(*types.Signature); ok {
+			if l.mapping == nil {
+				l.mapping = map[gt.NamedRef]bool{}
+			}
+			l.mapping[ref] = true
+			ft, reason := l.mapFuncType(sig)
+			delete(l.mapping, ref)
+			if reason == "" {
+				return ft, ""
+			}
+		}
 	}
 	return &gt.Go{Ref: ref}, ""
 }

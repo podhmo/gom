@@ -1,0 +1,34 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// spec section 8.8: a method-less named func type reads as its
+// `Go.FuncN` — `goiface.CancelFunc` is `Go.Func0`, so the named
+// return value converts through `Go.fn0` and a `Go.func0` value
+// conforms to the named parameter and annotation spellings.
+
+// A named func return converts with `Go.fn0` like an unnamed one.
+fn cancel () -> Unit = {
+  let (_, stop) = goiface.Pending ()
+  let f = Go.fn0 stop
+  f ()
+}
+
+// A `Go.func0` value conforms to the named parameter's FuncN spelling.
+fn feed () -> Unit = {
+  goiface.TakeCancel (Go.func0 (fn () -> ignore 1))
+}
+
+// The named type in an annotation spells the same `Go.Func0`.
+fn declared () -> Unit = {
+  let s : goiface.CancelFunc = Go.func0 (fn () -> ignore 1)
+  ignore s
+}
+
+// A method-bearing named func type keeps the named handle — `Fire`
+// resolves as a method — and `Go.conv` casts a `Go.Func1` into it.
+fn methodful () -> Int = {
+  let h = goiface.NewHandler ()
+  let h2 : goiface.Handler = Go.conv (Go.func1 (fn (x: Int) -> x)) : goiface.Handler
+  (h.Fire 0) + (h2.Fire 1)
+}

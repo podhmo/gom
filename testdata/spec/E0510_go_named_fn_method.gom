@@ -1,0 +1,12 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// spec section 8.8: a method-bearing named func type keeps the named
+// handle — it is not a `Go.FuncN`, so `Go.fn1` rejects it (E0510).
+// Cast through `Go.conv` or call it through its methods instead.
+
+fn bad () -> Int = {
+  let h = goiface.NewHandler ()
+  (Go.fn1 h) 0
+}

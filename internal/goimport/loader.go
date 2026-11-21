@@ -85,6 +85,11 @@ type Loader struct {
 	// named indexes the go/types.Named behind every types.Go ref the
 	// mapping produced — MethodOf needs it to build method sets.
 	named map[gt.NamedRef]*types.Named
+	// mapping marks the named types whose underlying signature
+	// namedType is currently translating to a FuncN — a recursive
+	// `type F func() F` re-enters through its own result and must
+	// answer the named handle instead of descending forever.
+	mapping map[gt.NamedRef]bool
 
 	// tps scopes a generic signature's type parameters while
 	// mapSignature maps it: the go/types.TypeParam objects map to

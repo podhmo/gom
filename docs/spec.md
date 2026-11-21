@@ -572,6 +572,8 @@ Go の API が引数・フィールドに持つ `func(A, B) R` 型は `Go.FuncN`
 
 `Go.fnN f` は逆方向の明示変換（[decisions/fn-interop](decisions/2026-11-18-fn-interop.md)）— `f : Go.FuncN` の値を Gom の関数値に変換し、以後はふつうの Gom 関数として適用できる。型引数の読みは `Go.funcN` の seed と同じ写像で、パラメータ `p'_i` は Gom ビューに読み（`Go.Int` → `Int`、境界位置の `Go.Slice T` → `List T`）、結果は 0 個 → `Unit`、`error` 1 個 → `Result Unit GoError`、`(T, error)` → `Result T GoError`、末尾が `error` の 3 個以上 → `Result (T, U, ...) GoError`、その他の 2 個以上 → タプル `(T, U, ...)`、単一 `T` → その Gom ビュー、と読む — ただし `Result` ペイロード内（単一でもタプル要素でも）でメソッドを持つ interface（`error`・`io.Reader` など）のとき、import mapping と同じくその位置は `Option` で包まれる（nil を `Ok` に忍ばせないため）。単一 `error` は必ず honest な `Result` で、`GoError` 素の never-nil claim は `Go.fnN` では表せない。引数・結果の型が生ビューと Gom ビューでコンテナ内部まで一致しない場合（`[]int`・`map[string]int`・`chan int`・`*int` — 要素ごとの変換はいまの境界では書けない）は E0510 で拒否する。`Go.fn0` は `func() R` を `Unit -> R` のサンクに対応させる。arity の不一致（`Go.fn2` に `Go.Func1`）・`Go.FuncN` でない引数・ラベル付き引数は E0510。生成される値は通常のカリー化された関数値で、内部で flat な `f(a0, a1)` を呼ぶ — 引数・結果の型が raw ビューとずれる位置（`int`/`int64`、`List`/`Go.Slice`）では両側に変換が入る。
 
+メソッドを持たない named func 型（`context.CancelFunc`、`fs.WalkDirFunc` など `type F func(...)`）は underlying の func 型そのものに読まれる — `context.CancelFunc` は `Go.Func0` として読まれ、`Go.fn0` での呼び出し・`Go.func0` 値の named パラメータ・型注釈への受け渡しが unnamed の func 型と同じ規則で通る（[decisions/named-func-types](decisions/2026-11-21-named-func-types.md)）。メソッドを持つ named func 型（`http.HandlerFunc` の `ServeHTTP` など）は名前的な型 `pkg.F` のまま — `Go.fnN` には渡せない（E0510）が、そのメソッドは呼べるし、`Go.conv f : pkg.F` で `Go.FuncN` 値から named キャストできる。`Go.conv` の逆向き（`pkg.F` や `Go.FuncN` から Gom の `Func` 型へ）は `Go.fnN` の仕事なので、func 型どうしの形の違うペアは E0507 で拒否する。
+
 ---
 
 ## 9. 失敗し得る処理のパイプ `|?>`

@@ -1,0 +1,13 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// spec section 8.8: `Go.conv` is a raw Go cast, not the `Go.fnN`
+// conversion — a `Go.Func0` value does not convert to the Gom
+// `Unit -> Unit` shape (which is `func(struct{}) struct{}` at the
+// boundary, not `func()`).
+
+fn bad () -> Unit = {
+  let (_, stop) = goiface.Pending ()
+  ignore (Go.conv stop : Unit -> Unit)
+}
