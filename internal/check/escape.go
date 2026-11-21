@@ -177,6 +177,9 @@ type escapeBody struct {
 	// taintMemo caches produced-value taint of let-bound
 	// expressions so alias chains resolve in linear time.
 	taintMemo map[Expr]bool
+	// expanding guards runnerArgTainted's declared-body lookup
+	// against a runner calling itself through its body argument.
+	expanding map[*resolve.Symbol]bool
 }
 
 func (b *escapeBody) tainted(s *resolve.Symbol) bool { return b.aliases[s] }
@@ -260,6 +263,19 @@ func (c *checker) newEscapeBody(d Decl) *escapeBody {
 		danger:  map[*resolve.Symbol]bool{},
 		forward: map[Expr]bool{},
 	}
+}
+
+// fnDeclOf resolves a top-level function symbol to its checked
+// declaration, so a scope runner's named body argument can be read
+// precisely. Imported functions have no local body — the caller
+// falls back to the produced value's type.
+func (c *checker) fnDeclOf(sym *resolve.Symbol) *FnDecl {
+	for _, d := range c.decls {
+		if f, ok := d.(*FnDecl); ok && f.Sym == sym {
+			return f
+		}
+	}
+	return nil
 }
 
 // isFuncType reports whether the expression's type is a function —
@@ -418,8 +434,17 @@ func (c *checker) escWalk(e Expr, danger bool, b *escapeBody, report bool) {
 			// it) — or when the call produces a closure that
 			// captures it.
 			d := ctor || c.callParamEscapes(e.Call, i) || (producesClosure && danger)
-			if lam, ok := a.Value.(*Lambda); ok && danger && isScopeRunner(e.Call) {
-				b.forward[lam] = true
+			if danger && isScopeRunner(e.Call) {
+				if lam, ok := a.Value.(*Lambda); ok {
+					b.forward[lam] = true
+				} else if c.runnerArgTainted(a.Value, b, nil) && report {
+					// An opaque body argument — a function
+					// reference or a call — produces a value
+					// the runner forwards out of the scope
+					// unchecked. When that value can carry a
+					// scope, escaping here is an error.
+					c.scopeEscapeErr(a.Value.Span())
+				}
 			}
 			c.escWalk(a.Value, d, b, report)
 		}
@@ -473,12 +498,12 @@ func (c *checker) escWalk(e Expr, danger bool, b *escapeBody, report bool) {
 			tail := i == len(e.Stmts)-1
 			c.escWalk(s, danger && tail, b, report)
 			if l, ok := s.(*Let); ok {
-				b.bindLet(l)
+				c.bindLet(l, b)
 			}
 		}
 	case *Let:
 		c.escWalk(e.Value, false, b, report)
-		b.bindLet(e)
+		c.bindLet(e, b)
 	case *Ignore:
 		c.escWalk(e.X, false, b, report)
 	case *Try:
@@ -588,8 +613,8 @@ func (c *checker) escWalk(e Expr, danger bool, b *escapeBody, report bool) {
 // bindLet registers a `let`'s bound symbols as tainted when the
 // bound value can carry a live Scope — a lambda closing over one,
 // or an alias of a tainted variable.
-func (b *escapeBody) bindLet(l *Let) {
-	if exprTainted(l.Value, b) {
+func (c *checker) bindLet(l *Let, b *escapeBody) {
+	if c.exprTainted(l.Value, b) {
 		for _, s := range patBoundSyms(l.Pat) {
 			b.aliases[s] = true
 		}
@@ -696,28 +721,56 @@ func (c *checker) pipeParamEscapes(fn Expr) bool {
 // a lambda consumed as a saturated call's argument is not part of the
 // call's result (the callee's escape rule decides its fate at the
 // call site), so `let y = helper p` binding the Int `y` is clean.
-func exprTainted(e Expr, b *escapeBody) bool {
-	return exprTaintedL(e, b, nil)
+func (c *checker) exprTainted(e Expr, b *escapeBody) bool {
+	return c.exprTaintedL(e, b, nil)
 }
 
 // runnerArgTainted reads a scope runner's body argument — the call
 // produces whatever the body produces. A literal lambda's tail is
 // inspectable directly; a let-bound lambda resolves through locals;
-// anything else is opaque, so the produced value's type decides — a
+// a declared function resolves to its own body's produced value.
+// Anything else is opaque, so the produced value's type decides — a
 // scope or function result can carry a live scope out of the run.
-func runnerArgTainted(e Expr, b *escapeBody, locals map[*resolve.Symbol]Expr) bool {
+func (c *checker) runnerArgTainted(e Expr, b *escapeBody, locals map[*resolve.Symbol]Expr) bool {
 	if lam, ok := e.(*Lambda); ok {
-		return exprTaintedL(lam.Body, b, nil)
+		return c.exprTaintedL(lam.Body, b, nil)
 	}
-	if v, ok := e.(*Var); ok {
-		if bound, ok := locals[v.Sym]; ok {
+	var sym *resolve.Symbol
+	switch f := e.(type) {
+	case *Var:
+		sym = f.Sym
+		if bound, ok := locals[f.Sym]; ok {
 			if lam, isLam := bound.(*Lambda); isLam {
-				return exprTaintedL(lam.Body, b, nil)
+				return c.exprTaintedL(lam.Body, b, nil)
 			}
+		}
+	case *MemberExpr:
+		sym = f.Sym
+	case *Apply, *Ascribe, *Binary, *Block, *FieldAssign, *For, *GoExpr,
+		*Hole, *If, *Ignore, *Lambda, *Let, *ListLit, *Lit, *Match,
+		*RecordLit, *SelectExpr, *Spread, *StrInterp, *Try, *TupleLit,
+		*Unary:
+	default:
+		panic("unreachable")
+	}
+	if sym != nil && !b.expanding[sym] {
+		if d := c.fnDeclOf(sym); d != nil && d.Body != nil {
+			if b.expanding == nil {
+				b.expanding = map[*resolve.Symbol]bool{}
+			}
+			b.expanding[sym] = true
+			t := c.exprTaintedL(d.Body, b, nil)
+			delete(b.expanding, sym)
+			return t
 		}
 	}
 	ret := e.Type()
 	if fn, ok := types.Chase(ret).(*types.Func); ok {
+		if len(fn.Params) > 1 {
+			// The body's produced value is the residual arrow —
+			// a closure that may carry a captured scope.
+			return true
+		}
 		ret = fn.Ret
 	}
 	if isScopeType(ret) {
@@ -732,7 +785,7 @@ func runnerArgTainted(e Expr, b *escapeBody, locals map[*resolve.Symbol]Expr) bo
 // variable's taint resolves through its own binding when the
 // expression under inspection is a scope-runner body's tail (the
 // runner forwards exactly that value).
-func exprTaintedL(e Expr, b *escapeBody, locals map[*resolve.Symbol]Expr) bool {
+func (c *checker) exprTaintedL(e Expr, b *escapeBody, locals map[*resolve.Symbol]Expr) bool {
 	if e == nil {
 		// An absent else arm produces Unit — never tainted.
 		return false
@@ -753,7 +806,7 @@ func exprTaintedL(e Expr, b *escapeBody, locals map[*resolve.Symbol]Expr) bool {
 			if t, ok := b.taintMemo[v]; ok {
 				return t
 			}
-			t := exprTaintedL(v, b, locals)
+			t := c.exprTaintedL(v, b, locals)
 			b.taintMemo[v] = t
 			return t
 		}
@@ -780,33 +833,33 @@ func exprTaintedL(e Expr, b *escapeBody, locals map[*resolve.Symbol]Expr) bool {
 				}
 			}
 		}
-		return exprTaintedL(x.Stmts[len(x.Stmts)-1], b, inner)
+		return c.exprTaintedL(x.Stmts[len(x.Stmts)-1], b, inner)
 	case *If:
-		return exprTaintedL(x.Then, b, locals) || exprTaintedL(x.Else, b, locals)
+		return c.exprTaintedL(x.Then, b, locals) || c.exprTaintedL(x.Else, b, locals)
 	case *Match:
 		for _, a := range x.Arms {
-			if exprTaintedL(a.Body, b, locals) {
+			if c.exprTaintedL(a.Body, b, locals) {
 				return true
 			}
 		}
 		return false
 	case *Try:
-		return exprTaintedL(x.X, b, locals)
+		return c.exprTaintedL(x.X, b, locals)
 	case *Ascribe:
-		return exprTaintedL(x.X, b, locals)
+		return c.exprTaintedL(x.X, b, locals)
 	case *SelectExpr:
 		for _, a := range x.Arms {
 			switch a := a.(type) {
 			case *RecvArm:
-				if exprTaintedL(a.Body, b, locals) {
+				if c.exprTaintedL(a.Body, b, locals) {
 					return true
 				}
 			case *SendArm:
-				if exprTaintedL(a.Body, b, locals) {
+				if c.exprTaintedL(a.Body, b, locals) {
 					return true
 				}
 			case *DefaultArm:
-				if exprTaintedL(a.Body, b, locals) {
+				if c.exprTaintedL(a.Body, b, locals) {
 					return true
 				}
 			default:
@@ -815,41 +868,41 @@ func exprTaintedL(e Expr, b *escapeBody, locals map[*resolve.Symbol]Expr) bool {
 		}
 		return false
 	case *RecordLit:
-		if x.With != nil && exprTaintedL(x.With, b, locals) {
+		if x.With != nil && c.exprTaintedL(x.With, b, locals) {
 			return true
 		}
 		for _, f := range x.Fields {
-			if exprTaintedL(f.Value, b, locals) {
+			if c.exprTaintedL(f.Value, b, locals) {
 				return true
 			}
 		}
 		return false
 	case *TupleLit:
 		for _, el := range x.Elems {
-			if exprTaintedL(el, b, locals) {
+			if c.exprTaintedL(el, b, locals) {
 				return true
 			}
 		}
 		return false
 	case *ListLit:
 		for _, el := range x.Elems {
-			if exprTaintedL(el, b, locals) {
+			if c.exprTaintedL(el, b, locals) {
 				return true
 			}
 		}
 		return false
 	case *Spread:
-		return exprTaintedL(x.X, b, locals)
+		return c.exprTaintedL(x.X, b, locals)
 	case *MemberExpr:
 		// The field's own value propagates — tainted only when the
 		// record it was read from holds a tainted closure.
-		return exprTaintedL(x.Recv, b, locals)
+		return c.exprTaintedL(x.Recv, b, locals)
 	case *Apply:
 		if isScopeRunner(x.Call) {
 			// The runner forwards its body argument's produced
 			// value — the binding's taint is that value's.
 			for _, a := range x.Args {
-				if runnerArgTainted(a.Value, b, locals) {
+				if c.runnerArgTainted(a.Value, b, locals) {
 					return true
 				}
 			}
@@ -861,11 +914,11 @@ func exprTaintedL(e Expr, b *escapeBody, locals map[*resolve.Symbol]Expr) bool {
 		// rule.
 		if x.Call.Kind == CallPartial || x.Call.HoleIndex >= 0 ||
 			(x.Call.Kind == CallUnknown && isFuncType(x.Type())) {
-			if exprTaintedL(x.Fn, b, locals) {
+			if c.exprTaintedL(x.Fn, b, locals) {
 				return true
 			}
 			for _, a := range x.Args {
-				if exprTaintedL(a.Value, b, locals) {
+				if c.exprTaintedL(a.Value, b, locals) {
 					return true
 				}
 			}
@@ -875,7 +928,7 @@ func exprTaintedL(e Expr, b *escapeBody, locals map[*resolve.Symbol]Expr) bool {
 		switch x.Op {
 		case syntax.BinComposeFwd, syntax.BinComposeBack:
 			// The composed closure retains both operands.
-			return exprTaintedL(x.X, b, locals) || exprTaintedL(x.Y, b, locals)
+			return c.exprTaintedL(x.X, b, locals) || c.exprTaintedL(x.Y, b, locals)
 		case syntax.BinPipeFwd, syntax.BinPipeBack, syntax.BinPipeTry:
 			// The pipe's produced value is the callee's result: a
 			// literal callee's body tail is inspectable, anything
@@ -886,7 +939,7 @@ func exprTaintedL(e Expr, b *escapeBody, locals map[*resolve.Symbol]Expr) bool {
 				fn = x.X
 			}
 			if lam, ok := fn.(*Lambda); ok {
-				return exprTaintedL(lam.Body, b, nil)
+				return c.exprTaintedL(lam.Body, b, nil)
 			}
 			return false
 		default:
