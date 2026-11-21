@@ -7,6 +7,13 @@ import (
 	result "github.com/podhmo/gom/stdlib/result"
 )
 
+//line scope_ops.gom:26
+type Job struct {
+//line scope_ops.gom:26
+	Undo func(struct{}) struct{}
+//line scope_ops.gom:26
+}
+
 //line scope_ops.gom:6
 func guarded(r *int64, need bool) int64 {
 //line scope_ops.gom:7
@@ -161,4 +168,31 @@ func native(r *int64, c bool) result.Result[int64, error] {
 //line scope_ops.gom:18
 	return tmp13(struct{}{})
 //line scope_ops.gom:17
+}
+
+//line scope_ops.gom:29
+func fieldCleanup(j Job) result.Result[int64, error] {
+//line scope_ops.gom:30
+	tmp14 := func(_ struct{}) (res2 result.Result[int64, error]) {
+//line scope_ops.gom:30
+		done1 := false
+//line scope_ops.gom:31
+		cleanup := j.Undo
+//line scope_ops.gom:31
+		defer func() {
+			if !done1 || !res2.IsOk() {
+				cleanup(struct{}{})
+			}
+		}()
+//line scope_ops.gom:32
+		res2 = result.Ok[int64, error](1)
+//line scope_ops.gom:32
+		done1 = true
+//line scope_ops.gom:32
+		return res2
+//line scope_ops.gom:30
+	}
+//line scope_ops.gom:30
+	return tmp14(struct{}{})
+//line scope_ops.gom:29
 }

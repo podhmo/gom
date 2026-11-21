@@ -22,3 +22,12 @@ fn native (r: Ref Int) (c: Bool) -> Result Int GoError =
     let x = try (Ok 1)
     Ok (x + 1)
   }
+
+type Job = { undo: Unit -> Unit }
+
+// A cleanup read from a field is evaluated at registration.
+fn field_cleanup (j: Job) -> Result Int GoError =
+  Scope.run_result <| fn s -> {
+    Scope.on_err s j.undo
+    Ok 1
+  }

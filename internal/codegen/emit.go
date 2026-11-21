@@ -1628,10 +1628,21 @@ func (g *gen) scopeFuncLit(fn *core.Func) {
 // deferStmt writes one native Scope registration.
 func (g *gen) deferStmt(e *core.Defer) {
 	n := g.scopes[e.To]
-	call := func() {
-		g.expr(&ast.CallExpr{Fun: g.atom(e.F), Args: []ast.Expr{ast.NewIdent("struct{}{}")}})
-	}
+	f := g.atom(e.F)
 	g.line(e.Sp)
+	if _, plain := e.F.(*core.Var); !plain && e.Kind != core.DeferAlways {
+		// Registration evaluates the cleanup value, as the runtime
+		// stack does — a wrapped `defer` would read a field only at
+		// close, after the variant check it must fail.
+		v := g.fresh("cleanup")
+		g.raw(v + " := ")
+		g.expr(f)
+		g.nl()
+		f = ast.NewIdent(v)
+	}
+	call := func() {
+		g.expr(&ast.CallExpr{Fun: f, Args: []ast.Expr{ast.NewIdent("struct{}{}")}})
+	}
 	switch e.Kind {
 	case core.DeferAlways:
 		g.raw("defer ")
