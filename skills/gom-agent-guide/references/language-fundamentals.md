@@ -12,7 +12,8 @@ package main            // mandatory first clause; one dir = one package
 import go "fmt"         // Go package import
 import go "os"
 
-type Expr =             // type declaration (sum or record)
+type Expr =             // type declaration (sum or record;
+                        // `type alias X = T` gives a transparent alias)
   | Num Int
   | Add Expr Expr
 
@@ -128,7 +129,16 @@ let r2 = transfer 0 ~amount: 2 ~to: 1   // labels are order-free
 let to = 1
 let r3 = transfer 0 ~to ~amount: 2      // `~to` puns `~to: to`
 let pending = transfer 0 ~to: 1         // partial: ~amount: Int -> Int
+
+type Args = { to: Int, amount: Int }
+let args : Args = { to = 1, amount = 2 }
+let r4 = transfer 0 ~..args             // record spread: fields fill
+                                        // labels by name
 ```
+
+The spread value must be a *named* record — field lookup goes
+through declared record types, so an anonymous `{ to = 1, … }`
+literal reports E0401 "no record type has fields …".
 
 - Positional args fill positional params in order; labeled args go
   anywhere, in any order, but each declared label exactly once —
@@ -161,7 +171,21 @@ type Tree =
 
 type Point = { x: Int, y: Int }
 type Config = { name: String, retries: Int, endpoint: String }
+
+type alias Meters = Int          // transparent alias (Go `type X = T`)
+type alias Wrap a = List a       // forwards its parameters
 ```
+
+- `type alias X = T` introduces no new type — `Meters` IS `Int`.
+  `alias` is a contextual keyword: it only applies between `type`
+  and a `UIdent`, so `let alias = …` still binds a variable. A
+  `type X = T` without `alias` always declares a new type —
+  `type Meters = Int` is a single-variant sum whose constructor is
+  named `Int`.
+- A single-field record emits a Go defined type (`type UserId
+  int64`), so its value is interchangeable with the field type at
+  the Go boundary only through explicit conversion; generic
+  one-field records stay structs.
 
 - Variant payloads: positional `Num Int`, named `Let (name: String)
   (value: Expr)`, labeled `(~to: T)`. A *uniquely* named payload
@@ -208,7 +232,7 @@ Pattern forms (spec 4.1):
 | literal | `0`, `"ok"`, `'a'`, `true` | infinite types need `_` fallback |
 | constructor | `Some x`, `Add (Num 0) r` | nest with parens |
 | named fields | `Let { name = n, .. }` | `..` drops the rest |
-| tuple / record | `(a, b)`, `{ x = a, y = 0 }` | records: single ctor |
+| tuple / record | `(a, b)`, `{ x = a, y = 0 }` | records: single ctor; bare names pun (`{ x, y }` binds `x`/`y`) |
 | list | `[]`, `[x]`, `[x, ..rest]` | Nil/Cons 2-ctor view |
 | or | `Circle _ \| Empty` | same binds, same types |
 | as | `Add _ _ as whole` | |
@@ -323,7 +347,8 @@ see `references/go-interop.md` — do exist). The `List.*`,
 `stdlib/{list,option,result}/*.gomi`). `let ... in`, `pub`, `var`,
 `return`, `break`, `while`,
 `switch`, `enum`, `interface`, `class`, `nil`, `null`, `void`,
-`func`, `def`, `type X = T` aliases, `::`, `$`, `!`, `??`, `?.`,
+`func`, `def`, bare `type X = T` aliases (write `type alias X = T`),
+`::`, `$`, `!`, `??`, `?.`,
 raw strings, `xs[i]` indexing, and doc
 notations other than `///`.
 

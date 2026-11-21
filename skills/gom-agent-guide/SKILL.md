@@ -113,6 +113,12 @@ helpers live in `rt/`; builtin-type representations in `stdlib/`.
 `gom dump -phase=core file.gom` shows the Core IR the output was
 generated from — useful when generated code surprises you.
 
+One shape to recognize: a record declared with exactly one field
+compiles to a Go defined type, not a struct — `type UserId = {
+value: Int }` emits `type UserId int64`, so reads/writes show up
+as casts (`int64(u)`, `UserId(v)`). Generic one-field records
+stay structs (Go forbids `type X[T] T`).
+
 # Gom Language Tour
 
 ## Core facts
@@ -454,14 +460,26 @@ record *patterns* (`{ x = a, y = b }`) use `=`. `:` is type
 ascription in expression position — `x : Int` is legal in `let`
 annotations and `Go.conv` signatures, not inside `{ }`.
 
-## Type declarations are not aliases
+Bare field names pun the same-named variable — in literals,
+updates, and patterns alike: `{ x, y }` is `{ x = x, y = y }`,
+and `match p { { x, y } -> ... }` binds `x`/`y`.
+
+A whole record spreads into labeled arguments: `f ~..opts` passes
+`opts`' fields by name (`opts.x` fills `~x:`, etc.) — the callee's
+type must be known and every field must match a declared label
+(E0418 non-record, E0406 unknown label).
+
+## Type declarations are not aliases — `type alias` is
 
 ```gom
 package main
 
-// TRAP: compiles, but defines a variant named `Int` of type `Meters`
-// — NOT a type alias. `type X = T` has no alias production.
+// TRAP: still compiles — but defines a variant named `Int` of type
+// `Meters`, NOT an alias. `type X = T` always introduces a new type.
 type Meters = Int
+
+// For an alias (a transparent synonym, Go's `type X = T`), spell it
+type alias MetersAlias = Int
 
 fn main () -> Unit = {
   let m = Int            // a nullary variant constructor, not `Int` 3
@@ -469,10 +487,13 @@ fn main () -> Unit = {
 }
 ```
 
-There is no type-alias syntax in v1. `type X = | A | B` is a sum;
-`type P = { f: T }` is a record. Anything else after `=` parses as
-variant syntax (`type X = List Int` is variant `List` with payload
-`Int`).
+`type alias X = T` (spec 3.2) names an existing type without
+introducing a new one — `type alias Wrap a = List a` forwards
+parameters, forward references work, a cycle is E0401. `alias` is
+contextual: it only acts as a keyword between `type` and a
+`UIdent`, so `let alias = …` still binds a plain variable. Without
+`alias`, anything after `=` is still variant syntax — `type X =
+List Int` stays variant `List` with payload `Int`.
 
 ## List patterns and indexing
 
@@ -772,7 +793,8 @@ fn main () -> Unit = ()
 - No `switch`/`case` → `match`; no `enum` → `type`; no
   `interface`/`struct`/`class` → records and ADTs; no `nil`/`null`/
   `None`-free references → `Option`; no `func`/`def`/`let fun` →
-  `fn`; no `type X = T` alias → real sum/record only; no `while`/
+  `fn`; no bare `type X = T` alias (write `type alias X = T`; `=`
+  alone always declares a new sum/record); no `while`/
   `for(;;)` → `for x in xs` or recursion; no `[]`-indexing; no raw
   strings/backquotes; no `;;`, `;;`-style block ends.
 
