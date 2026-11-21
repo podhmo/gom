@@ -106,14 +106,42 @@ variant のまま（構文追加、wave28 lane E の将来案そのもの）、
 docs/spec.md, testdata/spec, decision.
 ```
 
-## Notes
+## 申し送り
 
+- CI は push-to-main / PR-to-main synchronize でしか走らない —
+  チェーン PR は Devin Review のみ。マージは podhmo が
+  retarget → `gh pr merge --merge` を下から順に。
+- wave28 の 5 PR（#98–#102）は base チェーンで未マージ。
+  wave29 lane 開始時は最終 lane の head
+  （`devin/wave28-type-alias`）から分岐するか、podhmo の
+  マージ後に main から分岐する。
 - lane C/E が grammar を触る場合: tree-sitter-cli は
   0.27.1/0.26.3 がこの VM では GLIBC 不足で動かない。
   `npm exec --yes --package=tree-sitter-cli@0.25.10 -- tree-sitter
-  generate` で再生成（ABI 15 は不変）。
-- wave28 の 5 PR が base チェーンで未マージ。wave29 lane 開始時は
-  最終 lane の head（`devin/wave28-type-alias`）から分岐するか、
-  podhmo のマージ後に main から分岐する。
+  generate` で再生成（ABI 15 は不変、wave27 round）。
+- wave28 ラウンド記録: `2026-11-21-wave28-round.md` —
+  `lower.Env` の任意インターフェースは stdlib の `typeOracle`
+  ラップで落ちるので第一級フックが要る、
+  `goimport.Loader` のロック済み/無ロックペア（member ロード中は
+  無ロック側でないと自己デッドロック）、構文回復の parity は
+  baseline worktree との decl-count 比較で検証、を申し送り。
+- decision ファイルの書式: 冒頭に `- 状態:`・`- 日付:` の
+  bullet が必須（`TestDecisionsReadmeInSync`）。README 再生成は
+  `go generate ./internal/tool/decisionsdoc`。
+- spec fixture の再生: `go test ./internal/build -update -run
+  TestSpec`。golden の再生: 同コマンド -run TestGolden。
+  gocall は `cmd/gom/gocall_test.go` のパッケージ列挙に登録。
+- gomtest のディレクトリ case は bare `expected.json` /
+  `golden.go` / `case.json` のどれかが無いと各ファイル個別
+  ケースになる — 複数ファイルを 1 ケースにするなら
+  `case.json {}` を置く（wave27 round）。
+- scratch チェック環境: `/tmp/gomctx2`（go.mod `module tmp2` +
+  `replace github.com/podhmo/gom => ~/repos/gom`）。
+  `.gom` は `package` 節から始める。`gom build -o dir/` は
+  dir を `/` で終わらせる。
+- コミットメッセージにバッククォート/`$()` を入れない —
+  `-m` を複数回に分けて書く（shell が喰う）。
+- 採択されなかった候補の sketch/experiments は記録として残す
+  （decision から却下理由つきで参照、wave24 round）。
 - SC チェーン（#93/#94/#96）と他セッションの PR が残っている
   場合は lane の file ownership が被らないよう確認。
