@@ -34,9 +34,10 @@ var scopeRunKinds = map[string]bool{
 // nativeScopeRuns runs the SC-3 lowering over a lowered file.
 func (l *lowerer) nativeScopeRuns(out *core.File) {
 	p := &scopeDeferPass{
-		l:      l,
-		fns:    map[*resolve.Symbol]*core.Func{},
-		nonRun: map[*resolve.Symbol]bool{},
+		l:        l,
+		fns:      map[*resolve.Symbol]*core.Func{},
+		nonRun:   map[*resolve.Symbol]bool{},
+		runKinds: map[*resolve.Symbol]map[string]bool{},
 	}
 	for _, d := range out.Decls {
 		if fd, ok := d.(*core.FuncDecl); ok && fd.Fn != nil {
@@ -54,6 +55,19 @@ func (l *lowerer) nativeScopeRuns(out *core.File) {
 			if c, ok := e.(*core.CallGo); ok && c.Callee != nil &&
 				scopeRunKinds[c.Callee.Name] && len(c.Args) == 1 {
 				runArg[c.Args[0]] = true
+				var sym *resolve.Symbol
+				switch a := c.Args[0].(type) {
+				case *core.Var:
+					sym = a.Sym
+				case *core.FuncRef:
+					sym = a.Sym
+				}
+				if sym != nil {
+					if p.runKinds[sym] == nil {
+						p.runKinds[sym] = map[string]bool{}
+					}
+					p.runKinds[sym][c.Callee.Name] = true
+				}
 			}
 		})
 	})
@@ -77,9 +91,10 @@ func (l *lowerer) nativeScopeRuns(out *core.File) {
 }
 
 type scopeDeferPass struct {
-	l      *lowerer
-	fns    map[*resolve.Symbol]*core.Func
-	nonRun map[*resolve.Symbol]bool // symbols used outside run-arg position
+	l        *lowerer
+	fns      map[*resolve.Symbol]*core.Func
+	nonRun   map[*resolve.Symbol]bool            // symbols used outside run-arg position
+	runKinds map[*resolve.Symbol]map[string]bool // run-arg symbols → runner names seen
 }
 
 // eachBody calls f on every declaration body of the file.
@@ -250,16 +265,18 @@ func (p *scopeDeferPass) tryRun(e core.Expr, b *core.Body, i int, ctx *scopeCtx)
 	// A named body must be reachable only through scope runners:
 	// a direct call hands the callee someone else's scope, and a
 	// converted body's registrations no longer push onto it.
+	var bodySyms []*resolve.Symbol
 	switch a := call.Args[0].(type) {
 	case *core.Var:
-		if p.nonRun[a.Sym] {
-			return false
-		}
-		if fr, ok := ctx.lets[a.Sym].(*core.FuncRef); ok && p.nonRun[fr.Sym] {
-			return false
+		bodySyms = append(bodySyms, a.Sym)
+		if fr, ok := ctx.lets[a.Sym].(*core.FuncRef); ok {
+			bodySyms = append(bodySyms, fr.Sym)
 		}
 	case *core.FuncRef:
-		if p.nonRun[a.Sym] {
+		bodySyms = append(bodySyms, a.Sym)
+	}
+	for _, sym := range bodySyms {
+		if p.nonRun[sym] {
 			return false
 		}
 	}
@@ -289,12 +306,23 @@ func (p *scopeDeferPass) tryRun(e core.Expr, b *core.Body, i int, ctx *scopeCtx)
 			hasOnErr = true
 		}
 	}
-	if hasOnErr && !resultScope && sawEscape {
+	if hasOnErr && sawEscape {
 		// A `try` escapes the body with an early return before the
 		// failure decider registers: the defaulted-failed flag
-		// would fire `on_err` where the runtime's ok=true skips
-		// it. Keep the runtime scope here instead.
-		return false
+		// would fire `on_err` where a `Scope.run` caller's
+		// runtime treats any return as success. Conversion
+		// rewrites the body itself, so bail whenever the body
+		// has a `Scope.run` caller — this site being one, or a
+		// sibling call sharing the body.
+		hasRunCaller := !resultScope
+		for _, sym := range bodySyms {
+			if p.runKinds[sym]["ScopeRun"] {
+				hasRunCaller = true
+			}
+		}
+		if hasRunCaller {
+			return false
+		}
 	}
 	if len(regs) > 0 {
 		var res, errs, failed *core.Bind
