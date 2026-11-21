@@ -1534,6 +1534,21 @@
     }
   },
   {
+    "type": "punned_field",
+    "named": true,
+    "fields": {},
+    "children": {
+      "multiple": false,
+      "required": true,
+      "types": [
+        {
+          "type": "ident",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "record_field",
     "named": true,
     "fields": {},
@@ -1562,6 +1577,10 @@
       "types": [
         {
           "type": "field_init",
+          "named": true
+        },
+        {
+          "type": "punned_field",
           "named": true
         }
       ]
@@ -1596,6 +1615,10 @@
         },
         {
           "type": "field_init",
+          "named": true
+        },
+        {
+          "type": "punned_field",
           "named": true
         }
       ]

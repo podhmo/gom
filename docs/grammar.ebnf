@@ -512,7 +512,11 @@ block-item     = let-decl | expr ;
 record-literal = "{" , field-init , { "," , field-init } , [ "," ] , "}" ;
 record-update  = "{" , expr , "with" , field-init ,
                  { "," , field-init } , [ "," ] , "}" ;
-field-init     = ident , "=" , expr ;
+field-init     = ident , [ "=" , expr ] ;
+               (* bare ident is a pun: "x" means "x = x". A pun after
+                  "{" must be followed by "," — "{x}" stays a block —
+                  so a one-field pun is "{x,}"; after "with" the comma
+                  is not required ("{p with x}").                      *)
                (* [PROVISIONAL record-type-syntax: records require at
                   least one "name =" field; "{ name }" is a block, not a
                   punned record. Which record TYPE a literal belongs to

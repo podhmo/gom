@@ -346,20 +346,41 @@ module.exports = grammar({
 
     block_item: $ => choice($.let_decl, $.expr),
 
-    record_literal: $ => prec.dynamic(1, seq(
-      '{',
-      $.field_init,
-      repeat(seq(',', $.field_init)),
-      optional(','),
-      '}',
+    // A leading punned field needs a comma after it — "{x}" alone
+    // stays a block (a one-field pun is "{x,}"); a field after a
+    // comma may always pun. The "with" head removes the ambiguity,
+    // so an update's single punned field needs no comma.
+    record_literal: $ => prec.dynamic(1, choice(
+      seq(
+        '{',
+        $.field_init,
+        repeat(seq(',', $._field_item)),
+        optional(','),
+        '}',
+      ),
+      seq(
+        '{',
+        $.punned_field,
+        ',',
+        optional(seq(
+          $._field_item,
+          repeat(seq(',', $._field_item)),
+          optional(','),
+        )),
+        '}',
+      ),
     )),
+
+    _field_item: $ => choice($.field_init, $.punned_field),
+
+    punned_field: $ => $.ident,
 
     record_update: $ => seq(
       '{',
       $.expr,
       'with',
-      $.field_init,
-      repeat(seq(',', $.field_init)),
+      $._field_item,
+      repeat(seq(',', $._field_item)),
       optional(','),
       '}',
     ),

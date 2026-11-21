@@ -218,6 +218,11 @@ func (p *printer) recordLit(r *syntax.RecordLit) *doc {
 	items := make([]item, 0, len(r.Fields))
 	for i := range r.Fields {
 		f := &r.Fields[i]
+		if f.Punned {
+			d := text(f.Name.Name)
+			items = append(items, item{lo: f.Sp.Start, hi: f.Name.Span().End, d: d})
+			continue
+		}
 		mid := p.gapInline(f.Name.Span().End, f.Value.Span().Start)
 		d := concat(text(f.Name.Name+" ="+pad(mid)), p.expr(f.Value, pAny, false))
 		items = append(items, item{lo: f.Sp.Start, hi: f.Value.Span().End, d: p.sweep(f.Sp.Start, f.Value.Span().End, d)})
@@ -228,8 +233,11 @@ func (p *printer) recordLit(r *syntax.RecordLit) *doc {
 		// "with" cannot lead a line — it stays glued to the base.
 		head = concat(text(" "), p.expr(r.Base, pAny, false), text(mid+" with"))
 	}
+	// A lone punned field must keep its trailing comma even flat —
+	// "{ w }" would re-parse as a block. ("{p with x}" needs none.)
+	flatTrail := len(r.Fields) == 1 && r.Fields[0].Punned && r.Base == nil
 	return p.braceSeq(docNil, '{', '}', r.Sp.Start, r.Sp.End-1, head, items,
-		seqSpec{sep: ",", flatSep: ", ", trailSep: true, lines: 1})
+		seqSpec{sep: ",", flatSep: ", ", trailSep: true, flatTrail: flatTrail, lines: 1})
 }
 
 // apply renders "f a1 a2" — flat while it fits. Broken, it wraps in

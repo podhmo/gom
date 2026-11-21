@@ -538,11 +538,13 @@ func (*Ascribe) isExpr()           {}
 func (n *Ascribe) Span() diag.Span { return n.Sp }
 
 // FieldInit is one `name = e` field of a record literal or record
-// update.
+// update. A punned field is written as bare `name` and means
+// `name = name` — Value holds the variable's Ident.
 type FieldInit struct {
-	Sp    diag.Span
-	Name  *Ident
-	Value Expr
+	Sp     diag.Span
+	Name   *Ident
+	Value  Expr
+	Punned bool // written as bare `name` (Value holds the name's Ident)
 }
 
 // Span returns the field's source span.

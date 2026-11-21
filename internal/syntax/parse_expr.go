@@ -1057,7 +1057,9 @@ func (p *parser) parseBraceExpr() Expr {
 		return &Block{Sp: p.span(start, close.end)}
 	case p.at(tokLet):
 		return p.blockItems(nil, start)
-	case p.at(tokIdent) && p.peek(1).kind == tokEq:
+	case p.at(tokIdent) && (p.peek(1).kind == tokEq || p.peek(1).kind == tokComma):
+		// "{x = ...}" or a punned record "{x, ...}" — "{x}" alone
+		// stays a block; a one-field pun is written "{x,}".
 		r := &RecordLit{Sp: p.span(start, p.prevEnd())}
 		p.parseFieldInits(r)
 		return r
@@ -1138,7 +1140,8 @@ func (p *parser) parseFieldInits(r *RecordLit) {
 	}
 }
 
-// parseFieldInit parses ident "=" expr.
+// parseFieldInit parses ident [ "=" expr ] — a bare ident is a
+// punned field meaning `ident = ident`.
 func (p *parser) parseFieldInit() *FieldInit {
 	t := p.cur()
 	if t.kind != tokIdent {
@@ -1148,7 +1151,15 @@ func (p *parser) parseFieldInit() *FieldInit {
 	}
 	p.next()
 	name := &Ident{Sp: p.spanOf(t), Name: p.text(t)}
-	p.expect(tokEq)
+	if !p.at(tokEq) {
+		return &FieldInit{
+			Sp:     p.spanOf(t),
+			Name:   name,
+			Value:  &Ident{Sp: p.spanOf(t), Name: name.Name},
+			Punned: true,
+		}
+	}
+	p.next()
 	v := p.parseExpr()
 	return &FieldInit{
 		Sp:    p.span(t.start, v.Span().End),

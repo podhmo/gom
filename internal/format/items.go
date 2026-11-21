@@ -36,12 +36,13 @@ type item struct {
 
 // seqSpec describes one collection's separators and trivia policy.
 type seqSpec struct {
-	sep      string // separator after each item when broken ("", ",", ";")
-	flatSep  string // separator between items when flat ("; ", ", ")
-	trailSep bool   // separator after the last item too (trailing comma)
-	blanks   bool   // preserve blank lines between items (collapse to one)
-	always   bool   // never render flat (match, select, extern, sum type)
-	lines    int    // newlines separating items: 1 in braces, 2 between decls
+	sep       string // separator after each item when broken ("", ",", ";")
+	flatSep   string // separator between items when flat ("; ", ", ")
+	trailSep  bool   // separator after the last item too (trailing comma)
+	flatTrail bool   // also emit sep after the last item in the flat shape
+	blanks    bool   // preserve blank lines between items (collapse to one)
+	always    bool   // never render flat (match, select, extern, sum type)
+	lines     int    // newlines separating items: 1 in braces, 2 between decls
 }
 
 // gap holds the trivia between two adjacent items (or between a
@@ -315,7 +316,11 @@ func (p *printer) braceSeq(open *doc, openCh, closeCh byte, delimOff, closeOff i
 			flatKids = append(flatKids, text(s.flatSep))
 		}
 		flatKids = append(flatKids, text(inlineText(gaps[i].own)))
-		flatKids = append(flatKids, it.d, text(inlineText(gaps[i+1].trail)))
+		flatKids = append(flatKids, it.d)
+		if s.flatTrail && s.sep != "" && i == len(items)-1 {
+			flatKids = append(flatKids, text(s.sep))
+		}
+		flatKids = append(flatKids, text(inlineText(gaps[i+1].trail)))
 	}
 	flatKids = append(flatKids, text(inlineText(gaps[len(items)].own)))
 	flat := concat(flatKids...)
