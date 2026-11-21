@@ -671,49 +671,141 @@ func (c *checker) pipeParamEscapes(fn Expr) bool {
 		// An immediately-applied literal cannot retain — its
 		// parameter bindings die with the call.
 		return false
-	default:
-		// *Apply (a partial application appends the piped value),
-		// or anything else whose callee cannot be named.
+	case *Apply, *Ascribe, *Binary, *Block, *FieldAssign, *For,
+		*GoExpr, *Hole, *If, *Ignore, *Let, *ListLit, *Lit, *Match,
+		*RecordLit, *SelectExpr, *Spread, *StrInterp, *Try, *TupleLit,
+		*Unary:
+		// An *Apply callee is a partial application appending the
+		// piped value to an already-retaining closure; anything
+		// else cannot name a callee's parameter — the conservative
+		// answer.
 		return true
+	default:
+		panic("unreachable")
 	}
 }
 
-// exprTainted reports whether e can carry a live Scope value into a
-// binding: the expression's type is Scope, or it is/contains a
-// lambda that closes over a tainted variable.
+// exprTainted reports whether the VALUE e produces can carry a live
+// Scope into a binding: the expression's type is Scope, the value is
+// or contains a lambda that closes over a tainted variable, or an
+// under-application's produced closure retains a tainted argument.
+// The walk follows only positions that propagate the produced value —
+// a lambda consumed as a saturated call's argument is not part of the
+// call's result (the callee's escape rule decides its fate at the
+// call site), so `let y = helper p` binding the Int `y` is clean.
 func exprTainted(e Expr, b *escapeBody) bool {
 	if isScopeType(e.Type()) {
 		return true
 	}
-	tainted := false
-	WalkExpr(e, func(x Expr) {
-		if tainted {
-			return
-		}
-		if lam, ok := x.(*Lambda); ok {
-			for sym, v := range capturedVars(lam.Body, lamBound(lam)) {
-				if isScopeType(v.Type()) || b.aliases[sym] {
-					tainted = true
-					return
-				}
+	switch x := e.(type) {
+	case *Var:
+		return b.aliases[x.Sym]
+	case *Lambda:
+		for sym, v := range capturedVars(x.Body, lamBound(x)) {
+			if isScopeType(v.Type()) || b.aliases[sym] {
+				return true
 			}
-			return
 		}
-		// An under-application's produced closure retains the
-		// arguments it already got — binding a tainted one makes
-		// the bound variable tainted too.
-		if ap, ok := x.(*Apply); ok &&
-			(ap.Call.Kind == CallPartial || ap.Call.HoleIndex >= 0 ||
-				(ap.Call.Kind == CallUnknown && isFuncType(ap.Type()))) {
-			for _, a := range ap.Args {
+		return false
+	case *Block:
+		if len(x.Stmts) == 0 {
+			return false
+		}
+		return exprTainted(x.Stmts[len(x.Stmts)-1], b)
+	case *If:
+		return exprTainted(x.Then, b) || exprTainted(x.Else, b)
+	case *Match:
+		for _, a := range x.Arms {
+			if exprTainted(a.Body, b) {
+				return true
+			}
+		}
+		return false
+	case *Try:
+		return exprTainted(x.X, b)
+	case *Ascribe:
+		return exprTainted(x.X, b)
+	case *SelectExpr:
+		for _, a := range x.Arms {
+			switch a := a.(type) {
+			case *RecvArm:
+				if exprTainted(a.Body, b) {
+					return true
+				}
+			case *SendArm:
+				if exprTainted(a.Body, b) {
+					return true
+				}
+			case *DefaultArm:
+				if exprTainted(a.Body, b) {
+					return true
+				}
+			default:
+				panic("unreachable")
+			}
+		}
+		return false
+	case *RecordLit:
+		if x.With != nil && exprTainted(x.With, b) {
+			return true
+		}
+		for _, f := range x.Fields {
+			if exprTainted(f.Value, b) {
+				return true
+			}
+		}
+		return false
+	case *TupleLit:
+		for _, el := range x.Elems {
+			if exprTainted(el, b) {
+				return true
+			}
+		}
+		return false
+	case *ListLit:
+		for _, el := range x.Elems {
+			if exprTainted(el, b) {
+				return true
+			}
+		}
+		return false
+	case *Spread:
+		return exprTainted(x.X, b)
+	case *MemberExpr:
+		// The field's own value propagates — tainted only when the
+		// record it was read from holds a tainted closure.
+		return exprTainted(x.Recv, b)
+	case *Apply:
+		// Only a produced closure retains the arguments already
+		// supplied; a saturated call's arguments are consumed under
+		// the callee's own escape rule.
+		if x.Call.Kind == CallPartial || x.Call.HoleIndex >= 0 ||
+			(x.Call.Kind == CallUnknown && isFuncType(x.Type())) {
+			for _, a := range x.Args {
 				if exprTainted(a.Value, b) {
-					tainted = true
-					return
+					return true
 				}
 			}
 		}
-	})
-	return tainted
+		return false
+	case *Binary:
+		switch x.Op {
+		case syntax.BinComposeFwd, syntax.BinComposeBack:
+			// The composed closure retains both operands.
+			return exprTainted(x.X, b) || exprTainted(x.Y, b)
+		default:
+			// Pipes feed the operand to a callee; arithmetic and
+			// comparisons consume theirs.
+			return false
+		}
+	case *GoExpr, *Let, *Ignore, *For, *FieldAssign,
+		*Lit, *StrInterp, *Hole, *Unary:
+		// Unit producers, literals, and consumers that cannot carry
+		// a closure in their produced value.
+		return false
+	default:
+		panic("unreachable")
+	}
 }
 
 func (c *checker) scopeEscapeErr(sp diag.Span) {
