@@ -12,9 +12,11 @@ fn options (n: Int) -> Array (Option Int) = {
 }
 
 // The init is a real element: `Array.get` reads `None` back as a
-// declared variant, not the Go nil that used to panic.
+// declared variant, not the Go nil that used to panic. The binding
+// needs the annotation — `None` alone does not pin the element
+// parameter of `Array (Option a)` (E0407).
 fn first_none () -> Bool = {
-  let a = Array.make 2 None
+  let a : Array (Option Int) = Array.make 2 None
   match Array.get a 0 {
     None -> true
     Some _ -> false
@@ -23,7 +25,7 @@ fn first_none () -> Bool = {
 
 // A set slot still distinguishes Some from the init.
 fn set_some () -> Int = {
-  let a = Array.make 3 None
+  let a : Array (Option Int) = Array.make 3 None
   Array.set a 1 (Some 7)
   match Array.get a 1 {
     Some x -> x
