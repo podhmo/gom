@@ -161,9 +161,11 @@ type recorder struct {
 }
 
 func (r *recorder) handler(status int) http.HandlerFunc {
+	r.mu.Lock()
 	if r.counts == nil {
 		r.counts = map[string]int{}
 	}
+	r.mu.Unlock()
 	return func(w http.ResponseWriter, req *http.Request) {
 		if req.Method != http.MethodHead {
 			r.mu.Lock()
