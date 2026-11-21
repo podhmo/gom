@@ -104,8 +104,15 @@ func (g *gen) showOperand(p *core.ShowPlan, x ast.Expr) ast.Expr {
 
 // showField renders `v.<sel>` — the projected operand of a record or
 // variant field. It shares eqField's selector rule: Sel first, then
-// the declared name, then `V<Index>`.
+// the declared name, then `V<Index>` — or `F(v)` when Unwrap unwraps
+// a one-field record.
 func (g *gen) showField(f *core.ShowField, base string) ast.Expr {
+	if f.Unwrap != nil {
+		return &ast.CallExpr{
+			Fun:  g.goType(f.Unwrap),
+			Args: []ast.Expr{ast.NewIdent(base)},
+		}
+	}
 	sel := fmt.Sprintf("V%d", f.Index)
 	switch {
 	case f.Sel != "":

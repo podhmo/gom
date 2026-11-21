@@ -170,8 +170,14 @@ func (g *gen) eqIndex(x ast.Expr) ast.Expr {
 }
 
 // eqField renders `x.<sel>` — the projected operand of a fieldwise
-// comparison.
+// comparison — or `F(x)` when Unwrap unwraps a one-field record.
 func (g *gen) eqField(f *core.EqField, base string) ast.Expr {
+	if f.Unwrap != nil {
+		return &ast.CallExpr{
+			Fun:  g.goType(f.Unwrap),
+			Args: []ast.Expr{ast.NewIdent(base)},
+		}
+	}
 	sel := fmt.Sprintf("V%d", f.Index)
 	switch {
 	case f.Sel != "":

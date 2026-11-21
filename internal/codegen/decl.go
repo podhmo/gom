@@ -277,13 +277,27 @@ func (g *gen) tparamNames(tparams []*types.Var) []string {
 func markerName(tname string) string { return "is" + tname }
 
 // trecord emits `type Name[A any] struct { F T; ... }` — the record
-// representation (P0-1's plain struct).
+// representation (P0-1's plain struct). A one-field record emits as
+// the Go defined type `type Name[A] F` instead — the Gom-side newtype
+// spelling, so `x.value` unwraps as `F(x)` and `{value = v}`
+// constructs as `Name(v)`.
 func (g *gen) trecord(d *core.TypeDecl, b *core.TRecord) {
 	g.line(d.Sp)
 	g.raw("type " + g.typeName(d.Sym))
 	g.typeParams(d.TypeParams)
 	if len(b.Fields) == 0 {
 		g.raw(" struct{}")
+		g.nl()
+		g.nl()
+		return
+	}
+	if b.Defined {
+		// One-field record — the Gom-side newtype spelling: the Go
+		// defined type `type X F`. Lower set Defined via
+		// check.DefinedField; the bare-parameter fallback (`type
+		// X[A any] A` is illegal Go) stays a struct.
+		g.raw(" ")
+		g.typ(g.goType(b.Fields[0].Type))
 		g.nl()
 		g.nl()
 		return

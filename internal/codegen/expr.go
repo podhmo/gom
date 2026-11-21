@@ -146,19 +146,26 @@ func (g *gen) goFuncRef(a *core.GoFuncRef) ast.Expr {
 // mirrors the assertion: evalMember checks the ctor identity first
 // and reports E9003 on a wrong-variant value.
 func (g *gen) fieldGet(a *core.FieldGet) ast.Expr {
+	var recv ast.Expr = g.atom(a.Recv)
+	if a.Ctor != nil {
+		recv = &ast.TypeAssertExpr{
+			X:    recv,
+			Type: g.ctorGoType(a.Ctor, a.Recv.Type()),
+		}
+	}
+	if a.Unwrap {
+		// One-field record → `type X F`: `r.f` unwraps as `F(r)`.
+		return &ast.CallExpr{
+			Fun:  g.goType(a.Type()),
+			Args: []ast.Expr{recv},
+		}
+	}
 	sel := fmt.Sprintf("V%d", a.Index)
 	if a.Field != nil {
 		if a.Field.IsGo {
 			sel = a.Field.Name
 		} else {
 			sel = exportName(a.Field.Name)
-		}
-	}
-	var recv ast.Expr = g.atom(a.Recv)
-	if a.Ctor != nil {
-		recv = &ast.TypeAssertExpr{
-			X:    recv,
-			Type: g.ctorGoType(a.Ctor, a.Recv.Type()),
 		}
 	}
 	return &ast.SelectorExpr{X: recv, Sel: ast.NewIdent(sel)}
@@ -579,6 +586,8 @@ func (g *gen) listNew(e *core.ListNew) ast.Expr {
 }
 
 // recordNew renders `{ name = e, ... }` as a keyed struct literal.
+// One-field records never reach here: they emit as `type X F` and
+// lower already turned the literal into a `core.Conv`.
 func (g *gen) recordNew(e *core.RecordNew) ast.Expr {
 	elts := make([]ast.Expr, len(e.Fields))
 	for i, f := range e.Fields {

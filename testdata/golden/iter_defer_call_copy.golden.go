@@ -8,18 +8,14 @@ import (
 )
 
 //line iter_defer_call_copy.gom:10
-type IterBox struct {
-//line iter_defer_call_copy.gom:10
-	Iter func(int64) list.List[int64]
-//line iter_defer_call_copy.gom:10
-}
+type IterBox func(int64) list.List[int64]
 
 //line iter_defer_call_copy.gom:12
 func viaCallResult(_ struct{}) int64 {
 //line iter_defer_call_copy.gom:13
 	g := func(x IterBox) int64 {
 //line iter_defer_call_copy.gom:14
-		f := x.Iter
+		f := (func(int64) list.List[int64])(x)
 //line iter_defer_call_copy.gom:15
 		y := f(0)
 //line iter_defer_call_copy.gom:16
@@ -35,7 +31,7 @@ func viaCallResult(_ struct{}) int64 {
 //line iter_defer_call_copy.gom:18
 	}
 //line iter_defer_call_copy.gom:18
-	tmp3 := IterBox{Iter: tmp2}
+	tmp3 := IterBox(tmp2)
 //line iter_defer_call_copy.gom:18
 	return g(tmp3)
 //line iter_defer_call_copy.gom:12

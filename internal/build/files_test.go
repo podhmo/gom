@@ -289,7 +289,7 @@ func TestCompileFilesExportedLetVsTypeCollision(t *testing.T) {
 	}
 	// And a.gom's `type Foo` still emits verbatim.
 	aSrc := string(rs[0].Output.Source)
-	if !strings.Contains(aSrc, "type Foo struct") {
+	if !strings.Contains(aSrc, "type Foo int64") {
 		t.Fatalf("the type lost its exact name:\n%s", aSrc)
 	}
 }
@@ -311,7 +311,7 @@ let foo = { x = 1 }
 		t.Fatalf("diagnostics: %v", r.Diagnostics)
 	}
 	src := string(r.Output.Source)
-	if !strings.Contains(src, "var Foo1 Foo") || !strings.Contains(src, "type Foo struct") {
+	if !strings.Contains(src, "var Foo1 Foo") || !strings.Contains(src, "type Foo int64") {
 		t.Fatalf("collision not resolved — want `var Foo1` + `type Foo`:\n%s", src)
 	}
 }

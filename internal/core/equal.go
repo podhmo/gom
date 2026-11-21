@@ -157,6 +157,10 @@ type EqField struct {
 	Name  string          // the field's Go name when Sym is nil (foreign records)
 	Index int             // position — `V<Index>` selection when Sym and Name are absent
 	Plan  *EqPlan
+	// Unwrap, when non-nil, is the field's type: the owning record is
+	// a one-field record emitted as `type X F`, so the operand is the
+	// unwrapping conversion `Unwrap(base)`, not `base.<sel>`.
+	Unwrap types.Type
 }
 
 // EqVariant is one constructor branch of an EqSum or EqResult plan:

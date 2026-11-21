@@ -210,6 +210,18 @@ func (o *typeOracle) Fields(c *types.Con) []check.TField {
 	return nil
 }
 
+// DefinedField reports the declared field of a one-field record
+// emitting as the Go defined type `type X F` — lower.TypeOracle.
+func (o *typeOracle) DefinedField(c *types.Con) (check.TField, bool) {
+	if td := o.byCon[conKey{qual: c.Qual, name: c.Name}]; td != nil {
+		return check.DefinedField(td)
+	}
+	if o.inner != nil {
+		return o.inner.DefinedField(c)
+	}
+	return check.TField{}, false
+}
+
 // requalifyDecl rewrites a loaded type declaration's body so its
 // references to the interface's own type names carry the import
 // path — the same requalification gomimport's extract runs.

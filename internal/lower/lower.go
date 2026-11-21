@@ -155,6 +155,12 @@ type TypeOracle interface {
 	// Fields returns the record type's fields in declaration order,
 	// or nil when c is not a known record type.
 	Fields(c *types.Con) []check.TField
+	// DefinedField reports the declared field of a one-field record
+	// when it emits as the Go defined type `type X F`; ok=false for
+	// multi-field records and for `type X a = {f: a}` — Go forbids a
+	// bare type parameter as a defined type's underlying type, so
+	// those stay structs.
+	DefinedField(c *types.Con) (check.TField, bool)
 }
 
 // File lowers a fully type- and pattern-checked file into a Core IR
@@ -948,26 +954,49 @@ func (l *lowerer) ctorFields(sym *resolve.Symbol, ret types.Type) []core.TField 
 	return nil
 }
 
+// recordFields lists a record type's declared fields — from the
+// file's own record TypeDecl or the Env oracle. nil for non-records.
+func (l *lowerer) recordFields(recTyp types.Type) []check.TField {
+	c, ok := types.Chase(recTyp).(*types.Con)
+	if !ok {
+		return nil
+	}
+	if d, ok := l.typeD[conKey(c)]; ok {
+		if r, ok := d.Body.(*check.RecordType); ok {
+			return r.Fields
+		}
+	}
+	if l.env.Types != nil {
+		return l.env.Types.Fields(c)
+	}
+	return nil
+}
+
+// singleField reports whether recTyp is a one-field record emitted
+// as the Go defined type `type X F` — field access unwraps, literals
+// convert, `with` rebuilds. A record whose sole field is a bare type
+// parameter stays a struct: Go forbids `type X[A any] A`.
+func (l *lowerer) singleField(recTyp types.Type) (check.TField, bool) {
+	c, ok := types.Chase(recTyp).(*types.Con)
+	if !ok {
+		return check.TField{}, false
+	}
+	if d, ok := l.typeD[conKey(c)]; ok {
+		return check.DefinedField(d)
+	}
+	if l.env.Types != nil {
+		return l.env.Types.DefinedField(c)
+	}
+	return check.TField{}, false
+}
+
 // fieldIndex resolves a record field's declaration index — from the
 // file's own record TypeDecl or the Env oracle. -1 when unknown.
 func (l *lowerer) fieldIndex(recTyp types.Type, sym *resolve.Symbol) int {
 	if sym == nil {
 		return -1
 	}
-	c, ok := types.Chase(recTyp).(*types.Con)
-	if !ok {
-		return -1
-	}
-	var fields []check.TField
-	if d, ok := l.typeD[conKey(c)]; ok {
-		if r, ok := d.Body.(*check.RecordType); ok {
-			fields = r.Fields
-		}
-	}
-	if fields == nil && l.env.Types != nil {
-		fields = l.env.Types.Fields(c)
-	}
-	for i, f := range fields {
+	for i, f := range l.recordFields(recTyp) {
 		if f.Sym == sym {
 			return i
 		}
@@ -1053,9 +1082,13 @@ func (l *lowerer) decl(d check.Decl, out *core.File) {
 		}
 		l.letDecl(d, out)
 	case *check.TypeDecl:
+		body := l.typeBody(d.Body)
+		if _, ok := check.DefinedField(d); ok {
+			body.(*core.TRecord).Defined = true
+		}
 		out.Decls = append(out.Decls, &core.TypeDecl{
 			Sp: d.Sp, Sym: d.Sym, TypeParams: d.TypeParams,
-			Body: l.typeBody(d.Body),
+			Body: body,
 		})
 	case *check.TestDecl:
 		if !l.env.Tests {

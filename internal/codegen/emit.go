@@ -229,10 +229,14 @@ func (g *gen) valueExpr(e core.Expr, d dest) {
 // emitsConversion reports whether a discard-position expression
 // renders as a `T(x)` conversion — valid in expression position but
 // rejected as a statement, so it still needs `_ =` even though it
-// prints as a CallExpr. A Lit checked at a named Go type joins the
-// explicit Conv here (`Duration(1)` alone is "not used").
+// prints as a CallExpr. An unwrapping one-field-record FieldGet
+// prints the same `T(x)` (`int64(u)` alone is "not used"), and a Lit
+// checked at a named Go type joins the explicit Conv here.
 func emitsConversion(e core.Expr) bool {
 	if _, ok := e.(*core.Conv); ok {
+		return true
+	}
+	if f, ok := e.(*core.FieldGet); ok && f.Unwrap {
 		return true
 	}
 	l, ok := e.(*core.Lit)

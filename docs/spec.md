@@ -571,6 +571,8 @@ extern のエントリは `fn` の関数シグネチャだけを持ち、ブロ�
 
 この面では 8.5 節のコピーは置かれず、値は Gom の型の Go 表現（8.3 節）そのままで受け渡される — `List` の引数・戻り値は `list.List[A]`（`[]A` の名前付き型）のバッキングを共有し、record やバリアントの `List` ペイロードも同じである。`.gomi` で公開した `let`（7 章の定数）は Go の package 変数として公開される（型変数を含む宣言は niladic のジェネリック関数）— Go には読み取り専用の exported 変数がないので、不変の束縛は `var` の形で見える。
 
+record 型はフィールドごとの exported field を持つ Go の struct として公開される。ただしフィールドが 1 つだけの record は Go の defined type（`type UserId int64`）として公開する — Go 側からは `UserId(7)` で構築し、`int64(u)` で中身を取り出す（フィールド名は Go 側から見えない）。例外として、唯一のフィールドの型が裸の型パラメータのとき（`type Box a = { item: a }`）は Go が `type Box[A any] A` を許さないため struct のままになる（[decision](decisions/2026-11-21-record-single-field-defined-type.md)）。
+
 Gom の値の不変性は Gom 側の操作が守る契約であり、境界は Go 側の書き込みを防がない（[decisions/boundary-mutation-contract](decisions/2026-11-05-boundary-mutation-contract.md)）。Go 側は、受け取った `List` の要素を書き換えてはならず、export された `let` の変数へ代入してもいけない。`Ref`・`Array`・`Ptr`・`Go.Slice`・`Go.Map`・チャネル・関数値のように Gom の中でも可変または共有される表現を持つ値は、両側でそのまま共有される。違反は 8.6 節の契約違反であり、診断はされない — 違反したプログラムについて Gom の保証は効かない（OCaml の FFI が C 側に immutable ブロックへの書き込み禁止を委ねるのと同じ立場）。
 
 ### 8.8 Go の func 型と関数値の変換
