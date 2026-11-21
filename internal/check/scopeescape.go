@@ -106,8 +106,34 @@ func (se *scopeEsc) walkDecls() {
 		case *TestDecl:
 			se.visit(d.Body, false)
 		case *TypeDecl:
+			se.typeDecl(d)
 		default:
 			panic("unreachable")
+		}
+	}
+}
+
+// typeDecl rejects a variant or record field that could hold a Scope:
+// building the value would carry the handle out of its body.
+func (se *scopeEsc) typeDecl(d *TypeDecl) {
+	if !se.report {
+		return
+	}
+	var fields []TField
+	switch b := d.Body.(type) {
+	case *SumType:
+		for _, v := range b.Variants {
+			fields = append(fields, v.Fields...)
+		}
+	case *RecordType:
+		fields = b.Fields
+	case *AliasType, *AbstractType, nil:
+	default:
+		panic("unreachable")
+	}
+	for _, f := range fields {
+		if se.c.scopeBad(f.Type, false) {
+			se.storeErr(f.Sp)
 		}
 	}
 }

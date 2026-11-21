@@ -137,6 +137,50 @@
         "name": "s",
         "reason": "capture"
       }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0418",
+      "severity": "error",
+      "message": "a Scope cannot be stored in a constructor or record field",
+      "span": {
+        "file": "E0418_scope_escape.gom",
+        "start": {
+          "line": 36,
+          "col": 18,
+          "offset": 1140
+        },
+        "end": {
+          "line": 36,
+          "col": 23,
+          "offset": 1145
+        }
+      },
+      "data": {
+        "reason": "store"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0418",
+      "severity": "error",
+      "message": "a Scope cannot be stored in a constructor or record field",
+      "span": {
+        "file": "E0418_scope_escape.gom",
+        "start": {
+          "line": 38,
+          "col": 14,
+          "offset": 1160
+        },
+        "end": {
+          "line": 38,
+          "col": 26,
+          "offset": 1172
+        }
+      },
+      "data": {
+        "reason": "store"
+      }
     }
   ]
 }

@@ -30,3 +30,9 @@ fn nested () -> Int =
 fn reg (s: Scope) (f: Unit -> Unit) -> Unit = Scope.defer s f
 
 fn partial () -> (Unit -> Unit) -> Unit = Scope.run <| fn s -> reg s
+
+// A field typed Scope is rejected where it is declared, so no
+// constructor — direct or piped — can hold one.
+type Held = Held Scope
+
+type Box = { scope: Scope }
