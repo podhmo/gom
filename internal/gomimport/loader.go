@@ -122,6 +122,9 @@ type Loader struct {
 	byCon      map[conKey]*check.TypeDecl
 	ctorFields map[*resolve.Symbol]map[string]*resolve.Symbol
 	typeCtors  map[*resolve.Symbol]map[string]*resolve.Symbol
+	// methods records each imported record type's @method set —
+	// the GomMethodSource view of the home checker's method table.
+	methods map[conKey][]check.GomMethod
 
 	// The implementation-import cycle check (E0606): .gom files of
 	// loaded packages may import back toward the entry package —
@@ -173,6 +176,7 @@ func New(cfg *Config) *Loader {
 		sigs:       map[*resolve.Symbol]check.Signature{},
 		arities:    map[*resolve.Symbol]int{},
 		byCon:      map[conKey]*check.TypeDecl{},
+		methods:    map[conKey][]check.GomMethod{},
 		ctorFields: map[*resolve.Symbol]map[string]*resolve.Symbol{},
 		typeCtors:  map[*resolve.Symbol]map[string]*resolve.Symbol{},
 		implEdges:  map[string]map[string]bool{},
@@ -687,6 +691,26 @@ func (l *Loader) extract(path string, tf *check.File) (*resolve.Package, error) 
 				l.arities[sym] = len(d.Sig.Params)
 			}
 			l.sigs[sym] = sig
+			if d.Method && d.Sig != nil && len(d.Sig.Params) > 0 {
+				base := types.Chase(d.Sig.Params[0].Type)
+				if p, ok := base.(*types.Con); ok && p.Qual == "" && p.Name == "Ptr" && len(p.Args) == 1 {
+					base = types.Chase(p.Args[0])
+				}
+				if rc, ok := base.(*types.Con); ok {
+					var ps []types.FuncParam
+					for _, fp := range d.Sig.Params[1:] {
+						if types.Equal(fp.Type, types.Unit) {
+							continue
+						}
+						ps = append(ps, types.FuncParam{Label: fp.Label, Type: requalify(fp.Type, own, path)})
+					}
+					key := conKey{qual: path, name: rc.Name}
+					l.methods[key] = append(l.methods[key], check.GomMethod{
+						Name: core.ExportName(sym.Name),
+						Sig:  types.Fn(requalify(d.Sig.Ret, own, path), ps...),
+					})
+				}
+			}
 		case *check.LetDecl:
 			for _, sym := range letSyms(d.Pat) {
 				if sym == nil || sym.TestOnly {
@@ -1478,4 +1502,23 @@ func (l *Loader) NilableUnderlying(ref types.NamedRef) bool {
 		return ns.NilableUnderlying(ref)
 	}
 	return false
+}
+
+// GomMethodsOf reports the @method declarations an imported Gom
+// record type carries — the check.GomMethodSource view of the
+// method table recorded from the package's .gomi signatures.
+func (l *Loader) GomMethodsOf(t *types.Con) ([]check.GomMethod, bool) {
+	if t.Qual == "" {
+		return nil, false
+	}
+	return l.methods[conKey{qual: t.Qual, name: t.Name}], true
+}
+
+// InterfaceMethods defers the same protocol to the Go oracle — the
+// required method set of a Go interface for @method conformance.
+func (l *Loader) InterfaceMethods(t types.Type) ([]check.InterfaceMethod, bool) {
+	if ms, ok := l.cfg.Sigs.(check.InterfaceMethodSource); ok {
+		return ms.InterfaceMethods(t)
+	}
+	return nil, false
 }

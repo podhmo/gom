@@ -61,8 +61,8 @@ top-decl       = [ attribute ] , ( fn-decl | let-decl )
                | extern-decl
                | test-decl ;
 
-attribute      = "@" , member-name ;      (* "test", "tailrec" and "extern" are defined;
-                                             "tailrec" and "extern" apply to fn-decl only [SEMANTIC] *)
+attribute      = "@" , member-name ;      (* "test", "tailrec", "extern" and "method" are defined;
+                                             "tailrec", "extern" and "method" apply to fn-decl only [SEMANTIC] *)
 
 (* --------------------------------------------------------------------
    1.1 Interface files (.gomi), spec §7

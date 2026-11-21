@@ -249,6 +249,11 @@ type checker struct {
 	// pendingIfaces keep numeric and selector inference independent of interface assignment.
 	pendingIfaces []*Ascribe
 
+	// methods records each own-package record type's declared
+	// @method set for Go-interface conformance checks
+	// (docs/decisions/2026-11-21-go-iface-impl.md).
+	methods map[conKey][]GomMethod
+
 	// pendingDivs are `/` and `%` nodes whose right operand folded
 	// to a constant zero — candidates for E0414. Whether the
 	// diagnostic fires depends on the operand type (an integer
@@ -687,7 +692,7 @@ func (c *checker) checkFnDecl(d *syntax.FnDecl) {
 	}
 	c.bounds = c.bounds[:len(c.bounds)-1]
 	c.curTScope = prevScope
-	c.decls = append(c.decls, &FnDecl{
+	fd := &FnDecl{
 		Sp:      d.Sp,
 		Sym:     sym,
 		Sig:     sig,
@@ -695,11 +700,16 @@ func (c *checker) checkFnDecl(d *syntax.FnDecl) {
 		Body:    body,
 		TailRec: d.TailRec,
 		Extern:  d.Extern,
+		Method:  d.Method,
 		// A declared signature's rigid variables are the function's
 		// own type parameters — `fn len2 (t: Tree a) -> Int` emits
 		// `func len2[A](t Tree[A]) int64`.
 		TypeParams: rigidVars(sig),
-	})
+	}
+	c.decls = append(c.decls, fd)
+	if d.Method {
+		c.checkMethodDecl(d, sym, sig)
+	}
 }
 
 // checkLetDecl checks a top-level `let`: the value is checked first

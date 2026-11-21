@@ -1,0 +1,42 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0420",
+      "severity": "error",
+      "message": "an \"@method\" receiver must be a record type declared in this package",
+      "span": {
+        "file": "E0420_method_recv.gom",
+        "start": {
+          "line": 9,
+          "col": 1,
+          "offset": 135
+        },
+        "end": {
+          "line": 9,
+          "col": 45,
+          "offset": 179
+        }
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0420",
+      "severity": "error",
+      "message": "an \"@method\" receiver must be a record type declared in this package",
+      "span": {
+        "file": "E0420_method_recv.gom",
+        "start": {
+          "line": 12,
+          "col": 1,
+          "offset": 189
+        },
+        "end": {
+          "line": 12,
+          "col": 36,
+          "offset": 224
+        }
+      }
+    }
+  ]
+}

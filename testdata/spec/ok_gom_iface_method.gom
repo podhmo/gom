@@ -1,0 +1,24 @@
+package main
+
+import go "fmt"
+
+// A Gom record type conforms to a Go interface when its @method
+// set covers the interface's methods with matching signatures.
+type Greeter = { name: String }
+
+@method
+fn (g: Greeter) string () -> String = g.name
+
+type Failure = { reason: String }
+
+@method
+fn (f: Failure) error () -> String = f.reason
+
+fn main () -> Unit = {
+  let g = { name = "x" }
+  let st : fmt.Stringer = g
+  let f = { reason = "y" }
+  let e : GoError = f
+  ignore (fmt.Println st)
+  ignore (fmt.Println e)
+}

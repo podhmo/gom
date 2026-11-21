@@ -51,6 +51,10 @@ type FnDecl struct {
 	// generated package — resolution, checking and .gomi
 	// conformance all treat it as an ordinary fn declaration.
 	Extern bool
+	// Method marks a `@method fn` (decisions/2026-11-21-go-iface-impl):
+	// Params[0] is the receiver and codegen additionally emits a
+	// forwarding Go method on the receiver's record type.
+	Method bool
 }
 
 func (*FnDecl) isDecl()           {}

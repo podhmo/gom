@@ -331,6 +331,20 @@ type InterfaceSource interface {
 	InterfaceAssignable(from, to types.Type) bool
 }
 
+// InterfaceMethodSource is an optional extension: the methods a Go
+// interface type requires, so a Gom type's declared @method set can
+// be tested for conformance (decisions/2026-11-21-go-iface-impl).
+type InterfaceMethodSource interface {
+	InterfaceMethods(t types.Type) ([]InterfaceMethod, bool)
+}
+
+// GomMethodSource is an optional extension: the Go methods an
+// imported Gom type declares — the importer's view of the method
+// table the home package's checker holds in memory.
+type GomMethodSource interface {
+	GomMethodsOf(t *types.Con) ([]GomMethod, bool)
+}
+
 // FuncNSource answers which `Go.FuncN` a method-less named func
 // type's `*types.Go` handle reads as at a signature boundary —
 // `context.CancelFunc` → `Go.Func0`. The checker needs the
@@ -409,6 +423,28 @@ func (c chain) InterfaceAssignable(from, to types.Type) bool {
 		}
 	}
 	return false
+}
+
+func (c chain) InterfaceMethods(t types.Type) ([]InterfaceMethod, bool) {
+	for _, s := range c {
+		if src, ok := s.(InterfaceMethodSource); ok {
+			if ms, ok := src.InterfaceMethods(t); ok {
+				return ms, true
+			}
+		}
+	}
+	return nil, false
+}
+
+func (c chain) GomMethodsOf(t *types.Con) ([]GomMethod, bool) {
+	for _, s := range c {
+		if src, ok := s.(GomMethodSource); ok {
+			if ms, ok := src.GomMethodsOf(t); ok {
+				return ms, true
+			}
+		}
+	}
+	return nil, false
 }
 
 func (c chain) FuncNOfNamed(t types.Type) (types.Type, bool) {

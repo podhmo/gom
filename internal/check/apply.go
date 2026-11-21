@@ -1559,12 +1559,17 @@ func (c *checker) conformParam(want, got types.Type, sp diag.Span, conv bool) bo
 		return true
 	}
 	w, g := types.Chase(want), types.Chase(got)
-	if !types.Equal(w, g) && c.goOriginType(w) && c.goOriginType(g) &&
-		!isGoAny(w) {
-		if src, ok := c.src.(InterfaceSource); ok && src.InterfaceAssignable(g, w) {
-			// Interface assignability materializes nothing —
-			// the emitted atom is already assignable at the Go
-			// call, so conv=false callers admit it too.
+	if !types.Equal(w, g) && c.goOriginType(w) && !isGoAny(w) {
+		if c.goOriginType(g) {
+			if src, ok := c.src.(InterfaceSource); ok && src.InterfaceAssignable(g, w) {
+				// Interface assignability materializes nothing —
+				// the emitted atom is already assignable at the Go
+				// call, so conv=false callers admit it too.
+				return true
+			}
+		} else if c.implementsIface(w, g) {
+			// A Gom type whose @method set covers the interface —
+			// assignable as is, like the Go-to-Go case above.
 			return true
 		}
 	}

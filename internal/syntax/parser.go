@@ -542,7 +542,6 @@ func (p *parser) gomOnly(sp diag.Span, what string) {
 func (p *parser) parseAttrDecl() Decl {
 	at := p.next() // '@'
 	attrSp := p.spanOf(at)
-	p.gomOnly(attrSp, "an attribute")
 	nameTok := p.cur()
 	var name string
 	switch {
@@ -568,18 +567,28 @@ func (p *parser) parseAttrDecl() Decl {
 		testOnly: name == "test",
 		tailRec:  name == "tailrec",
 		extern:   name == "extern",
+		method:   name == "method",
 	}
-	if !attrs.testOnly && !attrs.tailRec && !attrs.extern {
+	if !attrs.testOnly && !attrs.tailRec && !attrs.extern && !attrs.method {
 		// The AST cannot carry an unknown attribute (no field
 		// records it): report at parse time so the error is not
 		// silently lost. E0204 remains the resolve-phase code once
 		// the AST gains an attribute slot.
 		p.errf(p.spanOf(nameTok),
-			"unknown attribute \"@%s\": only \"@test\", \"@tailrec\" and \"@extern\" are defined", name)
+			"unknown attribute \"@%s\": only \"@test\", \"@tailrec\", \"@extern\" and \"@method\" are defined", name)
+	}
+	if !attrs.method {
+		// @method is the one attribute a .gomi must carry — an
+		// importer reconstructs the receiver's method set from it.
+		p.gomOnly(attrSp, "an attribute")
 	}
 	doc := p.docBefore(at.start)
 	if p.at(tokFn) {
 		return p.parseFnDecl(attrs, doc)
+	}
+	if attrs.method {
+		p.errf(p.spanOf(nameTok),
+			"the \"@method\" attribute applies only to a \"fn\" declaration")
 	}
 	if attrs.tailRec || attrs.extern {
 		// A let-bound function calls itself through the package
@@ -599,15 +608,30 @@ type declAttrs struct {
 	testOnly bool // `@test` (fn or let)
 	tailRec  bool // `@tailrec` (fn only)
 	extern   bool // `@extern` (fn only — signature bound to hand-written Go)
+	method   bool // `@method` (fn only — receiver-first, emits a Go method)
 }
 
 // parseFnDecl parses a fn declaration or signature:
 //
 //	"fn" ident fn-param { fn-param } "->" type-expr [ "=" expr ]
 //
+// An @method declaration puts the receiver parameter before the
+// name: "fn" "(" pat ":" type ")" ident fn-param { fn-param }
+// "->" type-expr [ "=" expr ].
+//
 // The "=" body is required in .gom and forbidden in .gomi.
 func (p *parser) parseFnDecl(attrs declAttrs, doc *Comment) Decl {
 	start := p.next() // 'fn'
+	var recv *Param
+	if attrs.method {
+		if !p.at(tokLParen) {
+			p.errf(p.spanOf(p.cur()),
+				"an \"@method\" declaration starts with the receiver: fn (recv: Type) name ...")
+		} else {
+			r := p.parseFnParam()
+			recv = &r
+		}
+	}
 	nameTok := p.cur()
 	var name *Ident
 	switch nameTok.kind {
@@ -628,6 +652,9 @@ func (p *parser) parseFnDecl(attrs declAttrs, doc *Comment) Decl {
 		}
 	}
 	params := p.parseFnParams()
+	if recv != nil {
+		params = append([]Param{*recv}, params...)
+	}
 	var ret TypeExpr
 	if p.at(tokArrow) {
 		p.next()
@@ -643,6 +670,7 @@ func (p *parser) parseFnDecl(attrs declAttrs, doc *Comment) Decl {
 		TestOnly: attrs.testOnly,
 		TailRec:  attrs.tailRec,
 		Extern:   attrs.extern,
+		Method:   attrs.method,
 		Name:     name,
 		Params:   params,
 		Ret:      ret,

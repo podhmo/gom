@@ -55,6 +55,10 @@ type FuncDecl struct {
 	// references emit it consistently, but codegen emits nothing —
 	// the body is hand-written Go in the same package.
 	Extern bool
+	// Method marks an `@method fn` (decisions/2026-11-21-go-iface-impl):
+	// Fn.Params[0] is the receiver and codegen additionally emits a
+	// forwarding Go method on the receiver's record type.
+	Method bool
 	Fn     *Func
 }
 

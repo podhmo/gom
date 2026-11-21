@@ -592,6 +592,14 @@ Go の API が引数・フィールドに持つ `func(A, B) R` 型は `Go.FuncN`
 
 メソッドを持たない named func 型（`context.CancelFunc`、`fs.WalkDirFunc` など `type F func(...)`）は underlying の func 型そのものに読まれる — `context.CancelFunc` は `Go.Func0` として読まれ、`Go.fn0` での呼び出し・`Go.func0` 値の named パラメータ・型注釈への受け渡しが unnamed の func 型と同じ規則で通る（[decisions/named-func-types](decisions/2026-11-21-named-func-types.md)）。この読み替えは Go の代入規則が named と unnamed を両立させる位置 — シグネチャのパラメータ・戻り値のトップレベル、メンバーの宣言型、構造体フィールド — に限る。コンテナ要素（`[]F`・`*F`・`map[K]F`・`chan F`）や func 型の内側の引数・戻り値では名前が載っているので名前的な型 `pkg.F` のまま読む（`[]F` と `[]func()` は別の Go 型なので）。`Go.FuncN` 値は Go の interface パラメータ（`any`・`interface{}` など）に渡せ、`Go.conv f : Go.Any` も受理する — 境界の型関係は `Go.FuncN` を実際の func シグネチャとして検査する。メソッドを持つ named func 型（`http.HandlerFunc` の `ServeHTTP` など）は名前的な型 `pkg.F` のまま — `Go.fnN` には渡せない（E0510）が、そのメソッドは呼べるし、`Go.conv f : pkg.F` で `Go.FuncN` 値から named キャストできる。`Go.conv` の逆向き（`pkg.F` や `Go.FuncN` から Gom の `Func` 型へ）は `Go.fnN` の仕事なので、func 型どうしの形の違うペアは E0507 で拒否する。
 
+### 8.9 Go インターフェースの実装 `@method`
+
+自分の record 型（単一フィールド record 由来の defined type を含む）に Go のメソッドを生やして、Go の interface に適合させられる（[decisions/go-iface-impl](decisions/2026-11-21-go-iface-impl.md)）。`@method` を付けた `fn` はレシーバを先頭に書く — `fn (r: T) name (p1: A) -> R`。Gom の中ではふつうの関数 `name` として呼び、シグネチャのパラメータ位置はレシーバを含む。emit では 2 つ出力される: ふつうの Go 関数と、それに転送する薄い Go メソッド（`func (r T) Name(p1 A) R { return name(r, p1) }`）。メソッド名は `ExportName`（`string` → `String`、`error` → `Error`）。`Unit` のダミーパラメータはメソッド側では落とされる。
+
+record の値は、その `@method` 集合が要求される Go interface のメソッド集合を（名前・シグネチャが `types.Equal` で）含むとき、interface が期待される位置にそのまま渡せる — `let s : fmt.Stringer = g`、`Go.conv`、interface を引数に取る Go 呼出し。Gom 側からメソッドを呼ぶ構文はなく、`name r` の関数適用がそのまま。
+
+制約 — 違反は E0420: レシーバは自分のパッケージの record 型（`Ptr T` 可、型パラメータを持つ record 不可 — Go メソッドは型引数を取れない）、`@extern` との併用不可、`Result` 返り不可（メソッドの error 返却は Result 折り畳みと衝突するため）。`.gomi` は `@method` 行をそのまま保持し、インポート側でも同じメソッド集合として見える。
+
 ---
 
 ## 9. 失敗し得る処理のパイプ `|?>`
