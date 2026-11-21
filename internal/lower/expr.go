@@ -3147,8 +3147,11 @@ func (l *lowerer) recordLit(s *seq, e *check.RecordLit) core.Expr {
 	if _, ok := l.singleField(e.Type()); ok {
 		// One-field record → defined type `type X F`: both `{f = v}`
 		// and `{base with f = v}` are the conversion `X(v)` — there
-		// is no struct to build or copy. base still bound above for
-		// ordering.
+		// is no struct to build or copy. The base's value is unused
+		// but it still evaluates for its effects, like a stmt.
+		if e.With != nil {
+			l.stmt(s, e.With)
+		}
 		return &core.Conv{
 			Sp: e.Sp, Typ: e.Type(), Kind: core.ConvNamed,
 			X: fields[0].Value,
