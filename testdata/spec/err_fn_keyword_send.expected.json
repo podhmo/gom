@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0106",
+      "severity": "error",
+      "message": "\"send\" is a reserved word and cannot be used as a name (spec section 1.8 lists the keywords)",
+      "span": {
+        "file": "err_fn_keyword_send.gom",
+        "start": {
+          "line": 5,
+          "col": 4,
+          "offset": 101
+        },
+        "end": {
+          "line": 5,
+          "col": 8,
+          "offset": 105
+        }
+      }
+    }
+  ]
+}

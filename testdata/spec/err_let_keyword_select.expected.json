@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0106",
+      "severity": "error",
+      "message": "\"select\" is a reserved word and cannot be used as a name (spec section 1.8 lists the keywords)",
+      "span": {
+        "file": "err_let_keyword_select.gom",
+        "start": {
+          "line": 5,
+          "col": 7,
+          "offset": 88
+        },
+        "end": {
+          "line": 5,
+          "col": 13,
+          "offset": 94
+        }
+      }
+    }
+  ]
+}

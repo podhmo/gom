@@ -1,0 +1,7 @@
+package ex
+
+// spec 1.8: a keyword cannot name a let binding.
+fn f () -> Unit = {
+  let select = 1
+  ignore 2
+}

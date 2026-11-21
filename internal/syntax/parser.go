@@ -131,6 +131,18 @@ func (p *parser) errf(sp diag.Span, format string, args ...any) {
 	p.diags.Add(diag.Error("E0101", fmt.Sprintf(format, args...)).At(sp))
 }
 
+// errReserved reports an E0106 — a keyword in a binding position —
+// then consumes the token and returns its text so the parse can
+// carry on as if the word were the intended name: one diagnostic
+// instead of a cascade of E0101s at every later token.
+func (p *parser) errReserved(t token) *Ident {
+	p.diags.Add(diag.Error("E0106",
+		fmt.Sprintf("\"%s\" is a reserved word and cannot be used as a name (spec section 1.8 lists the keywords)",
+			p.text(t))).At(p.spanOf(t)))
+	p.next()
+	return &Ident{Sp: p.spanOf(t), Name: p.text(t)}
+}
+
 // expected reports "expected X, found Y" at the current token and
 // returns false. It does not consume the token (insert-missing):
 // the caller continues as if the expected token were present.
@@ -461,6 +473,14 @@ func (p *parser) parsePackageDecl() *Ident {
 // ------------------------------------------------------------------
 // top-level declarations
 
+// nameKeyword reports whether k is a keyword a binding position
+// admits — errReserved reports E0106 for it and consumes it as the
+// name. Declaration starters stay out: `fn\nlet b = 2` keeps `let`
+// for the next decl instead of swallowing it as the fn's name.
+func nameKeyword(k tokenKind) bool {
+	return k.isKeyword() && !declStart(k)
+}
+
 // declStart reports whether k begins a top-level declaration or an
 // attribute.
 func declStart(k tokenKind) bool {
@@ -600,8 +620,12 @@ func (p *parser) parseFnDecl(attrs declAttrs, doc *Comment) Decl {
 		}
 		name = &Ident{Sp: p.spanOf(nameTok), Name: p.text(nameTok)}
 	default:
-		p.expected("a function name")
-		name = &Ident{Sp: diag.Point(p.file, p.cur().start), Name: "_"}
+		if nameKeyword(nameTok.kind) {
+			name = p.errReserved(nameTok)
+		} else {
+			p.expected("a function name")
+			name = &Ident{Sp: diag.Point(p.file, p.cur().start), Name: "_"}
+		}
 	}
 	params := p.parseFnParams()
 	var ret TypeExpr
@@ -780,14 +804,21 @@ func (p *parser) parseTypeDecl(doc *Comment) Decl {
 	if nameTok.kind == tokUIdent {
 		p.next()
 		name = &Ident{Sp: p.spanOf(nameTok), Name: p.text(nameTok)}
+	} else if nameKeyword(nameTok.kind) {
+		name = p.errReserved(nameTok)
 	} else {
 		p.expected("a type name (uppercase identifier)")
 		name = &Ident{Sp: diag.Point(p.file, p.cur().start), Name: "_"}
 	}
 	var params []*Ident
-	for p.at(tokIdent) {
-		t := p.next()
-		params = append(params, &Ident{Sp: p.spanOf(t), Name: p.text(t)})
+	for p.at(tokIdent) || nameKeyword(p.kind()) {
+		t := p.cur()
+		if nameKeyword(t.kind) {
+			params = append(params, p.errReserved(t))
+		} else {
+			p.next()
+			params = append(params, &Ident{Sp: p.spanOf(t), Name: p.text(t)})
+		}
 	}
 	d := &TypeDecl{
 		Sp:     diag.SpanIn(p.file, start.start, p.prevEnd()),
@@ -915,9 +946,14 @@ func (p *parser) parseImportDecl() Decl {
 		isGo = true
 	}
 	var alias *Ident
-	if p.at(tokIdent) && p.peek(1).kind == tokString {
-		t := p.next()
-		alias = &Ident{Sp: p.spanOf(t), Name: p.text(t)}
+	if (p.at(tokIdent) || nameKeyword(p.kind())) && p.peek(1).kind == tokString {
+		t := p.cur()
+		if nameKeyword(t.kind) {
+			alias = p.errReserved(t)
+		} else {
+			p.next()
+			alias = &Ident{Sp: p.spanOf(t), Name: p.text(t)}
+		}
 	}
 	t := p.cur()
 	var path string
@@ -1035,6 +1071,8 @@ func (p *parser) parseExternItem() ExternEntry {
 	if nameTok.kind == tokIdent || nameTok.kind == tokUIdent {
 		p.next()
 		name = &Ident{Sp: p.spanOf(nameTok), Name: p.text(nameTok)}
+	} else if nameKeyword(nameTok.kind) {
+		name = p.errReserved(nameTok)
 	} else {
 		p.expected("a function name")
 		name = &Ident{Sp: diag.Point(p.file, p.cur().start), Name: "_"}
