@@ -49,7 +49,9 @@ func applied(_ struct{}) func(int64) int64 {
 //line builtin_fn_typearg.gom:10
 	}
 //line builtin_fn_typearg.gom:10
-	return rt.ScopeRun[func(int64) int64](tmp6)
+	tmp10 := rt.NewScope()
+//line builtin_fn_typearg.gom:10
+	return tmp6(tmp10)
 //line builtin_fn_typearg.gom:10
 }
 

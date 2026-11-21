@@ -740,16 +740,18 @@ fn main () -> Unit = ignore (work true)
 - `defer` always runs; `on_err` runs only on an `Err` body or a
   panic; `defer_err` (GoError only) joins cleanup errors into an
   `Ok` result with `errors.Join` — the body's own `Err` wins.
-- The handle may not leave its body (E0418): no returning it, no
+- The handle may not leave its body (E0419): no returning it, no
   storing it in a record/constructor/`Ref`, no `Scope` type
   argument, no capturing it in a lambda that escapes (`Task.spawn`,
   Go functions, a cleanup of an outer scope). Passing `s` to a
   helper `fn` is fine; so is a lambda given to a non-escaping
-  parameter (`List.iter`, or a same-package `fn` inferred so).
-- A `.gomi` promises non-escaping parameters with
-  `@noescape(f)` before the `fn`; `gom info` drafts it.
+  parameter (a same-package `fn` inferred so, or an imported fn
+  whose `.gomi` says so).
+- A `.gomi` promises non-escaping parameters with a
+  `//gom:noescape <name> <index>...` directive comment; `gom info`
+  drafts it. No directive means "assume escaping".
 
-```gom fail=E0418
+```gom fail=E0419
 package main
 
 fn leak () -> Scope = Scope.run <| fn s -> s   // NG: the handle escapes
