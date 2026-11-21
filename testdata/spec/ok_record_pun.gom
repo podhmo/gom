@@ -1,0 +1,21 @@
+package main
+
+import go "fmt"
+
+type Point = { x: Int, y: Int }
+type Wrap = { w: Int }
+
+// A record field written bare is a pun: `{x, y}` is `{x = x, y = y}`.
+// `{x}` alone stays a block, so a one-field pun needs a trailing
+// comma: `{w,}`.
+fn mk (x: Int) (y: Int) -> Point = {x, y}
+
+fn move (p: Point) (x: Int) -> Point = { p with x }
+
+fn single (w: Int) -> Wrap = { w, }
+
+fn main () -> Unit = {
+  let p = mk 1 2
+  let { x, y } = p
+  ignore (fmt.Println (x + y))
+}

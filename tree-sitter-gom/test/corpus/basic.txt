@@ -2452,3 +2452,182 @@ let inc = fn (x: Int) -> x + 1
                                 (atom
                                   (literal
                                     (int_literal)))))))))))))))))))
+
+================================================================================
+punned record fields
+================================================================================
+
+package m
+
+type Point = { x: Int, y: Int }
+
+fn f (x: Int) (y: Int) -> Point = { x, y }
+
+fn g (p: Point) (x: Int) -> Point = { p with x }
+
+let q = { x }
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (package_decl
+    (ident))
+  (type_decl
+    name: (uident)
+    (type_body
+      (record_type
+        (record_field
+          (ident)
+          (type_expr
+            (arrow_type
+              (app_type
+                (type_atom
+                  (uident))))))
+        (record_field
+          (ident)
+          (type_expr
+            (arrow_type
+              (app_type
+                (type_atom
+                  (uident)))))))))
+  (fn_decl
+    (fn_sig
+      name: (ident)
+      (fn_param
+        (pattern
+          (or_pattern
+            (ctor_pattern
+              (pat_atom
+                (ident)))))
+        (type_expr
+          (arrow_type
+            (app_type
+              (type_atom
+                (uident))))))
+      (fn_param
+        (pattern
+          (or_pattern
+            (ctor_pattern
+              (pat_atom
+                (ident)))))
+        (type_expr
+          (arrow_type
+            (app_type
+              (type_atom
+                (uident))))))
+      (type_expr
+        (arrow_type
+          (app_type
+            (type_atom
+              (uident))))))
+    (expr
+      (ascribed_expr
+        (pipe_expr
+          (bool_or_expr
+            (bool_and_expr
+              (rel_expr
+                (add_expr
+                  (mul_expr
+                    (unary_expr
+                      (apply_expr
+                        (postfix_expr
+                          (atom
+                            (brace_expr
+                              (record_literal
+                                (punned_field
+                                  (ident))
+                                (punned_field
+                                  (ident)))))))))))))))))
+  (fn_decl
+    (fn_sig
+      name: (ident)
+      (fn_param
+        (pattern
+          (or_pattern
+            (ctor_pattern
+              (pat_atom
+                (ident)))))
+        (type_expr
+          (arrow_type
+            (app_type
+              (type_atom
+                (uident))))))
+      (fn_param
+        (pattern
+          (or_pattern
+            (ctor_pattern
+              (pat_atom
+                (ident)))))
+        (type_expr
+          (arrow_type
+            (app_type
+              (type_atom
+                (uident))))))
+      (type_expr
+        (arrow_type
+          (app_type
+            (type_atom
+              (uident))))))
+    (expr
+      (ascribed_expr
+        (pipe_expr
+          (bool_or_expr
+            (bool_and_expr
+              (rel_expr
+                (add_expr
+                  (mul_expr
+                    (unary_expr
+                      (apply_expr
+                        (postfix_expr
+                          (atom
+                            (brace_expr
+                              (record_update
+                                (expr
+                                  (ascribed_expr
+                                    (pipe_expr
+                                      (bool_or_expr
+                                        (bool_and_expr
+                                          (rel_expr
+                                            (add_expr
+                                              (mul_expr
+                                                (unary_expr
+                                                  (apply_expr
+                                                    (postfix_expr
+                                                      (atom
+                                                        (ident)))))))))))))
+                                (punned_field
+                                  (ident)))))))))))))))))
+  (let_decl
+    (pattern
+      (or_pattern
+        (ctor_pattern
+          (pat_atom
+            (ident)))))
+    (expr
+      (ascribed_expr
+        (pipe_expr
+          (bool_or_expr
+            (bool_and_expr
+              (rel_expr
+                (add_expr
+                  (mul_expr
+                    (unary_expr
+                      (apply_expr
+                        (postfix_expr
+                          (atom
+                            (brace_expr
+                              (block
+                                (block_item
+                                  (expr
+                                    (ascribed_expr
+                                      (pipe_expr
+                                        (bool_or_expr
+                                          (bool_and_expr
+                                            (rel_expr
+                                              (add_expr
+                                                (mul_expr
+                                                  (unary_expr
+                                                    (apply_expr
+                                                      (postfix_expr
+                                                        (atom
+                                                          (ident))))))))))))))))))))))))))))))

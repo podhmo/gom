@@ -218,6 +218,17 @@ func (p *printer) recordLit(r *syntax.RecordLit) *doc {
 	items := make([]item, 0, len(r.Fields))
 	for i := range r.Fields {
 		f := &r.Fields[i]
+		if f.Punned {
+			d := text(f.Name.Name)
+			// A lone punned field must keep a trailing comma — the
+			// flat shape drops trailSep, and "{ w }" would re-parse
+			// as a block. ("{p with x}" needs no comma.)
+			if len(r.Fields) == 1 && r.Base == nil {
+				d = concat(d, text(","))
+			}
+			items = append(items, item{lo: f.Sp.Start, hi: f.Name.Span().End, d: d})
+			continue
+		}
 		mid := p.gapInline(f.Name.Span().End, f.Value.Span().Start)
 		d := concat(text(f.Name.Name+" ="+pad(mid)), p.expr(f.Value, pAny, false))
 		items = append(items, item{lo: f.Sp.Start, hi: f.Value.Span().End, d: p.sweep(f.Sp.Start, f.Value.Span().End, d)})

@@ -508,7 +508,12 @@ func (d *dumper) expr(e syntax.Expr) *form {
 			kids = append(kids, nodef("with", d.expr(e.Base)))
 		}
 		for _, f := range e.Fields {
-			kids = append(kids, nodef("field"+at(f.Sp)+" "+d.nameText(f.Name), d.expr(f.Value)))
+			text := "field" + at(f.Sp) + " " + d.nameText(f.Name)
+			if f.Punned {
+				kids = append(kids, nodef(text+" :pun"))
+			} else {
+				kids = append(kids, nodef(text, d.expr(f.Value)))
+			}
 		}
 		return nodef("record"+at(e.Sp), kids...)
 	default:
