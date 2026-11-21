@@ -526,11 +526,14 @@ func isFuncType(t types.Type) bool {
 // it. Any other argument is evaluated on the spot, and a Scope in its
 // value's type is reported by the type rule.
 func (se *scopeEsc) heldScope(e Expr) *Var {
+	if v, ok := e.(*Var); !ok && isScope(e.Type()) {
+		// A computed Scope (`if c then s else t`) is retained too.
+		scope, _ := se.captures(e, e.Span())
+		return scope
+	} else if ok && isScope(v.Type()) {
+		return v
+	}
 	switch e := e.(type) {
-	case *Var:
-		if isScope(e.Type()) {
-			return e
-		}
 	case *Lambda:
 		scope, _ := se.captures(e.Body, e.Sp)
 		return scope

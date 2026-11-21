@@ -42,3 +42,7 @@ fn later (x: a) (g: a -> Unit) -> (Unit -> Unit) = fn () -> g x
 
 fn hidden () -> Unit -> Unit =
   Scope.run <| fn s -> later s (fn t -> Scope.defer t (fn () -> ()))
+
+// A Scope computed by an expression is held as well.
+fn partial_if (c: Bool) -> (Unit -> Unit) -> Unit =
+  Scope.run <| fn s -> reg (if c { s } else { s })

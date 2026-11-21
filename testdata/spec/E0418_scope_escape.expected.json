@@ -227,6 +227,29 @@
         "reason": "instantiate",
         "type": "Scope"
       }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0418",
+      "severity": "error",
+      "message": "a partial application holding Scope `s` escapes its scope",
+      "span": {
+        "file": "E0418_scope_escape.gom",
+        "start": {
+          "line": 48,
+          "col": 24,
+          "offset": 1530
+        },
+        "end": {
+          "line": 48,
+          "col": 51,
+          "offset": 1557
+        }
+      },
+      "data": {
+        "name": "s",
+        "reason": "capture"
+      }
     }
   ]
 }
