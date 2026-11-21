@@ -1,0 +1,71 @@
+package main
+
+import go "fmt"
+import go "os"
+import go "strings"
+
+type Counts = { ok: Int, broken: Int, unreachable: Int, timed_out: Int }
+
+fn count (outcomes: List Outcome) -> Counts = (List.fold
+  (fn c o ->
+    match o.verdict {
+      Alive _ -> { c with ok = c.ok + 1 }
+      Broken _ -> { c with broken = c.broken + 1 }
+      Failed _ -> { c with unreachable = c.unreachable + 1 }
+      Timeout -> { c with timed_out = c.timed_out + 1 }
+    })
+  { ok = 0, broken = 0, unreachable = 0, timed_out = 0 }
+  outcomes)
+
+fn line (o: Outcome) -> String = {
+  let mark = match o.verdict {
+    Alive status -> "ok    ${status}"
+    Broken status -> "FAIL  ${status}"
+    Failed message -> "FAIL  ${message}"
+    Timeout -> "FAIL  timed out"
+  }
+  "${mark}  ${o.target.url}  [${strings.Join (o.target.refs, ", ")}]"
+}
+
+// `ok` lines appear only with --all; every other verdict always prints.
+// The process exit code is the report's return value.
+fn report (show_all: Bool) (outcomes: List Outcome) -> Int = {
+  for o in outcomes {
+    match o.verdict {
+      Alive _ -> if show_all { ignore fmt.Println (line o) } else { () }
+      _ -> ignore fmt.Println (line o)
+    }
+  }
+  let c = count outcomes
+  ignore fmt.Fprintf (
+    os.Stderr,
+    "%d urls checked: %d ok, %d broken, %d unreachable, %d timed out\n",
+    List.length outcomes,
+    c.ok,
+    c.broken,
+    c.unreachable,
+    c.timed_out,
+  )
+  if c.broken + c.unreachable + c.timed_out > 0 { 1 } else { 0 }
+}
+
+test "line renders the verdict and every ref" {
+  let o = {
+    index = 0,
+    target = { index = 0, url = "https://x/", refs = ["a.md", "b.md"] },
+    verdict = Broken 404,
+  }
+  assert_eq (line o) "FAIL  404  https://x/  [a.md, b.md]"
+}
+
+test "count tallies by verdict" {
+  let t = { index = 0, url = "u", refs = [] }
+  let c =
+    count [
+      { index = 0, target = t, verdict = Alive 200 },
+      { index = 1, target = t, verdict = Broken 404 },
+      { index = 2, target = t, verdict = Failed "refused" },
+      { index = 3, target = t, verdict = Timeout },
+    ]
+  assert_eq c { ok = 1, broken = 1, unreachable = 1, timed_out = 1 }
+}
