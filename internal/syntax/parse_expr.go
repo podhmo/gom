@@ -301,6 +301,13 @@ func (p *parser) parseAppArg(nb bool) Arg {
 	if p.at(tokTilde) {
 		p.next()
 		nameTok := p.cur()
+		if nameTok.kind == tokDotDot {
+			// `~..e` — record spread: the record's fields become
+			// labeled arguments matched by name.
+			p.next()
+			v := p.parseAppArgValue(nb)
+			return Arg{Sp: p.span(start, v.Span().End), Value: v, Spread: true}
+		}
 		if nameTok.kind != tokIdent {
 			p.expected("a label name after \"~\"")
 			v := p.parsePostfix(nb)

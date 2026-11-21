@@ -1,0 +1,6 @@
+package ex
+
+fn move (~dx: Int) (~dy: Int) -> Int = dx + dy
+
+// spec section 2 rule 9: only a record spreads into labeled params.
+let x = move ~..[1, 2]

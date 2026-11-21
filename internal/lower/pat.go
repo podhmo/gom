@@ -756,6 +756,12 @@ func (l *lowerer) armLeaf(w *armState, rest []*armState, subj core.Atom, s *seq,
 // substitution, or the synthetic leaf callback.
 func (l *lowerer) armBody(w *armState, subst map[*resolve.Symbol]*resolve.Symbol) *core.Body {
 	bs := &seq{}
+	// An or-pattern's alternatives share the checked body but each
+	// gets its own lowering — a `~..` spread receiver bound for one
+	// arm is out of scope in the next.
+	savedShare := l.recvShare
+	l.recvShare = nil
+	defer func() { l.recvShare = savedShare }()
 	l.pushSubst(subst)
 	var tail core.Expr
 	if w.leaf != nil {

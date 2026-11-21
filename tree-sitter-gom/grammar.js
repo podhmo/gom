@@ -275,6 +275,8 @@ module.exports = grammar({
       $.arg_expr,
       prec(1, seq('~', $.ident, ':', $.arg_expr)),
       seq('~', $.ident),
+      // `~..e` — record spread: fields feed labeled params by name.
+      seq('~', '..', $.arg_expr),
     ),
 
     // The direct paren_expr branch wins over the atom path so that in

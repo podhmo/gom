@@ -420,6 +420,12 @@ type lowerer struct {
 	typeD map[string]*check.TypeDecl
 	ctorT map[*resolve.Symbol]*check.TypeDecl
 
+	// recvShare memoizes a member receiver's binding inside one
+	// call's argument lowering — the field reads a `~..` spread
+	// expands to share one checked Recv node, and it must evaluate
+	// once. nil outside argAtoms.
+	recvShare map[check.Expr]core.Atom
+
 	tmpSeq int
 
 	// builtins interns symbols lowering synthesises (builtin

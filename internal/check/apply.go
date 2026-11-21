@@ -2,6 +2,7 @@ package check
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/podhmo/gom/internal/diag"
 	"github.com/podhmo/gom/internal/resolve"
@@ -344,6 +345,10 @@ func (c *checker) checkGomApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol
 	}
 
 	for _, a := range e.Args {
+		if a.Spread {
+			c.spreadRecordArgs(a, fn, params, used, out, &argToParam, &unmapped)
+			continue
+		}
 		label := ""
 		var labelSp diag.Span
 		if a.Label != nil {
@@ -580,6 +585,110 @@ func (c *checker) overApply(ret types.Type, extras []Expr, extraIdx []int, args 
 	return rret
 }
 
+// spreadRecordArgs expands a `~..e` argument: the record's fields
+// become labeled arguments matched to the callee's labeled
+// parameters by name (spec section 2). The record expression checks
+// once, so its effects evaluate once — each field reads it through
+// a MemberExpr. Positional parameters are out of reach for a field
+// name (paramByLabel only sees labeled slots); mixing a spread with
+// positional arguments is fine because each fill an independent
+// slot.
+func (c *checker) spreadRecordArgs(a syntax.Arg, fn Expr, params []types.FuncParam,
+	used []bool, out *Apply, argToParam *[]int, unmapped *bool) {
+	x := c.checkExpr(a.Value, nil)
+	c.spreadApply(x, a.Sp, fn, params, used, out, argToParam, unmapped)
+}
+
+// spreadApply expands a checked `~..e` record value — the
+// convention-decided half of spreadRecordArgs, shared by the
+// deferred-apply replay (which carries an already-checked Value).
+func (c *checker) spreadApply(x Expr, sp diag.Span, fn Expr, params []types.FuncParam,
+	used []bool, out *Apply, argToParam *[]int, unmapped *bool) {
+	con, ok := types.Chase(x.Type()).(*types.Con)
+	var ti *typeInfo
+	if ok {
+		ti = c.tyCons[conKey{qual: con.Qual, name: con.Name}]
+	}
+	if ti == nil || ti.kind != kindRecord {
+		c.diags.Add(diag.Error("E0418",
+			"a `~..` argument must be a record value").At(sp))
+		*unmapped = true
+		return
+	}
+	sub := types.Subst{}
+	for i, v := range ti.params {
+		if i < len(con.Args) {
+			sub[v.ID] = con.Args[i]
+		}
+	}
+	// A spread can only fill labeled slots: on an unresolved
+	// function type, or a callee with no flat parameters, there is
+	// nothing to match — E0408 once, not per field.
+	if _, unresolved := types.Chase(fn.Type()).(*types.Meta); unresolved || len(params) == 0 {
+		c.diags.Add(diag.Error("E0408",
+			"a labeled call requires the callee's type to be known").At(sp))
+		*unmapped = true
+		return
+	}
+	for _, fi := range ti.fields {
+		sel := &syntax.Ident{Sp: sp, Name: fi.name}
+		argExpr := &MemberExpr{
+			Base:  baseOf(sp, sub.Apply(fi.typ)),
+			Recv:  x,
+			Sel:   sel,
+			Sym:   fi.sym,
+			Index: fi.index,
+		}
+		var arg Expr = argExpr
+		pi := c.paramByLabel(params, fi.name)
+		switch {
+		case pi < 0:
+			c.diags.Add(diag.Error("E0406",
+				fmt.Sprintf("the callee has no parameter labeled `~%s`", fi.name)).
+				At(sp).Set("label", fi.name))
+			*argToParam = append(*argToParam, -1)
+			*unmapped = true
+		case used[pi]:
+			c.diags.Add(diag.Error("E0405",
+				fmt.Sprintf("the label `~%s` is supplied twice", fi.name)).
+				At(sp).Set("label", fi.name))
+			*argToParam = append(*argToParam, -1)
+			*unmapped = true
+		default:
+			used[pi] = true
+			// conformExpr, not bare unify — a spread field needs
+			// the same implicit conversions as a written argument
+			// (`List` → `Go.Slice`, interface boxing, ...).
+			arg = c.conformExpr(argExpr, params[pi].Type, sp)
+			*argToParam = append(*argToParam, pi)
+		}
+		out.Args = append(out.Args, Arg{Label: fi.name, LabelSp: sp, Value: arg})
+	}
+}
+
+// goSpreadParams returns the parameter list a `~..e` expansion
+// matches against at a Go call: the variadic tail reads as its
+// element type (each spread field supplies one element, matching
+// the lowered goParamTypeAt shape), and every parameter's want is
+// registered so chanDirConv sees the boundary during the
+// expansion. The returned func lifts the registrations.
+func (c *checker) goSpreadParams(goParams []types.FuncParam, variadic bool, arity int, sp diag.Span) ([]types.FuncParam, func()) {
+	ps := goParams
+	if variadic && arity > 0 {
+		ps = slices.Clone(goParams)
+		ps[arity-1].Type = sliceElemOf(goParams[arity-1].Type, sp, c)
+	}
+	undos := make([]func(), 0, len(ps))
+	for _, p := range ps {
+		undos = append(undos, c.goWant(p.Type))
+	}
+	return ps, func() {
+		for _, u := range undos {
+			u()
+		}
+	}
+}
+
 // paramByLabel finds the index of a labeled parameter, or -1.
 func (c *checker) paramByLabel(params []types.FuncParam, label string) int {
 	for i, p := range params {
@@ -632,6 +741,7 @@ func (c *checker) checkGoApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol,
 		labelSp diag.Span
 		sp      diag.Span
 		x       syntax.Expr
+		spread  bool // `~..e` — record fields feed labeled Go params
 	}
 	var gargs []garg
 	one := len(e.Args) == 1
@@ -665,7 +775,7 @@ func (c *checker) checkGoApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol,
 				panic("unreachable")
 			}
 		}
-		gargs = append(gargs, garg{label: label, labelSp: lsp, sp: a.Sp, x: v})
+		gargs = append(gargs, garg{label: label, labelSp: lsp, sp: a.Sp, x: v, spread: a.Spread})
 	}
 
 	used := make([]bool, arity)
@@ -679,6 +789,20 @@ func (c *checker) checkGoApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol,
 
 	for gi, g := range gargs {
 		last := gi == len(gargs)-1
+		if g.spread {
+			// `~..e` maps record fields onto the Go callee's labeled
+			// params by name — same expansion as a Gom call.
+			x := c.checkExpr(g.x, nil)
+			tmp := &Apply{}
+			var spMap []int
+			var unm bool
+			sp, undo := c.goSpreadParams(goParams, variadic, arity, g.sp)
+			c.spreadApply(x, g.sp, fn, sp, used, tmp, &spMap, &unm)
+			undo()
+			out.Args = append(out.Args, tmp.Args...)
+			mapping = append(mapping, spMap...)
+			continue
+		}
 		pi := -1
 		if g.label != "" {
 			pi = c.paramByLabel(goParams, g.label)
@@ -988,7 +1112,8 @@ func (c *checker) checkDeferredApply(e *syntax.Apply, me *MemberExpr) Expr {
 		}
 		out.Args = append(out.Args, Arg{
 			Label: label, LabelSp: labelSp,
-			Value: c.provisionalArg(a.Value, pa),
+			Value:  c.provisionalArg(a.Value, pa),
+			Spread: a.Spread,
 		})
 	}
 	// The provisional CallInfo claims nothing: a CallUnknown with no
@@ -1148,6 +1273,7 @@ func (c *checker) replayGoApply(pa *pendingApply) {
 		labelSp diag.Span
 		sp      diag.Span
 		x       Expr
+		spread  bool // `~..e` — expand to labeled args at replay
 	}
 	var gargs []garg
 	one := len(e.Args) == 1
@@ -1165,7 +1291,7 @@ func (c *checker) replayGoApply(pa *pendingApply) {
 				continue // `f()` — no Go arguments
 			}
 		}
-		gargs = append(gargs, garg{label: a.Label, labelSp: a.LabelSp, sp: a.Span(), x: a.Value})
+		gargs = append(gargs, garg{label: a.Label, labelSp: a.LabelSp, sp: a.Span(), x: a.Value, spread: a.Spread})
 	}
 
 	used := make([]bool, arity)
@@ -1179,6 +1305,17 @@ func (c *checker) replayGoApply(pa *pendingApply) {
 
 	for gi, g := range gargs {
 		last := gi == len(gargs)-1
+		if g.spread {
+			tmp := &Apply{}
+			var spMap []int
+			var unm bool
+			sp, undo := c.goSpreadParams(goParams, variadic, arity, g.sp)
+			c.spreadApply(g.x, g.sp, me, sp, used, tmp, &spMap, &unm)
+			undo()
+			newArgs = append(newArgs, tmp.Args...)
+			mapping = append(mapping, spMap...)
+			continue
+		}
 		pi := -1
 		if g.label != "" {
 			pi = c.paramByLabel(goParams, g.label)
@@ -1575,6 +1712,16 @@ func (c *checker) replayGomApply(pa *pendingApply) {
 	}
 
 	for _, a := range e.Args {
+		if a.Spread {
+			// `~..e` survived the provisional pass on Arg.Spread —
+			// expand it now that the callee's convention is decided.
+			tmp := &Apply{}
+			var spMap []int
+			c.spreadApply(a.Value, a.Span(), e.Fn, params, used, tmp, &spMap, &unmapped)
+			newArgs = append(newArgs, tmp.Args...)
+			argToParam = append(argToParam, spMap...)
+			continue
+		}
 		label := a.Label
 		labelSp := a.LabelSp
 		pi := -1

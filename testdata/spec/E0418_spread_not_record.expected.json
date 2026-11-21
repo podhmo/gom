@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0418",
+      "severity": "error",
+      "message": "a `~..` argument must be a record value",
+      "span": {
+        "file": "E0418_spread_not_record.gom",
+        "start": {
+          "line": 6,
+          "col": 14,
+          "offset": 142
+        },
+        "end": {
+          "line": 6,
+          "col": 23,
+          "offset": 151
+        }
+      }
+    }
+  ]
+}

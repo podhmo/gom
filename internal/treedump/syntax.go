@@ -529,6 +529,9 @@ func (d *dumper) arg(a syntax.Arg) *form {
 	if a.Punned {
 		text += " :pun"
 	}
+	if a.Spread {
+		text += " :spread"
+	}
 	return nodef(text, d.expr(a.Value))
 }
 

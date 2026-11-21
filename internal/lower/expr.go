@@ -51,6 +51,22 @@ func (l *lowerer) atom(s *seq, e check.Expr) core.Atom {
 	return l.asAtom(s, e.Span(), l.expr(s, e))
 }
 
+// recvAtom is atom for a member selection's receiver: inside
+// argAtoms the same checked node lowers once (a `~..` spread shares
+// its Recv across the expanded field reads).
+func (l *lowerer) recvAtom(s *seq, e check.Expr) core.Atom {
+	if l.recvShare != nil {
+		if a, ok := l.recvShare[e]; ok {
+			return a
+		}
+	}
+	a := l.atom(s, e)
+	if l.recvShare != nil {
+		l.recvShare[e] = a
+	}
+	return a
+}
+
 func (l *lowerer) asAtom(s *seq, sp diag.Span, x core.Expr) core.Atom {
 	if a, ok := x.(core.Atom); ok {
 		return a
@@ -343,7 +359,7 @@ func (l *lowerer) memberExpr(s *seq, e *check.MemberExpr) core.Expr {
 	switch e.Sym.Kind {
 	case resolve.KindField:
 		if e.GoFieldType != nil {
-			raw := &core.FieldGet{Sp: e.Sp, Typ: e.GoFieldType, Recv: l.atom(s, e.Recv), Field: e.Sym, Index: e.Index}
+			raw := &core.FieldGet{Sp: e.Sp, Typ: e.GoFieldType, Recv: l.recvAtom(s, e.Recv), Field: e.Sym, Index: e.Index}
 			// Go fields may mutate (and nil pointer reads may panic). Snapshot
 			// the selector now, before later source operands execute.
 			bind := l.tmpBind(e.Sp, e.GoFieldType)
@@ -369,7 +385,7 @@ func (l *lowerer) memberExpr(s *seq, e *check.MemberExpr) core.Expr {
 		}
 		fg := &core.FieldGet{
 			Base:  baseOf(e),
-			Recv:  l.atom(s, e.Recv),
+			Recv:  l.recvAtom(s, e.Recv),
 			Field: e.Sym, Index: idx, Ctor: e.Ctor,
 		}
 		if e.Ctor == nil {
@@ -395,7 +411,7 @@ func (l *lowerer) memberExpr(s *seq, e *check.MemberExpr) core.Expr {
 		}
 		return &core.CtorApp{Base: baseOf(e), Ctor: e.Sym, Arity: 0}
 	case resolve.KindMethod:
-		recv := l.atom(s, e.Recv)
+		recv := l.recvAtom(s, e.Recv)
 		return l.goFuncRefOrAdapter(e.Sp, e.Type(), e.Sym, recv, e.TypeArgs)
 	case resolve.KindBuiltin:
 		// A function-valued builtin member lowers like a builtin
@@ -997,6 +1013,12 @@ func (l *lowerer) argAtoms(s *seq, args []check.Arg, ci check.CallInfo, callee c
 			}
 		}
 	}
+	// A `~..e` argument expands to one field selection per field,
+	// all sharing the same checked Recv node — bind it once at its
+	// first use so the record's effects evaluate once.
+	saved := l.recvShare
+	l.recvShare = map[check.Expr]core.Atom{}
+	defer func() { l.recvShare = saved }()
 	out := make([]core.Atom, len(args))
 	for i, a := range args {
 		// Partial probes stay as if-assertions: check.Expr is a
