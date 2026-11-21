@@ -1,0 +1,146 @@
+package main
+
+import go "errors"
+import go "net/http"
+import go "time"
+
+// What one probe decided. `Timeout` is assigned by the collector to
+// targets the deadline beat — a worker never produces it.
+type Verdict =
+  | Alive Int
+  | Broken Int
+  | Failed String
+  | Timeout
+
+// A finished probe; `index` lets `ordered_outcomes` restore input
+// order at the end.
+type Outcome = { index: Int, target: Target, verdict: Verdict }
+
+// A slow or wedged server still has to answer within this bound; the
+// global deadline in `run_checks` is a separate, overall budget.
+let request_timeout = 10 * time.Second
+
+// One HEAD request, redirects followed. The client is built inside the
+// call so that nothing mutable is shared between goroutines — sharing
+// a `Ptr http.Client` through a `go` block would warn (W0702). `head`
+// is an ordinary `fn` boundary, so `try` works inside it.
+fn head (url: String) -> Result Int GoError = {
+  let client: Ptr http.Client = Ptr.new ()
+  client.Timeout = request_timeout
+  let request = try http.NewRequest ("HEAD", url, http.NoBody)
+  let response = try client.Do request
+  ignore response.Body.Close ()
+  Ok response.StatusCode
+}
+
+fn classify (r: Result Int GoError) -> Verdict = match r {
+  Ok status -> if status < 400 { Alive status } else { Broken status }
+  Err e -> Failed (e.Error ())
+}
+
+fn check_one (target: Target) -> Outcome = {
+  index = target.index,
+  target = target,
+  verdict = classify (head target.url),
+}
+
+// The fan-out/fan-in shape:
+//
+//   feeder ──jobs──▶ launcher ──per target──▶ go { check_one } ──▶ results ──▶ collect
+//                         ▲                                          ▲
+//                    slots (semaphore: at most `concurrency`     deadline
+//                    in flight at once)                       (time.After)
+//
+// The launcher takes a semaphore slot *before* spawning, so live
+// goroutines are bounded too. `results` is buffered to `n`, so a worker
+// can always finish even after the collector's deadline fires.
+fn run_checks (targets: List Target) (concurrency: Int) (timeout: time.Duration) -> List Outcome = {
+  let n = List.length targets
+  let jobs: Chan Target = Chan.make n
+  let results: Chan Outcome = Chan.make n
+  let slots: Chan Unit = Chan.make concurrency
+  go {
+    let jobs_in = Chan.recvOnly jobs
+    let results_out = Chan.sendOnly results
+    for job in jobs_in {
+      Chan.send slots ()
+      go { Chan.send results_out (check_one job); ignore Chan.recv slots }
+    }
+  }
+  for target in targets { Chan.send jobs target }
+  Chan.close jobs
+  let received = collect (Chan.recvOnly results) (time.After timeout) n []
+  ordered_outcomes targets received
+}
+
+// Receives up to `remaining` outcomes, stopping when `timer` fires.
+// `time.After` is created once before this loop: a select's arm
+// expressions are evaluated on every entry, so calling `time.After`
+// inside the loop would restart the deadline at every receive.
+fn collect (results: RecvChan Outcome) (timer: RecvChan time.Time) (remaining: Int) (acc: List Outcome) -> List Outcome = if remaining
+<= 0 { acc } else {
+  select {
+    r <- results -> match r {
+      Some outcome -> collect results timer (remaining - 1) [outcome, ..acc]
+      None -> acc
+    }
+    _ <- timer -> acc
+  }
+}
+
+// Arrival order is nondeterministic; place each outcome back at its
+// `index` so the report reads in input order. Targets with no outcome
+// are the deadline's casualties — reported as `Timeout`. (The table is
+// a Go.Map: `Array.make` of an `Option` element would hold Go nils,
+// not `None`s.)
+fn ordered_outcomes (targets: List Target) (received: List Outcome) -> List Outcome = {
+  let placed: Go.Map Int Outcome = Go.Map.make ()
+  for o in received { Go.Map.set placed o.index o }
+  targets
+  |> List.map (fn t ->
+    match Go.Map.get placed t.index {
+      Some outcome -> outcome
+      None -> { index = t.index, target = t, verdict = Timeout }
+    })
+}
+
+test "classify" {
+  assert_eq (classify (Ok 200)) (Alive 200)
+  assert_eq (classify (Ok 301)) (Alive 301)
+  assert_eq (classify (Ok 404)) (Broken 404)
+  assert_eq (classify (Err (errors.New "boom"))) (Failed "boom")
+}
+
+test "ordered_outcomes restores input order and fills gaps" {
+  let t0 = { index = 0, url = "u0", refs = ["a"] }
+  let t1 = { index = 1, url = "u1", refs = ["a"] }
+  let t2 = { index = 2, url = "u2", refs = ["a"] }
+  let got = (ordered_outcomes
+    [t0, t1, t2]
+    [
+      { index = 2, target = t2, verdict = Alive 200 },
+      { index = 0, target = t0, verdict = Broken 404 },
+    ])
+  (assert_eq
+    got
+    [
+      { index = 0, target = t0, verdict = Broken 404 },
+      { index = 1, target = t1, verdict = Timeout },
+      { index = 2, target = t2, verdict = Alive 200 },
+    ])
+}
+
+test "collect takes what arrived before the deadline" {
+  let t = { index = 0, url = "u", refs = ["a"] }
+  let results: Chan Outcome = Chan.make 2
+  Chan.send results { index = 0, target = t, verdict = Alive 200 }
+  Chan.send results { index = 1, target = t, verdict = Broken 404 }
+  let got = collect (Chan.recvOnly results) (time.After time.Hour) 2 []
+  assert_eq (List.length got) 2
+}
+
+test "collect returns early when the deadline wins" {
+  let results: Chan Outcome = Chan.make 0
+  let got = collect (Chan.recvOnly results) (time.After (1 * time.Millisecond)) 3 []
+  assert_eq got []
+}

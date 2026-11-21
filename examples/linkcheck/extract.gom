@@ -1,0 +1,76 @@
+package main
+
+import go "regexp"
+import go "strings"
+
+// A check target: the URL plus every file that references it. `index`
+// is the first-seen position and is how the checker restores input
+// order after the unordered fan-in.
+type Target = { index: Int, url: String, refs: List String }
+
+// Markdown's `[text](url)` shape falls out of the character class — the
+// closing `)` never matches — and bare URLs ending in sentence
+// punctuation are trimmed after the fact.
+let url_pattern = regexp.MustCompile "https?://[^\\s<>'\"`()\\[\\]]+"
+
+fn find_urls (text: String) -> List String =
+  url_pattern.FindAllString (text, -1)
+  |> List.map (fn u -> strings.TrimRight (u, ".,;:!?"))
+  |> List.filter (fn u -> u != "http://" && u != "https://")
+
+// First-seen order wins: the same URL quoted in several files is
+// checked once and reported with all of its refs.
+fn collect_targets (files: List (String, String)) -> List Target = {
+  let raws = files |> List.map urls_of |> List.concat
+  let seen: Go.Map String Bool = Go.Map.make ()
+  targets_of (unique_urls seen raws []) raws 0 []
+}
+
+fn urls_of (pair: (String, String)) -> List (String, String) = {
+  let (file, text) = pair
+  find_urls text |> List.map (fn u -> (u, file))
+}
+
+fn unique_urls (seen: Go.Map String Bool) (raws: List (String, String)) (acc: List String) -> List String = match raws {
+  [] -> List.rev acc
+  [(url, _), ..rest] -> match Go.Map.get seen url {
+    Some _ -> unique_urls seen rest acc
+    None -> { Go.Map.set seen url true; unique_urls seen rest [url, ..acc] }
+  }
+}
+
+fn targets_of (urls: List String) (raws: List (String, String)) (i: Int) (acc: List Target) -> List Target = match urls {
+  [] -> List.rev acc
+  [url, ..rest] ->
+    targets_of rest raws (i + 1) [{ index = i, url = url, refs = refs_for url raws }, ..acc]
+}
+
+fn refs_for (url: String) (raws: List (String, String)) -> List String = (List.fold
+  (fn acc pair ->
+    match pair {
+      (u, f) -> if u == url {
+        if Option.is_none (List.find (fn x -> x == f) acc) { [f, ..acc] } else { acc }
+      } else { acc }
+    })
+  []
+  raws)
+|> List.rev
+
+test "urls are extracted, trimmed and deduped in first-seen order" {
+  let files = [
+    ("a.md", "see [x](https://a.example/1), and https://b.example/2."),
+    ("b.md", "again https://a.example/1 and `https://c.example/3`"),
+  ]
+  (assert_eq
+    (collect_targets files)
+    [
+      { index = 0, url = "https://a.example/1", refs = ["a.md", "b.md"] },
+      { index = 1, url = "https://b.example/2", refs = ["a.md"] },
+      { index = 2, url = "https://c.example/3", refs = ["b.md"] },
+    ])
+}
+
+test "non-http text yields no targets" {
+  assert_eq (collect_targets [("a.md", "no links, ftp:// ignored")]) []
+  assert_eq (collect_targets []) []
+}

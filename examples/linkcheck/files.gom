@@ -1,0 +1,28 @@
+package main
+
+import go "fmt"
+import go "os"
+import go "unicode/utf8"
+
+// Every input file is read on its own `Task`: `Task.spawn` runs the
+// read on a new goroutine and `Task.await` hands the `Result` back in
+// input order — and re-panics whatever panicked inside the task. This
+// is the simplest of the language's three concurrency constructs: no
+// channel is needed when a result has exactly one destination.
+fn read_all (paths: List String) -> Result (List (String, String)) GoError =
+  await_all (List.map (fn path -> Task.spawn (fn () -> read_named path)) paths) []
+
+fn await_all (tasks: List (Task (Result (String, String) GoError))) (acc: List (String, String)) -> Result (List (
+  String,
+  String,
+)) GoError = match tasks {
+  [] -> Ok (List.rev acc)
+  [t, ..rest] -> { let pair = try Task.await t; await_all rest [pair, ..acc] }
+}
+
+fn read_named (path: String) -> Result (String, String) GoError = {
+  let data = try os.ReadFile path
+  if utf8.Valid data { Ok (path, Go.conv data : String) } else {
+    Err (fmt.Errorf ("%s: file is not UTF-8 text", path))
+  }
+}

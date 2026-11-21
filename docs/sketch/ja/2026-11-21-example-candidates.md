@@ -91,11 +91,38 @@ Gom の型対応では扱いにくいもの（`hash.Hash` の `Sum(nil)`、配�
   境界を示す。gist-cli は host を無くしたが、逃がし方の正しい見本は別に要る
 - pitfalls 予想: `@extern fn` は名前・シグネチャのずれを `go build` まで検出しない
 
+### F. `examples/rgrep` — 多段パイプラインとキャンセル伝播（優先度: 高）
+
+A（linkcheck）実装で残った語り残しを埋める並行 grep。
+walker が再帰的にパスを流し、固定 N 個の matcher（ワーカープール）が各行を
+調べ、printer が出力する 3 段パイプライン。`--max-count` か Ctrl-C で
+早期終了すると done チャネルを閉じ、全段へキャンセルが伝播する。
+
+- 見せるもの: 多段パイプライン（linkcheck の fan-in collector とは別の形）、
+  固定ワーカープール（linkcheck の spawn+semaphore との対比）、`Chan.close`
+  の連鎖シャットダウン、`select` の送信腕（`send results m -> ...;
+  _ <- done -> ...` で送り側もキャンセルを見る）、`default` 腕、
+  `signal.NotifyContext` + `ctx.Done ()` による graceful stop、
+  `context` 相互運用（コンパイル確認済み）
+- 必然性: 大きなツリーの逐次 grep は遅い。早期終了・中断には上流を止める
+  仕組みが必須 — キャンセルは linkcheck の「deadline で打ち切り」とは別の
+  イディオム（能動的な伝播）
+- テスト: matcher の行単位判定は純粋関数として `test` できる。結合テストは
+  一時ディレクトリに深いツリーを作り、`--max-count` で出力打ち切り後に
+  プロセスが素早く終わること、中断時に goroutine リーク相当（終了しない
+  ワーカー）がないことを見る
+- pitfalls 予想: 送信側が done を見ないと printer 終了後にワーカーが
+  ブロックして漏れる（これ自体が教訓）。`os`/`fs` の `WalkDir`
+  相互運用は未検証（`signal.NotifyContext`・`time.NewTicker`・
+  `ctx.Done ()` はコンパイル確認済み）
+
 ## 推奨順
 
-1. **A linkcheck**（並行処理は言語の 3 構文を占めるのに例が皆無）
+1. **A linkcheck**（並行処理は言語の 3 構文を占めるのに例が皆無）— 実装済み
+   （[レポート](2026-11-21-linkcheck-example.md)）
 2. **B semver**（`.gomi` と Go からの利用はライブラリ作者向けの最重要経路）
-3. C → D → E
+3. **F rgrep**（A の語り残し — キャンセル伝播と多段パイプライン）
+4. C → D → E
 
 A と B は gist-cli と同じく「ディレクトリ単位でコンパイル + Gom `test` + Go の結合テスト」の
 ハーネス（`examples/gist-cli/integration_test.go`）をそのまま流用できる。

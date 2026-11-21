@@ -1,0 +1,112 @@
+package main
+
+import go "os"
+import go "strconv"
+import go "strings"
+import go "time"
+
+// The command line, parsed: `--help` wins wherever it appears before
+// `--`; otherwise every value has already been validated.
+type Command =
+  | Help
+  | Check Options
+
+type Options = { files: List String, concurrency: Int, timeout: time.Duration, show_all: Bool }
+
+// Option values as written; `finish` validates them only once `--help`
+// can no longer appear.
+type Raw = { files: List String, concurrency: String, timeout: String, show_all: Bool }
+
+let usage = "usage: linkcheck [--concurrency N] [--timeout D] [--all] [--] FILE..."
+
+// Element 0 of `os.Args` is the executable name.
+fn program_args () -> List String = match Go.Slice.to_list os.Args {
+  [] -> []
+  [_, ..args] -> args
+}
+
+fn parse_args (args: List String) -> Result Command String =
+  parse_options args { files = [], concurrency = "8", timeout = "30s", show_all = false }
+
+// `files` accumulates in reverse; `finish` restores the order.
+fn parse_options (args: List String) (opts: Raw) -> Result Command String = match args {
+  [] -> finish opts
+  ["--help", .._] -> Ok Help
+  ["--", ..rest] -> finish { opts with files = List.rev_append rest opts.files }
+  ["--all", ..rest] -> parse_options rest { opts with show_all = true }
+  ["--concurrency", n, ..rest] -> parse_options rest { opts with concurrency = n }
+  ["--concurrency"] -> Err "--concurrency requires a value"
+  ["--timeout", d, ..rest] -> parse_options rest { opts with timeout = d }
+  ["--timeout"] -> Err "--timeout requires a value"
+  [arg, ..rest] -> if strings.HasPrefix (arg, "-") { Err "unknown option: ${arg}" } else {
+    parse_options rest { opts with files = [arg, ..opts.files] }
+  }
+}
+
+fn finish (opts: Raw) -> Result Command String = {
+  try require (opts.files != []) usage
+  let concurrency = try positive_int "--concurrency" opts.concurrency
+  let timeout = try duration opts.timeout
+  Ok (Check {
+    files = List.rev opts.files,
+    concurrency = concurrency,
+    timeout = timeout,
+    show_all = opts.show_all,
+  })
+}
+
+fn positive_int (flag: String) (s: String) -> Result Int String = match strconv.Atoi s {
+  Ok n -> if n >= 1 { Ok n } else { Err "${flag} must be >= 1, got ${s}" }
+  Err _ -> Err "${flag} expects an integer, got ${s}"
+}
+
+fn duration (s: String) -> Result time.Duration String =
+  time.ParseDuration s |> Result.map_err (fn e -> "--timeout: ${e.Error ()}")
+
+test "files keep their order and -- ends option parsing" {
+  let got = try parse_args ["a.txt", "--", "--help", "-b"]
+  match got {
+    Check o -> assert_eq o.files ["a.txt", "--help", "-b"]
+    _ -> assert false
+  }
+  Ok ()
+}
+
+test "--help wins over later errors and unvalidated values" {
+  assert_eq (parse_args ["--help", "--unknown"]) (Ok Help)
+  assert_eq (parse_args ["--concurrency", "x", "--help"]) (Ok Help)
+  assert_eq (parse_args ["--timeout", "later", "--help"]) (Ok Help)
+}
+
+test "defaults and option values" {
+  let got = try parse_args ["--concurrency", "2", "--timeout", "5s", "--all", "a.txt"]
+  match got {
+    Check o -> {
+      assert_eq o.files ["a.txt"]
+      assert_eq o.concurrency 2
+      assert_eq o.timeout (5 * time.Second)
+      assert_eq o.show_all true
+    }
+    _ -> assert false
+  }
+  let baseline = try parse_args ["a.txt"]
+  match baseline {
+    Check o -> {
+      assert_eq o.concurrency 8
+      assert_eq o.timeout (30 * time.Second)
+      assert_eq o.show_all false
+    }
+    _ -> assert false
+  }
+  Ok ()
+}
+
+test "option errors" {
+  assert_eq (parse_args []) (Err usage)
+  assert_eq (parse_args ["--concurrency"]) (Err "--concurrency requires a value")
+  assert_eq (parse_args ["--timeout"]) (Err "--timeout requires a value")
+  assert_eq (parse_args ["--concurrency", "0", "a"]) (Err "--concurrency must be >= 1, got 0")
+  assert_eq (parse_args ["--concurrency", "x", "a"]) (Err "--concurrency expects an integer, got x")
+  assert (Result.is_err (parse_args ["--timeout", "later", "a"]))
+  assert_eq (parse_args ["-x", "a"]) (Err "unknown option: -x")
+}

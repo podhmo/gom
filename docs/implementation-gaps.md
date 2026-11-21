@@ -1645,3 +1645,14 @@
   予約語の一覧がなく、`fn send (x: T)` は "a function declaration needs at least
   one (param: Type) group, found send" という理由の分からない診断になる。
   [sketch](sketch/ja/2026-11-21-gist-cli-refactor.md)
+
+- [ ] **`Array.make` の「ゼロ値」が sum type / `Option` の要素には作れない**:
+  spec 8.3 は `Array.make` を「n 個のゼロ値」と説明するが、生成される
+  `[]Option[T]` 等のゼロ値は Go の `nil` であって `None` ではなく、
+  `Array.get` は "gom: invalid Option value <nil>: not a declared
+  variant" で panic する。ADT 要素型には正当なゼロ値が存在しないため、
+  仕様（初期値を引数に取る等）か実装（`None` を既定値として生成する等）
+  のどちらかを合わせる必要がある。linkcheck 実装中に発見 —
+  `ordered_outcomes` で `Array (Option Outcome)` を使うと timeout 経路が
+  panic した（`--timeout 1ms` で再現）。`Go.Map` に置き換えて回避済み。
+  [spec 8.3](spec.md)、[sketch](sketch/ja/2026-11-21-linkcheck-example.md)

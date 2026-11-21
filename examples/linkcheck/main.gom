@@ -1,0 +1,32 @@
+// A link checker written in Gom: pull URLs out of text files and HEAD
+// them concurrently. Exit status is 0 when every link is alive.
+package main
+
+import go "fmt"
+import go "os"
+
+fn main () -> Unit = match parse_args (program_args ()) {
+  Ok (Help) -> ignore fmt.Println usage
+  Ok (Check opts) -> match run opts {
+    Ok code -> os.Exit code
+    Err message -> fail message
+  }
+  Err message -> fail message
+}
+
+fn run (opts: Options) -> Result Int String = {
+  let files = try text_error (read_all opts.files)
+  let targets = collect_targets files
+  try require (targets != []) "no URLs found in input"
+  let outcomes = run_checks targets opts.concurrency opts.timeout
+  Ok (report opts.show_all outcomes)
+}
+
+fn text_error (r: Result a GoError) -> Result a String = Result.map_err (fn e -> e.Error ()) r
+
+fn require (ok: Bool) (message: String) -> Result Unit String = if ok { Ok () } else { Err message }
+
+fn fail (message: String) -> Unit = {
+  ignore fmt.Fprintln (os.Stderr, "linkcheck: ${message}")
+  os.Exit 1
+}
