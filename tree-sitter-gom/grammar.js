@@ -120,12 +120,14 @@ module.exports = grammar({
       $.type_expr,
     ),
 
-    // Union of "type X = body" (.gom) and abstract "type X" (.gomi).
+    // Union of "type X = body" (.gom), abstract "type X" (.gomi)
+    // and "type alias X = T" — alias is a contextual keyword.
     type_decl: $ => seq(
       'type',
-      field('name', $.uident),
-      repeat($.ident),
-      optional(seq('=', $.type_body)),
+      choice(
+        seq('alias', field('name', $.uident), repeat($.ident), '=', $.type_expr),
+        seq(field('name', $.uident), repeat($.ident), optional(seq('=', $.type_body))),
+      ),
     ),
 
     type_body: $ => choice($.variant_list, $.record_type),

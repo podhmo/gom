@@ -2710,3 +2710,35 @@ let w = move ~..opts 0
                                 (atom
                                   (literal
                                     (int_literal)))))))))))))))))))
+
+================================================================================
+type alias declaration
+================================================================================
+
+package m
+
+type alias UserId = Int
+type alias Wrap a = List a
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (package_decl
+    (ident))
+  (type_decl
+    (uident)
+    (type_expr
+      (arrow_type
+        (app_type
+          (type_atom
+            (uident))))))
+  (type_decl
+    (uident)
+    (ident)
+    (type_expr
+      (arrow_type
+        (app_type
+          (type_atom
+            (uident))
+          (type_atom
+            (ident)))))))

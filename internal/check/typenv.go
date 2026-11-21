@@ -30,11 +30,12 @@ type typeInfo struct {
 
 	// Exactly one of these describes the body; kind picks which.
 	kind     typeKind
-	variants []*variantInfo // kindSum
-	fields   []*fieldInfo   // kindRecord
-	alias    types.Type     // kindAlias — the aliased type with params unsubstituted
-	aliasRes bool           // the alias body has been resolved
-	aliasIn  bool           // alias resolution in progress (cycle guard)
+	variants []*variantInfo  // kindSum
+	fields   []*fieldInfo    // kindRecord
+	alias    types.Type      // kindAlias — the aliased type with params unsubstituted
+	aliasRes bool            // the alias body has been resolved
+	aliasIn  bool            // alias resolution in progress (cycle guard)
+	aliasBod syntax.TypeExpr // kindAlias — source body for lazy resolution (nil for imported decls)
 }
 
 type typeKind int
@@ -212,6 +213,13 @@ func (c *checker) registerTypeDecls(decls []syntax.Decl) {
 		}
 		ti.con = &types.Con{Qual: sym.Package, Name: sym.Name, Args: args}
 		ti.scope = scope
+		// Mark aliases in the registration pass too, so a forward
+		// reference (`type alias A = B` before B's own decl) resolves
+		// through the alias path instead of the nominal Con for B.
+		if ab, ok := td.Body.(*syntax.AliasBody); ok {
+			ti.kind = kindAlias
+			ti.aliasBod = ab.Type
+		}
 		c.tyCons[conKey{qual: sym.Package, name: sym.Name}] = ti
 		c.tyBySym[sym] = ti
 	}
@@ -527,7 +535,18 @@ func (c *checker) typeCtorOf(te syntax.TypeExpr) typeCtor {
 				return typeCtor{arity: -1}
 			}
 			if sig, ok := c.sigOf(sym, tn.Sp); ok {
+				if ti, ok := c.tyBySym[sym]; ok {
+					// A registered decl (imported or local): read its
+					// own arity and alias expansion rather than the
+					// expanded target's shape (`p.Ints` keeps arity 0
+					// even though `Ints = List Int` expands to an
+					// arity-1 Con).
+					return c.ctorOfInfo(ti)
+				}
 				return c.symTypeCtor(sym, sig, tn.Sp)
+			}
+			if ti, ok := c.tyBySym[sym]; ok {
+				return c.ctorOfInfo(ti)
 			}
 			return typeCtor{con: &types.Con{Qual: qual, Name: sym.Name}, arity: -1}
 		}
@@ -664,6 +683,12 @@ func (c *checker) applyTypeCtor(tc typeCtor, args []types.Type, sp diag.Span) (t
 			}
 		}
 		var target types.Type
+		if !tc.alias.aliasRes && tc.alias.aliasBod != nil {
+			// Resolve a not-yet-walked source alias on demand —
+			// order-independent, and resolveAlias's guard reports
+			// alias cycles as E0401.
+			c.resolveAlias(tc.alias, tc.alias.aliasBod)
+		}
 		if tc.alias.aliasRes {
 			target = tc.alias.alias
 		} else {

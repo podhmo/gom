@@ -237,7 +237,11 @@ func (d *drafter) letMember(name string, td check.Decl) []string {
 // for an abstract declaration).
 func (d *drafter) typeDecl(name string, td *check.TypeDecl) []string {
 	var sb strings.Builder
-	fmt.Fprintf(&sb, "type %s", name)
+	kw := "type"
+	if _, ok := td.Body.(*check.AliasType); ok {
+		kw = "type alias"
+	}
+	fmt.Fprintf(&sb, "%s %s", kw, name)
 	for _, v := range td.TypeParams {
 		sb.WriteByte(' ')
 		sb.WriteString(d.varName(v))

@@ -1,0 +1,45 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "cyclic type alias `P`",
+      "span": {
+        "file": "E0401_alias_cycle.gom",
+        "start": {
+          "line": 3,
+          "col": 1,
+          "offset": 14
+        },
+        "end": {
+          "line": 3,
+          "col": 17,
+          "offset": 30
+        }
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0407",
+      "severity": "error",
+      "message": "type annotation required: the cyclic alias could not be determined",
+      "span": {
+        "file": "E0401_alias_cycle.gom",
+        "start": {
+          "line": 3,
+          "col": 1,
+          "offset": 14
+        },
+        "end": {
+          "line": 3,
+          "col": 17,
+          "offset": 30
+        }
+      },
+      "data": {
+        "type": "?1"
+      }
+    }
+  ]
+}

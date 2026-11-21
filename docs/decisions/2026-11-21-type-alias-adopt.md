@@ -34,3 +34,22 @@ wave28 lane E の調査（Supersedes 元）では「`type A = Int` が単一
   残る — ガード（型名一致 lint 等）の要否は別途評価。
 - spec §8.3 の「`type T = any`」の記述は `type alias T = any`
   への書き換えが要る。
+
+## 実装時の決定（wave29 lane E 完了時点）
+
+- **`alias` は contextual keyword**（`type` の直後かつ UIdent が
+  続くときだけ）— 予約語にはしない。`let alias = ...` や
+  `x.alias` は従来どおり普通の識別子として書ける
+  （golden `poly_functions.gom` の `let alias = choose` が既存の
+  使用例）。予約語化するとそれらが壊れるため、lookahead 付きの
+  文脈判定を採った。
+- **silent-variant 罠への lint ガードは入れない**（現時点）。
+  `type A = Int` のような単一バリアント sum を「alias の誤記」
+  と決めつける lint は、正当な単一バリアント sum（`type A = Int`
+  を意図した ADT）を区別できず、偽陽性が避けられない。別名が
+  欲しい側は `type alias` という明示的な綴りを持ったので、
+  書き手側の問題として残す。
+- alias の body は無名 record を許さない（`type alias R = {f:Int}`
+  は E0401 — 無名 record は宣言型になれない既存ルールと一致）。
+- tree-sitter 側も `type_decl` に `alias` 分岐を追加（本体は
+  `type_body` ではなく `type_expr`）。

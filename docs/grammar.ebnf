@@ -308,7 +308,11 @@ extern-item    = "fn" , ( ident | UIdent ) , fn-param , { fn-param } ,
                   signatures inside extern; whether types or constants
                   may also be overridden is unspecified.               *)
 
-type-decl      = "type" , UIdent , { ident } , "=" , type-body ;
+type-decl      = "type" , UIdent , { ident } , "=" , type-body
+               | "type" , "alias" , UIdent , { ident } , "=" , type-expr ;
+               (* "alias" is a contextual keyword here only — a
+                  plain identifier everywhere else; with it the body
+                  is a type-expr and names no new type.            *)
 
 type-body      = variant-list
                | record-type ;            (* [PROVISIONAL record-type-syntax:

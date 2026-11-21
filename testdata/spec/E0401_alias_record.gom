@@ -1,0 +1,3 @@
+package main
+
+type alias R = {f: Int}
