@@ -23,9 +23,6 @@ import (
 //     a parameter stays non-escaping while every use calls it or passes
 //     it (or a lambda capturing it) to a non-escaping parameter.
 func (c *checker) checkScopeEscapes() {
-	if c.shadowedBuiltin("Scope") {
-		return
-	}
 	se := &scopeEsc{c: c, cand: map[*resolve.Symbol]bool{}, params: map[*resolve.Symbol][]*resolve.Symbol{}}
 	for _, d := range c.decls {
 		fd, ok := d.(*FnDecl)
@@ -72,6 +69,11 @@ func (c *checker) checkScopeEscapes() {
 			}
 			fd.NoEscape = ne
 		}
+	}
+	// A package declaring its own Scope still infers non-escaping
+	// parameters for its .gomi, but has no builtin Scope to report.
+	if c.shadowedBuiltin("Scope") {
+		return
 	}
 	se.report = true
 	se.walkDecls()

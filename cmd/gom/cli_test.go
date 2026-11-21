@@ -1294,8 +1294,11 @@ func TestCheckInterfaceNoEscape(t *testing.T) {
 		"name/lib.gomi": "package lib\n\n@noescape(xs)\nfn each (f: Int -> Unit) (xs: List Int) -> Unit\n" +
 			"fn keep (f: Unit -> Unit) -> (Unit -> Unit)\n",
 		"ok/lib.gom": impl,
+		// A package's own Scope type does not turn the inference off.
+		"shadow/lib.gom":  impl + "type Scope = Scope Int\n",
+		"shadow/lib.gomi": "package lib\n\n@noescape(f)\nfn each (f: Int -> Unit) (xs: List Int) -> Unit\nfn keep (f: Unit -> Unit) -> (Unit -> Unit)\n",
 	})
-	for sub, want := range map[string]string{"bad": "E0608", "name": "E0419"} {
+	for sub, want := range map[string][]string{"bad": {"E0608"}, "name": {"E0419"}, "shadow": nil} {
 		_, out, _ := invoke("check", filepath.Join(dir, sub))
 		var codes []string
 		for _, l := range jsonLines(t, out) {
@@ -1303,8 +1306,8 @@ func TestCheckInterfaceNoEscape(t *testing.T) {
 				codes = append(codes, c)
 			}
 		}
-		if !slices.Equal(codes, []string{want}) {
-			t.Errorf("%s: diagnostic codes = %v, want [%s]", sub, codes, want)
+		if !slices.Equal(codes, want) {
+			t.Errorf("%s: diagnostic codes = %v, want %v", sub, codes, want)
 		}
 	}
 
