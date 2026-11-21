@@ -1,3 +1,26 @@
 {
-  "diagnostics": []
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0901",
+      "severity": "error",
+      "message": "core invariant violation: call has 2 args for Go arity 1",
+      "span": {
+        "file": "ok_scope_noescape.gom",
+        "start": {
+          "line": 44,
+          "col": 29,
+          "offset": 1387
+        },
+        "end": {
+          "line": 44,
+          "col": 38,
+          "offset": 1396
+        }
+      },
+      "data": {
+        "node": "CallGo"
+      }
+    }
+  ]
 }

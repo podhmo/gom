@@ -519,13 +519,32 @@ func isFuncType(t types.Type) bool {
 	return ok
 }
 
-// heldScope is the Scope an argument value is or captures, if any.
+// heldScope is the Scope an argument value retains, if any: the
+// Scope itself, a closure over it, or a partial application holding
+// it. Any other argument is evaluated on the spot, and a Scope in its
+// value's type is reported by the type rule.
 func (se *scopeEsc) heldScope(e Expr) *Var {
-	if v, ok := e.(*Var); ok && isScope(v.Type()) {
-		return v
+	switch e := e.(type) {
+	case *Var:
+		if isScope(e.Type()) {
+			return e
+		}
+	case *Lambda:
+		scope, _ := se.captures(e.Body, e.Sp)
+		return scope
+	case *GoExpr:
+		scope, _ := se.captures(e.Body, e.Sp)
+		return scope
+	case *Apply:
+		if e.Call.Kind == CallPartial && e.Call.Unapplied > 0 {
+			for _, a := range e.Args {
+				if scope := se.heldScope(a.Value); scope != nil {
+					return scope
+				}
+			}
+		}
 	}
-	scope, _ := se.captures(e, e.Span())
-	return scope
+	return nil
 }
 
 // instErr rejects a generic reference instantiated at a type holding a

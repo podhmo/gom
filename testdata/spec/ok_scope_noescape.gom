@@ -35,3 +35,10 @@ fn partial_ok (fs: List (Unit -> Unit)) -> Int =
     List.iter (reg s) fs
     0
   }
+
+// An argument evaluated on the spot leaves only its value behind.
+fn read (s: Scope) -> Int = 0
+
+fn add (x: Int) (y: Int) -> Int = x + y
+
+fn eager () -> Int -> Int = Scope.run <| fn s -> add (read s)
