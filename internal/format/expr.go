@@ -220,12 +220,6 @@ func (p *printer) recordLit(r *syntax.RecordLit) *doc {
 		f := &r.Fields[i]
 		if f.Punned {
 			d := text(f.Name.Name)
-			// A lone punned field must keep a trailing comma — the
-			// flat shape drops trailSep, and "{ w }" would re-parse
-			// as a block. ("{p with x}" needs no comma.)
-			if len(r.Fields) == 1 && r.Base == nil {
-				d = concat(d, text(","))
-			}
 			items = append(items, item{lo: f.Sp.Start, hi: f.Name.Span().End, d: d})
 			continue
 		}
@@ -239,8 +233,11 @@ func (p *printer) recordLit(r *syntax.RecordLit) *doc {
 		// "with" cannot lead a line — it stays glued to the base.
 		head = concat(text(" "), p.expr(r.Base, pAny, false), text(mid+" with"))
 	}
+	// A lone punned field must keep its trailing comma even flat —
+	// "{ w }" would re-parse as a block. ("{p with x}" needs none.)
+	flatTrail := len(r.Fields) == 1 && r.Fields[0].Punned && r.Base == nil
 	return p.braceSeq(docNil, '{', '}', r.Sp.Start, r.Sp.End-1, head, items,
-		seqSpec{sep: ",", flatSep: ", ", trailSep: true, lines: 1})
+		seqSpec{sep: ",", flatSep: ", ", trailSep: true, flatTrail: flatTrail, lines: 1})
 }
 
 // apply renders "f a1 a2" — flat while it fits. Broken, it wraps in
