@@ -91,8 +91,8 @@ fn collect (results: RecvChan Outcome) (timer: RecvChan time.Time) (remaining: I
 // Arrival order is nondeterministic; place each outcome back at its
 // `index` so the report reads in input order. Targets with no outcome
 // are the deadline's casualties — reported as `Timeout`. (The table is
-// a Go.Map: `Array.make` of an `Option` element would hold Go nils,
-// not `None`s.)
+// a Go.Map — a plain `Array.make n None` works too now that make
+// takes an init element.)
 fn ordered_outcomes (targets: List Target) (received: List Outcome) -> List Outcome = {
   let placed: Go.Map Int Outcome = Go.Map.make ()
   for o in received { Go.Map.set placed o.index o }

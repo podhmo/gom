@@ -1,8 +1,16 @@
 package rt
 
-// ArrayMake returns a mutable array of n zero elements — Gom's
-// `Array.make`. A negative length panics like Go's make.
-func ArrayMake[A any](n int64) []A { return make([]A, n) }
+// ArrayMake returns a mutable array of n copies of init — Gom's
+// `Array.make n init`. The initial element is explicit because not
+// every element type has a zero value (an ADT element's Go nil is
+// not a declared variant). A negative length panics like Go's make.
+func ArrayMake[A any](n int64, init A) []A {
+	a := make([]A, n)
+	for i := range a {
+		a[i] = init
+	}
+	return a
+}
 
 // ArrayLen is len(a) — Gom's `Array.length`.
 func ArrayLen[A any](a []A) int64 { return int64(len(a)) }

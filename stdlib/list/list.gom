@@ -141,7 +141,7 @@ test "sum" { assert_eq (sum [1.5, 2.5]) 4.0 }
 test "range" { assert_eq (range 0 4) [0, 1, 2, 3]; assert_eq (range 3 3) [] }
 
 test "array builder round trip" {
-  let a = Array.make 3
+  let a = Array.make 3 0
   for i in range 0 3 { Array.set a i (i * 10) }
   assert_eq (Array.to_list a) [0, 10, 20]
   assert_eq (Array.length a) 3

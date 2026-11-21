@@ -3,7 +3,7 @@ package rt
 import "testing"
 
 func TestArrayOps(t *testing.T) {
-	a := ArrayMake[int64](3)
+	a := ArrayMake[int64](3, 0)
 	if got := ArrayLen(a); got != 3 {
 		t.Fatalf("len = %d", got)
 	}
@@ -12,7 +12,7 @@ func TestArrayOps(t *testing.T) {
 		t.Fatalf("get = %d", got)
 	}
 	if got := ArrayGet(a, 0); got != 0 {
-		t.Fatalf("zero fill = %d", got)
+		t.Fatalf("init fill = %d", got)
 	}
 }
 
@@ -22,5 +22,5 @@ func TestArrayGetOutOfRangePanics(t *testing.T) {
 			t.Fatal("expected panic")
 		}
 	}()
-	ArrayGet(ArrayMake[int64](1), 1)
+	ArrayGet(ArrayMake[int64](1, 0), 1)
 }

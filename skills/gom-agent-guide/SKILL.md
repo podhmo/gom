@@ -225,7 +225,7 @@ generated from — useful when generated code surprises you.
   `Chan.close`, `Chan.recvOnly`, `Chan.sendOnly`, `Task.spawn`
   (`(Unit -> a) -> Task a`), `Task.await` (`Task a -> a`,
   re-panics a captured panic). `Array a` is the mutable build
-  buffer (compiler-provided like `Chan`): `Array.make n`,
+  buffer (compiler-provided like `Chan`): `Array.make n init` (n copies of init — ADT elements have no zero value),
   `Array.length a`, `Array.get a i`, `Array.set a i v`,
   `Array.to_list a` (zero-copy freeze — do not write the array
   after freezing, spec §8.7), `Array.from_list xs` (copies).
