@@ -6,14 +6,10 @@ import go "fmt"
 // set covers the interface's methods with matching signatures.
 type Greeter = { name: String }
 
-@method
-fn (g: Greeter) string () -> String = g.name
-
 type Failure = { reason: String }
 
-@method
-fn (f: Failure) error () -> String = f.reason
-
+// The conformance holds even when the @method decl sits later in
+// the file than the assignment.
 fn main () -> Unit = {
   let g = { name = "x" }
   let st : fmt.Stringer = g
@@ -22,3 +18,16 @@ fn main () -> Unit = {
   ignore (fmt.Println st)
   ignore (fmt.Println e)
 }
+
+@method
+fn (g: Greeter) string () -> String = g.name
+
+@method
+fn (f: Failure) error () -> String = f.reason
+
+// A Ptr receiver method exists on the pointer only — the record
+// value does not gain it for interface conformance.
+type Box = { v: Int }
+
+@method
+fn (b: Ptr Box) describe () -> String = "boxed"

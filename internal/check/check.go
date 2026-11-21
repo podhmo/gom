@@ -609,6 +609,17 @@ func baseOf(sp diag.Span, t types.Type) Base {
 // past errors — a failed body marks itself with metas, and the loop
 // recovers at the next declaration boundary.
 func (c *checker) checkDecls(decls []syntax.Decl) {
+	// Record every @method before any body is checked — a body
+	// earlier in the file may already assign the record to a Go
+	// interface the method satisfies.
+	for _, d := range decls {
+		if fd, ok := d.(*syntax.FnDecl); ok && fd.Method {
+			sym := c.declSym(fd.Name, resolve.KindFunc)
+			if sig, ok := types.Chase(c.vals[sym]).(*types.Func); ok {
+				c.checkMethodDecl(fd, sym, sig)
+			}
+		}
+	}
 	for _, d := range decls {
 		switch d := d.(type) {
 		case *syntax.TypeDecl:
@@ -707,9 +718,6 @@ func (c *checker) checkFnDecl(d *syntax.FnDecl) {
 		TypeParams: rigidVars(sig),
 	}
 	c.decls = append(c.decls, fd)
-	if d.Method {
-		c.checkMethodDecl(d, sym, sig)
-	}
 }
 
 // checkLetDecl checks a top-level `let`: the value is checked first
