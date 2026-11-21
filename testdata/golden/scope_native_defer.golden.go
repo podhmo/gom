@@ -21,15 +21,17 @@ func plain(log *int64) int64 {
 //line scope_native_defer.gom:10
 		}
 //line scope_native_defer.gom:10
-		defer tmp1(struct{}{})
+		tmp14 := tmp1
+//line scope_native_defer.gom:10
+		defer tmp14(struct{}{})
 //line scope_native_defer.gom:10
 		return rt.RefGet[int64](log)
 //line scope_native_defer.gom:10
 	}
 //line scope_native_defer.gom:10
-	tmp14 := rt.NewScope()
+	tmp15 := rt.NewScope()
 //line scope_native_defer.gom:10
-	return tmp2(tmp14)
+	return tmp2(tmp15)
 //line scope_native_defer.gom:9
 }
 
@@ -46,15 +48,17 @@ func mid(log *int64) int64 {
 //line scope_native_defer.gom:13
 		}
 //line scope_native_defer.gom:13
-		defer tmp3(struct{}{})
+		tmp16 := tmp3
+//line scope_native_defer.gom:13
+		defer tmp16(struct{}{})
 //line scope_native_defer.gom:13
 		return rt.RefGet[int64](log)
 //line scope_native_defer.gom:13
 	}
 //line scope_native_defer.gom:13
-	tmp15 := rt.NewScope()
+	tmp17 := rt.NewScope()
 //line scope_native_defer.gom:13
-	r := tmp4(tmp15)
+	r := tmp4(tmp17)
 //line scope_native_defer.gom:14
 	return r + 1
 //line scope_native_defer.gom:12
@@ -69,7 +73,9 @@ func bodyDecl(s *rt.Scope) int64 {
 //line scope_native_defer.gom:17
 	}
 //line scope_native_defer.gom:17
-	defer tmp5(struct{}{})
+	tmp18 := tmp5
+//line scope_native_defer.gom:17
+	defer tmp18(struct{}{})
 //line scope_native_defer.gom:17
 	return 7
 //line scope_native_defer.gom:17
@@ -78,24 +84,26 @@ func bodyDecl(s *rt.Scope) int64 {
 //line scope_native_defer.gom:19
 func viaDecl(_ struct{}) int64 {
 //line scope_native_defer.gom:19
-	tmp16 := rt.NewScope()
+	tmp19 := rt.NewScope()
 //line scope_native_defer.gom:19
-	return bodyDecl(tmp16)
+	return bodyDecl(tmp19)
 //line scope_native_defer.gom:19
 }
 
 //line scope_native_defer.gom:21
 func errs(fail bool) result.Result[int64, error] {
 //line scope_native_defer.gom:22
-	tmp10 := func(s *rt.Scope) (tmp17 result.Result[int64, error]) {
+	tmp10 := func(s *rt.Scope) (tmp20 result.Result[int64, error]) {
 //line scope_native_defer.gom:22
-		var tmp18 []error
+		var tmp22 bool
+//line scope_native_defer.gom:22
+		var tmp21 []error
 //line scope_native_defer.gom:22
 		defer func() {
 //line scope_native_defer.gom:22
-			if len(tmp18) > 0 && tmp17.IsOk() {
+			if len(tmp21) > 0 && tmp20.IsOk() {
 //line scope_native_defer.gom:22
-				tmp17 = result.Err[int64, error](errors.Join(tmp18...))
+				tmp20 = result.Err[int64, error](errors.Join(tmp21...))
 //line scope_native_defer.gom:22
 			}
 //line scope_native_defer.gom:22
@@ -107,16 +115,13 @@ func errs(fail bool) result.Result[int64, error] {
 //line scope_native_defer.gom:23
 		}
 //line scope_native_defer.gom:23
+		tmp24 := tmp6
+//line scope_native_defer.gom:23
 		defer func() {
 //line scope_native_defer.gom:23
-			if p := recover(); p != nil {
+			if tmp22 {
 //line scope_native_defer.gom:23
-				tmp6(struct{}{})
-//line scope_native_defer.gom:23
-				panic(p)
-			} else if !tmp17.IsOk() {
-//line scope_native_defer.gom:23
-				tmp6(struct{}{})
+				tmp24(struct{}{})
 //line scope_native_defer.gom:23
 			}
 //line scope_native_defer.gom:23
@@ -128,13 +133,15 @@ func errs(fail bool) result.Result[int64, error] {
 //line scope_native_defer.gom:24
 		}
 //line scope_native_defer.gom:24
+		tmp23 := tmp7
+//line scope_native_defer.gom:24
 		defer func() {
 //line scope_native_defer.gom:24
-			if r := tmp7(struct{}{}); !r.IsOk() {
+			if r := tmp23(struct{}{}); !r.IsOk() {
 //line scope_native_defer.gom:24
 				_, e := r.Unwrap()
 //line scope_native_defer.gom:24
-				tmp18 = append(tmp18, e)
+				tmp21 = append(tmp21, e)
 //line scope_native_defer.gom:24
 			}
 //line scope_native_defer.gom:24
@@ -179,14 +186,27 @@ func errs(fail bool) result.Result[int64, error] {
 			panic(rt.InvalidVariant("result.Result", tmp9))
 //line scope_native_defer.gom:25
 		}
+//line scope_native_defer.gom:22
+		defer func() {
+//line scope_native_defer.gom:22
+			if p := recover(); p != nil {
+//line scope_native_defer.gom:22
+				tmp22 = true
+//line scope_native_defer.gom:22
+				panic(p)
+			}
+//line scope_native_defer.gom:22
+			tmp22 = !tmp20.IsOk()
+//line scope_native_defer.gom:22
+		}()
 //line scope_native_defer.gom:26
 		return result.Ok[int64, error](2)
 //line scope_native_defer.gom:22
 	}
 //line scope_native_defer.gom:22
-	tmp19 := rt.NewScope()
+	tmp25 := rt.NewScope()
 //line scope_native_defer.gom:22
-	return tmp10(tmp19)
+	return tmp10(tmp25)
 //line scope_native_defer.gom:21
 }
 
@@ -203,7 +223,9 @@ func mixed(log *int64) int64 {
 //line scope_native_defer.gom:31
 		}
 //line scope_native_defer.gom:31
-		defer tmp11(struct{}{})
+		tmp26 := tmp11
+//line scope_native_defer.gom:31
+		defer tmp26(struct{}{})
 //line scope_native_defer.gom:31
 		tmp12 := func(t_ *rt.Scope) int64 {
 //line scope_native_defer.gom:31
@@ -217,8 +239,8 @@ func mixed(log *int64) int64 {
 //line scope_native_defer.gom:31
 	}
 //line scope_native_defer.gom:31
-	tmp20 := rt.NewScope()
+	tmp27 := rt.NewScope()
 //line scope_native_defer.gom:31
-	return tmp13(tmp20)
+	return tmp13(tmp27)
 //line scope_native_defer.gom:30
 }

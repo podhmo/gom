@@ -18,6 +18,8 @@
 - `uses` = `walkTailrec` で数えた `s` の全 Var 出現（入れ子の Closure / Spawn 内を含む）
 - `regs` = 構造上の登録点（inline body の let 位置または tail 位置の、第 1 引数が `s` の `CallGo`）
 - `uses != regs` のときは変換しない。入れ子クロージャ内の `s` 使用は自然に不適格になる — Go の `defer` は囲む関数の終了時に走るので、内側クロージャの登録が外の関数の defer に化けると意味が変わるため
+- **本体が宣言済み関数（`let`/`fn` 束縛の Var / FuncRef）のとき**: そのシンボルの全使用が run 系の第 1 引数位置にあるときだけ変換する。直接呼出し（`CallDirect` の callee）や他の式位置から参照される本体はランタイムのまま — 直接呼出しは呼出し元の scope を渡すので、変換済み本体は登録をそこに積めず早期解放になる（prepass で `nonRun` シンボル集合を先に作る）
+- **登録の callable atom は登録点で `let cf = …` に束縛する**: `rt.Push` は登録時に callable を評価するので、中のフィールド読出し（`pair.cleanup` 等）を defer 時まで遅らせると値が変わりうる。`Defer.F` は常にこの束縛変数を指す
 
 ## 意味の対応
 
@@ -26,11 +28,13 @@
 | `Scope.defer s f` | `defer f(struct{}{})` |
 | `Scope.defer_err s f`（`run` 内） | `defer f()`（エラーは捨てる — runtime と同じ） |
 | `Scope.defer_err s f`（`run_result` 内） | `defer func(){ if r := f(...); !r.IsOk() { errs = append(errs, e) } }()` |
-| `Scope.on_err s f` | `defer func(){ if p := recover(); p != nil { f(...); panic(p) } else if !res.IsOk() { f(...) } }()` |
+| `Scope.on_err s f` | `defer func(){ if failed { f(struct{}{}) } }()` |
 | `defer_err` の fold | 先頭に `var errs []error` + `defer` で `res.IsOk()` なら `res = Err(errors.Join(errs...))` |
+| `on_err` の失敗判定 | 先頭に `var failed bool`（DeferScopeHead）＋ **最後に** defer する決定子（DeferScopeFailed: `if p := recover(); p != nil { failed = true; panic(p) }; failed = !res.IsOk()`） |
 
+- `on_err` は自分で `recover` しない — cleanup 自身の panic を「本体の失敗」と誤認しないため、失敗判定は **最後に defer して最初に走る** 決定子に寄せる（runtime の `Close(failed)` が cleanup 実行前に失敗を決めるのと同じ）
 - 登録が `if` / `match` の arm 内にあるとき runtime と同じく条件付き登録になる
-- panic は `on_err` が `recover → f → panic(p)` と再送出して defer チェーンを降りるので、runtime の LIFO Close と一致
+- 本体の panic は決定子が `failed = true` にして再送出し、LIFO で後続 defer へ降りる — runtime と一致
 - `res.IsOk()` ガードで「本体が Err を返したら cleanup エラーで上書きしない」の runtime 挙動を保存
 - `run` scope の `defer_err` は Go の `defer` でエラーを捨てる（runtime `ScopeDeferErr` は run で捨てるのと同じ）
 
