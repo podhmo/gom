@@ -220,6 +220,9 @@ func noescapeLine(name string, td *check.FnDecl) string {
 		switch types.Chase(td.Sig.Params[i].Type).(type) {
 		case *types.Func, *types.Var:
 			idx = append(idx, strconv.Itoa(i))
+		case *types.Con, *types.Go, *types.Meta, *types.Tuple:
+		default:
+			panic("unreachable")
 		}
 	}
 	if len(idx) == 0 {

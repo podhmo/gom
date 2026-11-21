@@ -94,8 +94,10 @@ func (c *checker) scopeParamOK(t types.Type) bool {
 			}
 		}
 		return c.scopeResultOK(t.Ret)
-	default:
+	case *types.Con, *types.Go, *types.Tuple:
 		return isScopeType(t) || !c.containsScope(t)
+	default:
+		panic("unreachable")
 	}
 }
 
@@ -112,8 +114,10 @@ func (c *checker) scopeResultOK(t types.Type) bool {
 			}
 		}
 		return c.scopeResultOK(t.Ret)
-	default:
+	case *types.Con, *types.Go, *types.Tuple:
 		return !c.containsScope(t)
+	default:
+		panic("unreachable")
 	}
 }
 
@@ -223,6 +227,7 @@ func (c *checker) declParamIndex(d Decl, sym *resolve.Symbol) (int, bool) {
 				}
 			}
 		}
+	case *LetDecl, *TestDecl, *TypeDecl:
 	}
 	return 0, false
 }
@@ -574,6 +579,11 @@ func capturedScopeVars(lam *Lambda, b *escapeBody) map[*resolve.Symbol]diag.Span
 					out[y.Sym] = y.Sp
 				}
 			}
+		case *Apply, *Ascribe, *Binary, *Block, *FieldAssign, *GoExpr,
+			*Hole, *If, *Ignore, *ListLit, *Lit, *MemberExpr, *RecordLit,
+			*SelectExpr, *Spread, *StrInterp, *Try, *TupleLit, *Unary:
+		default:
+			panic("unreachable")
 		}
 	})
 	return out
