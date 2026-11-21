@@ -234,7 +234,7 @@ func TestRange(t *testing.T) {
 //line stdlib/list/list.gom:143
 func TestArrayBuilderRoundTrip(t *testing.T) {
 //line stdlib/list/list.gom:144
-	a := rt.ArrayMake[int64](3)
+	a := rt.ArrayMake[int64](3, 0)
 //line stdlib/list/list.gom:145
 	tmp104 := Range(0, 3)
 //line stdlib/list/list.gom:145

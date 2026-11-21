@@ -321,8 +321,8 @@ var goSliceMembers = []builtinMember{
 // cannot import it back.
 var arrayMembers = []builtinMember{
 	{name: "make", goSym: "ArrayMake",
-		sig: genericSig(types.Fn(types.Array(elemTVar), types.P(types.Int))),
-		gosig: lower.GoSig{Arity: 1, Results: core.GoResultsOne,
+		sig: genericSig(types.Fn(types.Array(elemTVar), types.P(types.Int), types.P(elemTVar))),
+		gosig: lower.GoSig{Arity: 2, Results: core.GoResultsOne,
 			TypeParams: []*types.Var{elemTVar}}},
 	{name: "length", goSym: "ArrayLen",
 		sig: genericSig(types.Fn(types.Int, types.P(types.Array(elemTVar)))),

@@ -5,7 +5,7 @@ package ex
 // make/length/get/set over the `[]T` representation, the copying
 // from_list, and the zero-copy to_list freeze.
 fn build (n: Int) -> List Int = {
-  let a = Array.make n
+  let a = Array.make n 0
   for i in List.range 0 n {
     Array.set a i (i * 2)
   }

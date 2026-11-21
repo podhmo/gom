@@ -1646,7 +1646,7 @@
   one (param: Type) group, found send" という理由の分からない診断になる。
   [sketch](sketch/ja/2026-11-21-gist-cli-refactor.md)
 
-- [ ] **`Array.make` の「ゼロ値」が sum type / `Option` の要素には作れない**:
+- [x] **`Array.make` の「ゼロ値」が sum type / `Option` の要素には作れない**:
   spec 8.3 は `Array.make` を「n 個のゼロ値」と説明するが、生成される
   `[]Option[T]` 等のゼロ値は Go の `nil` であって `None` ではなく、
   `Array.get` は "gom: invalid Option value <nil>: not a declared
@@ -1656,6 +1656,10 @@
   `ordered_outcomes` で `Array (Option Outcome)` を使うと timeout 経路が
   panic した（`--timeout 1ms` で再現）。`Go.Map` に置き換えて回避済み。
   [spec 8.3](spec.md)、[sketch](sketch/ja/2026-11-21-linkcheck-example.md)
+  対応: `Array.make n init` と初期値を必須引数にした（採用の根拠は
+  [decisions/array-make-init](decisions/2026-11-21-array-make-init.md) —
+  ADT 要素の「None だけ特別扱い」案より一貫する）。`Option` 要素も
+  `Array.make n None` で作れる。stdlib/list と testdata/spec の利用は機械移行済み。
 
 - [x] **named func 型（`context.CancelFunc` など `func()` の別名）の値を Gom から呼ぶ方法がない**:
   spec 8.8 の `Go.FuncN` 対応は unnamed の func 型に適用されるため、`context.WithCancel` や
