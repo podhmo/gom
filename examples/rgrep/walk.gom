@@ -1,0 +1,56 @@
+package main
+
+import go "os"
+import go "path/filepath"
+
+// Stage 1 of the pipeline: stream file paths into `paths`. The
+// walker owns that channel and closes it when it returns — every
+// stage ends when its input closes, so one close ripples downstream.
+//
+// Cancellation works by *sending* with `select`: if `done` is closed
+// the send arm is abandoned and the stage unwinds. Receiving stays a
+// plain `for`/recursion — the channel closing is what ends it.
+fn send_path (out: SendChan String) (done: RecvChan Unit) (path: String) -> Bool = select {
+  send out path -> true
+  _ <- done -> false
+}
+
+fn walk_all (roots: List String) (paths_out: Chan String) (warn_out: SendChan Item) (done: RecvChan Unit) -> Unit = {
+  ignore walk_roots roots (Chan.sendOnly paths_out) warn_out done
+  Chan.close paths_out
+}
+
+fn walk_roots (roots: List String) (paths_out: SendChan String) (warn_out: SendChan Item) (done: RecvChan Unit) -> Bool = match roots {
+  [] -> true
+  [root, ..rest] -> if walk_root root paths_out warn_out done {
+    walk_roots rest paths_out warn_out done
+  } else { false }
+}
+
+fn walk_root (root: String) (paths_out: SendChan String) (warn_out: SendChan Item) (done: RecvChan Unit) -> Bool = match (os.Stat
+  root) {
+  Err e -> { ignore send_item warn_out done (Warn (warn_line root e)); true }
+  Ok info -> match info {
+    Some i -> if i.IsDir () { walk_dir root paths_out warn_out done } else {
+      send_path paths_out done root
+    }
+    None -> { ignore send_item warn_out done (Warn "${root}: stat returned nil"); true }
+  }
+}
+
+fn walk_dir (dir: String) (paths_out: SendChan String) (warn_out: SendChan Item) (done: RecvChan Unit) -> Bool = match (os.ReadDir
+  dir) {
+  Err e -> { ignore send_item warn_out done (Warn (warn_line dir e)); true }
+  Ok entries -> walk_entries (Go.Slice.to_list entries) dir paths_out warn_out done
+}
+
+fn walk_entries (entries: List os.DirEntry) (dir: String) (paths_out: SendChan String) (warn_out: SendChan Item) (done: RecvChan Unit) -> Bool = match entries {
+  [] -> true
+  [e, ..rest] -> {
+    let path = filepath.Join (dir, e.Name ())
+    let ok = if e.IsDir () { walk_dir path paths_out warn_out done } else {
+      send_path paths_out done path
+    }
+    if ok { walk_entries rest dir paths_out warn_out done } else { false }
+  }
+}

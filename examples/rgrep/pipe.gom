@@ -1,0 +1,213 @@
+package main
+
+import go "context"
+import go "fmt"
+import go "os"
+import go "os/signal"
+import go "time"
+
+// The whole fan-out shape:
+//
+//   walk ──paths──▶ matcher ×N ──results──▶ print_all (main goroutine)
+//                    │   ▲                     │
+//                    └─fin┘                     └─can `done`──▶ everyone above
+//                    wait_workers closes results after N fins
+//
+// `done` is closed by exactly one place: this file's `cancel`, called
+// from the main goroutine (cap reached, or SIGINT). Every *send* in
+// the pipeline is `select`-guarded by `done`, so a blocked producer
+// wakes and unwinds instead of leaking; each stage then closes its
+// own output and the close cascades to the printer.
+// Abort a send if `done` was closed. Returns false when the send was
+// abandoned — callers use it to stop their recursion.
+fn send_item (out: SendChan Item) (done: RecvChan Unit) (item: Item) -> Bool = select {
+  send out item -> true
+  _ <- done -> false
+}
+
+fn send_matches (out: SendChan Item) (done: RecvChan Unit) (matches: List Match) -> Bool = match matches {
+  [] -> true
+  [m, ..rest] -> if send_item out done (Found m) { send_matches out done rest } else { false }
+}
+
+// Peek without consuming: `default` makes the receive non-blocking.
+// Called from the *same* goroutine each time, so there is no race.
+fn is_done (done: RecvChan Unit) -> Bool = select {
+  _ <- done -> true
+  default -> false
+}
+
+// Idempotent only because this file is its sole caller, always from
+// the main goroutine — two concurrent calls could both take the
+// `default` arm and double-close. Keep it that way.
+fn cancel (done: Chan Unit) -> Unit = select {
+  _ <- done -> ()
+  default -> Chan.close done
+}
+
+// Stage 2: a fixed pool of `concurrency` matchers — contrast
+// linkcheck's spawn-per-target + semaphore. Each drains `paths`
+// until it is closed; `for x in` is the natural receive here because
+// the upstream close is what ends it. `is_done` skips opening the
+// next file once cancelled.
+fn matcher (pred: String -> Bool) (paths_in: RecvChan String) (results_out: SendChan Item) (done: RecvChan Unit) (fin: SendChan Unit) -> Unit = {
+  for path in paths_in {
+    if is_done done { () } else {
+      match grep_file pred path {
+        Ok matches -> ignore send_matches results_out done matches
+        Err e -> ignore send_item results_out done (Warn (warn_line path e))
+      }
+    }
+  }
+  Chan.send fin ()
+}
+
+// `results` may only be closed after the last matcher has exited, or
+// a still-running matcher would send on a closed channel and panic.
+// `fin` counts them down; the last one triggers the close.
+fn wait_workers (fin: RecvChan Unit) (remaining: Int) (results: Chan Item) -> Unit = if remaining
+<= 0 { Chan.close results } else {
+  ignore (select {
+    _ <- fin -> true
+  })
+  wait_workers fin (remaining - 1) results
+}
+
+// What the printer tallied; drives the exit code.
+type Summary = { found: Int, warned: Int, interrupted: Bool, capped: Bool }
+
+fn reached_cap (max: Option Int) (found: Int) -> Bool = match max {
+  Some n -> found >= n
+  None -> false
+}
+
+// Stage 3, run on the main goroutine: drain `results`, print matches
+// and warnings, and be the single owner of `cancel`. Two things end
+// the loop: `results` closing (normal end) and SIGINT (`sig` fires —
+// cancel `done`, keep draining the remains, report `interrupted`).
+// After the first SIGINT `signal.Reset` restores the default action,
+// so a second one kills the process even if a worker is wedged in a
+// blocking read — the channel cancel cannot reach that far.
+fn print_all (results: RecvChan Item) (sig: RecvChan Unit) (done: Chan Unit) (max: Option Int) (acc: Summary) -> Summary = select {
+  r <- results -> match r {
+    Some (Found m) -> {
+      ignore (if acc.capped { () } else { print_match m })
+      let found2 = acc.found + 1
+      let capped2 = acc.capped || reached_cap max found2
+      ignore (if capped2 && not acc.capped { cancel done } else { () })
+      (print_all
+        results
+        sig
+        done
+        max
+        { found = found2, warned = acc.warned, interrupted = acc.interrupted, capped = capped2 })
+    }
+    Some (Warn w) -> {
+      ignore fmt.Fprintf (os.Stderr, "rgrep: %s\n", w)
+      (print_all
+        results
+        sig
+        done
+        max
+        {
+          found = acc.found,
+          warned = acc.warned + 1,
+          interrupted = acc.interrupted,
+          capped = acc.capped,
+        })
+    }
+    None -> acc
+  }
+  _ <- sig -> {
+    signal.Reset os.Interrupt
+    cancel done
+    let never: RecvChan Unit = Chan.recvOnly (Chan.make 0)
+    (print_all
+      results
+      never
+      done
+      max
+      { found = acc.found, warned = acc.warned, interrupted = true, capped = acc.capped })
+  }
+}
+
+fn print_match (m: Match) -> Unit =
+  ignore fmt.Fprintf (os.Stdout, "%s:%d:%s\n", m.path, m.line, m.text)
+
+// Wire the stages together: walker, worker pool, closer, printer.
+// `ctx` carries SIGINT; `stop` releases the handler once `print_all`
+// returns so a second run would start clean.
+fn search (roots: List String) (pred: String -> Bool) (concurrency: Int) (max: Option Int) -> Summary = {
+  let paths: Chan String = Chan.make concurrency
+  let results: Chan Item = Chan.make (concurrency + concurrency)
+  let done: Chan Unit = Chan.make 0
+  let fin: Chan Unit = Chan.make 0
+  let (ctx, stop) = signal.NotifyContext (context.Background (), os.Interrupt)
+  go { walk_all roots paths (Chan.sendOnly results) (Chan.recvOnly done) }
+  (spawn_matchers
+    concurrency
+    pred
+    (Chan.recvOnly paths)
+    (Chan.sendOnly results)
+    (Chan.recvOnly done)
+    (Chan.sendOnly fin))
+  go { wait_workers (Chan.recvOnly fin) concurrency results }
+  let summary = (print_all
+    (Chan.recvOnly results)
+    (ctx.Done ())
+    done
+    max
+    { found = 0, warned = 0, interrupted = false, capped = false })
+  // `context.CancelFunc` is a *named* `func()` type — not callable
+  // from Gom (`Go.fn0` wants `Go.Func0`; a direct call mismatches).
+  // The process exits right after, so leaving it is harmless; a
+  // second SIGINT is already re-armed by `signal.Reset` above.
+  ignore stop
+  summary
+}
+
+fn spawn_matchers (n: Int) (pred: String -> Bool) (paths: RecvChan String) (results: SendChan Item) (done: RecvChan Unit) (fin: SendChan Unit) -> Unit = if n
+<= 0 { () } else {
+  go { matcher pred paths results done fin }
+  spawn_matchers (n - 1) pred paths results done fin
+}
+
+test "is_done reflects close" {
+  let ch: Chan Unit = Chan.make 0
+  assert (not (is_done (Chan.recvOnly ch)))
+  Chan.close ch
+  assert (is_done (Chan.recvOnly ch))
+}
+
+test "cancel closes done once, from one goroutine" {
+  let done: Chan Unit = Chan.make 0
+  cancel done
+  assert (is_done (Chan.recvOnly done))
+  cancel done
+  assert (is_done (Chan.recvOnly done))
+}
+
+test "send_item abandons the send once done is closed" {
+  let items: Chan Item = Chan.make 0
+  let done: Chan Unit = Chan.make 0
+  cancel done
+  assert (not (send_item (Chan.sendOnly items) (Chan.recvOnly done) (Warn "w")))
+}
+
+test "wait_workers closes results after the last fin" {
+  let fin: Chan Unit = Chan.make 0
+  let results: Chan Item = Chan.make 0
+  go { wait_workers (Chan.recvOnly fin) 2 results }
+  Chan.send fin ()
+  // one fin left: `results` must still be open — the timer arm wins
+  assert (Result.is_err (select {
+    _ <- results -> Ok 1
+    _ <- time.After (1 * time.Second) -> Err "still open"
+  }))
+  Chan.send fin ()
+  // last fin: `results` closes, so its arm (None) wins over the timer
+  assert (Result.is_err (select {
+    _ <- results -> Err "closed"
+    _ <- time.After (1 * time.Second) -> Ok 0
+  }))
+}

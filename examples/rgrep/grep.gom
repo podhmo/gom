@@ -1,0 +1,68 @@
+package main
+
+import go "errors"
+import go "os"
+import go "strings"
+import go "unicode/utf8"
+
+// One matched line, tagged with where it came from.
+type Match = { path: String, line: Int, text: String }
+
+// What flows through `results`: a found line, or a problem with one
+// input (unreadable file, non-UTF-8 content). Sending warnings through
+// the same channel keeps stderr writes on a single goroutine — the
+// printer — so concurrent matchers never interleave output.
+type Item =
+  | Found Match
+  | Warn String
+
+fn warn_line (path: String) (e: GoError) -> String = "${path}: ${e.Error ()}"
+
+// A line predicate: matchers hold one of these and never see the
+// `Ptr regexp.Regexp` itself — a plain function value crosses the
+// `go` boundary without tripping the sharing lint (a `Ptr` would).
+// `strings.Split` keeps a trailing "" for a final newline; grep does
+// not report it as a line, so drop it.
+fn logical_lines (text: String) -> List String = {
+  let lines = Go.Slice.to_list (strings.Split (text, "\n"))
+  match List.rev lines {
+    [last, ..rest] -> if last == "" { List.rev rest } else { lines }
+    [] -> lines
+  }
+}
+
+fn grep_lines (pred: String -> Bool) (path: String) (lines: List String) (n: Int) (acc: List Match) -> List Match = match lines {
+  [] -> List.rev acc
+  [line, ..rest] -> if pred line {
+    grep_lines pred path rest (n + 1) [{ path = path, line = n, text = line }, ..acc]
+  } else { grep_lines pred path rest (n + 1) acc }
+}
+
+// The pure core: match a predicate against every line of one text.
+fn grep_text (pred: String -> Bool) (path: String) (text: String) -> List Match =
+  grep_lines pred path (logical_lines text) 1 []
+
+// IO shell around `grep_text`. Non-UTF-8 content is skipped as
+// binary; the caller turns the `Err` into a `Warn` item.
+fn grep_file (pred: String -> Bool) (path: String) -> Result (List Match) GoError = {
+  let data = try os.ReadFile path
+  if utf8.Valid data { Ok (grep_text pred path (Go.conv data : String)) } else {
+    // `warn_line` puts the path back when turning this into a `Warn`.
+    Err (errors.New "binary file skipped")
+  }
+}
+
+test "grep_text numbers matching lines" {
+  let pred: String -> Bool = fn line -> strings.Contains (line, "oo")
+  let got = grep_text pred "f.txt" "nope\nfoo\nbar\nboo\n"
+  (assert_eq
+    got
+    [{ path = "f.txt", line = 2, text = "foo" }, { path = "f.txt", line = 4, text = "boo" }])
+}
+
+test "logical_lines drops the trailing fragment only" {
+  assert_eq (logical_lines "a\n") ["a"]
+  assert_eq (logical_lines "a\n\n") ["a", ""]
+  assert_eq (logical_lines "") []
+  assert_eq (logical_lines "a") ["a"]
+}

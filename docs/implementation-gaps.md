@@ -1656,3 +1656,13 @@
   `ordered_outcomes` で `Array (Option Outcome)` を使うと timeout 経路が
   panic した（`--timeout 1ms` で再現）。`Go.Map` に置き換えて回避済み。
   [spec 8.3](spec.md)、[sketch](sketch/ja/2026-11-21-linkcheck-example.md)
+
+- [ ] **named func 型（`context.CancelFunc` など `func()` の別名）の値を Gom から呼ぶ方法がない**:
+  spec 8.8 の `Go.FuncN` 対応は unnamed の func 型に適用されるため、`context.WithCancel` や
+  `signal.NotifyContext` が返す `context.CancelFunc` は named 型のまま読まれる。その値は
+  束縛・受け渡しできるが、`f ()` は E0401（引数型が `context.CancelFunc` と解釈される）、
+  `Go.fn0 f` は「`Go.FuncN` でない」として E0510、`Go.conv f : Unit -> Unit` は型検査を
+  通るが `func(struct{}) struct{}` を生成して `go build` で落ちる。呼べないため
+  `context.CancelFunc` を返す API は「呼び捨て」でしか使えない — rgrep 実装中に発見し、
+  `ignore stop` で回避（プロセス終了直前なので実害なし）。
+  [spec 8.8](spec.md)、[sketch](sketch/ja/2026-11-21-rgrep-example.md)
