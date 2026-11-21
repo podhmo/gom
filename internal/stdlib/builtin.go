@@ -61,6 +61,11 @@ type builtinMember struct {
 	pkg   string          // backing Go import path — empty means rt
 	sig   check.Signature // Gom view — what the checker unifies against
 	gosig lower.GoSig     // Go view — arity and result shape for lowering
+	// escapes is the per-parameter escape flag (spec 6.1, SC-2).
+	// nil means "assume escaping" except that a `Scope`-typed
+	// parameter is always non-escaping — the checker's rule
+	// consults the parameter type first.
+	escapes []bool
 }
 
 // symbol mints the Go function symbol the member resolves to.
@@ -74,6 +79,7 @@ func (m *builtinMember) symbol() *resolve.Symbol {
 		Kind:    resolve.KindFunc,
 		IsGo:    true,
 		Package: pkg,
+		Escapes: m.escapes,
 	}
 }
 
@@ -188,11 +194,16 @@ var refMembers = []builtinMember{
 var scopeMembers = []builtinMember{
 	{name: "run", goSym: "ScopeRun",
 		sig:   genericSig(types.Fn(elemTVar, types.P(types.Fn(elemTVar, types.P(types.Scope))))),
-		gosig: lower.GoSig{Arity: 1, Results: core.GoResultsOne}},
+		gosig: lower.GoSig{Arity: 1, Results: core.GoResultsOne},
+		// the body runs inside the scope and is dropped at its
+		// close — the one wired builtin argument that does not
+		// escape.
+		escapes: []bool{false}},
 	{name: "run_result", goSym: "ScopeRunResult", pkg: "github.com/podhmo/gom/stdlib/result",
 		sig: genericSig(types.Fn(types.Result(elemTVar, types.GoError),
 			types.P(types.Fn(types.Result(elemTVar, types.GoError), types.P(types.Scope))))),
-		gosig: lower.GoSig{Arity: 1, Results: core.GoResultsOne}},
+		gosig:   lower.GoSig{Arity: 1, Results: core.GoResultsOne},
+		escapes: []bool{false}},
 	{name: "defer", goSym: "ScopeDefer",
 		sig:   check.Signature{Type: types.Fn(types.Unit, types.P(types.Scope), types.P(types.Fn(types.Unit, types.P(types.Unit))))},
 		gosig: lower.GoSig{Arity: 2, Results: core.GoResultsNone}},

@@ -1,0 +1,10 @@
+package ex
+
+// spec section 6.1: uses that do not retain the handle — Scope
+// operations, a call whose parameter cannot hold it, and a
+// non-escaping captured-by-nothing lambda.
+fn ok_use (held: Ref Int) -> Int =
+    Scope.run <| fn s -> {
+        Scope.defer s (fn () -> Ref.set held 0)
+        Ref.get held
+    }

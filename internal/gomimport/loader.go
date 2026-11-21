@@ -41,6 +41,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -279,7 +280,85 @@ func (l *Loader) load(path string) (*resolve.Package, error) {
 		}
 		return nil, fmt.Errorf("%s does not check: %d diagnostic(s)", gomi, len(r.Diagnostics))
 	}
-	return l.extract(path, r.Typed)
+	p, err := l.extract(path, r.Typed)
+	if err != nil {
+		return nil, err
+	}
+	l.applyNoescape(p, scanNoescape(src))
+	return p, nil
+}
+
+// applyNoescape turns `//gom:noescape <name> <i> ...` directives
+// into per-parameter escape flags on the package's members (spec
+// section 6.1, SC-2). A listed position gets Escapes[i]=false; an
+// unlisted position stays true — escaping is the default the flag
+// slice makes explicit. Directives naming unknown members or
+// out-of-range indices are ignored: the line is a comment, so a
+// stale one must not break the compile.
+func (l *Loader) applyNoescape(p *resolve.Package, dirs map[string][]int) {
+	if p == nil {
+		return
+	}
+	for name, idxs := range dirs {
+		sym := p.Members[name]
+		if sym == nil {
+			continue
+		}
+		n := l.arities[sym]
+		if n <= 0 {
+			if sg, ok := l.sigs[sym]; ok {
+				if f, ok := types.Chase(sg.Type).(*types.Func); ok {
+					n = len(f.Params)
+				}
+			}
+		}
+		if n <= 0 {
+			continue
+		}
+		esc := make([]bool, n)
+		for i := range esc {
+			esc[i] = true
+		}
+		for _, i := range idxs {
+			if i >= 0 && i < n {
+				esc[i] = false
+			}
+		}
+		sym.Escapes = esc
+	}
+}
+
+// scanNoescape collects `//gom:noescape <name> <i> ...` directive
+// comments from .gomi source text into a name → index-list map.
+func scanNoescape(src []byte) map[string][]int {
+	var dirs map[string][]int
+	for _, line := range strings.Split(string(src), "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "//gom:noescape ") {
+			continue
+		}
+		fields := strings.Fields(strings.TrimPrefix(line, "//gom:noescape "))
+		if len(fields) < 2 {
+			continue
+		}
+		var idxs []int
+		for _, f := range fields[1:] {
+			i, err := strconv.Atoi(f)
+			if err != nil || i < 0 {
+				idxs = nil
+				break
+			}
+			idxs = append(idxs, i)
+		}
+		if idxs == nil {
+			continue
+		}
+		if dirs == nil {
+			dirs = map[string][]int{}
+		}
+		dirs[fields[0]] = idxs
+	}
+	return dirs
 }
 
 // stdlibPaths maps the toolchain's Gom-written standard-library

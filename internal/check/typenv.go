@@ -365,8 +365,10 @@ func (c *checker) fieldInfoOf(f syntax.Field, index int, parent *typeInfo) *fiel
 	}
 	if f.Type != nil && parent != nil {
 		fi.typ = c.typeExpr(f.Type, parent.scope)
+		c.checkScopeTypeFree(f.Type, fi.typ, "field type")
 	} else if f.Type != nil {
 		fi.typ = c.typeExpr(f.Type, c.newTScope())
+		c.checkScopeTypeFree(f.Type, fi.typ, "field type")
 	} else {
 		fi.typ = c.newMeta(f.Sp, fmt.Sprintf("the type of field `%s`", fi.name))
 	}

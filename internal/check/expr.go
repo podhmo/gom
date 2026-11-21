@@ -981,6 +981,7 @@ func (c *checker) methodOf(recvT types.Type, name string, sp diag.Span) (*resolv
 // records the target for recovery.
 func (c *checker) checkAscribe(e *syntax.Ascribe) Expr {
 	target := c.typeExpr(e.Type, c.newTScope())
+	c.checkScopeTypeParam(e.Type, target, "ascription target")
 	// `Go.conv e : T` — the surface wraps the argument in an
 	// application of the conv builtin.
 	if app, ok := e.X.(*syntax.Apply); ok {
@@ -2071,6 +2072,7 @@ func (c *checker) checkLambda(e *syntax.Lambda, want types.Type) Expr {
 		var pt types.Type
 		if p.Type != nil {
 			pt = c.typeExpr(p.Type, sc)
+			c.checkScopeTypeParam(p.Type, pt, "lambda parameter's type")
 		} else {
 			pt = c.newMeta(p.Sp, "the lambda parameter's type")
 		}
@@ -2378,6 +2380,7 @@ func (c *checker) checkLet(e *syntax.Let) Expr {
 	if e.Type != nil {
 		annScope = c.newTScope()
 		want = c.typeExpr(e.Type, annScope)
+		c.checkScopeTypeParam(e.Type, want, "let annotation")
 	} else {
 		want = c.newMeta(e.Sp, "the let binding's type")
 	}
