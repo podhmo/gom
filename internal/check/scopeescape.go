@@ -337,26 +337,24 @@ func (se *scopeEsc) reportStore(sp diag.Span) {
 // pipeTarget visits the function side f of `x |> f` / `f <| x` and
 // reports whether x lands in a non-escaping parameter.
 func (se *scopeEsc) pipeTarget(f Expr) bool {
-	switch f := f.(type) {
-	case *Apply:
-		se.visitApply(f, 1, false)
-		if f.Call.Kind == CallPartial && f.Call.Unapplied == 1 {
-			return se.noEscape(f.Call, nextParam(f.Call, len(f.Args)))
+	if ap, ok := f.(*Apply); ok {
+		se.visitApply(ap, 1, false)
+		if ap.Call.Kind == CallPartial && ap.Call.Unapplied == 1 {
+			return se.noEscape(ap.Call, nextParam(ap.Call, len(ap.Args)))
 		}
 		return false
-	case *Var, *MemberExpr:
-		se.visit(f, true)
-		var sym *resolve.Symbol
-		if v, ok := f.(*Var); ok {
-			sym = v.Sym
-		} else {
-			sym = f.(*MemberExpr).Sym
-		}
-		return sym != nil && se.noEscape(CallInfo{Kind: CallDirect, Callee: sym}, 0)
-	default:
+	}
+	var sym *resolve.Symbol
+	if v, ok := f.(*Var); ok {
+		sym = v.Sym
+	} else if m, ok := f.(*MemberExpr); ok {
+		sym = m.Sym
+	} else {
 		se.visit(f, false)
 		return false
 	}
+	se.visit(f, true)
+	return sym != nil && se.noEscape(CallInfo{Kind: CallDirect, Callee: sym}, 0)
 }
 
 // visit walks e; ok marks a non-escaping position (called on the spot
@@ -367,18 +365,12 @@ func (se *scopeEsc) visit(e Expr, ok bool) {
 	}
 	// A reference's instantiated type only echoes the origin of a
 	// bad type, so Var and MemberExpr sites stay quiet.
-	switch e.(type) {
-	case *Var, *MemberExpr:
-	default:
-		if se.report && se.c.scopeBad(e.Type(), true) {
-			se.typeErr(e.Span(), e.Type())
-		}
-	}
-	switch e := e.(type) {
-	case *Var:
-		se.instErr(e.Sp, e.TypeArgs)
-	case *MemberExpr:
-		se.instErr(e.Sp, e.TypeArgs)
+	if v, ok := e.(*Var); ok {
+		se.instErr(v.Sp, v.TypeArgs)
+	} else if m, ok := e.(*MemberExpr); ok {
+		se.instErr(m.Sp, m.TypeArgs)
+	} else if se.report && se.c.scopeBad(e.Type(), true) {
+		se.typeErr(e.Span(), e.Type())
 	}
 	switch e := e.(type) {
 	case *Lit, *Hole:
@@ -533,19 +525,18 @@ func (se *scopeEsc) heldScope(e Expr) *Var {
 	} else if ok && isScope(v.Type()) {
 		return v
 	}
-	switch e := e.(type) {
-	case *Lambda:
-		scope, _ := se.captures(e.Body, e.Sp)
+	if lam, ok := e.(*Lambda); ok {
+		scope, _ := se.captures(lam.Body, lam.Sp)
 		return scope
-	case *GoExpr:
-		scope, _ := se.captures(e.Body, e.Sp)
+	}
+	if g, ok := e.(*GoExpr); ok {
+		scope, _ := se.captures(g.Body, g.Sp)
 		return scope
-	case *Apply:
-		if e.Call.Kind == CallPartial && e.Call.Unapplied > 0 {
-			for _, a := range e.Args {
-				if scope := se.heldScope(a.Value); scope != nil {
-					return scope
-				}
+	}
+	if ap, ok := e.(*Apply); ok && ap.Call.Kind == CallPartial && ap.Call.Unapplied > 0 {
+		for _, a := range ap.Args {
+			if scope := se.heldScope(a.Value); scope != nil {
+				return scope
 			}
 		}
 	}
