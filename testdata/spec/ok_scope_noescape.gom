@@ -41,4 +41,10 @@ fn read (s: Scope) -> Int = 0
 
 fn add (x: Int) (y: Int) -> Int = x + y
 
-fn eager () -> Int -> Int = Scope.run <| fn s -> add (read s)
+fn keep (f: Int -> Int) -> Int -> Int = f
+
+fn eager () -> Int =
+  Scope.run <| fn s -> {
+    let g = keep (add (read s))
+    g 1
+  }
