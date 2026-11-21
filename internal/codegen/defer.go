@@ -50,22 +50,24 @@ func (g *gen) deferStmt(e *core.Defer) {
 		g.raw("()")
 		g.nl()
 	case core.DeferScopeHead:
-		g.raw("var " + g.bindName(e.Failed) + " bool")
+		// Failure is the default: a panic before the decider
+		// registers leaves the flag true, so cleanups already
+		// registered still see the body as failed.
+		g.raw("var " + g.bindName(e.Failed) + " = true")
 		g.nl()
 	case core.DeferScopeFailed:
-		failed := g.bindName(e.Failed)
 		g.raw("defer func()")
 		g.open()
 		g.raw("if p := recover(); p != nil")
 		g.open()
-		g.raw(failed + " = true")
-		g.nl()
 		g.raw("panic(p)")
 		g.close()
 		if e.Res != nil {
-			g.raw(failed + " = !" + g.bindName(e.Res) + ".IsOk()")
-			g.nl()
+			g.raw(g.bindName(e.Failed) + " = !" + g.bindName(e.Res) + ".IsOk()")
+		} else {
+			g.raw(g.bindName(e.Failed) + " = false")
 		}
+		g.nl()
 		g.closeInline()
 		g.raw("()")
 		g.nl()

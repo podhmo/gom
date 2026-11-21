@@ -95,7 +95,7 @@ func errs(fail bool) result.Result[int64, error] {
 //line scope_native_defer.gom:22
 	tmp10 := func(s *rt.Scope) (tmp20 result.Result[int64, error]) {
 //line scope_native_defer.gom:22
-		var tmp22 bool
+		var tmp22 = true
 //line scope_native_defer.gom:22
 		var tmp21 []error
 //line scope_native_defer.gom:22
@@ -190,8 +190,6 @@ func errs(fail bool) result.Result[int64, error] {
 		defer func() {
 //line scope_native_defer.gom:22
 			if p := recover(); p != nil {
-//line scope_native_defer.gom:22
-				tmp22 = true
 //line scope_native_defer.gom:22
 				panic(p)
 			}

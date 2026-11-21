@@ -30,11 +30,12 @@
 | `Scope.defer_err s f`（`run_result` 内） | `defer func(){ if r := f(...); !r.IsOk() { errs = append(errs, e) } }()` |
 | `Scope.on_err s f` | `defer func(){ if failed { f(struct{}{}) } }()` |
 | `defer_err` の fold | 先頭に `var errs []error` + `defer` で `res.IsOk()` なら `res = Err(errors.Join(errs...))` |
-| `on_err` の失敗判定 | 先頭に `var failed bool`（DeferScopeHead）＋ **最後に** defer する決定子（DeferScopeFailed: `if p := recover(); p != nil { failed = true; panic(p) }; failed = !res.IsOk()`） |
+| `on_err` の失敗判定 | 先頭に `var failed = true`（DeferScopeHead — 失敗が初期値）＋ **最後に** defer する決定子（DeferScopeFailed: `if p := recover(); p != nil { panic(p) }; failed = !res.IsOk()`。res 無しなら `failed = false`） |
 
 - `on_err` は自分で `recover` しない — cleanup 自身の panic を「本体の失敗」と誤認しないため、失敗判定は **最後に defer して最初に走る** 決定子に寄せる（runtime の `Close(failed)` が cleanup 実行前に失敗を決めるのと同じ）
+- `failed` の初期値は `true`: 決定子の登録より前に本体が panic しても、登録済みの cleanup は失敗として走る（runtime の `ok=false` 既定と同じ）。正常終了では決定子が結果から `failed` を決め直す
 - 登録が `if` / `match` の arm 内にあるとき runtime と同じく条件付き登録になる
-- 本体の panic は決定子が `failed = true` にして再送出し、LIFO で後続 defer へ降りる — runtime と一致
+- 本体の panic は決定子が再送出して LIFO で後続 defer へ降りる — `failed` は既定の `true` のまま、runtime と一致
 - `res.IsOk()` ガードで「本体が Err を返したら cleanup エラーで上書きしない」の runtime 挙動を保存
 - `run` scope の `defer_err` は Go の `defer` でエラーを捨てる（runtime `ScopeDeferErr` は run で捨てるのと同じ）
 

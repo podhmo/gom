@@ -276,20 +276,27 @@ func (p *scopeDeferPass) tryRun(e core.Expr, b *core.Body, i int, ctx *scopeCtx)
 	if s == nil {
 		return false
 	}
-	regs := collectRegs(fn.Body, s)
+	regs, sawEscape := collectRegs(fn.Body, s)
 	if regs == nil {
 		return false
 	}
-	if len(regs) > 0 {
-		var hasErr, hasOnErr bool
-		for _, r := range regs {
-			switch r.callee {
-			case "ScopeDeferErr":
-				hasErr = true
-			case "ScopeOnErr":
-				hasOnErr = true
-			}
+	var hasErr, hasOnErr bool
+	for _, r := range regs {
+		switch r.callee {
+		case "ScopeDeferErr":
+			hasErr = true
+		case "ScopeOnErr":
+			hasOnErr = true
 		}
+	}
+	if hasOnErr && !resultScope && sawEscape {
+		// A `try` escapes the body with an early return before the
+		// failure decider registers: the defaulted-failed flag
+		// would fire `on_err` where the runtime's ok=true skips
+		// it. Keep the runtime scope here instead.
+		return false
+	}
+	if len(regs) > 0 {
 		var res, errs, failed *core.Bind
 		if resultScope {
 			if hasErr || hasOnErr {
@@ -468,8 +475,11 @@ func (p *scopeDeferPass) bodyFn(a core.Atom, ctx *scopeCtx) *core.Func {
 // through nested closures, where the walker still sees atoms)
 // must be exactly its registration arg0 uses — a registration
 // trapped inside a nested closure would defer for the wrong
-// function's lifetime, and any other use is opaque.
-func collectRegs(b *core.Body, s *resolve.Symbol) []*reg {
+// function's lifetime, and any other use is opaque. The second
+// result reports whether the body's own level (nested functions
+// excluded) contains a `try` escape — an early return that would
+// skip the failure decider's registration.
+func collectRegs(b *core.Body, s *resolve.Symbol) ([]*reg, bool) {
 	uses := 0
 	walkTailrec(b, func(e core.Expr, inSpawn, inClosure bool) {
 		if v, ok := e.(*core.Var); ok && v.Sym == s {
@@ -477,6 +487,7 @@ func collectRegs(b *core.Body, s *resolve.Symbol) []*reg {
 		}
 	})
 	regs := []*reg{}
+	sawEscape := false
 	var walk func(b *core.Body)
 	var walkE func(e core.Expr)
 	var walkT func(t core.DTree)
@@ -519,13 +530,15 @@ func collectRegs(b *core.Body, s *resolve.Symbol) []*reg {
 		case *core.Closure, *core.Spawn, *core.GoFunc:
 			// New emitted function — uses inside are counted by
 			// walkTailrec and disqualify the scope.
+		case *core.EscapeResult, *core.EscapeCall:
+			sawEscape = true
 		case *core.Var, *core.Lit, *core.FuncRef, *core.CtorRef,
 			*core.GoFuncRef, *core.FieldGet, *core.FieldSet,
 			*core.Unary, *core.Binary, *core.TupleNew, *core.ListNew,
 			*core.RecordNew, *core.RecordUpdate, *core.CallDirect,
 			*core.CallFunc, *core.CallGo, *core.CallBuiltin,
-			*core.CtorApp, *core.TailCall, *core.EscapeResult,
-			*core.EscapeCall, *core.ResultFromGo, *core.OptionFromGo,
+			*core.CtorApp, *core.TailCall,
+			*core.ResultFromGo, *core.OptionFromGo,
 			*core.ErrorFromGo, *core.TupleFromGo, *core.Conv,
 			*core.Defer, *core.Equal:
 		default:
@@ -553,9 +566,9 @@ func collectRegs(b *core.Body, s *resolve.Symbol) []*reg {
 	}
 	walk(b)
 	if len(regs) != uses {
-		return nil
+		return nil, sawEscape
 	}
-	return regs
+	return regs, sawEscape
 }
 
 // regAt records a registration at (b, i) — or b's tail when tail —
