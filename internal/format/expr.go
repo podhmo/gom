@@ -345,6 +345,9 @@ func (p *printer) argRaw(a *syntax.Arg, nb bool) *doc {
 	if selectEscape(a.Value, nb) {
 		v = concat(text("("), v, text(")"))
 	}
+	if a.Spread {
+		return concat(text("~.."+mid), v)
+	}
 	if a.Label == nil {
 		return concat(text(mid), v)
 	}

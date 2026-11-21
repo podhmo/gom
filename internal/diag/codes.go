@@ -692,6 +692,17 @@ integer-valued and in range ("int32(1.5)" is rejected while
 "int32(2.0)" is legal, matching Go's constant-conversion rule).`,
 		Example: `let n : Int32 = 3000000000   // does not fit int32`,
 	},
+	{
+		Code:     "E0418",
+		Severity: SeverityError,
+		Title:    "spread argument is not a record",
+		Phase:    PhaseCheck,
+		Spec:     "2",
+		Explanation: `A "~.." argument spreads a record's fields across the callee's
+labeled parameters by name, so its value must be a record. Lists,
+tuples, and other values have no named fields to spread.`,
+		Example: `move ~..[1, 2]   // a list has no fields — pass a record`,
+	},
 
 	{
 		Code:     "E0501",

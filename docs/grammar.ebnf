@@ -436,7 +436,8 @@ apply-expr     = postfix-expr , { app-arg } , { "." , member-name , { app-arg } 
                   (decisions/2026-11-05-post-arg-selector-binding).  *)
 
 app-arg        = arg-expr                               (* positional     *)
-               | "~" , ident , [ ":" , arg-expr ] ;     (* labeled / punned *)
+               | "~" , ident , [ ":" , arg-expr ]       (* labeled / punned *)
+               | "~.." , arg-expr ;                     (* record spread    *)
                (* "~to: e" and punning "~to" (spec 2.7). The value after
                   ":" is one simple-expr (spec 2.2): identifiers,
                   literals, parenthesized or "{"-led expressions —

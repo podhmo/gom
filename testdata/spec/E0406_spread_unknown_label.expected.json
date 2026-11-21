@@ -1,0 +1,49 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected Int, got ~dy: Int -> Int",
+      "span": {
+        "file": "E0406_spread_unknown_label.gom",
+        "start": {
+          "line": 8,
+          "col": 25,
+          "offset": 184
+        },
+        "end": {
+          "line": 8,
+          "col": 34,
+          "offset": 193
+        }
+      },
+      "data": {
+        "actual": "~dy: Int -> Int",
+        "expected": "Int"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0406",
+      "severity": "error",
+      "message": "the callee has no parameter labeled `~dz`",
+      "span": {
+        "file": "E0406_spread_unknown_label.gom",
+        "start": {
+          "line": 8,
+          "col": 30,
+          "offset": 189
+        },
+        "end": {
+          "line": 8,
+          "col": 34,
+          "offset": 193
+        }
+      },
+      "data": {
+        "label": "dz"
+      }
+    }
+  ]
+}

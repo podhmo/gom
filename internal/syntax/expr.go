@@ -124,6 +124,7 @@ type Arg struct {
 	Label  *Ident    // non-nil when written with `~label`
 	Value  Expr      // the argument expression; the synthesized name when Punned
 	Punned bool      // written as bare `~label` (Value holds the name's Ident)
+	Spread bool      // written `~..e` — a record whose fields feed labeled params by name
 }
 
 // Span returns the argument's source span.

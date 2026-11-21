@@ -1,0 +1,8 @@
+package ex
+
+type Opts = { dx: Int, dz: Int }
+
+fn move (~dx: Int) (~dy: Int) -> Int = dx + dy
+
+// spec section 2 rule 9: a field with no matching `~name` param.
+fn f (o: Opts) -> Int = move ~..o

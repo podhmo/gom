@@ -2631,3 +2631,82 @@ let q = { x }
                                                       (postfix_expr
                                                         (atom
                                                           (ident))))))))))))))))))))))))))))))
+
+================================================================================
+record spread argument
+================================================================================
+
+package m
+
+let v = move 0 ~..opts
+let w = move ~..opts 0
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (package_decl
+    (ident))
+  (let_decl
+    (pattern
+      (or_pattern
+        (ctor_pattern
+          (pat_atom
+            (ident)))))
+    (expr
+      (ascribed_expr
+        (pipe_expr
+          (bool_or_expr
+            (bool_and_expr
+              (rel_expr
+                (add_expr
+                  (mul_expr
+                    (unary_expr
+                      (apply_expr
+                        (postfix_expr
+                          (atom
+                            (ident)))
+                        (app_arg
+                          (arg_expr
+                            (simple_expr
+                              (postfix_expr
+                                (atom
+                                  (literal
+                                    (int_literal)))))))
+                        (app_arg
+                          (arg_expr
+                            (simple_expr
+                              (postfix_expr
+                                (atom
+                                  (ident)))))))))))))))))
+  (let_decl
+    (pattern
+      (or_pattern
+        (ctor_pattern
+          (pat_atom
+            (ident)))))
+    (expr
+      (ascribed_expr
+        (pipe_expr
+          (bool_or_expr
+            (bool_and_expr
+              (rel_expr
+                (add_expr
+                  (mul_expr
+                    (unary_expr
+                      (apply_expr
+                        (postfix_expr
+                          (atom
+                            (ident)))
+                        (app_arg
+                          (arg_expr
+                            (simple_expr
+                              (postfix_expr
+                                (atom
+                                  (ident))))))
+                        (app_arg
+                          (arg_expr
+                            (simple_expr
+                              (postfix_expr
+                                (atom
+                                  (literal
+                                    (int_literal)))))))))))))))))))

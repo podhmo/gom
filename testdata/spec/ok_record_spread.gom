@@ -1,0 +1,23 @@
+package main
+
+import go "fmt"
+
+type Opts = { dx: Int, dy: Int }
+
+// `f ~..opts` spreads the record's fields across the callee's
+// labeled parameters by name (spec section 2 rule 9).
+fn move (x: Int) (~dx: Int) (~dy: Int) -> Int = x + dx + dy
+
+fn mk () -> Opts = { dx = 1, dy = 2 }
+
+fn main () -> Unit = {
+  let o = { dx = 10, dy = 20 }
+  // Mixing spread with positional and individual labels is fine —
+  // each fills an independent slot.
+  let a = move 0 ~..o
+  let b = move ~..o 0
+  let c = move 1 ~dx: 5 ~dy: 6
+  ignore (fmt.Println (a + b + c))
+  // A compound spread value needs parens; the record evaluates once.
+  ignore (fmt.Println (move 0 ~..(mk ())))
+}

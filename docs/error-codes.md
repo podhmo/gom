@@ -581,6 +581,18 @@ integer-valued and in range ("int32(1.5)" is rejected while
 let n : Int32 = 3000000000   // does not fit int32
 ```
 
+### E0418 — spread argument is not a record
+
+**Severity:** error · **Phase:** check · **Spec:** §2
+
+A "~.." argument spreads a record's fields across the callee's
+labeled parameters by name, so its value must be a record. Lists,
+tuples, and other values have no named fields to spread.
+
+```gom
+move ~..[1, 2]   // a list has no fields — pass a record
+```
+
 ## 05xx — Go interop
 
 ### E0501 — Go symbol cannot be represented in Gom
