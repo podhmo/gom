@@ -105,7 +105,7 @@ pitfalls の「送信側が done を見ないと漏れる」は上記の設計�
 ## 検証
 
 - `gom check -format text examples/rgrep` — エラー 0、警告 0
-- Gom の `test` ブロック 10 個（args 4 / grep 2 / pipe 4。
+- Gom の `test` ブロック 11 個（args 5 / grep 2 / pipe 4。
   うち pipe の 4 個はチャネル動作の直接検証）
 - `go test ./examples/rgrep` — 生成モジュール経由で test ブロックを実行しつつ、
   実プロセスの CLI を一時ツリー相手に検証: 再帰マッチと行番号・`-i`・
@@ -114,6 +114,10 @@ pitfalls の「送信側が done を見ないと漏れる」は上記の設計�
   引数エラー 5 件・`--help`・**実 SIGINT**（FIFO を読ませて wedged にし、
   1 発目で生き残り 2 発目で signal kill、またはキャンセルが先に効いて
   exit 130、の両経路を受理）
+- Devin Review の指摘で引数パーサの sentinel バグと stdout 書き込み
+  失敗の握り潰しを修正（`--` 直後の hyphen パターン・空パターン・
+  `--max-count ''` の3点を `Option` 化で、`print_match` の `Fprintf`
+  エラーは warn+キャンセルで exit 2 に）
 - `gofmt -l .` / `go vet ./...` / `scripts/check-sumtype.sh` / `go test ./...` —
   すべてパス
 
