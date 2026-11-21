@@ -25,6 +25,23 @@ fn declared () -> Unit = {
   ignore s
 }
 
+// A named func element inside a container keeps the named handle —
+// `List goiface.CancelFunc` emits `[]goiface.CancelFunc`, the only
+// slice shape TakeCancelList accepts.
+fn batched () -> Unit = {
+  let fs = goiface.CancelList ()
+  goiface.TakeCancelList fs
+}
+
+// A FuncN value satisfies a Go interface parameter and `Go.conv`s
+// into `Go.Any` — the boundary relations spell it as a signature.
+fn boxed () -> String = {
+  let (_, stop) = goiface.Pending ()
+  let a : Go.Any = Go.conv stop : Go.Any
+  ignore a
+  goiface.Kind stop
+}
+
 // A method-bearing named func type keeps the named handle — `Fire`
 // resolves as a method — and `Go.conv` casts a `Go.Func1` into it.
 fn methodful () -> Int = {

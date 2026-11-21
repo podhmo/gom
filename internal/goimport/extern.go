@@ -102,7 +102,7 @@ func (l *Loader) BindExtern(sym *resolve.Symbol, decl check.Signature) (check.Si
 	}
 	rawP := make([]gt.Type, sig.Params().Len())
 	for i := 0; i < sig.Params().Len(); i++ {
-		rt, reason := l.mapType(sig.Params().At(i).Type(), true)
+		rt, reason := l.mapType(sig.Params().At(i).Type(), true, true)
 		if reason != "" {
 			return issue("extern `fn %s`: the Go parameter %d is not representable: %s", sym.Name, i, reason)
 		}
@@ -122,7 +122,7 @@ func (l *Loader) BindExtern(sym *resolve.Symbol, decl check.Signature) (check.Si
 	res := sig.Results()
 	rawR := make([]gt.Type, res.Len())
 	for i := 0; i < res.Len(); i++ {
-		rt, reason := l.mapType(res.At(i).Type(), true)
+		rt, reason := l.mapType(res.At(i).Type(), true, true)
 		if reason != "" {
 			return issue("extern `fn %s`: the Go result %d is not representable: %s", sym.Name, i, reason)
 		}

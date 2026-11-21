@@ -299,7 +299,7 @@ func (l *Loader) member(path string, obj types.Object) (*resolve.Symbol, *member
 		// `int64(os.O_RDONLY)` where Gom sees Int. A var/const
 		// reference is a zero-arity, single-result "call", so the
 		// signature's single ResTypes slot carries the raw type.
-		rt, rreason := l.mapType(obj.Type(), true)
+		rt, rreason := l.mapType(obj.Type(), true, true)
 		if rreason != "" {
 			rt = mt // the views diverge only where both map — defensive
 		}

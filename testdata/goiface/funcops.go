@@ -163,6 +163,19 @@ func Pending() (int64, CancelFunc) {
 // conforms to its FuncN spelling.
 func TakeCancel(f CancelFunc) { f() }
 
+// CancelList returns a slice of the named func type — the element
+// keeps the named handle: `[]CancelFunc` and `[]func()` are
+// different Go types.
+func CancelList() []CancelFunc { return []CancelFunc{func() {}} }
+
+// TakeCancelList consumes that slice — its element must spell
+// `CancelFunc`, not `func()`.
+func TakeCancelList(fs []CancelFunc) {
+	for _, f := range fs {
+		f()
+	}
+}
+
 // Handler is a method-bearing named func type — it keeps the named
 // handle so `h.Fire` resolves (spec 8.8).
 type Handler func(int64) int64

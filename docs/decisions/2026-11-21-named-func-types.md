@@ -16,6 +16,8 @@
 
 ## 実装
 
+`namedType` が `assignable` な位置（シグネチャのパラメータ・戻り値のトップレベル、メンバーの宣言型、構造体フィールド）でのみ、メソッドを持たない named func 型を `Go.FuncN` に読み替える。コンテナ要素や func 型の内側は Go の型同一性で名前が載るため名前的な型のまま — `[]F` を `[]func()` と読み替えると、受理した `[]F` を生成コードが `[]func()` として渡して `go build` で落ちる（Devin Review 指摘）。`boundaryType` は `Go.FuncN` を `*types.Signature` として再構成するので、`Empty` などの interface パラメータへの代入や `Go.conv f : Go.Any` は Go と同じく受理する（同指摘の2件目）。
+
 `internal/goimport/mapping.go` の `namedType` に 1 分岐: `NumMethods() == 0` かつ underlying が `*types.Signature` なら `mapFuncType` を試し、成功すればその `Go.FuncN` を返す。`mapFuncType` が拒否する形（variadic・4 個以上のパラメータなど）は従来どおり名前的な型に読む。`type F func() F` のように自分を名指すシグネチャは内側の出現を名前的な型に読む再帰ガード（`Loader.mapping`）を入れた。
 
 この変更で `Go.conv stop : Unit -> Unit` のバグも解消する: `stop` が `Go.Func0` の Con になったため `convOK` の「unproven + `*types.Go` 受理」フォールバックに乗らず、func 型どうしの変換は oracle が `types.ConvertibleTo` で裁ける形になり、形の違うペアは E0507 で拒否される。

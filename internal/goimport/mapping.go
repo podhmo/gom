@@ -77,7 +77,7 @@ func (l *Loader) mapSignature(sig *types.Signature) (check.Signature, lower.GoSi
 		if reason != "" {
 			return check.Signature{}, lower.GoSig{}, hiddenSym{reason: fmt.Sprintf("parameter %s: %s", v.Name(), reason)}
 		}
-		rt, reason := l.mapType(pt, true)
+		rt, reason := l.mapType(pt, true, true)
 		if reason != "" {
 			return check.Signature{}, lower.GoSig{}, hiddenSym{reason: fmt.Sprintf("parameter %s: %s", v.Name(), reason)}
 		}
@@ -91,7 +91,7 @@ func (l *Loader) mapSignature(sig *types.Signature) (check.Signature, lower.GoSi
 	results := sig.Results()
 	rawR := make([]gt.Type, 0, results.Len())
 	for i := 0; i < results.Len(); i++ {
-		rt, reason := l.mapType(results.At(i).Type(), true)
+		rt, reason := l.mapType(results.At(i).Type(), true, true)
 		if reason != "" {
 			return check.Signature{}, lower.GoSig{}, hiddenSym{reason: fmt.Sprintf("result %d: %s", i, reason)}
 		}
@@ -491,21 +491,27 @@ func (l *Loader) gomType(t types.Type) (gt.Type, string) {
 func (l *Loader) mapBoundaryType(t types.Type, goView bool) (gt.Type, string) {
 	if !goView {
 		if s, ok := t.(*types.Slice); ok {
-			el, reason := l.mapType(s.Elem(), false)
+			el, reason := l.mapType(s.Elem(), false, false)
 			if reason != "" {
 				return nil, reason
 			}
 			return gt.List(el), ""
 		}
 	}
-	return l.mapType(t, goView)
+	return l.mapType(t, goView, true)
 }
 
-// mapType maps a go/types type in a nested (non-boundary) position.
-// goView selects the Go spelling where it differs from the Gom one —
-// `int` → `Go.Int`, and `[]T` keeps the Go-owned `Go.Slice T` view
-// (mapBoundaryType owns the boundary's `List` view).
-func (l *Loader) mapType(t types.Type, goView bool) (gt.Type, string) {
+// mapType maps a go/types type. goView selects the Go spelling where
+// it differs from the Gom one — `int` → `Go.Int`, and `[]T` keeps
+// the Go-owned `Go.Slice T` view (mapBoundaryType owns the
+// boundary's `List` view). assignable is true only at positions Go's
+// assignability already pairs named and unnamed spellings — the top
+// level of a signature parameter or result, a member's type, or a
+// struct field — where a method-less named func type may read as its
+// `Go.FuncN`. Inside a container (`[]F`, `*F`, `map[K]F`, `chan F`)
+// or a nested signature the name is load-bearing (`[]F` and
+// `[]func()` are different Go types), so the named handle stays.
+func (l *Loader) mapType(t types.Type, goView, assignable bool) (gt.Type, string) {
 	switch t := t.(type) {
 	case *types.Basic:
 		if t.Kind() == types.Int {
@@ -519,33 +525,33 @@ func (l *Loader) mapType(t types.Type, goView bool) (gt.Type, string) {
 		}
 		return basicType(t, goView)
 	case *types.Named:
-		return l.namedType(t)
+		return l.namedType(t, assignable)
 	case *types.Alias:
-		return l.mapType(types.Unalias(t), goView)
+		return l.mapType(types.Unalias(t), goView, assignable)
 	case *types.Pointer:
-		el, reason := l.mapType(t.Elem(), goView)
+		el, reason := l.mapType(t.Elem(), goView, false)
 		if reason != "" {
 			return nil, reason
 		}
 		return gt.Ptr(el), ""
 	case *types.Slice:
-		el, reason := l.mapType(t.Elem(), goView)
+		el, reason := l.mapType(t.Elem(), goView, false)
 		if reason != "" {
 			return nil, reason
 		}
 		return gt.GoSlice(el), ""
 	case *types.Map:
-		k, reason := l.mapType(t.Key(), goView)
+		k, reason := l.mapType(t.Key(), goView, false)
 		if reason != "" {
 			return nil, reason
 		}
-		v, reason := l.mapType(t.Elem(), goView)
+		v, reason := l.mapType(t.Elem(), goView, false)
 		if reason != "" {
 			return nil, reason
 		}
 		return gt.GoMap(k, v), ""
 	case *types.Chan:
-		el, reason := l.mapType(t.Elem(), goView)
+		el, reason := l.mapType(t.Elem(), goView, false)
 		if reason != "" {
 			return nil, reason
 		}
@@ -629,14 +635,14 @@ func (l *Loader) mapFuncType(sig *types.Signature) (gt.Type, string) {
 	}
 	args := make([]gt.Type, 0, n+res.Len())
 	for v := range sig.Params().Variables() {
-		rt, reason := l.mapType(v.Type(), true)
+		rt, reason := l.mapType(v.Type(), true, false)
 		if reason != "" {
 			return nil, fmt.Sprintf("func parameter %s: %s", v.Name(), reason)
 		}
 		args = append(args, rt)
 	}
 	for i := 0; i < res.Len(); i++ {
-		rt, reason := l.mapType(res.At(i).Type(), true)
+		rt, reason := l.mapType(res.At(i).Type(), true, false)
 		if reason != "" {
 			return nil, fmt.Sprintf("func result %d: %s", i, reason)
 		}
@@ -697,7 +703,7 @@ func basicType(t *types.Basic, goView bool) (gt.Type, string) {
 
 // namedType maps a Go named type (or named interface) to its
 // types.Go handle and registers the named for method lookup.
-func (l *Loader) namedType(t *types.Named) (gt.Type, string) {
+func (l *Loader) namedType(t *types.Named, assignable bool) (gt.Type, string) {
 	obj := t.Obj()
 	if obj.Pkg() == nil {
 		// The universe-scope `error` named interface.
@@ -723,8 +729,11 @@ func (l *Loader) namedType(t *types.Named) (gt.Type, string) {
 	// named handle: the name owns the methods a FuncN cannot spell.
 	// The l.mapping guard answers the named handle to a signature
 	// that names itself (`type F func() F`) — the outer occurrence
-	// still reads FuncN, its own reference the ref.
-	if t.NumMethods() == 0 && !l.mapping[ref] {
+	// still reads FuncN, its own reference the ref. assignable
+	// confines the reading to positions where Go pairs the named
+	// and unnamed spellings itself — a nested `[]F` would misread
+	// as `[]func()` (different types) without it.
+	if t.NumMethods() == 0 && assignable && !l.mapping[ref] {
 		if sig, ok := t.Underlying().(*types.Signature); ok {
 			if l.mapping == nil {
 				l.mapping = map[gt.NamedRef]bool{}

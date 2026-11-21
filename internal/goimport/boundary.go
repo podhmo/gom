@@ -1,7 +1,10 @@
 package goimport
 
 import (
+	"go/token"
 	"go/types"
+	"strconv"
+	"strings"
 
 	"github.com/podhmo/gom/internal/check"
 	"github.com/podhmo/gom/internal/resolve"
@@ -90,6 +93,31 @@ func (l *Loader) boundaryType(t gt.Type) types.Type {
 		}
 		if gt.Equal(t, gt.GoError) {
 			return types.Universe.Lookup("error").Type()
+		}
+		if t.Qual == "Go" && strings.HasPrefix(t.Name, "Func") {
+			// A `Go.FuncN` is a genuine Go signature type — the
+			// boundary relations need it spelled as one so a
+			// FuncN value satisfies interface parameters and
+			// `Go.conv f : Go.Any` proves. The args carry the n
+			// parameters followed by the flat results.
+			n, err := strconv.Atoi(strings.TrimPrefix(t.Name, "Func"))
+			if err != nil || n < 0 || len(t.Args) < n {
+				return nil
+			}
+			var params, results []*types.Var
+			for i, a := range t.Args {
+				bt := l.boundaryType(a)
+				if bt == nil {
+					return nil
+				}
+				if i < n {
+					params = append(params, types.NewVar(token.NoPos, nil, "", bt))
+				} else {
+					results = append(results, types.NewVar(token.NoPos, nil, "", bt))
+				}
+			}
+			return types.NewSignatureType(nil, nil, nil,
+				types.NewTuple(params...), types.NewTuple(results...), false)
 		}
 		if gt.Equal(t, gt.Unit) {
 			// Unit renders as `struct{}` — needed inside channel
@@ -192,7 +220,7 @@ func (l *Loader) FieldOf(recv gt.Type, name string) (*resolve.Symbol, check.Sign
 		sym.Package = field.Pkg().Path()
 	}
 	mapped, reason := l.mapBoundaryType(field.Type(), false)
-	raw, rawReason := l.mapType(field.Type(), true)
+	raw, rawReason := l.mapType(field.Type(), true, true)
 	if reason == "" {
 		reason = rawReason
 	}
