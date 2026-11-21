@@ -681,6 +681,24 @@ integer-valued and in range ("int32(1.5)" is rejected while
 	},
 
 	{
+		Code:     "E0418",
+		Severity: SeverityError,
+		Title:    "Scope value escapes its scope",
+		Phase:    PhaseCheck,
+		Spec:     "6.1",
+		Explanation: `A Scope handle is only valid while its Scope.run body runs, so it
+must not outlive it. A Scope value cannot be returned, stored in a
+record, constructor, list, tuple or mutable cell, or used to
+instantiate a type variable. A closure or "go" body that captures a
+Scope may only be called on the spot or passed directly to a
+non-escaping function parameter — one the callee only calls or
+forwards, such as Scope.defer's cleanup. Parameters of functions in
+the same package are inferred; Go functions and Task.spawn always
+let their argument escape.`,
+		Example: `fn leak () -> Scope = Scope.run <| fn s -> s   // returns the handle`,
+	},
+
+	{
 		Code:     "E0501",
 		Severity: SeverityError,
 		Title:    "Go symbol cannot be represented in Gom",

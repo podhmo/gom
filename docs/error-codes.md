@@ -568,6 +568,24 @@ integer-valued and in range ("int32(1.5)" is rejected while
 let n : Int32 = 3000000000   // does not fit int32
 ```
 
+### E0418 — Scope value escapes its scope
+
+**Severity:** error · **Phase:** check · **Spec:** §6.1
+
+A Scope handle is only valid while its Scope.run body runs, so it
+must not outlive it. A Scope value cannot be returned, stored in a
+record, constructor, list, tuple or mutable cell, or used to
+instantiate a type variable. A closure or "go" body that captures a
+Scope may only be called on the spot or passed directly to a
+non-escaping function parameter — one the callee only calls or
+forwards, such as Scope.defer's cleanup. Parameters of functions in
+the same package are inferred; Go functions and Task.spawn always
+let their argument escape.
+
+```gom
+fn leak () -> Scope = Scope.run <| fn s -> s   // returns the handle
+```
+
 ## 05xx — Go interop
 
 ### E0501 — Go symbol cannot be represented in Gom

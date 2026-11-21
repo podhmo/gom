@@ -1,0 +1,18 @@
+package ex
+
+// E0418: a Scope must not outlive its `Scope.run` body — returned,
+// held in a type constructor, or captured by a closure handed to an
+// escaping parameter (Task.spawn, or a local fn that returns it).
+fn keep (f: Unit -> Unit) -> Unit -> Unit = f
+
+fn leak () -> Scope = Scope.run <| fn s -> s
+
+fn spawned (r: Ref Int) -> Int =
+  Scope.run
+  <| fn s -> {
+    let t = Task.spawn (fn () -> Scope.defer s (fn () -> Ref.set r 0))
+    Task.await t
+    let g = keep (fn () -> Scope.defer s (fn () -> ()))
+    let o = Some s
+    Ref.get r
+  }

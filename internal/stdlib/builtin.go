@@ -187,22 +187,31 @@ var refMembers = []builtinMember{
 // stdlib/result because rt cannot import the Result representation.
 var scopeMembers = []builtinMember{
 	{name: "run", goSym: "ScopeRun",
-		sig:   genericSig(types.Fn(elemTVar, types.P(types.Fn(elemTVar, types.P(types.Scope))))),
+		sig:   noEscape(genericSig(types.Fn(elemTVar, types.P(types.Fn(elemTVar, types.P(types.Scope))))), 0),
 		gosig: lower.GoSig{Arity: 1, Results: core.GoResultsOne}},
 	{name: "run_result", goSym: "ScopeRunResult", pkg: "github.com/podhmo/gom/stdlib/result",
-		sig: genericSig(types.Fn(types.Result(elemTVar, types.GoError),
-			types.P(types.Fn(types.Result(elemTVar, types.GoError), types.P(types.Scope))))),
+		sig: noEscape(genericSig(types.Fn(types.Result(elemTVar, types.GoError),
+			types.P(types.Fn(types.Result(elemTVar, types.GoError), types.P(types.Scope))))), 0),
 		gosig: lower.GoSig{Arity: 1, Results: core.GoResultsOne}},
 	{name: "defer", goSym: "ScopeDefer",
-		sig:   check.Signature{Type: types.Fn(types.Unit, types.P(types.Scope), types.P(types.Fn(types.Unit, types.P(types.Unit))))},
+		sig:   noEscape(check.Signature{Type: types.Fn(types.Unit, types.P(types.Scope), types.P(types.Fn(types.Unit, types.P(types.Unit))))}, 1),
 		gosig: lower.GoSig{Arity: 2, Results: core.GoResultsNone}},
 	{name: "defer_err", goSym: "ScopeDeferErr", pkg: "github.com/podhmo/gom/stdlib/result",
-		sig: check.Signature{Type: types.Fn(types.Unit, types.P(types.Scope),
-			types.P(types.Fn(types.Result(types.Unit, types.GoError), types.P(types.Unit))))},
+		sig: noEscape(check.Signature{Type: types.Fn(types.Unit, types.P(types.Scope),
+			types.P(types.Fn(types.Result(types.Unit, types.GoError), types.P(types.Unit))))}, 1),
 		gosig: lower.GoSig{Arity: 2, Results: core.GoResultsNone}},
 	{name: "on_err", goSym: "ScopeOnErr",
-		sig:   check.Signature{Type: types.Fn(types.Unit, types.P(types.Scope), types.P(types.Fn(types.Unit, types.P(types.Unit))))},
+		sig:   noEscape(check.Signature{Type: types.Fn(types.Unit, types.P(types.Scope), types.P(types.Fn(types.Unit, types.P(types.Unit))))}, 1),
 		gosig: lower.GoSig{Arity: 2, Results: core.GoResultsNone}},
+}
+
+// noEscape marks parameter i of sig as non-escaping: the Scope
+// members run (or register) the closure without letting it outlive
+// the scope, so a closure capturing a Scope may be passed there.
+func noEscape(sig check.Signature, i int) check.Signature {
+	sig.NoEscape = make([]bool, i+1)
+	sig.NoEscape[i] = true
+	return sig
 }
 
 // ptrMembers is the `Ptr` module's operation surface — the explicit

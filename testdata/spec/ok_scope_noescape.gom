@@ -1,0 +1,20 @@
+package ex
+
+// A closure capturing a Scope may be passed to a local higher-order
+// function whose parameter is inferred non-escaping (only called or
+// forwarded), piped into one, or called on the spot.
+fn each (f: Int -> Unit) (xs: List Int) -> Unit = for x in xs { f x }
+
+fn twice (f: Unit -> Unit) -> Unit = { f (); each (fn _ -> f ()) [1] }
+
+fn helper (s: Scope) (r: Ref Int) -> Unit = Scope.defer s (fn () -> Ref.set r 0)
+
+fn ok1 (r: Ref Int) (xs: List Int) -> Int =
+  Scope.run
+  <| fn s -> {
+    each (fn x -> Scope.defer s (fn () -> Ref.set r x)) xs
+    xs |> each (fn x -> Scope.defer s (fn () -> Ref.set r x))
+    twice (fn () -> helper s r)
+    (fn () -> helper s r) ()
+    Ref.get r
+  }

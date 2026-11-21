@@ -1,0 +1,96 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0418",
+      "severity": "error",
+      "message": "a Scope cannot be stored or returned: type Scope -> Scope carries it out of its scope",
+      "span": {
+        "file": "E0418_scope_escape.gom",
+        "start": {
+          "line": 8,
+          "col": 36,
+          "offset": 300
+        },
+        "end": {
+          "line": 8,
+          "col": 45,
+          "offset": 309
+        }
+      },
+      "data": {
+        "reason": "type",
+        "type": "Scope -> Scope"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0418",
+      "severity": "error",
+      "message": "a closure capturing Scope `s` escapes its scope",
+      "span": {
+        "file": "E0418_scope_escape.gom",
+        "start": {
+          "line": 13,
+          "col": 25,
+          "offset": 395
+        },
+        "end": {
+          "line": 13,
+          "col": 70,
+          "offset": 440
+        }
+      },
+      "data": {
+        "name": "s",
+        "reason": "capture"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0418",
+      "severity": "error",
+      "message": "a closure capturing Scope `s` escapes its scope",
+      "span": {
+        "file": "E0418_scope_escape.gom",
+        "start": {
+          "line": 15,
+          "col": 19,
+          "offset": 477
+        },
+        "end": {
+          "line": 15,
+          "col": 55,
+          "offset": 513
+        }
+      },
+      "data": {
+        "name": "s",
+        "reason": "capture"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0418",
+      "severity": "error",
+      "message": "a Scope cannot be stored or returned: type Option Scope carries it out of its scope",
+      "span": {
+        "file": "E0418_scope_escape.gom",
+        "start": {
+          "line": 16,
+          "col": 13,
+          "offset": 527
+        },
+        "end": {
+          "line": 16,
+          "col": 19,
+          "offset": 533
+        }
+      },
+      "data": {
+        "reason": "type",
+        "type": "Option Scope"
+      }
+    }
+  ]
+}
