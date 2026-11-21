@@ -65,6 +65,10 @@ type Arg struct {
 	Label   string    // "" for positional, else the `~label` name
 	LabelSp diag.Span // span of the label, zero when positional
 	Value   Expr
+	// Spread marks a `~..e` record-spread argument while the call's
+	// convention is undecided (a deferred apply's provisional args).
+	// Replay expands it into labeled Args; it never reaches CallInfo.
+	Spread bool
 }
 
 // Span returns the argument's span (label through value).
