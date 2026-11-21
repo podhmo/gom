@@ -828,6 +828,14 @@ func (l *Loader) InterfaceAssignable(from, to types.Type) bool {
 	return false
 }
 
+// FuncNOfNamed defers check.FuncNSource to Config.Sigs.
+func (l *Loader) FuncNOfNamed(t types.Type) (types.Type, bool) {
+	if fs, ok := l.cfg.Sigs.(check.FuncNSource); ok {
+		return fs.FuncNOfNamed(t)
+	}
+	return nil, false
+}
+
 // FieldOf defers check.FieldSource to Config.Sigs.
 func (l *Loader) FieldOf(recv types.Type, name string) (*resolve.Symbol, check.Signature, types.Type, bool) {
 	if fs, ok := l.cfg.Sigs.(check.FieldSource); ok {

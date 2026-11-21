@@ -90,6 +90,9 @@ type Loader struct {
 	// `type F func() F` re-enters through its own result and must
 	// answer the named handle instead of descending forever.
 	mapping map[gt.NamedRef]bool
+	// listNamed is the lazily built `list.List` named type
+	// boundaryType spells inside identity positions.
+	listNamed *types.Named
 
 	// tps scopes a generic signature's type parameters while
 	// mapSignature maps it: the go/types.TypeParam objects map to
@@ -273,7 +276,11 @@ func (l *Loader) member(path string, obj types.Object) (*resolve.Symbol, *member
 		}
 	case *types.TypeName:
 		sym.Kind = resolve.KindType
-		mt, reason := l.gomType(obj.Type())
+		// A type name spells the named type itself — inside a
+		// `List pkg.F` annotation or anywhere else the name means
+		// `pkg.F`, and the boundary's FuncN reading is only a
+		// signature-position view (mapType assignable=false).
+		mt, reason := l.mapType(obj.Type(), false, false)
 		if reason != "" {
 			sym.Hidden = reason
 			break

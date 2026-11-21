@@ -33,6 +33,13 @@ fn batched () -> Unit = {
   goiface.TakeCancelList fs
 }
 
+// The annotation spells the element as the named handle too —
+// `List goiface.CancelFunc` is the same type CancelList returns.
+fn annotated () -> Unit = {
+  let fs : List goiface.CancelFunc = goiface.CancelList ()
+  goiface.TakeCancelList fs
+}
+
 // A FuncN value satisfies a Go interface parameter and `Go.conv`s
 // into `Go.Any` — the boundary relations spell it as a signature.
 fn boxed () -> String = {

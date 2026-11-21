@@ -27,7 +27,19 @@ func (l *Loader) InterfaceAssignable(from, to gt.Type) bool {
 	return src != nil && types.AssignableTo(src, dst)
 }
 
+// boundaryType reconstructs the Go spelling of a Gom type for the
+// boundary relations — assignability, comparability, convertibility.
 func (l *Loader) boundaryType(t gt.Type) types.Type {
+	return l.boundaryTypeOf(t, false)
+}
+
+// boundaryTypeOf is boundaryType; nested marks positions inside a
+// composite where Go requires identical types — a `List` element's
+// faithful spelling there is the named `list.List[A]`, not its
+// underlying `[]A` (`func(list.List[int64])` and `func([]int64)` are
+// different types), while at the top level the underlying slice
+// answers the boundary relations identically.
+func (l *Loader) boundaryTypeOf(t gt.Type, nested bool) types.Type {
 	switch t := gt.Chase(t).(type) {
 	case *gt.Go:
 		if len(t.Args) != 0 {
@@ -42,17 +54,22 @@ func (l *Loader) boundaryType(t gt.Type) types.Type {
 			return types.NewStruct(nil, nil)
 		}
 		if t.Qual == "" && t.Name == "Ptr" && len(t.Args) == 1 {
-			if el := l.boundaryType(t.Args[0]); el != nil {
+			if el := l.boundaryTypeOf(t.Args[0], true); el != nil {
 				return types.NewPointer(el)
 			}
 			return nil
 		}
 		if t.Qual == "" && t.Name == "List" && len(t.Args) == 1 {
 			// The Gom List renders as the named slice list.List[A]
-			// — for the boundary relations (assignability,
-			// comparability, convertibility) its underlying slice
-			// is the faithful Go spelling.
-			if el := l.boundaryType(t.Args[0]); el != nil {
+			// — at the top level its underlying slice answers the
+			// boundary relations identically, but inside an
+			// identity position (FuncN arg, chan element, ...) the
+			// name is load-bearing and the named spelling is the
+			// faithful one.
+			if el := l.boundaryTypeOf(t.Args[0], true); el != nil {
+				if nested {
+					return l.listType(el)
+				}
 				return types.NewSlice(el)
 			}
 			return nil
@@ -69,7 +86,7 @@ func (l *Loader) boundaryType(t gt.Type) types.Type {
 				channel = false
 			}
 			if channel {
-				if el := l.boundaryType(t.Args[0]); el != nil {
+				if el := l.boundaryTypeOf(t.Args[0], true); el != nil {
 					return types.NewChan(direction, el)
 				}
 				return nil
@@ -79,13 +96,13 @@ func (l *Loader) boundaryType(t gt.Type) types.Type {
 			return types.Unalias(types.Universe.Lookup("any").Type())
 		}
 		if t.Qual == "Go" && t.Name == "Slice" && len(t.Args) == 1 {
-			if el := l.boundaryType(t.Args[0]); el != nil {
+			if el := l.boundaryTypeOf(t.Args[0], true); el != nil {
 				return types.NewSlice(el)
 			}
 			return nil
 		}
 		if t.Qual == "Go" && t.Name == "Map" && len(t.Args) == 2 {
-			k, v := l.boundaryType(t.Args[0]), l.boundaryType(t.Args[1])
+			k, v := l.boundaryTypeOf(t.Args[0], true), l.boundaryTypeOf(t.Args[1], true)
 			if k != nil && v != nil {
 				return types.NewMap(k, v)
 			}
@@ -106,7 +123,7 @@ func (l *Loader) boundaryType(t gt.Type) types.Type {
 			}
 			var params, results []*types.Var
 			for i, a := range t.Args {
-				bt := l.boundaryType(a)
+				bt := l.boundaryTypeOf(a, true)
 				if bt == nil {
 					return nil
 				}
@@ -143,6 +160,53 @@ func (l *Loader) boundaryType(t gt.Type) types.Type {
 	default:
 		panic("unreachable")
 	}
+}
+
+// listType spells `list.List[el]` — the named slice the Gom `List`
+// renders as — for nested boundary positions where its name is
+// load-bearing (a `[]A` there would claim a different Go type).
+func (l *Loader) listType(el types.Type) types.Type {
+	if l.listNamed == nil {
+		pkg := types.NewPackage("github.com/podhmo/gom/stdlib/list", "list")
+		tp := types.NewTypeParam(types.NewTypeName(0, pkg, "A", nil),
+			types.Universe.Lookup("any").Type())
+		named := types.NewNamed(types.NewTypeName(0, pkg, "List", nil), nil, nil)
+		named.SetTypeParams([]*types.TypeParam{tp})
+		named.SetUnderlying(types.NewSlice(tp))
+		l.listNamed = named
+	}
+	t, err := types.Instantiate(nil, l.listNamed, []types.Type{el}, true)
+	if err != nil {
+		return nil
+	}
+	return t
+}
+
+// FuncNOfNamed gives the `Go.FuncN` a method-less named func type's
+// `*types.Go` handle reads as at a signature boundary —
+// `context.CancelFunc` → `Go.Func0`. The handle itself is the
+// nested spelling; this is the equivalence the checker consults at
+// value positions (`Go.fnN`, unify of a handle against FuncN).
+func (l *Loader) FuncNOfNamed(t gt.Type) (gt.Type, bool) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	g, ok := gt.Chase(t).(*gt.Go)
+	if !ok || len(g.Args) != 0 {
+		return nil, false
+	}
+	named, ok := l.named[g.Ref]
+	if !ok || named.NumMethods() != 0 {
+		return nil, false
+	}
+	sig, ok := named.Underlying().(*types.Signature)
+	if !ok {
+		return nil, false
+	}
+	ft, reason := l.mapFuncType(sig)
+	if reason != "" {
+		return nil, false
+	}
+	return ft, true
 }
 
 // GoComparable reports whether t's Go representation satisfies the

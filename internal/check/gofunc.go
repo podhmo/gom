@@ -233,6 +233,18 @@ func (c *checker) checkGoFnCall(e *syntax.Apply, fn Expr, callee *resolve.Symbol
 		wn, isFuncN = goFuncTypeArity(fc.Name)
 	}
 	if !isFuncN {
+		// A method-less named func type's handle value converts the
+		// same way — `Go.fn0 stop` on a `context.CancelFunc`-typed
+		// value reads its FuncN spelling.
+		if fn, ok := c.funcNOfNamed(types.Chase(arg.Type())); ok {
+			if cn, ok2 := fn.(*types.Con); ok2 {
+				if w, ok3 := goFuncTypeArity(cn.Name); ok3 {
+					fc, wn, isFuncN = cn, w, true
+				}
+			}
+		}
+	}
+	if !isFuncN {
 		c.diags.Add(diag.Error("E0510",
 			fmt.Sprintf("`Go.fn%d` expects a `Go.Func%d` value, got %s", n, n,
 				types.Display(arg.Type(), metaNamer()))).At(e.Sp))

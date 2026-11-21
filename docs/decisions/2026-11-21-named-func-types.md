@@ -18,6 +18,11 @@
 
 `namedType` が `assignable` な位置（シグネチャのパラメータ・戻り値のトップレベル、メンバーの宣言型、構造体フィールド）でのみ、メソッドを持たない named func 型を `Go.FuncN` に読み替える。コンテナ要素や func 型の内側は Go の型同一性で名前が載るため名前的な型のまま — `[]F` を `[]func()` と読み替えると、受理した `[]F` を生成コードが `[]func()` として渡して `go build` で落ちる（Devin Review 指摘）。`boundaryType` は `Go.FuncN` を `*types.Signature` として再構成するので、`Empty` などの interface パラメータへの代入や `Go.conv f : Go.Any` は Go と同じく受理する（同指摘の2件目）。
 
+追加のレビューで2点をさらに修正した:
+
+- **型名メンバーはハンドルを返す**。`TypeName` のメンバー型（`goiface.CancelFunc` のアノテーション解決先）は `assignable=false` でマップして `pkg.F` の named ハンドルに統一する — `List goiface.CancelFunc` が `CancelList ()` の戻り値と一致する。FuncN との等価は型名ではなく `unify` 側が担う: `FuncNSource`（`Loader.FuncNOfNamed`）がハンドルの背後の named から `mapFuncType` で `Go.FuncN` を再構成し、片側が `Go.FuncN` con のときだけ展開して比較する（異なる named 同士は展開しない — `F` は `G` に代入できないのは Go と同じ）。`Go.fnN` の引数チェックも同じ展開でハンドル値を受ける。
+- **`boundaryType` の内側は名前を保持する**。nested 位置（FuncN 引数・chan/slice/map/ptr の要素）では `List` を `[]A` ではなく `list.List[A]` の named 型として再構成する（`listType` が `types.Named` を合成）。トップレベルは従来どおり underlying slice で答える — `func(list.List[int64])` と `func([]int64)` が別型なので `Go.Func1 (List Int)` と `Go.Func1 (Go.Slice Int)` の conv 証明を拒否するようになった（Devin Review 2件目の指摘）。
+
 `internal/goimport/mapping.go` の `namedType` に 1 分岐: `NumMethods() == 0` かつ underlying が `*types.Signature` なら `mapFuncType` を試し、成功すればその `Go.FuncN` を返す。`mapFuncType` が拒否する形（variadic・4 個以上のパラメータなど）は従来どおり名前的な型に読む。`type F func() F` のように自分を名指すシグネチャは内側の出現を名前的な型に読む再帰ガード（`Loader.mapping`）を入れた。
 
 この変更で `Go.conv stop : Unit -> Unit` のバグも解消する: `stop` が `Go.Func0` の Con になったため `convOK` の「unproven + `*types.Go` 受理」フォールバックに乗らず、func 型どうしの変換は oracle が `types.ConvertibleTo` で裁ける形になり、形の違うペアは E0507 で拒否される。

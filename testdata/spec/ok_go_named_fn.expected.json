@@ -22,6 +22,29 @@
         "argument": "List github.com/podhmo/gom/testdata/goiface.CancelFunc",
         "callee": "goiface.TakeCancelList"
       }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "W0501",
+      "severity": "warning",
+      "message": "`goiface.TakeCancelList` returns Unit and receives its `List github.com/podhmo/gom/testdata/goiface.CancelFunc` argument as a copied []T — a callee that mutates the slice in place has no effect on the Gom value",
+      "span": {
+        "file": "ok_go_named_fn.gom",
+        "start": {
+          "line": 40,
+          "col": 26,
+          "offset": 1307
+        },
+        "end": {
+          "line": 40,
+          "col": 28,
+          "offset": 1309
+        }
+      },
+      "data": {
+        "argument": "List github.com/podhmo/gom/testdata/goiface.CancelFunc",
+        "callee": "goiface.TakeCancelList"
+      }
     }
   ]
 }
