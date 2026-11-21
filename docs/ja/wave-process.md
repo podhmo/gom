@@ -37,7 +37,8 @@ Gom の開発は「wave」という単位で回す。1 wave = 複数 lane（細�
 - レビューは Devin Review が PR ごとに担う。CI は push-to-main /
   PR-to-main synchronize でしか走らないため、チェーン途中の PR は
   Devin Review のみが品質ゲートになる。
-- マージは podhmo が行う（エージェントはマージしない）。base の
+- オーケストレーターの役割の一部は podhmo が担う: マージは
+  podhmo が行う（エージェントはマージしない）。base の
   retarget → `gh pr merge --merge` を下から順に。
 
 ## フェーズ
@@ -74,17 +75,30 @@ Gom の開発は「wave」という単位で回す。1 wave = 複数 lane（細�
 - Devin Review の finding は lane 内でトリアージして潰す
   （resolved = 修正 commit、rejected/escalated は理由つき）。
 
-### 4. 締め作業（全 lane 完了後 — lane ではない独立作業）
+### 4. 締め作業（lane ではない独立作業）
+
+規範としては **全 lane マージ後** にやる作業。単一エージェント
+運用では 2 段に分かれる:
+
+- **下書き（エージェント）**: 全 lane の PR が揃った時点で、
+  締め作業の下書きをやる。不足事項（索引の更新忘れなど）を
+  見つけたらこの時点で拾って commit する。
+- **仕上げ（podhmo）**: 下書きに口出ししながら、マージを進め
+  つつ締め作業を終わらせ、次期 prompts を確定させる。
+
+締め作業の内容:
 
 - `docs/sketch/YYYY-MM-DD-waveN-round.md` の round 記録
   （各 lane の結果・pitfalls・次への申し送り）。
 - `skills/gom-agent-guide` の同期（その wave で変わった
   ユーザー可視の振る舞い・診断・構文の分）。
+- **全体を眺めての修整・調整**: 個別のレビュー・マージ時点では
+  人間が注意力を持てないため、締め作業の中で wave 全体の差分を
+  読み、索引系の更新忘れ（README の表、`docs/error-codes.md`、
+  decisions README — `go generate ./internal/tool/decisionsdoc`）
+  やレーン間の不整合を拾って直す。
 - 台帳の掃除: open-questions / implementation-gaps / TODO.md の
   解消済みチェック漏れ sweep、problems/ 残件の台帳化判定。
-- 索引系の更新忘れを拾う: README の表、`docs/error-codes.md`、
-  decisions README（`go generate ./internal/tool/decisionsdoc`）
-  など、サブタスクが更新し忘れやすい一覧物。
 - 次 wave の prompts 草案を作り、フェーズ 2 に戻る。
 
 ## 運用上の細目
