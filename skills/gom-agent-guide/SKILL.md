@@ -710,6 +710,53 @@ Wrap the `try` in a lambda inside the goroutine (or use
 `Task.spawn`), and make the `try`ing function's return type a
 `Result` whose error type matches the tried value's.
 
+## Scoped cleanup: `Scope` instead of `defer`
+
+There is no `defer` statement. Open a scope with `Scope.run` (or
+`Scope.run_result` for a `Result _ GoError` body) and register
+cleanups on its handle — from inside an `if`, a `match` arm or a loop
+too; they all run when the body ends (normal end, `try` escape or
+panic), last registered first.
+
+```gom
+package main
+
+import go "fmt"
+
+fn say (m: String) -> Unit = ignore (fmt.Println m)
+
+fn work (need: Bool) -> Result Int GoError =
+  Scope.run_result <| fn s -> {
+    Scope.defer s (fn () -> say "always")
+    if need { Scope.on_err s (fn () -> say "rollback") }
+    Scope.defer_err s (fn () -> Ok ())
+    Ok 1
+  }
+
+fn main () -> Unit = ignore (work true)
+```
+
+- No method syntax: `Scope.defer s f`, never `s.defer f`.
+- `defer` always runs; `on_err` runs only on an `Err` body or a
+  panic; `defer_err` (GoError only) joins cleanup errors into an
+  `Ok` result with `errors.Join` — the body's own `Err` wins.
+- The handle may not leave its body (E0418): no returning it, no
+  storing it in a record/constructor/`Ref`, no `Scope` type
+  argument, no capturing it in a lambda that escapes (`Task.spawn`,
+  Go functions, a cleanup of an outer scope). Passing `s` to a
+  helper `fn` is fine; so is a lambda given to a non-escaping
+  parameter (`List.iter`, or a same-package `fn` inferred so).
+- A `.gomi` promises non-escaping parameters with
+  `@noescape(f)` before the `fn`; `gom info` drafts it.
+
+```gom fail=E0418
+package main
+
+fn leak () -> Scope = Scope.run <| fn s -> s   // NG: the handle escapes
+
+fn main () -> Unit = ()
+```
+
 ## Unparenthesized lambdas inside a `|?>` chain
 
 A lambda body extends as far right as possible, so a bare
