@@ -4,23 +4,16 @@ State as of 2026-11-21: wave27 の 4 lane（#84–#87）は全件マージ済み
 別系統の scoped-cleanup チェーン（SC-1..3、#91/#93/#94/#96、
 `devin/1795208106-*`）が別セッションで進行中 — lane 選定はそこと
 被らない言語ギャップ埋めに絞る。linkcheck（#92）と rgrep（#95）の
-example 実装で新たに見つかったギャップを台帳に登録済み。
-実行モデルは wave26/27 と同じ前提（単独実行・Devin Review・
-podhmo がマージ）。lane 順は下からチェーンする。
+example 実装で新たに見つかったギャップは台帳登録済み。
+このファイルは wave28 の prompts。実行モデルは wave26/27 と
+同じ前提（単独実行・Devin Review・podhmo がマージ）。
+lane 順は下からチェーンする。
 
-## 候補（採否は podhmo が lane ごとに決める）
+**採択（podhmo、2026-11-21）: A〜E の 5 lane 全部。**
 
-ギャップの棚卸し（2026-11-21 時点の open）:
+## Lanes
 
-| ギャップ | 出所 | 重さ |
-| --- | --- | --- |
-| named func 型（`context.CancelFunc` など）を Gom から呼べない・named func 型パラメータへの `Go.funcN` 適合も未対応 | rgrep + errgroup プローブ | 大（相互運用全体に波及） |
-| `Array.make` が ADT/`Option` 要素で Go nil を生成し `Array.get` が panic | linkcheck | 中（API/仕様の決定事項） |
-| 予約語の一覧が spec にない + `fn send` が意味不明な E0101 | gist-cli | 小 |
-| `Ptr sync.WaitGroup` 等「共有前提」の Go 型が W0701/W0702 を踏む（false positive） | rgrep + errgroup プローブ | 中 |
-| type alias の構文が存在しない（`AliasBody` は unreachable。`type X = Int` がバリアント `Int` として**静かに誤解**される） | problems/2026-11-02-type-alias-body | 中（調査） |
-
-### A. named func 型の呼出し・受け渡し — `devin/wave28-named-func-call`
+### A. named func 型の呼出し・受け渡し — `devin/wave28-named-func-call` — **採択済み**（2026-11-21 チャット）
 
 ```
 [investigate → impl] `type CancelFunc func()` のような named func
@@ -44,7 +37,7 @@ Ownership: internal/goimport, internal/check, docs/spec.md,
 testdata/spec + golden.
 ```
 
-### B. `Array.make` の ADT/`Option` 要素ゼロ値 — `devin/wave28-array-make-init`
+### B. `Array.make` の ADT/`Option` 要素ゼロ値 — `devin/wave28-array-make-init` — **採択済み**（2026-11-21 チャット）
 
 ```
 [impl — draft decision から] `Array.make n` の「n 個のゼロ値」は
@@ -63,7 +56,7 @@ Ownership: internal/stdlib/array, docs/spec.md, decision +
 testdata/spec.
 ```
 
-### C. 予約語一覧と `fn send` の診断 — `devin/wave28-reserved-word-list`
+### C. 予約語一覧と `fn send` の診断 — `devin/wave28-reserved-word-list` — **採択済み**（2026-11-21 チャット）
 
 ```
 [impl] `send`/`select`/`default` などのキーワードは lexer が持つが
@@ -71,7 +64,7 @@ spec に予約語一覧がなく、`fn send (x: T)` は "a function
 declaration needs at least one (param: Type) group, found send"
 という理由の分からない E0101 になる。token.go のキーワード集合を
 正として spec に予約語節を足し、束縛名位置でのキーワード出現は
-専用診断（「`send` は予約語」）にする。既存の E0101 規規則を壊さない
+専用診断（「`send` は予約語」）にする。既存の E0101 規則を壊さない
 範囲で: parser の ident 期待位置で keyword を拾って診断を出し分ける
 か、lexer で keyword→ident 変換せず専用エラーを出すか、構造を見て
 選ぶ。testdata/spec に `fn send`/`let select` の fixture。
@@ -79,7 +72,7 @@ implementation-gaps の該当項を解消に進める。
 Ownership: internal/syntax, docs/spec.md, testdata/spec.
 ```
 
-### D. 共有 lint の「共有前提の Go 型」allowlist — `devin/wave28-shared-go-types`
+### D. 共有 lint の「共有前提の Go 型」allowlist — `devin/wave28-shared-go-types` — **採択済み**（2026-11-21 チャット）
 
 ```
 [investigate → impl] `Ptr sync.WaitGroup`・`Ptr errgroup.Group`・
@@ -96,7 +89,7 @@ named Go 型の allowlist テーブルを足し spec 10 に記載。採否を
 Ownership: internal/check/lint.go, docs/spec.md, decision.
 ```
 
-### E. type alias 構文の調査 — `devin/wave28-type-alias`
+### E. type alias 構文の調査 — `devin/wave28-type-alias` — **採択済み**（2026-11-21 チャット）
 
 ```
 [investigate] `AliasBody{Type}` は AST にあるが grammar の
@@ -107,18 +100,44 @@ type-body が variant-list|record-type しかないため unreachable —
 かの切り分けが必要）、`type X alias = T`、別キーワード。
 曖昧の扱い（大文字始まりは今も variant か、単一 variant と alias
 の文脈分離）と、エイリアスが解決される位相（resolve 早期展開か
-名前として残すか — .gomi への現れ方、GoFuncN 型・record 型への
+名前として残すか — .gomi への現れ方、`Go.FuncN` 型・record 型への
 適用）を測る。結論として採用・延期・却下の判断材料を出す。
 Ownership: grammar.ebnf, internal/syntax+resolve, problems,
 docs/spec.md.
 ```
 
-## 補足
+## 申し送り
 
-- A は implementation-gaps で最も広い波及面（CancelFunc 呼出し・
-  WalkDirFunc 等コールバック・`Go.conv` の誤 emit まで同根）。
-  examples の G 候補（Go 並行プリミティブの例）も A に依存する
-- B は v1 凍結前の API 形に関わるので wave28 以内に結論を出したい
-- C は小さい — 調整 lane として先にやってもよい
-- E は言語表面の決定なので、採用するなら複数 lane のどれかと
-  入れ替えてもよい（調査だけなら軽い）
+- CI は push-to-main / PR-to-main synchronize でしか走らない —
+  チェーン PR は Devin Review のみ。マージは podhmo が
+  retarget → `gh pr merge --merge` を下から順に。
+- lane A は examples 候補 G（Go 並行プリミティブの相互運用例、
+  `docs/sketch/ja/2026-11-21-example-candidates.md`）の前提にも
+  なる — named func が通れば WalkDirFunc 系の例が書ける。
+- named func の観測事実（/tmp プローブで確認済み）: `f ()` は
+  E0401「expected context.CancelFunc, got Unit -> ?1」、
+  `Go.fn0 stop` は E0510「expects a Go.Func0 value」、
+  `Go.conv stop : Unit -> Unit` は型検査を通るが生成コードが
+  `func(struct{}) struct{}` で `go build` 失敗 — Go.conv の
+  func 型変換は互換性を検査していないバグでもある。
+- unnamed func 型はすでに双方向で動く（errgroup 実証済み:
+  `Go.func0` で `Unit -> Result Unit GoError` → `func() error`、
+  `context.AfterFunc` の戻り値 `func() bool` を `Go.fn0` で
+  `go {}` 内から呼べた）。
+- spec fixture の再生: `go test ./internal/build -update -run
+  TestSpec`。golden の再生: 同コマンド -run TestGolden。
+  gocall は `cmd/gom/gocall_test.go` のパッケージ列挙に登録。
+- gomtest のディレクトリ case は bare `expected.json` /
+  `golden.go` / `case.json` のどれかが無いと各ファイル個別
+  ケースになる — 複数ファイルを 1 ケースにするなら
+  `case.json {}` を置く（wave27 round）。
+- lane C/E が grammar を触る場合: tree-sitter-cli は 0.27.1/0.26.3
+  がこの VM では GLIBC 不足で動かない。
+  `npm exec --yes --package=tree-sitter-cli@0.25.10 --
+  tree-sitter generate` で再生成（ABI 15 は不変、wave27 round）。
+- scratch チェック環境: `/tmp/gomctx/`（go.mod `module tmp` +
+  `replace github.com/podhmo/gom => ~/repos/gom`、
+  `/tmp/gom check .`）。`.gom` は `package` 節から始める。
+  `gom build -o dir/` は dir を `/` で終わらせる。
+- コミットメッセージにバッククォート/`$()` を入れない —
+  `-m` を複数回に分けて書く（shell が喰う）。
