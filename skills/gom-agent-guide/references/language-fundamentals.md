@@ -42,6 +42,12 @@ stdlib also spells `import "list"`/`"option"`/`"result"` (see
 interface-files.md); `import go "path"` pulls in a real Go
 package.
 
+Names: the 22 reserved words (spec §1.8 — `as default else extern
+false fn for go if ignore import in let match package select send
+test true try type with`) cannot bind names — a keyword in a
+binding position reports E0106. Member names after `.` accept all
+keywords (`Chan.send`), as do `@` attribute names (`@test`).
+
 ## Expressions
 
 Everything is an expression. There are no statements, no `return`,

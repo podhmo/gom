@@ -1,6 +1,7 @@
 # `type X = T` エイリアス構文 — 採否の推薦
 
-- 状態: 採用（調査に基づく推薦 — defer。コード変更なし）
+- 状態: Superseded — [2026-11-21-type-alias-adopt](2026-11-21-type-alias-adopt.md)
+  （defer 推薦だったが `type alias X = T` の綴りで採用に転じた）
 - 日付: 2026-11-21
 - 問い: wave28 lane E — `AliasBody` が parser から到達不能
 

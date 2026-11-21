@@ -91,5 +91,9 @@ Also iterates a `List` or a `Go.Slice`. `Unit` body only.
 Immutable Gom values send freely. The linter warns (W0701/W0702,
 implemented) when a channel's element type contains mutable values
 (`Ref`, `Array`, `Ptr`, `Go.Slice`, `Go.Map`) or a `go` block
-captures such a variable. Uncaught panics in a non-`Task` goroutine
-stop the whole program; `Task` re-panics at `await`.
+captures such a variable. A `Ptr` to an internally-synchronized Go
+type is exempt — `sync`'s guard types (WaitGroup, Mutex, Map,
+Once, Pool, Cond), `sync/atomic`'s word types, `errgroup.Group`
+(the closed `sharedGoTypes` table). Uncaught panics in a
+non-`Task` goroutine stop the whole program; `Task` re-panics at
+`await`.
