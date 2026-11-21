@@ -180,6 +180,13 @@ type escapeBody struct {
 	// expanding guards runnerArgTainted's declared-body lookup
 	// against a runner calling itself through its body argument.
 	expanding map[*resolve.Symbol]bool
+	// declTaint caches a declared body's produced-value taint so
+	// chains of runners over named helpers stay linear.
+	declTaint map[*resolve.Symbol]bool
+	// lets maps let-bound symbols of the body under the walk to
+	// their bound expressions, so a named body argument of a
+	// scope runner resolves like the inline lambda.
+	lets map[*resolve.Symbol]Expr
 }
 
 func (b *escapeBody) tainted(s *resolve.Symbol) bool { return b.aliases[s] }
@@ -494,13 +501,28 @@ func (c *checker) escWalk(e Expr, danger bool, b *escapeBody, report bool) {
 			c.escWalk(a.Body, danger, b, report)
 		}
 	case *Block:
+		saved := b.lets
+		b.lets = nil
+		if len(saved) > 0 {
+			b.lets = make(map[*resolve.Symbol]Expr, len(saved)+len(e.Stmts))
+			for s, v := range saved {
+				b.lets[s] = v
+			}
+		}
 		for i, s := range e.Stmts {
 			tail := i == len(e.Stmts)-1
 			c.escWalk(s, danger && tail, b, report)
 			if l, ok := s.(*Let); ok {
 				c.bindLet(l, b)
+				for _, s := range patBoundSyms(l.Pat) {
+					if b.lets == nil {
+						b.lets = map[*resolve.Symbol]Expr{}
+					}
+					b.lets[s] = l.Value
+				}
 			}
 		}
+		b.lets = saved
 	case *Let:
 		c.escWalk(e.Value, false, b, report)
 		c.bindLet(e, b)
@@ -739,7 +761,11 @@ func (c *checker) runnerArgTainted(e Expr, b *escapeBody, locals map[*resolve.Sy
 	switch f := e.(type) {
 	case *Var:
 		sym = f.Sym
-		if bound, ok := locals[f.Sym]; ok {
+		bound, ok := locals[f.Sym]
+		if !ok {
+			bound, ok = b.lets[f.Sym]
+		}
+		if ok {
 			if lam, isLam := bound.(*Lambda); isLam {
 				return c.exprTaintedL(lam.Body, b, nil)
 			}
@@ -754,6 +780,9 @@ func (c *checker) runnerArgTainted(e Expr, b *escapeBody, locals map[*resolve.Sy
 		panic("unreachable")
 	}
 	if sym != nil && !b.expanding[sym] {
+		if t, ok := b.declTaint[sym]; ok {
+			return t
+		}
 		if d := c.fnDeclOf(sym); d != nil && d.Body != nil {
 			if b.expanding == nil {
 				b.expanding = map[*resolve.Symbol]bool{}
@@ -761,6 +790,10 @@ func (c *checker) runnerArgTainted(e Expr, b *escapeBody, locals map[*resolve.Sy
 			b.expanding[sym] = true
 			t := c.exprTaintedL(d.Body, b, nil)
 			delete(b.expanding, sym)
+			if b.declTaint == nil {
+				b.declTaint = map[*resolve.Symbol]bool{}
+			}
+			b.declTaint[sym] = t
 			return t
 		}
 	}
