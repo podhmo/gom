@@ -534,15 +534,19 @@ func (c *checker) typeCtorOf(te syntax.TypeExpr) typeCtor {
 			if c.hiddenDiag(sym, tn.Sp) {
 				return typeCtor{arity: -1}
 			}
-			if ti, ok := c.tyBySym[sym]; ok {
-				// A registered decl (imported or local): read its own
-				// arity and alias expansion rather than the expanded
-				// target's shape (`p.Ints` keeps arity 0 even though
-				// `Ints = List Int` expands to an arity-1 Con).
-				return c.ctorOfInfo(ti)
-			}
 			if sig, ok := c.sigOf(sym, tn.Sp); ok {
+				if ti, ok := c.tyBySym[sym]; ok {
+					// A registered decl (imported or local): read its
+					// own arity and alias expansion rather than the
+					// expanded target's shape (`p.Ints` keeps arity 0
+					// even though `Ints = List Int` expands to an
+					// arity-1 Con).
+					return c.ctorOfInfo(ti)
+				}
 				return c.symTypeCtor(sym, sig, tn.Sp)
+			}
+			if ti, ok := c.tyBySym[sym]; ok {
+				return c.ctorOfInfo(ti)
 			}
 			return typeCtor{con: &types.Con{Qual: qual, Name: sym.Name}, arity: -1}
 		}
