@@ -692,8 +692,10 @@ func (l *Loader) extract(path string, tf *check.File) (*resolve.Package, error) 
 			}
 			l.sigs[sym] = sig
 			if d.Method && d.Sig != nil && len(d.Sig.Params) > 0 {
+				ptrRecv := false
 				base := types.Chase(d.Sig.Params[0].Type)
 				if p, ok := base.(*types.Con); ok && p.Qual == "" && p.Name == "Ptr" && len(p.Args) == 1 {
+					ptrRecv = true
 					base = types.Chase(p.Args[0])
 				}
 				if rc, ok := base.(*types.Con); ok {
@@ -706,8 +708,9 @@ func (l *Loader) extract(path string, tf *check.File) (*resolve.Package, error) 
 					}
 					key := conKey{qual: path, name: rc.Name}
 					l.methods[key] = append(l.methods[key], check.GomMethod{
-						Name: core.ExportName(sym.Name),
-						Sig:  types.Fn(requalify(d.Sig.Ret, own, path), ps...),
+						Name:    core.ExportName(sym.Name),
+						Sig:     types.Fn(requalify(d.Sig.Ret, own, path), ps...),
+						PtrRecv: ptrRecv,
 					})
 				}
 			}

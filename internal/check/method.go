@@ -19,8 +19,9 @@ import (
 // GomMethod is one declared Go method of a Gom type — recorded per
 // receiver for conformance checks and .gomi round-trips.
 type GomMethod struct {
-	Name string      // Go method name — core.ExportName of the fn's name
-	Sig  *types.Func // the signature without the receiver
+	Name    string      // Go method name — core.ExportName of the fn's name
+	Sig     *types.Func // the signature without the receiver
+	PtrRecv bool        // declared on `Ptr T` — only `*T` carries it in Go
 }
 
 // InterfaceMethod is one method a Go interface requires.
@@ -45,8 +46,10 @@ func (c *checker) checkMethodDecl(d *syntax.FnDecl, sym *resolve.Symbol, sig *ty
 		fail("an \"@method\" declaration requires a receiver parameter")
 		return
 	}
+	ptrRecv := false
 	base := types.Chase(sig.Params[0].Type)
 	if p, ok := base.(*types.Con); ok && p.Qual == "" && p.Name == "Ptr" && len(p.Args) == 1 {
+		ptrRecv = true
 		base = types.Chase(p.Args[0])
 	}
 	rc, ok := base.(*types.Con)
@@ -81,8 +84,9 @@ func (c *checker) checkMethodDecl(d *syntax.FnDecl, sym *resolve.Symbol, sig *ty
 	}
 	key := conKey{qual: "", name: rc.Name}
 	c.methods[key] = append(c.methods[key], GomMethod{
-		Name: core.ExportName(sym.Name),
-		Sig:  types.Fn(sig.Ret, ps...),
+		Name:    core.ExportName(sym.Name),
+		Sig:     types.Fn(sig.Ret, ps...),
+		PtrRecv: ptrRecv,
 	})
 }
 
@@ -106,8 +110,17 @@ func (c *checker) implementsIface(want, got types.Type) bool {
 	if len(have) == 0 {
 		return false
 	}
+	// Go's method-set rule: `*T` carries value and pointer methods,
+	// a bare `T` only value-receiver ones.
+	ptrGot := false
+	if p, ok := types.Chase(got).(*types.Con); ok && p.Qual == "" && p.Name == "Ptr" && len(p.Args) == 1 {
+		ptrGot = true
+	}
 	set := map[string]*types.Func{}
 	for _, m := range have {
+		if m.PtrRecv && !ptrGot {
+			continue
+		}
 		set[m.Name] = m.Sig
 	}
 	for _, n := range need {
