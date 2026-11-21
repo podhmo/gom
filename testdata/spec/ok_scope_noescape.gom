@@ -26,3 +26,12 @@ fn each_std (xs: List Int) (r: Ref Int) -> Int =
     xs |> List.iter (fn x -> Scope.defer s (fn () -> Ref.set r x))
     Ref.get r
   }
+
+// A partial application may go where a closure may.
+fn reg (s: Scope) (f: Unit -> Unit) -> Unit = Scope.defer s f
+
+fn partial_ok (fs: List (Unit -> Unit)) -> Int =
+  Scope.run <| fn s -> {
+    List.iter (reg s) fs
+    0
+  }

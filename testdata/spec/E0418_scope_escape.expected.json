@@ -114,6 +114,29 @@
         "name": "inner",
         "reason": "capture"
       }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0418",
+      "severity": "error",
+      "message": "a partial application holding Scope `s` escapes its scope",
+      "span": {
+        "file": "E0418_scope_escape.gom",
+        "start": {
+          "line": 32,
+          "col": 64,
+          "offset": 1000
+        },
+        "end": {
+          "line": 32,
+          "col": 69,
+          "offset": 1005
+        }
+      },
+      "data": {
+        "name": "s",
+        "reason": "capture"
+      }
     }
   ]
 }

@@ -269,10 +269,22 @@ func nextParam(call CallInfo, nargs int) int {
 
 // visitApply visits an application; extra is the number of arguments
 // an enclosing pipe supplies right away (0 or 1), which makes a
-// partial application saturating.
-func (se *scopeEsc) visitApply(ap *Apply, extra int) {
+// partial application saturating. ok is the position of the
+// application's value: an unsaturated one is a closure over its
+// arguments, so it may hold a Scope only where a closure may.
+func (se *scopeEsc) visitApply(ap *Apply, extra int, ok bool) {
 	se.visit(ap.Fn, true)
 	direct := ap.Call.Kind == CallDirect || ap.Call.Kind == CallPartial && ap.Call.Unapplied <= extra
+	if ap.Call.Kind == CallPartial && ap.Call.Unapplied > extra && !ok && se.report {
+		for _, a := range ap.Args {
+			if scope := se.heldScope(a.Value); scope != nil {
+				se.c.diags.Add(diag.Error("E0418",
+					fmt.Sprintf("a partial application holding Scope `%s` escapes its scope", scope.Sym.Name)).
+					At(ap.Sp).Set("reason", "capture").Set("name", scope.Sym.Name))
+				break
+			}
+		}
+	}
 	isCtor := ap.Call.Callee != nil && ap.Call.Callee.Kind == resolve.KindCtor
 	for i, a := range ap.Args {
 		if isCtor && isScope(a.Value.Type()) {
@@ -299,7 +311,7 @@ func (se *scopeEsc) reportStore(sp diag.Span) {
 func (se *scopeEsc) pipeTarget(f Expr) bool {
 	switch f := f.(type) {
 	case *Apply:
-		se.visitApply(f, 1)
+		se.visitApply(f, 1, false)
 		if f.Call.Kind == CallPartial && f.Call.Unapplied == 1 {
 			return se.noEscape(f.Call, nextParam(f.Call, len(f.Args)))
 		}
@@ -347,7 +359,7 @@ func (se *scopeEsc) visit(e Expr, ok bool) {
 		se.closure(e.Sp, e.Body, false, "a `go` body")
 		se.visit(e.Body, false)
 	case *Apply:
-		se.visitApply(e, 0)
+		se.visitApply(e, 0, ok)
 	case *Binary:
 		switch e.Op {
 		case syntax.BinPipeFwd, syntax.BinPipeTry:
@@ -473,4 +485,13 @@ func (c *checker) noEscapeAttr(d *syntax.FnDecl, params []Param, sig *types.Func
 func isFuncType(t types.Type) bool {
 	_, ok := types.Chase(t).(*types.Func)
 	return ok
+}
+
+// heldScope is the Scope an argument value is or captures, if any.
+func (se *scopeEsc) heldScope(e Expr) *Var {
+	if v, ok := e.(*Var); ok && isScope(v.Type()) {
+		return v
+	}
+	scope, _ := se.captures(e, e.Span())
+	return scope
 }

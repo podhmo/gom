@@ -25,3 +25,8 @@ fn nested () -> Int =
       Scope.defer outer (fn () -> Scope.defer inner (fn () -> ()))
       1
     }
+
+// A partial application holds its arguments like a closure.
+fn reg (s: Scope) (f: Unit -> Unit) -> Unit = Scope.defer s f
+
+fn partial () -> (Unit -> Unit) -> Unit = Scope.run <| fn s -> reg s
