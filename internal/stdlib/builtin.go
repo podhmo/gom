@@ -185,6 +185,10 @@ var refMembers = []builtinMember{
 // cleanup (decisions/2026-11-21-scoped-cleanup). run/defer/on_err
 // live in rt; the Result-aware run_result/defer_err live in
 // stdlib/result because rt cannot import the Result representation.
+//
+// Only the run bodies are non-escaping: a cleanup outlives the
+// registering call (it runs when the Scope closes), so a cleanup that
+// captures a Scope — an inner one closed before it runs — escapes.
 var scopeMembers = []builtinMember{
 	{name: "run", goSym: "ScopeRun",
 		sig:   noEscape(genericSig(types.Fn(elemTVar, types.P(types.Fn(elemTVar, types.P(types.Scope))))), 0),
@@ -194,14 +198,14 @@ var scopeMembers = []builtinMember{
 			types.P(types.Fn(types.Result(elemTVar, types.GoError), types.P(types.Scope))))), 0),
 		gosig: lower.GoSig{Arity: 1, Results: core.GoResultsOne}},
 	{name: "defer", goSym: "ScopeDefer",
-		sig:   noEscape(check.Signature{Type: types.Fn(types.Unit, types.P(types.Scope), types.P(types.Fn(types.Unit, types.P(types.Unit))))}, 1),
+		sig:   check.Signature{Type: types.Fn(types.Unit, types.P(types.Scope), types.P(types.Fn(types.Unit, types.P(types.Unit))))},
 		gosig: lower.GoSig{Arity: 2, Results: core.GoResultsNone}},
 	{name: "defer_err", goSym: "ScopeDeferErr", pkg: "github.com/podhmo/gom/stdlib/result",
-		sig: noEscape(check.Signature{Type: types.Fn(types.Unit, types.P(types.Scope),
-			types.P(types.Fn(types.Result(types.Unit, types.GoError), types.P(types.Unit))))}, 1),
+		sig: check.Signature{Type: types.Fn(types.Unit, types.P(types.Scope),
+			types.P(types.Fn(types.Result(types.Unit, types.GoError), types.P(types.Unit))))},
 		gosig: lower.GoSig{Arity: 2, Results: core.GoResultsNone}},
 	{name: "on_err", goSym: "ScopeOnErr",
-		sig:   noEscape(check.Signature{Type: types.Fn(types.Unit, types.P(types.Scope), types.P(types.Fn(types.Unit, types.P(types.Unit))))}, 1),
+		sig:   check.Signature{Type: types.Fn(types.Unit, types.P(types.Scope), types.P(types.Fn(types.Unit, types.P(types.Unit))))},
 		gosig: lower.GoSig{Arity: 2, Results: core.GoResultsNone}},
 }
 

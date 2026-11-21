@@ -16,3 +16,12 @@ fn spawned (r: Ref Int) -> Int =
     let o = Some s
     Ref.get r
   }
+
+// A cleanup runs when its Scope closes, after the inner Scope it
+// captured has already closed.
+fn nested () -> Int =
+  Scope.run <| fn outer ->
+    Scope.run <| fn inner -> {
+      Scope.defer outer (fn () -> Scope.defer inner (fn () -> ()))
+      1
+    }

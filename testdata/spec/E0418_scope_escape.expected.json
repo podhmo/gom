@@ -91,6 +91,29 @@
         "reason": "type",
         "type": "Option Scope"
       }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0418",
+      "severity": "error",
+      "message": "a closure capturing Scope `inner` escapes its scope",
+      "span": {
+        "file": "E0418_scope_escape.gom",
+        "start": {
+          "line": 25,
+          "col": 26,
+          "offset": 756
+        },
+        "end": {
+          "line": 25,
+          "col": 66,
+          "offset": 796
+        }
+      },
+      "data": {
+        "name": "inner",
+        "reason": "capture"
+      }
     }
   ]
 }
