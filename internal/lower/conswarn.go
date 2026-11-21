@@ -215,7 +215,7 @@ func folderAppendsAcc(e core.Expr, declOf map[*resolve.Symbol]*core.FuncDecl) bo
 		// inspecting.
 		case *core.Binary, *core.CallBuiltin, *core.CallDirect,
 			*core.CallFunc, *core.CallGo, *core.Conv, *core.CtorApp,
-			*core.CtorRef, *core.Equal, *core.ErrorFromGo, *core.EscapeCall,
+			*core.CtorRef, *core.Defer, *core.Equal, *core.ErrorFromGo, *core.EscapeCall,
 			*core.EscapeResult, *core.FieldGet, *core.FieldSet, *core.ForRange,
 			*core.GoFuncRef, *core.If, *core.ListNew, *core.Lit, *core.Match,
 			*core.OptionFromGo, *core.RecordNew, *core.RecordUpdate,
