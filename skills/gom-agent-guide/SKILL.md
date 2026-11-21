@@ -208,7 +208,9 @@ stay structs (Go forbids `type X[T] T`).
   errors otherwise.
 - **Tests live in the same file:** `test "name" { ... }` body is
   `Unit` or `Result Unit e`; `assert`/`assert_eq` exist only inside
-  `test`; `@test` marks test-only helpers. `@extern` on a `fn`
+  `test`; `@test` marks test-only helpers. `@method` on a `fn`
+  adds a Go method to the receiver record so it satisfies Go
+  interfaces (see go-interop). `@extern` on a `fn`
   declares signature-only — the body is a same-named Go function
   hand-written in the generated package (stdlib internals use it;
   see go-interop). `gom test FILE|DIR ...`

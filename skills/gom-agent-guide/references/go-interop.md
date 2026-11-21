@@ -90,11 +90,18 @@ fn parse (s: String) -> Result Int GoError =
   boxing site.
 - Go interface params accept Go-derived values satisfying `go/types`
   assignability (`*os.File` → `io.Writer`); the same rule applies at
-  annotated bindings, returns, and Gom-param boundaries. Gom types
-  cannot implement Go interfaces in v1 — a hand-written `.go` file in
-  the generated package's directory can still attach methods to a
-  record's emitted `type Name struct` (the host-package idiom), so
-  `fmt.Stringer`/`error` are reachable today without compiler support.
+  annotated bindings, returns, and Gom-param boundaries.
+- **Records can implement Go interfaces via `@method`**: write the
+  receiver first — `@method fn (g: Greeter) string () -> String` —
+  and the emit is dual: a plain `string` function (Gom call sites
+  stay `string g`) plus a forwarding `func (g Greeter) String()`.
+  The record then satisfies `fmt.Stringer`/`error` at interface
+  boundaries (`let st : fmt.Stringer = g`). Method names follow the
+  Go convention (`string` → `String`); `Unit` params drop out of
+  the method; `Ptr T` receivers land on the pointer only.
+  Constraints (E0420): the receiver must be a record of the same
+  package (no generics — Go methods take no type args), no
+  `@extern`, no `Result` return.
 - Exported struct fields read via `v.Field` (promoted fields and Go's
   ambiguity rules apply; unexported fields are invisible). Through
   `Ptr T` (T a named Go struct) they also write — `p.Field = v` —
