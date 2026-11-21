@@ -10,7 +10,7 @@ import (
 //line scope_ops.gom:6
 func guarded(r *int64, need bool) int64 {
 //line scope_ops.gom:7
-	tmp2 := func(s *rt.Scope) int64 {
+	tmp2 := func(_ struct{}) (res int64) {
 //line scope_ops.gom:7
 		if need {
 //line scope_ops.gom:7
@@ -22,7 +22,7 @@ func guarded(r *int64, need bool) int64 {
 //line scope_ops.gom:7
 			}
 //line scope_ops.gom:7
-			rt.ScopeDefer(s, tmp1)
+			defer tmp1(struct{}{})
 //line scope_ops.gom:7
 			_ = struct{}{}
 //line scope_ops.gom:7
@@ -32,7 +32,7 @@ func guarded(r *int64, need bool) int64 {
 //line scope_ops.gom:7
 	}
 //line scope_ops.gom:7
-	return rt.ScopeRun[int64](tmp2)
+	return tmp2(struct{}{})
 //line scope_ops.gom:6
 }
 
@@ -78,4 +78,87 @@ func checked(r *int64) result.Result[int64, error] {
 //line scope_ops.gom:12
 	return result.ScopeRunResult[int64](tmp7)
 //line scope_ops.gom:11
+}
+
+//line scope_ops.gom:17
+func native(r *int64, c bool) result.Result[int64, error] {
+//line scope_ops.gom:18
+	tmp13 := func(_ struct{}) (res1 result.Result[int64, error]) {
+//line scope_ops.gom:18
+		done := false
+//line scope_ops.gom:18
+		var cerrs []error
+//line scope_ops.gom:18
+		defer func() { result.ScopeFold(&res1, cerrs) }()
+//line scope_ops.gom:19
+		tmp8 := func(_ struct{}) struct{} {
+//line scope_ops.gom:19
+			rt.RefSet[int64](r, 1)
+//line scope_ops.gom:19
+			return struct{}{}
+//line scope_ops.gom:19
+		}
+//line scope_ops.gom:19
+		defer tmp8(struct{}{})
+//line scope_ops.gom:20
+		if c {
+//line scope_ops.gom:20
+			tmp9 := func(_ struct{}) struct{} {
+//line scope_ops.gom:20
+				rt.RefSet[int64](r, 2)
+//line scope_ops.gom:20
+				return struct{}{}
+//line scope_ops.gom:20
+			}
+//line scope_ops.gom:20
+			defer func() {
+				if !done || !res1.IsOk() {
+					tmp9(struct{}{})
+				}
+			}()
+//line scope_ops.gom:20
+			_ = struct{}{}
+//line scope_ops.gom:20
+		}
+//line scope_ops.gom:21
+		tmp10 := func(_ struct{}) result.Result[struct{}, error] {
+//line scope_ops.gom:21
+			return result.Ok[struct{}, error](struct{}{})
+//line scope_ops.gom:21
+		}
+//line scope_ops.gom:21
+		defer func() { cerrs = result.ScopeCollect(cerrs, tmp10(struct{}{})) }()
+//line scope_ops.gom:22
+		tmp11 := result.Ok[int64, error](1)
+//line scope_ops.gom:22
+		var x int64
+//line scope_ops.gom:22
+		switch tmp11.Tag() {
+//line scope_ops.gom:22
+		case result.ResultTagOk:
+//line scope_ops.gom:22
+			x = tmp11.Value
+//line scope_ops.gom:22
+		case result.ResultTagErr:
+//line scope_ops.gom:22
+			return result.Err[int64, error](tmp11.Error)
+//line scope_ops.gom:22
+		default:
+//line scope_ops.gom:22
+			panic(rt.InvalidVariant("result.Result", tmp11))
+//line scope_ops.gom:22
+		}
+//line scope_ops.gom:23
+		tmp12 := x + 1
+//line scope_ops.gom:23
+		res1 = result.Ok[int64, error](tmp12)
+//line scope_ops.gom:23
+		done = true
+//line scope_ops.gom:23
+		return res1
+//line scope_ops.gom:18
+	}
+//line scope_ops.gom:18
+	return tmp13(struct{}{})
+//line scope_ops.gom:17
 }

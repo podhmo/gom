@@ -222,3 +222,18 @@ func copyFile(log *fake.Log, src, dst, data string) (res result.Result[struct{},
   引数を外して収束まで繰り返す）。再帰・相互再帰もこれで扱える
 - 検証: `testdata/spec/ok_scope_noescape`、`testdata/spec/E0418_scope_escape`
 - `.gomi` の注釈は podhmo の回答で (a) `@noescape(f)` 属性に決まった（SC-2b）
+
+## SC-3: native defer lowering (2026-11-21)
+
+`internal/lower/scope.go`、`core.Defer` / `core.ScopeInfo`、codegen の `scopeFuncLit` / `deferStmt`。
+
+- 生成 Go は `experiments/defer/cgen` の目標形とほぼ同じになった（`testdata/golden/scope_ops` の
+  `guarded` / `native`）。違いは本体が `func(_ struct{}) (res T)` のリテラルを直接呼ぶ形であること
+  （Gom の関数宣言の本体へは畳み込まない）と、cleanup エラーの合流を `result.ScopeFold` に寄せたこと
+- 対象外（ランタイムスタックのまま）: `s` を helper へ渡す、登録が入れ子のラムダや `go {}` の中にある、
+  本体が関数型を返す、`on_err` を持つ素の `Scope.run` の本体を `try` が抜ける
+- 検証: `cmd/gom` の `TestRunNativeScope` が同じシナリオ（`if` 内の登録の LIFO、`defer_err` の Join、
+  本体 Err の優先と rollback、cleanup だけ失敗したときは rollback しない、素の `run` の `on_err`）を
+  ネイティブ版とランタイム版で実行し、出力が一致することを確かめる。`result.ScopeCollect` /
+  `ScopeFold` は `stdlib/result/scope_test.go`
+- panic 時の `on_err` は完了フラグで扱う。実行テストはまだない（Gom に recover がないため）

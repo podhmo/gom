@@ -104,6 +104,25 @@ type Func struct {
 	// their cons heads before continuing. Set only together with
 	// TailLoop, and only on a List-returning function.
 	ConsLoop bool
+	// Scope marks a `Scope.run` / `Scope.run_result` body whose
+	// registrations lowered to Defer nodes (SC-3): codegen emits the
+	// literal with a named result and the flags ScopeInfo asks for.
+	// The function binds one discarded Unit parameter.
+	Scope *ScopeInfo
+}
+
+// ScopeInfo describes a Func lowered as a native-defer Scope body.
+type ScopeInfo struct {
+	// Result is true for `Scope.run_result`: the body's residual is
+	// `Result a GoError`, cleanup errors fold into an Ok result and
+	// an Err result counts as failure.
+	Result bool
+	// OnErr is set when a DeferOnErr registers: the body records
+	// that it finished, so a panic counts as failure.
+	OnErr bool
+	// Errs is set when a DeferErr registers: cleanup errors collect
+	// in a list folded into the result after every cleanup ran.
+	Errs bool
 }
 
 // Span returns the function's source span.

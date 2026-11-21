@@ -1107,6 +1107,8 @@ func (v *validator) expr(e Expr, inTail bool) {
 	case *RecordUpdate:
 		v.atom(e.Rec, "RecordUpdate.Rec")
 		v.fieldInits(e.Fields, "RecordUpdate")
+	case *Defer:
+		v.deferNode(e)
 	case *FieldSet:
 		v.atom(e.Recv, "FieldSet.Recv")
 		v.atom(e.Value, "FieldSet.Value")
@@ -1298,6 +1300,39 @@ func (v *validator) escapeResult(e *EscapeResult) {
 	}
 	if e.Wrap != "" && isRes && !v.conIs(c.Args[1], "", "GoError", 0) {
 		v.err(e.Sp, "EscapeResult", "|?> wraps only GoError steps; error type is %s", c.Args[1])
+	}
+}
+
+// deferNode checks a native Scope registration: it sits directly in
+// its Scope body's own function, which carries the matching flags.
+func (v *validator) deferNode(e *Defer) {
+	v.atom(e.F, "Defer.F")
+	if e.Typ != nil && !v.conIs(e.Typ, "", "Unit", 0) {
+		v.err(e.Sp, "Defer", "node type %s is not Unit", e.Typ)
+	}
+	switch {
+	case e.To == nil || e.To.Scope == nil:
+		v.err(e.Sp, "Defer", "target is not a Scope body")
+		return
+	case e.To != v.fn:
+		v.err(e.Sp, "Defer", "target is not the innermost enclosing function")
+		return
+	case v.spawn > 0:
+		v.err(e.Sp, "Defer", "registration crosses a go{} boundary")
+		return
+	}
+	switch e.Kind {
+	case DeferAlways:
+	case DeferErr:
+		if !e.To.Scope.Errs {
+			v.err(e.Sp, "Defer", "DeferErr in a Scope body without Errs")
+		}
+	case DeferOnErr:
+		if !e.To.Scope.OnErr {
+			v.err(e.Sp, "Defer", "DeferOnErr in a Scope body without OnErr")
+		}
+	default:
+		v.err(e.Sp, "Defer", "unknown kind %s", e.Kind)
 	}
 }
 
@@ -1720,6 +1755,8 @@ func nilExpr(e Expr) bool {
 	case *FieldGet:
 		return e == nil
 	case *FieldSet:
+		return e == nil
+	case *Defer:
 		return e == nil
 	case *Closure:
 		return e == nil

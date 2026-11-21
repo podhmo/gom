@@ -85,3 +85,31 @@ func TestScopeDeferErrInvalidResultPanics(t *testing.T) {
 	})
 	t.Fatal("unreachable: ScopeRunResult returned")
 }
+
+func TestScopeCollectFold(t *testing.T) {
+	ok := result.Ok[struct{}, error](struct{}{})
+	errs := result.ScopeCollect(nil, ok)
+	errs = result.ScopeCollect(errs, result.Err[struct{}, error](errors.New("e2")))
+	errs = result.ScopeCollect(errs, result.Err[struct{}, error](errors.New("e1")))
+	r := result.Ok[int, error](1)
+	result.ScopeFold(&r, errs)
+	if _, err := r.Unwrap(); err == nil || err.Error() != "e2\ne1" {
+		t.Errorf("folded = %v, want joined e2, e1", err)
+	}
+	body := result.Err[int, error](errors.New("body"))
+	result.ScopeFold(&body, errs)
+	if _, err := body.Unwrap(); err == nil || err.Error() != "body" {
+		t.Errorf("body Err = %v, want it to win", err)
+	}
+	clean := result.Ok[int, error](2)
+	result.ScopeFold(&clean, nil)
+	if v, err := clean.Unwrap(); err != nil || v != 2 {
+		t.Errorf("clean = (%v, %v), want Ok 2", v, err)
+	}
+	defer func() {
+		if recover() == nil {
+			t.Error("an invalid zero-valued cleanup Result should panic")
+		}
+	}()
+	result.ScopeCollect(nil, result.Result[struct{}, error]{})
+}

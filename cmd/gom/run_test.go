@@ -1,6 +1,7 @@
 package main
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -155,5 +156,32 @@ func TestRunBuildErrorFoldsSpan(t *testing.T) {
 	}
 	if !saw {
 		t.Fatalf("no go-source diagnostic folded: %q", out)
+	}
+}
+
+// TestRunNativeScope: Scope bodies lowered to native Go defers (SC-3)
+// behave like their runtime-stack twins — each `_rt` function first
+// hands its Scope to a helper, which keeps SC-1's rt.Scope path.
+func TestRunNativeScope(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: go build + exec, skipping in short mode")
+	}
+	t.Parallel()
+
+	haveGo(t)
+	src, err := os.ReadFile(filepath.Join("testdata", "native_scope.gom"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := writeFiles(t, map[string]string{"m.gom": string(src)})
+	testModule(t, dir)
+
+	code, out, errout := invoke("run", filepath.Join(dir, "m.gom"))
+	if code != 0 {
+		t.Fatalf("exit = %d; stderr=%q stdout=%q", code, errout, out)
+	}
+	want := "body\nb\na\n1\nbody\na\n1\nplain\nerr e2\ne1\nrollback\nerr body\nerr close\n2\n"
+	if out != "== native\n"+want+"== runtime\n"+want {
+		t.Errorf("stdout = %q, want both sections %q", out, want)
 	}
 }

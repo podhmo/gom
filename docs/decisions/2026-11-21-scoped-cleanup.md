@@ -1,6 +1,6 @@
 # defer 相当: 明示的スコープハンドルによる cleanup 登録（案）
 
-- 状態: 採用（SC-1 で実装・検証した — [sketch](../sketch/2026-11-21-defer-survey.md)。SC-2 / SC-3 は TODO）
+- 状態: 採用（SC-1〜SC-3 で実装・検証した — [sketch](../sketch/2026-11-21-defer-survey.md)）
 - 日付: 2026-11-21
 - 問い: Go が `defer`（と named result）で解いている問題 — 全出口での解放、
   条件付き取得、反復ごとの寿命、cleanup 失敗の合流、失敗時の巻き戻し、
@@ -16,7 +16,7 @@
 2026-11-21: SC-1（`Scope` 型と rt-backed モジュール）をコンパイラに実装し、spec 6.1 と
 design 4.7.1 を更新した。Gom の型はメソッドを持たないので、登録はモジュール関数
 `Scope.defer s f` / `Scope.defer_err s f` / `Scope.on_err s f` で書く。
-静的な脱出検査（SC-2）とネイティブ `defer` への lowering（SC-3）は TODO.md。
+静的な脱出検査（SC-2）とネイティブ `defer` への lowering（SC-3）も同日に実装した（sketch の SC-2a / SC-3 節）。
 
 (E): スコープを値として開く組み込み `Scope` モジュール。
 

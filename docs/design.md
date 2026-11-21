@@ -409,7 +409,9 @@ default:
 
 ### 4.7.1 `Scope`
 
-`Scope` は `*rt.Scope` になる。`Scope` モジュールは `Ref` と同じく rt-backed な組み込みモジュールで、`run` / `defer` / `on_err` は `rt.ScopeRun` / `rt.ScopeDefer` / `rt.ScopeOnErr`、`Result` を扱う `run_result` / `defer_err` は `result.ScopeRunResult` / `result.ScopeDeferErr` を呼ぶ（rt は `stdlib/result` を import できないため）。`rt.Scope` は後片付けのスタックで、`Close` が各後片付けを個別の Go の `defer` として登録して逆順に実行し、エラーを `errors.Join` する。本体の終わり・`try` の脱出・panic の区別は Go の関数境界と `defer` に任せるので、Core IR に専用のノードはまだない。同じ Go 関数内の登録を Go の `defer` へ直接 lowering する形（`experiments/defer/cgen`）は TODO SC-3（[decisions/scoped-cleanup](../decisions/2026-11-21-scoped-cleanup.md)）。
+`Scope` は `*rt.Scope` になる。`Scope` モジュールは `Ref` と同じく rt-backed な組み込みモジュールで、`run` / `defer` / `on_err` は `rt.ScopeRun` / `rt.ScopeDefer` / `rt.ScopeOnErr`、`Result` を扱う `run_result` / `defer_err` は `result.ScopeRunResult` / `result.ScopeDeferErr` を呼ぶ（rt は `stdlib/result` を import できないため）。`rt.Scope` は後片付けのスタックで、`Close` が各後片付けを個別の Go の `defer` として登録して逆順に実行し、エラーを `errors.Join` する。本体の終わり・`try` の脱出・panic の区別は Go の関数境界と `defer` に任せる。
+
+SC-3（[decisions/scoped-cleanup](../decisions/2026-11-21-scoped-cleanup.md)、`internal/lower/scope.go`）: `Scope.run` / `run_result` の引数がラムダで、その `s` が自分の Go 関数内（`if` / `match` / `select` の枝とループ本体を含み、ラムダ・`go {}`・Go 関数アダプタは含まない）の登録の第 1 引数としてだけ現れるとき、lowering はラムダの `Func` に `ScopeInfo` を付け、各登録を `core.Defer` に、rt 呼び出しを本体の直接呼び出しに書き換える。codegen は本体を named result 付きの関数リテラルにし、`defer` は `defer f(struct{}{})`、`on_err` は完了フラグ（と `run_result` では結果の `IsOk`）を見る `defer`、`defer_err` は `result.ScopeCollect` でエラーを集め、最初に登録した `defer`（最後に走る）が `result.ScopeFold` で Ok の結果へ合流させる。`s` を helper に渡すなど条件を外れる本体は SC-1 のランタイムスタックのまま。`on_err` を持つ素の `Scope.run` の本体を `try` が抜ける場合も、完了フラグが失敗と読み違えるのでランタイムスタックに残す。
 
 ### 4.8 テスト
 

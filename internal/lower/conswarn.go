@@ -213,7 +213,7 @@ func folderAppendsAcc(e core.Expr, declOf map[*resolve.Symbol]*core.FuncDecl) bo
 		// Everything else is a leaf for this check — calls, literals,
 		// atoms and control containers carry no function value worth
 		// inspecting.
-		case *core.Binary, *core.CallBuiltin, *core.CallDirect,
+		case *core.Binary, *core.CallBuiltin, *core.CallDirect, *core.Defer,
 			*core.CallFunc, *core.CallGo, *core.Conv, *core.CtorApp,
 			*core.CtorRef, *core.Equal, *core.ErrorFromGo, *core.EscapeCall,
 			*core.EscapeResult, *core.FieldGet, *core.FieldSet, *core.ForRange,
@@ -422,7 +422,7 @@ func eachBody(b *core.Body, f func(*core.Body)) {
 			expr(e.X)
 		// Leaf expressions and atom payloads carry no nested bodies —
 		// a missed container costs a warning, never correctness.
-		case *core.Binary, *core.CallBuiltin, *core.CallDirect,
+		case *core.Binary, *core.CallBuiltin, *core.CallDirect, *core.Defer,
 			*core.CallFunc, *core.CallGo, *core.Conv, *core.CtorApp,
 			*core.CtorRef, *core.Equal, *core.ErrorFromGo, *core.EscapeCall,
 			*core.EscapeResult, *core.FieldGet, *core.FieldSet, *core.FuncRef, *core.GoFuncRef,

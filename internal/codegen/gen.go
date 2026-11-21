@@ -60,6 +60,10 @@ type gen struct {
 	// own emitted function, so the set resets per declaration.
 	fnames map[string]bool
 
+	// scopes names each native-defer Scope body's temporaries for
+	// the Defer nodes inside it (scopeFuncLit).
+	scopes map[*core.Func]scopeNames
+
 	ctors  map[*resolve.Symbol]*ctorDecl // locally declared variants
 	localT map[string]bool               // type names declared in this file
 

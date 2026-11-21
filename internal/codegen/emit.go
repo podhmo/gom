@@ -163,6 +163,9 @@ func (g *gen) emit(e core.Expr, d dest) {
 		g.recordUpdate(e, d)
 	case *core.FieldSet:
 		g.fieldSet(e, d)
+	case *core.Defer:
+		g.deferStmt(e)
+		g.unitValue(d)
 	case *core.Closure,
 		*core.Var, *core.Lit, *core.FuncRef, *core.CtorRef,
 		*core.GoFunc, *core.GoFuncRef, *core.FieldGet,
@@ -1376,6 +1379,10 @@ func (g *gen) funcBody(fn *core.Func, d dest) {
 // body's //line directives (the reason closures take the statement
 // path rather than the ast.Expr one).
 func (g *gen) funcLit(fn *core.Func) {
+	if fn.Scope != nil {
+		g.scopeFuncLit(fn)
+		return
+	}
 	g.raw("func(")
 	g.params(fn.Params)
 	g.raw(") ")
@@ -1568,4 +1575,87 @@ func (g *gen) goFuncLit(c *core.GoFunc) {
 		panic("codegen: GoFunc with unexpected result shape")
 	}
 	g.closeInline()
+}
+
+// scopeNames are the temporaries a native-defer Scope body declares:
+// the named result its cleanups observe, the finished flag on_err
+// reads, and the cleanup-error list defer_err appends to.
+type scopeNames struct{ res, done, errs string }
+
+// scopeFuncLit writes a Scope body lowered to native defers (SC-3):
+// `func(_ struct{}) (res T) { ... }`. Under OnErr the body assigns
+// res and records that it finished, so a panic or an Err result is
+// the failure on_err cleanups test; under Errs (run_result) the
+// first-registered defer — the last to run — folds the collected
+// cleanup errors into an Ok result.
+func (g *gen) scopeFuncLit(fn *core.Func) {
+	sc := fn.Scope
+	n := scopeNames{res: g.fresh("res")}
+	g.raw("func(")
+	g.params(fn.Params)
+	g.raw(") (" + n.res + " ")
+	g.typ(g.goType(fn.ResidualType()))
+	g.raw(")")
+	g.open()
+	if sc.OnErr {
+		n.done = g.fresh("done")
+		g.raw(n.done + " := false")
+		g.nl()
+	}
+	if sc.Errs && sc.Result {
+		n.errs = g.fresh("cerrs")
+		g.raw("var " + n.errs + " []error")
+		g.nl()
+		g.raw("defer func() { " + g.pkgQual(resultPath) + "ScopeFold(&" + n.res + ", " + n.errs + ") }()")
+		g.nl()
+	}
+	if g.scopes == nil {
+		g.scopes = map[*core.Func]scopeNames{}
+	}
+	g.scopes[fn] = n
+	if n.done != "" {
+		g.funcBody(fn, assign(n.res))
+		g.raw(n.done + " = true")
+		g.nl()
+		g.raw("return " + n.res)
+		g.nl()
+	} else {
+		g.funcBody(fn, ret)
+	}
+	g.closeInline()
+}
+
+// deferStmt writes one native Scope registration.
+func (g *gen) deferStmt(e *core.Defer) {
+	n := g.scopes[e.To]
+	call := func() {
+		g.expr(&ast.CallExpr{Fun: g.atom(e.F), Args: []ast.Expr{ast.NewIdent("struct{}{}")}})
+	}
+	g.line(e.Sp)
+	switch e.Kind {
+	case core.DeferAlways:
+		g.raw("defer ")
+		call()
+	case core.DeferErr:
+		// Without a Result to fold into (plain Scope.run) the
+		// error is dropped, but an invalid Result still panics.
+		into, from := "_", "nil"
+		if n.errs != "" {
+			into, from = n.errs, n.errs
+		}
+		g.raw("defer func() { " + into + " = " + g.pkgQual(resultPath) + "ScopeCollect(" + from + ", ")
+		call()
+		g.raw(") }()")
+	case core.DeferOnErr:
+		cond := "!" + n.done
+		if e.To.Scope.Result {
+			cond += " || !" + n.res + ".IsOk()"
+		}
+		g.raw("defer func() { if " + cond + " { ")
+		call()
+		g.raw(" } }()")
+	default:
+		panic("unreachable")
+	}
+	g.nl()
 }
