@@ -310,7 +310,7 @@ func isSimpleExpr(e core.Expr) bool {
 		*core.Spawn, *core.ForRange, *core.TailCall, *core.FieldSet,
 		*core.EscapeResult, *core.EscapeCall,
 		*core.ResultFromGo, *core.OptionFromGo, *core.TupleFromGo,
-		*core.ErrorFromGo, *core.RecordUpdate:
+		*core.ErrorFromGo, *core.RecordUpdate, *core.Defer:
 		return false
 	default:
 		panic("unreachable")

@@ -46,6 +46,12 @@ func (s *Scope) Close(failed bool) (joined error) {
 	return nil
 }
 
+// NewScope returns a fresh scope. SC-3's native-defer lowering
+// passes it to a body whose registrations became Go defers, so the
+// scope exists only to satisfy the body's parameter — nothing ever
+// registers on it.
+func NewScope() *Scope { return &Scope{} }
+
 // ScopeRun is `Scope.run`: it runs body with a fresh scope and closes
 // it afterwards. Cleanup errors are dropped; a panicking body still
 // runs every cleanup, on_err ones included.

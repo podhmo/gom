@@ -1,0 +1,31 @@
+package ex
+
+import go "errors"
+
+// SC-3: a scope body whose only handle uses are `defer`-family
+// registrations lowers to native Go `defer` — the run call becomes
+// `body(rt.NewScope())` and result-observing cleanups name the body
+// function's result (docs/decisions/2026-11-22-sc3-native-defer.md).
+fn plain (log: Ref Int) -> Int =
+  Scope.run <| fn s -> { Scope.defer s (fn () -> Ref.set log 1); Ref.get log }
+
+fn mid (log: Ref Int) -> Int = {
+  let r = Scope.run <| fn s -> { Scope.defer s (fn () -> Ref.set log 2); Ref.get log }
+  r + 1
+}
+
+fn body_decl (s: Scope) -> Int = { Scope.defer s (fn () -> ()); 7 }
+
+fn via_decl () -> Int = Scope.run body_decl
+
+fn errs (fail: Bool) -> Result Int GoError =
+  Scope.run_result <| fn s -> {
+    Scope.on_err s (fn () -> ())
+    Scope.defer_err s (fn () -> Ok ())
+    try (if fail { Err (errors.New "boom") } else { Ok () })
+    Ok 2
+  }
+
+// `s` used outside registrations keeps the runtime scope.
+fn mixed (log: Ref Int) -> Int =
+  Scope.run <| fn s -> { Scope.defer s (fn () -> Ref.set log 3); Scope.run <| fn t -> { let _ = t; Ref.get log } }

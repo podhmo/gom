@@ -59,6 +59,11 @@ func (b *Bind) Span() diag.Span { return b.Sp }
 type Body struct {
 	Lets []*Let
 	Tail Expr
+	// ResBind names the enclosing function's result so deferred
+	// cleanups can observe and rewrite it — set when the body holds a
+	// Defer of kind DeferErr, DeferOnErr or DeferErrFold. The emitter
+	// writes `func(...) (res T)` and every use reads the same Bind.
+	ResBind *Bind
 }
 
 // Let is one ordered binding `name = x`. The bound symbol is fresh —

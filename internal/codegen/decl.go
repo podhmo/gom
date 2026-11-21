@@ -57,7 +57,7 @@ func (g *gen) funcDecl(d *core.FuncDecl) {
 	g.raw("(")
 	g.paramsFlat(d.Fn.Params)
 	g.raw(") ")
-	g.typ(g.goType(d.Fn.ResidualType()))
+	g.resultSig(d.Fn.ResidualType(), d.Fn.Body)
 	g.open()
 	g.funcBody(d.Fn, ret)
 	g.close()
@@ -79,7 +79,7 @@ func (g *gen) varDecl(d *core.VarDecl) {
 		return
 	}
 	g.raw("func() ")
-	g.typ(g.goType(t))
+	g.resultSig(t, d.Body)
 	g.open()
 	g.body(d.Body, ret)
 	g.closeInline()

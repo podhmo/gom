@@ -143,6 +143,8 @@ func (g *gen) emit(e core.Expr, d dest) {
 		g.selExpr(e, d)
 	case *core.Spawn:
 		g.spawnExpr(e, d)
+	case *core.Defer:
+		g.deferStmt(e)
 	case *core.ForRange:
 		g.forExpr(e, d)
 	case *core.TailCall:
@@ -1383,7 +1385,7 @@ func (g *gen) funcLit(fn *core.Func) {
 	g.raw("func(")
 	g.params(fn.Params)
 	g.raw(") ")
-	g.typ(g.goType(fn.ResidualType()))
+	g.resultSig(fn.ResidualType(), fn.Body)
 	g.open()
 	g.funcBody(fn, ret)
 	g.closeInline()
@@ -1572,4 +1574,16 @@ func (g *gen) goFuncLit(c *core.GoFunc) {
 		panic("codegen: GoFunc with unexpected result shape")
 	}
 	g.closeInline()
+}
+
+// resultSig emits the result half of a signature: `(res T)` when the
+// body names its result for deferred cleanups, a bare `T` otherwise.
+func (g *gen) resultSig(t types.Type, b *core.Body) {
+	if b != nil && b.ResBind != nil {
+		g.raw("(" + g.bindName(b.ResBind) + " ")
+		g.typ(g.goType(t))
+		g.raw(")")
+		return
+	}
+	g.typ(g.goType(t))
 }

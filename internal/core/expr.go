@@ -439,3 +439,49 @@ type RecordUpdate struct {
 }
 
 func (*RecordUpdate) isExpr() {}
+
+// DeferKind classifies a scope cleanup a Defer node emits.
+type DeferKind int
+
+const (
+	// DeferPlain is `defer f()` — a `Scope.defer` registration, and a
+	// `defer_err` inside a `run` scope (its errors have no Result to
+	// join into, matching the runtime's drop).
+	DeferPlain DeferKind = iota + 1
+	// DeferErr is `defer func() { if r := f(); !r.IsOk() {
+	// errs = append(errs, r.Error) } }()` — a `defer_err` inside a
+	// `run_result` scope.
+	DeferErr
+	// DeferOnErr is `defer func() { if p := recover(); p != nil {
+	// f(); panic(p) } else if !res.IsOk() { f() } }()` — a
+	// `Scope.on_err` registration. Res nil (a plain `run` scope)
+	// drops the `else if` arm: only panics count as failure.
+	DeferOnErr
+	// DeferErrFold is the scope-entry pair `var errs []error` +
+	// `defer func() { if len(errs) > 0 && res.IsOk() {
+	// res = result.Err(errors.Join(errs...)) } }()`. It must be the
+	// outermost defer of its scope — emitted first so it runs last.
+	DeferErrFold
+)
+
+// Defer is a `Scope` registration lowered to a native Go defer —
+// emitted only where the registration provably sits in the same Go
+// function as the scope it runs for, which is exactly where `defer`
+// keeps the runtime-scope semantics (docs/decisions/
+// 2026-11-22-sc3-native-defer.md). Otherwise the runtime scope from
+// SC-1 still carries cleanups.
+//
+// F is the cleanup callable, typed `func() U`. Res is the enclosing
+// function's named result (the scope Body's ResBind) — required for
+// DeferErr, DeferOnErr and DeferErrFold over a `run_result` scope,
+// nil for a `run` scope. Errs is the cleanup-error list the scope's
+// DeferErrFold declares — shared by every DeferErr of the scope.
+type Defer struct {
+	Base
+	Kind DeferKind
+	F    Atom
+	Res  *Bind
+	Errs *Bind
+}
+
+func (*Defer) isExpr() {}
