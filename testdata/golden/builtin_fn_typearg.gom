@@ -1,0 +1,12 @@
+package ex
+
+// A generic rt-backed member instantiated at a function type keeps
+// its Go arity: the callback is one-parameter and the function-typed
+// result stays the call's result.
+fn add (x: Int) (y: Int) -> Int = x + y
+
+fn piped () -> Int -> Int = Scope.run <| fn s -> add 1
+
+fn applied () -> Int -> Int = Scope.run (fn s -> add 2)
+
+fn task () -> Int -> Int = Task.await (Task.spawn (fn () -> add 3))
