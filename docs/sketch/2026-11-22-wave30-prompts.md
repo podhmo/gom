@@ -13,7 +13,7 @@ cleanup の仕上げ + wave29 の残件処理 — SC-1（rt-backed
 
 ## Lanes
 
-### A. `Scope` 値の脱出の静的検査（SC-2） — `devin/wave30-scope-escape`
+### A. `Scope` 値の脱出の静的検査（SC-2） — `devin/wave30-scope-escape` — **採択済み**（2026-11-22 チャット）
 
 ```
 [impl] TODO.md SC-2。SC-1 で入った `Scope` 値がスコープ外に
@@ -29,7 +29,7 @@ docs/error-codes.md, testdata/spec, decision.
 依存: なし（SC-1 済）
 ```
 
-### B. ネイティブ `defer` への lowering（SC-3） — `devin/wave30-scope-defer`
+### B. ネイティブ `defer` への lowering（SC-3） — `devin/wave30-scope-defer` — **採択済み**（2026-11-22 チャット）
 
 ```
 [impl] TODO.md SC-3（依存: SC-2 = lane A）。cleanup 登録が
@@ -44,24 +44,22 @@ testdata/golden, decision.
 依存: lane A（脱出検査が無いと安全に lowering できない）
 ```
 
-### C. Go interface impl の実装 — `devin/wave30-go-iface-impl-impl`
+### C. Go interface impl の実装 — `devin/wave30-go-iface-impl-impl` — **採択済み**（2026-11-22 チャット: lane D 設計採用）
 
 ```
-[impl] wave29 lane D の decision draft
-（docs/decisions/2026-11-21-go-iface-impl.md）を採用した
-場合の実装 lane: `@method` 属性 + 規約命名による record の
+[impl] wave29 lane D の decision
+（docs/decisions/2026-11-21-go-iface-impl.md、2026-11-22
+採択）の実装 lane: `@method` 属性 + 規約命名による record の
 メソッド宣言、生成 Go への method emit、`.gomi` は fn リスト
 形式、Go 側の interface パラメータに record を渡すときの
 ラップ（`InterfaceMethods` oracle）。defined type 世界
 （wave29 lane A）での設計済み。
-**前提: podhmo が lane D の設計を採用した場合のみ着手。**
-不採用・設計差し戻しならこの lane は下記候補へ差替え。
 Ownership: internal/check, internal/codegen, internal/iface,
-stdlib, docs/spec.md, testdata/golden, decision（状態確定）.
+stdlib, docs/spec.md, testdata/golden, decision.
 依存: なし（lane A/B と独立）
 ```
 
-### D. `--strict` / 診断フィルタの調査 — `devin/wave30-strict-mode`
+### D. `--strict` / 診断フィルタの調査 — `devin/wave30-strict-mode` — **採択済み**（2026-11-22 チャット）
 
 ```
 [investigate] open-questions の「書きかけコードで一部エラーを
@@ -75,7 +73,7 @@ Ownership: docs/decisions, docs/sketch, cmd/gom, docs/open-questions.
 依存: なし
 ```
 
-### E. single-field record の残ギャップ整理 — `devin/wave30-defined-type-gaps`
+### E. single-field record の残ギャップ整理 — `devin/wave30-defined-type-gaps` — **採択済み**（2026-11-22 チャット）
 
 ```
 [investigate→impl可] lane A 着地後の残りを洗う:
