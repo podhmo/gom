@@ -451,9 +451,16 @@ func (l *lowerer) goFuncRefOrAdapter(sp diag.Span, typ types.Type, sym *resolve.
 		l.err(sp, fmt.Sprintf("Go function %s has non-function type %s", sym.Name, typ))
 		return l.litUnit(sp)
 	}
-	return l.closureChain(sp, typ, fs.Params, func(bs *seq, pv []core.Atom) core.Expr {
+	// A Go result that is itself a function (`rt.ScopeRun` at
+	// `a = Int -> Int`) stays the call's result: the adapter binds
+	// only the Go parameters.
+	params, ret := fs.Params, fs.Ret
+	if k := max(sig.Arity, 1); !sig.Variadic && k < len(params) {
+		params, ret = params[:k], &types.Func{Params: params[k:], Ret: fs.Ret}
+	}
+	return l.closureChain(sp, typ, params, func(bs *seq, pv []core.Atom) core.Expr {
 		call := &core.CallGo{
-			Sp: sp, Typ: l.goCallTyp(sig, fs.Ret),
+			Sp: sp, Typ: l.goCallTyp(sig, ret),
 			Callee: sym, Recv: recv, TypeArgs: targs,
 			Args:       l.convGoArgs(bs, sig, pv, false),
 			Arity:      sig.Arity,
@@ -461,9 +468,9 @@ func (l *lowerer) goFuncRefOrAdapter(sp diag.Span, typ types.Type, sym *resolve.
 			Results:    sig.Results,
 			ResNilable: sig.ResNilable,
 		}
-		x := l.wrapGoResult(bs, call, fs.Ret)
+		x := l.wrapGoResult(bs, call, ret)
 		if sig.Results == core.GoResultsOne {
-			return l.goPayloadConv(bs, sp, call.Typ, fs.Ret, x)
+			return l.goPayloadConv(bs, sp, call.Typ, ret, x)
 		}
 		return x
 	})
