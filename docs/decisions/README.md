@@ -218,4 +218,5 @@
 | [array-make-init](2026-11-21-array-make-init.md) | `Array.make` は初期値を必須引数にする | 採用（実装・検証した — `Array.make n init` が `[]A` に n 個の init コピーを emit し、`Array (Option T)` も `None` で初期化できる。stdlib/list の利用と testdata/spec/ok_array_ops を機械移行済み。spec.md §8.3 へ反映済み） |
 | [named-func-types](2026-11-21-named-func-types.md) | named func 型(`context.CancelFunc` など)を `Go.FuncN` として読む | 採用（実装・検証した — testdata/spec/ok_go_named_fn・E0507_go_named_fn_conv・E0510_go_named_fn_method、testdata/golden/go_named_fn で固定。spec.md §8.8 へ反映済み） |
 | [scoped-cleanup](2026-11-21-scoped-cleanup.md) | defer 相当: 明示的スコープハンドルによる cleanup 登録（案） | 採用（SC-1 で実装・検証した — [sketch](../sketch/2026-11-21-defer-survey.md)。SC-2 / SC-3 は TODO） |
+| [shared-go-type-ptr-lint](2026-11-21-shared-go-type-ptr-lint.md) | 共有前提の Go 型を指す `Ptr` は可変共有 lint の対象外 | 採用（実装・検証した — testdata/spec/ok_shared_go_ptr で固定。spec.md §10 へ反映済み） |
 <!-- END GENERATED -->

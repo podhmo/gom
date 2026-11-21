@@ -1,0 +1,19 @@
+package ex
+
+import go "sync"
+
+// spec section 10: a `Ptr` to an internally-synchronized Go type
+// (`sync.WaitGroup`, `sync.Mutex`, `errgroup.Group`, `sync/atomic.*`)
+// is exempt from the mutable-sharing lint — the pointee's own
+// synchronization covers the sharing, and handing the pointer
+// across a `go` boundary or a channel is the type's contract.
+fn spawn (wg : Ptr sync.WaitGroup) -> Unit = {
+  go { ignore wg; () }
+}
+
+// The same exemption holds for the channel element —
+// `Chan (Ptr sync.WaitGroup)` earns no W0701.
+fn ch () -> Unit = {
+  let ch : Chan (Ptr sync.WaitGroup) = Chan.make 1
+  ignore ch
+}

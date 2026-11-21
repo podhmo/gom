@@ -644,6 +644,44 @@ func (c *checker) lintGoCaptures(g *GoExpr, reported map[diag.Span]bool) {
 	})
 }
 
+// sharedGoTypes names the Go package types whose values are built
+// for concurrent sharing — the `sync` package's guard types,
+// `sync/atomic`'s word types and `errgroup.Group`. A `Ptr` to one is
+// exempt from W0701/W0702: the pointee's own synchronization covers
+// the sharing, and handing the pointer across goroutines is the
+// type's contract rather than an accident (the rgrep/errgroup
+// probes hit this as noise). The list is closed like the lint's
+// other builtin tables — a type joins only when its own
+// documentation promises safe concurrent use.
+var sharedGoTypes = map[types.NamedRef]bool{
+	{Path: "sync", Name: "WaitGroup"}:                   true,
+	{Path: "sync", Name: "Mutex"}:                       true,
+	{Path: "sync", Name: "RWMutex"}:                     true,
+	{Path: "sync", Name: "Map"}:                         true,
+	{Path: "sync", Name: "Once"}:                        true,
+	{Path: "sync", Name: "Pool"}:                        true,
+	{Path: "sync", Name: "Cond"}:                        true,
+	{Path: "sync/atomic", Name: "Bool"}:                 true,
+	{Path: "sync/atomic", Name: "Int32"}:                true,
+	{Path: "sync/atomic", Name: "Int64"}:                true,
+	{Path: "sync/atomic", Name: "Uint32"}:               true,
+	{Path: "sync/atomic", Name: "Uint64"}:               true,
+	{Path: "sync/atomic", Name: "Uintptr"}:              true,
+	{Path: "sync/atomic", Name: "Value"}:                true,
+	{Path: "sync/atomic", Name: "Pointer"}:              true,
+	{Path: "golang.org/x/sync/errgroup", Name: "Group"}: true,
+}
+
+// sharedGoTypePtr reports whether the `Ptr` con wraps an
+// internally-synchronized named Go type — the exempt shape.
+func sharedGoTypePtr(t *types.Con) bool {
+	if len(t.Args) != 1 {
+		return false
+	}
+	g, ok := types.Chase(t.Args[0]).(*types.Go)
+	return ok && sharedGoTypes[g.Ref]
+}
+
 // containsMutable reports whether a value of type t can reach the
 // mutable constructors of spec section 10 — `Ref a`, `Array a`,
 // `Ptr T`, `Go.Slice a`, `Go.Map k v` — either directly or through
@@ -689,8 +727,12 @@ func (c *checker) containsMutable(t types.Type, seen map[conKey]bool) bool {
 			}
 		case t.Qual == "":
 			switch t.Name {
-			case "Ref", "Array", "Ptr":
+			case "Ref", "Array":
 				if !c.shadowedBuiltin(t.Name) {
+					return true
+				}
+			case "Ptr":
+				if !c.shadowedBuiltin(t.Name) && !sharedGoTypePtr(t) {
 					return true
 				}
 			}
