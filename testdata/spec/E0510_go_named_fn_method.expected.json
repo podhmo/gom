@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0510",
+      "severity": "error",
+      "message": "`Go.fn1` expects a `Go.Func1` value, got github.com/podhmo/gom/testdata/goiface.Handler",
+      "span": {
+        "file": "E0510_go_named_fn_method.gom",
+        "start": {
+          "line": 11,
+          "col": 4,
+          "offset": 327
+        },
+        "end": {
+          "line": 11,
+          "col": 12,
+          "offset": 335
+        }
+      }
+    }
+  ]
+}

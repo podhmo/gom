@@ -94,7 +94,7 @@ func specCompile(gl *goimport.Loader) func([]gomtest.File) ([]diag.Diagnostic, e
 		Loader:  ml,
 		Sigs:    ml,
 		Modules: mods,
-		Lower:   &lower.Env{GoSig: gl.GoSigOf, Types: ml, FuncArity: ml.ArityOf},
+		Lower:   &lower.Env{GoSig: gl.GoSigOf, Types: ml, FuncArity: ml.ArityOf, FuncNOfNamed: ml.FuncNOfNamed},
 		Exports: iface.ExportNames,
 	})
 	return func(fs []gomtest.File) ([]diag.Diagnostic, error) {

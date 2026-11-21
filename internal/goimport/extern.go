@@ -102,7 +102,7 @@ func (l *Loader) BindExtern(sym *resolve.Symbol, decl check.Signature) (check.Si
 	}
 	rawP := make([]gt.Type, sig.Params().Len())
 	for i := 0; i < sig.Params().Len(); i++ {
-		rt, reason := l.mapType(sig.Params().At(i).Type(), true)
+		rt, reason := l.mapType(sig.Params().At(i).Type(), true, true)
 		if reason != "" {
 			return issue("extern `fn %s`: the Go parameter %d is not representable: %s", sym.Name, i, reason)
 		}
@@ -113,7 +113,7 @@ func (l *Loader) BindExtern(sym *resolve.Symbol, decl check.Signature) (check.Si
 			// the checker's own unsolved-meta diagnostic covers it.
 			continue
 		}
-		if !viewsCompatible(pt, rt) {
+		if !l.viewsCompatible(pt, rt) {
 			return issue("extern `fn %s` declares parameter %d as %s, but `%s.%s` takes %s",
 				sym.Name, i, pt, sym.Package, sym.Name, sig.Params().At(i).Type())
 		}
@@ -122,7 +122,7 @@ func (l *Loader) BindExtern(sym *resolve.Symbol, decl check.Signature) (check.Si
 	res := sig.Results()
 	rawR := make([]gt.Type, res.Len())
 	for i := 0; i < res.Len(); i++ {
-		rt, reason := l.mapType(res.At(i).Type(), true)
+		rt, reason := l.mapType(res.At(i).Type(), true, true)
 		if reason != "" {
 			return issue("extern `fn %s`: the Go result %d is not representable: %s", sym.Name, i, reason)
 		}
@@ -196,13 +196,13 @@ func (l *Loader) admitResults(what string, sym *resolve.Symbol, res *types.Tuple
 					what, sym.Package, sym.Name, ret)
 			}
 			if payload, ok := optionArgs(ret); ok {
-				if !viewsCompatible(payload, rawR[0]) {
+				if !l.viewsCompatible(payload, rawR[0]) {
 					return 0, fmt.Sprintf("%s: `%s.%s` returns error — an `Option` view's payload is `GoError`, not %s",
 						what, sym.Package, sym.Name, payload)
 				}
 				return core.GoResultsNil, ""
 			}
-			if viewsCompatible(ret, rawR[0]) {
+			if l.viewsCompatible(ret, rawR[0]) {
 				return core.GoResultsErrValue, ""
 			}
 			return 0, fmt.Sprintf("%s: `%s.%s` returns error — declare `Result Unit GoError`, `Option GoError`, or `GoError`, not %s",
@@ -213,13 +213,13 @@ func (l *Loader) admitResults(what string, sym *resolve.Symbol, res *types.Tuple
 				return 0, fmt.Sprintf("%s declares an Option result, but `%s.%s` returns %s — Option needs a (T, bool) pair or a nil-able result (*T or interface)",
 					what, sym.Package, sym.Name, t0)
 			}
-			if !viewsCompatible(payload, rawR[0]) {
+			if !l.viewsCompatible(payload, rawR[0]) {
 				return 0, fmt.Sprintf("%s declares Option payload %s, but `%s.%s` returns %s — the payload keeps the raw type, declare `Option (%s)`",
 					what, payload, sym.Package, sym.Name, t0, rawR[0])
 			}
 			return core.GoResultsNil, ""
 		}
-		if !viewsCompatible(ret, rawR[0]) {
+		if !l.viewsCompatible(ret, rawR[0]) {
 			return 0, fmt.Sprintf("%s declares result %s, but `%s.%s` returns %s",
 				what, ret, sym.Package, sym.Name, t0)
 		}
@@ -230,7 +230,7 @@ func (l *Loader) admitResults(what string, sym *resolve.Symbol, res *types.Tuple
 		case isError(t1):
 			a, e, ok := resultArgs(ret)
 			if ok && gt.Equal(e, gt.GoError) {
-				if viewsCompatible(a, rawR[0]) {
+				if l.viewsCompatible(a, rawR[0]) {
 					return core.GoResultsErr, ""
 				}
 				// `Result (Option U) GoError` declares the
@@ -242,7 +242,7 @@ func (l *Loader) admitResults(what string, sym *resolve.Symbol, res *types.Tuple
 				// raw view; nil materializes as `None`
 				// through `option.FromGo(v, v != nil)`.
 				if payload, isOpt := optionArgs(a); isOpt &&
-					nilablePresence(t0) && viewsCompatible(payload, rawR[0]) {
+					nilablePresence(t0) && l.viewsCompatible(payload, rawR[0]) {
 					return core.GoResultsErr, ""
 				}
 			}
@@ -250,13 +250,13 @@ func (l *Loader) admitResults(what string, sym *resolve.Symbol, res *types.Tuple
 				what, sym.Package, sym.Name, t0, optionPayloadHint(t0), ret)
 		case isBoolType(t1):
 			if payload, ok := optionArgs(ret); ok {
-				if !viewsCompatible(payload, rawR[0]) {
+				if !l.viewsCompatible(payload, rawR[0]) {
 					return 0, fmt.Sprintf("%s declares Option payload %s, but `%s.%s` returns %s",
 						what, payload, sym.Package, sym.Name, t0)
 				}
 				return core.GoResultsOK, ""
 			} else if els, ok := tupleArgs(ret); ok && len(els) == 2 &&
-				viewsCompatible(els[0], rawR[0]) && viewsCompatible(els[1], rawR[1]) {
+				l.viewsCompatible(els[0], rawR[0]) && l.viewsCompatible(els[1], rawR[1]) {
 				return core.GoResultsPair, ""
 			} else {
 				return 0, fmt.Sprintf("%s: `%s.%s` returns (%s, bool) — declare `Option T` or `(T, Bool)`, not %s",
@@ -264,7 +264,7 @@ func (l *Loader) admitResults(what string, sym *resolve.Symbol, res *types.Tuple
 			}
 		default:
 			if els, ok := tupleArgs(ret); ok && len(els) == 2 &&
-				viewsCompatible(els[0], rawR[0]) && viewsCompatible(els[1], rawR[1]) {
+				l.viewsCompatible(els[0], rawR[0]) && l.viewsCompatible(els[1], rawR[1]) {
 				return core.GoResultsPair, ""
 			} else {
 				return 0, fmt.Sprintf("%s: `%s.%s` returns (%s, %s) — declare a 2-tuple, not %s",
@@ -311,7 +311,7 @@ func (l *Loader) admitResults(what string, sym *resolve.Symbol, res *types.Tuple
 		}
 		for i := 0; i < payload; i++ {
 			ti := res.At(i).Type()
-			if viewsCompatible(els[i], rawR[i]) {
+			if l.viewsCompatible(els[i], rawR[i]) {
 				if payload < n && methodIface(ti) {
 					return 0, fmt.Sprintf("%s declares element %d as %s, but `%s.%s` returns the nil-able interface %s — declare `Option (%s)`",
 						what, i, els[i], sym.Package, sym.Name, ti, rawR[i])
@@ -320,7 +320,7 @@ func (l *Loader) admitResults(what string, sym *resolve.Symbol, res *types.Tuple
 			}
 			if payload < n {
 				if p, isOpt := optionArgs(els[i]); isOpt &&
-					nilablePresence(ti) && viewsCompatible(p, rawR[i]) {
+					nilablePresence(ti) && l.viewsCompatible(p, rawR[i]) {
 					continue
 				}
 			}

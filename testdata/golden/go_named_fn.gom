@@ -1,0 +1,30 @@
+package main
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// A named func return reads as `Go.Func0` — `Go.fn0` converts it and
+// the emitted call is a plain `stop()`.
+fn cancel () -> Unit = {
+  let (_, stop) = goiface.Pending ()
+  let f = Go.fn0 stop
+  f ()
+}
+
+// A `Go.func0` value conforms to the named parameter — the emitted
+// argument needs no cast since `func()` is assignable to CancelFunc.
+fn feed () -> Unit = {
+  goiface.TakeCancel (Go.func0 (fn () -> ignore 1))
+}
+
+// `Go.conv` into a method-bearing named func type emits the named
+// cast — `goiface.Handler(fn)`.
+fn methodful () -> Int = {
+  let h2 : goiface.Handler = Go.conv (Go.func1 (fn (x: Int) -> x)) : goiface.Handler
+  h2.Fire 1
+}
+
+fn main () -> Unit = {
+  cancel ()
+  feed ()
+  ignore (methodful ())
+}

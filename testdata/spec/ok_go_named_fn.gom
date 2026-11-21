@@ -1,0 +1,96 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// spec section 8.8: a method-less named func type reads as its
+// `Go.FuncN` — `goiface.CancelFunc` is `Go.Func0`, so the named
+// return value converts through `Go.fn0` and a `Go.func0` value
+// conforms to the named parameter and annotation spellings.
+
+// A named func return converts with `Go.fn0` like an unnamed one.
+fn cancel () -> Unit = {
+  let (_, stop) = goiface.Pending ()
+  let f = Go.fn0 stop
+  f ()
+}
+
+// A `Go.func0` value conforms to the named parameter's FuncN spelling.
+fn feed () -> Unit = {
+  goiface.TakeCancel (Go.func0 (fn () -> ignore 1))
+}
+
+// The named type in an annotation spells the same `Go.Func0`.
+fn declared () -> Unit = {
+  let s : goiface.CancelFunc = Go.func0 (fn () -> ignore 1)
+  ignore s
+}
+
+// A named func element inside a container keeps the named handle —
+// `List goiface.CancelFunc` emits `[]goiface.CancelFunc`, the only
+// slice shape TakeCancelList accepts.
+fn batched () -> Unit = {
+  let fs = goiface.CancelList ()
+  goiface.TakeCancelList fs
+}
+
+// The annotation spells the element as the named handle too —
+// `List goiface.CancelFunc` is the same type CancelList returns.
+fn annotated () -> Unit = {
+  let fs : List goiface.CancelFunc = goiface.CancelList ()
+  goiface.TakeCancelList fs
+}
+
+// A FuncN value satisfies a Go interface parameter and `Go.conv`s
+// into `Go.Any` — the boundary relations spell it as a signature.
+fn boxed () -> String = {
+  let (_, stop) = goiface.Pending ()
+  let a : Go.Any = Go.conv stop : Go.Any
+  ignore a
+  goiface.Kind stop
+}
+
+// spec section 8.4: an extern signature that spells the named func
+// type pairs with the member's raw `Go.Func0` view — the declared
+// handle and the member's FuncN param are the same boundary view.
+extern go "github.com/podhmo/gom/testdata/goiface" {
+  fn TakeCancel (f : goiface.CancelFunc) -> Unit
+  fn Pending () -> (Int, goiface.CancelFunc)
+}
+
+// A declared result element spelling the named func type pairs
+// with the member's raw `Go.Func0` element — the produced func
+// value conforms to the handle without a conversion.
+fn declared_result () -> Unit = {
+  let (_, stop) = goiface.Pending ()
+  goiface.TakeCancel stop
+}
+
+// A named func parameter passed to the member's raw FuncN param is
+// the same value on the Go side — no conversion needed.
+fn passthrough (f : goiface.CancelFunc) -> Unit = {
+  goiface.TakeCancel f
+}
+
+// `Go.fn0` accepts a named-handle argument the same way — its
+// handle expands to the FuncN it checks against.
+fn wrap_named () -> Unit = {
+  let s : goiface.CancelFunc = Go.func0 (fn () -> ignore 1)
+  let f = Go.fn0 s
+  f ()
+}
+
+// `Go.func1` under a named-Func1 annotation seeds the inline
+// lambda's parameter the way a raw FuncN annotation would — `x`
+// binds `Int`, not an unconstrained meta.
+fn seeded () -> Int = {
+  let g : goiface.IntFunc = Go.func1 (fn x -> x)
+  goiface.TakeIntFunc g
+}
+
+// A method-bearing named func type keeps the named handle — `Fire`
+// resolves as a method — and `Go.conv` casts a `Go.Func1` into it.
+fn methodful () -> Int = {
+  let h = goiface.NewHandler ()
+  let h2 : goiface.Handler = Go.conv (Go.func1 (fn (x: Int) -> x)) : goiface.Handler
+  (h.Fire 0) + (h2.Fire 1)
+}

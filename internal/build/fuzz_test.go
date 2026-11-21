@@ -485,7 +485,7 @@ func compileOracles(t testing.TB) (opts *build.Options, imp types.Importer) {
 	opts = gomstd.Apply(&build.Options{
 		Loader: allowLoader{gl},
 		Sigs:   gl,
-		Lower:  &lower.Env{GoSig: gl.GoSigOf},
+		Lower:  &lower.Env{GoSig: gl.GoSigOf, FuncNOfNamed: gl.FuncNOfNamed},
 	})
 	imp = newExportImporter(gobin, root)
 	return opts, imp

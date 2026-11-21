@@ -331,6 +331,18 @@ type InterfaceSource interface {
 	InterfaceAssignable(from, to types.Type) bool
 }
 
+// FuncNSource answers which `Go.FuncN` a method-less named func
+// type's `*types.Go` handle reads as at a signature boundary —
+// `context.CancelFunc` → `Go.Func0`. The checker needs the
+// equivalence where a handle-typed value meets a FuncN position
+// (or vice versa): both are assignable spellings of one Go type.
+type FuncNSource interface {
+	// FuncNOfNamed reports the FuncN the named behind t — a
+	// *types.Go handle — maps to, or ok=false for a method-bearing
+	// or non-func named and anything else.
+	FuncNOfNamed(t types.Type) (types.Type, bool)
+}
+
 // FieldSource exposes exported Go struct selectors and their raw Go types.
 type FieldSource interface {
 	FieldOf(recv types.Type, name string) (*resolve.Symbol, Signature, types.Type, bool)
@@ -397,6 +409,17 @@ func (c chain) InterfaceAssignable(from, to types.Type) bool {
 		}
 	}
 	return false
+}
+
+func (c chain) FuncNOfNamed(t types.Type) (types.Type, bool) {
+	for _, s := range c {
+		if src, ok := s.(FuncNSource); ok {
+			if fn, ok2 := src.FuncNOfNamed(t); ok2 {
+				return fn, true
+			}
+		}
+	}
+	return nil, false
 }
 
 func (c chain) FieldOf(recv types.Type, name string) (*resolve.Symbol, Signature, types.Type, bool) {

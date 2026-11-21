@@ -85,6 +85,14 @@ type Loader struct {
 	// named indexes the go/types.Named behind every types.Go ref the
 	// mapping produced — MethodOf needs it to build method sets.
 	named map[gt.NamedRef]*types.Named
+	// mapping marks the named types whose underlying signature
+	// namedType is currently translating to a FuncN — a recursive
+	// `type F func() F` re-enters through its own result and must
+	// answer the named handle instead of descending forever.
+	mapping map[gt.NamedRef]bool
+	// listNamed is the lazily built `list.List` named type
+	// boundaryType spells inside identity positions.
+	listNamed *types.Named
 
 	// tps scopes a generic signature's type parameters while
 	// mapSignature maps it: the go/types.TypeParam objects map to
@@ -268,7 +276,11 @@ func (l *Loader) member(path string, obj types.Object) (*resolve.Symbol, *member
 		}
 	case *types.TypeName:
 		sym.Kind = resolve.KindType
-		mt, reason := l.gomType(obj.Type())
+		// A type name spells the named type itself — inside a
+		// `List pkg.F` annotation or anywhere else the name means
+		// `pkg.F`, and the boundary's FuncN reading is only a
+		// signature-position view (mapType assignable=false).
+		mt, reason := l.mapType(obj.Type(), false, false)
 		if reason != "" {
 			sym.Hidden = reason
 			break
@@ -294,7 +306,7 @@ func (l *Loader) member(path string, obj types.Object) (*resolve.Symbol, *member
 		// `int64(os.O_RDONLY)` where Gom sees Int. A var/const
 		// reference is a zero-arity, single-result "call", so the
 		// signature's single ResTypes slot carries the raw type.
-		rt, rreason := l.mapType(obj.Type(), true)
+		rt, rreason := l.mapType(obj.Type(), true, true)
 		if rreason != "" {
 			rt = mt // the views diverge only where both map — defensive
 		}

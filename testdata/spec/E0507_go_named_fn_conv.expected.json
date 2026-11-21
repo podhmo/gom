@@ -1,0 +1,27 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0507",
+      "severity": "error",
+      "message": "cannot convert Go.Func0 to Unit -> Unit",
+      "span": {
+        "file": "E0507_go_named_fn_conv.gom",
+        "start": {
+          "line": 12,
+          "col": 11,
+          "offset": 360
+        },
+        "end": {
+          "line": 12,
+          "col": 38,
+          "offset": 387
+        }
+      },
+      "data": {
+        "from": "Go.Func0",
+        "to": "Unit -> Unit"
+      }
+    }
+  ]
+}

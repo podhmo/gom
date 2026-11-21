@@ -695,6 +695,16 @@ func (l *lowerer) goConvKindOf(from, to types.Type) (core.ConvKind, bool) {
 	if types.Equal(from, to) {
 		return 0, true
 	}
+	// A method-less named func handle and its `Go.FuncN` spell the
+	// same value — Go's assignability pairs them in either
+	// direction, so neither an extern's declared handle result nor
+	// a handle argument needs a conversion node.
+	if fn, ok := l.funcNOfNamed(from); ok && types.Equal(fn, to) {
+		return 0, true
+	}
+	if fn, ok := l.funcNOfNamed(to); ok && types.Equal(from, fn) {
+		return 0, true
+	}
 	if fc, fok := from.(*types.Con); fok && l.isOptionCon(fc) && len(fc.Args) == 1 &&
 		types.Equal(to, fc.Args[0]) {
 		// The Gom→Go half of the `(T, error)` boundary: an `Option
@@ -771,6 +781,17 @@ func (l *lowerer) convGoArgs(s *seq, sig GoSig, args []core.Atom, spread bool) [
 	return out
 }
 
+// funcNOfNamed expands a method-less named func type's handle to
+// the `Go.FuncN` it reads as at signature positions — the same
+// equivalence check's FuncNSource gives unify. The env hook answers;
+// no hook just leaves the pair to the ordinary conversion table.
+func (l *lowerer) funcNOfNamed(t types.Type) (types.Type, bool) {
+	if l.env.FuncNOfNamed == nil {
+		return nil, false
+	}
+	return l.env.FuncNOfNamed(t)
+}
+
 // convGoArg is convGoArgs for one argument position: a value whose
 // lowered type differs from the Go parameter's raw type is wrapped
 // in an explicit Conv bound to a temporary — in the sequence s, so a
@@ -783,6 +804,12 @@ func (l *lowerer) convGoArg(s *seq, sig GoSig, i int, a core.Atom, spreadArg boo
 	pt := l.goParamTypeAt(sig, i, spreadArg)
 	at := types.Chase(a.Type())
 	if pt == nil || types.Equal(at, pt) {
+		return a
+	}
+	if fn, ok := l.funcNOfNamed(at); ok && types.Equal(fn, pt) {
+		// A method-less named func value at its own signature
+		// position — Go's assignability already pairs `F` with
+		// `func()`; no conversion node needed.
 		return a
 	}
 	k, ok := l.goConvKindOf(at, pt)
@@ -1343,7 +1370,19 @@ func (l *lowerer) goFnWrap(sp diag.Span, typ types.Type, args []core.Atom, n int
 		return l.litUnit(sp)
 	}
 	f := args[0]
-	fc, ok := types.Chase(f.Type()).(*types.Con)
+	ft := types.Chase(f.Type())
+	fc, ok := ft.(*types.Con)
+	var fn types.Type
+	if !ok || fc.Qual != "Go" {
+		// A method-less named func value converts the same way —
+		// its handle expands to the FuncN check accepted, and the
+		// callee is spelled as a named→underlying cast so the
+		// CallGo node's Fn keeps a `Go.FuncN` type.
+		if fnc, ok2 := l.funcNOfNamed(ft); ok2 {
+			fn = fnc
+			fc, ok = fnc.(*types.Con)
+		}
+	}
 	if !ok || fc.Qual != "Go" {
 		l.err(sp, fmt.Sprintf("Go.fn%d argument of type %s is not a Go.Func%d value", n, typeName(f.Type()), n))
 		return l.litUnit(sp)
@@ -1382,9 +1421,13 @@ func (l *lowerer) goFnWrap(sp diag.Span, typ types.Type, args []core.Atom, n int
 		return l.litUnit(sp)
 	}
 	return l.closureChain(sp, typ, fs.Params, func(bs *seq, pv []core.Atom) core.Expr {
+		callee := f
+		if fn != nil {
+			callee = l.asAtom(bs, sp, &core.Conv{Sp: sp, Typ: fn, Kind: core.ConvNamed, X: f})
+		}
 		call := &core.CallGo{
 			Sp: sp, Typ: l.goCallTyp(sig, fs.Ret),
-			Fn:      f,
+			Fn:      callee,
 			Args:    l.convGoArgs(bs, sig, pv[:n], false),
 			Arity:   n,
 			Results: sig.Results,

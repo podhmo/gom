@@ -114,6 +114,12 @@ fn parse (s: String) -> Result Int GoError =
   `func() error` reads as `Result Unit GoError`,
   `func(A) (T, error)` as `Result T GoError`, and a nil-able
   interface payload wraps in `Option` (`(nil, nil)` → `Ok None`).
+  A method-less named func type (`context.CancelFunc`,
+  `fs.WalkDirFunc`) reads as its `Go.FuncN`, so `Go.fn0 stop` calls
+  `WithCancel`'s stop directly and a `Go.func0` value feeds a named
+  param; a method-bearing one (`http.HandlerFunc`) stays a named
+  type — `Go.fnN` rejects it, its methods work, and `Go.conv f :
+  pkg.F` casts a `Go.FuncN` into it.
 - Generic Go fns: callable when every constraint is `any`,
   `comparable`, a structural constraint (`S ~[]E`, `M ~map[K]V`),
   or a type-param-free union (`cmp.Ordered` and friends — including

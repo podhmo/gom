@@ -778,7 +778,33 @@ func (c *checker) unify(want, got types.Type, sp diag.Span) bool {
 	if isGoAny(w) {
 		return true
 	}
+	// A method-less named func type and its `Go.FuncN` spelling are
+	// the same Go value at assignable positions — unify pairs them
+	// (the handle is the annotation's spelling, FuncN the
+	// signature-boundary one). Both sides expand only when the
+	// other is a FuncN con — two different handles stay different
+	// (`F` is not assignable to `G` in Go either).
+	if isFuncNCon(g) {
+		if fn, ok := c.funcNOfNamed(w); ok {
+			return c.unifySub(fn, g, sp)
+		}
+	}
+	if isFuncNCon(w) {
+		if fn, ok := c.funcNOfNamed(g); ok {
+			return c.unifySub(w, fn, sp)
+		}
+	}
 	return c.unifySub(w, g, sp)
+}
+
+// isFuncNCon reports whether t is a `Go.FuncN` constructor type.
+func isFuncNCon(t types.Type) bool {
+	cn, ok := t.(*types.Con)
+	if !ok || cn.Qual != "Go" {
+		return false
+	}
+	_, ok = goFuncTypeArity(cn.Name)
+	return ok
 }
 
 // unifySub unifies inside the parameters of a composite type — a Con
@@ -1414,4 +1440,13 @@ func (c *checker) unifyErr(want, got types.Type, sp diag.Span) bool {
 		return c.unify(w, g, sp)
 	}
 	return types.Equal(w, g)
+}
+
+// funcNOfNamed forwards the handle→FuncN equivalence to the first
+// signature source that can answer it (see FuncNSource).
+func (c *checker) funcNOfNamed(t types.Type) (types.Type, bool) {
+	if src, ok := c.src.(FuncNSource); ok {
+		return src.FuncNOfNamed(t)
+	}
+	return nil, false
 }

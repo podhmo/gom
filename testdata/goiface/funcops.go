@@ -148,3 +148,48 @@ func ErrPairNil() func() (error, error) {
 func Ints() func([]int) int {
 	return func(xs []int) int { return len(xs) }
 }
+
+// CancelFunc is a method-less named func type — the
+// `context.CancelFunc` shape spec 8.8 reads as `Go.Func0`.
+type CancelFunc func()
+
+// Pending returns a pair like `context.WithCancel`'s — the named
+// func value reads back as `Go.Func0` for `Go.fn0` to convert.
+func Pending() (int64, CancelFunc) {
+	return 0, func() {}
+}
+
+// TakeCancel consumes a named func parameter — a `Go.func0` value
+// conforms to its FuncN spelling.
+func TakeCancel(f CancelFunc) { f() }
+
+// CancelList returns a slice of the named func type — the element
+// keeps the named handle: `[]CancelFunc` and `[]func()` are
+// different Go types.
+func CancelList() []CancelFunc { return []CancelFunc{func() {}} }
+
+// TakeCancelList consumes that slice — its element must spell
+// `CancelFunc`, not `func()`.
+func TakeCancelList(fs []CancelFunc) {
+	for _, f := range fs {
+		f()
+	}
+}
+
+// IntFunc is a method-less one-parameter named func type — the
+// seeded-lambda shape a `let f : goiface.IntFunc` annotation gives
+// `Go.func1 (fn (x) -> ...)`.
+type IntFunc func(int64) int64
+
+// TakeIntFunc consumes a one-parameter named func.
+func TakeIntFunc(f IntFunc) int64 { return f(1) }
+
+// Handler is a method-bearing named func type — it keeps the named
+// handle so `h.Fire` resolves (spec 8.8).
+type Handler func(int64) int64
+
+// Fire is the method the named handle keeps.
+func (h Handler) Fire(n int64) int64 { return h(n) }
+
+// NewHandler returns the method-bearing named func value.
+func NewHandler() Handler { return func(n int64) int64 { return n + 1 } }

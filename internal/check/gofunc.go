@@ -111,6 +111,13 @@ func (c *checker) checkGoFuncCall(e *syntax.Apply, fn Expr, callee *resolve.Symb
 			wCon = w
 		}
 	}
+	if wCon == nil {
+		// A named func annotation wants the same shape — its handle
+		// expands to the FuncN the lambda seeds from.
+		if fn, ok := c.funcNOfNamed(types.Chase(want)); ok {
+			wCon, _ = fn.(*types.Con)
+		}
+	}
 	// The seed only serves an inline lambda — its parameters cannot
 	// be annotated, so they take the expected FuncN's Gom views.
 	// Anything else already knows its own type; seeding it would
@@ -231,6 +238,18 @@ func (c *checker) checkGoFnCall(e *syntax.Apply, fn Expr, callee *resolve.Symbol
 	wn, isFuncN := 0, false
 	if isCon && fc.Qual == "Go" {
 		wn, isFuncN = goFuncTypeArity(fc.Name)
+	}
+	if !isFuncN {
+		// A method-less named func type's handle value converts the
+		// same way — `Go.fn0 stop` on a `context.CancelFunc`-typed
+		// value reads its FuncN spelling.
+		if fn, ok := c.funcNOfNamed(types.Chase(arg.Type())); ok {
+			if cn, ok2 := fn.(*types.Con); ok2 {
+				if w, ok3 := goFuncTypeArity(cn.Name); ok3 {
+					fc, wn, isFuncN = cn, w, true
+				}
+			}
+		}
 	}
 	if !isFuncN {
 		c.diags.Add(diag.Error("E0510",
