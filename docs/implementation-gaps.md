@@ -1686,3 +1686,17 @@
   func 型誤変換も E0507 で拒否されるようになった。
   参照: [decision](decisions/2026-11-21-named-func-types.md)、[spec 8.8](spec.md)、
   testdata/spec/ok_go_named_fn・E0507_go_named_fn_conv・E0510_go_named_fn_method。
+
+- [ ] **`type X = T` の型エイリアス構文がパースされず AliasBody は死んだノード**:
+  spec §8.3（`type T = any` が `any` へ展開される）と §4 の等価判定
+  （エイリアスを展開する）は `type X = <型式>` のエイリアスを前提にするが、
+  `parseTypeBody` は `{` → record、それ以外 → variant-list しか生成しない。
+  `type A = Int`・`type C = Option Int`・`type L = List Int` は UIdent を
+  コンストラクタ名として**単一バリアントの sum として静かに受理される**
+  （`Int`/`Option`/`List` が全て UIdent のため）。`any` や `Int -> Int` 等
+  小文字・非 UIdent 先頭の型式は E0101 で落ちる。resolve・check（kindAlias・
+  lazy resolveAlias）・iface・treedump は `AliasBody` を処理する実装が揃って
+  おりテストも AST 経由で存在するが、パーサが作れない。
+  採用には UIdent 先頭の曖昧性（`type Colour = Red` との区別）を解く
+  構文か決め方が要る — 検討と推薦は
+  [decisions/type-alias-syntax](decisions/2026-11-21-type-alias-syntax.md)。
