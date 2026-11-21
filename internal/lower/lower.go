@@ -43,6 +43,13 @@ type Env struct {
 	// reports whether the signature is known.
 	GoSig func(sym *resolve.Symbol) (GoSig, bool)
 
+	// FuncNOfNamed expands a method-less named Go func type's handle
+	// (`*types.Go` naming `pkg.F`) to the `Go.FuncN` it reads as at
+	// signature positions — the equivalence check's FuncNSource
+	// gives unify. Nil: handles never expand — every call pair
+	// falls back to the ordinary conversion table.
+	FuncNOfNamed func(t types.Type) (types.Type, bool)
+
 	// FuncType reports a Gom function symbol's *declared* signature —
 	// the type with its own type parameters still rigid. The
 	// flat-fn-param convention (docs/decisions/

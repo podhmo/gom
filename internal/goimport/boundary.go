@@ -190,6 +190,12 @@ func (l *Loader) listType(el types.Type) types.Type {
 func (l *Loader) FuncNOfNamed(t gt.Type) (gt.Type, bool) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
+	return l.funcNOfNamed(t)
+}
+
+// funcNOfNamed is FuncNOfNamed without the lock — for call sites
+// already running inside a member load (BindExtern's view pairing).
+func (l *Loader) funcNOfNamed(t gt.Type) (gt.Type, bool) {
 	g, ok := gt.Chase(t).(*gt.Go)
 	if !ok || len(g.Args) != 0 {
 		return nil, false

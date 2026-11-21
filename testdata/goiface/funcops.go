@@ -176,6 +176,14 @@ func TakeCancelList(fs []CancelFunc) {
 	}
 }
 
+// IntFunc is a method-less one-parameter named func type — the
+// seeded-lambda shape a `let f : goiface.IntFunc` annotation gives
+// `Go.func1 (fn (x) -> ...)`.
+type IntFunc func(int64) int64
+
+// TakeIntFunc consumes a one-parameter named func.
+func TakeIntFunc(f IntFunc) int64 { return f(1) }
+
 // Handler is a method-bearing named func type — it keeps the named
 // handle so `h.Fire` resolves (spec 8.8).
 type Handler func(int64) int64

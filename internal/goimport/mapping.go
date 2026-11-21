@@ -439,6 +439,28 @@ func hasTypeParam(t types.Type) bool {
 // Anything else (int nested in a slice/map/pointer/channel, a nested
 // slice pair, …) hides the symbol rather than surfacing as an
 // internal lowering error.
+// viewsCompatible is the Loader's BindExtern-level view pairing:
+// the shape rule of the package function plus the named-func
+// equivalence — an extern declaring `pkg.F` (a method-less named
+// func type's handle) pairs with the raw `Go.FuncN` the member's
+// boundary view reads.
+func (l *Loader) viewsCompatible(g, r gt.Type) bool {
+	if viewsCompatible(g, r) {
+		return true
+	}
+	if _, ok := gt.Chase(g).(*gt.Go); ok {
+		if fn, ok := l.funcNOfNamed(g); ok && viewsCompatible(fn, r) {
+			return true
+		}
+	}
+	if _, ok := gt.Chase(r).(*gt.Go); ok {
+		if fn, ok := l.funcNOfNamed(r); ok && viewsCompatible(g, fn) {
+			return true
+		}
+	}
+	return false
+}
+
 func viewsCompatible(g, r gt.Type) bool {
 	g, r = gt.Chase(g), gt.Chase(r)
 	if gt.Equal(g, r) {

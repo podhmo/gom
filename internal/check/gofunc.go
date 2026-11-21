@@ -111,6 +111,13 @@ func (c *checker) checkGoFuncCall(e *syntax.Apply, fn Expr, callee *resolve.Symb
 			wCon = w
 		}
 	}
+	if wCon == nil {
+		// A named func annotation wants the same shape — its handle
+		// expands to the FuncN the lambda seeds from.
+		if fn, ok := c.funcNOfNamed(types.Chase(want)); ok {
+			wCon, _ = fn.(*types.Con)
+		}
+	}
 	// The seed only serves an inline lambda — its parameters cannot
 	// be annotated, so they take the expected FuncN's Gom views.
 	// Anything else already knows its own type; seeding it would
