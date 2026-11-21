@@ -216,6 +216,7 @@
 | [struct-construction-options](2026-11-19-struct-construction-options.md) | Go struct 構築機構の選択肢の固定（採否は未決） | draft（採否は部分決着: (b) 採用・(a) 先延ばし — |
 | [struct-field-write](2026-11-19-struct-field-write.md) | Go struct の構築は `Ptr` 経由の field 書き込みを採用（composite literal は先延ばし） | adopted |
 | [array-make-init](2026-11-21-array-make-init.md) | `Array.make` は初期値を必須引数にする | 採用（実装・検証した — `Array.make n init` が `[]A` に n 個の init コピーを emit し、`Array (Option T)` も `None` で初期化できる。stdlib/list の利用と testdata/spec/ok_array_ops を機械移行済み。spec.md §8.3 へ反映済み） |
+| [go-iface-impl](2026-11-21-go-iface-impl.md) | Gom record が Go interface を実装する宣言 — 設計 | draft（設計調査完了・採否は podhmo に委ねる — wave29 lane D は実装しない） |
 | [named-func-types](2026-11-21-named-func-types.md) | named func 型(`context.CancelFunc` など)を `Go.FuncN` として読む | 採用（実装・検証した — testdata/spec/ok_go_named_fn・E0507_go_named_fn_conv・E0510_go_named_fn_method、testdata/golden/go_named_fn で固定。spec.md §8.8 へ反映済み） |
 | [record-single-field-defined-type](2026-11-21-record-single-field-defined-type.md) | 1 フィールド record を Go の defined type として emit する | 採用 |
 | [record-spread-arg](2026-11-21-record-spread-arg.md) | record の spread 引数 `f ~..opts` | 採用 |
