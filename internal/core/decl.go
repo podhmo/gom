@@ -156,10 +156,13 @@ func (*TSum) isTypeBody()       {}
 func (n *TSum) Span() diag.Span { return n.Sp }
 
 // TRecord is a record-type body — emitted as a struct with named
-// fields.
+// fields, or as the Go defined type `type X F` when Defined
+// (lower decided the representation via check.DefinedField; codegen
+// only renders it).
 type TRecord struct {
-	Sp     diag.Span
-	Fields []TField
+	Sp      diag.Span
+	Fields  []TField
+	Defined bool
 }
 
 func (*TRecord) isTypeBody()       {}

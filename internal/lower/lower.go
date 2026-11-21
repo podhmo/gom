@@ -1082,9 +1082,13 @@ func (l *lowerer) decl(d check.Decl, out *core.File) {
 		}
 		l.letDecl(d, out)
 	case *check.TypeDecl:
+		body := l.typeBody(d.Body)
+		if _, ok := check.DefinedField(d); ok {
+			body.(*core.TRecord).Defined = true
+		}
 		out.Decls = append(out.Decls, &core.TypeDecl{
 			Sp: d.Sp, Sym: d.Sym, TypeParams: d.TypeParams,
-			Body: l.typeBody(d.Body),
+			Body: body,
 		})
 	case *check.TestDecl:
 		if !l.env.Tests {

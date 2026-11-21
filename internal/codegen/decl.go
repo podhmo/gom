@@ -291,16 +291,16 @@ func (g *gen) trecord(d *core.TypeDecl, b *core.TRecord) {
 		g.nl()
 		return
 	}
-	if len(b.Fields) == 1 {
-		// Go forbids `type X[A any] A` — a sole field that is a bare
-		// type parameter stays a struct.
-		if _, isVar := types.Chase(b.Fields[0].Type).(*types.Var); !isVar {
-			g.raw(" ")
-			g.typ(g.goType(b.Fields[0].Type))
-			g.nl()
-			g.nl()
-			return
-		}
+	if b.Defined {
+		// One-field record — the Gom-side newtype spelling: the Go
+		// defined type `type X F`. Lower set Defined via
+		// check.DefinedField; the bare-parameter fallback (`type
+		// X[A any] A` is illegal Go) stays a struct.
+		g.raw(" ")
+		g.typ(g.goType(b.Fields[0].Type))
+		g.nl()
+		g.nl()
+		return
 	}
 	g.raw(" struct")
 	g.open()

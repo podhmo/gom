@@ -342,7 +342,11 @@ func (d *cdump) ctypebody(b core.TypeBody) *form {
 		for _, f := range b.Fields {
 			kids = append(kids, d.ctfield(f))
 		}
-		return nodef("record"+at(b.Sp), kids...)
+		text := "record" + at(b.Sp)
+		if b.Defined {
+			text += " :defined"
+		}
+		return nodef(text, kids...)
 	case *core.TAlias:
 		return nodef("alias"+at(b.Sp), atomf(typ(b.Type)))
 	case *core.TAbstract:
