@@ -1,6 +1,6 @@
 # `type X = T` has no alias production — AliasBody is unreachable
 
-- 状態: 未解決
+- 状態: 解決（2026-11-22 — `type alias X = T` を採用・実装。wave29 lane E、[decision](../decisions/2026-11-21-type-alias-adopt.md)。`type X = T` が単一バリアント sum に読まれる仕様は意図として維持 — 透明な別名は `type alias` と明記する形にした）
 - 日付: 2026-11-02
 
 ## Situation
