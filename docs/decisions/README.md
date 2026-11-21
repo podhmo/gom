@@ -215,5 +215,5 @@
 | [stdlib-cmp-module](2026-11-19-stdlib-cmp-module.md) | stdlib に Eq/Ord 辞書を取る cmp モジュールを追加する | adopted |
 | [struct-construction-options](2026-11-19-struct-construction-options.md) | Go struct 構築機構の選択肢の固定（採否は未決） | draft（採否は部分決着: (b) 採用・(a) 先延ばし — |
 | [struct-field-write](2026-11-19-struct-field-write.md) | Go struct の構築は `Ptr` 経由の field 書き込みを採用（composite literal は先延ばし） | adopted |
-| [scoped-cleanup](2026-11-21-scoped-cleanup.md) | defer 相当: 明示的スコープハンドルによる cleanup 登録（案） | draft |
+| [scoped-cleanup](2026-11-21-scoped-cleanup.md) | defer 相当: 明示的スコープハンドルによる cleanup 登録（案） | 採用（SC-1 で実装・検証した — [sketch](../sketch/2026-11-21-defer-survey.md)。SC-2 / SC-3 は TODO） |
 <!-- END GENERATED -->

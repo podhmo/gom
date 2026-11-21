@@ -191,3 +191,20 @@ func copyFile(log *fake.Log, src, dst, data string) (res result.Result[struct{},
   意味の差はないが、捕捉が `let` 束縛の値であることを明記する
 - P8（recover）は対象外のまま別の問いにする。テスト側の 330 件は
   `t.Fatal` 系の検査なので、Gom の `test` ブロックに必要かは別途調べる
+
+## SC-1: compiler prototype (2026-11-21)
+
+`Scope` を組み込み型・組み込みモジュールとして実装した（rt-backed。`Ref` と同じ配線）。
+
+- 綴り: Gom の型はメソッドを持たない（spec 8.1）ため、試作の `s.Defer` ではなく
+  `Scope.defer s (fn () -> ...)` になった。Go の型ではないので `Go.func0` も要らない
+- 生成 Go: `Scope.run <| fn s -> ...` は `rt.ScopeRun[A](func(s *rt.Scope) A {...})`、
+  登録は `rt.ScopeDefer(s, func(_ struct{}) struct{} {...})`（`testdata/golden/scope_ops`）
+- ランタイム: `rt.Scope.Close` は実験の `scope` パッケージと同じく各 cleanup を個別の
+  Go の `defer` にして LIFO に走らせ、エラーを実行順に `errors.Join` する。`run_result` は
+  本体の `Err` を優先し、`on_err` は本体の `Err` と panic で走る（`rt/scope_test.go`、
+  `stdlib/result/scope_test.go`）
+- 検証: `testdata/spec/ok_scope`（`if` 内の登録、`try` の脱出先が本体ラムダになること）、
+  golden、上記のランタイムテスト。`gom build` した main で `if` 内登録・`on_err`・
+  `defer_err` の Join を実行して確認した
+- 残り: 静的な脱出検査（SC-2）、同一 Go 関数内の登録を Go の `defer` に直接出す lowering（SC-3）

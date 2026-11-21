@@ -181,6 +181,30 @@ var refMembers = []builtinMember{
 		gosig: lower.GoSig{Arity: 2, Results: core.GoResultsNone}},
 }
 
+// scopeMembers is the `Scope` module's operation surface — scoped
+// cleanup (decisions/2026-11-21-scoped-cleanup). run/defer/on_err
+// live in rt; the Result-aware run_result/defer_err live in
+// stdlib/result because rt cannot import the Result representation.
+var scopeMembers = []builtinMember{
+	{name: "run", goSym: "ScopeRun",
+		sig:   genericSig(types.Fn(elemTVar, types.P(types.Fn(elemTVar, types.P(types.Scope))))),
+		gosig: lower.GoSig{Arity: 1, Results: core.GoResultsOne}},
+	{name: "run_result", goSym: "ScopeRunResult", pkg: "github.com/podhmo/gom/stdlib/result",
+		sig: genericSig(types.Fn(types.Result(elemTVar, types.GoError),
+			types.P(types.Fn(types.Result(elemTVar, types.GoError), types.P(types.Scope))))),
+		gosig: lower.GoSig{Arity: 1, Results: core.GoResultsOne}},
+	{name: "defer", goSym: "ScopeDefer",
+		sig:   check.Signature{Type: types.Fn(types.Unit, types.P(types.Scope), types.P(types.Fn(types.Unit, types.P(types.Unit))))},
+		gosig: lower.GoSig{Arity: 2, Results: core.GoResultsNone}},
+	{name: "defer_err", goSym: "ScopeDeferErr", pkg: "github.com/podhmo/gom/stdlib/result",
+		sig: check.Signature{Type: types.Fn(types.Unit, types.P(types.Scope),
+			types.P(types.Fn(types.Result(types.Unit, types.GoError), types.P(types.Unit))))},
+		gosig: lower.GoSig{Arity: 2, Results: core.GoResultsNone}},
+	{name: "on_err", goSym: "ScopeOnErr",
+		sig:   check.Signature{Type: types.Fn(types.Unit, types.P(types.Scope), types.P(types.Fn(types.Unit, types.P(types.Unit))))},
+		gosig: lower.GoSig{Arity: 2, Results: core.GoResultsNone}},
+}
+
 // ptrMembers is the `Ptr` module's operation surface — the explicit
 // dereference, nil test and construction `Ptr T` needs for real Go
 // APIs (decisions/2026-11-05-ptr-ops-surface). get/set panic on nil
@@ -368,6 +392,7 @@ func (e *env) builtinModules() {
 		"Ref":      refMembers,
 		"Array":    arrayMembers,
 		"View":     viewMembers,
+		"Scope":    scopeMembers,
 		"Go.Map":   goMapMembers,
 		"Go.Slice": goSliceMembers,
 	} {

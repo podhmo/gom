@@ -1,0 +1,12 @@
+package ex
+
+// The `Scope` module is rt-backed: `run`/`defer`/`on_err` emit rt
+// calls, the Result-aware `run_result`/`defer_err` emit
+// stdlib/result calls, and a `Scope` value is `*rt.Scope`.
+fn guarded (r: Ref Int) (need: Bool) -> Int =
+  Scope.run <| fn s -> { if need { Scope.defer s (fn () -> Ref.set r 0) }; Ref.get r }
+
+fn tracked (s: Scope) (r: Ref Int) -> Unit = Scope.on_err s (fn () -> Ref.set r (-1))
+
+fn checked (r: Ref Int) -> Result Int GoError =
+  Scope.run_result <| fn s -> { tracked s r; Scope.defer_err s (fn () -> Ok ()); Ok (Ref.get r) }

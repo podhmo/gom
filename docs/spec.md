@@ -338,6 +338,36 @@ error[E0301]: non-exhaustive match on `Expr`
 3. `go { ... }` のブロックは関数境界ではない。その中で `try` を使うには、ラムダで包むか `Task.spawn` を使う
 4. `try` は `GoError` を自動ラップしない（`|?>` との違い。[decisions/try-no-auto-wrap](decisions/2026-11-04-try-no-auto-wrap.md)）
 
+### 6.1 後片付けのスコープ `Scope`
+
+Go の `defer` に当たる後片付けは、組み込みの `Scope` モジュールで書く（[decisions/scoped-cleanup](decisions/2026-11-21-scoped-cleanup.md)）。`Scope.run` がスコープを開き、本体のラムダが受け取るスコープハンドル `s : Scope` に後片付けを登録する。
+
+| メンバー | 型 |
+| --- | --- |
+| `Scope.run` | `(Scope -> a) -> a` |
+| `Scope.run_result` | `(Scope -> Result a GoError) -> Result a GoError` |
+| `Scope.defer` | `Scope -> (Unit -> Unit) -> Unit` |
+| `Scope.defer_err` | `Scope -> (Unit -> Result Unit GoError) -> Unit` |
+| `Scope.on_err` | `Scope -> (Unit -> Unit) -> Unit` |
+
+```gom
+fn guarded (held: Ref Int) (need: Bool) -> Int =
+  Scope.run <| fn s -> {
+    if need {
+      Ref.set held 1
+      Scope.defer s (fn () -> Ref.set held 0)
+    }
+    Ref.get held
+  }
+```
+
+1. 登録した後片付けは、本体のラムダが終わったとき（`try` による脱出と panic を含む）に登録の逆順で走る。登録は `if` や `match` の腕の中に書いてよく、その腕を抜けても本体の終わりまで生きる
+2. `try` の脱出先は本体のラムダなので、`Scope.run_result` の中の `try` はスコープを閉じてから `Err` になる
+3. `Scope.defer_err` の後片付けが `Err` を返したとき、本体が `Ok` ならスコープの結果はその `Err` になる。複数失敗したら実行順に `errors.Join` でまとめる。本体が `Err` なら本体のエラーを優先し、後片付けのエラーは捨てる。`Scope.run` では `defer_err` のエラーを捨てる
+4. `Scope.on_err` の後片付けは、本体が `Err` を返したときと panic したときだけ走る。後片付けの `Err` では走らない
+5. 後片付けの 1 つが panic しても、残りの後片付けはすべて走り、そのあと panic が伝播する
+6. スコープが閉じたあとに登録すると panic する。`s` をスコープの外へ持ち出すこと自体の静的な禁止は未実装（TODO SC-2）
+
 ---
 
 ## 7. インターフェースファイル `.gomi`

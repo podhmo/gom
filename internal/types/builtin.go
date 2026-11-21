@@ -24,6 +24,10 @@ var (
 
 	// GoError is Go's `error` (docs/spec.md sections 3.1 and 8.3).
 	GoError Type = &Con{Name: "GoError"}
+
+	// Scope is the cleanup-stack handle of `Scope.run`
+	// (decisions/2026-11-21-scoped-cleanup).
+	Scope Type = &Con{Name: "Scope"}
 )
 
 // Constructor helpers for the builtin type constructors of spec

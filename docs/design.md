@@ -407,6 +407,10 @@ default:
 
 `go { e }` は `go func() { ... }()`、`Chan a` / `RecvChan a` / `SendChan a` は `chan A` / `<-chan A` / `chan<- A`、`Chan.recv` は `v, ok := <-ch` と `Option` の構築になる。`select` 式は宛先渡しで Go の `select` 文に変換する。各腕は Go の `case` に 1 対 1 で対応する。受信腕は `case v, ok := <-ch:` から `Option` を作り、腕の本体（中の `match` を含む）を通常どおり生成する。チャネル式と送信値は Core IR の時点で順序付きの束縛になっており、Go の評価規則と回数が一致する。
 
+### 4.7.1 `Scope`
+
+`Scope` は `*rt.Scope` になる。`Scope` モジュールは `Ref` と同じく rt-backed な組み込みモジュールで、`run` / `defer` / `on_err` は `rt.ScopeRun` / `rt.ScopeDefer` / `rt.ScopeOnErr`、`Result` を扱う `run_result` / `defer_err` は `result.ScopeRunResult` / `result.ScopeDeferErr` を呼ぶ（rt は `stdlib/result` を import できないため）。`rt.Scope` は後片付けのスタックで、`Close` が各後片付けを個別の Go の `defer` として登録して逆順に実行し、エラーを `errors.Join` する。本体の終わり・`try` の脱出・panic の区別は Go の関数境界と `defer` に任せるので、Core IR に専用のノードはまだない。同じ Go 関数内の登録を Go の `defer` へ直接 lowering する形（`experiments/defer/cgen`）は TODO SC-3（[decisions/scoped-cleanup](../decisions/2026-11-21-scoped-cleanup.md)）。
+
 ### 4.8 テスト
 
 - `gom build`: 型検査のあと、脱糖の段階で `test` と `@test` 定義を取り除く。lower の `Env.Tests` がその切り替えで、 `@test` の fn / let も `@test let` の分解が生む隠れ一時変数も `Sym.TestOnly` 印で落とす

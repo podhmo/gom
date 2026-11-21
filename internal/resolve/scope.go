@@ -127,7 +127,7 @@ func builtinScope() *scope {
 		"Unit", "Bool", "Int", "Int32", "Int64", "Float", "Char",
 		"Byte", "String", "GoError",
 		"List", "Option", "Result", "Ref", "Array", "Ptr", "View",
-		"Chan", "RecvChan", "SendChan", "Task",
+		"Chan", "RecvChan", "SendChan", "Task", "Scope",
 	} {
 		s.types[name] = &Symbol{Name: name, Kind: KindType}
 	}
@@ -143,7 +143,7 @@ func builtinScope() *scope {
 	// Standard-library modules named after builtin types (spec
 	// sections 1.4, 3.3, 8.3, 10): the module names are in scope,
 	// their member tables are injected via Config.Modules.
-	for _, name := range []string{"List", "Option", "Result", "Ref", "Array", "Chan", "Task", "Ptr", "View"} {
+	for _, name := range []string{"List", "Option", "Result", "Ref", "Array", "Chan", "Task", "Ptr", "View", "Scope"} {
 		s.terms[name] = &Symbol{Name: name, Kind: KindModule}
 	}
 	// The compiler-owned `Go` namespace (types.Con reserved qualifier
@@ -190,7 +190,7 @@ func builtinGoMembers() map[string]*Symbol {
 var stdlibModules = map[string]bool{
 	"List": true, "Option": true, "Result": true,
 	"Chan": true, "Task": true, "Ptr": true, "Ref": true,
-	"Array": true, "View": true,
+	"Array": true, "View": true, "Scope": true,
 }
 
 // goTypeModules names the `Go`-namespace types that ship an

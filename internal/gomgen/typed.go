@@ -230,7 +230,7 @@ func (g *Gen) initTyped() {
 		"Float": true, "Char": true, "Byte": true, "String": true, "GoError": true, "Go": true,
 		"List": true, "Option": true, "Ref": true, "Array": true, "Ptr": true,
 		"Chan": true, "RecvChan": true, "SendChan": true, "Task": true,
-		"Result": true,
+		"Scope": true, "Result": true,
 	}
 	g.topCtor = map[string]bool{
 		// The builtin Option/Result constructors share the ctor
