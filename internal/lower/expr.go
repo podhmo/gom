@@ -695,6 +695,16 @@ func (l *lowerer) goConvKindOf(from, to types.Type) (core.ConvKind, bool) {
 	if types.Equal(from, to) {
 		return 0, true
 	}
+	// A method-less named func handle and its `Go.FuncN` spell the
+	// same value — Go's assignability pairs them in either
+	// direction, so neither an extern's declared handle result nor
+	// a handle argument needs a conversion node.
+	if fn, ok := l.funcNOfNamed(from); ok && types.Equal(fn, to) {
+		return 0, true
+	}
+	if fn, ok := l.funcNOfNamed(to); ok && types.Equal(from, fn) {
+		return 0, true
+	}
 	if fc, fok := from.(*types.Con); fok && l.isOptionCon(fc) && len(fc.Args) == 1 &&
 		types.Equal(to, fc.Args[0]) {
 		// The Gom→Go half of the `(T, error)` boundary: an `Option

@@ -54,6 +54,15 @@ fn boxed () -> String = {
 // handle and the member's FuncN param are the same boundary view.
 extern go "github.com/podhmo/gom/testdata/goiface" {
   fn TakeCancel (f : goiface.CancelFunc) -> Unit
+  fn Pending () -> (Int, goiface.CancelFunc)
+}
+
+// A declared result element spelling the named func type pairs
+// with the member's raw `Go.Func0` element — the produced func
+// value conforms to the handle without a conversion.
+fn declared_result () -> Unit = {
+  let (_, stop) = goiface.Pending ()
+  goiface.TakeCancel stop
 }
 
 // A named func parameter passed to the member's raw FuncN param is
