@@ -156,12 +156,16 @@ func (l *lowerer) expandStructural(w *armState, ob oblig) []oblig {
 					idx = 0 // keep the tree well-formed; the diagnostic stands
 				}
 			}
+			fg := &core.FieldGet{
+				Sp: fp.Sp, Typ: fp.Pat.Type(),
+				Recv: ob.subj, Field: fp.Sym, Index: idx,
+			}
+			if _, ok := l.singleField(ob.subj.Type()); ok {
+				fg.Unwrap = true
+			}
 			head = append(head, oblig{
-				subj: &core.FieldGet{
-					Sp: fp.Sp, Typ: fp.Pat.Type(),
-					Recv: ob.subj, Field: fp.Sym, Index: idx,
-				},
-				pat: fp.Pat,
+				subj: fg,
+				pat:  fp.Pat,
 			})
 		}
 		return append(head, rest...)
@@ -955,10 +959,14 @@ func (l *lowerer) pureBinds(pat check.Pat, subj core.Atom) []pureBind {
 						idx = 0 // keep the tree well-formed; the diagnostic stands
 					}
 				}
-				walk(fp.Pat, &core.FieldGet{
+				fg := &core.FieldGet{
 					Sp: fp.Sp, Typ: fp.Pat.Type(),
 					Recv: a, Field: fp.Sym, Index: idx,
-				})
+				}
+				if _, ok := l.singleField(a.Type()); ok {
+					fg.Unwrap = true
+				}
+				walk(fp.Pat, fg)
 			}
 		case *check.ListPat:
 			if p.Rest != nil {

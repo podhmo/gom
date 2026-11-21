@@ -120,6 +120,10 @@ type ShowField struct {
 	Name  string          // the field's Gom name — the label `{ name = v }` prints and `~name:` selects
 	Index int             // position — `V<Index>` selection when Sym and Name are absent
 	Plan  *ShowPlan
+	// Unwrap, when non-nil, is the field's type: the owning record is
+	// a one-field record emitted as `type X F`, so the operand is the
+	// unwrapping conversion `Unwrap(base)`, not `base.<sel>`.
+	Unwrap types.Type
 }
 
 // ShowVariant is one constructor branch of a ShowSum or ShowResult

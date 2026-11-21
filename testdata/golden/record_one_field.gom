@@ -1,0 +1,34 @@
+package main
+
+import go "fmt"
+
+// A one-field record emits as the Go defined type `type X F`: the
+// literal is a conversion `X(v)`, `.f` unwraps as `F(x)`, `with`
+// rebuilds the whole value, and `==`/`show` project through `F`.
+type UserId = { value: Int }
+
+// A sole field that is a bare type parameter stays a struct — Go
+// forbids `type Box[A any] A`.
+type Box a = { item: a }
+
+fn get (u: UserId) -> Int = u.value
+
+fn bump (u: UserId) -> UserId = { u with value = u.value + 1 }
+
+fn eq_id (a: UserId) (b: UserId) -> Bool = a == b
+
+fn unbox (b: Box Int) -> Int = match b { { item = i } -> i }
+
+// A composite field keeps the elementwise recipes — they reach the
+// value through `list.List[int64](x)`-style unwraps, not `.Xs`.
+type Bag = { xs: List Int }
+
+fn eq_bag (a: Bag) (b: Bag) -> Bool = a == b
+
+fn main () -> Unit = {
+  let u = { value = 7 }
+  let { value = v } = u
+  let bag = { xs = [1, 2] }
+  ignore (fmt.Println "${v} ${bump u} ${eq_id u u} ${eq_bag bag bag} ${bag}")
+  ()
+}

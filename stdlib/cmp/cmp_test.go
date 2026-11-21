@@ -52,13 +52,13 @@ func TestFloatOrdIsATotalOrderNaNFirst(t *testing.T) {
 //line stdlib/cmp/cmp.gom:200
 	nan := z / z
 //line stdlib/cmp/cmp.gom:201
-	tmp153 := FloatOrd.Lt(nan)
+	tmp153 := (func(float64) func(float64) bool)(FloatOrd)(nan)
 //line stdlib/cmp/cmp.gom:201
 	tmp154 := tmp153(1.0)
 //line stdlib/cmp/cmp.gom:201
 	rt.Assert(t, tmp154)
 //line stdlib/cmp/cmp.gom:202
-	tmp155 := FloatOrd.Lt(1.0)
+	tmp155 := (func(float64) func(float64) bool)(FloatOrd)(1.0)
 //line stdlib/cmp/cmp.gom:202
 	tmp156 := tmp155(nan)
 //line stdlib/cmp/cmp.gom:202
@@ -66,7 +66,7 @@ func TestFloatOrdIsATotalOrderNaNFirst(t *testing.T) {
 //line stdlib/cmp/cmp.gom:202
 	rt.Assert(t, tmp157)
 //line stdlib/cmp/cmp.gom:203
-	tmp158 := FloatOrd.Lt(nan)
+	tmp158 := (func(float64) func(float64) bool)(FloatOrd)(nan)
 //line stdlib/cmp/cmp.gom:203
 	tmp159 := tmp158(nan)
 //line stdlib/cmp/cmp.gom:203
@@ -76,7 +76,7 @@ func TestFloatOrdIsATotalOrderNaNFirst(t *testing.T) {
 //line stdlib/cmp/cmp.gom:204
 	tmp161 := EqOf[float64](FloatOrd)
 //line stdlib/cmp/cmp.gom:204
-	tmp162 := tmp161.Eq(nan)
+	tmp162 := (func(float64) func(float64) bool)(tmp161)(nan)
 //line stdlib/cmp/cmp.gom:204
 	tmp163 := tmp162(1.0)
 //line stdlib/cmp/cmp.gom:204
@@ -86,7 +86,7 @@ func TestFloatOrdIsATotalOrderNaNFirst(t *testing.T) {
 //line stdlib/cmp/cmp.gom:205
 	tmp165 := EqOf[float64](FloatOrd)
 //line stdlib/cmp/cmp.gom:205
-	tmp166 := tmp165.Eq(nan)
+	tmp166 := (func(float64) func(float64) bool)(tmp165)(nan)
 //line stdlib/cmp/cmp.gom:205
 	tmp167 := tmp166(nan)
 //line stdlib/cmp/cmp.gom:205
@@ -141,7 +141,7 @@ func TestOptionEqOptionOrd(t *testing.T) {
 //line stdlib/cmp/cmp.gom:215
 	tmp179 := option.Option[int64](option.Option_None[int64]{})
 //line stdlib/cmp/cmp.gom:215
-	tmp180 := oe.Eq(tmp178)
+	tmp180 := (func(option.Option[int64]) func(option.Option[int64]) bool)(oe)(tmp178)
 //line stdlib/cmp/cmp.gom:215
 	tmp181 := tmp180(tmp179)
 //line stdlib/cmp/cmp.gom:215
@@ -151,7 +151,7 @@ func TestOptionEqOptionOrd(t *testing.T) {
 //line stdlib/cmp/cmp.gom:216
 	tmp183 := option.Option[int64](option.Option_Some[int64]{V0: 1})
 //line stdlib/cmp/cmp.gom:216
-	tmp184 := oe.Eq(tmp182)
+	tmp184 := (func(option.Option[int64]) func(option.Option[int64]) bool)(oe)(tmp182)
 //line stdlib/cmp/cmp.gom:216
 	tmp185 := tmp184(tmp183)
 //line stdlib/cmp/cmp.gom:216
@@ -161,7 +161,7 @@ func TestOptionEqOptionOrd(t *testing.T) {
 //line stdlib/cmp/cmp.gom:217
 	tmp187 := option.Option[int64](option.Option_Some[int64]{V0: 2})
 //line stdlib/cmp/cmp.gom:217
-	tmp188 := oe.Eq(tmp186)
+	tmp188 := (func(option.Option[int64]) func(option.Option[int64]) bool)(oe)(tmp186)
 //line stdlib/cmp/cmp.gom:217
 	tmp189 := tmp188(tmp187)
 //line stdlib/cmp/cmp.gom:217
@@ -173,7 +173,7 @@ func TestOptionEqOptionOrd(t *testing.T) {
 //line stdlib/cmp/cmp.gom:218
 	tmp192 := option.Option[int64](option.Option_None[int64]{})
 //line stdlib/cmp/cmp.gom:218
-	tmp193 := oe.Eq(tmp191)
+	tmp193 := (func(option.Option[int64]) func(option.Option[int64]) bool)(oe)(tmp191)
 //line stdlib/cmp/cmp.gom:218
 	tmp194 := tmp193(tmp192)
 //line stdlib/cmp/cmp.gom:218
@@ -187,7 +187,7 @@ func TestOptionEqOptionOrd(t *testing.T) {
 //line stdlib/cmp/cmp.gom:220
 	tmp197 := option.Option[int64](option.Option_Some[int64]{V0: 0})
 //line stdlib/cmp/cmp.gom:220
-	tmp198 := oo.Lt(tmp196)
+	tmp198 := (func(option.Option[int64]) func(option.Option[int64]) bool)(oo)(tmp196)
 //line stdlib/cmp/cmp.gom:220
 	tmp199 := tmp198(tmp197)
 //line stdlib/cmp/cmp.gom:220
@@ -197,7 +197,7 @@ func TestOptionEqOptionOrd(t *testing.T) {
 //line stdlib/cmp/cmp.gom:221
 	tmp201 := option.Option[int64](option.Option_None[int64]{})
 //line stdlib/cmp/cmp.gom:221
-	tmp202 := oo.Lt(tmp200)
+	tmp202 := (func(option.Option[int64]) func(option.Option[int64]) bool)(oo)(tmp200)
 //line stdlib/cmp/cmp.gom:221
 	tmp203 := tmp202(tmp201)
 //line stdlib/cmp/cmp.gom:221
@@ -209,7 +209,7 @@ func TestOptionEqOptionOrd(t *testing.T) {
 //line stdlib/cmp/cmp.gom:222
 	tmp206 := option.Option[int64](option.Option_None[int64]{})
 //line stdlib/cmp/cmp.gom:222
-	tmp207 := oo.Lt(tmp205)
+	tmp207 := (func(option.Option[int64]) func(option.Option[int64]) bool)(oo)(tmp205)
 //line stdlib/cmp/cmp.gom:222
 	tmp208 := tmp207(tmp206)
 //line stdlib/cmp/cmp.gom:222
@@ -221,7 +221,7 @@ func TestOptionEqOptionOrd(t *testing.T) {
 //line stdlib/cmp/cmp.gom:223
 	tmp211 := option.Option[int64](option.Option_Some[int64]{V0: 2})
 //line stdlib/cmp/cmp.gom:223
-	tmp212 := oo.Lt(tmp210)
+	tmp212 := (func(option.Option[int64]) func(option.Option[int64]) bool)(oo)(tmp210)
 //line stdlib/cmp/cmp.gom:223
 	tmp213 := tmp212(tmp211)
 //line stdlib/cmp/cmp.gom:223
@@ -231,7 +231,7 @@ func TestOptionEqOptionOrd(t *testing.T) {
 //line stdlib/cmp/cmp.gom:224
 	tmp215 := option.Option[int64](option.Option_Some[int64]{V0: 1})
 //line stdlib/cmp/cmp.gom:224
-	tmp216 := oo.Lt(tmp214)
+	tmp216 := (func(option.Option[int64]) func(option.Option[int64]) bool)(oo)(tmp214)
 //line stdlib/cmp/cmp.gom:224
 	tmp217 := tmp216(tmp215)
 //line stdlib/cmp/cmp.gom:224
@@ -270,7 +270,7 @@ func TestListEqListOrd(t *testing.T) {
 //line stdlib/cmp/cmp.gom:230
 	tmp229 := list.List[int64]{}
 //line stdlib/cmp/cmp.gom:230
-	tmp230 := le.Eq(tmp228)
+	tmp230 := (func(list.List[int64]) func(list.List[int64]) bool)(le)(tmp228)
 //line stdlib/cmp/cmp.gom:230
 	tmp231 := tmp230(tmp229)
 //line stdlib/cmp/cmp.gom:230
@@ -280,7 +280,7 @@ func TestListEqListOrd(t *testing.T) {
 //line stdlib/cmp/cmp.gom:231
 	tmp233 := list.List[int64]{1, 2}
 //line stdlib/cmp/cmp.gom:231
-	tmp234 := le.Eq(tmp232)
+	tmp234 := (func(list.List[int64]) func(list.List[int64]) bool)(le)(tmp232)
 //line stdlib/cmp/cmp.gom:231
 	tmp235 := tmp234(tmp233)
 //line stdlib/cmp/cmp.gom:231
@@ -290,7 +290,7 @@ func TestListEqListOrd(t *testing.T) {
 //line stdlib/cmp/cmp.gom:232
 	tmp237 := list.List[int64]{1}
 //line stdlib/cmp/cmp.gom:232
-	tmp238 := le.Eq(tmp236)
+	tmp238 := (func(list.List[int64]) func(list.List[int64]) bool)(le)(tmp236)
 //line stdlib/cmp/cmp.gom:232
 	tmp239 := tmp238(tmp237)
 //line stdlib/cmp/cmp.gom:232
@@ -302,7 +302,7 @@ func TestListEqListOrd(t *testing.T) {
 //line stdlib/cmp/cmp.gom:233
 	tmp242 := list.List[int64]{1, 3}
 //line stdlib/cmp/cmp.gom:233
-	tmp243 := le.Eq(tmp241)
+	tmp243 := (func(list.List[int64]) func(list.List[int64]) bool)(le)(tmp241)
 //line stdlib/cmp/cmp.gom:233
 	tmp244 := tmp243(tmp242)
 //line stdlib/cmp/cmp.gom:233
@@ -316,7 +316,7 @@ func TestListEqListOrd(t *testing.T) {
 //line stdlib/cmp/cmp.gom:235
 	tmp247 := list.List[int64]{1}
 //line stdlib/cmp/cmp.gom:235
-	tmp248 := lo.Lt(tmp246)
+	tmp248 := (func(list.List[int64]) func(list.List[int64]) bool)(lo)(tmp246)
 //line stdlib/cmp/cmp.gom:235
 	tmp249 := tmp248(tmp247)
 //line stdlib/cmp/cmp.gom:235
@@ -326,7 +326,7 @@ func TestListEqListOrd(t *testing.T) {
 //line stdlib/cmp/cmp.gom:236
 	tmp251 := list.List[int64]{}
 //line stdlib/cmp/cmp.gom:236
-	tmp252 := lo.Lt(tmp250)
+	tmp252 := (func(list.List[int64]) func(list.List[int64]) bool)(lo)(tmp250)
 //line stdlib/cmp/cmp.gom:236
 	tmp253 := tmp252(tmp251)
 //line stdlib/cmp/cmp.gom:236
@@ -338,7 +338,7 @@ func TestListEqListOrd(t *testing.T) {
 //line stdlib/cmp/cmp.gom:237
 	tmp256 := list.List[int64]{}
 //line stdlib/cmp/cmp.gom:237
-	tmp257 := lo.Lt(tmp255)
+	tmp257 := (func(list.List[int64]) func(list.List[int64]) bool)(lo)(tmp255)
 //line stdlib/cmp/cmp.gom:237
 	tmp258 := tmp257(tmp256)
 //line stdlib/cmp/cmp.gom:237
@@ -350,7 +350,7 @@ func TestListEqListOrd(t *testing.T) {
 //line stdlib/cmp/cmp.gom:238
 	tmp261 := list.List[int64]{1, 3}
 //line stdlib/cmp/cmp.gom:238
-	tmp262 := lo.Lt(tmp260)
+	tmp262 := (func(list.List[int64]) func(list.List[int64]) bool)(lo)(tmp260)
 //line stdlib/cmp/cmp.gom:238
 	tmp263 := tmp262(tmp261)
 //line stdlib/cmp/cmp.gom:238
@@ -360,7 +360,7 @@ func TestListEqListOrd(t *testing.T) {
 //line stdlib/cmp/cmp.gom:239
 	tmp265 := list.List[int64]{1, 0}
 //line stdlib/cmp/cmp.gom:239
-	tmp266 := lo.Lt(tmp264)
+	tmp266 := (func(list.List[int64]) func(list.List[int64]) bool)(lo)(tmp264)
 //line stdlib/cmp/cmp.gom:239
 	tmp267 := tmp266(tmp265)
 //line stdlib/cmp/cmp.gom:239
@@ -370,7 +370,7 @@ func TestListEqListOrd(t *testing.T) {
 //line stdlib/cmp/cmp.gom:240
 	tmp269 := list.List[int64]{1, 2}
 //line stdlib/cmp/cmp.gom:240
-	tmp270 := lo.Lt(tmp268)
+	tmp270 := (func(list.List[int64]) func(list.List[int64]) bool)(lo)(tmp268)
 //line stdlib/cmp/cmp.gom:240
 	tmp271 := tmp270(tmp269)
 //line stdlib/cmp/cmp.gom:240
@@ -409,7 +409,7 @@ func TestPairEqPairOrd(t *testing.T) {
 //line stdlib/cmp/cmp.gom:246
 	tmp283 := rt.Tuple2[int64, string]{V0: 1, V1: "a"}
 //line stdlib/cmp/cmp.gom:246
-	tmp284 := pe.Eq(tmp282)
+	tmp284 := (func(rt.Tuple2[int64, string]) func(rt.Tuple2[int64, string]) bool)(pe)(tmp282)
 //line stdlib/cmp/cmp.gom:246
 	tmp285 := tmp284(tmp283)
 //line stdlib/cmp/cmp.gom:246
@@ -419,7 +419,7 @@ func TestPairEqPairOrd(t *testing.T) {
 //line stdlib/cmp/cmp.gom:247
 	tmp287 := rt.Tuple2[int64, string]{V0: 2, V1: "a"}
 //line stdlib/cmp/cmp.gom:247
-	tmp288 := pe.Eq(tmp286)
+	tmp288 := (func(rt.Tuple2[int64, string]) func(rt.Tuple2[int64, string]) bool)(pe)(tmp286)
 //line stdlib/cmp/cmp.gom:247
 	tmp289 := tmp288(tmp287)
 //line stdlib/cmp/cmp.gom:247
@@ -431,7 +431,7 @@ func TestPairEqPairOrd(t *testing.T) {
 //line stdlib/cmp/cmp.gom:248
 	tmp292 := rt.Tuple2[int64, string]{V0: 1, V1: "b"}
 //line stdlib/cmp/cmp.gom:248
-	tmp293 := pe.Eq(tmp291)
+	tmp293 := (func(rt.Tuple2[int64, string]) func(rt.Tuple2[int64, string]) bool)(pe)(tmp291)
 //line stdlib/cmp/cmp.gom:248
 	tmp294 := tmp293(tmp292)
 //line stdlib/cmp/cmp.gom:248
@@ -445,7 +445,7 @@ func TestPairEqPairOrd(t *testing.T) {
 //line stdlib/cmp/cmp.gom:250
 	tmp297 := rt.Tuple2[int64, string]{V0: 2, V1: "a"}
 //line stdlib/cmp/cmp.gom:250
-	tmp298 := po.Lt(tmp296)
+	tmp298 := (func(rt.Tuple2[int64, string]) func(rt.Tuple2[int64, string]) bool)(po)(tmp296)
 //line stdlib/cmp/cmp.gom:250
 	tmp299 := tmp298(tmp297)
 //line stdlib/cmp/cmp.gom:250
@@ -455,7 +455,7 @@ func TestPairEqPairOrd(t *testing.T) {
 //line stdlib/cmp/cmp.gom:251
 	tmp301 := rt.Tuple2[int64, string]{V0: 1, V1: "b"}
 //line stdlib/cmp/cmp.gom:251
-	tmp302 := po.Lt(tmp300)
+	tmp302 := (func(rt.Tuple2[int64, string]) func(rt.Tuple2[int64, string]) bool)(po)(tmp300)
 //line stdlib/cmp/cmp.gom:251
 	tmp303 := tmp302(tmp301)
 //line stdlib/cmp/cmp.gom:251
@@ -465,7 +465,7 @@ func TestPairEqPairOrd(t *testing.T) {
 //line stdlib/cmp/cmp.gom:252
 	tmp305 := rt.Tuple2[int64, string]{V0: 1, V1: "z"}
 //line stdlib/cmp/cmp.gom:252
-	tmp306 := po.Lt(tmp304)
+	tmp306 := (func(rt.Tuple2[int64, string]) func(rt.Tuple2[int64, string]) bool)(po)(tmp304)
 //line stdlib/cmp/cmp.gom:252
 	tmp307 := tmp306(tmp305)
 //line stdlib/cmp/cmp.gom:252
@@ -477,7 +477,7 @@ func TestPairEqPairOrd(t *testing.T) {
 //line stdlib/cmp/cmp.gom:253
 	tmp310 := rt.Tuple2[int64, string]{V0: 1, V1: "a"}
 //line stdlib/cmp/cmp.gom:253
-	tmp311 := po.Lt(tmp309)
+	tmp311 := (func(rt.Tuple2[int64, string]) func(rt.Tuple2[int64, string]) bool)(po)(tmp309)
 //line stdlib/cmp/cmp.gom:253
 	tmp312 := tmp311(tmp310)
 //line stdlib/cmp/cmp.gom:253
@@ -516,7 +516,7 @@ func TestResultEqResultOrd(t *testing.T) {
 //line stdlib/cmp/cmp.gom:259
 	tmp324 := result.Ok[int64, string](1)
 //line stdlib/cmp/cmp.gom:259
-	tmp325 := re.Eq(tmp323)
+	tmp325 := (func(result.Result[int64, string]) func(result.Result[int64, string]) bool)(re)(tmp323)
 //line stdlib/cmp/cmp.gom:259
 	tmp326 := tmp325(tmp324)
 //line stdlib/cmp/cmp.gom:259
@@ -526,7 +526,7 @@ func TestResultEqResultOrd(t *testing.T) {
 //line stdlib/cmp/cmp.gom:260
 	tmp328 := result.Err[int64, string]("e")
 //line stdlib/cmp/cmp.gom:260
-	tmp329 := re.Eq(tmp327)
+	tmp329 := (func(result.Result[int64, string]) func(result.Result[int64, string]) bool)(re)(tmp327)
 //line stdlib/cmp/cmp.gom:260
 	tmp330 := tmp329(tmp328)
 //line stdlib/cmp/cmp.gom:260
@@ -536,7 +536,7 @@ func TestResultEqResultOrd(t *testing.T) {
 //line stdlib/cmp/cmp.gom:261
 	tmp332 := result.Err[int64, string]("e")
 //line stdlib/cmp/cmp.gom:261
-	tmp333 := re.Eq(tmp331)
+	tmp333 := (func(result.Result[int64, string]) func(result.Result[int64, string]) bool)(re)(tmp331)
 //line stdlib/cmp/cmp.gom:261
 	tmp334 := tmp333(tmp332)
 //line stdlib/cmp/cmp.gom:261
@@ -548,7 +548,7 @@ func TestResultEqResultOrd(t *testing.T) {
 //line stdlib/cmp/cmp.gom:262
 	tmp337 := result.Ok[int64, string](2)
 //line stdlib/cmp/cmp.gom:262
-	tmp338 := re.Eq(tmp336)
+	tmp338 := (func(result.Result[int64, string]) func(result.Result[int64, string]) bool)(re)(tmp336)
 //line stdlib/cmp/cmp.gom:262
 	tmp339 := tmp338(tmp337)
 //line stdlib/cmp/cmp.gom:262
@@ -562,7 +562,7 @@ func TestResultEqResultOrd(t *testing.T) {
 //line stdlib/cmp/cmp.gom:264
 	tmp342 := result.Err[int64, string]("a")
 //line stdlib/cmp/cmp.gom:264
-	tmp343 := ro.Lt(tmp341)
+	tmp343 := (func(result.Result[int64, string]) func(result.Result[int64, string]) bool)(ro)(tmp341)
 //line stdlib/cmp/cmp.gom:264
 	tmp344 := tmp343(tmp342)
 //line stdlib/cmp/cmp.gom:264
@@ -572,7 +572,7 @@ func TestResultEqResultOrd(t *testing.T) {
 //line stdlib/cmp/cmp.gom:265
 	tmp346 := result.Ok[int64, string](0)
 //line stdlib/cmp/cmp.gom:265
-	tmp347 := ro.Lt(tmp345)
+	tmp347 := (func(result.Result[int64, string]) func(result.Result[int64, string]) bool)(ro)(tmp345)
 //line stdlib/cmp/cmp.gom:265
 	tmp348 := tmp347(tmp346)
 //line stdlib/cmp/cmp.gom:265
@@ -584,7 +584,7 @@ func TestResultEqResultOrd(t *testing.T) {
 //line stdlib/cmp/cmp.gom:266
 	tmp351 := result.Ok[int64, string](2)
 //line stdlib/cmp/cmp.gom:266
-	tmp352 := ro.Lt(tmp350)
+	tmp352 := (func(result.Result[int64, string]) func(result.Result[int64, string]) bool)(ro)(tmp350)
 //line stdlib/cmp/cmp.gom:266
 	tmp353 := tmp352(tmp351)
 //line stdlib/cmp/cmp.gom:266
@@ -594,7 +594,7 @@ func TestResultEqResultOrd(t *testing.T) {
 //line stdlib/cmp/cmp.gom:267
 	tmp355 := result.Err[int64, string]("b")
 //line stdlib/cmp/cmp.gom:267
-	tmp356 := ro.Lt(tmp354)
+	tmp356 := (func(result.Result[int64, string]) func(result.Result[int64, string]) bool)(ro)(tmp354)
 //line stdlib/cmp/cmp.gom:267
 	tmp357 := tmp356(tmp355)
 //line stdlib/cmp/cmp.gom:267

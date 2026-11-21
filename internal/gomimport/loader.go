@@ -981,6 +981,16 @@ func (l *Loader) Fields(c *types.Con) []check.TField {
 	return out
 }
 
+// DefinedField reports the declared field of a one-field record
+// emitting as the Go defined type `type X F` — lower.TypeOracle.
+func (l *Loader) DefinedField(c *types.Con) (check.TField, bool) {
+	td := l.byCon[conKey{qual: c.Qual, name: c.Name}]
+	if td == nil {
+		return check.TField{}, false
+	}
+	return check.DefinedField(td)
+}
+
 // conArgs turns declared type parameters into the constructor's
 // own argument list — `type Shape a` applied to itself.
 func conArgs(params []*types.Var) []types.Type {

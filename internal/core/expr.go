@@ -142,6 +142,10 @@ type FieldGet struct {
 	// projections, and payload reads on a variable the decision
 	// tree already narrowed (Recv's representation is concrete).
 	Ctor *resolve.Symbol
+	// Unwrap marks a read of the single field of a one-field record:
+	// the record emits as a Go defined type `type X F`, so `r.f`
+	// renders as the unwrapping conversion `F(r)`, not a selector.
+	Unwrap bool
 }
 
 func (*FieldGet) isExpr() {}

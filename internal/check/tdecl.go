@@ -110,6 +110,23 @@ type RecordType struct {
 func (*RecordType) isTypeBody()       {}
 func (n *RecordType) Span() diag.Span { return n.Sp }
 
+// DefinedField reports the declared field of a one-field record
+// when it emits as the Go defined type `type X F`; ok=false for
+// multi-field records and for `type X a = {f: a}` — Go forbids a
+// bare type parameter as a defined type's underlying type, so
+// those stay structs.
+func DefinedField(d *TypeDecl) (TField, bool) {
+	rc, ok := d.Body.(*RecordType)
+	if !ok || len(rc.Fields) != 1 {
+		return TField{}, false
+	}
+	f := rc.Fields[0]
+	if _, isVar := types.Chase(f.Type).(*types.Var); isVar {
+		return TField{}, false
+	}
+	return f, true
+}
+
 // AliasType is a resolved type alias.
 type AliasType struct {
 	Sp   diag.Span

@@ -367,11 +367,17 @@ func (l *lowerer) memberExpr(s *seq, e *check.MemberExpr) core.Expr {
 				idx = 0
 			}
 		}
-		return &core.FieldGet{
+		fg := &core.FieldGet{
 			Base:  baseOf(e),
 			Recv:  l.atom(s, e.Recv),
 			Field: e.Sym, Index: idx, Ctor: e.Ctor,
 		}
+		if e.Ctor == nil {
+			if _, ok := l.singleField(e.Recv.Type()); ok {
+				fg.Unwrap = true
+			}
+		}
+		return fg
 	case resolve.KindFunc:
 		if e.Sym.IsGo {
 			return l.goFuncRefOrAdapter(e.Sp, e.Type(), e.Sym, nil, e.TypeArgs)
@@ -3136,6 +3142,16 @@ func (l *lowerer) recordLit(s *seq, e *check.RecordLit) core.Expr {
 			if fields[j].Index >= 0 && (fields[i].Index < 0 || fields[j].Index < fields[i].Index) {
 				fields[i], fields[j] = fields[j], fields[i]
 			}
+		}
+	}
+	if _, ok := l.singleField(e.Type()); ok {
+		// One-field record → defined type `type X F`: both `{f = v}`
+		// and `{base with f = v}` are the conversion `X(v)` — there
+		// is no struct to build or copy. base still bound above for
+		// ordering.
+		return &core.Conv{
+			Sp: e.Sp, Typ: e.Type(), Kind: core.ConvNamed,
+			X: fields[0].Value,
 		}
 	}
 	if e.With != nil {

@@ -10,18 +10,10 @@ import (
 )
 
 //line stdlib/cmp/cmp.gom:14
-type Eq[A any] struct {
-//line stdlib/cmp/cmp.gom:14
-	Eq func(A) func(A) bool
-//line stdlib/cmp/cmp.gom:14
-}
+type Eq[A any] func(A) func(A) bool
 
 //line stdlib/cmp/cmp.gom:18
-type Ord[A any] struct {
-//line stdlib/cmp/cmp.gom:18
-	Lt func(A) func(A) bool
-//line stdlib/cmp/cmp.gom:18
-}
+type Ord[A any] func(A) func(A) bool
 
 //line stdlib/cmp/cmp.gom:20
 var IntEq Eq[int64] = func() Eq[int64] {
@@ -36,7 +28,7 @@ var IntEq Eq[int64] = func() Eq[int64] {
 //line stdlib/cmp/cmp.gom:20
 	}
 //line stdlib/cmp/cmp.gom:20
-	return Eq[int64]{Eq: tmp1}
+	return Eq[int64](tmp1)
 //line stdlib/cmp/cmp.gom:20
 }()
 
@@ -53,7 +45,7 @@ var IntOrd Ord[int64] = func() Ord[int64] {
 //line stdlib/cmp/cmp.gom:21
 	}
 //line stdlib/cmp/cmp.gom:21
-	return Ord[int64]{Lt: tmp2}
+	return Ord[int64](tmp2)
 //line stdlib/cmp/cmp.gom:21
 }()
 
@@ -70,7 +62,7 @@ var FloatEq Eq[float64] = func() Eq[float64] {
 //line stdlib/cmp/cmp.gom:22
 	}
 //line stdlib/cmp/cmp.gom:22
-	return Eq[float64]{Eq: tmp3}
+	return Eq[float64](tmp3)
 //line stdlib/cmp/cmp.gom:22
 }()
 
@@ -95,7 +87,7 @@ var FloatOrd Ord[float64] = func() Ord[float64] {
 //line stdlib/cmp/cmp.gom:28
 	}
 //line stdlib/cmp/cmp.gom:28
-	return Ord[float64]{Lt: tmp8}
+	return Ord[float64](tmp8)
 //line stdlib/cmp/cmp.gom:27
 }()
 
@@ -112,7 +104,7 @@ var StringEq Eq[string] = func() Eq[string] {
 //line stdlib/cmp/cmp.gom:29
 	}
 //line stdlib/cmp/cmp.gom:29
-	return Eq[string]{Eq: tmp9}
+	return Eq[string](tmp9)
 //line stdlib/cmp/cmp.gom:29
 }()
 
@@ -129,7 +121,7 @@ var StringOrd Ord[string] = func() Ord[string] {
 //line stdlib/cmp/cmp.gom:30
 	}
 //line stdlib/cmp/cmp.gom:30
-	return Ord[string]{Lt: tmp10}
+	return Ord[string](tmp10)
 //line stdlib/cmp/cmp.gom:30
 }()
 
@@ -146,7 +138,7 @@ var BoolEq Eq[bool] = func() Eq[bool] {
 //line stdlib/cmp/cmp.gom:31
 	}
 //line stdlib/cmp/cmp.gom:31
-	return Eq[bool]{Eq: tmp11}
+	return Eq[bool](tmp11)
 //line stdlib/cmp/cmp.gom:31
 }()
 
@@ -163,7 +155,7 @@ var ByteEq Eq[byte] = func() Eq[byte] {
 //line stdlib/cmp/cmp.gom:32
 	}
 //line stdlib/cmp/cmp.gom:32
-	return Eq[byte]{Eq: tmp12}
+	return Eq[byte](tmp12)
 //line stdlib/cmp/cmp.gom:32
 }()
 
@@ -180,7 +172,7 @@ var CharEq Eq[rune] = func() Eq[rune] {
 //line stdlib/cmp/cmp.gom:33
 	}
 //line stdlib/cmp/cmp.gom:33
-	return Eq[rune]{Eq: tmp13}
+	return Eq[rune](tmp13)
 //line stdlib/cmp/cmp.gom:33
 }()
 
@@ -197,7 +189,7 @@ var CharOrd Ord[rune] = func() Ord[rune] {
 //line stdlib/cmp/cmp.gom:34
 	}
 //line stdlib/cmp/cmp.gom:34
-	return Ord[rune]{Lt: tmp14}
+	return Ord[rune](tmp14)
 //line stdlib/cmp/cmp.gom:34
 }()
 
@@ -208,7 +200,7 @@ func Desc[A any](ord Ord[A]) Ord[A] {
 //line stdlib/cmp/cmp.gom:37
 		return func(y A) bool {
 //line stdlib/cmp/cmp.gom:37
-			tmp15 := ord.Lt(y)
+			tmp15 := (func(A) func(A) bool)(ord)(y)
 //line stdlib/cmp/cmp.gom:37
 			return tmp15(x)
 //line stdlib/cmp/cmp.gom:37
@@ -216,7 +208,7 @@ func Desc[A any](ord Ord[A]) Ord[A] {
 //line stdlib/cmp/cmp.gom:37
 	}
 //line stdlib/cmp/cmp.gom:37
-	return Ord[A]{Lt: tmp16}
+	return Ord[A](tmp16)
 //line stdlib/cmp/cmp.gom:37
 }
 
@@ -227,13 +219,13 @@ func EqOf[A any](ord Ord[A]) Eq[A] {
 //line stdlib/cmp/cmp.gom:42
 		return func(y A) bool {
 //line stdlib/cmp/cmp.gom:42
-			tmp17 := ord.Lt(x)
+			tmp17 := (func(A) func(A) bool)(ord)(x)
 //line stdlib/cmp/cmp.gom:42
 			tmp18 := tmp17(y)
 //line stdlib/cmp/cmp.gom:42
 			tmp19 := !tmp18
 //line stdlib/cmp/cmp.gom:42
-			tmp20 := ord.Lt(y)
+			tmp20 := (func(A) func(A) bool)(ord)(y)
 //line stdlib/cmp/cmp.gom:42
 			tmp21 := tmp20(x)
 //line stdlib/cmp/cmp.gom:42
@@ -245,7 +237,7 @@ func EqOf[A any](ord Ord[A]) Eq[A] {
 //line stdlib/cmp/cmp.gom:42
 	}
 //line stdlib/cmp/cmp.gom:42
-	return Eq[A]{Eq: tmp23}
+	return Eq[A](tmp23)
 //line stdlib/cmp/cmp.gom:41
 }
 
@@ -270,7 +262,7 @@ func Member[A any](e Eq[A], x A, xs list.List[A]) bool {
 //line stdlib/cmp/cmp.gom:47
 			tmp27 := tmp25
 //line stdlib/cmp/cmp.gom:48
-			tmp28 := e.Eq(x)
+			tmp28 := (func(A) func(A) bool)(e)(x)
 //line stdlib/cmp/cmp.gom:48
 			tmp29 := tmp28(tmp26)
 //line stdlib/cmp/cmp.gom:48
@@ -317,7 +309,7 @@ func Min[A any](ord Ord[A], xs list.List[A]) option.Option[A] {
 //line stdlib/cmp/cmp.gom:54
 		tmp34 := func(p0, p1 A) bool {
 //line stdlib/cmp/cmp.gom:54
-			u0 := ord.Lt(p0)
+			u0 := (func(A) func(A) bool)(ord)(p0)
 //line stdlib/cmp/cmp.gom:54
 			return u0(p1)
 //line stdlib/cmp/cmp.gom:54
@@ -356,7 +348,7 @@ func Max[A any](ord Ord[A], xs list.List[A]) option.Option[A] {
 //line stdlib/cmp/cmp.gom:60
 		tmp40 := func(p01, p11 A) bool {
 //line stdlib/cmp/cmp.gom:60
-			u01 := ord.Lt(p01)
+			u01 := (func(A) func(A) bool)(ord)(p01)
 //line stdlib/cmp/cmp.gom:60
 			return u01(p11)
 //line stdlib/cmp/cmp.gom:60
@@ -495,7 +487,7 @@ func OptionEq[A any](e Eq[A]) Eq[option.Option[A]] {
 //line stdlib/cmp/cmp.gom:84
 					tmp57 := tmp56.V0
 //line stdlib/cmp/cmp.gom:84
-					tmp58 := e.Eq(tmp55)
+					tmp58 := (func(A) func(A) bool)(e)(tmp55)
 //line stdlib/cmp/cmp.gom:84
 					return tmp58(tmp57)
 //line stdlib/cmp/cmp.gom:84
@@ -537,7 +529,7 @@ func OptionEq[A any](e Eq[A]) Eq[option.Option[A]] {
 //line stdlib/cmp/cmp.gom:78
 	}
 //line stdlib/cmp/cmp.gom:78
-	return Eq[option.Option[A]]{Eq: tmp60}
+	return Eq[option.Option[A]](tmp60)
 //line stdlib/cmp/cmp.gom:77
 }
 
@@ -564,7 +556,7 @@ func OptionOrd[A any](o Ord[A]) Ord[option.Option[A]] {
 //line stdlib/cmp/cmp.gom:98
 					tmp64 := tmp63.V0
 //line stdlib/cmp/cmp.gom:98
-					tmp65 := o.Lt(tmp62)
+					tmp65 := (func(A) func(A) bool)(o)(tmp62)
 //line stdlib/cmp/cmp.gom:98
 					return tmp65(tmp64)
 //line stdlib/cmp/cmp.gom:98
@@ -606,7 +598,7 @@ func OptionOrd[A any](o Ord[A]) Ord[option.Option[A]] {
 //line stdlib/cmp/cmp.gom:92
 	}
 //line stdlib/cmp/cmp.gom:92
-	return Ord[option.Option[A]]{Lt: tmp67}
+	return Ord[option.Option[A]](tmp67)
 //line stdlib/cmp/cmp.gom:91
 }
 
@@ -615,7 +607,7 @@ func ListEq[A any](e Eq[A]) Eq[list.List[A]] {
 //line stdlib/cmp/cmp.gom:104
 	tmp68 := func(p02, p12 A) bool {
 //line stdlib/cmp/cmp.gom:104
-		u02 := e.Eq(p02)
+		u02 := (func(A) func(A) bool)(e)(p02)
 //line stdlib/cmp/cmp.gom:104
 		return u02(p12)
 //line stdlib/cmp/cmp.gom:104
@@ -631,7 +623,7 @@ func ListEq[A any](e Eq[A]) Eq[list.List[A]] {
 //line stdlib/cmp/cmp.gom:104
 	}
 //line stdlib/cmp/cmp.gom:104
-	return Eq[list.List[A]]{Eq: tmp71}
+	return Eq[list.List[A]](tmp71)
 //line stdlib/cmp/cmp.gom:104
 }
 
@@ -721,7 +713,7 @@ func ListOrd[A any](o Ord[A]) Ord[list.List[A]] {
 //line stdlib/cmp/cmp.gom:119
 	tmp83 := func(p03, p13 A) bool {
 //line stdlib/cmp/cmp.gom:119
-		u03 := o.Lt(p03)
+		u03 := (func(A) func(A) bool)(o)(p03)
 //line stdlib/cmp/cmp.gom:119
 		return u03(p13)
 //line stdlib/cmp/cmp.gom:119
@@ -737,7 +729,7 @@ func ListOrd[A any](o Ord[A]) Ord[list.List[A]] {
 //line stdlib/cmp/cmp.gom:119
 	}
 //line stdlib/cmp/cmp.gom:119
-	return Ord[list.List[A]]{Lt: tmp86}
+	return Ord[list.List[A]](tmp86)
 //line stdlib/cmp/cmp.gom:119
 }
 
@@ -847,13 +839,13 @@ func PairEq[A, B any](ea Eq[A], eb Eq[B]) Eq[rt.Tuple2[A, B]] {
 //line stdlib/cmp/cmp.gom:138
 			tmp102 := y.V1
 //line stdlib/cmp/cmp.gom:138
-			tmp103 := ea.Eq(tmp99)
+			tmp103 := (func(A) func(A) bool)(ea)(tmp99)
 //line stdlib/cmp/cmp.gom:138
 			tmp104 := tmp103(tmp101)
 //line stdlib/cmp/cmp.gom:138
 			if tmp104 {
 //line stdlib/cmp/cmp.gom:138
-				tmp105 := eb.Eq(tmp100)
+				tmp105 := (func(B) func(B) bool)(eb)(tmp100)
 //line stdlib/cmp/cmp.gom:138
 				return tmp105(tmp102)
 //line stdlib/cmp/cmp.gom:138
@@ -867,7 +859,7 @@ func PairEq[A, B any](ea Eq[A], eb Eq[B]) Eq[rt.Tuple2[A, B]] {
 //line stdlib/cmp/cmp.gom:136
 	}
 //line stdlib/cmp/cmp.gom:136
-	return Eq[rt.Tuple2[A, B]]{Eq: tmp106}
+	return Eq[rt.Tuple2[A, B]](tmp106)
 //line stdlib/cmp/cmp.gom:135
 }
 
@@ -886,7 +878,7 @@ func PairOrd[A, B any](oa Ord[A], ob Ord[B]) Ord[rt.Tuple2[A, B]] {
 //line stdlib/cmp/cmp.gom:147
 			tmp110 := y.V1
 //line stdlib/cmp/cmp.gom:147
-			tmp114 := oa.Lt(tmp107)
+			tmp114 := (func(A) func(A) bool)(oa)(tmp107)
 //line stdlib/cmp/cmp.gom:147
 			tmp115 := tmp114(tmp109)
 //line stdlib/cmp/cmp.gom:147
@@ -896,7 +888,7 @@ func PairOrd[A, B any](oa Ord[A], ob Ord[B]) Ord[rt.Tuple2[A, B]] {
 //line stdlib/cmp/cmp.gom:147
 			} else {
 //line stdlib/cmp/cmp.gom:148
-				tmp112 := oa.Lt(tmp109)
+				tmp112 := (func(A) func(A) bool)(oa)(tmp109)
 //line stdlib/cmp/cmp.gom:148
 				tmp113 := tmp112(tmp107)
 //line stdlib/cmp/cmp.gom:148
@@ -906,7 +898,7 @@ func PairOrd[A, B any](oa Ord[A], ob Ord[B]) Ord[rt.Tuple2[A, B]] {
 //line stdlib/cmp/cmp.gom:148
 				} else {
 //line stdlib/cmp/cmp.gom:148
-					tmp111 := ob.Lt(tmp108)
+					tmp111 := (func(B) func(B) bool)(ob)(tmp108)
 //line stdlib/cmp/cmp.gom:148
 					return tmp111(tmp110)
 //line stdlib/cmp/cmp.gom:148
@@ -918,7 +910,7 @@ func PairOrd[A, B any](oa Ord[A], ob Ord[B]) Ord[rt.Tuple2[A, B]] {
 //line stdlib/cmp/cmp.gom:145
 	}
 //line stdlib/cmp/cmp.gom:145
-	return Ord[rt.Tuple2[A, B]]{Lt: tmp116}
+	return Ord[rt.Tuple2[A, B]](tmp116)
 //line stdlib/cmp/cmp.gom:144
 }
 
@@ -945,7 +937,7 @@ func ResultEq[A, E any](ea Eq[A], ee Eq[E]) Eq[result.Result[A, E]] {
 //line stdlib/cmp/cmp.gom:158
 					tmp120 := tmp119
 //line stdlib/cmp/cmp.gom:158
-					tmp121 := ea.Eq(tmp118)
+					tmp121 := (func(A) func(A) bool)(ea)(tmp118)
 //line stdlib/cmp/cmp.gom:158
 					return tmp121(tmp120)
 //line stdlib/cmp/cmp.gom:158
@@ -977,7 +969,7 @@ func ResultEq[A, E any](ea Eq[A], ee Eq[E]) Eq[result.Result[A, E]] {
 //line stdlib/cmp/cmp.gom:162
 					tmp127 := tmp126
 //line stdlib/cmp/cmp.gom:162
-					tmp128 := ee.Eq(tmp124)
+					tmp128 := (func(E) func(E) bool)(ee)(tmp124)
 //line stdlib/cmp/cmp.gom:162
 					return tmp128(tmp127)
 //line stdlib/cmp/cmp.gom:162
@@ -997,7 +989,7 @@ func ResultEq[A, E any](ea Eq[A], ee Eq[E]) Eq[result.Result[A, E]] {
 //line stdlib/cmp/cmp.gom:156
 	}
 //line stdlib/cmp/cmp.gom:156
-	return Eq[result.Result[A, E]]{Eq: tmp129}
+	return Eq[result.Result[A, E]](tmp129)
 //line stdlib/cmp/cmp.gom:155
 }
 
@@ -1024,7 +1016,7 @@ func ResultOrd[A, E any](oa Ord[A], oe Ord[E]) Ord[result.Result[A, E]] {
 //line stdlib/cmp/cmp.gom:172
 					tmp133 := tmp132
 //line stdlib/cmp/cmp.gom:172
-					tmp134 := oa.Lt(tmp131)
+					tmp134 := (func(A) func(A) bool)(oa)(tmp131)
 //line stdlib/cmp/cmp.gom:172
 					return tmp134(tmp133)
 //line stdlib/cmp/cmp.gom:172
@@ -1056,7 +1048,7 @@ func ResultOrd[A, E any](oa Ord[A], oe Ord[E]) Ord[result.Result[A, E]] {
 //line stdlib/cmp/cmp.gom:176
 					tmp140 := tmp139
 //line stdlib/cmp/cmp.gom:176
-					tmp141 := oe.Lt(tmp137)
+					tmp141 := (func(E) func(E) bool)(oe)(tmp137)
 //line stdlib/cmp/cmp.gom:176
 					return tmp141(tmp140)
 //line stdlib/cmp/cmp.gom:176
@@ -1076,7 +1068,7 @@ func ResultOrd[A, E any](oa Ord[A], oe Ord[E]) Ord[result.Result[A, E]] {
 //line stdlib/cmp/cmp.gom:170
 	}
 //line stdlib/cmp/cmp.gom:170
-	return Ord[result.Result[A, E]]{Lt: tmp142}
+	return Ord[result.Result[A, E]](tmp142)
 //line stdlib/cmp/cmp.gom:169
 }
 
@@ -1085,7 +1077,7 @@ func Sort[A any](ord Ord[A], xs list.List[A]) list.List[A] {
 //line stdlib/cmp/cmp.gom:182
 	tmp143 := func(p04, p14 A) bool {
 //line stdlib/cmp/cmp.gom:182
-		u04 := ord.Lt(p04)
+		u04 := (func(A) func(A) bool)(ord)(p04)
 //line stdlib/cmp/cmp.gom:182
 		return u04(p14)
 //line stdlib/cmp/cmp.gom:182

@@ -194,6 +194,9 @@ func (l *lowerer) showDeclPlan(sp diag.Span, t types.Type) *core.ShowPlan {
 						Plan: l.showPlan(sp, sub.Apply(f.Type)),
 					}
 				}
+				if _, ok := check.DefinedField(d); ok {
+					fields[0].Unwrap = sub.Apply(b.Fields[0].Type)
+				}
 				return &core.ShowPlan{Kind: core.ShowRecord, Fields: fields}
 			case *check.SumType:
 				return &core.ShowPlan{Kind: core.ShowSum, Variants: l.showVariants(sp, t, b, sub)}
@@ -225,6 +228,9 @@ func (l *lowerer) showDeclPlan(sp diag.Span, t types.Type) *core.ShowPlan {
 						Sym: f.Sym, Name: f.Name, Index: f.Index,
 						Plan: l.showPlan(sp, f.Type),
 					}
+				}
+				if _, ok := l.env.Types.DefinedField(t); ok {
+					fields[0].Unwrap = fs[0].Type
 				}
 				return &core.ShowPlan{Kind: core.ShowRecord, Fields: fields}
 			}

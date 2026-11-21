@@ -347,6 +347,11 @@ func (l *lowerer) eqDeclPlan(sp diag.Span, t types.Type) *core.EqPlan {
 						Plan: l.eqPlan(sp, sub.Apply(f.Type)),
 					}
 				}
+				if _, ok := check.DefinedField(d); ok {
+					// One-field record → `type X F`: the operand is
+					// `F(v)`, not a selector.
+					fields[0].Unwrap = sub.Apply(b.Fields[0].Type)
+				}
 				return &core.EqPlan{Kind: core.EqRecord, Fields: fields}
 			case *check.SumType:
 				return &core.EqPlan{Kind: core.EqSum, Variants: l.eqVariants(sp, t, b, sub)}
@@ -383,6 +388,9 @@ func (l *lowerer) eqDeclPlan(sp diag.Span, t types.Type) *core.EqPlan {
 						Sym: f.Sym, Name: f.Name, Index: f.Index,
 						Plan: l.eqPlan(sp, f.Type),
 					}
+				}
+				if _, ok := l.env.Types.DefinedField(t); ok {
+					fields[0].Unwrap = fs[0].Type
 				}
 				return &core.EqPlan{Kind: core.EqRecord, Fields: fields}
 			}
