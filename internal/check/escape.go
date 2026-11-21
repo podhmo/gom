@@ -166,10 +166,14 @@ func (c *checker) checkScopeTypeFree(te syntax.TypeExpr, t types.Type, what stri
 // escapeBody is the per-body working state of the escape walk:
 // aliases marks let-bound vars whose value mentions a tainted
 // variable; danger records symbols seen in escaping positions (the
-// param-flag input).
+// param-flag input); forward marks lambda arguments whose produced
+// value the callee returns as the call's own result — the scope
+// runner calls are the transparent case, so an escaping call
+// position reaches the body lambda's tail through them.
 type escapeBody struct {
 	aliases map[*resolve.Symbol]bool
 	danger  map[*resolve.Symbol]bool
+	forward map[Expr]bool
 }
 
 func (b *escapeBody) tainted(s *resolve.Symbol) bool { return b.aliases[s] }
@@ -251,7 +255,24 @@ func (c *checker) newEscapeBody(d Decl) *escapeBody {
 	return &escapeBody{
 		aliases: map[*resolve.Symbol]bool{},
 		danger:  map[*resolve.Symbol]bool{},
+		forward: map[Expr]bool{},
 	}
+}
+
+// isFuncType reports whether the expression's type is a function —
+// an under-applied unknown callee produces one that retains the
+// arguments already supplied.
+func isFuncType(t types.Type) bool {
+	_, ok := types.Chase(t).(*types.Func)
+	return ok
+}
+
+// isScopeRunner reports whether the call is one of the two scope
+// runners — `Scope.run` / `Scope.run_result` — which return their
+// body argument's produced value as the call's own result.
+func isScopeRunner(call CallInfo) bool {
+	s := call.Callee
+	return s != nil && s.IsGo && (s.Name == "ScopeRun" || s.Name == "ScopeRunResult")
 }
 
 // patBoundSyms collects the symbols a typed pattern binds.
@@ -380,13 +401,23 @@ func (c *checker) escWalk(e Expr, danger bool, b *escapeBody, report bool) {
 			c.escWalk(e.Fn, false, b, report)
 		}
 		ctor := e.Call.Callee != nil && e.Call.Callee.Kind == resolve.KindCtor
+		// A partial or hole application produces a closure that
+		// retains every supplied argument; a CallUnknown whose
+		// result is still a function is the same shape — a curried
+		// step that binds arguments for a later call. Supplied
+		// arguments escape when the call's own result does.
+		producesClosure := e.Call.Kind == CallPartial || e.Call.HoleIndex >= 0 ||
+			(e.Call.Kind == CallUnknown && isFuncType(e.Type()))
 		for i, a := range e.Args {
 			// The call's own position does not leak into its
 			// arguments: an argument escapes only when the callee
 			// retains that parameter (or the construction stores
-			// it). An enclosing escaping context reaches the arg
-			// through `enclosed` instead.
-			d := ctor || c.callParamEscapes(e.Call, i)
+			// it) — or when the call produces a closure that
+			// captures it.
+			d := ctor || c.callParamEscapes(e.Call, i) || (producesClosure && danger)
+			if lam, ok := a.Value.(*Lambda); ok && danger && isScopeRunner(e.Call) {
+				b.forward[lam] = true
+			}
 			c.escWalk(a.Value, d, b, report)
 		}
 		// A constructor application stores its arguments: a
@@ -400,23 +431,22 @@ func (c *checker) escWalk(e Expr, danger bool, b *escapeBody, report bool) {
 		c.escWalk(e.Recv, danger, b, report)
 	case *Lambda:
 		// An escaping closure retains every variable it
-		// captured: a Scope value (or alias) bound outside the
-		// lambda and used inside it escapes with the closure.
-		// The body's own positions keep their ordinary rules —
-		// the value the body produces is not stored, and a
-		// Scope-returning body is caught by the type check
-		// below.
-		for sym, sp := range capturedScopeVars(e, b) {
-			if danger {
+		// captured — whatever the type, so parameter inference
+		// marks all of them; only Scope-tainted ones report.
+		// The body's tail keeps the escaping context (plus the
+		// scope-runner forwarding mark): a closure the body
+		// produces escapes with it.
+		if danger {
+			for sym, v := range capturedVars(e.Body, lamBound(e)) {
 				b.danger[sym] = true
-				if report {
+				if report && (isScopeType(v.Type()) || b.aliases[sym]) {
 					c.diags.Add(diag.Error("E0419",
 						fmt.Sprintf("`%s` is a `Scope` value (or closes over one) captured by a closure that escapes its scope", sym.Name)).
-						At(sp))
+						At(v.Sp))
 				}
 			}
 		}
-		c.escWalk(e.Body, false, b, report)
+		c.escWalk(e.Body, danger || b.forward[e], b, report)
 		if c.containsScope(e.Type()) && !c.scopeParamOK(e.Type()) {
 			// A lambda whose type mentions Scope outside
 			// argument positions — e.g. `fn () -> s` — produces
@@ -454,7 +484,18 @@ func (c *checker) escWalk(e Expr, danger bool, b *escapeBody, report bool) {
 		c.escWalk(e.Recv, danger, b, report)
 		c.escWalk(e.Value, true, b, report)
 	case *GoExpr:
-		c.escWalk(e.Body, true, b, report)
+		// A `go` block retains its captures for the goroutine's
+		// lifetime — an outliving goroutine is the escaping
+		// closure case with no produced value.
+		for sym, v := range capturedVars(e.Body, map[*resolve.Symbol]bool{}) {
+			b.danger[sym] = true
+			if report && (isScopeType(v.Type()) || b.aliases[sym]) {
+				c.diags.Add(diag.Error("E0419",
+					fmt.Sprintf("`%s` is a `Scope` value (or closes over one) captured by a `go` block that escapes its scope", sym.Name)).
+					At(v.Sp))
+			}
+		}
+		c.escWalk(e.Body, false, b, report)
 	case *For:
 		c.escWalk(e.Iter, false, b, report)
 		c.escWalk(e.Body, danger, b, report)
@@ -503,8 +544,29 @@ func (c *checker) escWalk(e Expr, danger bool, b *escapeBody, report bool) {
 	case *Unary:
 		c.escWalk(e.X, false, b, report)
 	case *Binary:
-		c.escWalk(e.X, false, b, report)
-		c.escWalk(e.Y, false, b, report)
+		switch e.Op {
+		case syntax.BinPipeFwd, syntax.BinPipeBack, syntax.BinPipeTry:
+			// `x |> f` / `f <| x` / `x |?> f` — the pipe applies
+			// fn to arg; check keeps the operands as a Binary.
+			// A partial-application callee retains the piped
+			// argument too, so it walks under the pipe's own
+			// position.
+			arg, fn := e.X, e.Y
+			if e.Op == syntax.BinPipeBack {
+				arg, fn = e.Y, e.X
+			}
+			_, fnIsApply := fn.(*Apply)
+			c.escWalk(fn, fnIsApply && danger, b, report)
+			c.escWalk(arg, c.pipeParamEscapes(fn) || (fnIsApply && danger), b, report)
+		case syntax.BinComposeFwd, syntax.BinComposeBack:
+			// `f >> g` / `f << g` produce a closure retaining
+			// both operands — they escape with the composition.
+			c.escWalk(e.X, danger, b, report)
+			c.escWalk(e.Y, danger, b, report)
+		default:
+			c.escWalk(e.X, false, b, report)
+			c.escWalk(e.Y, false, b, report)
+		}
 	case *StrInterp:
 		for _, p := range e.Parts {
 			switch p := p.(type) {
@@ -531,21 +593,27 @@ func (b *escapeBody) bindLet(l *Let) {
 	}
 }
 
-// capturedScopeVars returns the tainted variables a lambda closes
-// over — `Scope`-typed vars and aliases used inside its body but
-// bound outside it — mapped to a use site. The bound set collects
-// every pattern the body can introduce (params, lets, for/match
-// bindings), so a Scope var the lambda declares itself does not
-// count as a capture.
-func capturedScopeVars(lam *Lambda, b *escapeBody) map[*resolve.Symbol]diag.Span {
+// lamBound collects the symbols a lambda's own parameter patterns
+// bind — the starting bound set for capturedVars.
+func lamBound(lam *Lambda) map[*resolve.Symbol]bool {
 	bound := map[*resolve.Symbol]bool{}
 	for _, p := range lam.Params {
 		for _, s := range patBoundSyms(p.Pat) {
 			bound[s] = true
 		}
 	}
-	var out map[*resolve.Symbol]diag.Span
-	WalkExpr(lam.Body, func(y Expr) {
+	return bound
+}
+
+// capturedVars returns every variable an expression uses but binds
+// outside itself — its captures — mapped to a use site. bound is
+// the caller-seeded bound set (a lambda's params, empty for a `go`
+// block); the walk adds every pattern the body can introduce
+// (nested lambdas, lets, for/match bindings), so a var the
+// expression declares itself does not count as a capture.
+func capturedVars(body Expr, bound map[*resolve.Symbol]bool) map[*resolve.Symbol]*Var {
+	var out map[*resolve.Symbol]*Var
+	WalkExpr(body, func(y Expr) {
 		switch y := y.(type) {
 		case *Lambda:
 			for _, p := range y.Params {
@@ -571,13 +639,11 @@ func capturedScopeVars(lam *Lambda, b *escapeBody) map[*resolve.Symbol]diag.Span
 			if bound[y.Sym] {
 				return
 			}
-			if isScopeType(y.Type()) || b.aliases[y.Sym] {
-				if out == nil {
-					out = map[*resolve.Symbol]diag.Span{}
-				}
-				if _, seen := out[y.Sym]; !seen {
-					out[y.Sym] = y.Sp
-				}
+			if out == nil {
+				out = map[*resolve.Symbol]*Var{}
+			}
+			if _, seen := out[y.Sym]; !seen {
+				out[y.Sym] = y
 			}
 		case *Apply, *Ascribe, *Binary, *Block, *FieldAssign, *GoExpr,
 			*Hole, *If, *Ignore, *ListLit, *Lit, *MemberExpr, *RecordLit,
@@ -587,6 +653,29 @@ func capturedScopeVars(lam *Lambda, b *escapeBody) map[*resolve.Symbol]diag.Span
 		}
 	})
 	return out
+}
+
+// pipeParamEscapes reports whether the operand a pipe feeds into a
+// callee may be retained — `x |> f`'s f gets x as an argument. The
+// pipe node records no CallInfo, so the callee's first parameter's
+// rule applies directly; a partial-application callee's next open
+// slot is ambiguous under labeled arguments, and a callee that is
+// not a named symbol gets the conservative answer.
+func (c *checker) pipeParamEscapes(fn Expr) bool {
+	switch f := fn.(type) {
+	case *Var:
+		return c.callParamEscapes(CallInfo{Callee: f.Sym}, 0)
+	case *MemberExpr:
+		return c.callParamEscapes(CallInfo{Callee: f.Sym}, 0)
+	case *Lambda:
+		// An immediately-applied literal cannot retain — its
+		// parameter bindings die with the call.
+		return false
+	default:
+		// *Apply (a partial application appends the piped value),
+		// or anything else whose callee cannot be named.
+		return true
+	}
 }
 
 // exprTainted reports whether e can carry a live Scope value into a
@@ -601,8 +690,27 @@ func exprTainted(e Expr, b *escapeBody) bool {
 		if tainted {
 			return
 		}
-		if lam, ok := x.(*Lambda); ok && len(capturedScopeVars(lam, b)) > 0 {
-			tainted = true
+		if lam, ok := x.(*Lambda); ok {
+			for sym, v := range capturedVars(lam.Body, lamBound(lam)) {
+				if isScopeType(v.Type()) || b.aliases[sym] {
+					tainted = true
+					return
+				}
+			}
+			return
+		}
+		// An under-application's produced closure retains the
+		// arguments it already got — binding a tainted one makes
+		// the bound variable tainted too.
+		if ap, ok := x.(*Apply); ok &&
+			(ap.Call.Kind == CallPartial || ap.Call.HoleIndex >= 0 ||
+				(ap.Call.Kind == CallUnknown && isFuncType(ap.Type()))) {
+			for _, a := range ap.Args {
+				if exprTainted(a.Value, b) {
+					tainted = true
+					return
+				}
+			}
 		}
 	})
 	return tainted
