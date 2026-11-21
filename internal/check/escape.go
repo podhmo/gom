@@ -174,6 +174,9 @@ type escapeBody struct {
 	aliases map[*resolve.Symbol]bool
 	danger  map[*resolve.Symbol]bool
 	forward map[Expr]bool
+	// taintMemo caches produced-value taint of let-bound
+	// expressions so alias chains resolve in linear time.
+	taintMemo map[Expr]bool
 }
 
 func (b *escapeBody) tainted(s *resolve.Symbol) bool { return b.aliases[s] }
@@ -697,6 +700,33 @@ func exprTainted(e Expr, b *escapeBody) bool {
 	return exprTaintedL(e, b, nil)
 }
 
+// runnerArgTainted reads a scope runner's body argument — the call
+// produces whatever the body produces. A literal lambda's tail is
+// inspectable directly; a let-bound lambda resolves through locals;
+// anything else is opaque, so the produced value's type decides — a
+// scope or function result can carry a live scope out of the run.
+func runnerArgTainted(e Expr, b *escapeBody, locals map[*resolve.Symbol]Expr) bool {
+	if lam, ok := e.(*Lambda); ok {
+		return exprTaintedL(lam.Body, b, nil)
+	}
+	if v, ok := e.(*Var); ok {
+		if bound, ok := locals[v.Sym]; ok {
+			if lam, isLam := bound.(*Lambda); isLam {
+				return exprTaintedL(lam.Body, b, nil)
+			}
+		}
+	}
+	ret := e.Type()
+	if fn, ok := types.Chase(ret).(*types.Func); ok {
+		ret = fn.Ret
+	}
+	if isScopeType(ret) {
+		return true
+	}
+	_, isFn := types.Chase(ret).(*types.Func)
+	return isFn
+}
+
 // exprTaintedL is exprTainted with locals — a map of let-bound
 // symbols visible inside e to their bound expressions, so a bound
 // variable's taint resolves through its own binding when the
@@ -713,7 +743,19 @@ func exprTaintedL(e Expr, b *escapeBody, locals map[*resolve.Symbol]Expr) bool {
 	switch x := e.(type) {
 	case *Var:
 		if v, ok := locals[x.Sym]; ok {
-			return exprTaintedL(v, b, locals)
+			// A bound expression's taint is stable under its own
+			// locals map — chains like `let b = if .. {a} {a}`
+			// would otherwise re-expand the same bindings at every
+			// reference, growing exponentially with depth.
+			if b.taintMemo == nil {
+				b.taintMemo = map[Expr]bool{}
+			}
+			if t, ok := b.taintMemo[v]; ok {
+				return t
+			}
+			t := exprTaintedL(v, b, locals)
+			b.taintMemo[v] = t
+			return t
 		}
 		return b.aliases[x.Sym]
 	case *Lambda:
@@ -805,18 +847,10 @@ func exprTaintedL(e Expr, b *escapeBody, locals map[*resolve.Symbol]Expr) bool {
 	case *Apply:
 		if isScopeRunner(x.Call) {
 			// The runner forwards its body argument's produced
-			// value: a literal body's tail, or — for a named body
-			// — the same conservative read as any tainted callee.
+			// value — the binding's taint is that value's.
 			for _, a := range x.Args {
-				switch f := a.Value.(type) {
-				case *Lambda:
-					if exprTaintedL(f.Body, b, nil) {
-						return true
-					}
-				case *Var:
-					if b.aliases[f.Sym] {
-						return true
-					}
+				if runnerArgTainted(a.Value, b, locals) {
+					return true
 				}
 			}
 			return false
