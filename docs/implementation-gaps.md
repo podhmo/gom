@@ -1719,3 +1719,12 @@
   ローカルに限定していること。未注釈リテラルと record パターンで import 先
   の record が使えない。[チェッカー](../internal/check/expr.go)
   / [problems](problems/2026-11-02-imported-record-fields.md)（2026-11-22 検証）
+- [x] **関数型を返す `Scope.run` の生成 Go がコンパイルできない**: spec 6.1 の `Scope.run : (Scope -> a) -> a` は
+  `a` が関数型でも書けるが、`fn f () -> Int -> Int = Scope.run <| fn s -> add 1` は Core 検証で E0901
+  （`call has 2 args for Go arity 1`）になる。括弧の形 `Scope.run (fn s -> add 1)` は lowering を通るものの、
+  平坦化した本体 `func(*rt.Scope, int64) int64` を `func(*rt.Scope) func(int64) int64` へ渡すので go build が失敗する。
+  Go の型引数が関数型に具体化されたときの、Go 呼び出しの arity 分割とコールバックの変換の問題で、Scope に限らない可能性がある（未確認）。
+  参照: [spec 6.1](spec.md)、[実装](../internal/lower/expr.go)（`goFuncRefOrAdapter`）。
+  対応: Scope に限らず rt-backed な多相 builtin（`Task.spawn` も同じ）の問題だった。builtin の GoSig に未具体化の宣言パラメータを載せ、
+  コールバック枠の flat arity を型引数で広げないようにした（[実装](../internal/stdlib/builtin.go) `addMember`）。値位置の Go 関数アダプタは
+  Go の arity までだけ束縛し、関数型の結果は結果のまま返す。検証: `cmd/gom` の `TestRunNativeScope`（`== fn result` 節）。
