@@ -373,6 +373,12 @@ func (se *scopeEsc) visit(e Expr, ok bool) {
 		}
 	}
 	switch e := e.(type) {
+	case *Var:
+		se.instErr(e.Sp, e.TypeArgs)
+	case *MemberExpr:
+		se.instErr(e.Sp, e.TypeArgs)
+	}
+	switch e := e.(type) {
 	case *Lit, *Hole:
 	case *Var:
 		if !ok && e.Sym != nil {
@@ -520,4 +526,29 @@ func (se *scopeEsc) heldScope(e Expr) *Var {
 	}
 	scope, _ := se.captures(e, e.Span())
 	return scope
+}
+
+// instErr rejects a generic reference instantiated at a type holding a
+// Scope: the generic body can keep the value (in a closure it
+// returns, say) where no type shows it.
+func (se *scopeEsc) instErr(sp diag.Span, targs []types.Type) {
+	if !se.report {
+		return
+	}
+	for _, t := range targs {
+		if !se.c.scopeBad(t, false) {
+			continue
+		}
+		for _, r := range se.typed {
+			if r.File == sp.File && r.Start <= sp.Start && sp.End <= r.End {
+				return
+			}
+		}
+		se.typed = append(se.typed, sp)
+		tS := types.Display(types.Chase(t), metaNamer())
+		se.c.diags.Add(diag.Error("E0418",
+			fmt.Sprintf("a generic function cannot take a Scope as a type argument: %s", tS)).
+			At(sp).Set("reason", "instantiate").Set("type", tS))
+		return
+	}
 }

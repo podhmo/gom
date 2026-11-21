@@ -36,3 +36,9 @@ fn partial () -> (Unit -> Unit) -> Unit = Scope.run <| fn s -> reg s
 type Held = Held Scope
 
 type Box = { scope: Scope }
+
+// A generic body may keep a Scope where no type shows it.
+fn later (x: a) (g: a -> Unit) -> (Unit -> Unit) = fn () -> g x
+
+fn hidden () -> Unit -> Unit =
+  Scope.run <| fn s -> later s (fn t -> Scope.defer t (fn () -> ()))

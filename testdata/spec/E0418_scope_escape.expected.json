@@ -4,6 +4,29 @@
       "kind": "diagnostic",
       "code": "E0418",
       "severity": "error",
+      "message": "a generic function cannot take a Scope as a type argument: Scope",
+      "span": {
+        "file": "E0418_scope_escape.gom",
+        "start": {
+          "line": 8,
+          "col": 23,
+          "offset": 287
+        },
+        "end": {
+          "line": 8,
+          "col": 32,
+          "offset": 296
+        }
+      },
+      "data": {
+        "reason": "instantiate",
+        "type": "Scope"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0418",
+      "severity": "error",
       "message": "a Scope cannot be stored or returned: type Scope -> Scope carries it out of its scope",
       "span": {
         "file": "E0418_scope_escape.gom",
@@ -180,6 +203,29 @@
       },
       "data": {
         "reason": "store"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0418",
+      "severity": "error",
+      "message": "a generic function cannot take a Scope as a type argument: Scope",
+      "span": {
+        "file": "E0418_scope_escape.gom",
+        "start": {
+          "line": 44,
+          "col": 24,
+          "offset": 1354
+        },
+        "end": {
+          "line": 44,
+          "col": 29,
+          "offset": 1359
+        }
+      },
+      "data": {
+        "reason": "instantiate",
+        "type": "Scope"
       }
     }
   ]
