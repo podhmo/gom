@@ -1,0 +1,12 @@
+package ex
+
+// spec 1.8: `send` and `default` open the send and default select
+// arms — a receive binding spelled with them (`send <- ch`) is a
+// name-position use and earns E0106, not a send-arm E0101.
+fn s (ch: Chan Int) -> Int = select {
+  send <- ch -> 0
+}
+
+fn d (ch: Chan Int) -> Int = select {
+  default <- ch -> 0
+}

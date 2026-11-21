@@ -1,0 +1,10 @@
+package ex
+
+// spec 1.8: a reserved word in a constructor-pattern argument is a
+// name-position use too — `Some send` earns E0106, not an arm
+// ending on E0101.
+fn m (o: Option Int) -> Int = match o {
+  Some send -> 0
+  Some x -> 1
+  None -> 2
+}

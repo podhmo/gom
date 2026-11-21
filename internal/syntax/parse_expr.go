@@ -615,6 +615,9 @@ func (p *parser) parseSelectArm() SelectArm {
 	start := p.cur()
 	switch start.kind {
 	case tokSend:
+		if p.peek(1).kind == tokLArrow {
+			return p.parseReservedRecvArm(start)
+		}
 		p.next()
 		ch := p.parsePostfix(false)
 		val := p.parsePostfix(false)
@@ -629,6 +632,9 @@ func (p *parser) parseSelectArm() SelectArm {
 			Body:  body,
 		}
 	case tokDefault:
+		if p.peek(1).kind == tokLArrow {
+			return p.parseReservedRecvArm(start)
+		}
 		p.next()
 		if _, ok := p.expect(tokArrow); !ok && p.syncArmArrow() {
 			p.next()
@@ -664,25 +670,33 @@ func (p *parser) parseSelectArm() SelectArm {
 		}
 	default:
 		if nameKeyword(start.kind) && p.peek(1).kind == tokLArrow {
-			bind := &VarPat{Sp: p.spanOf(start), Name: p.errReserved(start)}
-			p.expect(tokLArrow)
-			ch := p.parseExpr()
-			p.expectArmArrow(p.srcText(bind.Span())+" <-", ch,
-				"expected \"->\" after the receive arm's channel, found %s",
-				p.describe(p.cur()))
-			body := p.parseExpr()
-			return &RecvArm{
-				Sp:   p.span(start.start, body.Span().End),
-				Bind: bind,
-				Chan: ch,
-				Body: body,
-			}
+			return p.parseReservedRecvArm(start)
 		}
 		p.errf(p.spanOf(start),
 			"expected a select arm (\"send\", \"default\", or \"name <-\"), found %s",
 			p.describe(start))
 		p.syncItem()
 		return nil
+	}
+}
+
+// parseReservedRecvArm parses a receive arm whose binding name is a
+// reserved word — `send <- ch`, `default <- ch` and the other
+// name-position keywords all land here so they earn E0106 instead
+// of being read as a send or default arm's operands.
+func (p *parser) parseReservedRecvArm(start token) SelectArm {
+	bind := &VarPat{Sp: p.spanOf(start), Name: p.errReserved(start)}
+	p.expect(tokLArrow)
+	ch := p.parseExpr()
+	p.expectArmArrow(p.srcText(bind.Span())+" <-", ch,
+		"expected \"->\" after the receive arm's channel, found %s",
+		p.describe(p.cur()))
+	body := p.parseExpr()
+	return &RecvArm{
+		Sp:   p.span(start.start, body.Span().End),
+		Bind: bind,
+		Chan: ch,
+		Body: body,
 	}
 }
 
@@ -1309,7 +1323,13 @@ func (p *parser) atPatArgStart() bool {
 		tokTilde, tokMinus:
 		return true
 	default:
-		return false
+		// A name-position keyword is a malformed argument — admit it
+		// so parsePatAtom reports E0106 instead of the arm's left
+		// side ending early on E0101 recovery. The keywords that
+		// legitimately follow a pattern — "as", "in", "if" — stay
+		// out so a complete argument list still terminates.
+		return nameKeyword(p.kind()) &&
+			p.kind() != tokAs && p.kind() != tokIn && p.kind() != tokIf
 	}
 }
 
