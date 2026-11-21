@@ -1645,17 +1645,14 @@
   予約語の一覧がなく、`fn send (x: T)` は "a function declaration needs at least
   one (param: Type) group, found send" という理由の分からない診断になる。
   [sketch](sketch/ja/2026-11-21-gist-cli-refactor.md)
-  対応: spec [1.8](spec.md) に予約語一覧と「束縛位置に予約語は使えない」
-  規則を追加し、名前の位置のキーワードを 1 件の E0106
-  （"reserved word used as a name"）として報告するようにした
-  （`errReserved` はキーワードを消費して `*Ident` として回復するため
-  後続の E0101 カスケードが出ない）。`.` の後のメンバ名は従来どおり
-  キーワードを許す。検証:
-  [err_fn_keyword_send](../testdata/spec/err_fn_keyword_send.gom)、
-  [err_let_keyword_select](../testdata/spec/err_let_keyword_select.gom)、
-  [err_param_keyword](../testdata/spec/err_param_keyword.gom)、
-  [ok_keyword_member_name](../testdata/spec/ok_keyword_member_name.gom)。
-
+  対応: spec §1.8 に 22 語の予約語一覧と E0106（reserved word used as a
+  name）を明文化 — `fn send`・`let select`・型パラメータ・`~label`・
+  `as` 束縛・パターン引数・select receive 束縛の各位置が専用診断になる。
+  宣言開始語（`let`/`fn`/`type`/…）は E0101 回復を維持し、member 名
+  （`Chan.send`）と `@` 属性名（`@test`）は予約語でも受理。
+  参照: [spec 1.8](spec.md)、[fixtures](../testdata/spec/err_fn_keyword_send.gom)
+  ・err_let_keyword_select・err_param_keyword・err_pat_keyword・
+  err_select_recv_keyword・ok_keyword_member_name（wave28 lane C）。
 - [x] **`Array.make` の「ゼロ値」が sum type / `Option` の要素には作れない**:
   spec 8.3 は `Array.make` を「n 個のゼロ値」と説明するが、生成される
   `[]Option[T]` 等のゼロ値は Go の `nil` であって `None` ではなく、
