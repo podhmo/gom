@@ -91,16 +91,36 @@ fn reached_cap (max: Option Int) (found: Int) -> Bool = match max {
 fn print_all (results: RecvChan Item) (sig: RecvChan Unit) (done: Chan Unit) (max: Option Int) (acc: Summary) -> Summary = select {
   r <- results -> match r {
     Some (Found m) -> {
-      ignore (if acc.capped { () } else { print_match m })
       let found2 = acc.found + 1
       let capped2 = acc.capped || reached_cap max found2
-      ignore (if capped2 && not acc.capped { cancel done } else { () })
-      (print_all
-        results
-        sig
-        done
-        max
-        { found = found2, warned = acc.warned, interrupted = acc.interrupted, capped = capped2 })
+      match (if acc.capped { Ok () } else { print_match m }) {
+        // The match never reached the user — report it and tear the
+        // pipeline down rather than exit 0 on undelivered output.
+        Err _ -> {
+          ignore fmt.Fprintf (os.Stderr, "rgrep: %s:%d: write failed\n", m.path, m.line)
+          ignore cancel done
+          (print_all
+            results
+            sig
+            done
+            max
+            {
+              found = found2,
+              warned = acc.warned + 1,
+              interrupted = acc.interrupted,
+              capped = capped2,
+            })
+        }
+        Ok () -> {
+          ignore (if capped2 && not acc.capped { cancel done } else { () })
+          (print_all
+            results
+            sig
+            done
+            max
+            { found = found2, warned = acc.warned, interrupted = acc.interrupted, capped = capped2 })
+        }
+      }
     }
     Some (Warn w) -> {
       ignore fmt.Fprintf (os.Stderr, "rgrep: %s\n", w)
@@ -131,8 +151,16 @@ fn print_all (results: RecvChan Item) (sig: RecvChan Unit) (done: Chan Unit) (ma
   }
 }
 
-fn print_match (m: Match) -> Unit =
-  ignore fmt.Fprintf (os.Stdout, "%s:%d:%s\n", m.path, m.line, m.text)
+fn print_match (m: Match) -> Result Unit GoError = match fmt.Fprintf (
+  os.Stdout,
+  "%s:%d:%s\n",
+  m.path,
+  m.line,
+  m.text,
+) {
+  Ok _ -> Ok ()
+  Err e -> Err e
+}
 
 // Wire the stages together: walker, worker pool, closer, printer.
 // `ctx` carries SIGINT; `stop` releases the handler once `print_all`

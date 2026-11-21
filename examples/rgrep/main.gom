@@ -33,8 +33,6 @@ fn exit_code (s: Summary) -> Int = if s.interrupted { 130 } else {
   if s.warned > 0 { 2 } else { if s.found > 0 { 0 } else { 1 } }
 }
 
-fn require (ok: Bool) (message: String) -> Result Unit String = if ok { Ok () } else { Err message }
-
 fn fail (message: String) -> Unit = {
   ignore fmt.Fprintln (os.Stderr, "rgrep: ${message}")
   os.Exit 2

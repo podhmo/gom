@@ -11,8 +11,8 @@ type Command =
   | Search Options
 
 // The first bare argument is the pattern; every later one is a path
-// to search. `--max-count` stays textual until validated (`""` =
-// unset) so `--help` can still rescue a bad value.
+// to search. `--max-count` stays textual until validated so `--help`
+// can still rescue a bad value.
 type Options = {
   pattern: String,
   paths: List String,
@@ -22,10 +22,12 @@ type Options = {
 }
 
 type Raw = {
-  pattern: String,
+  // `Option` rather than a `""` sentinel: the empty pattern and
+  // `--max-count ''` are real values, not "unset".
+  pattern: Option String,
   paths: List String,
   concurrency: String,
-  max_count: String,
+  max_count: Option String,
   ignore_case: Bool,
 }
 
@@ -39,38 +41,49 @@ fn program_args () -> List String = match Go.Slice.to_list os.Args {
 
 fn parse_args (args: List String) -> Result Command String = (parse_options
   args
-  { pattern = "", paths = [], concurrency = "4", max_count = "", ignore_case = false })
+  { pattern = None, paths = [], concurrency = "4", max_count = None, ignore_case = false })
 
 // `paths` accumulates in reverse; `finish` restores the order.
 fn parse_options (args: List String) (opts: Raw) -> Result Command String = match args {
   [] -> finish opts
   ["--help", .._] -> Ok Help
-  ["--", ..rest] -> finish { opts with paths = List.rev_append rest opts.paths }
+  // After `--` nothing is an option: when the pattern is still unset,
+  // the first following arg IS the pattern (even if it starts with `-`).
+  ["--", ..rest] -> match rest {
+    [p, ..more] -> match opts.pattern {
+      None -> finish { opts with pattern = Some p, paths = List.rev_append more opts.paths }
+      Some _ -> finish { opts with paths = List.rev_append rest opts.paths }
+    }
+    [] -> finish opts
+  }
   ["-i", ..rest] -> parse_options rest { opts with ignore_case = true }
   ["--ignore-case", ..rest] -> parse_options rest { opts with ignore_case = true }
   ["--concurrency", n, ..rest] -> parse_options rest { opts with concurrency = n }
   ["--concurrency"] -> Err "--concurrency requires a value"
-  ["--max-count", n, ..rest] -> parse_options rest { opts with max_count = n }
+  ["--max-count", n, ..rest] -> parse_options rest { opts with max_count = Some n }
   ["--max-count"] -> Err "--max-count requires a value"
   [arg, ..rest] -> if strings.HasPrefix (arg, "-") { Err "unknown option: ${arg}" } else {
-    if opts.pattern == "" { parse_options rest { opts with pattern = arg } } else {
-      parse_options rest { opts with paths = [arg, ..opts.paths] }
+    match opts.pattern {
+      None -> parse_options rest { opts with pattern = Some arg }
+      Some _ -> parse_options rest { opts with paths = [arg, ..opts.paths] }
     }
   }
 }
 
-fn finish (opts: Raw) -> Result Command String = {
-  try require (opts.pattern != "") usage
-  let concurrency = try positive_int "--concurrency" opts.concurrency
-  let max_count = try optional_positive_int opts.max_count
-  let paths = if List.rev opts.paths == [] { ["."] } else { List.rev opts.paths }
-  Ok (Search {
-    pattern = opts.pattern,
-    paths = paths,
-    concurrency = concurrency,
-    max_count = max_count,
-    ignore_case = opts.ignore_case,
-  })
+fn finish (opts: Raw) -> Result Command String = match opts.pattern {
+  None -> Err usage
+  Some pattern -> {
+    let concurrency = try positive_int "--concurrency" opts.concurrency
+    let max_count = try optional_positive_int opts.max_count
+    let paths = if List.rev opts.paths == [] { ["."] } else { List.rev opts.paths }
+    Ok (Search {
+      pattern = pattern,
+      paths = paths,
+      concurrency = concurrency,
+      max_count = max_count,
+      ignore_case = opts.ignore_case,
+    })
+  }
 }
 
 fn positive_int (flag: String) (s: String) -> Result Int String = match strconv.Atoi s {
@@ -78,8 +91,9 @@ fn positive_int (flag: String) (s: String) -> Result Int String = match strconv.
   Err _ -> Err "${flag} expects an integer, got ${s}"
 }
 
-fn optional_positive_int (s: String) -> Result (Option Int) String = if s == "" { Ok None } else {
-  match positive_int "--max-count" s {
+fn optional_positive_int (s: Option String) -> Result (Option Int) String = match s {
+  None -> Ok None
+  Some v -> match positive_int "--max-count" v {
     Ok n -> Ok (Some n)
     Err e -> Err e
   }
@@ -89,6 +103,20 @@ test "pattern then paths, -- ends option parsing" {
   let got = try parse_args ["foo", "a/", "--", "--help", "-b"]
   match got {
     Search o -> { assert_eq o.pattern "foo"; assert_eq o.paths ["a/", "--help", "-b"] }
+    _ -> assert false
+  }
+  Ok ()
+}
+
+test "-- takes the next arg as a hyphen pattern, and an empty pattern is real" {
+  let got = try parse_args ["--", "-needle", "f"]
+  match got {
+    Search o -> { assert_eq o.pattern "-needle"; assert_eq o.paths ["f"] }
+    _ -> assert false
+  }
+  let got2 = try parse_args ["", "f"]
+  match got2 {
+    Search o -> { assert_eq o.pattern ""; assert_eq o.paths ["f"] }
     _ -> assert false
   }
   Ok ()
@@ -125,5 +153,6 @@ test "option errors" {
   assert_eq (parse_args ["--max-count"]) (Err "--max-count requires a value")
   assert_eq (parse_args ["--concurrency", "0", "p"]) (Err "--concurrency must be >= 1, got 0")
   assert_eq (parse_args ["--max-count", "x", "p"]) (Err "--max-count expects an integer, got x")
+  assert_eq (parse_args ["--max-count", "", "p"]) (Err "--max-count expects an integer, got ")
   assert_eq (parse_args ["-x", "p"]) (Err "unknown option: -x")
 }
