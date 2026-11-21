@@ -1935,6 +1935,10 @@
         {
           "type": "type_body",
           "named": true
+        },
+        {
+          "type": "type_expr",
+          "named": true
         }
       ]
     }
@@ -2156,6 +2160,10 @@
   },
   {
     "type": "_",
+    "named": false
+  },
+  {
+    "type": "alias",
     "named": false
   },
   {

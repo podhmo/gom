@@ -799,6 +799,14 @@ func (p *parser) parseLetHead() (pat Pat, typ TypeExpr) {
 // is an error but recovered as AbstractBody.
 func (p *parser) parseTypeDecl(doc *Comment) Decl {
 	start := p.next() // 'type'
+	// `type alias X = T` — "alias" is a contextual keyword here
+	// only (it stays a plain identifier elsewhere, e.g. `let alias`),
+	// and only when an uppercase type name follows.
+	isAlias := false
+	if t := p.cur(); t.kind == tokIdent && p.text(t) == "alias" && p.peek(1).kind == tokUIdent {
+		isAlias = true
+		p.next()
+	}
 	nameTok := p.cur()
 	var name *Ident
 	if nameTok.kind == tokUIdent {
@@ -825,6 +833,18 @@ func (p *parser) parseTypeDecl(doc *Comment) Decl {
 		Doc:    doc,
 		Name:   name,
 		Params: params,
+	}
+	if isAlias {
+		if p.at(tokEq) {
+			p.next()
+			b := p.parseTypeExpr()
+			d.Body = &AliasBody{Sp: p.span(p.prevEnd(), b.Span().End), Type: b}
+		} else {
+			p.expected("\"=\" followed by the aliased type")
+			d.Body = &AbstractBody{Sp: diag.Point(p.file, p.prevEnd())}
+		}
+		d.Sp.End = d.Body.Span().End
+		return d
 	}
 	if p.at(tokEq) {
 		p.next()

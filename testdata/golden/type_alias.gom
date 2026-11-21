@@ -1,0 +1,14 @@
+package main
+
+// `type alias X = T` emits Go's `type X = T` (an alias, not a new
+// type). Type parameters map to Go generics.
+type alias UserId = Int
+type alias Wrap a = List a
+type alias Id = UserId
+
+fn takes (id: UserId) -> Int = id
+fn wrap (xs: Wrap Int) -> Int = List.length xs
+
+let u : UserId = 7
+let ws : Wrap Int = [1, 2]
+let m : Id = u

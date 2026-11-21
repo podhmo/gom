@@ -163,11 +163,16 @@ func (p *printer) letDecl(d *syntax.LetDecl) *doc {
 	return concat(concat(kids...), p.eqBody(anchor, d.Value))
 }
 
-// typeDecl renders "type Name params [= body]".
+// typeDecl renders "type Name params [= body]" — or
+// "type alias Name params = T" for an alias.
 func (p *printer) typeDecl(d *syntax.TypeDecl) *doc {
 	var kids []*doc
-	mid0 := p.gapInline(d.Sp.Start+len("type"), d.Name.Sp.Start)
-	kids = append(kids, text("type"+pad(mid0)+d.Name.Name))
+	kw := "type"
+	if _, isAlias := d.Body.(*syntax.AliasBody); isAlias {
+		kw = "type alias"
+	}
+	mid0 := p.gapInline(d.Sp.Start+len(kw), d.Name.Sp.Start)
+	kids = append(kids, text(kw+pad(mid0)+d.Name.Name))
 	anchor := d.Name.Sp.End
 	for _, prm := range d.Params {
 		mid := p.gapInline(anchor, prm.Sp.Start)

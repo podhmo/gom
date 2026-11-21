@@ -1,0 +1,17 @@
+package main
+
+// `type alias X = T` names an existing type without introducing a
+// new one (spec 3.2) — the alias expands to T at every position, so
+// values pass between the alias and the underlying type freely.
+type alias UserId = Int
+type alias Wrap a = List a
+type alias Id = UserId
+
+fn takes (id: UserId) -> Int = id
+fn wrap (xs: Wrap Int) -> Int = List.length xs
+
+let n : Int = 7
+let u : UserId = n
+let back : Int = u
+let ws : Wrap Int = [1, 2]
+let m : Id = u
