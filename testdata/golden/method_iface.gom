@@ -4,16 +4,26 @@ import go "fmt"
 
 // An @method fn emits the ordinary function plus a Go method on the
 // receiver — the record then satisfies fmt.Stringer at interface
-// boundaries. Unit parameters drop out of the method wrapper.
+// boundaries. Unit parameters drop out of the method wrapper, and
+// discarded binds take fresh names in it.
 type Greeter = { name: String }
 
 @method
 fn (g: Greeter) string () -> String = g.name
 
+@method
+fn (_: Greeter) shout (x: Int) -> String = "hey"
+
 type Failure = { reason: String }
 
 @method
 fn (f: Failure) error () -> String = f.reason
+
+// A `Ptr T` receiver emits a pointer method.
+type Box = { v: Int }
+
+@method
+fn (b: Ptr Box) describe () -> String = "boxed"
 
 fn main () -> Unit = {
   let g = { name = "world" }

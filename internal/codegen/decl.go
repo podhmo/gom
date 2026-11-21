@@ -74,6 +74,15 @@ func (g *gen) funcDecl(d *core.FuncDecl) {
 func (g *gen) methodDecl(d *core.FuncDecl) {
 	fn := d.Fn
 	recv := fn.Params[0]
+	// Discarded params still need a name in the wrapper — the
+	// forwarded value is what the inner function ignores, not the
+	// method signature.
+	nameOf := func(b *core.Bind) string {
+		if b.Discard {
+			return g.fresh("arg")
+		}
+		return g.bindName(b)
+	}
 	var rest []*core.Bind
 	for _, b := range fn.Params[1:] {
 		if types.Equal(b.Typ, types.Unit) {
@@ -81,21 +90,35 @@ func (g *gen) methodDecl(d *core.FuncDecl) {
 		}
 		rest = append(rest, b)
 	}
+	names := map[*core.Bind]string{recv: nameOf(recv)}
+	for _, b := range rest {
+		names[b] = nameOf(b)
+	}
 	g.line(d.Sp)
-	g.raw("func (" + g.bindName(recv) + " ")
+	g.raw("func (" + names[recv] + " ")
 	g.typ(g.goType(recv.Typ))
 	g.raw(") " + core.ExportName(d.Sym.Name) + "(")
-	g.paramsFlat(rest)
+	for i, b := range rest {
+		if i > 0 {
+			g.raw(", ")
+		}
+		g.raw(names[b] + " ")
+		if flatArity(b.Typ) >= 2 {
+			g.typ(g.flatFuncType(b.Typ))
+		} else {
+			g.typ(g.goType(b.Typ))
+		}
+	}
 	g.raw(") ")
 	g.resultSig(d.Fn.ResidualType(), fn.Body)
 	g.open()
-	call := g.symName(d.Sym) + "(" + g.bindName(recv)
+	call := g.symName(d.Sym) + "(" + names[recv]
 	for _, b := range fn.Params[1:] {
 		if types.Equal(b.Typ, types.Unit) {
 			call += ", struct{}{}"
 			continue
 		}
-		call += ", " + g.bindName(b)
+		call += ", " + names[b]
 	}
 	call += ")"
 	if !types.Equal(d.Fn.ResidualType(), types.Unit) {

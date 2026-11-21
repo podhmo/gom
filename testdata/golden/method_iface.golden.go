@@ -7,75 +7,106 @@ import (
 	result "github.com/podhmo/gom/stdlib/result"
 )
 
-//line method_iface.gom:8
+//line method_iface.gom:9
 type Greeter string
 
-//line method_iface.gom:13
+//line method_iface.gom:17
 type Failure string
 
-//line method_iface.gom:11
-func string_(g Greeter, _ struct{}) string {
-//line method_iface.gom:11
-	return string(g)
-//line method_iface.gom:11
-}
-
-//line method_iface.gom:11
-func (g Greeter) String() string {
-//line method_iface.gom:11
-	return string_(g, struct{}{})
-//line method_iface.gom:11
-}
-
-//line method_iface.gom:16
-func error_(f Failure, _ struct{}) string {
-//line method_iface.gom:16
-	return string(f)
-//line method_iface.gom:16
-}
-
-//line method_iface.gom:16
-func (f Failure) Error() string {
-//line method_iface.gom:16
-	return error_(f, struct{}{})
-//line method_iface.gom:16
-}
-
-//line method_iface.gom:18
-func main() {
-//line method_iface.gom:19
-	g := Greeter("world")
-//line method_iface.gom:21
-	st := fmt.Stringer(g)
-//line method_iface.gom:22
-	f := Failure("boom")
 //line method_iface.gom:23
+type Box int64
+
+//line method_iface.gom:12
+func string_(g Greeter, _ struct{}) string {
+//line method_iface.gom:12
+	return string(g)
+//line method_iface.gom:12
+}
+
+//line method_iface.gom:12
+func (g Greeter) String() string {
+//line method_iface.gom:12
+	return string_(g, struct{}{})
+//line method_iface.gom:12
+}
+
+//line method_iface.gom:15
+func shout(_ Greeter, x int64) string {
+//line method_iface.gom:15
+	return "hey"
+//line method_iface.gom:15
+}
+
+//line method_iface.gom:15
+func (arg Greeter) Shout(x int64) string {
+//line method_iface.gom:15
+	return shout(arg, x)
+//line method_iface.gom:15
+}
+
+//line method_iface.gom:20
+func error_(f Failure, _ struct{}) string {
+//line method_iface.gom:20
+	return string(f)
+//line method_iface.gom:20
+}
+
+//line method_iface.gom:20
+func (f Failure) Error() string {
+//line method_iface.gom:20
+	return error_(f, struct{}{})
+//line method_iface.gom:20
+}
+
+//line method_iface.gom:26
+func describe(b *Box, _ struct{}) string {
+//line method_iface.gom:26
+	return "boxed"
+//line method_iface.gom:26
+}
+
+//line method_iface.gom:26
+func (b *Box) Describe() string {
+//line method_iface.gom:26
+	return describe(b, struct{}{})
+//line method_iface.gom:26
+}
+
+//line method_iface.gom:28
+func main() {
+//line method_iface.gom:29
+	g := Greeter("world")
+//line method_iface.gom:31
+	st := fmt.Stringer(g)
+//line method_iface.gom:32
+	f := Failure("boom")
+//line method_iface.gom:33
 	e := error(f)
-//line method_iface.gom:25
+//line method_iface.gom:35
 	tmp2 := func(tmp1 struct{}) string {
-//line method_iface.gom:25
+//line method_iface.gom:35
 		return string_(g, tmp1)
-//line method_iface.gom:25
+//line method_iface.gom:35
 	}
-//line method_iface.gom:25
+//line method_iface.gom:35
 	tmp3 := any(tmp2)
-//line method_iface.gom:25
+//line method_iface.gom:35
 	v, err := fmt.Println(tmp3)
-//line method_iface.gom:25
+//line method_iface.gom:35
 	_ = result.FromGo(int64(v), err)
-//line method_iface.gom:26
+//line method_iface.gom:36
 	tmp4 := any(st)
-//line method_iface.gom:26
+//line method_iface.gom:36
 	v1, err1 := fmt.Println(tmp4)
-//line method_iface.gom:26
+//line method_iface.gom:36
 	_ = result.FromGo(int64(v1), err1)
-//line method_iface.gom:27
+//line method_iface.gom:37
 	tmp5 := any(e)
-//line method_iface.gom:27
+//line method_iface.gom:37
 	v2, err2 := fmt.Println(tmp5)
-//line method_iface.gom:27
+//line method_iface.gom:37
 	_ = result.FromGo(int64(v2), err2)
-//line method_iface.gom:27
+//line method_iface.gom:37
 	_ = struct{}{}
-//line method_iface.gom:18
+//line method_iface.gom:28
 }
