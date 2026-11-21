@@ -586,6 +586,19 @@ let their argument escape.
 fn leak () -> Scope = Scope.run <| fn s -> s   // returns the handle
 ```
 
+### E0419 — invalid @noescape parameter
+
+**Severity:** error · **Phase:** check · **Spec:** §6.1
+
+A .gomi "@noescape(f, ...)" lists the parameters a function only
+calls or forwards to another non-escaping parameter. Each name must be
+a function-typed parameter of the declaration it is attached to.
+
+```gom
+@noescape(xs)
+fn iter (f: a -> Unit) (xs: List a) -> Unit
+```
+
 ## 05xx — Go interop
 
 ### E0501 — Go symbol cannot be represented in Gom
@@ -905,6 +918,16 @@ emitted names differ (docs/decisions/
 // lib.gomi:  let foo : Foo
 // lib.gom:   type Foo and let foo — "foo" would emit Foo1
 ```
+
+### E0608 — implementation lets a @noescape parameter escape
+
+**Severity:** error · **Phase:** iface · **Spec:** §7
+
+A parameter the .gomi marks "@noescape" must be inferred
+non-escaping from the implementation's body: it is only called, or
+passed to another non-escaping parameter. Storing, returning, or
+handing it to Go or Task.spawn breaks the promise. Either drop the
+annotation or change the implementation. @extern bodies are trusted.
 
 ## 07xx — Concurrency
 

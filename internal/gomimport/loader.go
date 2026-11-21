@@ -602,7 +602,7 @@ func (l *Loader) extract(path string, tf *check.File) (*resolve.Package, error) 
 			}
 			sym.Package = path
 			p.Members[sym.Name] = sym
-			sig := check.Signature{Type: requalify(d.Sig, own, path)}
+			sig := check.Signature{Type: requalify(d.Sig, own, path), NoEscape: d.NoEscape}
 			if !d.Thunk && d.Sig != nil {
 				sig.DeclArity = len(d.Sig.Params)
 				l.arities[sym] = len(d.Sig.Params)

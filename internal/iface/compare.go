@@ -203,6 +203,20 @@ func checkFnMember(m, w *Member) diag.List {
 	if !alphaEqual(m.Type, w.Type) {
 		diags.Add(typeMismatch(m, w))
 	}
+	// A hand-written Go body (@extern) is out of the analysis'
+	// sight: the interface's @noescape is trusted there.
+	if w.Kind == MemberFn && w.Extern {
+		return diags
+	}
+	for i, ne := range m.NoEscape {
+		if ne && (i >= len(w.NoEscape) || !w.NoEscape[i]) {
+			diags.Add(diag.Error("E0608",
+				fmt.Sprintf("`%s` declares parameter %d `@noescape` in the interface but the implementation lets it escape", m.Name, i+1)).
+				At(w.Sp).
+				Set("member", m.Name).
+				Set("param", i+1))
+		}
+	}
 	return diags
 }
 

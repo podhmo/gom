@@ -51,6 +51,11 @@ type FnDecl struct {
 	// generated package — resolution, checking and .gomi
 	// conformance all treat it as an ordinary fn declaration.
 	Extern bool
+	// NoEscape marks, per parameter, a function-typed parameter the
+	// function only calls or forwards to another non-escaping
+	// parameter: inferred for a .gom body, declared by `@noescape`
+	// in a .gomi (checkScopeEscapes, docs/spec.md section 6.1).
+	NoEscape []bool
 }
 
 func (*FnDecl) isDecl()           {}

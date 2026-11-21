@@ -2,6 +2,7 @@ package check
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/podhmo/gom/internal/diag"
 	"github.com/podhmo/gom/internal/resolve"
@@ -42,6 +43,13 @@ func (c *checker) checkScopeEscapes() {
 				se.cand[vp.Sym] = true
 			}
 		}
+		if fd.Body == nil {
+			// @extern (hand-written Go) or a .gomi signature: the
+			// body is out of sight, so every parameter escapes.
+			for _, p := range ps {
+				delete(se.cand, p)
+			}
+		}
 		se.params[fd.Sym] = ps
 	}
 	for {
@@ -49,6 +57,20 @@ func (c *checker) checkScopeEscapes() {
 		se.walkDecls()
 		if !se.changed {
 			break
+		}
+	}
+	for _, d := range c.decls {
+		if fd, ok := d.(*FnDecl); ok && fd.Body != nil && fd.Sym != nil {
+			var ne []bool
+			for i, p := range se.params[fd.Sym] {
+				if p != nil && se.cand[p] {
+					if ne == nil {
+						ne = make([]bool, len(fd.Params))
+					}
+					ne[i] = true
+				}
+			}
+			fd.NoEscape = ne
 		}
 	}
 	se.report = true
@@ -418,4 +440,37 @@ func (se *scopeEsc) visit(e Expr, ok bool) {
 	default:
 		panic("unreachable")
 	}
+}
+
+// noEscapeAttr maps a .gomi `@noescape(f, ...)` to per-parameter
+// flags; each name must be a function-typed parameter (E0419).
+func (c *checker) noEscapeAttr(d *syntax.FnDecl, params []Param, sig *types.Func) []bool {
+	if len(d.NoEscape) == 0 {
+		return nil
+	}
+	out := make([]bool, len(params))
+	for _, id := range d.NoEscape {
+		i := slices.IndexFunc(params, func(p Param) bool {
+			vp, ok := p.Pat.(*VarPat)
+			return ok && vp.Sym != nil && vp.Sym.Name == id.Name
+		})
+		switch {
+		case i < 0 || sig == nil || i >= len(sig.Params):
+			c.diags.Add(diag.Error("E0419",
+				fmt.Sprintf("`@noescape` names `%s`, which is not a parameter of `%s`", id.Name, d.Name.Name)).
+				At(id.Sp).Set("name", id.Name))
+		case !isFuncType(sig.Params[i].Type):
+			c.diags.Add(diag.Error("E0419",
+				fmt.Sprintf("`@noescape` names `%s`, whose type %s is not a function", id.Name, sig.Params[i].Type)).
+				At(id.Sp).Set("name", id.Name))
+		default:
+			out[i] = true
+		}
+	}
+	return out
+}
+
+func isFuncType(t types.Type) bool {
+	_, ok := types.Chase(t).(*types.Func)
+	return ok
 }

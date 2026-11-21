@@ -18,3 +18,11 @@ fn ok1 (r: Ref Int) (xs: List Int) -> Int =
     (fn () -> helper s r) ()
     Ref.get r
   }
+
+// Stdlib higher-order functions publish `@noescape` in their .gomi.
+fn each_std (xs: List Int) (r: Ref Int) -> Int =
+  Scope.run <| fn s -> {
+    List.iter (fn x -> Scope.defer s (fn () -> Ref.set r x)) xs
+    xs |> List.iter (fn x -> Scope.defer s (fn () -> Ref.set r x))
+    Ref.get r
+  }

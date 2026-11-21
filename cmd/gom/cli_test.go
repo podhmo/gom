@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -1274,6 +1275,48 @@ func TestCheckInterfaceMismatch(t *testing.T) {
 	}
 	if len(codes) != 2 || codes[0] != "E0603" || codes[1] != "E0603" {
 		t.Errorf("diagnostic codes = %v, want [E0603 E0603]", codes)
+	}
+}
+
+// TestCheckInterfaceNoEscape verifies spec 6.1: a .gomi `@noescape`
+// must name a function-typed parameter (E0419) and be backed by the
+// implementation's inference (E0608); `gom info` drafts it.
+func TestCheckInterfaceNoEscape(t *testing.T) {
+	t.Parallel()
+
+	impl := "package lib\n\n" +
+		"fn each (f: Int -> Unit) (xs: List Int) -> Unit = for x in xs { f x }\n" +
+		"fn keep (f: Unit -> Unit) -> (Unit -> Unit) = f\n"
+	dir := writeFiles(t, map[string]string{
+		"bad/lib.gom":  impl,
+		"bad/lib.gomi": "package lib\n\n@noescape(f)\nfn each (f: Int -> Unit) (xs: List Int) -> Unit\n@noescape(f)\nfn keep (f: Unit -> Unit) -> (Unit -> Unit)\n",
+		"name/lib.gom": impl,
+		"name/lib.gomi": "package lib\n\n@noescape(xs)\nfn each (f: Int -> Unit) (xs: List Int) -> Unit\n" +
+			"fn keep (f: Unit -> Unit) -> (Unit -> Unit)\n",
+		"ok/lib.gom": impl,
+	})
+	for sub, want := range map[string]string{"bad": "E0608", "name": "E0419"} {
+		_, out, _ := invoke("check", filepath.Join(dir, sub))
+		var codes []string
+		for _, l := range jsonLines(t, out) {
+			if c, ok := l["code"].(string); ok {
+				codes = append(codes, c)
+			}
+		}
+		if !slices.Equal(codes, []string{want}) {
+			t.Errorf("%s: diagnostic codes = %v, want [%s]", sub, codes, want)
+		}
+	}
+
+	if code, out, errout := invoke("info", filepath.Join(dir, "ok")); code != 0 {
+		t.Fatalf("gom info: exit %d; stderr=%q stdout=%q", code, errout, out)
+	}
+	draft, err := os.ReadFile(filepath.Join(dir, "ok", "lib.gomi"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(draft), "@noescape(f)\nfn each ") || strings.Count(string(draft), "@noescape") != 1 {
+		t.Errorf("draft should mark only each's f:\n%s", draft)
 	}
 }
 
