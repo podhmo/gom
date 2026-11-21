@@ -93,6 +93,16 @@ fn plain_ok_rt () -> Int =
     2
   }
 
+// A Go-backed member instantiated at a function type keeps its Go
+// arity: the callback is `func(*rt.Scope) func(int64) int64`.
+fn add (x: Int) (y: Int) -> Int = x + y
+
+fn fn_piped () -> Int -> Int = Scope.run <| fn s -> add 1
+
+fn fn_applied () -> Int -> Int = Scope.run (fn s -> add 2)
+
+fn fn_task () -> Int -> Int = Task.await (Task.spawn (fn () -> add 3))
+
 fn main () -> Unit = {
   say "== native"
   say "${lifo true}"
@@ -108,4 +118,6 @@ fn main () -> Unit = {
   show (body_err_rt ())
   show (close_err_rt ())
   say "${plain_ok_rt ()}"
+  say "== fn result"
+  say "${fn_piped () 40} ${fn_applied () 40} ${fn_task () 40}"
 }

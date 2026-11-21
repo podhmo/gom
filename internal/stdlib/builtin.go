@@ -424,7 +424,20 @@ func (e *env) addMember(module string, table map[string]*resolve.Symbol, m built
 	sym.Surface = module + "." + m.name
 	table[m.name] = sym
 	e.sigs[sym] = m.sig
-	e.gosigs[sym] = m.gosig
+	gs := m.gosig
+	if gs.Params == nil && len(m.sig.TypeParams) > 0 {
+		// A generic member's declared parameters, with its own type
+		// variables rigid: lowering reads the Go-side arity of a
+		// callback slot from them, so `Scope.run` at `a = Int -> Int`
+		// still takes a one-parameter `func(*rt.Scope) A`.
+		if fs, ok := m.sig.Type.(*types.Func); ok {
+			for _, p := range fs.Params {
+				gs.Params = append(gs.Params, p.Type)
+			}
+			gs.TypeParams = m.sig.TypeParams
+		}
+	}
+	e.gosigs[sym] = gs
 	// DeclArity: every member's declared parameter count is its Go
 	// arity — bare references adapt by it.
 	e.arities[sym] = m.gosig.Arity
