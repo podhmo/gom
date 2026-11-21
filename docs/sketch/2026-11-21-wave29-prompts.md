@@ -115,6 +115,9 @@ docs/spec.md, testdata/spec, decision.
   wave29 lane 開始時は最終 lane の head
   （`devin/wave28-type-alias`）から分岐するか、podhmo の
   マージ後に main から分岐する。
+- wave の回し方そのものは `docs/ja/wave-process.md` に規範
+  文書として切り出した（prompts 間の申し送り継承だと
+  wave24 で項目が脱落した実績があるため）。以下はその要点:
 - prompts-drafting ルール（wave21 制定、wave24 以降の prompts
   から本文が脱落していたので復元）: 採択が要る点は prompts
   作成時点で podhmo に聞いて確定し、lane 本文に「計測結果なら
