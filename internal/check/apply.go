@@ -2,6 +2,7 @@ package check
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/podhmo/gom/internal/diag"
 	"github.com/podhmo/gom/internal/resolve"
@@ -665,6 +666,29 @@ func (c *checker) spreadApply(x Expr, sp diag.Span, fn Expr, params []types.Func
 	}
 }
 
+// goSpreadParams returns the parameter list a `~..e` expansion
+// matches against at a Go call: the variadic tail reads as its
+// element type (each spread field supplies one element, matching
+// the lowered goParamTypeAt shape), and every parameter's want is
+// registered so chanDirConv sees the boundary during the
+// expansion. The returned func lifts the registrations.
+func (c *checker) goSpreadParams(goParams []types.FuncParam, variadic bool, arity int, sp diag.Span) ([]types.FuncParam, func()) {
+	ps := goParams
+	if variadic && arity > 0 {
+		ps = slices.Clone(goParams)
+		ps[arity-1].Type = sliceElemOf(goParams[arity-1].Type, sp, c)
+	}
+	undos := make([]func(), 0, len(ps))
+	for _, p := range ps {
+		undos = append(undos, c.goWant(p.Type))
+	}
+	return ps, func() {
+		for _, u := range undos {
+			u()
+		}
+	}
+}
+
 // paramByLabel finds the index of a labeled parameter, or -1.
 func (c *checker) paramByLabel(params []types.FuncParam, label string) int {
 	for i, p := range params {
@@ -772,7 +796,9 @@ func (c *checker) checkGoApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol,
 			tmp := &Apply{}
 			var spMap []int
 			var unm bool
-			c.spreadApply(x, g.sp, fn, goParams, used, tmp, &spMap, &unm)
+			sp, undo := c.goSpreadParams(goParams, variadic, arity, g.sp)
+			c.spreadApply(x, g.sp, fn, sp, used, tmp, &spMap, &unm)
+			undo()
 			out.Args = append(out.Args, tmp.Args...)
 			mapping = append(mapping, spMap...)
 			continue
@@ -1283,7 +1309,9 @@ func (c *checker) replayGoApply(pa *pendingApply) {
 			tmp := &Apply{}
 			var spMap []int
 			var unm bool
-			c.spreadApply(g.x, g.sp, me, goParams, used, tmp, &spMap, &unm)
+			sp, undo := c.goSpreadParams(goParams, variadic, arity, g.sp)
+			c.spreadApply(g.x, g.sp, me, sp, used, tmp, &spMap, &unm)
+			undo()
 			newArgs = append(newArgs, tmp.Args...)
 			mapping = append(mapping, spMap...)
 			continue
