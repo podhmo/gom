@@ -356,7 +356,10 @@ type gevt struct {
 // emission hands these back; they fall through to the printer's
 // own-line tail.
 func isGomDirective(c *cmt) bool {
-	return c.c.Kind == syntax.CommentLine && strings.HasPrefix(c.c.Text, "gom:")
+	// lineOnly: a trailing //gom: never reached ScanAllow in the
+	// input — relocating it onto its own line must not switch it on.
+	return c.c.Kind == syntax.CommentLine && c.lineOnly &&
+		strings.HasPrefix(c.c.Text, "gom:")
 }
 
 // keepInline hands `//gom:` directive comments back to the unused

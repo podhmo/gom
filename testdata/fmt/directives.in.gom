@@ -11,3 +11,7 @@ fn g () -> Int =
     1 +
     //gom:allow W0003
     2
+
+fn trailing () -> Int =
+    1 + //gom:allow E0301
+    2
