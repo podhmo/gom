@@ -772,15 +772,20 @@ fn main () -> Unit = ignore (work true)
   convert `E -> GoError` inside its `defer_err` callback and still
   ride the `Close` join.
 - Fetch-and-register sugar is a user helper — `s` can be passed to
-  a non-retaining call, so this compiles:
+  a non-retaining call:
 
-  ```gom
-  fn closing (s: Scope) (open: Unit -> r) (close: (r -> Unit)) -> r = {
-    let x = open ()
-    Scope.defer s (fn () -> close x)
-    x
-  }
-  ```
+```gom
+package main
+
+// closing is fetch-and-register sugar as a user helper: the scope
+// handle `s` flows through a non-retaining call, so the escape
+// check (E0419) accepts it.
+fn closing (s: Scope) (open: Unit -> r) (close: (r -> Unit)) -> r = {
+  let x = open ()
+  Scope.defer s (fn () -> close x)
+  x
+}
+```
 
 ```gom fail=E0419
 package main
