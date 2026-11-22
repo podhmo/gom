@@ -26,6 +26,8 @@
 
 ### Go 相互運用
 
+- [ ] **[task] emit 名の衝突検出器（Go ABI 案 B）**: 生成名の一覧化・suffix 衝突（同 base 追い出し）・暗黙 member 名を検出する。E0607 は base 名の `.gomi` メンバ衝突までしか止めないので、suffix 追い出しは新規検出対象（[decision](docs/decisions/2026-11-23-go-abi-stability.md)、wave35 lane C — [prompts](docs/sketch/2026-11-23-wave35-prompts.md)）
+
 - [x] **G-1 `Ptr T` 経由の field 書き込みの実装**: `ptr.Field = v` の代入構文と addressability 規則。`Ptr T`（T は named Go struct）経由に限定し、record/`Ref` への field 代入は開かない（[decision](docs/decisions/2026-11-19-struct-field-write.md)、比較材料は [sketch](docs/sketch/2026-11-19-wave23-struct-construction.md)）。実装後に tutorial / examples の host パッケージ（`NewClient` factory）を撤去する — wave24 以降の lane 候補
   - 対応（wave24 lane B）: `Assign`/`FieldAssign`/`FieldSet` を syntax→check→lower→codegen に通し、左辺は `ptr.Field` の形のみ（変数・record field・`Ptr` でない Go 値経由は E0511）。代入式は `Unit`。examples/gist-cli の host パッケージは撤去 — `NewClient` は `Ptr.new` + `client.Timeout`/`client.CheckRedirect` への代入に置換。composite literal は引き続き非提供
 
@@ -38,6 +40,8 @@
 
 ### ドキュメント
 
+- [ ] **[task] `|?>` 文言の回避経路の文書化**: `*rt.StepError.Step`・`rt.StepErr`・`Result.map_err`・`try`+`match` で文言を制御する方法を spec と gom-agent-guide に追記（案 C 採択済みの残作業 — [decision](docs/decisions/2026-11-23-pipe-try-wording.md)、wave35 lane A）
+- [ ] **[task] scoped-cleanup 代替経路の文書化（案 D）**: `run_result` の GoError 制約を越えるパターンを helper で書く例を guide（Scope 節）と spec に追記（案 D 採択済みの残作業 — [decision](docs/decisions/2026-11-23-scope-cleanup-extension.md)、wave35 lane B）
 - [ ] **D-3 `README.md` を書く**: 言語の概要・ビルド/実行の quick start・ツール群（`gom build`/`check`/`fmt`/`info`）・ドキュメントへの導線（spec/design/tutorial）を載せる。**プロジェクト終盤に書く** — 機能が増えるたびに更新対象になるのを避けるため、内容が安定してから一括で書く（ユーザー指定）。PR #3 で英語 README の初版は入ったが、十分性の最終判定は終盤に行う
 - [ ] **D-4 tutorial/examples の go.mod 配置の整理**: tutorial の各章にはほぼ同形の go.mod がある（実質 `tutorial_test.go` が scratch module へコピーする用途だけで使い、`run.sh` は自前生成）。章側で生成するか集約するかは、gom がパッケージとして取り込まれる形（examples/tutorial が利用者からどう見えるか）を決めるタイミングで整理する。外部依存を取り込んでいない現状では不要。**D-3 と同程度の後の作業**（ユーザー指定）
 

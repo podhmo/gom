@@ -35,8 +35,10 @@
   越えて）。emit 名の衝突検出を入れる
 - 作業: 生成名の一覧化・suffix 衝突（同 base の `x1`/`x2`
   追い出し）・暗黙 member 名（sum variant struct・marker・
-  test 名）を検出する機構。非公開 decl の衝突は warning or
-  error、公開面は E0607 が既に止める — 検出器の形
+  test 名）を検出する機構。E0607 が止めるのは base 名が同じ
+  `.gomi` メンバの衝突までで、生成 suffix への追い出し
+  （非公開 decl が `Foo1` を先取りして公開 decl が `Foo11` に
+  ずれる等）は対象外 — lane C の検出対象。検出器の形
   （validator / lint / `--strict` 系）は調査しながら決める
 - 規模: 中
 
