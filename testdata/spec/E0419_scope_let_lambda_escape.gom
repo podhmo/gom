@@ -10,3 +10,21 @@ fn bad_let_helper (held: Ref Int) -> Int =
         ignore (ret (fn () -> Scope.defer s (fn () -> Ref.set held 0)))
         Ref.get held
     }
+
+// Returning the parameter through a match arm binds the same
+// escape — the arm variable aliases the subject.
+fn bad_match_alias (held: Ref Int) -> Int =
+    Scope.run <| fn s -> {
+        let ret = fn cl -> match cl { g -> g }
+        ignore (ret (fn () -> Scope.defer s (fn () -> Ref.set held 0)))
+        Ref.get held
+    }
+
+// A scope runner returns its body argument's produced value, so
+// binding that result still carries the parameter's escape.
+fn bad_runner_alias (held: Ref Int) -> Int =
+    Scope.run <| fn s -> {
+        let ret = fn f -> { let x = Scope.run (fn _ -> f); x }
+        ignore (ret (fn () -> Scope.defer s (fn () -> Ref.set held 0)))
+        Ref.get held
+    }

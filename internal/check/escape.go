@@ -823,10 +823,23 @@ func retainedVars(e Expr) map[*resolve.Symbol]bool {
 			ctor := e.Call.Callee != nil && e.Call.Callee.Kind == resolve.KindCtor
 			producesClosure := e.Call.Kind == CallPartial || e.Call.HoleIndex >= 0 ||
 				(e.Call.Kind == CallUnknown && isFuncType(e.Type()))
-			if ctor || producesClosure {
+			switch {
+			case ctor || producesClosure:
 				rec(e.Fn)
 				for _, a := range e.Args {
 					rec(a.Value)
+				}
+			case isScopeRunner(e.Call):
+				// A scope runner returns its body argument's
+				// produced value — the body's result position
+				// is retained by the call's own result.
+				rec(e.Fn)
+				for _, a := range e.Args {
+					if lam, ok := a.Value.(*Lambda); ok {
+						rec(lam.Body)
+					} else {
+						rec(a.Value)
+					}
 				}
 			}
 		case *Ascribe:
@@ -875,10 +888,30 @@ func retainedVars(e Expr) map[*resolve.Symbol]bool {
 		case *Binary:
 			switch e.Op {
 			case syntax.BinPipeFwd, syntax.BinPipeBack, syntax.BinPipeTry:
-				// `x |> f` applies f to x — a function-valued
-				// result is a partial application capturing
-				// both; anything else consumed them.
-				if isFuncType(e.Type()) {
+				arg, fn := e.X, e.Y
+				if e.Op == syntax.BinPipeBack {
+					arg, fn = e.Y, e.X
+				}
+				var fnSym *resolve.Symbol
+				if f, ok := fn.(*Var); ok {
+					fnSym = f.Sym
+				} else if f, ok := fn.(*MemberExpr); ok {
+					fnSym = f.Sym
+				}
+				switch {
+				case isScopeRunner(CallInfo{Callee: fnSym}):
+					// The runner forwards its body argument's
+					// produced value — the body's result
+					// position is retained.
+					rec(fn)
+					if lam, ok := arg.(*Lambda); ok {
+						rec(lam.Body)
+					} else {
+						rec(arg)
+					}
+				case isFuncType(e.Type()):
+					// A function-valued result is a partial
+					// application capturing both operands.
 					rec(e.X)
 					rec(e.Y)
 				}
