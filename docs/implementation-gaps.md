@@ -1797,3 +1797,13 @@
   runtime panic するが E0419 は出ない。同じ穴はコールバックの結果を
   結果に含む callee（map/and_then/fold 形）全般にある。
   [チェッカー](../internal/check/escape.go)（2026-11-22 検証）
+- [x] **`Scope.defer`/`defer_err`/`on_err` のコールバックパラメータに
+  escape flag が無かった**: spec 6.1 は `Scope` 操作内での使用を
+  許すと読めるが、組み込みテーブルの `escapes` が未指定で
+  cleanup 引数は保守的に escaping 扱い — `let` 束縛ヘルパ経由で
+  cleanup を登録すると `cl` パラメータが danger になり E0419 の
+  偽陽性（直接の `Scope.defer s (fn () -> <uses s>)` でも同じ）。
+  対応: 3 メンバに `escapes: []bool{false, false}` を付記 —
+  cleanup はスコープの生存期間内（close 時）に走るので non-escaping。
+  [テーブル](../internal/stdlib/builtin.go)（2026-11-22 検証）
+  検証: [spec](../testdata/spec/ok_scope_let_lambda.gom)

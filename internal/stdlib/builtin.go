@@ -206,14 +206,21 @@ var scopeMembers = []builtinMember{
 		escapes: []bool{false}},
 	{name: "defer", goSym: "ScopeDefer",
 		sig:   check.Signature{Type: types.Fn(types.Unit, types.P(types.Scope), types.P(types.Fn(types.Unit, types.P(types.Unit))))},
-		gosig: lower.GoSig{Arity: 2, Results: core.GoResultsNone}},
+		gosig: lower.GoSig{Arity: 2, Results: core.GoResultsNone},
+		// the cleanup is retained by the scope and runs at its
+		// close — inside the scope's lifetime, so it does not
+		// escape. Param 0 is `Scope`, non-escaping by the
+		// scope-type rule before Escapes is even read.
+		escapes: []bool{false, false}},
 	{name: "defer_err", goSym: "ScopeDeferErr", pkg: "github.com/podhmo/gom/stdlib/result",
 		sig: check.Signature{Type: types.Fn(types.Unit, types.P(types.Scope),
 			types.P(types.Fn(types.Result(types.Unit, types.GoError), types.P(types.Unit))))},
-		gosig: lower.GoSig{Arity: 2, Results: core.GoResultsNone}},
+		gosig:   lower.GoSig{Arity: 2, Results: core.GoResultsNone},
+		escapes: []bool{false, false}},
 	{name: "on_err", goSym: "ScopeOnErr",
-		sig:   check.Signature{Type: types.Fn(types.Unit, types.P(types.Scope), types.P(types.Fn(types.Unit, types.P(types.Unit))))},
-		gosig: lower.GoSig{Arity: 2, Results: core.GoResultsNone}},
+		sig:     check.Signature{Type: types.Fn(types.Unit, types.P(types.Scope), types.P(types.Fn(types.Unit, types.P(types.Unit))))},
+		gosig:   lower.GoSig{Arity: 2, Results: core.GoResultsNone},
+		escapes: []bool{false, false}},
 }
 
 // ptrMembers is the `Ptr` module's operation surface — the explicit

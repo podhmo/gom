@@ -1,0 +1,8 @@
+package ex
+
+// spec section 9.2.8: a |?> step must return Result — a step whose
+// return type is concretely non-Result is named with its type
+// instead of an opaque `Result ?1 ?2` conformance mismatch.
+fn dbl (x: Int) -> Int = x * 2
+
+fn bad (n: Int) -> Result Int GoError = Ok n |?> dbl

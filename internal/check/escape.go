@@ -187,6 +187,10 @@ type escapeBody struct {
 	// their bound expressions, so a named body argument of a
 	// scope runner resolves like the inline lambda.
 	lets map[*resolve.Symbol]Expr
+	// flagsChanged reports that a let-bound lambda's inferred
+	// escape flags grew during this walk — the fixpoint needs
+	// another pass so callers can see them.
+	flagsChanged bool
 }
 
 func (b *escapeBody) tainted(s *resolve.Symbol) bool { return b.aliases[s] }
@@ -214,11 +218,28 @@ func (c *checker) checkScopeEscape() {
 			}
 			b := c.newEscapeBody(d)
 			c.escWalk(body, true, b, false)
+			if b.flagsChanged {
+				changed = true
+			}
 			if fn, ok := d.(*FnDecl); ok && fn.Sym != nil {
 				for sym := range b.danger {
 					if i, ok := c.declParamIndex(d, sym); ok && i < len(fn.Sym.Escapes) {
 						if !fn.Sym.Escapes[i] {
 							fn.Sym.Escapes[i] = true
+							changed = true
+						}
+					}
+				}
+			}
+		}
+		// A top-level `let f = fn ...` is a named callee too: give
+		// its bound symbol the same parameter inference declared
+		// functions get so callers do not default to escaping.
+		for _, d := range c.decls {
+			if ld, ok := d.(*LetDecl); ok {
+				if lam, isLam := ld.Value.(*Lambda); isLam {
+					for _, s := range patBoundSyms(ld.Pat) {
+						if c.inferLetLambdaEscapes(s, lam) {
 							changed = true
 						}
 					}
@@ -270,6 +291,39 @@ func (c *checker) newEscapeBody(d Decl) *escapeBody {
 		danger:  map[*resolve.Symbol]bool{},
 		forward: map[Expr]bool{},
 	}
+}
+
+// inferLetLambdaEscapes runs the parameter-escape inference of a
+// declared function on a `let f = fn ...` binding: the lambda's body
+// is walked in the producing position, and each parameter landing in
+// `danger` flips the corresponding bit of sym.Escapes. Flags only
+// ever grow — the monotone fixpoint's other sources keep filling
+// theirs on the next pass. The return value reports growth.
+//
+// A let-bound callee used to default to "escaping" at every call
+// site: a local helper wrapping `Scope.defer` forced its callers to
+// inline the registration or trip E0419 on a scope-tainted argument.
+func (c *checker) inferLetLambdaEscapes(sym *resolve.Symbol, lam *Lambda) bool {
+	if len(lam.Params) == 0 {
+		return false
+	}
+	if len(sym.Escapes) < len(lam.Params) {
+		grown := make([]bool, len(lam.Params))
+		copy(grown, sym.Escapes)
+		sym.Escapes = grown
+	}
+	b := c.newEscapeBody(nil)
+	c.escWalk(lam.Body, true, b, false)
+	changed := false
+	for i, p := range lam.Params {
+		for _, ps := range patBoundSyms(p.Pat) {
+			if b.danger[ps] && !sym.Escapes[i] {
+				sym.Escapes[i] = true
+				changed = true
+			}
+		}
+	}
+	return changed || b.flagsChanged
 }
 
 // fnDeclOf resolves a top-level function symbol to its checked
@@ -369,10 +423,29 @@ func (c *checker) callParamEscapes(call CallInfo, i int) bool {
 	if sym == nil || sym.Kind == resolve.KindCtor {
 		return true
 	}
-	// The callee's declared parameter type tells the rule for free:
-	// a `Scope`-typed parameter of a Gom callee is non-escaping —
-	// the callee's own compile enforced it. Consult the signature
-	// source quietly (the use site already ran sigOf's diagnostics).
+	return c.symParamEscapes(sym, p)
+}
+
+// argEscapes answers the same question for an Apply node: a
+// CallUnknown through a `let`-bound variable still resolves to a
+// symbol whose inferred flags the walk can consult — CallUnknown
+// means "no declared callee", not "uninspectable".
+func (c *checker) argEscapes(e *Apply, i int) bool {
+	if e.Call.Kind == CallUnknown {
+		if v, ok := e.Fn.(*Var); ok && v.Sym != nil {
+			return c.symParamEscapes(v.Sym, i)
+		}
+		return true
+	}
+	return c.callParamEscapes(e.Call, i)
+}
+
+// symParamEscapes reads one parameter position of a Gom callee: a
+// `Scope`-typed parameter is non-escaping by construction — the
+// callee's own compile enforced it — and other positions consult
+// the inferred/annotated flag. The signature is looked up quietly
+// (the use site already ran sigOf's diagnostics).
+func (c *checker) symParamEscapes(sym *resolve.Symbol, p int) bool {
 	var sig *types.Func
 	if t, ok := c.vals[sym]; ok {
 		sig, _ = types.Chase(t).(*types.Func)
@@ -440,7 +513,7 @@ func (c *checker) escWalk(e Expr, danger bool, b *escapeBody, report bool) {
 			// retains that parameter (or the construction stores
 			// it) — or when the call produces a closure that
 			// captures it.
-			d := ctor || c.callParamEscapes(e.Call, i) || (producesClosure && danger)
+			d := ctor || c.argEscapes(e, i) || (producesClosure && danger)
 			if danger && isScopeRunner(e.Call) {
 				if lam, ok := a.Value.(*Lambda); ok {
 					b.forward[lam] = true
@@ -519,6 +592,11 @@ func (c *checker) escWalk(e Expr, danger bool, b *escapeBody, report bool) {
 						b.lets = map[*resolve.Symbol]Expr{}
 					}
 					b.lets[s] = l.Value
+					if !report {
+						if lam, isLam := l.Value.(*Lambda); isLam && c.inferLetLambdaEscapes(s, lam) {
+							b.flagsChanged = true
+						}
+					}
 				}
 			}
 		}
@@ -526,6 +604,17 @@ func (c *checker) escWalk(e Expr, danger bool, b *escapeBody, report bool) {
 	case *Let:
 		c.escWalk(e.Value, false, b, report)
 		c.bindLet(e, b)
+		for _, s := range patBoundSyms(e.Pat) {
+			if b.lets == nil {
+				b.lets = map[*resolve.Symbol]Expr{}
+			}
+			b.lets[s] = e.Value
+			if !report {
+				if lam, isLam := e.Value.(*Lambda); isLam && c.inferLetLambdaEscapes(s, lam) {
+					b.flagsChanged = true
+				}
+			}
+		}
 	case *Ignore:
 		c.escWalk(e.X, false, b, report)
 	case *Try:

@@ -1,0 +1,11 @@
+package ex
+
+// spec section 6.1: the let-bound helper returns its parameter, so
+// the parameter escapes — a scope-capturing cleanup passed through
+// it is rejected like any other retained use.
+fn bad_let_helper (held: Ref Int) -> Int =
+    Scope.run <| fn s -> {
+        let ret = fn cl -> cl
+        ignore (ret (fn () -> Scope.defer s (fn () -> Ref.set held 0)))
+        Ref.get held
+    }

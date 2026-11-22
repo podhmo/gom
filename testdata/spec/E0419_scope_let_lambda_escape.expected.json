@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0419",
+      "severity": "error",
+      "message": "`s` is a `Scope` value (or closes over one) captured by a closure that escapes its scope",
+      "span": {
+        "file": "E0419_scope_let_lambda_escape.gom",
+        "start": {
+          "line": 9,
+          "col": 43,
+          "offset": 339
+        },
+        "end": {
+          "line": 9,
+          "col": 44,
+          "offset": 340
+        }
+      }
+    }
+  ]
+}
