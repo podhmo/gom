@@ -63,6 +63,20 @@ marked).
 Callee-identity warnings (W0701/W0501/W0502) see through `let
 mk = Chan.make`-style value aliases, including multi-hop chains.
 
+## `//gom:allow` and `--strict`
+
+A `//gom:allow CODE...` comment in a `.gom` file demotes a
+relaxable code to a warning at that file's occurrences (never
+silent — the diagnostic still prints). Relaxable codes: E0301,
+E0302. Unknown, non-relaxable, or malformed directives warn W0003.
+
+`gom check|build|test --strict` exits non-zero when any warning
+was emitted — use it in CI so warnings can't land silently.
+`--strict=CODES` (e.g. `--strict=W0701,W0501`) limits the exit
+to the listed codes; other warnings still print but don't fail.
+`--strict` disables `gom build`'s incremental cache (a cached
+pass must not mask warnings).
+
 ## Diagnostic work loop
 
 1. `gom check f.gom` → read first error only (phases stop at the
