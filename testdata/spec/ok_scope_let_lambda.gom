@@ -1,12 +1,12 @@
 package ex
 
 // spec section 6.1: a let-bound helper gets the same parameter
-// inference as a declared function — its `cl` parameter lands in
-// `Scope.defer`'s non-escaping callback slot, so a scope-capturing
-// cleanup passed through the helper does not escape its scope.
+// inference as a declared function — `f` is only applied inside
+// the helper, so a scope-capturing lambda passed through it does
+// not escape its scope.
 fn ok_let_helper (held: Ref Int) -> Int =
     Scope.run <| fn s -> {
-        let add = fn cl -> Scope.defer s cl
-        add (fn () -> Scope.defer s (fn () -> Ref.set held 0))
+        let apply = fn f -> f ()
+        apply (fn () -> Scope.defer s (fn () -> Ref.set held 0))
         Ref.get held
     }

@@ -1797,13 +1797,17 @@
   runtime panic するが E0419 は出ない。同じ穴はコールバックの結果を
   結果に含む callee（map/and_then/fold 形）全般にある。
   [チェッカー](../internal/check/escape.go)（2026-11-22 検証）
-- [x] **`Scope.defer`/`defer_err`/`on_err` のコールバックパラメータに
-  escape flag が無かった**: spec 6.1 は `Scope` 操作内での使用を
-  許すと読めるが、組み込みテーブルの `escapes` が未指定で
-  cleanup 引数は保守的に escaping 扱い — `let` 束縛ヘルパ経由で
-  cleanup を登録すると `cl` パラメータが danger になり E0419 の
-  偽陽性（直接の `Scope.defer s (fn () -> <uses s>)` でも同じ）。
-  対応: 3 メンバに `escapes: []bool{false, false}` を付記 —
-  cleanup はスコープの生存期間内（close 時）に走るので non-escaping。
-  [テーブル](../internal/stdlib/builtin.go)（2026-11-22 検証）
-  検証: [spec](../testdata/spec/ok_scope_let_lambda.gom)
+- [x] **`let` 束縛ラムダ経由の呼び出しが保守的 escaping で E0419 の
+  偽陽性**: `let apply = fn f -> f ()` のようなローカル helper に
+  スコープ捕獲のコールバックを渡すと `CallUnknown` で一律 danger
+  となり E0419 が出ていた。対応: let 束縛ラムダに `fn` と同じ
+  パラメータ escape 推論（`CallUnknown` の `*Var` callee でも
+  `Symbol.Escapes` を引く）+ let 束縛の alias 伝搬（`let x = cl`
+  経由の escape もパラメータに戻す）。
+  [チェッカー](../internal/check/escape.go)（2026-11-22 検証）
+  検証: [spec](../testdata/spec/ok_scope_let_lambda.gom)。
+  なお `Scope.defer` のコールバックに non-escaping flag を付ける
+  案は却下 — cleanup は scope に保持され、別スコープを捕まえた
+  cleanup がその scope を生き延びて close 後に panic し得るため、
+  保守的 escaping が正しい（外側 scope の capture を許せる細粒度は
+  flag モデルでは表現不能）

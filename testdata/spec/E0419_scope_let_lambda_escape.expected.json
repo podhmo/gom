@@ -8,14 +8,14 @@
       "span": {
         "file": "E0419_scope_let_lambda_escape.gom",
         "start": {
-          "line": 9,
+          "line": 10,
           "col": 43,
-          "offset": 339
+          "offset": 411
         },
         "end": {
-          "line": 9,
+          "line": 10,
           "col": 44,
-          "offset": 340
+          "offset": 412
         }
       }
     }

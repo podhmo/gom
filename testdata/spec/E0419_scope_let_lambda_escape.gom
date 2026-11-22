@@ -1,11 +1,12 @@
 package ex
 
 // spec section 6.1: the let-bound helper returns its parameter, so
-// the parameter escapes — a scope-capturing cleanup passed through
-// it is rejected like any other retained use.
+// the parameter escapes — a scope-capturing lambda passed through
+// it is rejected like any other retained use. Aliasing the
+// parameter first does not hide the escape.
 fn bad_let_helper (held: Ref Int) -> Int =
     Scope.run <| fn s -> {
-        let ret = fn cl -> cl
+        let ret = fn cl -> { let x = cl; x }
         ignore (ret (fn () -> Scope.defer s (fn () -> Ref.set held 0)))
         Ref.get held
     }
