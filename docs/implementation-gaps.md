@@ -1729,7 +1729,7 @@
   testdata/spec/ok_go_conv_defined_type・E0507_go_conv_defined_reject・
   E0417_go_conv_defined_range、testdata/golden/go_conv。
 
-- [ ] **未注釈 record リテラルが import 経由の record 型に解決されない**:
+- [x] **未注釈 record リテラルが import 経由の record 型に解決されない（誤検証）**:
   `import "m/shapes"` した `shapes.Point`（`.gomi` にフィールド付き宣言あり）に
   対し `{ x = 1.0, y = 2.0 }` が "no record type has fields [x y]"（E0401）になる。
   フィールド選択 `p.x`・ctor 呼出し `shapes.Point 1.0 2.0` は解決されるので、
@@ -1737,6 +1737,17 @@
   ローカルに限定していること。未注釈リテラルと record パターンで import 先
   の record が使えない。[チェッカー](../internal/check/expr.go)
   / [problems](problems/2026-11-02-imported-record-fields.md)（2026-11-22 検証）
+
+  解消（wave31 lane C、2026-11-22）: **ずれは存在しなかった**。
+  `registerForeignTypes`（V-6 の `32650f7` 由来）が import 先 record を
+  `tyCons` と `c.records` の両方に登録しており、`recordByFields` は
+  最初から import 先を候補に含んでいた — two-package scratch（main
+  `4c50488` でビルド）で `{x = 1.0, y = 2.0}` が `shapes.Point` に
+  一意解決し、`match` の record パターンも期待型経由で解決する。
+  直前の「検証済み」記述は stale バイナリによる誤検証。残る設計論点
+  （import 先 record が曖昧候補集合を広げる点）は現状維持を推奨
+  — [decision](decisions/2026-11-22-imported-record-literal.md)。
+
 - [x] **関数型を返す `Scope.run` の生成 Go がコンパイルできない**: spec 6.1 の `Scope.run : (Scope -> a) -> a` は
   `a` が関数型でも書けるが、`fn f () -> Int -> Int = Scope.run <| fn s -> add 1` は Core 検証で E0901
   （`call has 2 args for Go arity 1`）になる。括弧の形 `Scope.run (fn s -> add 1)` は lowering を通るものの、
