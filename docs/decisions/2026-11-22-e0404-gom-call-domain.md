@@ -1,6 +1,6 @@
 # E0404 は Go 呼出し専用とし、E0401 に未適用ラベルの文言を載せる
 
-- 状態: draft（wave31 lane B — 採否待ち）
+- 状態: 採択（2026-11-22 wave32 prompts インタビュー — wave32 lane B で実装）
 - 日付: 2026-11-22
 
 `docs/problems/2026-11-02-gom-missing-label-is-partial.md` と
