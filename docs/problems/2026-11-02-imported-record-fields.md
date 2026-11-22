@@ -4,7 +4,8 @@
   記述は誤検証と判明。`registerForeignTypes`（internal/check/files.go）
   は import 先 record decl を `tyCons` と `c.records` の両方に登録する
   ため、フィールド選択・ctor・注釈/未注釈リテラル・record パターンは
-  当初から全て解決していた。台帳項目も同時に [x] 訂正済み。
+  当初から全て解決していた（two-package 検証で `{x = 1.0, y = 2.0}` →
+  `shapes.Point` の一意解決を確認）。台帳項目も同時に [x] 訂正済み。
   残る設計論点「曖昧候補集合（import するだけで一意だったリテラルが
   E0407 になりうる）」は
   [decisions/2026-11-22-imported-record-literal](../decisions/2026-11-22-imported-record-literal.md)
