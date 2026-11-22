@@ -238,6 +238,32 @@ func (g *gen) indexDecls(f *core.File) {
 			g.recordEmit(emitRecord{kind: emitType, gomName: tname,
 				name: name, base: name})
 		}
+		// A sibling sum emits more than its type name: `type T =
+		// | Some` also puts the `T_Some` struct and the `isT`
+		// sealing method into the shared package. The variant
+		// struct names claim verbatim — a local `type T_Some`
+		// would redeclare — while the marker is recorded for
+		// the listing only (a method name shares no namespace
+		// with package decls). Type order is sorted so the
+		// ledger — and `gom dump -phase=emit` — is stable.
+		var sumNames []string
+		for tname := range u.Sums {
+			sumNames = append(sumNames, tname)
+		}
+		sort.Strings(sumNames)
+		for _, tname := range sumNames {
+			tn := exportName(tname)
+			m := markerName(tn)
+			g.recordEmit(emitRecord{kind: emitMarker, gomName: tname,
+				name: m, base: m})
+			for _, v := range u.Sums[tname] {
+				vname := tn + "_" + exportName(v)
+				g.pused[vname] = true
+				g.used[vname] = true
+				g.recordEmit(emitRecord{kind: emitVariant,
+					gomName: tname + "." + v, name: vname, base: vname})
+			}
+		}
 		// A test name a sibling file also declares takes the file
 		// tag — the fnv32a-of-path convention the lowering temps
 		// use — so the two `func TestX` emissions cannot collide in
@@ -263,11 +289,11 @@ func (g *gen) indexDecls(f *core.File) {
 	for _, d := range f.Decls {
 		switch d := d.(type) {
 		case *core.FuncDecl:
-			if d.Sym != nil {
+			if d.Sym != nil && !(d.Sym.TestOnly && !f.Tests) {
 				pkgSyms = append(pkgSyms, pkgSym{d.Sym, emitFunc})
 			}
 		case *core.VarDecl:
-			if d.Sym != nil {
+			if d.Sym != nil && !(d.Sym.TestOnly && !f.Tests) {
 				pkgSyms = append(pkgSyms, pkgSym{d.Sym, emitVar})
 			}
 		case *core.TypeDecl, *core.TestDecl:

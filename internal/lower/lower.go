@@ -295,6 +295,7 @@ func (l *lowerer) unitScope(pkg string, siblings []check.Decl) *core.UnitScope {
 		Vars:    map[*resolve.Symbol]bool{},
 		Types:   map[string]bool{},
 		TParams: map[*resolve.Symbol]int{},
+		Sums:    map[string][]string{},
 		Tests:   map[string]bool{},
 	}
 	for _, d := range siblings {
@@ -314,6 +315,7 @@ func (l *lowerer) unitScope(pkg string, siblings []check.Decl) *core.UnitScope {
 				for _, v := range s.Variants {
 					if v.Sym != nil {
 						u.TParams[v.Sym] = len(d.TypeParams)
+						u.Sums[d.Sym.Name] = append(u.Sums[d.Sym.Name], v.Sym.Name)
 					}
 				}
 			}

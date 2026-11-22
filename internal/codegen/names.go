@@ -1,6 +1,8 @@
 package codegen
 
 import (
+	"strconv"
+
 	"github.com/podhmo/gom/internal/core"
 	"github.com/podhmo/gom/internal/diag"
 )
@@ -240,7 +242,10 @@ func warnsOnEvict(k emitKind) bool {
 	return false
 }
 
-func q(s string) string { return "\"" + s + "\"" }
+// q quotes a name for a diagnostic message. Test labels are
+// arbitrary string literals — an embedded control character must
+// not leak into the message (diag messages are single-line).
+func q(s string) string { return strconv.Quote(s) }
 
 // itoa renders a small non-negative int without importing strconv.
 func itoa(i int) string {
