@@ -1811,3 +1811,14 @@
   cleanup がその scope を生き延びて close 後に panic し得るため、
   保守的 escaping が正しい（外側 scope の capture を許せる細粒度は
   flag モデルでは表現不能）
+- [x] **`gom fmt` が `//gom:` ディレクティブを `/* */` に書き換えて
+  無効化していた**: 式 head・型本体の中にある `//gom:allow` /
+  `//gom:noescape` を inline 化するとき `//` を `/* */` に変換して
+  おり、`//gom:` 行頭プレフィックスを要求する ScanAllow /
+  ScanNoescape に一致しなくなりディレクティブが黙って失われた。
+  対応: format の inline 消費で `//gom:` ディレクティブを未使用
+  コメントに差し戻し、EOF の own-line tail に出力する
+  （name/file ベースのディレクティブは位置非依存なので動作を保つ）。
+  連続・先行の空行は付けず冪等化。
+  [フォーマッタ](../internal/format/print.go)（2026-11-23 検証）
+  検証: [golden](../testdata/fmt/directives.out.gom)。

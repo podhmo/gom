@@ -1,0 +1,13 @@
+package d
+
+fn apply (f: Unit -> Unit) -> Unit =
+    //gom:allow W0003
+    f ()
+
+fn apply2 (f: Unit -> Unit) -> Unit = f ()
+//gom:noescape apply2 0
+
+fn g () -> Int =
+    1 +
+    //gom:allow W0003
+    2

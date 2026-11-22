@@ -207,7 +207,7 @@ func (p *printer) take(lo, hi int) []*cmt {
 // comment lands in the same node's tail region when reparsed, so the
 // output is still idempotent.
 func (p *printer) sweep(lo, hi int, d *doc) *doc {
-	cs := p.take(lo, hi)
+	cs := keepInline(p.take(lo, hi))
 	if len(cs) == 0 {
 		return d
 	}
@@ -348,12 +348,37 @@ type gevt struct {
 // inline gap emission inside expressions
 //
 
+// isGomDirective reports whether c is a `//gom:` directive comment —
+// functional file-level metadata the check and loader passes scan for
+// by line prefix (`//gom:allow`, `//gom:noescape`; spec sections 6.1
+// and 12). A directive only works at line start, so rendering one
+// inline as /* gom:... */ would silently switch it off. Inline
+// emission hands these back; they fall through to the printer's
+// own-line tail.
+func isGomDirective(c *cmt) bool {
+	return c.c.Kind == syntax.CommentLine && strings.HasPrefix(c.c.Text, "gom:")
+}
+
+// keepInline hands `//gom:` directive comments back to the unused
+// pool so inline contexts never reword them.
+func keepInline(cs []*cmt) []*cmt {
+	keep := cs[:0]
+	for _, c := range cs {
+		if isGomDirective(c) {
+			c.used = false
+			continue
+		}
+		keep = append(keep, c)
+	}
+	return keep
+}
+
 // gapInline consumes comments in [lo, hi) and returns their inline
 // rendering — " /* a */ /* b */ " — or "" when empty. Line comments
 // are rewritten to block form: a //'s swallowed newline is not
 // available inside an unbracketed expression.
 func (p *printer) gapInline(lo, hi int) string {
-	cs := p.take(lo, hi)
+	cs := keepInline(p.take(lo, hi))
 	if len(cs) == 0 {
 		return ""
 	}
@@ -386,7 +411,13 @@ func (p *printer) run(f *syntax.File) []byte {
 			b.WriteString("\n")
 			out = "\n"
 		}
-		b.WriteString("\n" + c.render() + "\n")
+		if isGomDirective(c) {
+			// Directives emit adjacent — a blank separator would
+			// not survive the next format pass.
+			b.WriteString(c.render() + "\n")
+		} else {
+			b.WriteString("\n" + c.render() + "\n")
+		}
 	}
 	s := b.String()
 	// Blank lines preserved inside collections render as the line's
