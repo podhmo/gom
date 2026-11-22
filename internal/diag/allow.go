@@ -23,7 +23,16 @@ func ScanAllow(src []byte, path string) (allow map[Code]bool, diags List) {
 		if !strings.HasPrefix(trimmed, "//gom:allow") {
 			continue
 		}
-		rest := strings.TrimSpace(strings.TrimPrefix(trimmed, "//gom:allow"))
+		rest := trimmed[len("//gom:allow"):]
+		if rest != "" && rest[0] != ' ' && rest[0] != '\t' {
+			// `//gom:allowE0301` is not a directive but its intent is
+			// obvious — warn rather than demote anything on a line
+			// that only looks like the directive.
+			diags.Add(Warning("W0003", "malformed `//gom:allow` directive: expected whitespace after `allow`").
+				At(Span{File: path, Start: start, End: start + len(line)}))
+			continue
+		}
+		rest = strings.TrimSpace(rest)
 		if rest == "" {
 			diags.Add(Warning("W0003", "`//gom:allow` needs at least one diagnostic code").
 				At(Span{File: path, Start: start, End: start + len(line)}))
