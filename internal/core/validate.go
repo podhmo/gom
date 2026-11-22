@@ -1339,6 +1339,11 @@ func (v *validator) exprCallbackArity(e Expr) (int, bool) {
 	if k := goFuncNArity(exprType(e)); k >= 0 {
 		return k, true
 	}
+	// An atom delegates to callbackArity — atoms carry their own
+	// repr (flat decl refs, Go funcs, ctor chains).
+	if a, ok := e.(Atom); ok {
+		return v.callbackArity(a)
+	}
 	switch e := e.(type) {
 	case *GoFunc:
 		return len(e.Params), true
@@ -1348,8 +1353,6 @@ func (v *validator) exprCallbackArity(e Expr) (int, bool) {
 		return 1, true
 	case *Conv:
 		return v.callbackArity(e.X)
-	case Atom:
-		return v.callbackArity(e)
 	case *Binary, *CallBuiltin, *CallDirect, *CallFunc, *CallGo,
 		*CtorApp, *Defer, *Equal, *ErrorFromGo, *EscapeCall,
 		*EscapeResult, *FieldSet, *ForRange, *If, *ListNew,
@@ -1357,10 +1360,10 @@ func (v *validator) exprCallbackArity(e Expr) (int, bool) {
 		*ResultFromGo, *SelectExpr, *Spawn, *TailCall,
 		*TupleFromGo, *TupleNew, *Unary,
 		*Var, *Lit, *FuncRef, *CtorRef, *GoFuncRef, *FieldGet:
-		// The atom cases are unreachable — the Atom case above
-		// already returns; they are named so the exhaustiveness
-		// check sees every variant. The rest fall through to
-		// the arrow-type check below.
+		// The atom variants are unreachable — the assertion
+		// above already returned — but the exhaustiveness check
+		// requires every variant be named. The rest fall
+		// through to the arrow-type check below.
 	}
 	if arrowArity(exprType(e)) > 0 {
 		return 1, true
