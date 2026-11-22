@@ -1,0 +1,48 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0302",
+      "severity": "warning",
+      "message": "unreachable match arm",
+      "span": {
+        "file": "gom_allow_per_file/a.gom",
+        "start": {
+          "line": 7,
+          "col": 3,
+          "offset": 74
+        },
+        "end": {
+          "line": 7,
+          "col": 9,
+          "offset": 80
+        }
+      },
+      "data": {
+        "arm_index": 1
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0302",
+      "severity": "error",
+      "message": "unreachable match arm",
+      "span": {
+        "file": "gom_allow_per_file/b.gom",
+        "start": {
+          "line": 5,
+          "col": 3,
+          "offset": 55
+        },
+        "end": {
+          "line": 5,
+          "col": 9,
+          "offset": 61
+        }
+      },
+      "data": {
+        "arm_index": 1
+      }
+    }
+  ]
+}

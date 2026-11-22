@@ -38,6 +38,8 @@ func runTest(args []string, stdout, stderr io.Writer) int {
 	format := fs.String("format", "json", "diagnostic format: json or text")
 	quiet := fs.Bool("q", false, "suppress the raw Go stack trace in panic output")
 	fs.BoolVar(quiet, "quiet", false, "suppress the raw Go stack trace in panic output")
+	strict := &strictFlag{}
+	fs.Var(strict, "strict", "exit non-zero on warnings; -strict=CODES limits to the listed codes")
 	if err := fs.Parse(gomArgs); err != nil {
 		return flagError(err)
 	}
@@ -140,7 +142,7 @@ func runTest(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "gom test: %v\n", err)
 		return diag.ExitInternal
 	}
-	return rep.ExitCode()
+	return strictExit(rep, strict)
 }
 
 // testDir groups the inputs of one package directory for a single

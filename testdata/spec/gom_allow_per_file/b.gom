@@ -1,0 +1,6 @@
+package m
+
+fn g (n: Int) -> Int = match n {
+  _ -> 0
+  1 -> 1
+}

@@ -1,0 +1,49 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "W0003",
+      "severity": "warning",
+      "message": "`//gom:allow` cannot demote E0401: the code is not relaxable",
+      "span": {
+        "file": "gom_allow_unusable.gom",
+        "start": {
+          "line": 3,
+          "col": 1,
+          "offset": 11
+        },
+        "end": {
+          "line": 3,
+          "col": 18,
+          "offset": 28
+        }
+      },
+      "data": {
+        "code": "E0401"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected Int, got String",
+      "span": {
+        "file": "gom_allow_unusable.gom",
+        "start": {
+          "line": 5,
+          "col": 24,
+          "offset": 53
+        },
+        "end": {
+          "line": 5,
+          "col": 27,
+          "offset": 56
+        }
+      },
+      "data": {
+        "actual": "String",
+        "expected": "Int"
+      }
+    }
+  ]
+}
