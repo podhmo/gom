@@ -1,0 +1,33 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected Int, got ~y: Int -> Int",
+      "span": {
+        "file": "E0401_unfilled_label.gom",
+        "start": {
+          "line": 5,
+          "col": 15,
+          "offset": 67
+        },
+        "end": {
+          "line": 5,
+          "col": 22,
+          "offset": 74
+        }
+      },
+      "data": {
+        "actual": "~y: Int -> Int",
+        "expected": "Int",
+        "unfilled_labels": [
+          "y"
+        ]
+      },
+      "notes": [
+        "the value is a partially applied call still awaiting ~y:"
+      ]
+    }
+  ]
+}

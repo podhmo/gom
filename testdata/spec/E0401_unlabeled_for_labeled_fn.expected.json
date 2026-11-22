@@ -20,8 +20,14 @@
       },
       "data": {
         "actual": "?1 -> ?1",
-        "expected": "~x: Int -> Int"
-      }
+        "expected": "~x: Int -> Int",
+        "unfilled_labels": [
+          "x"
+        ]
+      },
+      "notes": [
+        "the expected function type still declares ~x: — positional arguments may have filled labeled parameters out of order"
+      ]
     }
   ]
 }
