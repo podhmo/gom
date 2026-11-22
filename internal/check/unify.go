@@ -1108,7 +1108,9 @@ func (c *checker) mismatch(sp diag.Span, want, got any) {
 
 // unfilledLabels lists the labeled parameters of t when it is a
 // function type — the labels a partial application still owes.
-// Non-type arguments never qualify.
+// A signature returning a function keeps that function nested in
+// Ret (fnSig does not flatten), so the walk continues through the
+// Ret chain. Non-type arguments never qualify.
 func unfilledLabels(t any) []string {
 	tt, ok := t.(types.Type)
 	if !ok {
@@ -1119,12 +1121,18 @@ func unfilledLabels(t any) []string {
 		return nil
 	}
 	var ls []string
-	for _, p := range f.Params {
-		if p.Label != "" {
-			ls = append(ls, p.Label)
+	for {
+		for _, p := range f.Params {
+			if p.Label != "" {
+				ls = append(ls, p.Label)
+			}
 		}
+		nf, ok := types.Chase(f.Ret).(*types.Func)
+		if !ok {
+			return ls
+		}
+		f = nf
 	}
-	return ls
 }
 
 // joinLabels renders `~x:`, `~y:` for a diagnostic note.
