@@ -2237,10 +2237,9 @@ func (c *checker) checkPipeTry(e *syntax.Binary) Expr {
 		c.markQuiet(resT)
 		c.markQuiet(errT)
 		name := "the step"
-		switch s := f.(type) {
-		case *Var:
+		if s, ok := f.(*Var); ok {
 			name = "`" + s.Sym.Name + "`"
-		case *MemberExpr:
+		} else if s, ok := f.(*MemberExpr); ok {
 			name = "`" + s.Sym.Name + "`"
 		}
 		rtName := types.Display(rt, metaNamer())
