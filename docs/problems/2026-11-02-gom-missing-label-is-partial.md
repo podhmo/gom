@@ -1,6 +1,11 @@
 # E0404 never fires for Gom calls: a missing label is a partial application
 
-- 状態: 未決
+- 状態: 一部解消（2026-11-22 棚卸し — コード表の例は既に Go 呼出し
+  `io.Copy ~src: f` に修正済みで、説明も「Go callee 限定」を明記する。
+  残件の「Gom 呼出しへの E0404 拡張の是非」と「E0401 文言の改善」は
+  [decision draft](../decisions/2026-11-22-e0404-gom-call-domain.md) に
+  集約 — E0404 は Go 専用を維持、E0401 に未適用ラベルの文言を載せる
+  案を採否待ち）
 
 ## 状況
 

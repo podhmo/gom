@@ -97,6 +97,16 @@ type CallInfo struct {
 	// a returned-function level. An argument with no parameter — a
 	// positional extra applied onto the result, or a label the call
 	// already reported — leaves the whole mapping nil.
+	//
+	// Entries must be distinct (Validate), so a variadic Go call —
+	// where every trailing argument fills the same final parameter —
+	// always reports nil here. For a CallGo with Variadic set, nil
+	// therefore does NOT mean "identity" alone: the convention is
+	// that argument i supplies parameter min(i, Arity-1) — the
+	// repeated tail is derived from Variadic + Arity, not from this
+	// slice. A [0,1,1,...] spelling was rejected because consumers
+	// reorder via out[ArgToParam[i]] = arg and repeated indices
+	// collide (docs/problems/2026-11-02-variadic-arg-mapping.md).
 	ArgToParam []int
 
 	// HoleIndex is the index into Args of the `_` placeholder of a
@@ -105,7 +115,9 @@ type CallInfo struct {
 	HoleIndex int
 
 	// Variadic marks a Go callee with a variadic final parameter; the
-	// number of Args may then exceed Arity-1.
+	// number of Args may then exceed Arity-1 and every argument at
+	// index ≥ Arity-1 supplies the final parameter's element type
+	// (see ArgToParam for the mapping convention).
 	Variadic bool
 }
 

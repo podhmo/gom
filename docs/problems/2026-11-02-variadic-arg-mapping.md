@@ -1,6 +1,13 @@
 # Variadic Go calls: ArgToParam cannot represent the repeated tail
 
-- 状態: 未決
+- 状態: 解消（2026-11-22 棚卸し — 現状記述の明文化を採択。
+  `CallInfo.ArgToParam`/`Variadic` のコメントに「CallGo + Variadic で
+  nil は identity ではなく arg i → min(i, Arity-1) の約束」を明記した。
+  `[0,1,1,...]` 表現は検討したが、consumers（eval の declOrderVals・
+  lower の declOrderArgs）が `out[ArgToParam[i]] = arg` で並べ替えるため
+  繰り返し添字は衝突して壊れる — 構造改善は棄却。要素型を `Go.Slice e`
+  から構造的に読む点は `Signature.Variadic` が既にマーカーとしてあり、
+  goimport の `...T` モデルが変われば要再検討として下記に残す）
 
 ## 状況
 

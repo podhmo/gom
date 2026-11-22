@@ -1,26 +1,34 @@
 # Record metadata is file-local: imported records cannot resolve fields
 
-- 状態: 未決
+- 状態: 一部解消（2026-11-22 棚卸し — `.gomi` が record フィールドを
+  運ぶようになり `registerForeignTypes` が import 先の decl を
+  `tyCons` に登録するので、フィールド選択 `p.x`・ctor 呼出し
+  `shapes.Point 1.0 2.0`・import 型への注釈付きリテラルは解決済み。
+  残るは未注釈リテラル `{ x = .. }` と record パターン —
+  `recordByFields` が候補をファイルローカル宣言に限定している。
+  台帳 [docs/implementation-gaps.md](../implementation-gaps.md) の
+  「未注釈 record リテラルが import 経由の record 型に解決されない」
+  に移管済み、設計論点（import 先のどの record を候補にするか・
+  曖昧一致時の診断）は wave31 lane C で decision draft にする）
 
 ## 状況
 
 The checker keeps record/sum shape information in `c.tyCons` /
-`c.records`, populated only from the file's own `type` declarations
-(`internal/check/typenv.go`). As a result:
+`c.records`. Imported declarations arrive via
+`registerForeignTypes` (internal/check/files.go), so field selection
+and ctor calls resolve — but `recordByFields` still enumerates only
+the file's own declarations:
 
 - An unannotated record literal `{ x = 1, y = 2 }` resolves its record
   type by field set (`recordByFields`) — but only over records
   declared in the same file. A literal of an *imported* record type
   cannot be resolved this way and reports "no record type has fields
-  ..." even though the type exists.
-- Field selection `p.x` and record patterns `{ x, y }` need the field
-  symbols (`FieldInit.Sym`, `FieldPat.Sym`/`Index`) — again available
-  only for file-local declarations. An imported record's fields are
-  invisible to the checker.
+  ..." even though the type exists (2026-11-22 検証済み).
+- Record patterns share the same file-local enumeration.
 - `SignatureSource` (`internal/check/env.go`) supplies value-level
   signatures (functions, methods, extern names, builtins) but has no
   channel for type *shape* — field names, indices, and payload
-  layouts.
+  layouts. (歴史的記述 — `.gomi` は今この shape を運ぶ)
 
 ## なぜ問題か
 
