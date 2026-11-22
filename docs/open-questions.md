@@ -6,13 +6,13 @@
 
 ### 型システム
 
-- [ ] 実装の型がインターフェースより一般的な場合（実装が多相、`.gomi` が単相）を許すか
+- [x] 実装の型がインターフェースより一般的な場合（実装が多相、`.gomi` が単相）を許すか — 許さない（厳格一致維持、案 B 採択・2026-11-23）。狭めたい場合は明示的な単相ラッパを書く（[decision](decisions/2026-11-23-gomi-monomorphic.md)）
 
 - [ ] 可変性: `Ref a` と可変配列 `Array a` 以外に可変構造を許すか。`Ref` のメンバー面（`Ref.new`/`get`/`set`、rt-backed builtin module）は wave25 で実装済み（[decision](decisions/2026-11-19-ref-members.md)）。なお W0701/W0702 lint の可変判定は spec 10 章の閉じた builtin リスト（`Ref`/`Array`/`Ptr`/`Go.Slice`/`Go.Map`）を使う — ユーザー宣言型の可変構造そのものは引き続き未決（[decision](decisions/2026-11-04-mutable-sharing-lint.md)）
 
 ### Go 相互運用
 
-- [ ] Go ABI の方針: 生成される Go の API（型名・関数のシグネチャ・バリアントの struct 名）を、Gom のバージョンをまたいでどこまで安定させるか
+- [x] Go ABI の方針: 生成される Go の API（型名・関数のシグネチャ・バリアントの struct 名）を、Gom のバージョンをまたいでどこまで安定させるか — 案 B 採択（決定的 emit の保証 + emit 名の衝突検出、名前の安定保証はしない — [decision](decisions/2026-11-23-go-abi-stability.md)）。衝突検出器の実装は wave35 lane C
 - [x] Gom の型が Go の interface を実装できるようにするか（v1 ではできない）。できるなら、どう宣言するか — wave25 lane D で実現可能性を調査済み、wave29 lane D で post-defined-type 世界の設計を decision まで固め（`@method` 属性 + 規約命名、.gomi は fn リスト、`InterfaceMethods` oracle — [decision](decisions/2026-11-21-go-iface-impl.md)）、2026-11-22 に採択。実装は wave30 lane C（[prompts](sketch/2026-11-22-wave30-prompts.md)）
 
 ### 最適化
@@ -31,16 +31,16 @@
 - ラベル付き引数の制限の緩和（型が未知の関数へのラベル付き適用、ラベル付き／なし関数の暗黙変換）
 - 省略可能引数とデフォルト値 → defaults record + `{base with x = v}` パターンで代替する方針に収束（2026-11-19、[sketch](sketch/2026-11-19-labeled-args.md)）。record→ラベル引数の spread は wave29 lane C で実装済み（`f ~..opts`、[decision](decisions/2026-11-21-record-spread-arg.md)、spec 3 章）
 - `|?>` の自動ラップの文言を設定可能にする。残る未決は文言のカスタマイズのみ — 書式（関数名・ソース位置・任意の文言）をパッケージ単位で指定する方法か、ステップごとに文言を書ける構文か。ステップ名由来の `step: message` 文言・構造化フレーム `rt.StepError{Step, Err}`・`strconv` 二重名は provenance として容認する方針は [result-pipe-wrap-frame](decisions/2026-11-05-result-pipe-wrap-frame.md) で採用済み
-- ローカル let 多相 — v1 は単相のまま維持（[decision](decisions/2026-11-23-local-let-polymorphism.md) で案 A 現状維持を推奨、採択待ち）。障壁は relaxed value restriction ではなく Go 側の emission（ローカル generics が存在しない）
+- ローカル let 多相 — v1 は単相のまま維持（案 A 現状維持、2026-11-23 採択 — [decision](decisions/2026-11-23-local-let-polymorphism.md)）。障壁は relaxed value restriction ではなく Go 側の emission（ローカル generics が存在しない）
 - `List` のハイブリッド表現（chunked / unrolled list、所有権フラグ付きの反転ストレージなど）。先頭追加を償却 O(1) に戻す案。P0-3 でスライス表現（`type List[A] []A`）を採用したが、ユーザーレベルの `x :: acc` 型の逐次構築が支配的なワークロードで再検討する余地がある（[sketch: P0-3](sketch/2026-11-02-p0-3-list-representation.md)）
 - チャネルで送れる値を型で制限する仕組み（Rust の `Send` 相当）
 - `Char` ↔ `Int32` の暗黙の橋渡しを許すか: Go の `rune` 引数 API には `Int32` を渡す必要があり `Char` 値は `Go.conv` を通す。両者の Go 表現は同じ `rune` なので機械的に相互変換可能だが、暗黙変換や専用組み込みを足すかは未決 — v1 は `Go.conv` 明示のまま、ユースケースが集まってから再検討（[problem](problems/2026-11-06-rune-char-correspondence.md)、wave20 lane4 で台帳化判定）
 - `deriving` 相当の自動生成（辞書渡しの辞書値をコンパイラが合成する方向）— `Ord` 限定導入は見送り決定（[decision](decisions/2026-11-19-deriving-declined.md)）。対象が広がり十分便利になるなら再考の余地あり
-- scoped cleanup（[decision](decisions/2026-11-21-scoped-cleanup.md)）の拡張: `GoError` 以外のエラー型で cleanup の失敗を合流させる版（結合関数を明示的に受け取る）と、取得と登録を一度に書く糖衣（`s.closing` など）・専用ブロック構文。後者は関数とメソッドだけの面で困ってから考える
+- scoped cleanup（[decision](decisions/2026-11-21-scoped-cleanup.md)）の拡張: 案 D 現状維持 + 代替経路の文書化を採択（2026-11-23、[decision](decisions/2026-11-23-scope-cleanup-extension.md)）— `GoError` 以外への合流は `run_result` → `Result.map_err`、取得+登録はユーザー helper で足りる。文書化の残作業は wave35 lane B。案 A–C は将来の余地として残す
 - インクリメンタルビルドのキャッシュ（P4。それまでは毎回変換し、Go のキャッシュに任せる）
 - cgo、`unsafe`、`reflect` の本格的な扱い
 - セルフホスト（コンパイラを Gom で書き直す）
-- Core 検証器で Go 呼び出しの関数引数の表現を検査する: `CallGo` に渡すコールバックの arity（flat / canonical の形）が Go 側の宣言パラメータ型と合うかを `core.Validate` で確かめ、生成 Go の型検査より手前で E0901 として原因の場所を出す。今は `FuzzCompile` の go/types 型検査が同じ壊れ方を拾う（関数型で具体化した多相 builtin の実例: `testdata/golden/builtin_fn_typearg`）
+- [x] Core 検証器で Go 呼び出しの関数引数の表現を検査する — wave34 lane D で実装済み: `CallGo.FlatArgs` に宣言型由来のスロット arity を載せ、`core.Validate` が emitted repr（`callbackArity`）と照合して E0901。宣言型（rigid）を読む点が要 — instantiated 型は型変数下の関数型で arity が広がる（`internal/core/validate.go`、`TestCallGoCtorRefCallbackArity`）
 - [x] W0502 `lintErrorsAsTarget` の `Ptr (Ptr E)` ケース: `**int` は `*int` が error 非実装かつ非 interface なので panic が証明可能（wave9 error-tail レビュー nit） → wave22 lane2 で実装済み: E が unnamed/interface 表現なら warn、named Go 型・record・abstract・メタは沈黙維持（[decision](decisions/2026-11-19-errors-as-nested-ptr-lint.md)）
 - [x] `CtorApp`/`CtorRef` の `TypeArgs` を廃止して `Typ` の `Con.Args` を唯一の正にするか: podhmo 判定 (b) 採用（廃止）→ wave24 lane A で実装済み — `Typ` の `Con.Args` が唯一の正（[decision](decisions/2026-11-19-ctor-typeargs-removed.md)、元 [decision](decisions/2026-11-18-ctor-typeargs-authoritative.md)、棚卸し [sketch](sketch/2026-11-19-ctor-targs-b-inventory.md)）
 

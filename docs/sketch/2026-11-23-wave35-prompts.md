@@ -1,16 +1,15 @@
-# wave35 prompts 草案
+# wave35 prompts
 
-- 状態: 草案
+- 状態: 採択済み（2026-11-23 インタビュー — lane A–E 全採択）
 - 日付: 2026-11-23
-- 前提: wave34 スタックがマージされた新しい main からレーンごとに
-  ブランチを切る（lane 同士はチェーンでよい）
+- 前提: wave34 スタック #147 全件 squash merge 済みの新しい
+  main からレーンごとにブランチを切る（lane 同士はチェーンでよい）
+- 併せて確定した wave34 残 decision: scope-cleanup-extension=
+  案 D（現状維持+文書化）、go-abi-stability=案 B（衝突検出込み — 
+  draft 推奨の案 A を越えて採択）、local-let-polymorphism=案 A
+  （現状維持）
 
-採否・実装可否・条件は wave 開始前インタビューで確定する
-（docs/ja/wave-process.md）。wave34 の 3 decision draft
-（scope-cleanup-extension=案 D・go-abi-stability=案 A・
-local-let-polymorphism=案 A）の採否も同じインタビューで。
-
-## レーン案
+## レーン（採択済み）
 
 ### A. `|?>` 回避経路の文書化（採択済み decision の実施）
 
@@ -21,23 +20,27 @@ local-let-polymorphism=案 A）の採否も同じインタビューで。
   gom-agent-guide に追記。decision の状態更新
 - 規模: 小
 
-### B. scoped-cleanup 案 D の実施（採択次第）
+### B. scoped-cleanup 案 D の実施（案 D 採択済み）
 
-- 出典: wave34 lane B decision draft — 採択なら「代替経路を
+- 出典: wave34 lane B decision — 案 D 採択済み。「代替経路を
   helper で書ける」の文書化が残る
 - 作業: `run_result` の GoError 制約を越えるパターンを
   helper で書く例を guide（Scope 節）と spec に追記。
   decision の状態更新
 - 規模: 小
 
-### C. Go ABI 案 B の調査（採択次第・拡張余地）
+### C. Go ABI 案 B: emit 名衝突検出の実装
 
-- 出典: wave34 lane C decision draft の「案 B の余地」
-- 作業: 調査 → decision。emit 名の衝突検出（編集で既存名が
-  変わらない保証）を入れるなら何を検出器にするか — 生成名の
-  一覧化・suffix 衝突・暗黙 member 名。実装まで行くかは調査
-  次第
-- 規模: 小〜中（調査）
+- 出典: wave34 lane C decision — 案 B 採択（draft 推奨の案 A を
+  越えて）。emit 名の衝突検出を入れる
+- 作業: 生成名の一覧化・suffix 衝突（同 base の `x1`/`x2`
+  追い出し）・暗黙 member 名（sum variant struct・marker・
+  test 名）を検出する機構。E0607 が止めるのは base 名が同じ
+  `.gomi` メンバの衝突までで、生成 suffix への追い出し
+  （非公開 decl が `Foo1` を先取りして公開 decl が `Foo11` に
+  ずれる等）は対象外 — lane C の検出対象。検出器の形
+  （validator / lint / `--strict` 系）は調査しながら決める
+- 規模: 中
 
 ### D. ラベル付き引数の制限緩和の調査
 

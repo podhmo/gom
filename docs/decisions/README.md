@@ -229,10 +229,10 @@
 | [sc3-native-defer](2026-11-22-sc3-native-defer.md) | SC-3: `Scope` 登録を native Go `defer` へ lowering | adopted |
 | [scope-escape-check](2026-11-22-scope-escape-check.md) | Scope 値の脱出の静的検査（SC-2） | 採用（実装・検証済み — `gom check` が E0419 を出す） |
 | [strict-mode](2026-11-22-strict-mode.md) | `--strict` / 診断フィルタ — 調査と採否 | adopted（2026-11-22 調査結果 — wave30 lane D） |
-| [go-abi-stability](2026-11-23-go-abi-stability.md) | 生成 Go の API 安定方針（Go ABI） | draft |
+| [go-abi-stability](2026-11-23-go-abi-stability.md) | 生成 Go の API 安定方針（Go ABI） | 採択（案 B、2026-11-23 wave35 開始前インタビュー） |
 | [gomi-monomorphic](2026-11-23-gomi-monomorphic.md) | `.gomi` が実装より単相の場合の許容 | 採択（案 B — 厳格一致維持、明示的な単相ラッパ） |
-| [local-let-polymorphism](2026-11-23-local-let-polymorphism.md) | ローカル let の多相化 | draft |
+| [local-let-polymorphism](2026-11-23-local-let-polymorphism.md) | ローカル let の多相化 | 採択（案 A、2026-11-23 wave35 開始前インタビュー） |
 | [pipe-try-wording](2026-11-23-pipe-try-wording.md) | `\|?>` 自動ラップの文言カスタマイズ | 採択（案 C — 現状維持 + 回避経路の文書化） |
-| [scope-cleanup-extension](2026-11-23-scope-cleanup-extension.md) | scoped cleanup 拡張: エラー合流の一般化と取得+登録糖衣（案） | draft |
+| [scope-cleanup-extension](2026-11-23-scope-cleanup-extension.md) | scoped cleanup 拡張: エラー合流の一般化と取得+登録糖衣（案） | 採択（案 D、2026-11-23 wave35 開始前インタビュー） |
 | [scope-result-leak](2026-11-23-scope-result-leak.md) | 結果経由の Scope リーク（non-escaping 引数の生産物がクロージャを運ぶ） | 採択（案 A — 案 B への拡張余地あり、wave34 lane A で実装） |
 <!-- END GENERATED -->
