@@ -857,7 +857,7 @@ prints the pointer and exits 2).
 
 | Command | Use |
 | --- | --- |
-| `gom check FILE\|DIR...` | Parse → resolve → type-check → pattern check; no output files. A directory's `*.gom`/`*.gomi` compile as one package. |
+| `gom check FILE\|DIR...` | Parse → resolve → type-check → pattern check; no output files. A directory's `*.gom`/`*.gomi` compile as one package. `--strict` fails on any warning (`--strict=CODES` limits to the listed codes). |
 | `gom build [-o out] FILE\|DIR...` | Full pipeline; writes one `.go` per `.gom` next to the input (or under `-o` dir/file). `-go` additionally runs `go build` on the written package and folds its errors back to `.gom` spans. |
 | `gom dump -phase=syntax\|resolve\|check\|core FILE` | Print one phase's IR — sibling `.gom` files compile along so package members resolve; only the named file's IR prints (diagnostics go to stderr; stdout is the artifact). |
 | `gom test FILE\|DIR... [-- FLAGS]` | Also writes `_test.go` beside the `.go` and runs the package's `go test -json` — FLAGS after `--` pass through (`-race`, `-run`). Library packages need `<pkg>.gomi` (the conformance gate runs here too); `-q`/`--quiet` drops the raw half of panic stacks. |
