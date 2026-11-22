@@ -1752,9 +1752,19 @@
   [ローダー](../internal/gomimport/loader.go)（2026-11-22 検証）
   対応: スキャン/適用を internal/iface の共有ヘルパ
   （ScanNoescape/ApplyNoescape）に移し、gomimport と
-  internal/stdlib の両方から呼ぶ。stdlib 各 .gomi に
-  `//gom:noescape` を付記（List: map/filter/fold/iter/find、
-  Option: map/and_then/filter/iter、Result: map/map_err/and_then/iter、
-  cmp: fold_min/fold_max/sort_by — 全て実装がコールバックを
-  保持しないことを確認済み）。検証:
-  testdata/spec/ok_scope_stdlib_callback
+  internal/stdlib の両方から呼ぶ。コールバックを呼んで捨てる
+  consumer だけに `//gom:noescape` を付記（List: filter/iter/find、
+  Option: filter/iter、Result: iter、cmp: fold_min/fold_max/sort_by）。
+  map/and_then/fold 系はコールバックの結果が callee の結果を通って
+  外へ出る（下の未解消項目）ため注釈しない。検証:
+  [spec](../testdata/spec/ok_scope_stdlib_callback.gom)
+- [ ] **non-escaping 引数の「結果経由の Scope リーク」を検査できない**:
+  non-escaping と判定された関数型パラメータ（`.gomi` 注釈でも
+  check の推論でも）は「引数の値が保持されない」ことだけを意味し、
+  コールバックの **戻り値** に載った `s` 捕獲クロージャは追跡されない。
+  例: `run_cb (f: Int -> (Unit -> Unit)) (x: Int) = f x` に
+  `fn x -> fn () -> Scope.defer s ...` を渡すと、f の結果（捕獲
+  クロージャ）が呼出し結果からスコープ外へ出て、close 後に呼ぶと
+  runtime panic するが E0419 は出ない。同じ穴はコールバックの結果を
+  結果に含む callee（map/and_then/fold 形）全般にある。
+  [チェッカー](../internal/check/escape.go)（2026-11-22 検証）

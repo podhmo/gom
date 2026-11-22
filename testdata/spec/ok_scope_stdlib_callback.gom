@@ -4,23 +4,35 @@ import "list"
 import "option"
 import "result"
 
-// Stdlib higher-order functions mark their callback parameter
-// non-escaping (`//gom:noescape` directives in the .gomi — the
-// builtin modules' interfaces carry them like any imported
-// package's), so a callback that captures the scope handle is
-// allowed: it is applied inside the call, never retained.
+// Stdlib higher-order functions whose callback is applied inside
+// the call and never retained mark the parameter non-escaping
+// (`//gom:noescape` directives in the .gomi — the builtin modules'
+// interfaces carry them like any imported package's), so a
+// callback that captures the scope handle is allowed.
+//
+// Only consumers qualify: `map`/`and_then`/`fold` pass the
+// callback's results through their own result, which would carry a
+// scope-capturing value out of the scope — they stay unannotated.
 fn iter_uses_scope (held: Ref Int) -> Int =
   Scope.run <| fn s -> {
     List.iter (fn x -> Scope.defer s (fn () -> Ref.set held x)) [7]
     Ref.get held
   }
 
-fn map_uses_scope (o: Option Int) -> Option Int =
+fn find_uses_scope (held: Ref Int) -> Int =
   Scope.run <| fn s -> {
-    Option.map (fn x -> { Scope.defer s (fn () -> ()); x }) o
+    let _ = List.find (fn x -> { Scope.defer s (fn () -> Ref.set held x); x > 0 }) [7]
+    Ref.get held
   }
 
-fn and_then_uses_scope (r: Result Int GoError) -> Result Int GoError =
+fn option_iter_uses_scope (held: Ref Int) (o: Option Int) -> Int =
   Scope.run <| fn s -> {
-    Result.and_then (fn x -> { Scope.defer s (fn () -> ()); Ok x }) r
+    Option.iter (fn x -> Scope.defer s (fn () -> Ref.set held x)) o
+    Ref.get held
+  }
+
+fn result_iter_uses_scope (held: Ref Int) (r: Result Int GoError) -> Int =
+  Scope.run <| fn s -> {
+    Result.iter (fn x -> Scope.defer s (fn () -> Ref.set held x)) r
+    Ref.get held
   }

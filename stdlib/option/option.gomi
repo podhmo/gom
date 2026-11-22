@@ -17,11 +17,9 @@ fn get (o: Option a) -> a
 fn get_or_else (fallback: a) (o: Option a) -> a
 
 /// map f o applies f to the payload when present.
-//gom:noescape map 0
 fn map (f: a -> b) (o: Option a) -> Option b
 
 /// and_then f o is flat-map: f applies when o is Some.
-//gom:noescape and_then 0
 fn and_then (f: a -> Option b) (o: Option a) -> Option b
 
 /// or_else fallback o is o when Some, else the fallback option.
