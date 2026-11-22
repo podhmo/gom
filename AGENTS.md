@@ -17,6 +17,10 @@ Gom は Go へトランスパイルする関数型言語。コンパイラは Go
 
 仕様・実装・文書の記述のずれを見つけたら、大小や原因の確定を問わず `docs/implementation-gaps.md` に短い説明と該当箇所を追記する。既存項目があればそこへ情報を足す。勝手に実装に合わせて spec を書き換えない。解消時は台帳のチェックを付け、対応内容と検証へのリンクを追記して履歴を残す（書式は台帳冒頭）。
 
+## wave を回すとき
+
+prompts 草案・採否インタビュー・lane 分割・締め作業（round 記録・guide 同期・索引掃除）の手順は `docs/ja/wave-process.md` に codify してある。wave 関連の作業を始めるときは先に読む。
+
 ## `.gom` を書くとき
 
 Gom のコード（`.gom` / `.gomi`）を書く・読む・直すときは、**最初に `$gom-agent-guide` を読む**こと。`skills/gom-agent-guide/` に canonical なスキルがあり、`.devin/skills/gom-agent-guide` はそこへの symlink（`skills/snippets_test.go` が解決先を検査する）。LLM の事前知識に Gom はほぼ存在しないため、OCaml / F# / Go の習慣で書くと構文を間違える — スキルに言語ツアーと「ありがちな間違い」集、ツールチェーンの使い方がまとめてある。この AGENTS.md はコンパイラ開発者向けの文書であり、言語知識はスキル側に置く（設計: [docs/sketch/2026-11-02-agent-skill-for-gom.md](docs/sketch/2026-11-02-agent-skill-for-gom.md)）。

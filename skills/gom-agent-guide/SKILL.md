@@ -743,7 +743,10 @@ fn main () -> Unit = ignore (work true)
 - The handle may not leave its body (E0419): no returning it, no
   storing it in a record/constructor/`Ref`, no `Scope` type
   argument, no capturing it in a lambda that escapes (`Task.spawn`,
-  Go functions, a cleanup of an outer scope). Passing `s` to a
+  Go functions, a cleanup of an outer scope). A lambda given to a
+  non-escaping parameter must not *return* `s` through its own
+  result either — `run_cb (fn x -> fn () -> s)` is E0419 when the
+  call's result type carries a function. Passing `s` to a
   helper `fn` is fine; so is a lambda given to a non-escaping
   parameter (a same-package `fn` inferred so, or an imported fn
   whose `.gomi` says so).
