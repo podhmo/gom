@@ -35,10 +35,14 @@ wave35 lane E。wave34 lane A の条件付き採択（「案 B に拡張する�
   その callee の `ResultTaint` を引き、`lib_wrap f` の `f` が
   `lib_wrap.ResultTaint[0]` を見て伝播する（上記2の穴を閉じる）。相互再帰は
   「全部 true」の保守解で底を打つ
-- `.gomi` export: `//gom:result-taint <name> <i> ...` — `//gom:noescape` と
-  同じ行形式で、taint される位置の index を列挙する。`Escapes` が「列挙され
-  ない位置は escape=true（保持する）」なのと同じく、列挙されない位置は
-  taint=true（運び得る）を既定にする — **欠落時は保守方向に倒れる**
+- `.gomi` export: `//gom:result-notaint <name> <i> ...` — `//gom:noescape` と
+  同じ行形式で、taint **されない**位置の index を列挙する。`Escapes` が
+  「列挙された位置のみ escape=false、欠落は escape=true」とするのと同じ
+  極性 — 列挙されない位置と directive 欠落は taint=true（運び得る）を
+  既定にする。**欠落時は保守方向に倒れる**ため、false を表現するには
+  「taint しない位置を列挙する」形が要る — taint 位置を列挙する素直な形
+  （`//gom:result-taint <name> <i>`）だと列挙・未列挙の両方が true になり
+  false が表せず、imported callee の偽陽性解消という目的自体が果たせない
 - 後方互換: 古いコンパイラは未知の `//gom:` 行をコメントとして無視する
   （`//gom:` 行頭プレフィックス以外は無関係）。directive を持たない古い
   .gomi は全位置 true で現行の保守動作と一致。手書き .gomi の注釈誤りは
@@ -74,8 +78,8 @@ wave35 lane E。wave34 lane A の条件付き採択（「案 B に拡張する�
 
 - `resolve.Symbol.ResultTaint` + 推論 fixpoint（escape.go の Escapes 推論に
   隣接）
-- `internal/iface/noescape.go` と対称の `ScanResultTaint` / `ApplyResultTaint`、
-  `draft.go` に `resultTaintLine` writer
+- `internal/iface/noescape.go` と対称の `ScanResultNoTaint` /
+  `ApplyResultNoTaint`、`draft.go` に `resultNoTaintLine` writer
 - `resultCarriesArg`/`resultCarriesPipe` で flag 参照
 - spec 6.1 のアノテーション節に directive 追記 + spec fixture +
   gomi 書き出しの往復テスト
