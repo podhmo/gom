@@ -180,7 +180,7 @@ func TestRunNativeScope(t *testing.T) {
 	if code != 0 {
 		t.Fatalf("exit = %d; stderr=%q stdout=%q", code, errout, out)
 	}
-	want := "body\nb\na\n1\nbody\na\n1\nplain\nerr e2\ne1\nrollback\nerr body\nerr close\n2\n"
+	want := "body\nb\na\n1\nbody\na\n1\nplain\nerr e2\ne1\nrollback\nerr body\nerr close\n4\n2\n"
 	if out != "== native\n"+want+"== runtime\n"+want+"== fn result\n41 42 43\n" {
 		t.Errorf("stdout = %q, want both sections %q", out, want)
 	}

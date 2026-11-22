@@ -26,7 +26,7 @@
 | Gom | Go |
 | --- | --- |
 | `Scope.defer s f` | `defer f(struct{}{})` |
-| `Scope.defer_err s f`（`run` 内） | `defer f()`（エラーは捨てる — runtime と同じ） |
+| `Scope.defer_err s f`（`run` 内） | `defer func(){ _, _ = f(struct{}{}).Unwrap() }()`（Unwrap で検査して捨てる — 無効な Result は runtime と同じく panic） |
 | `Scope.defer_err s f`（`run_result` 内） | `defer func(){ if r := f(...); !r.IsOk() { errs = append(errs, e) } }()` |
 | `Scope.on_err s f` | `defer func(){ if failed { f(struct{}{}) } }()` |
 | `defer_err` の fold | 先頭に `var errs []error` + `defer` で `res.IsOk()` なら `res = Err(errors.Join(errs...))` |
@@ -37,7 +37,7 @@
 - 登録が `if` / `match` の arm 内にあるとき runtime と同じく条件付き登録になる
 - 本体の panic は決定子が再送出して LIFO で後続 defer へ降りる — `failed` は既定の `true` のまま、runtime と一致
 - `res.IsOk()` ガードで「本体が Err を返したら cleanup エラーで上書きしない」の runtime 挙動を保存
-- `run` scope の `defer_err` は Go の `defer` でエラーを捨てる（runtime `ScopeDeferErr` は run で捨てるのと同じ）
+- `run` scope の `defer_err` は Unwrap で検査してから捨てる — エラーは join 先が無いので捨てるが、無効（zero 値）な Result は runtime `ScopeDeferErr` と同じく panic させる
 
 ## 却下案
 

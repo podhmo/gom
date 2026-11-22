@@ -1077,7 +1077,7 @@ func (v *validator) expr(e Expr, inTail bool) {
 		v.body(e.Body, false)
 		v.spawn--
 	case *Defer:
-		carriesF := e.Kind == DeferPlain || e.Kind == DeferErr || e.Kind == DeferOnErr
+		carriesF := e.Kind == DeferPlain || e.Kind == DeferErr || e.Kind == DeferErrDrop || e.Kind == DeferOnErr
 		if carriesF && e.F == nil {
 			v.err(e.Sp, "Defer", "missing cleanup")
 		}
