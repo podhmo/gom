@@ -12,7 +12,7 @@ wave31 で implementation gaps の棚卸しは完了（未解消 0）。次は�
 ### A. `--strict` 実装（優先復帰候補）
 
 - 出典: docs/decisions/2026-11-22-strict-mode.md（採択済み、split design）
-- 作業: `gom check/build` に `--strict` フラグ — warnings を error 昇格 + 指定コードのみ emit の filter。CLI・diag・ビルド結線・spec fixture・doc
+- 作業: 採択済み split design の二本立て — (1) `//gom:allow E0301` ディレクティブ（relaxable フラグを持つコードを warning 格下げ、初期は E0301/E0302 のみ。型エラー系の格下げや severity 一括フィルタは採用外）(2) `--strict` フラグ（warnings を error 扱いの exit code、CI 固定用途）。対象ファイル: codes.go（relaxable フラグ）・syntax のディレクティブ収集・build/cmd の報告適用・spec §12
 - 規模: 中
 
 ### B. E0404/E0401 文言統一（decision draft 採否待ちの実装）
