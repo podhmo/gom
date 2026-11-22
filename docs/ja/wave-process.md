@@ -90,7 +90,10 @@ Gom の開発は「wave」という単位で回す。1 wave = 複数 lane（細�
 締め作業の内容:
 
 - `docs/sketch/YYYY-MM-DD-waveN-round.md` の round 記録
-  （各 lane の結果・pitfalls・次への申し送り）。
+  （各 lane の結果・pitfalls・次への申し送り）。レビュー往復の
+  帳簿ではない — finding→fix の対応表は書かず、pitfall として
+  一般化できる指摘だけを学びの節に書く（件数・ラウンド経過は
+  lane 表に一句で済ませる）。
 - `skills/gom-agent-guide` の同期（その wave で変わった
   ユーザー可視の振る舞い・診断・構文の分）。
 - **全体を眺めての修整・調整**: 個別のレビュー・マージ時点では
