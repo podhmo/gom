@@ -1123,19 +1123,18 @@ func (c *checker) convOK(from, to types.Type) bool {
 		if _, _, ok := c.sliceListPair(from, to); ok {
 			return false
 		}
-		// `chan<- T(x)` / `<-chan T(x)`: the restrictive target is
-		// unnamed in Go, so a named X whose underlying is the
-		// bidirectional `Chan T` converts (Go needs one side unnamed
-		// — X's direction is bidirectional, which suffices). The
-		// target must be the literally-spelled builtin (`to == to0`):
-		// a SendChan/RecvChan reached by peeling a defined type is
-		// itself named, and Go cannot narrow `chan` between two named
-		// types.
-		if to == to0 {
-			if tc, ok := to.(*types.Con); ok &&
+		// `chan<- T(x)` / `<-chan T(x)` / `S(x)`: a narrowing channel
+		// conversion is legal when at least ONE side is unnamed —
+		// `from == from0 || to == to0` means one operand was spelled
+		// as the builtin constructor rather than peeled off a defined
+		// type. `chan<- int64(c)` and `S(ch)` both compile; `S(c)`
+		// between two named wrappers does not.
+		if fc, ok := types.Chase(from).(*types.Con); ok &&
+			c.isBuiltinCon(fc, "Chan") {
+			if tc, ok := types.Chase(to).(*types.Con); ok &&
 				(c.isBuiltinCon(tc, "SendChan") || c.isBuiltinCon(tc, "RecvChan")) {
-				if fc, ok := from.(*types.Con); ok && c.isBuiltinCon(fc, "Chan") &&
-					types.Equal(fc.Args[0], tc.Args[0]) {
+				if (from == from0 || to == to0) &&
+					c.convGoIdentical(fc.Args[0], tc.Args[0]) {
 					return true
 				}
 			}
@@ -1148,13 +1147,16 @@ func (c *checker) convOK(from, to types.Type) bool {
 		// (`Duration`→`fmt.Stringer`) and channel direction are
 		// one-directional and stay rejected.
 		//
-		// Pairs whose legal route is an unnamed-shape rule — pointers,
-		// slices, maps, channels, funcs — must not reach the oracle:
-		// those rules hold for both directions too (so mutual
-		// convertibility admits them), but they require the operand
-		// itself to be unnamed, which a peeled defined type never is.
+		// Pairs shaped like pointer/slice/map/chan/func values ride
+		// the identical-underlying rule too — `(*int64)(p)` is legal
+		// exactly when the two peelings render the same Go type
+		// (`Ptr Int`↔`Ptr Int64`), which convGoIdentical judges
+		// element-wise. The other rules such pairs could borrow all
+		// require an unnamed operand a defined type never is, so a
+		// non-identical shape pair skips the mutual-oracle check
+		// (`*Duration`↔`*int64` must not pass).
 		if convShapeType(from) || convShapeType(to) {
-			return false
+			return c.convGoIdentical(from, to)
 		}
 		if src, ok := c.src.(ConvertSource); ok {
 			fwd, fok := src.GoConvertible(from, to)
@@ -1268,12 +1270,12 @@ func (c *checker) convOK(from, to types.Type) bool {
 }
 
 // convShapeType reports whether t is a type whose Go conversion
-// rules require the operand itself to be unnamed — pointers,
-// slices, maps, channels, funcs. For a peeled defined type those
-// rules can never fire (`P(x)` where P is named), so the
-// mutual-oracle check in convOK skips such pairs. Residual gap: a
-// *types.Go side with an unnamed-shaped underlying (unsafe.Pointer,
-// an unnamed imported pointer) is not detected.
+// rules are shape rules — pointers, slices, maps, channels, funcs.
+// For those, a peeled pair converts only via the identical-
+// underlying rule (convGoIdentical judges it); the remaining rules
+// each require an unnamed operand a defined type never is.
+// Residual gap: a *types.Go side with an unnamed-shaped underlying
+// (unsafe.Pointer, an unnamed imported pointer) is not detected.
 func convShapeType(t types.Type) bool {
 	switch t := types.Chase(t).(type) {
 	case *types.Func:
@@ -1293,8 +1295,70 @@ func convShapeType(t types.Type) bool {
 			_, isFn := goFuncTypeArity(t.Name)
 			return isFn
 		}
+		return false
+	case *types.Var, *types.Meta, *types.Tuple, *types.Go:
+		return false
+	default:
+		panic("unreachable")
 	}
-	return false
+}
+
+// convGoIdentical reports whether two peeled operand types render
+// the same Go type — the test behind the identical-underlying
+// conversion rule for shape types. `Int` and `Int64` both render
+// `int64`, so `Ptr Int`≡`Ptr Int64`; `Ptr Int` vs `Ptr time.Duration`
+// differ as `*int64` vs `*time.Duration`. Basic kinds compare by the
+// emitted Go basic type; constructors compare name-for-name with
+// pairwise arguments; anything else (named Go types, mismatched
+// shapes) only counts when types.Equal already ruled it equal.
+func (c *checker) convGoIdentical(a, b types.Type) bool {
+	if types.Equal(a, b) {
+		return true
+	}
+	ak, aok := c.convBasicKind(a)
+	bk, bok := c.convBasicKind(b)
+	if aok || bok {
+		return aok && bok && ak == bk
+	}
+	ac, aok := types.Chase(a).(*types.Con)
+	bc, bok := types.Chase(b).(*types.Con)
+	if !aok || !bok || ac.Qual != bc.Qual || ac.Name != bc.Name ||
+		len(ac.Args) != len(bc.Args) {
+		return false
+	}
+	for i := range ac.Args {
+		if !c.convGoIdentical(ac.Args[i], bc.Args[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+// convBasicKind maps a builtin scalar constructor to the Go basic
+// type it emits — used by convGoIdentical so the Int/Int64 and
+// Char/Int32 spellings compare as the same Go type. Named Go types
+// (*types.Go) are not basic: `time.Duration` shares int64's kind but
+// is not the int64 type.
+func (c *checker) convBasicKind(t types.Type) (string, bool) {
+	con, ok := types.Chase(t).(*types.Con)
+	if !ok || con.Qual != "" || c.shadowedBuiltin(con.Name) {
+		return "", false
+	}
+	switch con.Name {
+	case "Int", "Int64":
+		return "int64", true
+	case "Int32", "Char":
+		return "int32", true
+	case "Float":
+		return "float64", true
+	case "Byte":
+		return "uint8", true
+	case "Bool":
+		return "bool", true
+	case "String":
+		return "string", true
+	}
+	return "", false
 }
 
 // definedUnderlying peels a one-field record that emits as the Go

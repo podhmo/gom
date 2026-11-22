@@ -55,3 +55,16 @@ fn text (n : json.Number) -> Text = Go.conv n : Text
 // `<-chan T` — Go admits a named bidirectional source there.
 fn sendc (c : C) -> SendChan Int = Go.conv c : SendChan Int
 fn recvc (c : C) -> RecvChan Int = Go.conv c : RecvChan Int
+type S = { s : SendChan Int }
+type P = { p : Ptr Int }
+
+// The inverse direction is legal too: the unnamed `chan int64`
+// source satisfies Go's one-side-unnamed rule, so `S(ch)` is a
+// valid narrowing to the named send-only wrapper.
+fn wrap_send (ch : Chan Int) -> S = Go.conv ch : S
+
+// `Ptr Int` and `Ptr Int64` render the same `*int64` — a peeled
+// defined type converts to it through the identical-underlying
+// rule even though the element spellings differ.
+fn widen_ok (p : P) -> Ptr Int64 = Go.conv p : Ptr Int64
+fn wrap_ptr (p : Ptr Int) -> P = Go.conv p : P
