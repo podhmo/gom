@@ -279,6 +279,12 @@ func (g *gen) indexDecls(f *core.File) {
 	if u := f.Unit; u != nil {
 		for _, d := range u.Decls {
 			if d.Sym != nil {
+				if d.Sym.TestOnly && !f.Tests {
+					// A sibling's `@test` helper emits only into
+					// that file's _test.go half — absent from a
+					// `gom build` output, it must not claim names.
+					continue
+				}
 				kind := emitVar
 				if d.Sym.Kind == resolve.KindFunc {
 					kind = emitFunc

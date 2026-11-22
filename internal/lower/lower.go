@@ -226,6 +226,7 @@ func File(f *check.File, env *Env) (*core.File, []diag.Diagnostic) {
 		Package: f.Package,
 		PkgSp:   f.PkgSp,
 		Unit:    l.unitScope(f.Package, env.Siblings),
+		Tests:   env.Tests,
 	}
 	for _, im := range f.Imports {
 		out.Imports = append(out.Imports, core.Import{
