@@ -1,6 +1,7 @@
 # 未注釈 record リテラルと import 先 record — 既に解決済み、曖昧候補集合は現状維持
 
 - 状態: draft
+- 日付: 2026-11-22
 - 関連: [problems/2026-11-02-imported-record-fields](../problems/2026-11-02-imported-record-fields.md) / 台帳項目「未注釈 record リテラルが import 経由の record 型に解決されない」
 
 ## 背景
