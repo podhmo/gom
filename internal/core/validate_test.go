@@ -372,6 +372,27 @@ func TestValidateViolations(t *testing.T) {
 			want: "Go arity",
 		},
 		{
+			name: "CallGo canonical closure at flat-2 slot",
+			file: func() *File {
+				cB, cS := vbind("cb", fnIII)
+				clP, clPS := vbind("a", types.Int)
+				return fnFile(types.Int, &Body{
+					Lets: []*Let{{Sp: sp(), Name: cB, X: &Closure{
+						Sp: sp(), Typ: fnIII,
+						Fn: &Func{Sp: sp(), Sig: fnII, Params: []*Bind{clP},
+							Body: &Body{Tail: vref(clPS, types.Int)}},
+					}}},
+					Tail: &CallGo{
+						Sp: sp(), Typ: types.Int,
+						Callee: goFn, Args: []Atom{vref(cS, fnIII)}, Arity: 1,
+						Results:  GoResultsOne,
+						FlatArgs: []int{2},
+					},
+				})
+			}(),
+			want: "emits a 1-parameter callback for a 2-parameter Go slot",
+		},
+		{
 			name: "IsEntry outside package main",
 			file: entryFile("p", "main", types.Unit, true),
 			want: "IsEntry requires `fn main` in package main",
