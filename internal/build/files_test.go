@@ -699,3 +699,31 @@ func TestCompileFilesEmitNamesSiblingSum(t *testing.T) {
 		t.Errorf("sibling type/marker missing: %v", got["T"])
 	}
 }
+
+// Two colliding variants of one sum type warn W0601 exactly once —
+// the owning file reports at the variants' span; sibling files claim
+// the same struct names from UnitScope.Sums but must not emit an
+// unlocated copy.
+func TestCompileFilesEmitNameCollisionsSiblingSumDup(t *testing.T) {
+	rs := compileFiles(t, map[string]string{
+		"a.gom": "package m\n\ntype T = | Some_Opt Int | SomeOpt Int\n",
+		"b.gom": "package m\n\nfn f () -> Int = 1\n",
+	})
+	var w0601 []diag.Diagnostic
+	for i, r := range rs {
+		if r.Diagnostics.HasError() {
+			t.Fatalf("result %d diagnostics: %v", i, r.Diagnostics)
+		}
+		for _, d := range r.Diagnostics {
+			if d.Code == "W0601" {
+				w0601 = append(w0601, d)
+			}
+		}
+	}
+	if len(w0601) != 1 {
+		t.Fatalf("W0601 count = %d, want 1: %v", len(w0601), w0601)
+	}
+	if w0601[0].Span.File != "pkg/a.gom" {
+		t.Errorf("W0601 span file = %q, want pkg/a.gom", w0601[0].Span.File)
+	}
+}

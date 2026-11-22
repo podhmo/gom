@@ -236,7 +236,7 @@ func (g *gen) indexDecls(f *core.File) {
 			g.pused[name] = true
 			g.used[name] = true
 			g.recordEmit(emitRecord{kind: emitType, gomName: tname,
-				name: name, base: name})
+				name: name, base: name, sibling: true})
 		}
 		// A sibling sum emits more than its type name: `type T =
 		// | Some` also puts the `T_Some` struct and the `isT`
@@ -255,13 +255,14 @@ func (g *gen) indexDecls(f *core.File) {
 			tn := exportName(tname)
 			m := markerName(tn)
 			g.recordEmit(emitRecord{kind: emitMarker, gomName: tname,
-				name: m, base: m})
+				name: m, base: m, sibling: true})
 			for _, v := range u.Sums[tname] {
 				vname := tn + "_" + exportName(v)
 				g.pused[vname] = true
 				g.used[vname] = true
 				g.recordEmit(emitRecord{kind: emitVariant,
-					gomName: tname + "." + v, name: vname, base: vname})
+					gomName: tname + "." + v, name: vname, base: vname,
+					sibling: true})
 			}
 		}
 		// A test name a sibling file also declares takes the file

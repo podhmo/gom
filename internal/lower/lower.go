@@ -308,14 +308,17 @@ func (l *lowerer) unitScope(pkg string, siblings []check.Decl) *core.UnitScope {
 				}
 			}
 		case *check.TypeDecl:
-			if d.Sym != nil && d.Sym.Package == "" {
+			local := d.Sym != nil && d.Sym.Package == ""
+			if local {
 				u.Types[d.Sym.Name] = true
 			}
 			if s, ok := d.Body.(*check.SumType); ok {
 				for _, v := range s.Variants {
 					if v.Sym != nil {
 						u.TParams[v.Sym] = len(d.TypeParams)
-						u.Sums[d.Sym.Name] = append(u.Sums[d.Sym.Name], v.Sym.Name)
+						if local {
+							u.Sums[d.Sym.Name] = append(u.Sums[d.Sym.Name], v.Sym.Name)
+						}
 					}
 				}
 			}

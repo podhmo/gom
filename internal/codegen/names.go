@@ -165,13 +165,17 @@ func (k emitKind) String() string {
 // emitRecord logs one package-level emitted name and the Gom decl it
 // answers for. base is the name the naming rule predicts before
 // collision suffixing; it equals name for verbatim claimants (types
-// and variant structs have no suffix escape).
+// and variant structs have no suffix escape). sibling marks records
+// from other member files of the package unit — sibling↔sibling
+// duplicate claims are the owning file's to report at its local
+// span, so they stay silent here.
 type emitRecord struct {
 	kind    emitKind
 	gomName string
 	name    string
 	base    string
 	sp      diag.Span
+	sibling bool
 }
 
 // recordEmit registers an emitted package-scope name on g's ledger
@@ -191,7 +195,8 @@ func (g *gen) recordEmit(rec emitRecord) {
 	owner, dup := g.emitOwner[rec.name]
 	if !dup {
 		g.emitOwner[rec.name] = rec
-	} else if g.reportEmit && warnsOnDup(rec.kind) {
+	} else if g.reportEmit && warnsOnDup(rec.kind) &&
+		!(rec.sibling && owner.sibling) {
 		// The losing claimant may be a sibling type (Unit.Types
 		// carries no span) — report at whichever decl is local.
 		sp := rec.sp
