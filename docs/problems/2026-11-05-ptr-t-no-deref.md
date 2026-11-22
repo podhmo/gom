@@ -1,14 +1,16 @@
 # `Ptr T` is write-only: no dereference, no nil, no construction
 
-- 状態: 一部解消（2026-11-05 — the `Ptr` module shipped:
+- 状態: 解消（2026-11-22 棚卸し — the `Ptr` module shipped:
   `Ptr.get`/`Ptr.set`/`Ptr.is_nil`/`Ptr.new`/`Ptr.make`/`Ptr.nil`/
-  `Ptr.to_option`. Flag values read back, optional `*T` parameters
-  accept nil, out-pointer APIs get a target. See
-  [decision](../decisions/2026-11-05-ptr-ops-surface.md),
-  [verification](../sketch/2026-11-05-p3-7-interop-ops-verification.md).
-  Residual: the `errors.As`-family "an `any` that must be a non-nil
-  pointer" contract is still unstated — misuse panics at runtime;
-  a typed binding or lint is future work)
+  `Ptr.to_option`（[decision](../decisions/2026-11-05-ptr-ops-surface.md)、
+  [verification](../sketch/2026-11-05-p3-7-interop-ops-verification.md)）。
+  残件だった errors.As-family の「`any` だが非 nil pointer を要求する」
+  契約は W0502 lint（spec §8.4、[lintErrorsAsTarget](../../internal/check/lint.go)、
+  `Ptr (Ptr E)` まで wave22 で被覆）として実現済み — 「accept the
+  exposure + lint」側が採られた。型付き binding `fn As (err: GoError)
+  (target: Ptr T) -> Bool` による表現は呼出し側が要素型を選ぶ必要が
+  あり extern 照合の範囲外 — 引き続き future work だが別問題として
+  追跡するほどの未解消ではないと判断）
 - 日付: 2026-11-05 (found by the P3-7 real-program audit —
   [sketch](../sketch/2026-11-05-p3-7-realworld-interop-audit.md))
 

@@ -224,6 +224,7 @@
 | [shared-go-type-ptr-lint](2026-11-21-shared-go-type-ptr-lint.md) | 共有前提の Go 型を指す `Ptr` は可変共有 lint の対象外 | 採用（実装・検証した — testdata/spec/ok_shared_go_ptr で固定。spec.md §10 へ反映済み） |
 | [type-alias-adopt](2026-11-21-type-alias-adopt.md) | 型エイリアス構文 `type alias X = T` の採用 | 採用 |
 | [type-alias-syntax](2026-11-21-type-alias-syntax.md) | `type X = T` エイリアス構文 — 採否の推薦（[type-alias-adopt](2026-11-21-type-alias-adopt.md) で置き換え） | Superseded — [2026-11-21-type-alias-adopt](2026-11-21-type-alias-adopt.md) |
+| [e0404-gom-call-domain](2026-11-22-e0404-gom-call-domain.md) | E0404 は Go 呼出し専用とし、E0401 に未適用ラベルの文言を載せる | draft（wave31 lane B — 採否待ち） |
 | [sc3-native-defer](2026-11-22-sc3-native-defer.md) | SC-3: `Scope` 登録を native Go `defer` へ lowering | adopted |
 | [scope-escape-check](2026-11-22-scope-escape-check.md) | Scope 値の脱出の静的検査（SC-2） | 採用（実装・検証済み — `gom check` が E0419 を出す） |
 | [strict-mode](2026-11-22-strict-mode.md) | `--strict` / 診断フィルタ — 調査と採否 | adopted（2026-11-22 調査結果 — wave30 lane D） |

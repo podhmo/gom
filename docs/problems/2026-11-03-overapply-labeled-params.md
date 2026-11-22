@@ -1,7 +1,11 @@
 # Over-application may fill labeled parameters positionally
 
 - 状態: 一部解消（2026-11-05 — the positional-fills-labeled path is
-  removed; the E0401 wording question stays open）
+  removed; the E0401 wording question stays open.
+  2026-11-22 棚卸し追記 — E0401 wording / E0404 拡張の是非は
+  gom-missing-label-is-partial と同根なので
+  [decision draft](../decisions/2026-11-22-e0404-gom-call-domain.md) に
+  集約した）
 
 ## 状況
 
