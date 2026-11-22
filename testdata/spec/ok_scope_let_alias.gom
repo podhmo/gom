@@ -1,0 +1,15 @@
+package ex
+
+// spec section 6.1: a `let` alias names the very callable it binds
+// to — the proven non-escaping parameter positions carry over, so a
+// scope-capturing lambda passed through the alias is still accepted.
+let apply = fn (f: Unit -> Unit) -> f ()
+
+let apply2 = apply
+
+fn run_alias (held: Ref Int) -> Int =
+    Scope.run <| fn s -> {
+        let cl = fn () -> Scope.defer s (fn () -> Ref.set held 0)
+        apply2 cl
+        Ref.get held
+    }

@@ -255,7 +255,9 @@ func (c *checker) checkScopeEscape() {
 		}
 		// A top-level `let f = fn ...` is a named callee too: give
 		// its bound symbol the same parameter inference declared
-		// functions get so callers do not default to escaping.
+		// functions get so callers do not default to escaping. A
+		// `let f = g` alias names the very callable g resolved
+		// to — g's proven positions hold for f as well.
 		for _, d := range c.decls {
 			if ld, ok := d.(*LetDecl); ok {
 				if lam, isLam := ld.Value.(*Lambda); isLam {
@@ -263,6 +265,11 @@ func (c *checker) checkScopeEscape() {
 						if c.inferLetLambdaEscapes(s, lam) {
 							changed = true
 						}
+					}
+				}
+				for _, s := range patBoundSyms(ld.Pat) {
+					if c.propagateAliasEscapes(s, ld.Value) {
+						changed = true
 					}
 				}
 			}
@@ -345,6 +352,37 @@ func (c *checker) inferLetLambdaEscapes(sym *resolve.Symbol, lam *Lambda) bool {
 		}
 	}
 	return changed || b.flagsChanged
+}
+
+// propagateAliasEscapes copies parameter-escape flags through a
+// `let f = g` alias: the bound symbol names the very callable g
+// resolved to, so g's proven positions hold for f as well — a
+// let-bound alias used to default to "escaping" at every call
+// site and re-raised E0419 on arguments the original accepted.
+// Flags only ever grow, the monotone fixpoint's discipline.
+func (c *checker) propagateAliasEscapes(sym *resolve.Symbol, v Expr) bool {
+	var src *resolve.Symbol
+	if x, ok := v.(*Var); ok {
+		src = x.Sym
+	} else if x, ok := v.(*MemberExpr); ok {
+		src = x.Sym
+	}
+	if src == nil || len(src.Escapes) == 0 {
+		return false
+	}
+	if len(sym.Escapes) < len(src.Escapes) {
+		grown := make([]bool, len(src.Escapes))
+		copy(grown, sym.Escapes)
+		sym.Escapes = grown
+	}
+	changed := false
+	for i := range src.Escapes {
+		if src.Escapes[i] && !sym.Escapes[i] {
+			sym.Escapes[i] = true
+			changed = true
+		}
+	}
+	return changed
 }
 
 // fnDeclOf resolves a top-level function symbol to its checked
@@ -454,6 +492,9 @@ func (c *checker) callParamEscapes(call CallInfo, i int) bool {
 func (c *checker) argEscapes(e *Apply, i int) bool {
 	if e.Call.Kind == CallUnknown {
 		if v, ok := e.Fn.(*Var); ok && v.Sym != nil {
+			return c.symParamEscapes(v.Sym, i)
+		}
+		if v, ok := e.Fn.(*MemberExpr); ok && v.Sym != nil {
 			return c.symParamEscapes(v.Sym, i)
 		}
 		return true
@@ -622,6 +663,9 @@ func (c *checker) escWalk(e Expr, danger bool, b *escapeBody, report bool) {
 						if lam, isLam := l.Value.(*Lambda); isLam && c.inferLetLambdaEscapes(s, lam) {
 							b.flagsChanged = true
 						}
+						if c.propagateAliasEscapes(s, l.Value) {
+							b.flagsChanged = true
+						}
 					}
 				}
 			}
@@ -637,6 +681,9 @@ func (c *checker) escWalk(e Expr, danger bool, b *escapeBody, report bool) {
 			b.lets[s] = e.Value
 			if !report {
 				if lam, isLam := e.Value.(*Lambda); isLam && c.inferLetLambdaEscapes(s, lam) {
+					b.flagsChanged = true
+				}
+				if c.propagateAliasEscapes(s, e.Value) {
 					b.flagsChanged = true
 				}
 			}

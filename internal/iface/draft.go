@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/podhmo/gom/internal/check"
+	"github.com/podhmo/gom/internal/resolve"
 	"github.com/podhmo/gom/internal/syntax"
 	"github.com/podhmo/gom/internal/types"
 )
@@ -230,12 +231,22 @@ func noescapeLine(name string, td *check.FnDecl) string {
 	if td.Sym == nil || td.Sig == nil {
 		return ""
 	}
+	return noescapeDirective(name, td.Sym, td.Sig.Params)
+}
+
+// noescapeDirective is noescapeLine over an arbitrary parameter
+// list — a `let` member carries no FnDecl but publishes the same
+// directive for the same reason.
+func noescapeDirective(name string, sym *resolve.Symbol, params []types.FuncParam) string {
+	if sym == nil {
+		return ""
+	}
 	var idx []string
-	for i := range td.Params {
-		if i >= len(td.Sym.Escapes) || td.Sym.Escapes[i] || i >= len(td.Sig.Params) {
+	for i := range params {
+		if i >= len(sym.Escapes) || sym.Escapes[i] {
 			continue
 		}
-		switch types.Chase(td.Sig.Params[i].Type).(type) {
+		switch types.Chase(params[i].Type).(type) {
 		case *types.Func, *types.Var:
 			idx = append(idx, strconv.Itoa(i))
 		case *types.Con, *types.Go, *types.Meta, *types.Tuple:
@@ -265,7 +276,13 @@ func (d *drafter) letMember(name string, td check.Decl) []string {
 			var sb strings.Builder
 			fmt.Fprintf(&sb, "let %s : ", name)
 			d.writeType(&sb, ret)
-			return []string{sb.String()}
+			lines := []string{sb.String()}
+			if f, ok := types.Chase(ret).(*types.Func); ok {
+				if ne := noescapeDirective(name, td.Sym, f.Params); ne != "" {
+					lines = append([]string{ne}, lines...)
+				}
+			}
+			return lines
 		}
 		lines := []string{d.fnDecl(name, td)}
 		if ne := noescapeLine(name, td); ne != "" {
@@ -280,7 +297,21 @@ func (d *drafter) letMember(name string, td check.Decl) []string {
 			var sb strings.Builder
 			fmt.Fprintf(&sb, "let %s : ", name)
 			d.writeType(&sb, m.Type)
-			return []string{sb.String()}
+			lines := []string{sb.String()}
+			// `let f = g` keeps the LetDecl shape but its symbol
+			// inherited g's escape flags — publish them so the
+			// importer does not fall back to conservative
+			// escaping on the alias's parameters.
+			var sym *resolve.Symbol
+			if vp, ok := td.Pat.(*check.VarPat); ok {
+				sym = vp.Sym
+			}
+			if f, ok := types.Chase(m.Type).(*types.Func); ok {
+				if ne := noescapeDirective(name, sym, f.Params); ne != "" {
+					lines = append([]string{ne}, lines...)
+				}
+			}
+			return lines
 		}
 	case *check.TestDecl, *check.TypeDecl:
 		// Tests and type declarations carry no let members.

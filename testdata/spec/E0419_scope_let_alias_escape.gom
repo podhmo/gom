@@ -1,0 +1,19 @@
+package ex
+
+// spec section 6.1: the alias inherits the escaping flag too — a
+// helper that retains its argument through the result marks the
+// alias's parameter escaping, so the scope-capturing lambda is
+// still rejected.
+let ret = fn (cl: Unit -> Unit) -> {
+    let x = cl
+    x
+}
+
+let ret2 = ret
+
+fn run_escape (held: Ref Int) -> Int =
+    Scope.run <| fn s -> {
+        let cl = fn () -> Scope.defer s (fn () -> Ref.set held 0)
+        let _ = ret2 cl
+        Ref.get held
+    }

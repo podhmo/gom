@@ -64,13 +64,13 @@ draft.go` が `//gom:noescape` を書き、`internal/gomimport` が読む。
 
 ## 非目標・制限
 
-- `let` 束縛の関数値（ラムダを束ねた let）はパッケージ内では
-  `fn` と同じ推論が効く（`argEscapes` が `*Var` callee の
+- `let` 束縛の関数値はパッケージ内では `fn` と同じ推論が効く
+  （`argEscapes` が `*Var`・`*MemberExpr` callee の
   `Symbol.Escapes` を読む — `CallUnknown` であっても flag は
-  引ける）。ただし `.gomi` への書き出しは `FnDecl` 経由なので
-  let 束縛ラムダの flag は import 側に出ず、import 側では常に
-  escaping 扱い（保守的）— wave32 で拡張した範囲はパッケージ内
-  の呼び出しまで
+  引ける）。wave33 で拡張: `let f = g` の別名束縛は `g` の
+  flag を `propagateAliasEscapes` で引き継ぎ、`let` メンバの
+  `.gomi` 行にも `//gom:noescape` が出る（IfaceDraft と読み側
+  `ApplyNoescape` はメンバ名ベースで変わらず）
 - capture 判定は「ラムダ内で束縛されていない tainted 変数の使用」
   ベース — フィールド粒度ではなく変数粒度
 - `gom fmt` 等で `.gomi` を再整形すると `//gom:` ディレクティブが
