@@ -1,0 +1,6 @@
+package ex
+
+// spec section 6.1: a Scope handle may not leave its scope —
+// returning it is rejected (both the annotated return type and the
+// tail value are flagged).
+fn bad_ret (s: Scope) -> Scope = s

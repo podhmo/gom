@@ -1,0 +1,6 @@
+package ex
+
+// spec section 6.1: a closure that escapes retains its captures —
+// passing a lambda capturing `s` to `Task.spawn` is rejected.
+fn bad_spawn (s: Scope) -> Task Unit =
+    Task.spawn (fn () -> { Scope.defer s (fn () -> ()); () })

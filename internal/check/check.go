@@ -65,6 +65,7 @@ func Check(res *resolve.Resolved, src SignatureSource) (*File, diag.List) {
 	c.checkTopLevelLetScopes()
 	c.checkInstantiationCycles()
 	c.validateGoGenerics()
+	c.checkScopeEscape()
 	c.lintMutableSharing()
 
 	f := &File{Sp: res.File.Sp}
@@ -733,6 +734,7 @@ func (c *checker) checkLetDecl(d *syntax.LetDecl) {
 	if d.Type != nil {
 		annScope = c.newTScope()
 		want = c.typeExpr(d.Type, annScope)
+		c.checkScopeTypeParam(d.Type, want, "let annotation")
 	} else {
 		want = c.newMeta(d.Sp, "the type of the let binding")
 	}
@@ -1199,6 +1201,7 @@ func (c *checker) bindExternDecl(d *syntax.ExternDecl) {
 				switch {
 				case p.Type != nil:
 					fp.Type = c.typeExpr(p.Type, sc)
+					c.checkScopeTypeFree(p.Type, fp.Type, fmt.Sprintf("extern parameter of `%s`", e.Name.Name))
 				case isUnitLitPat(p.Pat):
 					// `fn F ()` — the zero-argument Go function
 					// spelling: the `()` pattern binds a Unit
@@ -1213,6 +1216,7 @@ func (c *checker) bindExternDecl(d *syntax.ExternDecl) {
 			var ret types.Type
 			if e.Ret != nil {
 				ret = c.typeExpr(e.Ret, sc)
+				c.checkScopeTypeFree(e.Ret, ret, fmt.Sprintf("extern return type of `%s`", e.Name.Name))
 			} else {
 				ret = types.Unit
 			}
@@ -1561,6 +1565,7 @@ func (c *checker) fnSig(d *syntax.FnDecl) (*types.Func, *tscope) {
 		}
 		if p.Type != nil {
 			fp.Type = c.typeExpr(p.Type, sc)
+			c.checkScopeTypeParam(p.Type, fp.Type, fmt.Sprintf("parameter of `%s`", d.Name.Name))
 		} else if lp, ok := p.Pat.(*syntax.LitPat); ok && lp.Lit.Kind == syntax.LitUnit {
 			// The `()` parameter — the function takes Unit.
 			fp.Type = types.Unit
@@ -1572,6 +1577,7 @@ func (c *checker) fnSig(d *syntax.FnDecl) (*types.Func, *tscope) {
 	var ret types.Type
 	if d.Ret != nil {
 		ret = c.typeExpr(d.Ret, sc)
+		c.checkScopeTypeResult(d.Ret, ret, fmt.Sprintf("return type of `%s`", d.Name.Name))
 	} else {
 		ret = c.newMeta(d.Sp, fmt.Sprintf("the return type of `%s`", d.Name.Name))
 	}

@@ -1,0 +1,61 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0419",
+      "severity": "error",
+      "message": "a return type of `bad_list` cannot mention `Scope` here — it is allowed only as a parameter's leaf type or inside function-argument positions",
+      "span": {
+        "file": "E0419_scope_store.gom",
+        "start": {
+          "line": 5,
+          "col": 27,
+          "offset": 151
+        },
+        "end": {
+          "line": 5,
+          "col": 37,
+          "offset": 161
+        }
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0419",
+      "severity": "error",
+      "message": "this construction would hold a `Scope` value — `Scope` cannot be stored or returned",
+      "span": {
+        "file": "E0419_scope_store.gom",
+        "start": {
+          "line": 6,
+          "col": 5,
+          "offset": 168
+        },
+        "end": {
+          "line": 6,
+          "col": 8,
+          "offset": 171
+        }
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0419",
+      "severity": "error",
+      "message": "`s` is a `Scope` value (or closes over one) and escapes its scope here",
+      "span": {
+        "file": "E0419_scope_store.gom",
+        "start": {
+          "line": 6,
+          "col": 6,
+          "offset": 169
+        },
+        "end": {
+          "line": 6,
+          "col": 7,
+          "offset": 170
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,6 @@
+package ex
+
+// spec section 6.1: a Scope handle may not be stored in a value
+// constructor, a record field, or a container.
+fn bad_list (s: Scope) -> List Scope =
+    [s]

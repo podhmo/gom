@@ -705,6 +705,32 @@ tuples, and other values have no named fields to spread.`,
 	},
 
 	{
+		Code:     "E0419",
+		Severity: SeverityError,
+		Title:    "`Scope` value escapes its scope",
+		Phase:    PhaseCheck,
+		Spec:     "6.1",
+		Explanation: `A Scope handle minted by Scope.run/Scope.run_result may not
+outlive the body that received it. The rule has two halves:
+
+1. Type positions — Scope is legal only as a parameter's leaf
+   type or inside a function type's argument side. Return types,
+   fields, variant payloads, containers (Ref/Array/List/maps),
+   let annotations and ascription targets may not mention it.
+2. Use sites — the handle, an alias bound to it, or a closure
+   capturing it may be used only where the callee cannot retain the
+   argument. Returning it, spawning it (Task.spawn, go {}),
+   passing it to a Go function or an unmarked parameter, or storing
+   it in a cell/constructor is rejected. Go callees always retain;
+   Gom callees are judged by inferred non-escaping parameters
+   (exported as //gom:noescape directives in the package's
+   .gomi).`,
+		Example: `fn bad_ret (s: Scope) -> Scope = s      // returning the handle
+fn bad (s: Scope) -> Task Unit =
+    Task.spawn (fn () -> Scope.defer s (fn () -> ()))   // captured`,
+	},
+
+	{
 		Code:     "E0501",
 		Severity: SeverityError,
 		Title:    "Go symbol cannot be represented in Gom",

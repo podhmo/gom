@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0419",
+      "severity": "error",
+      "message": "`s` is a `Scope` value (or closes over one) captured by a closure that escapes its scope",
+      "span": {
+        "file": "E0419_scope_spawn.gom",
+        "start": {
+          "line": 6,
+          "col": 40,
+          "offset": 222
+        },
+        "end": {
+          "line": 6,
+          "col": 41,
+          "offset": 223
+        }
+      }
+    }
+  ]
+}

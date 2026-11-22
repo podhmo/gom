@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strconv"
 	"strings"
 
 	"github.com/podhmo/gom/internal/check"
@@ -130,6 +131,9 @@ func (d *drafter) file(w *strings.Builder, s Source) {
 				continue
 			}
 			lines = []string{d.fnDecl(decl.Name.Name, td)}
+			if ne := noescapeLine(decl.Name.Name, td); ne != "" {
+				lines = append([]string{ne}, lines...)
+			}
 		case *syntax.LetDecl:
 			if decl.TestOnly {
 				continue
@@ -196,6 +200,37 @@ func (d *drafter) fnDecl(name string, td *check.FnDecl) string {
 	return sb.String()
 }
 
+// noescapeLine renders the `//gom:noescape` directive the loader
+// reads back (spec section 6.1): the parameter positions the
+// package's escape analysis proved non-retaining, so an importer's
+// check gives a Scope-carrying argument the same judgment. Only
+// positions a Scope could actually ride through are listed — a
+// parameter whose type is a function or a type variable. Concrete
+// non-function parameters cannot carry one, and a `Scope`-typed
+// parameter is already non-escaping by rule.
+func noescapeLine(name string, td *check.FnDecl) string {
+	if td.Sym == nil || td.Sig == nil {
+		return ""
+	}
+	var idx []string
+	for i := range td.Params {
+		if i >= len(td.Sym.Escapes) || td.Sym.Escapes[i] || i >= len(td.Sig.Params) {
+			continue
+		}
+		switch types.Chase(td.Sig.Params[i].Type).(type) {
+		case *types.Func, *types.Var:
+			idx = append(idx, strconv.Itoa(i))
+		case *types.Con, *types.Go, *types.Meta, *types.Tuple:
+		default:
+			panic("unreachable")
+		}
+	}
+	if len(idx) == 0 {
+		return ""
+	}
+	return "//gom:noescape " + name + " " + strings.Join(idx, " ")
+}
+
 // letMember renders the interface line(s) for one name bound by a
 // `let`. A `let f = fn x -> x` that check shaped into a function
 // declaration publishes a `fn` signature — the arity is part of the
@@ -214,7 +249,11 @@ func (d *drafter) letMember(name string, td check.Decl) []string {
 			d.writeType(&sb, ret)
 			return []string{sb.String()}
 		}
-		return []string{d.fnDecl(name, td)}
+		lines := []string{d.fnDecl(name, td)}
+		if ne := noescapeLine(name, td); ne != "" {
+			lines = append([]string{ne}, lines...)
+		}
+		return lines
 	case *check.LetDecl:
 		for _, m := range letMembers(td) {
 			if m.Name != name {

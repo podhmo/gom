@@ -634,3 +634,29 @@ func TestVendorEnabledLastModWins(t *testing.T) {
 		}
 	}
 }
+
+func TestLoadNoescape(t *testing.T) {
+	root := writeMod(t, "example.com/m", map[string]string{
+		"shapes/shapes.gomi": `package shapes
+
+//gom:noescape twice 0
+fn twice (f: a -> a) (x: a) -> a
+fn keep (f: a -> a) -> a
+`,
+	})
+	l := New(&Config{Dir: root})
+	p, err := l.Load("example.com/m/shapes", false)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	twice := p.Members["twice"]
+	if twice == nil {
+		t.Fatal("twice member missing")
+	}
+	if len(twice.Escapes) != 2 || twice.Escapes[0] || !twice.Escapes[1] {
+		t.Fatalf("twice.Escapes = %v, want [false true]", twice.Escapes)
+	}
+	if keep := p.Members["keep"]; keep == nil || keep.Escapes != nil {
+		t.Fatalf("keep.Escapes = %v, want nil (assume escaping)", keep.Escapes)
+	}
+}
