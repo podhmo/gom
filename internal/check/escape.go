@@ -477,6 +477,40 @@ func isFuncType(t types.Type) bool {
 	return ok
 }
 
+// containsFunc reports whether a function type occurs anywhere
+// inside t — a call producing t may carry a closure.
+func containsFunc(t types.Type) bool {
+	switch t := types.Chase(t).(type) {
+	case *types.Meta, *types.Var:
+		return false
+	case *types.Func:
+		return true
+	case *types.Tuple:
+		for _, e := range t.Elems {
+			if containsFunc(e) {
+				return true
+			}
+		}
+		return false
+	case *types.Con:
+		for _, a := range t.Args {
+			if containsFunc(a) {
+				return true
+			}
+		}
+		return false
+	case *types.Go:
+		for _, a := range t.Args {
+			if containsFunc(a) {
+				return true
+			}
+		}
+		return false
+	default:
+		return false
+	}
+}
+
 // isScopeRunner reports whether the call is one of the two scope
 // runners — `Scope.run` / `Scope.run_result` — which return their
 // body argument's produced value as the call's own result.
@@ -582,6 +616,75 @@ func (c *checker) argEscapes(e *Apply, i int) bool {
 	return c.callParamEscapes(e.Call, i)
 }
 
+// resultCarriesArg reports whether argument i's products can ride
+// out through the call's own result — the missing channel of the
+// flag model: `f` non-escaping only means the callee does not keep
+// the argument, not that it does not return what the argument
+// produces. A locally-declared callee answers precisely: the
+// parameter must appear among the producers of the body's result
+// (`f 3` returns f's product; `const_f` discarding f does not).
+// Anything else — imported, Go, or a non-symbol callee — has no
+// inspectable body, so the answer is conservative.
+func (c *checker) resultCarriesArg(e *Apply, i int) bool {
+	sym := e.Call.Callee
+	if sym == nil {
+		// CallUnknown — a let-bound variable may still name an
+		// inspectable declaration.
+		if v, ok := e.Fn.(*Var); ok {
+			sym = v.Sym
+		} else if v, ok := e.Fn.(*MemberExpr); ok {
+			sym = v.Sym
+		}
+	}
+	if sym == nil {
+		return true
+	}
+	d := c.fnDeclOf(sym)
+	if d == nil || d.Body == nil {
+		return true
+	}
+	p := i
+	if e.Call.ArgToParam != nil && i < len(e.Call.ArgToParam) && e.Call.ArgToParam[i] >= 0 {
+		p = e.Call.ArgToParam[i]
+	}
+	if p >= len(d.Params) {
+		return true
+	}
+	prod := retainedProducers(d.Body)
+	for _, ps := range patBoundSyms(d.Params[p].Pat) {
+		if prod[ps] {
+			return true
+		}
+	}
+	return false
+}
+
+// resultCarriesPipe is resultCarriesArg for a pipe: the piped value
+// lands on the callee's first parameter. A non-symbol callee has no
+// inspectable body — the answer is conservative.
+func (c *checker) resultCarriesPipe(fn Expr) bool {
+	var sym *resolve.Symbol
+	if v, ok := fn.(*Var); ok {
+		sym = v.Sym
+	} else if v, ok := fn.(*MemberExpr); ok {
+		sym = v.Sym
+	}
+	if sym == nil {
+		return true
+	}
+	d := c.fnDeclOf(sym)
+	if d == nil || d.Body == nil || len(d.Params) == 0 {
+		return true
+	}
+	prod := retainedProducers(d.Body)
+	for _, ps := range patBoundSyms(d.Params[0].Pat) {
+		if prod[ps] {
+			return true
+		}
+	}
+	return false
+}
+
 // symParamEscapes reads one parameter position of a Gom callee: a
 // `Scope`-typed parameter is non-escaping by construction — the
 // callee's own compile enforced it — and other positions consult
@@ -666,6 +769,19 @@ func (c *checker) escWalk(e Expr, danger bool, b *escapeBody, report bool) {
 					// unchecked. When that value can carry a
 					// scope, escaping here is an error.
 					c.scopeEscapeErr(a.Value.Span())
+				}
+			} else if danger && !d && containsFunc(e.Type()) &&
+				c.resultCarriesArg(e, i) {
+				// The call's result may carry this argument's
+				// products: `run_cb (fn x -> fn () -> s)`
+				// lets the inner closure ride out through
+				// run_cb's result even though the argument
+				// lambda itself is consumed. Walk the
+				// argument's result positions at danger —
+				// the lambda itself is not escaping, so its
+				// own captures stay quiet.
+				if lam, ok := a.Value.(*Lambda); ok {
+					b.forward[lam] = true
 				}
 			}
 			c.escWalk(a.Value, d, b, report)
@@ -853,7 +969,18 @@ func (c *checker) escWalk(e Expr, danger bool, b *escapeBody, report bool) {
 			}
 			_, fnIsApply := fn.(*Apply)
 			c.escWalk(fn, fnIsApply && danger, b, report)
-			c.escWalk(arg, c.pipeParamEscapes(fn) || (fnIsApply && danger), b, report)
+			d := c.pipeParamEscapes(fn) || (fnIsApply && danger)
+			if danger && !d && containsFunc(e.Type()) && c.resultCarriesPipe(fn) {
+				// The pipe's result may carry the argument's
+				// products — `Scope.run <| fn s -> mk ()`
+				// forwards a closure the body produced. Walk
+				// a lambda argument's result positions at
+				// danger; the lambda itself is not escaping.
+				if lam, ok := arg.(*Lambda); ok {
+					b.forward[lam] = true
+				}
+			}
+			c.escWalk(arg, d, b, report)
 		case syntax.BinComposeFwd, syntax.BinComposeBack:
 			// `f >> g` / `f << g` produce a closure retaining
 			// both operands — they escape with the composition.
@@ -922,6 +1049,20 @@ func (b *escapeBody) bindAlias(dsts []*resolve.Symbol, src map[*resolve.Symbol]b
 // for parameters and the inner let's own bindOf entry continues
 // the chain.
 func retainedVars(e Expr) map[*resolve.Symbol]bool {
+	return retainedVarsR(e, false)
+}
+
+// retainedProducers is retainedVars plus one more channel: a
+// saturated call's result is its callee's product, so the callee
+// variable itself is a producer of the result even though the call
+// consumes it. `run_cb`'s body `f 3` produces `f`'s value — asking
+// "does this declaration's result carry f's products" needs the
+// callee counted, where a `let`'s bindOf chain does not.
+func retainedProducers(e Expr) map[*resolve.Symbol]bool {
+	return retainedVarsR(e, true)
+}
+
+func retainedVarsR(e Expr, producers bool) map[*resolve.Symbol]bool {
 	var out map[*resolve.Symbol]bool
 	var rec func(e Expr)
 	rec = func(e Expr) {
@@ -968,6 +1109,10 @@ func retainedVars(e Expr) map[*resolve.Symbol]bool {
 						rec(a.Value)
 					}
 				}
+			case producers:
+				// A saturated call's result is the callee's
+				// own product.
+				rec(e.Fn)
 			}
 		case *Ascribe:
 			rec(e.X)

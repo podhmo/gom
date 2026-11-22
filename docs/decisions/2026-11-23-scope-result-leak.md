@@ -70,6 +70,26 @@ gomi ディレクティブ文法・apply.go の推論を全部拡張する —
 パターンでのみ起きるが、`Scope` 系の高階関数はちょうどこの
 形を取りやすいので見逃すのは苦い。
 
+## 実装（wave34 lane A）
+
+案 A を実装済み:
+
+- 脱出位置の呼出しで `containsFunc`（結果型に関数型を含む）が
+  真なら、引数ラムダに `b.forward` を立てて本体の結果位置を
+  danger で walk する（`escWalk` の danger は構造上、結果位置に
+  だけ伝わる — Block の末尾・If/Match のアーム・Try のみ）
+- ローカル宣言の callee は `retainedProducers`（`retainedVars` +
+  結果位置の saturated call の callee 自身を producer と数える）
+  でパラメータの生産物が結果に載るかを絞る — `run_cb` は true、
+  `const_f` は false。opaque（imported / Go / 非シンボル）は
+  保守的に true
+- pipe 形式（`x |> f` / `f <| x`）にも同じ規則をかけ、
+  `Scope.run <| fn s -> ...` の本体引数が返すクロージャも
+  E0419 になる
+- 検証: `testdata/spec/E0419_scope_result_leak/` — pipe/apply
+  両形式のリークで E0419、`Unit` 結果の引数・生産物を捨てる
+  callee では無診断
+
 ## 制限・補足
 
 - 案 A でも imported の opaque callee には偽陽性が残る — 

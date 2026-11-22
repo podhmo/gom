@@ -1,0 +1,61 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0419",
+      "severity": "error",
+      "message": "`s` is a `Scope` value (or closes over one) captured by a closure that escapes its scope",
+      "span": {
+        "file": "E0419_scope_result_leak/main.gom",
+        "start": {
+          "line": 11,
+          "col": 46,
+          "offset": 423
+        },
+        "end": {
+          "line": 11,
+          "col": 47,
+          "offset": 424
+        }
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0419",
+      "severity": "error",
+      "message": "`s` is a `Scope` value (or closes over one) captured by a closure that escapes its scope",
+      "span": {
+        "file": "E0419_scope_result_leak/main.gom",
+        "start": {
+          "line": 17,
+          "col": 47,
+          "offset": 690
+        },
+        "end": {
+          "line": 17,
+          "col": 48,
+          "offset": 691
+        }
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0419",
+      "severity": "error",
+      "message": "`s` is a `Scope` value (or closes over one) captured by a closure that escapes its scope",
+      "span": {
+        "file": "E0419_scope_result_leak/main.gom",
+        "start": {
+          "line": 21,
+          "col": 46,
+          "offset": 823
+        },
+        "end": {
+          "line": 21,
+          "col": 47,
+          "offset": 824
+        }
+      }
+    }
+  ]
+}
