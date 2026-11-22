@@ -1710,3 +1710,12 @@
   代替は `.value` / `{ value = v }` で足りるが、明示変換の綴りが揃っていない。
   仕様は `Go.conv` の変換対象を列挙する側で defined type を触れていない。
   [仕様](spec.md) §8.5 / [チェッカー](../internal/check/gofunc.go)
+
+- [ ] **未注釈 record リテラルが import 経由の record 型に解決されない**:
+  `import "m/shapes"` した `shapes.Point`（`.gomi` にフィールド付き宣言あり）に
+  対し `{ x = 1.0, y = 2.0 }` が "no record type has fields [x y]"（E0401）になる。
+  フィールド選択 `p.x`・ctor 呼出し `shapes.Point 1.0 2.0` は解決されるので、
+  残るはフィールド集合から型を逆引きする `recordByFields` が宣言をファイル
+  ローカルに限定していること。未注釈リテラルと record パターンで import 先
+  の record が使えない。[チェッカー](../internal/check/expr.go)
+  / [problems](problems/2026-11-02-imported-record-fields.md)（2026-11-22 検証）

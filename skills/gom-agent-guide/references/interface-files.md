@@ -91,6 +91,12 @@ Rules:
   hash plus a canonical token hash of each source (test decls
   excluded); `GOM_BUILD_NOCACHE=1` disables it and
   `GOM_BUILD_CACHE_DIR` relocates it.
+- `//gom:` directive lines carry machine-checked annotations the
+  drafter writes: `//gom:noescape name` before an `fn` signature
+  marks a function-typed param as non-escaping (the escape check
+  uses it for `Scope` handling), and an `@method` line before an
+  `fn` keeps the record→Go-interface method set. Both round-trip
+  — do not hand-edit unless regenerating the draft is impossible.
 - Drafting command: `gom info FILE|DIR...` (`moon info`-style)
   writes or updates the `.gomi` draft; `-o -` prints it. `gom
   gomi` is a rename stub — it prints the pointer and exits 2.
