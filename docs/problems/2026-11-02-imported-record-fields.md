@@ -1,63 +1,47 @@
 # Record metadata is file-local: imported records cannot resolve fields
 
-- 状態: 一部解消（2026-11-22 棚卸し — `.gomi` が record フィールドを
-  運ぶようになり `registerForeignTypes` が import 先の decl を
-  `tyCons` に登録するので、フィールド選択 `p.x`・ctor 呼出し
-  `shapes.Point 1.0 2.0`・import 型への注釈付きリテラルは解決済み。
-  残るは未注釈リテラル `{ x = .. }` と record パターン —
-  `recordByFields` が候補をファイルローカル宣言に限定している。
-  台帳 [docs/implementation-gaps.md](../implementation-gaps.md) の
-  「未注釈 record リテラルが import 経由の record 型に解決されない」
-  に移管済み、設計論点（import 先のどの record を候補にするか・
-  曖昧一致時の診断）は wave31 lane C で decision draft にする）
+- 状態: 解消（2026-11-22 — wave31 lane C の調査で、本ファイルの残件
+  記述は誤検証と判明。`registerForeignTypes`（internal/check/files.go）
+  は import 先 record decl を `tyCons` と `c.records` の両方に登録する
+  ため、フィールド選択・ctor・注釈/未注釈リテラル・record パターンは
+  当初から全て解決していた。台帳項目も同時に [x] 訂正済み。
+  残る設計論点「曖昧候補集合（import するだけで一意だったリテラルが
+  E0407 になりうる）」は
+  [decisions/2026-11-22-imported-record-literal](../decisions/2026-11-22-imported-record-literal.md)
+  で現状維持（候補 = file-local ∪ import 先）を採用）
 
-## 状況
+## 状況（解消済み・歴史的記述）
 
 The checker keeps record/sum shape information in `c.tyCons` /
-`c.records`. Imported declarations arrive via
-`registerForeignTypes` (internal/check/files.go), so field selection
-and ctor calls resolve — but `recordByFields` still enumerates only
-the file's own declarations:
+`c.records`. Imported declarations arrive via `registerForeignTypes`
+(internal/check/files.go), which registers imported record decls in
+**both** — so the whole pipeline resolves:
 
-- An unannotated record literal `{ x = 1, y = 2 }` resolves its record
-  type by field set (`recordByFields`) — but only over records
-  declared in the same file. A literal of an *imported* record type
-  cannot be resolved this way and reports "no record type has fields
-  ..." even though the type exists (2026-11-22 検証済み).
-- Record patterns share the same file-local enumeration.
-- `SignatureSource` (`internal/check/env.go`) supplies value-level
-  signatures (functions, methods, extern names, builtins) but has no
-  channel for type *shape* — field names, indices, and payload
-  layouts. (歴史的記述 — `.gomi` は今この shape を運ぶ)
+- Unannotated literals `{ x = 1, y = 2 }`: `recordByFields` enumerates
+  `c.records`, which already includes imported records — a literal of an
+  imported record type resolves uniquely (or E0407 on ambiguity).
+- Record patterns resolve via `recordOf(want)` against `c.tyCons` —
+  imported records included; there is no field-set enumeration fallback
+  for patterns at all.
+- Field selection `p.x`, ctor calls, and annotated literals resolve the
+  same way.
 
-## なぜ問題か
+（誤検証の記録: 本ファイルは長らく「recordByFields がファイルローカル
+宣言しか見ない」「import 先 record のリテラルは E0401」と記述していたが、
+2026-11-22 の two-package 検証で全部解決済みと判明。stale バイナリでの
+確認が原因と思われる。）
 
-- Cross-package records are unusable in practice until this is filled:
-  no field access, no literal, no pattern — the typed AST's `Sym` and
-  `Index` fields that lowering and codegen need would be nil/-1.
-- The `.gomi` interface-file design (decisions/2026-11-01-gomi-interface-files.md)
-  will need to carry record field layout; this is the consumer-side
-  gap that forces the question of what a `.gomi` records section
-  looks like.
-- A possible intermediate state — record types importable for
-  *annotations only* (opaque, no field access) — is defensible for
-  P1 but must be a conscious limitation, not a silent gap.
+## 残る設計論点
 
-## 考えられる対応
-
-- Extend `SignatureSource` (or add a `ShapeSource`) that can answer
-  "the fields/variants of type `pkg.T`" so `tyCons` can be seeded for
-  imports; `.gomi` gains a records section.
-- Cheaper bridge for P1: treat imported nominal types as opaque and
-  diagnose field access on them with a dedicated message until the
-  interface format lands.
-- Decide whether `recordByFields` should search imported records too
-  (scope questions: which imported records are "candidates" without
-  an annotation?).
+import 先 record が候補集合に入る副作用として、file-local record と
+同名フィールドを持つ import が同居すると一意だったリテラルが E0407
+ambiguous になる。現状維持（候補は union、曖昧は annotate 案内）を
+採用 — 詳細は decision 参照。
 
 ## 関連
 
 - internal/check/typenv.go (`tyCons`, `records`, `recordOf`),
-  expr.go `checkRecordLit`/`checkSelect`, pat.go `checkRecordPat`
-- internal/check/env.go `SignatureSource`
+  expr.go `checkRecordLit`/`recordByFields`/`checkSelect`,
+  pat.go `checkRecordPat`/`recordOf`, files.go `registerForeignTypes`
+- decisions/2026-11-22-imported-record-literal.md（残論点の決定）
 - decisions/2026-11-01-gomi-interface-files.md

@@ -98,9 +98,12 @@ type CallInfo struct {
 	// positional extra applied onto the result, or a label the call
 	// already reported — leaves the whole mapping nil.
 	//
-	// Entries must be distinct (Validate), so a variadic Go call —
-	// where every trailing argument fills the same final parameter —
-	// always reports nil here. For a CallGo with Variadic set, nil
+	// Entries must be distinct (Validate): the mapping is nil whenever
+	// two arguments fill the same parameter — the common variadic case
+	// where several trailing arguments land on the tail slot — but a
+	// variadic call CAN still report non-nil when every argument
+	// resolves to a distinct parameter (e.g. reordered labels with a
+	// single tail argument). For a CallGo with Variadic set, nil
 	// therefore does NOT mean "identity" alone: the convention is
 	// that argument i supplies parameter min(i, Arity-1) — the
 	// repeated tail is derived from Variadic + Arity, not from this
