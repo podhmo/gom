@@ -1739,5 +1739,6 @@
   対応: `run` 内 `defer_err` を新 `core.DeferErrDrop` に分けて
   `defer func(){ _, _ = f(struct{}{}).Unwrap() }()` を出す。エラーは
   join 先が無いので捨てるが検査は残す。検証:
-  testdata/golden/scope_native_defer（`drop_err`）、
-  cmd/gom/testdata/native_scope.gom（`run_drop` — native/runtime 同出力）
+  [golden](../testdata/golden/scope_native_defer.gom)（`drop_err`）、
+  [native_scope](../cmd/gom/testdata/native_scope.gom)（`run_drop` —
+  native/runtime 同出力）
