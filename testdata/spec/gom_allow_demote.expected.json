@@ -1,0 +1,51 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0301",
+      "severity": "warning",
+      "message": "non-exhaustive match on `Int`",
+      "span": {
+        "file": "gom_allow_demote.gom",
+        "start": {
+          "line": 5,
+          "col": 24,
+          "offset": 53
+        },
+        "end": {
+          "line": 7,
+          "col": 2,
+          "offset": 73
+        }
+      },
+      "data": {
+        "missing_patterns": [
+          "_"
+        ],
+        "scrutinee_type": "Int"
+      },
+      "fixes": [
+        {
+          "title": "add the missing arms",
+          "applicability": "placeholder",
+          "edits": [
+            {
+              "file": "gom_allow_demote.gom",
+              "start": {
+                "line": 7,
+                "col": 1,
+                "offset": 72
+              },
+              "end": {
+                "line": 7,
+                "col": 1,
+                "offset": 72
+              },
+              "text": "  _ -> todo ()\n"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

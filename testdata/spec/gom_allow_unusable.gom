@@ -1,0 +1,5 @@
+package m
+
+//gom:allow E0401
+
+fn f (n: Int) -> Int = "x"

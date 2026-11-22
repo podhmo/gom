@@ -153,6 +153,13 @@ type CodeInfo struct {
 	// stay in the table forever so their numbers are never reused
 	// (spec section 12 item 2).
 	Retired bool
+	// Relaxable marks a code that a `//gom:allow` directive may demote
+	// from error to warning (spec section 12): only diagnostics the
+	// pipeline can recover from locally qualify — an E0301 match still
+	// compiles (the uncovered case panics), an E0302 arm can be
+	// dropped. Codes whose downstream phases need sound input are
+	// never relaxable.
+	Relaxable bool
 }
 
 // codeRE is the code format: a severity letter, a two-digit category,
@@ -373,6 +380,7 @@ a wildcard or variable arm.`,
     Some _ -> true
     // None is not covered
   }`,
+		Relaxable: true,
 	},
 	{
 		Code:     "E0302",
@@ -388,6 +396,7 @@ arms that shadow it.`,
   _ -> 0
   Some x -> x   // unreachable: the wildcard already covers Some x
 }`,
+		Relaxable: true,
 	},
 	{
 		Code:     "E0303",
@@ -1340,6 +1349,23 @@ cut off structurally instead of growing the Go stack without
 limit; the depth bound additionally keeps the fatal goroutine
 stack ceiling unreachable. It does not mean the program is wrong,
 only that it did not finish within the bound.`,
+	},
+
+	{
+		Code:     "W0003",
+		Severity: SeverityWarning,
+		Title:    "unusable `//gom:allow` code",
+		Phase:    PhaseDriver,
+		Spec:     "12",
+		Explanation: `A "//gom:allow <code>" directive named a code that is
+not registered, or one that is registered but not relaxable. Only
+codes carrying the relaxable flag (E0301, E0302) may be demoted to
+warnings — a directive naming another code would pretend the
+compile succeeded on unsound input, so it is left at error severity
+and this warning reports the unusable line instead of ignoring it.
+Malformed or code-less directives warn the same way.`,
+		Example: `//gom:allow E0401   // E0401 is not relaxable
+let x : Int = "a"`,
 	},
 
 	{

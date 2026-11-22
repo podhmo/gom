@@ -1,0 +1,70 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "W0003",
+      "severity": "warning",
+      "message": "malformed `//gom:allow` directive: expected whitespace after `allow`",
+      "span": {
+        "file": "gom_allow_malformed.gom",
+        "start": {
+          "line": 3,
+          "col": 1,
+          "offset": 11
+        },
+        "end": {
+          "line": 3,
+          "col": 17,
+          "offset": 27
+        }
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0301",
+      "severity": "error",
+      "message": "non-exhaustive match on `Int`",
+      "span": {
+        "file": "gom_allow_malformed.gom",
+        "start": {
+          "line": 5,
+          "col": 24,
+          "offset": 52
+        },
+        "end": {
+          "line": 7,
+          "col": 2,
+          "offset": 72
+        }
+      },
+      "data": {
+        "missing_patterns": [
+          "_"
+        ],
+        "scrutinee_type": "Int"
+      },
+      "fixes": [
+        {
+          "title": "add the missing arms",
+          "applicability": "placeholder",
+          "edits": [
+            {
+              "file": "gom_allow_malformed.gom",
+              "start": {
+                "line": 7,
+                "col": 1,
+                "offset": 71
+              },
+              "end": {
+                "line": 7,
+                "col": 1,
+                "offset": 71
+              },
+              "text": "  _ -> todo ()\n"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

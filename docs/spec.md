@@ -784,6 +784,8 @@ test "parse then sum" {
 6. 生成した Go コードに対する `go build` / `go vet` / `go test` のエラーも `.gom` の位置に戻し、`"source": "go"` を付けて同じ形式で出す
 7. 出力の JSON Schema は `gom schema` で取り出せる。互換性のない変更をしたらスキーマのバージョンを上げる
 8. `summary` の `ok` は error 診断がなく失敗したテストもないときだけ `true`。`gom test` の summary にはテストの集計として `"tests": {"run": N, "failed": N, "skipped": N}` が付く（他のコマンドでは `tests` 自体がない）
+9. ファイル内ディレクティブ `//gom:allow <code>...` は、そのファイルで発火した指定コードの診断を error から warning に格下げする。対象はコード表で relaxable とフラグされたコードだけ（初期は E0301・E0302 — 欠けた腕は生成コードで panic、到達不能腕は落とされるので、局所的に回復できる）。格下げされても診断はコード付きで報告に残り、silent にはならない。登録外・relaxable でないコードを書いた行や、コードの無い行は W0003 で報告する
+10. `--strict`（`gom check` / `gom build` / `gom test`）は warning 診断が残っていると終了コードを 1 にする（CI で warning 残置を禁じる用途）。`--strict=E0301,W0501` のようにコード列を付けると、そのコードの warning があるときだけ失敗する。warning の severity 自体は変わらない — 厳しくなるのは終了コードだけ
 
 | コマンド | 出力するメッセージの `kind` |
 | --- | --- |

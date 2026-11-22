@@ -1,0 +1,8 @@
+package m
+
+//gom:allow E0302
+
+fn f (n: Int) -> Int = match n {
+  _ -> 0
+  1 -> 1
+}

@@ -36,6 +36,7 @@ package main
 // GOM_GOIMPORT_NOCACHE precedent).
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -270,7 +271,18 @@ func canonHash(src []byte, dropTests bool) string {
 	if dropTests {
 		drops = syntax.TestDeclSpans(src, "")
 	}
-	sum := sha256.Sum256(syntax.Canonical(src, drops))
+	canon := syntax.Canonical(src, drops)
+	// Comments leave the canonical token stream unchanged, but
+	// `//gom:` directive lines carry semantics (//gom:allow,
+	// //gom:noescape) — fold them into the fingerprint so adding or
+	// removing one invalidates the entry.
+	for _, line := range bytes.Split(src, []byte("\n")) {
+		if t := bytes.TrimSpace(line); bytes.HasPrefix(t, []byte("//gom:")) {
+			canon = append(canon, '\n')
+			canon = append(canon, t...)
+		}
+	}
+	sum := sha256.Sum256(canon)
 	return hex.EncodeToString(sum[:])
 }
 

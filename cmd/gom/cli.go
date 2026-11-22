@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -400,6 +401,8 @@ func runCheck(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("check", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	format := fs.String("format", "json", "diagnostic format: json or text")
+	strict := &strictFlag{}
+	fs.Var(strict, "strict", "exit non-zero on warnings; -strict=CODES limits to the listed codes")
 	if err := fs.Parse(args); err != nil {
 		return flagError(err)
 	}
@@ -439,7 +442,7 @@ func runCheck(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "gom check: %v\n", err)
 		return diag.ExitInternal
 	}
-	return rep.ExitCode()
+	return strictExit(rep, strict)
 }
 
 // runBuild implements `gom build [-format F] [-o out] [-go] [FILE|DIR ...]`:
@@ -455,6 +458,8 @@ func runBuild(args []string, stdout, stderr io.Writer) int {
 	out := fs.String("o", "", "output file (single input) or directory")
 	goBuild := fs.Bool("go", false, "run `go build` on written packages and fold its diagnostics")
 	goVet := fs.Bool("vet", false, "run `go vet` on written packages and fold its diagnostics")
+	strict := &strictFlag{}
+	fs.Var(strict, "strict", "exit non-zero on warnings; -strict=CODES limits to the listed codes")
 	if err := fs.Parse(args); err != nil {
 		return flagError(err)
 	}
@@ -490,12 +495,13 @@ func runBuild(args []string, stdout, stderr io.Writer) int {
 	for _, in := range inputs {
 		srcs[in.path] = in.src
 	}
-	// The incremental cache is off under -go/-vet: a hit produces no
-	// compiled output to hand the go tool check, so the flags force
-	// a fresh compile (design.md section 5's opt-out is still
+	// The incremental cache is off under -go/-vet/--strict: a hit
+	// produces no compiled output to hand the go tool check and no
+	// diagnostics for --strict to judge, so the flags force a fresh
+	// compile (design.md section 5's opt-out is still
 	// GOM_BUILD_NOCACHE).
 	var bc *buildCache
-	if !*goBuild && !*goVet {
+	if !*goBuild && !*goVet && !strict.on {
 		bc = newBuildCache()
 	}
 	results, err := compileInputs(inputs, false, bc, *out, nil)
@@ -599,7 +605,7 @@ func runBuild(args []string, stdout, stderr io.Writer) int {
 		}
 		return diag.ExitInternal
 	}
-	return rep.ExitCode()
+	return strictExit(rep, strict)
 }
 
 // runDump implements `gom dump -phase=P FILE` — a developer tool
@@ -1023,4 +1029,75 @@ func flagError(err error) int {
 		return diag.ExitSuccess
 	}
 	return diag.ExitInternal
+}
+
+// strictFlag implements `--strict` (spec section 12): a bare
+// `--strict` promotes every warning diagnostic to a failing run, and
+// `--strict=CODES` (comma-separated) fails only when a warning
+// carries one of the listed codes. IsBoolFlag lets the flag stand
+// without a value — flag passes "true" for the bare form.
+type strictFlag struct {
+	on    bool
+	codes map[string]bool // nil: every warning counts
+}
+
+// String satisfies flag.Value.
+func (s *strictFlag) String() string {
+	if !s.on {
+		return ""
+	}
+	if s.codes == nil {
+		return "true"
+	}
+	var cs []string
+	for c := range s.codes {
+		cs = append(cs, c)
+	}
+	slices.Sort(cs)
+	return strings.Join(cs, ",")
+}
+
+// Set parses `-strict[=value]`: "true" and "" enable the bare form,
+// "false" disables, anything else is a comma-separated code list.
+func (s *strictFlag) Set(v string) error {
+	switch v {
+	case "", "true":
+		s.on = true
+		return nil
+	case "false":
+		s.on = false
+		return nil
+	}
+	codes := map[string]bool{}
+	for _, f := range strings.Split(v, ",") {
+		f = strings.TrimSpace(f)
+		if !diag.WellFormed(diag.Code(f)) {
+			return fmt.Errorf("--strict: malformed diagnostic code %q", f)
+		}
+		codes[f] = true
+	}
+	s.on = true
+	s.codes = codes
+	return nil
+}
+
+// IsBoolFlag lets `--strict` appear without a value.
+func (s *strictFlag) IsBoolFlag() bool { return true }
+
+// strictExit maps a report to its exit code under --strict: when the
+// run would pass but a warning the flag selects exists, the run
+// fails. The warnings themselves stay warnings — only the exit code
+// tightens (CI use).
+func strictExit(rep diag.Report, sf *strictFlag) int {
+	code := rep.ExitCode()
+	if !sf.on || code == diag.ExitError {
+		return code
+	}
+	for _, d := range rep.Diagnostics {
+		if d.Severity == diag.SeverityWarning &&
+			(sf.codes == nil || sf.codes[string(d.Code)]) {
+			return diag.ExitError
+		}
+	}
+	return code
 }

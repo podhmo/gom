@@ -69,6 +69,23 @@ directive, and undecodable bytes would leak into the generated file.
 Rename the file; the check covers every Unicode control character (Cc)
 and rejects strings that are not valid UTF-8 at all.
 
+### W0003 — unusable `//gom:allow` code
+
+**Severity:** warning · **Phase:** driver · **Spec:** §12
+
+A "//gom:allow <code>" directive named a code that is
+not registered, or one that is registered but not relaxable. Only
+codes carrying the relaxable flag (E0301, E0302) may be demoted to
+warnings — a directive naming another code would pretend the
+compile succeeded on unsound input, so it is left at error severity
+and this warning reports the unusable line instead of ignoring it.
+Malformed or code-less directives warn the same way.
+
+```gom
+//gom:allow E0401   // E0401 is not relaxable
+let x : Int = "a"
+```
+
 ## 01xx — Syntax
 
 ### E0101 — syntax error
