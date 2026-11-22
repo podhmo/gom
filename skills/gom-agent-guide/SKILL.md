@@ -337,8 +337,11 @@ fn ratio_pipe (a: Int) (b: Int) (c: Int) -> Result Int String =
   `*rt.StepError` via `errors.As` (with
   `import go "github.com/podhmo/gom/rt"`, see
   `testdata/realworld/errwalk`), wrap errors in your own frame with
-  `rt.StepErr` via `Result.map_err`, or skip `|?>` and use
-  `try` + `match` on the raw `Result`.
+  `rt.StepErr` via `Result.map_err` (declare it as
+  `fn StepErr (step: String) (err: GoError) -> GoError` in an
+  `extern go` block — the standard view returns
+  `Result Unit GoError`), or skip `|?>` and use `try` + `match` on
+  the raw `Result`.
 
 # Common LLM Mistakes
 

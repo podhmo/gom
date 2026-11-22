@@ -644,7 +644,7 @@ fn parse_port (s: String) -> Result Int GoError =
 文言を自前で制御したい場合の経路は既にある:
 
 - 消費側で読み替える — `errors.As` で `*rt.StepError` を取り出し、`Step` フィールドと `Err` から好きな文言を組み立てる（Go 側、または `import go "github.com/podhmo/gom/rt"` した Gom 側）
-- 自前のフレームを付ける — `rt.StepErr`（`import go "github.com/podhmo/gom/rt"`）を `Result.map_err` 経由で適用し、任意のステップ名で包む
+- 自前のフレームを付ける — `rt.StepErr`（`import go "github.com/podhmo/gom/rt"`）を `Result.map_err` 経由で適用し、任意のステップ名で包む。標準ビューは `Result Unit GoError` を返すため、常に non-nil を返す `rt.StepErr` には `fn StepErr (step: String) (err: GoError) -> GoError` の extern 宣言（never-nil ビュー）を添える
 - 素の `Result` を扱う — `|?>` の自動ラップを介さず `try` + `match` で処理する
 
 `|?>` 側で文言を設定する構文・ディレクティブは future work（open-questions.md、[decisions/pipe-try-wording](decisions/2026-11-23-pipe-try-wording.md) の案 C）。
