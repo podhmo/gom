@@ -491,13 +491,22 @@ func (c *checker) callParamEscapes(call CallInfo, i int) bool {
 // means "no declared callee", not "uninspectable".
 func (c *checker) argEscapes(e *Apply, i int) bool {
 	if e.Call.Kind == CallUnknown {
-		if v, ok := e.Fn.(*Var); ok && v.Sym != nil {
-			return c.symParamEscapes(v.Sym, i)
+		var sym *resolve.Symbol
+		if v, ok := e.Fn.(*Var); ok {
+			sym = v.Sym
+		} else if v, ok := e.Fn.(*MemberExpr); ok {
+			sym = v.Sym
 		}
-		if v, ok := e.Fn.(*MemberExpr); ok && v.Sym != nil {
-			return c.symParamEscapes(v.Sym, i)
+		if sym == nil {
+			return true
 		}
-		return true
+		// CallUnknown still maps reordered labeled arguments —
+		// read flags by parameter position, not argument order.
+		p := i
+		if e.Call.ArgToParam != nil && i < len(e.Call.ArgToParam) && e.Call.ArgToParam[i] >= 0 {
+			p = e.Call.ArgToParam[i]
+		}
+		return c.symParamEscapes(sym, p)
 	}
 	return c.callParamEscapes(e.Call, i)
 }
