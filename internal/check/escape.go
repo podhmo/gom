@@ -370,19 +370,90 @@ func (c *checker) propagateAliasEscapes(sym *resolve.Symbol, v Expr) bool {
 	if src == nil || len(src.Escapes) == 0 {
 		return false
 	}
-	if len(sym.Escapes) < len(src.Escapes) {
-		grown := make([]bool, len(src.Escapes))
+	dstF := c.funcOf(sym)
+	srcF := c.funcOf(src)
+	if dstF == nil || srcF == nil {
+		return false
+	}
+	// An annotated alias may declare the callee's labeled parameters
+	// in a different order — unifyFunc pairs them by name, so flags
+	// must travel by the same pairing, not by position.
+	m := aliasParamMap(dstF.Params, srcF.Params)
+	n := len(dstF.Params)
+	if len(sym.Escapes) < n {
+		grown := make([]bool, n)
 		copy(grown, sym.Escapes)
 		sym.Escapes = grown
 	}
 	changed := false
-	for i := range src.Escapes {
-		if src.Escapes[i] && !sym.Escapes[i] {
-			sym.Escapes[i] = true
+	for j := 0; j < n; j++ {
+		k := m[j]
+		esc := true
+		if k >= 0 && k < len(src.Escapes) {
+			esc = src.Escapes[k]
+		}
+		if esc && !sym.Escapes[j] {
+			sym.Escapes[j] = true
 			changed = true
 		}
 	}
 	return changed
+}
+
+// funcOf returns the callable signature of a symbol, or nil when it
+// is not function-typed.
+func (c *checker) funcOf(sym *resolve.Symbol) *types.Func {
+	if t, ok := c.vals[sym]; ok {
+		f, _ := types.Chase(t).(*types.Func)
+		return f
+	}
+	if c.src != nil {
+		if sg, ok := c.src.SignatureOf(sym); ok {
+			f, _ := types.Chase(sg.Type).(*types.Func)
+			return f
+		}
+	}
+	return nil
+}
+
+// aliasParamMap pairs two parameter lists the way unifyFunc pairs
+// them: unlabeled parameters in order of appearance, labeled ones by
+// name. dst index j answers the matching src index, or -1.
+func aliasParamMap(dst, src []types.FuncParam) []int {
+	m := make([]int, len(dst))
+	for j := range m {
+		m[j] = -1
+	}
+	var dstFree, srcFree []int
+	for j, p := range dst {
+		if p.Label == "" {
+			dstFree = append(dstFree, j)
+		}
+	}
+	for i, p := range src {
+		if p.Label == "" {
+			srcFree = append(srcFree, i)
+		}
+	}
+	for x := 0; x < len(dstFree) && x < len(srcFree); x++ {
+		m[dstFree[x]] = srcFree[x]
+	}
+	byLabel := map[string]int{}
+	for i, p := range src {
+		if p.Label != "" {
+			if _, dup := byLabel[p.Label]; !dup {
+				byLabel[p.Label] = i
+			}
+		}
+	}
+	for j, p := range dst {
+		if p.Label != "" {
+			if i, ok := byLabel[p.Label]; ok {
+				m[j] = i
+			}
+		}
+	}
+	return m
 }
 
 // fnDeclOf resolves a top-level function symbol to its checked
