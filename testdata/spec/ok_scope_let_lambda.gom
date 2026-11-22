@@ -10,3 +10,13 @@ fn ok_let_helper (held: Ref Int) -> Int =
         apply (fn () -> Scope.defer s (fn () -> Ref.set held 0))
         Ref.get held
     }
+
+// Binding the call's result does not retain the callee either —
+// `let x = f (); x` consumes f, so f's parameter stays
+// non-escaping and a scope-capturing lambda is still accepted.
+fn ok_let_result (held: Ref Int) -> Int =
+    Scope.run <| fn s -> {
+        let run = fn f -> { let x = f (); x }
+        run (fn () -> Scope.defer s (fn () -> Ref.set held 0))
+        Ref.get held
+    }

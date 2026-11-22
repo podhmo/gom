@@ -751,10 +751,10 @@ func (c *checker) bindLet(l *Let, b *escapeBody) {
 			b.aliases[s] = true
 		}
 	}
-	// A bound name may carry any free variable of its value —
-	// markDanger follows these so an escaping use lands on the
-	// source parameter, not only on the alias.
-	vars := capturedVars(l.Value, map[*resolve.Symbol]bool{})
+	// A bound name carries the variables its value's result
+	// retains — markDanger follows these so an escaping use lands
+	// on the source parameter, not only on the alias.
+	vars := retainedVars(l.Value)
 	if len(vars) > 0 {
 		syms := make([]*resolve.Symbol, 0, len(vars))
 		for s := range vars {
@@ -767,6 +767,121 @@ func (c *checker) bindLet(l *Let, b *escapeBody) {
 			b.bindOf[s] = syms
 		}
 	}
+}
+
+// retainedVars returns the variables an escaping use of e's
+// result carries — the names its value retains. Unlike
+// capturedVars it only reads result positions: a full
+// application's callee and arguments are consumed by the call
+// itself (`let x = f ()` does not retain f — the callee's escape
+// flags already mark whatever it keeps), so only partial/hole
+// applications, constructors, and function-valued pipes count.
+// Pattern-bound and inner-let names may leak in; they are inert
+// for parameters and the inner let's own bindOf entry continues
+// the chain.
+func retainedVars(e Expr) map[*resolve.Symbol]bool {
+	var out map[*resolve.Symbol]bool
+	var rec func(e Expr)
+	rec = func(e Expr) {
+		add := func(s *resolve.Symbol) {
+			if s == nil {
+				return
+			}
+			if out == nil {
+				out = map[*resolve.Symbol]bool{}
+			}
+			out[s] = true
+		}
+		switch e := e.(type) {
+		case nil:
+		case *Var:
+			add(e.Sym)
+		case *MemberExpr:
+			// The selected member's value is the result; the
+			// receiver itself is read, not retained.
+			add(e.Sym)
+		case *Lambda:
+			for s := range capturedVars(e.Body, lamBound(e)) {
+				add(s)
+			}
+		case *Apply:
+			ctor := e.Call.Callee != nil && e.Call.Callee.Kind == resolve.KindCtor
+			producesClosure := e.Call.Kind == CallPartial || e.Call.HoleIndex >= 0 ||
+				(e.Call.Kind == CallUnknown && isFuncType(e.Type()))
+			if ctor || producesClosure {
+				rec(e.Fn)
+				for _, a := range e.Args {
+					rec(a.Value)
+				}
+			}
+		case *Ascribe:
+			rec(e.X)
+		case *If:
+			rec(e.Then)
+			rec(e.Else)
+		case *Match:
+			for _, a := range e.Arms {
+				rec(a.Body)
+			}
+		case *Block:
+			if n := len(e.Stmts); n > 0 {
+				rec(e.Stmts[n-1])
+			}
+		case *Try:
+			rec(e.X)
+		case *ListLit:
+			for _, el := range e.Elems {
+				rec(el)
+			}
+		case *TupleLit:
+			for _, el := range e.Elems {
+				rec(el)
+			}
+		case *RecordLit:
+			rec(e.With)
+			for _, f := range e.Fields {
+				rec(f.Value)
+			}
+		case *Spread:
+			rec(e.X)
+		case *SelectExpr:
+			for _, a := range e.Arms {
+				switch a := a.(type) {
+				case *RecvArm:
+					rec(a.Body)
+				case *SendArm:
+					rec(a.Body)
+				case *DefaultArm:
+					rec(a.Body)
+				default:
+					panic("unreachable")
+				}
+			}
+		case *Binary:
+			switch e.Op {
+			case syntax.BinPipeFwd, syntax.BinPipeBack, syntax.BinPipeTry:
+				// `x |> f` applies f to x — a function-valued
+				// result is a partial application capturing
+				// both; anything else consumed them.
+				if isFuncType(e.Type()) {
+					rec(e.X)
+					rec(e.Y)
+				}
+			case syntax.BinComposeFwd, syntax.BinComposeBack:
+				rec(e.X)
+				rec(e.Y)
+			}
+		case *Lit, *Hole, *Let, *Ignore, *Unary, *FieldAssign,
+			*For, *GoExpr, *StrInterp:
+			// Consumed positions and statement results retain
+			// nothing — a `let` statement's own bindings alias
+			// through its bindOf entry instead.
+		default:
+			panic("unreachable")
+		}
+	}
+	rec(e)
+	return out
 }
 
 // lamBound collects the symbols a lambda's own parameter patterns
