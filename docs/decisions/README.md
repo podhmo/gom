@@ -232,6 +232,7 @@
 | [emit-name-collision-check](2026-11-23-emit-name-collision-check.md) | emit 名衝突は codegen 台帳で検出し W0601/W0602 で警告する | adopted |
 | [go-abi-stability](2026-11-23-go-abi-stability.md) | 生成 Go の API 安定方針（Go ABI） | 採択（案 B、2026-11-23 wave35 開始前インタビュー） |
 | [gomi-monomorphic](2026-11-23-gomi-monomorphic.md) | `.gomi` が実装より単相の場合の許容 | 採択（案 B — 厳格一致維持、明示的な単相ラッパ） |
+| [labeled-arg-relaxation](2026-11-23-labeled-arg-relaxation.md) | ラベル付き引数の制限緩和の調査 | adopted |
 | [local-let-polymorphism](2026-11-23-local-let-polymorphism.md) | ローカル let の多相化 | 採択（案 A、2026-11-23 wave35 開始前インタビュー） |
 | [pipe-try-wording](2026-11-23-pipe-try-wording.md) | `\|?>` 自動ラップの文言カスタマイズ | 採択（案 C — 現状維持 + 回避経路の文書化） |
 | [scope-cleanup-extension](2026-11-23-scope-cleanup-extension.md) | scoped cleanup 拡張: エラー合流の一般化と取得+登録糖衣（案） | 採択（案 D、2026-11-23 wave35 開始前インタビュー） |
