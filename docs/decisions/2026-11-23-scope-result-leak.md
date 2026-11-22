@@ -1,6 +1,6 @@
 # 結果経由の Scope リーク（non-escaping 引数の生産物がクロージャを運ぶ）
 
-- 状態: draft
+- 状態: 採択（案 A — 案 B への拡張余地あり、wave34 lane A で実装）
 - 日付: 2026-11-23
 - 問い: `f` が non-escaping でも `f` が返す値が `Scope` を捕まえた
   クロージャを運ぶ流路を、使い方の規則（値レベル脱出解析）で
@@ -69,6 +69,26 @@ gomi ディレクティブ文法・apply.go の推論を全部拡張する —
 文書化して残す。実害は「ライブラリ関数が引数の適用結果を返す」
 パターンでのみ起きるが、`Scope` 系の高階関数はちょうどこの
 形を取りやすいので見逃すのは苦い。
+
+## 実装（wave34 lane A）
+
+案 A を実装済み:
+
+- 脱出位置の呼出しで `containsFunc`（結果型に関数型を含む）が
+  真なら、引数ラムダに `b.forward` を立てて本体の結果位置を
+  danger で walk する（`escWalk` の danger は構造上、結果位置に
+  だけ伝わる — Block の末尾・If/Match のアーム・Try のみ）
+- ローカル宣言の callee は `retainedProducers`（`retainedVars` +
+  結果位置の saturated call の callee 自身を producer と数える）
+  でパラメータの生産物が結果に載るかを絞る — `run_cb` は true、
+  `const_f` は false。opaque（imported / Go / 非シンボル）は
+  保守的に true
+- pipe 形式（`x |> f` / `f <| x`）にも同じ規則をかけ、
+  `Scope.run <| fn s -> ...` の本体引数が返すクロージャも
+  E0419 になる
+- 検証: `testdata/spec/E0419_scope_result_leak/` — pipe/apply
+  両形式のリークで E0419、`Unit` 結果の引数・生産物を捨てる
+  callee では無診断
 
 ## 制限・補足
 

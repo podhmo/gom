@@ -1787,7 +1787,7 @@
   map/and_then/fold 系はコールバックの結果が callee の結果を通って
   外へ出る（下の未解消項目）ため注釈しない。検証:
   [spec](../testdata/spec/ok_scope_stdlib_callback.gom)
-- [ ] **non-escaping 引数の「結果経由の Scope リーク」を検査できない**:
+- [x] **non-escaping 引数の「結果経由の Scope リーク」を検査できない**:
   non-escaping と判定された関数型パラメータ（`.gomi` 注釈でも
   check の推論でも）は「引数の値が保持されない」ことだけを意味し、
   コールバックの **戻り値** に載った `s` 捕獲クロージャは追跡されない。
@@ -1796,7 +1796,13 @@
   クロージャ）が呼出し結果からスコープ外へ出て、close 後に呼ぶと
   runtime panic するが E0419 は出ない。同じ穴はコールバックの結果を
   結果に含む callee（map/and_then/fold 形）全般にある。
+  対応: 脱出位置の呼出しで結果型が関数を含むとき、引数ラムダの
+  本体の結果位置を danger で walk（result-danger）。ローカル宣言の
+  callee は `retainedProducers` でパラメータの生産物が結果に載るか
+  絞り、opaque callee は保守的に true。
   [チェッカー](../internal/check/escape.go)（2026-11-22 検証）
+  検証: [spec](../testdata/spec/E0419_scope_result_leak/)。
+  [decision](decisions/2026-11-23-scope-result-leak.md)。
 - [x] **`let` 束縛ラムダ経由の呼び出しが保守的 escaping で E0419 の
   偽陽性**: `let apply = fn f -> f ()` のようなローカル helper に
   スコープ捕獲のコールバックを渡すと `CallUnknown` で一律 danger

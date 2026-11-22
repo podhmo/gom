@@ -1,0 +1,39 @@
+package ex
+
+// spec section 6.1: an argument lambda's product — a closure it
+// returns — may carry a captured Scope out through the callee's
+// result even when the argument itself does not escape (the
+// call's result type contains a function).
+fn run_cb (f: Int -> (Unit -> Unit)) -> Unit -> Unit = f 3
+
+fn leak (held: Ref Int) -> Unit -> Unit =
+    Scope.run <| fn s ->
+        run_cb (fn x -> fn () -> Scope.defer s (fn () -> Ref.set held 0))
+
+// a scope runner in pipe form forwards its body's produced value:
+// returning a closure that captures the handle leaks it the same
+// way the apply form does.
+fn leak2 () -> Unit -> Unit =
+    Scope.run <| fn s -> fn () -> Scope.defer s (fn () -> ())
+
+fn leak_apply (held: Ref Int) -> Unit -> Unit =
+    Scope.run (fn s ->
+        run_cb (fn x -> fn () -> Scope.defer s (fn () -> Ref.set held 0)))
+
+// no report below — these are safe.
+
+fn run_cb2 (f: Int -> Unit) -> Unit = f 3
+
+// the argument lambda captures s but returns Unit — its product
+// carries nothing.
+fn ok_apply (held: Ref Int) -> Unit =
+    Scope.run (fn s ->
+        run_cb2 (fn x -> Scope.defer s (fn () -> Ref.set held 0)))
+
+// a callee that discards the parameter returns none of its
+// products, so even a function-valued result leaks nothing.
+fn const_f (f: Int -> (Unit -> Unit)) -> Unit -> Unit = fn () -> ()
+
+fn ok_discard (held: Ref Int) -> Unit -> Unit =
+    Scope.run <| fn s ->
+        const_f (fn x -> fn () -> Scope.defer s (fn () -> Ref.set held 0))
