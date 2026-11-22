@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0419",
+      "severity": "error",
+      "message": "`cl` is a `Scope` value (or closes over one) and escapes its scope here",
+      "span": {
+        "file": "E0419_scope_let_alias_escape.gom",
+        "start": {
+          "line": 17,
+          "col": 22,
+          "offset": 458
+        },
+        "end": {
+          "line": 17,
+          "col": 24,
+          "offset": 460
+        }
+      }
+    }
+  ]
+}

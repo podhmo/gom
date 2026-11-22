@@ -255,7 +255,9 @@ func (c *checker) checkScopeEscape() {
 		}
 		// A top-level `let f = fn ...` is a named callee too: give
 		// its bound symbol the same parameter inference declared
-		// functions get so callers do not default to escaping.
+		// functions get so callers do not default to escaping. A
+		// `let f = g` alias names the very callable g resolved
+		// to — g's proven positions hold for f as well.
 		for _, d := range c.decls {
 			if ld, ok := d.(*LetDecl); ok {
 				if lam, isLam := ld.Value.(*Lambda); isLam {
@@ -263,6 +265,11 @@ func (c *checker) checkScopeEscape() {
 						if c.inferLetLambdaEscapes(s, lam) {
 							changed = true
 						}
+					}
+				}
+				for _, s := range patBoundSyms(ld.Pat) {
+					if c.propagateAliasEscapes(s, ld.Value) {
+						changed = true
 					}
 				}
 			}
@@ -345,6 +352,108 @@ func (c *checker) inferLetLambdaEscapes(sym *resolve.Symbol, lam *Lambda) bool {
 		}
 	}
 	return changed || b.flagsChanged
+}
+
+// propagateAliasEscapes copies parameter-escape flags through a
+// `let f = g` alias: the bound symbol names the very callable g
+// resolved to, so g's proven positions hold for f as well — a
+// let-bound alias used to default to "escaping" at every call
+// site and re-raised E0419 on arguments the original accepted.
+// Flags only ever grow, the monotone fixpoint's discipline.
+func (c *checker) propagateAliasEscapes(sym *resolve.Symbol, v Expr) bool {
+	var src *resolve.Symbol
+	if x, ok := v.(*Var); ok {
+		src = x.Sym
+	} else if x, ok := v.(*MemberExpr); ok {
+		src = x.Sym
+	}
+	if src == nil || len(src.Escapes) == 0 {
+		return false
+	}
+	dstF := c.funcOf(sym)
+	srcF := c.funcOf(src)
+	if dstF == nil || srcF == nil {
+		return false
+	}
+	// An annotated alias may declare the callee's labeled parameters
+	// in a different order — unifyFunc pairs them by name, so flags
+	// must travel by the same pairing, not by position.
+	m := aliasParamMap(dstF.Params, srcF.Params)
+	n := len(dstF.Params)
+	if len(sym.Escapes) < n {
+		grown := make([]bool, n)
+		copy(grown, sym.Escapes)
+		sym.Escapes = grown
+	}
+	changed := false
+	for j := 0; j < n; j++ {
+		k := m[j]
+		esc := true
+		if k >= 0 && k < len(src.Escapes) {
+			esc = src.Escapes[k]
+		}
+		if esc && !sym.Escapes[j] {
+			sym.Escapes[j] = true
+			changed = true
+		}
+	}
+	return changed
+}
+
+// funcOf returns the callable signature of a symbol, or nil when it
+// is not function-typed.
+func (c *checker) funcOf(sym *resolve.Symbol) *types.Func {
+	if t, ok := c.vals[sym]; ok {
+		f, _ := types.Chase(t).(*types.Func)
+		return f
+	}
+	if c.src != nil {
+		if sg, ok := c.src.SignatureOf(sym); ok {
+			f, _ := types.Chase(sg.Type).(*types.Func)
+			return f
+		}
+	}
+	return nil
+}
+
+// aliasParamMap pairs two parameter lists the way unifyFunc pairs
+// them: unlabeled parameters in order of appearance, labeled ones by
+// name. dst index j answers the matching src index, or -1.
+func aliasParamMap(dst, src []types.FuncParam) []int {
+	m := make([]int, len(dst))
+	for j := range m {
+		m[j] = -1
+	}
+	var dstFree, srcFree []int
+	for j, p := range dst {
+		if p.Label == "" {
+			dstFree = append(dstFree, j)
+		}
+	}
+	for i, p := range src {
+		if p.Label == "" {
+			srcFree = append(srcFree, i)
+		}
+	}
+	for x := 0; x < len(dstFree) && x < len(srcFree); x++ {
+		m[dstFree[x]] = srcFree[x]
+	}
+	byLabel := map[string]int{}
+	for i, p := range src {
+		if p.Label != "" {
+			if _, dup := byLabel[p.Label]; !dup {
+				byLabel[p.Label] = i
+			}
+		}
+	}
+	for j, p := range dst {
+		if p.Label != "" {
+			if i, ok := byLabel[p.Label]; ok {
+				m[j] = i
+			}
+		}
+	}
+	return m
 }
 
 // fnDeclOf resolves a top-level function symbol to its checked
@@ -453,10 +562,22 @@ func (c *checker) callParamEscapes(call CallInfo, i int) bool {
 // means "no declared callee", not "uninspectable".
 func (c *checker) argEscapes(e *Apply, i int) bool {
 	if e.Call.Kind == CallUnknown {
-		if v, ok := e.Fn.(*Var); ok && v.Sym != nil {
-			return c.symParamEscapes(v.Sym, i)
+		var sym *resolve.Symbol
+		if v, ok := e.Fn.(*Var); ok {
+			sym = v.Sym
+		} else if v, ok := e.Fn.(*MemberExpr); ok {
+			sym = v.Sym
 		}
-		return true
+		if sym == nil {
+			return true
+		}
+		// CallUnknown still maps reordered labeled arguments —
+		// read flags by parameter position, not argument order.
+		p := i
+		if e.Call.ArgToParam != nil && i < len(e.Call.ArgToParam) && e.Call.ArgToParam[i] >= 0 {
+			p = e.Call.ArgToParam[i]
+		}
+		return c.symParamEscapes(sym, p)
 	}
 	return c.callParamEscapes(e.Call, i)
 }
@@ -622,6 +743,9 @@ func (c *checker) escWalk(e Expr, danger bool, b *escapeBody, report bool) {
 						if lam, isLam := l.Value.(*Lambda); isLam && c.inferLetLambdaEscapes(s, lam) {
 							b.flagsChanged = true
 						}
+						if c.propagateAliasEscapes(s, l.Value) {
+							b.flagsChanged = true
+						}
 					}
 				}
 			}
@@ -637,6 +761,9 @@ func (c *checker) escWalk(e Expr, danger bool, b *escapeBody, report bool) {
 			b.lets[s] = e.Value
 			if !report {
 				if lam, isLam := e.Value.(*Lambda); isLam && c.inferLetLambdaEscapes(s, lam) {
+					b.flagsChanged = true
+				}
+				if c.propagateAliasEscapes(s, e.Value) {
 					b.flagsChanged = true
 				}
 			}
