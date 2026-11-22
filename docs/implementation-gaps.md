@@ -1704,3 +1704,9 @@
   参照: [decision](decisions/2026-11-21-type-alias-adopt.md)、
   [spec 3.2](spec.md)、testdata/spec/ok_type_alias・E0401_alias_cycle
   ・E0401_alias_record、testdata/golden/type_alias。
+- [ ] **`Go.conv` が単一フィールド record（Go defined type）との相互変換を認めない**:
+  Go では `type UserId int64` に対して `int64(u)` / `UserId(7)` が合法なのに、
+  Gom 側は `Go.conv u : Int` / `Go.conv 7 : UserId` を E0507 で拒否する。
+  代替は `.value` / `{ value = v }` で足りるが、明示変換の綴りが揃っていない。
+  仕様は `Go.conv` の変換対象を列挙する側で defined type を触れていない。
+  [仕様](spec.md) §8.5 / [チェッカー](../internal/check/gofunc.go)
