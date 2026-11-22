@@ -1,5 +1,6 @@
 package main
 
+import go "encoding/json"
 import go "time"
 
 // A one-field record emits as the Go defined type `type X F`, so
@@ -14,6 +15,8 @@ type U32 = { v : Int32 }
 type M = { u : UserId }
 type D = { d : time.Duration }
 type Xs = { xs : List Int }
+type Text = { t : String }
+type C = { c : Chan Int }
 
 fn main () -> Unit = {
   let u = { value = 7 }
@@ -41,3 +44,14 @@ fn main () -> Unit = {
 // copy and stays E0507; see E0507_go_conv_defined_reject.)
 fn pack (l : List Int) -> Xs = Go.conv l : Xs
 fn unpack (x : Xs) -> List Int = Go.conv x : List Int
+
+// Identical-underlying pairs beyond builtins: `json.Number` is
+// `type Number string`, so both `json.Number(t)` and `string(n)`
+// compile — the oracle's mutual convertibility is what admits them.
+fn num (t : Text) -> json.Number = Go.conv t : json.Number
+fn text (n : json.Number) -> Text = Go.conv n : Text
+
+// The restrictive channel targets emit as the unnamed `chan<- T` /
+// `<-chan T` — Go admits a named bidirectional source there.
+fn sendc (c : C) -> SendChan Int = Go.conv c : SendChan Int
+fn recvc (c : C) -> RecvChan Int = Go.conv c : RecvChan Int

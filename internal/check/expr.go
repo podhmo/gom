@@ -1116,6 +1116,38 @@ func (c *checker) convOK(from, to types.Type) bool {
 			_, _, _, ok2 := c.litRange(to)
 			return ok2
 		}
+		// A List↔Go.Slice pair peels to the boundary-copy case —
+		// ConvNamed emits a raw `T(x)` cast that shares the backing,
+		// so it stays rejected even though the oracle would call the
+		// rendered `[]T`↔`[]T` pair convertible.
+		if _, _, ok := c.sliceListPair(from, to); ok {
+			return false
+		}
+		// `chan<- T(x)` / `<-chan T(x)`: the restrictive target is
+		// unnamed in Go, so a named X whose underlying is the
+		// bidirectional `Chan T` converts (Go needs one side unnamed
+		// — X's direction is bidirectional, which suffices).
+		if tc, ok := to.(*types.Con); ok &&
+			(c.isBuiltinCon(tc, "SendChan") || c.isBuiltinCon(tc, "RecvChan")) {
+			if fc, ok := from.(*types.Con); ok && c.isBuiltinCon(fc, "Chan") &&
+				types.Equal(fc.Args[0], tc.Args[0]) {
+				return true
+			}
+		}
+		// The last unnamed-rule shape that survives a named operand is
+		// identical underlying. The oracle cannot name it directly,
+		// but it is the only rule that converts BOTH directions:
+		// `string(text)`/`json.Number(s)` both hold for
+		// `type Text = {value: String}`, while interface satisfaction
+		// (`Duration`→`fmt.Stringer`) and channel direction are
+		// one-directional and stay rejected.
+		if src, ok := c.src.(ConvertSource); ok {
+			fwd, fok := src.GoConvertible(from, to)
+			rev, rok := src.GoConvertible(to, from)
+			if fok && rok {
+				return fwd && rev
+			}
+		}
 		return false
 	}
 	numeric := func(t types.Type) bool {
