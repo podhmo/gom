@@ -383,6 +383,17 @@ fn guarded (held: Ref Int) (need: Bool) -> Int =
 5. 後片付けの 1 つが panic しても、残りの後片付けはすべて走り、そのあと panic が伝播する
 6. スコープが閉じたあとに登録すると panic する
 7. `s`（とそれを束ねた別名・それを捕まえたクロージャ）をスコープの外へ持ち出すことは型エラー（E0419、[decisions/scope-escape-check](decisions/2026-11-22-scope-escape-check.md)）。型の位置では `Scope` はパラメータの葉の型か関数型の引数側の中にのみ書ける — 結果型・フィールド・コンテナ要素は禁止。使い方では、引数を保持しない呼び出し（`Scope` 操作・非脱出パラメータ・即時適用ラムダ）の中では使えるが、返り値にする・`Task.spawn` や `go {}`・Go の関数へ渡す・可変セルやコンストラクタへ格納するのはエラー。Go の関数は常に「逃げる」扱いで、非脱出パラメータはパッケージ内の推論が `.gomi` の `//gom:noescape` 注釈に書き出される。ラムダを束ねた `let` のパラメータにも同じ推論が効く。`let f = g` の別名束縛は `g` が証明した非脱出パラメータをそのまま引き継ぐ。どちらも `let` メンバのまま `.gomi` に出るときは `//gom:noescape` 行がメンバ名に対して書き出され、import 側にも同じ判定が効く。引数が保持されなくても呼出しの結果がその引数の生産物を運びうるとき（結果型が関数を含む脱出位置の呼出し）、引数ラムダの本体が返す値にも同じ脱出規則がかかる — ローカル宣言の callee ではそのパラメータの生産物が結果に載る場合に限り、外部の callee では保守的に検査する
+8. `run_result` / `defer_err` が合流するのは `GoError` だけ。後片付けの失敗をドメイン独自のエラー型 `E` で扱いたいときは、`run_result` の結果を `|> Result.map_err f` で橋渡しする。後片付け自体が `E` を返す場合は、`defer_err` のコールバック内で `E -> GoError` に変換して登録すれば `Close` の合流に乗る。取得と登録を一度に書く糖衣はユーザー側の helper 関数として書ける — `s` は引数を保持しない呼び出しに渡せるので:
+
+   ```gom
+   fn closing (s: Scope) (open: Unit -> r) (close: (r -> Unit)) -> r = {
+     let x = open ()
+     Scope.defer s (fn () -> close x)
+     x
+   }
+   ```
+
+   スコープ値をエラー型で型パラメータ化する版・組み込みの取得+登録糖衣は future work（[decisions/scope-cleanup-extension](decisions/2026-11-23-scope-cleanup-extension.md) 案 D）。
 
 ---
 

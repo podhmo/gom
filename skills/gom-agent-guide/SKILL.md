@@ -766,6 +766,21 @@ fn main () -> Unit = ignore (work true)
   directives only count at line start — a trailing `x + //gom:...`
   is inert — and `gom fmt` moves in-expression ones to the file's
   end on their own lines rather than inlining them as `/* */`.
+- Cleanup failures join as `GoError` only. To fold them into a
+  domain error type `E`, bridge the `run_result` result with
+  `|> Result.map_err f`; a cleanup that itself yields `E` can
+  convert `E -> GoError` inside its `defer_err` callback and still
+  ride the `Close` join.
+- Fetch-and-register sugar is a user helper — `s` can be passed to
+  a non-retaining call, so this compiles:
+
+  ```gom
+  fn closing (s: Scope) (open: Unit -> r) (close: (r -> Unit)) -> r = {
+    let x = open ()
+    Scope.defer s (fn () -> close x)
+    x
+  }
+  ```
 
 ```gom fail=E0419
 package main
