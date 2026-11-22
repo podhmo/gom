@@ -8,14 +8,14 @@
       "span": {
         "file": "E0507_go_conv_defined_reject.gom",
         "start": {
-          "line": 26,
+          "line": 28,
           "col": 12,
-          "offset": 1062
+          "offset": 1123
         },
         "end": {
-          "line": 26,
+          "line": 28,
           "col": 20,
-          "offset": 1070
+          "offset": 1131
         }
       },
       "data": {
@@ -32,14 +32,14 @@
       "span": {
         "file": "E0507_go_conv_defined_reject.gom",
         "start": {
-          "line": 30,
+          "line": 32,
           "col": 11,
-          "offset": 1134
+          "offset": 1195
         },
         "end": {
-          "line": 30,
+          "line": 32,
           "col": 26,
-          "offset": 1149
+          "offset": 1210
         }
       },
       "data": {
@@ -55,14 +55,14 @@
       "span": {
         "file": "E0507_go_conv_defined_reject.gom",
         "start": {
-          "line": 31,
+          "line": 33,
           "col": 11,
-          "offset": 1161
+          "offset": 1222
         },
         "end": {
-          "line": 31,
+          "line": 33,
           "col": 28,
-          "offset": 1178
+          "offset": 1239
         }
       },
       "data": {
@@ -78,14 +78,14 @@
       "span": {
         "file": "E0507_go_conv_defined_reject.gom",
         "start": {
-          "line": 32,
+          "line": 34,
           "col": 11,
-          "offset": 1190
+          "offset": 1251
         },
         "end": {
-          "line": 32,
+          "line": 34,
           "col": 31,
-          "offset": 1210
+          "offset": 1271
         }
       },
       "data": {
@@ -101,14 +101,14 @@
       "span": {
         "file": "E0507_go_conv_defined_reject.gom",
         "start": {
-          "line": 34,
+          "line": 36,
           "col": 11,
-          "offset": 1245
+          "offset": 1306
         },
         "end": {
-          "line": 34,
+          "line": 36,
           "col": 26,
-          "offset": 1260
+          "offset": 1321
         }
       },
       "data": {
@@ -124,14 +124,14 @@
       "span": {
         "file": "E0507_go_conv_defined_reject.gom",
         "start": {
-          "line": 36,
+          "line": 38,
           "col": 11,
-          "offset": 1296
+          "offset": 1357
         },
         "end": {
-          "line": 36,
+          "line": 38,
           "col": 36,
-          "offset": 1321
+          "offset": 1382
         }
       },
       "data": {
@@ -147,14 +147,14 @@
       "span": {
         "file": "E0507_go_conv_defined_reject.gom",
         "start": {
-          "line": 38,
+          "line": 40,
           "col": 11,
-          "offset": 1377
+          "offset": 1438
         },
         "end": {
-          "line": 38,
+          "line": 40,
           "col": 35,
-          "offset": 1401
+          "offset": 1462
         }
       },
       "data": {
@@ -170,14 +170,14 @@
       "span": {
         "file": "E0507_go_conv_defined_reject.gom",
         "start": {
-          "line": 42,
+          "line": 44,
           "col": 23,
-          "offset": 1433
+          "offset": 1494
         },
         "end": {
-          "line": 42,
+          "line": 44,
           "col": 36,
-          "offset": 1446
+          "offset": 1507
         }
       },
       "data": {
@@ -189,18 +189,64 @@
       "kind": "diagnostic",
       "code": "E0507",
       "severity": "error",
+      "message": "cannot convert C to S",
+      "span": {
+        "file": "E0507_go_conv_defined_reject.gom",
+        "start": {
+          "line": 47,
+          "col": 26,
+          "offset": 1633
+        },
+        "end": {
+          "line": 47,
+          "col": 39,
+          "offset": 1646
+        }
+      },
+      "data": {
+        "from": "C",
+        "to": "S"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0507",
+      "severity": "error",
+      "message": "cannot convert P to Ptr Int",
+      "span": {
+        "file": "E0507_go_conv_defined_reject.gom",
+        "start": {
+          "line": 50,
+          "col": 31,
+          "offset": 1812
+        },
+        "end": {
+          "line": 50,
+          "col": 50,
+          "offset": 1831
+        }
+      },
+      "data": {
+        "from": "P",
+        "to": "Ptr Int"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0507",
+      "severity": "error",
       "message": "cannot convert L to Int",
       "span": {
         "file": "E0507_go_conv_defined_reject.gom",
         "start": {
-          "line": 43,
+          "line": 51,
           "col": 25,
-          "offset": 1471
+          "offset": 1856
         },
         "end": {
-          "line": 43,
+          "line": 51,
           "col": 40,
-          "offset": 1486
+          "offset": 1871
         }
       },
       "data": {

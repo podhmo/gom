@@ -23,6 +23,8 @@ type Xs = { xs : List Int }
 type D = { d : time.Duration }
 type S = { s : SendChan Int }
 type R = { r : RecvChan Int }
+type C = { c : Chan Int }
+type P = { p : Ptr time.Duration }
 type L = { next : L }
 
 fn main () -> Unit = {
@@ -40,4 +42,10 @@ fn main () -> Unit = {
 }
 
 fn snd (s : S) -> R = Go.conv s : R
+// Channel direction cannot change between two named wrappers —
+// `S(c)` is not a Go conversion.
+fn narrow (c : C) -> S = Go.conv c : S
+// Peeled `Ptr` pairs ride the unnamed-pointer rule, which a named
+// operand can never satisfy — `(*int64)(p)` is not a conversion.
+fn widen (p : P) -> Ptr Int = Go.conv p : Ptr Int
 fn cyc (l : L) -> Int = Go.conv l : Int

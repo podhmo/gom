@@ -1126,12 +1126,18 @@ func (c *checker) convOK(from, to types.Type) bool {
 		// `chan<- T(x)` / `<-chan T(x)`: the restrictive target is
 		// unnamed in Go, so a named X whose underlying is the
 		// bidirectional `Chan T` converts (Go needs one side unnamed
-		// — X's direction is bidirectional, which suffices).
-		if tc, ok := to.(*types.Con); ok &&
-			(c.isBuiltinCon(tc, "SendChan") || c.isBuiltinCon(tc, "RecvChan")) {
-			if fc, ok := from.(*types.Con); ok && c.isBuiltinCon(fc, "Chan") &&
-				types.Equal(fc.Args[0], tc.Args[0]) {
-				return true
+		// — X's direction is bidirectional, which suffices). The
+		// target must be the literally-spelled builtin (`to == to0`):
+		// a SendChan/RecvChan reached by peeling a defined type is
+		// itself named, and Go cannot narrow `chan` between two named
+		// types.
+		if to == to0 {
+			if tc, ok := to.(*types.Con); ok &&
+				(c.isBuiltinCon(tc, "SendChan") || c.isBuiltinCon(tc, "RecvChan")) {
+				if fc, ok := from.(*types.Con); ok && c.isBuiltinCon(fc, "Chan") &&
+					types.Equal(fc.Args[0], tc.Args[0]) {
+					return true
+				}
 			}
 		}
 		// The last unnamed-rule shape that survives a named operand is
@@ -1141,6 +1147,15 @@ func (c *checker) convOK(from, to types.Type) bool {
 		// `type Text = {value: String}`, while interface satisfaction
 		// (`Duration`→`fmt.Stringer`) and channel direction are
 		// one-directional and stay rejected.
+		//
+		// Pairs whose legal route is an unnamed-shape rule — pointers,
+		// slices, maps, channels, funcs — must not reach the oracle:
+		// those rules hold for both directions too (so mutual
+		// convertibility admits them), but they require the operand
+		// itself to be unnamed, which a peeled defined type never is.
+		if convShapeType(from) || convShapeType(to) {
+			return false
+		}
 		if src, ok := c.src.(ConvertSource); ok {
 			fwd, fok := src.GoConvertible(from, to)
 			rev, rok := src.GoConvertible(to, from)
@@ -1248,6 +1263,36 @@ func (c *checker) convOK(from, to types.Type) bool {
 	}
 	if _, ok := to.(*types.Go); ok {
 		return true
+	}
+	return false
+}
+
+// convShapeType reports whether t is a type whose Go conversion
+// rules require the operand itself to be unnamed — pointers,
+// slices, maps, channels, funcs. For a peeled defined type those
+// rules can never fire (`P(x)` where P is named), so the
+// mutual-oracle check in convOK skips such pairs. Residual gap: a
+// *types.Go side with an unnamed-shaped underlying (unsafe.Pointer,
+// an unnamed imported pointer) is not detected.
+func convShapeType(t types.Type) bool {
+	switch t := types.Chase(t).(type) {
+	case *types.Func:
+		return true
+	case *types.Con:
+		if t.Qual == "" {
+			switch t.Name {
+			case "Ptr", "Chan", "SendChan", "RecvChan":
+				return true
+			}
+			return false
+		}
+		if t.Qual == "Go" {
+			if t.Name == "Slice" || t.Name == "Map" {
+				return true
+			}
+			_, isFn := goFuncTypeArity(t.Name)
+			return isFn
+		}
 	}
 	return false
 }
