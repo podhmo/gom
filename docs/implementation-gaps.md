@@ -1828,3 +1828,11 @@
   連続・先行の空行は付けず冪等化。
   [フォーマッタ](../internal/format/print.go)（2026-11-23 検証）
   検証: [golden](../testdata/fmt/directives.out.gom)。
+- [ ] **spec §2 の unlabeled→labeled introduction が未実装**: spec
+  2.1 は expected 側のラベルを produced のラベルなしパラメータに
+  位置対応で貸す一方向の introduction を許すが、check 側の
+  unification はまだラベル有無を型の同一性に含めており
+  `apply (fn x -> x)`（expected `~x: Int -> Int`）は E0401。
+  spec が実装に先行 — 実装 lane は TODO「unlabeled → labeled の
+  introduction」を参照。
+  [仕様](spec.md)、[decision](decisions/2026-11-23-labeled-arg-relaxation.md)
