@@ -1714,9 +1714,14 @@
   解消（wave31 lane A、2026-11-22）: `convOK` が 1 フィールド record
   （`check.DefinedField` と同じ基準 — `type X a = {f: a}` の裸パラメータは
   除く）をフィールド型に剥がれてから変換規則を適用するようにした。
-  剥がれは `tyCons` を見るので宣言・インポート両方と連鎖（`type M = {u:
-  UserId}` → `Int`）に効く。`litRange` も同じ剥がれを入れて
-  `Go.conv 3000000000 : U32`（`type U32 = {v: Int32}`）を E0417 にする。
+  剥がれたオペランドは Go の名前付き型なので、受理は underlying 一致・
+  数値 underlying 同士に限る（`litRange` の oracle 視点で `time.Duration`
+  のような名前付き underlying も数値と判定）。`List`↔`Go.Slice` の
+  コピー（キャストはバッキングを共有する）、名前付き channel ラッパ間の
+  向き変更、interface 適合（defined type はメソッドを持たない）は
+  E0507 のまま。剥がれは `tyCons` を見るので宣言・インポート両方と
+  連鎖（`type M = {u: UserId}` → `Int`）に効く。`litRange` も同じ剥がれを
+  入れて `Go.conv 3000000000 : U32`（`type U32 = {v: Int32}`）を E0417 にする。
   emit は既存の `ConvNamed` `T(x)` で正しかったが、変換先が `*T` に解像
   される場合だけ codegen が `(*T)(x)` の parens を付けるようにした
   （`*int64(p)` は deref にパースされる）。複数フィールド record・sum・

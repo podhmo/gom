@@ -1086,10 +1086,8 @@ func (c *checker) checkConv(from, to types.Type, sp diag.Span) {
 func (c *checker) convOK(from, to types.Type) bool {
 	// A one-field record emits as the Go defined type `type X F`,
 	// so the conversion rules see its field type — `int64(u)` and
-	// `UserId(7)` are the `F(x)`/`X(f)` pairs Go admits. Peeling
-	// before the rules gives the defined type every conversion its
-	// underlying has (numeric pairs included) and keeps multi-field
-	// records and sums rejected via containsGomDecl.
+	// `UserId(7)` are the `F(x)`/`X(f)` pairs Go admits.
+	from0, to0 := from, to
 	from = c.definedUnderlying(from)
 	to = c.definedUnderlying(to)
 	if types.Equal(from, to) {
@@ -1100,6 +1098,25 @@ func (c *checker) convOK(from, to types.Type) bool {
 	}
 	if _, ok := to.(*types.Meta); ok {
 		return true
+	}
+	if from != from0 || to != to0 {
+		// A peeled operand is a NAMED Go type: the emitted `T(x)`
+		// stays legal only where the Go conversion rules admit a
+		// named operand — identical underlying (the Equal above) or
+		// both sides numeric basic kinds (`float64(u)`,
+		// `int64(d)` for `type D = {v: time.Duration}`; litRange
+		// asks the oracle about named underlyings). Everything else
+		// borrows rules an unnamed F would enjoy but X does not:
+		// the List↔Go.Slice boundary copy (ConvNamed emits a raw
+		// cast that shares the backing), channel direction between
+		// two named wrappers, and the oracle's interface
+		// satisfaction (a defined type has no methods — X never
+		// implements `fmt.Stringer`). Reject them as unconvertible.
+		if _, _, _, ok := c.litRange(from); ok {
+			_, _, _, ok2 := c.litRange(to)
+			return ok2
+		}
+		return false
 	}
 	numeric := func(t types.Type) bool {
 		con, ok := t.(*types.Con)
@@ -1216,7 +1233,8 @@ func (c *checker) definedUnderlying(t types.Type) types.Type {
 		if !ok {
 			return t
 		}
-		ti, ok := c.tyCons[conKey{qual: con.Qual, name: con.Name}]
+		key := conKey{qual: con.Qual, name: con.Name}
+		ti, ok := c.tyCons[key]
 		if !ok || ti.kind != kindRecord || len(ti.fields) != 1 {
 			return t
 		}

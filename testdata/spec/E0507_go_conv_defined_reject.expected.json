@@ -8,14 +8,14 @@
       "span": {
         "file": "E0507_go_conv_defined_reject.gom",
         "start": {
-          "line": 14,
+          "line": 27,
           "col": 11,
-          "offset": 439
+          "offset": 973
         },
         "end": {
-          "line": 14,
+          "line": 27,
           "col": 26,
-          "offset": 454
+          "offset": 988
         }
       },
       "data": {
@@ -31,14 +31,14 @@
       "span": {
         "file": "E0507_go_conv_defined_reject.gom",
         "start": {
-          "line": 15,
+          "line": 28,
           "col": 11,
-          "offset": 466
+          "offset": 1000
         },
         "end": {
-          "line": 15,
+          "line": 28,
           "col": 28,
-          "offset": 483
+          "offset": 1017
         }
       },
       "data": {
@@ -54,14 +54,14 @@
       "span": {
         "file": "E0507_go_conv_defined_reject.gom",
         "start": {
-          "line": 16,
+          "line": 29,
           "col": 11,
-          "offset": 495
+          "offset": 1029
         },
         "end": {
-          "line": 16,
+          "line": 29,
           "col": 31,
-          "offset": 515
+          "offset": 1049
         }
       },
       "data": {
@@ -77,19 +77,88 @@
       "span": {
         "file": "E0507_go_conv_defined_reject.gom",
         "start": {
-          "line": 18,
+          "line": 31,
           "col": 11,
-          "offset": 550
+          "offset": 1084
         },
         "end": {
-          "line": 18,
+          "line": 31,
           "col": 26,
-          "offset": 565
+          "offset": 1099
         }
       },
       "data": {
         "from": "Box ?1",
         "to": "Int"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0507",
+      "severity": "error",
+      "message": "cannot convert Xs to Go.Slice Int",
+      "span": {
+        "file": "E0507_go_conv_defined_reject.gom",
+        "start": {
+          "line": 33,
+          "col": 11,
+          "offset": 1135
+        },
+        "end": {
+          "line": 33,
+          "col": 36,
+          "offset": 1160
+        }
+      },
+      "data": {
+        "from": "Xs",
+        "to": "Go.Slice Int"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0507",
+      "severity": "error",
+      "message": "cannot convert D to fmt.Stringer",
+      "span": {
+        "file": "E0507_go_conv_defined_reject.gom",
+        "start": {
+          "line": 35,
+          "col": 11,
+          "offset": 1216
+        },
+        "end": {
+          "line": 35,
+          "col": 35,
+          "offset": 1240
+        }
+      },
+      "data": {
+        "from": "D",
+        "to": "fmt.Stringer"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0507",
+      "severity": "error",
+      "message": "cannot convert S to R",
+      "span": {
+        "file": "E0507_go_conv_defined_reject.gom",
+        "start": {
+          "line": 39,
+          "col": 23,
+          "offset": 1272
+        },
+        "end": {
+          "line": 39,
+          "col": 36,
+          "offset": 1285
+        }
+      },
+      "data": {
+        "from": "S",
+        "to": "R"
       }
     }
   ]

@@ -1,13 +1,19 @@
 package main
 
+import go "time"
+
 // A one-field record emits as the Go defined type `type X F`, so
-// `Go.conv` accepts every pair F participates in — the `F(x)` and
-// `X(f)` casts are legal Go (spec 8.4). The peel chases chains
-// (`M`'s field is itself a defined type) and honours the field's
-// underlying kind — `UserId` converts to `Int`, `Int64`, `Float`.
+// `Go.conv` accepts the pairs whose `T(x)`/`X(f)` emission stays
+// legal for a named operand (spec 8.4): identical-underlying pairs
+// and pairs where both underlyings are numeric basic kinds —
+// `litRange`'s oracle view covers named Go underlyings like
+// `time.Duration`. The peel chases chains (`M`'s field is itself a
+// defined type).
 type UserId = { value : Int }
 type U32 = { v : Int32 }
 type M = { u : UserId }
+type D = { d : time.Duration }
+type Xs = { xs : List Int }
 
 fn main () -> Unit = {
   let u = { value = 7 }
@@ -18,9 +24,20 @@ fn main () -> Unit = {
   let w : U32 = Go.conv u : U32
   let m = { u = u2 }
   let n2 : Int = Go.conv m : Int
-  ignore (n + n2)
+  let d = { d = Go.conv 5 : time.Duration }
+  let dn : Int = Go.conv d : Int
+  let dd : time.Duration = Go.conv d : time.Duration
+  ignore (n + n2 + dn)
   ignore i64
   ignore f
   ignore w
+  ignore dd
   ()
 }
+
+// `Xs`'s field is the builtin `List` — an immutable view, so the
+// equal-underlying `Xs(l)` cast shares backing safely. (The
+// opposite direction — into `Go.Slice` — would need the boundary
+// copy and stays E0507; see E0507_go_conv_defined_reject.)
+fn pack (l : List Int) -> Xs = Go.conv l : Xs
+fn unpack (x : Xs) -> List Int = Go.conv x : List Int
