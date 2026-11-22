@@ -5,6 +5,7 @@ import (
 	"fmt"
 	gotypes "go/types"
 	"slices"
+	"strings"
 
 	"github.com/podhmo/gom/internal/diag"
 	"github.com/podhmo/gom/internal/types"
@@ -1088,7 +1089,51 @@ func (c *checker) mismatch(sp diag.Span, want, got any) {
 	}
 	d := diag.Error("E0401", fmt.Sprintf("type mismatch: expected %s, got %s", w, g)).
 		At(sp).Set("expected", w).Set("actual", g)
+	// A function type still carrying labeled parameters is the shape
+	// of a partial application that left labels unfilled — name them
+	// so the diagnostic points at the missing arguments rather than
+	// only at the residual type. The actual side is the common case
+	// (`expected Unit, got ~amount: Int -> Unit`); the expected side
+	// carries labels when extra positional arguments settled labeled
+	// parameters out of order.
+	if ls := unfilledLabels(got); len(ls) > 0 {
+		d = d.AddNote(fmt.Sprintf("the value is a partially applied call still awaiting %s", joinLabels(ls))).
+			Set("unfilled_labels", ls)
+	} else if ls := unfilledLabels(want); len(ls) > 0 {
+		d = d.AddNote(fmt.Sprintf("the expected function type still declares %s — positional arguments may have filled labeled parameters out of order", joinLabels(ls))).
+			Set("unfilled_labels", ls)
+	}
 	c.diags.Add(d)
+}
+
+// unfilledLabels lists the labeled parameters of t when it is a
+// function type — the labels a partial application still owes.
+// Non-type arguments never qualify.
+func unfilledLabels(t any) []string {
+	tt, ok := t.(types.Type)
+	if !ok {
+		return nil
+	}
+	f, ok := types.Chase(tt).(*types.Func)
+	if !ok {
+		return nil
+	}
+	var ls []string
+	for _, p := range f.Params {
+		if p.Label != "" {
+			ls = append(ls, p.Label)
+		}
+	}
+	return ls
+}
+
+// joinLabels renders `~x:`, `~y:` for a diagnostic note.
+func joinLabels(ls []string) string {
+	out := make([]string, len(ls))
+	for i, l := range ls {
+		out[i] = "~" + l + ":"
+	}
+	return strings.Join(out, ", ")
 }
 
 // metaNamer returns a types.Display namer spelling each unbound

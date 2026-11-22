@@ -1,0 +1,5 @@
+package ex
+
+fn f (~x: Int) (~y: Int) -> Int = x + y
+
+let r : Int = f ~x: 1

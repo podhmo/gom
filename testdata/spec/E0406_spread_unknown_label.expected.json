@@ -20,8 +20,14 @@
       },
       "data": {
         "actual": "~dy: Int -> Int",
-        "expected": "Int"
-      }
+        "expected": "Int",
+        "unfilled_labels": [
+          "dy"
+        ]
+      },
+      "notes": [
+        "the value is a partially applied call still awaiting ~dy:"
+      ]
     },
     {
       "kind": "diagnostic",
