@@ -226,4 +226,5 @@
 | [type-alias-syntax](2026-11-21-type-alias-syntax.md) | `type X = T` エイリアス構文 — 採否の推薦（[type-alias-adopt](2026-11-21-type-alias-adopt.md) で置き換え） | Superseded — [2026-11-21-type-alias-adopt](2026-11-21-type-alias-adopt.md) |
 | [sc3-native-defer](2026-11-22-sc3-native-defer.md) | SC-3: `Scope` 登録を native Go `defer` へ lowering | adopted |
 | [scope-escape-check](2026-11-22-scope-escape-check.md) | Scope 値の脱出の静的検査（SC-2） | 採用（実装・検証済み — `gom check` が E0419 を出す） |
+| [strict-mode](2026-11-22-strict-mode.md) | `--strict` / 診断フィルタ — 調査と採否 | adopted（2026-11-22 調査結果 — wave30 lane D） |
 <!-- END GENERATED -->
