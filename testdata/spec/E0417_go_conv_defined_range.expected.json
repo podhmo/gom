@@ -1,0 +1,27 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0417",
+      "severity": "error",
+      "message": "integer literal 3000000000 overflows U32",
+      "span": {
+        "file": "E0417_go_conv_defined_range.gom",
+        "start": {
+          "line": 10,
+          "col": 19,
+          "offset": 328
+        },
+        "end": {
+          "line": 10,
+          "col": 29,
+          "offset": 338
+        }
+      },
+      "data": {
+        "literal": "3000000000",
+        "type": "U32"
+      }
+    }
+  ]
+}

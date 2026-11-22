@@ -18,3 +18,20 @@ fn thaw (xs: List Int) -> Go.Slice Int = Go.conv xs : Go.Slice Int
 fn runes (s: String) -> List Char = Go.conv s : List Char
 
 fn args () -> List String = Go.conv os.Args : List String
+
+// A one-field record is the Go defined type `type X F` — the conv
+// pairs emit `F(x)` / `X(f)` like any other `T(x)`. A `Ptr`-backed
+// field renders `(*T)(x)` — bare `*T(x)` would parse as a
+// dereference.
+type UserId = { value : Int }
+type P = { p : Ptr Int }
+
+fn unwrap (u: UserId) -> Int = Go.conv u : Int
+
+fn wrap (n: Int) -> UserId = Go.conv n : UserId
+
+fn widen (u: UserId) -> Int64 = Go.conv u : Int64
+
+fn derefT (p: P) -> Ptr Int = Go.conv p : Ptr Int
+
+fn refT (p: Ptr Int) -> P = Go.conv p : P

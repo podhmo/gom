@@ -1,0 +1,51 @@
+package main
+
+import go "fmt"
+import go "time"
+
+// The peel applies only to the shapes that emit as Go defined
+// types — multi-field records, sums, and bare-parameter records
+// (`type Box a = {item: a}` stays a struct) reject as before. And
+// a peeled operand is a NAMED Go type, so pairs whose conversion
+// borrows rules only unnamed types enjoy reject too: the
+// List↔Go.Slice boundary copy (`[]int64(xs)` would share the
+// immutable List's backing), interface satisfaction (the defined
+// type has no methods — `X` never implements `fmt.Stringer`), and
+// channel direction between two named wrappers (`type S chan<- i`
+// to `type R <-chan i` is not a Go conversion). A cyclic record is
+// left unpeeled rather than looped on — its E0413 stands and the
+// conv rejects like any other undecomposable pair.
+type UserId = { value : Int }
+type Pair = { x : Int, y : Int }
+type Colour = | Red
+type Box a = { item : a }
+type Xs = { xs : List Int }
+type D = { d : time.Duration }
+type S = { s : SendChan Int }
+type R = { r : RecvChan Int }
+type C = { c : Chan Int }
+type P = { p : Ptr time.Duration }
+type L = { next : L }
+
+fn main () -> Unit = {
+  let p = { x = 1, y = 2 }
+  ignore (Go.conv p : Int)
+  ignore (Go.conv Red : Int)
+  ignore (Go.conv "s" : UserId)
+  let b = { item = 1 }
+  ignore (Go.conv b : Int)
+  let xs = { xs = [1] }
+  ignore (Go.conv xs : Go.Slice Int)
+  let d = { d = Go.conv 5 : time.Duration }
+  ignore (Go.conv d : fmt.Stringer)
+  ()
+}
+
+fn snd (s : S) -> R = Go.conv s : R
+// Channel direction cannot change between two named wrappers —
+// `S(c)` is not a Go conversion.
+fn narrow (c : C) -> S = Go.conv c : S
+// Peeled `Ptr` pairs ride the unnamed-pointer rule, which a named
+// operand can never satisfy — `(*int64)(p)` is not a conversion.
+fn widen (p : P) -> Ptr Int = Go.conv p : Ptr Int
+fn cyc (l : L) -> Int = Go.conv l : Int

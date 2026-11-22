@@ -1,0 +1,258 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0413",
+      "severity": "error",
+      "message": "invalid recursive type: `L` contains itself by value through field `next`",
+      "span": {
+        "file": "E0507_go_conv_defined_reject.gom",
+        "start": {
+          "line": 28,
+          "col": 12,
+          "offset": 1123
+        },
+        "end": {
+          "line": 28,
+          "col": 20,
+          "offset": 1131
+        }
+      },
+      "data": {
+        "field": "next",
+        "field_type": "L",
+        "type": "L"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0507",
+      "severity": "error",
+      "message": "cannot convert Pair to Int",
+      "span": {
+        "file": "E0507_go_conv_defined_reject.gom",
+        "start": {
+          "line": 32,
+          "col": 11,
+          "offset": 1195
+        },
+        "end": {
+          "line": 32,
+          "col": 26,
+          "offset": 1210
+        }
+      },
+      "data": {
+        "from": "Pair",
+        "to": "Int"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0507",
+      "severity": "error",
+      "message": "cannot convert Colour to Int",
+      "span": {
+        "file": "E0507_go_conv_defined_reject.gom",
+        "start": {
+          "line": 33,
+          "col": 11,
+          "offset": 1222
+        },
+        "end": {
+          "line": 33,
+          "col": 28,
+          "offset": 1239
+        }
+      },
+      "data": {
+        "from": "Colour",
+        "to": "Int"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0507",
+      "severity": "error",
+      "message": "cannot convert String to UserId",
+      "span": {
+        "file": "E0507_go_conv_defined_reject.gom",
+        "start": {
+          "line": 34,
+          "col": 11,
+          "offset": 1251
+        },
+        "end": {
+          "line": 34,
+          "col": 31,
+          "offset": 1271
+        }
+      },
+      "data": {
+        "from": "String",
+        "to": "UserId"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0507",
+      "severity": "error",
+      "message": "cannot convert Box ?1 to Int",
+      "span": {
+        "file": "E0507_go_conv_defined_reject.gom",
+        "start": {
+          "line": 36,
+          "col": 11,
+          "offset": 1306
+        },
+        "end": {
+          "line": 36,
+          "col": 26,
+          "offset": 1321
+        }
+      },
+      "data": {
+        "from": "Box ?1",
+        "to": "Int"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0507",
+      "severity": "error",
+      "message": "cannot convert Xs to Go.Slice Int",
+      "span": {
+        "file": "E0507_go_conv_defined_reject.gom",
+        "start": {
+          "line": 38,
+          "col": 11,
+          "offset": 1357
+        },
+        "end": {
+          "line": 38,
+          "col": 36,
+          "offset": 1382
+        }
+      },
+      "data": {
+        "from": "Xs",
+        "to": "Go.Slice Int"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0507",
+      "severity": "error",
+      "message": "cannot convert D to fmt.Stringer",
+      "span": {
+        "file": "E0507_go_conv_defined_reject.gom",
+        "start": {
+          "line": 40,
+          "col": 11,
+          "offset": 1438
+        },
+        "end": {
+          "line": 40,
+          "col": 35,
+          "offset": 1462
+        }
+      },
+      "data": {
+        "from": "D",
+        "to": "fmt.Stringer"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0507",
+      "severity": "error",
+      "message": "cannot convert S to R",
+      "span": {
+        "file": "E0507_go_conv_defined_reject.gom",
+        "start": {
+          "line": 44,
+          "col": 23,
+          "offset": 1494
+        },
+        "end": {
+          "line": 44,
+          "col": 36,
+          "offset": 1507
+        }
+      },
+      "data": {
+        "from": "S",
+        "to": "R"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0507",
+      "severity": "error",
+      "message": "cannot convert C to S",
+      "span": {
+        "file": "E0507_go_conv_defined_reject.gom",
+        "start": {
+          "line": 47,
+          "col": 26,
+          "offset": 1633
+        },
+        "end": {
+          "line": 47,
+          "col": 39,
+          "offset": 1646
+        }
+      },
+      "data": {
+        "from": "C",
+        "to": "S"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0507",
+      "severity": "error",
+      "message": "cannot convert P to Ptr Int",
+      "span": {
+        "file": "E0507_go_conv_defined_reject.gom",
+        "start": {
+          "line": 50,
+          "col": 31,
+          "offset": 1812
+        },
+        "end": {
+          "line": 50,
+          "col": 50,
+          "offset": 1831
+        }
+      },
+      "data": {
+        "from": "P",
+        "to": "Ptr Int"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0507",
+      "severity": "error",
+      "message": "cannot convert L to Int",
+      "span": {
+        "file": "E0507_go_conv_defined_reject.gom",
+        "start": {
+          "line": 51,
+          "col": 25,
+          "offset": 1856
+        },
+        "end": {
+          "line": 51,
+          "col": 40,
+          "offset": 1871
+        }
+      },
+      "data": {
+        "from": "L",
+        "to": "Int"
+      }
+    }
+  ]
+}

@@ -1084,6 +1084,12 @@ func (c *checker) checkConv(from, to types.Type, sp diag.Span) {
 // cannot judge keep the earlier acceptance only when a named Go
 // type participates.
 func (c *checker) convOK(from, to types.Type) bool {
+	// A one-field record emits as the Go defined type `type X F`,
+	// so the conversion rules see its field type — `int64(u)` and
+	// `UserId(7)` are the `F(x)`/`X(f)` pairs Go admits.
+	from0, to0 := from, to
+	from = c.definedUnderlying(from)
+	to = c.definedUnderlying(to)
 	if types.Equal(from, to) {
 		return true
 	}
@@ -1092,6 +1098,74 @@ func (c *checker) convOK(from, to types.Type) bool {
 	}
 	if _, ok := to.(*types.Meta); ok {
 		return true
+	}
+	if from != from0 || to != to0 {
+		// A peeled operand is a NAMED Go type: the emitted `T(x)`
+		// stays legal only where the Go conversion rules admit a
+		// named operand — identical underlying (the Equal above) or
+		// both sides numeric basic kinds (`float64(u)`,
+		// `int64(d)` for `type D = {v: time.Duration}`; litRange
+		// asks the oracle about named underlyings). Everything else
+		// borrows rules an unnamed F would enjoy but X does not:
+		// the List↔Go.Slice boundary copy (ConvNamed emits a raw
+		// cast that shares the backing), channel direction between
+		// two named wrappers, and the oracle's interface
+		// satisfaction (a defined type has no methods — X never
+		// implements `fmt.Stringer`). Reject them as unconvertible.
+		if _, _, _, ok := c.litRange(from); ok {
+			_, _, _, ok2 := c.litRange(to)
+			return ok2
+		}
+		// A List↔Go.Slice pair peels to the boundary-copy case —
+		// ConvNamed emits a raw `T(x)` cast that shares the backing,
+		// so it stays rejected even though the oracle would call the
+		// rendered `[]T`↔`[]T` pair convertible.
+		if _, _, ok := c.sliceListPair(from, to); ok {
+			return false
+		}
+		// `chan<- T(x)` / `<-chan T(x)` / `S(x)`: a narrowing channel
+		// conversion is legal when at least ONE side is unnamed —
+		// `from == from0 || to == to0` means one operand was spelled
+		// as the builtin constructor rather than peeled off a defined
+		// type. `chan<- int64(c)` and `S(ch)` both compile; `S(c)`
+		// between two named wrappers does not.
+		if fc, ok := types.Chase(from).(*types.Con); ok &&
+			c.isBuiltinCon(fc, "Chan") {
+			if tc, ok := types.Chase(to).(*types.Con); ok &&
+				(c.isBuiltinCon(tc, "SendChan") || c.isBuiltinCon(tc, "RecvChan")) {
+				if (from == from0 || to == to0) &&
+					c.convGoIdentical(fc.Args[0], tc.Args[0]) {
+					return true
+				}
+			}
+		}
+		// The last unnamed-rule shape that survives a named operand is
+		// identical underlying. The oracle cannot name it directly,
+		// but it is the only rule that converts BOTH directions:
+		// `string(text)`/`json.Number(s)` both hold for
+		// `type Text = {value: String}`, while interface satisfaction
+		// (`Duration`→`fmt.Stringer`) and channel direction are
+		// one-directional and stay rejected.
+		//
+		// Pairs shaped like pointer/slice/map/chan/func values ride
+		// the identical-underlying rule too — `(*int64)(p)` is legal
+		// exactly when the two peelings render the same Go type
+		// (`Ptr Int`↔`Ptr Int64`), which convGoIdentical judges
+		// element-wise. The other rules such pairs could borrow all
+		// require an unnamed operand a defined type never is, so a
+		// non-identical shape pair skips the mutual-oracle check
+		// (`*Duration`↔`*int64` must not pass).
+		if convShapeType(from) || convShapeType(to) {
+			return c.convGoIdentical(from, to)
+		}
+		if src, ok := c.src.(ConvertSource); ok {
+			fwd, fok := src.GoConvertible(from, to)
+			rev, rok := src.GoConvertible(to, from)
+			if fok && rok {
+				return fwd && rev
+			}
+		}
+		return false
 	}
 	numeric := func(t types.Type) bool {
 		con, ok := t.(*types.Con)
@@ -1193,6 +1267,140 @@ func (c *checker) convOK(from, to types.Type) bool {
 		return true
 	}
 	return false
+}
+
+// convShapeType reports whether t is a type whose Go conversion
+// rules are shape rules — pointers, slices, maps, channels, funcs.
+// For those, a peeled pair converts only via the identical-
+// underlying rule (convGoIdentical judges it); the remaining rules
+// each require an unnamed operand a defined type never is.
+// Residual gap: a *types.Go side with an unnamed-shaped underlying
+// (unsafe.Pointer, an unnamed imported pointer) is not detected.
+func convShapeType(t types.Type) bool {
+	switch t := types.Chase(t).(type) {
+	case *types.Func:
+		return true
+	case *types.Con:
+		if t.Qual == "" {
+			switch t.Name {
+			case "Ptr", "Chan", "SendChan", "RecvChan":
+				return true
+			}
+			return false
+		}
+		if t.Qual == "Go" {
+			if t.Name == "Slice" || t.Name == "Map" {
+				return true
+			}
+			_, isFn := goFuncTypeArity(t.Name)
+			return isFn
+		}
+		return false
+	case *types.Var, *types.Meta, *types.Tuple, *types.Go:
+		return false
+	default:
+		panic("unreachable")
+	}
+}
+
+// convGoIdentical reports whether two peeled operand types render
+// the same Go type — the test behind the identical-underlying
+// conversion rule for shape types. `Int` and `Int64` both render
+// `int64`, so `Ptr Int`≡`Ptr Int64`; `Ptr Int` vs `Ptr time.Duration`
+// differ as `*int64` vs `*time.Duration`. Basic kinds compare by the
+// emitted Go basic type; constructors compare name-for-name with
+// pairwise arguments; anything else (named Go types, mismatched
+// shapes) only counts when types.Equal already ruled it equal.
+func (c *checker) convGoIdentical(a, b types.Type) bool {
+	if types.Equal(a, b) {
+		return true
+	}
+	ak, aok := c.convBasicKind(a)
+	bk, bok := c.convBasicKind(b)
+	if aok || bok {
+		return aok && bok && ak == bk
+	}
+	ac, aok := types.Chase(a).(*types.Con)
+	bc, bok := types.Chase(b).(*types.Con)
+	if !aok || !bok || ac.Qual != bc.Qual || ac.Name != bc.Name ||
+		len(ac.Args) != len(bc.Args) {
+		return false
+	}
+	for i := range ac.Args {
+		if !c.convGoIdentical(ac.Args[i], bc.Args[i]) {
+			return false
+		}
+	}
+	return true
+}
+
+// convBasicKind maps a builtin scalar constructor to the Go basic
+// type it emits — used by convGoIdentical so the Int/Int64 and
+// Char/Int32 spellings compare as the same Go type. Named Go types
+// (*types.Go) are not basic: `time.Duration` shares int64's kind but
+// is not the int64 type.
+func (c *checker) convBasicKind(t types.Type) (string, bool) {
+	con, ok := types.Chase(t).(*types.Con)
+	if !ok || con.Qual != "" || c.shadowedBuiltin(con.Name) {
+		return "", false
+	}
+	switch con.Name {
+	case "Int", "Int64":
+		return "int64", true
+	case "Int32", "Char":
+		return "int32", true
+	case "Float":
+		return "float64", true
+	case "Byte":
+		return "uint8", true
+	case "Bool":
+		return "bool", true
+	case "String":
+		return "string", true
+	}
+	return "", false
+}
+
+// definedUnderlying peels a one-field record that emits as the Go
+// defined type `type X F` to its field type — the same criterion
+// `check.DefinedField` applies (kindRecord, one field, field not a
+// bare type parameter), read off tyCons so both declared and
+// imported records peel. Chases chains (`type M = {u: UserId}`)
+// and substitutes declared params with the Con's args. A cyclic
+// record (`type L = {next: L}` — its own E0413 stands elsewhere)
+// is left unpeeled rather than looped on. Anything else returns
+// unchanged.
+func (c *checker) definedUnderlying(t types.Type) types.Type {
+	seen := map[conKey]bool{}
+	for {
+		con, ok := types.Chase(t).(*types.Con)
+		if !ok {
+			return t
+		}
+		key := conKey{qual: con.Qual, name: con.Name}
+		if seen[key] {
+			return t
+		}
+		seen[key] = true
+		ti, ok := c.tyCons[key]
+		if !ok || ti.kind != kindRecord || len(ti.fields) != 1 {
+			return t
+		}
+		f := ti.fields[0].typ
+		if _, isVar := types.Chase(f).(*types.Var); isVar {
+			return t // `type X a = {f: a}` stays a struct
+		}
+		if len(ti.params) > 0 {
+			sub := types.Subst{}
+			for i, p := range ti.params {
+				if i < len(con.Args) {
+					sub[p.ID] = con.Args[i]
+				}
+			}
+			f = sub.Apply(f)
+		}
+		t = f
+	}
 }
 
 // sliceListPair decomposes (from, to) when one side is the builtin
@@ -1442,6 +1650,10 @@ func (c *checker) revisitLitRanges() {
 // `type Int32` never types a numeric literal — its own E0415 covers
 // the site).
 func (c *checker) litRange(t types.Type) (bits int64, unsigned, floating, ok bool) {
+	// A one-field record is the Go defined type `type X F` — the
+	// `X(lit)` constant conversion judges at the field's range
+	// (`Go.conv 70000 : U32` where `type U32 = {v: Int32}`).
+	t = c.definedUnderlying(t)
 	switch t := types.Chase(t).(type) {
 	case *types.Go:
 		// A named Go type's range is the oracle's knowledge, not
