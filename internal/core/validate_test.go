@@ -70,6 +70,35 @@ func TestValidateAcceptsValidFile(t *testing.T) {
 	}
 }
 
+// A bare CtorRef emits the canonical curried chain — one parameter
+// per func literal — so a multi-field constructor at a 1-parameter
+// Go callback slot is not a FlatArgs mismatch.
+func TestCallGoCtorRefCallbackArity(t *testing.T) {
+	pairCt := csym("Pair2")
+	pairT := &types.Con{Name: "Pair"}
+	ctor := &CtorRef{
+		Sp: sp(), Typ: types.Fn(pairT, types.P(types.Unit), types.P(types.Int)),
+		Sym: pairCt,
+		Fields: []TField{
+			{Sp: sp(), Index: 0, Type: types.Unit},
+			{Sp: sp(), Index: 1, Type: types.Int},
+		},
+	}
+	f := fnFile(types.Int, &Body{Tail: &CallGo{
+		Sp: sp(), Typ: types.Int,
+		Callee:   gsym("Spawn", "example"),
+		Args:     []Atom{ctor},
+		Arity:    1,
+		Results:  GoResultsOne,
+		FlatArgs: []int{1},
+	}})
+	if got := Validate(f); len(got) != 0 {
+		for _, v := range got {
+			t.Errorf("unexpected violation: %s", v)
+		}
+	}
+}
+
 func TestValidateValueAlias(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -370,6 +399,27 @@ func TestValidateViolations(t *testing.T) {
 				Results: GoResultsOne,
 			}}),
 			want: "Go arity",
+		},
+		{
+			name: "CallGo canonical closure at flat-2 slot",
+			file: func() *File {
+				cB, cS := vbind("cb", fnIII)
+				clP, clPS := vbind("a", types.Int)
+				return fnFile(types.Int, &Body{
+					Lets: []*Let{{Sp: sp(), Name: cB, X: &Closure{
+						Sp: sp(), Typ: fnIII,
+						Fn: &Func{Sp: sp(), Sig: fnII, Params: []*Bind{clP},
+							Body: &Body{Tail: vref(clPS, types.Int)}},
+					}}},
+					Tail: &CallGo{
+						Sp: sp(), Typ: types.Int,
+						Callee: goFn, Args: []Atom{vref(cS, fnIII)}, Arity: 1,
+						Results:  GoResultsOne,
+						FlatArgs: []int{2},
+					},
+				})
+			}(),
+			want: "emits a 1-parameter callback for a 2-parameter Go slot",
 		},
 		{
 			name: "IsEntry outside package main",

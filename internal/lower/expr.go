@@ -489,6 +489,7 @@ func (l *lowerer) goFuncRefOrAdapter(sp diag.Span, typ types.Type, sym *resolve.
 			Variadic:   sig.Variadic,
 			Results:    sig.Results,
 			ResNilable: sig.ResNilable,
+			FlatArgs:   l.flatArgs(sig.Arity, sig.Variadic, l.declParamTypes(sym, typ), pv, false),
 		}
 		x := l.wrapGoResult(bs, call, ret)
 		if sig.Results == core.GoResultsOne {
@@ -872,12 +873,19 @@ func (l *lowerer) convBoxSrc(s *seq, a core.Atom, k core.ConvKind) core.Atom {
 // function feed the variadic element — except a `..xs` spread, which
 // feeds the variadic slice itself.
 func (l *lowerer) goParamTypeAt(sig GoSig, i int, spreadArg bool) types.Type {
-	if sig.Arity == 0 || len(sig.Params) < sig.Arity {
+	return l.paramTypeAt(sig.Params, sig.Arity, sig.Variadic, i, spreadArg)
+}
+
+// paramTypeAt is goParamTypeAt over a bare parameter list — used for
+// the declared (Gom-view) parameters when a GoSig carries no raw
+// Params.
+func (l *lowerer) paramTypeAt(ps []types.Type, arity int, variadic bool, i int, spreadArg bool) types.Type {
+	if arity == 0 || len(ps) < arity {
 		return nil
 	}
-	j := min(i, sig.Arity-1)
-	pt := types.Chase(sig.Params[j])
-	if sig.Variadic && j == sig.Arity-1 && !spreadArg {
+	j := min(i, arity-1)
+	pt := types.Chase(ps[j])
+	if variadic && j == arity-1 && !spreadArg {
 		if c, ok := pt.(*types.Con); ok && len(c.Args) == 1 &&
 			((c.Qual == "Go" && c.Name == "Slice") ||
 				(c.Qual == "" && c.Name == "List" && !l.declaredT(c))) {
@@ -886,6 +894,52 @@ func (l *lowerer) goParamTypeAt(sig GoSig, i int, spreadArg bool) types.Type {
 		return nil
 	}
 	return pt
+}
+
+// flatArgs computes CallGo.FlatArgs: for each argument position the
+// function arity of the parameter slot it feeds, -1 for
+// non-function parameters. dps is the declared parameter list the
+// flat-repr convention reads — rigid, because instantiating a type
+// variable's slot (`Scope.run`'s `body: Scope -> a`) must not widen
+// the slot's arity when `a` solves to a function type.
+func (l *lowerer) flatArgs(arity int, variadic bool, dps []types.Type, args []core.Atom, spread bool) []int {
+	var out []int
+	for i := range args {
+		pt := l.paramTypeAt(dps, arity, variadic, i, spread && i == len(args)-1)
+		if k := l.funcArityOf(pt); k >= 0 {
+			if out == nil {
+				out = make([]int, len(args))
+				for j := range out {
+					out[j] = -1
+				}
+			}
+			out[i] = k
+		}
+	}
+	return out
+}
+
+// funcArityOf reports the parameter count of a function-typed Go
+// parameter — `Go.FuncN` or a named func type spell N directly, a
+// Gom arrow chain contributes all of its arrows — or -1 when t is
+// not a function type.
+func (l *lowerer) funcArityOf(t types.Type) int {
+	if t == nil {
+		return -1
+	}
+	t = types.Chase(t)
+	if c, ok := t.(*types.Con); ok && c.Qual == "Go" &&
+		len(c.Name) == 5 && strings.HasPrefix(c.Name, "Func") &&
+		c.Name[4] >= '0' && c.Name[4] <= '0'+byte(types.GoFuncMaxArity) {
+		return int(c.Name[4] - '0')
+	}
+	if fn, ok := l.funcNOfNamed(t); ok {
+		return l.funcArityOf(fn)
+	}
+	if fs := flatSig(t); fs != nil {
+		return len(fs.Params)
+	}
+	return -1
 }
 
 // goPayloadConv wraps a raw Go-produced value in a Conv when its raw
@@ -1462,10 +1516,11 @@ func (l *lowerer) goFnWrap(sp diag.Span, typ types.Type, args []core.Atom, n int
 		}
 		call := &core.CallGo{
 			Sp: sp, Typ: l.goCallTyp(sig, fs.Ret),
-			Fn:      callee,
-			Args:    l.convGoArgs(bs, sig, pv[:n], false),
-			Arity:   n,
-			Results: sig.Results,
+			Fn:       callee,
+			Args:     l.convGoArgs(bs, sig, pv[:n], false),
+			Arity:    n,
+			Results:  sig.Results,
+			FlatArgs: l.flatArgs(n, false, fc.Args[:n], pv[:n], false),
 		}
 		x := l.wrapGoResult(bs, call, fs.Ret)
 		if sig.Results == core.GoResultsOne {
@@ -1771,6 +1826,7 @@ func (l *lowerer) goCall(s *seq, sp diag.Span, resTyp types.Type, callee check.E
 				Arity: ci.Arity, Variadic: ci.Variadic,
 				Spread: spread, Results: sig.Results,
 				ResNilable: sig.ResNilable,
+				FlatArgs:   l.flatArgs(ci.Arity, ci.Variadic, l.declParamTypes(ci.Callee, callee.Type()), filled, spread),
 			}
 			x := l.wrapGoResult(bs, call, remTyp.Ret)
 			if sig.Results == core.GoResultsOne {
@@ -1787,6 +1843,7 @@ func (l *lowerer) goCall(s *seq, sp diag.Span, resTyp types.Type, callee check.E
 		Arity: ci.Arity, Variadic: ci.Variadic,
 		Spread: spread, Results: sig.Results,
 		ResNilable: sig.ResNilable,
+		FlatArgs:   l.flatArgs(ci.Arity, ci.Variadic, l.declParamTypes(ci.Callee, callee.Type()), ordered, spread),
 	}
 	x := l.wrapGoResult(s, call, resTyp)
 	if sig.Results == core.GoResultsOne {
@@ -1822,14 +1879,17 @@ func (l *lowerer) goCallNode(s *seq, ap *check.Apply) *core.CallGo {
 		sig.Results = l.goResultsOf(ap.Type())
 	}
 	spread := hasSpread(ap.Args)
+	dps := l.declParamTypes(ci.Callee, ap.Fn.Type())
+	ordered := l.convGoArgs(s, sig, declOrderArgs(ci, args, 0), spread)
 	return &core.CallGo{
 		Sp: ap.Sp, Typ: l.goCallTyp(sig, ap.Type()),
 		Callee: ci.Callee, Recv: recv, TypeArgs: ci.TypeArgs,
-		Args:  l.convGoArgs(s, sig, declOrderArgs(ci, args, 0), spread),
+		Args:  ordered,
 		Arity: ci.Arity, Variadic: ci.Variadic,
 		Spread:     spread,
 		Results:    sig.Results,
 		ResNilable: sig.ResNilable,
+		FlatArgs:   l.flatArgs(ci.Arity, ci.Variadic, dps, ordered, spread),
 	}
 }
 
@@ -1971,12 +2031,19 @@ func (l *lowerer) applyAtom(s *seq, sp diag.Span, resTyp types.Type, fn core.Ato
 			l.err(sp, fmt.Sprintf("Go function %s applied at %d args, arity %d — partial Go application needs a Closure", f.Sym.Name, len(args), f.Arity))
 			return l.litUnit(sp)
 		}
+		gsig := GoSig{Results: f.Results}
+		flat := []int(nil)
+		if full := l.goSig(f.Sym, f.Type()); len(full.Params) > 0 {
+			gsig = GoSig{Arity: f.Arity, Params: full.Params, Results: f.Results}
+			flat = l.flatArgs(f.Arity, false, full.Params, args, false)
+		}
 		call := &core.CallGo{
-			Sp: sp, Typ: l.goCallTyp(GoSig{Results: f.Results}, resTyp),
+			Sp: sp, Typ: l.goCallTyp(gsig, resTyp),
 			Callee: f.Sym, Recv: f.Recv, TypeArgs: f.TypeArgs,
-			Args:    args,
-			Arity:   f.Arity,
-			Results: f.Results,
+			Args:     args,
+			Arity:    f.Arity,
+			Results:  f.Results,
+			FlatArgs: flat,
 		}
 		return l.wrapGoResult(s, call, resTyp)
 	case *core.Var, *core.Lit, *core.FieldGet:

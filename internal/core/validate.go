@@ -76,6 +76,8 @@ func Validate(f *File) []Violation {
 	v := &validator{
 		top:     make(map[*resolve.Symbol]bool),
 		bound:   make(map[*resolve.Symbol]diag.Span),
+		lets:    make(map[*resolve.Symbol]Expr),
+		flat:    make(map[*resolve.Symbol]int),
 		tparams: make(map[*resolve.Symbol]int),
 		localT:  make(map[string]bool),
 	}
@@ -87,6 +89,14 @@ type validator struct {
 	errs  []Violation
 	top   map[*resolve.Symbol]bool      // file-scope value symbols (fn and let decls)
 	bound map[*resolve.Symbol]diag.Span // every symbol bound anywhere — uniqueness check
+	// lets resolves a Let-bound symbol to its bound expression —
+	// CallGo's FlatArgs check looks through the atoms to the
+	// expression that emits the callback value.
+	lets map[*resolve.Symbol]Expr
+	// flat records the declared flat arity of each enclosing
+	// FuncDecl parameter whose signature slot takes the flat repr
+	// (docs/decisions/2026-11-18-flat-fn-params.md).
+	flat map[*resolve.Symbol]int
 	// localT names the file's declared types. An unqualified
 	// *types.Con carrying one of these names denotes the file-local
 	// declaration, never the builtin of the same spelling — so a
@@ -650,6 +660,12 @@ func (v *validator) fnDecl(fn *Func, isDecl bool, what string) {
 			v.err(p.Sp, what, "param %d type %s differs from signature %s",
 				i, p.Typ, fn.Sig.Params[i].Type)
 		}
+		if isDecl && p != nil && !p.Discard &&
+			fn.Sig != nil && i < len(fn.Sig.Params) {
+			if k := arrowArity(fn.Sig.Params[i].Type); k >= 2 {
+				v.flat[p.Sym] = k
+			}
+		}
 	}
 	if fn.Body == nil {
 		v.err(fn.Sp, what, "missing body")
@@ -718,6 +734,9 @@ func (v *validator) body(b *Body, inTail bool) {
 				l.Name.Typ, exprType(l.X))
 		}
 		v.bind(l.Name, "Let")
+		if l.Name != nil && !l.Name.Discard && l.Name.Sym != nil {
+			v.lets[l.Name.Sym] = l.X
+		}
 	}
 	if b.Tail == nil {
 		v.err(diag.Span{}, "Body", "missing tail expression")
@@ -1243,6 +1262,16 @@ func (v *validator) callGo(c *CallGo) {
 	if c.Spread && (!c.Variadic || len(c.Args) == 0) {
 		v.err(c.Sp, "CallGo", "spread call requires a variadic callee with a splice argument")
 	}
+	for i, want := range c.FlatArgs {
+		if want < 0 || i >= len(c.Args) {
+			continue
+		}
+		if got, ok := v.callbackArity(c.Args[i]); ok && got != want {
+			v.err(c.Args[i].Span(), "CallGo",
+				"argument %d emits a %d-parameter callback for a %d-parameter Go slot",
+				i, got, want)
+		}
+	}
 	switch c.Results {
 	case GoResultsNone:
 		if !v.conIs(c.Type(), "", "Unit", 0) {
@@ -1251,6 +1280,119 @@ func (v *validator) callGo(c *CallGo) {
 	case GoResultsOne, GoResultsErr, GoResultsErrOnly, GoResultsOK, GoResultsPair, GoResultsNary, GoResultsTupErr, GoResultsNil, GoResultsErrValue:
 	default:
 		v.err(c.Sp, "CallGo", "invalid result shape %d", int(c.Results))
+	}
+}
+
+// callbackArity reports the parameter count of the `func` value the
+// atom emits at a Go callback position — a GoFunc/Uncurry/flat decl
+// ref carries its flat arity, a `Go.FuncN`-typed value is a flat Go
+// func of that arity by construction, and anything else producing a
+// Gom arrow-typed value is the canonical one-parameter chain.
+// ok=false when the atom's shape says nothing (non-function value).
+func (v *validator) callbackArity(a Atom) (int, bool) {
+	if a == nil {
+		return 0, false
+	}
+	if k := goFuncNArity(a.Type()); k >= 0 {
+		return k, true
+	}
+	switch a := a.(type) {
+	case *FuncRef:
+		return a.Arity, true // the decl emits `func f_(p0, p1, ...)`
+	case *GoFuncRef:
+		return a.Arity, true
+	case *CtorRef:
+		// A bare ctor reference emits the canonical curried
+		// chain — `func(v0) func(v1) ... T` — whose outer
+		// literal takes exactly one parameter. At a >=2-arrow
+		// slot lowering wraps the ref in Uncurry, so reaching
+		// a Go arg unwrapped means the curried repr is what
+		// the call emits.
+		return 1, true
+	case *Var:
+		if a.Sym == nil {
+			return 0, false
+		}
+		if e, ok := v.lets[a.Sym]; ok {
+			return v.exprCallbackArity(e)
+		}
+		if k, ok := v.flat[a.Sym]; ok {
+			return k, true
+		}
+	case *Lit, *FieldGet:
+		// A function-typed literal or field read is always the
+		// canonical value — the arrow check below reports 1.
+	}
+	if arrowArity(a.Type()) > 0 {
+		return 1, true
+	}
+	return 0, false
+}
+
+// exprCallbackArity is callbackArity for the expression a Var is
+// bound to — where the flat repr lives (Uncurry, GoFunc) or where
+// a canonical shape stays (Closure).
+func (v *validator) exprCallbackArity(e Expr) (int, bool) {
+	if e == nil {
+		return 0, false
+	}
+	if k := goFuncNArity(exprType(e)); k >= 0 {
+		return k, true
+	}
+	// An atom delegates to callbackArity — atoms carry their own
+	// repr (flat decl refs, Go funcs, ctor chains).
+	if a, ok := e.(Atom); ok {
+		return v.callbackArity(a)
+	}
+	switch e := e.(type) {
+	case *GoFunc:
+		return len(e.Params), true
+	case *Uncurry:
+		return e.Arity, true
+	case *Closure:
+		return 1, true
+	case *Conv:
+		return v.callbackArity(e.X)
+	case *Binary, *CallBuiltin, *CallDirect, *CallFunc, *CallGo,
+		*CtorApp, *Defer, *Equal, *ErrorFromGo, *EscapeCall,
+		*EscapeResult, *FieldSet, *ForRange, *If, *ListNew,
+		*Match, *OptionFromGo, *RecordNew, *RecordUpdate,
+		*ResultFromGo, *SelectExpr, *Spawn, *TailCall,
+		*TupleFromGo, *TupleNew, *Unary,
+		*Var, *Lit, *FuncRef, *CtorRef, *GoFuncRef, *FieldGet:
+		// The atom variants are unreachable — the assertion
+		// above already returned — but the exhaustiveness check
+		// requires every variant be named. The rest fall
+		// through to the arrow-type check below.
+	}
+	if arrowArity(exprType(e)) > 0 {
+		return 1, true
+	}
+	return 0, false
+}
+
+// goFuncNArity returns N when t is the `Go.FuncN` con, -1 otherwise.
+func goFuncNArity(t types.Type) int {
+	c, ok := types.Chase(t).(*types.Con)
+	if !ok || c.Qual != "Go" || len(c.Name) != 5 ||
+		!strings.HasPrefix(c.Name, "Func") ||
+		c.Name[4] < '0' || c.Name[4] > '0'+byte(types.GoFuncMaxArity) {
+		return -1
+	}
+	return int(c.Name[4] - '0')
+}
+
+// arrowArity counts the parameters of a Gom arrow chain
+// `a -> b -> c` — the flat arity the declared slot's repr takes.
+func arrowArity(t types.Type) int {
+	n := 0
+	for {
+		fs, ok := types.Chase(t).(*types.Func)
+		if !ok || fs == nil {
+			return n
+		}
+		n += len(fs.Params)
+		t = fs.Ret
 	}
 }
 

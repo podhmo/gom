@@ -167,6 +167,16 @@ type CallGo struct {
 	Variadic bool      // the callee's last parameter is variadic
 	Spread   bool      // the last arg is spliced `a...`; requires Variadic
 	Results  GoResults // result shape
+	// FlatArgs records the declared arity of each argument's Go
+	// parameter slot, parallel to Args: -1 for a non-function
+	// parameter, >= 0 for a function-typed parameter whose argument
+	// must emit a `func` of that many parameters — a `func(A, B) R`
+	// slot wants a two-parameter literal (GoFunc, Uncurry, a flat
+	// FuncRef/GoFuncRef/Var) where a canonical one-argument Closure
+	// would mistype the call. Lowering fills it from the callee's
+	// declared parameter types; core.Validate checks it because the
+	// validator has no access to the Go signature oracle.
+	FlatArgs []int
 	// ResNilable reports whether result 0's Go type is a
 	// method-bearing interface — a declared non-Option `Result T
 	// GoError` payload over it is the never-nil claim the boundary
