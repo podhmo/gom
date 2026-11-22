@@ -1,0 +1,111 @@
+package main
+
+import go "errors"
+import go "fmt"
+
+fn say (m: String) -> Unit = ignore (fmt.Println m)
+
+fn touch (s: Scope) -> Unit = ()
+
+fn show (r: Result Int GoError) -> Unit = match r {
+  Ok v -> ignore (fmt.Println "ok" v)
+  Err e -> ignore (fmt.Println "err" e)
+}
+
+fn fail (m: String) -> Result Unit GoError = Err (errors.New m)
+
+fn lifo (c: Bool) -> Int =
+  Scope.run <| fn s -> {
+    Scope.defer s (fn () -> say "a")
+    if c { Scope.defer s (fn () -> say "b") }
+    say "body"
+    1
+  }
+
+fn lifo_rt (c: Bool) -> Int =
+  Scope.run <| fn s -> {
+    touch s
+    Scope.defer s (fn () -> say "a")
+    if c { Scope.defer s (fn () -> say "b") }
+    say "body"
+    1
+  }
+
+fn joined () -> Result Int GoError =
+  Scope.run_result <| fn s -> {
+    Scope.defer_err s (fn () -> fail "e1")
+    Scope.defer_err s (fn () -> fail "e2")
+    Scope.defer s (fn () -> say "plain")
+    Ok 1
+  }
+
+fn joined_rt () -> Result Int GoError =
+  Scope.run_result <| fn s -> {
+    touch s
+    Scope.defer_err s (fn () -> fail "e1")
+    Scope.defer_err s (fn () -> fail "e2")
+    Scope.defer s (fn () -> say "plain")
+    Ok 1
+  }
+
+fn body_err () -> Result Int GoError =
+  Scope.run_result <| fn s -> {
+    Scope.on_err s (fn () -> say "rollback")
+    Scope.defer_err s (fn () -> fail "close")
+    try (fail "body")
+    Ok 1
+  }
+
+fn body_err_rt () -> Result Int GoError =
+  Scope.run_result <| fn s -> {
+    touch s
+    Scope.on_err s (fn () -> say "rollback")
+    Scope.defer_err s (fn () -> fail "close")
+    try (fail "body")
+    Ok 1
+  }
+
+fn close_err () -> Result Int GoError =
+  Scope.run_result <| fn s -> {
+    Scope.on_err s (fn () -> say "rollback")
+    Scope.defer_err s (fn () -> fail "close")
+    Ok 1
+  }
+
+fn close_err_rt () -> Result Int GoError =
+  Scope.run_result <| fn s -> {
+    touch s
+    Scope.on_err s (fn () -> say "rollback")
+    Scope.defer_err s (fn () -> fail "close")
+    Ok 1
+  }
+
+fn plain_ok () -> Int =
+  Scope.run <| fn s -> {
+    Scope.on_err s (fn () -> say "rollback")
+    2
+  }
+
+fn plain_ok_rt () -> Int =
+  Scope.run <| fn s -> {
+    touch s
+    Scope.on_err s (fn () -> say "rollback")
+    2
+  }
+
+fn main () -> Unit = {
+  say "== native"
+  say "${lifo true}"
+  say "${lifo false}"
+  show (joined ())
+  show (body_err ())
+  show (close_err ())
+  say "${plain_ok ()}"
+  say "== runtime"
+  say "${lifo_rt true}"
+  say "${lifo_rt false}"
+  show (joined_rt ())
+  show (body_err_rt ())
+  show (close_err_rt ())
+  say "${plain_ok_rt ()}"
+}
