@@ -85,7 +85,14 @@ fn parse (s: String) -> Result Int GoError =
 - Implicit numeric conversion only where lossless: `Int ↔
   int/int64`, `Float ↔ float64`. Anything else is E0503 — write
   `Go.conv x : Int32` (checked against Go's conversion rules;
-  invalid pairs are E0507).
+  invalid pairs are E0507). A one-field record (`type UserId = {
+  value: Int }`) peels to its field type first — `Go.conv u : Int`
+  and `Go.conv n : UserId` both work (emits `int64(u)` /
+  `UserId(n)`), including imported records and chains. What passes
+  is only what stays legal with a *named* operand: identical
+  underlying, both-numeric, or `Chan`↔`SendChan`/`RecvChan` with
+  one literal side — List↔Go.Slice copies, named-to-named chan
+  direction changes, and interface satisfaction still reject.
 - `any`-typed parameters accept any Gom value — the only implicit
   boxing site.
 - Go interface params accept Go-derived values satisfying `go/types`
