@@ -1,0 +1,89 @@
+package iface
+
+import (
+	"strconv"
+	"strings"
+
+	"github.com/podhmo/gom/internal/check"
+	"github.com/podhmo/gom/internal/resolve"
+	"github.com/podhmo/gom/internal/types"
+)
+
+// ScanNoescape collects `//gom:noescape <name> <i> ...` directive
+// comments from .gomi source text into a name → index-list map —
+// the read side of the directive noescapeLine writes (spec section
+// 6.1, SC-2). Every importer of a .gomi — gomimport's Loader for an
+// ordinary package, internal/stdlib's env for the embedded builtin
+// modules — runs it over the interface source.
+func ScanNoescape(src []byte) map[string][]int {
+	var dirs map[string][]int
+	for _, line := range strings.Split(string(src), "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, "//gom:noescape ") {
+			continue
+		}
+		fields := strings.Fields(strings.TrimPrefix(line, "//gom:noescape "))
+		if len(fields) < 2 {
+			continue
+		}
+		var idxs []int
+		for _, f := range fields[1:] {
+			i, err := strconv.Atoi(f)
+			if err != nil || i < 0 {
+				idxs = nil
+				break
+			}
+			idxs = append(idxs, i)
+		}
+		if idxs == nil {
+			continue
+		}
+		if dirs == nil {
+			dirs = map[string][]int{}
+		}
+		dirs[fields[0]] = idxs
+	}
+	return dirs
+}
+
+// ApplyNoescape turns `//gom:noescape` directives into
+// per-parameter escape flags on the package's members. A listed
+// position gets Escapes[i]=false; an unlisted position stays true —
+// escaping is the default the flag slice makes explicit.
+// Directives naming unknown members or out-of-range indices are
+// ignored: the line is a comment, so a stale one must not break the
+// compile.
+//
+// arityOf answers a member's declared parameter count, sigOf its
+// signature — consulted in that order: an arity misses members the
+// table did not record one for, a signature's flat Params always
+// counts them.
+func ApplyNoescape(members map[string]*resolve.Symbol, arityOf func(*resolve.Symbol) (int, bool), sigOf func(*resolve.Symbol) (check.Signature, bool), dirs map[string][]int) {
+	for name, idxs := range dirs {
+		sym := members[name]
+		if sym == nil {
+			continue
+		}
+		n, _ := arityOf(sym)
+		if n <= 0 {
+			if sg, ok := sigOf(sym); ok {
+				if f, ok := types.Chase(sg.Type).(*types.Func); ok {
+					n = len(f.Params)
+				}
+			}
+		}
+		if n <= 0 {
+			continue
+		}
+		esc := make([]bool, n)
+		for i := range esc {
+			esc[i] = true
+		}
+		for _, i := range idxs {
+			if i >= 0 && i < n {
+				esc[i] = false
+			}
+		}
+		sym.Escapes = esc
+	}
+}

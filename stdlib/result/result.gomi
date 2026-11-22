@@ -33,6 +33,7 @@ fn and_then (f: a -> Result b e) (r: Result a e) -> Result b e
 fn or_else (fallback: Result a e) (r: Result a e) -> Result a e
 
 /// iter f r applies f to the Ok payload when present.
+//gom:noescape iter 0
 fn iter (f: a -> Unit) (r: Result a e) -> Unit
 // `Result.to_option` (Ok x → Some x, Err → None) exists on the
 // Result module's surface but is not declared here: a .gom
