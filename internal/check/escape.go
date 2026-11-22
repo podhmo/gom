@@ -590,7 +590,12 @@ func (c *checker) escWalk(e Expr, danger bool, b *escapeBody, report bool) {
 		c.escWalk(e.Else, danger, b, report)
 	case *Match:
 		c.escWalk(e.Subj, false, b, report)
+		// A pattern-bound name aliases (part of) the subject —
+		// an escaping use through a `let` alias or an arm's own
+		// result must still land on the subject's retained names.
+		subjRV := retainedVars(e.Subj)
 		for _, a := range e.Arms {
+			b.bindAlias(patBoundSyms(a.Pat), subjRV)
 			c.escWalk(a.Guard, danger, b, report)
 			c.escWalk(a.Body, danger, b, report)
 		}
@@ -658,12 +663,16 @@ func (c *checker) escWalk(e Expr, danger bool, b *escapeBody, report bool) {
 		c.escWalk(e.Body, false, b, report)
 	case *For:
 		c.escWalk(e.Iter, false, b, report)
+		// The bound name aliases each iterated element — an
+		// escaping use reaches back to the iterable.
+		b.bindAlias(patBoundSyms(e.Pat), retainedVars(e.Iter))
 		c.escWalk(e.Body, danger, b, report)
 	case *SelectExpr:
 		for _, a := range e.Arms {
 			switch a := a.(type) {
 			case *RecvArm:
 				c.escWalk(a.Chan, false, b, report)
+				b.bindAlias(patBoundSyms(a.Bind), retainedVars(a.Chan))
 				c.escWalk(a.Body, danger, b, report)
 			case *SendArm:
 				c.escWalk(a.Chan, false, b, report)
@@ -754,18 +763,24 @@ func (c *checker) bindLet(l *Let, b *escapeBody) {
 	// A bound name carries the variables its value's result
 	// retains — markDanger follows these so an escaping use lands
 	// on the source parameter, not only on the alias.
-	vars := retainedVars(l.Value)
-	if len(vars) > 0 {
-		syms := make([]*resolve.Symbol, 0, len(vars))
-		for s := range vars {
-			syms = append(syms, s)
-		}
-		if b.bindOf == nil {
-			b.bindOf = map[*resolve.Symbol][]*resolve.Symbol{}
-		}
-		for _, s := range patBoundSyms(l.Pat) {
-			b.bindOf[s] = syms
-		}
+	b.bindAlias(patBoundSyms(l.Pat), retainedVars(l.Value))
+}
+
+// bindAlias records that each dst symbol's value retains the src
+// symbols — markDanger's breadth-first walk follows the edge.
+func (b *escapeBody) bindAlias(dsts []*resolve.Symbol, src map[*resolve.Symbol]bool) {
+	if len(dsts) == 0 || len(src) == 0 {
+		return
+	}
+	syms := make([]*resolve.Symbol, 0, len(src))
+	for s := range src {
+		syms = append(syms, s)
+	}
+	if b.bindOf == nil {
+		b.bindOf = map[*resolve.Symbol][]*resolve.Symbol{}
+	}
+	for _, s := range dsts {
+		b.bindOf[s] = syms
 	}
 }
 
