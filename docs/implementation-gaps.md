@@ -1728,3 +1728,16 @@
   対応: Scope に限らず rt-backed な多相 builtin（`Task.spawn` も同じ）の問題だった。builtin の GoSig に未具体化の宣言パラメータを載せ、
   コールバック枠の flat arity を型引数で広げないようにした（[実装](../internal/stdlib/builtin.go) `addMember`）。値位置の Go 関数アダプタは
   Go の arity までだけ束縛し、関数型の結果は結果のまま返す。検証: `cmd/gom` の `TestRunNativeScope`（`== fn result` 節）。
+
+- [x] **`run` スコープの `defer_err` が無効な Result で panic しない**:
+  SC-3 のネイティブ化で `Scope.defer_err`（`run` 内）は `defer f()` に
+  落とされ、クリーンアップが返す Result が `Unwrap` されずに捨てられる。
+  runtime の `ScopeDeferErr` は `f().Unwrap()` を呼ぶため、Go 相互運用で
+  混入しうる zero 値 Result は panic する — ネイブ化後はそれが静かに
+  成功扱いになるずれ。[decision](decisions/2026-11-22-sc3-native-defer.md)
+  / [ランタイム](../stdlib/result/scope.go)（2026-11-22 検証）
+  対応: `run` 内 `defer_err` を新 `core.DeferErrDrop` に分けて
+  `defer func(){ _, _ = f(struct{}{}).Unwrap() }()` を出す。エラーは
+  join 先が無いので捨てるが検査は残す。検証:
+  testdata/golden/scope_native_defer（`drop_err`）、
+  cmd/gom/testdata/native_scope.gom（`run_drop` — native/runtime 同出力）

@@ -80,6 +80,21 @@ fn close_err_rt () -> Result Int GoError =
     Ok 1
   }
 
+// `defer_err` under `run`: the cleanup error is dropped (no Result
+// to join into) in both the native and the runtime scope.
+fn run_drop () -> Int =
+  Scope.run <| fn s -> {
+    Scope.defer_err s (fn () -> fail "dropped")
+    4
+  }
+
+fn run_drop_rt () -> Int =
+  Scope.run <| fn s -> {
+    touch s
+    Scope.defer_err s (fn () -> fail "dropped")
+    4
+  }
+
 fn plain_ok () -> Int =
   Scope.run <| fn s -> {
     Scope.on_err s (fn () -> say "rollback")
@@ -110,6 +125,7 @@ fn main () -> Unit = {
   show (joined ())
   show (body_err ())
   show (close_err ())
+  say "${run_drop ()}"
   say "${plain_ok ()}"
   say "== runtime"
   say "${lifo_rt true}"
@@ -117,6 +133,7 @@ fn main () -> Unit = {
   show (joined_rt ())
   show (body_err_rt ())
   show (close_err_rt ())
+  say "${run_drop_rt ()}"
   say "${plain_ok_rt ()}"
   say "== fn result"
   say "${fn_piped () 40} ${fn_applied () 40} ${fn_task () 40}"

@@ -26,6 +26,12 @@ fn errs (fail: Bool) -> Result Int GoError =
     Ok 2
   }
 
+// `defer_err` under a plain `run` still validates the cleanup's
+// Result — an invalid (zero) Result panics like rt.ScopeDeferErr —
+// and drops the error: there is no Result to join into.
+fn drop_err (log: Ref Int) -> Int =
+  Scope.run <| fn s -> { Scope.defer_err s (fn () -> Err (errors.New "dropped")); Ref.get log }
+
 // `s` used outside registrations keeps the runtime scope.
 fn mixed (log: Ref Int) -> Int =
   Scope.run <| fn s -> { Scope.defer s (fn () -> Ref.set log 3); Scope.run <| fn t -> { let _ = t; Ref.get log } }

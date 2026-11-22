@@ -385,6 +385,8 @@ func (p *scopeDeferPass) tryRun(e core.Expr, b *core.Body, i int, ctx *scopeCtx)
 			case "ScopeDeferErr":
 				if resultScope {
 					kind = core.DeferErr
+				} else {
+					kind = core.DeferErrDrop
 				}
 			case "ScopeOnErr":
 				kind = core.DeferOnErr

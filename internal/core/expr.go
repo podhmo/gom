@@ -444,14 +444,17 @@ func (*RecordUpdate) isExpr() {}
 type DeferKind int
 
 const (
-	// DeferPlain is `defer f()` — a `Scope.defer` registration, and a
-	// `defer_err` inside a `run` scope (its errors have no Result to
-	// join into, matching the runtime's drop).
+	// DeferPlain is `defer f()` — a `Scope.defer` registration.
 	DeferPlain DeferKind = iota + 1
 	// DeferErr is `defer func() { if r := f(); !r.IsOk() {
 	// errs = append(errs, r.Error) } }()` — a `defer_err` inside a
 	// `run_result` scope.
 	DeferErr
+	// DeferErrDrop is `defer func() { _, _ = f().Unwrap() }()` — a
+	// `defer_err` inside a `run` scope: the Result is validated (an
+	// invalid zero Result still panics, matching rt.ScopeDeferErr's
+	// Unwrap) and then dropped — there is no Result to join into.
+	DeferErrDrop
 	// DeferOnErr is `defer func() { if <Failed> { f() } }()` — a
 	// `Scope.on_err` registration. Failed is the scope's shared
 	// failure flag, decided by the DeferScopeFailed defer before

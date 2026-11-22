@@ -37,6 +37,16 @@ func (g *gen) deferStmt(e *core.Defer) {
 		g.closeInline()
 		g.raw("()")
 		g.nl()
+	case core.DeferErrDrop:
+		g.raw("defer func()")
+		g.open()
+		g.raw("_, _ = ")
+		g.expr(g.atom(e.F))
+		g.raw("(struct{}{}).Unwrap()")
+		g.nl()
+		g.closeInline()
+		g.raw("()")
+		g.nl()
 	case core.DeferOnErr:
 		g.raw("defer func()")
 		g.open()
