@@ -2,20 +2,44 @@
   "diagnostics": [
     {
       "kind": "diagnostic",
+      "code": "E0413",
+      "severity": "error",
+      "message": "invalid recursive type: `L` contains itself by value through field `next`",
+      "span": {
+        "file": "E0507_go_conv_defined_reject.gom",
+        "start": {
+          "line": 26,
+          "col": 12,
+          "offset": 1062
+        },
+        "end": {
+          "line": 26,
+          "col": 20,
+          "offset": 1070
+        }
+      },
+      "data": {
+        "field": "next",
+        "field_type": "L",
+        "type": "L"
+      }
+    },
+    {
+      "kind": "diagnostic",
       "code": "E0507",
       "severity": "error",
       "message": "cannot convert Pair to Int",
       "span": {
         "file": "E0507_go_conv_defined_reject.gom",
         "start": {
-          "line": 27,
+          "line": 30,
           "col": 11,
-          "offset": 973
+          "offset": 1134
         },
         "end": {
-          "line": 27,
+          "line": 30,
           "col": 26,
-          "offset": 988
+          "offset": 1149
         }
       },
       "data": {
@@ -31,14 +55,14 @@
       "span": {
         "file": "E0507_go_conv_defined_reject.gom",
         "start": {
-          "line": 28,
+          "line": 31,
           "col": 11,
-          "offset": 1000
+          "offset": 1161
         },
         "end": {
-          "line": 28,
+          "line": 31,
           "col": 28,
-          "offset": 1017
+          "offset": 1178
         }
       },
       "data": {
@@ -54,14 +78,14 @@
       "span": {
         "file": "E0507_go_conv_defined_reject.gom",
         "start": {
-          "line": 29,
+          "line": 32,
           "col": 11,
-          "offset": 1029
+          "offset": 1190
         },
         "end": {
-          "line": 29,
+          "line": 32,
           "col": 31,
-          "offset": 1049
+          "offset": 1210
         }
       },
       "data": {
@@ -77,14 +101,14 @@
       "span": {
         "file": "E0507_go_conv_defined_reject.gom",
         "start": {
-          "line": 31,
+          "line": 34,
           "col": 11,
-          "offset": 1084
+          "offset": 1245
         },
         "end": {
-          "line": 31,
+          "line": 34,
           "col": 26,
-          "offset": 1099
+          "offset": 1260
         }
       },
       "data": {
@@ -100,14 +124,14 @@
       "span": {
         "file": "E0507_go_conv_defined_reject.gom",
         "start": {
-          "line": 33,
+          "line": 36,
           "col": 11,
-          "offset": 1135
+          "offset": 1296
         },
         "end": {
-          "line": 33,
+          "line": 36,
           "col": 36,
-          "offset": 1160
+          "offset": 1321
         }
       },
       "data": {
@@ -123,14 +147,14 @@
       "span": {
         "file": "E0507_go_conv_defined_reject.gom",
         "start": {
-          "line": 35,
+          "line": 38,
           "col": 11,
-          "offset": 1216
+          "offset": 1377
         },
         "end": {
-          "line": 35,
+          "line": 38,
           "col": 35,
-          "offset": 1240
+          "offset": 1401
         }
       },
       "data": {
@@ -146,19 +170,42 @@
       "span": {
         "file": "E0507_go_conv_defined_reject.gom",
         "start": {
-          "line": 39,
+          "line": 42,
           "col": 23,
-          "offset": 1272
+          "offset": 1433
         },
         "end": {
-          "line": 39,
+          "line": 42,
           "col": 36,
-          "offset": 1285
+          "offset": 1446
         }
       },
       "data": {
         "from": "S",
         "to": "R"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0507",
+      "severity": "error",
+      "message": "cannot convert L to Int",
+      "span": {
+        "file": "E0507_go_conv_defined_reject.gom",
+        "start": {
+          "line": 43,
+          "col": 25,
+          "offset": 1471
+        },
+        "end": {
+          "line": 43,
+          "col": 40,
+          "offset": 1486
+        }
+      },
+      "data": {
+        "from": "L",
+        "to": "Int"
       }
     }
   ]

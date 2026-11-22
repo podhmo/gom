@@ -1225,15 +1225,22 @@ func (c *checker) convOK(from, to types.Type) bool {
 // `check.DefinedField` applies (kindRecord, one field, field not a
 // bare type parameter), read off tyCons so both declared and
 // imported records peel. Chases chains (`type M = {u: UserId}`)
-// and substitutes declared params with the Con's args. Anything
-// else returns unchanged.
+// and substitutes declared params with the Con's args. A cyclic
+// record (`type L = {next: L}` — its own E0413 stands elsewhere)
+// is left unpeeled rather than looped on. Anything else returns
+// unchanged.
 func (c *checker) definedUnderlying(t types.Type) types.Type {
+	seen := map[conKey]bool{}
 	for {
 		con, ok := types.Chase(t).(*types.Con)
 		if !ok {
 			return t
 		}
 		key := conKey{qual: con.Qual, name: con.Name}
+		if seen[key] {
+			return t
+		}
+		seen[key] = true
 		ti, ok := c.tyCons[key]
 		if !ok || ti.kind != kindRecord || len(ti.fields) != 1 {
 			return t

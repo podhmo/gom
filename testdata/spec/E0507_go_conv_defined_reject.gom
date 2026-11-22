@@ -12,7 +12,9 @@ import go "time"
 // immutable List's backing), interface satisfaction (the defined
 // type has no methods — `X` never implements `fmt.Stringer`), and
 // channel direction between two named wrappers (`type S chan<- i`
-// to `type R <-chan i` is not a Go conversion).
+// to `type R <-chan i` is not a Go conversion). A cyclic record is
+// left unpeeled rather than looped on — its E0413 stands and the
+// conv rejects like any other undecomposable pair.
 type UserId = { value : Int }
 type Pair = { x : Int, y : Int }
 type Colour = | Red
@@ -21,6 +23,7 @@ type Xs = { xs : List Int }
 type D = { d : time.Duration }
 type S = { s : SendChan Int }
 type R = { r : RecvChan Int }
+type L = { next : L }
 
 fn main () -> Unit = {
   let p = { x = 1, y = 2 }
@@ -37,3 +40,4 @@ fn main () -> Unit = {
 }
 
 fn snd (s : S) -> R = Go.conv s : R
+fn cyc (l : L) -> Int = Go.conv l : Int
