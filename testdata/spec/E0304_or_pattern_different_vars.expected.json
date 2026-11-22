@@ -1,0 +1,32 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0304",
+      "severity": "error",
+      "message": "or-pattern alternatives bind different variables",
+      "span": {
+        "file": "E0304_or_pattern_different_vars.gom",
+        "start": {
+          "line": 6,
+          "col": 3,
+          "offset": 73
+        },
+        "end": {
+          "line": 6,
+          "col": 12,
+          "offset": 82
+        }
+      },
+      "data": {
+        "alternative": 1,
+        "extra": [
+          "c"
+        ],
+        "missing": [
+          "a"
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+package ex
+
+type S = | A Int | B Float
+
+fn f (s: S) -> Int = match s {
+  A a | B c -> a
+}

@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0103",
+      "severity": "error",
+      "message": "unterminated block comment",
+      "span": {
+        "file": "E0103_unterminated_comment.gom",
+        "start": {
+          "line": 3,
+          "col": 1,
+          "offset": 12
+        },
+        "end": {
+          "line": 5,
+          "col": 1,
+          "offset": 68
+        }
+      }
+    }
+  ]
+}

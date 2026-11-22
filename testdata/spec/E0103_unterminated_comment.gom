@@ -1,0 +1,4 @@
+package ex
+
+/* this comment is never closed
+fn main () -> Unit = ()
