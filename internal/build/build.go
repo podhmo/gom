@@ -254,6 +254,9 @@ func Compile(in Input, opts *Options) (*Result, error) {
 	if err != nil {
 		return r, err
 	}
+	// Emitted-name collision warnings attach to the output, not
+	// the pipeline's error path — the decls are valid Gom.
+	r.Diagnostics = append(r.Diagnostics, out.Diags...)
 	r.Output = out
 	return r, nil
 }
@@ -508,6 +511,7 @@ func CompileFiles(ins []Input, opts *Options) ([]*Result, error) {
 		if err != nil {
 			return nil, err
 		}
+		r.Diagnostics = append(r.Diagnostics, out.Diags...)
 		r.Output = out
 	}
 	// Package initialization is a property of the unit, not of one

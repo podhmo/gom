@@ -1,0 +1,9 @@
+package main
+
+// Distinct Gom names mapping to one emitted base: the canonical
+// (base, name) order gives myFn to fn myFn; fn my_fn is pushed to
+// myFn1 — an emitted name the declaration does not predict.
+fn my_fn () -> Int = 1
+fn myFn () -> Int = 2
+
+fn main () -> Unit = ()

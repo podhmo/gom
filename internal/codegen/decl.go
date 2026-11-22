@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/podhmo/gom/internal/core"
+	"github.com/podhmo/gom/internal/diag"
 	"github.com/podhmo/gom/internal/types"
 )
 
@@ -161,7 +162,7 @@ func (g *gen) varDecl(d *core.VarDecl) {
 // `Result Unit e` body binds its result and asserts Ok; a Unit body
 // is discarded (decl.go TestDecl, spec section 12).
 func (g *gen) testDecl(d *core.TestDecl) string {
-	name := g.testName(d.Name)
+	name := g.testName(d.Name, d.Sp)
 	g.line(d.Sp)
 	g.raw("func " + name + "(t *" + g.pkgQual("testing") + "T)")
 	g.open()
@@ -198,7 +199,7 @@ func (g *gen) testDecl(d *core.TestDecl) string {
 // fnv32a tag instead — `TestX_a1b2c3d4` — the same convention the
 // lowering temps use, so two files' `test "x"` can never emit the
 // same `func TestX` into the shared Go package.
-func (g *gen) testName(name string) string {
+func (g *gen) testName(name string, sp diag.Span) string {
 	base := testFuncName(name)
 	if g.testCollide[base] {
 		base = base + "_" + g.testTag
@@ -207,6 +208,25 @@ func (g *gen) testName(name string) string {
 	for i := 2; g.used[cand]; i++ {
 		cand = base + fmt.Sprint(i)
 	}
+	// A numeric suffix is expected when a same-named test claimed
+	// the base first (the renaming rule above); it is a collision
+	// worth warning about only when a non-test claimant owns it —
+	// a decl stealing TestX moves `test "x"` to TestX2, a name the
+	// user cannot predict from the declaration.
+	if cand != base {
+		if owner, ok := g.emitOwner[base]; ok && owner.kind != emitTest {
+			g.emitDiags = append(g.emitDiags,
+				diag.Warning(codeEmitNameEvict,
+					"generated Go name "+q(base)+" is taken by "+
+						q(owner.gomName)+" — test "+q(name)+" emits "+q(cand)).
+					At(sp).
+					Set("emitted", cand).
+					Set("base", base).
+					Set("taken_by", owner.gomName))
+		}
+	}
+	g.recordEmit(emitRecord{kind: emitTest, gomName: name,
+		name: cand, base: base, sp: sp})
 	g.used[cand] = true
 	return cand
 }

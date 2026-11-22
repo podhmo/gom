@@ -566,3 +566,41 @@ func TestCompileFilesInterfaceInput(t *testing.T) {
 		}
 	}
 }
+
+// `type TestX` claims the name `test "x"` predicts for its func —
+// the eviction warns W0602 and the test emits `TestX2`. Two decls
+// emitting one name verbatim (`Foo_Bar`/`FooBar` → `FooBar`) warn
+// W0601: the generated package would not compile.
+func TestCompileFilesEmitNameCollisions(t *testing.T) {
+	src := "package m\n\ntype TestX = { v: Int }\n\n" +
+		"type Foo_Bar = { x: Int }\ntype FooBar = { y: Int }\n\n" +
+		"test \"x\" {\n  assert true\n}\n"
+	rs, err := build.CompileFiles(
+		[]build.Input{{Path: "pkg/a.gom", Src: []byte(src)}},
+		&build.Options{Lower: &lower.Env{Tests: true}})
+	if err != nil {
+		t.Fatalf("CompileFiles: %v", err)
+	}
+	var w0601, w0602 bool
+	for _, d := range rs[0].Diagnostics {
+		w0601 = w0601 || d.Code == "W0601"
+		w0602 = w0602 || d.Code == "W0602"
+	}
+	if !w0601 {
+		t.Errorf("no W0601 for the Foo_Bar/FooBar verbatim collision: %v", rs[0].Diagnostics)
+	}
+	if !w0602 {
+		t.Errorf("no W0602 for the TestX eviction: %v", rs[0].Diagnostics)
+	}
+	got := map[string]string{}
+	for _, n := range rs[0].Output.EmitNames {
+		got[n.GomName] = n.Name
+	}
+	if got["x"] != "TestX2" {
+		t.Errorf("test emits %q, want TestX2", got["x"])
+	}
+	if got["Foo_Bar"] != "FooBar" || got["FooBar"] != "FooBar" {
+		t.Errorf("verbatim claimants emit %q and %q, want both FooBar",
+			got["Foo_Bar"], got["FooBar"])
+	}
+}

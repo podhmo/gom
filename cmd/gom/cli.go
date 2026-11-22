@@ -615,7 +615,7 @@ func runBuild(args []string, stdout, stderr io.Writer) int {
 func runDump(args []string, stdout, stderr io.Writer) int {
 	fs := flag.NewFlagSet("dump", flag.ContinueOnError)
 	fs.SetOutput(stderr)
-	phase := fs.String("phase", "", "phase to dump: syntax, resolve, check, or core")
+	phase := fs.String("phase", "", "phase to dump: syntax, resolve, check, core, or emit")
 	format := fs.String("format", "json", "diagnostic format: json or text")
 	if err := fs.Parse(args); err != nil {
 		return flagError(err)
@@ -672,7 +672,11 @@ func runDump(args []string, stdout, stderr io.Writer) int {
 			ins = append(ins, build.Input{Path: s, Src: b})
 		}
 		if len(ins) > 1 {
-			rs, err := build.CompileFiles(ins, compileOptions(in, false, nil, goimport.New(&goimport.Config{Dir: dir})))
+			opts := compileOptions(in, false, nil, goimport.New(&goimport.Config{Dir: dir}))
+			if *phase == "emit" {
+				opts.Lower.Tests = true
+			}
+			rs, err := build.CompileFiles(ins, opts)
 			if err != nil {
 				fmt.Fprintf(stderr, "gom dump: %s: %v\n", dir, err)
 				return diag.ExitInternal
@@ -687,8 +691,12 @@ func runDump(args []string, stdout, stderr io.Writer) int {
 		}
 	}
 	if r == nil {
+		opts := compileOptions(in, false, nil, goimport.New(&goimport.Config{Dir: filepath.Dir(in.path)}))
+		if *phase == "emit" {
+			opts.Lower.Tests = true
+		}
 		r, err = build.Compile(build.Input{Path: in.path, Src: in.src, Interface: in.iface},
-			compileOptions(in, false, nil, goimport.New(&goimport.Config{Dir: filepath.Dir(in.path)})))
+			opts)
 		if err != nil {
 			fmt.Fprintf(stderr, "gom dump: %s: %v\n", in.path, err)
 			return diag.ExitInternal
@@ -717,8 +725,20 @@ func runDump(args []string, stdout, stderr io.Writer) int {
 		if r.Core != nil {
 			text = treedump.DumpCore(r.Core)
 		}
+	case "emit":
+		if r.Output != nil {
+			var b strings.Builder
+			for _, n := range r.Output.EmitNames {
+				fmt.Fprintf(&b, "%s\t%s\t%s", n.Kind, n.GomName, n.Name)
+				if n.Name != n.Base {
+					fmt.Fprintf(&b, "\t(base %s)", n.Base)
+				}
+				b.WriteByte('\n')
+			}
+			text = b.String()
+		}
 	default:
-		fmt.Fprintf(stderr, "gom dump: unknown phase %q (want syntax, resolve, check, or core)\n", *phase)
+		fmt.Fprintf(stderr, "gom dump: unknown phase %q (want syntax, resolve, check, core, or emit)\n", *phase)
 		return diag.ExitInternal
 	}
 	if text == "" {

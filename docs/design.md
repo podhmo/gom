@@ -460,6 +460,10 @@ func TestRectArea(t *testing.T) {
 
 `x == y` / `x != y` は `core.Equal` に下ろされる。`How` に載せる比較レシピ（`EqPlan`）を lowering が被演算子の静的型から決める — codegen はそれをレンダリングするだけで、型を見て判断し直さない（2.1 節の不変条件）。レシピは4種: スカラーや全フィールドがネイティブ比較できる複合は Go の `==`（`EqNative`）、`GoError` は nil 対応のメッセージ文字列比較（`EqError`）、Gom が表現を握らない型（名前付き Go 型・`Task`・`Go.Any`）は `rt.Equal`（`EqRuntime`）、それ以外の複合型は型ごとに生成する比較関数 `gomEq<N>` の呼び出し（`EqCall`）。`gomEq<N>` は `File.EqDecls` に集めてファイル末尾に出力し、リストは要素ごと・レコード/タプルはフィールドごと・ADT はバリアントの type switch＋ペイロード比較になる。再帰型は比較関数どうしの再帰呼び出しで表す（ネストした比較は必ず `EqCall` 経由なので、プラン自体が再帰しない）。`assert_eq` も同じ判定を `CallBuiltin.Eq` に載せ、`rt.AssertEq(t, 判定結果, actual, expected)` を生成する — `assert_eq` は常に `==` と同じ答えを報告する。詳細は [decisions/2026-11-05-generated-equality-comparators](decisions/2026-11-05-generated-equality-comparators.md)。
 
+### 4.10 生成名の台帳と衝突警告
+
+`indexDecls` がパッケージスコープの emit 名を確定させるとき、型・バリアント構造体・fn・let・生成ヘルパ・テスト関数を `gen.emitLog`/`emitOwner` の台帳に記録する（`internal/codegen/names.go`）。衝突は 2 形状に分けて警告する: 型名とバリアント構造体は verbatim で請求するので、二重請求はそのまま壊れた Go（`type FooBar` が 2 つ、`T_SomeOpt` が 2 つ）になり W0601 — span は両 claimant のうちローカルの方に付く（`Unit.Types` は名前だけで span を持たない）。値宣言とテスト関数は suffix 機構で必ず一意になるので、予測名からの追い出しだけを W0602 で報告する — `my_fn` が `myFn1`、decl が `TestX` を取った test が `TestX2`。警告しないもの: `gomEqN` 等の内部名（go-abi-stability で「内部名は約束の外」）、同名テストどうしの dedup、pkgReserved/`safeIdent` の `_` マングル（それ自体が spec 化された退避）。警告は `codegen.Output.Diags`、一覧は `Output.EmitNames` に載り、`gom dump -phase=emit` が `kind・Gom 名・emit 名` で印字する。`gom check`（CheckOnly）は codegen に達しないので両方とも出ない（[decision](decisions/2026-11-23-emit-name-collision-check.md)）
+
 ---
 
 ## 5. インクリメンタルビルド

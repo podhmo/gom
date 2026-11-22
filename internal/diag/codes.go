@@ -1415,6 +1415,47 @@ let target = Ptr.new () : Ptr Int   // *int implements no error
 errors.As e target                  // W0502 — panics at run time`,
 	},
 	{
+		Code:     "W0601",
+		Severity: SeverityWarning,
+		Title:    "decls emit the same Go name",
+		Phase:    PhaseCodegen,
+		Spec:     "5",
+		Explanation: `Two declarations claim the same package-scope Go
+identifier verbatim — both emit it, and the generated package does
+not compile. Type names emit their capitalized Gom spelling
+unchanged, and sum-type variants emit Type_Ctor structs with no
+escape hatch: type Foo_Bar and type FooBar both emit "FooBar", and
+variants Some_Opt and SomeOpt of T both emit "T_SomeOpt". The
+.gomi-member case is the error E0607; this warning is the same
+collision among declarations a .gomi does not name, plus the
+implicit members (variant structs) E0607 cannot see. Rename one
+side so the emitted names differ.`,
+		Example: `type Foo_Bar = {x: Int}
+type FooBar = {y: Int}   // both emit "type FooBar"`,
+	},
+	{
+		Code:     "W0602",
+		Severity: SeverityWarning,
+		Title:    "decl emits a suffixed Go name after a collision",
+		Phase:    PhaseCodegen,
+		Spec:     "5",
+		Explanation: `A declaration loses its predicted emitted name to
+another claimant and is emitted with a numeric suffix — fn my_fn
+and fn myFn both want "myFn"; the later claimant emits "myFn1".
+The generated Go still compiles, but a user spelling the package's
+ABI — an importer, a .gomi, "go test -run TestX" — names the name
+they expected, not the name the collision left. Test functions
+count too: a decl emitting "TestX" evicts test "x" to "TestX2".
+Same-named tests deduplicating among themselves, and generated
+helpers (gomEqN) losing their stems, are silent — only
+user-visible members warn. Rename either side so the predicted
+names differ; the listing "gom dump -phase=emit" shows every
+emitted name.`,
+		Example: `fn myFn () -> Int = 2    // emits myFn
+fn my_fn () -> Int = 1   // emits myFn1 — warning`,
+	},
+
+	{
 		Code:     "W0701",
 		Severity: SeverityWarning,
 		Title:    "channel of mutable element type",

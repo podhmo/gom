@@ -972,6 +972,48 @@ emitted names differ (docs/decisions/
 // lib.gom:   type Foo and let foo — "foo" would emit Foo1
 ```
 
+### W0601 — decls emit the same Go name
+
+**Severity:** warning · **Phase:** codegen · **Spec:** §5
+
+Two declarations claim the same package-scope Go
+identifier verbatim — both emit it, and the generated package does
+not compile. Type names emit their capitalized Gom spelling
+unchanged, and sum-type variants emit Type_Ctor structs with no
+escape hatch: type Foo_Bar and type FooBar both emit "FooBar", and
+variants Some_Opt and SomeOpt of T both emit "T_SomeOpt". The
+.gomi-member case is the error E0607; this warning is the same
+collision among declarations a .gomi does not name, plus the
+implicit members (variant structs) E0607 cannot see. Rename one
+side so the emitted names differ.
+
+```gom
+type Foo_Bar = {x: Int}
+type FooBar = {y: Int}   // both emit "type FooBar"
+```
+
+### W0602 — decl emits a suffixed Go name after a collision
+
+**Severity:** warning · **Phase:** codegen · **Spec:** §5
+
+A declaration loses its predicted emitted name to
+another claimant and is emitted with a numeric suffix — fn my_fn
+and fn myFn both want "myFn"; the later claimant emits "myFn1".
+The generated Go still compiles, but a user spelling the package's
+ABI — an importer, a .gomi, "go test -run TestX" — names the name
+they expected, not the name the collision left. Test functions
+count too: a decl emitting "TestX" evicts test "x" to "TestX2".
+Same-named tests deduplicating among themselves, and generated
+helpers (gomEqN) losing their stems, are silent — only
+user-visible members warn. Rename either side so the predicted
+names differ; the listing "gom dump -phase=emit" shows every
+emitted name.
+
+```gom
+fn myFn () -> Int = 2    // emits myFn
+fn my_fn () -> Int = 1   // emits myFn1 — warning
+```
+
 ## 07xx — Concurrency
 
 ### E0701 — go block must produce Unit
