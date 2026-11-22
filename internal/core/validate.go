@@ -1319,6 +1319,9 @@ func (v *validator) callbackArity(a Atom) (int, bool) {
 		if k, ok := v.flat[a.Sym]; ok {
 			return k, true
 		}
+	case *Lit, *FieldGet:
+		// A function-typed literal or field read is always the
+		// canonical value — the arrow check below reports 1.
 	}
 	if arrowArity(a.Type()) > 0 {
 		return 1, true
@@ -1347,6 +1350,17 @@ func (v *validator) exprCallbackArity(e Expr) (int, bool) {
 		return v.callbackArity(e.X)
 	case Atom:
 		return v.callbackArity(e)
+	case *Binary, *CallBuiltin, *CallDirect, *CallFunc, *CallGo,
+		*CtorApp, *Defer, *Equal, *ErrorFromGo, *EscapeCall,
+		*EscapeResult, *FieldSet, *ForRange, *If, *ListNew,
+		*Match, *OptionFromGo, *RecordNew, *RecordUpdate,
+		*ResultFromGo, *SelectExpr, *Spawn, *TailCall,
+		*TupleFromGo, *TupleNew, *Unary,
+		*Var, *Lit, *FuncRef, *CtorRef, *GoFuncRef, *FieldGet:
+		// The atom cases are unreachable — the Atom case above
+		// already returns; they are named so the exhaustiveness
+		// check sees every variant. The rest fall through to
+		// the arrow-type check below.
 	}
 	if arrowArity(exprType(e)) > 0 {
 		return 1, true
