@@ -1,0 +1,61 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0419",
+      "severity": "error",
+      "message": "`s` is a `Scope` value (or closes over one) captured by a closure that escapes its scope",
+      "span": {
+        "file": "E0419_scope_let_lambda_escape.gom",
+        "start": {
+          "line": 10,
+          "col": 43,
+          "offset": 411
+        },
+        "end": {
+          "line": 10,
+          "col": 44,
+          "offset": 412
+        }
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0419",
+      "severity": "error",
+      "message": "`s` is a `Scope` value (or closes over one) captured by a closure that escapes its scope",
+      "span": {
+        "file": "E0419_scope_let_lambda_escape.gom",
+        "start": {
+          "line": 19,
+          "col": 43,
+          "offset": 743
+        },
+        "end": {
+          "line": 19,
+          "col": 44,
+          "offset": 744
+        }
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0419",
+      "severity": "error",
+      "message": "`s` is a `Scope` value (or closes over one) captured by a closure that escapes its scope",
+      "span": {
+        "file": "E0419_scope_let_lambda_escape.gom",
+        "start": {
+          "line": 28,
+          "col": 43,
+          "offset": 1104
+        },
+        "end": {
+          "line": 28,
+          "col": 44,
+          "offset": 1105
+        }
+      }
+    }
+  ]
+}

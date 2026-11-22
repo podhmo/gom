@@ -1,0 +1,27 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "a |?> step must return Result, but `dbl` returns Int",
+      "span": {
+        "file": "E0401_pipetry_non_result_step.gom",
+        "start": {
+          "line": 8,
+          "col": 50,
+          "offset": 287
+        },
+        "end": {
+          "line": 8,
+          "col": 53,
+          "offset": 290
+        }
+      },
+      "data": {
+        "actual": "Int",
+        "expected": "Result"
+      }
+    }
+  ]
+}

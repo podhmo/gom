@@ -1,0 +1,22 @@
+package ex
+
+// spec section 6.1: a let-bound helper gets the same parameter
+// inference as a declared function — `f` is only applied inside
+// the helper, so a scope-capturing lambda passed through it does
+// not escape its scope.
+fn ok_let_helper (held: Ref Int) -> Int =
+    Scope.run <| fn s -> {
+        let apply = fn f -> f ()
+        apply (fn () -> Scope.defer s (fn () -> Ref.set held 0))
+        Ref.get held
+    }
+
+// Binding the call's result does not retain the callee either —
+// `let x = f (); x` consumes f, so f's parameter stays
+// non-escaping and a scope-capturing lambda is still accepted.
+fn ok_let_result (held: Ref Int) -> Int =
+    Scope.run <| fn s -> {
+        let run = fn f -> { let x = f (); x }
+        run (fn () -> Scope.defer s (fn () -> Ref.set held 0))
+        Ref.get held
+    }

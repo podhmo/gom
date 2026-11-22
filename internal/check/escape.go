@@ -187,9 +187,34 @@ type escapeBody struct {
 	// their bound expressions, so a named body argument of a
 	// scope runner resolves like the inline lambda.
 	lets map[*resolve.Symbol]Expr
+	// bindOf maps each let-bound symbol to the free variables of
+	// its bound value — an escaping use of the binding may carry
+	// any of them, so markDanger propagates through it. A bound
+	// lambda's own parameters do not appear (capturedVars reads
+	// only free uses).
+	bindOf map[*resolve.Symbol][]*resolve.Symbol
+	// flagsChanged reports that a let-bound lambda's inferred
+	// escape flags grew during this walk — the fixpoint needs
+	// another pass so callers can see them.
+	flagsChanged bool
 }
 
 func (b *escapeBody) tainted(s *resolve.Symbol) bool { return b.aliases[s] }
+
+// markDanger marks sym as escaping, then every variable a let
+// binding chained it from — `let x = p` followed by `ret x` must
+// land on p's parameter flag, not only on the alias.
+func (b *escapeBody) markDanger(sym *resolve.Symbol) {
+	for queue := []*resolve.Symbol{sym}; len(queue) > 0; {
+		s := queue[0]
+		queue = queue[1:]
+		if b.danger[s] {
+			continue
+		}
+		b.danger[s] = true
+		queue = append(queue, b.bindOf[s]...)
+	}
+}
 
 // checkScopeEscape runs the use-site pass: first a monotone
 // fixpoint infers each top-level parameter's escape flag, then a
@@ -214,11 +239,28 @@ func (c *checker) checkScopeEscape() {
 			}
 			b := c.newEscapeBody(d)
 			c.escWalk(body, true, b, false)
+			if b.flagsChanged {
+				changed = true
+			}
 			if fn, ok := d.(*FnDecl); ok && fn.Sym != nil {
 				for sym := range b.danger {
 					if i, ok := c.declParamIndex(d, sym); ok && i < len(fn.Sym.Escapes) {
 						if !fn.Sym.Escapes[i] {
 							fn.Sym.Escapes[i] = true
+							changed = true
+						}
+					}
+				}
+			}
+		}
+		// A top-level `let f = fn ...` is a named callee too: give
+		// its bound symbol the same parameter inference declared
+		// functions get so callers do not default to escaping.
+		for _, d := range c.decls {
+			if ld, ok := d.(*LetDecl); ok {
+				if lam, isLam := ld.Value.(*Lambda); isLam {
+					for _, s := range patBoundSyms(ld.Pat) {
+						if c.inferLetLambdaEscapes(s, lam) {
 							changed = true
 						}
 					}
@@ -270,6 +312,39 @@ func (c *checker) newEscapeBody(d Decl) *escapeBody {
 		danger:  map[*resolve.Symbol]bool{},
 		forward: map[Expr]bool{},
 	}
+}
+
+// inferLetLambdaEscapes runs the parameter-escape inference of a
+// declared function on a `let f = fn ...` binding: the lambda's body
+// is walked in the producing position, and each parameter landing in
+// `danger` flips the corresponding bit of sym.Escapes. Flags only
+// ever grow — the monotone fixpoint's other sources keep filling
+// theirs on the next pass. The return value reports growth.
+//
+// A let-bound callee used to default to "escaping" at every call
+// site: a local helper like `let apply = fn f -> f ()` forced its
+// callers to inline it or trip E0419 on a scope-tainted argument.
+func (c *checker) inferLetLambdaEscapes(sym *resolve.Symbol, lam *Lambda) bool {
+	if len(lam.Params) == 0 {
+		return false
+	}
+	if len(sym.Escapes) < len(lam.Params) {
+		grown := make([]bool, len(lam.Params))
+		copy(grown, sym.Escapes)
+		sym.Escapes = grown
+	}
+	b := c.newEscapeBody(nil)
+	c.escWalk(lam.Body, true, b, false)
+	changed := false
+	for i, p := range lam.Params {
+		for _, ps := range patBoundSyms(p.Pat) {
+			if b.danger[ps] && !sym.Escapes[i] {
+				sym.Escapes[i] = true
+				changed = true
+			}
+		}
+	}
+	return changed || b.flagsChanged
 }
 
 // fnDeclOf resolves a top-level function symbol to its checked
@@ -369,10 +444,29 @@ func (c *checker) callParamEscapes(call CallInfo, i int) bool {
 	if sym == nil || sym.Kind == resolve.KindCtor {
 		return true
 	}
-	// The callee's declared parameter type tells the rule for free:
-	// a `Scope`-typed parameter of a Gom callee is non-escaping —
-	// the callee's own compile enforced it. Consult the signature
-	// source quietly (the use site already ran sigOf's diagnostics).
+	return c.symParamEscapes(sym, p)
+}
+
+// argEscapes answers the same question for an Apply node: a
+// CallUnknown through a `let`-bound variable still resolves to a
+// symbol whose inferred flags the walk can consult — CallUnknown
+// means "no declared callee", not "uninspectable".
+func (c *checker) argEscapes(e *Apply, i int) bool {
+	if e.Call.Kind == CallUnknown {
+		if v, ok := e.Fn.(*Var); ok && v.Sym != nil {
+			return c.symParamEscapes(v.Sym, i)
+		}
+		return true
+	}
+	return c.callParamEscapes(e.Call, i)
+}
+
+// symParamEscapes reads one parameter position of a Gom callee: a
+// `Scope`-typed parameter is non-escaping by construction — the
+// callee's own compile enforced it — and other positions consult
+// the inferred/annotated flag. The signature is looked up quietly
+// (the use site already ran sigOf's diagnostics).
+func (c *checker) symParamEscapes(sym *resolve.Symbol, p int) bool {
 	var sig *types.Func
 	if t, ok := c.vals[sym]; ok {
 		sig, _ = types.Chase(t).(*types.Func)
@@ -416,7 +510,7 @@ func (c *checker) escWalk(e Expr, danger bool, b *escapeBody, report bool) {
 					At(e.Sp))
 			}
 		}
-		b.danger[e.Sym] = true
+		b.markDanger(e.Sym)
 	case *Apply:
 		if m, ok := e.Fn.(*MemberExpr); ok && m.Sym != nil && m.Sym.Kind == resolve.KindMethod {
 			// A method call's receiver is its implicit first
@@ -440,7 +534,7 @@ func (c *checker) escWalk(e Expr, danger bool, b *escapeBody, report bool) {
 			// retains that parameter (or the construction stores
 			// it) — or when the call produces a closure that
 			// captures it.
-			d := ctor || c.callParamEscapes(e.Call, i) || (producesClosure && danger)
+			d := ctor || c.argEscapes(e, i) || (producesClosure && danger)
 			if danger && isScopeRunner(e.Call) {
 				if lam, ok := a.Value.(*Lambda); ok {
 					b.forward[lam] = true
@@ -473,7 +567,7 @@ func (c *checker) escWalk(e Expr, danger bool, b *escapeBody, report bool) {
 		// produces escapes with it.
 		if danger {
 			for sym, v := range capturedVars(e.Body, lamBound(e)) {
-				b.danger[sym] = true
+				b.markDanger(sym)
 				if report && (isScopeType(v.Type()) || b.aliases[sym]) {
 					c.diags.Add(diag.Error("E0419",
 						fmt.Sprintf("`%s` is a `Scope` value (or closes over one) captured by a closure that escapes its scope", sym.Name)).
@@ -496,7 +590,12 @@ func (c *checker) escWalk(e Expr, danger bool, b *escapeBody, report bool) {
 		c.escWalk(e.Else, danger, b, report)
 	case *Match:
 		c.escWalk(e.Subj, false, b, report)
+		// A pattern-bound name aliases (part of) the subject —
+		// an escaping use through a `let` alias or an arm's own
+		// result must still land on the subject's retained names.
+		subjRV := retainedVars(e.Subj)
 		for _, a := range e.Arms {
+			b.bindAlias(patBoundSyms(a.Pat), subjRV)
 			c.escWalk(a.Guard, danger, b, report)
 			c.escWalk(a.Body, danger, b, report)
 		}
@@ -519,6 +618,11 @@ func (c *checker) escWalk(e Expr, danger bool, b *escapeBody, report bool) {
 						b.lets = map[*resolve.Symbol]Expr{}
 					}
 					b.lets[s] = l.Value
+					if !report {
+						if lam, isLam := l.Value.(*Lambda); isLam && c.inferLetLambdaEscapes(s, lam) {
+							b.flagsChanged = true
+						}
+					}
 				}
 			}
 		}
@@ -526,6 +630,17 @@ func (c *checker) escWalk(e Expr, danger bool, b *escapeBody, report bool) {
 	case *Let:
 		c.escWalk(e.Value, false, b, report)
 		c.bindLet(e, b)
+		for _, s := range patBoundSyms(e.Pat) {
+			if b.lets == nil {
+				b.lets = map[*resolve.Symbol]Expr{}
+			}
+			b.lets[s] = e.Value
+			if !report {
+				if lam, isLam := e.Value.(*Lambda); isLam && c.inferLetLambdaEscapes(s, lam) {
+					b.flagsChanged = true
+				}
+			}
+		}
 	case *Ignore:
 		c.escWalk(e.X, false, b, report)
 	case *Try:
@@ -538,7 +653,7 @@ func (c *checker) escWalk(e Expr, danger bool, b *escapeBody, report bool) {
 		// lifetime — an outliving goroutine is the escaping
 		// closure case with no produced value.
 		for sym, v := range capturedVars(e.Body, map[*resolve.Symbol]bool{}) {
-			b.danger[sym] = true
+			b.markDanger(sym)
 			if report && (isScopeType(v.Type()) || b.aliases[sym]) {
 				c.diags.Add(diag.Error("E0419",
 					fmt.Sprintf("`%s` is a `Scope` value (or closes over one) captured by a `go` block that escapes its scope", sym.Name)).
@@ -548,12 +663,16 @@ func (c *checker) escWalk(e Expr, danger bool, b *escapeBody, report bool) {
 		c.escWalk(e.Body, false, b, report)
 	case *For:
 		c.escWalk(e.Iter, false, b, report)
+		// The bound name aliases each iterated element — an
+		// escaping use reaches back to the iterable.
+		b.bindAlias(patBoundSyms(e.Pat), retainedVars(e.Iter))
 		c.escWalk(e.Body, danger, b, report)
 	case *SelectExpr:
 		for _, a := range e.Arms {
 			switch a := a.(type) {
 			case *RecvArm:
 				c.escWalk(a.Chan, false, b, report)
+				b.bindAlias(patBoundSyms(a.Bind), retainedVars(a.Chan))
 				c.escWalk(a.Body, danger, b, report)
 			case *SendArm:
 				c.escWalk(a.Chan, false, b, report)
@@ -641,6 +760,176 @@ func (c *checker) bindLet(l *Let, b *escapeBody) {
 			b.aliases[s] = true
 		}
 	}
+	// A bound name carries the variables its value's result
+	// retains — markDanger follows these so an escaping use lands
+	// on the source parameter, not only on the alias.
+	b.bindAlias(patBoundSyms(l.Pat), retainedVars(l.Value))
+}
+
+// bindAlias records that each dst symbol's value retains the src
+// symbols — markDanger's breadth-first walk follows the edge.
+func (b *escapeBody) bindAlias(dsts []*resolve.Symbol, src map[*resolve.Symbol]bool) {
+	if len(dsts) == 0 || len(src) == 0 {
+		return
+	}
+	syms := make([]*resolve.Symbol, 0, len(src))
+	for s := range src {
+		syms = append(syms, s)
+	}
+	if b.bindOf == nil {
+		b.bindOf = map[*resolve.Symbol][]*resolve.Symbol{}
+	}
+	for _, s := range dsts {
+		b.bindOf[s] = syms
+	}
+}
+
+// retainedVars returns the variables an escaping use of e's
+// result carries — the names its value retains. Unlike
+// capturedVars it only reads result positions: a full
+// application's callee and arguments are consumed by the call
+// itself (`let x = f ()` does not retain f — the callee's escape
+// flags already mark whatever it keeps), so only partial/hole
+// applications, constructors, and function-valued pipes count.
+// Pattern-bound and inner-let names may leak in; they are inert
+// for parameters and the inner let's own bindOf entry continues
+// the chain.
+func retainedVars(e Expr) map[*resolve.Symbol]bool {
+	var out map[*resolve.Symbol]bool
+	var rec func(e Expr)
+	rec = func(e Expr) {
+		add := func(s *resolve.Symbol) {
+			if s == nil {
+				return
+			}
+			if out == nil {
+				out = map[*resolve.Symbol]bool{}
+			}
+			out[s] = true
+		}
+		switch e := e.(type) {
+		case nil:
+		case *Var:
+			add(e.Sym)
+		case *MemberExpr:
+			// The selected member's value is the result; the
+			// receiver itself is read, not retained.
+			add(e.Sym)
+		case *Lambda:
+			for s := range capturedVars(e.Body, lamBound(e)) {
+				add(s)
+			}
+		case *Apply:
+			ctor := e.Call.Callee != nil && e.Call.Callee.Kind == resolve.KindCtor
+			producesClosure := e.Call.Kind == CallPartial || e.Call.HoleIndex >= 0 ||
+				(e.Call.Kind == CallUnknown && isFuncType(e.Type()))
+			switch {
+			case ctor || producesClosure:
+				rec(e.Fn)
+				for _, a := range e.Args {
+					rec(a.Value)
+				}
+			case isScopeRunner(e.Call):
+				// A scope runner returns its body argument's
+				// produced value — the body's result position
+				// is retained by the call's own result.
+				rec(e.Fn)
+				for _, a := range e.Args {
+					if lam, ok := a.Value.(*Lambda); ok {
+						rec(lam.Body)
+					} else {
+						rec(a.Value)
+					}
+				}
+			}
+		case *Ascribe:
+			rec(e.X)
+		case *If:
+			rec(e.Then)
+			rec(e.Else)
+		case *Match:
+			for _, a := range e.Arms {
+				rec(a.Body)
+			}
+		case *Block:
+			if n := len(e.Stmts); n > 0 {
+				rec(e.Stmts[n-1])
+			}
+		case *Try:
+			rec(e.X)
+		case *ListLit:
+			for _, el := range e.Elems {
+				rec(el)
+			}
+		case *TupleLit:
+			for _, el := range e.Elems {
+				rec(el)
+			}
+		case *RecordLit:
+			rec(e.With)
+			for _, f := range e.Fields {
+				rec(f.Value)
+			}
+		case *Spread:
+			rec(e.X)
+		case *SelectExpr:
+			for _, a := range e.Arms {
+				switch a := a.(type) {
+				case *RecvArm:
+					rec(a.Body)
+				case *SendArm:
+					rec(a.Body)
+				case *DefaultArm:
+					rec(a.Body)
+				default:
+					panic("unreachable")
+				}
+			}
+		case *Binary:
+			switch e.Op {
+			case syntax.BinPipeFwd, syntax.BinPipeBack, syntax.BinPipeTry:
+				arg, fn := e.X, e.Y
+				if e.Op == syntax.BinPipeBack {
+					arg, fn = e.Y, e.X
+				}
+				var fnSym *resolve.Symbol
+				if f, ok := fn.(*Var); ok {
+					fnSym = f.Sym
+				} else if f, ok := fn.(*MemberExpr); ok {
+					fnSym = f.Sym
+				}
+				switch {
+				case isScopeRunner(CallInfo{Callee: fnSym}):
+					// The runner forwards its body argument's
+					// produced value — the body's result
+					// position is retained.
+					rec(fn)
+					if lam, ok := arg.(*Lambda); ok {
+						rec(lam.Body)
+					} else {
+						rec(arg)
+					}
+				case isFuncType(e.Type()):
+					// A function-valued result is a partial
+					// application capturing both operands.
+					rec(e.X)
+					rec(e.Y)
+				}
+			case syntax.BinComposeFwd, syntax.BinComposeBack:
+				rec(e.X)
+				rec(e.Y)
+			}
+		case *Lit, *Hole, *Let, *Ignore, *Unary, *FieldAssign,
+			*For, *GoExpr, *StrInterp:
+			// Consumed positions and statement results retain
+			// nothing — a `let` statement's own bindings alias
+			// through its bindOf entry instead.
+		default:
+			panic("unreachable")
+		}
+	}
+	rec(e)
+	return out
 }
 
 // lamBound collects the symbols a lambda's own parameter patterns

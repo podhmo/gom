@@ -2227,6 +2227,26 @@ func (c *checker) checkPipeTry(e *syntax.Binary) Expr {
 		errT = c.newMeta(e.Sp, "the pipeline error type")
 	}
 	resT := c.newMeta(e.Sp, "the |?> result type")
+	// A step whose own signature returns a concrete non-Result type
+	// can never satisfy `a -> Result b e` — name the real mistake
+	// (spec 9.2.8) instead of leaving an opaque `Result ?1 ?2`
+	// mismatch. Quieting the metas first suppresses the generic
+	// E0401 conformCallee would emit for the same unification;
+	// argument-side mismatches still report.
+	if rt, isType := nonResultStepRet(f.Type()); isType && !c.shadowedBuiltin("Result") {
+		c.markQuiet(resT)
+		c.markQuiet(errT)
+		name := "the step"
+		if s, ok := f.(*Var); ok {
+			name = "`" + s.Sym.Name + "`"
+		} else if s, ok := f.(*MemberExpr); ok {
+			name = "`" + s.Sym.Name + "`"
+		}
+		rtName := types.Display(rt, metaNamer())
+		c.diags.Add(diag.Error("E0401",
+			fmt.Sprintf("a |?> step must return Result, but %s returns %s", name, rtName)).
+			At(e.Y.Span()).Set("expected", "Result").Set("actual", rtName))
+	}
 	// The step's argument is the unwrapped payload — a value the
 	// lowering produces, not an expression the Ascribe can hang on —
 	// so boundary conversions stay unify-only here (conv=false).
@@ -2235,6 +2255,38 @@ func (c *checker) checkPipeTry(e *syntax.Binary) Expr {
 		c.markQuiet(errT)
 	}
 	return &Binary{Base: baseOf(e.Sp, types.Result(resT, errT)), Op: e.Op, X: x, Y: f}
+}
+
+// nonResultStepRet returns the step's ultimate return type when it
+// is a concrete type that cannot be the builtin `Result` — a Con of
+// another name, a tuple, a function, or a Go type. Metas and rigid
+// variables stay undecided for conformCallee.
+func nonResultStepRet(t types.Type) (types.Type, bool) {
+	f, ok := types.Chase(t).(*types.Func)
+	if !ok {
+		return nil, false
+	}
+	ret := f.Ret
+	for {
+		if nf, ok := types.Chase(ret).(*types.Func); ok {
+			ret = nf.Ret
+			continue
+		}
+		break
+	}
+	switch rt := types.Chase(ret).(type) {
+	case *types.Con:
+		if rt.Qual == "" && rt.Name == "Result" && len(rt.Args) == 2 {
+			return nil, false
+		}
+		return rt, true
+	case *types.Tuple, *types.Go:
+		return rt, true
+	case *types.Meta, *types.Var, *types.Func:
+		return nil, false
+	default:
+		panic("unreachable")
+	}
 }
 
 // checkLambda types an anonymous function `fn x y -> body`.

@@ -205,7 +205,11 @@ var scopeMembers = []builtinMember{
 		gosig:   lower.GoSig{Arity: 1, Results: core.GoResultsOne},
 		escapes: []bool{false}},
 	{name: "defer", goSym: "ScopeDefer",
-		sig:   check.Signature{Type: types.Fn(types.Unit, types.P(types.Scope), types.P(types.Fn(types.Unit, types.P(types.Unit))))},
+		sig: check.Signature{Type: types.Fn(types.Unit, types.P(types.Scope), types.P(types.Fn(types.Unit, types.P(types.Unit))))},
+		// the cleanup is retained by the scope until it closes —
+		// a scope-capturing cleanup could outlive the scope that
+		// produced it, so the callback parameter keeps the
+		// conservative escaping treatment.
 		gosig: lower.GoSig{Arity: 2, Results: core.GoResultsNone}},
 	{name: "defer_err", goSym: "ScopeDeferErr", pkg: "github.com/podhmo/gom/stdlib/result",
 		sig: check.Signature{Type: types.Fn(types.Unit, types.P(types.Scope),
