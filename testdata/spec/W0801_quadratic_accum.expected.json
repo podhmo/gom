@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "W0801",
+      "severity": "warning",
+      "message": "List.fold folder appends onto its accumulator each step — O(n^2) list concat; collect into an Array builder instead",
+      "span": {
+        "file": "W0801_quadratic_accum.gom",
+        "start": {
+          "line": 5,
+          "col": 49,
+          "offset": 128
+        },
+        "end": {
+          "line": 5,
+          "col": 53,
+          "offset": 132
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0104",
+      "severity": "error",
+      "message": "invalid escape sequence",
+      "span": {
+        "file": "E0104_bad_escape.gom",
+        "start": {
+          "line": 4,
+          "col": 18,
+          "offset": 52
+        },
+        "end": {
+          "line": 4,
+          "col": 20,
+          "offset": 54
+        }
+      }
+    }
+  ]
+}

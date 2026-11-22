@@ -1,0 +1,7 @@
+package ex
+
+fn main () -> Unit = {
+  let s = "column\qvalue"
+  ignore s
+  ()
+}

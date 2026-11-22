@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0102",
+      "severity": "error",
+      "message": "unterminated string literal",
+      "span": {
+        "file": "E0102_unterminated_string.gom",
+        "start": {
+          "line": 4,
+          "col": 13,
+          "offset": 47
+        },
+        "end": {
+          "line": 5,
+          "col": 1,
+          "offset": 61
+        }
+      }
+    }
+  ]
+}

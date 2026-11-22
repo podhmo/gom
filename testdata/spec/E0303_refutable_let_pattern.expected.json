@@ -1,0 +1,30 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0303",
+      "severity": "error",
+      "message": "refutable pattern in a let binding",
+      "span": {
+        "file": "E0303_refutable_let_pattern.gom",
+        "start": {
+          "line": 4,
+          "col": 7,
+          "offset": 50
+        },
+        "end": {
+          "line": 4,
+          "col": 13,
+          "offset": 56
+        }
+      },
+      "data": {
+        "context": "let",
+        "missing_patterns": [
+          "None"
+        ],
+        "scrutinee_type": "Option Int"
+      }
+    }
+  ]
+}

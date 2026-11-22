@@ -1,0 +1,6 @@
+package ex
+
+fn main () -> Unit = {
+  let msg = "hello, world
+  ()
+}

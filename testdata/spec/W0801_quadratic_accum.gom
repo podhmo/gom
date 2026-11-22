@@ -1,0 +1,5 @@
+package ex
+
+fn step (acc: List Int) (x: Int) -> List Int = List.append acc [x]
+
+fn build (xs: List Int) -> List Int = List.fold step [] xs
