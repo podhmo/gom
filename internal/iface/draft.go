@@ -172,8 +172,26 @@ func (d *drafter) file(w *strings.Builder, s Source) {
 // typed parameters, the type from the signature.
 func (d *drafter) fnDecl(name string, td *check.FnDecl) string {
 	var sb strings.Builder
-	fmt.Fprintf(&sb, "fn %s", name)
-	for i, p := range td.Params {
+	if td.Method {
+		sb.WriteString("@method\n")
+	}
+	sb.WriteString("fn ")
+	start := 0
+	if td.Method && len(td.Params) > 0 {
+		// An @method signature writes the receiver before the
+		// name — `fn (w : W) greet (p : T) -> R`.
+		sb.WriteString("(")
+		sb.WriteString(patText(td.Params[0].Pat))
+		sb.WriteString(": ")
+		if len(td.Sig.Params) > 0 {
+			d.writeType(&sb, td.Sig.Params[0].Type)
+		}
+		sb.WriteString(") ")
+		start = 1
+	}
+	sb.WriteString(name)
+	for i := start; i < len(td.Params); i++ {
+		p := td.Params[i]
 		if i < len(td.Sig.Params) {
 			fp := td.Sig.Params[i]
 			if isUnitPat(p.Pat) {

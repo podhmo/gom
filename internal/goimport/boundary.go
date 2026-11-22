@@ -27,6 +27,44 @@ func (l *Loader) InterfaceAssignable(from, to gt.Type) bool {
 	return src != nil && types.AssignableTo(src, dst)
 }
 
+// InterfaceMethods lists the methods a Go interface requires — the
+// check.InterfaceMethodSource oracle behind a Gom type's @method
+// conformance test (decisions/2026-11-21-go-iface-impl).
+func (l *Loader) InterfaceMethods(t gt.Type) ([]check.InterfaceMethod, bool) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	var dst types.Type
+	if gt.Equal(gt.Chase(t), gt.GoError) {
+		// The universe error interface has no *types.Go handle in
+		// l.named — spell it directly.
+		dst = types.Universe.Lookup("error").Type()
+	} else {
+		dst = l.boundaryType(t)
+	}
+	if dst == nil {
+		return nil, false
+	}
+	iface, ok := dst.Underlying().(*types.Interface)
+	if !ok {
+		return nil, false
+	}
+	var out []check.InterfaceMethod
+	for i := 0; i < iface.NumMethods(); i++ {
+		m := iface.Method(i)
+		sig, ok := m.Type().(*types.Signature)
+		if !ok {
+			return nil, false
+		}
+		ck, _, _ := l.mapSignature(sig)
+		fn, ok := ck.Type.(*gt.Func)
+		if !ok {
+			return nil, false
+		}
+		out = append(out, check.InterfaceMethod{Name: m.Name(), Sig: fn})
+	}
+	return out, true
+}
+
 // boundaryType reconstructs the Go spelling of a Gom type for the
 // boundary relations — assignability, comparability, convertibility.
 func (l *Loader) boundaryType(t gt.Type) types.Type {

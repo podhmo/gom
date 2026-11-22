@@ -62,6 +62,72 @@ func (g *gen) funcDecl(d *core.FuncDecl) {
 	g.funcBody(d.Fn, ret)
 	g.close()
 	g.nl()
+	if d.Method {
+		g.methodDecl(d)
+	}
+}
+
+// methodDecl emits the Go method half of an @method fn — the
+// receiver-takes-first forwarding wrapper that makes the record
+// satisfy a Go interface (decisions/2026-11-21-go-iface-impl). Unit
+// parameters drop out: no interface method takes one.
+func (g *gen) methodDecl(d *core.FuncDecl) {
+	fn := d.Fn
+	recv := fn.Params[0]
+	// Discarded params still need a name in the wrapper — the
+	// forwarded value is what the inner function ignores, not the
+	// method signature.
+	nameOf := func(b *core.Bind) string {
+		if b.Discard {
+			return g.fresh("arg")
+		}
+		return g.bindName(b)
+	}
+	var rest []*core.Bind
+	for _, b := range fn.Params[1:] {
+		if types.Equal(b.Typ, types.Unit) {
+			continue
+		}
+		rest = append(rest, b)
+	}
+	names := map[*core.Bind]string{recv: nameOf(recv)}
+	for _, b := range rest {
+		names[b] = nameOf(b)
+	}
+	g.line(d.Sp)
+	g.raw("func (" + names[recv] + " ")
+	g.typ(g.goType(recv.Typ))
+	g.raw(") " + core.ExportName(d.Sym.Name) + "(")
+	for i, b := range rest {
+		if i > 0 {
+			g.raw(", ")
+		}
+		g.raw(names[b] + " ")
+		if flatArity(b.Typ) >= 2 {
+			g.typ(g.flatFuncType(b.Typ))
+		} else {
+			g.typ(g.goType(b.Typ))
+		}
+	}
+	g.raw(") ")
+	g.resultSig(d.Fn.ResidualType(), fn.Body)
+	g.open()
+	call := g.symName(d.Sym) + "(" + names[recv]
+	for _, b := range fn.Params[1:] {
+		if types.Equal(b.Typ, types.Unit) {
+			call += ", struct{}{}"
+			continue
+		}
+		call += ", " + names[b]
+	}
+	call += ")"
+	if !types.Equal(d.Fn.ResidualType(), types.Unit) {
+		call = "return " + call
+	}
+	g.raw(call)
+	g.nl()
+	g.close()
+	g.nl()
 }
 
 // varDecl emits `var name T = init`. A statement-level initializer

@@ -1081,6 +1081,7 @@ func (l *lowerer) decl(d check.Decl, out *core.File) {
 			IsEntry:    l.isEntryPoint(out.Package, d.Sym, fn),
 			Exported:   l.exported(d.Sym),
 			TailRec:    d.TailRec && d.Sym != nil,
+			Method:     d.Method,
 		})
 	case *check.LetDecl:
 		if !l.env.Tests && testOnlyPat(d.Pat) {

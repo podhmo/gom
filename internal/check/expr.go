@@ -278,6 +278,9 @@ func (c *checker) conformExpr(out Expr, want types.Type, sp diag.Span) Expr {
 		if src, ok := c.src.(InterfaceSource); ok && c.goOriginType(out.Type()) && ifaceWant && src.InterfaceAssignable(out.Type(), want) {
 			return &Ascribe{Base: baseOf(sp, want), X: out, Conv: true, Iface: true}
 		}
+		if ifaceWant && c.implementsIface(want, out.Type()) {
+			return &Ascribe{Base: baseOf(sp, want), X: out, Conv: true, Iface: true}
+		}
 		if conv := c.sliceConv(want, out.Type(), out, sp); conv != nil {
 			return conv
 		}
@@ -3350,6 +3353,9 @@ func (c *checker) revisitInterfaces() {
 	for _, conv := range c.pendingIfaces {
 		from := types.Chase(conv.X.Type())
 		if _, ok := from.(*types.Meta); ok {
+			continue
+		}
+		if c.implementsIface(conv.Type(), from) {
 			continue
 		}
 		src, ok := c.src.(InterfaceSource)

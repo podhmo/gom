@@ -1,0 +1,14 @@
+package main
+
+import go "fmt"
+
+// The @method receiver must be a record type of this package.
+type Greeter = { name: String }
+
+@method
+fn (g: fmt.Stringer) bad1 () -> String = "x"
+
+@method
+fn (i: Int) bad2 () -> String = "x"
+
+fn main () -> Unit = ()

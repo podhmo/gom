@@ -1,6 +1,6 @@
 # Gom record が Go interface を実装する宣言 — 設計
 
-- 状態: adopted（2026-11-22 podhmo 採択 — wave30 lane C で実装予定）
+- 状態: adopted（2026-11-22 podhmo 採択 — wave30 lane C で実装済み）
 - 日付: 2026-11-21
 - 関連: open-questions「Gom の型が Go の interface を実装できるようにするか」、[sketch 2026-11-19-wave25-go-iface-impl](../sketch/2026-11-19-wave25-go-iface-impl.md)（実現可能性の調査）、decisions/2026-11-21-record-single-field-defined-type.md（lane A — 本稿はその着地後の世界を前提にする）
 

@@ -39,6 +39,7 @@ type FnDecl struct {
 	TestOnly bool     // declared with `@test` (docs/spec.md section 11)
 	TailRec  bool     // declared with `@tailrec` (docs/spec.md section 1)
 	Extern   bool     // declared with `@extern` — body supplied by hand-written Go in the same package
+	Method   bool     // declared with `@method` — Params[0] is the Go method receiver
 	Name     *Ident
 	Params   []Param
 	Ret      TypeExpr // nil when unannotated

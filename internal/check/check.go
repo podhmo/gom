@@ -249,6 +249,11 @@ type checker struct {
 	// pendingIfaces keep numeric and selector inference independent of interface assignment.
 	pendingIfaces []*Ascribe
 
+	// methods records each own-package record type's declared
+	// @method set for Go-interface conformance checks
+	// (docs/decisions/2026-11-21-go-iface-impl.md).
+	methods map[conKey][]GomMethod
+
 	// pendingDivs are `/` and `%` nodes whose right operand folded
 	// to a constant zero — candidates for E0414. Whether the
 	// diagnostic fires depends on the operand type (an integer
@@ -604,6 +609,17 @@ func baseOf(sp diag.Span, t types.Type) Base {
 // past errors — a failed body marks itself with metas, and the loop
 // recovers at the next declaration boundary.
 func (c *checker) checkDecls(decls []syntax.Decl) {
+	// Record every @method before any body is checked — a body
+	// earlier in the file may already assign the record to a Go
+	// interface the method satisfies.
+	for _, d := range decls {
+		if fd, ok := d.(*syntax.FnDecl); ok && fd.Method {
+			sym := c.declSym(fd.Name, resolve.KindFunc)
+			if sig, ok := types.Chase(c.vals[sym]).(*types.Func); ok {
+				c.checkMethodDecl(fd, sym, sig)
+			}
+		}
+	}
 	for _, d := range decls {
 		switch d := d.(type) {
 		case *syntax.TypeDecl:
@@ -687,7 +703,7 @@ func (c *checker) checkFnDecl(d *syntax.FnDecl) {
 	}
 	c.bounds = c.bounds[:len(c.bounds)-1]
 	c.curTScope = prevScope
-	c.decls = append(c.decls, &FnDecl{
+	fd := &FnDecl{
 		Sp:      d.Sp,
 		Sym:     sym,
 		Sig:     sig,
@@ -695,11 +711,13 @@ func (c *checker) checkFnDecl(d *syntax.FnDecl) {
 		Body:    body,
 		TailRec: d.TailRec,
 		Extern:  d.Extern,
+		Method:  d.Method,
 		// A declared signature's rigid variables are the function's
 		// own type parameters — `fn len2 (t: Tree a) -> Int` emits
 		// `func len2[A](t Tree[A]) int64`.
 		TypeParams: rigidVars(sig),
-	})
+	}
+	c.decls = append(c.decls, fd)
 }
 
 // checkLetDecl checks a top-level `let`: the value is checked first

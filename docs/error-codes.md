@@ -619,6 +619,22 @@ fn bad (s: Scope) -> Task Unit =
     Task.spawn (fn () -> Scope.defer s (fn () -> ()))   // captured
 ```
 
+### E0420 — invalid @method declaration
+
+**Severity:** error · **Phase:** check · **Spec:** §8.7
+
+An @method fn declares a Go method on a record type of this
+package: its first parameter is the receiver. The receiver must be
+a record type declared here (a generic record is rejected — Go
+methods cannot take type parameters), the return type cannot be
+Result (the (T, error) pair has no interface counterpart), and
+@method cannot combine with @extern.
+
+```gom
+@method
+fn (w: Greeter) hello () -> String = "hi"   // Greeter must be a local record
+```
+
 ## 05xx — Go interop
 
 ### E0501 — Go symbol cannot be represented in Gom

@@ -88,6 +88,9 @@ func (p *printer) declItem(d syntax.Decl) item {
 		if d.Extern {
 			lead = append(lead, "@extern")
 		}
+		if d.Method {
+			lead = append(lead, "@method")
+		}
 		dd = p.fnDecl(d)
 	case *syntax.LetDecl:
 		lead = append(lead, docLines(d.Doc)...)
@@ -125,13 +128,24 @@ func docLines(c *syntax.Comment) []string {
 	return out
 }
 
-// fnDecl renders "fn name params -> ret [= body]".
+// fnDecl renders "fn name params -> ret [= body]" — an @method
+// declaration keeps its receiver first: "fn (recv) name params".
 func (p *printer) fnDecl(d *syntax.FnDecl) *doc {
 	var kids []*doc
-	mid0 := p.gapInline(d.Sp.Start+len("fn"), d.Name.Sp.Start)
-	kids = append(kids, text("fn"+pad(mid0)+d.Name.Name))
-	anchor := d.Name.Sp.End
-	for i := range d.Params {
+	anchor := d.Sp.Start + len("fn")
+	start := 0
+	if d.Method && len(d.Params) > 0 {
+		midr := p.gapInline(anchor, d.Params[0].Sp.Start)
+		kids = append(kids, text("fn"+pad(midr)), p.param(&d.Params[0]))
+		anchor = d.Params[0].Sp.End
+		start = 1
+	} else {
+		kids = append(kids, text("fn"))
+	}
+	mid0 := p.gapInline(anchor, d.Name.Sp.Start)
+	kids = append(kids, text(pad(mid0)+d.Name.Name))
+	anchor = d.Name.Sp.End
+	for i := start; i < len(d.Params); i++ {
 		mid := p.gapInline(anchor, d.Params[i].Sp.Start)
 		kids = append(kids, text(" "+mid), p.param(&d.Params[i]))
 		anchor = d.Params[i].Sp.End
