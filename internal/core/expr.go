@@ -439,3 +439,69 @@ type RecordUpdate struct {
 }
 
 func (*RecordUpdate) isExpr() {}
+
+// DeferKind classifies a scope cleanup a Defer node emits.
+type DeferKind int
+
+const (
+	// DeferPlain is `defer f()` — a `Scope.defer` registration, and a
+	// `defer_err` inside a `run` scope (its errors have no Result to
+	// join into, matching the runtime's drop).
+	DeferPlain DeferKind = iota + 1
+	// DeferErr is `defer func() { if r := f(); !r.IsOk() {
+	// errs = append(errs, r.Error) } }()` — a `defer_err` inside a
+	// `run_result` scope.
+	DeferErr
+	// DeferOnErr is `defer func() { if <Failed> { f() } }()` — a
+	// `Scope.on_err` registration. Failed is the scope's shared
+	// failure flag, decided by the DeferScopeFailed defer before
+	// any cleanup runs (rt.Scope.Close takes `failed` decided
+	// before invoking cleanups — a cleanup's own panic is not the
+	// body's failure).
+	DeferOnErr
+	// DeferErrFold is the scope-entry pair `var errs []error` +
+	// `defer func() { if len(errs) > 0 && res.IsOk() {
+	// res = result.Err(errors.Join(errs...)) } }()`. It must be the
+	// outermost defer of its scope — emitted first so it runs last.
+	DeferErrFold
+	// DeferScopeHead declares `var <Failed> bool` — the prelude of
+	// a scope body that has `on_err` registrations, emitted first
+	// so every cleanup defer can read the flag.
+	DeferScopeHead
+	// DeferScopeFailed is `defer func() { if p := recover();
+	// p != nil { <Failed> = true; panic(p) }; <Failed> =
+	// !<Res>.IsOk() }()` — appended as the scope body's last
+	// statement so it runs before every cleanup defer: a body
+	// panic marks failure, a panic of a later cleanup does not.
+	// With Res nil (a `run` scope) only the panic check emits —
+	// `run` fails only by panicking (rt.ScopeRun's `!ok`).
+	DeferScopeFailed
+)
+
+// Defer is a `Scope` registration lowered to a native Go defer —
+// emitted only where the registration provably sits in the same Go
+// function as the scope it runs for, which is exactly where `defer`
+// keeps the runtime-scope semantics (docs/decisions/
+// 2026-11-22-sc3-native-defer.md). Otherwise the runtime scope from
+// SC-1 still carries cleanups.
+//
+// F is the cleanup callable, typed `func() U` and always a bound
+// variable — the lowering binds the registration's callable atom to
+// a let so it evaluates at the registration point, not at cleanup
+// time (rt.Push evaluates it eagerly). Res is the enclosing
+// function's named result (the scope Body's ResBind) — required for
+// DeferErr, DeferOnErr and DeferErrFold over a `run_result` scope,
+// nil for a `run` scope. Errs is the cleanup-error list the scope's
+// DeferErrFold declares — shared by every DeferErr of the scope.
+// Failed is the scope's failure flag declared by DeferScopeHead —
+// shared by every DeferOnErr and the DeferScopeFailed decider.
+type Defer struct {
+	Base
+	Kind   DeferKind
+	F      Atom
+	Res    *Bind
+	Errs   *Bind
+	Failed *Bind
+}
+
+func (*Defer) isExpr() {}

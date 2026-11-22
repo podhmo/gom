@@ -623,6 +623,12 @@ func (d *cdump) cexpr(e core.Expr) *form {
 		return nodef(chead("errorfromgo", e.Base), d.cexpr(e.Call))
 	case *core.Conv:
 		return nodef(chead("conv", e.Base)+" "+e.Kind.String(), d.cexpr(e.X))
+	case *core.Defer:
+		text := chead("defer", e.Base) + fmt.Sprintf(" :k%d", int(e.Kind))
+		if e.F == nil {
+			return nodef(text)
+		}
+		return nodef(text, d.cexpr(e.F))
 	default:
 		panic("unreachable")
 	}

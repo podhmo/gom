@@ -884,7 +884,7 @@ func TestSealedFamiliesIsExpr(t *testing.T) {
 			*Unary, *Binary, *Equal, *If, *Match, *SelectExpr, *Spawn, *ForRange,
 			*TupleNew, *ListNew, *RecordNew, *RecordUpdate, *GoFunc, *Uncurry,
 			*TailCall, *EscapeResult, *EscapeCall,
-			*ResultFromGo, *OptionFromGo, *TupleFromGo, *ErrorFromGo, *Conv:
+			*ResultFromGo, *OptionFromGo, *TupleFromGo, *ErrorFromGo, *Conv, *Defer:
 		default:
 			panic("unreachable")
 		}

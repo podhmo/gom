@@ -286,7 +286,7 @@ func (g *gen) simpleExpr(e core.Expr) ast.Expr {
 		*core.Spawn, *core.ForRange, *core.TailCall, *core.FieldSet,
 		*core.EscapeResult, *core.EscapeCall,
 		*core.ResultFromGo, *core.OptionFromGo, *core.TupleFromGo,
-		*core.ErrorFromGo, *core.RecordUpdate:
+		*core.ErrorFromGo, *core.RecordUpdate, *core.Defer:
 		// statement-level nodes (emit.go) — reached only if
 		// isSimpleExpr's split is wrong
 		panic(fmt.Sprintf("codegen: %T is not a single-expression node", e))
@@ -310,7 +310,7 @@ func isSimpleExpr(e core.Expr) bool {
 		*core.Spawn, *core.ForRange, *core.TailCall, *core.FieldSet,
 		*core.EscapeResult, *core.EscapeCall,
 		*core.ResultFromGo, *core.OptionFromGo, *core.TupleFromGo,
-		*core.ErrorFromGo, *core.RecordUpdate:
+		*core.ErrorFromGo, *core.RecordUpdate, *core.Defer:
 		return false
 	default:
 		panic("unreachable")

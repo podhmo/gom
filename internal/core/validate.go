@@ -1076,6 +1076,24 @@ func (v *validator) expr(e Expr, inTail bool) {
 		v.spawn++
 		v.body(e.Body, false)
 		v.spawn--
+	case *Defer:
+		carriesF := e.Kind == DeferPlain || e.Kind == DeferErr || e.Kind == DeferOnErr
+		if carriesF && e.F == nil {
+			v.err(e.Sp, "Defer", "missing cleanup")
+		}
+		if !carriesF && e.F != nil {
+			v.err(e.Sp, "Defer", "bookkeeping defer carries a cleanup")
+		}
+		if (e.Kind == DeferErr || e.Kind == DeferErrFold) && e.Errs == nil {
+			v.err(e.Sp, "Defer", "missing error list")
+		}
+		needsFailed := e.Kind == DeferOnErr || e.Kind == DeferScopeHead || e.Kind == DeferScopeFailed
+		if needsFailed && e.Failed == nil {
+			v.err(e.Sp, "Defer", "missing failure flag")
+		}
+		if e.F != nil {
+			v.atom(e.F, "Defer.F")
+		}
 	case *ForRange:
 		v.forRange(e)
 	case *TupleNew:
@@ -1776,6 +1794,8 @@ func nilExpr(e Expr) bool {
 	case *ErrorFromGo:
 		return e == nil
 	case *Conv:
+		return e == nil
+	case *Defer:
 		return e == nil
 	default:
 		panic("unreachable")

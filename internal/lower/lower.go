@@ -239,6 +239,7 @@ func File(f *check.File, env *Env) (*core.File, []diag.Diagnostic) {
 	l.lintQuadraticAccum(out)
 	out.EqDecls = l.eqOrder
 	out.ShowDecls = l.showOrder
+	l.nativeScopeRuns(out)
 
 	if errs := core.Validate(out); len(errs) > 0 {
 		for _, v := range errs {

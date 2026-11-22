@@ -1022,7 +1022,7 @@ func retarget(f *core.File, pkg string) {
 			*core.CallDirect, *core.CallFunc, *core.CallBuiltin,
 			*core.CtorApp, *core.TupleNew, *core.ListNew,
 			*core.RecordNew, *core.RecordUpdate, *core.Conv,
-			*core.TailCall, *core.EscapeResult, *core.EscapeCall,
+			*core.TailCall, *core.EscapeResult, *core.EscapeCall, *core.Defer,
 			*core.ResultFromGo, *core.OptionFromGo, *core.TupleFromGo,
 			*core.ErrorFromGo, *core.Uncurry,
 			*core.Closure, *core.If, *core.Match, *core.SelectExpr,
@@ -1119,6 +1119,8 @@ func walkExprNodes(e core.Expr, mut func(core.Expr)) {
 		}
 	case *core.Uncurry:
 		walkExprNodes(e.X, mut)
+	case *core.Defer:
+		mut(e.F)
 	case *core.Var, *core.Lit, *core.FuncRef, *core.CtorRef,
 		*core.GoFuncRef, *core.FieldGet, *core.FieldSet,
 		*core.Unary, *core.Binary, *core.Equal,

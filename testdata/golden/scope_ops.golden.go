@@ -22,7 +22,9 @@ func guarded(r *int64, need bool) int64 {
 //line scope_ops.gom:7
 			}
 //line scope_ops.gom:7
-			rt.ScopeDefer(s, tmp1)
+			tmp8 := tmp1
+//line scope_ops.gom:7
+			defer tmp8(struct{}{})
 //line scope_ops.gom:7
 			_ = struct{}{}
 //line scope_ops.gom:7
@@ -32,7 +34,9 @@ func guarded(r *int64, need bool) int64 {
 //line scope_ops.gom:7
 	}
 //line scope_ops.gom:7
-	return rt.ScopeRun[int64](tmp2)
+	tmp9 := rt.NewScope()
+//line scope_ops.gom:7
+	return tmp2(tmp9)
 //line scope_ops.gom:6
 }
 
