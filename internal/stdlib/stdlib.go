@@ -22,6 +22,7 @@ import (
 
 	"github.com/podhmo/gom/internal/build"
 	"github.com/podhmo/gom/internal/check"
+	"github.com/podhmo/gom/internal/iface"
 	"github.com/podhmo/gom/internal/lower"
 	"github.com/podhmo/gom/internal/resolve"
 	"github.com/podhmo/gom/internal/types"
@@ -174,6 +175,15 @@ func (e *env) loadPackage(module, gomiPath, impPath string, src []byte) error {
 			panic("unreachable")
 		}
 	}
+	// `//gom:noescape` directives annotate the higher-order
+	// members whose callback parameter is applied inside the
+	// call and never retained — the same read gomimport runs
+	// on a loaded package's .gomi (internal/iface's shared
+	// scan).
+	iface.ApplyNoescape(table,
+		func(sym *resolve.Symbol) (int, bool) { n, ok := e.arities[sym]; return n, ok },
+		func(sym *resolve.Symbol) (check.Signature, bool) { sg, ok := e.sigs[sym]; return sg, ok },
+		iface.ScanNoescape(src))
 	e.modules[module] = table
 	return nil
 }

@@ -17,9 +17,11 @@ fn get (o: Option a) -> a
 fn get_or_else (fallback: a) (o: Option a) -> a
 
 /// map f o applies f to the payload when present.
+//gom:noescape map 0
 fn map (f: a -> b) (o: Option a) -> Option b
 
 /// and_then f o is flat-map: f applies when o is Some.
+//gom:noescape and_then 0
 fn and_then (f: a -> Option b) (o: Option a) -> Option b
 
 /// or_else fallback o is o when Some, else the fallback option.
@@ -27,12 +29,14 @@ fn or_else (fallback: Option a) (o: Option a) -> Option a
 
 /// filter f o keeps Some payloads that satisfy f; anything else is
 /// None.
+//gom:noescape filter 0
 fn filter (f: a -> Bool) (o: Option a) -> Option a
 
 /// flatten joins a nested option: Some (Some x) → Some x.
 fn flatten (oo: Option (Option a)) -> Option a
 
 /// iter f o applies f to the payload when present.
+//gom:noescape iter 0
 fn iter (f: a -> Unit) (o: Option a) -> Unit
 
 // `Option.to_list` ([x] for Some, [] for None) exists on the

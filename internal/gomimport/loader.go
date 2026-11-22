@@ -41,13 +41,13 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
-	"strconv"
 	"strings"
 	"sync"
 
 	"github.com/podhmo/gom/internal/build"
 	"github.com/podhmo/gom/internal/check"
 	"github.com/podhmo/gom/internal/core"
+	"github.com/podhmo/gom/internal/iface"
 	"github.com/podhmo/gom/internal/lower"
 	"github.com/podhmo/gom/internal/resolve"
 	"github.com/podhmo/gom/internal/syntax"
@@ -288,81 +288,22 @@ func (l *Loader) load(path string) (*resolve.Package, error) {
 	if err != nil {
 		return nil, err
 	}
-	l.applyNoescape(p, scanNoescape(src))
+	l.applyNoescape(p, iface.ScanNoescape(src))
 	return p, nil
 }
 
-// applyNoescape turns `//gom:noescape <name> <i> ...` directives
-// into per-parameter escape flags on the package's members (spec
-// section 6.1, SC-2). A listed position gets Escapes[i]=false; an
-// unlisted position stays true — escaping is the default the flag
-// slice makes explicit. Directives naming unknown members or
-// out-of-range indices are ignored: the line is a comment, so a
-// stale one must not break the compile.
+// applyNoescape applies a loaded interface's `//gom:noescape`
+// directives to the package's members (spec section 6.1, SC-2) —
+// the parsing lives in internal/iface, shared with the embedded
+// stdlib's env.
 func (l *Loader) applyNoescape(p *resolve.Package, dirs map[string][]int) {
 	if p == nil {
 		return
 	}
-	for name, idxs := range dirs {
-		sym := p.Members[name]
-		if sym == nil {
-			continue
-		}
-		n := l.arities[sym]
-		if n <= 0 {
-			if sg, ok := l.sigs[sym]; ok {
-				if f, ok := types.Chase(sg.Type).(*types.Func); ok {
-					n = len(f.Params)
-				}
-			}
-		}
-		if n <= 0 {
-			continue
-		}
-		esc := make([]bool, n)
-		for i := range esc {
-			esc[i] = true
-		}
-		for _, i := range idxs {
-			if i >= 0 && i < n {
-				esc[i] = false
-			}
-		}
-		sym.Escapes = esc
-	}
-}
-
-// scanNoescape collects `//gom:noescape <name> <i> ...` directive
-// comments from .gomi source text into a name → index-list map.
-func scanNoescape(src []byte) map[string][]int {
-	var dirs map[string][]int
-	for _, line := range strings.Split(string(src), "\n") {
-		line = strings.TrimSpace(line)
-		if !strings.HasPrefix(line, "//gom:noescape ") {
-			continue
-		}
-		fields := strings.Fields(strings.TrimPrefix(line, "//gom:noescape "))
-		if len(fields) < 2 {
-			continue
-		}
-		var idxs []int
-		for _, f := range fields[1:] {
-			i, err := strconv.Atoi(f)
-			if err != nil || i < 0 {
-				idxs = nil
-				break
-			}
-			idxs = append(idxs, i)
-		}
-		if idxs == nil {
-			continue
-		}
-		if dirs == nil {
-			dirs = map[string][]int{}
-		}
-		dirs[fields[0]] = idxs
-	}
-	return dirs
+	iface.ApplyNoescape(p.Members,
+		func(sym *resolve.Symbol) (int, bool) { n, ok := l.arities[sym]; return n, ok },
+		func(sym *resolve.Symbol) (check.Signature, bool) { sg, ok := l.sigs[sym]; return sg, ok },
+		dirs)
 }
 
 // stdlibPaths maps the toolchain's Gom-written standard-library

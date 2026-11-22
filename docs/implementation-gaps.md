@@ -1742,3 +1742,19 @@
   [golden](../testdata/golden/scope_native_defer.gom)（`drop_err`）、
   [native_scope](../cmd/gom/testdata/native_scope.gom)（`run_drop` —
   native/runtime 同出力）
+
+- [x] **組み込み stdlib モジュールの `.gomi` の `//gom:noescape` が読まれない**:
+  SC-2 のディレクティブは gomimport の loader だけが読み、組み込み
+  List/Option/Result を登録する internal/stdlib の loadPackage は
+  スキャンしなかった。結果 `List.iter` 等にスコープを捕まえた
+  コールバックを渡すと E0419 の偽陽性になる。
+  [チェッカー](../internal/check/escape.go) /
+  [ローダー](../internal/gomimport/loader.go)（2026-11-22 検証）
+  対応: スキャン/適用を internal/iface の共有ヘルパ
+  （ScanNoescape/ApplyNoescape）に移し、gomimport と
+  internal/stdlib の両方から呼ぶ。stdlib 各 .gomi に
+  `//gom:noescape` を付記（List: map/filter/fold/iter/find、
+  Option: map/and_then/filter/iter、Result: map/map_err/and_then/iter、
+  cmp: fold_min/fold_max/sort_by — 全て実装がコールバックを
+  保持しないことを確認済み）。検証:
+  testdata/spec/ok_scope_stdlib_callback

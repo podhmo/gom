@@ -36,18 +36,23 @@ fn tail (xs: List a) -> Option (List a)
 fn get (n: Int) (xs: List a) -> Option a
 
 /// map f xs applies f to every element in order.
+//gom:noescape map 0
 fn map (f: a -> b) (xs: List a) -> List b
 
 /// filter f xs keeps the elements that satisfy f, in order.
+//gom:noescape filter 0
 fn filter (f: a -> Bool) (xs: List a) -> List a
 
 /// fold f acc xs is the left fold f(...f(f(acc, x0), x1)..., xn).
+//gom:noescape fold 0
 fn fold (f: b -> a -> b) (acc: b) (xs: List a) -> b
 
 /// iter f xs applies f to every element for effect.
+//gom:noescape iter 0
 fn iter (f: a -> Unit) (xs: List a) -> Unit
 
 /// find f xs is the first element satisfying f, or None.
+//gom:noescape find 0
 fn find (f: a -> Bool) (xs: List a) -> Option a
 
 /// concat xss is xss[0] ++ xss[1] ++ ... (`List.join` in OCaml).

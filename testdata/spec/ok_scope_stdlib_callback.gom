@@ -1,0 +1,26 @@
+package ex
+
+import "list"
+import "option"
+import "result"
+
+// Stdlib higher-order functions mark their callback parameter
+// non-escaping (`//gom:noescape` directives in the .gomi — the
+// builtin modules' interfaces carry them like any imported
+// package's), so a callback that captures the scope handle is
+// allowed: it is applied inside the call, never retained.
+fn iter_uses_scope (held: Ref Int) -> Int =
+  Scope.run <| fn s -> {
+    List.iter (fn x -> Scope.defer s (fn () -> Ref.set held x)) [7]
+    Ref.get held
+  }
+
+fn map_uses_scope (o: Option Int) -> Option Int =
+  Scope.run <| fn s -> {
+    Option.map (fn x -> { Scope.defer s (fn () -> ()); x }) o
+  }
+
+fn and_then_uses_scope (r: Result Int GoError) -> Result Int GoError =
+  Scope.run <| fn s -> {
+    Result.and_then (fn x -> { Scope.defer s (fn () -> ()); Ok x }) r
+  }
