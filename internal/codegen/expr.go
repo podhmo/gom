@@ -606,7 +606,14 @@ func (g *gen) conv(e *core.Conv) ast.Expr {
 	x := g.atom(e.X)
 	switch e.Kind {
 	case core.ConvNum, core.ConvNamed, core.ConvIface:
-		return &ast.CallExpr{Fun: g.goType(e.Type()), Args: []ast.Expr{x}}
+		fun := g.goType(e.Type())
+		if _, isStar := fun.(*ast.StarExpr); isStar {
+			// `*T(x)` parses as a dereference — pointer targets
+			// (`type P = {p: Ptr Int}` peels to `Ptr Int`) need
+			// the same parens ConvChanDir wraps around `chan<- T`.
+			fun = &ast.ParenExpr{X: fun}
+		}
+		return &ast.CallExpr{Fun: fun, Args: []ast.Expr{x}}
 	case core.ConvChanDir:
 		// The target spells `chan<- T` or `<-chan T` — both need
 		// parens in call position (`<-chan T(x)` would read as a

@@ -1,0 +1,20 @@
+package main
+
+// The peel applies only to the shapes that emit as Go defined
+// types: multi-field records and sums stay structs/interfaces and
+// keep their E0507, and the defined type converts only where its
+// underlying would (`UserId`'s field is Int, not String).
+type UserId = { value : Int }
+type Pair = { x : Int, y : Int }
+type Colour = | Red
+type Box a = { item : a }
+
+fn main () -> Unit = {
+  let p = { x = 1, y = 2 }
+  ignore (Go.conv p : Int)
+  ignore (Go.conv Red : Int)
+  ignore (Go.conv "s" : UserId)
+  let b = { item = 1 }
+  ignore (Go.conv b : Int)
+  ()
+}

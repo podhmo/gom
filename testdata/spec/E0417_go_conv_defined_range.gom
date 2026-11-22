@@ -1,0 +1,13 @@
+package main
+
+// `Go.conv lit : X` judges the literal at the peeled field type's
+// range — `type U32 = {v: Int32}` is `type U32 int32`, so the
+// constant conversion rejects what `int32` cannot hold, the same
+// as the direct `Int32` target (spec 3.4, 8.4).
+type U32 = { v : Int32 }
+
+fn main () -> Unit = {
+  let w = Go.conv 3000000000 : U32
+  ignore w
+  ()
+}

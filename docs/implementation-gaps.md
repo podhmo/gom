@@ -1704,12 +1704,25 @@
   参照: [decision](decisions/2026-11-21-type-alias-adopt.md)、
   [spec 3.2](spec.md)、testdata/spec/ok_type_alias・E0401_alias_cycle
   ・E0401_alias_record、testdata/golden/type_alias。
-- [ ] **`Go.conv` が単一フィールド record（Go defined type）との相互変換を認めない**:
+- [x] **`Go.conv` が単一フィールド record（Go defined type）との相互変換を認めない**:
   Go では `type UserId int64` に対して `int64(u)` / `UserId(7)` が合法なのに、
   Gom 側は `Go.conv u : Int` / `Go.conv 7 : UserId` を E0507 で拒否する。
   代替は `.value` / `{ value = v }` で足りるが、明示変換の綴りが揃っていない。
   仕様は `Go.conv` の変換対象を列挙する側で defined type を触れていない。
   [仕様](spec.md) §8.5 / [チェッカー](../internal/check/gofunc.go)
+
+  解消（wave31 lane A、2026-11-22）: `convOK` が 1 フィールド record
+  （`check.DefinedField` と同じ基準 — `type X a = {f: a}` の裸パラメータは
+  除く）をフィールド型に剥がれてから変換規則を適用するようにした。
+  剥がれは `tyCons` を見るので宣言・インポート両方と連鎖（`type M = {u:
+  UserId}` → `Int`）に効く。`litRange` も同じ剥がれを入れて
+  `Go.conv 3000000000 : U32`（`type U32 = {v: Int32}`）を E0417 にする。
+  emit は既存の `ConvNamed` `T(x)` で正しかったが、変換先が `*T` に解像
+  される場合だけ codegen が `(*T)(x)` の parens を付けるようにした
+  （`*int64(p)` は deref にパースされる）。複数フィールド record・sum・
+  裸パラメータ record は従来どおり E0507。検証: spec 8.4、
+  testdata/spec/ok_go_conv_defined_type・E0507_go_conv_defined_reject・
+  E0417_go_conv_defined_range、testdata/golden/go_conv。
 
 - [ ] **未注釈 record リテラルが import 経由の record 型に解決されない**:
   `import "m/shapes"` した `shapes.Point`（`.gomi` にフィールド付き宣言あり）に

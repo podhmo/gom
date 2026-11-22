@@ -1,0 +1,26 @@
+package main
+
+// A one-field record emits as the Go defined type `type X F`, so
+// `Go.conv` accepts every pair F participates in — the `F(x)` and
+// `X(f)` casts are legal Go (spec 8.4). The peel chases chains
+// (`M`'s field is itself a defined type) and honours the field's
+// underlying kind — `UserId` converts to `Int`, `Int64`, `Float`.
+type UserId = { value : Int }
+type U32 = { v : Int32 }
+type M = { u : UserId }
+
+fn main () -> Unit = {
+  let u = { value = 7 }
+  let n : Int = Go.conv u : Int
+  let u2 : UserId = Go.conv n : UserId
+  let i64 : Int64 = Go.conv u : Int64
+  let f : Float = Go.conv u : Float
+  let w : U32 = Go.conv u : U32
+  let m = { u = u2 }
+  let n2 : Int = Go.conv m : Int
+  ignore (n + n2)
+  ignore i64
+  ignore f
+  ignore w
+  ()
+}

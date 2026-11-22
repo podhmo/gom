@@ -1084,6 +1084,14 @@ func (c *checker) checkConv(from, to types.Type, sp diag.Span) {
 // cannot judge keep the earlier acceptance only when a named Go
 // type participates.
 func (c *checker) convOK(from, to types.Type) bool {
+	// A one-field record emits as the Go defined type `type X F`,
+	// so the conversion rules see its field type — `int64(u)` and
+	// `UserId(7)` are the `F(x)`/`X(f)` pairs Go admits. Peeling
+	// before the rules gives the defined type every conversion its
+	// underlying has (numeric pairs included) and keeps multi-field
+	// records and sums rejected via containsGomDecl.
+	from = c.definedUnderlying(from)
+	to = c.definedUnderlying(to)
 	if types.Equal(from, to) {
 		return true
 	}
@@ -1193,6 +1201,40 @@ func (c *checker) convOK(from, to types.Type) bool {
 		return true
 	}
 	return false
+}
+
+// definedUnderlying peels a one-field record that emits as the Go
+// defined type `type X F` to its field type — the same criterion
+// `check.DefinedField` applies (kindRecord, one field, field not a
+// bare type parameter), read off tyCons so both declared and
+// imported records peel. Chases chains (`type M = {u: UserId}`)
+// and substitutes declared params with the Con's args. Anything
+// else returns unchanged.
+func (c *checker) definedUnderlying(t types.Type) types.Type {
+	for {
+		con, ok := types.Chase(t).(*types.Con)
+		if !ok {
+			return t
+		}
+		ti, ok := c.tyCons[conKey{qual: con.Qual, name: con.Name}]
+		if !ok || ti.kind != kindRecord || len(ti.fields) != 1 {
+			return t
+		}
+		f := ti.fields[0].typ
+		if _, isVar := types.Chase(f).(*types.Var); isVar {
+			return t // `type X a = {f: a}` stays a struct
+		}
+		if len(ti.params) > 0 {
+			sub := types.Subst{}
+			for i, p := range ti.params {
+				if i < len(con.Args) {
+					sub[p.ID] = con.Args[i]
+				}
+			}
+			f = sub.Apply(f)
+		}
+		t = f
+	}
 }
 
 // sliceListPair decomposes (from, to) when one side is the builtin
@@ -1442,6 +1484,10 @@ func (c *checker) revisitLitRanges() {
 // `type Int32` never types a numeric literal — its own E0415 covers
 // the site).
 func (c *checker) litRange(t types.Type) (bits int64, unsigned, floating, ok bool) {
+	// A one-field record is the Go defined type `type X F` — the
+	// `X(lit)` constant conversion judges at the field's range
+	// (`Go.conv 70000 : U32` where `type U32 = {v: Int32}`).
+	t = c.definedUnderlying(t)
 	switch t := types.Chase(t).(type) {
 	case *types.Go:
 		// A named Go type's range is the oracle's knowledge, not

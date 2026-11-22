@@ -8,6 +8,12 @@ import (
 	time "time"
 )
 
+//line go_conv.gom:26
+type UserId int64
+
+//line go_conv.gom:27
+type P *int64
+
 //line go_conv.gom:10
 func duration(n int64) time.Duration {
 //line go_conv.gom:10
@@ -50,4 +56,39 @@ func args(_ struct{}) list.List[string] {
 //line go_conv.gom:20
 	return list.List[string](tmp1)
 //line go_conv.gom:20
+}
+
+//line go_conv.gom:29
+func unwrap(u UserId) int64 {
+//line go_conv.gom:29
+	return int64(u)
+//line go_conv.gom:29
+}
+
+//line go_conv.gom:31
+func wrap(n int64) UserId {
+//line go_conv.gom:31
+	return UserId(n)
+//line go_conv.gom:31
+}
+
+//line go_conv.gom:33
+func widen(u UserId) int64 {
+//line go_conv.gom:33
+	return int64(u)
+//line go_conv.gom:33
+}
+
+//line go_conv.gom:35
+func derefT(p P) *int64 {
+//line go_conv.gom:35
+	return (*int64)(p)
+//line go_conv.gom:35
+}
+
+//line go_conv.gom:37
+func refT(p *int64) P {
+//line go_conv.gom:37
+	return P(p)
+//line go_conv.gom:37
 }
