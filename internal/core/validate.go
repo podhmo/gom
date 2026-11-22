@@ -1302,7 +1302,13 @@ func (v *validator) callbackArity(a Atom) (int, bool) {
 	case *GoFuncRef:
 		return a.Arity, true
 	case *CtorRef:
-		return len(a.Fields), true
+		// A bare ctor reference emits the canonical curried
+		// chain — `func(v0) func(v1) ... T` — whose outer
+		// literal takes exactly one parameter. At a >=2-arrow
+		// slot lowering wraps the ref in Uncurry, so reaching
+		// a Go arg unwrapped means the curried repr is what
+		// the call emits.
+		return 1, true
 	case *Var:
 		if a.Sym == nil {
 			return 0, false
