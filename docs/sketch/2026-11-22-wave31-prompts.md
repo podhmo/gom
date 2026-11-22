@@ -9,8 +9,13 @@ State as of 2026-11-22: wave30 の 5 lane（#112–#117、SC-2 脱出
 **implementation gaps（仕様・実装・文書のずれ台帳）の解消**。
 台帳の未解消は `Go.conv` の 1 件のみなので、残りは「ずれを
 体系的に狩る監査 lane + 見つかった小粒の解消」の構成。
-lane 順は下からチェーンする前提。採否は prompts 確定時の
-インタビューで決める（`docs/ja/wave-process.md` の流儀）。
+lane 順は下からチェーンする前提。
+
+2026-11-22 インタビューで採択済み: 全 lane 採用 + rune 境界を
+lane F として復帰。lane C は investigate（decision draft まで）。
+監査系で見つかった大きいずれは台帳記録で wave32 以降へ。
+従来案の `--strict` 実装・`|?>` 文言・scope 拡張は wave32 以降に
+繰り越し（`--strict` は採択済みのため優先復帰候補）。
 
 ## Lanes
 
@@ -60,17 +65,17 @@ docs/decisions（必要時）, internal/check（検証用）。
 ### C. imported record の未注釈リテラル解決 — `devin/wave31-imported-record-literal`
 
 ```
-[impl/investigate] lane B の検証で確認済みの live gap: 未注釈
+[investigate] lane B の検証で確認済みの live gap: 未注釈
 record リテラル `{ x = 1.0, y = 2.0 }` が import 経由の record
 型に解決されない（`recordByFields` がファイルローカルの
 宣言しか見ない）。フィールド選択・ctor 呼出しは動くので残る
 はリテラルとパターンの解決。設計論点は「注釈なしで import
 先のどの record を候補にするか」— import した module の
 record 全て？ 使用される import だけ？ 曖昧一致（同名
-フィールドの record が複数）時の診断も要る。小さいなら impl、
-設計が重いなら decision draft + 台帳で切り分け。
-Ownership: internal/check (typenv, expr, pat),
-internal/gomimport, docs/spec.md, testdata/spec, decision.
+フィールドの record が複数）時の診断も要る。decision draft
+まで（実装は wave32 以降）。
+Ownership: docs/decisions, docs/sketch, internal/check（調査のみ）,
+docs/implementation-gaps.md.
 依存: lane B（problems 文書の正確化と連携）
 ```
 
@@ -100,13 +105,23 @@ Ownership: internal/build, docs/implementation-gaps.md, TODO.md.
 依存: なし
 ```
 
-## 採択待ちの問い
+### F. `Char` ↔ `Int32` / `rune` 境界の再検討 — `devin/wave31-rune-bridge`
 
-- lane C は impl（候補探索の規則まで決めて実装）か、
-  investigate（decision draft まで）か — 曖昧性ルールの設計が
-  重いなら後者
-- 監査 lane で見つかった「小粒じゃないずれ」は台帳に残して
-  wave32 送りでよいか（基本その方針）
-- 従来案の `--strict` 実装・`|?>` 文言・scope 拡張・rune 境界は
-  wave32 以降に繰り越しでよいか（`--strict` は採択済みなので
-  優先度次第でこの wave に戻す選択もあり）
+```
+[investigate] open-questions の保留項: Go の rune 引数 API には
+`Int32` が要り `Char` は `Go.conv` 経由。problems/
+2026-11-06-rune-char-correspondence.md のユースケース棚卸しと
+「暗黙橋渡し・専用組み込み・現状維持」の比較を decision draft
+まで。ユースケースが薄いなら現状維持で棄却記録。境界系の
+gap 寄りという理由でこの wave に復帰（インタビュー採択）。
+Ownership: docs/decisions, docs/problems, internal/check（調査のみ）。
+依存: なし
+```
+
+## インタビュー確定事項（2026-11-22）
+
+- lane C: investigate（decision draft まで、実装は wave32 以降）
+- 監査系で見つかった大きいずれ: 台帳に記録して wave32 以降の
+  実装 lane 候補にする
+- 従来案の繰り越し: `--strict` 実装・`|?>` 文言・scope 拡張は
+  wave32 以降、rune 境界のみ lane F として採用
