@@ -495,12 +495,13 @@ func runBuild(args []string, stdout, stderr io.Writer) int {
 	for _, in := range inputs {
 		srcs[in.path] = in.src
 	}
-	// The incremental cache is off under -go/-vet: a hit produces no
-	// compiled output to hand the go tool check, so the flags force
-	// a fresh compile (design.md section 5's opt-out is still
+	// The incremental cache is off under -go/-vet/--strict: a hit
+	// produces no compiled output to hand the go tool check and no
+	// diagnostics for --strict to judge, so the flags force a fresh
+	// compile (design.md section 5's opt-out is still
 	// GOM_BUILD_NOCACHE).
 	var bc *buildCache
-	if !*goBuild && !*goVet {
+	if !*goBuild && !*goVet && !strict.on {
 		bc = newBuildCache()
 	}
 	results, err := compileInputs(inputs, false, bc, *out, nil)
