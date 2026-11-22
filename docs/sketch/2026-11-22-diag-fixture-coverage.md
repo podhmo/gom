@@ -5,7 +5,9 @@
 
 ## 結果
 
-codeTable 84 コードのうち既存 fixture 51 件 + 本 lane で 8 件追加 = 59 件カバー。残り 25 件は理由つきで fixture 対象外。
+codeTable 81 コードのうち 61 件カバー（既存 fixture + 本 lane の 9 件追加を含む、ディレクトリケース含む）。残り 20 件は理由つきで fixture 対象外。
+
+訂正: 初稿は「84 コード・59 カバー・25 除外」と誤記していた — W0001/W0002/E9999 は codeTable に無いテスト専用コードでカウント対象外、E0906 は既存 fixture（`eq_limit/`）があった（Devin Review 指摘）。
 
 ## 追加した fixture
 
@@ -19,6 +21,7 @@ codeTable 84 コードのうち既存 fixture 51 件 + 本 lane で 8 件追加 
 | E0303 | refutable pattern in irrefutable position | E0303_refutable_let_pattern.gom |
 | E0304 | or-pattern alternatives bind different vars | E0304_or_pattern_different_vars.gom |
 | W0801 | quadratic list accumulation | W0801_quadratic_accum.gom |
+| E0602 | disallowed declaration in .gomi | E0602_gomi_body/ （ディレクトリケース: a.gom + m.gomi） |
 
 ## 除外と理由
 
@@ -33,26 +36,25 @@ codeTable 84 コードのうち既存 fixture 51 件 + 本 lane で 8 件追加 
 - E0204 unknown attribute — 発射地点なし（unknown attribute は構文面で E0101 に移行済み、番号は予約のまま）
 - E0305 non-exhaustive select — Retired 済み
 - E0503 implicit numeric conversion — 発射地点なし（暗黙変換は現在 E0401 mismatch で報告、番号は予約のまま）
-- W0001/W0002 — 汎用 warning プレースホルダ。diag パッケージのテストでのみ登場、エミッタなし
 
 **typed-AST 不変条件のガード（構文からは到達不能）**
 
 - E0502 method call on a Gom value — resolve が Gom 値に KindMethod を付けるのは typed builder 経由のみ。`r.nosuch` は E0401 で先に落ちる
 - E0704 select receive arm must bind var/`_` — 文法上 receive arm は `name <-` のみ受理し、パターンはそもそもパースされない（E0101）。check ユニットテストでカバー済み
 - E0901 lowering invariant violated — 内部不変条件。ユーザー入力からは原理上到達不能
-- E0906 equality comparator expansion exceeds budget — 実装リソース上限のガード。lower のユニットテストでカバー
 
-**マルチファイル / .gomi モジュール層（spec fixture は単一ファイル）**
+**パッケージディレクトリ / ローダ層（`build.CompileFiles` の spec パスからは到達不能）**
 
-- E0601 missing .gomi / E0602 disallowed decl in .gomi / E0603 impl mismatch .gomi / E0604 stray .gomi — interface ファイル連携が必要。gomimport / モジュールテストでカバー
-- E0606 package import cycle — パッケージ間
-- E0607 member emits colliding Go name — 単一ファイル内の同名宣言は E0202 が先に立つ
+- E0601 missing .gomi / E0603 impl mismatch .gomi / E0604 stray .gomi — 発射地点は `cmd/gom/iface.go` の CLI パッケージチェックのみ（`gom check/build <dir>` がディレクトリ内の `.gomi` を発見する経路）。spec fixture はファイルリストを渡すので `.gomi` の発見・照合を通らない（実証: `E0603_gomi_mismatch` ケースは診断 0 件）
+- E0606 package import cycle — 複数パッケージのロードが必要（gomimport ローダ経路）。`internal/gomimport/cycle_test.go` で広くカバー済み
+- E0607 member emits colliding Go name — 宣言側の発射は iface.Check（CLI 経路）、参照側はローダが .gomi メンバに付ける EmitClash 経由。単一パッケージの CompileFiles では立たない
 
 **eval 実行時 / 内部エラー（spec fixture はコンパイル診断のみ）**
 
-- E9001–E9006, E9999 — eval フェーズ・ランタイム・コンパイラ内部。eval テスト側の管轄
+- E9001–E9006 — eval フェーズ・ランタイム。eval テスト側の管轄
 
 ## 補足
 
-- カバレッジの数え方: `codeTable` の全コードに対し `testdata/spec/*.expected.json` に現れるコードをマッピング
+- カバレッジの数え方: `codeTable` の全コードに対し `testdata/spec/**/*.expected.json`（ルート直下 + ディレクトリケース）に現れるコードをマッピング
+- E0906 は `eq_limit/E0906_eq_budget.gom` で既にカバー済み — サブディレクトリに置かれるのは「`==` の展開がマルチ秒かかり、seed glob (`testdata/spec/*.gom`) に入れると FuzzCompile の 8s 予算を食う」という意図的な配置（fixture 内コメント参照）
 - 「字句系は fixture にしない」方針は prompts どおり — ただし E0102–E0104/E0106 は `.gom` ファイルとして自然に書けるため fixture 化（E0105 のみバイトレベルのため除外）
