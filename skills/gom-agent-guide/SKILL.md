@@ -749,7 +749,11 @@ fn main () -> Unit = ignore (work true)
   whose `.gomi` says so).
 - A `.gomi` promises non-escaping parameters with a
   `//gom:noescape <name> <index>...` directive comment; `gom info`
-  drafts it. No directive means "assume escaping".
+  drafts it. No directive means "assume escaping". The directive
+  attaches to a `let` member name too, not only `fn`. `//gom:`
+  directives only count at line start — a trailing `x + //gom:...`
+  is inert — and `gom fmt` moves in-expression ones to the file's
+  end on their own lines rather than inlining them as `/* */`.
 
 ```gom fail=E0419
 package main
