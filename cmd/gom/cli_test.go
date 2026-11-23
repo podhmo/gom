@@ -6,6 +6,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/podhmo/gom/internal/testbin"
 	"os"
 	"os/exec"
@@ -1260,6 +1261,19 @@ func TestList(t *testing.T) {
 	if code, _, errout := invoke("list", "extra"); code != 2 || !strings.Contains(errout, "no arguments") {
 		t.Errorf("gom list extra: exit %d stderr %q; want usage error", code, errout)
 	}
+
+	var stderr strings.Builder
+	if code := runList(nil, failWriter{}, &stderr); code != 2 {
+		t.Errorf("gom list with failing writer: exit %d; want 2", code)
+	}
+}
+
+// failWriter is an io.Writer whose every Write fails — used to
+// exercise the output-error paths commands must not swallow.
+type failWriter struct{}
+
+func (failWriter) Write([]byte) (int, error) {
+	return 0, fmt.Errorf("injected write failure")
 }
 
 // TestInfoDraftWritesGomi exercises `gom info`: a package without an
