@@ -804,15 +804,7 @@ func (c *checker) checkLetDecl(d *syntax.LetDecl) {
 			// conformExpr may have ascribed the introduction's lent
 			// labels onto the value — look through it for the
 			// lambda.
-			inner := val
-			for {
-				if as, ok := inner.(*Ascribe); ok {
-					inner = as.X
-					continue
-				}
-				break
-			}
-			if lam, ok := inner.(*Lambda); ok {
+			if lam, ok := unascribe(val).(*Lambda); ok {
 				// `let f = fn ...` — a function binding. The
 				// signature keeps the lambda's own shape (its
 				// declared arity): nested function-typed bodies
@@ -881,8 +873,10 @@ func (c *checker) checkLetDecl(d *syntax.LetDecl) {
 				// produced want's type — a failed unify leaves the
 				// annotation's variables unbound (E0412 below), and
 				// quantifying them would emit a body the residual
-				// check rejects.
-				if len(vars) > 0 && types.Equal(want, val.Type()) {
+				// check rejects. Labels are compared off: want's
+				// labels may be lent, never bound in the value's
+				// own type.
+				if len(vars) > 0 && types.Equal(types.StripLabels(want), types.StripLabels(val.Type())) {
 					// `let x = <value>` — a thunk: a niladic
 					// generic function whose body is the value.
 					sig := &types.Func{Ret: want}
@@ -1171,12 +1165,28 @@ func isValue(x Expr) bool {
 			}
 		}
 		return true
+	case *Ascribe:
+		// An Ascribe carries only its type annotation — the
+		// restriction sees through it to the wrapped expression.
+		return isValue(x.X)
 	case *Hole, *Unary, *Binary, *StrInterp, *If, *Match, *Block,
 		*Let, *Ignore, *Try, *FieldAssign, *GoExpr, *For,
-		*SelectExpr, *Spread, *Ascribe:
+		*SelectExpr, *Spread:
 		return false
 	default:
 		panic("unreachable")
+	}
+}
+
+// unascribe peels *Ascribe layers — a conform-time type
+// annotation — so shape matches see the expression underneath.
+func unascribe(e Expr) Expr {
+	for {
+		if as, ok := e.(*Ascribe); ok {
+			e = as.X
+			continue
+		}
+		return e
 	}
 }
 
