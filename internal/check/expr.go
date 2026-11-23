@@ -2205,9 +2205,15 @@ func constFold(e Expr) (constant.Value, bool) {
 		}
 		if op == token.SHL || op == token.SHR {
 			// constant.BinaryOp does not take shifts — they
-			// fold through Shift. A negative or unrepresentable
-			// count has no constant value to judge (a negative
-			// count is a runtime panic, not a folding concern).
+			// fold through Shift. The count itself is a folded
+			// machine value: it wraps at the count operand's own
+			// width when that is known (an `Int32` count of
+			// `2147483647 + 1` is -2^31, not 2^31), and a
+			// negative count is a runtime panic, not a folding
+			// concern.
+			if cw, ok := intFoldWidth(e.Y.Type()); ok {
+				y = wrapConstInt(y, cw)
+			}
 			s, exact := constant.Int64Val(y)
 			if !exact || s < 0 {
 				return nil, false
@@ -2221,15 +2227,15 @@ func constFold(e Expr) (constant.Value, bool) {
 			// (`(MaxInt + 1) >>> 63` must see the wrapped -2^63, not
 			// the unbounded 2^63).
 			if w, ok := intFoldWidth(e.Type()); ok {
-				return shiftConst(x, op, uint(s), w), true
+				return shiftConst(x, op, uint64(s), w), true
 			}
 			// An unsolved meta (a bare literal chain) carries no
 			// width. The fold is still safe when 32- and 64-bit
 			// agree — `1 >>> 1` is 0 at every width; `255 <<< 60`
 			// diverges, so it stays unfolded rather than fold to a
 			// machine value only one width produces.
-			v32 := shiftConst(x, op, uint(s), 32)
-			v64 := shiftConst(x, op, uint(s), 64)
+			v32 := shiftConst(x, op, uint64(s), 32)
+			v64 := shiftConst(x, op, uint64(s), 64)
 			if !constant.Compare(v32, token.EQL, v64) {
 				return nil, false
 			}
@@ -2291,8 +2297,22 @@ func wrapConstInt(v constant.Value, w uint) constant.Value {
 // wraps to w bits first (a previous fold may hold an out-of-range
 // value), and a left shift's result wraps as well — `constant.Shift`
 // is arbitrary-precision where the machine operation is not.
-func shiftConst(x constant.Value, op token.Token, s, w uint) constant.Value {
-	v := constant.Shift(wrapConstInt(x, w), op, s)
+func shiftConst(x constant.Value, op token.Token, s uint64, w uint) constant.Value {
+	x = wrapConstInt(x, w)
+	// A count at or past the width empties the value without ever
+	// materializing a bigint — `1 <<< (2^62)` is 0, and a right
+	// shift leaves the sign bit's fill: 0 for a non-negative
+	// operand, -1 for a negative one.
+	if s >= uint64(w) {
+		if op == token.SHL {
+			return constant.MakeInt64(0)
+		}
+		if constant.Sign(x) < 0 {
+			return constant.MakeInt64(-1)
+		}
+		return constant.MakeInt64(0)
+	}
+	v := constant.Shift(x, op, uint(s))
 	if op == token.SHL {
 		v = wrapConstInt(v, w)
 	}

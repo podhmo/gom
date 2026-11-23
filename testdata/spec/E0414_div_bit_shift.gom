@@ -1,0 +1,8 @@
+package ex
+
+// spec 3.3: a literal shift is a constant even before the literal's
+// type defaults — `1 >>> 1` folds to 0 at every width, so the
+// division reports E0414.
+fn f () -> Int = 7 / (1 >>> 1)
+
+fn main () -> Unit = ()
