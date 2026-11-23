@@ -8,14 +8,14 @@
       "span": {
         "file": "E0507_go_conv_slice_elem_mismatch.gom",
         "start": {
-          "line": 13,
+          "line": 15,
           "col": 46,
-          "offset": 706
+          "offset": 724
         },
         "end": {
-          "line": 13,
+          "line": 15,
           "col": 67,
-          "offset": 727
+          "offset": 745
         }
       },
       "data": {
@@ -31,14 +31,14 @@
       "span": {
         "file": "E0507_go_conv_slice_elem_mismatch.gom",
         "start": {
-          "line": 15,
+          "line": 17,
           "col": 44,
-          "offset": 772
+          "offset": 790
         },
         "end": {
-          "line": 15,
+          "line": 17,
           "col": 69,
-          "offset": 797
+          "offset": 815
         }
       },
       "data": {
@@ -54,14 +54,14 @@
       "span": {
         "file": "E0507_go_conv_slice_elem_mismatch.gom",
         "start": {
-          "line": 17,
+          "line": 19,
           "col": 46,
-          "offset": 844
+          "offset": 862
         },
         "end": {
-          "line": 17,
+          "line": 19,
           "col": 73,
-          "offset": 871
+          "offset": 889
         }
       },
       "data": {
@@ -77,19 +77,65 @@
       "span": {
         "file": "E0507_go_conv_slice_elem_mismatch.gom",
         "start": {
-          "line": 20,
+          "line": 22,
           "col": 3,
-          "offset": 936
+          "offset": 954
         },
         "end": {
-          "line": 20,
+          "line": 22,
           "col": 31,
-          "offset": 964
+          "offset": 982
         }
       },
       "data": {
         "from": "Go.Slice (Go.Slice Int64)",
         "to": "List (List Int)"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0507",
+      "severity": "error",
+      "message": "cannot convert List Int to sort.IntSlice",
+      "span": {
+        "file": "E0507_go_conv_slice_elem_mismatch.gom",
+        "start": {
+          "line": 27,
+          "col": 47,
+          "offset": 1181
+        },
+        "end": {
+          "line": 27,
+          "col": 73,
+          "offset": 1207
+        }
+      },
+      "data": {
+        "from": "List Int",
+        "to": "sort.IntSlice"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0507",
+      "severity": "error",
+      "message": "cannot convert sort.IntSlice to List Int",
+      "span": {
+        "file": "E0507_go_conv_slice_elem_mismatch.gom",
+        "start": {
+          "line": 29,
+          "col": 49,
+          "offset": 1257
+        },
+        "end": {
+          "line": 29,
+          "col": 70,
+          "offset": 1278
+        }
+      },
+      "data": {
+        "from": "sort.IntSlice",
+        "to": "List Int"
       }
     }
   ]

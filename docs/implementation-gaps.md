@@ -89,6 +89,12 @@
   `goConvKindOf` を経由して `ConvSliceToGo`/`ConvSliceFromGo` を返す実装
   （golden `go_conv`、gocall `freeze`/`thaw`/`bump`）。spec 8.4 は先行して
   コピーを明記していた。残る pun は要素型不一致対のみ（下の別項目）。
+  追記（2026-11-24・wave38 lane E）: `List T` ↔ named Go スライス型
+  （underlying `[]repr(T)` — `sort.Float64Slice` など）は従来 `B(xs)` の
+  raw pun でバッキングを共有していた。emit を
+  `B(xs.ToSlice())` / `list.FromSlice([]T(b))` の合成に修正し spec 8.4 に
+  明記（検証: `testdata/spec/ok_go_conv_named_slice.gom`、要素不一致の
+  `sort.IntSlice` ペアは E0507 — `E0507_go_conv_slice_elem_mismatch`）。
 
 - [x] **Go interface の代入規則が未実装**: spec 8.3 は Go 由来の値を代入規則に従って渡せるとするが、
   `*strings.Reader` → `io.Reader` や `*os.File` → `io.Writer` が E0401 になる。

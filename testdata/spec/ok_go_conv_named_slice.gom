@@ -1,0 +1,13 @@
+package ex
+
+import go "sort"
+
+// `Go.conv` between `List T` and a named Go slice type whose
+// underlying is `[]repr(T)` — `sort.Float64Slice` is `[]float64` —
+// copies through the boundary first, then casts: the raw `B(xs)`
+// pun would alias the List's backing (spec 8.5's copy discipline).
+fn to_named (xs: List Float) -> sort.Float64Slice = Go.conv xs : sort.Float64Slice
+
+fn from_named (xs: sort.Float64Slice) -> List Float = Go.conv xs : List Float
+
+fn main () -> Unit = ()

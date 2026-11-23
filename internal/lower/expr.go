@@ -3334,6 +3334,39 @@ func (l *lowerer) ascribe(s *seq, e *check.Ascribe) core.Expr {
 				e.X.Type(), e.Type()))
 		}
 	}
+	if fc, isList := types.Chase(e.X.Type()).(*types.Con); isList &&
+		fc.Qual == "" && fc.Name == "List" && len(fc.Args) == 1 &&
+		!l.declaredT(fc) {
+		if _, isGo := types.Chase(e.Type()).(*types.Go); isGo {
+			// `List T` → named Go slice type (or alias): a bare
+			// `B(xs)` cast would alias the List's backing, so the
+			// conversion copies through the boundary first —
+			// `B(xs.ToSlice())` keeps the copy discipline of the
+			// `Go.Slice` route (decisions/
+			// 2026-11-04-goconv-list-slice-copies).
+			inner := &core.Conv{
+				Base: core.Base{Sp: e.Sp, Typ: types.GoSlice(fc.Args[0])},
+				Kind: core.ConvSliceToGo,
+				X:    l.convBoxSrc(s, x, core.ConvSliceToGo),
+			}
+			return &core.Conv{Base: baseOf(e), Kind: core.ConvNamed, X: l.asAtom(s, e.Sp, inner)}
+		}
+	}
+	if tc, isList := types.Chase(e.Type()).(*types.Con); isList &&
+		tc.Qual == "" && tc.Name == "List" && len(tc.Args) == 1 &&
+		!l.declaredT(tc) {
+		if _, isGo := types.Chase(e.X.Type()).(*types.Go); isGo {
+			// named Go slice type (or alias) → `List T`:
+			// `list.FromSlice([]T(b))` — FromSlice clones, so the
+			// returned List does not share the caller's backing.
+			inner := &core.Conv{
+				Base: core.Base{Sp: e.Sp, Typ: types.GoSlice(tc.Args[0])},
+				Kind: core.ConvNamed,
+				X:    x,
+			}
+			return &core.Conv{Base: baseOf(e), Kind: core.ConvSliceFromGo, X: l.asAtom(s, e.Sp, inner)}
+		}
+	}
 	return &core.Conv{
 		Base: baseOf(e),
 		Kind: kind,
