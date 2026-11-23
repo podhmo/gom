@@ -1,0 +1,17 @@
+package ex
+
+import go "net/http"
+
+// `@method(GoName)` pins the emitted Go method name verbatim —
+// `ExportName` cannot produce initialisms like `ServeHTTP`. The
+// method emits no result for a Unit residual so the record
+// satisfies http.Handler, and `gom fmt` keeps the argument.
+type Handler = { tag: String }
+
+fn mk () -> http.Handler = {
+  let h : Handler = { tag = "x" }
+  h
+}
+
+@method(ServeHTTP)
+fn (h: Handler) serve_http (w: http.ResponseWriter) (r: Ptr http.Request) -> Unit = ()

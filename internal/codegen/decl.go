@@ -115,7 +115,12 @@ func (g *gen) methodDecl(d *core.FuncDecl) {
 		}
 	}
 	g.raw(") ")
-	g.resultSig(d.Fn.ResidualType(), fn.Body)
+	// A Unit residual maps to a Go method with no result — the
+	// Go convention for consumers like http.Handler. The inner
+	// call's struct{} result is discarded.
+	if !types.Equal(d.Fn.ResidualType(), types.Unit) {
+		g.resultSig(d.Fn.ResidualType(), fn.Body)
+	}
 	g.open()
 	call := g.symName(d.Sym) + "(" + names[recv]
 	for _, b := range fn.Params[1:] {
