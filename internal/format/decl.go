@@ -76,9 +76,11 @@ func (p *printer) fileDoc(f *syntax.File) *doc {
 func (p *printer) declItem(d syntax.Decl) item {
 	var lead []string
 	var embedDir map[*syntax.Comment]bool
+	var attrOff int
 	var dd *doc
 	switch d := d.(type) {
 	case *syntax.FnDecl:
+		attrOff = d.AttrSp.Start
 		lead = append(lead, docLines(d.Doc)...)
 		if d.TestOnly {
 			lead = append(lead, "@test")
@@ -94,6 +96,7 @@ func (p *printer) declItem(d syntax.Decl) item {
 		}
 		dd = p.fnDecl(d)
 	case *syntax.LetDecl:
+		attrOff = d.AttrSp.Start
 		lead = append(lead, docLines(d.Doc)...)
 		if d.TestOnly {
 			lead = append(lead, "@test")
@@ -124,7 +127,7 @@ func (p *printer) declItem(d syntax.Decl) item {
 	default:
 		panic("unreachable")
 	}
-	return item{lo: d.Span().Start, hi: d.Span().End, d: p.sweep(d.Span().Start, d.Span().End, dd), lead: lead, embedDir: embedDir}
+	return item{lo: d.Span().Start, hi: d.Span().End, d: p.sweep(d.Span().Start, d.Span().End, dd), lead: lead, embedDir: embedDir, attrOff: attrOff}
 }
 
 // docLines renders a merged /// doc comment as one line per source

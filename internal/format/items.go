@@ -33,6 +33,7 @@ type item struct {
 	d        *doc                     // content
 	lead     []string                 // extra lines printed above the item (doc comments, @test)
 	embedDir map[*syntax.Comment]bool // `//gom:embed` comments this decl consumed
+	attrOff  int                      // the `@name` attribute's offset — 0 when the item carries none
 }
 
 // seqSpec describes one collection's separators and trivia policy.
@@ -175,27 +176,17 @@ func (p *printer) seqLines(gaps []gap, items []item, s seqSpec, ind int) []*doc 
 	var lines []*doc
 	emitEvents := func(g gap, next *item) []string {
 		ev := g.events(s.blanks)
-		// The contiguous comment run that ends at the item is the run
-		// embedBefore scans. An unconsumed `//gom:embed` inside a run
-		// that also holds consumed directives was decl-internal dead
-		// trivia in the source (e.g. written between `@extern` and
-		// `let`) — re-emit it after the item's lead lines so a reparse
-		// keeps it dead, instead of dropping a blank that would
-		// detach the consumed comments above it.
+		// Comments written between the attribute and the decl keyword
+		// are decl-internal dead trivia — docBefore/embedBefore anchor
+		// at the attribute, so they attach to nothing. Emitting them
+		// above the attribute's lead line would activate them: a `///`
+		// would publish as the decl's doc and a `//gom:embed` would
+		// join the directive run. Emit them after the lead instead.
 		var postLead []gevt
-		if s.keepGomDir && next != nil && len(next.embedDir) > 0 {
-			runStart := 0
-			for i := len(ev) - 1; i >= 0; i-- {
-				if ev[i].blank {
-					runStart = i + 1
-					break
-				}
-			}
-			for i := runStart; i < len(ev); i++ {
+		if next != nil && next.attrOff > 0 {
+			for i := range ev {
 				e := ev[i]
-				if e.c != nil && e.c.c.Kind == syntax.CommentLine &&
-					strings.HasPrefix(e.c.c.Text, "gom:embed") &&
-					!next.embedDir[e.c.c] {
+				if e.c != nil && e.c.c.Sp.Start >= next.attrOff {
 					postLead = append(postLead, e)
 					ev[i].c = nil
 					ev[i].text = ""

@@ -527,7 +527,7 @@ func (p *parser) parseTopDecl() Decl {
 	case tokFn:
 		return p.parseFnDecl(declAttrs{}, doc)
 	case tokLet:
-		return p.parseLetDeclWithFlag(false, false, doc, p.embedBefore(p.cur().start))
+		return p.parseLetDeclWithFlag(declAttrs{}, doc, p.embedBefore(p.cur().start))
 	case tokType:
 		return p.parseTypeDecl(doc)
 	case tokImport:
@@ -594,6 +594,7 @@ func (p *parser) parseAttrDecl() Decl {
 		tailRec:  name == "tailrec",
 		extern:   name == "extern",
 		method:   name == "method",
+		sp:       attrSp,
 	}
 	if !attrs.testOnly && !attrs.tailRec && !attrs.extern && !attrs.method {
 		// The AST cannot carry an unknown attribute (no field
@@ -623,18 +624,18 @@ func (p *parser) parseAttrDecl() Decl {
 		p.errf(p.spanOf(nameTok),
 			"the \"@%s\" attribute applies only to a \"fn\" declaration", name)
 	}
-	return p.parseLetDeclWithFlag(attrs.testOnly, attrs.extern, doc,
-		p.embedBefore(at.start))
+	return p.parseLetDeclWithFlag(attrs, doc, p.embedBefore(at.start))
 }
 
 // declAttrs records the attributes a top-level declaration was
 // written with. The grammar admits one attribute per declaration
 // (docs/grammar.ebnf: [ attribute ] , ( fn-decl | let-decl )).
 type declAttrs struct {
-	testOnly bool // `@test` (fn or let)
-	tailRec  bool // `@tailrec` (fn only)
-	extern   bool // `@extern` (fn only — signature bound to hand-written Go)
-	method   bool // `@method` (fn only — receiver-first, emits a Go method)
+	testOnly bool      // `@test` (fn or let)
+	tailRec  bool      // `@tailrec` (fn only)
+	extern   bool      // `@extern` (fn only — signature bound to hand-written Go)
+	method   bool      // `@method` (fn only — receiver-first, emits a Go method)
+	sp       diag.Span // the `@name` token — zero for an unattributed decl
 }
 
 // parseFnDecl parses a fn declaration or signature:
@@ -697,6 +698,7 @@ func (p *parser) parseFnDecl(attrs declAttrs, doc *Comment) Decl {
 		TailRec:  attrs.tailRec,
 		Extern:   attrs.extern,
 		Method:   attrs.method,
+		AttrSp:   attrs.sp,
 		Name:     name,
 		Params:   params,
 		Ret:      ret,
@@ -793,19 +795,20 @@ func (p *parser) parseFnParam() Param {
 // `@extern let name : T` declaration of a Go-supplied package
 // variable (spec section 8.9). embed carries the `//gom:embed`
 // directive comments attached above the decl, when present.
-func (p *parser) parseLetDeclWithFlag(testOnly, extern bool, doc *Comment, embed []*Comment) Decl {
+func (p *parser) parseLetDeclWithFlag(attrs declAttrs, doc *Comment, embed []*Comment) Decl {
 	start := p.next() // 'let'
 	pat, typ := p.parseLetHead()
 	d := &LetDecl{
 		Sp:       diag.SpanIn(p.file, start.start, p.prevEnd()),
 		Doc:      doc,
-		TestOnly: testOnly,
-		Extern:   extern,
+		TestOnly: attrs.testOnly,
+		Extern:   attrs.extern,
+		AttrSp:   attrs.sp,
 		Embed:    embed,
 		Pat:      pat,
 		Type:     typ,
 	}
-	if extern {
+	if attrs.extern {
 		if _, ok := pat.(*VarPat); !ok {
 			p.errf(pat.Span(), "an @extern let binds a plain name")
 		}
