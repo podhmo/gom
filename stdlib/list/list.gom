@@ -108,6 +108,11 @@ fn concat (xss: List (List a)) -> List a
 /// sort_by lt xs is xs sorted ascending under lt — a fresh list.
 /// slices.SortFunc-backed Go impl (impl.go), O(n log n). `Cmp.sort`
 /// packages the same shape behind an `Ord` dictionary.
+///
+/// lt must be a strict weak order — plain `<` is NOT one for
+/// floats: lt(NaN, x) and lt(x, NaN) are both false, which reports
+/// every NaN equal to everything. Use `Cmp.float_ord`'s `lt`
+/// (NaN-aware total order) when sorting Float lists.
 @extern
 fn sort_by (lt: a -> a -> Bool) (xs: List a) -> List a
 

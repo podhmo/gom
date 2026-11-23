@@ -64,3 +64,46 @@ func main() {
 	_ = struct{}{}
 //line stdlib_modules.gom:18
 }
+
+//line stdlib_modules.gom:20
+func clipped(xs list.List[int64]) list.List[int64] {
+//line stdlib_modules.gom:20
+	tmp6 := list.Drop[int64](1, xs)
+//line stdlib_modules.gom:20
+	return list.Take[int64](2, tmp6)
+//line stdlib_modules.gom:20
+}
+
+//line stdlib_modules.gom:22
+func picked(xs list.List[int64]) option.Option[int64] {
+//line stdlib_modules.gom:22
+	return list.Last[int64](xs)
+//line stdlib_modules.gom:22
+}
+
+//line stdlib_modules.gom:24
+func tail2(xs list.List[int64]) list.List[int64] {
+//line stdlib_modules.gom:24
+	return list.LastN[int64](2, xs)
+//line stdlib_modules.gom:24
+}
+
+//line stdlib_modules.gom:26
+func sorted(xs list.List[int64]) list.List[int64] {
+//line stdlib_modules.gom:26
+	tmp7 := func(a, b int64) bool {
+//line stdlib_modules.gom:26
+		return a < b
+//line stdlib_modules.gom:26
+	}
+//line stdlib_modules.gom:26
+	return list.SortBy[int64](tmp7, xs)
+//line stdlib_modules.gom:26
+}
+
+//line stdlib_modules.gom:28
+func isum(xs list.List[int64]) int64 {
+//line stdlib_modules.gom:28
+	return list.SumInt(xs)
+//line stdlib_modules.gom:28
+}

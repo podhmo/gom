@@ -83,7 +83,9 @@ func Concat[A any](xss List[List[A]]) List[A] {
 // Take is the first n elements of xs — `@extern fn take`. It
 // shares the immutable backing the way `drop` does: List is
 // immutable, so a prefix slice is as safe as a copy and costs no
-// allocation.
+// allocation. The full slice expression caps the result's
+// capacity at n — without it an append (or a [:lo:hi:cap] view)
+// on the taken list would reach elements the prefix excluded.
 func Take[A any](n int64, xs List[A]) List[A] {
 	if n <= 0 {
 		return nil
@@ -91,7 +93,7 @@ func Take[A any](n int64, xs List[A]) List[A] {
 	if int64(len(xs)) < n {
 		n = int64(len(xs))
 	}
-	return xs[:n]
+	return xs[:n:n]
 }
 
 // SortBy is xs sorted ascending under lt — `@extern fn sort_by`.
