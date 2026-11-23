@@ -4,7 +4,7 @@
       "kind": "diagnostic",
       "code": "E0512",
       "severity": "error",
-      "message": "unbalanced quote in a `//gom:embed` pattern",
+      "message": "malformed `//gom:embed` pattern list",
       "span": {
         "file": "E0512_embed_unbalanced_quote.gom",
         "start": {

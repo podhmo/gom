@@ -8,7 +8,11 @@ import go _ "embed"
 //gom:embed hello.txt
 @extern let greeting : String
 
+//gom:embed "hello space.txt"
+@extern let spaced : String
+
 @extern let token : String
 
 fn greeting_text () -> String = greeting
+fn spaced_text () -> String = spaced
 fn token_text () -> String = token

@@ -277,25 +277,41 @@ func canonHash(src []byte, dropTests bool) string {
 	// //gom:noescape, //gom:embed) — fold them into the fingerprint.
 	// A directive's attachment also depends on the contiguous
 	// comment run around it (a blank line detaches `//gom:embed`
-	// from the decl below), so every line comment goes in with two
-	// adjacency flags: 'n' — the next physical line is non-blank,
-	// 'p' — the previous physical line is a comment. Inserting or
-	// removing a blank line or comment inside the run then moves
-	// the key, instead of a stale cached embed emission surviving.
+	// from the decl below), so fold every comment run that contains
+	// a `//gom:` line, with two adjacency flags per member: 'n' —
+	// the next physical line is non-blank, 'p' — the previous line
+	// is a comment in the same run. Comment text and spacing outside
+	// such runs cannot change a directive's meaning and stays out.
 	lines := bytes.Split(src, []byte("\n"))
-	for i, line := range lines {
-		t := bytes.TrimSpace(line)
-		if !bytes.HasPrefix(t, []byte("//")) {
+	isComment := func(i int) bool {
+		return bytes.HasPrefix(bytes.TrimSpace(lines[i]), []byte("//"))
+	}
+	for i := 0; i < len(lines); {
+		if !isComment(i) {
+			i++
 			continue
 		}
-		canon = append(canon, '\n')
-		canon = append(canon, t...)
-		if i+1 < len(lines) && len(bytes.TrimSpace(lines[i+1])) > 0 {
-			canon = append(canon, 'n')
+		j := i
+		for j < len(lines) && isComment(j) {
+			j++
 		}
-		if i > 0 && bytes.HasPrefix(bytes.TrimSpace(lines[i-1]), []byte("//")) {
-			canon = append(canon, 'p')
+		hasGom := false
+		for k := i; k < j && !hasGom; k++ {
+			hasGom = bytes.HasPrefix(bytes.TrimSpace(lines[k]), []byte("//gom:"))
 		}
+		if hasGom {
+			for k := i; k < j; k++ {
+				canon = append(canon, '\n')
+				canon = append(canon, bytes.TrimSpace(lines[k])...)
+				if k+1 < len(lines) && len(bytes.TrimSpace(lines[k+1])) > 0 {
+					canon = append(canon, 'n')
+				}
+				if k > i {
+					canon = append(canon, 'p')
+				}
+			}
+		}
+		i = j
 	}
 	sum := sha256.Sum256(canon)
 	return hex.EncodeToString(sum[:])

@@ -962,7 +962,7 @@ func (c *checker) checkExternLetDecl(d *syntax.LetDecl) {
 		pats, ok := splitEmbedPatterns(strings.TrimPrefix(cm.Text, "gom:embed"))
 		if !ok {
 			c.diags.Add(diag.Error("E0512",
-				"unbalanced quote in a `//gom:embed` pattern").At(cm.Sp))
+				"malformed `//gom:embed` pattern list").At(cm.Sp))
 			continue
 		}
 		if len(pats) == 0 {
@@ -985,10 +985,15 @@ func (c *checker) checkExternLetDecl(d *syntax.LetDecl) {
 // whitespace. Go's //go:embed accepts double-quoted and backquoted
 // patterns for filenames containing spaces — the quotes stay on the
 // pattern so codegen can emit them verbatim. ok is false on an
-// unbalanced quote.
+// unbalanced quote, a pattern glued to the directive name
+// (`//gom:embed"x"`), or adjacent patterns with no whitespace
+// between them (`"a" "b"` is fine, `"a""b"` is not).
 func splitEmbedPatterns(rest string) (pats []string, ok bool) {
+	if rest != "" && rest[0] != ' ' && rest[0] != '\t' {
+		return nil, false
+	}
 	for {
-		rest = strings.TrimLeft(rest, " \t")
+		rest = strings.TrimLeft(rest, " \t\r")
 		if rest == "" {
 			return pats, true
 		}
@@ -1005,9 +1010,12 @@ func splitEmbedPatterns(rest string) (pats []string, ok bool) {
 			}
 			pats = append(pats, rest[:j+1])
 			rest = rest[j+1:]
+			if rest != "" && rest[0] != ' ' && rest[0] != '\t' && rest[0] != '\r' {
+				return nil, false
+			}
 			continue
 		}
-		if i := strings.IndexAny(rest, " \t"); i >= 0 {
+		if i := strings.IndexAny(rest, " \t\r"); i >= 0 {
 			pats = append(pats, rest[:i])
 			rest = rest[i:]
 		} else {

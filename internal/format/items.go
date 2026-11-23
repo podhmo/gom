@@ -173,9 +173,40 @@ func inlineText(cs []*cmt) string {
 // supplies the boundary newlines around the whole sequence.
 func (p *printer) seqLines(gaps []gap, items []item, s seqSpec, ind int) []*doc {
 	var lines []*doc
-	emitEvents := func(g gap, next *item) {
+	emitEvents := func(g gap, next *item) []string {
 		ev := g.events(s.blanks)
+		// The contiguous comment run that ends at the item is the run
+		// embedBefore scans. An unconsumed `//gom:embed` inside a run
+		// that also holds consumed directives was decl-internal dead
+		// trivia in the source (e.g. written between `@extern` and
+		// `let`) — re-emit it after the item's lead lines so a reparse
+		// keeps it dead, instead of dropping a blank that would
+		// detach the consumed comments above it.
+		var postLead []gevt
+		if s.keepGomDir && next != nil && len(next.embedDir) > 0 {
+			runStart := 0
+			for i := len(ev) - 1; i >= 0; i-- {
+				if ev[i].blank {
+					runStart = i + 1
+					break
+				}
+			}
+			for i := runStart; i < len(ev); i++ {
+				e := ev[i]
+				if e.c != nil && e.c.c.Kind == syntax.CommentLine &&
+					strings.HasPrefix(e.c.c.Text, "gom:embed") &&
+					!next.embedDir[e.c.c] {
+					postLead = append(postLead, e)
+					ev[i].c = nil
+					ev[i].text = ""
+					ev[i].line = -1 // dropped — re-emitted post-lead
+				}
+			}
+		}
 		for i, e := range ev {
+			if e.line < 0 {
+				continue
+			}
 			if e.blank {
 				lines = append(lines, docNil)
 				continue
@@ -195,6 +226,11 @@ func (p *printer) seqLines(gaps []gap, items []item, s seqSpec, ind int) []*doc 
 				lines = append(lines, docNil)
 			}
 		}
+		var out []string
+		for _, e := range postLead {
+			out = append(out, e.text)
+		}
+		return out
 	}
 	// Comments sitting on the open-delimiter's own line classify as
 	// "trailing" — but there is no previous item to glue them to, so
@@ -202,11 +238,6 @@ func (p *printer) seqLines(gaps []gap, items []item, s seqSpec, ind int) []*doc 
 	for _, c := range gaps[0].trail {
 		lines = append(lines, text(c.render()))
 	}
-	var first *item
-	if len(items) > 0 {
-		first = &items[0]
-	}
-	emitEvents(gaps[0], first)
 
 	// Alignment: an item joins a run when it renders single-line,
 	// carries a trailing comment, and its following gap has no
@@ -248,9 +279,12 @@ func (p *printer) seqLines(gaps []gap, items []item, s seqSpec, ind int) []*doc 
 			for n := 0; n < s.lines-1; n++ {
 				lines = append(lines, docNil)
 			}
-			emitEvents(gaps[i], &items[i])
 		}
+		postLead := emitEvents(gaps[i], &items[i])
 		for _, l := range it.lead {
+			lines = append(lines, text(l))
+		}
+		for _, l := range postLead {
 			lines = append(lines, text(l))
 		}
 		d := it.d
@@ -281,11 +315,11 @@ func (p *printer) seqLines(gaps []gap, items []item, s seqSpec, ind int) []*doc 
 		}
 		lines = append(lines, d)
 	}
-	// With no items, gaps[0] is both the leading and the trailing gap —
-	// it was already emitted above; emitting it again would duplicate
-	// every comment.
+	// With no items, gaps[0] is both the leading and the trailing gap.
 	if len(items) > 0 {
-		emitEvents(gaps[len(items)], nil)
+		emitEvents(gaps[len(items)], nil) //nolint:dogsled // returns are post-lead texts, unused at EOF
+	} else {
+		emitEvents(gaps[0], nil) //nolint:dogsled // same
 	}
 	return lines
 }
