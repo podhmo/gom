@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0512",
+      "severity": "error",
+      "message": "a `//gom:embed` variable must be String, `Go.Slice Byte` or a named Go type, found Int",
+      "span": {
+        "file": "E0512_embed_bad_type.gom",
+        "start": {
+          "line": 4,
+          "col": 9,
+          "offset": 41
+        },
+        "end": {
+          "line": 4,
+          "col": 20,
+          "offset": 52
+        }
+      }
+    }
+  ]
+}

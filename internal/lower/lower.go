@@ -230,7 +230,7 @@ func File(f *check.File, env *Env) (*core.File, []diag.Diagnostic) {
 	}
 	for _, im := range f.Imports {
 		out.Imports = append(out.Imports, core.Import{
-			Sp: im.Sp, Path: im.Path, IsGo: im.IsGo, Sym: im.Sym,
+			Sp: im.Sp, Path: im.Path, IsGo: im.IsGo, Sym: im.Sym, Blank: im.Blank,
 		})
 	}
 	for _, d := range f.Decls {
@@ -1092,6 +1092,19 @@ func (l *lowerer) decl(d check.Decl, out *core.File) {
 	case *check.LetDecl:
 		if !l.env.Tests && testOnlyPat(d.Pat) {
 			// A `@test let` is test-only code (spec 11.6).
+			return
+		}
+		if d.Extern {
+			// `@extern let` — the var is hand-written Go, or
+			// generated when //gom:embed patterns ride along.
+			v, _ := d.Pat.(*check.VarPat)
+			out.Decls = append(out.Decls, &core.VarDecl{
+				Sp: d.Sp, Sym: v.Sym,
+				Extern:   true,
+				Embed:    d.Embed,
+				Typ:      d.Pat.Type(),
+				Exported: l.exported(v.Sym),
+			})
 			return
 		}
 		l.letDecl(d, out)

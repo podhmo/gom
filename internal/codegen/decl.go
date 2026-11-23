@@ -135,6 +135,25 @@ func (g *gen) methodDecl(d *core.FuncDecl) {
 // is wrapped in the single sanctioned IIFE
 // `func() T { ... }()` (decl.go VarDecl).
 func (g *gen) varDecl(d *core.VarDecl) {
+	if d.Extern {
+		// `@extern let` — the Go variable is hand-written, so
+		// nothing emits, unless //gom:embed patterns ask codegen
+		// to generate it (spec section 8.10).
+		if len(d.Embed) == 0 {
+			return
+		}
+		g.line(d.Sp)
+		for _, p := range d.Embed {
+			g.raw("//go:embed " + p)
+			g.nl()
+		}
+		g.needBlankEmbed = true
+		g.raw("var " + g.symName(d.Sym) + " ")
+		g.typ(g.goType(d.Typ))
+		g.nl()
+		g.nl()
+		return
+	}
 	g.line(d.Sp)
 	t := d.Body.Tail.Type()
 	g.raw("var " + g.symName(d.Sym) + " ")

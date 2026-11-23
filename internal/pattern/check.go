@@ -353,7 +353,10 @@ func CheckFile(f *check.File, opts Options) diag.List {
 			}
 		case *check.LetDecl:
 			diags = append(diags, c.checkPattern(d.Pat, CtxLet)...)
-			c.walkExpr(d.Value, &diags)
+			if d.Value != nil {
+				// An `@extern let` has no body to walk.
+				c.walkExpr(d.Value, &diags)
+			}
 		case *check.TypeDecl:
 			// already in the env
 		case *check.TestDecl:

@@ -612,6 +612,41 @@ record の値は、その `@method` 集合が要求される Go interface のメ
 
 制約 — 違反は E0420: レシーバは自分のパッケージの record 型（`Ptr T` 可、型パラメータを持つ record 不可 — Go メソッドは型引数を取れない）、`@extern` との併用不可、`Result` 返り不可（メソッドの error 返却は Result 折り畳みと衝突するため）。`.gomi` は `@method` 行をそのまま保持し、インポート側でも同じメソッド集合として見える。
 
+### 8.10 `@extern let` と `//gom:embed`
+
+パッケージ変数を Gom 側で宣言だけして、実体を Go 側に置ける。
+
+```
+@extern let version : String        // 手書きの var version string を期待
+fn get () -> String = version
+```
+
+- `@extern let name : T` は `let name : T`（`= e` なし）の形。型注釈は必須、束ねるのは単純名のみ。生成コードには何も出ない — 宣言した名は同じ生成パッケージの手書き Go が `var name <T>` で供給する（`@extern fn` の値版）。違反は E0512（注釈なし・`= e` ありは E0101）
+- 名前はふつうの値として解決・参照できる。export は `.gomi` の `let` シグネチャで行う
+
+**`//gom:embed`** — `@extern let` の直上（doc コメントや他の `//` と同じ連続したコメント行の中）に書くと、コンパイラが `//go:embed` 変数を生成する:
+
+```
+//gom:embed hello.txt
+@extern let hello : String
+```
+
+→
+
+```go
+import _ "embed"   // ファイルが embed を他に import していなければ自動で付く
+
+//go:embed hello.txt
+var hello string
+```
+
+- ディレクティブは `//gom:embed` のあとに空白区切りで 1 つ以上のファイルパターンを取る。複数行書けば行ごとに `//go:embed` が出る（Go のルールどおり順に）
+- 宣言の型は `//go:embed` が認めるものに限る: `String`、`Go.Slice Byte`、または named Go 型（`embed.FS` など）。違反は E0512
+- パターンに空が1つもない・`@extern` のない `let` に付けた場合も E0512。パターンが実際にファイルを指すかは `go build` の側で検査される（Gom 側では検査しない）
+- directive の付着規則は doc コメントと同じ: 宣言の直上に連続するコメント行の run の中にある `//gom:` 行だけが対象で、空行を挟むと付着しない
+
+**blank import** — `import go _ "path"` は `_` をエイリアスに取る Go import で、名前は何も束ねず `_ "path"` を emit する。`//go:embed` が `embed` パッケージを参照しない場合の埋め合わせや、副作用のための import（`import go _ "net/http/pprof"`）に使う。`import go` でない Gom パッケージには書けない。
+
 ---
 
 ## 9. 失敗し得る処理のパイプ `|?>`

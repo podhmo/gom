@@ -87,6 +87,10 @@ type gen struct {
 
 	fileImports []core.Import // the file's resolved imports (alias lookup)
 
+	// needBlankEmbed marks a `//go:embed` emission: render adds
+	// `_ "embed"` unless the file already imports the package.
+	needBlankEmbed bool
+
 	testFn *core.Func // the test's fn: escapes targeting it call t.Errorf
 
 	// depth is the current indentation level, pendingIndent marks a

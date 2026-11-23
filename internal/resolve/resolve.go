@@ -623,6 +623,13 @@ func (r *resolver) bindImport(decl *syntax.ImportDecl, file *scope) {
 	if decl.Name == nil {
 		return
 	}
+	if decl.Name.Name == "_" {
+		// `import go _ "path"` — the clause exists for its Go
+		// emission (side effects, //go:embed support); it binds no
+		// name. The package still loads so a bad path reports E0203.
+		r.loadPackage(decl)
+		return
+	}
 	sym := &Symbol{Name: decl.Name.Name, Kind: KindModule,
 		Package: decl.Path, IsGo: decl.Go, Def: decl}
 	r.defs[decl.Name] = sym

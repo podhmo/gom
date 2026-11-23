@@ -1,0 +1,8 @@
+package ex
+
+//gom:embed hello.txt
+@extern let hello : String
+
+@extern let token : String
+
+fn get () -> String = hello

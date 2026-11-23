@@ -50,14 +50,19 @@ func (*FnDecl) isDecl()           {}
 func (n *FnDecl) Span() diag.Span { return n.Sp }
 
 // LetDecl is a top-level binding `let pat : T = e`; in .gomi it is the
-// value signature `let name : T` (docs/spec.md section 7).
+// value signature `let name : T` (docs/spec.md section 7). An
+// `@extern let name : T` in .gom is body-less like `@extern fn` —
+// the Go package variable is hand-written, or generated when a
+// `//gom:embed` directive rides above it (docs/spec.md section 8.10).
 type LetDecl struct {
 	Sp       diag.Span
 	Doc      *Comment
 	TestOnly bool
+	Extern   bool       // declared with `@extern` — body supplied by hand-written Go or a `//gom:embed` var
+	Embed    []*Comment // `//gom:embed` line comments attached above the decl
 	Pat      Pat
 	Type     TypeExpr // nil when unannotated
-	Value    Expr     // nil in .gomi signatures
+	Value    Expr     // nil in .gomi signatures and @extern declarations
 }
 
 func (*LetDecl) isDecl()           {}

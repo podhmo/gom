@@ -60,11 +60,16 @@ type FnDecl struct {
 func (*FnDecl) isDecl()           {}
 func (n *FnDecl) Span() diag.Span { return n.Sp }
 
-// LetDecl is a typed top-level `let pat = e`.
+// LetDecl is a typed top-level `let pat = e`. An `@extern let` has
+// no Value: Extern marks it and Embed carries the `//gom:embed`
+// patterns — empty means the Go variable is hand-written
+// (docs/spec.md section 8.9).
 type LetDecl struct {
-	Sp    diag.Span
-	Pat   Pat
-	Value Expr
+	Sp     diag.Span
+	Pat    Pat
+	Value  Expr
+	Extern bool
+	Embed  []string
 }
 
 func (*LetDecl) isDecl()           {}
@@ -178,10 +183,11 @@ func (n *TestDecl) Span() diag.Span { return n.Sp }
 // Import is one resolved import clause kept on the typed File for
 // reference; the symbol is the bound module (KindModule).
 type Import struct {
-	Sp   diag.Span
-	Path string
-	IsGo bool
-	Sym  *resolve.Symbol
+	Sp    diag.Span
+	Path  string
+	IsGo  bool
+	Sym   *resolve.Symbol
+	Blank bool // `import go _ "path"` — emitted as `_ "path"`, binds nothing
 }
 
 // File is a fully type-checked source file: the typed AST root

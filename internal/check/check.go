@@ -2,6 +2,7 @@ package check
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/podhmo/gom/internal/diag"
 	"github.com/podhmo/gom/internal/resolve"
@@ -664,11 +665,17 @@ func (c *checker) importOf(d *syntax.ImportDecl) (Import, bool) {
 	if path == "" {
 		path = d.Path
 	}
+	blank := d.Name != nil && d.Name.Name == "_"
+	if blank && !d.Go {
+		c.diags.Add(diag.Error("E0512",
+			"a blank import is Go-only: `import go _ \"path\"`").At(d.Name.Span()))
+	}
 	return Import{
-		Sp:   d.Sp,
-		Path: path,
-		IsGo: d.Go,
-		Sym:  c.res.DefOf(d.Name),
+		Sp:    d.Sp,
+		Path:  path,
+		IsGo:  d.Go,
+		Sym:   c.res.DefOf(d.Name),
+		Blank: blank,
 	}, true
 }
 
@@ -760,6 +767,14 @@ func (c *checker) checkFnDecl(d *syntax.FnDecl) {
 // variables it cannot bind (the pattern or RHS blocked the flip, or
 // the binding is a local let inside a body) is E0412.
 func (c *checker) checkLetDecl(d *syntax.LetDecl) {
+	if d.Extern {
+		c.checkExternLetDecl(d)
+		return
+	}
+	for _, cm := range d.Embed {
+		c.diags.Add(diag.Error("E0512",
+			"`//gom:embed` applies only to an `@extern let` declaration").At(cm.Sp))
+	}
 	var want types.Type
 	var annScope *tscope
 	if d.Type != nil {
@@ -924,6 +939,60 @@ func (c *checker) checkLetDecl(d *syntax.LetDecl) {
 		Pat:   pat,
 		Value: val,
 	})
+}
+
+// checkExternLetDecl checks `@extern let name : T` — a package
+// variable supplied by hand-written Go, or generated from a
+// `//gom:embed` directive (spec section 8.10). The annotation is
+// required (the parser reports a missing one; tolerance covers
+// hand-built trees). With //gom:embed the type must be one
+// `//go:embed` admits: String, `Go.Slice Byte`, or a named Go type
+// (embed.FS and friends). The patterns themselves validate at Go
+// build time — a missing file is `go build`'s error, not Gom's.
+func (c *checker) checkExternLetDecl(d *syntax.LetDecl) {
+	var want types.Type
+	if d.Type != nil {
+		want = c.typeExpr(d.Type, c.newTScope())
+	} else {
+		want = c.newMeta(d.Sp, "the type of the extern let binding")
+	}
+	pat := c.checkPat(d.Pat, want)
+	var patterns []string
+	for _, cm := range d.Embed {
+		fields := strings.Fields(cm.Text)
+		if len(fields) < 2 {
+			c.diags.Add(diag.Error("E0512",
+				"`//gom:embed` needs at least one file pattern").At(cm.Sp))
+			continue
+		}
+		patterns = append(patterns, fields[1:]...)
+	}
+	if len(patterns) > 0 && !embedAdmissible(want) {
+		c.diags.Add(diag.Error("E0512",
+			fmt.Sprintf("a `//gom:embed` variable must be String, `Go.Slice Byte` or a named Go type, found %s", want)).At(d.Sp))
+	}
+	c.decls = append(c.decls, &LetDecl{
+		Sp: d.Sp, Pat: pat, Extern: true, Embed: patterns,
+	})
+}
+
+// embedAdmissible reports whether t is a type `//go:embed` accepts:
+// string, []byte, or a named Go type such as embed.FS.
+func embedAdmissible(t types.Type) bool {
+	switch t := types.Chase(t).(type) {
+	case *types.Con:
+		if t.Name == "String" && t.Qual == "" {
+			return true
+		}
+		if t.Qual == "Go" && t.Name == "Slice" && len(t.Args) == 1 {
+			if el, ok := types.Chase(t.Args[0]).(*types.Con); ok && el.Name == "Byte" {
+				return true
+			}
+		}
+	case *types.Go:
+		return true
+	}
+	return false
 }
 
 // checkTopLevelLetScopes prevents rigid variables from escaping their

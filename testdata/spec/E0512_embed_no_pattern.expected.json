@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0512",
+      "severity": "error",
+      "message": "`//gom:embed` needs at least one file pattern",
+      "span": {
+        "file": "E0512_embed_no_pattern.gom",
+        "start": {
+          "line": 3,
+          "col": 1,
+          "offset": 12
+        },
+        "end": {
+          "line": 3,
+          "col": 12,
+          "offset": 23
+        }
+      }
+    }
+  ]
+}

@@ -97,6 +97,9 @@ func (p *printer) declItem(d syntax.Decl) item {
 		if d.TestOnly {
 			lead = append(lead, "@test")
 		}
+		if d.Extern {
+			lead = append(lead, "@extern")
+		}
 		dd = p.letDecl(d)
 	case *syntax.TypeDecl:
 		lead = append(lead, docLines(d.Doc)...)

@@ -100,7 +100,7 @@ func (c *checker) lintAliases() map[*resolve.Symbol]*resolve.Symbol {
 	}
 	aliases := map[*resolve.Symbol]*resolve.Symbol{}
 	for _, d := range c.decls {
-		if ld, ok := d.(*LetDecl); ok {
+		if ld, ok := d.(*LetDecl); ok && ld.Value != nil {
 			add(aliases, ld.Pat, ld.Value)
 		}
 		WalkDecl(d, func(e Expr) {

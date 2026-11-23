@@ -483,7 +483,13 @@ func (v *validator) decl(d Decl) {
 	case *VarDecl:
 		v.declSym(d.Sp, d.Sym, resolve.KindVar, "VarDecl")
 		if d.Body == nil {
-			v.err(d.Sp, "VarDecl", "missing body")
+			// An `@extern let` is body-less — the Go variable is
+			// hand-written or generated from //gom:embed patterns.
+			if !d.Extern {
+				v.err(d.Sp, "VarDecl", "missing body")
+			} else if d.Typ == nil {
+				v.err(d.Sp, "VarDecl", "extern declaration missing type")
+			}
 			break
 		}
 		v.withFunc(nil, false, func() { v.body(d.Body, false) })

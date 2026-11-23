@@ -82,6 +82,17 @@ type VarDecl struct {
 	// bindings, which print Sym.Name. Codegen does not read it.
 	DiagName string
 	Body     *Body
+	// Extern marks an `@extern let`: the Go package variable is
+	// supplied by hand-written Go — codegen emits nothing — unless
+	// Embed is non-empty, in which case codegen emits
+	// `//go:embed <patterns>` + `var name <Typ>` (spec section 8.10).
+	Extern bool
+	// Embed carries the `//gom:embed` file patterns in directive
+	// order; nil unless Extern is set.
+	Embed []string
+	// Typ is the declared type — set only when Extern, since a
+	// body-less decl has no Body.Tail.Type() to read.
+	Typ types.Type
 }
 
 func (*VarDecl) isDecl()           {}
@@ -198,6 +209,10 @@ type Import struct {
 	Path string
 	IsGo bool
 	Sym  *resolve.Symbol
+	// Blank marks `import go _ "path"`: Sym is nil and codegen
+	// emits `_ "path"` unconditionally — the clause exists for
+	// its side effects or for directive support (//go:embed).
+	Blank bool
 }
 
 // File is a Core IR file — the unit Validate checks and codegen

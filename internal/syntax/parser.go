@@ -399,6 +399,32 @@ func (p *parser) docBefore(off int) *Comment {
 	}
 }
 
+// embedBefore returns the `//gom:embed` line comments in the run of
+// comments immediately above the declaration starting at off, in
+// source order. The run may mix `//gom:` directives with `///` doc
+// lines and ordinary `//` comments — any line comment on a
+// consecutive line counts — but a blank line or a non-line comment
+// ends the attachment, the same rule doc comments follow.
+func (p *parser) embedBefore(off int) []*Comment {
+	line := p.li.Pos(off).Line
+	want := line - 1
+	var out []*Comment
+	for i, c := range slices.Backward(p.comments) {
+		m := p.meta[i]
+		if c.Sp.Start >= off {
+			continue
+		}
+		if !m.lineOnly || m.endLine != want {
+			break
+		}
+		if c.Kind == CommentLine && strings.HasPrefix(c.Text, "gom:embed") {
+			out = append([]*Comment{c}, out...)
+		}
+		want = m.startLine - 1
+	}
+	return out
+}
+
 // ------------------------------------------------------------------
 // file
 
@@ -501,7 +527,7 @@ func (p *parser) parseTopDecl() Decl {
 	case tokFn:
 		return p.parseFnDecl(declAttrs{}, doc)
 	case tokLet:
-		return p.parseLetDeclWithFlag(false, doc)
+		return p.parseLetDeclWithFlag(false, false, doc, p.embedBefore(p.cur().start))
 	case tokType:
 		return p.parseTypeDecl(doc)
 	case tokImport:
@@ -590,15 +616,15 @@ func (p *parser) parseAttrDecl() Decl {
 		p.errf(p.spanOf(nameTok),
 			"the \"@method\" attribute applies only to a \"fn\" declaration")
 	}
-	if attrs.tailRec || attrs.extern {
+	if attrs.tailRec {
 		// A let-bound function calls itself through the package
 		// variable, which the tail-call conversion cannot see —
-		// @tailrec is defined on fn only (spec section 1). @extern
-		// binds a function signature to hand-written Go.
+		// @tailrec is defined on fn only (spec section 1).
 		p.errf(p.spanOf(nameTok),
 			"the \"@%s\" attribute applies only to a \"fn\" declaration", name)
 	}
-	return p.parseLetDeclWithFlag(attrs.testOnly, doc)
+	return p.parseLetDeclWithFlag(attrs.testOnly, attrs.extern, doc,
+		p.embedBefore(at.start))
 }
 
 // declAttrs records the attributes a top-level declaration was
@@ -762,17 +788,38 @@ func (p *parser) parseFnParam() Param {
 	return param
 }
 
-// parseLetDeclWithFlag parses a top-level "let" binding or, in
-// .gomi, the "let name : T" signature.
-func (p *parser) parseLetDeclWithFlag(testOnly bool, doc *Comment) Decl {
+// parseLetDeclWithFlag parses a top-level "let" binding, in
+// .gomi the "let name : T" signature, or — with extern — the
+// `@extern let name : T` declaration of a Go-supplied package
+// variable (spec section 8.9). embed carries the `//gom:embed`
+// directive comments attached above the decl, when present.
+func (p *parser) parseLetDeclWithFlag(testOnly, extern bool, doc *Comment, embed []*Comment) Decl {
 	start := p.next() // 'let'
 	pat, typ := p.parseLetHead()
 	d := &LetDecl{
 		Sp:       diag.SpanIn(p.file, start.start, p.prevEnd()),
 		Doc:      doc,
 		TestOnly: testOnly,
+		Extern:   extern,
+		Embed:    embed,
 		Pat:      pat,
 		Type:     typ,
+	}
+	if extern {
+		if _, ok := pat.(*VarPat); !ok {
+			p.errf(pat.Span(), "an @extern let binds a plain name")
+		}
+		if typ == nil {
+			p.expected("\":\" followed by the type")
+		}
+		if p.at(tokEq) {
+			eq := p.cur()
+			p.errf(p.spanOf(eq), "an @extern let has no \"= value\"")
+			p.next()
+			d.Value = p.parseExpr()
+			d.Sp.End = d.Value.Span().End
+		}
+		return d
 	}
 	if p.gomi {
 		// Partial probe — only VarPat/WildPat are legal; use assertions
@@ -994,7 +1041,13 @@ func (p *parser) parseImportDecl() Decl {
 		isGo = true
 	}
 	var alias *Ident
-	if (p.at(tokIdent) || nameKeyword(p.kind())) && p.peek(1).kind == tokString {
+	if p.at(tokUnder) && p.peek(1).kind == tokString {
+		// `import go _ "path"` — a blank Go import (side effects or
+		// directive support such as //go:embed). Nothing binds.
+		t := p.cur()
+		p.next()
+		alias = &Ident{Sp: p.spanOf(t), Name: "_"}
+	} else if (p.at(tokIdent) || nameKeyword(p.kind())) && p.peek(1).kind == tokString {
 		t := p.cur()
 		if nameKeyword(t.kind) {
 			alias = p.errReserved(t)
