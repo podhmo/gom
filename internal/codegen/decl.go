@@ -98,7 +98,11 @@ func (g *gen) methodDecl(d *core.FuncDecl) {
 	g.line(d.Sp)
 	g.raw("func (" + names[recv] + " ")
 	g.typ(g.goType(recv.Typ))
-	g.raw(") " + core.ExportName(d.Sym.Name) + "(")
+	mname := d.MethodName
+	if mname == "" {
+		mname = core.ExportName(d.Sym.Name)
+	}
+	g.raw(") " + mname + "(")
 	for i, b := range rest {
 		if i > 0 {
 			g.raw(", ")

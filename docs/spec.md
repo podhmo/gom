@@ -607,7 +607,7 @@ Go の API が引数・フィールドに持つ `func(A, B) R` 型は `Go.FuncN`
 
 ### 8.9 Go インターフェースの実装 `@method`
 
-自分の record 型（単一フィールド record 由来の defined type を含む）に Go のメソッドを生やして、Go の interface に適合させられる（[decisions/go-iface-impl](decisions/2026-11-21-go-iface-impl.md)）。`@method` を付けた `fn` はレシーバを先頭に書く — `fn (r: T) name (p1: A) -> R`。Gom の中ではふつうの関数 `name` として呼び、シグネチャのパラメータ位置はレシーバを含む。emit では 2 つ出力される: ふつうの Go 関数と、それに転送する薄い Go メソッド（`func (r T) Name(p1 A) R { return name(r, p1) }`）。メソッド名は `ExportName`（`string` → `String`、`error` → `Error`）。`Unit` のダミーパラメータはメソッド側では落とされる。
+自分の record 型（単一フィールド record 由来の defined type を含む）に Go のメソッドを生やして、Go の interface に適合させられる（[decisions/go-iface-impl](decisions/2026-11-21-go-iface-impl.md)）。`@method` を付けた `fn` はレシーバを先頭に書く — `fn (r: T) name (p1: A) -> R`。Gom の中ではふつうの関数 `name` として呼び、シグネチャのパラメータ位置はレシーバを含む。emit では 2 つ出力される: ふつうの Go 関数と、それに転送する薄い Go メソッド（`func (r T) Name(p1 A) R { return name(r, p1) }`）。メソッド名は `ExportName`（`string` → `String`、`error` → `Error`）。`ServeHTTP`・`URL`・`ID` のように `ExportName` で作れない名（initialism を含む名前など）は `@method(GoName)` で verbatim に指定する — `@method(ServeHTTP) fn (h: Handler) serve_http ...` は `func (h Handler) ServeHTTP(...)` を emit し、interface 適合もその名前で照合される。引数は大文字始まりの識別子に限る（そうでなければ E0101）。`Unit` のダミーパラメータはメソッド側では落とされる。
 
 record の値は、その `@method` 集合が要求される Go interface のメソッド集合を（名前・シグネチャが `types.Equal` で）含むとき、interface が期待される位置にそのまま渡せる — `let s : fmt.Stringer = g`、`Go.conv`、interface を引数に取る Go 呼出し。Gom 側からメソッドを呼ぶ構文はなく、`name r` の関数適用がそのまま。
 

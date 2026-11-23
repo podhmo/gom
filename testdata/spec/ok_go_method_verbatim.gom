@@ -1,0 +1,20 @@
+package main
+
+import go "fmt"
+import go "net/http"
+
+// `@method(GoName)` pins the emitted Go method name verbatim —
+// needed for names `core.ExportName` cannot produce, such as
+// initialisms (`ServeHTTP`, `URL`, `ID`). The Gom-side name stays
+// lowercase and the record conforms to the Go interface by the
+// verbatim name.
+type Handler = { tag: String }
+
+fn main () -> Unit = {
+  let h : Handler = { tag = "x" }
+  let s : http.Handler = h
+  ignore (fmt.Println s)
+}
+
+@method(ServeHTTP)
+fn (h: Handler) serve_http (w: http.ResponseWriter) (r: Ptr http.Request) -> Unit = ()

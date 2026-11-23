@@ -177,7 +177,11 @@ func (d *drafter) file(w *strings.Builder, s Source) {
 func (d *drafter) fnDecl(name string, td *check.FnDecl) string {
 	var sb strings.Builder
 	if td.Method {
-		sb.WriteString("@method\n")
+		if td.MethodName != "" {
+			sb.WriteString("@method(" + td.MethodName + ")\n")
+		} else {
+			sb.WriteString("@method\n")
+		}
 	}
 	sb.WriteString("fn ")
 	start := 0

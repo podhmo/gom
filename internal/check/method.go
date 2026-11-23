@@ -83,8 +83,12 @@ func (c *checker) checkMethodDecl(d *syntax.FnDecl, sym *resolve.Symbol, sig *ty
 		ps = append(ps, fp)
 	}
 	key := conKey{qual: "", name: rc.Name}
+	mname := d.MethodName
+	if mname == "" {
+		mname = core.ExportName(sym.Name)
+	}
 	c.methods[key] = append(c.methods[key], GomMethod{
-		Name:    core.ExportName(sym.Name),
+		Name:    mname,
 		Sig:     types.Fn(sig.Ret, ps...),
 		PtrRecv: ptrRecv,
 	})

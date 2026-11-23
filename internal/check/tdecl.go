@@ -55,6 +55,9 @@ type FnDecl struct {
 	// Params[0] is the receiver and codegen additionally emits a
 	// forwarding Go method on the receiver's record type.
 	Method bool
+	// MethodName is the verbatim Go method name from `@method(GoName)`
+	// — empty when the name derives from the fn name via ExportName.
+	MethodName string
 }
 
 func (*FnDecl) isDecl()           {}

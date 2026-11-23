@@ -1,0 +1,191 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0101",
+      "severity": "error",
+      "message": "an attribute applies only to a \"fn\" or \"let\" declaration, found identifier 'serve'",
+      "span": {
+        "file": "E0101_method_arg_lowercase.gom",
+        "start": {
+          "line": 8,
+          "col": 1,
+          "offset": 198
+        },
+        "end": {
+          "line": 8,
+          "col": 8,
+          "offset": 205
+        }
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0101",
+      "severity": "error",
+      "message": "expected \")\", found identifier 'serve'",
+      "span": {
+        "file": "E0101_method_arg_lowercase.gom",
+        "start": {
+          "line": 8,
+          "col": 9,
+          "offset": 206
+        },
+        "end": {
+          "line": 8,
+          "col": 14,
+          "offset": 211
+        }
+      },
+      "data": {
+        "expected": "\")\"",
+        "found": "identifier 'serve'"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0101",
+      "severity": "error",
+      "message": "expected a declaration, found identifier 'serve'",
+      "span": {
+        "file": "E0101_method_arg_lowercase.gom",
+        "start": {
+          "line": 8,
+          "col": 9,
+          "offset": 206
+        },
+        "end": {
+          "line": 8,
+          "col": 14,
+          "offset": 211
+        }
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0101",
+      "severity": "error",
+      "message": "the \"@method\" argument must be an exported Go method name (uppercase identifier), found identifier 'serve'",
+      "span": {
+        "file": "E0101_method_arg_lowercase.gom",
+        "start": {
+          "line": 8,
+          "col": 9,
+          "offset": 206
+        },
+        "end": {
+          "line": 8,
+          "col": 14,
+          "offset": 211
+        }
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0101",
+      "severity": "error",
+      "message": "expected a newline or \";\" between declarations, found \")\"",
+      "span": {
+        "file": "E0101_method_arg_lowercase.gom",
+        "start": {
+          "line": 8,
+          "col": 14,
+          "offset": 211
+        },
+        "end": {
+          "line": 8,
+          "col": 15,
+          "offset": 212
+        }
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0101",
+      "severity": "error",
+      "message": "expected a function name, found \"(\"",
+      "span": {
+        "file": "E0101_method_arg_lowercase.gom",
+        "start": {
+          "line": 9,
+          "col": 4,
+          "offset": 216
+        },
+        "end": {
+          "line": 9,
+          "col": 5,
+          "offset": 217
+        }
+      },
+      "data": {
+        "expected": "a function name",
+        "found": "\"(\""
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0101",
+      "severity": "error",
+      "message": "expected \"->\" followed by the return type, found identifier 'serve'",
+      "span": {
+        "file": "E0101_method_arg_lowercase.gom",
+        "start": {
+          "line": 9,
+          "col": 17,
+          "offset": 229
+        },
+        "end": {
+          "line": 9,
+          "col": 22,
+          "offset": 234
+        }
+      },
+      "data": {
+        "expected": "\"->\" followed by the return type",
+        "found": "identifier 'serve'"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0101",
+      "severity": "error",
+      "message": "expected \"=\" followed by the function body, found identifier 'serve'",
+      "span": {
+        "file": "E0101_method_arg_lowercase.gom",
+        "start": {
+          "line": 9,
+          "col": 17,
+          "offset": 229
+        },
+        "end": {
+          "line": 9,
+          "col": 22,
+          "offset": 234
+        }
+      },
+      "data": {
+        "expected": "\"=\" followed by the function body",
+        "found": "identifier 'serve'"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0101",
+      "severity": "error",
+      "message": "expected a newline or \";\" between declarations, found identifier 'serve'",
+      "span": {
+        "file": "E0101_method_arg_lowercase.gom",
+        "start": {
+          "line": 9,
+          "col": 17,
+          "offset": 229
+        },
+        "end": {
+          "line": 9,
+          "col": 22,
+          "offset": 234
+        }
+      }
+    }
+  ]
+}
