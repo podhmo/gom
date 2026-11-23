@@ -842,6 +842,12 @@ func (p *parser) parseLambdaAnnParam() Param {
 	var id *Ident
 	if nameKeyword(nameTok.kind) {
 		id = p.errReserved(nameTok)
+	} else if nameTok.kind != tokIdent {
+		p.errf(p.spanOf(nameTok),
+			"a labeled lambda parameter binds a plain name, found %s",
+			p.describe(nameTok))
+		p.next()
+		id = &Ident{Sp: p.spanOf(nameTok), Name: "_"}
 	} else {
 		name := p.next() // ident
 		id = &Ident{Sp: p.spanOf(name), Name: p.text(name)}
