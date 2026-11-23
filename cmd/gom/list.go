@@ -25,7 +25,10 @@ func runList(args []string, stdout, stderr io.Writer) int {
 		return diag.ExitInternal
 	}
 	for _, name := range gomimport.StdlibShortNames() {
-		fmt.Fprintln(stdout, name)
+		if _, err := fmt.Fprintln(stdout, name); err != nil {
+			fmt.Fprintf(stderr, "gom list: %v\n", err)
+			return diag.ExitInternal
+		}
 	}
 	return diag.ExitSuccess
 }

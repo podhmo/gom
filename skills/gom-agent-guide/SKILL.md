@@ -899,8 +899,8 @@ fn main () -> Unit = ()
 
 # Toolchain
 
-Implemented today: `build`, `check`, `dump`, `test`, `fmt`, `fix`,
-`info`, `explain`, `schema`. `gomi` was renamed `info` (`gom gomi`
+Implemented today: `build`, `check`, `dump`, `test`, `run`, `fmt`,
+`fix`, `info`, `list`, `explain`, `schema`. `gomi` was renamed `info` (`gom gomi`
 prints the pointer and exits 2).
 
 | Command | Use |
