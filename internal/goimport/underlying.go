@@ -74,3 +74,23 @@ func (l *Loader) NilableUnderlying(ref gt.NamedRef) bool {
 		return false
 	}
 }
+
+// GoUnderlyingIsSlice reports whether the named Go type behind t has a
+// slice underlying (`type B []T`, `sort.Float64Slice`) — the emit gate
+// for `Go.conv`'s `List`↔named-slice composite (internal/lower/expr.go):
+// a named interface target (json.Token) must keep the raw cast so the
+// boxed value's dynamic type stays list.List[T], not []T.
+func (l *Loader) GoUnderlyingIsSlice(t gt.Type) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	g, ok := gt.Chase(t).(*gt.Go)
+	if !ok || len(g.Args) != 0 {
+		return false
+	}
+	n, ok := l.named[g.Ref]
+	if !ok {
+		return false
+	}
+	_, ok = n.Underlying().(*types.Slice)
+	return ok
+}

@@ -3,92 +3,119 @@
 package ex
 
 import (
+	json "encoding/json"
 	list "github.com/podhmo/gom/stdlib/list"
 	os "os"
+	sort "sort"
 	time "time"
 )
 
-//line go_conv.gom:26
+//line go_conv.gom:39
 type UserId int64
 
-//line go_conv.gom:27
+//line go_conv.gom:40
 type P *int64
 
-//line go_conv.gom:10
+//line go_conv.gom:12
 func duration(n int64) time.Duration {
-//line go_conv.gom:10
+//line go_conv.gom:12
 	return time.Duration(n)
-//line go_conv.gom:10
+//line go_conv.gom:12
 }
 
-//line go_conv.gom:12
+//line go_conv.gom:14
 func nanos(d time.Duration) int64 {
-//line go_conv.gom:12
+//line go_conv.gom:14
 	return int64(d)
-//line go_conv.gom:12
+//line go_conv.gom:14
 }
 
-//line go_conv.gom:14
+//line go_conv.gom:16
 func freeze(xs []int64) list.List[int64] {
-//line go_conv.gom:14
+//line go_conv.gom:16
 	return list.FromSlice(xs)
-//line go_conv.gom:14
+//line go_conv.gom:16
 }
 
-//line go_conv.gom:16
+//line go_conv.gom:18
 func thaw(xs list.List[int64]) []int64 {
-//line go_conv.gom:16
+//line go_conv.gom:18
 	return xs.ToSlice()
-//line go_conv.gom:16
+//line go_conv.gom:18
 }
 
-//line go_conv.gom:18
+//line go_conv.gom:20
 func runes(s string) list.List[rune] {
-//line go_conv.gom:18
+//line go_conv.gom:20
 	return list.List[rune](s)
-//line go_conv.gom:18
+//line go_conv.gom:20
 }
 
-//line go_conv.gom:20
+//line go_conv.gom:22
 func args(_ struct{}) list.List[string] {
-//line go_conv.gom:20
+//line go_conv.gom:22
 	tmp1 := list.FromSlice(os.Args)
-//line go_conv.gom:20
+//line go_conv.gom:22
 	return list.List[string](tmp1)
-//line go_conv.gom:20
+//line go_conv.gom:22
 }
 
 //line go_conv.gom:29
+func toNamed(xs list.List[float64]) sort.Float64Slice {
+//line go_conv.gom:29
+	tmp2 := xs.ToSlice()
+//line go_conv.gom:29
+	return sort.Float64Slice(tmp2)
+//line go_conv.gom:29
+}
+
+//line go_conv.gom:31
+func fromNamed(xs sort.Float64Slice) list.List[float64] {
+//line go_conv.gom:31
+	tmp3 := []float64(xs)
+//line go_conv.gom:31
+	return list.FromSlice(tmp3)
+//line go_conv.gom:31
+}
+
+//line go_conv.gom:33
+func toToken(xs list.List[float64]) json.Token {
+//line go_conv.gom:33
+	return json.Token(xs)
+//line go_conv.gom:33
+}
+
+//line go_conv.gom:42
 func unwrap(u UserId) int64 {
-//line go_conv.gom:29
+//line go_conv.gom:42
 	return int64(u)
-//line go_conv.gom:29
+//line go_conv.gom:42
 }
 
-//line go_conv.gom:31
+//line go_conv.gom:44
 func wrap(n int64) UserId {
-//line go_conv.gom:31
+//line go_conv.gom:44
 	return UserId(n)
-//line go_conv.gom:31
+//line go_conv.gom:44
 }
 
-//line go_conv.gom:33
+//line go_conv.gom:46
 func widen(u UserId) int64 {
-//line go_conv.gom:33
+//line go_conv.gom:46
 	return int64(u)
-//line go_conv.gom:33
+//line go_conv.gom:46
 }
 
-//line go_conv.gom:35
+//line go_conv.gom:48
 func derefT(p P) *int64 {
-//line go_conv.gom:35
+//line go_conv.gom:48
 	return (*int64)(p)
-//line go_conv.gom:35
+//line go_conv.gom:48
 }
 
-//line go_conv.gom:37
+//line go_conv.gom:50
 func refT(p *int64) P {
-//line go_conv.gom:37
+//line go_conv.gom:50
 	return P(p)
-//line go_conv.gom:37
+//line go_conv.gom:50
 }

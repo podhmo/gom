@@ -43,6 +43,13 @@ type Env struct {
 	// reports whether the signature is known.
 	GoSig func(sym *resolve.Symbol) (GoSig, bool)
 
+	// GoUnderlyingSlice reports whether the named Go type behind t has a
+	// slice underlying (`type B []T` — sort.Float64Slice). It gates the
+	// `Go.conv` `List`↔named-slice composite: only a slice-underlying
+	// target takes `B(xs.ToSlice())`; a named interface target keeps the
+	// raw cast so the boxed dynamic type stays list.List[T]. Nil: never.
+	GoUnderlyingSlice func(t types.Type) bool
+
 	// FuncNOfNamed expands a method-less named Go func type's handle
 	// (`*types.Go` naming `pkg.F`) to the `Go.FuncN` it reads as at
 	// signature positions — the equivalence check's FuncNSource

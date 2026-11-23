@@ -1,6 +1,7 @@
 package ex
 
 import go "sort"
+import go "encoding/json"
 
 // `Go.conv` between `List T` and a named Go slice type whose
 // underlying is `[]repr(T)` — `sort.Float64Slice` is `[]float64` —
@@ -9,5 +10,11 @@ import go "sort"
 fn to_named (xs: List Float) -> sort.Float64Slice = Go.conv xs : sort.Float64Slice
 
 fn from_named (xs: sort.Float64Slice) -> List Float = Go.conv xs : List Float
+
+// A named Go type whose underlying is NOT a slice keeps the raw
+// cast — `json.Token` is `type Token any`; boxing the List itself
+// (not its []T slice) preserves the list.List[T] dynamic type for
+// Go-side type assertions.
+fn to_token (xs: List Float) -> json.Token = Go.conv xs : json.Token
 
 fn main () -> Unit = ()
