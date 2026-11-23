@@ -652,7 +652,7 @@ func (e *interp) eval(x check.Expr, env *Env) Value {
 			// here: eval values are dynamically typed already.
 			// Other Conv ascriptions keep the existing verdict.
 			if !x.Iface && !x.Slice && isGoAnyCon(x.Type()) {
-				return e.eval(x.X, env)
+				return e.anyBox(e.eval(x.X, env), x.X.Type())
 			}
 			failData(CodeUnsupported, "Go.conv conversions are not supported by the evaluator", x.Span(), "construct", "Go.conv")
 		}
@@ -1259,96 +1259,181 @@ func (e *interp) evalPipeTry(x *check.Binary, env *Env) Value {
 	return &VVariant{Type: variant.Type, Ctor: variant.Ctor, Name: variant.Name, Fields: fields}
 }
 
+// anyBox wraps a value crossing into `Go.Any` — the `any(v)` the
+// compiled boundary emits. The VHost records the value's gom type so
+// `Go.try_as` can assert at the emitted-Go-type grain (`x.(T)` on
+// int64 succeeds for both Int and Int64). A value already boxed —
+// re-entering `any` — keeps its inner box, matching Go.
+func (e *interp) anyBox(v Value, t types.Type) Value {
+	if _, ok := v.(*VHost); ok {
+		return v
+	}
+	return &VHost{V: boxRepr(v, t), T: types.Chase(t)}
+}
+
+// boxRepr puts the Go representation of a scalar into the `any`
+// slot — the same materialization emit applies (`any(int64(42))`,
+// int32 for Int32, byte for Byte). Aggregates keep their Value in
+// the slot: the recorded gom type carries the assertion's answer.
+func boxRepr(v Value, t types.Type) any {
+	if c, ok := types.Chase(t).(*types.Con); ok && c.Qual == "" {
+		switch c.Name {
+		case "Int", "Int64":
+			if i, ok := v.(*VInt); ok {
+				return i.N
+			}
+		case "Int32":
+			if i, ok := v.(*VInt); ok {
+				return int32(i.N)
+			}
+		case "Byte":
+			if i, ok := v.(*VInt); ok {
+				return byte(i.N)
+			}
+		case "Float", "Float64":
+			if f, ok := v.(*VFloat); ok {
+				return f.F
+			}
+		case "Char":
+			if ch, ok := v.(*VChar); ok {
+				return ch.R
+			}
+		case "String":
+			if s, ok := v.(*VStr); ok {
+				return s.S
+			}
+		case "Bool":
+			if b, ok := v.(*VBool); ok {
+				return b.B
+			}
+		}
+	}
+	return v
+}
+
 // inhabits reports whether v has the dynamic shape type t asks
 // `Go.try_as` to assert — the comma-ok `x.(T)` check on eval's
-// dynamically typed values. Scalars and gom aggregates match by
-// their Value wrapper; Go-side values (types.Go, Ptr/Chan/Go.Slice
-// handles, etc.) stay opaque VHost and match by the host value's
-// reflect-rendered type name where it is knowable, else accept.
+// values. Both sides compare at emitted-Go-type-name grain: a boxed
+// gom value asserts by its recorded type's repr name (Int and Int64
+// both assert as int64, `List Int` and `List String` differ), an
+// opaque host value by its reflect-rendered name, and a named Go
+// type target by `pkgbase.Name`.
 func (e *interp) inhabits(v Value, t types.Type) bool {
+	dyn := ""
+	if h, ok := v.(*VHost); ok {
+		if h.T != nil {
+			dyn = reprName(h.T)
+		} else if h.V != nil {
+			dyn = reflect.TypeOf(h.V).String()
+		}
+	} else {
+		// Defensive — an `any` slot should only ever hold a box;
+		// a native value reaching here answers for scalar reprs.
+		dyn = valueReprName(v)
+	}
+	want := reprName(t)
+	return dyn != "" && want != "" &&
+		(dyn == want || strings.HasSuffix(dyn, "."+want))
+}
+
+// reprName renders the emitted Go type name of a gom type — the
+// spelling `x.(T)` and reflect use ("int64", "list.List[int64]",
+// "pkgbase.Name"). Types without a name-level assertion grain
+// (functions, tuples, metas) answer "" and never match.
+func reprName(t types.Type) string {
 	switch t := types.Chase(t).(type) {
 	case *types.Con:
+		if t.Qual == "Go" {
+			switch t.Name {
+			case "Slice":
+				return "[]" + reprName(t.Args[0])
+			case "Map":
+				return "map[" + reprName(t.Args[0]) + "]" + reprName(t.Args[1])
+			case "Int":
+				return "int"
+			case "Any":
+				return "any"
+			}
+			return ""
+		}
 		if t.Qual != "" {
-			if t.Qual == "Go" && t.Name == "Any" {
-				return true // unreachable — check rejects Go.Any targets
-			}
-			// package-qualified declared type — a VRecord/VVariant
-			// of that con, or an opaque host value
-			switch v.(type) {
-			case *VRecord, *VVariant, *VHost:
-				return true
-			}
-			return false
+			return t.Qual + "." + t.Name
 		}
 		switch t.Name {
-		case "Int", "Int64", "Int32", "Byte", "Float64":
-			_, ok := v.(*VInt)
-			return ok
-		case "Float":
-			_, ok := v.(*VFloat)
-			return ok
-		case "Char":
-			_, ok := v.(*VChar)
-			return ok
-		case "String":
-			_, ok := v.(*VStr)
-			return ok
-		case "Bool":
-			_, ok := v.(*VBool)
-			return ok
 		case "Unit":
-			_, ok := v.(*VUnit)
-			return ok
-		case "List":
-			_, ok := v.(*VList)
-			return ok
-		case "Tuple":
-			_, ok := v.(*VTuple)
-			return ok
+			return "struct{}"
+		case "Int", "Int64":
+			return "int64"
+		case "Int32":
+			return "int32"
+		case "Byte":
+			return "byte"
+		case "Float", "Float64":
+			return "float64"
+		case "Char":
+			return "rune"
+		case "String":
+			return "string"
+		case "Bool":
+			return "bool"
 		case "GoError":
-			_, ok := v.(*VGoErr)
-			return ok
-		case "Ptr", "Chan", "RecvChan", "SendChan", "Task", "Ref",
-			"Scope", "View", "Go":
-			_, ok := v.(*VHost)
-			return ok
-		default:
-			// Declared types (record/sum/extern) — shallow ctor
-			// shape like the field-access fallback accepts.
-			switch v.(type) {
-			case *VRecord, *VVariant, *VHost:
-				return true
-			}
-			return false
+			return "error"
+		case "List":
+			return "list.List[" + reprName(t.Args[0]) + "]"
+		case "Option":
+			return "option.Option[" + reprName(t.Args[0]) + "]"
+		case "Result":
+			return "result.Result[" + reprName(t.Args[0]) + ", " + reprName(t.Args[1]) + "]"
+		case "Task":
+			return "rt.Task[" + reprName(t.Args[0]) + "]"
+		case "View":
+			return "list.View[" + reprName(t.Args[0]) + "]"
+		case "Ptr", "Ref":
+			return "*" + reprName(t.Args[0])
+		case "Array":
+			return "[]" + reprName(t.Args[0])
+		case "Chan":
+			return "chan " + reprName(t.Args[0])
+		case "RecvChan":
+			return "<-chan " + reprName(t.Args[0])
+		case "SendChan":
+			return "chan<- " + reprName(t.Args[0])
 		}
+		// Declared record/sum — nominal: asserts only to itself.
+		return t.Name
 	case *types.Go:
-		if h, ok := v.(*VHost); ok && h.V != nil {
-			// reflect renders "pkgbase.Name" — compare the tail
-			// of the type ref's path against the package base.
-			name := reflect.TypeOf(h.V).String()
-			base := t.Ref.Path
-			if i := strings.LastIndexByte(base, '/'); i >= 0 {
-				base = base[i+1:]
-			}
-			want := base + "." + t.Ref.Name
-			return name == want || strings.HasPrefix(name, want+"[")
+		base := t.Ref.Path
+		if i := strings.LastIndexByte(base, '/'); i >= 0 {
+			base = base[i+1:]
 		}
-		return false
-	case *types.Func:
-		switch v.(type) {
-		case *VFunc, *VHost:
-			return true
-		}
-		return false
-	case *types.Tuple:
-		if tv, ok := v.(*VTuple); ok {
-			return len(tv.Elems) == len(t.Elems)
-		}
-		return false
-	case *types.Var, *types.Meta, nil:
-		return false
+		return base + "." + t.Ref.Name
+	case *types.Func, *types.Meta, *types.Tuple, *types.Var:
+		return ""
+	}
+	return ""
+}
+
+// valueReprName gives the emitted-Go-type name a native eval value
+// would assert as — the defensive counterpart of reprName for a
+// value that reached an `any` slot unboxed.
+func valueReprName(v Value) string {
+	switch v.(type) {
+	case *VInt:
+		return "int64"
+	case *VFloat:
+		return "float64"
+	case *VChar:
+		return "rune"
+	case *VStr:
+		return "string"
+	case *VBool:
+		return "bool"
+	case *VUnit:
+		return "struct{}"
+	case *VList, *VTuple, *VRecord, *VVariant, *VGoErr, *VFunc, *VHost:
+		return ""
 	default:
-		return false
+		panic("unreachable")
 	}
 }
 

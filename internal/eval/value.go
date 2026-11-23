@@ -263,10 +263,18 @@ func (v *VGoErr) Error() string { return v.Text }
 // Go value's `%v` form so fmt-print comparisons stay faithful.
 type VHost struct {
 	V any
+	// T is the gom type the value carried when it was boxed into
+	// `Go.Any` — nil for opaque host values. `Go.try_as` asserts
+	// against it at the emitted-Go-type grain (Int and Int64 share
+	// int64), the way `x.(T)` does.
+	T types.Type
 }
 
 func (*VHost) isValue() {}
 func (v *VHost) String() string {
+	if inner, ok := v.V.(Value); ok {
+		return inner.String()
+	}
 	return fmt.Sprintf("%v", v.V)
 }
 
