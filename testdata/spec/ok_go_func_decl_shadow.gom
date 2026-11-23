@@ -1,0 +1,22 @@
+package ex
+
+import go "slices"
+
+// spec 8.5 (wave38 lane D review): a `type` declaration that
+// shadows a builtin name is still a declared type — `Go.funcN`'s
+// raw view must carry `Int`/`Result` here as the emitted named
+// types, not the builtins those names spell in an unshadowed file.
+type Int = { x: Bool }
+type Result = { ok: Int64 }
+
+fn by_x (a: Int) (b: Int) -> Int64 = if a.x { 1 } else { 0 }
+
+fn sort_by_x (rs: Go.Slice Int) -> Unit = slices.SortFunc rs (Go.func2 by_x)
+
+fn max_of (a: Result) (b: Result) -> Int64 = 0
+
+fn keep (r: Result) -> Result = r
+
+fn keep_ok (r: Result) -> Result = slices.MaxFunc [r] (Go.func2 max_of)
+
+fn main () -> Unit = ()

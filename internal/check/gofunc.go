@@ -616,6 +616,20 @@ func (c *checker) goFuncRawView(t types.Type) (types.Type, string) {
 			// constructors are already raw views.
 			return t, ""
 		}
+		// A declared type — a local `type` (including one
+		// shadowing a builtin name) or an imported package's —
+		// emits as a named Go type the raw signature can carry by
+		// name (codegen writes `exportName(c.Name)` / the qualified
+		// identifier). Declared names must win over the
+		// builtin-name switch below: an imported `model.Int` is
+		// not builtin `Int`, and a local `type Int` declares its
+		// own emitted type (decision 2026-11-23-goslice-gom-elem).
+		if t.Qual != "" {
+			return t, ""
+		}
+		if ti, declared := c.tyCons[conKey{qual: "", name: t.Name}]; declared && ti.sym != nil {
+			return t, ""
+		}
 		switch t.Name {
 		case "Int", "Int64":
 			// Both are int64 — the int64/int split only exists at
@@ -654,18 +668,8 @@ func (c *checker) goFuncRawView(t types.Type) (types.Type, string) {
 			}
 			return types.SendChan(rt), ""
 		}
-		// A declared type — a local `type` or an imported gom
-		// package's — emits as a same-package named Go type, so the
-		// raw signature can carry it by name (codegen writes
-		// `exportName(c.Name)` / the qualified identifier). Only the
-		// builtin cons left — `Option`, `Result` — have no Go
-		// representation (decision 2026-11-23-goslice-gom-elem).
-		if t.Qual != "" {
-			return t, ""
-		}
-		if ti, declared := c.tyCons[conKey{qual: "", name: t.Name}]; declared && ti.sym != nil {
-			return t, ""
-		}
+		// Only the builtin cons left — `Option`, `Result` — have
+		// no Go representation.
 		return nil, "the type has no Go representation"
 	case *types.Go:
 		args := make([]types.Type, len(t.Args))
@@ -706,7 +710,8 @@ func (c *checker) goFuncRawResults(ret types.Type) ([]types.Type, string) {
 	elemRaw := func(el types.Type) (types.Type, string) {
 		p := types.Chase(el)
 		if oc, isOpt := p.(*types.Con); isOpt && oc.Qual == "" &&
-			oc.Name == "Option" && len(oc.Args) == 1 {
+			oc.Name == "Option" && len(oc.Args) == 1 &&
+			!c.shadowedBuiltin("Option") {
 			p = types.Chase(oc.Args[0])
 			rt, reason := c.goFuncRawView(p)
 			if reason != "" {
@@ -719,7 +724,7 @@ func (c *checker) goFuncRawResults(ret types.Type) ([]types.Type, string) {
 		}
 		return c.goFuncRawView(p)
 	}
-	if rc, ok := ret.(*types.Con); ok && rc.Qual == "" {
+	if rc, ok := ret.(*types.Con); ok && rc.Qual == "" && !c.shadowedBuiltin(rc.Name) {
 		if rc.Name == "Unit" && len(rc.Args) == 0 {
 			return nil, ""
 		}
@@ -727,7 +732,8 @@ func (c *checker) goFuncRawResults(ret types.Type) ([]types.Type, string) {
 			isGoErrorCon(rc.Args[1]) {
 			p := types.Chase(rc.Args[0])
 			if uc, ok := p.(*types.Con); ok &&
-				uc.Qual == "" && uc.Name == "Unit" && len(uc.Args) == 0 {
+				uc.Qual == "" && uc.Name == "Unit" && len(uc.Args) == 0 &&
+				!c.shadowedBuiltin("Unit") {
 				return []types.Type{types.GoError}, ""
 			}
 			if tup, isTup := p.(*types.Tuple); isTup {

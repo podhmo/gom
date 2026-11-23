@@ -466,6 +466,47 @@ func (c *checker) goSatisfiesGomElems(targs []types.Type, i int, gc GoConstraint
 		if !ok || len(got) != len(want) {
 			return false
 		}
+		// The fallback exists for Gom-declared elements, the case
+		// the boundary oracle cannot map — not to widen admission
+		// for arbitrary unmapped shapes. Every operand must emit
+		// honestly as a Go element (a tuple or function type has
+		// no such reading) and at least one node must be a
+		// declared type.
+		var shape func(t types.Type) (decl, honest bool)
+		shape = func(t types.Type) (bool, bool) {
+			con, ok := types.Chase(t).(*types.Con)
+			if !ok {
+				return false, false
+			}
+			if con.Qual != "" && con.Qual != "Go" {
+				return true, true
+			}
+			if con.Qual == "" {
+				if ti, d := c.tyCons[conKey{qual: "", name: con.Name}]; d && ti.sym != nil {
+					return true, true
+				}
+			}
+			decl := false
+			for _, a := range con.Args {
+				d, h := shape(a)
+				if !h {
+					return false, false
+				}
+				decl = decl || d
+			}
+			return decl, true
+		}
+		declared := false
+		for _, el := range got {
+			d, h := shape(el)
+			if !h {
+				return false
+			}
+			declared = declared || d
+		}
+		if !declared {
+			return false
+		}
 		for k, j := range want {
 			if j < 0 || j >= len(targs) ||
 				!types.Equal(got[k], types.Chase(targs[j])) {
