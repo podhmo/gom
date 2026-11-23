@@ -1,0 +1,12 @@
+package ex
+
+// spec section 2.1 — introduction does not lend into a produced
+// type that declares labels of its own: `Int -> ~y: Int -> Int`
+// does not unify with `~x: Int -> ~y: Int -> Int` (the labeled-run
+// pairing is strict there; lending `x` would silently reorder a
+// contract the produced side already names).
+fn takes (f: ~x: Int -> ~y: Int -> Int) -> Int = f ~x: 1 ~y: 2
+
+fn mixed (a: Int) (~y: Int) -> Int = a + y
+
+let _ = takes mixed

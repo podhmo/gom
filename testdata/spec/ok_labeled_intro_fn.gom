@@ -1,0 +1,20 @@
+package ex
+
+// spec section 2.1 — unlabeled→labeled introduction: a produced
+// function whose parameters are all unlabeled borrows the expected
+// type's labels by position. `apply (fn x -> x)` type-checks
+// because `Int -> Int` unifies with `~x: Int -> Int`.
+fn apply (f: ~x: Int -> Int) -> Int = f ~x: 1
+
+let r = apply (fn x -> x + 1)
+
+// Borrowing works through let bindings and record fields too.
+let id = fn x -> x + 1
+let _ = apply id
+
+// The reverse direction stays an error — a function that declares
+// `~x` is not an `Int -> Int` (see E0401_labeled_for_unlabeled_fn).
+fn lend (f: Int -> Int) -> Int = f 2
+let _ = lend (fn x -> x * 2)
+
+fn main () -> Unit = ()

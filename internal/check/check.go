@@ -138,6 +138,13 @@ type checker struct {
 	// top-level let's generalization adopting it into TypeParams;
 	// anything left has no quantifier and reports E0412 at finalize.
 	lambdaAnnScopes []lambdaAnnScope
+
+	// noLabelIntro disables unifyFunc's unlabeled→labeled
+	// introduction while set — the synthesized `argT -> res` unify
+	// of conformCallee is application, not type equality, and a
+	// labeled callee parameter must not lend its label to a
+	// positional argument through it (spec section 2 rule 3).
+	noLabelIntro bool
 	// adoptedAnnVars are the rigid variables a binding's
 	// generalization adopted — the `a` of `let f = fn (x: a) -> x`.
 	adoptedAnnVars map[*types.Var]bool
