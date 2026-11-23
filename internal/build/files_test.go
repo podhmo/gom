@@ -569,11 +569,11 @@ func TestCompileFilesInterfaceInput(t *testing.T) {
 
 // `type TestX` claims the name `test "x"` predicts for its func —
 // the eviction warns W0602 and the test emits `TestX2`. Two decls
-// emitting one name verbatim (`Foo_Bar`/`FooBar` → `FooBar`) warn
-// W0601: the generated package would not compile.
+// emitting one name verbatim (`Foo_Bar`/`FooBar` → `FooBar`) are
+// the error E0608: the generated package would not compile, so the
+// build withholds it.
 func TestCompileFilesEmitNameCollisions(t *testing.T) {
 	src := "package m\n\ntype TestX = { v: Int }\n\n" +
-		"type Foo_Bar = { x: Int }\ntype FooBar = { y: Int }\n\n" +
 		"test \"x\" {\n  assert true\n}\n"
 	rs, err := build.CompileFiles(
 		[]build.Input{{Path: "pkg/a.gom", Src: []byte(src)}},
@@ -581,13 +581,9 @@ func TestCompileFilesEmitNameCollisions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CompileFiles: %v", err)
 	}
-	var w0601, w0602 bool
+	var w0602 bool
 	for _, d := range rs[0].Diagnostics {
-		w0601 = w0601 || d.Code == "W0601"
 		w0602 = w0602 || d.Code == "W0602"
-	}
-	if !w0601 {
-		t.Errorf("no W0601 for the Foo_Bar/FooBar verbatim collision: %v", rs[0].Diagnostics)
 	}
 	if !w0602 {
 		t.Errorf("no W0602 for the TestX eviction: %v", rs[0].Diagnostics)
@@ -599,9 +595,71 @@ func TestCompileFilesEmitNameCollisions(t *testing.T) {
 	if got["x"] != "TestX2" {
 		t.Errorf("test emits %q, want TestX2", got["x"])
 	}
+}
+
+// Two decls emitting one name verbatim (`Foo_Bar`/`FooBar` →
+// `FooBar`) are the error E0608: the generated package would not
+// compile, so the build withholds the whole unit's output.
+func TestCompileFilesEmitNameCollisionsVerbatimDup(t *testing.T) {
+	src := "package m\n\ntype Foo_Bar = { x: Int }\ntype FooBar = { y: Int }\n\n" +
+		"fn main () -> Unit = ()\n"
+	rs, err := build.CompileFiles(
+		[]build.Input{{Path: "pkg/a.gom", Src: []byte(src)}},
+		&build.Options{})
+	if err != nil {
+		t.Fatalf("CompileFiles: %v", err)
+	}
+	var e0608 bool
+	for _, d := range rs[0].Diagnostics {
+		e0608 = e0608 || d.Code == "E0608"
+	}
+	if !e0608 {
+		t.Errorf("no E0608 for the Foo_Bar/FooBar verbatim collision: %v", rs[0].Diagnostics)
+	}
+	if rs[0].Output != nil {
+		t.Errorf("verbatim dup still emits output — want withheld")
+	}
+	// The emit listing survives the withheld output — `gom dump
+	// -phase=emit` reads it to name the collision.
+	got := map[string]string{}
+	for _, n := range rs[0].EmitNames {
+		got[n.GomName] = n.Name
+	}
 	if got["Foo_Bar"] != "FooBar" || got["FooBar"] != "FooBar" {
-		t.Errorf("verbatim claimants emit %q and %q, want both FooBar",
-			got["Foo_Bar"], got["FooBar"])
+		t.Errorf("withheld EmitNames = %v, want both claimants listed as FooBar", got)
+	}
+}
+
+// The same verbatim collision across file boundaries fails the
+// whole package: the generated Go files share one package scope,
+// so withholding only the colliding members would emit files
+// referencing declarations that never materialized — the clean
+// sibling c.gom loses its output too.
+func TestCompileFilesEmitNameCollisionsVerbatimDupCrossFile(t *testing.T) {
+	rs, err := build.CompileFiles(
+		[]build.Input{
+			{Path: "pkg/a.gom", Src: []byte("package pkg\n\ntype Foo_Bar = { x: Int }\n")},
+			{Path: "pkg/b.gom", Src: []byte("package pkg\n\ntype FooBar = { y: Int }\n")},
+			{Path: "pkg/c.gom", Src: []byte("package pkg\n\nfn c () -> Int = 1\n")},
+		},
+		&build.Options{})
+	if err != nil {
+		t.Fatalf("CompileFiles: %v", err)
+	}
+	if len(rs) != 3 {
+		t.Fatalf("got %d results, want 3", len(rs))
+	}
+	var e0608 bool
+	for i, r := range rs {
+		for _, d := range r.Diagnostics {
+			e0608 = e0608 || d.Code == "E0608"
+		}
+		if r.Output != nil {
+			t.Errorf("result %d still emits output — unit failure withholds every member", i)
+		}
+	}
+	if !e0608 {
+		t.Errorf("no E0608 for the cross-file Foo_Bar/FooBar collision")
 	}
 }
 
@@ -700,30 +758,63 @@ func TestCompileFilesEmitNamesSiblingSum(t *testing.T) {
 	}
 }
 
-// Two colliding variants of one sum type warn W0601 exactly once —
-// the owning file reports at the variants' span; sibling files claim
-// the same struct names from UnitScope.Sums but must not emit an
-// unlocated copy.
+// Two colliding variants of one sum type report E0608 exactly
+// once — the owning file reports at the variants' span; sibling
+// files claim the same struct names from UnitScope.Sums but must
+// not emit an unlocated copy. The collision withholds every
+// member's output: the package cannot compile.
 func TestCompileFilesEmitNameCollisionsSiblingSumDup(t *testing.T) {
 	rs := compileFiles(t, map[string]string{
 		"a.gom": "package m\n\ntype T = | Some_Opt Int | SomeOpt Int\n",
 		"b.gom": "package m\n\nfn f () -> Int = 1\n",
 	})
-	var w0601 []diag.Diagnostic
+	var e0608 []diag.Diagnostic
 	for i, r := range rs {
-		if r.Diagnostics.HasError() {
-			t.Fatalf("result %d diagnostics: %v", i, r.Diagnostics)
-		}
 		for _, d := range r.Diagnostics {
-			if d.Code == "W0601" {
-				w0601 = append(w0601, d)
+			if d.Code == "E0608" {
+				e0608 = append(e0608, d)
 			}
 		}
+		if r.Output != nil {
+			t.Errorf("result %d still emits output — want withheld", i)
+		}
 	}
-	if len(w0601) != 1 {
-		t.Fatalf("W0601 count = %d, want 1: %v", len(w0601), w0601)
+	if len(e0608) != 1 {
+		t.Fatalf("E0608 count = %d, want 1: %v", len(e0608), e0608)
 	}
-	if w0601[0].Span.File != "pkg/a.gom" {
-		t.Errorf("W0601 span file = %q, want pkg/a.gom", w0601[0].Span.File)
+	if e0608[0].Span.File != "pkg/a.gom" {
+		t.Errorf("E0608 span file = %q, want pkg/a.gom", e0608[0].Span.File)
+	}
+}
+
+// A verbatim collision across member files reports at each file's
+// own decl: a.gom's `Foo_Bar` and b.gom's `FooBar` each claim
+// `FooBar` verbatim, so each codegen run sees a local claimant and
+// reports E0608 — sibling↔sibling suppression only silences
+// uninvolved third files, never the pair itself.
+func TestCompileFilesEmitNameCollisionsCrossFile(t *testing.T) {
+	rs := compileFiles(t, map[string]string{
+		"a.gom": "package m\n\ntype Foo_Bar = { x: Int }\n",
+		"b.gom": "package m\n\ntype FooBar = { y: Int }\n",
+		"c.gom": "package m\n\nfn f () -> Int = 1\n",
+	})
+	byFile := map[string]int{}
+	for _, r := range rs {
+		for _, d := range r.Diagnostics {
+			if d.Code == "E0608" {
+				byFile[d.Span.File]++
+			}
+		}
+		if r.Output != nil {
+			t.Errorf("result still emits output — want withheld")
+		}
+	}
+	for _, f := range []string{"pkg/a.gom", "pkg/b.gom"} {
+		if byFile[f] != 1 {
+			t.Errorf("E0608 at %s = %d, want 1: %v", f, byFile[f], byFile)
+		}
+	}
+	if byFile["pkg/c.gom"] != 0 {
+		t.Errorf("uninvolved file reports E0608: %v", byFile)
 	}
 }

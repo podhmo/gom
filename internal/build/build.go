@@ -107,6 +107,11 @@ type Result struct {
 	// Output is the generated Go source (nil when the run did not
 	// reach codegen).
 	Output *codegen.Output
+	// EmitNames is the emitted package-scope name listing codegen
+	// produced — kept on the result even when Output is withheld
+	// (an emit error like E0608), so `gom dump -phase=emit` still
+	// reports the names behind a collision.
+	EmitNames []codegen.EmitName
 
 	// Cached marks a result synthesized by the driver's incremental
 	// build cache (cmd/gom): the package's manifest still held, so
@@ -254,10 +259,18 @@ func Compile(in Input, opts *Options) (*Result, error) {
 	if err != nil {
 		return r, err
 	}
-	// Emitted-name collision warnings attach to the output, not
-	// the pipeline's error path — the decls are valid Gom.
+	// Emitted-name collision diagnostics attach to the output, not
+	// the pipeline's error path — but a verbatim double-claim
+	// (E0608) means the generated package cannot compile, so an
+	// emit error withholds the output like any other failure. The
+	// name listing survives on EmitNames either way: the withheld
+	// output is exactly where `gom dump -phase=emit` looks for the
+	// names behind the collision.
 	r.Diagnostics = append(r.Diagnostics, out.Diags...)
-	r.Output = out
+	r.EmitNames = out.EmitNames
+	if !diag.List(out.Diags).HasError() {
+		r.Output = out
+	}
 	return r, nil
 }
 
@@ -512,7 +525,7 @@ func CompileFiles(ins []Input, opts *Options) ([]*Result, error) {
 		if err != nil {
 			return nil, err
 		}
-		// Emit warnings are unit-level: every member file's codegen
+		// Emit diagnostics are unit-level: every member file's codegen
 		// claims the same package-scope names, so a sibling decl's
 		// eviction is reported identically by each member — keep
 		// only the first copy of each (code, span, message).
@@ -524,6 +537,13 @@ func CompileFiles(ins []Input, opts *Options) ([]*Result, error) {
 			seenEmit[k] = true
 			r.Diagnostics = append(r.Diagnostics, d)
 		}
+		// An emit error (E0608's verbatim double-claim) means the
+		// generated package cannot compile — withhold every member
+		// output like any other unit-level failure. The name listing
+		// survives on EmitNames either way: `gom dump -phase=emit`
+		// still reports the names behind a withheld collision.
+		unitFailed = unitFailed || diag.List(out.Diags).HasError()
+		r.EmitNames = out.EmitNames
 		r.Output = out
 	}
 	// Package initialization is a property of the unit, not of one

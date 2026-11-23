@@ -2,11 +2,11 @@
   "diagnostics": [
     {
       "kind": "diagnostic",
-      "code": "W0601",
-      "severity": "warning",
+      "code": "E0608",
+      "severity": "error",
       "message": "generated Go name \"T_SomeOpt\" is emitted by both \"T.Some_Opt\" and \"T.SomeOpt\"",
       "span": {
-        "file": "W0601_variant_struct_dup.gom",
+        "file": "E0608_variant_struct_dup.gom",
         "start": {
           "line": 8,
           "col": 5,

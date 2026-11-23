@@ -2,20 +2,20 @@
   "diagnostics": [
     {
       "kind": "diagnostic",
-      "code": "W0601",
-      "severity": "warning",
+      "code": "E0608",
+      "severity": "error",
       "message": "generated Go name \"FooBar\" is emitted by both \"Foo_Bar\" and \"FooBar\"",
       "span": {
-        "file": "W0601_type_name_dup.gom",
+        "file": "E0608_type_name_dup.gom",
         "start": {
           "line": 7,
           "col": 1,
-          "offset": 233
+          "offset": 254
         },
         "end": {
           "line": 7,
           "col": 25,
-          "offset": 257
+          "offset": 278
         }
       },
       "data": {

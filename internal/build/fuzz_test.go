@@ -119,24 +119,13 @@ var knownCompileBugs = map[[32]byte]fuzzutil.KnownBug{
 	// reordering saturated calls and eta-expanding non-prefix fills
 	// into a Closure (issue #11). The corpus file runs live as a
 	// regression seed.)
-	// Two verbatim claimants of one emitted name — `type Foo_Bar` +
+	// (Two verbatim claimants of one emitted name — `type Foo_Bar` +
 	// `type FooBar` both emitting `type FooBar`, and variant structs
-	// (`| Some_Opt | SomeOpt` → `T_SomeOpt` ×2) — emit a package
-	// that does not compile. wave35 lane C surfaces the collision as
-	// W0601 (`type FooBar` ×2) but codegen still emits both decls:
-	// what to emit for the loser is undecided, so the seeds live in
-	// testdata/spec as the warning's fixtures and stay registered
-	// here until the fix lands (TODO "emit 名の verbatim 二重請求").
-	fuzzutil.Sum256Hex("b0500ee160380a821cf68d3e1b7d741660d8ddaa1c254c3343e2ca568e0a8da0"): {
-		Match: []string{"fails to typecheck", "redeclared in this block"},
-		TODO:  "emit 名の verbatim 二重請求",
-		Desc:  "type Foo_Bar + type FooBar — verbatim double claim emits two `type FooBar`",
-	},
-	fuzzutil.Sum256Hex("c39766d64bc83c3888576ca8414418b5eac8c51968435fd5389312d95c6c66ce"): {
-		Match: []string{"fails to typecheck", "redeclared in this block"},
-		TODO:  "emit 名の verbatim 二重請求",
-		Desc:  "T variants Some_Opt + SomeOpt — verbatim double claim emits two `type T_SomeOpt`",
-	},
+	// (`| Some_Opt | SomeOpt` → `T_SomeOpt` ×2) — are fixed in
+	// wave36 lane A: the emit ledger reports E0608 as an error and
+	// the build withholds the uncompilable package, so the seeds
+	// now exercise the "rejected is fine" path.
+	// testdata/spec/E0608_* pins the diagnostics.)
 }
 
 // fuzzGoPkgs bounds which `import go` paths the loader will resolve
