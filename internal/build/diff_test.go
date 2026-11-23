@@ -629,6 +629,17 @@ func evalDiff(t *testing.T, r *build.Result, sources ...string) (o diffOutcome) 
 	capture := &diffCapture{out: &out}
 	defer func() {
 		if rec := recover(); rec != nil {
+			// A run a stub already poisoned must not mask that
+			// poisoning behind an evaluator-crash class: the
+			// unfaithful flag poisons every outcome, so the crash
+			// downgrades to unsupported rather than a false
+			// dInternal divergence (e.g. a Scope.run body panicking
+			// inside a generated tuple binding).
+			if capture.unfaithful {
+				o = diffOutcome{class: dUnsupported, stdout: out.String(),
+					detail: "a Go call observed a value the harness cannot render faithfully"}
+				return
+			}
 			o = diffOutcome{class: dInternal, stdout: out.String(),
 				detail: fmt.Sprintf("evaluator panicked: %v", rec)}
 		}
@@ -1212,15 +1223,18 @@ func scopeDiffStub(name string, ev *eval.Evaluator, capture *diffCapture) (func(
 		return func(args []eval.Value) (eval.Value, error) {
 			if len(args) < 1 {
 				capture.unfaithful = true
-				return nil, nil
+				return &eval.VUnit{}, nil
 			}
 			s := &diffScope{}
 			v := apply(args[0], &eval.VHost{V: s})
 			if v == nil {
-				return nil, nil
+				// The run is already poisoned — hand back a benign
+				// value, not nil, so a generated binding never
+				// dereferences a nil result.
+				return &eval.VUnit{}, nil
 			}
 			if _, ok := closeScope(s, false); !ok {
-				return nil, nil
+				return &eval.VUnit{}, nil
 			}
 			return v, nil // rt.ScopeRun drops cleanup errors
 		}, true
@@ -1234,17 +1248,17 @@ func scopeDiffStub(name string, ev *eval.Evaluator, capture *diffCapture) (func(
 		return func(args []eval.Value) (eval.Value, error) {
 			if len(args) < 1 {
 				capture.unfaithful = true
-				return nil, nil
+				return &eval.VUnit{}, nil
 			}
 			s := &diffScope{}
 			v := apply(args[0], &eval.VHost{V: s})
 			if v == nil {
-				return nil, nil
+				return &eval.VUnit{}, nil
 			}
 			failed := isErr(v)
 			errs, ok := closeScope(s, failed)
 			if !ok {
-				return nil, nil
+				return &eval.VUnit{}, nil
 			}
 			// The body's own error wins over cleanup errors; a clean
 			// body is replaced by the joined cleanup failure.
