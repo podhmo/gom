@@ -42,9 +42,9 @@ let f = fill_later "mallory"
 let t = Transfer ~amount: 5 ~to: "bob"
 let g = describe t
 
-// Type equality compares a run of labeled parameters in declared
-// order (spec section 2.1) — `~a -> ~b` and `~b -> ~a` are different
-// types since the generated Go call is positional.
+// Labeled parameters pair by name inside a run — the produced type
+// keeps the declared order, which the positional Go ABI requires
+// (spec section 2.1; reversed runs are E0401).
 fn add2 (~a: Int) (~b: Int) -> Int = a + b
-fn apply_it (f: (~a: Int -> ~b: Int -> Int)) -> Int = f ~a: 1 ~b: 2
+fn apply_it (f: (~a: Int -> ~b: Int -> Int)) -> Int = f ~b: 2 ~a: 1
 let h = apply_it add2
