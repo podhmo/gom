@@ -18,9 +18,12 @@ wave37 lane B（[prompts](../sketch/2026-11-23-wave37-prompts.md)）。出典は
 - `&&`/`||` は論理演算 — Go 式の `&`/`|` を論理と同じ字面で混ぜると
   Bool 演算と整数演算の区別が読み取りにくい
 - 前置 `~` は labeled 引数 `~x:` が占有 — `^x` 相当の単項 NOT は別名が要る
-- 被演算子は整数全般（`Int`/`Int32`/`Int64`/`Char` と `fs.FileMode` 等の
-  named Go 整数型）— `intg` 制約（`%` と同じ機構）で `namedIntegral` を
-  通すので専用の型名指定は不要
+- 被演算子は `intg` 制約（`%` と同じ機構）の届く範囲: builtin の
+  `Int`/`Int32`/`Int64` と `fs.FileMode` 等の named Go 整数型
+  （`namedIntegral`）— 専用の型名指定は不要。**builtin `Char`/`Byte`
+  は `intg` に含まれない**（`isIntegral` は `Int`/`Int32`/`Int64`
+  のみ）— `Byte` のマスク操作は需要が出たら `intg` を拡張するか
+  bit 専用制約を足す。本草案では対象外とする
 
 ## 決定（案 B を推薦）
 
@@ -38,11 +41,13 @@ Elixir / F# と同じ三重字演算子を中置に追加する:
 - どれも既存トークンと衝突しない新規トークン。`a ||| b` は現状必ず
   lex error か意味不明なので greedy lex で退行しない（`a ||` の後に
   `|` 開始の式は来られない。`<<<`/`>>>` も同様）
-- 被演算子は `intg` 制約（整数型に限定、named Go 整数型を含む）。
-  結果型は被演算子型 — `%` の `checkArith` と同じ経路で実装できる
+- 結果型は被演算子型 — `%` の `checkArith` と同じ経路で実装できる
 - 単項 bit-NOT は持たない（`~` は labeled 引数が占有）。`x ^^^ -1`
-  で代替可能（二の補数で `^x` と同値）。必要なら `Int.bnot` を
-  後で足せる
+  は `Int`/`Int32`/`Int64` では `^x` と同値だが、**unsigned な
+  named 型（`fs.FileMode` 等）では `-1` が literal range check
+  （`[0, 2^bits)`）で弾かれて使えない**。その系統では「ビットを
+  落とす」形 `y &&^ x` が実用の代替。`Int.bnot` 級の builtin は
+  必要が見えたら後で足す
 
 ## 検討した他案
 
@@ -63,7 +68,11 @@ Elixir / F# と同じ三重字演算子を中置に追加する:
   `&&&`→`&&`、`<<<`→`<<`、`|||`→`||` の先に判定）
 - parser: mul-expr 段に `&&&`/`&&^`/`<<<`/`>>>`、add-expr 段に
   `|||`/`^^^` を `syntax.BinOp` として追加。grammar.ebnf 優先度表も同期
+- format: `precOf`（internal/format/print.go）の BinOp switch に
+  新演算子を同じ優先度で追加 — 未登録は `panic("unreachable")` になる
 - check: `checkArith` に `intg` 制約で追加（`BinMod` と同じ経路）
+- core: `validate.go` の Binary operator allowlist に新演算子を追加
+  — lower が Go emit 前に Core 検証を走らせ、未登録は invalid operator で落ちる
 - codegen: `binOp` に `&`/`&^`/`|`/`^`/`<<`/`>>` の対応を追加
 - spec: §1.5 の演算子一覧と優先度を更新（problem が指摘する通り
   演算子表自体が無い — 既存演算子も含めた表を足すのが自然）
