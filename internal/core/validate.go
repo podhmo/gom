@@ -1174,15 +1174,15 @@ func (v *validator) expr(e Expr, inTail bool) {
 		}
 	case *OptionFromGo:
 		v.wrapCall(e, e.Call, "OptionFromGo", GoResultsOK, GoResultsNil)
+		if !v.conIs(e.Typ, "", "Option", 1) && e.Typ != nil {
+			v.err(e.Sp, "OptionFromGo", "type %s is not an Option", e.Typ)
+		}
 	case *TryAs:
 		if !v.conIs(e.Typ, "", "Option", 1) && e.Typ != nil {
 			v.err(e.Sp, "TryAs", "type %s is not an Option", e.Typ)
 		}
 		if e.Target == nil {
 			v.err(e.Sp, "TryAs", "missing assertion target type")
-		}
-		if !v.conIs(e.Typ, "", "Option", 1) && e.Typ != nil {
-			v.err(e.Sp, "OptionFromGo", "type %s is not an Option", e.Typ)
 		}
 	case *TupleFromGo:
 		v.wrapCall(e, e.Call, "TupleFromGo", GoResultsOK, GoResultsPair, GoResultsNary)
