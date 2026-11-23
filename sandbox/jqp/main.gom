@@ -1,0 +1,132 @@
+// jqp — jq もどき。`.users[0].name` 形のパスで JSON の値を取り出す。
+//   jqp PATH [FILE]    FILE なしなら stdin
+package main
+
+import go "encoding/json"
+import go "errors"
+import go "fmt"
+import go "io"
+import go "os"
+import go "strconv"
+import go "strings"
+
+type Step =
+  | Field String
+  | Index Int
+
+fn program_args () -> List String = match Go.Slice.to_list os.Args {
+  [] -> []
+  [_, ..args] -> args
+}
+
+// "a[0][1]" -> [Field "a", Index 0, Index 1]
+fn index_steps (parts: List String) (acc: List Step) -> Result (List Step) String = match parts {
+  [] -> Ok (List.rev acc)
+  [p, ..rest] -> {
+    let num = strings.TrimSuffix (p, "]")
+    match strconv.Atoi num {
+      Ok n -> index_steps rest [Index n, ..acc]
+      Err _ -> Err "bad index segment: [${p}"
+    }
+  }
+}
+
+fn parse_path (path: String) -> Result (List Step) String = {
+  let body = strings.TrimPrefix (path, ".")
+  let segs = Go.Slice.to_list (strings.Split (body, "."))
+  fold_segments segs []
+}
+
+fn fold_segments (segs: List String) (acc: List Step) -> Result (List Step) String = match segs {
+  [] -> Ok (List.rev acc)
+  [seg, ..rest] -> {
+    let parts = Go.Slice.to_list (strings.Split (seg, "["))
+    match parts {
+      [] -> Err "empty path segment"
+      [name, ..idxs] -> {
+        let acc = if name == "" { acc } else { [Field name, ..acc] }
+        match index_steps idxs [] {
+          Ok is -> fold_segments rest (List.rev_append is acc)
+          Err e -> Err e
+        }
+      }
+    }
+  }
+}
+
+fn get_field (raw: json.RawMessage) (key: String) -> Result json.RawMessage String = {
+  let m: Ptr (Go.Map String json.RawMessage) = Ptr.new ()
+  match json.Unmarshal (Go.conv raw : Go.Slice Byte, m) {
+    Err _ -> Err "not an object"
+    Ok _ -> match Go.Map.get (Ptr.get m) key {
+      None -> Err "no such field: ${key}"
+      Some v -> Ok v
+    }
+  }
+}
+
+fn get_index (raw: json.RawMessage) (i: Int) -> Result json.RawMessage String = {
+  let xs: Ptr (List json.RawMessage) = Ptr.new ()
+  match json.Unmarshal (Go.conv raw : Go.Slice Byte, xs) {
+    Err _ -> Err "not an array"
+    Ok _ -> match List.get i (Ptr.get xs) {
+      None -> Err "index out of range"
+      Some v -> Ok v
+    }
+  }
+}
+
+fn walk (raw: json.RawMessage) (steps: List Step) -> Result json.RawMessage String = match steps {
+  [] -> Ok raw
+  [s, ..rest] -> {
+    let next = match s {
+      Field k -> get_field raw k
+      Index i -> get_index raw i
+    }
+    match next {
+      Ok v -> walk v rest
+      Err e -> Err e
+    }
+  }
+}
+
+fn run (path: String) (file: Option String) -> Result String String = {
+  let data = match (match file {
+    None -> io.ReadAll os.Stdin
+    Some p -> os.ReadFile p
+  }) {
+    Ok d -> d
+    Err e -> try Err (e.Error ())
+  }
+  match parse_path path {
+    Err e -> Err e
+    Ok steps -> {
+      let doc: Ptr json.RawMessage = Ptr.new ()
+      match json.Unmarshal (Go.conv data : Go.Slice Byte, doc) {
+        Err e -> Err "invalid JSON: ${e.Error ()}"
+        Ok _ -> match walk (Ptr.get doc) steps {
+          Ok v -> Ok (Go.conv v : String)
+          Err e -> Err e
+        }
+      }
+    }
+  }
+}
+
+fn die (code: Int) (msg: String) -> Unit = {
+  ignore fmt.Fprintln (os.Stderr, "jqp: ${msg}")
+  ignore os.Exit code
+  ()
+}
+
+fn main () -> Unit = match program_args () {
+  [path] -> match run path None {
+    Ok s -> ignore (fmt.Println s)
+    Err e -> die 1 e
+  }
+  [path, file] -> match run path (Some file) {
+    Ok s -> ignore (fmt.Println s)
+    Err e -> die 1 e
+  }
+  _ -> die 2 "usage: jqp PATH [FILE]"
+}

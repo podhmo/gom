@@ -1,0 +1,86 @@
+// jot — タイムスタンプ付きメモを jot.log に追記する。
+//   jot 牛乳を買う      -> 追記
+//   jot -l             -> 全件表示
+//   jot -l 10          -> 最新10件表示
+// 保存先は環境変数 JOT_FILE、なければ ./jot.log
+package main
+
+import go "fmt"
+import go "os"
+import go "strconv"
+import go "strings"
+import go "time"
+
+fn jot_path () -> String = match os.Getenv "JOT_FILE" {
+  "" -> "jot.log"
+  p -> p
+}
+
+fn program_args () -> List String = match Go.Slice.to_list os.Args {
+  [] -> []
+  [_, ..args] -> args
+}
+
+// 追記。O_* フラグは互いに素なビットなので | の代わりに + で合成する
+// （gom にビット演算子はない）。
+fn append_note (msg: String) -> Result Unit GoError = {
+  let f = try (os.OpenFile (jot_path (), os.O_APPEND + os.O_CREATE + os.O_WRONLY, 420))
+  let now = time.Now ()
+  let ts = now.Format time.RFC3339
+  ignore (try (fmt.Fprintf (f, "%s %s\n", ts, msg)))
+  try f.Close ()
+  Ok ()
+}
+
+// List に take/drop はないので自前で。
+fn take (n: Int) (xs: List String) -> List String = match xs {
+  [] -> []
+  [x, ..rest] -> if n <= 0 { [] } else { [x, ..take (n - 1) rest] }
+}
+
+fn last_n (n: Int) (xs: List String) -> List String =
+  List.rev (take n (List.rev xs))
+
+fn show_log (n: Option Int) -> Result Unit GoError = {
+  let data = try (os.ReadFile (jot_path ()))
+  let lines = Go.Slice.to_list (strings.Split (Go.conv data : String, "\n"))
+  // 末尾改行由来の空要素を落とす
+  let lines = match List.rev lines {
+    ["", ..rest] -> List.rev rest
+    _ -> lines
+  }
+  let shown = match n { None -> lines; Some k -> last_n k lines }
+  for line in shown {
+    ignore (fmt.Println line)
+    ()
+  }
+  Ok ()
+}
+
+fn die (code: Int) (msg: String) -> Unit = {
+  ignore fmt.Fprintln (os.Stderr, "jot: ${msg}")
+  ignore os.Exit code
+  ()
+}
+
+fn main () -> Unit = match program_args () {
+  [] -> die 2 "usage: jot [-l [N]] TEXT..."
+  ["-l"] -> match show_log None {
+    Ok _ -> ()
+    Err e -> die 1 (e.Error ())
+  }
+  ["-l", n] -> match strconv.Atoi n {
+    Ok k -> match show_log (Some k) {
+      Ok _ -> ()
+      Err e -> die 1 (e.Error ())
+    }
+    Err _ -> die 2 "jot -l expects a number"
+  }
+  words -> {
+    let msg = strings.Join (words, " ")
+    match append_note msg {
+      Ok _ -> ()
+      Err e -> die 1 (e.Error ())
+    }
+  }
+}

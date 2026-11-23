@@ -1,0 +1,100 @@
+// wcl — wc(1) もどき。行数・単語数・バイト数を数える。
+//   wcl [-l] [-w] [-c] [FILE...]   （FILE なしなら stdin）
+package main
+
+import go "errors"
+import go "fmt"
+import go "io"
+import go "os"
+import go "strings"
+
+type Counts = { lines: Int, words: Int, bytes: Int }
+
+type Flags = {
+  show_lines: Bool,
+  show_words: Bool,
+  show_bytes: Bool,
+}
+
+type Args =
+  | HelpA
+  | RunA Flags (List String)
+
+// `strings.Split` は要素数 = 改行数 + 1 なので、行数は length - 1。
+// 末尾改行があってもなくても wc -l の数え方（改行文字の個数）と一致する。
+fn count_data (data: List Byte) -> Counts = {
+  let text = Go.conv data : String
+  let lines = Go.Slice.to_list (strings.Split (text, "\n"))
+  let words = List.fold (fn acc l -> acc + List.length (Go.Slice.to_list (strings.Fields l))) 0 lines
+  { lines = List.length lines - 1, words = words, bytes = List.length data }
+}
+
+fn parse (args: List String) -> Result Args String =
+  parse_loop args { show_lines = false, show_words = false, show_bytes = false } []
+
+fn parse_loop (args: List String) (f: Flags) (files: List String) -> Result Args String = match args {
+  [] -> Ok (RunA (defaults f) (List.rev files))
+  ["-h", .._] -> Ok HelpA
+  ["--help", .._] -> Ok HelpA
+  ["-l", ..rest] -> parse_loop rest { f with show_lines = true } files
+  ["-w", ..rest] -> parse_loop rest { f with show_words = true } files
+  ["-c", ..rest] -> parse_loop rest { f with show_bytes = true } files
+  ["--", ..rest] -> parse_loop rest f (List.rev_append rest files)
+  [a, ..rest] -> if strings.HasPrefix (a, "-") { Err "unknown option: ${a}" } else {
+    parse_loop rest f [a, ..files]
+  }
+}
+
+fn defaults (f: Flags) -> Flags =
+  if f.show_lines || f.show_words || f.show_bytes { f } else {
+    { show_lines = true, show_words = true, show_bytes = true }
+  }
+
+fn render (f: Flags) (name: String) (c: Counts) -> String = {
+  let parts = []
+  let parts = if f.show_lines { [fmt.Sprintf "%7d" c.lines, ..parts] } else { parts }
+  let parts = if f.show_words { [fmt.Sprintf "%7d" c.words, ..parts] } else { parts }
+  let parts = if f.show_bytes { [fmt.Sprintf "%7d" c.bytes, ..parts] } else { parts }
+  let body = strings.Join (List.rev parts, " ")
+  if name == "" { body } else { "${body} ${name}" }
+}
+
+fn read_input (path: Option String) -> Result (List Byte) GoError = match path {
+  None -> io.ReadAll os.Stdin
+  Some p -> os.ReadFile p
+}
+
+fn run_one (f: Flags) (path: Option String) -> Result Unit GoError = {
+  let data = try read_input path
+  let name = match path { None -> ""; Some p -> p }
+  ignore fmt.Println (render f name (count_data data))
+  Ok ()
+}
+
+fn run (f: Flags) (files: List String) -> Result Unit GoError = match files {
+  [] -> run_one f None
+  [p, ..rest] -> match run_one f (Some p) {
+    Ok _ -> run f rest
+    Err e -> Err e
+  }
+}
+
+fn program_args () -> List String = match Go.Slice.to_list os.Args {
+  [] -> []
+  [_, ..args] -> args
+}
+
+fn die (code: Int) (msg: String) -> Unit = {
+  ignore fmt.Fprintln (os.Stderr, "wcl: ${msg}")
+  ignore os.Exit code
+  ()
+}
+
+fn main () -> Unit = match parse (program_args ()) {
+  Ok (HelpA) -> ignore (fmt.Println "usage: wcl [-lwc] [FILE...]")
+  Ok (RunA f files) -> match run f files {
+    Ok _ -> ()
+    Err e -> die 1 (e.Error ())
+  }
+  Err msg -> die 2 msg
+}

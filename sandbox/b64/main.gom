@@ -1,0 +1,57 @@
+// b64 — base64 エンコード/デコード。
+//   b64           stdin -> エンコードして stdout
+//   b64 -d        stdin -> デコードして stdout
+//   b64 FILE      ファイルをエンコード
+package main
+
+import go "encoding/base64"
+import go "fmt"
+import go "io"
+import go "os"
+
+fn read_all (path: Option String) -> Result (List Byte) GoError = match path {
+  None -> io.ReadAll os.Stdin
+  Some p -> os.ReadFile p
+}
+
+fn program_args () -> List String = match Go.Slice.to_list os.Args {
+  [] -> []
+  [_, ..args] -> args
+}
+
+fn die (msg: String) -> Unit = {
+  ignore fmt.Fprintln (os.Stderr, "b64: ${msg}")
+  ignore os.Exit 1
+  ()
+}
+
+fn run (decode: Bool) (path: Option String) -> Result Unit GoError = {
+  let data = try read_all path
+  let out = if decode {
+    try (base64.StdEncoding.DecodeString (Go.conv data : String))
+  } else {
+    Go.conv (base64.StdEncoding.EncodeToString data) : List Byte
+  }
+  ignore os.Stdout.Write out
+  Ok ()
+}
+
+fn main () -> Unit = match program_args () {
+  [] -> match run false None {
+    Ok _ -> ()
+    Err e -> die (e.Error ())
+  }
+  ["-d"] -> match run true None {
+    Ok _ -> ()
+    Err e -> die (e.Error ())
+  }
+  [path] -> match run false (Some path) {
+    Ok _ -> ()
+    Err e -> die (e.Error ())
+  }
+  _ -> {
+    ignore fmt.Fprintln (os.Stderr, "usage: b64 [-d] [FILE]")
+    ignore os.Exit 2
+    ()
+  }
+}

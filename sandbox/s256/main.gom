@@ -1,0 +1,46 @@
+// s256 — sha256sum クローン。
+//   s256 FILE...    -> "<hex>  FILE" 形式で出力
+package main
+
+import go "crypto/sha256"
+import go "fmt"
+import go "io"
+import go "os"
+
+fn program_args () -> List String = match Go.Slice.to_list os.Args {
+  [] -> []
+  [_, ..args] -> args
+}
+
+fn hash_file (path: String) -> Result Unit GoError = {
+  let f = try (os.Open path)
+  let h = sha256.New ()
+  ignore (try (io.Copy (h, f)))
+  try f.Close ()
+  let sum = h.Sum []
+  ignore fmt.Printf "%x  %s\n" sum path
+  Ok ()
+}
+
+fn run (paths: List String) -> Int = match paths {
+  [] -> 0
+  [p, ..rest] -> match hash_file p {
+    Ok _ -> run rest
+    Err e -> {
+      ignore fmt.Fprintln (os.Stderr, "s256: ${p}: ${e.Error ()}")
+      1
+    }
+  }
+}
+
+fn main () -> Unit = match program_args () {
+  [] -> {
+    ignore fmt.Fprintln (os.Stderr, "usage: s256 FILE...")
+    ignore os.Exit 2
+    ()
+  }
+  paths -> {
+    let code = run paths
+    if code == 0 { () } else { ignore (os.Exit code); () }
+  }
+}

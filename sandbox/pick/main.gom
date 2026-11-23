@@ -1,0 +1,96 @@
+// pick — substring で行を絞る簡易 grep。
+//   pick [-v] [-n] SUBSTR [FILE]    FILE なしなら stdin
+//   -v  反転（含まない行） / -n 行番号付き
+package main
+
+import go "errors"
+import go "fmt"
+import go "io"
+import go "os"
+import go "strings"
+import go "unicode/utf8"
+
+type Opts = {
+  pattern: String,
+  invert: Bool,
+  number: Bool,
+  path: Option String,
+}
+
+fn program_args () -> List String = match Go.Slice.to_list os.Args {
+  [] -> []
+  [_, ..args] -> args
+}
+
+fn parse (args: List String) -> Result Opts String =
+  parse_loop args { pattern = "", invert = false, number = false, path = None }
+
+fn parse_loop (args: List String) (o: Opts) -> Result Opts String = match args {
+  [] -> if o.pattern == "" { Err "missing pattern" } else { Ok o }
+  ["-v", ..rest] -> parse_loop rest { o with invert = true }
+  ["-n", ..rest] -> parse_loop rest { o with number = true }
+  [a, ..rest] -> if strings.HasPrefix (a, "-") { Err "unknown option: ${a}" } else {
+    if o.pattern == "" {
+      parse_loop rest { o with pattern = a }
+    } else {
+      match o.path {
+        None -> parse_loop rest { o with path = Some a }
+        Some _ -> Err "too many arguments"
+      }
+    }
+  }
+}
+
+// `strings.Split` の末尾 "" を落とす（rgrep と同じ作法）。
+fn logical_lines (text: String) -> List String = {
+  let lines = Go.Slice.to_list (strings.Split (text, "\n"))
+  match List.rev lines {
+    [last, ..rest] -> if last == "" { List.rev rest } else { lines }
+    [] -> lines
+  }
+}
+
+fn emit (o: Opts) (n: Int) (line: String) -> Unit =
+  if o.number {
+    ignore (fmt.Printf "%d:%s\n" n line)
+    ()
+  } else {
+    ignore (fmt.Println line)
+    ()
+  }
+
+fn pick_lines (o: Opts) (n: Int) (lines: List String) -> Unit = match lines {
+  [] -> ()
+  [line, ..rest] -> {
+    let hit = strings.Contains (line, o.pattern)
+    if hit != o.invert { emit o n line } else { () }
+    pick_lines o (n + 1) rest
+  }
+}
+
+fn run (o: Opts) -> Result Unit GoError = {
+  let data = try (match o.path {
+    None -> io.ReadAll os.Stdin
+    Some p -> os.ReadFile p
+  })
+  if utf8.Valid data {
+    pick_lines o 1 (logical_lines (Go.conv data : String))
+    Ok ()
+  } else { Err (errors.New "binary input") }
+}
+
+fn main () -> Unit = match parse (program_args ()) {
+  Ok o -> match run o {
+    Ok _ -> ()
+    Err e -> {
+      ignore fmt.Fprintln (os.Stderr, "pick: ${e.Error ()}")
+      ignore os.Exit 1
+      ()
+    }
+  }
+  Err msg -> {
+    ignore fmt.Fprintln (os.Stderr, "pick: ${msg}\nusage: pick [-v] [-n] SUBSTR [FILE]")
+    ignore os.Exit 2
+    ()
+  }
+}
