@@ -1,0 +1,16 @@
+package ex
+
+// spec section 6.1 — a record-field read produces only the read
+// field's products: `r.f` carries `other`'s producers, not the
+// products `cb`'s call result put in `g`, so the scope-capturing
+// argument at the second position is accepted.
+type Box = { f : Unit -> Unit, g : Unit -> Unit }
+
+fn wrap (other: Unit -> Unit) (cb: Unit -> (Unit -> Unit)) -> (Unit -> Unit) = {
+    let r = { f = other, g = cb () }
+    r.f
+}
+
+fn ok (held: Ref Int) -> Unit -> Unit =
+    Scope.run <| fn s ->
+        wrap (fn () -> ()) (fn () -> fn () -> Scope.defer s (fn () -> Ref.set held 0))

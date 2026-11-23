@@ -850,8 +850,41 @@ func (c *checker) resultProducers(e Expr) map[*resolve.Symbol]bool {
 		case *MemberExpr:
 			add(e.Sym)
 			// `r.f` produces the field's value — which rides the
-			// products of whatever built `r`.
-			rec(e.Recv)
+			// products of whatever built `r`. When `r` resolves to a
+			// record literal through its let bindings, select only
+			// the read field's products: the other fields'
+			// producers never reach `r.f`.
+			recv := e.Recv
+			for {
+				v, ok := unascribe(recv).(*Var)
+				if !ok {
+					break
+				}
+				bound, ok := lets[v.Sym]
+				if !ok {
+					break
+				}
+				recv = bound
+			}
+			if lit, ok := unascribe(recv).(*RecordLit); ok {
+				selected := false
+				for _, f := range lit.Fields {
+					if f.Name == e.Sel.Name {
+						rec(f.Value)
+						selected = true
+						break
+					}
+				}
+				if !selected && lit.With != nil {
+					// The field comes from the `with` base — its
+					// products carry every field the base holds.
+					rec(lit.With)
+				} else if !selected {
+					rec(e.Recv)
+				}
+			} else {
+				rec(e.Recv)
+			}
 		case *Lambda:
 			for s := range capturedVars(e.Body, lamBound(e)) {
 				if v, ok := lets[s]; ok {
@@ -1012,7 +1045,7 @@ func (c *checker) resultProducers(e Expr) map[*resolve.Symbol]bool {
 			// is tracked where the try's value is used, not here.
 			if con, ok := types.Chase(e.X.Type()).(*types.Con); ok &&
 				con.Name == "Result" && len(con.Args) == 2 {
-				if mayCarryFn(con.Args[1]) {
+				if c.mayCarryFn(con.Args[1]) {
 					rec(e.X)
 				}
 			} else {
@@ -1115,19 +1148,68 @@ func (c *checker) resultProducers(e Expr) map[*resolve.Symbol]bool {
 // and so could carry a captured Scope. Concrete containers that
 // cannot (String, Int, records of scalars) answer false; a type
 // variable or unsolved meta answers true — the conservative read.
-func mayCarryFn(t types.Type) bool {
+// A declared nominal type is expanded through tyCons: a sum whose
+// variant payload holds a function can carry one.
+func (c *checker) mayCarryFn(t types.Type) bool {
+	return c.mayCarryFnIn(t, map[conKey]bool{})
+}
+
+func (c *checker) mayCarryFnIn(t types.Type, seen map[conKey]bool) bool {
 	switch t := types.Chase(t).(type) {
 	case *types.Func, *types.Var, *types.Meta:
 		return true
 	case *types.Con:
 		for _, a := range t.Args {
-			if mayCarryFn(a) {
+			if c.mayCarryFnIn(a, seen) {
 				return true
 			}
 		}
+		key := conKey{qual: t.Qual, name: t.Name}
+		ti, ok := c.tyCons[key]
+		if !ok || ti == nil {
+			// A builtin (qual "") has no declared payload slots;
+			// an imported nominal type cannot be inspected —
+			// conservative.
+			return t.Qual != ""
+		}
+		if seen[key] {
+			return false // recursive declaration — already accounted
+		}
+		seen[key] = true
+		sub := types.Subst{}
+		for i, v := range ti.params {
+			if i < len(t.Args) {
+				sub[v.ID] = t.Args[i]
+			}
+		}
+		switch ti.kind {
+		case kindRecord:
+			for _, f := range ti.fields {
+				if c.mayCarryFnIn(sub.Apply(f.typ), seen) {
+					return true
+				}
+			}
+		case kindSum:
+			for _, v := range ti.variants {
+				for _, f := range v.fields {
+					if c.mayCarryFnIn(sub.Apply(f.typ), seen) {
+						return true
+					}
+				}
+			}
+		case kindAlias:
+			if c.mayCarryFnIn(sub.Apply(ti.alias), seen) {
+				return true
+			}
+		case kindAbstract:
+			// Hidden representation — conservative.
+			return true
+		default:
+			panic("unreachable")
+		}
 	case *types.Tuple:
 		for _, e := range t.Elems {
-			if mayCarryFn(e) {
+			if c.mayCarryFnIn(e, seen) {
 				return true
 			}
 		}
@@ -1249,7 +1331,41 @@ func (c *checker) escWalk(e Expr, danger bool, b *escapeBody, report bool) {
 			}
 		}
 	case *MemberExpr:
-		c.escWalk(e.Recv, danger, b, report)
+		// `r.f` at danger escapes only the read field's value —
+		// when `r` resolves through its let bindings to a record
+		// literal, walk that field's value at danger and leave the
+		// unselected fields quiet. A field the literal does not
+		// declare lives in the `with` base — the base escapes.
+		recv := e.Recv
+		for {
+			v, ok := unascribe(recv).(*Var)
+			if !ok {
+				break
+			}
+			bound, ok := b.lets[v.Sym]
+			if !ok {
+				break
+			}
+			recv = bound
+		}
+		if lit, ok := unascribe(recv).(*RecordLit); ok && danger {
+			c.escWalk(e.Recv, false, b, report)
+			selected := false
+			for _, f := range lit.Fields {
+				if f.Name == e.Sel.Name {
+					c.escWalk(f.Value, danger, b, report)
+					selected = true
+					break
+				}
+			}
+			if !selected && lit.With != nil {
+				c.escWalk(lit.With, danger, b, report)
+			} else if !selected {
+				c.escWalk(e.Recv, danger, b, report)
+			}
+		} else {
+			c.escWalk(e.Recv, danger, b, report)
+		}
 	case *Lambda:
 		// An escaping closure retains every variable it
 		// captured — whatever the type, so parameter inference
