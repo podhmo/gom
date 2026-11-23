@@ -65,3 +65,12 @@ func widths32(x, n int32) int32 {
 	return tmp4 << n
 //line bit_ops.gom:13
 }
+
+//line bit_ops.gom:18
+func shlWrap(_ struct{}) int64 {
+//line bit_ops.gom:18
+	tmp5 := int64(255)
+//line bit_ops.gom:18
+	return tmp5 << 60
+//line bit_ops.gom:18
+}

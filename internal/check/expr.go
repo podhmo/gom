@@ -2203,8 +2203,16 @@ func constFold(e Expr) (constant.Value, bool) {
 		if intOnly && (x.Kind() != constant.Int || y.Kind() != constant.Int) {
 			return nil, false
 		}
-		if (op == token.SHL || op == token.SHR) && constant.Sign(y) < 0 {
-			return nil, false
+		if op == token.SHL || op == token.SHR {
+			// constant.BinaryOp does not take shifts — they
+			// fold through Shift. A negative or unrepresentable
+			// count has no constant value to judge (a negative
+			// count is a runtime panic, not a folding concern).
+			s, exact := constant.Int64Val(y)
+			if !exact || s < 0 {
+				return nil, false
+			}
+			return constant.Shift(x, op, uint(s)), true
 		}
 		return constant.BinaryOp(x, op, y), true
 	case *Ascribe:

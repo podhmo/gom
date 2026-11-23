@@ -2306,7 +2306,11 @@ func (l *lowerer) litFoldDiverges(op syntax.BinOp, t types.Type, x, y core.Atom)
 		}
 	case "Int", "Int32", "Int64":
 		switch op {
-		case syntax.BinAdd, syntax.BinSub, syntax.BinMul, syntax.BinDiv:
+		case syntax.BinAdd, syntax.BinSub, syntax.BinMul, syntax.BinDiv,
+			syntax.BinBitShl:
+			// A left shift can push a literal fold past the
+			// emitted type's width — Go rejects the constant
+			// where the machine operation wraps.
 			return true
 		}
 	}

@@ -11,3 +11,8 @@ fn shr (x: Int) (n: Int) -> Int = x >>> n
 fn mix (a: Int) (b: Int) (c: Int) -> Int = a ||| b &&& c ^^^ a <<< 2
 
 fn widths32 (x: Int32) (n: Int32) -> Int32 = (x &&& n) <<< n
+
+// Literal shifts fold at check time only where they stay in
+// range: an overflowing literal SHL routes through a variable so
+// the machine operation wraps instead of Go rejecting a constant.
+fn shl_wrap () -> Int = 255 <<< 60
