@@ -1,0 +1,8 @@
+package ex
+
+// spec section 2.1 — introduction under a container: each element
+// is admitted with the annotation's lent labels (an Ascribe wrap),
+// which stays a syntactic value — the binding still generalizes.
+let ids : List (~x: a -> a) = [fn x -> x]
+
+fn dup (x: a) -> List a = [x, x]
