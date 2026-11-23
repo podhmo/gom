@@ -1,0 +1,5 @@
+package main
+
+fn main () -> Int = {
+  fn ~/* c */ x -> x
+}
