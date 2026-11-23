@@ -1,0 +1,16 @@
+package ex
+
+// spec section 6.1 — a tuple pattern binds each name to its own
+// element: the discarded element's products do not charge the
+// kept one, so `g` produces only `other`'s value and the
+// scope-capturing argument at the second position is accepted.
+fn consume (x: Unit -> Unit) -> Int = 0
+
+fn wrap (other: Unit -> Unit) (cb: Unit -> Unit) -> (Unit -> Unit) = {
+    let (g, _h) = (other, consume cb)
+    g
+}
+
+fn ok (held: Ref Int) -> Unit -> Unit =
+    Scope.run <| fn s ->
+        wrap (fn () -> ()) (fn () -> Scope.defer s (fn () -> Ref.set held 0))
