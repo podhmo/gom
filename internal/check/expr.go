@@ -301,6 +301,16 @@ func (c *checker) conformExpr(out Expr, want types.Type, sp diag.Span) Expr {
 		metasIn(want, func(m *types.Meta) { c.markSilent(m) })
 		return out
 	}
+	// unlabeled→labeled introduction admitted this value under the
+	// expected labeled contract: publish that contract on the node
+	// itself. Without the ascription the value keeps its unlabeled
+	// type — a `let f : ~x: T -> U = fn x -> ...` would publish an
+	// unlabeled signature (later `f ~x: v` fails E0406) and a
+	// `-> ~x: T -> U` body would fail the residual-type check the
+	// Core validator runs (E0901).
+	if lentLabels(want, out.Type()) {
+		return &Ascribe{Base: baseOf(sp, want), X: out}
+	}
 	// A value conforming to a `Go.Any` slot materializes the box:
 	// the Ascribe lowers through ConvBoxAny so the emitted Go type
 	// is the declared `any`, not the value's natural type. Without
