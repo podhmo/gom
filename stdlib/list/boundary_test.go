@@ -128,7 +128,7 @@ func TestTakeCapsCapacity(t *testing.T) {
 	if cap(prefix) != 2 {
 		t.Fatalf("cap(Take) = %d, want 2 — retained capacity can corrupt the source", cap(prefix))
 	}
-	prefix = append(prefix, 99)
+	_ = append(prefix, 99)
 	if src[2] != 3 {
 		t.Fatalf("append to a taken prefix wrote into the source: %v", src)
 	}
