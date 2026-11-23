@@ -153,5 +153,5 @@ Go 相互運用を変えたら両方向（Gom → Go、Go → Gom）のテスト
 
 - [ ] **[bug] `Go.conv` の `List` → named Go slice が check を通るが生成 Go が `go build` で落ちる**: `Go.conv xs : sort.IntSlice`（`xs : List Int`）が `sort.IntSlice(list.List[int64])` を emit — check の変換許可判定が List の Go 表現を `[]T` 扱いしている疑い。拒否に倒すか `list.FromSlice` 系の変換を出すか（[gaps](docs/implementation-gaps.md) 登録済み、sandbox 探索 — [sketch](docs/sketch/2026-11-23-sandbox-missing-features.md)）
 - [ ] **[bug] `gom run` がシグナルを子プロセスにフォワードしない**: `gom-run-*/out` 子プロセスに SIGINT 等が届かず、`go run`（シグナルを転送する）と挙動が違う。親に届いたシグナルの転送、または最低限親終了時の子 kill が要る（同 sketch、[run.go](cmd/gom/run.go)）
-- [ ] **[bug] `rt.MakeChan[os.Signal](1)` が `go vet` の "misuse of unbuffered os.Signal channel" を踏む**: buffered chan を helper 経由で作ると vet が透視できず false positive。`make(chan T, n)` の直接 emit など生成コードの形で避けるか、vet の報告対象から外す（同 sketch、sandbox/probes/sigw）
+- [ ] **[bug] `rt.MakeChan[os.Signal](1)` が `go vet` の "misuse of unbuffered os.Signal channel" を踏む**: buffered chan を helper 経由で作ると vet が透視できず false positive。`make(chan T, n)` の直接 emit など生成コードの形で避けるか、vet の報告対象から外す（同 sketch、観測は PR #163 の probes/sigw）
 

@@ -1,7 +1,9 @@
 # sandbox 探索（PR #163）からの不足機能の整理
 
 - 日付: 2026-11-23
-- 関連: [PR #163](https://github.com/podhmo/gom/pull/163)（sandbox/ の探索者 run）、
+- 関連: [PR #163](https://github.com/podhmo/gom/pull/163)（sandbox/ の探索者 run — 
+  未マージのアーカイブとして残る）、
+  [観測ログの転記](ja/2026-11-23-sandbox-explorer-log.md)、
   [TODO.md](../../TODO.md)、[open-questions.md](../open-questions.md)、
   [implementation-gaps.md](../implementation-gaps.md)
 - 状態: 調査記録（規範ではない）
@@ -13,7 +15,9 @@ PR #163 の「探索者」run — 普段使いの Go 風 CLI ツールを gom �
 gom に不足している機能と不具合を抽出し、各項目の対応先（TODO / open-questions /
 既存 tracker / 対応不要）を決める。
 
-以下の「観測」はすべて `sandbox/log.md` の記録が根拠。
+以下の「観測」はすべて `sandbox/log.md` の記録が根拠。log・ideas・プロンプトの
+`.md` は [docs/sketch/ja/](ja/) に転記済み（`2026-11-23-sandbox-explorer-*.md`）。
+`.gom` のコード（「諦めたもの」の実例など）は未マージの PR #163 側に残る。
 
 ## 抽出した不足（対応先別）
 
