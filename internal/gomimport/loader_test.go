@@ -686,3 +686,31 @@ fn keep (f: a -> a) -> a
 		t.Fatalf("keep.ResultTaint = %v, want nil (assume tainted)", keep.ResultTaint)
 	}
 }
+
+func TestLoadDirectiveInsideBlockComment(t *testing.T) {
+	root := writeMod(t, "example.com/m", map[string]string{
+		"shapes/shapes.gomi": `package shapes
+
+/*
+//gom:noescape twice 0
+//gom:result-notaint twice 1
+*/
+fn twice (f: a -> a) (x: a) -> a
+`,
+	})
+	l := New(&Config{Dir: root})
+	p, err := l.Load("example.com/m/shapes", false)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	twice := p.Members["twice"]
+	if twice == nil {
+		t.Fatal("twice member missing")
+	}
+	if twice.Escapes != nil {
+		t.Fatalf("twice.Escapes = %v, want nil — directives inside /* */ are commented out", twice.Escapes)
+	}
+	if twice.ResultTaint != nil {
+		t.Fatalf("twice.ResultTaint = %v, want nil — directives inside /* */ are commented out", twice.ResultTaint)
+	}
+}
