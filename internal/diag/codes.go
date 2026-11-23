@@ -1021,6 +1021,27 @@ emitted names differ (docs/decisions/
 	},
 
 	{
+		Code:     "E0608",
+		Severity: SeverityError,
+		Title:    "decls emit the same Go name",
+		Phase:    PhaseCodegen,
+		Spec:     "5",
+		Explanation: `Two declarations claim the same package-scope Go
+identifier verbatim — both would emit it, and the generated package
+does not compile, so the build refuses to write it. Type names emit
+their capitalized Gom spelling unchanged, and sum-type variants emit
+Type_Ctor structs with no escape hatch: type Foo_Bar and type
+FooBar both emit "FooBar", and variants Some_Opt and SomeOpt of T
+both emit "T_SomeOpt". The .gomi-member case is E0607; this error
+is the same collision among declarations a .gomi does not name,
+plus the implicit members (variant structs) E0607 cannot see.
+Rename one side so the emitted names differ. A pair colliding
+across member files reports at each file's own decl.`,
+		Example: `type Foo_Bar = {x: Int}
+type FooBar = {y: Int}   // both emit "type FooBar"`,
+	},
+
+	{
 		Code:     "E0701",
 		Severity: SeverityError,
 		Title:    "go block must produce Unit",
@@ -1417,21 +1438,13 @@ errors.As e target                  // W0502 — panics at run time`,
 	{
 		Code:     "W0601",
 		Severity: SeverityWarning,
-		Title:    "decls emit the same Go name",
+		Title:    "decls emit the same Go name (retired)",
 		Phase:    PhaseCodegen,
-		Spec:     "5",
-		Explanation: `Two declarations claim the same package-scope Go
-identifier verbatim — both emit it, and the generated package does
-not compile. Type names emit their capitalized Gom spelling
-unchanged, and sum-type variants emit Type_Ctor structs with no
-escape hatch: type Foo_Bar and type FooBar both emit "FooBar", and
-variants Some_Opt and SomeOpt of T both emit "T_SomeOpt". The
-.gomi-member case is the error E0607; this warning is the same
-collision among declarations a .gomi does not name, plus the
-implicit members (variant structs) E0607 cannot see. Rename one
-side so the emitted names differ.`,
-		Example: `type Foo_Bar = {x: Int}
-type FooBar = {y: Int}   // both emit "type FooBar"`,
+		Explanation: `Retired in favor of E0608: a verbatim
+double-claim of an emitted name makes the generated package
+uncompilable, so it is an error and withholds the output rather
+than a warning on broken Go. The code is retired and will never
+be reassigned.`,
 	},
 	{
 		Code:     "W0602",

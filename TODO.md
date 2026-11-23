@@ -27,9 +27,9 @@
 ### Go 相互運用
 
 - [x] **[task] emit 名の衝突検出器（Go ABI 案 B）**: 生成名の一覧化・suffix 衝突（同 base 追い出し）・暗黙 member 名を検出する。E0607 は base 名の `.gomi` メンバ衝突までしか止めないので、suffix 追い出しは新規検出対象（[decision](docs/decisions/2026-11-23-go-abi-stability.md)、wave35 lane C — [prompts](docs/sketch/2026-11-23-wave35-prompts.md)）
-  - 対応（wave35 lane C）: codegen の emit 台帳（`emitLog`/`emitOwner`）で全パッケージスコープ名を記録し、verbatim 二重請求は W0601・suffix 追い出しは W0602 で警告。一覧は `Output.EmitNames` + `gom dump -phase=emit`（[decision](docs/decisions/2026-11-23-emit-name-collision-check.md)）
+  - 対応（wave35 lane C）: codegen の emit 台帳（`emitLog`/`emitOwner`）で全パッケージスコープ名を記録し、verbatim 二重請求は W0601・suffix 追い出しは W0602 で警告。一覧は `Output.EmitNames` + `gom dump -phase=emit`（[decision](docs/decisions/2026-11-23-emit-name-collision-check.md)）。verbatim 二重請求は wave36 lane A でエラー E0608 に格上げ（下のタスク）
 
-- [ ] **[task] emit 名の verbatim 二重請求で壊れた Go を emit しない**: `type Foo_Bar`/`type FooBar` → `type FooBar` ×2、`| Some_Opt | SomeOpt` → `T_SomeOpt` ×2 のまま出力され生成 Go がコンパイル不可。検出は W0601 済み — **方針 (a) エラー化を採択**（suffix 退避は不採用）。W0601 を新 E-code のエラーに格上げして出力を withhold（wave35 lane C で検出、knownBugs 2 件登録 → wave36 lane A、[prompts](docs/sketch/2026-11-23-wave36-prompts.md)）
+- [x] **[task] emit 名の verbatim 二重請求で壊れた Go を emit しない**: 方針 (a) エラー化で実装 — verbatim 二重請求はエラー E0608（W0601 retired）、emit 診断のエラーは unitFailed に接続してパッケージ全出力を withhold。ファイルをまたぐ衝突ペアは各ファイルの自分側の宣言にレポート（wave35 lane C で検出、wave36 lane A で修正、[decision](docs/decisions/2026-11-23-verbatim-dup-error.md)）
 
 - [x] **G-1 `Ptr T` 経由の field 書き込みの実装**: `ptr.Field = v` の代入構文と addressability 規則。`Ptr T`（T は named Go struct）経由に限定し、record/`Ref` への field 代入は開かない（[decision](docs/decisions/2026-11-19-struct-field-write.md)、比較材料は [sketch](docs/sketch/2026-11-19-wave23-struct-construction.md)）。実装後に tutorial / examples の host パッケージ（`NewClient` factory）を撤去する — wave24 以降の lane 候補
   - 対応（wave24 lane B）: `Assign`/`FieldAssign`/`FieldSet` を syntax→check→lower→codegen に通し、左辺は `ptr.Field` の形のみ（変数・record field・`Ptr` でない Go 値経由は E0511）。代入式は `Unit`。examples/gist-cli の host パッケージは撤去 — `NewClient` は `Ptr.new` + `client.Timeout`/`client.CheckRedirect` への代入に置換。composite literal は引き続き非提供

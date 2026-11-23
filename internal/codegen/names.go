@@ -137,7 +137,7 @@ const (
 // Diagnostic codes the emit ledger reports — declared in
 // internal/diag/codes.go with their explanations.
 const (
-	codeEmitNameDup   diag.Code = "W0601" // verbatim double-claim — redeclared Go name
+	codeEmitNameDup   diag.Code = "E0608" // verbatim double-claim — redeclared Go name
 	codeEmitNameEvict diag.Code = "W0602" // suffix eviction — emitted name differs from predicted
 )
 
@@ -179,12 +179,13 @@ type emitRecord struct {
 }
 
 // recordEmit registers an emitted package-scope name on g's ledger
-// and reports W0601 for the two collision shapes the ledger exists
+// and reports for the two collision shapes the ledger exists
 // to catch:
 //   - verbatim double-claims — two decls emitting the same name
-//     (type/type, type/variant, variant/variant) emit broken Go, and
+//     (type/type, type/variant, variant/variant) emit broken Go,
+//     so E0608 is an error and the build withholds the output, and
 //   - suffix evictions — a fn/let/test pushed off the name its owner
-//     predicts by an earlier claimant.
+//     predicts by an earlier claimant (W0602 — the Go still works).
 //
 // Internal helpers record for the listing but never warn.
 func (g *gen) recordEmit(rec emitRecord) {
@@ -204,7 +205,7 @@ func (g *gen) recordEmit(rec emitRecord) {
 			sp = owner.sp
 		}
 		g.emitDiags = append(g.emitDiags,
-			diag.Warning(codeEmitNameDup,
+			diag.Error(codeEmitNameDup,
 				"generated Go name "+q(rec.name)+" is emitted by both "+
 					q(owner.gomName)+" and "+q(rec.gomName)).
 				At(sp).
