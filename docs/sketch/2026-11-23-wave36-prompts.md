@@ -1,6 +1,7 @@
 # wave36 prompts
 
-- 状態: 採択済み（2026-11-23 インタビュー — lane A–H 全採択）
+- 状態: 採択済み（2026-11-23 インタビュー — lane A–I 全採択。
+  lane I は棚卸し指摘を受けて同日追加）
 - 日付: 2026-11-23
 - 前提: wave35 スタック（#149→#153）全件マージ済みの新しい
   main から開始。引き続き単一エージェント直列運用、Devin
@@ -83,6 +84,18 @@
 - 作業: 各ファイルを再評価し、解消なら閉じる・残るなら台帳化 or
   lane 候補化を判定
 - 規模: 小（調査）
+
+### I. gomgen 探索カバレッジの拡張
+
+- 出典: 2026-11-23 の棚卸し — grammar.ebnf/typed gen は機能追加と
+  同期されているが、生成器が出さない形が残っている
+- 作業: typed gen が以下を生成できるようにする — `Ptr.field = v`
+  の field 代入、`Scope.run`/`defer` の使用形、`select` の
+  `send`/recv 腕（現状 default 1 本のみ）、`import "gom
+  パッケージ"`（import go 以外）。`fuzzGoPkgs` 許可リストの
+  見直しも合わせて検討。`@test` は deterministic モードでの
+  非対称（eval は実行・build は drop）が意図的なため対象外
+- 規模: 中
 
 ## 繰り越し注記
 
