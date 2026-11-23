@@ -1,6 +1,6 @@
 package assets
 
-import go _ "embed"
+import go "embed"
 
 // Execution coverage for @extern let — the Go-side assertions live
 // in assets_test.go.
@@ -11,8 +11,16 @@ import go _ "embed"
 //gom:embed "hello space.txt"
 @extern let spaced : String
 
+//gom:embed hello.txt
+@extern let fsys : embed.FS
+
 @extern let token : String
 
 fn greeting_text () -> String = greeting
 fn spaced_text () -> String = spaced
+fn fs_text () -> String = match fsys.ReadFile "hello.txt" {
+  Ok data -> Go.conv data : String
+  Err _ -> ""
+}
+
 fn token_text () -> String = token

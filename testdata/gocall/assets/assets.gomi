@@ -2,4 +2,5 @@ package assets
 
 fn greeting_text () -> String
 fn spaced_text () -> String
+fn fs_text () -> String
 fn token_text () -> String
