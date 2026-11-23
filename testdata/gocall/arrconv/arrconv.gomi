@@ -1,0 +1,6 @@
+package arrconv
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+fn make_p (xs: List Int) -> goiface.Int64ArrPtr
+fn make_a (xs: List Int) -> goiface.Int64Arr
