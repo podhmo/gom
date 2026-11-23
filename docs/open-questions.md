@@ -13,7 +13,7 @@
 ### 言語機能
 
 - [ ] ビット演算子の提供形: `|`/`&`/`^`/shift がなく、Go のフラグ合成（`os.O_APPEND|os.O_CREATE|os.O_WRONLY`）を `+` で代用するしかない。`<<`/`>>` は関数合成に使用済みで名称の余地が狭い（[problem](problems/2026-11-01-operator-coverage.md)、sandbox 探索 jot で再観測 — [sketch](sketch/2026-11-23-sandbox-missing-features.md)）。wave37 lane B で decision 化 — 三重字 `&&&`/`|||`/`^^^`/`<<<`/`>>>`（+`&&^`）を推薦（[decision draft](decisions/2026-11-23-bit-operators.md)、[prompts](sketch/2026-11-23-wave37-prompts.md)）。実装は採択後
-- [ ] nil の綴り: `Ptr.nil` しか nil を書く面がなく、`Go.Slice`/`Go.Map`/Go 関数型の nil を作れない（`h.Sum nil` は `[]` で代用できた — 同 sketch）。wave37 lane C で調査→decision（[prompts](sketch/2026-11-23-wave37-prompts.md)）
+- [ ] nil の綴り: wave37 lane C — decision [2026-11-23-nil-spelling](decisions/2026-11-23-nil-spelling.md)（`Go.nil` ユニバーサル builtin を推薦、draft）。実装は採択後
 - [ ] 部分適用・`Unit` 残りの関数値が値位置に流れたときの lint: `fmt.Println` 等に残りパラメータを持つ関数値を渡すとエラーにならず `0x...` が印字される（同 sketch、probes/method の `string i` 事例）。警告 lint を切るか
 
 ### Go 相互運用
