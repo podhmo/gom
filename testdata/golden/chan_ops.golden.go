@@ -10,7 +10,7 @@ import (
 //line chan_ops.gom:5
 func run(_ struct{}) int64 {
 //line chan_ops.gom:6
-	ch := make(chan int64, 2)
+	ch := make(chan int64, int(2))
 //line chan_ops.gom:7
 	rt.ChanSend[int64](ch, 1)
 //line chan_ops.gom:8

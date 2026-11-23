@@ -24,7 +24,7 @@ func later(ch chan<- int64, v int64) struct{} {
 //line go_spawn.gom:8
 func keep(_ struct{}) struct{} {
 //line go_spawn.gom:9
-	ch := make(chan int64, 1)
+	ch := make(chan int64, int(1))
 //line go_spawn.gom:10
 	go func() {
 //line go_spawn.gom:10

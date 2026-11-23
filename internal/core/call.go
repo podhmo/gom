@@ -183,6 +183,12 @@ type CallGo struct {
 	// panics on (`if err == nil && v == nil`). lower.GoSig carries
 	// the same fact from go/types.
 	ResNilable bool
+	// ChanMake marks the `rt.MakeChan` call — codegen emits the
+	// bare `make(chan T, n)` builtin for it (vet's sigchanyzer
+	// cannot see the capacity through the generic helper). The
+	// calling convention is decided at lowering so codegen never
+	// re-derives it from the callee's name (AGENTS.md).
+	ChanMake bool
 }
 
 func (*CallGo) isExpr() {}

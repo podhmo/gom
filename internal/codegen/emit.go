@@ -241,7 +241,7 @@ func emitsConversion(e core.Expr) bool {
 	// `Chan.make` prints `make(chan T, n)` — a CallExpr that Go
 	// still rejects as a bare statement ("not used"), same as a
 	// conversion.
-	if c, ok := e.(*core.CallGo); ok && makeChanCall(c) {
+	if c, ok := e.(*core.CallGo); ok && c.ChanMake {
 		return true
 	}
 	if f, ok := e.(*core.FieldGet); ok && f.Unwrap {

@@ -9,7 +9,7 @@ import (
 //line chan_go_boundary.gom:8
 func sendInto(v string) struct{} {
 //line chan_go_boundary.gom:9
-	ch := make(chan string, 1)
+	ch := make(chan string, int(1))
 //line chan_go_boundary.gom:10
 	goiface.SendOn(ch, v)
 //line chan_go_boundary.gom:11

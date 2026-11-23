@@ -1,0 +1,14 @@
+package ex
+
+import go "os"
+import go "os/signal"
+
+// `Chan.make` must emit the bare `make(chan T, n)` builtin and a
+// `Chan a` argument must reach `signal.Notify` unconverted: go vet's
+// sigchanyzer only verifies the capacity when the make and the call
+// are directly visible — `rt.MakeChan` or `(chan<- T)(c)` both read
+// as unbuffered false positives.
+fn watch () -> Unit = {
+  let c: Chan os.Signal = Chan.make 1
+  signal.Notify c
+}

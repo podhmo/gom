@@ -484,6 +484,7 @@ func (l *lowerer) goFuncRefOrAdapter(sp diag.Span, typ types.Type, sym *resolve.
 		call := &core.CallGo{
 			Sp: sp, Typ: l.goCallTyp(sig, ret),
 			Callee: sym, Recv: recv, TypeArgs: targs,
+			ChanMake:   makeChanCallee(sym),
 			Args:       l.convGoArgs(bs, sig, pv, false),
 			Arity:      sig.Arity,
 			Variadic:   sig.Variadic,
@@ -1853,8 +1854,9 @@ func (l *lowerer) goCall(s *seq, sp diag.Span, resTyp types.Type, callee check.E
 			call := &core.CallGo{
 				Sp: sp, Typ: l.goCallTyp(sig, remTyp.Ret),
 				Callee: ci.Callee, Recv: recv, TypeArgs: ci.TypeArgs,
-				Args:  filled,
-				Arity: ci.Arity, Variadic: ci.Variadic,
+				ChanMake: makeChanCallee(ci.Callee),
+				Args:     filled,
+				Arity:    ci.Arity, Variadic: ci.Variadic,
 				Spread: spread, Results: sig.Results,
 				ResNilable: sig.ResNilable,
 				FlatArgs:   l.flatArgs(ci.Arity, ci.Variadic, l.declParamTypes(ci.Callee, callee.Type()), filled, spread),
@@ -1870,8 +1872,9 @@ func (l *lowerer) goCall(s *seq, sp diag.Span, resTyp types.Type, callee check.E
 	call := &core.CallGo{
 		Sp: sp, Typ: l.goCallTyp(sig, resTyp),
 		Callee: ci.Callee, Recv: recv, TypeArgs: ci.TypeArgs,
-		Args:  ordered,
-		Arity: ci.Arity, Variadic: ci.Variadic,
+		ChanMake: makeChanCallee(ci.Callee),
+		Args:     ordered,
+		Arity:    ci.Arity, Variadic: ci.Variadic,
 		Spread: spread, Results: sig.Results,
 		ResNilable: sig.ResNilable,
 		FlatArgs:   l.flatArgs(ci.Arity, ci.Variadic, l.declParamTypes(ci.Callee, callee.Type()), ordered, spread),
@@ -1915,8 +1918,9 @@ func (l *lowerer) goCallNode(s *seq, ap *check.Apply) *core.CallGo {
 	return &core.CallGo{
 		Sp: ap.Sp, Typ: l.goCallTyp(sig, ap.Type()),
 		Callee: ci.Callee, Recv: recv, TypeArgs: ci.TypeArgs,
-		Args:  ordered,
-		Arity: ci.Arity, Variadic: ci.Variadic,
+		ChanMake: makeChanCallee(ci.Callee),
+		Args:     ordered,
+		Arity:    ci.Arity, Variadic: ci.Variadic,
 		Spread:     spread,
 		Results:    sig.Results,
 		ResNilable: sig.ResNilable,
@@ -2071,6 +2075,7 @@ func (l *lowerer) applyAtom(s *seq, sp diag.Span, resTyp types.Type, fn core.Ato
 		call := &core.CallGo{
 			Sp: sp, Typ: l.goCallTyp(gsig, resTyp),
 			Callee: f.Sym, Recv: f.Recv, TypeArgs: f.TypeArgs,
+			ChanMake: makeChanCallee(f.Sym),
 			Args:     args,
 			Arity:    f.Arity,
 			Results:  f.Results,
@@ -3591,4 +3596,13 @@ func identityInstantiation(targs []types.Type, tparams []*types.Var) bool {
 		}
 	}
 	return true
+}
+
+// makeChanCallee reports whether sym is the rt.MakeChan builtin — the
+// one Go call codegen emits as the bare `make(chan T, n)` builtin
+// (see core.CallGo.ChanMake). Deciding it here keeps the calling
+// convention a Core fact rather than a codegen name-match.
+func makeChanCallee(sym *resolve.Symbol) bool {
+	return sym != nil && sym.IsGo &&
+		sym.Package == "github.com/podhmo/gom/rt" && sym.Name == "MakeChan"
 }
