@@ -135,6 +135,9 @@ func (d *drafter) file(w *strings.Builder, s Source) {
 			if ne := noescapeLine(decl.Name.Name, td); ne != "" {
 				lines = append([]string{ne}, lines...)
 			}
+			if nt := notaintLine(decl.Name.Name, td); nt != "" {
+				lines = append([]string{nt}, lines...)
+			}
 		case *syntax.LetDecl:
 			if decl.TestOnly {
 				continue
@@ -260,6 +263,39 @@ func noescapeDirective(name string, sym *resolve.Symbol, params []types.FuncPara
 	return "//gom:noescape " + name + " " + strings.Join(idx, " ")
 }
 
+// notaintLine renders the `//gom:result-notaint` directive the
+// loader reads back (spec section 6.1): the parameter positions
+// whose products the package's result-taint inference proved the
+// result cannot carry, so an importer's check gives a
+// Scope-capturing argument the same judgment. Unlike noescape
+// every parameter type can produce — there is no type filter —
+// and a member without a directive stays "assume tainted".
+func notaintLine(name string, td *check.FnDecl) string {
+	if td.Sym == nil || td.Sig == nil {
+		return ""
+	}
+	return notaintDirective(name, td.Sym, len(td.Sig.Params))
+}
+
+// notaintDirective is notaintLine over an arbitrary parameter
+// count — a `let` member carries no FnDecl but publishes the same
+// directive for the same reason.
+func notaintDirective(name string, sym *resolve.Symbol, n int) string {
+	if sym == nil {
+		return ""
+	}
+	var idx []string
+	for i := 0; i < n && i < len(sym.ResultTaint); i++ {
+		if !sym.ResultTaint[i] {
+			idx = append(idx, strconv.Itoa(i))
+		}
+	}
+	if len(idx) == 0 {
+		return ""
+	}
+	return "//gom:result-notaint " + name + " " + strings.Join(idx, " ")
+}
+
 // letMember renders the interface line(s) for one name bound by a
 // `let`. A `let f = fn x -> x` that check shaped into a function
 // declaration publishes a `fn` signature — the arity is part of the
@@ -281,12 +317,18 @@ func (d *drafter) letMember(name string, td check.Decl) []string {
 				if ne := noescapeDirective(name, td.Sym, f.Params); ne != "" {
 					lines = append([]string{ne}, lines...)
 				}
+				if nt := notaintDirective(name, td.Sym, len(f.Params)); nt != "" {
+					lines = append([]string{nt}, lines...)
+				}
 			}
 			return lines
 		}
 		lines := []string{d.fnDecl(name, td)}
 		if ne := noescapeLine(name, td); ne != "" {
 			lines = append([]string{ne}, lines...)
+		}
+		if nt := notaintLine(name, td); nt != "" {
+			lines = append([]string{nt}, lines...)
 		}
 		return lines
 	case *check.LetDecl:
@@ -309,6 +351,9 @@ func (d *drafter) letMember(name string, td check.Decl) []string {
 			if f, ok := types.Chase(m.Type).(*types.Func); ok {
 				if ne := noescapeDirective(name, sym, f.Params); ne != "" {
 					lines = append([]string{ne}, lines...)
+				}
+				if nt := notaintDirective(name, sym, len(f.Params)); nt != "" {
+					lines = append([]string{nt}, lines...)
 				}
 			}
 			return lines

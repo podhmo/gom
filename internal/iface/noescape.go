@@ -16,13 +16,28 @@ import (
 // ordinary package, internal/stdlib's env for the embedded builtin
 // modules — runs it over the interface source.
 func ScanNoescape(src []byte) map[string][]int {
+	return scanDirective(src, "//gom:noescape ")
+}
+
+// scanDirective is the shared `//gom:<directive> <name> <i> ...`
+// line scan — a leading name field plus non-negative indices, the
+// whole line ignored when a field fails to parse.
+func scanDirective(src []byte, prefix string) map[string][]int {
 	var dirs map[string][]int
-	for _, line := range strings.Split(string(src), "\n") {
-		line = strings.TrimSpace(line)
-		if !strings.HasPrefix(line, "//gom:noescape ") {
+	inBlock := false
+	for _, raw := range strings.Split(string(src), "\n") {
+		inside := inBlock
+		inBlock = updateBlockState(raw, inBlock)
+		if inside {
+			// The whole line sits inside a block comment — a
+			// directive text there is commented out.
 			continue
 		}
-		fields := strings.Fields(strings.TrimPrefix(line, "//gom:noescape "))
+		line := strings.TrimSpace(raw)
+		if !strings.HasPrefix(line, prefix) {
+			continue
+		}
+		fields := strings.Fields(strings.TrimPrefix(line, prefix))
 		if len(fields) < 2 {
 			continue
 		}
@@ -86,4 +101,29 @@ func ApplyNoescape(members map[string]*resolve.Symbol, arityOf func(*resolve.Sym
 		}
 		sym.Escapes = esc
 	}
+}
+
+// updateBlockState walks one source line and returns the `/* */`
+// block-comment state at its end. A `//` outside a block ends the
+// scan — comment text cannot nest inside a line comment, and a
+// block opener inside one never opens.
+func updateBlockState(line string, in bool) bool {
+	for i := 0; i < len(line); {
+		if in {
+			if strings.HasPrefix(line[i:], "*/") {
+				in = false
+				i += 2
+			} else {
+				i++
+			}
+		} else if strings.HasPrefix(line[i:], "/*") {
+			in = true
+			i += 2
+		} else if strings.HasPrefix(line[i:], "//") {
+			break
+		} else {
+			i++
+		}
+	}
+	return in
 }

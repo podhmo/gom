@@ -617,7 +617,7 @@ func ListEq[A any](e Eq[A]) Eq[list.List[A]] {
 //line stdlib/cmp/cmp.gom:104
 		return func(tmp70 list.List[A]) bool {
 //line stdlib/cmp/cmp.gom:104
-			return listEqLoop[A](tmp68, tmp69, tmp70)
+			return ListEqLoop[A](tmp68, tmp69, tmp70)
 //line stdlib/cmp/cmp.gom:104
 		}
 //line stdlib/cmp/cmp.gom:104
@@ -628,7 +628,7 @@ func ListEq[A any](e Eq[A]) Eq[list.List[A]] {
 }
 
 //line stdlib/cmp/cmp.gom:106
-func listEqLoop[A any](eq func(A, A) bool, xs, ys list.List[A]) bool {
+func ListEqLoop[A any](eq func(A, A) bool, xs, ys list.List[A]) bool {
 //line stdlib/cmp/cmp.gom:106
 	for {
 //line stdlib/cmp/cmp.gom:107
@@ -723,7 +723,7 @@ func ListOrd[A any](o Ord[A]) Ord[list.List[A]] {
 //line stdlib/cmp/cmp.gom:119
 		return func(tmp85 list.List[A]) bool {
 //line stdlib/cmp/cmp.gom:119
-			return listLtLoop[A](tmp83, tmp84, tmp85)
+			return ListLtLoop[A](tmp83, tmp84, tmp85)
 //line stdlib/cmp/cmp.gom:119
 		}
 //line stdlib/cmp/cmp.gom:119
@@ -734,7 +734,7 @@ func ListOrd[A any](o Ord[A]) Ord[list.List[A]] {
 }
 
 //line stdlib/cmp/cmp.gom:121
-func listLtLoop[A any](lt func(A, A) bool, xs, ys list.List[A]) bool {
+func ListLtLoop[A any](lt func(A, A) bool, xs, ys list.List[A]) bool {
 //line stdlib/cmp/cmp.gom:121
 	for {
 //line stdlib/cmp/cmp.gom:122
