@@ -342,10 +342,11 @@ rules — `"a b.txt"` and `` `c d.txt` ``. `_ "embed"` is added
 automatically; `import go _ "path"` also works as a general blank
 import (decisions/2026-11-23-extern-let-embed.md).
 
-An `@extern let` that no Gom code references emits nothing, so a
-missing Go-side var goes unnoticed until some caller or test uses
-the binding — keep a reference or a Go-side test for every extern
-variable.
+An `@extern let` *without* `//gom:embed` that no Gom code
+references emits nothing, so a missing Go-side var goes unnoticed
+until some caller or test uses the binding — keep a reference or a
+Go-side test for every extern variable. (An embed extern always
+emits its `var` — the `//go:embed` directive needs it.)
 
 ## nil and contract boundaries
 
