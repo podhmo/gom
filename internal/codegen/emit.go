@@ -79,6 +79,21 @@ func (g *gen) let(l *core.Let) {
 		return
 	}
 	name := g.bindName(l.Name)
+	if cv, ok := l.X.(*core.Conv); ok && cv.Kind == core.ConvChanDir {
+		// `x := (chan<- T)(c)` hides the operand's capacity from
+		// vet's sigchanyzer — `signal.Notify(x)` then reads the
+		// channel unbuffered. Declaring the binder at the narrowed
+		// Go type and initializing it from the operand keeps the
+		// direction AND the tracking: `chan T` is assignable to
+		// `chan<- T`, and `var x chan<- T = c` preserves it.
+		g.line(l.Sp)
+		g.raw("var " + name + " ")
+		g.typ(g.goType(l.Name.Typ))
+		g.raw(" = ")
+		g.exprValue(cv.X)
+		g.nl()
+		return
+	}
 	if isSimpleExpr(l.X) {
 		g.line(l.Sp)
 		g.raw(name + " := ")
