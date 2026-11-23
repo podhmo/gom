@@ -1,0 +1,12 @@
+package blankemb
+
+// An explicit `import go _ "embed"` (no named binding — embed.FS is
+// not referenced) still satisfies the //go:embed import requirement;
+// codegen must not emit a duplicate `_ "embed"`.
+
+import go _ "embed"
+
+//gom:embed note.txt
+@extern let note : String
+
+fn note_text () -> String = note
