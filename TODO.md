@@ -36,7 +36,7 @@
 
 ### 言語機能
 
-- [ ] **[task] unlabeled → labeled の introduction（ラベル付き引数の緩和）**: expected 型が `~x` を宣言する位置で produced のラベルなしパラメータに位置対応でラベルを貸す（`Int -> Int` ≤ `~x: Int -> Int`）。`apply (fn x -> x)` が通るようになる。逆方向・混在型は拒否のまま。spec §2「暗黙変換はしない」の書き換えを伴う（[decision](docs/decisions/2026-11-23-labeled-arg-relaxation.md)、wave35 lane D → wave36 lane B で実施）
+- [x] **[task] unlabeled → labeled の introduction（ラベル付き引数の緩和）**: `unifyFunc` が expected 側のラベルを produced の全 unlabeled パラメータへ位置対応で貸す（`apply (fn x -> x)` が通る）。produced 側にラベルが混ざる型・逆方向・合成 `argT -> res` unify（応用は型の同一性ではないので `noLabelIntro` で抑止 — `id mk 3` の `~x` 位置充填は依然 E0401）は拒否のまま。spec §2.1 は wave35 lane D で同期済み（[decision](docs/decisions/2026-11-23-labeled-arg-relaxation.md)、wave36 lane B）
 
 - [ ] **[task] result-taint flag + `.gomi` export（案 B）**: `Symbol.ResultTaint []bool`（結果が param i の生産物を運び得る）を fixpoint 推論し、`//gom:result-notaint name i ...` directive でエクスポート。imported callee の偽陽性と transitive の false negative を閉じる（[decision](docs/decisions/2026-11-23-result-taint-gomi-export.md)、wave35 lane E → wave36 lane C/D で実施）
 

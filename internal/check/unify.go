@@ -988,6 +988,23 @@ func (c *checker) unifyFunc(w, g *types.Func, sp diag.Span) bool {
 			wp, gp = wp[1:], gp[1:]
 			continue
 		}
+		// unlabeled→labeled introduction (labeled-arg-relaxation
+		// 案A): when the expected side declares a labeled parameter
+		// and the produced side has no labels anywhere in its tail,
+		// the produced parameter borrows the expected label by
+		// position — `Int -> Int` unifies with `~x: Int -> Int`.
+		// A produced side that declares labels of its own keeps the
+		// strict run-pairing below: lending `x` into
+		// `Int -> ~y: Int -> Int` for `~x: Int -> ~y: Int -> Int`
+		// would silently reorder the contract it already names.
+		if a.Label != "" && b.Label == "" && !c.noLabelIntro &&
+			allPositional(gp) {
+			if !c.unifySub(a.Type, b.Type, sp) {
+				return false
+			}
+			wp, gp = wp[1:], gp[1:]
+			continue
+		}
 		// At least one side starts a labeled run. An empty run means
 		// a labeled parameter faces a positional one — different
 		// slots, hence different types.
@@ -1046,6 +1063,18 @@ func (c *checker) unifyFunc(w, g *types.Func, sp diag.Span) bool {
 	default:
 		return c.unifySub(wr, gr, sp)
 	}
+}
+
+// allPositional reports whether every parameter in ps is unlabeled —
+// the produced side borrows expected labels only when it names none
+// of its own (unlabeled→labeled introduction).
+func allPositional(ps []types.FuncParam) bool {
+	for _, p := range ps {
+		if p.Label != "" {
+			return false
+		}
+	}
+	return true
 }
 
 // labeledRun returns the maximal prefix of consecutive labeled

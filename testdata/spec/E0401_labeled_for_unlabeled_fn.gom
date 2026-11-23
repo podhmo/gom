@@ -1,0 +1,11 @@
+package ex
+
+// spec section 2.1 — labeled→unlabeled does not convert: a
+// produced `~x: Int -> Int` is not an `Int -> Int` (positional
+// application would let a caller skip the label contract it
+// declares).
+fn lend (f: Int -> Int) -> Int = f 2
+
+fn named (~x: Int) -> Int = x * 2
+
+let _ = lend named

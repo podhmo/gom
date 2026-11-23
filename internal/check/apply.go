@@ -1536,6 +1536,15 @@ func (c *checker) conformCallee(callee, argT, res types.Type, sp diag.Span, conv
 		}
 		return c.unify(res, tail, sp)
 	}
+	// The synthesized `argT -> res` unify asks "does this
+	// application type-check", not "are these types equal": a
+	// labeled callee parameter must not lend its label to the
+	// positional argument the synthesize side stands for — that
+	// would let `id mk 3` fill `~x` positionally (spec section 2
+	// rule 3). Introduction is a type-equality rule, so it stays
+	// off for this unify.
+	c.noLabelIntro = true
+	defer func() { c.noLabelIntro = false }()
 	if isGoAny(types.Chase(callee)) {
 		return c.unifySub(callee, types.Fn(res, types.P(argT)), sp)
 	}
