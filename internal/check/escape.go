@@ -276,7 +276,7 @@ func (c *checker) checkScopeEscape() {
 		// to — g's proven positions hold for f as well.
 		for _, d := range c.decls {
 			if ld, ok := d.(*LetDecl); ok {
-				if lam, isLam := ld.Value.(*Lambda); isLam {
+				if lam, isLam := unascribe(ld.Value).(*Lambda); isLam {
 					for _, s := range patBoundSyms(ld.Pat) {
 						if c.inferLetLambdaEscapes(s, lam) {
 							changed = true
@@ -1014,7 +1014,7 @@ func (c *checker) escWalk(e Expr, danger bool, b *escapeBody, report bool) {
 			// captures it.
 			d := ctor || c.argEscapes(e, i) || (producesClosure && danger)
 			if danger && isScopeRunner(e.Call) {
-				if lam, ok := a.Value.(*Lambda); ok {
+				if lam, ok := unascribe(a.Value).(*Lambda); ok {
 					b.forward[lam] = true
 				} else if c.runnerArgTainted(a.Value, b, nil) && report {
 					// An opaque body argument — a function
@@ -1034,7 +1034,7 @@ func (c *checker) escWalk(e Expr, danger bool, b *escapeBody, report bool) {
 				// argument's result positions at danger —
 				// the lambda itself is not escaping, so its
 				// own captures stay quiet.
-				if lam, ok := a.Value.(*Lambda); ok {
+				if lam, ok := unascribe(a.Value).(*Lambda); ok {
 					b.forward[lam] = true
 				}
 			}
@@ -1110,7 +1110,7 @@ func (c *checker) escWalk(e Expr, danger bool, b *escapeBody, report bool) {
 					}
 					b.lets[s] = l.Value
 					if !report {
-						if lam, isLam := l.Value.(*Lambda); isLam && c.inferLetLambdaEscapes(s, lam) {
+						if lam, isLam := unascribe(l.Value).(*Lambda); isLam && c.inferLetLambdaEscapes(s, lam) {
 							b.flagsChanged = true
 						}
 						if c.propagateAliasEscapes(s, l.Value) {
@@ -1130,7 +1130,7 @@ func (c *checker) escWalk(e Expr, danger bool, b *escapeBody, report bool) {
 			}
 			b.lets[s] = e.Value
 			if !report {
-				if lam, isLam := e.Value.(*Lambda); isLam && c.inferLetLambdaEscapes(s, lam) {
+				if lam, isLam := unascribe(e.Value).(*Lambda); isLam && c.inferLetLambdaEscapes(s, lam) {
 					b.flagsChanged = true
 				}
 				if c.propagateAliasEscapes(s, e.Value) {
@@ -1230,7 +1230,7 @@ func (c *checker) escWalk(e Expr, danger bool, b *escapeBody, report bool) {
 				// forwards a closure the body produced. Walk
 				// a lambda argument's result positions at
 				// danger; the lambda itself is not escaping.
-				if lam, ok := arg.(*Lambda); ok {
+				if lam, ok := unascribe(arg).(*Lambda); ok {
 					b.forward[lam] = true
 				}
 			}
@@ -1347,7 +1347,7 @@ func retainedVarsR(e Expr) map[*resolve.Symbol]bool {
 				// is retained by the call's own result.
 				rec(e.Fn)
 				for _, a := range e.Args {
-					if lam, ok := a.Value.(*Lambda); ok {
+					if lam, ok := unascribe(a.Value).(*Lambda); ok {
 						rec(lam.Body)
 					} else {
 						rec(a.Value)
@@ -1416,7 +1416,7 @@ func retainedVarsR(e Expr) map[*resolve.Symbol]bool {
 					// produced value — the body's result
 					// position is retained.
 					rec(fn)
-					if lam, ok := arg.(*Lambda); ok {
+					if lam, ok := unascribe(arg).(*Lambda); ok {
 						rec(lam.Body)
 					} else {
 						rec(arg)
@@ -1555,7 +1555,7 @@ func (c *checker) exprTainted(e Expr, b *escapeBody) bool {
 // Anything else is opaque, so the produced value's type decides — a
 // scope or function result can carry a live scope out of the run.
 func (c *checker) runnerArgTainted(e Expr, b *escapeBody, locals map[*resolve.Symbol]Expr) bool {
-	if lam, ok := e.(*Lambda); ok {
+	if lam, ok := unascribe(e).(*Lambda); ok {
 		return c.exprTaintedL(lam.Body, b, nil)
 	}
 	var sym *resolve.Symbol
@@ -1567,7 +1567,7 @@ func (c *checker) runnerArgTainted(e Expr, b *escapeBody, locals map[*resolve.Sy
 			bound, ok = b.lets[f.Sym]
 		}
 		if ok {
-			if lam, isLam := bound.(*Lambda); isLam {
+			if lam, isLam := unascribe(bound).(*Lambda); isLam {
 				return c.exprTaintedL(lam.Body, b, nil)
 			}
 		}
@@ -1772,7 +1772,7 @@ func (c *checker) exprTaintedL(e Expr, b *escapeBody, locals map[*resolve.Symbol
 			if x.Op == syntax.BinPipeBack {
 				fn = x.X
 			}
-			if lam, ok := fn.(*Lambda); ok {
+			if lam, ok := unascribe(fn).(*Lambda); ok {
 				return c.exprTaintedL(lam.Body, b, nil)
 			}
 			return false
