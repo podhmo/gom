@@ -1858,3 +1858,15 @@
   [実装](../internal/goimport/boundary.go) [実装](../internal/goimport/constraint.go)
 
 - [ ] **リテラル shift 除数の E0414 は幅非依存のときだけ検出される**: `7 / (1 >>> 1)` のような shift ノードは `constZero` 判定時に型が未解決メタなので、32/64 bit 両幅で同じ結果に fold できる場合だけ検出される（`0 <<< 1`・`1 >>> 1` は検出可）。`255 <<< 60` のように幅で結果が分岐するものは fold を見送り、実行時に依存する（誤検出はしない）。`(Go.conv 0 : Int) <<< 1` と ascription で幅を与えれば確実に検出される — `Go.conv` は [constFold の Ascribe 透過](../internal/check/expr.go)で fold 対象。count 側の中間式は count の幅が分かるとき `foldIntAt` でその幅に wrap して fold される（`Go.conv` で Int32 にした count の `(2147483647 + 1) % 33` は -2 と fold され、負 count として fold を見送る）。規則: [checkArith の E0414](../internal/check/expr.go)（wave38 lane B レビュー修正時に判明）
+
+- [x] **`Go.nil` と `Ptr.nil` の重複**: `Ptr T` の nil は `Ptr.nil` と
+  `Go.nil` の両方で書ける（wave38 lane C で `Go.nil : Unit -> a` を導入。
+  案B として `Ptr.nil` は後方互換のため残置 — [decision](decisions/2026-11-23-nil-spelling.md)）。
+  `errors.As` target 検査 (W0502) は両方の綴りを認識する。
+  `GoError` 型注釈では unify の通常経路がメタを束縛し
+  `rt.Nil[error]()` を emit する。`Go.Any` 型注釈・Go `any` 引数の
+  位置では unify の isGoAny 経路が nil-obligation メタだけを捕捉し
+  `rt.Nil[any]()` を emit する。
+  残件: bare 参照 `{let f = Go.nil; f ()}` の `?a` が宙吊りのままなら
+  E0407（注釈を求める — 他の関数値と同じ制約）。
+  [実装](../internal/check/apply.go)（2026-11-24 登録・同 wave で解消）

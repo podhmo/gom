@@ -393,6 +393,13 @@ func (g *gen) callBuiltin(c *core.CallBuiltin) ast.Expr {
 		fun := &ast.IndexExpr{X: ast.NewIdent(g.pkgQual(rtPath) + "Todo"),
 			Index: g.goType(c.Type())}
 		return &ast.CallExpr{Fun: fun}
+	case "nil":
+		// `Go.nil ()` — rt.Nil[T]() yields the nil value of the
+		// nil-able type the checker proved (decision
+		// 2026-11-23-nil-spelling).
+		fun := &ast.IndexExpr{X: ast.NewIdent(g.pkgQual(rtPath) + "Nil"),
+			Index: g.goType(c.Type())}
+		return &ast.CallExpr{Fun: fun}
 	case "not":
 		// `not x` is the bool negation `!x`.
 		return &ast.UnaryExpr{Op: token.NOT, X: g.atom(c.Args[0])}

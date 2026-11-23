@@ -156,7 +156,13 @@ func builtinScope() *scope {
 // fresh map per call because the resolver may overlay it.
 func builtinGoMembers() map[string]*Symbol {
 	return map[string]*Symbol{
-		"conv":  {Name: "conv", Kind: KindBuiltin, Package: "Go"},
+		"conv": {Name: "conv", Kind: KindBuiltin, Package: "Go"},
+		// `Go.nil ()` — the universal nil literal for nil-able
+		// types (decision 2026-11-23-nil-spelling). Its typing is
+		// check-side like conv's (`Unit -> a` with a nil-ability
+		// constraint on the solved `a`), so the member is a bare
+		// builtin symbol.
+		"nil":   {Name: "nil", Kind: KindBuiltin, Package: "Go"},
 		"Any":   {Name: "Any", Kind: KindType, Package: "Go"},
 		"Slice": {Name: "Slice", Kind: KindType, Package: "Go"},
 		"Map":   {Name: "Map", Kind: KindType, Package: "Go"},

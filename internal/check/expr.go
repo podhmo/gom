@@ -468,6 +468,18 @@ func (c *checker) checkSelect(e *syntax.Select) Expr {
 				c.diags.Add(diag.Error("E0507",
 					"`Go.conv` is only valid as a conversion: `Go.conv e : T`").At(e.Sp))
 				typ = c.untypedMeta()
+			case sel != nil && isNil(sel):
+				// `Go.nil` is a value only through `Go.nil ()`; the
+				// apply path (checkNilCall) mints the real result
+				// meta and quiets this one. A bare reference keeps
+				// `Unit -> ?a` — registering the meta makes an
+				// indirect call (`{let f = Go.nil; f ()}`) answer
+				// for the type it solves to, so `Unit -> Int32`
+				// reports E0513 instead of emitting
+				// `rt.Nil[int32]()` — which is 0, not a nil at all.
+				m := c.newMeta(e.Sel.Sp, "the nil value's type")
+				c.pendingNils = append(c.pendingNils, &pendingNil{sp: e.Sel.Sp, m: m})
+				typ = &types.Func{Params: []types.FuncParam{types.P(types.Unit)}, Ret: m}
 			case sel != nil && funcCallMember(sel):
 				// `Go.funcN` is a conversion whose result type the
 				// apply itself computes — like `Go.conv` the bare

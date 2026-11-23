@@ -775,8 +775,14 @@ func (c *checker) unify(want, got types.Type, sp diag.Span) bool {
 	// A `Go.Any` parameter accepts every argument — boxing a value
 	// into Go's empty interface is implicit at call sites
 	// (spec 8.1.7). The check runs before the got-meta bind so an
-	// `any` slot never captures an inference variable.
+	// `any` slot never captures an inference variable — except a
+	// `Go.nil ()` literal's own meta, for which `any` is the only
+	// concrete reading (`rt.Nil[any]()`); leaving it unsolved just
+	// demands an annotation that could not pin anything better.
 	if isGoAny(w) {
+		if m, ok := g.(*types.Meta); ok && c.isNilMeta(m) {
+			return c.bind(m, w, sp)
+		}
 		return true
 	}
 	// A method-less named func type and its `Go.FuncN` spelling are

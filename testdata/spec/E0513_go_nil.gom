@@ -1,0 +1,15 @@
+package ex
+
+import go "os"
+
+// spec 8.7: `Go.nil` requires a nil-able type — Int, String and
+// named Go types over basic underlyings cannot hold nil.
+fn int_nil () -> Int = Go.nil ()
+fn string_nil () -> String = Go.nil ()
+fn mode_nil () -> os.FileMode = Go.nil ()
+
+// the same obligation follows a bare reference: `f ()` solves
+// `?a` to Int32, which cannot hold nil either.
+fn indirect () -> Int32 = { let f = Go.nil; f () }
+
+fn main () -> Unit = ()

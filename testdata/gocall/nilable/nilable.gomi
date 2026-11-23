@@ -1,0 +1,7 @@
+package nilable
+
+fn nil_slice () -> Go.Slice Int
+fn nil_map () -> Go.Map String Int
+fn nil_any () -> Go.Any
+fn echo_slice (xs: Go.Slice Int) -> Go.Slice Int
+fn nil_result () -> Result (Go.Slice Int) GoError

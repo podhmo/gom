@@ -66,6 +66,7 @@ func Check(res *resolve.Resolved, src SignatureSource) (*File, diag.List) {
 	c.checkTopLevelLetScopes()
 	c.checkInstantiationCycles()
 	c.validateGoGenerics()
+	c.validateNils()
 	c.checkScopeEscape()
 	c.lintMutableSharing()
 
@@ -291,6 +292,11 @@ type checker struct {
 	// meta solves (spec 8.4: the pair obeys Go's conversion rules).
 	pendingConvs []*pendingConv
 
+	// pendingNils are `Go.nil ()` sites whose result meta carries a
+	// nil-ability obligation — validateNils judges each solved type
+	// after inference (decision 2026-11-23-nil-spelling).
+	pendingNils []*pendingNil
+
 	// pendingLits are the integer and float literals (expressions and
 	// patterns) whose range judgment waits for their metas to solve or
 	// default — the same post-default moment as revisitDivs and
@@ -417,6 +423,48 @@ func (c *checker) validateGoGenerics() {
 				Set("constraint", desc).
 				Set("parameter", param))
 		}
+	}
+}
+
+// pendingNil is one `Go.nil ()` application — the span it was
+// written at and the fresh meta its result must solve to a nil-able
+// type — or the same obligation a bare `Go.nil` reference's
+// `Unit -> ?a` carries (an indirect call must not mint
+// `rt.Nil[int32]()`).
+type pendingNil struct {
+	sp diag.Span
+	m  *types.Meta
+}
+
+// isNilMeta reports whether m is a registered nil-obligation meta —
+// the `any` slot of unify binds it (its only concrete reading),
+// where an ordinary inference variable stays uncaptured.
+func (c *checker) isNilMeta(m *types.Meta) bool {
+	for _, u := range c.pendingNils {
+		if u.m == m {
+			return true
+		}
+	}
+	return false
+}
+
+// validateNils reports E0513 for each `Go.nil ()` whose result type
+// solved to a type that cannot hold nil — an Int, a record, a sum
+// type. An unsolved meta already stands under E0407.
+func (c *checker) validateNils() {
+	for _, u := range c.pendingNils {
+		t := types.Chase(u.m)
+		if _, unsolved := t.(*types.Meta); unsolved {
+			continue
+		}
+		if c.nilableType(t) {
+			continue
+		}
+		c.diags.Add(diag.Error("E0513",
+			fmt.Sprintf("`Go.nil` requires a nil-able type — `%s` cannot hold nil",
+				types.Display(t, metaNamer()))).
+			At(u.sp).
+			Set("type", types.Display(t, metaNamer())))
 	}
 }
 

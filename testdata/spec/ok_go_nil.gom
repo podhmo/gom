@@ -1,0 +1,23 @@
+package ex
+
+import go "fmt"
+import go "os"
+import go "sort"
+
+// spec 8.7: `Go.nil : Unit -> a` yields nil for any nil-able type —
+// Ptr, Chan, Go.Slice, Go.Map, Go funcs, and named Go types whose
+// underlying is a slice, map, channel, func or interface.
+fn ptr_nil () -> Ptr Int = Go.nil ()
+fn chan_nil () -> Chan Int = Go.nil ()
+fn slice_nil () -> Go.Slice Int = Go.nil ()
+fn map_nil () -> Go.Map String Int = Go.nil ()
+fn named_slice () -> sort.IntSlice = Go.nil ()
+fn named_iface () -> os.DirEntry = Go.nil ()
+fn named_fileinfo () -> os.FileInfo = Go.nil ()
+
+// `Go.nil ()` into a Go `any` slot pins to `any` itself —
+// `rt.Nil[any]()` is the only concrete reading.
+let any_nil : Go.Any = Go.nil ()
+fn any_arg () -> Result Int GoError = fmt.Println (Go.nil ())
+
+fn main () -> Unit = ()

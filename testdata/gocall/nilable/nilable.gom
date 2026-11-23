@@ -1,0 +1,14 @@
+package nilable
+
+// `Go.nil` across the module boundary: the Go consumer asserts
+// the generated API hands real nils out and takes nils back in.
+
+fn nil_slice () -> Go.Slice Int = Go.nil ()
+
+fn nil_map () -> Go.Map String Int = Go.nil ()
+
+fn nil_any () -> Go.Any = Go.nil ()
+
+fn echo_slice (xs: Go.Slice Int) -> Go.Slice Int = xs
+
+fn nil_result () -> Result (Go.Slice Int) GoError = Ok (Go.nil ())

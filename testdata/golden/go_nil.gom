@@ -1,0 +1,10 @@
+package ex
+
+import go "os"
+
+// `Go.nil` emits rt.Nil[T]() at the proven type.
+fn ptr_nil () -> Ptr Int = Go.nil ()
+fn slice_nil () -> Go.Slice Int = Go.nil ()
+fn dir_nil () -> os.DirEntry = Go.nil ()
+
+fn main () -> Unit = ()

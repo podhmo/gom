@@ -1,0 +1,7 @@
+package ex
+
+// `_` is not an argument of `Go.nil` — the placeholder reports
+// E0504 (and Unit cannot hold nil anyway).
+fn e () -> Unit = Go.nil _
+
+fn main () -> Unit = ()
