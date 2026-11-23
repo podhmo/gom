@@ -184,7 +184,7 @@ transfer alice bob 100                  // エラー
 
 ### 2.1 型の扱い
 
-- ラベルは関数型の一部: `Account -> ~to: Account -> ~amount: Money -> Result Unit TxError`。型の同値は、連続するラベル付き引数の並びをラベル名順に並べ替えてから比較する（連続していないラベル付き引数どうしは入れ替えない）
+- ラベルは関数型の一部: `Account -> ~to: Account -> ~amount: Money -> Result Unit TxError`。型の同値は、連続するラベル付き引数の並びを名前対応かつ宣言順で比較する — `~a: Int -> ~b: Int -> R` と `~b: Int -> ~a: Int -> R` は別の型（生成 Go は位置呼び出しで、並びが違うと引数が入れ替わる）。呼び出し側の `~x:` 記述順は引数規則どおり順不同のまま
 - ラベル付きの呼び出しは、その時点で関数の型が既知であることを要求する。型変数のままなら注釈を求めるエラーにする
 - ラベル付き関数とラベルなし関数の暗黙変換はしない。ただし expected 型がラベル付きの位置で produced 側の同じ flat 位置にラベルのないパラメータがあるときは、expected のラベルを位置対応で貸す一方向の introduction を許す（`Int -> Int` は `~x: Int -> Int` を要求する位置に置ける）。逆方向（labeled → unlabeled）と、途中にラベル付きが混ざる produced 型への introduction は変換しない（[decision](decisions/2026-11-23-labeled-arg-relaxation.md)）
 
