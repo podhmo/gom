@@ -468,6 +468,14 @@ func (c *checker) checkSelect(e *syntax.Select) Expr {
 				c.diags.Add(diag.Error("E0507",
 					"`Go.conv` is only valid as a conversion: `Go.conv e : T`").At(e.Sp))
 				typ = c.untypedMeta()
+			case sel != nil && isNil(sel):
+				// `Go.nil` is a value only through `Go.nil ()`; the
+				// apply path (checkNilCall) mints the real result
+				// meta and quiets this one. A bare reference keeps
+				// `Unit -> ?a` — the unsolved `?a` asks for an
+				// annotation like any ambiguous function value.
+				m := c.newMeta(e.Sel.Sp, "the nil value's type")
+				typ = &types.Func{Params: []types.FuncParam{types.P(types.Unit)}, Ret: m}
 			case sel != nil && funcCallMember(sel):
 				// `Go.funcN` is a conversion whose result type the
 				// apply itself computes — like `Go.conv` the bare
@@ -2214,8 +2222,14 @@ func constFold(e Expr) (constant.Value, bool) {
 			// than wrapping only the top. A negative count is a
 			// runtime panic, not a folding concern.
 			if cw, ok := intFoldWidth(e.Y.Type()); ok {
-				if wy, wok := foldIntAt(e.Y, cw); wok {
-					y = wy
+				// foldIntAt is authoritative when the count has a
+				// width — its unbounded value could hide a wrap to
+				// zero (a `%` whose divisor wrapped) or a negative
+				// count the machine would panic on.
+				var wok bool
+				y, wok = foldIntAt(e.Y, cw)
+				if !wok {
+					return nil, false
 				}
 			}
 			s, exact := constant.Int64Val(y)
@@ -2326,8 +2340,13 @@ func shiftConst(x constant.Value, op token.Token, s uint64, w uint) constant.Val
 // foldIntAt folds a constant integer subtree at machine width w —
 // the same shapes constFold admits, but every step wraps so the
 // value is what the machine computes, not the unbounded constant.
-// A shift count operand uses it when the count has a width.
+// A shift count operand uses it when the count has a width. Each
+// node's own width governs its fold: a `Go.conv … : Int32` subterm
+// inside an Int count still wraps at 32.
 func foldIntAt(e Expr, w uint) (constant.Value, bool) {
+	if w2, ok := intFoldWidth(e.Type()); ok {
+		w = w2
+	}
 	switch e := e.(type) {
 	case *Lit:
 		if e.Kind != syntax.LitInt {
@@ -2398,10 +2417,14 @@ func foldIntAt(e Expr, w uint) (constant.Value, bool) {
 		}
 		return wrapConstInt(constant.BinaryOp(x, op, y), w), true
 	case *Ascribe:
-		if w2, ok := intFoldWidth(e.Type()); ok {
-			return foldIntAt(e.X, w2)
+		// `Go.conv e : T` evaluates e at its own width (the
+		// recursion derives it from e's node), then converts —
+		// the wrap at this node's width is the conversion.
+		v, ok := foldIntAt(e.X, w)
+		if !ok {
+			return nil, false
 		}
-		return foldIntAt(e.X, w)
+		return wrapConstInt(v, w), true
 	case *Var, *Apply, *Hole, *MemberExpr, *StrInterp, *Lambda, *If,
 		*Match, *Block, *Let, *Ignore, *Try, *FieldAssign,
 		*GoExpr, *For, *SelectExpr, *ListLit, *Spread, *TupleLit,

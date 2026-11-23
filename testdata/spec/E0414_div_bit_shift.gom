@@ -17,6 +17,17 @@ fn i () -> Int = 7 / ((-1) >>> 64)
 // `(2147483647 + 1) % 33` is -2^31 % 33 = -2, a negative count the
 // fold must not rewrite to the unbounded remainder 2 (which would
 // mint a false E0414 on a program whose count really panics).
+// Negating it is a real count of 2 — E0414 still fires for k.
 fn j () -> Int32 = 7 / (1 >>> ((Go.conv (2147483647 + 1) : Int32) % 33))
+fn k () -> Int32 = 7 / (1 >>> (0 - ((Go.conv (2147483647 + 1) : Int32) % 33)))
+
+// a narrower subexpression wraps at its own width even inside a
+// wider count: the Int32 `+` overflows to -2^31 before the Int64
+// conversion, so the count is -2 — no fold, no E0414 for l.
+fn l () -> Int64 = 7 / (1 >>> ((Go.conv ((Go.conv 2147483647 : Int32) + 1) : Int64) % 33))
+
+// a remainder whose divisor wraps to zero panics in the machine
+// before the shift — the unbounded fallback must not mint E0414.
+fn m () -> Int32 = 7 / (1 >>> (7 % (Go.conv (1 <<< 32) : Int32)))
 
 fn main () -> Unit = ()
