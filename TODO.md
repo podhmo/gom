@@ -54,6 +54,7 @@
   - [x] **SC-3 ネイティブ `defer` への lowering**: 登録が `Scope.run` と同じ Go 関数内にあるとき、Core IR で判定して登録位置に Go の `defer` を出し、結果に触る cleanup だけ生成 Go 側で named result を使う（目標形は `experiments/defer/cgen`）。それ以外は SC-1 のランタイムスタックのまま。依存: SC-1, SC-2
 
 - [ ] **[task] stdlib `List` の補強**: `take`/`drop`/`last`/`sort`/`sum`（Int 版）など実アプリで欲しくなった操作がない。`List.sum` は `List Float` 専用で、sandbox 探索では jot の `last_n` や duu のソートが自前実装になった（[sketch](docs/sketch/2026-11-23-sandbox-missing-features.md)、wave37 lane F — [prompts](docs/sketch/2026-11-23-wave37-prompts.md)）
+- [ ] **[task] ビット演算子の実装（採択待ち）**: decision draft は三重字 `&&&`/`|||`/`^^^`/`<<<`/`>>>`（+`&&^`）を推薦 — 中置記号追加（lexer 新トークン・parser mul/add 段・check `intg`・codegen `binOp`・spec §1.5 の演算子表）。実装は decision 採択後（wave37 lane B、[decision](docs/decisions/2026-11-23-bit-operators.md)）
 
 ### ドキュメント
 
