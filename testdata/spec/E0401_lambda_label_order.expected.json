@@ -27,7 +27,7 @@
         ]
       },
       "notes": [
-        "the value is a partially applied call still awaiting ~a:, ~b:"
+        "the labeled parameters ~a:, ~b: are in a different order — the generated Go call is positional, so the arguments would swap"
       ]
     }
   ]
