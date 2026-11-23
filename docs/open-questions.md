@@ -23,13 +23,13 @@
 
 ### ツール
 
-- [x] `--strict` / 診断フィルタ → 採用（[decisions/strict-mode](decisions/2026-11-22-strict-mode.md)）: リラックスは `//gom:allow CODE` ディレクティブで relaxable コードのみ（初期 E0301/E0302）、厳格方向は warnings→errors の exit code として別旗。実装は次 wave 以降
+- [x] `--strict` / 診断フィルタ → 採用（[decisions/strict-mode](decisions/2026-11-22-strict-mode.md)）: リラックスは `//gom:allow CODE` ディレクティブで relaxable コードのみ（初期 E0301/E0302）、厳格方向は warnings→errors の exit code として別旗。実装は wave36 lane E（[prompts](sketch/2026-11-23-wave36-prompts.md)）
 - [ ] `gom fix` でも `.gomi` 適合検査を走らせるか（`gom check`/`build`/`test` は走らせると決定済み — [decision](decisions/2026-11-04-gomi-conformance-in-gom-test.md)。`info`/`dump` は対象外）。2026-11-05 に検討して見送り: 適合診断は fix 候補プールに加わるだけ・ゲート無し・診断非表示という形が妥当だが、現状 E0601/E0603/E0604 に safe fix がなく観測差ゼロのため先送り。interface 診断に safe fix が付くなど価値が具体化した時点で再検討する（[検討の記録](decisions/2026-11-05-gomi-conformance-in-gom-fix.md)）
 - [x] ~~`gom run`（`go run` 相当の実行経路）~~ → wave19 で採用・実装済み: compile → temp dir への `go build -o` → 子プロセス exec（引数 passthrough・exit code 保全・signal kill は 128+signal）。実行中の出力は対象プログラムが stdout/stderr を所有し、gom の JSON message stream は失敗時のみ（[decision](decisions/2026-11-18-gom-run.md)）
 ## Future work（v1 では扱わないと決めたもの）
 
-- [x] ~~ラベル付き引数の制限の緩和~~ → 調査済み、unlabeled→labeled の一方向 introduction を採択（2026-11-23、[decision](decisions/2026-11-23-labeled-arg-relaxation.md)）。meta へのラベル制約の後送りと位置引数の labeled 充填は reject。実装は別 lane
-- `fn ~x -> x` のラムダラベル構文 — 案 A の introduction があれば必要性は薄い。需要が出たら `fn` 宣言の `(~x: T)` と対称の形で検討（wave35 lane D）
+- [x] ~~ラベル付き引数の制限の緩和~~ → 調査済み、unlabeled→labeled の一方向 introduction を採択（2026-11-23、[decision](decisions/2026-11-23-labeled-arg-relaxation.md)）。meta へのラベル制約の後送りと位置引数の labeled 充填は reject。実装は wave36 lane B（[prompts](sketch/2026-11-23-wave36-prompts.md)）
+- `fn ~x -> x` のラムダラベル構文 → wave36 lane F で採択（[prompts](sketch/2026-11-23-wave36-prompts.md)）。`fn` 宣言の `(~x: T)` と対称の形
 - 省略可能引数とデフォルト値 → defaults record + `{base with x = v}` パターンで代替する方針に収束（2026-11-19、[sketch](sketch/2026-11-19-labeled-args.md)）。record→ラベル引数の spread は wave29 lane C で実装済み（`f ~..opts`、[decision](decisions/2026-11-21-record-spread-arg.md)、spec 3 章）
 - `|?>` の自動ラップの文言を設定可能にする — 案 C（現状維持 + 回避経路の文書化）を採択（2026-11-23、[decision](decisions/2026-11-23-pipe-try-wording.md)）。文言を変えたい消費側は `*rt.StepError.Step` の読み出し・`rt.StepErr` + `Result.map_err`・`try`+`match` で足りる（spec 9.2 節）。書式指定やステップごとの構文（案 A/B）は需要が出た時点で再検討
 - ローカル let 多相 — v1 は単相のまま維持（案 A 現状維持、2026-11-23 採択 — [decision](decisions/2026-11-23-local-let-polymorphism.md)）。障壁は relaxed value restriction ではなく Go 側の emission（ローカル generics が存在しない）

@@ -29,16 +29,18 @@
 - [x] **[task] emit 名の衝突検出器（Go ABI 案 B）**: 生成名の一覧化・suffix 衝突（同 base 追い出し）・暗黙 member 名を検出する。E0607 は base 名の `.gomi` メンバ衝突までしか止めないので、suffix 追い出しは新規検出対象（[decision](docs/decisions/2026-11-23-go-abi-stability.md)、wave35 lane C — [prompts](docs/sketch/2026-11-23-wave35-prompts.md)）
   - 対応（wave35 lane C）: codegen の emit 台帳（`emitLog`/`emitOwner`）で全パッケージスコープ名を記録し、verbatim 二重請求は W0601・suffix 追い出しは W0602 で警告。一覧は `Output.EmitNames` + `gom dump -phase=emit`（[decision](docs/decisions/2026-11-23-emit-name-collision-check.md)）
 
-- [ ] **[task] emit 名の verbatim 二重請求で壊れた Go を emit しない**: `type Foo_Bar`/`type FooBar` → `type FooBar` ×2、`| Some_Opt | SomeOpt` → `T_SomeOpt` ×2 のまま出力され生成 Go がコンパイル不可。検出は W0601 済み — 負け側を error にするか suffix で退避するかの方針決めと修正（wave35 lane C で検出、knownBugs 2 件登録）
+- [ ] **[task] emit 名の verbatim 二重請求で壊れた Go を emit しない**: `type Foo_Bar`/`type FooBar` → `type FooBar` ×2、`| Some_Opt | SomeOpt` → `T_SomeOpt` ×2 のまま出力され生成 Go がコンパイル不可。検出は W0601 済み — **方針 (a) エラー化を採択**（suffix 退避は不採用）。W0601 を新 E-code のエラーに格上げして出力を withhold（wave35 lane C で検出、knownBugs 2 件登録 → wave36 lane A、[prompts](docs/sketch/2026-11-23-wave36-prompts.md)）
 
 - [x] **G-1 `Ptr T` 経由の field 書き込みの実装**: `ptr.Field = v` の代入構文と addressability 規則。`Ptr T`（T は named Go struct）経由に限定し、record/`Ref` への field 代入は開かない（[decision](docs/decisions/2026-11-19-struct-field-write.md)、比較材料は [sketch](docs/sketch/2026-11-19-wave23-struct-construction.md)）。実装後に tutorial / examples の host パッケージ（`NewClient` factory）を撤去する — wave24 以降の lane 候補
   - 対応（wave24 lane B）: `Assign`/`FieldAssign`/`FieldSet` を syntax→check→lower→codegen に通し、左辺は `ptr.Field` の形のみ（変数・record field・`Ptr` でない Go 値経由は E0511）。代入式は `Unit`。examples/gist-cli の host パッケージは撤去 — `NewClient` は `Ptr.new` + `client.Timeout`/`client.CheckRedirect` への代入に置換。composite literal は引き続き非提供
 
 ### 言語機能
 
-- [ ] **[task] unlabeled → labeled の introduction（ラベル付き引数の緩和）**: expected 型が `~x` を宣言する位置で produced のラベルなしパラメータに位置対応でラベルを貸す（`Int -> Int` ≤ `~x: Int -> Int`）。`apply (fn x -> x)` が通るようになる。逆方向・混在型は拒否のまま。spec §2「暗黙変換はしない」の書き換えを伴う（[decision](docs/decisions/2026-11-23-labeled-arg-relaxation.md)、wave35 lane D）
+- [ ] **[task] unlabeled → labeled の introduction（ラベル付き引数の緩和）**: expected 型が `~x` を宣言する位置で produced のラベルなしパラメータに位置対応でラベルを貸す（`Int -> Int` ≤ `~x: Int -> Int`）。`apply (fn x -> x)` が通るようになる。逆方向・混在型は拒否のまま。spec §2「暗黙変換はしない」の書き換えを伴う（[decision](docs/decisions/2026-11-23-labeled-arg-relaxation.md)、wave35 lane D → wave36 lane B で実施）
 
-- [ ] **[task] result-taint flag + `.gomi` export（案 B）**: `Symbol.ResultTaint []bool`（結果が param i の生産物を運び得る）を fixpoint 推論し、`//gom:result-notaint name i ...` directive でエクスポート。imported callee の偽陽性と transitive の false negative を閉じる（[decision](docs/decisions/2026-11-23-result-taint-gomi-export.md)、wave35 lane E）
+- [ ] **[task] result-taint flag + `.gomi` export（案 B）**: `Symbol.ResultTaint []bool`（結果が param i の生産物を運び得る）を fixpoint 推論し、`//gom:result-notaint name i ...` directive でエクスポート。imported callee の偽陽性と transitive の false negative を閉じる（[decision](docs/decisions/2026-11-23-result-taint-gomi-export.md)、wave35 lane E → wave36 lane C/D で実施）
+
+- [ ] **[task] `fn ~x ->` ラムダラベル構文**: ラムダのパラメータにラベルを付ける構文（parser + check）。unlabeled→labeled introduction と組になると呼び出し側で `~x:` を書ける匿名関数になる（wave35 lane D で deferred → wave36 lane F 採択、[prompts](docs/sketch/2026-11-23-wave36-prompts.md)）
 
 - [-] **SC scoped cleanup（Go の `defer` が解く問題）**: 組み込み `Scope` モジュールでスコープを値として開き、cleanup を `if`・`match` の腕・その場で呼ばれるラムダから登録する（[decision](docs/decisions/2026-11-21-scoped-cleanup.md)、[sketch](docs/sketch/2026-11-21-defer-survey.md)、実験 `experiments/defer/`）
   - [x] **SC-1 `Scope` 型と rt-backed モジュール**: `Scope.run`/`run_result`/`defer`/`defer_err`/`on_err` を builtin module として配線する（LIFO、cleanup 同士は `errors.Join`、本体の `Err` 優先、`on_err` は panic 時も走る、閉じた後の登録は panic）。spec fixture・golden・spec 8.3 を足す
@@ -82,6 +84,8 @@ Go 相互運用を変えたら両方向（Gom → Go、Go → Gom）のテスト
 - [x] **[task] Gom fn → Go func 相互運用（typed adapter `Go.funcN`）**: (b) を採用・実装 — func 型は生ビュー引数の `Go.FuncN`（N=0..3、結果 ≤2）として surface、Gom 側は `Go.funcN` 明示変換のみで供給（暗黙変換なし）。check 側は produced-vs-want を `gomRawCompatible` で view-tolerant に比較（E0401）、引数の非関数・arity 違い・ラベル付き・未対応型は E0510、inline lambda は want から seed。`Unit -> R` は `Go.func0` で `func() R`。lower が `core.GoFunc` に変換計画（パラメータ conv・結果 shape）を確定して載せ、codegen は flat `func` リテラルを render。fixtures: spec `ok_go_func_adapter`・`E0510_go_func_{non_fn,arity,label}`・`E0401_go_func_want`、golden `go_func_adapter`、`E0509_extern_go_any_fn_param` は FuncN 公開に合わせて更新（wave-16 lane 2、[decision](docs/decisions/2026-11-17-func-interop.md)、spec 8.8）
 
 ### P4 公開 API と開発体験
+
+- [ ] **[task] `--strict` モードの実装**: `//gom:allow CODE` directive で relaxable コードのみリラックス（初期 E0301/E0302）+ warnings→errors の exit flag（[decision](docs/decisions/2026-11-22-strict-mode.md) → wave36 lane E、[prompts](docs/sketch/2026-11-23-wave36-prompts.md)）
 
 - [x] **P4-6 LSP**: 型表示、網羅性エラーの即時表示、UTF-16 位置への変換。依存: P4-5 — v1 foundation として採用: `internal/lsp`（stdio JSON-RPC、`didOpen`/`didChange`/`didClose`/`hover`/`publishDiagnostics`、単一 open-file モデル、`OffsetUTF16` で UTF-16 列→バイトオフセット逆変換）+ `gom lsp`。実 Emacs+Eglot で hover・診断 push を検証（wave11 lsp、[decision](docs/decisions/2026-11-06-lsp-v1-scope.md)、[検証](docs/sketch/2026-11-06-lsp-v1-verification.md)）
 - [x] **[task] LSP: 複数ファイルパッケージ単位のコンパイル**: `gom lsp` の compile unit をパッケージへ — dir の `*.gom` を overlay gather（open バッファがディスクをシャドウ、未オープン兄弟はディスク読み込み、絶対 `.gom` パスのみが member になる）し `build.CompileFiles` で単位ごと再コンパイル、診断はファイル単位で publish（未オープンは合成 file:// URI）+ 離脱メンバーの retract。Emacs/Eglot で兄弟解決・クロスファイル hover・didChange 反転を実証（wave12 lsp-multifile、[decision](docs/decisions/2026-11-06-lsp-package-unit.md)、[検証](docs/sketch/2026-11-06-lsp-package-unit-verification.md)）
