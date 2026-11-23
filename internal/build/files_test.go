@@ -619,6 +619,15 @@ func TestCompileFilesEmitNameCollisionsVerbatimDup(t *testing.T) {
 	if rs[0].Output != nil {
 		t.Errorf("verbatim dup still emits output — want withheld")
 	}
+	// The emit listing survives the withheld output — `gom dump
+	// -phase=emit` reads it to name the collision.
+	got := map[string]string{}
+	for _, n := range rs[0].EmitNames {
+		got[n.GomName] = n.Name
+	}
+	if got["Foo_Bar"] != "FooBar" || got["FooBar"] != "FooBar" {
+		t.Errorf("withheld EmitNames = %v, want both claimants listed as FooBar", got)
+	}
 }
 
 // A sibling `@test` helper reserves its Go name only when the

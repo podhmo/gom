@@ -726,9 +726,16 @@ func runDump(args []string, stdout, stderr io.Writer) int {
 			text = treedump.DumpCore(r.Core)
 		}
 	case "emit":
-		if r.Output != nil {
+		// The listing survives a withheld Output — on an emit
+		// error (E0608) the colliding names are exactly what the
+		// dump is for.
+		names := r.EmitNames
+		if names == nil && r.Output != nil {
+			names = r.Output.EmitNames
+		}
+		if names != nil {
 			var b strings.Builder
-			for _, n := range r.Output.EmitNames {
+			for _, n := range names {
 				fmt.Fprintf(&b, "%s\t%s\t%s", n.Kind, n.GomName, n.Name)
 				if n.Name != n.Base {
 					fmt.Fprintf(&b, "\t(base %s)", n.Base)
