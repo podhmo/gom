@@ -62,7 +62,9 @@ top-decl       = [ attribute ] , ( fn-decl | let-decl )
                | test-decl ;
 
 attribute      = "@" , member-name ;      (* "test", "tailrec", "extern" and "method" are defined;
-                                             "tailrec", "extern" and "method" apply to fn-decl only [SEMANTIC] *)
+                                             "tailrec" and "method" apply to fn-decl only;
+                                             "extern" on a let-decl declares a Go-supplied
+                                             package variable (spec §8.10) [SEMANTIC]        *)
 
 (* --------------------------------------------------------------------
    1.1 Interface files (.gomi), spec §7
@@ -293,10 +295,12 @@ sep            = ( NL | ";" ) , { NL | ";" } ;
    4. Declarations
    ========================================================================== *)
 
-import-decl    = "import" , [ "go" ] , [ ident ] , STRING ;
+import-decl    = "import" , [ "go" ] , [ ident | "_" ] , STRING ;
                (* bare form imports a Gom package, "go" a Go package;
                   the optional ident is a local alias for the bound
-                  module name (spec §5).                                 *)
+                  module name (spec §5). "_" — Go packages only —
+                  binds nothing and emits `_ "path"` (blank import,
+                  spec §8.10).                                          *)
 
 extern-decl    = "extern" , "go" , STRING , "{" ,
                  [ extern-item , { sep , extern-item } , [ sep ] ] , "}" ;
@@ -347,8 +351,11 @@ fn-param       = "(" , ")"                                    (* Unit parameter 
                   rejected at top level, which admits only declarations).
                   The pattern must be irrefutable [SEMANTIC, spec 4].   *)
 
-let-decl       = "let" , pattern , "=" , expr ;
-               (* the pattern must be irrefutable [SEMANTIC, spec 1.1.5] *)
+let-decl       = "let" , pattern , [ ":" , type-expr ] , "=" , expr ;
+               (* the pattern must be irrefutable [SEMANTIC, spec 1.1.5];
+                  with the "@extern" attribute the decl is
+                  "let" ident ":" type-expr — no "= expr"
+                  (spec §8.10) [SEMANTIC]                              *)
 
 test-decl      = "test" , STRING , block ;                    (* spec 11 *)
 

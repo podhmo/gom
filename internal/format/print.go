@@ -342,6 +342,7 @@ type gevt struct {
 	line  int
 	blank bool
 	text  string
+	c     *cmt // set when the event renders a comment
 }
 
 // ------------------------------------------------------------------

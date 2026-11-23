@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0512",
+      "severity": "error",
+      "message": "malformed `//gom:embed` pattern list",
+      "span": {
+        "file": "E0512_embed_unbalanced_quote.gom",
+        "start": {
+          "line": 3,
+          "col": 1,
+          "offset": 12
+        },
+        "end": {
+          "line": 3,
+          "col": 21,
+          "offset": 32
+        }
+      }
+    }
+  ]
+}

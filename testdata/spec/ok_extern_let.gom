@@ -1,0 +1,10 @@
+package ex
+
+// A bare @extern let supplies no code — the Go variable is
+// hand-written beside the generated output. `import go _ "path"`
+// binds nothing and emits `_ "path"`.
+import go _ "embed"
+
+@extern let version : String
+
+fn get () -> String = version

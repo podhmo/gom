@@ -1,0 +1,4 @@
+package ex
+
+//gom:embed
+@extern let x : String

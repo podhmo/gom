@@ -1,0 +1,8 @@
+package ex
+
+import go "embed"
+
+//gom:embed hello.txt
+@extern let fs : embed.FS
+
+fn get () -> String = "ok"

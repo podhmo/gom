@@ -1,0 +1,3 @@
+package blankemb
+
+fn note_text () -> String

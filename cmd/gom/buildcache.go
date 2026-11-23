@@ -274,13 +274,44 @@ func canonHash(src []byte, dropTests bool) string {
 	canon := syntax.Canonical(src, drops)
 	// Comments leave the canonical token stream unchanged, but
 	// `//gom:` directive lines carry semantics (//gom:allow,
-	// //gom:noescape) — fold them into the fingerprint so adding or
-	// removing one invalidates the entry.
-	for _, line := range bytes.Split(src, []byte("\n")) {
-		if t := bytes.TrimSpace(line); bytes.HasPrefix(t, []byte("//gom:")) {
-			canon = append(canon, '\n')
-			canon = append(canon, t...)
+	// //gom:noescape, //gom:embed) — fold them into the fingerprint.
+	// A directive's attachment also depends on the contiguous
+	// comment run around it (a blank line detaches `//gom:embed`
+	// from the decl below), so fold every comment run that contains
+	// a `//gom:` line, with two adjacency flags per member: 'n' —
+	// the next physical line is non-blank, 'p' — the previous line
+	// is a comment in the same run. Comment text and spacing outside
+	// such runs cannot change a directive's meaning and stays out.
+	lines := bytes.Split(src, []byte("\n"))
+	isComment := func(i int) bool {
+		return bytes.HasPrefix(bytes.TrimSpace(lines[i]), []byte("//"))
+	}
+	for i := 0; i < len(lines); {
+		if !isComment(i) {
+			i++
+			continue
 		}
+		j := i
+		for j < len(lines) && isComment(j) {
+			j++
+		}
+		hasGom := false
+		for k := i; k < j && !hasGom; k++ {
+			hasGom = bytes.HasPrefix(bytes.TrimSpace(lines[k]), []byte("//gom:"))
+		}
+		if hasGom {
+			for k := i; k < j; k++ {
+				canon = append(canon, '\n')
+				canon = append(canon, bytes.TrimSpace(lines[k])...)
+				if k+1 < len(lines) && len(bytes.TrimSpace(lines[k+1])) > 0 {
+					canon = append(canon, 'n')
+				}
+				if k > i {
+					canon = append(canon, 'p')
+				}
+			}
+		}
+		i = j
 	}
 	sum := sha256.Sum256(canon)
 	return hex.EncodeToString(sum[:])

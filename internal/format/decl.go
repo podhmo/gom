@@ -61,7 +61,7 @@ func (p *printer) fileDoc(f *syntax.File) *doc {
 	}
 	gaps[0].trail = nil
 
-	body := p.seqLines(gaps, items, seqSpec{blanks: false, lines: 2}, 0)
+	body := p.seqLines(gaps, items, seqSpec{blanks: false, lines: 2, keepGomDir: true}, 0)
 	if pkg != nil && len(body) > 0 {
 		// One blank line between the package clause and the body,
 		// matching the fixed blank between top-level decls.
@@ -75,9 +75,12 @@ func (p *printer) fileDoc(f *syntax.File) *doc {
 // item: doc comments and @test become lead lines.
 func (p *printer) declItem(d syntax.Decl) item {
 	var lead []string
+	var embedDir map[*syntax.Comment]bool
+	var attrOff int
 	var dd *doc
 	switch d := d.(type) {
 	case *syntax.FnDecl:
+		attrOff = d.AttrSp.Start
 		lead = append(lead, docLines(d.Doc)...)
 		if d.TestOnly {
 			lead = append(lead, "@test")
@@ -93,9 +96,22 @@ func (p *printer) declItem(d syntax.Decl) item {
 		}
 		dd = p.fnDecl(d)
 	case *syntax.LetDecl:
+		attrOff = d.AttrSp.Start
 		lead = append(lead, docLines(d.Doc)...)
 		if d.TestOnly {
 			lead = append(lead, "@test")
+		}
+		if d.Extern {
+			lead = append(lead, "@extern")
+		}
+		// The `//gom:embed` comments this decl consumed travel with
+		// the item so seqLines can tell attached directives from
+		// detached ones.
+		if len(d.Embed) > 0 {
+			embedDir = map[*syntax.Comment]bool{}
+			for _, cm := range d.Embed {
+				embedDir[cm] = true
+			}
 		}
 		dd = p.letDecl(d)
 	case *syntax.TypeDecl:
@@ -111,7 +127,7 @@ func (p *printer) declItem(d syntax.Decl) item {
 	default:
 		panic("unreachable")
 	}
-	return item{lo: d.Span().Start, hi: d.Span().End, d: p.sweep(d.Span().Start, d.Span().End, dd), lead: lead}
+	return item{lo: d.Span().Start, hi: d.Span().End, d: p.sweep(d.Span().Start, d.Span().End, dd), lead: lead, embedDir: embedDir, attrOff: attrOff}
 }
 
 // docLines renders a merged /// doc comment as one line per source

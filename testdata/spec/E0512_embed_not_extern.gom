@@ -1,0 +1,4 @@
+package ex
+
+//gom:embed data.txt
+let x : String = "y"

@@ -1,6 +1,6 @@
 package ex
 
-// `@extern` attaches to `fn` declarations only — a `let` cannot
-// carry it.
+// `@extern let` declares a Go-supplied variable — a body is
+// rejected: `let name : T` is its whole shape.
 @extern
-let x = 1
+let x : Int = 1
