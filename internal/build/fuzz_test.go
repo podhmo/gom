@@ -502,7 +502,7 @@ func compileOracles(t testing.TB) (opts *build.Options, imp types.Importer) {
 		Loader:  ml,
 		Sigs:    ml,
 		Modules: mods,
-		Lower:   &lower.Env{GoSig: gl.GoSigOf, Types: ml, FuncArity: ml.ArityOf, FuncType: ml.FuncTypeOf, FuncNOfNamed: ml.FuncNOfNamed, GoUnderlyingSliceOrArray: gl.GoUnderlyingIsSliceOrArray},
+		Lower:   &lower.Env{GoSig: gl.GoSigOf, Types: ml, FuncArity: ml.ArityOf, FuncType: ml.FuncTypeOf, FuncNOfNamed: ml.FuncNOfNamed, GoUnderlyingSliceOrArrayPtr: gl.GoUnderlyingIsSliceOrArrayPtr},
 		Exports: iface.ExportNames,
 	})
 	imp = newExportImporter(gobin, root)

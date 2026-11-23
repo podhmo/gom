@@ -75,16 +75,18 @@ func (l *Loader) NilableUnderlying(ref gt.NamedRef) bool {
 	}
 }
 
-// GoUnderlyingIsSliceOrArray reports whether the named Go type behind
-// t has a slice, array, or pointer-to-array underlying (`type B []T`,
+// GoUnderlyingIsSliceOrArrayPtr reports whether the named Go type
+// behind t has a slice or pointer-to-array underlying (`type B []T`,
 // `sort.Float64Slice`, `type P *[3]int`) — the emit gate for `Go.conv`'s
-// `List`↔named-slice composite (internal/lower/expr.go). The composite
-// `T(xs.ToSlice())` compiles for all three shapes and keeps the copy
-// discipline: a raw `P(xs)` cast to a pointer-to-array would share the
-// List's backing, letting Go writes reach a value Gom treats as
-// immutable. A named interface target (json.Token) must keep the raw
+// `List`↔named composite (internal/lower/expr.go). The composite
+// `T(xs.ToSlice())` copies before the cast; a raw `P(xs)` cast to a
+// pointer-to-array would share the List's backing, letting Go writes
+// reach a value Gom treats as immutable. A plain array value target
+// keeps the raw cast — `A(xs)` copies the array-length prefix itself
+// (Go 1.20+) and a prior ToSlice would clone the whole list for
+// nothing. A named interface target (json.Token) must keep the raw
 // cast so the boxed value's dynamic type stays list.List[T], not []T.
-func (l *Loader) GoUnderlyingIsSliceOrArray(t gt.Type) bool {
+func (l *Loader) GoUnderlyingIsSliceOrArrayPtr(t gt.Type) bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	g, ok := gt.Chase(t).(*gt.Go)
@@ -96,7 +98,7 @@ func (l *Loader) GoUnderlyingIsSliceOrArray(t gt.Type) bool {
 		return false
 	}
 	switch u := n.Underlying().(type) {
-	case *types.Slice, *types.Array:
+	case *types.Slice:
 		return true
 	case *types.Pointer:
 		_, ok = u.Elem().(*types.Array)

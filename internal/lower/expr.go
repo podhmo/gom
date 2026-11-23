@@ -789,19 +789,22 @@ func (l *lowerer) goConvKindOf(from, to types.Type) (core.ConvKind, bool) {
 	return 0, false
 }
 
-// namedGoSliceOrArray reports whether t is a named Go type whose
-// underlying is a slice, an array, or a pointer to an array (`type B
-// []T` — sort.Float64Slice, `type P *[3]int`). Only those take the
+// namedGoSliceOrArrayPtr reports whether t is a named Go type whose
+// underlying is a slice or a pointer to an array (`type B []T` —
+// sort.Float64Slice, `type P *[3]int`). Only those take the
 // copy-then-cast composite `T(xs.ToSlice())` — a raw `P(xs)` cast to
 // a pointer-to-array would share the List's backing, letting Go
-// writes mutate a value Gom treats as immutable. A named interface
-// target (json.Token) must keep the raw `B(x)` cast so the boxed
-// value's dynamic type stays list.List[T] for Go type assertions.
-func (l *lowerer) namedGoSliceOrArray(t types.Type) bool {
+// writes mutate a value Gom treats as immutable. A plain array value
+// target keeps the raw cast: `A(xs)` already copies the array-length
+// prefix (Go 1.20+), so a ToSlice first would clone the whole list
+// for nothing. A named interface target (json.Token) must keep the
+// raw `B(x)` cast so the boxed value's dynamic type stays
+// list.List[T] for Go type assertions.
+func (l *lowerer) namedGoSliceOrArrayPtr(t types.Type) bool {
 	if _, ok := types.Chase(t).(*types.Go); !ok {
 		return false
 	}
-	return l.env.GoUnderlyingSliceOrArray != nil && l.env.GoUnderlyingSliceOrArray(t)
+	return l.env.GoUnderlyingSliceOrArrayPtr != nil && l.env.GoUnderlyingSliceOrArrayPtr(t)
 }
 
 // isGoAny reports whether t is Go's empty interface — the catch-all
@@ -3352,7 +3355,7 @@ func (l *lowerer) ascribe(s *seq, e *check.Ascribe) core.Expr {
 	if fc, isList := types.Chase(e.X.Type()).(*types.Con); isList &&
 		fc.Qual == "" && fc.Name == "List" && len(fc.Args) == 1 &&
 		!l.declaredT(fc) {
-		if l.namedGoSliceOrArray(e.Type()) {
+		if l.namedGoSliceOrArrayPtr(e.Type()) {
 			// `List T` → named Go slice type (or alias): a bare
 			// `B(xs)` cast would alias the List's backing, so the
 			// conversion copies through the boundary first —
@@ -3370,7 +3373,7 @@ func (l *lowerer) ascribe(s *seq, e *check.Ascribe) core.Expr {
 	if tc, isList := types.Chase(e.Type()).(*types.Con); isList &&
 		tc.Qual == "" && tc.Name == "List" && len(tc.Args) == 1 &&
 		!l.declaredT(tc) {
-		if l.namedGoSliceOrArray(e.X.Type()) {
+		if l.namedGoSliceOrArrayPtr(e.X.Type()) {
 			// named Go slice type (or alias) → `List T`:
 			// `list.FromSlice([]T(b))` — FromSlice clones, so the
 			// returned List does not share the caller's backing.
