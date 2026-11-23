@@ -1,0 +1,11 @@
+package ex
+
+// spec section 6.1: introduction's lent labels wrap the argument
+// lambda in an Ascribe — the escape walk must still see its
+// products: a returned closure capturing `s` leaks through the
+// callee's result the same way the unlabeled form does.
+fn run_cb (f: ~x: Int -> (Unit -> Unit)) -> (Unit -> Unit) = f ~x: 3
+
+fn leak (held: Ref Int) -> Unit -> Unit =
+    Scope.run <| fn s ->
+        run_cb (fn x -> fn () -> Scope.defer s (fn () -> Ref.set held 0))

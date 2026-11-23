@@ -138,6 +138,13 @@ type checker struct {
 	// top-level let's generalization adopting it into TypeParams;
 	// anything left has no quantifier and reports E0412 at finalize.
 	lambdaAnnScopes []lambdaAnnScope
+
+	// noLabelIntro disables unifyFunc's unlabeled→labeled
+	// introduction while set — the synthesized `argT -> res` unify
+	// of conformCallee is application, not type equality, and a
+	// labeled callee parameter must not lend its label to a
+	// positional argument through it (spec section 2 rule 3).
+	noLabelIntro bool
 	// adoptedAnnVars are the rigid variables a binding's
 	// generalization adopted — the `a` of `let f = fn (x: a) -> x`.
 	adoptedAnnVars map[*types.Var]bool
@@ -794,7 +801,10 @@ func (c *checker) checkLetDecl(d *syntax.LetDecl) {
 	// consumed earlier — may generalize.
 	if d.Value != nil {
 		if vp, ok := pat.(*VarPat); ok && vp.Sym != nil {
-			if lam, ok := val.(*Lambda); ok {
+			// conformExpr may have ascribed the introduction's lent
+			// labels onto the value — look through it for the
+			// lambda.
+			if lam, ok := unascribe(val).(*Lambda); ok {
 				// `let f = fn ...` — a function binding. The
 				// signature keeps the lambda's own shape (its
 				// declared arity): nested function-typed bodies
@@ -804,6 +814,12 @@ func (c *checker) checkLetDecl(d *syntax.LetDecl) {
 				for i, p := range lam.Params {
 					sig.Params[i] = types.FuncParam{Label: p.Label, Type: p.Pat.Type()}
 				}
+				// The annotation's labels are the published
+				// contract — `let f : ~x: Int -> Int = fn x -> x`
+				// calls its lambda positionally but `f ~x: v` at
+				// use sites names the parameter introduction lent
+				// it.
+				lendFuncLabels(sig, want)
 				// A binding already consumed by a forward (or
 				// recursive) reference may not generalize: the
 				// earlier use recorded a monomorphic shape through
@@ -857,8 +873,10 @@ func (c *checker) checkLetDecl(d *syntax.LetDecl) {
 				// produced want's type — a failed unify leaves the
 				// annotation's variables unbound (E0412 below), and
 				// quantifying them would emit a body the residual
-				// check rejects.
-				if len(vars) > 0 && types.Equal(want, val.Type()) {
+				// check rejects. want's labels may be lent — bound in
+				// no position of the value's own type — so the pair
+				// judges by introduction rules, not stripped shapes.
+				if len(vars) > 0 && types.EqualLent(want, val.Type()) {
 					// `let x = <value>` — a thunk: a niladic
 					// generic function whose body is the value.
 					sig := &types.Func{Ret: want}
@@ -1147,12 +1165,31 @@ func isValue(x Expr) bool {
 			}
 		}
 		return true
+	case *Ascribe:
+		// A `Go.conv` Ascribe computes a conversion — not a
+		// syntactic value. A plain Ascribe carries only its type
+		// annotation, so the restriction sees through it.
+		return !x.Conv && isValue(x.X)
 	case *Hole, *Unary, *Binary, *StrInterp, *If, *Match, *Block,
 		*Let, *Ignore, *Try, *FieldAssign, *GoExpr, *For,
-		*SelectExpr, *Spread, *Ascribe:
+		*SelectExpr, *Spread:
 		return false
 	default:
 		panic("unreachable")
+	}
+}
+
+// unascribe peels non-conversion *Ascribe layers — a conform-time
+// type annotation — so shape matches see the expression
+// underneath. A `Go.conv` Ascribe is a real computation, not an
+// annotation: the wrapped value is not what flows.
+func unascribe(e Expr) Expr {
+	for {
+		if as, ok := e.(*Ascribe); ok && !as.Conv {
+			e = as.X
+			continue
+		}
+		return e
 	}
 }
 

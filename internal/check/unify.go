@@ -988,6 +988,23 @@ func (c *checker) unifyFunc(w, g *types.Func, sp diag.Span) bool {
 			wp, gp = wp[1:], gp[1:]
 			continue
 		}
+		// unlabeled→labeled introduction (labeled-arg-relaxation
+		// 案A): when the expected side declares a labeled parameter
+		// and the produced side has no labels anywhere in its tail,
+		// the produced parameter borrows the expected label by
+		// position — `Int -> Int` unifies with `~x: Int -> Int`.
+		// A produced side that declares labels of its own keeps the
+		// strict run-pairing below: lending `x` into
+		// `Int -> ~y: Int -> Int` for `~x: Int -> ~y: Int -> Int`
+		// would silently reorder the contract it already names.
+		if a.Label != "" && b.Label == "" && !c.noLabelIntro &&
+			allPositional(gp) {
+			if !c.unifySub(a.Type, b.Type, sp) {
+				return false
+			}
+			wp, gp = wp[1:], gp[1:]
+			continue
+		}
 		// At least one side starts a labeled run. An empty run means
 		// a labeled parameter faces a positional one — different
 		// slots, hence different types.
@@ -1046,6 +1063,57 @@ func (c *checker) unifyFunc(w, g *types.Func, sp diag.Span) bool {
 	default:
 		return c.unifySub(wr, gr, sp)
 	}
+}
+
+// lentLabels reports whether the expected type lent a label to the
+// produced one — positions where want names a parameter that got
+// leaves unlabeled, at any curried level. Only meaningful after a
+// successful unify: a labeled↔unlabeled pairing can only have
+// passed through the introduction rule.
+func lentLabels(want, got types.Type) bool {
+	wf, _ := types.Chase(want).(*types.Func)
+	gf, _ := types.Chase(got).(*types.Func)
+	if wf == nil || gf == nil {
+		return false
+	}
+	for i, wp := range wf.Params {
+		if i >= len(gf.Params) {
+			break
+		}
+		if wp.Label != "" && gf.Params[i].Label == "" {
+			return true
+		}
+	}
+	return lentLabels(wf.Ret, gf.Ret)
+}
+
+// lendFuncLabels copies the labels the expected type lent through
+// introduction onto the produced function signature — annotation to
+// binding, at every curried level the shapes share.
+func lendFuncLabels(dst, src types.Type) {
+	df, _ := types.Chase(dst).(*types.Func)
+	sf, _ := types.Chase(src).(*types.Func)
+	if df == nil || sf == nil || len(df.Params) != len(sf.Params) {
+		return
+	}
+	for i := range df.Params {
+		if df.Params[i].Label == "" && sf.Params[i].Label != "" {
+			df.Params[i].Label = sf.Params[i].Label
+		}
+	}
+	lendFuncLabels(df.Ret, sf.Ret)
+}
+
+// allPositional reports whether every parameter in ps is unlabeled —
+// the produced side borrows expected labels only when it names none
+// of its own (unlabeled→labeled introduction).
+func allPositional(ps []types.FuncParam) bool {
+	for _, p := range ps {
+		if p.Label != "" {
+			return false
+		}
+	}
+	return true
 }
 
 // labeledRun returns the maximal prefix of consecutive labeled

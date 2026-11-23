@@ -672,7 +672,7 @@ func (v *validator) fnDecl(fn *Func, isDecl bool, what string) {
 		return
 	}
 	if rt := fn.ResidualType(); rt != nil {
-		if bt := tailType(fn.Body); bt != nil && !types.Equal(bt, rt) {
+		if bt := tailType(fn.Body); bt != nil && !types.Equal(types.StripLabels(bt), types.StripLabels(rt)) {
 			v.err(fn.Sp, what, "body type %s differs from residual type %s", bt, rt)
 		}
 		if fn.ConsLoop && !v.conIs(rt, "", "List", 1) {

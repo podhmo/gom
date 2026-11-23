@@ -1,0 +1,8 @@
+package ex
+
+// spec section 2.1 — introduction: an annotated let publishes the
+// labeled signature the annotation declares, so `h ~x: v` names
+// the parameter the unlabeled lambda was admitted as.
+let h : ~x: Int -> Int = fn x -> x * 2
+
+let _ = h ~x: 3
