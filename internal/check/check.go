@@ -474,7 +474,14 @@ func (c *checker) goSatisfiesGomElems(targs []types.Type, i int, gc GoConstraint
 		// declared type.
 		var shape func(t types.Type) (decl, honest bool)
 		shape = func(t types.Type) (bool, bool) {
-			con, ok := types.Chase(t).(*types.Con)
+			p := types.Chase(t)
+			if _, ok := p.(*types.Go); ok {
+				// A named Go type (time.Duration, sort.IntSlice)
+				// emits verbatim — honest, though not a declared
+				// Gom type.
+				return false, true
+			}
+			con, ok := p.(*types.Con)
 			if !ok {
 				return false, false
 			}
