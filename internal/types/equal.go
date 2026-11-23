@@ -1,9 +1,6 @@
 package types
 
-import (
-	"cmp"
-	"slices"
-)
+import "slices"
 
 // Equal reports structural type equality: the same constructor and
 // recursively equal arguments.
@@ -53,10 +50,11 @@ func Equal(a, b Type) bool {
 		if len(ap) != len(bp) || !Equal(ar, br) {
 			return false
 		}
-		an := normalizeLabels(ap)
-		bn := normalizeLabels(bp)
-		for i := range an {
-			if an[i].Label != bn[i].Label || !Equal(an[i].Type, bn[i].Type) {
+		// Labeled parameters compare in declared order — the
+		// positional Go ABI makes the run order part of the type
+		// identity (docs/spec.md section 2.1).
+		for i := range ap {
+			if ap[i].Label != bp[i].Label || !Equal(ap[i].Type, bp[i].Type) {
 				return false
 			}
 		}
@@ -109,27 +107,6 @@ func flattenFunc(f *Func) (params []FuncParam, ret Type) {
 	return params, ret
 }
 
-// normalizeLabels sorts each maximal run of consecutive labeled
-// parameters by label, leaving positional parameters and the gaps
-// between runs in place (docs/spec.md section 2.1).
-func normalizeLabels(ps []FuncParam) []FuncParam {
-	out := slices.Clone(ps)
-	for i := 0; i < len(out); {
-		if out[i].Label == "" {
-			i++
-			continue
-		}
-		j := i
-		for j < len(out) && out[j].Label != "" {
-			j++
-		}
-		slices.SortFunc(out[i:j], func(a, b FuncParam) int {
-			return cmp.Compare(a.Label, b.Label)
-		})
-		i = j
-	}
-	return out
-}
 
 // StripLabels removes every parameter label — check's
 // unlabeled→labeled introduction (spec section 2.1) admits an
@@ -227,7 +204,8 @@ func EqualLent(a, b Type) bool {
 				continue
 			}
 			// Both sides open a labeled run — pair members by
-			// label name (runs compare up to reordering).
+			// label name in the same relative order (the
+			// positional Go ABI makes order significant).
 			ra, rb := labeledRun(ap), labeledRun(bp)
 			if len(ra) == 0 || len(rb) == 0 {
 				return false
@@ -239,11 +217,13 @@ func EqualLent(a, b Type) bool {
 				}
 			}
 			matched := make([]bool, len(rb))
+			lastK := -1
 			for _, p := range ra {
 				k, ok := byLabel[p.Label]
-				if !ok || matched[k] || !EqualLent(p.Type, rb[k].Type) {
+				if !ok || matched[k] || k < lastK || !EqualLent(p.Type, rb[k].Type) {
 					return false
 				}
+				lastK = k
 				matched[k] = true
 			}
 			for k := range rb {

@@ -288,10 +288,10 @@ func (sc *hscope) writeType(sb *strings.Builder, t syntax.TypeExpr) {
 	}
 }
 
-// labelRuns groups a parameter list into segments where each maximal
-// run of labeled parameters is sorted by label — positional
-// parameters keep position and split runs, exactly like
-// types.Equal's normalizeLabels.
+// labelRuns groups a parameter list into segments — positional
+// parameters keep position and split labeled runs. Runs keep the
+// declared order: it is part of the signature (the positional Go
+// ABI makes order significant, like types.Equal).
 func labelRuns(ps []syntax.TypeParam) [][]syntax.TypeParam {
 	var out [][]syntax.TypeParam
 	for i := 0; i < len(ps); {
@@ -304,11 +304,7 @@ func labelRuns(ps []syntax.TypeParam) [][]syntax.TypeParam {
 		for j < len(ps) && ps[j].Label != nil {
 			j++
 		}
-		run := slices.Clone(ps[i:j])
-		slices.SortFunc(run, func(a, b syntax.TypeParam) int {
-			return strings.Compare(a.Label.Name, b.Label.Name)
-		})
-		out = append(out, run)
+		out = append(out, slices.Clone(ps[i:j]))
 		i = j
 	}
 	return out
