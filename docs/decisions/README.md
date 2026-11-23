@@ -246,4 +246,5 @@
 | [user-mutable-structures](2026-11-23-user-mutable-structures.md) | ユーザー宣言の可変構造 | 採用（調査の結果、宣言型の推移展開は実装済みと判明。残る隙間は「実装が見えない宣言型」— extern 裏付け型と abstract export で不透明化した Gom パッケージ型 — `.gomi` の `//gom:mutable` directive を採択） |
 | [verbatim-dup-error](2026-11-23-verbatim-dup-error.md) | emit 名の verbatim 二重請求はエラー E0608 で出力を withhold する | adopted |
 | [go-any-extraction](2026-11-24-go-any-extraction.md) | `Go.Any` からの取り出し — comma-ok の `Option` 返りを唯一の面とする | draft（wave38 lane F — 調査 → decision。採択待ち） |
+| [method-emit-name-verbatim](2026-11-24-method-emit-name-verbatim.md) | `@method(GoName)` — verbatim emit name for Go interface methods | 採用（実装・検証した — wave38 lane G） |
 <!-- END GENERATED -->
