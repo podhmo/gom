@@ -1,0 +1,8 @@
+package ex
+
+// spec section 1.2 + 2.1 — a labeled lambda's produced type keeps
+// its label: `fn ~y` is a `~y: Int -> Int`, which does not fill a
+// `~x:`-declared parameter (labels must match exactly).
+fn apply (f: ~x: Int -> Int) -> Int = f ~x: 1
+
+let _ = apply (fn ~y -> y * 2)
