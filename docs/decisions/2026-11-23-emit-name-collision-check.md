@@ -1,9 +1,6 @@
 # emit 名衝突は codegen 台帳で検出し W0601/W0602 で警告する
 
-- 状態: adopted（verbatim 二重請求の警告化は
-  [verbatim-dup-error](2026-11-23-verbatim-dup-error.md) に
-  supersede — wave36 lane A でエラー E0608 + 出力 withhold へ変更。
-  suffix 追い出し W0602 と検出器の形はこの決定のまま）
+- 状態: adopted（verbatim 二重請求の警告化は [verbatim-dup-error](2026-11-23-verbatim-dup-error.md) に supersede — wave36 lane A でエラー E0608 + 出力 withhold へ変更。suffix 追い出し W0602 と検出器の形はこの決定のまま）
 - 日付: 2026-11-23
 - 問い: E0607 が止めるのは `.gomi` メンバの衝突までで、生成 suffix への
   追い出し（非公開 decl が先取りして公開 decl がずれる等）と暗黙 member

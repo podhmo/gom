@@ -2,9 +2,7 @@
 
 - 状態: adopted
 - 日付: 2026-11-23
-- Supersedes: emit-name-collision-check のうち「verbatim 二重請求は
-  W0601 警告」の部分（[emit-name-collision-check](2026-11-23-emit-name-collision-check.md)。
-  suffix 追い出し W0602 の警告化は変わらない）
+- Supersedes: emit-name-collision-check のうち「verbatim 二重請求は W0601 警告」の部分（[emit-name-collision-check](2026-11-23-emit-name-collision-check.md)。suffix 追い出し W0602 の警告化は変わらない）
 - 問い: W0601 が警告を出しても codegen は両方の宣言を emit し続け、
   生成 Go はコンパイル不可のまま出力される — 壊れた成果物を書くか、
   エラーで止めるか（wave36 lane A、knownCompileBugs 2 件の解消）
