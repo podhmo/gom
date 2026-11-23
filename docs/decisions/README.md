@@ -235,6 +235,7 @@
 | [labeled-arg-relaxation](2026-11-23-labeled-arg-relaxation.md) | ラベル付き引数の制限緩和の調査 | adopted |
 | [local-let-polymorphism](2026-11-23-local-let-polymorphism.md) | ローカル let の多相化 | 採択（案 A、2026-11-23 wave35 開始前インタビュー） |
 | [pipe-try-wording](2026-11-23-pipe-try-wording.md) | `\|?>` 自動ラップの文言カスタマイズ | 採択（案 C — 現状維持 + 回避経路の文書化） |
+| [result-taint-gomi-export](2026-11-23-result-taint-gomi-export.md) | result-taint flag + .gomi export（案 B 拡張） | adopted |
 | [scope-cleanup-extension](2026-11-23-scope-cleanup-extension.md) | scoped cleanup 拡張: エラー合流の一般化と取得+登録糖衣（案） | 採択（案 D、2026-11-23 wave35 開始前インタビュー） |
 | [scope-result-leak](2026-11-23-scope-result-leak.md) | 結果経由の Scope リーク（non-escaping 引数の生産物がクロージャを運ぶ） | 採択（案 A — 案 B への拡張余地あり、wave34 lane A で実装） |
 <!-- END GENERATED -->
