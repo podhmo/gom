@@ -223,7 +223,9 @@ stay structs (Go forbids `type X[T] T`).
   package's tests through `go test -json`; a failed `assert_eq`
   reports both values in the assertion message.
 - **Stdlib modules exist:** `List.map`, `List.filter`, `List.fold`,
-  `List.sum`, `List.rev`, `List.head`, `List.get`, `Option.get`,
+  `List.sum`, `List.sum_int`, `List.rev`, `List.head`, `List.get`, `List.take`,
+  `List.drop`, `List.last`, `List.last_n`, `List.sort_by`,
+  `Option.get`,
   `Option.map`, `Option.and_then`, `Result.map`, `Result.and_then`,
   `Result.map_err` and friends resolve without an import — the
   worked-on value is the last parameter so `xs |> List.map f`
