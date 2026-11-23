@@ -289,6 +289,7 @@ func (l *Loader) load(path string) (*resolve.Package, error) {
 		return nil, err
 	}
 	l.applyNoescape(p, iface.ScanNoescape(src))
+	l.applyNotaint(p, iface.ScanNotaint(src))
 	return p, nil
 }
 
@@ -301,6 +302,20 @@ func (l *Loader) applyNoescape(p *resolve.Package, dirs map[string][]int) {
 		return
 	}
 	iface.ApplyNoescape(p.Members,
+		func(sym *resolve.Symbol) (int, bool) { n, ok := l.arities[sym]; return n, ok },
+		func(sym *resolve.Symbol) (check.Signature, bool) { sg, ok := l.sigs[sym]; return sg, ok },
+		dirs)
+}
+
+// applyNotaint applies a loaded interface's `//gom:result-notaint`
+// directives to the package's members (spec section 6.1) — the
+// parsing lives in internal/iface, shared with the embedded
+// stdlib's env.
+func (l *Loader) applyNotaint(p *resolve.Package, dirs map[string][]int) {
+	if p == nil {
+		return
+	}
+	iface.ApplyNotaint(p.Members,
 		func(sym *resolve.Symbol) (int, bool) { n, ok := l.arities[sym]; return n, ok },
 		func(sym *resolve.Symbol) (check.Signature, bool) { sg, ok := l.sigs[sym]; return sg, ok },
 		dirs)

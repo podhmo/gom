@@ -1,72 +1,70 @@
 package list
 
-/// The `List` module: operations over the builtin immutable list.
-/// The list being worked on is the last parameter so `|>` pipelines
-/// read naturally; functions that can miss return `Option` instead
-/// of panicking.
-/// of x is [x] — a singleton list.
+/// List is the builtin immutable list; these are the operations the
+/// `List` module publishes (stdlib/list/list.gomi).
+///
+/// Conventions: the list being worked on is the LAST parameter so
+/// `xs |> List.map f` pipelines read naturally; functions that can
+/// miss return `Option` instead of panicking.
 fn of (x: a) -> List a
 
-/// cons x xs is [x, ..xs] — a fresh list, xs is never modified.
 fn cons (x: a) (xs: List a) -> List a
 
-/// append xs ys is xs ++ ys.
+/// append xs ys is xs ++ ys. Buffer-built Go impl (impl.go) —
+/// the cons-per-step shape is O(n²) on the slice List repr.
 fn append (xs: List a) (ys: List a) -> List a
 
-/// rev_append xs onto is rev xs ++ onto, in one pass.
+/// rev_append xs onto = rev xs ++ onto, in one pass.
 fn rev_append (xs: List a) (onto: List a) -> List a
 
-/// rev xs is xs reversed.
+/// rev xs is xs reversed. Buffer-built Go impl (impl.go).
 fn rev (xs: List a) -> List a
 
-/// is_empty xs reports whether xs is [].
+//gom:result-notaint is_empty 0
 fn is_empty (xs: List a) -> Bool
 
-/// length xs is the element count.
 fn length (xs: List a) -> Int
 
-/// head xs is Some x for the first element, None on [].
 fn head (xs: List a) -> Option a
 
-/// tail xs is Some rest — everything after the head — or None on [].
 fn tail (xs: List a) -> Option (List a)
 
-/// get n xs is the zero-based nth element, or None when out of
-/// bounds (n < 0 or n >= length xs).
+//gom:result-notaint get 0
 fn get (n: Int) (xs: List a) -> Option a
 
-/// map f xs applies f to every element in order.
+/// map f xs applies f to every element in order. Buffer-built
+/// Go impl (impl.go).
 fn map (f: a -> b) (xs: List a) -> List b
 
 /// filter f xs keeps the elements that satisfy f, in order.
-//gom:noescape filter 0
+/// Buffer-built Go impl (impl.go).
 fn filter (f: a -> Bool) (xs: List a) -> List a
 
 /// fold f acc xs is the left fold f(...f(f(acc, x0), x1)..., xn).
+//gom:noescape fold 0
 fn fold (f: b -> a -> b) (acc: b) (xs: List a) -> b
 
-/// iter f xs applies f to every element for effect.
+//gom:result-notaint iter 0 1
 //gom:noescape iter 0
 fn iter (f: a -> Unit) (xs: List a) -> Unit
 
-/// find f xs is the first element satisfying f, or None.
 //gom:noescape find 0
 fn find (f: a -> Bool) (xs: List a) -> Option a
 
-/// concat xss is xss[0] ++ xss[1] ++ ... (`List.join` in OCaml).
+/// concat xss = xss[0] ++ xss[1] ++ ... — `List.join` in OCaml.
+/// Buffer-built Go impl (impl.go) — one pass over the total size;
+/// the right-fold shape stacked a frame per sublist (O(k) depth).
 fn concat (xss: List (List a)) -> List a
 
 /// sum xs adds the elements of a Float list left to right.
+/// A dedicated loop: folding a curried `f acc x` would allocate one
+/// closure per element (the arity-one value repr — P5-3).
 fn sum (xs: List Float) -> Float
 
 /// range lo hi is [lo, lo+1, ..., hi-1]; empty when lo >= hi.
+/// Buffer-built Go impl (impl.go).
 fn range (lo: Int) (hi: Int) -> List Int
 
-// `view` and `slice` exist on the module surface but are not
-// declared here — registered by the compiler (they produce the
-// builtin `View a`; an @extern named `view` would emit `View`,
-// colliding with the hand-written `type View[A]` in this package).
-// The `View` module's member surface (`length`/`get`/`slice`/`fold`/
-// `to_list`) is likewise compiler-registered, backed by hand-written
-// functions in this package. See decision
-// 2026-11-18-list-view.
+fn length_go (acc: Int) (xs: List a) -> Int
+
+fn sum_go (acc: Float) (xs: List Float) -> Float
