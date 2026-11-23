@@ -1,0 +1,26 @@
+package ex
+
+// spec section 6.1: result-taint propagates transitively through
+// local callees — `chain`'s result carries `f`'s products because
+// `run_cb`'s result does, so a lambda capturing `s` leaks through
+// `chain` the same way it leaks through `run_cb` directly.
+fn run_cb (f: Int -> (Unit -> Unit)) -> Unit -> Unit = f 3
+
+fn chain (f: Int -> (Unit -> Unit)) -> Unit -> Unit = run_cb f
+
+fn leak (held: Ref Int) -> Unit -> Unit =
+    Scope.run <| fn s ->
+        chain (fn x -> fn () -> Scope.defer s (fn () -> Ref.set held 0))
+
+// no report below — these are safe.
+
+// a callee that discards the parameter propagates "untainted" too:
+// `chain2`'s result carries none of `f`'s products because
+// `const_f`'s result carries none.
+fn const_f (f: Int -> (Unit -> Unit)) -> Unit -> Unit = fn () -> ()
+
+fn chain2 (f: Int -> (Unit -> Unit)) -> Unit -> Unit = const_f f
+
+fn ok_discard (held: Ref Int) -> Unit -> Unit =
+    Scope.run <| fn s ->
+        chain2 (fn x -> fn () -> Scope.defer s (fn () -> Ref.set held 0))

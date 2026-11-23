@@ -145,6 +145,12 @@ type checker struct {
 	// labeled callee parameter must not lend its label to a
 	// positional argument through it (spec section 2 rule 3).
 	noLabelIntro bool
+
+	// resultTaintMemo caches resultTaintOf answers; taintDoing is
+	// the in-flight set that bottoms out mutually recursive
+	// callees conservatively.
+	resultTaintMemo  map[*resolve.Symbol][]bool
+	resultTaintDoing map[*resolve.Symbol]bool
 	// adoptedAnnVars are the rigid variables a binding's
 	// generalization adopted — the `a` of `let f = fn (x: a) -> x`.
 	adoptedAnnVars map[*types.Var]bool

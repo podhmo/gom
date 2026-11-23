@@ -221,6 +221,22 @@ func (b *escapeBody) markDanger(sym *resolve.Symbol) {
 // second pass reports E0419 at tainted variables in escaping
 // positions. Flags land on sym.Noescape for .gomi emission.
 func (c *checker) checkScopeEscape() {
+	// Pass 0 — fill each named callee's ResultTaint flags, so the
+	// use-site queries below and the `.gomi` emitter read the
+	// inferred answer rather than the assume-tainted default.
+	for _, d := range c.decls {
+		if fn, ok := d.(*FnDecl); ok && fn.Sym != nil &&
+			fn.Body != nil && len(fn.Params) > 0 {
+			c.resultTaintOf(fn.Sym)
+		}
+		if ld, ok := d.(*LetDecl); ok {
+			if _, isLam := ld.Value.(*Lambda); isLam {
+				for _, s := range patBoundSyms(ld.Pat) {
+					c.resultTaintOf(s)
+				}
+			}
+		}
+	}
 	// Pass 1 — fixpoint over param escape flags.
 	for changed := true; changed; {
 		changed = false
@@ -616,52 +632,52 @@ func (c *checker) argEscapes(e *Apply, i int) bool {
 	return c.callParamEscapes(e.Call, i)
 }
 
+// calleeSymOfApply resolves the function symbol a call applies —
+// `e.Call.Callee` for classified calls, the fn expression's own
+// symbol for CallUnknown (a let-bound variable may still name an
+// inspectable declaration).
+func calleeSymOfApply(e *Apply) *resolve.Symbol {
+	if e.Call.Callee != nil {
+		return e.Call.Callee
+	}
+	if v, ok := e.Fn.(*Var); ok {
+		return v.Sym
+	}
+	if v, ok := e.Fn.(*MemberExpr); ok {
+		return v.Sym
+	}
+	return nil
+}
+
+// argParamIndex maps an argument position to the flattened
+// parameter it fills — CallUnknown still maps reordered labeled
+// arguments, so flags read by parameter position, not argument
+// order.
+func argParamIndex(e *Apply, i int) int {
+	if e.Call.ArgToParam != nil && i < len(e.Call.ArgToParam) && e.Call.ArgToParam[i] >= 0 {
+		return e.Call.ArgToParam[i]
+	}
+	return i
+}
+
 // resultCarriesArg reports whether argument i's products can ride
 // out through the call's own result — the missing channel of the
 // flag model: `f` non-escaping only means the callee does not keep
 // the argument, not that it does not return what the argument
-// produces. A locally-declared callee answers precisely: the
-// parameter must appear among the producers of the body's result
-// (`f 3` returns f's product; `const_f` discarding f does not).
-// Anything else — imported, Go, or a non-symbol callee — has no
-// inspectable body, so the answer is conservative.
+// produces. The callee's ResultTaint flags answer the question:
+// `f 3` returns f's product; `const_f` discarding f does not.
+// Locally-declared callees get precise inferred flags
+// (transitively, through the callees they call); imported ones get
+// `//gom:result-notaint` annotations, and anything else — Go, or
+// a non-symbol callee — has no inspectable answer, so it is
+// conservative.
 func (c *checker) resultCarriesArg(e *Apply, i int) bool {
-	sym := e.Call.Callee
-	if sym == nil {
-		// CallUnknown — a let-bound variable may still name an
-		// inspectable declaration.
-		if v, ok := e.Fn.(*Var); ok {
-			sym = v.Sym
-		} else if v, ok := e.Fn.(*MemberExpr); ok {
-			sym = v.Sym
-		}
-	}
-	if sym == nil {
-		return true
-	}
-	d := c.fnDeclOf(sym)
-	if d == nil || d.Body == nil {
-		return true
-	}
-	p := i
-	if e.Call.ArgToParam != nil && i < len(e.Call.ArgToParam) && e.Call.ArgToParam[i] >= 0 {
-		p = e.Call.ArgToParam[i]
-	}
-	if p >= len(d.Params) {
-		return true
-	}
-	prod := retainedProducers(d.Body)
-	for _, ps := range patBoundSyms(d.Params[p].Pat) {
-		if prod[ps] {
-			return true
-		}
-	}
-	return false
+	return c.resultTaintAt(calleeSymOfApply(e), argParamIndex(e, i))
 }
 
 // resultCarriesPipe is resultCarriesArg for a pipe: the piped value
 // lands on the callee's first parameter. A non-symbol callee has no
-// inspectable body — the answer is conservative.
+// inspectable answer — the answer is conservative.
 func (c *checker) resultCarriesPipe(fn Expr) bool {
 	var sym *resolve.Symbol
 	if v, ok := fn.(*Var); ok {
@@ -669,20 +685,258 @@ func (c *checker) resultCarriesPipe(fn Expr) bool {
 	} else if v, ok := fn.(*MemberExpr); ok {
 		sym = v.Sym
 	}
+	return c.resultTaintAt(sym, 0)
+}
+
+// resultTaintAt reads one flattened parameter position of a
+// callee's result-taint flags — an absent or short flag slice
+// means "assume tainted", the conservative default.
+func (c *checker) resultTaintAt(sym *resolve.Symbol, p int) bool {
 	if sym == nil {
 		return true
 	}
-	d := c.fnDeclOf(sym)
-	if d == nil || d.Body == nil || len(d.Params) == 0 {
-		return true
+	t := c.resultTaintOf(sym)
+	if p < len(t) {
+		return t[p]
 	}
-	prod := retainedProducers(d.Body)
-	for _, ps := range patBoundSyms(d.Params[0].Pat) {
-		if prod[ps] {
-			return true
+	return true
+}
+
+// resultTaintOf returns sym's per-parameter result-taint flags —
+// sym.ResultTaint when already filled (an earlier inference, or a
+// `//gom:result-notaint` directive on an imported signature), and
+// otherwise an inference over the inspectable body: a top-level
+// `fn` or a top-level `let f = fn` lambda. A callee still being
+// analyzed (mutual recursion) and one without an inspectable body
+// answer nil — "assume tainted".
+func (c *checker) resultTaintOf(sym *resolve.Symbol) []bool {
+	if c.resultTaintMemo == nil {
+		c.resultTaintMemo = map[*resolve.Symbol][]bool{}
+		c.resultTaintDoing = map[*resolve.Symbol]bool{}
+	}
+	if t, ok := c.resultTaintMemo[sym]; ok {
+		return t
+	}
+	if len(sym.ResultTaint) > 0 {
+		return sym.ResultTaint
+	}
+	if c.resultTaintDoing[sym] {
+		return nil
+	}
+	var body Expr
+	var pats []Pat
+	if d := c.fnDeclOf(sym); d != nil && d.Body != nil && len(d.Params) > 0 {
+		body = d.Body
+		for _, p := range d.Params {
+			pats = append(pats, p.Pat)
+		}
+	} else if lam := c.letLambdaOf(sym); lam != nil {
+		body = lam.Body
+		for _, p := range lam.Params {
+			pats = append(pats, p.Pat)
 		}
 	}
-	return false
+	if body == nil {
+		c.resultTaintMemo[sym] = nil
+		return nil
+	}
+	c.resultTaintDoing[sym] = true
+	t := c.inferResultTaint(body, pats)
+	delete(c.resultTaintDoing, sym)
+	sym.ResultTaint = t
+	c.resultTaintMemo[sym] = t
+	return t
+}
+
+// letLambdaOf resolves a top-level `let f = fn ...` binding's
+// symbol to its lambda — like fnDeclOf for declared functions, it
+// is the inspectable-body side of a named callee.
+func (c *checker) letLambdaOf(sym *resolve.Symbol) *Lambda {
+	for _, d := range c.decls {
+		ld, ok := d.(*LetDecl)
+		if !ok {
+			continue
+		}
+		for _, s := range patBoundSyms(ld.Pat) {
+			if s == sym {
+				lam, _ := ld.Value.(*Lambda)
+				return lam
+			}
+		}
+	}
+	return nil
+}
+
+// inferResultTaint marks the parameters whose products the body's
+// result may carry.
+func (c *checker) inferResultTaint(body Expr, pats []Pat) []bool {
+	prod := c.resultProducers(body)
+	t := make([]bool, len(pats))
+	for i, pat := range pats {
+		for _, s := range patBoundSyms(pat) {
+			if prod[s] {
+				t[i] = true
+			}
+		}
+	}
+	return t
+}
+
+// resultProducers returns the symbols whose products e's result
+// value may carry — the producer-channel form of retainedVars,
+// transitive through callees' ResultTaint flags. The
+// walk is the same value-retention one (result positions only):
+// constructors, partial and hole applications, and function-valued
+// pipes retain their inputs structurally; a saturated call is its
+// callee's product — so the callee itself rides — and carries its
+// argument's products exactly where the callee's ResultTaint
+// marks the parameter position. A callee without flags answers
+// "assume tainted", so uninspectable callees stay conservative;
+// mutual recursion bottoms out the same way.
+func (c *checker) resultProducers(e Expr) map[*resolve.Symbol]bool {
+	var out map[*resolve.Symbol]bool
+	var rec func(e Expr)
+	rec = func(e Expr) {
+		add := func(s *resolve.Symbol) {
+			if s == nil {
+				return
+			}
+			if out == nil {
+				out = map[*resolve.Symbol]bool{}
+			}
+			out[s] = true
+		}
+		switch e := e.(type) {
+		case nil:
+		case *Var:
+			add(e.Sym)
+		case *MemberExpr:
+			add(e.Sym)
+		case *Lambda:
+			for s := range capturedVars(e.Body, lamBound(e)) {
+				add(s)
+			}
+		case *Apply:
+			ctor := e.Call.Callee != nil && e.Call.Callee.Kind == resolve.KindCtor
+			producesClosure := e.Call.Kind == CallPartial || e.Call.HoleIndex >= 0 ||
+				(e.Call.Kind == CallUnknown && isFuncType(e.Type()))
+			switch {
+			case ctor || producesClosure:
+				rec(e.Fn)
+				for _, a := range e.Args {
+					rec(a.Value)
+				}
+			case isScopeRunner(e.Call):
+				rec(e.Fn)
+				for _, a := range e.Args {
+					if lam, ok := a.Value.(*Lambda); ok {
+						rec(lam.Body)
+					} else {
+						rec(a.Value)
+					}
+				}
+			default:
+				rec(e.Fn)
+				for i, a := range e.Args {
+					if c.resultTaintAt(calleeSymOfApply(e), argParamIndex(e, i)) {
+						rec(a.Value)
+					}
+				}
+			}
+		case *Ascribe:
+			rec(e.X)
+		case *If:
+			rec(e.Then)
+			rec(e.Else)
+		case *Match:
+			for _, a := range e.Arms {
+				rec(a.Body)
+			}
+		case *Block:
+			if n := len(e.Stmts); n > 0 {
+				rec(e.Stmts[n-1])
+			}
+		case *Try:
+			rec(e.X)
+		case *ListLit:
+			for _, el := range e.Elems {
+				rec(el)
+			}
+		case *TupleLit:
+			for _, el := range e.Elems {
+				rec(el)
+			}
+		case *RecordLit:
+			rec(e.With)
+			for _, f := range e.Fields {
+				rec(f.Value)
+			}
+		case *Spread:
+			rec(e.X)
+		case *SelectExpr:
+			for _, a := range e.Arms {
+				switch a := a.(type) {
+				case *RecvArm:
+					rec(a.Body)
+				case *SendArm:
+					rec(a.Body)
+				case *DefaultArm:
+					rec(a.Body)
+				default:
+					panic("unreachable")
+				}
+			}
+		case *Binary:
+			switch e.Op {
+			case syntax.BinPipeFwd, syntax.BinPipeBack, syntax.BinPipeTry:
+				arg, fn := e.X, e.Y
+				if e.Op == syntax.BinPipeBack {
+					arg, fn = e.Y, e.X
+				}
+				var fnSym *resolve.Symbol
+				if f, ok := fn.(*Var); ok {
+					fnSym = f.Sym
+				} else if f, ok := fn.(*MemberExpr); ok {
+					fnSym = f.Sym
+				}
+				switch {
+				case isScopeRunner(CallInfo{Callee: fnSym}):
+					rec(fn)
+					if lam, ok := arg.(*Lambda); ok {
+						rec(lam.Body)
+					} else {
+						rec(arg)
+					}
+				case isFuncType(e.Type()):
+					// A function-valued result is a partial
+					// application capturing both operands.
+					rec(e.X)
+					rec(e.Y)
+				default:
+					// A saturated pipe's result is the callee's
+					// product — `x |> f` carries f, and x's own
+					// products where f's first parameter taints.
+					// `|?>`'s failure arm forwards the argument's
+					// error product unconditionally.
+					rec(fn)
+					if e.Op == syntax.BinPipeTry || c.resultTaintAt(fnSym, 0) {
+						rec(arg)
+					}
+				}
+			case syntax.BinComposeFwd, syntax.BinComposeBack:
+				rec(e.X)
+				rec(e.Y)
+			}
+		case *Lit, *Hole, *Let, *Ignore, *Unary, *FieldAssign,
+			*For, *GoExpr, *StrInterp:
+			// Consumed positions and statement results retain
+			// nothing — mirror retainedVarsR.
+		default:
+			panic("unreachable")
+		}
+	}
+	rec(e)
+	return out
 }
 
 // symParamEscapes reads one parameter position of a Gom callee: a
@@ -1049,20 +1303,10 @@ func (b *escapeBody) bindAlias(dsts []*resolve.Symbol, src map[*resolve.Symbol]b
 // for parameters and the inner let's own bindOf entry continues
 // the chain.
 func retainedVars(e Expr) map[*resolve.Symbol]bool {
-	return retainedVarsR(e, false)
+	return retainedVarsR(e)
 }
 
-// retainedProducers is retainedVars plus one more channel: a
-// saturated call's result is its callee's product, so the callee
-// variable itself is a producer of the result even though the call
-// consumes it. `run_cb`'s body `f 3` produces `f`'s value — asking
-// "does this declaration's result carry f's products" needs the
-// callee counted, where a `let`'s bindOf chain does not.
-func retainedProducers(e Expr) map[*resolve.Symbol]bool {
-	return retainedVarsR(e, true)
-}
-
-func retainedVarsR(e Expr, producers bool) map[*resolve.Symbol]bool {
+func retainedVarsR(e Expr) map[*resolve.Symbol]bool {
 	var out map[*resolve.Symbol]bool
 	var rec func(e Expr)
 	rec = func(e Expr) {
@@ -1109,10 +1353,6 @@ func retainedVarsR(e Expr, producers bool) map[*resolve.Symbol]bool {
 						rec(a.Value)
 					}
 				}
-			case producers:
-				// A saturated call's result is the callee's
-				// own product.
-				rec(e.Fn)
 			}
 		case *Ascribe:
 			rec(e.X)

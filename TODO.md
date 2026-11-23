@@ -39,6 +39,7 @@
 - [x] **[task] unlabeled → labeled の introduction（ラベル付き引数の緩和）**: `unifyFunc` が expected 側のラベルを produced の全 unlabeled パラメータへ位置対応で貸す（`apply (fn x -> x)` が通る）。produced 側にラベルが混ざる型・逆方向・合成 `argT -> res` unify（応用は型の同一性ではないので `noLabelIntro` で抑止 — `id mk 3` の `~x` 位置充填は依然 E0401）は拒否のまま。spec §2.1 は wave35 lane D で同期済み（[decision](docs/decisions/2026-11-23-labeled-arg-relaxation.md)、wave36 lane B）
 
 - [ ] **[task] result-taint flag + `.gomi` export（案 B）**: `Symbol.ResultTaint []bool`（結果が param i の生産物を運び得る）を fixpoint 推論し、`//gom:result-notaint name i ...` directive でエクスポート。imported callee の偽陽性と transitive の false negative を閉じる（[decision](docs/decisions/2026-11-23-result-taint-gomi-export.md)、wave35 lane E → wave36 lane C/D で実施）
+  - lane C（推論 + 診断接続）実施済み: `resultTaintOf` が `resultProducers`（retainedVars の結果位置 walk + saturated call の callee taint 伝播、`ArgToParam` 対応・相互再帰は保守 true）で `sym.ResultTaint` を充填し、`resultCarriesArg`/`resultCarriesPipe` が flag 参照化。`let f = fn` の lambda にも推論が効く。残りは lane D の `.gomi` directive I/O
 
 - [ ] **[task] `fn ~x ->` ラムダラベル構文**: ラムダのパラメータにラベルを付ける構文（parser + check）。unlabeled→labeled introduction と組になると呼び出し側で `~x:` を書ける匿名関数になる（wave35 lane D で deferred → wave36 lane F 採択、[prompts](docs/sketch/2026-11-23-wave36-prompts.md)）
 
