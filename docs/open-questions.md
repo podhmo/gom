@@ -8,7 +8,7 @@
 
 - [x] 実装の型がインターフェースより一般的な場合（実装が多相、`.gomi` が単相）を許すか — 許さない（厳格一致維持、案 B 採択・2026-11-23）。狭めたい場合は明示的な単相ラッパを書く（[decision](decisions/2026-11-23-gomi-monomorphic.md)）
 
-- [ ] 可変性: `Ref a` と可変配列 `Array a` 以外に可変構造を許すか。`Ref` のメンバー面（`Ref.new`/`get`/`set`、rt-backed builtin module）は wave25 で実装済み（[decision](decisions/2026-11-19-ref-members.md)）。なお W0701/W0702 lint の可変判定は spec 10 章の閉じた builtin リスト（`Ref`/`Array`/`Ptr`/`Go.Slice`/`Go.Map`）を使う — ユーザー宣言型の可変構造そのものは引き続き未決（[decision](decisions/2026-11-04-mutable-sharing-lint.md)）
+- [x] 可変性: `Ref a` と可変配列 `Array a` 以外に可変構造を許すか — 可変構造の入口は builtin 集合のまま、宣言型はフィールド推移律で導出（`containsMutable` は tyCons 展開済み）。残る隙間は extern 裏付け型のみで `.gomi` の `//gom:mutable` directive を採択（wave36 lane G、[decision](decisions/2026-11-23-user-mutable-structures.md)）。`Ref` のメンバー面は wave25 で実装済み（[decision](decisions/2026-11-19-ref-members.md)）
 
 ### 言語機能
 
