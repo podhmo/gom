@@ -130,3 +130,46 @@ func normalizeLabels(ps []FuncParam) []FuncParam {
 	}
 	return out
 }
+
+// StripLabels removes every parameter label — check's
+// unlabeled→labeled introduction (spec section 2.1) admits an
+// unlabeled produced function for an expected labeled shape, and
+// labels erase to the same Go func type, so downstream
+// type-equality checks (the Core validator's residual check)
+// compare modulo labels.
+func StripLabels(t Type) Type {
+	switch t := Chase(t).(type) {
+	case *Var, *Meta:
+		return t
+	case *Con:
+		n := *t
+		n.Args = stripLabelsArgs(t.Args)
+		return &n
+	case *Func:
+		n := *t
+		n.Params = make([]FuncParam, len(t.Params))
+		for i, p := range t.Params {
+			n.Params[i] = FuncParam{Type: StripLabels(p.Type)}
+		}
+		n.Ret = StripLabels(t.Ret)
+		return &n
+	case *Tuple:
+		n := *t
+		n.Elems = stripLabelsArgs(t.Elems)
+		return &n
+	case *Go:
+		n := *t
+		n.Args = stripLabelsArgs(t.Args)
+		return &n
+	default:
+		panic("unreachable")
+	}
+}
+
+func stripLabelsArgs(ts []Type) []Type {
+	out := make([]Type, len(ts))
+	for i, t := range ts {
+		out[i] = StripLabels(t)
+	}
+	return out
+}

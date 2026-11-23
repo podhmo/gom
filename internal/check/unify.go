@@ -1065,6 +1065,45 @@ func (c *checker) unifyFunc(w, g *types.Func, sp diag.Span) bool {
 	}
 }
 
+// lentLabels reports whether the expected type lent a label to the
+// produced one — positions where want names a parameter that got
+// leaves unlabeled, at any curried level. Only meaningful after a
+// successful unify: a labeled↔unlabeled pairing can only have
+// passed through the introduction rule.
+func lentLabels(want, got types.Type) bool {
+	wf, _ := types.Chase(want).(*types.Func)
+	gf, _ := types.Chase(got).(*types.Func)
+	if wf == nil || gf == nil {
+		return false
+	}
+	for i, wp := range wf.Params {
+		if i >= len(gf.Params) {
+			break
+		}
+		if wp.Label != "" && gf.Params[i].Label == "" {
+			return true
+		}
+	}
+	return lentLabels(wf.Ret, gf.Ret)
+}
+
+// lendFuncLabels copies the labels the expected type lent through
+// introduction onto the produced function signature — annotation to
+// binding, at every curried level the shapes share.
+func lendFuncLabels(dst, src types.Type) {
+	df, _ := types.Chase(dst).(*types.Func)
+	sf, _ := types.Chase(src).(*types.Func)
+	if df == nil || sf == nil || len(df.Params) != len(sf.Params) {
+		return
+	}
+	for i := range df.Params {
+		if df.Params[i].Label == "" && sf.Params[i].Label != "" {
+			df.Params[i].Label = sf.Params[i].Label
+		}
+	}
+	lendFuncLabels(df.Ret, sf.Ret)
+}
+
 // allPositional reports whether every parameter in ps is unlabeled —
 // the produced side borrows expected labels only when it names none
 // of its own (unlabeled→labeled introduction).

@@ -1,0 +1,8 @@
+package ex
+
+// spec section 2.1 — introduction: a lambda returned under a
+// labeled residual type presents the labeled contract — `ret ()`
+// produces `~x: Int -> Int`, callable with a labeled argument.
+fn ret () -> (~x: Int -> Int) = fn x -> x + 1
+
+let _ = ret () ~x: 4

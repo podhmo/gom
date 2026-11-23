@@ -801,7 +801,18 @@ func (c *checker) checkLetDecl(d *syntax.LetDecl) {
 	// consumed earlier — may generalize.
 	if d.Value != nil {
 		if vp, ok := pat.(*VarPat); ok && vp.Sym != nil {
-			if lam, ok := val.(*Lambda); ok {
+			// conformExpr may have ascribed the introduction's lent
+			// labels onto the value — look through it for the
+			// lambda.
+			inner := val
+			for {
+				if as, ok := inner.(*Ascribe); ok {
+					inner = as.X
+					continue
+				}
+				break
+			}
+			if lam, ok := inner.(*Lambda); ok {
 				// `let f = fn ...` — a function binding. The
 				// signature keeps the lambda's own shape (its
 				// declared arity): nested function-typed bodies
@@ -811,6 +822,12 @@ func (c *checker) checkLetDecl(d *syntax.LetDecl) {
 				for i, p := range lam.Params {
 					sig.Params[i] = types.FuncParam{Label: p.Label, Type: p.Pat.Type()}
 				}
+				// The annotation's labels are the published
+				// contract — `let f : ~x: Int -> Int = fn x -> x`
+				// calls its lambda positionally but `f ~x: v` at
+				// use sites names the parameter introduction lent
+				// it.
+				lendFuncLabels(sig, want)
 				// A binding already consumed by a forward (or
 				// recursive) reference may not generalize: the
 				// earlier use recorded a monomorphic shape through
