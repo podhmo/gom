@@ -1,7 +1,6 @@
 package iface
 
 import (
-	"cmp"
 	"slices"
 
 	"github.com/podhmo/gom/internal/types"
@@ -11,8 +10,9 @@ import (
 // renaming of type variables — the "only type-variable names may
 // differ" rule of docs/spec.md section 7.6. The comparison mirrors
 // types.Equal exactly: function types flatten (so `T1 -> T2 -> R`
-// equals `T1 -> (T2 -> R)`), each maximal run of labeled parameters
-// is order-insensitive, and bound metas are chased. The one
+// equals `T1 -> (T2 -> R)`), labeled parameters compare pairwise in
+// declared order (the positional Go ABI makes run order part of the
+// type), and bound metas are chased. The one
 // difference is Var comparison: instead of identical IDs, the two
 // sides' variables are matched by a bijection built left-to-right on
 // first encounter, so `a -> a` equals `b -> b` but not `a -> b`.
@@ -57,10 +57,8 @@ func (e *alphaEq) eq(a, b types.Type) bool {
 		if len(ap) != len(bp) || !e.eq(ar, br) {
 			return false
 		}
-		an := normalizeLabels(ap)
-		bn := normalizeLabels(bp)
-		for i := range an {
-			if an[i].Label != bn[i].Label || !e.eq(an[i].Type, bn[i].Type) {
+		for i := range ap {
+			if ap[i].Label != bp[i].Label || !e.eq(ap[i].Type, bp[i].Type) {
 				return false
 			}
 		}
@@ -123,27 +121,4 @@ func flattenFunc(f *types.Func) (params []types.FuncParam, ret types.Type) {
 		g, ok = ret.(*types.Func)
 	}
 	return params, ret
-}
-
-// normalizeLabels sorts each maximal run of consecutive labeled
-// parameters by label, leaving positional parameters and the gaps
-// between runs in place — the same normalization types.Equal uses
-// (docs/spec.md section 2.1).
-func normalizeLabels(ps []types.FuncParam) []types.FuncParam {
-	out := slices.Clone(ps)
-	for i := 0; i < len(out); {
-		if out[i].Label == "" {
-			i++
-			continue
-		}
-		j := i
-		for j < len(out) && out[j].Label != "" {
-			j++
-		}
-		slices.SortFunc(out[i:j], func(a, b types.FuncParam) int {
-			return cmp.Compare(a.Label, b.Label)
-		})
-		i = j
-	}
-	return out
 }
