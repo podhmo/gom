@@ -3275,6 +3275,16 @@ func (l *lowerer) ascribe(s *seq, e *check.Ascribe) core.Expr {
 	if !e.Conv {
 		return l.expr(s, e.X)
 	}
+	if e.ChanDir {
+		// Implicit boundary narrowing: `chan T` is assignable to
+		// `chan<- T`/`<-chan T`, so the operand passes through as-is.
+		// Emitting `(chan<- T)(x)` would defeat `go vet`'s
+		// sigchanyzer tracking — a buffered `make` behind the
+		// conversion reads as unbuffered (E-signalled on
+		// `signal.Notify`). Explicit `Go.conv` still materializes
+		// the conversion below.
+		return l.atom(s, e.X)
+	}
 	kind := l.convKind(e.X.Type(), e.Type())
 	x := l.atom(s, e.X)
 	if e.Iface {

@@ -369,7 +369,7 @@ func (c *checker) chanDirConv(want types.Type, out Expr, sp diag.Span) Expr {
 			return out
 		}
 	}
-	return &Ascribe{Base: baseOf(sp, want), X: out, Conv: true}
+	return &Ascribe{Base: baseOf(sp, want), X: out, Conv: true, ChanDir: true}
 }
 
 // hasUnboundMeta reports whether t contains a meta still awaiting a

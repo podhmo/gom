@@ -28,9 +28,7 @@ func keep(_ struct{}) struct{} {
 //line go_spawn.gom:10
 	go func() {
 //line go_spawn.gom:10
-		tmp1 := ch
-//line go_spawn.gom:10
-		rt.ChanSend[int64](tmp1, 1)
+		rt.ChanSend[int64](ch, 1)
 //line go_spawn.gom:10
 		_ = struct{}{}
 //line go_spawn.gom:10

@@ -1273,11 +1273,11 @@ func (g *gen) convOf(kind core.ConvKind, target types.Type, x ast.Expr) ast.Expr
 	case core.ConvNum, core.ConvNamed, core.ConvIface:
 		return &ast.CallExpr{Fun: g.goType(target), Args: []ast.Expr{x}}
 	case core.ConvChanDir:
-		// Like conv: `chan T` is assignable to `chan<- T`/`<-chan T`
-		// without a conversion — and the explicit form defeats
-		// `go vet`'s sigchanyzer tracking (a buffered `make` hidden
-		// behind the conversion reads as unbuffered).
-		return x
+		// Parenthesized like in conv — `<-chan T` cannot stand bare
+		// in call position. Call-argument narrowing is skipped at
+		// convGoArg instead (see conv in expr.go), so `go vet`'s
+		// sigchanyzer still sees `make` directly at the call site.
+		return &ast.CallExpr{Fun: &ast.ParenExpr{X: g.goType(target)}, Args: []ast.Expr{x}}
 	case core.ConvBoxAny:
 		return &ast.CallExpr{Fun: ast.NewIdent("any"), Args: []ast.Expr{x}}
 	case core.ConvSliceToGo:

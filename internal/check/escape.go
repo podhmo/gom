@@ -932,8 +932,7 @@ func (c *checker) resultProducers(e Expr) map[*resolve.Symbol]bool {
 		rec(b)
 		walk(b)
 	}
-	var bindPats func(Pat, Expr)
-	bindPats = func(p Pat, v Expr) {
+	bindPats := func(p Pat, v Expr) {
 		bindPatValues(lets, p, v)
 	}
 	rec = func(e Expr) {

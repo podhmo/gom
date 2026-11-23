@@ -11,9 +11,7 @@ func sendInto(v string) struct{} {
 //line chan_go_boundary.gom:9
 	ch := make(chan string, 1)
 //line chan_go_boundary.gom:10
-	tmp1 := ch
-//line chan_go_boundary.gom:10
-	goiface.SendOn(tmp1, v)
+	goiface.SendOn(ch, v)
 //line chan_go_boundary.gom:11
 	return struct{}{}
 //line chan_go_boundary.gom:8
@@ -39,9 +37,7 @@ func wait(done <-chan struct{}) bool {
 //line chan_go_boundary.gom:22
 func closeSig(ch chan struct{}) struct{} {
 //line chan_go_boundary.gom:22
-	tmp2 := ch
-//line chan_go_boundary.gom:22
-	goiface.CloseSignal(tmp2)
+	goiface.CloseSignal(ch)
 //line chan_go_boundary.gom:22
 	return struct{}{}
 //line chan_go_boundary.gom:22

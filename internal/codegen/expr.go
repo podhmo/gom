@@ -634,12 +634,15 @@ func (g *gen) conv(e *core.Conv) ast.Expr {
 		}
 		return &ast.CallExpr{Fun: fun, Args: []ast.Expr{x}}
 	case core.ConvChanDir:
-		// `chan T` is assignable to `chan<- T`/`<-chan T` without a
-		// conversion, and the explicit form breaks `go vet`'s
-		// sigchanyzer tracking — it cannot see a buffered `make`
-		// through `(chan<- os.Signal)(c)` and reports the channel
-		// as unbuffered (a false positive on `signal.Notify`).
-		return x
+		// The target spells `chan<- T` or `<-chan T` — both need
+		// parens in call position (`<-chan T(x)` would read as a
+		// receive from the conversion `chan T(x)`). Call-argument
+		// narrowing never reaches here: convGoArg skips the Conv
+		// node outright, both because `chan T` is already
+		// assignable and because the conversion shape defeats
+		// `go vet`'s sigchanyzer tracking (a buffered `make`
+		// behind `(chan<- os.Signal)(c)` reports as unbuffered).
+		return &ast.CallExpr{Fun: &ast.ParenExpr{X: g.goType(e.Type())}, Args: []ast.Expr{x}}
 	case core.ConvBoxAny:
 		return &ast.CallExpr{Fun: ast.NewIdent("any"), Args: []ast.Expr{x}}
 	case core.ConvSliceToGo:

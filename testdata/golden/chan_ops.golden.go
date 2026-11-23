@@ -12,17 +12,11 @@ func run(_ struct{}) int64 {
 //line chan_ops.gom:6
 	ch := make(chan int64, 2)
 //line chan_ops.gom:7
-	tmp1 := ch
-//line chan_ops.gom:7
-	rt.ChanSend[int64](tmp1, 1)
+	rt.ChanSend[int64](ch, 1)
 //line chan_ops.gom:8
-	tmp2 := ch
-//line chan_ops.gom:8
-	rt.ChanSend[int64](tmp2, 2)
+	rt.ChanSend[int64](ch, 2)
 //line chan_ops.gom:9
-	tmp3 := ch
-//line chan_ops.gom:9
-	rt.ChanClose[int64](tmp3)
+	rt.ChanClose[int64](ch)
 //line chan_ops.gom:10
 	return drain(ch, 0)
 //line chan_ops.gom:5
@@ -31,25 +25,23 @@ func run(_ struct{}) int64 {
 //line chan_ops.gom:13
 func drain(ch chan int64, acc int64) int64 {
 //line chan_ops.gom:14
-	tmp4 := ch
+	var tmp1 option.Option[int64]
 //line chan_ops.gom:14
-	var tmp5 option.Option[int64]
+	v1, ok := rt.ChanRecv[int64](ch)
 //line chan_ops.gom:14
-	v1, ok := rt.ChanRecv[int64](tmp4)
-//line chan_ops.gom:14
-	tmp5 = option.FromGo(v1, ok)
+	tmp1 = option.FromGo(v1, ok)
 //line chan_ops.gom:15
-	switch v2 := tmp5.(type) {
+	switch v2 := tmp1.(type) {
 //line chan_ops.gom:15
 	case option.Option_Some[int64]:
 //line chan_ops.gom:15
-		tmp6 := v2
+		tmp2 := v2
 //line chan_ops.gom:15
-		tmp7 := tmp6.V0
+		tmp3 := tmp2.V0
 //line chan_ops.gom:15
-		tmp8 := drain(ch, acc)
+		tmp4 := drain(ch, acc)
 //line chan_ops.gom:15
-		return tmp8 + tmp7
+		return tmp4 + tmp3
 //line chan_ops.gom:15
 	case option.Option_None[int64]:
 //line chan_ops.gom:16
@@ -57,7 +49,7 @@ func drain(ch chan int64, acc int64) int64 {
 //line chan_ops.gom:16
 	default:
 //line chan_ops.gom:14
-		panic(rt.InvalidVariant("Option", tmp5))
+		panic(rt.InvalidVariant("Option", tmp1))
 //line chan_ops.gom:15
 	}
 //line chan_ops.gom:13
@@ -81,10 +73,10 @@ func drainFor(ch <-chan int64) struct{} {
 //line chan_ops.gom:24
 func views(ch chan int64) rt.Tuple2[<-chan int64, chan<- int64] {
 //line chan_ops.gom:25
-	tmp9 := rt.ChanRecvOnly[int64](ch)
+	tmp5 := rt.ChanRecvOnly[int64](ch)
 //line chan_ops.gom:25
-	tmp10 := rt.ChanSendOnly[int64](ch)
+	tmp6 := rt.ChanSendOnly[int64](ch)
 //line chan_ops.gom:25
-	return rt.Tuple2[<-chan int64, chan<- int64]{V0: tmp9, V1: tmp10}
+	return rt.Tuple2[<-chan int64, chan<- int64]{V0: tmp5, V1: tmp6}
 //line chan_ops.gom:24
 }
