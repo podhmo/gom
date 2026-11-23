@@ -24,7 +24,8 @@ fn program_args () -> List String = match Go.Slice.to_list os.Args {
 // 追記。O_* フラグは互いに素なビットなので | の代わりに + で合成する
 // （gom にビット演算子はない）。
 fn append_note (msg: String) -> Result Unit GoError = {
-  let f = try os.OpenFile (jot_path (), os.O_APPEND + os.O_CREATE + os.O_WRONLY, 0o644)
+  // メモは個人のものなので 0600。umask 下で他アカウントに読ませない。
+  let f = try os.OpenFile (jot_path (), os.O_APPEND + os.O_CREATE + os.O_WRONLY, 0o600)
   let now = time.Now ()
   let ts = now.Format time.RFC3339
   ignore try fmt.Fprintf (f, "%s %s\n", ts, msg)

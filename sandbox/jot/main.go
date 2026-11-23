@@ -72,446 +72,446 @@ func programArgs(_ struct{}) list.List[string] {
 
 //line sandbox/jot/main.gom:26
 func appendNote(msg string) result.Result[struct{}, error] {
-//line sandbox/jot/main.gom:27
-	tmp10 := jotPath(struct{}{})
-//line sandbox/jot/main.gom:27
-	tmp11 := int64(os.O_APPEND)
-//line sandbox/jot/main.gom:27
-	tmp12 := int64(os.O_CREATE)
-//line sandbox/jot/main.gom:27
-	tmp13 := tmp11 + tmp12
-//line sandbox/jot/main.gom:27
-	tmp14 := int64(os.O_WRONLY)
-//line sandbox/jot/main.gom:27
-	tmp15 := tmp13 + tmp14
-//line sandbox/jot/main.gom:27
-	tmp16 := int(tmp15)
-//line sandbox/jot/main.gom:27
-	f, err := os.OpenFile(tmp10, tmp16, fs.FileMode(0o644))
-//line sandbox/jot/main.gom:27
-	if err != nil {
-//line sandbox/jot/main.gom:27
-		return result.Err[struct{}, error](err)
-//line sandbox/jot/main.gom:27
-	}
 //line sandbox/jot/main.gom:28
-	now := time.Now()
+	tmp10 := jotPath(struct{}{})
+//line sandbox/jot/main.gom:28
+	tmp11 := int64(os.O_APPEND)
+//line sandbox/jot/main.gom:28
+	tmp12 := int64(os.O_CREATE)
+//line sandbox/jot/main.gom:28
+	tmp13 := tmp11 + tmp12
+//line sandbox/jot/main.gom:28
+	tmp14 := int64(os.O_WRONLY)
+//line sandbox/jot/main.gom:28
+	tmp15 := tmp13 + tmp14
+//line sandbox/jot/main.gom:28
+	tmp16 := int(tmp15)
+//line sandbox/jot/main.gom:28
+	f, err := os.OpenFile(tmp10, tmp16, fs.FileMode(0o600))
+//line sandbox/jot/main.gom:28
+	if err != nil {
+//line sandbox/jot/main.gom:28
+		return result.Err[struct{}, error](err)
+//line sandbox/jot/main.gom:28
+	}
 //line sandbox/jot/main.gom:29
+	now := time.Now()
+//line sandbox/jot/main.gom:30
 	ts := now.Format(time.RFC3339)
-//line sandbox/jot/main.gom:30
+//line sandbox/jot/main.gom:31
 	tmp17 := io.Writer(f)
-//line sandbox/jot/main.gom:30
+//line sandbox/jot/main.gom:31
 	tmp18 := any(ts)
-//line sandbox/jot/main.gom:30
+//line sandbox/jot/main.gom:31
 	tmp19 := any(msg)
-//line sandbox/jot/main.gom:30
+//line sandbox/jot/main.gom:31
 	tmp20, err1 := fmt.Fprintf(tmp17, "%s %s\n", tmp18, tmp19)
-//line sandbox/jot/main.gom:30
+//line sandbox/jot/main.gom:31
 	if err1 != nil {
-//line sandbox/jot/main.gom:30
+//line sandbox/jot/main.gom:31
 		return result.Err[struct{}, error](err1)
-//line sandbox/jot/main.gom:30
+//line sandbox/jot/main.gom:31
 	}
-//line sandbox/jot/main.gom:30
+//line sandbox/jot/main.gom:31
 	_ = int64(tmp20)
-//line sandbox/jot/main.gom:31
-	err2 := f.Close()
-//line sandbox/jot/main.gom:31
-	if err2 != nil {
-//line sandbox/jot/main.gom:31
-		return result.Err[struct{}, error](err2)
-//line sandbox/jot/main.gom:31
-	}
 //line sandbox/jot/main.gom:32
+	err2 := f.Close()
+//line sandbox/jot/main.gom:32
+	if err2 != nil {
+//line sandbox/jot/main.gom:32
+		return result.Err[struct{}, error](err2)
+//line sandbox/jot/main.gom:32
+	}
+//line sandbox/jot/main.gom:33
 	return result.Ok[struct{}, error](struct{}{})
 //line sandbox/jot/main.gom:26
 }
 
-//line sandbox/jot/main.gom:36
+//line sandbox/jot/main.gom:37
 func take(n int64, xs list.List[string]) list.List[string] {
-//line sandbox/jot/main.gom:36
+//line sandbox/jot/main.gom:37
 	var cons list.List[string]
-//line sandbox/jot/main.gom:36
+//line sandbox/jot/main.gom:37
 	for {
-//line sandbox/jot/main.gom:37
+//line sandbox/jot/main.gom:38
 		switch {
-//line sandbox/jot/main.gom:37
+//line sandbox/jot/main.gom:38
 		case len(xs) == 0:
-//line sandbox/jot/main.gom:37
+//line sandbox/jot/main.gom:38
 			cons = append(cons, list.List[string]{}...)
-//line sandbox/jot/main.gom:37
+//line sandbox/jot/main.gom:38
 		case len(xs) != 0:
-//line sandbox/jot/main.gom:37
+//line sandbox/jot/main.gom:38
 			tmp21 := xs[0]
-//line sandbox/jot/main.gom:37
+//line sandbox/jot/main.gom:38
 			tmp22 := xs[1:]
-//line sandbox/jot/main.gom:37
+//line sandbox/jot/main.gom:38
 			tmp23 := tmp21
-//line sandbox/jot/main.gom:37
+//line sandbox/jot/main.gom:38
 			tmp24 := tmp22
-//line sandbox/jot/main.gom:38
+//line sandbox/jot/main.gom:39
 			tmp27 := n <= 0
-//line sandbox/jot/main.gom:38
+//line sandbox/jot/main.gom:39
 			if tmp27 {
-//line sandbox/jot/main.gom:38
+//line sandbox/jot/main.gom:39
 				cons = append(cons, list.List[string]{}...)
-//line sandbox/jot/main.gom:38
+//line sandbox/jot/main.gom:39
 			} else {
-//line sandbox/jot/main.gom:38
+//line sandbox/jot/main.gom:39
 				tmp25 := n - 1
-//line sandbox/jot/main.gom:38
+//line sandbox/jot/main.gom:39
 				cons = append(cons, tmp23)
-//line sandbox/jot/main.gom:38
+//line sandbox/jot/main.gom:39
 				n, xs = tmp25, tmp24
-//line sandbox/jot/main.gom:38
+//line sandbox/jot/main.gom:39
 				continue
-//line sandbox/jot/main.gom:38
+//line sandbox/jot/main.gom:39
 			}
-//line sandbox/jot/main.gom:38
+//line sandbox/jot/main.gom:39
 		default:
-//line sandbox/jot/main.gom:36
+//line sandbox/jot/main.gom:37
 			panic(rt.InvalidVariant("List", xs))
-//line sandbox/jot/main.gom:37
+//line sandbox/jot/main.gom:38
 		}
-//line sandbox/jot/main.gom:37
+//line sandbox/jot/main.gom:38
 		return cons
-//line sandbox/jot/main.gom:36
+//line sandbox/jot/main.gom:37
 	}
-//line sandbox/jot/main.gom:36
+//line sandbox/jot/main.gom:37
 }
 
-//line sandbox/jot/main.gom:41
+//line sandbox/jot/main.gom:42
 func lastN(n int64, xs list.List[string]) list.List[string] {
-//line sandbox/jot/main.gom:41
+//line sandbox/jot/main.gom:42
 	tmp28 := list.Rev[string](xs)
-//line sandbox/jot/main.gom:41
+//line sandbox/jot/main.gom:42
 	tmp29 := take(n, tmp28)
-//line sandbox/jot/main.gom:41
+//line sandbox/jot/main.gom:42
 	return list.Rev[string](tmp29)
-//line sandbox/jot/main.gom:41
+//line sandbox/jot/main.gom:42
 }
 
-//line sandbox/jot/main.gom:43
+//line sandbox/jot/main.gom:44
 func showLog(n option.Option[int64]) result.Result[struct{}, error] {
-//line sandbox/jot/main.gom:44
+//line sandbox/jot/main.gom:45
 	tmp30 := jotPath(struct{}{})
-//line sandbox/jot/main.gom:44
+//line sandbox/jot/main.gom:45
 	tmp31, err3 := os.ReadFile(tmp30)
-//line sandbox/jot/main.gom:44
+//line sandbox/jot/main.gom:45
 	if err3 != nil {
-//line sandbox/jot/main.gom:44
+//line sandbox/jot/main.gom:45
 		return result.Err[struct{}, error](err3)
-//line sandbox/jot/main.gom:44
+//line sandbox/jot/main.gom:45
 	}
-//line sandbox/jot/main.gom:44
+//line sandbox/jot/main.gom:45
 	data := list.FromSlice(tmp31)
-//line sandbox/jot/main.gom:45
+//line sandbox/jot/main.gom:46
 	tmp32 := string(data)
-//line sandbox/jot/main.gom:45
+//line sandbox/jot/main.gom:46
 	tmp33 := strings.Split(tmp32, "\n")
-//line sandbox/jot/main.gom:45
+//line sandbox/jot/main.gom:46
 	tmp34 := list.FromSlice(tmp33)
-//line sandbox/jot/main.gom:45
+//line sandbox/jot/main.gom:46
 	tmp35 := tmp34.ToSlice()
-//line sandbox/jot/main.gom:45
+//line sandbox/jot/main.gom:46
 	tmp36 := rt.SliceToList[string](tmp35)
-//line sandbox/jot/main.gom:45
+//line sandbox/jot/main.gom:46
 	lines := list.FromSlice(tmp36)
-//line sandbox/jot/main.gom:47
+//line sandbox/jot/main.gom:48
 	tmp37 := list.Rev[string](lines)
-//line sandbox/jot/main.gom:47
+//line sandbox/jot/main.gom:48
 	var lines1 list.List[string]
-//line sandbox/jot/main.gom:48
+//line sandbox/jot/main.gom:49
 	switch {
-//line sandbox/jot/main.gom:48
+//line sandbox/jot/main.gom:49
 	case len(tmp37) == 0:
-//line sandbox/jot/main.gom:49
+//line sandbox/jot/main.gom:50
 		lines1 = lines
-//line sandbox/jot/main.gom:48
-	case len(tmp37) != 0:
-//line sandbox/jot/main.gom:48
-		tmp38 := tmp37[0]
-//line sandbox/jot/main.gom:48
-		tmp39 := tmp37[1:]
-//line sandbox/jot/main.gom:48
-		switch tmp38 {
-//line sandbox/jot/main.gom:48
-		case "":
-//line sandbox/jot/main.gom:48
-			tmp40 := tmp39
-//line sandbox/jot/main.gom:48
-			lines1 = list.Rev[string](tmp40)
-//line sandbox/jot/main.gom:48
-		default:
 //line sandbox/jot/main.gom:49
+	case len(tmp37) != 0:
+//line sandbox/jot/main.gom:49
+		tmp38 := tmp37[0]
+//line sandbox/jot/main.gom:49
+		tmp39 := tmp37[1:]
+//line sandbox/jot/main.gom:49
+		switch tmp38 {
+//line sandbox/jot/main.gom:49
+		case "":
+//line sandbox/jot/main.gom:49
+			tmp40 := tmp39
+//line sandbox/jot/main.gom:49
+			lines1 = list.Rev[string](tmp40)
+//line sandbox/jot/main.gom:49
+		default:
+//line sandbox/jot/main.gom:50
 			lines1 = lines
-//line sandbox/jot/main.gom:48
+//line sandbox/jot/main.gom:49
 		}
-//line sandbox/jot/main.gom:48
+//line sandbox/jot/main.gom:49
 	default:
-//line sandbox/jot/main.gom:47
+//line sandbox/jot/main.gom:48
 		panic(rt.InvalidVariant("List", tmp37))
-//line sandbox/jot/main.gom:48
+//line sandbox/jot/main.gom:49
 	}
-//line sandbox/jot/main.gom:51
+//line sandbox/jot/main.gom:52
 	var shown list.List[string]
-//line sandbox/jot/main.gom:52
+//line sandbox/jot/main.gom:53
 	switch v := n.(type) {
-//line sandbox/jot/main.gom:52
+//line sandbox/jot/main.gom:53
 	case option.Option_Some[int64]:
-//line sandbox/jot/main.gom:52
+//line sandbox/jot/main.gom:53
 		tmp41 := v
-//line sandbox/jot/main.gom:53
+//line sandbox/jot/main.gom:54
 		tmp42 := tmp41.V0
-//line sandbox/jot/main.gom:53
+//line sandbox/jot/main.gom:54
 		shown = lastN(tmp42, lines1)
-//line sandbox/jot/main.gom:52
+//line sandbox/jot/main.gom:53
 	case option.Option_None[int64]:
-//line sandbox/jot/main.gom:52
+//line sandbox/jot/main.gom:53
 		shown = lines1
-//line sandbox/jot/main.gom:52
+//line sandbox/jot/main.gom:53
 	default:
-//line sandbox/jot/main.gom:51
-		panic(rt.InvalidVariant("Option", n))
 //line sandbox/jot/main.gom:52
-	}
-//line sandbox/jot/main.gom:55
-	for _, line := range shown {
-//line sandbox/jot/main.gom:55
-		tmp43 := any(line)
-//line sandbox/jot/main.gom:55
-		v1, err4 := fmt.Println(tmp43)
-//line sandbox/jot/main.gom:55
-		_ = result.FromGo(int64(v1), err4)
-//line sandbox/jot/main.gom:55
-		_ = struct{}{}
-//line sandbox/jot/main.gom:55
+		panic(rt.InvalidVariant("Option", n))
+//line sandbox/jot/main.gom:53
 	}
 //line sandbox/jot/main.gom:56
-	return result.Ok[struct{}, error](struct{}{})
-//line sandbox/jot/main.gom:43
-}
-
-//line sandbox/jot/main.gom:59
-func die(code int64, msg string) struct{} {
-//line sandbox/jot/main.gom:60
-	tmp44 := io.Writer(os.Stderr)
-//line sandbox/jot/main.gom:60
-	tmp45 := msg
-//line sandbox/jot/main.gom:60
-	tmp46 := "jot: " + tmp45
-//line sandbox/jot/main.gom:60
-	tmp47 := any(tmp46)
-//line sandbox/jot/main.gom:60
-	v2, err5 := fmt.Fprintln(tmp44, tmp47)
-//line sandbox/jot/main.gom:60
-	_ = result.FromGo(int64(v2), err5)
-//line sandbox/jot/main.gom:61
-	tmp48 := int(code)
-//line sandbox/jot/main.gom:61
-	os.Exit(tmp48)
-//line sandbox/jot/main.gom:61
-	_ = struct{}{}
-//line sandbox/jot/main.gom:62
-	return struct{}{}
-//line sandbox/jot/main.gom:59
-}
-
-//line sandbox/jot/main.gom:65
-func main() {
-//line sandbox/jot/main.gom:65
-	tmp49 := programArgs(struct{}{})
-//line sandbox/jot/main.gom:66
-	switch {
-//line sandbox/jot/main.gom:66
-	case len(tmp49) == 0:
-//line sandbox/jot/main.gom:66
-		die(2, "usage: jot [-l [N]] TEXT...")
-//line sandbox/jot/main.gom:66
-	case len(tmp49) != 0:
-//line sandbox/jot/main.gom:66
-		tmp50 := tmp49[0]
-//line sandbox/jot/main.gom:66
-		tmp51 := tmp49[1:]
-//line sandbox/jot/main.gom:67
-		switch tmp50 {
-//line sandbox/jot/main.gom:67
-		case "-l":
-//line sandbox/jot/main.gom:67
-			switch {
-//line sandbox/jot/main.gom:67
-			case len(tmp51) == 0:
-//line sandbox/jot/main.gom:67
-				tmp52 := option.Option[int64](option.Option_None[int64]{})
-//line sandbox/jot/main.gom:67
-				tmp53 := showLog(tmp52)
-//line sandbox/jot/main.gom:68
-				switch tmp53.Tag() {
-//line sandbox/jot/main.gom:68
-				case result.ResultTagOk:
-//line sandbox/jot/main.gom:68
-					_ = struct{}{}
-//line sandbox/jot/main.gom:68
-				case result.ResultTagErr:
-//line sandbox/jot/main.gom:68
-					tmp55 := tmp53.Error
-//line sandbox/jot/main.gom:68
-					tmp56 := tmp55
-//line sandbox/jot/main.gom:69
-					tmp57 := tmp56.Error()
-//line sandbox/jot/main.gom:69
-					die(1, tmp57)
-//line sandbox/jot/main.gom:69
-				default:
-//line sandbox/jot/main.gom:67
-					panic(rt.InvalidVariant("Result", tmp53))
-//line sandbox/jot/main.gom:68
-				}
-//line sandbox/jot/main.gom:67
-			case len(tmp51) != 0:
-//line sandbox/jot/main.gom:67
-				tmp58 := tmp51[0]
-//line sandbox/jot/main.gom:67
-				tmp59 := tmp51[1:]
-//line sandbox/jot/main.gom:71
-				switch {
-//line sandbox/jot/main.gom:71
-				case len(tmp59) == 0:
-//line sandbox/jot/main.gom:67
-					tmp60 := tmp58
-//line sandbox/jot/main.gom:71
-					var tmp61 result.Result[int64, error]
-//line sandbox/jot/main.gom:71
-					v3, err6 := strconv.Atoi(tmp60)
-//line sandbox/jot/main.gom:71
-					tmp61 = result.FromGo(int64(v3), err6)
-//line sandbox/jot/main.gom:72
-					switch tmp61.Tag() {
-//line sandbox/jot/main.gom:72
-					case result.ResultTagOk:
-//line sandbox/jot/main.gom:72
-						tmp62 := tmp61.Value
-//line sandbox/jot/main.gom:72
-						tmp63 := tmp62
-//line sandbox/jot/main.gom:72
-						tmp64 := option.Option[int64](option.Option_Some[int64]{V0: tmp63})
-//line sandbox/jot/main.gom:72
-						tmp65 := showLog(tmp64)
-//line sandbox/jot/main.gom:73
-						switch tmp65.Tag() {
-//line sandbox/jot/main.gom:73
-						case result.ResultTagOk:
-//line sandbox/jot/main.gom:73
-							_ = struct{}{}
-//line sandbox/jot/main.gom:73
-						case result.ResultTagErr:
-//line sandbox/jot/main.gom:73
-							tmp67 := tmp65.Error
-//line sandbox/jot/main.gom:73
-							tmp68 := tmp67
-//line sandbox/jot/main.gom:74
-							tmp69 := tmp68.Error()
-//line sandbox/jot/main.gom:74
-							die(1, tmp69)
-//line sandbox/jot/main.gom:74
-						default:
-//line sandbox/jot/main.gom:72
-							panic(rt.InvalidVariant("Result", tmp65))
-//line sandbox/jot/main.gom:73
-						}
-//line sandbox/jot/main.gom:72
-					case result.ResultTagErr:
-//line sandbox/jot/main.gom:76
-						die(2, "jot -l expects a number")
-//line sandbox/jot/main.gom:76
-					default:
-//line sandbox/jot/main.gom:71
-						panic(rt.InvalidVariant("Result", tmp61))
-//line sandbox/jot/main.gom:72
-					}
-//line sandbox/jot/main.gom:71
-				case len(tmp59) != 0:
-//line sandbox/jot/main.gom:65
-					tmp73 := tmp49
-//line sandbox/jot/main.gom:79
-					tmp74 := tmp73.ToSlice()
-//line sandbox/jot/main.gom:79
-					msg := strings.Join(tmp74, " ")
-//line sandbox/jot/main.gom:80
-					tmp75 := appendNote(msg)
-//line sandbox/jot/main.gom:81
-					switch tmp75.Tag() {
-//line sandbox/jot/main.gom:81
-					case result.ResultTagOk:
-//line sandbox/jot/main.gom:81
-						_ = struct{}{}
-//line sandbox/jot/main.gom:81
-					case result.ResultTagErr:
-//line sandbox/jot/main.gom:81
-						tmp77 := tmp75.Error
-//line sandbox/jot/main.gom:81
-						tmp78 := tmp77
-//line sandbox/jot/main.gom:82
-						tmp79 := tmp78.Error()
-//line sandbox/jot/main.gom:82
-						die(1, tmp79)
-//line sandbox/jot/main.gom:82
-					default:
-//line sandbox/jot/main.gom:80
-						panic(rt.InvalidVariant("Result", tmp75))
-//line sandbox/jot/main.gom:81
-					}
-//line sandbox/jot/main.gom:81
-				default:
-//line sandbox/jot/main.gom:67
-					panic(rt.InvalidVariant("List", tmp59))
-//line sandbox/jot/main.gom:71
-				}
-//line sandbox/jot/main.gom:71
-			default:
-//line sandbox/jot/main.gom:66
-				panic(rt.InvalidVariant("List", tmp51))
-//line sandbox/jot/main.gom:67
-			}
-//line sandbox/jot/main.gom:67
-		default:
-//line sandbox/jot/main.gom:65
-			tmp80 := tmp49
-//line sandbox/jot/main.gom:79
-			tmp81 := tmp80.ToSlice()
-//line sandbox/jot/main.gom:79
-			tmp82 := strings.Join(tmp81, " ")
-//line sandbox/jot/main.gom:80
-			tmp83 := appendNote(tmp82)
-//line sandbox/jot/main.gom:81
-			switch tmp83.Tag() {
-//line sandbox/jot/main.gom:81
-			case result.ResultTagOk:
-//line sandbox/jot/main.gom:81
-				_ = struct{}{}
-//line sandbox/jot/main.gom:81
-			case result.ResultTagErr:
-//line sandbox/jot/main.gom:81
-				tmp85 := tmp83.Error
-//line sandbox/jot/main.gom:81
-				tmp86 := tmp85
-//line sandbox/jot/main.gom:82
-				tmp87 := tmp86.Error()
-//line sandbox/jot/main.gom:82
-				die(1, tmp87)
-//line sandbox/jot/main.gom:82
-			default:
-//line sandbox/jot/main.gom:80
-				panic(rt.InvalidVariant("Result", tmp83))
-//line sandbox/jot/main.gom:81
-			}
-//line sandbox/jot/main.gom:67
-		}
-//line sandbox/jot/main.gom:67
-	default:
-//line sandbox/jot/main.gom:65
-		panic(rt.InvalidVariant("List", tmp49))
-//line sandbox/jot/main.gom:66
+	for _, line := range shown {
+//line sandbox/jot/main.gom:56
+		tmp43 := any(line)
+//line sandbox/jot/main.gom:56
+		v1, err4 := fmt.Println(tmp43)
+//line sandbox/jot/main.gom:56
+		_ = result.FromGo(int64(v1), err4)
+//line sandbox/jot/main.gom:56
+		_ = struct{}{}
+//line sandbox/jot/main.gom:56
 	}
-//line sandbox/jot/main.gom:65
+//line sandbox/jot/main.gom:57
+	return result.Ok[struct{}, error](struct{}{})
+//line sandbox/jot/main.gom:44
+}
+
+//line sandbox/jot/main.gom:60
+func die(code int64, msg string) struct{} {
+//line sandbox/jot/main.gom:61
+	tmp44 := io.Writer(os.Stderr)
+//line sandbox/jot/main.gom:61
+	tmp45 := msg
+//line sandbox/jot/main.gom:61
+	tmp46 := "jot: " + tmp45
+//line sandbox/jot/main.gom:61
+	tmp47 := any(tmp46)
+//line sandbox/jot/main.gom:61
+	v2, err5 := fmt.Fprintln(tmp44, tmp47)
+//line sandbox/jot/main.gom:61
+	_ = result.FromGo(int64(v2), err5)
+//line sandbox/jot/main.gom:62
+	tmp48 := int(code)
+//line sandbox/jot/main.gom:62
+	os.Exit(tmp48)
+//line sandbox/jot/main.gom:62
+	_ = struct{}{}
+//line sandbox/jot/main.gom:63
+	return struct{}{}
+//line sandbox/jot/main.gom:60
+}
+
+//line sandbox/jot/main.gom:66
+func main() {
+//line sandbox/jot/main.gom:66
+	tmp49 := programArgs(struct{}{})
+//line sandbox/jot/main.gom:67
+	switch {
+//line sandbox/jot/main.gom:67
+	case len(tmp49) == 0:
+//line sandbox/jot/main.gom:67
+		die(2, "usage: jot [-l [N]] TEXT...")
+//line sandbox/jot/main.gom:67
+	case len(tmp49) != 0:
+//line sandbox/jot/main.gom:67
+		tmp50 := tmp49[0]
+//line sandbox/jot/main.gom:67
+		tmp51 := tmp49[1:]
+//line sandbox/jot/main.gom:68
+		switch tmp50 {
+//line sandbox/jot/main.gom:68
+		case "-l":
+//line sandbox/jot/main.gom:68
+			switch {
+//line sandbox/jot/main.gom:68
+			case len(tmp51) == 0:
+//line sandbox/jot/main.gom:68
+				tmp52 := option.Option[int64](option.Option_None[int64]{})
+//line sandbox/jot/main.gom:68
+				tmp53 := showLog(tmp52)
+//line sandbox/jot/main.gom:69
+				switch tmp53.Tag() {
+//line sandbox/jot/main.gom:69
+				case result.ResultTagOk:
+//line sandbox/jot/main.gom:69
+					_ = struct{}{}
+//line sandbox/jot/main.gom:69
+				case result.ResultTagErr:
+//line sandbox/jot/main.gom:69
+					tmp55 := tmp53.Error
+//line sandbox/jot/main.gom:69
+					tmp56 := tmp55
+//line sandbox/jot/main.gom:70
+					tmp57 := tmp56.Error()
+//line sandbox/jot/main.gom:70
+					die(1, tmp57)
+//line sandbox/jot/main.gom:70
+				default:
+//line sandbox/jot/main.gom:68
+					panic(rt.InvalidVariant("Result", tmp53))
+//line sandbox/jot/main.gom:69
+				}
+//line sandbox/jot/main.gom:68
+			case len(tmp51) != 0:
+//line sandbox/jot/main.gom:68
+				tmp58 := tmp51[0]
+//line sandbox/jot/main.gom:68
+				tmp59 := tmp51[1:]
+//line sandbox/jot/main.gom:72
+				switch {
+//line sandbox/jot/main.gom:72
+				case len(tmp59) == 0:
+//line sandbox/jot/main.gom:68
+					tmp60 := tmp58
+//line sandbox/jot/main.gom:72
+					var tmp61 result.Result[int64, error]
+//line sandbox/jot/main.gom:72
+					v3, err6 := strconv.Atoi(tmp60)
+//line sandbox/jot/main.gom:72
+					tmp61 = result.FromGo(int64(v3), err6)
+//line sandbox/jot/main.gom:73
+					switch tmp61.Tag() {
+//line sandbox/jot/main.gom:73
+					case result.ResultTagOk:
+//line sandbox/jot/main.gom:73
+						tmp62 := tmp61.Value
+//line sandbox/jot/main.gom:73
+						tmp63 := tmp62
+//line sandbox/jot/main.gom:73
+						tmp64 := option.Option[int64](option.Option_Some[int64]{V0: tmp63})
+//line sandbox/jot/main.gom:73
+						tmp65 := showLog(tmp64)
+//line sandbox/jot/main.gom:74
+						switch tmp65.Tag() {
+//line sandbox/jot/main.gom:74
+						case result.ResultTagOk:
+//line sandbox/jot/main.gom:74
+							_ = struct{}{}
+//line sandbox/jot/main.gom:74
+						case result.ResultTagErr:
+//line sandbox/jot/main.gom:74
+							tmp67 := tmp65.Error
+//line sandbox/jot/main.gom:74
+							tmp68 := tmp67
+//line sandbox/jot/main.gom:75
+							tmp69 := tmp68.Error()
+//line sandbox/jot/main.gom:75
+							die(1, tmp69)
+//line sandbox/jot/main.gom:75
+						default:
+//line sandbox/jot/main.gom:73
+							panic(rt.InvalidVariant("Result", tmp65))
+//line sandbox/jot/main.gom:74
+						}
+//line sandbox/jot/main.gom:73
+					case result.ResultTagErr:
+//line sandbox/jot/main.gom:77
+						die(2, "jot -l expects a number")
+//line sandbox/jot/main.gom:77
+					default:
+//line sandbox/jot/main.gom:72
+						panic(rt.InvalidVariant("Result", tmp61))
+//line sandbox/jot/main.gom:73
+					}
+//line sandbox/jot/main.gom:72
+				case len(tmp59) != 0:
+//line sandbox/jot/main.gom:66
+					tmp73 := tmp49
+//line sandbox/jot/main.gom:80
+					tmp74 := tmp73.ToSlice()
+//line sandbox/jot/main.gom:80
+					msg := strings.Join(tmp74, " ")
+//line sandbox/jot/main.gom:81
+					tmp75 := appendNote(msg)
+//line sandbox/jot/main.gom:82
+					switch tmp75.Tag() {
+//line sandbox/jot/main.gom:82
+					case result.ResultTagOk:
+//line sandbox/jot/main.gom:82
+						_ = struct{}{}
+//line sandbox/jot/main.gom:82
+					case result.ResultTagErr:
+//line sandbox/jot/main.gom:82
+						tmp77 := tmp75.Error
+//line sandbox/jot/main.gom:82
+						tmp78 := tmp77
+//line sandbox/jot/main.gom:83
+						tmp79 := tmp78.Error()
+//line sandbox/jot/main.gom:83
+						die(1, tmp79)
+//line sandbox/jot/main.gom:83
+					default:
+//line sandbox/jot/main.gom:81
+						panic(rt.InvalidVariant("Result", tmp75))
+//line sandbox/jot/main.gom:82
+					}
+//line sandbox/jot/main.gom:82
+				default:
+//line sandbox/jot/main.gom:68
+					panic(rt.InvalidVariant("List", tmp59))
+//line sandbox/jot/main.gom:72
+				}
+//line sandbox/jot/main.gom:72
+			default:
+//line sandbox/jot/main.gom:67
+				panic(rt.InvalidVariant("List", tmp51))
+//line sandbox/jot/main.gom:68
+			}
+//line sandbox/jot/main.gom:68
+		default:
+//line sandbox/jot/main.gom:66
+			tmp80 := tmp49
+//line sandbox/jot/main.gom:80
+			tmp81 := tmp80.ToSlice()
+//line sandbox/jot/main.gom:80
+			tmp82 := strings.Join(tmp81, " ")
+//line sandbox/jot/main.gom:81
+			tmp83 := appendNote(tmp82)
+//line sandbox/jot/main.gom:82
+			switch tmp83.Tag() {
+//line sandbox/jot/main.gom:82
+			case result.ResultTagOk:
+//line sandbox/jot/main.gom:82
+				_ = struct{}{}
+//line sandbox/jot/main.gom:82
+			case result.ResultTagErr:
+//line sandbox/jot/main.gom:82
+				tmp85 := tmp83.Error
+//line sandbox/jot/main.gom:82
+				tmp86 := tmp85
+//line sandbox/jot/main.gom:83
+				tmp87 := tmp86.Error()
+//line sandbox/jot/main.gom:83
+				die(1, tmp87)
+//line sandbox/jot/main.gom:83
+			default:
+//line sandbox/jot/main.gom:81
+				panic(rt.InvalidVariant("Result", tmp83))
+//line sandbox/jot/main.gom:82
+			}
+//line sandbox/jot/main.gom:68
+		}
+//line sandbox/jot/main.gom:68
+	default:
+//line sandbox/jot/main.gom:66
+		panic(rt.InvalidVariant("List", tmp49))
+//line sandbox/jot/main.gom:67
+	}
+//line sandbox/jot/main.gom:66
 }
