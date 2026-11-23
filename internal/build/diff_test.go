@@ -629,17 +629,6 @@ func evalDiff(t *testing.T, r *build.Result, sources ...string) (o diffOutcome) 
 	capture := &diffCapture{out: &out}
 	defer func() {
 		if rec := recover(); rec != nil {
-			// A run a stub already poisoned must not mask that
-			// poisoning behind an evaluator-crash class: the
-			// unfaithful flag poisons every outcome, so the crash
-			// downgrades to unsupported rather than a false
-			// dInternal divergence (e.g. a Scope.run body panicking
-			// inside a generated tuple binding).
-			if capture.unfaithful {
-				o = diffOutcome{class: dUnsupported, stdout: out.String(),
-					detail: "a Go call observed a value the harness cannot render faithfully"}
-				return
-			}
 			o = diffOutcome{class: dInternal, stdout: out.String(),
 				detail: fmt.Sprintf("evaluator panicked: %v", rec)}
 		}
