@@ -2207,12 +2207,16 @@ func constFold(e Expr) (constant.Value, bool) {
 			// constant.BinaryOp does not take shifts — they
 			// fold through Shift. The count itself is a folded
 			// machine value: it wraps at the count operand's own
-			// width when that is known (an `Int32` count of
-			// `2147483647 + 1` is -2^31, not 2^31), and a
-			// negative count is a runtime panic, not a folding
-			// concern.
+			// width when that is known — and its intermediate
+			// folds are machine values too: `(2147483647 + 1) % 64`
+			// at Int32 is -2^31 % 64 = 0, not the unbounded
+			// 2^31 % 64 — so it re-folds at that width rather
+			// than wrapping only the top. A negative count is a
+			// runtime panic, not a folding concern.
 			if cw, ok := intFoldWidth(e.Y.Type()); ok {
-				y = wrapConstInt(y, cw)
+				if wy, wok := foldIntAt(e.Y, cw); wok {
+					y = wy
+				}
 			}
 			s, exact := constant.Int64Val(y)
 			if !exact || s < 0 {
@@ -2317,6 +2321,95 @@ func shiftConst(x constant.Value, op token.Token, s uint64, w uint) constant.Val
 		v = wrapConstInt(v, w)
 	}
 	return v
+}
+
+// foldIntAt folds a constant integer subtree at machine width w —
+// the same shapes constFold admits, but every step wraps so the
+// value is what the machine computes, not the unbounded constant.
+// A shift count operand uses it when the count has a width.
+func foldIntAt(e Expr, w uint) (constant.Value, bool) {
+	switch e := e.(type) {
+	case *Lit:
+		if e.Kind != syntax.LitInt {
+			return nil, false
+		}
+		v := constant.MakeFromLiteral(e.Text, token.INT, 0)
+		if v.Kind() == constant.Unknown {
+			return nil, false
+		}
+		return wrapConstInt(v, w), true
+	case *Unary:
+		if e.Op != syntax.UnNeg {
+			return nil, false
+		}
+		x, ok := foldIntAt(e.X, w)
+		if !ok {
+			return nil, false
+		}
+		return wrapConstInt(constant.UnaryOp(token.SUB, x, 0), w), true
+	case *Binary:
+		var op token.Token
+		switch e.Op {
+		case syntax.BinAdd:
+			op = token.ADD
+		case syntax.BinSub:
+			op = token.SUB
+		case syntax.BinMul:
+			op = token.MUL
+		case syntax.BinDiv:
+			op = token.QUO
+		case syntax.BinMod:
+			op = token.REM
+		case syntax.BinBitAnd:
+			op = token.AND
+		case syntax.BinBitAndNot:
+			op = token.AND_NOT
+		case syntax.BinBitOr:
+			op = token.OR
+		case syntax.BinBitXor:
+			op = token.XOR
+		case syntax.BinBitShl:
+			op = token.SHL
+		case syntax.BinBitShr:
+			op = token.SHR
+		default:
+			return nil, false
+		}
+		x, ok := foldIntAt(e.X, w)
+		if !ok {
+			return nil, false
+		}
+		y, ok := foldIntAt(e.Y, w)
+		if !ok {
+			return nil, false
+		}
+		if x.Kind() != constant.Int || y.Kind() != constant.Int {
+			return nil, false
+		}
+		if (op == token.QUO || op == token.REM) && constant.Sign(y) == 0 {
+			return nil, false
+		}
+		if op == token.SHL || op == token.SHR {
+			s, exact := constant.Int64Val(y)
+			if !exact || s < 0 {
+				return nil, false
+			}
+			return shiftConst(x, op, uint64(s), w), true
+		}
+		return wrapConstInt(constant.BinaryOp(x, op, y), w), true
+	case *Ascribe:
+		if w2, ok := intFoldWidth(e.Type()); ok {
+			return foldIntAt(e.X, w2)
+		}
+		return foldIntAt(e.X, w)
+	case *Var, *Apply, *Hole, *MemberExpr, *StrInterp, *Lambda, *If,
+		*Match, *Block, *Let, *Ignore, *Try, *FieldAssign,
+		*GoExpr, *For, *SelectExpr, *ListLit, *Spread, *TupleLit,
+		*RecordLit:
+		return nil, false
+	default:
+		panic("unreachable")
+	}
 }
 
 // checkPipeTry types the Result-bind pipeline `x |?> f`: when x is

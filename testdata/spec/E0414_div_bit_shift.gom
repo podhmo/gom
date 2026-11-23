@@ -5,4 +5,18 @@ package ex
 // division reports E0414.
 fn f () -> Int = 7 / (1 >>> 1)
 
+// an oversized left shift fills with zero at every width.
+fn g () -> Int = 7 / (255 <<< 64)
+
+// an oversized right shift of a positive operand is zero; of a
+// negative operand it sign-fills to -1 — no E0414 for i.
+fn h () -> Int = 7 / (255 >>> 255)
+fn i () -> Int = 7 / ((-1) >>> 64)
+
+// the count operand's own arithmetic wraps at its width — at Int32
+// `(2147483647 + 1) % 33` is -2^31 % 33 = -2, a negative count the
+// fold must not rewrite to the unbounded remainder 2 (which would
+// mint a false E0414 on a program whose count really panics).
+fn j () -> Int32 = 7 / (1 >>> ((Go.conv (2147483647 + 1) : Int32) % 33))
+
 fn main () -> Unit = ()
