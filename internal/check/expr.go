@@ -2254,10 +2254,12 @@ func (c *checker) constFold(e Expr) (constant.Value, bool) {
 		return constant.BinaryOp(x, op, y), true
 	case *Ascribe:
 		// `Go.conv e : T` emits `T(e)` — e evaluates at its own
-		// machine width, then converts: an integer value wraps at
-		// T's width (`Go.conv 65536 : Int32` is 0, not 65536); a
-		// conversion to a widthless named type is the identity
-		// machine value, so it folds through unchanged.
+		// machine width, then converts: a computed integer value
+		// wraps at T's width (`Go.conv (65536 * 65536) : Int32`
+		// is 0, not 2^32 — a bare literal is E0417 before folding,
+		// so the wrap only meets computed values); a conversion to
+		// a widthless named type is the identity machine value,
+		// so it folds through unchanged.
 		var v constant.Value
 		var ok bool
 		if w2, u2, ok2 := c.intFoldWidth(e.X.Type()); ok2 {
@@ -2464,22 +2466,51 @@ func (c *checker) foldIntAt(e Expr, w uint, unsigned bool) (constant.Value, bool
 			}
 			return shiftConst(x, op, uint64(s), w, unsigned), true
 		}
+		if op == token.QUO {
+			// Machine integer division truncates toward zero —
+			// constant.QUO keeps the exact rational (7/2 stays
+			// 7/2), which both mis-folds the value and panics the
+			// bitwise AND inside wrapConstInt on the non-Int
+			// kind. The operands are already wrapped to machine
+			// width, so fixed-width division is exact; Go's own
+			// division semantics give MinInt64/-1 = MinInt64.
+			if unsigned {
+				xu, ex := constant.Uint64Val(x)
+				yu, ey := constant.Uint64Val(y)
+				if !ex || !ey {
+					return nil, false
+				}
+				return wrapConstInt(constant.MakeUint64(xu/yu), w, unsigned), true
+			}
+			xi, ex := constant.Int64Val(x)
+			yi, ey := constant.Int64Val(y)
+			if !ex || !ey {
+				return nil, false
+			}
+			return wrapConstInt(constant.MakeInt64(xi/yi), w, unsigned), true
+		}
 		return wrapConstInt(constant.BinaryOp(x, op, y), w, unsigned), true
 	case *Ascribe:
 		// `Go.conv e : T` — e evaluates at its own machine width
-		// (its node's own intFoldWidth, never the conversion's
-		// target — `Go.conv d : Byte` must not narrow d's
-		// arithmetic to 8 bits first), then T(v) converts: the
-		// wrap at T's width IS the conversion when T has one.
-		w2, u2, ok := c.intFoldWidth(e.X.Type())
+		// when the checker knows it; a widthless operand (a literal
+		// still awaiting defaulting, an unsolved arithmetic meta)
+		// folds unbounded instead, since `T(exact)` is what the
+		// machine's conversion produces — folding e at T's width
+		// would narrow its arithmetic first (`Go.conv 1 : Int32`
+		// in a shift count must still fold to 1). The wrap at T's
+		// width below IS the conversion when T carries one.
+		var v constant.Value
+		var ok bool
+		if w2, u2, ok2 := c.intFoldWidth(e.X.Type()); ok2 {
+			v, ok = c.foldIntAt(e.X, w2, u2)
+		} else {
+			v, ok = c.constFold(e.X)
+		}
 		if !ok {
 			return nil, false
 		}
-		v, ok := c.foldIntAt(e.X, w2, u2)
-		if !ok {
-			return nil, false
-		}
-		if _, _, ok := c.intFoldWidth(e.Type()); !ok {
+		w2, u2, ok2 := c.intFoldWidth(e.Type())
+		if !ok2 {
 			// T has no fold width — a declared type's conversion
 			// is the identity machine value, so it must not wrap
 			// at the inherited width.
@@ -2488,7 +2519,7 @@ func (c *checker) foldIntAt(e Expr, w uint, unsigned bool) (constant.Value, bool
 		if v.Kind() != constant.Int {
 			return nil, false
 		}
-		return wrapConstInt(v, w, unsigned), true
+		return wrapConstInt(v, w2, u2), true
 	case *Var, *Apply, *Hole, *MemberExpr, *StrInterp, *Lambda, *If,
 		*Match, *Block, *Let, *Ignore, *Try, *FieldAssign,
 		*GoExpr, *For, *SelectExpr, *ListLit, *Spread, *TupleLit,

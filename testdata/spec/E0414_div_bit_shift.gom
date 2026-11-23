@@ -49,4 +49,12 @@ fn o () -> Int32 = 7 / (1 >>> (Go.conv (Go.conv (100 + 156) : Byte) : Int32))
 // 2^33 and miss the zero).
 fn p () -> Int32 = (Go.conv 7 : Int32) / (Go.conv (4294967296 * 2) : Int32)
 
+// a literal inside a conversion still folds — its width may be
+// unsolved when the divisor is judged, so `1 >>> 1` is 0: E0414.
+fn q () -> Int32 = (Go.conv 7 : Int32) / (1 >>> (Go.conv 1 : Int32))
+
+// a converted integer quotient truncates like the machine —
+// `int64(3)/int64(2)` is 1, a nonzero divisor: no E0414.
+fn r () -> Int32 = (Go.conv 7 : Int32) / (Go.conv ((Go.conv 3 : Int64) / (Go.conv 2 : Int64)) : Int32)
+
 fn main () -> Unit = ()
