@@ -434,12 +434,18 @@ func (g *Gen) expandSeq(x seq, top bool) {
 	last, n := g.g.soleMandatory(x)
 	for i, m := range x {
 		if g.opts.Typed && g.curRule == "source-file" && i == 1 {
-			// Member-call gates (fmt.Println, list.length, Ptr
-			// field writes) open only after the import decl emits,
-			// and import-decl competes evenly inside top-decl —
-			// imports landing at file end unlock nothing. Emit a
-			// small import block before the first top-decl.
-			g.typedImportPrelude()
+			if _, isRep := m.(rep); isRep {
+				// Member-call gates (fmt.Println, list.length, Ptr
+				// field writes) open only after the import decl
+				// emits, and import-decl competes evenly inside
+				// top-decl — imports landing at file end unlock
+				// nothing. Emit a small import block before the
+				// first top-decl: member 1 of source-file is the
+				// {sep, top-decl} rep itself (the same index
+				// recurs inside the rep's inner seq at top-decl —
+				// the rep check keeps this to one prelude).
+				g.typedImportPrelude()
+			}
 		}
 		if (g.opts.Deterministic || g.opts.Typed) && g.curRule == "top-decl" && i == 0 {
 			// The "[ attribute ]" member of top-decl's first
