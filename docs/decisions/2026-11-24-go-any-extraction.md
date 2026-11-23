@@ -30,10 +30,10 @@ Go 側のプリミティブは `x.(T)`（panic 形）と `v, ok := x.(T)`
 - ボックス方向は convBox/`ConvBoxAny` が既存で、数値の物質化
   （`any(int64(42))`）まで片付いている。取り出し側に既存の Core
   ノードはなく、新しい emit が必要。
-- `Option` は `rt.Option[T]` に写る（codegen/types.go）。comma-ok
-  の返りは `rt.As[T any](x) (T, bool)` のような小さな generic
-  helper + `Option` 構築で素直に emit できる（`rt.PtrToOption` が
-  同じ形の先行例）。
+- `Option` は `option.Option[T]` に写る（codegen/types.go）。
+  comma-ok → Option の橋渡しは `option.FromGo(v, ok)` が既存なので、
+  `v, ok := x.(T); option.FromGo(v, ok)` の小さな block emit で
+  足りる — 専用の rt helper は要らない。
 - `Option.get` が既に「Some を剥がし、None で diverge」する panic
   経路を持つ。**Option 返りを採れば panic 形は
   `Option.get (Go.try_as x : Option T)` で導出できる** — panic
@@ -52,15 +52,19 @@ Go 側のプリミティブは `x.(T)`（panic 形）と `v, ok := x.(T)`
   アサーション `v, ok := x.(T)` で取り出し、`ok` なら `Some v`、
   失敗なら `None`。`T` は Gom の具象型式（宣言型・builtin・
   `Go.Slice`/`Go.Map`/named Go 型など `x.(T)` が合法な全て）。
-  `Go.Any` や type param への取り出しは拒否（前者は恒等、後者は
-  Go が型パラメータへの断言を許さない）。
+  `Go.Any` や type param への取り出しは設計上拒否する — `x.(any)`
+  は nil interface で失敗するため恒等ではなく、Go は型パラメータ
+  への断言を許すが、Gom 側では取り出し面の意味論を単純に保つため
+  具象型式に限定する。
 - panic 形は導出 (`Option.get`) — panic プリミティブは足さない。
   `Go.as` 短形を将来欲しければ `Option.get` 糖衣として後日検討。
 - `match` 拡張は今回採らない — 需要が分岐形（単一取り出しではなく
   多型ディスパッチ）として出た時点で open-questions に戻す。
-- emit は `rt` に generic helper（`rt.As[T](x) (T, bool)` または
-  `rt.AsOption[T](x) Option[T]`）を足し、lower が Conv 系ノードで
-  生成。eval は `VUnit` 系の実値に対し同じ断言を内部で行う。
+- emit は comma-ok の 2 値束縛が文位置を要るため、文 block（
+  `func() option.Option[T] { v, ok := x.(T); return
+  option.FromGo(v, ok) }()`）または `option` に近い generic helper
+  で生成する。lower が Conv 系ノードで生成。eval は `VUnit` 系の
+  実値に対し同じ断言を内部で行う。
 
 ## Rejected alternatives
 
@@ -75,9 +79,9 @@ Go 側のプリミティブは `x.(T)`（panic 形）と `v, ok := x.(T)`
 
 - check: `Go.try_as` を `Go.conv` と同系の組み込みフォームとして
   `x : Go.Any` と目標 `T` を検査（`x.(T)` が合法な T のみ受理）。
-- emit: comma-ok は文位置が要るため rt helper 経由（`PtrToOption`
-  と同型）。`rt.Option` の `Some`/`None` 構築は既存の sum emit を
-  再利用。
+- emit: comma-ok は文位置が要るため block emit または
+  `option.FromGo` 経由。`option.Option` の `Some`/`None` 構築は
+  既存の sum emit を再利用。
 - spec: 8.3 の「取り出しは `Go.conv` では認めない」の段落に
   `Go.try_as` を追記。spec fixture は受理/拒否（`Go.Any` ・メタへ
   の取り出し・`Option` ネスト）を両方向で。
