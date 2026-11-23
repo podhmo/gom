@@ -13,6 +13,10 @@ type Env struct {
 	parent *Env
 	vars   map[*resolve.Symbol]Value
 	ctx    *ctx
+	// tyvars records the type arguments a call's arguments were
+	// checked at — the instantiation an `any` box under a generic
+	// parameter needs to name its Go representation faithfully.
+	tyvars map[*types.Var]types.Type
 }
 
 // ctx is the per-evaluation shared state: constructor metadata
@@ -60,7 +64,8 @@ type recordInfo struct {
 // context — for evaluating standalone expressions in tests.
 func NewEnv() *Env {
 	return &Env{
-		vars: map[*resolve.Symbol]Value{},
+		vars:   map[*resolve.Symbol]Value{},
+		tyvars: map[*types.Var]types.Type{},
 		ctx: &ctx{
 			ctors:   map[*resolve.Symbol]*ctorInfo{},
 			records: map[*resolve.Symbol]*recordInfo{},
@@ -71,7 +76,23 @@ func NewEnv() *Env {
 
 // Child returns a child environment sharing the parent's context.
 func (e *Env) Child() *Env {
-	return &Env{parent: e, vars: map[*resolve.Symbol]Value{}, ctx: e.ctx}
+	return &Env{parent: e, vars: map[*resolve.Symbol]Value{}, ctx: e.ctx,
+		tyvars: map[*types.Var]types.Type{}}
+}
+
+// BindTy records a type parameter's instantiation for this frame.
+func (e *Env) BindTy(v *types.Var, t types.Type) {
+	e.tyvars[v] = t
+}
+
+// LookupTy resolves a type parameter binding up the chain.
+func (e *Env) LookupTy(v *types.Var) (types.Type, bool) {
+	for cur := e; cur != nil; cur = cur.parent {
+		if t, ok := cur.tyvars[v]; ok {
+			return t, true
+		}
+	}
+	return nil, false
 }
 
 // Bind introduces (or shadows in this frame) a symbol binding.

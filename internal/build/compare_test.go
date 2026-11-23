@@ -1633,6 +1633,52 @@ fn main () -> Unit = {
 `,
 		want: "1a,10",
 	},
+	{
+		// Type arguments survive a generic box: the call frame's
+		// `a := List Int32` instantiation names the box
+		// `list.List[int32]`, so `List Int` asserts None and
+		// `List Int32` asserts Some — the same answers the
+		// emitted `x.(list.List[int32/int64])` gives.
+		name: "go_try_as_generic_arg_types",
+		src: `package main
+
+import go "fmt"
+
+type Box a = { v: a }
+
+fn box (x: a) -> Go.Any = {
+  let y : Go.Any = x
+  y
+}
+
+fn answer () -> String = {
+  let xs : List Int32 = []
+  let a = match (Go.try_as (box xs) : Option (List Int)) {
+    Some l -> "i"
+    None -> "no-i"
+  }
+  let b = match (Go.try_as (box xs) : Option (List Int32)) {
+    Some l -> "i32"
+    None -> "no-i32"
+  }
+  let c = match (Go.try_as (box {v = "s"}) : Option (Box Int)) {
+    Some bx -> "bx-i"
+    None -> "no-bx-i"
+  }
+  let d = match (Go.try_as (box {v = "s"}) : Option (Box String)) {
+    Some bx -> "bx-s"
+    None -> "no-bx-s"
+  }
+  "${a}${b}${c}${d}"
+}
+
+fn main () -> Unit = {
+  let _ = fmt.Println(answer ())
+  ()
+}
+`,
+		want: "no-ii32no-bx-ibx-s",
+	},
 }
 
 // compareUnitCases is the package-unit half of the comparison suite:

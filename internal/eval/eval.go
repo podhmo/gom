@@ -652,7 +652,7 @@ func (e *interp) eval(x check.Expr, env *Env) Value {
 			// here: eval values are dynamically typed already.
 			// Other Conv ascriptions keep the existing verdict.
 			if !x.Iface && !x.Slice && isGoAnyCon(x.Type()) {
-				return e.anyBox(e.eval(x.X, env), x.X.Type())
+				return e.anyBox(e.eval(x.X, env), x.X.Type(), env)
 			}
 			failData(CodeUnsupported, "Go.conv conversions are not supported by the evaluator", x.Span(), "construct", "Go.conv")
 		}
@@ -673,7 +673,7 @@ func (e *interp) forceThunk(v Value, sp diag.Span) Value {
 	if !ok || !f.thunk {
 		return v
 	}
-	return e.applyArgs(f, nil, nil, sp)
+	return e.applyArgs(f, nil, nil, nil, sp)
 }
 
 // evalVar resolves a symbol reference: environment first (locals,
@@ -1264,17 +1264,74 @@ func (e *interp) evalPipeTry(x *check.Binary, env *Env) Value {
 // `Go.try_as` can assert at the emitted-Go-type grain (`x.(T)` on
 // int64 succeeds for both Int and Int64). A value already boxed —
 // re-entering `any` — keeps its inner box, matching Go.
-func (e *interp) anyBox(v Value, t types.Type) Value {
+func (e *interp) anyBox(v Value, t types.Type, env *Env) Value {
 	if _, ok := v.(*VHost); ok {
 		return v
 	}
-	if ct := types.Chase(t); reprName(ct) != "" {
+	if ct := substTy(types.Chase(t), env); reprName(ct) != "" {
 		return &VHost{V: boxRepr(v, ct), T: ct}
 	}
 	// The box's static type is not concretely nameable — a type
 	// parameter under a generic helper — so the slot holds a
 	// value-driven Go repr and asserts by reflect name instead.
 	return &VHost{V: boxValue(v)}
+}
+
+// substTy resolves type parameters through the call-frame type
+// bindings — the instantiation a generic helper's `a` carried at
+// apply time. An unbound parameter stays a Var (reprName then
+// reports "unnameable" and the box falls back to value shape).
+func substTy(t types.Type, env *Env) types.Type {
+	switch t := types.Chase(t).(type) {
+	case *types.Var:
+		if bt, ok := env.LookupTy(t); ok {
+			return types.Chase(bt)
+		}
+		return t
+	case *types.Con:
+		args := make([]types.Type, len(t.Args))
+		changed := false
+		for i, a := range t.Args {
+			args[i] = substTy(a, env)
+			changed = changed || args[i] != types.Chase(a)
+		}
+		if !changed {
+			return t
+		}
+		cp := *t
+		cp.Args = args
+		return &cp
+	case *types.Func:
+		ps := make([]types.FuncParam, len(t.Params))
+		changed := false
+		for i, p := range t.Params {
+			ps[i] = p
+			ps[i].Type = substTy(p.Type, env)
+			changed = changed || ps[i].Type != types.Chase(p.Type)
+		}
+		ret := substTy(t.Ret, env)
+		if !changed && ret == types.Chase(t.Ret) {
+			return t
+		}
+		return &types.Func{Params: ps, Ret: ret}
+	case *types.Tuple:
+		elems := make([]types.Type, len(t.Elems))
+		changed := false
+		for i, el := range t.Elems {
+			elems[i] = substTy(el, env)
+			changed = changed || elems[i] != types.Chase(el)
+		}
+		if !changed {
+			return t
+		}
+		return &types.Tuple{Elems: elems}
+	case *types.Go, *types.Meta:
+		// Host types and unsolved metas name nothing to
+		// substitute — leave them be.
+		return t
+	default:
+		panic("unreachable")
+	}
 }
 
 // boxRepr puts the Go representation of a scalar into the `any`
@@ -1457,7 +1514,7 @@ func reprName(t types.Type) string {
 			return ""
 		}
 		if t.Qual != "" {
-			return t.Qual + "." + t.Name
+			return t.Qual + "." + t.Name + reprArgs(t.Args)
 		}
 		switch {
 		case t.Name == "Unit":
@@ -1500,7 +1557,10 @@ func reprName(t types.Type) string {
 			return "chan<- " + reprName(t.Args[0])
 		}
 		// Declared record/sum — nominal: asserts only to itself.
-		return t.Name
+		// A generic instantiation names its arguments too, as the
+		// emitted `Box[int64]` does (`Box Int` and `Box String`
+		// assert differently).
+		return t.Name + reprArgs(t.Args)
 	case *types.Go:
 		base := t.Ref.Path
 		if i := strings.LastIndexByte(base, '/'); i >= 0 {
@@ -1512,14 +1572,14 @@ func reprName(t types.Type) string {
 		// nesting per parameter group.
 		var b strings.Builder
 		for {
-			b.WriteString("func(")
-			for i, p := range t.Params {
-				if i > 0 {
-					b.WriteString(", ")
-				}
+			// One FuncType per parameter — matching codegen's
+			// funcType, which wraps each param singly regardless
+			// of parameter grouping.
+			for _, p := range t.Params {
+				b.WriteString("func(")
 				b.WriteString(reprName(p.Type))
+				b.WriteString(") ")
 			}
-			b.WriteString(") ")
 			if r, ok := types.Chase(t.Ret).(*types.Func); ok {
 				t = r
 				continue
@@ -1538,6 +1598,19 @@ func reprName(t types.Type) string {
 	default:
 		panic("unreachable")
 	}
+}
+
+// reprArgs renders a generic instantiation's argument list the way
+// the emitted Go name spells it — `[int64, string]`.
+func reprArgs(args []types.Type) string {
+	if len(args) == 0 {
+		return ""
+	}
+	parts := make([]string, len(args))
+	for i, a := range args {
+		parts[i] = reprName(a)
+	}
+	return "[" + strings.Join(parts, ", ") + "]"
 }
 
 // valueReprName gives the emitted-Go-type name a native eval value
@@ -1667,6 +1740,7 @@ func errorText(v Value) string {
 func (e *interp) evalApply(x *check.Apply, env *Env) Value {
 	fv := e.eval(x.Fn, env)
 	vals := make([]Value, len(x.Args))
+	argTys := make([]types.Type, len(x.Args))
 	holes := 0
 	holeAt := -1
 	for i, a := range x.Args {
@@ -1683,6 +1757,7 @@ func (e *interp) evalApply(x *check.Apply, env *Env) Value {
 			continue
 		}
 		vals[i] = e.eval(a.Value, env)
+		argTys[i] = a.Value.Type()
 	}
 	// The CallInfo contract: at most one hole, and HoleIndex records
 	// exactly where it is (any negative value claims "no hole").
@@ -1705,7 +1780,7 @@ func (e *interp) evalApply(x *check.Apply, env *Env) Value {
 		failData(CodeInternal, "applied a non-function value", x.Span(),
 			"value", fv.String())
 	}
-	return e.applyArgs(f, x.Call.ArgToParam, vals, x.Span())
+	return e.applyArgs(f, x.Call.ArgToParam, vals, argTys, x.Span())
 }
 
 // evalGoCall evaluates a CallGo application: the callee must be

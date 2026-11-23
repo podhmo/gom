@@ -372,6 +372,12 @@ type VFunc struct {
 	// function itself.
 	thunk bool
 
+	// tyvars records type-parameter instantiations observed at
+	// apply time (param type vs the argument's static type) — the
+	// eval-side channel that lets an `any` box under `a` name its
+	// Go representation faithfully.
+	tyvars map[*types.Var]types.Type
+
 	// kind-specific payload.
 	params  []check.Param                     // fnLambda / fnDecl
 	body    check.Expr                        // fnLambda / fnDecl
