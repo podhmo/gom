@@ -1856,3 +1856,5 @@
   Go 的には `~int64` で `cmp.Ordered` を満たすが写せないため拒否される。
   wave37 lane D — [decision draft](decisions/2026-11-23-goslice-gom-elem.md)。
   [実装](../internal/goimport/boundary.go) [実装](../internal/goimport/constraint.go)
+
+- [ ] **リテラル shift 除数の E0414 は型未解決で fold 不能**: `7 / (0 <<< 1)` は `constZero` 判定時に shift ノードの型が未解決メタで、幅が分からないと wrap を機械的に再現できないため fold しない — 検出は実行時の Go パニックになる（誤検出はしない）。`(e : Int)` のような型が確定する形では正しく検出される（wave38 lane B レビュー修正時に判明）

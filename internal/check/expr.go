@@ -2212,7 +2212,20 @@ func constFold(e Expr) (constant.Value, bool) {
 			if !exact || s < 0 {
 				return nil, false
 			}
-			return constant.Shift(x, op, uint(s)), true
+			v := constant.Shift(x, op, uint(s))
+			if op == token.SHR {
+				return v, true
+			}
+			// go/constant is arbitrary-precision but the machine
+			// operation wraps at the operand's width — `(255 <<< 60)
+			// >>> 68` folds to 0 unwrapped where the wrapped value
+			// stays nonzero, which would mint a false E0414. Named
+			// integral types (no width here) simply do not fold.
+			w, ok := intFoldWidth(e.Type())
+			if !ok {
+				return nil, false
+			}
+			return wrapConstInt(v, w), true
 		}
 		return constant.BinaryOp(x, op, y), true
 	case *Ascribe:
@@ -2228,6 +2241,42 @@ func constFold(e Expr) (constant.Value, bool) {
 	default:
 		panic("unreachable")
 	}
+}
+
+// intFoldWidth gives the bit width constFold wraps a literal shift
+// result at — the width of the builtin integral type the emitted Go
+// type carries (`int`/`int64`/`int32`). Anything else (a named
+// integral, an unresolved meta) folds conservatively: no fold.
+func intFoldWidth(t types.Type) (uint, bool) {
+	c, ok := types.Chase(t).(*types.Con)
+	if !ok || c.Qual != "" {
+		return 0, false
+	}
+	switch c.Name {
+	case "Int", "Int64":
+		return 64, true
+	case "Int32":
+		return 32, true
+	}
+	return 0, false
+}
+
+// wrapConstInt interprets an arbitrary-precision constant as a
+// signed integer of width w — the value the emitted machine
+// operation produces where Go's own constant fold would overflow.
+func wrapConstInt(v constant.Value, w uint) constant.Value {
+	var mask uint64
+	if w >= 64 {
+		mask = math.MaxUint64
+	} else {
+		mask = (uint64(1) << w) - 1
+	}
+	u := constant.BinaryOp(v, token.AND, constant.MakeUint64(mask))
+	uu, _ := constant.Uint64Val(u)
+	if w == 32 {
+		return constant.MakeInt64(int64(int32(uu)))
+	}
+	return constant.MakeInt64(int64(uu))
 }
 
 // checkPipeTry types the Result-bind pipeline `x |?> f`: when x is
