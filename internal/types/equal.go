@@ -107,7 +107,6 @@ func flattenFunc(f *Func) (params []FuncParam, ret Type) {
 	return params, ret
 }
 
-
 // StripLabels removes every parameter label — check's
 // unlabeled→labeled introduction (spec section 2.1) admits an
 // unlabeled produced function for an expected labeled shape, and

@@ -1025,6 +1025,7 @@ func (c *checker) unifyFunc(w, g *types.Func, sp diag.Span) bool {
 		}
 		matched := make([]bool, len(rb))
 		var aLeft []types.FuncParam
+		lastK, ordered := -1, true
 		for _, p := range ra {
 			k, ok := byLabel[p.Label]
 			if !ok {
@@ -1032,9 +1033,22 @@ func (c *checker) unifyFunc(w, g *types.Func, sp diag.Span) bool {
 				continue
 			}
 			matched[k] = true
+			if k <= lastK {
+				ordered = false
+			}
+			lastK = k
 			if !c.unifySub(p.Type, rb[k].Type, sp) {
 				return false
 			}
+		}
+		if !ordered {
+			// Same labels in a different run order — the positional
+			// Go call would swap the arguments, so types.Equal (and
+			// Core validation downstream) rejects these as different
+			// types. Unify must agree rather than accept and leave
+			// the rejection to an internal error.
+			c.mismatch(sp, w, g)
+			return false
 		}
 		var bLeft []types.FuncParam
 		for k, p := range rb {

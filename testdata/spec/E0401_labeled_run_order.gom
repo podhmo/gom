@@ -1,0 +1,12 @@
+package main
+
+// `~a ~b` and `~b ~a` are different types — the generated Go call
+// is positional, so unifying them would swap the arguments and
+// Core validation would reject the branch as an internal error.
+fn g (~a: Int) (~b: Int) -> Int = a - b
+
+fn h (~b: Int) (~a: Int) -> Int = b - a
+
+fn use (f: ~a: Int -> ~b: Int -> Int) -> Int = f ~a: 1 ~b: 2
+
+let r = use (if true { g } else { h })
