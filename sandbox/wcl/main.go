@@ -26,609 +26,632 @@ type Counts struct {
 
 //line sandbox/wcl/main.gom:13
 type Flags struct {
-//line sandbox/wcl/main.gom:14
+//line sandbox/wcl/main.gom:13
 	ShowLines bool
-//line sandbox/wcl/main.gom:15
+//line sandbox/wcl/main.gom:13
 	ShowWords bool
-//line sandbox/wcl/main.gom:16
+//line sandbox/wcl/main.gom:13
 	ShowBytes bool
 //line sandbox/wcl/main.gom:13
 }
 
-//line sandbox/wcl/main.gom:19
+//line sandbox/wcl/main.gom:15
 type Args interface{ isArgs() }
 
-//line sandbox/wcl/main.gom:20
+//line sandbox/wcl/main.gom:16
 type Args_HelpA struct{}
 
-//line sandbox/wcl/main.gom:20
+//line sandbox/wcl/main.gom:16
 func (Args_HelpA) isArgs() {}
 
-//line sandbox/wcl/main.gom:21
+//line sandbox/wcl/main.gom:17
 type Args_RunA struct {
-//line sandbox/wcl/main.gom:21
+//line sandbox/wcl/main.gom:17
 	V0 Flags
-//line sandbox/wcl/main.gom:21
+//line sandbox/wcl/main.gom:17
 	V1 list.List[string]
-//line sandbox/wcl/main.gom:21
+//line sandbox/wcl/main.gom:17
 }
 
-//line sandbox/wcl/main.gom:21
+//line sandbox/wcl/main.gom:17
 func (Args_RunA) isArgs() {}
 
-//line sandbox/wcl/main.gom:25
+//line sandbox/wcl/main.gom:21
 func countData(data list.List[byte]) Counts {
-//line sandbox/wcl/main.gom:26
+//line sandbox/wcl/main.gom:22
 	text := string(data)
-//line sandbox/wcl/main.gom:27
+//line sandbox/wcl/main.gom:23
 	tmp1 := strings.Split(text, "\n")
-//line sandbox/wcl/main.gom:27
+//line sandbox/wcl/main.gom:23
 	tmp2 := list.FromSlice(tmp1)
-//line sandbox/wcl/main.gom:27
+//line sandbox/wcl/main.gom:23
 	tmp3 := tmp2.ToSlice()
-//line sandbox/wcl/main.gom:27
+//line sandbox/wcl/main.gom:23
 	tmp4 := rt.SliceToList[string](tmp3)
-//line sandbox/wcl/main.gom:27
+//line sandbox/wcl/main.gom:23
 	lines := list.FromSlice(tmp4)
-//line sandbox/wcl/main.gom:28
-	tmp11 := func(acc int64, l string) int64 {
-//line sandbox/wcl/main.gom:28
-		tmp5 := strings.Fields(l)
-//line sandbox/wcl/main.gom:28
-		tmp6 := list.FromSlice(tmp5)
-//line sandbox/wcl/main.gom:28
-		tmp7 := tmp6.ToSlice()
-//line sandbox/wcl/main.gom:28
-		tmp8 := rt.SliceToList[string](tmp7)
-//line sandbox/wcl/main.gom:28
-		tmp9 := list.FromSlice(tmp8)
-//line sandbox/wcl/main.gom:28
-		tmp10 := list.Length[string](tmp9)
-//line sandbox/wcl/main.gom:28
-		return acc + tmp10
-//line sandbox/wcl/main.gom:28
-	}
-//line sandbox/wcl/main.gom:28
-	words := list.Fold[int64, string](tmp11, 0, lines)
-//line sandbox/wcl/main.gom:29
-	tmp12 := list.Length[string](lines)
-//line sandbox/wcl/main.gom:29
-	tmp13 := tmp12 - 1
-//line sandbox/wcl/main.gom:29
-	tmp14 := list.Length[byte](data)
-//line sandbox/wcl/main.gom:29
-	return Counts{Lines: tmp13, Words: words, Bytes: tmp14}
 //line sandbox/wcl/main.gom:25
+	tmp11 := func(acc int64, l string) int64 {
+//line sandbox/wcl/main.gom:25
+		tmp5 := strings.Fields(l)
+//line sandbox/wcl/main.gom:25
+		tmp6 := list.FromSlice(tmp5)
+//line sandbox/wcl/main.gom:25
+		tmp7 := tmp6.ToSlice()
+//line sandbox/wcl/main.gom:25
+		tmp8 := rt.SliceToList[string](tmp7)
+//line sandbox/wcl/main.gom:25
+		tmp9 := list.FromSlice(tmp8)
+//line sandbox/wcl/main.gom:25
+		tmp10 := list.Length[string](tmp9)
+//line sandbox/wcl/main.gom:25
+		return acc + tmp10
+//line sandbox/wcl/main.gom:25
+	}
+//line sandbox/wcl/main.gom:25
+	words := list.Fold[int64, string](tmp11, 0, lines)
+//line sandbox/wcl/main.gom:26
+	tmp12 := list.Length[string](lines)
+//line sandbox/wcl/main.gom:26
+	tmp13 := tmp12 - 1
+//line sandbox/wcl/main.gom:26
+	tmp14 := list.Length[byte](data)
+//line sandbox/wcl/main.gom:26
+	return Counts{Lines: tmp13, Words: words, Bytes: tmp14}
+//line sandbox/wcl/main.gom:21
 }
 
-//line sandbox/wcl/main.gom:32
+//line sandbox/wcl/main.gom:29
 func parse(args list.List[string]) result.Result[Args, string] {
-//line sandbox/wcl/main.gom:33
+//line sandbox/wcl/main.gom:30
 	tmp15 := Flags{ShowLines: false, ShowWords: false, ShowBytes: false}
-//line sandbox/wcl/main.gom:33
+//line sandbox/wcl/main.gom:30
 	tmp16 := list.List[string]{}
-//line sandbox/wcl/main.gom:33
+//line sandbox/wcl/main.gom:30
 	return parseLoop(args, tmp15, tmp16)
+//line sandbox/wcl/main.gom:29
+}
+
+//line sandbox/wcl/main.gom:32
+func parseLoop(args list.List[string], f Flags, files list.List[string]) result.Result[Args, string] {
+//line sandbox/wcl/main.gom:32
+	for {
+//line sandbox/wcl/main.gom:33
+		switch {
+//line sandbox/wcl/main.gom:33
+		case len(args) == 0:
+//line sandbox/wcl/main.gom:33
+			tmp17 := defaults(f)
+//line sandbox/wcl/main.gom:33
+			tmp18 := list.Rev[string](files)
+//line sandbox/wcl/main.gom:33
+			tmp19 := Args(Args_RunA{V0: tmp17, V1: tmp18})
+//line sandbox/wcl/main.gom:33
+			return result.Ok[Args, string](tmp19)
+//line sandbox/wcl/main.gom:33
+		case len(args) != 0:
+//line sandbox/wcl/main.gom:33
+			tmp20 := args[0]
+//line sandbox/wcl/main.gom:33
+			tmp21 := args[1:]
+//line sandbox/wcl/main.gom:34
+			switch tmp20 {
+//line sandbox/wcl/main.gom:34
+			case "-h":
+//line sandbox/wcl/main.gom:34
+				tmp22 := Args(Args_HelpA{})
+//line sandbox/wcl/main.gom:34
+				return result.Ok[Args, string](tmp22)
+//line sandbox/wcl/main.gom:35
+			case "--help":
+//line sandbox/wcl/main.gom:35
+				tmp23 := Args(Args_HelpA{})
+//line sandbox/wcl/main.gom:35
+				return result.Ok[Args, string](tmp23)
+//line sandbox/wcl/main.gom:36
+			case "-l":
+//line sandbox/wcl/main.gom:33
+				tmp24 := tmp21
+//line sandbox/wcl/main.gom:36
+				var tmp25 Flags
+//line sandbox/wcl/main.gom:36
+				u := f
+//line sandbox/wcl/main.gom:36
+				u.ShowLines = true
+//line sandbox/wcl/main.gom:36
+				tmp25 = u
+//line sandbox/wcl/main.gom:36
+				args, f = tmp24, tmp25
+//line sandbox/wcl/main.gom:36
+				continue
+//line sandbox/wcl/main.gom:37
+			case "-w":
+//line sandbox/wcl/main.gom:33
+				tmp26 := tmp21
+//line sandbox/wcl/main.gom:37
+				var tmp27 Flags
+//line sandbox/wcl/main.gom:37
+				u1 := f
+//line sandbox/wcl/main.gom:37
+				u1.ShowWords = true
+//line sandbox/wcl/main.gom:37
+				tmp27 = u1
+//line sandbox/wcl/main.gom:37
+				args, f = tmp26, tmp27
+//line sandbox/wcl/main.gom:37
+				continue
+//line sandbox/wcl/main.gom:38
+			case "-c":
+//line sandbox/wcl/main.gom:33
+				tmp28 := tmp21
+//line sandbox/wcl/main.gom:38
+				var tmp29 Flags
+//line sandbox/wcl/main.gom:38
+				u2 := f
+//line sandbox/wcl/main.gom:38
+				u2.ShowBytes = true
+//line sandbox/wcl/main.gom:38
+				tmp29 = u2
+//line sandbox/wcl/main.gom:38
+				args, f = tmp28, tmp29
+//line sandbox/wcl/main.gom:38
+				continue
+//line sandbox/wcl/main.gom:40
+			case "--":
+//line sandbox/wcl/main.gom:33
+				tmp30 := tmp21
+//line sandbox/wcl/main.gom:40
+				tmp31 := defaults(f)
+//line sandbox/wcl/main.gom:40
+				tmp32 := list.RevAppend[string](files, tmp30)
+//line sandbox/wcl/main.gom:40
+				tmp33 := Args(Args_RunA{V0: tmp31, V1: tmp32})
+//line sandbox/wcl/main.gom:40
+				return result.Ok[Args, string](tmp33)
+//line sandbox/wcl/main.gom:40
+			default:
+//line sandbox/wcl/main.gom:33
+				tmp34 := tmp20
+//line sandbox/wcl/main.gom:33
+				tmp35 := tmp21
+//line sandbox/wcl/main.gom:41
+				tmp37 := strings.HasPrefix(tmp34, "-")
+//line sandbox/wcl/main.gom:41
+				if tmp37 {
+//line sandbox/wcl/main.gom:41
+					tmp38 := tmp34
+//line sandbox/wcl/main.gom:41
+					tmp39 := "unknown option: " + tmp38
+//line sandbox/wcl/main.gom:41
+					return result.Err[Args, string](tmp39)
+//line sandbox/wcl/main.gom:41
+				} else {
+//line sandbox/wcl/main.gom:42
+					tmp36 := append(list.List[string]{tmp34}, files...)
+//line sandbox/wcl/main.gom:42
+					args, files = tmp35, tmp36
+//line sandbox/wcl/main.gom:42
+					continue
+//line sandbox/wcl/main.gom:41
+				}
+//line sandbox/wcl/main.gom:34
+			}
+//line sandbox/wcl/main.gom:34
+		default:
+//line sandbox/wcl/main.gom:32
+			panic(rt.InvalidVariant("List", args))
+//line sandbox/wcl/main.gom:33
+		}
+//line sandbox/wcl/main.gom:32
+	}
 //line sandbox/wcl/main.gom:32
 }
 
-//line sandbox/wcl/main.gom:35
-func parseLoop(args list.List[string], f Flags, files list.List[string]) result.Result[Args, string] {
-//line sandbox/wcl/main.gom:35
-	for {
-//line sandbox/wcl/main.gom:36
-		switch {
-//line sandbox/wcl/main.gom:36
-		case len(args) == 0:
-//line sandbox/wcl/main.gom:36
-			tmp17 := defaults(f)
-//line sandbox/wcl/main.gom:36
-			tmp18 := list.Rev[string](files)
-//line sandbox/wcl/main.gom:36
-			tmp19 := Args(Args_RunA{V0: tmp17, V1: tmp18})
-//line sandbox/wcl/main.gom:36
-			return result.Ok[Args, string](tmp19)
-//line sandbox/wcl/main.gom:36
-		case len(args) != 0:
-//line sandbox/wcl/main.gom:36
-			tmp20 := args[0]
-//line sandbox/wcl/main.gom:36
-			tmp21 := args[1:]
-//line sandbox/wcl/main.gom:37
-			switch tmp20 {
-//line sandbox/wcl/main.gom:37
-			case "-h":
-//line sandbox/wcl/main.gom:37
-				tmp22 := Args(Args_HelpA{})
-//line sandbox/wcl/main.gom:37
-				return result.Ok[Args, string](tmp22)
-//line sandbox/wcl/main.gom:38
-			case "--help":
-//line sandbox/wcl/main.gom:38
-				tmp23 := Args(Args_HelpA{})
-//line sandbox/wcl/main.gom:38
-				return result.Ok[Args, string](tmp23)
-//line sandbox/wcl/main.gom:39
-			case "-l":
-//line sandbox/wcl/main.gom:36
-				tmp24 := tmp21
-//line sandbox/wcl/main.gom:39
-				var tmp25 Flags
-//line sandbox/wcl/main.gom:39
-				u := f
-//line sandbox/wcl/main.gom:39
-				u.ShowLines = true
-//line sandbox/wcl/main.gom:39
-				tmp25 = u
-//line sandbox/wcl/main.gom:39
-				args, f = tmp24, tmp25
-//line sandbox/wcl/main.gom:39
-				continue
-//line sandbox/wcl/main.gom:40
-			case "-w":
-//line sandbox/wcl/main.gom:36
-				tmp26 := tmp21
-//line sandbox/wcl/main.gom:40
-				var tmp27 Flags
-//line sandbox/wcl/main.gom:40
-				u1 := f
-//line sandbox/wcl/main.gom:40
-				u1.ShowWords = true
-//line sandbox/wcl/main.gom:40
-				tmp27 = u1
-//line sandbox/wcl/main.gom:40
-				args, f = tmp26, tmp27
-//line sandbox/wcl/main.gom:40
-				continue
-//line sandbox/wcl/main.gom:41
-			case "-c":
-//line sandbox/wcl/main.gom:36
-				tmp28 := tmp21
-//line sandbox/wcl/main.gom:41
-				var tmp29 Flags
-//line sandbox/wcl/main.gom:41
-				u2 := f
-//line sandbox/wcl/main.gom:41
-				u2.ShowBytes = true
-//line sandbox/wcl/main.gom:41
-				tmp29 = u2
-//line sandbox/wcl/main.gom:41
-				args, f = tmp28, tmp29
-//line sandbox/wcl/main.gom:41
-				continue
-//line sandbox/wcl/main.gom:42
-			case "--":
-//line sandbox/wcl/main.gom:36
-				tmp30 := tmp21
-//line sandbox/wcl/main.gom:42
-				tmp31 := list.RevAppend[string](tmp30, files)
-//line sandbox/wcl/main.gom:42
-				args, files = tmp30, tmp31
-//line sandbox/wcl/main.gom:42
-				continue
-//line sandbox/wcl/main.gom:42
-			default:
-//line sandbox/wcl/main.gom:36
-				tmp32 := tmp20
-//line sandbox/wcl/main.gom:36
-				tmp33 := tmp21
-//line sandbox/wcl/main.gom:43
-				tmp35 := strings.HasPrefix(tmp32, "-")
-//line sandbox/wcl/main.gom:43
-				if tmp35 {
-//line sandbox/wcl/main.gom:43
-					tmp36 := tmp32
-//line sandbox/wcl/main.gom:43
-					tmp37 := "unknown option: " + tmp36
-//line sandbox/wcl/main.gom:43
-					return result.Err[Args, string](tmp37)
-//line sandbox/wcl/main.gom:43
-				} else {
-//line sandbox/wcl/main.gom:44
-					tmp34 := append(list.List[string]{tmp32}, files...)
-//line sandbox/wcl/main.gom:44
-					args, files = tmp33, tmp34
-//line sandbox/wcl/main.gom:44
-					continue
-//line sandbox/wcl/main.gom:43
-				}
-//line sandbox/wcl/main.gom:37
-			}
-//line sandbox/wcl/main.gom:37
-		default:
-//line sandbox/wcl/main.gom:35
-			panic(rt.InvalidVariant("List", args))
-//line sandbox/wcl/main.gom:36
-		}
-//line sandbox/wcl/main.gom:35
-	}
-//line sandbox/wcl/main.gom:35
-}
-
-//line sandbox/wcl/main.gom:48
+//line sandbox/wcl/main.gom:46
 func defaults(f Flags) Flags {
-//line sandbox/wcl/main.gom:49
-	tmp38 := f.ShowLines || f.ShowWords
-//line sandbox/wcl/main.gom:49
-	tmp39 := tmp38 || f.ShowBytes
-//line sandbox/wcl/main.gom:49
-	if tmp39 {
-//line sandbox/wcl/main.gom:49
+//line sandbox/wcl/main.gom:46
+	tmp40 := f.ShowLines || f.ShowWords
+//line sandbox/wcl/main.gom:46
+	tmp41 := tmp40 || f.ShowBytes
+//line sandbox/wcl/main.gom:46
+	if tmp41 {
+//line sandbox/wcl/main.gom:46
 		return f
-//line sandbox/wcl/main.gom:49
+//line sandbox/wcl/main.gom:46
 	} else {
-//line sandbox/wcl/main.gom:50
+//line sandbox/wcl/main.gom:47
 		return Flags{ShowLines: true, ShowWords: true, ShowBytes: true}
-//line sandbox/wcl/main.gom:49
+//line sandbox/wcl/main.gom:46
 	}
-//line sandbox/wcl/main.gom:48
+//line sandbox/wcl/main.gom:46
 }
 
-//line sandbox/wcl/main.gom:53
+//line sandbox/wcl/main.gom:50
 func render(f Flags, name string, c Counts) string {
-//line sandbox/wcl/main.gom:54
+//line sandbox/wcl/main.gom:51
 	parts := list.List[string]{}
-//line sandbox/wcl/main.gom:55
+//line sandbox/wcl/main.gom:52
 	var parts1 list.List[string]
-//line sandbox/wcl/main.gom:55
+//line sandbox/wcl/main.gom:52
 	if f.ShowLines {
-//line sandbox/wcl/main.gom:55
-		tmp40 := int64(c.Lines)
-//line sandbox/wcl/main.gom:55
-		tmp41 := any(tmp40)
-//line sandbox/wcl/main.gom:55
-		tmp42 := fmt.Sprintf("%7d", tmp41)
-//line sandbox/wcl/main.gom:55
-		parts1 = append(list.List[string]{tmp42}, parts...)
-//line sandbox/wcl/main.gom:55
+//line sandbox/wcl/main.gom:52
+		tmp42 := int64(c.Lines)
+//line sandbox/wcl/main.gom:52
+		tmp43 := any(tmp42)
+//line sandbox/wcl/main.gom:52
+		tmp44 := fmt.Sprintf("%7d", tmp43)
+//line sandbox/wcl/main.gom:52
+		parts1 = append(list.List[string]{tmp44}, parts...)
+//line sandbox/wcl/main.gom:52
 	} else {
-//line sandbox/wcl/main.gom:55
+//line sandbox/wcl/main.gom:52
 		parts1 = parts
-//line sandbox/wcl/main.gom:55
-	}
-//line sandbox/wcl/main.gom:56
-	var parts2 list.List[string]
-//line sandbox/wcl/main.gom:56
-	if f.ShowWords {
-//line sandbox/wcl/main.gom:56
-		tmp43 := int64(c.Words)
-//line sandbox/wcl/main.gom:56
-		tmp44 := any(tmp43)
-//line sandbox/wcl/main.gom:56
-		tmp45 := fmt.Sprintf("%7d", tmp44)
-//line sandbox/wcl/main.gom:56
-		parts2 = append(list.List[string]{tmp45}, parts1...)
-//line sandbox/wcl/main.gom:56
-	} else {
-//line sandbox/wcl/main.gom:56
-		parts2 = parts1
-//line sandbox/wcl/main.gom:56
-	}
-//line sandbox/wcl/main.gom:57
-	var parts3 list.List[string]
-//line sandbox/wcl/main.gom:57
-	if f.ShowBytes {
-//line sandbox/wcl/main.gom:57
-		tmp46 := int64(c.Bytes)
-//line sandbox/wcl/main.gom:57
-		tmp47 := any(tmp46)
-//line sandbox/wcl/main.gom:57
-		tmp48 := fmt.Sprintf("%7d", tmp47)
-//line sandbox/wcl/main.gom:57
-		parts3 = append(list.List[string]{tmp48}, parts2...)
-//line sandbox/wcl/main.gom:57
-	} else {
-//line sandbox/wcl/main.gom:57
-		parts3 = parts2
-//line sandbox/wcl/main.gom:57
-	}
-//line sandbox/wcl/main.gom:58
-	tmp49 := list.Rev[string](parts3)
-//line sandbox/wcl/main.gom:58
-	tmp50 := tmp49.ToSlice()
-//line sandbox/wcl/main.gom:58
-	body := strings.Join(tmp50, " ")
-//line sandbox/wcl/main.gom:59
-	tmp53 := name == ""
-//line sandbox/wcl/main.gom:59
-	if tmp53 {
-//line sandbox/wcl/main.gom:59
-		return body
-//line sandbox/wcl/main.gom:59
-	} else {
-//line sandbox/wcl/main.gom:59
-		tmp51 := body
-//line sandbox/wcl/main.gom:59
-		tmp52 := name
-//line sandbox/wcl/main.gom:59
-		return tmp51 + " " + tmp52
-//line sandbox/wcl/main.gom:59
+//line sandbox/wcl/main.gom:52
 	}
 //line sandbox/wcl/main.gom:53
+	var parts2 list.List[string]
+//line sandbox/wcl/main.gom:53
+	if f.ShowWords {
+//line sandbox/wcl/main.gom:53
+		tmp45 := int64(c.Words)
+//line sandbox/wcl/main.gom:53
+		tmp46 := any(tmp45)
+//line sandbox/wcl/main.gom:53
+		tmp47 := fmt.Sprintf("%7d", tmp46)
+//line sandbox/wcl/main.gom:53
+		parts2 = append(list.List[string]{tmp47}, parts1...)
+//line sandbox/wcl/main.gom:53
+	} else {
+//line sandbox/wcl/main.gom:53
+		parts2 = parts1
+//line sandbox/wcl/main.gom:53
+	}
+//line sandbox/wcl/main.gom:54
+	var parts3 list.List[string]
+//line sandbox/wcl/main.gom:54
+	if f.ShowBytes {
+//line sandbox/wcl/main.gom:54
+		tmp48 := int64(c.Bytes)
+//line sandbox/wcl/main.gom:54
+		tmp49 := any(tmp48)
+//line sandbox/wcl/main.gom:54
+		tmp50 := fmt.Sprintf("%7d", tmp49)
+//line sandbox/wcl/main.gom:54
+		parts3 = append(list.List[string]{tmp50}, parts2...)
+//line sandbox/wcl/main.gom:54
+	} else {
+//line sandbox/wcl/main.gom:54
+		parts3 = parts2
+//line sandbox/wcl/main.gom:54
+	}
+//line sandbox/wcl/main.gom:55
+	tmp51 := list.Rev[string](parts3)
+//line sandbox/wcl/main.gom:55
+	tmp52 := tmp51.ToSlice()
+//line sandbox/wcl/main.gom:55
+	body := strings.Join(tmp52, " ")
+//line sandbox/wcl/main.gom:56
+	tmp55 := name == ""
+//line sandbox/wcl/main.gom:56
+	if tmp55 {
+//line sandbox/wcl/main.gom:56
+		return body
+//line sandbox/wcl/main.gom:56
+	} else {
+//line sandbox/wcl/main.gom:56
+		tmp53 := body
+//line sandbox/wcl/main.gom:56
+		tmp54 := name
+//line sandbox/wcl/main.gom:56
+		return tmp53 + " " + tmp54
+//line sandbox/wcl/main.gom:56
+	}
+//line sandbox/wcl/main.gom:50
 }
 
-//line sandbox/wcl/main.gom:62
+//line sandbox/wcl/main.gom:59
 func readInput(path option.Option[string]) result.Result[list.List[byte], error] {
-//line sandbox/wcl/main.gom:63
+//line sandbox/wcl/main.gom:60
 	switch v := path.(type) {
-//line sandbox/wcl/main.gom:63
+//line sandbox/wcl/main.gom:60
 	case option.Option_Some[string]:
-//line sandbox/wcl/main.gom:63
-		tmp54 := v
-//line sandbox/wcl/main.gom:64
-		tmp55 := tmp54.V0
-//line sandbox/wcl/main.gom:64
-		v1, err := os.ReadFile(tmp55)
-//line sandbox/wcl/main.gom:64
+//line sandbox/wcl/main.gom:60
+		tmp56 := v
+//line sandbox/wcl/main.gom:61
+		tmp57 := tmp56.V0
+//line sandbox/wcl/main.gom:61
+		v1, err := os.ReadFile(tmp57)
+//line sandbox/wcl/main.gom:61
 		return result.FromGo(list.FromSlice(v1), err)
-//line sandbox/wcl/main.gom:63
+//line sandbox/wcl/main.gom:60
 	case option.Option_None[string]:
-//line sandbox/wcl/main.gom:63
-		tmp56 := io.Reader(os.Stdin)
-//line sandbox/wcl/main.gom:63
-		v2, err1 := io.ReadAll(tmp56)
-//line sandbox/wcl/main.gom:63
+//line sandbox/wcl/main.gom:60
+		tmp58 := io.Reader(os.Stdin)
+//line sandbox/wcl/main.gom:60
+		v2, err1 := io.ReadAll(tmp58)
+//line sandbox/wcl/main.gom:60
 		return result.FromGo(list.FromSlice(v2), err1)
-//line sandbox/wcl/main.gom:63
+//line sandbox/wcl/main.gom:60
 	default:
-//line sandbox/wcl/main.gom:62
+//line sandbox/wcl/main.gom:59
 		panic(rt.InvalidVariant("Option", path))
-//line sandbox/wcl/main.gom:63
+//line sandbox/wcl/main.gom:60
 	}
-//line sandbox/wcl/main.gom:62
+//line sandbox/wcl/main.gom:59
 }
 
-//line sandbox/wcl/main.gom:67
+//line sandbox/wcl/main.gom:64
 func runOne(f Flags, path option.Option[string]) result.Result[struct{}, error] {
-//line sandbox/wcl/main.gom:68
-	tmp57 := readInput(path)
-//line sandbox/wcl/main.gom:68
+//line sandbox/wcl/main.gom:65
+	tmp59 := readInput(path)
+//line sandbox/wcl/main.gom:65
 	var data list.List[byte]
-//line sandbox/wcl/main.gom:68
-	switch tmp57.Tag() {
-//line sandbox/wcl/main.gom:68
+//line sandbox/wcl/main.gom:65
+	switch tmp59.Tag() {
+//line sandbox/wcl/main.gom:65
 	case result.ResultTagOk:
-//line sandbox/wcl/main.gom:68
-		data = tmp57.Value
-//line sandbox/wcl/main.gom:68
+//line sandbox/wcl/main.gom:65
+		data = tmp59.Value
+//line sandbox/wcl/main.gom:65
 	case result.ResultTagErr:
-//line sandbox/wcl/main.gom:68
-		return result.Err[struct{}, error](tmp57.Error)
-//line sandbox/wcl/main.gom:68
+//line sandbox/wcl/main.gom:65
+		return result.Err[struct{}, error](tmp59.Error)
+//line sandbox/wcl/main.gom:65
 	default:
-//line sandbox/wcl/main.gom:68
-		panic(rt.InvalidVariant("result.Result", tmp57))
-//line sandbox/wcl/main.gom:68
+//line sandbox/wcl/main.gom:65
+		panic(rt.InvalidVariant("result.Result", tmp59))
+//line sandbox/wcl/main.gom:65
 	}
-//line sandbox/wcl/main.gom:69
+//line sandbox/wcl/main.gom:66
 	var name string
-//line sandbox/wcl/main.gom:69
+//line sandbox/wcl/main.gom:67
 	switch v3 := path.(type) {
-//line sandbox/wcl/main.gom:69
+//line sandbox/wcl/main.gom:67
 	case option.Option_Some[string]:
-//line sandbox/wcl/main.gom:69
-		tmp58 := v3
-//line sandbox/wcl/main.gom:69
-		tmp59 := tmp58.V0
-//line sandbox/wcl/main.gom:69
-		name = tmp59
-//line sandbox/wcl/main.gom:69
+//line sandbox/wcl/main.gom:67
+		tmp60 := v3
+//line sandbox/wcl/main.gom:68
+		tmp61 := tmp60.V0
+//line sandbox/wcl/main.gom:68
+		name = tmp61
+//line sandbox/wcl/main.gom:67
 	case option.Option_None[string]:
-//line sandbox/wcl/main.gom:69
+//line sandbox/wcl/main.gom:67
 		name = ""
-//line sandbox/wcl/main.gom:69
+//line sandbox/wcl/main.gom:67
 	default:
-//line sandbox/wcl/main.gom:69
+//line sandbox/wcl/main.gom:66
 		panic(rt.InvalidVariant("Option", path))
-//line sandbox/wcl/main.gom:69
+//line sandbox/wcl/main.gom:67
 	}
 //line sandbox/wcl/main.gom:70
-	tmp60 := countData(data)
+	tmp62 := countData(data)
 //line sandbox/wcl/main.gom:70
-	tmp61 := render(f, name, tmp60)
+	tmp63 := render(f, name, tmp62)
 //line sandbox/wcl/main.gom:70
-	tmp62 := any(tmp61)
+	tmp64 := any(tmp63)
 //line sandbox/wcl/main.gom:70
-	v4, err2 := fmt.Println(tmp62)
+	v4, err2 := fmt.Println(tmp64)
 //line sandbox/wcl/main.gom:70
 	_ = result.FromGo(int64(v4), err2)
 //line sandbox/wcl/main.gom:71
 	return result.Ok[struct{}, error](struct{}{})
-//line sandbox/wcl/main.gom:67
+//line sandbox/wcl/main.gom:64
 }
 
 //line sandbox/wcl/main.gom:74
 func run(f Flags, files list.List[string]) result.Result[struct{}, error] {
-//line sandbox/wcl/main.gom:74
-	for {
 //line sandbox/wcl/main.gom:75
-		switch {
-//line sandbox/wcl/main.gom:75
-		case len(files) == 0:
-//line sandbox/wcl/main.gom:75
-			tmp63 := option.Option[string](option.Option_None[string]{})
-//line sandbox/wcl/main.gom:75
-			return runOne(f, tmp63)
-//line sandbox/wcl/main.gom:75
-		case len(files) != 0:
-//line sandbox/wcl/main.gom:75
-			tmp64 := files[0]
-//line sandbox/wcl/main.gom:75
-			tmp65 := files[1:]
-//line sandbox/wcl/main.gom:75
-			tmp66 := tmp64
-//line sandbox/wcl/main.gom:75
-			tmp67 := tmp65
-//line sandbox/wcl/main.gom:76
-			tmp68 := option.Option[string](option.Option_Some[string]{V0: tmp66})
-//line sandbox/wcl/main.gom:76
-			tmp69 := runOne(f, tmp68)
-//line sandbox/wcl/main.gom:77
-			switch tmp69.Tag() {
-//line sandbox/wcl/main.gom:77
-			case result.ResultTagOk:
-//line sandbox/wcl/main.gom:77
-				files = tmp67
-//line sandbox/wcl/main.gom:77
-				continue
-//line sandbox/wcl/main.gom:77
-			case result.ResultTagErr:
-//line sandbox/wcl/main.gom:77
-				tmp71 := tmp69.Error
-//line sandbox/wcl/main.gom:77
-				tmp72 := tmp71
-//line sandbox/wcl/main.gom:78
-				return result.Err[struct{}, error](tmp72)
-//line sandbox/wcl/main.gom:78
-			default:
-//line sandbox/wcl/main.gom:76
-				panic(rt.InvalidVariant("Result", tmp69))
-//line sandbox/wcl/main.gom:77
-			}
-//line sandbox/wcl/main.gom:77
-		default:
-//line sandbox/wcl/main.gom:74
-			panic(rt.InvalidVariant("List", files))
-//line sandbox/wcl/main.gom:75
-		}
-//line sandbox/wcl/main.gom:74
-	}
-//line sandbox/wcl/main.gom:74
-}
-
-//line sandbox/wcl/main.gom:82
-func programArgs(_ struct{}) list.List[string] {
-//line sandbox/wcl/main.gom:82
-	tmp73 := list.FromSlice(os.Args)
-//line sandbox/wcl/main.gom:82
-	tmp74 := tmp73.ToSlice()
-//line sandbox/wcl/main.gom:82
-	tmp75 := rt.SliceToList[string](tmp74)
-//line sandbox/wcl/main.gom:82
-	tmp76 := list.FromSlice(tmp75)
-//line sandbox/wcl/main.gom:83
 	switch {
-//line sandbox/wcl/main.gom:83
-	case len(tmp76) == 0:
-//line sandbox/wcl/main.gom:83
-		return list.List[string]{}
-//line sandbox/wcl/main.gom:83
-	case len(tmp76) != 0:
-//line sandbox/wcl/main.gom:83
-		tmp78 := tmp76[1:]
-//line sandbox/wcl/main.gom:83
-		tmp79 := tmp78
-//line sandbox/wcl/main.gom:84
-		return tmp79
-//line sandbox/wcl/main.gom:84
+//line sandbox/wcl/main.gom:75
+	case len(files) == 0:
+//line sandbox/wcl/main.gom:75
+		tmp65 := option.Option[string](option.Option_None[string]{})
+//line sandbox/wcl/main.gom:75
+		return runOne(f, tmp65)
+//line sandbox/wcl/main.gom:75
+	case len(files) != 0:
+//line sandbox/wcl/main.gom:76
+		return runFiles(f, files)
+//line sandbox/wcl/main.gom:76
 	default:
-//line sandbox/wcl/main.gom:82
-		panic(rt.InvalidVariant("List", tmp76))
-//line sandbox/wcl/main.gom:83
+//line sandbox/wcl/main.gom:74
+		panic(rt.InvalidVariant("List", files))
+//line sandbox/wcl/main.gom:75
 	}
+//line sandbox/wcl/main.gom:74
+}
+
+//line sandbox/wcl/main.gom:79
+func runFiles(f Flags, files list.List[string]) result.Result[struct{}, error] {
+//line sandbox/wcl/main.gom:79
+	for {
+//line sandbox/wcl/main.gom:80
+		switch {
+//line sandbox/wcl/main.gom:80
+		case len(files) == 0:
+//line sandbox/wcl/main.gom:80
+			return result.Ok[struct{}, error](struct{}{})
+//line sandbox/wcl/main.gom:80
+		case len(files) != 0:
+//line sandbox/wcl/main.gom:80
+			tmp68 := files[0]
+//line sandbox/wcl/main.gom:80
+			tmp69 := files[1:]
+//line sandbox/wcl/main.gom:80
+			tmp70 := tmp68
+//line sandbox/wcl/main.gom:80
+			tmp71 := tmp69
+//line sandbox/wcl/main.gom:81
+			tmp72 := option.Option[string](option.Option_Some[string]{V0: tmp70})
+//line sandbox/wcl/main.gom:81
+			tmp73 := runOne(f, tmp72)
 //line sandbox/wcl/main.gom:82
-}
-
-//line sandbox/wcl/main.gom:87
-func die(code int64, msg string) struct{} {
-//line sandbox/wcl/main.gom:88
-	tmp80 := io.Writer(os.Stderr)
-//line sandbox/wcl/main.gom:88
-	tmp81 := msg
-//line sandbox/wcl/main.gom:88
-	tmp82 := "wcl: " + tmp81
-//line sandbox/wcl/main.gom:88
-	tmp83 := any(tmp82)
-//line sandbox/wcl/main.gom:88
-	v5, err3 := fmt.Fprintln(tmp80, tmp83)
-//line sandbox/wcl/main.gom:88
-	_ = result.FromGo(int64(v5), err3)
-//line sandbox/wcl/main.gom:89
-	tmp84 := int(code)
-//line sandbox/wcl/main.gom:89
-	os.Exit(tmp84)
-//line sandbox/wcl/main.gom:89
-	_ = struct{}{}
-//line sandbox/wcl/main.gom:90
-	return struct{}{}
-//line sandbox/wcl/main.gom:87
-}
-
-//line sandbox/wcl/main.gom:93
-func main() {
-//line sandbox/wcl/main.gom:93
-	tmp85 := programArgs(struct{}{})
-//line sandbox/wcl/main.gom:93
-	tmp86 := parse(tmp85)
-//line sandbox/wcl/main.gom:94
-	switch tmp86.Tag() {
-//line sandbox/wcl/main.gom:94
-	case result.ResultTagOk:
-//line sandbox/wcl/main.gom:94
-		tmp87 := tmp86.Value
-//line sandbox/wcl/main.gom:94
-		switch v6 := tmp87.(type) {
-//line sandbox/wcl/main.gom:94
-		case Args_HelpA:
-//line sandbox/wcl/main.gom:94
-			tmp88 := any("usage: wcl [-lwc] [FILE...]")
-//line sandbox/wcl/main.gom:94
-			v7, err4 := fmt.Println(tmp88)
-//line sandbox/wcl/main.gom:94
-			_ = result.FromGo(int64(v7), err4)
-//line sandbox/wcl/main.gom:94
-			_ = struct{}{}
-//line sandbox/wcl/main.gom:94
-		case Args_RunA:
-//line sandbox/wcl/main.gom:94
-			tmp89 := v6
-//line sandbox/wcl/main.gom:95
-			tmp90 := tmp89.V0
-//line sandbox/wcl/main.gom:95
-			tmp91 := tmp89.V1
-//line sandbox/wcl/main.gom:95
-			tmp92 := run(tmp90, tmp91)
-//line sandbox/wcl/main.gom:96
-			switch tmp92.Tag() {
-//line sandbox/wcl/main.gom:96
+			switch tmp73.Tag() {
+//line sandbox/wcl/main.gom:82
 			case result.ResultTagOk:
-//line sandbox/wcl/main.gom:96
-				_ = struct{}{}
-//line sandbox/wcl/main.gom:96
+//line sandbox/wcl/main.gom:82
+				files = tmp71
+//line sandbox/wcl/main.gom:82
+				continue
+//line sandbox/wcl/main.gom:82
 			case result.ResultTagErr:
-//line sandbox/wcl/main.gom:96
-				tmp94 := tmp92.Error
-//line sandbox/wcl/main.gom:96
-				tmp95 := tmp94
-//line sandbox/wcl/main.gom:97
-				tmp96 := tmp95.Error()
-//line sandbox/wcl/main.gom:97
-				die(1, tmp96)
-//line sandbox/wcl/main.gom:97
+//line sandbox/wcl/main.gom:82
+				tmp75 := tmp73.Error
+//line sandbox/wcl/main.gom:82
+				tmp76 := tmp75
+//line sandbox/wcl/main.gom:83
+				return result.Err[struct{}, error](tmp76)
+//line sandbox/wcl/main.gom:83
 			default:
-//line sandbox/wcl/main.gom:95
-				panic(rt.InvalidVariant("Result", tmp92))
-//line sandbox/wcl/main.gom:96
+//line sandbox/wcl/main.gom:81
+				panic(rt.InvalidVariant("Result", tmp73))
+//line sandbox/wcl/main.gom:82
 			}
-//line sandbox/wcl/main.gom:96
+//line sandbox/wcl/main.gom:82
 		default:
-//line sandbox/wcl/main.gom:94
-			panic(rt.InvalidVariant("Args", tmp87))
-//line sandbox/wcl/main.gom:94
+//line sandbox/wcl/main.gom:79
+			panic(rt.InvalidVariant("List", files))
+//line sandbox/wcl/main.gom:80
 		}
-//line sandbox/wcl/main.gom:94
-	case result.ResultTagErr:
-//line sandbox/wcl/main.gom:94
-		tmp97 := tmp86.Error
-//line sandbox/wcl/main.gom:94
-		tmp98 := tmp97
-//line sandbox/wcl/main.gom:99
-		die(2, tmp98)
-//line sandbox/wcl/main.gom:99
-	default:
-//line sandbox/wcl/main.gom:93
-		panic(rt.InvalidVariant("Result", tmp86))
-//line sandbox/wcl/main.gom:94
+//line sandbox/wcl/main.gom:79
 	}
+//line sandbox/wcl/main.gom:79
+}
+
+//line sandbox/wcl/main.gom:87
+func programArgs(_ struct{}) list.List[string] {
+//line sandbox/wcl/main.gom:87
+	tmp77 := list.FromSlice(os.Args)
+//line sandbox/wcl/main.gom:87
+	tmp78 := tmp77.ToSlice()
+//line sandbox/wcl/main.gom:87
+	tmp79 := rt.SliceToList[string](tmp78)
+//line sandbox/wcl/main.gom:87
+	tmp80 := list.FromSlice(tmp79)
+//line sandbox/wcl/main.gom:88
+	switch {
+//line sandbox/wcl/main.gom:88
+	case len(tmp80) == 0:
+//line sandbox/wcl/main.gom:88
+		return list.List[string]{}
+//line sandbox/wcl/main.gom:88
+	case len(tmp80) != 0:
+//line sandbox/wcl/main.gom:88
+		tmp82 := tmp80[1:]
+//line sandbox/wcl/main.gom:88
+		tmp83 := tmp82
+//line sandbox/wcl/main.gom:89
+		return tmp83
+//line sandbox/wcl/main.gom:89
+	default:
+//line sandbox/wcl/main.gom:87
+		panic(rt.InvalidVariant("List", tmp80))
+//line sandbox/wcl/main.gom:88
+	}
+//line sandbox/wcl/main.gom:87
+}
+
+//line sandbox/wcl/main.gom:92
+func die(code int64, msg string) struct{} {
 //line sandbox/wcl/main.gom:93
+	tmp84 := io.Writer(os.Stderr)
+//line sandbox/wcl/main.gom:93
+	tmp85 := msg
+//line sandbox/wcl/main.gom:93
+	tmp86 := "wcl: " + tmp85
+//line sandbox/wcl/main.gom:93
+	tmp87 := any(tmp86)
+//line sandbox/wcl/main.gom:93
+	v5, err3 := fmt.Fprintln(tmp84, tmp87)
+//line sandbox/wcl/main.gom:93
+	_ = result.FromGo(int64(v5), err3)
+//line sandbox/wcl/main.gom:94
+	tmp88 := int(code)
+//line sandbox/wcl/main.gom:94
+	os.Exit(tmp88)
+//line sandbox/wcl/main.gom:94
+	_ = struct{}{}
+//line sandbox/wcl/main.gom:95
+	return struct{}{}
+//line sandbox/wcl/main.gom:92
+}
+
+//line sandbox/wcl/main.gom:98
+func main() {
+//line sandbox/wcl/main.gom:98
+	tmp89 := programArgs(struct{}{})
+//line sandbox/wcl/main.gom:98
+	tmp90 := parse(tmp89)
+//line sandbox/wcl/main.gom:99
+	switch tmp90.Tag() {
+//line sandbox/wcl/main.gom:99
+	case result.ResultTagOk:
+//line sandbox/wcl/main.gom:99
+		tmp91 := tmp90.Value
+//line sandbox/wcl/main.gom:99
+		switch v6 := tmp91.(type) {
+//line sandbox/wcl/main.gom:99
+		case Args_HelpA:
+//line sandbox/wcl/main.gom:99
+			tmp92 := any("usage: wcl [-lwc] [FILE...]")
+//line sandbox/wcl/main.gom:99
+			v7, err4 := fmt.Println(tmp92)
+//line sandbox/wcl/main.gom:99
+			_ = result.FromGo(int64(v7), err4)
+//line sandbox/wcl/main.gom:99
+			_ = struct{}{}
+//line sandbox/wcl/main.gom:99
+		case Args_RunA:
+//line sandbox/wcl/main.gom:99
+			tmp93 := v6
+//line sandbox/wcl/main.gom:100
+			tmp94 := tmp93.V0
+//line sandbox/wcl/main.gom:100
+			tmp95 := tmp93.V1
+//line sandbox/wcl/main.gom:100
+			tmp96 := run(tmp94, tmp95)
+//line sandbox/wcl/main.gom:101
+			switch tmp96.Tag() {
+//line sandbox/wcl/main.gom:101
+			case result.ResultTagOk:
+//line sandbox/wcl/main.gom:101
+				_ = struct{}{}
+//line sandbox/wcl/main.gom:101
+			case result.ResultTagErr:
+//line sandbox/wcl/main.gom:101
+				tmp98 := tmp96.Error
+//line sandbox/wcl/main.gom:101
+				tmp99 := tmp98
+//line sandbox/wcl/main.gom:102
+				tmp100 := tmp99.Error()
+//line sandbox/wcl/main.gom:102
+				die(1, tmp100)
+//line sandbox/wcl/main.gom:102
+			default:
+//line sandbox/wcl/main.gom:100
+				panic(rt.InvalidVariant("Result", tmp96))
+//line sandbox/wcl/main.gom:101
+			}
+//line sandbox/wcl/main.gom:101
+		default:
+//line sandbox/wcl/main.gom:99
+			panic(rt.InvalidVariant("Args", tmp91))
+//line sandbox/wcl/main.gom:99
+		}
+//line sandbox/wcl/main.gom:99
+	case result.ResultTagErr:
+//line sandbox/wcl/main.gom:99
+		tmp101 := tmp90.Error
+//line sandbox/wcl/main.gom:99
+		tmp102 := tmp101
+//line sandbox/wcl/main.gom:104
+		die(2, tmp102)
+//line sandbox/wcl/main.gom:104
+	default:
+//line sandbox/wcl/main.gom:98
+		panic(rt.InvalidVariant("Result", tmp90))
+//line sandbox/wcl/main.gom:99
+	}
+//line sandbox/wcl/main.gom:98
 }

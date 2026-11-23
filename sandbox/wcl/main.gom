@@ -36,7 +36,8 @@ fn parse_loop (args: List String) (f: Flags) (files: List String) -> Result Args
   ["-l", ..rest] -> parse_loop rest { f with show_lines = true } files
   ["-w", ..rest] -> parse_loop rest { f with show_words = true } files
   ["-c", ..rest] -> parse_loop rest { f with show_bytes = true } files
-  ["--", ..rest] -> parse_loop rest f (List.rev_append rest files)
+  // `--` 以降は全部ファイル名。rev_append files rest = rev files ++ rest で順序を保つ
+  ["--", ..rest] -> Ok (RunA (defaults f) (List.rev_append files rest))
   [a, ..rest] -> if strings.HasPrefix (a, "-") { Err "unknown option: ${a}" } else {
     parse_loop rest f [a, ..files]
   }
@@ -72,8 +73,13 @@ fn run_one (f: Flags) (path: Option String) -> Result Unit GoError = {
 
 fn run (f: Flags) (files: List String) -> Result Unit GoError = match files {
   [] -> run_one f None
+  [_, .._] -> run_files f files
+}
+
+fn run_files (f: Flags) (files: List String) -> Result Unit GoError = match files {
+  [] -> Ok ()
   [p, ..rest] -> match run_one f (Some p) {
-    Ok _ -> run f rest
+    Ok _ -> run_files f rest
     Err e -> Err e
   }
 }
