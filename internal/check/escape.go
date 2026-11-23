@@ -197,9 +197,133 @@ type escapeBody struct {
 	// escape flags grew during this walk — the fixpoint needs
 	// another pass so callers can see them.
 	flagsChanged bool
+	// seenDanger memoizes escWalk visits at danger — a record
+	// literal shared through let bindings is walked once, so
+	// branching field initializers cannot double the walk per
+	// chain link.
+	seenDanger map[Expr]bool
 }
 
 func (b *escapeBody) tainted(s *resolve.Symbol) bool { return b.aliases[s] }
+
+// bindPatValues records the bound value of each name a pattern
+// introduces. `let (a, b) = (x, y)` binds each name to its own
+// element — the whole value otherwise charges a discarded
+// element's products to every bound name. Record patterns bind
+// each field the same way: `{ f = x }` over a literal binds x to
+// that field's initializer (a `with` base answers the missing
+// ones); over any other expression it binds to the field read —
+// binding x to the whole record would let a later `x.g` select a
+// same-named field of the outer record.
+func bindPatValues(lets map[*resolve.Symbol]Expr, p Pat, v Expr) {
+	if tp, ok := p.(*TuplePat); ok {
+		if tl, ok := unascribe(v).(*TupleLit); ok && len(tl.Elems) == len(tp.Elems) {
+			for i := range tp.Elems {
+				bindPatValues(lets, tp.Elems[i], tl.Elems[i])
+			}
+			return
+		}
+	}
+	if rp, ok := p.(*RecordPat); ok {
+		if lit, ok := unascribe(v).(*RecordLit); ok {
+			for _, fp := range rp.Fields {
+				fv := Expr(v)
+				for _, f := range lit.Fields {
+					if f.Name == fp.Name {
+						fv = f.Value
+						break
+					}
+				}
+				if fv == v && lit.With != nil {
+					fv = lit.With
+				}
+				bindPatValues(lets, fp.Pat, fv)
+			}
+			return
+		}
+		for _, fp := range rp.Fields {
+			bindPatValues(lets, fp.Pat,
+				&MemberExpr{Base: Base{Sp: fp.Sp}, Recv: v,
+					Sel: &syntax.Ident{Name: fp.Name}, Sym: fp.Sym})
+		}
+		return
+	}
+	if cp, ok := p.(*CtorPat); ok && len(cp.Fields) > 0 {
+		// `Let { name = n, .. }` — the named payload slots
+		// project off the constructor value the same way.
+		for _, fp := range cp.Fields {
+			bindPatValues(lets, fp.Pat,
+				&MemberExpr{Base: Base{Sp: fp.Sp}, Recv: v,
+					Sel: &syntax.Ident{Name: fp.Name}, Sym: fp.Sym})
+		}
+		return
+	}
+	for _, s := range patBoundSyms(p) {
+		lets[s] = v
+	}
+}
+
+// resolveLetsVar chases `let` bindings behind a Var — the bindings
+// bindPatValues and bindLet record.
+func resolveLetsVar(e Expr, lets map[*resolve.Symbol]Expr) Expr {
+	for {
+		v, ok := unascribe(e).(*Var)
+		if !ok {
+			return e
+		}
+		bound, ok := lets[v.Sym]
+		if !ok {
+			return e
+		}
+		e = bound
+	}
+}
+
+// recordFieldExpr resolves `e.sel` through let bindings and record
+// projections to the selected field's value expression — `inner`
+// bound to `r.inner` resolves through r's literal to the `inner`
+// field, and `.g` on that picks `inner`'s `g` field, so only the
+// read field's products/escapes apply. A field the literal does not
+// declare keeps searching the `with` base; a base that does not
+// resolve to a literal returns it as the best approximation (its
+// fields all reach the read). Returns nil when the receiver cannot
+// be resolved at all — the caller reads the whole receiver.
+func recordFieldExpr(e Expr, sel string, lets map[*resolve.Symbol]Expr) Expr {
+	e = resolveLetsVar(e, lets)
+	for {
+		lit, ok := unascribe(e).(*RecordLit)
+		if !ok {
+			m, isM := unascribe(e).(*MemberExpr)
+			if !isM {
+				return nil
+			}
+			v := recordFieldExpr(m.Recv, m.Sel.Name, lets)
+			if v == nil {
+				return nil
+			}
+			e = v
+			continue
+		}
+		var found Expr
+		for _, f := range lit.Fields {
+			if f.Name == sel {
+				found = f.Value
+				break
+			}
+		}
+		if found != nil {
+			return found
+		}
+		if lit.With == nil {
+			return nil
+		}
+		w := resolveLetsVar(lit.With, lets)
+		if _, ok := unascribe(w).(*RecordLit); !ok {
+			return lit.With
+		}
+		e = w
+	}
+}
 
 // markDanger marks sym as escaping, then every variable a let
 // binding chained it from — `let x = p` followed by `ret x` must
@@ -221,6 +345,22 @@ func (b *escapeBody) markDanger(sym *resolve.Symbol) {
 // second pass reports E0419 at tainted variables in escaping
 // positions. Flags land on sym.Noescape for .gomi emission.
 func (c *checker) checkScopeEscape() {
+	// Pass 0 — fill each named callee's ResultTaint flags, so the
+	// use-site queries below and the `.gomi` emitter read the
+	// inferred answer rather than the assume-tainted default.
+	for _, d := range c.decls {
+		if fn, ok := d.(*FnDecl); ok && fn.Sym != nil &&
+			fn.Body != nil && len(fn.Params) > 0 {
+			c.resultTaintOf(fn.Sym)
+		}
+		if ld, ok := d.(*LetDecl); ok {
+			if _, isLam := ld.Value.(*Lambda); isLam {
+				for _, s := range patBoundSyms(ld.Pat) {
+					c.resultTaintOf(s)
+				}
+			}
+		}
+	}
 	// Pass 1 — fixpoint over param escape flags.
 	for changed := true; changed; {
 		changed = false
@@ -616,52 +756,52 @@ func (c *checker) argEscapes(e *Apply, i int) bool {
 	return c.callParamEscapes(e.Call, i)
 }
 
+// calleeSymOfApply resolves the function symbol a call applies —
+// `e.Call.Callee` for classified calls, the fn expression's own
+// symbol for CallUnknown (a let-bound variable may still name an
+// inspectable declaration).
+func calleeSymOfApply(e *Apply) *resolve.Symbol {
+	if e.Call.Callee != nil {
+		return e.Call.Callee
+	}
+	if v, ok := e.Fn.(*Var); ok {
+		return v.Sym
+	}
+	if v, ok := e.Fn.(*MemberExpr); ok {
+		return v.Sym
+	}
+	return nil
+}
+
+// argParamIndex maps an argument position to the flattened
+// parameter it fills — CallUnknown still maps reordered labeled
+// arguments, so flags read by parameter position, not argument
+// order.
+func argParamIndex(e *Apply, i int) int {
+	if e.Call.ArgToParam != nil && i < len(e.Call.ArgToParam) && e.Call.ArgToParam[i] >= 0 {
+		return e.Call.ArgToParam[i]
+	}
+	return i
+}
+
 // resultCarriesArg reports whether argument i's products can ride
 // out through the call's own result — the missing channel of the
 // flag model: `f` non-escaping only means the callee does not keep
 // the argument, not that it does not return what the argument
-// produces. A locally-declared callee answers precisely: the
-// parameter must appear among the producers of the body's result
-// (`f 3` returns f's product; `const_f` discarding f does not).
-// Anything else — imported, Go, or a non-symbol callee — has no
-// inspectable body, so the answer is conservative.
+// produces. The callee's ResultTaint flags answer the question:
+// `f 3` returns f's product; `const_f` discarding f does not.
+// Locally-declared callees get precise inferred flags
+// (transitively, through the callees they call); imported ones get
+// `//gom:result-notaint` annotations, and anything else — Go, or
+// a non-symbol callee — has no inspectable answer, so it is
+// conservative.
 func (c *checker) resultCarriesArg(e *Apply, i int) bool {
-	sym := e.Call.Callee
-	if sym == nil {
-		// CallUnknown — a let-bound variable may still name an
-		// inspectable declaration.
-		if v, ok := e.Fn.(*Var); ok {
-			sym = v.Sym
-		} else if v, ok := e.Fn.(*MemberExpr); ok {
-			sym = v.Sym
-		}
-	}
-	if sym == nil {
-		return true
-	}
-	d := c.fnDeclOf(sym)
-	if d == nil || d.Body == nil {
-		return true
-	}
-	p := i
-	if e.Call.ArgToParam != nil && i < len(e.Call.ArgToParam) && e.Call.ArgToParam[i] >= 0 {
-		p = e.Call.ArgToParam[i]
-	}
-	if p >= len(d.Params) {
-		return true
-	}
-	prod := retainedProducers(d.Body)
-	for _, ps := range patBoundSyms(d.Params[p].Pat) {
-		if prod[ps] {
-			return true
-		}
-	}
-	return false
+	return c.resultTaintAt(calleeSymOfApply(e), argParamIndex(e, i))
 }
 
 // resultCarriesPipe is resultCarriesArg for a pipe: the piped value
 // lands on the callee's first parameter. A non-symbol callee has no
-// inspectable body — the answer is conservative.
+// inspectable answer — the answer is conservative.
 func (c *checker) resultCarriesPipe(fn Expr) bool {
 	var sym *resolve.Symbol
 	if v, ok := fn.(*Var); ok {
@@ -669,18 +809,506 @@ func (c *checker) resultCarriesPipe(fn Expr) bool {
 	} else if v, ok := fn.(*MemberExpr); ok {
 		sym = v.Sym
 	}
+	return c.resultTaintAt(sym, 0)
+}
+
+// resultTaintAt reads one flattened parameter position of a
+// callee's result-taint flags — an absent or short flag slice
+// means "assume tainted", the conservative default.
+func (c *checker) resultTaintAt(sym *resolve.Symbol, p int) bool {
 	if sym == nil {
 		return true
 	}
-	d := c.fnDeclOf(sym)
-	if d == nil || d.Body == nil || len(d.Params) == 0 {
-		return true
+	t := c.resultTaintOf(sym)
+	if p < len(t) {
+		return t[p]
 	}
-	prod := retainedProducers(d.Body)
-	for _, ps := range patBoundSyms(d.Params[0].Pat) {
-		if prod[ps] {
-			return true
+	return true
+}
+
+// resultTaintOf returns sym's per-parameter result-taint flags —
+// sym.ResultTaint when already filled (an earlier inference, or a
+// `//gom:result-notaint` directive on an imported signature), and
+// otherwise an inference over the inspectable body: a top-level
+// `fn` or a top-level `let f = fn` lambda. A callee still being
+// analyzed (mutual recursion) and one without an inspectable body
+// answer nil — "assume tainted".
+func (c *checker) resultTaintOf(sym *resolve.Symbol) []bool {
+	if c.resultTaintMemo == nil {
+		c.resultTaintMemo = map[*resolve.Symbol][]bool{}
+		c.resultTaintDoing = map[*resolve.Symbol]bool{}
+	}
+	if t, ok := c.resultTaintMemo[sym]; ok {
+		return t
+	}
+	if len(sym.ResultTaint) > 0 {
+		return sym.ResultTaint
+	}
+	if c.resultTaintDoing[sym] {
+		return nil
+	}
+	var body Expr
+	var pats []Pat
+	if d := c.fnDeclOf(sym); d != nil && d.Body != nil && len(d.Params) > 0 {
+		body = d.Body
+		for _, p := range d.Params {
+			pats = append(pats, p.Pat)
 		}
+	} else if lam := c.letLambdaOf(sym); lam != nil {
+		body = lam.Body
+		for _, p := range lam.Params {
+			pats = append(pats, p.Pat)
+		}
+	}
+	if body == nil {
+		c.resultTaintMemo[sym] = nil
+		return nil
+	}
+	c.resultTaintDoing[sym] = true
+	t := c.inferResultTaint(body, pats)
+	delete(c.resultTaintDoing, sym)
+	sym.ResultTaint = t
+	c.resultTaintMemo[sym] = t
+	return t
+}
+
+// letLambdaOf resolves a top-level `let f = fn ...` binding's
+// symbol to its lambda — like fnDeclOf for declared functions, it
+// is the inspectable-body side of a named callee.
+func (c *checker) letLambdaOf(sym *resolve.Symbol) *Lambda {
+	for _, d := range c.decls {
+		ld, ok := d.(*LetDecl)
+		if !ok {
+			continue
+		}
+		for _, s := range patBoundSyms(ld.Pat) {
+			if s == sym {
+				lam, _ := ld.Value.(*Lambda)
+				return lam
+			}
+		}
+	}
+	return nil
+}
+
+// inferResultTaint marks the parameters whose products the body's
+// result may carry.
+func (c *checker) inferResultTaint(body Expr, pats []Pat) []bool {
+	prod := c.resultProducers(body)
+	t := make([]bool, len(pats))
+	for i, pat := range pats {
+		for _, s := range patBoundSyms(pat) {
+			if prod[s] {
+				t[i] = true
+			}
+		}
+	}
+	return t
+}
+
+// resultProducers returns the symbols whose products e's result
+// value may carry — the producer-channel form of retainedVars,
+// transitive through callees' ResultTaint flags. The
+// walk is the same value-retention one (result positions only):
+// constructors, partial and hole applications, and function-valued
+// pipes retain their inputs structurally; a saturated call is its
+// callee's product — so the callee itself rides — and carries its
+// argument's products exactly where the callee's ResultTaint
+// marks the parameter position. A callee without flags answers
+// "assume tainted", so uninspectable callees stay conservative;
+// mutual recursion bottoms out the same way.
+func (c *checker) resultProducers(e Expr) map[*resolve.Symbol]bool {
+	var out map[*resolve.Symbol]bool
+	lets := map[*resolve.Symbol]Expr{}
+	// seen memoizes rec by expression — a shared alias re-expanded
+	// per use would double the walk at every link in a `let` chain.
+	seen := map[Expr]bool{}
+	var rec func(e Expr)
+	var walk func(e Expr)
+	// body visits a lambda body the enclosing result incorporates:
+	// its result-position producers and the `try` Err channel that
+	// propagates through the body's Result.
+	body := func(b Expr) {
+		rec(b)
+		walk(b)
+	}
+	var bindPats func(Pat, Expr)
+	bindPats = func(p Pat, v Expr) {
+		bindPatValues(lets, p, v)
+	}
+	rec = func(e Expr) {
+		if e == nil || seen[e] {
+			return
+		}
+		seen[e] = true
+		add := func(s *resolve.Symbol) {
+			if s == nil {
+				return
+			}
+			if out == nil {
+				out = map[*resolve.Symbol]bool{}
+			}
+			out[s] = true
+		}
+		switch e := e.(type) {
+		case nil:
+		case *Var:
+			if v, ok := lets[e.Sym]; ok {
+				rec(v)
+			} else {
+				add(e.Sym)
+			}
+		case *MemberExpr:
+			add(e.Sym)
+			// `r.f` produces the field's value — which rides the
+			// products of whatever built `r`. When `r` resolves to a
+			// record literal through its let bindings (a bound
+			// projection like `inner` for `r.inner` composes), select
+			// only the read field's products: the other fields'
+			// producers never reach `r.f`.
+			if v := recordFieldExpr(e.Recv, e.Sel.Name, lets); v != nil {
+				rec(v)
+			} else {
+				rec(e.Recv)
+			}
+		case *Lambda:
+			for s := range capturedVars(e.Body, lamBound(e)) {
+				if v, ok := lets[s]; ok {
+					rec(v)
+				} else {
+					add(s)
+				}
+			}
+		case *Apply:
+			ctor := e.Call.Callee != nil && e.Call.Callee.Kind == resolve.KindCtor
+			producesClosure := e.Call.Kind == CallPartial || e.Call.HoleIndex >= 0 ||
+				(e.Call.Kind == CallUnknown && isFuncType(e.Type()))
+			switch {
+			case ctor || producesClosure:
+				rec(e.Fn)
+				for _, a := range e.Args {
+					rec(a.Value)
+				}
+			case isScopeRunner(e.Call):
+				rec(e.Fn)
+				for _, a := range e.Args {
+					if lam, ok := unascribe(a.Value).(*Lambda); ok {
+						body(lam.Body)
+					} else {
+						rec(a.Value)
+					}
+				}
+			default:
+				rec(e.Fn)
+				for i, a := range e.Args {
+					if c.resultTaintAt(calleeSymOfApply(e), argParamIndex(e, i)) {
+						// An argument lambda the callee applies
+						// contributes its body's products — the
+						// capturedVars channel counts retained
+						// values, not the callback's products.
+						if lam, ok := unascribe(a.Value).(*Lambda); ok {
+							body(lam.Body)
+						} else {
+							rec(a.Value)
+						}
+					}
+				}
+			}
+		case *Ascribe:
+			rec(e.X)
+		case *If:
+			rec(e.Then)
+			rec(e.Else)
+		case *Match:
+			for _, a := range e.Arms {
+				bindPats(a.Pat, e.Subj)
+				rec(a.Body)
+			}
+		case *Block:
+			for _, st := range e.Stmts {
+				if ld, ok := st.(*Let); ok {
+					bindPats(ld.Pat, ld.Value)
+				}
+			}
+			if n := len(e.Stmts); n > 0 {
+				rec(e.Stmts[n-1])
+			}
+		case *Let:
+			bindPats(e.Pat, e.Value)
+		case *Try:
+			rec(e.X)
+		case *ListLit:
+			for _, el := range e.Elems {
+				rec(el)
+			}
+		case *TupleLit:
+			for _, el := range e.Elems {
+				rec(el)
+			}
+		case *RecordLit:
+			rec(e.With)
+			for _, f := range e.Fields {
+				rec(f.Value)
+			}
+		case *Spread:
+			rec(e.X)
+		case *SelectExpr:
+			for _, a := range e.Arms {
+				switch a := a.(type) {
+				case *RecvArm:
+					rec(a.Body)
+				case *SendArm:
+					rec(a.Body)
+				case *DefaultArm:
+					rec(a.Body)
+				default:
+					panic("unreachable")
+				}
+			}
+		case *Binary:
+			switch e.Op {
+			case syntax.BinPipeFwd, syntax.BinPipeBack, syntax.BinPipeTry:
+				arg, fn := e.X, e.Y
+				if e.Op == syntax.BinPipeBack {
+					arg, fn = e.Y, e.X
+				}
+				var fnSym *resolve.Symbol
+				if f, ok := fn.(*Var); ok {
+					fnSym = f.Sym
+				} else if f, ok := fn.(*MemberExpr); ok {
+					fnSym = f.Sym
+				}
+				switch {
+				case isScopeRunner(CallInfo{Callee: fnSym}):
+					rec(fn)
+					if lam, ok := unascribe(arg).(*Lambda); ok {
+						body(lam.Body)
+					} else {
+						rec(arg)
+					}
+				case isFuncType(e.Type()):
+					// A function-valued result is a partial
+					// application capturing both operands.
+					rec(e.X)
+					rec(e.Y)
+				default:
+					// A saturated pipe's result is the callee's
+					// product — `x |> f` carries f, and x's own
+					// products where f's first parameter taints.
+					// `|?>`'s failure arm forwards the argument's
+					// error product unconditionally.
+					rec(fn)
+					if e.Op == syntax.BinPipeTry || c.resultTaintAt(fnSym, 0) {
+						if lam, ok := unascribe(arg).(*Lambda); ok {
+							body(lam.Body)
+						} else {
+							rec(arg)
+						}
+					}
+				}
+			case syntax.BinComposeFwd, syntax.BinComposeBack:
+				rec(e.X)
+				rec(e.Y)
+			}
+		case *Lit, *Hole, *Ignore, *Unary, *FieldAssign,
+			*For, *GoExpr, *StrInterp:
+			// Consumed positions and statement results retain
+			// nothing — mirror retainedVarsR.
+		default:
+			panic("unreachable")
+		}
+	}
+	// walk collects the `try` Err channel: a `try` anywhere outside
+	// a nested lambda or goroutine boundary propagates its error
+	// product to this body's Result, whatever position it sits in.
+	walk = func(e Expr) {
+		switch e := e.(type) {
+		case nil:
+		case *Try:
+			// The Err arm forwards only the operand's error product:
+			// when the error type cannot hold a function the
+			// propagated value cannot carry a Scope, and the Ok side
+			// is tracked where the try's value is used, not here.
+			if con, ok := types.Chase(e.X.Type()).(*types.Con); ok &&
+				con.Name == "Result" && len(con.Args) == 2 {
+				if c.mayCarryFn(con.Args[1]) {
+					rec(e.X)
+				}
+			} else {
+				rec(e.X)
+			}
+			walk(e.X)
+		case *Lambda:
+			// boundary: the lambda's `try` propagates its own
+			// Result — argument lambdas arrive through body()
+			// at the channel that applies them
+		case *MemberExpr:
+			// A `try` in an unselected field still propagates: the
+			// receiver's Err channel counts even when the read
+			// field itself holds none.
+			walk(e.Recv)
+		case *Var, *Lit, *Hole:
+		case *Ascribe:
+			walk(e.X)
+		case *Apply:
+			walk(e.Fn)
+			for _, a := range e.Args {
+				walk(a.Value)
+			}
+		case *If:
+			walk(e.Cond)
+			walk(e.Then)
+			walk(e.Else)
+		case *Match:
+			walk(e.Subj)
+			for _, a := range e.Arms {
+				bindPats(a.Pat, e.Subj)
+				walk(a.Guard)
+				walk(a.Body)
+			}
+		case *Block:
+			for _, st := range e.Stmts {
+				walk(st)
+			}
+		case *Let:
+			bindPats(e.Pat, e.Value)
+			walk(e.Value)
+		case *Ignore:
+			walk(e.X)
+		case *ListLit:
+			for _, el := range e.Elems {
+				walk(el)
+			}
+		case *TupleLit:
+			for _, el := range e.Elems {
+				walk(el)
+			}
+		case *RecordLit:
+			walk(e.With)
+			for _, f := range e.Fields {
+				walk(f.Value)
+			}
+		case *Spread:
+			walk(e.X)
+		case *SelectExpr:
+			for _, a := range e.Arms {
+				switch a := a.(type) {
+				case *RecvArm:
+					walk(a.Chan)
+					walk(a.Body)
+				case *SendArm:
+					walk(a.Chan)
+					walk(a.Value)
+					walk(a.Body)
+				case *DefaultArm:
+					walk(a.Body)
+				default:
+					panic("unreachable")
+				}
+			}
+		case *Binary:
+			walk(e.X)
+			walk(e.Y)
+		case *Unary:
+			walk(e.X)
+		case *FieldAssign:
+			walk(e.Recv)
+			walk(e.Value)
+		case *For:
+			bindPats(e.Pat, e.Iter)
+			walk(e.Iter)
+			walk(e.Body)
+		case *StrInterp:
+			for _, p := range e.Parts {
+				if se, ok := p.(*StrExpr); ok {
+					walk(se.X)
+				}
+			}
+		case *GoExpr:
+			// a goroutine boundary — `try` inside it propagates
+			// the spawned function's own Result
+		default:
+			panic("unreachable")
+		}
+	}
+	body(e)
+	return out
+}
+
+// mayCarryFn reports whether a value of type t can hold a function —
+// and so could carry a captured Scope. Concrete containers that
+// cannot (String, Int, records of scalars) answer false; a type
+// variable or unsolved meta answers true — the conservative read.
+// A declared nominal type is expanded through tyCons: a sum whose
+// variant payload holds a function can carry one.
+func (c *checker) mayCarryFn(t types.Type) bool {
+	return c.mayCarryFnIn(t, map[conKey]bool{})
+}
+
+func (c *checker) mayCarryFnIn(t types.Type, seen map[conKey]bool) bool {
+	switch t := types.Chase(t).(type) {
+	case *types.Func, *types.Var, *types.Meta:
+		return true
+	case *types.Con:
+		for _, a := range t.Args {
+			if c.mayCarryFnIn(a, seen) {
+				return true
+			}
+		}
+		key := conKey{qual: t.Qual, name: t.Name}
+		ti, ok := c.tyCons[key]
+		if !ok || ti == nil {
+			// A builtin (qual "") has no declared payload slots;
+			// an imported nominal type cannot be inspected —
+			// conservative.
+			return t.Qual != ""
+		}
+		if seen[key] {
+			return false // recursive declaration — already accounted
+		}
+		seen[key] = true
+		sub := types.Subst{}
+		for i, v := range ti.params {
+			if i < len(t.Args) {
+				sub[v.ID] = t.Args[i]
+			}
+		}
+		switch ti.kind {
+		case kindRecord:
+			for _, f := range ti.fields {
+				if c.mayCarryFnIn(sub.Apply(f.typ), seen) {
+					return true
+				}
+			}
+		case kindSum:
+			for _, v := range ti.variants {
+				for _, f := range v.fields {
+					if c.mayCarryFnIn(sub.Apply(f.typ), seen) {
+						return true
+					}
+				}
+			}
+		case kindAlias:
+			if c.mayCarryFnIn(sub.Apply(ti.alias), seen) {
+				return true
+			}
+		case kindAbstract:
+			// Hidden representation — conservative.
+			return true
+		default:
+			panic("unreachable")
+		}
+	case *types.Tuple:
+		for _, e := range t.Elems {
+			if c.mayCarryFnIn(e, seen) {
+				return true
+			}
+		}
+	case *types.Go:
+		// Opaque Go types — a func value can hide in any of them.
+		return true
+	default:
+		panic("unreachable")
 	}
 	return false
 }
@@ -720,6 +1348,15 @@ func (c *checker) symParamEscapes(sym *resolve.Symbol, p int) bool {
 func (c *checker) escWalk(e Expr, danger bool, b *escapeBody, report bool) {
 	if e == nil {
 		return
+	}
+	if danger {
+		if b.seenDanger[e] {
+			return
+		}
+		if b.seenDanger == nil {
+			b.seenDanger = map[Expr]bool{}
+		}
+		b.seenDanger[e] = true
 	}
 	switch e := e.(type) {
 	case *Lit, *Hole:
@@ -794,7 +1431,19 @@ func (c *checker) escWalk(e Expr, danger bool, b *escapeBody, report bool) {
 			}
 		}
 	case *MemberExpr:
-		c.escWalk(e.Recv, danger, b, report)
+		// `r.f` at danger escapes only the read field's value —
+		// when `r` resolves through its let bindings to a record
+		// literal (a bound projection like `inner` for `r.inner`
+		// composes), walk that field's value at danger and leave the
+		// unselected fields quiet. A field the literal does not
+		// declare lives in the `with` base — the base escapes.
+		v := recordFieldExpr(e.Recv, e.Sel.Name, b.lets)
+		if v != nil && danger {
+			c.escWalk(e.Recv, false, b, report)
+			c.escWalk(v, danger, b, report)
+		} else {
+			c.escWalk(e.Recv, danger, b, report)
+		}
 	case *Lambda:
 		// An escaping closure retains every variable it
 		// captured — whatever the type, so parameter inference
@@ -850,11 +1499,11 @@ func (c *checker) escWalk(e Expr, danger bool, b *escapeBody, report bool) {
 			c.escWalk(s, danger && tail, b, report)
 			if l, ok := s.(*Let); ok {
 				c.bindLet(l, b)
+				if b.lets == nil {
+					b.lets = map[*resolve.Symbol]Expr{}
+				}
+				bindPatValues(b.lets, l.Pat, l.Value)
 				for _, s := range patBoundSyms(l.Pat) {
-					if b.lets == nil {
-						b.lets = map[*resolve.Symbol]Expr{}
-					}
-					b.lets[s] = l.Value
 					if !report {
 						if lam, isLam := unascribe(l.Value).(*Lambda); isLam && c.inferLetLambdaEscapes(s, lam) {
 							b.flagsChanged = true
@@ -1049,20 +1698,10 @@ func (b *escapeBody) bindAlias(dsts []*resolve.Symbol, src map[*resolve.Symbol]b
 // for parameters and the inner let's own bindOf entry continues
 // the chain.
 func retainedVars(e Expr) map[*resolve.Symbol]bool {
-	return retainedVarsR(e, false)
+	return retainedVarsR(e)
 }
 
-// retainedProducers is retainedVars plus one more channel: a
-// saturated call's result is its callee's product, so the callee
-// variable itself is a producer of the result even though the call
-// consumes it. `run_cb`'s body `f 3` produces `f`'s value — asking
-// "does this declaration's result carry f's products" needs the
-// callee counted, where a `let`'s bindOf chain does not.
-func retainedProducers(e Expr) map[*resolve.Symbol]bool {
-	return retainedVarsR(e, true)
-}
-
-func retainedVarsR(e Expr, producers bool) map[*resolve.Symbol]bool {
+func retainedVarsR(e Expr) map[*resolve.Symbol]bool {
 	var out map[*resolve.Symbol]bool
 	var rec func(e Expr)
 	rec = func(e Expr) {
@@ -1109,10 +1748,6 @@ func retainedVarsR(e Expr, producers bool) map[*resolve.Symbol]bool {
 						rec(a.Value)
 					}
 				}
-			case producers:
-				// A saturated call's result is the callee's
-				// own product.
-				rec(e.Fn)
 			}
 		case *Ascribe:
 			rec(e.X)

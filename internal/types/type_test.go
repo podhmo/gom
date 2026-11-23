@@ -104,12 +104,14 @@ func TestEqual(t *testing.T) {
 			Fn(Int, P(Int), P(Int)),
 			&Func{Params: []FuncParam{P(Int)}, Ret: Fn(Bool, P(Int))},
 			false},
-		// spec 2.1: consecutive labeled params compare up to reordering
+		// spec 2.1: labeled runs are order-sensitive — the
+		// positional Go ABI makes the declared order part of the
+		// type identity
 		{
 			"labeled run reordered",
 			Fn(Int, LP("a", Int), LP("b", Bool)),
 			Fn(Int, LP("b", Bool), LP("a", Int)),
-			true,
+			false,
 		},
 		{
 			"label names differ",

@@ -1,0 +1,14 @@
+package ex
+
+// spec section 6.1 — result taint follows `let` aliases: the
+// helper's result is produced from its parameter through the
+// alias `g`, so the parameter is tainted and the scope-capturing
+// argument is still rejected.
+fn wrap (cb: Unit -> Unit) -> (Unit -> Unit) = {
+    let g = cb
+    fn () -> g ()
+}
+
+fn leak (held: Ref Int) -> Unit -> Unit =
+    Scope.run <| fn s ->
+        wrap (fn () -> Scope.defer s (fn () -> Ref.set held 0))

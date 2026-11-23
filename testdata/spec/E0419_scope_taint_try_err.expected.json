@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0419",
+      "severity": "error",
+      "message": "`s` is a `Scope` value (or closes over one) captured by a closure that escapes its scope",
+      "span": {
+        "file": "E0419_scope_taint_try_err.gom",
+        "start": {
+          "line": 14,
+          "col": 49,
+          "offset": 519
+        },
+        "end": {
+          "line": 14,
+          "col": 50,
+          "offset": 520
+        }
+      }
+    }
+  ]
+}

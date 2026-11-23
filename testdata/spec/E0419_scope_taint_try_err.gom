@@ -1,0 +1,14 @@
+package ex
+
+// spec section 6.1 — a `try` off the result path still taints
+// when the error type can carry a closure: the argument's
+// produced value can ride `wrap`'s own Result through the Err
+// slot, so storing the scope-capturing closure is rejected.
+fn wrap (cb: Unit -> Result (Unit -> Unit) (Unit -> Unit)) -> Result Unit (Unit -> Unit) = {
+    let _ = try (cb ())
+    Ok ()
+}
+
+fn leak (held: Ref Int) -> Result Unit (Unit -> Unit) =
+    Scope.run <| fn s ->
+        wrap (fn () -> Ok (fn () -> Scope.defer s (fn () -> Ref.set held 0)))

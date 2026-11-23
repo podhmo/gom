@@ -1,0 +1,19 @@
+package ex
+
+// spec section 6.1 — `let { inner } = r` binds `inner` to the
+// projection `r.inner`, which composes: `inner.g` reads only the
+// `g` field's products, so the products `cb`'s call result put in
+// `inner.h` never reach the result and the scope-capturing argument
+// is accepted.
+type Inner = { g : Unit -> Unit, h : Unit -> Unit }
+type Outer = { inner : Inner, x : Unit -> Unit }
+
+fn wrap (other: Unit -> Unit) (cb: Unit -> (Unit -> Unit)) -> (Unit -> Unit) = {
+    let r = { inner = { g = other, h = cb () }, x = other }
+    let { inner } = r
+    inner.g
+}
+
+fn ok (held: Ref Int) -> Unit -> Unit =
+    Scope.run <| fn s ->
+        wrap (fn () -> ()) (fn () -> fn () -> Scope.defer s (fn () -> Ref.set held 0))
