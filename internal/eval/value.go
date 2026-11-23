@@ -273,9 +273,72 @@ type VHost struct {
 func (*VHost) isValue() {}
 func (v *VHost) String() string {
 	if inner, ok := v.V.(Value); ok {
-		return inner.String()
+		// A gom value inside the `any` box displays the way the
+		// emitted Go repr would under %v — `[1 2]`, `{a b}` — not
+		// the gom spellings String() produces.
+		return goDisplay(inner)
 	}
 	return fmt.Sprintf("%v", v.V)
+}
+
+// goDisplay renders an eval value in its emitted Go `%v` shape —
+// the fmt form a host call sees through an `any` slot.
+func goDisplay(v Value) string {
+	switch v := v.(type) {
+	case *VStr:
+		return v.S
+	case *VChar:
+		return strconv.FormatInt(int64(v.R), 10)
+	case *VUnit:
+		return "{}"
+	case *VBool, *VInt, *VFloat:
+		return v.String()
+	case *VList:
+		var sb strings.Builder
+		sb.WriteByte('[')
+		for i, el := range v.Elems {
+			if i > 0 {
+				sb.WriteByte(' ')
+			}
+			sb.WriteString(goDisplay(el))
+		}
+		sb.WriteByte(']')
+		return sb.String()
+	case *VTuple:
+		return goDisplayFields(v.Elems)
+	case *VRecord:
+		elems := make([]Value, len(v.Fields))
+		for i, f := range v.Fields {
+			elems[i] = f.V
+		}
+		return goDisplayFields(elems)
+	case *VVariant:
+		elems := make([]Value, len(v.Fields))
+		for i, f := range v.Fields {
+			elems[i] = f.V
+		}
+		return goDisplayFields(elems)
+	case *VGoErr:
+		return v.Text
+	case *VFunc, *VHost:
+		return v.String()
+	default:
+		panic("unreachable")
+	}
+}
+
+// goDisplayFields renders a struct-shaped `%v` — `{a b c}`.
+func goDisplayFields(elems []Value) string {
+	var sb strings.Builder
+	sb.WriteByte('{')
+	for i, el := range elems {
+		if i > 0 {
+			sb.WriteByte(' ')
+		}
+		sb.WriteString(goDisplay(el))
+	}
+	sb.WriteByte('}')
+	return sb.String()
 }
 
 // VFunc is a function value with declared arity and a set of already
