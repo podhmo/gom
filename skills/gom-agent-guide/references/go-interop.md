@@ -335,10 +335,17 @@ A `//gom:embed <patterns>` comment immediately above the decl
 (same contiguous comment run — a blank line detaches it) emits
 `//go:embed` + `var` instead; the type must be `String`,
 `Go.Slice Byte`, or a named Go type such as `embed.FS` (E0512).
-Patterns follow Go's quoting rules — `"a b.txt"` and `` `c d.txt` ``.
-`_ "embed"` is added automatically; `import go _ "path"` also
-works as a general blank import
-(decisions/2026-11-23-extern-let-embed.md).
+Named-type admissibility is nominal only — Gom cannot see the
+underlying type, so an incompatible named type (e.g. `time.Time`)
+passes check and fails at `go build`. Patterns follow Go's quoting
+rules — `"a b.txt"` and `` `c d.txt` ``. `_ "embed"` is added
+automatically; `import go _ "path"` also works as a general blank
+import (decisions/2026-11-23-extern-let-embed.md).
+
+An `@extern let` that no Gom code references emits nothing, so a
+missing Go-side var goes unnoticed until some caller or test uses
+the binding — keep a reference or a Go-side test for every extern
+variable.
 
 ## nil and contract boundaries
 
