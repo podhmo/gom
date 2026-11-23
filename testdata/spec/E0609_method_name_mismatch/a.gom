@@ -1,8 +1,0 @@
-package m
-
-type Handler = { tag: String }
-
-// The .gomi pins `ServeHttp` but the impl emits `ServeHTTP` —
-// the interface contract is broken (E0609).
-@method(ServeHTTP)
-fn (h: Handler) serve_http (w: Int) -> Unit = ()

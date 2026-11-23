@@ -611,7 +611,7 @@ Go の API が引数・フィールドに持つ `func(A, B) R` 型は `Go.FuncN`
 
 record の値は、その `@method` 集合が要求される Go interface のメソッド集合を（名前・シグネチャが `types.Equal` で）含むとき、interface が期待される位置にそのまま渡せる — `let s : fmt.Stringer = g`、`Go.conv`、interface を引数に取る Go 呼出し。Gom 側からメソッドを呼ぶ構文はなく、`name r` の関数適用がそのまま。
 
-制約 — 違反は E0420: レシーバは自分のパッケージの record 型（`Ptr T` 可、型パラメータを持つ record 不可 — Go メソッドは型引数を取れない）、`@extern` との併用不可、`Result` 返り不可（メソッドの error 返却は Result 折り畳みと衝突するため）。`.gomi` は `@method` 行をそのまま保持し、インポート側でも同じメソッド集合として見える。
+制約 — 違反は E0420: レシーバは自分のパッケージの record 型（`Ptr T` 可、型パラメータを持つ record 不可 — Go メソッドは型引数を取れない）、`@extern` との併用不可、`Result` 返り不可（メソッドの error 返却は Result 折り畳みと衝突するため）。また `Unit` 返りのメソッドは Go 側では結果なしに emit されるので、`struct{}` を結果として要求する Go interface メソッドには適合できない。`.gomi` は `@method` 行をそのまま保持し、インポート側でも同じメソッド集合として見える。
 
 ### 8.10 `@extern let` と `//gom:embed`
 

@@ -1,6 +1,0 @@
-package m
-
-type Handler = { tag: String }
-
-@method(ServeHttp)
-fn (h: Handler) serve_http (w: Int) -> Unit

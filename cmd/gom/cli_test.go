@@ -1356,6 +1356,47 @@ func TestCheckInterfaceMismatch(t *testing.T) {
 	}
 }
 
+// A .gomi that pins a Go method name (@method or @method(GoName))
+// makes the emitted name part of the contract: an impl emitting a
+// different name is E0609, a matching one passes.
+func TestCheckMethodNameMismatch(t *testing.T) {
+	t.Parallel()
+
+	dir := writeFiles(t, map[string]string{
+		"lib/lib.gom":  "package lib\n\ntype Handler = { tag: String }\n\n@method(ServeHTTP)\nfn (h: Handler) serve_http (w: Int) -> Unit = ()\n",
+		"lib/lib.gomi": "package lib\n\ntype Handler = { tag: String }\n\n@method(ServeHttp)\nfn (h: Handler) serve_http (w: Int) -> Unit\n",
+	})
+	code, out, _ := invoke("check", filepath.Join(dir, "lib"))
+	if code != 1 {
+		t.Fatalf("exit %d, want 1; stdout=%q", code, out)
+	}
+	var codes []string
+	var got map[string]any
+	for _, l := range jsonLines(t, out) {
+		if c, ok := l["code"].(string); ok {
+			codes = append(codes, c)
+			got = l
+		}
+	}
+	if len(codes) != 1 || codes[0] != "E0609" {
+		t.Fatalf("diagnostic codes = %v, want [E0609]", codes)
+	}
+	if data, ok := got["data"].(map[string]any); !ok ||
+		data["interface_method_name"] != "ServeHttp" ||
+		data["implementation_method_name"] != "ServeHTTP" {
+		t.Errorf("E0609 data = %v, want interface=ServeHttp implementation=ServeHTTP", got["data"])
+	}
+
+	// The same pair with the verbatim name on both sides passes.
+	dir2 := writeFiles(t, map[string]string{
+		"lib/lib.gom":  "package lib\n\ntype Handler = { tag: String }\n\n@method(ServeHTTP)\nfn (h: Handler) serve_http (w: Int) -> Unit = ()\n",
+		"lib/lib.gomi": "package lib\n\ntype Handler = { tag: String }\n\n@method(ServeHTTP)\nfn (h: Handler) serve_http (w: Int) -> Unit\n",
+	})
+	if code, out, _ := invoke("check", filepath.Join(dir2, "lib")); code != 0 {
+		t.Fatalf("matching names: exit %d, want 0; stdout=%q", code, out)
+	}
+}
+
 // A .gomi named correctly for its directory's package but declaring
 // a different package clause is a conformance error: E0603 at the
 // interface's own clause. The clause comparison needs the

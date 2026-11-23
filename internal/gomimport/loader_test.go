@@ -277,6 +277,26 @@ func TestGomiSideImport(t *testing.T) {
 	}
 }
 
+// A .gomi `@method(GoName)` supplies the verbatim method name to the
+// conformance table an importing package sees — ExportName would
+// only reach `ServeHttp`.
+func TestGomiMethodVerbatimName(t *testing.T) {
+	root := writeMod(t, "example.com/m", map[string]string{
+		"lib/lib.gomi": "package lib\n\ntype Handler = { tag: String }\n\n@method(ServeHTTP)\nfn (h: Handler) serve_http (w: Int) -> Unit\n",
+	})
+	l := New(&Config{Dir: root})
+	if _, err := l.Load("example.com/m/lib", false); err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	ms, ok := l.GomMethodsOf(&types.Con{Qual: "example.com/m/lib", Name: "Handler"})
+	if !ok || len(ms) != 1 {
+		t.Fatalf("GomMethodsOf = %v, ok=%v", ms, ok)
+	}
+	if ms[0].Name != "ServeHTTP" {
+		t.Fatalf("method name = %q, want ServeHTTP", ms[0].Name)
+	}
+}
+
 // SignatureOf defers to Config.Sigs for symbols it did not mint.
 type stubSigs struct{ got *resolve.Symbol }
 
