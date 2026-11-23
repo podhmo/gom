@@ -1,0 +1,7 @@
+package tryas
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+fn as_int (x: Go.Any) -> Option Int
+fn as_str (x: Go.Any) -> Option String
+fn boxed_int (n: Int) -> Option Int

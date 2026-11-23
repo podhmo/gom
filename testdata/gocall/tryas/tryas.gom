@@ -1,0 +1,13 @@
+package tryas
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// spec 8.3: `Go.try_as x : Option T` — the comma-ok extraction out
+// of `Go.Any`. The Go side produces `any` values; gom extracts.
+fn as_int (x: Go.Any) -> Option Int = Go.try_as x : Option Int
+
+fn as_str (x: Go.Any) -> Option String = Go.try_as x : Option String
+
+// Gom → Go → Gom: a gom Int boxes into `any` at the Go call
+// boundary and extracts back through the same surface.
+fn boxed_int (n: Int) -> Option Int = Go.try_as (goiface.Boxed n) : Option Int
