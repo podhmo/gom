@@ -1194,7 +1194,7 @@ func (c *checker) mismatch(sp diag.Span, want, got any) {
 			// the wrong axis.
 			d = d.AddNote(fmt.Sprintf("the labeled parameters %s sit at a different position among the positional parameters — the generated Go call is positional, so the arguments would swap", joinLabels(gl)))
 		}
-		d.Set("unfilled_labels", gl)
+		d = d.Set("unfilled_labels", gl)
 	} else if len(gl) > 0 {
 		d = d.AddNote(fmt.Sprintf("the value is a partially applied call still awaiting %s", joinLabels(gl))).
 			Set("unfilled_labels", gl)
