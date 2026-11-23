@@ -95,6 +95,7 @@ var (
 	stringT = &gty{kind: tString}
 	charT   = &gty{kind: tChar}
 	unitT   = &gty{kind: tUnit}
+	goErrT  = &gty{kind: tNamed, name: "GoError"}
 )
 
 func listT(e *gty) *gty   { return &gty{kind: tList, args: []*gty{e}} }
@@ -1047,14 +1048,100 @@ func (g *Gen) typedTestDecl() {
 	g.emit("}")
 }
 
-// typedImportDecl emits an import. `import go "pkg"` picks from a
-// stdlib-ish allowlist so the compile canary's loader can resolve it;
-// a bare `import "x"` stays rare — it exercises the E0203 user-diagnostic
-// path (a deliberate slip) instead. Re-importing the same package
-// would redeclare its module name, so imported paths are deduped.
+// typedImportPrelude emits 0-2 import decls at file top, before the
+// first top-decl. The member-call gates keyed on g.imports
+// (fmt.Println, strconv.Itoa, gomMemberChoiceFor, Ptr field writes)
+// can only fire for decls emitted after the import — top-decl's
+// import-decl alternative lands too late in most files, so nothing
+// downstream of it was ever explored. A prelude gives the rest of
+// the file a pool of bound modules to draw on.
+func (g *Gen) typedImportPrelude() {
+	for range g.rng.IntN(3) {
+		var cands []string
+		for _, p := range gomPkgs {
+			if !g.imports[p] && !g.topVal[p] {
+				cands = append(cands, p)
+			}
+		}
+		for _, p := range goPkgs {
+			if !g.imports[p] && !g.topVal[p] {
+				cands = append(cands, p)
+			}
+		}
+		if !g.imports[goifacePkg] && !g.topVal["goiface"] {
+			cands = append(cands, goifacePkg)
+		}
+		if len(cands) == 0 {
+			return
+		}
+		pkg := cands[g.rng.IntN(len(cands))]
+		g.buf.WriteString("\n")
+		g.emit("import")
+		isGom := false
+		for _, p := range gomPkgs {
+			if p == pkg {
+				isGom = true
+			}
+		}
+		name := pkg
+		if pkg == goifacePkg {
+			g.emit("go")
+			name = "goiface"
+		} else if !isGom {
+			g.emit("go")
+		}
+		g.emitRaw(fmt.Sprintf("%q", pkg))
+		g.imports[pkg] = true
+		g.topVal[name] = true
+		g.bindTop(binding{name: name, kind: bModule})
+		g.buf.WriteString("\n")
+	}
+}
+
+// typedImportDecl emits an import. `import go "pkg"` picks from the
+// same allowlist the compile canary's loader resolves;
+// `import "list"`-shaped gom stdlib imports bind a module whose
+// members gomMemberChoiceFor can then call; the goiface package (a
+// module-internal path the harness also resolves) unlocks
+// `Ptr.field` writes. A bare `import "x"` stays rare — it exercises
+// the E0203 user-diagnostic path (a deliberate slip) instead.
+// Re-importing the same package would redeclare its module name, so
+// imported paths are deduped.
 func (g *Gen) typedImportDecl() {
 	g.emit("import")
-	if g.rng.Float64() < 0.85 {
+	switch r := g.rng.Float64(); {
+	case r < 0.15:
+		// A gom stdlib package resolves by its short name (spec §7)
+		// — no `go` keyword.
+		var free []string
+		for _, p := range gomPkgs {
+			if !g.imports[p] && !g.topVal[p] {
+				free = append(free, p)
+			}
+		}
+		if len(free) == 0 {
+			g.slip()
+			g.emitRaw(fmt.Sprintf("%q", gomPkgs[g.rng.IntN(len(gomPkgs))]))
+			return
+		}
+		pkg := free[g.rng.IntN(len(free))]
+		g.emitRaw(fmt.Sprintf("%q", pkg))
+		g.imports[pkg] = true
+		g.topVal[pkg] = true
+		g.bindTop(binding{name: pkg, kind: bModule})
+	case r < 0.85:
+		// The module-internal goiface path resolves locally under
+		// the harness's `github.com/podhmo/gom/` prefix rule and
+		// unlocks `Ptr.field = v` generation — bind `goiface` (the
+		// package name, not the path).
+		if g.rng.Float64() < 0.15 && !g.imports[goifacePkg] && !g.topVal["goiface"] {
+			g.emit("go")
+			g.emitRaw(fmt.Sprintf("%q", goifacePkg))
+			g.imports[goifacePkg] = true
+			g.topVal["goiface"] = true
+			g.bindTop(binding{name: "goiface", kind: bModule})
+			return
+		}
 		var free []string
 		for _, p := range goPkgs {
 			if !g.imports[p] && !g.topVal[p] {
@@ -1076,7 +1163,7 @@ func (g *Gen) typedImportDecl() {
 		g.imports[pkg] = true
 		g.topVal[pkg] = true
 		g.bindTop(binding{name: pkg, kind: bModule})
-	} else {
+	default:
 		// The invented path cannot resolve — E0203 is the expected
 		// diagnostic.
 		g.slip()
@@ -1084,7 +1171,23 @@ func (g *Gen) typedImportDecl() {
 	}
 }
 
-var goPkgs = []string{"fmt", "strconv", "strings", "math", "errors"}
+// goPkgs mirrors the fuzz harness's fuzzGoPkgs allowlist
+// (internal/build/fuzz_test.go) — every entry resolves without
+// network. goifacePkg is module-internal: the harness's
+// `github.com/podhmo/gom/` prefix rule passes it without an
+// allowlist entry, and its `WithFn` struct gives `Ptr.field = v`
+// generation a target.
+var goPkgs = []string{
+	"bytes", "errors", "fmt", "io", "math", "os",
+	"slices", "sort", "strconv", "strings", "time", "unicode/utf8",
+}
+
+const goifacePkg = "github.com/podhmo/gom/testdata/goiface"
+
+// gomPkgs is the stdlib-side short names `import "pkg"` resolves
+// (spec §7). `cmp` imports are generated but no member calls — its
+// members all take Eq/Ord dictionary args the gen does not build.
+var gomPkgs = []string{"list", "option", "result", "cmp"}
 
 // typedExternDecl emits a plausible extern block. The signatures are
 // invented — the named Go member may not exist, so a diagnostic is
