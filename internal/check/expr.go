@@ -2312,6 +2312,9 @@ func (c *checker) intFoldWidth(t types.Type) (w uint, unsigned bool, ok bool) {
 			return 0, false, false
 		}
 		return uint(bits), us, true
+	case *types.Func, *types.Meta, *types.Tuple, *types.Var:
+		// Not integral constants — fold conservatively instead.
+		return 0, false, false
 	}
 	return 0, false, false
 }
