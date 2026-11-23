@@ -42,3 +42,7 @@ func MutSlices(xs ...[]int64) {
 		}
 	}
 }
+
+// Shared is a package-level channel — an imported `Chan` variable the
+// boundary snapshots before the call's later arguments run.
+var Shared chan string

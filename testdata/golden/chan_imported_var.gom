@@ -1,0 +1,10 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// An imported channel variable is still snapshotted at the call
+// site — the narrowing is implicit, but the operand must be captured
+// before later arguments (which may rebind or mutate it) run.
+fn send_shared (v: String) -> Unit = {
+  goiface.SendOn(goiface.Shared, v)
+}
