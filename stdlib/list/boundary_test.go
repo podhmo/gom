@@ -119,3 +119,17 @@ func TestListViewSub(t *testing.T) {
 		t.Fatalf("ListView len: got %d", got)
 	}
 }
+
+// Take caps the returned slice's capacity: appending to a taken
+// prefix must not write into the source's backing array.
+func TestTakeCapsCapacity(t *testing.T) {
+	src := list.FromSlice([]int64{1, 2, 3, 4})
+	prefix := list.Take(2, src)
+	if cap(prefix) != 2 {
+		t.Fatalf("cap(Take) = %d, want 2 — retained capacity can corrupt the source", cap(prefix))
+	}
+	prefix = append(prefix, 99)
+	if src[2] != 3 {
+		t.Fatalf("append to a taken prefix wrote into the source: %v", src)
+	}
+}
