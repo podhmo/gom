@@ -1,0 +1,16 @@
+package ex
+
+// spec section 6.1 — an argument lambda's products are its body's
+// products, not its captured variables: the callback returns the
+// alias bound to the parameter, so the parameter is tainted and
+// the scope-capturing argument is still rejected.
+fn apply3 (f: Int -> (Unit -> Unit)) -> (Unit -> Unit) = f 3
+
+fn wrap (cb: Unit -> Unit) -> (Unit -> Unit) = {
+    let v = cb
+    apply3 (fn _ -> v)
+}
+
+fn leak (held: Ref Int) -> Unit -> Unit =
+    Scope.run <| fn s ->
+        wrap (fn () -> Scope.defer s (fn () -> Ref.set held 0))
