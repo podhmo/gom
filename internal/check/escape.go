@@ -263,6 +263,68 @@ func bindPatValues(lets map[*resolve.Symbol]Expr, p Pat, v Expr) {
 	}
 }
 
+// resolveLetsVar chases `let` bindings behind a Var — the bindings
+// bindPatValues and bindLet record.
+func resolveLetsVar(e Expr, lets map[*resolve.Symbol]Expr) Expr {
+	for {
+		v, ok := unascribe(e).(*Var)
+		if !ok {
+			return e
+		}
+		bound, ok := lets[v.Sym]
+		if !ok {
+			return e
+		}
+		e = bound
+	}
+}
+
+// recordFieldExpr resolves `e.sel` through let bindings and record
+// projections to the selected field's value expression — `inner`
+// bound to `r.inner` resolves through r's literal to the `inner`
+// field, and `.g` on that picks `inner`'s `g` field, so only the
+// read field's products/escapes apply. A field the literal does not
+// declare keeps searching the `with` base; a base that does not
+// resolve to a literal returns it as the best approximation (its
+// fields all reach the read). Returns nil when the receiver cannot
+// be resolved at all — the caller reads the whole receiver.
+func recordFieldExpr(e Expr, sel string, lets map[*resolve.Symbol]Expr) Expr {
+	e = resolveLetsVar(e, lets)
+	for {
+		lit, ok := unascribe(e).(*RecordLit)
+		if !ok {
+			m, isM := unascribe(e).(*MemberExpr)
+			if !isM {
+				return nil
+			}
+			v := recordFieldExpr(m.Recv, m.Sel.Name, lets)
+			if v == nil {
+				return nil
+			}
+			e = v
+			continue
+		}
+		var found Expr
+		for _, f := range lit.Fields {
+			if f.Name == sel {
+				found = f.Value
+				break
+			}
+		}
+		if found != nil {
+			return found
+		}
+		if lit.With == nil {
+			return nil
+		}
+		w := resolveLetsVar(lit.With, lets)
+		if _, ok := unascribe(w).(*RecordLit); !ok {
+			return lit.With
+		}
+		e = w
+	}
+}
+
 // markDanger marks sym as escaping, then every variable a let
 // binding chained it from — `let x = p` followed by `ret x` must
 // land on p's parameter flag, not only on the alias.
@@ -900,37 +962,12 @@ func (c *checker) resultProducers(e Expr) map[*resolve.Symbol]bool {
 			add(e.Sym)
 			// `r.f` produces the field's value — which rides the
 			// products of whatever built `r`. When `r` resolves to a
-			// record literal through its let bindings, select only
-			// the read field's products: the other fields'
+			// record literal through its let bindings (a bound
+			// projection like `inner` for `r.inner` composes), select
+			// only the read field's products: the other fields'
 			// producers never reach `r.f`.
-			recv := e.Recv
-			for {
-				v, ok := unascribe(recv).(*Var)
-				if !ok {
-					break
-				}
-				bound, ok := lets[v.Sym]
-				if !ok {
-					break
-				}
-				recv = bound
-			}
-			if lit, ok := unascribe(recv).(*RecordLit); ok {
-				selected := false
-				for _, f := range lit.Fields {
-					if f.Name == e.Sel.Name {
-						rec(f.Value)
-						selected = true
-						break
-					}
-				}
-				if !selected && lit.With != nil {
-					// The field comes from the `with` base — its
-					// products carry every field the base holds.
-					rec(lit.With)
-				} else if !selected {
-					rec(e.Recv)
-				}
+			if v := recordFieldExpr(e.Recv, e.Sel.Name, lets); v != nil {
+				rec(v)
 			} else {
 				rec(e.Recv)
 			}
@@ -1396,36 +1433,14 @@ func (c *checker) escWalk(e Expr, danger bool, b *escapeBody, report bool) {
 	case *MemberExpr:
 		// `r.f` at danger escapes only the read field's value —
 		// when `r` resolves through its let bindings to a record
-		// literal, walk that field's value at danger and leave the
+		// literal (a bound projection like `inner` for `r.inner`
+		// composes), walk that field's value at danger and leave the
 		// unselected fields quiet. A field the literal does not
 		// declare lives in the `with` base — the base escapes.
-		recv := e.Recv
-		for {
-			v, ok := unascribe(recv).(*Var)
-			if !ok {
-				break
-			}
-			bound, ok := b.lets[v.Sym]
-			if !ok {
-				break
-			}
-			recv = bound
-		}
-		if lit, ok := unascribe(recv).(*RecordLit); ok && danger {
+		v := recordFieldExpr(e.Recv, e.Sel.Name, b.lets)
+		if v != nil && danger {
 			c.escWalk(e.Recv, false, b, report)
-			selected := false
-			for _, f := range lit.Fields {
-				if f.Name == e.Sel.Name {
-					c.escWalk(f.Value, danger, b, report)
-					selected = true
-					break
-				}
-			}
-			if !selected && lit.With != nil {
-				c.escWalk(lit.With, danger, b, report)
-			} else if !selected {
-				c.escWalk(e.Recv, danger, b, report)
-			}
+			c.escWalk(v, danger, b, report)
 		} else {
 			c.escWalk(e.Recv, danger, b, report)
 		}
