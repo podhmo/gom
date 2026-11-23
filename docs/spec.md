@@ -641,7 +641,13 @@ fn parse_port (s: String) -> Result Int GoError =
 
 ラップは `*rt.StepError` フレームとして付く（[decisions/result-pipe-wrap-frame](decisions/2026-11-05-result-pipe-wrap-frame.md)）: `Error()` は `ステップ名: 元のメッセージ` の文言を保ち、`Unwrap()` は元のエラーを返し、`Step` フィールドがステップ名を構造化したデータとして持つ。Go 側（または `import go "github.com/podhmo/gom/rt"` した Gom 側）から `errors.As` で `*rt.StepError` を取り出せる。`strconv.Atoi` のようにエラー自身が関数名を名乗る場合、文言は `strconv.Atoi: strconv.Atoi: parsing "x": ...` のように重複する — 外側は呼び出し箇所の由来、内側はエラー自身の文言で、別の情報源であり重複は許容する。
 
-ラップの文言の設定方法は future work（open-questions.md）。
+文言を自前で制御したい場合の経路は既にある:
+
+- 消費側で読み替える — `errors.As` で `*rt.StepError` を取り出し、`Step` フィールドと `Err` から好きな文言を組み立てる（Go 側、または `import go "github.com/podhmo/gom/rt"` した Gom 側）
+- 自前のフレームを付ける — `rt.StepErr`（`import go "github.com/podhmo/gom/rt"`）を `Result.map_err` 経由で適用し、任意のステップ名で包む。標準ビューは `Result Unit GoError` を返すため、常に non-nil を返す `rt.StepErr` には `fn StepErr (step: String) (err: GoError) -> GoError` の extern 宣言（never-nil ビュー）を添える
+- 素の `Result` を扱う — `|?>` の自動ラップを介さず `try` + `match` で処理する
+
+`|?>` 側で文言を設定する構文・ディレクティブは future work（open-questions.md、[decisions/pipe-try-wording](decisions/2026-11-23-pipe-try-wording.md) の案 C）。
 
 ---
 

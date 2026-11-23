@@ -333,6 +333,15 @@ fn ratio_pipe (a: Int) (b: Int) (c: Int) -> Result Int String =
   file:line for a lambda) and wraps *the failing step only*, once.
 - A failed `|?>` produces an `Err` **value** — surrounding code
   continues. Only `try` escapes.
+- To control the `step: message` wording yourself: read `Step` off
+  `*rt.StepError` via `errors.As` (with
+  `import go "github.com/podhmo/gom/rt"`, see
+  `testdata/realworld/errwalk`), wrap errors in your own frame with
+  `rt.StepErr` via `Result.map_err` (declare it as
+  `fn StepErr (step: String) (err: GoError) -> GoError` in an
+  `extern go` block — the standard view returns
+  `Result Unit GoError`), or skip `|?>` and use `try` + `match` on
+  the raw `Result`.
 
 # Common LLM Mistakes
 
