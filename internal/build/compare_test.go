@@ -1524,6 +1524,115 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 `,
 		want: "-9223372036854775808/-9223372036854775808/0/-9223372036854775808/-9223372036854775808/-9223372036854775807",
 	},
+	{
+		// `x : Go.Any` boxes the value; `Go.try_as` asserts it
+		// back at the emitted-Go-type grain. The `Some` payload
+		// must come out as a usable gom value — `n + 1` fails if
+		// the option still carries the host box.
+		name: "go_try_as_unboxes_payload",
+		src: `package main
+
+import go "fmt"
+
+fn answer () -> String = {
+  let x : Go.Any = 42
+  match (Go.try_as x : Option Int) {
+    Some n -> "some ${n + 1}"
+    None -> "none"
+  }
+}
+
+fn main () -> Unit = {
+  let _ = fmt.Println(answer ())
+  ()
+}
+`,
+		want: "some 43",
+	},
+	{
+		// A generic helper boxes under the type parameter — eval
+		// sees no instantiation, so the slot asserts by the
+		// value's own repr name.
+		name: "go_try_as_generic_box",
+		src: `package main
+
+import go "fmt"
+
+fn box (x: a) -> Go.Any = {
+  let y : Go.Any = x
+  y
+}
+
+fn answer () -> String = {
+  match (Go.try_as (box 7) : Option Int) {
+    Some n -> "some ${n}"
+    None -> "none"
+  }
+}
+
+fn main () -> Unit = {
+  let _ = fmt.Println(answer ())
+  ()
+}
+`,
+		want: "some 7",
+	},
+	{
+		// A file-local `type Ptr` (arity 0) shadows the builtin —
+		// the assertion name is the nominal `Ptr`, and reading
+		// `t.Args[0]` on it must not panic.
+		name: "go_try_as_shadowed_name",
+		src: `package main
+
+import go "fmt"
+
+type Ptr = | P Int
+
+fn answer () -> String = {
+  let x : Go.Any = P 3
+  match (Go.try_as x : Option Ptr) {
+    Some p -> match p { P n -> "some ${n}" }
+    None -> "none"
+  }
+}
+
+fn main () -> Unit = {
+  let _ = fmt.Println(answer ())
+  ()
+}
+`,
+		want: "some 3",
+	},
+	{
+		// Tuple and function targets have real assertion names —
+		// `rt.Tuple2[int64, string]` and `func(int64) int64` —
+		// so an exact match extracts instead of answering None.
+		name: "go_try_as_tuple_and_func",
+		src: `package main
+
+import go "fmt"
+
+fn answer () -> String = {
+  let tup : Go.Any = (1, "a")
+  let fun : Go.Any = fn (n: Int) -> n + 1
+  let a = match (Go.try_as tup : Option (Int, String)) {
+    Some (n, s) -> "${n}${s}"
+    None -> "none"
+  }
+  let b = match (Go.try_as fun : Option (Int -> Int)) {
+    Some g -> "${g 9}"
+    None -> "none"
+  }
+  "${a},${b}"
+}
+
+fn main () -> Unit = {
+  let _ = fmt.Println(answer ())
+  ()
+}
+`,
+		want: "1a,10",
+	},
 }
 
 // compareUnitCases is the package-unit half of the comparison suite:
