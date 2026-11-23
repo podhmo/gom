@@ -460,8 +460,9 @@ module.exports = grammar({
     lambda_param: $ => choice(
       $.ident,
       '_',
+      seq('~', $.ident),
       seq('(', ')'),
-      seq('(', $.ident, ':', $.type_expr, ')'),
+      seq('(', optional('~'), $.ident, ':', $.type_expr, ')'),
     ),
 
     // ------------------------------------------------------------------
