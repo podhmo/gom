@@ -7,6 +7,7 @@ package main
 import go "fmt"
 import go "net/http"
 import go "os"
+import go "time"
 
 fn handler (w: http.ResponseWriter) (r: Ptr http.Request) -> Unit = {
   let q = (r.URL.Query ()).Get "q"
@@ -27,8 +28,17 @@ fn main () -> Unit = {
   let mux = http.NewServeMux ()
   mux.HandleFunc ("/", Go.func2 handler)
   mux.HandleFunc ("/echo", Go.func2 handler)
+  // ヘッダ読み込みにデッドラインがないとコネクションを握ったまま
+  // リクエストを完了させないクライアントで枯渇するので明示する。
+  let srv : Ptr http.Server = Ptr.new ()
+  srv.Addr = addr
+  srv.Handler = mux
+  srv.ReadHeaderTimeout = (Go.conv 5 : time.Duration) * time.Second
+  srv.ReadTimeout = (Go.conv 10 : time.Duration) * time.Second
+  srv.WriteTimeout = (Go.conv 10 : time.Duration) * time.Second
+  srv.IdleTimeout = (Go.conv 60 : time.Duration) * time.Second
   ignore fmt.Fprintln (os.Stderr, "listening on ${addr}")
-  match http.ListenAndServe (addr, mux) {
+  match srv.ListenAndServe () {
     Ok _ -> ()
     Err e -> { ignore fmt.Fprintln (os.Stderr, "srv: ${e.Error ()}"); ignore os.Exit 1; () }
   }

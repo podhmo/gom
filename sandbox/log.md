@@ -205,3 +205,14 @@
 ### 補足: 8進数リテラル
 
 - jot で `os.OpenFile` のモードに `420` と書いたら CI の staticcheck が SA9002（「0644 のつもり?」）で落ちた。gom は `0o644` リテラルをサポートするのでそれで解決 — `420` → `0o644` に修正済み。生成コードは `0o644` のまま emit される。
+
+## Devin Review 対応（CI レビュー指摘の修正）
+
+- wcl: `--` 以降の引数を二重処理していたバグ + ファイル指定済みでも末尾で stdin を読みにいくバグを修正（`run_files` に分離）。実害: `wcl file` が stdin EOF 待ちで固まる。
+- runner: `cmd.Output` → `cmd.Run` + stdio 継承に変更。これで (1) 子の stderr/stdout がリアルタイムに流れる (2) 孫プロセスの fd 継承でパイプ待ちしなくなる (3) `Ptr.to_option cmd.ProcessState` から `ExitCode` を拾えて exit code が透過する（非タイムアウト失敗が常に 124 だったバグも解消）。`Ptr` field 代入 `cmd.Stdin = os.Stdin` が素直に書けた — composite literal がなくても `Ptr.new`+field 代入で十分。
+- b64: `os.Stdout.Write` のエラーを `try` で伝播（`ignore` していた）。
+- jot: file mode `0o644`→`0o600`（個人メモを他アカウントに見せない）。
+- hs: `Ptr.new`+`client.Timeout =` で 10s timeout。
+- srv: `http.ListenAndServe` → `Ptr.new` + `http.Server` field 代入で ReadHeaderTimeout/ReadTimeout/WriteTimeout/IdleTimeout を設定。
+- duu の split 指摘は誤検出: cons + rev の split は線形（全体 O(n log n)）で rejected。
+- 学び: Go struct の composite literal がなくても `Ptr.new` + `ptr.Field = v` で field 初期化が書ける — 今回の発見で「不得意」から「得意」寄りに。`let x : T = e` が注釈位置（`e : T` は Go.conv 専用）。
