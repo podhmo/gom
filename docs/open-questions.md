@@ -10,10 +10,18 @@
 
 - [ ] 可変性: `Ref a` と可変配列 `Array a` 以外に可変構造を許すか。`Ref` のメンバー面（`Ref.new`/`get`/`set`、rt-backed builtin module）は wave25 で実装済み（[decision](decisions/2026-11-19-ref-members.md)）。なお W0701/W0702 lint の可変判定は spec 10 章の閉じた builtin リスト（`Ref`/`Array`/`Ptr`/`Go.Slice`/`Go.Map`）を使う — ユーザー宣言型の可変構造そのものは引き続き未決（[decision](decisions/2026-11-04-mutable-sharing-lint.md)）
 
+### 言語機能
+
+- [ ] ビット演算子の提供形: `|`/`&`/`^`/shift がなく、Go のフラグ合成（`os.O_APPEND|os.O_CREATE|os.O_WRONLY`）を `+` で代用するしかない。`<<`/`>>` は関数合成に使用済みで名称の余地が狭い（[problem](problems/2026-11-01-operator-coverage.md)、sandbox 探索 jot で再観測 — [sketch](sketch/2026-11-23-sandbox-missing-features.md)）
+- [ ] nil の綴り: `Ptr.nil` しか nil を書く面がなく、`Go.Slice`/`Go.Map`/Go 関数型の nil を作れない（`h.Sum nil` は `[]` で代用できた — 同 sketch）
+- [ ] 部分適用・`Unit` 残りの関数値が値位置に流れたときの lint: `fmt.Println` 等に残りパラメータを持つ関数値を渡すとエラーにならず `0x...` が印字される（同 sketch、probes/method の `string i` 事例）。警告 lint を切るか
+
 ### Go 相互運用
 
 - [x] Go ABI の方針: 生成される Go の API（型名・関数のシグネチャ・バリアントの struct 名）を、Gom のバージョンをまたいでどこまで安定させるか — 案 B 採択（決定的 emit の保証 + emit 名の衝突検出、名前の安定保証はしない — [decision](decisions/2026-11-23-go-abi-stability.md)）。衝突検出器は wave35 lane C で実装済み（emit 台帳 + W0601/W0602 + `gom dump -phase=emit` — [decision](decisions/2026-11-23-emit-name-collision-check.md)）
 - [x] Gom の型が Go の interface を実装できるようにするか（v1 ではできない）。できるなら、どう宣言するか — wave25 lane D で実現可能性を調査済み、wave29 lane D で post-defined-type 世界の設計を decision まで固め（`@method` 属性 + 規約命名、.gomi は fn リスト、`InterfaceMethods` oracle — [decision](decisions/2026-11-21-go-iface-impl.md)）、2026-11-22 に採択。実装は wave30 lane C（[prompts](sketch/2026-11-22-wave30-prompts.md)）
+- [ ] `Go.Any` の検査面（型アサーション相当）: `Go.conv` では具象型へ取り出せない（E0507 — spec が明示的に拒否する設計）が、代替の面がないため `json.Unmarshal` で `any` に decode した値を触れない。panic 式 / `Option` 返り / `match` 拡張のどれで供給するか（sandbox 探索 — [sketch](sketch/2026-11-23-sandbox-missing-features.md)、回避は `json.RawMessage`/`Go.Map`/reflect 経由）
+- [ ] `Go.Slice` の要素に Gom 宣言型を置けるか（E0507 緩和）: record が `[]MyRec` として `slices.SortFunc` 等の Go API に渡せない（"no Go representation"）。`List T`→`[]T` の境界コピーの意味論と合わせて要 decision（同 sketch、回避は gom 側でのソート実装）
 
 ### 最適化
 
@@ -39,6 +47,7 @@
 - `deriving` 相当の自動生成（辞書渡しの辞書値をコンパイラが合成する方向）— `Ord` 限定導入は見送り決定（[decision](decisions/2026-11-19-deriving-declined.md)）。対象が広がり十分便利になるなら再考の余地あり
 - scoped cleanup（[decision](decisions/2026-11-21-scoped-cleanup.md)）の拡張: 案 D 現状維持 + 代替経路の文書化を採択（2026-11-23、[decision](decisions/2026-11-23-scope-cleanup-extension.md)）— `GoError` 以外への合流は `run_result` → `Result.map_err`、取得+登録はユーザー helper で足りる（文書化は wave35 lane B で実施済み）。案 A–C は将来の余地として残す。result-leak 検査の案 B（result-taint flag + `.gomi` export）は wave35 lane E で採択（[decision](decisions/2026-11-23-result-taint-gomi-export.md)）— 実装は別 lane
 - インクリメンタルビルドのキャッシュ（P4。それまでは毎回変換し、Go のキャッシュに任せる）
+- `iota` 流の Go 定数セット宣言 — sum type や `let` 定数で代替になるが、Go API の定数群を gom 側から作る面はない（sandbox 探索 — [sketch](sketch/2026-11-23-sandbox-missing-features.md)）
 - cgo、`unsafe`、`reflect` の本格的な扱い
 - セルフホスト（コンパイラを Gom で書き直す）
 - [x] Core 検証器で Go 呼び出しの関数引数の表現を検査する — wave34 lane D で実装済み: `CallGo.FlatArgs` に宣言型由来のスロット arity を載せ、`core.Validate` が emitted repr（`callbackArity`）と照合して E0901。宣言型（rigid）を読む点が要 — instantiated 型は型変数下の関数型で arity が広がる（`internal/core/validate.go`、`TestCallGoCtorRefCallbackArity`）
