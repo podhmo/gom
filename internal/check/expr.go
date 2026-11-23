@@ -2212,20 +2212,24 @@ func constFold(e Expr) (constant.Value, bool) {
 			if !exact || s < 0 {
 				return nil, false
 			}
-			v := constant.Shift(x, op, uint(s))
-			if op == token.SHR {
-				return v, true
-			}
 			// go/constant is arbitrary-precision but the machine
 			// operation wraps at the operand's width — `(255 <<< 60)
 			// >>> 68` folds to 0 unwrapped where the wrapped value
-			// stays nonzero, which would mint a false E0414. Named
-			// integral types (no width here) simply do not fold.
+			// stays nonzero, which would mint a false E0414. The
+			// operand is wrapped too: an earlier `+`/`-`/`*` or
+			// `<<<` may have folded a value past the width already
+			// (`(MaxInt + 1) >>> 63` must see the wrapped -2^63, not
+			// the unbounded 2^63). Named integral types and
+			// unsolved metas carry no width — they do not fold.
 			w, ok := intFoldWidth(e.Type())
 			if !ok {
 				return nil, false
 			}
-			return wrapConstInt(v, w), true
+			v := constant.Shift(wrapConstInt(x, w), op, uint(s))
+			if op == token.SHL {
+				v = wrapConstInt(v, w)
+			}
+			return v, true
 		}
 		return constant.BinaryOp(x, op, y), true
 	case *Ascribe:
