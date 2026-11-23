@@ -1863,9 +1863,10 @@
   `Go.nil` の両方で書ける（wave38 lane C で `Go.nil : Unit -> a` を導入。
   案B として `Ptr.nil` は後方互換のため残置 — [decision](decisions/2026-11-23-nil-spelling.md)）。
   `errors.As` target 検査 (W0502) は両方の綴りを認識する。
-  `GoError`/`Go.Any` 型注釈・Go `any` 引数の位置では `Go.nil ()` の
-  メタがその型に束縛され `rt.Nil[any]()` を emit する（unify の
-  isGoAny 経路が nil-obligation メタだけを捕捉する）。
+  `GoError` 型注釈では unify の通常経路がメタを束縛し
+  `rt.Nil[error]()` を emit する。`Go.Any` 型注釈・Go `any` 引数の
+  位置では unify の isGoAny 経路が nil-obligation メタだけを捕捉し
+  `rt.Nil[any]()` を emit する。
   残件: bare 参照 `{let f = Go.nil; f ()}` の `?a` が宙吊りのままなら
   E0407（注釈を求める — 他の関数値と同じ制約）。
   [実装](../internal/check/apply.go)（2026-11-24 登録・同 wave で解消）
