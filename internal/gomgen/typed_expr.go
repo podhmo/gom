@@ -1305,7 +1305,15 @@ func (g *Gen) scopeRunOf(want *gty, d int) {
 		g.emitFrag("Scope.defer s (fn () -> ())")
 		g.emit(";")
 	}
+	// The callback is a lambda boundary: `try` inside it escapes to
+	// the callback (bare return meta → E0410), not the enclosing fn;
+	// and its lets must not leak bindings into the enclosing scope.
+	g.pushScope()
+	g.bind(binding{name: "s", t: &gty{kind: tNamed, name: "Scope"}, kind: bVar})
+	g.inLambda++
 	g.exprOf(want, d-1)
+	g.inLambda--
+	g.popScope()
 	g.newline()
 	g.emit("}")
 }
