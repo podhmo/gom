@@ -879,10 +879,10 @@ func (c *checker) checkLetDecl(d *syntax.LetDecl) {
 				// produced want's type — a failed unify leaves the
 				// annotation's variables unbound (E0412 below), and
 				// quantifying them would emit a body the residual
-				// check rejects. Labels are compared off: want's
-				// labels may be lent, never bound in the value's
-				// own type.
-				if len(vars) > 0 && types.Equal(types.StripLabels(want), types.StripLabels(val.Type())) {
+				// check rejects. want's labels may be lent — bound in
+				// no position of the value's own type — so the pair
+				// judges by introduction rules, not stripped shapes.
+				if len(vars) > 0 && types.EqualLent(want, val.Type()) {
 					// `let x = <value>` — a thunk: a niladic
 					// generic function whose body is the value.
 					sig := &types.Func{Ret: want}
@@ -1172,9 +1172,10 @@ func isValue(x Expr) bool {
 		}
 		return true
 	case *Ascribe:
-		// An Ascribe carries only its type annotation — the
-		// restriction sees through it to the wrapped expression.
-		return isValue(x.X)
+		// A `Go.conv` Ascribe computes a conversion — not a
+		// syntactic value. A plain Ascribe carries only its type
+		// annotation, so the restriction sees through it.
+		return !x.Conv && isValue(x.X)
 	case *Hole, *Unary, *Binary, *StrInterp, *If, *Match, *Block,
 		*Let, *Ignore, *Try, *FieldAssign, *GoExpr, *For,
 		*SelectExpr, *Spread:
@@ -1184,11 +1185,13 @@ func isValue(x Expr) bool {
 	}
 }
 
-// unascribe peels *Ascribe layers — a conform-time type
-// annotation — so shape matches see the expression underneath.
+// unascribe peels non-conversion *Ascribe layers — a conform-time
+// type annotation — so shape matches see the expression
+// underneath. A `Go.conv` Ascribe is a real computation, not an
+// annotation: the wrapped value is not what flows.
 func unascribe(e Expr) Expr {
 	for {
-		if as, ok := e.(*Ascribe); ok {
+		if as, ok := e.(*Ascribe); ok && !as.Conv {
 			e = as.X
 			continue
 		}
