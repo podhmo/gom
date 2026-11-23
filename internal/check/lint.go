@@ -326,12 +326,21 @@ func (c *checker) lintErrorsAsTarget(ap *Apply, aliases map[*resolve.Symbol]*res
 		// A literal `Ptr.nil` target panics on the non-nil half of
 		// the contract — recognition goes through the rt-backed
 		// callee symbol like every builtin.
-		if inner, ok := got.(*Apply); ok && inner.Call.Callee != nil &&
-			inner.Call.Callee.Package == rtPath && inner.Call.Callee.Name == "PtrNil" {
-			c.diags.Add(diag.Warning("W0502",
-				"`errors.As` requires a non-nil pointer target — `Ptr.nil` panics at run time").
-				At(a.Span()).Set("argument", "Ptr.nil"))
-			return
+		if inner, ok := got.(*Apply); ok && inner.Call.Callee != nil {
+			callee := inner.Call.Callee
+			spelling := ""
+			switch {
+			case callee.Package == rtPath && callee.Name == "PtrNil":
+				spelling = "Ptr.nil"
+			case callee.Package == "Go" && callee.Name == "nil":
+				spelling = "Go.nil"
+			}
+			if spelling != "" {
+				c.diags.Add(diag.Warning("W0502",
+					"`errors.As` requires a non-nil pointer target — `"+spelling+"` panics at run time").
+					At(a.Span()).Set("argument", spelling))
+				return
+			}
 		}
 		gotT := types.Chase(got.Type())
 		con, ok := gotT.(*types.Con)

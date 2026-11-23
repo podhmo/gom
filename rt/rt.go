@@ -22,6 +22,16 @@ func Todo[T any]() T {
 	panic("gom: todo")
 }
 
+// Nil is the body of `Go.nil ()` — the universal nil literal for any
+// nil-able type (decision 2026-11-23-nil-spelling). A bare `nil`
+// cannot be emitted at an arbitrary type, so the helper returns T's
+// zero value, which is nil exactly for the nil-able types check
+// admits.
+func Nil[T any]() T {
+	var z T
+	return z
+}
+
 // BoxSlice copies a Go slice into a fresh []any, boxing each element —
 // the boundary conversion a `..xs` spread into a `...any` variadic
 // needs (spec section 8.1 item 4): Go itself cannot splice a []T

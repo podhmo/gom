@@ -48,6 +48,9 @@ func (c *checker) checkApply(e *syntax.Apply, want types.Type) Expr {
 	if callee != nil && isConv(callee) {
 		return c.checkConvCall(e, fn)
 	}
+	if callee != nil && isNil(callee) {
+		return c.checkNilCall(e, fn, callee)
+	}
 	if callee != nil {
 		if n, ok := goFuncCallArity(callee); ok {
 			return c.checkGoFuncCall(e, fn, callee, n, want)
@@ -192,6 +195,37 @@ func (c *checker) checkConvCall(e *syntax.Apply, fn Expr) Expr {
 		out.Args = append(out.Args, Arg{Value: v})
 	}
 	out.Call = CallInfo{Kind: CallUnknown, Arity: 0, Applied: len(out.Args), HoleIndex: -1}
+	return out
+}
+
+// checkNilCall types `Go.nil ()` — the universal nil literal
+// (decision 2026-11-23-nil-spelling). The result is a fresh meta
+// the surrounding context pins; validateNils judges the solved
+// type's nil-ability after inference. The `()` argument is the
+// ordinary arity-0 call marker — anything else is a plain Unit
+// mismatch. The application classifies as a builtin CallDirect so
+// lowering emits the `rt.Nil[T]()` call via CallBuiltin.
+func (c *checker) checkNilCall(e *syntax.Apply, fn Expr, callee *resolve.Symbol) Expr {
+	a := c.newMeta(e.Sp, "the nil value's type")
+	// The member select's own `Unit -> ?a` never drives this call —
+	// the result meta is the apply's. Quiet it so the stray `?a`
+	// does not demand an annotation.
+	metasIn(fn.Type(), func(m *types.Meta) { c.markQuiet(m) })
+	out := &Apply{Base: baseOf(e.Sp, a), Fn: fn}
+	for _, ar := range e.Args {
+		var v Expr
+		if ar.Value != nil {
+			v = c.checkExpr(ar.Value, types.Unit)
+		} else {
+			v = c.checkExpr(nil, nil)
+		}
+		out.Args = append(out.Args, Arg{Value: v})
+	}
+	out.Call = CallInfo{Kind: CallDirect, Callee: callee, Arity: len(out.Args), Applied: len(out.Args), HoleIndex: -1}
+	if err := out.Validate(); err != nil {
+		panic(fmt.Sprintf("check: invalid CallInfo for Go.nil: %v", err))
+	}
+	c.pendingNils = append(c.pendingNils, &pendingNil{sp: e.Sp, m: a})
 	return out
 }
 

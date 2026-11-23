@@ -463,6 +463,45 @@ func (c *checker) goRawNilable(raw types.Type) bool {
 	}
 }
 
+// nilableType reports whether a solved type can hold nil — the
+// `Go.nil` constraint (decision 2026-11-23-nil-spelling). It is
+// goRawNilable's domain plus a builtin-identity guard: a file-local
+// `type Chan a` does not spell the builtin channel type just
+// because the names match.
+func (c *checker) nilableType(t types.Type) bool {
+	switch t := types.Chase(t).(type) {
+	case *types.Con:
+		if c.isBuiltinCon(t, "GoError") || c.isBuiltinCon(t, "Any") {
+			return true
+		}
+		if t.Qual == "Go" {
+			switch t.Name {
+			case "Slice", "Map", "Any":
+				return true
+			}
+			_, isFn := goFuncTypeArity(t.Name)
+			return isFn
+		}
+		if t.Qual != "" {
+			return false
+		}
+		switch t.Name {
+		case "Ptr", "Slice", "Map", "Chan", "RecvChan", "SendChan":
+			return !c.shadowedBuiltin(t.Name)
+		}
+		return false
+	case *types.Go:
+		if ns, ok := c.src.(NilableSource); ok {
+			return ns.NilableUnderlying(t.Ref)
+		}
+		return false
+	case *types.Meta, *types.Var, *types.Func, *types.Tuple:
+		return false
+	default:
+		panic("unreachable")
+	}
+}
+
 // fnViewCompatible reports whether the seeded Gom view of one
 // FuncN position can reach its raw view through the conversions
 // Core IR can express — viewsCompatible's rule (internal/goimport/

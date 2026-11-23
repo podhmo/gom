@@ -254,6 +254,15 @@ func isConv(sym *resolve.Symbol) bool {
 		sym.Name == "conv" && sym.Package == "Go"
 }
 
+// isNil reports whether sym names the `Go.nil` universal nil
+// builtin (decision 2026-11-23-nil-spelling): the `nil` member of
+// the compiler-owned Go namespace, a KindBuiltin symbol with
+// Package "Go".
+func isNil(sym *resolve.Symbol) bool {
+	return sym != nil && sym.Kind == resolve.KindBuiltin &&
+		sym.Name == "nil" && sym.Package == "Go"
+}
+
 // isGoAny reports whether t is the empty-interface type `Go.Any`
 // (types.GoAny): a wanted `any` accepts every argument
 // (spec 8.1.7).
@@ -514,4 +523,29 @@ func (c chain) GoUnderlyingKind(t types.Type) (gotypes.BasicKind, bool) {
 		}
 	}
 	return gotypes.Invalid, false
+}
+
+// NilableGoRef and NilableUnderlying forward the optional
+// NilableSource protocol through the chain — the first source that
+// implements it and knows the ref answers.
+func (c chain) NilableGoRef(ref types.NamedRef) bool {
+	for _, s := range c {
+		if src, ok := s.(NilableSource); ok {
+			if src.NilableGoRef(ref) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (c chain) NilableUnderlying(ref types.NamedRef) bool {
+	for _, s := range c {
+		if src, ok := s.(NilableSource); ok {
+			if src.NilableUnderlying(ref) {
+				return true
+			}
+		}
+	}
+	return false
 }

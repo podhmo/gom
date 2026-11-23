@@ -1,0 +1,70 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0513",
+      "severity": "error",
+      "message": "`Go.nil` requires a nil-able type — `Int` cannot hold nil",
+      "span": {
+        "file": "E0513_go_nil.gom",
+        "start": {
+          "line": 7,
+          "col": 24,
+          "offset": 176
+        },
+        "end": {
+          "line": 7,
+          "col": 33,
+          "offset": 185
+        }
+      },
+      "data": {
+        "type": "Int"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0513",
+      "severity": "error",
+      "message": "`Go.nil` requires a nil-able type — `String` cannot hold nil",
+      "span": {
+        "file": "E0513_go_nil.gom",
+        "start": {
+          "line": 8,
+          "col": 30,
+          "offset": 215
+        },
+        "end": {
+          "line": 8,
+          "col": 39,
+          "offset": 224
+        }
+      },
+      "data": {
+        "type": "String"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0513",
+      "severity": "error",
+      "message": "`Go.nil` requires a nil-able type — `io/fs.FileMode` cannot hold nil",
+      "span": {
+        "file": "E0513_go_nil.gom",
+        "start": {
+          "line": 9,
+          "col": 33,
+          "offset": 257
+        },
+        "end": {
+          "line": 9,
+          "col": 42,
+          "offset": 266
+        }
+      },
+      "data": {
+        "type": "io/fs.FileMode"
+      }
+    }
+  ]
+}
