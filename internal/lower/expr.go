@@ -1109,6 +1109,29 @@ func (l *lowerer) argAtoms(s *seq, args []check.Arg, ci check.CallInfo, callee c
 				continue
 			}
 		}
+		v := a.Value
+		if as, ok := v.(*check.Ascribe); ok && as.ChanDir {
+			// Whole-argument implicit narrowing `Chan a` →
+			// `chan<-`/`<-chan a`: the operand is already
+			// assignable in Go, so pass it through unconverted —
+			// a `(chan<- T)(x)` in the argument position would
+			// defeat `go vet`'s sigchanyzer tracking (a buffered
+			// `make` behind the conversion reads as unbuffered).
+			// Nested narrowings (an `if` arm, a list element)
+			// keep their Conv so the Core type stays SendChan.
+			a := l.atom(s, as.X)
+			if v, ok := a.(*core.Var); ok && v.Sym.IsGo {
+				// An imported Go variable is mutable from the
+				// outside: capture it at argument position the
+				// way the conversion's temporary used to, instead
+				// of reading it later inside the call.
+				b := l.tmpBind(as.Span(), v.Type())
+				s.emit(b, v)
+				a = varOf(as.Span(), b)
+			}
+			out[i] = a
+			continue
+		}
 		out[i] = l.atom(s, a.Value)
 	}
 	return out
@@ -3274,16 +3297,6 @@ func (l *lowerer) recordLit(s *seq, e *check.RecordLit) core.Expr {
 func (l *lowerer) ascribe(s *seq, e *check.Ascribe) core.Expr {
 	if !e.Conv {
 		return l.expr(s, e.X)
-	}
-	if e.ChanDir {
-		// Implicit boundary narrowing: `chan T` is assignable to
-		// `chan<- T`/`<-chan T`, so the operand passes through as-is.
-		// Emitting `(chan<- T)(x)` would defeat `go vet`'s
-		// sigchanyzer tracking — a buffered `make` behind the
-		// conversion reads as unbuffered (E-signalled on
-		// `signal.Notify`). Explicit `Go.conv` still materializes
-		// the conversion below.
-		return l.atom(s, e.X)
 	}
 	kind := l.convKind(e.X.Type(), e.Type())
 	x := l.atom(s, e.X)
