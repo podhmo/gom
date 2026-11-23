@@ -24,8 +24,14 @@ fn run_cmd (sec: Int) (argv: List String) -> Result Int String = match argv {
     let (ctx, cancel) =
       context.WithTimeout (context.Background (), (Go.conv sec : time.Duration) * time.Second)
     let cmd = exec.CommandContext (ctx, name, ..rest)
-    match cmd.Output () {
-      Ok out -> { ignore (Go.fn0 cancel) (); ignore os.Stdout.Write out; Ok 0 }
+    // 子プロセスの stdio はそのまま継承する。cmd.Output を使うと
+    // stdout がパイプになり、孫プロセスが fd を引き継ぐと EOF を
+    // 待ち続けてタイムアウトが効かなくなるので pipe 経由にしない。
+    cmd.Stdin = os.Stdin
+    cmd.Stdout = os.Stdout
+    cmd.Stderr = os.Stderr
+    match cmd.Run () {
+      Ok _ -> { ignore (Go.fn0 cancel) (); Ok 0 }
       Err e -> {
         let ctx_err = ctx.Err ()
         ignore (Go.fn0 cancel) ()
@@ -33,7 +39,11 @@ fn run_cmd (sec: Int) (argv: List String) -> Result Int String = match argv {
           Err cerr -> if errors.Is (cerr, context.DeadlineExceeded) { Err "timeout" } else {
             Err (cerr.Error ())
           }
-          Ok _ -> Err (e.Error ())
+          // 非タイムアウトの失敗は ProcessState から exit code を拾う
+          Ok _ -> match Ptr.to_option cmd.ProcessState {
+            Some ps -> Ok (ps.ExitCode ())
+            None -> Err (e.Error ())
+          }
         }
       }
     }
