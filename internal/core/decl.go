@@ -280,7 +280,7 @@ type UnitScope struct {
 	// `type T = | Some` also emits `T_Some` struct and `isT`
 	// marker names into the shared package — codegen claims those
 	// verbatim so a local `type T_Some` colliding with a sibling
-	// variant surfaces as W0601 instead of broken Go.
+	// variant surfaces as E0608 instead of broken Go.
 	Sums map[string][]string
 	// Tests are the sibling files' emitted test-function base names
 	// (core.TestFuncBase of each `test "name"`). Two files of one

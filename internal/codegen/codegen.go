@@ -146,10 +146,11 @@ type Output struct {
 	// nil when the file declares no tests.
 	TestSourceMap *diag.SourceMap
 
-	// Diags carries the emitted-name collision warnings the
-	// generation ledger reports (W0601/W0602) — the decls are
-	// valid Gom, so they arrive as diagnostics attached to the
-	// otherwise-successful output rather than as an error.
+	// Diags carries the emitted-name collision diagnostics the
+	// generation ledger reports (E0608/W0602). A verbatim
+	// double-claim is an error — the decls are valid Gom, but the
+	// generated package would not compile, so the build layer
+	// withholds the output.
 	Diags diag.List
 	// EmitNames lists every package-scope identifier the output
 	// emits, with the decl it answers for — the generated-name

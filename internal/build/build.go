@@ -254,10 +254,14 @@ func Compile(in Input, opts *Options) (*Result, error) {
 	if err != nil {
 		return r, err
 	}
-	// Emitted-name collision warnings attach to the output, not
-	// the pipeline's error path — the decls are valid Gom.
+	// Emitted-name collision diagnostics attach to the output, not
+	// the pipeline's error path — but a verbatim double-claim
+	// (E0608) means the generated package cannot compile, so an
+	// emit error withholds the output like any other failure.
 	r.Diagnostics = append(r.Diagnostics, out.Diags...)
-	r.Output = out
+	if !diag.List(out.Diags).HasError() {
+		r.Output = out
+	}
 	return r, nil
 }
 
@@ -512,7 +516,7 @@ func CompileFiles(ins []Input, opts *Options) ([]*Result, error) {
 		if err != nil {
 			return nil, err
 		}
-		// Emit warnings are unit-level: every member file's codegen
+		// Emit diagnostics are unit-level: every member file's codegen
 		// claims the same package-scope names, so a sibling decl's
 		// eviction is reported identically by each member — keep
 		// only the first copy of each (code, span, message).
@@ -524,6 +528,10 @@ func CompileFiles(ins []Input, opts *Options) ([]*Result, error) {
 			seenEmit[k] = true
 			r.Diagnostics = append(r.Diagnostics, d)
 		}
+		// An emit error (E0608's verbatim double-claim) means the
+		// generated package cannot compile — withhold every member
+		// output like any other unit-level failure.
+		unitFailed = unitFailed || diag.List(out.Diags).HasError()
 		r.Output = out
 	}
 	// Package initialization is a property of the unit, not of one
