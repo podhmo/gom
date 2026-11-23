@@ -34,8 +34,10 @@ these boundaries:
    `go list` を使い、main module 外の package — dependency
    module、replace target、go.work workspace sibling — の
    `.gomi` も解決する（internal/gomimport/loader.go の
-   `extDirs`/`extMods`）。該当しないものだけが E0203 になる。
-   残件なし。
+   `extDirs`/`extMods`）。E0203 は module-scope 外の失敗だけの
+   コードではない — 複数 `.gomi` を持つパッケージの拒否
+   （loader の `oneGomi`）や resolve の member 失敗も同じコード
+   で報告される。module scope 起因の残件はなし。
 5. ~~**Generated-name collisions across siblings**~~ **解決**:
    `core.UnitScope.Tests` records every sibling's emitted test
    base; a colliding name takes the file's fnv32a tag
@@ -53,8 +55,8 @@ as it composes ADTs across packages — 2 and 3 in particular let
 invalid or unspecified programs pass `gom check`/`gom build` and
 fail only inside the Go toolchain. 4 constrains which checkouts
 can depend on which. 5 and 6 produce raw Go or misleading Gom
-errors with no source mapping. (1, 2, 3, 5, 6 は解消 — 残るは
-4 の module scope。)
+errors with no source mapping. (1, 2, 3, 5, 6 は解消、4 も
+2026-11-23 確認で解消 — 全項目が閉じた。)
 
 ## Related
 
