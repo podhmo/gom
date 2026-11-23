@@ -39,7 +39,7 @@ open-questions の未決項「`Ref a` と可変配列 `Array a` 以外に可変�
 TODO: `//gom:mutable` directive の `.gomi` scan/apply、`containsMutable` の照合、spec 10 章への記述。2 点は既存機構と異なる:
 
 - `//gom:mutable <name>` は **name のみで index を取らない** — `scanDirective`（internal/iface/noescape.go）は index 非数値の行を捨てるので、name-only 形を読む variant が要る
-- "emit" は **toolchain が directive を作ることではなく**、`.gomi` 再生成時に著者の書いた directive を落とさず引き継ぐ意味（noescape/notaint の emit と同じ扱い）
+- "emit" は **toolchain が directive を作ることではなく**、`.gomi` 再生成時に著者の書いた directive を落とさない意味。ただし noescape/notaint と機構が違う: あちらは `draft` が推論済みフラグ（`Symbol.Escapes`/`ResultTaint`）から directive を**再合成**するので消えないが、`//gom:mutable` に推論元はない。`draft` は型の実体を再生成するだけなので、実装側は**既存 `.gomi` の directive 行を読んで引き継ぐ**（または適用後の Symbol フラグから再 emit する）必要がある — これは実施時に決める
 
 priority low — 実装の見えないユーザー宣言型が実在するまでの隙間。
 
