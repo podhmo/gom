@@ -701,6 +701,11 @@ func (p *printer) param(pr *syntax.Param) *doc {
 
 func (p *printer) paramRaw(pr *syntax.Param) *doc {
 	if pr.Label != nil {
+		if pr.Type == nil {
+			// `fn ~x` — the bare labeled lambda parameter (spec
+			// section 1.2) — prints without the "(x: T)" frame.
+			return text("~" + pr.Label.Name)
+		}
 		mid := p.gapInline(pr.Sp.Start, pr.Type.Span().Start)
 		return concat(text("(~"+pr.Label.Name+":"+pad(mid)), p.typeExpr(pr.Type), text(")"))
 	}
