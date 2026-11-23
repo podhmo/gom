@@ -105,8 +105,9 @@ fn apply () -> Int = twice (fn n -> n + 1) 10
   `add : Int -> Int -> Int`. Partial application is just
   under-application.
 - Lambdas: `fn x -> e`, `fn a b -> e`, `fn () -> e`, `fn _ -> e`.
-  Parameters are bare identifiers/`_`/`()` only — no type
-  annotations, patterns, or labels in lambda position.
+  Parameters are bare identifiers/`_`/`()`, `(x: T)` (annotated),
+  `~x` or `(~x: T)` (labeled — the call site writes `f ~x: v`).
+  No patterns in lambda position.
 - Local `let` never generalizes: `let g = f` is monomorphic even
   when `f` is polymorphic (uses fix the type). Top-level `fn`s,
   top-level `let` bound to a lambda or a syntactic value

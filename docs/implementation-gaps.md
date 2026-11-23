@@ -1828,7 +1828,7 @@
   連続・先行の空行は付けず冪等化。
   [フォーマッタ](../internal/format/print.go)（2026-11-23 検証）
   検証: [golden](../testdata/fmt/directives.out.gom)。
-- [ ] **spec §2 の unlabeled→labeled introduction が未実装**: spec
+- [x] **spec §2 の unlabeled→labeled introduction が未実装**: spec
   2.1 は expected 側のラベルを produced のラベルなしパラメータに
   位置対応で貸す一方向の introduction を許すが、check 側の
   unification はまだラベル有無を型の同一性に含めており
@@ -1836,3 +1836,14 @@
   spec が実装に先行 — 実装 lane は TODO「unlabeled → labeled の
   introduction」を参照。
   [仕様](spec.md)、[decision](decisions/2026-11-23-labeled-arg-relaxation.md)
+  対応: wave36 lane B（[PR #156](https://github.com/podhmo/gom/pull/156)）
+  で `unifyFunc` の位置対応 introduction を実装し spec と一致。
+  検証: [fixture](../testdata/spec/ok_labeled_intro_fn.gom)。
+- [ ] **production `display`/`"${v}"` 補間と evaluator の composite
+  表示がずれている**: evaluator は ADT/record/list/tuple を
+  comparison format で描くが、生成 Go の `display`・文字列補間は
+  `fmt.Sprint` に落ちる。`lower` の `gomShowN`（assert_eq の
+  operand 描画、design.md §4.8）を production 側へ転用する方向が
+  lane 候補。
+  [problem](problems/2026-11-04-interp-composite-display.md)、
+  [棚卸し](sketch/2026-11-23-wave36-problems-sweep.md)（2026-11-23 登録）

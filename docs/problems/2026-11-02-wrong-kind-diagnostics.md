@@ -1,6 +1,6 @@
 # Wrong-kind name references share E0201 with truly undefined names
 
-- 状態: 未解決
+- 状態: 解消（2026-11-23 wave36 棚卸し — 「leave it」選択を採択済みとして扱う: E0201 のコード表エントリが wrong-kind 用途を明示的に記述し（"The same code covers wrong-kind uses that have no legitimate reading"）、`data` の `namespace`/`resolved_kind` で形状を区別する設計が成立。当初の条件だった「診断出力が実ファイルで運用されてから決める」は LSP 撤回（[decision](../decisions/2026-11-19-lsp-withdrawn.md)）で consumer が消えたため未達のまま — 分かち書きの需要が実運用から観測されることはなかった。需要が出れば再評価）
 - 日付: 2026-11-02
 
 ## Situation

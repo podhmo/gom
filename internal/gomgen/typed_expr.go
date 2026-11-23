@@ -61,7 +61,11 @@ func (g *Gen) exprOf(want *gty, d int) {
 		choice{2, func() { g.blockOf(want, d) }},
 		choice{1, func() { g.matchOf(want, d) }},
 		choice{1, func() { g.pipeOf(want, d) }},
+		choice{1, func() { g.scopeRunOf(want, d) }},
 	)
+	if m := g.gomMemberChoiceFor(want); m != nil {
+		menu = append(menu, choice{3, m})
+	}
 	if c := g.ctorChoiceFor(want); c != nil {
 		menu = append(menu, choice{3, c})
 	}
@@ -138,7 +142,7 @@ func (g *Gen) exprOf(want *gty, d int) {
 			g.emit(")")
 		}})
 	}
-	if !g.opts.Deterministic && g.rng.Float64() < 0.06 {
+	if !g.opts.Deterministic && g.rng.Float64() < 0.10 {
 		menu = append(menu, choice{1, func() {
 			g.selectOf(want, d)
 		}})
@@ -556,6 +560,57 @@ func (g *Gen) recordLitOf(want *gty, d int) {
 	g.emit("}")
 }
 
+// gomMemberChoiceFor returns a menu fn emitting a stdlib-package
+// member call — reachable only after typedImportDecl's gom-package
+// branch bound the module. Members are pinned concrete (List Int /
+// Option Int / Result Int GoError) so no meta floats free.
+func (g *Gen) gomMemberChoiceFor(want *gty) func() {
+	type memCall struct {
+		name string
+		arg  *gty
+	}
+	var cands []memCall
+	if g.imports["list"] {
+		switch want.kind {
+		case tInt:
+			cands = append(cands, memCall{"list.length", listT(intT)})
+		case tBool:
+			cands = append(cands, memCall{"list.is_empty", listT(intT)})
+		case tList:
+			if len(want.args) == 1 && want.args[0].kind == tInt {
+				cands = append(cands, memCall{"list.rev", listT(intT)})
+			}
+		case tOption:
+			if len(want.args) == 1 && want.args[0].kind == tInt {
+				cands = append(cands, memCall{"list.head", listT(intT)})
+			}
+		}
+	}
+	if g.imports["option"] && want.kind == tBool {
+		cands = append(cands,
+			memCall{"option.is_some", optionT(intT)},
+			memCall{"option.is_none", optionT(intT)})
+	}
+	if g.imports["result"] && want.kind == tBool {
+		cands = append(cands,
+			memCall{"result.is_ok", resultT(intT, goErrT)},
+			memCall{"result.is_err", resultT(intT, goErrT)})
+	}
+	if len(cands) == 0 {
+		return nil
+	}
+	return func() {
+		m := cands[g.rng.IntN(len(cands))]
+		g.emitFrag(m.name)
+		// The argument sits at a declared concrete position — its
+		// own metas pin through the position, so leaves like `[]`
+		// or `None` are safe here.
+		g.noTodo++
+		g.atomOf(m.arg, 0)
+		g.noTodo--
+	}
+}
+
 // ctorChoiceFor returns a menu fn emitting a constructor application
 // for want — ADTs plus builtin Option/Result — or nil when want has
 // no ctors.
@@ -714,7 +769,28 @@ func (g *Gen) unitItemOf(d int) {
 			return
 		}
 		g.emit("()")
-	case 3, 4:
+	case 3:
+		// `Ptr.field = v` — the field-write form the Go-boundary
+		// tests pin (ok_fn_body_field_write). Gated on the goiface
+		// import typedImportDecl can emit; `Go.func1` is the builtin
+		// funcN namespace, no import needed.
+		if g.imports[goifacePkg] && g.rng.IntN(2) == 0 {
+			g.emit("{")
+			g.emit("let")
+			g.emit("w")
+			g.emit(":")
+			g.emitFrag("Ptr goiface.WithFn")
+			g.emit("=")
+			g.emitFrag("Ptr.new ()")
+			g.emit(";")
+			g.emitFrag("w.Fn = Go.func1 (fn x -> x + 1)")
+			g.emit(";")
+			g.emit("()")
+			g.emit("}")
+			return
+		}
+		fallthrough
+	case 4:
 		if g.inTest > 0 {
 			if g.rng.IntN(2) == 0 {
 				g.emit("assert")
@@ -1162,16 +1238,82 @@ func (g *Gen) goExprOf(d int) {
 	g.inGo--
 }
 
-// selectOf emits a minimal select: one default arm only, which is
-// the shape that typechecks without channels.
+// selectOf emits a select. A third of the time it stays minimal (one
+// default arm only — the shape that typechecks without channels);
+// otherwise it binds a local `Chan Int` in a wrapping block and
+// generates send and/or recv arms plus the mandatory default.
 func (g *Gen) selectOf(want *gty, d int) {
 	start := g.buf.Len()
 	defer g.witnessed(start, want)
+	if d <= 1 || g.rng.IntN(3) == 0 {
+		g.emit("select")
+		g.emit("{")
+		g.emit("default")
+		g.emit("->")
+		g.exprOf(want, d-1)
+		g.newline()
+		g.emit("}")
+		return
+	}
+	// `{ let ch : Chan Int = Chan.make 0; select { arms } }` — the
+	// annotation pins the element meta that `Chan.make` leaves.
+	g.emit("{")
+	g.emit("let")
+	g.emit("ch")
+	g.emit(":")
+	g.emitFrag("Chan Int")
+	g.emit("=")
+	g.emitFrag("Chan.make 0")
+	g.newline()
 	g.emit("select")
 	g.emit("{")
+	n := 1 + g.rng.IntN(2)
+	for range n {
+		if g.rng.IntN(2) == 0 {
+			g.emit("send")
+			g.emit("ch")
+			g.atomOf(intT, 0)
+		} else {
+			g.emit("_")
+			g.emit("<-")
+			g.emit("ch")
+		}
+		g.emit("->")
+		g.exprOf(want, d-1)
+		g.newline()
+	}
 	g.emit("default")
 	g.emit("->")
 	g.exprOf(want, d-1)
+	g.newline()
+	g.emit("}")
+	g.newline()
+	g.emit("}")
+}
+
+// scopeRunOf emits `Scope.run <| fn s -> { defer...; E }` — the
+// scoped-cleanup idiom (spec 9.5): the body's type is the select
+// result, so any `want` works. The deferred cleanup is the
+// smallest lawful `(Unit -> Unit)`.
+func (g *Gen) scopeRunOf(want *gty, d int) {
+	start := g.buf.Len()
+	defer g.witnessed(start, want)
+	g.emitFrag("Scope.run")
+	g.emit("<|")
+	g.emitFrag("fn s -> {")
+	if g.rng.IntN(2) == 0 {
+		g.emitFrag("Scope.defer s (fn () -> ())")
+		g.emit(";")
+	}
+	// The callback is a lambda boundary: `try` inside it escapes to
+	// the callback (bare return meta → E0410), not the enclosing fn;
+	// and its lets must not leak bindings into the enclosing scope.
+	g.pushScope()
+	g.bind(binding{name: "s", t: &gty{kind: tNamed, name: "Scope"}, kind: bVar})
+	g.inLambda++
+	g.exprOf(want, d-1)
+	g.inLambda--
+	g.popScope()
 	g.newline()
 	g.emit("}")
 }

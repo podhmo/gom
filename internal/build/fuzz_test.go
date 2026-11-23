@@ -49,6 +49,8 @@ import (
 	"github.com/podhmo/gom/internal/build"
 	"github.com/podhmo/gom/internal/fuzzutil"
 	"github.com/podhmo/gom/internal/goimport"
+	"github.com/podhmo/gom/internal/gomimport"
+	"github.com/podhmo/gom/internal/iface"
 	"github.com/podhmo/gom/internal/lower"
 	"github.com/podhmo/gom/internal/resolve"
 	gomstd "github.com/podhmo/gom/internal/stdlib"
@@ -489,10 +491,19 @@ func compileOracles(t testing.TB) (opts *build.Options, imp types.Importer) {
 		return nil, nil
 	}
 	gl := goimport.New(&goimport.Config{Dir: root, GoBin: gobin})
+	// Wire the Gom import oracle the same way cmd/gom and the spec
+	// harness do, so fuzz inputs can exercise plain `import` rules
+	// (stdlib short names) — a bare goimport.Loader rejects every
+	// Gom import with E0203. `import go` still goes through the
+	// allowlist.
+	mods := map[string]map[string]*resolve.Symbol{}
+	ml := gomimport.New(&gomimport.Config{Dir: root, Go: allowLoader{gl}, Sigs: gl, Modules: mods})
 	opts = gomstd.Apply(&build.Options{
-		Loader: allowLoader{gl},
-		Sigs:   gl,
-		Lower:  &lower.Env{GoSig: gl.GoSigOf, FuncNOfNamed: gl.FuncNOfNamed},
+		Loader:  ml,
+		Sigs:    ml,
+		Modules: mods,
+		Lower:   &lower.Env{GoSig: gl.GoSigOf, Types: ml, FuncArity: ml.ArityOf, FuncType: ml.FuncTypeOf, FuncNOfNamed: ml.FuncNOfNamed},
+		Exports: iface.ExportNames,
 	})
 	imp = newExportImporter(gobin, root)
 	return opts, imp
