@@ -335,6 +335,19 @@ var stdlibPaths = map[string]string{
 	"cmp":    "github.com/podhmo/gom/stdlib/cmp",
 }
 
+// StdlibShortNames returns the importable stdlib short names,
+// sorted — the keys of stdlibPaths. `gom list` prints them; the
+// table is the enumeration source because `cmp` has no embedded
+// .gomi and an FS walk of gomstdlib.Gomis would miss it.
+func StdlibShortNames() []string {
+	names := make([]string, 0, len(stdlibPaths))
+	for name := range stdlibPaths {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
+}
+
 // canonicalPath resolves a clause path to the package's real
 // import path: the stdlib short names, otherwise the path itself.
 // The canonical path is what the .gomi's members and the

@@ -6,6 +6,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/podhmo/gom/internal/testbin"
 	"os"
 	"os/exec"
@@ -1235,6 +1236,44 @@ func TestSchema(t *testing.T) {
 	if code, _, errout := invoke("schema", "extra"); code != 2 || !strings.Contains(errout, "no arguments") {
 		t.Errorf("gom schema extra: exit %d stderr %q; want usage error", code, errout)
 	}
+}
+
+// TestList prints the importable stdlib short names — the same
+// table `import "list"` resolves through, so `cmp` is listed even
+// though it has no embedded .gomi.
+func TestList(t *testing.T) {
+	t.Parallel()
+
+	code, out, errout := invoke("list")
+	if code != 0 {
+		t.Fatalf("gom list: exit %d; stderr=%q", code, errout)
+	}
+	got := strings.Fields(out)
+	want := []string{"cmp", "list", "option", "result"}
+	if len(got) != len(want) {
+		t.Fatalf("gom list = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("gom list[%d] = %q, want %q", i, got[i], want[i])
+		}
+	}
+	if code, _, errout := invoke("list", "extra"); code != 2 || !strings.Contains(errout, "no arguments") {
+		t.Errorf("gom list extra: exit %d stderr %q; want usage error", code, errout)
+	}
+
+	var stderr strings.Builder
+	if code := runList(nil, failWriter{}, &stderr); code != 2 {
+		t.Errorf("gom list with failing writer: exit %d; want 2", code)
+	}
+}
+
+// failWriter is an io.Writer whose every Write fails — used to
+// exercise the output-error paths commands must not swallow.
+type failWriter struct{}
+
+func (failWriter) Write([]byte) (int, error) {
+	return 0, fmt.Errorf("injected write failure")
 }
 
 // TestInfoDraftWritesGomi exercises `gom info`: a package without an
