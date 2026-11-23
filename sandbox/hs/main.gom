@@ -17,8 +17,12 @@ fn program_args () -> List String = match Go.Slice.to_list os.Args {
 }
 
 fn probe (url: String) -> Probe = {
+  // 応答ヘッダをいつまでも返さないサーバで止まらないよう timeout を付ける。
+  // composite literal は無いので Ptr.new + field 代入で組み立てる。
+  let client : Ptr http.Client = Ptr.new ()
+  client.Timeout = (Go.conv 10 : time.Duration) * time.Second
   let start = time.Now ()
-  match http.Head url {
+  match client.Head url {
     Ok res -> {
       let ms = (time.Since start).Milliseconds ()
       ignore res.Body.Close ()
