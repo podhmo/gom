@@ -173,3 +173,138 @@ func stripLabelsArgs(ts []Type) []Type {
 	}
 	return out
 }
+
+// EqualLent reports whether a (expected, labels declared) and b
+// (produced) are equal modulo the introduction's label lending:
+// Equal's pairing plus — a labeled parameter of a may face an
+// unlabeled parameter of b at the same position when b's
+// remaining tail declares no labels of its own. This is the
+// label-aware half of unifyFunc's admission without metas or
+// diagnostics; check uses it where a value's produced type must
+// match an annotation the introduction may have lent into.
+func EqualLent(a, b Type) bool {
+	switch a := Chase(a).(type) {
+	case *Var:
+		bv, ok := Chase(b).(*Var)
+		return ok && a.ID == bv.ID
+	case *Meta:
+		bm, ok := Chase(b).(*Meta)
+		return ok && a == bm
+	case *Con:
+		bc, ok := Chase(b).(*Con)
+		if !ok || a.Qual != bc.Qual || a.Name != bc.Name || len(a.Args) != len(bc.Args) {
+			return false
+		}
+		for i := range a.Args {
+			if !EqualLent(a.Args[i], bc.Args[i]) {
+				return false
+			}
+		}
+		return true
+	case *Func:
+		bf, ok := Chase(b).(*Func)
+		if !ok {
+			return false
+		}
+		ap, ar := flattenFunc(a)
+		bp, br := flattenFunc(bf)
+		for len(ap) > 0 && len(bp) > 0 {
+			x, y := ap[0], bp[0]
+			if x.Label == "" && y.Label == "" {
+				if !EqualLent(x.Type, y.Type) {
+					return false
+				}
+				ap, bp = ap[1:], bp[1:]
+				continue
+			}
+			if x.Label != "" && y.Label == "" && allPositional(bp) {
+				// Introduction: the produced parameter borrows
+				// the expected label by position.
+				if !EqualLent(x.Type, y.Type) {
+					return false
+				}
+				ap, bp = ap[1:], bp[1:]
+				continue
+			}
+			// Both sides open a labeled run — pair members by
+			// label name (runs compare up to reordering).
+			ra, rb := labeledRun(ap), labeledRun(bp)
+			if len(ra) == 0 || len(rb) == 0 {
+				return false
+			}
+			byLabel := make(map[string]int, len(rb))
+			for k, p := range rb {
+				if _, dup := byLabel[p.Label]; !dup {
+					byLabel[p.Label] = k
+				}
+			}
+			matched := make([]bool, len(rb))
+			for _, p := range ra {
+				k, ok := byLabel[p.Label]
+				if !ok || matched[k] || !EqualLent(p.Type, rb[k].Type) {
+					return false
+				}
+				matched[k] = true
+			}
+			for k := range rb {
+				if !matched[k] {
+					return false
+				}
+			}
+			ap, bp = ap[len(ra):], bp[len(rb):]
+		}
+		// A leftover tail folds into the result — `->` flattens.
+		switch {
+		case len(ap) > 0:
+			return EqualLent(&Func{Params: ap, Ret: ar}, br)
+		case len(bp) > 0:
+			return EqualLent(ar, &Func{Params: bp, Ret: br})
+		default:
+			return EqualLent(ar, br)
+		}
+	case *Tuple:
+		bt, ok := Chase(b).(*Tuple)
+		if !ok || len(a.Elems) != len(bt.Elems) {
+			return false
+		}
+		for i := range a.Elems {
+			if !EqualLent(a.Elems[i], bt.Elems[i]) {
+				return false
+			}
+		}
+		return true
+	case *Go:
+		bg, ok := Chase(b).(*Go)
+		if !ok || a.Ref != bg.Ref || len(a.Args) != len(bg.Args) {
+			return false
+		}
+		for i := range a.Args {
+			if !EqualLent(a.Args[i], bg.Args[i]) {
+				return false
+			}
+		}
+		return true
+	default:
+		panic("unreachable")
+	}
+}
+
+// allPositional reports whether every parameter is unlabeled.
+func allPositional(ps []FuncParam) bool {
+	for _, p := range ps {
+		if p.Label != "" {
+			return false
+		}
+	}
+	return true
+}
+
+// labeledRun returns the maximal prefix of consecutive labeled
+// parameters.
+func labeledRun(ps []FuncParam) []FuncParam {
+	n := 0
+	for n < len(ps) && ps[n].Label != "" {
+		n++
+	}
+	return ps[:n]
+}
