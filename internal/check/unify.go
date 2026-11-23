@@ -1185,8 +1185,16 @@ func (c *checker) mismatch(sp diag.Span, want, got any) {
 	// mismatch, and the positional Go call would swap the arguments.
 	gl, wl := unfilledLabels(got), unfilledLabels(want)
 	if len(gl) > 0 && len(wl) > 0 && sameLabels(gl, wl) {
-		d = d.AddNote(fmt.Sprintf("the labeled parameters %s are in a different order — the generated Go call is positional, so the arguments would swap", joinLabels(gl))).
-			Set("unfilled_labels", gl)
+		if !slices.Equal(gl, wl) {
+			d = d.AddNote(fmt.Sprintf("the labeled parameters %s are in a different order — the generated Go call is positional, so the arguments would swap", joinLabels(gl)))
+		} else {
+			// The label sequences agree, so the failure is the
+			// interleave: a label moved across a positional
+			// parameter. Saying "different order" would point at
+			// the wrong axis.
+			d = d.AddNote(fmt.Sprintf("the labeled parameters %s sit at a different position among the positional parameters — the generated Go call is positional, so the arguments would swap", joinLabels(gl)))
+		}
+		d.Set("unfilled_labels", gl)
 	} else if len(gl) > 0 {
 		d = d.AddNote(fmt.Sprintf("the value is a partially applied call still awaiting %s", joinLabels(gl))).
 			Set("unfilled_labels", gl)

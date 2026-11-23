@@ -1,0 +1,3 @@
+package main
+
+let f = fn (~ /* before */ x:/* after */ Int) -> x

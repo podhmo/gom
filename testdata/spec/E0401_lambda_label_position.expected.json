@@ -1,0 +1,30 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected Int -> ~x: Int -> Int, got ~x: Int -> Int -> Int",
+      "span": {
+        "file": "E0401_lambda_label_position.gom",
+        "start": {
+          "line": 11,
+          "col": 13,
+          "offset": 372
+        },
+        "end": {
+          "line": 11,
+          "col": 14,
+          "offset": 373
+        }
+      },
+      "data": {
+        "actual": "~x: Int -> Int -> Int",
+        "expected": "Int -> ~x: Int -> Int"
+      },
+      "notes": [
+        "the labeled parameters ~x: sit at a different position among the positional parameters — the generated Go call is positional, so the arguments would swap"
+      ]
+    }
+  ]
+}

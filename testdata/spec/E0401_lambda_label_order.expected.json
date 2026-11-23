@@ -20,11 +20,7 @@
       },
       "data": {
         "actual": "~a: Int -> ~b: Int -> Int",
-        "expected": "~b: Int -> ~a: Int -> Int",
-        "unfilled_labels": [
-          "a",
-          "b"
-        ]
+        "expected": "~b: Int -> ~a: Int -> Int"
       },
       "notes": [
         "the labeled parameters ~a:, ~b: are in a different order — the generated Go call is positional, so the arguments would swap"
