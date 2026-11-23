@@ -14,6 +14,9 @@ import (
 func TestArrayPtrConvIsolatesList(t *testing.T) {
 	xs := list.List[int64]{1, 2, 3, 4}
 	p := MakeP(xs)
+	if p[0] != 1 || p[1] != 2 || p[2] != 3 {
+		t.Fatalf("MakeP = %v, want the first 3 elements of %v", *p, xs)
+	}
 	p[0] = -1
 	if xs[0] != 1 {
 		t.Fatalf("write through conv'd array pointer reached the source list: xs = %v", xs)
