@@ -1,0 +1,6 @@
+package ex
+
+//gom:embed "a b.txt
+@extern let files : String
+
+fn get () -> String = files

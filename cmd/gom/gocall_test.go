@@ -87,19 +87,20 @@ func TestEndToEnd_GoCallsGom(t *testing.T) {
 	geomDir := filepath.Join(dir, "geom")
 	boundaryDir := filepath.Join(dir, "boundary")
 	iterdeferDir := filepath.Join(dir, "iterdefer")
+	assetsDir := filepath.Join(dir, "assets")
 
 	// gom check compiles geom as one unit — geom.gom + the .gomi —
 	// and the boundary-aliasing fixture package the same way.
-	if code, out, errout := invoke("check", "-format", "text", geomDir, boundaryDir, iterdeferDir); code != 0 {
+	if code, out, errout := invoke("check", "-format", "text", geomDir, boundaryDir, iterdeferDir, assetsDir); code != 0 {
 		t.Fatalf("gom check: exit %d; stdout=%q stderr=%q", code, out, errout)
 	}
 
 	// gom build emits geom/geom.go + boundary/boundary.go next to
 	// the sources.
-	if code, out, errout := invoke("build", geomDir, boundaryDir, iterdeferDir); code != 0 {
+	if code, out, errout := invoke("build", geomDir, boundaryDir, iterdeferDir, assetsDir); code != 0 {
 		t.Fatalf("gom build: exit %d; stdout=%q stderr=%q", code, out, errout)
 	}
-	for _, rel := range []string{"geom/geom.go", "boundary/boundary.go", "iterdefer/iterdefer.go"} {
+	for _, rel := range []string{"geom/geom.go", "boundary/boundary.go", "iterdefer/iterdefer.go", "assets/assets.go"} {
 		if _, err := os.Stat(filepath.Join(dir, rel)); err != nil {
 			t.Fatalf("expected generated file %s: %v", rel, err)
 		}
@@ -110,7 +111,7 @@ func TestEndToEnd_GoCallsGom(t *testing.T) {
 	// packages — then runs the boundary assertions from the Go side.
 	goCmd(t, gobin, dir, "build", "./...")
 	out := goCmd(t, gobin, dir, "test", "./...")
-	for _, pkg := range []string{"example.com/gocall/geom", "example.com/gocall/boundary", "example.com/gocall/iterdefer"} {
+	for _, pkg := range []string{"example.com/gocall/geom", "example.com/gocall/boundary", "example.com/gocall/iterdefer", "example.com/gocall/assets"} {
 		if !strings.Contains(out, "ok  \t"+pkg) && !strings.Contains(out, "ok  	"+pkg) {
 			t.Fatalf("go test ./...: expected %s to pass, got:\n%s", pkg, out)
 		}

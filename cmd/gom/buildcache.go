@@ -274,12 +274,27 @@ func canonHash(src []byte, dropTests bool) string {
 	canon := syntax.Canonical(src, drops)
 	// Comments leave the canonical token stream unchanged, but
 	// `//gom:` directive lines carry semantics (//gom:allow,
-	// //gom:noescape) — fold them into the fingerprint so adding or
-	// removing one invalidates the entry.
-	for _, line := range bytes.Split(src, []byte("\n")) {
-		if t := bytes.TrimSpace(line); bytes.HasPrefix(t, []byte("//gom:")) {
-			canon = append(canon, '\n')
-			canon = append(canon, t...)
+	// //gom:noescape, //gom:embed) — fold them into the fingerprint.
+	// A directive's attachment also depends on the contiguous
+	// comment run around it (a blank line detaches `//gom:embed`
+	// from the decl below), so every line comment goes in with two
+	// adjacency flags: 'n' — the next physical line is non-blank,
+	// 'p' — the previous physical line is a comment. Inserting or
+	// removing a blank line or comment inside the run then moves
+	// the key, instead of a stale cached embed emission surviving.
+	lines := bytes.Split(src, []byte("\n"))
+	for i, line := range lines {
+		t := bytes.TrimSpace(line)
+		if !bytes.HasPrefix(t, []byte("//")) {
+			continue
+		}
+		canon = append(canon, '\n')
+		canon = append(canon, t...)
+		if i+1 < len(lines) && len(bytes.TrimSpace(lines[i+1])) > 0 {
+			canon = append(canon, 'n')
+		}
+		if i > 0 && bytes.HasPrefix(bytes.TrimSpace(lines[i-1]), []byte("//")) {
+			canon = append(canon, 'p')
 		}
 	}
 	sum := sha256.Sum256(canon)

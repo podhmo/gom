@@ -959,13 +959,18 @@ func (c *checker) checkExternLetDecl(d *syntax.LetDecl) {
 	pat := c.checkPat(d.Pat, want)
 	var patterns []string
 	for _, cm := range d.Embed {
-		fields := strings.Fields(cm.Text)
-		if len(fields) < 2 {
+		pats, ok := splitEmbedPatterns(strings.TrimPrefix(cm.Text, "gom:embed"))
+		if !ok {
+			c.diags.Add(diag.Error("E0512",
+				"unbalanced quote in a `//gom:embed` pattern").At(cm.Sp))
+			continue
+		}
+		if len(pats) == 0 {
 			c.diags.Add(diag.Error("E0512",
 				"`//gom:embed` needs at least one file pattern").At(cm.Sp))
 			continue
 		}
-		patterns = append(patterns, fields[1:]...)
+		patterns = append(patterns, pats...)
 	}
 	if len(patterns) > 0 && !embedAdmissible(want) {
 		c.diags.Add(diag.Error("E0512",
@@ -974,6 +979,41 @@ func (c *checker) checkExternLetDecl(d *syntax.LetDecl) {
 	c.decls = append(c.decls, &LetDecl{
 		Sp: d.Sp, Pat: pat, Extern: true, Embed: patterns,
 	})
+}
+
+// splitEmbedPatterns splits a //gom:embed directive's pattern list on
+// whitespace. Go's //go:embed accepts double-quoted and backquoted
+// patterns for filenames containing spaces — the quotes stay on the
+// pattern so codegen can emit them verbatim. ok is false on an
+// unbalanced quote.
+func splitEmbedPatterns(rest string) (pats []string, ok bool) {
+	for {
+		rest = strings.TrimLeft(rest, " \t")
+		if rest == "" {
+			return pats, true
+		}
+		if q := rest[0]; q == '"' || q == '`' {
+			j := 1
+			for j < len(rest) && rest[j] != q {
+				if q == '"' && rest[j] == '\\' {
+					j++
+				}
+				j++
+			}
+			if j >= len(rest) {
+				return nil, false
+			}
+			pats = append(pats, rest[:j+1])
+			rest = rest[j+1:]
+			continue
+		}
+		if i := strings.IndexAny(rest, " \t"); i >= 0 {
+			pats = append(pats, rest[:i])
+			rest = rest[i:]
+		} else {
+			return append(pats, rest), true
+		}
+	}
 }
 
 // embedAdmissible reports whether t is a type `//go:embed` accepts:

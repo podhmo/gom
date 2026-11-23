@@ -1,0 +1,14 @@
+package assets
+
+import go _ "embed"
+
+// Execution coverage for @extern let — the Go-side assertions live
+// in assets_test.go.
+
+//gom:embed hello.txt
+@extern let greeting : String
+
+@extern let token : String
+
+fn greeting_text () -> String = greeting
+fn token_text () -> String = token

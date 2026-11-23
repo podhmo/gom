@@ -91,6 +91,12 @@ type gen struct {
 	// `_ "embed"` unless the file already imports the package.
 	needBlankEmbed bool
 
+	// blankImports are the paths of `import go _ "path"` clauses —
+	// emitted as `_ "path"` lines beside the named imports. Kept
+	// out of imports: a path that is both blank- and named-imported
+	// needs its named alias for references, not `_`.
+	blankImports map[string]bool
+
 	testFn *core.Func // the test's fn: escapes targeting it call t.Errorf
 
 	// depth is the current indentation level, pendingIndent marks a
@@ -139,6 +145,7 @@ func newGen(li *diag.LineIndex) *gen {
 		// pendingIndent starts set so its pad pins and indents it.
 		pendingIndent: true,
 		imports:       map[string]string{},
+		blankImports:  map[string]bool{},
 		inames:        map[string]bool{},
 		names:         map[*resolve.Symbol]string{},
 		used:          map[string]bool{},

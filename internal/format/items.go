@@ -29,20 +29,22 @@ import (
 
 // item is one element of a collection.
 type item struct {
-	lo, hi int      // source span — gap boundaries
-	d      *doc     // content
-	lead   []string // extra lines printed above the item (doc comments, @test)
+	lo, hi   int                      // source span — gap boundaries
+	d        *doc                     // content
+	lead     []string                 // extra lines printed above the item (doc comments, @test)
+	embedDir map[*syntax.Comment]bool // `//gom:embed` comments this decl consumed
 }
 
 // seqSpec describes one collection's separators and trivia policy.
 type seqSpec struct {
-	sep       string // separator after each item when broken ("", ",", ";")
-	flatSep   string // separator between items when flat ("; ", ", ")
-	trailSep  bool   // separator after the last item too (trailing comma)
-	flatTrail bool   // also emit sep after the last item in the flat shape
-	blanks    bool   // preserve blank lines between items (collapse to one)
-	always    bool   // never render flat (match, select, extern, sum type)
-	lines     int    // newlines separating items: 1 in braces, 2 between decls
+	sep        string // separator after each item when broken ("", ",", ";")
+	flatSep    string // separator between items when flat ("; ", ", ")
+	trailSep   bool   // separator after the last item too (trailing comma)
+	flatTrail  bool   // also emit sep after the last item in the flat shape
+	blanks     bool   // preserve blank lines between items (collapse to one)
+	always     bool   // never render flat (match, select, extern, sum type)
+	lines      int    // newlines separating items: 1 in braces, 2 between decls
+	keepGomDir bool   // detached `//gom:embed` comments keep a blank line before the item
 }
 
 // gap holds the trivia between two adjacent items (or between a
@@ -58,7 +60,7 @@ type gap struct {
 func (g gap) events(keepBlanks bool) []gevt {
 	ev := make([]gevt, 0, len(g.own)+len(g.blanks))
 	for _, c := range g.own {
-		ev = append(ev, gevt{line: c.startLine, text: c.render()})
+		ev = append(ev, gevt{line: c.startLine, text: c.render(), c: c})
 	}
 	if keepBlanks {
 		for _, l := range g.blanks {
@@ -171,12 +173,26 @@ func inlineText(cs []*cmt) string {
 // supplies the boundary newlines around the whole sequence.
 func (p *printer) seqLines(gaps []gap, items []item, s seqSpec, ind int) []*doc {
 	var lines []*doc
-	emitEvents := func(g gap) {
-		for _, e := range g.events(s.blanks) {
+	emitEvents := func(g gap, next *item) {
+		ev := g.events(s.blanks)
+		for i, e := range ev {
 			if e.blank {
 				lines = append(lines, docNil)
-			} else {
-				lines = append(lines, text(e.text))
+				continue
+			}
+			lines = append(lines, text(e.text))
+			// A `//gom:embed` directive is positional: it reaches the
+			// decl through the contiguous comment run right above it
+			// (embedBefore). When the following item did not consume
+			// this comment, a blank line keeps the run broken so a
+			// reparse does not activate the directive. Other `//gom:`
+			// directives are name-keyed scans — no attachment needed.
+			if s.keepGomDir && next != nil && e.c != nil &&
+				e.c.c.Kind == syntax.CommentLine &&
+				strings.HasPrefix(e.c.c.Text, "gom:embed") &&
+				!next.embedDir[e.c.c] &&
+				(i+1 >= len(ev) || !ev[i+1].blank) {
+				lines = append(lines, docNil)
 			}
 		}
 	}
@@ -186,7 +202,11 @@ func (p *printer) seqLines(gaps []gap, items []item, s seqSpec, ind int) []*doc 
 	for _, c := range gaps[0].trail {
 		lines = append(lines, text(c.render()))
 	}
-	emitEvents(gaps[0])
+	var first *item
+	if len(items) > 0 {
+		first = &items[0]
+	}
+	emitEvents(gaps[0], first)
 
 	// Alignment: an item joins a run when it renders single-line,
 	// carries a trailing comment, and its following gap has no
@@ -228,7 +248,7 @@ func (p *printer) seqLines(gaps []gap, items []item, s seqSpec, ind int) []*doc 
 			for n := 0; n < s.lines-1; n++ {
 				lines = append(lines, docNil)
 			}
-			emitEvents(gaps[i])
+			emitEvents(gaps[i], &items[i])
 		}
 		for _, l := range it.lead {
 			lines = append(lines, text(l))
@@ -265,7 +285,7 @@ func (p *printer) seqLines(gaps []gap, items []item, s seqSpec, ind int) []*doc 
 	// it was already emitted above; emitting it again would duplicate
 	// every comment.
 	if len(items) > 0 {
-		emitEvents(gaps[len(items)])
+		emitEvents(gaps[len(items)], nil)
 	}
 	return lines
 }
