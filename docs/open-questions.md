@@ -20,7 +20,7 @@
 
 - [x] Go ABI の方針: 生成される Go の API（型名・関数のシグネチャ・バリアントの struct 名）を、Gom のバージョンをまたいでどこまで安定させるか — 案 B 採択（決定的 emit の保証 + emit 名の衝突検出、名前の安定保証はしない — [decision](decisions/2026-11-23-go-abi-stability.md)）。衝突検出器は wave35 lane C で実装済み（emit 台帳 + W0601/W0602 + `gom dump -phase=emit` — [decision](decisions/2026-11-23-emit-name-collision-check.md)）
 - [x] Gom の型が Go の interface を実装できるようにするか（v1 ではできない）。できるなら、どう宣言するか — wave25 lane D で実現可能性を調査済み、wave29 lane D で post-defined-type 世界の設計を decision まで固め（`@method` 属性 + 規約命名、.gomi は fn リスト、`InterfaceMethods` oracle — [decision](decisions/2026-11-21-go-iface-impl.md)）、2026-11-22 に採択。実装は wave30 lane C（[prompts](sketch/2026-11-22-wave30-prompts.md)）
-- [ ] `Go.Any` の検査面（型アサーション相当）— **wave38 lane F（調査→decision）として採択**: `Go.conv` では具象型へ取り出せない（E0507 — spec が明示的に拒否する設計）が、代替の面がないため `json.Unmarshal` で `any` に decode した値を触れない。panic 式 / `Option` 返り / `match` 拡張のどれで供給するか（[decision draft](decisions/2026-11-24-go-any-extraction.md) — comma-ok の `Option` 返り `Go.try_as` を唯一の面として提案）
+- [ ] `Go.Any` の検査面（型アサーション相当）— **wave38 lane F（調査→decision）として採択**: `Go.conv` では具象型へ取り出せない（E0507 — spec が明示的に拒否する設計）が、代替の面がないため `json.Unmarshal` で `any` に decode した値を触れない。panic 式 / `Option` 返り / `match` 拡張のどれで供給するか（[decision](decisions/2026-11-24-go-any-extraction.md) 採択 — comma-ok の `Option` 返り `Go.try_as` を唯一の面とする。**wave39 lane A で実施**）
 - [x] `Go.Slice` の要素に Gom 宣言型を置けるか: wave37 lane D — decision [2026-11-23-goslice-gom-elem](decisions/2026-11-23-goslice-gom-elem.md)（`~` 制約の要素一致を Gom 側 `types.Equal` で見る案）。**2026-11-24 採択** — 実装は wave38 lane D
 
 ### 最適化
