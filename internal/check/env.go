@@ -107,9 +107,25 @@ type GoConstraintSource interface {
 	// GoSatisfies reports whether the solved type argument at index
 	// i of targs satisfies constraint c; targs is the call's full
 	// solved argument list so cross-parameter shapes (`S ~[]E`)
-	// read their operands from it.
-	GoSatisfies(targs []types.Type, i int, c GoConstraint) bool
+	// read their operands from it. GoVerdictUnproven means the
+	// oracle could not map the argument at all — the checker then
+	// falls back to comparing the constraint's operand type
+	// arguments Gom-side (decision 2026-11-23-goslice-gom-elem).
+	GoSatisfies(targs []types.Type, i int, c GoConstraint) GoVerdict
 }
+
+// GoVerdict is the oracle's three-way answer for a widened
+// constraint: Yes admits, No rejects, Unproven defers to the
+// checker's Gom-side structural comparison (an argument the
+// boundary cannot map — a Gom-declared element inside
+// `Go.Slice`/`Go.Map`/`List` — is not automatically false).
+type GoVerdict int
+
+const (
+	GoVerdictNo GoVerdict = iota
+	GoVerdictYes
+	GoVerdictUnproven
+)
 
 // SignatureSource supplies the signatures of symbols not declared in
 // the file being checked: imported module members, Go functions and
@@ -490,13 +506,13 @@ func (c chain) GoComparable(t types.Type) bool {
 // GoSatisfies forwards the optional GoConstraintSource protocol
 // through the chain — the first implementing source answers for
 // all widened constraints (it is the source that mapped them).
-func (c chain) GoSatisfies(targs []types.Type, i int, con GoConstraint) bool {
+func (c chain) GoSatisfies(targs []types.Type, i int, con GoConstraint) GoVerdict {
 	for _, s := range c {
 		if src, ok := s.(GoConstraintSource); ok {
 			return src.GoSatisfies(targs, i, con)
 		}
 	}
-	return false
+	return GoVerdictNo
 }
 
 // GoConvertible forwards the optional ConvertSource protocol through

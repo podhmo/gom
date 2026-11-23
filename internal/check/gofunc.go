@@ -314,7 +314,7 @@ func (c *checker) checkGoFnCall(e *syntax.Apply, fn Expr, callee *resolve.Symbol
 func (c *checker) goFuncNType(e *syntax.Apply, n int, ps []types.FuncParam, ret types.Type) types.Type {
 	args := make([]types.Type, 0, n+2)
 	for _, p := range ps {
-		rt, reason := goFuncRawView(p.Type)
+		rt, reason := c.goFuncRawView(p.Type)
 		if reason != "" {
 			c.diags.Add(diag.Error("E0510",
 				fmt.Sprintf("`Go.func%d` cannot convert the parameter type %s: %s", n, types.Display(p.Type, metaNamer()), reason)).At(e.Sp))
@@ -587,25 +587,26 @@ func goFuncGomView(t types.Type, boundary bool) types.Type {
 
 // goFuncRawView maps a Gom-facing type to the raw Go view the
 // FuncN type argument names — `Int` is `Go.Int`, `List T` is
-// `Go.Slice T'`, and the Gom-only shapes (Option, Tuple, Func,
-// declared types) report why no Go func signature can carry them.
-func goFuncRawView(t types.Type) (types.Type, string) {
+// `Go.Slice T'`, declared types pass through by their emitted
+// name, and the Gom-only shapes (Option, Result, Tuple, Func)
+// report why no Go func signature can carry them.
+func (c *checker) goFuncRawView(t types.Type) (types.Type, string) {
 	switch t := types.Chase(t).(type) {
 	case *types.Con:
 		if t.Qual == "Go" {
 			switch t.Name {
 			case "Slice":
-				rt, reason := goFuncRawView(t.Args[0])
+				rt, reason := c.goFuncRawView(t.Args[0])
 				if reason != "" {
 					return nil, reason
 				}
 				return types.GoSlice(rt), ""
 			case "Map":
-				rk, reason := goFuncRawView(t.Args[0])
+				rk, reason := c.goFuncRawView(t.Args[0])
 				if reason != "" {
 					return nil, reason
 				}
-				rv, reason := goFuncRawView(t.Args[1])
+				rv, reason := c.goFuncRawView(t.Args[1])
 				if reason != "" {
 					return nil, reason
 				}
@@ -613,6 +614,20 @@ func goFuncRawView(t types.Type) (types.Type, string) {
 			}
 			// Go.Int/Go.Any/Go.FuncN and the other Go-owned
 			// constructors are already raw views.
+			return t, ""
+		}
+		// A declared type — a local `type` (including one
+		// shadowing a builtin name) or an imported package's —
+		// emits as a named Go type the raw signature can carry by
+		// name (codegen writes `exportName(c.Name)` / the qualified
+		// identifier). Declared names must win over the
+		// builtin-name switch below: an imported `model.Int` is
+		// not builtin `Int`, and a local `type Int` declares its
+		// own emitted type (decision 2026-11-23-goslice-gom-elem).
+		if t.Qual != "" {
+			return t, ""
+		}
+		if ti, declared := c.tyCons[conKey{qual: "", name: t.Name}]; declared && ti.sym != nil {
 			return t, ""
 		}
 		switch t.Name {
@@ -623,41 +638,43 @@ func goFuncRawView(t types.Type) (types.Type, string) {
 		case "Int32", "Float", "Bool", "String", "Char", "Byte", "GoError":
 			return t, ""
 		case "List":
-			rt, reason := goFuncRawView(t.Args[0])
+			rt, reason := c.goFuncRawView(t.Args[0])
 			if reason != "" {
 				return nil, reason
 			}
 			return types.GoSlice(rt), ""
 		case "Ptr":
-			rt, reason := goFuncRawView(t.Args[0])
+			rt, reason := c.goFuncRawView(t.Args[0])
 			if reason != "" {
 				return nil, reason
 			}
 			return types.Ptr(rt), ""
 		case "Chan":
-			rt, reason := goFuncRawView(t.Args[0])
+			rt, reason := c.goFuncRawView(t.Args[0])
 			if reason != "" {
 				return nil, reason
 			}
 			return types.Chan(rt), ""
 		case "RecvChan":
-			rt, reason := goFuncRawView(t.Args[0])
+			rt, reason := c.goFuncRawView(t.Args[0])
 			if reason != "" {
 				return nil, reason
 			}
 			return types.RecvChan(rt), ""
 		case "SendChan":
-			rt, reason := goFuncRawView(t.Args[0])
+			rt, reason := c.goFuncRawView(t.Args[0])
 			if reason != "" {
 				return nil, reason
 			}
 			return types.SendChan(rt), ""
 		}
+		// Only the builtin cons left — `Option`, `Result` — have
+		// no Go representation.
 		return nil, "the type has no Go representation"
 	case *types.Go:
 		args := make([]types.Type, len(t.Args))
 		for i, a := range t.Args {
-			rt, reason := goFuncRawView(a)
+			rt, reason := c.goFuncRawView(a)
 			if reason != "" {
 				return nil, reason
 			}
@@ -693,9 +710,10 @@ func (c *checker) goFuncRawResults(ret types.Type) ([]types.Type, string) {
 	elemRaw := func(el types.Type) (types.Type, string) {
 		p := types.Chase(el)
 		if oc, isOpt := p.(*types.Con); isOpt && oc.Qual == "" &&
-			oc.Name == "Option" && len(oc.Args) == 1 {
+			oc.Name == "Option" && len(oc.Args) == 1 &&
+			!c.shadowedBuiltin("Option") {
 			p = types.Chase(oc.Args[0])
-			rt, reason := goFuncRawView(p)
+			rt, reason := c.goFuncRawView(p)
 			if reason != "" {
 				return nil, reason
 			}
@@ -704,9 +722,9 @@ func (c *checker) goFuncRawResults(ret types.Type) ([]types.Type, string) {
 			}
 			return rt, ""
 		}
-		return goFuncRawView(p)
+		return c.goFuncRawView(p)
 	}
-	if rc, ok := ret.(*types.Con); ok && rc.Qual == "" {
+	if rc, ok := ret.(*types.Con); ok && rc.Qual == "" && !c.shadowedBuiltin(rc.Name) {
 		if rc.Name == "Unit" && len(rc.Args) == 0 {
 			return nil, ""
 		}
@@ -714,7 +732,8 @@ func (c *checker) goFuncRawResults(ret types.Type) ([]types.Type, string) {
 			isGoErrorCon(rc.Args[1]) {
 			p := types.Chase(rc.Args[0])
 			if uc, ok := p.(*types.Con); ok &&
-				uc.Qual == "" && uc.Name == "Unit" && len(uc.Args) == 0 {
+				uc.Qual == "" && uc.Name == "Unit" && len(uc.Args) == 0 &&
+				!c.shadowedBuiltin("Unit") {
 				return []types.Type{types.GoError}, ""
 			}
 			if tup, isTup := p.(*types.Tuple); isTup {
@@ -760,7 +779,7 @@ func (c *checker) goFuncRawResults(ret types.Type) ([]types.Type, string) {
 		}
 		return rs, ""
 	}
-	rt, reason := goFuncRawView(ret)
+	rt, reason := c.goFuncRawView(ret)
 	if reason != "" {
 		return nil, reason
 	}

@@ -397,7 +397,16 @@ func (c *checker) validateGoGenerics() {
 					continue
 				}
 				if src, sok := c.src.(GoConstraintSource); sok {
-					ok = src.GoSatisfies(use.targs, i, gc)
+					switch src.GoSatisfies(use.targs, i, gc) {
+					case GoVerdictYes:
+						ok = true
+					case GoVerdictUnproven:
+						// The boundary could not map the argument —
+						// a declared Gom element inside the slice
+						// or map. Judge the element pair Gom-side
+						// (decision 2026-11-23-goslice-gom-elem).
+						ok = c.goSatisfiesGomElems(use.targs, i, gc)
+					}
 				}
 				desc = gc.Desc
 			default:
@@ -423,6 +432,103 @@ func (c *checker) validateGoGenerics() {
 				Set("constraint", desc).
 				Set("parameter", param))
 		}
+	}
+}
+
+// goSatisfiesGomElems is the Gom-side fallback for a `~[]E` or
+// `~map[K]V` constraint whose argument the boundary oracle could not
+// map — a `Go.Slice`/`Go.Map`/`List` carrying a declared Gom element.
+// Within one generated package equal Gom types emit as the same Go
+// type, so comparing the argument's element to the constraint's
+// operand type argument by types.Equal is the same judgment the
+// oracle's types.Identical makes when it can map both sides
+// (decision 2026-11-23-goslice-gom-elem). Anything else — a union
+// constraint, an argument with no slice/map shape — stays rejected.
+func (c *checker) goSatisfiesGomElems(targs []types.Type, i int, gc GoConstraint) bool {
+	elems := func(t types.Type) ([]types.Type, bool) {
+		con, ok := types.Chase(t).(*types.Con)
+		if !ok {
+			return nil, false
+		}
+		switch {
+		case con.Qual == "Go" && con.Name == "Slice" && len(con.Args) == 1:
+			return con.Args[:1], true
+		case con.Qual == "Go" && con.Name == "Map" && len(con.Args) == 2:
+			return con.Args, true
+		case con.Qual == "" && con.Name == "List" && len(con.Args) == 1 &&
+			!c.shadowedBuiltin("List"):
+			return con.Args[:1], true
+		}
+		return nil, false
+	}
+	pairEq := func(want []int) bool {
+		got, ok := elems(targs[i])
+		if !ok || len(got) != len(want) {
+			return false
+		}
+		// The fallback exists for Gom-declared elements, the case
+		// the boundary oracle cannot map — not to widen admission
+		// for arbitrary unmapped shapes. Every operand must emit
+		// honestly as a Go element (a tuple or function type has
+		// no such reading) and at least one node must be a
+		// declared type.
+		var shape func(t types.Type) (decl, honest bool)
+		shape = func(t types.Type) (bool, bool) {
+			p := types.Chase(t)
+			if _, ok := p.(*types.Go); ok {
+				// A named Go type (time.Duration, sort.IntSlice)
+				// emits verbatim — honest, though not a declared
+				// Gom type.
+				return false, true
+			}
+			con, ok := p.(*types.Con)
+			if !ok {
+				return false, false
+			}
+			if con.Qual != "" && con.Qual != "Go" {
+				return true, true
+			}
+			if con.Qual == "" {
+				if ti, d := c.tyCons[conKey{qual: "", name: con.Name}]; d && ti.sym != nil {
+					return true, true
+				}
+			}
+			decl := false
+			for _, a := range con.Args {
+				d, h := shape(a)
+				if !h {
+					return false, false
+				}
+				decl = decl || d
+			}
+			return decl, true
+		}
+		declared := false
+		for _, el := range got {
+			d, h := shape(el)
+			if !h {
+				return false
+			}
+			declared = declared || d
+		}
+		if !declared {
+			return false
+		}
+		for k, j := range want {
+			if j < 0 || j >= len(targs) ||
+				!types.Equal(got[k], types.Chase(targs[j])) {
+				return false
+			}
+		}
+		return true
+	}
+	switch gc.Kind {
+	case GoConstraintSlice:
+		return pairEq([]int{gc.Elem})
+	case GoConstraintMap:
+		return pairEq([]int{gc.Key, gc.Val})
+	default:
+		return false
 	}
 }
 

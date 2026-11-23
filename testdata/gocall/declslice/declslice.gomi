@@ -1,0 +1,6 @@
+package declslice
+
+type Rec = { name: String, n: Int }
+
+fn sort_by_n (rs: Go.Slice Rec) -> Unit
+fn rev (rs: Go.Slice Rec) -> Unit

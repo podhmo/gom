@@ -1,0 +1,50 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "W0501",
+      "severity": "warning",
+      "message": "`slices.Reverse` returns Unit and receives its `List Rec` argument as a copied []T — a callee that mutates the slice in place has no effect on the Gom value",
+      "span": {
+        "file": "ok_go_slice_decl_elem.gom",
+        "start": {
+          "line": 11,
+          "col": 53,
+          "offset": 322
+        },
+        "end": {
+          "line": 11,
+          "col": 55,
+          "offset": 324
+        }
+      },
+      "data": {
+        "argument": "List Rec",
+        "callee": "slices.Reverse"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "W0501",
+      "severity": "warning",
+      "message": "`slices.SortFunc` returns Unit and receives its `List Rec` argument as a copied []T — a callee that mutates the slice in place has no effect on the Gom value",
+      "span": {
+        "file": "ok_go_slice_decl_elem.gom",
+        "start": {
+          "line": 18,
+          "col": 53,
+          "offset": 555
+        },
+        "end": {
+          "line": 18,
+          "col": 55,
+          "offset": 557
+        }
+      },
+      "data": {
+        "argument": "List Rec",
+        "callee": "slices.SortFunc"
+      }
+    }
+  ]
+}
