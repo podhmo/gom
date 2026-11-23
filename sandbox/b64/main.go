@@ -128,242 +128,248 @@ func run(decode bool, path option.Option[string]) result.Result[struct{}, error]
 	var out list.List[byte]
 //line sandbox/b64/main.gom:30
 	if decode {
-//line sandbox/b64/main.gom:31
+//line sandbox/b64/main.gom:30
 		tmp19 := string(data)
-//line sandbox/b64/main.gom:31
+//line sandbox/b64/main.gom:30
 		tmp20, err3 := base64.StdEncoding.DecodeString(tmp19)
-//line sandbox/b64/main.gom:31
+//line sandbox/b64/main.gom:30
 		if err3 != nil {
-//line sandbox/b64/main.gom:31
+//line sandbox/b64/main.gom:30
 			return result.Err[struct{}, error](err3)
-//line sandbox/b64/main.gom:31
+//line sandbox/b64/main.gom:30
 		}
-//line sandbox/b64/main.gom:31
+//line sandbox/b64/main.gom:30
 		out = list.FromSlice(tmp20)
 //line sandbox/b64/main.gom:30
 	} else {
-//line sandbox/b64/main.gom:33
+//line sandbox/b64/main.gom:31
 		tmp17 := data.ToSlice()
-//line sandbox/b64/main.gom:33
+//line sandbox/b64/main.gom:31
 		tmp18 := base64.StdEncoding.EncodeToString(tmp17)
-//line sandbox/b64/main.gom:33
+//line sandbox/b64/main.gom:31
 		out = list.List[byte](tmp18)
 //line sandbox/b64/main.gom:30
 	}
-//line sandbox/b64/main.gom:35
+//line sandbox/b64/main.gom:33
 	tmp21 := out.ToSlice()
-//line sandbox/b64/main.gom:35
-	v4, err4 := os.Stdout.Write(tmp21)
-//line sandbox/b64/main.gom:35
-	_ = result.FromGo(int64(v4), err4)
-//line sandbox/b64/main.gom:36
+//line sandbox/b64/main.gom:33
+	tmp22, err4 := os.Stdout.Write(tmp21)
+//line sandbox/b64/main.gom:33
+	if err4 != nil {
+//line sandbox/b64/main.gom:33
+		return result.Err[struct{}, error](err4)
+//line sandbox/b64/main.gom:33
+	}
+//line sandbox/b64/main.gom:33
+	_ = int64(tmp22)
+//line sandbox/b64/main.gom:34
 	return result.Ok[struct{}, error](struct{}{})
 //line sandbox/b64/main.gom:28
 }
 
-//line sandbox/b64/main.gom:39
+//line sandbox/b64/main.gom:37
 func main() {
-//line sandbox/b64/main.gom:39
-	tmp22 := programArgs(struct{}{})
-//line sandbox/b64/main.gom:40
+//line sandbox/b64/main.gom:37
+	tmp23 := programArgs(struct{}{})
+//line sandbox/b64/main.gom:38
 	switch {
-//line sandbox/b64/main.gom:40
-	case len(tmp22) == 0:
-//line sandbox/b64/main.gom:40
-		tmp23 := option.Option[string](option.Option_None[string]{})
-//line sandbox/b64/main.gom:40
-		tmp24 := run(false, tmp23)
-//line sandbox/b64/main.gom:41
-		switch tmp24.Tag() {
-//line sandbox/b64/main.gom:41
+//line sandbox/b64/main.gom:38
+	case len(tmp23) == 0:
+//line sandbox/b64/main.gom:38
+		tmp24 := option.Option[string](option.Option_None[string]{})
+//line sandbox/b64/main.gom:38
+		tmp25 := run(false, tmp24)
+//line sandbox/b64/main.gom:39
+		switch tmp25.Tag() {
+//line sandbox/b64/main.gom:39
 		case result.ResultTagOk:
-//line sandbox/b64/main.gom:41
+//line sandbox/b64/main.gom:39
 			_ = struct{}{}
-//line sandbox/b64/main.gom:41
+//line sandbox/b64/main.gom:39
 		case result.ResultTagErr:
-//line sandbox/b64/main.gom:41
-			tmp26 := tmp24.Error
-//line sandbox/b64/main.gom:41
-			tmp27 := tmp26
-//line sandbox/b64/main.gom:42
-			tmp28 := tmp27.Error()
-//line sandbox/b64/main.gom:42
-			die(tmp28)
-//line sandbox/b64/main.gom:42
+//line sandbox/b64/main.gom:39
+			tmp27 := tmp25.Error
+//line sandbox/b64/main.gom:39
+			tmp28 := tmp27
+//line sandbox/b64/main.gom:40
+			tmp29 := tmp28.Error()
+//line sandbox/b64/main.gom:40
+			die(tmp29)
+//line sandbox/b64/main.gom:40
 		default:
-//line sandbox/b64/main.gom:40
-			panic(rt.InvalidVariant("Result", tmp24))
-//line sandbox/b64/main.gom:41
+//line sandbox/b64/main.gom:38
+			panic(rt.InvalidVariant("Result", tmp25))
+//line sandbox/b64/main.gom:39
 		}
-//line sandbox/b64/main.gom:40
-	case len(tmp22) != 0:
-//line sandbox/b64/main.gom:40
-		tmp29 := tmp22[0]
-//line sandbox/b64/main.gom:40
-		tmp30 := tmp22[1:]
-//line sandbox/b64/main.gom:44
-		switch tmp29 {
-//line sandbox/b64/main.gom:44
+//line sandbox/b64/main.gom:38
+	case len(tmp23) != 0:
+//line sandbox/b64/main.gom:38
+		tmp30 := tmp23[0]
+//line sandbox/b64/main.gom:38
+		tmp31 := tmp23[1:]
+//line sandbox/b64/main.gom:42
+		switch tmp30 {
+//line sandbox/b64/main.gom:42
 		case "-d":
-//line sandbox/b64/main.gom:44
+//line sandbox/b64/main.gom:42
 			switch {
-//line sandbox/b64/main.gom:44
-			case len(tmp30) == 0:
-//line sandbox/b64/main.gom:44
-				tmp31 := option.Option[string](option.Option_None[string]{})
-//line sandbox/b64/main.gom:44
-				tmp32 := run(true, tmp31)
-//line sandbox/b64/main.gom:45
-				switch tmp32.Tag() {
-//line sandbox/b64/main.gom:45
+//line sandbox/b64/main.gom:42
+			case len(tmp31) == 0:
+//line sandbox/b64/main.gom:42
+				tmp32 := option.Option[string](option.Option_None[string]{})
+//line sandbox/b64/main.gom:42
+				tmp33 := run(true, tmp32)
+//line sandbox/b64/main.gom:43
+				switch tmp33.Tag() {
+//line sandbox/b64/main.gom:43
 				case result.ResultTagOk:
-//line sandbox/b64/main.gom:45
+//line sandbox/b64/main.gom:43
 					_ = struct{}{}
-//line sandbox/b64/main.gom:45
+//line sandbox/b64/main.gom:43
 				case result.ResultTagErr:
-//line sandbox/b64/main.gom:45
-					tmp34 := tmp32.Error
-//line sandbox/b64/main.gom:45
-					tmp35 := tmp34
-//line sandbox/b64/main.gom:46
-					tmp36 := tmp35.Error()
-//line sandbox/b64/main.gom:46
-					die(tmp36)
-//line sandbox/b64/main.gom:46
+//line sandbox/b64/main.gom:43
+					tmp35 := tmp33.Error
+//line sandbox/b64/main.gom:43
+					tmp36 := tmp35
+//line sandbox/b64/main.gom:44
+					tmp37 := tmp36.Error()
+//line sandbox/b64/main.gom:44
+					die(tmp37)
+//line sandbox/b64/main.gom:44
 				default:
-//line sandbox/b64/main.gom:44
-					panic(rt.InvalidVariant("Result", tmp32))
-//line sandbox/b64/main.gom:45
+//line sandbox/b64/main.gom:42
+					panic(rt.InvalidVariant("Result", tmp33))
+//line sandbox/b64/main.gom:43
 				}
-//line sandbox/b64/main.gom:44
-			case len(tmp30) != 0:
-//line sandbox/b64/main.gom:48
+//line sandbox/b64/main.gom:42
+			case len(tmp31) != 0:
+//line sandbox/b64/main.gom:46
 				switch {
-//line sandbox/b64/main.gom:48
-				case len(tmp30) == 0:
-//line sandbox/b64/main.gom:40
-					tmp39 := tmp29
-//line sandbox/b64/main.gom:48
-					tmp40 := option.Option[string](option.Option_Some[string]{V0: tmp39})
-//line sandbox/b64/main.gom:48
-					tmp41 := run(false, tmp40)
-//line sandbox/b64/main.gom:49
-					switch tmp41.Tag() {
-//line sandbox/b64/main.gom:49
+//line sandbox/b64/main.gom:46
+				case len(tmp31) == 0:
+//line sandbox/b64/main.gom:38
+					tmp40 := tmp30
+//line sandbox/b64/main.gom:46
+					tmp41 := option.Option[string](option.Option_Some[string]{V0: tmp40})
+//line sandbox/b64/main.gom:46
+					tmp42 := run(false, tmp41)
+//line sandbox/b64/main.gom:47
+					switch tmp42.Tag() {
+//line sandbox/b64/main.gom:47
 					case result.ResultTagOk:
-//line sandbox/b64/main.gom:49
+//line sandbox/b64/main.gom:47
 						_ = struct{}{}
-//line sandbox/b64/main.gom:49
+//line sandbox/b64/main.gom:47
 					case result.ResultTagErr:
-//line sandbox/b64/main.gom:49
-						tmp43 := tmp41.Error
-//line sandbox/b64/main.gom:49
-						tmp44 := tmp43
-//line sandbox/b64/main.gom:50
-						tmp45 := tmp44.Error()
-//line sandbox/b64/main.gom:50
-						die(tmp45)
-//line sandbox/b64/main.gom:50
+//line sandbox/b64/main.gom:47
+						tmp44 := tmp42.Error
+//line sandbox/b64/main.gom:47
+						tmp45 := tmp44
+//line sandbox/b64/main.gom:48
+						tmp46 := tmp45.Error()
+//line sandbox/b64/main.gom:48
+						die(tmp46)
+//line sandbox/b64/main.gom:48
 					default:
-//line sandbox/b64/main.gom:48
-						panic(rt.InvalidVariant("Result", tmp41))
-//line sandbox/b64/main.gom:49
+//line sandbox/b64/main.gom:46
+						panic(rt.InvalidVariant("Result", tmp42))
+//line sandbox/b64/main.gom:47
 					}
-//line sandbox/b64/main.gom:48
-				case len(tmp30) != 0:
-//line sandbox/b64/main.gom:53
-					tmp48 := io.Writer(os.Stderr)
-//line sandbox/b64/main.gom:53
-					tmp49 := any("usage: b64 [-d] [FILE]")
-//line sandbox/b64/main.gom:53
-					v5, err5 := fmt.Fprintln(tmp48, tmp49)
-//line sandbox/b64/main.gom:53
-					_ = result.FromGo(int64(v5), err5)
-//line sandbox/b64/main.gom:54
-					tmp50 := int(2)
-//line sandbox/b64/main.gom:54
-					os.Exit(tmp50)
-//line sandbox/b64/main.gom:54
+//line sandbox/b64/main.gom:46
+				case len(tmp31) != 0:
+//line sandbox/b64/main.gom:50
+					tmp49 := io.Writer(os.Stderr)
+//line sandbox/b64/main.gom:50
+					tmp50 := any("usage: b64 [-d] [FILE]")
+//line sandbox/b64/main.gom:50
+					v4, err5 := fmt.Fprintln(tmp49, tmp50)
+//line sandbox/b64/main.gom:50
+					_ = result.FromGo(int64(v4), err5)
+//line sandbox/b64/main.gom:50
+					tmp51 := int(2)
+//line sandbox/b64/main.gom:50
+					os.Exit(tmp51)
+//line sandbox/b64/main.gom:50
 					_ = struct{}{}
-//line sandbox/b64/main.gom:55
+//line sandbox/b64/main.gom:50
 					_ = struct{}{}
-//line sandbox/b64/main.gom:55
+//line sandbox/b64/main.gom:50
 				default:
-//line sandbox/b64/main.gom:40
-					panic(rt.InvalidVariant("List", tmp30))
-//line sandbox/b64/main.gom:48
+//line sandbox/b64/main.gom:38
+					panic(rt.InvalidVariant("List", tmp31))
+//line sandbox/b64/main.gom:46
 				}
-//line sandbox/b64/main.gom:48
+//line sandbox/b64/main.gom:46
 			default:
-//line sandbox/b64/main.gom:40
-				panic(rt.InvalidVariant("List", tmp30))
-//line sandbox/b64/main.gom:44
+//line sandbox/b64/main.gom:38
+				panic(rt.InvalidVariant("List", tmp31))
+//line sandbox/b64/main.gom:42
 			}
-//line sandbox/b64/main.gom:44
+//line sandbox/b64/main.gom:42
 		default:
-//line sandbox/b64/main.gom:48
+//line sandbox/b64/main.gom:46
 			switch {
-//line sandbox/b64/main.gom:48
-			case len(tmp30) == 0:
-//line sandbox/b64/main.gom:40
-				tmp51 := tmp29
-//line sandbox/b64/main.gom:48
-				tmp52 := option.Option[string](option.Option_Some[string]{V0: tmp51})
-//line sandbox/b64/main.gom:48
-				tmp53 := run(false, tmp52)
-//line sandbox/b64/main.gom:49
-				switch tmp53.Tag() {
-//line sandbox/b64/main.gom:49
+//line sandbox/b64/main.gom:46
+			case len(tmp31) == 0:
+//line sandbox/b64/main.gom:38
+				tmp52 := tmp30
+//line sandbox/b64/main.gom:46
+				tmp53 := option.Option[string](option.Option_Some[string]{V0: tmp52})
+//line sandbox/b64/main.gom:46
+				tmp54 := run(false, tmp53)
+//line sandbox/b64/main.gom:47
+				switch tmp54.Tag() {
+//line sandbox/b64/main.gom:47
 				case result.ResultTagOk:
-//line sandbox/b64/main.gom:49
+//line sandbox/b64/main.gom:47
 					_ = struct{}{}
-//line sandbox/b64/main.gom:49
+//line sandbox/b64/main.gom:47
 				case result.ResultTagErr:
-//line sandbox/b64/main.gom:49
-					tmp55 := tmp53.Error
-//line sandbox/b64/main.gom:49
-					tmp56 := tmp55
-//line sandbox/b64/main.gom:50
-					tmp57 := tmp56.Error()
-//line sandbox/b64/main.gom:50
-					die(tmp57)
-//line sandbox/b64/main.gom:50
+//line sandbox/b64/main.gom:47
+					tmp56 := tmp54.Error
+//line sandbox/b64/main.gom:47
+					tmp57 := tmp56
+//line sandbox/b64/main.gom:48
+					tmp58 := tmp57.Error()
+//line sandbox/b64/main.gom:48
+					die(tmp58)
+//line sandbox/b64/main.gom:48
 				default:
-//line sandbox/b64/main.gom:48
-					panic(rt.InvalidVariant("Result", tmp53))
-//line sandbox/b64/main.gom:49
+//line sandbox/b64/main.gom:46
+					panic(rt.InvalidVariant("Result", tmp54))
+//line sandbox/b64/main.gom:47
 				}
-//line sandbox/b64/main.gom:48
-			case len(tmp30) != 0:
-//line sandbox/b64/main.gom:53
-				tmp60 := io.Writer(os.Stderr)
-//line sandbox/b64/main.gom:53
-				tmp61 := any("usage: b64 [-d] [FILE]")
-//line sandbox/b64/main.gom:53
-				v6, err6 := fmt.Fprintln(tmp60, tmp61)
-//line sandbox/b64/main.gom:53
-				_ = result.FromGo(int64(v6), err6)
-//line sandbox/b64/main.gom:54
-				tmp62 := int(2)
-//line sandbox/b64/main.gom:54
-				os.Exit(tmp62)
-//line sandbox/b64/main.gom:54
+//line sandbox/b64/main.gom:46
+			case len(tmp31) != 0:
+//line sandbox/b64/main.gom:50
+				tmp61 := io.Writer(os.Stderr)
+//line sandbox/b64/main.gom:50
+				tmp62 := any("usage: b64 [-d] [FILE]")
+//line sandbox/b64/main.gom:50
+				v5, err6 := fmt.Fprintln(tmp61, tmp62)
+//line sandbox/b64/main.gom:50
+				_ = result.FromGo(int64(v5), err6)
+//line sandbox/b64/main.gom:50
+				tmp63 := int(2)
+//line sandbox/b64/main.gom:50
+				os.Exit(tmp63)
+//line sandbox/b64/main.gom:50
 				_ = struct{}{}
-//line sandbox/b64/main.gom:55
+//line sandbox/b64/main.gom:50
 				_ = struct{}{}
-//line sandbox/b64/main.gom:55
+//line sandbox/b64/main.gom:50
 			default:
-//line sandbox/b64/main.gom:40
-				panic(rt.InvalidVariant("List", tmp30))
-//line sandbox/b64/main.gom:48
+//line sandbox/b64/main.gom:38
+				panic(rt.InvalidVariant("List", tmp31))
+//line sandbox/b64/main.gom:46
 			}
-//line sandbox/b64/main.gom:44
+//line sandbox/b64/main.gom:42
 		}
-//line sandbox/b64/main.gom:44
+//line sandbox/b64/main.gom:42
 	default:
-//line sandbox/b64/main.gom:39
-		panic(rt.InvalidVariant("List", tmp22))
-//line sandbox/b64/main.gom:40
+//line sandbox/b64/main.gom:37
+		panic(rt.InvalidVariant("List", tmp23))
+//line sandbox/b64/main.gom:38
 	}
-//line sandbox/b64/main.gom:39
+//line sandbox/b64/main.gom:37
 }

@@ -30,7 +30,7 @@ fn run (decode: Bool) (path: Option String) -> Result Unit GoError = {
   let out = if decode { try base64.StdEncoding.DecodeString (Go.conv data : String) } else {
     Go.conv (base64.StdEncoding.EncodeToString data) : List Byte
   }
-  ignore os.Stdout.Write out
+  ignore try os.Stdout.Write out
   Ok ()
 }
 
