@@ -468,6 +468,15 @@ func (c *checker) checkSelect(e *syntax.Select) Expr {
 				c.diags.Add(diag.Error("E0507",
 					"`Go.conv` is only valid as a conversion: `Go.conv e : T`").At(e.Sp))
 				typ = c.untypedMeta()
+			case sel != nil && isTryAs(sel):
+				// `Go.try_as` alone is not a value; the extraction form
+				// is `Go.try_as x : Option T`, which the ascription
+				// checker reads straight from the surface apply. A bare
+				// reference or a callee of a malformed call reports
+				// E0514 — like `Go.conv`, keep it off the meta table.
+				c.diags.Add(diag.Error("E0514",
+					"`Go.try_as` is only valid as an extraction: `Go.try_as x : Option T`").At(e.Sp))
+				typ = c.untypedMeta()
 			case sel != nil && isNil(sel):
 				// `Go.nil` is a value only through `Go.nil ()`; the
 				// apply path (checkNilCall) mints the real result
@@ -1011,7 +1020,7 @@ func (c *checker) checkAscribe(e *syntax.Ascribe) Expr {
 	// application of the conv builtin.
 	if app, ok := e.X.(*syntax.Apply); ok {
 		if sym := c.calleeSym(app.Fn); sym != nil && isConv(sym) {
-			if len(app.Args) == 1 && app.Args[0].Label == nil {
+			if len(app.Args) == 1 && app.Args[0].Label == nil && !app.Args[0].Spread {
 				x := c.checkExpr(app.Args[0].Value, nil)
 				// `Go.conv lit : T` emits `T(lit)` — a constant
 				// conversion — so the literal's range is judged at
@@ -1041,7 +1050,7 @@ func (c *checker) checkAscribe(e *syntax.Ascribe) Expr {
 			return &Ascribe{Base: baseOf(e.Sp, target), X: c.checkExpr(arg, nil), Conv: true}
 		}
 		if sym := c.calleeSym(app.Fn); sym != nil && isTryAs(sym) {
-			if len(app.Args) == 1 && app.Args[0].Label == nil {
+			if len(app.Args) == 1 && app.Args[0].Label == nil && !app.Args[0].Spread {
 				x := c.checkExpr(app.Args[0].Value, nil)
 				if _, unsolved := types.Chase(x.Type()).(*types.Meta); unsolved {
 					c.pendingConvs = append(c.pendingConvs,

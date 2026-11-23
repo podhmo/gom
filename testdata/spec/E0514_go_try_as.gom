@@ -9,3 +9,7 @@ fn bad_any (x: Go.Any) -> Option Go.Any = Go.try_as x : Option Go.Any
 fn bad_arity (x: Go.Any) -> Option Int = Go.try_as x 1 : Option Int
 
 fn main () -> Unit = ()
+
+// a bare reference and a spread argument are not extractions.
+let bare = Go.try_as
+fn bad_spread (x: Go.Any) -> Option Int = Go.try_as ~..x : Option Int
