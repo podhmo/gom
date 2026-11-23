@@ -1,0 +1,9 @@
+package main
+
+// Two type names emitting the same Go identifier verbatim —
+// both "FooBar" — redeclare it: the generated package does not
+// compile, so the collision warns instead of slipping through.
+type Foo_Bar = { x: Int }
+type FooBar = { y: Int }
+
+fn main () -> Unit = ()

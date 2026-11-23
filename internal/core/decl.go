@@ -223,6 +223,13 @@ type File struct {
 	// emits their bare names into the same Go package. Nil for a
 	// standalone file. (docs/decisions/2026-11-05-package-compilation-unit.md)
 	Unit *UnitScope
+	// Tests records whether this file's compilation emits the
+	// `_test.go` half (spec section 11.6): `test` declarations and
+	// `@test`-marked helpers exist in the output only when set.
+	// Codegen reads it to tell a sibling's test-only binding — kept
+	// on UnitScope regardless of the mode — from one that will
+	// actually emit a Go name.
+	Tests bool
 	// EqDecls are the generated structural comparators the file's
 	// Equal nodes and CallBuiltin{assert_eq} plans call — one per
 	// distinct composite type lowering compared. They are emitted
@@ -267,6 +274,14 @@ type UnitScope struct {
 	// name a sibling declared (docs/decisions/
 	// 2026-11-05-package-compilation-unit.md section 3).
 	Decls []UnitDecl
+	// Sums are the sibling files' sum type declarations: Gom type
+	// name → its variant names, in declaration order. `Types`
+	// carries only the type's own name, but a sibling
+	// `type T = | Some` also emits `T_Some` struct and `isT`
+	// marker names into the shared package — codegen claims those
+	// verbatim so a local `type T_Some` colliding with a sibling
+	// variant surfaces as W0601 instead of broken Go.
+	Sums map[string][]string
 	// Tests are the sibling files' emitted test-function base names
 	// (core.TestFuncBase of each `test "name"`). Two files of one
 	// package declaring the same test name would emit the same

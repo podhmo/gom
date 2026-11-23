@@ -226,6 +226,7 @@ func File(f *check.File, env *Env) (*core.File, []diag.Diagnostic) {
 		Package: f.Package,
 		PkgSp:   f.PkgSp,
 		Unit:    l.unitScope(f.Package, env.Siblings),
+		Tests:   env.Tests,
 	}
 	for _, im := range f.Imports {
 		out.Imports = append(out.Imports, core.Import{
@@ -294,6 +295,7 @@ func (l *lowerer) unitScope(pkg string, siblings []check.Decl) *core.UnitScope {
 		Vars:    map[*resolve.Symbol]bool{},
 		Types:   map[string]bool{},
 		TParams: map[*resolve.Symbol]int{},
+		Sums:    map[string][]string{},
 		Tests:   map[string]bool{},
 	}
 	for _, d := range siblings {
@@ -306,13 +308,17 @@ func (l *lowerer) unitScope(pkg string, siblings []check.Decl) *core.UnitScope {
 				}
 			}
 		case *check.TypeDecl:
-			if d.Sym != nil && d.Sym.Package == "" {
+			local := d.Sym != nil && d.Sym.Package == ""
+			if local {
 				u.Types[d.Sym.Name] = true
 			}
 			if s, ok := d.Body.(*check.SumType); ok {
 				for _, v := range s.Variants {
 					if v.Sym != nil {
 						u.TParams[v.Sym] = len(d.TypeParams)
+						if local {
+							u.Sums[d.Sym.Name] = append(u.Sums[d.Sym.Name], v.Sym.Name)
+						}
 					}
 				}
 			}

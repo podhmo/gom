@@ -566,3 +566,164 @@ func TestCompileFilesInterfaceInput(t *testing.T) {
 		}
 	}
 }
+
+// `type TestX` claims the name `test "x"` predicts for its func —
+// the eviction warns W0602 and the test emits `TestX2`. Two decls
+// emitting one name verbatim (`Foo_Bar`/`FooBar` → `FooBar`) warn
+// W0601: the generated package would not compile.
+func TestCompileFilesEmitNameCollisions(t *testing.T) {
+	src := "package m\n\ntype TestX = { v: Int }\n\n" +
+		"type Foo_Bar = { x: Int }\ntype FooBar = { y: Int }\n\n" +
+		"test \"x\" {\n  assert true\n}\n"
+	rs, err := build.CompileFiles(
+		[]build.Input{{Path: "pkg/a.gom", Src: []byte(src)}},
+		&build.Options{Lower: &lower.Env{Tests: true}})
+	if err != nil {
+		t.Fatalf("CompileFiles: %v", err)
+	}
+	var w0601, w0602 bool
+	for _, d := range rs[0].Diagnostics {
+		w0601 = w0601 || d.Code == "W0601"
+		w0602 = w0602 || d.Code == "W0602"
+	}
+	if !w0601 {
+		t.Errorf("no W0601 for the Foo_Bar/FooBar verbatim collision: %v", rs[0].Diagnostics)
+	}
+	if !w0602 {
+		t.Errorf("no W0602 for the TestX eviction: %v", rs[0].Diagnostics)
+	}
+	got := map[string]string{}
+	for _, n := range rs[0].Output.EmitNames {
+		got[n.GomName] = n.Name
+	}
+	if got["x"] != "TestX2" {
+		t.Errorf("test emits %q, want TestX2", got["x"])
+	}
+	if got["Foo_Bar"] != "FooBar" || got["FooBar"] != "FooBar" {
+		t.Errorf("verbatim claimants emit %q and %q, want both FooBar",
+			got["Foo_Bar"], got["FooBar"])
+	}
+}
+
+// A sibling `@test` helper reserves its Go name only when the
+// package compiles with tests: under `gom test` it claims
+// `myHelper` and the local `my_helper` loses to `myHelper1`
+// (W0602, deduplicated across the member files); under `gom
+// build` the helper is absent from output entirely, so the
+// local decl keeps the name with no warning.
+func TestCompileFilesEmitNameCollisionsTestOnlySibling(t *testing.T) {
+	srcs := map[string]string{
+		"a.gom": "package m\n\nfn my_helper () -> Int = 1\n",
+		"b.gom": "package m\n\n@test fn myHelper () -> Int = 2\n",
+	}
+	var ins []build.Input
+	for _, n := range []string{"a.gom", "b.gom"} {
+		ins = append(ins, build.Input{Path: "pkg/" + n, Src: []byte(srcs[n])})
+	}
+
+	rs, err := build.CompileFiles(ins, &build.Options{})
+	if err != nil {
+		t.Fatalf("CompileFiles (build): %v", err)
+	}
+	for i, r := range rs {
+		if r.Diagnostics.HasError() {
+			t.Fatalf("build result %d diagnostics: %v", i, r.Diagnostics)
+		}
+		for _, d := range r.Diagnostics {
+			if d.Code == "W0602" {
+				t.Errorf("result %d: W0602 under gom build: %v", i, d)
+			}
+		}
+	}
+	for _, n := range rs[0].Output.EmitNames {
+		if n.GomName == "my_helper" && n.Name != "myHelper" {
+			t.Errorf("my_helper emits %q under build, want myHelper", n.Name)
+		}
+	}
+
+	rs, err = build.CompileFiles(ins, &build.Options{Lower: &lower.Env{Tests: true}})
+	if err != nil {
+		t.Fatalf("CompileFiles (test): %v", err)
+	}
+	w0602 := 0
+	for i, r := range rs {
+		if r.Diagnostics.HasError() {
+			t.Fatalf("test result %d diagnostics: %v", i, r.Diagnostics)
+		}
+		for _, d := range r.Diagnostics {
+			if d.Code == "W0602" {
+				w0602++
+			}
+		}
+	}
+	if w0602 != 1 {
+		t.Errorf("W0602 count = %d, want 1 (deduplicated across files)", w0602)
+	}
+	for _, n := range rs[0].Output.EmitNames {
+		if n.GomName == "my_helper" && n.Name != "myHelper1" {
+			t.Errorf("my_helper emits %q under test, want myHelper1", n.Name)
+		}
+	}
+}
+
+// The emit listing names the whole package the file's allocation
+// sees — a sibling sum's variant structs and sealing marker are
+// claimed alongside its type name, not just the decls local to
+// this file.
+func TestCompileFilesEmitNamesSiblingSum(t *testing.T) {
+	rs := compileFiles(t, map[string]string{
+		"a.gom": "package m\n\nfn f () -> Int = 1\n",
+		"b.gom": "package m\n\ntype T = | Some Int\n",
+	})
+	for i, r := range rs {
+		if r.Diagnostics.HasError() {
+			t.Fatalf("result %d diagnostics: %v", i, r.Diagnostics)
+		}
+	}
+	got := map[string][]string{}
+	for _, n := range rs[0].Output.EmitNames {
+		got[n.GomName] = append(got[n.GomName], n.Kind+":"+n.Name)
+	}
+	has := func(gom, want string) bool {
+		for _, e := range got[gom] {
+			if e == want {
+				return true
+			}
+		}
+		return false
+	}
+	if !has("T.Some", "variant:T_Some") {
+		t.Errorf("sibling variant missing: %v", got)
+	}
+	if !has("T", "marker:isT") || !has("T", "type:T") {
+		t.Errorf("sibling type/marker missing: %v", got["T"])
+	}
+}
+
+// Two colliding variants of one sum type warn W0601 exactly once —
+// the owning file reports at the variants' span; sibling files claim
+// the same struct names from UnitScope.Sums but must not emit an
+// unlocated copy.
+func TestCompileFilesEmitNameCollisionsSiblingSumDup(t *testing.T) {
+	rs := compileFiles(t, map[string]string{
+		"a.gom": "package m\n\ntype T = | Some_Opt Int | SomeOpt Int\n",
+		"b.gom": "package m\n\nfn f () -> Int = 1\n",
+	})
+	var w0601 []diag.Diagnostic
+	for i, r := range rs {
+		if r.Diagnostics.HasError() {
+			t.Fatalf("result %d diagnostics: %v", i, r.Diagnostics)
+		}
+		for _, d := range r.Diagnostics {
+			if d.Code == "W0601" {
+				w0601 = append(w0601, d)
+			}
+		}
+	}
+	if len(w0601) != 1 {
+		t.Fatalf("W0601 count = %d, want 1: %v", len(w0601), w0601)
+	}
+	if w0601[0].Span.File != "pkg/a.gom" {
+		t.Errorf("W0601 span file = %q, want pkg/a.gom", w0601[0].Span.File)
+	}
+}

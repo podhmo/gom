@@ -1,0 +1,28 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "W0602",
+      "severity": "warning",
+      "message": "generated Go name \"myFn\" is taken — \"my_fn\" emits \"myFn1\"",
+      "span": {
+        "file": "W0602_suffix_evict.gom",
+        "start": {
+          "line": 6,
+          "col": 1,
+          "offset": 209
+        },
+        "end": {
+          "line": 6,
+          "col": 23,
+          "offset": 231
+        }
+      },
+      "data": {
+        "base": "myFn",
+        "emitted": "myFn1",
+        "taken_by": "myFn"
+      }
+    }
+  ]
+}

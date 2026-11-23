@@ -254,6 +254,9 @@ func Compile(in Input, opts *Options) (*Result, error) {
 	if err != nil {
 		return r, err
 	}
+	// Emitted-name collision warnings attach to the output, not
+	// the pipeline's error path — the decls are valid Gom.
+	r.Diagnostics = append(r.Diagnostics, out.Diags...)
 	r.Output = out
 	return r, nil
 }
@@ -444,6 +447,7 @@ func CompileFiles(ins []Input, opts *Options) ([]*Result, error) {
 	// member withholds every output — a partial package would emit
 	// files that reference declarations which never materialized.
 	unitFailed := false
+	seenEmit := map[emitDiagKey]bool{}
 	cores := make([]*core.File, 0, len(impl))
 	for k, i := range impl {
 		in := ins[i]
@@ -508,6 +512,18 @@ func CompileFiles(ins []Input, opts *Options) ([]*Result, error) {
 		if err != nil {
 			return nil, err
 		}
+		// Emit warnings are unit-level: every member file's codegen
+		// claims the same package-scope names, so a sibling decl's
+		// eviction is reported identically by each member — keep
+		// only the first copy of each (code, span, message).
+		for _, d := range out.Diags {
+			k := emitDiagKey{code: d.Code, span: d.Span, msg: d.Message}
+			if seenEmit[k] {
+				continue
+			}
+			seenEmit[k] = true
+			r.Diagnostics = append(r.Diagnostics, d)
+		}
 		r.Output = out
 	}
 	// Package initialization is a property of the unit, not of one
@@ -532,4 +548,13 @@ func CompileFiles(ins []Input, opts *Options) ([]*Result, error) {
 		}
 	}
 	return results, nil
+}
+
+// emitDiagKey deduplicates emit-ledger warnings across a package's
+// member files — the unit-wide name allocation makes every member
+// produce the same (code, span, message) for a sibling decl.
+type emitDiagKey struct {
+	code diag.Code
+	span diag.Span
+	msg  string
 }

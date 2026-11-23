@@ -40,6 +40,7 @@ func File(f *core.File, src []byte) (*Output, error) {
 	main := newGen(li)
 	main.fileImports = f.Imports
 	main.selfPath = f.SelfImportPath
+	main.reportEmit = true
 	main.indexDecls(f)
 
 	test := newGen(li)
@@ -97,6 +98,27 @@ func File(f *core.File, src []byte) (*Output, error) {
 		out.TestSource = ts
 		out.TestSourceMap = tsm
 	}
+
+	// The ledgers' collision warnings surface with the output:
+	// the main half reports decl-side shapes, the test half its
+	// test-name evictions. The listing joins both halves — the
+	// test gen's copy of the decl records is skipped so each
+	// name appears once.
+	out.Diags = append(main.emitDiags, test.emitDiags...)
+	for _, r := range main.emitLog {
+		out.EmitNames = append(out.EmitNames, EmitName{
+			Kind: r.kind.String(), GomName: r.gomName,
+			Name: r.name, Base: r.base, Sp: r.sp,
+		})
+	}
+	for _, r := range test.emitLog {
+		if r.kind == emitTest {
+			out.EmitNames = append(out.EmitNames, EmitName{
+				Kind: r.kind.String(), GomName: r.gomName,
+				Name: r.name, Base: r.base, Sp: r.sp,
+			})
+		}
+	}
 	return out, nil
 }
 
@@ -123,6 +145,38 @@ type Output struct {
 	// TestSourceMap is SourceMap's counterpart for TestSource —
 	// nil when the file declares no tests.
 	TestSourceMap *diag.SourceMap
+
+	// Diags carries the emitted-name collision warnings the
+	// generation ledger reports (W0601/W0602) — the decls are
+	// valid Gom, so they arrive as diagnostics attached to the
+	// otherwise-successful output rather than as an error.
+	Diags diag.List
+	// EmitNames lists every package-scope identifier the output
+	// emits, with the decl it answers for — the generated-name
+	// listing `gom dump -phase=emit` prints (the Go ABI
+	// decision's 生成名の一覧化).
+	EmitNames []EmitName
+}
+
+// EmitName records one package-level identifier File emits.
+type EmitName struct {
+	// Kind is the decl class: "type", "variant", "marker",
+	// "func", "var", "test", or "internal" (generated helpers
+	// like gomEqN whose names carry no user contract).
+	Kind string
+	// GomName is the owning Gom declaration's name — the
+	// variant member spell for variant structs
+	// ("T.Some"), the test string for test funcs.
+	GomName string
+	// Name is the emitted Go identifier.
+	Name string
+	// Base is the name the naming rule predicts before a
+	// collision suffix; it equals Name for verbatim claims
+	// (types, variants) and unevicted decls.
+	Base string
+	// Sp is the owner decl's span — zero for sibling-file
+	// members, whose definitions live outside this file.
+	Sp diag.Span
 }
 
 // TestMapping identifies one generated Go test function.

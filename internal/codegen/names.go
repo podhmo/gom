@@ -1,7 +1,10 @@
 package codegen
 
 import (
+	"strconv"
+
 	"github.com/podhmo/gom/internal/core"
+	"github.com/podhmo/gom/internal/diag"
 )
 
 // This file holds the Gom-name → Go-name conventions. Visibility is
@@ -114,6 +117,140 @@ func (g *gen) fresh(base string) string {
 		}
 	}
 }
+
+// emitKind classifies a package-level Go identifier codegen emits.
+// emitInternal marks generated helpers whose names carry no
+// user-visible contract — evicting them is silent (the
+// go-abi-stability decision puts 内部名 outside the promise).
+type emitKind int
+
+const (
+	emitFunc     emitKind = iota // fn decl
+	emitVar                      // top-level let decl
+	emitType                     // type decl — verbatim claim
+	emitVariant                  // sum variant struct T_V — verbatim, unclaimed
+	emitMarker                   // sealing method isT — listing only
+	emitTest                     // generated test func
+	emitInternal                 // gomEqN, gomShowN — generated helpers
+)
+
+// Diagnostic codes the emit ledger reports — declared in
+// internal/diag/codes.go with their explanations.
+const (
+	codeEmitNameDup   diag.Code = "W0601" // verbatim double-claim — redeclared Go name
+	codeEmitNameEvict diag.Code = "W0602" // suffix eviction — emitted name differs from predicted
+)
+
+// String names the kind for the EmitName listing.
+func (k emitKind) String() string {
+	switch k {
+	case emitFunc:
+		return "func"
+	case emitVar:
+		return "var"
+	case emitType:
+		return "type"
+	case emitVariant:
+		return "variant"
+	case emitMarker:
+		return "marker"
+	case emitTest:
+		return "test"
+	case emitInternal:
+		return "internal"
+	}
+	return "unknown"
+}
+
+// emitRecord logs one package-level emitted name and the Gom decl it
+// answers for. base is the name the naming rule predicts before
+// collision suffixing; it equals name for verbatim claimants (types
+// and variant structs have no suffix escape). sibling marks records
+// from other member files of the package unit — sibling↔sibling
+// duplicate claims are the owning file's to report at its local
+// span, so they stay silent here.
+type emitRecord struct {
+	kind    emitKind
+	gomName string
+	name    string
+	base    string
+	sp      diag.Span
+	sibling bool
+}
+
+// recordEmit registers an emitted package-scope name on g's ledger
+// and reports W0601 for the two collision shapes the ledger exists
+// to catch:
+//   - verbatim double-claims — two decls emitting the same name
+//     (type/type, type/variant, variant/variant) emit broken Go, and
+//   - suffix evictions — a fn/let/test pushed off the name its owner
+//     predicts by an earlier claimant.
+//
+// Internal helpers record for the listing but never warn.
+func (g *gen) recordEmit(rec emitRecord) {
+	g.emitLog = append(g.emitLog, rec)
+	if rec.name == "" {
+		return
+	}
+	owner, dup := g.emitOwner[rec.name]
+	if !dup {
+		g.emitOwner[rec.name] = rec
+	} else if g.reportEmit && warnsOnDup(rec.kind) &&
+		!(rec.sibling && owner.sibling) {
+		// The losing claimant may be a sibling type (Unit.Types
+		// carries no span) — report at whichever decl is local.
+		sp := rec.sp
+		if !sp.Valid() {
+			sp = owner.sp
+		}
+		g.emitDiags = append(g.emitDiags,
+			diag.Warning(codeEmitNameDup,
+				"generated Go name "+q(rec.name)+" is emitted by both "+
+					q(owner.gomName)+" and "+q(rec.gomName)).
+				At(sp).
+				Set("emitted", rec.name).
+				Set("gom_names", []string{owner.gomName, rec.gomName}))
+	}
+	if g.reportEmit && warnsOnEvict(rec.kind) && rec.name != rec.base {
+		msg := "generated Go name " + q(rec.base) + " is taken — " +
+			q(rec.gomName) + " emits " + q(rec.name)
+		d := diag.Warning(codeEmitNameEvict, msg).At(rec.sp).
+			Set("emitted", rec.name).
+			Set("base", rec.base)
+		if prior, ok := g.emitOwner[rec.base]; ok {
+			d = d.Set("taken_by", prior.gomName)
+		}
+		g.emitDiags = append(g.emitDiags, d)
+	}
+}
+
+// warnsOnDup reports whether a verbatim second claim of an emitted
+// name makes the generated Go invalid (a redeclaration). Tests and
+// markers never claim verbatim, and internal helpers tolerate it.
+func warnsOnDup(k emitKind) bool {
+	switch k {
+	case emitType, emitVariant:
+		return true
+	}
+	return false
+}
+
+// warnsOnEvict reports whether a decl that lost its predicted name
+// to the suffix mechanism is worth surfacing: user-facing members
+// (fn/let, test funcs) promise a name the user can spell; internal
+// helpers are outside the promise.
+func warnsOnEvict(k emitKind) bool {
+	switch k {
+	case emitFunc, emitVar, emitTest:
+		return true
+	}
+	return false
+}
+
+// q quotes a name for a diagnostic message. Test labels are
+// arbitrary string literals — an embedded control character must
+// not leak into the message (diag messages are single-line).
+func q(s string) string { return strconv.Quote(s) }
 
 // itoa renders a small non-negative int without importing strconv.
 func itoa(i int) string {

@@ -97,6 +97,18 @@ type gen struct {
 	depth         int
 	pendingIndent bool
 
+	// emitLog is the ledger of package-scope emitted names — the
+	// generated-name listing `gom dump -phase=emit` renders.
+	// emitOwner maps an emitted identifier to its first claimant;
+	// emitDiags collects the collision warnings the ledger reports
+	// (duplicate claims, suffix evictions) when reportEmit is on —
+	// only the main gen reports, but both gens build the ledger
+	// (the test gen's testName checks owners too).
+	emitLog    []emitRecord
+	emitOwner  map[string]emitRecord
+	emitDiags  diag.List
+	reportEmit bool
+
 	// marks collects the span of every `//gomsrc` sentinel in
 	// emission order; the sentinel carries its index so spliceLines
 	// can pair each spliced `//line` directive with the span it maps
@@ -131,6 +143,7 @@ func newGen(li *diag.LineIndex) *gen {
 		localT:        map[string]bool{},
 		exported:      map[*resolve.Symbol]bool{},
 		entry:         map[*resolve.Symbol]bool{},
+		emitOwner:     map[string]emitRecord{},
 	}
 }
 
@@ -195,12 +208,22 @@ func (g *gen) indexDecls(f *core.File) {
 				g.localT[name] = true
 				g.pused[name] = true
 				g.used[name] = true
+				g.recordEmit(emitRecord{kind: emitType, gomName: td.Sym.Name,
+					name: name, base: name, sp: td.Sym.DefSpan()})
+				if _, ok := td.Body.(*core.TSum); ok {
+					m := markerName(name)
+					g.recordEmit(emitRecord{kind: emitMarker, gomName: td.Sym.Name,
+						name: m, base: m, sp: td.Sym.DefSpan()})
+				}
 			}
 			if sum, ok := td.Body.(*core.TSum); ok {
 				for i := range sum.Variants {
 					v := &sum.Variants[i]
 					if v.Sym != nil && td.Sym != nil {
 						g.ctors[v.Sym] = &ctorDecl{typeName: td.Sym.Name, fields: v.Fields}
+						vname := g.typeName(td.Sym) + "_" + exportName(v.Sym.Name)
+						g.recordEmit(emitRecord{kind: emitVariant, gomName: td.Sym.Name + "." + v.Sym.Name,
+							name: vname, base: vname, sp: v.Sym.DefSpan()})
 					}
 				}
 			}
@@ -212,6 +235,35 @@ func (g *gen) indexDecls(f *core.File) {
 			g.localT[name] = true
 			g.pused[name] = true
 			g.used[name] = true
+			g.recordEmit(emitRecord{kind: emitType, gomName: tname,
+				name: name, base: name, sibling: true})
+		}
+		// A sibling sum emits more than its type name: `type T =
+		// | Some` also puts the `T_Some` struct and the `isT`
+		// sealing method into the shared package. The variant
+		// struct names claim verbatim — a local `type T_Some`
+		// would redeclare — while the marker is recorded for
+		// the listing only (a method name shares no namespace
+		// with package decls). Type order is sorted so the
+		// ledger — and `gom dump -phase=emit` — is stable.
+		var sumNames []string
+		for tname := range u.Sums {
+			sumNames = append(sumNames, tname)
+		}
+		sort.Strings(sumNames)
+		for _, tname := range sumNames {
+			tn := exportName(tname)
+			m := markerName(tn)
+			g.recordEmit(emitRecord{kind: emitMarker, gomName: tname,
+				name: m, base: m, sibling: true})
+			for _, v := range u.Sums[tname] {
+				vname := tn + "_" + exportName(v)
+				g.pused[vname] = true
+				g.used[vname] = true
+				g.recordEmit(emitRecord{kind: emitVariant,
+					gomName: tname + "." + v, name: vname, base: vname,
+					sibling: true})
+			}
 		}
 		// A test name a sibling file also declares takes the file
 		// tag — the fnv32a-of-path convention the lowering temps
@@ -230,16 +282,20 @@ func (g *gen) indexDecls(f *core.File) {
 	// identical in every member file even when distinct Gom names
 	// map to the same emitted base (`my_fn` vs `myFn`). Gom names
 	// are package-unique (E0202), making the order total.
-	var pkgSyms []*resolve.Symbol
+	type pkgSym struct {
+		sym  *resolve.Symbol
+		kind emitKind
+	}
+	var pkgSyms []pkgSym
 	for _, d := range f.Decls {
 		switch d := d.(type) {
 		case *core.FuncDecl:
-			if d.Sym != nil {
-				pkgSyms = append(pkgSyms, d.Sym)
+			if d.Sym != nil && !(d.Sym.TestOnly && !f.Tests) {
+				pkgSyms = append(pkgSyms, pkgSym{d.Sym, emitFunc})
 			}
 		case *core.VarDecl:
-			if d.Sym != nil {
-				pkgSyms = append(pkgSyms, d.Sym)
+			if d.Sym != nil && !(d.Sym.TestOnly && !f.Tests) {
+				pkgSyms = append(pkgSyms, pkgSym{d.Sym, emitVar})
 			}
 		case *core.TypeDecl, *core.TestDecl:
 			// not package-scope value symbols
@@ -250,18 +306,28 @@ func (g *gen) indexDecls(f *core.File) {
 	if u := f.Unit; u != nil {
 		for _, d := range u.Decls {
 			if d.Sym != nil {
-				pkgSyms = append(pkgSyms, d.Sym)
+				if d.Sym.TestOnly && !f.Tests {
+					// A sibling's `@test` helper emits only into
+					// that file's _test.go half — absent from a
+					// `gom build` output, it must not claim names.
+					continue
+				}
+				kind := emitVar
+				if d.Sym.Kind == resolve.KindFunc {
+					kind = emitFunc
+				}
+				pkgSyms = append(pkgSyms, pkgSym{d.Sym, kind})
 			}
 		}
 	}
 	sort.Slice(pkgSyms, func(i, j int) bool {
-		if bi, bj := g.declBase(pkgSyms[i]), g.declBase(pkgSyms[j]); bi != bj {
+		if bi, bj := g.declBase(pkgSyms[i].sym), g.declBase(pkgSyms[j].sym); bi != bj {
 			return bi < bj
 		}
-		return pkgSyms[i].Name < pkgSyms[j].Name
+		return pkgSyms[i].sym.Name < pkgSyms[j].sym.Name
 	})
-	for _, sym := range pkgSyms {
-		g.declSymName(sym)
+	for _, ps := range pkgSyms {
+		g.declSymName(ps.sym, ps.kind)
 	}
 	// Every binder anywhere also blocks temp naming. Binder names
 	// dedup inside their own declaration only — the emitted Go
@@ -282,12 +348,12 @@ func (g *gen) indexDecls(f *core.File) {
 	// are the test half's counterpart.
 	for _, d := range f.EqDecls {
 		if d.Sym != nil {
-			g.declSymName(d.Sym)
+			g.declSymName(d.Sym, emitInternal)
 		}
 	}
 	for _, d := range f.ShowDecls {
 		if d.Sym != nil {
-			g.declSymName(d.Sym)
+			g.declSymName(d.Sym, emitInternal)
 		}
 	}
 }
@@ -311,12 +377,15 @@ func (g *gen) symName(sym *resolve.Symbol) string {
 // (Gom shadowing). A decl colliding with a pkgReserved name —
 // `init` or `main` — escapes with `_` unless it is the unit's
 // entry point, which emits `func main()` by contract.
-func (g *gen) declSymName(sym *resolve.Symbol) string {
+func (g *gen) declSymName(sym *resolve.Symbol, kind emitKind) string {
 	base := g.declBase(sym)
 	if pkgReserved[base] && !g.entry[sym] {
 		base += "_"
 	}
-	return g.claimBase(sym, base, g.pused, g.pused)
+	n := g.claimBase(sym, base, g.pused, g.pused)
+	g.recordEmit(emitRecord{kind: kind, gomName: sym.Name,
+		name: n, base: base, sp: sym.DefSpan()})
+	return n
 }
 
 // bindSymName resolves a binder inside the declaration being

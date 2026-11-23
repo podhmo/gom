@@ -1,0 +1,30 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "W0601",
+      "severity": "warning",
+      "message": "generated Go name \"T_SomeOpt\" is emitted by both \"T.Some_Opt\" and \"T.SomeOpt\"",
+      "span": {
+        "file": "W0601_variant_struct_dup.gom",
+        "start": {
+          "line": 8,
+          "col": 5,
+          "offset": 233
+        },
+        "end": {
+          "line": 8,
+          "col": 12,
+          "offset": 240
+        }
+      },
+      "data": {
+        "emitted": "T_SomeOpt",
+        "gom_names": [
+          "T.Some_Opt",
+          "T.SomeOpt"
+        ]
+      }
+    }
+  ]
+}

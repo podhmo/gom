@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/podhmo/gom/internal/core"
+	"github.com/podhmo/gom/internal/diag"
 	"github.com/podhmo/gom/internal/types"
 )
 
@@ -161,7 +162,7 @@ func (g *gen) varDecl(d *core.VarDecl) {
 // `Result Unit e` body binds its result and asserts Ok; a Unit body
 // is discarded (decl.go TestDecl, spec section 12).
 func (g *gen) testDecl(d *core.TestDecl) string {
-	name := g.testName(d.Name)
+	name := g.testName(d.Name, d.Sp)
 	g.line(d.Sp)
 	g.raw("func " + name + "(t *" + g.pkgQual("testing") + "T)")
 	g.open()
@@ -198,15 +199,53 @@ func (g *gen) testDecl(d *core.TestDecl) string {
 // fnv32a tag instead — `TestX_a1b2c3d4` — the same convention the
 // lowering temps use, so two files' `test "x"` can never emit the
 // same `func TestX` into the shared Go package.
-func (g *gen) testName(name string) string {
+func (g *gen) testName(name string, sp diag.Span) string {
 	base := testFuncName(name)
-	if g.testCollide[base] {
+	// A sibling's deduplicated suffix can land on this file's base
+	// too: `test "x2"` emits TestX2, the same name a sibling's
+	// repeated `test "x"` produces. Strip the numeric tail and
+	// treat it as a sibling collision — the file tag dedups it.
+	if strip := strings.TrimRight(base, "0123456789"); g.testCollide[base] ||
+		(strip != base && g.testCollide[strip]) {
 		base = base + "_" + g.testTag
 	}
+	// Find the first name in the dedup chain a non-test claimant
+	// owns — a decl stealing the base OR a suffixed slot the test
+	// would have landed on.
+	taken := ""
+	var owner emitRecord
+	scan := func(n string) {
+		if taken != "" {
+			return
+		}
+		if o, ok := g.emitOwner[n]; ok && o.kind != emitTest {
+			taken, owner = n, o
+		}
+	}
+	scan(base)
 	cand := base
 	for i := 2; g.used[cand]; i++ {
+		scan(cand)
 		cand = base + fmt.Sprint(i)
 	}
+	// A numeric suffix is expected when a same-named test claimed
+	// the base first (the renaming rule above); it is a collision
+	// worth warning about only when a non-test claimant owns the
+	// taken name — a decl stealing TestX moves `test "x"` to
+	// TestX2, a decl stealing TestX2 moves it to TestX3, both
+	// names the user cannot predict from the declaration.
+	if taken != "" {
+		g.emitDiags = append(g.emitDiags,
+			diag.Warning(codeEmitNameEvict,
+				"generated Go name "+q(taken)+" is taken by "+
+					q(owner.gomName)+" — test "+q(name)+" emits "+q(cand)).
+				At(sp).
+				Set("emitted", cand).
+				Set("base", base).
+				Set("taken_by", owner.gomName))
+	}
+	g.recordEmit(emitRecord{kind: emitTest, gomName: name,
+		name: cand, base: base, sp: sp})
 	g.used[cand] = true
 	return cand
 }

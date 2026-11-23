@@ -1,0 +1,10 @@
+package main
+
+// Variant constructor names camelize onto each other — Some_Opt and
+// SomeOpt both emit the struct T_SomeOpt (implicit member names are
+// covered too: variant structs and the isT marker).
+type T =
+  | Some_Opt
+  | SomeOpt
+
+fn main () -> Unit = ()
