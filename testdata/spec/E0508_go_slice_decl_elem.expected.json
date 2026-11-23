@@ -1,0 +1,28 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0508",
+      "severity": "error",
+      "message": "type argument `Rec` does not satisfy the `cmp.Ordered` constraint of `IsSorted`'s type parameter `E`",
+      "span": {
+        "file": "E0508_go_slice_decl_elem.gom",
+        "start": {
+          "line": 12,
+          "col": 43,
+          "offset": 415
+        },
+        "end": {
+          "line": 12,
+          "col": 51,
+          "offset": 423
+        }
+      },
+      "data": {
+        "argument": "Rec",
+        "constraint": "cmp.Ordered",
+        "parameter": "E"
+      }
+    }
+  ]
+}

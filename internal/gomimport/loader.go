@@ -928,11 +928,11 @@ func (l *Loader) GoComparable(t types.Type) bool {
 }
 
 // GoSatisfies defers check.GoConstraintSource to Config.Sigs.
-func (l *Loader) GoSatisfies(targs []types.Type, i int, con check.GoConstraint) bool {
+func (l *Loader) GoSatisfies(targs []types.Type, i int, con check.GoConstraint) check.GoVerdict {
 	if cs, ok := l.cfg.Sigs.(check.GoConstraintSource); ok {
 		return cs.GoSatisfies(targs, i, con)
 	}
-	return false
+	return check.GoVerdictNo
 }
 
 // GoConvertible defers check.ConvertSource to Config.Sigs.

@@ -1,0 +1,22 @@
+package ex
+
+import go "slices"
+import go "maps"
+
+// spec 8.5 (wave38 lane D): a `~[]E`/`~map[K]V` constraint over a
+// Gom-declared element is judged Gom-side — equal Gom types emit
+// as the same Go type in the generated package.
+type Rec = { name: String, n: Int }
+
+fn rev_list (xs: List Rec) -> Unit = slices.Reverse xs
+
+fn rev_slice (xs: Go.Slice Rec) -> Unit = slices.Reverse xs
+
+fn by_n (a: Rec) (b: Rec) -> Int = a.n - b.n
+
+// `Go.func2`'s raw view carries a declared type by its emitted name.
+fn sort_it (xs: List Rec) -> Unit = slices.SortFunc xs (Go.func2 by_n)
+
+fn cp (dst: Go.Map String Rec) (src: Go.Map String Rec) -> Unit = maps.Copy dst src
+
+fn main () -> Unit = ()

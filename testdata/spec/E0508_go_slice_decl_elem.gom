@@ -1,0 +1,14 @@
+package ex
+
+import go "slices"
+
+// spec 8.5 (wave38 lane D): the element fallback compares types —
+// a multi-field record still fails `cmp.Ordered` (union terms are
+// judged by the oracle and a struct emits no ordered underlying),
+// and a declared element mismatched against the solved element
+// type argument still fails `~[]E`.
+type Rec = { name: String, n: Int }
+
+fn sorted (xs: List Rec) -> Bool = slices.IsSorted xs
+
+fn main () -> Unit = ()

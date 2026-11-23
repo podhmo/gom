@@ -1870,3 +1870,5 @@
   残件: bare 参照 `{let f = Go.nil; f ()}` の `?a` が宙吊りのままなら
   E0407（注釈を求める — 他の関数値と同じ制約）。
   [実装](../internal/check/apply.go)（2026-11-24 登録・同 wave で解消）
+
+- [ ] **1 フィールド record の `~` 制約は依然拒否**: `type UserId = {v: Int}`（Go では `type UserId int64` の defined type）は Go 的に `~int64` を満たすが、boundaryTypeOf が宣言型を写せないため要素比較の対象にならず E0508 のまま。多フィールド record（struct emit）は正しく拒否される — defined type 経由の受理可否は gap として残る（wave38 lane D レビュー対象外・[decision](decisions/2026-11-23-goslice-gom-elem.md)）

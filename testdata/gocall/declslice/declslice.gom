@@ -1,0 +1,14 @@
+package declslice
+
+import go "slices"
+
+// `~[]E` over a Gom-declared element (spec 8.5, wave38 lane D):
+// the generated package can hand its own `Rec` slice to the
+// slices helpers, including the `Go.func2` cmp callback.
+type Rec = { name: String, n: Int }
+
+fn by_n (a: Rec) (b: Rec) -> Int = a.n - b.n
+
+fn sort_by_n (rs: Go.Slice Rec) -> Unit = slices.SortFunc rs (Go.func2 by_n)
+
+fn rev (rs: Go.Slice Rec) -> Unit = slices.Reverse rs

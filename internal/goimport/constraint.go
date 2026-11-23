@@ -16,36 +16,53 @@ import (
 // (a function value, an unsolved meta, a generic instantiation)
 // fails rather than guesses — the emitted instantiation must
 // type-check under Go's rules, so honesty is a rejection.
-func (l *Loader) GoSatisfies(targs []gt.Type, i int, c check.GoConstraint) bool {
+func (l *Loader) GoSatisfies(targs []gt.Type, i int, c check.GoConstraint) check.GoVerdict {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	if i < 0 || i >= len(targs) {
-		return false
+		return check.GoVerdictNo
 	}
 	bt := l.boundaryType(targs[i])
 	if bt == nil {
-		return false
+		// The argument does not map at all — a `Go.Slice`/`Go.Map`/
+		// `List` over a Gom-declared element, but also a function
+		// value or an unsolved meta. Unproven defers to the
+		// checker's Gom-side element comparison rather than
+		// claiming the constraint fails (decision
+		// 2026-11-23-goslice-gom-elem).
+		return check.GoVerdictUnproven
 	}
 	switch c.Kind {
 	case check.GoConstraintSlice:
 		s, ok := bt.Underlying().(*types.Slice)
 		if !ok || c.Elem < 0 || c.Elem >= len(targs) {
-			return false
+			return check.GoVerdictNo
 		}
 		el := l.boundaryType(targs[c.Elem])
 		// `~[]E` holds when the argument's underlying is a slice
 		// of E — a named element on either side must match by
 		// identity, not underlying: `[]int` does not admit
 		// `E := MyInt`.
-		return el != nil && types.Identical(s.Elem(), el)
+		if el == nil {
+			return check.GoVerdictUnproven
+		}
+		if types.Identical(s.Elem(), el) {
+			return check.GoVerdictYes
+		}
+		return check.GoVerdictNo
 	case check.GoConstraintMap:
 		m, ok := bt.Underlying().(*types.Map)
 		if !ok || c.Key < 0 || c.Key >= len(targs) || c.Val < 0 || c.Val >= len(targs) {
-			return false
+			return check.GoVerdictNo
 		}
 		k, v := l.boundaryType(targs[c.Key]), l.boundaryType(targs[c.Val])
-		return k != nil && v != nil &&
-			types.Identical(m.Key(), k) && types.Identical(m.Elem(), v)
+		if k == nil || v == nil {
+			return check.GoVerdictUnproven
+		}
+		if types.Identical(m.Key(), k) && types.Identical(m.Elem(), v) {
+			return check.GoVerdictYes
+		}
+		return check.GoVerdictNo
 	case check.GoConstraintUnion:
 		// A `List` argument never satisfies a union term over a
 		// slice or map underlying: the emitted type argument is
@@ -67,18 +84,18 @@ func (l *Loader) GoSatisfies(targs []gt.Type, i int, c check.GoConstraint) bool 
 			}
 			if tm.Approx {
 				if types.Identical(bt.Underlying(), tm.Type.Underlying()) {
-					return true
+					return check.GoVerdictYes
 				}
 			} else if types.Identical(bt, tm.Type) {
-				return true
+				return check.GoVerdictYes
 			}
 		}
-		return false
+		return check.GoVerdictNo
 	case check.GoConstraintAny, check.GoConstraintComparable:
 		// The comparable and any kinds are judged checker-side;
 		// they never reach the oracle.
-		return false
+		return check.GoVerdictNo
 	default:
-		return false
+		return check.GoVerdictNo
 	}
 }
