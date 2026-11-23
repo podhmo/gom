@@ -52,6 +52,20 @@ fn eq_of (ord: Ord a) -> Eq a
 /// under the dictionary e.
 fn member (e: Eq a) (x: a) (xs: List a) -> Bool
 
+/// min ord xs is the least element under ord, or None on [].
+//gom:result-notaint min 0
+fn min (ord: Ord a) (xs: List a) -> Option a
+
+/// max ord xs is the greatest element under ord, or None on [].
+//gom:result-notaint max 0
+fn max (ord: Ord a) (xs: List a) -> Option a
+
+//gom:noescape fold_min 0
+fn fold_min (lt: a -> a -> Bool) (best: a) (xs: List a) -> a
+
+//gom:noescape fold_max 0
+fn fold_max (lt: a -> a -> Bool) (best: a) (xs: List a) -> a
+
 /// option_eq e lifts equality onto Option: None equals None,
 /// `Some x` equals `Some y` iff the payloads equal.
 fn option_eq (e: Eq a) -> Eq (Option a)
@@ -61,11 +75,19 @@ fn option_eq (e: Eq a) -> Eq (Option a)
 fn option_ord (o: Ord a) -> Ord (Option a)
 
 /// list_eq e lifts equality onto List — same length, elementwise.
+//gom:result-notaint list_eq 0
 fn list_eq (e: Eq a) -> Eq (List a)
+
+//gom:noescape list_eq_loop 0
+fn list_eq_loop (eq: a -> a -> Bool) (xs: List a) (ys: List a) -> Bool
 
 /// list_ord o lifts ordering onto List — lexicographic: shorter is
 /// smaller on a shared prefix.
+//gom:result-notaint list_ord 0
 fn list_ord (o: Ord a) -> Ord (List a)
+
+//gom:noescape list_lt_loop 0
+fn list_lt_loop (lt: a -> a -> Bool) (xs: List a) (ys: List a) -> Bool
 
 /// pair_eq ea eb lifts equality onto pairs — both halves equal.
 fn pair_eq (ea: Eq a) (eb: Eq b) -> Eq (a, b)
@@ -82,23 +104,11 @@ fn result_eq (ea: Eq a) (ee: Eq e) -> Eq (Result a e)
 /// every Err; same constructors compare by payload.
 fn result_ord (oa: Ord a) (oe: Ord e) -> Ord (Result a e)
 
-/// min ord xs is the least element under ord, or None on [].
-fn min (ord: Ord a) (xs: List a) -> Option a
-
-/// max ord xs is the greatest element under ord, or None on [].
-fn max (ord: Ord a) (xs: List a) -> Option a
-
-//gom:noescape fold_min 0
-fn fold_min (lt: a -> a -> Bool) (best: a) (xs: List a) -> a
-
-//gom:noescape fold_max 0
-fn fold_max (lt: a -> a -> Bool) (best: a) (xs: List a) -> a
-
 /// sort ord xs is xs sorted ascending under ord — a fresh list.
+//gom:result-notaint sort 0
 fn sort (ord: Ord a) (xs: List a) -> List a
 
 /// sort_by lt xs is the comparator form sort lowers onto — a
 /// slices.SortFunc-backed Go impl (impl.go), so the ordering is
 /// O(n log n), not insertion sort.
-//gom:noescape sort_by 0
 fn sort_by (lt: a -> a -> Bool) (xs: List a) -> List a

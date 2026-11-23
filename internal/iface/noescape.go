@@ -16,13 +16,20 @@ import (
 // ordinary package, internal/stdlib's env for the embedded builtin
 // modules — runs it over the interface source.
 func ScanNoescape(src []byte) map[string][]int {
+	return scanDirective(src, "//gom:noescape ")
+}
+
+// scanDirective is the shared `//gom:<directive> <name> <i> ...`
+// line scan — a leading name field plus non-negative indices, the
+// whole line ignored when a field fails to parse.
+func scanDirective(src []byte, prefix string) map[string][]int {
 	var dirs map[string][]int
 	for _, line := range strings.Split(string(src), "\n") {
 		line = strings.TrimSpace(line)
-		if !strings.HasPrefix(line, "//gom:noescape ") {
+		if !strings.HasPrefix(line, prefix) {
 			continue
 		}
-		fields := strings.Fields(strings.TrimPrefix(line, "//gom:noescape "))
+		fields := strings.Fields(strings.TrimPrefix(line, prefix))
 		if len(fields) < 2 {
 			continue
 		}

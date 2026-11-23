@@ -82,7 +82,7 @@ func IsEmpty[A any](xs List[A]) bool {
 //line stdlib/list/list.gom:34
 func Length[A any](xs List[A]) int64 {
 //line stdlib/list/list.gom:34
-	return lengthGo[A](0, xs)
+	return LengthGo[A](0, xs)
 //line stdlib/list/list.gom:34
 }
 
@@ -291,12 +291,12 @@ func Find[A any](f func(A) bool, xs List[A]) option.Option[A] {
 //line stdlib/list/list.gom:86
 func Sum(xs List[float64]) float64 {
 //line stdlib/list/list.gom:86
-	return sumGo(0.0, xs)
+	return SumGo(0.0, xs)
 //line stdlib/list/list.gom:86
 }
 
 //line stdlib/list/list.gom:95
-func lengthGo[A any](acc int64, xs List[A]) int64 {
+func LengthGo[A any](acc int64, xs List[A]) int64 {
 //line stdlib/list/list.gom:95
 	for {
 //line stdlib/list/list.gom:96
@@ -329,7 +329,7 @@ func lengthGo[A any](acc int64, xs List[A]) int64 {
 }
 
 //line stdlib/list/list.gom:101
-func sumGo(acc float64, xs List[float64]) float64 {
+func SumGo(acc float64, xs List[float64]) float64 {
 //line stdlib/list/list.gom:101
 	for {
 //line stdlib/list/list.gom:102

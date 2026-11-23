@@ -660,3 +660,29 @@ fn keep (f: a -> a) -> a
 		t.Fatalf("keep.Escapes = %v, want nil (assume escaping)", keep.Escapes)
 	}
 }
+
+func TestLoadResultNotaint(t *testing.T) {
+	root := writeMod(t, "example.com/m", map[string]string{
+		"shapes/shapes.gomi": `package shapes
+
+//gom:result-notaint twice 1
+fn twice (f: a -> a) (x: a) -> a
+fn keep (f: a -> a) -> a
+`,
+	})
+	l := New(&Config{Dir: root})
+	p, err := l.Load("example.com/m/shapes", false)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	twice := p.Members["twice"]
+	if twice == nil {
+		t.Fatal("twice member missing")
+	}
+	if len(twice.ResultTaint) != 2 || !twice.ResultTaint[0] || twice.ResultTaint[1] {
+		t.Fatalf("twice.ResultTaint = %v, want [true false]", twice.ResultTaint)
+	}
+	if keep := p.Members["keep"]; keep == nil || keep.ResultTaint != nil {
+		t.Fatalf("keep.ResultTaint = %v, want nil (assume tainted)", keep.ResultTaint)
+	}
+}
