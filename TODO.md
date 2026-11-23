@@ -97,7 +97,11 @@ Go 相互運用を変えたら両方向（Gom → Go、Go → Gom）のテスト
 
 - [ ] **[task] `//gom:mutable` directive（`.gomi`）**: 実装が見えない宣言型（extern 裏付け・abstract export 不透明化）を `.gomi` の directive で mutable 表明 — name-only（index 無し）形なので `scanDirective` ではなく専用スキャンが要る、ロード時に tyCons へフラグ適用、`containsMutable` が `Qual != ""` の `Con` で照合、`.gomi` 再生成時は著者の directive を引き継ぐ（toolchain は新規生成しない）。ローカル `.gom` 宣言では受理しない（フィールドから導出可能なため）。priority low（[decision](docs/decisions/2026-11-23-user-mutable-structures.md)、wave36 lane G で採択）
 
-- [ ] **[task] `gom list` サブコマンド（stdlib 列挙）**: 埋め込み済みの `gomstdlib.Gomis`（list/option/result の .gomi）を walk して import 可能な短名を列挙するツールがない — `gom list`（引数なし、列挙のみの一機能）を追加。リポジトリを読まずに stdlib の面を把握する用途（wave38 lane 候補、podhmo 要望 2026-11-24）
+- [ ] **[task] `gom list` サブコマンド（stdlib 列挙）**: 埋め込み済みの `gomstdlib.Gomis`（list/option/result の .gomi）を walk して import 可能な短名を列挙するツールがない — `gom list`（引数なし、列挙のみの一機能）を追加。リポジトリを読まずに stdlib の面を把握する用途（wave38 lane A、podhmo 要望 2026-11-24）
+- [ ] **[task] ビット演算子 `&&&`/`|||`/`^^^`/`<<<`/`>>>`（+`&&^`）の実装**: 採択済みの三重字演算子を lexer + check + codegen + spec に実装（[decision](docs/decisions/2026-11-23-bit-operators.md)、wave38 lane B）
+- [ ] **[task] `Go.nil` ユニバーサル builtin の実装**: `Ptr.nil` 以外（`Go.Slice`/`Go.Map`/Go 関数型等）でも nil を書ける Go 名前空間の拡張（[decision](docs/decisions/2026-11-23-nil-spelling.md)、wave38 lane C）
+- [ ] **[task] `Go.Slice`/`Go.Map` 要素の `~` 制約一致の実装**: `~` 制約の要素一致を Gom 側 `types.Equal` で見る — record を `[]MyRec` として `slices.SortFunc` 等に渡せる面（[decision](docs/decisions/2026-11-23-goslice-gom-elem.md)、wave38 lane D）
+- [ ] **[bug] `Go.conv` List → named Go slice の check/emit ギャップ**: named slice 宛て `Go.conv xs : Go.Slice T` の不整合 — `~` 制約一致機構（wave38 lane D）に乗せて変換を実装するか拒否を明示するか（wave38 lane E）
 
 - [x] **P4-6 LSP**: 型表示、網羅性エラーの即時表示、UTF-16 位置への変換。依存: P4-5 — v1 foundation として採用: `internal/lsp`（stdio JSON-RPC、`didOpen`/`didChange`/`didClose`/`hover`/`publishDiagnostics`、単一 open-file モデル、`OffsetUTF16` で UTF-16 列→バイトオフセット逆変換）+ `gom lsp`。実 Emacs+Eglot で hover・診断 push を検証（wave11 lsp、[decision](docs/decisions/2026-11-06-lsp-v1-scope.md)、[検証](docs/sketch/2026-11-06-lsp-v1-verification.md)）
 - [x] **[task] LSP: 複数ファイルパッケージ単位のコンパイル**: `gom lsp` の compile unit をパッケージへ — dir の `*.gom` を overlay gather（open バッファがディスクをシャドウ、未オープン兄弟はディスク読み込み、絶対 `.gom` パスのみが member になる）し `build.CompileFiles` で単位ごと再コンパイル、診断はファイル単位で publish（未オープンは合成 file:// URI）+ 離脱メンバーの retract。Emacs/Eglot で兄弟解決・クロスファイル hover・didChange 反転を実証（wave12 lsp-multifile、[decision](docs/decisions/2026-11-06-lsp-package-unit.md)、[検証](docs/sketch/2026-11-06-lsp-package-unit-verification.md)）

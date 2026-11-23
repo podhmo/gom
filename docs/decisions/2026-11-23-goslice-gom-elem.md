@@ -1,6 +1,6 @@
 # `Go.Slice`/`Go.Map` 要素に Gom 宣言型 — `~` 制約の Gom 側一致
 
-- 状態: draft
+- 状態: 採択（2026-11-24 wave38 インタビュー。実装は wave38 lane D）
 - 日付: 2026-11-23
 
 wave37 lane D（[prompts](../sketch/2026-11-23-wave37-prompts.md)）。出典は

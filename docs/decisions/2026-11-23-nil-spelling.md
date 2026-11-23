@@ -1,6 +1,6 @@
 # nil の綴り — `Go.nil` ユニバーサル builtin
 
-- 状態: draft
+- 状態: 採択（2026-11-24 wave38 インタビュー。実装は wave38 lane C）
 - 日付: 2026-11-23
 
 wave37 lane C（[prompts](../sketch/2026-11-23-wave37-prompts.md)）。出典は
