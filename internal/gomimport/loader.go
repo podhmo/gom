@@ -676,8 +676,12 @@ func (l *Loader) extract(path string, tf *check.File) (*resolve.Package, error) 
 						ps = append(ps, types.FuncParam{Label: fp.Label, Type: requalify(fp.Type, own, path)})
 					}
 					key := conKey{qual: path, name: rc.Name}
+					mname := d.MethodName
+					if mname == "" {
+						mname = core.ExportName(sym.Name)
+					}
 					l.methods[key] = append(l.methods[key], check.GomMethod{
-						Name:    core.ExportName(sym.Name),
+						Name:    mname,
 						Sig:     types.Fn(requalify(d.Sig.Ret, own, path), ps...),
 						PtrRecv: ptrRecv,
 					})
