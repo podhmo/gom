@@ -20,9 +20,16 @@ open-questions: record が `[]MyRec` として `slices.SortFunc` 等に
   で行うが、`boundaryTypeOf`（boundary.go:80）は Gom 宣言型を
   **写せない**。record/sum は import された型ではなく emit される型
   で、go/types 側に対応オブジェクトを構成する材料（フィールド並び
-  ・パッケージ名）を loader が持たない → `bt == nil` → 常に拒否
+  ・パッケージ名）を loader が持たない。要素が写せないときは
+  `Go.Slice` 全体も `nil` を返す（boundary.go:137-140）ので、
+  `bt == nil` で `GoSatisfies` が早期リターンしてしまい「要素だけ
+  フォールバック」の形では届かない — **引数全体が unmappable の
+  場合を先に構造判定へ分岐**する必要がある
 - したがって `Rec` だけでなく、Gom 宣言型を要素に持つ
   `Go.Slice`/`Go.Map`/`Chan`/`List` の `~` 制約チェックは全て落ちる
+- なお `~chan E` はそもそも `structuralConstraint`
+  （mapping.go:359-379）が `~[]E`/`~map[K]V` しか認識せず、
+  signature の読み込み時点で関数自体が使えない — 本 lane の対象外
 
 ## 選択肢
 
@@ -41,8 +48,13 @@ Gom 側の `types.Equal` で比べる:
   同じ emit 名で、`types.Identical` に相当する事実を Gom 側で検査
   できる。named Go 型の要素は従来どおり oracle の `types.Identical`
   に任せる（そちらは写せる）
-- `cmp` 引数側の `func(a,b E) int` は `Go.fn2` アダプタで既に通る
-  （Go.FuncN 系統は別経路）
+- `cmp` 引数側 `func(a,b E) int` は `Go.func2`（Gom fn → Go 関数値
+  の外向き変換）が担う — しかし `goFuncRawView`（gofunc.go:553）
+  は record 等の Gom-only 型を raw view に写せないため、
+  **宣言型を要素に持つ SortFunc の cmp 渡しは別の緩和が要る**。
+  `~` 制約を通しても cmp が作れなければ SortFunc は完結しない —
+  実装 lane は `goFuncRawView` の宣言型対応（または cmp 用の
+  named-struct raw view）も同時に扱うべき
 
 ### 案 B: loader に Gom 宣言型の synthetic named を渡す
 
@@ -60,16 +72,24 @@ emit される `[]Rec` / `Other` は Go 的に不整合。不可。
 
 ## 決定
 
-案 A を採用。`GoSatisfies`（または check 側のフォールバック）で、
-要素型が loader に写せない Gom 宣言型のとき対応型引数を `types.Equal`
-で比較する。`types.Equal` も false なら従来どおり拒否（E0508）。
+案 A を採用。型引数全体が unmappable（Gom 宣言要素を含む
+`Go.Slice`/`Go.Map`/`List`）のとき、構造を Gom 側で分解して対応する
+型引数どうしを `types.Equal` で比較する。`types.Equal` も false なら
+従来どおり拒否（E0508）。
 
-- `slices.Reverse rs` / `slices.SortFunc rs (Go.fn2 f)` の `List Rec`
+- `slices.Reverse rs` / `slices.SortFunc rs (Go.func2 f)` の `List Rec`
   経路: S への境界物質化 `Go.Slice Rec` が `~[]E` を通るようになる。
   境界コピーの意味論（callee が破壊的変更しても Gom 側に届かない —
-  W0501 で警告済み）は変わらない
-- `slices.IsSorted`（`E cmp.Ordered`）は引き続き E0508 — record は
-  Ordered を満たさない、正しい拒否
+  W0501 で警告済み）は変わらない。cmp 側は `Go.func2` の raw view が
+  record を写せないため依然 E0510 系 — 上記の通り別の緩和が必要で、
+  実装 lane に含める
+- `slices.IsSorted`（`E cmp.Ordered`）: **複数フィールドの** record
+  は struct emit で Ordered を満たさず正しく拒否される。ただし
+  1 フィールド record（`type UserId = {v: Int}` → `type UserId int64`）
+  は underlying 経由で `~int64` の Ordered を Go 的には満たすので、
+  拒否側の例には struct emit される多フィールド record を使う
+  （defined type 経由の受理可否は boundaryTypeOf が写せないため
+  依然拒否になる — その差は gaps 台帳へ）
 
 ## 関連（延期バグへの材料）
 
@@ -81,12 +101,19 @@ emit される `[]Rec` / `Other` は Go 的に不整合。不可。
 
 ## 実装メモ
 
-- `internal/goimport/constraint.go` `GoSatisfies`: `el == nil` のとき
-  フォールバック呼び出し（checker 側で型引数どうしを `types.Equal`
-  比較するか、`GoSatisfies` が「unproven」を区別して返す形状にする —
-  現行は nil → false の一方向なので、unmappable と不適合の区別が要る）
-- または `internal/check` 側で、oracle が false を返した場合に限り
-  Gom 宣言要素かつ `types.Equal` 成立のケースを受理する
+- `internal/goimport/constraint.go` `GoSatisfies`: `bt == nil`（引数
+  全体が unmappable）のとき早期リターンせず「unproven」を区別して
+  返す形状にする（現行は nil → false の一方向）。check 側で
+  unproven かつ型引数が `Go.Slice`/`Go.Map`/`List` 構造なら要素を
+  `types.Equal` で比較して受理/拒否する
+- `internal/check/gofunc.go` `goFuncRawView`: `Go.func2` 等の外向き
+  raw view に Gom 宣言型（emit される named struct / defined type）
+  を通す緩和 — cmp コールバックが SortFunc で完結するために必要。
+  emit 名の安定（同一パッケージで同名 emit）に依存するので、
+  named 型の場合は emit 名と decl 名の対応を oracle 経由で確認する
+  形が安全かは実装時に詰める
+- `docs/implementation-gaps.md` へ record-slice 受理差分の項目追加
+  （決定待ちでも台帳必須 — AGENTS.md）
 - spec §8.5 の `~` 制約記述に「Gom 宣言要素は Gom 側の等価で判定」
   の一節を同期する
 - テスト: `Go.Slice Rec`/`List Rec` の `slices.Reverse`/`SortFunc`

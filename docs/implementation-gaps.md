@@ -1847,3 +1847,12 @@
   lane 候補。
   [problem](problems/2026-11-04-interp-composite-display.md)、
   [棚卸し](sketch/2026-11-23-wave36-problems-sweep.md)（2026-11-23 登録）
+
+- [ ] **`Go.Slice`/`Go.Map` 要素に Gom 宣言型を置くと `~` 制約で常に拒否される**:
+  spec §8.5 の `~[]E`/`~map[K]V` 判定は `types.Identical` 前提だが、
+  `boundaryTypeOf` が emit される Gom 宣言型を go/types に写せず
+  `slices.Reverse` 等に `List Rec`/`Go.Slice Rec` を渡せない（E0508）。
+  1 フィールド record（`type UserId = {v: Int}` → `type UserId int64`）は
+  Go 的には `~int64` で `cmp.Ordered` を満たすが写せないため拒否される。
+  wave37 lane D — [decision draft](decisions/2026-11-23-goslice-gom-elem.md)。
+  [実装](../internal/goimport/boundary.go) [実装](../internal/goimport/constraint.go)
