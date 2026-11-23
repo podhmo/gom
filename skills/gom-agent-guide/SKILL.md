@@ -167,9 +167,9 @@ stay structs (Go forbids `type X[T] T`).
   `~to` puns `~to: to`. Omitting a label is *partial application*,
   not an error — it bites silently: see the mistakes section.
   An unlabeled function still fills a labeled position — labels are
-  introduced positionally (`apply (fn x -> x)` conforms to
-  `~x: Int -> Int`); a labeled function never conforms to an
-  unlabeled one.
+  introduced positionally (in `apply (fn x -> x)`, the `fn x -> x`
+  argument conforms to the `~x: Int -> Int` parameter); a labeled
+  function never conforms to an unlabeled one.
 - **Types** (all nominal): `Int Int32 Int64 Byte Float Bool Char String
   Unit`, tuples `(a, b)`, `List a`, `Option a` (`Some`/`None`),
   `Result a e` (`Ok`/`Err`), `Ref a`, `Array a`, `Ptr T`, `Chan a` /

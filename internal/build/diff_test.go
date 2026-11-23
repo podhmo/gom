@@ -706,6 +706,10 @@ func bindGoStubs(t *testing.T, ev *eval.Evaluator, capture *diffCapture, files .
 		if v, ok := diffGoValues[name]; ok {
 			ev.Env().Bind(sym, v)
 		}
+		if fn, ok := scopeDiffStub(name, ev, capture); ok {
+			ev.Env().Bind(sym, eval.NewHostFunc(name, arity, fn))
+			return
+		}
 	}
 	bind := func(sym *resolve.Symbol, arity int) {
 		if sym == nil {
@@ -1120,6 +1124,145 @@ var diffGoStubs = map[string]func(capture *diffCapture) func([]eval.Value) (eval
 			return &eval.VStr{S: recv.Text}, nil
 		}
 	},
+}
+
+// diffScope is the harness's rt.Scope stand-in: the defer-family
+// stubs push their cleanup function values onto it, and the run
+// stubs replay them LIFO at close — the semantics of rt.Scope.Close
+// (rt/scope.go, stdlib/result/scope.go).
+type diffScope struct {
+	cleanups []diffScopeCleanup
+	closed   bool
+}
+
+type diffScopeCleanup struct {
+	f      eval.Value
+	onErr  bool // Scope.on_err — runs only when the body failed
+	errRes bool // Scope.defer_err — the cleanup returns a Result
+}
+
+// scopeDiffStub returns the faithful stub for an rt/stdlib Scope
+// member the harness can replay, or false. Without one, gomgen's
+// scopeRunOf emission stays E9001-unexecutable and skips the native
+// comparison. The apply-based replay marks the run unfaithful
+// whenever a nested evaluation reports a diagnostic the host call
+// cannot surface — a `try` escape or `go` expression inside a
+// callback would otherwise come back as a fabricated panic class.
+func scopeDiffStub(name string, ev *eval.Evaluator, capture *diffCapture) (func([]eval.Value) (eval.Value, error), bool) {
+	apply := func(f eval.Value, arg eval.Value) eval.Value {
+		r := ev.Apply(f, arg)
+		if diag.List(r.Diags).HasError() || r.Value == nil {
+			capture.unfaithful = true
+			return nil
+		}
+		return r.Value
+	}
+	scopeOf := func(v eval.Value) (*diffScope, bool) {
+		h, ok := v.(*eval.VHost)
+		if !ok {
+			return nil, false
+		}
+		s, ok := h.V.(*diffScope)
+		return s, ok
+	}
+	isErr := func(v eval.Value) bool {
+		vv, ok := v.(*eval.VVariant)
+		return ok && (vv.Name == "Err" || vv.Ctor != nil && vv.Ctor.Name == "Err")
+	}
+	// closeScope replays the registrations LIFO like rt.Scope.Close
+	// and returns the values the defer_err cleanups failed with
+	// (joined errors stay values on the eval side).
+	closeScope := func(s *diffScope, failed bool) (errs []eval.Value, ok bool) {
+		s.closed = true
+		for i := len(s.cleanups) - 1; i >= 0; i-- {
+			c := s.cleanups[i]
+			if c.onErr && !failed {
+				continue
+			}
+			v := apply(c.f, &eval.VUnit{})
+			if v == nil {
+				return nil, false
+			}
+			if c.errRes && isErr(v) {
+				vv := v.(*eval.VVariant)
+				if f, has := vv.FieldByIndex(0); has {
+					errs = append(errs, f.V)
+				}
+			}
+		}
+		return errs, true
+	}
+	push := func(args []eval.Value, onErr, errRes bool) (eval.Value, error) {
+		if len(args) < 2 {
+			capture.unfaithful = true
+			return &eval.VUnit{}, nil
+		}
+		s, ok := scopeOf(args[0])
+		if !ok {
+			return goBadArgs(name, args)
+		}
+		if s.closed {
+			return nil, fmt.Errorf("%s: cleanup registered on a closed Scope", name)
+		}
+		s.cleanups = append(s.cleanups, diffScopeCleanup{f: args[1], onErr: onErr, errRes: errRes})
+		return &eval.VUnit{}, nil
+	}
+	switch name {
+	case "github.com/podhmo/gom/rt.ScopeRun":
+		return func(args []eval.Value) (eval.Value, error) {
+			if len(args) < 1 {
+				capture.unfaithful = true
+				return nil, nil
+			}
+			s := &diffScope{}
+			v := apply(args[0], &eval.VHost{V: s})
+			if v == nil {
+				return nil, nil
+			}
+			if _, ok := closeScope(s, false); !ok {
+				return nil, nil
+			}
+			return v, nil // rt.ScopeRun drops cleanup errors
+		}, true
+	case "github.com/podhmo/gom/rt.ScopeDefer":
+		return func(args []eval.Value) (eval.Value, error) { return push(args, false, false) }, true
+	case "github.com/podhmo/gom/rt.ScopeOnErr":
+		return func(args []eval.Value) (eval.Value, error) { return push(args, true, false) }, true
+	case "github.com/podhmo/gom/stdlib/result.ScopeDeferErr":
+		return func(args []eval.Value) (eval.Value, error) { return push(args, false, true) }, true
+	case "github.com/podhmo/gom/stdlib/result.ScopeRunResult":
+		return func(args []eval.Value) (eval.Value, error) {
+			if len(args) < 1 {
+				capture.unfaithful = true
+				return nil, nil
+			}
+			s := &diffScope{}
+			v := apply(args[0], &eval.VHost{V: s})
+			if v == nil {
+				return nil, nil
+			}
+			failed := isErr(v)
+			errs, ok := closeScope(s, failed)
+			if !ok {
+				return nil, nil
+			}
+			// The body's own error wins over cleanup errors; a clean
+			// body is replaced by the joined cleanup failure.
+			if failed || len(errs) == 0 {
+				return v, nil
+			}
+			var msgs []string
+			for _, e := range errs {
+				if ge, isGE := e.(*eval.VGoErr); isGE {
+					msgs = append(msgs, ge.Text)
+				} else {
+					msgs = append(msgs, e.String())
+				}
+			}
+			return goErrVariant(strings.Join(msgs, "\n")), nil
+		}, true
+	}
+	return nil, false
 }
 
 // diffGoValues holds the pure constants a generated program can

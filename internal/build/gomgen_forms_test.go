@@ -36,16 +36,19 @@ func TestGomgenNewFormsCompile(t *testing.T) {
 	}
 
 	classes := map[string][]string{
-		"select-arms":    {"Chan.make"},
-		"scope-run":      {"Scope.run"},
-		"ptr-field":      {"goiface", "w.Fn ="},
+		"select-send":    {"send ch"},
+		"select-recv":    {"<-ch"},
+		"select-default": {"default->"},
+		"scope-run":      {"Scope.run<|"},
+		"scope-defer":    {"Scope.defer s"},
+		"ptr-field":      {"w.Fn ="},
 		"gom-import":     {`import"list"`, `import"option"`, `import"result"`, `import"cmp"`},
 		"gom-member":     {"list.length", "list.rev", "list.is_empty", "list.head", "option.is_some", "option.is_none", "result.is_ok", "result.is_err"},
 		"goiface-import": {"goiface"},
 	}
 	seen := map[string]bool{}
 
-	for seed := uint64(0); seed < 600 && len(seen) < len(classes); seed++ {
+	for seed := uint64(0); seed < 3000 && len(seen) < len(classes); seed++ {
 		rng := rand.New(rand.NewPCG(seed, 0x9e3779b9))
 		src := gomgen.Generate(g, rng, gomgen.Options{Typed: true})
 		var hits []string
@@ -84,7 +87,7 @@ func TestGomgenNewFormsCompile(t *testing.T) {
 	}
 	for name := range classes {
 		if !seen[name] {
-			t.Errorf("%s: no clean-compiling program in 600 seeds", name)
+			t.Errorf("%s: no clean-compiling program in 3000 seeds", name)
 		}
 	}
 	_ = imp
