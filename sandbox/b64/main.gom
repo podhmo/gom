@@ -27,9 +27,7 @@ fn die (msg: String) -> Unit = {
 
 fn run (decode: Bool) (path: Option String) -> Result Unit GoError = {
   let data = try read_all path
-  let out = if decode {
-    try (base64.StdEncoding.DecodeString (Go.conv data : String))
-  } else {
+  let out = if decode { try base64.StdEncoding.DecodeString (Go.conv data : String) } else {
     Go.conv (base64.StdEncoding.EncodeToString data) : List Byte
   }
   ignore os.Stdout.Write out
@@ -49,9 +47,5 @@ fn main () -> Unit = match program_args () {
     Ok _ -> ()
     Err e -> die (e.Error ())
   }
-  _ -> {
-    ignore fmt.Fprintln (os.Stderr, "usage: b64 [-d] [FILE]")
-    ignore os.Exit 2
-    ()
-  }
+  _ -> { ignore fmt.Fprintln (os.Stderr, "usage: b64 [-d] [FILE]"); ignore os.Exit 2; () }
 }

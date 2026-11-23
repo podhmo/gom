@@ -1,0 +1,6 @@
+package main
+
+import go "fmt"
+import go "slices"
+
+fn main () -> Unit = { let xs = [3, 1, 2]; ignore slices.Sort xs; ignore fmt.Println xs; () }

@@ -1,0 +1,15 @@
+package main
+
+import go "fmt"
+import go "net/http"
+
+fn handler (w: http.ResponseWriter) (r: Ptr http.Request) -> Unit = {
+  ignore fmt.Fprintf (w, "via HandlerFunc: %s\n", r.URL.Path)
+  ()
+}
+
+fn main () -> Unit = {
+  let hf = Go.conv (Go.func2 handler) : http.HandlerFunc
+  ignore http.ListenAndServe (":18084", hf)
+  ()
+}

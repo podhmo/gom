@@ -1,0 +1,100 @@
+// calc — 四則演算の式評価器。sum type の AST + 網羅 match のデモ。
+//   calc "1 + 2 * 3"      -> 7
+//   calc "(1 + 2) * 3"    -> 9
+// トークンは空白区切り前提。
+package main
+
+import go "fmt"
+import go "os"
+import go "strconv"
+import go "strings"
+
+type Expr =
+  | Num Float
+  | Add Expr Expr
+  | Sub Expr Expr
+  | Mul Expr Expr
+  | Div Expr Expr
+
+fn eval (e: Expr) -> Float = match e {
+  Num n -> n
+  Add a b -> eval a + eval b
+  Sub a b -> eval a - eval b
+  Mul a b -> eval a * eval b
+  Div a b -> eval a / eval b
+}
+
+fn show (e: Expr) -> String = match e {
+  Num n -> fmt.Sprintf "%g" n
+  Add a b -> "(${show a} + ${show b})"
+  Sub a b -> "(${show a} - ${show b})"
+  Mul a b -> "(${show a} * ${show b})"
+  Div a b -> "(${show a} / ${show b})"
+}
+
+fn parse_expr (ts: List String) -> Result (Expr, List String) String = {
+  let (e, rest) = try parse_muldiv ts
+  addsub_loop e rest
+}
+
+fn addsub_loop (e: Expr) (ts: List String) -> Result (Expr, List String) String = match ts {
+  [] -> Ok (e, [])
+  ["+", ..rest] -> { let (r, rest2) = try parse_muldiv rest; addsub_loop (Add e r) rest2 }
+  ["-", ..rest] -> { let (r, rest2) = try parse_muldiv rest; addsub_loop (Sub e r) rest2 }
+  _ -> Ok (e, ts)
+}
+
+fn parse_muldiv (ts: List String) -> Result (Expr, List String) String = {
+  let (e, rest) = try parse_atom ts
+  muldiv_loop e rest
+}
+
+fn muldiv_loop (e: Expr) (ts: List String) -> Result (Expr, List String) String = match ts {
+  [] -> Ok (e, [])
+  ["*", ..rest] -> { let (r, rest2) = try parse_atom rest; muldiv_loop (Mul e r) rest2 }
+  ["/", ..rest] -> { let (r, rest2) = try parse_atom rest; muldiv_loop (Div e r) rest2 }
+  _ -> Ok (e, ts)
+}
+
+fn parse_atom (ts: List String) -> Result (Expr, List String) String = match ts {
+  [] -> Err "unexpected end of input"
+  ["(", ..rest] -> {
+    let (e, rest2) = try parse_expr rest
+    match rest2 {
+      [")", ..rest3] -> Ok (e, rest3)
+      _ -> Err "missing )"
+    }
+  }
+  [t, ..rest] -> match strconv.ParseFloat (t, 64) {
+    Ok n -> Ok (Num n, rest)
+    Err _ -> Err "bad token: ${t}"
+  }
+}
+
+fn run (input: String) -> Result String String = {
+  let ts = Go.Slice.to_list (strings.Fields input)
+  let (e, rest) = try parse_expr ts
+  match rest {
+    [] -> Ok "${show e} = ${eval e}"
+    [t, .._] -> Err "trailing token: ${t}"
+  }
+}
+
+fn main () -> Unit = match Go.Slice.to_list os.Args {
+  [_, input] -> match run input {
+    Ok s -> ignore fmt.Println s
+    Err msg -> { ignore fmt.Fprintln (os.Stderr, "calc: ${msg}"); ignore os.Exit 1; () }
+  }
+  _ -> { ignore fmt.Fprintln (os.Stderr, "usage: calc EXPR"); ignore os.Exit 2; () }
+}
+
+test "eval and parse" {
+  let ts = Go.Slice.to_list (strings.Fields "1 + 2 * 3")
+  let (e, rest) = match parse_expr ts {
+    Ok v -> v
+    Err _ -> { assert false; (Num 0.0, []) }
+  }
+  assert_eq rest []
+  assert_eq (eval e) 7.0
+  assert_eq (eval (Sub (Add (Num 1.0) (Num 2.0)) (Num 1.0))) 2.0
+}

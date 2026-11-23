@@ -1,0 +1,35 @@
+// srv — 最小 HTTP サーバ。Go の http.HandlerFunc 境界を試す。
+//   srv [ADDR]    デフォルト :18081
+//   GET /         -> "hello from gom"
+//   GET /echo     -> ?q= をそのまま返す
+package main
+
+import go "fmt"
+import go "net/http"
+import go "os"
+
+fn handler (w: http.ResponseWriter) (r: Ptr http.Request) -> Unit = {
+  let q = (r.URL.Query ()).Get "q"
+  ignore fmt.Fprintf (w, "method=%s path=%s q=%s\n", r.Method, r.URL.Path, q)
+  ()
+}
+
+fn program_args () -> List String = match Go.Slice.to_list os.Args {
+  [] -> []
+  [_, ..args] -> args
+}
+
+fn main () -> Unit = {
+  let addr = match program_args () {
+    [] -> ":18081"
+    [a, .._] -> a
+  }
+  let mux = http.NewServeMux ()
+  mux.HandleFunc ("/", Go.func2 handler)
+  mux.HandleFunc ("/echo", Go.func2 handler)
+  ignore fmt.Fprintln (os.Stderr, "listening on ${addr}")
+  match http.ListenAndServe (addr, mux) {
+    Ok _ -> ()
+    Err e -> { ignore fmt.Fprintln (os.Stderr, "srv: ${e.Error ()}"); ignore os.Exit 1; () }
+  }
+}

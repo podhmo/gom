@@ -1,0 +1,15 @@
+package main
+
+import go "encoding/json"
+import go "fmt"
+
+type User = { name: String, age: Int }
+
+fn main () -> Unit = {
+  let u: Ptr User = Ptr.new ()
+  match json.Unmarshal (Go.conv "{\"Name\":\"taro\",\"Age\":30}" : Go.Slice Byte, u) {
+    Ok _ -> ignore fmt.Println (Ptr.get u)
+    Err e -> ignore fmt.Println (e.Error ())
+  }
+  ()
+}

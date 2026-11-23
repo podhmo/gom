@@ -1,0 +1,57 @@
+// hs — HTTP ステータスチェッカ。複数 URL を HEAD して status と応答時間を出す。
+//   hs URL...        逐次
+//   hs -p URL...     並行 (Task.spawn)
+package main
+
+import go "fmt"
+import go "net/http"
+import go "os"
+import go "strings"
+import go "time"
+
+type Probe = { url: String, status: Int, ms: Int, err: Option String }
+
+fn program_args () -> List String = match Go.Slice.to_list os.Args {
+  [] -> []
+  [_, ..args] -> args
+}
+
+fn probe (url: String) -> Probe = {
+  let start = time.Now ()
+  match http.Head url {
+    Ok res -> {
+      let ms = (time.Since start).Milliseconds ()
+      ignore res.Body.Close ()
+      { url = url, status = res.StatusCode, ms = ms, err = None }
+    }
+    Err e -> {
+      let ms = (time.Since start).Milliseconds ()
+      { url = url, status = 0, ms = ms, err = Some (e.Error ()) }
+    }
+  }
+}
+
+fn render (p: Probe) -> String = match p.err {
+  Some msg -> "FAIL  ${p.url}  ${msg}"
+  None -> fmt.Sprintf "%3d  %s  %dms" p.status p.url p.ms
+}
+
+fn run_seq (urls: List String) -> Unit = match urls {
+  [] -> ()
+  [u, ..rest] -> { ignore fmt.Println (render (probe u)); run_seq rest }
+}
+
+fn await_all (tasks: List (Task Probe)) (acc: List Probe) -> List Probe = match tasks {
+  [] -> List.rev acc
+  [t, ..rest] -> await_all rest [Task.await t, ..acc]
+}
+
+fn main () -> Unit = match program_args () {
+  [] -> { ignore fmt.Fprintln (os.Stderr, "usage: hs [-p] URL..."); ignore os.Exit 2; () }
+  ["-p", ..urls] -> {
+    let tasks = List.map (fn u -> Task.spawn (fn () -> probe u)) urls
+    for p in await_all tasks [] { ignore fmt.Println (render p); () }
+    ()
+  }
+  urls -> run_seq urls
+}

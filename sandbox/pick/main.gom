@@ -10,12 +10,7 @@ import go "os"
 import go "strings"
 import go "unicode/utf8"
 
-type Opts = {
-  pattern: String,
-  invert: Bool,
-  number: Bool,
-  path: Option String,
-}
+type Opts = { pattern: String, invert: Bool, number: Bool, path: Option String }
 
 fn program_args () -> List String = match Go.Slice.to_list os.Args {
   [] -> []
@@ -30,9 +25,7 @@ fn parse_loop (args: List String) (o: Opts) -> Result Opts String = match args {
   ["-v", ..rest] -> parse_loop rest { o with invert = true }
   ["-n", ..rest] -> parse_loop rest { o with number = true }
   [a, ..rest] -> if strings.HasPrefix (a, "-") { Err "unknown option: ${a}" } else {
-    if o.pattern == "" {
-      parse_loop rest { o with pattern = a }
-    } else {
+    if o.pattern == "" { parse_loop rest { o with pattern = a } } else {
       match o.path {
         None -> parse_loop rest { o with path = Some a }
         Some _ -> Err "too many arguments"
@@ -50,14 +43,10 @@ fn logical_lines (text: String) -> List String = {
   }
 }
 
-fn emit (o: Opts) (n: Int) (line: String) -> Unit =
-  if o.number {
-    ignore (fmt.Printf "%d:%s\n" n line)
-    ()
-  } else {
-    ignore (fmt.Println line)
-    ()
-  }
+fn emit (o: Opts) (n: Int) (line: String) -> Unit = if o.number {
+  ignore fmt.Printf "%d:%s\n" n line
+  ()
+} else { ignore fmt.Println line; () }
 
 fn pick_lines (o: Opts) (n: Int) (lines: List String) -> Unit = match lines {
   [] -> ()
@@ -69,24 +58,20 @@ fn pick_lines (o: Opts) (n: Int) (lines: List String) -> Unit = match lines {
 }
 
 fn run (o: Opts) -> Result Unit GoError = {
-  let data = try (match o.path {
-    None -> io.ReadAll os.Stdin
-    Some p -> os.ReadFile p
-  })
-  if utf8.Valid data {
-    pick_lines o 1 (logical_lines (Go.conv data : String))
-    Ok ()
-  } else { Err (errors.New "binary input") }
+  let data =
+    try (match o.path {
+      None -> io.ReadAll os.Stdin
+      Some p -> os.ReadFile p
+    })
+  if utf8.Valid data { pick_lines o 1 (logical_lines (Go.conv data : String)); Ok () } else {
+    Err (errors.New "binary input")
+  }
 }
 
 fn main () -> Unit = match parse (program_args ()) {
   Ok o -> match run o {
     Ok _ -> ()
-    Err e -> {
-      ignore fmt.Fprintln (os.Stderr, "pick: ${e.Error ()}")
-      ignore os.Exit 1
-      ()
-    }
+    Err e -> { ignore fmt.Fprintln (os.Stderr, "pick: ${e.Error ()}"); ignore os.Exit 1; () }
   }
   Err msg -> {
     ignore fmt.Fprintln (os.Stderr, "pick: ${msg}\nusage: pick [-v] [-n] SUBSTR [FILE]")

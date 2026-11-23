@@ -1,0 +1,36 @@
+// tpl — text/template のレンダラ。
+//   tpl TEMPLATE_FILE DATA.json
+// DATA は {"name": "...", ...} の JSON オブジェクト。
+package main
+
+import go "encoding/json"
+import go "fmt"
+import go "os"
+import go "text/template"
+
+fn program_args () -> List String = match Go.Slice.to_list os.Args {
+  [] -> []
+  [_, ..args] -> args
+}
+
+fn run (tpl_path: String) (data_path: String) -> Result Unit GoError = {
+  let t = try template.ParseFiles tpl_path
+  let data_bytes = try os.ReadFile data_path
+  let data: Ptr (Go.Map String Go.Any) = Ptr.new ()
+  try json.Unmarshal (Go.conv data_bytes : Go.Slice Byte, data)
+  let w = os.Stdout
+  try t.Execute (w, Ptr.get data)
+  Ok ()
+}
+
+fn main () -> Unit = match program_args () {
+  [tpl_path, data_path] -> match run tpl_path data_path {
+    Ok _ -> ()
+    Err e -> { ignore fmt.Fprintln (os.Stderr, "tpl: ${e.Error ()}"); ignore os.Exit 1; () }
+  }
+  _ -> {
+    ignore fmt.Fprintln (os.Stderr, "usage: tpl TEMPLATE_FILE DATA.json")
+    ignore os.Exit 2
+    ()
+  }
+}

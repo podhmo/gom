@@ -13,9 +13,9 @@ fn program_args () -> List String = match Go.Slice.to_list os.Args {
 }
 
 fn hash_file (path: String) -> Result Unit GoError = {
-  let f = try (os.Open path)
+  let f = try os.Open path
   let h = sha256.New ()
-  ignore (try (io.Copy (h, f)))
+  ignore try io.Copy (h, f)
   try f.Close ()
   let sum = h.Sum []
   ignore fmt.Printf "%x  %s\n" sum path
@@ -26,21 +26,11 @@ fn run (paths: List String) -> Int = match paths {
   [] -> 0
   [p, ..rest] -> match hash_file p {
     Ok _ -> run rest
-    Err e -> {
-      ignore fmt.Fprintln (os.Stderr, "s256: ${p}: ${e.Error ()}")
-      1
-    }
+    Err e -> { ignore fmt.Fprintln (os.Stderr, "s256: ${p}: ${e.Error ()}"); 1 }
   }
 }
 
 fn main () -> Unit = match program_args () {
-  [] -> {
-    ignore fmt.Fprintln (os.Stderr, "usage: s256 FILE...")
-    ignore os.Exit 2
-    ()
-  }
-  paths -> {
-    let code = run paths
-    if code == 0 { () } else { ignore (os.Exit code); () }
-  }
+  [] -> { ignore fmt.Fprintln (os.Stderr, "usage: s256 FILE..."); ignore os.Exit 2; () }
+  paths -> { let code = run paths; if code == 0 { () } else { ignore os.Exit code; () } }
 }

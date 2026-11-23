@@ -1,0 +1,55 @@
+// runner — コマンドをタイムアウト付きで実行する。
+//   runner [-t SEC] CMD [ARGS...]
+// タイムアウトで exit 124、コマンド失敗はその exit code を通す。
+package main
+
+import go "context"
+import go "errors"
+import go "fmt"
+import go "os"
+import go "os/exec"
+import go "strconv"
+import go "time"
+
+fn program_args () -> List String = match Go.Slice.to_list os.Args {
+  [] -> []
+  [_, ..args] -> args
+}
+
+// Go の named func 型 context.CancelFunc は Go.Func0 として読まれ、
+// Go.fn0 で呼び出せる。
+fn run_cmd (sec: Int) (argv: List String) -> Result Int String = match argv {
+  [] -> Err "no command"
+  [name, ..rest] -> {
+    let (ctx, cancel) =
+      context.WithTimeout (context.Background (), (Go.conv sec : time.Duration) * time.Second)
+    let cmd = exec.CommandContext (ctx, name, ..rest)
+    match cmd.Output () {
+      Ok out -> { ignore (Go.fn0 cancel) (); ignore os.Stdout.Write out; Ok 0 }
+      Err e -> {
+        let ctx_err = ctx.Err ()
+        ignore (Go.fn0 cancel) ()
+        match ctx_err {
+          Err cerr -> if errors.Is (cerr, context.DeadlineExceeded) { Err "timeout" } else {
+            Err (cerr.Error ())
+          }
+          Ok _ -> Err (e.Error ())
+        }
+      }
+    }
+  }
+}
+
+fn main () -> Unit = match program_args () {
+  ["-t", sec, ..argv] -> match strconv.Atoi sec {
+    Ok n -> match run_cmd n argv {
+      Ok code -> ignore os.Exit code
+      Err msg -> { ignore fmt.Fprintln (os.Stderr, "runner: ${msg}"); ignore os.Exit 124; () }
+    }
+    Err _ -> { ignore fmt.Fprintln (os.Stderr, "runner: -t expects seconds"); ignore os.Exit 2; () }
+  }
+  argv -> match run_cmd 30 argv {
+    Ok code -> ignore os.Exit code
+    Err msg -> { ignore fmt.Fprintln (os.Stderr, "runner: ${msg}"); ignore os.Exit 1; () }
+  }
+}

@@ -1,0 +1,27 @@
+package main
+
+import go "encoding/json"
+import go "flag"
+import go "fmt"
+import go "regexp"
+
+type User = { name: String, age: Int }
+
+fn main () -> Unit = {
+  // probe 1: gom record の json.Marshal
+  let u = { name = "taro", age = 30 }
+  match json.Marshal u {
+    Ok b -> ignore (fmt.Println (Go.conv b : String))
+    Err e -> ignore (fmt.Println ("marshal err: ${e.Error ()}"))
+  }
+  // probe 2: flag パッケージ
+  let verbose = flag.Bool ("v", false, "verbose")
+  flag.Parse ()
+  ignore (Ptr.get verbose)
+  // probe 3: regexp
+  match regexp.Compile "^a+$" {
+    Ok re -> ignore (fmt.Println (re.MatchString "aaa"))
+    Err e -> ignore (fmt.Println (e.Error ()))
+  }
+  ()
+}

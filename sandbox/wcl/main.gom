@@ -10,11 +10,7 @@ import go "strings"
 
 type Counts = { lines: Int, words: Int, bytes: Int }
 
-type Flags = {
-  show_lines: Bool,
-  show_words: Bool,
-  show_bytes: Bool,
-}
+type Flags = { show_lines: Bool, show_words: Bool, show_bytes: Bool }
 
 type Args =
   | HelpA
@@ -25,7 +21,8 @@ type Args =
 fn count_data (data: List Byte) -> Counts = {
   let text = Go.conv data : String
   let lines = Go.Slice.to_list (strings.Split (text, "\n"))
-  let words = List.fold (fn acc l -> acc + List.length (Go.Slice.to_list (strings.Fields l))) 0 lines
+  let words =
+    List.fold (fn acc l -> acc + List.length (Go.Slice.to_list (strings.Fields l))) 0 lines
   { lines = List.length lines - 1, words = words, bytes = List.length data }
 }
 
@@ -45,10 +42,9 @@ fn parse_loop (args: List String) (f: Flags) (files: List String) -> Result Args
   }
 }
 
-fn defaults (f: Flags) -> Flags =
-  if f.show_lines || f.show_words || f.show_bytes { f } else {
-    { show_lines = true, show_words = true, show_bytes = true }
-  }
+fn defaults (f: Flags) -> Flags = if f.show_lines || f.show_words || f.show_bytes { f } else {
+  { show_lines = true, show_words = true, show_bytes = true }
+}
 
 fn render (f: Flags) (name: String) (c: Counts) -> String = {
   let parts = []
@@ -66,7 +62,10 @@ fn read_input (path: Option String) -> Result (List Byte) GoError = match path {
 
 fn run_one (f: Flags) (path: Option String) -> Result Unit GoError = {
   let data = try read_input path
-  let name = match path { None -> ""; Some p -> p }
+  let name = match path {
+    None -> ""
+    Some p -> p
+  }
   ignore fmt.Println (render f name (count_data data))
   Ok ()
 }
@@ -91,7 +90,7 @@ fn die (code: Int) (msg: String) -> Unit = {
 }
 
 fn main () -> Unit = match parse (program_args ()) {
-  Ok (HelpA) -> ignore (fmt.Println "usage: wcl [-lwc] [FILE...]")
+  Ok (HelpA) -> ignore fmt.Println "usage: wcl [-lwc] [FILE...]"
   Ok (RunA f files) -> match run f files {
     Ok _ -> ()
     Err e -> die 1 (e.Error ())

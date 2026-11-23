@@ -1836,3 +1836,13 @@
   spec が実装に先行 — 実装 lane は TODO「unlabeled → labeled の
   introduction」を参照。
   [仕様](spec.md)、[decision](decisions/2026-11-23-labeled-arg-relaxation.md)
+- [ ] **`Go.conv` が `List a` → named Go slice の変換を check で通すが
+  生成コードが `go build` で落ちる**: `Go.conv xs : sort.IntSlice`
+  （`xs : List Int`）は gom check を通過するが、emit されるのは
+  `sort.IntSlice(list.List[int64])` 型の直接変換で、List の表現が
+  `list.List[T]`（`[]T` ではない）ためコンパイル不能。check 側の
+  conversion 許可判定が List の Go 表現を `[]T` として扱っている
+  可能性。回避: `Go.Slice.to_list` 経由か gom 側でソートを書く。
+  （2026-11-23、sandbox 探索で発見。再現コードは sandbox/log.md の
+  「諦めたもの A」に記録）
+  [仕様](spec.md)

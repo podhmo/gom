@@ -1,0 +1,16 @@
+package main
+
+import go "fmt"
+import go "io/fs"
+import go "os"
+import go "path/filepath"
+
+fn on_entry (path: String) (d: fs.DirEntry) (err: GoError) -> Result Unit GoError = {
+  ignore fmt.Println path
+  Ok ()
+}
+
+fn main () -> Unit = match filepath.WalkDir (".", Go.func3 on_entry) {
+  Ok _ -> ()
+  Err e -> ignore fmt.Println (e.Error ())
+}

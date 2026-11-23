@@ -1,0 +1,18 @@
+package main
+
+import go "fmt"
+import go "os"
+import go "os/signal"
+import go "time"
+
+fn loop (sig: Chan os.Signal) (ticker: RecvChan time.Time) (n: Int) -> Unit = select {
+  _ <- sig -> { ignore fmt.Println "got signal, bye"; () }
+  _ <- ticker -> { ignore fmt.Printf "tick %d\n" n; loop sig ticker (n + 1) }
+}
+
+fn main () -> Unit = {
+  let sig: Chan os.Signal = Chan.make 1
+  signal.Notify (sig, ..[os.Interrupt])
+  let ticker = time.Tick (500 * time.Millisecond)
+  loop sig ticker 1
+}

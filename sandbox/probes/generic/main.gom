@@ -1,0 +1,14 @@
+package main
+
+import go "fmt"
+
+fn id (x: a) -> a = x
+
+fn swap ((a, b): (a, b)) -> (b, a) = (b, a)
+
+fn main () -> Unit = {
+  ignore fmt.Println (id 42)
+  ignore fmt.Println (id "str")
+  ignore fmt.Println (swap (1, "x"))
+  ()
+}

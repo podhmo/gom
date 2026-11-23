@@ -121,11 +121,11 @@ fn die (code: Int) (msg: String) -> Unit = {
 
 fn main () -> Unit = match program_args () {
   [path] -> match run path None {
-    Ok s -> ignore (fmt.Println s)
+    Ok s -> ignore fmt.Println s
     Err e -> die 1 e
   }
   [path, file] -> match run path (Some file) {
-    Ok s -> ignore (fmt.Println s)
+    Ok s -> ignore fmt.Println s
     Err e -> die 1 e
   }
   _ -> die 2 "usage: jqp PATH [FILE]"

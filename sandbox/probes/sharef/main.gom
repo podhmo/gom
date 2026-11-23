@@ -1,0 +1,13 @@
+package main
+
+import go "fmt"
+
+fn main () -> Unit = {
+  let r = Ref.new 0
+  let ch: Chan Int = Chan.make 0
+  go { Ref.set r 41; Chan.send ch (Ref.get r); () }
+  let got = Chan.recv ch
+  ignore fmt.Println got
+  ignore fmt.Println (Ref.get r)
+  ()
+}

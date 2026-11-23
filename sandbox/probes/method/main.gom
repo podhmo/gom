@@ -1,0 +1,18 @@
+package main
+
+import go "fmt"
+
+type Id = { value: Int }
+
+@method
+fn (i: Id) string () -> String = fmt.Sprintf "id:%d" i.value
+
+fn main () -> Unit = {
+  // @method: record が fmt.Stringer を満たすか
+  let i = { value = 42 }
+  ignore fmt.Println (string i ())
+  let st: fmt.Stringer = i
+  ignore fmt.Println st
+
+  ()
+}

@@ -1,0 +1,106 @@
+// duu — du(1) もどき。直下エントリごとのサイズを大きい順に出す。
+//   duu [DIR]
+package main
+
+import go "fmt"
+import go "os"
+import go "path/filepath"
+
+type Entry = { name: String, size: Int }
+
+type Walked = { size: Int, warns: List String }
+
+fn program_args () -> List String = match Go.Slice.to_list os.Args {
+  [] -> []
+  [_, ..args] -> args
+}
+
+// ディレクトリ以下のサイズ合計。読めないものは warn として積む。
+fn dir_size (dir: String) -> Walked = match os.ReadDir dir {
+  Err e -> { size = 0, warns = ["${dir}: ${e.Error ()}"] }
+  Ok entries -> fold_entries (Go.Slice.to_list entries) dir { size = 0, warns = [] }
+}
+
+fn fold_entries (entries: List os.DirEntry) (dir: String) (acc: Walked) -> Walked = match entries {
+  [] -> acc
+  [e, ..rest] -> {
+    let path = filepath.Join (dir, e.Name ())
+    let acc = if e.IsDir () {
+      let sub = dir_size path
+      { size = acc.size + sub.size, warns = List.append sub.warns acc.warns }
+    } else {
+      match e.Info () {
+        Ok (Some info) -> { acc with size = acc.size + info.Size () }
+        Ok (None) -> acc
+        Err err -> { acc with warns = ["${path}: ${err.Error ()}", ..acc.warns] }
+      }
+    }
+    fold_entries rest dir acc
+  }
+}
+
+fn entries_of (dir: String) -> Result (List Entry) GoError = match os.ReadDir dir {
+  Err e -> Err e
+  Ok es ->
+    Ok ((List.map
+      (fn e ->
+        {
+          name = e.Name (),
+          size = if e.IsDir () { (dir_size (filepath.Join (dir, e.Name ()))).size } else {
+            match e.Info () {
+              Ok (Some i) -> i.Size ()
+              _ -> 0
+            }
+          },
+        })
+      (Go.Slice.to_list es)))
+}
+
+// 宣言した record 型は Go.Slice の要素になれないので slices.SortFunc は
+// 使えない。gom 側でマージソートを書く。
+fn split (xs: List Entry) (a: List Entry) (b: List Entry) -> (List Entry, List Entry) = match xs {
+  [] -> (List.rev a, List.rev b)
+  [x] -> (List.rev [x, ..a], List.rev b)
+  [x, y, ..rest] -> split rest [x, ..a] [y, ..b]
+}
+
+fn merge_desc (xs: List Entry) (ys: List Entry) -> List Entry = match xs {
+  [] -> ys
+  [x, ..xr] -> match ys {
+    [] -> xs
+    [y, ..yr] -> if x.size >= y.size { [x, ..merge_desc xr ys] } else { [y, ..merge_desc xs yr] }
+  }
+}
+
+fn sort_desc (xs: List Entry) -> List Entry = match xs {
+  [] -> []
+  [x] -> [x]
+  _ -> { let (a, b) = split xs [] []; merge_desc (sort_desc a) (sort_desc b) }
+}
+
+fn human (n: Int) -> String = {
+  let f = Go.conv n : Float
+  if n >= 1073741824 { fmt.Sprintf "%6.1fG" (f / 1073741824.0) } else {
+    if n >= 1048576 { fmt.Sprintf "%6.1fM" (f / 1048576.0) } else {
+      if n >= 1024 { fmt.Sprintf "%6.1fK" (f / 1024.0) } else { fmt.Sprintf "%7dB" n }
+    }
+  }
+}
+
+fn run (dir: String) -> Result Unit GoError = {
+  let es = try entries_of dir
+  let sorted = sort_desc es
+  for e in sorted { ignore fmt.Printf "%s  %s\n" (human e.size) e.name; () }
+  Ok ()
+}
+
+fn main () -> Unit = {
+  let dir = match program_args () {
+    [] -> "."
+    [d, .._] -> d
+  }
+  match run dir {
+    Ok _ -> ()
+    Err e -> { ignore fmt.Fprintln (os.Stderr, "duu: ${e.Error ()}"); ignore os.Exit 1; () }
+  }
+}
