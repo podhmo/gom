@@ -795,7 +795,21 @@ func (c *checker) inferResultTaint(body Expr, pats []Pat) []bool {
 // mutual recursion bottoms out the same way.
 func (c *checker) resultProducers(e Expr) map[*resolve.Symbol]bool {
 	var out map[*resolve.Symbol]bool
+	lets := map[*resolve.Symbol]Expr{}
 	var rec func(e Expr)
+	var walk func(e Expr)
+	// body visits a lambda body the enclosing result incorporates:
+	// its result-position producers and the `try` Err channel that
+	// propagates through the body's Result.
+	body := func(b Expr) {
+		rec(b)
+		walk(b)
+	}
+	bindPats := func(p Pat, v Expr) {
+		for _, s := range patBoundSyms(p) {
+			lets[s] = v
+		}
+	}
 	rec = func(e Expr) {
 		add := func(s *resolve.Symbol) {
 			if s == nil {
@@ -809,12 +823,20 @@ func (c *checker) resultProducers(e Expr) map[*resolve.Symbol]bool {
 		switch e := e.(type) {
 		case nil:
 		case *Var:
-			add(e.Sym)
+			if v, ok := lets[e.Sym]; ok {
+				rec(v)
+			} else {
+				add(e.Sym)
+			}
 		case *MemberExpr:
 			add(e.Sym)
 		case *Lambda:
 			for s := range capturedVars(e.Body, lamBound(e)) {
-				add(s)
+				if v, ok := lets[s]; ok {
+					rec(v)
+				} else {
+					add(s)
+				}
 			}
 		case *Apply:
 			ctor := e.Call.Callee != nil && e.Call.Callee.Kind == resolve.KindCtor
@@ -829,8 +851,8 @@ func (c *checker) resultProducers(e Expr) map[*resolve.Symbol]bool {
 			case isScopeRunner(e.Call):
 				rec(e.Fn)
 				for _, a := range e.Args {
-					if lam, ok := a.Value.(*Lambda); ok {
-						rec(lam.Body)
+					if lam, ok := unascribe(a.Value).(*Lambda); ok {
+						body(lam.Body)
 					} else {
 						rec(a.Value)
 					}
@@ -839,7 +861,15 @@ func (c *checker) resultProducers(e Expr) map[*resolve.Symbol]bool {
 				rec(e.Fn)
 				for i, a := range e.Args {
 					if c.resultTaintAt(calleeSymOfApply(e), argParamIndex(e, i)) {
-						rec(a.Value)
+						// An argument lambda the callee applies
+						// contributes its body's products — the
+						// capturedVars channel counts retained
+						// values, not the callback's products.
+						if lam, ok := unascribe(a.Value).(*Lambda); ok {
+							body(lam.Body)
+						} else {
+							rec(a.Value)
+						}
 					}
 				}
 			}
@@ -850,12 +880,20 @@ func (c *checker) resultProducers(e Expr) map[*resolve.Symbol]bool {
 			rec(e.Else)
 		case *Match:
 			for _, a := range e.Arms {
+				bindPats(a.Pat, e.Subj)
 				rec(a.Body)
 			}
 		case *Block:
+			for _, st := range e.Stmts {
+				if ld, ok := st.(*Let); ok {
+					bindPats(ld.Pat, ld.Value)
+				}
+			}
 			if n := len(e.Stmts); n > 0 {
 				rec(e.Stmts[n-1])
 			}
+		case *Let:
+			bindPats(e.Pat, e.Value)
 		case *Try:
 			rec(e.X)
 		case *ListLit:
@@ -902,8 +940,8 @@ func (c *checker) resultProducers(e Expr) map[*resolve.Symbol]bool {
 				switch {
 				case isScopeRunner(CallInfo{Callee: fnSym}):
 					rec(fn)
-					if lam, ok := arg.(*Lambda); ok {
-						rec(lam.Body)
+					if lam, ok := unascribe(arg).(*Lambda); ok {
+						body(lam.Body)
 					} else {
 						rec(arg)
 					}
@@ -920,14 +958,18 @@ func (c *checker) resultProducers(e Expr) map[*resolve.Symbol]bool {
 					// error product unconditionally.
 					rec(fn)
 					if e.Op == syntax.BinPipeTry || c.resultTaintAt(fnSym, 0) {
-						rec(arg)
+						if lam, ok := unascribe(arg).(*Lambda); ok {
+							body(lam.Body)
+						} else {
+							rec(arg)
+						}
 					}
 				}
 			case syntax.BinComposeFwd, syntax.BinComposeBack:
 				rec(e.X)
 				rec(e.Y)
 			}
-		case *Lit, *Hole, *Let, *Ignore, *Unary, *FieldAssign,
+		case *Lit, *Hole, *Ignore, *Unary, *FieldAssign,
 			*For, *GoExpr, *StrInterp:
 			// Consumed positions and statement results retain
 			// nothing — mirror retainedVarsR.
@@ -935,7 +977,103 @@ func (c *checker) resultProducers(e Expr) map[*resolve.Symbol]bool {
 			panic("unreachable")
 		}
 	}
-	rec(e)
+	// walk collects the `try` Err channel: a `try` anywhere outside
+	// a nested lambda or goroutine boundary propagates its error
+	// product to this body's Result, whatever position it sits in.
+	walk = func(e Expr) {
+		switch e := e.(type) {
+		case nil:
+		case *Try:
+			body(e.X)
+		case *Lambda:
+			// boundary: the lambda's `try` propagates its own
+			// Result — argument lambdas arrive through body()
+			// at the channel that applies them
+		case *Var, *MemberExpr, *Lit, *Hole:
+		case *Ascribe:
+			walk(e.X)
+		case *Apply:
+			walk(e.Fn)
+			for _, a := range e.Args {
+				walk(a.Value)
+			}
+		case *If:
+			walk(e.Cond)
+			walk(e.Then)
+			walk(e.Else)
+		case *Match:
+			walk(e.Subj)
+			for _, a := range e.Arms {
+				bindPats(a.Pat, e.Subj)
+				walk(a.Guard)
+				walk(a.Body)
+			}
+		case *Block:
+			for _, st := range e.Stmts {
+				walk(st)
+			}
+		case *Let:
+			bindPats(e.Pat, e.Value)
+			walk(e.Value)
+		case *Ignore:
+			walk(e.X)
+		case *ListLit:
+			for _, el := range e.Elems {
+				walk(el)
+			}
+		case *TupleLit:
+			for _, el := range e.Elems {
+				walk(el)
+			}
+		case *RecordLit:
+			walk(e.With)
+			for _, f := range e.Fields {
+				walk(f.Value)
+			}
+		case *Spread:
+			walk(e.X)
+		case *SelectExpr:
+			for _, a := range e.Arms {
+				switch a := a.(type) {
+				case *RecvArm:
+					walk(a.Chan)
+					walk(a.Body)
+				case *SendArm:
+					walk(a.Chan)
+					walk(a.Value)
+					walk(a.Body)
+				case *DefaultArm:
+					walk(a.Body)
+				default:
+					panic("unreachable")
+				}
+			}
+		case *Binary:
+			walk(e.X)
+			walk(e.Y)
+		case *Unary:
+			walk(e.X)
+		case *FieldAssign:
+			walk(e.Recv)
+			walk(e.Value)
+		case *For:
+			bindPats(e.Pat, e.Iter)
+			walk(e.Iter)
+			walk(e.Body)
+		case *StrInterp:
+			for _, p := range e.Parts {
+				if se, ok := p.(*StrExpr); ok {
+					walk(se.X)
+				}
+			}
+		case *GoExpr:
+			// a goroutine boundary — `try` inside it propagates
+			// the spawned function's own Result
+		default:
+			panic("unreachable")
+		}
+	}
+	body(e)
 	return out
 }
 

@@ -1,0 +1,13 @@
+package ex
+
+// spec section 6.1 — a `try` off the result path still taints:
+// its Err arm forwards the callee's error product through this
+// function's own Result.
+fn wrap (cb: Unit -> Result (Unit -> Unit) String) -> Result Unit String = {
+    let _ = try (cb ())
+    Ok ()
+}
+
+fn leak (held: Ref Int) -> Result Unit String =
+    Scope.run <| fn s ->
+        wrap (fn () -> Ok (fn () -> Scope.defer s (fn () -> Ref.set held 0)))
