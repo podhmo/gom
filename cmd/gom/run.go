@@ -12,6 +12,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"slices"
 	"syscall"
@@ -172,7 +173,34 @@ func runGomRun(args []string, stdout, stderr io.Writer) int {
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = stdout
 	cmd.Stderr = stderr
-	if err := cmd.Run(); err != nil {
+	if err := cmd.Start(); err != nil {
+		fmt.Fprintf(stderr, "gom run: cannot run %s: %v\n", bin, err)
+		return diag.ExitInternal
+	}
+	// Forward process signals to the child like `go run` does —
+	// without this a Ctrl-C kills `gom run` but leaves the program
+	// running detached. Registering the signals also stops the
+	// default action here: the parent survives the signal and
+	// reports the child's own status (a signal death surfaces as
+	// 128+signal below).
+	sigc := make(chan os.Signal, 8)
+	signal.Notify(sigc, syscall.SIGINT, syscall.SIGTERM,
+		syscall.SIGHUP, syscall.SIGQUIT)
+	relay := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case s := <-sigc:
+				_ = cmd.Process.Signal(s)
+			case <-relay:
+				return
+			}
+		}
+	}()
+	err = cmd.Wait()
+	close(relay)
+	signal.Stop(sigc)
+	if err != nil {
 		if ee, ok := err.(*exec.ExitError); ok {
 			if code := ee.ExitCode(); code >= 0 {
 				return code
