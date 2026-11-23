@@ -1,6 +1,6 @@
 # ユーザー宣言の可変構造
 
-- 状態: 採用（調査の結果、宣言型の推移展開は実装済みと判明。残る隙間は extern 裏付け型のみ — `.gomi` の `//gom:mutable` directive を採択）
+- 状態: 採用（調査の結果、宣言型の推移展開は実装済みと判明。残る隙間は「実装が見えない宣言型」— extern 裏付け型と abstract export で不透明化した Gom パッケージ型 — `.gomi` の `//gom:mutable` directive を採択）
 - 日付: 2026-11-23
 
 ## 背景
@@ -15,27 +15,33 @@ open-questions の未決項「`Ref a` と可変配列 `Array a` 以外に可変�
 - `type Wrap = | W { b: Box }` — sum variant のフィールド経由でも伝播する
 - `shadowedBuiltin` で同名列に影を落とされた builtin は可変扱いしない（偽陽性抑止、既存）
 
-見えないのは **extern 裏付けで可変状態を持つ宣言型**だけ:
+見えないのは **実装がパッケージ境界の向こう側に隠れた宣言型**だけ — 2 種類ある:
 
-- extern パッケージが `type Queue a` を宣言し実装を Go の `[]T`/`map`/mutex で書いた場合、`.gomi` には `type Queue a`（kindAbstract）と操作関数群だけが見える。lint は `Queue` が可変状態を運ぶことを推認する手立てがない — `Chan.make (Queue Int)` や `go {}` への `Queue` キャプチャは警告されない
+- **extern 裏付け**: extern パッケージが `type Queue a` を宣言し実装を Go の `[]T`/`map`/mutex で書いた場合、`.gomi` には `type Queue a`（kindAbstract）と操作関数群だけが見える。lint は `Queue` が可変状態を運ぶことを推認する手立てがない — `Chan.make (Queue Int)` や `go {}` への `Queue` キャプチャは警告されない
+- **abstract export で不透明化した Gom 型**: 通常の Gom パッケージでも `.gomi` に `type Queue a`（実体を出さない abstract export、spec の interface 節）と書けば、importer にはフィールドが見えず `containsMutable` は展開できない。フィールドに `Ref` を含む record を隠した場合も同じ偽陰性になる
 - これは `//gom:noescape`・`//gom:result-notaint` と同じ形の問題 — パッケージ境界を跨いだ性質は `.gomi` の directive でしか伝えられない
 
 ## 決定
 
-**案 A 採択**: 可変構造の入口は閉じた builtin 集合のまま据え置き、宣言型の可変性はフィールドの推移律で導出する（実装済み・変更不要）。extern 裏付け型だけを `.gomi` の **`//gom:mutable <name>`** directive で覆う:
+**案 A 採択**: 可変構造の入口は閉じた builtin 集合のまま据え置き、宣言型の可変性はフィールドの推移律で導出する（実装済み・変更不要）。実装が見えない宣言型（extern 裏付け・abstract export 不透明化のどちらでも）だけを `.gomi` の **`//gom:mutable <name>`** directive で覆う:
 
-- extern パッケージの著者が `.gomi` に手で書く（`//gom:noescape` と同じ directive 系統。toolchain は生成しない — 著者の意図表明のみ）
+- パッケージの著者が `.gomi` に手で書く（`//gom:noescape` と同じ directive 系統。toolchain は生成しない — 著者の意図表明のみ）
 - `.gomi` ロード時に該当 `tyCons` エントリへ「mutable」フラグとして適用し、`containsMutable` が `Qual != ""` の `Con` でも照合する
-- ローカルの `.gom` 宣言には効果を持たせない — ユーザー宣言型の可変性はフィールドから常に導出可能で、矛盾する宣言（可変フィールドを持たない型への `//gom:mutable` 付与）は `.gom` 側では受理しない（extern の `.gomi` は実装が見えないので信用する）
+- ローカルの `.gom` 宣言には効果を持たせない — ユーザー宣言型の可変性はフィールドから常に導出可能で、矛盾する宣言（可変フィールドを持たない型への `//gom:mutable` 付与）は `.gom` 側では受理しない（`.gomi` は実装が見えないので信用する）
 
 棄却した選択肢:
 
-- **何もしない**: extern パッケージは上級用法で偽陰性を許容する。今の extern パッケージ群（stdlib の `Ref`/`Array` 等）は builtin 集合で既に覆われており、実害は将来のユーザー extern に限られる — しかし directive 追加は noescape/notaint の既存機構の再利用で安価
-- **第一級の `mutable` 型修飾**: 言語面に新しい修飾を導入して全ての宣言型が可変性を自己表明する。宣言型の可変性は既にフィールドから導出できており冗長 — 効果は extern 型への伝播だけで、型システムを広げる程の対象ではない
+- **何もしない**: extern パッケージと abstract export を使うパッケージは上級用法で偽陰性を許容する。今の extern パッケージ群（stdlib の `Ref`/`Array` 等）は builtin 集合で既に覆われており、実害は将来のユーザー extern / opaque export に限られる — しかし directive 追加は noescape/notaint の既存機構の再利用で安価
+- **第一級の `mutable` 型修飾**: 言語面に新しい修飾を導入して全ての宣言型が可変性を自己表明する。宣言型の可変性は既にフィールドから導出できており冗長 — 効果は opaque 型への伝播だけで、型システムを広げる程の対象ではない
 
 ## 実施
 
-TODO: `//gom:mutable` directive の `.gomi` scan/apply/emit（`scanDirective` 系統に追加、同じ lexer 共通路）、`containsMutable` の照合、spec 10 章への記述。priority low — ユーザー extern パッケージが実在するまでの隙間。
+TODO: `//gom:mutable` directive の `.gomi` scan/apply、`containsMutable` の照合、spec 10 章への記述。2 点は既存機構と異なる:
+
+- `//gom:mutable <name>` は **name のみで index を取らない** — `scanDirective`（internal/iface/noescape.go）は index 非数値の行を捨てるので、name-only 形を読む variant が要る
+- "emit" は **toolchain が directive を作ることではなく**、`.gomi` 再生成時に著者の書いた directive を落とさず引き継ぐ意味（noescape/notaint の emit と同じ扱い）
+
+priority low — 実装の見えないユーザー宣言型が実在するまでの隙間。
 
 ## 関連
 
