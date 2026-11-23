@@ -1039,6 +1039,9 @@ func embedAdmissible(t types.Type) bool {
 		}
 	case *types.Go:
 		return true
+	case *types.Func, *types.Meta, *types.Tuple, *types.Var:
+	default:
+		panic("unreachable")
 	}
 	return false
 }
