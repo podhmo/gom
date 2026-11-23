@@ -43,4 +43,10 @@ fn n () -> Int32 = 7 / (1 >>> ((Go.conv ((Go.conv 5 : time.Duration) >>> 2147483
 // so the count is 0 and the divisor is 1: no E0414.
 fn o () -> Int32 = 7 / (1 >>> (Go.conv (Go.conv (100 + 156) : Byte) : Int32))
 
+// `Go.conv` of a non-literal operand folds the conversion — the
+// ascribe wraps at the target width: `Int32(2^33)` is 0, so this
+// division reports E0414 (the fold must not keep the unbounded
+// 2^33 and miss the zero).
+fn p () -> Int32 = (Go.conv 7 : Int32) / (Go.conv (4294967296 * 2) : Int32)
+
 fn main () -> Unit = ()

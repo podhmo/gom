@@ -2253,10 +2253,25 @@ func (c *checker) constFold(e Expr) (constant.Value, bool) {
 		}
 		return constant.BinaryOp(x, op, y), true
 	case *Ascribe:
-		// `e : T` emits e (possibly under a conversion); converting
-		// a constant keeps it constant, so the ascription is
-		// transparent to folding.
-		return c.constFold(e.X)
+		// `Go.conv e : T` emits `T(e)` — e evaluates at its own
+		// machine width, then converts: an integer value wraps at
+		// T's width (`Go.conv 65536 : Int32` is 0, not 65536); a
+		// conversion to a widthless named type is the identity
+		// machine value, so it folds through unchanged.
+		var v constant.Value
+		var ok bool
+		if w2, u2, ok2 := c.intFoldWidth(e.X.Type()); ok2 {
+			v, ok = c.foldIntAt(e.X, w2, u2)
+		} else {
+			v, ok = c.constFold(e.X)
+		}
+		if !ok {
+			return nil, false
+		}
+		if w, us, ok := c.intFoldWidth(e.Type()); ok && v.Kind() == constant.Int {
+			return wrapConstInt(v, w, us), true
+		}
+		return v, true
 	case *Var, *Apply, *Hole, *MemberExpr, *StrInterp, *Lambda, *If,
 		*Match, *Block, *Let, *Ignore, *Try, *FieldAssign,
 		*GoExpr, *For, *SelectExpr, *ListLit, *Spread, *TupleLit,
@@ -2451,11 +2466,26 @@ func (c *checker) foldIntAt(e Expr, w uint, unsigned bool) (constant.Value, bool
 		}
 		return wrapConstInt(constant.BinaryOp(x, op, y), w, unsigned), true
 	case *Ascribe:
-		// `Go.conv e : T` evaluates e at its own width (the
-		// recursion derives it from e's node), then converts —
-		// the wrap at this node's width is the conversion.
-		v, ok := c.foldIntAt(e.X, w, unsigned)
+		// `Go.conv e : T` — e evaluates at its own machine width
+		// (its node's own intFoldWidth, never the conversion's
+		// target — `Go.conv d : Byte` must not narrow d's
+		// arithmetic to 8 bits first), then T(v) converts: the
+		// wrap at T's width IS the conversion when T has one.
+		w2, u2, ok := c.intFoldWidth(e.X.Type())
 		if !ok {
+			return nil, false
+		}
+		v, ok := c.foldIntAt(e.X, w2, u2)
+		if !ok {
+			return nil, false
+		}
+		if _, _, ok := c.intFoldWidth(e.Type()); !ok {
+			// T has no fold width — a declared type's conversion
+			// is the identity machine value, so it must not wrap
+			// at the inherited width.
+			return v, true
+		}
+		if v.Kind() != constant.Int {
 			return nil, false
 		}
 		return wrapConstInt(v, w, unsigned), true

@@ -74,36 +74,14 @@
       "span": {
         "file": "E0414_div_bit_shift.gom",
         "start": {
-          "line": 24,
-          "col": 25,
-          "offset": 942
+          "line": 50,
+          "col": 43,
+          "offset": 2344
         },
         "end": {
-          "line": 24,
-          "col": 76,
-          "offset": 993
-        }
-      },
-      "data": {
-        "op": "/"
-      }
-    },
-    {
-      "kind": "diagnostic",
-      "code": "E0414",
-      "severity": "error",
-      "message": "division by a constant zero",
-      "span": {
-        "file": "E0414_div_bit_shift.gom",
-        "start": {
-          "line": 40,
-          "col": 25,
-          "offset": 1799
-        },
-        "end": {
-          "line": 40,
-          "col": 99,
-          "offset": 1873
+          "line": 50,
+          "col": 75,
+          "offset": 2376
         }
       },
       "data": {
