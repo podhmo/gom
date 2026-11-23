@@ -1014,7 +1014,10 @@ func (c *checker) unifyFunc(w, g *types.Func, sp diag.Span) bool {
 			return false
 		}
 		// Pair the runs by label; members without a partner stay in
-		// their side's parameter stream as leftovers. Each iteration
+		// their side's parameter stream as leftovers. Matched
+		// partners must also appear in the same order — the Go ABI
+		// is positional, so `~a ~b` produced for `~b ~a` expected
+		// would swap the arguments at the call. Each iteration
 		// pairs at least one member or reports, so the walk
 		// terminates.
 		byLabel := make(map[string]int, len(rb))
@@ -1177,11 +1180,25 @@ func (c *checker) mismatch(sp diag.Span, want, got any) {
 	// only at the residual type. The actual side is the common case
 	// (`expected Unit, got ~amount: Int -> Unit`); the expected side
 	// carries labels when extra positional arguments settled labeled
-	// parameters out of order.
-	if ls := unfilledLabels(got); len(ls) > 0 {
-		d = d.AddNote(fmt.Sprintf("the value is a partially applied call still awaiting %s", joinLabels(ls))).
-			Set("unfilled_labels", ls)
-	} else if ls := unfilledLabels(want); len(ls) > 0 {
+	// parameters out of order. When both sides declare the same
+	// labels the value is no partial call at all — it is an order
+	// mismatch, and the positional Go call would swap the arguments.
+	gl, wl := unfilledLabels(got), unfilledLabels(want)
+	if len(gl) > 0 && len(wl) > 0 && sameLabels(gl, wl) {
+		if !slices.Equal(gl, wl) {
+			d = d.AddNote(fmt.Sprintf("the labeled parameters %s are in a different order — the generated Go call is positional, so the arguments would swap", joinLabels(gl)))
+		} else {
+			// The label sequences agree, so the failure is the
+			// interleave: a label moved across a positional
+			// parameter. Saying "different order" would point at
+			// the wrong axis.
+			d = d.AddNote(fmt.Sprintf("the labeled parameters %s sit at a different position among the positional parameters — the generated Go call is positional, so the arguments would swap", joinLabels(gl)))
+		}
+		d = d.Set("unfilled_labels", gl)
+	} else if len(gl) > 0 {
+		d = d.AddNote(fmt.Sprintf("the value is a partially applied call still awaiting %s", joinLabels(gl))).
+			Set("unfilled_labels", gl)
+	} else if ls := wl; len(ls) > 0 {
 		d = d.AddNote(fmt.Sprintf("the expected function type still declares %s — positional arguments may have filled labeled parameters out of order", joinLabels(ls))).
 			Set("unfilled_labels", ls)
 	}
@@ -1215,6 +1232,19 @@ func unfilledLabels(t any) []string {
 		}
 		f = nf
 	}
+}
+
+// sameLabels reports whether two label lists hold the same labels
+// in any order — the shape of an order mismatch rather than a
+// partial application.
+func sameLabels(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	as, bs := slices.Clone(a), slices.Clone(b)
+	slices.Sort(as)
+	slices.Sort(bs)
+	return slices.Equal(as, bs)
 }
 
 // joinLabels renders `~x:`, `~y:` for a diagnostic note.

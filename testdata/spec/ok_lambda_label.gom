@@ -1,0 +1,16 @@
+package ex
+
+// spec section 1.2 — a lambda may label its parameter: `fn ~x ->`
+// (bare) or `fn (~x: T) ->` (annotated). The produced function
+// type carries the label and fills a `~x:`-declared parameter.
+fn apply (f: ~x: Int -> Int) (n: Int) -> Int = f ~x: n
+
+fn use () -> Int = {
+    let g = fn ~x -> x * 2
+    apply g 21
+}
+
+fn use2 () -> Int = {
+    let h = fn (~x: Int) -> x + 1
+    apply h 41
+}

@@ -1,0 +1,10 @@
+package main
+
+// A produced labeled run must keep the expected run's order — the
+// generated Go call is positional, so `fn ~a ~b` filling a
+// `~b -> ~a` parameter would swap the arguments at the call.
+fn use (f: ~b: Int -> ~a: Int -> Int) -> Int = f ~b: 3 ~a: 10
+
+let g = fn ~a ~b -> a - b
+
+let r = use g

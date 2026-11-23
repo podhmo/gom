@@ -2742,3 +2742,84 @@ type alias Wrap a = List a
             (uident))
           (type_atom
             (ident)))))))
+================================================================================
+lambda labeled params
+================================================================================
+
+package m
+
+let apply = fn ~f -> f 1
+let twice = fn (~x: Int) -> x + x
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (package_decl
+    (ident))
+  (let_decl
+    (pattern
+      (or_pattern
+        (ctor_pattern
+          (pat_atom
+            (ident)))))
+    (expr
+      (control_expr
+        (lambda
+          (lambda_param
+            (ident))
+          (expr
+            (ascribed_expr
+              (pipe_expr
+                (bool_or_expr
+                  (bool_and_expr
+                    (rel_expr
+                      (add_expr
+                        (mul_expr
+                          (unary_expr
+                            (apply_expr
+                              (postfix_expr
+                                (atom
+                                  (ident)))
+                              (app_arg
+                                (arg_expr
+                                  (simple_expr
+                                    (postfix_expr
+                                      (atom
+                                        (literal
+                                          (int_literal)))))))))))))))))))))
+  (let_decl
+    (pattern
+      (or_pattern
+        (ctor_pattern
+          (pat_atom
+            (ident)))))
+    (expr
+      (control_expr
+        (lambda
+          (lambda_param
+            (ident)
+            (type_expr
+              (arrow_type
+                (app_type
+                  (type_atom
+                    (uident))))))
+          (expr
+            (ascribed_expr
+              (pipe_expr
+                (bool_or_expr
+                  (bool_and_expr
+                    (rel_expr
+                      (add_expr
+                        (mul_expr
+                          (unary_expr
+                            (apply_expr
+                              (postfix_expr
+                                (atom
+                                  (ident))))))
+                        (add_op)
+                        (mul_expr
+                          (unary_expr
+                            (apply_expr
+                              (postfix_expr
+                                (atom
+                                  (ident))))))))))))))))))

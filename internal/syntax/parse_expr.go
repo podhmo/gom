@@ -780,8 +780,32 @@ func (p *parser) parseLambda(nb bool) Expr {
 				Sp:  sp,
 				Pat: &LitPat{Sp: sp, Lit: &Lit{Sp: sp, Kind: LitUnit, Text: "()"}},
 			})
-		case t.kind == tokLParen && (p.peek(1).kind == tokIdent || nameKeyword(p.peek(1).kind)):
+		case t.kind == tokLParen && (p.peek(1).kind == tokIdent || nameKeyword(p.peek(1).kind) || p.peek(1).kind == tokTilde):
 			params = append(params, p.parseLambdaAnnParam())
+		case t.kind == tokTilde:
+			// `fn ~x` — a labeled parameter, the call-site `~x:` pun's
+			// mirror; `(~x: T)` is its annotated form (spec section 1.2).
+			tilde := p.next()
+			nameTok := p.cur()
+			var id *Ident
+			switch {
+			case nameKeyword(nameTok.kind):
+				id = p.errReserved(nameTok)
+			case nameTok.kind == tokIdent:
+				p.next()
+				id = &Ident{Sp: p.spanOf(nameTok), Name: p.text(nameTok)}
+			default:
+				p.errf(p.spanOf(nameTok),
+					"a labeled lambda parameter needs a name after \"~\", found %s",
+					p.describe(nameTok))
+				p.next()
+				id = &Ident{Sp: p.spanOf(nameTok), Name: "_"}
+			}
+			params = append(params, Param{
+				Sp:    p.span(tilde.start, nameTok.end),
+				Label: id,
+				Pat:   &VarPat{Sp: p.spanOf(nameTok), Name: id},
+			})
 		default:
 			goto paramsDone
 		}
@@ -809,10 +833,21 @@ paramsDone:
 // error like in parseFnParam.
 func (p *parser) parseLambdaAnnParam() Param {
 	open := p.next() // '('
+	labeled := false
+	if p.at(tokTilde) {
+		p.next()
+		labeled = true
+	}
 	nameTok := p.cur()
 	var id *Ident
 	if nameKeyword(nameTok.kind) {
 		id = p.errReserved(nameTok)
+	} else if nameTok.kind != tokIdent {
+		p.errf(p.spanOf(nameTok),
+			"a labeled lambda parameter binds a plain name, found %s",
+			p.describe(nameTok))
+		p.next()
+		id = &Ident{Sp: p.spanOf(nameTok), Name: "_"}
 	} else {
 		name := p.next() // ident
 		id = &Ident{Sp: p.spanOf(name), Name: p.text(name)}
@@ -834,7 +869,11 @@ func (p *parser) parseLambdaAnnParam() Param {
 			end = t.end
 		}
 	}
-	return Param{Sp: p.span(open.start, end), Pat: pat, Type: typ}
+	param := Param{Sp: p.span(open.start, end), Pat: pat, Type: typ}
+	if labeled {
+		param.Label = id // shared *Ident: one def site for resolve
+	}
+	return param
 }
 
 // ------------------------------------------------------------------

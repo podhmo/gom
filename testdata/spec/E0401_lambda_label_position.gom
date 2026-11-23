@@ -1,0 +1,11 @@
+package main
+
+// The label sequences agree — the failure is the interleave: the
+// produced function declares ~x before the positional parameter,
+// the expected one after. The note must name the positional
+// position, not an order swap between labels.
+fn use (f: Int -> ~x: Int -> Int) -> Int = f 1 ~x: 2
+
+let g : ~x: Int -> Int -> Int = fn ~x y -> x - y
+
+let r = use g

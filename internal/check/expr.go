@@ -2323,26 +2323,32 @@ func (c *checker) checkLambda(e *syntax.Lambda, want types.Type) Expr {
 	if f, ok := types.Chase(want).(*types.Func); ok {
 		wparams, wret = flattenFunc(f)
 	}
-	wi := 0       // want parameters consumed so far
+	wi := 0       // front of the unconsumed want parameters
 	known := true // the residual is still determinable
+	consumed := make([]bool, len(wparams))
 	params := make([]Param, len(e.Params))
 	fparams := make([]types.FuncParam, len(e.Params))
 	for i, p := range e.Params {
 		if p.Label == nil {
+			for wi < len(wparams) && consumed[wi] {
+				wi++
+			}
 			if wi >= len(wparams) || wparams[wi].Label != "" {
 				known = false
 			} else {
+				consumed[wi] = true
 				wi++
 			}
 		} else {
 			matched := false
 			for k := wi; k < len(wparams) && wparams[k].Label != ""; k++ {
-				if wparams[k].Label == p.Label.Name {
+				if !consumed[k] && wparams[k].Label == p.Label.Name {
 					matched = true
+					consumed[k] = true
 					break
 				}
 			}
-			if wi >= len(wparams) || wparams[wi].Label == "" || !matched {
+			if !matched {
 				known = false
 			}
 		}
@@ -2367,8 +2373,16 @@ func (c *checker) checkLambda(e *syntax.Lambda, want types.Type) Expr {
 	ret := wret
 	if !known || wret == nil {
 		ret = c.newMeta(e.Sp, "the lambda's return type")
-	} else if wi < len(wparams) {
-		ret = &types.Func{Params: wparams[wi:], Ret: wret}
+	} else {
+		var res []types.FuncParam
+		for j, wp := range wparams {
+			if !consumed[j] {
+				res = append(res, wp)
+			}
+		}
+		if len(res) > 0 {
+			ret = &types.Func{Params: res, Ret: wret}
+		}
 	}
 	// The lambda's own annotation variables stay visible in its
 	// body — `fn (x: a) -> { let y : a = x; y }`.

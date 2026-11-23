@@ -61,7 +61,7 @@ fn main () -> Unit = {
 - 関数適用は並置 `f x y`。左結合で、どの二項演算子よりも強く結合する（`f x + g y` は `(f x) + (g y)`）
 - フィールド・モジュールのアクセスは適用より強い: `f p.name` は `f (p.name)`、`List.map f xs`
 - 負の数を引数に渡すときは括弧が必要: `f (-1)`
-- ラムダ: `fn x -> x + 1`、複数引数は `fn a b -> a + b`。パラメータは `fn` 宣言と同じ `(x: T)` の形で型注釈できる: `fn (x: Int) -> x + 1`、`fn (x: Int) (y: Int) -> x + y`。本体はできるだけ右まで伸びる
+- ラムダ: `fn x -> x + 1`、複数引数は `fn a b -> a + b`。パラメータは `fn` 宣言と同じ `(x: T)` の形で型注釈できる: `fn (x: Int) -> x + 1`、`fn (x: Int) (y: Int) -> x + y`。パラメータにラベルを付けることもできる — 呼び出し側の `~x:` pun と対称の裸の形 `fn ~x -> x` と、`fn` 宣言と同じ注釈つき `(~x: T)` の形 `fn (~x: Int) -> x`（[decision](decisions/2026-11-23-labeled-arg-relaxation.md) 案 D）。ラベルつきラムダの型は `~x: T -> R` で、expected 側のラベルと名前対応で受ける — ラベルのない expected への逆方向 introduction はしない（2.1 節）。本体はできるだけ右まで伸びる
 - 引数のない関数は `Unit` を取る: 定義は `fn main () -> Unit`、呼び出しは `main ()`
 - タプル `(a, b)`、リスト `[1, 2, 3]`、レコード `{ name = "a", age = 3 }`、更新 `{ p with age = 4 }`
   - フィールド名を裸で書く pun が使える: `{x, y}` は `{x = x, y = y}` と同じ意味で、同名の変数をフィールド値に取る。`{ p with x }` の更新でも同様。`{x}` 単独はブロック式（x を返す）のままなので、1 フィールドの pun は末尾に `,` を置いて `{x,}` と書く。パターン側の pun と同じ規則（8 章・パターン一覧）
@@ -184,7 +184,7 @@ transfer alice bob 100                  // エラー
 
 ### 2.1 型の扱い
 
-- ラベルは関数型の一部: `Account -> ~to: Account -> ~amount: Money -> Result Unit TxError`。型の同値は、連続するラベル付き引数の並びをラベル名順に並べ替えてから比較する（連続していないラベル付き引数どうしは入れ替えない）
+- ラベルは関数型の一部: `Account -> ~to: Account -> ~amount: Money -> Result Unit TxError`。型の同値は、連続するラベル付き引数の並びを名前対応かつ宣言順で比較する — `~a: Int -> ~b: Int -> R` と `~b: Int -> ~a: Int -> R` は別の型（生成 Go は位置呼び出しで、並びが違うと引数が入れ替わる）。呼び出し側の `~x:` 記述順は引数規則どおり順不同のまま
 - ラベル付きの呼び出しは、その時点で関数の型が既知であることを要求する。型変数のままなら注釈を求めるエラーにする
 - ラベル付き関数とラベルなし関数の暗黙変換はしない。ただし expected 型がラベル付きの位置で produced 側の同じ flat 位置にラベルのないパラメータがあるときは、expected のラベルを位置対応で貸す一方向の introduction を許す（`Int -> Int` は `~x: Int -> Int` を要求する位置に置ける）。逆方向（labeled → unlabeled）と、途中にラベル付きが混ざる produced 型への introduction は変換しない（[decision](decisions/2026-11-23-labeled-arg-relaxation.md)）
 
