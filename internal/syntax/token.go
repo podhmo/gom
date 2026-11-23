@@ -89,7 +89,18 @@ const (
 	tokStar     // *
 	tokSlash    // /
 	tokPercent  // %
-	tokUnder    // _
+
+	// Bitwise operators (wave38): three-character spellings keep the
+	// single-character forms free of the ambiguities recorded in
+	// docs/decisions/2026-11-23-bit-operators.md.
+	tokBitAnd    // "&&&"
+	tokBitAndNot // "&&^"
+	tokBitOr     // "|||"
+	tokBitXor    // "^^^"
+	tokBitShl    // "<<<"
+	tokBitShr    // ">>>"
+
+	tokUnder // _
 )
 
 // keywords maps the reserved words of grammar.ebnf section 2.2 to
@@ -180,6 +191,12 @@ var spellings = map[tokenKind]string{
 	tokStar:        "\"*\"",
 	tokSlash:       "\"/\"",
 	tokPercent:     "\"%\"",
+	tokBitAnd:      "\"&&&\"",
+	tokBitAndNot:   "\"&&^\"",
+	tokBitOr:       "\"|||\"",
+	tokBitXor:      "\"^^^\"",
+	tokBitShl:      "\"<<<\"",
+	tokBitShr:      "\">>>\"",
 	tokUnder:       "\"_\"",
 	tokAs:          "\"as\"",
 	tokDefault:     "\"default\"",
@@ -248,6 +265,8 @@ func (k tokenKind) lineStart() bool {
 		tokOr, tokAnd,
 		tokEqEq, tokNe, tokLt, tokLe, tokGt, tokGe,
 		tokPlus, tokMinus, tokStar, tokSlash, tokPercent,
+		tokBitAnd, tokBitAndNot, tokBitOr, tokBitXor,
+		tokBitShl, tokBitShr,
 		tokElse, tokBar:
 		return true
 	default:

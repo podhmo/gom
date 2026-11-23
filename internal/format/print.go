@@ -476,9 +476,12 @@ func precOf(e syntax.Expr) int {
 		case syntax.BinEq, syntax.BinNe, syntax.BinLt, syntax.BinLe,
 			syntax.BinGt, syntax.BinGe:
 			return pRel
-		case syntax.BinAdd, syntax.BinSub:
+		case syntax.BinAdd, syntax.BinSub,
+			syntax.BinBitOr, syntax.BinBitXor:
 			return pAdd
-		case syntax.BinMul, syntax.BinDiv, syntax.BinMod:
+		case syntax.BinMul, syntax.BinDiv, syntax.BinMod,
+			syntax.BinBitAnd, syntax.BinBitAndNot,
+			syntax.BinBitShl, syntax.BinBitShr:
 			return pMul
 		default:
 			panic("unreachable")

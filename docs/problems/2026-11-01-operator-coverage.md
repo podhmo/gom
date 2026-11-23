@@ -1,6 +1,6 @@
 # Operator coverage gaps: `!=`, `%`, `||`, `!`, bit ops, list spread
 
-- 状態: 一部解決（2026-11-03、list-expression spread を受理。2026-11-23、bit ops は decision 化 — 三重字 `&&&`/`|||`/`^^^`/`<<<`/`>>>` を推薦、実装は採択後）
+- 状態: 一部解決（2026-11-03、list-expression spread を受理。2026-11-24、bit ops は三重字 `&&&`/`&&^`/`|||`/`^^^`/`<<<`/`>>>` で実装済み — wave38 lane B）
 - 日付: 2026-11-01
 
 ## Situation
@@ -14,9 +14,10 @@ spec.md shows or implies these operators: `|>`, `<|`, `|?>`,
 - `||` — `&&` is listed as a binary operator in §1.5; `||` assumed
 - `%` — assumed alongside `*` `/`
 - unary `!` (boolean not) — completely absent; grammar has no `!`
-- bit operators `&` `|` `^` — absent, and `<<` `>>` are taken by
-  function composition, so Gom has no infix shift at all; shifts would
-  need Go functions or new syntax
+- bit operators `&` `|` `^` — *resolved 2026-11-24 (wave38 lane B):
+  `&&&` `&&^` `|||` `^^^` `<<<` `>>>` are the infix bit ops (Go
+  `& &^ | ^ << >>`), keeping `|` free for variants and `<<`/`>>`
+  for composition ([decision](../decisions/2026-11-23-bit-operators.md))*
 - `..` spread inside a list expression `[x, ..rest]` — spec shows `..`
   only in list *patterns* and Go-call arguments `f(..xs)`
   — *resolved 2026-11-03 by

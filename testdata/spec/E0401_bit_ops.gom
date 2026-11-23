@@ -1,0 +1,4 @@
+package ex
+
+fn bad (x: Float) (y: Float) -> Float = x &&& y
+fn bad2 (x: String) (y: String) -> String = x ||| y

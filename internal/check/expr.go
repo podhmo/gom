@@ -1777,6 +1777,9 @@ func (c *checker) checkBinary(e *syntax.Binary) Expr {
 		return c.checkArith(e, func(r *metaRec) { r.num = true })
 	case syntax.BinMod:
 		return c.checkArith(e, func(r *metaRec) { r.intg = true })
+	case syntax.BinBitAnd, syntax.BinBitAndNot, syntax.BinBitOr,
+		syntax.BinBitXor, syntax.BinBitShl, syntax.BinBitShr:
+		return c.checkArith(e, func(r *metaRec) { r.intg = true })
 	case syntax.BinEq, syntax.BinNe:
 		x := c.checkExpr(e.X, nil)
 		y := c.checkExpr(e.Y, nil)
@@ -2170,6 +2173,18 @@ func constFold(e Expr) (constant.Value, bool) {
 			op = token.QUO
 		case syntax.BinMod:
 			op = token.REM
+		case syntax.BinBitAnd:
+			op = token.AND
+		case syntax.BinBitAndNot:
+			op = token.AND_NOT
+		case syntax.BinBitOr:
+			op = token.OR
+		case syntax.BinBitXor:
+			op = token.XOR
+		case syntax.BinBitShl:
+			op = token.SHL
+		case syntax.BinBitShr:
+			op = token.SHR
 		default:
 			return nil, false
 		}
@@ -2181,8 +2196,14 @@ func constFold(e Expr) (constant.Value, bool) {
 		if (op == token.QUO || op == token.REM) && constant.Sign(y) == 0 {
 			return nil, false
 		}
-		if op == token.REM &&
-			(x.Kind() != constant.Int || y.Kind() != constant.Int) {
+		// % and the bitwise operators are integral-only; shifts also
+		// need a non-negative count or BinaryOp panics.
+		intOnly := op == token.REM || op == token.AND || op == token.AND_NOT ||
+			op == token.OR || op == token.XOR || op == token.SHL || op == token.SHR
+		if intOnly && (x.Kind() != constant.Int || y.Kind() != constant.Int) {
+			return nil, false
+		}
+		if (op == token.SHL || op == token.SHR) && constant.Sign(y) < 0 {
 			return nil, false
 		}
 		return constant.BinaryOp(x, op, y), true

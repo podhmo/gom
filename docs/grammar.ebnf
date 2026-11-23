@@ -191,17 +191,23 @@ escape         = "\" , ( "n" | "t" | "r" | "0" | "\" | "'" | '"' | "$"
      (  )  [  ]  {  }  ,  ;  :  .  ..  ~  @  =  ->  <-  |  _
      "|>"  "<|"  "|?>"  ">>"  "<<"  "||"  "&&"
      "=="  "!="  "<"  "<="  ">"  ">="  "+"  "-"  "*"  "/"  "%"
+     "&&&"  "&&^"  "|||"  "^^^"  "<<<"  ">>>"
 
    Maximal munch matters: "->" beats "-" ">"; "<-" beats "<" "-";
    "|>" / "|?>" / "||" beat "|"; ">>" beats ">" ">"; ".." beats ".".
+   "&&&" / "&&^" beat "&&", "|||" beats "||", "<<<" beats "<<",
+   ">>>" beats ">>". The three-character "&&&" "&&^" "|||" "^^^"
+   "<<<" ">>>" are the bitwise operators (Go & &^ | ^ << >>) —
+   the spellings keep "|" free for variants and "<<"/">>" for
+   composition (decisions/2026-11-23-bit-operators).
    Edge case (same as Go): "x<-1" lexes as "x" "<-" "1", never
    "x" "<" "-1". "<-" is used only in select receive arms.
 
    NOT single tokens: bare "?" (only inside "|?>"), bare "!" (only
-   inside "!="), bare "&". "|" IS a token (variant and or-pattern
-   separator) but is NOT a binary operator. "&" "^" "!"
-   are unused. Note "<<" and ">>" are function composition, NOT bit
-   shifts — Gom has no infix bit operators [PROVISIONAL operator-coverage].
+   inside "!="), bare "&", bare "^" (only inside "&&^"/"^^^").
+   "|" IS a token (variant and or-pattern separator) but is NOT a
+   binary operator. "&" "^" "!" alone are unused. "<<" and ">>"
+   are function composition, NOT bit shifts.
    "$" and "#" are not tokens; "$" appears only inside string
    interpolation, "@" only in attributes.                                *)
 
@@ -251,6 +257,7 @@ can-end        = ident | UIdent | literal | "_" | ")" | "]" | "}" ;
 line-start     = "|>" | "<|" | "|?>" | ">>" | "<<"
                | "||" | "&&" | "==" | "!=" | "<" | "<=" | ">" | ">="
                | "+" | "-" | "*" | "/" | "%"
+               | "&&&" | "&&^" | "|||" | "^^^" | "<<<" | ">>>"
                | "else"
                | "|" ;
                (* spec rule 3 lists binary operators and "else".
@@ -401,8 +408,8 @@ ascribed-expr  = pipe-expr , [ ":" , type-expr ] ;
                                 "(f x) + (g y)"
      -  unary minus             prefix; operand is an application-level
                                 expression, so "-f x" is "-(f x)"
-     *  /  %                    left
-     +  -                       left
+     *  /  %  &&&  &&^  <<<  >>>    left
+     +  -  |||  ^^^                 left
      == != < <= > >=            non-associative (at most one)
      &&                         left
      ||                         left
@@ -410,9 +417,8 @@ ascribed-expr  = pipe-expr , [ ":" , type-expr ] ;
      :  ascription              non-associative
      =  field assignment        loosest — "x.f = a : T" writes the
                                 ascribed value
-   [PROVISIONAL operator-coverage: "!=", "%", "||" are assumed to exist
-   alongside the spec-shown "==", "&&"; "!" alone, unary "+", and infix
-   bit operators do not exist.]                                        *)
+   [PROVISIONAL operator-coverage: "!" alone and unary "+" do not
+   exist.]                                                                *)
 
 pipe-expr      = bool-or , { pipe-op , pipe-rhs } ;
 pipe-op        = "|>" | "<|" | "|?>" | ">>" | "<<" ;
@@ -425,10 +431,10 @@ rel-expr       = add-expr , [ rel-op , add-expr ] ;
 rel-op         = "==" | "!=" | "<" | "<=" | ">" | ">=" ;
 
 add-expr       = mul-expr , { add-op , mul-expr } ;
-add-op         = "+" | "-" ;
+add-op         = "+" | "-" | "|||" | "^^^" ;
 
 mul-expr       = unary-expr , { mul-op , unary-expr } ;
-mul-op         = "*" | "/" | "%" ;
+mul-op         = "*" | "/" | "%" | "&&&" | "&&^" | "<<<" | ">>>" ;
 
 unary-expr     = "-" , unary-expr
                | "try" , unary-expr                    (* spec 6; operand is

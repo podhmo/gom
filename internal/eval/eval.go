@@ -1073,6 +1073,24 @@ func (e *interp) evalPrim(x *check.Binary, env *Env) Value {
 				failData(CodePanic, "integer modulo by zero", x.Span(), "op", "%")
 			}
 			return &VInt{N: wrapTo(w, a%b)}
+		case syntax.BinBitAnd:
+			return &VInt{N: wrapTo(w, a&b)}
+		case syntax.BinBitAndNot:
+			return &VInt{N: wrapTo(w, a&^b)}
+		case syntax.BinBitOr:
+			return &VInt{N: wrapTo(w, a|b)}
+		case syntax.BinBitXor:
+			return &VInt{N: wrapTo(w, a^b)}
+		case syntax.BinBitShl:
+			if b < 0 {
+				failData(CodePanic, "negative shift amount", x.Span(), "op", "<<<")
+			}
+			return &VInt{N: wrapTo(w, a<<uint(b))}
+		case syntax.BinBitShr:
+			if b < 0 {
+				failData(CodePanic, "negative shift amount", x.Span(), "op", ">>>")
+			}
+			return &VInt{N: wrapTo(w, a>>uint(b))}
 		case syntax.BinLt:
 			return &VBool{B: a < b}
 		case syntax.BinLe:

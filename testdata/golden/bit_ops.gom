@@ -1,0 +1,13 @@
+package ex
+
+fn band (x: Int) (y: Int) -> Int = x &&& y
+fn bor (x: Int) (y: Int) -> Int = x ||| y
+fn bxor (x: Int) (y: Int) -> Int = x ^^^ y
+fn bclear (x: Int) (y: Int) -> Int = x &&^ y
+fn shl (x: Int) (n: Int) -> Int = x <<< n
+fn shr (x: Int) (n: Int) -> Int = x >>> n
+
+// Mixed levels: the mul-level bit ops bind tighter than |||/^^^.
+fn mix (a: Int) (b: Int) (c: Int) -> Int = a ||| b &&& c ^^^ a <<< 2
+
+fn widths32 (x: Int32) (n: Int32) -> Int32 = (x &&& n) <<< n

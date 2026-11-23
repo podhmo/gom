@@ -689,7 +689,11 @@ func (l *lexer) stepOp() {
 		case '|':
 			two(tokPipeBack)
 		case '<':
-			two(tokComposeB)
+			if l.peek(2) == '<' {
+				three(tokBitShl)
+			} else {
+				two(tokComposeB)
+			}
 		default:
 			l.emit(tokLt, pos, pos+1)
 			l.pos++
@@ -699,7 +703,11 @@ func (l *lexer) stepOp() {
 		case '=':
 			two(tokGe)
 		case '>':
-			two(tokComposeF)
+			if l.peek(2) == '>' {
+				three(tokBitShr)
+			} else {
+				two(tokComposeF)
+			}
 		default:
 			l.emit(tokGt, pos, pos+1)
 			l.pos++
@@ -710,6 +718,8 @@ func (l *lexer) stepOp() {
 			three(tokPipeTry)
 		case l.peek(1) == '>':
 			two(tokPipeFwd)
+		case l.peek(1) == '|' && l.peek(2) == '|':
+			three(tokBitOr)
 		case l.peek(1) == '|':
 			two(tokOr)
 		default:
@@ -717,8 +727,19 @@ func (l *lexer) stepOp() {
 			l.pos++
 		}
 	case '&':
-		if l.peek(1) == '&' {
+		switch {
+		case l.peek(1) == '&' && l.peek(2) == '&':
+			three(tokBitAnd)
+		case l.peek(1) == '&' && l.peek(2) == '^':
+			three(tokBitAndNot)
+		case l.peek(1) == '&':
 			two(tokAnd)
+		default:
+			l.invalidChar(pos)
+		}
+	case '^':
+		if l.peek(1) == '^' && l.peek(2) == '^' {
+			three(tokBitXor)
 		} else {
 			l.invalidChar(pos)
 		}

@@ -1,0 +1,50 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected an integral type, got Float",
+      "span": {
+        "file": "E0401_bit_ops.gom",
+        "start": {
+          "line": 3,
+          "col": 41,
+          "offset": 52
+        },
+        "end": {
+          "line": 3,
+          "col": 48,
+          "offset": 59
+        }
+      },
+      "data": {
+        "actual": "Float",
+        "expected": "an integral type"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected an integral type, got String",
+      "span": {
+        "file": "E0401_bit_ops.gom",
+        "start": {
+          "line": 4,
+          "col": 45,
+          "offset": 104
+        },
+        "end": {
+          "line": 4,
+          "col": 52,
+          "offset": 111
+        }
+      },
+      "data": {
+        "actual": "String",
+        "expected": "an integral type"
+      }
+    }
+  ]
+}
