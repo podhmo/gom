@@ -1,0 +1,18 @@
+package ex
+
+// spec section 6.1 — `let { f = inner } = r` binds `inner` to the
+// f field's value, not the whole record: `inner.g` produces the
+// products of `cb`'s result stored there, so the callback that
+// built it is tainted and its scope-capturing product is rejected.
+type Inner = { g : Unit -> Unit }
+type Outer = { f : Inner, g : Unit -> Unit }
+
+fn wrap (cb: Unit -> Inner) (other: Unit -> Unit) -> (Unit -> Unit) = {
+    let r = { f = cb (), g = other }
+    let { f = inner } = r
+    inner.g
+}
+
+fn leak (held: Ref Int) -> Unit -> Unit =
+    Scope.run <| fn s ->
+        wrap (fn () -> { g = fn () -> Scope.defer s (fn () -> Ref.set held 0) }) (fn () -> ())

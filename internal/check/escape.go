@@ -197,9 +197,71 @@ type escapeBody struct {
 	// escape flags grew during this walk — the fixpoint needs
 	// another pass so callers can see them.
 	flagsChanged bool
+	// seenDanger memoizes escWalk visits at danger — a record
+	// literal shared through let bindings is walked once, so
+	// branching field initializers cannot double the walk per
+	// chain link.
+	seenDanger map[Expr]bool
 }
 
 func (b *escapeBody) tainted(s *resolve.Symbol) bool { return b.aliases[s] }
+
+// bindPatValues records the bound value of each name a pattern
+// introduces. `let (a, b) = (x, y)` binds each name to its own
+// element — the whole value otherwise charges a discarded
+// element's products to every bound name. Record patterns bind
+// each field the same way: `{ f = x }` over a literal binds x to
+// that field's initializer (a `with` base answers the missing
+// ones); over any other expression it binds to the field read —
+// binding x to the whole record would let a later `x.g` select a
+// same-named field of the outer record.
+func bindPatValues(lets map[*resolve.Symbol]Expr, p Pat, v Expr) {
+	if tp, ok := p.(*TuplePat); ok {
+		if tl, ok := unascribe(v).(*TupleLit); ok && len(tl.Elems) == len(tp.Elems) {
+			for i := range tp.Elems {
+				bindPatValues(lets, tp.Elems[i], tl.Elems[i])
+			}
+			return
+		}
+	}
+	if rp, ok := p.(*RecordPat); ok {
+		if lit, ok := unascribe(v).(*RecordLit); ok {
+			for _, fp := range rp.Fields {
+				fv := Expr(v)
+				for _, f := range lit.Fields {
+					if f.Name == fp.Name {
+						fv = f.Value
+						break
+					}
+				}
+				if fv == v && lit.With != nil {
+					fv = lit.With
+				}
+				bindPatValues(lets, fp.Pat, fv)
+			}
+			return
+		}
+		for _, fp := range rp.Fields {
+			bindPatValues(lets, fp.Pat,
+				&MemberExpr{Base: Base{Sp: fp.Sp}, Recv: v,
+					Sel: &syntax.Ident{Name: fp.Name}, Sym: fp.Sym})
+		}
+		return
+	}
+	if cp, ok := p.(*CtorPat); ok && len(cp.Fields) > 0 {
+		// `Let { name = n, .. }` — the named payload slots
+		// project off the constructor value the same way.
+		for _, fp := range cp.Fields {
+			bindPatValues(lets, fp.Pat,
+				&MemberExpr{Base: Base{Sp: fp.Sp}, Recv: v,
+					Sel: &syntax.Ident{Name: fp.Name}, Sym: fp.Sym})
+		}
+		return
+	}
+	for _, s := range patBoundSyms(p) {
+		lets[s] = v
+	}
+}
 
 // markDanger marks sym as escaping, then every variable a let
 // binding chained it from — `let x = p` followed by `ret x` must
@@ -810,20 +872,7 @@ func (c *checker) resultProducers(e Expr) map[*resolve.Symbol]bool {
 	}
 	var bindPats func(Pat, Expr)
 	bindPats = func(p Pat, v Expr) {
-		// `let (a, b) = (x, y)` binds each name to its own element —
-		// the whole value otherwise charges a discarded element's
-		// products to every bound name.
-		if tp, ok := p.(*TuplePat); ok {
-			if tl, ok := unascribe(v).(*TupleLit); ok && len(tl.Elems) == len(tp.Elems) {
-				for i := range tp.Elems {
-					bindPats(tp.Elems[i], tl.Elems[i])
-				}
-				return
-			}
-		}
-		for _, s := range patBoundSyms(p) {
-			lets[s] = v
-		}
+		bindPatValues(lets, p, v)
 	}
 	rec = func(e Expr) {
 		if e == nil || seen[e] {
@@ -1056,7 +1105,12 @@ func (c *checker) resultProducers(e Expr) map[*resolve.Symbol]bool {
 			// boundary: the lambda's `try` propagates its own
 			// Result — argument lambdas arrive through body()
 			// at the channel that applies them
-		case *Var, *MemberExpr, *Lit, *Hole:
+		case *MemberExpr:
+			// A `try` in an unselected field still propagates: the
+			// receiver's Err channel counts even when the read
+			// field itself holds none.
+			walk(e.Recv)
+		case *Var, *Lit, *Hole:
 		case *Ascribe:
 			walk(e.X)
 		case *Apply:
@@ -1258,6 +1312,15 @@ func (c *checker) escWalk(e Expr, danger bool, b *escapeBody, report bool) {
 	if e == nil {
 		return
 	}
+	if danger {
+		if b.seenDanger[e] {
+			return
+		}
+		if b.seenDanger == nil {
+			b.seenDanger = map[Expr]bool{}
+		}
+		b.seenDanger[e] = true
+	}
 	switch e := e.(type) {
 	case *Lit, *Hole:
 	case *Var:
@@ -1421,11 +1484,11 @@ func (c *checker) escWalk(e Expr, danger bool, b *escapeBody, report bool) {
 			c.escWalk(s, danger && tail, b, report)
 			if l, ok := s.(*Let); ok {
 				c.bindLet(l, b)
+				if b.lets == nil {
+					b.lets = map[*resolve.Symbol]Expr{}
+				}
+				bindPatValues(b.lets, l.Pat, l.Value)
 				for _, s := range patBoundSyms(l.Pat) {
-					if b.lets == nil {
-						b.lets = map[*resolve.Symbol]Expr{}
-					}
-					b.lets[s] = l.Value
 					if !report {
 						if lam, isLam := unascribe(l.Value).(*Lambda); isLam && c.inferLetLambdaEscapes(s, lam) {
 							b.flagsChanged = true
