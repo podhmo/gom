@@ -1014,7 +1014,10 @@ func (c *checker) unifyFunc(w, g *types.Func, sp diag.Span) bool {
 			return false
 		}
 		// Pair the runs by label; members without a partner stay in
-		// their side's parameter stream as leftovers. Each iteration
+		// their side's parameter stream as leftovers. Matched
+		// partners must also appear in the same order — the Go ABI
+		// is positional, so `~a ~b` produced for `~b ~a` expected
+		// would swap the arguments at the call. Each iteration
 		// pairs at least one member or reports, so the walk
 		// terminates.
 		byLabel := make(map[string]int, len(rb))
