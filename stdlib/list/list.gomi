@@ -32,6 +32,24 @@ fn tail (xs: List a) -> Option (List a)
 //gom:result-notaint get 0
 fn get (n: Int) (xs: List a) -> Option a
 
+/// take n xs is the first n elements of xs — all of xs when
+/// n >= length xs, [] when n <= 0. Buffer-built Go impl (impl.go).
+//gom:result-notaint take 0
+fn take (n: Int) (xs: List a) -> List a
+
+/// drop n xs is xs without its first n elements — [] when n >=
+/// length xs, xs itself when n <= 0. Shares the tail's backing.
+//gom:result-notaint drop 0
+fn drop (n: Int) (xs: List a) -> List a
+
+/// last xs is the final element of xs, if any.
+fn last (xs: List a) -> Option a
+
+/// last_n n xs is the final n elements of xs — all of xs when
+/// n >= length xs, [] when n <= 0.
+//gom:result-notaint last_n 0
+fn last_n (n: Int) (xs: List a) -> List a
+
 /// map f xs applies f to every element in order. Buffer-built
 /// Go impl (impl.go).
 fn map (f: a -> b) (xs: List a) -> List b
@@ -56,10 +74,22 @@ fn find (f: a -> Bool) (xs: List a) -> Option a
 /// the right-fold shape stacked a frame per sublist (O(k) depth).
 fn concat (xss: List (List a)) -> List a
 
+/// sort_by lt xs is xs sorted ascending under lt — a fresh list.
+/// slices.SortFunc-backed Go impl (impl.go), O(n log n). `Cmp.sort`
+/// packages the same shape behind an `Ord` dictionary.
+//gom:result-notaint sort_by 0
+//gom:noescape sort_by 0
+fn sort_by (lt: a -> a -> Bool) (xs: List a) -> List a
+
 /// sum xs adds the elements of a Float list left to right.
 /// A dedicated loop: folding a curried `f acc x` would allocate one
 /// closure per element (the arity-one value repr — P5-3).
 fn sum (xs: List Float) -> Float
+
+/// sum_int xs adds the elements of an Int list left to right —
+/// the Int counterpart of `sum` (Gom has no overloading, so the
+/// element type is part of the name).
+fn sum_int (xs: List Int) -> Int
 
 /// range lo hi is [lo, lo+1, ..., hi-1]; empty when lo >= hi.
 /// Buffer-built Go impl (impl.go).
@@ -68,3 +98,5 @@ fn range (lo: Int) (hi: Int) -> List Int
 fn length_go (acc: Int) (xs: List a) -> Int
 
 fn sum_go (acc: Float) (xs: List Float) -> Float
+
+fn sumi_go (acc: Int) (xs: List Int) -> Int

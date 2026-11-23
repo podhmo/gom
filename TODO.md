@@ -53,7 +53,7 @@
   - [x] **SC-2 `Scope` 値の脱出の静的検査**: `Scope` を返す・record/コンストラクタ/可変セルに格納する・`Task.spawn` や Go の関数値へ渡すのを型エラーにする。ラムダ引数が逃げないかはパッケージ内で推論し、`.gomi` に注釈として出す。Go の関数は常に「逃げる」扱い。依存: SC-1
   - [x] **SC-3 ネイティブ `defer` への lowering**: 登録が `Scope.run` と同じ Go 関数内にあるとき、Core IR で判定して登録位置に Go の `defer` を出し、結果に触る cleanup だけ生成 Go 側で named result を使う（目標形は `experiments/defer/cgen`）。それ以外は SC-1 のランタイムスタックのまま。依存: SC-1, SC-2
 
-- [ ] **[task] stdlib `List` の補強**: `take`/`drop`/`last`/`sort`/`sum`（Int 版）など実アプリで欲しくなった操作がない。`List.sum` は `List Float` 専用で、sandbox 探索では jot の `last_n` や duu のソートが自前実装になった（[sketch](docs/sketch/2026-11-23-sandbox-missing-features.md)、wave37 lane F — [prompts](docs/sketch/2026-11-23-wave37-prompts.md)）
+- [x] **[task] stdlib `List` の補強**: `take`/`drop`/`last`/`last_n`/`sort_by`/`sum_int` を追加（impl.go buffer loop / `@tailrec` / `slices.SortFunc` バック）。`sort` は `Ord` dict が `cmp` にあり DAG 的に list から参照できないため comparator 形 `sort_by` で供給（昇順は `Cmp.sort` も既存）。`sum` は Gom に overload がないため `sum_int` 命名（wave37 lane F — [prompts](docs/sketch/2026-11-23-wave37-prompts.md)）
 
 ### ドキュメント
 

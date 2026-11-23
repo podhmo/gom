@@ -49,6 +49,31 @@ fn get (n: Int) (xs: List a) -> Option a = match xs {
   [x, ..rest] -> if n == 0 { Some x } else { get (n - 1) rest }
 }
 
+/// take n xs is the first n elements of xs — all of xs when
+/// n >= length xs, [] when n <= 0. Buffer-built Go impl (impl.go).
+@extern
+fn take (n: Int) (xs: List a) -> List a
+
+/// drop n xs is xs without its first n elements — [] when n >=
+/// length xs, xs itself when n <= 0. Shares the tail's backing.
+@tailrec
+fn drop (n: Int) (xs: List a) -> List a = match xs {
+  [] -> []
+  [_, ..rest] -> if n <= 0 { xs } else { drop (n - 1) rest }
+}
+
+/// last xs is the final element of xs, if any.
+@tailrec
+fn last (xs: List a) -> Option a = match xs {
+  [] -> None
+  [x] -> Some x
+  [_, ..rest] -> last rest
+}
+
+/// last_n n xs is the final n elements of xs — all of xs when
+/// n >= length xs, [] when n <= 0.
+fn last_n (n: Int) (xs: List a) -> List a = drop (length xs - n) xs
+
 /// map f xs applies f to every element in order. Buffer-built
 /// Go impl (impl.go).
 @extern
@@ -80,10 +105,21 @@ fn find (f: a -> Bool) (xs: List a) -> Option a = match xs {
 @extern
 fn concat (xss: List (List a)) -> List a
 
+/// sort_by lt xs is xs sorted ascending under lt — a fresh list.
+/// slices.SortFunc-backed Go impl (impl.go), O(n log n). `Cmp.sort`
+/// packages the same shape behind an `Ord` dictionary.
+@extern
+fn sort_by (lt: a -> a -> Bool) (xs: List a) -> List a
+
 /// sum xs adds the elements of a Float list left to right.
 /// A dedicated loop: folding a curried `f acc x` would allocate one
 /// closure per element (the arity-one value repr — P5-3).
 fn sum (xs: List Float) -> Float = sum_go 0.0 xs
+
+/// sum_int xs adds the elements of an Int list left to right —
+/// the Int counterpart of `sum` (Gom has no overloading, so the
+/// element type is part of the name).
+fn sum_int (xs: List Int) -> Int = sumi_go 0 xs
 
 /// range lo hi is [lo, lo+1, ..., hi-1]; empty when lo >= hi.
 /// Buffer-built Go impl (impl.go).
@@ -101,6 +137,12 @@ fn length_go (acc: Int) (xs: List a) -> Int = match xs {
 fn sum_go (acc: Float) (xs: List Float) -> Float = match xs {
   [] -> acc
   [x, ..rest] -> sum_go (acc + x) rest
+}
+
+@tailrec
+fn sumi_go (acc: Int) (xs: List Int) -> Int = match xs {
+  [] -> acc
+  [x, ..rest] -> sumi_go (acc + x) rest
 }
 
 test "of/cons build literals" { assert_eq (of 1) [1]; assert_eq (cons 1 [2, 3]) [1, 2, 3] }
@@ -149,6 +191,30 @@ test "array builder round trip" {
   let b = Array.from_list [1, 2]
   Array.set b 0 9
   assert_eq (Array.to_list b) [9, 2]
+}
+
+test "take/drop/last/last_n" {
+  assert_eq (take 2 [1, 2, 3]) [1, 2]
+  assert_eq (take 9 [1, 2]) [1, 2]
+  assert_eq (take 0 [1, 2]) []
+  assert_eq (drop 1 [1, 2, 3]) [2, 3]
+  assert_eq (drop 9 [1, 2]) []
+  assert_eq (drop 0 [1, 2]) [1, 2]
+  assert_eq (last [1, 2, 3]) (Some 3)
+  let empty: List Int = []
+  assert_eq (last empty) None
+  assert_eq (last_n 2 [1, 2, 3]) [2, 3]
+  assert_eq (last_n 9 [1, 2]) [1, 2]
+  assert_eq (last_n 0 [1, 2]) []
+}
+
+test "sort_by and sum_int" {
+  assert_eq (sort_by (fn x y -> x < y) [3, 1, 2]) [1, 2, 3]
+  assert_eq (sort_by (fn x y -> x > y) [3, 1, 2]) [3, 2, 1]
+  assert_eq (sort_by (fn x y -> x < y) ["b", "a"]) ["a", "b"]
+  assert_eq (sum_int [1, 2, 3]) 6
+  let empty: List Int = []
+  assert_eq (sum_int empty) 0
 }
 
 test "concat and find" {
