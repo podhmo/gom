@@ -8,14 +8,14 @@
       "span": {
         "file": "E0419_scope_taint_try_err.gom",
         "start": {
-          "line": 13,
+          "line": 14,
           "col": 49,
-          "offset": 403
+          "offset": 519
         },
         "end": {
-          "line": 13,
+          "line": 14,
           "col": 50,
-          "offset": 404
+          "offset": 520
         }
       }
     }

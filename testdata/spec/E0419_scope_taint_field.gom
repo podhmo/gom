@@ -1,0 +1,16 @@
+package ex
+
+// spec section 6.1 — a record field read forwards the record's
+// products: `r.f` produces the value `cb` built the record with,
+// so the parameter is tainted and the scope-capturing argument
+// is still rejected.
+type Box = { f : Unit -> Unit }
+
+fn wrap (cb: Unit -> Unit) -> (Unit -> Unit) = {
+    let r = { f = cb }
+    r.f
+}
+
+fn leak (held: Ref Int) -> Unit -> Unit =
+    Scope.run <| fn s ->
+        wrap (fn () -> Scope.defer s (fn () -> Ref.set held 0))

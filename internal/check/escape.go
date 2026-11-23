@@ -796,6 +796,9 @@ func (c *checker) inferResultTaint(body Expr, pats []Pat) []bool {
 func (c *checker) resultProducers(e Expr) map[*resolve.Symbol]bool {
 	var out map[*resolve.Symbol]bool
 	lets := map[*resolve.Symbol]Expr{}
+	// seen memoizes rec by expression — a shared alias re-expanded
+	// per use would double the walk at every link in a `let` chain.
+	seen := map[Expr]bool{}
 	var rec func(e Expr)
 	var walk func(e Expr)
 	// body visits a lambda body the enclosing result incorporates:
@@ -805,12 +808,28 @@ func (c *checker) resultProducers(e Expr) map[*resolve.Symbol]bool {
 		rec(b)
 		walk(b)
 	}
-	bindPats := func(p Pat, v Expr) {
+	var bindPats func(Pat, Expr)
+	bindPats = func(p Pat, v Expr) {
+		// `let (a, b) = (x, y)` binds each name to its own element —
+		// the whole value otherwise charges a discarded element's
+		// products to every bound name.
+		if tp, ok := p.(*TuplePat); ok {
+			if tl, ok := unascribe(v).(*TupleLit); ok && len(tl.Elems) == len(tp.Elems) {
+				for i := range tp.Elems {
+					bindPats(tp.Elems[i], tl.Elems[i])
+				}
+				return
+			}
+		}
 		for _, s := range patBoundSyms(p) {
 			lets[s] = v
 		}
 	}
 	rec = func(e Expr) {
+		if e == nil || seen[e] {
+			return
+		}
+		seen[e] = true
 		add := func(s *resolve.Symbol) {
 			if s == nil {
 				return
@@ -830,6 +849,9 @@ func (c *checker) resultProducers(e Expr) map[*resolve.Symbol]bool {
 			}
 		case *MemberExpr:
 			add(e.Sym)
+			// `r.f` produces the field's value — which rides the
+			// products of whatever built `r`.
+			rec(e.Recv)
 		case *Lambda:
 			for s := range capturedVars(e.Body, lamBound(e)) {
 				if v, ok := lets[s]; ok {
@@ -984,7 +1006,19 @@ func (c *checker) resultProducers(e Expr) map[*resolve.Symbol]bool {
 		switch e := e.(type) {
 		case nil:
 		case *Try:
-			body(e.X)
+			// The Err arm forwards only the operand's error product:
+			// when the error type cannot hold a function the
+			// propagated value cannot carry a Scope, and the Ok side
+			// is tracked where the try's value is used, not here.
+			if con, ok := types.Chase(e.X.Type()).(*types.Con); ok &&
+				con.Name == "Result" && len(con.Args) == 2 {
+				if mayCarryFn(con.Args[1]) {
+					rec(e.X)
+				}
+			} else {
+				rec(e.X)
+			}
+			walk(e.X)
 		case *Lambda:
 			// boundary: the lambda's `try` propagates its own
 			// Result — argument lambdas arrive through body()
@@ -1075,6 +1109,35 @@ func (c *checker) resultProducers(e Expr) map[*resolve.Symbol]bool {
 	}
 	body(e)
 	return out
+}
+
+// mayCarryFn reports whether a value of type t can hold a function —
+// and so could carry a captured Scope. Concrete containers that
+// cannot (String, Int, records of scalars) answer false; a type
+// variable or unsolved meta answers true — the conservative read.
+func mayCarryFn(t types.Type) bool {
+	switch t := types.Chase(t).(type) {
+	case *types.Func, *types.Var, *types.Meta:
+		return true
+	case *types.Con:
+		for _, a := range t.Args {
+			if mayCarryFn(a) {
+				return true
+			}
+		}
+	case *types.Tuple:
+		for _, e := range t.Elems {
+			if mayCarryFn(e) {
+				return true
+			}
+		}
+	case *types.Go:
+		// Opaque Go types — a func value can hide in any of them.
+		return true
+	default:
+		panic("unreachable")
+	}
+	return false
 }
 
 // symParamEscapes reads one parameter position of a Gom callee: a
