@@ -16,502 +16,502 @@ import (
 	time "time"
 )
 
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:14
+//line sandbox/jot/main.gom:14
 func jotPath(_ struct{}) string {
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:14
+//line sandbox/jot/main.gom:14
 	tmp1 := os.Getenv("JOT_FILE")
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:15
+//line sandbox/jot/main.gom:15
 	switch tmp1 {
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:15
+//line sandbox/jot/main.gom:15
 	case "":
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:15
+//line sandbox/jot/main.gom:15
 		return "jot.log"
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:15
+//line sandbox/jot/main.gom:15
 	default:
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:14
+//line sandbox/jot/main.gom:14
 		tmp2 := tmp1
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:16
+//line sandbox/jot/main.gom:16
 		return tmp2
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:15
+//line sandbox/jot/main.gom:15
 	}
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:14
+//line sandbox/jot/main.gom:14
 }
 
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:19
+//line sandbox/jot/main.gom:19
 func programArgs(_ struct{}) list.List[string] {
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:19
+//line sandbox/jot/main.gom:19
 	tmp3 := list.FromSlice(os.Args)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:19
+//line sandbox/jot/main.gom:19
 	tmp4 := tmp3.ToSlice()
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:19
+//line sandbox/jot/main.gom:19
 	tmp5 := rt.SliceToList[string](tmp4)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:19
+//line sandbox/jot/main.gom:19
 	tmp6 := list.FromSlice(tmp5)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:20
+//line sandbox/jot/main.gom:20
 	switch {
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:20
+//line sandbox/jot/main.gom:20
 	case len(tmp6) == 0:
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:20
+//line sandbox/jot/main.gom:20
 		return list.List[string]{}
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:20
+//line sandbox/jot/main.gom:20
 	case len(tmp6) != 0:
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:20
+//line sandbox/jot/main.gom:20
 		tmp8 := tmp6[1:]
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:20
+//line sandbox/jot/main.gom:20
 		tmp9 := tmp8
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:21
+//line sandbox/jot/main.gom:21
 		return tmp9
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:21
+//line sandbox/jot/main.gom:21
 	default:
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:19
+//line sandbox/jot/main.gom:19
 		panic(rt.InvalidVariant("List", tmp6))
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:20
+//line sandbox/jot/main.gom:20
 	}
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:19
+//line sandbox/jot/main.gom:19
 }
 
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:26
+//line sandbox/jot/main.gom:26
 func appendNote(msg string) result.Result[struct{}, error] {
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:27
+//line sandbox/jot/main.gom:27
 	tmp10 := jotPath(struct{}{})
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:27
+//line sandbox/jot/main.gom:27
 	tmp11 := int64(os.O_APPEND)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:27
+//line sandbox/jot/main.gom:27
 	tmp12 := int64(os.O_CREATE)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:27
+//line sandbox/jot/main.gom:27
 	tmp13 := tmp11 + tmp12
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:27
+//line sandbox/jot/main.gom:27
 	tmp14 := int64(os.O_WRONLY)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:27
+//line sandbox/jot/main.gom:27
 	tmp15 := tmp13 + tmp14
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:27
+//line sandbox/jot/main.gom:27
 	tmp16 := int(tmp15)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:27
-	f, err := os.OpenFile(tmp10, tmp16, fs.FileMode(420))
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:27
+//line sandbox/jot/main.gom:27
+	f, err := os.OpenFile(tmp10, tmp16, fs.FileMode(0o644))
+//line sandbox/jot/main.gom:27
 	if err != nil {
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:27
+//line sandbox/jot/main.gom:27
 		return result.Err[struct{}, error](err)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:27
+//line sandbox/jot/main.gom:27
 	}
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:28
+//line sandbox/jot/main.gom:28
 	now := time.Now()
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:29
+//line sandbox/jot/main.gom:29
 	ts := now.Format(time.RFC3339)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:30
+//line sandbox/jot/main.gom:30
 	tmp17 := io.Writer(f)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:30
+//line sandbox/jot/main.gom:30
 	tmp18 := any(ts)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:30
+//line sandbox/jot/main.gom:30
 	tmp19 := any(msg)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:30
+//line sandbox/jot/main.gom:30
 	tmp20, err1 := fmt.Fprintf(tmp17, "%s %s\n", tmp18, tmp19)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:30
+//line sandbox/jot/main.gom:30
 	if err1 != nil {
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:30
+//line sandbox/jot/main.gom:30
 		return result.Err[struct{}, error](err1)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:30
+//line sandbox/jot/main.gom:30
 	}
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:30
+//line sandbox/jot/main.gom:30
 	_ = int64(tmp20)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:31
+//line sandbox/jot/main.gom:31
 	err2 := f.Close()
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:31
+//line sandbox/jot/main.gom:31
 	if err2 != nil {
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:31
+//line sandbox/jot/main.gom:31
 		return result.Err[struct{}, error](err2)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:31
+//line sandbox/jot/main.gom:31
 	}
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:32
+//line sandbox/jot/main.gom:32
 	return result.Ok[struct{}, error](struct{}{})
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:26
+//line sandbox/jot/main.gom:26
 }
 
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:36
+//line sandbox/jot/main.gom:36
 func take(n int64, xs list.List[string]) list.List[string] {
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:36
+//line sandbox/jot/main.gom:36
 	var cons list.List[string]
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:36
+//line sandbox/jot/main.gom:36
 	for {
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:37
+//line sandbox/jot/main.gom:37
 		switch {
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:37
+//line sandbox/jot/main.gom:37
 		case len(xs) == 0:
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:37
+//line sandbox/jot/main.gom:37
 			cons = append(cons, list.List[string]{}...)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:37
+//line sandbox/jot/main.gom:37
 		case len(xs) != 0:
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:37
+//line sandbox/jot/main.gom:37
 			tmp21 := xs[0]
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:37
+//line sandbox/jot/main.gom:37
 			tmp22 := xs[1:]
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:37
+//line sandbox/jot/main.gom:37
 			tmp23 := tmp21
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:37
+//line sandbox/jot/main.gom:37
 			tmp24 := tmp22
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:38
+//line sandbox/jot/main.gom:38
 			tmp27 := n <= 0
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:38
+//line sandbox/jot/main.gom:38
 			if tmp27 {
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:38
+//line sandbox/jot/main.gom:38
 				cons = append(cons, list.List[string]{}...)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:38
+//line sandbox/jot/main.gom:38
 			} else {
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:38
+//line sandbox/jot/main.gom:38
 				tmp25 := n - 1
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:38
+//line sandbox/jot/main.gom:38
 				cons = append(cons, tmp23)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:38
+//line sandbox/jot/main.gom:38
 				n, xs = tmp25, tmp24
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:38
+//line sandbox/jot/main.gom:38
 				continue
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:38
+//line sandbox/jot/main.gom:38
 			}
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:38
+//line sandbox/jot/main.gom:38
 		default:
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:36
+//line sandbox/jot/main.gom:36
 			panic(rt.InvalidVariant("List", xs))
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:37
+//line sandbox/jot/main.gom:37
 		}
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:37
+//line sandbox/jot/main.gom:37
 		return cons
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:36
+//line sandbox/jot/main.gom:36
 	}
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:36
+//line sandbox/jot/main.gom:36
 }
 
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:41
+//line sandbox/jot/main.gom:41
 func lastN(n int64, xs list.List[string]) list.List[string] {
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:42
+//line sandbox/jot/main.gom:41
 	tmp28 := list.Rev[string](xs)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:42
+//line sandbox/jot/main.gom:41
 	tmp29 := take(n, tmp28)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:42
+//line sandbox/jot/main.gom:41
 	return list.Rev[string](tmp29)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:41
+//line sandbox/jot/main.gom:41
 }
 
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:44
+//line sandbox/jot/main.gom:43
 func showLog(n option.Option[int64]) result.Result[struct{}, error] {
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:45
+//line sandbox/jot/main.gom:44
 	tmp30 := jotPath(struct{}{})
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:45
+//line sandbox/jot/main.gom:44
 	tmp31, err3 := os.ReadFile(tmp30)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:45
+//line sandbox/jot/main.gom:44
 	if err3 != nil {
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:45
+//line sandbox/jot/main.gom:44
 		return result.Err[struct{}, error](err3)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:45
+//line sandbox/jot/main.gom:44
 	}
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:45
+//line sandbox/jot/main.gom:44
 	data := list.FromSlice(tmp31)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:46
+//line sandbox/jot/main.gom:45
 	tmp32 := string(data)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:46
+//line sandbox/jot/main.gom:45
 	tmp33 := strings.Split(tmp32, "\n")
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:46
+//line sandbox/jot/main.gom:45
 	tmp34 := list.FromSlice(tmp33)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:46
+//line sandbox/jot/main.gom:45
 	tmp35 := tmp34.ToSlice()
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:46
+//line sandbox/jot/main.gom:45
 	tmp36 := rt.SliceToList[string](tmp35)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:46
+//line sandbox/jot/main.gom:45
 	lines := list.FromSlice(tmp36)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:48
+//line sandbox/jot/main.gom:47
 	tmp37 := list.Rev[string](lines)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:48
+//line sandbox/jot/main.gom:47
 	var lines1 list.List[string]
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:49
+//line sandbox/jot/main.gom:48
 	switch {
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:49
+//line sandbox/jot/main.gom:48
 	case len(tmp37) == 0:
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:50
+//line sandbox/jot/main.gom:49
 		lines1 = lines
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:49
+//line sandbox/jot/main.gom:48
 	case len(tmp37) != 0:
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:49
+//line sandbox/jot/main.gom:48
 		tmp38 := tmp37[0]
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:49
+//line sandbox/jot/main.gom:48
 		tmp39 := tmp37[1:]
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:49
+//line sandbox/jot/main.gom:48
 		switch tmp38 {
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:49
+//line sandbox/jot/main.gom:48
 		case "":
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:49
+//line sandbox/jot/main.gom:48
 			tmp40 := tmp39
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:49
+//line sandbox/jot/main.gom:48
 			lines1 = list.Rev[string](tmp40)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:49
+//line sandbox/jot/main.gom:48
 		default:
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:50
+//line sandbox/jot/main.gom:49
 			lines1 = lines
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:49
+//line sandbox/jot/main.gom:48
 		}
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:49
+//line sandbox/jot/main.gom:48
 	default:
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:48
+//line sandbox/jot/main.gom:47
 		panic(rt.InvalidVariant("List", tmp37))
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:49
+//line sandbox/jot/main.gom:48
 	}
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:52
+//line sandbox/jot/main.gom:51
 	var shown list.List[string]
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:52
+//line sandbox/jot/main.gom:52
 	switch v := n.(type) {
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:52
+//line sandbox/jot/main.gom:52
 	case option.Option_Some[int64]:
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:52
+//line sandbox/jot/main.gom:52
 		tmp41 := v
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:52
+//line sandbox/jot/main.gom:53
 		tmp42 := tmp41.V0
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:52
+//line sandbox/jot/main.gom:53
 		shown = lastN(tmp42, lines1)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:52
+//line sandbox/jot/main.gom:52
 	case option.Option_None[int64]:
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:52
+//line sandbox/jot/main.gom:52
 		shown = lines1
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:52
+//line sandbox/jot/main.gom:52
 	default:
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:52
+//line sandbox/jot/main.gom:51
 		panic(rt.InvalidVariant("Option", n))
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:52
+//line sandbox/jot/main.gom:52
 	}
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:53
+//line sandbox/jot/main.gom:55
 	for _, line := range shown {
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:54
+//line sandbox/jot/main.gom:55
 		tmp43 := any(line)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:54
+//line sandbox/jot/main.gom:55
 		v1, err4 := fmt.Println(tmp43)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:54
+//line sandbox/jot/main.gom:55
 		_ = result.FromGo(int64(v1), err4)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:55
+//line sandbox/jot/main.gom:55
 		_ = struct{}{}
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:53
+//line sandbox/jot/main.gom:55
 	}
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:57
+//line sandbox/jot/main.gom:56
 	return result.Ok[struct{}, error](struct{}{})
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:44
+//line sandbox/jot/main.gom:43
 }
 
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:60
+//line sandbox/jot/main.gom:59
 func die(code int64, msg string) struct{} {
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:61
+//line sandbox/jot/main.gom:60
 	tmp44 := io.Writer(os.Stderr)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:61
+//line sandbox/jot/main.gom:60
 	tmp45 := msg
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:61
+//line sandbox/jot/main.gom:60
 	tmp46 := "jot: " + tmp45
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:61
+//line sandbox/jot/main.gom:60
 	tmp47 := any(tmp46)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:61
+//line sandbox/jot/main.gom:60
 	v2, err5 := fmt.Fprintln(tmp44, tmp47)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:61
+//line sandbox/jot/main.gom:60
 	_ = result.FromGo(int64(v2), err5)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:62
+//line sandbox/jot/main.gom:61
 	tmp48 := int(code)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:62
+//line sandbox/jot/main.gom:61
 	os.Exit(tmp48)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:62
+//line sandbox/jot/main.gom:61
 	_ = struct{}{}
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:63
+//line sandbox/jot/main.gom:62
 	return struct{}{}
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:60
+//line sandbox/jot/main.gom:59
 }
 
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:66
+//line sandbox/jot/main.gom:65
 func main() {
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:66
+//line sandbox/jot/main.gom:65
 	tmp49 := programArgs(struct{}{})
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:67
+//line sandbox/jot/main.gom:66
 	switch {
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:67
+//line sandbox/jot/main.gom:66
 	case len(tmp49) == 0:
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:67
+//line sandbox/jot/main.gom:66
 		die(2, "usage: jot [-l [N]] TEXT...")
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:67
+//line sandbox/jot/main.gom:66
 	case len(tmp49) != 0:
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:67
+//line sandbox/jot/main.gom:66
 		tmp50 := tmp49[0]
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:67
+//line sandbox/jot/main.gom:66
 		tmp51 := tmp49[1:]
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:68
+//line sandbox/jot/main.gom:67
 		switch tmp50 {
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:68
+//line sandbox/jot/main.gom:67
 		case "-l":
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:68
+//line sandbox/jot/main.gom:67
 			switch {
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:68
+//line sandbox/jot/main.gom:67
 			case len(tmp51) == 0:
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:68
+//line sandbox/jot/main.gom:67
 				tmp52 := option.Option[int64](option.Option_None[int64]{})
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:68
+//line sandbox/jot/main.gom:67
 				tmp53 := showLog(tmp52)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:69
+//line sandbox/jot/main.gom:68
 				switch tmp53.Tag() {
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:69
+//line sandbox/jot/main.gom:68
 				case result.ResultTagOk:
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:69
+//line sandbox/jot/main.gom:68
 					_ = struct{}{}
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:69
+//line sandbox/jot/main.gom:68
 				case result.ResultTagErr:
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:69
+//line sandbox/jot/main.gom:68
 					tmp55 := tmp53.Error
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:69
+//line sandbox/jot/main.gom:68
 					tmp56 := tmp55
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:70
+//line sandbox/jot/main.gom:69
 					tmp57 := tmp56.Error()
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:70
+//line sandbox/jot/main.gom:69
 					die(1, tmp57)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:70
+//line sandbox/jot/main.gom:69
 				default:
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:68
+//line sandbox/jot/main.gom:67
 					panic(rt.InvalidVariant("Result", tmp53))
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:69
+//line sandbox/jot/main.gom:68
 				}
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:68
+//line sandbox/jot/main.gom:67
 			case len(tmp51) != 0:
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:68
+//line sandbox/jot/main.gom:67
 				tmp58 := tmp51[0]
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:68
+//line sandbox/jot/main.gom:67
 				tmp59 := tmp51[1:]
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:72
+//line sandbox/jot/main.gom:71
 				switch {
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:72
+//line sandbox/jot/main.gom:71
 				case len(tmp59) == 0:
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:68
+//line sandbox/jot/main.gom:67
 					tmp60 := tmp58
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:72
+//line sandbox/jot/main.gom:71
 					var tmp61 result.Result[int64, error]
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:72
+//line sandbox/jot/main.gom:71
 					v3, err6 := strconv.Atoi(tmp60)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:72
+//line sandbox/jot/main.gom:71
 					tmp61 = result.FromGo(int64(v3), err6)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:73
+//line sandbox/jot/main.gom:72
 					switch tmp61.Tag() {
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:73
+//line sandbox/jot/main.gom:72
 					case result.ResultTagOk:
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:73
+//line sandbox/jot/main.gom:72
 						tmp62 := tmp61.Value
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:73
+//line sandbox/jot/main.gom:72
 						tmp63 := tmp62
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:73
+//line sandbox/jot/main.gom:72
 						tmp64 := option.Option[int64](option.Option_Some[int64]{V0: tmp63})
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:73
+//line sandbox/jot/main.gom:72
 						tmp65 := showLog(tmp64)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:74
+//line sandbox/jot/main.gom:73
 						switch tmp65.Tag() {
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:74
+//line sandbox/jot/main.gom:73
 						case result.ResultTagOk:
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:74
+//line sandbox/jot/main.gom:73
 							_ = struct{}{}
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:74
+//line sandbox/jot/main.gom:73
 						case result.ResultTagErr:
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:74
+//line sandbox/jot/main.gom:73
 							tmp67 := tmp65.Error
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:74
+//line sandbox/jot/main.gom:73
 							tmp68 := tmp67
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:75
+//line sandbox/jot/main.gom:74
 							tmp69 := tmp68.Error()
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:75
+//line sandbox/jot/main.gom:74
 							die(1, tmp69)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:75
+//line sandbox/jot/main.gom:74
 						default:
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:73
+//line sandbox/jot/main.gom:72
 							panic(rt.InvalidVariant("Result", tmp65))
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:74
+//line sandbox/jot/main.gom:73
 						}
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:73
+//line sandbox/jot/main.gom:72
 					case result.ResultTagErr:
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:77
+//line sandbox/jot/main.gom:76
 						die(2, "jot -l expects a number")
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:77
+//line sandbox/jot/main.gom:76
 					default:
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:72
+//line sandbox/jot/main.gom:71
 						panic(rt.InvalidVariant("Result", tmp61))
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:73
+//line sandbox/jot/main.gom:72
 					}
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:72
+//line sandbox/jot/main.gom:71
 				case len(tmp59) != 0:
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:66
+//line sandbox/jot/main.gom:65
 					tmp73 := tmp49
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:80
+//line sandbox/jot/main.gom:79
 					tmp74 := tmp73.ToSlice()
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:80
+//line sandbox/jot/main.gom:79
 					msg := strings.Join(tmp74, " ")
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:81
+//line sandbox/jot/main.gom:80
 					tmp75 := appendNote(msg)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:82
+//line sandbox/jot/main.gom:81
 					switch tmp75.Tag() {
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:82
+//line sandbox/jot/main.gom:81
 					case result.ResultTagOk:
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:82
+//line sandbox/jot/main.gom:81
 						_ = struct{}{}
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:82
+//line sandbox/jot/main.gom:81
 					case result.ResultTagErr:
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:82
+//line sandbox/jot/main.gom:81
 						tmp77 := tmp75.Error
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:82
+//line sandbox/jot/main.gom:81
 						tmp78 := tmp77
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:83
+//line sandbox/jot/main.gom:82
 						tmp79 := tmp78.Error()
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:83
+//line sandbox/jot/main.gom:82
 						die(1, tmp79)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:83
+//line sandbox/jot/main.gom:82
 					default:
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:81
+//line sandbox/jot/main.gom:80
 						panic(rt.InvalidVariant("Result", tmp75))
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:82
+//line sandbox/jot/main.gom:81
 					}
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:82
+//line sandbox/jot/main.gom:81
 				default:
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:68
+//line sandbox/jot/main.gom:67
 					panic(rt.InvalidVariant("List", tmp59))
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:72
+//line sandbox/jot/main.gom:71
 				}
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:72
+//line sandbox/jot/main.gom:71
 			default:
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:67
+//line sandbox/jot/main.gom:66
 				panic(rt.InvalidVariant("List", tmp51))
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:68
+//line sandbox/jot/main.gom:67
 			}
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:68
+//line sandbox/jot/main.gom:67
 		default:
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:66
+//line sandbox/jot/main.gom:65
 			tmp80 := tmp49
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:80
+//line sandbox/jot/main.gom:79
 			tmp81 := tmp80.ToSlice()
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:80
+//line sandbox/jot/main.gom:79
 			tmp82 := strings.Join(tmp81, " ")
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:81
+//line sandbox/jot/main.gom:80
 			tmp83 := appendNote(tmp82)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:82
+//line sandbox/jot/main.gom:81
 			switch tmp83.Tag() {
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:82
+//line sandbox/jot/main.gom:81
 			case result.ResultTagOk:
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:82
+//line sandbox/jot/main.gom:81
 				_ = struct{}{}
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:82
+//line sandbox/jot/main.gom:81
 			case result.ResultTagErr:
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:82
+//line sandbox/jot/main.gom:81
 				tmp85 := tmp83.Error
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:82
+//line sandbox/jot/main.gom:81
 				tmp86 := tmp85
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:83
+//line sandbox/jot/main.gom:82
 				tmp87 := tmp86.Error()
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:83
+//line sandbox/jot/main.gom:82
 				die(1, tmp87)
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:83
+//line sandbox/jot/main.gom:82
 			default:
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:81
+//line sandbox/jot/main.gom:80
 				panic(rt.InvalidVariant("Result", tmp83))
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:82
+//line sandbox/jot/main.gom:81
 			}
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:68
+//line sandbox/jot/main.gom:67
 		}
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:68
+//line sandbox/jot/main.gom:67
 	default:
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:66
+//line sandbox/jot/main.gom:65
 		panic(rt.InvalidVariant("List", tmp49))
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:67
+//line sandbox/jot/main.gom:66
 	}
-//line /home/ubuntu/repos/gom/sandbox/jot/main.gom:66
+//line sandbox/jot/main.gom:65
 }

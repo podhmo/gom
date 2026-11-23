@@ -201,3 +201,7 @@
 
 - `go vet ./...` が生成コードを vet 対象にする。sigw の `rt.MakeChan[os.Signal](1)` は buffered なのに helper 越しに見えず「misuse of unbuffered os.Signal channel」→ vet false positive（ヘルパ関数経由は vet が透視できない典型例）。生成 .go は成果物としては見せたいが repo の `go vet` を汚すので `.gitignore` で `*.go` を除外してコミットしないことにした。
 - `gom fmt` で全ファイル成形済み（emb は構文エラーのまま放置 = 諦め証拠）。
+
+### 補足: 8進数リテラル
+
+- jot で `os.OpenFile` のモードに `420` と書いたら CI の staticcheck が SA9002（「0644 のつもり?」）で落ちた。gom は `0o644` リテラルをサポートするのでそれで解決 — `420` → `0o644` に修正済み。生成コードは `0o644` のまま emit される。
