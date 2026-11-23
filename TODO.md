@@ -36,7 +36,7 @@
 
 - [x] **[task] `//go:embed` / directive comment / blank import の提供形**: `@extern let name : T`（宣言のみ・実体は手書き Go または directive 生成）+ `//gom:embed <patterns>` directive → `//go:embed` + `var` emit + `_ "embed"` 自動補完。`import go _ "path"` blank import も追加。型制約は check で E0512（spec §8.10、[decision](docs/decisions/2026-11-23-extern-let-embed.md)、wave37 lane E）
 - [ ] **[task] record フィールドへの Go struct tag（`json:"name"` 等）の宣言面**: フィールド名は lowercase 強制で Go 側は PascalCase emit、tag を付けられないため `json.Marshal` が `{"Name":...}` になり外部 JSON スキーマと合わない（`{{.name}}` テンプレ参照も同根）。属性引数かフィールド行の directive の形を decision で決めて実装（同 sketch、回避は `Go.Map`/`json.RawMessage` 経由）
-- [ ] **[task] `@method` emit 名の escape（initialism 対応）**: `serve_http`→`ServeHttp` しか出せず `ServeHTTP`/`URL`/`ID` 等の initialism を含むメソッド名を生成できない → `http.Handler`・`sort.Interface` 等を record に実装できない（E0401）。[decision](docs/decisions/2026-11-21-go-iface-impl.md) が「規約で足りなければ別 decision」と予告した分岐 — 属性引数か verbatim 綴りの escape を採る（同 sketch、回避は `Go.conv (Go.func2 h) : http.HandlerFunc`）
+- [x] **[task] `@method` emit 名の escape（initialism 対応）**: `serve_http`→`ServeHttp` しか出せず `ServeHTTP`/`URL`/`ID` 等の initialism を含むメソッド名を生成できない → `http.Handler`・`sort.Interface` 等を record に実装できない（E0401）。[decision](docs/decisions/2026-11-21-go-iface-impl.md) が「規約で足りなければ別 decision」と予告した分岐 — 属性引数か verbatim 綴りの escape を採る（同 sketch、回避は `Go.conv (Go.func2 h) : http.HandlerFunc`）— 実施済み: `@method(GoName)` 属性引数（wave38 lane G、[decision](docs/decisions/2026-11-24-method-emit-name-verbatim.md)）
 
 ### 言語機能
 
@@ -99,8 +99,8 @@ Go 相互運用を変えたら両方向（Gom → Go、Go → Gom）のテスト
 
 - [x] **[task] `gom list` サブコマンド（stdlib 列挙）**: 対応: wave38 lane A — `gom list`（引数なし、列挙のみ）が `gomimport.StdlibShortNames()`（`stdlibPaths` の keys: cmp/list/option/result）を 1 行 1 件で出力。`cmp` は埋め込み `.gomi` がないため FS walk ではなくテーブルが列挙元
 - [x] **[task] ビット演算子 `&&&`/`|||`/`^^^`/`<<<`/`>>>`（+`&&^`）の実装**: 採択済みの三重字演算子を lexer + check + codegen + spec に実装（[decision](docs/decisions/2026-11-23-bit-operators.md)）。対応: wave38 lane B — token/lexer/parser/check(intg)/codegen/eval/fmt/validate + spec 演算子表・grammar.ebnf 同期、fixture [ok_bit_ops](testdata/spec/ok_bit_ops.gom)/[E0401_bit_ops](testdata/spec/E0401_bit_ops.gom)/[bit_ops](testdata/golden/bit_ops.gom)
-- [ ] **[task] `Go.nil` ユニバーサル builtin の実装**: `Ptr.nil` 以外（`Go.Slice`/`Go.Map`/Go 関数型等）でも nil を書ける Go 名前空間の拡張（[decision](docs/decisions/2026-11-23-nil-spelling.md)、wave38 lane C）
-- [ ] **[task] `Go.Slice`/`Go.Map` 要素の `~` 制約一致の実装**: `~` 制約の要素一致を Gom 側 `types.Equal` で見る — record を `[]MyRec` として `slices.SortFunc` 等に渡せる面（[decision](docs/decisions/2026-11-23-goslice-gom-elem.md)、wave38 lane D）
+- [x] **[task] `Go.nil` ユニバーサル builtin の実装**: `Ptr.nil` 以外（`Go.Slice`/`Go.Map`/Go 関数型等）でも nil を書ける Go 名前空間の拡張（[decision](docs/decisions/2026-11-23-nil-spelling.md)、wave38 lane C — `rt.Nil[T]()` emit・E0513・W0502 両綴り認識）
+- [x] **[task] `Go.Slice`/`Go.Map` 要素の `~` 制約一致の実装**: `~` 制約の要素一致を Gom 側 `types.Equal` で見る — record を `[]MyRec` として `slices.SortFunc` 等に渡せる面（[decision](docs/decisions/2026-11-23-goslice-gom-elem.md)、wave38 lane D — `goSatisfiesGomElems` shape walk）
 
 - [x] **P4-6 LSP**: 型表示、網羅性エラーの即時表示、UTF-16 位置への変換。依存: P4-5 — v1 foundation として採用: `internal/lsp`（stdio JSON-RPC、`didOpen`/`didChange`/`didClose`/`hover`/`publishDiagnostics`、単一 open-file モデル、`OffsetUTF16` で UTF-16 列→バイトオフセット逆変換）+ `gom lsp`。実 Emacs+Eglot で hover・診断 push を検証（wave11 lsp、[decision](docs/decisions/2026-11-06-lsp-v1-scope.md)、[検証](docs/sketch/2026-11-06-lsp-v1-verification.md)）
 - [x] **[task] LSP: 複数ファイルパッケージ単位のコンパイル**: `gom lsp` の compile unit をパッケージへ — dir の `*.gom` を overlay gather（open バッファがディスクをシャドウ、未オープン兄弟はディスク読み込み、絶対 `.gom` パスのみが member になる）し `build.CompileFiles` で単位ごと再コンパイル、診断はファイル単位で publish（未オープンは合成 file:// URI）+ 離脱メンバーの retract。Emacs/Eglot で兄弟解決・クロスファイル hover・didChange 反転を実証（wave12 lsp-multifile、[decision](docs/decisions/2026-11-06-lsp-package-unit.md)、[検証](docs/sketch/2026-11-06-lsp-package-unit-verification.md)）
