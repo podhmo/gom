@@ -630,6 +630,39 @@ func TestCompileFilesEmitNameCollisionsVerbatimDup(t *testing.T) {
 	}
 }
 
+// The same verbatim collision across file boundaries fails the
+// whole package: the generated Go files share one package scope,
+// so withholding only the colliding members would emit files
+// referencing declarations that never materialized — the clean
+// sibling c.gom loses its output too.
+func TestCompileFilesEmitNameCollisionsVerbatimDupCrossFile(t *testing.T) {
+	rs, err := build.CompileFiles(
+		[]build.Input{
+			{Path: "pkg/a.gom", Src: []byte("package pkg\n\ntype Foo_Bar = { x: Int }\n")},
+			{Path: "pkg/b.gom", Src: []byte("package pkg\n\ntype FooBar = { y: Int }\n")},
+			{Path: "pkg/c.gom", Src: []byte("package pkg\n\nfn c () -> Int = 1\n")},
+		},
+		&build.Options{})
+	if err != nil {
+		t.Fatalf("CompileFiles: %v", err)
+	}
+	if len(rs) != 3 {
+		t.Fatalf("got %d results, want 3", len(rs))
+	}
+	var e0608 bool
+	for i, r := range rs {
+		for _, d := range r.Diagnostics {
+			e0608 = e0608 || d.Code == "E0608"
+		}
+		if r.Output != nil {
+			t.Errorf("result %d still emits output — unit failure withholds every member", i)
+		}
+	}
+	if !e0608 {
+		t.Errorf("no E0608 for the cross-file Foo_Bar/FooBar collision")
+	}
+}
+
 // A sibling `@test` helper reserves its Go name only when the
 // package compiles with tests: under `gom test` it claims
 // `myHelper` and the local `my_helper` loses to `myHelper1`

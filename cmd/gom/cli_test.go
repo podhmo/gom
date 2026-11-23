@@ -281,6 +281,46 @@ func TestBuildWritesGo(t *testing.T) {
 	}
 }
 
+// TestBuildVerbatimDupCrossFile drives the collision through the
+// CLI on a two-file package: Foo_Bar and FooBar claim the same Go
+// name in different members, so the command exits nonzero, reports
+// E0608, and writes no .go file at all (the package is atomic).
+func TestBuildVerbatimDupCrossFile(t *testing.T) {
+	t.Parallel()
+
+	dir := writeFiles(t, map[string]string{
+		"pkg/a.gom": "package pkg\n\ntype Foo_Bar = { x: Int }\n",
+		"pkg/b.gom": "package pkg\n\ntype FooBar = { y: Int }\n",
+	})
+	outDir := filepath.Join(dir, "out")
+	if err := os.MkdirAll(outDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	code, out, _ := invoke("build", "-o", outDir, filepath.Join(dir, "pkg"))
+	if code == 0 {
+		t.Fatalf("exit code = 0, want failure; stdout=%q", out)
+	}
+	var e0608 bool
+	for _, l := range jsonLines(t, out) {
+		if l["code"] == "E0608" {
+			e0608 = true
+		}
+	}
+	if !e0608 {
+		t.Errorf("no E0608 diagnostic in output: %q", out)
+	}
+	entries, err := os.ReadDir(outDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range entries {
+		if strings.HasSuffix(e.Name(), ".go") {
+			t.Errorf("withheld package still wrote %s", e.Name())
+		}
+	}
+}
+
 // TestBuildSkipsTestCode is the spec 11.6 regression: `gom build`
 // type- and pattern-checks `test` blocks (and the assert/assert_eq
 // builtins inside them) but emits no test code — no lowering E0901,
