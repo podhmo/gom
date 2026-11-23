@@ -62,6 +62,16 @@ func TestLexTokenKinds(t *testing.T) {
 			`"|>"@0-2 "|?>"@3-6 ">>"@7-9 "<<"@10-12 "||"@13-15 "&&"@16-18 "=="@19-21 "!="@22-24 "<"@25-26 "<="@27-29 ">"@30-31 ">="@32-34 "+"@35-36 "-"@37-38 "*"@39-40 "/"@41-42 "%"@43-44 end of file@44-44`,
 		},
 		{
+			"bitwise operators",
+			`a &&& b &&^ c ||| d ^^^ e <<< f >>> g`,
+			`identifier@0-1 "&&&"@2-5 identifier@6-7 "&&^"@8-11 identifier@12-13 "|||"@14-17 identifier@18-19 "^^^"@20-23 identifier@24-25 "<<<"@26-29 identifier@30-31 ">>>"@32-35 identifier@36-37 end of file@37-37`,
+		},
+		{
+			"maximal munch keeps the shorter ops",
+			`a && b || c >> d << e`,
+			`identifier@0-1 "&&"@2-4 identifier@5-6 "||"@7-9 identifier@10-11 ">>"@12-14 identifier@15-16 "<<"@17-19 identifier@20-21 end of file@21-21`,
+		},
+		{
 			"integer literals",
 			`0 42 1_000 0x1F 0o17 0b101`,
 			`integer literal@0-1 integer literal@2-4 integer literal@5-10 integer literal@11-15 integer literal@16-20 integer literal@21-26 end of file@26-26`,

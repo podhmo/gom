@@ -1,0 +1,64 @@
+package ex
+
+import go "time"
+
+// spec 3.3: a literal shift is a constant even before the literal's
+// type defaults — `1 >>> 1` folds to 0 at every width, so the
+// division reports E0414.
+fn f () -> Int = 7 / (1 >>> 1)
+
+// an oversized left shift fills with zero at every width.
+fn g () -> Int = 7 / (255 <<< 64)
+
+// an oversized right shift of a positive operand is zero; of a
+// negative operand it sign-fills to -1 — no E0414 for i.
+fn h () -> Int = 7 / (255 >>> 255)
+fn i () -> Int = 7 / ((-1) >>> 64)
+
+// the count operand's own arithmetic wraps at its width — at Int32
+// `(2147483647 + 1) % 33` is -2^31 % 33 = -2, a negative count the
+// fold must not rewrite to the unbounded remainder 2 (which would
+// mint a false E0414 on a program whose count really panics).
+// Negating it is a real count of 2 — E0414 still fires for k.
+fn j () -> Int32 = 7 / (1 >>> ((Go.conv (2147483647 + 1) : Int32) % 33))
+fn k () -> Int32 = 7 / (1 >>> (0 - ((Go.conv (2147483647 + 1) : Int32) % 33)))
+
+// a narrower subexpression wraps at its own width even inside a
+// wider count: the Int32 `+` overflows to -2^31 before the Int64
+// conversion, so the count is -2 — no fold, no E0414 for l.
+fn l () -> Int64 = 7 / (1 >>> ((Go.conv ((Go.conv 2147483647 : Int32) + 1) : Int64) % 33))
+
+// a remainder whose divisor wraps to zero panics in the machine
+// before the shift — the unbounded fallback must not mint E0414.
+fn m () -> Int32 = 7 / (1 >>> (7 % (Go.conv (1 <<< 32) : Int32)))
+
+// a named Go integer type folds at its own underlying width, not
+// the enclosing count width: `Duration(5) >>> 2147483648` is 0 at
+// int64, so the count is 64 and the division is a real zero —
+// folding the inner count literal at Int32 would read it as
+// negative and skip the check.
+fn n () -> Int32 = 7 / (1 >>> ((Go.conv ((Go.conv 5 : time.Duration) >>> 2147483648) : Int32) + 64))
+
+// a Byte conversion folds at 8 bits unsigned — `byte(256)` is 0,
+// so the count is 0 and the divisor is 1: no E0414.
+fn o () -> Int32 = 7 / (1 >>> (Go.conv (Go.conv (100 + 156) : Byte) : Int32))
+
+// `Go.conv` of a non-literal operand folds the conversion — the
+// ascribe wraps at the target width: `Int32(2^33)` is 0, so this
+// division reports E0414 (the fold must not keep the unbounded
+// 2^33 and miss the zero).
+fn p () -> Int32 = (Go.conv 7 : Int32) / (Go.conv (4294967296 * 2) : Int32)
+
+// a literal inside a conversion still folds — its width may be
+// unsolved when the divisor is judged, so `1 >>> 1` is 0: E0414.
+fn q () -> Int32 = (Go.conv 7 : Int32) / (1 >>> (Go.conv 1 : Int32))
+
+// a converted integer quotient truncates like the machine —
+// `int64(3)/int64(2)` is 1, a nonzero divisor: no E0414.
+fn r () -> Int32 = (Go.conv 7 : Int32) / (Go.conv ((Go.conv 3 : Int64) / (Go.conv 2 : Int64)) : Int32)
+
+// a converted quotient of 0 is a zero divisor: `int64(1)/int64(2)`
+// is 0, so this division reports E0414.
+fn s () -> Int32 = (Go.conv 7 : Int32) / (Go.conv ((Go.conv 1 : Int64) / (Go.conv 2 : Int64)) : Int32)
+
+fn main () -> Unit = ()

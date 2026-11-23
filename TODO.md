@@ -97,8 +97,8 @@ Go 相互運用を変えたら両方向（Gom → Go、Go → Gom）のテスト
 
 - [ ] **[task] `//gom:mutable` directive（`.gomi`）**: 実装が見えない宣言型（extern 裏付け・abstract export 不透明化）を `.gomi` の directive で mutable 表明 — name-only（index 無し）形なので `scanDirective` ではなく専用スキャンが要る、ロード時に tyCons へフラグ適用、`containsMutable` が `Qual != ""` の `Con` で照合、`.gomi` 再生成時は著者の directive を引き継ぐ（toolchain は新規生成しない）。ローカル `.gom` 宣言では受理しない（フィールドから導出可能なため）。priority low（[decision](docs/decisions/2026-11-23-user-mutable-structures.md)、wave36 lane G で採択）
 
-- [ ] **[task] `gom list` サブコマンド（stdlib 列挙）**: import 可能な stdlib 短名を列挙するツールがない — `gom list`（引数なし、列挙のみの一機能）を追加。列挙元は `gomimport` の stdlib 短名テーブル（`stdlibPaths` = list/option/result/cmp — `cmp` は埋め込み `.gomi` がないため FS walk では漏れる）。リポジトリを読まずに stdlib の面を把握する用途（wave38 lane A、podhmo 要望 2026-11-24）
-- [ ] **[task] ビット演算子 `&&&`/`|||`/`^^^`/`<<<`/`>>>`（+`&&^`）の実装**: 採択済みの三重字演算子を lexer + check + codegen + spec に実装（[decision](docs/decisions/2026-11-23-bit-operators.md)、wave38 lane B）
+- [x] **[task] `gom list` サブコマンド（stdlib 列挙）**: 対応: wave38 lane A — `gom list`（引数なし、列挙のみ）が `gomimport.StdlibShortNames()`（`stdlibPaths` の keys: cmp/list/option/result）を 1 行 1 件で出力。`cmp` は埋め込み `.gomi` がないため FS walk ではなくテーブルが列挙元
+- [x] **[task] ビット演算子 `&&&`/`|||`/`^^^`/`<<<`/`>>>`（+`&&^`）の実装**: 採択済みの三重字演算子を lexer + check + codegen + spec に実装（[decision](docs/decisions/2026-11-23-bit-operators.md)）。対応: wave38 lane B — token/lexer/parser/check(intg)/codegen/eval/fmt/validate + spec 演算子表・grammar.ebnf 同期、fixture [ok_bit_ops](testdata/spec/ok_bit_ops.gom)/[E0401_bit_ops](testdata/spec/E0401_bit_ops.gom)/[bit_ops](testdata/golden/bit_ops.gom)
 - [ ] **[task] `Go.nil` ユニバーサル builtin の実装**: `Ptr.nil` 以外（`Go.Slice`/`Go.Map`/Go 関数型等）でも nil を書ける Go 名前空間の拡張（[decision](docs/decisions/2026-11-23-nil-spelling.md)、wave38 lane C）
 - [ ] **[task] `Go.Slice`/`Go.Map` 要素の `~` 制約一致の実装**: `~` 制約の要素一致を Gom 側 `types.Equal` で見る — record を `[]MyRec` として `slices.SortFunc` 等に渡せる面（[decision](docs/decisions/2026-11-23-goslice-gom-elem.md)、wave38 lane D）
 

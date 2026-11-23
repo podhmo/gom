@@ -251,6 +251,18 @@ const (
 	BinComposeFwd
 	// BinComposeBack is `<<`: `g << f` is `fn x -> g (f x)`.
 	BinComposeBack
+	// BinBitAnd is `&&&` (Go `&`).
+	BinBitAnd
+	// BinBitAndNot is `&&^` (Go `&^`, bit clear).
+	BinBitAndNot
+	// BinBitOr is `|||` (Go `|`).
+	BinBitOr
+	// BinBitXor is `^^^` (Go `^`).
+	BinBitXor
+	// BinBitShl is `<<<` (Go `<<`).
+	BinBitShl
+	// BinBitShr is `>>>` (Go `>>`).
+	BinBitShr
 )
 
 // String returns the source spelling of the operator.
@@ -292,6 +304,18 @@ func (o BinOp) String() string {
 		return ">>"
 	case BinComposeBack:
 		return "<<"
+	case BinBitAnd:
+		return "&&&"
+	case BinBitAndNot:
+		return "&&^"
+	case BinBitOr:
+		return "|||"
+	case BinBitXor:
+		return "^^^"
+	case BinBitShl:
+		return "<<<"
+	case BinBitShr:
+		return ">>>"
 	default:
 		return "BinOp(?)"
 	}

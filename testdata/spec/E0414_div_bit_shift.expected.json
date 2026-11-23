@@ -1,0 +1,180 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0414",
+      "severity": "error",
+      "message": "division by a constant zero",
+      "span": {
+        "file": "E0414_div_bit_shift.gom",
+        "start": {
+          "line": 8,
+          "col": 23,
+          "offset": 213
+        },
+        "end": {
+          "line": 8,
+          "col": 30,
+          "offset": 220
+        }
+      },
+      "data": {
+        "op": "/"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0414",
+      "severity": "error",
+      "message": "division by a constant zero",
+      "span": {
+        "file": "E0414_div_bit_shift.gom",
+        "start": {
+          "line": 11,
+          "col": 23,
+          "offset": 304
+        },
+        "end": {
+          "line": 11,
+          "col": 33,
+          "offset": 314
+        }
+      },
+      "data": {
+        "op": "/"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0414",
+      "severity": "error",
+      "message": "division by a constant zero",
+      "span": {
+        "file": "E0414_div_bit_shift.gom",
+        "start": {
+          "line": 15,
+          "col": 23,
+          "offset": 463
+        },
+        "end": {
+          "line": 15,
+          "col": 34,
+          "offset": 474
+        }
+      },
+      "data": {
+        "op": "/"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0414",
+      "severity": "error",
+      "message": "division by a constant zero",
+      "span": {
+        "file": "E0414_div_bit_shift.gom",
+        "start": {
+          "line": 24,
+          "col": 25,
+          "offset": 942
+        },
+        "end": {
+          "line": 24,
+          "col": 76,
+          "offset": 993
+        }
+      },
+      "data": {
+        "op": "/"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0414",
+      "severity": "error",
+      "message": "division by a constant zero",
+      "span": {
+        "file": "E0414_div_bit_shift.gom",
+        "start": {
+          "line": 40,
+          "col": 25,
+          "offset": 1799
+        },
+        "end": {
+          "line": 40,
+          "col": 99,
+          "offset": 1873
+        }
+      },
+      "data": {
+        "op": "/"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0414",
+      "severity": "error",
+      "message": "division by a constant zero",
+      "span": {
+        "file": "E0414_div_bit_shift.gom",
+        "start": {
+          "line": 50,
+          "col": 43,
+          "offset": 2344
+        },
+        "end": {
+          "line": 50,
+          "col": 75,
+          "offset": 2376
+        }
+      },
+      "data": {
+        "op": "/"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0414",
+      "severity": "error",
+      "message": "division by a constant zero",
+      "span": {
+        "file": "E0414_div_bit_shift.gom",
+        "start": {
+          "line": 54,
+          "col": 43,
+          "offset": 2553
+        },
+        "end": {
+          "line": 54,
+          "col": 67,
+          "offset": 2577
+        }
+      },
+      "data": {
+        "op": "/"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0414",
+      "severity": "error",
+      "message": "division by a constant zero",
+      "span": {
+        "file": "E0414_div_bit_shift.gom",
+        "start": {
+          "line": 62,
+          "col": 43,
+          "offset": 2957
+        },
+        "end": {
+          "line": 62,
+          "col": 102,
+          "offset": 3016
+        }
+      },
+      "data": {
+        "op": "/"
+      }
+    }
+  ]
+}

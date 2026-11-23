@@ -245,14 +245,14 @@ module.exports = grammar({
       repeat(seq($.add_op, $.mul_expr)),
     ),
 
-    add_op: $ => choice('+', '-'),
+    add_op: $ => choice('+', '-', '|||', '^^^'),
 
     mul_expr: $ => seq(
       $.unary_expr,
       repeat(seq($.mul_op, $.unary_expr)),
     ),
 
-    mul_op: $ => choice('*', '/', '%'),
+    mul_op: $ => choice('*', '/', '%', '&&&', '&&^', '<<<', '>>>'),
 
     unary_expr: $ => choice(
       seq('-', $.unary_expr),

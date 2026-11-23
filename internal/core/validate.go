@@ -1035,7 +1035,9 @@ func (v *validator) expr(e Expr, inTail bool) {
 		switch e.Op {
 		case syntax.BinAdd, syntax.BinSub, syntax.BinMul, syntax.BinDiv, syntax.BinMod,
 			syntax.BinEq, syntax.BinNe, syntax.BinLt, syntax.BinLe, syntax.BinGt, syntax.BinGe,
-			syntax.BinAnd, syntax.BinOr:
+			syntax.BinAnd, syntax.BinOr,
+			syntax.BinBitAnd, syntax.BinBitAndNot, syntax.BinBitOr,
+			syntax.BinBitXor, syntax.BinBitShl, syntax.BinBitShr:
 		default:
 			if !e.Op.Sugared() {
 				v.err(e.Sp, "Binary", "invalid binary operator %d", int(e.Op))

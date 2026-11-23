@@ -200,6 +200,10 @@ func (p *parser) parseAdd(nb bool) Expr {
 			op = BinAdd
 		case tokMinus:
 			op = BinSub
+		case tokBitOr:
+			op = BinBitOr
+		case tokBitXor:
+			op = BinBitXor
 		default:
 			return x
 		}
@@ -220,6 +224,14 @@ func (p *parser) parseMul(nb bool) Expr {
 			op = BinDiv
 		case tokPercent:
 			op = BinMod
+		case tokBitAnd:
+			op = BinBitAnd
+		case tokBitAndNot:
+			op = BinBitAndNot
+		case tokBitShl:
+			op = BinBitShl
+		case tokBitShr:
+			op = BinBitShr
 		default:
 			return x
 		}

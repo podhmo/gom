@@ -1777,6 +1777,9 @@ func (c *checker) checkBinary(e *syntax.Binary) Expr {
 		return c.checkArith(e, func(r *metaRec) { r.num = true })
 	case syntax.BinMod:
 		return c.checkArith(e, func(r *metaRec) { r.intg = true })
+	case syntax.BinBitAnd, syntax.BinBitAndNot, syntax.BinBitOr,
+		syntax.BinBitXor, syntax.BinBitShl, syntax.BinBitShr:
+		return c.checkArith(e, func(r *metaRec) { r.intg = true })
 	case syntax.BinEq, syntax.BinNe:
 		x := c.checkExpr(e.X, nil)
 		y := c.checkExpr(e.Y, nil)
@@ -2052,7 +2055,7 @@ func (c *checker) checkArith(e *syntax.Binary, constrain func(*metaRec)) Expr {
 		// deferred to finalize — see pendingDivs. A quiet operand
 		// (an unresolved name, say) already reports elsewhere.
 		if (e.Op == syntax.BinDiv || e.Op == syntax.BinMod) &&
-			constZero(y) && !c.isQuiet(x.Type()) {
+			c.constZero(y) && !c.isQuiet(x.Type()) {
 			c.pendingDivs = append(c.pendingDivs, out)
 		}
 	}
@@ -2085,7 +2088,7 @@ func (c *checker) revisitDivs() {
 		case isIntegral(t) || (isGo && namedIntegral(gk)):
 			// Always invalid — see above.
 		case isFloat(t) || (isGo && namedFloat(gk)):
-			if _, ok := constFold(b.X); !ok {
+			if _, ok := c.constFold(b.X); !ok {
 				continue
 			}
 		default:
@@ -2098,8 +2101,8 @@ func (c *checker) revisitDivs() {
 
 // constZero reports whether e is a constant expression that
 // evaluates to numeric zero — see constFold for the folded shapes.
-func constZero(e Expr) bool {
-	v, ok := constFold(e)
+func (c *checker) constZero(e Expr) bool {
+	v, ok := c.constFold(e)
 	return ok && constant.Sign(v) == 0
 }
 
@@ -2123,7 +2126,7 @@ func constZero(e Expr) bool {
 // references as opaque: a *Go* constant used as a divisor
 // (`x / pkg.Zero`) still emits a division Go rejects — folding
 // imported constants is out of scope for this check.
-func constFold(e Expr) (constant.Value, bool) {
+func (c *checker) constFold(e Expr) (constant.Value, bool) {
 	switch e := e.(type) {
 	case *Lit:
 		var tok token.Token
@@ -2144,17 +2147,17 @@ func constFold(e Expr) (constant.Value, bool) {
 		if e.Op != syntax.UnNeg {
 			return nil, false
 		}
-		v, ok := constFold(e.X)
+		v, ok := c.constFold(e.X)
 		if !ok {
 			return nil, false
 		}
 		return constant.UnaryOp(token.SUB, v, 0), true
 	case *Binary:
-		x, ok := constFold(e.X)
+		x, ok := c.constFold(e.X)
 		if !ok {
 			return nil, false
 		}
-		y, ok := constFold(e.Y)
+		y, ok := c.constFold(e.Y)
 		if !ok {
 			return nil, false
 		}
@@ -2170,6 +2173,18 @@ func constFold(e Expr) (constant.Value, bool) {
 			op = token.QUO
 		case syntax.BinMod:
 			op = token.REM
+		case syntax.BinBitAnd:
+			op = token.AND
+		case syntax.BinBitAndNot:
+			op = token.AND_NOT
+		case syntax.BinBitOr:
+			op = token.OR
+		case syntax.BinBitXor:
+			op = token.XOR
+		case syntax.BinBitShl:
+			op = token.SHL
+		case syntax.BinBitShr:
+			op = token.SHR
 		default:
 			return nil, false
 		}
@@ -2181,16 +2196,333 @@ func constFold(e Expr) (constant.Value, bool) {
 		if (op == token.QUO || op == token.REM) && constant.Sign(y) == 0 {
 			return nil, false
 		}
-		if op == token.REM &&
-			(x.Kind() != constant.Int || y.Kind() != constant.Int) {
+		// % and the bitwise operators are integral-only; shifts also
+		// need a non-negative count or BinaryOp panics.
+		intOnly := op == token.REM || op == token.AND || op == token.AND_NOT ||
+			op == token.OR || op == token.XOR || op == token.SHL || op == token.SHR
+		if intOnly && (x.Kind() != constant.Int || y.Kind() != constant.Int) {
 			return nil, false
+		}
+		if op == token.SHL || op == token.SHR {
+			// constant.BinaryOp does not take shifts — they
+			// fold through Shift. The count itself is a folded
+			// machine value: it wraps at the count operand's own
+			// width when that is known — and its intermediate
+			// folds are machine values too: `(2147483647 + 1) % 64`
+			// at Int32 is -2^31 % 64 = 0, not the unbounded
+			// 2^31 % 64 — so it re-folds at that width rather
+			// than wrapping only the top. A negative count is a
+			// runtime panic, not a folding concern.
+			if cw, cu, ok := c.intFoldWidth(e.Y.Type()); ok {
+				// foldIntAt is authoritative when the count has a
+				// width — its unbounded value could hide a wrap to
+				// zero (a `%` whose divisor wrapped) or a negative
+				// count the machine would panic on.
+				var wok bool
+				y, wok = c.foldIntAt(e.Y, cw, cu)
+				if !wok {
+					return nil, false
+				}
+			}
+			s, exact := constant.Int64Val(y)
+			if !exact || s < 0 {
+				return nil, false
+			}
+			// go/constant is arbitrary-precision but the machine
+			// operation wraps at the operand's width — `(255 <<< 60)
+			// >>> 68` folds to 0 unwrapped where the wrapped value
+			// stays nonzero, which would mint a false E0414. The
+			// operand is wrapped too: an earlier `+`/`-`/`*` or
+			// `<<<` may have folded a value past the width already
+			// (`(MaxInt + 1) >>> 63` must see the wrapped -2^63, not
+			// the unbounded 2^63).
+			if w, us, ok := c.intFoldWidth(e.Type()); ok {
+				return shiftConst(x, op, uint64(s), w, us), true
+			}
+			// An unsolved meta (a bare literal chain) carries no
+			// width. The fold is still safe when 32- and 64-bit
+			// agree — `1 >>> 1` is 0 at every width; `255 <<< 60`
+			// diverges, so it stays unfolded rather than fold to a
+			// machine value only one width produces.
+			v32 := shiftConst(x, op, uint64(s), 32, false)
+			v64 := shiftConst(x, op, uint64(s), 64, false)
+			if !constant.Compare(v32, token.EQL, v64) {
+				return nil, false
+			}
+			return v64, true
 		}
 		return constant.BinaryOp(x, op, y), true
 	case *Ascribe:
-		// `e : T` emits e (possibly under a conversion); converting
-		// a constant keeps it constant, so the ascription is
-		// transparent to folding.
-		return constFold(e.X)
+		// `Go.conv e : T` emits `T(e)` — e evaluates at its own
+		// machine width, then converts: a computed integer value
+		// wraps at T's width (`Go.conv (65536 * 65536) : Int32`
+		// is 0, not 2^32 — a bare literal is E0417 before folding,
+		// so the wrap only meets computed values); a conversion to
+		// a widthless named type is the identity machine value,
+		// so it folds through unchanged.
+		var v constant.Value
+		var ok bool
+		if w2, u2, ok2 := c.intFoldWidth(e.X.Type()); ok2 {
+			v, ok = c.foldIntAt(e.X, w2, u2)
+		} else {
+			v, ok = c.constFold(e.X)
+		}
+		if !ok {
+			return nil, false
+		}
+		if w, us, ok := c.intFoldWidth(e.Type()); ok && v.Kind() == constant.Int {
+			return wrapConstInt(v, w, us), true
+		}
+		return v, true
+	case *Var, *Apply, *Hole, *MemberExpr, *StrInterp, *Lambda, *If,
+		*Match, *Block, *Let, *Ignore, *Try, *FieldAssign,
+		*GoExpr, *For, *SelectExpr, *ListLit, *Spread, *TupleLit,
+		*RecordLit:
+		return nil, false
+	default:
+		panic("unreachable")
+	}
+}
+
+// intFoldWidth gives the machine width — and its signedness — that
+// constFold wraps a literal shift result at: the width of the
+// builtin integral type the emitted Go type carries (`int`/`int64`/
+// `int32`, `rune`'s int32 for Char, `uint8` for Byte), or — through
+// the UnderlyingSource oracle — a named Go type's integer
+// underlying (time.Duration's int64, os.FileMode's uint32). A width
+// we cannot know (a declared Gom type, an unresolved meta, a
+// non-integer underlying) folds conservatively instead.
+func (c *checker) intFoldWidth(t types.Type) (w uint, unsigned bool, ok bool) {
+	switch t := types.Chase(t).(type) {
+	case *types.Con:
+		if t.Qual != "" {
+			return 0, false, false
+		}
+		switch t.Name {
+		case "Int", "Int64":
+			return 64, false, true
+		case "Int32", "Char":
+			return 32, false, true
+		case "Byte":
+			return 8, true, true
+		}
+	case *types.Go:
+		bits, us, floating, ok := c.goLitRange(t)
+		if !ok || floating {
+			return 0, false, false
+		}
+		return uint(bits), us, true
+	case *types.Func, *types.Meta, *types.Tuple, *types.Var:
+		// Not integral constants — fold conservatively instead.
+		return 0, false, false
+	}
+	return 0, false, false
+}
+
+// wrapConstInt interprets an arbitrary-precision constant as the
+// machine integer of width w — signed by default, unsigned when the
+// type is (`Byte`, a named `uint32` Go type, ...) — the value the
+// emitted machine operation produces where Go's own constant fold
+// would overflow.
+func wrapConstInt(v constant.Value, w uint, unsigned bool) constant.Value {
+	var mask uint64
+	if w >= 64 {
+		mask = math.MaxUint64
+	} else {
+		mask = (uint64(1) << w) - 1
+	}
+	u := constant.BinaryOp(v, token.AND, constant.MakeUint64(mask))
+	uu, _ := constant.Uint64Val(u)
+	if unsigned {
+		return constant.MakeUint64(uu)
+	}
+	switch w {
+	case 8:
+		return constant.MakeInt64(int64(int8(uu)))
+	case 16:
+		return constant.MakeInt64(int64(int16(uu)))
+	case 32:
+		return constant.MakeInt64(int64(int32(uu)))
+	}
+	return constant.MakeInt64(int64(uu))
+}
+
+// shiftConst folds a constant shift at machine width w: the operand
+// wraps to w bits first (a previous fold may hold an out-of-range
+// value), and a left shift's result wraps as well — `constant.Shift`
+// is arbitrary-precision where the machine operation is not.
+func shiftConst(x constant.Value, op token.Token, s uint64, w uint, unsigned bool) constant.Value {
+	x = wrapConstInt(x, w, unsigned)
+	// A count at or past the width empties the value without ever
+	// materializing a bigint — `1 <<< (2^62)` is 0, and a right
+	// shift leaves the sign bit's fill: 0 for a non-negative
+	// operand, -1 for a negative one. Unsigned shifts always empty
+	// to 0.
+	if s >= uint64(w) {
+		if op == token.SHL || unsigned {
+			return constant.MakeUint64(0)
+		}
+		if constant.Sign(x) < 0 {
+			return constant.MakeInt64(-1)
+		}
+		return constant.MakeInt64(0)
+	}
+	if unsigned {
+		// An unsigned right shift fills zeros — fold the masked
+		// bits logically rather than constant.Shift's signed
+		// arithmetic. The wrapped operand is already non-negative
+		// and masked to w bits.
+		uu, _ := constant.Uint64Val(x)
+		if op == token.SHR {
+			return constant.MakeUint64(uu >> uint(s))
+		}
+		var mask uint64
+		if w >= 64 {
+			mask = math.MaxUint64
+		} else {
+			mask = (uint64(1) << w) - 1
+		}
+		return constant.MakeUint64((uu << uint(s)) & mask)
+	}
+	v := constant.Shift(x, op, uint(s))
+	if op == token.SHL {
+		v = wrapConstInt(v, w, unsigned)
+	}
+	return v
+}
+
+// foldIntAt folds a constant integer subtree at machine width w —
+// the same shapes constFold admits, but every step wraps so the
+// value is what the machine computes, not the unbounded constant.
+// A shift count operand uses it when the count has a width. Each
+// node's own width governs its fold: a `Go.conv … : Int32` subterm
+// inside an Int count still wraps at 32.
+func (c *checker) foldIntAt(e Expr, w uint, unsigned bool) (constant.Value, bool) {
+	if w2, u2, ok := c.intFoldWidth(e.Type()); ok {
+		w, unsigned = w2, u2
+	}
+	switch e := e.(type) {
+	case *Lit:
+		if e.Kind != syntax.LitInt {
+			return nil, false
+		}
+		v := constant.MakeFromLiteral(e.Text, token.INT, 0)
+		if v.Kind() == constant.Unknown {
+			return nil, false
+		}
+		return wrapConstInt(v, w, unsigned), true
+	case *Unary:
+		if e.Op != syntax.UnNeg {
+			return nil, false
+		}
+		x, ok := c.foldIntAt(e.X, w, unsigned)
+		if !ok {
+			return nil, false
+		}
+		return wrapConstInt(constant.UnaryOp(token.SUB, x, 0), w, unsigned), true
+	case *Binary:
+		var op token.Token
+		switch e.Op {
+		case syntax.BinAdd:
+			op = token.ADD
+		case syntax.BinSub:
+			op = token.SUB
+		case syntax.BinMul:
+			op = token.MUL
+		case syntax.BinDiv:
+			op = token.QUO
+		case syntax.BinMod:
+			op = token.REM
+		case syntax.BinBitAnd:
+			op = token.AND
+		case syntax.BinBitAndNot:
+			op = token.AND_NOT
+		case syntax.BinBitOr:
+			op = token.OR
+		case syntax.BinBitXor:
+			op = token.XOR
+		case syntax.BinBitShl:
+			op = token.SHL
+		case syntax.BinBitShr:
+			op = token.SHR
+		default:
+			return nil, false
+		}
+		x, ok := c.foldIntAt(e.X, w, unsigned)
+		if !ok {
+			return nil, false
+		}
+		y, ok := c.foldIntAt(e.Y, w, unsigned)
+		if !ok {
+			return nil, false
+		}
+		if x.Kind() != constant.Int || y.Kind() != constant.Int {
+			return nil, false
+		}
+		if (op == token.QUO || op == token.REM) && constant.Sign(y) == 0 {
+			return nil, false
+		}
+		if op == token.SHL || op == token.SHR {
+			s, exact := constant.Int64Val(y)
+			if !exact || s < 0 {
+				return nil, false
+			}
+			return shiftConst(x, op, uint64(s), w, unsigned), true
+		}
+		if op == token.QUO {
+			// Machine integer division truncates toward zero —
+			// constant.QUO keeps the exact rational (7/2 stays
+			// 7/2), which both mis-folds the value and panics the
+			// bitwise AND inside wrapConstInt on the non-Int
+			// kind. The operands are already wrapped to machine
+			// width, so fixed-width division is exact; Go's own
+			// division semantics give MinInt64/-1 = MinInt64.
+			if unsigned {
+				xu, ex := constant.Uint64Val(x)
+				yu, ey := constant.Uint64Val(y)
+				if !ex || !ey {
+					return nil, false
+				}
+				return wrapConstInt(constant.MakeUint64(xu/yu), w, unsigned), true
+			}
+			xi, ex := constant.Int64Val(x)
+			yi, ey := constant.Int64Val(y)
+			if !ex || !ey {
+				return nil, false
+			}
+			return wrapConstInt(constant.MakeInt64(xi/yi), w, unsigned), true
+		}
+		return wrapConstInt(constant.BinaryOp(x, op, y), w, unsigned), true
+	case *Ascribe:
+		// `Go.conv e : T` — e evaluates at its own machine width
+		// when the checker knows it; a widthless operand (a literal
+		// still awaiting defaulting, an unsolved arithmetic meta)
+		// folds unbounded instead, since `T(exact)` is what the
+		// machine's conversion produces — folding e at T's width
+		// would narrow its arithmetic first (`Go.conv 1 : Int32`
+		// in a shift count must still fold to 1). The wrap at T's
+		// width below IS the conversion when T carries one.
+		var v constant.Value
+		var ok bool
+		if w2, u2, ok2 := c.intFoldWidth(e.X.Type()); ok2 {
+			v, ok = c.foldIntAt(e.X, w2, u2)
+		} else {
+			v, ok = c.constFold(e.X)
+		}
+		if !ok {
+			return nil, false
+		}
+		w2, u2, ok2 := c.intFoldWidth(e.Type())
+		if !ok2 {
+			// T has no fold width — a declared type's conversion
+			// is the identity machine value, so it must not wrap
+			// at the inherited width.
+			return v, true
+		}
+		if v.Kind() != constant.Int {
+			return nil, false
+		}
+		return wrapConstInt(v, w2, u2), true
 	case *Var, *Apply, *Hole, *MemberExpr, *StrInterp, *Lambda, *If,
 		*Match, *Block, *Let, *Ignore, *Try, *FieldAssign,
 		*GoExpr, *For, *SelectExpr, *ListLit, *Spread, *TupleLit,

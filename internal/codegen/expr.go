@@ -704,6 +704,18 @@ func binOp(op syntax.BinOp) token.Token {
 		return token.LAND
 	case syntax.BinOr:
 		return token.LOR
+	case syntax.BinBitAnd:
+		return token.AND
+	case syntax.BinBitAndNot:
+		return token.AND_NOT
+	case syntax.BinBitOr:
+		return token.OR
+	case syntax.BinBitXor:
+		return token.XOR
+	case syntax.BinBitShl:
+		return token.SHL
+	case syntax.BinBitShr:
+		return token.SHR
 	default:
 		panic("unreachable")
 	}

@@ -582,8 +582,12 @@ fn flip (b: Bool) -> Bool = not b   // OK: `not` is a builtin
 ```
 
 `!`, `$`, `?`, `&`, `#`, `::`, `->>` are not Gom tokens.
-`<<`/`>>` are function composition, **not** bit shifts (Gom has no
-infix bit ops). Operators: `+ - * / %  == != < <= > >=  && ||  |> <|
+`<<`/`>>` are function composition, **not** bit shifts — the bitwise
+operators use three-character spellings: `&&& &&^ ||| ^^^ <<< >>>`
+(Go `& &^ | ^ << >>`; `&&&`/`&&^`/`<<<`/`>>>` bind at the `*`-level,
+`|||`/`^^^` at the `+`-level). There is no unary bit-NOT; `x ^^^ -1`
+flips all bits on signed types, `y &&^ x` clears bits. Operators:
+`+ - * / %  &&& &&^ ||| ^^^ <<< >>>  == != < <= > >=  && ||  |> <|
 |?> >> <<` and that's it.
 
 ## Method calls on Gom values
