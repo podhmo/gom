@@ -1040,6 +1040,28 @@ func (c *checker) checkAscribe(e *syntax.Ascribe) Expr {
 				"`Go.conv` takes exactly one argument").At(e.Sp))
 			return &Ascribe{Base: baseOf(e.Sp, target), X: c.checkExpr(arg, nil), Conv: true}
 		}
+		if sym := c.calleeSym(app.Fn); sym != nil && isTryAs(sym) {
+			if len(app.Args) == 1 && app.Args[0].Label == nil {
+				x := c.checkExpr(app.Args[0].Value, nil)
+				if _, unsolved := types.Chase(x.Type()).(*types.Meta); unsolved {
+					c.pendingConvs = append(c.pendingConvs,
+						&pendingConv{x: x, to: target, sp: e.Sp, tryAs: true})
+				} else {
+					c.checkTryAs(x.Type(), target, e.Sp)
+				}
+				return &Ascribe{Base: baseOf(e.Sp, target), X: x, TryAs: true}
+			}
+			var arg syntax.Expr
+			for _, a := range app.Args {
+				if a.Value != nil {
+					arg = a.Value
+					break
+				}
+			}
+			c.diags.Add(diag.Error("E0514",
+				"`Go.try_as` takes exactly one argument").At(e.Sp))
+			return &Ascribe{Base: baseOf(e.Sp, target), X: c.checkExpr(arg, nil), TryAs: true}
+		}
 	}
 	x := c.checkExpr(e.X, target)
 	td := types.Display(target, metaNamer())
@@ -1076,7 +1098,84 @@ func (c *checker) calleeSym(e syntax.Expr) *resolve.Symbol {
 // own E0407 covers the position.
 func (c *checker) revisitConvs() {
 	for _, pc := range c.pendingConvs {
-		c.checkConv(pc.x.Type(), pc.to, pc.sp)
+		if pc.tryAs {
+			c.checkTryAs(pc.x.Type(), pc.to, pc.sp)
+		} else {
+			c.checkConv(pc.x.Type(), pc.to, pc.sp)
+		}
+	}
+}
+
+// checkTryAs validates `Go.try_as x : Option T` (decision
+// 2026-11-24-go-any-extraction): the operand must be `Go.Any` and
+// the target must be `Option T` over a concrete type — `Go.Any`
+// itself and unsolved metas/type params are refused (E0514).
+func (c *checker) checkTryAs(from, to types.Type, sp diag.Span) {
+	name := metaNamer()
+	from = types.Chase(from)
+	if !isGoAny(from) {
+		fd := types.Display(from, name)
+		c.diags.Add(diag.Error("E0514",
+			fmt.Sprintf("`Go.try_as` extracts from `Go.Any`, not %s", fd)).
+			At(sp).Set("from", fd))
+		return
+	}
+	oc, isOpt := types.Chase(to).(*types.Con)
+	if !isOpt || oc.Qual != "" || oc.Name != "Option" || len(oc.Args) != 1 ||
+		c.shadowedBuiltin("Option") {
+		td := types.Display(to, name)
+		c.diags.Add(diag.Error("E0514",
+			fmt.Sprintf("`Go.try_as` target must be `Option T`, not %s", td)).
+			At(sp).Set("to", td))
+		return
+	}
+	t := oc.Args[0]
+	if isGoAny(types.Chase(t)) || typeHasVarOrMeta(t) {
+		td := types.Display(t, name)
+		c.diags.Add(diag.Error("E0514",
+			fmt.Sprintf("`Go.try_as` target must be a concrete type, not %s", td)).
+			At(sp).Set("to", td))
+	}
+}
+
+// typeHasVarOrMeta reports whether t mentions a type parameter or an
+// unsolved meta anywhere — `Go.try_as` targets stay concrete.
+func typeHasVarOrMeta(t types.Type) bool {
+	switch t := types.Chase(t).(type) {
+	case *types.Var, *types.Meta:
+		return true
+	case *types.Con:
+		for _, a := range t.Args {
+			if typeHasVarOrMeta(a) {
+				return true
+			}
+		}
+		return false
+	case *types.Func:
+		for _, p := range t.Params {
+			if typeHasVarOrMeta(p.Type) {
+				return true
+			}
+		}
+		return typeHasVarOrMeta(t.Ret)
+	case *types.Tuple:
+		for _, e := range t.Elems {
+			if typeHasVarOrMeta(e) {
+				return true
+			}
+		}
+		return false
+	case *types.Go:
+		for _, a := range t.Args {
+			if typeHasVarOrMeta(a) {
+				return true
+			}
+		}
+		return false
+	case nil:
+		return false
+	default:
+		return false
 	}
 }
 

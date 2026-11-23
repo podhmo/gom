@@ -3322,6 +3322,16 @@ func (l *lowerer) recordLit(s *seq, e *check.RecordLit) core.Expr {
 // ascribe lowers `e : T` / `Go.conv e : T`: a no-op when checked,
 // an explicit Conv when the interop conversion flag is set.
 func (l *lowerer) ascribe(s *seq, e *check.Ascribe) core.Expr {
+	if e.TryAs {
+		// `Go.try_as x : Option T` — the checker validated the
+		// `Option` shape and T's concreteness; the payload type is
+		// the Option's argument.
+		var target types.Type
+		if oc, ok := types.Chase(e.Type()).(*types.Con); ok && len(oc.Args) == 1 {
+			target = oc.Args[0]
+		}
+		return &core.TryAs{Base: baseOf(e), X: l.atom(s, e.X), Target: target}
+	}
 	if !e.Conv {
 		return l.expr(s, e.X)
 	}

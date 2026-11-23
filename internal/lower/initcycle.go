@@ -107,7 +107,7 @@ func CheckInitCycles(files []*core.File) []diag.Diagnostic {
 					*core.CtorRef, *core.Defer, *core.Equal, *core.ErrorFromGo, *core.EscapeCall,
 					*core.EscapeResult, *core.FieldGet, *core.FieldSet, *core.ForRange,
 					*core.GoFunc, *core.GoFuncRef, *core.If, *core.ListNew, *core.Lit,
-					*core.Match, *core.OptionFromGo, *core.RecordNew,
+					*core.Match, *core.OptionFromGo, *core.TryAs, *core.RecordNew,
 					*core.RecordUpdate, *core.ResultFromGo, *core.SelectExpr,
 					*core.Spawn, *core.TailCall, *core.TupleFromGo,
 					*core.TupleNew, *core.Unary, *core.Uncurry:

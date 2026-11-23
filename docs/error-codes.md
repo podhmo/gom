@@ -850,6 +850,20 @@ embed.FS — and the directive needs at least one file pattern
 @extern let bad : Int        // E0512 — Int is not an embed-admissible type
 ```
 
+### E0514 — invalid Go.try_as ascription
+
+**Severity:** error · **Phase:** check · **Spec:** §8.3
+
+Go.try_as is the only extraction surface out of Go.Any
+(decision 2026-11-24-go-any-extraction). It takes exactly one
+operand of type Go.Any and the ascription target must be
+"Option T" over a concrete type — Go.Any itself, type parameters,
+and unsolved metavariables are refused as T.
+
+    Go.try_as x : Option Int   // ok — comma-ok assertion
+    Go.try_as x : Option Go.Any // E0514 — T must be concrete
+    Go.try_as i : Option Int   // E0514 — i is not Go.Any
+
 ### W0501 — Go call receives a copied List where mutation may be expected
 
 **Severity:** warning · **Phase:** lint · **Spec:** §8.5

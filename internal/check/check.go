@@ -336,6 +336,9 @@ type pendingConv struct {
 	x  Expr
 	to types.Type
 	sp diag.Span
+	// tryAs marks a `Go.try_as` site (re-checked with checkTryAs)
+	// instead of a `Go.conv` site (checkConv).
+	tryAs bool
 }
 
 // genericUse is one use of a generic Go callee: the reference span

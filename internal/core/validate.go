@@ -1174,6 +1174,13 @@ func (v *validator) expr(e Expr, inTail bool) {
 		}
 	case *OptionFromGo:
 		v.wrapCall(e, e.Call, "OptionFromGo", GoResultsOK, GoResultsNil)
+	case *TryAs:
+		if !v.conIs(e.Typ, "", "Option", 1) && e.Typ != nil {
+			v.err(e.Sp, "TryAs", "type %s is not an Option", e.Typ)
+		}
+		if e.Target == nil {
+			v.err(e.Sp, "TryAs", "missing assertion target type")
+		}
 		if !v.conIs(e.Typ, "", "Option", 1) && e.Typ != nil {
 			v.err(e.Sp, "OptionFromGo", "type %s is not an Option", e.Typ)
 		}
@@ -1364,7 +1371,7 @@ func (v *validator) exprCallbackArity(e Expr) (int, bool) {
 	case *Binary, *CallBuiltin, *CallDirect, *CallFunc, *CallGo,
 		*CtorApp, *Defer, *Equal, *ErrorFromGo, *EscapeCall,
 		*EscapeResult, *FieldSet, *ForRange, *If, *ListNew,
-		*Match, *OptionFromGo, *RecordNew, *RecordUpdate,
+		*Match, *OptionFromGo, *RecordNew, *RecordUpdate, *TryAs,
 		*ResultFromGo, *SelectExpr, *Spawn, *TailCall,
 		*TupleFromGo, *TupleNew, *Unary,
 		*Var, *Lit, *FuncRef, *CtorRef, *GoFuncRef, *FieldGet:
@@ -1938,6 +1945,8 @@ func nilExpr(e Expr) bool {
 	case *ResultFromGo:
 		return e == nil
 	case *OptionFromGo:
+		return e == nil
+	case *TryAs:
 		return e == nil
 	case *TupleFromGo:
 		return e == nil

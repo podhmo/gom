@@ -1,0 +1,11 @@
+package ex
+
+// spec 8.3: `Go.try_as` extracts only from `Go.Any` and only into
+// `Option T` over a concrete T.
+let i : Int = 42
+fn bad_from () -> Option Int = Go.try_as i : Option Int
+fn bad_target (x: Go.Any) -> Int = Go.try_as x : Int
+fn bad_any (x: Go.Any) -> Option Go.Any = Go.try_as x : Option Go.Any
+fn bad_arity (x: Go.Any) -> Option Int = Go.try_as x 1 : Option Int
+
+fn main () -> Unit = ()

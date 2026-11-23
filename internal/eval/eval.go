@@ -635,6 +635,17 @@ func (e *interp) eval(x check.Expr, env *Env) Value {
 	case *check.RecordLit:
 		return e.evalRecord(x, env)
 	case *check.Ascribe:
+		if x.TryAs {
+			// `Go.try_as x : Option T` — the comma-ok assertion
+			// `x.(T)` is a dynamic-shape check on the evaluated
+			// value; Some on a match, None otherwise.
+			v := e.eval(x.X, env)
+			con, _ := types.Chase(x.Type()).(*types.Con)
+			if con != nil && len(con.Args) == 1 && e.inhabits(v, con.Args[0]) {
+				return &VVariant{Type: con, Name: "Some", Fields: []VField{{Index: 0, V: v}}}
+			}
+			return &VVariant{Type: con, Name: "None"}
+		}
 		if x.Conv {
 			// The implicit `any` box (checker's `Go.Any`
 			// conformance materialization) is representation-only
@@ -1246,6 +1257,99 @@ func (e *interp) evalPipeTry(x *check.Binary, env *Env) Value {
 	fields := append([]VField(nil), variant.Fields...)
 	fields[0].V = wrapped
 	return &VVariant{Type: variant.Type, Ctor: variant.Ctor, Name: variant.Name, Fields: fields}
+}
+
+// inhabits reports whether v has the dynamic shape type t asks
+// `Go.try_as` to assert — the comma-ok `x.(T)` check on eval's
+// dynamically typed values. Scalars and gom aggregates match by
+// their Value wrapper; Go-side values (types.Go, Ptr/Chan/Go.Slice
+// handles, etc.) stay opaque VHost and match by the host value's
+// reflect-rendered type name where it is knowable, else accept.
+func (e *interp) inhabits(v Value, t types.Type) bool {
+	switch t := types.Chase(t).(type) {
+	case *types.Con:
+		if t.Qual != "" {
+			if t.Qual == "Go" && t.Name == "Any" {
+				return true // unreachable — check rejects Go.Any targets
+			}
+			// package-qualified declared type — a VRecord/VVariant
+			// of that con, or an opaque host value
+			switch v.(type) {
+			case *VRecord, *VVariant, *VHost:
+				return true
+			}
+			return false
+		}
+		switch t.Name {
+		case "Int", "Int64", "Int32", "Byte", "Float64":
+			_, ok := v.(*VInt)
+			return ok
+		case "Float":
+			_, ok := v.(*VFloat)
+			return ok
+		case "Char":
+			_, ok := v.(*VChar)
+			return ok
+		case "String":
+			_, ok := v.(*VStr)
+			return ok
+		case "Bool":
+			_, ok := v.(*VBool)
+			return ok
+		case "Unit":
+			_, ok := v.(*VUnit)
+			return ok
+		case "List":
+			_, ok := v.(*VList)
+			return ok
+		case "Tuple":
+			_, ok := v.(*VTuple)
+			return ok
+		case "GoError":
+			_, ok := v.(*VGoErr)
+			return ok
+		case "Ptr", "Chan", "RecvChan", "SendChan", "Task", "Ref",
+			"Scope", "View", "Go":
+			_, ok := v.(*VHost)
+			return ok
+		default:
+			// Declared types (record/sum/extern) — shallow ctor
+			// shape like the field-access fallback accepts.
+			switch v.(type) {
+			case *VRecord, *VVariant, *VHost:
+				return true
+			}
+			return false
+		}
+	case *types.Go:
+		if h, ok := v.(*VHost); ok && h.V != nil {
+			// reflect renders "pkgbase.Name" — compare the tail
+			// of the type ref's path against the package base.
+			name := reflect.TypeOf(h.V).String()
+			base := t.Ref.Path
+			if i := strings.LastIndexByte(base, '/'); i >= 0 {
+				base = base[i+1:]
+			}
+			want := base + "." + t.Ref.Name
+			return name == want || strings.HasPrefix(name, want+"[")
+		}
+		return false
+	case *types.Func:
+		switch v.(type) {
+		case *VFunc, *VHost:
+			return true
+		}
+		return false
+	case *types.Tuple:
+		if tv, ok := v.(*VTuple); ok {
+			return len(tv.Elems) == len(t.Elems)
+		}
+		return false
+	case *types.Var, *types.Meta, nil:
+		return false
+	default:
+		return false
+	}
 }
 
 // isGoAnyCon reports whether t is `Go.Any` — the empty interface the

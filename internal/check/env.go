@@ -279,6 +279,14 @@ func isNil(sym *resolve.Symbol) bool {
 		sym.Name == "nil" && sym.Package == "Go"
 }
 
+// isTryAs reports whether sym names the `Go.try_as` extraction
+// builtin (decision 2026-11-24-go-any-extraction): the `try_as`
+// member of the compiler-owned Go namespace.
+func isTryAs(sym *resolve.Symbol) bool {
+	return sym != nil && sym.Kind == resolve.KindBuiltin &&
+		sym.Name == "try_as" && sym.Package == "Go"
+}
+
 // isGoAny reports whether t is the empty-interface type `Go.Any`
 // (types.GoAny): a wanted `any` accepts every argument
 // (spec 8.1.7).
