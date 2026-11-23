@@ -1,6 +1,6 @@
 # Gom package imports: deferred boundaries of the first slice
 
-- 状態: 一部解決（1, 2, 3, 5, 6 は対応済み — 3 は 2026-11-06 に spec §7 へ定義: [decision](../decisions/2026-11-06-gom-import-alias-and-gomi-imports.md)、[verification](../sketch/2026-11-06-import-alias-and-gomi-imports-verification.md)。残るは 4 の module scope のみ）
+- 状態: 解消（2026-11-23 wave36 棚卸し — 4 の module scope も対応済み: `gomimport` の lookup は importing file の module context で `go list` を走らせ、dependency・replace target・workspace sibling の `.gomi` を解決する。全 6 項目が閉じた）
 - 発見: 2026-11-05, V-6 vertical slice ([decision](../decisions/2026-11-05-package-compilation-unit.md), [verification](../sketch/2026-11-05-multifile-package-verification.md))
 
 ## Situation
@@ -29,10 +29,13 @@ these boundaries:
    E0606; interface-only cycles surface as E0203 load failures.
    See [decision](../decisions/2026-11-06-gom-import-alias-and-gomi-imports.md),
    [verification](../sketch/2026-11-06-import-alias-and-gomi-imports-verification.md).
-4. **Module scope**: lookup reads the `go.mod` nearest the
-   importing file — only packages inside the main module resolve;
-   workspace siblings and dependency modules get a plain E0203.
-   依然未決。
+4. ~~**Module scope**~~ **解決**（2026-11-23 確認）: 現在の
+   `gomimport` lookup は importing file の module context で
+   `go list` を使い、main module 外の package — dependency
+   module、replace target、go.work workspace sibling — の
+   `.gomi` も解決する（internal/gomimport/loader.go の
+   `extDirs`/`extMods`）。該当しないものだけが E0203 になる。
+   残件なし。
 5. ~~**Generated-name collisions across siblings**~~ **解決**:
    `core.UnitScope.Tests` records every sibling's emitted test
    base; a colliding name takes the file's fnv32a tag
