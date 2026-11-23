@@ -233,6 +233,7 @@
 | [go-abi-stability](2026-11-23-go-abi-stability.md) | 生成 Go の API 安定方針（Go ABI） | 採択（案 B、2026-11-23 wave35 開始前インタビュー） |
 | [gomi-monomorphic](2026-11-23-gomi-monomorphic.md) | `.gomi` が実装より単相の場合の許容 | 採択（案 B — 厳格一致維持、明示的な単相ラッパ） |
 | [labeled-arg-relaxation](2026-11-23-labeled-arg-relaxation.md) | ラベル付き引数の制限緩和の調査 | adopted |
+| [labeled-run-order-equality](2026-11-23-labeled-run-order-equality.md) | ラベル付き引数の並びは型同値で宣言順に比較する | adopted |
 | [local-let-polymorphism](2026-11-23-local-let-polymorphism.md) | ローカル let の多相化 | 採択（案 A、2026-11-23 wave35 開始前インタビュー） |
 | [pipe-try-wording](2026-11-23-pipe-try-wording.md) | `\|?>` 自動ラップの文言カスタマイズ | 採択（案 C — 現状維持 + 回避経路の文書化） |
 | [result-taint-gomi-export](2026-11-23-result-taint-gomi-export.md) | result-taint flag + .gomi export（案 B 拡張） | adopted |

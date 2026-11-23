@@ -10,17 +10,17 @@ import (
 //line chan_ops.gom:5
 func run(_ struct{}) int64 {
 //line chan_ops.gom:6
-	ch := rt.MakeChan[int64](2)
+	ch := make(chan int64, 2)
 //line chan_ops.gom:7
-	tmp1 := (chan<- int64)(ch)
+	tmp1 := ch
 //line chan_ops.gom:7
 	rt.ChanSend[int64](tmp1, 1)
 //line chan_ops.gom:8
-	tmp2 := (chan<- int64)(ch)
+	tmp2 := ch
 //line chan_ops.gom:8
 	rt.ChanSend[int64](tmp2, 2)
 //line chan_ops.gom:9
-	tmp3 := (chan<- int64)(ch)
+	tmp3 := ch
 //line chan_ops.gom:9
 	rt.ChanClose[int64](tmp3)
 //line chan_ops.gom:10
@@ -31,7 +31,7 @@ func run(_ struct{}) int64 {
 //line chan_ops.gom:13
 func drain(ch chan int64, acc int64) int64 {
 //line chan_ops.gom:14
-	tmp4 := (<-chan int64)(ch)
+	tmp4 := ch
 //line chan_ops.gom:14
 	var tmp5 option.Option[int64]
 //line chan_ops.gom:14

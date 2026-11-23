@@ -325,9 +325,28 @@ func (g *gen) atoms(as []core.Atom) []ast.Expr {
 	return out
 }
 
+// makeChanCall identifies the `Chan.make` CallGo — codegen lowers
+// it to the bare `make(chan T, n)` builtin (see callGo), which
+// cannot stand as an expression statement, so discard-position
+// emission must still write `_ =`.
+func makeChanCall(c *core.CallGo) bool {
+	return c.Callee != nil && c.Callee.Package == rtPath &&
+		c.Callee.Name == "MakeChan" && len(c.Args) == 1
+}
+
 // callGo renders `pkg.F(a, b)`, `recv.M(a)`, the func-value call
 // `f(a, b)` (`Go.fnN`'s adapter), or the spread `f(a...)`.
 func (g *gen) callGo(c *core.CallGo) ast.Expr {
+	// `Chan.make` lowers to a bare `make(chan T, n)` rather than
+	// the rt.MakeChan helper: vet's sigchanyzer cannot see the
+	// capacity through the generic call and flags
+	// `MakeChan[os.Signal](1)` as an unbuffered channel misuse.
+	// The direct builtin is identical — rt.MakeChan's own body is
+	// `make(chan T, int(n))`, including the negative-capacity panic.
+	if makeChanCall(c) {
+		return &ast.CallExpr{Fun: ast.NewIdent("make"),
+			Args: []ast.Expr{g.goType(c.Type()), g.atom(c.Args[0])}}
+	}
 	var fun ast.Expr
 	switch {
 	case c.Fn != nil:
@@ -610,15 +629,17 @@ func (g *gen) conv(e *core.Conv) ast.Expr {
 		if _, isStar := fun.(*ast.StarExpr); isStar {
 			// `*T(x)` parses as a dereference — pointer targets
 			// (`type P = {p: Ptr Int}` peels to `Ptr Int`) need
-			// the same parens ConvChanDir wraps around `chan<- T`.
+			// parens in call position.
 			fun = &ast.ParenExpr{X: fun}
 		}
 		return &ast.CallExpr{Fun: fun, Args: []ast.Expr{x}}
 	case core.ConvChanDir:
-		// The target spells `chan<- T` or `<-chan T` — both need
-		// parens in call position (`<-chan T(x)` would read as a
-		// receive from the conversion `chan T(x)`).
-		return &ast.CallExpr{Fun: &ast.ParenExpr{X: g.goType(e.Type())}, Args: []ast.Expr{x}}
+		// `chan T` is assignable to `chan<- T`/`<-chan T` without a
+		// conversion, and the explicit form breaks `go vet`'s
+		// sigchanyzer tracking — it cannot see a buffered `make`
+		// through `(chan<- os.Signal)(c)` and reports the channel
+		// as unbuffered (a false positive on `signal.Notify`).
+		return x
 	case core.ConvBoxAny:
 		return &ast.CallExpr{Fun: ast.NewIdent("any"), Args: []ast.Expr{x}}
 	case core.ConvSliceToGo:

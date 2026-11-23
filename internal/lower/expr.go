@@ -848,6 +848,14 @@ func (l *lowerer) convGoArg(s *seq, sig GoSig, i int, a core.Atom, spreadArg boo
 			typeName(a.Type()), typeName(pt)))
 		return a
 	}
+	if k == core.ConvChanDir {
+		// `chan T` is assignable to `chan<- T`/`<-chan T` in Go —
+		// no conversion is needed, and emitting one here binds the
+		// argument behind a temporary that `go vet`'s sigchanyzer
+		// cannot see through (it would report a buffered
+		// `signal.Notify` channel as unbuffered).
+		return a
+	}
 	return l.asAtom(s, a.Span(), &core.Conv{
 		Sp: a.Span(), Typ: pt, Kind: k, X: l.convBoxSrc(s, a, k),
 	})

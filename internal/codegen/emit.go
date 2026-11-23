@@ -238,6 +238,12 @@ func emitsConversion(e core.Expr) bool {
 	if _, ok := e.(*core.Conv); ok {
 		return true
 	}
+	// `Chan.make` prints `make(chan T, n)` — a CallExpr that Go
+	// still rejects as a bare statement ("not used"), same as a
+	// conversion.
+	if c, ok := e.(*core.CallGo); ok && makeChanCall(c) {
+		return true
+	}
 	if f, ok := e.(*core.FieldGet); ok && f.Unwrap {
 		return true
 	}
@@ -1267,9 +1273,11 @@ func (g *gen) convOf(kind core.ConvKind, target types.Type, x ast.Expr) ast.Expr
 	case core.ConvNum, core.ConvNamed, core.ConvIface:
 		return &ast.CallExpr{Fun: g.goType(target), Args: []ast.Expr{x}}
 	case core.ConvChanDir:
-		// Parenthesized like in conv — `<-chan T` cannot stand bare
-		// in call position.
-		return &ast.CallExpr{Fun: &ast.ParenExpr{X: g.goType(target)}, Args: []ast.Expr{x}}
+		// Like conv: `chan T` is assignable to `chan<- T`/`<-chan T`
+		// without a conversion — and the explicit form defeats
+		// `go vet`'s sigchanyzer tracking (a buffered `make` hidden
+		// behind the conversion reads as unbuffered).
+		return x
 	case core.ConvBoxAny:
 		return &ast.CallExpr{Fun: ast.NewIdent("any"), Args: []ast.Expr{x}}
 	case core.ConvSliceToGo:
