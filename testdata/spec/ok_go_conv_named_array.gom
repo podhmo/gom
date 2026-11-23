@@ -1,0 +1,17 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// `Go.conv` between `List T` and a named Go type whose underlying is
+// `[N]repr(T)`: the raw `A(xs)` cast already copies the array-length
+// prefix (Go 1.20+), so no boundary copy is needed — but the target
+// must still pass check's convertibility rules.
+fn to_arr (xs: List Int) -> goiface.Int64Arr = Go.conv xs : goiface.Int64Arr
+
+// A named pointer to an array (`type P *[3]int64`) cannot take the raw
+// cast — `P(xs)` would share the List's backing and let Go writes
+// mutate the immutable list — so it routes through the composite
+// `P(xs.ToSlice())`, sharing with the copy instead.
+fn to_arrp (xs: List Int) -> goiface.Int64ArrPtr = Go.conv xs : goiface.Int64ArrPtr
+
+fn main () -> Unit = ()

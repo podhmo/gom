@@ -43,6 +43,17 @@ type Env struct {
 	// reports whether the signature is known.
 	GoSig func(sym *resolve.Symbol) (GoSig, bool)
 
+	// GoUnderlyingSliceOrArrayPtr reports whether the named Go type
+	// behind t has a slice or pointer-to-array underlying (`type B []T`
+	// — sort.Float64Slice, `type P *[3]int`). It gates the `Go.conv`
+	// `List`↔named composite: only those targets take `T(xs.ToSlice())`
+	// (a raw `P(xs)` pointer-to-array cast would share the List's
+	// backing). A plain array target keeps the raw cast — `A(xs)`
+	// copies the array-length prefix itself. A named interface target
+	// keeps the raw cast so the boxed dynamic type stays list.List[T].
+	// Nil: never.
+	GoUnderlyingSliceOrArrayPtr func(t types.Type) bool
+
 	// FuncNOfNamed expands a method-less named Go func type's handle
 	// (`*types.Go` naming `pkg.F`) to the `Go.FuncN` it reads as at
 	// signature positions — the equivalence check's FuncNSource

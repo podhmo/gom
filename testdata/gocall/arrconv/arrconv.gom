@@ -1,0 +1,11 @@
+package arrconv
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// Runtime pin for the named-array `Go.conv` split (spec 8.5): the
+// Go-side test writes through the returned pointer and re-reads the
+// source list — the composite must share the fresh `ToSlice()` copy,
+// never the List's own backing.
+fn make_p (xs: List Int) -> goiface.Int64ArrPtr = Go.conv xs : goiface.Int64ArrPtr
+
+fn make_a (xs: List Int) -> goiface.Int64Arr = Go.conv xs : goiface.Int64Arr

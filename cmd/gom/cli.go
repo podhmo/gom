@@ -60,7 +60,7 @@ func compileOptions(in input, checkOnly bool, seen *depSeen, gl *goimport.Loader
 		Loader:         ml,
 		Sigs:           ml,
 		Modules:        mods,
-		Lower:          &lower.Env{GoSig: gl.GoSigOf, Types: ml, FuncArity: ml.ArityOf, FuncType: ml.FuncTypeOf, FuncNOfNamed: ml.FuncNOfNamed},
+		Lower:          &lower.Env{GoSig: gl.GoSigOf, Types: ml, FuncArity: ml.ArityOf, FuncType: ml.FuncTypeOf, FuncNOfNamed: ml.FuncNOfNamed, GoUnderlyingSliceOrArrayPtr: gl.GoUnderlyingIsSliceOrArrayPtr},
 		Exports:        iface.ExportNames,
 		SelfImportPath: ml.EntryPath(),
 		CheckOnly:      checkOnly,

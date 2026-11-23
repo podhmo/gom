@@ -47,7 +47,7 @@ func suiteOptionsWith(gl *goimport.Loader) *build.Options {
 	return gomstd.Apply(&build.Options{
 		Loader:  gl,
 		Sigs:    gl,
-		Lower:   &lower.Env{GoSig: gl.GoSigOf},
+		Lower:   &lower.Env{GoSig: gl.GoSigOf, GoUnderlyingSliceOrArrayPtr: gl.GoUnderlyingIsSliceOrArrayPtr},
 		Exports: iface.ExportNames,
 	})
 }
@@ -94,7 +94,7 @@ func specCompile(gl *goimport.Loader) func([]gomtest.File) ([]diag.Diagnostic, e
 		Loader:  ml,
 		Sigs:    ml,
 		Modules: mods,
-		Lower:   &lower.Env{GoSig: gl.GoSigOf, Types: ml, FuncArity: ml.ArityOf, FuncNOfNamed: ml.FuncNOfNamed},
+		Lower:   &lower.Env{GoSig: gl.GoSigOf, Types: ml, FuncArity: ml.ArityOf, FuncNOfNamed: ml.FuncNOfNamed, GoUnderlyingSliceOrArrayPtr: gl.GoUnderlyingIsSliceOrArrayPtr},
 		Exports: iface.ExportNames,
 	})
 	return func(fs []gomtest.File) ([]diag.Diagnostic, error) {
