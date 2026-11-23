@@ -216,6 +216,13 @@ func (c *checker) checkNilCall(e *syntax.Apply, fn Expr, callee *resolve.Symbol)
 		var v Expr
 		if ar.Value != nil {
 			v = c.checkExpr(ar.Value, types.Unit)
+			if _, isHole := v.(*Hole); isHole {
+				// `_` is not an argument here — the placeholder's
+				// E0504 already stands, and a Hole left in Args
+				// panics Apply.Validate. Recover as the `()` the
+				// call expects.
+				v = &Lit{Base: baseOf(ar.Value.Span(), types.Unit), Kind: syntax.LitUnit, Text: "()"}
+			}
 		} else {
 			v = c.checkExpr(nil, nil)
 		}

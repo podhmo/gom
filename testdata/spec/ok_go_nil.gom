@@ -1,5 +1,6 @@
 package ex
 
+import go "fmt"
 import go "os"
 import go "sort"
 
@@ -13,5 +14,10 @@ fn map_nil () -> Go.Map String Int = Go.nil ()
 fn named_slice () -> sort.IntSlice = Go.nil ()
 fn named_iface () -> os.DirEntry = Go.nil ()
 fn named_fileinfo () -> os.FileInfo = Go.nil ()
+
+// `Go.nil ()` into a Go `any` slot pins to `any` itself —
+// `rt.Nil[any]()` is the only concrete reading.
+let any_nil : Go.Any = Go.nil ()
+fn any_arg () -> Result Int GoError = fmt.Println (Go.nil ())
 
 fn main () -> Unit = ()

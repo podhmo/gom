@@ -428,10 +428,24 @@ func (c *checker) validateGoGenerics() {
 
 // pendingNil is one `Go.nil ()` application — the span it was
 // written at and the fresh meta its result must solve to a nil-able
-// type.
+// type — or the same obligation a bare `Go.nil` reference's
+// `Unit -> ?a` carries (an indirect call must not mint
+// `rt.Nil[int32]()`).
 type pendingNil struct {
 	sp diag.Span
 	m  *types.Meta
+}
+
+// isNilMeta reports whether m is a registered nil-obligation meta —
+// the `any` slot of unify binds it (its only concrete reading),
+// where an ordinary inference variable stays uncaptured.
+func (c *checker) isNilMeta(m *types.Meta) bool {
+	for _, u := range c.pendingNils {
+		if u.m == m {
+			return true
+		}
+	}
+	return false
 }
 
 // validateNils reports E0513 for each `Go.nil ()` whose result type

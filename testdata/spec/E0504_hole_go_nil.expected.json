@@ -1,0 +1,45 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0513",
+      "severity": "error",
+      "message": "`Go.nil` requires a nil-able type — `Unit` cannot hold nil",
+      "span": {
+        "file": "E0504_hole_go_nil.gom",
+        "start": {
+          "line": 5,
+          "col": 19,
+          "offset": 140
+        },
+        "end": {
+          "line": 5,
+          "col": 27,
+          "offset": 148
+        }
+      },
+      "data": {
+        "type": "Unit"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0504",
+      "severity": "error",
+      "message": "`_` is only allowed as an argument of a Go call",
+      "span": {
+        "file": "E0504_hole_go_nil.gom",
+        "start": {
+          "line": 5,
+          "col": 26,
+          "offset": 147
+        },
+        "end": {
+          "line": 5,
+          "col": 27,
+          "offset": 148
+        }
+      }
+    }
+  ]
+}

@@ -65,6 +65,28 @@
       "data": {
         "type": "io/fs.FileMode"
       }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0513",
+      "severity": "error",
+      "message": "`Go.nil` requires a nil-able type — `Int32` cannot hold nil",
+      "span": {
+        "file": "E0513_go_nil.gom",
+        "start": {
+          "line": 13,
+          "col": 40,
+          "offset": 418
+        },
+        "end": {
+          "line": 13,
+          "col": 43,
+          "offset": 421
+        }
+      },
+      "data": {
+        "type": "Int32"
+      }
     }
   ]
 }
