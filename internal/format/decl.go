@@ -92,7 +92,11 @@ func (p *printer) declItem(d syntax.Decl) item {
 			lead = append(lead, "@extern")
 		}
 		if d.Method {
-			lead = append(lead, "@method")
+			if d.MethodName != "" {
+				lead = append(lead, "@method("+d.MethodName+")")
+			} else {
+				lead = append(lead, "@method")
+			}
 		}
 		dd = p.fnDecl(d)
 	case *syntax.LetDecl:

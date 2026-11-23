@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0101",
+      "severity": "error",
+      "message": "the \"@method\" argument must be an exported Go name (uppercase identifier), found identifier 'serve'",
+      "span": {
+        "file": "E0101_method_arg_lowercase.gom",
+        "start": {
+          "line": 8,
+          "col": 9,
+          "offset": 206
+        },
+        "end": {
+          "line": 8,
+          "col": 14,
+          "offset": 211
+        }
+      }
+    }
+  ]
+}

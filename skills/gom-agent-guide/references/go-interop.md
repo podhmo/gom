@@ -108,7 +108,10 @@ fn parse (s: String) -> Result Int GoError =
   stay `string g`) plus a forwarding `func (g Greeter) String()`.
   The record then satisfies `fmt.Stringer`/`error` at interface
   boundaries (`let st : fmt.Stringer = g`). Method names follow the
-  Go convention (`string` → `String`); `Unit` params drop out of
+  Go convention (`string` → `String`) — for names ExportName
+  cannot produce (initialisms like `ServeHTTP`, `URL`, `ID`), pin
+  the emitted name verbatim: `@method(ServeHTTP) fn (h: Handler)
+  serve_http ...`. `Unit` params drop out of
   the method; `Ptr T` receivers land on the pointer only.
   Constraints (E0420): the receiver must be a record of the same
   package (no generics — Go methods take no type args), no
@@ -172,6 +175,7 @@ fn ptr_ops () -> Int = {
   Ptr.set p (Ptr.get p + 1)      // *p = v / *p — nil panics, Go-style
   let t : Ptr Int = Ptr.new ()   // new(T) — out-pointer APIs (errors.As targets, decode destinations)
   let n : Ptr Int = Ptr.nil ()   // nil — optional *T params (tls.Dial's *tls.Config)
+  let n2 : Ptr Int = Go.nil ()   // universal spelling — works for Ptr/Chan/Go.Slice/Go.Map/Go.Any/GoError/named Go types
   if Ptr.is_nil n {              // p == nil; to_option is the safe read (nil -> None)
     Ptr.get p + Ptr.get t
   } else {

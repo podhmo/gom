@@ -61,10 +61,14 @@ top-decl       = [ attribute ] , ( fn-decl | let-decl )
                | extern-decl
                | test-decl ;
 
-attribute      = "@" , member-name ;      (* "test", "tailrec", "extern" and "method" are defined;
+attribute      = "@" , member-name , [ "(" , UIdent , ")" ] ;
+                                        (* "test", "tailrec", "extern" and "method" are defined;
                                              "tailrec" and "method" apply to fn-decl only;
                                              "extern" on a let-decl declares a Go-supplied
-                                             package variable (spec §8.10) [SEMANTIC]        *)
+                                             package variable (spec §8.10); the "( UIdent )"
+                                             argument belongs to "method" only and pins the
+                                             emitted Go method name verbatim (spec §8.9)
+                                             [SEMANTIC]                                        *)
 
 (* --------------------------------------------------------------------
    1.1 Interface files (.gomi), spec §7

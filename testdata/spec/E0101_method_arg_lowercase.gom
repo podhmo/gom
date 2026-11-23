@@ -1,0 +1,9 @@
+package main
+
+// The `@method` argument is the emitted Go method name, so it must
+// be an exported (uppercase) identifier — `@method(serve)` is a
+// parse error.
+type Greeter = { name: String }
+
+@method(serve)
+fn (g: Greeter) serve () -> String = g.name

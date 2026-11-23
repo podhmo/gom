@@ -1012,6 +1012,22 @@ type Foo_Bar = {x: Int}
 type FooBar = {y: Int}   // both emit "type FooBar"
 ```
 
+### E0609 — method emits a different Go name than the interface
+
+**Severity:** error · **Phase:** iface
+
+A .gomi member declared with @method (or @method(GoName))
+fixes the Go method name callers see — verbatim for the parenthesized
+form, the ExportName derivation otherwise. The implementing fn must
+emit that same name: rename the fn, add or change its @method
+argument, or update the .gomi. A member declared without @method
+imposes no name contract.
+
+```gom
+// iface: @method(ServeHTTP) fn (h: Handler) serve (w) (r) -> Unit
+// impl:   @method fn (h: Handler) serve (w) (r) -> Unit   // emits Serve
+```
+
 ### W0601 — decls emit the same Go name (retired)
 
 **Severity:** warning · **Phase:** codegen

@@ -98,7 +98,11 @@ func (g *gen) methodDecl(d *core.FuncDecl) {
 	g.line(d.Sp)
 	g.raw("func (" + names[recv] + " ")
 	g.typ(g.goType(recv.Typ))
-	g.raw(") " + core.ExportName(d.Sym.Name) + "(")
+	mname := d.MethodName
+	if mname == "" {
+		mname = core.ExportName(d.Sym.Name)
+	}
+	g.raw(") " + mname + "(")
 	for i, b := range rest {
 		if i > 0 {
 			g.raw(", ")
@@ -111,7 +115,12 @@ func (g *gen) methodDecl(d *core.FuncDecl) {
 		}
 	}
 	g.raw(") ")
-	g.resultSig(d.Fn.ResidualType(), fn.Body)
+	// A Unit residual maps to a Go method with no result — the
+	// Go convention for consumers like http.Handler. The inner
+	// call's struct{} result is discarded.
+	if !types.Equal(d.Fn.ResidualType(), types.Unit) {
+		g.resultSig(d.Fn.ResidualType(), fn.Body)
+	}
 	g.open()
 	call := g.symName(d.Sym) + "(" + names[recv]
 	for _, b := range fn.Params[1:] {

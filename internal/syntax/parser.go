@@ -580,6 +580,32 @@ func (p *parser) parseAttrDecl() Decl {
 		return nil
 	}
 	p.skipSep()
+	methodName := ""
+	if name == "method" && p.at(tokLParen) {
+		// `@method(GoName)` — a verbatim Go method name for
+		// initialisms and other spellings ExportName cannot
+		// reach (`ServeHTTP`, `URL`, `ID`).
+		p.next()
+		if p.at(tokUIdent) {
+			methodName = p.text(p.cur())
+			p.next()
+		} else {
+			p.errf(p.spanOf(p.cur()),
+				"the \"@method\" argument must be an exported Go name (uppercase identifier), found %s",
+				p.describe(p.cur()))
+			// Consume a lowercase identifier so the bad argument
+			// is not re-parsed as code after recovery.
+			if p.at(tokIdent) {
+				p.next()
+			}
+		}
+		if !p.at(tokRParen) {
+			p.expected("\")\"")
+		} else {
+			p.next()
+		}
+		p.skipSep()
+	}
 	if !p.at(tokFn) && !p.at(tokLet) {
 		t := p.cur()
 		p.errf(diag.SpanIn(p.file, at.start, nameTok.end),
@@ -590,11 +616,12 @@ func (p *parser) parseAttrDecl() Decl {
 		return p.parseTopDecl()
 	}
 	attrs := declAttrs{
-		testOnly: name == "test",
-		tailRec:  name == "tailrec",
-		extern:   name == "extern",
-		method:   name == "method",
-		sp:       attrSp,
+		testOnly:   name == "test",
+		tailRec:    name == "tailrec",
+		extern:     name == "extern",
+		method:     name == "method",
+		methodName: methodName,
+		sp:         attrSp,
 	}
 	if !attrs.testOnly && !attrs.tailRec && !attrs.extern && !attrs.method {
 		// The AST cannot carry an unknown attribute (no field
@@ -631,11 +658,12 @@ func (p *parser) parseAttrDecl() Decl {
 // written with. The grammar admits one attribute per declaration
 // (docs/grammar.ebnf: [ attribute ] , ( fn-decl | let-decl )).
 type declAttrs struct {
-	testOnly bool      // `@test` (fn or let)
-	tailRec  bool      // `@tailrec` (fn only)
-	extern   bool      // `@extern` (fn only — signature bound to hand-written Go)
-	method   bool      // `@method` (fn only — receiver-first, emits a Go method)
-	sp       diag.Span // the `@name` token — zero for an unattributed decl
+	testOnly   bool      // `@test` (fn or let)
+	tailRec    bool      // `@tailrec` (fn only)
+	extern     bool      // `@extern` (fn only — signature bound to hand-written Go)
+	method     bool      // `@method` (fn only — receiver-first, emits a Go method)
+	methodName string    // `@method(GoName)` — verbatim Go method name (E0101 if not an UIdent)
+	sp         diag.Span // the `@name` token — zero for an unattributed decl
 }
 
 // parseFnDecl parses a fn declaration or signature:
@@ -692,16 +720,17 @@ func (p *parser) parseFnDecl(attrs declAttrs, doc *Comment) Decl {
 		p.expected("\"->\" followed by the return type")
 	}
 	d := &FnDecl{
-		Sp:       diag.SpanIn(p.file, start.start, p.prevEnd()),
-		Doc:      doc,
-		TestOnly: attrs.testOnly,
-		TailRec:  attrs.tailRec,
-		Extern:   attrs.extern,
-		Method:   attrs.method,
-		AttrSp:   attrs.sp,
-		Name:     name,
-		Params:   params,
-		Ret:      ret,
+		Sp:         diag.SpanIn(p.file, start.start, p.prevEnd()),
+		Doc:        doc,
+		TestOnly:   attrs.testOnly,
+		TailRec:    attrs.tailRec,
+		Extern:     attrs.extern,
+		Method:     attrs.method,
+		MethodName: attrs.methodName,
+		AttrSp:     attrs.sp,
+		Name:       name,
+		Params:     params,
+		Ret:        ret,
 	}
 	if p.at(tokEq) {
 		if p.gomi {

@@ -203,6 +203,18 @@ func checkFnMember(m, w *Member) diag.List {
 	if !alphaEqual(m.Type, w.Type) {
 		diags.Add(typeMismatch(m, w))
 	}
+	if m.MethodName != "" && m.MethodName != w.MethodName {
+		got := w.MethodName
+		if got == "" {
+			got = "(no method)"
+		}
+		diags.Add(diag.Error("E0609",
+			fmt.Sprintf("interface method `%s` emits as `%s` but the implementation emits `%s`", m.Name, m.MethodName, got)).
+			At(w.Sp).
+			Set("member", m.Name).
+			Set("interface_method_name", m.MethodName).
+			Set("implementation_method_name", w.MethodName))
+	}
 	return diags
 }
 

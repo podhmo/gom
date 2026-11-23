@@ -1,6 +1,6 @@
 # `Go.Any` からの取り出し — comma-ok の `Option` 返りを唯一の面とする
 
-- 状態: draft（wave38 lane F — 調査 → decision。採択待ち）
+- 状態: 採択（wave39 lane A として実施）
 - 日付: 2026-11-24
 - 関連: [go-any-spellable](2026-11-06-go-any-spellable.md)、
   [go-any-conformance-materialize](2026-11-06-go-any-conformance-materialize.md)

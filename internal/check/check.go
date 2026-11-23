@@ -878,14 +878,15 @@ func (c *checker) checkFnDecl(d *syntax.FnDecl) {
 	c.bounds = c.bounds[:len(c.bounds)-1]
 	c.curTScope = prevScope
 	fd := &FnDecl{
-		Sp:      d.Sp,
-		Sym:     sym,
-		Sig:     sig,
-		Params:  params,
-		Body:    body,
-		TailRec: d.TailRec,
-		Extern:  d.Extern,
-		Method:  d.Method,
+		Sp:         d.Sp,
+		Sym:        sym,
+		Sig:        sig,
+		Params:     params,
+		Body:       body,
+		TailRec:    d.TailRec,
+		Extern:     d.Extern,
+		Method:     d.Method,
+		MethodName: d.MethodName,
 		// A declared signature's rigid variables are the function's
 		// own type parameters — `fn len2 (t: Tree a) -> Int` emits
 		// `func len2[A](t Tree[A]) int64`.
