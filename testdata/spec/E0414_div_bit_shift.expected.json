@@ -153,6 +153,28 @@
       "data": {
         "op": "/"
       }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0414",
+      "severity": "error",
+      "message": "division by a constant zero",
+      "span": {
+        "file": "E0414_div_bit_shift.gom",
+        "start": {
+          "line": 62,
+          "col": 43,
+          "offset": 2957
+        },
+        "end": {
+          "line": 62,
+          "col": 102,
+          "offset": 3016
+        }
+      },
+      "data": {
+        "op": "/"
+      }
     }
   ]
 }
