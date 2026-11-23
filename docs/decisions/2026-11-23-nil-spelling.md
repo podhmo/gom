@@ -20,8 +20,10 @@ Go 関数型の nil を作れない。sandbox 探索では `h.Sum nil` を `[]` 
 
 Gom 側で書けて Go 側が nil を持つ型のうち、生成面がないもの:
 
-- `Go.Slice a` / `Go.Map k v` — nil slice/map。get/length は nil でも
-  動き set は panic（Go と同じ意味 — spec §8.4 の記述どおり）
+- `Go.Slice a` / `Go.Map k v` — nil slice/map。`Go.Slice` の面は
+  read-only で nil でも get/length/fold が動き、`Go.Map` も
+  get/delete/length は nil で動き `set` だけが panic（Go と同じ
+  意味 — spec §8.4 の記述どおり）
 - `Chan a` / `RecvChan` / `SendChan` — nil channel。select 腕の
   動的無効化（nil channel は永久にブロックする慣用句）に使う
 - `Go.FuncN` — nil 関数値
@@ -75,12 +77,19 @@ builtin + check 側の専用制約」パターン:
 
 ## 実装メモ
 
-- `internal/stdlib/builtin.go`: `Go` namespace に `nil` メンバー
-  （`types.Fn(nilTVar)` — 結果のみ rigid）を登録
+- `internal/resolve/scope.go`: `builtinGoMembers()` のハードコード表に
+  `"nil"` を登録 — `Go` 名前空間は `builtinModuleTable` で cfg.Modules
+  を見ないため、stdlib の member table 注入では届かない。シグネチャは
+  `Go.conv` と同じく table 外の専用 typing が要る（`Unit -> a` の
+  `a` が rigid で genericSig の表に載らない）
 - `internal/check`: `isNil`（isConv 相当の識別子）を追加し、適用の
   結果型が確定した時点で nilable を検査。述語は `goRawNilable` を
-  Gom 側の型向けに再利用できるか確認（FuncN seed の raw view 判定に
-  特化した名前だが Con の判定自体は共通）
+  そのまま再利用しない — 同関数は `t.Name` だけで builtin の
+  `Ptr`/`Chan`/`Slice`/`Map` を選ぶので、ユーザー宣言の同名型
+  （Qual が自パッケージの `type Chan a` など）を誤って nilable と
+  読む。`isBuiltinCon` 流の builtin 同一性（Qual == "" の builtin
+  scope か `Go.` qual の型名）を条件に足した述語を新設する
+  （FuncN seed の raw view 判定に特化した名前だが Con の判定自体は共通）
 - `internal/lower`: `rt.Nil` への CallGo（`GoResultsOne`）を生成。
   TypeArgs に確定した `a` を置く
 - `rt`: `Nil[T any]` helper を追加
