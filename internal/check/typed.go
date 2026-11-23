@@ -419,6 +419,12 @@ type Ascribe struct {
 	// the checker validated the pair; lowering picks the direction
 	// (ConvSliceToGo / ConvSliceFromGo / ConvSliceBox) from the types.
 	Slice bool
+	// ChanDir marks an implicit `Chan a` → directional-channel
+	// narrowing granted at a Go-call boundary (spec section 10.2).
+	// `chan T` is already assignable to `chan<- T`/`<-chan T`, so
+	// lowering emits the operand as-is — the explicit conversion
+	// would defeat `go vet`'s sigchanyzer tracking.
+	ChanDir bool
 }
 
 func (*Ascribe) isExpr() {}

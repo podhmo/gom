@@ -79,6 +79,21 @@ func (g *gen) let(l *core.Let) {
 		return
 	}
 	name := g.bindName(l.Name)
+	if cv, ok := l.X.(*core.Conv); ok && cv.Kind == core.ConvChanDir {
+		// `x := (chan<- T)(c)` hides the operand's capacity from
+		// vet's sigchanyzer — `signal.Notify(x)` then reads the
+		// channel unbuffered. Declaring the binder at the narrowed
+		// Go type and initializing it from the operand keeps the
+		// direction AND the tracking: `chan T` is assignable to
+		// `chan<- T`, and `var x chan<- T = c` preserves it.
+		g.line(l.Sp)
+		g.raw("var " + name + " ")
+		g.typ(g.goType(l.Name.Typ))
+		g.raw(" = ")
+		g.exprValue(cv.X)
+		g.nl()
+		return
+	}
 	if isSimpleExpr(l.X) {
 		g.line(l.Sp)
 		g.raw(name + " := ")
@@ -236,6 +251,12 @@ func (g *gen) valueExpr(e core.Expr, d dest) {
 // checked at a named Go type joins the explicit Conv here.
 func emitsConversion(e core.Expr) bool {
 	if _, ok := e.(*core.Conv); ok {
+		return true
+	}
+	// `Chan.make` prints `make(chan T, n)` — a CallExpr that Go
+	// still rejects as a bare statement ("not used"), same as a
+	// conversion.
+	if c, ok := e.(*core.CallGo); ok && c.ChanMake {
 		return true
 	}
 	if f, ok := e.(*core.FieldGet); ok && f.Unwrap {
@@ -1268,7 +1289,9 @@ func (g *gen) convOf(kind core.ConvKind, target types.Type, x ast.Expr) ast.Expr
 		return &ast.CallExpr{Fun: g.goType(target), Args: []ast.Expr{x}}
 	case core.ConvChanDir:
 		// Parenthesized like in conv — `<-chan T` cannot stand bare
-		// in call position.
+		// in call position. Call-argument narrowing is skipped at
+		// convGoArg instead (see conv in expr.go), so `go vet`'s
+		// sigchanyzer still sees `make` directly at the call site.
 		return &ast.CallExpr{Fun: &ast.ParenExpr{X: g.goType(target)}, Args: []ast.Expr{x}}
 	case core.ConvBoxAny:
 		return &ast.CallExpr{Fun: ast.NewIdent("any"), Args: []ast.Expr{x}}

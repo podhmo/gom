@@ -24,13 +24,11 @@ func later(ch chan<- int64, v int64) struct{} {
 //line go_spawn.gom:8
 func keep(_ struct{}) struct{} {
 //line go_spawn.gom:9
-	ch := rt.MakeChan[int64](1)
+	ch := make(chan int64, int(1))
 //line go_spawn.gom:10
 	go func() {
 //line go_spawn.gom:10
-		tmp1 := (chan<- int64)(ch)
-//line go_spawn.gom:10
-		rt.ChanSend[int64](tmp1, 1)
+		rt.ChanSend[int64](ch, 1)
 //line go_spawn.gom:10
 		_ = struct{}{}
 //line go_spawn.gom:10

@@ -484,6 +484,7 @@ func (l *lowerer) goFuncRefOrAdapter(sp diag.Span, typ types.Type, sym *resolve.
 		call := &core.CallGo{
 			Sp: sp, Typ: l.goCallTyp(sig, ret),
 			Callee: sym, Recv: recv, TypeArgs: targs,
+			ChanMake:   makeChanCallee(sym),
 			Args:       l.convGoArgs(bs, sig, pv, false),
 			Arity:      sig.Arity,
 			Variadic:   sig.Variadic,
@@ -848,6 +849,14 @@ func (l *lowerer) convGoArg(s *seq, sig GoSig, i int, a core.Atom, spreadArg boo
 			typeName(a.Type()), typeName(pt)))
 		return a
 	}
+	if k == core.ConvChanDir {
+		// `chan T` is assignable to `chan<- T`/`<-chan T` in Go —
+		// no conversion is needed, and emitting one here binds the
+		// argument behind a temporary that `go vet`'s sigchanyzer
+		// cannot see through (it would report a buffered
+		// `signal.Notify` channel as unbuffered).
+		return a
+	}
 	return l.asAtom(s, a.Span(), &core.Conv{
 		Sp: a.Span(), Typ: pt, Kind: k, X: l.convBoxSrc(s, a, k),
 	})
@@ -1100,6 +1109,29 @@ func (l *lowerer) argAtoms(s *seq, args []check.Arg, ci check.CallInfo, callee c
 				out[i] = l.flatArg(s, a, k)
 				continue
 			}
+		}
+		v := a.Value
+		if as, ok := v.(*check.Ascribe); ok && as.ChanDir {
+			// Whole-argument implicit narrowing `Chan a` →
+			// `chan<-`/`<-chan a`: the operand is already
+			// assignable in Go, so pass it through unconverted —
+			// a `(chan<- T)(x)` in the argument position would
+			// defeat `go vet`'s sigchanyzer tracking (a buffered
+			// `make` behind the conversion reads as unbuffered).
+			// Nested narrowings (an `if` arm, a list element)
+			// keep their Conv so the Core type stays SendChan.
+			a := l.atom(s, as.X)
+			if v, ok := a.(*core.Var); ok && v.Sym.IsGo {
+				// An imported Go variable is mutable from the
+				// outside: capture it at argument position the
+				// way the conversion's temporary used to, instead
+				// of reading it later inside the call.
+				b := l.tmpBind(as.Span(), v.Type())
+				s.emit(b, v)
+				a = varOf(as.Span(), b)
+			}
+			out[i] = a
+			continue
 		}
 		out[i] = l.atom(s, a.Value)
 	}
@@ -1822,8 +1854,9 @@ func (l *lowerer) goCall(s *seq, sp diag.Span, resTyp types.Type, callee check.E
 			call := &core.CallGo{
 				Sp: sp, Typ: l.goCallTyp(sig, remTyp.Ret),
 				Callee: ci.Callee, Recv: recv, TypeArgs: ci.TypeArgs,
-				Args:  filled,
-				Arity: ci.Arity, Variadic: ci.Variadic,
+				ChanMake: makeChanCallee(ci.Callee),
+				Args:     filled,
+				Arity:    ci.Arity, Variadic: ci.Variadic,
 				Spread: spread, Results: sig.Results,
 				ResNilable: sig.ResNilable,
 				FlatArgs:   l.flatArgs(ci.Arity, ci.Variadic, l.declParamTypes(ci.Callee, callee.Type()), filled, spread),
@@ -1839,8 +1872,9 @@ func (l *lowerer) goCall(s *seq, sp diag.Span, resTyp types.Type, callee check.E
 	call := &core.CallGo{
 		Sp: sp, Typ: l.goCallTyp(sig, resTyp),
 		Callee: ci.Callee, Recv: recv, TypeArgs: ci.TypeArgs,
-		Args:  ordered,
-		Arity: ci.Arity, Variadic: ci.Variadic,
+		ChanMake: makeChanCallee(ci.Callee),
+		Args:     ordered,
+		Arity:    ci.Arity, Variadic: ci.Variadic,
 		Spread: spread, Results: sig.Results,
 		ResNilable: sig.ResNilable,
 		FlatArgs:   l.flatArgs(ci.Arity, ci.Variadic, l.declParamTypes(ci.Callee, callee.Type()), ordered, spread),
@@ -1884,8 +1918,9 @@ func (l *lowerer) goCallNode(s *seq, ap *check.Apply) *core.CallGo {
 	return &core.CallGo{
 		Sp: ap.Sp, Typ: l.goCallTyp(sig, ap.Type()),
 		Callee: ci.Callee, Recv: recv, TypeArgs: ci.TypeArgs,
-		Args:  ordered,
-		Arity: ci.Arity, Variadic: ci.Variadic,
+		ChanMake: makeChanCallee(ci.Callee),
+		Args:     ordered,
+		Arity:    ci.Arity, Variadic: ci.Variadic,
 		Spread:     spread,
 		Results:    sig.Results,
 		ResNilable: sig.ResNilable,
@@ -2040,6 +2075,7 @@ func (l *lowerer) applyAtom(s *seq, sp diag.Span, resTyp types.Type, fn core.Ato
 		call := &core.CallGo{
 			Sp: sp, Typ: l.goCallTyp(gsig, resTyp),
 			Callee: f.Sym, Recv: f.Recv, TypeArgs: f.TypeArgs,
+			ChanMake: makeChanCallee(f.Sym),
 			Args:     args,
 			Arity:    f.Arity,
 			Results:  f.Results,
@@ -3560,4 +3596,13 @@ func identityInstantiation(targs []types.Type, tparams []*types.Var) bool {
 		}
 	}
 	return true
+}
+
+// makeChanCallee reports whether sym is the rt.MakeChan builtin — the
+// one Go call codegen emits as the bare `make(chan T, n)` builtin
+// (see core.CallGo.ChanMake). Deciding it here keeps the calling
+// convention a Core fact rather than a codegen name-match.
+func makeChanCallee(sym *resolve.Symbol) bool {
+	return sym != nil && sym.IsGo &&
+		sym.Package == "github.com/podhmo/gom/rt" && sym.Name == "MakeChan"
 }

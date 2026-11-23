@@ -328,6 +328,19 @@ func (g *gen) atoms(as []core.Atom) []ast.Expr {
 // callGo renders `pkg.F(a, b)`, `recv.M(a)`, the func-value call
 // `f(a, b)` (`Go.fnN`'s adapter), or the spread `f(a...)`.
 func (g *gen) callGo(c *core.CallGo) ast.Expr {
+	// `Chan.make` lowers to a bare `make(chan T, int(n))` rather than
+	// the rt.MakeChan helper: vet's sigchanyzer cannot see the
+	// capacity through the generic call and flags
+	// `MakeChan[os.Signal](1)` as an unbuffered channel misuse.
+	// The direct builtin is identical — rt.MakeChan's own body is
+	// `make(chan T, int(n))`, including the native-width narrowing
+	// on 32-bit targets and the negative-capacity panic. The
+	// convention arrives on Core: CallGo.ChanMake is set by lowering.
+	if c.ChanMake {
+		return &ast.CallExpr{Fun: ast.NewIdent("make"),
+			Args: []ast.Expr{g.goType(c.Type()),
+				&ast.CallExpr{Fun: ast.NewIdent("int"), Args: []ast.Expr{g.atom(c.Args[0])}}}}
+	}
 	var fun ast.Expr
 	switch {
 	case c.Fn != nil:
@@ -610,14 +623,19 @@ func (g *gen) conv(e *core.Conv) ast.Expr {
 		if _, isStar := fun.(*ast.StarExpr); isStar {
 			// `*T(x)` parses as a dereference — pointer targets
 			// (`type P = {p: Ptr Int}` peels to `Ptr Int`) need
-			// the same parens ConvChanDir wraps around `chan<- T`.
+			// parens in call position.
 			fun = &ast.ParenExpr{X: fun}
 		}
 		return &ast.CallExpr{Fun: fun, Args: []ast.Expr{x}}
 	case core.ConvChanDir:
 		// The target spells `chan<- T` or `<-chan T` — both need
 		// parens in call position (`<-chan T(x)` would read as a
-		// receive from the conversion `chan T(x)`).
+		// receive from the conversion `chan T(x)`). Call-argument
+		// narrowing never reaches here: convGoArg skips the Conv
+		// node outright, both because `chan T` is already
+		// assignable and because the conversion shape defeats
+		// `go vet`'s sigchanyzer tracking (a buffered `make`
+		// behind `(chan<- os.Signal)(c)` reports as unbuffered).
 		return &ast.CallExpr{Fun: &ast.ParenExpr{X: g.goType(e.Type())}, Args: []ast.Expr{x}}
 	case core.ConvBoxAny:
 		return &ast.CallExpr{Fun: ast.NewIdent("any"), Args: []ast.Expr{x}}
