@@ -42,10 +42,11 @@
 
 - [x] **[task] unlabeled → labeled の introduction（ラベル付き引数の緩和）**: `unifyFunc` が expected 側のラベルを produced の全 unlabeled パラメータへ位置対応で貸す（`apply (fn x -> x)` が通る）。produced 側にラベルが混ざる型・逆方向・合成 `argT -> res` unify（応用は型の同一性ではないので `noLabelIntro` で抑止 — `id mk 3` の `~x` 位置充填は依然 E0401）は拒否のまま。spec §2.1 は wave35 lane D で同期済み（[decision](docs/decisions/2026-11-23-labeled-arg-relaxation.md)、wave36 lane B）
 
-- [ ] **[task] result-taint flag + `.gomi` export（案 B）**: `Symbol.ResultTaint []bool`（結果が param i の生産物を運び得る）を fixpoint 推論し、`//gom:result-notaint name i ...` directive でエクスポート。imported callee の偽陽性と transitive の false negative を閉じる（[decision](docs/decisions/2026-11-23-result-taint-gomi-export.md)、wave35 lane E → wave36 lane C/D で実施）
-  - lane C（推論 + 診断接続）実施済み: `resultTaintOf` が `resultProducers`（retainedVars の結果位置 walk + saturated call の callee taint 伝播、`ArgToParam` 対応・相互再帰は保守 true）で `sym.ResultTaint` を充填し、`resultCarriesArg`/`resultCarriesPipe` が flag 参照化。`let f = fn` の lambda にも推論が効く。残りは lane D の `.gomi` directive I/O
+- [x] **[task] result-taint flag + `.gomi` export（案 B）**: `Symbol.ResultTaint []bool`（結果が param i の生産物を運び得る）を fixpoint 推論し、`//gom:result-notaint name i ...` directive でエクスポート（[decision](docs/decisions/2026-11-23-result-taint-gomi-export.md)、wave36 lane C/D）
+  - lane C（推論 + 診断接続）: `resultTaintOf` が `resultProducers`（retainedVars の結果位置 walk + saturated call の callee taint 伝播、`ArgToParam` 対応・相互再帰は保守 true）で `sym.ResultTaint` を充填し、`resultCarriesArg`/`resultCarriesPipe` が flag 参照化。`let f = fn` の lambda にも推論が効く
+  - lane D（`.gomi` directive I/O）: `iface.ScanNotaint`/`ApplyNotaint`/`notaintLine` で scan・適用・emit。`/* */` 内の directive を無視する `scanDirective` 修正を含む
 
-- [ ] **[task] `fn ~x ->` ラムダラベル構文**: ラムダのパラメータにラベルを付ける構文（parser + check）。unlabeled→labeled introduction と組になると呼び出し側で `~x:` を書ける匿名関数になる（wave35 lane D で deferred → wave36 lane F 採択、[prompts](docs/sketch/2026-11-23-wave36-prompts.md)）
+- [x] **[task] `fn ~x ->` ラムダラベル構文**: `fn ~x -> e` / `fn (~x: T) -> e` を実装（parser + check + format）。unlabeled→labeled introduction と組になり呼び出し側で `~x:` を書ける匿名関数になる。併せて `types.Equal` の labeled run を宣言順比較に修正（positional Go ABI — `~a ~b` ≠ `~b ~a`）、`checkLambda` の residual ret 構築の consumed-set バグ、`unifyFunc` の labeled-run 順序検査を修正（wave36 lane F）
 
 - [-] **SC scoped cleanup（Go の `defer` が解く問題）**: 組み込み `Scope` モジュールでスコープを値として開き、cleanup を `if`・`match` の腕・その場で呼ばれるラムダから登録する（[decision](docs/decisions/2026-11-21-scoped-cleanup.md)、[sketch](docs/sketch/2026-11-21-defer-survey.md)、実験 `experiments/defer/`）
   - [x] **SC-1 `Scope` 型と rt-backed モジュール**: `Scope.run`/`run_result`/`defer`/`defer_err`/`on_err` を builtin module として配線する（LIFO、cleanup 同士は `errors.Join`、本体の `Err` 優先、`on_err` は panic 時も走る、閉じた後の登録は panic）。spec fixture・golden・spec 8.3 を足す
@@ -56,8 +57,8 @@
 
 ### ドキュメント
 
-- [ ] **[task] `|?>` 文言の回避経路の文書化**: `*rt.StepError.Step`・`rt.StepErr`・`Result.map_err`・`try`+`match` で文言を制御する方法を spec と gom-agent-guide に追記（案 C 採択済みの残作業 — [decision](docs/decisions/2026-11-23-pipe-try-wording.md)、wave35 lane A）
-- [ ] **[task] scoped-cleanup 代替経路の文書化（案 D）**: `run_result` の GoError 制約を越えるパターンを helper で書く例を guide（Scope 節）と spec に追記（案 D 採択済みの残作業 — [decision](docs/decisions/2026-11-23-scope-cleanup-extension.md)、wave35 lane B）
+- [x] **[task] `|?>` 文言の回避経路の文書化**: `*rt.StepError.Step`・`rt.StepErr`・`Result.map_err`・`try`+`match` で文言を制御する方法を spec と gom-agent-guide に追記（案 C 採択済み — [decision](docs/decisions/2026-11-23-pipe-try-wording.md)、wave35 lane A / PR #149）
+- [x] **[task] scoped-cleanup 代替経路の文書化（案 D）**: `run_result` の GoError 制約を越えるパターンを helper で書く例を guide（Scope 節）と spec に追記（案 D 採択済み — [decision](docs/decisions/2026-11-23-scope-cleanup-extension.md)、wave35 lane B / PR #150）
 - [ ] **D-3 `README.md` を書く**: 言語の概要・ビルド/実行の quick start・ツール群（`gom build`/`check`/`fmt`/`info`）・ドキュメントへの導線（spec/design/tutorial）を載せる。**プロジェクト終盤に書く** — 機能が増えるたびに更新対象になるのを避けるため、内容が安定してから一括で書く（ユーザー指定）。PR #3 で英語 README の初版は入ったが、十分性の最終判定は終盤に行う
 - [ ] **D-4 tutorial/examples の go.mod 配置の整理**: tutorial の各章にはほぼ同形の go.mod がある（実質 `tutorial_test.go` が scratch module へコピーする用途だけで使い、`run.sh` は自前生成）。章側で生成するか集約するかは、gom がパッケージとして取り込まれる形（examples/tutorial が利用者からどう見えるか）を決めるタイミングで整理する。外部依存を取り込んでいない現状では不要。**D-3 と同程度の後の作業**（ユーザー指定）
 
@@ -92,7 +93,7 @@ Go 相互運用を変えたら両方向（Gom → Go、Go → Gom）のテスト
 
 ### P4 公開 API と開発体験
 
-- [ ] **[task] `--strict` モードの実装**: `//gom:allow CODE` directive で relaxable コードのみリラックス（初期 E0301/E0302）+ warnings→errors の exit flag（[decision](docs/decisions/2026-11-22-strict-mode.md) → wave36 lane E、[prompts](docs/sketch/2026-11-23-wave36-prompts.md)）
+- [x] **[task] `--strict` モードの実装**: `//gom:allow CODE` directive で relaxable コードのみリラックス（初期 E0301/E0302）+ warnings→errors の exit flag — wave32（PR #129）で実装済み（`-strict` / `-strict=CODES` flag + spec §12）。wave36 lane E は prompts の記載が stale だったため skip（[decision](docs/decisions/2026-11-22-strict-mode.md)）
 
 - [ ] **[task] `//gom:mutable` directive（`.gomi`）**: 実装が見えない宣言型（extern 裏付け・abstract export 不透明化）を `.gomi` の directive で mutable 表明 — name-only（index 無し）形なので `scanDirective` ではなく専用スキャンが要る、ロード時に tyCons へフラグ適用、`containsMutable` が `Qual != ""` の `Con` で照合、`.gomi` 再生成時は著者の directive を引き継ぐ（toolchain は新規生成しない）。ローカル `.gom` 宣言では受理しない（フィールドから導出可能なため）。priority low（[decision](docs/decisions/2026-11-23-user-mutable-structures.md)、wave36 lane G で採択）
 

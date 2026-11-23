@@ -141,8 +141,9 @@ stay structs (Go forbids `type X[T] T`).
   `(f x) + (g y)`. Field/module access binds tighter still:
   `f p.name` is `f (p.name)`.
 - **Lambdas:** `fn x -> x + 1`, `fn a b -> a + b` — parameters are
-  bare identifiers, `_`, `()`, or `(x: T)` (an annotated parameter;
-  no patterns or labels in lambda params). The body extends as far
+  bare identifiers, `_`, `()`, `(x: T)` (an annotated parameter),
+  `~x`, or `(~x: T)` (a labeled parameter — the caller fills it as
+  `f ~x: v`; no patterns in lambda params). The body extends as far
   right as possible.
 - **Unit takes the place of `void`.** A no-arg function is
   `fn f () -> Unit` and is *called* `f ()`.
@@ -165,6 +166,10 @@ stay structs (Go forbids `type X[T] T`).
   means call sites must write `~to:`; labeled args are order-free,
   `~to` puns `~to: to`. Omitting a label is *partial application*,
   not an error — it bites silently: see the mistakes section.
+  An unlabeled function still fills a labeled position — labels are
+  introduced positionally (`apply (fn x -> x)` conforms to
+  `~x: Int -> Int`); a labeled function never conforms to an
+  unlabeled one.
 - **Types** (all nominal): `Int Int32 Int64 Byte Float Bool Char String
   Unit`, tuples `(a, b)`, `List a`, `Option a` (`Some`/`None`),
   `Result a e` (`Ok`/`Err`), `Ref a`, `Array a`, `Ptr T`, `Chan a` /
@@ -762,10 +767,15 @@ fn main () -> Unit = ignore (work true)
 - A `.gomi` promises non-escaping parameters with a
   `//gom:noescape <name> <index>...` directive comment; `gom info`
   drafts it. No directive means "assume escaping". The directive
-  attaches to a `let` member name too, not only `fn`. `//gom:`
-  directives only count at line start — a trailing `x + //gom:...`
-  is inert — and `gom fmt` moves in-expression ones to the file's
-  end on their own lines rather than inlining them as `/* */`.
+  attaches to a `let` member name too, not only `fn`. The mirror
+  `//gom:result-notaint <name> <index>...` lists the parameters
+  whose products CANNOT reach the result — a non-escaping lambda
+  parameter whose products DO reach the result re-taints the
+  result position, so both directives ride the same escape
+  analysis. `//gom:` directives only count at line start — a
+  trailing `x + //gom:...` is inert — and `gom fmt` moves
+  in-expression ones to the file's end on their own lines rather
+  than inlining them as `/* */`.
 - Cleanup failures join as `GoError` only. To fold them into a
   domain error type `E`, bridge the `run_result` result with
   `|> Result.map_err f`; a cleanup that itself yields `E` can
