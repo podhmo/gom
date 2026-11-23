@@ -314,8 +314,39 @@ just emits no code. The body is a hand-written Go function in the
 generated package with the emitted name (`fn map` → `func Map`),
 so name/signature drift is reported by `go build`/`go test`, not
 Gom. stdlib uses it to give the cons-built combinators buffer
-loops (`stdlib/list/impl.go`). Not allowed on `let` or in `.gomi`
+loops (`stdlib/list/impl.go`). Not allowed in `.gomi`
 (decisions/2026-11-18-cons-buffer-array-extern-impl.md).
+
+## @extern let + //gom:embed
+
+`@extern` on a `let` marks the binding Go-supplied: the Gom side
+declares name and type, the generated file emits nothing for it,
+and a hand-written Go `var` in the same package provides the value
+(drift is caught by `go build`, same as `@extern fn`).
+
+```gom
+//gom:embed hello.txt
+@extern let greeting : String
+
+@extern let token : String   // supplied by a Go-side var
+```
+
+A `//gom:embed <patterns>` comment immediately above the decl
+(same contiguous comment run — a blank line detaches it) emits
+`//go:embed` + `var` instead; the type must be `String`,
+`Go.Slice Byte`, or a named Go type such as `embed.FS` (E0512).
+Named-type admissibility is nominal only — Gom cannot see the
+underlying type, so an incompatible named type (e.g. `time.Time`)
+passes check and fails at `go build`. Patterns follow Go's quoting
+rules — `"a b.txt"` and `` `c d.txt` ``. `_ "embed"` is added
+automatically; `import go _ "path"` also works as a general blank
+import (decisions/2026-11-23-extern-let-embed.md).
+
+An `@extern let` *without* `//gom:embed` that no Gom code
+references emits nothing, so a missing Go-side var goes unnoticed
+until some caller or test uses the binding — keep a reference or a
+Go-side test for every extern variable. (An embed extern always
+emits its `var` — the `//go:embed` directive needs it.)
 
 ## nil and contract boundaries
 

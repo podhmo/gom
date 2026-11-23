@@ -80,6 +80,40 @@ func Concat[A any](xss List[List[A]]) List[A] {
 	return out
 }
 
+// Take is the first n elements of xs — `@extern fn take`. It
+// shares the immutable backing the way `drop` does: List is
+// immutable, so a prefix slice is as safe as a copy and costs no
+// allocation. The full slice expression caps the result's
+// capacity at n — without it an append (or a [:lo:hi:cap] view)
+// on the taken list would reach elements the prefix excluded.
+func Take[A any](n int64, xs List[A]) List[A] {
+	if n <= 0 {
+		return nil
+	}
+	if int64(len(xs)) < n {
+		n = int64(len(xs))
+	}
+	return xs[:n:n]
+}
+
+// SortBy is xs sorted ascending under lt — `@extern fn sort_by`.
+// A fresh buffer so the input's backing is untouched; same shape
+// as cmp.SortBy (the `Ord`-dictionary form lives in cmp — list
+// cannot depend on it, the package DAG runs list < cmp).
+func SortBy[A any](lt func(A, A) bool, xs List[A]) List[A] {
+	out := slices.Clone(xs)
+	slices.SortFunc(out, func(x, y A) int {
+		if lt(x, y) {
+			return -1
+		}
+		if lt(y, x) {
+			return 1
+		}
+		return 0
+	})
+	return out
+}
+
 // Rev reverses xs — `@extern fn rev`.
 func Rev[A any](xs List[A]) List[A] {
 	out := make(List[A], len(xs))

@@ -229,16 +229,16 @@
 | [sc3-native-defer](2026-11-22-sc3-native-defer.md) | SC-3: `Scope` 登録を native Go `defer` へ lowering | adopted |
 | [scope-escape-check](2026-11-22-scope-escape-check.md) | Scope 値の脱出の静的検査（SC-2） | 採用（実装・検証済み — `gom check` が E0419 を出す） |
 | [strict-mode](2026-11-22-strict-mode.md) | `--strict` / 診断フィルタ — 調査と採否 | adopted（2026-11-22 調査結果 — wave30 lane D） |
-| [bit-operators](2026-11-23-bit-operators.md) | ビット演算子の提供形 — 三重字演算子 `&&&` `\|\|\|` `^^^` `<<<` `>>>` | draft |
+| [bit-operators](2026-11-23-bit-operators.md) | ビット演算子の提供形 — 三重字演算子 `&&&` `\|\|\|` `^^^` `<<<` `>>>` | 採択（2026-11-24 wave38 インタビュー。実装は wave38 lane B） |
 | [emit-name-collision-check](2026-11-23-emit-name-collision-check.md) | emit 名衝突は codegen 台帳で検出し W0601/W0602 で警告する（一部を [verbatim-dup-error](2026-11-23-verbatim-dup-error.md) で置き換え） | adopted（verbatim 二重請求の警告化は [verbatim-dup-error](2026-11-23-verbatim-dup-error.md) に supersede — wave36 lane A でエラー E0608 + 出力 withhold へ変更。suffix 追い出し W0602 と検出器の形はこの決定のまま） |
 | [extern-let-embed](2026-11-23-extern-let-embed.md) | `@extern let` と `//gom:embed` の提供形 | verified（実装済み — spec §8.10） |
 | [go-abi-stability](2026-11-23-go-abi-stability.md) | 生成 Go の API 安定方針（Go ABI） | 採択（案 B、2026-11-23 wave35 開始前インタビュー） |
 | [gomi-monomorphic](2026-11-23-gomi-monomorphic.md) | `.gomi` が実装より単相の場合の許容 | 採択（案 B — 厳格一致維持、明示的な単相ラッパ） |
-| [goslice-gom-elem](2026-11-23-goslice-gom-elem.md) | `Go.Slice`/`Go.Map` 要素に Gom 宣言型 — `~` 制約の Gom 側一致 | draft |
+| [goslice-gom-elem](2026-11-23-goslice-gom-elem.md) | `Go.Slice`/`Go.Map` 要素に Gom 宣言型 — `~` 制約の Gom 側一致 | 採択（2026-11-24 wave38 インタビュー。実装は wave38 lane D） |
 | [labeled-arg-relaxation](2026-11-23-labeled-arg-relaxation.md) | ラベル付き引数の制限緩和の調査 | adopted |
 | [labeled-run-order-equality](2026-11-23-labeled-run-order-equality.md) | ラベル付き引数の並びは型同値で宣言順に比較する | adopted |
 | [local-let-polymorphism](2026-11-23-local-let-polymorphism.md) | ローカル let の多相化 | 採択（案 A、2026-11-23 wave35 開始前インタビュー） |
-| [nil-spelling](2026-11-23-nil-spelling.md) | nil の綴り — `Go.nil` ユニバーサル builtin | draft |
+| [nil-spelling](2026-11-23-nil-spelling.md) | nil の綴り — `Go.nil` ユニバーサル builtin | 採択（2026-11-24 wave38 インタビュー。実装は wave38 lane C） |
 | [pipe-try-wording](2026-11-23-pipe-try-wording.md) | `\|?>` 自動ラップの文言カスタマイズ | 採択（案 C — 現状維持 + 回避経路の文書化） |
 | [result-taint-gomi-export](2026-11-23-result-taint-gomi-export.md) | result-taint flag + .gomi export（案 B 拡張） | adopted |
 | [scope-cleanup-extension](2026-11-23-scope-cleanup-extension.md) | scoped cleanup 拡張: エラー合流の一般化と取得+登録糖衣（案） | 採択（案 D、2026-11-23 wave35 開始前インタビュー） |
