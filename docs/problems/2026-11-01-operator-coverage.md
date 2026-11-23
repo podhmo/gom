@@ -1,6 +1,6 @@
 # Operator coverage gaps: `!=`, `%`, `||`, `!`, bit ops, list spread
 
-- 状態: 一部解決（2026-11-03、list-expression spread を受理）
+- 状態: 一部解決（2026-11-03、list-expression spread を受理。2026-11-23、bit ops は decision 化 — 三重字 `&&&`/`|||`/`^^^`/`<<<`/`>>>` を推薦、実装は採択後）
 - 日付: 2026-11-01
 
 ## Situation

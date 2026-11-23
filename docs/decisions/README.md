@@ -229,6 +229,7 @@
 | [sc3-native-defer](2026-11-22-sc3-native-defer.md) | SC-3: `Scope` 登録を native Go `defer` へ lowering | adopted |
 | [scope-escape-check](2026-11-22-scope-escape-check.md) | Scope 値の脱出の静的検査（SC-2） | 採用（実装・検証済み — `gom check` が E0419 を出す） |
 | [strict-mode](2026-11-22-strict-mode.md) | `--strict` / 診断フィルタ — 調査と採否 | adopted（2026-11-22 調査結果 — wave30 lane D） |
+| [bit-operators](2026-11-23-bit-operators.md) | ビット演算子の提供形 — 三重字演算子 `&&&` `\|\|\|` `^^^` `<<<` `>>>` | draft |
 | [emit-name-collision-check](2026-11-23-emit-name-collision-check.md) | emit 名衝突は codegen 台帳で検出し W0601/W0602 で警告する（一部を [verbatim-dup-error](2026-11-23-verbatim-dup-error.md) で置き換え） | adopted（verbatim 二重請求の警告化は [verbatim-dup-error](2026-11-23-verbatim-dup-error.md) に supersede — wave36 lane A でエラー E0608 + 出力 withhold へ変更。suffix 追い出し W0602 と検出器の形はこの決定のまま） |
 | [go-abi-stability](2026-11-23-go-abi-stability.md) | 生成 Go の API 安定方針（Go ABI） | 採択（案 B、2026-11-23 wave35 開始前インタビュー） |
 | [gomi-monomorphic](2026-11-23-gomi-monomorphic.md) | `.gomi` が実装より単相の場合の許容 | 採択（案 B — 厳格一致維持、明示的な単相ラッパ） |
