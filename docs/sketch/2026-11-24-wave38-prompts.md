@@ -18,10 +18,10 @@
 
 - 出典: TODO [task]（podhmo 要望 2026-11-24）— import 可能な
   stdlib パッケージの短名を列挙するツールがない。
-  `.gomi` は `gomstdlib.Gomis` に `go:embed` でバイナリ埋め込み
-  済みなので単体で列挙可能
-- 作業: 引数なしの `gom list` — 埋め込み FS を walk して
-  `list`/`option`/`result` の短名を列挙するのみの一機能
+- 作業: 引数なしの `gom list` — import 可能な短名の列挙のみの
+  一機能。列挙元は `gomimport` の stdlib 短名テーブル
+  （`stdlibPaths`: `list`/`option`/`result`/`cmp` — `cmp` は
+  埋め込み `.gomi` がないため FS walk では漏れる）
 - 規模: 小
 
 ### B. ビット演算子の実装（旧 H、wave37 lane B decision 採択）
@@ -45,8 +45,11 @@
 - 出典: [decision](../decisions/2026-11-23-goslice-gom-elem.md) —
   `~` 制約の要素一致を Gom 側 `types.Equal` で見る案を採択
   （record を `[]MyRec` として `slices.SortFunc` 等に渡せる面）
-- 作業: check の制約一致の実装。後続 lane E の `Go.conv` gap
-  方針とも連動
+- 作業: check の制約一致の実装。decision は `Go.Slice`/
+  `Go.Map` の型引数全体が対象で、`slices.SortFunc rs (Go.func2 f)`
+  の record comparator を通す `Go.func2` raw view の緩和も実装
+  lane に含める（decision 本文の明記どおり）。後続 lane E の
+  `Go.conv` gap 方針とも連動
 - 規模: 中
 
 ### E. `Go.conv` List → named Go slice の check/emit ギャップ（旧 B、bug）
@@ -59,10 +62,11 @@
 
 ### F. `Go.Any` の検査面（旧 C、調査→decision）
 
-- 出典: wave37 旧候補 E（延期）— `fmt.Println` 等 `any` を
-  受け取る Go 関数への値渡しの検査面が未定義（`List` を渡すと
-  内部表現が Go 側に見える等）
-- 作業: 許容範囲と検査方法の調査 → decision
+- 出典: open-questions（wave37 旧候補 E、延期）— `Go.Any` から
+  具象型へ取り出す面がなく、`json.Unmarshal` で `any` に decode
+  した値を触れない（`Go.conv` は E0507 で明示拒否の設計）
+- 作業: 取り出し面の提供形（panic 式 / `Option` 返り / `match`
+  拡張）を調査 → decision
 - 規模: 中
 
 ### G. `@method` emit 名の escape — initialism 対応（旧 E、decision→実装）
