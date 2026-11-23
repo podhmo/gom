@@ -75,12 +75,16 @@ func (l *Loader) NilableUnderlying(ref gt.NamedRef) bool {
 	}
 }
 
-// GoUnderlyingIsSlice reports whether the named Go type behind t has a
-// slice underlying (`type B []T`, `sort.Float64Slice`) — the emit gate
-// for `Go.conv`'s `List`↔named-slice composite (internal/lower/expr.go):
-// a named interface target (json.Token) must keep the raw cast so the
-// boxed value's dynamic type stays list.List[T], not []T.
-func (l *Loader) GoUnderlyingIsSlice(t gt.Type) bool {
+// GoUnderlyingIsSliceOrArray reports whether the named Go type behind
+// t has a slice, array, or pointer-to-array underlying (`type B []T`,
+// `sort.Float64Slice`, `type P *[3]int`) — the emit gate for `Go.conv`'s
+// `List`↔named-slice composite (internal/lower/expr.go). The composite
+// `T(xs.ToSlice())` compiles for all three shapes and keeps the copy
+// discipline: a raw `P(xs)` cast to a pointer-to-array would share the
+// List's backing, letting Go writes reach a value Gom treats as
+// immutable. A named interface target (json.Token) must keep the raw
+// cast so the boxed value's dynamic type stays list.List[T], not []T.
+func (l *Loader) GoUnderlyingIsSliceOrArray(t gt.Type) bool {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	g, ok := gt.Chase(t).(*gt.Go)
@@ -91,6 +95,12 @@ func (l *Loader) GoUnderlyingIsSlice(t gt.Type) bool {
 	if !ok {
 		return false
 	}
-	_, ok = n.Underlying().(*types.Slice)
-	return ok
+	switch u := n.Underlying().(type) {
+	case *types.Slice, *types.Array:
+		return true
+	case *types.Pointer:
+		_, ok = u.Elem().(*types.Array)
+		return ok
+	}
+	return false
 }
