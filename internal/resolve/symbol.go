@@ -105,6 +105,18 @@ type Symbol struct {
 	// slice means "assume escaping" — the conservative default.
 	Escapes []bool
 
+	// ResultTaint is the per-parameter result-carry flags of a Gom
+	// function: ResultTaint[i] is true when the function's result
+	// may carry the products of the i-th flattened parameter (a
+	// saturated call's result is produced by its callee — `f 3`
+	// carries `f`'s product; `const_f` discarding `f` carries
+	// none). check's result-taint inference fills it for locally
+	// declared functions; the .gomi loader fills it from
+	// `//gom:result-notaint` directives (parameters not listed
+	// there stay tainted). An absent or short slice means "assume
+	// tainted" — the conservative default.
+	ResultTaint []bool
+
 	// Surface, when non-empty, is the user-facing spelling of the
 	// symbol — `Go.Map.make` — for diagnostics where Name (the rt
 	// backing symbol, `MapMake`) would mislead. Compiler-owned
