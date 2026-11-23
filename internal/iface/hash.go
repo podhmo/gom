@@ -26,8 +26,8 @@ import (
 //     hash identically, matching the alpha-equality of section 7.6;
 //   - parameter names and patterns do not enter the encoding —
 //     `fn f ()` and `fn f (u: Unit)` are both a Unit parameter;
-//   - labeled-parameter runs normalize like types.Equal (maximal
-//     runs sort by label);
+//   - labeled-parameter runs keep declared order like types.Equal
+//     (the positional Go ABI makes run order significant);
 //   - qualified type names resolve through the import table — the
 //     hash records the path, never the written alias.
 //
@@ -252,9 +252,9 @@ func (sc *hscope) writeType(sb *strings.Builder, t syntax.TypeExpr) {
 		sb.WriteByte(')')
 	case *syntax.TypeFn:
 		sb.WriteString("(fn (")
-		// The labeled-run normalization of types.Equal applies to
-		// the encoding too: within each maximal run of labeled
-		// params, order is not semantic.
+		// The labeled-run handling of types.Equal applies to the
+		// encoding too: maximal runs keep declared order — run order
+		// is part of the signature.
 		for _, grp := range labelRuns(t.Params) {
 			for _, p := range grp {
 				sb.WriteByte('(')

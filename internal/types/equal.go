@@ -10,12 +10,11 @@ import "slices"
 // unrolled first (Fn normally keeps them flat; a bound Meta in tail
 // position can still hide a function type).
 //
-// For function types, within each maximal run of consecutive labeled
-// parameters the order does not matter — `~a: X -> ~b: Y -> R` equals
-// `~b: Y -> ~a: X -> R`, but a labeled parameter and a positional one
-// never swap, and labeled runs separated by a positional parameter are
-// not merged (docs/spec.md section 2.1). Each run is normalized by
-// sorting on the label before pairwise comparison.
+// For function types, labeled parameters compare pairwise in
+// declared order — `~a: X -> ~b: Y -> R` and `~b: Y -> ~a: X -> R`
+// are different types because the generated Go call is positional
+// and a reordered run would swap the arguments (docs/spec.md
+// section 2.1).
 //
 // Bound metas are chased; unbound metas and vars compare by identity
 // (pointer and ID respectively). This is the equality users observe
@@ -106,7 +105,6 @@ func flattenFunc(f *Func) (params []FuncParam, ret Type) {
 	}
 	return params, ret
 }
-
 
 // StripLabels removes every parameter label — check's
 // unlabeled→labeled introduction (spec section 2.1) admits an
