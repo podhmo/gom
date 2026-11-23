@@ -34,7 +34,7 @@
 - [x] **G-1 `Ptr T` 経由の field 書き込みの実装**: `ptr.Field = v` の代入構文と addressability 規則。`Ptr T`（T は named Go struct）経由に限定し、record/`Ref` への field 代入は開かない（[decision](docs/decisions/2026-11-19-struct-field-write.md)、比較材料は [sketch](docs/sketch/2026-11-19-wave23-struct-construction.md)）。実装後に tutorial / examples の host パッケージ（`NewClient` factory）を撤去する — wave24 以降の lane 候補
   - 対応（wave24 lane B）: `Assign`/`FieldAssign`/`FieldSet` を syntax→check→lower→codegen に通し、左辺は `ptr.Field` の形のみ（変数・record field・`Ptr` でない Go 値経由は E0511）。代入式は `Unit`。examples/gist-cli の host パッケージは撤去 — `NewClient` は `Ptr.new` + `client.Timeout`/`client.CheckRedirect` への代入に置換。composite literal は引き続き非提供
 
-- [ ] **[task] `//go:embed` / directive comment / blank import の提供形**: `import _ "embed"` は E0101 で、Go の directive コメント（`//go:embed` 等）を書く面もないため `embed.FS` が原理的に使えない。`//gom:` 系 directive の機構（allow/noescape/result-notaint）は既存 — 属性・directive・blank import 構文のどれで供給するか decision を起こして実装（sandbox 探索 — [sketch](docs/sketch/2026-11-23-sandbox-missing-features.md)、回避は `os.ReadFile`）
+- [ ] **[task] `//go:embed` / directive comment / blank import の提供形**: `import _ "embed"` は E0101 で、Go の directive コメント（`//go:embed` 等）を書く面もないため `embed.FS` が原理的に使えない。`//gom:` 系 directive の機構（allow/noescape/result-notaint）は既存 — 属性・directive・blank import 構文のどれで供給するか decision を起こして実装（sandbox 探索 — [sketch](docs/sketch/2026-11-23-sandbox-missing-features.md)、回避は `os.ReadFile`、wave37 lane E — [prompts](docs/sketch/2026-11-23-wave37-prompts.md)）
 - [ ] **[task] record フィールドへの Go struct tag（`json:"name"` 等）の宣言面**: フィールド名は lowercase 強制で Go 側は PascalCase emit、tag を付けられないため `json.Marshal` が `{"Name":...}` になり外部 JSON スキーマと合わない（`{{.name}}` テンプレ参照も同根）。属性引数かフィールド行の directive の形を decision で決めて実装（同 sketch、回避は `Go.Map`/`json.RawMessage` 経由）
 - [ ] **[task] `@method` emit 名の escape（initialism 対応）**: `serve_http`→`ServeHttp` しか出せず `ServeHTTP`/`URL`/`ID` 等の initialism を含むメソッド名を生成できない → `http.Handler`・`sort.Interface` 等を record に実装できない（E0401）。[decision](docs/decisions/2026-11-21-go-iface-impl.md) が「規約で足りなければ別 decision」と予告した分岐 — 属性引数か verbatim 綴りの escape を採る（同 sketch、回避は `Go.conv (Go.func2 h) : http.HandlerFunc`）
 
@@ -53,7 +53,7 @@
   - [x] **SC-2 `Scope` 値の脱出の静的検査**: `Scope` を返す・record/コンストラクタ/可変セルに格納する・`Task.spawn` や Go の関数値へ渡すのを型エラーにする。ラムダ引数が逃げないかはパッケージ内で推論し、`.gomi` に注釈として出す。Go の関数は常に「逃げる」扱い。依存: SC-1
   - [x] **SC-3 ネイティブ `defer` への lowering**: 登録が `Scope.run` と同じ Go 関数内にあるとき、Core IR で判定して登録位置に Go の `defer` を出し、結果に触る cleanup だけ生成 Go 側で named result を使う（目標形は `experiments/defer/cgen`）。それ以外は SC-1 のランタイムスタックのまま。依存: SC-1, SC-2
 
-- [ ] **[task] stdlib `List` の補強**: `take`/`drop`/`last`/`sort`/`sum`（Int 版）など実アプリで欲しくなった操作がない。`List.sum` は `List Float` 専用で、sandbox 探索では jot の `last_n` や duu のソートが自前実装になった（[sketch](docs/sketch/2026-11-23-sandbox-missing-features.md)）
+- [ ] **[task] stdlib `List` の補強**: `take`/`drop`/`last`/`sort`/`sum`（Int 版）など実アプリで欲しくなった操作がない。`List.sum` は `List Float` 専用で、sandbox 探索では jot の `last_n` や duu のソートが自前実装になった（[sketch](docs/sketch/2026-11-23-sandbox-missing-features.md)、wave37 lane F — [prompts](docs/sketch/2026-11-23-wave37-prompts.md)）
 
 ### ドキュメント
 
@@ -156,6 +156,6 @@ Go 相互運用を変えたら両方向（Gom → Go、Go → Gom）のテスト
 - [x] **[task] gomtest の `t.Fatalf` 経路を検査するテスト基盤がない**: stray/duplicate golden・1 出力制約など `t.Fatalf` で報告する case failure は、failure-injection パターンが無く未テスト（wave10 gomtest-followup 修正ラウンドの残件 — subprocess ハーネス等の整備が前提）— 対応: helper-process 方式を採用（`os.Args[0]` を `-test.run` で再実行、`GOMTEST_GOLDEN_HELPER` で scenario 選択）。`TestGoldenFatalPaths` が stray dir golden・stale flat `x_test`/`x` golden・duplicate mapping・flat 出力数・manifest 無し `_test.go` の 6 scenario を exit 1+メッセージで pin（squash `8a0e136`、wave-13 tooling-hygiene item d、[検証](docs/sketch/2026-11-08-gomtest-fatal-path-tests.md)）
 
 - [ ] **[bug] `Go.conv` の `List` → named Go slice が check を通るが生成 Go が `go build` で落ちる**: `Go.conv xs : sort.IntSlice`（`xs : List Int`）が `sort.IntSlice(list.List[int64])` を emit — check の変換許可判定が List の Go 表現を `[]T` 扱いしている疑い。拒否に倒すか `list.FromSlice` 系の変換を出すか（[gaps](docs/implementation-gaps.md) 登録済み、sandbox 探索 — [sketch](docs/sketch/2026-11-23-sandbox-missing-features.md)）
-- [ ] **[bug] `gom run` がシグナルを子プロセスにフォワードしない**: `gom-run-*/out` 子プロセスに SIGINT 等が届かず、`go run`（シグナルを転送する）と挙動が違う。親に届いたシグナルの転送、または最低限親終了時の子 kill が要る（同 sketch、[run.go](cmd/gom/run.go)）
-- [ ] **[bug] `rt.MakeChan[os.Signal](1)` が `go vet` の "misuse of unbuffered os.Signal channel" を踏む**: buffered chan を helper 経由で作ると vet が透視できず false positive。`make(chan T, n)` の直接 emit など生成コードの形で避けるか、vet の報告対象から外す（同 sketch、観測は PR #163 の probes/sigw）
+- [ ] **[bug] `gom run` がシグナルを子プロセスにフォワードしない**: `gom-run-*/out` 子プロセスに SIGINT 等が届かず、`go run`（シグナルを転送する）と挙動が違う。親に届いたシグナルの転送、または最低限親終了時の子 kill が要る（同 sketch、[run.go](cmd/gom/run.go)、wave37 lane A — [prompts](docs/sketch/2026-11-23-wave37-prompts.md)）
+- [ ] **[bug] `rt.MakeChan[os.Signal](1)` が `go vet` の "misuse of unbuffered os.Signal channel" を踏む**: buffered chan を helper 経由で作ると vet が透視できず false positive。`make(chan T, n)` の直接 emit など生成コードの形で避けるか、vet の報告対象から外す（同 sketch、観測は PR #163 の probes/sigw、wave37 lane A — [prompts](docs/sketch/2026-11-23-wave37-prompts.md)）
 

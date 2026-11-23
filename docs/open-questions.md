@@ -12,8 +12,8 @@
 
 ### 言語機能
 
-- [ ] ビット演算子の提供形: `|`/`&`/`^`/shift がなく、Go のフラグ合成（`os.O_APPEND|os.O_CREATE|os.O_WRONLY`）を `+` で代用するしかない。`<<`/`>>` は関数合成に使用済みで名称の余地が狭い（[problem](problems/2026-11-01-operator-coverage.md)、sandbox 探索 jot で再観測 — [sketch](sketch/2026-11-23-sandbox-missing-features.md)）
-- [ ] nil の綴り: `Ptr.nil` しか nil を書く面がなく、`Go.Slice`/`Go.Map`/Go 関数型の nil を作れない（`h.Sum nil` は `[]` で代用できた — 同 sketch）
+- [ ] ビット演算子の提供形: `|`/`&`/`^`/shift がなく、Go のフラグ合成（`os.O_APPEND|os.O_CREATE|os.O_WRONLY`）を `+` で代用するしかない。`<<`/`>>` は関数合成に使用済みで名称の余地が狭い（[problem](problems/2026-11-01-operator-coverage.md)、sandbox 探索 jot で再観測 — [sketch](sketch/2026-11-23-sandbox-missing-features.md)）。wave37 lane B で調査→decision（[prompts](sketch/2026-11-23-wave37-prompts.md)）
+- [ ] nil の綴り: `Ptr.nil` しか nil を書く面がなく、`Go.Slice`/`Go.Map`/Go 関数型の nil を作れない（`h.Sum nil` は `[]` で代用できた — 同 sketch）。wave37 lane C で調査→decision（[prompts](sketch/2026-11-23-wave37-prompts.md)）
 - [ ] 部分適用・`Unit` 残りの関数値が値位置に流れたときの lint: `fmt.Println` 等に残りパラメータを持つ関数値を渡すとエラーにならず `0x...` が印字される（同 sketch、probes/method の `string i` 事例）。警告 lint を切るか
 
 ### Go 相互運用
@@ -21,7 +21,7 @@
 - [x] Go ABI の方針: 生成される Go の API（型名・関数のシグネチャ・バリアントの struct 名）を、Gom のバージョンをまたいでどこまで安定させるか — 案 B 採択（決定的 emit の保証 + emit 名の衝突検出、名前の安定保証はしない — [decision](decisions/2026-11-23-go-abi-stability.md)）。衝突検出器は wave35 lane C で実装済み（emit 台帳 + W0601/W0602 + `gom dump -phase=emit` — [decision](decisions/2026-11-23-emit-name-collision-check.md)）
 - [x] Gom の型が Go の interface を実装できるようにするか（v1 ではできない）。できるなら、どう宣言するか — wave25 lane D で実現可能性を調査済み、wave29 lane D で post-defined-type 世界の設計を decision まで固め（`@method` 属性 + 規約命名、.gomi は fn リスト、`InterfaceMethods` oracle — [decision](decisions/2026-11-21-go-iface-impl.md)）、2026-11-22 に採択。実装は wave30 lane C（[prompts](sketch/2026-11-22-wave30-prompts.md)）
 - [ ] `Go.Any` の検査面（型アサーション相当）: `Go.conv` では具象型へ取り出せない（E0507 — spec が明示的に拒否する設計）が、代替の面がないため `json.Unmarshal` で `any` に decode した値を触れない。panic 式 / `Option` 返り / `match` 拡張のどれで供給するか（sandbox 探索 — [sketch](sketch/2026-11-23-sandbox-missing-features.md)、回避は `json.RawMessage`/`Go.Map`/reflect 経由）
-- [ ] `Go.Slice` の要素に Gom 宣言型を置けるか（E0507 緩和）: record が `[]MyRec` として `slices.SortFunc` 等の Go API に渡せない（"no Go representation"）。`List T`→`[]T` の境界コピーの意味論と合わせて要 decision（同 sketch、回避は gom 側でのソート実装）
+- [ ] `Go.Slice` の要素に Gom 宣言型を置けるか（E0507 緩和）: record が `[]MyRec` として `slices.SortFunc` 等の Go API に渡せない（"no Go representation"）。`List T`→`[]T` の境界コピーの意味論と合わせて要 decision（同 sketch、回避は gom 側でのソート実装）。wave37 lane D で調査→decision（[prompts](sketch/2026-11-23-wave37-prompts.md)）
 
 ### 最適化
 

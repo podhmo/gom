@@ -1,6 +1,7 @@
 # wave37 prompts
 
-- 状態: 草案（インタビュー未実施 — lane 一覧は候補）
+- 状態: 採択済み（2026-11-23 インタビュー — 候補 12 件中
+  B/C/D/F/G/J の 6 件採択。A/E/H/I/K/L は延期）
 - 日付: 2026-11-23
 - 前提: wave36 スタック（#155→#162）全件マージ済みの新しい
   main から開始。引き続き単一エージェント直列運用、Devin
@@ -12,20 +13,9 @@
   [sketch](docs/sketch/2026-11-23-sandbox-missing-features.md)）
   と wave36 lane G の decision 残件
 
-## レーン（候補 — 採否はインタビューで）
+## レーン（採択済み、旧候補レターを括弧に記す）
 
-### A. `Go.conv` List → named Go slice の check/emit ギャップ（bug）
-
-- 出典: TODO [bug] — `Go.conv xs : sort.IntSlice` が check を
-  通り `sort.IntSlice(list.List[int64])` を emit → `go build`
-  で落ちる（gaps 台帳登録済み）
-- 判断点: **(a) 拒否化** — check の変換許可判定で List の Go
-  表現を `[]T` と誤認している箇所を E0507 系の拒否に揃える。
-  **(b) 変換 emit** — `list.FromSlice` 相当の helper 経由で
-  named slice への変換コードを生成する
-- 規模: 小〜中（check + codegen 境界）
-
-### B. `gom run` のシグナル転送 + `rt.MakeChan[os.Signal]` vet 誤検知（bug 2 件）
+### A. `gom run` のシグナル転送 + `rt.MakeChan[os.Signal]` vet 誤検知（旧 B、bug 2 件）
 
 - 出典: TODO [bug] ×2 — `gom run` が SIGINT を子プロセスに
   フォワードしない（`go run` と挙動差）。`rt.MakeChan` 経由の
@@ -36,7 +26,7 @@
   vet 対象からの除外。同一ランタイム/toolchain 面なので束ねる
 - 規模: 小
 
-### C. ビット演算子の提供形（調査→decision）
+### B. ビット演算子の提供形（旧 C、調査→decision）
 
 - 出典: open-questions — `|`/`&`/`^`/shift がなく
   `os.O_APPEND|os.O_CREATE` を `+` で代用するしかない。
@@ -47,7 +37,7 @@
   decision。採択されれば実装まで
 - 規模: 中（調査 + 実装なら parser/codegen）
 
-### D. nil の綴り（調査→decision）
+### C. nil の綴り（旧 D、調査→decision）
 
 - 出典: open-questions — `Ptr.nil` しか nil を書く面がなく
   `Go.Slice`/`Go.Map`/Go 関数型の nil を作れない
@@ -55,25 +45,17 @@
   各コンストラクタ）を調査 → decision
 - 規模: 小〜中
 
-### E. `Go.Any` の検査面（調査→decision）
-
-- 出典: open-questions — `Go.conv` が具象型への取り出しを
-  E0507 で拒否する設計のため `json.Unmarshal` で `any` に
-  decode した値を触れない
-- 判断点: panic 式 / `Option` 返り / `match` 拡張のどれで
-  供給するか（回避は `json.RawMessage`/`Go.Map`/reflect）
-- 規模: 中
-
-### F. `Go.Slice` 要素に Gom 宣言型（E0507 緩和、調査→decision）
+### D. `Go.Slice` 要素に Gom 宣言型（旧 F、E0507 緩和、調査→decision）
 
 - 出典: open-questions — record が `[]MyRec` として
   `slices.SortFunc` 等に渡せない。`List T`→`[]T` の境界
   コピーの意味論と一体の設計
-- 注意: lane A と同じ境界面 — A の採択方針（拒否/変換）が
-  本 lane の材料になる。A と前後に置く
+- 注意: 延期した `Go.conv` List→named slice バグ（旧候補 A）
+  と同じ境界面。本 lane の decision はそのバグの拒否/変換
+  方針にも材料になるので、decision に触れておく
 - 規模: 中
 
-### G. `//go:embed` / directive comment / blank import の提供形（decision→実装）
+### E. `//go:embed` / directive comment / blank import の提供形（旧 G、decision→実装）
 
 - 出典: TODO [task] — `import _ "embed"` が E0101、directive
   コメントを書く面もなく `embed.FS` が原理的に使えない
@@ -81,26 +63,7 @@
   decision → 実装。`//gom:` 系 directive の機構は既存
 - 規模: 中
 
-### H. record フィールドへの Go struct tag 宣言面（decision→実装）
-
-- 出典: TODO [task] — フィールド名は lowercase 強制・Go 側は
-  PascalCase emit で tag を付けられず `json.Marshal` の出力が
-  外部スキーマと合わない
-- 作業: 属性引数かフィールド行 directive の形を decision →
-  実装
-- 規模: 中
-
-### I. `@method` emit 名の escape — initialism 対応（decision→実装）
-
-- 出典: TODO [task] — `serve_http`→`ServeHttp` しか出せず
-  `ServeHTTP`/`URL`/`ID` を生成できない → `http.Handler`・
-  `sort.Interface` 等を record に実装できない（E0401）。
-  [decision](docs/decisions/2026-11-21-go-iface-impl.md) が
-  予告した分岐
-- 作業: 属性引数か verbatim 綴り escape を decision → 実装
-- 規模: 中
-
-### J. stdlib `List` の補強
+### F. stdlib `List` の補強（旧 J）
 
 - 出典: TODO [task] — `take`/`drop`/`last`/`sort`/`sum`（Int）
   がなく実アプリで自前実装が要る。`List.sum` は Float 専用
@@ -108,20 +71,19 @@
   sketch の観測セット（`last_n`・ソート等）を基準に確定
 - 規模: 小〜中
 
-### K. 部分適用・`Unit` 残り関数値の lint（調査→decision）
+## 延期した候補（次 wave 以降へ繰越）
 
-- 出典: open-questions — 残りパラメータを持つ関数値を
-  `fmt.Println` 等に渡すと `0x...` が印字されるだけで
-  エラーにならない
-- 作業: 警告 lint を切るかの調査 → decision（採択なら実装）
-- 規模: 小〜中
-
-### L. `//gom:mutable` directive（`.gomi`）の実装
-
-- 出典: TODO [task] — wave36 lane G で採択済み decision、
-  priority low。実装がパッケージ境界の向こうに隠れた型の
-  mutable 表明（`.gomi` directive、`containsMutable` 照合）
-- 規模: 中
+- `Go.conv` List → named Go slice の check/emit ギャップ
+  （旧 A、bug）— lane D の decision と同じ境界面なので、その
+  decision を材料に次 wave で取り上げる
+- `Go.Any` の検査面（旧 E、調査→decision）
+- record フィールドへの Go struct tag 宣言面（旧 H、
+  decision→実装）
+- `@method` emit 名の escape — initialism 対応（旧 I、
+  decision→実装）
+- 部分適用・`Unit` 残り関数値の lint（旧 K、調査→decision）
+- `//gom:mutable` directive（`.gomi`）の実装（旧 L、
+  wave36 lane G 採択済み・priority low）
 
 ## 候補から外したもの
 
