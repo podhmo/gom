@@ -1061,6 +1061,21 @@ type FooBar = {y: Int}   // both emit "type FooBar"`,
 	},
 
 	{
+		Code:     "E0609",
+		Severity: SeverityError,
+		Title:    "method emits a different Go name than the interface",
+		Phase:    PhaseIface,
+		Explanation: `A .gomi member declared with @method (or @method(GoName))
+fixes the Go method name callers see — verbatim for the parenthesized
+form, the ExportName derivation otherwise. The implementing fn must
+emit that same name: rename the fn, add or change its @method
+argument, or update the .gomi. A member declared without @method
+imposes no name contract.`,
+		Example: `// iface: @method(ServeHTTP) fn (h: Handler) serve (w) (r) -> Unit
+// impl:   @method fn (h: Handler) serve (w) (r) -> Unit   // emits Serve`,
+	},
+
+	{
 		Code:     "E0701",
 		Severity: SeverityError,
 		Title:    "go block must produce Unit",

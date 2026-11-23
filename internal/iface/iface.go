@@ -2,6 +2,7 @@ package iface
 
 import (
 	"github.com/podhmo/gom/internal/check"
+	"github.com/podhmo/gom/internal/core"
 	"github.com/podhmo/gom/internal/diag"
 	"github.com/podhmo/gom/internal/types"
 )
@@ -36,6 +37,10 @@ type Member struct {
 	Arity   int
 	TParams int
 	Body    check.TypeBody
+	// MethodName is the Go name a `@method` member emits —
+	// verbatim for `@method(GoName)`, otherwise the ExportName
+	// derivation. Empty for non-method members.
+	MethodName string
 }
 
 // Package is the public surface of one compiled file — or the merged
@@ -84,8 +89,15 @@ func Surface(f *check.File) *Package {
 					Type: d.Sig.Ret})
 				continue
 			}
+			mname := ""
+			if d.Method {
+				mname = d.MethodName
+				if mname == "" {
+					mname = core.ExportName(name)
+				}
+			}
 			p.add(&Member{Kind: MemberFn, Name: name, Sp: d.Sp,
-				Type: d.Sig, Arity: len(d.Sig.Params)})
+				Type: d.Sig, Arity: len(d.Sig.Params), MethodName: mname})
 		case *check.LetDecl:
 			for _, m := range letMembers(d) {
 				p.add(m)
