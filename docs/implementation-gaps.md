@@ -1857,4 +1857,4 @@
   wave37 lane D — [decision draft](decisions/2026-11-23-goslice-gom-elem.md)。
   [実装](../internal/goimport/boundary.go) [実装](../internal/goimport/constraint.go)
 
-- [ ] **リテラル shift 除数の E0414 は型未解決で fold 不能**: `7 / (0 <<< 1)` は `constZero` 判定時に shift ノードの型が未解決メタで、幅が分からないと wrap を機械的に再現できないため fold しない — 検出は実行時の Go パニックになる（誤検出はしない）。`e : T` の ascription は `Go.conv` 専用で一般には書けず、`Go.conv` は fold 対象外なので、現状リテラル shift 除数の早期検出経路はない（wave38 lane B レビュー修正時に判明）
+- [ ] **リテラル shift 除数の E0414 は幅非依存のときだけ検出される**: `7 / (1 >>> 1)` のような shift ノードは `constZero` 判定時に型が未解決メタなので、32/64 bit 両幅で同じ結果に fold できる場合だけ検出される（`0 <<< 1`・`1 >>> 1` は検出可）。`255 <<< 60` のように幅で結果が分岐するものは fold を見送り、実行時に依存する（誤検出はしない）。`(Go.conv 0 : Int) <<< 1` と ascription で幅を与えれば確実に検出される — `Go.conv` は [constFold の Ascribe 透過](../internal/check/expr.go)で fold 対象。規則: [checkArith の E0414](../internal/check/expr.go)（wave38 lane B レビュー修正時に判明）

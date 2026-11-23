@@ -2219,17 +2219,21 @@ func constFold(e Expr) (constant.Value, bool) {
 			// operand is wrapped too: an earlier `+`/`-`/`*` or
 			// `<<<` may have folded a value past the width already
 			// (`(MaxInt + 1) >>> 63` must see the wrapped -2^63, not
-			// the unbounded 2^63). Named integral types and
-			// unsolved metas carry no width — they do not fold.
-			w, ok := intFoldWidth(e.Type())
-			if !ok {
+			// the unbounded 2^63).
+			if w, ok := intFoldWidth(e.Type()); ok {
+				return shiftConst(x, op, uint(s), w), true
+			}
+			// An unsolved meta (a bare literal chain) carries no
+			// width. The fold is still safe when 32- and 64-bit
+			// agree — `1 >>> 1` is 0 at every width; `255 <<< 60`
+			// diverges, so it stays unfolded rather than fold to a
+			// machine value only one width produces.
+			v32 := shiftConst(x, op, uint(s), 32)
+			v64 := shiftConst(x, op, uint(s), 64)
+			if !constant.Compare(v32, token.EQL, v64) {
 				return nil, false
 			}
-			v := constant.Shift(wrapConstInt(x, w), op, uint(s))
-			if op == token.SHL {
-				v = wrapConstInt(v, w)
-			}
-			return v, true
+			return v64, true
 		}
 		return constant.BinaryOp(x, op, y), true
 	case *Ascribe:
@@ -2281,6 +2285,18 @@ func wrapConstInt(v constant.Value, w uint) constant.Value {
 		return constant.MakeInt64(int64(int32(uu)))
 	}
 	return constant.MakeInt64(int64(uu))
+}
+
+// shiftConst folds a constant shift at machine width w: the operand
+// wraps to w bits first (a previous fold may hold an out-of-range
+// value), and a left shift's result wraps as well — `constant.Shift`
+// is arbitrary-precision where the machine operation is not.
+func shiftConst(x constant.Value, op token.Token, s, w uint) constant.Value {
+	v := constant.Shift(wrapConstInt(x, w), op, s)
+	if op == token.SHL {
+		v = wrapConstInt(v, w)
+	}
+	return v
 }
 
 // checkPipeTry types the Result-bind pipeline `x |?> f`: when x is
