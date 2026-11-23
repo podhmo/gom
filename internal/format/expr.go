@@ -650,6 +650,10 @@ func (p *printer) lambdaDoc(e *syntax.Lambda, nb bool) *doc {
 // "(name: Type)". An annotated (or labeled) parameter is the same
 // "(x: T)" shape a fn-decl parameter takes.
 func (p *printer) lambdaParam(pr *syntax.Param) *doc {
+	return p.sweep(pr.Sp.Start, pr.Sp.End, p.lambdaParamRaw(pr))
+}
+
+func (p *printer) lambdaParamRaw(pr *syntax.Param) *doc {
 	if pr.Label != nil || pr.Type != nil {
 		return p.paramRaw(pr)
 	}
