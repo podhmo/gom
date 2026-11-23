@@ -4,6 +4,7 @@ import go "os"
 import go "time"
 import go "sort"
 import go "encoding/json"
+import go "github.com/podhmo/gom/testdata/goiface"
 
 // `Go.conv e : T` emits the conversion the pair names (spec 8.4):
 // numeric and named-type pairs are `T(x)`, while `Go.Slice T ↔
@@ -31,6 +32,15 @@ fn to_named (xs: List Float) -> sort.Float64Slice = Go.conv xs : sort.Float64Sli
 fn from_named (xs: sort.Float64Slice) -> List Float = Go.conv xs : List Float
 
 fn to_token (xs: List Float) -> json.Token = Go.conv xs : json.Token
+
+// The named-array split: a plain `[N]T` value keeps the raw `A(xs)`
+// — the cast itself copies the array-length prefix — while a named
+// pointer to an array still routes through the copy-then-cast
+// composite, so the pointer shares the fresh ToSlice copy, never the
+// List's backing.
+fn to_arr (xs: List Int) -> goiface.Int64Arr = Go.conv xs : goiface.Int64Arr
+
+fn to_arrp (xs: List Int) -> goiface.Int64ArrPtr = Go.conv xs : goiface.Int64ArrPtr
 
 // A one-field record is the Go defined type `type X F` — the conv
 // pairs emit `F(x)` / `X(f)` like any other `T(x)`. A `Ptr`-backed
