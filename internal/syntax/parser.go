@@ -591,8 +591,13 @@ func (p *parser) parseAttrDecl() Decl {
 			p.next()
 		} else {
 			p.errf(p.spanOf(p.cur()),
-				"the \"@method\" argument must be an exported Go method name (uppercase identifier), found %s",
+				"the \"@method\" argument must be an exported Go name (uppercase identifier), found %s",
 				p.describe(p.cur()))
+			// Consume a lowercase identifier so the bad argument
+			// is not re-parsed as code after recovery.
+			if p.at(tokIdent) {
+				p.next()
+			}
 		}
 		if !p.at(tokRParen) {
 			p.expected("\")\"")
