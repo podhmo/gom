@@ -1237,6 +1237,31 @@ func TestSchema(t *testing.T) {
 	}
 }
 
+// TestList prints the importable stdlib short names — the same
+// table `import "list"` resolves through, so `cmp` is listed even
+// though it has no embedded .gomi.
+func TestList(t *testing.T) {
+	t.Parallel()
+
+	code, out, errout := invoke("list")
+	if code != 0 {
+		t.Fatalf("gom list: exit %d; stderr=%q", code, errout)
+	}
+	got := strings.Fields(out)
+	want := []string{"cmp", "list", "option", "result"}
+	if len(got) != len(want) {
+		t.Fatalf("gom list = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("gom list[%d] = %q, want %q", i, got[i], want[i])
+		}
+	}
+	if code, _, errout := invoke("list", "extra"); code != 2 || !strings.Contains(errout, "no arguments") {
+		t.Errorf("gom list extra: exit %d stderr %q; want usage error", code, errout)
+	}
+}
+
 // TestInfoDraftWritesGomi exercises `gom info`: a package without an
 // interface file gets a draft .gomi generated beside its sources, and
 // a subsequent `gom check` accepts implementation and interface.
