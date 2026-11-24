@@ -1,0 +1,3 @@
+same true
+next 1, over 100? true
+flag true

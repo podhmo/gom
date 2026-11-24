@@ -61,6 +61,7 @@ go test ./tutorial/            # the same drive as a Go test
 | 20 | `20-go-callbacks` | `Go.funcN`/`Go.fnN` conversions, `@method` interfaces, `Go.Any`/`Go.try_as` |
 | 21 | `21-sugar` | `type alias`, record spread `~..opts`, and labeled lambdas |
 | 22 | `22-struct-tags` | Go struct tags on record fields — `json:"name"` through `encoding/json` |
+| 23 | `23-defined-types` | One-field records peel to Go defined types (`type UserId int64`) — literal/record spellings, no implicit conversion |
 
 ## What you will notice
 

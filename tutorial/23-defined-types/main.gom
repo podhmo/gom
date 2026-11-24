@@ -1,0 +1,57 @@
+// Step 23: defined types — the one-field record peel.
+//
+// `type UserId = { v: Int }` does NOT emit a Go struct. A one-field
+// record peels to a Go *defined type* over its field:
+//
+//     type UserId int64
+//
+// Why: "same value, distinct type" in idiomatic Go is a named type
+// over the underlying (`type UserId int64`, `type Flag bool`), not
+// `struct{ V int64 }` — a Go caller reads and converts it exactly
+// like any named scalar, at zero runtime cost. The record spelling
+// in gom stays as syntax: `u.v` projects the field and `{ v = 0 }`
+// still constructs it.
+package main
+
+import go "fmt"
+
+type UserId = { v: Int }
+type Flag = { on: Bool }
+
+fn main () -> Unit = {
+  // Two spellings of the same value: the record literal, and —
+  // like Go's untyped constants — a bare literal in a declared-type
+  // position. (A peeled type has no value-namespace constructor;
+  // `UserId 0` does not parse.)
+  let a : UserId = { v = 0 }
+  let b : UserId = 0
+  let c : UserId = 0
+  ignore (fmt.Println "same ${a == b && b == c}")
+
+  // The underlying type's own ops still apply.
+  let d : UserId = a + 1
+  ignore (fmt.Println "next ${d.v}, over 100? ${d < 100}")
+
+  // `Flag` peels to `type Flag bool`.
+  let f : Flag = true
+  ignore (fmt.Println "flag ${f}")
+
+  // A couple of gotchas worth knowing:
+  //
+  // - A typed value does NOT implicitly convert — only literals do:
+  //       let n = 0
+  //       let z : UserId = n    // E0401: n is already Int
+  //   (Go behaves the same: `var z UserId = n` needs `UserId(n)`.)
+  //
+  // - Only ONE-field, non-generic records peel: `Point` below is a
+  //   real `struct{...}` and `p + 1` is E0401. `Box a` stays a
+  //   struct too — the peel needs a concrete field type.
+  //
+  // - A peeled value prints as its field: `${f}` above shows
+  //   `true`, not `{ on = true }`. The two spellings are the same
+  //   value — display follows the stored form, not the declared
+  //   type's record syntax.
+  ()
+}
+
+type Point = { x: Int, y: Int }
