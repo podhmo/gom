@@ -25,11 +25,11 @@ cd /tmp/selfish-test   # 入力を置いた作業 dir
 run_case() {
   /tmp/oracle-selfish "$@" > /tmp/o1 2>&1
   /tmp/gom-selfish    "$@" > /tmp/o2 2>&1
-  # 除外: log の timestamp、stack trace（tab+パス行、関数名行）、argv[0] の Usage 行
-  # ※ `\t/path` の行だけ落とすので --help の flag 説明（空白+--）は残る
+  # 除外: log の timestamp、stack trace（`file.go|gom|s:N` 行、関数名行）、argv[0] の Usage 行
+  # ※ stack のパスは -trimpath で相対にもなるので `	/path` ではなく `*.go:N` 形で落とす
   sed -i 's/^[0-9\/]* [0-9:]* //' /tmp/o1 /tmp/o2
-  diff <(grep -vE '^[[:space:]]*/|^Usage of |^\S*\.\S*$' /tmp/o1) \
-       <(grep -vE '^[[:space:]]*/|^Usage of |^\S*\.\S*$' /tmp/o2)
+  diff <(grep -vE '^[[:space:]]*\S*\.(go|gom|s):[0-9]+|^Usage of |^\S*\.\S*$' /tmp/o1) \
+       <(grep -vE '^[[:space:]]*\S*\.(go|gom|s):[0-9]+|^Usage of |^\S*\.\S*$' /tmp/o2)
 }
 ```
 
