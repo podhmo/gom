@@ -2300,14 +2300,21 @@ func (c *checker) constFold(e Expr) (constant.Value, bool) {
 		// A zero side decides `*` (and the dividend side of `/`
 		// and `%`) even when the other side does not fold —
 		// `conv * 0` is zero however unanalyzable the cast is.
-		switch e.Op {
-		case syntax.BinMul:
-			if (xok && constant.Sign(x) == 0) || (yok && constant.Sign(y) == 0) {
-				return constant.MakeInt64(0), true
-			}
-		case syntax.BinDiv, syntax.BinMod:
-			if xok && constant.Sign(x) == 0 {
-				return constant.MakeInt64(0), true
+		// Integral domain only: `x * 0.0` with a Float variable is
+		// IEEE arithmetic (x/0.0 → +Inf is legal Go), not a
+		// compile-time zero the checker may judge.
+		dt := c.definedUnderlying(types.Chase(e.Type()))
+		gk, isGo := c.namedBasicKind(dt)
+		if isIntegral(dt) || (isGo && namedIntegral(gk)) {
+			switch e.Op {
+			case syntax.BinMul:
+				if (xok && constant.Sign(x) == 0) || (yok && constant.Sign(y) == 0) {
+					return constant.MakeInt64(0), true
+				}
+			case syntax.BinDiv, syntax.BinMod:
+				if xok && constant.Sign(x) == 0 {
+					return constant.MakeInt64(0), true
+				}
 			}
 		}
 		if !xok || !yok {
@@ -2504,13 +2511,25 @@ func (c *checker) foldFloat(e Expr) (float64, bool) {
 			return 0, false
 		}
 	case *Ascribe:
-		// `Go.conv f : Float` is the identity in the float
-		// domain; `Go.conv e : T` for an integral T evaluates e
-		// then converts — re-fold through constFold, which handles
-		// the int path itself.
 		if isFloat(types.Chase(e.Type())) {
-			return c.foldFloat(e.X)
+			if isFloat(types.Chase(e.X.Type())) {
+				// `Go.conv f : Float` is the identity in the
+				// float domain.
+				return c.foldFloat(e.X)
+			}
+			// `Go.conv e : Float` on a non-float evaluates e in
+			// ITS domain first — `Go.conv (1/2) : Float` is
+			// float64(0), not 0.5: integer division keeps its
+			// truncation.
+			v, ok := c.constFold(e.X)
+			if !ok {
+				return 0, false
+			}
+			return constant.Float64Val(v)
 		}
+		// `Go.conv e : T` for an integral T evaluates e then
+		// converts — re-fold through constFold, which handles
+		// the int path itself.
 		v, ok := c.constFold(e)
 		if !ok {
 			return 0, false
