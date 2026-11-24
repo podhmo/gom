@@ -394,6 +394,7 @@ func CompileFiles(ins []Input, opts *Options) ([]*Result, error) {
 	for _, i := range impl {
 		allow, wdiags := diag.ScanAllow(ins[i].Src, ins[i].Path)
 		allows[ins[i].Path] = allow
+		wdiags = diag.DemoteAllowed(wdiags, allows)
 		results[i].Diagnostics = append(results[i].Diagnostics, wdiags...)
 	}
 
@@ -530,7 +531,7 @@ func CompileFiles(ins []Input, opts *Options) ([]*Result, error) {
 		// claims the same package-scope names, so a sibling decl's
 		// eviction is reported identically by each member — keep
 		// only the first copy of each (code, span, message).
-		for _, d := range out.Diags {
+		for _, d := range diag.DemoteAllowed(out.Diags, allows) {
 			k := emitDiagKey{code: d.Code, span: d.Span, msg: d.Message}
 			if seenEmit[k] {
 				continue

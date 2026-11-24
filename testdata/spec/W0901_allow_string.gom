@@ -1,0 +1,13 @@
+package m
+
+/*
+A `//gom:allow` inside this block comment is not a directive.
+*/
+let fake = "a /* not a comment */ b"
+
+fn add (a: Int) -> Int -> Int = fn b -> a + b
+
+fn dropper () -> Unit = {
+  ignore (add 1)
+  let _ = add 2
+}

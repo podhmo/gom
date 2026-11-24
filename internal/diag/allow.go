@@ -14,31 +14,19 @@ import "strings"
 //
 // The scan is textual, like the `//gom:noescape` reader: a stale or
 // misplaced comment must not break the parse, so lines are matched on
-// the trimmed "//gom:allow " prefix regardless of position. Lines
-// inside a `/* ... */` block are comment text and never count —
-// an opted-out opt-out must not stay active.
+// the trimmed "//gom:allow " prefix regardless of position — except
+// that comment and string structure is honored: a `//gom:allow` line
+// inside a `/* ... */` block or a raw string is literal text, not a
+// directive, and a `/*` inside a string or line comment opens no
+// block (block comments do not nest, matching the lexer).
 func ScanAllow(src []byte, path string) (allow map[Code]bool, diags List) {
 	off := 0
-	depth := 0 // open `/*` minus `*/` so far — a directive inside a
-	// block comment is comment text, not a directive.
+	var lex allowLexState
 	for _, line := range strings.Split(string(src), "\n") {
 		start := off
 		off += len(line) + 1
-		// Track block-comment depth across the whole line. The
-		// `//gom:` prefix check below only runs when the line does
-		// not sit inside `/* ... */` — same-line `/* //gom:allow */`
-		// never matched anyway (the trimmed line starts with `/*`),
-		// so depth only gates lines that open inside a block.
-		inside := depth > 0
-		depth += strings.Count(line, "/*") - strings.Count(line, "*/")
-		if depth < 0 {
-			depth = 0
-		}
-		if inside {
-			continue
-		}
-		trimmed := strings.TrimSpace(line)
-		if !strings.HasPrefix(trimmed, "//gom:allow") {
+		trimmed, comment := lex.scan(line)
+		if !comment || !strings.HasPrefix(trimmed, "//gom:allow") {
 			continue
 		}
 		rest := trimmed[len("//gom:allow"):]
@@ -98,4 +86,91 @@ func DemoteAllowed(ds List, allows map[string]map[Code]bool) List {
 		out = append(out, d)
 	}
 	return out
+}
+
+// allowLexState carries the comment/string context across lines so a
+// directive-looking line inside a block comment or raw string is not
+// read as a directive. It mirrors the lexer's rules: block comments
+// do not nest, `//` comments end at the newline, quoted strings and
+// chars honor backslash escapes within a line, and a backtick raw
+// string may span lines.
+type allowLexState struct {
+	block bool // inside /* ... */
+	raw   bool // inside `...`
+}
+
+// scan walks one line and reports the line's content trimmed plus
+// whether that content is the start of a `//` comment (i.e. a
+// possible directive). Lines inside a block comment or raw string
+// report comment=false.
+func (st *allowLexState) scan(line string) (trimmed string, comment bool) {
+	i := 0
+	onlySpace := true
+	for i < len(line) {
+		if st.block {
+			if line[i] == '*' && i+1 < len(line) && line[i+1] == '/' {
+				st.block = false
+				i += 2
+				continue
+			}
+			i++
+			continue
+		}
+		if st.raw {
+			if line[i] == '`' {
+				st.raw = false
+			}
+			i++
+			continue
+		}
+		c := line[i]
+		switch {
+		case c == ' ' || c == '\t' || c == '\r':
+			i++
+		case c == '"':
+			i = skipQuoted(line, i)
+			onlySpace = false
+		case c == '\'':
+			i = skipQuoted(line, i)
+			onlySpace = false
+		case c == '`':
+			st.raw = true
+			i++
+			onlySpace = false
+		case c == '/' && i+1 < len(line) && line[i+1] == '/':
+			if onlySpace {
+				return strings.TrimSpace(line[i:]), true
+			}
+			return strings.TrimSpace(line), false
+		case c == '/' && i+1 < len(line) && line[i+1] == '*':
+			st.block = true
+			i += 2
+			onlySpace = false
+		default:
+			i++
+			onlySpace = false
+		}
+	}
+	if st.block || st.raw {
+		return strings.TrimSpace(line), false
+	}
+	return strings.TrimSpace(line), false
+}
+
+// skipQuoted advances past a `"`/`'` literal starting at i, honoring
+// backslash escapes; it stops at the closer or the line end.
+func skipQuoted(line string, i int) int {
+	q := line[i]
+	i++
+	for i < len(line) {
+		if line[i] == '\\' {
+			i += 2
+			continue
+		}
+		if line[i] == q {
+			return i + 1
+		}
+		i++
+	}
+	return i
 }
