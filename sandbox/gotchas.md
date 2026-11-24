@@ -2,15 +2,12 @@
 
 前提: skill 単体 + コンパイラのエラーメッセージ + `gom` のヘルプメッセージだけを頼りにコードを書く想定。README → `docs/spec.md` → `docs/design.md` で分かるもの、エラーメッセージが直接教えてくれるものは除く。**「それを知る術がリポジトリの中身を読むことしかない」ものだけを先に挙げる。**
 
-## 1. 標準ライブラリ・組み込みモジュールの API 一覧を見る術が repo 内にしかない
+## 1. stdlib パッケージの関数一覧を見る術が repo 内にしかない
 
-`gom list` は importable な stdlib パッケージの**名前**だけを出す（`cmp` / `list` / `option` / `result`）。各パッケージに何があるかを列挙するコマンドはツールチェーンにない:
+`gom list` は importable な stdlib パッケージの**名前**だけを出す（`cmp` / `list` / `option` / `result`、spec §873）。中身を列挙するコマンドはツールチェーンにない:
 
-- 4 つの stdlib パッケージの中身の正は repo の `stdlib/<pkg>/<pkg>.gomi`（doc comment 付き）と `<pkg>.gom`。`Option.get_or_else`・`List.range`・`Result.to_option` などの存在はこれを読むか、名前を勘で書いて E0201 を踏むかの二択。
-- `Go.Slice.to_list`・`Go.Map`・`Task.spawn`/`await`・`Ptr`・`Ref`・`Array`・`View`・`Chan` のような**組み込みモジュールの面は `.gomi` すら存在しない** — `internal/stdlib/builtin.go` の Go ソースにメンバ表として書いてあるだけ。spec はこれらのモジュールが存在することは書くが、関数一覧は載せていない。
-- `gom info` の引数はディレクトリパス。repo を clone していれば `gom info -o - stdlib/list` で標準ライブラリのシグネチャも読めるが、clone なしでは組み込みモジュールを dump する口はない（`Go.Slice`/`Task`/`Ptr` 等は `.gom` ソースを持たないので repo があっても info では出ない）。
-
-つまり clone なしで書くと、stdlib/builtin の API は「spec に名前が出たもの + 推測 + E0201」で探ることになる。skill を単体で ship するなら `stdlib/*/*.gomi` と builtin.go の面一覧を抜粋して同梱する価値がある。
+- 各パッケージの全メンバの正は repo の `stdlib/<pkg>/<pkg>.gomi`（doc comment 付き）。spec は `List.map`/`sum`/`filter`/`length`/`range` や `Result.to_option` 等を断片的に使うだけで、`take`/`drop`/`sort_by`/`zip_with_index` など全一覧は載せていない。clone していれば `gom info -o - stdlib/list` で stdout にも出せる。clone なしでは「spec に名前が出たもの + 推測 + E0201」で探ることになる — skill を単体で ship するなら `stdlib/*/*.gomi` の抜粋同梱が価値がある。
+- 一方で**組み込みモジュールは spec に全部書かれている**: `Go.Slice`/`Go.Map`/`Array`/`View`/`Ref`（8.x 節）、`Task`/`Chan`（10 章）、`Result`/`Option`/`List` の層変換（§340）。こちらは repo を覗く必要はない — 混同しやすいので分けておく。
 
 ## 2. `gom build` / `gom run` の emit 対象は引数のディレクトリだけ — gom 依存は推移しない
 
@@ -29,7 +26,7 @@
 
 - `encoding/csv`: `FieldsPerRecord = 0` は「先頭レコードと同じ列数を強制」であり「チェックしない」ではない。可変列数は負値（`0 - 1`）。
 - 同じく csv: `w.Write [""]`（空文字列 1 フィールドの行）は空行として出力され読み側に届かない。空レコードを往復させる方法はない。
-- `regexp` の置換参照は `${2}`（`$2` は `$name` 解釈）。
+- `regexp` の置換参照は `$1`/`$2` 単独でも動くが、直後に名前文字（英数字・`_`）が続くとグループ名として吸われる（`$2_x` → 名前 `2_x` の検索）。ブレース形 `${1}`/`${2}` にしておくと確実。
 - `os.Rename` は既存の宛先を上書きする。拒否したいなら先に `os.Stat` で存在確認。
 - `encoding/json`: 大整数は `dec.UseNumber ()` + `json.Number` にしないと `float64` 化で潰れる。`json.Valid` は `Go.Slice Byte` を取る。
 - `time`: layout 文字列は参照日時 `2006-01-02` の魔法の値。ISO 用は定数 `time.DateOnly`。
@@ -48,6 +45,6 @@
 | ラムダ引数は識別子のみ（`fn` 宣言は `((a,b): T)` パターンを取れる非対称） | E0101 連発 | 本体で `match` |
 | import した Go 関数値は gom 関数の面を持つ | `sc.Split (bufio.ScanWords)` → E0401 | `Go.func2 bufio.ScanWords` で再ラップ |
 | `Char` → rune 系フィールド（`Int32`） | `r.Comma = '\t'` → E0401 | `Go.conv '\t' : Int32` |
-| `Go.nil` を `List` 面のパラメータへ | E0513、エラーが nil-able 型の一覧を出す | `let b : Go.Slice Byte = Go.nil ()` |
+| `Go.nil` を `List` 面のパラメータへ | E0513 は拒否された型を名指しするだけ。nil-able の一覧は `gom explain E0513` が出す | `let b : Go.Slice Byte = Go.nil ()` |
 | record リテラルの型が曖昧 | E0407 | `x : T` 注釈 |
 | コマンド群 | — | `gom explain <code>`・`gom fix`・`gom list`・`gom info -o`・`gom fmt -w`・`gom dump -phase` が `-h` に全部出る |

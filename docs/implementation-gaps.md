@@ -1894,3 +1894,5 @@
   module vendor は Go の規則どおりだが、workspace vendor 環境では列挙・解決が Go とずれる。
   参照: [実装](../internal/gomimport/loader.go)（`pkgDir` の vendor 分岐・`vendorEnabled`）、
   [調査](sketch/2026-11-24-gom-list-external-enumeration.md)（wave40 lane F）。未確認。
+
+- [ ] **`gom info` の再生成が `//gom:noescape` / `//gom:result-notaint` を落とす**: spec のディレクティブ表は両者を「`gom info` が書き出し」とするが、`gom info stdlib/list` で `stdlib/list/list.gomi` を再生成すると既存の `//gom:result-notaint take 0`・`//gom:result-notaint sort_by 0`・`//gom:noescape sort_by 0` 行が差分で消える（検証は sandbox での観測のみ・revert 済み）。noescape/notaint の推論が info の経路で走らないか、それとも書き出し自体が落ちるのかは未確認。記録: [sandbox/gotchas.md](../sandbox/gotchas.md) §3（wave 外・探索 run 2）。
