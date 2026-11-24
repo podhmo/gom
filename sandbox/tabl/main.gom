@@ -35,7 +35,10 @@ fn render_row (ws: List Int) (row: List String) -> String =
   |> fn cells -> strings.Join (cells, "  ")
 
 fn main () -> Unit = {
-  match read_rec (csv.NewReader os.Stdin) [] {
+  let r = csv.NewReader os.Stdin
+  r.Comma = Go.conv '\t' : Int32
+  r.FieldsPerRecord = 0 - 1
+  match read_rec r [] {
     Ok rows -> { let ws = widths rows; for row in rows { ignore fmt.Println (render_row ws row) } }
     Err e -> { ignore fmt.Fprintf (os.Stderr, "tabl: %s\n", e.Error ()); os.Exit 1 }
   }
