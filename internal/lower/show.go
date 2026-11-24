@@ -80,9 +80,10 @@ func (l *lowerer) showKindOf(t types.Type) showKind {
 			switch t.Name {
 			case "Int":
 				return showScalar
-			case "Slice":
-				return showDecl
 			default:
+				// Slice/Map/Any and friends are Go-view values:
+				// `%v`, the same rendering a whole-splice splice
+				// gets — a nested slice is not a Gom List.
 				return showRuntime
 			}
 		}

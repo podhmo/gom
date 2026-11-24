@@ -109,10 +109,17 @@ func AssertEq(t *testing.T, eq bool, actual, expected string) {
 
 // ShowError renders a GoError value inside a generated display
 // function — `error("text")`, the evaluator's VGoErr reading, with a
-// nil guard for the Go-side zero value.
-func ShowError(err error) string {
+// nil guard for the Go-side zero value. A typed-nil error whose
+// Error method panics is caught the way fmt handles it: `%!v`
+// panic text instead of crashing the splice.
+func ShowError(err error) (out string) {
 	if err == nil {
 		return "nil"
 	}
+	defer func() {
+		if r := recover(); r != nil {
+			out = fmt.Sprintf("%%!v(PANIC=Error method: %v)", r)
+		}
+	}()
 	return fmt.Sprintf("error(%q)", err.Error())
 }

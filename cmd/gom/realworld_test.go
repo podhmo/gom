@@ -111,7 +111,7 @@ func TestEndToEnd_RealWorldPrograms(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	progs := []string{"wc", "cal", "greet", "jsoncfg", "csvtojson", "httpfetch", "datemath", "errwalk"}
+	progs := []string{"wc", "cal", "greet", "jsoncfg", "csvtojson", "httpfetch", "datemath", "errwalk", "display"}
 	dirs := make([]string, len(progs))
 	for i, p := range progs {
 		dirs[i] = filepath.Join(dir, p)
@@ -308,5 +308,18 @@ func TestEndToEnd_RealWorldPrograms(t *testing.T) {
 	if code, out, errout := runBin(t, errwalkBin, dir, "", "fn0pair"); code != 0 ||
 		out != wantFn0 || errout != "" {
 		t.Fatalf("errwalk fn0pair: code=%d out=%q err=%q\nwant %q", code, out, errout, wantFn0)
+	}
+
+	// display: `${expr}` splice output pinned verbatim — composites
+	// in the evaluator's display form, Go slices via %v nested or
+	// not, GoError as error("text").
+	displayBin := buildOne("display")
+	wantDisplay := "{ name = \"n\", age = 3 }\n" +
+		"[1, 2] (({ name = \"n\", age = 3 }), 7) Circle ~r: 1.5\n" +
+		"[a b] (([a b]), 1)\n" +
+		"Err (error(\"boom\"))\n"
+	if code, out, errout := runBin(t, displayBin, dir, ""); code != 0 ||
+		out != wantDisplay || errout != "" {
+		t.Fatalf("display: code=%d out=%q err=%q\nwant %q", code, out, errout, wantDisplay)
 	}
 }
