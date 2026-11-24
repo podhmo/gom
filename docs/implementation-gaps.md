@@ -1895,4 +1895,6 @@
   参照: [実装](../internal/gomimport/loader.go)（`pkgDir` の vendor 分岐・`vendorEnabled`）、
   [調査](sketch/2026-11-24-gom-list-external-enumeration.md)（wave40 lane F）。未確認。
 
-- [ ] **`gom info` の再生成が `//gom:noescape` / `//gom:result-notaint` を落とす**: spec のディレクティブ表は両者を「`gom info` が書き出し」とするが、`gom info stdlib/list` で `stdlib/list/list.gomi` を再生成すると既存の `//gom:result-notaint take 0`・`//gom:result-notaint sort_by 0`・`//gom:noescape sort_by 0` 行が差分で消える（検証は sandbox での観測のみ・revert 済み）。noescape/notaint の推論が info の経路で走らないか、それとも書き出し自体が落ちるのかは未確認。記録: [sandbox/gotchas.md](../sandbox/gotchas.md) §3（wave 外・探索 run 2）。
+- [ ] **`gom info` の再生成が `//gom:noescape` / `//gom:result-notaint` を落とす**: spec のディレクティブ表は両者を「`gom info` が書き出し」とするが、`gom info stdlib/list` で `stdlib/list/list.gomi` を再生成すると既存の `//gom:result-notaint take 0`・`//gom:result-notaint sort_by 0`・`//gom:noescape sort_by 0` 行が差分で消える（検証は sandbox での観測のみ・revert 済み）。noescape/notaint の推論が info の経路で走らないか、それとも書き出し自体が落ちるのかは未確認。参照: [spec のディレクティブ表](spec.md)（`//gom:noescape`/`//gom:result-notaint` 行）、[実装](../cmd/gom/iface.go)（`gom info` の emit 経路）。記録: [sandbox/gotchas.md](../sandbox/gotchas.md) §3（wave 外・探索 run 2）。
+
+- [ ] **`gom explain E0513` の nil-able 一覧に `Go.FuncN` がない**: spec 8.6 節は `Go.FuncN` を nil-able な型に数えるが、`gom explain E0513` の解説文は「pointers, channels, Go.Slice, Go.Map, Go.Any, GoError, and named Go types whose underlying can hold nil」と列挙し `Go.FuncN` を含まない。参照: [codes.go](../internal/diag/codes.go) の E0513 エントリ、sandbox の E0513 行（[gotchas](../sandbox/gotchas.md)）。未確認。
