@@ -120,6 +120,10 @@ func Choose[T int64 | string](x, y T) T { return y }
 // spells.
 func Count8[T ~[]byte](x T) int64 { return int64(len(x)) }
 
+// Count8x8 is Count8 nested one level — `~[][]byte` admits
+// `Array (Array Byte)`, which renders `[][]byte`.
+func Count8x8[T ~[][]byte](x T) int64 { return int64(len(x)) }
+
 // Sum64 is Sum over []int64 — the representable slice spelling — so
 // a `List Int` argument copies at the boundary (spec section 8.5),
 // including through `xs |> Sum64` where the piped value conforms to

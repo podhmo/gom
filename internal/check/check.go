@@ -594,7 +594,14 @@ func (c *checker) goSliceSpelling(t types.Type) types.Type {
 		c.shadowedBuiltin("Array") {
 		return nil
 	}
-	return &types.Con{Qual: "Go", Name: "Slice", Args: con.Args}
+	// An `Array` element can itself be an `Array` — `[][]A` needs
+	// the same rewrite, or the inner Con reaches the boundary
+	// oracle unmappable.
+	arg := con.Args[0]
+	if inner := c.goSliceSpelling(arg); inner != nil {
+		arg = inner
+	}
+	return &types.Con{Qual: "Go", Name: "Slice", Args: []types.Type{arg}}
 }
 
 // hasShadowedBuiltinSpelling reports whether t spells a builtin
@@ -629,6 +636,8 @@ func (c *checker) hasShadowedBuiltinSpelling(t types.Type) bool {
 		// A Go-backed node carries no builtin constructor names;
 		// a leftover meta or variable spells nothing yet.
 		return false
+	default:
+		panic("unreachable")
 	}
 	return false
 }

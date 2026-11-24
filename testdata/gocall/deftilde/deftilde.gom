@@ -7,5 +7,5 @@ import go "github.com/podhmo/gom/testdata/goiface"
 // wrapper must instantiate `Clamp64[UserId]` and compile.
 type UserId = { v : Int }
 
-fn clamp_id (lo: UserId) (x: UserId) (hi: UserId) -> UserId =
-    goiface.Clamp64 lo x hi
+fn clamp_id (x: UserId) (lo: UserId) (hi: UserId) -> UserId =
+    goiface.Clamp64 x lo hi
