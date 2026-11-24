@@ -547,10 +547,10 @@ func (w *cmpWalk) has(t types.Type) bool {
 				}
 				return true
 			case "Task":
-				// rt.Task[T] is a struct — comparable iff T is.
-				if len(t.Args) == 1 {
-					return w.has(t.Args[0])
-				}
+				// rt.Task[T] is a struct{ chan, *taskBox[T] } —
+				// comparing handles compares the channel and the
+				// pointer, never the payload, so every Task is
+				// comparable.
 				return true
 			case "Option":
 				// option.Option[A] is an interface over the struct
@@ -604,32 +604,35 @@ func (w *cmpWalk) has(t types.Type) bool {
 		}
 		// An unqualified builtin the file shadows (tyCons has the
 		// declaration — expandable caught it), an abstract type, or
-		// a foreign nominal type: the repr is not visible here.
+		// a foreign nominal type the import did not declare: the
+		// repr is not visible here.
 		return false
 	default:
 		panic("unreachable")
 	}
 }
 
-// expandable reports whether the constructor names a *local* declared
-// record, sum or alias — the shapes whose declarations contribute to
-// the comparable judgment.
+// expandable reports whether the constructor names a declared
+// record, sum or alias whose declaration contributes to the
+// comparable judgment — a local declaration or an imported one
+// registerForeignTypes loaded (its fields arrive requalified).
 func (w *cmpWalk) expandable(t *types.Con) bool {
-	if t.Qual != "" {
-		return false
-	}
 	ti, ok := w.c.tyCons[conKey{qual: t.Qual, name: t.Name}]
 	return ok && ti.kind != kindAbstract
 }
 
-// expand runs f under the declaration's type-parameter substitution,
-// bounded like eqWalk.expand — a revisit or an exhausted budget
-// answers false, the "cannot prove comparable" value.
+// expand runs f under the declaration's type-parameter
+// substitution, bounded like eqWalk.expand — but the revisit answer
+// is coinductive: `type T = | N (x: T)` is comparable exactly when
+// its other fields are (the recursive field emits the same sealed
+// interface, whose `==` safety is the question being decided), so a
+// revisit answers true. Only an exhausted budget answers false —
+// the "cannot prove comparable" value.
 func (w *cmpWalk) expand(t *types.Con, ti *typeInfo, f func(types.Subst) bool) bool {
 	v := recordVisit{ti: ti, args: t.Args}
 	for _, s := range w.seen {
 		if s.ti == ti && sameTypes(s.args, v.args) {
-			return false
+			return true
 		}
 	}
 	if w.steps >= recordCycleLimit {

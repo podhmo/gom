@@ -1,0 +1,15 @@
+package cmpsum
+
+import go "slices"
+
+// Runtime pin for the payload-folded `comparable` judgement (spec
+// 8.5): a sum whose variants carry only comparable payloads compiles
+// `slices.Contains` — the generated `[]Shape` and
+// `[]option.Option[Shape]` compare without panicking.
+type Shape = | Circle (r: Float) | Empty
+
+fn has (xs: Go.Slice Shape) (needle: Shape) -> Bool =
+    slices.Contains(xs, needle)
+
+fn has_some (xs: Go.Slice (Option Shape)) (needle: Option Shape) -> Bool =
+    slices.Contains(xs, needle)

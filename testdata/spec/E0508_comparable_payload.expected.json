@@ -8,14 +8,14 @@
       "span": {
         "file": "E0508_comparable_payload.gom",
         "start": {
-          "line": 14,
+          "line": 18,
           "col": 12,
-          "offset": 490
+          "offset": 702
         },
         "end": {
-          "line": 14,
+          "line": 18,
           "col": 20,
-          "offset": 498
+          "offset": 710
         }
       },
       "data": {
@@ -32,14 +32,14 @@
       "span": {
         "file": "E0508_comparable_payload.gom",
         "start": {
-          "line": 17,
+          "line": 21,
           "col": 12,
-          "offset": 592
+          "offset": 804
         },
         "end": {
-          "line": 17,
+          "line": 21,
           "col": 20,
-          "offset": 600
+          "offset": 812
         }
       },
       "data": {
@@ -56,18 +56,66 @@
       "span": {
         "file": "E0508_comparable_payload.gom",
         "start": {
-          "line": 20,
+          "line": 24,
           "col": 12,
-          "offset": 706
+          "offset": 918
         },
         "end": {
-          "line": 20,
+          "line": 24,
           "col": 20,
-          "offset": 714
+          "offset": 926
         }
       },
       "data": {
         "argument": "Go.Func1 Int Int",
+        "constraint": "comparable",
+        "parameter": "E"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0508",
+      "severity": "error",
+      "message": "type argument `T2` does not satisfy the `comparable` constraint of `Contains`'s type parameter `E`",
+      "span": {
+        "file": "E0508_comparable_payload.gom",
+        "start": {
+          "line": 27,
+          "col": 12,
+          "offset": 1002
+        },
+        "end": {
+          "line": 27,
+          "col": 20,
+          "offset": 1010
+        }
+      },
+      "data": {
+        "argument": "T2",
+        "constraint": "comparable",
+        "parameter": "E"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0508",
+      "severity": "error",
+      "message": "type argument `github.com/podhmo/gom/testdata/spec/foreignpkg.Blob` does not satisfy the `comparable` constraint of `Contains`'s type parameter `E`",
+      "span": {
+        "file": "E0508_comparable_payload.gom",
+        "start": {
+          "line": 30,
+          "col": 12,
+          "offset": 1114
+        },
+        "end": {
+          "line": 30,
+          "col": 20,
+          "offset": 1122
+        }
+      },
+      "data": {
+        "argument": "github.com/podhmo/gom/testdata/spec/foreignpkg.Blob",
         "constraint": "comparable",
         "parameter": "E"
       }

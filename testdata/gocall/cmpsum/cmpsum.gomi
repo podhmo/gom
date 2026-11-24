@@ -1,0 +1,8 @@
+package cmpsum
+
+import go "slices"
+
+type Shape = | Circle (r: Float) | Empty
+
+fn has (xs: Go.Slice Shape) (needle: Shape) -> Bool
+fn has_some (xs: Go.Slice (Option Shape)) (needle: Option Shape) -> Bool

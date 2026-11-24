@@ -1,0 +1,14 @@
+package foreignpkg
+
+// Helper package for the spec suite's imported-payload cases: the
+// comparable judgement must see an imported declaration's fields
+// (registerForeignTypes), not just local ones.
+
+type Point = { x : Float, y : Float }
+
+type Shape =
+  | Circle (r: Float)
+  | Dot (p: Point)
+
+// A record over a List — the non-comparable foreign payload.
+type Blob = { d : List Int }
