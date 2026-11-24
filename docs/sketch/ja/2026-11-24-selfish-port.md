@@ -15,7 +15,7 @@ argv[0] 由来の `Usage of <name>:` と stack trace のパス以外は全一致
 
 ## 検証レシピ
 
-```sh
+```bash
 # 準備: 入力ファイル（readme.md = "# Hello Title" の markdown、hello.txt、
 # bin.dat = バイナリ）、および ~/.config/selfish/config.json = {"access_token": "dummy-token"}
 cd ~/repos/gom/sandbox/selfish && go build -o /tmp/gom-selfish ./gselfish
@@ -25,10 +25,11 @@ cd /tmp/selfish-test   # 入力を置いた作業 dir
 run_case() {
   /tmp/oracle-selfish "$@" > /tmp/o1 2>&1
   /tmp/gom-selfish    "$@" > /tmp/o2 2>&1
-  # 除外: log の timestamp、stack trace の frame（関数行+パス行）、argv[0] の Usage 行
+  # 除外: log の timestamp、stack trace（tab+パス行、関数名行）、argv[0] の Usage 行
+  # ※ `\t/path` の行だけ落とすので --help の flag 説明（空白+--）は残る
   sed -i 's/^[0-9\/]* [0-9:]* //' /tmp/o1 /tmp/o2
-  diff <(grep -vE '^[[:space:]]|^Usage of |^\S*\.\S*$' /tmp/o1) \
-       <(grep -vE '^[[:space:]]|^Usage of |^\S*\.\S*$' /tmp/o2)
+  diff <(grep -vE '^[[:space:]]*/|^Usage of |^\S*\.\S*$' /tmp/o1) \
+       <(grep -vE '^[[:space:]]*/|^Usage of |^\S*\.\S*$' /tmp/o2)
 }
 ```
 
