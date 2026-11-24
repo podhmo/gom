@@ -8,6 +8,10 @@
 
 ## 候補
 
+採否（2026-11-24、merge 前インタビュー）: A–E 採用、F は future work として保留。
+
+### A. `%w` error wrapping の第一級サポート（規模: 中）
+
 ### A. `%w` error wrapping の第一級サポート（規模: 中）
 
 生成 `fmt.Errorf` が引数を `any(...)` に box するため `go vet`
