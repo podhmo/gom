@@ -1,0 +1,18 @@
+package typetest
+
+import go "fmt"
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// spec 4.1: `p : T` / `_ : T` type-test arms over `Go.Any` — the
+// emitted Go type switch classifies values the Go side produced.
+fn describe (x: Go.Any) -> String = match x {
+    s : String -> s
+    n : Int -> "int"
+    _ : GoError -> "error"
+    _ : fmt.Stringer -> "stringer"
+    _ -> "other"
+}
+
+// Gom → Go → Gom: an Int boxes into `any` at the Go call boundary
+// and classifies back through the type switch.
+fn boxed_describe (n: Int) -> String = describe (goiface.Boxed n)

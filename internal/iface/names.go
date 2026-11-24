@@ -64,6 +64,10 @@ func bindNames(p syntax.Pat, out map[string]bool) {
 		if p.Name != nil {
 			out[p.Name.Name] = true
 		}
+	case *syntax.TypePat:
+		if p.Name != nil {
+			out[p.Name.Name] = true
+		}
 	case *syntax.WildPat, *syntax.LitPat:
 		// binds nothing
 	case *syntax.CtorPat:

@@ -371,6 +371,14 @@ type InterfaceMethodSource interface {
 	InterfaceMethods(t types.Type) ([]InterfaceMethod, bool)
 }
 
+// InterfaceKindSource is an optional extension: whether a type's Go
+// representation is an interface — a coarser oracle than
+// InterfaceMethods, which fails on interfaces whose method
+// signatures mention unmappable types.
+type InterfaceKindSource interface {
+	GoInterface(t types.Type) bool
+}
+
 // GomMethodSource is an optional extension: the Go methods an
 // imported Gom type declares — the importer's view of the method
 // table the home package's checker holds in memory.
@@ -453,6 +461,15 @@ func (c chain) InterfaceAssignable(from, to types.Type) bool {
 	for _, s := range c {
 		if src, ok := s.(InterfaceSource); ok && src.InterfaceAssignable(from, to) {
 			return true
+		}
+	}
+	return false
+}
+
+func (c chain) GoInterface(t types.Type) bool {
+	for _, s := range c {
+		if src, ok := s.(InterfaceKindSource); ok {
+			return src.GoInterface(t)
 		}
 	}
 	return false

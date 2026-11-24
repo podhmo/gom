@@ -82,6 +82,15 @@ func CheckMatch(m *check.Match, env *Env, opts Options) []diag.Diagnostic {
 func (c *checker) checkMatch(m *check.Match) []diag.Diagnostic {
 	var diags []diag.Diagnostic
 
+	// A type-test match (`p : T` arms over Go.Any) is checked by the
+	// check phase, not here — first-match semantics with an open
+	// type domain do not fit the coverage matrix.
+	for i := range m.Arms {
+		if _, ok := m.Arms[i].Pat.(*check.TypePat); ok {
+			return nil
+		}
+	}
+
 	// Per-arm checks and row expansion. Guarded arms never enter
 	// the coverage matrix, so their rows are not converted at all.
 	cover := matrix{}
@@ -233,7 +242,7 @@ func (c *checker) orPatDiags(p check.Pat) []diag.Diagnostic {
 	var walk func(p check.Pat)
 	walk = func(p check.Pat) {
 		switch p := p.(type) {
-		case *check.WildPat, *check.VarPat, *check.LitPat:
+		case *check.WildPat, *check.VarPat, *check.LitPat, *check.TypePat:
 		case *check.AsPat:
 			walk(p.Pat)
 		case *check.CtorPat:

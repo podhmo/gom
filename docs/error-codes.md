@@ -316,6 +316,77 @@ arms bind Option values and branch in their bodies with ordinary
 match expressions, so coverage is reported by E0301 instead
 (decisions/2026-11-01-select-receive-arms.md).
 
+### E0306 — type-test arm on a non-interface scrutinee
+
+**Severity:** error · **Phase:** check · **Spec:** §4
+
+A "p : T" or "_ : T" match arm is a Go type assertion: it asks
+which concrete type the value inside an interface actually carries.
+That only means something when the scrutinee is an interface —
+"Go.Any" (the empty interface) or a named Go interface type. On an
+ordinary type the answer is already known at compile time, so the
+arm is either redundant or a mistake.
+
+```gom
+match n {   // n : Int — already known
+  s : String -> s
+  _ -> "?"
+}
+```
+
+### E0307 — illegal arm in a type-test match
+
+**Severity:** error · **Phase:** check · **Spec:** §4
+
+Once a match contains a type-test arm its scrutinee is an
+interface value, and every arm must fit the Go type-switch shape:
+"type-test" arms (name : T / _ : T), then one catch-all ("_" or a
+plain variable) as the last arm. Literal, constructor and composite
+patterns cannot appear, the catch-all must come last, and guards
+("if cond") are not supported on type-test matches yet — a Go type
+switch cannot fall through to a later case.
+
+```gom
+match x {   // x : Go.Any
+  s : String -> s
+  Some _ -> "ctor"   // mixed patterns are not allowed
+  _ -> "?"
+}
+```
+
+### E0308 — type-test match missing catch-all
+
+**Severity:** error · **Phase:** check · **Spec:** §4
+
+The scrutinee can hold any Go value, so the type-test arms can
+never cover every possibility — including a nil interface. A
+catch-all arm ("_" or a plain variable) must come last; it also
+decides what nil does.
+
+```gom
+match x {   // x : Go.Any
+  s : String -> s
+  // missing: _ -> ...
+}
+```
+
+### E0309 — duplicate type-test arm
+
+**Severity:** error · **Phase:** check · **Spec:** §4
+
+Two arms test the same emitted Go type — the second can never
+match. Types are compared by their Go representation, not their
+Gom spelling: "Char" and "Int32" are the same "case int32", and
+"rune" and "byte" spellings are their aliases.
+
+```gom
+match x {   // x : Go.Any
+  c : Char -> "char"
+  i : Int32 -> "i32"   // int32 again
+  _ -> "?"
+}
+```
+
 ## 04xx — Type checking
 
 ### E0401 — type mismatch

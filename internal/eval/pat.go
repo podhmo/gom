@@ -19,6 +19,25 @@ func (e *interp) matchPat(pat check.Pat, v Value, env *Env) bool {
 	case *check.VarPat:
 		env.Bind(p.Sym, v)
 		return true
+	case *check.TypePat:
+		var ok bool
+		switch {
+		case p.Iface != nil && len(p.Iface) == 0:
+			// An empty-interface target lowers to the default arm —
+			// it matches every value, including nil.
+			ok = true
+		case p.Iface != nil:
+			ok = e.implements(v, p.Iface, p.IfaceSig)
+		default:
+			ok = e.inhabits(v, p.Target)
+		}
+		if !ok {
+			return false
+		}
+		if p.Sym != nil {
+			env.Bind(p.Sym, e.unboxAny(v, p.Target))
+		}
+		return true
 	case *check.LitPat:
 		want := litValue(p.Kind, p.Text, p.Type(), pat.Span())
 		return e.eqValue(want, v, pat.Span())
@@ -164,6 +183,10 @@ func boundSyms(pat check.Pat) []*resolve.Symbol {
 		case *check.WildPat, *check.LitPat:
 		case *check.VarPat:
 			out = append(out, p.Sym)
+		case *check.TypePat:
+			if p.Sym != nil {
+				out = append(out, p.Sym)
+			}
 		case *check.AsPat:
 			walk(p.Pat)
 			out = append(out, p.Sym)

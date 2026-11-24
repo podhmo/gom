@@ -534,6 +534,31 @@ func (p *parser) parseMatch() Expr {
 func (p *parser) parseMatchArm() *MatchArm {
 	start := p.cur().start
 	pat := p.parsePattern()
+	// `p : T` / `_ : T` type-test arms — the `:` after a plain
+	// variable or wildcard is the type test, not an annotation
+	// (type-test arms are only legal in a Go.Any match; check
+	// enforces that).
+	if p.at(tokColon) {
+		var name *Ident
+		typed := true
+		if vp, ok := pat.(*VarPat); ok {
+			name = vp.Name
+		} else if _, ok := pat.(*WildPat); !ok {
+			typed = false
+		}
+		if typed {
+			p.next()
+			// The arm's own `->` must not join the type — parse at
+			// application level; a function-type target needs
+			// parens, `x : (Int -> Int)`.
+			typ := p.parseAppType()
+			pat = &TypePat{
+				Sp:   p.span(pat.Span().Start, typ.Span().End),
+				Name: name,
+				Typ:  typ,
+			}
+		}
+	}
 	var guard Expr
 	lhs := p.srcText(pat.Span())
 	if p.at(tokIf) {

@@ -162,6 +162,12 @@ func letMembers(d *check.LetDecl) []*Member {
 			}
 			out = append(out, &Member{Kind: MemberLet,
 				Name: p.Sym.Name, Sp: p.Sp, Type: p.Typ})
+		case *check.TypePat:
+			if p.Sym == nil || p.Sym.TestOnly {
+				return
+			}
+			out = append(out, &Member{Kind: MemberLet,
+				Name: p.Sym.Name, Sp: p.Sp, Type: p.Typ})
 		case *check.CtorPat:
 			for _, a := range p.Args {
 				walk(a.Pat)

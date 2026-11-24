@@ -823,6 +823,9 @@ func (w *identWalker) pat(p syntax.Pat) {
 	case *syntax.WildPat, *syntax.LitPat:
 	case *syntax.VarPat:
 		w.occ(n.Name)
+	case *syntax.TypePat:
+		w.occ(n.Name)
+		w.typeExpr(n.Typ)
 	case *syntax.CtorPat:
 		w.expr(n.Ctor) // ctor heads resolve like expression idents
 		for i := range n.Args {

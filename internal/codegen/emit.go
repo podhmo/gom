@@ -612,11 +612,58 @@ func (g *gen) dswitch(s *core.DSwitch, d dest) {
 		g.switchTag(s, d)
 	case core.SwitchValue:
 		g.switchValue(s, d)
+	case core.SwitchGoType:
+		g.switchGoType(s, d)
 	case core.SwitchList:
 		g.switchList(s, d)
 	default:
 		panic("unreachable")
 	}
+}
+
+// switchGoType emits a Go type switch `switch v := x.(type)` for a
+// type-test match — `case T:` per arm in order, `default:` for the
+// mandatory catch-all (nil interfaces and untested types land
+// there; unlike the ADT switch the default is never a panic).
+func (g *gen) switchGoType(s *core.DSwitch, d dest) {
+	guard := ""
+	for _, c := range s.Cases {
+		if len(c.Binds) > 0 && bindUsed(c.Binds[0], c.Body) {
+			guard = g.fresh("v")
+			break
+		}
+	}
+	g.raw("switch ")
+	if guard != "" {
+		g.raw(guard + " := ")
+	}
+	g.expr(g.atom(s.Subj))
+	g.raw(".(type)")
+	g.open()
+	for _, c := range s.Cases {
+		g.dcaseGoType(c, guard, d)
+	}
+	g.ddefault(s, d)
+	g.close()
+}
+
+// dcaseGoType emits `case T:` for a type-test arm, plus the
+// narrowed-subject alias when the case binds one and uses it.
+func (g *gen) dcaseGoType(c core.DCase, guard string, d dest) {
+	g.line(c.Sp)
+	tt, ok := c.Test.(*core.DtypeTest)
+	if !ok {
+		panic("codegen: SwitchGoType case test is not a DtypeTest")
+	}
+	g.caseLabel(func() {
+		g.raw("case ")
+		g.expr(g.goType(tt.Target))
+	})
+	if len(c.Binds) == 1 && guard != "" && bindUsed(c.Binds[0], c.Body) {
+		g.raw(g.bindName(c.Binds[0]) + " := " + guard)
+		g.nl()
+	}
+	g.body(c.Body, d)
 }
 
 // switchType emits a Go type switch over a sealed ADT. The guard

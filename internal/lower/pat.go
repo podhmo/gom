@@ -71,6 +71,11 @@ func structural(p check.Pat) bool {
 	switch p := p.(type) {
 	case *check.WildPat, *check.VarPat, *check.TuplePat, *check.RecordPat, *check.AsPat:
 		return true
+	case *check.TypePat:
+		// A type test can fail — but TypePat only appears in a
+		// type-test match, which goTypeSwitch lowers without
+		// reaching this classifier.
+		return false
 	case *check.LitPat:
 		return p.Kind == syntax.LitUnit
 	case *check.ListPat:
@@ -172,11 +177,86 @@ func (l *lowerer) expandStructural(w *armState, ob oblig) []oblig {
 	case *check.ListPat:
 		// `[..rest]` — the tail binds the whole subject.
 		return append([]oblig{{subj: ob.subj, pat: p.Rest}}, rest...)
-	case *check.CtorPat, *check.OrPat:
+	case *check.CtorPat, *check.OrPat, *check.TypePat:
 		panic("unreachable")
 	default:
 		panic("unreachable")
 	}
+}
+
+// goTypeSwitch lowers a match containing `p : T` type-test arms to a
+// SwitchGoType — a Go type switch over the interface scrutinee
+// (decisions/2026-11-24-match-type-test-arms.md). Type-test arms
+// become DtypeTest cases in order; the mandatory trailing catch-all
+// (`_` or a variable) becomes the Default. Each case binds the
+// narrowed subject directly — no Maranget expansion, first-match
+// order is the semantics.
+func (l *lowerer) goTypeSwitch(s *seq, e *check.Match, subj core.Atom) core.Expr {
+	sw := &core.DSwitch{
+		Sp: e.Sp, Typ: e.Type(),
+		Subj: subj, Kind: core.SwitchGoType,
+	}
+	for i := range e.Arms {
+		arm := &e.Arms[i]
+		if p, ok := arm.Pat.(*check.TypePat); ok {
+			if p.Iface != nil && len(p.Iface) == 0 {
+				// `x : any` or an empty-interface target matches
+				// every value — including nil, which Go's
+				// `case any` skips — so it is the catch-all and
+				// must lower as the default arm.
+				var cp check.Pat = &check.WildPat{Base: p.Base}
+				if p.Sym != nil {
+					cp = &check.VarPat{Base: p.Base, Sym: p.Sym}
+				}
+				w := &armState{
+					src:  arm,
+					sp:   arm.Sp,
+					todo: []oblig{{subj: subj, pat: cp}},
+				}
+				sw.Default = l.continueWith([]*armState{w}, subj, e.Type())
+				continue
+			}
+			dc := core.DCase{
+				Sp:   p.Span(),
+				Test: &core.DtypeTest{Sp: p.Span(), Target: p.Target},
+			}
+			subst := map[*resolve.Symbol]*resolve.Symbol{}
+			if p.Sym != nil {
+				b := l.namedBind(p.Span(), p.Sym, p.Target)
+				dc.Binds = []*core.Bind{b}
+				subst[p.Sym] = b.Sym
+			}
+			w := &armState{src: arm, sp: arm.Sp}
+			dc.Body = l.armBody(w, subst)
+			sw.Cases = append(sw.Cases, dc)
+			continue
+		}
+		_, isWild := arm.Pat.(*check.WildPat)
+		_, isVar := arm.Pat.(*check.VarPat)
+		if isWild || isVar {
+			// The catch-all: lower through the ordinary arm path so
+			// a variable arm's bind lands inside the default body.
+			w := &armState{
+				src:  arm,
+				sp:   arm.Sp,
+				todo: []oblig{{subj: subj, pat: arm.Pat}},
+			}
+			sw.Default = l.continueWith([]*armState{w}, subj, e.Type())
+		}
+		// Another pattern kind inside a type-test match was
+		// already reported by check (E0307) — drop it rather
+		// than lower a form codegen cannot emit.
+	}
+	if sw.Default == nil {
+		sw.Default = l.dpanic(subj, e.Type())
+	}
+	if len(sw.Cases) == 0 {
+		// Every arm was a catch-all — no type test survives, so
+		// the switch is just the default arm (the validator
+		// requires at least one case).
+		return &core.Match{Base: baseOf(e), Tree: sw.Default}
+	}
+	return &core.Match{Base: baseOf(e), Tree: sw}
 }
 
 // switchOn builds a DSwitch from the first arm's test head.
@@ -189,7 +269,7 @@ func (l *lowerer) switchOn(states []*armState, s *seq, resT types.Type) core.DTr
 		return l.litSwitch(states, s, resT)
 	case *check.ListPat:
 		return l.listSwitch(states, s, resT)
-	case *check.VarPat, *check.WildPat, *check.TuplePat, *check.RecordPat, *check.AsPat, *check.OrPat:
+	case *check.VarPat, *check.WildPat, *check.TuplePat, *check.RecordPat, *check.AsPat, *check.OrPat, *check.TypePat:
 		panic("unreachable")
 	default:
 		panic("unreachable")
@@ -363,7 +443,7 @@ func (l *lowerer) statesForCtor(w *armState, v Variant, kind core.SwitchKind, na
 	case *check.LitPat, *check.ListPat:
 		// A test head of another kind never matches this outcome.
 		return nil
-	case *check.VarPat, *check.WildPat, *check.TuplePat, *check.RecordPat, *check.AsPat:
+	case *check.VarPat, *check.WildPat, *check.TuplePat, *check.RecordPat, *check.AsPat, *check.TypePat:
 		// Cannot-fail heads survive into every outcome.
 		return []*armState{w.clone()}
 	default:
@@ -520,7 +600,7 @@ func (l *lowerer) statesForLit(w *armState, lp *check.LitPat) []*armState {
 		return out
 	case *check.CtorPat, *check.ListPat:
 		return nil
-	case *check.VarPat, *check.WildPat, *check.TuplePat, *check.RecordPat, *check.AsPat:
+	case *check.VarPat, *check.WildPat, *check.TuplePat, *check.RecordPat, *check.AsPat, *check.TypePat:
 		// Cannot-fail heads survive into every outcome.
 		return []*armState{w.clone()}
 	default:
@@ -551,7 +631,7 @@ func (l *lowerer) statesForLitDefault(w *armState) []*armState {
 		return out
 	case *check.CtorPat, *check.ListPat:
 		return nil
-	case *check.VarPat, *check.WildPat, *check.TuplePat, *check.RecordPat, *check.AsPat:
+	case *check.VarPat, *check.WildPat, *check.TuplePat, *check.RecordPat, *check.AsPat, *check.TypePat:
 		// Cannot-fail heads survive into every outcome.
 		return []*armState{w.clone()}
 	default:
@@ -643,7 +723,7 @@ func (l *lowerer) statesForList(w *armState, cons bool) []*armState {
 		return out
 	case *check.CtorPat, *check.LitPat:
 		return nil
-	case *check.VarPat, *check.WildPat, *check.TuplePat, *check.RecordPat, *check.AsPat:
+	case *check.VarPat, *check.WildPat, *check.TuplePat, *check.RecordPat, *check.AsPat, *check.TypePat:
 		// Cannot-fail heads survive into every outcome.
 		return []*armState{w.clone()}
 	default:
@@ -901,6 +981,8 @@ func deepPure(p check.Pat) bool {
 		return true
 	case *check.LitPat:
 		return p.Kind == syntax.LitUnit
+	case *check.TypePat:
+		return false
 	case *check.TuplePat:
 		for _, e := range p.Elems {
 			if !deepPure(e) {
@@ -945,6 +1027,10 @@ func (l *lowerer) pureBinds(pat check.Pat, subj core.Atom) []pureBind {
 		switch p := p.(type) {
 		case *check.VarPat:
 			out = append(out, pureBind{sp: p.Sp, sym: p.Sym, atom: a})
+		case *check.TypePat:
+			if p.Sym != nil {
+				out = append(out, pureBind{sp: p.Sp, sym: p.Sym, atom: a})
+			}
 		case *check.AsPat:
 			out = append(out, pureBind{sp: p.Sp, sym: p.Sym, atom: a})
 			walk(p.Pat, a)
@@ -1007,6 +1093,10 @@ func boundVars(p check.Pat) []boundVar {
 		switch p := p.(type) {
 		case *check.VarPat:
 			out = append(out, boundVar{sym: p.Sym, typ: p.Type(), sp: p.Span()})
+		case *check.TypePat:
+			if p.Sym != nil {
+				out = append(out, boundVar{sym: p.Sym, typ: p.Type(), sp: p.Span()})
+			}
 		case *check.AsPat:
 			out = append(out, boundVar{sym: p.Sym, typ: p.Type(), sp: p.Span()})
 			walk(p.Pat)

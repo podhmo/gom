@@ -2048,40 +2048,79 @@
       ]
     },
     "match_arm": {
-      "type": "SEQ",
+      "type": "CHOICE",
       "members": [
         {
-          "type": "SYMBOL",
-          "name": "pattern"
-        },
-        {
-          "type": "CHOICE",
+          "type": "SEQ",
           "members": [
             {
-              "type": "SEQ",
+              "type": "CHOICE",
               "members": [
                 {
                   "type": "STRING",
-                  "value": "if"
+                  "value": "_"
                 },
                 {
                   "type": "SYMBOL",
-                  "name": "expr"
+                  "name": "ident"
                 }
               ]
             },
             {
-              "type": "BLANK"
+              "type": "STRING",
+              "value": ":"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "app_type"
+            },
+            {
+              "type": "STRING",
+              "value": "->"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "expr"
             }
           ]
         },
         {
-          "type": "STRING",
-          "value": "->"
-        },
-        {
-          "type": "SYMBOL",
-          "name": "expr"
+          "type": "SEQ",
+          "members": [
+            {
+              "type": "SYMBOL",
+              "name": "pattern"
+            },
+            {
+              "type": "CHOICE",
+              "members": [
+                {
+                  "type": "SEQ",
+                  "members": [
+                    {
+                      "type": "STRING",
+                      "value": "if"
+                    },
+                    {
+                      "type": "SYMBOL",
+                      "name": "expr"
+                    }
+                  ]
+                },
+                {
+                  "type": "BLANK"
+                }
+              ]
+            },
+            {
+              "type": "STRING",
+              "value": "->"
+            },
+            {
+              "type": "SYMBOL",
+              "name": "expr"
+            }
+          ]
         }
       ]
     },

@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/podhmo/gom/internal/check"
 	"github.com/podhmo/gom/internal/diag"
@@ -899,7 +900,96 @@ func TestMatch(t *testing.T) {
 			t.Fatalf("got %s", v)
 		}
 	})
+
+	t.Run("type-test arm asserts and binds the narrowed value", func(t *testing.T) {
+		s := sym("s", resolve.KindVar)
+		tp := &check.TypePat{Base: b(types.String), Sym: s, Target: types.String}
+		x := match(types.String, strLit("hi"),
+			arm(tp, vr(s, types.String)),
+			arm(wild(types.String), strLit("other")))
+		if got := evalOK(t, eval.NewEnv(), x).String(); got != `"hi"` {
+			t.Fatalf("got %s", got)
+		}
+	})
+
+	t.Run("type-test arm falls through on a different type", func(t *testing.T) {
+		tp := &check.TypePat{Base: b(types.String), Target: types.String}
+		x := match(types.String, intLit(7),
+			arm(tp, strLit("str")),
+			arm(wild(types.String), strLit("other")))
+		if got := evalOK(t, eval.NewEnv(), x).String(); got != `"other"` {
+			t.Fatalf("got %s", got)
+		}
+	})
+
+	t.Run("type-test arm on a named Go interface checks the method set", func(t *testing.T) {
+		env := eval.NewEnv()
+		hostSym := sym("x", resolve.KindVar)
+		env.Bind(hostSym, &eval.VHost{V: time.Second})
+		s := sym("s", resolve.KindVar)
+		ifaceT := &types.Con{Qual: "fmt", Name: "Stringer"}
+		tp := &check.TypePat{Base: b(ifaceT), Sym: s, Target: ifaceT, Iface: []string{"String"}}
+		x := match(types.String, vr(hostSym, &types.Con{Qual: "Go", Name: "Any"}),
+			arm(tp, strLit("stringer")),
+			arm(wild(types.String), strLit("other")))
+		if got := evalOK(t, env, x).String(); got != `"stringer"` {
+			t.Fatalf("got %s", got)
+		}
+	})
+
+	t.Run("type-test arm on a named Go interface misses without the method", func(t *testing.T) {
+		env := eval.NewEnv()
+		hostSym := sym("x", resolve.KindVar)
+		env.Bind(hostSym, &eval.VHost{V: int64(3)})
+		ifaceT := &types.Con{Qual: "fmt", Name: "Stringer"}
+		tp := &check.TypePat{Base: b(ifaceT), Target: ifaceT, Iface: []string{"String"}}
+		x := match(types.String, vr(hostSym, &types.Con{Qual: "Go", Name: "Any"}),
+			arm(tp, strLit("str")),
+			arm(wild(types.String), strLit("other")))
+		if got := evalOK(t, env, x).String(); got != `"other"` {
+			t.Fatalf("got %s", got)
+		}
+	})
+
+	t.Run("empty-interface catch-all keeps the box's element type", func(t *testing.T) {
+		env := eval.NewEnv()
+		hostSym := sym("x", resolve.KindVar)
+		listT := &types.Con{Qual: "list", Name: "List", Args: []types.Type{types.Int}}
+		// An empty `List Int` boxed into `any` — the elements
+		// cannot name the type, only the recorded T can.
+		env.Bind(hostSym, &eval.VHost{V: &eval.VList{}, T: listT})
+		anyT := &types.Con{Qual: "Go", Name: "Any"}
+		v := sym("v", resolve.KindVar)
+		inner := &check.TypePat{Base: b(anyT), Sym: v, Target: anyT, Iface: []string{}}
+		// `match x { v : Go.Any -> match v { xs : List Int -> "list"; _ -> "other" } }`
+		innerMatch := match(types.String, vr(v, anyT),
+			arm(&check.TypePat{Base: b(listT), Target: listT}, strLit("list")),
+			arm(wild(anyT), strLit("other")))
+		x := match(types.String, vr(hostSym, anyT), arm(inner, innerMatch))
+		if got := evalOK(t, env, x).String(); got != `"list"` {
+			t.Fatalf("got %s", got)
+		}
+	})
+
+	t.Run("error arm binds a typed-nil error without calling Error", func(t *testing.T) {
+		env := eval.NewEnv()
+		hostSym := sym("x", resolve.KindVar)
+		var nilErr error = (*nilTestError)(nil)
+		env.Bind(hostSym, &eval.VHost{V: nilErr})
+		e := sym("e", resolve.KindVar)
+		tp := &check.TypePat{Base: b(types.GoError), Sym: e, Target: types.GoError}
+		x := match(types.String, vr(hostSym, &types.Con{Qual: "Go", Name: "Any"}),
+			arm(tp, strLit("err")),
+			arm(wild(types.String), strLit("other")))
+		if got := evalOK(t, env, x).String(); got != `"err"` {
+			t.Fatalf("got %s", got)
+		}
+	})
 }
+
+type nilTestError struct{}
+
+func (*nilTestError) Error() string { panic("Error on a typed-nil receiver must not be called") }
 
 // --- ADTs ---
 

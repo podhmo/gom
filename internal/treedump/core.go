@@ -731,6 +731,8 @@ func (d *cdump) ctest(t core.DTest) *form {
 			text += "nil"
 		}
 		return nodef(text)
+	case *core.DtypeTest:
+		return nodef("typetest" + at(t.Sp) + " " + atom(types.CanonGoRepr(types.GoRepr(t.Target))))
 	default:
 		panic("unreachable")
 	}

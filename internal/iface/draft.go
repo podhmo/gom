@@ -707,6 +707,10 @@ func patNames(p syntax.Pat) []string {
 			if p.Name != nil {
 				out = append(out, p.Name.Name)
 			}
+		case *syntax.TypePat:
+			if p.Name != nil {
+				out = append(out, p.Name.Name)
+			}
 		case *syntax.CtorPat:
 			for _, a := range p.Args {
 				walk(a.Pat)
@@ -760,6 +764,8 @@ func patText(p check.Pat) string {
 		return "_"
 	case *check.LitPat:
 		return p.Text
+	case *check.TypePat:
+		return "_"
 	case *check.TuplePat:
 		var sb strings.Builder
 		sb.WriteByte('(')

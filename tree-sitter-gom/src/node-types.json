@@ -1212,7 +1212,15 @@
       "required": true,
       "types": [
         {
+          "type": "app_type",
+          "named": true
+        },
+        {
           "type": "expr",
+          "named": true
+        },
+        {
+          "type": "ident",
           "named": true
         },
         {

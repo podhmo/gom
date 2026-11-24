@@ -3024,7 +3024,96 @@ func (c *checker) checkMatch(e *syntax.Match, want types.Type) Expr {
 		}
 		prev = append(prev, &arms[i].Body)
 	}
+	c.checkTypeTestArms(e, arms, subj.Type())
 	return &Match{Base: baseOf(e.Sp, bt), Subj: subj, Arms: arms}
+}
+
+// checkTypeTestArms validates the `p : T` arm shape against the
+// scrutinee (decisions/2026-11-24-match-type-test-arms.md):
+// type-test arms are only legal over a Go.Any-ish subject (the
+// empty interface or a named Go interface, interfaces included);
+// a match containing one must consist of TypePat arms plus a
+// trailing catch-all (`_` or a plain variable); targets must be
+// concrete and pairwise distinct by their emitted Go type
+// (Char and Int32 assert the same `case`); guards are not yet
+// supported on a type-test match.
+func (c *checker) checkTypeTestArms(e *syntax.Match, arms []MatchArm, subjT types.Type) {
+	hasTypePat := false
+	for i := range arms {
+		if _, ok := arms[i].Pat.(*TypePat); ok {
+			hasTypePat = true
+			break
+		}
+	}
+	if !hasTypePat {
+		return
+	}
+	anyLike := isGoAny(types.Chase(subjT))
+	if !anyLike {
+		// Whether the subject emits an interface decides arm
+		// legality — the method-set listing is a stricter oracle
+		// that also fails on unmappable signatures.
+		if ms, ok := c.src.(InterfaceKindSource); ok && ms.GoInterface(types.Chase(subjT)) {
+			anyLike = true
+		} else if ms, ok := c.src.(InterfaceMethodSource); ok {
+			if _, ok := ms.InterfaceMethods(types.Chase(subjT)); ok {
+				anyLike = true
+			}
+		}
+	}
+	seen := map[string]diag.Span{}
+	sawCatchAll := false
+	for i := range arms {
+		a := &arms[i]
+		tp, isTP := a.Pat.(*TypePat)
+		if !isTP {
+			_, isWild := a.Pat.(*WildPat)
+			_, isVar := a.Pat.(*VarPat)
+			if isWild || isVar {
+				if i != len(arms)-1 {
+					c.diags.Add(diag.Error("E0307",
+						"the catch-all arm of a type-test match must come last — later arms are unreachable").At(a.Sp))
+				}
+				sawCatchAll = true
+			} else {
+				c.diags.Add(diag.Error("E0307",
+					"a type-test match arm must be `name : T`, `_ : T`, or a catch-all `_`").At(a.Sp))
+			}
+		} else if !anyLike {
+			c.diags.Add(diag.Error("E0306",
+				"a `p : T` type-test arm is only legal in a match over `Go.Any` or a named Go interface type").At(a.Sp))
+		} else {
+			// Metas and type parameters name no Go type — the repr
+			// is "" — so a single concreteness test suffices.
+			key := c.typeTestKey(tp.Target)
+			if key == "" {
+				c.diags.Add(diag.Error("E0307",
+					"a type-test target must be a concrete type").At(a.Sp))
+			} else if _, dup := seen[key]; dup {
+				c.diags.Add(diag.Error("E0309",
+					"duplicate type-test arm: an earlier arm already tests `"+key+"`").At(a.Sp))
+			} else {
+				seen[key] = a.Sp
+			}
+			// `case any` or an empty interface matches every value —
+			// it is a catch-all and must be the last arm.
+			if tp.Iface != nil && len(tp.Iface) == 0 {
+				if i != len(arms)-1 {
+					c.diags.Add(diag.Error("E0307",
+						"a type-test arm matching every type must come last — later arms are unreachable").At(a.Sp))
+				}
+				sawCatchAll = true
+			}
+		}
+		if a.Guard != nil {
+			c.diags.Add(diag.Error("E0307",
+				"a match guard is not supported on a type-test match").At(a.Guard.Span()))
+		}
+	}
+	if !sawCatchAll {
+		c.diags.Add(diag.Error("E0308",
+			"a type-test match must end with a catch-all arm (`_` or a variable) — a value of any other Go type, including nil, falls through").At(e.Sp))
+	}
 }
 
 // checkBlock types `{ stmts }`. Every statement but the last must
@@ -3671,7 +3760,7 @@ func (c *checker) checkSelectExpr(e *syntax.SelectExpr, want types.Type) Expr {
 				}
 			case *syntax.LitPat, *syntax.CtorPat, *syntax.TuplePat,
 				*syntax.RecordPat, *syntax.ListPat, *syntax.OrPat,
-				*syntax.AsPat:
+				*syntax.AsPat, *syntax.TypePat:
 				c.diags.Add(diag.Error("E0704",
 					"a select receive arm must bind a variable or `_`, not a destructuring pattern").
 					At(a.Bind.Span()))
@@ -4127,4 +4216,28 @@ func (c *checker) deferInterfaceSource(m *types.Meta) bool {
 		}
 	}
 	return false
+}
+
+// typeTestKey is the Go `case` type an arm's target emits — the
+// duplicate-detection key of a type-test match. A declared type
+// whose name shadows a builtin (`type Int = ...`) emits its own
+// nominal name, not the builtin repr, so it keys nominally.
+func (c *checker) typeTestKey(t types.Type) string {
+	if con, ok := types.Chase(t).(*types.Con); ok && con.Qual == "" && c.shadowedBuiltin(con.Name) {
+		if len(con.Args) == 0 {
+			return con.Name
+		}
+		// Arguments are canonical too — a shadowed generic's
+		// `List Char` and `List Int32` emit the same `List[int32]`
+		// case and must key identically.
+		parts := make([]string, len(con.Args))
+		for i, a := range con.Args {
+			parts[i] = types.CanonGoRepr(types.GoRepr(a))
+			if parts[i] == "" {
+				return ""
+			}
+		}
+		return con.Name + "[" + strings.Join(parts, ", ") + "]"
+	}
+	return types.CanonGoRepr(types.GoRepr(t))
 }

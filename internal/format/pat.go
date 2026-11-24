@@ -29,6 +29,11 @@ func patPrec(pat syntax.Pat) int {
 		return ppOr
 	case *syntax.AsPat:
 		return ppAs
+	case *syntax.TypePat:
+		// `lhs : T` — a match-arm-only form; above `or` so an arm
+		// renders it bare, below everything else so a (never
+		// occurring) nested use would parenthesize.
+		return ppOr + 1
 	case *syntax.CtorPat:
 		// Any constructor pattern — applied or bare — is not a
 		// pat-atom (docs/grammar.ebnf: pat-arg = pat-atom), so it
@@ -111,6 +116,23 @@ func (p *printer) patRaw(pat syntax.Pat) *doc {
 			kids = append(kids, p.pat(alt, ppAs))
 		}
 		return group(concat(kids...))
+
+	case *syntax.TypePat:
+		var lhs *doc
+		prev := pat.Sp.Start
+		if pat.Name != nil {
+			lhs = text(pat.Name.Name)
+			prev = pat.Name.Span().End
+		} else {
+			lhs = text("_")
+		}
+		mid := p.gapInline(prev, pat.Typ.Span().Start)
+		// The arm's `->` terminates the target, so a function type
+		// can only appear parenthesized: `f : (Int -> Int)`.
+		if _, isFn := pat.Typ.(*syntax.TypeFn); isFn {
+			return concat(lhs, text(":"+pad(mid)), text("("), p.typeExpr(pat.Typ), text(")"))
+		}
+		return concat(lhs, text(":"+pad(mid)), p.typeExpr(pat.Typ))
 
 	case *syntax.AsPat:
 		mid := p.gapInline(pat.Pat.Span().End, pat.Name.Span().Start)

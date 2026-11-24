@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0309",
+      "severity": "error",
+      "message": "duplicate type-test arm: an earlier arm already tests `List[int32]`",
+      "span": {
+        "file": "E0309_match_typetest_dup_shadow_generic.gom",
+        "start": {
+          "line": 10,
+          "col": 5,
+          "offset": 305
+        },
+        "end": {
+          "line": 10,
+          "col": 24,
+          "offset": 324
+        }
+      }
+    }
+  ]
+}

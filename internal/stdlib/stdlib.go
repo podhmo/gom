@@ -213,6 +213,10 @@ func letPatMembers(p check.Pat) []letPatMember {
 		case *check.WildPat, *check.LitPat:
 		case *check.VarPat:
 			out = append(out, letPatMember{p.Sym, p.Type()})
+		case *check.TypePat:
+			if p.Sym != nil {
+				out = append(out, letPatMember{p.Sym, p.Type()})
+			}
 		case *check.CtorPat:
 			for _, a := range p.Args {
 				walk(a.Pat)

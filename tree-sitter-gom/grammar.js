@@ -408,11 +408,18 @@ module.exports = grammar({
       '}',
     ),
 
-    match_arm: $ => seq(
-      $.pattern,
-      optional(seq('if', $.expr)),
-      '-\u003e',
-      $.expr,
+    match_arm: $ => choice(
+      // `p : T` type-test arm — binds `p` (or `_`) to the asserted
+      // T. The target is app_type: a bare arrow (`s : Int -> Int`)
+      // is not a valid target in the real grammar either —
+      // parenthesized arrow types still parse via type_atom.
+      seq(choice('_', $.ident), ':', $.app_type, '-\u003e', $.expr),
+      seq(
+        $.pattern,
+        optional(seq('if', $.expr)),
+        '-\u003e',
+        $.expr,
+      ),
     ),
 
     for_expr: $ => seq('for', $.pattern, 'in', $.head_expr, $.block),

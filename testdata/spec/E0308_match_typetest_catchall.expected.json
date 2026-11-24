@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0308",
+      "severity": "error",
+      "message": "a type-test match must end with a catch-all arm (`_` or a variable) — a value of any other Go type, including nil, falls through",
+      "span": {
+        "file": "E0308_match_typetest_catchall.gom",
+        "start": {
+          "line": 5,
+          "col": 28,
+          "offset": 174
+        },
+        "end": {
+          "line": 8,
+          "col": 2,
+          "offset": 222
+        }
+      }
+    }
+  ]
+}

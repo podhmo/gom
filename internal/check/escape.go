@@ -672,6 +672,10 @@ func patBoundSyms(p Pat) []*resolve.Symbol {
 			if p.Sym != nil {
 				out = append(out, p.Sym)
 			}
+		case *TypePat:
+			if p.Sym != nil {
+				out = append(out, p.Sym)
+			}
 		case *AsPat:
 			if p.Sym != nil {
 				out = append(out, p.Sym)

@@ -96,6 +96,15 @@ func (r *resolver) bindPatSeen(p syntax.Pat, sc *scope, seen map[string]*syntax.
 			altSeens = append(altSeens, altSeen)
 		}
 		intersectSeen(seen, altSeens)
+	case *syntax.TypePat:
+		// The target is a type expression — `s : fmt.Stringer`
+		// resolves the qualifier and member like an annotation.
+		// A lowercase name is an implicit type variable; check
+		// rejects it later as a non-concrete target (E0307).
+		r.typeExpr(n.Typ, sc, &tvScope{implicit: true})
+		if n.Name != nil {
+			r.bindVar(n.Name, n, sc, seen, merge)
+		}
 	case *syntax.AsPat:
 		r.bindPatSeen(n.Pat, sc, seen, merge)
 		if n.Name != nil {

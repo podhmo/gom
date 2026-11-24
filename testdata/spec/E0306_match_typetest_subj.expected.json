@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0306",
+      "severity": "error",
+      "message": "a `p : T` type-test arm is only legal in a match over `Go.Any` or a named Go interface type",
+      "span": {
+        "file": "E0306_match_typetest_subj.gom",
+        "start": {
+          "line": 6,
+          "col": 5,
+          "offset": 183
+        },
+        "end": {
+          "line": 6,
+          "col": 20,
+          "offset": 198
+        }
+      }
+    }
+  ]
+}

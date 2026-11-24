@@ -1,0 +1,9 @@
+package ex
+
+// spec 4.1: type-test targets are deduplicated by Go repr — `Char`
+// and `Int32` spell the same Go `case`, so this is E0309.
+fn f (x : Go.Any) -> Int = match x {
+    c : Char -> 1
+    n : Int32 -> 2
+    _ -> 0
+}

@@ -127,6 +127,19 @@ type OrPat struct {
 func (*OrPat) isPat()            {}
 func (n *OrPat) Span() diag.Span { return n.Sp }
 
+// TypePat is a type-test arm `name : T` or `_ : T` — only legal in a
+// match over a Go.Any-valued scrutinee (docs/spec.md section 4.1,
+// decisions/2026-11-24-match-type-test-arms.md). Name is nil for the
+// `_ : T` form.
+type TypePat struct {
+	Sp   diag.Span
+	Name *Ident // nil for `_`
+	Typ  TypeExpr
+}
+
+func (*TypePat) isPat()            {}
+func (n *TypePat) Span() diag.Span { return n.Sp }
+
 // AsPat is an as-binding `pat as name` (docs/spec.md section 4.1):
 // the value is bound to Name and also decomposed by Pat.
 type AsPat struct {

@@ -1,0 +1,9 @@
+package ex
+
+// spec 4.1: a type-test match cannot mix in ordinary patterns —
+// every arm is a type test or the trailing catch-all.
+fn f (x : Go.Any) -> Int = match x {
+    s : String -> 1
+    0 -> 2
+    _ -> 0
+}

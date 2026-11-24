@@ -104,6 +104,20 @@ func GoFunc(n int, args ...Type) Type {
 	return &Con{Qual: "Go", Name: fmt.Sprintf("Func%d", n), Args: args}
 }
 
+// GoFuncArity reads the parameter count out of a `Go.FuncN` type
+// name — the arity lives in the name; the type arguments are the
+// N raw-view parameters then 0..2 raw-view results.
+func GoFuncArity(name string) (int, bool) {
+	if len(name) != 5 || name[:4] != "Func" {
+		return 0, false
+	}
+	d := name[4]
+	if d < '0' || d > '0'+byte(GoFuncMaxArity) {
+		return 0, false
+	}
+	return int(d - '0'), true
+}
+
 // Go.Any is Go's `any` — the empty interface. A wanted `Go.Any`
 // accepts every argument (implicit boxing, spec 8.1.7); a `Go.Any`
 // result is an opaque value that only flows back into `any`

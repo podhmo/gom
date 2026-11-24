@@ -531,6 +531,10 @@ func binderIdents(p syntax.Pat) []*syntax.Ident {
 		case *syntax.WildPat, *syntax.LitPat:
 		case *syntax.VarPat:
 			out = append(out, n.Name)
+		case *syntax.TypePat:
+			if n.Name != nil {
+				out = append(out, n.Name)
+			}
 		case *syntax.CtorPat:
 			for i := range n.Args {
 				walk(n.Args[i].Pat)

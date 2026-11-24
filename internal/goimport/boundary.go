@@ -60,9 +60,133 @@ func (l *Loader) InterfaceMethods(t gt.Type) ([]check.InterfaceMethod, bool) {
 		if !ok {
 			return nil, false
 		}
-		out = append(out, check.InterfaceMethod{Name: m.Name(), Sig: fn})
+		out = append(out, check.InterfaceMethod{
+			Name:  m.Name(),
+			Sig:   fn,
+			GoSig: goMethodSig(sig),
+		})
 	}
 	return out, true
+}
+
+// goMethodSig renders an interface method's raw go/types signature
+// the way reflect spells a bound method — `func(int64) string`,
+// `func() (int64, error)` — without parameter names and without the
+// receiver. This is the spelling eval's implements check compares
+// against reflect's `MethodByName().Type().String()`.
+func goMethodSig(sig *types.Signature) string {
+	var b strings.Builder
+	b.WriteString("func(")
+	params := sig.Params()
+	for i := 0; i < params.Len(); i++ {
+		if i > 0 {
+			b.WriteString(", ")
+		}
+		pt := params.At(i).Type()
+		if sig.Variadic() && i == params.Len()-1 {
+			if sl, ok := pt.(*types.Slice); ok {
+				b.WriteString("...")
+				pt = sl.Elem()
+			}
+		}
+		b.WriteString(goTypeSpell(pt))
+	}
+	b.WriteString(")")
+	results := sig.Results()
+	// reflect never prints result names — a single named result is
+	// `func() bool`, and `func() (int, error)` is only for 2+.
+	switch {
+	case results.Len() == 0:
+	case results.Len() == 1:
+		b.WriteString(" ")
+		b.WriteString(goTypeSpell(results.At(0).Type()))
+	default:
+		b.WriteString(" (")
+		for i := 0; i < results.Len(); i++ {
+			if i > 0 {
+				b.WriteString(", ")
+			}
+			b.WriteString(goTypeSpell(results.At(i).Type()))
+		}
+		b.WriteString(")")
+	}
+	return b.String()
+}
+
+// goTypeSpell renders a go/types type the way reflect's
+// Type.String does: aliases are unaliased (`[]byte` → `[]uint8`),
+// the empty interface is `interface {}`, and a named type is
+// `pkgbase.Name` regardless of the import path's last element.
+func goTypeSpell(t types.Type) string {
+	t = types.Unalias(t)
+	switch t := t.(type) {
+	case *types.Basic:
+		// Precompiled signatures can spell the universe aliases as
+		// basics; reflect always uses the underlying name.
+		switch t.Name() {
+		case "byte":
+			return "uint8"
+		case "rune":
+			return "int32"
+		}
+		return t.Name()
+	case *types.Named:
+		name := t.Obj().Name()
+		if t.Obj().Pkg() != nil {
+			name = t.Obj().Pkg().Name() + "." + name
+		}
+		if args := t.TypeArgs(); args != nil && args.Len() > 0 {
+			var as []string
+			for i := 0; i < args.Len(); i++ {
+				as = append(as, goTypeSpell(args.At(i)))
+			}
+			name += "[" + strings.Join(as, ", ") + "]"
+		}
+		return name
+	case *types.Interface:
+		if t.Empty() {
+			return "interface {}"
+		}
+		return t.String()
+	case *types.Slice:
+		return "[]" + goTypeSpell(t.Elem())
+	case *types.Array:
+		return "[" + strconv.FormatInt(t.Len(), 10) + "]" + goTypeSpell(t.Elem())
+	case *types.Pointer:
+		return "*" + goTypeSpell(t.Elem())
+	case *types.Map:
+		return "map[" + goTypeSpell(t.Key()) + "]" + goTypeSpell(t.Elem())
+	case *types.Chan:
+		switch t.Dir() {
+		case types.SendOnly:
+			return "chan<- " + goTypeSpell(t.Elem())
+		case types.RecvOnly:
+			return "<-chan " + goTypeSpell(t.Elem())
+		default:
+			return "chan " + goTypeSpell(t.Elem())
+		}
+	case *types.Signature:
+		return goMethodSig(t)
+	case *types.TypeParam:
+		return t.Obj().Name()
+	default:
+		return t.String()
+	}
+}
+
+// GoInterface reports whether t's emitted Go representation is an
+// interface — the coarse oracle behind the type-test scrutinee
+// check (InterfaceMethods additionally requires mappable method
+// signatures, which `any` also passes).
+func (l *Loader) GoInterface(t gt.Type) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	bt := l.boundaryType(t)
+	if bt == nil {
+		return false
+	}
+	_, ok := bt.Underlying().(*types.Interface)
+	return ok
 }
 
 // boundaryType reconstructs the Go spelling of a Gom type for the

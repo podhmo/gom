@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"path/filepath"
 	"reflect"
-	"regexp"
 	"sort"
 	"strings"
 
@@ -1281,7 +1280,7 @@ func (e *interp) anyBox(v Value, t types.Type, env *Env) Value {
 	if _, ok := v.(*VHost); ok {
 		return v
 	}
-	if ct := substTy(types.Chase(t), env); reprName(ct) != "" {
+	if ct := substTy(types.Chase(t), env); types.GoRepr(ct) != "" {
 		return &VHost{V: boxRepr(v, ct), T: ct}
 	}
 	// The box's static type is not concretely nameable — a type
@@ -1420,10 +1419,33 @@ func (e *interp) unboxAny(v Value, t types.Type) Value {
 	if !ok {
 		return v
 	}
+	if types.GoRepr(t) == "any" {
+		// The catch-all `p : Go.Any` binds at the box's own
+		// grain — keep the recorded element type so a later
+		// match on the bound name still sees `List Int`.
+		return h
+	}
 	if inner, ok := h.V.(Value); ok {
 		return e.reshape(inner, t)
 	}
-	switch reprName(t) {
+	switch types.GoRepr(t) {
+	case "error":
+		// A typed-nil error payload (a nil *T that satisfies
+		// error) must not be Error()'d — the call would panic
+		// even when the arm never touches the binding. Keep
+		// the host value; an actual method call on it panics
+		// the same as Go's.
+		if err, ok := h.V.(error); ok {
+			rv := reflect.ValueOf(err)
+			switch rv.Kind() {
+			case reflect.Ptr, reflect.Map, reflect.Slice, reflect.Chan, reflect.Func:
+				if rv.IsNil() {
+					return h
+				}
+			default:
+			}
+			return &VGoErr{Text: err.Error()}
+		}
 	case "int64", "int32", "byte", "int":
 		switch i := h.V.(type) {
 		case int64:
@@ -1451,10 +1473,6 @@ func (e *interp) unboxAny(v Value, t types.Type) Value {
 		if b, ok := h.V.(bool); ok {
 			return &VBool{B: b}
 		}
-	case "error":
-		if err, ok := h.V.(error); ok {
-			return &VGoErr{Text: err.Error()}
-		}
 	}
 	return h
 }
@@ -1468,17 +1486,17 @@ func (e *interp) unboxAny(v Value, t types.Type) Value {
 // type target by `pkgbase.Name`. A nil interface value asserts as
 // nothing; an `error` target accepts any non-nil error payload.
 func (e *interp) inhabits(v Value, t types.Type) bool {
-	want := canonRepr(reprName(t))
+	want := types.CanonGoRepr(types.GoRepr(t))
 	if want == "" {
 		return false
 	}
 	match := func(dyn string) bool {
-		dyn = canonRepr(dyn)
+		dyn = types.CanonGoRepr(dyn)
 		return dyn == want || strings.HasSuffix(dyn, "."+want)
 	}
 	if h, ok := v.(*VHost); ok {
 		if h.T != nil {
-			return match(reprName(h.T))
+			return match(types.GoRepr(h.T))
 		}
 		if inner, isVal := h.V.(Value); isVal {
 			if want == "error" {
@@ -1505,129 +1523,35 @@ func (e *interp) inhabits(v Value, t types.Type) bool {
 	return match(valueReprName(v))
 }
 
-// canonRepr normalizes a type-name spelling to the name Go's
-// runtime reports — predeclared aliases collapse: `rune` is
-// `int32` and `byte` is `uint8` (x.(rune) and x.(int32) are the
-// same assertion, and instantiations like `Box[rune]` are the
-// same type as `Box[int32]`).
-var canonAlias = regexp.MustCompile(`\b(?:rune|byte)\b`)
-
-func canonRepr(s string) string {
-	return canonAlias.ReplaceAllStringFunc(s, func(w string) string {
-		if w == "rune" {
-			return "int32"
-		}
-		return "uint8"
-	})
-}
-
-// reprName renders the emitted Go type name of a gom type — the
-// spelling `x.(T)` and reflect use ("int64", "list.List[int64]",
-// "pkgbase.Name"). A builtin name shares a declared type's spelling
-// only when its arity matches — a user-declared `type List` keeps
-// its nominal name. Metas and type parameters answer "" and never
-// match (check already requires a concrete target).
-func reprName(t types.Type) string {
-	switch t := types.Chase(t).(type) {
-	case *types.Con:
-		if t.Qual == "Go" {
-			switch {
-			case t.Name == "Slice" && len(t.Args) == 1:
-				return "[]" + reprName(t.Args[0])
-			case t.Name == "Map" && len(t.Args) == 2:
-				return "map[" + reprName(t.Args[0]) + "]" + reprName(t.Args[1])
-			case t.Name == "Int":
-				return "int"
-			case t.Name == "Any":
-				return "any"
-			}
-			return ""
-		}
-		if t.Qual != "" {
-			return t.Qual + "." + t.Name + reprArgs(t.Args)
-		}
-		switch {
-		case t.Name == "Unit":
-			return "struct{}"
-		case t.Name == "Int" || t.Name == "Int64":
-			return "int64"
-		case t.Name == "Int32":
-			return "int32"
-		case t.Name == "Byte":
-			return "byte"
-		case t.Name == "Float" || t.Name == "Float64":
-			return "float64"
-		case t.Name == "Char":
-			return "rune"
-		case t.Name == "String":
-			return "string"
-		case t.Name == "Bool":
-			return "bool"
-		case t.Name == "GoError":
-			return "error"
-		case t.Name == "List" && len(t.Args) == 1:
-			return "list.List[" + reprName(t.Args[0]) + "]"
-		case t.Name == "Option" && len(t.Args) == 1:
-			return "option.Option[" + reprName(t.Args[0]) + "]"
-		case t.Name == "Result" && len(t.Args) == 2:
-			return "result.Result[" + reprName(t.Args[0]) + ", " + reprName(t.Args[1]) + "]"
-		case t.Name == "Task" && len(t.Args) == 1:
-			return "rt.Task[" + reprName(t.Args[0]) + "]"
-		case t.Name == "View" && len(t.Args) == 1:
-			return "list.View[" + reprName(t.Args[0]) + "]"
-		case (t.Name == "Ptr" || t.Name == "Ref") && len(t.Args) == 1:
-			return "*" + reprName(t.Args[0])
-		case t.Name == "Array" && len(t.Args) == 1:
-			return "[]" + reprName(t.Args[0])
-		case t.Name == "Chan" && len(t.Args) == 1:
-			return "chan " + reprName(t.Args[0])
-		case t.Name == "RecvChan" && len(t.Args) == 1:
-			return "<-chan " + reprName(t.Args[0])
-		case t.Name == "SendChan" && len(t.Args) == 1:
-			return "chan<- " + reprName(t.Args[0])
-		}
-		// Declared record/sum — nominal: asserts only to itself.
-		// A generic instantiation names its arguments too, as the
-		// emitted `Box[int64]` does (`Box Int` and `Box String`
-		// assert differently).
-		return t.Name + reprArgs(t.Args)
-	case *types.Go:
-		base := t.Ref.Path
-		if i := strings.LastIndexByte(base, '/'); i >= 0 {
-			base = base[i+1:]
-		}
-		return base + "." + t.Ref.Name
-	case *types.Func:
-		// Curried emission — `func(A) func(B) R`, one FuncType
-		// nesting per parameter group.
-		var b strings.Builder
-		for {
-			// One FuncType per parameter — matching codegen's
-			// funcType, which wraps each param singly regardless
-			// of parameter grouping.
-			for _, p := range t.Params {
-				b.WriteString("func(")
-				b.WriteString(reprName(p.Type))
-				b.WriteString(") ")
-			}
-			if r, ok := types.Chase(t.Ret).(*types.Func); ok {
-				t = r
-				continue
-			}
-			b.WriteString(reprName(t.Ret))
-			return b.String()
-		}
-	case *types.Tuple:
-		parts := make([]string, len(t.Elems))
-		for i, el := range t.Elems {
-			parts[i] = reprName(el)
-		}
-		return fmt.Sprintf("rt.Tuple%d[%s]", len(t.Elems), strings.Join(parts, ", "))
-	case *types.Meta, *types.Var:
-		return ""
-	default:
-		panic("unreachable")
+// implements reports whether v carries every method name the
+// type-test arm's named Go interface target requires — the eval
+// side of `x.(fmt.Stringer)`. A boxed gom value cannot implement a
+// Go interface (gom methods are functions, not a Go method set);
+// only an opaque host value's reflect method set can satisfy it.
+// A nil interface value implements nothing; an empty requirement
+// list matches every non-nil-in-spirit value, like `case any`.
+func (e *interp) implements(v Value, names []string, sigs []string) bool {
+	h, ok := v.(*VHost)
+	if !ok || h.V == nil {
+		return false
 	}
+	if _, isVal := h.V.(Value); isVal {
+		// The box holds a gom Value, not a Go object — no method set.
+		return false
+	}
+	rv := reflect.ValueOf(h.V)
+	for i, name := range names {
+		m := rv.MethodByName(name)
+		if !m.IsValid() {
+			return false
+		}
+		// The bound method's type excludes the receiver — compare
+		// the flat signature spelling when check could render one.
+		if i < len(sigs) && sigs[i] != "" && m.Type().String() != sigs[i] {
+			return false
+		}
+	}
+	return true
 }
 
 // reshape rewrites a boxed value to the asserted type's Value
@@ -1641,11 +1565,11 @@ func (e *interp) reshape(v Value, t types.Type) Value {
 	ct := types.Chase(t)
 	switch v := v.(type) {
 	case *VChar:
-		if reprName(ct) == "int32" {
+		if types.GoRepr(ct) == "int32" {
 			return &VInt{N: int64(v.R)}
 		}
 	case *VInt:
-		if reprName(ct) == "rune" {
+		if types.GoRepr(ct) == "rune" {
 			return &VChar{R: rune(v.N)}
 		}
 	case *VList:
@@ -1760,19 +1684,6 @@ func applySubst(t types.Type, m map[*types.Var]types.Type) types.Type {
 	}
 }
 
-// reprArgs renders a generic instantiation's argument list the way
-// the emitted Go name spells it — `[int64, string]`.
-func reprArgs(args []types.Type) string {
-	if len(args) == 0 {
-		return ""
-	}
-	parts := make([]string, len(args))
-	for i, a := range args {
-		parts[i] = reprName(a)
-	}
-	return "[" + strings.Join(parts, ", ") + "]"
-}
-
 // valueReprName gives the emitted-Go-type name a native eval value
 // would assert as — the counterpart of reprName for a value that
 // reached an `any` slot unboxed or under an unnameable type (a
@@ -1807,12 +1718,12 @@ func valueReprName(v Value) string {
 		return fmt.Sprintf("rt.Tuple%d[%s]", len(v.Elems), strings.Join(parts, ", "))
 	case *VRecord:
 		if v.Type != nil {
-			return reprName(v.Type)
+			return types.GoRepr(v.Type)
 		}
 		return ""
 	case *VVariant:
 		if v.Type != nil {
-			return reprName(v.Type)
+			return types.GoRepr(v.Type)
 		}
 		return ""
 	case *VGoErr:

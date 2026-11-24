@@ -119,6 +119,27 @@ type OrPat struct {
 
 func (*OrPat) isPat() {}
 
+// TypePat is a type-test arm `name : T` or `_ : T` — only legal in a
+// match over a Go.Any-valued scrutinee. Target is the asserted type;
+// Sym is nil for the `_ : T` form. Base carries the asserted type so
+// the bound variable sees T.
+type TypePat struct {
+	Base
+	Sym    *resolve.Symbol // nil for `_`
+	Target types.Type
+	// Iface is non-nil when Target is a named Go interface: the
+	// required method names — the arm matches any value implementing
+	// them (an empty slice matches every value, like `any`).
+	// IfaceSig parallels Iface with each method's reflect-style
+	// signature spelling (`func(int64) string`); "" marks a
+	// signature the checker could not render — eval then tests
+	// the name alone.
+	Iface    []string
+	IfaceSig []string
+}
+
+func (*TypePat) isPat() {}
+
 // AsPat is `pat as name`.
 type AsPat struct {
 	Base
