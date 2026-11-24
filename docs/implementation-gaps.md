@@ -1869,7 +1869,7 @@
   検証: `testdata/spec/ok_go_slice_decl_elem.gom`、gocall `declslice/`）
 
 - [x] **リテラル shift 除数の E0414 は幅非依存のときだけ検出される**: `7 / (1 >>> 1)` のような shift ノードは `constZero` 判定時に型が未解決メタなので、32/64 bit 両幅で同じ結果に fold できる場合だけ検出される（`0 <<< 1`・`1 >>> 1` は検出可）。`255 <<< 60` のように幅で結果が分岐するものは fold を見送り、実行時に依存する（誤検出はしない）。`(Go.conv 0 : Int) <<< 1` と ascription で幅を与えれば確実に検出される — `Go.conv` は [constFold の Ascribe 透過](../internal/check/expr.go)で fold 対象。count 側の中間式は count の幅が分かるとき `foldIntAt` でその幅に wrap して fold される（`Go.conv` で Int32 にした count の `(2147483647 + 1) % 33` は -2 と fold され、負 count として fold を見送る）。規則: [checkArith の E0414](../internal/check/expr.go)（wave38 lane B レビュー修正時に判明）
-  - wave43 lane D で確認: `constZero` は revisitDivs（defaulting 後）で判定するため shift の型は operand の確定幅を持ち、幅分岐はもう未確定に残らない — `x:Int32 / (255 <<< 60)` は 0 に fold して E0414、`x:Int / (255 <<< 60)` は `int64(255) << 60` の非零マシン値と一致で非報告（検証: `testdata/spec/E0414_div_shift_width.gom`、`ok_div_shift_width.gom`）。幅が本当に残るのは defaulting でも解けないメタだけで、両幅一致のフォールバック（`1 >>> 1`）はそのまま残す。
+  - wave43 lane D で確認: `constZero` は revisitDivs（defaulting 後）で判定するため shift の型は operand の確定幅を持ち、幅分岐はもう未確定に残らない — `x:Int32 / (255 <<< 60)` は 0 に fold して E0414、`x:Int / (255 <<< 60)` は実行時 wrap の非零マシン値と一致で非報告（検証: [E0414_div_shift_width.gom](../testdata/spec/E0414_div_shift_width.gom)、[ok_div_shift_width.gom](../testdata/spec/ok_div_shift_width.gom)）。幅が本当に残るのは defaulting でも解けないメタだけで、両幅一致のフォールバック（`1 >>> 1`）はそのまま残す。
 
 - [x] **`Go.nil` と `Ptr.nil` の重複**: `Ptr T` の nil は `Ptr.nil` と
   `Go.nil` の両方で書ける（wave38 lane C で `Go.nil : Unit -> a` を導入。
