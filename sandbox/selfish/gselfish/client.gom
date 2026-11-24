@@ -19,14 +19,20 @@ type CreateResult = {
 // zero_time is Go's time.Time{} (via new(T) + deref).
 fn zero_time () -> time.Time = Ptr.get (Ptr.new ())
 
+// Go pointer-field conveniences: *string -> String, *Timestamp -> Time.
+fn ptr_str (p: Ptr String) -> String = Option.get_or_else "" (Ptr.to_option p)
+
+fn ptr_timestamp (p: Ptr github.Timestamp) -> time.Time =
+  Option.get_or_else (zero_time ()) (Option.map (fn ts -> ts.Time) (Ptr.to_option p))
+
 fn client_create (c: Client) (ctx: context.Context) (filenames: List String) (public: Bool) -> Result CreateResult GoError = {
   let gist = try (Result.map_err
     (fn e -> wrapf e "invalid file name is found. %q" filenames)
     (new_gist filenames public))
   let g = try (gists_create c.github ctx gist)
-  let html_url = Option.get_or_else "" (Ptr.to_option g.HTMLURL)
-  let created_at = Option.get_or_else (zero_time ()) (Option.map (fn ts -> ts.Time) (Ptr.to_option g.CreatedAt))
-  let gist_id = Option.get_or_else "" (Ptr.to_option g.ID)
+  let html_url = ptr_str g.HTMLURL
+  let created_at = ptr_timestamp g.CreatedAt
+  let gist_id = ptr_str g.ID
   let r : CreateResult = { gist_id = gist_id, created_at = created_at, html_url = html_url, raw = g }
   Ok r
 }
@@ -43,8 +49,8 @@ fn client_update (c: Client) (ctx: context.Context) (gist_id: String) (filenames
     (fn e -> wrapf e "invalid file name is found. %q" filenames)
     (new_gist filenames public))
   let g = try (gists_edit c.github ctx gist_id gist)
-  let html_url = Option.get_or_else "" (Ptr.to_option g.HTMLURL)
-  let created_at = Option.get_or_else (zero_time ()) (Option.map (fn ts -> ts.Time) (Ptr.to_option g.CreatedAt))
+  let html_url = ptr_str g.HTMLURL
+  let created_at = ptr_timestamp g.CreatedAt
   match Ptr.to_option g.ID {
     Some id -> if id != gist_id {
       ignore (log.Printf ("WARN: gistId is mismatch %q != %q", gist_id, id))

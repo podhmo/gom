@@ -11,63 +11,63 @@ import (
 	os "os"
 )
 
-//line debug.gom:10
+//line gselfish/debug.gom:10
 func fprintJson(w io.Writer, data any) struct{} {
-//line debug.gom:11
+//line gselfish/debug.gom:11
 	encoder := json.NewEncoder(w)
-//line debug.gom:12
+//line gselfish/debug.gom:12
 	encoder.SetIndent("", "  ")
-//line debug.gom:13
+//line gselfish/debug.gom:13
 	var tmp1 result.Result[struct{}, error]
-//line debug.gom:13
+//line gselfish/debug.gom:13
 	err := encoder.Encode(data)
-//line debug.gom:13
+//line gselfish/debug.gom:13
 	tmp1 = result.FromErr(err)
-//line debug.gom:14
+//line gselfish/debug.gom:14
 	switch tmp1.Tag() {
-//line debug.gom:14
+//line gselfish/debug.gom:14
 	case result.ResultTagOk:
-//line debug.gom:15
+//line gselfish/debug.gom:15
 		return struct{}{}
-//line debug.gom:14
+//line gselfish/debug.gom:14
 	case result.ResultTagErr:
-//line debug.gom:14
+//line gselfish/debug.gom:14
 		tmp3 := tmp1.Error
-//line debug.gom:14
+//line gselfish/debug.gom:14
 		tmp4 := tmp3
-//line debug.gom:14
+//line gselfish/debug.gom:14
 		tmp5 := any(tmp4)
-//line debug.gom:14
+//line gselfish/debug.gom:14
 		log.Fatal(tmp5)
-//line debug.gom:14
+//line gselfish/debug.gom:14
 		return struct{}{}
-//line debug.gom:14
+//line gselfish/debug.gom:14
 	default:
-//line debug.gom:13
+//line gselfish/debug.gom:13
 		panic(rt.InvalidVariant("Result", tmp1))
-//line debug.gom:14
+//line gselfish/debug.gom:14
 	}
-//line debug.gom:10
+//line gselfish/debug.gom:10
 }
 
-//line debug.gom:20
+//line gselfish/debug.gom:20
 func printJson(data any) struct{} {
-//line debug.gom:20
+//line gselfish/debug.gom:20
 	tmp6 := io.Writer(os.Stdout)
-//line debug.gom:20
+//line gselfish/debug.gom:20
 	return fprintJson(tmp6, data)
-//line debug.gom:20
+//line gselfish/debug.gom:20
 }
 
-//line debug.gom:22
+//line gselfish/debug.gom:22
 func wrapResult[A any](r result.Result[A, error], msg string) result.Result[A, error] {
-//line debug.gom:23
+//line gselfish/debug.gom:23
 	tmp7 := func(e error) error {
-//line debug.gom:23
+//line gselfish/debug.gom:23
 		return wrap(e, msg)
-//line debug.gom:23
+//line gselfish/debug.gom:23
 	}
-//line debug.gom:23
+//line gselfish/debug.gom:23
 	return result.MapErr[error, error, A](tmp7, r)
-//line debug.gom:22
+//line gselfish/debug.gom:22
 }
