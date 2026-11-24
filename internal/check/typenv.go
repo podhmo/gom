@@ -3,6 +3,8 @@ package check
 import (
 	"fmt"
 	"slices"
+	"strconv"
+	"strings"
 
 	"github.com/podhmo/gom/internal/diag"
 	"github.com/podhmo/gom/internal/resolve"
@@ -57,6 +59,8 @@ type fieldInfo struct {
 	sym   *resolve.Symbol // KindField; nil for unnamed positional payload
 	typ   types.Type      // may contain the declaring type's param vars
 	sp    diag.Span
+	tag   string    // verbatim struct tag from `f : T \`tag\``
+	tagSp diag.Span // the backtick token's span (E0515 reports here)
 }
 
 // variantInfo is one constructor of a sum type: its symbol, its
@@ -372,6 +376,11 @@ func (c *checker) fieldInfoOf(f syntax.Field, index int, parent *typeInfo) *fiel
 	} else {
 		fi.typ = c.newMeta(f.Sp, fmt.Sprintf("the type of field `%s`", fi.name))
 	}
+	if f.Tag != "" {
+		fi.tag = f.Tag
+		fi.tagSp = f.TagSp
+		c.checkStructTag(f.TagSp, f.Tag)
+	}
 	if fi.sym != nil {
 		c.fieldSyms[fi.sym] = fi
 	}
@@ -387,6 +396,8 @@ func (c *checker) tfieldOf(fi *fieldInfo) TField {
 		Index: fi.index,
 		Sym:   fi.sym,
 		Type:  fi.typ,
+		Tag:   fi.tag,
+		TagSp: fi.tagSp,
 	}
 }
 
@@ -948,6 +959,56 @@ func sameTypes(a, b []types.Type) bool {
 		if !types.Equal(a[i], b[i]) {
 			return false
 		}
+	}
+	return true
+}
+
+// checkStructTag validates a record field's verbatim struct tag
+// (`f : T `json:"name"“) against the key:"value" pair grammar Go's
+// reflect.StructTag accepts.
+func (c *checker) checkStructTag(sp diag.Span, tag string) {
+	if validStructTag(tag) {
+		return
+	}
+	c.diags.Add(diag.Error("E0515",
+		"malformed record field struct tag").
+		At(sp).Set("tag", tag))
+}
+
+// validStructTag scans `key:"value"` pairs — the grammar
+// reflect.StructTag.Get accepts: a non-empty key without
+// space/quote/colon, a colon, then a double-quoted value with Go
+// escapes. Empty and malformed tails fail.
+func validStructTag(tag string) bool {
+	for tag != "" {
+		tag = strings.TrimLeft(tag, " ")
+		i := strings.IndexByte(tag, ':')
+		if i <= 0 || i+1 >= len(tag) || tag[i+1] != '"' {
+			return false
+		}
+		// Go requires a key of non-control characters other than
+		// space, quote, colon — a raw newline inside the key would
+		// also break the single-line diagnostic message.
+		key := tag[:i]
+		bad := false
+		for j := 0; j < len(key); j++ {
+			c := key[j]
+			if c <= ' ' || c == '"' || c == ':' || c == 0x7f {
+				bad = true
+				break
+			}
+		}
+		if bad || !strconv.IsPrint(rune(key[0])) {
+			return false
+		}
+		// The quoted value must parse as a Go string literal —
+		// reflect.StructTag.Get fails on bad escapes (e.g. `\q`),
+		// which would silently drop the tag for consumers.
+		q, err := strconv.QuotedPrefix(tag[i+1:])
+		if err != nil {
+			return false
+		}
+		tag = tag[i+1+len(q):]
 	}
 	return true
 }

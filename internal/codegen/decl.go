@@ -442,6 +442,10 @@ func (g *gen) trecord(d *core.TypeDecl, b *core.TRecord) {
 		g.line(f.Sp)
 		g.raw(g.tfieldName(f) + " ")
 		g.typ(g.goType(f.Type))
+		if f.Tag != "" {
+			// Verbatim struct tag — `Name T `json:"name"``.
+			g.raw(" `" + f.Tag + "`")
+		}
 		g.nl()
 	}
 	g.close()

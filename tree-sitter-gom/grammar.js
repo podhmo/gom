@@ -155,7 +155,7 @@ module.exports = grammar({
       '}',
     ),
 
-    record_field: $ => seq($.ident, ':', $.type_expr),
+    record_field: $ => seq($.ident, ':', $.type_expr, optional($.raw_string)),
 
     fn_decl: $ => seq($.fn_sig, '=', $.expr),
 
@@ -734,6 +734,8 @@ module.exports = grammar({
       /[0-9][0-9_]*\.[0-9][0-9_]*([eE][+-]?[0-9]+)?/,
       /[0-9][0-9_]*[eE][+-]?[0-9]+/,
     )),
+
+    raw_string: _ => token(/`[^`]*`/),
 
     char_literal: _ => token(seq(
       "'",

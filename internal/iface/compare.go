@@ -342,6 +342,18 @@ func checkFields(m *Member, want, got []check.TField) diag.List {
 				Set("implementation_field", gn))
 			continue
 		}
+		if wf.Tag != gf.Tag {
+			at := gf.TagSp
+			if at.File == "" {
+				at = gf.Sp
+			}
+			diags.Add(diag.Error("E0603",
+				fmt.Sprintf("`%s`'s field `%s` has struct tag `%s` in the implementation but the interface declares `%s`", m.Name, fieldParamName(wf), gf.Tag, wf.Tag)).
+				At(at).
+				Set("member", m.Name).
+				Set("interface_tag", wf.Tag).
+				Set("implementation_tag", gf.Tag))
+		}
 		if !alphaEqual(wf.Type, gf.Type) {
 			diags.Add(diag.Error("E0603",
 				fmt.Sprintf("`%s`'s field `%s` has type `%s` in the implementation but the interface declares `%s`", m.Name, fieldParamName(wf), gf.Type, wf.Type)).

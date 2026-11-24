@@ -239,6 +239,8 @@ type Expr =
 
 `type alias X a ... = T` は既存の型に別名を付ける宣言で、新しい型を導入しない — Go の `type X[A] = T` に対応し、alias はあらゆる位置で `T` に完全展開される（`type alias UserId = Int` の値は `int64` そのもの。`type alias Wrap a = List a` のような型パラメータも書ける）。`alias` は `type` の直後だけで効く文脈依存キーワードで、予約語ではない — `let alias = ...` は従来どおり普通の名前として書ける。`type X = T`（`alias` なし）は従来どおり新しい型の宣言 — record 本体か sum バリアント列で、`type A = Int` はコンストラクタ `Int` を持つ単一バリアント sum になる（透明な別名が意図なら `type alias A = Int` と書く）。
 
+record の各フィールドは、型のあとに Go の struct tag を verbatim の raw string として書ける — `type User = { name: String `json:"name"` }`。タグはそのまま生成される struct フィールドに付くので、`encoding/json` など Go の reflection ベースのライブラリにそのまま効く（フィールド自体は従来どおり PascalCase に export される）。`key:"value"` の形になっていないタグは E0515。型パラメータを持つ record や Go emit が defined type になる 1 フィールド record（8.7 節）でも同じ位置に書ける（後者はフィールド名が Go 側に出ないので、タグは struct フォールバック時にのみ意味を持つ）（[decision](decisions/2026-11-24-record-field-struct-tag.md)）。
+
 レコード型は自分自身を値として内包できない（E0413）。フィールドはインライン配置されるので、`type Point = {x: Point}` や相互に含め合うレコードは無限の大きさを持つ。タプルや `Result`/`Task` のペイロードも同じくインラインで、それらを通る再帰もエラーになる。再帰が許されるのは間接参照を介するときだけで、関数型のフィールド（`{f: () -> Point}`）、sum type のバリアント、`List` / `Ref` / `Ptr` / `Array` / `Chan` / `Go.Slice` / `Go.Map` などのポインタ表現を通る再帰は合法。
 
 ### 3.3 型推論の範囲

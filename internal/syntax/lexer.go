@@ -155,6 +155,8 @@ func (l *lexer) step() {
 		l.blockComment()
 	case b == '"':
 		l.scanString(pos)
+	case b == '`':
+		l.scanRawString(pos)
 	case b == '\'':
 		l.scanChar()
 	case isDigit(b):
@@ -444,6 +446,22 @@ func (l *lexer) scanEscape() {
 
 // scanChar scans a character literal: one character or one escape
 // between quotes (grammar.ebnf CHAR).
+// scanRawString scans a backtick-delimited raw string (no escapes,
+// no interpolation) — the Go struct-tag surface on record fields.
+func (l *lexer) scanRawString(open int) {
+	l.pos = open + 1
+	for l.pos < len(l.src) && l.src[l.pos] != '`' {
+		l.pos++
+	}
+	if l.pos >= len(l.src) {
+		l.err(open, len(l.src), "E0101", "unterminated raw string")
+		l.emit(tokRawString, open, len(l.src))
+		return
+	}
+	l.pos++
+	l.emit(tokRawString, open, l.pos)
+}
+
 func (l *lexer) scanChar() {
 	start := l.pos
 	l.pos++ // consume '\''

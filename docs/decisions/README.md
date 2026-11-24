@@ -247,4 +247,5 @@
 | [verbatim-dup-error](2026-11-23-verbatim-dup-error.md) | emit 名の verbatim 二重請求はエラー E0608 で出力を withhold する | adopted |
 | [go-any-extraction](2026-11-24-go-any-extraction.md) | `Go.Any` からの取り出し — comma-ok の `Option` 返りを唯一の面とする | 採択（wave39 lane A として実施） |
 | [method-emit-name-verbatim](2026-11-24-method-emit-name-verbatim.md) | `@method(GoName)` — verbatim emit name for Go interface methods | 採用（実装・検証した — wave38 lane G） |
+| [record-field-struct-tag](2026-11-24-record-field-struct-tag.md) | record フィールドの Go struct tag — フィールド行の verbatim バッククォートタグ | draft（wave39 lane B として実施） |
 <!-- END GENERATED -->

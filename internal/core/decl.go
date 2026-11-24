@@ -148,6 +148,7 @@ type TField struct {
 	Index int             // position in the constructor / record
 	Sym   *resolve.Symbol // KindField; nil for unnamed positional payload
 	Type  types.Type
+	Tag   string // record field's Go struct tag; "" when absent
 }
 
 // Span returns the field's source span.

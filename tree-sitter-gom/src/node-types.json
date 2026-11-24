@@ -1561,6 +1561,10 @@
           "named": true
         },
         {
+          "type": "raw_string",
+          "named": true
+        },
+        {
           "type": "type_expr",
           "named": true
         }
@@ -2059,6 +2063,14 @@
     "named": false
   },
   {
+    "type": "&&&",
+    "named": false
+  },
+  {
+    "type": "&&^",
+    "named": false
+  },
+  {
     "type": "(",
     "named": false
   },
@@ -2119,6 +2131,10 @@
     "named": false
   },
   {
+    "type": "<<<",
+    "named": false
+  },
+  {
     "type": "<=",
     "named": false
   },
@@ -2147,6 +2163,10 @@
     "named": false
   },
   {
+    "type": ">>>",
+    "named": false
+  },
+  {
     "type": "@",
     "named": false
   },
@@ -2156,6 +2176,10 @@
   },
   {
     "type": "]",
+    "named": false
+  },
+  {
+    "type": "^^^",
     "named": false
   },
   {
@@ -2252,6 +2276,10 @@
     "named": false
   },
   {
+    "type": "raw_string",
+    "named": true
+  },
+  {
     "type": "select",
     "named": false
   },
@@ -2305,6 +2333,10 @@
   },
   {
     "type": "||",
+    "named": false
+  },
+  {
+    "type": "|||",
     "named": false
   },
   {

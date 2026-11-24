@@ -177,8 +177,12 @@ interpolation  = "${" , expr , "}" ;
    "${" counts as an opening "("-style delimiter for the newline rules
    (§3), and the matching "}" closes it.
    [PROVISIONAL literal-lexical-details: how to write a literal "${"
-   is unspecified; suggested escape is "\${". Raw (backquote) strings
-   do not exist in the spec.]                                          *)
+   is unspecified; suggested escape is "\${".]                          *)
+
+RAWSTRING      = "`" , { raw-string-char } , "`" ;
+(* Raw strings exist only as record-field tags — they are not
+   expressions and cannot appear in a literal position (spec 3).
+   RAWSTRING is produced by a builtin producer (lexgen.go). *)
 
 escape         = "\" , ( "n" | "t" | "r" | "0" | "\" | "'" | '"' | "$"
                | "u" , hex-digit , hex-digit , hex-digit , hex-digit
@@ -347,7 +351,8 @@ variant-field  = "(" , [ "~" ] , ident , ":" , type-expr , ")"  (* named / label
                   "| Foo (Int -> Int)".                                 *)
 
 record-type    = "{" , [ record-field , { "," , record-field } , [ "," ] ] , "}" ;
-record-field   = ident , ":" , type-expr ;
+record-field   = ident , ":" , type-expr , [ RAWSTRING ] ;
+               (* optional verbatim Go struct tag *)
                (* [PROVISIONAL record-type-syntax: the spec never defines
                   record type syntax. This form ("{ name: T, ... }") is a
                   guess, allowed both as a type-body and inline as a
@@ -761,6 +766,7 @@ bin-digit      = "0" | "1" ;
 
 any-char       = ? any unicode code point ? ;
 any-char-except-newline = ? any code point except U+000A ? ;
+raw-string-char = ? any code point except U+0060 '`' ? ;
 string-char    = ? any code point except '"', '\' and an unescaped "${" ? ;
 char-char      = ? any code point except "'" and '\' ? ;
                (* [PROVISIONAL literal-lexical-details: a Char is meant to

@@ -95,6 +95,8 @@ type TField struct {
 	Index int             // position in the constructor/record
 	Sym   *resolve.Symbol // the field (KindField); nil for unnamed positional payload
 	Type  types.Type
+	Tag   string    // record field's Go struct tag; "" when absent
+	TagSp diag.Span // the backtick token's span
 }
 
 // Variant is one resolved constructor of a sum type.

@@ -30,6 +30,8 @@ func builtinProducer(name string) (func(*Gen), bool) {
 		return (*Gen).genChar, true
 	case "STRING":
 		return (*Gen).genString, true
+	case "RAWSTRING":
+		return (*Gen).genRawString, true
 	case "NL":
 		return (*Gen).genNL, true
 	}
@@ -425,4 +427,16 @@ func (g *Gen) genString() {
 // (NL | ";") alternation.
 func (g *Gen) genNL() {
 	g.newline()
+}
+
+// genRawString emits a record-field Go struct tag — a backtick
+// string holding `key:"value"` pairs.
+func (g *Gen) genRawString() {
+	tags := []string{
+		"`json:\"name\"`",
+		"`json:\"value,omitempty\"`",
+		"`db:\"id\" json:\"id\"`",
+		"`xml:\"item\"`",
+	}
+	g.emitRaw(tags[g.rng.IntN(len(tags))])
 }

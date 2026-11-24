@@ -130,13 +130,14 @@ bool tree_sitter_gom_external_scanner_scan(void *payload, TSLexer *lexer,
   bool nl = true;
   switch (lexer->lookahead) {
   // Every token starting with these is in line-start:
-  //   |  |>  |?>  ||        >  >>  >=        &&        +  *  %
+  //   |  |>  |?>  ||        >  >>  >=        &&        +  *  %  ^
   case '|':
   case '>':
   case '&':
   case '+':
   case '*':
   case '%':
+  case '^':
     nl = false;
     break;
   // '<' '<=' '<<' are in line-start; only '<-' is not (select arms).
