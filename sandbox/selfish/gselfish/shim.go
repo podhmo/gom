@@ -5,7 +5,6 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -15,7 +14,6 @@ import (
 
 	"github.com/google/go-github/v68/github"
 	"github.com/pkg/errors"
-	"github.com/podhmo/gom/stdlib/result"
 )
 
 type fakeTransport struct {
@@ -44,25 +42,6 @@ func fakeHttpClient(_ struct{}) *http.Client {
 		Timeout:   time.Duration(1) * time.Second,
 		Transport: &fakeTransport{W: os.Stderr},
 	}
-}
-
-// github.GistsService.{Create,Edit} return 3 values, which gom can't
-// express (E0501); these wrappers drop the *Response like the oracle
-// does. Gom `Result T GoError` emits as result.Result[T, error].
-func gistsCreate(c *github.Client, ctx context.Context, g *github.Gist) result.Result[*github.Gist, error] {
-	gist, _, err := c.Gists.Create(ctx, g)
-	if err != nil {
-		return result.Err[*github.Gist, error](err)
-	}
-	return result.Ok[*github.Gist, error](gist)
-}
-
-func gistsEdit(c *github.Client, ctx context.Context, gistID string, g *github.Gist) result.Result[*github.Gist, error] {
-	gist, _, err := c.Gists.Edit(ctx, gistID, g)
-	if err != nil {
-		return result.Err[*github.Gist, error](err)
-	}
-	return result.Ok[*github.Gist, error](gist)
 }
 
 // errors.Wrap(err, msg) — gom can't emit %w (see host.gom).

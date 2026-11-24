@@ -29,7 +29,7 @@ fn client_create (c: Client) (ctx: context.Context) (filenames: List String) (pu
   let gist = try (Result.map_err
     (fn e -> wrapf e "invalid file name is found. %q" filenames)
     (new_gist filenames public))
-  let g = try (gists_create c.github ctx gist)
+  let (g, _resp) = try (c.github.Gists.Create ctx gist)
   let html_url = ptr_str g.HTMLURL
   let created_at = ptr_timestamp g.CreatedAt
   let gist_id = ptr_str g.ID
@@ -48,7 +48,7 @@ fn client_update (c: Client) (ctx: context.Context) (gist_id: String) (filenames
   let gist = try (Result.map_err
     (fn e -> wrapf e "invalid file name is found. %q" filenames)
     (new_gist filenames public))
-  let g = try (gists_edit c.github ctx gist_id gist)
+  let (g, _resp) = try (c.github.Gists.Edit ctx gist_id gist)
   let html_url = ptr_str g.HTMLURL
   let created_at = ptr_timestamp g.CreatedAt
   match Ptr.to_option g.ID {

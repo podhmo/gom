@@ -3,10 +3,12 @@
 //
 //   - http.RoundTripper (@method can't return Result, E0420), so the
 //     fake client is a handwritten Go func.
-//   - github.GistsService.{Create,Edit} return 3 values (E0501), so
-//     they get (*Gist, error) wrappers.
 //   - github.GistFile.Size is *int — gom has no `int` (Ptr Int is
 //     *int64) — so the literal is built Go-side.
+//
+// (Gists.{Create,Edit} used to be shimmed for their 3-value return;
+// n-ary Go results now fold to `Result (T, U, ...) GoError`, so
+// client.gom calls the methods directly.)
 package main
 
 import go "context"
@@ -14,10 +16,6 @@ import go "net/http"
 import go "github.com/google/go-github/v68/github"
 
 @extern fn fake_http_client () -> Ptr http.Client
-
-@extern fn gists_create (c: Ptr github.Client) (ctx: context.Context) (gist: Ptr github.Gist) -> Result (Ptr github.Gist) GoError
-
-@extern fn gists_edit (c: Ptr github.Client) (ctx: context.Context) (gist_id: String) (gist: Ptr github.Gist) -> Result (Ptr github.Gist) GoError
 
 @extern fn host_new_gist_file (filename: String) (size: Int) (content: String) -> Ptr github.GistFile
 
