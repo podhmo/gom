@@ -22,9 +22,7 @@ fn parse_cols (spec: String) -> Result (List Int) String =
   parse_cols_rec (strings.Split (spec, ",")) []
 
 fn pick (fields: List Int) (row: List String) -> List String =
-  fields
-  |> List.filter (fn i -> i < List.length row)
-  |> List.map (fn i -> List.get i row |> Option.get)
+  fields |> List.map (fn i -> List.get i row |> Option.get_or_else "")
 
 fn read_rec (r: Ptr csv.Reader) (w: Ptr csv.Writer) (fields: List Int) -> Result Unit GoError = match r.Read () {
   Ok row -> if row == [] { Ok () } else {
@@ -56,7 +54,9 @@ fn main () -> Unit = {
         match input {
           Ok f -> {
             let w = csv.NewWriter os.Stdout
-            match read_rec (csv.NewReader f) w fields {
+            let r = csv.NewReader f
+            r.FieldsPerRecord = 0 - 1
+            match read_rec r w fields {
               Ok _ -> {
                 w.Flush ()
                 match w.Error () {
