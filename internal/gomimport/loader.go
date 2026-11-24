@@ -109,6 +109,13 @@ type Loader struct {
 	goflagsOnce sync.Once
 	goflags     string
 
+	// workOnce resolves the directory holding the go.work that
+	// governs Config.Dir; empty outside workspace mode. In a
+	// workspace the go command ignores every member module's
+	// vendor/ — only <workroot>/vendor applies.
+	workOnce sync.Once
+	work     string
+
 	// pkgs caches loaded member tables; errs the failures behind
 	// them; loading marks in-progress paths (as their index into
 	// stack) so a cyclic `import` reports instead of recursing —
@@ -389,7 +396,7 @@ func ExternalPackages(dir, gobin string) ([]string, error) {
 	mods, err := l.extModules()
 	mainPath, mainDir, _ := l.module()
 	vend := ""
-	if mainDir != "" && l.vendorEnabled() {
+	if mainDir != "" && l.vendorEnabled() && l.workRoot() == "" {
 		v := filepath.Join(mainDir, "vendor")
 		if st, serr := os.Stat(v); serr == nil && st.IsDir() {
 			vend = v
@@ -593,7 +600,7 @@ func (l *Loader) pkgDir(path string) (string, error) {
 	// (or =readonly) makes the go command ignore vendor/ entirely,
 	// and the generated Go import must see the same source the go
 	// tool will use.
-	if _, modDir, merr := l.module(); merr == nil && l.vendorEnabled() {
+	if _, modDir, merr := l.module(); merr == nil && l.vendorEnabled() && l.workRoot() == "" {
 		v := filepath.Join(modDir, "vendor", filepath.FromSlash(path))
 		if st, serr := os.Stat(v); serr == nil && st.IsDir() {
 			return v, nil
@@ -718,6 +725,29 @@ func (l *Loader) gobin() string {
 		return l.cfg.GoBin
 	}
 	return "go"
+}
+
+// workRoot returns the directory holding the go.work governing
+// Config.Dir — "" when there is none or GOWORK disables it.
+// `go env GOWORK` answers it; the env var alone is not enough
+// because an unset GOWORK still auto-discovers a go.work walking
+// up the tree.
+func (l *Loader) workRoot() string {
+	l.workOnce.Do(func() {
+		cmd := exec.Command(l.gobin(), "env", "GOWORK")
+		if l.cfg.Dir != "" {
+			cmd.Dir = l.cfg.Dir
+		}
+		out, err := cmd.Output()
+		if err != nil {
+			return
+		}
+		wf := strings.TrimSpace(string(out))
+		if wf != "" && wf != "off" {
+			l.work = filepath.Dir(wf)
+		}
+	})
+	return l.work
 }
 
 // vendorEnabled reports whether the go command would resolve

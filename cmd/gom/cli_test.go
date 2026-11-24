@@ -1312,10 +1312,11 @@ func TestListExternal(t *testing.T) {
 // are listed from its replace directory, and the vendored copy is
 // listed by its vendored path (what dirOf resolves under vendor
 // mode). The package's TestMain pins GOFLAGS=-mod=mod, which the
-// go command reads as "ignore vendor/" — this test re-enables
-// vendoring explicitly.
+// go command reads as "ignore vendor/" — this test enables
+// vendoring explicitly; a plain "" would leave a `go env -w`
+// saved -mod value in effect.
 func TestListExternalVendor(t *testing.T) {
-	t.Setenv("GOFLAGS", "")
+	t.Setenv("GOFLAGS", "-mod=vendor")
 	dir := writeFiles(t, map[string]string{
 		"go.mod":                              "module example.com/exttest\n\ngo 1.27\n\nrequire example.com/dep v0.0.0\n\nreplace example.com/dep => ./dep\n",
 		"pkg/pkg.gomi":                        "package pkg\n",
