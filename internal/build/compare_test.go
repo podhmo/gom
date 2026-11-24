@@ -1695,7 +1695,15 @@ fn answer () -> String = {
     Some o -> (match o { Some c -> "in:${c}"; None -> "inn" })
     None -> "no-oo"
   }
-  "${a}${b}${c}${d}${e2}${f2}${g2}${h2}"
+  // a second instantiation after Some ('a', ()) must not inherit
+  // the first site's (Char, Unit) field types — the inner Option's
+  // payload stays (Int, Unit).
+  let _ = Some ('a', ())
+  let i2 = match (Go.try_as (box (Some (42, ()))) : Option (Option (Int, Unit))) {
+    Some o -> (match o { Some (n, c) -> "${n}"; None -> "inn2" })
+    None -> "no-oo2"
+  }
+  "${a}${b}${c}${d}${e2}${f2}${g2}${h2}${i2}"
 }
 
 fn main () -> Unit = {
@@ -1703,7 +1711,7 @@ fn main () -> Unit = {
   ()
 }
 `,
-		want: "no-ii32no-bx-ibx-sfwd-i32bx-rune97in:a",
+		want: "no-ii32no-bx-ibx-sfwd-i32bx-rune97in:a42",
 	},
 }
 

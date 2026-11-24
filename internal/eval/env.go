@@ -42,6 +42,12 @@ type ctorInfo struct {
 	name   string
 	typ    *types.Con // the nominal type the constructor builds
 	fields []fieldInfo
+	// declared reports whether typ and the field types are in
+	// declaration form — Con args and field types over the type's
+	// own parameter Vars. Infos derived lazily from an apply
+	// site's instantiated type carry that site's concrete types
+	// instead, which only that instantiation may use.
+	declared bool
 }
 
 // fieldInfo is one payload slot of a constructor (declaration order).

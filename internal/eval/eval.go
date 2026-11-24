@@ -484,7 +484,7 @@ func (e *Evaluator) registerTypeDecl(d *check.TypeDecl) {
 				fields[i] = fieldInfo{name: tf.Name, label: tf.Label, sym: tf.Sym, index: tf.Index, typ: tf.Type}
 			}
 			e.interp.registerCtor(&ctorInfo{
-				sym: variant.Sym, name: variant.Sym.Name, typ: con, fields: fields,
+				sym: variant.Sym, name: variant.Sym.Name, typ: con, fields: fields, declared: true,
 			})
 		}
 	case *check.RecordType:
@@ -696,6 +696,15 @@ func (e *interp) evalVar(x *check.Var, env *Env) Value {
 	switch x.Sym.Kind {
 	case resolve.KindCtor:
 		info := e.ctorOf(x.Sym, x.Sym.Name, x.Type())
+		if info != nil && !info.declared {
+			// A lazily-derived info is only valid for the
+			// instantiation it was built from — the first apply
+			// site's concrete types would stick to every later site
+			// (Some 'a' recasting a later Some 42's payload type).
+			// Derive this site's shape fresh; the shared cache entry
+			// still serves name/label lookups.
+			info = deriveCtor(x.Sym, x.Sym.Name, x.Type())
+		}
 		if info == nil {
 			failData(CodeInternal, "cannot determine constructor type", x.Span(), "ctor", x.Sym.Name)
 		}
@@ -930,6 +939,9 @@ func (e *interp) evalMember(x *check.MemberExpr, env *Env) Value {
 		}
 		if x.Sym.Kind == resolve.KindCtor {
 			info := e.ctorOf(x.Sym, x.Sym.Name, x.Type())
+			if info != nil && !info.declared {
+				info = deriveCtor(x.Sym, x.Sym.Name, x.Type())
+			}
 			if info != nil {
 				if len(info.fields) == 0 {
 					return &VVariant{Type: info.typ, Ctor: info.sym, Name: info.name}
@@ -1668,7 +1680,18 @@ func (e *interp) reshape(v Value, t types.Type) Value {
 		}
 	case *VVariant:
 		if con, ok := ct.(*types.Con); ok {
-			if ci := e.ctorOf(v.Ctor, v.Name, v.Type); ci != nil && len(ci.fields) == len(v.Fields) {
+			ci := e.ctorOf(v.Ctor, v.Name, v.Type)
+			if ci != nil && !ci.declared {
+				// A site-derived info's field types are concrete for
+				// the instantiation it was built at; substituting
+				// them against the target's args recasts payloads to
+				// the wrong shape (Some 42's Int becoming Char after
+				// an earlier Some 'a'). The builtin Option/Result
+				// ctors have a declared shape to fall back to; any
+				// other derived info leaves the payload unchanged.
+				ci = builtinDeclCtor(v.Ctor)
+			}
+			if ci != nil && ci.declared && len(ci.fields) == len(v.Fields) {
 				sub := instSubst(ci.typ, con)
 				fs := make([]VField, len(v.Fields))
 				for i, f := range v.Fields {
