@@ -1,0 +1,63 @@
+// Step 18: concurrency — `go`, `Chan`, `select`, `Task`.
+//
+// `go { e }` runs `e` (which must be `Unit`) on a new goroutine.
+// `Chan a` is a Go channel; `Chan.make n` gives a buffer of n,
+// `Chan.recv` yields `Option a` (`None` once closed), `for x in ch`
+// receives until close. `RecvChan`/`SendChan` restrict the
+// direction via `Chan.recvOnly`/`Chan.sendOnly`. `select` picks a
+// ready arm like Go's: receive `x <- ch`, send `send ch v`, or
+// `default` for non-blocking. `Task.spawn`/`Task.await` is the
+// simple one-shot join (spec 10).
+package main
+
+import go "fmt"
+import go "time"
+
+fn double_jobs (jobs: RecvChan Int) (results: SendChan Int) -> Unit = {
+  for job in jobs {
+    Chan.send results (job * 2)
+  }
+  Chan.close results
+}
+
+fn main () -> Unit = {
+  let jobs = Chan.make 4
+  let results = Chan.make 4
+  go { double_jobs (Chan.recvOnly jobs) (Chan.sendOnly results) }
+  for x in [1, 2, 3] { Chan.send jobs x }
+  Chan.close jobs
+  for r in results { ignore (fmt.Println "got ${r}") }
+
+  // Task: spawn a thunk, await its value.
+  let t = Task.spawn (fn () -> 40 + 2)
+  ignore (fmt.Println "task ${Task.await t}")
+
+  // select: receive arm vs a `time.After` deadline arm.
+  let tick = Chan.make 1
+  go { Chan.send tick 1 }
+  let verdict = select {
+    x <- tick -> match x {
+      Some n -> "tick ${n}"
+      None -> "closed"
+    }
+    _ <- time.After (time.Second) -> "timeout"
+  }
+  ignore (fmt.Println verdict)
+
+  // A `default` arm makes a non-blocking peek; `send` arms try to send.
+  let peek = select {
+    x <- tick -> match x {
+      Some _ -> "got"
+      None -> "closed"
+    }
+    default -> "empty"
+  }
+  ignore (fmt.Println peek)
+  let full = Chan.make 0
+  let sent = select {
+    send full 1 -> "sent"
+    default -> "no receiver"
+  }
+  ignore (fmt.Println sent)
+  ()
+}

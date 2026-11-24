@@ -21,7 +21,9 @@ import (
 
 	"github.com/podhmo/gom/internal/build"
 	"github.com/podhmo/gom/internal/goimport"
+	"github.com/podhmo/gom/internal/gomimport"
 	"github.com/podhmo/gom/internal/lower"
+	"github.com/podhmo/gom/internal/resolve"
 	gomstd "github.com/podhmo/gom/internal/stdlib"
 )
 
@@ -35,9 +37,19 @@ func compileStep(t *testing.T, root, src string, checkOnly bool) *build.Result {
 	if err != nil {
 		t.Fatal(err)
 	}
-	loader := goimport.New(&goimport.Config{Dir: filepath.Join(root, "tutorial", filepath.Dir(src))})
+	dir := filepath.Join(root, "tutorial", filepath.Dir(src))
+	gl := goimport.New(&goimport.Config{Dir: dir})
+	// The CLI resolves `import "mod/path"` (Gom packages, including
+	// the stdlib's `list`/`option`/`result`/`cmp` short names)
+	// through gomimport's composite on top of the Go loader —
+	// mirror it or a plain `import` reports E0203.
+	mods := map[string]map[string]*resolve.Symbol{}
+	ml := gomimport.New(&gomimport.Config{Dir: dir, Go: gl, Sigs: gl, Modules: mods})
 	compiled, err := build.Compile(build.Input{Path: src, Src: source}, gomstd.Apply(&build.Options{
-		Loader: loader, Sigs: loader, Lower: &lower.Env{GoSig: loader.GoSigOf}, CheckOnly: checkOnly,
+		Loader: ml, Sigs: ml, Modules: mods,
+		Lower:          &lower.Env{GoSig: gl.GoSigOf, Types: ml, FuncArity: ml.ArityOf, FuncType: ml.FuncTypeOf, FuncNOfNamed: ml.FuncNOfNamed, GoUnderlyingSliceOrArrayPtr: gl.GoUnderlyingIsSliceOrArrayPtr},
+		SelfImportPath: ml.EntryPath(),
+		CheckOnly:      checkOnly,
 	}))
 	if err != nil {
 		t.Fatalf("compiler API: %v", err)

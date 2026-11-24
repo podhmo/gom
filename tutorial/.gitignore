@@ -1,3 +1,2 @@
-generated .go output of gom build — never committed
-[0-9]*/main.go
-[0-9]*/badmatch.go
+generated .go output of gom build / gom test — never committed
+[0-9]*/*.go

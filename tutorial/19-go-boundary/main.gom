@@ -1,0 +1,61 @@
+// Step 19: the Go boundary in depth — `Ptr`, `Go.conv`, `Go.nil`,
+// `Go.Slice`, `Go.Map`, and variadic spread.
+//
+// `Ptr T` is Go's `*T`: `Ptr.new ()` is `new(T)`, and a Go struct is
+// built by field writes on it (`c.Timeout = ...`) — there is no
+// composite-literal spelling by design (decision
+// 2026-11-19-struct-field-write). `Go.conv e : T` is the only
+// ascription, for Go's conversion rules. `Go.nil ()` writes nil for
+// nil-able non-`Ptr` types. `Go.Slice`/`Go.Map` are the spellable
+// `[]T`/`map[K]V` faces — read the ops tables in spec 8.3.
+package main
+
+import go "fmt"
+import go "net/http"
+import go "time"
+import go "slices"
+
+fn show_opt (o: Option Int) -> String = match o {
+  Some n -> "some ${n}"
+  None -> "none"
+}
+
+fn main () -> Unit = {
+  // Build a Go struct: `Ptr.new` then field writes.
+  let c: Ptr http.Client = {
+    let c = Ptr.new ()
+    // `time.Duration` is a named int64 — numeric ops and literals
+    // work on it directly (spec 3.3).
+    c.Timeout = 5 * time.Second
+    c
+  }
+  ignore (fmt.Println "timeout ${c.Timeout}")
+  // `Ptr.get`/`Ptr.set` dereference; `is_nil`/`to_option` are the
+  // safe nil faces.
+  let p = Ptr.make 1
+  Ptr.set p 42
+  ignore (fmt.Println "ptr ${Ptr.get p}")
+  let fresh: Ptr Int = Ptr.new ()
+  ignore (fmt.Println "nil ${Ptr.is_nil fresh}, safe ${Ptr.to_option fresh}")
+  // `Go.conv`: explicit conversion where Go would allow `T(x)`.
+  let n = Go.conv 300 : Int32
+  ignore (fmt.Println "i32 ${n + 1}")
+  // `Go.Slice` shares Go's backing — in-place Go calls like
+  // `slices.SortFunc` actually mutate it (a `List` would be copied,
+  // and the warning W0501 tells you the sort would be invisible).
+  let xs: List Int = [3, 1, 2]
+  let gs: Go.Slice Int = Go.conv xs : Go.Slice Int
+  ignore (fmt.Println "len ${Go.Slice.length gs}, at 9 ${Go.Slice.get gs 9}")
+  ignore (slices.SortFunc gs (Go.func2 (fn (a: Int) (b: Int) -> a - b)))
+  ignore (fmt.Println "sorted ${Go.Slice.to_list gs}")
+  // `Go.nil ()` supplies nil for nil-able types; `Go.Map` wraps maps.
+  let empty: Go.Slice Int = Go.nil ()
+  ignore (fmt.Println "nil slice len ${Go.Slice.length empty}")
+  let m: Go.Map String Int = Go.Map.make ()
+  Go.Map.set m "one" 1
+  Go.Map.set m "two" 2
+  ignore (fmt.Println "map len ${Go.Map.length m}, two ${show_opt (Go.Map.get m "two")}")
+  // `..xs` spreads a List into a variadic call (spec 8.1).
+  ignore (fmt.Println (..["via", "spread"]))
+  ()
+}

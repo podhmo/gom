@@ -1,0 +1,46 @@
+// Step 17: `test` blocks — tests live in the same `.gom` file.
+//
+// `test "name" { ... }` is a top-level declaration whose body is
+// `Unit` or `Result Unit e` (`Err` fails the test, and `try` works
+// inside). `assert cond` and `assert_eq actual expected` are only
+// valid inside a test block. `@test` marks helpers visible only to
+// tests. `gom build` type-checks tests but emits them only for
+// `gom test` — run it to see the `kind:"test"` JSON Lines report:
+//
+//   gom test tutorial/17-tests
+//
+// (spec 11)
+package main
+
+import go "fmt"
+
+fn square (x: Int) -> Int = x * x
+
+// A test-only helper: uncallable from `main` or other packages.
+@test
+fn double (x: Int) -> Int = x * 2
+
+@test
+let fixture = 41
+
+fn parse (s: String) -> Result Int String = if s == "bad" { Err "bad input" } else { Ok 3 }
+
+test "arithmetic" {
+  assert_eq (square 3) 9
+  assert ((1 + 1) == 2)
+}
+
+test "fixtures and helpers" {
+  assert_eq (double fixture) 82
+}
+
+test "a failable test uses try" {
+  let n = try parse "ok"
+  assert_eq (n + 1) 4
+  Ok ()
+}
+
+fn main () -> Unit = {
+  ignore (fmt.Println "run tests with: gom test tutorial/17-tests")
+  ()
+}

@@ -1,0 +1,7 @@
+cancelled
+hello world
+hello world
+err boom, self true
+{42}
+some text
+none

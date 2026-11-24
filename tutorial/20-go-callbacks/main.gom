@@ -1,0 +1,57 @@
+// Step 20: Go callbacks, interfaces, and `Go.Any`.
+//
+// A `func(A, B) R` parameter on a Go API reads as `Go.FuncN`; the
+// explicit `Go.funcN f` conversion wraps a Gom function for it
+// (flattening the curried shape, folding `Result` back to `error`).
+// `Go.fnN f` is the inverse — a `Go.FuncN` value becomes a plain
+// Gom function (spec 8.8). `@method` grows a Go method on your own
+// record type so it satisfies a Go interface (spec 8.9): the fn is
+// called normally, and the record is assignable to the interface.
+// `Go.Any` is `any`; `Go.try_as x : Option T` is the comma-ok
+// type-assertion face.
+package main
+
+import go "fmt"
+import go "errors"
+import go "context"
+
+type Greeter = { name: String }
+
+// Emits both a plain function and `func (g Greeter) String() string`
+// — the record then satisfies `fmt.Stringer`.
+@method
+fn (g: Greeter) string () -> String = "hello ${g.name}"
+
+type Failure = { reason: String }
+
+// `error()` maps to `Error()` — the record satisfies `GoError`.
+@method
+fn (f: Failure) error () -> String = f.reason
+
+fn show_opt (o: Option String) -> String = match o {
+  Some s -> "some ${s}"
+  None -> "none"
+}
+
+fn main () -> Unit = {
+  // context.WithCancel returns a `func()` — a `Go.Func0 Unit`.
+  let (_ctx, cancel) = context.WithCancel (context.Background ())
+  (Go.fn0 cancel) ()
+  ignore (fmt.Println "cancelled")
+  // @method: assignable at interface-typed positions.
+  let g = { name = "world" }
+  let st : fmt.Stringer = g
+  ignore (fmt.Println st)
+  // The ordinary call takes receiver then params — `string g ()`.
+  ignore (fmt.Println (string g ()))
+  let f = { reason = "boom" }
+  let e : GoError = f
+  ignore (fmt.Println "err ${e.Error ()}, self ${errors.Is e e}")
+  // Go.Any boxes anything; Go.try_as is the only way back out.
+  let v : Go.Any = 42
+  ignore (fmt.Println (Go.try_as v : Option Int))
+  let s : Go.Any = "text"
+  ignore (fmt.Println (show_opt (Go.try_as s : Option String)))
+  ignore (fmt.Println (show_opt (Go.try_as v : Option String)))
+  ()
+}
