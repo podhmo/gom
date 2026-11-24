@@ -27,11 +27,13 @@
 
 ## 言語側の穴（指針を適用しようとして gom では書けない）
 
-- **`.gomi` は record のコンストラクタを隠せない**。`ValidatedOrder`/`PricedOrder` の型は export が
-  必要だが、gom では型が見えると record literal で直接構築できてしまう。DMMF の
-  「`place_order` を通さないと `ValidatedOrder` を作れない」不変条件は `.gomi` では守れない
-  （Devin Review の指摘 ANALYSIS_0009 と同一点）。opaque 型 / constructor 非公開の仕組みがない —
-  言語側の gap として `docs/implementation-gaps.md` 候補。
+- ~~`.gomi` は record のコンストラクタを隠せない~~ → **訂正: 隠せる**。`.gomi` で
+  `type ValidatedOrder` と bare 宣言（`= { ... }` を付けない abstract 宣言）にすると、
+  import 側からの record literal 構築が E0401 で拒否される（実検証済み）。
+  `shop/domain/domain.gomi` を修正して `ValidatedOrder`/`ValidatedOrderLine` を abstract 化し、
+  「`place_order` を通さないと `ValidatedOrder` を作れない」を型で強制できた。
+  `PricedOrder` は receipt 描画のために main 側がフィールドを読む必要があるため concrete のまま
+  （出力データなので直接構築されても害が薄い、という線引き）。
 - **1 ファイル内で同形 record を重ねると E0407 の注釈が要る**（`UnvalidatedOrder` → `ValidatedOrder`
   のような「同じフィールドを持つ段階型」パターンで自然に発生）。機能ではなく DX の摩擦。
 
@@ -48,6 +50,6 @@
 
 今回のツール群は「閉じた語彙・排他状態・欠落」を扱う場面で自然に enum/Option を使えており、
 指針を後から適用しても大きな変更は出なかった。見送り線引き（真の2値、境界変換、set 代用の
-`Map K Bool`）も記事の基準表にそのまま置ける。唯一の構造的な穴は **gom の `.gomi` が
-コンストラクタの非公開化を表現できない**点で、DMMF 的な「検証済み型を経由なしに作らせない」
-設計は現状ドキュメント規約で守るしかない。
+`Map K Bool`）も記事の基準表にそのまま置ける。監査当初「コンストラクタ非公開が書けない」と
+判断した点は Devin Review の指摘で覆り、`.gomi` の abstract 宣言で実現できた — DMMF の
+「検証済み型を経由なしに作らせない」は gom でも型レベルで守れる。
