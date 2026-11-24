@@ -151,3 +151,11 @@ CSV・日時・ネットワーク・集計・リネーム・表出力・乱数�
 ## 所感
 
 前回の「不得意・危険」は半分以上が wave35–40 の実装で解消していて、とくに `@method(GoName)`・`//gom:embed`・struct tag・型テスト腕は探索で普通に使えるレベル。新しく見つかった壁は「uint 非対応 API」「Go func 値の往復変換」「依存パッケージの非推移 build」あたり — どれもワークアラウンドがあるが、利用側が踏むポイントとして残す価値がある。
+
+## 追記: Devin Review と記事監査（2026-11-24 後半）
+
+- Devin Review の指摘を検証してツール群を修正（上書き防止・終了コード・scanner エラー伝播・
+  json.Number 保持・TSV・range 上端・ローカル日付比較・MkdirTemp など）。各コミット参照。
+- moonbit-sum-types 記事の指針で全コードを監査したメモは `sandbox/sumtypes.md`。
+  大きな変更は出ず、言語側の穴として「`.gomi` がコンストラクタ非公開を表現できない
+  （ValidatedOrder を place_order 経由に強制できない）」を確認。
