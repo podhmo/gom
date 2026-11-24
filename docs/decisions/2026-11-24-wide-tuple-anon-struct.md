@@ -31,4 +31,7 @@
 - golden: `testdata/golden/tuple9.gom`（9 要素の spelled tuple を
   引数パターン・リテラル構築・分解で使用）→ 匿名 struct emit
 - E2E: 生成コードを Go module で `go build` + 実行し、
-  `big (1,...,9) = 10` を確認
+  `big (1,...,9) = 10` を確認 — 検証メモ:
+  [docs/sketch/2026-11-24-wide-tuple-verify.md](../sketch/2026-11-24-wide-tuple-verify.md)
+- `types.GoRepr`（`Go.try_as` の inhabits 判定）も 8 要素超を
+  reflect の綴り `struct { V0 int64; ... }` で返す

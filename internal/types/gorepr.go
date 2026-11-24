@@ -148,6 +148,20 @@ func GoRepr(t Type) string {
 				return ""
 			}
 		}
+		if len(t.Elems) > 8 {
+			// codegen emits wide tuples as anonymous structs —
+			// spell it the way reflect renders the host value.
+			var b strings.Builder
+			b.WriteString("struct { ")
+			for i, p := range parts {
+				if i > 0 {
+					b.WriteString("; ")
+				}
+				fmt.Fprintf(&b, "V%d %s", i, p)
+			}
+			b.WriteString(" }")
+			return b.String()
+		}
 		return fmt.Sprintf("rt.Tuple%d[%s]", len(t.Elems), strings.Join(parts, ", "))
 	case *Meta, *Var:
 		return ""
