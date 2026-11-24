@@ -172,14 +172,11 @@ fn binaries_body (app: App) (commit: Commit) (files: List String) -> Result Unit
     Ok _ -> ()
   }
 
-  let copied = Ref.new []
-  for fname in files {
-    match copy_to repo_dir fname {
-      Err e -> ignore (log.Printf ("ignored for %+v, in copy file (%q)", e, fname))
-      Ok base -> Ref.set copied [base, ..Ref.get copied]
-    }
+  let copy = fn acc (fname: String) -> match copy_to repo_dir fname {
+    Err e -> { ignore (log.Printf ("ignored for %+v, in copy file (%q)", e, fname)); acc }
+    Ok base -> [base, ..acc]
   }
-  let names = List.rev (Ref.get copied)
+  let names = List.rev (List.fold copy [] files)
   if names == [] {
     ()
   } else {
