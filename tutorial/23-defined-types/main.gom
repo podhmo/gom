@@ -57,10 +57,10 @@ fn main () -> Unit = {
   // - Display quirk (recorded in docs/implementation-gaps):
   //   the compiled binary prints `${f}` as the record
   //   `{ on = true }` — `display` renders a declared-type value
-  //   through its record form. `gom run`'s evaluator instead
-  //   keeps a literal-bound value as the scalar and prints
-  //   `true`. Same value, two stored forms; which one is
-  //   canonical is an open question.
+  //   through its record form. the compiler's test
+  //   oracle (internal/eval) instead keeps a literal-bound value
+  //   as the scalar and prints `true`. Same value, two stored
+  //   forms; which one is canonical is an open question.
   ()
 }
 
