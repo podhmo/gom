@@ -765,3 +765,36 @@ let value : Int
 		t.Fatalf("value.Mutable = %v, want false — the directive marks type members only", v)
 	}
 }
+
+func TestWorkUseHonorsGoworkFile(t *testing.T) {
+	// workUse reads the go.work GOWORK actually names — the file
+	// need not be `go.work`, `use` entries may be absolute, and a
+	// member's `module` directive tolerates tabs and comments.
+	root := t.TempDir()
+	write := func(p, body string) {
+		t.Helper()
+		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	ext := filepath.Join(root, "ext")
+	abs := filepath.Join(root, "abs")
+	write(filepath.Join(ext, "go.mod"), "module\texample.com/ext // trailing\n")
+	write(filepath.Join(abs, "go.mod"), "module example.com/abs\n")
+	main := filepath.Join(root, "main")
+	write(filepath.Join(main, "go.mod"), "module example.com/m\n\ngo 1.27\n")
+	wf := filepath.Join(root, "go.work.dev")
+	write(wf, "go 1.27\n\nuse (\n\t\"./ext\"\n\t\""+filepath.ToSlash(abs)+"\"\n)\n")
+	t.Setenv("GOWORK", wf)
+	l := New(&Config{Dir: main})
+	got := l.workUse()
+	if got["example.com/ext"] != ext {
+		t.Fatalf("workUse ext = %q, want %q", got["example.com/ext"], ext)
+	}
+	if got["example.com/abs"] != abs {
+		t.Fatalf("workUse abs = %q, want %q", got["example.com/abs"], abs)
+	}
+}
