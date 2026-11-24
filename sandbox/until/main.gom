@@ -6,7 +6,7 @@ import go "os"
 import go "time"
 
 fn report (d: String) -> Result Unit GoError = {
-  let target = try time.Parse (time.DateOnly, d)
+  let target = try time.ParseInLocation (time.DateOnly, d, time.Local)
   let now = time.Now ()
   let days = (target.Sub now).Hours () / 24.0
   let n = Go.conv (math.Ceil days) : Int
@@ -20,11 +20,16 @@ fn main () -> Unit = {
   let args = os.Args |> Go.Slice.to_list |> List.drop 1
   match args {
     [] -> { ignore fmt.Fprintln (os.Stderr, "usage: until 2026-12-31 [...]"); os.Exit 2 }
-    _ -> for d in args {
-      match report d {
-        Ok _ -> ()
-        Err e -> ignore fmt.Fprintf (os.Stderr, "until: %s: %s\n", d, e.Error ())
-      }
+    _ -> {
+      let ok = (List.fold
+        (fn acc d ->
+          match report d {
+            Ok _ -> acc
+            Err e -> { ignore fmt.Fprintf (os.Stderr, "until: %s: %s\n", d, e.Error ()); false }
+          })
+        true
+        args)
+      if ok { () } else { os.Exit 1 }
     }
   }
 }
