@@ -1689,7 +1689,13 @@ fn answer () -> String = {
     Some (n, c) -> "${c}"
     None -> "no-tup"
   }
-  "${a}${b}${c}${d}${e2}${f2}${g2}"
+  // a builtin variant nested in any: Option's ctor info is derived
+  // lazily, so its payload type must survive for the reshape.
+  let h2 = match (Go.try_as (box (Some 'a')) : Option (Option Char)) {
+    Some o -> (match o { Some c -> "in:${c}"; None -> "inn" })
+    None -> "no-oo"
+  }
+  "${a}${b}${c}${d}${e2}${f2}${g2}${h2}"
 }
 
 fn main () -> Unit = {
@@ -1697,7 +1703,7 @@ fn main () -> Unit = {
   ()
 }
 `,
-		want: "no-ii32no-bx-ibx-sfwd-i32bx-rune97",
+		want: "no-ii32no-bx-ibx-sfwd-i32bx-rune97in:a",
 	},
 }
 

@@ -293,7 +293,7 @@ func deriveCtor(sym *resolve.Symbol, name string, typ types.Type) *ctorInfo {
 		}
 		fields := make([]fieldInfo, len(t.Params))
 		for i, p := range t.Params {
-			fields[i] = fieldInfo{label: p.Label, index: i}
+			fields[i] = fieldInfo{label: p.Label, index: i, typ: p.Type}
 		}
 		return &ctorInfo{sym: sym, name: name, typ: con, fields: fields}
 	}

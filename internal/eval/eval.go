@@ -1659,7 +1659,9 @@ func (e *interp) reshape(v Value, t types.Type) Value {
 				fs := make([]VField, len(v.Fields))
 				for i, f := range v.Fields {
 					fs[i] = f
-					fs[i].V = e.reshape(f.V, applySubst(ri.fields[i].typ, sub))
+					if ft := ri.fields[i].typ; ft != nil {
+						fs[i].V = e.reshape(f.V, applySubst(ft, sub))
+					}
 				}
 				return &VRecord{Type: con, Fields: fs}
 			}
@@ -1671,7 +1673,9 @@ func (e *interp) reshape(v Value, t types.Type) Value {
 				fs := make([]VField, len(v.Fields))
 				for i, f := range v.Fields {
 					fs[i] = f
-					fs[i].V = e.reshape(f.V, applySubst(ci.fields[i].typ, sub))
+					if ft := ci.fields[i].typ; ft != nil {
+						fs[i].V = e.reshape(f.V, applySubst(ft, sub))
+					}
 				}
 				return &VVariant{Type: con, Name: v.Name, Fields: fs}
 			}
