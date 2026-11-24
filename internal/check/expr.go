@@ -2441,7 +2441,18 @@ func (c *checker) constFold(e Expr) (constant.Value, bool) {
 			// the fold declines rather than claim a value.
 			if c.floatKindOf(e.X.Type()) {
 				fv, ok := c.foldFloat(e.X)
-				if !ok || fv >= 9.223372036854776e18 || fv <= -9.223372036854776e18 {
+				if !ok {
+					return nil, false
+				}
+				// float→int conversion out of the TARGET's range is
+				// implementation-dependent in Go — `int32(2^32)`
+				// is -2^31 on amd64, not the wrapped 0 an int64
+				// round-trip would suggest — so the fold declines.
+				if us {
+					if fv < 0 || fv >= math.Pow(2, float64(w)) {
+						return nil, false
+					}
+				} else if fv < -math.Pow(2, float64(w-1)) || fv >= math.Pow(2, float64(w-1)) {
 					return nil, false
 				}
 				return wrapConstInt(constant.MakeInt64(int64(fv)), w, us), true
