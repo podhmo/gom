@@ -257,6 +257,10 @@ func (p *printer) fieldTypeItems(fields []syntax.Field) []item {
 		default:
 			dd = p.typeAt(f.Type, tpAtom)
 		}
+		if f.Tag != "" {
+			gap := p.gapInline(f.Type.Span().End, f.TagSp.Start)
+			dd = concat(dd, text(" "+pad(gap)+"`"+f.Tag+"`"))
+		}
 		items = append(items, item{lo: f.Sp.Start, hi: f.Sp.End, d: p.sweep(f.Sp.Start, f.Sp.End, dd)})
 	}
 	return items

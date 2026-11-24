@@ -864,6 +864,17 @@ and unsolved metavariables are refused as T.
     Go.try_as x : Option Go.Any // E0514 — T must be concrete
     Go.try_as i : Option Int   // E0514 — i is not Go.Any
 
+### E0515 — malformed record field struct tag
+
+**Severity:** error · **Phase:** check · **Spec:** §3
+
+A record field may carry a Go struct tag — a backtick
+raw string after the field type, emitted verbatim next to the field
+the way Go spells "Name string" plus a tag. The tag must be
+space-separated key:"value" pairs with non-empty keys, like Go's own
+reflect.StructTag surface — e.g. json:"name" is fine but json name
+is not.
+
 ### W0501 — Go call receives a copied List where mutation may be expected
 
 **Severity:** warning · **Phase:** lint · **Spec:** §8.5

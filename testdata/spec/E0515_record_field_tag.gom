@@ -1,0 +1,12 @@
+package ex
+
+// spec 3: a record field may carry a verbatim Go struct tag as a
+// trailing raw string. The tag must be a valid `key:"value"` shape.
+type Bad1 = {name: String `json`}
+type Bad2 = {name: String `"json"`}
+type Bad3 = {name: String `json:name`}
+
+// well-formed tags are accepted.
+type Ok = {name: String `json:"name"`, mail: String `json:"mail,omitempty" yaml:"mail"`}
+
+fn main () -> Unit = ()

@@ -20,7 +20,8 @@ const (
 	tokInt
 	tokFloat
 	tokChar
-	tokString // complete string literal without interpolation
+	tokString    // complete string literal without interpolation
+	tokRawString // `...` raw string (used for record field struct tags)
 
 	// interpolated-string parts: '"' , parts , '"'
 	tokStrOpen     // opening '"' of a string containing "${"
@@ -151,6 +152,7 @@ var spellings = map[tokenKind]string{
 	tokFloat:       "float literal",
 	tokChar:        "character literal",
 	tokString:      "string literal",
+	tokRawString:   "raw string literal",
 	tokStrOpen:     "\"",
 	tokStrText:     "string text",
 	tokInterpStart: "\"${\"",

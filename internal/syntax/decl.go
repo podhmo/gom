@@ -112,6 +112,10 @@ type Field struct {
 	Name  *Ident // field name; nil for positional payloads
 	Label *Ident // non-nil for `~name` labeled parameters
 	Type  TypeExpr
+	// Tag is a record field's Go struct tag, verbatim between
+	// backticks (`name : String `json:"name"``); "" when absent.
+	Tag   string
+	TagSp diag.Span
 }
 
 // Span returns the field's source span.

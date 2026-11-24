@@ -410,6 +410,11 @@ func (d *drafter) typeDecl(name string, td *check.TypeDecl) []string {
 			sb.WriteString(f.Name)
 			sb.WriteString(" : ")
 			d.writeType(&sb, f.Type)
+			if f.Tag != "" {
+				sb.WriteString(" `")
+				sb.WriteString(f.Tag)
+				sb.WriteString("`")
+			}
 		}
 		sb.WriteString(" }")
 		return []string{sb.String()}

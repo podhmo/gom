@@ -1,0 +1,14 @@
+package main
+
+import go "encoding/json"
+import go "fmt"
+
+// Record fields emit their verbatim Go struct tags so encoding/json
+// honours them.
+type User = { name: String `json:"name"`, mail: String `json:"mail,omitempty"` }
+
+fn main () -> Unit = {
+  let u = { name = "a", mail = "" }
+  ignore (fmt.Println "${u}")
+  ()
+}

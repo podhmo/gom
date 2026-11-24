@@ -1906,7 +1906,9 @@ func (p *parser) parseRecordType() (fields []Field, end int) {
 	}
 }
 
-// parseRecordTypeField parses ident ":" type-expr.
+// parseRecordTypeField parses ident ":" type-expr [ raw-string ].
+// The raw string is the field's Go struct tag — spelled like Go's
+// own `Name string `json:"name"“, validated in check.
 func (p *parser) parseRecordTypeField() *Field {
 	t := p.cur()
 	if t.kind != tokIdent {
@@ -1918,9 +1920,17 @@ func (p *parser) parseRecordTypeField() *Field {
 	name := &Ident{Sp: p.spanOf(t), Name: p.text(t)}
 	p.expect(tokColon)
 	typ := p.parseTypeExpr()
-	return &Field{
+	f := &Field{
 		Sp:   p.span(t.start, typ.Span().End),
 		Name: name,
 		Type: typ,
 	}
+	if p.at(tokRawString) {
+		rt := p.next()
+		raw := p.text(rt)
+		f.TagSp = p.spanOf(rt)
+		f.Tag = raw[1 : len(raw)-1]
+		f.Sp.End = rt.end
+	}
+	return f
 }

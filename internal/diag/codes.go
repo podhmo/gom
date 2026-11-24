@@ -960,6 +960,19 @@ and unsolved metavariables are refused as T.
 	},
 
 	{
+		Code:     "E0515",
+		Severity: SeverityError,
+		Title:    "malformed record field struct tag",
+		Phase:    PhaseCheck,
+		Spec:     "3",
+		Explanation: `A record field may carry a Go struct tag — a backtick
+raw string after the field type, emitted verbatim next to the field
+the way Go spells "Name string" plus a tag. The tag must be
+space-separated key:"value" pairs with non-empty keys, like Go's own
+reflect.StructTag surface — e.g. json:"name" is fine but json name
+is not.`,
+	},
+	{
 		Code:     "E0601",
 		Severity: SeverityError,
 		Title:    "missing .gomi interface file",

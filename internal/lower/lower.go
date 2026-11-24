@@ -1191,7 +1191,7 @@ func (l *lowerer) tfields(fs []check.TField) []core.TField {
 	for i, f := range fs {
 		out[i] = core.TField{
 			Sp: f.Sp, Name: f.Name, Label: f.Label, Index: f.Index,
-			Sym: f.Sym, Type: f.Type,
+			Sym: f.Sym, Type: f.Type, Tag: f.Tag,
 		}
 	}
 	return out

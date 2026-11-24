@@ -1,0 +1,70 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0515",
+      "severity": "error",
+      "message": "malformed record field struct tag",
+      "span": {
+        "file": "E0515_record_field_tag.gom",
+        "start": {
+          "line": 5,
+          "col": 27,
+          "offset": 173
+        },
+        "end": {
+          "line": 5,
+          "col": 33,
+          "offset": 179
+        }
+      },
+      "data": {
+        "tag": "json"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0515",
+      "severity": "error",
+      "message": "malformed record field struct tag",
+      "span": {
+        "file": "E0515_record_field_tag.gom",
+        "start": {
+          "line": 6,
+          "col": 27,
+          "offset": 207
+        },
+        "end": {
+          "line": 6,
+          "col": 35,
+          "offset": 215
+        }
+      },
+      "data": {
+        "tag": "\"json\""
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0515",
+      "severity": "error",
+      "message": "malformed record field struct tag",
+      "span": {
+        "file": "E0515_record_field_tag.gom",
+        "start": {
+          "line": 7,
+          "col": 27,
+          "offset": 243
+        },
+        "end": {
+          "line": 7,
+          "col": 38,
+          "offset": 254
+        }
+      },
+      "data": {
+        "tag": "json:name"
+      }
+    }
+  ]
+}

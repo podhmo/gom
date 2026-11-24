@@ -1,0 +1,7 @@
+package ex
+
+// spec 3: a record field may carry a verbatim Go struct tag as a
+// trailing raw string, emitted next to the PascalCase field.
+type User = {name: String `json:"name"`, mail: String `json:"mail"`}
+
+fn main () -> Unit = ()
