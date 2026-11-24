@@ -1273,7 +1273,9 @@ func TestList(t *testing.T) {
 // Gom packages of the working directory's module — the module root
 // when it carries a .gomi, plus each subdirectory holding exactly
 // one — enumerated by import path, skipping plain Go directories,
-// nested modules, vendor trees and dot-directories.
+// nested modules, vendor trees and dot-directories. The package's
+// TestMain pins GOFLAGS=-mod=mod, so vendor mode is off here;
+// TestListExternalVendor covers the vendored enumeration.
 func TestListExternal(t *testing.T) {
 	dir := writeFiles(t, map[string]string{
 		"go.mod":              "module example.com/exttest\n\ngo 1.27\n",
@@ -1303,35 +1305,52 @@ func TestListExternal(t *testing.T) {
 	}
 }
 
-// TestListExternalVendor exercises the `-mod=mod` retry: a vendored
-// module makes `go list -m all` fail, but the build list is still
-// authoritative, so the enumeration falls back to reading it — the
-// replaced dependency's .gomi packages are listed from its replace
-// directory while the vendor tree itself is skipped.
+// TestListExternalVendor exercises the `-mod=mod` retry and the
+// vendor walk: under vendor mode `go list -m all` fails, but the
+// build list is still authoritative, so the enumeration falls
+// back to reading it — the replaced dependency's .gomi packages
+// are listed from its replace directory, and the vendored copy is
+// listed by its vendored path (what dirOf resolves under vendor
+// mode). The package's TestMain pins GOFLAGS=-mod=mod, which the
+// go command reads as "ignore vendor/" — one run enables vendoring
+// explicitly (-mod=vendor, which also defeats a `go env -w` saved
+// -mod), the other leaves GOFLAGS empty with GOENV=off to exercise
+// the go command's own default vendoring selection.
 func TestListExternalVendor(t *testing.T) {
-	dir := writeFiles(t, map[string]string{
-		"go.mod":              "module example.com/exttest\n\ngo 1.27\n\nrequire example.com/dep v0.0.0\n\nreplace example.com/dep => ./dep\n",
-		"pkg/pkg.gomi":        "package pkg\n",
-		"dep/go.mod":          "module example.com/dep\n\ngo 1.27\n",
-		"dep/dep.gomi":        "package dep\n",
-		"vendor/modules.txt":  "## explicit\n",
-		"vendor/dep/dep.gomi": "package dep\n",
-	})
-	t.Chdir(dir)
+	for _, flags := range []string{"-mod=vendor", ""} {
+		t.Run("GOFLAGS="+flags, func(t *testing.T) {
+			t.Setenv("GOFLAGS", flags)
+			t.Setenv("GOENV", "off")
+			dir := writeFiles(t, map[string]string{
+				"go.mod":       "module example.com/exttest\n\ngo 1.27\n\nrequire example.com/dep v0.0.0\n\nreplace example.com/dep => ./dep\n",
+				"pkg/pkg.gomi": "package pkg\n",
+				"dep/go.mod":   "module example.com/dep\n\ngo 1.27\n",
+				"dep/dep.gomi": "package dep\n",
+				// The manifest also claims the main module's own
+				// package — dirOf resolves main-module paths
+				// locally before vendor, so listing must keep
+				// it: the manifest can only shadow external deps.
+				"vendor/modules.txt":                  "# example.com/dep v0.0.0\n## explicit; go 1.27\nexample.com/dep\nexample.com/dep/sub\nexample.com/exttest/pkg\n",
+				"vendor/example.com/dep/dep.gomi":     "package dep\n",
+				"vendor/example.com/dep/sub/sub.gomi": "package sub\n",
+			})
+			t.Chdir(dir)
 
-	code, out, errout := invoke("list", "-external")
-	if code != 0 {
-		t.Fatalf("gom list -external (vendored): exit %d; stderr=%q", code, errout)
-	}
-	got := strings.Fields(out)
-	want := []string{"example.com/dep", "example.com/exttest/pkg"}
-	if len(got) != len(want) {
-		t.Fatalf("gom list -external (vendored) = %v, want %v", got, want)
-	}
-	for i := range want {
-		if got[i] != want[i] {
-			t.Errorf("gom list -external (vendored)[%d] = %q, want %q", i, got[i], want[i])
-		}
+			code, out, errout := invoke("list", "-external")
+			if code != 0 {
+				t.Fatalf("gom list -external (vendored): exit %d; stderr=%q", code, errout)
+			}
+			got := strings.Fields(out)
+			want := []string{"example.com/dep", "example.com/dep/sub", "example.com/exttest/pkg"}
+			if len(got) != len(want) {
+				t.Fatalf("gom list -external (vendored) = %v, want %v", got, want)
+			}
+			for i := range want {
+				if got[i] != want[i] {
+					t.Errorf("gom list -external (vendored)[%d] = %q, want %q", i, got[i], want[i])
+				}
+			}
+		})
 	}
 }
 
