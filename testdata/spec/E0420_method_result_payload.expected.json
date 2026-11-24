@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0420",
+      "severity": "error",
+      "message": "an \"@method\" function cannot return Result with a non-GoError payload: the (T, error) pair has no interface counterpart",
+      "span": {
+        "file": "E0420_method_result_payload.gom",
+        "start": {
+          "line": 8,
+          "col": 1,
+          "offset": 131
+        },
+        "end": {
+          "line": 8,
+          "col": 59,
+          "offset": 189
+        }
+      }
+    }
+  ]
+}

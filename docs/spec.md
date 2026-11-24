@@ -627,7 +627,7 @@ Go の API が引数・フィールドに持つ `func(A, B) R` 型は `Go.FuncN`
 
 record の値は、その `@method` 集合が要求される Go interface のメソッド集合を（名前・シグネチャが `types.Equal` で）含むとき、interface が期待される位置にそのまま渡せる — `let s : fmt.Stringer = g`、`Go.conv`、interface を引数に取る Go 呼出し。Gom 側からメソッドを呼ぶ構文はなく、`name r` の関数適用がそのまま。
 
-制約 — 違反は E0420: レシーバは自分のパッケージの record 型（`Ptr T` 可、型パラメータを持つ record 不可 — Go メソッドは型引数を取れない）、`@extern` との併用不可、`Result` 返り不可（メソッドの error 返却は Result 折り畳みと衝突するため）。また `Unit` 返りのメソッドは Go 側では結果なしに emit されるので、`struct{}` を結果として要求する Go interface メソッドには適合できない。`.gomi` は `@method` 行をそのまま保持し、インポート側でも同じメソッド集合として見える。
+制約 — 違反は E0420: レシーバは自分のパッケージの record 型（`Ptr T` 可、型パラメータを持つ record 不可 — Go メソッドは型引数を取れない）、`@extern` との併用不可、`Result` のペイロードが `GoError` でない `Result` 返り不可。`Result T GoError` は許され、メソッド側では 8.5 節の境界規則どおり `(T', error)` に unwrap される（`Result Unit GoError` は `error` だけ、`Result (Tuple A B ...) GoError` は `(A', B', ..., error)`、`Result (Option T) GoError` は `Some`→値・`None`→nil の `(T', error)` — `UnmarshalText([]byte) error` や `io.Writer` の `Write([]byte) (int, error)` に適合できる）。メソッドのパラメータ・結果は境界の生の綴りで emit される — `List T` は `[]T`、`Int` は `int`（`int` と `int64` は Gom 側では同じ `Int` に畳まれるため、`int64` を正確に要求する interface には適合しない）。また `Unit` 返りのメソッドは Go 側では結果なしに emit されるので、`struct{}` を結果として要求する Go interface メソッドには適合できない。`.gomi` は `@method` 行をそのまま保持し、インポート側でも同じメソッド集合として見える。
 
 ### 8.10 `@extern let` と `//gom:embed`
 

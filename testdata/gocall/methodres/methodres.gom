@@ -1,0 +1,52 @@
+package methodres
+
+import go "io"
+import go "io/fs"
+import go "encoding"
+
+// Runtime pin for @method Result unwrap (spec 8.9, wave44 lane C):
+// `Result T GoError` emits `(T', error)` with the boundary spelling —
+// `List T`→`[]T`, `Int`→`int` — so the record satisfies io.Writer /
+// encoding.TextUnmarshaler / fs.ReadDirFS when Go calls it.
+type Sink = { n: Int }
+
+@method
+fn (s: Sink) write (p: List Byte) -> Result Int GoError = {
+  ignore p
+  Ok s.n
+}
+
+type Bare = { v: Int }
+
+@method
+fn (b: Bare) unmarshal_text (p: List Byte) -> Result Unit GoError = Ok ()
+
+// A Failure record doubles as the GoError the Err payload carries —
+// conformance via its own `error` method.
+type Failure = { reason: String }
+
+@method
+fn (f: Failure) error () -> String = f.reason
+
+// ReadDirFS embeds FS — the method set needs both entries. The
+// `Result (Option fs.File) GoError` payload unwraps Some→value /
+// None→nil, `Result (List fs.DirEntry) GoError` unwraps to the raw
+// `[]fs.DirEntry`.
+type Dir = { ok: Bool }
+
+@method
+fn (d: Dir) open (name: String) -> Result (Option fs.File) GoError = {
+  ignore name
+  Ok None
+}
+
+@method
+fn (d: Dir) read_dir (name: String) -> Result (List fs.DirEntry) GoError = {
+  let f = { reason = name }
+  let e : GoError = f
+  Err e
+}
+
+fn writer_of (s: Sink) -> io.Writer = s
+fn unmarshaler_of (b: Bare) -> encoding.TextUnmarshaler = b
+fn fs_of (d: Dir) -> fs.ReadDirFS = d

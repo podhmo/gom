@@ -1958,9 +1958,10 @@
 
 - [ ] **`Result (Option T, U)` の payload Option 宣言は extern 宣言側でのみ選べる**: メソッド直呼びの n-ary result は verbatim 固定なので `Ptr.to_option` の後包みが要る（selfish 移植 stage 4 nil 監査 — 同上 sketch）
 
-- [ ] **`@method` は `Result` 返りを禁じている（E0420）**: `encoding.TextUnmarshaler` 系（`UnmarshalText([]byte) error` 等 error を返す Go interface）には使えない — defined type の `UnmarshalText` は同パッケージの `shim.go` に Go で書く回避が必要（selfish 移植 — 同上 sketch、open-questions も参照）
+- [x] **`@method` は `Result` 返りを禁じている（E0420）**: `encoding.TextUnmarshaler` 系（`UnmarshalText([]byte) error` 等 error を返す Go interface）には使えない — defined type の `UnmarshalText` は同パッケージの `shim.go` に Go で書く回避が必要（selfish 移植 — 同上 sketch、open-questions も参照）。解消: `Result T GoError`（および `Result (Tuple ...) GoError`・`Result (Option T) GoError`）を許容し、メソッドは `(T', error)` / `error` に unwrap して emit（spec §8.9、decisions/2026-11-21-go-iface-impl の「2段目」を実装）。非 `GoError` payload は引き続き E0420。検証: gocall `methodres`（io.Writer / encoding.TextUnmarshaler / fs.ReadDirFS の Go 側適合）、golden `method_result`、spec `ok_method_result` / `E0420_method_result_payload`（wave44 lane C）
 
 - [ ] **共有メタを持つ部分適用でスカラーリテラルが宣言型に materialize できない**: `fn pair (x: b) (y: b) -> String` の残り `?b` を want 側の `Name` に pin する前に、供給リテラル `pair "x"` の conform が `?b := String` に commit してしまい `let g : Name -> String = pair "x"` が E0401。`?b` が result 位置にも現れる形は result-pin が救う。数値リテラルは bind を遅延するがスカラーは concrete 型で即 bind — 修正は pin 拡大ではなくリテラル→meta bind の遅延（#215 escalate、wave43 lane B）
 
 - [x] **Char-backed 宣言型の splice 表示が rune 数値になる**: `type C = {ch: Char}` に `let c : C = 'a'` すると `"${c}"` は `97`（rune の数値、`fmt.Sprint`）と出る一方、裸の `Char` は `a` と文字で描かれる。宣言型経由の表示が underlying の Char 表示規則を拾わない非対称。発見: #215 レビュー（wave43 lane B、tutorial step 23 で言及済み）
   - 解消（wave43 lane C）: gomShow 化で declared 型は record renderer 経由となり `{ ch = 'a' }` と描かれる（rune 数値は出ない）。残る分岐は scalar-bound 値の oracle/compiled 表示差 — 直上の「宣言型の1-field recordへのスカラー代入」の項目を参照
+- [ ] **`@method` の境界綴りで `Int` は `int` に出る — `int64` を要求する interface には適合しない**: `int` と `int64` は Gom 側で同じ `Int` に畳まれるため、メソッド emit は interface 側が期待する `int` を選ぶ（decision doc の `Write(...) (int, error)` 例に倣った）。`io.Seeker.Seek(int64)` や `io.ReaderAt.ReadAt(_, int64)` のような `int64` パラメータを持つ interface には、check 側の `types.Equal` は通っても生成コードが Go コンパイルで不一致になる（wave44 lane C で発見）

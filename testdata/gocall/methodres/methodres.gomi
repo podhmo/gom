@@ -1,0 +1,14 @@
+package methodres
+
+import go "io"
+import go "io/fs"
+import go "encoding"
+
+type Sink = { n: Int }
+type Bare = { v: Int }
+type Failure = { reason: String }
+type Dir = { ok: Bool }
+
+fn writer_of (s: Sink) -> io.Writer
+fn unmarshaler_of (b: Bare) -> encoding.TextUnmarshaler
+fn fs_of (d: Dir) -> fs.ReadDirFS

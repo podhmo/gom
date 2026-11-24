@@ -2,6 +2,9 @@ package codegen
 
 import (
 	"fmt"
+	"go/ast"
+	"go/printer"
+	"strconv"
 	"strings"
 
 	"github.com/podhmo/gom/internal/core"
@@ -111,15 +114,54 @@ func (g *gen) methodDecl(d *core.FuncDecl) {
 		if flatArity(b.Typ) >= 2 {
 			g.typ(g.flatFuncType(b.Typ))
 		} else {
-			g.typ(g.goType(b.Typ))
+			g.typ(g.methodType(b.Typ))
 		}
 	}
 	g.raw(") ")
-	// A Unit residual maps to a Go method with no result — the
-	// Go convention for consumers like http.Handler. The inner
-	// call's struct{} result is discarded.
-	if !types.Equal(d.Fn.ResidualType(), types.Unit) {
-		g.resultSig(d.Fn.ResidualType(), fn.Body)
+	res := d.Fn.ResidualType()
+	// `Result T GoError` unwraps to the method's (T, error) pair —
+	// `Result Unit GoError` to a bare error (spec §8.7).
+	resT, resErr := methodResult(res)
+	// outs is the flat boundary result list before the trailing
+	// error: a Tuple residual spreads into individual results like
+	// Go's own (A, B) form; opt marks a `Result (Option T) GoError`
+	// Ok payload, which unwraps Some→v / None→nil.
+	var outs []types.Type
+	var resOpt bool
+	payload := res
+	if resErr {
+		payload = resT
+		if o := optionElem(payload); o != nil {
+			payload, resOpt = o, true
+		}
+	}
+	switch {
+	case types.Equal(payload, types.Unit):
+		// `Result Unit GoError` → bare `error`; plain Unit → no result.
+	case resErr || !types.Equal(res, types.Unit):
+		if tup, ok := types.Chase(payload).(*types.Tuple); ok {
+			outs = tup.Elems
+		} else {
+			outs = []types.Type{payload}
+		}
+	}
+	if resErr || len(outs) > 1 {
+		g.raw("(")
+		for i, o := range outs {
+			if i > 0 {
+				g.raw(", ")
+			}
+			g.typ(g.methodType(o))
+		}
+		if resErr {
+			if len(outs) > 0 {
+				g.raw(", ")
+			}
+			g.raw("error")
+		}
+		g.raw(")")
+	} else if len(outs) == 1 {
+		g.typ(g.methodType(outs[0]))
 	}
 	g.open()
 	call := g.symName(d.Sym) + "(" + names[recv]
@@ -128,16 +170,153 @@ func (g *gen) methodDecl(d *core.FuncDecl) {
 			call += ", struct{}{}"
 			continue
 		}
-		call += ", " + names[b]
+		call += ", " + g.methodArg(names[b], b.Typ)
 	}
 	call += ")"
-	if !types.Equal(d.Fn.ResidualType(), types.Unit) {
-		call = "return " + call
+	switch {
+	case resErr && len(outs) == 0:
+		g.raw("_, err := " + g.pkgQual(resultPath) + "ToGo(" + call + ")")
+		g.nl()
+		g.raw("return err")
+	case resErr && len(outs) == 1 && !resOpt && !methodConv(outs[0]):
+		g.raw("return " + g.pkgQual(resultPath) + "ToGo(" + call + ")")
+	case resErr:
+		g.raw("v, err := " + g.pkgQual(resultPath) + "ToGo(" + call + ")")
+		g.nl()
+		g.raw("return " + g.boundaryResults(outs, resOpt) + ", err")
+	case len(outs) == 1:
+		o := outs[0]
+		switch {
+		case listElem(o) != nil:
+			g.raw("return []" + g.exprString(g.goType(listElem(o))) + "(" + call + ")")
+		case types.Equal(types.Chase(o), types.Int):
+			g.raw("return int(" + call + ")")
+		default:
+			g.raw("return " + call)
+		}
+	case len(outs) > 1:
+		g.raw("v := " + call)
+		g.nl()
+		g.raw("return " + g.boundaryResults(outs, false))
+	default:
+		g.raw(call)
 	}
-	g.raw(call)
 	g.nl()
 	g.close()
 	g.nl()
+}
+
+// methodResult reports the method's Result unwrap shape: resErr is
+// true when the residual is `Result T GoError` and resT is its Ok
+// payload (Unit for an error-only signature).
+func methodResult(res types.Type) (resT types.Type, resErr bool) {
+	rc, ok := types.Chase(res).(*types.Con)
+	if !ok || rc.Qual != "" || rc.Name != "Result" || len(rc.Args) != 2 {
+		return nil, false
+	}
+	if !types.Equal(types.Chase(rc.Args[1]), types.GoError) {
+		return nil, false
+	}
+	return rc.Args[0], true
+}
+
+// methodConv reports whether a type needs a value conversion between
+// the method's boundary spelling and the emitted inner shape —
+// `List T` (`[]T` vs `list.List[T]`) and `Int` (`int` vs `int64`).
+func methodConv(t types.Type) bool {
+	return listElem(t) != nil || types.Equal(types.Chase(t), types.Int)
+}
+
+// listElem reports the element type when t is the gom `List T`
+// view — the one builtin whose emitted name (`list.List[T]`) differs
+// from the boundary's raw slice `[]T` an interface method signature
+// must spell.
+func listElem(t types.Type) types.Type {
+	if c, ok := types.Chase(t).(*types.Con); ok && c.Qual == "" && c.Name == "List" && len(c.Args) == 1 {
+		return c.Args[0]
+	}
+	return nil
+}
+
+// optionElem reports the payload when t is `Option T` — the
+// nilable-interface view a `(method-bearing interface, error)`
+// result maps to (spec §8.3).
+func optionElem(t types.Type) types.Type {
+	if c, ok := types.Chase(t).(*types.Con); ok && c.Qual == "" && c.Name == "Option" && len(c.Args) == 1 {
+		return c.Args[0]
+	}
+	return nil
+}
+
+// boundaryResults renders the result values a method returns from
+// an already-bound `v` — a single payload uses `v`, a Tuple payload
+// spreads into `v.V0, v.V1, ...`; `List T` converts to the raw
+// `[]T`, an Option payload unwraps Some→v / None→nil.
+func (g *gen) boundaryResults(outs []types.Type, opt bool) string {
+	conv := func(o types.Type, acc string) string {
+		if el := listElem(o); el != nil {
+			return "[]" + g.exprString(g.goType(el)) + "(" + acc + ")"
+		}
+		if types.Equal(types.Chase(o), types.Int) {
+			return "int(" + acc + ")"
+		}
+		return acc
+	}
+	if len(outs) == 1 {
+		if opt {
+			nilLit := g.exprString(&ast.CallExpr{
+				Fun:  g.goType(outs[0]),
+				Args: []ast.Expr{ast.NewIdent("nil")},
+			})
+			return g.pkgQual(optionPath) + "GetOrElse(" + nilLit + ", v)"
+		}
+		return conv(outs[0], "v")
+	}
+	parts := make([]string, len(outs))
+	for i, o := range outs {
+		parts[i] = conv(o, "v.V"+strconv.Itoa(i))
+	}
+	return strings.Join(parts, ", ")
+}
+
+// exprString renders an ast expression as source — the method
+// boundary helpers compose small conversions as text.
+func (g *gen) exprString(e ast.Expr) string {
+	var b strings.Builder
+	if err := printer.Fprint(&b, g.fset, e); err != nil {
+		panic(fmt.Sprintf("codegen: expr render failed: %v", err))
+	}
+	return b.String()
+}
+
+// methodType renders a type the way an interface method's signature
+// must spell it — the boundary's raw form: `List T` is `[]T` and
+// `Int` is `int` (the spelling `int`/`int64` collapse into one gom
+// view; `int` is the interface-typical choice —
+// docs/decisions/2026-11-21-go-iface-impl). Everything else keeps
+// the emitted shape.
+func (g *gen) methodType(t types.Type) ast.Expr {
+	if el := listElem(t); el != nil {
+		return &ast.ArrayType{Elt: g.goType(el)}
+	}
+	if types.Equal(types.Chase(t), types.Int) {
+		return ast.NewIdent("int")
+	}
+	return g.goType(t)
+}
+
+// methodArg wraps an inner-call argument for the boundary spelling:
+// a `List T` parameter takes `[]T` at the method edge and converts
+// back to `list.List[T]`; an `Int` parameter takes `int` and widens
+// to the inner `int64`.
+func (g *gen) methodArg(name string, t types.Type) string {
+	if el := listElem(t); el != nil {
+		return g.pkgQual(listPath) + "List[" + g.exprString(g.goType(el)) + "](" + name + ")"
+	}
+	if types.Equal(types.Chase(t), types.Int) {
+		return "int64(" + name + ")"
+	}
+	return name
 }
 
 // varDecl emits `var name T = init`. A statement-level initializer

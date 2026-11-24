@@ -73,8 +73,14 @@ func (c *checker) checkMethodDecl(d *syntax.FnDecl, sym *resolve.Symbol, sig *ty
 		return
 	}
 	if rt, ok := types.Chase(sig.Ret).(*types.Con); ok && rt.Qual == "" && rt.Name == "Result" {
-		fail("an \"@method\" function cannot return Result: the (T, error) pair has no interface counterpart")
-		return
+		// `Result T GoError` emits `(T, error)` — the method unwraps
+		// via result.ToGo. Any other Err payload has no interface
+		// counterpart and stays rejected.
+		okRes := len(rt.Args) == 2 && types.Equal(types.Chase(rt.Args[1]), types.GoError)
+		if !okRes {
+			fail("an \"@method\" function cannot return Result with a non-GoError payload: the (T, error) pair has no interface counterpart")
+			return
+		}
 	}
 	if c.methods == nil {
 		c.methods = map[conKey][]GomMethod{}
