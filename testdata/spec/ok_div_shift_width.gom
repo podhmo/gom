@@ -1,0 +1,7 @@
+package main
+
+// `255 <<< 60` at Int emits `int64(255) << 60` — the bits past 64
+// wrap out leaving `15 << 60`, a nonzero machine value — so the
+// division is valid. Folding only at 32-bit width would mint a
+// false zero divisor here.
+fn ok64 (x: Int) -> Int = x / (255 <<< 60)
