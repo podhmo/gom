@@ -54,6 +54,10 @@ fn take (l: Go.Slice String) -> Int = Go.Slice.length l
 // under `%w` (spec 8.1 item 7).
 fn wraperr (e: GoError) -> GoError = fmt.Errorf("wrap: %w", e)
 
+// Same for piped operands: the pipe must strip the `any` ascription
+// on the Go-typed error too, or vet loses `%w` (spec 8.1 item 7).
+fn wraperr_pipe (e: GoError) -> GoError = e |> fmt.Errorf("wrap: %w", _)
+
 fn main () -> Unit = {
   takes [5]
   ignore (id x)
@@ -68,4 +72,5 @@ fn main () -> Unit = {
   ignore (mSome o)
   ignore (["a", "b"] |> take)
   ignore (wraperr (errors.New("boom")))
+  ignore (wraperr_pipe (errors.New("boom")))
 }

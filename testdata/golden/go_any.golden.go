@@ -233,57 +233,86 @@ func wraperr(e error) error {
 //line go_any.gom:55
 }
 
-//line go_any.gom:57
-func main() {
-//line go_any.gom:58
-	tmp21 := int64(5)
-//line go_any.gom:58
-	tmp22 := any(tmp21)
-//line go_any.gom:58
-	tmp23 := list.List[any]{tmp22}
-//line go_any.gom:58
-	takes(tmp23)
 //line go_any.gom:59
-	id(x)
-//line go_any.gom:60
-	box(struct{}{})
-//line go_any.gom:61
-	boxok(struct{}{})
-//line go_any.gom:62
-	tok(struct{}{})
-//line go_any.gom:63
-	g(0)
-//line go_any.gom:64
-	feq(x)
-//line go_any.gom:65
-	feq2(x)
-//line go_any.gom:66
-	fne(s)
-//line go_any.gom:67
-	m42(s)
-//line go_any.gom:68
-	mSome(o)
-//line go_any.gom:69
-	tmp24 := list.List[string]{"a", "b"}
-//line go_any.gom:69
-	tmp25 := tmp24.ToSlice()
-//line go_any.gom:69
-	take(tmp25)
-//line go_any.gom:70
-	var tmp26 error
-//line go_any.gom:70
-	v2 := errors.New("boom")
-//line go_any.gom:70
+func wraperrPipe(e error) error {
+//line go_any.gom:59
+	v2 := fmt.Errorf("wrap: %w", e)
+//line go_any.gom:59
 	if v2 == nil {
-//line go_any.gom:70
-		panic("gom: errors.New returned nil error — its binding declares a never-nil GoError result")
-//line go_any.gom:70
+//line go_any.gom:59
+		panic("gom: fmt.Errorf returned nil error — its binding declares a never-nil GoError result")
+//line go_any.gom:59
 	}
+//line go_any.gom:59
+	return v2
+//line go_any.gom:59
+}
+
+//line go_any.gom:61
+func main() {
+//line go_any.gom:62
+	tmp21 := int64(5)
+//line go_any.gom:62
+	tmp22 := any(tmp21)
+//line go_any.gom:62
+	tmp23 := list.List[any]{tmp22}
+//line go_any.gom:62
+	takes(tmp23)
+//line go_any.gom:63
+	id(x)
+//line go_any.gom:64
+	box(struct{}{})
+//line go_any.gom:65
+	boxok(struct{}{})
+//line go_any.gom:66
+	tok(struct{}{})
+//line go_any.gom:67
+	g(0)
+//line go_any.gom:68
+	feq(x)
+//line go_any.gom:69
+	feq2(x)
 //line go_any.gom:70
-	tmp26 = v2
-//line go_any.gom:70
+	fne(s)
+//line go_any.gom:71
+	m42(s)
+//line go_any.gom:72
+	mSome(o)
+//line go_any.gom:73
+	tmp24 := list.List[string]{"a", "b"}
+//line go_any.gom:73
+	tmp25 := tmp24.ToSlice()
+//line go_any.gom:73
+	take(tmp25)
+//line go_any.gom:74
+	var tmp26 error
+//line go_any.gom:74
+	v3 := errors.New("boom")
+//line go_any.gom:74
+	if v3 == nil {
+//line go_any.gom:74
+		panic("gom: errors.New returned nil error — its binding declares a never-nil GoError result")
+//line go_any.gom:74
+	}
+//line go_any.gom:74
+	tmp26 = v3
+//line go_any.gom:74
 	wraperr(tmp26)
-//line go_any.gom:70
+//line go_any.gom:75
+	var tmp27 error
+//line go_any.gom:75
+	v4 := errors.New("boom")
+//line go_any.gom:75
+	if v4 == nil {
+//line go_any.gom:75
+		panic("gom: errors.New returned nil error — its binding declares a never-nil GoError result")
+//line go_any.gom:75
+	}
+//line go_any.gom:75
+	tmp27 = v4
+//line go_any.gom:75
+	wraperrPipe(tmp27)
+//line go_any.gom:75
 	_ = struct{}{}
-//line go_any.gom:57
+//line go_any.gom:61
 }
