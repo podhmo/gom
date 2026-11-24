@@ -28,8 +28,8 @@ run_case() {
   # 除外: log の timestamp、stack trace（`file.go|gom|s:N` 行、関数名行）、argv[0] の Usage 行
   # ※ stack のパスは -trimpath で相対にもなるので `	/path` ではなく `*.go:N` 形で落とす
   sed -i 's/^[0-9\/]* [0-9:]* //' /tmp/o1 /tmp/o2
-  diff <(grep -vE '^[[:space:]]*\S*\.(go|gom|s):[0-9]+|^Usage of |^\S*\.\S*$' /tmp/o1) \
-       <(grep -vE '^[[:space:]]*\S*\.(go|gom|s):[0-9]+|^Usage of |^\S*\.\S*$' /tmp/o2)
+  diff <(grep -vE '^[[:space:]].*\.(go|gom|s):[0-9]+$|^Usage of |^\S*\.\S*$' /tmp/o1) \
+       <(grep -vE '^[[:space:]].*\.(go|gom|s):[0-9]+$|^Usage of |^\S*\.\S*$' /tmp/o2)
 }
 ```
 
