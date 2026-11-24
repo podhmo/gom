@@ -1908,7 +1908,8 @@
 
 - [x] **`cmd/gom/cli.go` の `canonicalImport` が `cmp` を stdlib 短名として扱わない**: `stdlibPaths` と同趣の表だが `cmp` が抜けており、import パスの canonicalize でずれが出うる。**解消: wave42 lane B で `gomimport.CanonicalPath` を export して cmd 側はそれに委譲 — 手複写テーブル廃止、`StdlibShortNames()` 全件の unfold を `TestCanonicalImportStdlibNames` でピン**（検証: [実装](../cmd/gom/cli_test.go)、[実装](../internal/gomimport/loader.go)）
 
-- [ ] **9 要素以上の spelled tuple が check を通るが codegen が未定義の `rt.TupleN` を吐く**: `rt` の tuple は `Tuple8` までしかなく、関数シグネチャの 8 結果上限（E0510）は型位置の tuple arity を縛らない — `(Int ×9)` をペイロードや戻り型に書くと check は通り、生成 Go が `undefined: rt.Tuple9` で `go build` に落ちる（wave41 lane B で `rt.Tuple64` 相当を確認; fuzz seed#275 も同経路）。check で上限を診断するか rt を拡張するかは未決。参照: [実装](../internal/codegen/types.go)（`tupleType`）、[実装](../rt/tuple.go)
+- [x] **9 要素以上の spelled tuple が check を通るが codegen が未定義の `rt.TupleN` を吐く**: `rt` の tuple は `Tuple8` までしかなく、関数シグネチャの 8 結果上限（E0510）は型位置の tuple arity を縛らない — `(Int ×9)` をペイロードや戻り型に書くと check は通り、生成 Go が `undefined: rt.Tuple9` で `go build` に落ちる（wave41 lane B で `rt.Tuple64` 相当を確認; fuzz seed#275 も同経路）。check で上限を診断するか rt を拡張するかは未決。参照: [実装](../internal/codegen/types.go)（`tupleType`）、[実装](../rt/tuple.go)
+  - wave43 lane A で解消: 8 要素超は `V0..Vn` を持つ匿名 struct に降りて emit（[decision](decisions/2026-11-24-wide-tuple-anon-struct.md)、検証: [tuple9.gom](../testdata/golden/tuple9.gom)）。check 側に arity 上限は設けない。
 
 - [ ] **`Ok n` の `Unit` 束縛を文字列補間すると生成 Go が `declared and not used` になる**:
   `match r () { Ok n -> ignore (fmt.Println "ok ${n}") ... }`（`r : Result Unit String`）が
