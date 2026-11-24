@@ -98,6 +98,17 @@ func compileInputs(inputs []input, checkOnly bool, bc *buildCache, outFlag strin
 				}
 			}
 			gl = goimport.New(glc)
+			// A parse-invalid interface fails before resolving imports, so
+			// prefetching it would only burn a `go list` subprocess.
+			if ast, pdiags := syntax.ParseInterface(in.src, in.path); ast != nil && !pdiags.HasError() {
+				var goImports []string
+				for _, d := range ast.Decls {
+					if imp, ok := d.(*syntax.ImportDecl); ok && imp.Go {
+						goImports = append(goImports, imp.Path)
+					}
+				}
+				gl.Prefetch(goImports)
+			}
 			r, err := build.Compile(build.Input{Path: in.path, Src: in.src, Interface: true},
 				compileOptions(in, checkOnly, seen, gl))
 			if err != nil {
@@ -150,15 +161,29 @@ func compileInputs(inputs []input, checkOnly bool, bc *buildCache, outFlag strin
 		}
 	}
 	deps := map[string]map[string]bool{}
+	goImports := map[string][]string{}
+	badParse := map[string]bool{}
 	for _, dir := range order {
 		for _, i := range groups[dir] {
-			ast, _ := syntax.Parse(inputs[i].src, inputs[i].path)
+			ast, pdiags := syntax.Parse(inputs[i].src, inputs[i].path)
 			if ast == nil {
+				badParse[dir] = true
 				continue
+			}
+			// One parse-invalid file makes CompileFiles reject the
+			// whole package before its imports resolve — prefetching
+			// it would only burn a `go list` subprocess (which may
+			// even touch go.mod under -mod=mod).
+			if pdiags.HasError() {
+				badParse[dir] = true
 			}
 			for _, d := range ast.Decls {
 				imp, ok := d.(*syntax.ImportDecl)
-				if !ok || imp.Go {
+				if !ok {
+					continue
+				}
+				if imp.Go {
+					goImports[dir] = append(goImports[dir], imp.Path)
 					continue
 				}
 				path := canonicalImport(imp.Path)
@@ -269,6 +294,9 @@ func compileInputs(inputs []input, checkOnly bool, bc *buildCache, outFlag strin
 			seen = bc.depSink(dir)
 		}
 		gl, _ := poolLoader(dir)
+		if !badParse[dir] {
+			gl.Prefetch(goImports[dir])
+		}
 		opts := compileOptions(inputs[idxs[0]], checkOnly, seen, gl)
 		if tweak != nil {
 			tweak(opts)

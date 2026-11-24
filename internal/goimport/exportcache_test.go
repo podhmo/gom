@@ -56,10 +56,11 @@ func TestExportCacheSecondLoaderSkipsGoList(t *testing.T) {
 	if pkg.Members["Atoi"] == nil {
 		t.Error("Atoi missing on the cached load")
 	}
-	// The second loader recomputes its key (go env) but must not
-	// re-run `go list`.
-	if n := countCalls(t, countFile); n != 3 {
-		t.Fatalf("second Load ran gobin %d times, want 1 additional (total %d)", n-2, n)
+	// The second loader's key probe reuses the memoized `go env`
+	// answer, so no extra wrapped-gobin call happens at all — and
+	// `go list` must not re-run either.
+	if n := countCalls(t, countFile); n != 2 {
+		t.Fatalf("second Load ran gobin %d times, want 0 additional (total %d)", n-2, n)
 	}
 }
 
@@ -182,8 +183,9 @@ func TestExportCacheDepEditInvalidates(t *testing.T) {
 	before := countCalls(t, countFile)
 	l2 := New(cfg)
 	membersOf(t, l2, "test.local/m/foo")
-	if n := countCalls(t, countFile) - before; n != 2 {
-		t.Fatalf("reloading foo after the bar edit ran gobin %d times, want 2 (env+list)", n)
+	// `go env` is memoized process-wide, so only `go list` re-runs.
+	if n := countCalls(t, countFile) - before; n != 1 {
+		t.Fatalf("reloading foo after the bar edit ran gobin %d times, want 1 (list)", n)
 	}
 }
 
@@ -209,5 +211,34 @@ func TestGoExportRelativePath(t *testing.T) {
 	pkg := membersOf(t, l, "./foo")
 	if pkg.Members["One"] == nil {
 		t.Error("One missing — relative path did not reach export data")
+	}
+}
+
+// Prefetch must settle every `import go` miss of a package with one
+// `go list -export` subprocess instead of one per clause — the
+// wrapped gobin counts the calls.
+func TestPrefetchBatchesGoList(t *testing.T) {
+	if testing.Short() {
+		t.Skip("runs `go list -export`")
+	}
+	dir := t.TempDir()
+	t.Setenv(exportCacheDirEnv, dir)
+
+	cfg, countFile := countingGoBin(t)
+	l := New(cfg)
+	l.Prefetch([]string{"strconv", "strings"})
+	// Wrapped-gobin calls: `go env` (key, once per gobin) + ONE
+	// batched `go list -export` — not one per path.
+	if n := countCalls(t, countFile); n != 2 {
+		t.Fatalf("Prefetch ran gobin %d times, want 2 (env+one list)", n)
+	}
+	for _, p := range []string{"strconv", "strings"} {
+		pkg := membersOf(t, l, p)
+		if len(pkg.Members) == 0 {
+			t.Fatalf("%s loaded with no members after prefetch", p)
+		}
+	}
+	if n := countCalls(t, countFile); n != 2 {
+		t.Fatalf("loads after prefetch ran gobin %d times total, want 2", n)
 	}
 }
