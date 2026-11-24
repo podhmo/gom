@@ -55,7 +55,10 @@ fn readme_title (text: String) -> Option String = first_heading (strings.Split (
 // NewGistFile is shorthand of github.GistFile object creation.
 fn new_gist_file (filename: String) -> Result (Ptr github.GistFile) GoError = {
   let basename = path.Base filename
-  let finfo = Option.get (try (wrap_result (os.Stat filename) "stat"))
+  let finfo = match (try (wrap_result (os.Stat filename) "stat")) {
+    Some f -> f
+    None -> try Err (fmt.Errorf "stat returned nil file info")
+  }
   let size = finfo.Size ()
   if size == 0 {
     try Err (fmt.Errorf "empty file")

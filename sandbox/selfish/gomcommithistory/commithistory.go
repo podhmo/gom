@@ -152,9 +152,9 @@ func DefaultWriteFile(path string) result.Result[struct{}, error] {
 //line gomcommithistory/commithistory.gom:65
 		}
 //line gomcommithistory/commithistory.gom:65
-		tmp200 := tmp17
+		tmp205 := tmp17
 //line gomcommithistory/commithistory.gom:65
-		defer tmp200(struct{}{})
+		defer tmp205(struct{}{})
 //line gomcommithistory/commithistory.gom:66
 		tmp26 := func(tmp18 struct{}) result.Result[struct{}, error] {
 //line gomcommithistory/commithistory.gom:66
@@ -206,9 +206,9 @@ func DefaultWriteFile(path string) result.Result[struct{}, error] {
 //line gomcommithistory/commithistory.gom:62
 	}
 //line gomcommithistory/commithistory.gom:62
-	tmp201 := rt.NewScope()
+	tmp206 := rt.NewScope()
 //line gomcommithistory/commithistory.gom:62
-	return tmp27(tmp201)
+	return tmp27(tmp206)
 //line gomcommithistory/commithistory.gom:61
 }
 
@@ -223,1135 +223,1191 @@ func DefaultConfigDir(name string) result.Result[string, error] {
 //line gomcommithistory/commithistory.gom:71
 	}
 //line gomcommithistory/commithistory.gom:72
-	tmp28 := u.HomeDir
+	var tmp28 option.Option[user.User]
 //line gomcommithistory/commithistory.gom:72
-	tmp29 := filepath.Join(tmp28, ".config", name)
+	v, ok := rt.PtrToOption[user.User](u)
 //line gomcommithistory/commithistory.gom:72
-	return result.Ok[string, error](tmp29)
+	tmp28 = option.FromGo(v, ok)
+//line gomcommithistory/commithistory.gom:72
+	var u1 user.User
+//line gomcommithistory/commithistory.gom:73
+	switch v1 := tmp28.(type) {
+//line gomcommithistory/commithistory.gom:73
+	case option.Option_Some[user.User]:
+//line gomcommithistory/commithistory.gom:73
+		tmp29 := v1
+//line gomcommithistory/commithistory.gom:73
+		tmp30 := tmp29.V0
+//line gomcommithistory/commithistory.gom:73
+		u1 = tmp30
+//line gomcommithistory/commithistory.gom:73
+	case option.Option_None[user.User]:
+//line gomcommithistory/commithistory.gom:74
+		var tmp31 error
+//line gomcommithistory/commithistory.gom:74
+		v2 := fmt.Errorf("user.Current returned nil user")
+//line gomcommithistory/commithistory.gom:74
+		if v2 == nil {
+//line gomcommithistory/commithistory.gom:74
+			panic("gom: fmt.Errorf returned nil error — its binding declares a never-nil GoError result")
+//line gomcommithistory/commithistory.gom:74
+		}
+//line gomcommithistory/commithistory.gom:74
+		tmp31 = v2
+//line gomcommithistory/commithistory.gom:74
+		tmp32 := result.Err[user.User, error](tmp31)
+//line gomcommithistory/commithistory.gom:74
+		switch tmp32.Tag() {
+//line gomcommithistory/commithistory.gom:74
+		case result.ResultTagOk:
+//line gomcommithistory/commithistory.gom:74
+			u1 = tmp32.Value
+//line gomcommithistory/commithistory.gom:74
+		case result.ResultTagErr:
+//line gomcommithistory/commithistory.gom:74
+			return result.Err[string, error](tmp32.Error)
+//line gomcommithistory/commithistory.gom:74
+		default:
+//line gomcommithistory/commithistory.gom:74
+			panic(rt.InvalidVariant("result.Result", tmp32))
+//line gomcommithistory/commithistory.gom:74
+		}
+//line gomcommithistory/commithistory.gom:74
+	default:
+//line gomcommithistory/commithistory.gom:72
+		panic(rt.InvalidVariant("Option", tmp28))
+//line gomcommithistory/commithistory.gom:73
+	}
+//line gomcommithistory/commithistory.gom:76
+	tmp33 := u1.HomeDir
+//line gomcommithistory/commithistory.gom:76
+	tmp34 := filepath.Join(tmp33, ".config", name)
+//line gomcommithistory/commithistory.gom:76
+	return result.Ok[string, error](tmp34)
 //line gomcommithistory/commithistory.gom:70
 }
 
-//line gomcommithistory/commithistory.gom:75
+//line gomcommithistory/commithistory.gom:79
 func DefaultConfig(_ struct{}) Config {
-//line gomcommithistory/commithistory.gom:79
-	tmp32 := func(tmp30 string) func(list.List[string]) string {
-//line gomcommithistory/commithistory.gom:79
-		return func(tmp31 list.List[string]) string {
-//line gomcommithistory/commithistory.gom:79
-			return DefaultJoinPath(tmp30, tmp31)
-//line gomcommithistory/commithistory.gom:79
+//line gomcommithistory/commithistory.gom:83
+	tmp37 := func(tmp35 string) func(list.List[string]) string {
+//line gomcommithistory/commithistory.gom:83
+		return func(tmp36 list.List[string]) string {
+//line gomcommithistory/commithistory.gom:83
+			return DefaultJoinPath(tmp35, tmp36)
+//line gomcommithistory/commithistory.gom:83
 		}
-//line gomcommithistory/commithistory.gom:79
+//line gomcommithistory/commithistory.gom:83
 	}
-//line gomcommithistory/commithistory.gom:75
-	return Config{Name: "", Profile: "", Dryrun: false, JoinPath: tmp32, DefaultWrite: DefaultWriteFile, Dir: DefaultConfigDir}
-//line gomcommithistory/commithistory.gom:75
+//line gomcommithistory/commithistory.gom:79
+	return Config{Name: "", Profile: "", Dryrun: false, JoinPath: tmp37, DefaultWrite: DefaultWriteFile, Dir: DefaultConfigDir}
+//line gomcommithistory/commithistory.gom:79
 }
 
-//line gomcommithistory/commithistory.gom:85
+//line gomcommithistory/commithistory.gom:89
 func ApiNew(name string, ops list.List[func(API) API]) API {
-//line gomcommithistory/commithistory.gom:86
-	tmp33 := DefaultConfig(struct{}{})
-//line gomcommithistory/commithistory.gom:86
-	var tmp34 Config
-//line gomcommithistory/commithistory.gom:86
-	u1 := tmp33
-//line gomcommithistory/commithistory.gom:86
-	u1.Name = name
-//line gomcommithistory/commithistory.gom:86
-	tmp34 = u1
-//line gomcommithistory/commithistory.gom:86
-	base := API(tmp34)
-//line gomcommithistory/commithistory.gom:87
-	tmp35 := func(api API, op func(API) API) API {
-//line gomcommithistory/commithistory.gom:87
+//line gomcommithistory/commithistory.gom:90
+	tmp38 := DefaultConfig(struct{}{})
+//line gomcommithistory/commithistory.gom:90
+	var tmp39 Config
+//line gomcommithistory/commithistory.gom:90
+	u2 := tmp38
+//line gomcommithistory/commithistory.gom:90
+	u2.Name = name
+//line gomcommithistory/commithistory.gom:90
+	tmp39 = u2
+//line gomcommithistory/commithistory.gom:90
+	base := API(tmp39)
+//line gomcommithistory/commithistory.gom:91
+	tmp40 := func(api API, op func(API) API) API {
+//line gomcommithistory/commithistory.gom:91
 		return op(api)
-//line gomcommithistory/commithistory.gom:87
+//line gomcommithistory/commithistory.gom:91
 	}
-//line gomcommithistory/commithistory.gom:87
-	return list.Fold[API, func(API) API](tmp35, base, ops)
-//line gomcommithistory/commithistory.gom:85
+//line gomcommithistory/commithistory.gom:91
+	return list.Fold[API, func(API) API](tmp40, base, ops)
+//line gomcommithistory/commithistory.gom:89
 }
 
-//line gomcommithistory/commithistory.gom:90
+//line gomcommithistory/commithistory.gom:94
 func WithProfile(profile string, api API) API {
-//line gomcommithistory/commithistory.gom:91
-	var tmp36 Config
-//line gomcommithistory/commithistory.gom:91
-	u2 := Config(api)
-//line gomcommithistory/commithistory.gom:91
-	u2.Profile = profile
-//line gomcommithistory/commithistory.gom:91
-	tmp36 = u2
-//line gomcommithistory/commithistory.gom:91
-	return API(tmp36)
-//line gomcommithistory/commithistory.gom:90
-}
-
-//line gomcommithistory/commithistory.gom:93
-func WithDryrun(api API) API {
-//line gomcommithistory/commithistory.gom:94
-	var tmp37 Config
-//line gomcommithistory/commithistory.gom:94
+//line gomcommithistory/commithistory.gom:95
+	var tmp41 Config
+//line gomcommithistory/commithistory.gom:95
 	u3 := Config(api)
+//line gomcommithistory/commithistory.gom:95
+	u3.Profile = profile
+//line gomcommithistory/commithistory.gom:95
+	tmp41 = u3
+//line gomcommithistory/commithistory.gom:95
+	return API(tmp41)
 //line gomcommithistory/commithistory.gom:94
-	u3.Dryrun = true
-//line gomcommithistory/commithistory.gom:94
-	tmp37 = u3
-//line gomcommithistory/commithistory.gom:94
-	return API(tmp37)
-//line gomcommithistory/commithistory.gom:93
 }
 
 //line gomcommithistory/commithistory.gom:97
+func WithDryrun(api API) API {
+//line gomcommithistory/commithistory.gom:98
+	var tmp42 Config
+//line gomcommithistory/commithistory.gom:98
+	u4 := Config(api)
+//line gomcommithistory/commithistory.gom:98
+	u4.Dryrun = true
+//line gomcommithistory/commithistory.gom:98
+	tmp42 = u4
+//line gomcommithistory/commithistory.gom:98
+	return API(tmp42)
+//line gomcommithistory/commithistory.gom:97
+}
+
+//line gomcommithistory/commithistory.gom:101
 func ConfigFilePath(c Config, name string) result.Result[string, error] {
-//line gomcommithistory/commithistory.gom:98
-	tmp38 := c.Dir(c.Name)
-//line gomcommithistory/commithistory.gom:98
+//line gomcommithistory/commithistory.gom:102
+	tmp43 := c.Dir(c.Name)
+//line gomcommithistory/commithistory.gom:102
 	var d string
-//line gomcommithistory/commithistory.gom:98
-	switch tmp38.Tag() {
-//line gomcommithistory/commithistory.gom:98
+//line gomcommithistory/commithistory.gom:102
+	switch tmp43.Tag() {
+//line gomcommithistory/commithistory.gom:102
 	case result.ResultTagOk:
-//line gomcommithistory/commithistory.gom:98
-		d = tmp38.Value
-//line gomcommithistory/commithistory.gom:98
+//line gomcommithistory/commithistory.gom:102
+		d = tmp43.Value
+//line gomcommithistory/commithistory.gom:102
 	case result.ResultTagErr:
-//line gomcommithistory/commithistory.gom:98
-		return result.Err[string, error](tmp38.Error)
-//line gomcommithistory/commithistory.gom:98
+//line gomcommithistory/commithistory.gom:102
+		return result.Err[string, error](tmp43.Error)
+//line gomcommithistory/commithistory.gom:102
 	default:
-//line gomcommithistory/commithistory.gom:98
-		panic(rt.InvalidVariant("result.Result", tmp38))
-//line gomcommithistory/commithistory.gom:98
+//line gomcommithistory/commithistory.gom:102
+		panic(rt.InvalidVariant("result.Result", tmp43))
+//line gomcommithistory/commithistory.gom:102
 	}
-//line gomcommithistory/commithistory.gom:99
-	tmp39 := list.List[string]{d, name}
-//line gomcommithistory/commithistory.gom:99
-	tmp40 := c.JoinPath(c.Profile)
-//line gomcommithistory/commithistory.gom:99
-	tmp41 := tmp40(tmp39)
-//line gomcommithistory/commithistory.gom:99
-	return result.Ok[string, error](tmp41)
-//line gomcommithistory/commithistory.gom:97
+//line gomcommithistory/commithistory.gom:103
+	tmp44 := list.List[string]{d, name}
+//line gomcommithistory/commithistory.gom:103
+	tmp45 := c.JoinPath(c.Profile)
+//line gomcommithistory/commithistory.gom:103
+	tmp46 := tmp45(tmp44)
+//line gomcommithistory/commithistory.gom:103
+	return result.Ok[string, error](tmp46)
+//line gomcommithistory/commithistory.gom:101
 }
 
-//line gomcommithistory/commithistory.gom:103
+//line gomcommithistory/commithistory.gom:107
 func ConfigLoad(c Config, name string, ob any) result.Result[struct{}, error] {
-//line gomcommithistory/commithistory.gom:104
-	tmp54 := func(s *rt.Scope) result.Result[struct{}, error] {
-//line gomcommithistory/commithistory.gom:105
-		tmp42 := ConfigFilePath(c, name)
-//line gomcommithistory/commithistory.gom:105
+//line gomcommithistory/commithistory.gom:108
+	tmp59 := func(s *rt.Scope) result.Result[struct{}, error] {
+//line gomcommithistory/commithistory.gom:109
+		tmp47 := ConfigFilePath(c, name)
+//line gomcommithistory/commithistory.gom:109
 		var path string
-//line gomcommithistory/commithistory.gom:105
-		switch tmp42.Tag() {
-//line gomcommithistory/commithistory.gom:105
+//line gomcommithistory/commithistory.gom:109
+		switch tmp47.Tag() {
+//line gomcommithistory/commithistory.gom:109
 		case result.ResultTagOk:
-//line gomcommithistory/commithistory.gom:105
-			path = tmp42.Value
-//line gomcommithistory/commithistory.gom:105
+//line gomcommithistory/commithistory.gom:109
+			path = tmp47.Value
+//line gomcommithistory/commithistory.gom:109
 		case result.ResultTagErr:
-//line gomcommithistory/commithistory.gom:105
-			return result.Err[struct{}, error](tmp42.Error)
-//line gomcommithistory/commithistory.gom:105
+//line gomcommithistory/commithistory.gom:109
+			return result.Err[struct{}, error](tmp47.Error)
+//line gomcommithistory/commithistory.gom:109
 		default:
-//line gomcommithistory/commithistory.gom:105
-			panic(rt.InvalidVariant("result.Result", tmp42))
-//line gomcommithistory/commithistory.gom:105
+//line gomcommithistory/commithistory.gom:109
+			panic(rt.InvalidVariant("result.Result", tmp47))
+//line gomcommithistory/commithistory.gom:109
 		}
-//line gomcommithistory/commithistory.gom:106
-		tmp43 := any(path)
-//line gomcommithistory/commithistory.gom:106
-		log.Printf("load. %q\n", tmp43)
-//line gomcommithistory/commithistory.gom:106
+//line gomcommithistory/commithistory.gom:110
+		tmp48 := any(path)
+//line gomcommithistory/commithistory.gom:110
+		log.Printf("load. %q\n", tmp48)
+//line gomcommithistory/commithistory.gom:110
 		_ = struct{}{}
-//line gomcommithistory/commithistory.gom:107
-		var tmp44 result.Result[*os.File, error]
-//line gomcommithistory/commithistory.gom:107
-		v, err5 := os.Open(path)
-//line gomcommithistory/commithistory.gom:107
-		tmp44 = result.FromGo(v, err5)
-//line gomcommithistory/commithistory.gom:107
+//line gomcommithistory/commithistory.gom:111
+		var tmp49 result.Result[*os.File, error]
+//line gomcommithistory/commithistory.gom:111
+		v3, err5 := os.Open(path)
+//line gomcommithistory/commithistory.gom:111
+		tmp49 = result.FromGo(v3, err5)
+//line gomcommithistory/commithistory.gom:111
 		var fp *os.File
-//line gomcommithistory/commithistory.gom:108
-		switch tmp44.Tag() {
-//line gomcommithistory/commithistory.gom:108
+//line gomcommithistory/commithistory.gom:112
+		switch tmp49.Tag() {
+//line gomcommithistory/commithistory.gom:112
 		case result.ResultTagOk:
-//line gomcommithistory/commithistory.gom:108
-			tmp45 := tmp44.Value
-//line gomcommithistory/commithistory.gom:108
-			tmp46 := tmp45
-//line gomcommithistory/commithistory.gom:108
-			fp = tmp46
-//line gomcommithistory/commithistory.gom:108
+//line gomcommithistory/commithistory.gom:112
+			tmp50 := tmp49.Value
+//line gomcommithistory/commithistory.gom:112
+			tmp51 := tmp50
+//line gomcommithistory/commithistory.gom:112
+			fp = tmp51
+//line gomcommithistory/commithistory.gom:112
 		case result.ResultTagErr:
-//line gomcommithistory/commithistory.gom:108
-			tmp47 := tmp44.Error
-//line gomcommithistory/commithistory.gom:108
-			_ = tmp47
-//line gomcommithistory/commithistory.gom:110
-			tmp49 := any(path)
-//line gomcommithistory/commithistory.gom:110
-			log.Printf("not found. %q\n", tmp49)
-//line gomcommithistory/commithistory.gom:110
+//line gomcommithistory/commithistory.gom:112
+			tmp52 := tmp49.Error
+//line gomcommithistory/commithistory.gom:112
+			_ = tmp52
+//line gomcommithistory/commithistory.gom:114
+			tmp54 := any(path)
+//line gomcommithistory/commithistory.gom:114
+			log.Printf("not found. %q\n", tmp54)
+//line gomcommithistory/commithistory.gom:114
 			_ = struct{}{}
-//line gomcommithistory/commithistory.gom:111
-			tmp50 := filepath.Dir(path)
-//line gomcommithistory/commithistory.gom:111
-			err6 := os.MkdirAll(tmp50, fs.FileMode(0o700))
-//line gomcommithistory/commithistory.gom:111
+//line gomcommithistory/commithistory.gom:115
+			tmp55 := filepath.Dir(path)
+//line gomcommithistory/commithistory.gom:115
+			err6 := os.MkdirAll(tmp55, fs.FileMode(0o700))
+//line gomcommithistory/commithistory.gom:115
 			if err6 != nil {
-//line gomcommithistory/commithistory.gom:111
+//line gomcommithistory/commithistory.gom:115
 				return result.Err[struct{}, error](err6)
-//line gomcommithistory/commithistory.gom:111
+//line gomcommithistory/commithistory.gom:115
 			}
-//line gomcommithistory/commithistory.gom:112
-			tmp51 := c.DefaultWrite(path)
-//line gomcommithistory/commithistory.gom:112
-			switch tmp51.Tag() {
-//line gomcommithistory/commithistory.gom:112
+//line gomcommithistory/commithistory.gom:116
+			tmp56 := c.DefaultWrite(path)
+//line gomcommithistory/commithistory.gom:116
+			switch tmp56.Tag() {
+//line gomcommithistory/commithistory.gom:116
 			case result.ResultTagOk:
-//line gomcommithistory/commithistory.gom:112
-				_ = tmp51.Value
-//line gomcommithistory/commithistory.gom:112
+//line gomcommithistory/commithistory.gom:116
+				_ = tmp56.Value
+//line gomcommithistory/commithistory.gom:116
 			case result.ResultTagErr:
-//line gomcommithistory/commithistory.gom:112
-				return result.Err[struct{}, error](tmp51.Error)
-//line gomcommithistory/commithistory.gom:112
+//line gomcommithistory/commithistory.gom:116
+				return result.Err[struct{}, error](tmp56.Error)
+//line gomcommithistory/commithistory.gom:116
 			default:
-//line gomcommithistory/commithistory.gom:112
-				panic(rt.InvalidVariant("result.Result", tmp51))
-//line gomcommithistory/commithistory.gom:112
+//line gomcommithistory/commithistory.gom:116
+				panic(rt.InvalidVariant("result.Result", tmp56))
+//line gomcommithistory/commithistory.gom:116
 			}
-//line gomcommithistory/commithistory.gom:113
-			v1, err7 := os.Open(path)
-//line gomcommithistory/commithistory.gom:113
+//line gomcommithistory/commithistory.gom:117
+			v4, err7 := os.Open(path)
+//line gomcommithistory/commithistory.gom:117
 			if err7 != nil {
-//line gomcommithistory/commithistory.gom:113
+//line gomcommithistory/commithistory.gom:117
 				return result.Err[struct{}, error](err7)
-//line gomcommithistory/commithistory.gom:113
+//line gomcommithistory/commithistory.gom:117
 			}
-//line gomcommithistory/commithistory.gom:113
-			fp = v1
-//line gomcommithistory/commithistory.gom:113
+//line gomcommithistory/commithistory.gom:117
+			fp = v4
+//line gomcommithistory/commithistory.gom:117
 		default:
-//line gomcommithistory/commithistory.gom:107
-			panic(rt.InvalidVariant("Result", tmp44))
-//line gomcommithistory/commithistory.gom:108
+//line gomcommithistory/commithistory.gom:111
+			panic(rt.InvalidVariant("Result", tmp49))
+//line gomcommithistory/commithistory.gom:112
 		}
-//line gomcommithistory/commithistory.gom:116
-		tmp52 := func(_ struct{}) struct{} {
-//line gomcommithistory/commithistory.gom:116
+//line gomcommithistory/commithistory.gom:120
+		tmp57 := func(_ struct{}) struct{} {
+//line gomcommithistory/commithistory.gom:120
 			err8 := fp.Close()
-//line gomcommithistory/commithistory.gom:116
+//line gomcommithistory/commithistory.gom:120
 			_ = result.FromErr(err8)
-//line gomcommithistory/commithistory.gom:116
+//line gomcommithistory/commithistory.gom:120
 			return struct{}{}
-//line gomcommithistory/commithistory.gom:116
+//line gomcommithistory/commithistory.gom:120
 		}
-//line gomcommithistory/commithistory.gom:116
-		tmp202 := tmp52
-//line gomcommithistory/commithistory.gom:116
-		defer tmp202(struct{}{})
-//line gomcommithistory/commithistory.gom:117
-		tmp53 := io.Reader(fp)
-//line gomcommithistory/commithistory.gom:117
-		decoder := json.NewDecoder(tmp53)
-//line gomcommithistory/commithistory.gom:118
+//line gomcommithistory/commithistory.gom:120
+		tmp207 := tmp57
+//line gomcommithistory/commithistory.gom:120
+		defer tmp207(struct{}{})
+//line gomcommithistory/commithistory.gom:121
+		tmp58 := io.Reader(fp)
+//line gomcommithistory/commithistory.gom:121
+		decoder := json.NewDecoder(tmp58)
+//line gomcommithistory/commithistory.gom:122
 		err9 := decoder.Decode(ob)
-//line gomcommithistory/commithistory.gom:118
+//line gomcommithistory/commithistory.gom:122
 		return result.FromErr(err9)
-//line gomcommithistory/commithistory.gom:104
+//line gomcommithistory/commithistory.gom:108
 	}
-//line gomcommithistory/commithistory.gom:104
-	tmp203 := rt.NewScope()
-//line gomcommithistory/commithistory.gom:104
-	return tmp54(tmp203)
-//line gomcommithistory/commithistory.gom:103
+//line gomcommithistory/commithistory.gom:108
+	tmp208 := rt.NewScope()
+//line gomcommithistory/commithistory.gom:108
+	return tmp59(tmp208)
+//line gomcommithistory/commithistory.gom:107
 }
 
-//line gomcommithistory/commithistory.gom:122
+//line gomcommithistory/commithistory.gom:126
 func ConfigSave(c Config, name string, ob any) result.Result[struct{}, error] {
-//line gomcommithistory/commithistory.gom:123
-	tmp60 := func(s *rt.Scope) result.Result[struct{}, error] {
-//line gomcommithistory/commithistory.gom:124
-		tmp55 := ConfigFilePath(c, name)
-//line gomcommithistory/commithistory.gom:124
+//line gomcommithistory/commithistory.gom:127
+	tmp65 := func(s *rt.Scope) result.Result[struct{}, error] {
+//line gomcommithistory/commithistory.gom:128
+		tmp60 := ConfigFilePath(c, name)
+//line gomcommithistory/commithistory.gom:128
 		var path string
-//line gomcommithistory/commithistory.gom:124
-		switch tmp55.Tag() {
-//line gomcommithistory/commithistory.gom:124
+//line gomcommithistory/commithistory.gom:128
+		switch tmp60.Tag() {
+//line gomcommithistory/commithistory.gom:128
 		case result.ResultTagOk:
-//line gomcommithistory/commithistory.gom:124
-			path = tmp55.Value
-//line gomcommithistory/commithistory.gom:124
+//line gomcommithistory/commithistory.gom:128
+			path = tmp60.Value
+//line gomcommithistory/commithistory.gom:128
 		case result.ResultTagErr:
-//line gomcommithistory/commithistory.gom:124
-			return result.Err[struct{}, error](tmp55.Error)
-//line gomcommithistory/commithistory.gom:124
+//line gomcommithistory/commithistory.gom:128
+			return result.Err[struct{}, error](tmp60.Error)
+//line gomcommithistory/commithistory.gom:128
 		default:
-//line gomcommithistory/commithistory.gom:124
-			panic(rt.InvalidVariant("result.Result", tmp55))
-//line gomcommithistory/commithistory.gom:124
+//line gomcommithistory/commithistory.gom:128
+			panic(rt.InvalidVariant("result.Result", tmp60))
+//line gomcommithistory/commithistory.gom:128
 		}
-//line gomcommithistory/commithistory.gom:125
-		tmp56 := any(path)
-//line gomcommithistory/commithistory.gom:125
-		log.Printf("save. %q\n", tmp56)
-//line gomcommithistory/commithistory.gom:125
+//line gomcommithistory/commithistory.gom:129
+		tmp61 := any(path)
+//line gomcommithistory/commithistory.gom:129
+		log.Printf("save. %q\n", tmp61)
+//line gomcommithistory/commithistory.gom:129
 		_ = struct{}{}
-//line gomcommithistory/commithistory.gom:126
-		tmp57 := filepath.Dir(path)
-//line gomcommithistory/commithistory.gom:126
-		err10 := os.MkdirAll(tmp57, fs.FileMode(0o700))
-//line gomcommithistory/commithistory.gom:126
+//line gomcommithistory/commithistory.gom:130
+		tmp62 := filepath.Dir(path)
+//line gomcommithistory/commithistory.gom:130
+		err10 := os.MkdirAll(tmp62, fs.FileMode(0o700))
+//line gomcommithistory/commithistory.gom:130
 		if err10 != nil {
-//line gomcommithistory/commithistory.gom:126
+//line gomcommithistory/commithistory.gom:130
 			return result.Err[struct{}, error](err10)
-//line gomcommithistory/commithistory.gom:126
+//line gomcommithistory/commithistory.gom:130
 		}
-//line gomcommithistory/commithistory.gom:127
+//line gomcommithistory/commithistory.gom:131
 		fp, err11 := os.Create(path)
-//line gomcommithistory/commithistory.gom:127
+//line gomcommithistory/commithistory.gom:131
 		if err11 != nil {
-//line gomcommithistory/commithistory.gom:127
+//line gomcommithistory/commithistory.gom:131
 			return result.Err[struct{}, error](err11)
-//line gomcommithistory/commithistory.gom:127
+//line gomcommithistory/commithistory.gom:131
 		}
-//line gomcommithistory/commithistory.gom:128
-		tmp58 := func(_ struct{}) struct{} {
-//line gomcommithistory/commithistory.gom:128
+//line gomcommithistory/commithistory.gom:132
+		tmp63 := func(_ struct{}) struct{} {
+//line gomcommithistory/commithistory.gom:132
 			err12 := fp.Close()
-//line gomcommithistory/commithistory.gom:128
+//line gomcommithistory/commithistory.gom:132
 			_ = result.FromErr(err12)
-//line gomcommithistory/commithistory.gom:128
+//line gomcommithistory/commithistory.gom:132
 			return struct{}{}
-//line gomcommithistory/commithistory.gom:128
+//line gomcommithistory/commithistory.gom:132
 		}
-//line gomcommithistory/commithistory.gom:128
-		tmp204 := tmp58
-//line gomcommithistory/commithistory.gom:128
-		defer tmp204(struct{}{})
-//line gomcommithistory/commithistory.gom:129
-		tmp59 := io.Writer(fp)
-//line gomcommithistory/commithistory.gom:129
-		encoder := json.NewEncoder(tmp59)
-//line gomcommithistory/commithistory.gom:130
+//line gomcommithistory/commithistory.gom:132
+		tmp209 := tmp63
+//line gomcommithistory/commithistory.gom:132
+		defer tmp209(struct{}{})
+//line gomcommithistory/commithistory.gom:133
+		tmp64 := io.Writer(fp)
+//line gomcommithistory/commithistory.gom:133
+		encoder := json.NewEncoder(tmp64)
+//line gomcommithistory/commithistory.gom:134
 		err13 := encoder.Encode(ob)
-//line gomcommithistory/commithistory.gom:130
+//line gomcommithistory/commithistory.gom:134
 		return result.FromErr(err13)
-//line gomcommithistory/commithistory.gom:123
+//line gomcommithistory/commithistory.gom:127
 	}
-//line gomcommithistory/commithistory.gom:123
-	tmp205 := rt.NewScope()
-//line gomcommithistory/commithistory.gom:123
-	return tmp60(tmp205)
-//line gomcommithistory/commithistory.gom:122
+//line gomcommithistory/commithistory.gom:127
+	tmp210 := rt.NewScope()
+//line gomcommithistory/commithistory.gom:127
+	return tmp65(tmp210)
+//line gomcommithistory/commithistory.gom:126
 }
 
-//line gomcommithistory/commithistory.gom:135
+//line gomcommithistory/commithistory.gom:139
 func LoadFile[A any](filename string, parse func(list.List[string]) result.Result[A, error], matches func(list.List[string], string) bool, alias string) result.Result[A, error] {
-//line gomcommithistory/commithistory.gom:136
-	tmp78 := func(s *rt.Scope) result.Result[A, error] {
-//line gomcommithistory/commithistory.gom:137
-		tmp61 := any(filename)
-//line gomcommithistory/commithistory.gom:137
-		log.Printf("load. %q\n", tmp61)
-//line gomcommithistory/commithistory.gom:137
+//line gomcommithistory/commithistory.gom:140
+	tmp83 := func(s *rt.Scope) result.Result[A, error] {
+//line gomcommithistory/commithistory.gom:141
+		tmp66 := any(filename)
+//line gomcommithistory/commithistory.gom:141
+		log.Printf("load. %q\n", tmp66)
+//line gomcommithistory/commithistory.gom:141
 		_ = struct{}{}
-//line gomcommithistory/commithistory.gom:138
-		var tmp62 result.Result[*os.File, error]
-//line gomcommithistory/commithistory.gom:138
-		v2, err14 := os.Open(filename)
-//line gomcommithistory/commithistory.gom:138
-		tmp62 = result.FromGo(v2, err14)
-//line gomcommithistory/commithistory.gom:138
+//line gomcommithistory/commithistory.gom:142
+		var tmp67 result.Result[*os.File, error]
+//line gomcommithistory/commithistory.gom:142
+		v5, err14 := os.Open(filename)
+//line gomcommithistory/commithistory.gom:142
+		tmp67 = result.FromGo(v5, err14)
+//line gomcommithistory/commithistory.gom:142
 		var fp *os.File
-//line gomcommithistory/commithistory.gom:139
-		switch tmp62.Tag() {
-//line gomcommithistory/commithistory.gom:139
+//line gomcommithistory/commithistory.gom:143
+		switch tmp67.Tag() {
+//line gomcommithistory/commithistory.gom:143
 		case result.ResultTagOk:
-//line gomcommithistory/commithistory.gom:139
-			tmp63 := tmp62.Value
-//line gomcommithistory/commithistory.gom:139
-			tmp64 := tmp63
-//line gomcommithistory/commithistory.gom:139
-			fp = tmp64
-//line gomcommithistory/commithistory.gom:139
+//line gomcommithistory/commithistory.gom:143
+			tmp68 := tmp67.Value
+//line gomcommithistory/commithistory.gom:143
+			tmp69 := tmp68
+//line gomcommithistory/commithistory.gom:143
+			fp = tmp69
+//line gomcommithistory/commithistory.gom:143
 		case result.ResultTagErr:
-//line gomcommithistory/commithistory.gom:139
-			tmp65 := tmp62.Error
-//line gomcommithistory/commithistory.gom:139
-			tmp66 := tmp65
-//line gomcommithistory/commithistory.gom:140
-			var tmp67 result.Result[option.Option[fs.FileInfo], error]
-//line gomcommithistory/commithistory.gom:140
-			v3, err15 := os.Stat(filename)
-//line gomcommithistory/commithistory.gom:140
-			tmp67 = result.FromGo(option.FromGo(v3, v3 != nil), err15)
-//line gomcommithistory/commithistory.gom:141
-			switch tmp67.Tag() {
-//line gomcommithistory/commithistory.gom:141
+//line gomcommithistory/commithistory.gom:143
+			tmp70 := tmp67.Error
+//line gomcommithistory/commithistory.gom:143
+			tmp71 := tmp70
+//line gomcommithistory/commithistory.gom:144
+			var tmp72 result.Result[option.Option[fs.FileInfo], error]
+//line gomcommithistory/commithistory.gom:144
+			v6, err15 := os.Stat(filename)
+//line gomcommithistory/commithistory.gom:144
+			tmp72 = result.FromGo(option.FromGo(v6, v6 != nil), err15)
+//line gomcommithistory/commithistory.gom:145
+			switch tmp72.Tag() {
+//line gomcommithistory/commithistory.gom:145
 			case result.ResultTagOk:
-//line gomcommithistory/commithistory.gom:141
-				tmp68 := tmp67.Value
-//line gomcommithistory/commithistory.gom:141
-				_ = tmp68
-//line gomcommithistory/commithistory.gom:142
-				tmp70 := wrap(tmp66, "open")
-//line gomcommithistory/commithistory.gom:142
-				tmp71 := result.Err[*os.File, error](tmp70)
-//line gomcommithistory/commithistory.gom:142
-				switch tmp71.Tag() {
-//line gomcommithistory/commithistory.gom:142
+//line gomcommithistory/commithistory.gom:145
+				tmp73 := tmp72.Value
+//line gomcommithistory/commithistory.gom:145
+				_ = tmp73
+//line gomcommithistory/commithistory.gom:146
+				tmp75 := wrap(tmp71, "open")
+//line gomcommithistory/commithistory.gom:146
+				tmp76 := result.Err[*os.File, error](tmp75)
+//line gomcommithistory/commithistory.gom:146
+				switch tmp76.Tag() {
+//line gomcommithistory/commithistory.gom:146
 				case result.ResultTagOk:
-//line gomcommithistory/commithistory.gom:142
-					fp = tmp71.Value
-//line gomcommithistory/commithistory.gom:142
+//line gomcommithistory/commithistory.gom:146
+					fp = tmp76.Value
+//line gomcommithistory/commithistory.gom:146
 				case result.ResultTagErr:
-//line gomcommithistory/commithistory.gom:142
-					return result.Err[A, error](tmp71.Error)
-//line gomcommithistory/commithistory.gom:142
+//line gomcommithistory/commithistory.gom:146
+					return result.Err[A, error](tmp76.Error)
+//line gomcommithistory/commithistory.gom:146
 				default:
-//line gomcommithistory/commithistory.gom:142
-					panic(rt.InvalidVariant("result.Result", tmp71))
-//line gomcommithistory/commithistory.gom:142
+//line gomcommithistory/commithistory.gom:146
+					panic(rt.InvalidVariant("result.Result", tmp76))
+//line gomcommithistory/commithistory.gom:146
 				}
-//line gomcommithistory/commithistory.gom:141
+//line gomcommithistory/commithistory.gom:145
 			case result.ResultTagErr:
-//line gomcommithistory/commithistory.gom:141
-				tmp72 := tmp67.Error
-//line gomcommithistory/commithistory.gom:141
-				_ = tmp72
-//line gomcommithistory/commithistory.gom:141
-				tmp74 := result.Err[*os.File, error](io.EOF)
-//line gomcommithistory/commithistory.gom:141
-				switch tmp74.Tag() {
-//line gomcommithistory/commithistory.gom:141
+//line gomcommithistory/commithistory.gom:145
+				tmp77 := tmp72.Error
+//line gomcommithistory/commithistory.gom:145
+				_ = tmp77
+//line gomcommithistory/commithistory.gom:145
+				tmp79 := result.Err[*os.File, error](io.EOF)
+//line gomcommithistory/commithistory.gom:145
+				switch tmp79.Tag() {
+//line gomcommithistory/commithistory.gom:145
 				case result.ResultTagOk:
-//line gomcommithistory/commithistory.gom:141
-					fp = tmp74.Value
-//line gomcommithistory/commithistory.gom:141
+//line gomcommithistory/commithistory.gom:145
+					fp = tmp79.Value
+//line gomcommithistory/commithistory.gom:145
 				case result.ResultTagErr:
-//line gomcommithistory/commithistory.gom:141
-					return result.Err[A, error](tmp74.Error)
-//line gomcommithistory/commithistory.gom:141
+//line gomcommithistory/commithistory.gom:145
+					return result.Err[A, error](tmp79.Error)
+//line gomcommithistory/commithistory.gom:145
 				default:
-//line gomcommithistory/commithistory.gom:141
-					panic(rt.InvalidVariant("result.Result", tmp74))
-//line gomcommithistory/commithistory.gom:141
+//line gomcommithistory/commithistory.gom:145
+					panic(rt.InvalidVariant("result.Result", tmp79))
+//line gomcommithistory/commithistory.gom:145
 				}
-//line gomcommithistory/commithistory.gom:141
+//line gomcommithistory/commithistory.gom:145
 			default:
-//line gomcommithistory/commithistory.gom:140
-				panic(rt.InvalidVariant("Result", tmp67))
-//line gomcommithistory/commithistory.gom:141
+//line gomcommithistory/commithistory.gom:144
+				panic(rt.InvalidVariant("Result", tmp72))
+//line gomcommithistory/commithistory.gom:145
 			}
-//line gomcommithistory/commithistory.gom:141
+//line gomcommithistory/commithistory.gom:145
 		default:
-//line gomcommithistory/commithistory.gom:138
-			panic(rt.InvalidVariant("Result", tmp62))
-//line gomcommithistory/commithistory.gom:139
+//line gomcommithistory/commithistory.gom:142
+			panic(rt.InvalidVariant("Result", tmp67))
+//line gomcommithistory/commithistory.gom:143
 		}
-//line gomcommithistory/commithistory.gom:145
-		tmp75 := func(_ struct{}) struct{} {
-//line gomcommithistory/commithistory.gom:145
+//line gomcommithistory/commithistory.gom:149
+		tmp80 := func(_ struct{}) struct{} {
+//line gomcommithistory/commithistory.gom:149
 			err16 := fp.Close()
-//line gomcommithistory/commithistory.gom:145
+//line gomcommithistory/commithistory.gom:149
 			_ = result.FromErr(err16)
-//line gomcommithistory/commithistory.gom:145
+//line gomcommithistory/commithistory.gom:149
 			return struct{}{}
-//line gomcommithistory/commithistory.gom:145
+//line gomcommithistory/commithistory.gom:149
 		}
-//line gomcommithistory/commithistory.gom:145
-		tmp206 := tmp75
-//line gomcommithistory/commithistory.gom:145
-		defer tmp206(struct{}{})
-//line gomcommithistory/commithistory.gom:146
-		tmp76 := io.Reader(fp)
-//line gomcommithistory/commithistory.gom:146
-		tmp77 := csv.NewReader(tmp76)
-//line gomcommithistory/commithistory.gom:146
-		return findRecords[A](tmp77, parse, matches, alias)
-//line gomcommithistory/commithistory.gom:136
+//line gomcommithistory/commithistory.gom:149
+		tmp211 := tmp80
+//line gomcommithistory/commithistory.gom:149
+		defer tmp211(struct{}{})
+//line gomcommithistory/commithistory.gom:150
+		tmp81 := io.Reader(fp)
+//line gomcommithistory/commithistory.gom:150
+		tmp82 := csv.NewReader(tmp81)
+//line gomcommithistory/commithistory.gom:150
+		return findRecords[A](tmp82, parse, matches, alias)
+//line gomcommithistory/commithistory.gom:140
 	}
-//line gomcommithistory/commithistory.gom:136
-	tmp207 := rt.NewScope()
-//line gomcommithistory/commithistory.gom:136
-	return tmp78(tmp207)
-//line gomcommithistory/commithistory.gom:135
-}
-
-//line gomcommithistory/commithistory.gom:150
-func findRecords[A any](r *csv.Reader, parse func(list.List[string]) result.Result[A, error], matches func(list.List[string], string) bool, alias string) result.Result[A, error] {
-//line gomcommithistory/commithistory.gom:150
-	for {
-//line gomcommithistory/commithistory.gom:151
-		var tmp79 result.Result[list.List[string], error]
-//line gomcommithistory/commithistory.gom:151
-		v4, err17 := r.Read()
-//line gomcommithistory/commithistory.gom:151
-		tmp79 = result.FromGo(list.FromSlice(v4), err17)
-//line gomcommithistory/commithistory.gom:152
-		switch tmp79.Tag() {
-//line gomcommithistory/commithistory.gom:152
-		case result.ResultTagOk:
-//line gomcommithistory/commithistory.gom:152
-			tmp80 := tmp79.Value
-//line gomcommithistory/commithistory.gom:152
-			tmp81 := tmp80
-//line gomcommithistory/commithistory.gom:153
-			tmp82 := matches(tmp81, alias)
-//line gomcommithistory/commithistory.gom:153
-			if tmp82 {
-//line gomcommithistory/commithistory.gom:153
-				return parse(tmp81)
-//line gomcommithistory/commithistory.gom:153
-			} else {
-//line gomcommithistory/commithistory.gom:154
-				continue
-//line gomcommithistory/commithistory.gom:153
-			}
-//line gomcommithistory/commithistory.gom:152
-		case result.ResultTagErr:
-//line gomcommithistory/commithistory.gom:152
-			tmp83 := tmp79.Error
-//line gomcommithistory/commithistory.gom:152
-			tmp84 := tmp83
-//line gomcommithistory/commithistory.gom:152
-			tmp86 := errors.Is(tmp84, io.EOF)
-//line gomcommithistory/commithistory.gom:152
-			if tmp86 {
-//line gomcommithistory/commithistory.gom:152
-				return result.Err[A, error](io.EOF)
-//line gomcommithistory/commithistory.gom:152
-			} else {
-//line gomcommithistory/commithistory.gom:152
-				tmp85 := wrap(tmp84, "csv readline")
-//line gomcommithistory/commithistory.gom:152
-				return result.Err[A, error](tmp85)
-//line gomcommithistory/commithistory.gom:152
-			}
-//line gomcommithistory/commithistory.gom:152
-		default:
-//line gomcommithistory/commithistory.gom:151
-			panic(rt.InvalidVariant("Result", tmp79))
-//line gomcommithistory/commithistory.gom:152
-		}
-//line gomcommithistory/commithistory.gom:150
-	}
-//line gomcommithistory/commithistory.gom:150
-}
-
-//line gomcommithistory/commithistory.gom:160
-func SaveFile(filename string, write func(io.Writer) result.Result[struct{}, error]) result.Result[struct{}, error] {
-//line gomcommithistory/commithistory.gom:161
-	tmp121 := func(s *rt.Scope) (tmp208 result.Result[struct{}, error]) {
-//line gomcommithistory/commithistory.gom:161
-		var tmp209 []error
-//line gomcommithistory/commithistory.gom:161
-		defer func() {
-//line gomcommithistory/commithistory.gom:161
-			if len(tmp209) > 0 && tmp208.IsOk() {
-//line gomcommithistory/commithistory.gom:161
-				tmp208 = result.Err[struct{}, error](errors.Join(tmp209...))
-//line gomcommithistory/commithistory.gom:161
-			}
-//line gomcommithistory/commithistory.gom:161
-		}()
-//line gomcommithistory/commithistory.gom:162
-		var tmp87 result.Result[*os.File, error]
-//line gomcommithistory/commithistory.gom:162
-		v5, err18 := os.CreateTemp(".", "ch")
-//line gomcommithistory/commithistory.gom:162
-		tmp87 = result.FromGo(v5, err18)
-//line gomcommithistory/commithistory.gom:162
-		var fp *os.File
-//line gomcommithistory/commithistory.gom:163
-		switch tmp87.Tag() {
-//line gomcommithistory/commithistory.gom:163
-		case result.ResultTagOk:
-//line gomcommithistory/commithistory.gom:163
-			tmp88 := tmp87.Value
-//line gomcommithistory/commithistory.gom:163
-			tmp89 := tmp88
-//line gomcommithistory/commithistory.gom:163
-			fp = tmp89
-//line gomcommithistory/commithistory.gom:163
-		case result.ResultTagErr:
-//line gomcommithistory/commithistory.gom:163
-			tmp90 := tmp87.Error
-//line gomcommithistory/commithistory.gom:163
-			tmp91 := tmp90
-//line gomcommithistory/commithistory.gom:164
-			tmp92 := wrap(tmp91, "save, create tempfile")
-//line gomcommithistory/commithistory.gom:164
-			tmp93 := result.Err[*os.File, error](tmp92)
-//line gomcommithistory/commithistory.gom:164
-			switch tmp93.Tag() {
-//line gomcommithistory/commithistory.gom:164
-			case result.ResultTagOk:
-//line gomcommithistory/commithistory.gom:164
-				fp = tmp93.Value
-//line gomcommithistory/commithistory.gom:164
-			case result.ResultTagErr:
-//line gomcommithistory/commithistory.gom:164
-				return result.Err[struct{}, error](tmp93.Error)
-//line gomcommithistory/commithistory.gom:164
-			default:
-//line gomcommithistory/commithistory.gom:164
-				panic(rt.InvalidVariant("result.Result", tmp93))
-//line gomcommithistory/commithistory.gom:164
-			}
-//line gomcommithistory/commithistory.gom:164
-		default:
-//line gomcommithistory/commithistory.gom:162
-			panic(rt.InvalidVariant("Result", tmp87))
-//line gomcommithistory/commithistory.gom:163
-		}
-//line gomcommithistory/commithistory.gom:166
-		tmp95 := func(_ struct{}) result.Result[struct{}, error] {
-//line gomcommithistory/commithistory.gom:167
-			err19 := fp.Close()
-//line gomcommithistory/commithistory.gom:167
-			_ = result.FromErr(err19)
-//line gomcommithistory/commithistory.gom:168
-			tmp94 := fp.Name()
-//line gomcommithistory/commithistory.gom:168
-			err20 := os.Rename(tmp94, filename)
-//line gomcommithistory/commithistory.gom:168
-			return result.FromErr(err20)
-//line gomcommithistory/commithistory.gom:166
-		}
-//line gomcommithistory/commithistory.gom:166
-		tmp211 := tmp95
-//line gomcommithistory/commithistory.gom:166
-		defer func() {
-//line gomcommithistory/commithistory.gom:166
-			if r := tmp211(struct{}{}); !r.IsOk() {
-//line gomcommithistory/commithistory.gom:166
-				_, e := r.Unwrap()
-//line gomcommithistory/commithistory.gom:166
-				tmp209 = append(tmp209, e)
-//line gomcommithistory/commithistory.gom:166
-			}
-//line gomcommithistory/commithistory.gom:166
-		}()
-//line gomcommithistory/commithistory.gom:170
-		tmp96 := io.Writer(fp)
-//line gomcommithistory/commithistory.gom:170
-		tmp97 := write(tmp96)
-//line gomcommithistory/commithistory.gom:170
-		switch tmp97.Tag() {
-//line gomcommithistory/commithistory.gom:170
-		case result.ResultTagOk:
-//line gomcommithistory/commithistory.gom:170
-			_ = tmp97.Value
-//line gomcommithistory/commithistory.gom:170
-		case result.ResultTagErr:
-//line gomcommithistory/commithistory.gom:170
-			return result.Err[struct{}, error](tmp97.Error)
-//line gomcommithistory/commithistory.gom:170
-		default:
-//line gomcommithistory/commithistory.gom:170
-			panic(rt.InvalidVariant("result.Result", tmp97))
-//line gomcommithistory/commithistory.gom:170
-		}
-//line gomcommithistory/commithistory.gom:171
-		tmp98 := any(filename)
-//line gomcommithistory/commithistory.gom:171
-		log.Printf("save. %q\n", tmp98)
-//line gomcommithistory/commithistory.gom:171
-		_ = struct{}{}
-//line gomcommithistory/commithistory.gom:172
-		var tmp99 result.Result[*os.File, error]
-//line gomcommithistory/commithistory.gom:172
-		v6, err21 := os.Open(filename)
-//line gomcommithistory/commithistory.gom:172
-		tmp99 = result.FromGo(v6, err21)
-//line gomcommithistory/commithistory.gom:172
-		var rp *os.File
-//line gomcommithistory/commithistory.gom:173
-		switch tmp99.Tag() {
-//line gomcommithistory/commithistory.gom:173
-		case result.ResultTagOk:
-//line gomcommithistory/commithistory.gom:173
-			tmp100 := tmp99.Value
-//line gomcommithistory/commithistory.gom:173
-			tmp101 := tmp100
-//line gomcommithistory/commithistory.gom:173
-			rp = tmp101
-//line gomcommithistory/commithistory.gom:173
-		case result.ResultTagErr:
-//line gomcommithistory/commithistory.gom:173
-			tmp102 := tmp99.Error
-//line gomcommithistory/commithistory.gom:173
-			tmp103 := tmp102
-//line gomcommithistory/commithistory.gom:174
-			var tmp104 result.Result[option.Option[fs.FileInfo], error]
-//line gomcommithistory/commithistory.gom:174
-			v7, err22 := os.Stat(filename)
-//line gomcommithistory/commithistory.gom:174
-			tmp104 = result.FromGo(option.FromGo(v7, v7 != nil), err22)
-//line gomcommithistory/commithistory.gom:175
-			switch tmp104.Tag() {
-//line gomcommithistory/commithistory.gom:175
-			case result.ResultTagOk:
-//line gomcommithistory/commithistory.gom:175
-				tmp105 := tmp104.Value
-//line gomcommithistory/commithistory.gom:175
-				_ = tmp105
-//line gomcommithistory/commithistory.gom:175
-				tmp107 := wrap(tmp103, "save, open file")
-//line gomcommithistory/commithistory.gom:175
-				tmp108 := result.Err[*os.File, error](tmp107)
-//line gomcommithistory/commithistory.gom:175
-				switch tmp108.Tag() {
-//line gomcommithistory/commithistory.gom:175
-				case result.ResultTagOk:
-//line gomcommithistory/commithistory.gom:175
-					rp = tmp108.Value
-//line gomcommithistory/commithistory.gom:175
-				case result.ResultTagErr:
-//line gomcommithistory/commithistory.gom:175
-					return result.Err[struct{}, error](tmp108.Error)
-//line gomcommithistory/commithistory.gom:175
-				default:
-//line gomcommithistory/commithistory.gom:175
-					panic(rt.InvalidVariant("result.Result", tmp108))
-//line gomcommithistory/commithistory.gom:175
-				}
-//line gomcommithistory/commithistory.gom:175
-			case result.ResultTagErr:
-//line gomcommithistory/commithistory.gom:175
-				tmp109 := tmp104.Error
-//line gomcommithistory/commithistory.gom:175
-				_ = tmp109
-//line gomcommithistory/commithistory.gom:177
-				tmp111 := any(filename)
-//line gomcommithistory/commithistory.gom:177
-				log.Printf("create. %q\n", tmp111)
-//line gomcommithistory/commithistory.gom:177
-				_ = struct{}{}
-//line gomcommithistory/commithistory.gom:178
-				var tmp112 result.Result[*os.File, error]
-//line gomcommithistory/commithistory.gom:178
-				v8, err23 := os.Create(filename)
-//line gomcommithistory/commithistory.gom:178
-				tmp112 = result.FromGo(v8, err23)
-//line gomcommithistory/commithistory.gom:179
-				switch tmp112.Tag() {
-//line gomcommithistory/commithistory.gom:179
-				case result.ResultTagOk:
-//line gomcommithistory/commithistory.gom:179
-					tmp113 := tmp112.Value
-//line gomcommithistory/commithistory.gom:179
-					tmp114 := tmp113
-//line gomcommithistory/commithistory.gom:179
-					rp = tmp114
-//line gomcommithistory/commithistory.gom:179
-				case result.ResultTagErr:
-//line gomcommithistory/commithistory.gom:179
-					tmp115 := tmp112.Error
-//line gomcommithistory/commithistory.gom:179
-					_ = tmp115
-//line gomcommithistory/commithistory.gom:180
-					tmp117 := result.Err[*os.File, error](tmp103)
-//line gomcommithistory/commithistory.gom:180
-					switch tmp117.Tag() {
-//line gomcommithistory/commithistory.gom:180
-					case result.ResultTagOk:
-//line gomcommithistory/commithistory.gom:180
-						rp = tmp117.Value
-//line gomcommithistory/commithistory.gom:180
-					case result.ResultTagErr:
-//line gomcommithistory/commithistory.gom:180
-						return result.Err[struct{}, error](tmp117.Error)
-//line gomcommithistory/commithistory.gom:180
-					default:
-//line gomcommithistory/commithistory.gom:180
-						panic(rt.InvalidVariant("result.Result", tmp117))
-//line gomcommithistory/commithistory.gom:180
-					}
-//line gomcommithistory/commithistory.gom:180
-				default:
-//line gomcommithistory/commithistory.gom:178
-					panic(rt.InvalidVariant("Result", tmp112))
-//line gomcommithistory/commithistory.gom:179
-				}
-//line gomcommithistory/commithistory.gom:179
-			default:
-//line gomcommithistory/commithistory.gom:174
-				panic(rt.InvalidVariant("Result", tmp104))
-//line gomcommithistory/commithistory.gom:175
-			}
-//line gomcommithistory/commithistory.gom:175
-		default:
-//line gomcommithistory/commithistory.gom:172
-			panic(rt.InvalidVariant("Result", tmp99))
-//line gomcommithistory/commithistory.gom:173
-		}
-//line gomcommithistory/commithistory.gom:185
-		tmp118 := func(_ struct{}) struct{} {
-//line gomcommithistory/commithistory.gom:185
-			err24 := rp.Close()
-//line gomcommithistory/commithistory.gom:185
-			_ = result.FromErr(err24)
-//line gomcommithistory/commithistory.gom:185
-			return struct{}{}
-//line gomcommithistory/commithistory.gom:185
-		}
-//line gomcommithistory/commithistory.gom:185
-		tmp210 := tmp118
-//line gomcommithistory/commithistory.gom:185
-		defer tmp210(struct{}{})
-//line gomcommithistory/commithistory.gom:186
-		tmp119 := io.Writer(fp)
-//line gomcommithistory/commithistory.gom:186
-		tmp120 := io.Reader(rp)
-//line gomcommithistory/commithistory.gom:186
-		v9, err25 := io.Copy(tmp119, tmp120)
-//line gomcommithistory/commithistory.gom:186
-		if err25 != nil {
-//line gomcommithistory/commithistory.gom:186
-			return result.Err[struct{}, error](err25)
-//line gomcommithistory/commithistory.gom:186
-		}
-//line gomcommithistory/commithistory.gom:186
-		_ = v9
-//line gomcommithistory/commithistory.gom:187
-		return result.Ok[struct{}, error](struct{}{})
-//line gomcommithistory/commithistory.gom:161
-	}
-//line gomcommithistory/commithistory.gom:161
+//line gomcommithistory/commithistory.gom:140
 	tmp212 := rt.NewScope()
-//line gomcommithistory/commithistory.gom:161
-	return tmp121(tmp212)
-//line gomcommithistory/commithistory.gom:160
+//line gomcommithistory/commithistory.gom:140
+	return tmp83(tmp212)
+//line gomcommithistory/commithistory.gom:139
 }
 
-//line gomcommithistory/commithistory.gom:191
-func CommitParse(xs list.List[string]) result.Result[Commit, error] {
-//line gomcommithistory/commithistory.gom:192
-	switch {
-//line gomcommithistory/commithistory.gom:192
-	case len(xs) == 0:
-//line gomcommithistory/commithistory.gom:196
-		tmp122 := any(xs)
-//line gomcommithistory/commithistory.gom:196
-		var tmp123 error
-//line gomcommithistory/commithistory.gom:196
-		v10 := fmt.Errorf("too few %q", tmp122)
-//line gomcommithistory/commithistory.gom:196
-		if v10 == nil {
-//line gomcommithistory/commithistory.gom:196
-			panic("gom: fmt.Errorf returned nil error — its binding declares a never-nil GoError result")
-//line gomcommithistory/commithistory.gom:196
-		}
-//line gomcommithistory/commithistory.gom:196
-		tmp123 = v10
-//line gomcommithistory/commithistory.gom:196
-		return result.Err[Commit, error](tmp123)
-//line gomcommithistory/commithistory.gom:192
-	case len(xs) != 0:
-//line gomcommithistory/commithistory.gom:192
-		tmp124 := xs[0]
-//line gomcommithistory/commithistory.gom:192
-		tmp125 := xs[1:]
-//line gomcommithistory/commithistory.gom:192
-		switch {
-//line gomcommithistory/commithistory.gom:192
-		case len(tmp125) == 0:
-//line gomcommithistory/commithistory.gom:196
-			tmp126 := any(xs)
-//line gomcommithistory/commithistory.gom:196
-			var tmp127 error
-//line gomcommithistory/commithistory.gom:196
-			v11 := fmt.Errorf("too few %q", tmp126)
-//line gomcommithistory/commithistory.gom:196
-			if v11 == nil {
-//line gomcommithistory/commithistory.gom:196
-				panic("gom: fmt.Errorf returned nil error — its binding declares a never-nil GoError result")
-//line gomcommithistory/commithistory.gom:196
+//line gomcommithistory/commithistory.gom:154
+func findRecords[A any](r *csv.Reader, parse func(list.List[string]) result.Result[A, error], matches func(list.List[string], string) bool, alias string) result.Result[A, error] {
+//line gomcommithistory/commithistory.gom:154
+	for {
+//line gomcommithistory/commithistory.gom:155
+		var tmp84 result.Result[list.List[string], error]
+//line gomcommithistory/commithistory.gom:155
+		v7, err17 := r.Read()
+//line gomcommithistory/commithistory.gom:155
+		tmp84 = result.FromGo(list.FromSlice(v7), err17)
+//line gomcommithistory/commithistory.gom:156
+		switch tmp84.Tag() {
+//line gomcommithistory/commithistory.gom:156
+		case result.ResultTagOk:
+//line gomcommithistory/commithistory.gom:156
+			tmp85 := tmp84.Value
+//line gomcommithistory/commithistory.gom:156
+			tmp86 := tmp85
+//line gomcommithistory/commithistory.gom:157
+			tmp87 := matches(tmp86, alias)
+//line gomcommithistory/commithistory.gom:157
+			if tmp87 {
+//line gomcommithistory/commithistory.gom:157
+				return parse(tmp86)
+//line gomcommithistory/commithistory.gom:157
+			} else {
+//line gomcommithistory/commithistory.gom:158
+				continue
+//line gomcommithistory/commithistory.gom:157
 			}
-//line gomcommithistory/commithistory.gom:196
-			tmp127 = v11
-//line gomcommithistory/commithistory.gom:196
-			return result.Err[Commit, error](tmp127)
-//line gomcommithistory/commithistory.gom:192
-		case len(tmp125) != 0:
-//line gomcommithistory/commithistory.gom:192
-			tmp128 := tmp125[0]
-//line gomcommithistory/commithistory.gom:192
-			tmp129 := tmp125[1:]
-//line gomcommithistory/commithistory.gom:192
-			switch {
-//line gomcommithistory/commithistory.gom:192
-			case len(tmp129) == 0:
-//line gomcommithistory/commithistory.gom:196
-				tmp130 := any(xs)
-//line gomcommithistory/commithistory.gom:196
-				var tmp131 error
-//line gomcommithistory/commithistory.gom:196
-				v12 := fmt.Errorf("too few %q", tmp130)
-//line gomcommithistory/commithistory.gom:196
-				if v12 == nil {
-//line gomcommithistory/commithistory.gom:196
-					panic("gom: fmt.Errorf returned nil error — its binding declares a never-nil GoError result")
-//line gomcommithistory/commithistory.gom:196
-				}
-//line gomcommithistory/commithistory.gom:196
-				tmp131 = v12
-//line gomcommithistory/commithistory.gom:196
-				return result.Err[Commit, error](tmp131)
-//line gomcommithistory/commithistory.gom:192
-			case len(tmp129) != 0:
-//line gomcommithistory/commithistory.gom:192
-				tmp132 := tmp129[0]
-//line gomcommithistory/commithistory.gom:192
-				tmp133 := tmp129[1:]
-//line gomcommithistory/commithistory.gom:192
-				switch {
-//line gomcommithistory/commithistory.gom:192
-				case len(tmp133) == 0:
-//line gomcommithistory/commithistory.gom:196
-					tmp134 := any(xs)
-//line gomcommithistory/commithistory.gom:196
-					var tmp135 error
-//line gomcommithistory/commithistory.gom:196
-					v13 := fmt.Errorf("too few %q", tmp134)
-//line gomcommithistory/commithistory.gom:196
-					if v13 == nil {
-//line gomcommithistory/commithistory.gom:196
-						panic("gom: fmt.Errorf returned nil error — its binding declares a never-nil GoError result")
-//line gomcommithistory/commithistory.gom:196
-					}
-//line gomcommithistory/commithistory.gom:196
-					tmp135 = v13
-//line gomcommithistory/commithistory.gom:196
-					return result.Err[Commit, error](tmp135)
-//line gomcommithistory/commithistory.gom:192
-				case len(tmp133) != 0:
-//line gomcommithistory/commithistory.gom:192
-					tmp136 := tmp133[0]
-//line gomcommithistory/commithistory.gom:192
-					tmp137 := tmp133[1:]
-//line gomcommithistory/commithistory.gom:192
-					tmp138 := tmp124
-//line gomcommithistory/commithistory.gom:192
-					tmp139 := tmp128
-//line gomcommithistory/commithistory.gom:192
-					tmp140 := tmp132
-//line gomcommithistory/commithistory.gom:192
-					tmp141 := tmp136
-//line gomcommithistory/commithistory.gom:192
-					_ = tmp137
-//line gomcommithistory/commithistory.gom:193
-					t_, err26 := time.Parse(time.RFC3339, tmp140)
-//line gomcommithistory/commithistory.gom:193
-					if err26 != nil {
-//line gomcommithistory/commithistory.gom:193
-						return result.Err[Commit, error](err26)
-//line gomcommithistory/commithistory.gom:193
-					}
-//line gomcommithistory/commithistory.gom:194
-					tmp143 := Commit{Id: tmp138, Alias: tmp139, CreatedAt: t_, Action: tmp141}
-//line gomcommithistory/commithistory.gom:194
-					return result.Ok[Commit, error](tmp143)
-//line gomcommithistory/commithistory.gom:194
-				default:
-//line gomcommithistory/commithistory.gom:192
-					panic(rt.InvalidVariant("List", tmp133))
-//line gomcommithistory/commithistory.gom:192
-				}
-//line gomcommithistory/commithistory.gom:192
-			default:
-//line gomcommithistory/commithistory.gom:192
-				panic(rt.InvalidVariant("List", tmp129))
-//line gomcommithistory/commithistory.gom:192
+//line gomcommithistory/commithistory.gom:156
+		case result.ResultTagErr:
+//line gomcommithistory/commithistory.gom:156
+			tmp88 := tmp84.Error
+//line gomcommithistory/commithistory.gom:156
+			tmp89 := tmp88
+//line gomcommithistory/commithistory.gom:156
+			tmp91 := errors.Is(tmp89, io.EOF)
+//line gomcommithistory/commithistory.gom:156
+			if tmp91 {
+//line gomcommithistory/commithistory.gom:156
+				return result.Err[A, error](io.EOF)
+//line gomcommithistory/commithistory.gom:156
+			} else {
+//line gomcommithistory/commithistory.gom:156
+				tmp90 := wrap(tmp89, "csv readline")
+//line gomcommithistory/commithistory.gom:156
+				return result.Err[A, error](tmp90)
+//line gomcommithistory/commithistory.gom:156
 			}
-//line gomcommithistory/commithistory.gom:192
+//line gomcommithistory/commithistory.gom:156
 		default:
-//line gomcommithistory/commithistory.gom:192
-			panic(rt.InvalidVariant("List", tmp125))
-//line gomcommithistory/commithistory.gom:192
+//line gomcommithistory/commithistory.gom:155
+			panic(rt.InvalidVariant("Result", tmp84))
+//line gomcommithistory/commithistory.gom:156
 		}
-//line gomcommithistory/commithistory.gom:192
-	default:
-//line gomcommithistory/commithistory.gom:191
-		panic(rt.InvalidVariant("List", xs))
-//line gomcommithistory/commithistory.gom:192
+//line gomcommithistory/commithistory.gom:154
 	}
-//line gomcommithistory/commithistory.gom:191
+//line gomcommithistory/commithistory.gom:154
 }
 
-//line gomcommithistory/commithistory.gom:200
-func CommitMatches(record list.List[string], alias string) bool {
-//line gomcommithistory/commithistory.gom:201
-	tmp144 := list.Get[string](1, record)
-//line gomcommithistory/commithistory.gom:202
-	switch v14 := tmp144.(type) {
-//line gomcommithistory/commithistory.gom:202
-	case option.Option_Some[string]:
-//line gomcommithistory/commithistory.gom:202
-		tmp145 := v14
-//line gomcommithistory/commithistory.gom:202
-		tmp146 := tmp145.V0
-//line gomcommithistory/commithistory.gom:202
-		return tmp146 == alias
-//line gomcommithistory/commithistory.gom:202
-	case option.Option_None[string]:
-//line gomcommithistory/commithistory.gom:203
-		return false
-//line gomcommithistory/commithistory.gom:203
-	default:
-//line gomcommithistory/commithistory.gom:201
-		panic(rt.InvalidVariant("Option", tmp144))
-//line gomcommithistory/commithistory.gom:202
-	}
-//line gomcommithistory/commithistory.gom:200
-}
-
-//line gomcommithistory/commithistory.gom:207
-func CommitUnparse(w io.Writer, c Commit) result.Result[struct{}, error] {
-//line gomcommithistory/commithistory.gom:208
-	writer := csv.NewWriter(w)
-//line gomcommithistory/commithistory.gom:209
-	tmp147 := c.CreatedAt.Format(time.RFC3339)
-//line gomcommithistory/commithistory.gom:209
-	tmp148 := list.List[string]{c.Id, c.Alias, tmp147, c.Action}
-//line gomcommithistory/commithistory.gom:209
-	tmp149 := tmp148.ToSlice()
-//line gomcommithistory/commithistory.gom:209
-	err27 := writer.Write(tmp149)
-//line gomcommithistory/commithistory.gom:209
-	if err27 != nil {
-//line gomcommithistory/commithistory.gom:209
-		return result.Err[struct{}, error](err27)
-//line gomcommithistory/commithistory.gom:209
-	}
-//line gomcommithistory/commithistory.gom:210
-	writer.Flush()
-//line gomcommithistory/commithistory.gom:211
-	return result.Ok[struct{}, error](struct{}{})
-//line gomcommithistory/commithistory.gom:207
-}
-
-//line gomcommithistory/commithistory.gom:215
-func ApiLoadCommit(api API, filename, alias string) result.Result[Commit, error] {
-//line gomcommithistory/commithistory.gom:216
-	tmp150 := ConfigFilePath(Config(api), filename)
-//line gomcommithistory/commithistory.gom:216
-	var path string
-//line gomcommithistory/commithistory.gom:216
-	switch tmp150.Tag() {
-//line gomcommithistory/commithistory.gom:216
-	case result.ResultTagOk:
-//line gomcommithistory/commithistory.gom:216
-		path = tmp150.Value
-//line gomcommithistory/commithistory.gom:216
-	case result.ResultTagErr:
-//line gomcommithistory/commithistory.gom:216
-		return result.Err[Commit, error](tmp150.Error)
-//line gomcommithistory/commithistory.gom:216
-	default:
-//line gomcommithistory/commithistory.gom:216
-		panic(rt.InvalidVariant("result.Result", tmp150))
-//line gomcommithistory/commithistory.gom:216
-	}
-//line gomcommithistory/commithistory.gom:217
-	tmp151 := CommitMatches
-//line gomcommithistory/commithistory.gom:217
-	return LoadFile[Commit](path, CommitParse, tmp151, alias)
-//line gomcommithistory/commithistory.gom:215
-}
-
-//line gomcommithistory/commithistory.gom:221
-func ApiSaveCommit(api API, filename string, commit Commit) result.Result[struct{}, error] {
-//line gomcommithistory/commithistory.gom:222
-	tmp152 := ConfigFilePath(Config(api), filename)
-//line gomcommithistory/commithistory.gom:222
-	var path string
-//line gomcommithistory/commithistory.gom:222
-	switch tmp152.Tag() {
-//line gomcommithistory/commithistory.gom:222
-	case result.ResultTagOk:
-//line gomcommithistory/commithistory.gom:222
-		path = tmp152.Value
-//line gomcommithistory/commithistory.gom:222
-	case result.ResultTagErr:
-//line gomcommithistory/commithistory.gom:222
-		return result.Err[struct{}, error](tmp152.Error)
-//line gomcommithistory/commithistory.gom:222
-	default:
-//line gomcommithistory/commithistory.gom:222
-		panic(rt.InvalidVariant("result.Result", tmp152))
-//line gomcommithistory/commithistory.gom:222
-	}
-//line gomcommithistory/commithistory.gom:223
-	if Config(api).Dryrun {
-//line gomcommithistory/commithistory.gom:224
-		tmp154 := any(path)
-//line gomcommithistory/commithistory.gom:224
-		log.Printf("save file: %q", tmp154)
-//line gomcommithistory/commithistory.gom:224
+//line gomcommithistory/commithistory.gom:164
+func SaveFile(filename string, write func(io.Writer) result.Result[struct{}, error]) result.Result[struct{}, error] {
+//line gomcommithistory/commithistory.gom:165
+	tmp126 := func(s *rt.Scope) (tmp213 result.Result[struct{}, error]) {
+//line gomcommithistory/commithistory.gom:165
+		var tmp214 []error
+//line gomcommithistory/commithistory.gom:165
+		defer func() {
+//line gomcommithistory/commithistory.gom:165
+			if len(tmp214) > 0 && tmp213.IsOk() {
+//line gomcommithistory/commithistory.gom:165
+				tmp213 = result.Err[struct{}, error](errors.Join(tmp214...))
+//line gomcommithistory/commithistory.gom:165
+			}
+//line gomcommithistory/commithistory.gom:165
+		}()
+//line gomcommithistory/commithistory.gom:166
+		var tmp92 result.Result[*os.File, error]
+//line gomcommithistory/commithistory.gom:166
+		v8, err18 := os.CreateTemp(".", "ch")
+//line gomcommithistory/commithistory.gom:166
+		tmp92 = result.FromGo(v8, err18)
+//line gomcommithistory/commithistory.gom:166
+		var fp *os.File
+//line gomcommithistory/commithistory.gom:167
+		switch tmp92.Tag() {
+//line gomcommithistory/commithistory.gom:167
+		case result.ResultTagOk:
+//line gomcommithistory/commithistory.gom:167
+			tmp93 := tmp92.Value
+//line gomcommithistory/commithistory.gom:167
+			tmp94 := tmp93
+//line gomcommithistory/commithistory.gom:167
+			fp = tmp94
+//line gomcommithistory/commithistory.gom:167
+		case result.ResultTagErr:
+//line gomcommithistory/commithistory.gom:167
+			tmp95 := tmp92.Error
+//line gomcommithistory/commithistory.gom:167
+			tmp96 := tmp95
+//line gomcommithistory/commithistory.gom:168
+			tmp97 := wrap(tmp96, "save, create tempfile")
+//line gomcommithistory/commithistory.gom:168
+			tmp98 := result.Err[*os.File, error](tmp97)
+//line gomcommithistory/commithistory.gom:168
+			switch tmp98.Tag() {
+//line gomcommithistory/commithistory.gom:168
+			case result.ResultTagOk:
+//line gomcommithistory/commithistory.gom:168
+				fp = tmp98.Value
+//line gomcommithistory/commithistory.gom:168
+			case result.ResultTagErr:
+//line gomcommithistory/commithistory.gom:168
+				return result.Err[struct{}, error](tmp98.Error)
+//line gomcommithistory/commithistory.gom:168
+			default:
+//line gomcommithistory/commithistory.gom:168
+				panic(rt.InvalidVariant("result.Result", tmp98))
+//line gomcommithistory/commithistory.gom:168
+			}
+//line gomcommithistory/commithistory.gom:168
+		default:
+//line gomcommithistory/commithistory.gom:166
+			panic(rt.InvalidVariant("Result", tmp92))
+//line gomcommithistory/commithistory.gom:167
+		}
+//line gomcommithistory/commithistory.gom:170
+		tmp100 := func(_ struct{}) result.Result[struct{}, error] {
+//line gomcommithistory/commithistory.gom:171
+			err19 := fp.Close()
+//line gomcommithistory/commithistory.gom:171
+			_ = result.FromErr(err19)
+//line gomcommithistory/commithistory.gom:172
+			tmp99 := fp.Name()
+//line gomcommithistory/commithistory.gom:172
+			err20 := os.Rename(tmp99, filename)
+//line gomcommithistory/commithistory.gom:172
+			return result.FromErr(err20)
+//line gomcommithistory/commithistory.gom:170
+		}
+//line gomcommithistory/commithistory.gom:170
+		tmp216 := tmp100
+//line gomcommithistory/commithistory.gom:170
+		defer func() {
+//line gomcommithistory/commithistory.gom:170
+			if r := tmp216(struct{}{}); !r.IsOk() {
+//line gomcommithistory/commithistory.gom:170
+				_, e := r.Unwrap()
+//line gomcommithistory/commithistory.gom:170
+				tmp214 = append(tmp214, e)
+//line gomcommithistory/commithistory.gom:170
+			}
+//line gomcommithistory/commithistory.gom:170
+		}()
+//line gomcommithistory/commithistory.gom:174
+		tmp101 := io.Writer(fp)
+//line gomcommithistory/commithistory.gom:174
+		tmp102 := write(tmp101)
+//line gomcommithistory/commithistory.gom:174
+		switch tmp102.Tag() {
+//line gomcommithistory/commithistory.gom:174
+		case result.ResultTagOk:
+//line gomcommithistory/commithistory.gom:174
+			_ = tmp102.Value
+//line gomcommithistory/commithistory.gom:174
+		case result.ResultTagErr:
+//line gomcommithistory/commithistory.gom:174
+			return result.Err[struct{}, error](tmp102.Error)
+//line gomcommithistory/commithistory.gom:174
+		default:
+//line gomcommithistory/commithistory.gom:174
+			panic(rt.InvalidVariant("result.Result", tmp102))
+//line gomcommithistory/commithistory.gom:174
+		}
+//line gomcommithistory/commithistory.gom:175
+		tmp103 := any(filename)
+//line gomcommithistory/commithistory.gom:175
+		log.Printf("save. %q\n", tmp103)
+//line gomcommithistory/commithistory.gom:175
 		_ = struct{}{}
-//line gomcommithistory/commithistory.gom:225
-		return result.Ok[struct{}, error](struct{}{})
-//line gomcommithistory/commithistory.gom:223
-	} else {
-//line gomcommithistory/commithistory.gom:227
-		tmp153 := func(w io.Writer) result.Result[struct{}, error] {
-//line gomcommithistory/commithistory.gom:227
-			return CommitUnparse(w, commit)
-//line gomcommithistory/commithistory.gom:227
+//line gomcommithistory/commithistory.gom:176
+		var tmp104 result.Result[*os.File, error]
+//line gomcommithistory/commithistory.gom:176
+		v9, err21 := os.Open(filename)
+//line gomcommithistory/commithistory.gom:176
+		tmp104 = result.FromGo(v9, err21)
+//line gomcommithistory/commithistory.gom:176
+		var rp *os.File
+//line gomcommithistory/commithistory.gom:177
+		switch tmp104.Tag() {
+//line gomcommithistory/commithistory.gom:177
+		case result.ResultTagOk:
+//line gomcommithistory/commithistory.gom:177
+			tmp105 := tmp104.Value
+//line gomcommithistory/commithistory.gom:177
+			tmp106 := tmp105
+//line gomcommithistory/commithistory.gom:177
+			rp = tmp106
+//line gomcommithistory/commithistory.gom:177
+		case result.ResultTagErr:
+//line gomcommithistory/commithistory.gom:177
+			tmp107 := tmp104.Error
+//line gomcommithistory/commithistory.gom:177
+			tmp108 := tmp107
+//line gomcommithistory/commithistory.gom:178
+			var tmp109 result.Result[option.Option[fs.FileInfo], error]
+//line gomcommithistory/commithistory.gom:178
+			v10, err22 := os.Stat(filename)
+//line gomcommithistory/commithistory.gom:178
+			tmp109 = result.FromGo(option.FromGo(v10, v10 != nil), err22)
+//line gomcommithistory/commithistory.gom:179
+			switch tmp109.Tag() {
+//line gomcommithistory/commithistory.gom:179
+			case result.ResultTagOk:
+//line gomcommithistory/commithistory.gom:179
+				tmp110 := tmp109.Value
+//line gomcommithistory/commithistory.gom:179
+				_ = tmp110
+//line gomcommithistory/commithistory.gom:179
+				tmp112 := wrap(tmp108, "save, open file")
+//line gomcommithistory/commithistory.gom:179
+				tmp113 := result.Err[*os.File, error](tmp112)
+//line gomcommithistory/commithistory.gom:179
+				switch tmp113.Tag() {
+//line gomcommithistory/commithistory.gom:179
+				case result.ResultTagOk:
+//line gomcommithistory/commithistory.gom:179
+					rp = tmp113.Value
+//line gomcommithistory/commithistory.gom:179
+				case result.ResultTagErr:
+//line gomcommithistory/commithistory.gom:179
+					return result.Err[struct{}, error](tmp113.Error)
+//line gomcommithistory/commithistory.gom:179
+				default:
+//line gomcommithistory/commithistory.gom:179
+					panic(rt.InvalidVariant("result.Result", tmp113))
+//line gomcommithistory/commithistory.gom:179
+				}
+//line gomcommithistory/commithistory.gom:179
+			case result.ResultTagErr:
+//line gomcommithistory/commithistory.gom:179
+				tmp114 := tmp109.Error
+//line gomcommithistory/commithistory.gom:179
+				_ = tmp114
+//line gomcommithistory/commithistory.gom:181
+				tmp116 := any(filename)
+//line gomcommithistory/commithistory.gom:181
+				log.Printf("create. %q\n", tmp116)
+//line gomcommithistory/commithistory.gom:181
+				_ = struct{}{}
+//line gomcommithistory/commithistory.gom:182
+				var tmp117 result.Result[*os.File, error]
+//line gomcommithistory/commithistory.gom:182
+				v11, err23 := os.Create(filename)
+//line gomcommithistory/commithistory.gom:182
+				tmp117 = result.FromGo(v11, err23)
+//line gomcommithistory/commithistory.gom:183
+				switch tmp117.Tag() {
+//line gomcommithistory/commithistory.gom:183
+				case result.ResultTagOk:
+//line gomcommithistory/commithistory.gom:183
+					tmp118 := tmp117.Value
+//line gomcommithistory/commithistory.gom:183
+					tmp119 := tmp118
+//line gomcommithistory/commithistory.gom:183
+					rp = tmp119
+//line gomcommithistory/commithistory.gom:183
+				case result.ResultTagErr:
+//line gomcommithistory/commithistory.gom:183
+					tmp120 := tmp117.Error
+//line gomcommithistory/commithistory.gom:183
+					_ = tmp120
+//line gomcommithistory/commithistory.gom:184
+					tmp122 := result.Err[*os.File, error](tmp108)
+//line gomcommithistory/commithistory.gom:184
+					switch tmp122.Tag() {
+//line gomcommithistory/commithistory.gom:184
+					case result.ResultTagOk:
+//line gomcommithistory/commithistory.gom:184
+						rp = tmp122.Value
+//line gomcommithistory/commithistory.gom:184
+					case result.ResultTagErr:
+//line gomcommithistory/commithistory.gom:184
+						return result.Err[struct{}, error](tmp122.Error)
+//line gomcommithistory/commithistory.gom:184
+					default:
+//line gomcommithistory/commithistory.gom:184
+						panic(rt.InvalidVariant("result.Result", tmp122))
+//line gomcommithistory/commithistory.gom:184
+					}
+//line gomcommithistory/commithistory.gom:184
+				default:
+//line gomcommithistory/commithistory.gom:182
+					panic(rt.InvalidVariant("Result", tmp117))
+//line gomcommithistory/commithistory.gom:183
+				}
+//line gomcommithistory/commithistory.gom:183
+			default:
+//line gomcommithistory/commithistory.gom:178
+				panic(rt.InvalidVariant("Result", tmp109))
+//line gomcommithistory/commithistory.gom:179
+			}
+//line gomcommithistory/commithistory.gom:179
+		default:
+//line gomcommithistory/commithistory.gom:176
+			panic(rt.InvalidVariant("Result", tmp104))
+//line gomcommithistory/commithistory.gom:177
 		}
-//line gomcommithistory/commithistory.gom:227
-		return SaveFile(path, tmp153)
-//line gomcommithistory/commithistory.gom:223
+//line gomcommithistory/commithistory.gom:189
+		tmp123 := func(_ struct{}) struct{} {
+//line gomcommithistory/commithistory.gom:189
+			err24 := rp.Close()
+//line gomcommithistory/commithistory.gom:189
+			_ = result.FromErr(err24)
+//line gomcommithistory/commithistory.gom:189
+			return struct{}{}
+//line gomcommithistory/commithistory.gom:189
+		}
+//line gomcommithistory/commithistory.gom:189
+		tmp215 := tmp123
+//line gomcommithistory/commithistory.gom:189
+		defer tmp215(struct{}{})
+//line gomcommithistory/commithistory.gom:190
+		tmp124 := io.Writer(fp)
+//line gomcommithistory/commithistory.gom:190
+		tmp125 := io.Reader(rp)
+//line gomcommithistory/commithistory.gom:190
+		v12, err25 := io.Copy(tmp124, tmp125)
+//line gomcommithistory/commithistory.gom:190
+		if err25 != nil {
+//line gomcommithistory/commithistory.gom:190
+			return result.Err[struct{}, error](err25)
+//line gomcommithistory/commithistory.gom:190
+		}
+//line gomcommithistory/commithistory.gom:190
+		_ = v12
+//line gomcommithistory/commithistory.gom:191
+		return result.Ok[struct{}, error](struct{}{})
+//line gomcommithistory/commithistory.gom:165
+	}
+//line gomcommithistory/commithistory.gom:165
+	tmp217 := rt.NewScope()
+//line gomcommithistory/commithistory.gom:165
+	return tmp126(tmp217)
+//line gomcommithistory/commithistory.gom:164
+}
+
+//line gomcommithistory/commithistory.gom:195
+func CommitParse(xs list.List[string]) result.Result[Commit, error] {
+//line gomcommithistory/commithistory.gom:196
+	switch {
+//line gomcommithistory/commithistory.gom:196
+	case len(xs) == 0:
+//line gomcommithistory/commithistory.gom:200
+		tmp127 := any(xs)
+//line gomcommithistory/commithistory.gom:200
+		var tmp128 error
+//line gomcommithistory/commithistory.gom:200
+		v13 := fmt.Errorf("too few %q", tmp127)
+//line gomcommithistory/commithistory.gom:200
+		if v13 == nil {
+//line gomcommithistory/commithistory.gom:200
+			panic("gom: fmt.Errorf returned nil error — its binding declares a never-nil GoError result")
+//line gomcommithistory/commithistory.gom:200
+		}
+//line gomcommithistory/commithistory.gom:200
+		tmp128 = v13
+//line gomcommithistory/commithistory.gom:200
+		return result.Err[Commit, error](tmp128)
+//line gomcommithistory/commithistory.gom:196
+	case len(xs) != 0:
+//line gomcommithistory/commithistory.gom:196
+		tmp129 := xs[0]
+//line gomcommithistory/commithistory.gom:196
+		tmp130 := xs[1:]
+//line gomcommithistory/commithistory.gom:196
+		switch {
+//line gomcommithistory/commithistory.gom:196
+		case len(tmp130) == 0:
+//line gomcommithistory/commithistory.gom:200
+			tmp131 := any(xs)
+//line gomcommithistory/commithistory.gom:200
+			var tmp132 error
+//line gomcommithistory/commithistory.gom:200
+			v14 := fmt.Errorf("too few %q", tmp131)
+//line gomcommithistory/commithistory.gom:200
+			if v14 == nil {
+//line gomcommithistory/commithistory.gom:200
+				panic("gom: fmt.Errorf returned nil error — its binding declares a never-nil GoError result")
+//line gomcommithistory/commithistory.gom:200
+			}
+//line gomcommithistory/commithistory.gom:200
+			tmp132 = v14
+//line gomcommithistory/commithistory.gom:200
+			return result.Err[Commit, error](tmp132)
+//line gomcommithistory/commithistory.gom:196
+		case len(tmp130) != 0:
+//line gomcommithistory/commithistory.gom:196
+			tmp133 := tmp130[0]
+//line gomcommithistory/commithistory.gom:196
+			tmp134 := tmp130[1:]
+//line gomcommithistory/commithistory.gom:196
+			switch {
+//line gomcommithistory/commithistory.gom:196
+			case len(tmp134) == 0:
+//line gomcommithistory/commithistory.gom:200
+				tmp135 := any(xs)
+//line gomcommithistory/commithistory.gom:200
+				var tmp136 error
+//line gomcommithistory/commithistory.gom:200
+				v15 := fmt.Errorf("too few %q", tmp135)
+//line gomcommithistory/commithistory.gom:200
+				if v15 == nil {
+//line gomcommithistory/commithistory.gom:200
+					panic("gom: fmt.Errorf returned nil error — its binding declares a never-nil GoError result")
+//line gomcommithistory/commithistory.gom:200
+				}
+//line gomcommithistory/commithistory.gom:200
+				tmp136 = v15
+//line gomcommithistory/commithistory.gom:200
+				return result.Err[Commit, error](tmp136)
+//line gomcommithistory/commithistory.gom:196
+			case len(tmp134) != 0:
+//line gomcommithistory/commithistory.gom:196
+				tmp137 := tmp134[0]
+//line gomcommithistory/commithistory.gom:196
+				tmp138 := tmp134[1:]
+//line gomcommithistory/commithistory.gom:196
+				switch {
+//line gomcommithistory/commithistory.gom:196
+				case len(tmp138) == 0:
+//line gomcommithistory/commithistory.gom:200
+					tmp139 := any(xs)
+//line gomcommithistory/commithistory.gom:200
+					var tmp140 error
+//line gomcommithistory/commithistory.gom:200
+					v16 := fmt.Errorf("too few %q", tmp139)
+//line gomcommithistory/commithistory.gom:200
+					if v16 == nil {
+//line gomcommithistory/commithistory.gom:200
+						panic("gom: fmt.Errorf returned nil error — its binding declares a never-nil GoError result")
+//line gomcommithistory/commithistory.gom:200
+					}
+//line gomcommithistory/commithistory.gom:200
+					tmp140 = v16
+//line gomcommithistory/commithistory.gom:200
+					return result.Err[Commit, error](tmp140)
+//line gomcommithistory/commithistory.gom:196
+				case len(tmp138) != 0:
+//line gomcommithistory/commithistory.gom:196
+					tmp141 := tmp138[0]
+//line gomcommithistory/commithistory.gom:196
+					tmp142 := tmp138[1:]
+//line gomcommithistory/commithistory.gom:196
+					tmp143 := tmp129
+//line gomcommithistory/commithistory.gom:196
+					tmp144 := tmp133
+//line gomcommithistory/commithistory.gom:196
+					tmp145 := tmp137
+//line gomcommithistory/commithistory.gom:196
+					tmp146 := tmp141
+//line gomcommithistory/commithistory.gom:196
+					_ = tmp142
+//line gomcommithistory/commithistory.gom:197
+					t_, err26 := time.Parse(time.RFC3339, tmp145)
+//line gomcommithistory/commithistory.gom:197
+					if err26 != nil {
+//line gomcommithistory/commithistory.gom:197
+						return result.Err[Commit, error](err26)
+//line gomcommithistory/commithistory.gom:197
+					}
+//line gomcommithistory/commithistory.gom:198
+					tmp148 := Commit{Id: tmp143, Alias: tmp144, CreatedAt: t_, Action: tmp146}
+//line gomcommithistory/commithistory.gom:198
+					return result.Ok[Commit, error](tmp148)
+//line gomcommithistory/commithistory.gom:198
+				default:
+//line gomcommithistory/commithistory.gom:196
+					panic(rt.InvalidVariant("List", tmp138))
+//line gomcommithistory/commithistory.gom:196
+				}
+//line gomcommithistory/commithistory.gom:196
+			default:
+//line gomcommithistory/commithistory.gom:196
+				panic(rt.InvalidVariant("List", tmp134))
+//line gomcommithistory/commithistory.gom:196
+			}
+//line gomcommithistory/commithistory.gom:196
+		default:
+//line gomcommithistory/commithistory.gom:196
+			panic(rt.InvalidVariant("List", tmp130))
+//line gomcommithistory/commithistory.gom:196
+		}
+//line gomcommithistory/commithistory.gom:196
+	default:
+//line gomcommithistory/commithistory.gom:195
+		panic(rt.InvalidVariant("List", xs))
+//line gomcommithistory/commithistory.gom:196
+	}
+//line gomcommithistory/commithistory.gom:195
+}
+
+//line gomcommithistory/commithistory.gom:204
+func CommitMatches(record list.List[string], alias string) bool {
+//line gomcommithistory/commithistory.gom:205
+	tmp149 := list.Get[string](1, record)
+//line gomcommithistory/commithistory.gom:206
+	switch v17 := tmp149.(type) {
+//line gomcommithistory/commithistory.gom:206
+	case option.Option_Some[string]:
+//line gomcommithistory/commithistory.gom:206
+		tmp150 := v17
+//line gomcommithistory/commithistory.gom:206
+		tmp151 := tmp150.V0
+//line gomcommithistory/commithistory.gom:206
+		return tmp151 == alias
+//line gomcommithistory/commithistory.gom:206
+	case option.Option_None[string]:
+//line gomcommithistory/commithistory.gom:207
+		return false
+//line gomcommithistory/commithistory.gom:207
+	default:
+//line gomcommithistory/commithistory.gom:205
+		panic(rt.InvalidVariant("Option", tmp149))
+//line gomcommithistory/commithistory.gom:206
+	}
+//line gomcommithistory/commithistory.gom:204
+}
+
+//line gomcommithistory/commithistory.gom:211
+func CommitUnparse(w io.Writer, c Commit) result.Result[struct{}, error] {
+//line gomcommithistory/commithistory.gom:212
+	writer := csv.NewWriter(w)
+//line gomcommithistory/commithistory.gom:213
+	tmp152 := c.CreatedAt.Format(time.RFC3339)
+//line gomcommithistory/commithistory.gom:213
+	tmp153 := list.List[string]{c.Id, c.Alias, tmp152, c.Action}
+//line gomcommithistory/commithistory.gom:213
+	tmp154 := tmp153.ToSlice()
+//line gomcommithistory/commithistory.gom:213
+	err27 := writer.Write(tmp154)
+//line gomcommithistory/commithistory.gom:213
+	if err27 != nil {
+//line gomcommithistory/commithistory.gom:213
+		return result.Err[struct{}, error](err27)
+//line gomcommithistory/commithistory.gom:213
+	}
+//line gomcommithistory/commithistory.gom:214
+	writer.Flush()
+//line gomcommithistory/commithistory.gom:215
+	return result.Ok[struct{}, error](struct{}{})
+//line gomcommithistory/commithistory.gom:211
+}
+
+//line gomcommithistory/commithistory.gom:219
+func ApiLoadCommit(api API, filename, alias string) result.Result[Commit, error] {
+//line gomcommithistory/commithistory.gom:220
+	tmp155 := ConfigFilePath(Config(api), filename)
+//line gomcommithistory/commithistory.gom:220
+	var path string
+//line gomcommithistory/commithistory.gom:220
+	switch tmp155.Tag() {
+//line gomcommithistory/commithistory.gom:220
+	case result.ResultTagOk:
+//line gomcommithistory/commithistory.gom:220
+		path = tmp155.Value
+//line gomcommithistory/commithistory.gom:220
+	case result.ResultTagErr:
+//line gomcommithistory/commithistory.gom:220
+		return result.Err[Commit, error](tmp155.Error)
+//line gomcommithistory/commithistory.gom:220
+	default:
+//line gomcommithistory/commithistory.gom:220
+		panic(rt.InvalidVariant("result.Result", tmp155))
+//line gomcommithistory/commithistory.gom:220
 	}
 //line gomcommithistory/commithistory.gom:221
+	tmp156 := CommitMatches
+//line gomcommithistory/commithistory.gom:221
+	return LoadFile[Commit](path, CommitParse, tmp156, alias)
+//line gomcommithistory/commithistory.gom:219
 }
 
-//line gomcommithistory/commithistory.gom:232
-func IsNotFound(err error) bool {
-//line gomcommithistory/commithistory.gom:232
-	return errors.Is(err, io.EOF)
-//line gomcommithistory/commithistory.gom:232
-}
-
-//line gomcommithistory/commithistory.gom:235
-func MustParse(s string) time.Time {
-//line gomcommithistory/commithistory.gom:236
-	var tmp155 result.Result[time.Time, error]
-//line gomcommithistory/commithistory.gom:236
-	v15, err28 := time.Parse(time.RFC3339, s)
-//line gomcommithistory/commithistory.gom:236
-	tmp155 = result.FromGo(v15, err28)
-//line gomcommithistory/commithistory.gom:237
-	switch tmp155.Tag() {
-//line gomcommithistory/commithistory.gom:237
+//line gomcommithistory/commithistory.gom:225
+func ApiSaveCommit(api API, filename string, commit Commit) result.Result[struct{}, error] {
+//line gomcommithistory/commithistory.gom:226
+	tmp157 := ConfigFilePath(Config(api), filename)
+//line gomcommithistory/commithistory.gom:226
+	var path string
+//line gomcommithistory/commithistory.gom:226
+	switch tmp157.Tag() {
+//line gomcommithistory/commithistory.gom:226
 	case result.ResultTagOk:
-//line gomcommithistory/commithistory.gom:237
-		tmp156 := tmp155.Value
-//line gomcommithistory/commithistory.gom:237
-		tmp157 := tmp156
-//line gomcommithistory/commithistory.gom:237
-		return tmp157
-//line gomcommithistory/commithistory.gom:237
+//line gomcommithistory/commithistory.gom:226
+		path = tmp157.Value
+//line gomcommithistory/commithistory.gom:226
 	case result.ResultTagErr:
-//line gomcommithistory/commithistory.gom:237
-		tmp158 := tmp155.Error
-//line gomcommithistory/commithistory.gom:237
-		_ = tmp158
-//line gomcommithistory/commithistory.gom:238
-		return rt.Todo[time.Time]()
-//line gomcommithistory/commithistory.gom:238
+//line gomcommithistory/commithistory.gom:226
+		return result.Err[struct{}, error](tmp157.Error)
+//line gomcommithistory/commithistory.gom:226
 	default:
-//line gomcommithistory/commithistory.gom:236
-		panic(rt.InvalidVariant("Result", tmp155))
-//line gomcommithistory/commithistory.gom:237
+//line gomcommithistory/commithistory.gom:226
+		panic(rt.InvalidVariant("result.Result", tmp157))
+//line gomcommithistory/commithistory.gom:226
 	}
-//line gomcommithistory/commithistory.gom:235
+//line gomcommithistory/commithistory.gom:227
+	if Config(api).Dryrun {
+//line gomcommithistory/commithistory.gom:228
+		tmp159 := any(path)
+//line gomcommithistory/commithistory.gom:228
+		log.Printf("save file: %q", tmp159)
+//line gomcommithistory/commithistory.gom:228
+		_ = struct{}{}
+//line gomcommithistory/commithistory.gom:229
+		return result.Ok[struct{}, error](struct{}{})
+//line gomcommithistory/commithistory.gom:227
+	} else {
+//line gomcommithistory/commithistory.gom:231
+		tmp158 := func(w io.Writer) result.Result[struct{}, error] {
+//line gomcommithistory/commithistory.gom:231
+			return CommitUnparse(w, commit)
+//line gomcommithistory/commithistory.gom:231
+		}
+//line gomcommithistory/commithistory.gom:231
+		return SaveFile(path, tmp158)
+//line gomcommithistory/commithistory.gom:227
+	}
+//line gomcommithistory/commithistory.gom:225
+}
+
+//line gomcommithistory/commithistory.gom:236
+func IsNotFound(err error) bool {
+//line gomcommithistory/commithistory.gom:236
+	return errors.Is(err, io.EOF)
+//line gomcommithistory/commithistory.gom:236
+}
+
+//line gomcommithistory/commithistory.gom:239
+func MustParse(s string) time.Time {
+//line gomcommithistory/commithistory.gom:240
+	var tmp160 result.Result[time.Time, error]
+//line gomcommithistory/commithistory.gom:240
+	v18, err28 := time.Parse(time.RFC3339, s)
+//line gomcommithistory/commithistory.gom:240
+	tmp160 = result.FromGo(v18, err28)
+//line gomcommithistory/commithistory.gom:241
+	switch tmp160.Tag() {
+//line gomcommithistory/commithistory.gom:241
+	case result.ResultTagOk:
+//line gomcommithistory/commithistory.gom:241
+		tmp161 := tmp160.Value
+//line gomcommithistory/commithistory.gom:241
+		tmp162 := tmp161
+//line gomcommithistory/commithistory.gom:241
+		return tmp162
+//line gomcommithistory/commithistory.gom:241
+	case result.ResultTagErr:
+//line gomcommithistory/commithistory.gom:241
+		tmp163 := tmp160.Error
+//line gomcommithistory/commithistory.gom:241
+		_ = tmp163
+//line gomcommithistory/commithistory.gom:242
+		return rt.Todo[time.Time]()
+//line gomcommithistory/commithistory.gom:242
+	default:
+//line gomcommithistory/commithistory.gom:240
+		panic(rt.InvalidVariant("Result", tmp160))
+//line gomcommithistory/commithistory.gom:241
+	}
+//line gomcommithistory/commithistory.gom:239
 }

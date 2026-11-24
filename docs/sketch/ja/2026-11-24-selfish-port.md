@@ -93,6 +93,29 @@ update ではなく create のまま（両バイナリで一致することを�
 - **match の到達不能 arm は `todo ()` に頼る**。catch-all `action ->` の内側で sub-match する形に
   なると網羅性チェックの恩恵が薄れる。
 
+## nil 安全監査（stage 4 追加）
+
+`Ptr.get`/`Option.get`/裸ポインタ deref を総当たりして、gom の `Option`/`Ptr.to_option` で潰せる箇所を潰した。
+
+潰した箇所:
+
+- `scan_files`/`new_gist_file` の `Option.get (os.Stat ...)` — `None` で panic する型上の穴。
+  match 化して `None` は Err/skip に倒した（`os.Stat` が Option を返すので gom 的には到達可能な型）。
+- `Gists.{Create,Edit}` の `*github.Gist` — verbatim `Ptr` を `Ptr.to_option` で包んで
+  `None -> Err` に。ネットワーク入力なのでここが一番意味のある guard。
+  なお `Result (Option T, U)` の payload Option 宣言は extern 宣言側でのみ選べるため、
+  メソッド直呼びの箇所では `Ptr.to_option` で後から包む形になる。
+- `user.Current ()` の `*user.User` — 同上、`Ptr.to_option` で guard。
+
+そのままにした箇所（Go の契約で non-nil 保証、gom でも到達不能）:
+
+- `Ptr.get (Ptr.make x)` 系（`new_app` の profile、`zero_time`）— 生成直後の Ptr。
+- `os.Open`/`os.Create`/`flagstruct` の戻り — err==nil 時に nil を返さない Go 契約。
+- `List.get` は `Option` 返しで既に match 済み、`record` フィールド read も値型。
+
+残課題: メソッド直呼びの n-ary result は verbatim 固定なので `Option` payload を選べない。
+呼出し側でも Option 宣言できると、`Ptr.to_option` の後包みが要らなくなる。
+
 ## まとめ
 
 1400行の実用 Go CLI が、数箇所の shim（`%w`・stack 付き error・`*int` boxing・`Result` 返すメソッド）を除いて

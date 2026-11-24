@@ -266,76 +266,124 @@ func newGistFile(filename string) result.Result[*github.GistFile, error] {
 //line gselfish/model.gom:58
 	}
 //line gselfish/model.gom:58
-	finfo := option.Get[fs.FileInfo](tmp37)
+	var finfo fs.FileInfo
 //line gselfish/model.gom:59
-	size := finfo.Size()
+	switch v2 := tmp37.(type) {
+//line gselfish/model.gom:59
+	case option.Option_Some[fs.FileInfo]:
+//line gselfish/model.gom:59
+		tmp38 := v2
+//line gselfish/model.gom:59
+		tmp39 := tmp38.V0
+//line gselfish/model.gom:59
+		finfo = tmp39
+//line gselfish/model.gom:59
+	case option.Option_None[fs.FileInfo]:
 //line gselfish/model.gom:60
-	tmp38 := size == 0
+		var tmp40 error
 //line gselfish/model.gom:60
-	if tmp38 {
-//line gselfish/model.gom:61
-		var tmp39 error
-//line gselfish/model.gom:61
-		v2 := fmt.Errorf("empty file")
-//line gselfish/model.gom:61
-		if v2 == nil {
-//line gselfish/model.gom:61
+		v3 := fmt.Errorf("stat returned nil file info")
+//line gselfish/model.gom:60
+		if v3 == nil {
+//line gselfish/model.gom:60
 			panic("gom: fmt.Errorf returned nil error — its binding declares a never-nil GoError result")
-//line gselfish/model.gom:61
-		}
-//line gselfish/model.gom:61
-		tmp39 = v2
-//line gselfish/model.gom:61
-		tmp40 := result.Err[struct{}, error](tmp39)
-//line gselfish/model.gom:61
-		switch tmp40.Tag() {
-//line gselfish/model.gom:61
-		case result.ResultTagOk:
-//line gselfish/model.gom:61
-			_ = tmp40.Value
-//line gselfish/model.gom:61
-		case result.ResultTagErr:
-//line gselfish/model.gom:61
-			return result.Err[*github.GistFile, error](tmp40.Error)
-//line gselfish/model.gom:61
-		default:
-//line gselfish/model.gom:61
-			panic(rt.InvalidVariant("result.Result", tmp40))
-//line gselfish/model.gom:61
+//line gselfish/model.gom:60
 		}
 //line gselfish/model.gom:60
-	}
-//line gselfish/model.gom:63
-	var tmp41 result.Result[list.List[byte], error]
-//line gselfish/model.gom:63
-	v3, err1 := os.ReadFile(filename)
-//line gselfish/model.gom:63
-	tmp41 = result.FromGo(list.FromSlice(v3), err1)
-//line gselfish/model.gom:63
-	tmp42 := wrapResult[list.List[byte]](tmp41, "read all")
-//line gselfish/model.gom:63
-	var byte_ list.List[byte]
-//line gselfish/model.gom:63
-	switch tmp42.Tag() {
-//line gselfish/model.gom:63
-	case result.ResultTagOk:
-//line gselfish/model.gom:63
-		byte_ = tmp42.Value
-//line gselfish/model.gom:63
-	case result.ResultTagErr:
-//line gselfish/model.gom:63
-		return result.Err[*github.GistFile, error](tmp42.Error)
-//line gselfish/model.gom:63
+		tmp40 = v3
+//line gselfish/model.gom:60
+		tmp41 := result.Err[fs.FileInfo, error](tmp40)
+//line gselfish/model.gom:60
+		switch tmp41.Tag() {
+//line gselfish/model.gom:60
+		case result.ResultTagOk:
+//line gselfish/model.gom:60
+			finfo = tmp41.Value
+//line gselfish/model.gom:60
+		case result.ResultTagErr:
+//line gselfish/model.gom:60
+			return result.Err[*github.GistFile, error](tmp41.Error)
+//line gselfish/model.gom:60
+		default:
+//line gselfish/model.gom:60
+			panic(rt.InvalidVariant("result.Result", tmp41))
+//line gselfish/model.gom:60
+		}
+//line gselfish/model.gom:60
 	default:
+//line gselfish/model.gom:58
+		panic(rt.InvalidVariant("Option", tmp37))
+//line gselfish/model.gom:59
+	}
+//line gselfish/model.gom:62
+	size := finfo.Size()
 //line gselfish/model.gom:63
-		panic(rt.InvalidVariant("result.Result", tmp42))
+	tmp42 := size == 0
+//line gselfish/model.gom:63
+	if tmp42 {
+//line gselfish/model.gom:64
+		var tmp43 error
+//line gselfish/model.gom:64
+		v4 := fmt.Errorf("empty file")
+//line gselfish/model.gom:64
+		if v4 == nil {
+//line gselfish/model.gom:64
+			panic("gom: fmt.Errorf returned nil error — its binding declares a never-nil GoError result")
+//line gselfish/model.gom:64
+		}
+//line gselfish/model.gom:64
+		tmp43 = v4
+//line gselfish/model.gom:64
+		tmp44 := result.Err[struct{}, error](tmp43)
+//line gselfish/model.gom:64
+		switch tmp44.Tag() {
+//line gselfish/model.gom:64
+		case result.ResultTagOk:
+//line gselfish/model.gom:64
+			_ = tmp44.Value
+//line gselfish/model.gom:64
+		case result.ResultTagErr:
+//line gselfish/model.gom:64
+			return result.Err[*github.GistFile, error](tmp44.Error)
+//line gselfish/model.gom:64
+		default:
+//line gselfish/model.gom:64
+			panic(rt.InvalidVariant("result.Result", tmp44))
+//line gselfish/model.gom:64
+		}
 //line gselfish/model.gom:63
 	}
-//line gselfish/model.gom:64
+//line gselfish/model.gom:66
+	var tmp45 result.Result[list.List[byte], error]
+//line gselfish/model.gom:66
+	v5, err1 := os.ReadFile(filename)
+//line gselfish/model.gom:66
+	tmp45 = result.FromGo(list.FromSlice(v5), err1)
+//line gselfish/model.gom:66
+	tmp46 := wrapResult[list.List[byte]](tmp45, "read all")
+//line gselfish/model.gom:66
+	var byte_ list.List[byte]
+//line gselfish/model.gom:66
+	switch tmp46.Tag() {
+//line gselfish/model.gom:66
+	case result.ResultTagOk:
+//line gselfish/model.gom:66
+		byte_ = tmp46.Value
+//line gselfish/model.gom:66
+	case result.ResultTagErr:
+//line gselfish/model.gom:66
+		return result.Err[*github.GistFile, error](tmp46.Error)
+//line gselfish/model.gom:66
+	default:
+//line gselfish/model.gom:66
+		panic(rt.InvalidVariant("result.Result", tmp46))
+//line gselfish/model.gom:66
+	}
+//line gselfish/model.gom:67
 	content := string(byte_)
-//line gselfish/model.gom:67
-	tmp43 := hostNewGistFile(basename, size, content)
-//line gselfish/model.gom:67
-	return result.Ok[*github.GistFile, error](tmp43)
+//line gselfish/model.gom:70
+	tmp47 := hostNewGistFile(basename, size, content)
+//line gselfish/model.gom:70
+	return result.Ok[*github.GistFile, error](tmp47)
 //line gselfish/model.gom:56
 }
