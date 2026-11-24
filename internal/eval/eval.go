@@ -1459,6 +1459,19 @@ func (e *interp) unboxAny(v Value, t types.Type) Value {
 			return &VTuple{Elems: elems}
 		}
 	}
+	if con, ok := types.Chase(t).(*types.Con); ok && len(con.Args) == 1 &&
+		((con.Qual == "" && con.Name == "List") || (con.Qual == "Go" && con.Name == "Slice")) {
+		// A host slice becomes a VList so list patterns and
+		// indexing see its elements — same conversion inside
+		// composite targets (a tuple field, a record slot).
+		if rv := reflect.ValueOf(h.V); rv.Kind() == reflect.Slice || rv.Kind() == reflect.Array {
+			elems := make([]Value, rv.Len())
+			for i := range elems {
+				elems[i] = e.unboxAny(&VHost{V: rv.Index(i).Interface()}, con.Args[0])
+			}
+			return &VList{Elems: elems}
+		}
+	}
 	switch types.GoRepr(t) {
 	case "error":
 		// A typed-nil error payload (a nil *T that satisfies
