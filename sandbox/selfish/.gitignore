@@ -1,0 +1,10 @@
+bin/*
+selfish.config
+*.out
+*.test
+
+lib
+pyvenv.cfg
+__pycache__
+
+_sandbox
