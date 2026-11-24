@@ -1302,6 +1302,38 @@ func TestListExternal(t *testing.T) {
 	}
 }
 
+// TestListExternalVendor exercises the `-mod=mod` retry: a vendored
+// module makes `go list -m all` fail, but the build list is still
+// authoritative, so the enumeration falls back to reading it — the
+// replaced dependency's .gomi packages are listed from its replace
+// directory while the vendor tree itself is skipped.
+func TestListExternalVendor(t *testing.T) {
+	dir := writeFiles(t, map[string]string{
+		"go.mod":              "module example.com/exttest\n\ngo 1.27\n\nrequire example.com/dep v0.0.0\n\nreplace example.com/dep => ./dep\n",
+		"pkg/pkg.gomi":        "package pkg\n",
+		"dep/go.mod":          "module example.com/dep\n\ngo 1.27\n",
+		"dep/dep.gomi":        "package dep\n",
+		"vendor/modules.txt":  "## explicit\n",
+		"vendor/dep/dep.gomi": "package dep\n",
+	})
+	t.Chdir(dir)
+
+	code, out, errout := invoke("list", "-external")
+	if code != 0 {
+		t.Fatalf("gom list -external (vendored): exit %d; stderr=%q", code, errout)
+	}
+	got := strings.Fields(out)
+	want := []string{"example.com/dep", "example.com/exttest/pkg"}
+	if len(got) != len(want) {
+		t.Fatalf("gom list -external (vendored) = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("gom list -external (vendored)[%d] = %q, want %q", i, got[i], want[i])
+		}
+	}
+}
+
 // failWriter is an io.Writer whose every Write fails — used to
 // exercise the output-error paths commands must not swallow.
 type failWriter struct{}

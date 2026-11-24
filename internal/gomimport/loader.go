@@ -362,35 +362,55 @@ func StdlibShortNames() []string {
 }
 
 // ExternalPackages enumerates the importable Gom packages visible
-// from dir's module context: the main module (the nearest go.mod
-// above dir) plus every module in `go list -m all` whose source
-// directory is known — replace targets and workspace `use`
-// members included, modules still absent from the module cache
-// skipped. A directory counts when it holds exactly one .gomi —
-// the same package contract `import "path"` resolves through —
-// and its import path is the owning module's path plus the
-// directory's relative path. Vendor directories are not walked
+// from dir's module context: every module in `go list -m all` whose
+// source directory is known — the main module, replace targets and
+// workspace `use` members included, modules still absent from the
+// module cache skipped. A directory counts when it holds exactly
+// one .gomi — the same package contract `import "path"` resolves
+// through — and its import path is the owning module's path plus
+// the directory's relative path. Vendor directories are not walked
 // (enumeration under vendoring is future work). The result is
 // sorted and deduplicated.
 func ExternalPackages(dir, gobin string) ([]string, error) {
 	l := New(&Config{Dir: dir, GoBin: gobin})
-	modPath, modDir, err := l.module()
-	if err != nil {
-		return nil, err
-	}
-	candidates := map[string]string{modPath: modDir}
-	// `go list -m all` answers the post-replace build list; when it
-	// fails (a broken module graph), external imports would fail
-	// the same way, so the listing propagates rather than emit a
-	// silently partial set.
+	// `go list -m all` answers the post-replace build list — main
+	// module included — so it is the whole candidate set on its
+	// own; when it fails (a broken module graph), external imports
+	// would fail the same way, so the listing propagates rather
+	// than emit a silently partial set.
 	mods, err := l.extModules()
 	if err != nil {
 		return nil, err
 	}
+	candidates := map[string]string{}
 	for p, d := range mods {
 		if d != "" {
 			candidates[p] = d
 		}
+	}
+	// The main module's path, when it can be read: imports under
+	// it resolve through its own directory ahead of any external
+	// prefix match (dirOf's rule), so a longer prefix in the build
+	// list does not shadow it. Best-effort — unresolvable simply
+	// leaves every candidate on the longest-prefix rule.
+	mainPath, _, _ := l.module()
+	// resolvesTo reports which candidate module's directory dirOf
+	// would consult for imp — the importing module's own path
+	// first, then the longest candidate prefix. An imp derived
+	// under one module but routed to another's directory must not
+	// be advertised: the routed directory lacks the .gomi.
+	resolvesTo := func(imp string) string {
+		if mainPath != "" && (imp == mainPath || strings.HasPrefix(imp, mainPath+"/")) {
+			return mainPath
+		}
+		best := ""
+		for p := range candidates {
+			if p != mainPath && len(p) > len(best) &&
+				(imp == p || strings.HasPrefix(imp, p+"/")) {
+				best = p
+			}
+		}
+		return best
 	}
 	var out []string
 	seen := map[string]bool{}
@@ -429,6 +449,9 @@ func ExternalPackages(dir, gobin string) ([]string, error) {
 			imp := mp
 			if rel != "." {
 				imp = mp + "/" + filepath.ToSlash(rel)
+			}
+			if resolvesTo(imp) != mp {
+				return nil
 			}
 			if !seen[imp] {
 				seen[imp] = true
