@@ -1,0 +1,26 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "W0701",
+      "severity": "warning",
+      "message": "a channel's element type github.com/podhmo/gom/testdata/mutiface.Queue Int contains mutable values",
+      "span": {
+        "file": "W0701_chan_mutable_import/a.gom",
+        "start": {
+          "line": 11,
+          "col": 39,
+          "offset": 349
+        },
+        "end": {
+          "line": 11,
+          "col": 50,
+          "offset": 360
+        }
+      },
+      "data": {
+        "type": "github.com/podhmo/gom/testdata/mutiface.Queue Int"
+      }
+    }
+  ]
+}

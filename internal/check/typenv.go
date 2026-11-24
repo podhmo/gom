@@ -38,6 +38,14 @@ type typeInfo struct {
 	aliasRes bool            // the alias body has been resolved
 	aliasIn  bool            // alias resolution in progress (cycle guard)
 	aliasBod syntax.TypeExpr // kindAlias — source body for lazy resolution (nil for imported decls)
+
+	// mutable is the `//gom:mutable` directive's mark on an
+	// interface-declared type (spec section 10): registerForeignTypes
+	// copies it from the member symbol, and containsMutable treats
+	// the type as containing mutable values — the lint's whole
+	// contract with an impl-invisible (abstract or extern-backed)
+	// imported declaration.
+	mutable bool
 }
 
 type typeKind int

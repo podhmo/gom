@@ -734,3 +734,35 @@ fn twice (f: a -> a) (x: a) -> a
 		t.Fatalf("twice.ResultTaint = %v, want nil — directives inside /* */ are commented out", twice.ResultTaint)
 	}
 }
+
+func TestLoadMutable(t *testing.T) {
+	root := writeMod(t, "example.com/m", map[string]string{
+		"q/q.gomi": `package q
+
+//gom:mutable Queue
+//gom:mutable nope
+//gom:mutable value
+/*
+//gom:mutable Blocked
+*/
+type Queue a
+type Blocked a
+
+let value : Int
+`,
+	})
+	l := New(&Config{Dir: root})
+	p, err := l.Load("example.com/m/q", false)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if q := p.Members["Queue"]; q == nil || !q.Mutable {
+		t.Fatalf("Queue.Mutable = %v, want true — //gom:mutable Queue", q)
+	}
+	if b := p.Members["Blocked"]; b == nil || b.Mutable {
+		t.Fatalf("Blocked.Mutable = %v, want false — directives inside /* */ are commented out", b)
+	}
+	if v := p.Members["value"]; v == nil || v.Mutable {
+		t.Fatalf("value.Mutable = %v, want false — the directive marks type members only", v)
+	}
+}

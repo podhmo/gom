@@ -290,6 +290,7 @@ func (l *Loader) load(path string) (*resolve.Package, error) {
 	}
 	l.applyNoescape(p, iface.ScanNoescape(src))
 	l.applyNotaint(p, iface.ScanNotaint(src))
+	l.applyMutable(p, iface.ScanMutable(src))
 	return p, nil
 }
 
@@ -319,6 +320,17 @@ func (l *Loader) applyNotaint(p *resolve.Package, dirs map[string][]int) {
 		func(sym *resolve.Symbol) (int, bool) { n, ok := l.arities[sym]; return n, ok },
 		func(sym *resolve.Symbol) (check.Signature, bool) { sg, ok := l.sigs[sym]; return sg, ok },
 		dirs)
+}
+
+// applyMutable applies a loaded interface's `//gom:mutable`
+// directives to the package's type members (spec section 10) —
+// the parsing lives in internal/iface, shared with the embedded
+// stdlib's env.
+func (l *Loader) applyMutable(p *resolve.Package, names []string) {
+	if p == nil {
+		return
+	}
+	iface.ApplyMutable(p.Members, names)
 }
 
 // stdlibPaths maps the toolchain's Gom-written standard-library

@@ -99,10 +99,11 @@ func (c *checker) registerForeignTypes(decls []*TypeDecl) {
 			args[i] = v
 		}
 		ti := &typeInfo{
-			sym:    td.Sym,
-			con:    &types.Con{Qual: td.Sym.Package, Name: td.Sym.Name, Args: args},
-			params: td.TypeParams,
-			sp:     td.Sp,
+			sym:     td.Sym,
+			con:     &types.Con{Qual: td.Sym.Package, Name: td.Sym.Name, Args: args},
+			params:  td.TypeParams,
+			sp:      td.Sp,
+			mutable: td.Sym.Mutable,
 		}
 		switch body := td.Body.(type) {
 		case *SumType:

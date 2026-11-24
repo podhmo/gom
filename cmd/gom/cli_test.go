@@ -1314,6 +1314,48 @@ fn area (s: Shape) -> Float = match s {
 	}
 }
 
+// TestInfoCarriesMutableDirective: `gom info` keeps an existing
+// .gomi's `//gom:mutable` directive on a type the regenerated draft
+// still renders abstract (spec section 10 — the mark is an author's
+// claim about an impl-invisible type, which nothing in the .gom
+// sources can re-derive).
+func TestInfoCarriesMutableDirective(t *testing.T) {
+	t.Parallel()
+
+	dir := writeFiles(t, map[string]string{
+		"lib/lib.gom": `package lib
+
+type Queue a = | QNil | QCons a (Queue a)
+
+fn pop (q: Queue Int) -> Int = 0
+
+fn push (q: Queue Int) (x: Int) -> Unit = ignore x
+`,
+		"lib/lib.gomi": `package lib
+
+//gom:mutable Queue
+type Queue a
+
+fn push (q: Queue Int) (x: Int) -> Unit
+`,
+	})
+	code, out, errout := invoke("info", filepath.Join(dir, "lib"))
+	if code != 0 {
+		t.Fatalf("gom info: exit %d; stderr=%q stdout=%q", code, errout, out)
+	}
+	gomi, err := os.ReadFile(filepath.Join(dir, "lib", "lib.gomi"))
+	if err != nil {
+		t.Fatalf("lib.gomi not written: %v", err)
+	}
+	// `pop` is new in the draft, so the file really did regenerate.
+	if !strings.Contains(string(gomi), "fn pop") {
+		t.Fatalf("draft missing the new member:\n%s", gomi)
+	}
+	if !strings.Contains(string(gomi), "//gom:mutable Queue") {
+		t.Fatalf("regenerated draft dropped //gom:mutable Queue:\n%s", gomi)
+	}
+}
+
 // TestCheckMissingInterface verifies spec 7 rule 4: a library package
 // with no <package>.gomi is E0601.
 func TestCheckMissingInterface(t *testing.T) {
