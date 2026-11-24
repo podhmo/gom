@@ -20,22 +20,29 @@ argv[0] 由来の `Usage of <name>:` と stack trace のパス以外は全一致
 # bin.dat = バイナリ）、および ~/.config/selfish/config.json = {"access_token": "dummy-token"}
 cd ~/repos/gom/sandbox/selfish && go build -o /tmp/gom-selfish ./gselfish
 cd /path/to/oracle && go build -o /tmp/oracle-selfish .
-cd /tmp/selfish-test   # 入力を置いた作業 dir。各 run 前に history を消す
-rm -f ~/.config/selfish/selfish.history
+cd /tmp/selfish-test   # 入力を置いた作業 dir
 
 run_case() {
   /tmp/oracle-selfish "$@" > /tmp/o1 2>&1
   /tmp/gom-selfish    "$@" > /tmp/o2 2>&1
-  # 除外: log の timestamp 先頭、stack trace のパス/フレーム、argv[0] の Usage 行
+  # 除外: log の timestamp、stack trace の frame（関数行+パス行）、argv[0] の Usage 行
   sed -i 's/^[0-9\/]* [0-9:]* //' /tmp/o1 /tmp/o2
-  diff /tmp/o1 /tmp/o2
+  diff <(grep -vE '^\t|^Usage of |^\S*\.\S*$' /tmp/o1) \
+       <(grep -vE '^\t|^Usage of |^\S*\.\S*$' /tmp/o2)
 }
 ```
 
+注意: `--client fake` は `with_dryrun` で **history へ書き込まない**（oracle も同じ）。
+そのため alias 系のケースは常に「履歴なし」状態で実行される — 2 連続実行しても
+update ではなく create のまま（両バイナリで一致することを確認済み）。
+実ファイル `~/.config/selfish/selfish.history` は読まれるだけで変更されないので
+事前の削除は不要（同名 alias が履歴に残っていると update/delete 分岐に入るが、
+それでも両者は同じ出力を返す）。
+
 実行したケース: `--client fake` + `{readme.md hello.txt, --debug readme.md, bin.dat,
---alias myalias readme.md (create→update 連続), --alias myalias --delete, --alias z --delete
-(履歴なし), --secret --silent readme.md, "readme spaced.md" "ñ file.txt", nonexistent.txt,
-引数なし}`, `--client bogus`, `--help`。
+--alias m readme.md （dry-run のため連続実行しても create のまま）, --alias m --delete,
+--alias z --delete （履歴なし alias=not-found）, --secret --silent readme.md,
+"readme spaced.md" "ñ file.txt", nonexistent.txt, 引数なし}`, `--client bogus`, `--help`。
 
 ## oracle との残差（修正不可／意図的）
 
