@@ -4,19 +4,21 @@ package foreignpkg
 // comparable judgement must see an imported declaration's fields
 // (registerForeignTypes), not just local ones.
 
-// Field names stay unique on purpose: registerForeignTypes folds
-// imported records into the caller's record-literal owner table,
-// and a shared loader makes that table span the whole spec suite
-// — a `x`/`d` field here would make unrelated fixtures' `{x = ..}`
-// literals ambiguous.
-type Point = { fpx : Float, fpy : Float }
+// Field names deliberately collide with fixtures' own records
+// (`x`, `y`, `d`): registerForeignTypes now scopes the shared
+// loader's declarations to the checking file's actual import
+// closure (check.ScopedTypeDeclSource), so this package's records
+// stay invisible to fixtures that never import it — before that
+// scoping these names made unrelated fixtures' `{x = ..}` literals
+// ambiguous.
+type Point = { x : Float, y : Float }
 
 type Shape =
   | Circle (r: Float)
   | Dot (p: Point)
 
 // A record over a List — the non-comparable foreign payload.
-type Blob = { fbd : List Int }
+type Blob = { d : List Int }
 
 // A variant carrying a `List` payload: unqualified in this file
 // the name means the builtin list — a caller's own `type List`

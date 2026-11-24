@@ -199,6 +199,22 @@ func (c chain) TypeDecls() []*TypeDecl {
 	return out
 }
 
+// TypeDeclsFor forwards the ScopedTypeDeclSource protocol through
+// the chain — a scoped source answers within the import closure;
+// an unscoped one keeps answering its whole table (the caller
+// treats it as trusted ambient decls, like the stdlib's).
+func (c chain) TypeDeclsFor(roots []string) []*TypeDecl {
+	var out []*TypeDecl
+	for _, s := range c {
+		if sc, ok := s.(ScopedTypeDeclSource); ok {
+			out = append(out, sc.TypeDeclsFor(roots)...)
+		} else if ts, ok := s.(TypeDeclSource); ok {
+			out = append(out, ts.TypeDecls()...)
+		}
+	}
+	return out
+}
+
 // builtinTVar hands out the rigid variables used by the builtin
 // signatures below. They are created once per checker so two builtin
 // signatures never share a variable by accident.

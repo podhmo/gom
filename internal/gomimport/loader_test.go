@@ -894,3 +894,40 @@ func TestWorkUseHonorsGoworkFile(t *testing.T) {
 		t.Fatalf("workUse abs = %q, want %q", got["example.com/abs"], abs)
 	}
 }
+
+func TestTypeDeclsForScopesToImportClosure(t *testing.T) {
+	// A shared loader accumulates every loaded package's decls —
+	// TypeDeclsFor answers only the closure reachable through the
+	// file's own imports, so a package loaded for another file's
+	// sake stays invisible to this one.
+	root := writeMod(t, "example.com/m", map[string]string{
+		"a/a.gomi": "package a\n\nimport \"example.com/m/b\"\n\ntype A = { b : b.B }\n",
+		"b/b.gomi": "package b\n\ntype B = { v : Int }\n",
+		"c/c.gomi": "package c\n\ntype C = { v : Int }\n",
+	})
+	l := New(&Config{Dir: root})
+	if _, err := l.Load("example.com/m/a", false); err != nil {
+		t.Fatalf("Load a: %v", err)
+	}
+	if _, err := l.Load("example.com/m/c", false); err != nil {
+		t.Fatalf("Load c: %v", err)
+	}
+	if got := len(l.TypeDecls()); got != 3 {
+		t.Fatalf("TypeDecls = %d, want 3", got)
+	}
+	names := func(ds []*check.TypeDecl) map[string]bool {
+		out := map[string]bool{}
+		for _, d := range ds {
+			out[d.Sym.Package+"/"+d.Sym.Name] = true
+		}
+		return out
+	}
+	got := names(l.TypeDeclsFor([]string{"example.com/m/a"}))
+	if !got["example.com/m/a/A"] || !got["example.com/m/b/B"] || got["example.com/m/c/C"] {
+		t.Fatalf("TypeDeclsFor(a) = %v, want A+B without C", got)
+	}
+	got = names(l.TypeDeclsFor([]string{"example.com/m/c"}))
+	if len(got) != 1 || !got["example.com/m/c/C"] {
+		t.Fatalf("TypeDeclsFor(c) = %v, want C only", got)
+	}
+}
