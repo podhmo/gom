@@ -3,13 +3,14 @@ package methodres
 import go "io"
 import go "io/fs"
 import go "encoding"
+import go "net"
 import go "net/http"
 
 type Sink = { n: Int }
 type Bare = { v: Int }
 type Failure = { reason: String }
 type Dir = { ok: Bool }
-type Hij = { live: Bool }
+type Hij = { live: Bool, conn: Option net.Conn }
 
 fn writer_of (s: Sink) -> io.Writer
 fn unmarshaler_of (b: Bare) -> encoding.TextUnmarshaler

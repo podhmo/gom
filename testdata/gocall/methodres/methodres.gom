@@ -64,14 +64,13 @@ import go "bufio"
 // payloads are method-bearing, so the mapped gom view wraps each in
 // Option inside the Tuple: the emitted method must unwrap each back
 // to its nil-able interface, not leave option.Option in the sig.
-type Hij = { live: Bool }
+type Hij = { live: Bool, conn: Option net.Conn }
 
 @method
 fn (h: Hij) hijack () -> Result (Option net.Conn, Ptr bufio.ReadWriter) GoError =
   if h.live {
-    let nc : Option net.Conn = None
     let rw : Ptr bufio.ReadWriter = Go.nil ()
-    Ok (nc, rw)
+    Ok (h.conn, rw)
   } else {
     let f = { reason = "down" }
     let e : GoError = f

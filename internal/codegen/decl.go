@@ -204,7 +204,7 @@ func (g *gen) methodDecl(d *core.FuncDecl) {
 		o := outs[0]
 		switch {
 		case listElem(o) != nil:
-			g.raw("return append([]" + g.exprString(g.goType(listElem(o))) + "(nil), " + call + "...)")
+			g.raw("return append([]" + g.exprString(g.goType(listElem(o))) + "{}, " + call + "...)")
 		case types.Equal(types.Chase(o), types.Int):
 			g.raw("return int(" + call + ")")
 		default:
@@ -282,7 +282,7 @@ func (g *gen) boundaryResults(outs []types.Type, opt, resErr bool) string {
 			return g.pkgQual(optionPath) + "GetOrElse(" + g.methodNilLit(oe) + ", " + acc + ")"
 		}
 		if el := listElem(o); el != nil {
-			return "append([]" + g.exprString(g.goType(el)) + "(nil), " + acc + "...)"
+			return "append([]" + g.exprString(g.goType(el)) + "{}, " + acc + "...)"
 		}
 		if types.Equal(types.Chase(o), types.Int) {
 			return "int(" + acc + ")"
@@ -312,7 +312,7 @@ func (g *gen) boundaryZeros(outs []types.Type, opt bool) string {
 			return g.methodNilLit(oe)
 		}
 		if el := listElem(o); el != nil {
-			return "[]" + g.exprString(g.goType(el)) + "(nil)"
+			return "[]" + g.exprString(g.goType(el)) + "{}"
 		}
 		if types.Equal(types.Chase(o), types.Int) {
 			return "int(" + acc + ")"
@@ -389,7 +389,7 @@ func (g *gen) methodArg(name string, t types.Type) string {
 		// Copy the caller's slice: a `List` captured by the gom
 		// body must not alias a buffer the Go caller may mutate
 		// or reuse after the call.
-		return g.pkgQual(listPath) + "List[" + g.exprString(g.goType(el)) + "](append([]" + g.exprString(g.goType(el)) + "(nil), " + name + "...))"
+		return g.pkgQual(listPath) + "List[" + g.exprString(g.goType(el)) + "](append([]" + g.exprString(g.goType(el)) + "{}, " + name + "...))"
 	}
 	if types.Equal(types.Chase(t), types.Int) {
 		return "int64(" + name + ")"

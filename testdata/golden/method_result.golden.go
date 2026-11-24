@@ -25,7 +25,7 @@ func write(c Counter, p list.List[byte]) result.Result[int64, error] {
 //line method_result.gom:14
 func (c Counter) Write(p []byte) (int, error) {
 //line method_result.gom:14
-	v, err := result.ToGo(write(c, list.List[byte](append([]byte(nil), p...))))
+	v, err := result.ToGo(write(c, list.List[byte](append([]byte{}, p...))))
 //line method_result.gom:14
 	return int(v), err
 //line method_result.gom:14
@@ -41,7 +41,7 @@ func unmarshalText(u U, p list.List[byte]) result.Result[struct{}, error] {
 //line method_result.gom:19
 func (u U) UnmarshalText(p []byte) error {
 //line method_result.gom:19
-	_, err := result.ToGo(unmarshalText(u, list.List[byte](append([]byte(nil), p...))))
+	_, err := result.ToGo(unmarshalText(u, list.List[byte](append([]byte{}, p...))))
 //line method_result.gom:19
 	return err
 //line method_result.gom:19
