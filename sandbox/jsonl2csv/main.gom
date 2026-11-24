@@ -21,9 +21,11 @@ fn read_rows (sc: Ptr bufio.Scanner) (acc: List (Go.Map String Go.Any)) -> Resul
   let m: Ptr (Go.Map String Go.Any) = Ptr.new ()
   let dec = json.NewDecoder (bytes.NewReader (sc.Bytes ()))
   dec.UseNumber ()
-  match dec.Decode m {
-    Ok _ -> read_rows sc [Ptr.get m, ..acc]
-    Err e -> Err e
+  if not (json.Valid (sc.Bytes ())) { Err (errors.New "invalid JSON line") } else {
+    match dec.Decode m {
+      Ok _ -> read_rows sc [Ptr.get m, ..acc]
+      Err e -> Err e
+    }
   }
 } else {
   match sc.Err () {
