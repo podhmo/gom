@@ -18,7 +18,9 @@
 
 ## 結論
 
-「関数値を捨てる面」は `ignore` と `_` 束縛の 2 箇所のみ。それ
-以外（文位置）は E0402、型が要求する位置は HM の型が厳密に守る。
-警告対象は Func 値の捨てに限定するのが釣り合う — decision:
-docs/decisions/2026-11-24-partial-application-lint.md。
+「関数値を捨てる面」は `ignore`・`_` 束縛・match の `_` 腕の
+3 箇所（パッケージ直下の `let _` も束縛に含む）。それ以外
+（文位置）は E0402、型が要求する位置は HM の型が厳密に守る。
+`any` 引数への引き渡し（`fmt.Println` に残り関数を渡す）は捨て
+ではないので別問題。警告対象は Func 値の捨てに限定するのが釣り
+合う — decision: docs/decisions/2026-11-24-partial-application-lint.md。
