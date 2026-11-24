@@ -117,6 +117,14 @@ type Symbol struct {
 	// tainted" — the conservative default.
 	ResultTaint []bool
 
+	// Mutable marks a declaration type the .gomi's `//gom:mutable`
+	// directive flagged as containing mutable values (spec section
+	// 10): the interface shows no body an importer's lint could
+	// expand, so the directive carries the judgment. The flag lives
+	// on the type's symbol; check's registerForeignTypes copies it
+	// onto the type's typeInfo where containsMutable reads it.
+	Mutable bool
+
 	// Surface, when non-empty, is the user-facing spelling of the
 	// symbol — `Go.Map.make` — for diagnostics where Name (the rt
 	// backing symbol, `MapMake`) would mislead. Compiler-owned

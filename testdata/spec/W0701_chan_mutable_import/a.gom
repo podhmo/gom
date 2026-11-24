@@ -1,0 +1,14 @@
+package ex
+
+// spec section 10: a `.gomi`'s `//gom:mutable <name>` directive marks
+// an impl-invisible imported type as containing mutable values, so
+// `Chan.make` of it warns W0701 while an unmarked sibling type does
+// not.
+
+import "github.com/podhmo/gom/testdata/mutiface"
+
+fn make_channels () -> Unit = {
+  let _ : Chan (mutiface.Queue Int) = Chan.make 1
+  let _ : Chan (mutiface.Plain Int) = Chan.make 1
+  ()
+}

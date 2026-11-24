@@ -756,6 +756,12 @@ func (c *checker) containsMutable(t types.Type, seen map[conKey]bool) bool {
 		if ti == nil || seen[key] {
 			return false
 		}
+		if ti.mutable {
+			// `//gom:mutable` on the interface declaration —
+			// the type's body is invisible here, so the
+			// directive carries the judgment.
+			return true
+		}
 		seen[key] = true
 		sub := types.Subst{}
 		for i, v := range ti.params {

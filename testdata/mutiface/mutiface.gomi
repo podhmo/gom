@@ -1,0 +1,11 @@
+package mutiface
+
+// A queue whose implementation this interface does not show — the
+// `//gom:mutable` directive marks it as containing mutable values,
+// so an importer's mutable-sharing lint (spec section 10) treats
+// `Queue a` like `Ref` or `Array` payloads.
+//gom:mutable Queue
+type Queue a
+
+// An unmarked abstract type stays unmutable by the same lint.
+type Plain a

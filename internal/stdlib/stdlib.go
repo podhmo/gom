@@ -188,6 +188,7 @@ func (e *env) loadPackage(module, gomiPath, impPath string, src []byte) error {
 		func(sym *resolve.Symbol) (int, bool) { n, ok := e.arities[sym]; return n, ok },
 		func(sym *resolve.Symbol) (check.Signature, bool) { sg, ok := e.sigs[sym]; return sg, ok },
 		iface.ScanNotaint(src))
+	iface.ApplyMutable(table, iface.ScanMutable(src))
 	e.modules[module] = table
 	return nil
 }

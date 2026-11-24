@@ -32,11 +32,24 @@ type Source struct {
 // The draft is a starting point: it publishes every member, so the
 // author trims what should stay private and may replace a concrete
 // `type T = ...` with the abstract `type T`.
-func Draft(srcs []Source) []byte {
+//
+// prior, when non-nil, is the previous .gomi text: its
+// `//gom:mutable` directives carry across regeneration onto the
+// same-named type declarations — the mark is an author's claim
+// about an impl-invisible type, which nothing in the .gom sources
+// can re-derive, and a regenerated draft is a starting point the
+// author re-trims to the abstract form the directive pairs with.
+func Draft(srcs []Source, prior []byte) []byte {
 	d := &drafter{
 		vars:     map[*types.Var]string{},
 		imports:  map[string]imp{},
 		varCount: 0,
+	}
+	for _, name := range ScanMutable(prior) {
+		if d.mutable == nil {
+			d.mutable = map[string]bool{}
+		}
+		d.mutable[name] = true
 	}
 	var out strings.Builder
 	pkg := ""
@@ -108,6 +121,7 @@ type drafter struct {
 	varCount  int
 	imports   map[string]imp    // path → import
 	usedAlias map[string]string // alias → path (collision detection)
+	mutable   map[string]bool   // carried `//gom:mutable` names
 }
 
 // file renders one source's declarations into w, in surface order.
@@ -373,6 +387,13 @@ func (d *drafter) letMember(name string, td check.Decl) []string {
 // typeDecl renders `type Name a b = <body>` (or bare `type Name`
 // for an abstract declaration).
 func (d *drafter) typeDecl(name string, td *check.TypeDecl) []string {
+	var lines []string
+	if d.mutable[name] {
+		// The prior .gomi marked this type mutable — carry the
+		// author's directive across regeneration (spec section
+		// 10).
+		lines = append(lines, "//gom:mutable "+name)
+	}
 	var sb strings.Builder
 	kw := "type"
 	if _, ok := td.Body.(*check.AliasType); ok {
@@ -386,7 +407,7 @@ func (d *drafter) typeDecl(name string, td *check.TypeDecl) []string {
 	switch b := td.Body.(type) {
 	case *check.SumType:
 		sb.WriteString(" =")
-		lines := []string{sb.String()}
+		lines = append(lines, sb.String())
 		for _, v := range b.Variants {
 			vn := ""
 			if v.Sym != nil {
@@ -417,13 +438,13 @@ func (d *drafter) typeDecl(name string, td *check.TypeDecl) []string {
 			}
 		}
 		sb.WriteString(" }")
-		return []string{sb.String()}
+		return append(lines, sb.String())
 	case *check.AliasType:
 		sb.WriteString(" = ")
 		d.writeType(&sb, b.Type)
-		return []string{sb.String()}
+		return append(lines, sb.String())
 	case *check.AbstractType, nil:
-		return []string{sb.String()}
+		return append(lines, sb.String())
 	default:
 		panic("unreachable")
 	}

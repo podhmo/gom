@@ -430,7 +430,15 @@ func runInfo(args []string, stdout, stderr io.Writer) int {
 		if g.erred {
 			continue // a broken source has no meaningful draft
 		}
-		draft := iface.Draft(g.srcs)
+		// A `//gom:mutable` directive names the author's claim
+		// about an impl-invisible type — nothing in the .gom
+		// sources re-derives it, so the previous interface
+		// text seeds the new draft's directive lines.
+		var prior []byte
+		if b, err := os.ReadFile(filepath.Join(g.dir, g.name+".gomi")); err == nil {
+			prior = b
+		}
+		draft := iface.Draft(g.srcs, prior)
 		if *out == "-" {
 			if _, err := stdout.Write(draft); err != nil {
 				writeErrs = append(writeErrs, fmt.Errorf("stdout: %w", err))

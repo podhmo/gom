@@ -757,6 +757,8 @@ fn next_job (ctx: context.Context) (jobs: RecvChan Job) -> Result Job Stop =
 
 **送ってよい値と捕捉してよい値**: 不変な Gom の値はそのまま送れる。リンターは次の場合に警告する: 要素の型が可変な値（`Ref a`・`Array a`・`Ptr T`・`Go.Slice a`・`Go.Map k v`）を含むチャネルを作るとき、および `go { ... }` がそれらの型の変数を捕捉するとき。
 
+import した宣言型の本体は import 側から見えない（抽象の `type T` や extern 裏付け）ので、interface ファイルは `//gom:mutable <name>` ディレクティブでその型が可変な値を含むと表明できる。マークされた型は上のリントで `Ref` などと同じく数えられる。`gom info` の再生成は既存 `.gomi` の `//gom:mutable` 行を、同名の型宣言へ引き継ぐ（再生成される draft は実体を出す起点で、著者が abstract 形へ絞り直す際に directive を落とさないため）。
+
 例外として、内部で同期が取れた Go の名前付き型を指す `Ptr` は警告しない — `sync.WaitGroup`・`sync.Mutex`・`sync.RWMutex`・`sync.Map`・`sync.Once`・`sync.Pool`・`sync.Cond`・`sync/atomic` の各型・`errgroup.Group` は共有が型の契約であり、ポインタを goroutine やチャネルで受け渡すのが正しい使い方。許可リストは閉じた組み込みテーブルで、並行安全を自らのドキュメントが保証する型だけが載る。
 
 ---
