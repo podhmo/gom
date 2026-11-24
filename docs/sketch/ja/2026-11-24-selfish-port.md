@@ -13,54 +13,6 @@
 検証は oracle バイナリとの stdout/stderr diff（`--client fake`）。13 ケース中、
 argv[0] 由来の `Usage of <name>:` と stack trace のパス以外は全一致。
 
-## 検証レシピ
-
-```bash
-# 前提チェックアウト: 移植コード（sandbox/selfish/）は stage 4 の
-# ブランチ devin/selfish-port-4-verification（およびそのチェーン元の
-# #208 / #209 / #211）側にある。main にはこのドキュメントのみが
-# 先行して取り込まれている。
-# 準備: 入力ファイル（readme.md = "# Hello Title" の markdown、hello.txt、
-# bin.dat = バイナリ）、および ~/.config/selfish/config.json = {"access_token": "dummy-token"}
-cd ~/repos/gom/sandbox/selfish && go build -o /tmp/gom-selfish ./gselfish
-cd /path/to/oracle && go build -o /tmp/oracle-selfish .
-cd /tmp/selfish-test   # 入力を置いた作業 dir
-
-run_case() {
-  /tmp/oracle-selfish "$@" > /tmp/o1 2>&1
-  /tmp/gom-selfish    "$@" > /tmp/o2 2>&1
-  # 除外: log の timestamp、stack trace（`file.go|gom|s:N` 行、関数名行）、argv[0] の Usage 行
-  # ※ stack のパスは -trimpath で相対にもなるので `	/path` ではなく `*.go:N` 形で落とす
-  sed -i 's/^[0-9\/]* [0-9:]* //' /tmp/o1 /tmp/o2
-  diff <(grep -vE '^[[:space:]].*\.(go|gom|s):[0-9]+$|^Usage of |^\S*\.\S*$' /tmp/o1) \
-       <(grep -vE '^[[:space:]].*\.(go|gom|s):[0-9]+$|^Usage of |^\S*\.\S*$' /tmp/o2)
-}
-```
-
-注意: `run_case` の `^\S*\.\S*$` フィルタ（stack trace の関数名行を
-落とすためのもの）は、CLI が単独で印字する `readme.md` のような
-ファイル名や URL の行も落とす — その形の出力を持つケースでは両者が
-異なる値を印字しても比較を通過するので、その形の出力を持つケースは目視確認が要る。
-
-注意: `--client fake` は `with_dryrun` で **history へ書き込まない**（oracle も同じ）。
-そのため alias 系のケースは常に「履歴なし」状態で実行される — 2 連続実行しても
-update ではなく create のまま（両バイナリで一致することを確認済み）。
-実ファイル `~/.config/selfish/selfish.history` は読まれるだけで変更されないので
-事前の削除は不要（同名 alias が履歴に残っていると update/delete 分岐に入るが、
-それでも両者は同じ出力を返す）。
-
-実行したケース: `--client fake` + `{readme.md hello.txt, --debug readme.md, bin.dat,
---alias m readme.md （dry-run のため連続実行しても create のまま）, --alias m --delete,
---alias z --delete （履歴なし alias=not-found）, --secret --silent readme.md,
-"readme spaced.md" "ñ file.txt", nonexistent.txt, 引数なし}`, `--client bogus`, `--help`。
-
-## oracle との残差（修正不可／意図的）
-
-- `Usage of <argv0>:` — 両者とも `os.Args[0]` を使う正しい振る舞い。バイナリ名を揃えれば一致。
-- `--delete` の not-found エラー — oracle は `pkg/errors` の stack trace を `%+v` で出力。
-  `stack_errorf` shim で同じ形式を再現したが、**frame の関数名・ファイルパスはビルド由来**なので
-  一致しない（oracle 自身もビルド場所が変われば変わる）。これは「振る舞いの一致」の限界点。
-
 ## うまくいったところ
 
 - **`Result`/`Option`/`try` で error handling がそのまま書ける**。Go の `if err != nil` 連打が
@@ -82,18 +34,12 @@ update ではなく create のまま（両バイナリで一致することを�
   必要がある。ドキュメントか、引数なし extern の生成規約を見直す余地。
 - **生成される `fmt.Errorf` が引数を `any()` に box するため `go vet` で `%w` が弾かれる**。
   `wrap`/`wrapf` はすべて `@extern` shim へ退避した。error wrapping は言語側で第一級サポートしたい
-  （`Result` がある分尚更）。なお `%+v` の出力自体は生成コードのまま問題なく動く —
-  `pkg/errors` の shim が必要なのは、フォーマットではなく「stack を持つ error 値を作る側」。
-- **`@method` はあるが `Result` 返りを禁じている（E0420）**ため、`encoding.TextUnmarshaler` 系
-  （`UnmarshalText([]byte) error` など error を返す Go interface）には使えない。
-  `ClientType`（`type X = {value: String}` → `type X string`）の `UnmarshalText` は
-  同パッケージの `shim.go` に Go で書いた — 生成型へのメソッド追加は同一パッケージなら自由。
-  `Result` を返さないメソッド（`http.Handler` 等）は `@method` で書けるので、穴は限定的。
-- ~~**3つ以上の戻り値を呼べない**~~ → **解消済み**。stage 1 時点では shim 化したが、
-  `(T, U, ..., error)` → `Result (T, U, ...) GoError` の n 値 fold（decisions/2026-11-18）で
-  `let (g, _resp) = try (c.github.Gists.Create ctx gist)` と直接呼べることを stage 4 で確認し、
-  shim を削除した（`c.Gists` フィールド経由の method 呼出しも通る）。残る制約は上限8値と
-  `Option` 要素の扱いぐらい。
+  （`Result` がある分尚更）。同じく `%+v` で stack trace を出す `pkg/errors` 系も shim 必須。
+- **メソッド宣言ができない**。`ClientType`（`type X = {value: String}` → `type X string`）に
+  `UnmarshalText` を実装したくても gom では書けない。同パッケージの `shim.go` に Go で書けば
+  生成型にメソッドが生やせるので回避可能だが、言語仕様としての不足。
+- **3つ以上の戻り値（`(v, resp, err)`）を呼べない**。`github.Gists.Create` 系は shim でラップして
+  `Result` に畳んだ。gom に tuple/多値がない以上、Go API 利用時に頻出しそう。
 - **カリー適用の複数行記述がパースに弱い**（`List.fold\n  (fn ...)\n  acc\n  xs` で E0401）。
   lambda を `let` に取り出すと解決するが、書き味として引っかかりやすい。
 - **無名レコードの `List.fold` acc は型推論が通らない（E0407）**。named type 必須。
@@ -102,34 +48,16 @@ update ではなく create のまま（両バイナリで一致することを�
 - **match の到達不能 arm は `todo ()` に頼る**。catch-all `action ->` の内側で sub-match する形に
   なると網羅性チェックの恩恵が薄れる。
 
-## nil 安全監査（stage 4 追加）
+## oracle との残差（修正不可／意図的）
 
-`Ptr.get`/`Option.get`/裸ポインタ deref を総当たりして、gom の `Option`/`Ptr.to_option` で潰せる箇所を潰した。
-
-潰した箇所:
-
-- `scan_files`/`new_gist_file` の `Option.get (os.Stat ...)` — `None` で panic する型上の穴。
-  match 化して `None` は Err/skip に倒した（`os.Stat` が Option を返すので gom 的には到達可能な型）。
-- `Gists.{Create,Edit}` の `*github.Gist` — verbatim `Ptr` を `Ptr.to_option` で包んで
-  `None -> Err` に（`expect_gist`）。ネットワーク入力なのでここが一番意味のある guard。
-  `None` 分岐は `@extern fn nil_gist`（nil を返すテスト用 shim、gom は nil を綴れない）で
-  test block から検証済み。
-  なお `Result (Option T, U)` の payload Option 宣言は extern 宣言側でのみ選べるため、
-  メソッド直呼びの箇所では `Ptr.to_option` で後から包む形になる。
-- `user.Current ()` の `*user.User` — 同上、`Ptr.to_option` で guard。
-
-そのままにした箇所（Go の契約で non-nil 保証、gom でも到達不能）:
-
-- `Ptr.get (Ptr.make x)` 系（`new_app` の profile、`zero_time`）— 生成直後の Ptr。
-- `os.Open`/`os.Create`/`flagstruct` の戻り — err==nil 時に nil を返さない Go 契約。
-- `List.get` は `Option` 返しで既に match 済み、`record` フィールド read も値型。
-
-残課題: メソッド直呼びの n-ary result は verbatim 固定なので `Option` payload を選べない。
-呼出し側でも Option 宣言できると、`Ptr.to_option` の後包みが要らなくなる。
+- `Usage of <argv0>:` — 両者とも `os.Args[0]` を使う正しい振る舞い。バイナリ名を揃えれば一致。
+- `--delete` の not-found エラー — oracle は `pkg/errors` の stack trace を `%+v` で出力。
+  `stack_errorf` shim で同じ形式を再現したが、**frame の関数名・ファイルパスはビルド由来**なので
+  一致しない（oracle 自身もビルド場所が変われば変わる）。これは「振る舞いの一致」の限界点。
 
 ## まとめ
 
-1400行の実用 Go CLI が、数箇所の shim（`%w`・stack 付き error・`*int` boxing・`Result` 返すメソッド）を除いて
+1400行の実用 Go CLI が、数箇所の shim（`%w`・3値戻り値・ポインタ boxing・メソッド）を除いて
 ほぼそのまま書けた。sum type への置き換えで `run` の分岐が「決定→実行」の木になり、
 純粋関数 `decide` がテスト可能になったのは移植ならではの改善。
-一番の改善要望は error wrapping（`%w`）の言語サポートと `@method` の `Result` 返し許可。
+一番の改善要望は error wrapping（`%w`/`%+v`）と multi-return の言語サポート。
