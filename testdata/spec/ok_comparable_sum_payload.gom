@@ -14,6 +14,7 @@ import "github.com/podhmo/gom/testdata/spec/foreignpkg"
 // loaded through the import (spec 8.5).
 type Shape = | Circle (r: Float) | Empty
 type Tree = | Leaf (v: Int) | Node (l: Tree) (r: Tree)
+type TreeT a = | LeafT (v: a) | NodeT (l: TreeT a) (r: TreeT a)
 type Job = | Run (t: Task (List Int))
 type Wrap = | Box (s: foreignpkg.Shape)
 
@@ -24,6 +25,11 @@ fn has_some (xs: Go.Slice (Option Shape)) (needle: Option Shape) -> Bool =
     slices.Contains(xs, needle)
 
 fn has_tree (xs: Go.Slice Tree) (needle: Tree) -> Bool =
+    slices.Contains(xs, needle)
+
+// `TreeT Int` reaches its `TreeT a` children with `a` still bound
+// to `Int` — a generic recursion keeps the caller's instantiation.
+fn has_treet (xs: Go.Slice (TreeT Int)) (needle: TreeT Int) -> Bool =
     slices.Contains(xs, needle)
 
 fn has_job (xs: Go.Slice Job) (needle: Job) -> Bool =

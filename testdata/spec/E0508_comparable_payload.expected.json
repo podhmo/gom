@@ -8,14 +8,14 @@
       "span": {
         "file": "E0508_comparable_payload.gom",
         "start": {
-          "line": 18,
+          "line": 19,
           "col": 12,
-          "offset": 702
+          "offset": 766
         },
         "end": {
-          "line": 18,
+          "line": 19,
           "col": 20,
-          "offset": 710
+          "offset": 774
         }
       },
       "data": {
@@ -32,14 +32,14 @@
       "span": {
         "file": "E0508_comparable_payload.gom",
         "start": {
-          "line": 21,
+          "line": 22,
           "col": 12,
-          "offset": 804
+          "offset": 868
         },
         "end": {
-          "line": 21,
+          "line": 22,
           "col": 20,
-          "offset": 812
+          "offset": 876
         }
       },
       "data": {
@@ -56,14 +56,14 @@
       "span": {
         "file": "E0508_comparable_payload.gom",
         "start": {
-          "line": 24,
+          "line": 25,
           "col": 12,
-          "offset": 918
+          "offset": 982
         },
         "end": {
-          "line": 24,
+          "line": 25,
           "col": 20,
-          "offset": 926
+          "offset": 990
         }
       },
       "data": {
@@ -80,14 +80,14 @@
       "span": {
         "file": "E0508_comparable_payload.gom",
         "start": {
-          "line": 27,
+          "line": 28,
           "col": 12,
-          "offset": 1002
+          "offset": 1066
         },
         "end": {
-          "line": 27,
+          "line": 28,
           "col": 20,
-          "offset": 1010
+          "offset": 1074
         }
       },
       "data": {
@@ -104,18 +104,42 @@
       "span": {
         "file": "E0508_comparable_payload.gom",
         "start": {
-          "line": 30,
+          "line": 31,
           "col": 12,
-          "offset": 1114
+          "offset": 1178
         },
         "end": {
-          "line": 30,
+          "line": 31,
           "col": 20,
-          "offset": 1122
+          "offset": 1186
         }
       },
       "data": {
         "argument": "github.com/podhmo/gom/testdata/spec/foreignpkg.Blob",
+        "constraint": "comparable",
+        "parameter": "E"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0508",
+      "severity": "error",
+      "message": "type argument `TreeL (List Int)` does not satisfy the `comparable` constraint of `Contains`'s type parameter `E`",
+      "span": {
+        "file": "E0508_comparable_payload.gom",
+        "start": {
+          "line": 34,
+          "col": 12,
+          "offset": 1295
+        },
+        "end": {
+          "line": 34,
+          "col": 20,
+          "offset": 1303
+        }
+      },
+      "data": {
+        "argument": "TreeL (List Int)",
         "constraint": "comparable",
         "parameter": "E"
       }

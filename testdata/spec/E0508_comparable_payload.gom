@@ -13,6 +13,7 @@ import "github.com/podhmo/gom/testdata/spec/foreignpkg"
 type Shape = | Circle (r: Float) | Points (pts: List Int)
 type Xs = { xs : List Int }
 type T2 = | N (x: T2) (ys: List Int)
+type TreeL a = | LeafL (v: a) | NodeL (l: TreeL a) (r: TreeL a)
 
 fn has (xs: Go.Slice Shape) (needle: Shape) -> Bool =
     slices.Contains(xs, needle)
@@ -27,4 +28,7 @@ fn has_t2 (xs: Go.Slice T2) (needle: T2) -> Bool =
     slices.Contains(xs, needle)
 
 fn has_blob (xs: Go.Slice foreignpkg.Blob) (needle: foreignpkg.Blob) -> Bool =
+    slices.Contains(xs, needle)
+
+fn has_treel (xs: Go.Slice (TreeL (List Int))) (needle: TreeL (List Int)) -> Bool =
     slices.Contains(xs, needle)

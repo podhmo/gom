@@ -591,7 +591,7 @@ func (w *cmpWalk) hasS(t types.Type, sub types.Subst, foreign bool) bool {
 		// aliases expand.
 		if w.expandable(t, foreign) {
 			ti := w.c.tyCons[conKey{qual: t.Qual, name: t.Name}]
-			return w.expand(t, ti, func(nsub types.Subst, nforeign bool) bool {
+			return w.expand(t, sub, ti, func(nsub types.Subst, nforeign bool) bool {
 				switch ti.kind {
 				case kindSum:
 					// The sealed-interface repr is comparable in Go,
@@ -652,11 +652,19 @@ func (w *cmpWalk) expandable(t *types.Con, foreign bool) bool {
 // its other fields are (the recursive field emits the same sealed
 // interface, whose `==` safety is the question being decided), so a
 // revisit answers true. Only an exhausted budget answers false —
-// the "cannot prove comparable" value. The fold also receives the
-// declaration's scope: true when ti is an imported decl, so its
-// unqualified field spellings keep their own package's meaning.
-func (w *cmpWalk) expand(t *types.Con, ti *typeInfo, f func(types.Subst, bool) bool) bool {
-	v := recordVisit{ti: ti, args: t.Args}
+// the "cannot prove comparable" value. outer substitutes t's
+// arguments first, so a recursive field's raw `Var` keeps the
+// instantiation the caller had (`Tree Int` reaches its `Tree a`
+// children as `Tree Int`, not as the unbound `a`). The fold also
+// receives the declaration's scope: true when ti is an imported
+// decl, so its unqualified field spellings keep their own
+// package's meaning.
+func (w *cmpWalk) expand(t *types.Con, outer types.Subst, ti *typeInfo, f func(types.Subst, bool) bool) bool {
+	args := make([]types.Type, len(t.Args))
+	for i, a := range t.Args {
+		args[i] = outer.Apply(a)
+	}
+	v := recordVisit{ti: ti, args: args}
 	for _, s := range w.seen {
 		if s.ti == ti && sameTypes(s.args, v.args) {
 			return true
@@ -670,8 +678,8 @@ func (w *cmpWalk) expand(t *types.Con, ti *typeInfo, f func(types.Subst, bool) b
 	defer func() { w.seen = w.seen[:len(w.seen)-1] }()
 	sub := types.Subst{}
 	for i, p := range ti.params {
-		if i < len(t.Args) {
-			sub[p.ID] = t.Args[i]
+		if i < len(args) {
+			sub[p.ID] = args[i]
 		}
 	}
 	return f(sub, ti.con.Qual != "")
