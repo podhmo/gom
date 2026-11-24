@@ -367,7 +367,7 @@ func (c *checker) scalarLitConv(want types.Type, out Expr, sp diag.Span) Expr {
 	if wc, ok := w.(*types.Con); ok && wc.Qual == "" && c.shadowedBuiltin(name) {
 		return nil
 	}
-	return &Ascribe{Base: baseOf(sp, want), X: out, Conv: true}
+	return &Ascribe{Base: baseOf(sp, want), X: out, Conv: true, Mat: true}
 }
 
 // goWant marks want as a live Go-call parameter type for the extent
@@ -2015,7 +2015,7 @@ func (c *checker) checkBinary(e *syntax.Binary) Expr {
 		b := c.newMeta(e.Sp, "the composed function's middle type")
 		r := c.newMeta(e.Sp, "the composed function's result")
 		ok1 := c.unify(x.Type(), types.Fn(b, types.P(a)), e.X.Span())
-		ok2 := c.conformCallee(g.Type(), b, r, e.Y.Span(), false)
+		ok2 := c.conformCallee(g.Type(), b, r, e.Y.Span(), false, nil)
 		if !ok1 || !ok2 {
 			c.markQuiet(a)
 			c.markQuiet(b)
@@ -2031,7 +2031,7 @@ func (c *checker) checkBinary(e *syntax.Binary) Expr {
 		b := c.newMeta(e.Sp, "the composed function's middle type")
 		r := c.newMeta(e.Sp, "the composed function's result")
 		ok1 := c.unify(f.Type(), types.Fn(b, types.P(a)), e.Y.Span())
-		ok2 := c.conformCallee(g.Type(), b, r, e.X.Span(), false)
+		ok2 := c.conformCallee(g.Type(), b, r, e.X.Span(), false, nil)
 		if !ok1 || !ok2 {
 			c.markQuiet(a)
 			c.markQuiet(b)
@@ -2193,7 +2193,7 @@ func (c *checker) pipeCall(e *syntax.Binary, arg, fn Expr) Expr {
 	// the boundary conversion; the type-only application check
 	// never wrapped the argument. A failed check already reported
 	// the mismatch — wrapping again would echo it at the arg span.
-	if c.conformCallee(fn.Type(), arg.Type(), ret, e.Sp, true) {
+	if c.conformCallee(fn.Type(), arg.Type(), ret, e.Sp, true, arg) {
 		conv := c.conformFirstArg(fn.Type(), arg)
 		if e.Op == syntax.BinPipeBack {
 			out.Y = conv
@@ -2962,7 +2962,7 @@ func (c *checker) checkPipeTry(e *syntax.Binary) Expr {
 	// The step's argument is the unwrapped payload — a value the
 	// lowering produces, not an expression the Ascribe can hang on —
 	// so boundary conversions stay unify-only here (conv=false).
-	if !c.conformCallee(f.Type(), argT, types.Result(resT, errT), e.Y.Span(), false) {
+	if !c.conformCallee(f.Type(), argT, types.Result(resT, errT), e.Y.Span(), false, nil) {
 		c.markQuiet(resT)
 		c.markQuiet(errT)
 	}

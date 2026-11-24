@@ -92,7 +92,10 @@ func (c *checker) checkApply(e *syntax.Apply, want types.Type) Expr {
 		}
 		switch r := rc.(type) {
 		case *types.Meta:
-			if containsGoAny(wc) {
+			// Defined types pin like `any` does: `Some "x" : Option
+			// Name` binds `a := Name` so the String literal gets its
+			// materialization (scalarLitConv) instead of `a := String`.
+			if containsGoAny(wc) || c.definedUnderlying(wc) != wc {
 				if rec := c.recOf(r); !(rec.num || rec.ord || rec.flo || rec.intg || rec.eq) {
 					c.bind(r, wc, e.Sp)
 				}
@@ -612,7 +615,7 @@ func (c *checker) overApply(ret types.Type, extras []Expr, extraIdx []int, args 
 		// A failed unify leaves next unsolved — the mismatch
 		// already reported it.
 		next := c.newMeta(ex.Span(), "the over-applied result")
-		if !c.conformCallee(rret, ex.Type(), next, ex.Span(), true) {
+		if !c.conformCallee(rret, ex.Type(), next, ex.Span(), true, ex) {
 			c.markQuiet(next)
 		} else {
 			// The extra conforms to the residual's first
@@ -1565,10 +1568,16 @@ func (c *checker) replayGoApply(pa *pendingApply) {
 // admitting it would emit the raw List where the callee takes a
 // Go.Slice. (Interface assignability materializes no conversion,
 // so conv=false still admits it — see conformParam.)
-func (c *checker) conformCallee(callee, argT, res types.Type, sp diag.Span, conv bool) bool {
+func (c *checker) conformCallee(callee, argT, res types.Type, sp diag.Span, conv bool, arg Expr) bool {
 	if fs, ok := types.Chase(callee).(*types.Func); ok &&
 		len(fs.Params) > 0 && fs.Params[0].Label == "" {
-		if !c.conformParam(fs.Params[0].Type, argT, sp, conv) {
+		// A literal argument can still materialize into a defined
+		// first parameter — the type-only conformParam cannot see
+		// the literalness, so scalarLitConv decides first (it
+		// reports nothing); conformFirstArg re-emits the same
+		// Ascribe for the wrap when the call is admitted.
+		if !(conv && arg != nil && c.scalarLitConv(fs.Params[0].Type, arg, arg.Span()) != nil) &&
+			!c.conformParam(fs.Params[0].Type, argT, sp, conv) {
 			return false
 		}
 		var tail types.Type = fs.Ret
