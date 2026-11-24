@@ -27,7 +27,7 @@ want-aware にするか。参照: [implementation-gaps](../implementation-gaps.m
 
 ### C. `@method` の `Result` 返り許可（E0420 緩和）（規模: 中）
 
-`encoding.TextMarshaler` 系（`UnmarshalText([]byte) error` 等
+`encoding.TextUnmarshaler` 系（`UnmarshalText([]byte) error` 等
 error を返す Go interface）を gom 型に実装できない。現状は
 同パッケージ `shim.go` に Go で書く回避。許す場合の型変換
 （`error` ↔ `Result T GoError`）を decision まで。

@@ -28,7 +28,7 @@
 - [x] `Go.Slice` の gom 側コンストラクタ — **解消**: `let gs : Go.Slice T = xs`（`xs : List T`）の ascription で `List` → `Go.Slice` が通る。check の `conformExpr` → `sliceConv` が `ConvSliceToGo` を返し、lower が `.ToSlice()` コピーを emit する（run 2 の recheck は「面がない」として登録したが、レビュー指摘で発見・実測確認。`Go.conv` の明示キャストは gom 要素型で E0507、`Array` は `~[]E` を満たさず E0401 のまま）。コピーのため gom 側の `List` 本体は変わらないが、`slices.Sort`（順序のある要素）や `slices.SortFunc`（record — `Go.func2` 比較器）の結果は `Go.Slice` 側から読める — 用途は足りる（run 2 — [recheck](sketch/ja/2026-11-24-sandbox-explorer2-recheck.md)）
 
 - [ ] `%w` error wrapping の第一級サポート: 生成 `fmt.Errorf` が引数を box するため vet が `%w` を弾き、`wrap`/`wrapf` は `@extern` shim 退避。`Result` がある分第一級にしたい（selfish 移植 — [sketch](sketch/ja/2026-11-24-selfish-port.md)、wave43 lane F）
-- [ ] `@method` の `Result` 返り許可（E0420 緩和）: `encoding.TextMarshaler` 系など error を返す Go interface を gom 型に実装できない。現状は同パッケージ `shim.go` に Go で書く回避（selfish 移植 — 同上 sketch、実装の制約: [implementation-gaps.md](implementation-gaps.md)）
+- [ ] `@method` の `Result` 返り許可（E0420 緩和）: `encoding.TextUnmarshaler` 系など error を返す Go interface を gom 型に実装できない。現状は同パッケージ `shim.go` に Go で書く回避（selfish 移植 — 同上 sketch、実装の制約: [implementation-gaps.md](implementation-gaps.md)）
 - [ ] `Result (Option T, U)` の payload Option を呼出し側でも宣言できるか: メソッド直呼びの n-ary result は verbatim 固定で `Ptr.to_option` の後包みが要る（selfish 移植 stage 4 — 同上 sketch）
 
 ### 最適化

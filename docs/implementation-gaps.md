@@ -1946,9 +1946,10 @@
 
 - [ ] **宣言型の1-field recordへのスカラー代入で splice 表示が eval と compiled で揺れる**: `type Flag = {on: Bool}` に `let f : Flag = true` と代入したとき、`"${f}"` は eval では `true`、compiled（`.go` 生成物）では `{ on = true }` と描かれる。eval は束縛値をスカラーのまま持ち（1-field record の peel）、codegen は record として materialize するため同一値の表示が分岐。正準形を決める decision が要る — eval を VRecord 化するとスカラー算術・等価が壊れ、codegen をスカラー化すると record literal 代入との整合が取れない。発見: #216 レビュー（wave43 lane C）。関連: [verification sketch](sketch/2026-11-24-display-gomshow-verify.md)
 
-- [ ] **生成 `fmt.Errorf` が引数を `any(...)` に box するため `%w` を含むと `go vet` で弾かれる**: error wrapping を gom で書けず `wrap`/`wrapf` は `@extern` shim へ退避が必要（selfish 移植の観測 — [sketch](sketch/ja/2026-11-24-selfish-port.md)、wave43 lane F）。`%+v` の出力自体は生成コードで問題なく動く（stack を持つ error 値の生成側だけ shim が要る）
+- [ ] **stack を持つ error 値の生成が書けない（`pkg/errors` 系）**: `fmt.Errorf("ctx: %w", e)` のユーザーコードは生成される Go-call で問題なく通る（[errwalk fixture](../testdata/realworld/errwalk/main.gom)）が、`%+v` で stack trace を出す `pkg/errors.Errorf` 相当の「stack を持つ error 値」の生成には `@extern` shim が要った — `%+v` 出力自体は生成コードで動くが、stack を持つ値の作成側だけ shim（selfish 移植の観測 — [sketch](sketch/ja/2026-11-24-selfish-port.md)、wave43 lane F）
+>>>>>>> cc4d356 (docs: add selfish-port sketch; fix ledger wording per review)
 
-- [ ] **`@extern fn name () -> T` が `name(struct{}{})` を emit する**: Go 側は `func name(_ struct{})` で受ける必要がある引数なし extern の生成規約が文書化されていない（selfish 移植 — 同上 sketch）
+- [ ] **引数なし `@extern fn name () -> T` の `name(struct{}{})` 規約が spec に例示されていない**: spec の `@extern` 規則と Unit 呼出し規則（`f(struct{}{})`）は定められているが、Go 側を `func name(_ struct{})` で受ける必要があることは extern 節に例がなく読み取りづらい（selfish 移植 — 同上 sketch）
 
 - [ ] **カリー適用の複数行記述がパースに弱い**: `List.fold\n  (fn ...)\n  acc\n  xs` で E0401 — lambda を `let` に取り出すと解決するが書き味として引っかかる（selfish 移植 — 同上 sketch）
 
@@ -1958,4 +1959,6 @@
 
 - [ ] **`Result (Option T, U)` の payload Option 宣言は extern 宣言側でのみ選べる**: メソッド直呼びの n-ary result は verbatim 固定なので `Ptr.to_option` の後包みが要る（selfish 移植 stage 4 nil 監査 — 同上 sketch）
 
-- [ ] **`@method` は `Result` 返りを禁じている（E0420）**: `encoding.TextMarshaler` 系（`UnmarshalText([]byte) error` 等 error を返す Go interface）には使えない — defined type の `UnmarshalText` は同パッケージの `shim.go` に Go で書く回避が必要（selfish 移植 — 同上 sketch、open-questions も参照）
+- [ ] **`@method` は `Result` 返りを禁じている（E0420）**: `encoding.TextUnmarshaler` 系（`UnmarshalText([]byte) error` 等 error を返す Go interface）には使えない — defined type の `UnmarshalText` は同パッケージの `shim.go` に Go で書く回避が必要（selfish 移植 — 同上 sketch、open-questions も参照）
+
+- [ ] **共有メタを持つ部分適用でスカラーリテラルが宣言型に materialize できない**: `fn pair (x: b) (y: b) -> String` の残り `?b` を want 側の `Name` に pin する前に、供給リテラル `pair "x"` の conform が `?b := String` に commit してしまい `let g : Name -> String = pair "x"` が E0401。`?b` が result 位置にも現れる形は result-pin が救う。数値リテラルは bind を遅延するがスカラーは concrete 型で即 bind — 修正は pin 拡大ではなくリテラル→meta bind の遅延（#215 escalate、wave43 lane B）
