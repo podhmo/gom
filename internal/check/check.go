@@ -531,6 +531,36 @@ func (c *checker) goSatisfiesGomElems(targs []types.Type, i int, gc GoConstraint
 		return pairEq([]int{gc.Elem})
 	case GoConstraintMap:
 		return pairEq([]int{gc.Key, gc.Val})
+	case GoConstraintUnion:
+		// A declared one-field record emits as the defined type
+		// `type D F` — it satisfies an approx (`~X`) term exactly
+		// when F's emitted underlying does, and never an exact
+		// term (no Go constraint can name D). Peel to the field
+		// and let the oracle judge the approx terms only
+		// (decision 2026-11-24-onefield-record-tilde).
+		peeled := c.definedUnderlying(targs[i])
+		if types.Equal(peeled, types.Chase(targs[i])) {
+			return false
+		}
+		var approx []GoUnionTerm
+		for _, tm := range gc.Terms {
+			if tm.Approx {
+				approx = append(approx, tm)
+			}
+		}
+		if len(approx) == 0 {
+			return false
+		}
+		src, ok := c.src.(GoConstraintSource)
+		if !ok {
+			return false
+		}
+		peeledGc := gc
+		peeledGc.Terms = approx
+		peeledTargs := make([]types.Type, len(targs))
+		copy(peeledTargs, targs)
+		peeledTargs[i] = peeled
+		return src.GoSatisfies(peeledTargs, i, peeledGc) == GoVerdictYes
 	default:
 		return false
 	}

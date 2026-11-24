@@ -1,0 +1,16 @@
+package main
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// A one-field record emits as the Go defined type `type D F` — an
+// approx (`~X`) union term judges on the peeled field's emitted
+// underlying, so `~int64` admits `UserId` (spec 8.5). Peeling chases
+// chains (`M`'s field is itself a defined type).
+type UserId = { value : Int }
+type M = { u : UserId }
+
+fn f (u: UserId) (m: M) -> UserId = {
+    let _ = goiface.Clamp64 u u u
+    let _ = goiface.Clamp64 m m m
+    u
+}

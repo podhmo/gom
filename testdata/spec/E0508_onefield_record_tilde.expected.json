@@ -1,0 +1,52 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0508",
+      "severity": "error",
+      "message": "type argument `UserId` does not satisfy the `~int` constraint of `Clamp`'s type parameter `T`",
+      "span": {
+        "file": "E0508_onefield_record_tilde.gom",
+        "start": {
+          "line": 13,
+          "col": 21,
+          "offset": 447
+        },
+        "end": {
+          "line": 13,
+          "col": 26,
+          "offset": 452
+        }
+      },
+      "data": {
+        "argument": "UserId",
+        "constraint": "~int",
+        "parameter": "T"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0508",
+      "severity": "error",
+      "message": "type argument `UserId` does not satisfy the `int64 | string` constraint of `Choose`'s type parameter `T`",
+      "span": {
+        "file": "E0508_onefield_record_tilde.gom",
+        "start": {
+          "line": 14,
+          "col": 21,
+          "offset": 479
+        },
+        "end": {
+          "line": 14,
+          "col": 27,
+          "offset": 485
+        }
+      },
+      "data": {
+        "argument": "UserId",
+        "constraint": "int64 | string",
+        "parameter": "T"
+      }
+    }
+  ]
+}
