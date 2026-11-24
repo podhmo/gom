@@ -1,0 +1,7 @@
+package main
+
+// A defined-type declared type divides by its underlying's rules:
+// `u / 0` with `u: UserId` is a division by a constant zero
+// (E0414), the same judgment Go applies to `int64 / 0`.
+type UserId = { value: Int }
+fn divz (u: UserId) -> UserId = u / 0

@@ -2202,7 +2202,10 @@ func (c *checker) checkArith(e *syntax.Binary, constrain func(*metaRec)) Expr {
 //     piling E0414 on it would cascade.
 func (c *checker) revisitDivs() {
 	for _, b := range c.pendingDivs {
-		t := types.Chase(b.X.Type())
+		// A defined-type declared type (`type X F` for a one-field
+		// record) divides by its underlying F's rules — `n / 0`
+		// with `n: UserId` panics like `int64 / 0`.
+		t := c.definedUnderlying(types.Chase(b.X.Type()))
 		gk, isGo := c.namedBasicKind(t)
 		switch {
 		case isIntegral(t) || (isGo && namedIntegral(gk)):
