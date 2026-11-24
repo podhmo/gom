@@ -986,25 +986,17 @@ func validStructTag(tag string) bool {
 		if i <= 0 || i+1 >= len(tag) || tag[i+1] != '"' {
 			return false
 		}
-		if strings.ContainsAny(tag[:i], ` :"'`) || !strconv.IsPrint(rune(tag[0])) {
+		if strings.ContainsAny(tag[:i], ` :"`) || !strconv.IsPrint(rune(tag[0])) {
 			return false
 		}
-		// Scan the quoted value (Go escapes allowed).
-		j := i + 2
-		for {
-			if j >= len(tag) {
-				return false
-			}
-			if tag[j] == '\\' {
-				j += 2
-				continue
-			}
-			if tag[j] == '"' {
-				break
-			}
-			j++
+		// The quoted value must parse as a Go string literal —
+		// reflect.StructTag.Get fails on bad escapes (e.g. `\q`),
+		// which would silently drop the tag for consumers.
+		q, err := strconv.QuotedPrefix(tag[i+1:])
+		if err != nil {
+			return false
 		}
-		tag = tag[j+1:]
+		tag = tag[i+1+len(q):]
 	}
 	return true
 }
