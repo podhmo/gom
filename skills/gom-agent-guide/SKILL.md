@@ -788,7 +788,9 @@ fn main () -> Unit = ignore (work true)
   analysis. `//gom:` directives only count at line start — a
   trailing `x + //gom:...` is inert — and `gom fmt` moves
   in-expression ones to the file's end on their own lines rather
-  than inlining them as `/* */`.
+  than inlining them as `/* */`. The full directive index —
+  allow/embed/noescape/result-notaint/mutable with arguments and
+  attachment rules — is spec 付録 A.
 - Cleanup failures join as `GoError` only. To fold them into a
   domain error type `E`, bridge the `run_result` result with
   `|> Result.map_err f`; a cleanup that itself yields `E` can

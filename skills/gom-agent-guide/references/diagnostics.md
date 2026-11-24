@@ -71,7 +71,8 @@ silent — the diagnostic still prints). Relaxable codes: E0301,
 E0302. Naming a warning code drops that warning from the report
 entirely — e.g. `//gom:allow W0901` silences the discard lint when
 dropping a function value is intentional. Unknown, non-relaxable,
-or malformed directives warn W0003.
+or malformed directives warn W0003. Spec 付録 A indexes every
+`//gom:` directive with its arguments and attachment rules.
 
 `gom check|build|test --strict` exits non-zero when any warning
 was emitted — use it in CI so warnings can't land silently.

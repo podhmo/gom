@@ -252,6 +252,13 @@ Pattern forms (spec 4.1):
 - An ascription in the arm head — e.g. a guard `p if x : T` —
   swallows the arm's `->` (`T -> e` parses as a function type), so
   the arm looks unterminated: parenthesize, `p if (x : T) -> e`.
+- Type-test arms `p : T` / `_ : T` (spec 4.1) only apply to a
+  match over `Go.Any` or a named Go interface — they emit a Go
+  `switch v := x.(type)`. A `_`/variable catch-all is mandatory
+  and must be last; guards are not allowed; `p : Go.Any` is itself
+  a catch-all that keeps the box's recorded type. Targets dedupe
+  by emitted Go repr — `Char` and `Int32` collide (E0309). A
+  function-type target needs parens: `f : (Int -> Int)`.
 
 ## try, Result, |?>
 
