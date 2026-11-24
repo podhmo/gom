@@ -1,0 +1,34 @@
+package main
+
+import go "crypto/rand"
+import go "fmt"
+import go "math/big"
+import go "os"
+import go "strconv"
+import go "strings"
+
+let alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*-_=+"
+
+fn gen_rec (chars: List String) (bound: Ptr big.Int) (n: Int) (acc: List String) -> Result String GoError = if n
+<= 0 { Ok (acc |> List.rev |> fn cs -> strings.Join (cs, "")) } else {
+  let i = try rand.Int (rand.Reader, bound)
+  let idx = Go.conv (i.Int64 ()) : Int
+  gen_rec chars bound (n - 1) [List.get idx chars |> Option.get, ..acc]
+}
+
+fn main () -> Unit = {
+  let args = os.Args |> Go.Slice.to_list |> List.drop 1
+  let n = match args {
+    ["-n", s] -> match strconv.Atoi s {
+      Ok v -> v
+      Err _ -> 16
+    }
+    _ -> 16
+  }
+  let chars = strings.Split (alphabet, "")
+  let bound = big.NewInt (List.length chars)
+  match gen_rec chars bound n [] {
+    Ok pw -> ignore fmt.Println pw
+    Err e -> { ignore fmt.Fprintf (os.Stderr, "passgen: %s\n", e.Error ()); os.Exit 1 }
+  }
+}

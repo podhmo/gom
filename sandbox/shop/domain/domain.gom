@@ -1,0 +1,120 @@
+package domain
+
+import go "strings"
+
+// Domain Modeling Made Functional 風の注文受付ワークフロー。
+// 各段階を別の型で表し、不正な状態遷移を型で防ぐ。
+type UnvalidatedOrderLine = { product_code: String, quantity: Float }
+
+type UnvalidatedOrder = {
+  order_id: String,
+  customer_email: String,
+  lines: List UnvalidatedOrderLine,
+}
+
+// ProductCode は商品コードの種類で数量の単位が決まる:
+// Widget は個数 (Int)、Gizmo は重さ kg (Float)。
+type ProductCode =
+  | Widget (code: String)
+  | Gizmo (code: String)
+
+type OrderQuantity =
+  | Unit (qty: Int)
+  | Kilogram (qty: Float)
+
+type ValidatedOrderLine = { product: ProductCode, quantity: OrderQuantity }
+
+type ValidatedOrder = { order_id: String, customer_email: String, lines: List ValidatedOrderLine }
+
+type PricedOrderLine = { product: ProductCode, quantity: OrderQuantity, line_price: Float }
+
+type PricedOrder = {
+  order_id: String,
+  customer_email: String,
+  lines: List PricedOrderLine,
+  total: Float,
+}
+
+type PlaceOrderError =
+  | Validation (msg: String)
+  | Pricing (msg: String)
+
+fn to_product_code (s: String) -> Result ProductCode PlaceOrderError = match strings.Split (s, "-") {
+  ["W", code] -> Ok (Widget code)
+  ["G", code] -> Ok (Gizmo code)
+  _ -> Err (Validation "unknown product code: ${s}")
+}
+
+fn to_quantity (p: ProductCode) (qty: Float) -> Result OrderQuantity PlaceOrderError = match p {
+  Widget _ -> if qty <= 0.0 { Err (Validation "widget quantity must be positive") } else {
+    let n = Go.conv qty : Int
+    if (Go.conv n : Float) == qty { Ok (Unit n) } else {
+      Err (Validation "widget quantity must be a whole number")
+    }
+  }
+  Gizmo _ -> if qty <= 0.0 { Err (Validation "gizmo quantity must be positive") } else {
+    Ok (Kilogram qty)
+  }
+}
+
+fn validate_line (l: UnvalidatedOrderLine) -> Result ValidatedOrderLine PlaceOrderError = {
+  let p = try to_product_code l.product_code
+  let q = try to_quantity p l.quantity
+  let v: ValidatedOrderLine = { product = p, quantity = q }
+  Ok v
+}
+
+fn validate_lines (xs: List UnvalidatedOrderLine) (acc: List ValidatedOrderLine) -> Result (List ValidatedOrderLine) PlaceOrderError = match xs {
+  [] -> Ok (List.rev acc)
+  [x, ..rest] -> { let v = try validate_line x; validate_lines rest [v, ..acc] }
+}
+
+fn validate_order (o: UnvalidatedOrder) -> Result ValidatedOrder PlaceOrderError = if o.order_id
+== "" { Err (Validation "order id is empty") } else {
+  if not (strings.Contains (o.customer_email, "@")) { Err (Validation "customer email has no @") } else {
+    if o.lines == [] { Err (Validation "order has no lines") } else {
+      let lines = try validate_lines o.lines []
+      let v: ValidatedOrder = {
+        order_id = o.order_id,
+        customer_email = o.customer_email,
+        lines = lines,
+      }
+      Ok v
+    }
+  }
+}
+
+fn unit_price (p: ProductCode) -> Float = match p {
+  Widget _ -> 10.5
+  Gizmo _ -> 3.25
+}
+
+fn quantity_value (q: OrderQuantity) -> Float = match q {
+  Unit n -> Go.conv n : Float
+  Kilogram kg -> kg
+}
+
+fn price_order (o: ValidatedOrder) -> Result PricedOrder PlaceOrderError = {
+  let priced =
+    o.lines
+    |> List.map (fn l ->
+      {
+        product = l.product,
+        quantity = l.quantity,
+        line_price = unit_price l.product * quantity_value l.quantity,
+      })
+  let total = priced |> List.map (fn l -> l.line_price) |> List.sum
+  if total > 10000.0 { Err (Pricing "order total exceeds limit") } else {
+    let p: PricedOrder = {
+      order_id = o.order_id,
+      customer_email = o.customer_email,
+      lines = priced,
+      total = total,
+    }
+    Ok p
+  }
+}
+
+// ワークフロー全体: Unvalidated -> Validated -> Priced
+fn place_order (o: UnvalidatedOrder) -> Result PricedOrder PlaceOrderError =
+  validate_order o |?> price_order

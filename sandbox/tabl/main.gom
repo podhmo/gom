@@ -1,0 +1,42 @@
+package main
+
+import go "encoding/csv"
+import go "errors"
+import go "fmt"
+import go "io"
+import go "os"
+import go "strings"
+import go "unicode/utf8"
+
+fn read_rec (r: Ptr csv.Reader) (acc: List (List String)) -> Result (List (List String)) GoError = match r.Read () {
+  Ok row -> if row == [] { Ok (List.rev acc) } else { read_rec r [row, ..acc] }
+  Err e -> if errors.Is (e, io.EOF) { Ok (List.rev acc) } else { Err e }
+}
+
+fn width_of (i: Int) (rows: List (List String)) -> Int =
+  rows
+  |> List.map (fn row -> List.get i row |> Option.map utf8.RuneCountInString |> Option.get_or_else 0)
+  |> List.fold (fn m w -> if w > m { w } else { m }) 0
+
+fn widths (rows: List (List String)) -> List Int = {
+  let ncols = rows |> List.map List.length |> List.fold (fn m n -> if n > m { n } else { m }) 0
+  List.range 0 ncols |> List.map (fn i -> width_of i rows)
+}
+
+fn pad (s: String) (w: Int) -> String = "${s}${strings.Repeat (" ", w - utf8.RuneCountInString s)}"
+
+fn render_row (ws: List Int) (row: List String) -> String =
+  List.range 0 (List.length row)
+  |> List.map (fn i -> {
+    let cell = List.get i row |> Option.get
+    let w = List.get i ws |> Option.get
+    pad cell w
+  })
+  |> fn cells -> strings.Join (cells, "  ")
+
+fn main () -> Unit = {
+  match read_rec (csv.NewReader os.Stdin) [] {
+    Ok rows -> { let ws = widths rows; for row in rows { ignore fmt.Println (render_row ws row) } }
+    Err e -> { ignore fmt.Fprintf (os.Stderr, "tabl: %s\n", e.Error ()); os.Exit 1 }
+  }
+}

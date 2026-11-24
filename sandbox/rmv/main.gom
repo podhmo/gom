@@ -1,0 +1,53 @@
+package main
+
+import go "errors"
+import go "fmt"
+import go "os"
+import go "regexp"
+
+fn report (e: GoError) -> Unit = {
+  ignore fmt.Fprintf (os.Stderr, "rmv: %s\n", e.Error ())
+  os.Exit 1
+}
+
+fn rename_one (re: Ptr regexp.Regexp) (repl: String) (exec: Bool) (path: String) -> Unit = {
+  let new_name = re.ReplaceAllString (path, repl)
+  if new_name == path { ignore fmt.Printf ("skip    %s\n", path) } else {
+    if exec {
+      match os.Rename (path, new_name) {
+        Ok _ -> ignore fmt.Printf ("renamed %s -> %s\n", path, new_name)
+        Err e -> ignore fmt.Fprintf (os.Stderr, "rmv: %s: %s\n", path, e.Error ())
+      }
+    } else { ignore fmt.Printf ("rename  %s -> %s\n", path, new_name) }
+  }
+}
+
+fn run (args: List String) -> Result Unit GoError = match args {
+  [pat, repl, ..paths] -> {
+    let re = try regexp.Compile pat
+    for p in paths { rename_one re repl false p }
+    ignore fmt.Println "dry-run. pass -x to execute"
+    Ok ()
+  }
+  _ -> Err (errors.New "usage: rmv PATTERN REPL FILE...")
+}
+
+fn main () -> Unit = {
+  let args = os.Args |> Go.Slice.to_list |> List.drop 1
+  match args {
+    ["-x", pat, repl, ..paths] -> {
+      match regexp.Compile pat {
+        Ok re -> for p in paths { rename_one re repl true p }
+        Err e -> report e
+      }
+    }
+    _ -> match run args {
+      Ok _ -> ()
+      Err e -> {
+        match e.Error () {
+          msg -> { ignore fmt.Fprintf (os.Stderr, "rmv: %s\n", msg); os.Exit 2 }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,77 @@
+package main
+
+import go "encoding/csv"
+import go "errors"
+import go "fmt"
+import go "io"
+import go "os"
+import go "strconv"
+import go "strings"
+
+fn parse_cols_rec (xs: List String) (acc: List Int) -> Result (List Int) String = match xs {
+  [] -> Ok (List.rev acc)
+  [x, ..rest] -> match strconv.Atoi x {
+    Ok n -> if n < 1 { Err "column index must be >= 1: ${x}" } else {
+      parse_cols_rec rest [n - 1, ..acc]
+    }
+    Err _ -> Err "not a number: ${x}"
+  }
+}
+
+fn parse_cols (spec: String) -> Result (List Int) String =
+  parse_cols_rec (strings.Split (spec, ",")) []
+
+fn pick (fields: List Int) (row: List String) -> List String =
+  fields
+  |> List.filter (fn i -> i < List.length row)
+  |> List.map (fn i -> List.get i row |> Option.get)
+
+fn read_rec (r: Ptr csv.Reader) (w: Ptr csv.Writer) (fields: List Int) -> Result Unit GoError = match r.Read () {
+  Ok row -> if row == [] { Ok () } else {
+    match w.Write (pick fields row) {
+      Ok _ -> read_rec r w fields
+      Err e -> Err e
+    }
+  }
+  Err e -> if errors.Is (e, io.EOF) { Ok () } else { Err e }
+}
+
+fn usage () -> Unit = { ignore fmt.Fprintln (os.Stderr, "usage: csvcut -f 1,3 [file]"); () }
+
+fn report (e: GoError) -> Unit = {
+  ignore fmt.Fprintf (os.Stderr, "csvcut: %s\n", e.Error ())
+  os.Exit 1
+}
+
+fn main () -> Unit = {
+  let args = os.Args |> Go.Slice.to_list |> List.drop 1
+  match args {
+    ["-f", spec, ..rest] -> match parse_cols spec {
+      Ok fields -> {
+        let input = match rest {
+          [] -> Ok os.Stdin
+          [path] -> os.Open path
+          _ -> Err (errors.New "too many files")
+        }
+        match input {
+          Ok f -> {
+            let w = csv.NewWriter os.Stdout
+            match read_rec (csv.NewReader f) w fields {
+              Ok _ -> {
+                w.Flush ()
+                match w.Error () {
+                  Ok _ -> ()
+                  Err e -> report e
+                }
+              }
+              Err e -> report e
+            }
+          }
+          Err e -> report e
+        }
+      }
+      Err msg -> { ignore fmt.Fprintf (os.Stderr, "csvcut: %s\n", msg); usage (); os.Exit 2 }
+    }
+    _ -> { usage (); os.Exit 2 }
+  }
+}

@@ -1,0 +1,21 @@
+package main
+
+import go "fmt"
+import go "slices"
+
+type Entry = { name: String, size: Int }
+
+fn cmp_by_size (a: Entry) (b: Entry) -> Int = b.size - a.size
+
+fn main () -> Unit = {
+  let xs = [{ name = "a", size = 3 }, { name = "bb", size = 20 }, { name = "c", size = 1 }]
+  let min = slices.MinFunc (xs, Go.func2 cmp_by_size)
+  ignore fmt.Printf ("min: %s %d\n", min.name, min.size)
+  let (idx, found) =
+    slices.BinarySearchFunc (
+      List.sort_by (fn a b -> a.size < b.size) xs,
+      { name = "", size = 20 },
+      Go.func2 (fn a b -> a.size - b.size),
+    )
+  ignore fmt.Printf ("bsearch size=20 -> idx=%d found=%v\n", idx, found)
+}

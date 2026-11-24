@@ -1,0 +1,31 @@
+package domain
+
+type UnvalidatedOrderLine = { product_code : String, quantity : Float }
+
+type UnvalidatedOrder = { order_id : String, customer_email : String, lines : List UnvalidatedOrderLine }
+
+type ProductCode =
+  | Widget (code: String)
+  | Gizmo (code: String)
+
+type OrderQuantity =
+  | Unit (qty: Int)
+  | Kilogram (qty: Float)
+
+type ValidatedOrderLine = { product : ProductCode, quantity : OrderQuantity }
+
+type ValidatedOrder = { order_id : String, customer_email : String, lines : List ValidatedOrderLine }
+
+type PricedOrderLine = { product : ProductCode, quantity : OrderQuantity, line_price : Float }
+
+type PricedOrder = { order_id : String, customer_email : String, lines : List PricedOrderLine, total : Float }
+
+type PlaceOrderError =
+  | Validation (msg: String)
+  | Pricing (msg: String)
+
+fn validate_order (o: UnvalidatedOrder) -> Result ValidatedOrder PlaceOrderError
+
+fn price_order (o: ValidatedOrder) -> Result PricedOrder PlaceOrderError
+
+fn place_order (o: UnvalidatedOrder) -> Result PricedOrder PlaceOrderError

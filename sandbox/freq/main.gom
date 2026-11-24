@@ -1,0 +1,52 @@
+package main
+
+import go "bufio"
+import go "errors"
+import go "fmt"
+import go "os"
+import go "strings"
+
+fn count_rec (sc: Ptr bufio.Scanner) (counts: Go.Map String Int) -> Unit = if sc.Scan () {
+  let w = strings.ToLower (sc.Text ())
+  let n = match Go.Map.get counts w {
+    Some v -> v
+    None -> 0
+  }
+  Go.Map.set counts w (n + 1)
+  count_rec sc counts
+} else { () }
+
+fn count_words (input: Ptr os.File) -> Go.Map String Int = {
+  let sc = bufio.NewScanner input
+  sc.Split (Go.func2 bufio.ScanWords)
+  let counts: Go.Map String Int = Go.Map.make ()
+  count_rec sc counts
+  counts
+}
+
+fn by_count_desc (a: (String, Int)) (b: (String, Int)) -> Bool = match a {
+  (_, ca) -> match b {
+    (_, cb) -> ca > cb
+  }
+}
+
+fn main () -> Unit = {
+  let args = os.Args |> Go.Slice.to_list |> List.drop 1
+  let input = match args {
+    [] -> Ok os.Stdin
+    [path] -> os.Open path
+    _ -> Err (errors.New "usage: freq [file]")
+  }
+  match input {
+    Ok f -> {
+      let counts = count_words f
+      let sorted = Go.Map.to_list counts |> List.sort_by by_count_desc
+      for kv in List.take 20 sorted {
+        match kv {
+          (w, n) -> ignore fmt.Printf ("%6d %s\n", n, w)
+        }
+      }
+    }
+    Err e -> { ignore fmt.Fprintf (os.Stderr, "freq: %s\n", e.Error ()); os.Exit 1 }
+  }
+}

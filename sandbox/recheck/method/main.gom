@@ -1,0 +1,20 @@
+package main
+
+import go "fmt"
+import go "net/http"
+
+type H = { prefix: String }
+
+@method(ServeHTTP)
+fn (h: H) serve_http (w: http.ResponseWriter) (r: Ptr http.Request) -> Unit = {
+  ignore fmt.Fprintf (w, "%s: %s", h.prefix, r.URL.Path)
+  ()
+}
+
+fn main () -> Unit = {
+  let h = { prefix = "hi" }
+  let handler: http.Handler = h
+  ignore fmt.Println "handler ok"
+  ignore handler
+  ()
+}

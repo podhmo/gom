@@ -1,0 +1,30 @@
+package main
+
+import go "fmt"
+import go "math"
+import go "os"
+import go "time"
+
+fn report (d: String) -> Result Unit GoError = {
+  let target = try time.Parse (time.DateOnly, d)
+  let now = time.Now ()
+  let days = (target.Sub now).Hours () / 24.0
+  let n = Go.conv (math.Ceil days) : Int
+  if n >= 0 { ignore fmt.Printf ("%s: %d days left\n", d, n) } else {
+    ignore fmt.Printf ("%s: %d days ago\n", d, 0 - n)
+  }
+  Ok ()
+}
+
+fn main () -> Unit = {
+  let args = os.Args |> Go.Slice.to_list |> List.drop 1
+  match args {
+    [] -> { ignore fmt.Fprintln (os.Stderr, "usage: until 2026-12-31 [...]"); os.Exit 2 }
+    _ -> for d in args {
+      match report d {
+        Ok _ -> ()
+        Err e -> ignore fmt.Fprintf (os.Stderr, "until: %s: %s\n", d, e.Error ())
+      }
+    }
+  }
+}

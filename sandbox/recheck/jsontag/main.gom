@@ -1,0 +1,14 @@
+package main
+
+import go "encoding/json"
+import go "fmt"
+
+type User = { name: String  `json:"name"`, age: Int  `json:"age"` }
+
+fn main () -> Unit = {
+  let u = { name = "taro", age = 30 }
+  match json.Marshal u {
+    Ok b -> ignore fmt.Println (Go.conv b : String)
+    Err e -> ignore fmt.Println "err"
+  }
+}

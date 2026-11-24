@@ -1,0 +1,74 @@
+package main
+
+import go "bufio"
+import go "encoding/csv"
+import go "encoding/json"
+import go "errors"
+import go "fmt"
+import go "io"
+import go "os"
+
+fn render (v: Go.Any) -> String = match v {
+  s: String -> s
+  n: Float -> fmt.Sprintf ("%v", n)
+  b: Bool -> if b { "true" } else { "false" }
+  _ -> fmt.Sprintf ("%v", v)
+}
+
+fn read_rows (sc: Ptr bufio.Scanner) (acc: List (Go.Map String Go.Any)) -> Result (List (Go.Map String Go.Any)) GoError = if sc.Scan () {
+  let m: Ptr (Go.Map String Go.Any) = Ptr.new ()
+  match json.Unmarshal (sc.Bytes (), m) {
+    Ok _ -> read_rows sc [Ptr.get m, ..acc]
+    Err e -> Err e
+  }
+} else { Ok (List.rev acc) }
+
+fn keys_of (rows: List (Go.Map String Go.Any)) -> List String = {
+  let seen: Go.Map String Bool = Go.Map.make ()
+  let keys = (List.fold
+    (fn acc row ->
+      row
+      |> Go.Map.to_list
+      |> (List.fold
+        (fn a kv ->
+          match kv {
+            (k, _) -> if Go.Map.get seen k |> Option.is_none { Go.Map.set seen k true; [k, ..a] } else {
+              a
+            }
+          })
+        acc))
+    []
+    rows)
+  List.rev keys
+}
+
+fn main () -> Unit = {
+  let sc = bufio.NewScanner os.Stdin
+  match read_rows sc [] {
+    Ok rows -> {
+      let keys = keys_of rows
+      let w = csv.NewWriter os.Stdout
+      match w.Write keys {
+        Ok _ -> {
+          for row in rows {
+            let cells =
+              keys
+              |> List.map (fn k ->
+                match Go.Map.get row k {
+                  Some v -> render v
+                  None -> ""
+                })
+            ignore w.Write cells
+          }
+          w.Flush ()
+          match w.Error () {
+            Ok _ -> ()
+            Err e -> { ignore fmt.Fprintf (os.Stderr, "jsonl2csv: %s\n", e.Error ()); os.Exit 1 }
+          }
+        }
+        Err e -> { ignore fmt.Fprintf (os.Stderr, "jsonl2csv: %s\n", e.Error ()); os.Exit 1 }
+      }
+    }
+    Err e -> { ignore fmt.Fprintf (os.Stderr, "jsonl2csv: %s\n", e.Error ()); os.Exit 1 }
+  }
+}

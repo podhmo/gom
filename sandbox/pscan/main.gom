@@ -1,0 +1,56 @@
+package main
+
+import go "fmt"
+import go "net"
+import go "os"
+import go "strconv"
+import go "strings"
+import go "time"
+
+fn probe (host: String) (port: Int) -> Bool = {
+  let addr = net.JoinHostPort (host, strconv.Itoa port)
+  let timeout = Go.conv (200 * 1000000) : time.Duration
+  match net.DialTimeout ("tcp", addr, timeout) {
+    Ok (Some conn) -> { ignore conn.Close (); true }
+    _ -> false
+  }
+}
+
+fn parse_range (s: String) -> Result (Int, Int) String = match strings.Split (s, "-") {
+  [lo_s, hi_s] -> match (strconv.Atoi lo_s, strconv.Atoi hi_s) {
+    (Ok lo, Ok hi) -> if 1 <= lo && lo <= hi && hi <= 65535 { Ok (lo, hi) } else {
+      Err "bad range: ${s}"
+    }
+    _ -> Err "bad range: ${s}"
+  }
+  _ -> Err "bad range: ${s}"
+}
+
+fn scan (host: String) (lo: Int) (hi: Int) -> List Int = {
+  let tasks = List.range lo hi |> List.map (fn p -> (p, Task.spawn (fn () -> probe host p)))
+  tasks
+  |> List.filter (fn pt ->
+    match pt {
+      (_, t) -> Task.await t
+    })
+  |> List.map (fn pt ->
+    match pt {
+      (p, _) -> p
+    })
+}
+
+fn main () -> Unit = {
+  let args = os.Args |> Go.Slice.to_list |> List.drop 1
+  match args {
+    [host, range_s] -> match parse_range range_s {
+      Ok (lo, hi) -> {
+        let open = scan host lo hi
+        if open == [] { ignore fmt.Printf ("%s: no open ports in %d-%d\n", host, lo, hi) } else {
+          for p in open { ignore fmt.Printf ("%s: %d open\n", host, p) }
+        }
+      }
+      Err msg -> { ignore fmt.Fprintf (os.Stderr, "pscan: %s\n", msg); os.Exit 2 }
+    }
+    _ -> { ignore fmt.Fprintln (os.Stderr, "usage: pscan host 1-1024"); os.Exit 2 }
+  }
+}

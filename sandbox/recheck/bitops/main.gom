@@ -1,0 +1,14 @@
+package main
+
+import go "fmt"
+import go "os"
+
+fn main () -> Unit = {
+  let flags = os.O_APPEND ||| os.O_CREATE ||| os.O_WRONLY
+  match os.OpenFile ("/tmp/gom-bitops.log", flags, 0o600) {
+    Ok f -> { ignore fmt.Fprintf (f, "hello\n"); ignore f.Close () }
+    Err e -> ignore fmt.Fprintf (os.Stderr, "bitops: %s\n", e.Error ())
+  }
+  // bitwise and / xor / shifts too
+  ignore fmt.Printf ("%d %d %d %d %d\n", 6 &&& 3, 6 ||| 3, 6 ^^^ 3, 1 <<< 4, 256 >>> 4)
+}

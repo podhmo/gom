@@ -1,0 +1,59 @@
+package main
+
+import go "fmt"
+import "github.com/podhmo/gom/sandbox/shop/domain"
+
+fn show_line (l: domain.PricedOrderLine) -> String = {
+  let product = match l.product {
+    domain.Widget c -> "Widget(${c})"
+    domain.Gizmo c -> "Gizmo(${c})"
+  }
+  let qty = match l.quantity {
+    domain.Unit n -> "${n} units"
+    domain.Kilogram kg -> "${kg} kg"
+  }
+  "${product} ${qty} -> ${l.line_price}"
+}
+
+fn show_error (e: domain.PlaceOrderError) -> String = match e {
+  domain.Validation msg -> "validation error: ${msg}"
+  domain.Pricing msg -> "pricing error: ${msg}"
+}
+
+fn run_order (o: domain.UnvalidatedOrder) -> Unit = match domain.place_order o {
+  Ok p -> {
+    ignore fmt.Printf ("order %s (total %.2f)\n", p.order_id, p.total)
+    for l in p.lines { ignore fmt.Println "  ${show_line l}" }
+  }
+  Err e -> ignore fmt.Printf ("order %s REJECTED: %s\n", o.order_id, show_error e)
+}
+
+fn main () -> Unit = {
+  let ok_order: domain.UnvalidatedOrder = {
+    order_id = "O-100",
+    customer_email = "taro@example.com",
+    lines = [
+      { product_code = "W-1234", quantity = 3.0 },
+      { product_code = "G-777", quantity = 0.5 },
+    ],
+  }
+  let bad_qty: domain.UnvalidatedOrder = {
+    order_id = "O-101",
+    customer_email = "hanako@example.com",
+    lines = [{ product_code = "W-1234", quantity = 1.5 }],
+  }
+  let bad_code: domain.UnvalidatedOrder = {
+    order_id = "O-102",
+    customer_email = "jiro@example.com",
+    lines = [{ product_code = "X-999", quantity = 1.0 }],
+  }
+  let bad_email: domain.UnvalidatedOrder = {
+    order_id = "O-103",
+    customer_email = "not-an-email",
+    lines = [{ product_code = "G-1", quantity = 1.0 }],
+  }
+  run_order ok_order
+  run_order bad_qty
+  run_order bad_code
+  run_order bad_email
+}
