@@ -32,8 +32,9 @@ run 1 の「不得意・危険」の大半が wave35–41 の実装で解消し�
 - **概ね解消**: `Go.nil`（List 面のパラメータには `let` 束縛が要る）、
   部分適用 lint（W0901 — `any` 引数経由は残る）
 - **部分的解消**: `~[]E` の要素一致（`slices.*Func` の読み取り系に
-  record リストを渡せる。in-place 変更系はコピーなので W0501 の警告どおり
-  無意味 — `Go.Slice` を gom 側で作る面が依然ない）
+  record リストを渡せる。in-place 変更系も `let gs : Go.Slice T = xs`
+  の ascription（`ConvSliceToGo` → `.ToSlice()` コピー）で実体を作れる
+  — run 2 の「作る面がない」観測はレビューで訂正、実測確認済み）
 - **未検証のまま**: `Go.conv` の `List`→named slice（TODO 上は wave38
   lane E で解消済みの扱い）
 
@@ -66,13 +67,14 @@ run 1 の「不得意・危険」の大半が wave35–41 の実装で解消し�
 
 ### open-questions に載せたもの（提供形が未決）
 
-3. **`Go.Slice` の gom 側コンストラクタ**
-   - 観測: `slices.SortFunc` のような in-place 変更系には `Go.Slice` の
-     実体が要るが、gom 側から `Go.Slice` を作る面がない
-     （`Go.conv xs : Go.Slice Entry` は gom 要素型で E0507、`Array` も
-     `~[]E` を満たさず E0401）。読み取り系は `~[]E` の要素一致で `List`
-     のまま渡せるが、書き込み系は行き止まり。
-   - → open-questions「Go 相互運用」
+3. ~~**`Go.Slice` の gom 側コンストラクタ**~~ — **登録後に解消**:
+   run 2 は「gom 側から `Go.Slice` を作る面がない」と観測したが、
+   `let gs : Go.Slice T = xs`（`xs : List T`）の ascription が通る
+   （check の `conformExpr`→`sliceConv` が `ConvSliceToGo`、lower が
+   `.ToSlice()` コピーを emit）。レビュー指摘で発見・実測確認。
+   コピーなので gom 側 `List` は変わらないが `slices.Sort` の結果は
+   `Go.Slice` 側から読める — 用途は足りる。
+   open-questions は解消済み `[x]` として記録。
 
 4. **文字列の操作面（len・部分列・添字）**
    - 観測: `strings.Join`/`Split` は Go の `strings` が使えるが、
