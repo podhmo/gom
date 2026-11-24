@@ -101,7 +101,15 @@ func (l *lowerer) litUnit(sp diag.Span) *core.Lit {
 func (l *lowerer) expr(s *seq, e check.Expr) core.Expr {
 	switch e := e.(type) {
 	case *check.Lit:
-		return &core.Lit{Base: baseOf(e), Kind: e.Kind, Text: e.Text}
+		lit := &core.Lit{Base: baseOf(e), Kind: e.Kind, Text: e.Text}
+		// A literal checked at a declared type whose Go emission is
+		// a defined type (`type UserId int64`) materializes it —
+		// bare `0` under a UserId binder would bind Go's default
+		// int. `UserId(0)` keeps the type like a named-Go literal.
+		if _, ok := l.singleField(e.Type()); ok {
+			return &core.Conv{Sp: e.Sp, Typ: e.Type(), Kind: core.ConvNamed, X: lit}
+		}
+		return lit
 	case *check.Var:
 		return l.varExpr(e)
 	case *check.Hole:

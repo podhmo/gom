@@ -1,0 +1,20 @@
+package main
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// A numeric literal assigns to a declared type whose Go emission is
+// a defined type (`type UserId int64` for the one-field record) —
+// Go's untyped-constant rule. The same peel admits the declared
+// type to arithmetic and comparison its underlying allows
+// (`u + 0`, `u < 100`, `d == s`).
+type UserId = { value: Int }
+type Score = { pts: Float }
+
+fn clamp (u: UserId) -> UserId = goiface.Clamp64 u 0 100
+fn add (u: UserId) -> UserId = u + 0
+fn lt (u: UserId) -> Bool = u < 100
+fn rate (s: Score) -> Score = s * 2.0
+fn bound () -> UserId = {
+  let x : UserId = 7
+  x
+}

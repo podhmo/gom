@@ -201,10 +201,16 @@ func (c *checker) satisfies(r *metaRec, t types.Type, sp diag.Span) bool {
 	// oracle — decides admission, so `30 * time.Second` types and
 	// `deadline - now` land on Duration without `Go.conv`.
 	kind, isGoNamed := c.namedBasicKind(t)
-	num := isNumeric(t) || (isGoNamed && (namedIntegral(kind) || namedFloat(kind)))
-	flo := isFloat(t) || (isGoNamed && namedFloat(kind))
-	intg := isIntegral(t) || (isGoNamed && namedIntegral(kind))
-	ord := isOrdered(t) || (isGoNamed && (namedIntegral(kind) || namedFloat(kind)))
+	// A one-field record emits as the Go defined type `type X F`:
+	// Go assigns untyped constants to X and admits X to the
+	// arithmetic and comparison its underlying F allows, so the
+	// constraint classes judge the peeled underlying — `Clamp64(u,
+	// 0, 100)` types like Go does.
+	u := c.definedUnderlying(t)
+	num := isNumeric(t) || isNumeric(u) || (isGoNamed && (namedIntegral(kind) || namedFloat(kind)))
+	flo := isFloat(t) || isFloat(u) || (isGoNamed && namedFloat(kind))
+	intg := isIntegral(t) || isIntegral(u) || (isGoNamed && namedIntegral(kind))
+	ord := isOrdered(t) || isOrdered(u) || (isGoNamed && (namedIntegral(kind) || namedFloat(kind)))
 	if r.num && !num {
 		c.mismatch(sp, "a numeric type", t)
 		return false
