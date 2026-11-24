@@ -957,6 +957,10 @@ func (c *checker) checkDecls(decls []syntax.Decl) {
 func (c *checker) importRootsByFile(res *resolve.Resolved) map[string][]string {
 	roots := map[string][]string{}
 	for _, d := range res.File.Decls {
+		// Seed every file that contributes a decl so an import-less
+		// file still scopes to the ambient (unscoped) decl table —
+		// absent keys would drop those candidates entirely.
+		roots[d.Span().File] = roots[d.Span().File]
 		if id, ok := d.(*syntax.ImportDecl); ok && !id.Go {
 			p := res.ImportPathOf(id)
 			if p == "" {
