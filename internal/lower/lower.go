@@ -1015,12 +1015,34 @@ func (l *lowerer) singleField(recTyp types.Type) (check.TField, bool) {
 }
 
 // fieldFloat reports whether a defined-type field's emitted Go type
-// is floating-point — `Float`/`Float64`. A `*types.Go` field's
-// underlying is not knowable here; such fields are rare and take
-// the conservative path (no literal-sign folding).
+// is floating-point — `Float`/`Float64`. The field itself may be a
+// defined type (`{z: Score}` where Score wraps `Float`):
+// definedUnderlying peels the chain to the emitted shape. A
+// `*types.Go` field's underlying is not knowable here; such fields
+// are rare and take the conservative path (no literal-sign
+// folding).
 func (l *lowerer) fieldFloat(f check.TField) bool {
-	c, ok := types.Chase(f.Type).(*types.Con)
-	return ok && c.Qual == "" && (c.Name == "Float" || c.Name == "Float64")
+	seen := map[string]bool{}
+	t := f.Type
+	for {
+		c, ok := types.Chase(t).(*types.Con)
+		if !ok {
+			return false
+		}
+		if c.Qual == "" && (c.Name == "Float" || c.Name == "Float64") {
+			return true
+		}
+		key := conKey(c)
+		if seen[key] {
+			return false
+		}
+		seen[key] = true
+		sf, single := l.singleField(t)
+		if !single {
+			return false
+		}
+		t = sf.Type
+	}
 }
 
 // fieldIndex resolves a record field's declaration index — from the
