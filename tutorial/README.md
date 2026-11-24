@@ -4,7 +4,10 @@ A progressive, executable tour of the Gom language as it works
 *today*. Every numbered directory is a real program: `gom build`
 compiles it to Go, and the `go` toolchain runs the result.
 
-Gom transpiles to readable Go. To run a program you need two steps:
+Gom is a statically typed, expression-oriented functional language
+that transpiles to Go. The generated code is not meant to be clean,
+idiomatic Go, but it is meant to be readable enough for a human to
+inspect and debug. To run a program you need two steps:
 
 ```sh
 cd tutorial/01-hello
