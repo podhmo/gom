@@ -16,3 +16,11 @@ Repair paths for reference: E0601 (missing `.gomi`) resolves via `gom info`'s dr
 ## Decision
 
 Do not run `checkInterfaces` in `gom fix` for now; the question returns to open-questions. Revisit when interface diagnostics gain `safe` fixes — that is the only channel through which the pass helps `gom fix`. If adopted later, the agreed shape stands: diagnostics feed `planFixes` only — not reported (the stream stays `applied` + `summary`), and a broken contract never gates application (a repair tool must run exactly when the contract is broken).
+
+## 再確認（2026-11-24, wave43 lane E）
+
+状況不変で保留を維持。E0603（`internal/iface/compare.go`）と
+E0601/E0604（`cmd/gom/iface.go` の missingInterface/strayInterface）は
+依然 safe fix を持たず、コンパイラの safe fix は E0402 の `ignore (...)`
+のみ — 適合検査を fix 候補プールに足しても観測差はゼロのまま。
+採用トリガー（interface 診断への safe fix 追加）は未到来。
