@@ -2849,3 +2849,68 @@ type User = { name: String `json:"name"` }
                 (type_atom
                   (uident)))))
           (raw_string))))))
+
+================================================================================
+operator continuation lines
+================================================================================
+
+package m
+
+fn f (a: Int) (b: Int) -> Int = a
+  ^^^ b
+
+--------------------------------------------------------------------------------
+
+(source_file
+  (package_decl
+    (ident))
+  (fn_decl
+    (fn_sig
+      name: (ident)
+      (fn_param
+        (pattern
+          (or_pattern
+            (ctor_pattern
+              (pat_atom
+                (ident)))))
+        (type_expr
+          (arrow_type
+            (app_type
+              (type_atom
+                (uident))))))
+      (fn_param
+        (pattern
+          (or_pattern
+            (ctor_pattern
+              (pat_atom
+                (ident)))))
+        (type_expr
+          (arrow_type
+            (app_type
+              (type_atom
+                (uident))))))
+      (type_expr
+        (arrow_type
+          (app_type
+            (type_atom
+              (uident))))))
+    (expr
+      (ascribed_expr
+        (pipe_expr
+          (bool_or_expr
+            (bool_and_expr
+              (rel_expr
+                (add_expr
+                  (mul_expr
+                    (unary_expr
+                      (apply_expr
+                        (postfix_expr
+                          (atom
+                            (ident))))))
+                  (add_op)
+                  (mul_expr
+                    (unary_expr
+                      (apply_expr
+                        (postfix_expr
+                          (atom
+                            (ident)))))))))))))))
