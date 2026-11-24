@@ -305,6 +305,8 @@ func (Option_None[A]) isOption() A   { var z A; return z }
 
 組み込みの `List a` と `Result a e` はこの sealed interface ではなく別の表現にする: `List a` は `type List[A] []A`（スライス）、`Result a e` は `struct { state ResultTag; Value T; Error E }`（非公開の 3 状態タグ付き。4.6 節）。`Result` は保持するデータではなく失敗しうる呼び出し規約なので、構築・判定・分解が安い専用表現にする（[decisions/value-representation](decisions/2026-11-01-value-representation.md)）。
 
+tuple は `rt.TupleN[A, ...]`（`V0..Vn` フィールド）だが、`rt` は `Tuple8` までしか持たないため 8 要素超は同じ `V0..Vn` を持つ匿名 struct（`struct{ V0 A; ... }`）に降りる — 8 個の上限は Go 多値戻り値のルールであり、ソース上の tuple arity は縛らない（[decision](decisions/2026-11-24-wide-tuple-anon-struct.md)）。
+
 record は plain struct（`type X struct{ F T; ... }`）だが、フィールドが 1 つだけの record は Go の defined type `type X F` にする — Gom 側の newtype の綴りとしての意味を持たせる（[decision](decisions/2026-11-21-record-single-field-defined-type.md)）。表現の選択は codegen 側ではなく lower の `singleField` が `check.DefinedField`（ローカル宣言）と `TypeOracle.DefinedField`（インポート宣言）に集約して決め、core には結果だけが残る: フィールド読み取り `r.f` は `core.FieldGet{Unwrap: true}` で `F(r)`、リテラル `{f = v}` と `{r with f = v}` は `core.Conv{ConvNamed}` で `X(v)`、record ごとの `gomEq`/`gomShow` の被演算子射影は `EqField`/`ShowField.Unwrap` で `F(v)`。唯一のフィールドが裸の型パラメータのとき（`type Box a = { item: a }`）は Go が `type Box[A any] A` を拒否するため struct にフォールバックし、宣言・利用・インポートのどの面でも同じ判定が効く。
 
 ### 4.2 match → 決定木 → type switch

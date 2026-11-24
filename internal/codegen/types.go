@@ -241,8 +241,22 @@ func (g *gen) goFuncType(n int, args []types.Type) ast.Expr {
 	return ft
 }
 
-// tupleType renders `(A, B, ...)` as rt.TupleN[A, B, ...].
+// tupleType renders `(A, B, ...)` as rt.TupleN[A, B, ...]. rt has
+// tuples only up to Tuple8 — a wider spelled tuple (the arity cap
+// applies to Go multi-value results, not to source-written tuple
+// types) emits as an anonymous struct with the same V-fields, so
+// construction and `.Vn` access keep working unchanged.
 func (g *gen) tupleType(t *types.Tuple) ast.Expr {
+	if len(t.Elems) > 8 {
+		fields := make([]*ast.Field, len(t.Elems))
+		for i, e := range t.Elems {
+			fields[i] = &ast.Field{
+				Names: []*ast.Ident{ast.NewIdent(fmt.Sprintf("V%d", i))},
+				Type:  g.goType(e),
+			}
+		}
+		return &ast.StructType{Fields: &ast.FieldList{List: fields}}
+	}
 	x := ast.NewIdent(fmt.Sprintf("%sTuple%d", g.pkgQual(rtPath), len(t.Elems)))
 	args := g.goTypeArgs(t.Elems)
 	if len(args) == 1 {

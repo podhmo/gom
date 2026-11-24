@@ -1,0 +1,13 @@
+package tuple9
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// A >8-ary spelled tuple emits as an anonymous V-field struct.
+// echo passes it through a Go generic (T = the struct type);
+// Big/Nine are called from the Go test with struct literals.
+fn big ((a, _, _, _, _, _, _, _, i): (Int, Int, Int, Int, Int, Int, Int, Int, Int)) -> Int = a + i
+
+fn nine () -> (Int, Int, Int, Int, Int, Int, Int, Int, Int) = (1, 2, 3, 4, 5, 6, 7, 8, 9)
+
+fn echo (t: (Int, Int, Int, Int, Int, Int, Int, Int, Int)) -> (Int, Int, Int, Int, Int, Int, Int, Int, Int) =
+    goiface.Identity t

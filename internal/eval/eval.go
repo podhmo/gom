@@ -614,11 +614,27 @@ func (e *interp) eval(x check.Expr, env *Env) Value {
 		for _, el := range x.Elems {
 			if sp, isSpread := el.(*check.Spread); isSpread {
 				v := e.eval(sp.X, env)
-				tail, ok := v.(*VList)
-				if !ok {
+				switch tail := v.(type) {
+				case *VList:
+					elems = append(elems, tail.Elems...)
+				case *VHost:
+					// A Go slice through a host binding spreads
+					// element-wise — unboxed per the element type
+					// so arithmetic and patterns see real values,
+					// the same conversion unboxAny applies at a
+					// composite's slots.
+					if con, ok := types.Chase(sp.X.Type()).(*types.Con); ok && len(con.Args) == 1 {
+						if rv := reflect.ValueOf(tail.V); rv.Kind() == reflect.Slice {
+							for i := 0; i < rv.Len(); i++ {
+								elems = append(elems, e.unboxAny(&VHost{V: rv.Index(i).Interface()}, con.Args[0]))
+							}
+							continue
+						}
+					}
+					failData(CodeInternal, "spread of a non-list", el.Span(), "value", v.String())
+				default:
 					failData(CodeInternal, "spread of a non-list", el.Span(), "value", v.String())
 				}
-				elems = append(elems, tail.Elems...)
 				continue
 			}
 			elems = append(elems, e.eval(el, env))
@@ -1442,6 +1458,37 @@ func (e *interp) unboxAny(v Value, t types.Type) Value {
 	}
 	if inner, ok := h.V.(Value); ok {
 		return e.reshape(inner, t)
+	}
+	if tup, ok := types.Chase(t).(*types.Tuple); ok {
+		// A host tuple arrives as the emitted struct — `rt.TupleN`
+		// up to 8 fields, the anonymous `struct{ V0..Vn }` past it.
+		// Both expose V-fields, so reflect the elements out.
+		if rv := reflect.ValueOf(h.V); rv.Kind() == reflect.Struct {
+			elems := make([]Value, len(tup.Elems))
+			for i, et := range tup.Elems {
+				fv := rv.FieldByName(fmt.Sprintf("V%d", i))
+				if !fv.IsValid() {
+					return h
+				}
+				elems[i] = e.unboxAny(&VHost{V: fv.Interface()}, et)
+			}
+			return &VTuple{Elems: elems}
+		}
+	}
+	if con, ok := types.Chase(t).(*types.Con); ok && len(con.Args) == 1 &&
+		con.Qual == "" && con.Name == "List" {
+		// A host slice becomes a VList so list patterns and
+		// indexing see its elements — same conversion inside
+		// composite targets (a tuple field, a record slot). Only
+		// Gom's immutable List converts: a Go.Slice target keeps
+		// its VHost so writes through Go stay observable.
+		if rv := reflect.ValueOf(h.V); rv.Kind() == reflect.Slice || rv.Kind() == reflect.Array {
+			elems := make([]Value, rv.Len())
+			for i := range elems {
+				elems[i] = e.unboxAny(&VHost{V: rv.Index(i).Interface()}, con.Args[0])
+			}
+			return &VList{Elems: elems}
+		}
 	}
 	switch types.GoRepr(t) {
 	case "error":

@@ -1,0 +1,9 @@
+package tuple9
+
+//gom:result-notaint big 0
+fn big ((a, _, _, _, _, _, _, _, i): (Int, Int, Int, Int, Int, Int, Int, Int, Int)) -> Int
+
+//gom:result-notaint nine 0
+fn nine () -> (Int, Int, Int, Int, Int, Int, Int, Int, Int)
+
+fn echo (t: (Int, Int, Int, Int, Int, Int, Int, Int, Int)) -> (Int, Int, Int, Int, Int, Int, Int, Int, Int)
