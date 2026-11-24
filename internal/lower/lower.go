@@ -1029,19 +1029,22 @@ func (l *lowerer) fieldFloat(f check.TField) bool {
 		if !ok {
 			return false
 		}
-		if c.Qual == "" && (c.Name == "Float" || c.Name == "Float64") {
-			return true
+		// A user record wins over the builtin name first — the
+		// file may declare its own `type Float = {v: Int}`, and
+		// treating that as builtin float would skip the sign fold
+		// and emit `-X` on a magnitude Go cannot convert. Peel the
+		// record; the builtin name check applies only when no
+		// declared record owns the constructor.
+		if sf, single := l.singleField(t); single {
+			key := conKey(c)
+			if seen[key] {
+				return false
+			}
+			seen[key] = true
+			t = sf.Type
+			continue
 		}
-		key := conKey(c)
-		if seen[key] {
-			return false
-		}
-		seen[key] = true
-		sf, single := l.singleField(t)
-		if !single {
-			return false
-		}
-		t = sf.Type
+		return c.Qual == "" && (c.Name == "Float" || c.Name == "Float64")
 	}
 }
 
