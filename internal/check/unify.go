@@ -473,7 +473,7 @@ func (w *eqWalk) expand(ti *typeInfo, f func() bool) bool {
 // answer false rather than guess: a rejected call is recoverable, a
 // generated file that fails `go build` is not.
 func (c *checker) goReprComparable(t types.Type) bool {
-	w := &cmpWalk{c: c}
+	w := &cmpWalk{c: c, memo: map[cmpKey]bool{}}
 	return w.has(t)
 }
 
@@ -484,12 +484,45 @@ type cmpWalk struct {
 	seen  []recordVisit
 	steps int
 	nodes int
+	memo  map[cmpKey]bool
 }
 
 // cmpNodeBudget bounds total node visits — a recursion that swaps
 // or compounds its arguments (`x: Bad (Tuple a a)`) grows the
 // traversal faster than the expansion step limit notices.
 const cmpNodeBudget = 4096
+
+// cmpKey keys the memo of finite-shape verdicts: the rendered type,
+// its spelling scope, and the live substitution signature. A tuple
+// is the only shape whose children are re-walked without a Con
+// indirection — repeated tuple fields would otherwise re-spend the
+// node budget on every occurrence (a payload that nests one wide
+// tuple four deep walks thousands of identical nodes).
+type cmpKey struct {
+	typ     string
+	foreign bool
+	sub     string
+}
+
+// subSig renders a substitution signature for the memo key — the
+// same spelled tuple can judge differently under different
+// bindings, so bindings join the key.
+func subSig(sub map[int]subArg) string {
+	if len(sub) == 0 {
+		return ""
+	}
+	ids := make([]int, 0, len(sub))
+	for id := range sub {
+		ids = append(ids, id)
+	}
+	slices.Sort(ids)
+	var b strings.Builder
+	for _, id := range ids {
+		a := sub[id]
+		fmt.Fprintf(&b, "#%d=%s:%v;", id, a.typ, a.foreign)
+	}
+	return b.String()
+}
 
 // subArg is a lazily substituted type argument paired with the
 // declaration scope it was spelled in — an argument written inside
@@ -536,13 +569,23 @@ func (w *cmpWalk) hasS(t types.Type, sub map[int]subArg, foreign bool) bool {
 		return false
 	case *types.Tuple:
 		// rt.TupleN[A, ...] is a struct — comparable iff every
-		// element is.
+		// element is. The verdict is memoized: a spelled tuple
+		// repeated across fields is one subtree, and walking it once
+		// per occurrence would exhaust the node budget on finite
+		// types.
+		k := cmpKey{typ: t.String(), foreign: foreign, sub: subSig(sub)}
+		if r, ok := w.memo[k]; ok {
+			return r
+		}
+		r := true
 		for _, e := range t.Elems {
 			if !w.hasS(e, sub, foreign) {
-				return false
+				r = false
+				break
 			}
 		}
-		return true
+		w.memo[k] = r
+		return r
 	case *types.Go:
 		if src, ok := w.c.src.(ComparableSource); ok {
 			return src.GoComparable(t)

@@ -8,14 +8,14 @@
       "span": {
         "file": "E0508_comparable_payload.gom",
         "start": {
-          "line": 26,
+          "line": 31,
           "col": 12,
-          "offset": 1045
+          "offset": 1266
         },
         "end": {
-          "line": 26,
+          "line": 31,
           "col": 20,
-          "offset": 1053
+          "offset": 1274
         }
       },
       "data": {
@@ -32,14 +32,14 @@
       "span": {
         "file": "E0508_comparable_payload.gom",
         "start": {
-          "line": 29,
+          "line": 34,
           "col": 12,
-          "offset": 1147
+          "offset": 1368
         },
         "end": {
-          "line": 29,
+          "line": 34,
           "col": 20,
-          "offset": 1155
+          "offset": 1376
         }
       },
       "data": {
@@ -56,14 +56,14 @@
       "span": {
         "file": "E0508_comparable_payload.gom",
         "start": {
-          "line": 32,
+          "line": 37,
           "col": 12,
-          "offset": 1261
+          "offset": 1482
         },
         "end": {
-          "line": 32,
+          "line": 37,
           "col": 20,
-          "offset": 1269
+          "offset": 1490
         }
       },
       "data": {
@@ -80,14 +80,14 @@
       "span": {
         "file": "E0508_comparable_payload.gom",
         "start": {
-          "line": 35,
+          "line": 40,
           "col": 12,
-          "offset": 1345
+          "offset": 1566
         },
         "end": {
-          "line": 35,
+          "line": 40,
           "col": 20,
-          "offset": 1353
+          "offset": 1574
         }
       },
       "data": {
@@ -104,14 +104,14 @@
       "span": {
         "file": "E0508_comparable_payload.gom",
         "start": {
-          "line": 38,
+          "line": 43,
           "col": 12,
-          "offset": 1457
+          "offset": 1678
         },
         "end": {
-          "line": 38,
+          "line": 43,
           "col": 20,
-          "offset": 1465
+          "offset": 1686
         }
       },
       "data": {
@@ -128,14 +128,14 @@
       "span": {
         "file": "E0508_comparable_payload.gom",
         "start": {
-          "line": 41,
+          "line": 46,
           "col": 12,
-          "offset": 1574
+          "offset": 1795
         },
         "end": {
-          "line": 41,
+          "line": 46,
           "col": 20,
-          "offset": 1582
+          "offset": 1803
         }
       },
       "data": {
@@ -152,14 +152,14 @@
       "span": {
         "file": "E0508_comparable_payload.gom",
         "start": {
-          "line": 44,
+          "line": 49,
           "col": 12,
-          "offset": 1668
+          "offset": 1889
         },
         "end": {
-          "line": 44,
+          "line": 49,
           "col": 20,
-          "offset": 1676
+          "offset": 1897
         }
       },
       "data": {
@@ -176,18 +176,42 @@
       "span": {
         "file": "E0508_comparable_payload.gom",
         "start": {
-          "line": 47,
+          "line": 52,
           "col": 12,
-          "offset": 1765
+          "offset": 1986
         },
         "end": {
-          "line": 47,
+          "line": 52,
           "col": 20,
-          "offset": 1773
+          "offset": 1994
         }
       },
       "data": {
         "argument": "Dbl Int",
+        "constraint": "comparable",
+        "parameter": "E"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0508",
+      "severity": "error",
+      "message": "type argument `Grow Int` does not satisfy the `comparable` constraint of `Contains`'s type parameter `E`",
+      "span": {
+        "file": "E0508_comparable_payload.gom",
+        "start": {
+          "line": 55,
+          "col": 12,
+          "offset": 2086
+        },
+        "end": {
+          "line": 55,
+          "col": 20,
+          "offset": 2094
+        }
+      },
+      "data": {
+        "argument": "Grow Int",
         "constraint": "comparable",
         "parameter": "E"
       }
