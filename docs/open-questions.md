@@ -27,6 +27,11 @@
 
 - [x] `Go.Slice` の gom 側コンストラクタ — **解消**: `let gs : Go.Slice T = xs`（`xs : List T`）の ascription で `List` → `Go.Slice` が通る。check の `conformExpr` → `sliceConv` が `ConvSliceToGo` を返し、lower が `.ToSlice()` コピーを emit する（run 2 の recheck は「面がない」として登録したが、レビュー指摘で発見・実測確認。`Go.conv` の明示キャストは gom 要素型で E0507、`Array` は `~[]E` を満たさず E0401 のまま）。コピーのため gom 側の `List` 本体は変わらないが、`slices.Sort`（順序のある要素）や `slices.SortFunc`（record — `Go.func2` 比較器）の結果は `Go.Slice` 側から読める — 用途は足りる（run 2 — [recheck](sketch/ja/2026-11-24-sandbox-explorer2-recheck.md)）
 
+- [ ] `%w` error wrapping の第一級サポート: 生成 `fmt.Errorf` が引数を box するため vet が `%w` を弾き、`wrap`/`wrapf` は `@extern` shim 退避。`Result` がある分第一級にしたい（selfish 移植 — [sketch](sketch/ja/2026-11-24-selfish-port.md)、wave43 lane F）
+- [ ] `@method` の `Result` 返り許可（E0420 緩和）: `encoding.TextUnmarshaler` 系など error を返す Go interface を gom 型に実装できない。現状は同パッケージ `shim.go` に Go で書く回避（selfish 移植 — 同上 sketch、実装の制約: [implementation-gaps.md](implementation-gaps.md)）
+- [ ] `Result (Option T, U)` の payload Option を呼出し側でも宣言できるか: メソッド直呼びの n-ary result は verbatim 固定で `Ptr.to_option` の後包みが要る（selfish 移植 stage 4 — 同上 sketch）
+- [ ] スカラーリテラルの meta bind 遅延: 共有メタを持つ部分適用で供給リテラルが `?b` を先に builtin へ commit し want 側の宣言型に materialize できない（`pair "x"` の E0401 誤拒否、#215 escalate）。数値リテラルの pendingLit 式遅延をスカラーへ広げるか、部分適用の conform 順序を want-aware にするか — **wave44 lane B として採択済み**（[prompts](sketch/2026-11-24-wave44-prompts.md)）
+
 ### 最適化
 
 - [x] 生成コード特殊化ポリシー（curried HOF 側）: 呼出側 uncurry（flat fn params）を採択 — 宣言 >=2 本矢印パラメータを flat `func(T1',...,Tk') R'` にし、`Fold` の要素ごと確保を解消（~12×）。wave20 lane 2、[decision](decisions/2026-11-18-flat-fn-params.md)、[検証](sketch/2026-11-18-flat-fn-params-verify.md)。コピーしない共有スライス型（View）の案は [problems](problems/2026-11-04-shared-slice-view-type.md)
@@ -57,11 +62,15 @@
 - インクリメンタルビルドのキャッシュ（P4。それまでは毎回変換し、Go のキャッシュに任せる）
 - `iota` 流の Go 定数セット宣言 — sum type や `let` 定数で代替になるが、Go API の定数群を gom 側から作る面はない（sandbox 探索 — [sketch](sketch/2026-11-23-sandbox-missing-features.md)）
 - cgo、`unsafe`、`reflect` の本格的な扱い
+- `gom install` — 書き換え後の selfish リポジトリのような gom 製バイナリをリポジトリ指定でインストールする経路（`go install` 相当）。依存パッケージの推移的 emit（TODO の `gom run` 不ビルド問題）と合わせて検討（podhmo 要望、2026-11-24、wave43 lane F）
 - 符号なし整数（`byte`/`uint8` 以外 — spec §8.3 で v1 非対応と明記済み）: run 2 で `text/tabwriter` の `flags uint` が E0501 で取れず手書きパディングに退避した事例あり（[recheck](sketch/ja/2026-11-24-sandbox-explorer2-recheck.md) tabwriter）。`uint16`/`uint32`/`uint64`/`uintptr` が要るかは需要を見て再検討
 - セルフホスト（コンパイラを Gom で書き直す）
 - [x] Core 検証器で Go 呼び出しの関数引数の表現を検査する — wave34 lane D で実装済み: `CallGo.FlatArgs` に宣言型由来のスロット arity を載せ、`core.Validate` が emitted repr（`callbackArity`）と照合して E0901。宣言型（rigid）を読む点が要 — instantiated 型は型変数下の関数型で arity が広がる（`internal/core/validate.go`、`TestCallGoCtorRefCallbackArity`）
 - [x] W0502 `lintErrorsAsTarget` の `Ptr (Ptr E)` ケース: `**int` は `*int` が error 非実装かつ非 interface なので panic が証明可能（wave9 error-tail レビュー nit） → wave22 lane2 で実装済み: E が unnamed/interface 表現なら warn、named Go 型・record・abstract・メタは沈黙維持（[decision](decisions/2026-11-19-errors-as-nested-ptr-lint.md)）
 - [x] `CtorApp`/`CtorRef` の `TypeArgs` を廃止して `Typ` の `Con.Args` を唯一の正にするか: podhmo 判定 (b) 採用（廃止）→ wave24 lane A で実装済み — `Typ` の `Con.Args` が唯一の正（[decision](decisions/2026-11-19-ctor-typeargs-removed.md)、元 [decision](decisions/2026-11-18-ctor-typeargs-authoritative.md)、棚卸し [sketch](sketch/2026-11-19-ctor-targs-b-inventory.md)）
 - [x] `gom list` の列挙対象を外部 Gom パッケージまで広げる — wave41 lane C で `gom list -external` として実装: main module + `go list -m all` の build list 内 `.gomi` 所在を import パスで列挙（vendor 列挙は別項目のまま future work）
+
+- MoonBit 式スナップショットテストの内蔵 — `test` ブロックの出力を期待値ファイルに記録・比較し、`gom test --update` で更新する機構（[MoonBit tests](https://docs.moonbitlang.com/ja/latest/language/tests.html) 参考）。tutorial/realworld の `expected.txt` を手で同期する現状の代替になりうる（podhmo 要望、2026-11-24、wave43 lane F）
+- `assert`/`assert_eq` 失敗時の差分を go-cmp で出す変換 — 現在の構造比較メッセージを `github.com/google/go-cmp/cmp` の diff 表示に置き換える機能（podhmo 要望、2026-11-24、wave43 lane F）
 
 エフェクトシステム、高度な所有権型、独自 GC は急いで導入しない。型クラスは不採用（明示的辞書渡し — [decision](decisions/2026-11-19-ad-hoc-poly-dict-passing.md)）。

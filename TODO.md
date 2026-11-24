@@ -22,6 +22,8 @@
 
 ## To Be Implemented
 
+- [ ] **[task] stdlib に `List.filter_map` / `List.find_map` を追加**: `fold` で回すしかない現状 — selfish 移植で要望（[sketch](docs/sketch/ja/2026-11-24-selfish-port.md)、wave43 lane F）
+
 ### 基盤（最初に着手。P0 と並列に進められる）
 
 ### Go 相互運用
@@ -131,6 +133,8 @@ Go 相互運用を変えたら両方向（Gom → Go、Go → Gom）のテスト
 ## Bugs
 
 （見つけたバグはここに `- [ ]` で足す）
+
+- [ ] **[bug] `host.gom`→`host.go` で同名の手書き `.go` を上書きする**: `gom build`/`test` の出力先と同名の手書きファイルを同じパッケージに置くと clobber される（selfish 移植の観測 — [sketch](docs/sketch/ja/2026-11-24-selfish-port.md)、wave43 lane F）。marker ガードか生成名の慣習（`shim.go` への寄せを文書化）かの方針を決めて対応
 
 - [x] **[bug] `internal/lsp/jsonrpc_test.go` の `frame` が未使用（staticcheck U1000）で `make check` が赤**: `1ffd6f6`（wave11 lsp lane）由来、呼び出し側ゼロ。wave13 lane3（lsp-gotool）で対応 — 未使用 helper 自体を削除（`a69f726`、squash `d181a80`）
 - [x] **[bug] `Go.Any` 値の直接呼び出しが受理され無効な Go を emit**: wave-14 lane 1 で解消済み（ledger 未反映だった）。`conformCallee` が `Go.Any` callee を構造判定 `unifySub` へ振り分け E0401。wave-16 lane 1 で fixture `E0401_go_any_apply` に over-application `a 1 "s"` を追加（wave-13 go-any re-review P1、[gaps](docs/implementation-gaps.md)）

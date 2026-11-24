@@ -50,9 +50,10 @@ fn main () -> Unit = {
   //   generic record whose field ISN'T a bare parameter still
   //   peels (stdlib `Eq` is a one-field record of a function).
   //
-  // - A `Char`-backed defined type prints as the rune's number
-  //   via `%v`, while a bare `Char` prints as the character —
-  //   a display asymmetry (docs/implementation-gaps).
+  // - A `Char`-backed defined type splices as `{ ch = 'a' }`
+  //   — the record renderer draws the field as a character,
+  //   like a bare `Char`. (Before gomShow it printed the rune's
+  //   number `97`; see docs/implementation-gaps.)
   //
   // - Display quirk (recorded in docs/implementation-gaps):
   //   the compiled binary prints `${f}` as the record

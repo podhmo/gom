@@ -1945,3 +1945,22 @@
 - [ ] **match アームの literal パターンと record パターンの重複が E0302 に届かない**: 宣言型（`type UserId = {v: Int}` → `type UserId int64`）の scrutinee に対し、数値 literal パターン（`0 ->`）と record literal パターン（`{v = 0} ->`）は同じ値域を表すが、exhaustiveness／重複判定は両者を別の形状として扱い、到達不能アームや非網羅の診断（E0302 系）が逃げる。literal→宣言型 conform（wave42 lane C）の受理側拡大に伴う診断完全性の未整備 — 受理は正しいが判定側の記述子が literal↔record の等価を知らない。発見: #207 レビュー（wave42 lane C）
 
 - [ ] **宣言型の1-field recordへのスカラー代入で splice 表示が eval と compiled で揺れる**: `type Flag = {on: Bool}` に `let f : Flag = true` と代入したとき、`"${f}"` は eval では `true`、compiled（`.go` 生成物）では `{ on = true }` と描かれる。eval は束縛値をスカラーのまま持ち（1-field record の peel）、codegen は record として materialize するため同一値の表示が分岐。正準形を決める decision が要る — eval を VRecord 化するとスカラー算術・等価が壊れ、codegen をスカラー化すると record literal 代入との整合が取れない。発見: #216 レビュー（wave43 lane C）。関連: [verification sketch](sketch/2026-11-24-display-gomshow-verify.md)
+
+- [ ] **stack を持つ error 値の生成が書けない（`pkg/errors` 系）**: `fmt.Errorf("ctx: %w", e)` のユーザーコードは生成される Go-call で問題なく通る（[errwalk fixture](../testdata/realworld/errwalk/main.gom)）が、`%+v` で stack trace を出す `pkg/errors.Errorf` 相当の「stack を持つ error 値」の生成には `@extern` shim が要った — `%+v` 出力自体は生成コードで動くが、stack を持つ値の作成側だけ shim（selfish 移植の観測 — [sketch](sketch/ja/2026-11-24-selfish-port.md)、wave43 lane F）
+
+- [ ] **引数なし `@extern fn name () -> T` の `name(struct{}{})` 規約が spec に例示されていない**: spec の `@extern` 規則と Unit 呼出し規則（`f(struct{}{})`）は定められているが、Go 側を `func name(_ struct{})` で受ける必要があることは extern 節に例がなく読み取りづらい（selfish 移植 — 同上 sketch）
+
+- [ ] **カリー適用の複数行記述がパースに弱い**: `List.fold\n  (fn ...)\n  acc\n  xs` で E0401 — lambda を `let` に取り出すと解決するが書き味として引っかかる（selfish 移植 — 同上 sketch）
+
+- [ ] **無名レコードの `List.fold` acc は型推論が通らない（E0407）**: named type（`type GistAcc = {...}`）が必須。record literal の曖昧さ E0407 の open question と同系統の DX 摩擦（selfish 移植 — 同上 sketch）
+
+- [ ] **match の到達不能 arm は `todo ()` に頼る**: catch-all `action ->` の内側で sub-match する形になると網羅性チェックの恩恵が薄れる（selfish 移植 — 同上 sketch）
+
+- [ ] **`Result (Option T, U)` の payload Option 宣言は extern 宣言側でのみ選べる**: メソッド直呼びの n-ary result は verbatim 固定なので `Ptr.to_option` の後包みが要る（selfish 移植 stage 4 nil 監査 — 同上 sketch）
+
+- [ ] **`@method` は `Result` 返りを禁じている（E0420）**: `encoding.TextUnmarshaler` 系（`UnmarshalText([]byte) error` 等 error を返す Go interface）には使えない — defined type の `UnmarshalText` は同パッケージの `shim.go` に Go で書く回避が必要（selfish 移植 — 同上 sketch、open-questions も参照）
+
+- [ ] **共有メタを持つ部分適用でスカラーリテラルが宣言型に materialize できない**: `fn pair (x: b) (y: b) -> String` の残り `?b` を want 側の `Name` に pin する前に、供給リテラル `pair "x"` の conform が `?b := String` に commit してしまい `let g : Name -> String = pair "x"` が E0401。`?b` が result 位置にも現れる形は result-pin が救う。数値リテラルは bind を遅延するがスカラーは concrete 型で即 bind — 修正は pin 拡大ではなくリテラル→meta bind の遅延（#215 escalate、wave43 lane B）
+
+- [x] **Char-backed 宣言型の splice 表示が rune 数値になる**: `type C = {ch: Char}` に `let c : C = 'a'` すると `"${c}"` は `97`（rune の数値、`fmt.Sprint`）と出る一方、裸の `Char` は `a` と文字で描かれる。宣言型経由の表示が underlying の Char 表示規則を拾わない非対称。発見: #215 レビュー（wave43 lane B、tutorial step 23 で言及済み）
+  - 解消（wave43 lane C）: gomShow 化で declared 型は record renderer 経由となり `{ ch = 'a' }` と描かれる（rune 数値は出ない）。残る分岐は scalar-bound 値の oracle/compiled 表示差 — 直上の「宣言型の1-field recordへのスカラー代入」の項目を参照
