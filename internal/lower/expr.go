@@ -118,6 +118,19 @@ func (l *lowerer) expr(s *seq, e check.Expr) core.Expr {
 	case *check.MemberExpr:
 		return l.memberExpr(s, e)
 	case *check.Unary:
+		// A negated int literal at a defined-type declared type
+		// (`type U32 uint32` for `{v: Uint32}`) folds the sign into
+		// the literal inside the conversion — `-U32(2147483648)`
+		// overflows the positive magnitude, `U32(-2147483648)` is
+		// legal. Mirrors codegen's named-Go case.
+		if e.Op == syntax.UnNeg {
+			if lit, ok := e.X.(*check.Lit); ok && lit.Kind == syntax.LitInt {
+				if _, single := l.singleField(e.X.Type()); single {
+					neg := &core.Lit{Base: baseOf(lit), Kind: lit.Kind, Text: "-" + lit.Text}
+					return &core.Conv{Sp: e.Sp, Typ: e.X.Type(), Kind: core.ConvNamed, X: neg}
+				}
+			}
+		}
 		return &core.Unary{Base: baseOf(e), Op: e.Op, X: l.atom(s, e.X)}
 	case *check.Binary:
 		return l.binaryExpr(s, e)
