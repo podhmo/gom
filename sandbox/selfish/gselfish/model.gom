@@ -44,7 +44,7 @@ fn new_gist (filenames: List String) (public: Bool) -> Result (Ptr github.Gist) 
 // The first `# ` heading, trimmed; readme.md only (caller checks).
 fn readme_title (text: String) -> Option String = first_heading (strings.Split (text, "\n"))
 
-fn first_heading (lines: List String) -> Option String = match lines {
+@tailrec fn first_heading (lines: List String) -> Option String = match lines {
   [] -> None
   [line, ..rest] -> match strings.CutPrefix (line, "# ") {
     (after, true) -> Some (strings.TrimSpace after)

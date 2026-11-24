@@ -119,10 +119,8 @@ fn scan_files (files: List String) -> ScanResult = {
     binary_files = List.rev scan.binary_files }
 }
 
-fn is_text_file (fname: String) -> Result Bool GoError = {
-  let b = try os.ReadFile fname
-  Ok (strings.HasPrefix (http.DetectContentType b, "text/"))
-}
+fn is_text_file (fname: String) -> Result Bool GoError =
+  os.ReadFile fname |?> fn b -> Ok (strings.HasPrefix (http.DetectContentType b, "text/"))
 
 // The binary block: every step's failure is a WARN that swallows the
 // whole block, matching the oracle's `return nil` tails.
