@@ -10,22 +10,25 @@ fn report (e: GoError) -> Unit = {
   os.Exit 1
 }
 
-fn rename_one (re: Ptr regexp.Regexp) (repl: String) (exec: Bool) (path: String) -> Unit = {
+fn rename_one (re: Ptr regexp.Regexp) (repl: String) (exec: Bool) (path: String) -> Bool = {
   let new_name = re.ReplaceAllString (path, repl)
-  if new_name == path { ignore fmt.Printf ("skip    %s\n", path) } else {
+  if new_name == path { ignore fmt.Printf ("skip    %s\n", path); true } else {
     if exec {
-      match os.Rename (path, new_name) {
-        Ok _ -> ignore fmt.Printf ("renamed %s -> %s\n", path, new_name)
-        Err e -> ignore fmt.Fprintf (os.Stderr, "rmv: %s: %s\n", path, e.Error ())
+      match os.Stat new_name {
+        Ok _ -> { ignore fmt.Fprintf (os.Stderr, "rmv: %s: target exists\n", new_name); false }
+        Err _ -> match os.Rename (path, new_name) {
+          Ok _ -> { ignore fmt.Printf ("renamed %s -> %s\n", path, new_name); true }
+          Err e -> { ignore fmt.Fprintf (os.Stderr, "rmv: %s: %s\n", path, e.Error ()); false }
+        }
       }
-    } else { ignore fmt.Printf ("rename  %s -> %s\n", path, new_name) }
+    } else { ignore fmt.Printf ("rename  %s -> %s\n", path, new_name); true }
   }
 }
 
 fn run (args: List String) -> Result Unit GoError = match args {
   [pat, repl, ..paths] -> {
     let re = try regexp.Compile pat
-    for p in paths { rename_one re repl false p }
+    for p in paths { ignore rename_one re repl false p }
     ignore fmt.Println "dry-run. pass -x to execute"
     Ok ()
   }
@@ -37,7 +40,10 @@ fn main () -> Unit = {
   match args {
     ["-x", pat, repl, ..paths] -> {
       match regexp.Compile pat {
-        Ok re -> for p in paths { rename_one re repl true p }
+        Ok re -> {
+          let ok = List.fold (fn acc p -> rename_one re repl true p && acc) true paths
+          if ok { () } else { os.Exit 1 }
+        }
         Err e -> report e
       }
     }
