@@ -137,7 +137,7 @@ func (e *interp) matchPat(pat check.Pat, v Value, env *Env) bool {
 					// own kind — `let s: Score = 1` binds VInt, so
 					// `{v = x}` must coerce like field access does
 					// for a Float-backed field.
-					if isFloatCon(ri.fields[0].typ) {
+					if e.floatBackedField(ri.fields[0].typ) {
 						if i, ok := v.(*VInt); ok {
 							v = &VFloat{F: float64(i.N)}
 						}

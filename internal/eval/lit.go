@@ -20,6 +20,26 @@ func isFloatCon(t types.Type) bool {
 	return ok && c.Qual == "" && c.Name == "Float"
 }
 
+// floatBackedField reports whether a declared field type emits as
+// the builtin float64 — unlike isFloatCon the name alone is not
+// enough: a file-local `type Float = {v: Int}` shadows the builtin
+// name, so the check peels the declared type through the record
+// registry until it reaches a non-record constructor.
+func (e *interp) floatBackedField(t types.Type) bool {
+	for i := 0; i < 64; i++ { // bound against a pathological cycle
+		c, ok := types.Chase(t).(*types.Con)
+		if !ok {
+			return false
+		}
+		if ri := e.recordOf(c); ri != nil && len(ri.fields) == 1 {
+			t = ri.fields[0].typ
+			continue
+		}
+		return c.Qual == "" && c.Name == "Float"
+	}
+	return false
+}
+
 // isInt32Con reports whether t is the builtin Int32 constructor —
 // the same name-check argument as isFloatCon applies.
 func isInt32Con(t types.Type) bool {

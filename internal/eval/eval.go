@@ -936,7 +936,7 @@ func (e *interp) evalMember(x *check.MemberExpr, env *Env) Value {
 			// field reads its value as a float (`let s: Score = 1`
 			// projects `1.0`, matching generated `Score(1)`).
 			if x.Index == 0 {
-				if isFloatCon(x.Type()) {
+				if e.floatBackedField(x.Type()) {
 					if i, ok := recv.(*VInt); ok {
 						return &VFloat{F: float64(i.N)}
 					}
