@@ -1,0 +1,6 @@
+package main
+
+// A shift divisor folds at the operand's own width once types
+// settle: `255 <<< 60` at Int32 emits `int32(255) << 60` = 0 —
+// the division reports E0414.
+fn divz (x: Int32) -> Int32 = x / (255 <<< 60)
