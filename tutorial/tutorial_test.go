@@ -213,8 +213,9 @@ func runStep(t *testing.T, gom, gobin, root, dir string) {
 }
 
 // elapsedField normalizes the per-test `elapsed` of `gom test`'s
-// JSONL report so a run can be diffed byte-for-byte.
-var elapsedField = regexp.MustCompile(`"elapsed":[0-9]+`)
+// JSONL report so a run can be diffed byte-for-byte (the field is a
+// float64 — seconds — so fractions must match too).
+var elapsedField = regexp.MustCompile(`"elapsed":[0-9]+(\.[0-9]+)?`)
 
 // testStep runs `gom test` on the step directory and diffs the JSONL
 // report against expected-test.txt — run for steps that declare test
@@ -234,8 +235,17 @@ func testStep(t *testing.T, gom, root, dir string) {
 	var stdout bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stdout
-	if err := cmd.Run(); err != nil {
-		t.Fatalf("gom test: %v\n%s", err, stdout.String())
+	runErr := cmd.Run()
+	// `gom test` writes the generated main.go/main_test.go in place;
+	// drop them so a later `go test ./...` sees the same packages as a
+	// clean checkout (the files are gitignored generated artifacts).
+	for _, gen := range []string{"main.go", "main_test.go"} {
+		if err := os.Remove(filepath.Join(dir, gen)); err != nil && !os.IsNotExist(err) {
+			t.Fatal(err)
+		}
+	}
+	if runErr != nil {
+		t.Fatalf("gom test: %v\n%s", runErr, stdout.String())
 	}
 	got := elapsedField.ReplaceAllString(stdout.String(), `"elapsed":0`)
 	if got != string(want) {

@@ -64,12 +64,18 @@ EOF
     # A step may also carry expected-test.txt: run `gom test` on the
     # step and diff the JSONL report, normalizing `elapsed`.
     if [ -f "$dir/expected-test.txt" ]; then
-      if ! tgot=$(cd "$ROOT" && "$GOM" test "tutorial/$name" 2>&1 | sed -E 's/"elapsed":[0-9]+/"elapsed":0/g'); then
+      # gom test writes the generated main.go/main_test.go in place —
+      # remove them after the run so `go test ./...` sees the same
+      # packages as a clean checkout.
+      if ! (cd "$ROOT" && "$GOM" test "tutorial/$name") > "$tmp/$name.test.raw" 2>&1; then
+        rm -f "$dir"main.go "$dir"main_test.go
         echo "FAIL $name: gom test"
-        printf '%s\n' "$tgot"
+        cat "$tmp/$name.test.raw"
         fail=1
         continue
       fi
+      rm -f "$dir"main.go "$dir"main_test.go
+      tgot=$(sed -E 's/"elapsed":[0-9][0-9.]*/"elapsed":0/g' "$tmp/$name.test.raw")
       twant=$(cat "$dir/expected-test.txt")
       if [ "$tgot" != "$twant" ]; then
         echo "FAIL $name: gom test output mismatch"
