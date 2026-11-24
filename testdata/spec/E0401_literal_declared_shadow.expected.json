@@ -1,0 +1,50 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected a numeric type, got Wrap",
+      "span": {
+        "file": "E0401_literal_declared_shadow.gom",
+        "start": {
+          "line": 9,
+          "col": 28,
+          "offset": 343
+        },
+        "end": {
+          "line": 9,
+          "col": 33,
+          "offset": 348
+        }
+      },
+      "data": {
+        "actual": "Wrap",
+        "expected": "a numeric type"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0415",
+      "severity": "error",
+      "message": "the constraint on this type needs the builtin `Int`, but the package declares a `type Int` shadowing it",
+      "span": {
+        "file": "E0401_literal_declared_shadow.gom",
+        "start": {
+          "line": 9,
+          "col": 32,
+          "offset": 347
+        },
+        "end": {
+          "line": 9,
+          "col": 33,
+          "offset": 348
+        }
+      },
+      "data": {
+        "builtin": "Int",
+        "construct": "the constraint on this type"
+      }
+    }
+  ]
+}

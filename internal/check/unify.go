@@ -205,12 +205,27 @@ func (c *checker) satisfies(r *metaRec, t types.Type, sp diag.Span) bool {
 	// Go assigns untyped constants to X and admits X to the
 	// arithmetic and comparison its underlying F allows, so the
 	// constraint classes judge the peeled underlying — `Clamp64(u,
-	// 0, 100)` types like Go does.
+	// 0, 100)` types like Go does. The peeled field participates
+	// itself: `{d: time.Duration}` answers Duration's basic kind,
+	// and a field spelling a shadowed builtin (`{v: Int}` where the
+	// file's `type Int` is a struct) is a user decl, not the
+	// builtin its name spells.
 	u := c.definedUnderlying(t)
-	num := isNumeric(t) || isNumeric(u) || (isGoNamed && (namedIntegral(kind) || namedFloat(kind)))
-	flo := isFloat(t) || isFloat(u) || (isGoNamed && namedFloat(kind))
-	intg := isIntegral(t) || isIntegral(u) || (isGoNamed && namedIntegral(kind))
-	ord := isOrdered(t) || isOrdered(u) || (isGoNamed && (namedIntegral(kind) || namedFloat(kind)))
+	ukind, uIsGoNamed := c.namedBasicKind(u)
+	uNum, uFlo, uIntg, uOrd := isNumeric(u), isFloat(u), isIntegral(u), isOrdered(u)
+	if u != t {
+		if uc, ok := u.(*types.Con); ok && uc.Qual == "" && c.shadowedBuiltin(uc.Name) {
+			uNum, uFlo, uIntg, uOrd = false, false, false, false
+		}
+	}
+	num := isNumeric(t) || uNum || (isGoNamed && (namedIntegral(kind) || namedFloat(kind))) ||
+		(uIsGoNamed && (namedIntegral(ukind) || namedFloat(ukind)))
+	flo := isFloat(t) || uFlo || (isGoNamed && namedFloat(kind)) ||
+		(uIsGoNamed && namedFloat(ukind))
+	intg := isIntegral(t) || uIntg || (isGoNamed && namedIntegral(kind)) ||
+		(uIsGoNamed && namedIntegral(ukind))
+	ord := isOrdered(t) || uOrd || (isGoNamed && (namedIntegral(kind) || namedFloat(kind))) ||
+		(uIsGoNamed && (namedIntegral(ukind) || namedFloat(ukind)))
 	if r.num && !num {
 		c.mismatch(sp, "a numeric type", t)
 		return false
@@ -227,7 +242,12 @@ func (c *checker) satisfies(r *metaRec, t types.Type, sp diag.Span) bool {
 		c.mismatch(sp, "an ordered type", t)
 		return false
 	}
-	if r.eq && c.hasFuncOrVar(t) {
+	// The eq judgment sees the emitted shape too: a phantom type
+	// parameter (`type Count a = {n: Int}` — Go emits
+	// `type Count[A] int64`, still comparable) peels away, while a
+	// record field spelling a bare type parameter stays unpeeled
+	// and flags as before.
+	if r.eq && c.hasFuncOrVar(t) && (u == t || c.hasFuncOrVar(u)) {
 		td := types.Display(t, metaNamer())
 		d := diag.Error("E0409",
 			fmt.Sprintf("`==` is not defined on %s: the type contains a function or a type variable", td)).

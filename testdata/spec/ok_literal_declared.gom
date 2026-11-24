@@ -1,5 +1,6 @@
 package main
 
+import go "time"
 import go "github.com/podhmo/gom/testdata/goiface"
 
 // A numeric literal assigns to a declared type whose Go emission is
@@ -18,3 +19,15 @@ fn bound () -> UserId = {
   let x : UserId = 7
   x
 }
+type Span = { d: time.Duration }
+type Count a = { n: Int }
+type I32 = { v: Int32 }
+
+// The peeled field carries its own basic kind: a Duration field
+// admits arithmetic like Duration itself, a phantom parameter
+// (`a` unused) peels away so `==` sees the emitted shape, and a
+// negated literal inside the conversion spells `I32(-x)` — legal
+// where `-I32(x)` would overflow the positive magnitude.
+fn elapse (s: Span) -> Span = s + 0
+fn eqc (c: Count Int) -> Bool = c == c
+fn neg () -> I32 = -2147483648
