@@ -3,7 +3,10 @@
 package main
 
 import (
+	json "encoding/json"
 	fmt "fmt"
+	rt "github.com/podhmo/gom/rt"
+	list "github.com/podhmo/gom/stdlib/list"
 	result "github.com/podhmo/gom/stdlib/result"
 )
 
@@ -21,16 +24,52 @@ func main() {
 //line record_field_tag.gom:11
 	u := User{Name: "a", Mail: ""}
 //line record_field_tag.gom:12
-	tmp1 := fmt.Sprint(u)
+	tmp1 := any(u)
 //line record_field_tag.gom:12
-	tmp2 := tmp1
+	var tmp2 result.Result[list.List[byte], error]
 //line record_field_tag.gom:12
-	tmp3 := any(tmp2)
+	v, err := json.Marshal(tmp1)
 //line record_field_tag.gom:12
-	v, err := fmt.Println(tmp3)
+	tmp2 = result.FromGo(list.FromSlice(v), err)
 //line record_field_tag.gom:12
-	_ = result.FromGo(int64(v), err)
+	var b list.List[byte]
+//line record_field_tag.gom:12
+	switch tmp2.Tag() {
+//line record_field_tag.gom:12
+	case result.ResultTagOk:
+//line record_field_tag.gom:12
+		tmp3 := tmp2.Value
+//line record_field_tag.gom:12
+		tmp4 := tmp3
+//line record_field_tag.gom:12
+		b = tmp4
+//line record_field_tag.gom:12
+	case result.ResultTagErr:
+//line record_field_tag.gom:12
+		tmp5 := tmp2.Error
+//line record_field_tag.gom:12
+		_ = tmp5
+//line record_field_tag.gom:12
+		b = list.List[byte]{}
+//line record_field_tag.gom:12
+	default:
+//line record_field_tag.gom:12
+		panic(rt.InvalidVariant("Result", tmp2))
+//line record_field_tag.gom:12
+	}
 //line record_field_tag.gom:13
+	tmp7 := fmt.Sprint(u)
+//line record_field_tag.gom:13
+	tmp8 := fmt.Sprint(b)
+//line record_field_tag.gom:13
+	tmp9 := tmp7 + " " + tmp8
+//line record_field_tag.gom:13
+	tmp10 := any(tmp9)
+//line record_field_tag.gom:13
+	v1, err1 := fmt.Println(tmp10)
+//line record_field_tag.gom:13
+	_ = result.FromGo(int64(v1), err1)
+//line record_field_tag.gom:14
 	_ = struct{}{}
 //line record_field_tag.gom:10
 }

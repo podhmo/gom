@@ -9,6 +9,7 @@ type User = { name: String `json:"name"`, mail: String `json:"mail,omitempty"` }
 
 fn main () -> Unit = {
   let u = { name = "a", mail = "" }
-  ignore (fmt.Println "${u}")
+  let b = match json.Marshal u { Ok v -> v; Err e -> [] }
+  ignore (fmt.Println "${u} ${b}")
   ()
 }

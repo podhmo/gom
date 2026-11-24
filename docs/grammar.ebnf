@@ -179,9 +179,10 @@ interpolation  = "${" , expr , "}" ;
    [PROVISIONAL literal-lexical-details: how to write a literal "${"
    is unspecified; suggested escape is "\${".]                          *)
 
-RAWSTRING      = "\x60" , { any-char-but-"\x60" } , "\x60" ;
+RAWSTRING      = "`" , { raw-string-char } , "`" ;
 (* Raw strings exist only as record-field tags — they are not
-   expressions and cannot appear in a literal position (spec 3). *)
+   expressions and cannot appear in a literal position (spec 3).
+   RAWSTRING is produced by a builtin producer (lexgen.go). *)
 
 escape         = "\" , ( "n" | "t" | "r" | "0" | "\" | "'" | '"' | "$"
                | "u" , hex-digit , hex-digit , hex-digit , hex-digit
@@ -765,6 +766,7 @@ bin-digit      = "0" | "1" ;
 
 any-char       = ? any unicode code point ? ;
 any-char-except-newline = ? any code point except U+000A ? ;
+raw-string-char = ? any code point except U+0060 '`' ? ;
 string-char    = ? any code point except '"', '\' and an unescaped "${" ? ;
 char-char      = ? any code point except "'" and '\' ? ;
                (* [PROVISIONAL literal-lexical-details: a Char is meant to
