@@ -49,16 +49,36 @@ PhaseLint）。`Unit -> R` の残りも `Int -> Int -> R` の残りも同じ
 
 ## Decision
 
-**A** — `ignore e` で `e` の型（Chase 後）が `*types.Func` のとき、
-および `let _ = e` / `let (_, ..)` 系のワイルドカード左辺で捨てられた
-値の型が `*types.Func` のとき、新しい W コード（PhaseLint、既存の
-post-inference sweep に載せる）で警告する。
+**A** — 捨てられた値の型（Chase 後）が `*types.Func` のとき、新しい
+W コード（PhaseLint、既存の post-inference sweep に載せる）で警告する。
+捨てる面は次の 3 箇所:
+
+- `ignore e`
+- `let _ = e` / `let (_, ..)` 系のワイルドカード左辺 — 関数内の
+  `*Let` だけでなく、パッケージ直下の `*LetDecl` のパターンも対象
+  （`walk.WalkDecl` は初期化式を訪ねるがパターンは訪ねないので、
+  sweep は束縛パターンを自分で調べる）
+- `match` の `_` 腕 — scrutinee の型が `*types.Func` で腕が裸の
+  ワイルドカードのとき（`match (add 1) { _ -> () }` は ignore も
+  let も経由せず捨てる）
+
+比較した案の表にあった `|>`/引数位置は「捨てる」面ではなく値を
+*受け渡す*面なので対象外 — Go の `any` 引数（`fmt.Println` に
+`Unit -> String` を渡す）も同じ分類で、印字される関数ポインタは
+open-questions の元の問いの残件として残す（値は捨てられていない、
+意味を読み取れない形で消費されているだけ）。
 
 ## Consequences
 
-- 警告なのでビルドは止まらない。確信犯は `//gom:allow` 系の directive
-  か、捨てずに束縛する形で沈黙させられる
-- 実装は check の lint sweep に `*Ignore` / `*Let` のワイルドカード腕を
-  足すだけ — 新しいパイプライン面は要らない
-- スコープ外: `Option.get` 経由の panic 誘導や match 腕での部分適用は
-  型が合っている限り触れない
+- 警告なのでビルドは止まらない。確信犯は捨てずに束縛して名前を
+  付ける形で沈黙させられる。`//gom:allow` は現状エラーの demote
+  しかしない（`DemoteAllowed`）ので、警告の opt-out に使うには同
+  directive で W コードも落とせるよう実装側で拡張する — strict
+  ビルド下でも沈黙手段が必要なため
+- 実装は check の lint sweep に `*Ignore`・`*Let`/`*LetDecl` の
+  ワイルドカード左辺・`*Match` の `_` 腕を足すだけ — 新しい
+  パイプライン面は要らない
+- スコープ外: `Option.get` 経由の panic 誘導や、match の scrutinee
+  を束縛する腕での部分適用は型が合っている限り触れない。`any`
+  引数への関数値の引き渡し（`fmt.Println`）は捨てではないので
+  警告しない — 別の問題として未決のまま残る
