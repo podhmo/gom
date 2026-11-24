@@ -153,7 +153,15 @@ fn parse (s: String) -> Result Int GoError =
   - Constraint-only type params (`maps.Equal`'s K/V) infer from
     ordinary argument conformance; union terms are judged on the
     emitted Go type — `Int` is `int64`, so `~int64` fits, `~int`
-    does not.
+    does not. `~` approx terms also peel declared types that emit
+    as defined types (`type UserId = {v: Int}` → `type UserId
+    int64` fits `~int64`); exact terms and type-param unions
+    reject them.
+  - `comparable` folds declared types' emitted shapes: a sum is
+    comparable only when every variant's payload is, `Option A`
+    when `A` is, `Task` always (handle compare), imported decls'
+    fields count too — so `slices.Contains` over a sum that
+    carries a `List` payload is E0508, not a runtime panic.
   - A `List` type arg cannot satisfy a slice/map union term
     (`~[]byte`, `[]byte | string`) → E0508 — the output is named
     `list.List[T]` outside the term; write `Go.Slice Byte` where

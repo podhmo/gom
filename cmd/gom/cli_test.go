@@ -1268,6 +1268,103 @@ func TestList(t *testing.T) {
 	}
 }
 
+// TestListExternal exercises `gom list -external`: the importable
+// Gom packages of the working directory's module — the module root
+// when it carries a .gomi, plus each subdirectory holding exactly
+// one — enumerated by import path, skipping plain Go directories,
+// nested modules, vendor trees and dot-directories.
+func TestListExternal(t *testing.T) {
+	dir := writeFiles(t, map[string]string{
+		"go.mod":              "module example.com/exttest\n\ngo 1.27\n",
+		"root.gomi":           "package exttest\n",
+		"pkg/pkg.gomi":        "package pkg\n",
+		"plain/plain.go":      "package plain\n",
+		"vendor/dep/dep.gomi": "package dep\n",
+		"inner/go.mod":        "module example.com/inner\n\ngo 1.27\n",
+		"inner/inner.gomi":    "package inner\n",
+		".hidden/h.gomi":      "package hidden\n",
+	})
+	t.Chdir(dir)
+
+	code, out, errout := invoke("list", "-external")
+	if code != 0 {
+		t.Fatalf("gom list -external: exit %d; stderr=%q", code, errout)
+	}
+	got := strings.Fields(out)
+	want := []string{"example.com/exttest", "example.com/exttest/pkg"}
+	if len(got) != len(want) {
+		t.Fatalf("gom list -external = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("gom list -external[%d] = %q, want %q", i, got[i], want[i])
+		}
+	}
+}
+
+// TestListExternalVendor exercises the `-mod=mod` retry: a vendored
+// module makes `go list -m all` fail, but the build list is still
+// authoritative, so the enumeration falls back to reading it — the
+// replaced dependency's .gomi packages are listed from its replace
+// directory while the vendor tree itself is skipped.
+func TestListExternalVendor(t *testing.T) {
+	dir := writeFiles(t, map[string]string{
+		"go.mod":              "module example.com/exttest\n\ngo 1.27\n\nrequire example.com/dep v0.0.0\n\nreplace example.com/dep => ./dep\n",
+		"pkg/pkg.gomi":        "package pkg\n",
+		"dep/go.mod":          "module example.com/dep\n\ngo 1.27\n",
+		"dep/dep.gomi":        "package dep\n",
+		"vendor/modules.txt":  "## explicit\n",
+		"vendor/dep/dep.gomi": "package dep\n",
+	})
+	t.Chdir(dir)
+
+	code, out, errout := invoke("list", "-external")
+	if code != 0 {
+		t.Fatalf("gom list -external (vendored): exit %d; stderr=%q", code, errout)
+	}
+	got := strings.Fields(out)
+	want := []string{"example.com/dep", "example.com/exttest/pkg"}
+	if len(got) != len(want) {
+		t.Fatalf("gom list -external (vendored) = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("gom list -external (vendored)[%d] = %q, want %q", i, got[i], want[i])
+		}
+	}
+}
+
+// TestListExternalWorkspaceOmitted exercises a workspace that does
+// not `use` the module the command runs in: `go list -m all` names
+// the workspace's build list, not this module, yet the module's own
+// packages must still appear — dirOf resolves its imports against
+// its own go.mod regardless of workspace membership.
+func TestListExternalWorkspaceOmitted(t *testing.T) {
+	dir := writeFiles(t, map[string]string{
+		"go.work":      "go 1.27\n\nuse ./app\n",
+		"app/go.mod":   "module example.com/app\n\ngo 1.27\n",
+		"lib/go.mod":   "module example.com/lib\n\ngo 1.27\n",
+		"lib/lib.gomi": "package lib\n",
+		"lib/p/p.gomi": "package p\n",
+	})
+	t.Chdir(filepath.Join(dir, "lib"))
+
+	code, out, errout := invoke("list", "-external")
+	if code != 0 {
+		t.Fatalf("gom list -external (workspace-omitted): exit %d; stderr=%q", code, errout)
+	}
+	got := strings.Fields(out)
+	found := map[string]bool{}
+	for _, p := range got {
+		found[p] = true
+	}
+	for _, want := range []string{"example.com/lib", "example.com/lib/p"} {
+		if !found[want] {
+			t.Errorf("gom list -external missing %q, got %v", want, got)
+		}
+	}
+}
+
 // failWriter is an io.Writer whose every Write fails — used to
 // exercise the output-error paths commands must not swallow.
 type failWriter struct{}
