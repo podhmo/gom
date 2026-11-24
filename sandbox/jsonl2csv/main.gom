@@ -1,6 +1,7 @@
 package main
 
 import go "bufio"
+import go "bytes"
 import go "encoding/csv"
 import go "encoding/json"
 import go "errors"
@@ -10,18 +11,26 @@ import go "os"
 
 fn render (v: Go.Any) -> String = match v {
   s: String -> s
-  n: Float -> fmt.Sprintf ("%v", n)
+  n: json.Number -> n.String ()
+  f: Float -> fmt.Sprintf ("%v", f)
   b: Bool -> if b { "true" } else { "false" }
   _ -> fmt.Sprintf ("%v", v)
 }
 
 fn read_rows (sc: Ptr bufio.Scanner) (acc: List (Go.Map String Go.Any)) -> Result (List (Go.Map String Go.Any)) GoError = if sc.Scan () {
   let m: Ptr (Go.Map String Go.Any) = Ptr.new ()
-  match json.Unmarshal (sc.Bytes (), m) {
+  let dec = json.NewDecoder (bytes.NewReader (sc.Bytes ()))
+  dec.UseNumber ()
+  match dec.Decode m {
     Ok _ -> read_rows sc [Ptr.get m, ..acc]
     Err e -> Err e
   }
-} else { Ok (List.rev acc) }
+} else {
+  match sc.Err () {
+    Ok _ -> Ok (List.rev acc)
+    Err e -> Err e
+  }
+}
 
 fn keys_of (rows: List (Go.Map String Go.Any)) -> List String = {
   let seen: Go.Map String Bool = Go.Map.make ()
@@ -29,6 +38,12 @@ fn keys_of (rows: List (Go.Map String Go.Any)) -> List String = {
     (fn acc row ->
       row
       |> Go.Map.to_list
+      |> List.sort_by (fn a b ->
+        match a {
+          (ka, _) -> match b {
+            (kb, _) -> ka < kb
+          }
+        })
       |> (List.fold
         (fn a kv ->
           match kv {
