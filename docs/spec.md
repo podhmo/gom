@@ -896,3 +896,21 @@ test "parse then sum" {
 `gom run` は `go run` の綴り方である — 単一の `package main` ディレクトリをコンパイルし、生成コードをソースの隣に書き（`gom build` と同じ置き場）、`go build` で temp バイナリにリンクして実行する。`go run` でなく `go build` + 直接起動にするのは、子プロセスの終了コードをそのまま返すためである（`go run` はどんな失敗も `exit status 1` に潰す）。引数列の最初の `--` 以降はプログラムの argv に渡す。入力が複数ディレクトリにまたがる、または `package main` でない場合は使用エラー（終了コード 2）。コンパイルやリンクに失敗したときだけ通常のメッセージストリームを出し、成功時は `summary` も出さない — パイプで受けるプログラム出力を汚さないためである（[decisions/gom-run](decisions/2026-11-18-gom-run.md)）
 
 `gom test` の引数列のうち最初の `--` 以降は `go test` にそのまま渡す（`gom test -- -race`、`gom test -- -run Bump -count=1` など）。`-json` は gom が結果の取得に使うフラグなので、これを打ち消す指定（`-json=false`）は結果ストリームを壊し、Go ツール側の失敗として `"source": "go"` の E0001 で報告される。未知・不正なフラグも gom 側の使用エラーではなく同じ経路で報告される（[decisions/gom-test-go-test-flags](decisions/2026-11-05-gom-test-go-test-flags.md)）。
+
+## 付録 A. `//gom:` ディレクティブ索引
+
+`//gom:` で始まるコメント行はコンパイラが読むディレクティブである。共通の規則:
+
+- 行頭の `//gom:` だけが対象 — `x + //gom:...` のような行末は無効
+- 宣言に付着する形は doc コメントと同じ規則: 宣言直上に連続するコメント行の run の中にある行だけが付着し、空行を挟むと外れる
+- `gom fmt` はフォーマットでディレクティブ行を移動しない（付着 run を壊さない）
+
+| ディレクティブ | 引数 | 付着位置 | 効果 | 関連 |
+| --- | --- | --- | --- | --- |
+| `//gom:allow` | `<code>...`（1 つ以上） | `.gom` ファイル内の行頭どこでも | そのファイルで発火した指定コードの診断を緩和 — relaxable な error は warning へ格下げ、warning は報告から除く | §12、W0003（誤用の報告） |
+| `//gom:embed` | `<pattern>...`（1 つ以上のファイルパターン） | `@extern let` 宣言の直上 | コンパイラが `//go:embed` 変数を生成する。型は `String`・`Go.Slice Byte`・named Go 型（`embed.FS` 等）に限る | §8.10、E0512 |
+| `//gom:noescape` | `<name> <index>...` | `.gomi` の `fn`/`let` シグネチャ直上（`gom info` が書き出し） | そのパラメータ位置のラムダがスコープを脱出しないことを表明し、import 側の E0419 判定に効く | §4（`Scope` 規則） |
+| `//gom:result-notaint` | `<name> <index>...` | `.gomi` の `fn`/`let` シグネチャ直上（`gom info` が書き出し） | そのパラメータの生産物が結果に載らないことを表明 — 注釈のない位置は保守的に「載る」扱い | §4（`Scope` 規則） |
+| `//gom:mutable` | `<name>` | `.gomi` の型宣言直上（著者が記述、`gom info` の再生成が引き継ぐ） | extern 裏付け・abstract export で中身の見えない宣言型が可変な値を含むと表明し、可変構造リントで `Ref` 等と同じく数える | §10 |
+
+`@method(GoName)` のような `@`-attribute の引数はディレクティブではない — ここに列挙しない。
