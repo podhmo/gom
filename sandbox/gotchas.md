@@ -2,11 +2,11 @@
 
 前提: skill 単体 + コンパイラのエラーメッセージ + `gom` のヘルプメッセージだけを頼りにコードを書く想定。README → `docs/spec.md` → `docs/design.md` で分かるもの、エラーメッセージが直接教えてくれるものは除く。**「それを知る術がリポジトリの中身を読むことしかない」ものだけを先に挙げる。**
 
-## 1. stdlib パッケージの関数一覧を見る術が repo 内にしかない
+## 1. stdlib パッケージの関数一覧を引く術がない（機能不足）
 
-`gom list` は importable な stdlib パッケージの**名前**だけを出す（`cmp` / `list` / `option` / `result`、spec §873）。中身を列挙するコマンドはツールチェーンにない:
+想定の流れは `gom list` → `gom info <短名>` だったが、`gom info` はディレクトリパスしか解決しないので `gom info list` は `stat list: no such file or directory` になる。**stdlib のシグネチャを名前で dump する口がない**のはドキュメントではなく機能の不足（open-questions.md に登録済み）。
 
-- 各パッケージの全メンバの正は repo の `stdlib/<pkg>/<pkg>.gomi`（doc comment 付き）。spec は `List.map`/`sum`/`filter`/`length`/`range` や `Result.to_option` 等を断片的に使うだけで、`take`/`drop`/`sort_by`/`zip_with_index` など全一覧は載せていない。clone していれば `gom info -o - stdlib/list` で stdout にも出せる。clone なしでは「spec に名前が出たもの + 推測 + E0201」で探ることになる — skill を単体で ship するなら `stdlib/*/*.gomi` の抜粋同梱が価値がある。
+- `gom list` が出すのはパッケージ名だけ（`cmp` / `list` / `option` / `result`、spec §873）。各パッケージの全メンバの正は repo の `stdlib/<pkg>/<pkg>.gomi`（doc comment 付き）。spec は `List.map`/`sum`/`filter`/`length`/`range` や `Result.to_option` 等を断片的に使うだけで、`take`/`drop`/`sort_by`/`zip_with_index` など全一覧は載せていない。clone していれば `gom info -o - stdlib/list` で stdout にも出せるが、それはたまたま repo のディレクトリを指しただけ — clone なしでは「spec に名前が出たもの + 推測 + E0201」で探ることになる。skill を単体で ship するなら `stdlib/*/*.gomi` の抜粋同梱が価値がある。
 - 一方で**組み込みモジュールは spec に全部書かれている**: `Go.Slice`/`Go.Map`/`Array`/`View`/`Ref`（8.x 節）、`Task`/`Chan`（10 章）、`Result`/`Option`/`List` の層変換（§340）。こちらは repo を覗く必要はない — 混同しやすいので分けておく。
 
 ## 2. `gom build` / `gom run` の emit 対象は引数のディレクトリだけ — gom 依存は推移しない
