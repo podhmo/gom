@@ -1322,11 +1322,15 @@ func TestListExternalVendor(t *testing.T) {
 			t.Setenv("GOFLAGS", flags)
 			t.Setenv("GOENV", "off")
 			dir := writeFiles(t, map[string]string{
-				"go.mod":                              "module example.com/exttest\n\ngo 1.27\n\nrequire example.com/dep v0.0.0\n\nreplace example.com/dep => ./dep\n",
-				"pkg/pkg.gomi":                        "package pkg\n",
-				"dep/go.mod":                          "module example.com/dep\n\ngo 1.27\n",
-				"dep/dep.gomi":                        "package dep\n",
-				"vendor/modules.txt":                  "# example.com/dep v0.0.0\n## explicit; go 1.27\nexample.com/dep\nexample.com/dep/sub\n",
+				"go.mod":       "module example.com/exttest\n\ngo 1.27\n\nrequire example.com/dep v0.0.0\n\nreplace example.com/dep => ./dep\n",
+				"pkg/pkg.gomi": "package pkg\n",
+				"dep/go.mod":   "module example.com/dep\n\ngo 1.27\n",
+				"dep/dep.gomi": "package dep\n",
+				// The manifest also claims the main module's own
+				// package — dirOf resolves main-module paths
+				// locally before vendor, so listing must keep
+				// it: the manifest can only shadow external deps.
+				"vendor/modules.txt":                  "# example.com/dep v0.0.0\n## explicit; go 1.27\nexample.com/dep\nexample.com/dep/sub\nexample.com/exttest/pkg\n",
 				"vendor/example.com/dep/dep.gomi":     "package dep\n",
 				"vendor/example.com/dep/sub/sub.gomi": "package sub\n",
 			})
