@@ -3274,6 +3274,13 @@ func (c *checker) checkMatch(e *syntax.Match, want types.Type) Expr {
 		}
 		prev = append(prev, &arms[i].Body)
 	}
+	// Literal patterns normalized against the scrutinee as it stood
+	// when their arm was checked; a later body may have pinned it to
+	// a named width (Float, a Go float32). Re-judge every literal at
+	// the settled type so the pattern matrix compares equal keys.
+	for _, a := range arms {
+		c.renormLit(a.Pat)
+	}
 	c.checkTypeTestArms(e, arms, subj.Type())
 	return &Match{Base: baseOf(e.Sp, bt), Subj: subj, Arms: arms}
 }

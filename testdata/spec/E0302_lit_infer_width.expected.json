@@ -8,14 +8,14 @@
       "span": {
         "file": "E0302_lit_infer_width.gom",
         "start": {
-          "line": 11,
+          "line": 14,
           "col": 5,
-          "offset": 371
+          "offset": 440
         },
         "end": {
-          "line": 11,
-          "col": 21,
-          "offset": 387
+          "line": 14,
+          "col": 28,
+          "offset": 463
         }
       },
       "data": {

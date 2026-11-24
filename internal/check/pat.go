@@ -593,6 +593,52 @@ func (c *checker) chanElem(t types.Type) (elem types.Type, dir string, ok bool) 
 	}
 }
 
+// renormLit re-judges literal-pattern normalization after the
+// match's own inference has run. An arm checked while the scrutinee
+// meta was still open normalized at the literal's own width, and a
+// later arm body binding it to a named float (`Float`, a Go
+// `float32`) would leave two identical literals with different
+// matrix keys — the pattern phase sees the settled want, so re-judge
+// every literal against it.
+func (c *checker) renormLit(p Pat) {
+	switch p := p.(type) {
+	case *LitPat:
+		p.Norm = c.normLit(p.Kind, p.Text, p.Type())
+	case *AsPat:
+		c.renormLit(p.Pat)
+	case *CtorPat:
+		for _, a := range p.Args {
+			c.renormLit(a.Pat)
+		}
+		for _, f := range p.Fields {
+			c.renormLit(f.Pat)
+		}
+	case *TuplePat:
+		for _, e := range p.Elems {
+			c.renormLit(e)
+		}
+	case *RecordPat:
+		for _, f := range p.Fields {
+			c.renormLit(f.Pat)
+		}
+	case *ListPat:
+		for _, e := range p.Elems {
+			c.renormLit(e)
+		}
+		if p.Rest != nil {
+			c.renormLit(p.Rest)
+		}
+	case *OrPat:
+		for _, a := range p.Alts {
+			c.renormLit(a)
+		}
+	case *WildPat, *VarPat, *TypePat:
+		// No literals to re-judge.
+	default:
+		panic("unreachable")
+	}
+}
+
 // normLit canonicalizes a literal's text into the signature key the
 // pattern matrix compares cells by — the same shape as
 // pattern.normalizeLit, except numeric literals judge at the want

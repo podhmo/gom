@@ -1,8 +1,6 @@
 package pattern
 
 import (
-	"go/constant"
-	"go/token"
 	"math/big"
 	"slices"
 	"sort"
@@ -152,37 +150,10 @@ func litCell(p *check.LitPat) *cell {
 		return &cell{typ: p.Type(), key: litKey("()"), disp: "()", kind: VLiteral}
 	}
 	norm := p.Norm
-	// The check-time Norm was judged before the scrutinee meta
-	// settled — `match x { 1 -> ..; 1 -> .. }` where only a later
-	// arm body pins `x : Float` would give the two literals
-	// different keys and spare the unreachable second arm. Builtin
-	// targets are decidable here without the Go-type oracle
-	// (`types.Go` widths were already concrete at check time, so
-	// the stored Norm is correct for them).
-	if c, ok := types.Chase(p.Type()).(*types.Con); ok && c.Qual == "" && c.Name == "Float" {
-		if n := floatKey(p.Kind, p.Text); n != "" {
-			norm = n
-		}
-	}
 	if norm == "" {
 		norm = normalizeLit(p.Kind, p.Text)
 	}
 	return &cell{typ: p.Type(), key: litKey(norm), disp: p.Text, kind: VLiteral}
-}
-
-// floatKey renders a numeric literal as it compares under a
-// float64 target — the same key shape check's normLit produces.
-func floatKey(k syntax.LitKind, text string) string {
-	tok := token.INT
-	if k == syntax.LitFloat {
-		tok = token.FLOAT
-	}
-	v := constant.MakeFromLiteral(strings.ReplaceAll(text, "_", ""), tok, 0)
-	if v.Kind() == constant.Unknown {
-		return ""
-	}
-	f, _ := constant.Float64Val(v)
-	return strconv.FormatFloat(f, 'g', -1, 64)
 }
 
 // normalizeLit canonicalizes a literal's source text so that
