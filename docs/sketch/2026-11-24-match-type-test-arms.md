@@ -69,7 +69,7 @@ wave38 lane F の decision（[go-any-extraction](../decisions/2026-11-24-go-any-
 - lower → codegen は Go の `switch v := x.(type) { case T: ...;
   default: ... }` にほぼ一対一 — Maranget の decision tree を通さない
   専用経路。bound 変数は Go が `v` を絞るのと同じ仕組みに載る。
-- eval は腕順に `Go.try_as` と同じ内部断言を試す逐語の実装。
+- eval は腕順に `Go.try_as` と同じ内部断言を試す逐語の実装。 ただし `inhabits` は型名比較（`error` 特別扱い）なので、named Go interface 腕（`fmt.Stringer` 等）は implements 判定の持ち込みが要る — codegen の Go case 一致と食い違う（decision 実装メモに記録）。
 - 混在ルール: scrutinee が `Go.Any` 系のとき通常パターン腕は不可、
   sum scrutinee に型テスト腕は不可 — 交差する設計を切らない。
 

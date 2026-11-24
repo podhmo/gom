@@ -1,6 +1,6 @@
 # `Go.Any` への `match` 型テスト腕 — `p : T` 腕 + `_` 必須
 
-- 状態: draft
+- 状態: 採択（wave40 lane B、2026-11-24）
 - 日付: 2026-11-24
 - 関連: [go-any-extraction](2026-11-24-go-any-extraction.md)（単一取り出しは `Go.try_as` で採択済み — 本 decision は多型ディスパッチの面）、調査 [sketch/2026-11-24-match-type-test-arms](../sketch/2026-11-24-match-type-test-arms.md)
 
@@ -42,13 +42,24 @@
   して残す。
 - emit は Go `switch v := x.(type) { ...; default: ... }` への
   専用 lowering（Maranget の decision tree は通らない）。eval は
-  腕順の内部断言。
+  腕順の内部断言だが、**named Go interface ターゲットは名前比較
+  ではなく implements 判定が要る** — `inhabits` の型名比較の
+  ままでは `fmt.Stringer` 腕に `*bytes.Buffer` が来たとき
+  codegen（Go の case 一致）と eval が食い違う。
 
 ### 型テスト腕の順序と到達不能
 
 Go type switch の first-match 意味論をそのまま採る — 腕は書かれた
-順に試される。逐語に同じ型の重複（`n: Int` と `m: Int`）は構文的
-に E0302 相当で拒否する。subtype 包含による隠蔽（interface
+順に試される。同じ型の重複は**綴りではなく Go 表現で**判定する
+— `Char` と `Int32` は異なる綴りでも同じ `case rune`/`int32`
+になるため同型として拒否する（Go 側の型名 alias も同様）。逐語に
+同じ型の重複（`n: Int` と `m: Int`）は構文的に E0302 相当で
+拒否する。
+型テスト腕に guard は付けられない（v1）。Go の type switch は
+`case` 失敗時に次の `case` へ fallthrough できず、guard を両立
+させるには if-else 連鎖への書き下しが要る — まず `_` 腕を含む
+無 guard の腕だけを受理し、guard 需要が出た時点で emit 形を
+決める。subtype 包含による隠蔽（interface
 ターゲットが先行の具象腕を覆う等）を静的に指すかは**実装時の
 論点**: 指すには go/types の包含判定 oracle が要り、pattern 行列
 に乗らない新規検査になる。許すなら到達不能はユーザー責任で

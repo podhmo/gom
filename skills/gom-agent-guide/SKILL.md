@@ -486,8 +486,8 @@ updates, and patterns alike: `{ x, y }` is `{ x = x, y = y }`,
 and `match p { { x, y } -> ... }` binds `x`/`y`.
 
 A trailing raw-string literal on a record *type* field is the Go
-struct tag, verbatim: `{ name: String `+"`json:"name"`"+` }`
-emits `Name string \`json:"name"\``.
+struct tag, verbatim: `{ name: String `json:"name"` }`
+emits `Name string `json:"name"``.
 
 A whole record spreads into labeled arguments: `f ~..opts` passes
 `opts`' fields by name (`opts.x` fills `~x:`, etc.) — the callee's

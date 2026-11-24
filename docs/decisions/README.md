@@ -246,8 +246,8 @@
 | [user-mutable-structures](2026-11-23-user-mutable-structures.md) | ユーザー宣言の可変構造 | 採用（調査の結果、宣言型の推移展開は実装済みと判明。残る隙間は「実装が見えない宣言型」— extern 裏付け型と abstract export で不透明化した Gom パッケージ型 — `.gomi` の `//gom:mutable` directive を採択） |
 | [verbatim-dup-error](2026-11-23-verbatim-dup-error.md) | emit 名の verbatim 二重請求はエラー E0608 で出力を withhold する | adopted |
 | [go-any-extraction](2026-11-24-go-any-extraction.md) | `Go.Any` からの取り出し — comma-ok の `Option` 返りを唯一の面とする | 採択（wave39 lane A として実施） |
-| [match-type-test-arms](2026-11-24-match-type-test-arms.md) | `Go.Any` への `match` 型テスト腕 — `p : T` 腕 + `_` 必須 | draft |
+| [match-type-test-arms](2026-11-24-match-type-test-arms.md) | `Go.Any` への `match` 型テスト腕 — `p : T` 腕 + `_` 必須 | 採択（wave40 lane B、2026-11-24） |
 | [method-emit-name-verbatim](2026-11-24-method-emit-name-verbatim.md) | `@method(GoName)` — verbatim emit name for Go interface methods | 採用（実装・検証した — wave38 lane G） |
-| [partial-application-lint](2026-11-24-partial-application-lint.md) | 部分適用の握り潰し — `ignore` / `_` 束縛で捨てられた関数値を警告する | draft（wave39 lane C、調査→decision） |
+| [partial-application-lint](2026-11-24-partial-application-lint.md) | 部分適用の握り潰し — `ignore` / `_` 束縛で捨てられた関数値を警告する | 採択（wave40 lane A、2026-11-24） |
 | [record-field-struct-tag](2026-11-24-record-field-struct-tag.md) | record フィールドの Go struct tag — フィールド行の verbatim バッククォートタグ | draft（wave39 lane B として実施） |
 <!-- END GENERATED -->

@@ -97,6 +97,10 @@ Go 相互運用を変えたら両方向（Gom → Go、Go → Gom）のテスト
 
 - [x] **[task] `//gom:mutable` directive（`.gomi`）**: 対応: wave39 lane D — `//gom:mutable <name>` の専用 scan/apply（`resolve.Symbol.Mutable`）、`containsMutable` の `ti.mutable` 照合、`gom info` 再生成での引き継ぎ、spec §10 記述。: 実装が見えない宣言型（extern 裏付け・abstract export 不透明化）を `.gomi` の directive で mutable 表明 — name-only（index 無し）形なので `scanDirective` ではなく専用スキャンが要る、ロード時に tyCons へフラグ適用、`containsMutable` が `Qual != ""` の `Con` で照合、`.gomi` 再生成時は著者の directive を引き継ぐ（toolchain は新規生成しない）。ローカル `.gom` 宣言では受理しない（フィールドから導出可能なため）。priority low（[decision](docs/decisions/2026-11-23-user-mutable-structures.md)、wave36 lane G で採択）
 
+- [ ] **[task] 部分適用の握り潰し lint の実装**: `ignore`・`_` 束縛（package-level 含む）・match `_` 腕の 3 面で捨てられる `*types.Func` を警告（W 系新設）+ `//gom:allow` の warning 拡張（前提機構）（[decision](docs/decisions/2026-11-24-partial-application-lint.md) 採択、wave40 lane A）
+
+- [ ] **[task] `match` 型テスト腕（`p : T`）の実装**: `Go.Any` 系（named Go interface 含む）scrutinee のみ・`_` 腕必須・first-match・Go type-switch emit。guard は v1 非対応、dup 判定は Go 表現、eval は implements 判定要（[decision](docs/decisions/2026-11-24-match-type-test-arms.md) 採択、wave40 lane B）
+
 - [x] **[task] `gom list` サブコマンド（stdlib 列挙）**: 対応: wave38 lane A — `gom list`（引数なし、列挙のみ）が `gomimport.StdlibShortNames()`（`stdlibPaths` の keys: cmp/list/option/result）を 1 行 1 件で出力。`cmp` は埋め込み `.gomi` がないため FS walk ではなくテーブルが列挙元
 - [x] **[task] ビット演算子 `&&&`/`|||`/`^^^`/`<<<`/`>>>`（+`&&^`）の実装**: 採択済みの三重字演算子を lexer + check + codegen + spec に実装（[decision](docs/decisions/2026-11-23-bit-operators.md)）。対応: wave38 lane B — token/lexer/parser/check(intg)/codegen/eval/fmt/validate + spec 演算子表・grammar.ebnf 同期、fixture [ok_bit_ops](testdata/spec/ok_bit_ops.gom)/[E0401_bit_ops](testdata/spec/E0401_bit_ops.gom)/[bit_ops](testdata/golden/bit_ops.gom)
 - [x] **[task] `Go.nil` ユニバーサル builtin の実装**: `Ptr.nil` 以外（`Go.Slice`/`Go.Map`/Go 関数型等）でも nil を書ける Go 名前空間の拡張（[decision](docs/decisions/2026-11-23-nil-spelling.md)、wave38 lane C — `rt.Nil[T]()` emit・E0513・W0502 両綴り認識）

@@ -24,7 +24,7 @@ wave39 lane C の [decision draft](../decisions/2026-11-24-partial-application-l
 ### B. `match` の型テスト腕の実装（decision 採択確認→実装・規模: 中〜大）
 
 wave39 lane E の [decision draft](../decisions/2026-11-24-match-type-test-arms.md):
-`Go.Any` scrutinee に限り `p : T` 腕・`_` 腕必須・first-match・
+`Go.Any` 系（named Go interface 含む）scrutinee に限り `p : T` 腕・`_` 腕必須・first-match・
 Go type-switch emit。**decision は採択として扱う（podhmo 2026-11-24）**:
 
 - pattern 検査（腕の型は `p : T` の `T` に縮小）+ type-switch emit +
@@ -61,9 +61,10 @@ Go と同じ意味論だが gom の宣言型が「比較可能」を見た目に
 
 podhmo 2026-11-24:「標準ライブラリ以外もリストの対象にしたいかも
 — 外部パッケージの参照ということができないかもしれないが」。
-外部 Gom パッケージの import 機構そのものが未実装なので、
-まず「何を列挙対象にしうるか」（module cache・workspace・
-vendor 等の前提調査）を sketch にまとめる調査 lane。
+外部 module の `.gomi` 読み込みは `replace` 経由で既に動く
+（`TestLoadExternalModulePackage`）— 欠けているのは列挙だけ。
+「何を列挙対象にしうるか」（module cache・workspace・replace
+解決後の候補集合）を sketch にまとめる調査 lane。
 
 ### G. `//gom:` directive の一覧表（doc・規模: 小）
 
