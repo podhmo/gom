@@ -50,6 +50,7 @@ type fieldInfo struct {
 	label string // non-empty for ~labeled constructor parameters
 	sym   *resolve.Symbol
 	index int
+	typ   types.Type // declared field type (may hold param vars)
 }
 
 // recordInfo is the declared field layout of a record type

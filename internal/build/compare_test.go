@@ -1683,7 +1683,13 @@ fn answer () -> String = {
     Some bx -> "bx-rune"
     None -> "no-bx-rune"
   }
-  "${a}${b}${c}${d}${e2}${f2}"
+  // rune ≡ int32: the payload comes back reshaped to Int32 —
+  // printing it shows the rune's code point as a number.
+  let g2 = match (Go.try_as (box (1, 'a')) : Option (Int, Int32)) {
+    Some (n, c) -> "${c}"
+    None -> "no-tup"
+  }
+  "${a}${b}${c}${d}${e2}${f2}${g2}"
 }
 
 fn main () -> Unit = {
@@ -1691,7 +1697,7 @@ fn main () -> Unit = {
   ()
 }
 `,
-		want: "no-ii32no-bx-ibx-sfwd-i32bx-rune",
+		want: "no-ii32no-bx-ibx-sfwd-i32bx-rune97",
 	},
 }
 

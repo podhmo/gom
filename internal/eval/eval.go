@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -480,7 +481,7 @@ func (e *Evaluator) registerTypeDecl(d *check.TypeDecl) {
 		for _, variant := range body.Variants {
 			fields := make([]fieldInfo, len(variant.Fields))
 			for i, tf := range variant.Fields {
-				fields[i] = fieldInfo{name: tf.Name, label: tf.Label, sym: tf.Sym, index: tf.Index}
+				fields[i] = fieldInfo{name: tf.Name, label: tf.Label, sym: tf.Sym, index: tf.Index, typ: tf.Type}
 			}
 			e.interp.registerCtor(&ctorInfo{
 				sym: variant.Sym, name: variant.Sym.Name, typ: con, fields: fields,
@@ -489,7 +490,7 @@ func (e *Evaluator) registerTypeDecl(d *check.TypeDecl) {
 	case *check.RecordType:
 		fields := make([]fieldInfo, len(body.Fields))
 		for i, tf := range body.Fields {
-			fields[i] = fieldInfo{name: tf.Name, label: tf.Label, sym: tf.Sym, index: tf.Index}
+			fields[i] = fieldInfo{name: tf.Name, label: tf.Label, sym: tf.Sym, index: tf.Index, typ: tf.Type}
 		}
 		e.interp.ctx.records[d.Sym] = &recordInfo{sym: d.Sym, typ: con, fields: fields}
 	case *check.AliasType, *check.AbstractType:
@@ -642,7 +643,7 @@ func (e *interp) eval(x check.Expr, env *Env) Value {
 			v := e.eval(x.X, env)
 			con, _ := types.Chase(x.Type()).(*types.Con)
 			if con != nil && len(con.Args) == 1 && e.inhabits(v, con.Args[0]) {
-				return &VVariant{Type: con, Name: "Some", Fields: []VField{{Index: 0, V: unboxAny(v, con.Args[0])}}}
+				return &VVariant{Type: con, Name: "Some", Fields: []VField{{Index: 0, V: e.unboxAny(v, con.Args[0])}}}
 			}
 			return &VVariant{Type: con, Name: "None"}
 		}
@@ -1402,13 +1403,13 @@ func boxValue(v Value) any {
 // materialized Go repr is rebuilt at the target's grain; opaque
 // host payloads — named Go types like `sort.IntSlice` — stay host
 // values.
-func unboxAny(v Value, t types.Type) Value {
+func (e *interp) unboxAny(v Value, t types.Type) Value {
 	h, ok := v.(*VHost)
 	if !ok {
 		return v
 	}
 	if inner, ok := h.V.(Value); ok {
-		return inner
+		return e.reshape(inner, t)
 	}
 	switch reprName(t) {
 	case "int64", "int32", "byte", "int":
@@ -1497,9 +1498,15 @@ func (e *interp) inhabits(v Value, t types.Type) bool {
 // `int32` and `byte` is `uint8` (x.(rune) and x.(int32) are the
 // same assertion, and instantiations like `Box[rune]` are the
 // same type as `Box[int32]`).
+var canonAlias = regexp.MustCompile(`\b(?:rune|byte)\b`)
+
 func canonRepr(s string) string {
-	s = strings.ReplaceAll(s, "rune", "int32")
-	return strings.ReplaceAll(s, "byte", "uint8")
+	return canonAlias.ReplaceAllStringFunc(s, func(w string) string {
+		if w == "rune" {
+			return "int32"
+		}
+		return "uint8"
+	})
 }
 
 // reprName renders the emitted Go type name of a gom type — the
@@ -1606,6 +1613,121 @@ func reprName(t types.Type) string {
 		return fmt.Sprintf("rt.Tuple%d[%s]", len(t.Elems), strings.Join(parts, ", "))
 	case *types.Meta, *types.Var:
 		return ""
+	default:
+		panic("unreachable")
+	}
+}
+
+// reshape rewrites a boxed value to the asserted type's Value
+// shape when canon-equal instantiations spell scalars differently
+// — x.(Tuple[Int32]) on a tuple holding a Char succeeds in Go
+// (rune ≡ int32) but eval arithmetic wants a VInt, not a VChar.
+// Recurses through lists, tuples, records and variants; anything
+// else (and any field type the checker could not name) comes back
+// unchanged.
+func (e *interp) reshape(v Value, t types.Type) Value {
+	ct := types.Chase(t)
+	switch v := v.(type) {
+	case *VChar:
+		if reprName(ct) == "int32" {
+			return &VInt{N: int64(v.R)}
+		}
+	case *VInt:
+		if reprName(ct) == "rune" {
+			return &VChar{R: rune(v.N)}
+		}
+	case *VList:
+		if con, ok := ct.(*types.Con); ok && con.Name == "List" && len(con.Args) == 1 {
+			elems := make([]Value, len(v.Elems))
+			for i, el := range v.Elems {
+				elems[i] = e.reshape(el, con.Args[0])
+			}
+			return &VList{Elems: elems}
+		}
+	case *VTuple:
+		if tup, ok := ct.(*types.Tuple); ok && len(tup.Elems) == len(v.Elems) {
+			elems := make([]Value, len(v.Elems))
+			for i, el := range v.Elems {
+				elems[i] = e.reshape(el, tup.Elems[i])
+			}
+			return &VTuple{Elems: elems}
+		}
+	case *VRecord:
+		if con, ok := ct.(*types.Con); ok {
+			if ri := e.recordOf(v.Type); ri != nil && len(ri.fields) == len(v.Fields) {
+				sub := instSubst(ri.typ, con)
+				fs := make([]VField, len(v.Fields))
+				for i, f := range v.Fields {
+					fs[i] = f
+					fs[i].V = e.reshape(f.V, applySubst(ri.fields[i].typ, sub))
+				}
+				return &VRecord{Type: con, Fields: fs}
+			}
+		}
+	case *VVariant:
+		if con, ok := ct.(*types.Con); ok {
+			if ci := e.ctorOf(v.Ctor, v.Name, v.Type); ci != nil && len(ci.fields) == len(v.Fields) {
+				sub := instSubst(ci.typ, con)
+				fs := make([]VField, len(v.Fields))
+				for i, f := range v.Fields {
+					fs[i] = f
+					fs[i].V = e.reshape(f.V, applySubst(ci.fields[i].typ, sub))
+				}
+				return &VVariant{Type: con, Name: v.Name, Fields: fs}
+			}
+		}
+	}
+	return v
+}
+
+// instSubst maps a declared type's parameter vars to an
+// instantiation's arguments (`Box a` against `Box Int32` → a↦Int32).
+func instSubst(decl, inst *types.Con) map[*types.Var]types.Type {
+	if len(decl.Args) == 0 || len(decl.Args) != len(inst.Args) {
+		return nil
+	}
+	m := make(map[*types.Var]types.Type, len(decl.Args))
+	for i, a := range decl.Args {
+		if v, ok := types.Chase(a).(*types.Var); ok {
+			m[v] = inst.Args[i]
+		}
+	}
+	return m
+}
+
+// applySubst substitutes vars through a fixed map — the field-type
+// counterpart of substTy's env lookup.
+func applySubst(t types.Type, m map[*types.Var]types.Type) types.Type {
+	if t == nil || len(m) == 0 {
+		return t
+	}
+	switch t := types.Chase(t).(type) {
+	case *types.Var:
+		if bt, ok := m[t]; ok {
+			return types.Chase(bt)
+		}
+		return t
+	case *types.Con:
+		args := make([]types.Type, len(t.Args))
+		for i, a := range t.Args {
+			args[i] = applySubst(a, m)
+		}
+		return &types.Con{Qual: t.Qual, Name: t.Name, Args: args}
+	case *types.Func:
+		ps := make([]types.FuncParam, len(t.Params))
+		for i, p := range t.Params {
+			ps[i] = p
+			ps[i].Type = applySubst(p.Type, m)
+		}
+		return &types.Func{Params: ps, Ret: applySubst(t.Ret, m)}
+	case *types.Tuple:
+		elems := make([]types.Type, len(t.Elems))
+		for i, el := range t.Elems {
+			elems[i] = applySubst(el, m)
+		}
+		return &types.Tuple{Elems: elems}
+	case *types.Go, *types.Meta:
+		return t
 	default:
 		panic("unreachable")
 	}
