@@ -7,13 +7,13 @@
   トリアージ・修正する（sub-session は立てない）
 - 前 wave の round 記録: [2026-11-24-wave39-round](2026-11-24-wave39-round.md)
 
-## 候補（採否インタビュー対象）
+## 採択 lane（採否インタビュー: 全6件採択、2026-11-24）
 
 ### A. 部分適用の握り潰し lint の実装（decision 採択確認→実装・規模: 中）
 
 wave39 lane C の [decision draft](../decisions/2026-11-24-partial-application-lint.md):
 `ignore`・`_` 束縛（package-level 含む）・match `_` 腕の 3 面で
-捨てられる `*types.Func` 値を警告する。**decision の採択確認を兼ねる**:
+捨てられる `*types.Func` 値を警告する。**decision は採択として扱う（podhmo 2026-11-24）**:
 
 - W 系警告の新設（lint.go の規則群に並べる）+ spec 追記 + fixture
 - `//gom:allow` を warning にも効かせる拡張（現状 error→warning の
@@ -25,7 +25,7 @@ wave39 lane C の [decision draft](../decisions/2026-11-24-partial-application-l
 
 wave39 lane E の [decision draft](../decisions/2026-11-24-match-type-test-arms.md):
 `Go.Any` scrutinee に限り `p : T` 腕・`_` 腕必須・first-match・
-Go type-switch emit。**decision の採択確認を兼ねる**:
+Go type-switch emit。**decision は採択として扱う（podhmo 2026-11-24）**:
 
 - pattern 検査（腕の型は `p : T` の `T` に縮小）+ type-switch emit +
   eval 対応 + spec 追記 + fixture
