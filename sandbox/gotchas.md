@@ -46,6 +46,6 @@
 | ラムダ引数は識別子のみ（`fn` 宣言は `((a,b): T)` パターンを取れる非対称） | E0101 連発 | 本体で `match` |
 | import した Go 関数値は gom 関数の面を持つ | `sc.Split (bufio.ScanWords)` → E0401 | `Go.func2 bufio.ScanWords` で再ラップ |
 | `Char` → rune 系フィールド（`Int32`） | `r.Comma = '\t'` → E0401 | `Go.conv '\t' : Int32` |
-| `Go.nil` を `List` 面のパラメータへ | E0513 は拒否された型を名指しするだけ。nil-able の一覧は `gom explain E0513` が出す | `let b : Go.Slice Byte = Go.nil ()` |
+| `Go.nil` を `List` 面のパラメータへ | E0513 は拒否された型を名指しするだけ。nil-able の一覧は `gom explain E0513` が出す（ただし `Go.FuncN` が記載漏れ — implementation-gaps.md 登録） | `let b : Go.Slice Byte = Go.nil ()` |
 | record リテラルの型が曖昧 | E0407 | `x : T` 注釈 |
 | コマンド群 | — | `gom explain <code>`・`gom fix`・`gom list`・`gom info -o`・`gom fmt -w`・`gom dump -phase` が `-h` に全部出る |
