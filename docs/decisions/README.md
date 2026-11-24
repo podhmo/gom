@@ -251,5 +251,5 @@
 | [onefield-record-tilde](2026-11-24-onefield-record-tilde.md) | 1 フィールド record の `~` 制約受理 — defined type の underlying 一致 | 採択（wave40 lane D の調査結果。実装は wave41 lane A） |
 | [partial-application-lint](2026-11-24-partial-application-lint.md) | 部分適用の握り潰し — `ignore` / `_` 束縛で捨てられた関数値を警告する | 採択（wave40 lane A、2026-11-24） |
 | [record-field-struct-tag](2026-11-24-record-field-struct-tag.md) | record フィールドの Go struct tag — フィールド行の verbatim バッククォートタグ | draft（wave39 lane B として実施） |
-| [sum-comparable-panic](2026-11-24-sum-comparable-panic.md) | sum 型の `comparable` 制約 — interface 表現の実行時 panic 面 | draft（wave40 lane E の調査結果。採択時に実装 lane が生じる） |
+| [sum-comparable-panic](2026-11-24-sum-comparable-panic.md) | sum 型の `comparable` 制約 — interface 表現の実行時 panic 面 | 採択（wave40 lane E の調査結果。実装は wave41 lane B） |
 <!-- END GENERATED -->

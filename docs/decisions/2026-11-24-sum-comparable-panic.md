@@ -1,6 +1,6 @@
 # sum 型の `comparable` 制約 — interface 表現の実行時 panic 面
 
-- 状態: draft（wave40 lane E の調査結果。採択時に実装 lane が生じる）
+- 状態: 採択（wave40 lane E の調査結果。実装は wave41 lane B）
 - 日付: 2026-11-24
 
 wave40 lane E（[prompts](../sketch/2026-11-24-wave40-prompts.md)）。
