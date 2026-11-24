@@ -1455,11 +1455,12 @@ func unboxAny(v Value, t types.Type) Value {
 // type target by `pkgbase.Name`. A nil interface value asserts as
 // nothing; an `error` target accepts any non-nil error payload.
 func (e *interp) inhabits(v Value, t types.Type) bool {
-	want := reprName(t)
+	want := canonRepr(reprName(t))
 	if want == "" {
 		return false
 	}
 	match := func(dyn string) bool {
+		dyn = canonRepr(dyn)
 		return dyn == want || strings.HasSuffix(dyn, "."+want)
 	}
 	if h, ok := v.(*VHost); ok {
@@ -1489,6 +1490,16 @@ func (e *interp) inhabits(v Value, t types.Type) bool {
 		return isErr
 	}
 	return match(valueReprName(v))
+}
+
+// canonRepr normalizes a type-name spelling to the name Go's
+// runtime reports — predeclared aliases collapse: `rune` is
+// `int32` and `byte` is `uint8` (x.(rune) and x.(int32) are the
+// same assertion, and instantiations like `Box[rune]` are the
+// same type as `Box[int32]`).
+func canonRepr(s string) string {
+	s = strings.ReplaceAll(s, "rune", "int32")
+	return strings.ReplaceAll(s, "byte", "uint8")
 }
 
 // reprName renders the emitted Go type name of a gom type — the
@@ -1757,7 +1768,7 @@ func (e *interp) evalApply(x *check.Apply, env *Env) Value {
 			continue
 		}
 		vals[i] = e.eval(a.Value, env)
-		argTys[i] = a.Value.Type()
+		argTys[i] = substTy(a.Value.Type(), env)
 	}
 	// The CallInfo contract: at most one hole, and HoleIndex records
 	// exactly where it is (any negative value claims "no hole").

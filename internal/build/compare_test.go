@@ -1651,6 +1651,10 @@ fn box (x: a) -> Go.Any = {
   y
 }
 
+// fwd forwards through a second generic parameter — b must bind
+// to the instantiation a carried, not to the parameter itself.
+fn fwd (x: a) -> Go.Any = box x
+
 fn answer () -> String = {
   let xs : List Int32 = []
   let a = match (Go.try_as (box xs) : Option (List Int)) {
@@ -1669,7 +1673,17 @@ fn answer () -> String = {
     Some bx -> "bx-s"
     None -> "no-bx-s"
   }
-  "${a}${b}${c}${d}"
+  let e2 = match (Go.try_as (fwd xs) : Option (List Int32)) {
+    Some l -> "fwd-i32"
+    None -> "no-fwd"
+  }
+  // rune and int32 are the same Go type — Box Char and Box Int32
+  // instantiate identically, so both assertions answer Some.
+  let f2 = match (Go.try_as (box {v = 'a'}) : Option (Box Int32)) {
+    Some bx -> "bx-rune"
+    None -> "no-bx-rune"
+  }
+  "${a}${b}${c}${d}${e2}${f2}"
 }
 
 fn main () -> Unit = {
@@ -1677,7 +1691,7 @@ fn main () -> Unit = {
   ()
 }
 `,
-		want: "no-ii32no-bx-ibx-s",
+		want: "no-ii32no-bx-ibx-sfwd-i32bx-rune",
 	},
 }
 
