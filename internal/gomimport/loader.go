@@ -114,15 +114,18 @@ type Loader struct {
 	vlisted      map[string]bool
 	goflags      string
 
-	// workOnce resolves the directory holding the go.work that
-	// governs Config.Dir; empty outside workspace mode. In a
-	// workspace the go command ignores every member module's
-	// vendor/ — only <workroot>/vendor applies.
+	// workOnce resolves the workspace root holding go.work —
+	// workspace vendoring materializes at <workroot>/vendor and
+	// overrides the per-module vendor/ entirely. vend caches the
+	// vendor directory imports resolve through (workspace first,
+	// then module); empty when neither exists.
 	workOnce sync.Once
-	work     string
+	workRoot string
 	// workFile is the go.work file itself — GOWORK may name a
 	// file other than `go.work` (e.g. `go.work.dev`).
 	workFile string
+	vendOnce sync.Once
+	vend     string
 
 	// pkgs caches loaded member tables; errs the failures behind
 	// them; loading marks in-progress paths (as their index into
@@ -404,8 +407,8 @@ func ExternalPackages(dir, gobin string) ([]string, error) {
 	mods, err := l.extModules()
 	mainPath, mainDir, _ := l.module()
 	vend := ""
-	if mainDir != "" && l.vendorEnabled() {
-		vend = l.vendDir(mainDir)
+	if l.vendorEnabled() {
+		vend = l.vendorDir()
 	}
 	// Under vendoring the vendored set is the importable set — a
 	// module graph that cannot be listed (offline, broken
@@ -637,8 +640,8 @@ func (l *Loader) pkgDir(path string) (string, error) {
 	// (or =readonly) makes the go command ignore vendor/ entirely,
 	// and the generated Go import must see the same source the go
 	// tool will use.
-	if _, modDir, merr := l.module(); merr == nil && l.vendorEnabled() {
-		if vd := l.vendDir(modDir); vd != "" {
+	if l.vendorEnabled() {
+		if vd := l.vendorDir(); vd != "" {
 			v := filepath.Join(vd, filepath.FromSlash(path))
 			if st, serr := os.Stat(v); serr == nil && st.IsDir() {
 				// modules.txt is the go command's vendored set — a
@@ -716,9 +719,17 @@ func (l *Loader) extModules() (map[string]string, error) {
 		// sits behind the failure so workspace modules (where -mod
 		// is constrained) are untouched.
 		if err != nil {
-			if _, modDir, merr := l.module(); merr == nil {
-				if _, serr := os.Stat(filepath.Join(modDir, "vendor", "modules.txt")); serr == nil {
-					out, err = l.goListModules("-mod=mod")
+			if vd := l.vendorDir(); vd != "" {
+				if _, serr := os.Stat(filepath.Join(vd, "modules.txt")); serr == nil {
+					// Workspace mode rejects -mod=mod; the
+					// go.work build list is already exact,
+					// so readonly bypasses vendor the same
+					// way there.
+					flag := "-mod=mod"
+					if l.workRootFn() != "" {
+						flag = "-mod=readonly"
+					}
+					out, err = l.goListModules(flag)
 				}
 			}
 		}
@@ -796,27 +807,29 @@ func (l *Loader) gobin() string {
 	return "go"
 }
 
-// vendDir returns the vendor directory the go command resolves
-// imports through — <workroot>/vendor when a workspace governs
-// (its modules.txt must carry the "## workspace" marker or the
-// tree is a stale module vendor the go command ignores), else
-// the module's own vendor/. Empty when neither applies.
-func (l *Loader) vendDir(mainDir string) string {
-	if wr := l.workRoot(); wr != "" {
-		mt := filepath.Join(wr, "vendor", "modules.txt")
-		if b, err := os.ReadFile(mt); err == nil && strings.Contains(string(b), "## workspace") {
-			return filepath.Join(wr, "vendor")
+// vendorDir returns the vendor directory the go command
+// resolves imports through — <workroot>/vendor when a workspace
+// governs (its modules.txt must carry the "## workspace" marker
+// or the tree is a stale module vendor the go command ignores),
+// else the module's own vendor/. Empty when neither applies. In
+// workspace mode a member module's vendor/ is never consulted.
+func (l *Loader) vendorDir() string {
+	l.vendOnce.Do(func() {
+		if wr := l.workRootFn(); wr != "" {
+			mt := filepath.Join(wr, "vendor", "modules.txt")
+			if b, err := os.ReadFile(mt); err == nil && strings.Contains(string(b), "## workspace") {
+				l.vend = filepath.Join(wr, "vendor")
+			}
+			return
 		}
-		return ""
-	}
-	if mainDir == "" {
-		return ""
-	}
-	v := filepath.Join(mainDir, "vendor")
-	if st, err := os.Stat(v); err == nil && st.IsDir() {
-		return v
-	}
-	return ""
+		if _, modDir, err := l.module(); err == nil {
+			v := filepath.Join(modDir, "vendor")
+			if st, serr := os.Stat(v); serr == nil && st.IsDir() {
+				l.vend = v
+			}
+		}
+	})
+	return l.vend
 }
 
 // vendPkgs returns the package paths the vendor tree's
@@ -851,7 +864,7 @@ func (l *Loader) vendPkgs(vend string) map[string]bool {
 // the one the loader resolved.
 func (l *Loader) workUse() map[string]string {
 	out := map[string]string{}
-	wr, wf := l.workRoot(), l.workFile
+	wr, wf := l.workRootFn(), l.workFile
 	if wr == "" || wf == "" {
 		return out
 	}
@@ -906,7 +919,7 @@ func (l *Loader) workUse() map[string]string {
 // `go env GOWORK` answers it; the env var alone is not enough
 // because an unset GOWORK still auto-discovers a go.work walking
 // up the tree.
-func (l *Loader) workRoot() string {
+func (l *Loader) workRootFn() string {
 	l.workOnce.Do(func() {
 		cmd := exec.Command(l.gobin(), "env", "GOWORK")
 		if l.cfg.Dir != "" {
@@ -918,11 +931,11 @@ func (l *Loader) workRoot() string {
 		}
 		wf := strings.TrimSpace(string(out))
 		if wf != "" && wf != "off" {
-			l.work = filepath.Dir(wf)
+			l.workRoot = filepath.Dir(wf)
 			l.workFile = wf
 		}
 	})
-	return l.work
+	return l.workRoot
 }
 
 // vendorEnabled reports whether the go command would resolve
