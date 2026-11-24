@@ -2412,7 +2412,19 @@ func (c *checker) constFold(e Expr) (constant.Value, bool) {
 		if !ok {
 			return nil, false
 		}
-		if w, us, ok := c.intFoldWidth(e.Type()); ok && v.Kind() == constant.Int {
+		if w, us, ok := c.intFoldWidth(e.Type()); ok {
+			// A machine conversion truncates a fractional value
+			// toward zero — `Go.conv (1.0 / 2.0) : Int` is 0 in
+			// the emitted `int64(0.5)`, where keeping the folded
+			// 0.5 would hide a real division-by-zero panic (and
+			// `constant.ToInt` refuses fractions outright).
+			if v.Kind() != constant.Int {
+				fv, ok := constant.Float64Val(v)
+				if !ok {
+					return nil, false
+				}
+				v = constant.MakeInt64(int64(fv))
+			}
 			return wrapConstInt(v, w, us), true
 		}
 		return v, true

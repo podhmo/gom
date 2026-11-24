@@ -1,0 +1,7 @@
+package main
+
+// A float-computed divisor converted to an integer type truncates
+// in the machine — `Go.conv (1.0 / 2.0) : Int` is 0 in the emitted
+// `int64(0.5)`, so the division reports E0414. The fold must not
+// keep the cast's fractional value.
+fn divz (x: Int) -> Int = x / (Go.conv (1.0 / 2.0) : Int)
