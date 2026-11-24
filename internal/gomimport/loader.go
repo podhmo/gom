@@ -396,10 +396,15 @@ func ExternalPackages(dir, gobin string) ([]string, error) {
 	mods, err := l.extModules()
 	mainPath, mainDir, _ := l.module()
 	vend := ""
-	if mainDir != "" && l.vendorEnabled() && l.workRoot() == "" {
+	if mainDir != "" && l.vendorEnabled() {
 		v := filepath.Join(mainDir, "vendor")
-		if st, serr := os.Stat(v); serr == nil && st.IsDir() {
-			vend = v
+		// A member module's vendor/ applies only outside
+		// workspace mode — except when workroot and module
+		// root coincide, where it is the workspace vendor.
+		if wr := l.workRoot(); wr == "" || wr == mainDir {
+			if st, serr := os.Stat(v); serr == nil && st.IsDir() {
+				vend = v
+			}
 		}
 	}
 	// Under vendoring the vendored set is the importable set — a
@@ -600,7 +605,8 @@ func (l *Loader) pkgDir(path string) (string, error) {
 	// (or =readonly) makes the go command ignore vendor/ entirely,
 	// and the generated Go import must see the same source the go
 	// tool will use.
-	if _, modDir, merr := l.module(); merr == nil && l.vendorEnabled() && l.workRoot() == "" {
+	if _, modDir, merr := l.module(); merr == nil && l.vendorEnabled() &&
+		(l.workRoot() == "" || l.workRoot() == modDir) {
 		v := filepath.Join(modDir, "vendor", filepath.FromSlash(path))
 		if st, serr := os.Stat(v); serr == nil && st.IsDir() {
 			return v, nil

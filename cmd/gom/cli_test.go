@@ -1312,35 +1312,41 @@ func TestListExternal(t *testing.T) {
 // are listed from its replace directory, and the vendored copy is
 // listed by its vendored path (what dirOf resolves under vendor
 // mode). The package's TestMain pins GOFLAGS=-mod=mod, which the
-// go command reads as "ignore vendor/" — this test enables
-// vendoring explicitly; a plain "" would leave a `go env -w`
-// saved -mod value in effect.
+// go command reads as "ignore vendor/" — one run enables vendoring
+// explicitly (-mod=vendor, which also defeats a `go env -w` saved
+// -mod), the other leaves GOFLAGS empty with GOENV=off to exercise
+// the go command's own default vendoring selection.
 func TestListExternalVendor(t *testing.T) {
-	t.Setenv("GOFLAGS", "-mod=vendor")
-	dir := writeFiles(t, map[string]string{
-		"go.mod":                              "module example.com/exttest\n\ngo 1.27\n\nrequire example.com/dep v0.0.0\n\nreplace example.com/dep => ./dep\n",
-		"pkg/pkg.gomi":                        "package pkg\n",
-		"dep/go.mod":                          "module example.com/dep\n\ngo 1.27\n",
-		"dep/dep.gomi":                        "package dep\n",
-		"vendor/modules.txt":                  "# example.com/dep v0.0.0\n## explicit; go 1.27\nexample.com/dep\nexample.com/dep/sub\n",
-		"vendor/example.com/dep/dep.gomi":     "package dep\n",
-		"vendor/example.com/dep/sub/sub.gomi": "package sub\n",
-	})
-	t.Chdir(dir)
+	for _, flags := range []string{"-mod=vendor", ""} {
+		t.Run("GOFLAGS="+flags, func(t *testing.T) {
+			t.Setenv("GOFLAGS", flags)
+			t.Setenv("GOENV", "off")
+			dir := writeFiles(t, map[string]string{
+				"go.mod":                              "module example.com/exttest\n\ngo 1.27\n\nrequire example.com/dep v0.0.0\n\nreplace example.com/dep => ./dep\n",
+				"pkg/pkg.gomi":                        "package pkg\n",
+				"dep/go.mod":                          "module example.com/dep\n\ngo 1.27\n",
+				"dep/dep.gomi":                        "package dep\n",
+				"vendor/modules.txt":                  "# example.com/dep v0.0.0\n## explicit; go 1.27\nexample.com/dep\nexample.com/dep/sub\n",
+				"vendor/example.com/dep/dep.gomi":     "package dep\n",
+				"vendor/example.com/dep/sub/sub.gomi": "package sub\n",
+			})
+			t.Chdir(dir)
 
-	code, out, errout := invoke("list", "-external")
-	if code != 0 {
-		t.Fatalf("gom list -external (vendored): exit %d; stderr=%q", code, errout)
-	}
-	got := strings.Fields(out)
-	want := []string{"example.com/dep", "example.com/dep/sub", "example.com/exttest/pkg"}
-	if len(got) != len(want) {
-		t.Fatalf("gom list -external (vendored) = %v, want %v", got, want)
-	}
-	for i := range want {
-		if got[i] != want[i] {
-			t.Errorf("gom list -external (vendored)[%d] = %q, want %q", i, got[i], want[i])
-		}
+			code, out, errout := invoke("list", "-external")
+			if code != 0 {
+				t.Fatalf("gom list -external (vendored): exit %d; stderr=%q", code, errout)
+			}
+			got := strings.Fields(out)
+			want := []string{"example.com/dep", "example.com/dep/sub", "example.com/exttest/pkg"}
+			if len(got) != len(want) {
+				t.Fatalf("gom list -external (vendored) = %v, want %v", got, want)
+			}
+			for i := range want {
+				if got[i] != want[i] {
+					t.Errorf("gom list -external (vendored)[%d] = %q, want %q", i, got[i], want[i])
+				}
+			}
+		})
 	}
 }
 
