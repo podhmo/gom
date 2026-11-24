@@ -80,7 +80,7 @@
 
 ## 執筆中に見つけたこと
 
-- **生成 Go が `declared and not used` になるケース**: `match r () { Ok n -> ignore (fmt.Println "ok ${n}") ... }`（`r : Result Unit String`）は check/build を通るが、補間は `"()"` リテラルに展開され束縛 `tmp` が未参照になり `go build` に落ちる（"declared and not used: tmp3"）。16 章は `Ok _ ->` で回避。[implementation-gaps に登録](../implementation-gaps.md)。
+- **生成 Go が `declared and not used` になるケース**: `match r () { Ok n -> ignore (fmt.Println "ok ${n}") ... }`（`r : Result Unit String`）は check/build を通るが、補間は `"()"` リテラルに展開され束縛 `tmp` が未参照になり `go build` に落ちる（"declared and not used: tmp3"）。16 章は `Ok _ ->` で回避。[implementation-gaps に登録](../../implementation-gaps.md)。
 - **tutorial_test.go の loader 配線が CLI とずれていた**: `compileStep` は `goimport.Loader` をそのまま `Loader`/`Sigs` に渡しており、`import "cmp"` が E0203（"not a Go package (use `import go`)"）に落ちた。CLI（`cmd/gom/cli.go` の `compileOptions`）は `gomimport` の composite を挟むので、同じ形に合わせた（`Modules`/`Types`/`FuncArity`/`SelfImportPath` も同じ）。今回の差分の本質は「ハーネスが Go-only loader だった」で、14 章で初めて `import "mod"` を使う step になって初めて露出。
 - **`gom test` が吐く `main_test.go` が .gitignore 対象外だった**: 従来のルールは `[0-9]*/main.go` と `[0-9]*/badmatch.go` だけ。`[0-9]*/*.go` に広げた。
 

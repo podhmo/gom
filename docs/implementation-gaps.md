@@ -1902,8 +1902,6 @@
 - [ ] **`cmd/gom/cli.go` の `canonicalImport` が `cmp` を stdlib 短名として扱わない**: `stdlibPaths` と同趣の表だが `cmp` が抜けており、import パスの canonicalize でずれが出うる。`StdlibShortNames()` との一本化が本筋。参照: [実装](../cmd/gom/cli.go)（wave41 lane B レビュー指摘）
 
 - [ ] **9 要素以上の spelled tuple が check を通るが codegen が未定義の `rt.TupleN` を吐く**: `rt` の tuple は `Tuple8` までしかなく、関数シグネチャの 8 結果上限（E0510）は型位置の tuple arity を縛らない — `(Int ×9)` をペイロードや戻り型に書くと check は通り、生成 Go が `undefined: rt.Tuple9` で `go build` に落ちる（wave41 lane B で `rt.Tuple64` 相当を確認; fuzz seed#275 も同経路）。check で上限を診断するか rt を拡張するかは未決。参照: [実装](../internal/codegen/types.go)（`tupleType`）、[実装](../rt/tuple.go)
-||||||| parent of adf3799 (tutorial: add steps 13-21 (loops, stdlib, mutable, scope, tests, concurrency, Go boundary, callbacks, sugar))
-
 
 - [ ] **`Ok n` の `Unit` 束縛を文字列補間すると生成 Go が `declared and not used` になる**:
   `match r () { Ok n -> ignore (fmt.Println "ok ${n}") ... }`（`r : Result Unit String`）が
