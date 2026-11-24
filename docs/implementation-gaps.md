@@ -1885,3 +1885,5 @@
 - [ ] **1 フィールド record の `~` 制約は依然拒否**: `type UserId = {v: Int}`（Go では `type UserId int64` の defined type）は Go 的に `~int64` を満たすが、boundaryTypeOf が宣言型を写せないため要素比較の対象にならず E0508 のまま。多フィールド record（struct emit）は正しく拒否される — defined type 経由の受理可否は gap として残る（wave38 lane D レビュー対象外・[decision](decisions/2026-11-23-goslice-gom-elem.md)）
 
 - [ ] **sum 要素の slice/map 受理は `comparable` 実行時 panic の余地を残す**: `type Shape = | Rect {r: Int} | Group {items: List Int}` のような sum は sealed interface として emit される。wave38 lane D の要素 fallback で `slices.Contains`（`E comparable`）に `Go.Slice Shape` を渡せるようになったが、interface 値の `==` は動的値が非 comparable（`List` ペイロードの variant など）だと実行時 panic する。Go でも同じコードはコンパイルされて同じく panic するので Go 意味論どおりだが、gom の宣言型が「比較可能」を見た目に依ることは lane D の受理で新たに露出した — `goReprComparable` が interface repr を受理する限り残る（wave38 lane D レビュー指摘・検討対象外）
+
+- [ ] **E0513（`Go.nil` 非 nil-able 拒否）が `internal/diag/codes.go` に未登録**: wave38 lane C で `check.go`/`expr.go` から `diag.Error("E0513", ...)` を直接発行したが codes registry にエントリがなく、`docs/error-codes.md` にも出ない — spec fixture（`E0513_go_nil`）は通るが `gom explain E0513` は機能しない。wave38 lane C の見落とし
