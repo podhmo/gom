@@ -1910,3 +1910,9 @@
   最小再現と文脈は [調査](sketch/ja/2026-11-24-tutorial-gap-enumeration.md)（tutorial 16 章
   執筆中に発見）。未確認: `Unit` ペイロードの他の束縛位置（`let`・他の ctor）でも
   同じか。（2026-11-24 登録）
+
+- [ ] **`gom test` が生成テストを持つパッケージで手書き `main_test.go` を無条件上書きする**:
+  `r.Output.TestSource != nil` の場合 `writeFile(tst, ...)` が marker 判定なしで上書きする
+  （`cmd/gom/test.go`）。marker ガード（`isGomGenerated`）が効くのは「生成テストがない側の
+  stale 削除」だけで、手書き `_test.go` を保持する旨のコメントと実態がずれている — tutorial
+  ハーネスは snapshot/restore で回避（tutorial/run.sh・tutorial_test.go、2026-11-24 登録）。
