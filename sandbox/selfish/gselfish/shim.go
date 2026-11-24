@@ -54,7 +54,6 @@ func wrapf(e error, format string, arg any) error { return fmt.Errorf(format+": 
 // log.Fatalf("!!%+v") then prints. Paths/line numbers follow the build.
 func stackErrorf(format string, arg any) error { return errors.Errorf(format, arg) }
 
-
 // github.GistFile.Size is *int; gom's Ptr Int is *int64, so the
 // literal is built here.
 func hostNewGistFile(filename string, size int64, content string) *github.GistFile {
