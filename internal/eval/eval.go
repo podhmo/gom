@@ -619,15 +619,19 @@ func (e *interp) eval(x check.Expr, env *Env) Value {
 					elems = append(elems, tail.Elems...)
 				case *VHost:
 					// A Go slice through a host binding spreads
-					// element-wise as further host values — the
-					// same reading spliceGoSpread gives `f(..xs)`.
-					if rv := reflect.ValueOf(tail.V); rv.Kind() == reflect.Slice {
-						for i := 0; i < rv.Len(); i++ {
-							elems = append(elems, &VHost{V: rv.Index(i).Interface()})
+					// element-wise — unboxed per the element type
+					// so arithmetic and patterns see real values,
+					// the same conversion unboxAny applies at a
+					// composite's slots.
+					if con, ok := types.Chase(sp.X.Type()).(*types.Con); ok && len(con.Args) == 1 {
+						if rv := reflect.ValueOf(tail.V); rv.Kind() == reflect.Slice {
+							for i := 0; i < rv.Len(); i++ {
+								elems = append(elems, e.unboxAny(&VHost{V: rv.Index(i).Interface()}, con.Args[0]))
+							}
+							continue
 						}
-					} else {
-						failData(CodeInternal, "spread of a non-list", el.Span(), "value", v.String())
 					}
+					failData(CodeInternal, "spread of a non-list", el.Span(), "value", v.String())
 				default:
 					failData(CodeInternal, "spread of a non-list", el.Span(), "value", v.String())
 				}
