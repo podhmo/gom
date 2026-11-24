@@ -986,7 +986,19 @@ func validStructTag(tag string) bool {
 		if i <= 0 || i+1 >= len(tag) || tag[i+1] != '"' {
 			return false
 		}
-		if strings.ContainsAny(tag[:i], ` :"`) || !strconv.IsPrint(rune(tag[0])) {
+		// Go requires a key of non-control characters other than
+		// space, quote, colon — a raw newline inside the key would
+		// also break the single-line diagnostic message.
+		key := tag[:i]
+		bad := false
+		for j := 0; j < len(key); j++ {
+			c := key[j]
+			if c <= ' ' || c == '"' || c == ':' || c == 0x7f {
+				bad = true
+				break
+			}
+		}
+		if bad || !strconv.IsPrint(rune(key[0])) {
 			return false
 		}
 		// The quoted value must parse as a Go string literal —

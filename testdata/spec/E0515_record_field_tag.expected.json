@@ -65,6 +65,28 @@
       "data": {
         "tag": "json:name"
       }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0515",
+      "severity": "error",
+      "message": "malformed record field struct tag",
+      "span": {
+        "file": "E0515_record_field_tag.gom",
+        "start": {
+          "line": 8,
+          "col": 27,
+          "offset": 282
+        },
+        "end": {
+          "line": 9,
+          "col": 8,
+          "offset": 293
+        }
+      },
+      "data": {
+        "tag": "js\non:\"x\""
+      }
     }
   ]
 }

@@ -5,6 +5,8 @@ package ex
 type Bad1 = {name: String `json`}
 type Bad2 = {name: String `"json"`}
 type Bad3 = {name: String `json:name`}
+type Bad4 = {name: String `js
+on:"x"`}
 
 // well-formed tags are accepted.
 type Ok = {name: String `json:"name"`, mail: String `json:"mail,omitempty" yaml:"mail"`}
