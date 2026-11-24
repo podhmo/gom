@@ -2479,13 +2479,19 @@ func (c *checker) foldFloat(e Expr) (float64, bool) {
 			return 0, false
 		}
 		v, ok := constant.Float64Val(constant.MakeFromLiteral(e.Text, token.FLOAT, 0))
-		return v, ok
+		if !ok {
+			return 0, false
+		}
+		return c.narrowFloat(v, e.Type()), true
 	case *Unary:
 		if e.Op != syntax.UnNeg {
 			return 0, false
 		}
 		v, ok := c.foldFloat(e.X)
-		return -v, ok
+		if !ok {
+			return 0, false
+		}
+		return c.narrowFloat(-v, e.Type()), true
 	case *Binary:
 		x, ok := c.foldFloat(e.X)
 		if !ok {
@@ -2495,39 +2501,55 @@ func (c *checker) foldFloat(e Expr) (float64, bool) {
 		if !ok {
 			return 0, false
 		}
+		var v float64
 		switch e.Op {
 		case syntax.BinAdd:
-			return x + y, true
+			v = x + y
 		case syntax.BinSub:
-			return x - y, true
+			v = x - y
 		case syntax.BinMul:
-			return x * y, true
+			v = x * y
 		case syntax.BinDiv:
 			if y == 0 {
 				return 0, false
 			}
-			return x / y, true
+			v = x / y
 		default:
 			return 0, false
 		}
+		return c.narrowFloat(v, e.Type()), true
 	case *Ascribe:
 		if c.floatKindOf(e.Type()) {
+			var fv float64
 			if c.floatKindOf(e.X.Type()) {
 				// `Go.conv f : Float` is the identity in the
 				// float domain — and so is a defined type emitting
 				// as a Go float (`type Score = {v: Float}`), whose
-				// conversion keeps the same float64 bits.
-				return c.foldFloat(e.X)
+				// conversion keeps the same bits.
+				v, ok := c.foldFloat(e.X)
+				if !ok {
+					return 0, false
+				}
+				fv = v
+			} else {
+				// `Go.conv e : Float` on a non-float evaluates e in
+				// ITS domain first — `Go.conv (1/2) : Float` is
+				// float64(0), not 0.5: integer division keeps its
+				// truncation.
+				v, ok := c.constFold(e.X)
+				if !ok {
+					return 0, false
+				}
+				fv, ok = constant.Float64Val(v)
+				if !ok {
+					return 0, false
+				}
 			}
-			// `Go.conv e : Float` on a non-float evaluates e in
-			// ITS domain first — `Go.conv (1/2) : Float` is
-			// float64(0), not 0.5: integer division keeps its
-			// truncation.
-			v, ok := c.constFold(e.X)
-			if !ok {
-				return 0, false
-			}
-			return constant.Float64Val(v)
+			// The conversion itself narrows: `Go.conv f : Go.float32`
+			// rounds to float32 precision — f64-only folding of
+			// `Go.conv 0.999999999 : Go.float32` would mint a false
+			// zero where Go yields 1.0.
+			return c.narrowFloat(fv, e.Type()), true
 		}
 		// `Go.conv e : T` for an integral T evaluates e then
 		// converts — re-fold through constFold, which handles
@@ -2556,6 +2578,17 @@ func (c *checker) floatKindOf(t types.Type) bool {
 	dt := c.definedUnderlying(types.Chase(t))
 	gk, isGo := c.namedBasicKind(dt)
 	return isFloat(dt) || (isGo && namedFloat(gk))
+}
+
+// narrowFloat rounds a folded value to the precision the node's own
+// type computes in — a float32 (builtin or via a defined/Go named
+// type) keeps float32 rounding, everything else stays float64.
+func (c *checker) narrowFloat(v float64, t types.Type) float64 {
+	dt := c.definedUnderlying(types.Chase(t))
+	if gk, ok := c.namedBasicKind(dt); ok && gk == gotypes.Float32 {
+		return float64(float32(v))
+	}
+	return v
 }
 
 // intFoldWidth gives the machine width — and its signedness — that
