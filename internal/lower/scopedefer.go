@@ -94,7 +94,7 @@ func (l *lowerer) nativeScopeRuns(out *core.File) {
 				*core.EscapeCall, *core.EscapeResult, *core.FieldGet,
 				*core.FieldSet, *core.ForRange, *core.GoFunc,
 				*core.GoFuncRef, *core.If, *core.ListNew, *core.Lit,
-				*core.Match, *core.OptionFromGo, *core.RecordNew,
+				*core.Match, *core.OptionFromGo, *core.TryAs, *core.RecordNew,
 				*core.RecordUpdate, *core.ResultFromGo, *core.SelectExpr,
 				*core.Spawn, *core.TailCall, *core.TupleFromGo,
 				*core.TupleNew, *core.Unary, *core.Uncurry:
@@ -218,7 +218,7 @@ func (p *scopeDeferPass) expr(e core.Expr, ctx *scopeCtx) {
 		*core.RecordNew, *core.RecordUpdate, *core.CallDirect,
 		*core.CallFunc, *core.CallGo, *core.CallBuiltin, *core.CtorApp,
 		*core.TailCall, *core.EscapeResult, *core.EscapeCall,
-		*core.ResultFromGo, *core.OptionFromGo, *core.ErrorFromGo,
+		*core.ResultFromGo, *core.OptionFromGo, *core.TryAs, *core.ErrorFromGo,
 		*core.TupleFromGo, *core.Conv, *core.Defer, *core.Equal:
 		// atoms and atom-only expressions hold no bodies.
 	default:
@@ -517,7 +517,7 @@ func (p *scopeDeferPass) bodyFn(a core.Atom, ctx *scopeCtx) *core.Func {
 				*core.ErrorFromGo, *core.EscapeCall, *core.EscapeResult,
 				*core.FieldGet, *core.FieldSet, *core.ForRange,
 				*core.GoFunc, *core.GoFuncRef, *core.If, *core.ListNew,
-				*core.Lit, *core.Match, *core.OptionFromGo,
+				*core.Lit, *core.Match, *core.OptionFromGo, *core.TryAs,
 				*core.RecordNew, *core.RecordUpdate, *core.ResultFromGo,
 				*core.SelectExpr, *core.Spawn, *core.TailCall,
 				*core.TupleFromGo, *core.TupleNew, *core.Unary,
@@ -609,7 +609,7 @@ func collectRegs(b *core.Body, s *resolve.Symbol) ([]*reg, bool) {
 			*core.RecordNew, *core.RecordUpdate, *core.CallDirect,
 			*core.CallFunc, *core.CallGo, *core.CallBuiltin,
 			*core.CtorApp, *core.TailCall,
-			*core.ResultFromGo, *core.OptionFromGo,
+			*core.ResultFromGo, *core.OptionFromGo, *core.TryAs,
 			*core.ErrorFromGo, *core.TupleFromGo, *core.Conv,
 			*core.Defer, *core.Equal:
 		default:

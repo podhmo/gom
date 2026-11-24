@@ -471,3 +471,15 @@ type Conv struct {
 }
 
 func (*Conv) isExpr() {}
+
+// TryAs is the `Go.try_as x : Option T` extraction — a comma-ok Go
+// type assertion `v, ok := x.(T)` materialized to `option.FromGo(v,
+// ok)` (decision 2026-11-24-go-any-extraction). Typ is the `Option T`
+// result; Target is T, the assertion target.
+type TryAs struct {
+	Base
+	X      Atom
+	Target types.Type
+}
+
+func (*TryAs) isExpr() {}

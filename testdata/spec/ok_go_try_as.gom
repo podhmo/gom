@@ -1,0 +1,16 @@
+package ex
+
+import go "sort"
+
+// spec 8.3: `Go.try_as x : Option T` is the only extraction surface
+// out of `Go.Any` — emits `v, ok := x.(T)` through `option.FromGo`.
+let any_val : Go.Any = 42
+fn as_int () -> Option Int = Go.try_as any_val : Option Int
+fn as_str () -> Option String = Go.try_as any_val : Option String
+fn as_named () -> Option sort.IntSlice = Go.try_as any_val : Option sort.IntSlice
+
+// the panic form derives through Option.get; a boxed operand
+// extracts through the same surface.
+fn extract (x: Go.Any) -> Int = (Go.try_as x : Option Int) |> Option.get
+
+fn main () -> Unit = ()

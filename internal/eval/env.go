@@ -13,6 +13,10 @@ type Env struct {
 	parent *Env
 	vars   map[*resolve.Symbol]Value
 	ctx    *ctx
+	// tyvars records the type arguments a call's arguments were
+	// checked at — the instantiation an `any` box under a generic
+	// parameter needs to name its Go representation faithfully.
+	tyvars map[*types.Var]types.Type
 }
 
 // ctx is the per-evaluation shared state: constructor metadata
@@ -38,6 +42,12 @@ type ctorInfo struct {
 	name   string
 	typ    *types.Con // the nominal type the constructor builds
 	fields []fieldInfo
+	// declared reports whether typ and the field types are in
+	// declaration form — Con args and field types over the type's
+	// own parameter Vars. Infos derived lazily from an apply
+	// site's instantiated type carry that site's concrete types
+	// instead, which only that instantiation may use.
+	declared bool
 }
 
 // fieldInfo is one payload slot of a constructor (declaration order).
@@ -46,6 +56,7 @@ type fieldInfo struct {
 	label string // non-empty for ~labeled constructor parameters
 	sym   *resolve.Symbol
 	index int
+	typ   types.Type // declared field type (may hold param vars)
 }
 
 // recordInfo is the declared field layout of a record type
@@ -60,7 +71,8 @@ type recordInfo struct {
 // context — for evaluating standalone expressions in tests.
 func NewEnv() *Env {
 	return &Env{
-		vars: map[*resolve.Symbol]Value{},
+		vars:   map[*resolve.Symbol]Value{},
+		tyvars: map[*types.Var]types.Type{},
 		ctx: &ctx{
 			ctors:   map[*resolve.Symbol]*ctorInfo{},
 			records: map[*resolve.Symbol]*recordInfo{},
@@ -71,7 +83,23 @@ func NewEnv() *Env {
 
 // Child returns a child environment sharing the parent's context.
 func (e *Env) Child() *Env {
-	return &Env{parent: e, vars: map[*resolve.Symbol]Value{}, ctx: e.ctx}
+	return &Env{parent: e, vars: map[*resolve.Symbol]Value{}, ctx: e.ctx,
+		tyvars: map[*types.Var]types.Type{}}
+}
+
+// BindTy records a type parameter's instantiation for this frame.
+func (e *Env) BindTy(v *types.Var, t types.Type) {
+	e.tyvars[v] = t
+}
+
+// LookupTy resolves a type parameter binding up the chain.
+func (e *Env) LookupTy(v *types.Var) (types.Type, bool) {
+	for cur := e; cur != nil; cur = cur.parent {
+		if t, ok := cur.tyvars[v]; ok {
+			return t, true
+		}
+	}
+	return nil, false
 }
 
 // Bind introduces (or shadows in this frame) a symbol binding.

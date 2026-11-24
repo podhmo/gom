@@ -1,0 +1,12 @@
+package ex
+
+import go "sort"
+
+// `Go.try_as x : Option T` — comma-ok assertion through option.FromGo.
+let any_val : Go.Any = 42
+fn as_int () -> Option Int = Go.try_as any_val : Option Int
+fn as_str () -> Option String = Go.try_as any_val : Option String
+fn as_named () -> Option sort.IntSlice = Go.try_as any_val : Option sort.IntSlice
+fn extract (x: Go.Any) -> Int = (Go.try_as x : Option Int) |> Option.get
+
+fn main () -> Unit = ()

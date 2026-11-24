@@ -82,7 +82,7 @@ func walkExpr(e core.Expr, f func(*core.Bind)) {
 		*core.RecordNew, *core.RecordUpdate, *core.Conv, *core.FieldSet,
 		*core.TailCall, *core.EscapeResult, *core.EscapeCall,
 		*core.ResultFromGo, *core.OptionFromGo, *core.TupleFromGo,
-		*core.ErrorFromGo, *core.Defer:
+		*core.ErrorFromGo, *core.Defer, *core.TryAs:
 		// Atoms, calls, conversions, records, escapes and tail
 		// calls introduce no binders.
 	default:
@@ -277,6 +277,8 @@ func exprUses(e core.Expr, sym *resolve.Symbol) bool {
 		return callGoUses(e.Call, sym)
 	case *core.OptionFromGo:
 		return callGoUses(e.Call, sym)
+	case *core.TryAs:
+		return atomUses(e.X, sym)
 	case *core.TupleFromGo:
 		return callGoUses(e.Call, sym)
 	case *core.ErrorFromGo:

@@ -1524,6 +1524,204 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 `,
 		want: "-9223372036854775808/-9223372036854775808/0/-9223372036854775808/-9223372036854775808/-9223372036854775807",
 	},
+	{
+		// `x : Go.Any` boxes the value; `Go.try_as` asserts it
+		// back at the emitted-Go-type grain. The `Some` payload
+		// must come out as a usable gom value — `n + 1` fails if
+		// the option still carries the host box.
+		name: "go_try_as_unboxes_payload",
+		src: `package main
+
+import go "fmt"
+
+fn answer () -> String = {
+  let x : Go.Any = 42
+  match (Go.try_as x : Option Int) {
+    Some n -> "some ${n + 1}"
+    None -> "none"
+  }
+}
+
+fn main () -> Unit = {
+  let _ = fmt.Println(answer ())
+  ()
+}
+`,
+		want: "some 43",
+	},
+	{
+		// A generic helper boxes under the type parameter — eval
+		// sees no instantiation, so the slot asserts by the
+		// value's own repr name.
+		name: "go_try_as_generic_box",
+		src: `package main
+
+import go "fmt"
+
+fn box (x: a) -> Go.Any = {
+  let y : Go.Any = x
+  y
+}
+
+fn answer () -> String = {
+  match (Go.try_as (box 7) : Option Int) {
+    Some n -> "some ${n}"
+    None -> "none"
+  }
+}
+
+fn main () -> Unit = {
+  let _ = fmt.Println(answer ())
+  ()
+}
+`,
+		want: "some 7",
+	},
+	{
+		// A file-local `type Ptr` (arity 0) shadows the builtin —
+		// the assertion name is the nominal `Ptr`, and reading
+		// `t.Args[0]` on it must not panic.
+		name: "go_try_as_shadowed_name",
+		src: `package main
+
+import go "fmt"
+
+type Ptr = | P Int
+
+fn answer () -> String = {
+  let x : Go.Any = P 3
+  match (Go.try_as x : Option Ptr) {
+    Some p -> match p { P n -> "some ${n}" }
+    None -> "none"
+  }
+}
+
+fn main () -> Unit = {
+  let _ = fmt.Println(answer ())
+  ()
+}
+`,
+		want: "some 3",
+	},
+	{
+		// Tuple and function targets have real assertion names —
+		// `rt.Tuple2[int64, string]` and `func(int64) int64` —
+		// so an exact match extracts instead of answering None.
+		name: "go_try_as_tuple_and_func",
+		src: `package main
+
+import go "fmt"
+
+fn answer () -> String = {
+  let tup : Go.Any = (1, "a")
+  let fun : Go.Any = fn (n: Int) -> n + 1
+  let a = match (Go.try_as tup : Option (Int, String)) {
+    Some (n, s) -> "${n}${s}"
+    None -> "none"
+  }
+  let b = match (Go.try_as fun : Option (Int -> Int)) {
+    Some g -> "${g 9}"
+    None -> "none"
+  }
+  "${a},${b}"
+}
+
+fn main () -> Unit = {
+  let _ = fmt.Println(answer ())
+  ()
+}
+`,
+		want: "1a,10",
+	},
+	{
+		// Type arguments survive a generic box: the call frame's
+		// `a := List Int32` instantiation names the box
+		// `list.List[int32]`, so `List Int` asserts None and
+		// `List Int32` asserts Some — the same answers the
+		// emitted `x.(list.List[int32/int64])` gives.
+		name: "go_try_as_generic_arg_types",
+		src: `package main
+
+import go "fmt"
+
+type Box a = { v: a }
+
+fn box (x: a) -> Go.Any = {
+  let y : Go.Any = x
+  y
+}
+
+// fwd forwards through a second generic parameter — b must bind
+// to the instantiation a carried, not to the parameter itself.
+fn fwd (x: a) -> Go.Any = box x
+
+fn answer () -> String = {
+  let xs : List Int32 = []
+  let a = match (Go.try_as (box xs) : Option (List Int)) {
+    Some l -> "i"
+    None -> "no-i"
+  }
+  let b = match (Go.try_as (box xs) : Option (List Int32)) {
+    Some l -> "i32"
+    None -> "no-i32"
+  }
+  let c = match (Go.try_as (box {v = "s"}) : Option (Box Int)) {
+    Some bx -> "bx-i"
+    None -> "no-bx-i"
+  }
+  let d = match (Go.try_as (box {v = "s"}) : Option (Box String)) {
+    Some bx -> "bx-s"
+    None -> "no-bx-s"
+  }
+  let e2 = match (Go.try_as (fwd xs) : Option (List Int32)) {
+    Some l -> "fwd-i32"
+    None -> "no-fwd"
+  }
+  // rune and int32 are the same Go type — Box Char and Box Int32
+  // instantiate identically, so both assertions answer Some.
+  let f2 = match (Go.try_as (box {v = 'a'}) : Option (Box Int32)) {
+    Some bx -> "bx-rune"
+    None -> "no-bx-rune"
+  }
+  // rune ≡ int32: the payload comes back reshaped to Int32 —
+  // printing it shows the rune's code point as a number.
+  let g2 = match (Go.try_as (box (1, 'a')) : Option (Int, Int32)) {
+    Some (n, c) -> "${c}"
+    None -> "no-tup"
+  }
+  // a builtin variant nested in any: Option's ctor info is derived
+  // lazily, so its payload type must survive for the reshape.
+  let h2 = match (Go.try_as (box (Some 'a')) : Option (Option Char)) {
+    Some o -> (match o { Some c -> "in:${c}"; None -> "inn" })
+    None -> "no-oo"
+  }
+  // a second instantiation after Some ('a', ()) must not inherit
+  // the first site's (Char, Unit) field types — the inner Option's
+  // payload stays (Int, Unit).
+  let _ = Some ('a', ())
+  let i2 = match (Go.try_as (box (Some (42, ()))) : Option (Option (Int, Unit))) {
+    Some o -> (match o { Some (n, c) -> "${n}"; None -> "inn2" })
+    None -> "no-oo2"
+  }
+  // a reshaped variant keeps its ctor identity — reboxing the
+  // Int32 extraction must restore 'a' for an Option Char assert.
+  let j2 = match (Go.try_as (box (Some 'a')) : Option (Option Int32)) {
+    Some o -> (match (Go.try_as (box o) : Option (Option Char)) {
+      Some o2 -> (match o2 { Some c -> "${c}"; None -> "x" })
+      None -> "y"
+    })
+    None -> "z"
+  }
+  "${a}${b}${c}${d}${e2}${f2}${g2}${h2}${i2}${j2}"
+}
+
+fn main () -> Unit = {
+  let _ = fmt.Println(answer ())
+  ()
+}
+`,
+		want: "no-ii32no-bx-ibx-sfwd-i32bx-rune97in:a42a",
+	},
 }
 
 // compareUnitCases is the package-unit half of the comparison suite:

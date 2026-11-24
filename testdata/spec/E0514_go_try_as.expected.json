@@ -1,0 +1,149 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0514",
+      "severity": "error",
+      "message": "`Go.try_as` extracts from `Go.Any`, not Int",
+      "span": {
+        "file": "E0514_go_try_as.gom",
+        "start": {
+          "line": 6,
+          "col": 32,
+          "offset": 160
+        },
+        "end": {
+          "line": 6,
+          "col": 56,
+          "offset": 184
+        }
+      },
+      "data": {
+        "from": "Int"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0514",
+      "severity": "error",
+      "message": "`Go.try_as` target must be `Option T`, not Int",
+      "span": {
+        "file": "E0514_go_try_as.gom",
+        "start": {
+          "line": 7,
+          "col": 36,
+          "offset": 220
+        },
+        "end": {
+          "line": 7,
+          "col": 53,
+          "offset": 237
+        }
+      },
+      "data": {
+        "to": "Int"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0514",
+      "severity": "error",
+      "message": "`Go.try_as` target must be a concrete type, not Go.Any",
+      "span": {
+        "file": "E0514_go_try_as.gom",
+        "start": {
+          "line": 8,
+          "col": 43,
+          "offset": 280
+        },
+        "end": {
+          "line": 8,
+          "col": 70,
+          "offset": 307
+        }
+      },
+      "data": {
+        "to": "Go.Any"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0514",
+      "severity": "error",
+      "message": "`Go.try_as` takes exactly one argument",
+      "span": {
+        "file": "E0514_go_try_as.gom",
+        "start": {
+          "line": 9,
+          "col": 42,
+          "offset": 349
+        },
+        "end": {
+          "line": 9,
+          "col": 68,
+          "offset": 375
+        }
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0407",
+      "severity": "error",
+      "message": "type annotation required: the type of `bare` could not be determined",
+      "span": {
+        "file": "E0514_go_try_as.gom",
+        "start": {
+          "line": 14,
+          "col": 1,
+          "offset": 465
+        },
+        "end": {
+          "line": 14,
+          "col": 21,
+          "offset": 485
+        }
+      },
+      "data": {
+        "type": "?1"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0514",
+      "severity": "error",
+      "message": "`Go.try_as` is only valid as an extraction: `Go.try_as x : Option T`",
+      "span": {
+        "file": "E0514_go_try_as.gom",
+        "start": {
+          "line": 14,
+          "col": 12,
+          "offset": 476
+        },
+        "end": {
+          "line": 14,
+          "col": 21,
+          "offset": 485
+        }
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0514",
+      "severity": "error",
+      "message": "`Go.try_as` takes exactly one argument",
+      "span": {
+        "file": "E0514_go_try_as.gom",
+        "start": {
+          "line": 15,
+          "col": 43,
+          "offset": 528
+        },
+        "end": {
+          "line": 15,
+          "col": 70,
+          "offset": 555
+        }
+      }
+    }
+  ]
+}

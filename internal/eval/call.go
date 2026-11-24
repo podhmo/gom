@@ -53,7 +53,7 @@ type deepArg struct {
 // Extra args beyond the remaining arity are applied one at a time to
 // whatever the saturated call returns (over-application, spec
 // section 1.3 currying semantics).
-func (e *interp) applyArgs(f *VFunc, positions []int, args []Value, sp diag.Span) Value {
+func (e *interp) applyArgs(f *VFunc, positions []int, args []Value, argTys []types.Type, sp diag.Span) Value {
 	nf := cloneFunc(f)
 	rem := nf.Remaining()
 	var deep []deepArg
@@ -78,6 +78,9 @@ func (e *interp) applyArgs(f *VFunc, positions []int, args []Value, sp diag.Span
 			continue
 		}
 		nf.bound[rem[pos]] = slot{set: true, v: e.flatSlot(nf, rem[pos], args[i], sp)}
+		if argTys != nil && rem[pos] < len(nf.sig.Params) {
+			bindVar(nf, nf.sig.Params[rem[pos]].Type, argTys[i])
+		}
 	}
 	if len(deep) == 0 {
 		var v Value
@@ -205,7 +208,7 @@ func (e *interp) applyDeep(v Value, deep []deepArg, consumed int, sp diag.Span) 
 		positions[i] = d.pos - consumed
 		args[i] = d.arg
 	}
-	return e.applyArgs(f, positions, args, sp)
+	return e.applyArgs(f, positions, args, nil, sp)
 }
 
 // applyOne applies one positional argument to the next remaining
@@ -216,7 +219,7 @@ func (e *interp) applyOne(v Value, arg Value, sp diag.Span) Value {
 		failData(CodeInternal, "applied a non-function value", sp,
 			"value", v.String())
 	}
-	return e.applyArgs(f, nil, []Value{arg}, sp)
+	return e.applyArgs(f, nil, []Value{arg}, nil, sp)
 }
 
 // cloneFunc copies f so further binding does not mutate the shared
@@ -225,6 +228,12 @@ func cloneFunc(f *VFunc) *VFunc {
 	nf := *f
 	nf.bound = make([]slot, len(f.bound))
 	copy(nf.bound, f.bound)
+	if f.tyvars != nil {
+		nf.tyvars = make(map[*types.Var]types.Type, len(f.tyvars))
+		for k, t := range f.tyvars {
+			nf.tyvars[k] = t
+		}
+	}
 	return &nf
 }
 
@@ -253,6 +262,9 @@ func (e *interp) invoke(f *VFunc, sp diag.Span) Value {
 				"function", f.name)
 		}
 		env := f.env.Child()
+		for v, t := range f.tyvars {
+			env.BindTy(v, t)
+		}
 		for i, p := range f.params {
 			if !e.matchPat(p.Pat, f.bound[i].v, env) {
 				failData(CodeInternal,
@@ -321,7 +333,7 @@ func (e *interp) invoke(f *VFunc, sp diag.Span) Value {
 // callee must be a fnBuiltin bound by the harness.
 func (e *interp) invokeGo(f *VFunc, args []Value, sp diag.Span) Value {
 	if f.kind != fnBuiltin {
-		return e.applyArgs(f, nil, args, sp)
+		return e.applyArgs(f, nil, args, nil, sp)
 	}
 	v, err := f.builtin(args)
 	if err != nil {
@@ -368,4 +380,48 @@ func NewHostFunc(name string, arity int, fn func(args []Value) (Value, error)) *
 	f := funcOfType(name, fnBuiltin, sig)
 	f.builtin = fn
 	return f
+}
+
+// bindVar records the type-parameter bindings an application makes:
+// the parameter's declared type against the argument's static type,
+// walked structurally (`List a` against `List Int32` binds a). Only
+// Var leaves bind — anything else is concrete already.
+func bindVar(nf *VFunc, pt, at types.Type) {
+	p := types.Chase(pt)
+	if v, ok := p.(*types.Var); ok {
+		if nf.tyvars == nil {
+			nf.tyvars = map[*types.Var]types.Type{}
+		}
+		nf.tyvars[v] = at
+		return
+	}
+	a := types.Chase(at)
+	switch p := p.(type) {
+	case *types.Con:
+		if ac, ok := a.(*types.Con); ok && len(ac.Args) == len(p.Args) {
+			for i := range p.Args {
+				bindVar(nf, p.Args[i], ac.Args[i])
+			}
+		}
+	case *types.Func:
+		if af, ok := a.(*types.Func); ok && len(af.Params) == len(p.Params) {
+			for i := range p.Params {
+				bindVar(nf, p.Params[i].Type, af.Params[i].Type)
+			}
+			bindVar(nf, p.Ret, af.Ret)
+		}
+	case *types.Tuple:
+		if at2, ok := a.(*types.Tuple); ok && len(at2.Elems) == len(p.Elems) {
+			for i := range p.Elems {
+				bindVar(nf, p.Elems[i], at2.Elems[i])
+			}
+		}
+	case *types.Go, *types.Meta:
+		// Host types and unsolved metas carry no bindable
+		// parameter — the Var leaf was already handled above.
+	case *types.Var:
+		panic("unreachable") // handled before the switch
+	default:
+		panic("unreachable")
+	}
 }

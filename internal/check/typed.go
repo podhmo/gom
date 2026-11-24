@@ -425,6 +425,9 @@ type Ascribe struct {
 	// lowering emits the operand as-is — the explicit conversion
 	// would defeat `go vet`'s sigchanyzer tracking.
 	ChanDir bool
+	// TryAs marks a `Go.try_as x : Option T` extraction — the comma-ok
+	// assertion out of `Go.Any` (decision 2026-11-24-go-any-extraction).
+	TryAs bool
 }
 
 func (*Ascribe) isExpr() {}

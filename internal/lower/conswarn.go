@@ -218,7 +218,7 @@ func folderAppendsAcc(e core.Expr, declOf map[*resolve.Symbol]*core.FuncDecl) bo
 			*core.CtorRef, *core.Defer, *core.Equal, *core.ErrorFromGo, *core.EscapeCall,
 			*core.EscapeResult, *core.FieldGet, *core.FieldSet, *core.ForRange,
 			*core.GoFuncRef, *core.If, *core.ListNew, *core.Lit, *core.Match,
-			*core.OptionFromGo, *core.RecordNew, *core.RecordUpdate,
+			*core.OptionFromGo, *core.TryAs, *core.RecordNew, *core.RecordUpdate,
 			*core.ResultFromGo, *core.SelectExpr, *core.Spawn, *core.TailCall,
 			*core.TupleFromGo, *core.TupleNew, *core.Unary, *core.Var:
 		default:
@@ -426,7 +426,7 @@ func eachBody(b *core.Body, f func(*core.Body)) {
 			*core.CallFunc, *core.CallGo, *core.Conv, *core.CtorApp,
 			*core.CtorRef, *core.Equal, *core.ErrorFromGo, *core.EscapeCall,
 			*core.EscapeResult, *core.FieldGet, *core.FieldSet, *core.FuncRef, *core.GoFuncRef,
-			*core.ListNew, *core.Lit, *core.OptionFromGo, *core.RecordNew,
+			*core.ListNew, *core.Lit, *core.OptionFromGo, *core.TryAs, *core.RecordNew,
 			*core.RecordUpdate, *core.ResultFromGo, *core.TailCall,
 			*core.Defer,
 			*core.TupleFromGo, *core.TupleNew, *core.Unary, *core.Var:

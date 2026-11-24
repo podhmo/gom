@@ -162,10 +162,14 @@ func builtinGoMembers() map[string]*Symbol {
 		// check-side like conv's (`Unit -> a` with a nil-ability
 		// constraint on the solved `a`), so the member is a bare
 		// builtin symbol.
-		"nil":   {Name: "nil", Kind: KindBuiltin, Package: "Go"},
-		"Any":   {Name: "Any", Kind: KindType, Package: "Go"},
-		"Slice": {Name: "Slice", Kind: KindType, Package: "Go"},
-		"Map":   {Name: "Map", Kind: KindType, Package: "Go"},
+		"nil": {Name: "nil", Kind: KindBuiltin, Package: "Go"},
+		// `Go.try_as x : Option T` — the comma-ok assertion that is the
+		// only extraction surface out of `Go.Any` (decision
+		// 2026-11-24-go-any-extraction). Typed check-side like conv.
+		"try_as": {Name: "try_as", Kind: KindBuiltin, Package: "Go"},
+		"Any":    {Name: "Any", Kind: KindType, Package: "Go"},
+		"Slice":  {Name: "Slice", Kind: KindType, Package: "Go"},
+		"Map":    {Name: "Map", Kind: KindType, Package: "Go"},
 		// The func-typed interop surface: `Go.FuncN` names a Go
 		// `func` type and `Go.funcN` is the explicit conversion
 		// producing a value of it

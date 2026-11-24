@@ -263,11 +263,82 @@ func (v *VGoErr) Error() string { return v.Text }
 // Go value's `%v` form so fmt-print comparisons stay faithful.
 type VHost struct {
 	V any
+	// T is the gom type the value carried when it was boxed into
+	// `Go.Any` — nil for opaque host values. `Go.try_as` asserts
+	// against it at the emitted-Go-type grain (Int and Int64 share
+	// int64), the way `x.(T)` does.
+	T types.Type
 }
 
 func (*VHost) isValue() {}
 func (v *VHost) String() string {
+	if inner, ok := v.V.(Value); ok {
+		// A gom value inside the `any` box displays the way the
+		// emitted Go repr would under %v — `[1 2]`, `{a b}` — not
+		// the gom spellings String() produces.
+		return goDisplay(inner)
+	}
 	return fmt.Sprintf("%v", v.V)
+}
+
+// goDisplay renders an eval value in its emitted Go `%v` shape —
+// the fmt form a host call sees through an `any` slot.
+func goDisplay(v Value) string {
+	switch v := v.(type) {
+	case *VStr:
+		return v.S
+	case *VChar:
+		return strconv.FormatInt(int64(v.R), 10)
+	case *VUnit:
+		return "{}"
+	case *VBool, *VInt, *VFloat:
+		return v.String()
+	case *VList:
+		var sb strings.Builder
+		sb.WriteByte('[')
+		for i, el := range v.Elems {
+			if i > 0 {
+				sb.WriteByte(' ')
+			}
+			sb.WriteString(goDisplay(el))
+		}
+		sb.WriteByte(']')
+		return sb.String()
+	case *VTuple:
+		return goDisplayFields(v.Elems)
+	case *VRecord:
+		elems := make([]Value, len(v.Fields))
+		for i, f := range v.Fields {
+			elems[i] = f.V
+		}
+		return goDisplayFields(elems)
+	case *VVariant:
+		elems := make([]Value, len(v.Fields))
+		for i, f := range v.Fields {
+			elems[i] = f.V
+		}
+		return goDisplayFields(elems)
+	case *VGoErr:
+		return v.Text
+	case *VFunc, *VHost:
+		return v.String()
+	default:
+		panic("unreachable")
+	}
+}
+
+// goDisplayFields renders a struct-shaped `%v` — `{a b c}`.
+func goDisplayFields(elems []Value) string {
+	var sb strings.Builder
+	sb.WriteByte('{')
+	for i, el := range elems {
+		if i > 0 {
+			sb.WriteByte(' ')
+		}
+		sb.WriteString(goDisplay(el))
+	}
+	sb.WriteByte('}')
+	return sb.String()
 }
 
 // VFunc is a function value with declared arity and a set of already
@@ -300,6 +371,12 @@ type VFunc struct {
 	// `fn f () -> T` is not a thunk; `f` in value position is the
 	// function itself.
 	thunk bool
+
+	// tyvars records type-parameter instantiations observed at
+	// apply time (param type vs the argument's static type) — the
+	// eval-side channel that lets an `any` box under `a` name its
+	// Go representation faithfully.
+	tyvars map[*types.Var]types.Type
 
 	// kind-specific payload.
 	params  []check.Param                     // fnLambda / fnDecl

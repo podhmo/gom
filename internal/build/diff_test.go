@@ -1367,6 +1367,12 @@ func goDisplay(v eval.Value) (string, bool) {
 	case *eval.VGoErr:
 		return v.Text, true
 	case *eval.VHost:
+		// A boxed gom value renders the way the emitted `any`
+		// slot would format under `%v` — delegate to the same
+		// Go-style display the evaluator's VHost.String uses.
+		if inner, ok := v.V.(eval.Value); ok {
+			return goDisplay(inner)
+		}
 		return fmt.Sprintf("%v", v.V), true
 	case *eval.VList:
 		var b strings.Builder

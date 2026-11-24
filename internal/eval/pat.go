@@ -277,6 +277,46 @@ func (e *interp) ctorOf(sym *resolve.Symbol, name string, typ types.Type) *ctorI
 	return info
 }
 
+// builtinDeclCtor returns the Option/Result ctors' metadata in
+// declaration form (field types over the type's parameter Vars).
+// These ctors never pass through registerTypeDecl, so the lazy
+// deriveCtor path is the only source of their metadata — and a
+// site-derived info carries that instantiation's concrete types,
+// which must not be reused to reshape a differently-instantiated
+// value (an Option (Char,Unit) derivation would recast the Int of a
+// later Some 42). Returns nil for every other symbol.
+func builtinDeclCtor(sym *resolve.Symbol) *ctorInfo {
+	if sym == nil || sym.Kind != resolve.KindCtor || sym.Package != "" {
+		return nil
+	}
+	switch sym.Name {
+	case "Some":
+		a := &types.Var{Name: "a"}
+		return &ctorInfo{sym: sym, name: "Some",
+			typ:      &types.Con{Name: "Option", Args: []types.Type{a}},
+			fields:   []fieldInfo{{index: 0, typ: a}},
+			declared: true}
+	case "None":
+		a := &types.Var{Name: "a"}
+		return &ctorInfo{sym: sym, name: "None",
+			typ:      &types.Con{Name: "Option", Args: []types.Type{a}},
+			declared: true}
+	case "Ok":
+		a, e := &types.Var{Name: "a"}, &types.Var{Name: "e"}
+		return &ctorInfo{sym: sym, name: "Ok",
+			typ:      &types.Con{Name: "Result", Args: []types.Type{a, e}},
+			fields:   []fieldInfo{{index: 0, typ: a}},
+			declared: true}
+	case "Err":
+		a, e := &types.Var{Name: "a"}, &types.Var{Name: "e"}
+		return &ctorInfo{sym: sym, name: "Err",
+			typ:      &types.Con{Name: "Result", Args: []types.Type{a, e}},
+			fields:   []fieldInfo{{index: 0, typ: e}},
+			declared: true}
+	}
+	return nil
+}
+
 // deriveCtor builds ctorInfo without a TypeDecl: a Func type supplies
 // the payload (params in order, labels kept); a Con type is a
 // nullary variant. Other shapes give nil.
@@ -293,7 +333,7 @@ func deriveCtor(sym *resolve.Symbol, name string, typ types.Type) *ctorInfo {
 		}
 		fields := make([]fieldInfo, len(t.Params))
 		for i, p := range t.Params {
-			fields[i] = fieldInfo{label: p.Label, index: i}
+			fields[i] = fieldInfo{label: p.Label, index: i, typ: p.Type}
 		}
 		return &ctorInfo{sym: sym, name: name, typ: con, fields: fields}
 	}

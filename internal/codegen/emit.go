@@ -172,6 +172,8 @@ func (g *gen) emit(e core.Expr, d dest) {
 		g.resultFromGo(e, d)
 	case *core.OptionFromGo:
 		g.optionFromGo(e, d)
+	case *core.TryAs:
+		g.tryAs(e, d)
 	case *core.TupleFromGo:
 		g.tupleFromGo(e, d)
 	case *core.ErrorFromGo:
@@ -484,7 +486,7 @@ func (g *gen) uncurryLit(e *core.Uncurry) {
 		*core.CallDirect, *core.CallFunc, *core.CallGo, *core.CallBuiltin,
 		*core.CtorApp, *core.TailCall, *core.EscapeResult, *core.EscapeCall,
 		*core.ResultFromGo, *core.OptionFromGo, *core.ErrorFromGo,
-		*core.TupleFromGo, *core.Conv, *core.FieldSet:
+		*core.TupleFromGo, *core.Conv, *core.FieldSet, *core.TryAs:
 		// The generic adapter over a canonical atom.
 		tail = e.X
 		for len(binds) < e.Arity {
@@ -1195,6 +1197,21 @@ func (g *gen) optionFromGo(e *core.OptionFromGo, d dest) {
 	default:
 		panic("codegen: OptionFromGo over non-option result shape")
 	}
+}
+
+// tryAs emits the `Go.try_as x : Option T` extraction — a comma-ok
+// assertion `v, ok := x.(T)` then `option.FromGo(v, ok)` (decision
+// 2026-11-24-go-any-extraction).
+func (g *gen) tryAs(e *core.TryAs, d dest) {
+	g.line(e.Sp)
+	v, ok := g.fresh("v"), g.fresh("ok")
+	g.raw(v + ", " + ok + " := ")
+	g.expr(&ast.TypeAssertExpr{X: g.atom(e.X), Type: g.goType(e.Target)})
+	g.nl()
+	g.writeDest(d, &ast.CallExpr{
+		Fun:  ast.NewIdent(g.pkgQual(optionPath) + "FromGo"),
+		Args: []ast.Expr{ast.NewIdent(v), ast.NewIdent(ok)},
+	})
 }
 
 // optionFromGoDest writes `option.FromGo(<conv>v, okTest)` to the

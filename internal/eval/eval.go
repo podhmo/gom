@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"reflect"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -480,16 +481,16 @@ func (e *Evaluator) registerTypeDecl(d *check.TypeDecl) {
 		for _, variant := range body.Variants {
 			fields := make([]fieldInfo, len(variant.Fields))
 			for i, tf := range variant.Fields {
-				fields[i] = fieldInfo{name: tf.Name, label: tf.Label, sym: tf.Sym, index: tf.Index}
+				fields[i] = fieldInfo{name: tf.Name, label: tf.Label, sym: tf.Sym, index: tf.Index, typ: tf.Type}
 			}
 			e.interp.registerCtor(&ctorInfo{
-				sym: variant.Sym, name: variant.Sym.Name, typ: con, fields: fields,
+				sym: variant.Sym, name: variant.Sym.Name, typ: con, fields: fields, declared: true,
 			})
 		}
 	case *check.RecordType:
 		fields := make([]fieldInfo, len(body.Fields))
 		for i, tf := range body.Fields {
-			fields[i] = fieldInfo{name: tf.Name, label: tf.Label, sym: tf.Sym, index: tf.Index}
+			fields[i] = fieldInfo{name: tf.Name, label: tf.Label, sym: tf.Sym, index: tf.Index, typ: tf.Type}
 		}
 		e.interp.ctx.records[d.Sym] = &recordInfo{sym: d.Sym, typ: con, fields: fields}
 	case *check.AliasType, *check.AbstractType:
@@ -635,13 +636,24 @@ func (e *interp) eval(x check.Expr, env *Env) Value {
 	case *check.RecordLit:
 		return e.evalRecord(x, env)
 	case *check.Ascribe:
+		if x.TryAs {
+			// `Go.try_as x : Option T` — the comma-ok assertion
+			// `x.(T)` is a dynamic-shape check on the evaluated
+			// value; Some on a match, None otherwise.
+			v := e.eval(x.X, env)
+			con, _ := types.Chase(x.Type()).(*types.Con)
+			if con != nil && len(con.Args) == 1 && e.inhabits(v, con.Args[0]) {
+				return &VVariant{Type: con, Name: "Some", Fields: []VField{{Index: 0, V: e.unboxAny(v, con.Args[0])}}}
+			}
+			return &VVariant{Type: con, Name: "None"}
+		}
 		if x.Conv {
 			// The implicit `any` box (checker's `Go.Any`
 			// conformance materialization) is representation-only
 			// here: eval values are dynamically typed already.
 			// Other Conv ascriptions keep the existing verdict.
 			if !x.Iface && !x.Slice && isGoAnyCon(x.Type()) {
-				return e.eval(x.X, env)
+				return e.anyBox(e.eval(x.X, env), x.X.Type(), env)
 			}
 			failData(CodeUnsupported, "Go.conv conversions are not supported by the evaluator", x.Span(), "construct", "Go.conv")
 		}
@@ -662,7 +674,7 @@ func (e *interp) forceThunk(v Value, sp diag.Span) Value {
 	if !ok || !f.thunk {
 		return v
 	}
-	return e.applyArgs(f, nil, nil, sp)
+	return e.applyArgs(f, nil, nil, nil, sp)
 }
 
 // evalVar resolves a symbol reference: environment first (locals,
@@ -684,6 +696,15 @@ func (e *interp) evalVar(x *check.Var, env *Env) Value {
 	switch x.Sym.Kind {
 	case resolve.KindCtor:
 		info := e.ctorOf(x.Sym, x.Sym.Name, x.Type())
+		if info != nil && !info.declared {
+			// A lazily-derived info is only valid for the
+			// instantiation it was built from — the first apply
+			// site's concrete types would stick to every later site
+			// (Some 'a' recasting a later Some 42's payload type).
+			// Derive this site's shape fresh; the shared cache entry
+			// still serves name/label lookups.
+			info = deriveCtor(x.Sym, x.Sym.Name, x.Type())
+		}
 		if info == nil {
 			failData(CodeInternal, "cannot determine constructor type", x.Span(), "ctor", x.Sym.Name)
 		}
@@ -918,6 +939,9 @@ func (e *interp) evalMember(x *check.MemberExpr, env *Env) Value {
 		}
 		if x.Sym.Kind == resolve.KindCtor {
 			info := e.ctorOf(x.Sym, x.Sym.Name, x.Type())
+			if info != nil && !info.declared {
+				info = deriveCtor(x.Sym, x.Sym.Name, x.Type())
+			}
 			if info != nil {
 				if len(info.fields) == 0 {
 					return &VVariant{Type: info.typ, Ctor: info.sym, Name: info.name}
@@ -1248,6 +1272,558 @@ func (e *interp) evalPipeTry(x *check.Binary, env *Env) Value {
 	return &VVariant{Type: variant.Type, Ctor: variant.Ctor, Name: variant.Name, Fields: fields}
 }
 
+// anyBox wraps a value crossing into `Go.Any` — the `any(v)` the
+// compiled boundary emits. The VHost records the value's gom type so
+// `Go.try_as` can assert at the emitted-Go-type grain (`x.(T)` on
+// int64 succeeds for both Int and Int64). A value already boxed —
+// re-entering `any` — keeps its inner box, matching Go.
+func (e *interp) anyBox(v Value, t types.Type, env *Env) Value {
+	if _, ok := v.(*VHost); ok {
+		return v
+	}
+	if ct := substTy(types.Chase(t), env); reprName(ct) != "" {
+		return &VHost{V: boxRepr(v, ct), T: ct}
+	}
+	// The box's static type is not concretely nameable — a type
+	// parameter under a generic helper — so the slot holds a
+	// value-driven Go repr and asserts by reflect name instead.
+	return &VHost{V: boxValue(v)}
+}
+
+// substTy resolves type parameters through the call-frame type
+// bindings — the instantiation a generic helper's `a` carried at
+// apply time. An unbound parameter stays a Var (reprName then
+// reports "unnameable" and the box falls back to value shape).
+func substTy(t types.Type, env *Env) types.Type {
+	switch t := types.Chase(t).(type) {
+	case *types.Var:
+		if bt, ok := env.LookupTy(t); ok {
+			return types.Chase(bt)
+		}
+		return t
+	case *types.Con:
+		args := make([]types.Type, len(t.Args))
+		changed := false
+		for i, a := range t.Args {
+			args[i] = substTy(a, env)
+			changed = changed || args[i] != types.Chase(a)
+		}
+		if !changed {
+			return t
+		}
+		cp := *t
+		cp.Args = args
+		return &cp
+	case *types.Func:
+		ps := make([]types.FuncParam, len(t.Params))
+		changed := false
+		for i, p := range t.Params {
+			ps[i] = p
+			ps[i].Type = substTy(p.Type, env)
+			changed = changed || ps[i].Type != types.Chase(p.Type)
+		}
+		ret := substTy(t.Ret, env)
+		if !changed && ret == types.Chase(t.Ret) {
+			return t
+		}
+		return &types.Func{Params: ps, Ret: ret}
+	case *types.Tuple:
+		elems := make([]types.Type, len(t.Elems))
+		changed := false
+		for i, el := range t.Elems {
+			elems[i] = substTy(el, env)
+			changed = changed || elems[i] != types.Chase(el)
+		}
+		if !changed {
+			return t
+		}
+		return &types.Tuple{Elems: elems}
+	case *types.Go, *types.Meta:
+		// Host types and unsolved metas name nothing to
+		// substitute — leave them be.
+		return t
+	default:
+		panic("unreachable")
+	}
+}
+
+// boxRepr puts the Go representation of a scalar into the `any`
+// slot — the same materialization emit applies (`any(int64(42))`,
+// int32 for Int32, byte for Byte). Aggregates keep their Value in
+// the slot: the recorded gom type carries the assertion's answer.
+func boxRepr(v Value, t types.Type) any {
+	if c, ok := types.Chase(t).(*types.Con); ok && c.Qual == "" {
+		switch c.Name {
+		case "Int", "Int64":
+			if i, ok := v.(*VInt); ok {
+				return i.N
+			}
+		case "Int32":
+			if i, ok := v.(*VInt); ok {
+				return int32(i.N)
+			}
+		case "Byte":
+			if i, ok := v.(*VInt); ok {
+				return byte(i.N)
+			}
+		case "Float", "Float64":
+			if f, ok := v.(*VFloat); ok {
+				return f.F
+			}
+		case "Char":
+			if ch, ok := v.(*VChar); ok {
+				return ch.R
+			}
+		case "String":
+			if s, ok := v.(*VStr); ok {
+				return s.S
+			}
+		case "Bool":
+			if b, ok := v.(*VBool); ok {
+				return b.B
+			}
+		}
+	}
+	return v
+}
+
+// boxValue materializes a Go repr without static type information —
+// the value-driven counterpart of boxRepr for `any` slots whose gom
+// type is a type parameter. Only scalars materialize (a generic
+// `Int32` still boxes int64 — eval keeps one int repr); aggregates
+// keep their Value, which inhabits names by valueReprName.
+func boxValue(v Value) any {
+	switch v := v.(type) {
+	case *VInt:
+		return v.N
+	case *VFloat:
+		return v.F
+	case *VChar:
+		return v.R
+	case *VStr:
+		return v.S
+	case *VBool:
+		return v.B
+	default:
+		return v
+	}
+}
+
+// unboxAny converts a successful `x.(T)` payload back to an eval
+// value: a gom value that survived the box (aggregates, and any
+// value an unknown-type slot held) comes out as itself; a
+// materialized Go repr is rebuilt at the target's grain; opaque
+// host payloads — named Go types like `sort.IntSlice` — stay host
+// values.
+func (e *interp) unboxAny(v Value, t types.Type) Value {
+	h, ok := v.(*VHost)
+	if !ok {
+		return v
+	}
+	if inner, ok := h.V.(Value); ok {
+		return e.reshape(inner, t)
+	}
+	switch reprName(t) {
+	case "int64", "int32", "byte", "int":
+		switch i := h.V.(type) {
+		case int64:
+			return &VInt{N: i}
+		case int32:
+			return &VInt{N: int64(i)}
+		case byte:
+			return &VInt{N: int64(i)}
+		case int:
+			return &VInt{N: int64(i)}
+		}
+	case "float64":
+		if f, ok := h.V.(float64); ok {
+			return &VFloat{F: f}
+		}
+	case "rune":
+		if r, ok := h.V.(rune); ok {
+			return &VChar{R: r}
+		}
+	case "string":
+		if s, ok := h.V.(string); ok {
+			return &VStr{S: s}
+		}
+	case "bool":
+		if b, ok := h.V.(bool); ok {
+			return &VBool{B: b}
+		}
+	case "error":
+		if err, ok := h.V.(error); ok {
+			return &VGoErr{Text: err.Error()}
+		}
+	}
+	return h
+}
+
+// inhabits reports whether v has the dynamic shape type t asks
+// `Go.try_as` to assert — the comma-ok `x.(T)` check on eval's
+// values. Both sides compare at emitted-Go-type-name grain: a boxed
+// gom value asserts by its recorded type's repr name (Int and Int64
+// both assert as int64, `List Int` and `List String` differ), an
+// opaque host value by its reflect-rendered name, and a named Go
+// type target by `pkgbase.Name`. A nil interface value asserts as
+// nothing; an `error` target accepts any non-nil error payload.
+func (e *interp) inhabits(v Value, t types.Type) bool {
+	want := canonRepr(reprName(t))
+	if want == "" {
+		return false
+	}
+	match := func(dyn string) bool {
+		dyn = canonRepr(dyn)
+		return dyn == want || strings.HasSuffix(dyn, "."+want)
+	}
+	if h, ok := v.(*VHost); ok {
+		if h.T != nil {
+			return match(reprName(h.T))
+		}
+		if inner, isVal := h.V.(Value); isVal {
+			if want == "error" {
+				_, isErr := inner.(*VGoErr)
+				return isErr
+			}
+			return match(valueReprName(inner))
+		}
+		if h.V == nil {
+			return false
+		}
+		if want == "error" {
+			_, isErr := h.V.(error)
+			return isErr
+		}
+		return match(reflect.TypeOf(h.V).String())
+	}
+	// Defensive — an `any` slot should only ever hold a box; a
+	// native value reaching here answers for scalar reprs.
+	if want == "error" {
+		_, isErr := v.(*VGoErr)
+		return isErr
+	}
+	return match(valueReprName(v))
+}
+
+// canonRepr normalizes a type-name spelling to the name Go's
+// runtime reports — predeclared aliases collapse: `rune` is
+// `int32` and `byte` is `uint8` (x.(rune) and x.(int32) are the
+// same assertion, and instantiations like `Box[rune]` are the
+// same type as `Box[int32]`).
+var canonAlias = regexp.MustCompile(`\b(?:rune|byte)\b`)
+
+func canonRepr(s string) string {
+	return canonAlias.ReplaceAllStringFunc(s, func(w string) string {
+		if w == "rune" {
+			return "int32"
+		}
+		return "uint8"
+	})
+}
+
+// reprName renders the emitted Go type name of a gom type — the
+// spelling `x.(T)` and reflect use ("int64", "list.List[int64]",
+// "pkgbase.Name"). A builtin name shares a declared type's spelling
+// only when its arity matches — a user-declared `type List` keeps
+// its nominal name. Metas and type parameters answer "" and never
+// match (check already requires a concrete target).
+func reprName(t types.Type) string {
+	switch t := types.Chase(t).(type) {
+	case *types.Con:
+		if t.Qual == "Go" {
+			switch {
+			case t.Name == "Slice" && len(t.Args) == 1:
+				return "[]" + reprName(t.Args[0])
+			case t.Name == "Map" && len(t.Args) == 2:
+				return "map[" + reprName(t.Args[0]) + "]" + reprName(t.Args[1])
+			case t.Name == "Int":
+				return "int"
+			case t.Name == "Any":
+				return "any"
+			}
+			return ""
+		}
+		if t.Qual != "" {
+			return t.Qual + "." + t.Name + reprArgs(t.Args)
+		}
+		switch {
+		case t.Name == "Unit":
+			return "struct{}"
+		case t.Name == "Int" || t.Name == "Int64":
+			return "int64"
+		case t.Name == "Int32":
+			return "int32"
+		case t.Name == "Byte":
+			return "byte"
+		case t.Name == "Float" || t.Name == "Float64":
+			return "float64"
+		case t.Name == "Char":
+			return "rune"
+		case t.Name == "String":
+			return "string"
+		case t.Name == "Bool":
+			return "bool"
+		case t.Name == "GoError":
+			return "error"
+		case t.Name == "List" && len(t.Args) == 1:
+			return "list.List[" + reprName(t.Args[0]) + "]"
+		case t.Name == "Option" && len(t.Args) == 1:
+			return "option.Option[" + reprName(t.Args[0]) + "]"
+		case t.Name == "Result" && len(t.Args) == 2:
+			return "result.Result[" + reprName(t.Args[0]) + ", " + reprName(t.Args[1]) + "]"
+		case t.Name == "Task" && len(t.Args) == 1:
+			return "rt.Task[" + reprName(t.Args[0]) + "]"
+		case t.Name == "View" && len(t.Args) == 1:
+			return "list.View[" + reprName(t.Args[0]) + "]"
+		case (t.Name == "Ptr" || t.Name == "Ref") && len(t.Args) == 1:
+			return "*" + reprName(t.Args[0])
+		case t.Name == "Array" && len(t.Args) == 1:
+			return "[]" + reprName(t.Args[0])
+		case t.Name == "Chan" && len(t.Args) == 1:
+			return "chan " + reprName(t.Args[0])
+		case t.Name == "RecvChan" && len(t.Args) == 1:
+			return "<-chan " + reprName(t.Args[0])
+		case t.Name == "SendChan" && len(t.Args) == 1:
+			return "chan<- " + reprName(t.Args[0])
+		}
+		// Declared record/sum — nominal: asserts only to itself.
+		// A generic instantiation names its arguments too, as the
+		// emitted `Box[int64]` does (`Box Int` and `Box String`
+		// assert differently).
+		return t.Name + reprArgs(t.Args)
+	case *types.Go:
+		base := t.Ref.Path
+		if i := strings.LastIndexByte(base, '/'); i >= 0 {
+			base = base[i+1:]
+		}
+		return base + "." + t.Ref.Name
+	case *types.Func:
+		// Curried emission — `func(A) func(B) R`, one FuncType
+		// nesting per parameter group.
+		var b strings.Builder
+		for {
+			// One FuncType per parameter — matching codegen's
+			// funcType, which wraps each param singly regardless
+			// of parameter grouping.
+			for _, p := range t.Params {
+				b.WriteString("func(")
+				b.WriteString(reprName(p.Type))
+				b.WriteString(") ")
+			}
+			if r, ok := types.Chase(t.Ret).(*types.Func); ok {
+				t = r
+				continue
+			}
+			b.WriteString(reprName(t.Ret))
+			return b.String()
+		}
+	case *types.Tuple:
+		parts := make([]string, len(t.Elems))
+		for i, el := range t.Elems {
+			parts[i] = reprName(el)
+		}
+		return fmt.Sprintf("rt.Tuple%d[%s]", len(t.Elems), strings.Join(parts, ", "))
+	case *types.Meta, *types.Var:
+		return ""
+	default:
+		panic("unreachable")
+	}
+}
+
+// reshape rewrites a boxed value to the asserted type's Value
+// shape when canon-equal instantiations spell scalars differently
+// — x.(Tuple[Int32]) on a tuple holding a Char succeeds in Go
+// (rune ≡ int32) but eval arithmetic wants a VInt, not a VChar.
+// Recurses through lists, tuples, records and variants; anything
+// else (and any field type the checker could not name) comes back
+// unchanged.
+func (e *interp) reshape(v Value, t types.Type) Value {
+	ct := types.Chase(t)
+	switch v := v.(type) {
+	case *VChar:
+		if reprName(ct) == "int32" {
+			return &VInt{N: int64(v.R)}
+		}
+	case *VInt:
+		if reprName(ct) == "rune" {
+			return &VChar{R: rune(v.N)}
+		}
+	case *VList:
+		if con, ok := ct.(*types.Con); ok && con.Name == "List" && len(con.Args) == 1 {
+			elems := make([]Value, len(v.Elems))
+			for i, el := range v.Elems {
+				elems[i] = e.reshape(el, con.Args[0])
+			}
+			return &VList{Elems: elems}
+		}
+	case *VTuple:
+		if tup, ok := ct.(*types.Tuple); ok && len(tup.Elems) == len(v.Elems) {
+			elems := make([]Value, len(v.Elems))
+			for i, el := range v.Elems {
+				elems[i] = e.reshape(el, tup.Elems[i])
+			}
+			return &VTuple{Elems: elems}
+		}
+	case *VRecord:
+		if con, ok := ct.(*types.Con); ok {
+			if ri := e.recordOf(v.Type); ri != nil && len(ri.fields) == len(v.Fields) {
+				sub := instSubst(ri.typ, con)
+				fs := make([]VField, len(v.Fields))
+				for i, f := range v.Fields {
+					fs[i] = f
+					if ft := ri.fields[i].typ; ft != nil {
+						fs[i].V = e.reshape(f.V, applySubst(ft, sub))
+					}
+				}
+				return &VRecord{Type: con, Fields: fs}
+			}
+		}
+	case *VVariant:
+		if con, ok := ct.(*types.Con); ok {
+			ci := e.ctorOf(v.Ctor, v.Name, v.Type)
+			if ci != nil && !ci.declared {
+				// A site-derived info's field types are concrete for
+				// the instantiation it was built at; substituting
+				// them against the target's args recasts payloads to
+				// the wrong shape (Some 42's Int becoming Char after
+				// an earlier Some 'a'). The builtin Option/Result
+				// ctors have a declared shape to fall back to; any
+				// other derived info leaves the payload unchanged.
+				ci = builtinDeclCtor(v.Ctor)
+			}
+			if ci != nil && ci.declared && len(ci.fields) == len(v.Fields) {
+				sub := instSubst(ci.typ, con)
+				fs := make([]VField, len(v.Fields))
+				for i, f := range v.Fields {
+					fs[i] = f
+					if ft := ci.fields[i].typ; ft != nil {
+						fs[i].V = e.reshape(f.V, applySubst(ft, sub))
+					}
+				}
+				return &VVariant{Type: con, Ctor: v.Ctor, Name: v.Name, Fields: fs}
+			}
+		}
+	}
+	return v
+}
+
+// instSubst maps a declared type's parameter vars to an
+// instantiation's arguments (`Box a` against `Box Int32` → a↦Int32).
+func instSubst(decl, inst *types.Con) map[*types.Var]types.Type {
+	if len(decl.Args) == 0 || len(decl.Args) != len(inst.Args) {
+		return nil
+	}
+	m := make(map[*types.Var]types.Type, len(decl.Args))
+	for i, a := range decl.Args {
+		if v, ok := types.Chase(a).(*types.Var); ok {
+			m[v] = inst.Args[i]
+		}
+	}
+	return m
+}
+
+// applySubst substitutes vars through a fixed map — the field-type
+// counterpart of substTy's env lookup.
+func applySubst(t types.Type, m map[*types.Var]types.Type) types.Type {
+	if t == nil || len(m) == 0 {
+		return t
+	}
+	switch t := types.Chase(t).(type) {
+	case *types.Var:
+		if bt, ok := m[t]; ok {
+			return types.Chase(bt)
+		}
+		return t
+	case *types.Con:
+		args := make([]types.Type, len(t.Args))
+		for i, a := range t.Args {
+			args[i] = applySubst(a, m)
+		}
+		return &types.Con{Qual: t.Qual, Name: t.Name, Args: args}
+	case *types.Func:
+		ps := make([]types.FuncParam, len(t.Params))
+		for i, p := range t.Params {
+			ps[i] = p
+			ps[i].Type = applySubst(p.Type, m)
+		}
+		return &types.Func{Params: ps, Ret: applySubst(t.Ret, m)}
+	case *types.Tuple:
+		elems := make([]types.Type, len(t.Elems))
+		for i, el := range t.Elems {
+			elems[i] = applySubst(el, m)
+		}
+		return &types.Tuple{Elems: elems}
+	case *types.Go, *types.Meta:
+		return t
+	default:
+		panic("unreachable")
+	}
+}
+
+// reprArgs renders a generic instantiation's argument list the way
+// the emitted Go name spells it — `[int64, string]`.
+func reprArgs(args []types.Type) string {
+	if len(args) == 0 {
+		return ""
+	}
+	parts := make([]string, len(args))
+	for i, a := range args {
+		parts[i] = reprName(a)
+	}
+	return "[" + strings.Join(parts, ", ") + "]"
+}
+
+// valueReprName gives the emitted-Go-type name a native eval value
+// would assert as — the counterpart of reprName for a value that
+// reached an `any` slot unboxed or under an unnameable type (a
+// type parameter). Aggregate names come from the value's own shape.
+func valueReprName(v Value) string {
+	switch v := v.(type) {
+	case *VInt:
+		return "int64"
+	case *VFloat:
+		return "float64"
+	case *VChar:
+		return "rune"
+	case *VStr:
+		return "string"
+	case *VBool:
+		return "bool"
+	case *VUnit:
+		return "struct{}"
+	case *VList:
+		elem := "any"
+		if len(v.Elems) > 0 {
+			if e := valueReprName(v.Elems[0]); e != "" {
+				elem = e
+			}
+		}
+		return "list.List[" + elem + "]"
+	case *VTuple:
+		parts := make([]string, len(v.Elems))
+		for i, el := range v.Elems {
+			parts[i] = valueReprName(el)
+		}
+		return fmt.Sprintf("rt.Tuple%d[%s]", len(v.Elems), strings.Join(parts, ", "))
+	case *VRecord:
+		if v.Type != nil {
+			return reprName(v.Type)
+		}
+		return ""
+	case *VVariant:
+		if v.Type != nil {
+			return reprName(v.Type)
+		}
+		return ""
+	case *VGoErr:
+		return "error"
+	case *VFunc, *VHost:
+		return ""
+	default:
+		panic("unreachable")
+	}
+}
+
 // isGoAnyCon reports whether t is `Go.Any` — the empty interface the
 // checker's implicit boxing ascriptions target.
 func isGoAnyCon(t types.Type) bool {
@@ -1324,6 +1900,7 @@ func errorText(v Value) string {
 func (e *interp) evalApply(x *check.Apply, env *Env) Value {
 	fv := e.eval(x.Fn, env)
 	vals := make([]Value, len(x.Args))
+	argTys := make([]types.Type, len(x.Args))
 	holes := 0
 	holeAt := -1
 	for i, a := range x.Args {
@@ -1340,6 +1917,7 @@ func (e *interp) evalApply(x *check.Apply, env *Env) Value {
 			continue
 		}
 		vals[i] = e.eval(a.Value, env)
+		argTys[i] = substTy(a.Value.Type(), env)
 	}
 	// The CallInfo contract: at most one hole, and HoleIndex records
 	// exactly where it is (any negative value claims "no hole").
@@ -1362,7 +1940,7 @@ func (e *interp) evalApply(x *check.Apply, env *Env) Value {
 		failData(CodeInternal, "applied a non-function value", x.Span(),
 			"value", fv.String())
 	}
-	return e.applyArgs(f, x.Call.ArgToParam, vals, x.Span())
+	return e.applyArgs(f, x.Call.ArgToParam, vals, argTys, x.Span())
 }
 
 // evalGoCall evaluates a CallGo application: the callee must be

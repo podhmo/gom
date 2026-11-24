@@ -168,7 +168,7 @@ func collectBoundary(f *core.File) boundaryNodes {
 			*core.CallDirect, *core.CallFunc, *core.CallGo,
 			*core.CallBuiltin, *core.CtorApp, *core.TailCall,
 			*core.EscapeResult, *core.OptionFromGo, *core.ErrorFromGo,
-			*core.TupleFromGo, *core.Defer:
+			*core.TupleFromGo, *core.Defer, *core.TryAs:
 			// Atom operands only — nothing to descend into.
 		default:
 			panic("unreachable")

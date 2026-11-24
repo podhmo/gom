@@ -37,3 +37,8 @@ func AnyPair(n int64) (any, error) {
 // (Go func types are invariant, same rule as the type's own
 // parameters).
 func TakesAnyFn(f func(any) int64) int64 { return f("x") }
+
+// Boxed / BoxedStr hand Go-produced `any` values to the
+// `Go.try_as` extraction fixture (spec 8.3).
+func Boxed(n int64) any     { return n }
+func BoxedStr(s string) any { return s }
