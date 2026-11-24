@@ -1443,6 +1443,22 @@ func (e *interp) unboxAny(v Value, t types.Type) Value {
 	if inner, ok := h.V.(Value); ok {
 		return e.reshape(inner, t)
 	}
+	if tup, ok := types.Chase(t).(*types.Tuple); ok {
+		// A host tuple arrives as the emitted struct — `rt.TupleN`
+		// up to 8 fields, the anonymous `struct{ V0..Vn }` past it.
+		// Both expose V-fields, so reflect the elements out.
+		if rv := reflect.ValueOf(h.V); rv.Kind() == reflect.Struct {
+			elems := make([]Value, len(tup.Elems))
+			for i, et := range tup.Elems {
+				fv := rv.FieldByName(fmt.Sprintf("V%d", i))
+				if !fv.IsValid() {
+					return h
+				}
+				elems[i] = e.unboxAny(&VHost{V: fv.Interface()}, et)
+			}
+			return &VTuple{Elems: elems}
+		}
+	}
 	switch types.GoRepr(t) {
 	case "error":
 		// A typed-nil error payload (a nil *T that satisfies

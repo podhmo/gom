@@ -14,8 +14,13 @@
    を確認（`undefined: rt.Tuple9` だった箇所が通る）。
 3. `types.GoRepr` は reflect の綴り `struct { V0 int64; ... }`
    を返す — `Go.try_as` の inhabits 判定が匿名 struct の
-   host 値に一致する。
-4. `genVersion` を 1→2 に bump（emit 規則の変更、
+   host 値に一致する。eval の `unboxAny` も V フィールドを
+   reflect で展開して `VTuple` にする（`rt.TupleN` 側にも効く）。
+4. 双方向 interop: `testdata/gocall/tuple9` — Go test が匿名
+   struct literal で `Big`/`Nine`/`Echo` を呼び（Go→Gom）、
+   `Echo` は生成コード内で `goiface.Identity` の T に匿名
+   struct を束縛する（Gom→Go）。
+5. `genVersion` を 1→2 に bump（emit 規則の変更、
    [build-cache decision](../decisions/2026-11-18-incremental-build-cache.md)）。
 
 ## 結果
