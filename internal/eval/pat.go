@@ -133,6 +133,15 @@ func (e *interp) matchPat(pat check.Pat, v Value, env *Env) bool {
 			// field value, matching codegen's unwrap.
 			if con, cok := types.Chase(p.Type()).(*types.Con); cok {
 				if ri := e.recordOf(con); ri != nil && len(ri.fields) == 1 && len(p.Fields) == 1 {
+					// The bare scalar still carries the literal's
+					// own kind — `let s: Score = 1` binds VInt, so
+					// `{v = x}` must coerce like field access does
+					// for a Float-backed field.
+					if isFloatCon(ri.fields[0].typ) {
+						if i, ok := v.(*VInt); ok {
+							v = &VFloat{F: float64(i.N)}
+						}
+					}
 					return e.matchPat(p.Fields[0].Pat, v, env)
 				}
 			}
