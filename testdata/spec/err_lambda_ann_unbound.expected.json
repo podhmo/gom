@@ -21,6 +21,25 @@
       "data": {
         "var": "b"
       }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "W0901",
+      "severity": "warning",
+      "message": "a function value is discarded — a partial application is silently lost",
+      "span": {
+        "file": "err_lambda_ann_unbound.gom",
+        "start": {
+          "line": 15,
+          "col": 7,
+          "offset": 400
+        },
+        "end": {
+          "line": 15,
+          "col": 8,
+          "offset": 401
+        }
+      }
     }
   ]
 }

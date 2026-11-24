@@ -797,3 +797,96 @@ func (c *checker) containsMutable(t types.Type, seen map[conKey]bool) bool {
 		panic("unreachable")
 	}
 }
+
+// lintDiscardedFunc reports W0901 on each surface that drops a value
+// whose type settles to *types.Func — `ignore e`, wildcard
+// left-hand sides (`let _ = e`, including package-level `*LetDecl`
+// patterns), and `_` slots anywhere inside a match arm's pattern.
+// A dropped partial application loses the remaining call silently
+// (docs/decisions/2026-11-24-partial-application-lint.md). Like the
+// mutable-sharing sweep it runs post-inference and warning-only, so
+// it never gates a later phase.
+func (c *checker) lintDiscardedFunc() {
+	for _, d := range c.decls {
+		if ld, ok := d.(*LetDecl); ok {
+			// WalkDecl visits the initializer but not the binding
+			// pattern — top-level wildcard slots need a direct look.
+			c.lintDiscardPat(ld.Pat)
+		}
+		WalkDecl(d, func(e Expr) {
+			switch e := e.(type) {
+			case *Ignore:
+				if isFuncType(e.X.Type()) {
+					c.warnDiscardFunc(e.X.Span())
+				}
+			case *Let:
+				c.lintDiscardPat(e.Pat)
+			case *Match:
+				for _, a := range e.Arms {
+					c.lintDiscardPat(a.Pat)
+				}
+			case *Apply, *Ascribe, *Binary, *Block, *FieldAssign, *For,
+				*GoExpr, *Hole, *If, *Lambda, *ListLit, *Lit,
+				*MemberExpr, *RecordLit, *SelectExpr, *Spread,
+				*StrInterp, *Try, *TupleLit, *Unary, *Var:
+			default:
+				panic("unreachable")
+			}
+		})
+	}
+}
+
+// lintDiscardPat warns on every `_` slot inside p whose discarded
+// slot type is a function.
+func (c *checker) lintDiscardPat(p Pat) {
+	walkWildPats(p, func(wp *WildPat) {
+		if isFuncType(wp.Type()) {
+			c.warnDiscardFunc(wp.Span())
+		}
+	})
+}
+
+func (c *checker) warnDiscardFunc(sp diag.Span) {
+	c.diags.Add(diag.Warning("W0901",
+		"a function value is discarded — a partial application is silently lost").At(sp))
+}
+
+// walkWildPats calls fn on every `_` inside p, descending through
+// nested patterns.
+func walkWildPats(p Pat, fn func(*WildPat)) {
+	switch p := p.(type) {
+	case *WildPat:
+		fn(p)
+	case *VarPat, *LitPat:
+	case *CtorPat:
+		for _, a := range p.Args {
+			walkWildPats(a.Pat, fn)
+		}
+		for _, f := range p.Fields {
+			walkWildPats(f.Pat, fn)
+		}
+	case *TuplePat:
+		for _, e := range p.Elems {
+			walkWildPats(e, fn)
+		}
+	case *RecordPat:
+		for _, f := range p.Fields {
+			walkWildPats(f.Pat, fn)
+		}
+	case *ListPat:
+		for _, e := range p.Elems {
+			walkWildPats(e, fn)
+		}
+		if p.Rest != nil {
+			walkWildPats(p.Rest, fn)
+		}
+	case *OrPat:
+		for _, a := range p.Alts {
+			walkWildPats(a, fn)
+		}
+	case *AsPat:
+		walkWildPats(p.Pat, fn)
+	default:
+		panic("unreachable")
+	}
+}

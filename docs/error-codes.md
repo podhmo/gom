@@ -1393,6 +1393,22 @@ fn g (n: Int) -> Int = x + n
 let (f, x) = (g, 41)   // tuple -> g -> x -> tuple: no valid init order
 ```
 
+### W0901 — a function value is discarded
+
+**Severity:** warning · **Phase:** lint · **Spec:** §4.1
+
+A function value — including a partial application that still
+has parameters left — is thrown away via `ignore e`, a wildcard
+left-hand side (`let _ = e`), or a `_` inside a match arm pattern.
+Partial applications discarded this way are silently lost, which
+usually means the call was meant to be fully applied or bound to a
+name. Bind the value to a name, apply the remaining arguments, or
+write `//gom:allow W0901` when the discard is deliberate.
+
+```gom
+ignore (List.map f)   // f is never applied — the function is dropped
+```
+
 ## 90xx — Evaluation
 
 ### E9001 — construct not supported by the evaluator

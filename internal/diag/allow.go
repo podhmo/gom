@@ -6,10 +6,11 @@ import "strings"
 // directives (spec section 12): each line names the diagnostic codes
 // the file permits to drop from error to warning. It returns the set
 // of relaxable codes the file allows plus one W0003 diagnostic per
-// unusable entry — an unknown code, a registered code that is not
-// relaxable, or a directive without codes. Unusable lines report
-// instead of silently doing nothing, matching the table's rule that
-// directives never turn a diagnostic off entirely.
+// unusable entry — an unknown code, a registered error code that is
+// not relaxable, or a directive without codes. An allowed error code
+// demotes to a warning; an allowed warning code is silenced entirely
+// (warning opt-out — warnings have no lower severity to demote to).
+// Unusable lines report instead of silently doing nothing.
 //
 // The scan is textual, like the `//gom:noescape` reader: a stale or
 // misplaced comment must not break the parse, so lines are matched on
@@ -46,7 +47,7 @@ func ScanAllow(src []byte, path string) (allow map[Code]bool, diags List) {
 				diags.Add(Warning("W0003", "unknown diagnostic code in `//gom:allow`: "+f).
 					At(Span{File: path, Start: start, End: start + len(line)}).
 					Set("code", f))
-			case !info.Relaxable:
+			case info.Severity == SeverityError && !info.Relaxable:
 				diags.Add(Warning("W0003", "`//gom:allow` cannot demote "+f+": the code is not relaxable").
 					At(Span{File: path, Start: start, End: start + len(line)}).
 					Set("code", f))
@@ -61,15 +62,23 @@ func ScanAllow(src []byte, path string) (allow map[Code]bool, diags List) {
 	return allow, diags
 }
 
-// DemoteAllowed lowers the severity of every error diagnostic in ds
-// whose span's file allows the code — the directive's effect. allows
-// maps a file path to its `//gom:allow` code set. The diagnostic keeps
-// its code and span: a demoted E0301 still reports as E0301, at
-// warning severity, so it is never silent.
-func DemoteAllowed(ds List, allows map[string]map[Code]bool) {
-	for i, d := range ds {
-		if d.Severity == SeverityError && allows[d.Span.File][d.Code] {
-			ds[i].Severity = SeverityWarning
+// DemoteAllowed applies the directive's effect to ds and returns the
+// filtered list. An allowed error demotes to a warning — it keeps its
+// code and span, so it still reports (a demoted E0301 is never
+// silent). An allowed warning is dropped entirely — a warning has no
+// lower rung, so opt-out is silence (spec section 12). allows maps a
+// file path to its `//gom:allow` code set.
+func DemoteAllowed(ds List, allows map[string]map[Code]bool) List {
+	out := ds[:0]
+	for _, d := range ds {
+		if allows[d.Span.File][d.Code] {
+			if d.Severity == SeverityError {
+				d.Severity = SeverityWarning
+			} else {
+				continue
+			}
 		}
+		out = append(out, d)
 	}
+	return out
 }

@@ -1,0 +1,118 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "W0901",
+      "severity": "warning",
+      "message": "a function value is discarded — a partial application is silently lost",
+      "span": {
+        "file": "W0901_discard_func.gom",
+        "start": {
+          "line": 11,
+          "col": 11,
+          "offset": 350
+        },
+        "end": {
+          "line": 11,
+          "col": 16,
+          "offset": 355
+        }
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "W0901",
+      "severity": "warning",
+      "message": "a function value is discarded — a partial application is silently lost",
+      "span": {
+        "file": "W0901_discard_func.gom",
+        "start": {
+          "line": 12,
+          "col": 7,
+          "offset": 363
+        },
+        "end": {
+          "line": 12,
+          "col": 8,
+          "offset": 364
+        }
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "W0901",
+      "severity": "warning",
+      "message": "a function value is discarded — a partial application is silently lost",
+      "span": {
+        "file": "W0901_discard_func.gom",
+        "start": {
+          "line": 13,
+          "col": 8,
+          "offset": 380
+        },
+        "end": {
+          "line": 13,
+          "col": 9,
+          "offset": 381
+        }
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "W0901",
+      "severity": "warning",
+      "message": "a function value is discarded — a partial application is silently lost",
+      "span": {
+        "file": "W0901_discard_func.gom",
+        "start": {
+          "line": 16,
+          "col": 5,
+          "offset": 430
+        },
+        "end": {
+          "line": 16,
+          "col": 6,
+          "offset": 431
+        }
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "W0901",
+      "severity": "warning",
+      "message": "a function value is discarded — a partial application is silently lost",
+      "span": {
+        "file": "W0901_discard_func.gom",
+        "start": {
+          "line": 19,
+          "col": 6,
+          "offset": 468
+        },
+        "end": {
+          "line": 19,
+          "col": 7,
+          "offset": 469
+        }
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "W0901",
+      "severity": "warning",
+      "message": "a function value is discarded — a partial application is silently lost",
+      "span": {
+        "file": "W0901_discard_func.gom",
+        "start": {
+          "line": 23,
+          "col": 5,
+          "offset": 497
+        },
+        "end": {
+          "line": 23,
+          "col": 6,
+          "offset": 498
+        }
+      }
+    }
+  ]
+}

@@ -57,7 +57,7 @@ marked).
 | `06xx` | packages/.gomi | E0601 missing `.gomi`, E0602 disallowed decl in `.gomi`, E0603 impl↔iface mismatch, E0604 stray `.gomi`, E0605 package-name conflict, E0606 import cycle, E0607 emitted-name collision |
 | `07xx` | concurrency | E0701 `go` non-Unit, E0702 `try` across `go`, E0703 double default, E0704 recv-arm pattern, E0705 empty select; W0701/2 mutable sharing |
 | `08xx` | tests | E0801 test body type, E0802 `@test` leak, E0803 assert outside test |
-| `09xx` | lowering | E0901 IR invariant (compiler bug), E0902–E0905 `@tailrec` violations, E0906 eq-comparator budget, E0907 initialization cycle |
+| `09xx` | lowering | E0901 IR invariant (compiler bug), E0902–E0905 `@tailrec` violations, E0906 eq-comparator budget, E0907 initialization cycle; W0901 discarded function value |
 | `90xx` | evaluator | E9001–E9006 interpreter limits/invariants (test harness) |
 
 Callee-identity warnings (W0701/W0501/W0502) see through `let
@@ -68,7 +68,10 @@ mk = Chan.make`-style value aliases, including multi-hop chains.
 A `//gom:allow CODE...` comment in a `.gom` file demotes a
 relaxable code to a warning at that file's occurrences (never
 silent — the diagnostic still prints). Relaxable codes: E0301,
-E0302. Unknown, non-relaxable, or malformed directives warn W0003.
+E0302. Naming a warning code drops that warning from the report
+entirely — e.g. `//gom:allow W0901` silences the discard lint when
+dropping a function value is intentional. Unknown, non-relaxable,
+or malformed directives warn W0003.
 
 `gom check|build|test --strict` exits non-zero when any warning
 was emitted — use it in CI so warnings can't land silently.

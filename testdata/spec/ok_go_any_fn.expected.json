@@ -1,3 +1,23 @@
 {
-  "diagnostics": []
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "W0901",
+      "severity": "warning",
+      "message": "a function value is discarded — a partial application is silently lost",
+      "span": {
+        "file": "ok_go_any_fn.gom",
+        "start": {
+          "line": 29,
+          "col": 11,
+          "offset": 939
+        },
+        "end": {
+          "line": 29,
+          "col": 19,
+          "offset": 947
+        }
+      }
+    }
+  ]
 }

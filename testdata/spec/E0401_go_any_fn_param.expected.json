@@ -160,6 +160,44 @@
         "actual": "String",
         "expected": "Go.Any"
       }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "W0901",
+      "severity": "warning",
+      "message": "a function value is discarded — a partial application is silently lost",
+      "span": {
+        "file": "E0401_go_any_fn_param.gom",
+        "start": {
+          "line": 22,
+          "col": 10,
+          "offset": 664
+        },
+        "end": {
+          "line": 22,
+          "col": 11,
+          "offset": 665
+        }
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "W0901",
+      "severity": "warning",
+      "message": "a function value is discarded — a partial application is silently lost",
+      "span": {
+        "file": "E0401_go_any_fn_param.gom",
+        "start": {
+          "line": 25,
+          "col": 11,
+          "offset": 698
+        },
+        "end": {
+          "line": 25,
+          "col": 16,
+          "offset": 703
+        }
+      }
     }
   ]
 }

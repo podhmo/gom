@@ -2,6 +2,25 @@
   "diagnostics": [
     {
       "kind": "diagnostic",
+      "code": "W0901",
+      "severity": "warning",
+      "message": "a function value is discarded — a partial application is silently lost",
+      "span": {
+        "file": "E0419_scope_let_lambda_escape.gom",
+        "start": {
+          "line": 10,
+          "col": 17,
+          "offset": 385
+        },
+        "end": {
+          "line": 10,
+          "col": 71,
+          "offset": 439
+        }
+      }
+    },
+    {
+      "kind": "diagnostic",
       "code": "E0419",
       "severity": "error",
       "message": "`s` is a `Scope` value (or closes over one) captured by a closure that escapes its scope",
@@ -21,6 +40,25 @@
     },
     {
       "kind": "diagnostic",
+      "code": "W0901",
+      "severity": "warning",
+      "message": "a function value is discarded — a partial application is silently lost",
+      "span": {
+        "file": "E0419_scope_let_lambda_escape.gom",
+        "start": {
+          "line": 19,
+          "col": 17,
+          "offset": 717
+        },
+        "end": {
+          "line": 19,
+          "col": 71,
+          "offset": 771
+        }
+      }
+    },
+    {
+      "kind": "diagnostic",
       "code": "E0419",
       "severity": "error",
       "message": "`s` is a `Scope` value (or closes over one) captured by a closure that escapes its scope",
@@ -35,6 +73,25 @@
           "line": 19,
           "col": 44,
           "offset": 744
+        }
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "W0901",
+      "severity": "warning",
+      "message": "a function value is discarded — a partial application is silently lost",
+      "span": {
+        "file": "E0419_scope_let_lambda_escape.gom",
+        "start": {
+          "line": 28,
+          "col": 17,
+          "offset": 1078
+        },
+        "end": {
+          "line": 28,
+          "col": 71,
+          "offset": 1132
         }
       }
     },

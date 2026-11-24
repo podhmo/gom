@@ -1,0 +1,30 @@
+package m
+
+// A function value dropped through `ignore`, a wildcard binding, or a
+// `_` slot inside a match arm pattern warns W0901 — partial
+// applications discarded this way are silently lost (spec 4.1). A
+// full application or a named binding stays silent.
+
+fn add (a: Int) -> Int -> Int = fn b -> a + b
+
+fn discards () -> Unit = {
+  ignore (add 1)
+  let _ = add 2
+  let (_, n) = (add 3, 4)
+  ignore n
+  match add 5 {
+    _ -> ()
+  }
+  match (add 6, 7) {
+    (_, m) -> ignore m
+  }
+}
+
+let _ = add 9
+
+fn keeps () -> Unit = {
+  let applied = add 1 2
+  ignore applied
+  let f = add 3
+  ignore (f 4)
+}

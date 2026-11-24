@@ -170,7 +170,7 @@ func Compile(in Input, opts *Options) (*Result, error) {
 	}
 	f, diags := parse(in.Src, in.Path)
 	r.File = f
-	diag.DemoteAllowed(diags, allows)
+	diags = diag.DemoteAllowed(diags, allows)
 	r.Diagnostics = append(r.Diagnostics, diags...)
 	if diags.HasError() {
 		return r, nil
@@ -178,7 +178,7 @@ func Compile(in Input, opts *Options) (*Result, error) {
 
 	res, diags := resolve.File(f, resolveConfig(&o))
 	r.Resolved = res
-	diag.DemoteAllowed(diags, allows)
+	diags = diag.DemoteAllowed(diags, allows)
 	r.Diagnostics = append(r.Diagnostics, diags...)
 	if diags.HasError() {
 		return r, nil
@@ -186,7 +186,7 @@ func Compile(in Input, opts *Options) (*Result, error) {
 
 	tf, diags := check.Check(res, o.Sigs)
 	r.Typed = tf
-	diag.DemoteAllowed(diags, allows)
+	diags = diag.DemoteAllowed(diags, allows)
 	r.Diagnostics = append(r.Diagnostics, diags...)
 	// Interface files declare signatures without bodies, so the
 	// phases below — which all analyze expressions — do not run on
@@ -211,7 +211,7 @@ func Compile(in Input, opts *Options) (*Result, error) {
 	}
 	po.Decls = append(po.Decls, siblings...)
 	diags = pattern.CheckFile(tf, po)
-	diag.DemoteAllowed(diags, allows)
+	diags = diag.DemoteAllowed(diags, allows)
 	r.Diagnostics = append(r.Diagnostics, diags...)
 	if diags.HasError() || o.CheckOnly {
 		return r, nil
@@ -238,17 +238,17 @@ func Compile(in Input, opts *Options) (*Result, error) {
 	coref, ldiags := lower.File(tf, &le)
 	coref.SelfImportPath = o.SelfImportPath
 	r.Core = coref
-	diag.DemoteAllowed(ldiags, allows)
+	ldiags = diag.DemoteAllowed(ldiags, allows)
 	r.Diagnostics = append(r.Diagnostics, ldiags...)
 	// Package initialization and @tailrec's mutual recursion are
 	// properties of the unit, not of one file — the residual-cycle
 	// checks run over the unit's lowered Core files, and a one-file
 	// unit is the degenerate case.
 	udiags := lower.CheckInitCycles([]*core.File{coref})
-	diag.DemoteAllowed(udiags, allows)
+	udiags = diag.DemoteAllowed(udiags, allows)
 	r.Diagnostics = append(r.Diagnostics, udiags...)
 	tdiags := lower.CheckTailRecMutual([]*core.File{coref})
-	diag.DemoteAllowed(tdiags, allows)
+	tdiags = diag.DemoteAllowed(tdiags, allows)
 	r.Diagnostics = append(r.Diagnostics, tdiags...)
 	if diag.List(ldiags).HasError() || diag.List(udiags).HasError() ||
 		diag.List(tdiags).HasError() {
@@ -411,7 +411,7 @@ func CompileFiles(ins []Input, opts *Options) ([]*Result, error) {
 		}
 		f, diags := syntax.Parse(in.Src, in.Path)
 		r.File = f
-		diag.DemoteAllowed(diags, allows)
+		diags = diag.DemoteAllowed(diags, allows)
 		r.Diagnostics = append(r.Diagnostics, diags...)
 		files = append(files, f)
 		if diags.HasError() {
@@ -426,7 +426,7 @@ func CompileFiles(ins []Input, opts *Options) ([]*Result, error) {
 	for i, res := range ress {
 		results[impl[i]].Resolved = res
 	}
-	diag.DemoteAllowed(diags, allows)
+	diags = diag.DemoteAllowed(diags, allows)
 	spread(results[impl[0]], byPath, diags)
 	if diags.HasError() {
 		return results, nil
@@ -436,7 +436,7 @@ func CompileFiles(ins []Input, opts *Options) ([]*Result, error) {
 	for i, tf := range tfs {
 		results[impl[i]].Typed = tf
 	}
-	diag.DemoteAllowed(diags, allows)
+	diags = diag.DemoteAllowed(diags, allows)
 	spread(results[impl[0]], byPath, diags)
 	if diags.HasError() {
 		return results, nil
@@ -485,7 +485,7 @@ func CompileFiles(ins []Input, opts *Options) ([]*Result, error) {
 		}
 		po.Decls = append(po.Decls, siblings...)
 		pdiags := pattern.CheckFile(tf, po)
-		diag.DemoteAllowed(pdiags, allows)
+		pdiags = diag.DemoteAllowed(pdiags, allows)
 		r.Diagnostics = append(r.Diagnostics, pdiags...)
 		if diag.List(pdiags).HasError() || o.CheckOnly {
 			unitFailed = unitFailed || diag.List(pdiags).HasError()
@@ -512,7 +512,7 @@ func CompileFiles(ins []Input, opts *Options) ([]*Result, error) {
 		}
 		coref, ldiags := lower.File(tf, &le)
 		coref.SelfImportPath = o.SelfImportPath
-		diag.DemoteAllowed(ldiags, allows)
+		ldiags = diag.DemoteAllowed(ldiags, allows)
 		r.Core = coref
 		cores = append(cores, coref)
 		r.Diagnostics = append(r.Diagnostics, ldiags...)

@@ -69,6 +69,7 @@ func Check(res *resolve.Resolved, src SignatureSource) (*File, diag.List) {
 	c.validateNils()
 	c.checkScopeEscape()
 	c.lintMutableSharing()
+	c.lintDiscardedFunc()
 
 	f := &File{Sp: res.File.Sp}
 	if res.File.Package != nil {

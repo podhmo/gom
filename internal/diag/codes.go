@@ -1556,6 +1556,7 @@ the goroutine can mutate state shared with its parent (spec section
 10). Pass copies or immutable values instead.`,
 		Example: `go { Ref.set counter 1 }   // counter: Ref Int is shared`,
 	},
+
 	{
 		Code:     "W0801",
 		Severity: SeverityWarning,
@@ -1574,6 +1575,21 @@ Array.set and finish with Array.to_list, or collect conses and pay
 one List.concat at the end.`,
 		Example: `fn collect xs = List.fold (fn acc x -> List.append acc [x]) [] xs
 // W0801 — fold-internal concat copies acc every step`,
+	},
+	{
+		Code:     "W0901",
+		Severity: SeverityWarning,
+		Title:    "a function value is discarded",
+		Phase:    PhaseLint,
+		Spec:     "4.1",
+		Explanation: "A function value — including a partial application that still\n" +
+			"has parameters left — is thrown away via `ignore e`, a wildcard\n" +
+			"left-hand side (`let _ = e`), or a `_` inside a match arm pattern.\n" +
+			"Partial applications discarded this way are silently lost, which\n" +
+			"usually means the call was meant to be fully applied or bound to a\n" +
+			"name. Bind the value to a name, apply the remaining arguments, or\n" +
+			"write `//gom:allow W0901` when the discard is deliberate.",
+		Example: `ignore (List.map f)   // f is never applied — the function is dropped`,
 	},
 }
 
