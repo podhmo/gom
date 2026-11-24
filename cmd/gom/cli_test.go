@@ -1317,12 +1317,13 @@ func TestListExternal(t *testing.T) {
 func TestListExternalVendor(t *testing.T) {
 	t.Setenv("GOFLAGS", "")
 	dir := writeFiles(t, map[string]string{
-		"go.mod":              "module example.com/exttest\n\ngo 1.27\n\nrequire example.com/dep v0.0.0\n\nreplace example.com/dep => ./dep\n",
-		"pkg/pkg.gomi":        "package pkg\n",
-		"dep/go.mod":          "module example.com/dep\n\ngo 1.27\n",
-		"dep/dep.gomi":        "package dep\n",
-		"vendor/modules.txt":  "## explicit\n",
-		"vendor/dep/dep.gomi": "package dep\n",
+		"go.mod":                              "module example.com/exttest\n\ngo 1.27\n\nrequire example.com/dep v0.0.0\n\nreplace example.com/dep => ./dep\n",
+		"pkg/pkg.gomi":                        "package pkg\n",
+		"dep/go.mod":                          "module example.com/dep\n\ngo 1.27\n",
+		"dep/dep.gomi":                        "package dep\n",
+		"vendor/modules.txt":                  "# example.com/dep v0.0.0\n## explicit; go 1.27\nexample.com/dep\nexample.com/dep/sub\n",
+		"vendor/example.com/dep/dep.gomi":     "package dep\n",
+		"vendor/example.com/dep/sub/sub.gomi": "package sub\n",
 	})
 	t.Chdir(dir)
 
@@ -1331,7 +1332,7 @@ func TestListExternalVendor(t *testing.T) {
 		t.Fatalf("gom list -external (vendored): exit %d; stderr=%q", code, errout)
 	}
 	got := strings.Fields(out)
-	want := []string{"dep", "example.com/dep", "example.com/exttest/pkg"}
+	want := []string{"example.com/dep", "example.com/dep/sub", "example.com/exttest/pkg"}
 	if len(got) != len(want) {
 		t.Fatalf("gom list -external (vendored) = %v, want %v", got, want)
 	}

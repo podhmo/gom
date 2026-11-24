@@ -104,6 +104,11 @@ type Loader struct {
 	modPath, modDir string
 	modErr          error
 
+	// goflagsOnce reads the effective GOFLAGS (`go env GOFLAGS`,
+	// falling back to the process env) once for vendorEnabled.
+	goflagsOnce sync.Once
+	goflags     string
+
 	// pkgs caches loaded member tables; errs the failures behind
 	// them; loading marks in-progress paths (as their index into
 	// stack) so a cyclic `import` reports instead of recursing —
@@ -382,7 +387,19 @@ func ExternalPackages(dir, gobin string) ([]string, error) {
 	// would fail the same way, so the listing propagates rather
 	// than emit a silently partial set.
 	mods, err := l.extModules()
-	if err != nil {
+	mainPath, mainDir, _ := l.module()
+	vend := ""
+	if mainDir != "" && l.vendorEnabled() {
+		v := filepath.Join(mainDir, "vendor")
+		if st, serr := os.Stat(v); serr == nil && st.IsDir() {
+			vend = v
+		}
+	}
+	// Under vendoring the vendored set is the importable set — a
+	// module graph that cannot be listed (offline, broken
+	// metadata) cannot gate what `go build` finds in vendor/, so
+	// emit the vendored walk instead of propagating.
+	if err != nil && vend == "" {
 		return nil, err
 	}
 	candidates := map[string]string{}
@@ -398,7 +415,6 @@ func ExternalPackages(dir, gobin string) ([]string, error) {
 	// module the build list omits it, while imports in its files
 	// still resolve against its own go.mod (dirOf's rule — its
 	// paths also win ahead of any external prefix match).
-	mainPath, mainDir, _ := l.module()
 	if mainPath != "" && mainDir != "" {
 		candidates[mainPath] = mainDir
 	}
@@ -477,30 +493,27 @@ func ExternalPackages(dir, gobin string) ([]string, error) {
 	// regardless of which module the path belongs to — no
 	// resolvesTo check. A vendored imp already advertised via a
 	// module candidate collapses into one entry.
-	if mainDir != "" && vendorEnabled() {
-		vend := filepath.Join(mainDir, "vendor")
-		if st, serr := os.Stat(vend); serr == nil && st.IsDir() {
-			err := filepath.WalkDir(vend, func(p string, d fs.DirEntry, werr error) error {
-				if werr != nil || !d.IsDir() {
-					return nil
-				}
-				if _, gerr := oneGomi(p); gerr != nil {
-					return nil
-				}
-				rel, rerr := filepath.Rel(vend, p)
-				if rerr != nil || rel == "." {
-					return nil
-				}
-				imp := filepath.ToSlash(rel)
-				if !seen[imp] {
-					seen[imp] = true
-					out = append(out, imp)
-				}
+	if vend != "" {
+		err := filepath.WalkDir(vend, func(p string, d fs.DirEntry, werr error) error {
+			if werr != nil || !d.IsDir() {
 				return nil
-			})
-			if err != nil {
-				return nil, err
 			}
+			if _, gerr := oneGomi(p); gerr != nil {
+				return nil
+			}
+			rel, rerr := filepath.Rel(vend, p)
+			if rerr != nil || rel == "." {
+				return nil
+			}
+			imp := filepath.ToSlash(rel)
+			if !seen[imp] {
+				seen[imp] = true
+				out = append(out, imp)
+			}
+			return nil
+		})
+		if err != nil {
+			return nil, err
 		}
 	}
 	sort.Strings(out)
@@ -580,7 +593,7 @@ func (l *Loader) pkgDir(path string) (string, error) {
 	// (or =readonly) makes the go command ignore vendor/ entirely,
 	// and the generated Go import must see the same source the go
 	// tool will use.
-	if _, modDir, merr := l.module(); merr == nil && vendorEnabled() {
+	if _, modDir, merr := l.module(); merr == nil && l.vendorEnabled() {
 		v := filepath.Join(modDir, "vendor", filepath.FromSlash(path))
 		if st, serr := os.Stat(v); serr == nil && st.IsDir() {
 			return v, nil
@@ -708,16 +721,35 @@ func (l *Loader) gobin() string {
 }
 
 // vendorEnabled reports whether the go command would resolve
-// imports through vendor/: a vendor directory exists and GOFLAGS
-// does not carry an explicit -mod value other than vendor (an
-// explicit -mod=mod or -mod=readonly makes Go ignore vendor/
-// outright). Mirrors the go command's vendoring rule for modules
-// with go >= 1.14, which Gom requires anyway.
-func vendorEnabled() bool {
+// imports through vendor/ under this loader's effective GOFLAGS
+// — `go env GOFLAGS` folds the persisted `go env -w` file in
+// below the process env, so a saved -mod value applies too.
+func (l *Loader) vendorEnabled() bool {
+	l.goflagsOnce.Do(func() {
+		cmd := exec.Command(l.gobin(), "env", "GOFLAGS")
+		if l.cfg.Dir != "" {
+			cmd.Dir = l.cfg.Dir
+		}
+		out, err := cmd.Output()
+		if err != nil {
+			l.goflags = os.Getenv("GOFLAGS")
+			return
+		}
+		l.goflags = strings.TrimSpace(string(out))
+	})
+	return vendorEnabled(l.goflags)
+}
+
+// vendorEnabled parses the -mod rule out of a GOFLAGS value: the
+// go command vendores unless an explicit -mod other than vendor
+// is in effect (an explicit -mod=mod or -mod=readonly makes Go
+// ignore vendor/ outright). Mirrors the go command's vendoring
+// rule for modules with go >= 1.14, which Gom requires anyway.
+func vendorEnabled(goflags string) bool {
 	// Repeated -mod flags apply in order — the last value wins, as
 	// with the go command's own flag parsing.
 	mod := ""
-	fields := strings.Fields(os.Getenv("GOFLAGS"))
+	fields := strings.Fields(goflags)
 	for i, f := range fields {
 		f = strings.TrimLeft(f, "-")
 		if f == "mod" {

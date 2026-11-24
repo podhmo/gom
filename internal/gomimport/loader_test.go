@@ -648,8 +648,7 @@ func TestVendorEnabledLastModWins(t *testing.T) {
 		{"-mod=vendor -mod=mod", false},
 		{"-tags netgo", true},
 	} {
-		t.Setenv("GOFLAGS", tc.flags)
-		if got := vendorEnabled(); got != tc.want {
+		if got := vendorEnabled(tc.flags); got != tc.want {
 			t.Errorf("GOFLAGS=%q: vendorEnabled() = %v, want %v", tc.flags, got, tc.want)
 		}
 	}
