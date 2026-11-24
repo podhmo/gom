@@ -1460,10 +1460,12 @@ func (e *interp) unboxAny(v Value, t types.Type) Value {
 		}
 	}
 	if con, ok := types.Chase(t).(*types.Con); ok && len(con.Args) == 1 &&
-		((con.Qual == "" && con.Name == "List") || (con.Qual == "Go" && con.Name == "Slice")) {
+		con.Qual == "" && con.Name == "List" {
 		// A host slice becomes a VList so list patterns and
 		// indexing see its elements — same conversion inside
-		// composite targets (a tuple field, a record slot).
+		// composite targets (a tuple field, a record slot). Only
+		// Gom's immutable List converts: a Go.Slice target keeps
+		// its VHost so writes through Go stay observable.
 		if rv := reflect.ValueOf(h.V); rv.Kind() == reflect.Slice || rv.Kind() == reflect.Array {
 			elems := make([]Value, rv.Len())
 			for i := range elems {
