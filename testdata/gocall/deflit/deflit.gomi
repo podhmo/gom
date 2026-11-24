@@ -1,0 +1,17 @@
+package deflit
+
+import go "time"
+import go "github.com/podhmo/gom/testdata/goiface"
+
+type UserId = { v : Int }
+type I32 = { x : Int32 }
+type Span = { d : time.Duration }
+type Count a = { n : Int }
+
+fn clamp_id_lit (u: UserId) -> UserId
+fn bump_id (u: UserId) -> UserId
+fn id_bound () -> UserId
+fn neg_i32 () -> I32
+fn elapse (s: Span) -> Span
+fn eq_count (c: Count Int) -> Bool
+fn unwrap (u: UserId) -> Int
