@@ -75,6 +75,13 @@ type Loader struct {
 	fset *token.FileSet
 	imp  types.Importer
 
+	// gobin/dir/cache back the prefetch path: Prefetch warms every
+	// upcoming `import go` miss with one `go list -export -deps`
+	// subprocess instead of paying one per import clause.
+	gobin string
+	dir   string
+	cache *exportCache
+
 	pkgs map[string]*resolve.Package
 	// syms indexes every member and method symbol the loader handed
 	// out — the shared table SignatureOf, MethodOf and GoSigOf read.
@@ -140,6 +147,7 @@ func New(cfg *Config) *Loader {
 		gobin = "go"
 	}
 	cache := newExportCache(gobin, c.Dir)
+	l.gobin, l.dir, l.cache = gobin, c.Dir, cache
 	l.imp = importer.ForCompiler(l.fset, "gc", func(path string) (io.ReadCloser, error) {
 		if cache != nil {
 			if e, ok := cache.get(path); ok {
@@ -178,6 +186,70 @@ func New(cfg *Config) *Loader {
 // the entry even while the package's own source is unchanged
 // (exportcache.go). Printing deps costs nothing — `-export` already
 // builds them.
+
+// Prefetch warms the export cache for the `import go` paths a
+// package is about to load. Cache misses today resolve one `go
+// list -export -deps` subprocess per import clause (~80ms each);
+// `go list` accepts multiple package arguments, so the misses of
+// a whole compile settle with one call. Entries written here are
+// keyed by the canonical ImportPath the toolchain reports —
+// relative arguments (`./foo`) canonicalize differently, so
+// callers pass only absolute paths. A missing or unbuildable
+// package aborts the batch and the lazy per-path path reports the
+// real error during resolve.
+func (l *Loader) Prefetch(paths []string) {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	if l.cache == nil || len(paths) == 0 {
+		return
+	}
+	var miss []string
+	seen := map[string]bool{}
+	for _, p := range paths {
+		if seen[p] || strings.HasPrefix(p, ".") {
+			continue
+		}
+		seen[p] = true
+		if _, ok := l.cache.get(p); !ok {
+			miss = append(miss, p)
+		}
+	}
+	if len(miss) == 0 {
+		return
+	}
+	args := append([]string{"list", "-export", "-deps", "-f", "{{.ImportPath}}|{{.Export}}|{{.Dir}}"}, miss...)
+	cmd := exec.Command(l.gobin, args...)
+	if l.dir != "" {
+		cmd.Dir = l.dir
+	}
+	out, err := cmd.Output()
+	if err != nil {
+		return // the lazy path surfaces the diagnostic
+	}
+	// The flat dep list cannot be attributed per package, so every
+	// entry records the union: over-invalidation only — an edit
+	// anywhere in the batch's dep set refetches all of them.
+	lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+	byPath := map[string][2]string{}
+	var depDirs []string
+	seenDir := map[string]bool{}
+	for _, line := range lines {
+		ip, rest, _ := strings.Cut(line, "|")
+		exp, d, _ := strings.Cut(rest, "|")
+		if exp != "" {
+			byPath[ip] = [2]string{exp, d}
+		}
+		if d != "" && !seenDir[d] {
+			seenDir[d] = true
+			depDirs = append(depDirs, d)
+		}
+	}
+	for _, p := range miss {
+		if e, ok := byPath[p]; ok {
+			l.cache.put(p, e[0], e[1], depDirs)
+		}
+	}
+}
 func goExport(gobin, dir, path string) (export, srcDir string, depDirs []string, err error) {
 	cmd := exec.Command(gobin, "list", "-export", "-deps", "-f", "{{.ImportPath}}|{{.Export}}|{{.Dir}}", path)
 	if dir != "" {

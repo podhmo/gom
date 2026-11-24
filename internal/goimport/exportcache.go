@@ -37,6 +37,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 )
 
 // exportCacheEnv holds the environment names the cache honors:
@@ -75,6 +76,15 @@ type depStat struct {
 type exportCache struct {
 	dir string // "" disables the cache
 	pre string // the per-loader key prefix
+
+	// stats memoizes srcStat per dir for this cache's lifetime — a
+	// package's dep dirs recur across every imported package that
+	// shares them (the stdlib tree in particular), so each stat walk
+	// would otherwise repeat several times per build. The memo is
+	// per cache, not global: a *new* Loader must re-read sources,
+	// which is what lets an in-process source edit invalidate.
+	statsMu sync.Mutex
+	stats   map[string][2]int64
 }
 
 // newExportCache resolves the cache for cfg; a nil result disables
@@ -97,40 +107,10 @@ func newExportCache(gobin, dir string) *exportCache {
 	if err != nil {
 		effDir = dir
 	}
-	// Resolve a bare name ("go") to the executable `go list` would
-	// actually run — Abs alone would stat a working-directory file
-	// that usually does not exist, leaving every toolchain on PATH
-	// sharing one identity.
-	gobinAbs := gobin
-	if p, err := exec.LookPath(gobin); err == nil {
-		gobinAbs = p
-	}
-	if p, err := filepath.Abs(gobinAbs); err == nil {
-		gobinAbs = p
-	}
 	var b strings.Builder
 	b.WriteString(effDir)
 	b.WriteByte(0)
-	b.WriteString(gobinAbs)
-	if fi, err := os.Stat(gobinAbs); err == nil {
-		fmt.Fprintf(&b, "|%d|%d", fi.Size(), fi.ModTime().UnixNano())
-	}
-	// Effective build settings as the go tool sees them — `go env`
-	// folds the GOENV file (`go env -w` settings) under the process
-	// environment, which is exactly what a later `go list` will
-	// use. Reading only os.Getenv would keep serving exports
-	// selected under different tags after a `go env -w` change.
-	if out, err := exec.Command(gobinAbs, "env", "GOOS", "GOARCH", "GOFLAGS").Output(); err == nil {
-		for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
-			b.WriteByte(0)
-			b.WriteString(line)
-		}
-	} else {
-		for _, k := range []string{"GOOS", "GOARCH", "GOFLAGS"} {
-			b.WriteByte(0)
-			b.WriteString(k + "=" + os.Getenv(k))
-		}
-	}
+	b.WriteString(goEnvSuffix(gobin))
 	// The workspace file actually in effect: an explicit GOWORK, a
 	// go.work discovered above Dir when it is unset, or nothing when
 	// it is `off`.
@@ -167,6 +147,56 @@ func newExportCache(gobin, dir string) *exportCache {
 	}
 	c.pre = b.String()
 	return c
+}
+
+// goEnvSuffix renders the gobin-derived part of the cache key —
+// the resolved binary, its identity stat, and its effective build
+// settings — and memoizes it per process so each pooled Loader
+// does not pay for a PATH probe, a binary stat, and a `go env`
+// subprocess again.
+//
+// Effective build settings come from `go env` rather than
+// os.Getenv: `go env` folds the GOENV file (`go env -w` settings)
+// under the process environment, exactly as a later `go list`
+// sees it — reading only os.Getenv would keep serving exports
+// selected under different tags after a `go env -w` change. The
+// memo means a mid-process `go env -w` is not picked up, which is
+// acceptable: a build already assumes a stable toolchain.
+var goEnvSuffixCache sync.Map // gobin -> key suffix string
+
+func goEnvSuffix(gobin string) string {
+	if v, ok := goEnvSuffixCache.Load(gobin); ok {
+		return v.(string)
+	}
+	// Resolve a bare name ("go") to the executable `go list` would
+	// actually run — Abs alone would stat a working-directory file
+	// that usually does not exist, leaving every toolchain on PATH
+	// sharing one identity.
+	gobinAbs := gobin
+	if p, err := exec.LookPath(gobin); err == nil {
+		gobinAbs = p
+	}
+	if p, err := filepath.Abs(gobinAbs); err == nil {
+		gobinAbs = p
+	}
+	var b strings.Builder
+	b.WriteString(gobinAbs)
+	if fi, err := os.Stat(gobinAbs); err == nil {
+		fmt.Fprintf(&b, "|%d|%d", fi.Size(), fi.ModTime().UnixNano())
+	}
+	if out, err := exec.Command(gobinAbs, "env", "GOOS", "GOARCH", "GOFLAGS").Output(); err == nil {
+		for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+			b.WriteByte(0)
+			b.WriteString(line)
+		}
+	} else {
+		for _, k := range []string{"GOOS", "GOARCH", "GOFLAGS"} {
+			b.WriteByte(0)
+			b.WriteString(k + "=" + os.Getenv(k))
+		}
+	}
+	v, _ := goEnvSuffixCache.LoadOrStore(gobin, b.String())
+	return v.(string)
 }
 
 // findGoWork walks dir upward to the nearest go.work — the
@@ -220,12 +250,12 @@ func (c *exportCache) get(pkg string) (exportEntry, bool) {
 	if err != nil || fi.Size() != e.ExportSize || fi.ModTime().UnixNano() != e.ExportMtime {
 		return e, false
 	}
-	sm, sc := srcStat(e.Dir)
+	sm, sc := c.srcStat(e.Dir)
 	if sm != e.SrcMtime || sc != e.SrcCount {
 		return e, false
 	}
 	for _, d := range e.Deps {
-		sm, sc := srcStat(d.Dir)
+		sm, sc := c.srcStat(d.Dir)
 		if sm != d.SrcMtime || sc != d.SrcCount {
 			return e, false
 		}
@@ -241,7 +271,7 @@ func (c *exportCache) put(pkg, export, dir string, depDirs []string) {
 	if err != nil {
 		return
 	}
-	sm, sc := srcStat(dir)
+	sm, sc := c.srcStat(dir)
 	e := exportEntry{
 		Pkg:         pkg,
 		Dir:         dir,
@@ -255,7 +285,7 @@ func (c *exportCache) put(pkg, export, dir string, depDirs []string) {
 		if d == dir {
 			continue
 		}
-		sm, sc := srcStat(d)
+		sm, sc := c.srcStat(d)
 		e.Deps = append(e.Deps, depStat{Dir: d, SrcMtime: sm, SrcCount: sc})
 	}
 	data, err := json.Marshal(e)
@@ -287,6 +317,20 @@ func (c *exportCache) put(pkg, export, dir string, depDirs []string) {
 // path still describes the same source (a same-nanosecond mtime
 // on a coarse-granularity filesystem cannot add or remove a file
 // without moving the count). (-1,-1) when the dir cannot be read.
+func (c *exportCache) srcStat(dir string) (int64, int) {
+	c.statsMu.Lock()
+	defer c.statsMu.Unlock()
+	if c.stats == nil {
+		c.stats = map[string][2]int64{}
+	}
+	if s, ok := c.stats[dir]; ok {
+		return s[0], int(s[1])
+	}
+	m, n := srcStat(dir)
+	c.stats[dir] = [2]int64{m, int64(n)}
+	return m, n
+}
+
 func srcStat(dir string) (int64, int) {
 	ents, err := os.ReadDir(dir)
 	if err != nil {

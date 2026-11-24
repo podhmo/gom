@@ -98,6 +98,15 @@ func compileInputs(inputs []input, checkOnly bool, bc *buildCache, outFlag strin
 				}
 			}
 			gl = goimport.New(glc)
+			if ast, _ := syntax.ParseInterface(in.src, in.path); ast != nil {
+				var goImports []string
+				for _, d := range ast.Decls {
+					if imp, ok := d.(*syntax.ImportDecl); ok && imp.Go {
+						goImports = append(goImports, imp.Path)
+					}
+				}
+				gl.Prefetch(goImports)
+			}
 			r, err := build.Compile(build.Input{Path: in.path, Src: in.src, Interface: true},
 				compileOptions(in, checkOnly, seen, gl))
 			if err != nil {
@@ -150,6 +159,7 @@ func compileInputs(inputs []input, checkOnly bool, bc *buildCache, outFlag strin
 		}
 	}
 	deps := map[string]map[string]bool{}
+	goImports := map[string][]string{}
 	for _, dir := range order {
 		for _, i := range groups[dir] {
 			ast, _ := syntax.Parse(inputs[i].src, inputs[i].path)
@@ -158,7 +168,11 @@ func compileInputs(inputs []input, checkOnly bool, bc *buildCache, outFlag strin
 			}
 			for _, d := range ast.Decls {
 				imp, ok := d.(*syntax.ImportDecl)
-				if !ok || imp.Go {
+				if !ok {
+					continue
+				}
+				if imp.Go {
+					goImports[dir] = append(goImports[dir], imp.Path)
 					continue
 				}
 				path := canonicalImport(imp.Path)
@@ -269,6 +283,7 @@ func compileInputs(inputs []input, checkOnly bool, bc *buildCache, outFlag strin
 			seen = bc.depSink(dir)
 		}
 		gl, _ := poolLoader(dir)
+		gl.Prefetch(goImports[dir])
 		opts := compileOptions(inputs[idxs[0]], checkOnly, seen, gl)
 		if tweak != nil {
 			tweak(opts)
