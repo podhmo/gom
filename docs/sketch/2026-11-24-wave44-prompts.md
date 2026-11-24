@@ -68,7 +68,12 @@ error を返す Go interface）を gom 型に実装できない。現状は
 stdlib 追加（`fold` 回しの解消）と、`List.fold\n  (fn ...)` が
 E0401 になるパース弱さの調査。別 lane に分けてもよい。
 
-### F. `gom install`（規模: 中〜大・Future work・引き続き保留）
+### F'. `List.filter_map` / `List.find_map` stdlib 追加（小・採用）
+
+`fold` 回しを解消する stdlib 追加だけの切り出し
+（旧 E の前半）。
+
+### `gom install`（規模: 中〜大・Future work・引き続き保留）
 
 書き換え後の selfish リポジトリ等を指定してインストールする
 経路（`go install` 相当）。依存パッケージの推移的 emit

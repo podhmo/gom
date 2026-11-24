@@ -1962,4 +1962,5 @@
 
 - [ ] **共有メタを持つ部分適用でスカラーリテラルが宣言型に materialize できない**: `fn pair (x: b) (y: b) -> String` の残り `?b` を want 側の `Name` に pin する前に、供給リテラル `pair "x"` の conform が `?b := String` に commit してしまい `let g : Name -> String = pair "x"` が E0401。`?b` が result 位置にも現れる形は result-pin が救う。数値リテラルは bind を遅延するがスカラーは concrete 型で即 bind — 修正は pin 拡大ではなくリテラル→meta bind の遅延（#215 escalate、wave43 lane B）
 
-- [ ] **Char-backed 宣言型の splice 表示が rune 数値になる**: `type C = {ch: Char}` に `let c : C = 'a'` すると `"${c}"` は `97`（rune の数値、`fmt.Sprint`）と出る一方、裸の `Char` は `a` と文字で描かれる。宣言型経由の表示が underlying の Char 表示規則を拾わない非対称。発見: #215 レビュー（wave43 lane B、tutorial step 23 で言及済み）
+- [x] **Char-backed 宣言型の splice 表示が rune 数値になる**: `type C = {ch: Char}` に `let c : C = 'a'` すると `"${c}"` は `97`（rune の数値、`fmt.Sprint`）と出る一方、裸の `Char` は `a` と文字で描かれる。宣言型経由の表示が underlying の Char 表示規則を拾わない非対称。発見: #215 レビュー（wave43 lane B、tutorial step 23 で言及済み）
+  - 解消（wave43 lane C）: gomShow 化で declared 型は record renderer 経由となり `{ ch = 'a' }` と描かれる（rune 数値は出ない）。残る分岐は scalar-bound 値の oracle/compiled 表示差 — 直上の「宣言型の1-field recordへのスカラー代入」の項目を参照
