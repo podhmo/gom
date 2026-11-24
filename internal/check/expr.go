@@ -1692,6 +1692,14 @@ func (c *checker) revisitLitRanges() {
 			sp, text, typ, kind = pl.lit.Sp, pl.lit.Text, pl.lit.Type(), pl.lit.Kind
 		case pl.pat != nil:
 			sp, text, typ, kind = pl.pat.Sp, pl.pat.Text, pl.pat.Type(), pl.pat.Kind
+			// The literal's matrix key was normalized at whatever
+			// the scrutinee's type stood at when its arm was
+			// checked — possibly an unsettled meta; a later
+			// expression (inside or after the match) may pin it to
+			// a named width (Float, a Go float32). At this
+			// post-default point the type is final, so re-judge
+			// the key once for the pattern matrix.
+			pl.pat.Norm = c.normLit(kind, pl.pat.Text, typ)
 		default:
 			panic("unreachable")
 		}
@@ -3273,13 +3281,6 @@ func (c *checker) checkMatch(e *syntax.Match, want types.Type) Expr {
 			Body:  body,
 		}
 		prev = append(prev, &arms[i].Body)
-	}
-	// Literal patterns normalized against the scrutinee as it stood
-	// when their arm was checked; a later body may have pinned it to
-	// a named width (Float, a Go float32). Re-judge every literal at
-	// the settled type so the pattern matrix compares equal keys.
-	for _, a := range arms {
-		c.renormLit(a.Pat)
 	}
 	c.checkTypeTestArms(e, arms, subj.Type())
 	return &Match{Base: baseOf(e.Sp, bt), Subj: subj, Arms: arms}
