@@ -2517,8 +2517,14 @@ func (c *checker) foldFloat(e Expr) (float64, bool) {
 		}
 		fv, ok := constant.Float64Val(v)
 		return fv, ok
+	case *Var, *Apply, *Hole, *MemberExpr, *StrInterp, *Lambda, *If,
+		*Match, *Block, *Let, *Ignore, *Try, *FieldAssign,
+		*GoExpr, *For, *SelectExpr, *ListLit, *Spread, *TupleLit,
+		*RecordLit:
+		return 0, false
+	default:
+		panic("unreachable")
 	}
-	return 0, false
 }
 
 // intFoldWidth gives the machine width — and its signedness — that
