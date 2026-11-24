@@ -2,6 +2,25 @@
   "diagnostics": [
     {
       "kind": "diagnostic",
+      "code": "W0901",
+      "severity": "warning",
+      "message": "a function value is discarded — any unapplied rest of a call is lost",
+      "span": {
+        "file": "E0410_try_lambda_boundary_meta.gom",
+        "start": {
+          "line": 10,
+          "col": 11,
+          "offset": 444
+        },
+        "end": {
+          "line": 10,
+          "col": 49,
+          "offset": 482
+        }
+      }
+    },
+    {
+      "kind": "diagnostic",
       "code": "E0401",
       "severity": "error",
       "message": "type mismatch: ?1 occurs in List (Result ?1 ?2) (infinite type)",

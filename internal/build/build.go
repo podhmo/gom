@@ -161,8 +161,9 @@ func Compile(in Input, opts *Options) (*Result, error) {
 	// matching error diagnostics to warnings below; unusable entries
 	// report W0003 now (spec section 12).
 	allow, wdiags := diag.ScanAllow(in.Src, in.Path)
-	r.Diagnostics = append(r.Diagnostics, wdiags...)
 	allows := map[string]map[diag.Code]bool{in.Path: allow}
+	wdiags = diag.DemoteAllowed(wdiags, allows)
+	r.Diagnostics = append(r.Diagnostics, wdiags...)
 
 	parse := syntax.Parse
 	if r.Interface {
@@ -170,7 +171,7 @@ func Compile(in Input, opts *Options) (*Result, error) {
 	}
 	f, diags := parse(in.Src, in.Path)
 	r.File = f
-	diag.DemoteAllowed(diags, allows)
+	diags = diag.DemoteAllowed(diags, allows)
 	r.Diagnostics = append(r.Diagnostics, diags...)
 	if diags.HasError() {
 		return r, nil
@@ -178,7 +179,7 @@ func Compile(in Input, opts *Options) (*Result, error) {
 
 	res, diags := resolve.File(f, resolveConfig(&o))
 	r.Resolved = res
-	diag.DemoteAllowed(diags, allows)
+	diags = diag.DemoteAllowed(diags, allows)
 	r.Diagnostics = append(r.Diagnostics, diags...)
 	if diags.HasError() {
 		return r, nil
@@ -186,7 +187,7 @@ func Compile(in Input, opts *Options) (*Result, error) {
 
 	tf, diags := check.Check(res, o.Sigs)
 	r.Typed = tf
-	diag.DemoteAllowed(diags, allows)
+	diags = diag.DemoteAllowed(diags, allows)
 	r.Diagnostics = append(r.Diagnostics, diags...)
 	// Interface files declare signatures without bodies, so the
 	// phases below — which all analyze expressions — do not run on
@@ -211,7 +212,7 @@ func Compile(in Input, opts *Options) (*Result, error) {
 	}
 	po.Decls = append(po.Decls, siblings...)
 	diags = pattern.CheckFile(tf, po)
-	diag.DemoteAllowed(diags, allows)
+	diags = diag.DemoteAllowed(diags, allows)
 	r.Diagnostics = append(r.Diagnostics, diags...)
 	if diags.HasError() || o.CheckOnly {
 		return r, nil
@@ -238,17 +239,17 @@ func Compile(in Input, opts *Options) (*Result, error) {
 	coref, ldiags := lower.File(tf, &le)
 	coref.SelfImportPath = o.SelfImportPath
 	r.Core = coref
-	diag.DemoteAllowed(ldiags, allows)
+	ldiags = diag.DemoteAllowed(ldiags, allows)
 	r.Diagnostics = append(r.Diagnostics, ldiags...)
 	// Package initialization and @tailrec's mutual recursion are
 	// properties of the unit, not of one file — the residual-cycle
 	// checks run over the unit's lowered Core files, and a one-file
 	// unit is the degenerate case.
 	udiags := lower.CheckInitCycles([]*core.File{coref})
-	diag.DemoteAllowed(udiags, allows)
+	udiags = diag.DemoteAllowed(udiags, allows)
 	r.Diagnostics = append(r.Diagnostics, udiags...)
 	tdiags := lower.CheckTailRecMutual([]*core.File{coref})
-	diag.DemoteAllowed(tdiags, allows)
+	tdiags = diag.DemoteAllowed(tdiags, allows)
 	r.Diagnostics = append(r.Diagnostics, tdiags...)
 	if diag.List(ldiags).HasError() || diag.List(udiags).HasError() ||
 		diag.List(tdiags).HasError() {
@@ -266,7 +267,7 @@ func Compile(in Input, opts *Options) (*Result, error) {
 	// name listing survives on EmitNames either way: the withheld
 	// output is exactly where `gom dump -phase=emit` looks for the
 	// names behind the collision.
-	r.Diagnostics = append(r.Diagnostics, out.Diags...)
+	r.Diagnostics = append(r.Diagnostics, diag.DemoteAllowed(out.Diags, allows)...)
 	r.EmitNames = out.EmitNames
 	if !diag.List(out.Diags).HasError() {
 		r.Output = out
@@ -393,6 +394,7 @@ func CompileFiles(ins []Input, opts *Options) ([]*Result, error) {
 	for _, i := range impl {
 		allow, wdiags := diag.ScanAllow(ins[i].Src, ins[i].Path)
 		allows[ins[i].Path] = allow
+		wdiags = diag.DemoteAllowed(wdiags, allows)
 		results[i].Diagnostics = append(results[i].Diagnostics, wdiags...)
 	}
 
@@ -411,7 +413,7 @@ func CompileFiles(ins []Input, opts *Options) ([]*Result, error) {
 		}
 		f, diags := syntax.Parse(in.Src, in.Path)
 		r.File = f
-		diag.DemoteAllowed(diags, allows)
+		diags = diag.DemoteAllowed(diags, allows)
 		r.Diagnostics = append(r.Diagnostics, diags...)
 		files = append(files, f)
 		if diags.HasError() {
@@ -426,7 +428,7 @@ func CompileFiles(ins []Input, opts *Options) ([]*Result, error) {
 	for i, res := range ress {
 		results[impl[i]].Resolved = res
 	}
-	diag.DemoteAllowed(diags, allows)
+	diags = diag.DemoteAllowed(diags, allows)
 	spread(results[impl[0]], byPath, diags)
 	if diags.HasError() {
 		return results, nil
@@ -436,7 +438,7 @@ func CompileFiles(ins []Input, opts *Options) ([]*Result, error) {
 	for i, tf := range tfs {
 		results[impl[i]].Typed = tf
 	}
-	diag.DemoteAllowed(diags, allows)
+	diags = diag.DemoteAllowed(diags, allows)
 	spread(results[impl[0]], byPath, diags)
 	if diags.HasError() {
 		return results, nil
@@ -485,7 +487,7 @@ func CompileFiles(ins []Input, opts *Options) ([]*Result, error) {
 		}
 		po.Decls = append(po.Decls, siblings...)
 		pdiags := pattern.CheckFile(tf, po)
-		diag.DemoteAllowed(pdiags, allows)
+		pdiags = diag.DemoteAllowed(pdiags, allows)
 		r.Diagnostics = append(r.Diagnostics, pdiags...)
 		if diag.List(pdiags).HasError() || o.CheckOnly {
 			unitFailed = unitFailed || diag.List(pdiags).HasError()
@@ -512,7 +514,7 @@ func CompileFiles(ins []Input, opts *Options) ([]*Result, error) {
 		}
 		coref, ldiags := lower.File(tf, &le)
 		coref.SelfImportPath = o.SelfImportPath
-		diag.DemoteAllowed(ldiags, allows)
+		ldiags = diag.DemoteAllowed(ldiags, allows)
 		r.Core = coref
 		cores = append(cores, coref)
 		r.Diagnostics = append(r.Diagnostics, ldiags...)
@@ -529,7 +531,7 @@ func CompileFiles(ins []Input, opts *Options) ([]*Result, error) {
 		// claims the same package-scope names, so a sibling decl's
 		// eviction is reported identically by each member — keep
 		// only the first copy of each (code, span, message).
-		for _, d := range out.Diags {
+		for _, d := range diag.DemoteAllowed(out.Diags, allows) {
 			k := emitDiagKey{code: d.Code, span: d.Span, msg: d.Message}
 			if seenEmit[k] {
 				continue

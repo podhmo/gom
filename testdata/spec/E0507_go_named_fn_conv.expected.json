@@ -22,6 +22,25 @@
         "from": "Go.Func0",
         "to": "Unit -> Unit"
       }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "W0901",
+      "severity": "warning",
+      "message": "a function value is discarded — any unapplied rest of a call is lost",
+      "span": {
+        "file": "E0507_go_named_fn_conv.gom",
+        "start": {
+          "line": 12,
+          "col": 11,
+          "offset": 360
+        },
+        "end": {
+          "line": 12,
+          "col": 38,
+          "offset": 387
+        }
+      }
     }
   ]
 }

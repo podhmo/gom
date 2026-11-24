@@ -2,6 +2,25 @@
   "diagnostics": [
     {
       "kind": "diagnostic",
+      "code": "W0901",
+      "severity": "warning",
+      "message": "a function value is discarded — any unapplied rest of a call is lost",
+      "span": {
+        "file": "E0419_scope_let_alias_escape.gom",
+        "start": {
+          "line": 17,
+          "col": 13,
+          "offset": 449
+        },
+        "end": {
+          "line": 17,
+          "col": 14,
+          "offset": 450
+        }
+      }
+    },
+    {
+      "kind": "diagnostic",
       "code": "E0419",
       "severity": "error",
       "message": "`cl` is a `Scope` value (or closes over one) and escapes its scope here",
