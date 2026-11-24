@@ -921,6 +921,22 @@ embed.FS — and the directive needs at least one file pattern
 @extern let bad : Int        // E0512 — Int is not an embed-admissible type
 ```
 
+### E0513 — Go.nil on a non-nil-able type
+
+**Severity:** error · **Phase:** check · **Spec:** §8.3
+
+Go.nil produces nil for any nil-able Go type — pointers,
+channels, Go.Slice, Go.Map, Go.Any, GoError, and named Go types
+whose underlying can hold nil (os.DirEntry, sort.IntSlice). The
+result type is solved from context; when it settles to a type that
+cannot hold nil — Int, a record, a sum type — Go.nil is E0513. An
+unsolved type stands under E0407 instead.
+
+```gom
+let p : P Int = Go.nil ()      // ok — pointers are nil-able
+let n : Int = Go.nil ()        // E0513 — Int cannot hold nil
+```
+
 ### E0514 — invalid Go.try_as ascription
 
 **Severity:** error · **Phase:** check · **Spec:** §8.3
