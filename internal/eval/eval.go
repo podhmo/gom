@@ -1700,7 +1700,7 @@ func (e *interp) reshape(v Value, t types.Type) Value {
 						fs[i].V = e.reshape(f.V, applySubst(ft, sub))
 					}
 				}
-				return &VVariant{Type: con, Name: v.Name, Fields: fs}
+				return &VVariant{Type: con, Ctor: v.Ctor, Name: v.Name, Fields: fs}
 			}
 		}
 	}

@@ -1703,7 +1703,16 @@ fn answer () -> String = {
     Some o -> (match o { Some (n, c) -> "${n}"; None -> "inn2" })
     None -> "no-oo2"
   }
-  "${a}${b}${c}${d}${e2}${f2}${g2}${h2}${i2}"
+  // a reshaped variant keeps its ctor identity — reboxing the
+  // Int32 extraction must restore 'a' for an Option Char assert.
+  let j2 = match (Go.try_as (box (Some 'a')) : Option (Option Int32)) {
+    Some o -> (match (Go.try_as (box o) : Option (Option Char)) {
+      Some o2 -> (match o2 { Some c -> "${c}"; None -> "x" })
+      None -> "y"
+    })
+    None -> "z"
+  }
+  "${a}${b}${c}${d}${e2}${f2}${g2}${h2}${i2}${j2}"
 }
 
 fn main () -> Unit = {
@@ -1711,7 +1720,7 @@ fn main () -> Unit = {
   ()
 }
 `,
-		want: "no-ii32no-bx-ibx-sfwd-i32bx-rune97in:a42",
+		want: "no-ii32no-bx-ibx-sfwd-i32bx-rune97in:a42a",
 	},
 }
 
