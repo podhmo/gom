@@ -458,9 +458,15 @@ func (w *eqWalk) expand(ti *typeInfo, f func() bool) bool {
 // satisfies Go's `comparable` constraint — the checker's half of the
 // generic-Go-call constraint check (spec section 8.5). The judgment
 // is over generated code shapes, not Go semantics: a sum type is a
-// sealed interface (comparable), a record a struct (comparable iff
-// every field is), Option an interface, Result a flat struct, a
-// declared Gom type variable an `any` parameter (not comparable).
+// sealed interface (comparable iff every variant's payload is —
+// interface `==` on a non-comparable variant panics at runtime),
+// a record a struct (comparable iff every field is), Option an
+// interface over a struct box (comparable iff its element is),
+// Result a flat struct, a declared Gom type variable an `any`
+// parameter (not comparable). Opaque interfaces — GoError, Go.Any,
+// named Go interfaces — keep Go's admission since the checker
+// cannot enumerate their implementations (decision
+// 2026-11-24-sum-comparable-panic).
 // *types.Go handles delegate to the ComparableSource oracle —
 // `types.Comparable` on the named type behind the handle. Opaque
 // shapes the checker cannot see (abstract or foreign declared types)
@@ -511,7 +517,12 @@ func (w *cmpWalk) has(t types.Type) bool {
 			case "Slice", "Map":
 				return false
 			default:
-				// Go.Int (int) and Go.Any (any) are comparable.
+				// Go.Int (int) and Go.Any (any) are comparable;
+				// a Go.FuncN spelling is a func type, which Go
+				// makes non-comparable.
+				if _, isFn := goFuncTypeArity(t.Name); isFn {
+					return false
+				}
 				return true
 			}
 		}
@@ -541,19 +552,40 @@ func (w *cmpWalk) has(t types.Type) bool {
 					return w.has(t.Args[0])
 				}
 				return true
-			case "Option", "Ref", "Ptr", "Chan", "RecvChan", "SendChan", "Scope":
-				// option.Option[A] is an interface; Ref and Ptr are
-				// pointers; channels are channels — all comparable.
+			case "Option":
+				// option.Option[A] is an interface over the struct
+				// box option.Option_Some[A] — comparable iff the
+				// element is, or `==` on two Somes panics.
+				if len(t.Args) == 1 {
+					return w.has(t.Args[0])
+				}
+				return true
+			case "Ref", "Ptr", "Chan", "RecvChan", "SendChan", "Scope":
+				// Ref and Ptr are pointers; channels are channels —
+				// all comparable.
 				return true
 			}
 		}
-		// A declared type: sealed-interface sums are comparable,
-		// records are comparable iff every field is, aliases expand.
+		// A declared type: sealed-interface sums are comparable iff
+		// every variant's payload is, records iff every field is,
+		// aliases expand.
 		if w.expandable(t) {
 			ti := w.c.tyCons[conKey{qual: t.Qual, name: t.Name}]
 			return w.expand(t, ti, func(sub types.Subst) bool {
 				switch ti.kind {
 				case kindSum:
+					// The sealed-interface repr is comparable in Go,
+					// but `==` on a variant whose payload is not
+					// panics at runtime — fold the record rule over
+					// every variant's fields (decision
+					// 2026-11-24-sum-comparable-panic).
+					for _, v := range ti.variants {
+						for _, f := range v.fields {
+							if !w.has(sub.Apply(f.typ)) {
+								return false
+							}
+						}
+					}
 					return true
 				case kindRecord:
 					for _, f := range ti.fields {

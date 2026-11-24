@@ -1,0 +1,20 @@
+package ex
+
+import go "slices"
+
+// The `comparable` constraint folds the payload check over the
+// emitted representation: `Points` carries a `List Int` payload
+// (non-comparable — `==` on it would panic), `Option`'s element is
+// the box's field, and a `Go.FuncN` spelling is a func type, which
+// Go makes non-comparable (spec 8.5).
+type Shape = | Circle (r: Float) | Points (pts: List Int)
+type Xs = { xs : List Int }
+
+fn has (xs: Go.Slice Shape) (needle: Shape) -> Bool =
+    slices.Contains(xs, needle)
+
+fn has_some (xs: Go.Slice (Option Xs)) (needle: Option Xs) -> Bool =
+    slices.Contains(xs, needle)
+
+fn has_fn (xs: Go.Slice (Go.Func1 Int Int)) (needle: Go.Func1 Int Int) -> Bool =
+    slices.Contains(xs, needle)

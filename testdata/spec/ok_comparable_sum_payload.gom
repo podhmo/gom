@@ -1,0 +1,15 @@
+package ex
+
+import go "slices"
+
+// A sum whose every variant payload is comparable stays admitted:
+// the sealed-interface repr's `==` never reaches a non-comparable
+// dynamic value. `Option Shape` likewise — its box's element is
+// comparable (spec 8.5).
+type Shape = | Circle (r: Float) | Empty
+
+fn has (xs: Go.Slice Shape) (needle: Shape) -> Bool =
+    slices.Contains(xs, needle)
+
+fn has_some (xs: Go.Slice (Option Shape)) (needle: Option Shape) -> Bool =
+    slices.Contains(xs, needle)

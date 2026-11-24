@@ -1,0 +1,76 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0508",
+      "severity": "error",
+      "message": "type argument `Shape` does not satisfy the `comparable` constraint of `Contains`'s type parameter `E`",
+      "span": {
+        "file": "E0508_comparable_payload.gom",
+        "start": {
+          "line": 14,
+          "col": 12,
+          "offset": 490
+        },
+        "end": {
+          "line": 14,
+          "col": 20,
+          "offset": 498
+        }
+      },
+      "data": {
+        "argument": "Shape",
+        "constraint": "comparable",
+        "parameter": "E"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0508",
+      "severity": "error",
+      "message": "type argument `Option Xs` does not satisfy the `comparable` constraint of `Contains`'s type parameter `E`",
+      "span": {
+        "file": "E0508_comparable_payload.gom",
+        "start": {
+          "line": 17,
+          "col": 12,
+          "offset": 592
+        },
+        "end": {
+          "line": 17,
+          "col": 20,
+          "offset": 600
+        }
+      },
+      "data": {
+        "argument": "Option Xs",
+        "constraint": "comparable",
+        "parameter": "E"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0508",
+      "severity": "error",
+      "message": "type argument `Go.Func1 Int Int` does not satisfy the `comparable` constraint of `Contains`'s type parameter `E`",
+      "span": {
+        "file": "E0508_comparable_payload.gom",
+        "start": {
+          "line": 20,
+          "col": 12,
+          "offset": 706
+        },
+        "end": {
+          "line": 20,
+          "col": 20,
+          "offset": 714
+        }
+      },
+      "data": {
+        "argument": "Go.Func1 Int Int",
+        "constraint": "comparable",
+        "parameter": "E"
+      }
+    }
+  ]
+}
