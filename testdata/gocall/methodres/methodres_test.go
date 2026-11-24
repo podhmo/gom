@@ -4,6 +4,7 @@ import (
 	"encoding"
 	"io"
 	"io/fs"
+	"net/http"
 	"testing"
 )
 
@@ -30,5 +31,25 @@ func TestMethodResultUnwrap(t *testing.T) {
 	}
 	if _, err := r.ReadDir("x"); err == nil {
 		t.Fatal("ReadDir = nil error, want non-nil")
+	}
+	// Err path of an Option-payload method: the emitted unwrap must
+	// return the error, not panic on the nil Option (the zero value
+	// of gom's sealed Option interface).
+	var r2 fs.ReadDirFS = FsOf(Dir(false))
+	if _, err := r2.Open("x"); err == nil {
+		t.Fatal("Open (err path) = nil error, want non-nil")
+	}
+
+	// http.Hijacker's (net.Conn, *bufio.ReadWriter, error) maps to
+	// `Result (Option net.Conn, Ptr bufio.ReadWriter) GoError` — the
+	// tuple spreads and Option elements unwrap to nil-able results.
+	var hj http.Hijacker = HijackerOf(Hij(true))
+	c, rw, err := hj.Hijack()
+	if c != nil || rw != nil || err != nil {
+		t.Fatalf("Hijack = (%v, %v, %v), want (nil, nil, nil)", c, rw, err)
+	}
+	var hj2 http.Hijacker = HijackerOf(Hij(false))
+	if _, _, err := hj2.Hijack(); err == nil {
+		t.Fatal("Hijack (err path) = nil error, want non-nil")
 	}
 }

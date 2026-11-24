@@ -151,7 +151,11 @@ func (g *gen) methodDecl(d *core.FuncDecl) {
 			if i > 0 {
 				g.raw(", ")
 			}
-			g.typ(g.methodType(o))
+			if oe := optionElem(o); resErr && oe != nil {
+				g.typ(g.methodType(oe))
+			} else {
+				g.typ(g.methodType(o))
+			}
 		}
 		if resErr {
 			if len(outs) > 0 {
@@ -183,12 +187,24 @@ func (g *gen) methodDecl(d *core.FuncDecl) {
 	case resErr:
 		g.raw("v, err := " + g.pkgQual(resultPath) + "ToGo(" + call + ")")
 		g.nl()
-		g.raw("return " + g.boundaryResults(outs, resOpt) + ", err")
+		// On the Err path `v` is the zero payload, so every Option
+		// inside it is a nil interface — `option.GetOrElse` would
+		// panic before `err` is returned. Emit the zero results
+		// under an err guard first.
+		if resOpt || hasOptionElem(outs) {
+			g.raw("if err != nil {")
+			g.nl()
+			g.raw("return " + g.boundaryZeros(outs, resOpt) + ", err")
+			g.nl()
+			g.raw("}")
+			g.nl()
+		}
+		g.raw("return " + g.boundaryResults(outs, resOpt, resErr) + ", err")
 	case len(outs) == 1:
 		o := outs[0]
 		switch {
 		case listElem(o) != nil:
-			g.raw("return []" + g.exprString(g.goType(listElem(o))) + "(" + call + ")")
+			g.raw("return append([]" + g.exprString(g.goType(listElem(o))) + "(nil), " + call + "...)")
 		case types.Equal(types.Chase(o), types.Int):
 			g.raw("return int(" + call + ")")
 		default:
@@ -197,7 +213,7 @@ func (g *gen) methodDecl(d *core.FuncDecl) {
 	case len(outs) > 1:
 		g.raw("v := " + call)
 		g.nl()
-		g.raw("return " + g.boundaryResults(outs, false))
+		g.raw("return " + g.boundaryResults(outs, false, false))
 	default:
 		g.raw(call)
 	}
@@ -250,12 +266,23 @@ func optionElem(t types.Type) types.Type {
 
 // boundaryResults renders the result values a method returns from
 // an already-bound `v` — a single payload uses `v`, a Tuple payload
-// spreads into `v.V0, v.V1, ...`; `List T` converts to the raw
-// `[]T`, an Option payload unwraps Some→v / None→nil.
-func (g *gen) boundaryResults(outs []types.Type, opt bool) string {
+// spreads into `v.V0, v.V1, ...`; `List T` converts to a fresh raw
+// `[]T` (copied: the returned slice may be mutated by the Go caller
+// and must not alias the gom list), an Option payload unwraps
+// Some→v / None→nil, and an `Option` element inside a Tuple payload
+// unwraps the same way (mapSignature wraps method-bearing interface
+// results in Option — internal/goimport/mapping.go).
+// resErr marks a `Result _ GoError` residual: only there may a
+// Tuple element be a mapped `Option` that unwraps to its nil-able
+// interface — a user-declared Option in a plain Tuple keeps its
+// option.Option spelling.
+func (g *gen) boundaryResults(outs []types.Type, opt, resErr bool) string {
 	conv := func(o types.Type, acc string) string {
+		if oe := optionElem(o); resErr && oe != nil {
+			return g.pkgQual(optionPath) + "GetOrElse(" + g.methodNilLit(oe) + ", " + acc + ")"
+		}
 		if el := listElem(o); el != nil {
-			return "[]" + g.exprString(g.goType(el)) + "(" + acc + ")"
+			return "append([]" + g.exprString(g.goType(el)) + "(nil), " + acc + "...)"
 		}
 		if types.Equal(types.Chase(o), types.Int) {
 			return "int(" + acc + ")"
@@ -264,11 +291,7 @@ func (g *gen) boundaryResults(outs []types.Type, opt bool) string {
 	}
 	if len(outs) == 1 {
 		if opt {
-			nilLit := g.exprString(&ast.CallExpr{
-				Fun:  g.goType(outs[0]),
-				Args: []ast.Expr{ast.NewIdent("nil")},
-			})
-			return g.pkgQual(optionPath) + "GetOrElse(" + nilLit + ", v)"
+			return g.pkgQual(optionPath) + "GetOrElse(" + g.methodNilLit(outs[0]) + ", v)"
 		}
 		return conv(outs[0], "v")
 	}
@@ -277,6 +300,58 @@ func (g *gen) boundaryResults(outs []types.Type, opt bool) string {
 		parts[i] = conv(o, "v.V"+strconv.Itoa(i))
 	}
 	return strings.Join(parts, ", ")
+}
+
+// boundaryZeros renders the results for the Err path, where `v`
+// is the zero payload — Option pieces return their nil literal
+// outright (GetOrElse would panic on a nil Option), everything
+// else reads the already-zero `v`/`v.Vi` fields.
+func (g *gen) boundaryZeros(outs []types.Type, opt bool) string {
+	zero := func(o types.Type, acc string) string {
+		if oe := optionElem(o); oe != nil {
+			return g.methodNilLit(oe)
+		}
+		if el := listElem(o); el != nil {
+			return "[]" + g.exprString(g.goType(el)) + "(nil)"
+		}
+		if types.Equal(types.Chase(o), types.Int) {
+			return "int(" + acc + ")"
+		}
+		return acc
+	}
+	if len(outs) == 1 {
+		if opt {
+			return g.methodNilLit(outs[0])
+		}
+		return zero(outs[0], "v")
+	}
+	parts := make([]string, len(outs))
+	for i, o := range outs {
+		parts[i] = zero(o, "v.V"+strconv.Itoa(i))
+	}
+	return strings.Join(parts, ", ")
+}
+
+// hasOptionElem reports whether any boundary result is an Option
+// (a Tuple payload whose mapped elements wrap method-bearing
+// interfaces).
+func hasOptionElem(outs []types.Type) bool {
+	for _, o := range outs {
+		if optionElem(o) != nil {
+			return true
+		}
+	}
+	return false
+}
+
+// methodNilLit renders the nil literal of a boundary type in the
+// `T(nil)` call form — e.g. `net.Conn(nil)` for an interface
+// element.
+func (g *gen) methodNilLit(t types.Type) string {
+	return g.exprString(&ast.CallExpr{
+		Fun:  g.goType(t),
+		Args: []ast.Expr{ast.NewIdent("nil")},
+	})
 }
 
 // exprString renders an ast expression as source — the method
@@ -311,7 +386,10 @@ func (g *gen) methodType(t types.Type) ast.Expr {
 // to the inner `int64`.
 func (g *gen) methodArg(name string, t types.Type) string {
 	if el := listElem(t); el != nil {
-		return g.pkgQual(listPath) + "List[" + g.exprString(g.goType(el)) + "](" + name + ")"
+		// Copy the caller's slice: a `List` captured by the gom
+		// body must not alias a buffer the Go caller may mutate
+		// or reuse after the call.
+		return g.pkgQual(listPath) + "List[" + g.exprString(g.goType(el)) + "](append([]" + g.exprString(g.goType(el)) + "(nil), " + name + "...))"
 	}
 	if types.Equal(types.Chase(t), types.Int) {
 		return "int64(" + name + ")"
