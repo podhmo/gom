@@ -1,0 +1,1 @@
+run tests with: gom test tutorial/17-tests

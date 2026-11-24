@@ -1,0 +1,7 @@
+got 2
+got 4
+got 6
+task 42
+tick 1
+empty
+no receiver

@@ -1,0 +1,43 @@
+// Step 14: the standard library.
+//
+// `List`, `Option` and `Result` are builtin modules — no import —
+// whose surface is the stdlib package (stdlib/{list,option,result}).
+// `import "cmp"` brings the comparison *dictionaries* module: `Eq a`
+// / `Ord a` are ordinary records of functions passed as the first
+// argument — the language has no type classes (decision
+// 2026-11-19-ad-hoc-poly-dict-passing).
+//
+// `List.map`/`filter`/`fold`, `Option.get`, `Result.map` and friends
+// free step 5 and 6's hand-rolled recursion.
+package main
+
+import "cmp"
+import go "fmt"
+
+fn show_opt (o: Option Int) -> String = match o {
+  Some n -> "some ${n}"
+  None -> "none"
+}
+
+fn main () -> Unit = {
+  // List: the combinators step 5 wrote by hand.
+  let xs = List.map (fn x -> x * 2) (List.range 1 4)
+  ignore (fmt.Println "mapped ${xs}")
+  ignore (fmt.Println "evens ${List.filter (fn x -> x % 2 == 0) xs}")
+  ignore (fmt.Println "total ${List.sum_int xs}")
+  // Option/Result: unwrap, transform, and hop between layers.
+  ignore (fmt.Println (show_opt (List.head xs)))
+  ignore (fmt.Println (show_opt (List.head [])))
+  ignore (fmt.Println "get ${Option.get (Some 9)}")
+  let parsed: Result Int String = Ok 41
+  let bumped = Result.map (fn n -> n + 1) parsed
+  ignore (fmt.Println (show_opt (Result.to_option bumped)))
+  let failed: Result Int String = Err "no"
+  ignore (fmt.Println "or ${Result.get_or_else 0 failed}")
+  // cmp: an `Ord a` dictionary is a record `{ lt: a -> a -> Bool }`;
+  // `desc`/`min`/`sort`/`member` are built from it.
+  ignore (fmt.Println "sorted ${cmp.sort cmp.int_ord [3, 1, 2]}")
+  ignore (fmt.Println "member ${cmp.member cmp.string_eq "b" ["a", "b"]}")
+  ignore (fmt.Println (show_opt (cmp.min (cmp.desc cmp.int_ord) [4, 5, 6])))
+  ()
+}

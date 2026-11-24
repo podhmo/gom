@@ -1902,3 +1902,17 @@
 - [ ] **`cmd/gom/cli.go` の `canonicalImport` が `cmp` を stdlib 短名として扱わない**: `stdlibPaths` と同趣の表だが `cmp` が抜けており、import パスの canonicalize でずれが出うる。`StdlibShortNames()` との一本化が本筋。参照: [実装](../cmd/gom/cli.go)（wave41 lane B レビュー指摘）
 
 - [ ] **9 要素以上の spelled tuple が check を通るが codegen が未定義の `rt.TupleN` を吐く**: `rt` の tuple は `Tuple8` までしかなく、関数シグネチャの 8 結果上限（E0510）は型位置の tuple arity を縛らない — `(Int ×9)` をペイロードや戻り型に書くと check は通り、生成 Go が `undefined: rt.Tuple9` で `go build` に落ちる（wave41 lane B で `rt.Tuple64` 相当を確認; fuzz seed#275 も同経路）。check で上限を診断するか rt を拡張するかは未決。参照: [実装](../internal/codegen/types.go)（`tupleType`）、[実装](../rt/tuple.go)
+
+- [ ] **`Ok n` の `Unit` 束縛を文字列補間すると生成 Go が `declared and not used` になる**:
+  `match r () { Ok n -> ignore (fmt.Println "ok ${n}") ... }`（`r : Result Unit String`）が
+  check/build を通るが、生成コードは補間に `"()"` リテラルを使い、bind した `tmp` が
+  未参照で `go build` に落ちる（"declared and not used: tmp3"）。回避は `Ok _ ->`。
+  最小再現と文脈は [調査](sketch/ja/2026-11-24-tutorial-gap-enumeration.md)（tutorial 16 章
+  執筆中に発見）。未確認: `Unit` ペイロードの他の束縛位置（`let`・他の ctor）でも
+  同じか。（2026-11-24 登録）
+
+- [ ] **`gom test` が生成テストを持つパッケージで手書き `main_test.go` を無条件上書きする**:
+  `r.Output.TestSource != nil` の場合 `writeFile(tst, ...)` が marker 判定なしで上書きする
+  （`cmd/gom/test.go`）。marker ガード（`isGomGenerated`）が効くのは「生成テストがない側の
+  stale 削除」だけで、手書き `_test.go` を保持する旨のコメントと実態がずれている — tutorial
+  ハーネスは snapshot/restore で回避（tutorial/run.sh・tutorial_test.go、2026-11-24 登録）。

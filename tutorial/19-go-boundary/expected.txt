@@ -1,0 +1,9 @@
+timeout 5s
+ptr 42
+nil false, safe {0}
+i32 301
+len 3, at 9 {}
+sorted [1 2 3]
+nil slice len 0
+map len 2, two some 2
+via spread

@@ -1,0 +1,9 @@
+n 1
+n 2
+n 3
+a=1
+b=2
+view 8
+view 7
+len 2, last 6
+sum 10

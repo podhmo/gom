@@ -1,0 +1,47 @@
+// Step 16: `Scope` — scoped cleanup instead of `defer`.
+//
+// `Scope.run` opens a scope; the lambda's `s: Scope` handle
+// registers cleanups that run in reverse order when the lambda
+// returns — including on `try` escape and panic. `Scope.run_result`
+// is the `Result`-returning variant: `Scope.defer_err` cleanups may
+// fail, and a failing cleanup turns an `Ok` result into `Err`.
+// The handle cannot escape the scope (E0419) — spec 6.1.
+package main
+
+import go "fmt"
+
+fn guarded (held: Ref Int) -> Int =
+  Scope.run <| fn s -> {
+    Ref.set held 1
+    Scope.defer s (fn () -> Ref.set held 0)
+    // on_err runs only when the body panics — a returned Err is
+    // just a value to Scope.run (run_result/defer_err, below,
+    // is the shape that reacts to an Err return). Not triggered here.
+    Scope.on_err s (fn () -> ignore (fmt.Println "cleanup on error"))
+    Ref.get held
+  }
+
+fn acquire () -> Result String GoError = Ok "handle"
+
+fn use (h: String) -> Result Unit GoError = fmt.Println "using ${h}" |> Result.map (fn _ -> ())
+
+fn failing_cleanup () -> Result Unit GoError =
+  Scope.run_result <| fn s -> {
+    let h = try acquire ()
+    // defer_err cleanups run even when the body returns Err.
+    Scope.defer_err s (fn () -> {
+      ignore (fmt.Println "closed ${h}")
+      Ok ()
+    })
+    use h
+  }
+
+fn main () -> Unit = {
+  let held = Ref.new 0
+  ignore (fmt.Println "in ${guarded held}, after ${Ref.get held}")
+  match failing_cleanup () {
+    Ok _ -> ignore (fmt.Println "ok")
+    Err e -> ignore (fmt.Println "err ${e.Error ()}")
+  }
+  ()
+}

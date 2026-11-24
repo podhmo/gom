@@ -61,6 +61,40 @@ EOF
       fail=1
       continue
     fi
+    # A step may also carry expected-test.txt: run `gom test` on the
+    # step and diff the JSONL report, normalizing `elapsed`.
+    if [ -f "$dir/expected-test.txt" ]; then
+      # gom test writes the generated main.go/main_test.go in place —
+      # overwriting even a handwritten one. Snapshot whatever was
+      # there and restore it after the run, so the tree (and `go test
+      # ./...` package discovery) looks exactly as before.
+      for f in main.go main_test.go; do
+        if [ -f "$dir$f" ]; then cp "$dir$f" "$tmp/$name.keep.$f"; else rm -f "$tmp/$name.keep.$f"; fi
+      done
+      if ! (cd "$ROOT" && "$GOM" test "tutorial/$name") > "$tmp/$name.test.raw" 2>&1; then
+        for f in main.go main_test.go; do
+          if [ -f "$tmp/$name.keep.$f" ]; then cp "$tmp/$name.keep.$f" "$dir$f"; else rm -f "$dir$f"; fi
+        done
+        echo "FAIL $name: gom test"
+        cat "$tmp/$name.test.raw"
+        fail=1
+        continue
+      fi
+      for f in main.go main_test.go; do
+        if [ -f "$tmp/$name.keep.$f" ]; then cp "$tmp/$name.keep.$f" "$dir$f"; else rm -f "$dir$f"; fi
+      done
+      tgot=$(sed -E 's/"elapsed":[0-9][0-9.]*/"elapsed":0/g' "$tmp/$name.test.raw")
+      twant=$(cat "$dir/expected-test.txt")
+      if [ "$tgot" != "$twant" ]; then
+        echo "FAIL $name: gom test output mismatch"
+        echo "--- got ---"; printf '%s\n' "$tgot"
+        echo "--- want ---"; printf '%s\n' "$twant"
+        fail=1
+        continue
+      fi
+      echo "PASS $name (test)"
+      continue
+    fi
     echo "PASS $name"
     continue
   fi

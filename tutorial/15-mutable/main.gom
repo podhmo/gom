@@ -1,0 +1,43 @@
+// Step 15: mutable state — `Ref` and `Array`.
+//
+// `Ref a` is a mutable cell: `Ref.new` allocates, `Ref.get` reads,
+// `Ref.set` writes. It lowers to a Go pointer but is never nil — the
+// nil-able boundary pointer is `Ptr` (step 19). `Array a` is a
+// mutable build buffer over `[]T`: cons-free indexed writes, then
+// `Array.to_list` freezes it into an immutable `List` — the answer
+// to the O(n²) cons-build in step 5 (spec 8.3, decision
+// 2026-11-18-cons-buffer-array-extern-impl).
+package main
+
+import go "fmt"
+
+// A Ref captured by a closure is shared state.
+fn make_counter () -> (Unit -> Int) = {
+  let n = Ref.new 0
+  fn () -> {
+    Ref.set n (Ref.get n + 1)
+    Ref.get n
+  }
+}
+
+// `Array.make n init` needs an explicit fill value — ADT elements
+// have no zero value to default to.
+fn squares (n: Int) -> List Int = {
+  let a = Array.make n 0
+  for x in List.range 0 n {
+    Array.set a x (x * x)
+  }
+  Array.to_list a
+}
+
+fn main () -> Unit = {
+  let next = make_counter ()
+  ignore (fmt.Println "${next ()} ${next ()} ${next ()}")
+  ignore (fmt.Println "squares ${squares 5}")
+  // `Array.from_list` copies — writes never reach the original list.
+  let xs = [1, 2, 3]
+  let buf = Array.from_list xs
+  Array.set buf 0 99
+  ignore (fmt.Println "buf ${Array.to_list buf}, xs ${xs}")
+  ()
+}

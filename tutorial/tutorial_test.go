@@ -15,13 +15,16 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"testing"
 
 	"github.com/podhmo/gom/internal/build"
 	"github.com/podhmo/gom/internal/goimport"
+	"github.com/podhmo/gom/internal/gomimport"
 	"github.com/podhmo/gom/internal/lower"
+	"github.com/podhmo/gom/internal/resolve"
 	gomstd "github.com/podhmo/gom/internal/stdlib"
 )
 
@@ -35,9 +38,19 @@ func compileStep(t *testing.T, root, src string, checkOnly bool) *build.Result {
 	if err != nil {
 		t.Fatal(err)
 	}
-	loader := goimport.New(&goimport.Config{Dir: filepath.Join(root, "tutorial", filepath.Dir(src))})
+	dir := filepath.Join(root, "tutorial", filepath.Dir(src))
+	gl := goimport.New(&goimport.Config{Dir: dir})
+	// The CLI resolves `import "mod/path"` (Gom packages, including
+	// the stdlib's `list`/`option`/`result`/`cmp` short names)
+	// through gomimport's composite on top of the Go loader —
+	// mirror it or a plain `import` reports E0203.
+	mods := map[string]map[string]*resolve.Symbol{}
+	ml := gomimport.New(&gomimport.Config{Dir: dir, Go: gl, Sigs: gl, Modules: mods})
 	compiled, err := build.Compile(build.Input{Path: src, Src: source}, gomstd.Apply(&build.Options{
-		Loader: loader, Sigs: loader, Lower: &lower.Env{GoSig: loader.GoSigOf}, CheckOnly: checkOnly,
+		Loader: ml, Sigs: ml, Modules: mods,
+		Lower:          &lower.Env{GoSig: gl.GoSigOf, Types: ml, FuncArity: ml.ArityOf, FuncType: ml.FuncTypeOf, FuncNOfNamed: ml.FuncNOfNamed, GoUnderlyingSliceOrArrayPtr: gl.GoUnderlyingIsSliceOrArrayPtr},
+		SelfImportPath: ml.EntryPath(),
+		CheckOnly:      checkOnly,
 	}))
 	if err != nil {
 		t.Fatalf("compiler API: %v", err)
@@ -199,6 +212,61 @@ func runStep(t *testing.T, gom, gobin, root, dir string) {
 	}
 }
 
+// elapsedField normalizes the per-test `elapsed` of `gom test`'s
+// JSONL report so a run can be diffed byte-for-byte (the field is a
+// float64 — seconds — so fractions must match too).
+var elapsedField = regexp.MustCompile(`"elapsed":[0-9]+(\.[0-9]+)?`)
+
+// testStep runs `gom test` on the step directory and diffs the JSONL
+// report against expected-test.txt — run for steps that declare test
+// blocks, so the harness actually exercises them rather than only the
+// main program. The step dir sits inside this repository's module, so
+// the generated main.go/main_test.go (gitignored) compile there.
+func testStep(t *testing.T, gom, root, dir string) {
+	t.Helper()
+	want, err := os.ReadFile(filepath.Join(dir, "expected-test.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// `gom test` writes the generated main.go/main_test.go in place —
+	// overwriting even a handwritten one. Snapshot whatever was there
+	// and restore it after the run, so the tree (and later
+	// `go test ./...` package discovery) looks exactly as before.
+	keep := map[string][]byte{}
+	for _, gen := range []string{"main.go", "main_test.go"} {
+		if data, err := os.ReadFile(filepath.Join(dir, gen)); err == nil {
+			keep[gen] = data
+		} else if !os.IsNotExist(err) {
+			t.Fatal(err)
+		}
+	}
+	// Spelled "tutorial/<step>" so the report's span/output paths match
+	// expected-test.txt (run.sh passes the same form).
+	cmd := testbin.Command(gom, "test", filepath.Join("tutorial", dir))
+	cmd.Dir = root
+	var stdout bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stdout
+	runErr := cmd.Run()
+	for _, gen := range []string{"main.go", "main_test.go"} {
+		path := filepath.Join(dir, gen)
+		if data, ok := keep[gen]; ok {
+			if err := os.WriteFile(path, data, 0o644); err != nil {
+				t.Fatal(err)
+			}
+		} else if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+			t.Fatal(err)
+		}
+	}
+	if runErr != nil {
+		t.Fatalf("gom test: %v\n%s", runErr, stdout.String())
+	}
+	got := elapsedField.ReplaceAllString(stdout.String(), `"elapsed":0`)
+	if got != string(want) {
+		t.Fatalf("gom test output mismatch\n--- got ---\n%s\n--- want ---\n%s", got, want)
+	}
+}
+
 // checkStep asserts `gom check` on dir's .gom files exits 1 and
 // reports the diagnostic code stored in expected-check.txt.
 func checkStep(t *testing.T, gom, root, dir string) {
@@ -252,6 +320,9 @@ func TestTutorial(t *testing.T) {
 			t.Parallel()
 			if _, err := os.ReadFile(filepath.Join(dir, "main.gom")); err == nil {
 				runStep(t, gom, gobin, root, dir)
+				if _, err := os.Stat(filepath.Join(dir, "expected-test.txt")); err == nil {
+					testStep(t, gom, root, dir)
+				}
 			} else {
 				checkStep(t, gom, root, dir)
 			}
