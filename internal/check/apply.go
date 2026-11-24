@@ -125,12 +125,27 @@ func (c *checker) checkApply(e *syntax.Apply, want types.Type) Expr {
 			if w, ok := wc.(*types.Func); ok {
 				wp, wr := flattenFunc(w)
 				rp, rr := flattenFunc(r)
-				if len(wp) == len(rp) {
-					for i := range wp {
-						pin(wp[i].Type, rp[i].Type, true)
-					}
-					pin(wr, rr, inParam)
+				// Pair the common prefix of parameters; a
+				// residual whose ret is still an unsolved meta
+				// flattens shorter than the want, and skipping
+				// the pin entirely would let a supplied literal
+				// bind the shared meta before the declared type
+				// reaches it (`apply f "x"` under
+				// `Name -> Int -> String`). The tail pins
+				// whatever remains — an unbound meta takes no
+				// bind here and is left for conformance.
+				n := min(len(wp), len(rp))
+				for i := 0; i < n; i++ {
+					pin(wp[i].Type, rp[i].Type, true)
 				}
+				wt, rt := wr, rr
+				if len(wp) > n {
+					wt = &types.Func{Params: wp[n:], Ret: wr}
+				}
+				if len(rp) > n {
+					rt = &types.Func{Params: rp[n:], Ret: rr}
+				}
+				pin(wt, rt, inParam)
 			}
 		case *types.Tuple:
 			if w, ok := wc.(*types.Tuple); ok && len(w.Elems) == len(r.Elems) {

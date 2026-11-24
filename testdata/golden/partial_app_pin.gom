@@ -1,0 +1,21 @@
+// wave44 lane B — a decided partial application pins its residual
+// params to the declared want: `pair "x"` under `Name -> String`
+// binds the shared `b` to Name and the supplied literal materializes
+// as `Name("x")` (decisions/2026-11-24-partial-app-pin-params).
+package main
+
+import go "fmt"
+
+type Name = { n: String }
+
+fn pair (x: b) (y: b) -> String = "p"
+
+fn apply (f: a) (x: b) (y: b) -> a = f
+
+fn main () -> Unit = {
+  let g : Name -> String = pair "x"
+  let g2 : Name -> Int -> String = apply (fn (i: Int) -> "s") "x"
+  ignore (fmt.Println (g { n = "v" }))
+  ignore (fmt.Println (g2 { n = "w" } 1))
+  ()
+}

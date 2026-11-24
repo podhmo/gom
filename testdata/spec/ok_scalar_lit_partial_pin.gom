@@ -9,3 +9,10 @@ type Name = { n: String }
 fn pair (x: b) (y: b) -> String = "p"
 
 let g : Name -> String = pair "x"
+
+// A residual whose ret is still an unsolved generic var flattens
+// shorter than the want — the param pin must still pair the common
+// prefix so `b` binds to Name rather than the literal's String.
+fn apply (f: a) (x: b) (y: b) -> a = f
+
+let g2 : Name -> Int -> String = apply (fn (i: Int) -> "s") "x"

@@ -22,7 +22,15 @@
   メタ（num/ord/flo/intg/eq）は従来どおりスキップ。
 - spread・`..`・Hole・未解決/重複ラベル・余剰 positional など
   静的に fill set が決まらない呼び出しは従来の positional-slice
-  residual のまま（param pin なし）に退く。
+  residual のままに退く。「param pin なし」は宣言型への pin の
+  話 — `containsGoAny` 節による `Go.Any` への pin は本 decision
+  以前から param 位置でも無条件に働いており、そこは変えない
+  （literal 供給が `any` へ流れる既存経路）。
+- 残余と want の矢印数が合わない場合（ret が未解決の generic
+  var で want 側の矢印が多い等）、pin は共通 prefix の param を
+  対にして残りを ret 同士に回す。以前は長さ一致のときだけ pin
+  していて、`apply f "x"`（`f: a` 未解決）が `?b := String`
+  に倒れて E0401 になっていた。
 
 ## 却下した案
 
