@@ -189,6 +189,20 @@ fn ptr_ops () -> Int = {
 parameter is verbatim — `Ptr.new ()` + an annotation is the
 `errors.As` target shape.
 
+## `Go.Any` extraction
+
+```gom
+fn extract (x: Go.Any) -> Option Int =
+  Go.try_as x : Option Int         // v, ok := x.(int64) → Option
+```
+
+`Go.try_as x : Option T` is the only extraction surface from
+`Go.Any` (the Go comma-ok type assertion). The target type is the
+ascription's `T`; it fails cleanly to `None` on a mismatch (use
+`Option.get` to panic). `Go.Any` and type parameters as the target
+are E0514.
+
+
 ## `Go.Map` ops
 
 ```gom

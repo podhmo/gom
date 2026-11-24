@@ -413,7 +413,10 @@ field-writes pattern replaces Go composite literals; anything else
 as the target is E0511. Other mutable state is explicit: `Array a`
 is the build buffer (`Array.make`/`get`/`set`, freeze with
 `Array.to_list`); `Ref a` is the mutable cell (`Ref.new`/`get`/
-`set`). Default to immutability.
+`set`). Imported types whose implementation is invisible
+(extern-backed or abstract-exported) are marked mutable via a
+`//gom:mutable Name` directive in their `.gomi` (spec §10).
+Default to immutability.
 
 ## `let ... in`, `return`, `else if`
 
@@ -481,6 +484,10 @@ annotations and `Go.conv` signatures, not inside `{ }`.
 Bare field names pun the same-named variable — in literals,
 updates, and patterns alike: `{ x, y }` is `{ x = x, y = y }`,
 and `match p { { x, y } -> ... }` binds `x`/`y`.
+
+A trailing raw-string literal on a record *type* field is the Go
+struct tag, verbatim: `{ name: String `json:"name"` }`
+emits `Name string `json:"name"``.
 
 A whole record spreads into labeled arguments: `f ~..opts` passes
 `opts`' fields by name (`opts.x` fills `~x:`, etc.) — the callee's

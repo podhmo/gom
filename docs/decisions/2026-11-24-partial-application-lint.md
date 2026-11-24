@@ -1,6 +1,6 @@
 # 部分適用の握り潰し — `ignore` / `_` 束縛で捨てられた関数値を警告する
 
-- 状態: draft（wave39 lane C、調査→decision）
+- 状態: 採択（wave40 lane A、2026-11-24）
 - 日付: 2026-11-24
 - 関連: [mutable-sharing-lint](2026-11-04-mutable-sharing-lint.md)
 
