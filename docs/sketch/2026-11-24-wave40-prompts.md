@@ -64,8 +64,10 @@ podhmo 2026-11-24:「標準ライブラリ以外もリストの対象にした�
 外部 module の `.gomi` 読み込みは `replace` 経由で既に動く
 （`TestLoadExternalModulePackage`）— 欠けているのは列挙だけ。
 「何を列挙対象にしうるか」（module cache・workspace・vendor ディ
-レクトリ — vendor mode では loader が vendor を先に見る・
-replace 解決後の候補集合）を sketch にまとめる調査 lane。
+レクトリ — vendor mode では loader が vendor を先に見るが、Go
+workspace 下で参照する vendor は各 module 側であり workspace
+root の vendor ではない、の区別を含む・replace 解決後の候補集合）
+を sketch にまとめる調査 lane。
 
 ### G. `//gom:` directive の一覧表（doc・規模: 小）
 
