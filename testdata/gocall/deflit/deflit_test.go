@@ -1,6 +1,7 @@
 package deflit
 
 import (
+	"math"
 	"testing"
 	"time"
 )
@@ -29,5 +30,13 @@ func TestLiteralAtDeclaredType(t *testing.T) {
 	}
 	if got := Unwrap(UserId(42)); got != 42 {
 		t.Fatalf("Unwrap = %v, want 42", got)
+	}
+}
+
+// `NegZero` must hold the signed zero — `1.0 / z` returns -Inf,
+// not +Inf, and the field read projects the float value.
+func TestNegZeroSign(t *testing.T) {
+	if got := Recip(NegZero(struct{}{})); !math.IsInf(got, -1) {
+		t.Fatalf("Recip(NegZero) = %v, want -Inf", got)
 	}
 }

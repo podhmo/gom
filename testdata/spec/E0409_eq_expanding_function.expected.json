@@ -2,9 +2,9 @@
   "diagnostics": [
     {
       "kind": "diagnostic",
-      "code": "E0409",
+      "code": "E0906",
       "severity": "error",
-      "message": "`==` is not defined on W Int: the type contains a function or a type variable",
+      "message": "`==` mints more structural comparators than the 128 limit — the operand type's expansion does not converge",
       "span": {
         "file": "E0409_eq_expanding_function.gom",
         "start": {
@@ -19,7 +19,7 @@
         }
       },
       "data": {
-        "type": "W Int"
+        "type": "W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W (W Int))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))))"
       }
     }
   ]

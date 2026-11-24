@@ -15,3 +15,7 @@ fn neg_i32 () -> I32
 fn elapse (s: Span) -> Span
 fn eq_count (c: Count Int) -> Bool
 fn unwrap (u: UserId) -> Int
+type Score = { p : Float }
+
+fn neg_zero () -> Score
+fn recip (s: Score) -> Float

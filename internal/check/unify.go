@@ -214,8 +214,15 @@ func (c *checker) satisfies(r *metaRec, t types.Type, sp diag.Span) bool {
 	ukind, uIsGoNamed := c.namedBasicKind(u)
 	uNum, uFlo, uIntg, uOrd := isNumeric(u), isFloat(u), isIntegral(u), isOrdered(u)
 	if u != t {
-		if uc, ok := u.(*types.Con); ok && uc.Qual == "" && c.shadowedBuiltin(uc.Name) {
-			uNum, uFlo, uIntg, uOrd = false, false, false, false
+		// The shadow judgment is scoped to the record's own file:
+		// for a file-local record the field's `Int` resolves here,
+		// where `type Int` makes the builtin unreachable; an
+		// imported record spelled its fields in ITS package, where
+		// the caller's `type Int` has no say.
+		if wc, ok := types.Chase(t).(*types.Con); ok && wc.Qual == "" {
+			if uc, ok := u.(*types.Con); ok && uc.Qual == "" && c.shadowedBuiltin(uc.Name) {
+				uNum, uFlo, uIntg, uOrd = false, false, false, false
+			}
 		}
 	}
 	num := isNumeric(t) || uNum || (isGoNamed && (namedIntegral(kind) || namedFloat(kind))) ||
@@ -377,10 +384,11 @@ func (c *checker) eqProbe(t types.Type, sink *[]*types.Meta) bool {
 // eqWalk is the shared traversal behind hasFuncOrVar and eqProbe.
 // sink, when set, collects every unbound meta the walk crosses.
 type eqWalk struct {
-	c     *checker
-	seen  map[*typeInfo]bool
-	bound map[int]int
-	sink  *[]*types.Meta
+	c      *checker
+	seen   map[*typeInfo]bool
+	bound  map[int]int
+	sink   *[]*types.Meta
+	peeled map[conKey]bool
 }
 
 // has reports whether t contains a function type or a rigid variable.
@@ -400,6 +408,24 @@ func (w *eqWalk) has(t types.Type) bool {
 	case *types.Go:
 		return slices.ContainsFunc(t.Args, w.has)
 	case *types.Con:
+		// A defined-type record's emitted shape is its field —
+		// `type Count a = {n: Int}` compares as `type Count[A]
+		// int64`: the phantom `a` never reaches the emitted shape,
+		// so the peel drops it from the walk the same way
+		// satisfies' eq judgment does. A `{f: a}` record stays
+		// unpeeled and its argument still flags. A type-level cycle
+		// (`{f: List Wrap}` peels to a Con holding Wrap) falls back
+		// to the declaration walk, where `seen` bounds it.
+		if key := (conKey{qual: t.Qual, name: t.Name}); !w.peeled[key] {
+			if u := w.c.definedUnderlying(t); u != t {
+				if w.peeled == nil {
+					w.peeled = map[conKey]bool{}
+				}
+				w.peeled[key] = true
+				defer delete(w.peeled, key)
+				return w.has(u)
+			}
+		}
 		// `Go.FuncN` is a Go func type spelled as a constructor —
 		// Go funcs are not comparable, so `==` on one is E0409
 		// the same as on a curried `Func`.

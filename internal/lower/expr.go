@@ -125,7 +125,11 @@ func (l *lowerer) expr(s *seq, e check.Expr) core.Expr {
 		// legal. Mirrors codegen's named-Go case.
 		if e.Op == syntax.UnNeg {
 			if lit, ok := e.X.(*check.Lit); ok && lit.Kind == syntax.LitInt {
-				if _, single := l.singleField(e.X.Type()); single {
+				// Only integral fields fold the sign inside: a
+				// float-backed type would mint `Score(-0)` — a
+				// positive-zero float constant — where `-Score(0)`
+				// computes the signed zero `1.0 / z` divides by.
+				if f, single := l.singleField(e.X.Type()); single && !l.fieldFloat(f) {
 					neg := &core.Lit{Base: baseOf(lit), Kind: lit.Kind, Text: "-" + lit.Text}
 					return &core.Conv{Sp: e.Sp, Typ: e.X.Type(), Kind: core.ConvNamed, X: neg}
 				}

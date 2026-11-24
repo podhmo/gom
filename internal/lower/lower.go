@@ -1014,6 +1014,15 @@ func (l *lowerer) singleField(recTyp types.Type) (check.TField, bool) {
 	return check.TField{}, false
 }
 
+// fieldFloat reports whether a defined-type field's emitted Go type
+// is floating-point — `Float`/`Float64`. A `*types.Go` field's
+// underlying is not knowable here; such fields are rare and take
+// the conservative path (no literal-sign folding).
+func (l *lowerer) fieldFloat(f check.TField) bool {
+	c, ok := types.Chase(f.Type).(*types.Con)
+	return ok && c.Qual == "" && (c.Name == "Float" || c.Name == "Float64")
+}
+
 // fieldIndex resolves a record field's declaration index — from the
 // file's own record TypeDecl or the Env oracle. -1 when unknown.
 func (l *lowerer) fieldIndex(recTyp types.Type, sym *resolve.Symbol) int {

@@ -2276,6 +2276,14 @@ func (c *checker) constFold(e Expr) (constant.Value, bool) {
 		}
 		return constant.UnaryOp(token.SUB, v, 0), true
 	case *Binary:
+		// An integral-typed expression folds at its machine width:
+		// `1 / 2` truncates to 0 there, so `(1/2)*2-1` divides by
+		// -1 — the exact-rational fold would mint a false E0414.
+		if w, us, ok := c.intFoldWidth(e.Type()); ok {
+			if v, ok2 := c.foldIntAt(e, w, us); ok2 {
+				return v, true
+			}
+		}
 		x, ok := c.constFold(e.X)
 		if !ok {
 			return nil, false
@@ -2412,10 +2420,16 @@ func (c *checker) constFold(e Expr) (constant.Value, bool) {
 // builtin integral type the emitted Go type carries (`int`/`int64`/
 // `int32`, `rune`'s int32 for Char, `uint8` for Byte), or — through
 // the UnderlyingSource oracle — a named Go type's integer
-// underlying (time.Duration's int64, os.FileMode's uint32). A width
-// we cannot know (a declared Gom type, an unresolved meta, a
-// non-integer underlying) folds conservatively instead.
+// underlying (time.Duration's int64, os.FileMode's uint32), or a
+// declared defined type's field. A width we cannot know (a struct-
+// emitted record, an unresolved meta, a non-integer underlying)
+// folds conservatively instead.
 func (c *checker) intFoldWidth(t types.Type) (w uint, unsigned bool, ok bool) {
+	// A defined-type declared type folds at its field's width —
+	// `type U32 = {v: Uint32}` emits `type U32 uint32` and divides
+	// like uint32. (The peel is a no-op for records that stay
+	// structs.)
+	t = c.definedUnderlying(types.Chase(t))
 	switch t := types.Chase(t).(type) {
 	case *types.Con:
 		if t.Qual != "" {

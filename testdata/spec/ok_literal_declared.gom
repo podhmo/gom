@@ -31,3 +31,9 @@ type I32 = { v: Int32 }
 fn elapse (s: Span) -> Span = s + 0
 fn eqc (c: Count Int) -> Bool = c == c
 fn neg () -> I32 = -2147483648
+
+// The divisor `(1/2)*2-1` folds at machine width — `1/2` is 0, so
+// the division is by -1, not by the exact-rational 0.
+fn divok (u: UserId) -> UserId = u / ((1 / 2) * 2 - 1)
+fn negz () -> Score = -0
+fn proj () -> Float = { let s : Score = 1; s.pts }
