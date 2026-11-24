@@ -368,9 +368,12 @@ func StdlibShortNames() []string {
 // module cache skipped. A directory counts when it holds exactly
 // one .gomi — the same package contract `import "path"` resolves
 // through — and its import path is the owning module's path plus
-// the directory's relative path. Vendor directories are not walked
-// (enumeration under vendoring is future work). The result is
-// sorted and deduplicated.
+// the directory's relative path. When vendor mode is in effect
+// (vendorEnabled), <modRoot>/vendor is walked the same way — a
+// vendored directory carrying a .gomi is itself the resolution
+// proof (dirOf consults vendor/ first), so its import path is the
+// slash path relative to vendor/. The result is sorted and
+// deduplicated.
 func ExternalPackages(dir, gobin string) ([]string, error) {
 	l := New(&Config{Dir: dir, GoBin: gobin})
 	// `go list -m all` answers the post-replace build list — main
@@ -466,6 +469,38 @@ func ExternalPackages(dir, gobin string) ([]string, error) {
 		})
 		if err != nil {
 			return nil, err
+		}
+	}
+	// Vendored packages: the go command resolves them through
+	// vendor/ ahead of every module path, so a .gomi-bearing
+	// directory there is importable by its vendored path
+	// regardless of which module the path belongs to — no
+	// resolvesTo check. A vendored imp already advertised via a
+	// module candidate collapses into one entry.
+	if mainDir != "" && vendorEnabled() {
+		vend := filepath.Join(mainDir, "vendor")
+		if st, serr := os.Stat(vend); serr == nil && st.IsDir() {
+			err := filepath.WalkDir(vend, func(p string, d fs.DirEntry, werr error) error {
+				if werr != nil || !d.IsDir() {
+					return nil
+				}
+				if _, gerr := oneGomi(p); gerr != nil {
+					return nil
+				}
+				rel, rerr := filepath.Rel(vend, p)
+				if rerr != nil || rel == "." {
+					return nil
+				}
+				imp := filepath.ToSlash(rel)
+				if !seen[imp] {
+					seen[imp] = true
+					out = append(out, imp)
+				}
+				return nil
+			})
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 	sort.Strings(out)

@@ -1,0 +1,8 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+type Int = { x : Bool, y : Bool }
+type W = { f : Int }
+
+fn f (w: W) -> W = goiface.Clamp64 w w w

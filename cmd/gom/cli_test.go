@@ -1273,7 +1273,9 @@ func TestList(t *testing.T) {
 // Gom packages of the working directory's module — the module root
 // when it carries a .gomi, plus each subdirectory holding exactly
 // one — enumerated by import path, skipping plain Go directories,
-// nested modules, vendor trees and dot-directories.
+// nested modules, vendor trees and dot-directories. The package's
+// TestMain pins GOFLAGS=-mod=mod, so vendor mode is off here;
+// TestListExternalVendor covers the vendored enumeration.
 func TestListExternal(t *testing.T) {
 	dir := writeFiles(t, map[string]string{
 		"go.mod":              "module example.com/exttest\n\ngo 1.27\n",
@@ -1303,12 +1305,17 @@ func TestListExternal(t *testing.T) {
 	}
 }
 
-// TestListExternalVendor exercises the `-mod=mod` retry: a vendored
-// module makes `go list -m all` fail, but the build list is still
-// authoritative, so the enumeration falls back to reading it — the
-// replaced dependency's .gomi packages are listed from its replace
-// directory while the vendor tree itself is skipped.
+// TestListExternalVendor exercises the `-mod=mod` retry and the
+// vendor walk: under vendor mode `go list -m all` fails, but the
+// build list is still authoritative, so the enumeration falls
+// back to reading it — the replaced dependency's .gomi packages
+// are listed from its replace directory, and the vendored copy is
+// listed by its vendored path (what dirOf resolves under vendor
+// mode). The package's TestMain pins GOFLAGS=-mod=mod, which the
+// go command reads as "ignore vendor/" — this test re-enables
+// vendoring explicitly.
 func TestListExternalVendor(t *testing.T) {
+	t.Setenv("GOFLAGS", "")
 	dir := writeFiles(t, map[string]string{
 		"go.mod":              "module example.com/exttest\n\ngo 1.27\n\nrequire example.com/dep v0.0.0\n\nreplace example.com/dep => ./dep\n",
 		"pkg/pkg.gomi":        "package pkg\n",
@@ -1324,7 +1331,7 @@ func TestListExternalVendor(t *testing.T) {
 		t.Fatalf("gom list -external (vendored): exit %d; stderr=%q", code, errout)
 	}
 	got := strings.Fields(out)
-	want := []string{"example.com/dep", "example.com/exttest/pkg"}
+	want := []string{"dep", "example.com/dep", "example.com/exttest/pkg"}
 	if len(got) != len(want) {
 		t.Fatalf("gom list -external (vendored) = %v, want %v", got, want)
 	}
