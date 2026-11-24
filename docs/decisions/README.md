@@ -246,6 +246,7 @@
 | [user-mutable-structures](2026-11-23-user-mutable-structures.md) | ユーザー宣言の可変構造 | 採用（調査の結果、宣言型の推移展開は実装済みと判明。残る隙間は「実装が見えない宣言型」— extern 裏付け型と abstract export で不透明化した Gom パッケージ型 — `.gomi` の `//gom:mutable` directive を採択） |
 | [verbatim-dup-error](2026-11-23-verbatim-dup-error.md) | emit 名の verbatim 二重請求はエラー E0608 で出力を withhold する | adopted |
 | [go-any-extraction](2026-11-24-go-any-extraction.md) | `Go.Any` からの取り出し — comma-ok の `Option` 返りを唯一の面とする | 採択（wave39 lane A として実施） |
+| [gom-list-external](2026-11-24-gom-list-external.md) | `gom list -external` — 外部 Gom パッケージの列挙 | 採用（wave41 lane C で実装） |
 | [match-type-test-arms](2026-11-24-match-type-test-arms.md) | `Go.Any` への `match` 型テスト腕 — `p : T` 腕 + `_` 必須 | 採択（wave40 lane B、2026-11-24） |
 | [method-emit-name-verbatim](2026-11-24-method-emit-name-verbatim.md) | `@method(GoName)` — verbatim emit name for Go interface methods | 採用（実装・検証した — wave38 lane G） |
 | [onefield-record-tilde](2026-11-24-onefield-record-tilde.md) | 1 フィールド record の `~` 制約受理 — defined type の underlying 一致 | 採択（wave40 lane D の調査結果。実装は wave41 lane A） |

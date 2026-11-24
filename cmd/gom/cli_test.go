@@ -1334,6 +1334,37 @@ func TestListExternalVendor(t *testing.T) {
 	}
 }
 
+// TestListExternalWorkspaceOmitted exercises a workspace that does
+// not `use` the module the command runs in: `go list -m all` names
+// the workspace's build list, not this module, yet the module's own
+// packages must still appear — dirOf resolves its imports against
+// its own go.mod regardless of workspace membership.
+func TestListExternalWorkspaceOmitted(t *testing.T) {
+	dir := writeFiles(t, map[string]string{
+		"go.work":      "go 1.27\n\nuse ./app\n",
+		"app/go.mod":   "module example.com/app\n\ngo 1.27\n",
+		"lib/go.mod":   "module example.com/lib\n\ngo 1.27\n",
+		"lib/lib.gomi": "package lib\n",
+		"lib/p/p.gomi": "package p\n",
+	})
+	t.Chdir(filepath.Join(dir, "lib"))
+
+	code, out, errout := invoke("list", "-external")
+	if code != 0 {
+		t.Fatalf("gom list -external (workspace-omitted): exit %d; stderr=%q", code, errout)
+	}
+	got := strings.Fields(out)
+	found := map[string]bool{}
+	for _, p := range got {
+		found[p] = true
+	}
+	for _, want := range []string{"example.com/lib", "example.com/lib/p"} {
+		if !found[want] {
+			t.Errorf("gom list -external missing %q, got %v", want, got)
+		}
+	}
+}
+
 // failWriter is an io.Writer whose every Write fails — used to
 // exercise the output-error paths commands must not swallow.
 type failWriter struct{}

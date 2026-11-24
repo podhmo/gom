@@ -388,12 +388,17 @@ func ExternalPackages(dir, gobin string) ([]string, error) {
 			candidates[p] = d
 		}
 	}
-	// The main module's path, when it can be read: imports under
-	// it resolve through its own directory ahead of any external
-	// prefix match (dirOf's rule), so a longer prefix in the build
-	// list does not shadow it. Best-effort — unresolvable simply
-	// leaves every candidate on the longest-prefix rule.
-	mainPath, _, _ := l.module()
+	// The main module's path, when it can be read — best-effort,
+	// unresolvable simply leaves every candidate on the
+	// longest-prefix rule. It is added to the candidates on top of
+	// `go list -m all`: inside a workspace that does not `use` this
+	// module the build list omits it, while imports in its files
+	// still resolve against its own go.mod (dirOf's rule — its
+	// paths also win ahead of any external prefix match).
+	mainPath, mainDir, _ := l.module()
+	if mainPath != "" && mainDir != "" {
+		candidates[mainPath] = mainDir
+	}
 	// resolvesTo reports which candidate module's directory dirOf
 	// would consult for imp — the importing module's own path
 	// first, then the longest candidate prefix. An imp derived
