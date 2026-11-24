@@ -32,5 +32,3 @@ import go "github.com/google/go-github/v68/github"
 // like the oracle's not-found error.
 @extern fn stack_errorf (format: String) (arg: Go.Any) -> GoError
 
-// test helper: produces a nil *github.Gist (gom can't spell nil).
-@extern fn nil_gist () -> Ptr github.Gist

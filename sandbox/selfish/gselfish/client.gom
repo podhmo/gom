@@ -74,7 +74,7 @@ fn client_delete (c: Client) (ctx: context.Context) (gist_id: String) -> Result 
   c.github.Gists.Delete (ctx, gist_id) |?> fn _response -> Ok ()
 
 test "expect_gist rejects a nil gist" {
-  match expect_gist (nil_gist ()) {
+  match expect_gist (Ptr.nil ()) {
     Err _ -> Ok ()
     Ok _ -> Err (fmt.Errorf "expected Err for nil gist")
   }

@@ -4,6 +4,7 @@ package main
 
 import (
 	fmt "fmt"
+	github "github.com/google/go-github/v68/github"
 	rt "github.com/podhmo/gom/rt"
 	result "github.com/podhmo/gom/stdlib/result"
 	testing "testing"
@@ -14,7 +15,7 @@ func TestExpectGistRejectsANilGist(t *testing.T) {
 //line gselfish/client.gom:76
 	var r1 result.Result[struct{}, error]
 //line gselfish/client.gom:77
-	tmp47 := nilGist(struct{}{})
+	tmp47 := rt.PtrNil[github.Gist]()
 //line gselfish/client.gom:77
 	tmp48 := expectGist(tmp47)
 //line gselfish/client.gom:78
