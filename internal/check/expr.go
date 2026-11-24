@@ -2439,7 +2439,7 @@ func (c *checker) constFold(e Expr) (constant.Value, bool) {
 			// rounds every operation — and an out-of-range
 			// conversion is implementation-dependent in Go, so
 			// the fold declines rather than claim a value.
-			if isFloat(types.Chase(e.X.Type())) {
+			if c.floatKindOf(e.X.Type()) {
 				fv, ok := c.foldFloat(e.X)
 				if !ok || fv >= 9.223372036854776e18 || fv <= -9.223372036854776e18 {
 					return nil, false
@@ -2511,10 +2511,12 @@ func (c *checker) foldFloat(e Expr) (float64, bool) {
 			return 0, false
 		}
 	case *Ascribe:
-		if isFloat(types.Chase(e.Type())) {
-			if isFloat(types.Chase(e.X.Type())) {
+		if c.floatKindOf(e.Type()) {
+			if c.floatKindOf(e.X.Type()) {
 				// `Go.conv f : Float` is the identity in the
-				// float domain.
+				// float domain — and so is a defined type emitting
+				// as a Go float (`type Score = {v: Float}`), whose
+				// conversion keeps the same float64 bits.
 				return c.foldFloat(e.X)
 			}
 			// `Go.conv e : Float` on a non-float evaluates e in
@@ -2544,6 +2546,16 @@ func (c *checker) foldFloat(e Expr) (float64, bool) {
 	default:
 		panic("unreachable")
 	}
+}
+
+// floatKindOf reports whether a conversion target or operand
+// lives in the float64 domain — builtin Float, a defined type
+// emitting as a Go float (`type Score = {v: Float}` →
+// `type Score float64`), or a named Go float type.
+func (c *checker) floatKindOf(t types.Type) bool {
+	dt := c.definedUnderlying(types.Chase(t))
+	gk, isGo := c.namedBasicKind(dt)
+	return isFloat(dt) || (isGo && namedFloat(gk))
 }
 
 // intFoldWidth gives the machine width — and its signedness — that
