@@ -540,6 +540,16 @@ func TestGoMethodSigReflectParity(t *testing.T) {
 			}
 		}
 	}
+
+	// reflect drops result names — `Lookup(string) (ok bool)` spells
+	// `func(string) bool`, not `func(string) (bool)`.
+	named := types.NewSignatureType(nil, nil, nil,
+		types.NewTuple(types.NewVar(0, nil, "key", types.Typ[types.String])),
+		types.NewTuple(types.NewVar(0, nil, "ok", types.Typ[types.Bool])),
+		false)
+	if got := goMethodSig(named); got != "func(string) bool" {
+		t.Errorf("named single result = %q, want %q", got, "func(string) bool")
+	}
 }
 
 // reflectIface resolves a stdlib interface's reflect type by name.

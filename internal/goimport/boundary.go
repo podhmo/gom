@@ -93,9 +93,11 @@ func goMethodSig(sig *types.Signature) string {
 	}
 	b.WriteString(")")
 	results := sig.Results()
+	// reflect never prints result names — a single named result is
+	// `func() bool`, and `func() (int, error)` is only for 2+.
 	switch {
 	case results.Len() == 0:
-	case results.Len() == 1 && results.At(0).Name() == "":
+	case results.Len() == 1:
 		b.WriteString(" ")
 		b.WriteString(goTypeSpell(results.At(0).Type()))
 	default:
