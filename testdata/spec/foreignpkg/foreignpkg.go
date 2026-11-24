@@ -28,3 +28,7 @@ type Chunk interface{ isChunk() }
 type Chunk_Piece struct{ Xs list.List[int64] }
 
 func (Chunk_Piece) isChunk() {}
+
+type Box[A any] struct{ V A }
+
+type Holder Box[list.List[int64]]

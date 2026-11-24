@@ -483,6 +483,21 @@ type cmpWalk struct {
 	c     *checker
 	seen  []recordVisit
 	steps int
+	nodes int
+}
+
+// cmpNodeBudget bounds total node visits — a recursion that swaps
+// or compounds its arguments (`x: Bad (Tuple a a)`) grows the
+// traversal faster than the expansion step limit notices.
+const cmpNodeBudget = 4096
+
+// subArg is a lazily substituted type argument paired with the
+// declaration scope it was spelled in — an argument written inside
+// an imported declaration keeps that package's meaning for its
+// unqualified names even after substitution.
+type subArg struct {
+	typ     types.Type
+	foreign bool
 }
 
 // has reports whether t's Go representation is comparable.
@@ -492,21 +507,26 @@ func (w *cmpWalk) has(t types.Type) bool {
 
 // hasS judges t with the declaration scope spelled out: sub
 // substitutes a declaration's type parameters lazily, so an
-// argument's own spelling keeps *caller* scope, and foreign marks
-// the fields of a declaration loaded through an import — its
-// unqualified names resolve to the imported package's builtins,
-// never to the caller's decls. A caller `type List` must not
-// expand under a foreign field's `List` spelling: had the foreign
-// package declared List itself, the field would carry the
-// qualified spelling.
-func (w *cmpWalk) hasS(t types.Type, sub types.Subst, foreign bool) bool {
+// argument's own spelling keeps the scope of the site that wrote
+// it, and foreign marks the fields of a declaration loaded through
+// an import — its unqualified names resolve to the imported
+// package's builtins, never to the caller's decls. A caller `type
+// List` must not expand under a foreign field's `List` spelling:
+// had the foreign package declared List itself, the field would
+// carry the qualified spelling.
+func (w *cmpWalk) hasS(t types.Type, sub map[int]subArg, foreign bool) bool {
+	if w.nodes >= cmpNodeBudget {
+		return false
+	}
+	w.nodes++
 	switch t := types.Chase(t).(type) {
 	case *types.Var:
 		// A Gom type parameter instantiates as `any` — it cannot
 		// satisfy `comparable` (spec section 8.5's boundary). An
-		// argument the substitution supplies keeps caller scope.
+		// argument the substitution supplies keeps the scope of the
+		// site that spelled it.
 		if a, ok := sub[t.ID]; ok {
-			return w.hasS(a, nil, false)
+			return w.hasS(a.typ, nil, a.foreign)
 		}
 		return false
 	case *types.Meta:
@@ -591,7 +611,7 @@ func (w *cmpWalk) hasS(t types.Type, sub types.Subst, foreign bool) bool {
 		// aliases expand.
 		if w.expandable(t, foreign) {
 			ti := w.c.tyCons[conKey{qual: t.Qual, name: t.Name}]
-			return w.expand(t, sub, ti, func(nsub types.Subst, nforeign bool) bool {
+			return w.expand(t, sub, foreign, ti, func(nsub map[int]subArg, nforeign bool) bool {
 				switch ti.kind {
 				case kindSum:
 					// The sealed-interface repr is comparable in Go,
@@ -655,14 +675,22 @@ func (w *cmpWalk) expandable(t *types.Con, foreign bool) bool {
 // the "cannot prove comparable" value. outer substitutes t's
 // arguments first, so a recursive field's raw `Var` keeps the
 // instantiation the caller had (`Tree Int` reaches its `Tree a`
-// children as `Tree Int`, not as the unbound `a`). The fold also
-// receives the declaration's scope: true when ti is an imported
-// decl, so its unqualified field spellings keep their own
-// package's meaning.
-func (w *cmpWalk) expand(t *types.Con, outer types.Subst, ti *typeInfo, f func(types.Subst, bool) bool) bool {
+// children as `Tree Int`, not as the unbound `a`). Each new binding
+// records the scope it was spelled in: argForeign is the scope of
+// t's own spelling site, and a bare Var argument inherits its
+// outer binding's scope — `x: Inner a` inside an imported decl
+// keeps whatever scope `a` already had, while `Inner (List Int)`
+// there records foreign. The fold also receives the declaration's
+// scope: true when ti is an imported decl, so its unqualified
+// field spellings keep their own package's meaning.
+func (w *cmpWalk) expand(t *types.Con, outer map[int]subArg, argForeign bool, ti *typeInfo, f func(map[int]subArg, bool) bool) bool {
+	osub := types.Subst{}
+	for id, a := range outer {
+		osub[id] = a.typ
+	}
 	args := make([]types.Type, len(t.Args))
 	for i, a := range t.Args {
-		args[i] = outer.Apply(a)
+		args[i] = osub.Apply(a)
 	}
 	v := recordVisit{ti: ti, args: args}
 	for _, s := range w.seen {
@@ -676,10 +704,16 @@ func (w *cmpWalk) expand(t *types.Con, outer types.Subst, ti *typeInfo, f func(t
 	w.seen = append(w.seen, v)
 	w.steps++
 	defer func() { w.seen = w.seen[:len(w.seen)-1] }()
-	sub := types.Subst{}
+	sub := map[int]subArg{}
 	for i, p := range ti.params {
 		if i < len(args) {
-			sub[p.ID] = args[i]
+			sc := argForeign
+			if v, ok := t.Args[i].(*types.Var); ok {
+				if b, ok := outer[v.ID]; ok {
+					sc = b.foreign
+				}
+			}
+			sub[p.ID] = subArg{typ: args[i], foreign: sc}
 		}
 	}
 	return f(sub, ti.con.Qual != "")

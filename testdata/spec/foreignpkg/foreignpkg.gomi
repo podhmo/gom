@@ -22,3 +22,11 @@ type Blob = { fbd : List Int }
 // the name means the builtin list — a caller's own `type List`
 // must not shadow it inside these fields.
 type Chunk = | Piece (xs: List Int)
+
+// A generic passthrough: `Box a`'s field is the parameter itself,
+// so a `Box X` spells whatever scope X was written in. `Holder`
+// nests `Box (List Int)` where `List` again means this package's
+// builtin — the binding must carry foreign scope through the
+// substitution, or a caller's `type List` would be claimed for it.
+type Box a = { v : a }
+type Holder = { h : Box (List Int) }
