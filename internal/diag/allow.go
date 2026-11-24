@@ -16,17 +16,18 @@ import "strings"
 // misplaced comment must not break the parse, so lines are matched on
 // the trimmed "//gom:allow " prefix regardless of position — except
 // that comment and string structure is honored: a `//gom:allow` line
-// inside a `/* ... */` block or a raw string is literal text, not a
-// directive, and a `/*` inside a string or line comment opens no
-// block (block comments do not nest, matching the lexer).
+// inside a `/* ... */` block, a raw string, or a quoted string's
+// `${ }` interpolation is literal text, not a directive, and a `/*`
+// inside a string or line comment opens no block (block comments do
+// not nest, matching the lexer).
 func ScanAllow(src []byte, path string) (allow map[Code]bool, diags List) {
 	off := 0
 	var lex allowLexState
 	for _, line := range strings.Split(string(src), "\n") {
 		start := off
 		off += len(line) + 1
-		trimmed, comment := lex.scan(line)
-		if !comment || !strings.HasPrefix(trimmed, "//gom:allow") {
+		trimmed, ok := lex.scan(line)
+		if !ok || !strings.HasPrefix(trimmed, "//gom:allow") {
 			continue
 		}
 		rest := trimmed[len("//gom:allow"):]
@@ -91,19 +92,28 @@ func DemoteAllowed(ds List, allows map[string]map[Code]bool) List {
 // allowLexState carries the comment/string context across lines so a
 // directive-looking line inside a block comment or raw string is not
 // read as a directive. It mirrors the lexer's rules: block comments
-// do not nest, `//` comments end at the newline, quoted strings and
-// chars honor backslash escapes within a line, and a backtick raw
-// string may span lines.
+// do not nest, `//` comments end at the newline, `"`/`'` literals
+// honor backslash escapes and `${ }` interpolation (which nests the
+// code scan), and a backtick raw string may span lines.
 type allowLexState struct {
-	block bool // inside /* ... */
-	raw   bool // inside `...`
+	block  bool            // inside /* ... */
+	raw    bool            // inside `...`
+	frames []allowStrFrame // open string literals, innermost last
 }
 
-// scan walks one line and reports the line's content trimmed plus
-// whether that content is the start of a `//` comment (i.e. a
-// possible directive). Lines inside a block comment or raw string
-// report comment=false.
-func (st *allowLexState) scan(line string) (trimmed string, comment bool) {
+// allowStrFrame is one open `"`/`'` literal: depth 0 is the string
+// body, depth ≥ 1 is inside its `${ }` interpolation code.
+type allowStrFrame struct {
+	quote byte
+	depth int
+}
+
+// scan walks one line and reports the line's directive comment text
+// when the line starts (modulo whitespace) with a `//` comment in
+// code context. Anything else — a line inside a block comment, a raw
+// or quoted string (bodies and interpolations alike), or a comment
+// not starting the line — reports ok=false.
+func (st *allowLexState) scan(line string) (text string, ok bool) {
 	i := 0
 	onlySpace := true
 	for i < len(line) {
@@ -123,54 +133,60 @@ func (st *allowLexState) scan(line string) (trimmed string, comment bool) {
 			i++
 			continue
 		}
+		if n := len(st.frames); n > 0 && st.frames[n-1].depth == 0 {
+			// Inside a string body: `\` escapes, the frame's own
+			// quote closes it, `${` opens interpolation code.
+			top := &st.frames[n-1]
+			c := line[i]
+			switch {
+			case c == '\\':
+				i += 2
+			case c == top.quote:
+				st.frames = st.frames[:n-1]
+				i++
+			case c == '$' && i+1 < len(line) && line[i+1] == '{':
+				top.depth = 1
+				i += 2
+			default:
+				i++
+			}
+			continue
+		}
+		// Code context — top level or inside a `${ }` interpolation.
 		c := line[i]
 		switch {
 		case c == ' ' || c == '\t' || c == '\r':
 			i++
-		case c == '"':
-			i = skipQuoted(line, i)
-			onlySpace = false
-		case c == '\'':
-			i = skipQuoted(line, i)
+		case c == '"' || c == '\'':
+			st.frames = append(st.frames, allowStrFrame{quote: c})
+			i++
 			onlySpace = false
 		case c == '`':
 			st.raw = true
 			i++
 			onlySpace = false
 		case c == '/' && i+1 < len(line) && line[i+1] == '/':
-			if onlySpace {
+			if onlySpace && len(st.frames) == 0 {
 				return strings.TrimSpace(line[i:]), true
 			}
-			return strings.TrimSpace(line), false
+			// A `//` anywhere else still eats the rest of the line.
+			return "", false
 		case c == '/' && i+1 < len(line) && line[i+1] == '*':
 			st.block = true
 			i += 2
+			onlySpace = false
+		case c == '{' && len(st.frames) > 0:
+			st.frames[len(st.frames)-1].depth++
+			i++
+			onlySpace = false
+		case c == '}' && len(st.frames) > 0:
+			st.frames[len(st.frames)-1].depth--
+			i++
 			onlySpace = false
 		default:
 			i++
 			onlySpace = false
 		}
 	}
-	if st.block || st.raw {
-		return strings.TrimSpace(line), false
-	}
-	return strings.TrimSpace(line), false
-}
-
-// skipQuoted advances past a `"`/`'` literal starting at i, honoring
-// backslash escapes; it stops at the closer or the line end.
-func skipQuoted(line string, i int) int {
-	q := line[i]
-	i++
-	for i < len(line) {
-		if line[i] == '\\' {
-			i += 2
-			continue
-		}
-		if line[i] == q {
-			return i + 1
-		}
-		i++
-	}
-	return i
+	return "", false
 }

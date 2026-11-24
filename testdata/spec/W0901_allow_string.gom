@@ -1,9 +1,11 @@
 package m
 
-/*
-A `//gom:allow` inside this block comment is not a directive.
-*/
-let fake = "a /* not a comment */ b"
+// A `/*` inside a quoted string opens no block comment — the
+// directive below still applies.
+let fake = "an unclosed /* quote"
+let interp = "nested ${ "`raw /*`" } tail"
+
+//gom:allow W0901
 
 fn add (a: Int) -> Int -> Int = fn b -> a + b
 
