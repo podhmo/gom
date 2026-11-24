@@ -60,6 +60,7 @@ go test ./tutorial/            # the same drive as a Go test
 | 19 | `19-go-boundary` | `Ptr.new` + field writes for Go structs, `Go.conv`, `Go.nil`, `Go.Slice`, `Go.Map`, `..xs` spread |
 | 20 | `20-go-callbacks` | `Go.funcN`/`Go.fnN` conversions, `@method` interfaces, `Go.Any`/`Go.try_as` |
 | 21 | `21-sugar` | `type alias`, record spread `~..opts`, and labeled lambdas |
+| 22 | `22-struct-tags` | Go struct tags on record fields — `json:"name"` through `encoding/json` |
 
 ## What you will notice
 
