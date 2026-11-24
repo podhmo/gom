@@ -454,6 +454,7 @@ func (l *lexer) scanRawString(open int) {
 		l.pos++
 	}
 	if l.pos >= len(l.src) {
+		l.err(open, len(l.src), "E0101", "unterminated raw string")
 		l.emit(tokRawString, open, len(l.src))
 		return
 	}

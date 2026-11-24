@@ -1929,7 +1929,13 @@ func (p *parser) parseRecordTypeField() *Field {
 		rt := p.next()
 		raw := p.text(rt)
 		f.TagSp = p.spanOf(rt)
-		f.Tag = raw[1 : len(raw)-1]
+		// A scan cut short by EOF keeps no closing backtick — the
+		// lexer already reported it; take the text verbatim.
+		end := len(raw)
+		if end > 1 && raw[end-1] == '`' {
+			end--
+		}
+		f.Tag = raw[1:end]
 		f.Sp.End = rt.end
 	}
 	return f
