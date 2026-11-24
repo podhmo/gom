@@ -33,10 +33,10 @@
 - `docs/implementation-gaps.md` の未解消項目
   （`rg '^- \[ \]' docs/implementation-gaps.md`）
 - `TODO.md` の未完了タスクと `docs/open-questions.md`
-- この文書末尾の「過去 run の試作一覧」— 題材の重複回避。
-  タイトル（1 行説明）だけを見る。アーカイブ本文は探索後の
-  再検証フェーズで読む（先に読むと前回の結論に引っ張られる
-  不具合が run 2 で発生した）
+- [sandbox-attempts.md](sandbox-attempts.md)（過去 run の試作一覧）
+  — 題材の重複回避。タイトル（1 行説明）だけを見る。アーカイブ
+  本文は探索後の再検証フェーズで読む（先に読むと前回の結論に
+  引っ張られる不具合が run 2 で発生した）
 
 プロンプトを使う人が行うのは変数の穴埋め（`{前回のrun名}` など）だけ
 に留める。
@@ -74,7 +74,7 @@
 観測が浅くなる不具合があった（run 2）。読む順序を固定する:
 
 - **アイデアメモを書く前に読んでよいのは試作一覧だけ** —
-  この文書末尾の「過去 run の試作一覧」のタイトル（1 行説明）。
+  `docs/ja/sandbox-attempts.md` のタイトル（1 行説明）。
   過去 run の log・ideas・領域地図のアーカイブ本文は読まない。
 - **アイデアメモのあと、実装の前** — `gom-agent-guide` スキル
   （OCaml/F#/Go の習慣で書くと構文を間違える）、
@@ -89,8 +89,8 @@
 
 1. **アイデアメモ**: gom のことは考えず、「Go で普段作るカジュアルな
    ツール」を何個か `sandbox/ideas.md` にメモする。重複回避には
-   「過去 run の試作一覧」のタイトルだけを見る — アーカイブ本文を
-   読んでから書かない。
+   `docs/ja/sandbox-attempts.md` の
+   タイトルだけを見る — アーカイブ本文を読んでから書かない。
 2. **実装と検証**: 各ツールは `gom check -format text` →
    `gom run FILE -- args` で実動作確認（実在コマンドとの比較が理想:
    wc・sha256sum・curl 等）。
@@ -161,8 +161,8 @@
      → 新規項目を作らず既存項目へ追記
    - 仕様済みの設計・回避口が文書化済みのもの → tracker に載せず
      メモで根拠を示す
-5. この文書末尾の「過去 run の試作一覧」に、今回の run の試作した
-   もののタイトル（1 行説明）を追加する。本文へのリンクは張らない
+5. `docs/ja/sandbox-attempts.md` に、今回の run の試作したものの
+   タイトル（1 行説明）を追加する。本文へのリンクは張らない
    （次の探索者が先に読んでしまわないよう、タイトルだけを残す場所）。
 6. 変更を PR にする。生成物が docs のみなら Go の検証は不要。
 
@@ -175,41 +175,3 @@
   未決の純粋な設計問いは open-questions へ。
 
 ---
-
-## 過去 run の試作一覧
-
-次の探索者が**アイデアメモを書くときにだけ**見る、題材の重複回避用の
-一覧。各項目はタイトルと 1 行説明だけ — アーカイブ本文へのリンクは
-張らない（先に読んでしまう不具合を避けるため）。棚卸し（プロンプト
-B）が run ごとに追記していく。
-
-### run 1（PR #163）
-
-- `wcl` — wc クローン（行・単語・バイト数カウント）
-- `b64` — base64 エンコーダ/デコーダ
-- `pick` — 簡易 grep（行フィルタ）
-- `jqp` — jq もどき（JSON フィールド抽出）
-- `jot` — タイムスタンプ付きメモ追記
-- `s256` — sha256sum クローン
-- `duu` — ディレクトリサイズ集計（du もどき）
-- `hs` — HTTP ステータスチェッカ
-- `calc` — 式評価器（sum type の見せ場）
-- `srv` — HTTP サーバ
-- `runner` — タイムアウト付きコマンド実行
-- `tpl` — text/template のラッパ
-- probes — json.Marshal / flag / regexp / select+signal+ticker /
-  @method（Stringer・ServeHTTP）/ slices.Sort / embed / 共有 Ref /
-  generics / gom test
-
-### run 2（PR #196）
-
-- `csvcut` — CSV 列選択（cut 的）
-- `until` — 日付カウントダウン
-- `pscan` — TCP ポートスキャナ（spawn 扇出）
-- `freq` — 単語頻度カウンタ
-- `rmv` — 正規表現バッチリネーム
-- `tabl` — テーブル成形（tabwriter 代替）
-- `passgen` — パスワード生成
-- `jsonl2csv` — JSONL → CSV 変換
-- `shop/` — DMMF 風ドメインパッケージ（`.gomi` でコンストラクタ封じ）
-- `sandbox/recheck/` — run 1 指摘項目の再検証 probe 群
