@@ -1945,3 +1945,17 @@
 - [ ] **match アームの literal パターンと record パターンの重複が E0302 に届かない**: 宣言型（`type UserId = {v: Int}` → `type UserId int64`）の scrutinee に対し、数値 literal パターン（`0 ->`）と record literal パターン（`{v = 0} ->`）は同じ値域を表すが、exhaustiveness／重複判定は両者を別の形状として扱い、到達不能アームや非網羅の診断（E0302 系）が逃げる。literal→宣言型 conform（wave42 lane C）の受理側拡大に伴う診断完全性の未整備 — 受理は正しいが判定側の記述子が literal↔record の等価を知らない。発見: #207 レビュー（wave42 lane C）
 
 - [ ] **宣言型の1-field recordへのスカラー代入で splice 表示が eval と compiled で揺れる**: `type Flag = {on: Bool}` に `let f : Flag = true` と代入したとき、`"${f}"` は eval では `true`、compiled（`.go` 生成物）では `{ on = true }` と描かれる。eval は束縛値をスカラーのまま持ち（1-field record の peel）、codegen は record として materialize するため同一値の表示が分岐。正準形を決める decision が要る — eval を VRecord 化するとスカラー算術・等価が壊れ、codegen をスカラー化すると record literal 代入との整合が取れない。発見: #216 レビュー（wave43 lane C）。関連: [verification sketch](sketch/2026-11-24-display-gomshow-verify.md)
+
+- [ ] **生成 `fmt.Errorf` が引数を `any(...)` に box するため `%w` を含むと `go vet` で弾かれる**: error wrapping を gom で書けず `wrap`/`wrapf` は `@extern` shim へ退避が必要（selfish 移植の観測 — [sketch](sketch/ja/2026-11-24-selfish-port.md)、wave43 lane F）。`%+v` の出力自体は生成コードで問題なく動く（stack を持つ error 値の生成側だけ shim が要る）
+
+- [ ] **`@extern fn name () -> T` が `name(struct{}{})` を emit する**: Go 側は `func name(_ struct{})` で受ける必要がある引数なし extern の生成規約が文書化されていない（selfish 移植 — 同上 sketch）
+
+- [ ] **カリー適用の複数行記述がパースに弱い**: `List.fold\n  (fn ...)\n  acc\n  xs` で E0401 — lambda を `let` に取り出すと解決するが書き味として引っかかる（selfish 移植 — 同上 sketch）
+
+- [ ] **無名レコードの `List.fold` acc は型推論が通らない（E0407）**: named type（`type GistAcc = {...}`）が必須。record literal の曖昧さ E0407 の open question と同系統の DX 摩擦（selfish 移植 — 同上 sketch）
+
+- [ ] **match の到達不能 arm は `todo ()` に頼る**: catch-all `action ->` の内側で sub-match する形になると網羅性チェックの恩恵が薄れる（selfish 移植 — 同上 sketch）
+
+- [ ] **`Result (Option T, U)` の payload Option 宣言は extern 宣言側でのみ選べる**: メソッド直呼びの n-ary result は verbatim 固定なので `Ptr.to_option` の後包みが要る（selfish 移植 stage 4 nil 監査 — 同上 sketch）
+
+- [ ] **`@method` は `Result` 返りを禁じている（E0420）**: `encoding.TextMarshaler` 系（`UnmarshalText([]byte) error` 等 error を返す Go interface）には使えない — defined type の `UnmarshalText` は同パッケージの `shim.go` に Go で書く回避が必要（selfish 移植 — 同上 sketch、open-questions も参照）

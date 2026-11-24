@@ -27,6 +27,10 @@
 
 - [x] `Go.Slice` の gom 側コンストラクタ — **解消**: `let gs : Go.Slice T = xs`（`xs : List T`）の ascription で `List` → `Go.Slice` が通る。check の `conformExpr` → `sliceConv` が `ConvSliceToGo` を返し、lower が `.ToSlice()` コピーを emit する（run 2 の recheck は「面がない」として登録したが、レビュー指摘で発見・実測確認。`Go.conv` の明示キャストは gom 要素型で E0507、`Array` は `~[]E` を満たさず E0401 のまま）。コピーのため gom 側の `List` 本体は変わらないが、`slices.Sort`（順序のある要素）や `slices.SortFunc`（record — `Go.func2` 比較器）の結果は `Go.Slice` 側から読める — 用途は足りる（run 2 — [recheck](sketch/ja/2026-11-24-sandbox-explorer2-recheck.md)）
 
+- [ ] `%w` error wrapping の第一級サポート: 生成 `fmt.Errorf` が引数を box するため vet が `%w` を弾き、`wrap`/`wrapf` は `@extern` shim 退避。`Result` がある分第一級にしたい（selfish 移植 — [sketch](sketch/ja/2026-11-24-selfish-port.md)、wave43 lane F）
+- [ ] `@method` の `Result` 返り許可（E0420 緩和）: `encoding.TextMarshaler` 系など error を返す Go interface を gom 型に実装できない。現状は同パッケージ `shim.go` に Go で書く回避（selfish 移植 — 同上 sketch、実装の制約: [implementation-gaps.md](implementation-gaps.md)）
+- [ ] `Result (Option T, U)` の payload Option を呼出し側でも宣言できるか: メソッド直呼びの n-ary result は verbatim 固定で `Ptr.to_option` の後包みが要る（selfish 移植 stage 4 — 同上 sketch）
+
 ### 最適化
 
 - [x] 生成コード特殊化ポリシー（curried HOF 側）: 呼出側 uncurry（flat fn params）を採択 — 宣言 >=2 本矢印パラメータを flat `func(T1',...,Tk') R'` にし、`Fold` の要素ごと確保を解消（~12×）。wave20 lane 2、[decision](decisions/2026-11-18-flat-fn-params.md)、[検証](sketch/2026-11-18-flat-fn-params-verify.md)。コピーしない共有スライス型（View）の案は [problems](problems/2026-11-04-shared-slice-view-type.md)
@@ -57,6 +61,7 @@
 - インクリメンタルビルドのキャッシュ（P4。それまでは毎回変換し、Go のキャッシュに任せる）
 - `iota` 流の Go 定数セット宣言 — sum type や `let` 定数で代替になるが、Go API の定数群を gom 側から作る面はない（sandbox 探索 — [sketch](sketch/2026-11-23-sandbox-missing-features.md)）
 - cgo、`unsafe`、`reflect` の本格的な扱い
+- `gom install` — 書き換え後の selfish リポジトリのような gom 製バイナリをリポジトリ指定でインストールする経路（`go install` 相当）。依存パッケージの推移的 emit（TODO の `gom run` 不ビルド問題）と合わせて検討（podhmo 要望、2026-11-24、wave43 lane F）
 - 符号なし整数（`byte`/`uint8` 以外 — spec §8.3 で v1 非対応と明記済み）: run 2 で `text/tabwriter` の `flags uint` が E0501 で取れず手書きパディングに退避した事例あり（[recheck](sketch/ja/2026-11-24-sandbox-explorer2-recheck.md) tabwriter）。`uint16`/`uint32`/`uint64`/`uintptr` が要るかは需要を見て再検討
 - セルフホスト（コンパイラを Gom で書き直す）
 - [x] Core 検証器で Go 呼び出しの関数引数の表現を検査する — wave34 lane D で実装済み: `CallGo.FlatArgs` に宣言型由来のスロット arity を載せ、`core.Validate` が emitted repr（`callbackArity`）と照合して E0901。宣言型（rigid）を読む点が要 — instantiated 型は型変数下の関数型で arity が広がる（`internal/core/validate.go`、`TestCallGoCtorRefCallbackArity`）
