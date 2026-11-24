@@ -55,7 +55,11 @@ func Check(res *resolve.Resolved, src SignatureSource) (*File, diag.List) {
 	c.registerBuiltinTypes(bv)
 	c.registerTypeDecls(res.File.Decls)
 	if ts, ok := src.(TypeDeclSource); ok {
-		c.registerForeignTypes(ts.TypeDecls())
+		if st, ok := src.(ScopedTypeDeclSource); ok {
+			c.registerForeignTypes(st.TypeDeclsFor(c.importRoots(res)))
+		} else {
+			c.registerForeignTypes(ts.TypeDecls())
+		}
 	}
 	c.resolveTypeBodies(res.File.Decls)
 	c.checkRecordCycles()
@@ -918,6 +922,25 @@ func (c *checker) checkDecls(decls []syntax.Decl) {
 			panic("unreachable")
 		}
 	}
+}
+
+// importRoots returns the canonical package paths of the file's
+// Gom imports — the roots a ScopedTypeDeclSource scopes its
+// foreign declarations to. Go imports bind no Gom declarations.
+func (c *checker) importRoots(res *resolve.Resolved) []string {
+	var roots []string
+	for _, d := range res.File.Decls {
+		if id, ok := d.(*syntax.ImportDecl); ok && !id.Go {
+			p := res.ImportPathOf(id)
+			if p == "" {
+				p = id.Path
+			}
+			if p != "" {
+				roots = append(roots, p)
+			}
+		}
+	}
+	return roots
 }
 
 // importOf translates a resolved import into the typed Import node.

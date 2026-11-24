@@ -81,6 +81,20 @@ type TypeDeclSource interface {
 	TypeDecls() []*TypeDecl
 }
 
+// ScopedTypeDeclSource is an optional refinement of
+// TypeDeclSource: the source can scope the declarations it hands
+// back to the closure of the packages the calling file actually
+// imports. Without it a shared source (one loader reused across
+// files, like the spec suite's) leaks every package it ever
+// loaded into every file's check — an imported record's fields
+// then pollute unrelated record literals' owner resolution.
+type ScopedTypeDeclSource interface {
+	// TypeDeclsFor returns the type declarations of the packages
+	// named by roots plus every package reachable through those
+	// packages' own interface imports.
+	TypeDeclsFor(roots []string) []*TypeDecl
+}
+
 // registerForeignTypes installs the type-declaration tables of
 // packages the signature source loaded — sibling declarations of the
 // package being compiled are covered by the ordinary registration

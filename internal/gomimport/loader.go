@@ -140,9 +140,16 @@ type Loader struct {
 	// The cross-phase tables every loaded package contributes to —
 	// keyed by the same requalified symbols the member tables hand
 	// out.
-	sigs       map[*resolve.Symbol]check.Signature
-	arities    map[*resolve.Symbol]int
-	tdecls     []*check.TypeDecl
+	sigs    map[*resolve.Symbol]check.Signature
+	arities map[*resolve.Symbol]int
+	tdecls  []*check.TypeDecl
+	// pkgDecls groups the accumulated type declarations by the
+	// package that declared them and pkgImports each package's own
+	// interface imports — together they let TypeDeclsFor answer
+	// only the closure an importing file can see instead of the
+	// whole accumulated table.
+	pkgDecls   map[string][]*check.TypeDecl
+	pkgImports map[string][]string
 	byCon      map[conKey]*check.TypeDecl
 	ctorFields map[*resolve.Symbol]map[string]*resolve.Symbol
 	typeCtors  map[*resolve.Symbol]map[string]*resolve.Symbol
@@ -199,6 +206,8 @@ func New(cfg *Config) *Loader {
 		loading:    map[string]int{},
 		sigs:       map[*resolve.Symbol]check.Signature{},
 		arities:    map[*resolve.Symbol]int{},
+		pkgDecls:   map[string][]*check.TypeDecl{},
+		pkgImports: map[string][]string{},
 		byCon:      map[conKey]*check.TypeDecl{},
 		methods:    map[conKey][]check.GomMethod{},
 		ctorFields: map[*resolve.Symbol]map[string]*resolve.Symbol{},
@@ -856,7 +865,8 @@ func (l *Loader) vendPkgs(vend string) map[string]bool {
 	return l.vlisted
 }
 
-// workUse parses the go.work at wr for `use` member dirs and
+// workUse parses the go.work governing this loader (GOWORK may
+// name a file other than `go.work`) for `use` member dirs and
 // maps each member's module path to its directory — all
 // filesystem reads, so workspace siblings stay enumerable when
 // the module graph cannot be listed (workspace vendoring,
@@ -914,11 +924,12 @@ func (l *Loader) workUse() map[string]string {
 	return out
 }
 
-// workRoot returns the directory holding the go.work governing
-// Config.Dir — "" when there is none or GOWORK disables it.
-// `go env GOWORK` answers it; the env var alone is not enough
-// because an unset GOWORK still auto-discovers a go.work walking
-// up the tree.
+// workRootFn returns the directory holding the go.work governing
+// Config.Dir — "" when there is none or GOWORK disables it — and
+// records the go.work file itself in l.workFile (GOWORK may name
+// a file other than `go.work`). `go env GOWORK` answers it; the
+// env var alone is not enough because an unset GOWORK still
+// auto-discovers a go.work walking up the tree.
 func (l *Loader) workRootFn() string {
 	l.workOnce.Do(func() {
 		cmd := exec.Command(l.gobin(), "env", "GOWORK")
@@ -1062,6 +1073,17 @@ func (l *Loader) extract(path string, tf *check.File) (*resolve.Package, error) 
 			own[td.Sym.Name] = true
 		}
 	}
+	// The package's own interface imports drive TypeDeclsFor's
+	// transitive closure — a signature referencing a foreign type
+	// pulls that package's declarations into scope even though the
+	// importing file never names it.
+	var imps []string
+	for _, im := range tf.Imports {
+		if !im.IsGo && im.Path != "" && im.Path != path {
+			imps = append(imps, im.Path)
+		}
+	}
+	l.pkgImports[path] = imps
 	p := &resolve.Package{Path: path, Members: map[string]*resolve.Symbol{}}
 	for _, d := range tf.Decls {
 		switch d := d.(type) {
@@ -1158,6 +1180,7 @@ func (l *Loader) extract(path string, tf *check.File) (*resolve.Package, error) 
 			d.Sym.Package = path
 			l.requalifyDecl(d, own, path)
 			l.tdecls = append(l.tdecls, d)
+			l.pkgDecls[path] = append(l.pkgDecls[path], d)
 			l.byCon[conKey{qual: path, name: d.Sym.Name}] = d
 			p.Members[d.Sym.Name] = d.Sym
 			// The type's own signature is its constructor — what
@@ -1306,6 +1329,29 @@ func (l *Loader) SignatureOf(sym *resolve.Symbol) (check.Signature, bool) {
 // declarations — the check.TypeDeclSource entry.
 func (l *Loader) TypeDecls() []*check.TypeDecl {
 	return l.tdecls
+}
+
+// TypeDeclsFor returns the (requalified) type declarations of the
+// packages named by roots plus every package reachable through
+// those packages' own interface imports — the closure the calling
+// file can actually reference. The check.ScopedTypeDeclSource
+// entry: it keeps a shared loader's accumulated declarations from
+// leaking into files that never imported them.
+func (l *Loader) TypeDeclsFor(roots []string) []*check.TypeDecl {
+	seen := map[string]bool{}
+	queue := append([]string(nil), roots...)
+	var out []*check.TypeDecl
+	for len(queue) > 0 {
+		p := queue[0]
+		queue = queue[1:]
+		if seen[p] {
+			continue
+		}
+		seen[p] = true
+		out = append(out, l.pkgDecls[p]...)
+		queue = append(queue, l.pkgImports[p]...)
+	}
+	return out
 }
 
 // MethodOf defers the optional check.MethodSource protocol to
