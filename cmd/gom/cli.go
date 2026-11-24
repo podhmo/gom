@@ -162,25 +162,28 @@ func compileInputs(inputs []input, checkOnly bool, bc *buildCache, outFlag strin
 	}
 	deps := map[string]map[string]bool{}
 	goImports := map[string][]string{}
+	badParse := map[string]bool{}
 	for _, dir := range order {
 		for _, i := range groups[dir] {
 			ast, pdiags := syntax.Parse(inputs[i].src, inputs[i].path)
 			if ast == nil {
+				badParse[dir] = true
 				continue
 			}
-			// A file that fails to parse is rejected before its imports
-			// resolve — prefetching it would only burn a `go list`
-			// subprocess (which may even touch go.mod under -mod=mod).
-			syntaxOK := !pdiags.HasError()
+			// One parse-invalid file makes CompileFiles reject the
+			// whole package before its imports resolve — prefetching
+			// it would only burn a `go list` subprocess (which may
+			// even touch go.mod under -mod=mod).
+			if pdiags.HasError() {
+				badParse[dir] = true
+			}
 			for _, d := range ast.Decls {
 				imp, ok := d.(*syntax.ImportDecl)
 				if !ok {
 					continue
 				}
 				if imp.Go {
-					if syntaxOK {
-						goImports[dir] = append(goImports[dir], imp.Path)
-					}
+					goImports[dir] = append(goImports[dir], imp.Path)
 					continue
 				}
 				path := canonicalImport(imp.Path)
@@ -291,7 +294,9 @@ func compileInputs(inputs []input, checkOnly bool, bc *buildCache, outFlag strin
 			seen = bc.depSink(dir)
 		}
 		gl, _ := poolLoader(dir)
-		gl.Prefetch(goImports[dir])
+		if !badParse[dir] {
+			gl.Prefetch(goImports[dir])
+		}
 		opts := compileOptions(inputs[idxs[0]], checkOnly, seen, gl)
 		if tweak != nil {
 			tweak(opts)
