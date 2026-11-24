@@ -27,7 +27,7 @@ fn parse_range (s: String) -> Result (Int, Int) String = match strings.Split (s,
 }
 
 fn scan (host: String) (lo: Int) (hi: Int) -> List Int = {
-  let tasks = List.range lo hi |> List.map (fn p -> (p, Task.spawn (fn () -> probe host p)))
+  let tasks = List.range lo (hi + 1) |> List.map (fn p -> (p, Task.spawn (fn () -> probe host p)))
   tasks
   |> List.filter (fn pt ->
     match pt {
