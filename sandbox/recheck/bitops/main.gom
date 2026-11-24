@@ -4,9 +4,14 @@ import go "fmt"
 import go "os"
 
 fn main () -> Unit = {
-  let flags = os.O_APPEND ||| os.O_CREATE ||| os.O_WRONLY
-  match os.OpenFile ("/tmp/gom-bitops.log", flags, 0o600) {
-    Ok f -> { ignore fmt.Fprintf (f, "hello\n"); ignore f.Close () }
+  match os.MkdirTemp ("", "gom-bitops") {
+    Ok dir -> {
+      let flags = os.O_APPEND ||| os.O_CREATE ||| os.O_WRONLY
+      match os.OpenFile ("${dir}/gom-bitops.log", flags, 0o600) {
+        Ok f -> { ignore fmt.Fprintf (f, "hello\n"); ignore f.Close () }
+        Err e -> ignore fmt.Fprintf (os.Stderr, "bitops: %s\n", e.Error ())
+      }
+    }
     Err e -> ignore fmt.Fprintf (os.Stderr, "bitops: %s\n", e.Error ())
   }
   // bitwise and / xor / shifts too
