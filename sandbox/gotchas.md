@@ -8,7 +8,7 @@
 
 - 4 つの stdlib パッケージの中身の正は repo の `stdlib/<pkg>/<pkg>.gomi`（doc comment 付き）と `<pkg>.gom`。`Option.get_or_else`・`List.range`・`Result.to_option` などの存在はこれを読むか、名前を勘で書いて E0201 を踏むかの二択。
 - `Go.Slice.to_list`・`Go.Map`・`Task.spawn`/`await`・`Ptr`・`Ref`・`Array`・`View`・`Chan` のような**組み込みモジュールの面は `.gomi` すら存在しない** — `internal/stdlib/builtin.go` の Go ソースにメンバ表として書いてあるだけ。spec はこれらのモジュールが存在することは書くが、関数一覧は載せていない。
-- `gom info` は自分のディレクトリのシグネチャしか吐かない（組み込みモジュールを dump する口はない）。`gom info stdlib/list` のようなパッケージ名指定は効かない（引数はディレクトリパス）。
+- `gom info` の引数はディレクトリパス。repo を clone していれば `gom info -o - stdlib/list` で標準ライブラリのシグネチャも読めるが、clone なしでは組み込みモジュールを dump する口はない（`Go.Slice`/`Task`/`Ptr` 等は `.gom` ソースを持たないので repo があっても info では出ない）。
 
 つまり clone なしで書くと、stdlib/builtin の API は「spec に名前が出たもの + 推測 + E0201」で探ることになる。skill を単体で ship するなら `stdlib/*/*.gomi` と builtin.go の面一覧を抜粋して同梱する価値がある。
 
