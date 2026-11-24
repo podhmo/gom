@@ -27,8 +27,8 @@ run_case() {
   /tmp/gom-selfish    "$@" > /tmp/o2 2>&1
   # 除外: log の timestamp、stack trace の frame（関数行+パス行）、argv[0] の Usage 行
   sed -i 's/^[0-9\/]* [0-9:]* //' /tmp/o1 /tmp/o2
-  diff <(grep -vE '^\t|^Usage of |^\S*\.\S*$' /tmp/o1) \
-       <(grep -vE '^\t|^Usage of |^\S*\.\S*$' /tmp/o2)
+  diff <(grep -vE '^[[:space:]]|^Usage of |^\S*\.\S*$' /tmp/o1) \
+       <(grep -vE '^[[:space:]]|^Usage of |^\S*\.\S*$' /tmp/o2)
 }
 ```
 
