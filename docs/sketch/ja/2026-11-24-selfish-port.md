@@ -16,6 +16,10 @@ argv[0] 由来の `Usage of <name>:` と stack trace のパス以外は全一致
 ## 検証レシピ
 
 ```bash
+# 前提チェックアウト: 移植コード（sandbox/selfish/）は stage 4 の
+# ブランチ devin/selfish-port-4-verification（およびそのチェーン元の
+# #208 / #209 / #211）側にある。main にはこのドキュメントのみが
+# 先行して取り込まれている。
 # 準備: 入力ファイル（readme.md = "# Hello Title" の markdown、hello.txt、
 # bin.dat = バイナリ）、および ~/.config/selfish/config.json = {"access_token": "dummy-token"}
 cd ~/repos/gom/sandbox/selfish && go build -o /tmp/gom-selfish ./gselfish
@@ -32,6 +36,11 @@ run_case() {
        <(grep -vE '^[[:space:]].*\.(go|gom|s):[0-9]+$|^Usage of |^\S*\.\S*$' /tmp/o2)
 }
 ```
+
+注意: `run_case` の `^\S*\.\S*$` フィルタ（stack trace の関数名行を
+落とすためのもの）は、CLI が単独で印字する `readme.md` のような
+ファイル名や URL の行も落とす — その形の出力を持つケースでは両者が
+異なる値を印字しても比較を通過するので、対象行は目視で確認した。
 
 注意: `--client fake` は `with_dryrun` で **history へ書き込まない**（oracle も同じ）。
 そのため alias 系のケースは常に「履歴なし」状態で実行される — 2 連続実行しても
