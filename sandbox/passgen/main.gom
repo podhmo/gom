@@ -19,16 +19,22 @@ fn gen_rec (chars: List String) (bound: Ptr big.Int) (n: Int) (acc: List String)
 fn main () -> Unit = {
   let args = os.Args |> Go.Slice.to_list |> List.drop 1
   let n = match args {
+    [] -> 16
     ["-n", s] -> match strconv.Atoi s {
       Ok v -> v
-      Err _ -> 16
+      Err _ -> 0 - 1
     }
-    _ -> 16
+    _ -> 0 - 1
   }
-  let chars = strings.Split (alphabet, "")
-  let bound = big.NewInt (List.length chars)
-  match gen_rec chars bound n [] {
-    Ok pw -> ignore fmt.Println pw
-    Err e -> { ignore fmt.Fprintf (os.Stderr, "passgen: %s\n", e.Error ()); os.Exit 1 }
+  if n <= 0 {
+    ignore fmt.Fprintln (os.Stderr, "usage: passgen [-n LEN] (positive integer)")
+    os.Exit 2
+  } else {
+    let chars = strings.Split (alphabet, "")
+    let bound = big.NewInt (List.length chars)
+    match gen_rec chars bound n [] {
+      Ok pw -> ignore fmt.Println pw
+      Err e -> { ignore fmt.Fprintf (os.Stderr, "passgen: %s\n", e.Error ()); os.Exit 1 }
+    }
   }
 }
