@@ -1,0 +1,14 @@
+package mureq
+
+type A = { f : List B }
+
+type B = { f : List A }
+
+let lhs : A
+
+let rhs : A
+
+let dif : A
+
+//gom:result-notaint eq_a 0 1
+fn eq_a (x: A) (y: A) -> Bool

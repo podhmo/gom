@@ -1,0 +1,14 @@
+package mureq
+
+// Runtime pin for the eq probe's peel-path guard (wave42 lane C
+// review): one-field records referencing each other through List —
+// `x == y` must terminate (no walk/loop divergence) and the emitted
+// comparators must reuse each other across both record types.
+type A = { f: List B }
+type B = { f: List A }
+
+let lhs: A = { f = [{ f = [{ f = [] }] }] }
+let rhs: A = { f = [{ f = [{ f = [] }] }] }
+let dif: A = { f = [{ f = [] }] }
+
+fn eq_a (x: A) (y: A) -> Bool = x == y
