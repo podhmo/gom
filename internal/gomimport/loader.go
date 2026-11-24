@@ -120,6 +120,9 @@ type Loader struct {
 	// vendor/ — only <workroot>/vendor applies.
 	workOnce sync.Once
 	work     string
+	// workFile is the go.work file itself — GOWORK may name a
+	// file other than `go.work` (e.g. `go.work.dev`).
+	workFile string
 
 	// pkgs caches loaded member tables; errs the failures behind
 	// them; loading marks in-progress paths (as their index into
@@ -421,11 +424,9 @@ func ExternalPackages(dir, gobin string) ([]string, error) {
 	// graph reports — under workspace vendoring `go list -m all`
 	// fails outright and siblings would otherwise vanish from the
 	// listing. Read them off go.work + each member's go.mod.
-	if wr := l.workRoot(); wr != "" {
-		for mp, md := range workUse(wr) {
-			if _, ok := candidates[mp]; !ok {
-				candidates[mp] = md
-			}
+	for mp, md := range l.workUse() {
+		if _, ok := candidates[mp]; !ok {
+			candidates[mp] = md
 		}
 	}
 	// The main module's path, when it can be read — best-effort,
@@ -814,10 +815,15 @@ func (l *Loader) vendPkgs(vend string) map[string]bool {
 // maps each member's module path to its directory — all
 // filesystem reads, so workspace siblings stay enumerable when
 // the module graph cannot be listed (workspace vendoring,
-// offline).
-func workUse(wr string) map[string]string {
+// offline). GOWORK may name a file other than `go.work` — read
+// the one the loader resolved.
+func (l *Loader) workUse() map[string]string {
 	out := map[string]string{}
-	b, err := os.ReadFile(filepath.Join(wr, "go.work"))
+	wr, wf := l.workRoot(), l.workFile
+	if wr == "" || wf == "" {
+		return out
+	}
+	b, err := os.ReadFile(wf)
 	if err != nil {
 		return out
 	}
@@ -842,15 +848,20 @@ func workUse(wr string) map[string]string {
 		} else {
 			continue
 		}
-		dir := filepath.Join(wr, filepath.FromSlash(strings.Trim(line, `"`)))
+		usePath := filepath.FromSlash(strings.Trim(line, `"`))
+		dir := usePath
+		if !filepath.IsAbs(dir) {
+			dir = filepath.Join(wr, dir)
+		}
 		gm, err := os.ReadFile(filepath.Join(dir, "go.mod"))
 		if err != nil {
 			continue
 		}
 		for _, gl := range strings.Split(string(gm), "\n") {
-			gl = strings.TrimSpace(gl)
-			if mp, ok := strings.CutPrefix(gl, "module "); ok {
-				out[strings.TrimSpace(mp)] = dir
+			gl = strings.TrimSpace(strings.SplitN(gl, "//", 2)[0])
+			f := strings.Fields(gl)
+			if len(f) >= 2 && f[0] == "module" {
+				out[f[1]] = dir
 				break
 			}
 		}
@@ -876,6 +887,7 @@ func (l *Loader) workRoot() string {
 		wf := strings.TrimSpace(string(out))
 		if wf != "" && wf != "off" {
 			l.work = filepath.Dir(wf)
+			l.workFile = wf
 		}
 	})
 	return l.work
