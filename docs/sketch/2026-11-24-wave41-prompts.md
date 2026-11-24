@@ -1,9 +1,13 @@
-# wave41 prompts（草案・採否インタビュー）
+# wave41 prompts（採択済み）
 
 - 日付: 2026-11-24
 - 前提: wave40 スタック（#187–#194、stack 189）が main にマージ済みの
   新 main から開始。単一エージェント運用・Devin Review が品質ゲート。
   lane 実施はマージ後に開始する。
+- 採否: A/B/C 採択（lane 実行へ）。vendor 関連はすべて future work —
+  lane D（workspace vendoring）は lane 化せず open-questions の Future
+  work へ、lane C の vendor 列挙部分（module 側 vendor walk）も同様に
+  future work 扱いで C は main module + build list の列挙のみ実施する。
 
 ## 候補
 
