@@ -58,9 +58,10 @@ W コード（PhaseLint、既存の post-inference sweep に載せる）で警�
   `*Let` だけでなく、パッケージ直下の `*LetDecl` のパターンも対象
   （`walk.WalkDecl` は初期化式を訪ねるがパターンは訪ねないので、
   sweep は束縛パターンを自分で調べる）
-- `match` の `_` 腕 — scrutinee の型が `*types.Func` で腕が裸の
-  ワイルドカードのとき（`match (add 1) { _ -> () }` は ignore も
-  let も経由せず捨てる）
+- `match` の腕パターン中の `_` — 腕パターンの任意の位置にある
+  `_` が捨てた部分値の型が `*types.Func` のとき（裸の `_` 腕の
+  `match (add 1) { _ -> () }` だけでなく、`{ (_, n) -> ... }`
+  のように tuple・ctor 内のスロットも同じ捨て）
 
 比較した案の表にあった `|>`/引数位置は「捨てる」面ではなく値を
 *受け渡す*面なので対象外 — Go の `any` 引数（`fmt.Println` に
@@ -76,8 +77,8 @@ open-questions の元の問いの残件として残す（値は捨てられて�
   directive で W コードも落とせるよう実装側で拡張する — strict
   ビルド下でも沈黙手段が必要なため
 - 実装は check の lint sweep に `*Ignore`・`*Let`/`*LetDecl` の
-  ワイルドカード左辺・`*Match` の `_` 腕を足すだけ — 新しい
-  パイプライン面は要らない
+  ワイルドカード左辺・`*Match` の腕パターン中の `_` を足すだけ
+  — 新しいパイプライン面は要らない
 - スコープ外: `Option.get` 経由の panic 誘導や、match の scrutinee
   を束縛する腕での部分適用は型が合っている限り触れない。`any`
   引数への関数値の引き渡し（`fmt.Println`）は捨てではないので
