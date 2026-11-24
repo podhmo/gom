@@ -1,0 +1,7 @@
+package deftilde
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+type UserId = { v : Int }
+
+fn clamp_id (lo: UserId) (x: UserId) (hi: UserId) -> UserId

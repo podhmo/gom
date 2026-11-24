@@ -1,0 +1,14 @@
+package ex
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// `Array Byte` renders the anonymous `[]byte` — a defined type over
+// it satisfies `~[]byte` on the peeled spelling, and a direct
+// `Array Byte` argument satisfies it too (the argument IS `[]byte`,
+// so exact terms would hold as well). `List Byte` stays rejected:
+// `list.List[uint8]` is a named slice the isList honesty rule keeps
+// out of `[]T` terms (spec 8.5).
+type Ws = { xs : Array Byte }
+
+fn f (w: Ws) -> Int = goiface.Count8 w
+fn g (xs: Array Byte) -> Int = goiface.Count8 xs

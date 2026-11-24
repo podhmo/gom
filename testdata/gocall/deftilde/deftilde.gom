@@ -1,0 +1,11 @@
+package deftilde
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// Runtime pin for the `~` union peel (spec 8.5): `UserId` emits
+// `type UserId int64`, which satisfies `~int64` — the generated
+// wrapper must instantiate `Clamp64[UserId]` and compile.
+type UserId = { v : Int }
+
+fn clamp_id (lo: UserId) (x: UserId) (hi: UserId) -> UserId =
+    goiface.Clamp64 lo x hi

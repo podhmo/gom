@@ -1,0 +1,28 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0508",
+      "severity": "error",
+      "message": "type argument `W` does not satisfy the `~int64` constraint of `Clamp64`'s type parameter `T`",
+      "span": {
+        "file": "E0508_onefield_record_shadowed.gom",
+        "start": {
+          "line": 13,
+          "col": 28,
+          "offset": 489
+        },
+        "end": {
+          "line": 13,
+          "col": 35,
+          "offset": 496
+        }
+      },
+      "data": {
+        "argument": "W",
+        "constraint": "~int64",
+        "parameter": "T"
+      }
+    }
+  ]
+}
