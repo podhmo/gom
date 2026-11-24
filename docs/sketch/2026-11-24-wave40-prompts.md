@@ -65,6 +65,18 @@ podhmo 2026-11-24:「標準ライブラリ以外もリストの対象にした�
 まず「何を列挙対象にしうるか」（module cache・workspace・
 vendor 等の前提調査）を sketch にまとめる調査 lane。
 
+### G. `//gom:` directive の一覧表（doc・規模: 小）
+
+directive が 5 系統に増え、各機能の節に散在している（podhmo
+2026-11-24「一覧表ってあるんでしたっけ？」）。一覧表を置く:
+
+- `//gom:allow`・`//gom:embed`・`//gom:noescape`・
+  `//gom:result-notaint`・`//gom:mutable` の5件
+- 列: directive・引数・付着位置（member 直前/ファイル内）・効果・
+  関連エラーコード
+- 置き場所: spec 付録（directive 索引節）or guide — spec 側に索引を
+  置き各節からリンク、guide には要点のみ残す形が候補
+
 ## 延期候補
 
 - D-3 `README.md` / D-4 tutorial go.mod 整理: ユーザー指定で

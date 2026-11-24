@@ -88,7 +88,7 @@
 
 spec 10 章のミュータブル共有警告（`Chan.make` の W0701、`go { ... }` 捕捉の W0702）は `check` 内の推論後スイープ（`lintMutableSharing`）として実装し、全メタが既定化または報告された後の `finalize` の後に走る。同じスイープが spec 8.5 の境界コピー警告（W0501——`Unit` 結果の Go 呼び出しがコピーされる `List` 引数を `[]T` パラメータへ渡すとき）も担当し、コピーの判定はチェッカが引数に包んだ `Slice` 印つき Ascribe（`List` への物質化＝コピーの証拠）を観察して行う。この位置決めが解析に必要なものを与える: 解決済みの要素型、宣言ボディを展開する `tyCons` 宣言表、綴りではなく宣言同一性で builtin を認識する `shadowedBuiltin`。「捕捉」は型付き AST 上の字句的な関係——ボディ内の `Var`/`MemberExpr` が、`go` ボディ外に束縛を持つ `KindVar` シンボルを名指すこと——であり、警告は後続フェーズをゲートしない（[decision](decisions/2026-11-04-mutable-sharing-lint.md)、[decision](decisions/2026-11-05-go-mutation-warning.md)）。
 
-可変判定は「入口は builtin 集合、宣言型は推移律で導出」の2層——`containsMutable` は `Ref`/`Array`/`Ptr`/`Go.Slice`/`Go.Map` の閉じた集合を直接認め（ただし `Ptr T` は `T` が `sync.Mutex`・`sync/atomic.Value` 等の内部同期 Go 型なら `sharedGoTypePtr` で免除）、`Con` は `tyCons` で宣言を展開してフィールドへ再帰するので、可変フィールドを持つ record/sum は宣言のまま判定される（循環は `seen` で止める）。残る盲点は実装がパッケージ境界の向こうに隠れた型だけで、extern 裏付けと abstract export（`.gomi` が kindAbstract だけを出す）の両方が該当する — これは手書きの `//gom:mutable <name>` directive（`.gomi`、name-only 形、toolchain は生成せず再生成時に引き継ぐ）で著者が表明する方針を採択済みで、実装は TODO（[decision](decisions/2026-11-23-user-mutable-structures.md)）。
+可変判定は「入口は builtin 集合、宣言型は推移律で導出」の2層——`containsMutable` は `Ref`/`Array`/`Ptr`/`Go.Slice`/`Go.Map` の閉じた集合を直接認め（ただし `Ptr T` は `T` が `sync.Mutex`・`sync/atomic.Value` 等の内部同期 Go 型なら `sharedGoTypePtr` で免除）、`Con` は `tyCons` で宣言を展開してフィールドへ再帰するので、可変フィールドを持つ record/sum は宣言のまま判定される（循環は `seen` で止める）。残る盲点は実装がパッケージ境界の向こうに隠れた型だけで、extern 裏付けと abstract export（`.gomi` が kindAbstract だけを出す）の両方が該当する — これは手書きの `//gom:mutable <name>` directive（`.gomi`、name-only 形、toolchain は生成せず再生成時に引き継ぐ）で著者が表明する（wave39 lane D で実装 — [decision](decisions/2026-11-23-user-mutable-structures.md)）。
 
 ### 2.1 Core IR の不変条件
 
