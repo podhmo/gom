@@ -384,10 +384,11 @@ func (c *checker) eqProbe(t types.Type, sink *[]*types.Meta) bool {
 // eqWalk is the shared traversal behind hasFuncOrVar and eqProbe.
 // sink, when set, collects every unbound meta the walk crosses.
 type eqWalk struct {
-	c     *checker
-	seen  map[*typeInfo]bool
-	bound map[int]int
-	sink  *[]*types.Meta
+	c      *checker
+	seen   map[*typeInfo]bool
+	bound  map[int]int
+	sink   *[]*types.Meta
+	peeled map[conKey]bool
 }
 
 // hasConKey reports whether t mentions the constructor key — the
@@ -441,10 +442,20 @@ func (w *eqWalk) has(t types.Type) bool {
 		// unpeeled and its argument still flags. A peel whose field
 		// still mentions the record (`{w: W (List a)}` →
 		// `W (List Int)`) would grow the type each step — the
-		// declaration walk's `seen` bounds it instead.
+		// declaration walk's `seen` bounds it instead. `peeled`
+		// bounds the longer cycle (`{f: List B}` / `{f: List A}`:
+		// each peel names the other, no self-mention): a re-entry
+		// falls back to the declaration walk.
 		key := conKey{qual: t.Qual, name: t.Name}
-		if u := w.c.definedUnderlying(t); u != t && !hasConKey(u, key) {
-			return w.has(u)
+		if !w.peeled[key] {
+			if u := w.c.definedUnderlying(t); u != t && !hasConKey(u, key) {
+				if w.peeled == nil {
+					w.peeled = map[conKey]bool{}
+				}
+				w.peeled[key] = true
+				defer delete(w.peeled, key)
+				return w.has(u)
+			}
 		}
 		// `Go.FuncN` is a Go func type spelled as a constructor —
 		// Go funcs are not comparable, so `==` on one is E0409
