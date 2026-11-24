@@ -906,6 +906,13 @@ func (e *interp) evalMember(x *check.MemberExpr, env *Env) Value {
 			failData(CodeInternal, "variant has no such field", x.Sel.Sp,
 				"field", x.Sel.Name)
 		default:
+			// A one-field record evaluates to its field value when
+			// the type is a Go defined type (`type UserId int64`) —
+			// `let x : UserId = 0` binds the scalar 0, and `x.value`
+			// unwraps like generated code's `int64(x)`.
+			if x.Index == 0 {
+				return recv
+			}
 			failData(CodeInternal, "field access on a non-record value", x.Recv.Span(),
 				"value", recv.String())
 		}
