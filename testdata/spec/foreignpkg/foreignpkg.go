@@ -8,7 +8,7 @@ import "github.com/podhmo/gom/stdlib/list"
 // field's own type, not a struct.
 
 type Point struct {
-	Fpx, Fpy float64
+	X, Y float64
 }
 
 type Shape interface{ isShape() }

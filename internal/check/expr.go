@@ -4066,7 +4066,16 @@ func (c *checker) recordByFields(e *syntax.RecordLit) *typeInfo {
 			names = append(names, f.Name.Name)
 		}
 	}
-	for _, ti := range c.records {
+	pool := c.records
+	// Foreign records join only when the literal's own file
+	// imports their package — fileVis is nil for unscoped
+	// sources, where every foreign record stays a candidate.
+	for key, ti := range c.foreignRecs {
+		if c.fileVis == nil || c.fileVis[e.Sp.File][key] {
+			pool = append(pool, ti)
+		}
+	}
+	for _, ti := range pool {
 		ok := true
 		for _, n := range names {
 			if c.fieldByName(ti.fields, n) == nil {

@@ -47,6 +47,7 @@ func Check(res *resolve.Resolved, src SignatureSource) (*File, diag.List) {
 		tyBySym:         map[*resolve.Symbol]*typeInfo{},
 		ctors:           map[*resolve.Symbol]*variantInfo{},
 		fieldSyms:       map[*resolve.Symbol]*fieldInfo{},
+		foreignRecs:     map[conKey]*typeInfo{},
 		metas:           map[*types.Meta]*metaRec{},
 		builtins:        builtinSigs(bv),
 		adoptedAnnVars:  map[*types.Var]bool{},
@@ -56,7 +57,24 @@ func Check(res *resolve.Resolved, src SignatureSource) (*File, diag.List) {
 	c.registerTypeDecls(res.File.Decls)
 	if ts, ok := src.(TypeDeclSource); ok {
 		if st, ok := src.(ScopedTypeDeclSource); ok {
-			c.registerForeignTypes(st.TypeDeclsFor(c.importRoots(res)))
+			// File-local imports: the merged decls of a multi-file
+			// package still scope foreign record literals to the
+			// file's own import closure — a sibling file's imports
+			// must not nominate record owners here.
+			c.fileVis = map[string]map[conKey]bool{}
+			var all []*TypeDecl
+			for f, roots := range c.importRootsByFile(res) {
+				decls := st.TypeDeclsFor(roots)
+				vis := map[conKey]bool{}
+				for _, d := range decls {
+					if d != nil && d.Sym != nil {
+						vis[conKey{qual: d.Sym.Package, name: d.Sym.Name}] = true
+					}
+				}
+				c.fileVis[f] = vis
+				all = append(all, decls...)
+			}
+			c.registerForeignTypes(all)
 		} else {
 			c.registerForeignTypes(ts.TypeDecls())
 		}
@@ -171,6 +189,13 @@ type checker struct {
 	ctors     map[*resolve.Symbol]*variantInfo
 	fieldSyms map[*resolve.Symbol]*fieldInfo // record/variant fields by symbol
 	records   []*typeInfo                    // record types, for literal resolution
+	// foreignRecs holds record types that arrived through imports,
+	// keyed by identity — recordByFields admits a candidate only
+	// when the literal's file's import closure (fileVis) names it.
+	// fileVis stays nil for unscoped sources: their foreign
+	// records are visible to every file.
+	foreignRecs map[conKey]*typeInfo
+	fileVis     map[string]map[conKey]bool
 
 	// metas records every unification variable with its constraints.
 	metas    map[*types.Meta]*metaRec
@@ -924,11 +949,13 @@ func (c *checker) checkDecls(decls []syntax.Decl) {
 	}
 }
 
-// importRoots returns the canonical package paths of the file's
-// Gom imports — the roots a ScopedTypeDeclSource scopes its
-// foreign declarations to. Go imports bind no Gom declarations.
-func (c *checker) importRoots(res *resolve.Resolved) []string {
-	var roots []string
+// importRootsByFile returns the canonical package paths of each
+// file's Gom imports — the roots a ScopedTypeDeclSource scopes
+// its foreign declarations to — grouped by the file the import
+// clause lives in (package decls merge across files; imports
+// stay file-local). Go imports bind no Gom declarations.
+func (c *checker) importRootsByFile(res *resolve.Resolved) map[string][]string {
+	roots := map[string][]string{}
 	for _, d := range res.File.Decls {
 		if id, ok := d.(*syntax.ImportDecl); ok && !id.Go {
 			p := res.ImportPathOf(id)
@@ -936,7 +963,7 @@ func (c *checker) importRoots(res *resolve.Resolved) []string {
 				p = id.Path
 			}
 			if p != "" {
-				roots = append(roots, p)
+				roots[id.Sp.File] = append(roots[id.Sp.File], p)
 			}
 		}
 	}

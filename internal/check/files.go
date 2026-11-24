@@ -175,7 +175,7 @@ func (c *checker) registerForeignTypes(decls []*TypeDecl) {
 					c.fieldSyms[fi.sym] = fi
 				}
 			}
-			c.records = append(c.records, ti)
+			c.foreignRecs[key] = ti
 		case *AliasType:
 			ti.kind = kindAlias
 			ti.alias = body.Type
