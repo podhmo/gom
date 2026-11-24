@@ -1890,15 +1890,14 @@
 
 - [x] **E0513（`Go.nil` 非 nil-able 拒否）が `internal/diag/codes.go` に未登録**: wave38 lane C で `check.go`/`expr.go` から `diag.Error("E0513", ...)` を直接発行したが codes registry にエントリがなく、`docs/error-codes.md` にも出ない — spec fixture（`E0513_go_nil`）は通るが `gom explain E0513` は機能しない。wave38 lane C の見落とし — **解消: wave40 lane C で E0513 を codes registry に登録（`gom explain E0513` が解説を返すことを確認、例の `P Int` 表記を `Ptr Int` に修正・spec 参照を 8.6 に）**
 
-- [ ] **workspace 単位の vendoring（`go work vendor`）を loader が見ない**: Go 1.22+ の
+- [x] **workspace 単位の vendoring（`go work vendor`）を loader が見ない**: Go 1.22+ の
   workspace vendoring は `<workroot>/vendor` を使うが、`gomimport` の vendor 解決は
-  importing file の最寄り `go.mod`（module 側）の `vendor/` のみを見る。
-  module vendor は Go の規則どおりだが、workspace vendor 環境では列挙・解決が Go とずれる。
-  参照: [実装](../internal/gomimport/loader.go)（`pkgDir` の vendor 分岐・`vendorEnabled`）、
-  [調査](sketch/2026-11-24-gom-list-external-enumeration.md)（wave40 lane F）。
-  wave42 lane D で workroot vendor の判定（`## workspace` marker 必須）と `use` 成员の
-  go.work フォールバックを実装 — 残件: lane E の検証で `## workspace` 無しの陈旧 vendor、
-  vendored 无 .gomi 時の解決などを确认してから [x]。
+  importing file の最寄り `go.mod`（module 側）の `vendor/` のみを見ていた。
+  **解消: wave42 lane D/E で `vendorDir()` を導入 — workspace（`go env GOWORK` で検出）は
+  `## workspace` marker のある `<workroot>/vendor` のみを使い、module vendor は workspace 外のときだけ。
+  modules.txt のリストが vendored 集合の正（未列挙パスは列挙・解決しない）、workspace 下で
+  `go list -m all` が失敗する際は `-mod=readonly` リトライ＋ `use` 成员を go.work/go.mod から読む。
+  検証: [テスト](../internal/gomimport/loader_test.go)（`TestLoadWorkspaceVendoredPackage`）**
 
 - [ ] **spec suite の共有 loader が import した record 宣言を後続 fixture の record literal 判定に持ち越す**: spec harness は 1 つの `gomimport.Loader` を subtest 間で使い回し、`registerForeignTypes` が「これまでに読み込んだ全 .gomi の宣言」を呼び出し側の `records` に畳み込む — import した fixture 側 record のフィールド名（`x` 等のありふれた名）が、後続 fixture の `{x = ..}` literal の持ち主判定（E0407 曖昧判定）を汚染し、該当 fixture を単独で回すと通るのに全体実行では fail する（wave41 lane B で発覚 — `testdata/spec/foreignpkg` のフィールド名をユニークに変えて回避）。呼び出し側で実際に import された record だけを畳む正規化が本筋の修正。参照: [実装](../internal/check/files.go)（`registerForeignTypes`）、[実装](../internal/build/harness_test.go)（`specCompile` の共有 `ml`）、[実装](../internal/check/expr.go)（`recordByFields`）
 

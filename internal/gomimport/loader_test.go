@@ -8,6 +8,7 @@ package gomimport
 import (
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"github.com/podhmo/gom/internal/check"
@@ -631,6 +632,101 @@ replace example.com/lib => ../lib
 	}
 	if p.Members["area"] == nil {
 		t.Fatal("area missing — stale vendored .gomi won over the -mod=mod source")
+	}
+}
+
+// Workspace vendoring materializes at <workroot>/vendor, not the
+// module's own vendor/ — under a go.work the loader must look
+// there both for package resolution and for the -mod=readonly
+// retry when `go list -m all` refuses the vendor directory.
+func TestLoadWorkspaceVendoredPackage(t *testing.T) {
+	if testing.Short() {
+		t.Skip("runs `go list`/`go env`")
+	}
+	dir := t.TempDir()
+	ext := filepath.Join(dir, "ext")
+	vendored := filepath.Join(dir, "vendor", "example.com", "lib", "shapes")
+	otherp := filepath.Join(ext, "other", "p")
+	for _, d := range []string{ext, vendored, otherp, filepath.Join(ext, "libsrc")} {
+		if err := os.MkdirAll(d, 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(dir, "go.work"),
+		[]byte("go 1.27\n\nuse ./ext\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// lib reaches the build list through a replace so the
+	// -mod=readonly retry can resolve it — the workroot vendor
+	// still wins its resolution, exactly as the go command's
+	// vendoring does. other is a non-vendored dependency: it is
+	// importable only through the retried module graph.
+	gomod := `module example.com/ext
+
+go 1.27
+
+require example.com/lib v0.0.0
+
+require example.com/other v0.0.0
+
+replace example.com/lib => ./libsrc
+
+replace example.com/other => ./other
+`
+	if err := os.WriteFile(filepath.Join(ext, "go.mod"), []byte(gomod), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for mod, mdir := range map[string]string{
+		"example.com/lib":   filepath.Join(ext, "libsrc"),
+		"example.com/other": filepath.Join(ext, "other"),
+	} {
+		if err := os.WriteFile(filepath.Join(mdir, "go.mod"),
+			[]byte("module "+mod+"\n\ngo 1.27\n"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Mirror a real `go work vendor` modules.txt: "## workspace"
+	// marker, then per vendored module the requirement with its
+	// replacement, "## explicit", the vendored package paths, and
+	// the bare-replacement trailer line.
+	if err := os.WriteFile(filepath.Join(dir, "vendor", "modules.txt"),
+		[]byte("## workspace\n# example.com/lib v0.0.0 => ./libsrc\n## explicit; go 1.27\nexample.com/lib/shapes\n# example.com/lib => ./libsrc\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(vendored, "shapes.gomi"),
+		[]byte(shapesGomi), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(otherp, "p.gomi"),
+		[]byte("package p\n\nfn pick (b: Bool) (x: a) (y: a) -> a\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	l := New(&Config{Dir: ext})
+	p, err := l.Load("example.com/lib/shapes", false)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if p.Members["area"] == nil {
+		t.Fatal("area missing — workspace-vendored .gomi did not load")
+	}
+	// A non-vendored dependency resolves only after the
+	// -mod=readonly retry reopens the module graph `go list -m
+	// all` refuses under workspace vendoring.
+	q, err := l.Load("example.com/other/p", false)
+	if err != nil {
+		t.Fatalf("Load non-vendored dep: %v", err)
+	}
+	if q.Members["pick"] == nil {
+		t.Fatal("pick missing — -mod=readonly retry did not run")
+	}
+	exts, err := ExternalPackages(ext, "")
+	if err != nil {
+		t.Fatalf("ExternalPackages: %v", err)
+	}
+	want := []string{"example.com/lib/shapes", "example.com/other/p"}
+	if !reflect.DeepEqual(exts, want) {
+		t.Fatalf("ExternalPackages = %v, want %v", exts, want)
 	}
 }
 
