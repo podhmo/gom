@@ -917,6 +917,26 @@ func (l *lowerer) convGoArg(s *seq, sig GoSig, i int, a core.Atom, spreadArg boo
 	})
 }
 
+// unboxAnyArg unwraps the checker's `any` ascription on a call
+// argument that already spells a Go type — the `any(x)` box is a
+// no-op for assignability and would erase the static type `go vet`'s
+// printf analysis reads. Declared-type positions keep their box; only
+// call-argument views strip it.
+func unboxAnyArg(v check.Expr) (check.Expr, bool) {
+	if as, ok := v.(*check.Ascribe); ok && as.Conv && !as.Iface && !as.Slice &&
+		isGoAny(as.Type()) && goNativeArg(types.Chase(as.X.Type())) {
+		return as.X, true
+	}
+	return v, false
+}
+
+// mustUnbox is unboxAnyArg without the flag, for operand positions
+// where stripping is a no-op anyway.
+func mustUnbox(v check.Expr) check.Expr {
+	x, _ := unboxAnyArg(v)
+	return x
+}
+
 // goNativeArg reports whether an argument type already spells a Go
 // type at the boundary — a `*types.Go` named ref, a `Go.*`
 // constructor (`Go.Slice`, `Go.FuncN`), the Gom views of Go-native
@@ -943,8 +963,9 @@ func goNativeArg(t types.Type) bool {
 		// Inference variable, `(a, b)` composite, bound type
 		// parameter — Gom-side shapes that need the box.
 		return false
+	default:
+		panic("unreachable")
 	}
-	return false
 }
 
 // convBoxSrc materializes a numeric atom before a ConvBoxAny: a bare
@@ -1196,15 +1217,22 @@ func (l *lowerer) argAtoms(s *seq, args []check.Arg, ci check.CallInfo, callee c
 			}
 		}
 		v := a.Value
-		if as, ok := v.(*check.Ascribe); ok && as.Conv && !as.Iface && !as.Slice &&
-			isGoAny(as.Type()) && goNativeArg(types.Chase(as.X.Type())) {
+		if x, ok := unboxAnyArg(v); ok {
 			// A Go-typed argument ascribed to `any` — the `any(x)`
 			// box is a no-op for assignability and would erase the
 			// static type `go vet`'s printf analysis reads ("format
 			// %w has arg of wrong type any"). Declared-type
 			// positions (a `let x : Go.Any` binding) keep their box;
 			// only the call-argument view strips it.
-			out[i] = l.atom(s, as.X)
+			a2 := l.atom(s, x)
+			if ci.Kind == check.CallPartial {
+				// The stripped `any(x)` temp used to snapshot the
+				// argument at closure creation. A residual Closure
+				// reads an unbound var on every call, so re-bind to
+				// keep the supplied value fixed.
+				a2 = l.bindAtom(s, v.Span(), a2)
+			}
+			out[i] = a2
 			continue
 		}
 		if as, ok := v.(*check.Ascribe); ok && as.ChanDir {
@@ -2330,7 +2358,7 @@ func (l *lowerer) binaryExpr(s *seq, e *check.Binary) core.Expr {
 	case syntax.BinPipeFwd:
 		// `x |> rhs` — evaluate x, then rhs, then append x as the
 		// lowest unfilled parameter of rhs's application.
-		xAtom := l.atom(s, e.X)
+		xAtom := l.atom(s, mustUnbox(e.X))
 		return l.pipeApply(s, e, e.Y, xAtom)
 	case syntax.BinPipeBack:
 		// `rhs <| x` — evaluate rhs (and its args), then x, append.
@@ -2483,13 +2511,13 @@ func (l *lowerer) pipeApply(s *seq, e *check.Binary, rhs check.Expr, piped core.
 // then the argument.
 func (l *lowerer) pipeApplyBack(s *seq, e *check.Binary) core.Expr {
 	if ap, ok := e.X.(*check.Apply); ok {
-		return l.pipeApplyInto(s, e.X.Span(), ap, func() core.Atom { return l.atom(s, e.Y) }, e.Type())
+		return l.pipeApplyInto(s, e.X.Span(), ap, func() core.Atom { return l.atom(s, mustUnbox(e.Y)) }, e.Type())
 	}
-	if out, ok := l.pipeGoElemCall(s, e.X, func() core.Atom { return l.atom(s, e.Y) }, e.Type()); ok {
+	if out, ok := l.pipeGoElemCall(s, e.X, func() core.Atom { return l.atom(s, mustUnbox(e.Y)) }, e.Type()); ok {
 		return out
 	}
 	fn := l.atom(s, e.X)
-	return l.applyAtom(s, e.Sp, e.Type(), fn, []core.Atom{l.atom(s, e.Y)})
+	return l.applyAtom(s, e.Sp, e.Type(), fn, []core.Atom{l.atom(s, mustUnbox(e.Y))})
 }
 
 // pipeApplyInto lowers a pipe whose callee side is itself an
@@ -2518,6 +2546,12 @@ func (l *lowerer) pipeApplyInto(s *seq, sp diag.Span, ap *check.Apply, piped fun
 	} else {
 		args = append(args, atom)
 		appendArg(&ci)
+		if ci.Kind == check.CallPartial {
+			// A residual Closure reads the atom on every call —
+			// re-bind so a captured variable keeps the value it
+			// had when the pipe supplied it.
+			args[len(args)-1] = l.bindAtom(s, sp, atom)
+		}
 	}
 	return l.finishCall(s, sp, resTyp, ap.Fn, fnExpr, recv, ci, args, hasSpread(ap.Args))
 }
@@ -2732,7 +2766,7 @@ func (l *lowerer) pipeInputAtom(s *seq, e check.Expr) core.Atom {
 		l.stmt(s, e)
 		return l.litUnit(e.Span())
 	}
-	return l.atom(s, e)
+	return l.atom(s, mustUnbox(e))
 }
 
 func (l *lowerer) pipeOk(e *check.Binary, payload core.Atom) core.Expr {

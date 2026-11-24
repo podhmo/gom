@@ -33,5 +33,8 @@ Go 型の値を `any` スロットへ渡すとき box は代入可能性上の n
   が interface 型を必要とする）。
 - Go 型を綴らない値（`Int`、`String`、record、sum、tuple、数値
   リテラルの `any(int64(42))` materialize）は従来どおり box。
-- 結果側（`-> Go.Any` の本体、`Result Go.Any` の payload）も
-  従来どおり box — `go vet` が読むのは呼び出し引数だけ。
+- `Result Go.Any` の payload も呼び出し引数位置（`Ok` の構築
+  引数が `any` に instantiate される）なので同じ規則で剥がれる
+  — assignability 上の no-op に留まる。
+- `-> Go.Any` を返す関数の本体値は従来どおり box — `go vet` が
+  読むのは呼び出し引数だけ。
