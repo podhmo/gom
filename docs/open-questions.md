@@ -30,7 +30,7 @@
 - [x] `%w` error wrapping の第一級サポート: 生成 `fmt.Errorf` が引数を box するため vet が `%w` を弾き、`wrap`/`wrapf` は `@extern` shim 退避。`Result` がある分第一級にしたい（selfish 移植 — [sketch](sketch/ja/2026-11-24-selfish-port.md)、wave43 lane F）— **wave44 lane A で解消**: Go 呼び出しの `any` 引数位置で Go 型の引数は `any(x)` に box せず素通しする emit に変更（`fmt.Errorf("%w", e)` が vet を通る。declared `Go.Any` 位置は従来どおり box）— [decision](decisions/2026-11-24-goany-arg-passthrough.md)、[検証](sketch/2026-11-24-goany-arg-passthrough.md)
 - [x] `@method` の `Result` 返り許可（E0420 緩和）: `encoding.TextUnmarshaler` 系など error を返す Go interface を gom 型に実装できない。現状は同パッケージ `shim.go` に Go で書く回避（selfish 移植 — 同上 sketch、実装の制約: [implementation-gaps.md](implementation-gaps.md)）— **wave44 lane C で実装**: `Result T GoError` を許容し `(T, error)` に unwrap emit。非 `GoError` payload は引き続き E0420
 - [ ] `Result (Option T, U)` の payload Option を呼出し側でも宣言できるか: メソッド直呼びの n-ary result は verbatim 固定で `Ptr.to_option` の後包みが要る（selfish 移植 stage 4 — 同上 sketch）
-- [ ] スカラーリテラルの meta bind 遅延: 共有メタを持つ部分適用で供給リテラルが `?b` を先に builtin へ commit し want 側の宣言型に materialize できない（`pair "x"` の E0401 誤拒否、#215 escalate）。数値リテラルの pendingLit 式遅延をスカラーへ広げるか、部分適用の conform 順序を want-aware にするか — **wave44 lane B として採択済み**（[prompts](sketch/2026-11-24-wave44-prompts.md)）
+- [x] スカラーリテラルの meta bind 遅延: 共有メタを持つ部分適用で供給リテラルが `?b` を先に builtin へ commit し want 側の宣言型に materialize できない（`pair "x"` の E0401 誤拒否、#215 escalate）。数値リテラルの pendingLit 式遅延をスカラーへ広げるか、部分適用の conform 順序を want-aware にするか — **解消（wave44 lane B）**: pendingLit 式の bind 遅延ではなく、静的に決まる fill の残余パラメータを want に pin する方式を採用 — [decision](decisions/2026-11-24-partial-app-pin-params.md)
 
 ### 最適化
 
