@@ -6,13 +6,13 @@
 // what reflection-based packages (encoding/json and friends) see.
 // A tag that is not `key:"value"` shaped is rejected (E0515).
 //
-// (spec 5; decision 2026-11-24-record-field-struct-tag)
+// (spec 3.2; decision 2026-11-24-record-field-struct-tag)
 package main
 
 import go "fmt"
 import go "encoding/json"
 
-type User = { name: String `json:"name"`, age: Int `json:"age"` }
+type User = { name: String `json:"user_name"`, age: Int `json:"age"` }
 
 fn main () -> Unit = {
   // Marshal: the JSON object uses the tag names, not `Name`/`Age`.
@@ -23,7 +23,9 @@ fn main () -> Unit = {
   }
   // Unmarshal into a `Ptr` — Go's json wants a pointer, and a
   // `Ptr User` is exactly `*User` on the Go side (step 19).
-  let data: Go.Slice Byte = Go.conv "{\"name\":\"mog\",\"age\":3}" : Go.Slice Byte
+  // `user_name` does not match `Name` case-insensitively, so the
+  // decode only binds because of the tag.
+  let data: Go.Slice Byte = Go.conv "{\"user_name\":\"mog\",\"age\":3}" : Go.Slice Byte
   let p: Ptr User = Ptr.new ()
   match json.Unmarshal data p {
     Ok _ -> {

@@ -95,7 +95,7 @@
 ## 追記（2026-11-24、review 後）
 
 - `22-struct-tags` を追加: record フィールド行の verbatim バッククォート
-  struct tag（spec 5、[decision](../decisions/2026-11-24-record-field-struct-tag.md)）。
+  struct tag（spec 3.2、[decision](../../decisions/2026-11-24-record-field-struct-tag.md)）。
   Marshal/Unmarshal の往復と `Ptr` 経由の `*User` 受け渡しを 1 ファイルで。
 - `17-tests` は `expected-test.txt` 規約をハーネスに追加して `gom test` を
   実走する形に（review 指摘から。`elapsed` は正規化、生成ファイルは
