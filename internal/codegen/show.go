@@ -180,7 +180,13 @@ func (g *gen) showBody(d *core.ShowDecl) {
 		g.nl()
 		g.raw("sb.WriteByte('[')")
 		g.nl()
-		g.raw("for i, e := range v")
+		// A constant element recipe (`List Unit` renders `()`)
+		// never reads the element — bind only the index.
+		if p.Elem.Kind == core.ShowScalar && p.Elem.Scalar == "Unit" {
+			g.raw("for i := range v")
+		} else {
+			g.raw("for i, e := range v")
+		}
 		g.open()
 		g.raw("if i > 0")
 		g.open()
@@ -188,7 +194,7 @@ func (g *gen) showBody(d *core.ShowDecl) {
 		g.nl()
 		g.close()
 		g.raw("sb.WriteString(")
-		g.expr(g.showExpr(p.Elem, ast.NewIdent("e")))
+		g.expr(g.showOperand(p.Elem, ast.NewIdent("e")))
 		g.raw(")")
 		g.nl()
 		g.close()
@@ -242,6 +248,12 @@ func (g *gen) showSum(d *core.ShowDecl) {
 			g.typ(vt)
 		})
 		xs := []ast.Expr{strLit(v.Sym.Name)}
+		if len(v.Fields) == 0 {
+			// A payload-free variant's narrowed `x` is never read —
+			// mark it used or `go build` rejects the decl.
+			g.raw("_ = x")
+			g.nl()
+		}
 		for j := range v.Fields {
 			f := &v.Fields[j]
 			xs = append(xs, strLit(" "))

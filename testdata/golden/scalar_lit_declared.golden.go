@@ -5,6 +5,7 @@ package main
 import (
 	fmt "fmt"
 	result "github.com/podhmo/gom/stdlib/result"
+	strconv "strconv"
 )
 
 //line scalar_lit_declared.gom:8
@@ -40,9 +41,9 @@ func main() {
 //line scalar_lit_declared.gom:18
 	_ = result.FromGo(int64(v), err)
 //line scalar_lit_declared.gom:19
-	tmp3 := fmt.Sprint(f)
+	tmp3 := gomShow1746ba3a5(f)
 //line scalar_lit_declared.gom:19
-	tmp4 := fmt.Sprint(ch)
+	tmp4 := gomShow2746ba3a5(ch)
 //line scalar_lit_declared.gom:19
 	tmp5 := tmp3 + " " + tmp4
 //line scalar_lit_declared.gom:19
@@ -54,4 +55,18 @@ func main() {
 //line scalar_lit_declared.gom:20
 	_ = struct{}{}
 //line scalar_lit_declared.gom:14
+}
+
+//line scalar_lit_declared.gom:19
+func gomShow1746ba3a5(v Flag) string {
+//line scalar_lit_declared.gom:19
+	return "" + "{ " + "on = " + strconv.FormatBool(bool(v)) + " }"
+//line scalar_lit_declared.gom:19
+}
+
+//line scalar_lit_declared.gom:19
+func gomShow2746ba3a5(v Ch) string {
+//line scalar_lit_declared.gom:19
+	return "" + "{ " + "c = " + strconv.QuoteRune(rune(v)) + " }"
+//line scalar_lit_declared.gom:19
 }

@@ -1,0 +1,42 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0101",
+      "severity": "error",
+      "message": "expected a newline, \";\" or \"}\" between block items, found integer literal '1'",
+      "span": {
+        "file": "ok_interp_composite.gom",
+        "start": {
+          "line": 7,
+          "col": 16,
+          "offset": 251
+        },
+        "end": {
+          "line": 7,
+          "col": 17,
+          "offset": 252
+        }
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0101",
+      "severity": "error",
+      "message": "expected a type, found integer literal '1'",
+      "span": {
+        "file": "ok_interp_composite.gom",
+        "start": {
+          "line": 7,
+          "col": 16,
+          "offset": 251
+        },
+        "end": {
+          "line": 7,
+          "col": 17,
+          "offset": 252
+        }
+      }
+    }
+  ]
+}

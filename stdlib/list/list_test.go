@@ -515,6 +515,8 @@ func gomShow27fd05b20(v option.Option[int64]) string {
 //line stdlib/list/list.gom:170
 	case option.Option_None[int64]:
 //line stdlib/list/list.gom:170
+		_ = x
+//line stdlib/list/list.gom:170
 		return "" + "None"
 //line stdlib/list/list.gom:170
 	default:
@@ -541,6 +543,8 @@ func gomShow37fd05b20(v option.Option[List[int64]]) string {
 		return "" + "Some" + " " + gomShow17fd05b20(x.V0)
 //line stdlib/list/list.gom:172
 	case option.Option_None[List[int64]]:
+//line stdlib/list/list.gom:172
+		_ = x
 //line stdlib/list/list.gom:172
 		return "" + "None"
 //line stdlib/list/list.gom:172

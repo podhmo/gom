@@ -3513,14 +3513,19 @@ func (l *lowerer) strInterp(s *seq, e *check.StrInterp) core.Expr {
 			})
 		case *check.StrExpr:
 			x := l.atom(s, p.X)
+			// A `Go.Slice` splice renders through fmt's %v — the
+			// Go-view reading the evaluator and spec give a
+			// Go-origin value — not the elementwise list recipe
+			// assert_eq's operands use (design.md 4.8).
+			var show *core.ShowPlan
+			if con, ok := types.Chase(x.Type()).(*types.Con); !ok ||
+				!(con.Qual == "Go" && con.Name == "Slice") {
+				show = l.showPlan(p.Sp, x.Type())
+			}
 			d := l.asAtom(s, p.Sp, &core.CallBuiltin{
 				Sp: p.Sp, Typ: types.String,
 				Sym: l.builtinSym("display"), Args: []core.Atom{x},
-				// The splice renders through the same display
-				// recipe assert_eq's operands use — composite
-				// types mint a gomShow decl the evaluator's
-				// comparison format reproduces (design.md 4.8).
-				Show: l.showPlan(p.Sp, x.Type()),
+				Show: show,
 			})
 			parts = append(parts, d)
 		default:

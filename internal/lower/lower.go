@@ -1092,6 +1092,12 @@ func (l *lowerer) decl(d check.Decl, out *core.File) {
 			// lowered under gom build (spec 11.6).
 			return
 		}
+		if d.Sym != nil && d.Sym.TestOnly {
+			// Display helpers the body mints belong to the test
+			// half, like a `test` block's.
+			l.inTest = true
+			defer func() { l.inTest = false }()
+		}
 		if d.Body == nil {
 			// An `@extern fn` signature declares a function whose
 			// body is hand-written Go in the same generated
@@ -1159,6 +1165,10 @@ func (l *lowerer) decl(d check.Decl, out *core.File) {
 		if !l.env.Tests && testOnlyPat(d.Pat) {
 			// A `@test let` is test-only code (spec 11.6).
 			return
+		}
+		if testOnlyPat(d.Pat) {
+			l.inTest = true
+			defer func() { l.inTest = false }()
 		}
 		if d.Extern {
 			// `@extern let` — the var is hand-written Go, or

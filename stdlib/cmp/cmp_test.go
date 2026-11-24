@@ -702,7 +702,7 @@ func gomShow10943da16(v list.List[option.Option[int64]]) string {
 //line stdlib/cmp/cmp.gom:225
 		}
 //line stdlib/cmp/cmp.gom:225
-		sb.WriteString(gomShow20943da16(e))
+		sb.WriteString("" + "(" + gomShow20943da16(e) + ")")
 //line stdlib/cmp/cmp.gom:225
 	}
 //line stdlib/cmp/cmp.gom:225
@@ -728,6 +728,8 @@ func gomShow20943da16(v option.Option[int64]) string {
 		return "" + "Some" + " " + strconv.FormatInt(x.V0, 10)
 //line stdlib/cmp/cmp.gom:225
 	case option.Option_None[int64]:
+//line stdlib/cmp/cmp.gom:225
+		_ = x
 //line stdlib/cmp/cmp.gom:225
 		return "" + "None"
 //line stdlib/cmp/cmp.gom:225
@@ -836,7 +838,7 @@ func gomShow70943da16(v list.List[result.Result[int64, string]]) string {
 //line stdlib/cmp/cmp.gom:268
 		}
 //line stdlib/cmp/cmp.gom:268
-		sb.WriteString(gomShow80943da16(e))
+		sb.WriteString("" + "(" + gomShow80943da16(e) + ")")
 //line stdlib/cmp/cmp.gom:268
 	}
 //line stdlib/cmp/cmp.gom:268

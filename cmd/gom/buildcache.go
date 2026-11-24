@@ -59,7 +59,7 @@ const (
 	// genVersion bumps whenever codegen, lowering or extern rules
 	// change what the same sources emit — part of every manifest's
 	// key so a compiler change invalidates every package.
-	genVersion = 3
+	genVersion = 4
 
 	cacheDirEnv = "GOM_BUILD_CACHE_DIR"
 	cacheOffEnv = "GOM_BUILD_NOCACHE"
