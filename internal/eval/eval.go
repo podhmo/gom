@@ -614,11 +614,23 @@ func (e *interp) eval(x check.Expr, env *Env) Value {
 		for _, el := range x.Elems {
 			if sp, isSpread := el.(*check.Spread); isSpread {
 				v := e.eval(sp.X, env)
-				tail, ok := v.(*VList)
-				if !ok {
+				switch tail := v.(type) {
+				case *VList:
+					elems = append(elems, tail.Elems...)
+				case *VHost:
+					// A Go slice through a host binding spreads
+					// element-wise as further host values — the
+					// same reading spliceGoSpread gives `f(..xs)`.
+					if rv := reflect.ValueOf(tail.V); rv.Kind() == reflect.Slice {
+						for i := 0; i < rv.Len(); i++ {
+							elems = append(elems, &VHost{V: rv.Index(i).Interface()})
+						}
+					} else {
+						failData(CodeInternal, "spread of a non-list", el.Span(), "value", v.String())
+					}
+				default:
 					failData(CodeInternal, "spread of a non-list", el.Span(), "value", v.String())
 				}
-				elems = append(elems, tail.Elems...)
 				continue
 			}
 			elems = append(elems, e.eval(el, env))
