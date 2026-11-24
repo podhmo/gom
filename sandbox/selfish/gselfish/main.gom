@@ -67,22 +67,50 @@ fn run (config: Config) -> Result Unit GoError = {
   if app.config.debug {
     ignore ((json.NewEncoder os.Stderr).Encode scan)
   }
+  execute app ctx (decide config latest scan)
+}
 
-  if app.config.is_delete && config.alias != "" {
-    app_delete app ctx latest
-  } else {
-    let commit = match latest {
-      None -> try (app_create app ctx latest scan.text_files)
-      Some lc -> if List.is_empty scan.text_files {
-        ignore (log.Println "empty, skipped")
-        lc
-      } else {
-        try (app_update app ctx lc scan.text_files)
+// The operation tree: run() first decides *what* to do (pure, no IO)
+// and then executes the decided node — the dispatch is data, not
+// control flow.
+type Action =
+  | DeleteGist
+  | CreateGist
+  | UpdateGist Commit
+  | SkipGist Commit
+
+type Plan = {
+  action: Action,
+  latest: Option Commit,
+  scan: ScanResult,
+}
+
+fn decide (config: Config) (latest: Option Commit) (scan: ScanResult) -> Plan = {
+  let action =
+    if config.is_delete && config.alias != "" {
+      DeleteGist
+    } else {
+      match latest {
+        None -> CreateGist
+        Some c -> if List.is_empty scan.text_files { SkipGist c } else { UpdateGist c }
       }
     }
-    handle_binaries app commit scan.binary_files
-  }
+  { action = action, latest = latest, scan = scan }
 }
+
+fn execute (app: App) (ctx: context.Context) (plan: Plan) -> Result Unit GoError =
+  match plan.action {
+    DeleteGist -> app_delete app ctx plan.latest
+    action -> {
+      let commit = match action {
+        CreateGist -> try (app_create app ctx plan.latest plan.scan.text_files)
+        UpdateGist c -> try (app_update app ctx c plan.scan.text_files)
+        SkipGist c -> { ignore (log.Println "empty, skipped"); c }
+        DeleteGist -> todo () // unreachable: handled above
+      }
+      handle_binaries app commit plan.scan.binary_files
+    }
+  }
 
 fn load_latest (app: App) (config: Config) -> Result (Option Commit) GoError =
   if config.alias == "" {
@@ -204,3 +232,52 @@ fn copy_to (dir: String) (fname: String) -> Result String GoError =
     ignore (try (io.Copy (wf, rf)))
     Ok base
   }
+
+// --- tests for the pure decision tree ---------------------------------
+
+@test fn cfg () -> Config = {
+  profile = { default_alias = "", access_token = "", hist_file = "", repository_directory = "" },
+  alias = "", is_delete = false, is_secret = false, is_silent = false,
+  client_type = client_type_github, files = [], debug = false,
+}
+
+@test fn empty_scan () -> ScanResult = { text_files = [], binary_files = [] }
+
+@test fn gist_commit () -> Commit =
+  { id = "g1", alias = "x", created_at = zero_time (), action = "create" }
+
+test "decide deletes only when an alias is set" {
+  match (decide ({ cfg () with is_delete = true, alias = "x" }) None (empty_scan ())).action {
+    DeleteGist -> Ok ()
+    _ -> Err (fmt.Errorf "expected DeleteGist")
+  }
+}
+
+test "decide ignores delete flag without alias" {
+  match (decide ({ cfg () with is_delete = true }) None (empty_scan ())).action {
+    CreateGist -> Ok ()
+    _ -> Err (fmt.Errorf "expected CreateGist")
+  }
+}
+
+test "decide creates when there is no alias history" {
+  match (decide (cfg ()) None (empty_scan ())).action {
+    CreateGist -> Ok ()
+    _ -> Err (fmt.Errorf "expected CreateGist")
+  }
+}
+
+test "decide skips upload when only binaries changed" {
+  match (decide (cfg ()) (Some (gist_commit ())) (empty_scan ())).action {
+    SkipGist c -> { assert_eq c.id "g1"; Ok () }
+    _ -> Err (fmt.Errorf "expected SkipGist")
+  }
+}
+
+test "decide updates when alias and text files exist" {
+  let scan = { text_files = ["readme.md"], binary_files = [] }
+  match (decide (cfg ()) (Some (gist_commit ())) scan).action {
+    UpdateGist c -> { assert_eq c.id "g1"; Ok () }
+    _ -> Err (fmt.Errorf "expected UpdateGist")
+  }
+}

@@ -8,97 +8,97 @@ import (
 	result "github.com/podhmo/gom/stdlib/result"
 )
 
-//line gselfish/config.gom:6
+//line config.gom:6
 type Profile struct {
-//line gselfish/config.gom:7
+//line config.gom:7
 	DefaultAlias string `json:"default_alias"`
-//line gselfish/config.gom:8
+//line config.gom:8
 	AccessToken string `json:"access_token"`
-//line gselfish/config.gom:9
+//line config.gom:9
 	HistFile string `json:"hist_file"`
-//line gselfish/config.gom:10
+//line config.gom:10
 	RepositoryDirectory string `json:"repositoryDirectory"`
-//line gselfish/config.gom:6
+//line config.gom:6
 }
 
-//line gselfish/config.gom:17
+//line config.gom:17
 type ClientType string
 
-//line gselfish/config.gom:32
+//line config.gom:32
 type Config struct {
-//line gselfish/config.gom:33
+//line config.gom:33
 	Profile Profile `flag:"-"`
-//line gselfish/config.gom:34
+//line config.gom:34
 	Alias string `flag:"alias" help:"alias name of uploaded gists"`
-//line gselfish/config.gom:35
+//line config.gom:35
 	IsDelete bool `flag:"delete" help:"delete uploaded gists"`
-//line gselfish/config.gom:36
+//line config.gom:36
 	IsSecret bool `flag:"secret" help:"upload gist as secret (not public)"`
-//line gselfish/config.gom:37
+//line config.gom:37
 	IsSilent bool `flag:"silent" help:"don't open gist pages with browser, after uploading"`
-//line gselfish/config.gom:38
+//line config.gom:38
 	ClientType ClientType `flag:"client" help:"if =fake, doesn't request {github, fake}"`
-//line gselfish/config.gom:39
+//line config.gom:39
 	Files list.List[string] `flag:"-"`
-//line gselfish/config.gom:40
+//line config.gom:40
 	Debug bool `flag:"debug"`
-//line gselfish/config.gom:32
+//line config.gom:32
 }
 
-//line gselfish/config.gom:19
+//line config.gom:19
 var clientTypeGithub ClientType = ClientType("github")
 
-//line gselfish/config.gom:20
+//line config.gom:20
 var clientTypeFake ClientType = ClientType("fake")
 
-//line gselfish/config.gom:23
+//line config.gom:23
 func clientTypeValidate(v ClientType) result.Result[struct{}, error] {
-//line gselfish/config.gom:24
+//line config.gom:24
 	tmp3 := v == clientTypeGithub
-//line gselfish/config.gom:24
+//line config.gom:24
 	tmp4 := v == clientTypeFake
-//line gselfish/config.gom:24
+//line config.gom:24
 	tmp5 := tmp3 || tmp4
-//line gselfish/config.gom:24
+//line config.gom:24
 	if tmp5 {
-//line gselfish/config.gom:25
+//line config.gom:25
 		return result.Ok[struct{}, error](struct{}{})
-//line gselfish/config.gom:24
+//line config.gom:24
 	} else {
-//line gselfish/config.gom:27
+//line config.gom:27
 		tmp1 := any(string(v))
-//line gselfish/config.gom:27
+//line config.gom:27
 		var tmp2 error
-//line gselfish/config.gom:27
+//line config.gom:27
 		v1 := fmt.Errorf("%s is an invalid value for internal.ClientType", tmp1)
-//line gselfish/config.gom:27
+//line config.gom:27
 		if v1 == nil {
-//line gselfish/config.gom:27
+//line config.gom:27
 			panic("gom: fmt.Errorf returned nil error — its binding declares a never-nil GoError result")
-//line gselfish/config.gom:27
+//line config.gom:27
 		}
-//line gselfish/config.gom:27
+//line config.gom:27
 		tmp2 = v1
-//line gselfish/config.gom:27
+//line config.gom:27
 		return result.Err[struct{}, error](tmp2)
-//line gselfish/config.gom:24
+//line config.gom:24
 	}
-//line gselfish/config.gom:23
+//line config.gom:23
 }
 
-//line gselfish/config.gom:44
+//line config.gom:44
 func resolveAlias(c Config, alias string) string {
-//line gselfish/config.gom:45
+//line config.gom:45
 	tmp6 := alias == ""
-//line gselfish/config.gom:45
+//line config.gom:45
 	if tmp6 {
-//line gselfish/config.gom:45
+//line config.gom:45
 		return c.Profile.DefaultAlias
-//line gselfish/config.gom:45
+//line config.gom:45
 	} else {
-//line gselfish/config.gom:45
+//line config.gom:45
 		return alias
-//line gselfish/config.gom:45
+//line config.gom:45
 	}
-//line gselfish/config.gom:44
+//line config.gom:44
 }

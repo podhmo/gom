@@ -18,324 +18,324 @@ import (
 	strings "strings"
 )
 
-//line gselfish/model.gom:14
+//line model.gom:14
 type Commit = commithistory.Commit
 
-//line gselfish/model.gom:17
+//line model.gom:17
 type GistAcc struct {
-//line gselfish/model.gom:17
+//line model.gom:17
 	Title option.Option[string]
-//line gselfish/model.gom:17
+//line model.gom:17
 	Files map[github.GistFilename]github.GistFile
-//line gselfish/model.gom:17
+//line model.gom:17
 }
 
-//line gselfish/model.gom:21
+//line model.gom:21
 func newGist(filenames list.List[string], public bool) result.Result[*github.Gist, error] {
-//line gselfish/model.gom:22
+//line model.gom:22
 	collect := func(acc GistAcc) func(string) GistAcc {
-//line gselfish/model.gom:22
+//line model.gom:22
 		return func(filename string) GistAcc {
-//line gselfish/model.gom:22
+//line model.gom:22
 			tmp1 := newGistFile(filename)
-//line gselfish/model.gom:23
+//line model.gom:23
 			switch tmp1.Tag() {
-//line gselfish/model.gom:23
+//line model.gom:23
 			case result.ResultTagOk:
-//line gselfish/model.gom:23
+//line model.gom:23
 				tmp2 := tmp1.Value
-//line gselfish/model.gom:23
+//line model.gom:23
 				tmp3 := tmp2
-//line gselfish/model.gom:26
+//line model.gom:26
 				tmp4 := filepath.Base(filename)
-//line gselfish/model.gom:26
+//line model.gom:26
 				tmp5 := strings.ToLower(tmp4)
-//line gselfish/model.gom:26
+//line model.gom:26
 				tmp6 := tmp5 == "readme.md"
-//line gselfish/model.gom:26
+//line model.gom:26
 				var title option.Option[string]
-//line gselfish/model.gom:26
+//line model.gom:26
 				if tmp6 {
-//line gselfish/model.gom:27
+//line model.gom:27
 					tmp7 := tmp3.Content
-//line gselfish/model.gom:27
+//line model.gom:27
 					var tmp8 option.Option[string]
-//line gselfish/model.gom:27
+//line model.gom:27
 					v, ok := rt.PtrToOption[string](tmp7)
-//line gselfish/model.gom:27
+//line model.gom:27
 					tmp8 = option.FromGo(v, ok)
-//line gselfish/model.gom:28
+//line model.gom:28
 					tmp10 := func(c string) option.Option[string] {
-//line gselfish/model.gom:28
+//line model.gom:28
 						tmp9 := strings.TrimLeft(c, "\n\t ")
-//line gselfish/model.gom:28
+//line model.gom:28
 						return readmeTitle(tmp9)
-//line gselfish/model.gom:28
+//line model.gom:28
 					}
-//line gselfish/model.gom:28
+//line model.gom:28
 					tmp11 := option.AndThen[string, string](tmp10, tmp8)
-//line gselfish/model.gom:29
+//line model.gom:29
 					title = option.OrElse[string](acc.Title, tmp11)
-//line gselfish/model.gom:26
+//line model.gom:26
 				} else {
-//line gselfish/model.gom:30
+//line model.gom:30
 					title = acc.Title
-//line gselfish/model.gom:26
+//line model.gom:26
 				}
-//line gselfish/model.gom:31
+//line model.gom:31
 				tmp12 := filepath.Base(filename)
-//line gselfish/model.gom:31
+//line model.gom:31
 				tmp13 := github.GistFilename(tmp12)
-//line gselfish/model.gom:31
+//line model.gom:31
 				tmp14 := rt.PtrGet[github.GistFile](tmp3)
-//line gselfish/model.gom:31
+//line model.gom:31
 				rt.MapSet[github.GistFilename, github.GistFile](acc.Files, tmp13, tmp14)
-//line gselfish/model.gom:32
+//line model.gom:32
 				u := acc
-//line gselfish/model.gom:32
+//line model.gom:32
 				u.Title = title
-//line gselfish/model.gom:32
+//line model.gom:32
 				return u
-//line gselfish/model.gom:23
+//line model.gom:23
 			case result.ResultTagErr:
-//line gselfish/model.gom:23
+//line model.gom:23
 				tmp15 := tmp1.Error
-//line gselfish/model.gom:23
+//line model.gom:23
 				tmp16 := tmp15
-//line gselfish/model.gom:23
+//line model.gom:23
 				tmp17 := any(filename)
-//line gselfish/model.gom:23
+//line model.gom:23
 				tmp18 := any(tmp16)
-//line gselfish/model.gom:23
+//line model.gom:23
 				log.Printf("skip file=%s err=%v\n", tmp17, tmp18)
-//line gselfish/model.gom:23
+//line model.gom:23
 				_ = struct{}{}
-//line gselfish/model.gom:23
+//line model.gom:23
 				return acc
-//line gselfish/model.gom:23
+//line model.gom:23
 			default:
-//line gselfish/model.gom:22
+//line model.gom:22
 				panic(rt.InvalidVariant("Result", tmp1))
-//line gselfish/model.gom:23
+//line model.gom:23
 			}
-//line gselfish/model.gom:22
+//line model.gom:22
 		}
-//line gselfish/model.gom:22
+//line model.gom:22
 	}
-//line gselfish/model.gom:35
+//line model.gom:35
 	empty := rt.MapMake[github.GistFilename, github.GistFile]()
-//line gselfish/model.gom:36
+//line model.gom:36
 	tmp19 := func(p0 GistAcc, p1 string) GistAcc {
-//line gselfish/model.gom:36
+//line model.gom:36
 		u0 := collect(p0)
-//line gselfish/model.gom:36
+//line model.gom:36
 		return u0(p1)
-//line gselfish/model.gom:36
+//line model.gom:36
 	}
-//line gselfish/model.gom:36
+//line model.gom:36
 	tmp20 := option.Option[string](option.Option_None[string]{})
-//line gselfish/model.gom:36
+//line model.gom:36
 	tmp21 := GistAcc{Title: tmp20, Files: empty}
-//line gselfish/model.gom:36
+//line model.gom:36
 	acc1 := list.Fold[GistAcc, string](tmp19, tmp21, filenames)
-//line gselfish/model.gom:37
+//line model.gom:37
 	gist := rt.PtrNew[github.Gist]()
-//line gselfish/model.gom:38
+//line model.gom:38
 	tmp22 := rt.PtrMake[bool](public)
-//line gselfish/model.gom:38
+//line model.gom:38
 	gist.Public = tmp22
-//line gselfish/model.gom:39
+//line model.gom:39
 	gist.Files = acc1.Files
-//line gselfish/model.gom:40
+//line model.gom:40
 	tmp23 := option.GetOrElse[string]("", acc1.Title)
-//line gselfish/model.gom:40
+//line model.gom:40
 	tmp24 := rt.PtrMake[string](tmp23)
-//line gselfish/model.gom:40
+//line model.gom:40
 	gist.Description = tmp24
-//line gselfish/model.gom:41
+//line model.gom:41
 	return result.Ok[*github.Gist, error](gist)
-//line gselfish/model.gom:21
+//line model.gom:21
 }
 
-//line gselfish/model.gom:45
+//line model.gom:45
 func readmeTitle(text string) option.Option[string] {
-//line gselfish/model.gom:45
+//line model.gom:45
 	tmp25 := strings.Split(text, "\n")
-//line gselfish/model.gom:45
+//line model.gom:45
 	tmp26 := list.FromSlice(tmp25)
-//line gselfish/model.gom:45
+//line model.gom:45
 	return firstHeading(tmp26)
-//line gselfish/model.gom:45
+//line model.gom:45
 }
 
-//line gselfish/model.gom:47
+//line model.gom:47
 func firstHeading(lines list.List[string]) option.Option[string] {
-//line gselfish/model.gom:47
+//line model.gom:47
 	for {
-//line gselfish/model.gom:48
+//line model.gom:48
 		switch {
-//line gselfish/model.gom:48
+//line model.gom:48
 		case len(lines) == 0:
-//line gselfish/model.gom:48
+//line model.gom:48
 			return option.Option_None[string]{}
-//line gselfish/model.gom:48
+//line model.gom:48
 		case len(lines) != 0:
-//line gselfish/model.gom:48
+//line model.gom:48
 			tmp27 := lines[0]
-//line gselfish/model.gom:48
+//line model.gom:48
 			tmp28 := lines[1:]
-//line gselfish/model.gom:48
+//line model.gom:48
 			tmp29 := tmp27
-//line gselfish/model.gom:48
+//line model.gom:48
 			tmp30 := tmp28
-//line gselfish/model.gom:49
+//line model.gom:49
 			var tmp31 rt.Tuple2[string, bool]
-//line gselfish/model.gom:49
+//line model.gom:49
 			a, b := strings.CutPrefix(tmp29, "# ")
-//line gselfish/model.gom:49
+//line model.gom:49
 			tmp31 = rt.Tuple2[string, bool]{V0: a, V1: b}
-//line gselfish/model.gom:50
+//line model.gom:50
 			switch tmp31.V1 {
-//line gselfish/model.gom:50
+//line model.gom:50
 			case true:
-//line gselfish/model.gom:50
+//line model.gom:50
 				tmp32 := tmp31.V0
-//line gselfish/model.gom:50
+//line model.gom:50
 				tmp33 := strings.TrimSpace(tmp32)
-//line gselfish/model.gom:50
+//line model.gom:50
 				return option.Option_Some[string]{V0: tmp33}
-//line gselfish/model.gom:50
+//line model.gom:50
 			default:
-//line gselfish/model.gom:51
+//line model.gom:51
 				switch tmp31.V1 {
-//line gselfish/model.gom:51
+//line model.gom:51
 				case false:
-//line gselfish/model.gom:51
+//line model.gom:51
 					_ = tmp31.V0
-//line gselfish/model.gom:51
+//line model.gom:51
 					lines = tmp30
-//line gselfish/model.gom:51
+//line model.gom:51
 					continue
-//line gselfish/model.gom:51
+//line model.gom:51
 				default:
-//line gselfish/model.gom:51
+//line model.gom:51
 					panic(rt.InvalidVariant("Bool", tmp31.V1))
-//line gselfish/model.gom:51
+//line model.gom:51
 				}
-//line gselfish/model.gom:50
+//line model.gom:50
 			}
-//line gselfish/model.gom:50
+//line model.gom:50
 		default:
-//line gselfish/model.gom:47
+//line model.gom:47
 			panic(rt.InvalidVariant("List", lines))
-//line gselfish/model.gom:48
+//line model.gom:48
 		}
-//line gselfish/model.gom:47
+//line model.gom:47
 	}
-//line gselfish/model.gom:47
+//line model.gom:47
 }
 
-//line gselfish/model.gom:56
+//line model.gom:56
 func newGistFile(filename string) result.Result[*github.GistFile, error] {
-//line gselfish/model.gom:57
+//line model.gom:57
 	basename := path.Base(filename)
-//line gselfish/model.gom:58
+//line model.gom:58
 	var tmp35 result.Result[option.Option[fs.FileInfo], error]
-//line gselfish/model.gom:58
+//line model.gom:58
 	v1, err := os.Stat(filename)
-//line gselfish/model.gom:58
+//line model.gom:58
 	tmp35 = result.FromGo(option.FromGo(v1, v1 != nil), err)
-//line gselfish/model.gom:58
+//line model.gom:58
 	tmp36 := wrapResult[option.Option[fs.FileInfo]](tmp35, "stat")
-//line gselfish/model.gom:58
+//line model.gom:58
 	var tmp37 option.Option[fs.FileInfo]
-//line gselfish/model.gom:58
+//line model.gom:58
 	switch tmp36.Tag() {
-//line gselfish/model.gom:58
+//line model.gom:58
 	case result.ResultTagOk:
-//line gselfish/model.gom:58
+//line model.gom:58
 		tmp37 = tmp36.Value
-//line gselfish/model.gom:58
+//line model.gom:58
 	case result.ResultTagErr:
-//line gselfish/model.gom:58
+//line model.gom:58
 		return result.Err[*github.GistFile, error](tmp36.Error)
-//line gselfish/model.gom:58
+//line model.gom:58
 	default:
-//line gselfish/model.gom:58
+//line model.gom:58
 		panic(rt.InvalidVariant("result.Result", tmp36))
-//line gselfish/model.gom:58
+//line model.gom:58
 	}
-//line gselfish/model.gom:58
+//line model.gom:58
 	finfo := option.Get[fs.FileInfo](tmp37)
-//line gselfish/model.gom:59
+//line model.gom:59
 	size := finfo.Size()
-//line gselfish/model.gom:60
+//line model.gom:60
 	tmp38 := size == 0
-//line gselfish/model.gom:60
+//line model.gom:60
 	if tmp38 {
-//line gselfish/model.gom:61
+//line model.gom:61
 		var tmp39 error
-//line gselfish/model.gom:61
+//line model.gom:61
 		v2 := fmt.Errorf("empty file")
-//line gselfish/model.gom:61
+//line model.gom:61
 		if v2 == nil {
-//line gselfish/model.gom:61
+//line model.gom:61
 			panic("gom: fmt.Errorf returned nil error — its binding declares a never-nil GoError result")
-//line gselfish/model.gom:61
+//line model.gom:61
 		}
-//line gselfish/model.gom:61
+//line model.gom:61
 		tmp39 = v2
-//line gselfish/model.gom:61
+//line model.gom:61
 		tmp40 := result.Err[struct{}, error](tmp39)
-//line gselfish/model.gom:61
+//line model.gom:61
 		switch tmp40.Tag() {
-//line gselfish/model.gom:61
+//line model.gom:61
 		case result.ResultTagOk:
-//line gselfish/model.gom:61
+//line model.gom:61
 			_ = tmp40.Value
-//line gselfish/model.gom:61
+//line model.gom:61
 		case result.ResultTagErr:
-//line gselfish/model.gom:61
+//line model.gom:61
 			return result.Err[*github.GistFile, error](tmp40.Error)
-//line gselfish/model.gom:61
+//line model.gom:61
 		default:
-//line gselfish/model.gom:61
+//line model.gom:61
 			panic(rt.InvalidVariant("result.Result", tmp40))
-//line gselfish/model.gom:61
+//line model.gom:61
 		}
-//line gselfish/model.gom:60
+//line model.gom:60
 	}
-//line gselfish/model.gom:63
+//line model.gom:63
 	var tmp41 result.Result[list.List[byte], error]
-//line gselfish/model.gom:63
+//line model.gom:63
 	v3, err1 := os.ReadFile(filename)
-//line gselfish/model.gom:63
+//line model.gom:63
 	tmp41 = result.FromGo(list.FromSlice(v3), err1)
-//line gselfish/model.gom:63
+//line model.gom:63
 	tmp42 := wrapResult[list.List[byte]](tmp41, "read all")
-//line gselfish/model.gom:63
+//line model.gom:63
 	var byte_ list.List[byte]
-//line gselfish/model.gom:63
+//line model.gom:63
 	switch tmp42.Tag() {
-//line gselfish/model.gom:63
+//line model.gom:63
 	case result.ResultTagOk:
-//line gselfish/model.gom:63
+//line model.gom:63
 		byte_ = tmp42.Value
-//line gselfish/model.gom:63
+//line model.gom:63
 	case result.ResultTagErr:
-//line gselfish/model.gom:63
+//line model.gom:63
 		return result.Err[*github.GistFile, error](tmp42.Error)
-//line gselfish/model.gom:63
+//line model.gom:63
 	default:
-//line gselfish/model.gom:63
+//line model.gom:63
 		panic(rt.InvalidVariant("result.Result", tmp42))
-//line gselfish/model.gom:63
+//line model.gom:63
 	}
-//line gselfish/model.gom:64
+//line model.gom:64
 	content := string(byte_)
-//line gselfish/model.gom:67
+//line model.gom:67
 	tmp43 := hostNewGistFile(basename, size, content)
-//line gselfish/model.gom:67
+//line model.gom:67
 	return result.Ok[*github.GistFile, error](tmp43)
-//line gselfish/model.gom:56
+//line model.gom:56
 }
