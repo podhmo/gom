@@ -7,6 +7,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/podhmo/gom/internal/gomimport"
 	"github.com/podhmo/gom/internal/testbin"
 	"os"
 	"os/exec"
@@ -1361,6 +1362,18 @@ func TestListExternalWorkspaceOmitted(t *testing.T) {
 	for _, want := range []string{"example.com/lib", "example.com/lib/p"} {
 		if !found[want] {
 			t.Errorf("gom list -external missing %q, got %v", want, got)
+		}
+	}
+}
+
+// TestCanonicalImportStdlibNames pins canonicalImport to the
+// gomimport table: every stdlib short name unfolds — `cmp` was
+// missing from the hand-copied switch (wave41 lane B review).
+func TestCanonicalImportStdlibNames(t *testing.T) {
+	for _, name := range gomimport.StdlibShortNames() {
+		want := "github.com/podhmo/gom/stdlib/" + name
+		if got := canonicalImport(name); got != want {
+			t.Errorf("canonicalImport(%q) = %q, want %q", name, got, want)
 		}
 	}
 }
