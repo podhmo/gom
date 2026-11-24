@@ -128,6 +128,14 @@ func (e *interp) matchPat(pat check.Pat, v Value, env *Env) bool {
 	case *check.RecordPat:
 		r, ok := v.(*VRecord)
 		if !ok {
+			// A one-field record evaluates to its field scalar —
+			// `{n: s}` on a `type X = {n: F}` value binds the bare
+			// field value, matching codegen's unwrap.
+			if con, cok := types.Chase(p.Type()).(*types.Con); cok {
+				if ri := e.recordOf(con); ri != nil && len(ri.fields) == 1 && len(p.Fields) == 1 {
+					return e.matchPat(p.Fields[0].Pat, v, env)
+				}
+			}
 			return false
 		}
 		for _, fp := range p.Fields {

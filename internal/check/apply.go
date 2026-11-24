@@ -84,18 +84,24 @@ func (c *checker) checkApply(e *syntax.Apply, want types.Type) Expr {
 	// ordered, ...) is skipped rather than bound: it can never
 	// hold `any`, and the ordinary argument check reports the
 	// honest mismatch.
-	var pin func(w, r types.Type)
-	pin = func(w, r types.Type) {
+	var pin func(w, r types.Type, inParam bool)
+	pin = func(w, r types.Type, inParam bool) {
 		wc, rc := types.Chase(w), types.Chase(r)
 		if wc == nil || rc == nil {
 			return
 		}
 		switch r := rc.(type) {
 		case *types.Meta:
-			// Defined types pin like `any` does: `Some "x" : Option
-			// Name` binds `a := Name` so the String literal gets its
-			// materialization (scalarLitConv) instead of `a := String`.
-			if containsGoAny(wc) || c.definedUnderlying(wc) != wc {
+			// Defined types pin like `any` does — but only in
+			// result position: `Some "x" : Option Name` binds
+			// `a := Name` so the String literal gets its
+			// materialization (scalarLitConv) instead of
+			// `a := String`. A residual *parameter* must not pin
+			// this way — labeled partial calls resolve their
+			// supplied arguments against the open parameters, and
+			// pinning the open param's meta would retype the
+			// supplied argument through the wrong slot.
+			if containsGoAny(wc) || (!inParam && c.definedUnderlying(wc) != wc) {
 				if rec := c.recOf(r); !(rec.num || rec.ord || rec.flo || rec.intg || rec.eq) {
 					c.bind(r, wc, e.Sp)
 				}
@@ -104,14 +110,14 @@ func (c *checker) checkApply(e *syntax.Apply, want types.Type) Expr {
 			if w, ok := wc.(*types.Con); ok &&
 				r.Qual == w.Qual && r.Name == w.Name && len(r.Args) == len(w.Args) {
 				for i := range w.Args {
-					pin(w.Args[i], r.Args[i])
+					pin(w.Args[i], r.Args[i], inParam)
 				}
 			}
 		case *types.Go:
 			if w, ok := wc.(*types.Go); ok &&
 				r.Ref == w.Ref && len(r.Args) == len(w.Args) {
 				for i := range w.Args {
-					pin(w.Args[i], r.Args[i])
+					pin(w.Args[i], r.Args[i], inParam)
 				}
 			}
 		case *types.Func:
@@ -120,15 +126,15 @@ func (c *checker) checkApply(e *syntax.Apply, want types.Type) Expr {
 				rp, rr := flattenFunc(r)
 				if len(wp) == len(rp) {
 					for i := range wp {
-						pin(wp[i].Type, rp[i].Type)
+						pin(wp[i].Type, rp[i].Type, true)
 					}
-					pin(wr, rr)
+					pin(wr, rr, inParam)
 				}
 			}
 		case *types.Tuple:
 			if w, ok := wc.(*types.Tuple); ok && len(w.Elems) == len(r.Elems) {
 				for i := range w.Elems {
-					pin(w.Elems[i], r.Elems[i])
+					pin(w.Elems[i], r.Elems[i], inParam)
 				}
 			}
 		case *types.Var:
@@ -147,7 +153,7 @@ func (c *checker) checkApply(e *syntax.Apply, want types.Type) Expr {
 	if len(e.Args) < len(params) {
 		appRet = &types.Func{Params: params[len(e.Args):], Ret: ret}
 	}
-	pin(want, appRet)
+	pin(want, appRet, false)
 	if goCall {
 		sig, _ := c.sigOf(callee, e.Sp)
 		arity := c.declArity(sig, len(params))
