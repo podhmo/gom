@@ -384,11 +384,36 @@ func (c *checker) eqProbe(t types.Type, sink *[]*types.Meta) bool {
 // eqWalk is the shared traversal behind hasFuncOrVar and eqProbe.
 // sink, when set, collects every unbound meta the walk crosses.
 type eqWalk struct {
-	c      *checker
-	seen   map[*typeInfo]bool
-	bound  map[int]int
-	sink   *[]*types.Meta
-	peeled map[conKey]bool
+	c     *checker
+	seen  map[*typeInfo]bool
+	bound map[int]int
+	sink  *[]*types.Meta
+}
+
+// hasConKey reports whether t mentions the constructor key — the
+// self-reference check that keeps a peel from growing the walk's
+// type each step.
+func hasConKey(t types.Type, key conKey) bool {
+	switch t := types.Chase(t).(type) {
+	case *types.Con:
+		if t.Qual == key.qual && t.Name == key.name {
+			return true
+		}
+		return slices.ContainsFunc(t.Args, func(x types.Type) bool { return hasConKey(x, key) })
+	case *types.Func:
+		if hasConKey(t.Ret, key) {
+			return true
+		}
+		return slices.ContainsFunc(t.Params, func(p types.FuncParam) bool { return hasConKey(p.Type, key) })
+	case *types.Tuple:
+		return slices.ContainsFunc(t.Elems, func(x types.Type) bool { return hasConKey(x, key) })
+	case *types.Go:
+		return slices.ContainsFunc(t.Args, func(x types.Type) bool { return hasConKey(x, key) })
+	case *types.Var, *types.Meta:
+		return false
+	default:
+		panic("unreachable")
+	}
 }
 
 // has reports whether t contains a function type or a rigid variable.
@@ -413,18 +438,13 @@ func (w *eqWalk) has(t types.Type) bool {
 		// int64`: the phantom `a` never reaches the emitted shape,
 		// so the peel drops it from the walk the same way
 		// satisfies' eq judgment does. A `{f: a}` record stays
-		// unpeeled and its argument still flags. A type-level cycle
-		// (`{f: List Wrap}` peels to a Con holding Wrap) falls back
-		// to the declaration walk, where `seen` bounds it.
-		if key := (conKey{qual: t.Qual, name: t.Name}); !w.peeled[key] {
-			if u := w.c.definedUnderlying(t); u != t {
-				if w.peeled == nil {
-					w.peeled = map[conKey]bool{}
-				}
-				w.peeled[key] = true
-				defer delete(w.peeled, key)
-				return w.has(u)
-			}
+		// unpeeled and its argument still flags. A peel whose field
+		// still mentions the record (`{w: W (List a)}` →
+		// `W (List Int)`) would grow the type each step — the
+		// declaration walk's `seen` bounds it instead.
+		key := conKey{qual: t.Qual, name: t.Name}
+		if u := w.c.definedUnderlying(t); u != t && !hasConKey(u, key) {
+			return w.has(u)
 		}
 		// `Go.FuncN` is a Go func type spelled as a constructor —
 		// Go funcs are not comparable, so `==` on one is E0409
