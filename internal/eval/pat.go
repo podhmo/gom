@@ -39,7 +39,7 @@ func (e *interp) matchPat(pat check.Pat, v Value, env *Env) bool {
 		}
 		return true
 	case *check.LitPat:
-		want := litValue(p.Kind, p.Text, p.Type(), pat.Span())
+		want := e.litValueTyped(p.Kind, p.Text, p.Type(), pat.Span())
 		return e.eqValue(want, v, pat.Span())
 	case *check.TuplePat:
 		t, ok := v.(*VTuple)
@@ -128,6 +128,23 @@ func (e *interp) matchPat(pat check.Pat, v Value, env *Env) bool {
 	case *check.RecordPat:
 		r, ok := v.(*VRecord)
 		if !ok {
+			// A one-field record evaluates to its field scalar —
+			// `{n: s}` on a `type X = {n: F}` value binds the bare
+			// field value, matching codegen's unwrap.
+			if con, cok := types.Chase(p.Type()).(*types.Con); cok {
+				if ri := e.recordOf(con); ri != nil && len(ri.fields) == 1 && len(p.Fields) == 1 {
+					// The bare scalar still carries the literal's
+					// own kind — `let s: Score = 1` binds VInt, so
+					// `{v = x}` must coerce like field access does
+					// for a Float-backed field.
+					if e.floatBackedField(ri.fields[0].typ) {
+						if i, ok := v.(*VInt); ok {
+							v = &VFloat{F: float64(i.N)}
+						}
+					}
+					return e.matchPat(p.Fields[0].Pat, v, env)
+				}
+			}
 			return false
 		}
 		for _, fp := range p.Fields {

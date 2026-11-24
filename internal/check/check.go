@@ -1613,8 +1613,10 @@ func isValue(x Expr) bool {
 	case *Ascribe:
 		// A `Go.conv` Ascribe computes a conversion — not a
 		// syntactic value. A plain Ascribe carries only its type
-		// annotation, so the restriction sees through it.
-		return !x.Conv && isValue(x.X)
+		// annotation, so the restriction sees through it, and a
+		// literal materialization (Mat) shares the scalar's
+		// representation — `let tag : Tag a = "x"` binds a value.
+		return (!x.Conv || x.Mat) && isValue(x.X)
 	case *Hole, *Unary, *Binary, *StrInterp, *If, *Match, *Block,
 		*Let, *Ignore, *Try, *FieldAssign, *GoExpr, *For,
 		*SelectExpr, *Spread:

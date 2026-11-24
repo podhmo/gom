@@ -1,0 +1,63 @@
+// Step 23: defined types — the one-field record peel.
+//
+// `type UserId = { v: Int }` does NOT emit a Go struct. A one-field
+// record peels to a Go *defined type* over its field:
+//
+//     type UserId int64
+//
+// Why: "same value, distinct type" in idiomatic Go is a named type
+// over the underlying (`type UserId int64`, `type Flag bool`), not
+// `struct{ V int64 }` — a Go caller reads and converts it exactly
+// like any named scalar, at zero runtime cost. The record spelling
+// in gom stays as syntax: `u.v` projects the field and `{ v = 0 }`
+// still constructs it.
+package main
+
+import go "fmt"
+
+type UserId = { v: Int }
+type Flag = { on: Bool }
+
+fn main () -> Unit = {
+  // Two spellings of the same value: the record literal, and —
+  // like Go's untyped constants — a bare literal in a declared-type
+  // position. (`UserId 0` parses as a call, but name resolution
+  // rejects it: `UserId` is a type name, not a value — E0201.)
+  let a : UserId = { v = 0 }
+  let b : UserId = 0
+  let c : UserId = 0
+  ignore (fmt.Println "same ${a == b && b == c}")
+
+  // The underlying type's own ops still apply.
+  let d : UserId = a + 1
+  ignore (fmt.Println "next ${d.v}, under 100? ${d < 100}")
+
+  // `Flag` peels to `type Flag bool`.
+  let f : Flag = true
+  ignore (fmt.Println "flag ${f}")
+
+  // A couple of gotchas worth knowing:
+  //
+  // - A typed value does NOT implicitly convert — only literals do:
+  //       let n = 0
+  //       let z : UserId = n    // E0401: n is already Int
+  //   (Go behaves the same: `var z UserId = n` needs `UserId(n)`.)
+  //
+  // - The peel needs a concrete field type: `Point` below is a
+  //   real `struct{...}` and `p + 1` is E0401, and
+  //   `type Box a = { v: a }` stays a struct too — Go forbids a
+  //   bare type parameter as a defined type's underlying. A
+  //   generic record whose field ISN'T a bare parameter still
+  //   peels (stdlib `Eq` is a one-field record of a function).
+  //
+  // - A `Char`-backed defined type prints as the rune's number
+  //   via `%v`, while a bare `Char` prints as the character —
+  //   a display asymmetry (docs/implementation-gaps).
+  //
+  // - A peeled value displays as its field: `${f}` prints
+  //   `true`, not `{ on = true }` — display follows the stored
+  //   scalar form, not the declared type's record syntax.
+  ()
+}
+
+type Point = { x: Int, y: Int }

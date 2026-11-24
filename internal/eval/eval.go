@@ -520,7 +520,7 @@ func (e *interp) eval(x check.Expr, env *Env) Value {
 	}
 	switch x := x.(type) {
 	case *check.Lit:
-		return litValue(x.Kind, x.Text, x.Type(), x.Span())
+		return e.litValueTyped(x.Kind, x.Text, x.Type(), x.Span())
 	case *check.Var:
 		return e.evalVar(x, env)
 	case *check.Apply:
@@ -663,6 +663,12 @@ func (e *interp) eval(x check.Expr, env *Env) Value {
 			return &VVariant{Type: con, Name: "None"}
 		}
 		if x.Conv {
+			// A literal materialization into a defined type is a
+			// no-op — the eval value is the field scalar itself
+			// (a one-field record evaluates to its field value).
+			if x.Mat {
+				return e.eval(x.X, env)
+			}
 			// The implicit `any` box (checker's `Go.Any`
 			// conformance materialization) is representation-only
 			// here: eval values are dynamically typed already.
@@ -930,7 +936,7 @@ func (e *interp) evalMember(x *check.MemberExpr, env *Env) Value {
 			// field reads its value as a float (`let s: Score = 1`
 			// projects `1.0`, matching generated `Score(1)`).
 			if x.Index == 0 {
-				if isFloatCon(x.Type()) {
+				if e.floatBackedField(x.Type()) {
 					if i, ok := recv.(*VInt); ok {
 						return &VFloat{F: float64(i.N)}
 					}

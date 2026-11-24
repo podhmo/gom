@@ -2657,3 +2657,40 @@ func TestPipeNamelessStepLineIndex(t *testing.T) {
 		t.Fatalf("result = %v, diagnostics = %v", r.Value, r.Diags)
 	}
 }
+
+// TestFloatBackedLiteralMaterialization binds one Score from `1` and
+// another from `1.0` and compares the two stored values directly —
+// a projection would hide the regression since field access widens
+// integers on read.
+func TestFloatBackedLiteralMaterialization(t *testing.T) {
+	src := `package main
+
+type Score = {v: Float}
+
+fn main () -> Int = {
+  let a : Score = 1
+  let b : Score = 1.0
+  if a == b {
+    1
+  } else {
+    0
+  }
+}
+`
+	f, ds := syntax.Parse([]byte(src), "main.gom")
+	if ds.HasError() {
+		t.Fatalf("parse: %v", ds)
+	}
+	ress, ds := resolve.Files([]*syntax.File{f}, nil)
+	if ds.HasError() {
+		t.Fatalf("resolve: %v", ds)
+	}
+	files, ds := check.Files(ress, nil)
+	if ds.HasError() {
+		t.Fatalf("check: %v", ds)
+	}
+	r := eval.ProgramFiles(files)
+	if !r.OK() || r.Value.String() != "1" {
+		t.Fatalf("got %v diags=%v", r.Value, r.Diags)
+	}
+}

@@ -1,0 +1,20 @@
+package main
+
+// String/Char/Bool literals assign to a declared type whose Go
+// emission is a defined type — Go's untyped-constant rule, extended
+// from the numeric literals' path (wave43 lane B). The literal is
+// materialized `Name("x")` in emitted code. A typed String variable
+// is not a constant and stays rejected (E0401_scalar_var_declared).
+type Name = { n: String }
+type Flag = { b: Bool }
+type Ch = { c: Char }
+
+fn greet (n: Name) -> String = n.n
+let hi = greet "hi"
+let who : Name = "you"
+fn yes () -> Flag = true
+let zed : Ch = 'z'
+type Deep = { inner: Name }
+let nested : Deep = "x"
+type U = { u: Unit }
+let nop : U = ()

@@ -287,6 +287,9 @@ func (c *checker) conformExpr(out Expr, want types.Type, sp diag.Span) Expr {
 		if conv := c.chanDirConv(want, out, sp); conv != nil {
 			return conv
 		}
+		if conv := c.scalarLitConv(want, out, sp); conv != nil {
+			return conv
+		}
 	}
 	// A failed expectation left want unsolved: silence its E0407 —
 	// the mismatch diagnostic at sp already tells the user what to
@@ -322,6 +325,49 @@ func (c *checker) conformExpr(out Expr, want types.Type, sp diag.Span) Expr {
 		return &Ascribe{Base: baseOf(sp, want), X: out, Conv: true}
 	}
 	return out
+}
+
+// scalarLitConv conforms a String/Char/Bool/Unit literal to a
+// defined-type declared type (`type X F` — a one-field record
+// emitting as `type X string`) whose field is the matching builtin
+// — Go's untyped-constant assignability, extended from the numeric
+// literals' meta-constraint path to the concretely typed literals.
+// Only the literal node qualifies: a typed String variable stays
+// rejected, as in Go.
+func (c *checker) scalarLitConv(want types.Type, out Expr, sp diag.Span) Expr {
+	l, ok := out.(*Lit)
+	if !ok {
+		return nil
+	}
+	var name string
+	switch l.Kind {
+	case syntax.LitStr:
+		name = "String"
+	case syntax.LitChar:
+		name = "Char"
+	case syntax.LitBool:
+		name = "Bool"
+	case syntax.LitUnit:
+		name = "Unit"
+	default:
+		return nil
+	}
+	w := types.Chase(want)
+	u := c.definedUnderlying(w)
+	if u == w {
+		return nil
+	}
+	uc, ok := u.(*types.Con)
+	if !ok || uc.Qual != "" || uc.Name != name {
+		return nil
+	}
+	// A file-local record's field was spelled in this file, where
+	// the caller's `type String` may shadow the builtin — the same
+	// scope rule the numeric constraint peel applies in satisfies.
+	if wc, ok := w.(*types.Con); ok && wc.Qual == "" && c.shadowedBuiltin(name) {
+		return nil
+	}
+	return &Ascribe{Base: baseOf(sp, want), X: out, Conv: true, Mat: true}
 }
 
 // goWant marks want as a live Go-call parameter type for the extent
@@ -1969,7 +2015,7 @@ func (c *checker) checkBinary(e *syntax.Binary) Expr {
 		b := c.newMeta(e.Sp, "the composed function's middle type")
 		r := c.newMeta(e.Sp, "the composed function's result")
 		ok1 := c.unify(x.Type(), types.Fn(b, types.P(a)), e.X.Span())
-		ok2 := c.conformCallee(g.Type(), b, r, e.Y.Span(), false)
+		ok2 := c.conformCallee(g.Type(), b, r, e.Y.Span(), false, nil)
 		if !ok1 || !ok2 {
 			c.markQuiet(a)
 			c.markQuiet(b)
@@ -1985,7 +2031,7 @@ func (c *checker) checkBinary(e *syntax.Binary) Expr {
 		b := c.newMeta(e.Sp, "the composed function's middle type")
 		r := c.newMeta(e.Sp, "the composed function's result")
 		ok1 := c.unify(f.Type(), types.Fn(b, types.P(a)), e.Y.Span())
-		ok2 := c.conformCallee(g.Type(), b, r, e.X.Span(), false)
+		ok2 := c.conformCallee(g.Type(), b, r, e.X.Span(), false, nil)
 		if !ok1 || !ok2 {
 			c.markQuiet(a)
 			c.markQuiet(b)
@@ -2147,7 +2193,7 @@ func (c *checker) pipeCall(e *syntax.Binary, arg, fn Expr) Expr {
 	// the boundary conversion; the type-only application check
 	// never wrapped the argument. A failed check already reported
 	// the mismatch — wrapping again would echo it at the arg span.
-	if c.conformCallee(fn.Type(), arg.Type(), ret, e.Sp, true) {
+	if c.conformCallee(fn.Type(), arg.Type(), ret, e.Sp, true, arg) {
 		conv := c.conformFirstArg(fn.Type(), arg)
 		if e.Op == syntax.BinPipeBack {
 			out.Y = conv
@@ -2916,7 +2962,7 @@ func (c *checker) checkPipeTry(e *syntax.Binary) Expr {
 	// The step's argument is the unwrapped payload — a value the
 	// lowering produces, not an expression the Ascribe can hang on —
 	// so boundary conversions stay unify-only here (conv=false).
-	if !c.conformCallee(f.Type(), argT, types.Result(resT, errT), e.Y.Span(), false) {
+	if !c.conformCallee(f.Type(), argT, types.Result(resT, errT), e.Y.Span(), false, nil) {
 		c.markQuiet(resT)
 		c.markQuiet(errT)
 	}
