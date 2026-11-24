@@ -656,7 +656,24 @@ func (l *Loader) pkgDir(path string) (string, error) {
 	}
 	mods, err := l.extModules()
 	if err != nil {
-		return "", err
+		// Workspace `use` members stay importable when the module
+		// graph cannot be listed — `go work` resolves them from
+		// their use dirs directly (workspace vendoring, offline),
+		// and ExternalPackages advertises them from the same
+		// source. Fall back to that reading before giving up.
+		best, bdir := "", ""
+		for mp, md := range l.workUse() {
+			if len(mp) > len(best) && (path == mp || strings.HasPrefix(path, mp+"/")) {
+				best, bdir = mp, md
+			}
+		}
+		if best == "" {
+			return "", err
+		}
+		if best == path {
+			return bdir, nil
+		}
+		return filepath.Join(bdir, filepath.FromSlash(strings.TrimPrefix(path, best+"/"))), nil
 	}
 	best := ""
 	dir := ""
