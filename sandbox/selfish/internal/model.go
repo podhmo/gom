@@ -30,7 +30,7 @@ func NewGist(filenames []string, public bool) (*github.Gist, error) {
 
 		// guess title, first heading of markdown. (This code using wasteful memory, but it's ok)
 		if (strings.ToLower(filepath.Base(filename))) == "readme.md" && gistfile.Content != nil {
-			text := strings.TrimLeft(*gistfile.Content, "\n\t  ")
+			text := strings.TrimLeft(*gistfile.Content, "\n\t ")
 			for line := range strings.SplitSeq(text, "\n") {
 				if after, ok := strings.CutPrefix(line, "# "); ok {
 					title = strings.TrimSpace(after)

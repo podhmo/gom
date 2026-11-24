@@ -19,26 +19,26 @@ type Client *github.Client
 //line gselfish/client.gom:12
 type CreateResult struct {
 //line gselfish/client.gom:13
-	GistId string
+	GistId string `json:"GistID"`
 //line gselfish/client.gom:14
-	CreatedAt time.Time
+	CreatedAt time.Time `json:"CreatedAt"`
 //line gselfish/client.gom:15
-	HtmlUrl string
+	HtmlUrl string `json:"HTMLURL"`
 //line gselfish/client.gom:16
-	Raw *github.Gist
+	Raw *github.Gist `json:"-"`
 //line gselfish/client.gom:12
 }
 
 //line gselfish/client.gom:34
 type UpdateResult struct {
 //line gselfish/client.gom:35
-	GistId string
+	GistId string `json:"GistID"`
 //line gselfish/client.gom:36
-	CreatedAt time.Time
+	CreatedAt time.Time `json:"CreatedAt"`
 //line gselfish/client.gom:37
-	HtmlUrl string
+	HtmlUrl string `json:"HTMLURL"`
 //line gselfish/client.gom:38
-	Raw *github.Gist
+	Raw *github.Gist `json:"-"`
 //line gselfish/client.gom:34
 }
 

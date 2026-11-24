@@ -48,7 +48,7 @@ fn new_app (c0: Config) -> Result App GoError = {
       let tok : Ptr oauth2.Token = Ptr.new ()
       tok.AccessToken = c.profile.access_token
       let ts = oauth2.StaticTokenSource tok
-      { github = github.NewClient (oauth2.NewClient (oauth2.NoContext, ts)) }
+      { github = github.NewClient (oauth2.NewClient (context.Background (), ts)) }
     } else {
       try Err (fmt.Errorf ("unexpected client type %q", c.client_type.value))
     }}

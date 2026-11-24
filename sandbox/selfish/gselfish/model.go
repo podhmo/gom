@@ -64,7 +64,7 @@ func newGist(filenames list.List[string], public bool) result.Result[*github.Gis
 //line gselfish/model.gom:27
 					tmp10 := tmp9.V0
 //line gselfish/model.gom:27
-					tmp11 := strings.TrimLeft(tmp10, "\n\t  ")
+					tmp11 := strings.TrimLeft(tmp10, "\n\t ")
 //line gselfish/model.gom:27
 					tmp12 := readmeTitle(tmp11)
 //line gselfish/model.gom:28

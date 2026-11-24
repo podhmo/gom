@@ -24,7 +24,7 @@ fn new_gist (filenames: List String) (public: Bool) -> Result (Ptr github.Gist) 
       Ok gistfile -> {
         if strings.ToLower (filepath.Base filename) == "readme.md" {
           match Ptr.to_option gistfile.Content {
-            Some content -> match readme_title (strings.TrimLeft (content, "\n\t  ")) {
+            Some content -> match readme_title (strings.TrimLeft (content, "\n\t ")) {
               Some t -> Ref.set title t
               None -> ()
             }

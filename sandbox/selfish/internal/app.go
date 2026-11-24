@@ -71,7 +71,7 @@ func NewApp(c *Config) (*App, error) {
 		ts := oauth2.StaticTokenSource(
 			&oauth2.Token{AccessToken: c.Profile.AccessToken},
 		)
-		tc := oauth2.NewClient(oauth2.NoContext, ts)
+		tc := oauth2.NewClient(context.Background(), ts)
 		gh = &Client{Github: github.NewClient(tc)}
 	default:
 		return nil, fmt.Errorf("unexpected client type %q", c.ClientType)

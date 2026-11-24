@@ -10,10 +10,10 @@ import go "github.com/google/go-github/v68/github"
 type Client = { github: Ptr github.Client }
 
 type CreateResult = {
-  gist_id: String,
-  created_at: time.Time,
-  html_url: String,
-  raw: Ptr github.Gist,
+  gist_id: String `json:"GistID"`,
+  created_at: time.Time `json:"CreatedAt"`,
+  html_url: String `json:"HTMLURL"`,
+  raw: Ptr github.Gist `json:"-"`,
 }
 
 // zero_time is Go's time.Time{} (via new(T) + deref).
@@ -32,10 +32,10 @@ fn client_create (c: Client) (ctx: context.Context) (filenames: List String) (pu
 }
 
 type UpdateResult = {
-  gist_id: String,
-  created_at: time.Time,
-  html_url: String,
-  raw: Ptr github.Gist,
+  gist_id: String `json:"GistID"`,
+  created_at: time.Time `json:"CreatedAt"`,
+  html_url: String `json:"HTMLURL"`,
+  raw: Ptr github.Gist `json:"-"`,
 }
 
 fn client_update (c: Client) (ctx: context.Context) (gist_id: String) (filenames: List String) (public: Bool) -> Result UpdateResult GoError = {

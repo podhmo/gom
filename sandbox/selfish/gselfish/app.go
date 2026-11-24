@@ -184,17 +184,17 @@ func newApp(c0 Config) result.Result[App, error] {
 //line gselfish/app.gom:42
 	c = u1
 //line gselfish/app.gom:45
-	tmp19 := c.ClientType == clientTypeFake
+	tmp20 := c.ClientType == clientTypeFake
 //line gselfish/app.gom:45
 	var gh Client
 //line gselfish/app.gom:45
-	if tmp19 {
+	if tmp20 {
 //line gselfish/app.gom:46
-		tmp20 := fakeHttpClient(struct{}{})
+		tmp21 := fakeHttpClient(struct{}{})
 //line gselfish/app.gom:46
-		tmp21 := github.NewClient(tmp20)
+		tmp22 := github.NewClient(tmp21)
 //line gselfish/app.gom:46
-		gh = Client(tmp21)
+		gh = Client(tmp22)
 //line gselfish/app.gom:45
 	} else {
 //line gselfish/app.gom:47
@@ -208,11 +208,13 @@ func newApp(c0 Config) result.Result[App, error] {
 //line gselfish/app.gom:50
 			ts := oauth2.StaticTokenSource(tok)
 //line gselfish/app.gom:51
-			tmp17 := oauth2.NewClient(oauth2.NoContext, ts)
+			tmp17 := context.Background()
 //line gselfish/app.gom:51
-			tmp18 := github.NewClient(tmp17)
+			tmp18 := oauth2.NewClient(tmp17, ts)
 //line gselfish/app.gom:51
-			gh = Client(tmp18)
+			tmp19 := github.NewClient(tmp18)
+//line gselfish/app.gom:51
+			gh = Client(tmp19)
 //line gselfish/app.gom:47
 		} else {
 //line gselfish/app.gom:53
@@ -252,9 +254,9 @@ func newApp(c0 Config) result.Result[App, error] {
 //line gselfish/app.gom:45
 	}
 //line gselfish/app.gom:55
-	tmp22 := App{CommitHistory: ch, Client: gh, Config: c}
+	tmp23 := App{CommitHistory: ch, Client: gh, Config: c}
 //line gselfish/app.gom:55
-	return result.Ok[App, error](tmp22)
+	return result.Ok[App, error](tmp23)
 //line gselfish/app.gom:25
 }
 
@@ -269,19 +271,19 @@ func appDelete(app App, ctx context.Context, latest option.Option[commithistory.
 //line gselfish/app.gom:62
 	case option.Option_Some[commithistory.Commit]:
 //line gselfish/app.gom:62
-		tmp23 := v2
+		tmp24 := v2
 //line gselfish/app.gom:63
-		tmp24 := tmp23.V0
+		tmp25 := tmp24.V0
 //line gselfish/app.gom:63
-		gistId = tmp24.Id
+		gistId = tmp25.Id
 //line gselfish/app.gom:62
 	case option.Option_None[commithistory.Commit]:
 //line gselfish/app.gom:62
-		tmp25 := any(alias)
+		tmp26 := any(alias)
 //line gselfish/app.gom:62
-		var tmp26 error
+		var tmp27 error
 //line gselfish/app.gom:62
-		v3 := fmt.Errorf("alias=%q is not found", tmp25)
+		v3 := fmt.Errorf("alias=%q is not found", tmp26)
 //line gselfish/app.gom:62
 		if v3 == nil {
 //line gselfish/app.gom:62
@@ -289,23 +291,23 @@ func appDelete(app App, ctx context.Context, latest option.Option[commithistory.
 //line gselfish/app.gom:62
 		}
 //line gselfish/app.gom:62
-		tmp26 = v3
+		tmp27 = v3
 //line gselfish/app.gom:62
-		tmp27 := result.Err[string, error](tmp26)
+		tmp28 := result.Err[string, error](tmp27)
 //line gselfish/app.gom:62
-		switch tmp27.Tag() {
+		switch tmp28.Tag() {
 //line gselfish/app.gom:62
 		case result.ResultTagOk:
 //line gselfish/app.gom:62
-			gistId = tmp27.Value
+			gistId = tmp28.Value
 //line gselfish/app.gom:62
 		case result.ResultTagErr:
 //line gselfish/app.gom:62
-			return result.Err[struct{}, error](tmp27.Error)
+			return result.Err[struct{}, error](tmp28.Error)
 //line gselfish/app.gom:62
 		default:
 //line gselfish/app.gom:62
-			panic(rt.InvalidVariant("result.Result", tmp27))
+			panic(rt.InvalidVariant("result.Result", tmp28))
 //line gselfish/app.gom:62
 		}
 //line gselfish/app.gom:62
@@ -315,55 +317,55 @@ func appDelete(app App, ctx context.Context, latest option.Option[commithistory.
 //line gselfish/app.gom:62
 	}
 //line gselfish/app.gom:65
-	tmp28 := clientDelete(app.Client, ctx, gistId)
+	tmp29 := clientDelete(app.Client, ctx, gistId)
 //line gselfish/app.gom:65
-	tmp29 := wrapResult[struct{}](tmp28, "gist api delete")
+	tmp30 := wrapResult[struct{}](tmp29, "gist api delete")
 //line gselfish/app.gom:65
-	switch tmp29.Tag() {
+	switch tmp30.Tag() {
 //line gselfish/app.gom:65
 	case result.ResultTagOk:
 //line gselfish/app.gom:65
-		_ = tmp29.Value
+		_ = tmp30.Value
 //line gselfish/app.gom:65
 	case result.ResultTagErr:
 //line gselfish/app.gom:65
-		return result.Err[struct{}, error](tmp29.Error)
+		return result.Err[struct{}, error](tmp30.Error)
 //line gselfish/app.gom:65
 	default:
 //line gselfish/app.gom:65
-		panic(rt.InvalidVariant("result.Result", tmp29))
+		panic(rt.InvalidVariant("result.Result", tmp30))
 //line gselfish/app.gom:65
 	}
 //line gselfish/app.gom:66
-	tmp30 := time.Now()
+	tmp31 := time.Now()
 //line gselfish/app.gom:66
-	commit := commithistory.Commit{Id: gistId, Alias: alias, CreatedAt: tmp30, Action: "delete"}
+	commit := commithistory.Commit{Id: gistId, Alias: alias, CreatedAt: tmp31, Action: "delete"}
 //line gselfish/app.gom:67
-	tmp31 := commithistory.ApiSaveCommit(app.CommitHistory, app.Config.Profile.HistFile, commit)
+	tmp32 := commithistory.ApiSaveCommit(app.CommitHistory, app.Config.Profile.HistFile, commit)
 //line gselfish/app.gom:67
-	tmp32 := wrapResult[struct{}](tmp31, "save commit")
+	tmp33 := wrapResult[struct{}](tmp32, "save commit")
 //line gselfish/app.gom:67
-	switch tmp32.Tag() {
+	switch tmp33.Tag() {
 //line gselfish/app.gom:67
 	case result.ResultTagOk:
 //line gselfish/app.gom:67
-		_ = tmp32.Value
+		_ = tmp33.Value
 //line gselfish/app.gom:67
 	case result.ResultTagErr:
 //line gselfish/app.gom:67
-		return result.Err[struct{}, error](tmp32.Error)
+		return result.Err[struct{}, error](tmp33.Error)
 //line gselfish/app.gom:67
 	default:
 //line gselfish/app.gom:67
-		panic(rt.InvalidVariant("result.Result", tmp32))
+		panic(rt.InvalidVariant("result.Result", tmp33))
 //line gselfish/app.gom:67
 	}
 //line gselfish/app.gom:68
-	tmp33 := io.Writer(os.Stderr)
+	tmp34 := io.Writer(os.Stderr)
 //line gselfish/app.gom:68
-	tmp34 := any(gistId)
+	tmp35 := any(gistId)
 //line gselfish/app.gom:68
-	v4, err := fmt.Fprintf(tmp33, "deleted. (id=%q)\n", tmp34)
+	v4, err := fmt.Fprintf(tmp34, "deleted. (id=%q)\n", tmp35)
 //line gselfish/app.gom:68
 	_ = result.FromGo(int64(v4), err)
 //line gselfish/app.gom:69
@@ -380,77 +382,77 @@ func appCreate(app App, ctx context.Context, latest option.Option[commithistory.
 //line gselfish/app.gom:76
 	alias := app.Config.Alias
 //line gselfish/app.gom:77
-	tmp35 := app.Config.IsSecret == false
+	tmp36 := app.Config.IsSecret == false
 //line gselfish/app.gom:77
-	tmp36 := clientCreate(app.Client, ctx, filenames, tmp35)
+	tmp37 := clientCreate(app.Client, ctx, filenames, tmp36)
 //line gselfish/app.gom:77
-	tmp37 := wrapResult[CreateResult](tmp36, "gist api create")
+	tmp38 := wrapResult[CreateResult](tmp37, "gist api create")
 //line gselfish/app.gom:77
 	var g CreateResult
 //line gselfish/app.gom:77
-	switch tmp37.Tag() {
+	switch tmp38.Tag() {
 //line gselfish/app.gom:77
 	case result.ResultTagOk:
 //line gselfish/app.gom:77
-		g = tmp37.Value
+		g = tmp38.Value
 //line gselfish/app.gom:77
 	case result.ResultTagErr:
 //line gselfish/app.gom:77
-		return result.Err[commithistory.Commit, error](tmp37.Error)
+		return result.Err[commithistory.Commit, error](tmp38.Error)
 //line gselfish/app.gom:77
 	default:
 //line gselfish/app.gom:77
-		panic(rt.InvalidVariant("result.Result", tmp37))
+		panic(rt.InvalidVariant("result.Result", tmp38))
 //line gselfish/app.gom:77
 	}
 //line gselfish/app.gom:78
-	tmp38 := resolveAlias(app.Config, alias)
+	tmp39 := resolveAlias(app.Config, alias)
 //line gselfish/app.gom:78
-	commit := commithistory.Commit{Id: g.GistId, Alias: tmp38, CreatedAt: g.CreatedAt, Action: action}
+	commit := commithistory.Commit{Id: g.GistId, Alias: tmp39, CreatedAt: g.CreatedAt, Action: action}
 //line gselfish/app.gom:79
-	tmp39 := commithistory.ApiSaveCommit(app.CommitHistory, app.Config.Profile.HistFile, commit)
+	tmp40 := commithistory.ApiSaveCommit(app.CommitHistory, app.Config.Profile.HistFile, commit)
 //line gselfish/app.gom:79
-	tmp40 := wrapResult[struct{}](tmp39, "save commit")
+	tmp41 := wrapResult[struct{}](tmp40, "save commit")
 //line gselfish/app.gom:79
-	switch tmp40.Tag() {
+	switch tmp41.Tag() {
 //line gselfish/app.gom:79
 	case result.ResultTagOk:
 //line gselfish/app.gom:79
-		_ = tmp40.Value
+		_ = tmp41.Value
 //line gselfish/app.gom:79
 	case result.ResultTagErr:
 //line gselfish/app.gom:79
-		return result.Err[commithistory.Commit, error](tmp40.Error)
+		return result.Err[commithistory.Commit, error](tmp41.Error)
 //line gselfish/app.gom:79
 	default:
 //line gselfish/app.gom:79
-		panic(rt.InvalidVariant("result.Result", tmp40))
+		panic(rt.InvalidVariant("result.Result", tmp41))
 //line gselfish/app.gom:79
 	}
 //line gselfish/app.gom:80
-	tmp41 := io.Writer(os.Stderr)
+	tmp42 := io.Writer(os.Stderr)
 //line gselfish/app.gom:80
-	tmp42 := any(action)
+	tmp43 := any(action)
 //line gselfish/app.gom:80
-	tmp43 := any(commit.Id)
+	tmp44 := any(commit.Id)
 //line gselfish/app.gom:80
-	v5, err1 := fmt.Fprintf(tmp41, "%s success. (id=%q)\n", tmp42, tmp43)
+	v5, err1 := fmt.Fprintf(tmp42, "%s success. (id=%q)\n", tmp43, tmp44)
 //line gselfish/app.gom:80
 	_ = result.FromGo(int64(v5), err1)
 //line gselfish/app.gom:81
-	tmp44 := app.Config.IsSilent == false
+	tmp45 := app.Config.IsSilent == false
 //line gselfish/app.gom:81
-	tmp45 := g.HtmlUrl != ""
+	tmp46 := g.HtmlUrl != ""
 //line gselfish/app.gom:81
-	tmp46 := tmp44 && tmp45
+	tmp47 := tmp45 && tmp46
 //line gselfish/app.gom:81
-	if tmp46 {
+	if tmp47 {
 //line gselfish/app.gom:82
-		tmp47 := io.Writer(os.Stderr)
+		tmp48 := io.Writer(os.Stderr)
 //line gselfish/app.gom:82
-		tmp48 := any(g.HtmlUrl)
+		tmp49 := any(g.HtmlUrl)
 //line gselfish/app.gom:82
-		v6, err2 := fmt.Fprintf(tmp47, "opening.. %q\n", tmp48)
+		v6, err2 := fmt.Fprintf(tmp48, "opening.. %q\n", tmp49)
 //line gselfish/app.gom:82
 		_ = result.FromGo(int64(v6), err2)
 //line gselfish/app.gom:83
@@ -473,71 +475,71 @@ func appUpdate(app App, ctx context.Context, latest commithistory.Commit, filena
 //line gselfish/app.gom:91
 	alias := app.Config.Alias
 //line gselfish/app.gom:92
-	tmp49 := app.Config.IsSecret == false
+	tmp50 := app.Config.IsSecret == false
 //line gselfish/app.gom:92
-	tmp50 := clientUpdate(app.Client, ctx, latest.Id, filenames, tmp49)
+	tmp51 := clientUpdate(app.Client, ctx, latest.Id, filenames, tmp50)
 //line gselfish/app.gom:92
-	tmp51 := wrapResult[UpdateResult](tmp50, "gist api update")
+	tmp52 := wrapResult[UpdateResult](tmp51, "gist api update")
 //line gselfish/app.gom:92
 	var g UpdateResult
 //line gselfish/app.gom:92
-	switch tmp51.Tag() {
+	switch tmp52.Tag() {
 //line gselfish/app.gom:92
 	case result.ResultTagOk:
 //line gselfish/app.gom:92
-		g = tmp51.Value
+		g = tmp52.Value
 //line gselfish/app.gom:92
 	case result.ResultTagErr:
 //line gselfish/app.gom:92
-		return result.Err[commithistory.Commit, error](tmp51.Error)
+		return result.Err[commithistory.Commit, error](tmp52.Error)
 //line gselfish/app.gom:92
 	default:
 //line gselfish/app.gom:92
-		panic(rt.InvalidVariant("result.Result", tmp51))
+		panic(rt.InvalidVariant("result.Result", tmp52))
 //line gselfish/app.gom:92
 	}
 //line gselfish/app.gom:93
-	tmp52 := resolveAlias(app.Config, alias)
+	tmp53 := resolveAlias(app.Config, alias)
 //line gselfish/app.gom:93
-	commit := commithistory.Commit{Id: g.GistId, Alias: tmp52, CreatedAt: g.CreatedAt, Action: action}
+	commit := commithistory.Commit{Id: g.GistId, Alias: tmp53, CreatedAt: g.CreatedAt, Action: action}
 //line gselfish/app.gom:94
-	tmp53 := commithistory.ApiSaveCommit(app.CommitHistory, app.Config.Profile.HistFile, commit)
+	tmp54 := commithistory.ApiSaveCommit(app.CommitHistory, app.Config.Profile.HistFile, commit)
 //line gselfish/app.gom:94
-	switch tmp53.Tag() {
+	switch tmp54.Tag() {
 //line gselfish/app.gom:94
 	case result.ResultTagOk:
 //line gselfish/app.gom:94
-		_ = tmp53.Value
+		_ = tmp54.Value
 //line gselfish/app.gom:94
 	case result.ResultTagErr:
 //line gselfish/app.gom:94
-		return result.Err[commithistory.Commit, error](tmp53.Error)
+		return result.Err[commithistory.Commit, error](tmp54.Error)
 //line gselfish/app.gom:94
 	default:
 //line gselfish/app.gom:94
-		panic(rt.InvalidVariant("result.Result", tmp53))
+		panic(rt.InvalidVariant("result.Result", tmp54))
 //line gselfish/app.gom:94
 	}
 //line gselfish/app.gom:95
-	tmp54 := io.Writer(os.Stderr)
+	tmp55 := io.Writer(os.Stderr)
 //line gselfish/app.gom:95
-	tmp55 := any(action)
+	tmp56 := any(action)
 //line gselfish/app.gom:95
-	tmp56 := any(commit.Id)
+	tmp57 := any(commit.Id)
 //line gselfish/app.gom:95
-	v7, err4 := fmt.Fprintf(tmp54, "%s success. (id=%q)\n", tmp55, tmp56)
+	v7, err4 := fmt.Fprintf(tmp55, "%s success. (id=%q)\n", tmp56, tmp57)
 //line gselfish/app.gom:95
 	_ = result.FromGo(int64(v7), err4)
 //line gselfish/app.gom:96
-	tmp57 := app.Config.IsSilent == false
+	tmp58 := app.Config.IsSilent == false
 //line gselfish/app.gom:96
-	if tmp57 {
+	if tmp58 {
 //line gselfish/app.gom:97
-		tmp58 := io.Writer(os.Stderr)
+		tmp59 := io.Writer(os.Stderr)
 //line gselfish/app.gom:97
-		tmp59 := any(g.HtmlUrl)
+		tmp60 := any(g.HtmlUrl)
 //line gselfish/app.gom:97
-		v8, err5 := fmt.Fprintf(tmp58, "opening.. %q\n", tmp59)
+		v8, err5 := fmt.Fprintf(tmp59, "opening.. %q\n", tmp60)
 //line gselfish/app.gom:97
 		_ = result.FromGo(int64(v8), err5)
 //line gselfish/app.gom:98
@@ -551,11 +553,11 @@ func appUpdate(app App, ctx context.Context, latest commithistory.Commit, filena
 //line gselfish/app.gom:100
 	if app.Config.Debug {
 //line gselfish/app.gom:101
-		tmp60 := io.Writer(os.Stderr)
+		tmp61 := io.Writer(os.Stderr)
 //line gselfish/app.gom:101
-		tmp61 := any(g)
+		tmp62 := any(g)
 //line gselfish/app.gom:101
-		fprintJson(tmp60, tmp61)
+		fprintJson(tmp61, tmp62)
 //line gselfish/app.gom:100
 	}
 //line gselfish/app.gom:103
