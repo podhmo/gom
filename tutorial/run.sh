@@ -61,6 +61,26 @@ EOF
       fail=1
       continue
     fi
+    # A step may also carry expected-test.txt: run `gom test` on the
+    # step and diff the JSONL report, normalizing `elapsed`.
+    if [ -f "$dir/expected-test.txt" ]; then
+      if ! tgot=$(cd "$ROOT" && "$GOM" test "tutorial/$name" 2>&1 | sed -E 's/"elapsed":[0-9]+/"elapsed":0/g'); then
+        echo "FAIL $name: gom test"
+        printf '%s\n' "$tgot"
+        fail=1
+        continue
+      fi
+      twant=$(cat "$dir/expected-test.txt")
+      if [ "$tgot" != "$twant" ]; then
+        echo "FAIL $name: gom test output mismatch"
+        echo "--- got ---"; printf '%s\n' "$tgot"
+        echo "--- want ---"; printf '%s\n' "$twant"
+        fail=1
+        continue
+      fi
+      echo "PASS $name (test)"
+      continue
+    fi
     echo "PASS $name"
     continue
   fi

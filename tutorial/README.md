@@ -110,6 +110,8 @@ tutorial/
   10-errors/
     badmatch.gom        intentionally non-exhaustive match
     expected-check.txt  the diagnostic code `gom check` must report
+  17-tests/
+    expected-test.txt   `gom test`'s JSONL report, `elapsed` normalized
   run.sh            builds gom, runs + diffs every step
   tutorial_test.go  the same driver under `go test ./tutorial/`
 ```

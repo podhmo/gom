@@ -15,6 +15,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"testing"
@@ -211,6 +212,37 @@ func runStep(t *testing.T, gom, gobin, root, dir string) {
 	}
 }
 
+// elapsedField normalizes the per-test `elapsed` of `gom test`'s
+// JSONL report so a run can be diffed byte-for-byte.
+var elapsedField = regexp.MustCompile(`"elapsed":[0-9]+`)
+
+// testStep runs `gom test` on the step directory and diffs the JSONL
+// report against expected-test.txt — run for steps that declare test
+// blocks, so the harness actually exercises them rather than only the
+// main program. The step dir sits inside this repository's module, so
+// the generated main.go/main_test.go (gitignored) compile there.
+func testStep(t *testing.T, gom, root, dir string) {
+	t.Helper()
+	want, err := os.ReadFile(filepath.Join(dir, "expected-test.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Spelled "tutorial/<step>" so the report's span/output paths match
+	// expected-test.txt (run.sh passes the same form).
+	cmd := testbin.Command(gom, "test", filepath.Join("tutorial", dir))
+	cmd.Dir = root
+	var stdout bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stdout
+	if err := cmd.Run(); err != nil {
+		t.Fatalf("gom test: %v\n%s", err, stdout.String())
+	}
+	got := elapsedField.ReplaceAllString(stdout.String(), `"elapsed":0`)
+	if got != string(want) {
+		t.Fatalf("gom test output mismatch\n--- got ---\n%s\n--- want ---\n%s", got, want)
+	}
+}
+
 // checkStep asserts `gom check` on dir's .gom files exits 1 and
 // reports the diagnostic code stored in expected-check.txt.
 func checkStep(t *testing.T, gom, root, dir string) {
@@ -264,6 +296,9 @@ func TestTutorial(t *testing.T) {
 			t.Parallel()
 			if _, err := os.ReadFile(filepath.Join(dir, "main.gom")); err == nil {
 				runStep(t, gom, gobin, root, dir)
+				if _, err := os.Stat(filepath.Join(dir, "expected-test.txt")); err == nil {
+					testStep(t, gom, root, dir)
+				}
 			} else {
 				checkStep(t, gom, root, dir)
 			}
