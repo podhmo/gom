@@ -520,7 +520,7 @@ func (e *interp) eval(x check.Expr, env *Env) Value {
 	}
 	switch x := x.(type) {
 	case *check.Lit:
-		return litValue(x.Kind, x.Text, x.Type(), x.Span())
+		return e.litValueTyped(x.Kind, x.Text, x.Type(), x.Span())
 	case *check.Var:
 		return e.evalVar(x, env)
 	case *check.Apply:

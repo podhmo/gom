@@ -24,9 +24,15 @@ func isFloatCon(t types.Type) bool {
 // the builtin float64 — unlike isFloatCon the name alone is not
 // enough: a file-local `type Float = {v: Int}` shadows the builtin
 // name, so the check peels the declared type through the record
-// registry until it reaches a non-record constructor.
+// registry until it reaches a non-record constructor. The builtin
+// singleton is tested by pointer identity first, so an imported
+// field spelled `Float` keeps its builtin meaning even when the
+// importing package declares its own `type Float`.
 func (e *interp) floatBackedField(t types.Type) bool {
 	for i := 0; i < 64; i++ { // bound against a pathological cycle
+		if t == types.Float {
+			return true
+		}
 		c, ok := types.Chase(t).(*types.Con)
 		if !ok {
 			return false
@@ -38,6 +44,18 @@ func (e *interp) floatBackedField(t types.Type) bool {
 		return c.Qual == "" && c.Name == "Float"
 	}
 	return false
+}
+
+// litValueTyped is litValue plus the defined-type peel: a literal
+// whose checked type is a Float-backed declared type (`type Score
+// = {v: Float}`) must materialize as a float — matching codegen's
+// `Score(1)` — so the stored value, the pattern-bound value, and
+// the field projection all carry the same VFloat kind.
+func (e *interp) litValueTyped(kind syntax.LitKind, text string, typ types.Type, sp diag.Span) Value {
+	if e.floatBackedField(typ) {
+		typ = types.Float
+	}
+	return litValue(kind, text, typ, sp)
 }
 
 // isInt32Con reports whether t is the builtin Int32 constructor —
