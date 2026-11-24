@@ -1887,3 +1887,10 @@
 - [ ] **sum 要素の slice/map 受理は `comparable` 実行時 panic の余地を残す**: `type Shape = | Rect {r: Int} | Group {items: List Int}` のような sum は sealed interface として emit される。wave38 lane D の要素 fallback で `slices.Contains`（`E comparable`）に `Go.Slice Shape` を渡せるようになったが、interface 値の `==` は動的値が非 comparable（`List` ペイロードの variant など）だと実行時 panic する。Go でも同じコードはコンパイルされて同じく panic するので Go 意味論どおりだが、gom の宣言型が「比較可能」を見た目に依ることは lane D の受理で新たに露出した — `goReprComparable` が interface repr を受理する限り残る（wave38 lane D レビュー指摘・検討対象外） **調査済み: wave40 lane E で [decision](decisions/2026-11-24-sum-comparable-panic.md) — 推奨案 A（`goReprComparable` を sum/Option で payload まで narrow する）。あわせて `Go.FuncN` 型引数が default 分岐で `true` を返し func 型の `comparable` 呼び出しを受理して生成コードが `go build` に落ちる付随 gap を確認**
 
 - [x] **E0513（`Go.nil` 非 nil-able 拒否）が `internal/diag/codes.go` に未登録**: wave38 lane C で `check.go`/`expr.go` から `diag.Error("E0513", ...)` を直接発行したが codes registry にエントリがなく、`docs/error-codes.md` にも出ない — spec fixture（`E0513_go_nil`）は通るが `gom explain E0513` は機能しない。wave38 lane C の見落とし — **解消: wave40 lane C で E0513 を codes registry に登録（`gom explain E0513` が解説を返すことを確認、例の `P Int` 表記を `Ptr Int` に修正・spec 参照を 8.6 に）**
+
+- [ ] **workspace 単位の vendoring（`go work vendor`）を loader が見ない**: Go 1.22+ の
+  workspace vendoring は `<workroot>/vendor` を使うが、`gomimport` の vendor 解決は
+  importing file の最寄り `go.mod`（module 側）の `vendor/` のみを見る。
+  module vendor は Go の規則どおりだが、workspace vendor 環境では列挙・解決が Go とずれる。
+  参照: [実装](../internal/gomimport/loader.go)（`pkgDir` の vendor 分岐・`vendorEnabled`）、
+  [調査](sketch/2026-11-24-gom-list-external-enumeration.md)（wave40 lane F）。未確認。
