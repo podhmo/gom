@@ -61,6 +61,7 @@
 - [x] **[task] scoped-cleanup 代替経路の文書化（案 D）**: `run_result` の GoError 制約を越えるパターンを helper で書く例を guide（Scope 節）と spec に追記（案 D 採択済み — [decision](docs/decisions/2026-11-23-scope-cleanup-extension.md)、wave35 lane B / PR #150）
 - [ ] **D-3 `README.md` を書く**: 言語の概要・ビルド/実行の quick start・ツール群（`gom build`/`check`/`fmt`/`info`）・ドキュメントへの導線（spec/design/tutorial）を載せる。**プロジェクト終盤に書く** — 機能が増えるたびに更新対象になるのを避けるため、内容が安定してから一括で書く（ユーザー指定）。PR #3 で英語 README の初版は入ったが、十分性の最終判定は終盤に行う
 - [ ] **D-4 tutorial/examples の go.mod 配置の整理**: tutorial の各章にはほぼ同形の go.mod がある（実質 `tutorial_test.go` が scratch module へコピーする用途だけで使い、`run.sh` は自前生成）。章側で生成するか集約するかは、gom がパッケージとして取り込まれる形（examples/tutorial が利用者からどう見えるか）を決めるタイミングで整理する。外部依存を取り込んでいない現状では不要。**D-3 と同程度の後の作業**（ユーザー指定）
+- [ ] **[task] spec §7 に record の abstract 宣言を明記する**: `.gomi` に `type T` と bare 宣言すると record 型でも import 側の record literal が E0401 で封じられる（sandbox run 2 の `shop/domain` で実検証）が、spec §7 のルール 3 は sum type にしか言及していない。record にも同じ規則が効くことを明記する（[gaps](docs/implementation-gaps.md) 登録済み、[検証](docs/sketch/ja/2026-11-24-sandbox-explorer2-sumtypes.md)）
 
 ### P0 Go 出力の実現可能性の検証
 
@@ -169,3 +170,5 @@ Go 相互運用を変えたら両方向（Gom → Go、Go → Gom）のテスト
 - [x] **[bug] `rt.MakeChan[os.Signal](1)` が `go vet` の "misuse of unbuffered os.Signal channel" を踏む**: `Chan.make` の CallGo を codegen で `make(chan T, n)` の直接 emit に変更（`makeChanCall` が `rt.MakeChan` を識別、`callGo` が builtin make を生成）。`make` は式文にならないため `emitsConversion` に同形を追加して discard 位置は `_ = make(...)`。vet が buffered `make` を透視するようになり FP 解消（wave37 lane A、golden `chan_ops`/`chan_go_boundary`/`go_spawn` 更新、FuzzCompile seed#225 の `make` not-used 併発修正）
 
 - [x] **[task] `Go.try_as` の実装（wave39 lane A 採択済み）**: 対応: wave39 lane A — `Go.try_as x : Option T`（E0514、`option.FromGo` emit、eval は内部断言）。レビューで reshape の `VVariant` が `Ctor` を落として rebox 後の抽出を壊すバグを修正: `Go.Any` からの取り出し面 — comma-ok `v, ok := x.(T)` を `Option T` に写る `Go.try_as x : Option T` を唯一の面とする（[decision](docs/decisions/2026-11-24-go-any-extraction.md) 採択）。check で `x : Go.Any` + 目標 `T` の検査（`x.(T)` 合法な具象型式のみ — `Go.Any`/type param は設計上拒否）、emit は `option.FromGo` 経由の block emit、eval 側は内部断言、spec §8.3 追記 + fixture
+
+- [ ] **[bug] `gom run` / `gom build` が gom の `import` 先を推移的に build しない**: `gom run sandbox/shop` は `domain.gom` を emit しないため `go build` が `no required module provides package .../domain` で落ちる（E0001）。`gom check` は `.gomi` を読むだけで通るのにリンクで初めて失敗する。`gom build dirA dirB` と全依存を層順に列挙すれば emit されるが、`gom run` は単一 `package main` ディレクトリ限定（spec §12）なので、依存を持つプログラムは「依存を `gom build` → `gom run`」の2段が要る（sandbox 探索 run 2 — [recheck](docs/sketch/ja/2026-11-24-sandbox-explorer2-recheck.md)、[棚卸し](docs/sketch/2026-11-24-sandbox-missing-features-run2.md)）
