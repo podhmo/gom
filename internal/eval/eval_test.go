@@ -950,7 +950,46 @@ func TestMatch(t *testing.T) {
 			t.Fatalf("got %s", got)
 		}
 	})
+
+	t.Run("empty-interface catch-all keeps the box's element type", func(t *testing.T) {
+		env := eval.NewEnv()
+		hostSym := sym("x", resolve.KindVar)
+		listT := &types.Con{Qual: "list", Name: "List", Args: []types.Type{types.Int}}
+		// An empty `List Int` boxed into `any` — the elements
+		// cannot name the type, only the recorded T can.
+		env.Bind(hostSym, &eval.VHost{V: &eval.VList{}, T: listT})
+		anyT := &types.Con{Qual: "Go", Name: "Any"}
+		v := sym("v", resolve.KindVar)
+		inner := &check.TypePat{Base: b(anyT), Sym: v, Target: anyT, Iface: []string{}}
+		// `match x { v : Go.Any -> match v { xs : List Int -> "list"; _ -> "other" } }`
+		innerMatch := match(types.String, vr(v, anyT),
+			arm(&check.TypePat{Base: b(listT), Target: listT}, strLit("list")),
+			arm(wild(anyT), strLit("other")))
+		x := match(types.String, vr(hostSym, anyT), arm(inner, innerMatch))
+		if got := evalOK(t, env, x).String(); got != `"list"` {
+			t.Fatalf("got %s", got)
+		}
+	})
+
+	t.Run("error arm binds a typed-nil error without calling Error", func(t *testing.T) {
+		env := eval.NewEnv()
+		hostSym := sym("x", resolve.KindVar)
+		var nilErr error = (*nilTestError)(nil)
+		env.Bind(hostSym, &eval.VHost{V: nilErr})
+		e := sym("e", resolve.KindVar)
+		tp := &check.TypePat{Base: b(types.GoError), Sym: e, Target: types.GoError}
+		x := match(types.String, vr(hostSym, &types.Con{Qual: "Go", Name: "Any"}),
+			arm(tp, strLit("err")),
+			arm(wild(types.String), strLit("other")))
+		if got := evalOK(t, env, x).String(); got != `"err"` {
+			t.Fatalf("got %s", got)
+		}
+	})
 }
+
+type nilTestError struct{}
+
+func (*nilTestError) Error() string { panic("Error on a typed-nil receiver must not be called") }
 
 // --- ADTs ---
 

@@ -250,6 +250,12 @@ func (l *lowerer) goTypeSwitch(s *seq, e *check.Match, subj core.Atom) core.Expr
 	if sw.Default == nil {
 		sw.Default = l.dpanic(subj, e.Type())
 	}
+	if len(sw.Cases) == 0 {
+		// Every arm was a catch-all — no type test survives, so
+		// the switch is just the default arm (the validator
+		// requires at least one case).
+		return &core.Match{Base: baseOf(e), Tree: sw.Default}
+	}
 	return &core.Match{Base: baseOf(e), Tree: sw}
 }
 

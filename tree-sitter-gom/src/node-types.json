@@ -1212,6 +1212,10 @@
       "required": true,
       "types": [
         {
+          "type": "app_type",
+          "named": true
+        },
+        {
           "type": "expr",
           "named": true
         },
@@ -1221,10 +1225,6 @@
         },
         {
           "type": "pattern",
-          "named": true
-        },
-        {
-          "type": "type_expr",
           "named": true
         }
       ]

@@ -123,11 +123,14 @@ func GoRepr(t Type) string {
 			// funcType, which wraps each param singly regardless
 			// of parameter grouping.
 			for _, p := range t.Params {
-				if GoRepr(p.Type) == "" {
+				// Render each parameter once — repeating the call
+				// doubles the work per nesting level on func types.
+				r := GoRepr(p.Type)
+				if r == "" {
 					return ""
 				}
 				b.WriteString("func(")
-				b.WriteString(GoRepr(p.Type))
+				b.WriteString(r)
 				b.WriteString(") ")
 			}
 			if r, ok := Chase(t.Ret).(*Func); ok {

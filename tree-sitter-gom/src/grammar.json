@@ -2072,7 +2072,7 @@
             },
             {
               "type": "SYMBOL",
-              "name": "type_expr"
+              "name": "app_type"
             },
             {
               "type": "STRING",

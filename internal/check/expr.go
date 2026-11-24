@@ -4227,9 +4227,12 @@ func (c *checker) typeTestKey(t types.Type) string {
 		if len(con.Args) == 0 {
 			return con.Name
 		}
+		// Arguments are canonical too — a shadowed generic's
+		// `List Char` and `List Int32` emit the same `List[int32]`
+		// case and must key identically.
 		parts := make([]string, len(con.Args))
 		for i, a := range con.Args {
-			parts[i] = types.GoRepr(a)
+			parts[i] = types.CanonGoRepr(types.GoRepr(a))
 			if parts[i] == "" {
 				return ""
 			}

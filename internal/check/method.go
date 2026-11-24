@@ -28,6 +28,12 @@ type GomMethod struct {
 type InterfaceMethod struct {
 	Name string
 	Sig  *types.Func
+	// GoSig is the method's raw Go signature the way reflect spells
+	// a bound method — `func(int64) string`. Unlike Sig it is not
+	// gom-adapted (a `-> Result` method stays `func() error`), which
+	// is the form eval's implements check compares against. "" when
+	// the source cannot render it.
+	GoSig string
 }
 
 // checkMethodDecl validates an @method fn declaration and records

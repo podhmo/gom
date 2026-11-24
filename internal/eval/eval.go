@@ -1419,10 +1419,33 @@ func (e *interp) unboxAny(v Value, t types.Type) Value {
 	if !ok {
 		return v
 	}
+	if types.GoRepr(t) == "any" {
+		// The catch-all `p : Go.Any` binds at the box's own
+		// grain — keep the recorded element type so a later
+		// match on the bound name still sees `List Int`.
+		return h
+	}
 	if inner, ok := h.V.(Value); ok {
 		return e.reshape(inner, t)
 	}
 	switch types.GoRepr(t) {
+	case "error":
+		// A typed-nil error payload (a nil *T that satisfies
+		// error) must not be Error()'d — the call would panic
+		// even when the arm never touches the binding. Keep
+		// the host value; an actual method call on it panics
+		// the same as Go's.
+		if err, ok := h.V.(error); ok {
+			rv := reflect.ValueOf(err)
+			switch rv.Kind() {
+			case reflect.Ptr, reflect.Map, reflect.Slice, reflect.Chan, reflect.Func:
+				if rv.IsNil() {
+					return h
+				}
+			default:
+			}
+			return &VGoErr{Text: err.Error()}
+		}
 	case "int64", "int32", "byte", "int":
 		switch i := h.V.(type) {
 		case int64:
@@ -1449,10 +1472,6 @@ func (e *interp) unboxAny(v Value, t types.Type) Value {
 	case "bool":
 		if b, ok := h.V.(bool); ok {
 			return &VBool{B: b}
-		}
-	case "error":
-		if err, ok := h.V.(error); ok {
-			return &VGoErr{Text: err.Error()}
 		}
 	}
 	return h

@@ -2970,11 +2970,9 @@ fn describe (x : Go.Any) -> String = match x {
                                   (ident)))))))))))))
           (match_arm
             (ident)
-            (type_expr
-              (arrow_type
-                (app_type
-                  (type_atom
-                    (uident)))))
+            (app_type
+              (type_atom
+                (uident)))
             (expr
               (ascribed_expr
                 (pipe_expr
@@ -2989,11 +2987,9 @@ fn describe (x : Go.Any) -> String = match x {
                                   (atom
                                     (ident))))))))))))))
           (match_arm
-            (type_expr
-              (arrow_type
-                (app_type
-                  (type_atom
-                    (uident)))))
+            (app_type
+              (type_atom
+                (uident)))
             (expr
               (ascribed_expr
                 (pipe_expr

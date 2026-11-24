@@ -1,0 +1,12 @@
+package ex
+
+// spec 4.1: a shadowed generic's type-test key canonicalizes its
+// arguments too — `Char` and `Int32` spell the same `int32` Go
+// case, so `List Char` and `List Int32` are the same arm (E0309).
+type List a = | LCons (x: a)
+
+fn f (x : Go.Any) -> Int = match x {
+    c : List Char -> 1
+    n : List Int32 -> 2
+    _ -> 0
+}

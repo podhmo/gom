@@ -1,6 +1,12 @@
 package goimport
 
 import (
+	"fmt"
+	"go/importer"
+	"go/types"
+	"io"
+	"reflect"
+	"sort"
 	"strings"
 	"testing"
 
@@ -495,4 +501,63 @@ func TestGenericSignatureViews(t *testing.T) {
 	if !ok || sig.Type.String() != "List (Go.Slice String) -> List (Go.Slice String)" {
 		t.Fatalf("Dup = %v, want List (Go.Slice String) -> List (Go.Slice String)", sig)
 	}
+}
+
+// goMethodSig must spell signatures exactly the way reflect spells a
+// bound method — the eval implements check compares the strings.
+func TestGoMethodSigReflectParity(t *testing.T) {
+	imp := importer.Default()
+	for _, tc := range []struct {
+		pkgPath string
+		iface   string
+	}{
+		{"io", "Closer"},
+		{"io", "Reader"},
+		{"io", "ReadWriter"},
+		{"fmt", "Stringer"},
+		{"sort", "Interface"},
+	} {
+		pkg, err := imp.Import(tc.pkgPath)
+		if err != nil {
+			t.Fatalf("import %s: %v", tc.pkgPath, err)
+		}
+		it, ok := pkg.Scope().Lookup(tc.iface).Type().Underlying().(*types.Interface)
+		if !ok {
+			t.Fatalf("%s.%s is not an interface", tc.pkgPath, tc.iface)
+		}
+		riface := reflectIface(t, tc.pkgPath, tc.iface)
+		for i := 0; i < it.NumMethods(); i++ {
+			m := it.Method(i)
+			sig, ok := m.Type().(*types.Signature)
+			if !ok {
+				t.Fatalf("%s.%s is not a signature", tc.iface, m.Name())
+			}
+			got := goMethodSig(sig)
+			rm, _ := riface.MethodByName(m.Name())
+			want := rm.Type.String()
+			if got != want {
+				t.Errorf("%s.%s.%s: goMethodSig = %q, reflect = %q", tc.pkgPath, tc.iface, m.Name(), got, want)
+			}
+		}
+	}
+}
+
+// reflectIface resolves a stdlib interface's reflect type by name.
+func reflectIface(t *testing.T, pkgPath, name string) reflect.Type {
+	t.Helper()
+	switch pkgPath + "." + name {
+	case "io.Closer":
+		return reflect.TypeOf((*io.Closer)(nil)).Elem()
+	case "io.Reader":
+		return reflect.TypeOf((*io.Reader)(nil)).Elem()
+	case "io.ReadWriter":
+		return reflect.TypeOf((*io.ReadWriter)(nil)).Elem()
+	case "fmt.Stringer":
+		return reflect.TypeOf((*fmt.Stringer)(nil)).Elem()
+	case "sort.Interface":
+		return reflect.TypeOf((*sort.Interface)(nil)).Elem()
+	default:
+		t.Fatalf("no reflect case for %s.%s", pkgPath, name)
+	}
+	return nil
 }
