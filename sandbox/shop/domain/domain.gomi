@@ -1,8 +1,12 @@
 package domain
 
-type UnvalidatedOrderLine = { product_code : String, quantity : Float }
+type UnvalidatedOrderLine = { product_code: String, quantity: Float }
 
-type UnvalidatedOrder = { order_id : String, customer_email : String, lines : List UnvalidatedOrderLine }
+type UnvalidatedOrder = {
+  order_id: String,
+  customer_email: String,
+  lines: List UnvalidatedOrderLine,
+}
 
 type ProductCode =
   | Widget (code: String)
@@ -12,13 +16,20 @@ type OrderQuantity =
   | Unit (qty: Int)
   | Kilogram (qty: Float)
 
-type ValidatedOrderLine = { product : ProductCode, quantity : OrderQuantity }
+// 検証済み型は abstract 宣言にして、import 側から record literal で
+// 直接構築できないようにする（place_order 経由に強制）。
+type ValidatedOrderLine
 
-type ValidatedOrder = { order_id : String, customer_email : String, lines : List ValidatedOrderLine }
+type ValidatedOrder
 
-type PricedOrderLine = { product : ProductCode, quantity : OrderQuantity, line_price : Float }
+type PricedOrderLine = { product: ProductCode, quantity: OrderQuantity, line_price: Float }
 
-type PricedOrder = { order_id : String, customer_email : String, lines : List PricedOrderLine, total : Float }
+type PricedOrder = {
+  order_id: String,
+  customer_email: String,
+  lines: List PricedOrderLine,
+  total: Float,
+}
 
 type PlaceOrderError =
   | Validation (msg: String)
