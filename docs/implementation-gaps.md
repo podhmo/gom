@@ -1916,3 +1916,11 @@
   （`cmd/gom/test.go`）。marker ガード（`isGomGenerated`）が効くのは「生成テストがない側の
   stale 削除」だけで、手書き `_test.go` を保持する旨のコメントと実態がずれている — tutorial
   ハーネスは snapshot/restore で回避（tutorial/run.sh・tutorial_test.go、2026-11-24 登録）。
+
+- [ ] **`gom info` の再生成が `//gom:noescape` / `//gom:result-notaint` を落とす**: spec のディレクティブ表は両者を「`gom info` が書き出し」とするが、`gom info stdlib/list` で `stdlib/list/list.gomi` を再生成すると既存の `//gom:result-notaint take 0`・`//gom:result-notaint sort_by 0`・`//gom:noescape sort_by 0` 行が差分で消える（検証は sandbox での観測のみ・revert 済み）。noescape/notaint の推論が info の経路で走らないか、それとも書き出し自体が落ちるのかは未確認。参照: [spec のディレクティブ表](spec.md)（`//gom:noescape`/`//gom:result-notaint` 行）、[実装](../cmd/gom/iface.go)（`gom info` の emit 経路）。記録: [gotchas](sketch/ja/2026-11-24-sandbox-explorer2-gotchas.md) §3（sandbox 探索 run 2）
+
+- [ ] **`gom explain E0513` の nil-able 一覧に `Go.FuncN` がない**: spec 8.6 節は `Go.FuncN` を nil-able な型に数えるが、`gom explain E0513` の解説文は「pointers, channels, Go.Slice, Go.Map, Go.Any, GoError, and named Go types whose underlying can hold nil」と列挙し `Go.FuncN` を含まない。参照: [codes.go](../internal/diag/codes.go) の E0513 エントリ、[gotchas](sketch/ja/2026-11-24-sandbox-explorer2-gotchas.md) の E0513 行（sandbox 探索 run 2）。未確認。
+
+- [ ] **spec §7 が record の abstract 宣言を明記していない**: `.gomi` に `type T` と bare 宣言すると record 型でもコンストラクタが封じられる（import 側の record literal が E0401 — sandbox run 2 の `shop/domain` で実検証）が、spec §7 のルール 3 は「sum type はコンストラクタまで書けば透明、名前だけ書けば抽象」と sum type にしか言及していない。`type Canvas` の例は abstract を示すが record への適用が読めない。検証記録: [sumtypes](sketch/ja/2026-11-24-sandbox-explorer2-sumtypes.md)「言語側の穴」節（2026-11-24 登録）
+
+- [ ] **`Go.conv` の `List` → `Go.Slice` で gom 宣言要素型が E0507 になる制限が spec にない**: spec 8.4 節末尾の `Go.conv` 記述はこのペアを「要素型が一致するときに限る」と述べるが、`Go.conv xs : Go.Slice Entry`（`xs : List Entry`、`Entry` は gom の record）は要素型が一致していても E0507 で拒否される（実測確認）。一方、適合位置の `let gs : Go.Slice Entry = xs`（ascription）は通る — `sliceConv` は gom 要素を許す。`Go.conv` 経路だけが gom 宣言要素を弾く差分が spec に明記されていない。参照: [spec §8.4](spec.md)（`Go.Slice T` と `List T` の間の `Go.conv` の段落）、sandbox 探索 run 2 の観測（[recheck](sketch/ja/2026-11-24-sandbox-explorer2-recheck.md)）。2026-11-24 登録

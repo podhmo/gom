@@ -14,7 +14,9 @@
 
 - [x] ビット演算子の提供形: `|`/`&`/`^`/shift がなく、Go のフラグ合成（`os.O_APPEND|os.O_CREATE|os.O_WRONLY`）を `+` で代用するしかない。`<<`/`>>` は関数合成に使用済みで名称の余地が狭い（[problem](problems/2026-11-01-operator-coverage.md)、sandbox 探索 jot で再観測 — [sketch](sketch/2026-11-23-sandbox-missing-features.md)）。wave37 lane B で decision 化 — 三重字 `&&&`/`|||`/`^^^`/`<<<`/`>>>`（+`&&^`）を推薦（[decision](decisions/2026-11-23-bit-operators.md)、[prompts](sketch/2026-11-23-wave37-prompts.md)）。**2026-11-24 採択・実装済み** — wave38 lane B で `&&&`/`&&^`/`|||`/`^^^`/`<<<`/`>>>` として実装
 - [x] nil の綴り: wave37 lane C — decision [2026-11-23-nil-spelling](decisions/2026-11-23-nil-spelling.md)（`Go.nil` ユニバーサル builtin）。**2026-11-24 採択** — 実装は wave38 lane C
-- [x] 部分適用・`Unit` 残りの関数値が値位置に流れたときの lint: `fmt.Println` 等に残りパラメータを持つ関数値を渡すとエラーにならず `0x...` が印字される（同 sketch、probes/method の `string i` 事例）。wave39 lane C で調査 → [decision](decisions/2026-11-24-partial-application-lint.md) 採択: `ignore`・`_` 束縛・match `_` 腕の 3 面で `*types.Func` の捨てを警告（`//gom:allow` の warning 拡張が前提）。実装は wave40 lane A。**残問**: `any` 引数経由で Go へ渡る関数値は対象外（decision で明示的に open のまま）
+- [x] 部分適用・`Unit` 残りの関数値が値位置に流れたときの lint: `fmt.Println` 等に残りパラメータを持つ関数値を渡すとエラーにならず `0x...` が印字される（同 sketch、probes/method の `string i` 事例）。wave39 lane C で調査 → [decision](decisions/2026-11-24-partial-application-lint.md) 採択: `ignore`・`_` 束縛・match `_` 腕の 3 面で `*types.Func` の捨てを警告（`//gom:allow` の warning 拡張が前提）。実装は wave40 lane A。**残問**: `any` 引数経由で Go へ渡る関数値は対象外（decision で明示的に open のまま。run 2 の recheck/partapp でも `fmt.Println f` が無警告で `0x...` 表示になることを再確認 — [recheck](sketch/ja/2026-11-24-sandbox-explorer2-recheck.md)）
+- [ ] 文字列の操作面（len・部分列・添字）をどう提供するか: `strings.Join`/`Split` は Go の `strings` 経由で足りるが、`len(s)`・`s[i]`・`s[lo:hi]` 相当がなく、文字集合の走査は `strings.Split (s, "")` + `List.get` の迂回になる（run 2 の passgen）。組み込み `String` のメンバー面か stdlib パッケージか（sandbox 探索 run 2 — [recheck](sketch/ja/2026-11-24-sandbox-explorer2-recheck.md)）
+- [ ] フィールド名の共通する record を並べたときの record literal の曖昧さ（E0407）を緩和するか: `UnvalidatedOrder` → `ValidatedOrder` のような段階型パターンでは同じフィールド名が自然に並び、literal ごとに `let v : T` 注釈が要る。フィールド型・文脈での絞り込みは考えられるか（run 2 の shop/ — [recheck](sketch/ja/2026-11-24-sandbox-explorer2-recheck.md)、[log](sketch/ja/2026-11-24-sandbox-explorer2-log.md)）
 
 ### Go 相互運用
 
@@ -22,6 +24,8 @@
 - [x] Gom の型が Go の interface を実装できるようにするか（v1 ではできない）。できるなら、どう宣言するか — wave25 lane D で実現可能性を調査済み、wave29 lane D で post-defined-type 世界の設計を decision まで固め（`@method` 属性 + 規約命名、.gomi は fn リスト、`InterfaceMethods` oracle — [decision](decisions/2026-11-21-go-iface-impl.md)）、2026-11-22 に採択。実装は wave30 lane C（[prompts](sketch/2026-11-22-wave30-prompts.md)）
 - [x] `Go.Any` の検査面（型アサーション相当）— **wave38 lane F（調査→decision）として採択**: `Go.conv` では具象型へ取り出せない（E0507 — spec が明示的に拒否する設計）が、代替の面がないため `json.Unmarshal` で `any` に decode した値を触れない。panic 式 / `Option` 返り / `match` 拡張のどれで供給するか（[decision](decisions/2026-11-24-go-any-extraction.md) 採択 — comma-ok の `Option` 返り `Go.try_as` を唯一の面とする。**wave39 lane A で実装済み** — `Go.try_as x : Option T`（E0514））
 - [x] `Go.Slice` の要素に Gom 宣言型を置けるか: wave37 lane D — decision [2026-11-23-goslice-gom-elem](decisions/2026-11-23-goslice-gom-elem.md)（`~` 制約の要素一致を Gom 側 `types.Equal` で見る案）。**2026-11-24 採択** — 実装は wave38 lane D
+
+- [x] `Go.Slice` の gom 側コンストラクタ — **解消**: `let gs : Go.Slice T = xs`（`xs : List T`）の ascription で `List` → `Go.Slice` が通る。check の `conformExpr` → `sliceConv` が `ConvSliceToGo` を返し、lower が `.ToSlice()` コピーを emit する（run 2 の recheck は「面がない」として登録したが、レビュー指摘で発見・実測確認。`Go.conv` の明示キャストは gom 要素型で E0507、`Array` は `~[]E` を満たさず E0401 のまま）。コピーのため gom 側の `List` 本体は変わらないが、`slices.Sort`（順序のある要素）や `slices.SortFunc`（record — `Go.func2` 比較器）の結果は `Go.Slice` 側から読める — 用途は足りる（run 2 — [recheck](sketch/ja/2026-11-24-sandbox-explorer2-recheck.md)）
 
 ### 最適化
 
@@ -34,6 +38,8 @@
 - [x] `--strict` / 診断フィルタ → 採用・実装済み（[decisions/strict-mode](decisions/2026-11-22-strict-mode.md)）: リラックスは `//gom:allow CODE` ディレクティブで relaxable コードのみ（初期 E0301/E0302）、厳格方向は warnings→errors の exit code（`-strict` / `-strict=CODES`、wave32 PR #129）
 - [ ] `gom fix` でも `.gomi` 適合検査を走らせるか（`gom check`/`build`/`test` は走らせると決定済み — [decision](decisions/2026-11-04-gomi-conformance-in-gom-test.md)。`info`/`dump` は対象外）。2026-11-05 に検討して見送り: 適合診断は fix 候補プールに加わるだけ・ゲート無し・診断非表示という形が妥当だが、現状 E0601/E0603/E0604 に safe fix がなく観測差ゼロのため先送り。interface 診断に safe fix が付くなど価値が具体化した時点で再検討する（[検討の記録](decisions/2026-11-05-gomi-conformance-in-gom-fix.md)）
 - [x] ~~`gom run`（`go run` 相当の実行経路）~~ → wave19 で採用・実装済み: compile → temp dir への `go build -o` → 子プロセス exec（引数 passthrough・exit code 保全・signal kill は 128+signal）。実行中の出力は対象プログラムが stdout/stderr を所有し、gom の JSON message stream は失敗時のみ（[decision](decisions/2026-11-18-gom-run.md)）
+- [ ] `gom info` が stdlib 短名を解決しない — `gom list` で出す名前（`list`/`option`/`result`/`cmp`）をそのまま `gom info <name>` で引ける想定だったが、現状はファイル/ディレクトリパスしか取らず（import 名は解決しない） `stat list: no such file or directory` になる。stdlib のシグネチャ一覧を dump する口がなく、利用者は repo の `stdlib/*/*.gomi` を読むか名前を推測するしかない（sandbox 探索 run 2 — [gotchas](sketch/ja/2026-11-24-sandbox-explorer2-gotchas.md) §1）
+- [ ] `.gomi` を手で管理せず `gom info` の生成物にしたい場合の機能不足 — (1) 再生成が spec 上「`gom info` が書き出し」の `//gom:noescape`/`//gom:result-notaint` を落とす（[implementation-gaps.md](implementation-gaps.md) 登録済み）。(2) abstract 化・非公開化の意図を生成に残す経路がなく、draft への手編集が再生成で消える — `.gom` 属性か `.gomi` ディレクティブで表し `gom info` が引き継ぐ仕組みが要る（`//gom:mutable` の「著者記述・再生成引き継ぎ」モデルを広げる案がありうる）（sandbox 探索 run 2 — [gotchas](sketch/ja/2026-11-24-sandbox-explorer2-gotchas.md) §3）
 ## Future work（v1 では扱わないと決めたもの）
 
 - [x] ~~ラベル付き引数の制限の緩和~~ → 調査済み、unlabeled→labeled の一方向 introduction を採択・実装済み（2026-11-23、[decision](decisions/2026-11-23-labeled-arg-relaxation.md)、wave36 lane B）。meta へのラベル制約の後送りと位置引数の labeled 充填は reject
@@ -51,6 +57,7 @@
 - インクリメンタルビルドのキャッシュ（P4。それまでは毎回変換し、Go のキャッシュに任せる）
 - `iota` 流の Go 定数セット宣言 — sum type や `let` 定数で代替になるが、Go API の定数群を gom 側から作る面はない（sandbox 探索 — [sketch](sketch/2026-11-23-sandbox-missing-features.md)）
 - cgo、`unsafe`、`reflect` の本格的な扱い
+- 符号なし整数（`byte`/`uint8` 以外 — spec §8.3 で v1 非対応と明記済み）: run 2 で `text/tabwriter` の `flags uint` が E0501 で取れず手書きパディングに退避した事例あり（[recheck](sketch/ja/2026-11-24-sandbox-explorer2-recheck.md) tabwriter）。`uint16`/`uint32`/`uint64`/`uintptr` が要るかは需要を見て再検討
 - セルフホスト（コンパイラを Gom で書き直す）
 - [x] Core 検証器で Go 呼び出しの関数引数の表現を検査する — wave34 lane D で実装済み: `CallGo.FlatArgs` に宣言型由来のスロット arity を載せ、`core.Validate` が emitted repr（`callbackArity`）と照合して E0901。宣言型（rigid）を読む点が要 — instantiated 型は型変数下の関数型で arity が広がる（`internal/core/validate.go`、`TestCallGoCtorRefCallbackArity`）
 - [x] W0502 `lintErrorsAsTarget` の `Ptr (Ptr E)` ケース: `**int` は `*int` が error 非実装かつ非 interface なので panic が証明可能（wave9 error-tail レビュー nit） → wave22 lane2 で実装済み: E が unnamed/interface 表現なら warn、named Go 型・record・abstract・メタは沈黙維持（[decision](decisions/2026-11-19-errors-as-nested-ptr-lint.md)）
