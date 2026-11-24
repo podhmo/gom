@@ -397,15 +397,7 @@ func ExternalPackages(dir, gobin string) ([]string, error) {
 	mainPath, mainDir, _ := l.module()
 	vend := ""
 	if mainDir != "" && l.vendorEnabled() {
-		v := filepath.Join(mainDir, "vendor")
-		// A member module's vendor/ applies only outside
-		// workspace mode — except when workroot and module
-		// root coincide, where it is the workspace vendor.
-		if wr := l.workRoot(); wr == "" || wr == mainDir {
-			if st, serr := os.Stat(v); serr == nil && st.IsDir() {
-				vend = v
-			}
-		}
+		vend = l.vendDir(mainDir)
 	}
 	// Under vendoring the vendored set is the importable set — a
 	// module graph that cannot be listed (offline, broken
@@ -605,11 +597,16 @@ func (l *Loader) pkgDir(path string) (string, error) {
 	// (or =readonly) makes the go command ignore vendor/ entirely,
 	// and the generated Go import must see the same source the go
 	// tool will use.
-	if _, modDir, merr := l.module(); merr == nil && l.vendorEnabled() &&
-		(l.workRoot() == "" || l.workRoot() == modDir) {
-		v := filepath.Join(modDir, "vendor", filepath.FromSlash(path))
-		if st, serr := os.Stat(v); serr == nil && st.IsDir() {
-			return v, nil
+	if _, modDir, merr := l.module(); merr == nil && l.vendorEnabled() {
+		if vd := l.vendDir(modDir); vd != "" {
+			v := filepath.Join(vd, filepath.FromSlash(path))
+			// A vendored dir answers only when it carries the
+			// interface — an existing directory could be a mere
+			// parent of deeper vendored packages, which must not
+			// mask a workspace member resolving the same path.
+			if _, serr := oneGomi(v); serr == nil {
+				return v, nil
+			}
 		}
 	}
 	mods, err := l.extModules()
@@ -731,6 +728,29 @@ func (l *Loader) gobin() string {
 		return l.cfg.GoBin
 	}
 	return "go"
+}
+
+// vendDir returns the vendor directory the go command resolves
+// imports through — <workroot>/vendor when a workspace governs
+// (its modules.txt must carry the "## workspace" marker or the
+// tree is a stale module vendor the go command ignores), else
+// the module's own vendor/. Empty when neither applies.
+func (l *Loader) vendDir(mainDir string) string {
+	if wr := l.workRoot(); wr != "" {
+		mt := filepath.Join(wr, "vendor", "modules.txt")
+		if b, err := os.ReadFile(mt); err == nil && strings.Contains(string(b), "## workspace") {
+			return filepath.Join(wr, "vendor")
+		}
+		return ""
+	}
+	if mainDir == "" {
+		return ""
+	}
+	v := filepath.Join(mainDir, "vendor")
+	if st, err := os.Stat(v); err == nil && st.IsDir() {
+		return v
+	}
+	return ""
 }
 
 // workRoot returns the directory holding the go.work governing
