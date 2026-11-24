@@ -1845,7 +1845,7 @@
   対応: wave36 lane B（[PR #156](https://github.com/podhmo/gom/pull/156)）
   で `unifyFunc` の位置対応 introduction を実装し spec と一致。
   検証: [fixture](../testdata/spec/ok_labeled_intro_fn.gom)。
-- [ ] **production `display`/`"${v}"` 補間と evaluator の composite
+- [x] **production `display`/`"${v}"` 補間と evaluator の composite
   表示がずれている**: evaluator は ADT/record/list/tuple を
   comparison format で描くが、生成 Go の `display`・文字列補間は
   `fmt.Sprint` に落ちる。`lower` の `gomShowN`（assert_eq の
@@ -1853,6 +1853,12 @@
   lane 候補。
   [problem](problems/2026-11-04-interp-composite-display.md)、
   [棚卸し](sketch/2026-11-23-wave36-problems-sweep.md)（2026-11-23 登録）
+  対応: wave43 lane C — `strInterp` の `display` CallBuiltin に
+  `ShowPlan` を載せ、composite 型は既存の `gomShowN` 機構（`Prod`
+  フラグで main 側へ emit）に回す。scalar は従来どおり strconv、
+  `%v` は runtime recipe のまま。
+  検証: `testdata/golden/record_one_field.golden.go` 等の補間が
+  `gomShowN` を呼ぶ、[decision](decisions/2026-11-24-display-composite-gomshow.md)。
 
 - [x] **`Go.Slice`/`Go.Map` 要素に Gom 宣言型を置くと `~` 制約で常に拒否される**:
   spec §8.5 の `~[]E`/`~map[K]V` 判定は `types.Identical` 前提だが、

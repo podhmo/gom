@@ -153,6 +153,10 @@ type ShowDecl struct {
 	// Plan is the display function body's recipe — a composite
 	// ShowKind, or a leaf kind for the defensive cases.
 	Plan *ShowPlan
+	// Prod marks a declaration production code reaches for — a
+	// `display` splice outside a `test` body. Prod decls emit into
+	// the main half; test-only decls stay in the test half.
+	Prod bool
 }
 
 // Span returns the declaration's source span — the first assert_eq

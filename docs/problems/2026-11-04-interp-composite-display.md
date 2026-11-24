@@ -1,6 +1,6 @@
 # `"${v}"` on composite values renders differently in the evaluator and generated Go
 
-- 状態: 未解決（2026-11-23 wave36 棚卸しで再確認 — 生成側の `display` は依然 composite を `fmt.Sprint` に落とす。`gomShowN` 機構（design.md 4.8）を production display へ転用する方向が lane 候補）
+- 状態: 解決（2026-11-24 wave43 lane C — `display` CallBuiltin が `ShowPlan` を持ち、composite は `gomShowN` へ回る。main 側 emit は `ShowDecl.Prod`。[decision](../decisions/2026-11-24-display-composite-gomshow.md)）
 - 日付: 2026-11-04
 
 ## Situation

@@ -3516,6 +3516,11 @@ func (l *lowerer) strInterp(s *seq, e *check.StrInterp) core.Expr {
 			d := l.asAtom(s, p.Sp, &core.CallBuiltin{
 				Sp: p.Sp, Typ: types.String,
 				Sym: l.builtinSym("display"), Args: []core.Atom{x},
+				// The splice renders through the same display
+				// recipe assert_eq's operands use — composite
+				// types mint a gomShow decl the evaluator's
+				// comparison format reproduces (design.md 4.8).
+				Show: l.showPlan(p.Sp, x.Type()),
 			})
 			parts = append(parts, d)
 		default:

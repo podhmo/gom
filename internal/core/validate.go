@@ -1007,8 +1007,8 @@ func (v *validator) expr(e Expr, inTail bool) {
 			v.err(e.Sp, "CallBuiltin", "assert_eq without an Eq plan")
 		}
 		if e.Show != nil {
-			if e.Sym == nil || e.Sym.Name != "assert_eq" {
-				v.err(e.Sp, "CallBuiltin", "Show plan on a non-assert_eq builtin")
+			if e.Sym == nil || (e.Sym.Name != "assert_eq" && e.Sym.Name != "display") {
+				v.err(e.Sp, "CallBuiltin", "Show plan on a non-display builtin")
 			}
 			v.showPlan(e.Show, false, "CallBuiltin.Show")
 		}

@@ -143,6 +143,12 @@ func (l *lowerer) showDecl(sp diag.Span, t types.Type) *core.ShowDecl {
 	t = types.Chase(t)
 	key := t.String()
 	if d, ok := l.showDecls[key]; ok {
+		// A decl minted for a test may later be needed by
+		// production `display` — promote it so codegen emits it
+		// into the main half where both reach it.
+		if !l.inTest {
+			d.Prod = true
+		}
 		return d
 	}
 	if len(l.showDecls) >= showDeclLimit {
@@ -150,9 +156,10 @@ func (l *lowerer) showDecl(sp diag.Span, t types.Type) *core.ShowDecl {
 	}
 	l.showSeq++
 	d := &core.ShowDecl{
-		Sp:  sp,
-		Sym: &resolve.Symbol{Name: fmt.Sprintf("gomShow%d_%s", l.showSeq, l.eqMark), Kind: resolve.KindFunc},
-		Typ: t,
+		Sp:   sp,
+		Sym:  &resolve.Symbol{Name: fmt.Sprintf("gomShow%d_%s", l.showSeq, l.eqMark), Kind: resolve.KindFunc},
+		Typ:  t,
+		Prod: !l.inTest,
 	}
 	l.showDecls[key] = d
 	l.showOrder = append(l.showOrder, d)
