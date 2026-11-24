@@ -75,6 +75,8 @@ fn sign (n: Int) -> Int = {
   (`String` unquoted, `Char` as its code point), composites use the
   composite notation (`Ok 42`, `{ name = "n" }`, `[1, 2]`,
   `(1, 2)`, `Ctor ~name: v`), and Go values fall back to `%v`.
+  A composite still mentioning a type parameter prints with Go
+  formatting instead (`{1 2}` for a generic tuple element).
 - `()` is the `Unit` value. Tuples `(a, b, c)` — a spelled
   tuple beyond 8 elements emits an anonymous `struct{ V0..Vn }`
   rather than `rt.TupleN`, so wide tuples still typecheck and
@@ -222,7 +224,9 @@ type alias Wrap a = List a       // forwards its parameters
   resolves late: ambiguous use is E0407 (annotate). `/`/`%` by a
   divisor that folds to a constant `0` is E0414 (Go rejects it
   too; `Float` allows `x / 0.0` but not `10.0 / 0.0`) — this
-  covers folded expressions like `x / (1 / 2)` or `x / (n * 0)`.
+  covers folded expressions like `x / (1 / 2)`, and gom is
+  stricter than Go where a variable expression folds to zero:
+  `x / (n * 0)` flags E0414 while Go accepts it.
 
 ## match and patterns
 

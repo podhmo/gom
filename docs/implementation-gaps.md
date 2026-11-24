@@ -1947,7 +1947,6 @@
 - [ ] **宣言型の1-field recordへのスカラー代入で splice 表示が eval と compiled で揺れる**: `type Flag = {on: Bool}` に `let f : Flag = true` と代入したとき、`"${f}"` は eval では `true`、compiled（`.go` 生成物）では `{ on = true }` と描かれる。eval は束縛値をスカラーのまま持ち（1-field record の peel）、codegen は record として materialize するため同一値の表示が分岐。正準形を決める decision が要る — eval を VRecord 化するとスカラー算術・等価が壊れ、codegen をスカラー化すると record literal 代入との整合が取れない。発見: #216 レビュー（wave43 lane C）。関連: [verification sketch](sketch/2026-11-24-display-gomshow-verify.md)
 
 - [ ] **stack を持つ error 値の生成が書けない（`pkg/errors` 系）**: `fmt.Errorf("ctx: %w", e)` のユーザーコードは生成される Go-call で問題なく通る（[errwalk fixture](../testdata/realworld/errwalk/main.gom)）が、`%+v` で stack trace を出す `pkg/errors.Errorf` 相当の「stack を持つ error 値」の生成には `@extern` shim が要った — `%+v` 出力自体は生成コードで動くが、stack を持つ値の作成側だけ shim（selfish 移植の観測 — [sketch](sketch/ja/2026-11-24-selfish-port.md)、wave43 lane F）
->>>>>>> cc4d356 (docs: add selfish-port sketch; fix ledger wording per review)
 
 - [ ] **引数なし `@extern fn name () -> T` の `name(struct{}{})` 規約が spec に例示されていない**: spec の `@extern` 規則と Unit 呼出し規則（`f(struct{}{})`）は定められているが、Go 側を `func name(_ struct{})` で受ける必要があることは extern 節に例がなく読み取りづらい（selfish 移植 — 同上 sketch）
 

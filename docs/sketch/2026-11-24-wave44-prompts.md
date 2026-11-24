@@ -12,8 +12,6 @@
 
 ### A. `%w` error wrapping の第一級サポート（規模: 中）
 
-### A. `%w` error wrapping の第一級サポート（規模: 中）
-
 生成 `fmt.Errorf` が引数を `any(...)` に box するため `go vet`
 が `%w` を弾く — `wrap`/`wrapf` は `@extern` shim 退避が必要。
 `Result` がある分 error wrapping は言語側で持ちたい（selfish
