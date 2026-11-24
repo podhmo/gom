@@ -21,8 +21,8 @@ type Flag = { on: Bool }
 fn main () -> Unit = {
   // Two spellings of the same value: the record literal, and —
   // like Go's untyped constants — a bare literal in a declared-type
-  // position. (A peeled type has no value-namespace constructor;
-  // `UserId 0` does not parse.)
+  // position. (`UserId 0` parses as a call, but name resolution
+  // rejects it: `UserId` is a type name, not a value — E0201.)
   let a : UserId = { v = 0 }
   let b : UserId = 0
   let c : UserId = 0
@@ -30,7 +30,7 @@ fn main () -> Unit = {
 
   // The underlying type's own ops still apply.
   let d : UserId = a + 1
-  ignore (fmt.Println "next ${d.v}, over 100? ${d < 100}")
+  ignore (fmt.Println "next ${d.v}, under 100? ${d < 100}")
 
   // `Flag` peels to `type Flag bool`.
   let f : Flag = true
@@ -43,14 +43,20 @@ fn main () -> Unit = {
   //       let z : UserId = n    // E0401: n is already Int
   //   (Go behaves the same: `var z UserId = n` needs `UserId(n)`.)
   //
-  // - Only ONE-field, non-generic records peel: `Point` below is a
-  //   real `struct{...}` and `p + 1` is E0401. `Box a` stays a
-  //   struct too — the peel needs a concrete field type.
+  // - The peel needs a concrete field type: `Point` below is a
+  //   real `struct{...}` and `p + 1` is E0401, and
+  //   `type Box a = { v: a }` stays a struct too — Go forbids a
+  //   bare type parameter as a defined type's underlying. A
+  //   generic record whose field ISN'T a bare parameter still
+  //   peels (stdlib `Eq` is a one-field record of a function).
   //
-  // - A peeled value prints as its field: `${f}` above shows
-  //   `true`, not `{ on = true }`. The two spellings are the same
-  //   value — display follows the stored form, not the declared
-  //   type's record syntax.
+  // - A `Char`-backed defined type prints as the rune's number
+  //   via `%v`, while a bare `Char` prints as the character —
+  //   a display asymmetry (docs/implementation-gaps).
+  //
+  // - A peeled value displays as its field: `${f}` prints
+  //   `true`, not `{ on = true }` — display follows the stored
+  //   scalar form, not the declared type's record syntax.
   ()
 }
 
