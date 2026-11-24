@@ -33,8 +33,11 @@ fn main () -> Unit = {
   ignore (fmt.Println "task ${Task.await t}")
 
   // select: receive arm vs a `time.After` deadline arm.
+  // A buffered `Chan.make 1` holds the value, so the receive arm is
+  // ready immediately — the deadline loses by construction. (Sending
+  // from `go { }` instead would race the deadline.)
   let tick = Chan.make 1
-  go { Chan.send tick 1 }
+  Chan.send tick 1
   let verdict = select {
     x <- tick -> match x {
       Some n -> "tick ${n}"

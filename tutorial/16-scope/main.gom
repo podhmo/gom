@@ -14,7 +14,9 @@ fn guarded (held: Ref Int) -> Int =
   Scope.run <| fn s -> {
     Ref.set held 1
     Scope.defer s (fn () -> Ref.set held 0)
-    // on_err runs only when the body fails or panics — not here.
+    // on_err runs only when the body panics — a returned Err is
+    // just a value to Scope.run (run_result/defer_err, below,
+    // is the shape that reacts to an Err return). Not triggered here.
     Scope.on_err s (fn () -> ignore (fmt.Println "cleanup on error"))
     Ref.get held
   }
