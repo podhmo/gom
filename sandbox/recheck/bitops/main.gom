@@ -8,7 +8,11 @@ fn main () -> Unit = {
     Ok dir -> {
       let flags = os.O_APPEND ||| os.O_CREATE ||| os.O_WRONLY
       match os.OpenFile ("${dir}/gom-bitops.log", flags, 0o600) {
-        Ok f -> { ignore fmt.Fprintf (f, "hello\n"); ignore f.Close () }
+        Ok f -> {
+          ignore fmt.Fprintf (f, "hello\n")
+          ignore f.Close ()
+          ignore fmt.Printf ("wrote %s\n", "${dir}/gom-bitops.log")
+        }
         Err e -> ignore fmt.Fprintf (os.Stderr, "bitops: %s\n", e.Error ())
       }
     }
