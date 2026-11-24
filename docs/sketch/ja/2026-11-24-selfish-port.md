@@ -102,7 +102,9 @@ update ではなく create のまま（両バイナリで一致することを�
 - `scan_files`/`new_gist_file` の `Option.get (os.Stat ...)` — `None` で panic する型上の穴。
   match 化して `None` は Err/skip に倒した（`os.Stat` が Option を返すので gom 的には到達可能な型）。
 - `Gists.{Create,Edit}` の `*github.Gist` — verbatim `Ptr` を `Ptr.to_option` で包んで
-  `None -> Err` に。ネットワーク入力なのでここが一番意味のある guard。
+  `None -> Err` に（`expect_gist`）。ネットワーク入力なのでここが一番意味のある guard。
+  `None` 分岐は `@extern fn nil_gist`（nil を返すテスト用 shim、gom は nil を綴れない）で
+  test block から検証済み。
   なお `Result (Option T, U)` の payload Option 宣言は extern 宣言側でのみ選べるため、
   メソッド直呼びの箇所では `Ptr.to_option` で後から包む形になる。
 - `user.Current ()` の `*user.User` — 同上、`Ptr.to_option` で guard。

@@ -31,3 +31,6 @@ import go "github.com/google/go-github/v68/github"
 // pkg/errors.Errorf — carries a stack so log's %+v prints frames,
 // like the oracle's not-found error.
 @extern fn stack_errorf (format: String) (arg: Go.Any) -> GoError
+
+// test helper: produces a nil *github.Gist (gom can't spell nil).
+@extern fn nil_gist () -> Ptr github.Gist
