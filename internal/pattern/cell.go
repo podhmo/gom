@@ -71,6 +71,16 @@ func (c conv) alts(p check.Pat) []*cell {
 		// the bound name does not affect coverage.
 		return c.alts(p.Pat)
 	case *check.LitPat:
+		if rc := c.litAsRecord(p, p.Type()); rc != nil {
+			// A scalar literal pattern against a record type peels
+			// to the record's single field (the same admission that
+			// lets `0` type-check against `type UserId = { v: Int }`).
+			// Converting it to the record cell makes `0` and
+			// `{ v = 0 }` cover the same domain — without this the
+			// duplicate arm and the unhandled remainder are both
+			// invisible to the matrix.
+			return []*cell{rc}
+		}
 		return []*cell{litCell(p)}
 	case *check.CtorPat:
 		return c.ctorAlts(p)
@@ -106,6 +116,33 @@ func (c conv) alts(p check.Pat) []*cell {
 
 // tupleKey is the signature key of the n-ary tuple constructor.
 func tupleKey(n int) string { return "t:" + strconv.Itoa(n) }
+
+// litAsRecord converts a scalar literal pattern typed at a record
+// type to the record cell `{ f = <lit> }` it is equivalent to, or
+// nil when t is not a single-field record. Peels nested 1-field
+// records recursively (`type A = { v: B }` over `type B = { w: Int }`
+// turns `0` into `{ v = { w = 0 } }`).
+func (c conv) litAsRecord(p *check.LitPat, t types.Type) *cell {
+	v := c.env.recordOf(t)
+	if v == nil || len(v.Fields) != 1 {
+		return nil
+	}
+	var arg *cell
+	if inner := c.litAsRecord(p, v.Fields[0].Type); inner != nil {
+		arg = inner
+	} else {
+		arg = litCell(p)
+		arg.typ = v.Fields[0].Type
+	}
+	tk, _ := keyOf(t)
+	return &cell{
+		typ:   t,
+		key:   variantKey(v, tk),
+		kind:  VRecord,
+		args:  []*cell{arg},
+		names: fieldNames(v),
+	}
+}
 
 // litCell converts a literal pattern to its cell.
 func litCell(p *check.LitPat) *cell {

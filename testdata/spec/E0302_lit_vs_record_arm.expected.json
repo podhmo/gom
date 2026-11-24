@@ -1,0 +1,26 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0302",
+      "severity": "error",
+      "message": "unreachable match arm",
+      "span": {
+        "file": "E0302_lit_vs_record_arm.gom",
+        "start": {
+          "line": 7,
+          "col": 3,
+          "offset": 85
+        },
+        "end": {
+          "line": 7,
+          "col": 15,
+          "offset": 97
+        }
+      },
+      "data": {
+        "arm_index": 1
+      }
+    }
+  ]
+}
