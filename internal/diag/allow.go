@@ -188,5 +188,10 @@ func (st *allowLexState) scan(line string) (text string, ok bool) {
 			onlySpace = false
 		}
 	}
+	// Quoted literals cannot span lines — an unterminated string or
+	// char is a lex error the lexer recovers from at the newline
+	// (lexer.go scanString), so the next line scans as plain code
+	// again. Only backtick raw strings and block comments carry.
+	st.frames = st.frames[:0]
 	return "", false
 }
