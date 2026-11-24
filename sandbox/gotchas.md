@@ -1,96 +1,53 @@
-# gotchas — skill とエラーメッセージだけで書いたときのはまりポイント
+# gotchas — clone して中を覗かないと分からないもの
 
-前提: トップレベルの README から辿れる `docs/spec.md`・`docs/design.md` に書いてある内容は省く。ここに挙げるのは、仕様を読んでも気付けず、コンパイルエラーや生成物を見て初めて分かった点（あるいは仕様にあっても「エラーの出方」が原因を示さない点）だけ。
+前提: skill 単体 + コンパイラのエラーメッセージ + `gom` のヘルプメッセージだけを頼りにコードを書く想定。README → `docs/spec.md` → `docs/design.md` で分かるもの、エラーメッセージが直接教えてくれるものは除く。**「それを知る術がリポジトリの中身を読むことしかない」ものだけを先に挙げる。**
 
-## ツールチェーン
+## 1. 標準ライブラリ・組み込みモジュールの API 一覧を見る術が repo 内にしかない
 
-### `gom build` / `gom run` は gom 依存を推移的に emit しない
+`gom list` は importable な stdlib パッケージの**名前**だけを出す（`cmp` / `list` / `option` / `result`）。各パッケージに何があるかを列挙するコマンドはツールチェーンにない:
 
-生成対象は引数に並べたディレクトリだけ。`main` が gom パッケージ `domain` を `import` していても、`gom run shop` は `shop/main.go` だけを出す。`gom check` は import 先の `.gomi` を読むので通るのに、`gom run`/`gom build` 後の Go のビルドで `no required module provides package .../domain` 系のリンクエラー（E0001）になる。
+- 4 つの stdlib パッケージの中身の正は repo の `stdlib/<pkg>/<pkg>.gomi`（doc comment 付き）と `<pkg>.gom`。`Option.get_or_else`・`List.range`・`Result.to_option` などの存在はこれを読むか、名前を勘で書いて E0201 を踏むかの二択。
+- `Go.Slice.to_list`・`Go.Map`・`Task.spawn`/`await`・`Ptr`・`Ref`・`Array`・`View`・`Chan` のような**組み込みモジュールの面は `.gomi` すら存在しない** — `internal/stdlib/builtin.go` の Go ソースにメンバ表として書いてあるだけ。spec はこれらのモジュールが存在することは書くが、関数一覧は載せていない。
+- `gom info` は自分のディレクトリのシグネチャしか吐かない（組み込みモジュールを dump する口はない）。`gom info stdlib/list` のようなパッケージ名指定は効かない（引数はディレクトリパス）。
 
-対処: `gom build shop shop/domain` と依存先をすべて並べて emit してから `gom run shop`。依存の列挙は自動化されないので、パッケージ構成が増えたら Makefile 等に書いておくとよい。
+つまり clone なしで書くと、stdlib/builtin の API は「spec に名前が出たもの + 推測 + E0201」で探ることになる。skill を単体で ship するなら `stdlib/*/*.gomi` と builtin.go の面一覧を抜粋して同梱する価値がある。
 
-### `.gomi` は `gom info` で生成できる
+## 2. `gom build` / `gom run` の emit 対象は引数のディレクトリだけ — gom 依存は推移しない
 
-非 `main` パッケージの `.gomi` をゼロから手書きする必要はない。`gom info -o domain/domain.gomi shop/domain` が全メンバのシグネチャを書き出す。吐き出されるのは**全公開の具体型**なので、ここから「外に見せたい形」へ削る作業になる — record を sealed にしたい型は `type T` の bare 宣言に書き換える、公開しないメンバは消す、等。
+`gom build -h` / `gom run -h` にも書かれていない。`main` が gom パッケージ `domain` を `import` していても、`gom run shop` は `shop/main.go` しか emit しない。`gom check` は import 先の `.gomi` を読むだけなので通るのに、`run`/`build` 後の go 側で `no required module provides package .../domain`（E0001）になる。
 
-## 構文・式の組み立て
+エラーは出るが **gom の診断ではなく go 側のリンクエラーとして出る**ので「gom パッケージを自分で build に並べる」というモデルには、cmd/gom の実装か試行でしか辿り着かない。対処: `gom build shop shop/domain` と依存をすべて列挙してから `gom run shop`。
 
-### 型明示 `e : T` は式を閉じる
+## 3. `gom info -o` が吐く `.gomi` は「全公開の素案」で、再生成は手編集を上書きする
 
-`Go.conv e : T`（内部表現は ascription）を二項演算・比較・`if` 条件の中に裸で置くと、その直後の演算子が文法エラーになる:
+`-h` にも "drafts" とあるが、実際に試して分かる点が 2 つ:
 
-```gom
-let ok = Go.conv n : Float == qty   -- E0101: expected a newline, ... found "=="
-let ok = (Go.conv n : Float) == qty -- OK
-```
+- 出力は全メンバの**具体型**そのまま。公開面はここから手で削る — sealed にしたい record は bare `type T` に書き換え、見せたくないメンバは消す。
+- 既存 `.gomi` への再生成は手編集を問答無用で上書きする。実際 `gom info stdlib/list` で `stdlib/list/list.gomi` を regenerate したら `//gom:result-notaint` / `//gom:noescape` 行が落ちた（revert して復旧）。draft の土台として一度使って以後は手で保守する、という運用。
 
-`:` の右側は型だけを食って式がそこで完結するので、式の中で使うときは毎回括弧で囲む。`r.Comma = Go.conv '\t' : Int32` のように文全体が右辺になる位置なら裸でよい。
+## 4. Go 側ライブラリの仕様を知らないと嵌る点（gom の資料には出ない）
 
-### 関数適用を次の行へ続けるには括弧が要る
+- `encoding/csv`: `FieldsPerRecord = 0` は「先頭レコードと同じ列数を強制」であり「チェックしない」ではない。可変列数は負値（`0 - 1`）。
+- 同じく csv: `w.Write [""]`（空文字列 1 フィールドの行）は空行として出力され読み側に届かない。空レコードを往復させる方法はない。
+- `regexp` の置換参照は `${2}`（`$2` は `$name` 解釈）。
+- `os.Rename` は既存の宛先を上書きする。拒否したいなら先に `os.Stat` で存在確認。
+- `encoding/json`: 大整数は `dec.UseNumber ()` + `json.Number` にしないと `float64` 化で潰れる。`json.Valid` は `Go.Slice Byte` を取る。
+- `time`: layout 文字列は参照日時 `2006-01-02` の魔法の値。ISO 用は定数 `time.DateOnly`。
 
-`{ }` ブロックの中で改行は式の区切り（spec §1.5）。ここで落ちるのは規則そのものではなく**エラーの出方**:
+---
 
-```gom
-let ok = List.fold
-  (fn acc path -> acc)   -- List.fold 単体が let の右辺として読まれる
-  true
-  paths
-```
+## 参考: エラー/ヘルプで自己解決できるもの（劣後）
 
-これは「`(` が閉じていない」系ではなく、`List.fold` への裸の参照が型引数を決められない **E0407 (type arguments could not be determined) や E0401** として出る。改行のせいだとは見えない。続けたいときは `(List.fold\n  f\n  acc\n  xs)` と括弧る。
+踏んだ時点でエラーメッセージが答えを教える、あるいは `gom` の `-h` に出るもの。ドキュメントには不要と判断したが、探索で実際に踏んだので痕跡として残す。
 
-### `let` 束縛は再帰しない
-
-```gom
-let rec_fn = fn xs -> rec_fn xs   -- E0201: undefined name `rec_fn`
-```
-
-`let` の右辺から束縛名は見えない（`let rec` は存在しない）。再帰したい関数はトップレベルの `fn` 宣言に出す。spec は `fn`/`@tailrec` の再帰ルールを書くが、「`let` では自己参照できない」とは明記されていない。
-
-### ラムダのパラメータは識別子だけ、`fn` 宣言はパターンを取れる
-
-非対称なので間違えやすい:
-
-```gom
-let g = fn (a, b) -> a                        -- E0101 が 6 連発。原因は見えない
-let g = fn pt -> match pt { (a, b) -> a }     -- 分解は本体で
-
-fn f ((a, b): (Int, Int)) -> Int = a + b      -- 宣言側はこれで通る
-```
-
-ラムダのパラメータに書けるのは `x`・`(x: T)`・`~x`・`(~x: T)` だけ（spec の文法そのものは合っているが、宣言側がパターンを取れるのでラムダでも取れると思い込む）。
-
-## Go 境界の細部
-
-### import した Go 関数の値は gom 関数の面を持つ
-
-`bufio.ScanWords` のような Go 関数を値として使うと、gom 側ではカリー化された関数値として見える。`Go.Func2` を要求するパラメータ（`sc.Split` など）にそのまま渡すと E0401:
-
-```gom
-sc.Split (bufio.ScanWords)         -- E0401: 型が合わない（なぜかはエラーから分からない）
-sc.Split (Go.func2 bufio.ScanWords) -- OK: gom 関数値 → Go.Func2 に再ラップ
-```
-
-`Go.funcN` が「gom の関数値」を取る変換器であることは spec にあるが、「import 直後の Go 関数の素の面が gom 側にある」ことは実際に E0401 を踏むまで分かりにくい。
-
-### Go struct のフィールド代入は「面を変えてから」
-
-`r.Comma = '\t'` は E0401（expected Int32, found Char）なので `r.Comma = Go.conv '\t' : Int32`。代入自体は `ptr.Field = v`（spec にある）だが、Char と Int32 が別物なので rune 系フィールドは毎回 `Go.conv` が要る。
-
-## gom ではなく Go 側の仕様が原因ではまる点
-
-skill・spec に書かれていて当然なものは除くが、実際にコードを書くと Go のライブラリ仕様で嵌る:
-
-- `encoding/csv`: `FieldsPerRecord = 0` は「先頭レコードと同じ列数を強制」であり「チェックしない」ではない。可変列数を許すには負値（`0 - 1`）。
-- 同じく csv: `w.Write [""]`（空文字列 1 フィールドの行）は空行として出力され、読み側に届かない。空レコードを往復させる方法はない。
-- `regexp` の置換参照は `${2}`。`$2` は `$name` 解釈で別物になる。
-- `os.Rename` は Unix では既存の宛先を黙って上書きする。拒否したいなら先に `os.Stat` で存在確認。
-- `encoding/json`: 大きな整数は `dec.UseNumber ()` + `json.Number` にしないと `float64` 化して精度が潰れる。`json.Valid` は `Go.Slice Byte` を取る。
-- `time`: layout 文字列は参照日時 `2006-01-02 ...` の魔法の値。ISO 用は定数 `time.DateOnly` がある。
-
-## 診断の読み方のクセ
-
-- **E0101 の連発**はたいてい「その場に書けない形を書いた」（ラムダのパターン、ascription の直後に演算子）。最初の 1 個だけ見て位置を絞る。残りはパースがずれた派生エラー。
-- **E0407** は「どこかに `x : T` を付けろ」の合図。エラーの指す式そのものではなく、その値の出処（リテラル・`Go.nil`・型引数のある関数呼び出し）に注釈を足すと治る。
-- **`gom check` は型・パターン検査まで**で、`@tailrec` 違反や Go リンク段階の不整合は `gom build`/`gom run` で初めて出る。`check` が緑でも run が失敗し得る。
+| 落とし穴 | エラー | 解決 |
+| --- | --- | --- |
+| `e : T`（`Go.conv e : T`）は式を閉じる | `Go.conv n : Float == qty` → E0101 | `(Go.conv n : Float) == qty` と括弧る |
+| `{ }` 内の改行は式の区切り（spec §1.5） | 多行適用が E0407/E0401 に化ける（原因が見えにくい） | `(f\n a\n b)` と括弧る |
+| `let` 束縛は再帰しない | `let f = fn xs -> f xs` → E0201 | トップレベル `fn` へ |
+| ラムダ引数は識別子のみ（`fn` 宣言は `((a,b): T)` パターンを取れる非対称） | E0101 連発 | 本体で `match` |
+| import した Go 関数値は gom 関数の面を持つ | `sc.Split (bufio.ScanWords)` → E0401 | `Go.func2 bufio.ScanWords` で再ラップ |
+| `Char` → rune 系フィールド（`Int32`） | `r.Comma = '\t'` → E0401 | `Go.conv '\t' : Int32` |
+| `Go.nil` を `List` 面のパラメータへ | E0513、エラーが nil-able 型の一覧を出す | `let b : Go.Slice Byte = Go.nil ()` |
+| record リテラルの型が曖昧 | E0407 | `x : T` 注釈 |
+| コマンド群 | — | `gom explain <code>`・`gom fix`・`gom list`・`gom info -o`・`gom fmt -w`・`gom dump -phase` が `-h` に全部出る |
