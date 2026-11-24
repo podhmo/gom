@@ -1,0 +1,54 @@
+package commithistory
+
+import go "io"
+import go "time"
+
+type Commit = { id : String, alias : String, created_at : time.Time, action : String }
+
+type Config = { name : String, profile : String, dryrun : Bool, join_path : String -> List String -> String, default_write : String -> Result Unit GoError, dir : String -> Result String GoError }
+
+type API = { config : Config }
+
+fn api_new (name: String) (ops: List (API -> API)) -> API
+
+fn with_profile (profile: String) (api: API) -> API
+
+fn with_dryrun (api: API) -> API
+
+fn config_file_path (c: Config) (name: String) -> Result String GoError
+
+fn config_load (c: Config) (name: String) (ob: Go.Any) -> Result Unit GoError
+
+fn config_save (c: Config) (name: String) (ob: Go.Any) -> Result Unit GoError
+
+fn api_load_commit (api: API) (filename: String) (alias: String) -> Result Commit GoError
+
+fn api_save_commit (api: API) (filename: String) (commit: Commit) -> Result Unit GoError
+
+fn is_not_found (err: GoError) -> Bool
+
+fn load_file (filename: String) (parse: List String -> Result a GoError) (matches: List String -> String -> Bool) (alias: String) -> Result a GoError
+
+//gom:result-notaint save_file 0 1
+//gom:noescape save_file 1
+fn save_file (filename: String) (write: io.Writer -> Result Unit GoError) -> Result Unit GoError
+
+fn commit_parse (xs: List String) -> Result Commit GoError
+
+//gom:result-notaint commit_matches 0 1
+fn commit_matches (record: List String) (alias: String) -> Bool
+
+//gom:result-notaint commit_unparse 0 1
+fn commit_unparse (w: io.Writer) (c: Commit) -> Result Unit GoError
+
+//gom:result-notaint default_join_path 0
+fn default_join_path (profile: String) (paths: List String) -> String
+
+fn default_write_file (path: String) -> Result Unit GoError
+
+fn default_config_dir (name: String) -> Result String GoError
+
+//gom:result-notaint default_config 0
+fn default_config () -> Config
+
+fn must_parse (s: String) -> time.Time

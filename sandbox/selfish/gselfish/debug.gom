@@ -1,0 +1,23 @@
+// Port of internal/debug_print.go plus the errors.Wrap shorthands.
+package main
+
+import go "encoding/json"
+import go "io"
+import go "log"
+import go "os"
+
+// fprintJSON is pretty printed json output shorthand.
+fn fprint_json (w: io.Writer) (data: Go.Any) -> Unit = {
+  let encoder = json.NewEncoder w
+  encoder.SetIndent ("", "  ")
+  match encoder.Encode data {
+    Err e -> log.Fatal e
+    Ok _ -> ()
+  }
+}
+
+// PrintJSON is similar that a relation about fmt.Printf and fmt.Fprintf.
+fn print_json (data: Go.Any) -> Unit = fprint_json os.Stdout data
+
+fn wrap_result (r: Result a GoError) (msg: String) -> Result a GoError =
+  Result.map_err (fn e -> wrap e msg) r

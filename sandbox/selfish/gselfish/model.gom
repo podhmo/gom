@@ -1,0 +1,70 @@
+// Port of internal/model.go.
+package main
+
+import go "fmt"
+import go "log"
+import go "os"
+import go "path"
+import go "path/filepath"
+import go "strings"
+import go "github.com/google/go-github/v68/github"
+import commithistory "github.com/podhmo/selfish/gomcommithistory"
+
+// internal.Commit = commithistory.Commit
+type alias Commit = commithistory.Commit
+
+// NewGist is shorthand of github.Gist object creation. The title is
+// the first `# ` heading of a file literally named readme.md.
+fn new_gist (filenames: List String) (public: Bool) -> Result (Ptr github.Gist) GoError = {
+  let title = Ref.new ""
+  let files : Go.Map github.GistFilename github.GistFile = Go.Map.make ()
+  for filename in filenames {
+    match new_gist_file filename {
+      Err e -> ignore (log.Printf ("skip file=%s err=%v\n", filename, e))
+      Ok gistfile -> {
+        if strings.ToLower (filepath.Base filename) == "readme.md" {
+          match Ptr.to_option gistfile.Content {
+            Some content -> match readme_title (strings.TrimLeft (content, "\n\t  ")) {
+              Some t -> Ref.set title t
+              None -> ()
+            }
+            None -> ()
+          }
+        }
+        let k = Go.conv (filepath.Base filename) : github.GistFilename
+        Go.Map.set files k (Ptr.get gistfile)
+      }
+    }
+  }
+  let gist : Ptr github.Gist = Ptr.new ()
+  gist.Public = Ptr.make public
+  gist.Files = files
+  gist.Description = Ptr.make (Ref.get title)
+  Ok gist
+}
+
+// The first `# ` heading, trimmed; readme.md only (caller checks).
+fn readme_title (text: String) -> Option String = first_heading (strings.Split (text, "\n"))
+
+fn first_heading (lines: List String) -> Option String = match lines {
+  [] -> None
+  [line, ..rest] -> match strings.CutPrefix (line, "# ") {
+    (after, true) -> Some (strings.TrimSpace after)
+    (_after, false) -> first_heading rest
+  }
+}
+
+// NewGistFile is shorthand of github.GistFile object creation.
+fn new_gist_file (filename: String) -> Result (Ptr github.GistFile) GoError = {
+  let basename = path.Base filename
+  let finfo = Option.get (try (wrap_result (os.Stat filename) "stat"))
+  let size = finfo.Size ()
+  if size == 0 {
+    try Err (fmt.Errorf "empty file")
+  }
+  let byte = try (wrap_result (os.ReadFile filename) "read all")
+  let content = Go.conv byte : String
+  // *int can't be spelled in gom (Ptr Int is *int64), so the
+  // GistFile literal lives in host.go.
+  Ok (host_new_gist_file basename size content)
+}

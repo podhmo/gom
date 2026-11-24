@@ -1,0 +1,212 @@
+// Port of main.go — flagstruct parse, dispatch on alias/delete, file
+// classification, and the binary-file git dance (clone/reset/pull/
+// copy/add/commit/push) where every failure is WARN + return nil.
+package main
+
+import go "context"
+import go "encoding/json"
+import go "fmt"
+import go "io"
+import go "log"
+import go "net/http"
+import go "os"
+import go "os/exec"
+import go "path/filepath"
+import go "strings"
+import go "github.com/podhmo/flagstruct"
+import commithistory "github.com/podhmo/selfish/gomcommithistory"
+
+fn main () -> Unit = {
+  let config_ptr = Ptr.make {
+    profile = {
+      default_alias = "",
+      access_token = "",
+      hist_file = "",
+      repository_directory = "",
+    },
+    alias = "",
+    is_delete = false,
+    is_secret = false,
+    is_silent = false,
+    client_type = client_type_github,
+    files = [],
+    debug = false,
+  }
+  let b = flagstruct.NewBuilder ()
+  let fs = b.Build config_ptr
+  match fs.Parse (Go.Slice.slice os.Args 1 (Go.Slice.length os.Args)) {
+    Err _e -> {
+      (Go.fn0 fs.Usage) ()
+      os.Exit 2
+    }
+    Ok _ -> ()
+  }
+  let config = { Ptr.get config_ptr with files = fs.Args () }
+  match run config {
+    Err e -> log.Fatalf ("!!%+v", e)
+    Ok _ -> ()
+  }
+}
+
+let config_hint = "\n\t\tmkdir -p ~/.config/selfish\n\t\tcat <<-EOS > ~/.config/selfish/config.json\n\t\t{\n\t\t  \"access_token\": \"<your github access token>\"\n\t\t}\n\t\tEOS\n\t\t"
+
+fn run (config: Config) -> Result Unit GoError = {
+  let ctx = context.Background ()
+  let app = match new_app config {
+    Err e -> if e == err_access_token_notfound {
+      ignore (fmt.Fprintln (os.Stderr, "if config file is not found. then"))
+      ignore (fmt.Println config_hint)
+      os.Exit 1
+      todo ()
+    } else { try Err e }
+    Ok a -> a
+  }
+
+  let latest = try load_latest app config
+  let scan = scan_files config.files
+  if app.config.debug {
+    ignore ((json.NewEncoder os.Stderr).Encode scan)
+  }
+
+  if app.config.is_delete && config.alias != "" {
+    app_delete app ctx latest
+  } else {
+    let commit = match latest {
+      None -> try (app_create app ctx latest scan.text_files)
+      Some lc -> if List.is_empty scan.text_files {
+        ignore (log.Println "empty, skipped")
+        lc
+      } else {
+        try (app_update app ctx lc scan.text_files)
+      }
+    }
+    handle_binaries app commit scan.binary_files
+  }
+}
+
+fn load_latest (app: App) (config: Config) -> Result (Option Commit) GoError =
+  if config.alias == "" {
+    Ok None
+  } else {
+    match commithistory.api_load_commit app.commit_history app.config.profile.hist_file config.alias {
+      Ok c -> Ok (Some c)
+      Err e -> if commithistory.is_not_found e { Ok None } else {
+        Err (wrap e "load commit")
+      }
+    }
+  }
+
+type ScanResult = { text_files: List String, binary_files: List String }
+
+let too_large_file_size = 5 * (1024 * 1024)
+
+fn scan_files (files: List String) -> ScanResult = {
+  let texts = Ref.new []
+  let bins = Ref.new []
+  for fname in files {
+    match os.Stat fname {
+      Err e -> ignore (log.Printf ("ignored for %+v (%q)", e, fname))
+      Ok fi -> if (Option.get fi).Size () > too_large_file_size {
+        Ref.set bins [fname, ..Ref.get bins]
+      } else {
+        match is_text_file fname {
+          Err e -> ignore (log.Printf ("ignored for %+v, in detect file type (%q)", e, fname))
+          Ok true -> Ref.set texts [fname, ..Ref.get texts]
+          Ok false -> Ref.set bins [fname, ..Ref.get bins]
+        }
+      }
+    }
+  }
+  { text_files = List.rev (Ref.get texts), binary_files = List.rev (Ref.get bins) }
+}
+
+fn is_text_file (fname: String) -> Result Bool GoError = {
+  let b = try os.ReadFile fname
+  Ok (strings.HasPrefix (http.DetectContentType b, "text/"))
+}
+
+// The binary block: every step's failure is a WARN that swallows the
+// whole block, matching the oracle's `return nil` tails.
+fn handle_binaries (app: App) (commit: Commit) (files: List String) -> Result Unit GoError =
+  if List.is_empty files {
+    Ok ()
+  } else {
+    if app.config.debug {
+      ignore (fmt.Fprintln (os.Stderr, "----------------------------------------"))
+      ignore (fmt.Fprintln (os.Stderr, "binary files are detected", files))
+      ignore (fmt.Fprintln (os.Stderr, "----------------------------------------"))
+    }
+    match binaries_body app commit files {
+      Err e -> {
+        ignore (log.Printf ("WARN: handling binaries is failed. %+v\nignored.", e))
+        Ok ()
+      }
+      Ok _ -> Ok ()
+    }
+  }
+
+fn binaries_body (app: App) (commit: Commit) (files: List String) -> Result Unit GoError = {
+  let root_dir = try (commithistory.config_file_path app.commit_history.config app.config.profile.repository_directory)
+  try (os.MkdirAll (root_dir, 0o744))
+  let repo_dir = filepath.Join (root_dir, commit.id)
+  let repo_url = "git@github.com:${commit.id}.git"
+
+  match os.Stat repo_dir {
+    Err e -> if os.IsNotExist e {
+      ignore (log.Println ("clone repository; git clone", repo_url))
+      match git_run root_dir ["clone", repo_url] {
+        Err e2 -> try Err (fmt.Errorf ("in git clone. %v", e2))
+        Ok _ -> ()
+      }
+    } else { try Err e }
+    Ok _f -> ()
+  }
+
+  ignore (log.Printf ("remove dirty files; cd %s && git reset --hard HEAD", repo_dir))
+  match git_run repo_dir ["reset", "--hard", "HEAD"] {
+    Err e -> ignore (log.Printf ("git reset is failed. %+v (but continued)", e))
+    Ok _ -> ()
+  }
+  ignore (log.Printf ("sync repository; cd %s && git pull", repo_dir))
+  match git_run repo_dir ["pull", "--rebase"] {
+    Err e -> ignore (log.Printf ("git pull is failed. %+v (but continued)", e))
+    Ok _ -> ()
+  }
+
+  let copied = Ref.new []
+  for fname in files {
+    match copy_to repo_dir fname {
+      Err e -> ignore (log.Printf ("ignored for %+v, in copy file (%q)", e, fname))
+      Ok base -> Ref.set copied [base, ..Ref.get copied]
+    }
+  }
+  let names = List.rev (Ref.get copied)
+  if names == [] {
+    ()
+  } else {
+    ignore (log.Printf "git add && git push")
+    try (Result.map_err (fn e -> fmt.Errorf ("in git add. %v", e)) (git_run repo_dir ["add", ..names]))
+    try (Result.map_err (fn e -> fmt.Errorf ("in git commit. %v", e)) (git_run repo_dir ["commit", "-m", "from selfish"]))
+    try (Result.map_err (fn e -> fmt.Errorf ("in git push. %v", e)) (git_run repo_dir ["push"]))
+    ()
+  }
+  Ok ()
+}
+
+fn git_run (dir: String) (args: List String) -> Result Unit GoError = {
+  let cmd = exec.Command ("git", ..args)
+  cmd.Dir = dir
+  cmd.Stderr = os.Stderr
+  cmd.Run ()
+}
+
+fn copy_to (dir: String) (fname: String) -> Result String GoError =
+  Scope.run_result <| fn s -> {
+    let rf = try os.Open fname
+    Scope.defer s (fn () -> ignore (rf.Close ()))
+    let base = filepath.Base fname
+    let wf = try (os.Create (filepath.Join (dir, base)))
+    Scope.defer s (fn () -> ignore (wf.Close ()))
+    ignore (try (io.Copy (wf, rf)))
+    Ok base
+  }

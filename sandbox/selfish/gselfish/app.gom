@@ -1,0 +1,104 @@
+// Port of internal/app.go.
+package main
+
+import go "context"
+import go "fmt"
+import go "os"
+import go "time"
+import go "github.com/google/go-github/v68/github"
+import go "github.com/toqueteos/webbrowser"
+import go "golang.org/x/oauth2"
+import commithistory "github.com/podhmo/selfish/gomcommithistory"
+
+let default_alias = "head"
+let default_hist_file = "selfish.history"
+let default_repository_directory = "gists"
+
+type App = {
+  commit_history: commithistory.API,
+  client: Client,
+  config: Config,
+}
+
+let err_access_token_notfound : GoError = fmt.Errorf "access token is not found"
+
+fn new_app (c0: Config) -> Result App GoError = {
+  let ops = if c0.client_type == client_type_fake {
+    [commithistory.with_dryrun]
+  } else { [] }
+  let ch = commithistory.api_new "selfish" ops
+  let p = Ptr.make c0.profile
+  try (wrap_result (commithistory.config_load ch.config "config.json" p) "load config")
+  let p0 = Ptr.get p
+  if p0.access_token == "" {
+    try Err err_access_token_notfound
+  }
+  let profile = {
+    p0 with
+    default_alias = if p0.default_alias == "" { default_alias } else { p0.default_alias },
+    hist_file = if p0.hist_file == "" { default_hist_file } else { p0.hist_file },
+    repository_directory = if p0.repository_directory == "" { default_repository_directory } else { p0.repository_directory },
+  }
+  let c = { c0 with profile = profile }
+
+  let gh : Client =
+    if c.client_type == client_type_fake {
+      { github = github.NewClient (fake_http_client ()) }
+    } else { if c.client_type == client_type_github {
+      let tok : Ptr oauth2.Token = Ptr.new ()
+      tok.AccessToken = c.profile.access_token
+      let ts = oauth2.StaticTokenSource tok
+      { github = github.NewClient (oauth2.NewClient (oauth2.NoContext, ts)) }
+    } else {
+      try Err (fmt.Errorf ("unexpected client type %q", c.client_type.value))
+    }}
+  Ok { commit_history = ch, client = gh, config = c }
+}
+
+// App.Delete
+fn app_delete (app: App) (ctx: context.Context) (latest: Option Commit) -> Result Unit GoError = {
+  let alias = app.config.alias
+  let gist_id = match latest {
+    None -> try Err (fmt.Errorf ("alias=%q is not found", alias))
+    Some c -> c.id
+  }
+  try (wrap_result (client_delete app.client ctx gist_id) "gist api delete")
+  let commit : Commit = { id = gist_id, alias = alias, created_at = time.Now (), action = "delete" }
+  try (wrap_result (commithistory.api_save_commit app.commit_history app.config.profile.hist_file commit) "save commit")
+  ignore (fmt.Fprintf (os.Stderr, "deleted. (id=%q)\n", gist_id))
+  Ok ()
+}
+
+// App.Create
+fn app_create (app: App) (ctx: context.Context) (latest: Option Commit) (filenames: List String) -> Result Commit GoError = {
+  let _ = latest
+  let action = "create"
+  let alias = app.config.alias
+  let g = try (wrap_result (client_create app.client ctx filenames (app.config.is_secret == false)) "gist api create")
+  let commit : Commit = { id = g.gist_id, created_at = g.created_at, alias = resolve_alias app.config alias, action = action }
+  try (wrap_result (commithistory.api_save_commit app.commit_history app.config.profile.hist_file commit) "save commit")
+  ignore (fmt.Fprintf (os.Stderr, "%s success. (id=%q)\n", action, commit.id))
+  if app.config.is_silent == false && g.html_url != "" {
+    ignore (fmt.Fprintf (os.Stderr, "opening.. %q\n", g.html_url))
+    ignore (webbrowser.Open g.html_url)
+  }
+  Ok commit
+}
+
+// App.Update — the save-commit error is returned unwrapped, like the original.
+fn app_update (app: App) (ctx: context.Context) (latest: Commit) (filenames: List String) -> Result Commit GoError = {
+  let action = "update"
+  let alias = app.config.alias
+  let g = try (wrap_result (client_update app.client ctx latest.id filenames (app.config.is_secret == false)) "gist api update")
+  let commit : Commit = { id = g.gist_id, created_at = g.created_at, alias = resolve_alias app.config alias, action = action }
+  try (commithistory.api_save_commit app.commit_history app.config.profile.hist_file commit)
+  ignore (fmt.Fprintf (os.Stderr, "%s success. (id=%q)\n", action, commit.id))
+  if app.config.is_silent == false {
+    ignore (fmt.Fprintf (os.Stderr, "opening.. %q\n", g.html_url))
+    ignore (webbrowser.Open g.html_url)
+  }
+  if app.config.debug {
+    fprint_json os.Stderr g
+  }
+  Ok commit
+}
