@@ -1,6 +1,6 @@
 # 1 フィールド record の `~` 制約受理 — defined type の underlying 一致
 
-- 状態: draft（wave40 lane D の調査結果。採択時に実装 lane が生じる）
+- 状態: 採択（wave40 lane D の調査結果。実装は wave41 lane A）
 - 日付: 2026-11-24
 
 wave40 lane D（[prompts](../sketch/2026-11-24-wave40-prompts.md)）。
