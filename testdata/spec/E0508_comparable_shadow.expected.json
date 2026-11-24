@@ -1,0 +1,52 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0508",
+      "severity": "error",
+      "message": "type argument `github.com/podhmo/gom/testdata/spec/foreignpkg.Chunk` does not satisfy the `comparable` constraint of `Contains`'s type parameter `E`",
+      "span": {
+        "file": "E0508_comparable_shadow.gom",
+        "start": {
+          "line": 26,
+          "col": 12,
+          "offset": 1083
+        },
+        "end": {
+          "line": 26,
+          "col": 20,
+          "offset": 1091
+        }
+      },
+      "data": {
+        "argument": "github.com/podhmo/gom/testdata/spec/foreignpkg.Chunk",
+        "constraint": "comparable",
+        "parameter": "E"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0508",
+      "severity": "error",
+      "message": "type argument `github.com/podhmo/gom/testdata/spec/foreignpkg.Holder` does not satisfy the `comparable` constraint of `Contains`'s type parameter `E`",
+      "span": {
+        "file": "E0508_comparable_shadow.gom",
+        "start": {
+          "line": 32,
+          "col": 12,
+          "offset": 1394
+        },
+        "end": {
+          "line": 32,
+          "col": 20,
+          "offset": 1402
+        }
+      },
+      "data": {
+        "argument": "github.com/podhmo/gom/testdata/spec/foreignpkg.Holder",
+        "constraint": "comparable",
+        "parameter": "E"
+      }
+    }
+  ]
+}

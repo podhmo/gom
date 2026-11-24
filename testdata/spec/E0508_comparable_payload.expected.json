@@ -1,0 +1,220 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0508",
+      "severity": "error",
+      "message": "type argument `Shape` does not satisfy the `comparable` constraint of `Contains`'s type parameter `E`",
+      "span": {
+        "file": "E0508_comparable_payload.gom",
+        "start": {
+          "line": 31,
+          "col": 12,
+          "offset": 1266
+        },
+        "end": {
+          "line": 31,
+          "col": 20,
+          "offset": 1274
+        }
+      },
+      "data": {
+        "argument": "Shape",
+        "constraint": "comparable",
+        "parameter": "E"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0508",
+      "severity": "error",
+      "message": "type argument `Option Xs` does not satisfy the `comparable` constraint of `Contains`'s type parameter `E`",
+      "span": {
+        "file": "E0508_comparable_payload.gom",
+        "start": {
+          "line": 34,
+          "col": 12,
+          "offset": 1368
+        },
+        "end": {
+          "line": 34,
+          "col": 20,
+          "offset": 1376
+        }
+      },
+      "data": {
+        "argument": "Option Xs",
+        "constraint": "comparable",
+        "parameter": "E"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0508",
+      "severity": "error",
+      "message": "type argument `Go.Func1 Int Int` does not satisfy the `comparable` constraint of `Contains`'s type parameter `E`",
+      "span": {
+        "file": "E0508_comparable_payload.gom",
+        "start": {
+          "line": 37,
+          "col": 12,
+          "offset": 1482
+        },
+        "end": {
+          "line": 37,
+          "col": 20,
+          "offset": 1490
+        }
+      },
+      "data": {
+        "argument": "Go.Func1 Int Int",
+        "constraint": "comparable",
+        "parameter": "E"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0508",
+      "severity": "error",
+      "message": "type argument `T2` does not satisfy the `comparable` constraint of `Contains`'s type parameter `E`",
+      "span": {
+        "file": "E0508_comparable_payload.gom",
+        "start": {
+          "line": 40,
+          "col": 12,
+          "offset": 1566
+        },
+        "end": {
+          "line": 40,
+          "col": 20,
+          "offset": 1574
+        }
+      },
+      "data": {
+        "argument": "T2",
+        "constraint": "comparable",
+        "parameter": "E"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0508",
+      "severity": "error",
+      "message": "type argument `github.com/podhmo/gom/testdata/spec/foreignpkg.Blob` does not satisfy the `comparable` constraint of `Contains`'s type parameter `E`",
+      "span": {
+        "file": "E0508_comparable_payload.gom",
+        "start": {
+          "line": 43,
+          "col": 12,
+          "offset": 1678
+        },
+        "end": {
+          "line": 43,
+          "col": 20,
+          "offset": 1686
+        }
+      },
+      "data": {
+        "argument": "github.com/podhmo/gom/testdata/spec/foreignpkg.Blob",
+        "constraint": "comparable",
+        "parameter": "E"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0508",
+      "severity": "error",
+      "message": "type argument `TreeL (List Int)` does not satisfy the `comparable` constraint of `Contains`'s type parameter `E`",
+      "span": {
+        "file": "E0508_comparable_payload.gom",
+        "start": {
+          "line": 46,
+          "col": 12,
+          "offset": 1795
+        },
+        "end": {
+          "line": 46,
+          "col": 20,
+          "offset": 1803
+        }
+      },
+      "data": {
+        "argument": "TreeL (List Int)",
+        "constraint": "comparable",
+        "parameter": "E"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0508",
+      "severity": "error",
+      "message": "type argument `Sw Int` does not satisfy the `comparable` constraint of `Contains`'s type parameter `E`",
+      "span": {
+        "file": "E0508_comparable_payload.gom",
+        "start": {
+          "line": 49,
+          "col": 12,
+          "offset": 1889
+        },
+        "end": {
+          "line": 49,
+          "col": 20,
+          "offset": 1897
+        }
+      },
+      "data": {
+        "argument": "Sw Int",
+        "constraint": "comparable",
+        "parameter": "E"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0508",
+      "severity": "error",
+      "message": "type argument `Dbl Int` does not satisfy the `comparable` constraint of `Contains`'s type parameter `E`",
+      "span": {
+        "file": "E0508_comparable_payload.gom",
+        "start": {
+          "line": 52,
+          "col": 12,
+          "offset": 1986
+        },
+        "end": {
+          "line": 52,
+          "col": 20,
+          "offset": 1994
+        }
+      },
+      "data": {
+        "argument": "Dbl Int",
+        "constraint": "comparable",
+        "parameter": "E"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0508",
+      "severity": "error",
+      "message": "type argument `Grow Int` does not satisfy the `comparable` constraint of `Contains`'s type parameter `E`",
+      "span": {
+        "file": "E0508_comparable_payload.gom",
+        "start": {
+          "line": 55,
+          "col": 12,
+          "offset": 2086
+        },
+        "end": {
+          "line": 55,
+          "col": 20,
+          "offset": 2094
+        }
+      },
+      "data": {
+        "argument": "Grow Int",
+        "constraint": "comparable",
+        "parameter": "E"
+      }
+    }
+  ]
+}

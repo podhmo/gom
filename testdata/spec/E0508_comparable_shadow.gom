@@ -1,0 +1,32 @@
+package ex
+
+import go "slices"
+import go "github.com/podhmo/gom/testdata/goiface"
+import "github.com/podhmo/gom/testdata/spec/foreignpkg"
+
+// A caller's `type List` shadows the builtin for this file's own
+// spellings: `List Int` here is the record (a defined `int64` —
+// comparable — `Lookup`'s `K comparable` map key accepts it).
+// Inside an imported declaration's fields `List` still means the
+// builtin `list.List` — the caller's shadow must not reach into
+// them, or a non-comparable variant payload would be judged
+// comparable and `slices.Contains` could panic at runtime
+// (spec 8.5).
+type List a = { n : Int }
+
+fn lookup_l (m: Go.Map (List Int) Int) (k: List Int) -> (Int, Bool) =
+    goiface.Lookup m k
+
+// `Box (List Int)` at the call site is the caller's shadow — the
+// substituted `v` field keeps caller scope and stays comparable.
+fn lookup_box (m: Go.Map (foreignpkg.Box (List Int)) Int) (k: foreignpkg.Box (List Int)) -> (Int, Bool) =
+    goiface.Lookup m k
+
+fn has_chunk (xs: Go.Slice foreignpkg.Chunk) (needle: foreignpkg.Chunk) -> Bool =
+    slices.Contains(xs, needle)
+
+// `Holder`'s `h : Box (List Int)` nests the builtin `List` inside
+// another generic — the binding carries foreign scope through the
+// substitution, so the caller's shadow cannot claim it.
+fn has_holder (xs: Go.Slice foreignpkg.Holder) (needle: foreignpkg.Holder) -> Bool =
+    slices.Contains(xs, needle)

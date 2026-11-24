@@ -1,0 +1,55 @@
+package ex
+
+import go "slices"
+import "github.com/podhmo/gom/testdata/spec/foreignpkg"
+
+// The `comparable` constraint folds the payload check over the
+// emitted representation: `Points` carries a `List Int` payload
+// (non-comparable — `==` on it would panic), `Option`'s element is
+// the box's field, a `Go.FuncN` spelling is a func type (Go makes
+// funcs non-comparable), a recursive sum still folds the other
+// fields, and an imported declaration's fields count the same as a
+// local one's (spec 8.5).
+type Shape = | Circle (r: Float) | Points (pts: List Int)
+type Xs = { xs : List Int }
+type T2 = | N (x: T2) (ys: List Int)
+type TreeL a = | LeafL (v: a) | NodeL (l: TreeL a) (r: TreeL a)
+
+// Recursions that swap or compound their arguments: `Sw`'s
+// instantiation wraps another `List` each step and `Dbl`'s doubles
+// — both stay bounded by the node budget and come back
+// non-comparable.
+type Sw a = | SwN (x: Sw (List a))
+type Dbl a = | DblN (x: Dbl ((a, a)))
+
+// `Grow` grows a structurally *distinct* argument each step — the
+// tuple memo cannot collapse it, so the node budget (not the
+// expansion step limit) is what stops the walk.
+type Grow a = | GN (x: Grow ((a, Int)))
+
+fn has (xs: Go.Slice Shape) (needle: Shape) -> Bool =
+    slices.Contains(xs, needle)
+
+fn has_some (xs: Go.Slice (Option Xs)) (needle: Option Xs) -> Bool =
+    slices.Contains(xs, needle)
+
+fn has_fn (xs: Go.Slice (Go.Func1 Int Int)) (needle: Go.Func1 Int Int) -> Bool =
+    slices.Contains(xs, needle)
+
+fn has_t2 (xs: Go.Slice T2) (needle: T2) -> Bool =
+    slices.Contains(xs, needle)
+
+fn has_blob (xs: Go.Slice foreignpkg.Blob) (needle: foreignpkg.Blob) -> Bool =
+    slices.Contains(xs, needle)
+
+fn has_treel (xs: Go.Slice (TreeL (List Int))) (needle: TreeL (List Int)) -> Bool =
+    slices.Contains(xs, needle)
+
+fn has_sw (xs: Go.Slice (Sw Int)) (needle: Sw Int) -> Bool =
+    slices.Contains(xs, needle)
+
+fn has_dbl (xs: Go.Slice (Dbl Int)) (needle: Dbl Int) -> Bool =
+    slices.Contains(xs, needle)
+
+fn has_grow (xs: Go.Slice (Grow Int)) (needle: Grow Int) -> Bool =
+    slices.Contains(xs, needle)

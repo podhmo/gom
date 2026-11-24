@@ -1,0 +1,32 @@
+package foreignpkg
+
+// Helper package for the spec suite's imported-payload cases: the
+// comparable judgement must see an imported declaration's fields
+// (registerForeignTypes), not just local ones.
+
+// Field names stay unique on purpose: registerForeignTypes folds
+// imported records into the caller's record-literal owner table,
+// and a shared loader makes that table span the whole spec suite
+// — a `x`/`d` field here would make unrelated fixtures' `{x = ..}`
+// literals ambiguous.
+type Point = { fpx : Float, fpy : Float }
+
+type Shape =
+  | Circle (r: Float)
+  | Dot (p: Point)
+
+// A record over a List — the non-comparable foreign payload.
+type Blob = { fbd : List Int }
+
+// A variant carrying a `List` payload: unqualified in this file
+// the name means the builtin list — a caller's own `type List`
+// must not shadow it inside these fields.
+type Chunk = | Piece (xs: List Int)
+
+// A generic passthrough: `Box a`'s field is the parameter itself,
+// so a `Box X` spells whatever scope X was written in. `Holder`
+// nests `Box (List Int)` where `List` again means this package's
+// builtin — the binding must carry foreign scope through the
+// substitution, or a caller's `type List` would be claimed for it.
+type Box a = { v : a }
+type Holder = { h : Box (List Int) }
