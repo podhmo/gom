@@ -37,6 +37,7 @@ import (
 	"encoding/json"
 	"fmt"
 	gotypes "go/types"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -358,6 +359,89 @@ func StdlibShortNames() []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+// ExternalPackages enumerates the importable Gom packages visible
+// from dir's module context: the main module (the nearest go.mod
+// above dir) plus every module in `go list -m all` whose source
+// directory is known — replace targets and workspace `use`
+// members included, modules still absent from the module cache
+// skipped. A directory counts when it holds exactly one .gomi —
+// the same package contract `import "path"` resolves through —
+// and its import path is the owning module's path plus the
+// directory's relative path. Vendor directories are not walked
+// (enumeration under vendoring is future work). The result is
+// sorted and deduplicated.
+func ExternalPackages(dir, gobin string) ([]string, error) {
+	l := New(&Config{Dir: dir, GoBin: gobin})
+	modPath, modDir, err := l.module()
+	if err != nil {
+		return nil, err
+	}
+	candidates := map[string]string{modPath: modDir}
+	// `go list -m all` answers the post-replace build list; when it
+	// fails (a broken module graph), external imports would fail
+	// the same way, so the listing propagates rather than emit a
+	// silently partial set.
+	mods, err := l.extModules()
+	if err != nil {
+		return nil, err
+	}
+	for p, d := range mods {
+		if d != "" {
+			candidates[p] = d
+		}
+	}
+	var out []string
+	seen := map[string]bool{}
+	for mp, md := range candidates {
+		mp, md := mp, md
+		err := filepath.WalkDir(md, func(p string, d fs.DirEntry, werr error) error {
+			if werr != nil {
+				if d != nil && d.IsDir() {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			if !d.IsDir() {
+				return nil
+			}
+			if p != md {
+				base := d.Name()
+				if strings.HasPrefix(base, ".") || base == "vendor" {
+					return filepath.SkipDir
+				}
+				// A nested module's packages belong to its own
+				// module path, not this one's — the nested root
+				// appears as its own candidate when it is in the
+				// build list.
+				if _, serr := os.Stat(filepath.Join(p, "go.mod")); serr == nil {
+					return filepath.SkipDir
+				}
+			}
+			if _, gerr := oneGomi(p); gerr != nil {
+				return nil
+			}
+			rel, rerr := filepath.Rel(md, p)
+			if rerr != nil {
+				return nil
+			}
+			imp := mp
+			if rel != "." {
+				imp = mp + "/" + filepath.ToSlash(rel)
+			}
+			if !seen[imp] {
+				seen[imp] = true
+				out = append(out, imp)
+			}
+			return nil
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
+	sort.Strings(out)
+	return out, nil
 }
 
 // canonicalPath resolves a clause path to the package's real

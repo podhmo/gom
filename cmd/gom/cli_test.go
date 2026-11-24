@@ -1268,6 +1268,40 @@ func TestList(t *testing.T) {
 	}
 }
 
+// TestListExternal exercises `gom list -external`: the importable
+// Gom packages of the working directory's module — the module root
+// when it carries a .gomi, plus each subdirectory holding exactly
+// one — enumerated by import path, skipping plain Go directories,
+// nested modules, vendor trees and dot-directories.
+func TestListExternal(t *testing.T) {
+	dir := writeFiles(t, map[string]string{
+		"go.mod":              "module example.com/exttest\n\ngo 1.27\n",
+		"root.gomi":           "package exttest\n",
+		"pkg/pkg.gomi":        "package pkg\n",
+		"plain/plain.go":      "package plain\n",
+		"vendor/dep/dep.gomi": "package dep\n",
+		"inner/go.mod":        "module example.com/inner\n\ngo 1.27\n",
+		"inner/inner.gomi":    "package inner\n",
+		".hidden/h.gomi":      "package hidden\n",
+	})
+	t.Chdir(dir)
+
+	code, out, errout := invoke("list", "-external")
+	if code != 0 {
+		t.Fatalf("gom list -external: exit %d; stderr=%q", code, errout)
+	}
+	got := strings.Fields(out)
+	want := []string{"example.com/exttest", "example.com/exttest/pkg"}
+	if len(got) != len(want) {
+		t.Fatalf("gom list -external = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Errorf("gom list -external[%d] = %q, want %q", i, got[i], want[i])
+		}
+	}
+}
+
 // failWriter is an io.Writer whose every Write fails — used to
 // exercise the output-error paths commands must not swallow.
 type failWriter struct{}
