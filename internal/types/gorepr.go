@@ -34,18 +34,28 @@ func GoRepr(t Type) string {
 		if t.Qual == "Go" {
 			switch {
 			case t.Name == "Slice" && len(t.Args) == 1:
-				return "[]" + GoRepr(t.Args[0])
+				return cat("[]", GoRepr(t.Args[0]))
 			case t.Name == "Map" && len(t.Args) == 2:
-				return "map[" + GoRepr(t.Args[0]) + "]" + GoRepr(t.Args[1])
+				return cat("map[", GoRepr(t.Args[0]), "]", GoRepr(t.Args[1]))
 			case t.Name == "Int":
 				return "int"
 			case t.Name == "Any":
 				return "any"
 			}
+			if n, ok := GoFuncArity(t.Name); ok && len(t.Args) >= n {
+				// `Go.FuncN` emits the flat `func(p...) (r...)`.
+				return FlatFuncRepr(t.Args[:n], t.Args[n:])
+			}
 			return ""
 		}
 		if t.Qual != "" {
-			return t.Qual + "." + t.Name + reprArgs(t.Args)
+			if len(t.Args) > 0 {
+				if ra := reprArgs(t.Args); ra != "" {
+					return t.Qual + "." + t.Name + ra
+				}
+				return ""
+			}
+			return t.Qual + "." + t.Name
 		}
 		switch {
 		case t.Name == "Unit":
@@ -67,31 +77,37 @@ func GoRepr(t Type) string {
 		case t.Name == "GoError":
 			return "error"
 		case t.Name == "List" && len(t.Args) == 1:
-			return "list.List[" + GoRepr(t.Args[0]) + "]"
+			return cat("list.List[", GoRepr(t.Args[0]), "]")
 		case t.Name == "Option" && len(t.Args) == 1:
-			return "option.Option[" + GoRepr(t.Args[0]) + "]"
+			return cat("option.Option[", GoRepr(t.Args[0]), "]")
 		case t.Name == "Result" && len(t.Args) == 2:
-			return "result.Result[" + GoRepr(t.Args[0]) + ", " + GoRepr(t.Args[1]) + "]"
+			return cat("result.Result[", GoRepr(t.Args[0]), ", ", GoRepr(t.Args[1]), "]")
 		case t.Name == "Task" && len(t.Args) == 1:
-			return "rt.Task[" + GoRepr(t.Args[0]) + "]"
+			return cat("rt.Task[", GoRepr(t.Args[0]), "]")
 		case t.Name == "View" && len(t.Args) == 1:
-			return "list.View[" + GoRepr(t.Args[0]) + "]"
+			return cat("list.View[", GoRepr(t.Args[0]), "]")
 		case (t.Name == "Ptr" || t.Name == "Ref") && len(t.Args) == 1:
-			return "*" + GoRepr(t.Args[0])
+			return cat("*", GoRepr(t.Args[0]))
 		case t.Name == "Array" && len(t.Args) == 1:
-			return "[]" + GoRepr(t.Args[0])
+			return cat("[]", GoRepr(t.Args[0]))
 		case t.Name == "Chan" && len(t.Args) == 1:
-			return "chan " + GoRepr(t.Args[0])
+			return cat("chan ", GoRepr(t.Args[0]))
 		case t.Name == "RecvChan" && len(t.Args) == 1:
-			return "<-chan " + GoRepr(t.Args[0])
+			return cat("<-chan ", GoRepr(t.Args[0]))
 		case t.Name == "SendChan" && len(t.Args) == 1:
-			return "chan<- " + GoRepr(t.Args[0])
+			return cat("chan<- ", GoRepr(t.Args[0]))
 		}
 		// Declared record/sum — nominal: asserts only to itself.
 		// A generic instantiation names its arguments too, as the
 		// emitted `Box[int64]` does (`Box Int` and `Box String`
 		// assert differently).
-		return t.Name + reprArgs(t.Args)
+		if len(t.Args) > 0 {
+			if ra := reprArgs(t.Args); ra != "" {
+				return t.Name + ra
+			}
+			return ""
+		}
+		return t.Name
 	case *Go:
 		base := t.Ref.Path
 		if i := strings.LastIndexByte(base, '/'); i >= 0 {
@@ -107,6 +123,9 @@ func GoRepr(t Type) string {
 			// funcType, which wraps each param singly regardless
 			// of parameter grouping.
 			for _, p := range t.Params {
+				if GoRepr(p.Type) == "" {
+					return ""
+				}
 				b.WriteString("func(")
 				b.WriteString(GoRepr(p.Type))
 				b.WriteString(") ")
@@ -122,6 +141,9 @@ func GoRepr(t Type) string {
 		parts := make([]string, len(t.Elems))
 		for i, el := range t.Elems {
 			parts[i] = GoRepr(el)
+			if parts[i] == "" {
+				return ""
+			}
 		}
 		return fmt.Sprintf("rt.Tuple%d[%s]", len(t.Elems), strings.Join(parts, ", "))
 	case *Meta, *Var:
@@ -132,7 +154,8 @@ func GoRepr(t Type) string {
 }
 
 // reprArgs renders a generic instantiation's argument list the way
-// the emitted Go name spells it — `[int64, string]`.
+// the emitted Go name spells it — `[int64, string]`. An argument
+// that names no Go type spoils the whole spelling.
 func reprArgs(args []Type) string {
 	if len(args) == 0 {
 		return ""
@@ -140,6 +163,56 @@ func reprArgs(args []Type) string {
 	parts := make([]string, len(args))
 	for i, a := range args {
 		parts[i] = GoRepr(a)
+		if parts[i] == "" {
+			return ""
+		}
 	}
 	return "[" + strings.Join(parts, ", ") + "]"
+}
+
+// cat joins already-rendered pieces; any empty piece (a part that
+// names no Go type) spoils the whole spelling.
+func cat(parts ...string) string {
+	for _, p := range parts {
+		if p == "" {
+			return ""
+		}
+	}
+	return strings.Join(parts, "")
+}
+
+// FlatFuncRepr renders `func(p...) (r...)` the way reflect and a
+// Go type switch case spell it: `func(int64) string`,
+// `func() (int64, error)`.
+func FlatFuncRepr(params, results []Type) string {
+	ps := make([]string, len(params))
+	for i, p := range params {
+		ps[i] = GoRepr(p)
+		if ps[i] == "" {
+			return ""
+		}
+	}
+	var b strings.Builder
+	b.WriteString("func(")
+	b.WriteString(strings.Join(ps, ", "))
+	b.WriteString(")")
+	switch len(results) {
+	case 0:
+	case 1:
+		r := GoRepr(results[0])
+		if r == "" {
+			return ""
+		}
+		b.WriteString(" " + r)
+	default:
+		rs := make([]string, len(results))
+		for i, r := range results {
+			rs[i] = GoRepr(r)
+			if rs[i] == "" {
+				return ""
+			}
+		}
+		b.WriteString(" (" + strings.Join(rs, ", ") + ")")
+	}
+	return b.String()
 }

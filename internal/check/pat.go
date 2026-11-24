@@ -78,8 +78,10 @@ func (c *checker) checkPat(p syntax.Pat, want types.Type) Pat {
 			if ms, ok := c.src.(InterfaceMethodSource); ok {
 				if methods, ok := ms.InterfaceMethods(types.Chase(target)); ok {
 					out.Iface = make([]string, len(methods))
+					out.IfaceSig = make([]string, len(methods))
 					for i, m := range methods {
 						out.Iface[i] = m.Name
+						out.IfaceSig[i] = flatSig(m.Sig)
 					}
 				}
 			}
@@ -634,4 +636,23 @@ func (c *checker) litType(l *syntax.Lit) types.Type {
 	default:
 		panic("unreachable")
 	}
+}
+
+// flatSig renders a method signature the way reflect spells a bound
+// method — `func(int64) string` — flattening the curried params.
+// "" means a part names no Go type and the signature cannot be
+// compared; eval then tests the method name alone.
+func flatSig(f *types.Func) string {
+	var ins []types.Type
+	for f != nil {
+		for _, p := range f.Params {
+			ins = append(ins, p.Type)
+		}
+		nf, _ := types.Chase(f.Ret).(*types.Func)
+		if nf == nil {
+			return types.FlatFuncRepr(ins, []types.Type{f.Ret})
+		}
+		f = nf
+	}
+	return ""
 }

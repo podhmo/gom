@@ -3050,7 +3050,12 @@ func (c *checker) checkTypeTestArms(e *syntax.Match, arms []MatchArm, subjT type
 	}
 	anyLike := isGoAny(types.Chase(subjT))
 	if !anyLike {
-		if ms, ok := c.src.(InterfaceMethodSource); ok {
+		// Whether the subject emits an interface decides arm
+		// legality — the method-set listing is a stricter oracle
+		// that also fails on unmappable signatures.
+		if ms, ok := c.src.(InterfaceKindSource); ok && ms.GoInterface(types.Chase(subjT)) {
+			anyLike = true
+		} else if ms, ok := c.src.(InterfaceMethodSource); ok {
 			if _, ok := ms.InterfaceMethods(types.Chase(subjT)); ok {
 				anyLike = true
 			}
@@ -3080,7 +3085,7 @@ func (c *checker) checkTypeTestArms(e *syntax.Match, arms []MatchArm, subjT type
 		} else {
 			// Metas and type parameters name no Go type — the repr
 			// is "" — so a single concreteness test suffices.
-			key := types.CanonGoRepr(types.GoRepr(tp.Target))
+			key := c.typeTestKey(tp.Target)
 			if key == "" {
 				c.diags.Add(diag.Error("E0307",
 					"a type-test target must be a concrete type").At(a.Sp))
@@ -4211,4 +4216,25 @@ func (c *checker) deferInterfaceSource(m *types.Meta) bool {
 		}
 	}
 	return false
+}
+
+// typeTestKey is the Go `case` type an arm's target emits — the
+// duplicate-detection key of a type-test match. A declared type
+// whose name shadows a builtin (`type Int = ...`) emits its own
+// nominal name, not the builtin repr, so it keys nominally.
+func (c *checker) typeTestKey(t types.Type) string {
+	if con, ok := types.Chase(t).(*types.Con); ok && con.Qual == "" && c.shadowedBuiltin(con.Name) {
+		if len(con.Args) == 0 {
+			return con.Name
+		}
+		parts := make([]string, len(con.Args))
+		for i, a := range con.Args {
+			parts[i] = types.GoRepr(a)
+			if parts[i] == "" {
+				return ""
+			}
+		}
+		return con.Name + "[" + strings.Join(parts, ", ") + "]"
+	}
+	return types.CanonGoRepr(types.GoRepr(t))
 }

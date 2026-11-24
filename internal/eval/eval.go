@@ -1511,7 +1511,7 @@ func (e *interp) inhabits(v Value, t types.Type) bool {
 // only an opaque host value's reflect method set can satisfy it.
 // A nil interface value implements nothing; an empty requirement
 // list matches every non-nil-in-spirit value, like `case any`.
-func (e *interp) implements(v Value, names []string) bool {
+func (e *interp) implements(v Value, names []string, sigs []string) bool {
 	h, ok := v.(*VHost)
 	if !ok || h.V == nil {
 		return false
@@ -1520,9 +1520,15 @@ func (e *interp) implements(v Value, names []string) bool {
 		// The box holds a gom Value, not a Go object — no method set.
 		return false
 	}
-	rt := reflect.TypeOf(h.V)
-	for _, name := range names {
-		if _, ok := rt.MethodByName(name); !ok {
+	rv := reflect.ValueOf(h.V)
+	for i, name := range names {
+		m := rv.MethodByName(name)
+		if !m.IsValid() {
+			return false
+		}
+		// The bound method's type excludes the receiver — compare
+		// the flat signature spelling when check could render one.
+		if i < len(sigs) && sigs[i] != "" && m.Type().String() != sigs[i] {
 			return false
 		}
 	}

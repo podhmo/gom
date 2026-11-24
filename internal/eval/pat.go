@@ -21,16 +21,21 @@ func (e *interp) matchPat(pat check.Pat, v Value, env *Env) bool {
 		return true
 	case *check.TypePat:
 		var ok bool
-		if p.Iface != nil {
-			ok = e.implements(v, p.Iface)
-		} else {
+		switch {
+		case p.Iface != nil && len(p.Iface) == 0:
+			// An empty-interface target lowers to the default arm —
+			// it matches every value, including nil.
+			ok = true
+		case p.Iface != nil:
+			ok = e.implements(v, p.Iface, p.IfaceSig)
+		default:
 			ok = e.inhabits(v, p.Target)
 		}
 		if !ok {
 			return false
 		}
 		if p.Sym != nil {
-			env.Bind(p.Sym, e.reshape(v, p.Target))
+			env.Bind(p.Sym, e.unboxAny(v, p.Target))
 		}
 		return true
 	case *check.LitPat:

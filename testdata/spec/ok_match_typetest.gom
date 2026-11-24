@@ -11,7 +11,7 @@ fn describe (x : Go.Any) -> String = match x {
 // A named interface target also tests by method set, and a named
 // catch-all binds the un-narrowed subject in the default.
 fn tag (x : Go.Any) -> Int = match x {
-    _ : error -> 1
+    _ : GoError -> 1
     n : Int -> n
     e -> 0
 }

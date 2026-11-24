@@ -1,0 +1,6 @@
+package typetest
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+fn describe (x: Go.Any) -> String
+fn boxed_describe (n: Int) -> String

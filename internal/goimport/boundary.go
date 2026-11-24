@@ -65,6 +65,21 @@ func (l *Loader) InterfaceMethods(t gt.Type) ([]check.InterfaceMethod, bool) {
 	return out, true
 }
 
+// GoInterface reports whether t's emitted Go representation is an
+// interface — the coarse oracle behind the type-test scrutinee
+// check (InterfaceMethods additionally requires mappable method
+// signatures, which `any` also passes).
+func (l *Loader) GoInterface(t gt.Type) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	bt := l.boundaryType(t)
+	if bt == nil {
+		return false
+	}
+	_, ok := bt.Underlying().(*types.Interface)
+	return ok
+}
+
 // boundaryType reconstructs the Go spelling of a Gom type for the
 // boundary relations — assignability, comparability, convertibility.
 func (l *Loader) boundaryType(t gt.Type) types.Type {

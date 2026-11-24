@@ -73,7 +73,7 @@ func (g *gen) conType(c *types.Con) ast.Expr {
 		case "Any":
 			return ast.NewIdent("any")
 		default:
-			if n, ok := goFuncArity(c.Name); ok {
+			if n, ok := types.GoFuncArity(c.Name); ok {
 				// `Go.FuncN` — the flat Go func type: args are the
 				// N raw parameters then the raw results.
 				return g.goFuncType(n, c.Args)
@@ -224,20 +224,6 @@ func (g *gen) flatFuncType(t types.Type) ast.Expr {
 	}
 	ft.Results = &ast.FieldList{List: []*ast.Field{{Type: g.goType(ret)}}}
 	return ft
-}
-
-// goFuncArity reads the parameter count out of a `Go.FuncN` type
-// name — the arity lives in the name, and the type arguments are
-// the raw views of the N parameters then 0..2 results.
-func goFuncArity(name string) (int, bool) {
-	if len(name) != 5 || name[:4] != "Func" {
-		return 0, false
-	}
-	d := name[4]
-	if d < '0' || d > '0'+byte(types.GoFuncMaxArity) {
-		return 0, false
-	}
-	return int(d - '0'), true
 }
 
 // goFuncType renders `Go.FuncN args` as the flat `func(p...) (r...)`.

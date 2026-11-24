@@ -1,0 +1,12 @@
+package ex
+
+// spec 4.1: a declared type whose name shadows a builtin emits its
+// own nominal Go `case`, so it does not collide with the builtin
+// arm of the same name — no E0309.
+type Int = {v: String}
+
+fn f (x : Go.Any) -> String = match x {
+    i : Int -> i.v
+    s : String -> s
+    _ -> "?"
+}

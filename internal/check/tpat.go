@@ -130,7 +130,12 @@ type TypePat struct {
 	// Iface is non-nil when Target is a named Go interface: the
 	// required method names — the arm matches any value implementing
 	// them (an empty slice matches every value, like `any`).
-	Iface []string
+	// IfaceSig parallels Iface with each method's reflect-style
+	// signature spelling (`func(int64) string`); "" marks a
+	// signature the checker could not render — eval then tests
+	// the name alone.
+	Iface    []string
+	IfaceSig []string
 }
 
 func (*TypePat) isPat() {}

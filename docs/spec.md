@@ -305,7 +305,7 @@ error[E0301]: non-exhaustive match on `Expr`
 | リスト | `[]`, `[x]`, `[x, ..rest]` | Nil / Cons 相当の 2 コンストラクタとして扱う |
 | or パターン | `Circle _ \| Empty` | 全選択肢で同じ変数集合・同じ型を束縛すること |
 | as 束縛 | `Add _ _ as whole` | |
-| 型テスト | `s : String`, `_ : error` | `Go.Any` / named Go interface を対象とする `match` のみ。後述 |
+| 型テスト | `s : String`, `_ : GoError` | `Go.Any` / named Go interface を対象とする `match` のみ。後述 |
 | ガード | `p if cond` | 網羅性判定ではその腕を無視する |
 
 ガード付きの腕は、網羅性判定でも冗長性判定でも「その値を覆う」とは見なさない。たとえば `Neg x if is_zero x` の後の `Neg x` は冗長ではない。

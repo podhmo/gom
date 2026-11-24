@@ -1216,7 +1216,15 @@
           "named": true
         },
         {
+          "type": "ident",
+          "named": true
+        },
+        {
           "type": "pattern",
+          "named": true
+        },
+        {
+          "type": "type_expr",
           "named": true
         }
       ]

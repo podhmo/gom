@@ -127,6 +127,11 @@ func (p *printer) patRaw(pat syntax.Pat) *doc {
 			lhs = text("_")
 		}
 		mid := p.gapInline(prev, pat.Typ.Span().Start)
+		// The arm's `->` terminates the target, so a function type
+		// can only appear parenthesized: `f : (Int -> Int)`.
+		if _, isFn := pat.Typ.(*syntax.TypeFn); isFn {
+			return concat(lhs, text(":"+pad(mid)), text("("), p.typeExpr(pat.Typ), text(")"))
+		}
 		return concat(lhs, text(":"+pad(mid)), p.typeExpr(pat.Typ))
 
 	case *syntax.AsPat:

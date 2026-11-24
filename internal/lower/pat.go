@@ -199,6 +199,23 @@ func (l *lowerer) goTypeSwitch(s *seq, e *check.Match, subj core.Atom) core.Expr
 	for i := range e.Arms {
 		arm := &e.Arms[i]
 		if p, ok := arm.Pat.(*check.TypePat); ok {
+			if p.Iface != nil && len(p.Iface) == 0 {
+				// `x : any` or an empty-interface target matches
+				// every value — including nil, which Go's
+				// `case any` skips — so it is the catch-all and
+				// must lower as the default arm.
+				var cp check.Pat = &check.WildPat{Base: p.Base}
+				if p.Sym != nil {
+					cp = &check.VarPat{Base: p.Base, Sym: p.Sym}
+				}
+				w := &armState{
+					src:  arm,
+					sp:   arm.Sp,
+					todo: []oblig{{subj: subj, pat: cp}},
+				}
+				sw.Default = l.continueWith([]*armState{w}, subj, e.Type())
+				continue
+			}
 			dc := core.DCase{
 				Sp:   p.Span(),
 				Test: &core.DtypeTest{Sp: p.Span(), Target: p.Target},
