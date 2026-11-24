@@ -15,12 +15,13 @@
 
 エラーは出るが **gom の診断ではなく go 側のリンクエラーとして出る**ので「gom パッケージを自分で build に並べる」というモデルには、cmd/gom の実装か試行でしか辿り着かない。対処: `gom build shop shop/domain` と依存をすべて列挙してから `gom run shop`。
 
-## 3. `gom info -o` が吐く `.gomi` は「全公開の素案」で、再生成は手編集を上書きする
+## 3. `.gomi` を手で管理せず生成物にしたいなら、機能不足がいくつかある
 
-`-h` にも "drafts" とあるが、実際に試して分かる点が 2 つ:
+「`.gomi` は `gom info` で生成して手で管理しない」方向にするなら、現状で欠けているもの:
 
-- 出力は全メンバの**具体型**そのまま。公開面はここから手で削る — sealed にしたい record は bare `type T` に書き換え、見せたくないメンバは消す。
-- 既存 `.gomi` への再生成は手編集を問答無用で上書きする。実際 `gom info stdlib/list` で `stdlib/list/list.gomi` を regenerate したら `//gom:result-notaint` / `//gom:noescape` 行が落ちた（revert して復旧）。draft の土台として一度使って以後は手で保守する、という運用。
+- **再生成が `//gom:` ディレクティブを落とす** — spec は `//gom:noescape` / `//gom:result-notaint` を「`gom info` が書き出し」とするが、`gom info stdlib/list` で `stdlib/list/list.gomi` を再生成するとこれらの行が差分で消えた（implementation-gaps.md に登録済み）。生成物ならこれらの注釈は毎回 emit されないといけない。
+- **abstract 化・非公開化の意図を生成に残す経路がない** — 今の出力は全メンバの具体型そのままで、sealed にしたい record を bare `type T` にする・見せたくないメンバを消す、という削りは手編集を前提にしていて再生成で全部消える。生成管理にするなら、その意図を `.gom` 側の属性か `.gomi` 内のディレクティブとして表して `gom info` が引き継ぐ仕組みが要る（`//gom:mutable` は既にこの形 — spec 上「著者が記述、`gom info` の再生成が引き継ぐ」となっているので、同じモデルを abstract/非公開にも広げる設計がありうる）。
+- つまり現状の運用は「draft の土台として一度 `gom info -o` を使い、以後は手で保守」。生成管理に倒すなら上の 2 点が前提条件（open-questions.md に登録済み）。
 
 ## 4. Go 側ライブラリの仕様を知らないと嵌る点（gom の資料には出ない）
 
