@@ -26,3 +26,8 @@ fn tail2 (xs: List Int) -> List Int = List.last_n 2 xs
 fn sorted (xs: List Int) -> List Int = List.sort_by (fn a b -> a < b) xs
 
 fn isum (xs: List Int) -> Int = List.sum_int xs
+
+fn evens (xs: List Int) -> List String =
+  xs |> List.filter_map (fn x -> if x % 2 == 0 { Some "${x}" } else { None })
+
+fn first_big (xs: List Int) -> Option Int = xs |> List.find_map (fn x -> if x > 2 { Some x } else { None })

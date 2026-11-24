@@ -52,8 +52,14 @@ func Filter[A any](f func(A) bool, xs List[A]) List[A] {
 func FilterMap[A, B any](f func(A) option.Option[B], xs List[A]) List[B] {
 	out := make(List[B], 0, len(xs))
 	for _, x := range xs {
-		if some, ok := f(x).(option.Option_Some[B]); ok {
-			out = append(out, some.V0)
+		switch o := f(x).(type) {
+		case option.Option_Some[B]:
+			out = append(out, o.V0)
+		case option.Option_None[B]:
+		default:
+			// A nil Option is not None — it is the invalid
+			// zero value every match panics on.
+			panic(rt.InvalidVariant("Option", o))
 		}
 	}
 	return out
@@ -63,8 +69,12 @@ func FilterMap[A, B any](f func(A) option.Option[B], xs List[A]) List[B] {
 // f yields None for every element — `@extern fn find_map`.
 func FindMap[A, B any](f func(A) option.Option[B], xs List[A]) option.Option[B] {
 	for _, x := range xs {
-		if some, ok := f(x).(option.Option_Some[B]); ok {
-			return some
+		switch o := f(x).(type) {
+		case option.Option_Some[B]:
+			return o
+		case option.Option_None[B]:
+		default:
+			panic(rt.InvalidVariant("Option", o))
 		}
 	}
 	return option.Option_None[B]{}
