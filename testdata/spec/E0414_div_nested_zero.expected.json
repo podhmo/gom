@@ -1,0 +1,26 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0414",
+      "severity": "error",
+      "message": "division by a constant zero",
+      "span": {
+        "file": "E0414_div_nested_zero.gom",
+        "start": {
+          "line": 7,
+          "col": 34,
+          "offset": 263
+        },
+        "end": {
+          "line": 7,
+          "col": 39,
+          "offset": 268
+        }
+      },
+      "data": {
+        "op": "/"
+      }
+    }
+  ]
+}

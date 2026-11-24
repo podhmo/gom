@@ -36,6 +36,11 @@ func NewSliceBox() *SliceBox {
 // 0.5, not Go's integer `0`).
 type Ratio float64
 
+// SmallRatio is the `type X float32` shape — conversions into it
+// round at float32 precision (`SmallRatio(16777217.0)` ==
+// `SmallRatio(16777216.0)`).
+type SmallRatio float32
+
 // Ticks is a named integer type — the `type X int64` shape, a
 // lighter stand-in for time.Duration.
 type Ticks int64

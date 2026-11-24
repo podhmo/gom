@@ -201,10 +201,38 @@ func (c *checker) satisfies(r *metaRec, t types.Type, sp diag.Span) bool {
 	// oracle — decides admission, so `30 * time.Second` types and
 	// `deadline - now` land on Duration without `Go.conv`.
 	kind, isGoNamed := c.namedBasicKind(t)
-	num := isNumeric(t) || (isGoNamed && (namedIntegral(kind) || namedFloat(kind)))
-	flo := isFloat(t) || (isGoNamed && namedFloat(kind))
-	intg := isIntegral(t) || (isGoNamed && namedIntegral(kind))
-	ord := isOrdered(t) || (isGoNamed && (namedIntegral(kind) || namedFloat(kind)))
+	// A one-field record emits as the Go defined type `type X F`:
+	// Go assigns untyped constants to X and admits X to the
+	// arithmetic and comparison its underlying F allows, so the
+	// constraint classes judge the peeled underlying — `Clamp64(u,
+	// 0, 100)` types like Go does. The peeled field participates
+	// itself: `{d: time.Duration}` answers Duration's basic kind,
+	// and a field spelling a shadowed builtin (`{v: Int}` where the
+	// file's `type Int` is a struct) is a user decl, not the
+	// builtin its name spells.
+	u := c.definedUnderlying(t)
+	ukind, uIsGoNamed := c.namedBasicKind(u)
+	uNum, uFlo, uIntg, uOrd := isNumeric(u), isFloat(u), isIntegral(u), isOrdered(u)
+	if u != t {
+		// The shadow judgment is scoped to the record's own file:
+		// for a file-local record the field's `Int` resolves here,
+		// where `type Int` makes the builtin unreachable; an
+		// imported record spelled its fields in ITS package, where
+		// the caller's `type Int` has no say.
+		if wc, ok := types.Chase(t).(*types.Con); ok && wc.Qual == "" {
+			if uc, ok := u.(*types.Con); ok && uc.Qual == "" && c.shadowedBuiltin(uc.Name) {
+				uNum, uFlo, uIntg, uOrd = false, false, false, false
+			}
+		}
+	}
+	num := isNumeric(t) || uNum || (isGoNamed && (namedIntegral(kind) || namedFloat(kind))) ||
+		(uIsGoNamed && (namedIntegral(ukind) || namedFloat(ukind)))
+	flo := isFloat(t) || uFlo || (isGoNamed && namedFloat(kind)) ||
+		(uIsGoNamed && namedFloat(ukind))
+	intg := isIntegral(t) || uIntg || (isGoNamed && namedIntegral(kind)) ||
+		(uIsGoNamed && namedIntegral(ukind))
+	ord := isOrdered(t) || uOrd || (isGoNamed && (namedIntegral(kind) || namedFloat(kind))) ||
+		(uIsGoNamed && (namedIntegral(ukind) || namedFloat(ukind)))
 	if r.num && !num {
 		c.mismatch(sp, "a numeric type", t)
 		return false
@@ -221,7 +249,12 @@ func (c *checker) satisfies(r *metaRec, t types.Type, sp diag.Span) bool {
 		c.mismatch(sp, "an ordered type", t)
 		return false
 	}
-	if r.eq && c.hasFuncOrVar(t) {
+	// The eq judgment sees the emitted shape too: a phantom type
+	// parameter (`type Count a = {n: Int}` — Go emits
+	// `type Count[A] int64`, still comparable) peels away, while a
+	// record field spelling a bare type parameter stays unpeeled
+	// and flags as before.
+	if r.eq && c.hasFuncOrVar(t) && (u == t || c.hasFuncOrVar(u)) {
 		td := types.Display(t, metaNamer())
 		d := diag.Error("E0409",
 			fmt.Sprintf("`==` is not defined on %s: the type contains a function or a type variable", td)).
@@ -351,10 +384,37 @@ func (c *checker) eqProbe(t types.Type, sink *[]*types.Meta) bool {
 // eqWalk is the shared traversal behind hasFuncOrVar and eqProbe.
 // sink, when set, collects every unbound meta the walk crosses.
 type eqWalk struct {
-	c     *checker
-	seen  map[*typeInfo]bool
-	bound map[int]int
-	sink  *[]*types.Meta
+	c      *checker
+	seen   map[*typeInfo]bool
+	bound  map[int]int
+	sink   *[]*types.Meta
+	peeled map[conKey]bool
+}
+
+// hasConKey reports whether t mentions the constructor key — the
+// self-reference check that keeps a peel from growing the walk's
+// type each step.
+func hasConKey(t types.Type, key conKey) bool {
+	switch t := types.Chase(t).(type) {
+	case *types.Con:
+		if t.Qual == key.qual && t.Name == key.name {
+			return true
+		}
+		return slices.ContainsFunc(t.Args, func(x types.Type) bool { return hasConKey(x, key) })
+	case *types.Func:
+		if hasConKey(t.Ret, key) {
+			return true
+		}
+		return slices.ContainsFunc(t.Params, func(p types.FuncParam) bool { return hasConKey(p.Type, key) })
+	case *types.Tuple:
+		return slices.ContainsFunc(t.Elems, func(x types.Type) bool { return hasConKey(x, key) })
+	case *types.Go:
+		return slices.ContainsFunc(t.Args, func(x types.Type) bool { return hasConKey(x, key) })
+	case *types.Var, *types.Meta:
+		return false
+	default:
+		panic("unreachable")
+	}
 }
 
 // has reports whether t contains a function type or a rigid variable.
@@ -374,6 +434,29 @@ func (w *eqWalk) has(t types.Type) bool {
 	case *types.Go:
 		return slices.ContainsFunc(t.Args, w.has)
 	case *types.Con:
+		// A defined-type record's emitted shape is its field —
+		// `type Count a = {n: Int}` compares as `type Count[A]
+		// int64`: the phantom `a` never reaches the emitted shape,
+		// so the peel drops it from the walk the same way
+		// satisfies' eq judgment does. A `{f: a}` record stays
+		// unpeeled and its argument still flags. A peel whose field
+		// still mentions the record (`{w: W (List a)}` →
+		// `W (List Int)`) would grow the type each step — the
+		// declaration walk's `seen` bounds it instead. `peeled`
+		// bounds the longer cycle (`{f: List B}` / `{f: List A}`:
+		// each peel names the other, no self-mention): a re-entry
+		// falls back to the declaration walk.
+		key := conKey{qual: t.Qual, name: t.Name}
+		if !w.peeled[key] {
+			if u := w.c.definedUnderlying(t); u != t && !hasConKey(u, key) {
+				if w.peeled == nil {
+					w.peeled = map[conKey]bool{}
+				}
+				w.peeled[key] = true
+				defer delete(w.peeled, key)
+				return w.has(u)
+			}
+		}
 		// `Go.FuncN` is a Go func type spelled as a constructor —
 		// Go funcs are not comparable, so `==` on one is E0409
 		// the same as on a curried `Func`.

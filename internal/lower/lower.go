@@ -1014,6 +1014,60 @@ func (l *lowerer) singleField(recTyp types.Type) (check.TField, bool) {
 	return check.TField{}, false
 }
 
+// fieldFloat reports whether a defined-type field's emitted Go type
+// is floating-point — `Float`/`Float64`. The field itself may be a
+// defined type (`{z: Score}` where Score wraps `Float`):
+// definedUnderlying peels the chain to the emitted shape. A
+// `*types.Go` field's underlying is not knowable here; such fields
+// are rare and take the conservative path (no literal-sign
+// folding).
+func (l *lowerer) fieldFloat(local bool, f check.TField) bool {
+	seen := map[string]bool{}
+	t := f.Type
+	for {
+		c, ok := types.Chase(t).(*types.Con)
+		if !ok {
+			return false
+		}
+		if c.Qual == "" {
+			// An unqualified constructor means the builtin only
+			// when the record owning the field is file-local AND
+			// the file does not shadow the name (`builtinName`);
+			// in an imported record an unqualified `Float` was
+			// spelled in ITS package — the caller's own
+			// `type Float` must not capture it.
+			if local {
+				if l.builtinName(c, "Float") || l.builtinName(c, "Float64") {
+					return true
+				}
+			} else if c.Name == "Float" || c.Name == "Float64" {
+				return true
+			}
+		}
+		key := conKey(c)
+		if seen[key] {
+			return false
+		}
+		seen[key] = true
+		sf, single := l.singleField(t)
+		if !single {
+			return false
+		}
+		t = sf.Type
+		// The next peel step's field is owned by this record —
+		// locality follows the record being unwrapped.
+		local = c.Qual == ""
+	}
+}
+
+// recLocal reports whether a declared record type belongs to the
+// package being compiled — the locality that scopes unqualified
+// field names in fieldFloat.
+func recLocal(t types.Type) bool {
+	c, ok := types.Chase(t).(*types.Con)
+	return !ok || c.Qual == ""
+}
+
 // fieldIndex resolves a record field's declaration index — from the
 // file's own record TypeDecl or the Env oracle. -1 when unknown.
 func (l *lowerer) fieldIndex(recTyp types.Type, sym *resolve.Symbol) int {

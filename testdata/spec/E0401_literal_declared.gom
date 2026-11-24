@@ -1,0 +1,7 @@
+package main
+
+// A multi-field record emits as a Go struct, not a defined type —
+// no underlying basic type carries the literal, so `0` still
+// reports the numeric constraint against the record.
+type Pair = { a: Int, b: Int }
+fn bad (p: Pair) -> Pair = p + 0

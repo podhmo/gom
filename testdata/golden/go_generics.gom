@@ -25,3 +25,13 @@ fn index (xs: List Int) (n: Int) -> Int = goiface.Index xs n
 // instantiates verbatim (exact terms would not).
 type UserId = { value : Int }
 fn clamp_id (u: UserId) (lo: UserId) (hi: UserId) -> UserId = goiface.Clamp64 u lo hi
+
+// Literals assign to a declared type like Go's untyped constants:
+// the literal's meta takes UserId and emits `UserId(0)`, so a bare
+// `0` never binds the default int.
+fn clamp_id_lit (u: UserId) -> UserId = goiface.Clamp64 u 0 100
+fn bump_id (u: UserId) -> UserId = u + 0
+fn id_bound () -> UserId = {
+  let x : UserId = 0
+  x
+}

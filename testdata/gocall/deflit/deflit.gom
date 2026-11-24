@@ -1,0 +1,29 @@
+package deflit
+
+import go "time"
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// Runtime pin for literal→declared conform (wave42 lane C): a
+// numeric literal checked at a defined-type declared type
+// materializes as `UserId(0)`, so `Clamp64[UserId]` compiles and
+// the literals behave like Go untyped constants at the type.
+type UserId = { v : Int }
+type I32 = { x : Int32 }
+type Span = { d : time.Duration }
+type Count a = { n : Int }
+
+fn clamp_id_lit (u: UserId) -> UserId = goiface.Clamp64 u 0 100
+fn bump_id (u: UserId) -> UserId = u + 0
+fn id_bound () -> UserId = { let x : UserId = 0; x }
+fn neg_i32 () -> I32 = -2147483648
+fn elapse (s: Span) -> Span = s + 0
+fn eq_count (c: Count Int) -> Bool = c == c
+fn unwrap (u: UserId) -> Int = u.v
+type Score = { p : Float }
+
+// A negated literal at a float-backed defined type keeps the sign
+// outside the conversion — `Score(-0)` would mint a positive-zero
+// constant where `-(Score 0)` computes the -0.0 `1.0 / z` divides
+// by.
+fn neg_zero () -> Score = -0
+fn recip (s: Score) -> Float = 1.0 / s.p

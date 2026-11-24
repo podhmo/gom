@@ -1,0 +1,13 @@
+package main
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// A float32 conversion rounds at float32 precision:
+// `SmallRatio(16777217.0)` is `SmallRatio(16777216.0)` — the
+// difference is float32(0), whose integer conversion is 0, so the
+// division reports E0414. Folding in float64 alone would keep the
+// two literals distinct and mint a false nonzero divisor. The first
+// operand is computed so it stays a Float expression (a bare
+// `16777217.0` literal is judged at the float32 target and would
+// report E0417 instead).
+fn divz (x: Int) -> Int = x / (Go.conv ((Go.conv (16777216.0 + 1.0) : goiface.SmallRatio) - (Go.conv 16777216.0 : goiface.SmallRatio)) : Int)

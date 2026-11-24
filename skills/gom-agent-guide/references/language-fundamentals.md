@@ -186,7 +186,11 @@ type alias Wrap a = List a       // forwards its parameters
 - A single-field record emits a Go defined type (`type UserId
   int64`), so its value is interchangeable with the field type at
   the Go boundary only through explicit conversion; generic
-  one-field records stay structs.
+  one-field records stay structs. Numeric literals assign to it
+  like Go's untyped constants (`let x : UserId = 0`, a literal
+  argument where `UserId` is expected) and its own values admit
+  the arithmetic/comparison the underlying allows (`u + 0`,
+  `u < 100` — multi-field records reject these as E0401).
 
 - Variant payloads: positional `Num Int`, named `Let (name: String)
   (value: Expr)`, labeled `(~to: T)`. A *uniquely* named payload

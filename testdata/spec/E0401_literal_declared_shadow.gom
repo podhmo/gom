@@ -1,0 +1,9 @@
+package main
+
+// A record field spelling a file declaration that shadows a
+// builtin name is the user decl, not the builtin: `{v: Int}`
+// peels to this file's struct, not to the builtin Int, so `w + 0`
+// reports the numeric constraint against the user type.
+type Int = { x: Bool, y: Bool }
+type Wrap = { v: Int }
+fn bad (w: Wrap) -> Wrap = w + 0

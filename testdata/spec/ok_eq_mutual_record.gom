@@ -1,0 +1,9 @@
+package main
+
+// One-field records referencing each other through List: the eq
+// probe peels each without re-entering a constructor already on
+// the peel path — `peeled` bounds the A→B→A cycle.
+type A = { f: List B }
+type B = { f: List A }
+
+fn ping (x: A) (y: A) -> Bool = x == y

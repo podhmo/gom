@@ -76,3 +76,32 @@ func clampId(u, lo, hi UserId) UserId {
 	return goiface.Clamp64[UserId](u, lo, hi)
 //line go_generics.gom:27
 }
+
+//line go_generics.gom:32
+func clampIdLit(u UserId) UserId {
+//line go_generics.gom:32
+	tmp5 := UserId(0)
+//line go_generics.gom:32
+	tmp6 := UserId(100)
+//line go_generics.gom:32
+	return goiface.Clamp64[UserId](u, tmp5, tmp6)
+//line go_generics.gom:32
+}
+
+//line go_generics.gom:33
+func bumpId(u UserId) UserId {
+//line go_generics.gom:33
+	tmp7 := UserId(0)
+//line go_generics.gom:33
+	return u + tmp7
+//line go_generics.gom:33
+}
+
+//line go_generics.gom:34
+func idBound(_ struct{}) UserId {
+//line go_generics.gom:35
+	x := UserId(0)
+//line go_generics.gom:36
+	return x
+//line go_generics.gom:34
+}

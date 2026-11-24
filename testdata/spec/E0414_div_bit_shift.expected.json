@@ -96,14 +96,36 @@
       "span": {
         "file": "E0414_div_bit_shift.gom",
         "start": {
-          "line": 40,
+          "line": 36,
+          "col": 37,
+          "offset": 1592
+        },
+        "end": {
+          "line": 36,
+          "col": 63,
+          "offset": 1618
+        }
+      },
+      "data": {
+        "op": "%"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0414",
+      "severity": "error",
+      "message": "division by a constant zero",
+      "span": {
+        "file": "E0414_div_bit_shift.gom",
+        "start": {
+          "line": 43,
           "col": 25,
-          "offset": 1799
+          "offset": 1938
         },
         "end": {
-          "line": 40,
+          "line": 43,
           "col": 99,
-          "offset": 1873
+          "offset": 2012
         }
       },
       "data": {
@@ -118,14 +140,14 @@
       "span": {
         "file": "E0414_div_bit_shift.gom",
         "start": {
-          "line": 50,
+          "line": 53,
           "col": 43,
-          "offset": 2344
+          "offset": 2483
         },
         "end": {
-          "line": 50,
+          "line": 53,
           "col": 75,
-          "offset": 2376
+          "offset": 2515
         }
       },
       "data": {
@@ -140,14 +162,14 @@
       "span": {
         "file": "E0414_div_bit_shift.gom",
         "start": {
-          "line": 54,
+          "line": 57,
           "col": 43,
-          "offset": 2553
+          "offset": 2692
         },
         "end": {
-          "line": 54,
+          "line": 57,
           "col": 67,
-          "offset": 2577
+          "offset": 2716
         }
       },
       "data": {
@@ -162,14 +184,14 @@
       "span": {
         "file": "E0414_div_bit_shift.gom",
         "start": {
-          "line": 62,
+          "line": 65,
           "col": 43,
-          "offset": 2957
+          "offset": 3096
         },
         "end": {
-          "line": 62,
+          "line": 65,
           "col": 102,
-          "offset": 3016
+          "offset": 3155
         }
       },
       "data": {
