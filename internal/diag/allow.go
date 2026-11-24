@@ -14,12 +14,29 @@ import "strings"
 //
 // The scan is textual, like the `//gom:noescape` reader: a stale or
 // misplaced comment must not break the parse, so lines are matched on
-// the trimmed "//gom:allow " prefix regardless of position.
+// the trimmed "//gom:allow " prefix regardless of position. Lines
+// inside a `/* ... */` block are comment text and never count —
+// an opted-out opt-out must not stay active.
 func ScanAllow(src []byte, path string) (allow map[Code]bool, diags List) {
 	off := 0
+	depth := 0 // open `/*` minus `*/` so far — a directive inside a
+	// block comment is comment text, not a directive.
 	for _, line := range strings.Split(string(src), "\n") {
 		start := off
 		off += len(line) + 1
+		// Track block-comment depth across the whole line. The
+		// `//gom:` prefix check below only runs when the line does
+		// not sit inside `/* ... */` — same-line `/* //gom:allow */`
+		// never matched anyway (the trimmed line starts with `/*`),
+		// so depth only gates lines that open inside a block.
+		inside := depth > 0
+		depth += strings.Count(line, "/*") - strings.Count(line, "*/")
+		if depth < 0 {
+			depth = 0
+		}
+		if inside {
+			continue
+		}
 		trimmed := strings.TrimSpace(line)
 		if !strings.HasPrefix(trimmed, "//gom:allow") {
 			continue

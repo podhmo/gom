@@ -18,6 +18,10 @@ fn discards () -> Unit = {
   match (add 6, 7) {
     (_, m) -> ignore m
   }
+  match add 8 {
+    // `as f` retains the whole function — not a discard.
+    _ as f -> ignore (f 0)
+  }
 }
 
 let _ = add 9

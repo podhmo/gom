@@ -27,7 +27,7 @@
       "kind": "diagnostic",
       "code": "W0901",
       "severity": "warning",
-      "message": "a function value is discarded — a partial application is silently lost",
+      "message": "a function value is discarded — any unapplied rest of a call is lost",
       "span": {
         "file": "E0507_go_named_fn_conv.gom",
         "start": {

@@ -1,0 +1,13 @@
+package m
+
+/*
+//gom:allow W0901 — a directive inside a block comment is comment
+text, not a directive: the warnings below still fire (spec 12).
+*/
+
+fn add (a: Int) -> Int -> Int = fn b -> a + b
+
+fn dropper () -> Unit = {
+  ignore (add 1)
+  let _ = add 2
+}

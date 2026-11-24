@@ -26,7 +26,7 @@
       "kind": "diagnostic",
       "code": "W0901",
       "severity": "warning",
-      "message": "a function value is discarded — a partial application is silently lost",
+      "message": "a function value is discarded — any unapplied rest of a call is lost",
       "span": {
         "file": "err_lambda_ann_unbound.gom",
         "start": {

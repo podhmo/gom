@@ -161,8 +161,9 @@ func Compile(in Input, opts *Options) (*Result, error) {
 	// matching error diagnostics to warnings below; unusable entries
 	// report W0003 now (spec section 12).
 	allow, wdiags := diag.ScanAllow(in.Src, in.Path)
-	r.Diagnostics = append(r.Diagnostics, wdiags...)
 	allows := map[string]map[diag.Code]bool{in.Path: allow}
+	wdiags = diag.DemoteAllowed(wdiags, allows)
+	r.Diagnostics = append(r.Diagnostics, wdiags...)
 
 	parse := syntax.Parse
 	if r.Interface {
@@ -266,7 +267,7 @@ func Compile(in Input, opts *Options) (*Result, error) {
 	// name listing survives on EmitNames either way: the withheld
 	// output is exactly where `gom dump -phase=emit` looks for the
 	// names behind the collision.
-	r.Diagnostics = append(r.Diagnostics, out.Diags...)
+	r.Diagnostics = append(r.Diagnostics, diag.DemoteAllowed(out.Diags, allows)...)
 	r.EmitNames = out.EmitNames
 	if !diag.List(out.Diags).HasError() {
 		r.Output = out

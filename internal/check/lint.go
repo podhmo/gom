@@ -848,7 +848,7 @@ func (c *checker) lintDiscardPat(p Pat) {
 
 func (c *checker) warnDiscardFunc(sp diag.Span) {
 	c.diags.Add(diag.Warning("W0901",
-		"a function value is discarded — a partial application is silently lost").At(sp))
+		"a function value is discarded — any unapplied rest of a call is lost").At(sp))
 }
 
 // walkWildPats calls fn on every `_` inside p, descending through
@@ -885,7 +885,9 @@ func walkWildPats(p Pat, fn func(*WildPat)) {
 			walkWildPats(a, fn)
 		}
 	case *AsPat:
-		walkWildPats(p.Pat, fn)
+		// `p as name` retains the whole value through the `as`
+		// binding — nothing under it is discarded, `_ as f`
+		// included.
 	default:
 		panic("unreachable")
 	}
