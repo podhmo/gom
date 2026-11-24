@@ -1,0 +1,21 @@
+// wave43 lane B — String/Char/Bool literals assign to defined-type
+// declared types; the materialization emits `Name "x"` /
+// `Flag true` / `Ch 'z'` (decisions/2026-11-24-scalar-literal-declared).
+package main
+
+import go "fmt"
+
+type Name = { n: String }
+type Flag = { on: Bool }
+type Ch = { c: Char }
+
+fn greet (n: Name) -> String = "hi"
+
+fn main () -> Unit = {
+  let n: Name = "x"
+  let f: Flag = true
+  let ch: Ch = 'z'
+  ignore (fmt.Println (greet n))
+  ignore (fmt.Println "${f} ${ch}")
+  ()
+}

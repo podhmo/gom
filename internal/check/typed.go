@@ -428,6 +428,13 @@ type Ascribe struct {
 	// TryAs marks a `Go.try_as x : Option T` extraction — the comma-ok
 	// assertion out of `Go.Any` (decision 2026-11-24-go-any-extraction).
 	TryAs bool
+	// Mat marks a literal materialization into a defined type — the
+	// checker minted the `T lit` conversion (scalarLitConv and the
+	// numeric literal peel). The value is the scalar itself (a
+	// one-field record evaluates to its field), so the ascribe is a
+	// syntactic value under the `let` restriction and a no-op for
+	// the evaluator.
+	Mat bool
 }
 
 func (*Ascribe) isExpr() {}

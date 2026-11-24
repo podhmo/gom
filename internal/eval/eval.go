@@ -663,6 +663,12 @@ func (e *interp) eval(x check.Expr, env *Env) Value {
 			return &VVariant{Type: con, Name: "None"}
 		}
 		if x.Conv {
+			// A literal materialization into a defined type is a
+			// no-op — the eval value is the field scalar itself
+			// (a one-field record evaluates to its field value).
+			if x.Mat {
+				return e.eval(x.X, env)
+			}
 			// The implicit `any` box (checker's `Go.Any`
 			// conformance materialization) is representation-only
 			// here: eval values are dynamically typed already.
