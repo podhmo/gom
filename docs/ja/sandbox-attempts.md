@@ -36,9 +36,9 @@ recheck で成功したら `成功` に更新する（棚卸し時・recheck 実
 - `tpl` — text/template のラッパ — 成功
 - probes — json.Marshal / flag / regexp / select+signal+ticker /
   @method（Stringer）/ 共有 Ref / generics / gom test — 成功
-- `slices` で record ソート（`Go.conv`/`SortFunc`/`Sort` 全経路）
-  — 成功（run 2 recheck: `~[]E` 要素一致 + `let gs : Go.Slice T = xs`
-  で可能）
+- `slices` で record ソート — 成功（run 2 recheck: `~[]E` 要素一致 +
+  `let gs : Go.Slice T = xs` + `SortFunc`。`Go.conv` 経路は record
+  要素で E0507 のまま — implementation-gaps 登録済み）
 - record に `http.Handler` 実装（`@method` が ServeHTTP initialism
   を出せない） — 成功（`@method(ServeHTTP)` verbatim 名が実装済み）
 - `//go:embed` / blank import — 成功（`//gom:embed` + `@extern let`
@@ -57,4 +57,5 @@ recheck で成功したら `成功` に更新する（棚卸し時・recheck 実
 - `jsonl2csv` — JSONL → CSV 変換 — 成功
 - `shop/` — DMMF 風ドメインパッケージ（`.gomi` でコンストラクタ封じ）
   — 成功
-- `sandbox/recheck/` — run 1 指摘項目の再検証 probe 群 — 未検証
+- `sandbox/recheck/` — run 1 指摘項目の再検証 probe 群 — 成功
+  （大半を解消確認、残る摩擦は recheck.md・gotchas.md に記録）
