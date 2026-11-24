@@ -72,8 +72,9 @@ run 1 の「不得意・危険」の大半が wave35–41 の実装で解消し�
    `let gs : Go.Slice T = xs`（`xs : List T`）の ascription が通る
    （check の `conformExpr`→`sliceConv` が `ConvSliceToGo`、lower が
    `.ToSlice()` コピーを emit）。レビュー指摘で発見・実測確認。
-   コピーなので gom 側 `List` は変わらないが `slices.Sort` の結果は
-   `Go.Slice` 側から読める — 用途は足りる。
+   コピーなので gom 側 `List` は変わらないが、`slices.Sort`（順序の
+   ある要素）や `slices.SortFunc`（record — `Go.func2` 比較器）の
+   結果は `Go.Slice` 側から読める — 用途は足りる。
    open-questions は解消済み `[x]` として記録。
 
 4. **文字列の操作面（len・部分列・添字）**
