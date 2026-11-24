@@ -1,6 +1,8 @@
 package main
 
 import go "encoding/json"
+import go "errors"
+import go "fmt"
 import go "strings"
 
 // spec section 8.3: `Go.Any` materializes the box — a value
@@ -47,6 +49,11 @@ fn m42 (a: Go.Any) -> String = match a { 42 -> "forty"; _ -> "other" }
 fn mSome (o: Option Go.Any) -> String = match o { Some 42 -> "forty"; _ -> "other" }
 fn take (l: Go.Slice String) -> Int = Go.Slice.length l
 
+// A Go-typed argument reaching a `...any` slot passes through
+// unboxed — `go vet`'s printf analysis must still see `error`
+// under `%w` (spec 8.1 item 7).
+fn wraperr (e: GoError) -> GoError = fmt.Errorf("wrap: %w", e)
+
 fn main () -> Unit = {
   takes [5]
   ignore (id x)
@@ -60,4 +67,5 @@ fn main () -> Unit = {
   ignore (m42 s)
   ignore (mSome o)
   ignore (["a", "b"] |> take)
+  ignore (wraperr (errors.New("boom")))
 }

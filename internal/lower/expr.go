@@ -877,7 +877,19 @@ func (l *lowerer) convGoArg(s *seq, sig GoSig, i int, a core.Atom, spreadArg boo
 	}
 	pt := l.goParamTypeAt(sig, i, spreadArg)
 	at := types.Chase(a.Type())
-	if pt == nil || types.Equal(at, pt) {
+	if pt == nil {
+		return a
+	}
+	if isGoAny(pt) && goNativeArg(at) {
+		// A Go-typed argument reaches `any` by plain
+		// assignability — the `any(x)` box would only erase the
+		// static type `go vet`'s printf analysis reads ("format
+		// %w has arg of wrong type any"). Checker-wrapped
+		// `Go.Any` ascriptions are stripped earlier in the
+		// argument loop.
+		return a
+	}
+	if types.Equal(at, pt) {
 		return a
 	}
 	if fn, ok := l.funcNOfNamed(at); ok && types.Equal(fn, pt) {
@@ -903,6 +915,36 @@ func (l *lowerer) convGoArg(s *seq, sig GoSig, i int, a core.Atom, spreadArg boo
 	return l.asAtom(s, a.Span(), &core.Conv{
 		Sp: a.Span(), Typ: pt, Kind: k, X: l.convBoxSrc(s, a, k),
 	})
+}
+
+// goNativeArg reports whether an argument type already spells a Go
+// type at the boundary — a `*types.Go` named ref, a `Go.*`
+// constructor (`Go.Slice`, `Go.FuncN`), the Gom views of Go-native
+// shapes (`GoError`, `Ptr`, the channel constructors), or a Gom
+// function type (emitted as a Go `func`). These reach an `any`
+// parameter by assignability alone; the `any(x)` box would only
+// erase the static type `go vet` reads.
+func goNativeArg(t types.Type) bool {
+	switch t := t.(type) {
+	case *types.Go, *types.Func:
+		return true
+	case *types.Con:
+		if t.Qual == "Go" {
+			return true
+		}
+		if t.Qual == "" {
+			switch t.Name {
+			case "GoError", "Ptr", "Chan", "RecvChan", "SendChan", "Scope":
+				return true
+			}
+		}
+		return false
+	case *types.Meta, *types.Tuple, *types.Var:
+		// Inference variable, `(a, b)` composite, bound type
+		// parameter — Gom-side shapes that need the box.
+		return false
+	}
+	return false
 }
 
 // convBoxSrc materializes a numeric atom before a ConvBoxAny: a bare
@@ -1154,6 +1196,17 @@ func (l *lowerer) argAtoms(s *seq, args []check.Arg, ci check.CallInfo, callee c
 			}
 		}
 		v := a.Value
+		if as, ok := v.(*check.Ascribe); ok && as.Conv && !as.Iface && !as.Slice &&
+			isGoAny(as.Type()) && goNativeArg(types.Chase(as.X.Type())) {
+			// A Go-typed argument ascribed to `any` — the `any(x)`
+			// box is a no-op for assignability and would erase the
+			// static type `go vet`'s printf analysis reads ("format
+			// %w has arg of wrong type any"). Declared-type
+			// positions (a `let x : Go.Any` binding) keep their box;
+			// only the call-argument view strips it.
+			out[i] = l.atom(s, as.X)
+			continue
+		}
 		if as, ok := v.(*check.Ascribe); ok && as.ChanDir {
 			// Whole-argument implicit narrowing `Chan a` →
 			// `chan<-`/`<-chan a`: the operand is already

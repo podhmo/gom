@@ -135,8 +135,12 @@ func TestEndToEnd_RealWorldPrograms(t *testing.T) {
 		}
 	}
 
-	// The Go toolchain compiles every generated program.
+	// The Go toolchain compiles every generated program, and `go vet`
+	// accepts it — errwalk's `fmt.Errorf("ctx: %w", base)` pins the
+	// unboxed `any` argument emission (a boxed `any(e)` temp fails
+	// vet's printf analysis).
 	goCmd(t, gobin, dir, "build", "./...")
+	goCmd(t, gobin, dir, "vet", "./...")
 
 	bin := filepath.Join(dir, "bin")
 	buildOne := func(pkg string) string {
