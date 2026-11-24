@@ -1434,9 +1434,9 @@ func copyTo(dir, fname string) result.Result[string, error] {
 //line gselfish/main.gom:228
 		}
 //line gselfish/main.gom:228
-		tmp256 := tmp199
+		tmp206 := tmp199
 //line gselfish/main.gom:228
-		defer tmp256(struct{}{})
+		defer tmp206(struct{}{})
 //line gselfish/main.gom:229
 		base := filepath.Base(fname)
 //line gselfish/main.gom:230
@@ -1460,9 +1460,9 @@ func copyTo(dir, fname string) result.Result[string, error] {
 //line gselfish/main.gom:231
 		}
 //line gselfish/main.gom:231
-		tmp255 := tmp201
+		tmp205 := tmp201
 //line gselfish/main.gom:231
-		defer tmp255(struct{}{})
+		defer tmp205(struct{}{})
 //line gselfish/main.gom:232
 		tmp202 := io.Writer(wf)
 //line gselfish/main.gom:232
@@ -1482,9 +1482,9 @@ func copyTo(dir, fname string) result.Result[string, error] {
 //line gselfish/main.gom:226
 	}
 //line gselfish/main.gom:226
-	tmp257 := rt.NewScope()
+	tmp207 := rt.NewScope()
 //line gselfish/main.gom:226
-	return tmp204(tmp257)
+	return tmp204(tmp207)
 //line gselfish/main.gom:225
 }
 

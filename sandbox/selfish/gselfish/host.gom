@@ -29,3 +29,7 @@ import go "github.com/google/go-github/v68/github"
 // errors.Wrapf(err, format, arg) — same %w constraint; the format
 // stays a runtime string so vet leaves it alone.
 @extern fn wrapf (e: GoError) (format: String) (arg: Go.Any) -> GoError
+
+// pkg/errors.Errorf — carries a stack so log's %+v prints frames,
+// like the oracle's not-found error.
+@extern fn stack_errorf (format: String) (arg: Go.Any) -> GoError

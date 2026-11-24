@@ -61,7 +61,7 @@ fn new_app (c0: Config) -> Result App GoError = {
 fn app_delete (app: App) (ctx: context.Context) (latest: Option Commit) -> Result Unit GoError = {
   let alias = app.config.alias
   let gist_id = match latest {
-    None -> try Err (fmt.Errorf ("alias=%q is not found", alias))
+    None -> try Err (stack_errorf "alias=%q is not found" alias)
     Some c -> c.id
   }
   try (wrap_result (client_delete app.client ctx gist_id) "gist api delete")

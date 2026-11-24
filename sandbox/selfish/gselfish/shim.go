@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/google/go-github/v68/github"
+	"github.com/pkg/errors"
 	"github.com/podhmo/gom/stdlib/result"
 )
 
@@ -69,6 +70,10 @@ func wrap(e error, msg string) error { return fmt.Errorf("%s: %w", msg, e) }
 
 // errors.Wrapf(err, format, arg) — one format arg is all this port needs.
 func wrapf(e error, format string, arg any) error { return fmt.Errorf(format+": %w", arg, e) }
+
+// pkg/errors.Errorf — the oracle's errors carry a stack trace, which
+// log.Fatalf("!!%+v") then prints. Paths/line numbers follow the build.
+func stackErrorf(format string, arg any) error { return errors.Errorf(format, arg) }
 
 // github.GistFile.Size is *int; gom's Ptr Int is *int64, so the
 // literal is built here.

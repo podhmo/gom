@@ -258,17 +258,7 @@ func appDelete(app App, ctx context.Context, latest option.Option[commithistory.
 //line gselfish/app.gom:64
 		tmp23 := any(alias)
 //line gselfish/app.gom:64
-		var tmp24 error
-//line gselfish/app.gom:64
-		v4 := fmt.Errorf("alias=%q is not found", tmp23)
-//line gselfish/app.gom:64
-		if v4 == nil {
-//line gselfish/app.gom:64
-			panic("gom: fmt.Errorf returned nil error — its binding declares a never-nil GoError result")
-//line gselfish/app.gom:64
-		}
-//line gselfish/app.gom:64
-		tmp24 = v4
+		tmp24 := stackErrorf("alias=%q is not found", tmp23)
 //line gselfish/app.gom:64
 		tmp25 := result.Err[string, error](tmp24)
 //line gselfish/app.gom:64
@@ -342,9 +332,9 @@ func appDelete(app App, ctx context.Context, latest option.Option[commithistory.
 //line gselfish/app.gom:70
 	tmp32 := any(gistId)
 //line gselfish/app.gom:70
-	v5, err := fmt.Fprintf(tmp31, "deleted. (id=%q)\n", tmp32)
+	v4, err := fmt.Fprintf(tmp31, "deleted. (id=%q)\n", tmp32)
 //line gselfish/app.gom:70
-	_ = result.FromGo(int64(v5), err)
+	_ = result.FromGo(int64(v4), err)
 //line gselfish/app.gom:71
 	return result.Ok[struct{}, error](struct{}{})
 //line gselfish/app.gom:61
@@ -413,9 +403,9 @@ func appCreate(app App, ctx context.Context, latest option.Option[commithistory.
 //line gselfish/app.gom:82
 	tmp41 := any(commit.Id)
 //line gselfish/app.gom:82
-	v6, err1 := fmt.Fprintf(tmp39, "%s success. (id=%q)\n", tmp40, tmp41)
+	v5, err1 := fmt.Fprintf(tmp39, "%s success. (id=%q)\n", tmp40, tmp41)
 //line gselfish/app.gom:82
-	_ = result.FromGo(int64(v6), err1)
+	_ = result.FromGo(int64(v5), err1)
 //line gselfish/app.gom:83
 	tmp42 := app.Config.IsSilent == false
 //line gselfish/app.gom:83
@@ -429,9 +419,9 @@ func appCreate(app App, ctx context.Context, latest option.Option[commithistory.
 //line gselfish/app.gom:84
 		tmp46 := any(g.HtmlUrl)
 //line gselfish/app.gom:84
-		v7, err2 := fmt.Fprintf(tmp45, "opening.. %q\n", tmp46)
+		v6, err2 := fmt.Fprintf(tmp45, "opening.. %q\n", tmp46)
 //line gselfish/app.gom:84
-		_ = result.FromGo(int64(v7), err2)
+		_ = result.FromGo(int64(v6), err2)
 //line gselfish/app.gom:85
 		err3 := webbrowser.Open(g.HtmlUrl)
 //line gselfish/app.gom:85
@@ -504,9 +494,9 @@ func appUpdate(app App, ctx context.Context, latest commithistory.Commit, filena
 //line gselfish/app.gom:97
 	tmp54 := any(commit.Id)
 //line gselfish/app.gom:97
-	v8, err4 := fmt.Fprintf(tmp52, "%s success. (id=%q)\n", tmp53, tmp54)
+	v7, err4 := fmt.Fprintf(tmp52, "%s success. (id=%q)\n", tmp53, tmp54)
 //line gselfish/app.gom:97
-	_ = result.FromGo(int64(v8), err4)
+	_ = result.FromGo(int64(v7), err4)
 //line gselfish/app.gom:98
 	tmp55 := app.Config.IsSilent == false
 //line gselfish/app.gom:98
@@ -516,9 +506,9 @@ func appUpdate(app App, ctx context.Context, latest commithistory.Commit, filena
 //line gselfish/app.gom:99
 		tmp57 := any(g.HtmlUrl)
 //line gselfish/app.gom:99
-		v9, err5 := fmt.Fprintf(tmp56, "opening.. %q\n", tmp57)
+		v8, err5 := fmt.Fprintf(tmp56, "opening.. %q\n", tmp57)
 //line gselfish/app.gom:99
-		_ = result.FromGo(int64(v9), err5)
+		_ = result.FromGo(int64(v8), err5)
 //line gselfish/app.gom:100
 		err6 := webbrowser.Open(g.HtmlUrl)
 //line gselfish/app.gom:100
