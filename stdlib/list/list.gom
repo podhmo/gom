@@ -99,6 +99,16 @@ fn find (f: a -> Bool) (xs: List a) -> Option a = match xs {
   [x, ..rest] -> if f x { Some x } else { find f rest }
 }
 
+/// filter_map f xs keeps the payloads f returns as Some, in order —
+/// map+filter fused, one pass. Buffer-built Go impl (impl.go).
+@extern
+fn filter_map (f: a -> Option b) (xs: List a) -> List b
+
+/// find_map f xs returns the first Some payload f produces,
+/// or None when f yields None for every element. Go impl (impl.go).
+@extern
+fn find_map (f: a -> Option b) (xs: List a) -> Option b
+
 /// concat xss = xss[0] ++ xss[1] ++ ... — `List.join` in OCaml.
 /// Buffer-built Go impl (impl.go) — one pass over the total size;
 /// the right-fold shape stacked a frame per sublist (O(k) depth).
@@ -226,4 +236,12 @@ test "concat and find" {
   assert_eq (concat [[1], [2, 3]]) [1, 2, 3]
   assert_eq (find (fn x -> x > 1) [1, 2, 3]) (Some 2)
   assert_eq (find (fn x -> x > 9) [1, 2]) None
+}
+
+test "filter_map and find_map" {
+  let parse = fn x -> if x > 0 { Some (x * 10) } else { None }
+  assert_eq (filter_map parse [1, -2, 3]) [10, 30]
+  assert_eq (filter_map parse [-1, -2]) []
+  assert_eq (find_map parse [-1, 2, 3]) (Some 20)
+  assert_eq (find_map parse [-1, -2]) None
 }

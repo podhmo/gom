@@ -22,7 +22,7 @@
 
 ## To Be Implemented
 
-- [ ] **[task] stdlib に `List.filter_map` / `List.find_map` を追加**: `fold` で回すしかない現状 — selfish 移植で要望（[sketch](docs/sketch/ja/2026-11-24-selfish-port.md)、wave43 lane F）
+- [x] **[task] stdlib に `List.filter_map` / `List.find_map` を追加**: `fold` で回すしかない現状 — selfish 移植で要望（[sketch](docs/sketch/ja/2026-11-24-selfish-port.md)、wave43 lane F）。実装済み: `@extern` buffer-built Go impl（`stdlib/list/impl.go` の `FilterMap`/`FindMap`）、`noescape` directive 付き（wave44 lane F）
 
 ### 基盤（最初に着手。P0 と並列に進められる）
 
