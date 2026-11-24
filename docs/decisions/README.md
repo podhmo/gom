@@ -247,12 +247,14 @@
 | [verbatim-dup-error](2026-11-23-verbatim-dup-error.md) | emit 名の verbatim 二重請求はエラー E0608 で出力を withhold する | adopted |
 | [display-composite-gomshow](2026-11-24-display-composite-gomshow.md) | production の `display`/文字列補間は `gomShowN` 機構を再利用する | 採用 |
 | [go-any-extraction](2026-11-24-go-any-extraction.md) | `Go.Any` からの取り出し — comma-ok の `Option` 返りを唯一の面とする | 採択（wave39 lane A として実施） |
+| [goany-arg-passthrough](2026-11-24-goany-arg-passthrough.md) | `any` 引数位置の Go 型の値は `any(x)` に box せず素通しする | adopted |
 | [goimport-subprocess-batching](2026-11-24-goimport-subprocess-batching.md) | `go list -export` の prefetch 一括化と key/srcStat の memoize | 採用（実装・検証した — `TestPrefetchBatchesGoList`（2 import の miss が `go list` 1 回で温まる）。実測: `gom check` on sandbox/selfish で cold 0.86s → 0.17s、warm 0.11s → 0.05s） |
 | [gom-list-external](2026-11-24-gom-list-external.md) | `gom list -external` — 外部 Gom パッケージの列挙 | 採用（wave41 lane C で実装） |
 | [gom-list-external-vendor](2026-11-24-gom-list-external-vendor.md) | `gom list -external` — vendor mode の列挙 | 採用（wave42 lane D で実装） |
 | [literal-declared-assignable](2026-11-24-literal-declared-assignable.md) | 数値リテラルの宣言型への代入可能性（一部を [scalar-literal-declared](2026-11-24-scalar-literal-declared.md) で置き換え） | adopted |
 | [match-type-test-arms](2026-11-24-match-type-test-arms.md) | `Go.Any` への `match` 型テスト腕 — `p : T` 腕 + `_` 必須 | 採択（wave40 lane B、2026-11-24） |
 | [method-emit-name-verbatim](2026-11-24-method-emit-name-verbatim.md) | `@method(GoName)` — verbatim emit name for Go interface methods | 採用（実装・検証した — wave38 lane G） |
+| [multiline-application](2026-11-24-multiline-application.md) | 複数行のカリー適用 — NL-2 は変えず、`\|>` か `( )` で括る | 採用（wave44 lane G で調査・採択） |
 | [onefield-record-tilde](2026-11-24-onefield-record-tilde.md) | 1 フィールド record の `~` 制約受理 — defined type の underlying 一致 | 採択（wave40 lane D の調査結果。実装は wave41 lane A） |
 | [partial-application-lint](2026-11-24-partial-application-lint.md) | 部分適用の握り潰し — `ignore` / `_` 束縛で捨てられた関数値を警告する | 採択（wave40 lane A、2026-11-24） |
 | [record-field-struct-tag](2026-11-24-record-field-struct-tag.md) | record フィールドの Go struct tag — フィールド行の verbatim バッククォートタグ | draft（wave39 lane B として実施） |
