@@ -9,3 +9,12 @@ type UserId = { v : Int }
 
 fn clamp_id (x: UserId) (lo: UserId) (hi: UserId) -> UserId =
     goiface.Clamp64 x lo hi
+
+// `Wss` emits `type Wss [][]byte`, satisfying `~[][]byte`; a direct
+// `Array (Array Byte)` argument emits the same. Both must compile —
+// the spec fixture only checks diagnostics.
+type Wss = { xss : Array (Array Byte) }
+
+fn count_wss (w: Wss) -> Int = goiface.Count8x8 w
+
+fn count_nested (xss: Array (Array Byte)) -> Int = goiface.Count8x8 xss

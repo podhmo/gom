@@ -17,3 +17,15 @@ func TestClampIdOnDefinedType(t *testing.T) {
 		t.Fatalf("ClampId = %v, want 10", got)
 	}
 }
+
+// Nested `Array` spellings: `Wss` compiles `Count8x8[Wss]` (a
+// defined `type Wss [][]byte` under `~[][]byte`) and the direct
+// `[][]byte` argument instantiates `Count8x8[[][]byte]`.
+func TestCountNestedArray(t *testing.T) {
+	if got := CountWss(Wss{{1, 2}, {3}}); got != 2 {
+		t.Fatalf("CountWss = %v, want 2", got)
+	}
+	if got := CountNested([][]byte{{1, 2, 3}}); got != 1 {
+		t.Fatalf("CountNested = %v, want 1", got)
+	}
+}
