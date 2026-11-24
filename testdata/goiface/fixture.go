@@ -97,6 +97,33 @@ func Clamp[T ~int](x, lo, hi T) T {
 	return x
 }
 
+// Clamp64 is Clamp over the representable width — `~int64` admits a
+// defined type `type D int64` at the boundary, where `~int` does not.
+func Clamp64[T ~int64](x, lo, hi T) T {
+	if x < lo {
+		return lo
+	}
+	if x > hi {
+		return hi
+	}
+	return x
+}
+
+// Choose's `int64 | string` union is all exact terms — a defined type
+// `type D int64` satisfies none of them (the emitted argument is
+// verbatim `D`, not `int64`).
+func Choose[T int64 | string](x, y T) T { return y }
+
+// Count8's `~[]byte` term admits a `Go.Slice Byte` — and a defined
+// type `type D []byte`, since `Array Byte` renders `[]byte` — but
+// not `list.List[uint8]`, which is a named slice no `[]T` term
+// spells.
+func Count8[T ~[]byte](x T) int64 { return int64(len(x)) }
+
+// Count8x8 is Count8 nested one level — `~[][]byte` admits
+// `Array (Array Byte)`, which renders `[][]byte`.
+func Count8x8[T ~[][]byte](x T) int64 { return int64(len(x)) }
+
 // Sum64 is Sum over []int64 — the representable slice spelling — so
 // a `List Int` argument copies at the boundary (spec section 8.5),
 // including through `xs |> Sum64` where the piped value conforms to

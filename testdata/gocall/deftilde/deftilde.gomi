@@ -1,0 +1,12 @@
+package deftilde
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+type UserId = { v : Int }
+
+fn clamp_id (x: UserId) (lo: UserId) (hi: UserId) -> UserId
+
+type Wss = { xss : Array (Array Byte) }
+
+fn count_wss (w: Wss) -> Int
+fn count_nested (xss: Array (Array Byte)) -> Int

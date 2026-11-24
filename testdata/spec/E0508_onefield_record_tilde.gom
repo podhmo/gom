@@ -1,0 +1,16 @@
+package main
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// The defined-type peel answers the union term set honestly:
+// `Clamp`'s `~int` still rejects `UserId` (the field renders
+// `int64`, whose underlying is not `int`), and `Choose`'s all-exact
+// union admits no defined type at all — `type D int64` is never the
+// `int64` type itself (spec 8.5).
+type UserId = { value : Int }
+
+fn f (u: UserId) -> UserId = {
+    let _ = goiface.Clamp u u u
+    let _ = goiface.Choose u u
+    u
+}

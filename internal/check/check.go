@@ -531,9 +531,115 @@ func (c *checker) goSatisfiesGomElems(targs []types.Type, i int, gc GoConstraint
 		return pairEq([]int{gc.Elem})
 	case GoConstraintMap:
 		return pairEq([]int{gc.Key, gc.Val})
+	case GoConstraintUnion:
+		// A declared one-field record emits as the defined type
+		// `type D F` — it satisfies an approx (`~X`) term exactly
+		// when F's emitted underlying does, and never an exact
+		// term (no Go constraint can name D). Peel to the field
+		// and let the oracle judge the approx terms only
+		// (decision 2026-11-24-onefield-record-tilde).
+		peeled := c.definedUnderlying(targs[i])
+		approx := !types.Equal(peeled, types.Chase(targs[i]))
+		// The `Array` builtin renders the anonymous `[]A`, which
+		// the boundary oracle cannot spell — rewriting it to
+		// `Go.Slice` judges the same emitted type. For a direct
+		// `Array` argument the full term set applies (the arg is
+		// `[]A` itself, not a defined type); as a peeled field it
+		// still feeds the approx-only terms below.
+		if s := c.goSliceSpelling(peeled); s != nil {
+			peeled = s
+		} else if !approx {
+			return false
+		}
+		if approx {
+			var terms []GoUnionTerm
+			for _, tm := range gc.Terms {
+				if tm.Approx {
+					terms = append(terms, tm)
+				}
+			}
+			if len(terms) == 0 {
+				return false
+			}
+			gc.Terms = terms
+		}
+		// The boundary mapper reads a builtin spelling as the
+		// builtin even when the file redeclared the name — a
+		// peeled spelling shadowing one would be misjudged, so
+		// reject rather than delegate (the emitted call would
+		// fail `go build`).
+		if c.hasShadowedBuiltinSpelling(peeled) {
+			return false
+		}
+		src, ok := c.src.(GoConstraintSource)
+		if !ok {
+			return false
+		}
+		peeledTargs := make([]types.Type, len(targs))
+		copy(peeledTargs, targs)
+		peeledTargs[i] = peeled
+		return src.GoSatisfies(peeledTargs, i, gc) == GoVerdictYes
 	default:
 		return false
 	}
+}
+
+// goSliceSpelling rewrites an `Array`-spelled type to the `Go.Slice`
+// spelling it emits as — the boundary oracle has no `Array` case even
+// though codegen renders `[]A`. Returns nil when t is not the
+// (unshadowed) builtin `Array` constructor.
+func (c *checker) goSliceSpelling(t types.Type) types.Type {
+	con, ok := types.Chase(t).(*types.Con)
+	if !ok || con.Qual != "" || con.Name != "Array" || len(con.Args) != 1 ||
+		c.shadowedBuiltin("Array") {
+		return nil
+	}
+	// An `Array` element can itself be an `Array` — `[][]A` needs
+	// the same rewrite, or the inner Con reaches the boundary
+	// oracle unmappable.
+	arg := con.Args[0]
+	if inner := c.goSliceSpelling(arg); inner != nil {
+		arg = inner
+	}
+	return &types.Con{Qual: "Go", Name: "Slice", Args: []types.Type{arg}}
+}
+
+// hasShadowedBuiltinSpelling reports whether t spells a builtin
+// constructor name the file redeclared — a spelling the boundary
+// mapper would misread as the builtin.
+func (c *checker) hasShadowedBuiltinSpelling(t types.Type) bool {
+	switch t := types.Chase(t).(type) {
+	case *types.Con:
+		if t.Qual == "" && c.shadowedBuiltin(t.Name) {
+			return true
+		}
+		for _, a := range t.Args {
+			if c.hasShadowedBuiltinSpelling(a) {
+				return true
+			}
+		}
+	case *types.Func:
+		ps, ret := flattenFunc(t)
+		for _, p := range ps {
+			if c.hasShadowedBuiltinSpelling(p.Type) {
+				return true
+			}
+		}
+		return c.hasShadowedBuiltinSpelling(ret)
+	case *types.Tuple:
+		for _, e := range t.Elems {
+			if c.hasShadowedBuiltinSpelling(e) {
+				return true
+			}
+		}
+	case *types.Go, *types.Meta, *types.Var:
+		// A Go-backed node carries no builtin constructor names;
+		// a leftover meta or variable spells nothing yet.
+		return false
+	default:
+		panic("unreachable")
+	}
+	return false
 }
 
 // pendingNil is one `Go.nil ()` application — the span it was

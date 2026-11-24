@@ -15,11 +15,13 @@ wave40 lane D（[prompts](../sketch/2026-11-24-wave40-prompts.md)）。
 ```gom
 import go "github.com/podhmo/gom/testdata/goiface"
 type UserId = {v: Int}
-fn f (u : UserId) -> UserId = goiface.Clamp u u u   -- Clamp[T ~int]
+fn f (u : UserId) -> UserId = goiface.Clamp64 u u u   -- Clamp64[T ~int64]
 ```
 
-→ E0508「type argument `UserId` does not satisfy the `~int`
-constraint」。`Clamp u 0 100` の形では先にリテラル引数の
+→ E0508「type argument `UserId` does not satisfy the `~int64`
+constraint」(`Int` の repr は `int64` なので `~int` は `UserId` に
+限らず満たさない — 意味のある受理例は `~int64`)。`Clamp64 u 0 100`
+の形では先にリテラル引数の
 conform が E0401「expected a numeric type, got UserId」で落ちる
 （こちらは別経路 — 後述）。
 
@@ -35,8 +37,9 @@ conform が E0401「expected a numeric type, got UserId」で落ちる
 
 ### Go 側の正しい意味論
 
-- `type UserId int64` は `~int`・`~int64` を**満たす**（approx
-  term は underlying 一致で判定）
+- `type UserId int64` は `~int64` を**満たす**（approx term は
+  underlying 一致で判定。`~int` は underlying が `int` の型だけを
+  含むので `int64` underlying の `UserId` は満たさない）
 - ただし exact term `int` は**満たさない**（`types.Identical` では
   defined type は同名の unnamed 型と一致しない）— `Clamp[T int]`
   への `UserId` は Go でも拒否。フィールド型に丸めて判定するだけ
@@ -88,6 +91,6 @@ record の宣言型なら、フィールド型を辿って boundary 表現を得
 ## 未実施
 
 - 実装は採択後の実装 lane。判定経路・テスト面は上記のとおり —
-  spec fixture（`Clamp u u u` が通ること・`Clamp[T int]` exact が
-  依然 E0508 であること・ネスト record）と golden の type 引数 emit
+  spec fixture（`Clamp64 u u u` が通ること・exact 項 union が依然
+  E0508 であること・ネスト record）と golden の type 引数 emit
   確認を含める

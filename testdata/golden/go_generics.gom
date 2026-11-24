@@ -19,3 +19,9 @@ fn lookup_or (m: Go.Map String Int) (k: String) -> Int = {
 // and the argument crosses without a copy (the constraint, not a
 // []E parameter, is what the raw signature sees).
 fn index (xs: List Int) (n: Int) -> Int = goiface.Index xs n
+
+// A one-field record emits as the defined type `type UserId int64`,
+// whose underlying admits the `~int64` term — `Clamp64[UserId]`
+// instantiates verbatim (exact terms would not).
+type UserId = { value : Int }
+fn clamp_id (u: UserId) (lo: UserId) (hi: UserId) -> UserId = goiface.Clamp64 u lo hi

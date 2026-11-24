@@ -8,6 +8,9 @@ import (
 	goiface "github.com/podhmo/gom/testdata/goiface"
 )
 
+//line go_generics.gom:26
+type UserId int64
+
 //line go_generics.gom:9
 func ident(n int64) int64 {
 //line go_generics.gom:9
@@ -65,4 +68,11 @@ func index(xs list.List[int64], n int64) int64 {
 //line go_generics.gom:21
 	return int64(tmp4)
 //line go_generics.gom:21
+}
+
+//line go_generics.gom:27
+func clampId(u, lo, hi UserId) UserId {
+//line go_generics.gom:27
+	return goiface.Clamp64[UserId](u, lo, hi)
+//line go_generics.gom:27
 }
