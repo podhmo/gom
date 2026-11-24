@@ -802,6 +802,39 @@ func TestMatch(t *testing.T) {
 		}
 	})
 
+	t.Run("literal arm peels a one-field record value", func(t *testing.T) {
+		// match (u : UserId) { 0 -> 1; _ -> 2 } where u evaluates to
+		// { v = 0 }: the compiled `u == 0` takes arm 1, so eval must
+		// peel the record before comparing (litAsRecord equivalence).
+		uid := &types.Con{Name: "UserId"}
+		u := sym("u", resolve.KindVar)
+		env.Bind(u, &eval.VRecord{Type: uid, Fields: []eval.VField{
+			{Index: 0, Name: "v", V: &eval.VInt{N: 0}},
+		}})
+		x := match(types.Int, vr(u, uid),
+			arm(&check.LitPat{Base: b(uid), Kind: syntax.LitInt, Text: "0"}, intLit(1)),
+			arm(wild(uid), intLit(2)))
+		if v := evalOK(t, env, x); v.String() != "1" {
+			t.Fatalf("got %s", v)
+		}
+	})
+
+	t.Run("literal arm peels nested one-field records", func(t *testing.T) {
+		a, bn := &types.Con{Name: "A"}, &types.Con{Name: "B"}
+		u := sym("u2", resolve.KindVar)
+		env.Bind(u, &eval.VRecord{Type: a, Fields: []eval.VField{
+			{Index: 0, Name: "v", V: &eval.VRecord{Type: bn, Fields: []eval.VField{
+				{Index: 0, Name: "w", V: &eval.VInt{N: 7}},
+			}}},
+		}})
+		x := match(types.Int, vr(u, a),
+			arm(&check.LitPat{Base: b(a), Kind: syntax.LitInt, Text: "7"}, intLit(1)),
+			arm(wild(a), intLit(2)))
+		if v := evalOK(t, env, x); v.String() != "1" {
+			t.Fatalf("got %s", v)
+		}
+	})
+
 	t.Run("binding pattern", func(t *testing.T) {
 		p, s := vpat("n", types.Int)
 		x := match(types.Int, intLit(5),

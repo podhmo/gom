@@ -40,6 +40,17 @@ func (e *interp) matchPat(pat check.Pat, v Value, env *Env) bool {
 		return true
 	case *check.LitPat:
 		want := e.litValueTyped(p.Kind, p.Text, p.Type(), pat.Span())
+		// A bare literal arm on a 1-field record matches the
+		// wrapped field — the matrix peels the same literals into
+		// record cells (litAsRecord) and codegen emits `u == lit`
+		// on the peeled named scalar.
+		for {
+			r, ok := v.(*VRecord)
+			if !ok || len(r.Fields) != 1 {
+				break
+			}
+			v = r.Fields[0].V
+		}
 		return e.eqValue(want, v, pat.Span())
 	case *check.TuplePat:
 		t, ok := v.(*VTuple)

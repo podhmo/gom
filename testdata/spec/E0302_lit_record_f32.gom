@@ -1,0 +1,15 @@
+package main
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+// A float32-backed record field judges literals at float32 width:
+// 16777217.0 rounds to 16777216.0 — the same field value — so the
+// record arm duplicates the literal arm (E0302).
+type S = { v: goiface.SmallRatio }
+
+fn pick (s: S) -> Int =
+  match s {
+    16777216.0 -> 1
+    { v = 16777217.0 } -> 2
+    _ -> 3
+  }

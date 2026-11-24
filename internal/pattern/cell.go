@@ -149,7 +149,10 @@ func litCell(p *check.LitPat) *cell {
 	if p.Kind == syntax.LitUnit {
 		return &cell{typ: p.Type(), key: litKey("()"), disp: "()", kind: VLiteral}
 	}
-	norm := normalizeLit(p.Kind, p.Text)
+	norm := p.Norm
+	if norm == "" {
+		norm = normalizeLit(p.Kind, p.Text)
+	}
 	return &cell{typ: p.Type(), key: litKey(norm), disp: p.Text, kind: VLiteral}
 }
 
