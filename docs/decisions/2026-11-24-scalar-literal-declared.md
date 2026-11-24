@@ -2,10 +2,7 @@
 
 - 状態: adopted
 - 日付: 2026-11-24
-
-Supersedes:
-[2026-11-24-literal-declared-assignable.md](2026-11-24-literal-declared-assignable.md)
-のうち 却下案「String / Char / Bool リテラルも宣言型へ代入」。
+- Supersedes: [2026-11-24-literal-declared-assignable.md](2026-11-24-literal-declared-assignable.md) のうち 却下案「String / Char / Bool リテラルも宣言型へ代入」
 
 ## 決定
 
