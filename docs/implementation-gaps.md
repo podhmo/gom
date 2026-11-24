@@ -1882,7 +1882,7 @@
   E0407（注釈を求める — 他の関数値と同じ制約）。
   [実装](../internal/check/apply.go)（2026-11-24 登録・同 wave で解消）
 
-- [ ] **1 フィールド record の `~` 制約は依然拒否**: `type UserId = {v: Int}`（Go では `type UserId int64` の defined type）は Go 的に `~int64` を満たすが、boundaryTypeOf が宣言型を写せないため要素比較の対象にならず E0508 のまま。多フィールド record（struct emit）は正しく拒否される — defined type 経由の受理可否は gap として残る（wave38 lane D レビュー対象外・[decision](decisions/2026-11-23-goslice-gom-elem.md)）
+- [ ] **1 フィールド record の `~` 制約は依然拒否**: `type UserId = {v: Int}`（Go では `type UserId int64` の defined type）は Go 的に `~int64` を満たすが、boundaryTypeOf が宣言型を写せないため要素比較の対象にならず E0508 のまま。多フィールド record（struct emit）は正しく拒否される — defined type 経由の受理可否は gap として残る（wave38 lane D レビュー対象外・[decision](decisions/2026-11-23-goslice-gom-elem.md)）— **調査済み: wave40 lane D で [decision](decisions/2026-11-24-onefield-record-tilde.md)。あわせて発見した副次ずれ: Go では `Clamp(u, 0, 100)` は untyped constant が `UserId` に代入可能で通るが gom はリテラル引数の conform が先に E0401 で落ちる（`~` 制約受理とは別経路で literal→宣言型の代入可能性が要る）**
 
 - [ ] **sum 要素の slice/map 受理は `comparable` 実行時 panic の余地を残す**: `type Shape = | Rect {r: Int} | Group {items: List Int}` のような sum は sealed interface として emit される。wave38 lane D の要素 fallback で `slices.Contains`（`E comparable`）に `Go.Slice Shape` を渡せるようになったが、interface 値の `==` は動的値が非 comparable（`List` ペイロードの variant など）だと実行時 panic する。Go でも同じコードはコンパイルされて同じく panic するので Go 意味論どおりだが、gom の宣言型が「比較可能」を見た目に依ることは lane D の受理で新たに露出した — `goReprComparable` が interface repr を受理する限り残る（wave38 lane D レビュー指摘・検討対象外）
 
