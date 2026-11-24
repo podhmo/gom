@@ -507,7 +507,11 @@ func ExternalPackages(dir, gobin string) ([]string, error) {
 			if resolvesTo(imp) != mp {
 				return nil
 			}
-			if listed[imp] {
+			// A manifest-listed path resolves to its vendor copy —
+			// the vend walk advertises it iff that copy carries a
+			// .gomi. The main module's own paths resolve locally
+			// first in dirOf, so the manifest can never shadow them.
+			if mp != mainPath && listed[imp] {
 				return nil
 			}
 			if !seen[imp] {
