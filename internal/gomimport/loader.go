@@ -478,6 +478,15 @@ func ExternalPackages(dir, gobin string) ([]string, error) {
 // generated Go import record — the clause's short spelling stays
 // the caller's cache key and bound module name.
 func canonicalPath(path string) string {
+	return CanonicalPath(path)
+}
+
+// CanonicalPath resolves a clause path to the package's real
+// import path — the stdlib short names unfold, everything else
+// passes through. Exported for cmd/gom, which needs the same
+// mapping for its import-dependency ordering without reaching
+// the unexported table.
+func CanonicalPath(path string) string {
 	if p, ok := stdlibPaths[path]; ok {
 		return p
 	}

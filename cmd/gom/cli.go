@@ -380,19 +380,11 @@ func workFile(dir string) string {
 	}
 }
 
-// canonicalImport unfolds the stdlib short names — the same mapping
-// gomimport's canonicalPath applies (mirrored here; cmd cannot reach
-// the loader's unexported table).
+// canonicalImport unfolds the stdlib short names through
+// gomimport's table — kept as a call-site shim so the layer-order
+// code reads locally.
 func canonicalImport(path string) string {
-	switch path {
-	case "list":
-		return "github.com/podhmo/gom/stdlib/list"
-	case "option":
-		return "github.com/podhmo/gom/stdlib/option"
-	case "result":
-		return "github.com/podhmo/gom/stdlib/result"
-	}
-	return path
+	return gomimport.CanonicalPath(path)
 }
 
 // runCheck implements `gom check [-format F] [FILE|DIR ...]`:
