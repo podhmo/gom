@@ -1,9 +1,0 @@
-package ex
-
-import go "github.com/podhmo/gom/testdata/goiface"
-
-type Ws = { xs : Array Byte }
-
-fn f (w: Ws) -> Int = goiface.Count8 w
-fn g (xs: Array Byte) -> Int = goiface.Count8 xs
-fn h (xs: List Byte) -> Int = goiface.Count8 xs
