@@ -268,8 +268,10 @@ test "decide creates when there is no alias history" {
 }
 
 test "decide skips upload when only binaries changed" {
-  match (decide (cfg ()) (Some (gist_commit ())) (empty_scan ())).action {
-    SkipGist c -> { assert_eq c.id "g1"; Ok () }
+  let scan = { text_files = [], binary_files = ["bin.dat"] }
+  let plan = decide (cfg ()) (Some (gist_commit ())) scan
+  match plan.action {
+    SkipGist c -> { assert_eq c.id "g1"; assert_eq plan.scan.binary_files ["bin.dat"]; Ok () }
     _ -> Err (fmt.Errorf "expected SkipGist")
   }
 }

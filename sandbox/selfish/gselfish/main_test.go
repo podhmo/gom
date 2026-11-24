@@ -10,6 +10,7 @@ import (
 	result "github.com/podhmo/gom/stdlib/result"
 	commithistory "github.com/podhmo/selfish/gomcommithistory"
 	strconv "strconv"
+	strings "strings"
 	testing "testing"
 )
 
@@ -298,171 +299,204 @@ func TestDecideSkipsUploadWhenOnlyBinariesChanged(t *testing.T) {
 //line gselfish/main.gom:270
 	var r3 result.Result[struct{}, error]
 //line gselfish/main.gom:271
-	tmp233 := cfg(struct{}{})
+	tmp233 := list.List[string]{}
 //line gselfish/main.gom:271
-	tmp234 := gistCommit(struct{}{})
+	tmp234 := list.List[string]{"bin.dat"}
 //line gselfish/main.gom:271
-	tmp235 := option.Option[commithistory.Commit](option.Option_Some[commithistory.Commit]{V0: tmp234})
-//line gselfish/main.gom:271
-	tmp236 := emptyScan(struct{}{})
-//line gselfish/main.gom:271
-	tmp237 := decide(tmp233, tmp235, tmp236)
+	scan := ScanResult{TextFiles: tmp233, BinaryFiles: tmp234}
 //line gselfish/main.gom:272
-	switch v9 := tmp237.Action.(type) {
+	tmp235 := cfg(struct{}{})
 //line gselfish/main.gom:272
+	tmp236 := gistCommit(struct{}{})
+//line gselfish/main.gom:272
+	tmp237 := option.Option[commithistory.Commit](option.Option_Some[commithistory.Commit]{V0: tmp236})
+//line gselfish/main.gom:272
+	plan := decide(tmp235, tmp237, scan)
+//line gselfish/main.gom:274
+	switch v9 := plan.Action.(type) {
+//line gselfish/main.gom:274
 	case Action_DeleteGist:
-//line gselfish/main.gom:273
+//line gselfish/main.gom:275
 		var tmp238 error
-//line gselfish/main.gom:273
+//line gselfish/main.gom:275
 		v10 := fmt.Errorf("expected SkipGist")
-//line gselfish/main.gom:273
+//line gselfish/main.gom:275
 		if v10 == nil {
-//line gselfish/main.gom:273
+//line gselfish/main.gom:275
 			panic("gom: fmt.Errorf returned nil error — its binding declares a never-nil GoError result")
-//line gselfish/main.gom:273
+//line gselfish/main.gom:275
 		}
-//line gselfish/main.gom:273
+//line gselfish/main.gom:275
 		tmp238 = v10
-//line gselfish/main.gom:273
+//line gselfish/main.gom:275
 		r3 = result.Err[struct{}, error](tmp238)
-//line gselfish/main.gom:272
+//line gselfish/main.gom:274
 	case Action_CreateGist:
-//line gselfish/main.gom:273
+//line gselfish/main.gom:275
 		var tmp239 error
-//line gselfish/main.gom:273
+//line gselfish/main.gom:275
 		v11 := fmt.Errorf("expected SkipGist")
-//line gselfish/main.gom:273
+//line gselfish/main.gom:275
 		if v11 == nil {
-//line gselfish/main.gom:273
+//line gselfish/main.gom:275
 			panic("gom: fmt.Errorf returned nil error — its binding declares a never-nil GoError result")
-//line gselfish/main.gom:273
+//line gselfish/main.gom:275
 		}
-//line gselfish/main.gom:273
+//line gselfish/main.gom:275
 		tmp239 = v11
-//line gselfish/main.gom:273
+//line gselfish/main.gom:275
 		r3 = result.Err[struct{}, error](tmp239)
-//line gselfish/main.gom:272
+//line gselfish/main.gom:274
 	case Action_UpdateGist:
-//line gselfish/main.gom:273
+//line gselfish/main.gom:275
 		var tmp240 error
-//line gselfish/main.gom:273
+//line gselfish/main.gom:275
 		v12 := fmt.Errorf("expected SkipGist")
-//line gselfish/main.gom:273
+//line gselfish/main.gom:275
 		if v12 == nil {
-//line gselfish/main.gom:273
+//line gselfish/main.gom:275
 			panic("gom: fmt.Errorf returned nil error — its binding declares a never-nil GoError result")
-//line gselfish/main.gom:273
+//line gselfish/main.gom:275
 		}
-//line gselfish/main.gom:273
+//line gselfish/main.gom:275
 		tmp240 = v12
-//line gselfish/main.gom:273
+//line gselfish/main.gom:275
 		r3 = result.Err[struct{}, error](tmp240)
-//line gselfish/main.gom:272
+//line gselfish/main.gom:274
 	case Action_SkipGist:
-//line gselfish/main.gom:272
+//line gselfish/main.gom:274
 		tmp241 := v9
-//line gselfish/main.gom:272
+//line gselfish/main.gom:274
 		tmp242 := tmp241.V0
-//line gselfish/main.gom:272
+//line gselfish/main.gom:274
 		rt.AssertEq(t, tmp242.Id == "g1", strconv.Quote(tmp242.Id), strconv.Quote("g1"))
-//line gselfish/main.gom:272
+//line gselfish/main.gom:274
+		tmp243 := list.List[string]{"bin.dat"}
+//line gselfish/main.gom:274
+		rt.AssertEq(t, gomEq192bccb7f(plan.Scan.BinaryFiles, tmp243), gomShow192bccb7f(plan.Scan.BinaryFiles), gomShow192bccb7f(tmp243))
+//line gselfish/main.gom:274
 		r3 = result.Ok[struct{}, error](struct{}{})
-//line gselfish/main.gom:272
+//line gselfish/main.gom:274
 	default:
-//line gselfish/main.gom:271
-		panic(rt.InvalidVariant("Action", tmp237.Action))
-//line gselfish/main.gom:272
+//line gselfish/main.gom:273
+		panic(rt.InvalidVariant("Action", plan.Action))
+//line gselfish/main.gom:274
 	}
 //line gselfish/main.gom:270
 	result.AssertOk(t, r3)
 //line gselfish/main.gom:270
 }
 
-//line gselfish/main.gom:277
+//line gselfish/main.gom:279
 func TestDecideUpdatesWhenAliasAndTextFilesExist(t *testing.T) {
-//line gselfish/main.gom:277
+//line gselfish/main.gom:279
 	var r4 result.Result[struct{}, error]
-//line gselfish/main.gom:278
-	tmp243 := list.List[string]{"readme.md"}
-//line gselfish/main.gom:278
-	tmp244 := list.List[string]{}
-//line gselfish/main.gom:278
-	scan := ScanResult{TextFiles: tmp243, BinaryFiles: tmp244}
-//line gselfish/main.gom:279
-	tmp245 := cfg(struct{}{})
-//line gselfish/main.gom:279
-	tmp246 := gistCommit(struct{}{})
-//line gselfish/main.gom:279
-	tmp247 := option.Option[commithistory.Commit](option.Option_Some[commithistory.Commit]{V0: tmp246})
-//line gselfish/main.gom:279
-	tmp248 := decide(tmp245, tmp247, scan)
 //line gselfish/main.gom:280
-	switch v13 := tmp248.Action.(type) {
+	tmp244 := list.List[string]{"readme.md"}
 //line gselfish/main.gom:280
+	tmp245 := list.List[string]{}
+//line gselfish/main.gom:280
+	scan := ScanResult{TextFiles: tmp244, BinaryFiles: tmp245}
+//line gselfish/main.gom:281
+	tmp246 := cfg(struct{}{})
+//line gselfish/main.gom:281
+	tmp247 := gistCommit(struct{}{})
+//line gselfish/main.gom:281
+	tmp248 := option.Option[commithistory.Commit](option.Option_Some[commithistory.Commit]{V0: tmp247})
+//line gselfish/main.gom:281
+	tmp249 := decide(tmp246, tmp248, scan)
+//line gselfish/main.gom:282
+	switch v13 := tmp249.Action.(type) {
+//line gselfish/main.gom:282
 	case Action_DeleteGist:
-//line gselfish/main.gom:281
-		var tmp249 error
-//line gselfish/main.gom:281
-		v14 := fmt.Errorf("expected UpdateGist")
-//line gselfish/main.gom:281
-		if v14 == nil {
-//line gselfish/main.gom:281
-			panic("gom: fmt.Errorf returned nil error — its binding declares a never-nil GoError result")
-//line gselfish/main.gom:281
-		}
-//line gselfish/main.gom:281
-		tmp249 = v14
-//line gselfish/main.gom:281
-		r4 = result.Err[struct{}, error](tmp249)
-//line gselfish/main.gom:280
-	case Action_CreateGist:
-//line gselfish/main.gom:281
+//line gselfish/main.gom:283
 		var tmp250 error
-//line gselfish/main.gom:281
-		v15 := fmt.Errorf("expected UpdateGist")
-//line gselfish/main.gom:281
-		if v15 == nil {
-//line gselfish/main.gom:281
+//line gselfish/main.gom:283
+		v14 := fmt.Errorf("expected UpdateGist")
+//line gselfish/main.gom:283
+		if v14 == nil {
+//line gselfish/main.gom:283
 			panic("gom: fmt.Errorf returned nil error — its binding declares a never-nil GoError result")
-//line gselfish/main.gom:281
+//line gselfish/main.gom:283
 		}
-//line gselfish/main.gom:281
-		tmp250 = v15
-//line gselfish/main.gom:281
+//line gselfish/main.gom:283
+		tmp250 = v14
+//line gselfish/main.gom:283
 		r4 = result.Err[struct{}, error](tmp250)
-//line gselfish/main.gom:280
-	case Action_UpdateGist:
-//line gselfish/main.gom:280
-		tmp251 := v13
-//line gselfish/main.gom:280
-		tmp252 := tmp251.V0
-//line gselfish/main.gom:280
-		rt.AssertEq(t, tmp252.Id == "g1", strconv.Quote(tmp252.Id), strconv.Quote("g1"))
-//line gselfish/main.gom:280
-		r4 = result.Ok[struct{}, error](struct{}{})
-//line gselfish/main.gom:280
-	case Action_SkipGist:
-//line gselfish/main.gom:281
-		var tmp253 error
-//line gselfish/main.gom:281
-		v16 := fmt.Errorf("expected UpdateGist")
-//line gselfish/main.gom:281
-		if v16 == nil {
-//line gselfish/main.gom:281
+//line gselfish/main.gom:282
+	case Action_CreateGist:
+//line gselfish/main.gom:283
+		var tmp251 error
+//line gselfish/main.gom:283
+		v15 := fmt.Errorf("expected UpdateGist")
+//line gselfish/main.gom:283
+		if v15 == nil {
+//line gselfish/main.gom:283
 			panic("gom: fmt.Errorf returned nil error — its binding declares a never-nil GoError result")
-//line gselfish/main.gom:281
+//line gselfish/main.gom:283
 		}
-//line gselfish/main.gom:281
-		tmp253 = v16
-//line gselfish/main.gom:281
-		r4 = result.Err[struct{}, error](tmp253)
-//line gselfish/main.gom:281
+//line gselfish/main.gom:283
+		tmp251 = v15
+//line gselfish/main.gom:283
+		r4 = result.Err[struct{}, error](tmp251)
+//line gselfish/main.gom:282
+	case Action_UpdateGist:
+//line gselfish/main.gom:282
+		tmp252 := v13
+//line gselfish/main.gom:282
+		tmp253 := tmp252.V0
+//line gselfish/main.gom:282
+		rt.AssertEq(t, tmp253.Id == "g1", strconv.Quote(tmp253.Id), strconv.Quote("g1"))
+//line gselfish/main.gom:282
+		r4 = result.Ok[struct{}, error](struct{}{})
+//line gselfish/main.gom:282
+	case Action_SkipGist:
+//line gselfish/main.gom:283
+		var tmp254 error
+//line gselfish/main.gom:283
+		v16 := fmt.Errorf("expected UpdateGist")
+//line gselfish/main.gom:283
+		if v16 == nil {
+//line gselfish/main.gom:283
+			panic("gom: fmt.Errorf returned nil error — its binding declares a never-nil GoError result")
+//line gselfish/main.gom:283
+		}
+//line gselfish/main.gom:283
+		tmp254 = v16
+//line gselfish/main.gom:283
+		r4 = result.Err[struct{}, error](tmp254)
+//line gselfish/main.gom:283
 	default:
-//line gselfish/main.gom:279
-		panic(rt.InvalidVariant("Action", tmp248.Action))
-//line gselfish/main.gom:280
+//line gselfish/main.gom:281
+		panic(rt.InvalidVariant("Action", tmp249.Action))
+//line gselfish/main.gom:282
 	}
-//line gselfish/main.gom:277
+//line gselfish/main.gom:279
 	result.AssertOk(t, r4)
-//line gselfish/main.gom:277
+//line gselfish/main.gom:279
+}
+
+//line gselfish/main.gom:274
+func gomShow192bccb7f(v list.List[string]) string {
+//line gselfish/main.gom:274
+	var sb strings.Builder
+//line gselfish/main.gom:274
+	sb.WriteByte('[')
+//line gselfish/main.gom:274
+	for i, e := range v {
+//line gselfish/main.gom:274
+		if i > 0 {
+//line gselfish/main.gom:274
+			sb.WriteString(", ")
+//line gselfish/main.gom:274
+		}
+//line gselfish/main.gom:274
+		sb.WriteString(strconv.Quote(e))
+//line gselfish/main.gom:274
+	}
+//line gselfish/main.gom:274
+	sb.WriteByte(']')
+//line gselfish/main.gom:274
+	return sb.String()
+//line gselfish/main.gom:274
 }
