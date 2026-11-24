@@ -457,6 +457,15 @@ func ExternalPackages(dir, gobin string) ([]string, error) {
 		}
 		return best
 	}
+	// The vendor manifest's package set decides which paths the
+	// vend walk may advertise — and which the module walk must
+	// not: a manifest-listed path resolves to its vendor copy
+	// even when that copy carries no .gomi, so advertising it
+	// from the module tree would name an unloadable import.
+	var listed map[string]bool
+	if vend != "" {
+		listed = l.vendPkgs(vend)
+	}
 	var out []string
 	seen := map[string]bool{}
 	for mp, md := range candidates {
@@ -498,6 +507,9 @@ func ExternalPackages(dir, gobin string) ([]string, error) {
 			if resolvesTo(imp) != mp {
 				return nil
 			}
+			if listed[imp] {
+				return nil
+			}
 			if !seen[imp] {
 				seen[imp] = true
 				out = append(out, imp)
@@ -515,7 +527,6 @@ func ExternalPackages(dir, gobin string) ([]string, error) {
 	// resolvesTo check. A vendored imp already advertised via a
 	// module candidate collapses into one entry.
 	if vend != "" {
-		listed := l.vendPkgs(vend)
 		err := filepath.WalkDir(vend, func(p string, d fs.DirEntry, werr error) error {
 			if werr != nil || !d.IsDir() {
 				return nil
