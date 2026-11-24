@@ -1938,6 +1938,10 @@ func (c *checker) patSyms(p syntax.Pat) []*resolve.Symbol {
 		case *syntax.WildPat:
 		case *syntax.VarPat:
 			out = append(out, c.declSym(p.Name, resolve.KindVar))
+		case *syntax.TypePat:
+			if p.Name != nil {
+				out = append(out, c.declSym(p.Name, resolve.KindVar))
+			}
 		case *syntax.LitPat:
 		case *syntax.CtorPat:
 			for _, a := range p.Args {

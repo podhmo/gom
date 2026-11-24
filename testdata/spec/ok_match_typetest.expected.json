@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0307",
+      "severity": "error",
+      "message": "a type-test target must be a concrete type",
+      "span": {
+        "file": "ok_match_typetest.gom",
+        "start": {
+          "line": 14,
+          "col": 5,
+          "offset": 427
+        },
+        "end": {
+          "line": 14,
+          "col": 19,
+          "offset": 441
+        }
+      }
+    }
+  ]
+}

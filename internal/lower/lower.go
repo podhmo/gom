@@ -1385,6 +1385,8 @@ func (l *lowerer) paramBinds(params []check.Param, fn *core.Func) []*core.Bind {
 			out[i] = l.discardBind(pat.Sp, pt)
 		case *check.AsPat, *check.CtorPat, *check.ListPat, *check.OrPat, *check.RecordPat, *check.TuplePat:
 			out[i] = l.tmpBind(pat.Span(), pt)
+		case *check.TypePat:
+			panic("unreachable")
 		default:
 			panic("unreachable")
 		}
@@ -1400,6 +1402,8 @@ func (l *lowerer) paramPrelude(params []check.Param, binds []*core.Bind, s *seq)
 		case *check.VarPat, *check.WildPat, *check.LitPat:
 		case *check.AsPat, *check.CtorPat, *check.ListPat, *check.OrPat, *check.RecordPat, *check.TuplePat:
 			l.destructure(s, p.Pat, varOf(p.Pat.Span(), binds[i]))
+		case *check.TypePat:
+			panic("unreachable")
 		default:
 			panic("unreachable")
 		}

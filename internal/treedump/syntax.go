@@ -379,6 +379,13 @@ func (d *dumper) pat(p syntax.Pat) *form {
 			kids = append(kids, d.pat(a))
 		}
 		return nodef("orpat"+at(p.Sp), kids...)
+	case *syntax.TypePat:
+		var kids []*form
+		if p.Name != nil {
+			kids = append(kids, d.ident(p.Name))
+		}
+		kids = append(kids, d.typeexpr(p.Typ))
+		return nodef("typepat"+at(p.Sp), kids...)
 	case *syntax.AsPat:
 		return nodef("aspat"+at(p.Sp), d.pat(p.Pat), d.ident(p.Name))
 	default:

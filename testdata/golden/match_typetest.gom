@@ -1,0 +1,18 @@
+package ex
+
+// spec 4.1: a `p : T` match on `Go.Any` emits a Go type switch —
+// `switch v := x.(type)` with the named bind as `v`, an unnamed
+// type-test arm keeps only `case`, and the `_` catch-all is the
+// `default`.
+fn describe (x : Go.Any) -> String = match x {
+    s : String -> s
+    _ : Bool -> "bool"
+    n : Int -> "int"
+    _ -> "other"
+}
+
+// Only arms that bind force the `v :=` guard variable.
+fn isInt (x : Go.Any) -> Bool = match x {
+    _ : Int -> true
+    _ -> false
+}

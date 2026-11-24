@@ -1,0 +1,17 @@
+package ex
+
+// spec 4.1: `p : T` / `_ : T` type-test arms on a `Go.Any` subject —
+// a Go type switch. First match wins; `_` catch-all is mandatory.
+fn describe (x : Go.Any) -> String = match x {
+    s : String -> s
+    n : Int -> "int"
+    _ -> "other"
+}
+
+// A named interface target also tests by method set, and a named
+// catch-all binds the un-narrowed subject in the default.
+fn tag (x : Go.Any) -> Int = match x {
+    _ : error -> 1
+    n : Int -> n
+    e -> 0
+}

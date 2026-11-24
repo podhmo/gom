@@ -261,6 +261,11 @@ func patText(p check.Pat) string {
 		return "_"
 	case *check.LitPat:
 		return p.Text
+	case *check.TypePat:
+		if p.Sym != nil {
+			return p.Sym.Name
+		}
+		return "_"
 	case *check.CtorPat:
 		name := "?"
 		if p.Ctor != nil {

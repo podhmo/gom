@@ -1,0 +1,8 @@
+package ex
+
+// spec 4.1: a type-test match needs a trailing catch-all (`_` or a
+// variable) — the Go type switch's `default`. Missing is E0308.
+fn f (x : Go.Any) -> Int = match x {
+    s : String -> 1
+    n : Int -> n
+}

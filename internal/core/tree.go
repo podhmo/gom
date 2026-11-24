@@ -35,6 +35,15 @@ const (
 	// The Default is the fallthrough tree (any DTree), or DPanic
 	// when the literal set is complete (e.g. both Bool arms).
 	SwitchValue
+	// SwitchGoType is a Go type switch `switch v := subj.(type)`
+	// over an interface scrutinee (Go.Any or a named Go interface)
+	// — the `p : T` type-test arms of a match
+	// (decisions/2026-11-24-match-type-test-arms.md). Each case is a
+	// DtypeTest naming the asserted Go type and may bind the subject
+	// narrowed to it; the Default is the mandatory catch-all arm's
+	// tree (a DLeaf — nil interfaces and untested types land there,
+	// so a DPanic is not required).
+	SwitchGoType
 	// SwitchList is the list-shape test over the slice
 	// representation of `List a` (P0-3) — `len(subj) == 0` selects
 	// Nil, otherwise Cons; a Cons case may bind head (`subj[0]`) and
@@ -53,6 +62,8 @@ func (k SwitchKind) String() string {
 		return "tag"
 	case SwitchValue:
 		return "value"
+	case SwitchGoType:
+		return "gotype"
 	case SwitchList:
 		return "list"
 	default:
@@ -142,6 +153,17 @@ type DLitTest struct {
 
 func (*DLitTest) isDTest()          {}
 func (n *DLitTest) Span() diag.Span { return n.Sp }
+
+// DtypeTest is a `case T:` in a SwitchGoType switch — the asserted
+// type is rendered for emission via Target (codegen spells it with
+// goType).
+type DtypeTest struct {
+	Sp     diag.Span
+	Target types.Type
+}
+
+func (*DtypeTest) isDTest()          {}
+func (n *DtypeTest) Span() diag.Span { return n.Sp }
 
 // DListTest is the empty/non-empty case of a SwitchList switch:
 // Cons false is the `[]` / Nil shape, Cons true the `[x, ..rest]`

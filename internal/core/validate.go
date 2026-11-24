@@ -1729,7 +1729,7 @@ func (v *validator) dtree(t DTree, inTail bool) {
 	case *DSwitch:
 		v.atom(t.Subj, "DSwitch.Subj")
 		switch t.Kind {
-		case SwitchType, SwitchTag, SwitchValue, SwitchList:
+		case SwitchType, SwitchTag, SwitchValue, SwitchList, SwitchGoType:
 		default:
 			v.err(t.Sp, "DSwitch", "invalid switch kind %d", int(t.Kind))
 		}
@@ -1754,7 +1754,7 @@ func (v *validator) dtree(t DTree, inTail bool) {
 						"%s switch's default is %s, want DPanic — invalid Go-side values must panic (expand wildcards into cases)",
 						t.Kind, nodeName(t.Default))
 				}
-			case SwitchValue, SwitchList:
+			case SwitchValue, SwitchList, SwitchGoType:
 				// any tree continues the match
 			}
 			v.dtreeChild(t.Default, t.Typ, "DSwitch.Default", inTail)
@@ -1821,6 +1821,10 @@ func (v *validator) dcase(c *DCase, sw *DSwitch, inTail bool) {
 		if nb != 0 {
 			v.err(c.Sp, "DCase", "value-switch case binds %d vars, want 0", nb)
 		}
+	case SwitchGoType:
+		if nb > 1 {
+			v.err(c.Sp, "DCase", "type-switch case binds %d vars, want at most 1 (narrowed subject)", nb)
+		}
 	case SwitchList:
 		if lt, ok := c.Test.(*DListTest); ok && lt != nil {
 			if lt.Cons && nb > 2 {
@@ -1867,6 +1871,13 @@ func (v *validator) dtest(t DTest, kind SwitchKind) {
 	case *DListTest:
 		if kind != SwitchList {
 			v.err(t.Sp, "DListTest", "list test in a %s switch", kind)
+		}
+	case *DtypeTest:
+		if kind != SwitchGoType {
+			v.err(t.Sp, "DtypeTest", "type test in a %s switch", kind)
+		}
+		if t.Target == nil {
+			v.err(t.Sp, "DtypeTest", "nil target type")
 		}
 	default:
 		panic("unreachable")
@@ -2032,6 +2043,8 @@ func nilDTest(t DTest) bool {
 	case *DLitTest:
 		return t == nil
 	case *DListTest:
+		return t == nil
+	case *DtypeTest:
 		return t == nil
 	default:
 		panic("unreachable")

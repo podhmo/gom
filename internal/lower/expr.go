@@ -3139,6 +3139,11 @@ func (l *lowerer) stepName(e check.Expr) string {
 // pat.go for the compiler.
 func (l *lowerer) matchExpr(s *seq, e *check.Match) core.Expr {
 	subj := l.atom(s, e.Subj)
+	for i := range e.Arms {
+		if _, ok := e.Arms[i].Pat.(*check.TypePat); ok {
+			return l.goTypeSwitch(s, e, subj)
+		}
+	}
 	var states []*armState
 	for i := range e.Arms {
 		arm := &e.Arms[i]

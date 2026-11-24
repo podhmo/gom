@@ -665,7 +665,7 @@ func (p *printer) lambdaParamRaw(pr *syntax.Param) *doc {
 	case *syntax.LitPat:
 		return text(pt.Lit.Text)
 	case *syntax.AsPat, *syntax.CtorPat, *syntax.ListPat, *syntax.OrPat,
-		*syntax.RecordPat, *syntax.TuplePat:
+		*syntax.RecordPat, *syntax.TuplePat, *syntax.TypePat:
 		return p.pat(pr.Pat, ppOr)
 	default:
 		panic("unreachable")

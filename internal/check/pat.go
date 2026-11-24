@@ -62,6 +62,29 @@ func (c *checker) checkPat(p syntax.Pat, want types.Type) Pat {
 			out.Alts[i] = c.checkPat(alt, want)
 		}
 		return out
+	case *syntax.TypePat:
+		target := c.typeExpr(p.Typ, c.newTScope())
+		var sym *resolve.Symbol
+		if p.Name != nil {
+			sym = c.declSym(p.Name, resolve.KindVar)
+			c.bindSym(sym, target)
+		}
+		out := &TypePat{Base: baseOf(p.Sp, target), Sym: sym, Target: target}
+		// A named Go interface target asserts by method set, not by
+		// name — record the required methods so eval can test
+		// implements without a Go oracle. `error` stays on the
+		// name-compare path (eval special-cases it).
+		if types.CanonGoRepr(types.GoRepr(target)) != "error" {
+			if ms, ok := c.src.(InterfaceMethodSource); ok {
+				if methods, ok := ms.InterfaceMethods(types.Chase(target)); ok {
+					out.Iface = make([]string, len(methods))
+					for i, m := range methods {
+						out.Iface[i] = m.Name
+					}
+				}
+			}
+		}
+		return out
 	case *syntax.AsPat:
 		inner := c.checkPat(p.Pat, want)
 		sym := c.declSym(p.Name, resolve.KindVar)

@@ -1504,6 +1504,31 @@ func (e *interp) inhabits(v Value, t types.Type) bool {
 	return match(valueReprName(v))
 }
 
+// implements reports whether v carries every method name the
+// type-test arm's named Go interface target requires — the eval
+// side of `x.(fmt.Stringer)`. A boxed gom value cannot implement a
+// Go interface (gom methods are functions, not a Go method set);
+// only an opaque host value's reflect method set can satisfy it.
+// A nil interface value implements nothing; an empty requirement
+// list matches every non-nil-in-spirit value, like `case any`.
+func (e *interp) implements(v Value, names []string) bool {
+	h, ok := v.(*VHost)
+	if !ok || h.V == nil {
+		return false
+	}
+	if _, isVal := h.V.(Value); isVal {
+		// The box holds a gom Value, not a Go object — no method set.
+		return false
+	}
+	rt := reflect.TypeOf(h.V)
+	for _, name := range names {
+		if _, ok := rt.MethodByName(name); !ok {
+			return false
+		}
+	}
+	return true
+}
+
 // reshape rewrites a boxed value to the asserted type's Value
 // shape when canon-equal instantiations spell scalars differently
 // — x.(Tuple[Int32]) on a tuple holding a Char succeeds in Go

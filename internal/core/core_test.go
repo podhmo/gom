@@ -924,7 +924,7 @@ func TestSealedFamiliesIsExpr(t *testing.T) {
 	var dts DTest
 	if dts != nil {
 		switch dts.(type) {
-		case *DCtorTest, *DLitTest, *DListTest:
+		case *DCtorTest, *DLitTest, *DtypeTest, *DListTest:
 		default:
 			panic("unreachable")
 		}

@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0309",
+      "severity": "error",
+      "message": "duplicate type-test arm: an earlier arm already tests `int32`",
+      "span": {
+        "file": "E0309_match_typetest_dup.gom",
+        "start": {
+          "line": 7,
+          "col": 5,
+          "offset": 200
+        },
+        "end": {
+          "line": 7,
+          "col": 19,
+          "offset": 214
+        }
+      }
+    }
+  ]
+}

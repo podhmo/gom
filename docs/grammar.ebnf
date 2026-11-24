@@ -557,9 +557,15 @@ if-expr        = "if" , head-expr , block , [ "else" , block ] ;
 
 match-expr     = "match" , head-expr ,
                  "{" , [ match-arm , { sep , match-arm } , [ sep ] ] , "}" ;
-match-arm      = pattern , [ "if" , expr ] , "->" , expr ;
+match-arm      = match-pat , [ "if" , expr ] , "->" , expr ;
                (* the guard "if" sits between the pattern and "->"
                   (spec 4.1). An arm body is a full expr.               *)
+match-pat      = pattern | type-test ;
+type-test      = ( ident | "_" ) , ":" , app-type ;
+               (* `p : T` / `_ : T` — only in a match over Go.Any or a
+                  named Go interface (spec 4.1); app-type, not
+                  arrow-type, so the arm's own "->" terminates it — a
+                  function-type target needs parens.                *)
 
 for-expr       = "for" , pattern , "in" , head-expr , block ;
                (* [PROVISIONAL: spec examples only show ident and "_" as

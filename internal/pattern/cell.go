@@ -60,6 +60,12 @@ func (c conv) alts(p check.Pat) []*cell {
 	switch p := p.(type) {
 	case *check.WildPat, *check.VarPat:
 		return []*cell{wild(p.Type())}
+	case *check.TypePat:
+		// A type-test match is skipped whole by checkMatch, so a
+		// TypePat cell is only reachable through a defensive path —
+		// treat it as covering nothing reliably (a wildcard cell
+		// would claim full coverage it does not have).
+		return nil
 	case *check.AsPat:
 		// An as-binding matches whatever its sub-pattern matches;
 		// the bound name does not affect coverage.
@@ -458,6 +464,10 @@ func boundVars(p check.Pat, out map[string]types.Type) {
 	case *check.WildPat:
 		// binds nothing
 	case *check.VarPat:
+		if p.Sym != nil {
+			out[p.Sym.Name] = p.Type()
+		}
+	case *check.TypePat:
 		if p.Sym != nil {
 			out[p.Sym.Name] = p.Type()
 		}

@@ -440,6 +440,75 @@ match expressions, so coverage is reported by E0301 instead
 	},
 
 	{
+		Code:     "E0306",
+		Severity: SeverityError,
+		Title:    "type-test arm on a non-interface scrutinee",
+		Phase:    PhaseCheck,
+		Spec:     "4",
+		Explanation: `A "p : T" or "_ : T" match arm is a Go type assertion: it asks
+which concrete type the value inside an interface actually carries.
+That only means something when the scrutinee is an interface —
+"Go.Any" (the empty interface) or a named Go interface type. On an
+ordinary type the answer is already known at compile time, so the
+arm is either redundant or a mistake.`,
+		Example: `match n {   // n : Int — already known
+  s : String -> s
+  _ -> "?"
+}`,
+	},
+	{
+		Code:     "E0307",
+		Severity: SeverityError,
+		Title:    "illegal arm in a type-test match",
+		Phase:    PhaseCheck,
+		Spec:     "4",
+		Explanation: `Once a match contains a type-test arm its scrutinee is an
+interface value, and every arm must fit the Go type-switch shape:
+"type-test" arms (name : T / _ : T), then one catch-all ("_" or a
+plain variable) as the last arm. Literal, constructor and composite
+patterns cannot appear, the catch-all must come last, and guards
+("if cond") are not supported on type-test matches yet — a Go type
+switch cannot fall through to a later case.`,
+		Example: `match x {   // x : Go.Any
+  s : String -> s
+  Some _ -> "ctor"   // mixed patterns are not allowed
+  _ -> "?"
+}`,
+	},
+	{
+		Code:     "E0308",
+		Severity: SeverityError,
+		Title:    "type-test match missing catch-all",
+		Phase:    PhaseCheck,
+		Spec:     "4",
+		Explanation: `The scrutinee can hold any Go value, so the type-test arms can
+never cover every possibility — including a nil interface. A
+catch-all arm ("_" or a plain variable) must come last; it also
+decides what nil does.`,
+		Example: `match x {   // x : Go.Any
+  s : String -> s
+  // missing: _ -> ...
+}`,
+		Relaxable: true,
+	},
+	{
+		Code:     "E0309",
+		Severity: SeverityError,
+		Title:    "duplicate type-test arm",
+		Phase:    PhaseCheck,
+		Spec:     "4",
+		Explanation: `Two arms test the same emitted Go type — the second can never
+match. Types are compared by their Go representation, not their
+Gom spelling: "Char" and "Int32" are the same "case int32", and
+"rune" and "byte" spellings are their aliases.`,
+		Example: `match x {   // x : Go.Any
+  c : Char -> "char"
+  i : Int32 -> "i32"   // int32 again
+  _ -> "?"
+}`,
+	},
+
+	{
 		Code:     "E0401",
 		Severity: SeverityError,
 		Title:    "type mismatch",

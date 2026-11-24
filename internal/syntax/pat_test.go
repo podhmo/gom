@@ -11,6 +11,8 @@ func patKind(p Pat) string {
 		return "wild"
 	case *VarPat:
 		return "var"
+	case *TypePat:
+		return "typepat"
 	case *LitPat:
 		return "lit"
 	case *CtorPat:

@@ -162,6 +162,10 @@ func boundVars(p check.Pat) []boundVar {
 		switch p := p.(type) {
 		case *check.VarPat:
 			out = append(out, boundVar{sym: p.Sym, typ: p.Type()})
+		case *check.TypePat:
+			if p.Sym != nil {
+				out = append(out, boundVar{sym: p.Sym, typ: p.Type()})
+			}
 		case *check.AsPat:
 			out = append(out, boundVar{sym: p.Sym, typ: p.Type()})
 			walk(p.Pat)
@@ -228,6 +232,10 @@ func bindElems(p check.Pat, e check.Expr) map[*resolve.Symbol]check.Expr {
 		}
 		switch p := p.(type) {
 		case *check.VarPat:
+			if p.Sym != nil {
+				out[p.Sym] = e
+			}
+		case *check.TypePat:
 			if p.Sym != nil {
 				out[p.Sym] = e
 			}

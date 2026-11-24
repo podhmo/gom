@@ -381,6 +381,14 @@ func dumpPat(b *strings.Builder, p Pat) {
 		b.WriteByte('_')
 	case *VarPat:
 		b.WriteString(p.Name.Name)
+	case *TypePat:
+		if p.Name != nil {
+			b.WriteString(p.Name.Name)
+		} else {
+			b.WriteByte('_')
+		}
+		b.WriteString(" : ")
+		dumpType(b, p.Typ)
 	case *LitPat:
 		b.WriteString(p.Lit.Text)
 	case *CtorPat:

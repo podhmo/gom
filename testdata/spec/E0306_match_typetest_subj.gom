@@ -1,0 +1,8 @@
+package ex
+
+// spec 4.1: a `p : T` type-test arm is only legal on `Go.Any` or a
+// named Go interface subject — a concrete scrutinee is E0306.
+fn f (n : Int) -> Int = match n {
+    s : String -> 1
+    _ -> 0
+}

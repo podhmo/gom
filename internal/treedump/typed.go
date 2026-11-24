@@ -353,6 +353,13 @@ func (d *dumper) tpat(p check.Pat) *form {
 		return nodef(head("wildpat", p.Base))
 	case *check.VarPat:
 		return nodef(head("varpat", p.Base) + " " + d.symRef(p.Sym))
+	case *check.TypePat:
+		name := "_"
+		if p.Sym != nil {
+			name = d.symRef(p.Sym)
+		}
+		return nodef(head("typepat", p.Base) + " " + name + " : " +
+			atom(types.CanonGoRepr(types.GoRepr(p.Target))))
 	case *check.LitPat:
 		return nodef(head("litpat", p.Base) + " " + p.Kind.String() + " " + atom(p.Text))
 	case *check.CtorPat:

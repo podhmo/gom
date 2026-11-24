@@ -857,7 +857,7 @@ func walkWildPats(p Pat, fn func(*WildPat)) {
 	switch p := p.(type) {
 	case *WildPat:
 		fn(p)
-	case *VarPat, *LitPat:
+	case *VarPat, *LitPat, *TypePat:
 	case *CtorPat:
 		for _, a := range p.Args {
 			walkWildPats(a.Pat, fn)

@@ -305,9 +305,21 @@ error[E0301]: non-exhaustive match on `Expr`
 | リスト | `[]`, `[x]`, `[x, ..rest]` | Nil / Cons 相当の 2 コンストラクタとして扱う |
 | or パターン | `Circle _ \| Empty` | 全選択肢で同じ変数集合・同じ型を束縛すること |
 | as 束縛 | `Add _ _ as whole` | |
+| 型テスト | `s : String`, `_ : error` | `Go.Any` / named Go interface を対象とする `match` のみ。後述 |
 | ガード | `p if cond` | 網羅性判定ではその腕を無視する |
 
 ガード付きの腕は、網羅性判定でも冗長性判定でも「その値を覆う」とは見なさない。たとえば `Neg x if is_zero x` の後の `Neg x` は冗長ではない。
+
+`Go.Any` または named Go interface 型の対象への `match` では、型テスト腕 `p : T` / `_ : T` が使える — Go の型スイッチ `case T:` に対応し、最初に当たった腕を実行する（型スイッチと同じく、上から順に評価され、型テスト腕は書かれた順に意味を持つ）。`p : T` は断言した型 `T` で値を束縛し、`_ : T` は束縛せず型だけで分岐する。`T` は具象型（型パラメータ・メタ変数を含まない）に限る。named Go interface を目標にした場合は名前一致ではなくメソッド集合で適合を判定する（`x : fmt.Stringer` は `String() string` を実装する任意の値に当たる）。型テストを含む `match` では:
+
+- すべての腕が型テスト腕または末尾の catch-all（`_` または変数）でなければならない — 通常パターンとの混在は E0307
+- 末尾の catch-all は必須（ない場合 E0308 — Go の型スイッチに相当する `default` が必要; `gom:allow` で緩和可能だが、どの腕にも当たらない値は網羅性違反の panic になる）
+- `any` または空 interface を目標にした型テスト腕も catch-all として数え、末尾に限る
+- 同じ Go 表現の目標を重複して書けない（`Char` と `Int32` は同じ `case` になるため E0309）
+- ガード（`if cond`）は使えない（E0307 — 型スイッチは fallthrough しないのでガードの意味を持てない）
+- 対象が `Go.Any` / named Go interface 以外のときは E0306
+
+網羅性判定（4 節）や冗長性判定は型テスト `match` には適用しない — 開いた型集合への上から順の一致なので、Maranget 系の反例生成はしない。生成は Go の型スイッチ `switch v := x.(type)` で、catch-all は `default` に落ちる（束縛する catch-all は default 内で元の型のまま bind される）。
 
 `_` で値を捨てる形 — `let` のワイルドカード左辺、`match` 腕パターン内の任意の位置の `_`、`ignore e`（1.1 節）— で、捨てた部分値の型が関数型のとき W0901 で警告する。`fmt.Println` 等へ関数値を*渡す*形は捨てではなく対象外。確信犯は束縛して名前を付けるか `//gom:allow W0901` で沈黙させられる（12 節）。
 
