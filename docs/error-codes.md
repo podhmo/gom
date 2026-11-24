@@ -923,7 +923,7 @@ embed.FS — and the directive needs at least one file pattern
 
 ### E0513 — Go.nil on a non-nil-able type
 
-**Severity:** error · **Phase:** check · **Spec:** §8.3
+**Severity:** error · **Phase:** check · **Spec:** §8.6
 
 Go.nil produces nil for any nil-able Go type — pointers,
 channels, Go.Slice, Go.Map, Go.Any, GoError, and named Go types
@@ -933,7 +933,7 @@ cannot hold nil — Int, a record, a sum type — Go.nil is E0513. An
 unsolved type stands under E0407 instead.
 
 ```gom
-let p : P Int = Go.nil ()      // ok — pointers are nil-able
+let p : Ptr Int = Go.nil ()    // ok — pointers are nil-able
 let n : Int = Go.nil ()        // E0513 — Int cannot hold nil
 ```
 
