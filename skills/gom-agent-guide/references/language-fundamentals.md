@@ -70,8 +70,15 @@ fn sign (n: Int) -> Int = {
   `else { if ... }` for chains.
 - Literals: `42`, `0x2A`, `3.14`, `true`, `'a'` (Char), `"str"` with
   `"${expr}` interpolation. No multiline or raw strings; escapes
-  `\n \t \r \0 \\ \' \" \$ \uXXXX \u{X...}`.
-- `()` is the `Unit` value. Tuples `(a, b, c)`. Lists `[1, 2, 3]`
+  `\n \t \r \0 \\ \' \" \$ \uXXXX \u{X...}`. A splice renders the
+  value in the evaluator's display form: scalars print bare
+  (`String` unquoted, `Char` as its code point), composites use the
+  composite notation (`Ok 42`, `{ name = "n" }`, `[1, 2]`,
+  `(1, 2)`, `Ctor ~name: v`), and Go values fall back to `%v`.
+- `()` is the `Unit` value. Tuples `(a, b, c)` — a spelled
+  tuple beyond 8 elements emits an anonymous `struct{ V0..Vn }`
+  rather than `rt.TupleN`, so wide tuples still typecheck and
+  destructure the same. Lists `[1, 2, 3]`
   (fixed length only). Records `{ x = 1, y = 2 }`, update
   `{ p with x = 3 }`, access `p.x`.
 - Operators (tightest first): field/module access `a.b`, application
@@ -186,9 +193,10 @@ type alias Wrap a = List a       // forwards its parameters
 - A single-field record emits a Go defined type (`type UserId
   int64`), so its value is interchangeable with the field type at
   the Go boundary only through explicit conversion; generic
-  one-field records stay structs. Numeric literals assign to it
-  like Go's untyped constants (`let x : UserId = 0`, a literal
-  argument where `UserId` is expected) and its own values admit
+  one-field records stay structs. Scalar literals assign to it
+  like Go's untyped constants — numeric (`let x : UserId = 0`,
+  a literal argument where `UserId` is expected) as well as
+  `String`/`Char`/`Bool` spellings — and its own values admit
   the arithmetic/comparison the underlying allows (`u + 0`,
   `u < 100` — multi-field records reject these as E0401).
 
@@ -212,8 +220,9 @@ type alias Wrap a = List a       // forwards its parameters
   string. `Float` is IEEE (NaN ≠ NaN). Not on type variables (v1).
 - Arithmetic `+ - * / %` overloads over numeric builtins and
   resolves late: ambiguous use is E0407 (annotate). `/`/`%` by a
-  constant `0` is E0414 (Go rejects it too; `Float` allows `x /
-  0.0` but not `10.0 / 0.0`).
+  divisor that folds to a constant `0` is E0414 (Go rejects it
+  too; `Float` allows `x / 0.0` but not `10.0 / 0.0`) — this
+  covers folded expressions like `x / (1 / 2)` or `x / (n * 0)`.
 
 ## match and patterns
 
