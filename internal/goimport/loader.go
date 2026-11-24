@@ -206,7 +206,11 @@ func (l *Loader) Prefetch(paths []string) {
 	var miss []string
 	seen := map[string]bool{}
 	for _, p := range paths {
-		if seen[p] || strings.HasPrefix(p, ".") {
+		// Relative paths canonicalize differently in `go list`, and
+		// a leading dash would be read as a flag of it — both stay
+		// on the per-path lazy path. A package this loader already
+		// imported needs no disk read at all.
+		if seen[p] || strings.HasPrefix(p, ".") || strings.HasPrefix(p, "-") || l.pkgs[p] != nil {
 			continue
 		}
 		seen[p] = true
@@ -251,6 +255,11 @@ func (l *Loader) Prefetch(paths []string) {
 	}
 }
 func goExport(gobin, dir, path string) (export, srcDir string, depDirs []string, err error) {
+	// A leading dash would make `go list` read the path as a flag —
+	// no valid Go import path starts with one.
+	if strings.HasPrefix(path, "-") {
+		return "", "", nil, fmt.Errorf("go list -export %s: invalid import path", path)
+	}
 	cmd := exec.Command(gobin, "list", "-export", "-deps", "-f", "{{.ImportPath}}|{{.Export}}|{{.Dir}}", path)
 	if dir != "" {
 		cmd.Dir = dir

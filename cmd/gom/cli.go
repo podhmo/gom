@@ -98,7 +98,9 @@ func compileInputs(inputs []input, checkOnly bool, bc *buildCache, outFlag strin
 				}
 			}
 			gl = goimport.New(glc)
-			if ast, _ := syntax.ParseInterface(in.src, in.path); ast != nil {
+			// A parse-invalid interface fails before resolving imports, so
+			// prefetching it would only burn a `go list` subprocess.
+			if ast, pdiags := syntax.ParseInterface(in.src, in.path); ast != nil && !pdiags.HasError() {
 				var goImports []string
 				for _, d := range ast.Decls {
 					if imp, ok := d.(*syntax.ImportDecl); ok && imp.Go {
@@ -162,17 +164,23 @@ func compileInputs(inputs []input, checkOnly bool, bc *buildCache, outFlag strin
 	goImports := map[string][]string{}
 	for _, dir := range order {
 		for _, i := range groups[dir] {
-			ast, _ := syntax.Parse(inputs[i].src, inputs[i].path)
+			ast, pdiags := syntax.Parse(inputs[i].src, inputs[i].path)
 			if ast == nil {
 				continue
 			}
+			// A file that fails to parse is rejected before its imports
+			// resolve — prefetching it would only burn a `go list`
+			// subprocess (which may even touch go.mod under -mod=mod).
+			syntaxOK := !pdiags.HasError()
 			for _, d := range ast.Decls {
 				imp, ok := d.(*syntax.ImportDecl)
 				if !ok {
 					continue
 				}
 				if imp.Go {
-					goImports[dir] = append(goImports[dir], imp.Path)
+					if syntaxOK {
+						goImports[dir] = append(goImports[dir], imp.Path)
+					}
 					continue
 				}
 				path := canonicalImport(imp.Path)
