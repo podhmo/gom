@@ -487,10 +487,27 @@ type cmpWalk struct {
 
 // has reports whether t's Go representation is comparable.
 func (w *cmpWalk) has(t types.Type) bool {
+	return w.hasS(t, nil, false)
+}
+
+// hasS judges t with the declaration scope spelled out: sub
+// substitutes a declaration's type parameters lazily, so an
+// argument's own spelling keeps *caller* scope, and foreign marks
+// the fields of a declaration loaded through an import — its
+// unqualified names resolve to the imported package's builtins,
+// never to the caller's decls. A caller `type List` must not
+// expand under a foreign field's `List` spelling: had the foreign
+// package declared List itself, the field would carry the
+// qualified spelling.
+func (w *cmpWalk) hasS(t types.Type, sub types.Subst, foreign bool) bool {
 	switch t := types.Chase(t).(type) {
 	case *types.Var:
 		// A Gom type parameter instantiates as `any` — it cannot
-		// satisfy `comparable` (spec section 8.5's boundary).
+		// satisfy `comparable` (spec section 8.5's boundary). An
+		// argument the substitution supplies keeps caller scope.
+		if a, ok := sub[t.ID]; ok {
+			return w.hasS(a, nil, false)
+		}
 		return false
 	case *types.Meta:
 		// An unbound meta is undecided — finalize reports E0407.
@@ -501,7 +518,7 @@ func (w *cmpWalk) has(t types.Type) bool {
 		// rt.TupleN[A, ...] is a struct — comparable iff every
 		// element is.
 		for _, e := range t.Elems {
-			if !w.has(e) {
+			if !w.hasS(e, sub, foreign) {
 				return false
 			}
 		}
@@ -526,7 +543,10 @@ func (w *cmpWalk) has(t types.Type) bool {
 				return true
 			}
 		}
-		if t.Qual == "" && !w.c.shadowedBuiltin(t.Name) {
+		// The caller's shadowed builtins apply only in caller
+		// scope — a foreign declaration's unqualified spelling is
+		// that package's builtin.
+		if t.Qual == "" && (foreign || !w.c.shadowedBuiltin(t.Name)) {
 			switch t.Name {
 			case "Unit", "Bool", "Int", "Int32", "Int64", "Float",
 				"Char", "Byte", "String", "GoError":
@@ -541,7 +561,7 @@ func (w *cmpWalk) has(t types.Type) bool {
 				// result.Result[T, E] is a struct — comparable iff
 				// its payload fields are.
 				for _, a := range t.Args {
-					if !w.has(a) {
+					if !w.hasS(a, sub, foreign) {
 						return false
 					}
 				}
@@ -557,7 +577,7 @@ func (w *cmpWalk) has(t types.Type) bool {
 				// box option.Option_Some[A] — comparable iff the
 				// element is, or `==` on two Somes panics.
 				if len(t.Args) == 1 {
-					return w.has(t.Args[0])
+					return w.hasS(t.Args[0], sub, foreign)
 				}
 				return true
 			case "Ref", "Ptr", "Chan", "RecvChan", "SendChan", "Scope":
@@ -569,9 +589,9 @@ func (w *cmpWalk) has(t types.Type) bool {
 		// A declared type: sealed-interface sums are comparable iff
 		// every variant's payload is, records iff every field is,
 		// aliases expand.
-		if w.expandable(t) {
+		if w.expandable(t, foreign) {
 			ti := w.c.tyCons[conKey{qual: t.Qual, name: t.Name}]
-			return w.expand(t, ti, func(sub types.Subst) bool {
+			return w.expand(t, ti, func(nsub types.Subst, nforeign bool) bool {
 				switch ti.kind {
 				case kindSum:
 					// The sealed-interface repr is comparable in Go,
@@ -581,7 +601,7 @@ func (w *cmpWalk) has(t types.Type) bool {
 					// 2026-11-24-sum-comparable-panic).
 					for _, v := range ti.variants {
 						for _, f := range v.fields {
-							if !w.has(sub.Apply(f.typ)) {
+							if !w.hasS(f.typ, nsub, nforeign) {
 								return false
 							}
 						}
@@ -589,14 +609,14 @@ func (w *cmpWalk) has(t types.Type) bool {
 					return true
 				case kindRecord:
 					for _, f := range ti.fields {
-						if !w.has(sub.Apply(f.typ)) {
+						if !w.hasS(f.typ, nsub, nforeign) {
 							return false
 						}
 					}
 					return true
 				case kindAlias:
 					if ti.aliasRes {
-						return w.has(sub.Apply(ti.alias))
+						return w.hasS(ti.alias, nsub, nforeign)
 					}
 				}
 				return false
@@ -615,8 +635,13 @@ func (w *cmpWalk) has(t types.Type) bool {
 // expandable reports whether the constructor names a declared
 // record, sum or alias whose declaration contributes to the
 // comparable judgment — a local declaration or an imported one
-// registerForeignTypes loaded (its fields arrive requalified).
-func (w *cmpWalk) expandable(t *types.Con) bool {
+// registerForeignTypes loaded (its fields arrive requalified). An
+// unqualified spelling inside a foreign declaration never names a
+// caller's declaration.
+func (w *cmpWalk) expandable(t *types.Con, foreign bool) bool {
+	if t.Qual == "" && foreign {
+		return false
+	}
 	ti, ok := w.c.tyCons[conKey{qual: t.Qual, name: t.Name}]
 	return ok && ti.kind != kindAbstract
 }
@@ -627,8 +652,10 @@ func (w *cmpWalk) expandable(t *types.Con) bool {
 // its other fields are (the recursive field emits the same sealed
 // interface, whose `==` safety is the question being decided), so a
 // revisit answers true. Only an exhausted budget answers false —
-// the "cannot prove comparable" value.
-func (w *cmpWalk) expand(t *types.Con, ti *typeInfo, f func(types.Subst) bool) bool {
+// the "cannot prove comparable" value. The fold also receives the
+// declaration's scope: true when ti is an imported decl, so its
+// unqualified field spellings keep their own package's meaning.
+func (w *cmpWalk) expand(t *types.Con, ti *typeInfo, f func(types.Subst, bool) bool) bool {
 	v := recordVisit{ti: ti, args: t.Args}
 	for _, s := range w.seen {
 		if s.ti == ti && sameTypes(s.args, v.args) {
@@ -647,7 +674,7 @@ func (w *cmpWalk) expand(t *types.Con, ti *typeInfo, f func(types.Subst) bool) b
 			sub[p.ID] = t.Args[i]
 		}
 	}
-	return f(sub)
+	return f(sub, ti.con.Qual != "")
 }
 
 // occurs reports whether the unbound meta m occurs inside t — a bind
