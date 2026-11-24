@@ -2295,12 +2295,22 @@ func (c *checker) constFold(e Expr) (constant.Value, bool) {
 				return v, true
 			}
 		}
-		x, ok := c.constFold(e.X)
-		if !ok {
-			return nil, false
+		x, xok := c.constFold(e.X)
+		y, yok := c.constFold(e.Y)
+		// A zero side decides `*` (and the dividend side of `/`
+		// and `%`) even when the other side does not fold —
+		// `conv * 0` is zero however unanalyzable the cast is.
+		switch e.Op {
+		case syntax.BinMul:
+			if (xok && constant.Sign(x) == 0) || (yok && constant.Sign(y) == 0) {
+				return constant.MakeInt64(0), true
+			}
+		case syntax.BinDiv, syntax.BinMod:
+			if xok && constant.Sign(x) == 0 {
+				return constant.MakeInt64(0), true
+			}
 		}
-		y, ok := c.constFold(e.Y)
-		if !ok {
+		if !xok || !yok {
 			return nil, false
 		}
 		var op token.Token
@@ -2417,7 +2427,18 @@ func (c *checker) constFold(e Expr) (constant.Value, bool) {
 			// toward zero — `Go.conv (1.0 / 2.0) : Int` is 0 in
 			// the emitted `int64(0.5)`, where keeping the folded
 			// 0.5 would hide a real division-by-zero panic (and
-			// `constant.ToInt` refuses fractions outright).
+			// `constant.ToInt` refuses fractions outright). The
+			// float path folds in float64 — the emitted code
+			// rounds every operation — and an out-of-range
+			// conversion is implementation-dependent in Go, so
+			// the fold declines rather than claim a value.
+			if isFloat(types.Chase(e.X.Type())) {
+				fv, ok := c.foldFloat(e.X)
+				if !ok || fv >= 9.223372036854776e18 || fv <= -9.223372036854776e18 {
+					return nil, false
+				}
+				return wrapConstInt(constant.MakeInt64(int64(fv)), w, us), true
+			}
 			if v.Kind() != constant.Int {
 				fv, ok := constant.Float64Val(v)
 				if !ok {
@@ -2436,6 +2457,68 @@ func (c *checker) constFold(e Expr) (constant.Value, bool) {
 	default:
 		panic("unreachable")
 	}
+}
+
+// foldFloat evaluates a Float-typed constant expression in the
+// float64 domain — the semantics the emitted Go computes in, where
+// every operation rounds — so a divisor folded for a numeric
+// conversion cannot mint a false zero from exact arithmetic
+// (`Go.conv 0.999999999999999999 : Int` converts a float64 that
+// already rounded to 1.0). Non-float shapes are not foldable.
+func (c *checker) foldFloat(e Expr) (float64, bool) {
+	switch e := e.(type) {
+	case *Lit:
+		if e.Kind != syntax.LitFloat && e.Kind != syntax.LitInt {
+			return 0, false
+		}
+		v, ok := constant.Float64Val(constant.MakeFromLiteral(e.Text, token.FLOAT, 0))
+		return v, ok
+	case *Unary:
+		if e.Op != syntax.UnNeg {
+			return 0, false
+		}
+		v, ok := c.foldFloat(e.X)
+		return -v, ok
+	case *Binary:
+		x, ok := c.foldFloat(e.X)
+		if !ok {
+			return 0, false
+		}
+		y, ok := c.foldFloat(e.Y)
+		if !ok {
+			return 0, false
+		}
+		switch e.Op {
+		case syntax.BinAdd:
+			return x + y, true
+		case syntax.BinSub:
+			return x - y, true
+		case syntax.BinMul:
+			return x * y, true
+		case syntax.BinDiv:
+			if y == 0 {
+				return 0, false
+			}
+			return x / y, true
+		default:
+			return 0, false
+		}
+	case *Ascribe:
+		// `Go.conv f : Float` is the identity in the float
+		// domain; `Go.conv e : T` for an integral T evaluates e
+		// then converts — re-fold through constFold, which handles
+		// the int path itself.
+		if isFloat(types.Chase(e.Type())) {
+			return c.foldFloat(e.X)
+		}
+		v, ok := c.constFold(e)
+		if !ok {
+			return 0, false
+		}
+		fv, ok := constant.Float64Val(v)
+		return fv, ok
+	}
+	return 0, false
 }
 
 // intFoldWidth gives the machine width — and its signedness — that

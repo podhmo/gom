@@ -1021,7 +1021,7 @@ func (l *lowerer) singleField(recTyp types.Type) (check.TField, bool) {
 // `*types.Go` field's underlying is not knowable here; such fields
 // are rare and take the conservative path (no literal-sign
 // folding).
-func (l *lowerer) fieldFloat(f check.TField) bool {
+func (l *lowerer) fieldFloat(local bool, f check.TField) bool {
 	seen := map[string]bool{}
 	t := f.Type
 	for {
@@ -1029,23 +1029,43 @@ func (l *lowerer) fieldFloat(f check.TField) bool {
 		if !ok {
 			return false
 		}
-		// A user record wins over the builtin name first — the
-		// file may declare its own `type Float = {v: Int}`, and
-		// treating that as builtin float would skip the sign fold
-		// and emit `-X` on a magnitude Go cannot convert. Peel the
-		// record; the builtin name check applies only when no
-		// declared record owns the constructor.
-		if sf, single := l.singleField(t); single {
-			key := conKey(c)
-			if seen[key] {
-				return false
+		if c.Qual == "" {
+			// An unqualified constructor means the builtin only
+			// when the record owning the field is file-local AND
+			// the file does not shadow the name (`builtinName`);
+			// in an imported record an unqualified `Float` was
+			// spelled in ITS package — the caller's own
+			// `type Float` must not capture it.
+			if local {
+				if l.builtinName(c, "Float") || l.builtinName(c, "Float64") {
+					return true
+				}
+			} else if c.Name == "Float" || c.Name == "Float64" {
+				return true
 			}
-			seen[key] = true
-			t = sf.Type
-			continue
 		}
-		return c.Qual == "" && (c.Name == "Float" || c.Name == "Float64")
+		key := conKey(c)
+		if seen[key] {
+			return false
+		}
+		seen[key] = true
+		sf, single := l.singleField(t)
+		if !single {
+			return false
+		}
+		t = sf.Type
+		// The next peel step's field is owned by this record —
+		// locality follows the record being unwrapped.
+		local = c.Qual == ""
 	}
+}
+
+// recLocal reports whether a declared record type belongs to the
+// package being compiled — the locality that scopes unqualified
+// field names in fieldFloat.
+func recLocal(t types.Type) bool {
+	c, ok := types.Chase(t).(*types.Con)
+	return !ok || c.Qual == ""
 }
 
 // fieldIndex resolves a record field's declaration index — from the

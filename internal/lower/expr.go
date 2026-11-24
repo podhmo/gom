@@ -129,7 +129,7 @@ func (l *lowerer) expr(s *seq, e check.Expr) core.Expr {
 				// float-backed type would mint `Score(-0)` — a
 				// positive-zero float constant — where `-Score(0)`
 				// computes the signed zero `1.0 / z` divides by.
-				if f, single := l.singleField(e.X.Type()); single && !l.fieldFloat(f) {
+				if f, single := l.singleField(e.X.Type()); single && !l.fieldFloat(recLocal(e.X.Type()), f) {
 					neg := &core.Lit{Base: baseOf(lit), Kind: lit.Kind, Text: "-" + lit.Text}
 					return &core.Conv{Sp: e.Sp, Typ: e.X.Type(), Kind: core.ConvNamed, X: neg}
 				}
