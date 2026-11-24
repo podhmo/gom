@@ -1,0 +1,27 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected Name, got String",
+      "span": {
+        "file": "E0401_scalar_var_declared.gom",
+        "start": {
+          "line": 7,
+          "col": 28,
+          "offset": 208
+        },
+        "end": {
+          "line": 7,
+          "col": 29,
+          "offset": 209
+        }
+      },
+      "data": {
+        "actual": "String",
+        "expected": "Name"
+      }
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+package main
+
+// A String-typed variable is not an untyped constant — assigning it
+// to a defined-type declared type is E0401, matching Go.
+type Name = { n: String }
+let s = "x"
+let bad = { let n : Name = s; n }

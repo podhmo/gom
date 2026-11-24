@@ -287,6 +287,9 @@ func (c *checker) conformExpr(out Expr, want types.Type, sp diag.Span) Expr {
 		if conv := c.chanDirConv(want, out, sp); conv != nil {
 			return conv
 		}
+		if conv := c.scalarLitConv(want, out, sp); conv != nil {
+			return conv
+		}
 	}
 	// A failed expectation left want unsolved: silence its E0407 —
 	// the mismatch diagnostic at sp already tells the user what to
@@ -322,6 +325,49 @@ func (c *checker) conformExpr(out Expr, want types.Type, sp diag.Span) Expr {
 		return &Ascribe{Base: baseOf(sp, want), X: out, Conv: true}
 	}
 	return out
+}
+
+// scalarLitConv conforms a String/Char/Bool/Unit literal to a
+// defined-type declared type (`type X F` — a one-field record
+// emitting as `type X string`) whose field is the matching builtin
+// — Go's untyped-constant assignability, extended from the numeric
+// literals' meta-constraint path to the concretely typed literals.
+// Only the literal node qualifies: a typed String variable stays
+// rejected, as in Go.
+func (c *checker) scalarLitConv(want types.Type, out Expr, sp diag.Span) Expr {
+	l, ok := out.(*Lit)
+	if !ok {
+		return nil
+	}
+	var name string
+	switch l.Kind {
+	case syntax.LitStr:
+		name = "String"
+	case syntax.LitChar:
+		name = "Char"
+	case syntax.LitBool:
+		name = "Bool"
+	case syntax.LitUnit:
+		name = "Unit"
+	default:
+		return nil
+	}
+	w := types.Chase(want)
+	u := c.definedUnderlying(w)
+	if u == w {
+		return nil
+	}
+	uc, ok := u.(*types.Con)
+	if !ok || uc.Qual != "" || uc.Name != name {
+		return nil
+	}
+	// A file-local record's field was spelled in this file, where
+	// the caller's `type String` may shadow the builtin — the same
+	// scope rule the numeric constraint peel applies in satisfies.
+	if wc, ok := w.(*types.Con); ok && wc.Qual == "" && c.shadowedBuiltin(name) {
+		return nil
+	}
+	return &Ascribe{Base: baseOf(sp, want), X: out, Conv: true}
 }
 
 // goWant marks want as a live Go-call parameter type for the extent
