@@ -1895,7 +1895,10 @@
   importing file の最寄り `go.mod`（module 側）の `vendor/` のみを見る。
   module vendor は Go の規則どおりだが、workspace vendor 環境では列挙・解決が Go とずれる。
   参照: [実装](../internal/gomimport/loader.go)（`pkgDir` の vendor 分岐・`vendorEnabled`）、
-  [調査](sketch/2026-11-24-gom-list-external-enumeration.md)（wave40 lane F）。未確認。
+  [調査](sketch/2026-11-24-gom-list-external-enumeration.md)（wave40 lane F）。
+  wave42 lane D で workroot vendor の判定（`## workspace` marker 必須）と `use` 成员の
+  go.work フォールバックを実装 — 残件: lane E の検証で `## workspace` 無しの陈旧 vendor、
+  vendored 无 .gomi 時の解決などを确认してから [x]。
 
 - [ ] **spec suite の共有 loader が import した record 宣言を後続 fixture の record literal 判定に持ち越す**: spec harness は 1 つの `gomimport.Loader` を subtest 間で使い回し、`registerForeignTypes` が「これまでに読み込んだ全 .gomi の宣言」を呼び出し側の `records` に畳み込む — import した fixture 側 record のフィールド名（`x` 等のありふれた名）が、後続 fixture の `{x = ..}` literal の持ち主判定（E0407 曖昧判定）を汚染し、該当 fixture を単独で回すと通るのに全体実行では fail する（wave41 lane B で発覚 — `testdata/spec/foreignpkg` のフィールド名をユニークに変えて回避）。呼び出し側で実際に import された record だけを畳む正規化が本筋の修正。参照: [実装](../internal/check/files.go)（`registerForeignTypes`）、[実装](../internal/build/harness_test.go)（`specCompile` の共有 `ml`）、[実装](../internal/check/expr.go)（`recordByFields`）
 
