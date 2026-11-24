@@ -2173,9 +2173,13 @@ func (c *checker) checkArith(e *syntax.Binary, constrain func(*metaRec)) Expr {
 		// is not even compilable Go. Whether `x / 0.0` is legal IEEE
 		// arithmetic depends on the operand type, so the decision is
 		// deferred to finalize — see pendingDivs. A quiet operand
-		// (an unresolved name, say) already reports elsewhere.
-		if (e.Op == syntax.BinDiv || e.Op == syntax.BinMod) &&
-			c.constZero(y) && !c.isQuiet(x.Type()) {
+		// (an unresolved name, say) already reports elsewhere. The
+		// zero check itself is deferred too: `x / (1 / 2)` only
+		// folds to zero once the nested division's integral type is
+		// fixed by inference or defaulting — a node queued only when
+		// it folded zero *now* would skip that later-discovered
+		// zero and emit a runtime panic instead of E0414.
+		if (e.Op == syntax.BinDiv || e.Op == syntax.BinMod) && !c.isQuiet(x.Type()) {
 			c.pendingDivs = append(c.pendingDivs, out)
 		}
 	}
@@ -2202,6 +2206,13 @@ func (c *checker) checkArith(e *syntax.Binary, constrain func(*metaRec)) Expr {
 //     piling E0414 on it would cascade.
 func (c *checker) revisitDivs() {
 	for _, b := range c.pendingDivs {
+		// Re-judge the divisor with the solved types: a divisor
+		// that only folds to zero after defaulting (`x / (1 / 2)`
+		// under an integral outer division) is still E0414, and a
+		// non-constant divisor is just skipped.
+		if !c.constZero(b.Y) {
+			continue
+		}
 		// A defined-type declared type (`type X F` for a one-field
 		// record) divides by its underlying F's rules — `n / 0`
 		// with `n: UserId` panics like `int64 / 0`.

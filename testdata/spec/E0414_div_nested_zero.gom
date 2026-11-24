@@ -1,0 +1,7 @@
+package main
+
+// The divisor only folds to zero once the nested division's
+// integral type is fixed by the enclosing division — the E0414
+// judgment runs at finalize with the solved types, not at the
+// node's own check time.
+fn nested (x: Int) -> Int = x / (1 / 2)

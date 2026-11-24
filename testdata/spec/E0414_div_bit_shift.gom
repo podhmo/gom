@@ -28,8 +28,11 @@ fn k () -> Int32 = 7 / (1 >>> (0 - ((Go.conv (2147483647 + 1) : Int32) % 33)))
 // conversion, so the count is -2 — no fold, no E0414 for l.
 fn l () -> Int64 = 7 / (1 >>> ((Go.conv ((Go.conv 2147483647 : Int32) + 1) : Int64) % 33))
 
-// a remainder whose divisor wraps to zero panics in the machine
-// before the shift — the unbounded fallback must not mint E0414.
+// a remainder whose divisor wraps to zero at its solved width —
+// `Go.conv (1 <<< 32) : Int32` is 0 — reports E0414 at finalize
+// (the % node's own type is only Int32 once inference settles;
+// the wrap-aware fold then sees the zero the machine would panic
+// on).
 fn m () -> Int32 = 7 / (1 >>> (7 % (Go.conv (1 <<< 32) : Int32)))
 
 // a named Go integer type folds at its own underlying width, not
