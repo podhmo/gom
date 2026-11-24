@@ -8,6 +8,8 @@ import (
 	rt "github.com/podhmo/gom/rt"
 	list "github.com/podhmo/gom/stdlib/list"
 	result "github.com/podhmo/gom/stdlib/result"
+	strconv "strconv"
+	strings "strings"
 )
 
 //line record_field_tag.gom:8
@@ -58,9 +60,9 @@ func main() {
 //line record_field_tag.gom:12
 	}
 //line record_field_tag.gom:13
-	tmp7 := fmt.Sprint(u)
+	tmp7 := gomShow1261e7e4b(u)
 //line record_field_tag.gom:13
-	tmp8 := fmt.Sprint(b)
+	tmp8 := gomShow2261e7e4b(b)
 //line record_field_tag.gom:13
 	tmp9 := tmp7 + " " + tmp8
 //line record_field_tag.gom:13
@@ -72,4 +74,36 @@ func main() {
 //line record_field_tag.gom:14
 	_ = struct{}{}
 //line record_field_tag.gom:10
+}
+
+//line record_field_tag.gom:13
+func gomShow1261e7e4b(v User) string {
+//line record_field_tag.gom:13
+	return "" + "{ " + "name = " + strconv.Quote(v.Name) + ", " + "mail = " + strconv.Quote(v.Mail) + " }"
+//line record_field_tag.gom:13
+}
+
+//line record_field_tag.gom:13
+func gomShow2261e7e4b(v list.List[byte]) string {
+//line record_field_tag.gom:13
+	var sb strings.Builder
+//line record_field_tag.gom:13
+	sb.WriteByte('[')
+//line record_field_tag.gom:13
+	for i, e := range v {
+//line record_field_tag.gom:13
+		if i > 0 {
+//line record_field_tag.gom:13
+			sb.WriteString(", ")
+//line record_field_tag.gom:13
+		}
+//line record_field_tag.gom:13
+		sb.WriteString(fmt.Sprint(e))
+//line record_field_tag.gom:13
+	}
+//line record_field_tag.gom:13
+	sb.WriteByte(']')
+//line record_field_tag.gom:13
+	return sb.String()
+//line record_field_tag.gom:13
 }

@@ -1845,7 +1845,7 @@
   対応: wave36 lane B（[PR #156](https://github.com/podhmo/gom/pull/156)）
   で `unifyFunc` の位置対応 introduction を実装し spec と一致。
   検証: [fixture](../testdata/spec/ok_labeled_intro_fn.gom)。
-- [ ] **production `display`/`"${v}"` 補間と evaluator の composite
+- [x] **production `display`/`"${v}"` 補間と evaluator の composite
   表示がずれている**: evaluator は ADT/record/list/tuple を
   comparison format で描くが、生成 Go の `display`・文字列補間は
   `fmt.Sprint` に落ちる。`lower` の `gomShowN`（assert_eq の
@@ -1853,6 +1853,12 @@
   lane 候補。
   [problem](problems/2026-11-04-interp-composite-display.md)、
   [棚卸し](sketch/2026-11-23-wave36-problems-sweep.md)（2026-11-23 登録）
+  対応: wave43 lane C — `strInterp` の `display` CallBuiltin に
+  `ShowPlan` を載せ、composite 型は既存の `gomShowN` 機構（`Prod`
+  フラグで main 側へ emit）に回す。scalar は従来どおり strconv、
+  `%v` は runtime recipe のまま。
+  検証: `testdata/golden/record_one_field.golden.go` 等の補間が
+  `gomShowN` を呼ぶ、[decision](decisions/2026-11-24-display-composite-gomshow.md)。
 
 - [x] **`Go.Slice`/`Go.Map` 要素に Gom 宣言型を置くと `~` 制約で常に拒否される**:
   spec §8.5 の `~[]E`/`~map[K]V` 判定は `types.Identical` 前提だが、
@@ -1937,3 +1943,5 @@
   - 解消（wave43 lane B）: 値レベルの conform（`conformExpr` の `scalarLitConv`）が `*Lit` ノードだけを剥がれ照合に回し、`Ascribe{Conv: true}` で `Name("x")` と materialize — Go の「untyped constant はリテラルから生まれる」規則の写像で、型付き変数は E0401 のまま（[decision](decisions/2026-11-24-scalar-literal-declared.md)、検証: [ok_scalar_lit_declared.gom](../testdata/spec/ok_scalar_lit_declared.gom)、[E0401_scalar_var_declared.gom](../testdata/spec/E0401_scalar_var_declared.gom)）
 
 - [ ] **match アームの literal パターンと record パターンの重複が E0302 に届かない**: 宣言型（`type UserId = {v: Int}` → `type UserId int64`）の scrutinee に対し、数値 literal パターン（`0 ->`）と record literal パターン（`{v = 0} ->`）は同じ値域を表すが、exhaustiveness／重複判定は両者を別の形状として扱い、到達不能アームや非網羅の診断（E0302 系）が逃げる。literal→宣言型 conform（wave42 lane C）の受理側拡大に伴う診断完全性の未整備 — 受理は正しいが判定側の記述子が literal↔record の等価を知らない。発見: #207 レビュー（wave42 lane C）
+
+- [ ] **宣言型の1-field recordへのスカラー代入で splice 表示が eval と compiled で揺れる**: `type Flag = {on: Bool}` に `let f : Flag = true` と代入したとき、`"${f}"` は eval では `true`、compiled（`.go` 生成物）では `{ on = true }` と描かれる。eval は束縛値をスカラーのまま持ち（1-field record の peel）、codegen は record として materialize するため同一値の表示が分岐。正準形を決める decision が要る — eval を VRecord 化するとスカラー算術・等価が壊れ、codegen をスカラー化すると record literal 代入との整合が取れない。発見: #216 レビュー（wave43 lane C）。関連: [verification sketch](sketch/2026-11-24-display-gomshow-verify.md)

@@ -1,0 +1,24 @@
+// display — pins the compiled rendering of `${expr}` splices:
+// composite values (record/list/tuple/ADT) print in the evaluator's
+// display form, Go values via %v, GoError as error("text"). The
+// driver asserts this exact stdout.
+package main
+
+import go "errors"
+import go "fmt"
+
+type P = { name: String, age: Int }
+type Shape = | Circle (r: Float) | Box
+
+fn main () -> Unit = {
+  let p = { name = "n", age = 3 }
+  let xs = [1, 2]
+  let t = (p, 7)
+  let s = Circle 1.5
+  let gs : Go.Slice String = ["a", "b"]
+  let e : Result Int GoError = Err (errors.New "boom")
+  ignore fmt.Println "${p}"
+  ignore fmt.Println "${xs} ${t} ${s}"
+  ignore fmt.Println "${gs} ${(gs, 1)}"
+  ignore fmt.Println "${e}"
+}

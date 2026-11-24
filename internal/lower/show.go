@@ -80,9 +80,10 @@ func (l *lowerer) showKindOf(t types.Type) showKind {
 			switch t.Name {
 			case "Int":
 				return showScalar
-			case "Slice":
-				return showDecl
 			default:
+				// Slice/Map/Any and friends are Go-view values:
+				// `%v`, the same rendering a whole-splice splice
+				// gets — a nested slice is not a Gom List.
 				return showRuntime
 			}
 		}
@@ -143,21 +144,120 @@ func (l *lowerer) showDecl(sp diag.Span, t types.Type) *core.ShowDecl {
 	t = types.Chase(t)
 	key := t.String()
 	if d, ok := l.showDecls[key]; ok {
+		// A decl minted for a test may later be needed by
+		// production `display` — promote it so codegen emits it
+		// into the main half where both reach it. The promotion
+		// runs through the decl's plan: a composite renderer calls
+		// its element helpers, which must be marked too or the
+		// main half dangles on a test-only symbol.
+		if !l.inTest {
+			l.markShowProd(d)
+		}
 		return d
+	}
+	if hasTypeVar(t) {
+		// `List a` inside a generic function names a declaration
+		// type parameter a package-level helper cannot declare —
+		// degrade to %v.
+		return nil
 	}
 	if len(l.showDecls) >= showDeclLimit {
 		return nil
 	}
 	l.showSeq++
 	d := &core.ShowDecl{
-		Sp:  sp,
-		Sym: &resolve.Symbol{Name: fmt.Sprintf("gomShow%d_%s", l.showSeq, l.eqMark), Kind: resolve.KindFunc},
-		Typ: t,
+		Sp:   sp,
+		Sym:  &resolve.Symbol{Name: fmt.Sprintf("gomShow%d_%s", l.showSeq, l.eqMark), Kind: resolve.KindFunc},
+		Typ:  t,
+		Prod: !l.inTest,
 	}
 	l.showDecls[key] = d
 	l.showOrder = append(l.showOrder, d)
 	d.Plan = l.showDeclPlan(sp, t)
 	return d
+}
+
+// markShowProd promotes d and every helper its plan calls — the
+// nested renderers a production-needed decl refers to must be
+// emitted into the main half alongside it.
+func (l *lowerer) markShowProd(d *core.ShowDecl) {
+	if d.Prod {
+		return
+	}
+	d.Prod = true
+	var walk func(p *core.ShowPlan)
+	walk = func(p *core.ShowPlan) {
+		if p == nil {
+			return
+		}
+		switch p.Kind {
+		case core.ShowCall:
+			l.markShowProd(p.Fn)
+		case core.ShowTuple:
+			for _, e := range p.Elems {
+				walk(e)
+			}
+		case core.ShowSlice:
+			walk(p.Elem)
+		case core.ShowRecord:
+			for i := range p.Fields {
+				walk(p.Fields[i].Plan)
+			}
+		case core.ShowSum, core.ShowResult:
+			for i := range p.Variants {
+				for j := range p.Variants[i].Fields {
+					walk(p.Variants[i].Fields[j].Plan)
+				}
+			}
+		case core.ShowScalar, core.ShowRuntime, core.ShowError:
+			// leaves — no helper to promote
+		default:
+			panic("unreachable")
+		}
+	}
+	walk(d.Plan)
+}
+
+// hasTypeVar reports whether t still mentions a declared type
+// parameter — a package-level helper cannot name `a`, so generic
+// operand types degrade to the %v recipe.
+func hasTypeVar(t types.Type) bool {
+	switch t := types.Chase(t).(type) {
+	case *types.Var:
+		return true
+	case *types.Con:
+		for _, a := range t.Args {
+			if hasTypeVar(a) {
+				return true
+			}
+		}
+	case *types.Go:
+		for _, a := range t.Args {
+			if hasTypeVar(a) {
+				return true
+			}
+		}
+	case *types.Func:
+		for _, p := range t.Params {
+			if hasTypeVar(p.Type) {
+				return true
+			}
+		}
+		return hasTypeVar(t.Ret)
+	case *types.Tuple:
+		for _, e := range t.Elems {
+			if hasTypeVar(e) {
+				return true
+			}
+		}
+	case *types.Meta:
+		// Bound metas chase away; an unbound one means the operand
+		// was never constrained — treat as opaque (%v).
+		return false
+	default:
+		panic("unreachable")
+	}
+	return false
 }
 
 // showDeclPlan builds the composite recipe a display function's body

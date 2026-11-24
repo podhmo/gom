@@ -85,11 +85,16 @@ func File(f *core.File, src []byte) (*Output, error) {
 	for _, d := range f.EqDecls {
 		main.eqDecl(d)
 	}
-	// Generated display functions live in the test half — only
-	// test code reaches for them, so production output stays free
-	// of them.
+	// Generated display functions split by reacher: production
+	// `display` splices mint Prod decls into the main half, while
+	// assert_eq-only decls stay in the test half so production
+	// output stays free of them.
 	for _, d := range f.ShowDecls {
-		test.showDecl(d)
+		if d.Prod {
+			main.showDecl(d)
+		} else {
+			test.showDecl(d)
+		}
 	}
 
 	source, sm, err := render(f.Package, main)

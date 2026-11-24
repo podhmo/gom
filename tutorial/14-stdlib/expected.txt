@@ -1,11 +1,11 @@
-mapped [2 4 6]
-evens [2 4 6]
+mapped [2, 4, 6]
+evens [2, 4, 6]
 total 12
 some 2
 none
 get 9
 some 42
 or 0
-sorted [1 2 3]
+sorted [1, 2, 3]
 member true
 some 6

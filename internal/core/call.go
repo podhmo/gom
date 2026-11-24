@@ -206,10 +206,13 @@ type CallBuiltin struct {
 	// the verdict as the pre-computed operand of rt.AssertEq. Nil
 	// for every other builtin.
 	Eq *EqPlan
-	// Show is the display recipe — set for `assert_eq` only, where
-	// it describes how the operand type renders to text so codegen
+	// Show is the display recipe — set for `assert_eq`, where it
+	// describes how the operand type renders to text so codegen
 	// emits the displayed operands of rt.AssertEq through it
-	// (docs/design.md section 4.8). Nil for every other builtin.
+	// (docs/design.md section 4.8), and for `display`, where it
+	// renders the spliced value (docs/design.md section 4.8 —
+	// composite splices reuse the gomShow machinery). Nil for
+	// every other builtin.
 	Show *ShowPlan
 }
 

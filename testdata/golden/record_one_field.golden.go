@@ -7,6 +7,7 @@ import (
 	list "github.com/podhmo/gom/stdlib/list"
 	result "github.com/podhmo/gom/stdlib/result"
 	strconv "strconv"
+	strings "strings"
 )
 
 //line record_one_field.gom:8
@@ -76,7 +77,7 @@ func main() {
 //line record_one_field.gom:32
 	tmp5 := bump(u)
 //line record_one_field.gom:32
-	tmp6 := fmt.Sprint(tmp5)
+	tmp6 := gomShow1E79ede37(tmp5)
 //line record_one_field.gom:32
 	tmp7 := eqId(u, u)
 //line record_one_field.gom:32
@@ -86,7 +87,7 @@ func main() {
 //line record_one_field.gom:32
 	tmp10 := strconv.FormatBool(tmp9)
 //line record_one_field.gom:32
-	tmp11 := fmt.Sprint(bag)
+	tmp11 := gomShow2E79ede37(bag)
 //line record_one_field.gom:32
 	tmp12 := tmp4 + " " + tmp6 + " " + tmp8 + " " + tmp10 + " " + tmp11
 //line record_one_field.gom:32
@@ -128,4 +129,43 @@ func gomEq2E79ede37(a, b list.List[int64]) bool {
 //line record_one_field.gom:26
 	return true
 //line record_one_field.gom:26
+}
+
+//line record_one_field.gom:32
+func gomShow1E79ede37(v UserId) string {
+//line record_one_field.gom:32
+	return "" + "{ " + "value = " + strconv.FormatInt(int64(v), 10) + " }"
+//line record_one_field.gom:32
+}
+
+//line record_one_field.gom:32
+func gomShow2E79ede37(v Bag) string {
+//line record_one_field.gom:32
+	return "" + "{ " + "xs = " + gomShow3E79ede37(list.List[int64](v)) + " }"
+//line record_one_field.gom:32
+}
+
+//line record_one_field.gom:32
+func gomShow3E79ede37(v list.List[int64]) string {
+//line record_one_field.gom:32
+	var sb strings.Builder
+//line record_one_field.gom:32
+	sb.WriteByte('[')
+//line record_one_field.gom:32
+	for i, e := range v {
+//line record_one_field.gom:32
+		if i > 0 {
+//line record_one_field.gom:32
+			sb.WriteString(", ")
+//line record_one_field.gom:32
+		}
+//line record_one_field.gom:32
+		sb.WriteString(strconv.FormatInt(e, 10))
+//line record_one_field.gom:32
+	}
+//line record_one_field.gom:32
+	sb.WriteByte(']')
+//line record_one_field.gom:32
+	return sb.String()
+//line record_one_field.gom:32
 }

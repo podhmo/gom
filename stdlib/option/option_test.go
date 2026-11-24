@@ -225,6 +225,8 @@ func gomShow1932b3742(v Option[int64]) string {
 //line stdlib/option/option.gom:92
 	case Option_None[int64]:
 //line stdlib/option/option.gom:92
+		_ = x
+//line stdlib/option/option.gom:92
 		return "" + "None"
 //line stdlib/option/option.gom:92
 	default:

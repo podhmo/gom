@@ -408,7 +408,7 @@ func (g *gen) callBuiltin(c *core.CallBuiltin) ast.Expr {
 		return g.strConcat(c)
 	case "display":
 		// A splice's value rendered per its static type.
-		return g.display(c.Args[0])
+		return g.display(c)
 	default:
 		panic(fmt.Sprintf("codegen: unknown builtin %q", c.Sym.Name))
 	}
@@ -433,11 +433,14 @@ func (g *gen) strConcat(c *core.CallBuiltin) ast.Expr {
 // evaluator's display format exactly (internal/eval's display: Int
 // in decimal, Float in 'g' shortest form, Char as the code point
 // itself, String unquoted). Composite values (ADTs, records, lists,
-// tuples, function values, Go types) have no generated display
-// function yet — they fall back to fmt's %v, whose rendering
-// diverges from the evaluator's comparison format
-// (docs/problems/2026-11-04-interp-composite-display.md).
-func (g *gen) display(a core.Atom) ast.Expr {
+// tuples, function values, Go types) reuse the gomShow machinery:
+// lowering fixes a Show plan on the call (design.md section 4.8),
+// so a composite splice emits the same gomShowN the test half's
+// assert_eq uses — matching the evaluator's comparison format.
+// Anything the plan leaves to the runtime still falls back to
+// fmt's %v (docs/problems/2026-11-04-interp-composite-display.md).
+func (g *gen) display(c *core.CallBuiltin) ast.Expr {
+	a := c.Args[0]
 	x := g.atom(a)
 	if con, ok := types.Chase(a.Type()).(*types.Con); ok && con.Qual == "" &&
 		!g.localT[exportName(con.Name)] {
@@ -467,6 +470,16 @@ func (g *gen) display(a core.Atom) ast.Expr {
 					&ast.BasicLit{Kind: token.INT, Value: "64"}}}
 		case "Char":
 			return &ast.CallExpr{Fun: ast.NewIdent("string"), Args: []ast.Expr{x}}
+		}
+	}
+	if p := c.Show; p != nil {
+		switch p.Kind {
+		case core.ShowCall:
+			// A composite recipe — the minted gomShowN renders
+			// the evaluator's comparison format.
+			return &ast.CallExpr{Fun: ast.NewIdent(g.symName(p.Fn.Sym)), Args: []ast.Expr{x}}
+		case core.ShowError:
+			return &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual(rtPath) + "ShowError"), Args: []ast.Expr{x}}
 		}
 	}
 	return &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual("fmt") + "Sprint"), Args: []ast.Expr{x}}

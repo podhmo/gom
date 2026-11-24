@@ -1,0 +1,11 @@
+// spec 4.5 — string interpolation renders composite values through
+// the assert_eq display recipe (decisions/2026-11-24-display-composite-gomshow).
+package main
+import go "fmt"
+type Point = { x: Int, y: Int }
+fn main () -> Unit = {
+  let p = { x = 1, y = 2 }
+  let o = Some 42
+  ignore (fmt.Println "p=${p} o=${o} l=${[1, 2]}")
+  ()
+}
