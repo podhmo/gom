@@ -18,6 +18,7 @@ operand 位置で evaluator と compiled binary の splice 出力を比較した
   `{ mode = (4294967295) };{ big = (9223372036854775808) }`
 - `splice_generic_list_runtime_fallback` — 型パラメータを残す list は compiled と同じく全体を runtime fallback に倒し、要素へ typed operand 括弧を足さない
 - `splice_try_as_named_scalar_operand` — `Go.try_as` が ctor symbol を持たない builtin Option でも payload 型を回復し、`Some (1)` と表示
+- `TestEvalRuntimeFallbackKeepsConcreteUnsignedLeaf` — 型パラメータを含む tuple の runtime fallback でも concrete uint64 leaf は `9223372036854775808` と符号なし表示を保つ
 - `go test ./internal/eval ./internal/build -count=1` 通過
 
 ## 残りの非目的

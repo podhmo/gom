@@ -2406,14 +2406,15 @@ func (e *interp) displayTyped(v Value, t types.Type) string {
 // around it cannot print the right digits unless the declared field
 // type is carried down to the leaf.
 func (e *interp) displayValueTyped(v Value, t types.Type, nested bool) string {
-	// A composite type that still mentions a type parameter cannot
-	// mint a package-level renderer in compiled code either: the whole
-	// value degrades to ShowRuntime there. Do not recursively apply
-	// typed operand parentheses inside that fallback — `${[x]}` in a
-	// generic helper is compiled's `%v` list, not a typed List renderer.
-	if typeHasVar(t) {
-		return display(v)
-	}
+	return e.displayValueTypedMode(v, t, nested, typeHasVar(t))
+}
+
+// displayValueTypedMode carries scalar types even through the runtime
+// fallback. The fallback must not gain typed operand parentheses, but
+// concrete leaves inside it are still machine-typed Go values — a
+// uint64-backed field next to a type parameter must not print its
+// high bit pattern as a negative signed integer.
+func (e *interp) displayValueTypedMode(v Value, t types.Type, nested, runtimeFallback bool) string {
 	if f, ok := v.(*VFloat); ok {
 		if w := e.floatOperandWidth(t); w == 32 {
 			return strconv.FormatFloat(f.F, 'g', -1, 32)
@@ -2434,19 +2435,19 @@ func (e *interp) displayValueTyped(v Value, t types.Type, nested bool) string {
 	}
 	switch v := v.(type) {
 	case *VRecord:
-		if s, ok := e.recordDisplayTyped(v, t); ok {
+		if s, ok := e.recordDisplayTyped(v, t, runtimeFallback); ok {
 			return s
 		}
 	case *VTuple:
-		if s, ok := e.tupleDisplayTyped(v, t); ok {
+		if s, ok := e.tupleDisplayTyped(v, t, runtimeFallback); ok {
 			return s
 		}
 	case *VList:
-		if s, ok := e.listDisplayTyped(v, t); ok {
+		if s, ok := e.listDisplayTyped(v, t, runtimeFallback); ok {
 			return s
 		}
 	case *VVariant:
-		if s, ok := e.variantDisplayTyped(v, t); ok {
+		if s, ok := e.variantDisplayTyped(v, t, runtimeFallback); ok {
 			return s
 		}
 	}
@@ -2558,11 +2559,35 @@ func (e *interp) typedOperandParen(v Value, t types.Type) bool {
 // codegen's showOperand: the same type-driven decision, with scalar
 // leaves still rendered by displayValueTyped.
 func (e *interp) writeTypedOperand(sb *strings.Builder, v Value, t types.Type) {
+	e.writeOperandMode(sb, v, t, false)
+}
+
+// writeRuntimeOperand is the operand writer inside a whole-value
+// runtime fallback: parentheses follow the value-shaped legacy rule,
+// while scalar contents still use whatever concrete static type the
+// fallback position carries.
+func (e *interp) writeRuntimeOperand(sb *strings.Builder, v Value, t types.Type) {
+	e.writeOperandMode(sb, v, t, true)
+}
+
+func (e *interp) writeOperandMode(sb *strings.Builder, v Value, t types.Type, runtimeFallback bool) {
 	paren := e.typedOperandParen(v, t)
+	if runtimeFallback {
+		switch v.(type) {
+		case *VTuple, *VList:
+			paren = false
+		case *VUnit, *VBool, *VInt, *VFloat, *VChar, *VStr:
+			paren = false
+		case *VRecord, *VVariant, *VGoErr, *VHost, *VFunc:
+			paren = true
+		default:
+			panic("unreachable")
+		}
+	}
 	if paren {
 		sb.WriteByte('(')
 	}
-	sb.WriteString(e.displayValueTyped(v, t, true))
+	sb.WriteString(e.displayValueTypedMode(v, t, true, runtimeFallback))
 	if paren {
 		sb.WriteByte(')')
 	}
@@ -2570,7 +2595,7 @@ func (e *interp) writeTypedOperand(sb *strings.Builder, v Value, t types.Type) {
 
 // recordDisplayTyped formats a record through its declared field
 // types.
-func (e *interp) recordDisplayTyped(r *VRecord, t types.Type) (string, bool) {
+func (e *interp) recordDisplayTyped(r *VRecord, t types.Type, runtimeFallback bool) (string, bool) {
 	ri := e.recordOf(r.Type)
 	if ri == nil {
 		return "", false
@@ -2598,7 +2623,11 @@ func (e *interp) recordDisplayTyped(r *VRecord, t types.Type) (string, bool) {
 			}
 		}
 		if ft != nil {
-			e.writeTypedOperand(&sb, f.V, ft)
+			if runtimeFallback {
+				e.writeRuntimeOperand(&sb, f.V, ft)
+			} else {
+				e.writeTypedOperand(&sb, f.V, ft)
+			}
 		} else {
 			writeOperand(&sb, f.V)
 		}
@@ -2609,7 +2638,7 @@ func (e *interp) recordDisplayTyped(r *VRecord, t types.Type) (string, bool) {
 
 // tupleDisplayTyped formats tuple elements through their static
 // element types.
-func (e *interp) tupleDisplayTyped(v *VTuple, t types.Type) (string, bool) {
+func (e *interp) tupleDisplayTyped(v *VTuple, t types.Type, runtimeFallback bool) (string, bool) {
 	tp, ok := types.Chase(t).(*types.Tuple)
 	if !ok || len(tp.Elems) != len(v.Elems) {
 		return "", false
@@ -2620,7 +2649,11 @@ func (e *interp) tupleDisplayTyped(v *VTuple, t types.Type) (string, bool) {
 		if i > 0 {
 			sb.WriteString(", ")
 		}
-		e.writeTypedOperand(&sb, x, tp.Elems[i])
+		if runtimeFallback {
+			e.writeRuntimeOperand(&sb, x, tp.Elems[i])
+		} else {
+			e.writeTypedOperand(&sb, x, tp.Elems[i])
+		}
 	}
 	sb.WriteByte(')')
 	return sb.String(), true
@@ -2628,7 +2661,7 @@ func (e *interp) tupleDisplayTyped(v *VTuple, t types.Type) (string, bool) {
 
 // listDisplayTyped formats list elements through the static List
 // element type.
-func (e *interp) listDisplayTyped(v *VList, t types.Type) (string, bool) {
+func (e *interp) listDisplayTyped(v *VList, t types.Type, runtimeFallback bool) (string, bool) {
 	el := listElemType(t)
 	if el == nil {
 		return "", false
@@ -2639,7 +2672,11 @@ func (e *interp) listDisplayTyped(v *VList, t types.Type) (string, bool) {
 		if i > 0 {
 			sb.WriteString(", ")
 		}
-		e.writeTypedOperand(&sb, x, el)
+		if runtimeFallback {
+			e.writeRuntimeOperand(&sb, x, el)
+		} else {
+			e.writeTypedOperand(&sb, x, el)
+		}
 	}
 	sb.WriteByte(']')
 	return sb.String(), true
@@ -2675,7 +2712,7 @@ func (e *interp) displayCtorInfo(v *VVariant) *ctorInfo {
 // constructor's declared field types instantiated at the splice's
 // static type — the same substitution discipline typedDisplayValue
 // uses to reshape literal-conformed payloads.
-func (e *interp) variantDisplayTyped(v *VVariant, t types.Type) (string, bool) {
+func (e *interp) variantDisplayTyped(v *VVariant, t types.Type, runtimeFallback bool) (string, bool) {
 	con, ok := types.Chase(t).(*types.Con)
 	if !ok {
 		return "", false
@@ -2706,7 +2743,11 @@ func (e *interp) variantDisplayTyped(v *VVariant, t types.Type) (string, bool) {
 			}
 		}
 		if ft != nil {
-			e.writeTypedOperand(&sb, f.V, ft)
+			if runtimeFallback {
+				e.writeRuntimeOperand(&sb, f.V, ft)
+			} else {
+				e.writeTypedOperand(&sb, f.V, ft)
+			}
 		} else {
 			writeOperand(&sb, f.V)
 		}

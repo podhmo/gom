@@ -2291,11 +2291,37 @@ let w = Score 42
 	},
 }
 
+// TestEvalRuntimeFallbackKeepsConcreteUnsignedLeaf pins scalar type
+// retention inside a whole-value runtime fallback: the tuple itself
+// cannot mint a typed renderer, but its concrete uint64-backed leaf
+// must still print unsigned.
+func TestEvalRuntimeFallbackKeepsConcreteUnsignedLeaf(t *testing.T) {
+	src := `package main
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+fn show (x: a) -> String = {
+  let big : goiface.Big = 9223372036854775808
+  "${(x, big)}"
+}
+fn answer () -> String = show 1
+`
+	r, err := build.Compile(build.Input{Path: "runtime_unsigned.gom", Src: []byte(src)}, suiteOptions())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Diagnostics.HasError() {
+		t.Fatalf("diagnostics: %v", r.Diagnostics)
+	}
+	if got, want := evalAnswer(t, r, src), "(1, 9223372036854775808)"; got != want {
+		t.Fatalf("eval display = %q, want %q", got, want)
+	}
+}
+
 // TestEvalUnsignedRecordShape pins the evaluator half of the lane C
 // review fix without involving compiled nested parentheses: unsigned
 // formatting must happen after the declared one-field record shape is
-// restored. Compiled nested foreign-scalar parentheses are wave46
-// lane A's separate canonicalization.
+// restored.
 func TestEvalUnsignedRecordShape(t *testing.T) {
 	src := `package main
 
