@@ -4,6 +4,8 @@ package main
 
 import (
 	json "encoding/json"
+	errors "errors"
+	fmt "fmt"
 	rt "github.com/podhmo/gom/rt"
 	list "github.com/podhmo/gom/stdlib/list"
 	option "github.com/podhmo/gom/stdlib/option"
@@ -12,249 +14,305 @@ import (
 	strings "strings"
 )
 
-//line go_any.gom:13
+//line go_any.gom:15
 var x any = func() any {
-//line go_any.gom:13
+//line go_any.gom:15
 	tmp1 := int64(42)
-//line go_any.gom:13
+//line go_any.gom:15
 	return any(tmp1)
-//line go_any.gom:13
+//line go_any.gom:15
 }()
 
-//line go_any.gom:14
+//line go_any.gom:16
 var s any = any("text")
 
-//line go_any.gom:15
+//line go_any.gom:17
 var n option.Option[any] = option.Option_None[any]{}
 
-//line go_any.gom:16
+//line go_any.gom:18
 var o option.Option[any] = func() option.Option[any] {
-//line go_any.gom:16
+//line go_any.gom:18
 	tmp2 := int64(7)
-//line go_any.gom:16
+//line go_any.gom:18
 	tmp3 := any(tmp2)
-//line go_any.gom:16
+//line go_any.gom:18
 	return option.Option_Some[any]{V0: tmp3}
-//line go_any.gom:16
+//line go_any.gom:18
 }()
 
-//line go_any.gom:17
+//line go_any.gom:19
 var r result.Result[any, error] = func() result.Result[any, error] {
-//line go_any.gom:17
+//line go_any.gom:19
 	tmp4 := int64(3)
-//line go_any.gom:17
+//line go_any.gom:19
 	tmp5 := any(tmp4)
-//line go_any.gom:17
+//line go_any.gom:19
 	return result.Ok[any, error](tmp5)
-//line go_any.gom:17
+//line go_any.gom:19
 }()
 
-//line go_any.gom:18
+//line go_any.gom:20
 var l list.List[any] = func() list.List[any] {
-//line go_any.gom:18
+//line go_any.gom:20
 	tmp6 := int64(1)
-//line go_any.gom:18
+//line go_any.gom:20
 	tmp7 := any(tmp6)
-//line go_any.gom:18
+//line go_any.gom:20
 	tmp8 := int64(2)
-//line go_any.gom:18
+//line go_any.gom:20
 	tmp9 := any(tmp8)
-//line go_any.gom:18
+//line go_any.gom:20
 	return list.List[any]{tmp7, tmp9}
-//line go_any.gom:18
+//line go_any.gom:20
 }()
 
-//line go_any.gom:20
+//line go_any.gom:22
 func id(a any) any {
-//line go_any.gom:20
+//line go_any.gom:22
 	return a
-//line go_any.gom:20
+//line go_any.gom:22
 }
 
-//line go_any.gom:21
+//line go_any.gom:23
 func box(_ struct{}) any {
-//line go_any.gom:21
+//line go_any.gom:23
 	return any("s")
-//line go_any.gom:21
+//line go_any.gom:23
 }
 
-//line go_any.gom:22
+//line go_any.gom:24
 func boxok(_ struct{}) result.Result[any, error] {
-//line go_any.gom:22
+//line go_any.gom:24
 	tmp10 := int64(9)
-//line go_any.gom:22
+//line go_any.gom:24
 	tmp11 := any(tmp10)
-//line go_any.gom:22
+//line go_any.gom:24
 	return result.Ok[any, error](tmp11)
-//line go_any.gom:22
+//line go_any.gom:24
 }
 
-//line go_any.gom:24
+//line go_any.gom:26
 func tok(_ struct{}) result.Result[any, error] {
-//line go_any.gom:25
+//line go_any.gom:27
 	tmp12 := strings.NewReader("{}")
-//line go_any.gom:25
+//line go_any.gom:27
 	tmp13 := io.Reader(tmp12)
-//line go_any.gom:25
+//line go_any.gom:27
 	dec := json.NewDecoder(tmp13)
-//line go_any.gom:26
+//line go_any.gom:28
 	t_, err := dec.Token()
-//line go_any.gom:26
+//line go_any.gom:28
 	if err != nil {
-//line go_any.gom:26
+//line go_any.gom:28
 		return result.Err[any, error](err)
+//line go_any.gom:28
+	}
+//line go_any.gom:29
+	return result.Ok[any, error](t_)
 //line go_any.gom:26
-	}
-//line go_any.gom:27
-	tmp14 := any(t_)
-//line go_any.gom:27
-	return result.Ok[any, error](tmp14)
-//line go_any.gom:24
 }
 
-//line go_any.gom:30
+//line go_any.gom:32
 func takes(xs list.List[any]) struct{} {
-//line go_any.gom:30
+//line go_any.gom:32
 	_ = xs
-//line go_any.gom:30
+//line go_any.gom:32
 	return struct{}{}
-//line go_any.gom:30
+//line go_any.gom:32
 }
 
-//line go_any.gom:39
+//line go_any.gom:41
 func g(x1 int64) any {
-//line go_any.gom:39
-	tmp15 := int64(1)
-//line go_any.gom:39
-	return any(tmp15)
-//line go_any.gom:39
+//line go_any.gom:41
+	tmp14 := int64(1)
+//line go_any.gom:41
+	return any(tmp14)
+//line go_any.gom:41
 }
 
-//line go_any.gom:40
+//line go_any.gom:42
 func feq(a any) bool {
-//line go_any.gom:40
-	tmp16 := int64(42)
-//line go_any.gom:40
-	tmp17 := any(tmp16)
-//line go_any.gom:40
-	return rt.Equal(a, tmp17)
-//line go_any.gom:40
+//line go_any.gom:42
+	tmp15 := int64(42)
+//line go_any.gom:42
+	tmp16 := any(tmp15)
+//line go_any.gom:42
+	return rt.Equal(a, tmp16)
+//line go_any.gom:42
 }
 
-//line go_any.gom:44
+//line go_any.gom:46
 func feq2(a any) bool {
-//line go_any.gom:44
-	tmp18 := int64(42)
-//line go_any.gom:44
-	tmp19 := any(tmp18)
-//line go_any.gom:44
-	return rt.Equal(tmp19, a)
-//line go_any.gom:44
+//line go_any.gom:46
+	tmp17 := int64(42)
+//line go_any.gom:46
+	tmp18 := any(tmp17)
+//line go_any.gom:46
+	return rt.Equal(tmp18, a)
+//line go_any.gom:46
 }
 
-//line go_any.gom:45
+//line go_any.gom:47
 func fne(a any) bool {
-//line go_any.gom:45
-	tmp20 := any("s")
-//line go_any.gom:45
-	return !rt.Equal(tmp20, a)
-//line go_any.gom:45
+//line go_any.gom:47
+	tmp19 := any("s")
+//line go_any.gom:47
+	return !rt.Equal(tmp19, a)
+//line go_any.gom:47
 }
 
-//line go_any.gom:46
+//line go_any.gom:48
 func m42(a any) string {
-//line go_any.gom:46
+//line go_any.gom:48
 	switch a {
-//line go_any.gom:46
+//line go_any.gom:48
 	case int64(42):
-//line go_any.gom:46
+//line go_any.gom:48
 		return "forty"
-//line go_any.gom:46
+//line go_any.gom:48
 	default:
-//line go_any.gom:46
+//line go_any.gom:48
 		return "other"
-//line go_any.gom:46
+//line go_any.gom:48
 	}
-//line go_any.gom:46
+//line go_any.gom:48
 }
 
-//line go_any.gom:47
+//line go_any.gom:49
 func mSome(o1 option.Option[any]) string {
-//line go_any.gom:47
+//line go_any.gom:49
 	switch v := o1.(type) {
-//line go_any.gom:47
+//line go_any.gom:49
 	case option.Option_Some[any]:
-//line go_any.gom:47
-		tmp21 := v
-//line go_any.gom:47
-		switch tmp21.V0 {
-//line go_any.gom:47
+//line go_any.gom:49
+		tmp20 := v
+//line go_any.gom:49
+		switch tmp20.V0 {
+//line go_any.gom:49
 		case int64(42):
-//line go_any.gom:47
+//line go_any.gom:49
 			return "forty"
-//line go_any.gom:47
+//line go_any.gom:49
 		default:
-//line go_any.gom:47
+//line go_any.gom:49
 			return "other"
-//line go_any.gom:47
+//line go_any.gom:49
 		}
-//line go_any.gom:47
+//line go_any.gom:49
 	case option.Option_None[any]:
-//line go_any.gom:47
+//line go_any.gom:49
 		return "other"
-//line go_any.gom:47
+//line go_any.gom:49
 	default:
-//line go_any.gom:47
+//line go_any.gom:49
 		panic(rt.InvalidVariant("Option", o1))
-//line go_any.gom:47
+//line go_any.gom:49
 	}
-//line go_any.gom:47
+//line go_any.gom:49
 }
 
-//line go_any.gom:48
+//line go_any.gom:50
 func take(l1 []string) int64 {
-//line go_any.gom:48
+//line go_any.gom:50
 	return rt.SliceLen[string](l1)
-//line go_any.gom:48
+//line go_any.gom:50
 }
 
-//line go_any.gom:50
-func main() {
-//line go_any.gom:51
-	tmp22 := int64(5)
-//line go_any.gom:51
-	tmp23 := any(tmp22)
-//line go_any.gom:51
-	tmp24 := list.List[any]{tmp23}
-//line go_any.gom:51
-	takes(tmp24)
-//line go_any.gom:52
-	id(x)
-//line go_any.gom:53
-	box(struct{}{})
-//line go_any.gom:54
-	boxok(struct{}{})
 //line go_any.gom:55
-	tok(struct{}{})
-//line go_any.gom:56
-	g(0)
-//line go_any.gom:57
-	feq(x)
-//line go_any.gom:58
-	feq2(x)
+func wraperr(e error) error {
+//line go_any.gom:55
+	v1 := fmt.Errorf("wrap: %w", e)
+//line go_any.gom:55
+	if v1 == nil {
+//line go_any.gom:55
+		panic("gom: fmt.Errorf returned nil error — its binding declares a never-nil GoError result")
+//line go_any.gom:55
+	}
+//line go_any.gom:55
+	return v1
+//line go_any.gom:55
+}
+
 //line go_any.gom:59
-	fne(s)
-//line go_any.gom:60
-	m42(s)
+func wraperrPipe(e error) error {
+//line go_any.gom:59
+	v2 := fmt.Errorf("wrap: %w", e)
+//line go_any.gom:59
+	if v2 == nil {
+//line go_any.gom:59
+		panic("gom: fmt.Errorf returned nil error — its binding declares a never-nil GoError result")
+//line go_any.gom:59
+	}
+//line go_any.gom:59
+	return v2
+//line go_any.gom:59
+}
+
 //line go_any.gom:61
+func main() {
+//line go_any.gom:62
+	tmp21 := int64(5)
+//line go_any.gom:62
+	tmp22 := any(tmp21)
+//line go_any.gom:62
+	tmp23 := list.List[any]{tmp22}
+//line go_any.gom:62
+	takes(tmp23)
+//line go_any.gom:63
+	id(x)
+//line go_any.gom:64
+	box(struct{}{})
+//line go_any.gom:65
+	boxok(struct{}{})
+//line go_any.gom:66
+	tok(struct{}{})
+//line go_any.gom:67
+	g(0)
+//line go_any.gom:68
+	feq(x)
+//line go_any.gom:69
+	feq2(x)
+//line go_any.gom:70
+	fne(s)
+//line go_any.gom:71
+	m42(s)
+//line go_any.gom:72
 	mSome(o)
-//line go_any.gom:62
-	tmp25 := list.List[string]{"a", "b"}
-//line go_any.gom:62
-	tmp26 := tmp25.ToSlice()
-//line go_any.gom:62
-	take(tmp26)
-//line go_any.gom:62
+//line go_any.gom:73
+	tmp24 := list.List[string]{"a", "b"}
+//line go_any.gom:73
+	tmp25 := tmp24.ToSlice()
+//line go_any.gom:73
+	take(tmp25)
+//line go_any.gom:74
+	var tmp26 error
+//line go_any.gom:74
+	v3 := errors.New("boom")
+//line go_any.gom:74
+	if v3 == nil {
+//line go_any.gom:74
+		panic("gom: errors.New returned nil error — its binding declares a never-nil GoError result")
+//line go_any.gom:74
+	}
+//line go_any.gom:74
+	tmp26 = v3
+//line go_any.gom:74
+	wraperr(tmp26)
+//line go_any.gom:75
+	var tmp27 error
+//line go_any.gom:75
+	v4 := errors.New("boom")
+//line go_any.gom:75
+	if v4 == nil {
+//line go_any.gom:75
+		panic("gom: errors.New returned nil error — its binding declares a never-nil GoError result")
+//line go_any.gom:75
+	}
+//line go_any.gom:75
+	tmp27 = v4
+//line go_any.gom:75
+	wraperrPipe(tmp27)
+//line go_any.gom:75
 	_ = struct{}{}
-//line go_any.gom:50
+//line go_any.gom:61
 }

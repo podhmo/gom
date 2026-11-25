@@ -54,9 +54,7 @@ func main() {
 //line method_result.gom:23
 	w := io.Writer(c)
 //line method_result.gom:24
-	tmp1 := any(w)
-//line method_result.gom:24
-	v, err := fmt.Println(tmp1)
+	v, err := fmt.Println(w)
 //line method_result.gom:24
 	_ = result.FromGo(int64(v), err)
 //line method_result.gom:24

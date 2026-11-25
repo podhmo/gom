@@ -8,3 +8,4 @@ jsoncfg/*.go
 csvtojson/*.go
 httpfetch/*.go
 datemath/*.go
+errwalk/*.go

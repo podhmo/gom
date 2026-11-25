@@ -89,21 +89,15 @@ func main() {
 //line method_iface.gom:35
 	}
 //line method_iface.gom:35
-	tmp3 := any(tmp2)
-//line method_iface.gom:35
-	v, err := fmt.Println(tmp3)
+	v, err := fmt.Println(tmp2)
 //line method_iface.gom:35
 	_ = result.FromGo(int64(v), err)
 //line method_iface.gom:36
-	tmp4 := any(st)
-//line method_iface.gom:36
-	v1, err1 := fmt.Println(tmp4)
+	v1, err1 := fmt.Println(st)
 //line method_iface.gom:36
 	_ = result.FromGo(int64(v1), err1)
 //line method_iface.gom:37
-	tmp5 := any(e)
-//line method_iface.gom:37
-	v2, err2 := fmt.Println(tmp5)
+	v2, err2 := fmt.Println(e)
 //line method_iface.gom:37
 	_ = result.FromGo(int64(v2), err2)
 //line method_iface.gom:37
