@@ -2298,6 +2298,7 @@ let w = Score 42
 func TestEvalRuntimeFallbackKeepsConcreteUnsignedLeaf(t *testing.T) {
 	src := `package main
 
+import go "fmt"
 import go "github.com/podhmo/gom/testdata/goiface"
 
 fn show (x: a) -> String = {
@@ -2305,6 +2306,7 @@ fn show (x: a) -> String = {
   "${(x, big)}"
 }
 fn answer () -> String = show 1
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 `
 	r, err := build.Compile(build.Input{Path: "runtime_unsigned.gom", Src: []byte(src)}, suiteOptions())
 	if err != nil {
@@ -2315,6 +2317,17 @@ fn answer () -> String = show 1
 	}
 	if got, want := evalAnswer(t, r, src), "(1, 9223372036854775808)"; got != want {
 		t.Fatalf("eval display = %q, want %q", got, want)
+	}
+	gobin, err := lookupGo(t)
+	if err != nil {
+		t.Skip(err)
+	}
+	out, err := runCompiledCmd(t, gobin, r.Output.Source)
+	if err != nil {
+		t.Fatalf("compiled run: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "9223372036854775808") || strings.Contains(out, "-9223372036854775808") {
+		t.Fatalf("compiled stdout does not preserve the unsigned digits: %q", out)
 	}
 }
 
