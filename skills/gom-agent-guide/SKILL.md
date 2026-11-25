@@ -274,6 +274,29 @@ let summary =
   |> classify
 ```
 
+A **multi-line function application** does NOT continue by
+indentation — `List.fold\n  (fn ...)\n  acc\n  xs` splits after
+`List.fold` (it can end an expression). Inside a block each
+following line becomes a separate item (E0402/E0407); at file
+scope the stray lines are rejected as declarations (E0101). Write
+it either as a pipeline (the stdlib takes data last, so it usually
+fits):
+
+```gom
+let r =
+  [1, 2, 3]
+  |> List.fold (fn acc x -> acc + x) 0
+```
+
+or wrap the whole application in `( )`:
+
+```gom
+let r = (List.fold
+  (fn acc x -> acc + x)
+  0
+  [1, 2, 3])
+```
+
 ## The one-file program
 
 ```gom

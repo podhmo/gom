@@ -1950,7 +1950,7 @@
 
 - [ ] **引数なし `@extern fn name () -> T` の `name(struct{}{})` 規約が spec に例示されていない**: spec の `@extern` 規則と Unit 呼出し規則（`f(struct{}{})`）は定められているが、Go 側を `func name(_ struct{})` で受ける必要があることは extern 節に例がなく読み取りづらい（selfish 移植 — 同上 sketch）
 
-- [ ] **カリー適用の複数行記述がパースに弱い**: `List.fold\n  (fn ...)\n  acc\n  xs` で E0401 — lambda を `let` に取り出すと解決するが書き味として引っかかる（selfish 移植 — 同上 sketch）
+- [x] **カリー適用の複数行記述がパースに弱い**: `List.fold\n  (fn ...)\n  acc\n  xs` で E0401 — 文法（NL-2）を変えず慣例で解決すると決定（`|`>` パイプライン or 適用全体を `( )` で括る）。`(`/`[` の line-start 追加は `()` 終端ブロック等を壊すため却下。guide に記述追加（wave44 lane G、[decision](decisions/2026-11-24-multiline-application.md)）
 
 - [ ] **無名レコードの `List.fold` acc は型推論が通らない（E0407）**: named type（`type GistAcc = {...}`）が必須。record literal の曖昧さ E0407 の open question と同系統の DX 摩擦（selfish 移植 — 同上 sketch）
 
