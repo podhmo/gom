@@ -85,6 +85,22 @@ func (r Report) WriteText(w io.Writer, res Resolver, opts TextOptions) error {
 			return fmt.Errorf("diag: cannot emit diagnostics[%d]: %w", i, err)
 		}
 	}
+	// rustc's --explain trailer: the code table ships inside the
+	// binary, but nothing else tells the user — one line per
+	// distinct error code after the diagnostic blocks (wave46
+	// lane E).
+	seen := map[Code]bool{}
+	for i := range diags {
+		d := diags[i]
+		if d.Severity != SeverityError || seen[d.Code] {
+			continue
+		}
+		if _, ok := LookupCode(d.Code); !ok {
+			continue
+		}
+		seen[d.Code] = true
+		tw.printf("For more information about this error, run `gom explain %s`.\n", d.Code)
+	}
 	if len(diags) > 0 {
 		tw.printf("\n")
 	}

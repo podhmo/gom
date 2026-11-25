@@ -33,6 +33,7 @@ func TestWriteTextSingleLine(t *testing.T) {
    |
 1  | let x = 1 + "a"
    |             ^^^
+For more information about this error, run ` + "`" + `gom explain E0401` + "`" + `.
 
 error: aborting due to previous error
 `
@@ -66,6 +67,7 @@ func TestWriteTextMultiLine(t *testing.T) {
    | ^^^
    |
    = note: arms with guards do not count toward exhaustiveness
+For more information about this error, run ` + "`" + `gom explain E0301` + "`" + `.
 
 error: aborting due to previous error
 `
@@ -116,6 +118,7 @@ func TestWriteTextPointSpan(t *testing.T) {
    |
 1  | abcdef
    |   ^
+For more information about this error, run ` + "`" + `gom explain E0001` + "`" + `.
 
 error: aborting due to previous error
 `
@@ -139,6 +142,7 @@ func TestWriteTextSpanEndAtLineStart(t *testing.T) {
    |
 2  | cd
    | ^^^
+For more information about this error, run ` + "`" + `gom explain E0001` + "`" + `.
 
 error: aborting due to previous error
 `
@@ -163,6 +167,7 @@ func TestWriteTextNonASCII(t *testing.T) {
    |
 1  | let s = "あいう"
    |          ^^^
+For more information about this error, run ` + "`" + `gom explain E0001` + "`" + `.
 
 error: aborting due to previous error
 `
@@ -185,6 +190,7 @@ func TestWriteTextTab(t *testing.T) {
    |
 1  | f    x
    |      ^
+For more information about this error, run ` + "`" + `gom explain E0001` + "`" + `.
 
 error: aborting due to previous error
 `
@@ -206,6 +212,7 @@ func TestWriteTextPositionless(t *testing.T) {
 	want := `error[E0203]: cannot resolve import "no/such/pkg"
    = note: the package was not found
    = help: check the import path
+For more information about this error, run ` + "`" + `gom explain E0203` + "`" + `.
 
 error: aborting due to previous error
 `
@@ -237,6 +244,7 @@ func TestWriteTextNotesAndFixes(t *testing.T) {
            second line
    = help: poke it (unsafe)
    = help: fill the hole (placeholder)
+For more information about this error, run ` + "`" + `gom explain E0001` + "`" + `.
 
 error: aborting due to previous error
 `

@@ -858,6 +858,8 @@ test "parse then sum" {
 7. 出力の JSON Schema は `gom schema` で取り出せる。互換性のない変更をしたらスキーマのバージョンを上げる
 8. `summary` の `ok` は error 診断がなく失敗したテストもないときだけ `true`。`gom test` の summary にはテストの集計として `"tests": {"run": N, "failed": N, "skipped": N}` が付く（他のコマンドでは `tests` 自体がない）
 9. ファイル内ディレクティブ `//gom:allow <code>...` は、そのファイルで発火した指定コードの診断を緩和する。error コードは relaxable フラグの付いたものだけが対象で、error から warning に格下げされる（初期は E0301・E0302 — 欠けた腕は生成コードで panic、到達不能腕は落とされるので、局所的に回復できる）。格下げされても診断はコード付きで報告に残り、silent にはならない。warning コードは下げる段がないため、指定するとその warning を報告から除く（W0901 のような意図的な握り潰しの沈黙用）。登録外のコード、relaxable でない error コード、コードの無い行は W0003 で報告する
+11. `--format text` の表示では、error 診断のブロック群のあとにコードごと1行の誘導 `For more information about this error, run `gom explain <code>`.` を出す — 詳細な説明（`explanation`）はバイナリ内蔵のコードテーブルが持ち、`gom explain` でいつでも引ける
+
 10. `--strict`（`gom check` / `gom build` / `gom test`）は warning 診断が残っていると終了コードを 1 にする（CI で warning 残置を禁じる用途）。`--strict=E0301,W0501` のようにコード列を付けると、そのコードの warning があるときだけ失敗する。warning の severity 自体は変わらない — 厳しくなるのは終了コードだけ
 
 | コマンド | 出力するメッセージの `kind` |
