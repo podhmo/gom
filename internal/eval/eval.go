@@ -904,10 +904,31 @@ func goFieldValue(v Value, t reflect.Type) (reflect.Value, bool) {
 		return reflect.Value{}, false
 	}
 	rv := reflect.ValueOf(x)
-	if !rv.IsValid() || !rv.Type().AssignableTo(t) {
+	if !rv.IsValid() {
 		return reflect.Value{}, false
 	}
-	return rv, true
+	if rv.Type().AssignableTo(t) {
+		return rv, true
+	}
+	// Lowering writes the boundary conversion into generated Go
+	// (`uint(x)` for a raw uint field, `pkg.Mode(x)` for a named
+	// numeric field). Mirror that conversion here: the checker has
+	// already admitted the numeric pair, while the eval value keeps
+	// only its machine representation.
+	if numericReflectKind(rv.Type().Kind()) && numericReflectKind(t.Kind()) && rv.Type().ConvertibleTo(t) {
+		return rv.Convert(t), true
+	}
+	return reflect.Value{}, false
+}
+
+func numericReflectKind(k reflect.Kind) bool {
+	switch k {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+		reflect.Float32, reflect.Float64:
+		return true
+	}
+	return false
 }
 
 // evalMember handles `recv.sel`: record/variant field access, module
