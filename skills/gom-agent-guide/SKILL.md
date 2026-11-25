@@ -821,7 +821,7 @@ fn main () -> Unit = ignore (work true)
 - A `.gomi` promises non-escaping parameters with a
   `//gom:noescape <name> <index>...` directive comment; `gom info`
   drafts it from bodies and, on regeneration, carries the prior line
-  for an extern `fn`/function-typed extern `let` in the same package
+  for an extern `fn`/function-typed extern `let` in the same package directory
   whose canonical signature is unchanged — a rewritten signature
   invalidates the old positional claim. No directive means
   "assume escaping". The directive

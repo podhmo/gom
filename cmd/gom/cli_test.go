@@ -1710,6 +1710,11 @@ fn keep (f: Unit -> Unit) -> Unit
 //gom:noescape keep 0
 fn keep (f: Unit -> Unit) -> Unit
 `,
+		"elsewhere/lib.gomi": `package lib
+
+//gom:noescape keep 0
+fn keep (f: Unit -> Unit) -> Unit
+`,
 	})
 	outPath := filepath.Join(dir, "lib", "draft.gomi")
 	code, out, errout := invoke("info", "-o", outPath, filepath.Join(dir, "lib"))
@@ -1735,6 +1740,19 @@ fn keep (f: Unit -> Unit) -> Unit
 	}
 	if strings.Contains(string(b), "//gom:noescape keep") {
 		t.Errorf("draft inherited extern guarantees across a package boundary:\n%s", b)
+	}
+
+	elsewherePath := filepath.Join(dir, "elsewhere", "lib.gomi")
+	code, out, errout = invoke("info", "-o", elsewherePath, filepath.Join(dir, "lib"))
+	if code != 0 {
+		t.Fatalf("gom info -o same-named package draft elsewhere: exit %d; stderr=%q stdout=%q", code, errout, out)
+	}
+	b, err = os.ReadFile(elsewherePath)
+	if err != nil {
+		t.Fatalf("same-named output not written: %v", err)
+	}
+	if strings.Contains(string(b), "//gom:noescape keep") {
+		t.Errorf("draft inherited extern guarantees from a same-named package in another directory:\n%s", b)
 	}
 }
 

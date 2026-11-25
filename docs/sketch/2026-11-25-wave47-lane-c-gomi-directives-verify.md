@@ -40,7 +40,7 @@ fn leak (f: Unit -> Unit) -> Unit -> Unit
 `TestInfoAlternateOutputSeedsItsOwnDirectives` で固定した。明示した出力
 ファイルが既にある場合は canonical `.gomi` ではなくそのファイルを seed に
 読むため、alternate draft だけに書いた extern directive が上書き後も残る。
-ただし seed の package clause が違う場合は実装の保証を別 package へ移植できない
+ただし seed の package directory が違う場合は実装の保証を別 package へ移植できない（同名 package でも別 directory は別 package）
 ため引き継がない。
 
 formatter の regression も同じ lane で固定した。`gom fmt` は interface の
@@ -61,3 +61,5 @@ canonical 化する。
 - abstract/private 化の意図保持
 - directive の attachment（宣言直上の連続コメント run）を scan 側で
   厳密に解釈するか — spec と現行 scan のずれとして implementation-gaps に登録
+
+- 2026-11-25 review round 3: 別 directory にある同名 `package lib` の `lib.gomi` を `-o` seed に使っても directive を引き継がないことを `TestInfoAlternateOutputSeedsItsOwnDirectives` に追加した。

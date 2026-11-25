@@ -497,8 +497,15 @@ func runInfo(args []string, stdout, stderr io.Writer) int {
 		// Ordinary declarations are re-inferred from their bodies.
 		priorPath := filepath.Join(g.dir, g.name+".gomi")
 		if *out != "" && *out != "-" {
-			if _, err := os.Stat(dst); err == nil {
-				priorPath = dst
+			// Package identity is directory identity in Go. A same-named
+			// .gomi elsewhere is still another package, so its author-
+			// maintained escape guarantees must not seed this one.
+			absDst, dstErr := filepath.Abs(dst)
+			absDir, dirErr := filepath.Abs(g.dir)
+			if dstErr == nil && dirErr == nil && filepath.Dir(absDst) == absDir {
+				if _, err := os.Stat(dst); err == nil {
+					priorPath = dst
+				}
 			}
 		}
 		var prior []byte

@@ -22,9 +22,10 @@ wave47 lane C）。
   stale な保証を残さないため
 - `@extern fn` と関数型の `@extern let` は本体を検査できないので、既存
   `.gomi` の同名メンバの `//gom:noescape` / `//gom:result-notaint` を
-  再生成後のシグネチャへ引き継ぐ。ただし引き継ぎ元は同じ package の
-  interface に限る — `gom info -o` で別 package の draft を seed に使っても
-  保証を移植しない。さらに directive の index は位置への
+  再生成後のシグネチャへ引き継ぐ。ただし引き継ぎ元は同じ package directory の
+  interface に限る — `gom info -o` で別 directory の draft を seed に使っても
+  保証を移植しない。同名 package であっても directory が違えば Go では別
+  package である。さらに directive の index は位置への
   主張なので、canonical なシグネチャ文言が変わったメンバでは引き継がない
   — パラメータの並べ替えや型修正で古い位置の保証が別の入力へ移るのを防ぐ。
   無変更のときも index は現在の flat パラメータ数の範囲に限定し、範囲外と
@@ -35,7 +36,7 @@ wave47 lane C）。
 これは `//gom:mutable` の引き継ぎ規則と矛盾しない。`//gom:mutable` も
 著者の意図表明で推論元がないため、同じ package の中では無条件に引き継ぐ。
 一方 noescape / result-notaint は本体から推論できるときは推論を正とし、
-extern のように推論元がないときだけ既存の表明を引き継ぐ。package が違う
+extern のように推論元がないときだけ既存の表明を引き継ぐ。package directory が違う
 seed からは mutable を含めて一切移植しない。
 
 ## 却下した案
