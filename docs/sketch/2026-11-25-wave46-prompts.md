@@ -20,6 +20,11 @@ compiled は opaque 値を括弧で包む（`[(0.3)]`）が eval は値レベル
 ### C. splice 補間の Go 値フォーマット精緻化（小〜中）
 `GoError` 以外の Go 由来値は `%v` 素通し — gomShow との整合は未整備
 
+### E. エラー出力から `gom explain` への誘導（小）
+コードテーブルの詳細説明はバイナリに埋め込まれているが、エラーメッセージに
+案内がなく辿り着けない。rustc の `try rustc --explain` 相当の1行を text 出力に
+出す（podhmo 2026-11-25 の会話から）
+
 ### D. eval の width 伝播の残り（小）
 conv 経由の int→float や cross-width の boxed-any 比較など、W タグの意味論を
 狭めた残りの隅。台帳を見て必要なものだけ
