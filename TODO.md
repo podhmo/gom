@@ -28,6 +28,10 @@
 
 - [x] **[wave45 lane A] `@method` の境界綴り `Int` → `int`/`int64` 選択**: interface 側が `int64` を要求するシグネチャ（`io.Seeker.Seek`）に emit が適合しない実バグ — check は通るが生成 Go が不一致
 - [x] **[wave45 lane B] eval の float32 値表現**: VFloat は f64 オンリーで compiled の f32 比較と分岐（`16777217.0`）— width-aware な値表現が要る（#226 escalate）
+- [ ] **[wave46 lane D] eval の width 伝播の残り**: W タグの意味論の残りの隅（conv 経由の int→float、cross-width boxed-any 比較）を台帳から整理
+- [ ] **[wave46 lane C] splice 補間の Go 値フォーマット精緻化**: `GoError` 以外の Go 由来値は `%v` 素通し — gomShow との整合
+- [ ] **[wave46 lane B] MoonBit 式スナップショットテスト内蔵 + assert の go-cmp 化**: `gom test --update` で期待値更新する方向
+- [ ] **[wave46 lane A] writeOperand の型駆動再設計**: foreign named scalar の括弧 canonical — compiled は opaque 値を括弧で包むが eval は見られない
 - [ ] **[wave45 lane C] 宣言型 splice 表示の正**: compiled `{ on = true }` vs テスト oracle `true` — 正を決める decision + 揃え実装
 - [ ] **[wave45 lane G] n-ary `Result` の payload Option verbatim 固定**: メソッド直呼びの n-ary result は verbatim 固定で `Ptr.to_option` 後包みが要る（selfish 観測・open-questions 済み）
 
