@@ -31,12 +31,18 @@ interface に適用されている nil 穴の論理は pointer にも同じく�
 ### B. 呼出し側で Option を宣言する仕組みの追加（見送り）
 
 新しい宣言構文か属性が要る。`Ptr.to_option` の後包みは1行の合成可能な
-コンビネータで、意味的には宣言的ビューと完全に等価（nil → None の読みは
-境界でも後包みでも同じ）。複雑さに見合わない
+コンビネータで、読み側の nil ガードとしては宣言的ビューと同じ仕事をする
+（nil → None）。ただし完全な等価ではない: `to_option` は non-nil のとき
+pointee をコピーして `Some` に入れるため、ポインタの同一性や mutation の
+共有が要る場面では使えず、その場合は `Ptr.is_nil` で nil を検査して `Ptr`
+のまま扱う（extern の `Option` ビューはポインタを保持する）。selfish の
+ユースケース（ネットワーク入力の read-only nil ガード）はコピーで足り、
+宣言構文の追加は複雑さに見合わない
 
 ## 決定
 
-verbatim を維持し、慣用として **`Ptr.to_option` の後包み**を正とする。
+verbatim を維持し、慣用として nil ガードは **`Ptr.to_option` の後包み**
+（read 側・pointee はコピーされる）、同一性が要るときは **`Ptr.is_nil` + Ptr 保持**を正とする。
 関数については従来どおり extern 宣言で `Result (Option T, ...) GoError` の
 宣言的ビューも選べる。interface 要素の auto-wrap は従来どおり残す
 （nil interface は method call 以外に観測手段がなく、nil が普通に返る
