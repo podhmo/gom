@@ -1512,6 +1512,12 @@ fn area (s: Shape) -> Float = match s {
 func TestInfoWriteFailureE0003(t *testing.T) {
 	t.Parallel()
 
+	// Container root with CAP_DAC_OVERRIDE writes through the
+	// read-only mode — the write branch cannot be forced there.
+	if os.Geteuid() == 0 {
+		t.Skip("root ignores the read-only file mode")
+	}
+
 	dir := writeFiles(t, map[string]string{
 		"lib/lib.gom": "package lib\n\nfn f () -> Int = 1\n",
 	})
