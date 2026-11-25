@@ -189,8 +189,16 @@ func (c *checker) checkApply(e *syntax.Apply, want types.Type) Expr {
 	// callee type itself, so pinning would bind the callee's own
 	// meta to a non-function want before the over-application
 	// machinery can shape it as a function (the E0401 regression
-	// of `List.fold (fn api op -> op api)`).
-	if len(e.Args) <= len(params) {
+	// of `List.fold (fn api op -> op api)`). A variadic Go call is
+	// not over-applied: the surplus arguments fill the variadic
+	// slot and ret IS the call's result, so the pin still fires.
+	pinOK := len(e.Args) <= len(params)
+	if !pinOK && goCall && callee != nil {
+		if sig, ok := c.sigOf(callee, e.Sp); ok && sig.Variadic {
+			pinOK = true
+		}
+	}
+	if pinOK {
 		pin(want, appRet, false)
 	}
 	if goCall {
