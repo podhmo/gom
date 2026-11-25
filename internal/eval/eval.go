@@ -2378,20 +2378,33 @@ func (e *interp) typedDisplayValue(v Value, t types.Type) Value {
 	case *VVariant:
 		// Constructor payloads literal-conformed into declared
 		// types are scalars exactly like record fields — wrap them
-		// by the ctor's field types at this instantiation.
+		// by the ctor's DECLARED field types instantiated at the
+		// splice's static type. Site-derived infos are concrete for
+		// whichever instantiation built them first, so they must
+		// not reshape a different instantiation (`Some` at Flag
+		// recasting a later `Some` at Bool) — the same discipline
+		// reshape follows.
 		if v.Ctor == nil {
 			return v
 		}
-		info := e.ctorOf(v.Ctor, v.Name, t)
-		if info == nil {
+		con, ok := types.Chase(t).(*types.Con)
+		if !ok {
 			return v
 		}
+		info := e.ctorOf(v.Ctor, v.Name, v.Type)
+		if info != nil && !info.declared {
+			info = builtinDeclCtor(v.Ctor)
+		}
+		if info == nil || !info.declared {
+			return v
+		}
+		sub := instSubst(info.typ, con)
 		out := &VVariant{Type: v.Type, Ctor: v.Ctor, Name: v.Name}
 		for _, f := range v.Fields {
 			nf := f
 			for _, fi := range info.fields {
-				if fi.index == f.Index {
-					nf.V = e.typedDisplayValue(f.V, fi.typ)
+				if fi.index == f.Index && fi.typ != nil {
+					nf.V = e.typedDisplayValue(f.V, applySubst(fi.typ, sub))
 					break
 				}
 			}

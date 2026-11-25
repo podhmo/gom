@@ -173,6 +173,27 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 		want: "Some ({ on = true })",
 	},
 	{
+		// lane C display: ctor field types instantiate per SPLICE,
+		// not per first use — `Some` at Flag and `Some` at Bool in
+		// one program each render their own shape regardless of
+		// order (the cached site-derived ctor info must not recast).
+		name: "splice_variant_instantiation_order",
+		src: `package main
+
+import go "fmt"
+
+type Flag = {on: Bool}
+fn answer () -> String = {
+  let f : Flag = true
+  let a : Option Flag = Some f
+  let b : Option Bool = Some false
+  "${a} ${b}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "Some ({ on = true }) Some false",
+	},
+	{
 		// lane C display: record literals and scalar bindings draw
 		// the SAME rendering — the construction path is invisible.
 		name: "splice_record_literal_parity",
