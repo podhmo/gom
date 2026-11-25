@@ -65,6 +65,11 @@ fn parse (s: String) -> Result Int GoError =
   strconv.Atoi s |?> fn n -> Ok (n * 2)   // failure wraps "strconv.Atoi: %w"
 ```
 
+`fmt.Errorf` with a `%w` verb works directly — Go-typed arguments
+(an `error`, a named Go value) reach `any` parameters unboxed, so
+`go vet`'s printf check sees the real `error` and accepts the
+wrap; Gom values still box as before.
+
 ## Type mapping
 
 | Go | Gom |
@@ -115,7 +120,11 @@ fn parse (s: String) -> Result Int GoError =
   the method; `Ptr T` receivers land on the pointer only.
   Constraints (E0420): the receiver must be a record of the same
   package (no generics — Go methods take no type args), no
-  `@extern`, no `Result` return.
+  `@extern`. `Result _ GoError` returns are allowed and unwrap —
+  `Result T GoError` emits `(T, error)`, `Result Unit GoError` /
+  `Result (Option T) GoError` emit `error`/`(T, error)`, covering
+  interfaces like `io.Writer` or `UnmarshalText([]byte) error`;
+  a non-`GoError` payload is still E0420.
 - Exported struct fields read via `v.Field` (promoted fields and Go's
   ambiguity rules apply; unexported fields are invisible). Through
   `Ptr T` (T a named Go struct) they also write — `p.Field = v` —

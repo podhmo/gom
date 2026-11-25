@@ -84,6 +84,7 @@ func (c *checker) checkApply(e *syntax.Apply, want types.Type) Expr {
 	// ordered, ...) is skipped rather than bound: it can never
 	// hold `any`, and the ordinary argument check reports the
 	// honest mismatch.
+	pinParams := false
 	var pin func(w, r types.Type, inParam bool)
 	pin = func(w, r types.Type, inParam bool) {
 		wc, rc := types.Chase(w), types.Chase(r)
@@ -96,12 +97,12 @@ func (c *checker) checkApply(e *syntax.Apply, want types.Type) Expr {
 			// result position: `Some "x" : Option Name` binds
 			// `a := Name` so the String literal gets its
 			// materialization (scalarLitConv) instead of
-			// `a := String`. A residual *parameter* must not pin
-			// this way — labeled partial calls resolve their
-			// supplied arguments against the open parameters, and
-			// pinning the open param's meta would retype the
-			// supplied argument through the wrong slot.
-			if containsGoAny(wc) || (!inParam && c.definedUnderlying(wc) != wc) {
+			// `a := String`. A residual *parameter* pins only when
+			// the fill set was decided statically (pinParams) — for
+			// a spread or otherwise undecided fill the residual
+			// pairs the wrong slots and the pin would retype the
+			// supplied argument through them.
+			if containsGoAny(wc) || ((!inParam || pinParams) && c.definedUnderlying(wc) != wc) {
 				if rec := c.recOf(r); !(rec.num || rec.ord || rec.flo || rec.intg || rec.eq) {
 					c.bind(r, wc, e.Sp)
 				}
@@ -124,12 +125,27 @@ func (c *checker) checkApply(e *syntax.Apply, want types.Type) Expr {
 			if w, ok := wc.(*types.Func); ok {
 				wp, wr := flattenFunc(w)
 				rp, rr := flattenFunc(r)
-				if len(wp) == len(rp) {
-					for i := range wp {
-						pin(wp[i].Type, rp[i].Type, true)
-					}
-					pin(wr, rr, inParam)
+				// Pair the common prefix of parameters; a
+				// residual whose ret is still an unsolved meta
+				// flattens shorter than the want, and skipping
+				// the pin entirely would let a supplied literal
+				// bind the shared meta before the declared type
+				// reaches it (`apply f "x"` under
+				// `Name -> Int -> String`). The tail pins
+				// whatever remains — an unbound meta takes no
+				// bind here and is left for conformance.
+				n := min(len(wp), len(rp))
+				for i := 0; i < n; i++ {
+					pin(wp[i].Type, rp[i].Type, true)
 				}
+				wt, rt := wr, rr
+				if len(wp) > n {
+					wt = &types.Func{Params: wp[n:], Ret: wr}
+				}
+				if len(rp) > n {
+					rt = &types.Func{Params: rp[n:], Ret: rr}
+				}
+				pin(wt, rt, inParam)
 			}
 		case *types.Tuple:
 			if w, ok := wc.(*types.Tuple); ok && len(w.Elems) == len(r.Elems) {
@@ -151,6 +167,19 @@ func (c *checker) checkApply(e *syntax.Apply, want types.Type) Expr {
 	// E0401).
 	appRet := ret
 	if len(e.Args) < len(params) {
+		// The true residual needs the actual fill set —
+		// `params[len(args):]` is only accurate for a prefix
+		// fill, and pairing want against the wrong slots pins a
+		// shared param/result meta to the wrong want — `pair "x"`
+		// under `Name -> String` would pin `b := String` through
+		// the result and the String literal could never
+		// materialize as `Name "x"`.
+		if used, ok := c.fillUsed(e.Args, params); ok {
+			appRet = applyResidual(fn.Type(), used, 0)
+			pinParams = true
+		}
+	}
+	if appRet == ret && len(e.Args) < len(params) {
 		appRet = &types.Func{Params: params[len(e.Args):], Ret: ret}
 	}
 	pin(want, appRet, false)
@@ -593,6 +622,61 @@ func applyResidual(t types.Type, used []bool, off int) types.Type {
 		return r
 	}
 	return &types.Func{Params: rem, Ret: r}
+}
+
+// fillUsed simulates the argument loop's slot assignment without
+// checking anything, and reports the fill set when it is decided
+// statically — every argument either an ordinary positional or a
+// label that resolves. Anything that depends on the arguments' own
+// types (a record spread, a `..` tail) or that errors (unknown or
+// repeated label, more positionals than slots) fails, and the
+// caller keeps the positional-prefix residual.
+func (c *checker) fillUsed(args []syntax.Arg, params []types.FuncParam) ([]bool, bool) {
+	used := make([]bool, len(params))
+	posIdx := 0
+	for _, a := range args {
+		if a.Spread {
+			return nil, false
+		}
+		switch a.Value.(type) {
+		case *syntax.Hole, *syntax.Spread:
+			return nil, false
+		case *syntax.Ident, *syntax.Lit, *syntax.StrInterp,
+			*syntax.Apply, *syntax.Select, *syntax.Unary,
+			*syntax.Binary, *syntax.Lambda, *syntax.If, *syntax.Match,
+			*syntax.Block, *syntax.Let, *syntax.Ignore, *syntax.Try,
+			*syntax.GoExpr, *syntax.For, *syntax.SelectExpr,
+			*syntax.Assign, *syntax.ListLit, *syntax.TupleLit,
+			*syntax.Ascribe, *syntax.RecordLit:
+			// An ordinary expression occupies its slot.
+		case nil:
+			// A missing argument value still occupies the slot.
+		default:
+			panic("unreachable")
+		}
+		label := ""
+		if a.Label != nil {
+			label = a.Label.Name
+		}
+		pi := -1
+		if label != "" {
+			pi = c.paramByLabel(params, label)
+			if pi < 0 || used[pi] {
+				return nil, false
+			}
+		} else {
+			for posIdx < len(params) && (used[posIdx] || params[posIdx].Label != "") {
+				posIdx++
+			}
+			if posIdx >= len(params) {
+				return nil, false
+			}
+			pi = posIdx
+			posIdx++
+		}
+		used[pi] = true
+	}
+	return used, true
 }
 
 // labelSpan returns a label's own span, falling back to the arg's

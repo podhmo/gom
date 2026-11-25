@@ -1,13 +1,16 @@
 package main
 
+import go "github.com/podhmo/gom/testdata/goiface"
+
 // Arm 1 is checked while the scrutinee meta is still open — its
-// body then binds it to Float, so the identical literal in arm 2
-// normalizes at float width (`1e+10` vs `10000000000`). Both cells
-// must re-judge at the settled type, or the duplicate arm slips
-// through.
+// body then binds it to S, so the literal judges at float32 width
+// only after re-judging: 16777217.0 and 16777216.0 are the same
+// float32, and the record arm below duplicates the literal arm.
+type S = { v: goiface.SmallRatio }
+
 let pick = fn x ->
   match x {
-    10000000000 -> { let y : Float = x; 1 }
-    10000000000 -> 2
+    16777217.0 -> { let y : S = x; 1 }
+    { v = 16777216.0 } -> 2
     _ -> 3
   }

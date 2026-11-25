@@ -256,6 +256,7 @@
 | [method-emit-name-verbatim](2026-11-24-method-emit-name-verbatim.md) | `@method(GoName)` — verbatim emit name for Go interface methods | 採用（実装・検証した — wave38 lane G） |
 | [multiline-application](2026-11-24-multiline-application.md) | 複数行のカリー適用 — NL-2 は変えず、`\|>` か `( )` で括る | 採用（wave44 lane G で調査・採択） |
 | [onefield-record-tilde](2026-11-24-onefield-record-tilde.md) | 1 フィールド record の `~` 制約受理 — defined type の underlying 一致 | 採択（wave40 lane D の調査結果。実装は wave41 lane A） |
+| [partial-app-pin-params](2026-11-24-partial-app-pin-params.md) | 部分適用の残余パラメータも want に向けて pin する | 採用 |
 | [partial-application-lint](2026-11-24-partial-application-lint.md) | 部分適用の握り潰し — `ignore` / `_` 束縛で捨てられた関数値を警告する | 採択（wave40 lane A、2026-11-24） |
 | [record-field-struct-tag](2026-11-24-record-field-struct-tag.md) | record フィールドの Go struct tag — フィールド行の verbatim バッククォートタグ | draft（wave39 lane B として実施） |
 | [scalar-literal-declared](2026-11-24-scalar-literal-declared.md) | String / Char / Bool リテラルの宣言型への代入可能性 | adopted |

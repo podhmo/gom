@@ -1,0 +1,25 @@
+package main
+
+// A literal-pattern key normalized while the scrutinee meta was
+// still open must be re-judged at the post-default type — the
+// `let y : S` pin settles the scrutinee to the float32 field
+// record after checkMatch, and float32 rounds both arms to the
+// same value, making the second unreachable.
+import go "github.com/podhmo/gom/testdata/goiface"
+
+type S = { v: goiface.SmallRatio }
+
+fn main () -> Unit = {
+  let pick = fn x -> {
+    let r = match x {
+      16777217.0 -> 1
+      16777216.0 -> 2
+      _ -> 3
+    }
+    let y : S = x
+    ignore y
+    r
+  }
+  ignore (pick { v = 1.0 })
+  ()
+}

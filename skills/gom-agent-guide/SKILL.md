@@ -117,7 +117,15 @@ One shape to recognize: a record declared with exactly one field
 compiles to a Go defined type, not a struct — `type UserId = {
 value: Int }` emits `type UserId int64`, so reads/writes show up
 as casts (`int64(u)`, `UserId(v)`). Generic one-field records
-stay structs (Go forbids `type X[T] T`).
+stay structs (Go forbids `type X[T] T`). Scalar literals assign
+to such types directly and materialize as conversions
+(`let u : UserId = 0` → `UserId(0)`, `"x"` under a `{n: String}`
+record → `Name("x")`), including a decided partial application
+(`let g : Name -> String = pair "x"` pins the shared `b` to
+`Name`); typed `String`/`Int` variables stay E0401. A bare
+literal arm on such a scrutinee matches the wrapped value — `0`
+and `{ v = 0 }` cover the same domain for exhaustiveness and
+duplicate-arm checks.
 
 # Gom Language Tour
 
@@ -215,7 +223,9 @@ stay structs (Go forbids `type X[T] T`).
   `Unit` or `Result Unit e`; `assert`/`assert_eq` exist only inside
   `test`; `@test` marks test-only helpers. `@method` on a `fn`
   adds a Go method to the receiver record so it satisfies Go
-  interfaces (see go-interop). `@extern` on a `fn`
+  interfaces, including `error`-returning signatures — a
+  `Result _ GoError` return unwraps to `(T, error)`/`error`
+  (see go-interop). `@extern` on a `fn`
   declares signature-only — the body is a same-named Go function
   hand-written in the generated package (stdlib internals use it;
   see go-interop). `gom test FILE|DIR ...`
@@ -223,6 +233,7 @@ stay structs (Go forbids `type X[T] T`).
   package's tests through `go test -json`; a failed `assert_eq`
   reports both values in the assertion message.
 - **Stdlib modules exist:** `List.map`, `List.filter`, `List.fold`,
+  `List.filter_map`, `List.find_map`,
   `List.sum`, `List.sum_int`, `List.rev`, `List.head`, `List.get`, `List.take`,
   `List.drop`, `List.last`, `List.last_n`, `List.sort_by`,
   `Option.get`,
