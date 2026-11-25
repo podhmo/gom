@@ -125,14 +125,15 @@ func runTest(args []string, stdout, stderr io.Writer) int {
 			}
 		}
 	}
+	for _, e := range writeErrs {
+		rep.Diagnostics = append(rep.Diagnostics,
+			diag.Error("E0003", "output could not be written").Set("error", e.Error()))
+	}
 	if len(writeErrs) > 0 {
 		if err := emitReport(stdout, *format, rep, srcs); err != nil {
 			fmt.Fprintf(stderr, "gom test: %v\n", err)
 		}
-		for _, e := range writeErrs {
-			fmt.Fprintf(stderr, "gom test: cannot write output: %v\n", e)
-		}
-		return diag.ExitInternal
+		return strictExit(rep, strict)
 	}
 
 	if !diag.List(rep.Diagnostics).HasError() {

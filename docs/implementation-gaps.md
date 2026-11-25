@@ -1925,11 +1925,14 @@
   執筆中に発見）。未確認: `Unit` ペイロードの他の束縛位置（`let`・他の ctor）でも
   同じか。（2026-11-24 登録）
 
-- [ ] **`gom test` が生成テストを持つパッケージで手書き `main_test.go` を無条件上書きする**:
+- [x] **`gom test` が生成テストを持つパッケージで手書き `main_test.go` を無条件上書きする**:
   `r.Output.TestSource != nil` の場合 `writeFile(tst, ...)` が marker 判定なしで上書きする
   （`cmd/gom/test.go`）。marker ガード（`isGomGenerated`）が効くのは「生成テストがない側の
   stale 削除」だけで、手書き `_test.go` を保持する旨のコメントと実態がずれている — tutorial
   ハーネスは snapshot/restore で回避（tutorial/run.sh・tutorial_test.go、2026-11-24 登録）。
+  解消（wave45 lane D）: test の `.go` / `_test.go` 書き出しも `writeGenerated` 経由になり
+  marker のない既存ファイルは拒否される（E0003 診断）。検証: `writeGenerated` を両 emit 経路が
+  使うこと（[test.go](../cmd/gom/test.go)）と TestBuildClobberGuard（[cli_test.go](../cmd/gom/cli_test.go)）
 
 - [ ] **`gom info` の再生成が `//gom:noescape` / `//gom:result-notaint` を落とす**: spec のディレクティブ表は両者を「`gom info` が書き出し」とするが、`gom info stdlib/list` で `stdlib/list/list.gomi` を再生成すると既存の `//gom:result-notaint take 0`・`//gom:result-notaint sort_by 0`・`//gom:noescape sort_by 0` 行が差分で消える（検証は sandbox での観測のみ・revert 済み）。noescape/notaint の推論が info の経路で走らないか、それとも書き出し自体が落ちるのかは未確認。参照: [spec のディレクティブ表](spec.md)（`//gom:noescape`/`//gom:result-notaint` 行）、[実装](../cmd/gom/iface.go)（`gom info` の emit 経路）。記録: [gotchas](sketch/ja/2026-11-24-sandbox-explorer2-gotchas.md) §3（sandbox 探索 run 2）
 

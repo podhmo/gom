@@ -179,12 +179,12 @@ func TestBuildClobberGuard(t *testing.T) {
 		"host.gom": "package main\n\nfn main () -> Unit = ()\n",
 		"host.go":  "// handwritten helpers\npackage main\n",
 	})
-	code, _, errout := invoke("build", filepath.Join(dir, "host.gom"))
-	if code == 0 {
-		t.Fatalf("build over handwritten host.go succeeded — clobber; stderr=%q", errout)
+	code, out, errout := invoke("build", filepath.Join(dir, "host.gom"))
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1 (E0003 diagnostic); stdout=%q stderr=%q", code, out, errout)
 	}
-	if !strings.Contains(errout, "refusing to overwrite") {
-		t.Fatalf("missing clobber refusal: %q", errout)
+	if !strings.Contains(out, "refusing to overwrite") || !strings.Contains(out, "E0003") {
+		t.Fatalf("missing clobber refusal in the diagnostic stream: %q", out)
 	}
 	got, err := os.ReadFile(filepath.Join(dir, "host.go"))
 	if err != nil || !strings.HasPrefix(string(got), "// handwritten helpers") {
