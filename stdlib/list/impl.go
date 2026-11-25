@@ -47,6 +47,39 @@ func Filter[A any](f func(A) bool, xs List[A]) List[A] {
 	return out
 }
 
+// FilterMap keeps the payloads f returns as Some, in order —
+// `@extern fn filter_map`. map+filter fused in one pass.
+func FilterMap[A, B any](f func(A) option.Option[B], xs List[A]) List[B] {
+	out := make(List[B], 0, len(xs))
+	for _, x := range xs {
+		switch o := f(x).(type) {
+		case option.Option_Some[B]:
+			out = append(out, o.V0)
+		case option.Option_None[B]:
+		default:
+			// A nil Option is not None — it is the invalid
+			// zero value every match panics on.
+			panic(rt.InvalidVariant("Option", o))
+		}
+	}
+	return out
+}
+
+// FindMap returns the first Some payload f produces, or None when
+// f yields None for every element — `@extern fn find_map`.
+func FindMap[A, B any](f func(A) option.Option[B], xs List[A]) option.Option[B] {
+	for _, x := range xs {
+		switch o := f(x).(type) {
+		case option.Option_Some[B]:
+			return o
+		case option.Option_None[B]:
+		default:
+			panic(rt.InvalidVariant("Option", o))
+		}
+	}
+	return option.Option_None[B]{}
+}
+
 // Append is xs ++ ys — `@extern fn append`.
 func Append[A any](xs, ys List[A]) List[A] {
 	// An empty side hands the other back verbatim — concatGo

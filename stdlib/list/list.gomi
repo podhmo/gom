@@ -69,6 +69,16 @@ fn iter (f: a -> Unit) (xs: List a) -> Unit
 //gom:noescape find 0
 fn find (f: a -> Bool) (xs: List a) -> Option a
 
+/// filter_map f xs keeps the payloads f returns as Some, in order —
+/// map+filter fused, one pass. Buffer-built Go impl (impl.go).
+//gom:noescape filter_map 0
+fn filter_map (f: a -> Option b) (xs: List a) -> List b
+
+/// find_map f xs returns the first Some payload f produces,
+/// or None when f yields None for every element. Go impl (impl.go).
+//gom:noescape find_map 0
+fn find_map (f: a -> Option b) (xs: List a) -> Option b
+
 /// concat xss = xss[0] ++ xss[1] ++ ... — `List.join` in OCaml.
 /// Buffer-built Go impl (impl.go) — one pass over the total size;
 /// the right-fold shape stacked a frame per sublist (O(k) depth).

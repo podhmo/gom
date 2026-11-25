@@ -6,6 +6,7 @@ import (
 	list "github.com/podhmo/gom/stdlib/list"
 	option "github.com/podhmo/gom/stdlib/option"
 	result "github.com/podhmo/gom/stdlib/result"
+	strconv "strconv"
 )
 
 //line stdlib_modules.gom:10
@@ -106,4 +107,56 @@ func isum(xs list.List[int64]) int64 {
 //line stdlib_modules.gom:28
 	return list.SumInt(xs)
 //line stdlib_modules.gom:28
+}
+
+//line stdlib_modules.gom:30
+func evens(xs list.List[int64]) list.List[string] {
+//line stdlib_modules.gom:31
+	tmp12 := func(x int64) option.Option[string] {
+//line stdlib_modules.gom:31
+		tmp8 := x % 2
+//line stdlib_modules.gom:31
+		tmp9 := tmp8 == 0
+//line stdlib_modules.gom:31
+		if tmp9 {
+//line stdlib_modules.gom:31
+			tmp10 := strconv.FormatInt(x, 10)
+//line stdlib_modules.gom:31
+			tmp11 := tmp10
+//line stdlib_modules.gom:31
+			return option.Option_Some[string]{V0: tmp11}
+//line stdlib_modules.gom:31
+		} else {
+//line stdlib_modules.gom:31
+			return option.Option_None[string]{}
+//line stdlib_modules.gom:31
+		}
+//line stdlib_modules.gom:31
+	}
+//line stdlib_modules.gom:31
+	return list.FilterMap[int64, string](tmp12, xs)
+//line stdlib_modules.gom:30
+}
+
+//line stdlib_modules.gom:33
+func firstBig(xs list.List[int64]) option.Option[int64] {
+//line stdlib_modules.gom:33
+	tmp14 := func(x int64) option.Option[int64] {
+//line stdlib_modules.gom:33
+		tmp13 := x > 2
+//line stdlib_modules.gom:33
+		if tmp13 {
+//line stdlib_modules.gom:33
+			return option.Option_Some[int64]{V0: x}
+//line stdlib_modules.gom:33
+		} else {
+//line stdlib_modules.gom:33
+			return option.Option_None[int64]{}
+//line stdlib_modules.gom:33
+		}
+//line stdlib_modules.gom:33
+	}
+//line stdlib_modules.gom:33
+	return list.FindMap[int64, int64](tmp14, xs)
+//line stdlib_modules.gom:33
 }
