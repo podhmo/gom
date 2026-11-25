@@ -16,6 +16,10 @@ argv[0] 由来の `Usage of <name>:` と stack trace のパス以外は全一致
 ## 検証レシピ
 
 ```bash
+# 前提チェックアウト: 移植コード（sandbox/selfish/）は stage 4 の
+# ブランチ devin/selfish-port-4-verification（およびそのチェーン元の
+# #208 / #209 / #211）側にある。main にはこのドキュメントのみが
+# 先行して取り込まれている。
 # 準備: 入力ファイル（readme.md = "# Hello Title" の markdown、hello.txt、
 # bin.dat = バイナリ）、および ~/.config/selfish/config.json = {"access_token": "dummy-token"}
 cd ~/repos/gom/sandbox/selfish && go build -o /tmp/gom-selfish ./gselfish
@@ -32,6 +36,11 @@ run_case() {
        <(grep -vE '^[[:space:]].*\.(go|gom|s):[0-9]+$|^Usage of |^\S*\.\S*$' /tmp/o2)
 }
 ```
+
+注意: `run_case` の `^\S*\.\S*$` フィルタ（stack trace の関数名行を
+落とすためのもの）は、CLI が単独で印字する `readme.md` のような
+ファイル名や URL の行も落とす — その形の出力を持つケースでは両者が
+異なる値を印字しても比較を通過するので、その形の出力を持つケースは目視確認が要る。
 
 注意: `--client fake` は `with_dryrun` で **history へ書き込まない**（oracle も同じ）。
 そのため alias 系のケースは常に「履歴なし」状態で実行される — 2 連続実行しても
@@ -51,6 +60,8 @@ update ではなく create のまま（両バイナリで一致することを�
 - `--delete` の not-found エラー — oracle は `pkg/errors` の stack trace を `%+v` で出力。
   `stack_errorf` shim で同じ形式を再現したが、**frame の関数名・ファイルパスはビルド由来**なので
   一致しない（oracle 自身もビルド場所が変われば変わる）。これは「振る舞いの一致」の限界点。
+- real API（`--client` 指定なし）のエラー出力 — 検証は `--client fake` に限定した。401 等の
+  実パスでは oracle は wrap の多行 `%+v` 出力、gom 側は単行になる差が残っている（未検証領域）。
 
 ## うまくいったところ
 
@@ -71,25 +82,32 @@ update ではなく create のまま（両バイナリで一致することを�
   置くと clobber される。手書きは `shim.go` に寄せる慣習が要る。
 - **`@extern fn name () -> T` が `name(struct{}{})` を生成する**。Go 側は `func name(_ struct{})` で受ける
   必要がある。ドキュメントか、引数なし extern の生成規約を見直す余地。
-- **生成される `fmt.Errorf` が引数を `any()` に box するため `go vet` で `%w` が弾かれる**。
-  `wrap`/`wrapf` はすべて `@extern` shim へ退避した。error wrapping は言語側で第一級サポートしたい
-  （`Result` がある分尚更）。なお `%+v` の出力自体は生成コードのまま問題なく動く —
+- ~~**生成される `fmt.Errorf` が引数を `any()` に box するため `go vet` で `%w` が弾かれる**~~ →
+  **解消済み（wave44 lane A、decisions/2026-11-24-goany-arg-passthrough）**。Go-typed 引数は box なしで直接渡るようになり、再生成コードでは
+  `fmt.Errorf("... %v", e)` と素の error がそのまま渡る。
+  なお `%+v` の出力自体は生成コードのまま問題なく動く —
   `pkg/errors` の shim が必要なのは、フォーマットではなく「stack を持つ error 値を作る側」。
-- **`@method` はあるが `Result` 返りを禁じている（E0420）**ため、`encoding.TextMarshaler` 系
+- **`@method` はあるが `Result` 返りを禁じている（E0420）**ため、`encoding.TextUnmarshaler` 系
   （`UnmarshalText([]byte) error` など error を返す Go interface）には使えない。
   `ClientType`（`type X = {value: String}` → `type X string`）の `UnmarshalText` は
   同パッケージの `shim.go` に Go で書いた — 生成型へのメソッド追加は同一パッケージなら自由。
   `Result` を返さないメソッド（`http.Handler` 等）は `@method` で書けるので、穴は限定的。
+  → **wave44 lane C (#222) で `@method Result T GoError` が `(T, error)` に unwrap されるようになった**。
+  `UnmarshalText` 相当が `@method` で書けるはず
+  — この移植では shim のまま残している（動くものを触らない）が、新規コードでは試す価値がある。
 - ~~**3つ以上の戻り値を呼べない**~~ → **解消済み**。stage 1 時点では shim 化したが、
   `(T, U, ..., error)` → `Result (T, U, ...) GoError` の n 値 fold（decisions/2026-11-18）で
   `let (g, _resp) = try (c.github.Gists.Create ctx gist)` と直接呼べることを stage 4 で確認し、
   shim を削除した（`c.Gists` フィールド経由の method 呼出しも通る）。残る制約は上限8値と
   `Option` 要素の扱いぐらい。
-- **カリー適用の複数行記述がパースに弱い**（`List.fold\n  (fn ...)\n  acc\n  xs` で E0401）。
-  lambda を `let` に取り出すと解決するが、書き味として引っかかりやすい。
+- ~~**カリー適用の複数行記述がパースに弱い**~~ → wave44 lane G で**仕様として決着**:
+  NL-2 は維持、`|>` パイプラインか `( )` で括る慣例で解決する（decisions/2026-11-24-multiline-application）。
+- **inline lambda の多引数適用で型推論が回帰**（wave43/44 以降）: `List.fold (fn api op -> op api) base ops`
+  が旧 main では通ったが E0401 になる。注釈付き lambda か名前付き関数なら通る。
+  移植側は注釈で回避済み — 回帰本体は implementation-gaps に登録。
 - **無名レコードの `List.fold` acc は型推論が通らない（E0407）**。named type 必須。
   これは上の sumtypes メモと同じ系統の DX 摩擦。
-- **`filter_map`/`find_map` が stdlib にない**。`List.fold` で回した。小さいが欲しい。
+- ~~**`filter_map`/`find_map` が stdlib にない**~~ → **解消済み（wave44 lane F）**。stdlib に追加された。
 - **match の到達不能 arm は `todo ()` に頼る**。catch-all `action ->` の内側で sub-match する形に
   なると網羅性チェックの恩恵が薄れる。
 
