@@ -213,7 +213,9 @@ duplicate-arm checks.
 - **Equality is structural:** `==` / `!=` compare contents on any
   type containing no function — including ADTs, records, `List`
   (E0409 otherwise; `Float` is IEEE so `NaN != NaN`). Type variables
-  cannot be `==` in v1.
+  cannot be `==` in v1. Boxed `Go.Any` keeps the Go dynamic-type
+  distinction, so two different named Go scalar types with the same
+  underlying payload are not equal.
 - **Loops are recursion or `for x in xs { ... }`** (`: Unit`,
   iterates `List`, `Go.Slice`, `View`, or `Chan`).
   Self-tail-recursion

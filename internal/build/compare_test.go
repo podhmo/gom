@@ -332,6 +332,91 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 		want: "absorbed",
 	},
 	{
+		// wave46 lane D: boxed-any equality keeps Go's dynamic-type
+		// distinction across float widths — float32-width and
+		// float64-width boxes never compare equal, while same-width
+		// boxes do. The type tag decides the cross-type comparison
+		// before payload comparison; the width oracle still matters
+		// here because both SmallRatio literals construct at float32
+		// precision and therefore compare equal. The W representation
+		// invariant itself is pinned separately by
+		// TestFloatWidthTagInvariant.
+		name: "float32_width_boxed_any_dynamic_width",
+		src: `package main
+
+import go "fmt"
+import go "github.com/podhmo/gom/testdata/goiface"
+
+fn answer () -> String = {
+  let f : goiface.SmallRatio = 16777217.0
+  let g : goiface.SmallRatio = 16777216.0
+  let x : Go.Any = f
+  let y : Go.Any = 16777216.0
+  let z : Go.Any = g
+  let a : Go.Any = 16777216.0
+  let b : Go.Any = 16777216.0
+  "${x == y}:${x == z}:${a == b}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "false:true:true",
+	},
+	{
+		// wave46 lane D: foreign named scalars box as their
+		// underlying eval scalar plus a static type tag. Equality
+		// must still follow the emitted dynamic type: two named
+		// int64 types are distinct, the same named type compares
+		// equal, and Int/Int64 share int64 as compiled.
+		name: "go_any_boxed_named_type_identity",
+		src: `package main
+
+import go "fmt"
+import go "time"
+import go "github.com/podhmo/gom/testdata/goiface"
+
+fn answer () -> String = {
+  let d : time.Duration = 1
+  let d2 : time.Duration = 1
+  let t : goiface.Ticks = 1
+  let x : Go.Any = d
+  let y : Go.Any = t
+  let z : Go.Any = d2
+  let i : Int = 1
+  let j : Int64 = 1
+  let a : Go.Any = i
+  let b : Go.Any = j
+  "${x == y}:${x == z}:${a == b}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "false:true:true",
+	},
+	{
+		// wave46 lane D review: two Go packages may share both
+		// their package name and type name. The emitted spelling
+		// `units.Count` is not a dynamic-type identity — the full
+		// import path is.
+		name: "go_any_boxed_named_type_import_path",
+		src: `package main
+
+import go "fmt"
+import go au "github.com/podhmo/gom/testdata/collide/a/units"
+import go bu "github.com/podhmo/gom/testdata/collide/b/units"
+
+fn answer () -> String = {
+  let a : au.Count = 1
+  let a2 : au.Count = 1
+  let b : bu.Count = 1
+  let x : Go.Any = a
+  let y : Go.Any = b
+  let z : Go.Any = a2
+  "${x == y}:${x == z}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "false:true",
+	},
+	{
 		// P2-2c: the same delayed-reference cycle through a
 		// destructuring let — tuple, record, and a single-variant
 		// constructor all bind `count` as a named wrapper.

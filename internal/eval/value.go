@@ -459,6 +459,65 @@ func writeOperand(sb *strings.Builder, v Value) {
 	}
 }
 
+// hostBoxRepr names the emitted Go type a boxed value was recorded
+// with. Foreign named scalars need the static tag: their eval
+// payload is only the underlying scalar Value, so the payload alone
+// cannot carry the nominal type. Opaque host values and boxes whose
+// static type is unnameable report false; their payload comparison
+// keeps the pre-existing best-effort semantics.
+func hostBoxRepr(v *VHost) (string, bool) {
+	if v.T == nil {
+		return "", false
+	}
+	r := types.CanonGoRepr(types.GoRepr(v.T))
+	if r == "" {
+		return "", false
+	}
+	// GoRepr renders a Go-defined type under its package's base
+	// name because that is how the emitted source spells it. Type
+	// identity needs the declaring import path too: `a/units.Count`
+	// and `b/units.Count` both render `units.Count` but are distinct
+	// dynamic types in compiled reflect.DeepEqual. Keep the emitted
+	// repr for builtin representation sharing (Int/Int64), then add
+	// the exact Go refs as an identity-only suffix.
+	return r + "\x00" + goTypeRefKey(v.T), true
+}
+
+// goTypeRefKey renders the exact Go-defined type refs inside t in a
+// deterministic traversal order. It is not a type spelling — only a
+// disambiguator for hostBoxRepr — so the encoding needs no inverse.
+func goTypeRefKey(t types.Type) string {
+	var sb strings.Builder
+	writeGoTypeRefKey(&sb, t)
+	return sb.String()
+}
+
+func writeGoTypeRefKey(sb *strings.Builder, t types.Type) {
+	switch t := types.Chase(t).(type) {
+	case *types.Con:
+		for _, a := range t.Args {
+			writeGoTypeRefKey(sb, a)
+		}
+	case *types.Tuple:
+		for _, el := range t.Elems {
+			writeGoTypeRefKey(sb, el)
+		}
+	case *types.Func:
+		for _, p := range t.Params {
+			writeGoTypeRefKey(sb, p.Type)
+		}
+		writeGoTypeRefKey(sb, t.Ret)
+	case *types.Go:
+		fmt.Fprintf(sb, "G%d:%s%d:%s", len(t.Ref.Path), t.Ref.Path, len(t.Ref.Name), t.Ref.Name)
+		for _, a := range t.Args {
+			writeGoTypeRefKey(sb, a)
+		}
+	case *types.Meta, *types.Var:
+	default:
+		panic("unreachable")
+	}
+}
+
 // Equal reports structural equality — the `==` semantics of spec
 // section 3.3 restricted to non-function types. Function values
 // compare by pointer identity (the harness uses Equal on expected
@@ -517,7 +576,22 @@ func Equal(a, b Value) bool {
 		return ok && a.Text == bv.Text
 	case *VHost:
 		bv, ok := b.(*VHost)
-		return ok && reflect.DeepEqual(a.V, bv.V)
+		if !ok {
+			return false
+		}
+		// Eval keeps foreign named scalars as their underlying
+		// Value plus the boxed static type, so DeepEqual on the
+		// payload alone would erase the nominal type distinction
+		// compiled rt.Equal gets from reflect.DeepEqual
+		// (`time.Duration(1)` != `goiface.Ticks(1)` even though
+		// both payloads eval as VInt 1). Compare the emitted-Go
+		// type identity first when both sides name one.
+		if ar, aok := hostBoxRepr(a); aok {
+			if br, bok := hostBoxRepr(bv); bok && ar != br {
+				return false
+			}
+		}
+		return reflect.DeepEqual(a.V, bv.V)
 	case *VFunc:
 		bv, ok := b.(*VFunc)
 		return ok && a == bv
