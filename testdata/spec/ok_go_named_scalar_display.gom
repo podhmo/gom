@@ -8,7 +8,7 @@ fn show_scalars () -> String = {
   let d : time.Duration = 1
   let r : goiface.SmallRatio = 0.1
   let l : goiface.Label = goiface.LabelOf "x"
-  "${d}:${r}:${l}"
+  "${d}:${r}:${l}:${[r]}:${Some r}"
 }
 
 fn unsigned_wrap () -> String = {

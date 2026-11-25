@@ -16,11 +16,13 @@ operand 位置で evaluator と compiled binary の splice 出力を比較した
   `[(1.2345679)]:((1.2345679), ("x")):Some (1.2345679)` で一致
 - `TestEvalUnsignedRecordShape` —
   `{ mode = (4294967295) };{ big = (9223372036854775808) }`
+- `splice_generic_list_runtime_fallback` — 型パラメータを残す list は compiled と同じく全体を runtime fallback に倒し、要素へ typed operand 括弧を足さない
+- `splice_try_as_named_scalar_operand` — `Go.try_as` が ctor symbol を持たない builtin Option でも payload 型を回復し、`Some (1)` と表示
 - `go test ./internal/eval ./internal/build -count=1` 通過
 
 ## 残りの非目的
 
 generic に erase された operand 自体の描画内容は従来どおり Go `%v` と
 evaluator display がずれ得る。lane A が揃えたのは operand を括弧で包む
-canonical であり、type-erased composite の要素区切りや struct 綴りの
-完全な再現ではない。
+canonical と runtime fallback の適用範囲であり、type-erased composite の
+要素区切りや struct 綴りの完全な再現ではない。

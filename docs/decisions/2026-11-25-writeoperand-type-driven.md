@@ -48,3 +48,6 @@ prototype 記録: [wave46 lane A writeOperand verify](../sketch/2026-11-25-wave4
   （[compare_test.go](../../internal/build/compare_test.go)）
 - `TestEvalUnsignedRecordShape` — foreign named unsigned integer field が
   record 内でも符号なし表示と括弧を保つ
+- `splice_generic_list_runtime_fallback` / `splice_try_as_named_scalar_operand` —
+  型パラメータを残す composite は compiled と同じく runtime fallback、
+  `Go.try_as` の symbol-less Option でも payload 型を回復
