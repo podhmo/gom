@@ -1,0 +1,8 @@
+package ex
+
+// `Uint64` is the exact-width spelling for a Go `uint64` extern
+// slot, just as `Int64` is for `int64`. The raw view folds uint64
+// to `Uint`, but the declaration may keep its width spelling.
+extern go "math/bits" {
+  fn Reverse64 (x: Uint64) -> Uint64
+}

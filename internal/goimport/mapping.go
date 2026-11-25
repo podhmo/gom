@@ -483,6 +483,12 @@ func viewsCompatible(g, r gt.Type) bool {
 		(rc.Qual == "" || rc.Qual == "Go") && rc.Name == "Int" && len(rc.Args) == 0 {
 		return true
 	}
+	// `Uint64` spells the same uint64 `Uint` renders — an extern
+	// declaration may write it for a raw `uint` or `uint64`.
+	if gc.Qual == "" && gc.Name == "Uint64" && len(gc.Args) == 0 &&
+		(rc.Qual == "" || rc.Qual == "Go") && rc.Name == "Uint" && len(rc.Args) == 0 {
+		return true
+	}
 	if gc.Qual == "" && (gc.Name == "Uint" || gc.Name == "Uint64") && len(gc.Args) == 0 &&
 		rc.Qual == "Go" && rc.Name == "Uint" && len(rc.Args) == 0 {
 		return true
