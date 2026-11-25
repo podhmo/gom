@@ -27,7 +27,13 @@ type Sh_B struct {
 func (Sh_B) isSh() {}
 
 //line eq_variants.gom:6
-var gomShowInit_Sh = rt.RegisterShowVariant(rt.TypeOf[Sh_A](), "A") && rt.RegisterShowVariant(rt.TypeOf[Sh_B](), "B", "")
+func gomShowInit_Sh() {
+//line eq_variants.gom:6
+	_ = rt.RegisterShowVariant(rt.TypeOf[Sh_A](), "A")
+//line eq_variants.gom:6
+	_ = rt.RegisterShowVariant(rt.TypeOf[Sh_B](), "B", "")
+//line eq_variants.gom:6
+}
 
 //line eq_variants.gom:8
 func neqVars(_ struct{}) bool {

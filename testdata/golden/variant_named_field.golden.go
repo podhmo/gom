@@ -26,7 +26,13 @@ type Shape_Empty struct{}
 func (Shape_Empty) isShape() {}
 
 //line variant_named_field.gom:15
-var gomShowInit_Shape = rt.RegisterShowVariant(rt.TypeOf[Shape_Circle](), "Circle", "r") && rt.RegisterShowVariant(rt.TypeOf[Shape_Empty](), "Empty")
+func gomShowInit_Shape() {
+//line variant_named_field.gom:15
+	_ = rt.RegisterShowVariant(rt.TypeOf[Shape_Circle](), "Circle", "r")
+//line variant_named_field.gom:15
+	_ = rt.RegisterShowVariant(rt.TypeOf[Shape_Empty](), "Empty")
+//line variant_named_field.gom:15
+}
 
 //line variant_named_field.gom:31
 type Pair[A any] interface{ isPair() A }
@@ -50,7 +56,11 @@ func (Pair_MkPair[A]) isPair() A {
 }
 
 //line variant_named_field.gom:31
-var gomShowInit_Pair = rt.RegisterShowVariant(rt.TypeOf[Pair_MkPair[any]](), "MkPair", "fst", "snd")
+func gomShowInit_Pair() {
+//line variant_named_field.gom:31
+	_ = rt.RegisterShowVariant(rt.TypeOf[Pair_MkPair[any]](), "MkPair", "fst", "snd")
+//line variant_named_field.gom:31
+}
 
 //line variant_named_field.gom:17
 func getr(s Shape) float64 {

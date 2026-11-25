@@ -13,13 +13,21 @@ import (
 type Eq[A any] func(A) func(A) bool
 
 //line stdlib/cmp/cmp.gom:14
-var gomShowInit_Eq = rt.RegisterShowRecord(rt.TypeOf[Eq[any]](), true, "eq")
+func gomShowInit_Eq() {
+//line stdlib/cmp/cmp.gom:14
+	_ = rt.RegisterShowRecord(rt.TypeOf[Eq[any]](), true, "eq")
+//line stdlib/cmp/cmp.gom:14
+}
 
 //line stdlib/cmp/cmp.gom:18
 type Ord[A any] func(A) func(A) bool
 
 //line stdlib/cmp/cmp.gom:18
-var gomShowInit_Ord = rt.RegisterShowRecord(rt.TypeOf[Ord[any]](), true, "lt")
+func gomShowInit_Ord() {
+//line stdlib/cmp/cmp.gom:18
+	_ = rt.RegisterShowRecord(rt.TypeOf[Ord[any]](), true, "lt")
+//line stdlib/cmp/cmp.gom:18
+}
 
 //line stdlib/cmp/cmp.gom:20
 var IntEq Eq[int64] = func() Eq[int64] {

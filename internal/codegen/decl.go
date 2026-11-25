@@ -65,7 +65,7 @@ func (g *gen) funcDecl(d *core.FuncDecl) {
 	g.open()
 	if len(d.TypeParams) > 0 && funcUsesRuntimeShow(d.Fn) {
 		for _, name := range g.showInitTypes {
-			g.raw("_ = " + showInitName(name))
+			g.raw(showInitName(name) + "()")
 			g.nl()
 		}
 	}
@@ -637,15 +637,25 @@ func (g *gen) showVariantRegistrationExpr(d *core.TypeDecl, v *core.TVariant) st
 	return g.pkgQual(rtPath) + "RegisterShowVariant(" + g.pkgQual(rtPath) + "TypeOf[" + typeExpr + "](), " + strconv.Quote(v.Sym.Name) + args + ")"
 }
 
-// showInit emits one addressable initialization anchor per type. A
-// generic function references the unit's anchors so Go's initialization
-// dependency analysis cannot run a package-level variable initializer
-// before the metadata registration its runtime display reads.
+// showInit emits one runtime registration function per type. A generic
+// display helper calls the unit's functions before rendering; because
+// registration is function-protected rather than package-variable
+// initialization, unrelated package-level initializer order is not
+// perturbed, and even an initializer-time call registers metadata first.
 func (g *gen) showInit(d *core.TypeDecl, exprs []string) {
+	g.raw("func " + showInitName(g.typeName(d.Sym)) + "() {")
 	if len(exprs) == 0 {
-		exprs = []string{"true"}
+		g.raw("}")
+		g.nl()
+		g.nl()
+		return
 	}
-	g.raw("var " + showInitName(g.typeName(d.Sym)) + " = " + strings.Join(exprs, " && "))
+	g.nl()
+	for _, expr := range exprs {
+		g.raw("_ = " + expr)
+		g.nl()
+	}
+	g.raw("}")
 	g.nl()
 	g.nl()
 }

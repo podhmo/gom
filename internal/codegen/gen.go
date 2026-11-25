@@ -101,8 +101,8 @@ type gen struct {
 	testFn       *core.Func // the test's fn: escapes targeting it call t.Errorf
 	testDeclName string     // the source test name used as snapshot namespace
 
-	// showInitTypes are the unit type names whose registration anchors
-	// a generic function must depend on for package initialization order.
+	// showInitTypes are the unit type names whose registration functions
+	// a generic runtime-display function calls before rendering.
 	showInitTypes []string
 
 	// depth is the current indentation level, pendingIndent marks a
@@ -295,7 +295,7 @@ func (g *gen) indexDecls(f *core.File) {
 			g.testCollide = u.Tests
 		}
 	}
-	// Type initialization anchors are internal package-scope names too:
+	// Type registration functions are internal package-scope names too:
 	// claim them before user values so a collision cannot silently remove
 	// the dependency edge generic runtime display relies on.
 	{

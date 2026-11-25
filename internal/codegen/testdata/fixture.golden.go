@@ -32,7 +32,13 @@ type Shape_Empty struct{}
 func (Shape_Empty) isShape() {}
 
 //line t.gom:1
-var gomShowInit_Shape = rt.RegisterShowVariant(rt.TypeOf[Shape_Circle](), "Circle", "radius") && rt.RegisterShowVariant(rt.TypeOf[Shape_Empty](), "Empty")
+func gomShowInit_Shape() {
+//line t.gom:1
+	_ = rt.RegisterShowVariant(rt.TypeOf[Shape_Circle](), "Circle", "radius")
+//line t.gom:1
+	_ = rt.RegisterShowVariant(rt.TypeOf[Shape_Empty](), "Empty")
+//line t.gom:1
+}
 
 //line t.gom:4
 func area(s Shape) float64 {
@@ -189,7 +195,13 @@ func (Box_Nada[A]) isBox() A {
 }
 
 //line t.gom:15
-var gomShowInit_Box = rt.RegisterShowVariant(rt.TypeOf[Box_Boxed[any]](), "Boxed", "v") && rt.RegisterShowVariant(rt.TypeOf[Box_Nada[any]](), "Nada")
+func gomShowInit_Box() {
+//line t.gom:15
+	_ = rt.RegisterShowVariant(rt.TypeOf[Box_Boxed[any]](), "Boxed", "v")
+//line t.gom:15
+	_ = rt.RegisterShowVariant(rt.TypeOf[Box_Nada[any]](), "Nada")
+//line t.gom:15
+}
 
 //line t.gom:15
 func ident[A any](x A) A {
@@ -231,16 +243,20 @@ type Point struct {
 }
 
 //line t.gom:18
-var gomShowInit_Point = rt.RegisterShowRecord(rt.TypeOf[Point](), false, "x", "y")
+func gomShowInit_Point() {
+//line t.gom:18
+	_ = rt.RegisterShowRecord(rt.TypeOf[Point](), false, "x", "y")
+//line t.gom:18
+}
 
 //line t.gom:19
 type Meters = float64
 
 //line t.gom:19
-var gomShowInit_Meters = true
+func gomShowInit_Meters() {}
 
 //line t.gom:19
-var gomShowInit_Opaque = true
+func gomShowInit_Opaque() {}
 
 //line t.gom:19
 func classify(r result.Result[int64, error]) int64 {

@@ -16,13 +16,25 @@ import (
 type UserId int64
 
 //line go_conv.gom:49
-var gomShowInit_UserId = rt.RegisterShowRecord(rt.TypeOf[UserId](), true, "value") && rt.RegisterShowUnwrap(rt.TypeOf[UserId](), rt.TypeOf[int64]())
+func gomShowInit_UserId() {
+//line go_conv.gom:49
+	_ = rt.RegisterShowRecord(rt.TypeOf[UserId](), true, "value")
+//line go_conv.gom:49
+	_ = rt.RegisterShowUnwrap(rt.TypeOf[UserId](), rt.TypeOf[int64]())
+//line go_conv.gom:49
+}
 
 //line go_conv.gom:50
 type P *int64
 
 //line go_conv.gom:50
-var gomShowInit_P = rt.RegisterShowRecord(rt.TypeOf[P](), true, "p") && rt.RegisterShowUnwrap(rt.TypeOf[P](), rt.TypeOf[*int64]())
+func gomShowInit_P() {
+//line go_conv.gom:50
+	_ = rt.RegisterShowRecord(rt.TypeOf[P](), true, "p")
+//line go_conv.gom:50
+	_ = rt.RegisterShowUnwrap(rt.TypeOf[P](), rt.TypeOf[*int64]())
+//line go_conv.gom:50
+}
 
 //line go_conv.gom:13
 func duration(n int64) time.Duration {

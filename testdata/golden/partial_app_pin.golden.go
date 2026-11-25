@@ -12,7 +12,13 @@ import (
 type Name string
 
 //line partial_app_pin.gom:9
-var gomShowInit_Name = rt.RegisterShowRecord(rt.TypeOf[Name](), true, "n") && rt.RegisterShowUnwrap(rt.TypeOf[Name](), rt.TypeOf[string]())
+func gomShowInit_Name() {
+//line partial_app_pin.gom:9
+	_ = rt.RegisterShowRecord(rt.TypeOf[Name](), true, "n")
+//line partial_app_pin.gom:9
+	_ = rt.RegisterShowUnwrap(rt.TypeOf[Name](), rt.TypeOf[string]())
+//line partial_app_pin.gom:9
+}
 
 //line partial_app_pin.gom:11
 func pair[B any](x, y B) string {

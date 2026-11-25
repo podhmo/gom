@@ -17,7 +17,11 @@ type Pair struct {
 }
 
 //line builtins.gom:7
-var gomShowInit_Pair = rt.RegisterShowRecord(rt.TypeOf[Pair](), false, "x", "xs")
+func gomShowInit_Pair() {
+//line builtins.gom:7
+	_ = rt.RegisterShowRecord(rt.TypeOf[Pair](), false, "x", "xs")
+//line builtins.gom:7
+}
 
 //line builtins.gom:9
 type Shape interface{ isShape() }
@@ -43,7 +47,13 @@ type Shape_Square struct {
 func (Shape_Square) isShape() {}
 
 //line builtins.gom:9
-var gomShowInit_Shape = rt.RegisterShowVariant(rt.TypeOf[Shape_Circle](), "Circle", "") && rt.RegisterShowVariant(rt.TypeOf[Shape_Square](), "Square", "")
+func gomShowInit_Shape() {
+//line builtins.gom:9
+	_ = rt.RegisterShowVariant(rt.TypeOf[Shape_Circle](), "Circle", "")
+//line builtins.gom:9
+	_ = rt.RegisterShowVariant(rt.TypeOf[Shape_Square](), "Square", "")
+//line builtins.gom:9
+}
 
 //line builtins.gom:3
 func notNeg(b bool) bool {

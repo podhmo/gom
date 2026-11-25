@@ -11,7 +11,13 @@ import (
 type Handler string
 
 //line go_method_verbatim.gom:9
-var gomShowInit_Handler = rt.RegisterShowRecord(rt.TypeOf[Handler](), true, "tag") && rt.RegisterShowUnwrap(rt.TypeOf[Handler](), rt.TypeOf[string]())
+func gomShowInit_Handler() {
+//line go_method_verbatim.gom:9
+	_ = rt.RegisterShowRecord(rt.TypeOf[Handler](), true, "tag")
+//line go_method_verbatim.gom:9
+	_ = rt.RegisterShowUnwrap(rt.TypeOf[Handler](), rt.TypeOf[string]())
+//line go_method_verbatim.gom:9
+}
 
 //line go_method_verbatim.gom:11
 func mk(_ struct{}) http.Handler {
