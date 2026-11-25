@@ -14,19 +14,13 @@ import (
 type Counter int64
 
 //line method_result.gom:11
-var _ = rt.RegisterShowRecord(rt.TypeOf[Counter](), true, "n")
-
-//line method_result.gom:11
-var _ = rt.RegisterShowUnwrap(rt.TypeOf[Counter](), rt.TypeOf[int64]())
+var gomShowInit_Counter = rt.RegisterShowRecord(rt.TypeOf[Counter](), true, "n") && rt.RegisterShowUnwrap(rt.TypeOf[Counter](), rt.TypeOf[int64]())
 
 //line method_result.gom:16
 type U int64
 
 //line method_result.gom:16
-var _ = rt.RegisterShowRecord(rt.TypeOf[U](), true, "v")
-
-//line method_result.gom:16
-var _ = rt.RegisterShowUnwrap(rt.TypeOf[U](), rt.TypeOf[int64]())
+var gomShowInit_U = rt.RegisterShowRecord(rt.TypeOf[U](), true, "v") && rt.RegisterShowUnwrap(rt.TypeOf[U](), rt.TypeOf[int64]())
 
 //line method_result.gom:14
 func write(c Counter, p list.List[byte]) result.Result[int64, error] {

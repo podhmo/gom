@@ -12,28 +12,19 @@ import (
 type Greeter string
 
 //line method_iface.gom:9
-var _ = rt.RegisterShowRecord(rt.TypeOf[Greeter](), true, "name")
-
-//line method_iface.gom:9
-var _ = rt.RegisterShowUnwrap(rt.TypeOf[Greeter](), rt.TypeOf[string]())
+var gomShowInit_Greeter = rt.RegisterShowRecord(rt.TypeOf[Greeter](), true, "name") && rt.RegisterShowUnwrap(rt.TypeOf[Greeter](), rt.TypeOf[string]())
 
 //line method_iface.gom:17
 type Failure string
 
 //line method_iface.gom:17
-var _ = rt.RegisterShowRecord(rt.TypeOf[Failure](), true, "reason")
-
-//line method_iface.gom:17
-var _ = rt.RegisterShowUnwrap(rt.TypeOf[Failure](), rt.TypeOf[string]())
+var gomShowInit_Failure = rt.RegisterShowRecord(rt.TypeOf[Failure](), true, "reason") && rt.RegisterShowUnwrap(rt.TypeOf[Failure](), rt.TypeOf[string]())
 
 //line method_iface.gom:23
 type Box int64
 
 //line method_iface.gom:23
-var _ = rt.RegisterShowRecord(rt.TypeOf[Box](), true, "v")
-
-//line method_iface.gom:23
-var _ = rt.RegisterShowUnwrap(rt.TypeOf[Box](), rt.TypeOf[int64]())
+var gomShowInit_Box = rt.RegisterShowRecord(rt.TypeOf[Box](), true, "v") && rt.RegisterShowUnwrap(rt.TypeOf[Box](), rt.TypeOf[int64]())
 
 //line method_iface.gom:12
 func string_(g Greeter, _ struct{}) string {

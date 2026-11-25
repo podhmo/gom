@@ -2448,6 +2448,30 @@ let w = Score 42
 		},
 		want: "41:s42",
 	},
+	{
+		// A package-level initializer can invoke a generic display
+		// helper before Go file order reaches the sibling type file.
+		// The generic function depends on the type's show-init anchor,
+		// so the compiled binary still renders the registered record.
+		name: "sibling_show_metadata_init_order",
+		files: []gomtest.File{
+			{Path: "a.gom", Src: []byte(`package main
+
+import go "fmt"
+
+fn show (x: a) -> String = "${[x]}"
+let early = show {x = 1, y = 2}
+
+fn answer () -> String = early
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`)},
+			{Path: "z.gom", Src: []byte(`package main
+
+type Point = {x: Int, y: Int}
+`)},
+		},
+		want: "[({ x = 1, y = 2 })]",
+	},
 }
 
 // TestEvalRuntimeFallbackKeepsConcreteUnsignedLeaf pins scalar type

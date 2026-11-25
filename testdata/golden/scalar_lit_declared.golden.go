@@ -13,28 +13,19 @@ import (
 type Name string
 
 //line scalar_lit_declared.gom:8
-var _ = rt.RegisterShowRecord(rt.TypeOf[Name](), true, "n")
-
-//line scalar_lit_declared.gom:8
-var _ = rt.RegisterShowUnwrap(rt.TypeOf[Name](), rt.TypeOf[string]())
+var gomShowInit_Name = rt.RegisterShowRecord(rt.TypeOf[Name](), true, "n") && rt.RegisterShowUnwrap(rt.TypeOf[Name](), rt.TypeOf[string]())
 
 //line scalar_lit_declared.gom:9
 type Flag bool
 
 //line scalar_lit_declared.gom:9
-var _ = rt.RegisterShowRecord(rt.TypeOf[Flag](), true, "on")
-
-//line scalar_lit_declared.gom:9
-var _ = rt.RegisterShowUnwrap(rt.TypeOf[Flag](), rt.TypeOf[bool]())
+var gomShowInit_Flag = rt.RegisterShowRecord(rt.TypeOf[Flag](), true, "on") && rt.RegisterShowUnwrap(rt.TypeOf[Flag](), rt.TypeOf[bool]())
 
 //line scalar_lit_declared.gom:10
 type Ch rune
 
 //line scalar_lit_declared.gom:10
-var _ = rt.RegisterShowRecord(rt.TypeOf[Ch](), true, "c")
-
-//line scalar_lit_declared.gom:10
-var _ = rt.RegisterShowUnwrap(rt.TypeOf[Ch](), rt.TypeOf[rune]())
+var gomShowInit_Ch = rt.RegisterShowRecord(rt.TypeOf[Ch](), true, "c") && rt.RegisterShowUnwrap(rt.TypeOf[Ch](), rt.TypeOf[rune]())
 
 //line scalar_lit_declared.gom:12
 func greet(n Name) string {

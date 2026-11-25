@@ -22,9 +22,6 @@ type Pair_MkPair[A, B any] struct {
 }
 
 //line poly_adts.gom:3
-var _ = rt.RegisterShowVariant(rt.TypeOf[Pair_MkPair[any, any]](), "MkPair", "fst", "snd")
-
-//line poly_adts.gom:3
 func (Pair_MkPair[A, B]) isPair() (A, B) {
 //line poly_adts.gom:3
 	var z0 A
@@ -35,6 +32,9 @@ func (Pair_MkPair[A, B]) isPair() (A, B) {
 //line poly_adts.gom:3
 }
 
+//line poly_adts.gom:3
+var gomShowInit_Pair = rt.RegisterShowVariant(rt.TypeOf[Pair_MkPair[any, any]](), "MkPair", "fst", "snd")
+
 //line poly_adts.gom:4
 type Box[A any] struct {
 //line poly_adts.gom:4
@@ -43,7 +43,7 @@ type Box[A any] struct {
 }
 
 //line poly_adts.gom:4
-var _ = rt.RegisterShowRecord(rt.TypeOf[Box[any]](), false, "v")
+var gomShowInit_Box = rt.RegisterShowRecord(rt.TypeOf[Box[any]](), false, "v")
 
 //line poly_adts.gom:5
 type Phantom[A any] interface{ isPhantom() A }
@@ -56,9 +56,6 @@ type Phantom_MkP[A any] struct {
 }
 
 //line poly_adts.gom:5
-var _ = rt.RegisterShowVariant(rt.TypeOf[Phantom_MkP[any]](), "MkP", "")
-
-//line poly_adts.gom:5
 func (Phantom_MkP[A]) isPhantom() A {
 //line poly_adts.gom:5
 	var z0 A
@@ -66,6 +63,9 @@ func (Phantom_MkP[A]) isPhantom() A {
 	return z0
 //line poly_adts.gom:5
 }
+
+//line poly_adts.gom:5
+var gomShowInit_Phantom = rt.RegisterShowVariant(rt.TypeOf[Phantom_MkP[any]](), "MkP", "")
 
 //line poly_adts.gom:6
 type W[A any] interface{ isW() A }
@@ -76,9 +76,6 @@ type W_WLeaf[A any] struct {
 	V0 A
 //line poly_adts.gom:6
 }
-
-//line poly_adts.gom:6
-var _ = rt.RegisterShowVariant(rt.TypeOf[W_WLeaf[any]](), "WLeaf", "")
 
 //line poly_adts.gom:6
 func (W_WLeaf[A]) isW() A {
@@ -97,9 +94,6 @@ type W_WNode[A any] struct {
 }
 
 //line poly_adts.gom:6
-var _ = rt.RegisterShowVariant(rt.TypeOf[W_WNode[any]](), "WNode", "")
-
-//line poly_adts.gom:6
 func (W_WNode[A]) isW() A {
 //line poly_adts.gom:6
 	var z0 A
@@ -107,6 +101,9 @@ func (W_WNode[A]) isW() A {
 	return z0
 //line poly_adts.gom:6
 }
+
+//line poly_adts.gom:6
+var gomShowInit_W = rt.RegisterShowVariant(rt.TypeOf[W_WLeaf[any]](), "WLeaf", "") && rt.RegisterShowVariant(rt.TypeOf[W_WNode[any]](), "WNode", "")
 
 //line poly_adts.gom:7
 type Tree[A any] interface{ isTree() A }
@@ -117,9 +114,6 @@ type Tree_Leaf[A any] struct {
 	V0 A
 //line poly_adts.gom:7
 }
-
-//line poly_adts.gom:7
-var _ = rt.RegisterShowVariant(rt.TypeOf[Tree_Leaf[any]](), "Leaf", "")
 
 //line poly_adts.gom:7
 func (Tree_Leaf[A]) isTree() A {
@@ -140,9 +134,6 @@ type Tree_Node[A any] struct {
 }
 
 //line poly_adts.gom:7
-var _ = rt.RegisterShowVariant(rt.TypeOf[Tree_Node[any]](), "Node", "", "")
-
-//line poly_adts.gom:7
 func (Tree_Node[A]) isTree() A {
 //line poly_adts.gom:7
 	var z0 A
@@ -150,6 +141,9 @@ func (Tree_Node[A]) isTree() A {
 	return z0
 //line poly_adts.gom:7
 }
+
+//line poly_adts.gom:7
+var gomShowInit_Tree = rt.RegisterShowVariant(rt.TypeOf[Tree_Leaf[any]](), "Leaf", "") && rt.RegisterShowVariant(rt.TypeOf[Tree_Node[any]](), "Node", "", "")
 
 //line poly_adts.gom:9
 func none[A any]() option.Option[A] {

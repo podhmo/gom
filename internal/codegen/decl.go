@@ -63,6 +63,12 @@ func (g *gen) funcDecl(d *core.FuncDecl) {
 	g.raw(") ")
 	g.resultSig(d.Fn.ResidualType(), d.Fn.Body)
 	g.open()
+	if len(d.TypeParams) > 0 && funcUsesRuntimeShow(d.Fn) {
+		for _, name := range g.showInitTypes {
+			g.raw("_ = " + showInitName(name))
+			g.nl()
+		}
+	}
 	g.funcBody(d.Fn, ret)
 	g.close()
 	g.nl()
@@ -548,8 +554,10 @@ func (g *gen) typeDecl(d *core.TypeDecl) {
 		g.trecord(d, b)
 	case *core.TAlias:
 		g.talias(d, b)
+		g.showInit(d, nil)
 	case *core.TAbstract:
 		// no Go representation of its own
+		g.showInit(d, nil)
 	default:
 		panic("unreachable")
 	}
@@ -595,7 +603,9 @@ func quoteStrings(xs []string) string {
 	return strings.Join(out, ", ")
 }
 
-func (g *gen) showRecordRegistration(d *core.TypeDecl, b *core.TRecord) {
+func showInitName(tname string) string { return "gomShowInit_" + tname }
+
+func (g *gen) showRecordRegistrationExprs(d *core.TypeDecl, b *core.TRecord) []string {
 	fields := make([]string, len(b.Fields))
 	for i, f := range b.Fields {
 		fields[i] = f.Name
@@ -605,17 +615,15 @@ func (g *gen) showRecordRegistration(d *core.TypeDecl, b *core.TRecord) {
 	if len(fields) > 0 {
 		args = ", " + quoteStrings(fields)
 	}
-	g.raw("var _ = " + g.pkgQual(rtPath) + "RegisterShowRecord(" + g.pkgQual(rtPath) + "TypeOf[" + typeExpr + "](), " + strconv.FormatBool(b.Defined) + args + ")")
-	g.nl()
+	out := []string{g.pkgQual(rtPath) + "RegisterShowRecord(" + g.pkgQual(rtPath) + "TypeOf[" + typeExpr + "](), " + strconv.FormatBool(b.Defined) + args + ")"}
 	if b.Defined && len(b.Fields) == 1 && len(types.FreeVars(b.Fields[0].Type)) == 0 {
 		unwrap := g.exprString(g.goType(b.Fields[0].Type))
-		g.raw("var _ = " + g.pkgQual(rtPath) + "RegisterShowUnwrap(" + g.pkgQual(rtPath) + "TypeOf[" + typeExpr + "](), " + g.pkgQual(rtPath) + "TypeOf[" + unwrap + "]())")
-		g.nl()
+		out = append(out, g.pkgQual(rtPath)+"RegisterShowUnwrap("+g.pkgQual(rtPath)+"TypeOf["+typeExpr+"](), "+g.pkgQual(rtPath)+"TypeOf["+unwrap+"]())")
 	}
-	g.nl()
+	return out
 }
 
-func (g *gen) showVariantRegistration(d *core.TypeDecl, v *core.TVariant) {
+func (g *gen) showVariantRegistrationExpr(d *core.TypeDecl, v *core.TVariant) string {
 	fields := make([]string, len(v.Fields))
 	for i, f := range v.Fields {
 		fields[i] = f.Name
@@ -626,7 +634,18 @@ func (g *gen) showVariantRegistration(d *core.TypeDecl, v *core.TVariant) {
 	if len(fields) > 0 {
 		args = ", " + quoteStrings(fields)
 	}
-	g.raw("var _ = " + g.pkgQual(rtPath) + "RegisterShowVariant(" + g.pkgQual(rtPath) + "TypeOf[" + typeExpr + "](), " + strconv.Quote(v.Sym.Name) + args + ")")
+	return g.pkgQual(rtPath) + "RegisterShowVariant(" + g.pkgQual(rtPath) + "TypeOf[" + typeExpr + "](), " + strconv.Quote(v.Sym.Name) + args + ")"
+}
+
+// showInit emits one addressable initialization anchor per type. A
+// generic function references the unit's anchors so Go's initialization
+// dependency analysis cannot run a package-level variable initializer
+// before the metadata registration its runtime display reads.
+func (g *gen) showInit(d *core.TypeDecl, exprs []string) {
+	if len(exprs) == 0 {
+		exprs = []string{"true"}
+	}
+	g.raw("var " + showInitName(g.typeName(d.Sym)) + " = " + strings.Join(exprs, " && "))
 	g.nl()
 	g.nl()
 }
@@ -683,8 +702,6 @@ func (g *gen) tsum(d *core.TypeDecl, b *core.TSum) {
 			g.close()
 		}
 
-		g.showVariantRegistration(d, v)
-
 		// func (Name_Ctor[A]) isName() (A, B) { return zero vals }
 		g.raw("func (" + vname)
 		if len(names) > 0 {
@@ -713,6 +730,147 @@ func (g *gen) tsum(d *core.TypeDecl, b *core.TSum) {
 		g.nl()
 		g.close()
 		g.nl()
+	}
+
+	var exprs []string
+	for i := range b.Variants {
+		if b.Variants[i].Sym != nil {
+			exprs = append(exprs, g.showVariantRegistrationExpr(d, &b.Variants[i]))
+		}
+	}
+	g.showInit(d, exprs)
+}
+
+// funcUsesRuntimeShow reports whether a function body contains a
+// display/snapshot/assertion recipe that can land on rt.ShowRuntime.
+// Only those calls read the metadata registry; other generic functions
+// need no initialization dependency edge.
+func funcUsesRuntimeShow(fn *core.Func) bool {
+	return fn != nil && bodyUsesRuntimeShow(fn.Body)
+}
+
+func bodyUsesRuntimeShow(b *core.Body) bool {
+	if b == nil {
+		return false
+	}
+	for _, l := range b.Lets {
+		if exprUsesRuntimeShow(l.X) {
+			return true
+		}
+	}
+	return exprUsesRuntimeShow(b.Tail)
+}
+
+func exprUsesRuntimeShow(e core.Expr) bool {
+	switch e := e.(type) {
+	case *core.CallBuiltin:
+		switch e.Sym.Name {
+		case "display", "snapshot", "assert_eq":
+			return showPlanUsesRuntime(e.Show)
+		}
+		return false
+	case *core.Closure:
+		return funcUsesRuntimeShow(e.Fn)
+	case *core.GoFunc:
+		for _, in := range e.In {
+			if exprUsesRuntimeShow(in) {
+				return true
+			}
+		}
+		return false
+	case *core.Uncurry:
+		return exprUsesRuntimeShow(e.X)
+	case *core.If:
+		return bodyUsesRuntimeShow(e.Then) || bodyUsesRuntimeShow(e.Else)
+	case *core.Match:
+		return dtreeUsesRuntimeShow(e.Tree)
+	case *core.SelectExpr:
+		for _, a := range e.Arms {
+			if selArmUsesRuntimeShow(a) {
+				return true
+			}
+		}
+		return false
+	case *core.Spawn:
+		return bodyUsesRuntimeShow(e.Body)
+	case *core.ForRange:
+		return bodyUsesRuntimeShow(e.Body)
+	case *core.Var, *core.Lit, *core.FuncRef, *core.CtorRef,
+		*core.GoFuncRef, *core.FieldGet, *core.CallDirect, *core.CallFunc,
+		*core.CallGo, *core.CtorApp, *core.Unary, *core.Binary, *core.Equal,
+		*core.FieldSet, *core.Defer, *core.TupleNew, *core.ListNew,
+		*core.RecordNew, *core.RecordUpdate, *core.TailCall,
+		*core.EscapeResult, *core.EscapeCall, *core.ResultFromGo,
+		*core.OptionFromGo, *core.TupleFromGo, *core.ErrorFromGo,
+		*core.Conv, *core.TryAs:
+		return false
+	default:
+		panic("unreachable")
+	}
+}
+
+func showPlanUsesRuntime(p *core.ShowPlan) bool {
+	if p == nil {
+		return false
+	}
+	if p.Kind == core.ShowRuntime {
+		return true
+	}
+	for _, q := range []*core.ShowPlan{p.Elem} {
+		if showPlanUsesRuntime(q) {
+			return true
+		}
+	}
+	for _, q := range p.Elems {
+		if showPlanUsesRuntime(q) {
+			return true
+		}
+	}
+	for _, f := range p.Fields {
+		if showPlanUsesRuntime(f.Plan) {
+			return true
+		}
+	}
+	for _, v := range p.Variants {
+		for _, f := range v.Fields {
+			if showPlanUsesRuntime(f.Plan) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func selArmUsesRuntimeShow(a core.SelArm) bool {
+	switch a := a.(type) {
+	case *core.SelRecv:
+		return bodyUsesRuntimeShow(a.Body)
+	case *core.SelSend:
+		return bodyUsesRuntimeShow(a.Body)
+	case *core.SelDefault:
+		return bodyUsesRuntimeShow(a.Body)
+	default:
+		panic("unreachable")
+	}
+}
+
+func dtreeUsesRuntimeShow(t core.DTree) bool {
+	switch t := t.(type) {
+	case *core.DLeaf:
+		return bodyUsesRuntimeShow(t.Body)
+	case *core.DGuard:
+		return dtreeUsesRuntimeShow(t.Then) || dtreeUsesRuntimeShow(t.Else)
+	case *core.DSwitch:
+		for _, c := range t.Cases {
+			if bodyUsesRuntimeShow(c.Body) {
+				return true
+			}
+		}
+		return t.Default != nil && dtreeUsesRuntimeShow(t.Default)
+	case *core.DPanic:
+		return false
+	default:
+		panic("unreachable")
 	}
 }
 
@@ -743,7 +901,7 @@ func (g *gen) trecord(d *core.TypeDecl, b *core.TRecord) {
 		g.raw(" struct{}")
 		g.nl()
 		g.nl()
-		g.showRecordRegistration(d, b)
+		g.showInit(d, g.showRecordRegistrationExprs(d, b))
 		return
 	}
 	if b.Defined {
@@ -755,7 +913,7 @@ func (g *gen) trecord(d *core.TypeDecl, b *core.TRecord) {
 		g.typ(g.goType(b.Fields[0].Type))
 		g.nl()
 		g.nl()
-		g.showRecordRegistration(d, b)
+		g.showInit(d, g.showRecordRegistrationExprs(d, b))
 		return
 	}
 	g.raw(" struct")
@@ -773,7 +931,7 @@ func (g *gen) trecord(d *core.TypeDecl, b *core.TRecord) {
 	}
 	g.close()
 	g.nl()
-	g.showRecordRegistration(d, b)
+	g.showInit(d, g.showRecordRegistrationExprs(d, b))
 }
 
 // talias emits `type Name[A] = T` — the transparent alias: a Gom

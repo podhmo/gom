@@ -9,11 +9,20 @@ import (
 //line type_alias.gom:5
 type UserId = int64
 
+//line type_alias.gom:5
+var gomShowInit_UserId = true
+
 //line type_alias.gom:6
 type Wrap[A any] = list.List[A]
 
+//line type_alias.gom:6
+var gomShowInit_Wrap = true
+
 //line type_alias.gom:7
 type Id = int64
+
+//line type_alias.gom:7
+var gomShowInit_Id = true
 
 //line type_alias.gom:9
 func takes(id int64) int64 {

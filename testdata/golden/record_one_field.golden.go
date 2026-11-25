@@ -15,10 +15,7 @@ import (
 type UserId int64
 
 //line record_one_field.gom:8
-var _ = rt.RegisterShowRecord(rt.TypeOf[UserId](), true, "value")
-
-//line record_one_field.gom:8
-var _ = rt.RegisterShowUnwrap(rt.TypeOf[UserId](), rt.TypeOf[int64]())
+var gomShowInit_UserId = rt.RegisterShowRecord(rt.TypeOf[UserId](), true, "value") && rt.RegisterShowUnwrap(rt.TypeOf[UserId](), rt.TypeOf[int64]())
 
 //line record_one_field.gom:12
 type Box[A any] struct {
@@ -28,16 +25,13 @@ type Box[A any] struct {
 }
 
 //line record_one_field.gom:12
-var _ = rt.RegisterShowRecord(rt.TypeOf[Box[any]](), false, "item")
+var gomShowInit_Box = rt.RegisterShowRecord(rt.TypeOf[Box[any]](), false, "item")
 
 //line record_one_field.gom:24
 type Bag list.List[int64]
 
 //line record_one_field.gom:24
-var _ = rt.RegisterShowRecord(rt.TypeOf[Bag](), true, "xs")
-
-//line record_one_field.gom:24
-var _ = rt.RegisterShowUnwrap(rt.TypeOf[Bag](), rt.TypeOf[list.List[int64]]())
+var gomShowInit_Bag = rt.RegisterShowRecord(rt.TypeOf[Bag](), true, "xs") && rt.RegisterShowUnwrap(rt.TypeOf[Bag](), rt.TypeOf[list.List[int64]]())
 
 //line record_one_field.gom:14
 func get(u UserId) int64 {

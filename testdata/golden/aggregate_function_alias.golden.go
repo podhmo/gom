@@ -16,7 +16,7 @@ type Pair struct {
 }
 
 //line aggregate_function_alias.gom:11
-var _ = rt.RegisterShowRecord(rt.TypeOf[Pair](), false, "f", "x")
+var gomShowInit_Pair = rt.RegisterShowRecord(rt.TypeOf[Pair](), false, "f", "x")
 
 //line aggregate_function_alias.gom:14
 type Box interface{ isBox() }
@@ -29,10 +29,10 @@ type Box_Box struct {
 }
 
 //line aggregate_function_alias.gom:14
-var _ = rt.RegisterShowVariant(rt.TypeOf[Box_Box](), "Box", "")
+func (Box_Box) isBox() {}
 
 //line aggregate_function_alias.gom:14
-func (Box_Box) isBox() {}
+var gomShowInit_Box = rt.RegisterShowVariant(rt.TypeOf[Box_Box](), "Box", "")
 
 //line aggregate_function_alias.gom:8
 func count(n int64) int64 {

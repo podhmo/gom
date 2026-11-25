@@ -17,19 +17,16 @@ type Shape_Circle struct {
 }
 
 //line variant_named_field.gom:15
-var _ = rt.RegisterShowVariant(rt.TypeOf[Shape_Circle](), "Circle", "r")
-
-//line variant_named_field.gom:15
 func (Shape_Circle) isShape() {}
 
 //line variant_named_field.gom:15
 type Shape_Empty struct{}
 
 //line variant_named_field.gom:15
-var _ = rt.RegisterShowVariant(rt.TypeOf[Shape_Empty](), "Empty")
+func (Shape_Empty) isShape() {}
 
 //line variant_named_field.gom:15
-func (Shape_Empty) isShape() {}
+var gomShowInit_Shape = rt.RegisterShowVariant(rt.TypeOf[Shape_Circle](), "Circle", "r") && rt.RegisterShowVariant(rt.TypeOf[Shape_Empty](), "Empty")
 
 //line variant_named_field.gom:31
 type Pair[A any] interface{ isPair() A }
@@ -44,9 +41,6 @@ type Pair_MkPair[A any] struct {
 }
 
 //line variant_named_field.gom:31
-var _ = rt.RegisterShowVariant(rt.TypeOf[Pair_MkPair[any]](), "MkPair", "fst", "snd")
-
-//line variant_named_field.gom:31
 func (Pair_MkPair[A]) isPair() A {
 //line variant_named_field.gom:31
 	var z0 A
@@ -54,6 +48,9 @@ func (Pair_MkPair[A]) isPair() A {
 	return z0
 //line variant_named_field.gom:31
 }
+
+//line variant_named_field.gom:31
+var gomShowInit_Pair = rt.RegisterShowVariant(rt.TypeOf[Pair_MkPair[any]](), "MkPair", "fst", "snd")
 
 //line variant_named_field.gom:17
 func getr(s Shape) float64 {

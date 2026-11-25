@@ -19,19 +19,16 @@ type Shape_Circle struct {
 }
 
 //line match_ctor_scrutinee.gom:30
-var _ = rt.RegisterShowVariant(rt.TypeOf[Shape_Circle](), "Circle", "r")
-
-//line match_ctor_scrutinee.gom:30
 func (Shape_Circle) isShape() {}
 
 //line match_ctor_scrutinee.gom:30
 type Shape_Empty struct{}
 
 //line match_ctor_scrutinee.gom:30
-var _ = rt.RegisterShowVariant(rt.TypeOf[Shape_Empty](), "Empty")
+func (Shape_Empty) isShape() {}
 
 //line match_ctor_scrutinee.gom:30
-func (Shape_Empty) isShape() {}
+var gomShowInit_Shape = rt.RegisterShowVariant(rt.TypeOf[Shape_Circle](), "Circle", "r") && rt.RegisterShowVariant(rt.TypeOf[Shape_Empty](), "Empty")
 
 //line match_ctor_scrutinee.gom:10
 func direct(_ struct{}) int64 {
