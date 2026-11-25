@@ -37,9 +37,12 @@
   `'y'` ではなく representation 上の `121`
 
 `rt/show_test.go` は unregistered Go struct / named Go slice が `%v` 綴りの
-まま operand 括弧を取ることも固定する。multi-file regression
-`sibling_show_metadata_init_order` は package-level initializer が sibling type の
-registration より先に走らないことを固定する。
+まま operand 括弧を取ること、`Err` payload では静的に error interface のときだけ
+`Error()` を優先し concrete payload の record metadata を残すことも固定する。
+multi-file regression `sibling_show_metadata_init_order` は package-level initializer が
+sibling type の registration より先に走らないことを固定し、
+`cmd/gom.TestEndToEnd_ImportedRuntimeShowMetadata` は importer の initializer-time
+generic splice が imported package 初期化済みの record metadata を見ることを固定する。
 
 ## 残りの境界
 

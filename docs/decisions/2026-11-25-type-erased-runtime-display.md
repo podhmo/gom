@@ -21,13 +21,20 @@ Gom 値を Gom comparison display 側へ寄せる。
 - scalar は machine representation の幅で描く（符号付き/符号なし、float32 /
   float64、bool、string の quoted comparison 表示）
 - `rt.TupleN` は `(a, b)`、slice/array representation は `[a, b]`、builtin
-  Option / Result は `Some v` / `None` / `Ok v` / `Err e` で描く
+  Option / Result は `Some v` / `None` / `Ok v` / `Err e` で描く。`Err` の
+  payload が静的に error interface のときは `Error()` の文字列を優先し、
+  concrete な payload 型が error を実装するだけのときは record metadata を
+  残す
 - ユーザーの record / variant は generated code が登録する show metadata を
   reflection が引き、record は `{ field = v }`、variant は
   `Ctor ~name: v` で描く。metadata は field/constructor の Gom 綴りだけを持ち、
   generated な `gomShowInit_<Type>()` registration function が
   `rt.RegisterShowRecord` / `rt.RegisterShowVariant` へ登録し、runtime display を
-  持つ generic function は描画前に unit の registration function を呼ぶ
+  持つ generic function は描画前に unit の registration function を呼ぶ。
+  registration function は同 package の package-level variable を参照しないため、
+  この呼び出しは Go の初期化依存を増やさない。import された package 側は
+  package 初期化でも同じ関数を呼び、importer は unexported function を直接
+  呼べなくても初期化完了時点で metadata を見られる
 - 一フィールド record の defined representation（`type X F`）でも metadata を
   登録し、`{ field = v }` に戻す。`F` が型パラメータを含まないときは
   `rt.RegisterShowUnwrap` が field representation の reflect.Type も登録し、
