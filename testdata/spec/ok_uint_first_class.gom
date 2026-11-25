@@ -1,0 +1,8 @@
+package ex
+
+import go "math/bits"
+
+fn count (x: Uint) -> Int = bits.OnesCount64 x
+fn roundtrip (x: Uint) -> Uint = bits.Reverse64 x
+fn arithmetic (x: Uint) -> Uint = (x + 1) / 2
+fn converted (x: Int) -> Uint64 = Go.conv x : Uint64

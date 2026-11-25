@@ -75,6 +75,7 @@ wrap; Gom values still box as before.
 | Go | Gom |
 | --- | --- |
 | `int` / `int64` / `int32` / `float64` | `Int` / `Int` / `Int32` / `Float` |
+| `uint` / `uint64` | `Uint` / `Uint` |
 | `byte` / `uint8` | `Byte` — `List Byte` is `[]byte` (byte I/O); no literals or arithmetic, `==`/`!=` only, convert with `Go.conv` |
 | `string` / `bool` / `rune` | `String` / `Bool` / `Char` |
 | `*T` | `Ptr T` (nil deref panics, as in Go; ops in the `Ptr` module) |
@@ -127,14 +128,14 @@ wrap; Gom values still box as before.
   a non-`GoError` payload is still E0420.
   Width matters at the boundary: the conformance check compares
   against the interface's raw Go signature, so positions the Go
-  side spells `int` want gom `Int` and positions spelled `int64`
-  want `Int64` — `io.Seeker`'s `Seek(int64, int)` is
+  side spells `int`/`uint` want gom `Int`/`Uint` and positions spelled `int64`/`uint64`
+  want `Int64`/`Uint64` — `io.Seeker`'s `Seek(int64, int)` is
   `(offset: Int64) (whence: Int)`. Writing `Int` at an `int64`
   position fails E0401 instead of passing a method set the
   generated Go would not carry. The width rule mirrors the emit:
   inside containers the element emits through goType, so a nested
-  `int64` position (`[]int64`) accepts either spelling (`List Int`
-  conforms) while a nested `int` position is inexpressible — such
+  `int64`/`uint64` position (`[]int64`/`[]uint64`) accepts either spelling (`List Int`/`List Uint`
+  conforms) while a nested `int`/`uint` position is inexpressible — such
   methods are not even exposed.
 - Exported struct fields read via `v.Field` (promoted fields and Go's
   ambiguity rules apply; unexported fields are invisible). Through
@@ -142,8 +143,7 @@ wrap; Gom values still box as before.
   which with `Ptr.new ()` covers construction like
   `http.Client{Timeout: ...}`; composite literals still don't exist
   (decisions/2026-11-19-struct-field-write).
-- Not representable → hidden + reason on use (E0501): unsigned
-  ints other than `byte`/`uint8`, `int8`/`int16`, `float32`,
+- Not representable → hidden + reason on use (E0501): `uint16`/`uint32`/`uintptr`, `int8`/`int16`, `float32`,
   complex, `[N]T` arrays, `unsafe.Pointer`, generic types, funcs
   with arity > 3 or labeled params, anonymous interfaces with
   methods, 3+ return values. Func params/returns of arity 0–3

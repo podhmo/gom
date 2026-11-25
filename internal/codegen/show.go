@@ -88,6 +88,8 @@ func (g *gen) showScalar(name string, x ast.Expr) ast.Expr {
 		return sv("FormatInt",
 			&ast.CallExpr{Fun: ast.NewIdent("int64"), Args: []ast.Expr{x}},
 			&ast.BasicLit{Kind: token.INT, Value: "10"})
+	case "Uint", "Uint64":
+		return sv("FormatUint", x, &ast.BasicLit{Kind: token.INT, Value: "10"})
 	case "Float":
 		return sv("FormatFloat", x,
 			&ast.BasicLit{Kind: token.CHAR, Value: `'g'`},

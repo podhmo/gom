@@ -213,6 +213,8 @@ func (g *gen) methodDecl(d *core.FuncDecl) {
 			g.raw("return append([]" + g.exprString(g.goType(listElem(o))) + "{}, " + call + "...)")
 		case types.Equal(types.Chase(o), types.Int):
 			g.raw("return int(" + call + ")")
+		case types.Equal(types.Chase(o), types.Uint):
+			g.raw("return uint(" + call + ")")
 		default:
 			g.raw("return " + call)
 		}
@@ -244,9 +246,9 @@ func methodResult(res types.Type) (resT types.Type, resErr bool) {
 
 // methodConv reports whether a type needs a value conversion between
 // the method's boundary spelling and the emitted inner shape —
-// `List T` (`[]T` vs `list.List[T]`) and `Int` (`int` vs `int64`).
+// `List T` (`[]T` vs `list.List[T]`) and `Int`/`Uint` (`int`/`uint` vs `int64`/`uint64`).
 func methodConv(t types.Type) bool {
-	return listElem(t) != nil || types.Equal(types.Chase(t), types.Int)
+	return listElem(t) != nil || types.Equal(types.Chase(t), types.Int) || types.Equal(types.Chase(t), types.Uint)
 }
 
 // listElem reports the element type when t is the gom `List T`
@@ -293,6 +295,9 @@ func (g *gen) boundaryResults(outs []types.Type, opt, resErr bool) string {
 		if types.Equal(types.Chase(o), types.Int) {
 			return "int(" + acc + ")"
 		}
+		if types.Equal(types.Chase(o), types.Uint) {
+			return "uint(" + acc + ")"
+		}
 		return acc
 	}
 	if len(outs) == 1 {
@@ -322,6 +327,9 @@ func (g *gen) boundaryZeros(outs []types.Type, opt bool) string {
 		}
 		if types.Equal(types.Chase(o), types.Int) {
 			return "int(" + acc + ")"
+		}
+		if types.Equal(types.Chase(o), types.Uint) {
+			return "uint(" + acc + ")"
 		}
 		return acc
 	}
@@ -371,9 +379,10 @@ func (g *gen) exprString(e ast.Expr) string {
 }
 
 // methodType renders a type the way an interface method's signature
-// must spell it — the boundary's raw form: `List T` is `[]T` and
-// `Int` is `int` (the spelling `int`/`int64` collapse into one gom
-// view; `int` is the interface-typical choice —
+// must spell it — the boundary's raw form: `List T` is `[]T`,
+// `Int` is `int`, and `Uint` is `uint` (the spelling pairs collapse
+// into one gom view; the raw machine spelling is the interface-typical
+// choice —
 // docs/decisions/2026-11-21-go-iface-impl). Everything else keeps
 // the emitted shape.
 func (g *gen) methodType(t types.Type) ast.Expr {
@@ -383,13 +392,16 @@ func (g *gen) methodType(t types.Type) ast.Expr {
 	if types.Equal(types.Chase(t), types.Int) {
 		return ast.NewIdent("int")
 	}
+	if types.Equal(types.Chase(t), types.Uint) {
+		return ast.NewIdent("uint")
+	}
 	return g.goType(t)
 }
 
 // methodArg wraps an inner-call argument for the boundary spelling:
 // a `List T` parameter takes `[]T` at the method edge and converts
-// back to `list.List[T]`; an `Int` parameter takes `int` and widens
-// to the inner `int64`.
+// back to `list.List[T]`; an `Int`/`Uint` parameter takes the raw
+// machine type and widens to the inner 64-bit representation.
 func (g *gen) methodArg(name string, t types.Type) string {
 	if el := listElem(t); el != nil {
 		// Copy the caller's slice: a `List` captured by the gom
@@ -399,6 +411,9 @@ func (g *gen) methodArg(name string, t types.Type) string {
 	}
 	if types.Equal(types.Chase(t), types.Int) {
 		return "int64(" + name + ")"
+	}
+	if types.Equal(types.Chase(t), types.Uint) {
+		return "uint64(" + name + ")"
 	}
 	return name
 }

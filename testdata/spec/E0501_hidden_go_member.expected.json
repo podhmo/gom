@@ -4,24 +4,24 @@
       "kind": "diagnostic",
       "code": "E0501",
       "severity": "error",
-      "message": "Go symbol `strconv.ParseUint` is not exposed: result 0: uint64 is not supported yet",
+      "message": "Go symbol `math/bits.Len32` is not exposed: parameter x: uint32 is not supported yet",
       "span": {
         "file": "E0501_hidden_go_member.gom",
         "start": {
           "line": 8,
-          "col": 36,
-          "offset": 227
+          "col": 23,
+          "offset": 216
         },
         "end": {
           "line": 8,
-          "col": 45,
-          "offset": 236
+          "col": 28,
+          "offset": 221
         }
       },
       "data": {
-        "package": "strconv",
-        "reason": "result 0: uint64 is not supported yet",
-        "symbol": "ParseUint"
+        "package": "math/bits",
+        "reason": "parameter x: uint32 is not supported yet",
+        "symbol": "Len32"
       }
     }
   ]

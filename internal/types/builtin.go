@@ -12,6 +12,8 @@ var (
 	Int    Type = &Con{Name: "Int"}
 	Int32  Type = &Con{Name: "Int32"}
 	Int64  Type = &Con{Name: "Int64"}
+	Uint   Type = &Con{Name: "Uint"}
+	Uint64 Type = &Con{Name: "Uint64"}
 	Float  Type = &Con{Name: "Float"}
 	Char   Type = &Con{Name: "Char"}
 	String Type = &Con{Name: "String"}
@@ -81,9 +83,12 @@ func GoMap(k, v Type) Type {
 // Go.Int is Go's `int` — the Go-side view kept next to the Gom view
 // `Int` (which renders `int64`) so that loaded Go signatures can
 // express where a real `int` conversion is required
-// (docs/decisions/2026-11-03-go-types-mapping.md). It never appears
-// in Gom-facing signatures; the GoSig oracle carries it for lowering.
+// (docs/decisions/2026-11-03-go-types-mapping.md). Go.Uint is the
+// same raw-view split for `uint` beside `Uint`/`Uint64` (uint64).
+// They never appear in Gom-facing signatures; the GoSig oracle
+// carries them for lowering.
 var GoInt Type = &Con{Qual: "Go", Name: "Int"}
+var GoUint Type = &Con{Qual: "Go", Name: "Uint"}
 
 // GoFuncMaxArity is the largest parameter count a `Go.FuncN` type
 // names — `Go.Func0` .. `Go.Func3` cover the standard library's

@@ -21,3 +21,25 @@ type WidthPair interface {
 type WidthIntElem interface {
 	Take(xs []int) int
 }
+
+// WidthUint — a root raw uint position wants the gom Uint spelling;
+// the method boundary converts between uint and the inner uint64.
+type WidthUint interface {
+	Put(x uint) uint
+}
+
+// WidthUintPair — root raw uint64 positions want Uint64.
+type WidthUintPair interface {
+	Pair() (uint64, uint64, error)
+}
+
+// WidthUintElem — nested raw uint is inexpressible, like nested raw int.
+type WidthUintElem interface {
+	Take(xs []uint) uint
+}
+
+// ApplyUint exercises a raw uint callback parameter in the Go→Gom direction.
+func ApplyUint(f func(uint) uint, x uint) uint { return f(x) }
+
+// UintFn exercises a raw uint callback result in the Gom→Go direction.
+func UintFn() func(uint) uint { return func(x uint) uint { return x + 1 } }

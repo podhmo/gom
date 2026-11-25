@@ -483,6 +483,10 @@ func viewsCompatible(g, r gt.Type) bool {
 		(rc.Qual == "" || rc.Qual == "Go") && rc.Name == "Int" && len(rc.Args) == 0 {
 		return true
 	}
+	if gc.Qual == "" && (gc.Name == "Uint" || gc.Name == "Uint64") && len(gc.Args) == 0 &&
+		rc.Qual == "Go" && rc.Name == "Uint" && len(rc.Args) == 0 {
+		return true
+	}
 	if gc.Qual == "" && gc.Name == "List" && len(gc.Args) == 1 &&
 		rc.Qual == "Go" && rc.Name == "Slice" && len(rc.Args) == 1 {
 		return gt.Equal(gc.Args[0], rc.Args[0])
@@ -496,7 +500,7 @@ func viewsCompatible(g, r gt.Type) bool {
 // spelled in Core IR yet, so the symbol stays unexposed like any
 // other unrepresentable member.
 func divergentReason(t types.Type) string {
-	return fmt.Sprintf("type %s splits int and int64 inside a container — element-wise boundary conversions are not supported yet", t)
+	return fmt.Sprintf("type %s splits int/uint and their 64-bit spellings inside a container — element-wise boundary conversions are not supported yet", t)
 }
 
 // gomType maps a go/types type to the Gom view — the entry used for
@@ -537,9 +541,9 @@ func (l *Loader) mapType(t types.Type, goView, assignable bool) (gt.Type, string
 	switch t := t.(type) {
 	case *types.Basic:
 		if t.Kind() == types.Int {
-			// The one type whose Gom and Go spellings differ:
 			// `int` is `Int` (`int64`) to Gom, `Go.Int` (`int`) to
-			// the generated code.
+			// the generated code; basicType owns the same split for
+			// `uint` (`Uint`/`Go.Uint`).
 			if goView {
 				return gt.GoInt, ""
 			}
@@ -704,7 +708,14 @@ func basicType(t *types.Basic, goView bool) (gt.Type, string) {
 		// `byte` and `uint8` are the same basic kind; both read
 		// as `Byte` in the Gom view.
 		return gt.Byte, ""
-	case types.Uint16, types.Uint32, types.Uint64, types.Uint, types.Uintptr:
+	case types.Uint64:
+		return gt.Uint, ""
+	case types.Uint:
+		if goView {
+			return gt.GoUint, ""
+		}
+		return gt.Uint, ""
+	case types.Uint16, types.Uint32, types.Uintptr:
 		return nil, fmt.Sprintf("%s is not supported yet", t.Name())
 	case types.Int8, types.Int16:
 		return nil, fmt.Sprintf("%s is not supported yet", t.Name())

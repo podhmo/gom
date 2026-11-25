@@ -178,7 +178,7 @@ duplicate-arm checks.
   introduced positionally (in `apply (fn x -> x)`, the `fn x -> x`
   argument conforms to the `~x: Int -> Int` parameter); a labeled
   function never conforms to an unlabeled one.
-- **Types** (all nominal): `Int Int32 Int64 Byte Float Bool Char String
+- **Types** (all nominal): `Int Int32 Int64 Uint Uint64 Byte Float Bool Char String
   Unit`, tuples `(a, b)`, `List a`, `Option a` (`Some`/`None`),
   `Result a e` (`Ok`/`Err`), `Ref a`, `Array a`, `Ptr T`, `Chan a` /
   `RecvChan a` / `SendChan a`, `Task a`, `GoError`, `Go.Slice a`,

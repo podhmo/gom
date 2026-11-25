@@ -70,6 +70,9 @@ func (g *gen) conType(c *types.Con) ast.Expr {
 		case "Int":
 			// The Go-side `int` — distinct from Gom `Int` (int64).
 			return ast.NewIdent("int")
+		case "Uint":
+			// The Go-side `uint` — distinct from Gom `Uint` (uint64).
+			return ast.NewIdent("uint")
 		case "Any":
 			return ast.NewIdent("any")
 		default:
@@ -93,6 +96,8 @@ func (g *gen) conType(c *types.Con) ast.Expr {
 			return ast.NewIdent(simpleBuiltinName(c.Name))
 		case conInt64:
 			return ast.NewIdent("int64")
+		case conUint64:
+			return ast.NewIdent("uint64")
 		case conError:
 			return ast.NewIdent("error")
 		case conList:

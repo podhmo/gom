@@ -158,7 +158,7 @@ func (c *checker) implementsIface(want, got types.Type) bool {
 
 // methodSigMatch reports whether the declared method signature s
 // satisfies the interface's requirement n. The gom views compare
-// with the int family (`Int`/`Int64`) treated as interchangeable —
+// with the int/uint families (`Int`/`Int64`, `Uint`/`Uint64`) treated as interchangeable —
 // the view folds both Go `int` and `int64` to `Int`, so neither can
 // be told apart there — and the width question is answered against
 // the raw view instead: a raw `int` position (`Go.Int`) wants the
@@ -253,6 +253,15 @@ func (c *checker) methodViewEqual(a, b types.Type) bool {
 			return false
 		}
 	}
+	if methodBuiltinUint(b) {
+		if c.methodUintFamily(a) {
+			return true
+		}
+		if con, ok := types.Chase(a).(*types.Con); ok && con.Qual == "" &&
+			(con.Name == "Uint" || con.Name == "Uint64") {
+			return false
+		}
+	}
 	ac, bc := types.Chase(a), types.Chase(b)
 	switch at := ac.(type) {
 	case *types.Con:
@@ -307,6 +316,15 @@ func methodBuiltinInt(t types.Type) bool {
 	return c.Name == "Int" || c.Name == "Int64"
 }
 
+// methodBuiltinUint is methodBuiltinInt for the uint family.
+func methodBuiltinUint(t types.Type) bool {
+	c, ok := types.Chase(t).(*types.Con)
+	if !ok || c.Qual != "" {
+		return false
+	}
+	return c.Name == "Uint" || c.Name == "Uint64"
+}
+
 // methodIntFamily reports whether t is one of the builtin integer
 // types the gom view conflates at the Go boundary — `Int` (the
 // fold of Go's `int` and `int64`) and `Int64`. A file-local type
@@ -323,6 +341,18 @@ func (c *checker) methodIntFamily(t types.Type) bool {
 	return !c.shadowedBuiltin(con.Name)
 }
 
+// methodUintFamily is methodIntFamily for `Uint`/`Uint64`.
+func (c *checker) methodUintFamily(t types.Type) bool {
+	con, ok := types.Chase(t).(*types.Con)
+	if !ok || con.Qual != "" {
+		return false
+	}
+	if con.Name != "Uint" && con.Name != "Uint64" {
+		return false
+	}
+	return !c.shadowedBuiltin(con.Name)
+}
+
 // methodWidthOk reports whether the declared type u emits the
 // boundary width the interface's raw position r requires, mirroring
 // the emit rules exactly: at a root position (a parameter or result
@@ -330,7 +360,7 @@ func (c *checker) methodIntFamily(t types.Type) bool {
 // `int64`; inside a container the element emits through goType
 // instead, where both spell `int64` — so a nested raw `int64`
 // admits either, and a nested raw `int` admits neither (no
-// container spelling emits it). Only the int widths can disagree —
+// container spelling emits it). Only the int/uint widths can disagree —
 // everything else either compares equal in the gom view already or
 // has no method-boundary spelling.
 func (c *checker) methodWidthOk(u, r types.Type, root bool) bool {
@@ -350,6 +380,18 @@ func (c *checker) methodWidthOk(u, r types.Type, root bool) bool {
 		// pinned u to the int family at this position.
 		if root {
 			return types.Equal(uc, types.Int64) && !c.shadowedBuiltin("Int64")
+		}
+		return true
+	}
+	if gc, ok := rc.(*types.Con); ok && gc.Qual == "Go" && gc.Name == "Uint" {
+		if root {
+			return types.Equal(uc, types.Uint) && !c.shadowedBuiltin("Uint")
+		}
+		return !c.methodUintFamily(uc)
+	}
+	if types.Equal(rc, types.Uint) {
+		if root {
+			return types.Equal(uc, types.Uint64) && !c.shadowedBuiltin("Uint64")
 		}
 		return true
 	}

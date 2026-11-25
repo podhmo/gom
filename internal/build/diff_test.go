@@ -39,6 +39,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	mathbits "math/bits"
 	"math/rand/v2"
 	"os"
 	"os/exec"
@@ -860,6 +861,30 @@ var diffGoStubs = map[string]func(capture *diffCapture) func([]eval.Value) (eval
 				parts = append(parts, s.S)
 			}
 			return &eval.VStr{S: strings.Join(parts, sep.S)}, nil
+		}
+	},
+	"math/bits.OnesCount64": func(capture *diffCapture) func([]eval.Value) (eval.Value, error) {
+		return func(args []eval.Value) (eval.Value, error) {
+			if i, ok := args[0].(*eval.VInt); ok {
+				return &eval.VInt{N: int64(mathbits.OnesCount64(uint64(i.N)))}, nil
+			}
+			return goBadArgs("math/bits.OnesCount64", args)
+		}
+	},
+	"math/bits.Reverse": func(capture *diffCapture) func([]eval.Value) (eval.Value, error) {
+		return func(args []eval.Value) (eval.Value, error) {
+			if i, ok := args[0].(*eval.VInt); ok {
+				return &eval.VInt{N: int64(mathbits.Reverse(uint(uint64(i.N)))), U: true}, nil
+			}
+			return goBadArgs("math/bits.Reverse", args)
+		}
+	},
+	"math/bits.Reverse64": func(capture *diffCapture) func([]eval.Value) (eval.Value, error) {
+		return func(args []eval.Value) (eval.Value, error) {
+			if i, ok := args[0].(*eval.VInt); ok {
+				return &eval.VInt{N: int64(mathbits.Reverse64(uint64(i.N))), U: true}, nil
+			}
+			return goBadArgs("math/bits.Reverse64", args)
 		}
 	},
 	"math.Abs":   floatStub(math.Abs),

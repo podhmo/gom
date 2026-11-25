@@ -745,6 +745,79 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 		want: "9223372036854775808:4611686018427387904",
 	},
 	{
+		// wave47 lane D: Uint literals, arithmetic, conversion and a
+		// Go uint64 boundary use the shared uint64 representation.
+		name: "uint_first_class_bits_boundary",
+		src: `package main
+
+import go "fmt"
+import go "math/bits"
+
+fn answer () -> String = {
+  let x : Uint = 2
+  let y : Uint = 18446744073709551615
+  let z = bits.OnesCount64 y
+  "${x}:${y / 2}:${z}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "2:9223372036854775807:64",
+	},
+	{
+		// wave47 lane D: a raw Go uint boundary converts at the call edge —
+		// Reverse takes and returns uint rather than uint64.
+		name: "uint_go_raw_uint_roundtrip",
+		src: `package main
+
+import go "fmt"
+import go "math/bits"
+
+fn answer () -> String = {
+  let x : Uint = 1
+  let y : Uint = bits.Reverse x
+  "${y}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "9223372036854775808",
+	},
+	{
+		// wave47 lane D: a Go uint64 result crosses back into Gom without
+		// losing its high bit — Reverse64 exercises both boundary directions.
+		name: "uint_go_result_roundtrip",
+		src: `package main
+
+import go "fmt"
+import go "math/bits"
+
+fn answer () -> String = {
+  let x : Uint = 1
+  let y : Uint = bits.Reverse64 x
+  "${y}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "9223372036854775808",
+	},
+	{
+		// wave47 lane D: even when a Uint passes through a type-erased
+		// generic display, the evaluator's integer value carries the same
+		// unsigned machine interpretation reflection sees in compiled code.
+		name: "uint_type_erased_runtime_display",
+		src: `package main
+
+import go "fmt"
+
+fn show (x: a) -> String = "${[x]}"
+fn answer () -> String = {
+  let x : Uint = 18446744073709551615
+  show x
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "[18446744073709551615]",
+	},
+	{
 		// P2-2c: the same delayed-reference cycle through a
 		// destructuring let — tuple, record, and a single-variant
 		// constructor all bind `count` as a named wrapper.
@@ -2264,6 +2337,40 @@ fn main () -> Unit = {
 		want: "some 7",
 	},
 	{
+		// wave47 lane D: a type-erased Uint boxes as uint64, not int64 —
+		// otherwise `Go.try_as` cannot assert the value back in eval.
+		name: "go_try_as_uint_type_erased_box",
+		src: `package main
+
+import go "fmt"
+
+fn box (x: a) -> Go.Any = {
+  let y : Go.Any = x
+  y
+}
+
+fn answer () -> String = {
+  let u : Uint = 18446744073709551615
+  let direct : Go.Any = u
+  let a = match (Go.try_as direct : Option Uint) {
+    Some n -> "some ${n}"
+    None -> "none"
+  }
+  let b = match (Go.try_as (box u) : Option Uint) {
+    Some n -> "some ${n}"
+    None -> "none"
+  }
+  "${a}/${b}"
+}
+
+fn main () -> Unit = {
+  let _ = fmt.Println(answer ())
+  ()
+}
+`,
+		want: "some 18446744073709551615/some 18446744073709551615",
+	},
+	{
 		// A file-local `type Ptr` (arity 0) shadows the builtin —
 		// the assertion name is the nominal `Ptr`, and reading
 		// `t.Args[0]` on it must not panic.
@@ -2504,6 +2611,44 @@ type Point = {x: Int, y: Int}
 		},
 		want: "[({ x = 1, y = 2 })]",
 	},
+}
+
+// TestUintGoFuncCallbackRuns is the compiled half of the raw-uint
+// callback boundary: the evaluator has no `Go.funcN`/`Go.fnN` adapter
+// semantics, so this regression compiles and runs the generated Go
+// directly instead of joining compareCases.
+func TestUintGoFuncCallbackRuns(t *testing.T) {
+	src := `package main
+
+import go "fmt"
+import go "github.com/podhmo/gom/testdata/goiface"
+
+fn answer () -> String = {
+  let x = goiface.ApplyUint (Go.func1 (fn (n: Uint) -> n + 1)) 1
+  let f = Go.fn1 (goiface.UintFn ())
+  let y = f 1
+  "${x}:${y}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`
+	r, err := build.Compile(build.Input{Path: "uint_callback.gom", Src: []byte(src)}, suiteOptions())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Diagnostics.HasError() {
+		t.Fatalf("diagnostics: %v", r.Diagnostics)
+	}
+	gobin, err := lookupGo(t)
+	if err != nil {
+		t.Skip(err)
+	}
+	out, err := runCompiledCmd(t, gobin, r.Output.Source)
+	if err != nil {
+		t.Fatalf("compiled run: %v\n%s", err, out)
+	}
+	if got := strings.TrimSpace(out); got != "2:2" {
+		t.Fatalf("compiled stdout = %q, want 2:2", got)
+	}
 }
 
 // TestEvalRuntimeFallbackKeepsConcreteUnsignedLeaf pins scalar type

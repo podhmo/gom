@@ -271,6 +271,7 @@
 | [splice-display-type-driven](2026-11-25-splice-display-type-driven.md) | splice 表示は静的型駆動 — scalar 束縛の宣言型も record 形で描く | 採用 |
 | [test-snapshots-go-cmp](2026-11-25-test-snapshots-go-cmp.md) | テストスナップショットと go-cmp 差分 | 採用 |
 | [type-erased-runtime-display](2026-11-25-type-erased-runtime-display.md) | type-erased composite 表示は runtime representation canonical にする | 採用 |
+| [uint-first-class](2026-11-25-uint-first-class.md) | `Uint` / `Uint64` を第一級整数型にする | 採用 |
 | [write-failure-e0003](2026-11-25-write-failure-e0003.md) | write 失敗は E0003 診断（exit 2 → 1） | 採用 |
 | [writeoperand-type-driven](2026-11-25-writeoperand-type-driven.md) | nested operand の括弧判定は静的型駆動にする | 採用 |
 <!-- END GENERATED -->

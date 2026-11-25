@@ -1352,7 +1352,7 @@ func (c *checker) convOK(from, to types.Type) bool {
 		// conversion rule means.
 		if con.Qual == "" && !c.shadowedBuiltin(con.Name) {
 			switch con.Name {
-			case "Int", "Int32", "Int64", "Float", "Char", "Byte":
+			case "Int", "Int32", "Int64", "Uint", "Uint64", "Float", "Char", "Byte":
 				return true
 			}
 		}
@@ -1525,6 +1525,8 @@ func (c *checker) convBasicKind(t types.Type) (string, bool) {
 		return "int64", true
 	case "Int32", "Char":
 		return "int32", true
+	case "Uint", "Uint64":
+		return "uint64", true
 	case "Float":
 		return "float64", true
 	case "Byte":
@@ -1858,6 +1860,8 @@ func (c *checker) litRange(t types.Type) (bits int64, unsigned, floating, ok boo
 		switch t.Name {
 		case "Int", "Int64":
 			return 64, false, false, true
+		case "Uint", "Uint64":
+			return 64, true, false, true
 		case "Int32", "Char":
 			return 32, false, false, true
 		case "Byte":
@@ -2659,7 +2663,7 @@ func (c *checker) narrowFloat(v float64, t types.Type) float64 {
 // intFoldWidth gives the machine width — and its signedness — that
 // constFold wraps a literal shift result at: the width of the
 // builtin integral type the emitted Go type carries (`int`/`int64`/
-// `int32`, `rune`'s int32 for Char, `uint8` for Byte), or — through
+// `int32`, `uint64` for `Uint`/`Uint64`, `rune`'s int32 for Char, `uint8` for Byte), or — through
 // the UnderlyingSource oracle — a named Go type's integer
 // underlying (time.Duration's int64, os.FileMode's uint32), or a
 // declared defined type's field. A width we cannot know (a struct-
@@ -2679,6 +2683,8 @@ func (c *checker) intFoldWidth(t types.Type) (w uint, unsigned bool, ok bool) {
 		switch t.Name {
 		case "Int", "Int64":
 			return 64, false, true
+		case "Uint", "Uint64":
+			return 64, true, true
 		case "Int32", "Char":
 			return 32, false, true
 		case "Byte":
@@ -4377,7 +4383,7 @@ func (c *checker) goOriginType(t types.Type) bool {
 		if (t.Name == "Ptr" || t.Name == "Chan" || t.Name == "RecvChan" || t.Name == "SendChan") && len(t.Args) == 1 {
 			return c.goOriginType(t.Args[0])
 		}
-		return c.isBuiltinCon(t, "Int") || c.isBuiltinCon(t, "Int32") || c.isBuiltinCon(t, "Float") || c.isBuiltinCon(t, "Bool") || c.isBuiltinCon(t, "String") || c.isBuiltinCon(t, "Char") || c.isBuiltinCon(t, "Byte") || c.isBuiltinCon(t, "GoError")
+		return c.isBuiltinCon(t, "Int") || c.isBuiltinCon(t, "Int32") || c.isBuiltinCon(t, "Uint") || c.isBuiltinCon(t, "Float") || c.isBuiltinCon(t, "Bool") || c.isBuiltinCon(t, "String") || c.isBuiltinCon(t, "Char") || c.isBuiltinCon(t, "Byte") || c.isBuiltinCon(t, "GoError")
 	case *types.Func, *types.Var, *types.Tuple, *types.Meta:
 		return false
 	default:

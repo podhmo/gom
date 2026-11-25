@@ -1,0 +1,7 @@
+package main
+
+// Unsigned division folds in uint64: 2^63 is smaller than 2^64-1,
+// so the quotient is zero and using it as a divisor is E0414. A
+// signed reading of the same bit patterns would produce a nonzero
+// value, so this pins the width oracle's unsigned bit for Uint.
+fn divz (x: Uint) -> Uint = x / (9223372036854775808 / 18446744073709551615)

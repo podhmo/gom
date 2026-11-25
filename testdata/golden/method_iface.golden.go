@@ -23,34 +23,34 @@ func gomShowInit_Greeter() {
 //line method_iface.gom:9
 var _ = func() bool { gomShowInit_Greeter(); return true }()
 
-//line method_iface.gom:17
+//line method_iface.gom:20
 type Failure string
 
-//line method_iface.gom:17
+//line method_iface.gom:20
 func gomShowInit_Failure() {
-//line method_iface.gom:17
+//line method_iface.gom:20
 	_ = rt.RegisterShowRecord(rt.TypeOf[Failure](), true, "reason")
-//line method_iface.gom:17
+//line method_iface.gom:20
 	_ = rt.RegisterShowUnwrap(rt.TypeOf[Failure](), rt.TypeOf[string]())
-//line method_iface.gom:17
+//line method_iface.gom:20
 }
 
-//line method_iface.gom:17
+//line method_iface.gom:20
 var _ = func() bool { gomShowInit_Failure(); return true }()
 
-//line method_iface.gom:23
+//line method_iface.gom:26
 type Box int64
 
-//line method_iface.gom:23
+//line method_iface.gom:26
 func gomShowInit_Box() {
-//line method_iface.gom:23
+//line method_iface.gom:26
 	_ = rt.RegisterShowRecord(rt.TypeOf[Box](), true, "v")
-//line method_iface.gom:23
+//line method_iface.gom:26
 	_ = rt.RegisterShowUnwrap(rt.TypeOf[Box](), rt.TypeOf[int64]())
-//line method_iface.gom:23
+//line method_iface.gom:26
 }
 
-//line method_iface.gom:23
+//line method_iface.gom:26
 var _ = func() bool { gomShowInit_Box(); return true }()
 
 //line method_iface.gom:12
@@ -81,63 +81,77 @@ func (arg Greeter) Shout(x int) string {
 //line method_iface.gom:15
 }
 
-//line method_iface.gom:20
+//line method_iface.gom:18
+func uintv(_ Greeter, x uint64) uint64 {
+//line method_iface.gom:18
+	return x
+//line method_iface.gom:18
+}
+
+//line method_iface.gom:18
+func (arg1 Greeter) Uintv(x uint) uint {
+//line method_iface.gom:18
+	return uint(uintv(arg1, uint64(x)))
+//line method_iface.gom:18
+}
+
+//line method_iface.gom:23
 func error_(f Failure, _ struct{}) string {
-//line method_iface.gom:20
+//line method_iface.gom:23
 	return string(f)
-//line method_iface.gom:20
+//line method_iface.gom:23
 }
 
-//line method_iface.gom:20
+//line method_iface.gom:23
 func (f Failure) Error() string {
-//line method_iface.gom:20
+//line method_iface.gom:23
 	return error_(f, struct{}{})
-//line method_iface.gom:20
+//line method_iface.gom:23
 }
 
-//line method_iface.gom:26
-func describe(b *Box, _ struct{}) string {
-//line method_iface.gom:26
-	return "boxed"
-//line method_iface.gom:26
-}
-
-//line method_iface.gom:26
-func (b *Box) Describe() string {
-//line method_iface.gom:26
-	return describe(b, struct{}{})
-//line method_iface.gom:26
-}
-
-//line method_iface.gom:28
-func main() {
 //line method_iface.gom:29
-	g := Greeter("world")
+func describe(b *Box, _ struct{}) string {
+//line method_iface.gom:29
+	return "boxed"
+//line method_iface.gom:29
+}
+
+//line method_iface.gom:29
+func (b *Box) Describe() string {
+//line method_iface.gom:29
+	return describe(b, struct{}{})
+//line method_iface.gom:29
+}
+
 //line method_iface.gom:31
-	st := fmt.Stringer(g)
+func main() {
 //line method_iface.gom:32
+	g := Greeter("world")
+//line method_iface.gom:34
+	st := fmt.Stringer(g)
+//line method_iface.gom:35
 	f := Failure("boom")
-//line method_iface.gom:33
+//line method_iface.gom:36
 	e := error(f)
-//line method_iface.gom:35
+//line method_iface.gom:38
 	tmp2 := func(tmp1 struct{}) string {
-//line method_iface.gom:35
+//line method_iface.gom:38
 		return string_(g, tmp1)
-//line method_iface.gom:35
+//line method_iface.gom:38
 	}
-//line method_iface.gom:35
+//line method_iface.gom:38
 	v, err := fmt.Println(tmp2)
-//line method_iface.gom:35
+//line method_iface.gom:38
 	_ = result.FromGo(int64(v), err)
-//line method_iface.gom:36
+//line method_iface.gom:39
 	v1, err1 := fmt.Println(st)
-//line method_iface.gom:36
+//line method_iface.gom:39
 	_ = result.FromGo(int64(v1), err1)
-//line method_iface.gom:37
+//line method_iface.gom:40
 	v2, err2 := fmt.Println(e)
-//line method_iface.gom:37
+//line method_iface.gom:40
 	_ = result.FromGo(int64(v2), err2)
-//line method_iface.gom:37
+//line method_iface.gom:40
 	_ = struct{}{}
-//line method_iface.gom:28
+//line method_iface.gom:31
 }

@@ -472,6 +472,9 @@ func (g *gen) display(c *core.CallBuiltin) ast.Expr {
 				Args: []ast.Expr{
 					&ast.CallExpr{Fun: ast.NewIdent("int64"), Args: []ast.Expr{x}},
 					&ast.BasicLit{Kind: token.INT, Value: "10"}}}
+		case "Uint", "Uint64":
+			return &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual("strconv") + "FormatUint"),
+				Args: []ast.Expr{x, &ast.BasicLit{Kind: token.INT, Value: "10"}}}
 		case "Float":
 			return &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual("strconv") + "FormatFloat"),
 				Args: []ast.Expr{x,

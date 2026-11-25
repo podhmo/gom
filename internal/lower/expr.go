@@ -2431,7 +2431,7 @@ func (l *lowerer) litFoldDiverges(op syntax.BinOp, t types.Type, x, y core.Atom)
 			syntax.BinEq, syntax.BinNe:
 			return true
 		}
-	case "Int", "Int32", "Int64":
+	case "Int", "Int32", "Int64", "Uint", "Uint64":
 		switch op {
 		case syntax.BinAdd, syntax.BinSub, syntax.BinMul, syntax.BinDiv,
 			syntax.BinBitShl:
@@ -3582,7 +3582,7 @@ func (l *lowerer) isNumericCon(t types.Type) bool {
 		return false
 	}
 	switch c.Name {
-	case "Int", "Int32", "Int64", "Float", "Char":
+	case "Int", "Int32", "Int64", "Uint", "Uint64", "Float", "Char":
 		return true
 	}
 	return false

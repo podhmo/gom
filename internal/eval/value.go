@@ -41,10 +41,18 @@ func (v *VBool) String() string {
 
 // VInt is an Int (and the sized Int32/Int64 literals, which share the
 // 64-bit representation).
-type VInt struct{ N int64 }
+type VInt struct {
+	N int64
+	U bool // unsigned machine interpretation; N stores width-64 bits
+}
 
-func (*VInt) isValue()         {}
-func (v *VInt) String() string { return strconv.FormatInt(v.N, 10) }
+func (*VInt) isValue() {}
+func (v *VInt) String() string {
+	if v.U {
+		return strconv.FormatUint(uint64(v.N), 10)
+	}
+	return strconv.FormatInt(v.N, 10)
+}
 
 // VFloat is a Float.
 // VFloat is a float value. W is the machine width the value was

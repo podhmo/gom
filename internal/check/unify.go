@@ -309,7 +309,7 @@ func isNumeric(t types.Type) bool {
 		return false
 	}
 	switch con.Name {
-	case "Int", "Int32", "Int64", "Float":
+	case "Int", "Int32", "Int64", "Uint", "Uint64", "Float":
 		return true
 	default:
 		return false
@@ -332,7 +332,7 @@ func isIntegral(t types.Type) bool {
 		return false
 	}
 	switch con.Name {
-	case "Int", "Int32", "Int64":
+	case "Int", "Int32", "Int64", "Uint", "Uint64":
 		return true
 	default:
 		return false
@@ -694,7 +694,7 @@ func (w *cmpWalk) hasS(t types.Type, sub map[int]subArg, foreign bool) bool {
 		// that package's builtin.
 		if t.Qual == "" && (foreign || !w.c.shadowedBuiltin(t.Name)) {
 			switch t.Name {
-			case "Unit", "Bool", "Int", "Int32", "Int64", "Float",
+			case "Unit", "Bool", "Int", "Int32", "Int64", "Uint", "Uint64", "Float",
 				"Char", "Byte", "String", "GoError":
 				// bool, the int widths, byte, float64, rune,
 				// string, struct{} and the error interface — all
