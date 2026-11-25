@@ -1,0 +1,14 @@
+package main
+
+// An unannotated inline lambda passed to a multi-arg application:
+// `op api` applies the yet-unresolved meta `op` — an over-application
+// (zero flat params, one arg). The result want of the enclosing fold
+// must not pin the callee's own meta to a non-function type; the
+// over-application machinery shapes it as a function instead
+// (regression since wave43 lane B's defined-type pin extension).
+type API = { config : String }
+
+fn api_new (name: String) (ops: List (API -> API)) -> API = {
+  let base = { config = name }
+  List.fold (fn api op -> op api) base ops
+}
