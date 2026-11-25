@@ -2225,12 +2225,15 @@ func TestEvalUnsignedRecordShape(t *testing.T) {
 
 import go "fmt"
 import go "os"
+import go "github.com/podhmo/gom/testdata/goiface"
 
 type ModeBox = { mode : os.FileMode }
+type BigBox = { big : goiface.Big }
 
 fn answer () -> String = {
   let x : ModeBox = 4294967295
-  "${x}"
+  let y : BigBox = 9223372036854775808
+  "${x};${y}"
 }
 fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 `
@@ -2241,7 +2244,7 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 	if r.Diagnostics.HasError() {
 		t.Fatalf("diagnostics: %v", r.Diagnostics)
 	}
-	if got, want := evalAnswer(t, r, src), "{ mode = 4294967295 }"; got != want {
+	if got, want := evalAnswer(t, r, src), "{ mode = 4294967295 };{ big = 9223372036854775808 }"; got != want {
 		t.Fatalf("eval display = %q, want %q", got, want)
 	}
 }

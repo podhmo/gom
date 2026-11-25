@@ -2407,21 +2407,83 @@ func ctorSig(info *ctorInfo) *types.Func {
 // float32-typed operand. Everything else renders through the
 // type-driven record shape typedDisplayValue computes.
 func (e *interp) displayTyped(v Value, t types.Type) string {
+	// Restore the declared composite shape before scalar formatting:
+	// a one-field record peels for machine width, but its display is
+	// still `{ field = value }`, never the bare scalar.
+	v = e.typedDisplayValue(v, t)
+	return e.displayValueTyped(v, t)
+}
+
+// displayValueTyped is the typed counterpart of display. It matters
+// at integer leaves: the bit pattern of a uint64 above MaxInt64 is a
+// negative int64 in the oracle, so the record/variant shape restored
+// around it cannot print the right digits unless the declared field
+// type is carried down to the leaf.
+func (e *interp) displayValueTyped(v Value, t types.Type) string {
 	if f, ok := v.(*VFloat); ok {
 		if w := e.floatOperandWidth(t); w == 32 {
 			return strconv.FormatFloat(f.F, 'g', -1, 32)
 		}
 	}
-	// Restore the declared composite shape before scalar formatting:
-	// a one-field record peels for machine width, but its display is
-	// still `{ field = value }`, never the bare scalar.
-	v = e.typedDisplayValue(v, t)
 	if i, ok := v.(*VInt); ok {
 		if _, unsigned := e.intOperandShape(t); unsigned {
 			return strconv.FormatUint(uint64(i.N), 10)
 		}
 	}
+	if r, ok := v.(*VRecord); ok {
+		if s, ok := e.recordDisplayTyped(r, t); ok {
+			return s
+		}
+	}
 	return display(v)
+}
+
+// recordDisplayTyped formats a record through its declared field
+// types. It preserves writeOperand's nested-composite parentheses so
+// the oracle's record canonical stays unchanged apart from typed
+// scalar leaves.
+func (e *interp) recordDisplayTyped(r *VRecord, t types.Type) (string, bool) {
+	ri := e.recordOf(r.Type)
+	if ri == nil {
+		return "", false
+	}
+	instCon := r.Type
+	if tc, ok := types.Chase(t).(*types.Con); ok &&
+		tc.Qual == r.Type.Qual && tc.Name == r.Type.Name &&
+		len(tc.Args) == len(r.Type.Args) {
+		instCon = tc
+	}
+	sub := instSubst(ri.typ, instCon)
+	var sb strings.Builder
+	sb.WriteString("{ ")
+	for i, f := range r.Fields {
+		if i > 0 {
+			sb.WriteString(", ")
+		}
+		sb.WriteString(f.Name)
+		sb.WriteString(" = ")
+		ft := types.Type(nil)
+		for _, fi := range ri.fields {
+			if fi.index == f.Index {
+				ft = applySubst(fi.typ, sub)
+				break
+			}
+		}
+		text := display(f.V)
+		if ft != nil {
+			text = e.displayValueTyped(f.V, ft)
+		}
+		switch f.V.(type) {
+		case *VRecord, *VVariant, *VGoErr, *VHost, *VFunc:
+			sb.WriteByte('(')
+			sb.WriteString(text)
+			sb.WriteByte(')')
+		default:
+			sb.WriteString(text)
+		}
+	}
+	sb.WriteString(" }")
+	return sb.String(), true
 }
 
 // typedDisplayValue wraps a scalar value into the record shape its
