@@ -1,0 +1,26 @@
+package main
+
+import go "io"
+import go "encoding"
+import go "fmt"
+
+// An @method fn returning `Result T GoError` conforms to Go
+// interfaces whose methods return (T, error) or bare error.
+type Counter = { n: Int }
+
+@method
+fn (c: Counter) write (p: List Byte) -> Result Int GoError = Ok c.n
+
+type U = { v: Int }
+
+@method
+fn (u: U) unmarshal_text (p: List Byte) -> Result Unit GoError = Ok ()
+
+fn main () -> Unit = {
+  let c = { n = 3 }
+  let w : io.Writer = c
+  ignore (fmt.Println w)
+  let u = { v = 1 }
+  let t : encoding.TextUnmarshaler = u
+  ignore (fmt.Println t)
+}

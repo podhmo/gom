@@ -38,9 +38,9 @@ func shout(_ Greeter, x int64) string {
 }
 
 //line method_iface.gom:15
-func (arg Greeter) Shout(x int64) string {
+func (arg Greeter) Shout(x int) string {
 //line method_iface.gom:15
-	return shout(arg, x)
+	return shout(arg, int64(x))
 //line method_iface.gom:15
 }
 

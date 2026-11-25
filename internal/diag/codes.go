@@ -817,8 +817,9 @@ fn bad (s: Scope) -> Task Unit =
 		Explanation: `An @method fn declares a Go method on a record type of this
 package: its first parameter is the receiver. The receiver must be
 a record type declared here (a generic record is rejected — Go
-methods cannot take type parameters), the return type cannot be
-Result (the (T, error) pair has no interface counterpart), and
+methods cannot take type parameters), the return type may be
+Result T GoError (it emits the (T, error) pair — any other
+Result payload has no interface counterpart), and
 @method cannot combine with @extern.`,
 		Example: `@method
 fn (w: Greeter) hello () -> String = "hi"   // Greeter must be a local record`,

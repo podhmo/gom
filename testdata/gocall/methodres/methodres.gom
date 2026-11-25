@@ -1,0 +1,80 @@
+package methodres
+
+import go "io"
+import go "io/fs"
+import go "encoding"
+
+// Runtime pin for @method Result unwrap (spec 8.9, wave44 lane C):
+// `Result T GoError` emits `(T', error)` with the boundary spelling —
+// `List T`→`[]T`, `Int`→`int` — so the record satisfies io.Writer /
+// encoding.TextUnmarshaler / fs.ReadDirFS when Go calls it.
+type Sink = { n: Int }
+
+@method
+fn (s: Sink) write (p: List Byte) -> Result Int GoError = {
+  ignore p
+  Ok s.n
+}
+
+type Bare = { v: Int }
+
+@method
+fn (b: Bare) unmarshal_text (p: List Byte) -> Result Unit GoError = Ok ()
+
+// A Failure record doubles as the GoError the Err payload carries —
+// conformance via its own `error` method.
+type Failure = { reason: String }
+
+@method
+fn (f: Failure) error () -> String = f.reason
+
+// ReadDirFS embeds FS — the method set needs both entries. The
+// `Result (Option fs.File) GoError` payload unwraps Some→value /
+// None→nil, `Result (List fs.DirEntry) GoError` unwraps to the raw
+// `[]fs.DirEntry`.
+type Dir = { ok: Bool }
+
+@method
+fn (d: Dir) open (name: String) -> Result (Option fs.File) GoError =
+  if d.ok {
+    ignore name
+    Ok None
+  } else {
+    let f = { reason = name }
+    let e : GoError = f
+    Err e
+  }
+
+@method
+fn (d: Dir) read_dir (name: String) -> Result (List fs.DirEntry) GoError = {
+  let f = { reason = name }
+  let e : GoError = f
+  Err e
+}
+
+fn writer_of (s: Sink) -> io.Writer = s
+fn unmarshaler_of (b: Bare) -> encoding.TextUnmarshaler = b
+fn fs_of (d: Dir) -> fs.ReadDirFS = d
+
+import go "net"
+import go "net/http"
+import go "bufio"
+
+// http.Hijacker carries (net.Conn, *bufio.ReadWriter, error) — both
+// payloads are method-bearing, so the mapped gom view wraps each in
+// Option inside the Tuple: the emitted method must unwrap each back
+// to its nil-able interface, not leave option.Option in the sig.
+type Hij = { live: Bool, conn: Option net.Conn }
+
+@method
+fn (h: Hij) hijack () -> Result (Option net.Conn, Ptr bufio.ReadWriter) GoError =
+  if h.live {
+    let rw : Ptr bufio.ReadWriter = Go.nil ()
+    Ok (h.conn, rw)
+  } else {
+    let f = { reason = "down" }
+    let e : GoError = f
+    Err e
+  }
+
+fn hijacker_of (h: Hij) -> http.Hijacker = h

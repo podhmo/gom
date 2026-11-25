@@ -1,0 +1,8 @@
+package main
+
+// A Result with a non-GoError payload still has no interface
+// counterpart — E0420.
+type W = { v: Int }
+
+@method
+fn (w: W) write (p: List Byte) -> Result Int String = Ok 3
