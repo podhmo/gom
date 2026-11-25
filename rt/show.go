@@ -35,7 +35,11 @@ func showTypeKey(t reflect.Type) string {
 // representation. Defined is true for the one-field newtype form
 // (`type X F`), whose runtime value is the field value itself.
 func RegisterShowRecord(t reflect.Type, defined bool, fields ...string) bool {
-	showTypes.Store(showTypeKey(t), showMeta{defined: defined, fields: append([]string(nil), fields...)})
+	key := showTypeKey(t)
+	if _, ok := showTypes.Load(key); ok {
+		return true
+	}
+	showTypes.LoadOrStore(key, showMeta{defined: defined, fields: append([]string(nil), fields...)})
 	return true
 }
 
@@ -44,14 +48,22 @@ func RegisterShowRecord(t reflect.Type, defined bool, fields ...string) bool {
 // value back to that representation and recurse into composite fields
 // instead of treating the whole value as opaque.
 func RegisterShowUnwrap(t reflect.Type, unwrap reflect.Type) bool {
-	showUnwraps.Store(showTypeKey(t), unwrap)
+	key := showTypeKey(t)
+	if _, ok := showUnwraps.Load(key); ok {
+		return true
+	}
+	showUnwraps.LoadOrStore(key, unwrap)
 	return true
 }
 
 // RegisterShowVariant records the constructor and payload spellings
 // of one variant representation.
 func RegisterShowVariant(t reflect.Type, ctor string, fields ...string) bool {
-	showTypes.Store(showTypeKey(t), showMeta{variant: true, ctor: ctor, fields: append([]string(nil), fields...)})
+	key := showTypeKey(t)
+	if _, ok := showTypes.Load(key); ok {
+		return true
+	}
+	showTypes.LoadOrStore(key, showMeta{variant: true, ctor: ctor, fields: append([]string(nil), fields...)})
 	return true
 }
 

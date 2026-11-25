@@ -8,25 +8,17 @@ import (
 	list "github.com/podhmo/gom/stdlib/list"
 	result "github.com/podhmo/gom/stdlib/result"
 	io "io"
-	sync "sync"
 )
 
 //line method_result.gom:11
 type Counter int64
 
 //line method_result.gom:11
-var gomShowInit_CounterOnce sync.Once
-
-//line method_result.gom:11
 func gomShowInit_Counter() {
 //line method_result.gom:11
-	gomShowInit_CounterOnce.Do(func() {
+	_ = rt.RegisterShowRecord(rt.TypeOf[Counter](), true, "n")
 //line method_result.gom:11
-		_ = rt.RegisterShowRecord(rt.TypeOf[Counter](), true, "n")
-//line method_result.gom:11
-		_ = rt.RegisterShowUnwrap(rt.TypeOf[Counter](), rt.TypeOf[int64]())
-//line method_result.gom:11
-	})
+	_ = rt.RegisterShowUnwrap(rt.TypeOf[Counter](), rt.TypeOf[int64]())
 //line method_result.gom:11
 }
 
@@ -37,18 +29,11 @@ var _ = func() bool { gomShowInit_Counter(); return true }()
 type U int64
 
 //line method_result.gom:16
-var gomShowInit_UOnce sync.Once
-
-//line method_result.gom:16
 func gomShowInit_U() {
 //line method_result.gom:16
-	gomShowInit_UOnce.Do(func() {
+	_ = rt.RegisterShowRecord(rt.TypeOf[U](), true, "v")
 //line method_result.gom:16
-		_ = rt.RegisterShowRecord(rt.TypeOf[U](), true, "v")
-//line method_result.gom:16
-		_ = rt.RegisterShowUnwrap(rt.TypeOf[U](), rt.TypeOf[int64]())
-//line method_result.gom:16
-	})
+	_ = rt.RegisterShowUnwrap(rt.TypeOf[U](), rt.TypeOf[int64]())
 //line method_result.gom:16
 }
 

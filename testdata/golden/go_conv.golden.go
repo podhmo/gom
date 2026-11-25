@@ -9,7 +9,6 @@ import (
 	goiface "github.com/podhmo/gom/testdata/goiface"
 	os "os"
 	sort "sort"
-	sync "sync"
 	time "time"
 )
 
@@ -17,18 +16,11 @@ import (
 type UserId int64
 
 //line go_conv.gom:49
-var gomShowInit_UserIdOnce sync.Once
-
-//line go_conv.gom:49
 func gomShowInit_UserId() {
 //line go_conv.gom:49
-	gomShowInit_UserIdOnce.Do(func() {
+	_ = rt.RegisterShowRecord(rt.TypeOf[UserId](), true, "value")
 //line go_conv.gom:49
-		_ = rt.RegisterShowRecord(rt.TypeOf[UserId](), true, "value")
-//line go_conv.gom:49
-		_ = rt.RegisterShowUnwrap(rt.TypeOf[UserId](), rt.TypeOf[int64]())
-//line go_conv.gom:49
-	})
+	_ = rt.RegisterShowUnwrap(rt.TypeOf[UserId](), rt.TypeOf[int64]())
 //line go_conv.gom:49
 }
 
@@ -39,18 +31,11 @@ var _ = func() bool { gomShowInit_UserId(); return true }()
 type P *int64
 
 //line go_conv.gom:50
-var gomShowInit_POnce sync.Once
-
-//line go_conv.gom:50
 func gomShowInit_P() {
 //line go_conv.gom:50
-	gomShowInit_POnce.Do(func() {
+	_ = rt.RegisterShowRecord(rt.TypeOf[P](), true, "p")
 //line go_conv.gom:50
-		_ = rt.RegisterShowRecord(rt.TypeOf[P](), true, "p")
-//line go_conv.gom:50
-		_ = rt.RegisterShowUnwrap(rt.TypeOf[P](), rt.TypeOf[*int64]())
-//line go_conv.gom:50
-	})
+	_ = rt.RegisterShowUnwrap(rt.TypeOf[P](), rt.TypeOf[*int64]())
 //line go_conv.gom:50
 }
 

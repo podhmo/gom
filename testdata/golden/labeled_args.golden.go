@@ -7,7 +7,6 @@ import (
 	rt "github.com/podhmo/gom/rt"
 	result "github.com/podhmo/gom/stdlib/result"
 	strconv "strconv"
-	sync "sync"
 )
 
 //line labeled_args.gom:13
@@ -32,18 +31,11 @@ type Tx_Noop struct{}
 func (Tx_Noop) isTx() {}
 
 //line labeled_args.gom:15
-var gomShowInit_TxOnce sync.Once
-
-//line labeled_args.gom:15
 func gomShowInit_Tx() {
 //line labeled_args.gom:15
-	gomShowInit_TxOnce.Do(func() {
+	_ = rt.RegisterShowVariant(rt.TypeOf[Tx_Transfer](), "Transfer", "to", "amount")
 //line labeled_args.gom:15
-		_ = rt.RegisterShowVariant(rt.TypeOf[Tx_Transfer](), "Transfer", "to", "amount")
-//line labeled_args.gom:15
-		_ = rt.RegisterShowVariant(rt.TypeOf[Tx_Noop](), "Noop")
-//line labeled_args.gom:15
-	})
+	_ = rt.RegisterShowVariant(rt.TypeOf[Tx_Noop](), "Noop")
 //line labeled_args.gom:15
 }
 

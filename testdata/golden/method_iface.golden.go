@@ -6,25 +6,17 @@ import (
 	fmt "fmt"
 	rt "github.com/podhmo/gom/rt"
 	result "github.com/podhmo/gom/stdlib/result"
-	sync "sync"
 )
 
 //line method_iface.gom:9
 type Greeter string
 
 //line method_iface.gom:9
-var gomShowInit_GreeterOnce sync.Once
-
-//line method_iface.gom:9
 func gomShowInit_Greeter() {
 //line method_iface.gom:9
-	gomShowInit_GreeterOnce.Do(func() {
+	_ = rt.RegisterShowRecord(rt.TypeOf[Greeter](), true, "name")
 //line method_iface.gom:9
-		_ = rt.RegisterShowRecord(rt.TypeOf[Greeter](), true, "name")
-//line method_iface.gom:9
-		_ = rt.RegisterShowUnwrap(rt.TypeOf[Greeter](), rt.TypeOf[string]())
-//line method_iface.gom:9
-	})
+	_ = rt.RegisterShowUnwrap(rt.TypeOf[Greeter](), rt.TypeOf[string]())
 //line method_iface.gom:9
 }
 
@@ -35,18 +27,11 @@ var _ = func() bool { gomShowInit_Greeter(); return true }()
 type Failure string
 
 //line method_iface.gom:17
-var gomShowInit_FailureOnce sync.Once
-
-//line method_iface.gom:17
 func gomShowInit_Failure() {
 //line method_iface.gom:17
-	gomShowInit_FailureOnce.Do(func() {
+	_ = rt.RegisterShowRecord(rt.TypeOf[Failure](), true, "reason")
 //line method_iface.gom:17
-		_ = rt.RegisterShowRecord(rt.TypeOf[Failure](), true, "reason")
-//line method_iface.gom:17
-		_ = rt.RegisterShowUnwrap(rt.TypeOf[Failure](), rt.TypeOf[string]())
-//line method_iface.gom:17
-	})
+	_ = rt.RegisterShowUnwrap(rt.TypeOf[Failure](), rt.TypeOf[string]())
 //line method_iface.gom:17
 }
 
@@ -57,18 +42,11 @@ var _ = func() bool { gomShowInit_Failure(); return true }()
 type Box int64
 
 //line method_iface.gom:23
-var gomShowInit_BoxOnce sync.Once
-
-//line method_iface.gom:23
 func gomShowInit_Box() {
 //line method_iface.gom:23
-	gomShowInit_BoxOnce.Do(func() {
+	_ = rt.RegisterShowRecord(rt.TypeOf[Box](), true, "v")
 //line method_iface.gom:23
-		_ = rt.RegisterShowRecord(rt.TypeOf[Box](), true, "v")
-//line method_iface.gom:23
-		_ = rt.RegisterShowUnwrap(rt.TypeOf[Box](), rt.TypeOf[int64]())
-//line method_iface.gom:23
-	})
+	_ = rt.RegisterShowUnwrap(rt.TypeOf[Box](), rt.TypeOf[int64]())
 //line method_iface.gom:23
 }
 

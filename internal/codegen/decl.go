@@ -554,10 +554,8 @@ func (g *gen) typeDecl(d *core.TypeDecl) {
 		g.trecord(d, b)
 	case *core.TAlias:
 		g.talias(d, b)
-		g.showInit(d, nil)
 	case *core.TAbstract:
 		// no Go representation of its own
-		g.showInit(d, nil)
 	default:
 		panic("unreachable")
 	}
@@ -638,34 +636,25 @@ func (g *gen) showVariantRegistrationExpr(d *core.TypeDecl, v *core.TVariant) st
 }
 
 // showInit emits one runtime registration function per type. A generic
-// display helper calls the unit's functions before rendering; because
-// registration is function-protected rather than package-variable
-// initialization, unrelated package-level initializer order is not
-// perturbed, and even an initializer-time call registers metadata first.
+// display helper calls the unit's functions before rendering. The
+// function references no package-level variable, so the call adds no
+// artificial package initialization ordering; an initializer-time call
+// still registers metadata first.
 func (g *gen) showInit(d *core.TypeDecl, exprs []string) {
 	name := showInitName(g.typeName(d.Sym))
-	once := name + "Once"
-	g.raw("var " + once + " " + g.pkgQual("sync") + "Once")
-	g.nl()
-	g.nl()
 	g.raw("func " + name + "() {")
-	g.nl()
-	g.raw(once + ".Do(func() {")
 	g.nl()
 	for _, expr := range exprs {
 		g.raw("_ = " + expr)
 		g.nl()
 	}
-	g.raw("})")
-	g.nl()
 	g.raw("}")
 	g.nl()
 	g.nl()
 	// Imported packages must have their metadata before importers run:
-	// package initialization calls the once-protected registration too.
-	// Same-package initializer-time display still relies on the explicit
-	// call inside generic display helpers, so user initializer order is
-	// not constrained by this package variable.
+	// package initialization calls registration too. The function itself
+	// references no package-level state, so generic display helpers can
+	// call it without adding user-visible initialization dependencies.
 	g.raw("var _ = func() bool { " + name + "(); return true }()")
 	g.nl()
 	g.nl()

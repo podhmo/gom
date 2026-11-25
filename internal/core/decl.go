@@ -280,6 +280,10 @@ type UnitScope struct {
 	// `type Unit`/`type Result` shadows the builtins for the whole
 	// package, so builtin-shape checks must see these names.
 	Types map[string]bool
+	// ShowTypes are sibling record/sum type names — the declarations
+	// that emit runtime display metadata. Alias and abstract types have
+	// no representation metadata of their own.
+	ShowTypes map[string]bool
 	// TParams is the declared type-parameter arity of sibling
 	// functions and constructors, for FuncRef/CtorRef type-argument
 	// counts.

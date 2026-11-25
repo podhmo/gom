@@ -5,7 +5,6 @@ package main
 import (
 	rt "github.com/podhmo/gom/rt"
 	list "github.com/podhmo/gom/stdlib/list"
-	sync "sync"
 )
 
 //line builtins.gom:7
@@ -18,16 +17,9 @@ type Pair struct {
 }
 
 //line builtins.gom:7
-var gomShowInit_PairOnce sync.Once
-
-//line builtins.gom:7
 func gomShowInit_Pair() {
 //line builtins.gom:7
-	gomShowInit_PairOnce.Do(func() {
-//line builtins.gom:7
-		_ = rt.RegisterShowRecord(rt.TypeOf[Pair](), false, "x", "xs")
-//line builtins.gom:7
-	})
+	_ = rt.RegisterShowRecord(rt.TypeOf[Pair](), false, "x", "xs")
 //line builtins.gom:7
 }
 
@@ -58,18 +50,11 @@ type Shape_Square struct {
 func (Shape_Square) isShape() {}
 
 //line builtins.gom:9
-var gomShowInit_ShapeOnce sync.Once
-
-//line builtins.gom:9
 func gomShowInit_Shape() {
 //line builtins.gom:9
-	gomShowInit_ShapeOnce.Do(func() {
+	_ = rt.RegisterShowVariant(rt.TypeOf[Shape_Circle](), "Circle", "")
 //line builtins.gom:9
-		_ = rt.RegisterShowVariant(rt.TypeOf[Shape_Circle](), "Circle", "")
-//line builtins.gom:9
-		_ = rt.RegisterShowVariant(rt.TypeOf[Shape_Square](), "Square", "")
-//line builtins.gom:9
-	})
+	_ = rt.RegisterShowVariant(rt.TypeOf[Shape_Square](), "Square", "")
 //line builtins.gom:9
 }
 

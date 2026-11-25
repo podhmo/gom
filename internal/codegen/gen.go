@@ -227,7 +227,14 @@ func (g *gen) indexDecls(f *core.File) {
 				g.used[name] = true
 				g.recordEmit(emitRecord{kind: emitType, gomName: td.Sym.Name,
 					name: name, base: name, sp: td.Sym.DefSpan()})
-				g.showInitTypes = append(g.showInitTypes, name)
+				switch td.Body.(type) {
+				case *core.TRecord, *core.TSum:
+					g.showInitTypes = append(g.showInitTypes, name)
+				case *core.TAlias, *core.TAbstract:
+					// no representation metadata of their own
+				default:
+					panic("unreachable")
+				}
 				if _, ok := td.Body.(*core.TSum); ok {
 					m := markerName(name)
 					g.recordEmit(emitRecord{kind: emitMarker, gomName: td.Sym.Name,
@@ -250,7 +257,9 @@ func (g *gen) indexDecls(f *core.File) {
 	if u := f.Unit; u != nil {
 		for tname := range u.Types {
 			name := exportName(tname)
-			g.showInitTypes = append(g.showInitTypes, name)
+			if u.ShowTypes[tname] {
+				g.showInitTypes = append(g.showInitTypes, name)
+			}
 			g.localT[name] = true
 			g.pused[name] = true
 			g.used[name] = true
@@ -297,7 +306,7 @@ func (g *gen) indexDecls(f *core.File) {
 	}
 	// Type registration functions are internal package-scope names too:
 	// claim them before user values so a collision cannot silently remove
-	// the dependency edge generic runtime display relies on.
+	// the registration call generic runtime display relies on.
 	{
 		seen := map[string]bool{}
 		var names []string

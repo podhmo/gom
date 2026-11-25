@@ -7,7 +7,6 @@ import (
 	list "github.com/podhmo/gom/stdlib/list"
 	option "github.com/podhmo/gom/stdlib/option"
 	strconv "strconv"
-	sync "sync"
 )
 
 //line poly_adts.gom:3
@@ -34,16 +33,9 @@ func (Pair_MkPair[A, B]) isPair() (A, B) {
 }
 
 //line poly_adts.gom:3
-var gomShowInit_PairOnce sync.Once
-
-//line poly_adts.gom:3
 func gomShowInit_Pair() {
 //line poly_adts.gom:3
-	gomShowInit_PairOnce.Do(func() {
-//line poly_adts.gom:3
-		_ = rt.RegisterShowVariant(rt.TypeOf[Pair_MkPair[any, any]](), "MkPair", "fst", "snd")
-//line poly_adts.gom:3
-	})
+	_ = rt.RegisterShowVariant(rt.TypeOf[Pair_MkPair[any, any]](), "MkPair", "fst", "snd")
 //line poly_adts.gom:3
 }
 
@@ -58,16 +50,9 @@ type Box[A any] struct {
 }
 
 //line poly_adts.gom:4
-var gomShowInit_BoxOnce sync.Once
-
-//line poly_adts.gom:4
 func gomShowInit_Box() {
 //line poly_adts.gom:4
-	gomShowInit_BoxOnce.Do(func() {
-//line poly_adts.gom:4
-		_ = rt.RegisterShowRecord(rt.TypeOf[Box[any]](), false, "v")
-//line poly_adts.gom:4
-	})
+	_ = rt.RegisterShowRecord(rt.TypeOf[Box[any]](), false, "v")
 //line poly_adts.gom:4
 }
 
@@ -94,16 +79,9 @@ func (Phantom_MkP[A]) isPhantom() A {
 }
 
 //line poly_adts.gom:5
-var gomShowInit_PhantomOnce sync.Once
-
-//line poly_adts.gom:5
 func gomShowInit_Phantom() {
 //line poly_adts.gom:5
-	gomShowInit_PhantomOnce.Do(func() {
-//line poly_adts.gom:5
-		_ = rt.RegisterShowVariant(rt.TypeOf[Phantom_MkP[any]](), "MkP", "")
-//line poly_adts.gom:5
-	})
+	_ = rt.RegisterShowVariant(rt.TypeOf[Phantom_MkP[any]](), "MkP", "")
 //line poly_adts.gom:5
 }
 
@@ -146,18 +124,11 @@ func (W_WNode[A]) isW() A {
 }
 
 //line poly_adts.gom:6
-var gomShowInit_WOnce sync.Once
-
-//line poly_adts.gom:6
 func gomShowInit_W() {
 //line poly_adts.gom:6
-	gomShowInit_WOnce.Do(func() {
+	_ = rt.RegisterShowVariant(rt.TypeOf[W_WLeaf[any]](), "WLeaf", "")
 //line poly_adts.gom:6
-		_ = rt.RegisterShowVariant(rt.TypeOf[W_WLeaf[any]](), "WLeaf", "")
-//line poly_adts.gom:6
-		_ = rt.RegisterShowVariant(rt.TypeOf[W_WNode[any]](), "WNode", "")
-//line poly_adts.gom:6
-	})
+	_ = rt.RegisterShowVariant(rt.TypeOf[W_WNode[any]](), "WNode", "")
 //line poly_adts.gom:6
 }
 
@@ -202,18 +173,11 @@ func (Tree_Node[A]) isTree() A {
 }
 
 //line poly_adts.gom:7
-var gomShowInit_TreeOnce sync.Once
-
-//line poly_adts.gom:7
 func gomShowInit_Tree() {
 //line poly_adts.gom:7
-	gomShowInit_TreeOnce.Do(func() {
+	_ = rt.RegisterShowVariant(rt.TypeOf[Tree_Leaf[any]](), "Leaf", "")
 //line poly_adts.gom:7
-		_ = rt.RegisterShowVariant(rt.TypeOf[Tree_Leaf[any]](), "Leaf", "")
-//line poly_adts.gom:7
-		_ = rt.RegisterShowVariant(rt.TypeOf[Tree_Node[any]](), "Node", "", "")
-//line poly_adts.gom:7
-	})
+	_ = rt.RegisterShowVariant(rt.TypeOf[Tree_Node[any]](), "Node", "", "")
 //line poly_adts.gom:7
 }
 

@@ -4,7 +4,6 @@ package main
 
 import (
 	rt "github.com/podhmo/gom/rt"
-	sync "sync"
 )
 
 //line local_result.gom:9
@@ -31,18 +30,11 @@ type Result_Err struct {
 func (Result_Err) isResult() {}
 
 //line local_result.gom:9
-var gomShowInit_ResultOnce sync.Once
-
-//line local_result.gom:9
 func gomShowInit_Result() {
 //line local_result.gom:9
-	gomShowInit_ResultOnce.Do(func() {
+	_ = rt.RegisterShowVariant(rt.TypeOf[Result_Ok](), "Ok", "")
 //line local_result.gom:9
-		_ = rt.RegisterShowVariant(rt.TypeOf[Result_Ok](), "Ok", "")
-//line local_result.gom:9
-		_ = rt.RegisterShowVariant(rt.TypeOf[Result_Err](), "Err", "")
-//line local_result.gom:9
-	})
+	_ = rt.RegisterShowVariant(rt.TypeOf[Result_Err](), "Err", "")
 //line local_result.gom:9
 }
 
