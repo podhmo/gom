@@ -479,6 +479,26 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 		want: `{ label = "x", ch = 'y' }`,
 	},
 	{
+		// wave46 lane A: foreign named scalars keep their nominal
+		// operand parentheses inside every composite shape, while
+		// the scalar payload itself still uses the underlying's
+		// width and quoting rules.
+		name: "splice_go_named_scalar_nested_operands",
+		src: `package main
+
+import go "fmt"
+import go "github.com/podhmo/gom/testdata/goiface"
+
+fn answer () -> String = {
+  let r : goiface.SmallRatio = 1.23456789
+  let l = goiface.LabelOf "x"
+  "${[r]}:${(r, l)}:${Some r}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: `[(1.2345679)]:((1.2345679), ("x")):Some (1.2345679)`,
+	},
+	{
 		// lane C review: width-64 unsigned values above MaxInt64
 		// round-trip through the evaluator's bit pattern, print as
 		// unsigned, and divide as uint64 rather than signed int64.
@@ -2264,7 +2284,7 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 	if r.Diagnostics.HasError() {
 		t.Fatalf("diagnostics: %v", r.Diagnostics)
 	}
-	if got, want := evalAnswer(t, r, src), "{ mode = 4294967295 };{ big = 9223372036854775808 }"; got != want {
+	if got, want := evalAnswer(t, r, src), "{ mode = (4294967295) };{ big = (9223372036854775808) }"; got != want {
 		t.Fatalf("eval display = %q, want %q", got, want)
 	}
 }
