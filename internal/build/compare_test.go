@@ -318,6 +318,21 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 		want: `{ value = "x" }`,
 	},
 	{
+		// wave47 lane A: erased tuple elements have no static recipe —
+		// Char reads as its rune/Int32 machine representation like the
+		// compiled reflection oracle.
+		name: "splice_generic_erased_tuple_char_runtime_renderer",
+		src: `package main
+
+import go "fmt"
+
+fn show (x: a) -> String = "${[x]}"
+fn answer () -> String = show (1, 'y')
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: `[(1, 121)]`,
+	},
+	{
 		// wave47 lane A: a defined one-field record can convert back
 		// to a concrete composite field representation and recurse.
 		name: "splice_generic_wrapped_record_runtime_renderer",
