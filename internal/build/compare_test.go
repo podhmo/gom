@@ -459,6 +459,26 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 		want: "4294967295:0",
 	},
 	{
+		// lane C review: unsigned formatting must not bypass the
+		// type-driven record shape — a scalar literal bound to a
+		// one-field record still displays with its field name.
+		name: "splice_go_named_unsigned_record_shape",
+		src: `package main
+
+import go "fmt"
+import go "os"
+
+type ModeBox = { mode : os.FileMode }
+
+fn answer () -> String = {
+  let x : ModeBox = 4294967295
+  "${x}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "{ mode = 4294967295 }",
+	},
+	{
 		// P2-2c: the same delayed-reference cycle through a
 		// destructuring let — tuple, record, and a single-variant
 		// constructor all bind `count` as a named wrapper.

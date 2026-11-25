@@ -2412,12 +2412,16 @@ func (e *interp) displayTyped(v Value, t types.Type) string {
 			return strconv.FormatFloat(f.F, 'g', -1, 32)
 		}
 	}
+	// Restore the declared composite shape before scalar formatting:
+	// a one-field record peels for machine width, but its display is
+	// still `{ field = value }`, never the bare scalar.
+	v = e.typedDisplayValue(v, t)
 	if i, ok := v.(*VInt); ok {
 		if _, unsigned := e.intOperandShape(t); unsigned {
 			return strconv.FormatUint(uint64(i.N), 10)
 		}
 	}
-	return display(e.typedDisplayValue(v, t))
+	return display(v)
 }
 
 // typedDisplayValue wraps a scalar value into the record shape its
