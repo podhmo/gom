@@ -154,6 +154,107 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 		want: "[({ on = true }), ({ on = false })] (({ on = true }), 3)",
 	},
 	{
+		// lane C display: a scalar-bound declared value inside a
+		// variant payload renders record-shaped too — gomShow plans
+		// constructor fields by type, construction path invisible.
+		name: "splice_variant_payload_record_shape",
+		src: `package main
+
+import go "fmt"
+
+type Flag = {on: Bool}
+fn answer () -> String = {
+  let f : Flag = true
+  let x : Option Flag = Some f
+  "${x}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "Some ({ on = true })",
+	},
+	{
+		// lane C display: ctor field types instantiate per SPLICE,
+		// not per first use — `Some` at Flag and `Some` at Bool in
+		// one program each render their own shape regardless of
+		// order (the cached site-derived ctor info must not recast).
+		name: "splice_variant_instantiation_order",
+		src: `package main
+
+import go "fmt"
+
+type Flag = {on: Bool}
+fn answer () -> String = {
+  let f : Flag = true
+  let a : Option Flag = Some f
+  let b : Option Bool = Some false
+  "${a} ${b}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "Some ({ on = true }) Some false",
+	},
+	{
+		// lane C display: generic record fields instantiate at the
+		// value's own type — `Box (Option Flag)` passes `Option
+		// Flag` down, not the bare parameter, so the variant
+		// payload wraps too.
+		name: "splice_generic_record_instantiated",
+		src: `package main
+
+import go "fmt"
+
+type Flag = {on: Bool}
+type Box a = {v: a}
+fn answer () -> String = {
+  let f : Flag = true
+  let b : Box (Option Flag) = { v = Some f }
+  "${b}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "{ v = (Some ({ on = true })) }",
+	},
+	{
+		// lane C display: a record built inside a GENERIC HELPER
+		// carries the helper's parameter in its value type — the
+		// instantiation must come from the splice's static type,
+		// not from how the value was constructed.
+		name: "splice_generic_helper_construction",
+		src: `package main
+
+import go "fmt"
+
+type Flag = {on: Bool}
+type Box a = {v: a}
+fn wrap (x: a) -> Box a = { v = x }
+fn answer () -> String = {
+  let f : Flag = true
+  let b : Box (Option Flag) = wrap (Some f)
+  "${b}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "{ v = (Some ({ on = true })) }",
+	},
+	{
+		// lane C display: record literals and scalar bindings draw
+		// the SAME rendering — the construction path is invisible.
+		name: "splice_record_literal_parity",
+		src: `package main
+
+import go "fmt"
+
+type Flag = {on: Bool}
+fn answer () -> String = {
+  let a : Flag = true
+  let b : Flag = { on = true }
+  "${a} ${b}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "{ on = true } { on = true }",
+	},
+	{
 		// lane B materialization: an int-spelled literal at a
 		// float32-underlying named type is a FLOAT value — division
 		// is floating-point, not integer.

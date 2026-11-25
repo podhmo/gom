@@ -2363,12 +2363,64 @@ func (e *interp) typedDisplayValue(v Value, t types.Type) Value {
 		if ri == nil {
 			return v
 		}
+		// Declared field types are in terms of the record's type
+		// parameters — instantiate them the way reshape does, or a
+		// generic record passes the bare parameter `a` down and the
+		// payload never wraps. The instantiation comes from the
+		// splice's STATIC type when it names this record: a value
+		// built inside a generic helper carries the helper's own
+		// parameter in v.Type (`Box a` where the splice sees
+		// `Box (Option Flag)`), and construction must not decide
+		// the rendering.
+		instCon := v.Type
+		if tc, ok := types.Chase(t).(*types.Con); ok &&
+			tc.Qual == v.Type.Qual && tc.Name == v.Type.Name &&
+			len(tc.Args) == len(v.Type.Args) {
+			instCon = tc
+		}
+		sub := instSubst(ri.typ, instCon)
 		out := &VRecord{Type: v.Type}
 		for _, f := range v.Fields {
 			nf := f
 			for _, fi := range ri.fields {
 				if fi.index == f.Index {
-					nf.V = e.typedDisplayValue(f.V, fi.typ)
+					nf.V = e.typedDisplayValue(f.V, applySubst(fi.typ, sub))
+					break
+				}
+			}
+			out.Fields = append(out.Fields, nf)
+		}
+		return out
+	case *VVariant:
+		// Constructor payloads literal-conformed into declared
+		// types are scalars exactly like record fields — wrap them
+		// by the ctor's DECLARED field types instantiated at the
+		// splice's static type. Site-derived infos are concrete for
+		// whichever instantiation built them first, so they must
+		// not reshape a different instantiation (`Some` at Flag
+		// recasting a later `Some` at Bool) — the same discipline
+		// reshape follows.
+		if v.Ctor == nil {
+			return v
+		}
+		con, ok := types.Chase(t).(*types.Con)
+		if !ok {
+			return v
+		}
+		info := e.ctorOf(v.Ctor, v.Name, v.Type)
+		if info != nil && !info.declared {
+			info = builtinDeclCtor(v.Ctor)
+		}
+		if info == nil || !info.declared {
+			return v
+		}
+		sub := instSubst(info.typ, con)
+		out := &VVariant{Type: v.Type, Ctor: v.Ctor, Name: v.Name}
+		for _, f := range v.Fields {
+			nf := f
+			for _, fi := range info.fields {
+				if fi.index == f.Index && fi.typ != nil {
+					nf.V = e.typedDisplayValue(f.V, applySubst(fi.typ, sub))
 					break
 				}
 			}
