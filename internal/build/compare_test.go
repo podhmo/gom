@@ -78,6 +78,63 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 		want: "same",
 	},
 	{
+		// lane C display: a scalar bound through the literal rule at
+		// a 1-field record type renders the RECORD shape — compiled
+		// gomShow is type-driven and never sees how the value was
+		// constructed.
+		name: "splice_scalar_literal_record_shape",
+		src: `package main
+
+import go "fmt"
+
+type Flag = {on: Bool}
+fn answer () -> String = {
+  let f : Flag = true
+  "${f}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "{ on = true }",
+	},
+	{
+		// lane C display: the wrap recurses through peel chains —
+		// a scalar at a doubly-nested declared type prints the full
+		// record nesting.
+		name: "splice_nested_peel_record_shape",
+		src: `package main
+
+import go "fmt"
+
+type UserId = {v: Int}
+type Masked = {u: UserId}
+fn answer () -> String = {
+  let m : Masked = 8
+  "${m}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "{ u = ({ v = 8 }) }",
+	},
+	{
+		// lane C display: fields of a record literal carry their own
+		// declared types — the literal-conformed scalar inside
+		// renders record-shaped too.
+		name: "splice_field_record_shape",
+		src: `package main
+
+import go "fmt"
+
+type Flag = {on: Bool}
+type Cfg = {f: Flag, n: Int}
+fn answer () -> String = {
+  let c : Cfg = { f = true, n = 1 }
+  "${c}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "{ f = ({ on = true }), n = 1 }",
+	},
+	{
 		// lane B materialization: an int-spelled literal at a
 		// float32-underlying named type is a FLOAT value — division
 		// is floating-point, not integer.
@@ -113,6 +170,24 @@ fn answer () -> String = {
 fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 `,
 		want: "0.1",
+	},
+	{
+		// lane B constants: a negated zero literal folds like a Go
+		// constant expression — untyped constants carry no signed
+		// zero, so `-0` at a float position prints `0`, not `-0`.
+		name: "float32_width_neg_zero_literal",
+		src: `package main
+
+import go "fmt"
+import go "github.com/podhmo/gom/testdata/goiface"
+
+fn answer () -> String = {
+  let a : goiface.SmallRatio = -0
+  "${a}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "0",
 	},
 	{
 		// lane B arithmetic: width-32 operations run in float32
