@@ -1,0 +1,19 @@
+package main
+
+// `Int` at every position emits `(int, int) (int, error)` — not
+// io.Seeker's `(int64, int) (int64, error)`. The raw width pass
+// rejects the conformance instead of passing a method set the
+// generated Go does not carry.
+import go "io"
+
+type Cursor = { pos: Int }
+
+@method
+fn (c: Cursor) seek (offset: Int) (whence: Int) -> Result Int GoError = Ok 0
+
+fn main () -> Unit = {
+  let c = { pos = 0 }
+  let s : io.Seeker = c
+  ignore s
+  ()
+}

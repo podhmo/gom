@@ -1,0 +1,19 @@
+package main
+
+// The interface conformance check compares widths in the raw view:
+// io.Seeker's `Seek(int64, int) (int64, error)` admits the method
+// spelled with `Int64` at the int64 positions and `Int` at the int
+// position — the pair the boundary emits as `(int64, int)`.
+import go "io"
+
+type Cursor = { pos: Int }
+
+@method
+fn (c: Cursor) seek (offset: Int64) (whence: Int) -> Result Int64 GoError = Ok 0
+
+fn main () -> Unit = {
+  let c = { pos = 0 }
+  let s : io.Seeker = c
+  ignore s
+  ()
+}

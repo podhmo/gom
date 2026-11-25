@@ -125,6 +125,13 @@ wrap; Gom values still box as before.
   `Result (Option T) GoError` emit `error`/`(T, error)`, covering
   interfaces like `io.Writer` or `UnmarshalText([]byte) error`;
   a non-`GoError` payload is still E0420.
+  Width matters at the boundary: the conformance check compares
+  against the interface's raw Go signature, so positions the Go
+  side spells `int` want gom `Int` and positions spelled `int64`
+  want `Int64` — `io.Seeker`'s `Seek(int64, int)` is
+  `(offset: Int64) (whence: Int)`. Writing `Int` at an `int64`
+  position fails E0401 instead of passing a method set the
+  generated Go would not carry.
 - Exported struct fields read via `v.Field` (promoted fields and Go's
   ambiguity rules apply; unexported fields are invisible). Through
   `Ptr T` (T a named Go struct) they also write — `p.Field = v` —
