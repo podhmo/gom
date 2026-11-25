@@ -335,10 +335,12 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 		// wave46 lane D: boxed-any equality keeps Go's dynamic-type
 		// distinction across float widths — float32-width and
 		// float64-width boxes never compare equal, while same-width
-		// boxes do. Eval reproduces the distinction through the
-		// canonical W tag (width 32 only); direct VFloat equality is
-		// width-insensitive because the static operand type is the
-		// same in ordinary numeric comparisons.
+		// boxes do. The type tag decides the cross-type comparison
+		// before payload comparison; the width oracle still matters
+		// here because both SmallRatio literals construct at float32
+		// precision and therefore compare equal. The W representation
+		// invariant itself is pinned separately by
+		// TestFloatWidthTagInvariant.
 		name: "float32_width_boxed_any_dynamic_width",
 		src: `package main
 
