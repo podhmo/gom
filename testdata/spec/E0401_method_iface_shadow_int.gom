@@ -1,0 +1,21 @@
+package main
+
+// A file-local `type Int` shadows the builtin — the spelling no
+// longer carries the builtin's widths, so it cannot conform to a
+// raw int64 position. Without the shadow guard the structural
+// comparison mistook it for the builtin.
+import go "github.com/podhmo/gom/testdata/goiface"
+
+type Int = { x: Int64 }
+
+type W = { n: Int64 }
+
+@method
+fn (w: W) put (xs: List Int) -> Int64 = 0
+
+fn main () -> Unit = {
+  let w = { n = 0 }
+  let x : goiface.WidthPutSlice = w
+  ignore x
+  ()
+}

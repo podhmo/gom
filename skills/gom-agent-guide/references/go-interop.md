@@ -131,7 +131,11 @@ wrap; Gom values still box as before.
   want `Int64` — `io.Seeker`'s `Seek(int64, int)` is
   `(offset: Int64) (whence: Int)`. Writing `Int` at an `int64`
   position fails E0401 instead of passing a method set the
-  generated Go would not carry.
+  generated Go would not carry. The width rule mirrors the emit:
+  inside containers the element emits through goType, so a nested
+  `int64` position (`[]int64`) accepts either spelling (`List Int`
+  conforms) while a nested `int` position is inexpressible — such
+  methods are not even exposed.
 - Exported struct fields read via `v.Field` (promoted fields and Go's
   ambiguity rules apply; unexported fields are invisible). Through
   `Ptr T` (T a named Go struct) they also write — `p.Field = v` —

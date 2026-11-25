@@ -149,7 +149,7 @@ func (c *checker) implementsIface(want, got types.Type) bool {
 	}
 	for _, n := range need {
 		s, ok := set[n.Name]
-		if !ok || !methodSigMatch(s, n) {
+		if !ok || !c.methodSigMatch(s, n) {
 			return false
 		}
 	}
@@ -168,8 +168,8 @@ func (c *checker) implementsIface(want, got types.Type) bool {
 // passed but emitted a signature no interface carries, and the
 // correct `Int64`/`Int` spelling failed the folded comparison
 // (decisions/2026-11-25-method-iface-width-exact).
-func methodSigMatch(s *types.Func, n InterfaceMethod) bool {
-	if !methodViewEqual(s, n.Sig) {
+func (c *checker) methodSigMatch(s *types.Func, n InterfaceMethod) bool {
+	if !c.methodViewEqual(s, n.Sig) {
 		return false
 	}
 	if n.RawParams == nil && n.RawResults == nil {
@@ -185,7 +185,7 @@ func methodSigMatch(s *types.Func, n InterfaceMethod) bool {
 		return false
 	}
 	for i, rp := range n.RawParams {
-		if !methodWidthOk(sp[i].Type, rp, true) {
+		if !c.methodWidthOk(sp[i].Type, rp, true) {
 			return false
 		}
 	}
@@ -202,31 +202,31 @@ func methodSigMatch(s *types.Func, n InterfaceMethod) bool {
 		// plain tuple return — `(T, error)` carries the Option-
 		// unwrapped element widths positionally.
 		if tp, ok := payload.(*types.Tuple); ok {
-			return methodWidthResults(tp.Elems, n.RawResults)
+			return c.methodWidthResults(tp.Elems, n.RawResults)
 		}
-		if len(n.RawResults) > 0 && !methodWidthOk(payload, n.RawResults[0], true) {
+		if len(n.RawResults) > 0 && !c.methodWidthOk(payload, n.RawResults[0], true) {
 			return false
 		}
 		return true
 	}
 	if tp, ok := ret.(*types.Tuple); ok {
-		return methodWidthResults(tp.Elems, n.RawResults)
+		return c.methodWidthResults(tp.Elems, n.RawResults)
 	}
 	if types.Equal(ret, types.Unit) {
 		return true
 	}
-	return methodWidthOk(ret, n.RawResults[0], true)
+	return c.methodWidthOk(ret, n.RawResults[0], true)
 }
 
 // methodWidthResults pairs spread result elements with the raw
 // results positionally, each a root position of the emitted
 // signature.
-func methodWidthResults(elems, raw []types.Type) bool {
+func (c *checker) methodWidthResults(elems, raw []types.Type) bool {
 	if len(elems) > len(raw) {
 		return false
 	}
 	for i, e := range elems {
-		if !methodWidthOk(e, raw[i], true) {
+		if !c.methodWidthOk(e, raw[i], true) {
 			return false
 		}
 	}
@@ -237,8 +237,8 @@ func methodWidthResults(elems, raw []types.Type) bool {
 // leaf positions: gom `Int` and `Int64` are interchangeable here
 // because the gom view cannot tell which one an interface position
 // asked for — the raw width pass decides that.
-func methodViewEqual(a, b types.Type) bool {
-	if methodIntFamily(a) && methodIntFamily(b) {
+func (c *checker) methodViewEqual(a, b types.Type) bool {
+	if c.methodIntFamily(a) && c.methodIntFamily(b) {
 		return true
 	}
 	ac, bc := types.Chase(a), types.Chase(b)
@@ -249,7 +249,7 @@ func methodViewEqual(a, b types.Type) bool {
 			return types.Equal(ac, bc)
 		}
 		for i := range at.Args {
-			if !methodViewEqual(at.Args[i], bt.Args[i]) {
+			if !c.methodViewEqual(at.Args[i], bt.Args[i]) {
 				return false
 			}
 		}
@@ -260,7 +260,7 @@ func methodViewEqual(a, b types.Type) bool {
 			return false
 		}
 		for i := range at.Elems {
-			if !methodViewEqual(at.Elems[i], bt.Elems[i]) {
+			if !c.methodViewEqual(at.Elems[i], bt.Elems[i]) {
 				return false
 			}
 		}
@@ -271,11 +271,11 @@ func methodViewEqual(a, b types.Type) bool {
 			return false
 		}
 		for i := range at.Params {
-			if !methodViewEqual(at.Params[i].Type, bt.Params[i].Type) {
+			if !c.methodViewEqual(at.Params[i].Type, bt.Params[i].Type) {
 				return false
 			}
 		}
-		return methodViewEqual(at.Ret, bt.Ret)
+		return c.methodViewEqual(at.Ret, bt.Ret)
 	case *types.Meta, *types.Var, *types.Go:
 		return types.Equal(ac, bc)
 	default:
@@ -285,13 +285,18 @@ func methodViewEqual(a, b types.Type) bool {
 
 // methodIntFamily reports whether t is one of the builtin integer
 // types the gom view conflates at the Go boundary — `Int` (the
-// fold of Go's `int` and `int64`) and `Int64`.
-func methodIntFamily(t types.Type) bool {
-	c, ok := types.Chase(t).(*types.Con)
-	if !ok || c.Qual != "" {
+// fold of Go's `int` and `int64`) and `Int64`. A file-local type
+// shadowing the builtin name is not the builtin: its emit carries
+// none of the builtin's widths.
+func (c *checker) methodIntFamily(t types.Type) bool {
+	con, ok := types.Chase(t).(*types.Con)
+	if !ok || con.Qual != "" {
 		return false
 	}
-	return c.Name == "Int" || c.Name == "Int64"
+	if con.Name != "Int" && con.Name != "Int64" {
+		return false
+	}
+	return !c.shadowedBuiltin(con.Name)
 }
 
 // methodWidthOk reports whether the declared type u emits the
@@ -304,15 +309,15 @@ func methodIntFamily(t types.Type) bool {
 // container spelling emits it). Only the int widths can disagree —
 // everything else either compares equal in the gom view already or
 // has no method-boundary spelling.
-func methodWidthOk(u, r types.Type, root bool) bool {
+func (c *checker) methodWidthOk(u, r types.Type, root bool) bool {
 	uc, rc := types.Chase(u), types.Chase(r)
 	if gc, ok := rc.(*types.Con); ok && gc.Qual == "Go" && gc.Name == "Int" {
 		// A raw `int` position: only the root spelling `Int`
 		// emits `int`; nested int-family types emit `int64`.
 		if root {
-			return types.Equal(uc, types.Int)
+			return types.Equal(uc, types.Int) && !c.shadowedBuiltin("Int")
 		}
-		return !methodIntFamily(uc)
+		return !c.methodIntFamily(uc)
 	}
 	if types.Equal(rc, types.Int) {
 		// A raw `int64` position: the root wants `Int64`
@@ -320,7 +325,7 @@ func methodWidthOk(u, r types.Type, root bool) bool {
 		// emit `int64` — the relaxed view comparison has already
 		// pinned u to the int family at this position.
 		if root {
-			return types.Equal(uc, types.Int64)
+			return types.Equal(uc, types.Int64) && !c.shadowedBuiltin("Int64")
 		}
 		return true
 	}
@@ -331,7 +336,7 @@ func methodWidthOk(u, r types.Type, root bool) bool {
 	rcon, rok := rc.(*types.Con)
 	if uok && rok && len(ucon.Args) == len(rcon.Args) {
 		for i := range ucon.Args {
-			if !methodWidthOk(ucon.Args[i], rcon.Args[i], false) {
+			if !c.methodWidthOk(ucon.Args[i], rcon.Args[i], false) {
 				return false
 			}
 		}

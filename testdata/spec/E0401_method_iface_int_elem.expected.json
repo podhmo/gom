@@ -8,14 +8,14 @@
       "span": {
         "file": "E0401_method_iface_int_elem.gom",
         "start": {
-          "line": 16,
+          "line": 18,
           "col": 34,
-          "offset": 470
+          "offset": 615
         },
         "end": {
-          "line": 16,
+          "line": 18,
           "col": 35,
-          "offset": 471
+          "offset": 616
         }
       },
       "data": {
