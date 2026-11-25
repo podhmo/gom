@@ -20,6 +20,7 @@ import (
 	"github.com/podhmo/gom/internal/build"
 	"github.com/podhmo/gom/internal/diag"
 	"github.com/podhmo/gom/internal/goimport"
+	"github.com/podhmo/gom/internal/gomimport"
 	"github.com/podhmo/gom/internal/iface"
 	"github.com/podhmo/gom/internal/syntax"
 )
@@ -362,7 +363,55 @@ func runInfo(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "gom info: %v\n", err)
 		return diag.ExitInternal
 	}
-	inPaths, err := expandInputs(fs.Args(), false)
+	positional := fs.Args()
+	var inspections, ordinary []string
+	for _, arg := range positional {
+		if slices.Contains(gomimport.StdlibShortNames(), arg) {
+			if _, err := os.Stat(arg); os.IsNotExist(err) {
+				inspections = append(inspections, arg)
+				continue
+			}
+		}
+		ordinary = append(ordinary, arg)
+	}
+	if len(inspections) > 0 {
+		if len(inspections) != 1 || len(ordinary) != 0 {
+			fmt.Fprintf(stderr, "gom info: stdlib short-name inspection takes exactly one short name and no file/dir arguments\n")
+			return diag.ExitInternal
+		}
+		if *out != "" && *out != "-" {
+			fmt.Fprintf(stderr, "gom info: stdlib short-name inspection is read-only; omit -o or use -o -\n")
+			return diag.ExitInternal
+		}
+		cwd, err := os.Getwd()
+		if err != nil {
+			fmt.Fprintf(stderr, "gom info: %v\n", err)
+			return diag.ExitInternal
+		}
+		loader := gomimport.New(&gomimport.Config{Dir: cwd})
+		gomi, err := loader.GomiPath(inspections[0])
+		if err != nil {
+			fmt.Fprintf(stderr, "gom info: %v\n", err)
+			return diag.ExitInternal
+		}
+		src, err := os.ReadFile(gomi)
+		if err != nil {
+			fmt.Fprintf(stderr, "gom info: %v\n", err)
+			return diag.ExitInternal
+		}
+		rep := diag.Report{Files: []string{gomi}}
+		if _, err := stdout.Write(src); err != nil {
+			rep.Diagnostics = append(rep.Diagnostics,
+				diag.Error("E0003", "output could not be written").Set("error", err.Error()))
+		}
+		srcs := map[string][]byte{gomi: src}
+		if err := emitReport(stderr, *format, rep, srcs); err != nil {
+			fmt.Fprintf(stderr, "gom info: %v\n", err)
+			return diag.ExitInternal
+		}
+		return rep.ExitCode()
+	}
+	inPaths, err := expandInputs(positional, false)
 	if err != nil {
 		fmt.Fprintf(stderr, "gom info: %v\n", err)
 		return diag.ExitInternal

@@ -876,7 +876,7 @@ test "rendered items" {
 | `gom fix` | `applied`（適用した編集）、`summary` |
 | `gom explain <code>` | `explanation`（エラーコードの説明・例・修正例） |
 | `gom schema` | メッセージ形式の JSON Schema |
-| `gom info` | `.gomi` 下書きをファイルまたは `-o -` で stdout に書く。診断は stderr の同形式ストリーム |
+| `gom info` | `.gom` 入力には `.gomi` 下書きをファイルまたは `-o -` で stdout に書く。stdlib 短名（同名のファイル/ディレクトリがない場合）は既存 `.gomi` の read-only inspection として stdout に書く。診断は stderr の同形式ストリーム |
 | `gom list` | import 可能な stdlib の短名を 1 行 1 件で stdout に書く（`import "list"` 等が受理する表そのもの）。`-external` は代わりに、作業ディレクトリの module 文脈から import 可能な Gom パッケージ（main module 内の `.gomi` 所在ディレクトリと `go list -m all` の build list 内の同。vendor mode が有効なら vendor 配下の `.gomi` 所在も vendored パスで列挙する — module vendoring は `<modRoot>/vendor`、workspace vendoring（`go work vendor`）は `<workroot>/vendor`（`modules.txt` に `## workspace` のあるものに限る）。workspace vendoring 下では `go list -m all` が使えないため `use` 成员は go.work と各 go.mod から読む）を import パスで列挙する — ファイルシステムを walk するため opt-in。メッセージは出さない |
 | `gom dump -phase` | フェーズの IR ツリーを stdout に書く。診断は stderr の同形式ストリーム |
 

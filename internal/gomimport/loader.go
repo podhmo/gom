@@ -597,6 +597,17 @@ func CanonicalPath(path string) string {
 	return path
 }
 
+// GomiPath resolves a Gom import path or stdlib short name to the
+// package's single interface file without compiling it. Resolution
+// uses the same module, replace, workspace, and vendor rules as Load.
+func (l *Loader) GomiPath(path string) (string, error) {
+	dir, err := l.dirOf(CanonicalPath(path))
+	if err != nil {
+		return "", err
+	}
+	return oneGomi(dir)
+}
+
 // dirOf maps an import path to its package directory: the main
 // module's root (found by walking up from Config.Dir to go.mod)
 // plus the module-relative remainder of the path, or — for paths

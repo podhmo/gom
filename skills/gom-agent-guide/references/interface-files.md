@@ -98,7 +98,9 @@ Rules:
   `fn` keeps the record→Go-interface method set. Both round-trip
   — do not hand-edit unless regenerating the draft is impossible.
 - Drafting command: `gom info FILE|DIR...` (`moon info`-style)
-  writes or updates the `.gomi` draft; `-o -` prints it. `gom
+  writes or updates the `.gomi` draft; `-o -` prints it. A stdlib
+  short name (for example `gom info list`) prints the existing
+  interface read-only when no same-named file/dir exists. `gom
   gomi` is a rename stub — it prints the pointer and exits 2.
 
 Importers spell members `pkg.Name`; variant constructors spell

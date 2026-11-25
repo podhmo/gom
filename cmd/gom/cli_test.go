@@ -1462,6 +1462,47 @@ func (failWriter) Write([]byte) (int, error) {
 	return 0, fmt.Errorf("injected write failure")
 }
 
+// TestInfoStdlibShortNameInspection exercises the read-only side of
+// `gom info`: a stdlib short name resolves to that package's existing
+// .gomi and prints it without drafting into the working directory.
+func TestInfoStdlibShortNameInspection(t *testing.T) {
+	t.Parallel()
+
+	for _, name := range []string{"list", "cmp"} {
+		code, out, errout := invoke("info", name)
+		if code != 0 {
+			t.Fatalf("gom info %s: exit %d; stderr=%q stdout=%q", name, code, errout, out)
+		}
+		if !strings.Contains(out, "package "+name+"\n") {
+			t.Errorf("gom info %s stdout lacks the interface package clause:\n%s", name, out)
+		}
+		if sum := lastSummary(t, errout); sum["ok"] != true {
+			t.Errorf("gom info %s summary.ok = %v, want true", name, sum["ok"])
+		}
+	}
+	if _, err := os.Stat("list.gomi"); !os.IsNotExist(err) {
+		t.Fatalf("stdlib inspection wrote list.gomi in the working directory (stat err=%v)", err)
+	}
+
+	code, _, errout := invoke("info", "list", "option")
+	if code == 0 || !strings.Contains(errout, "exactly one short name") {
+		t.Fatalf("multiple short names: exit %d, stderr=%q", code, errout)
+	}
+	code, _, errout = invoke("info", "-o", "x.gomi", "list")
+	if code == 0 || !strings.Contains(errout, "read-only") {
+		t.Fatalf("inspection with output file: exit %d, stderr=%q", code, errout)
+	}
+
+	var failErr strings.Builder
+	code = run([]string{"info", "list"}, failWriter{}, &failErr)
+	if code != 1 || !strings.Contains(failErr.String(), "E0003") {
+		t.Fatalf("stdout write failure: exit %d, stderr=%q", code, failErr.String())
+	}
+	if sum := lastSummary(t, failErr.String()); sum["ok"] != false {
+		t.Fatalf("stdout write failure summary.ok = %v, want false", sum["ok"])
+	}
+}
+
 // TestInfoDraftWritesGomi exercises `gom info`: a package without an
 // interface file gets a draft .gomi generated beside its sources, and
 // a subsequent `gom check` accepts implementation and interface.
