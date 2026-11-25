@@ -1755,6 +1755,17 @@ fn keep (f: Unit -> Unit) -> Unit
 		t.Errorf("draft inherited extern guarantees from a same-named package in another directory:\n%s", b)
 	}
 
+	// Make the next regeneration observable: a correct run drops the
+	// unknown-member directive, while a successful no-op would leave it.
+	b, err = os.ReadFile(outPath)
+	if err != nil {
+		t.Fatalf("read alternate before symlink run: %v", err)
+	}
+	seeded := strings.Replace(string(b), "//gom:noescape keep 0", "//gom:noescape ghost 0\n//gom:noescape keep 0", 1)
+	if err := os.WriteFile(outPath, []byte(seeded), 0o666); err != nil {
+		t.Fatalf("mark alternate before symlink run: %v", err)
+	}
+
 	aliasDir := filepath.Join(dir, "alias")
 	if err := os.Symlink(filepath.Join(dir, "lib"), aliasDir); err != nil {
 		t.Fatalf("symlink alias: %v", err)
@@ -1766,6 +1777,9 @@ fn keep (f: Unit -> Unit) -> Unit
 	b, err = os.ReadFile(outPath)
 	if err != nil {
 		t.Fatalf("symlinked output not written: %v", err)
+	}
+	if strings.Contains(string(b), "//gom:noescape ghost") {
+		t.Errorf("symlinked run did not regenerate the draft:\n%s", b)
 	}
 	if !strings.Contains(string(b), "//gom:noescape keep 0\nfn keep") {
 		t.Errorf("draft lost its own extern directive through a symlinked directory:\n%s", b)

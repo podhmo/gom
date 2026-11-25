@@ -66,3 +66,4 @@ canonical 化する。
 
 - 2026-11-25 review round 3: 別 directory にある同名 `package lib` の `lib.gomi` を `-o` seed に使っても directive を引き継がないことを `TestInfoAlternateOutputSeedsItsOwnDirectives` に追加した。
 - 2026-11-25 review round 4: `-o` が directory symlink 越しに同じ package directory の既存 draft へ届く場合は、その draft を seed に使い directive を保持することを `TestInfoAlternateOutputSeedsItsOwnDirectives` に追加した。
+- 2026-11-25 review round 5: symlink test は unknown member の marker directive が再生成で消えることも確認し、successful no-op を検出できるようにした。
