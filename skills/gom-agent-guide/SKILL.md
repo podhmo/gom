@@ -821,8 +821,9 @@ fn main () -> Unit = ignore (work true)
 - A `.gomi` promises non-escaping parameters with a
   `//gom:noescape <name> <index>...` directive comment; `gom info`
   drafts it from bodies and, on regeneration, carries the prior line
-  for an extern `fn`/function-typed extern `let` whose body it cannot
-  inspect. No directive means "assume escaping". The directive
+  for an extern `fn`/function-typed extern `let` whose canonical
+  signature is unchanged — a rewritten signature invalidates the old
+  positional claim. No directive means "assume escaping". The directive
   attaches to a `let` member name too, not only `fn`. The mirror
   `//gom:result-notaint <name> <index>...` lists the parameters
   whose products CANNOT reach the result — a non-escaping lambda

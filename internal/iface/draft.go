@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/podhmo/gom/internal/check"
+	"github.com/podhmo/gom/internal/diag"
 	"github.com/podhmo/gom/internal/resolve"
 	"github.com/podhmo/gom/internal/syntax"
 	"github.com/podhmo/gom/internal/types"
@@ -38,9 +39,9 @@ type Source struct {
 // same-named type declarations — the mark is an author's claim
 // about an impl-invisible type, which nothing in the .gom sources
 // can re-derive. `//gom:noescape` and `//gom:result-notaint`
-// carry only for extern members: bodies of ordinary declarations
-// are re-inferred so stale claims cannot survive implementation
-// changes.
+// carry only for extern members whose canonical signature is
+// unchanged: bodies of ordinary declarations are re-inferred, and
+// a rewritten extern signature invalidates the old positional claim.
 func Draft(srcs []Source, prior []byte) []byte {
 	d := &drafter{
 		vars:     map[*types.Var]string{},
@@ -55,6 +56,7 @@ func Draft(srcs []Source, prior []byte) []byte {
 	}
 	d.noescape = ScanNoescape(prior)
 	d.notaint = ScanNotaint(prior)
+	d.priorSigs = priorSigTexts(prior)
 	var out strings.Builder
 	pkg := ""
 	for _, s := range srcs {
@@ -128,6 +130,7 @@ type drafter struct {
 	mutable   map[string]bool   // carried `//gom:mutable` names
 	noescape  map[string][]int  // prior `//gom:noescape` indices by member
 	notaint   map[string][]int  // prior `//gom:result-notaint` indices by member
+	priorSigs map[string]string // normalized prior member signatures
 }
 
 // file renders one source's declarations into w, in surface order.
@@ -151,11 +154,12 @@ func (d *drafter) file(w *strings.Builder, s Source) {
 			if td == nil {
 				continue
 			}
-			lines = []string{d.fnDecl(decl.Name.Name, td)}
-			if ne := d.noescapeForFn(decl.Name.Name, td); ne != "" {
+			sig := d.fnDecl(decl.Name.Name, td)
+			lines = []string{sig}
+			if ne := d.noescapeForFn(decl.Name.Name, sig, td); ne != "" {
 				lines = append([]string{ne}, lines...)
 			}
-			if nt := d.notaintForFn(decl.Name.Name, td); nt != "" {
+			if nt := d.notaintForFn(decl.Name.Name, sig, td); nt != "" {
 				lines = append([]string{nt}, lines...)
 			}
 		case *syntax.LetDecl:
@@ -246,6 +250,51 @@ func (d *drafter) fnDecl(name string, td *check.FnDecl) string {
 	return sb.String()
 }
 
+// priorSigTexts extracts the normalized declaration text of each
+// member in a prior .gomi. Escape directives are positional claims,
+// so regeneration may carry one only while the extern signature is
+// textually unchanged in canonical form; after a parameter reorder
+// or type edit the old positions no longer identify the same inputs.
+func priorSigTexts(src []byte) map[string]string {
+	if len(src) == 0 {
+		return nil
+	}
+	f, _ := syntax.ParseInterface(src, "<prior>.gomi")
+	if f == nil {
+		return nil
+	}
+	out := map[string]string{}
+	add := func(name string, sp diag.Span) {
+		if name == "" || sp.Start < 0 || sp.End > len(src) || sp.Start >= sp.End {
+			return
+		}
+		out[name] = normalizedSig(string(src[sp.Start:sp.End]))
+	}
+	for _, decl := range f.Decls {
+		switch d := decl.(type) {
+		case *syntax.FnDecl:
+			if d.Name != nil {
+				add(d.Name.Name, d.Sp)
+			}
+		case *syntax.LetDecl:
+			names := map[string]bool{}
+			bindNames(d.Pat, names)
+			for name := range names {
+				add(name, d.Sp)
+			}
+		case *syntax.TypeDecl, *syntax.ImportDecl, *syntax.TestDecl, *syntax.ExternDecl:
+			// Escape directives apply only to fn and function-valued let members.
+		default:
+			panic("unreachable")
+		}
+	}
+	return out
+}
+
+func normalizedSig(s string) string {
+	return strings.Join(strings.Fields(s), " ")
+}
+
 // carriedDirective renders a prior directive's in-range indices in
 // the same canonical shape as an inferred directive. Out-of-range
 // and duplicate indices do not carry: the loader would ignore the
@@ -268,36 +317,42 @@ func carriedDirective(prefix, name string, idxs []int, n int) string {
 	return prefix + name + " " + strings.Join(idx, " ")
 }
 
-func (d *drafter) carriedNoescape(name string, n int) string {
+func (d *drafter) carriedNoescape(name, sig string, n int) string {
+	if d.priorSigs[name] != normalizedSig(sig) {
+		return ""
+	}
 	return carriedDirective("//gom:noescape ", name, d.noescape[name], n)
 }
 
-func (d *drafter) carriedNotaint(name string, n int) string {
+func (d *drafter) carriedNotaint(name, sig string, n int) string {
+	if d.priorSigs[name] != normalizedSig(sig) {
+		return ""
+	}
 	return carriedDirective("//gom:result-notaint ", name, d.notaint[name], n)
 }
 
 // noescapeForFn renders the directive for one fn. An extern fn has
 // no body the package compile can inspect, so its prior interface is
-// the only source of the author's claim and carries across
-// regeneration. A non-extern fn is always re-inferred from its body:
-// carrying a stale prior line there would keep a false claim after
-// the implementation changed.
-func (d *drafter) noescapeForFn(name string, td *check.FnDecl) string {
+// the only source of the author's claim. The claim carries only while
+// the canonical signature is unchanged: directive indices are positional,
+// and a rewrite can move them onto different inputs. A non-extern fn is
+// always re-inferred from its body.
+func (d *drafter) noescapeForFn(name, sig string, td *check.FnDecl) string {
 	if td.Extern {
 		if td.Sig == nil {
 			return ""
 		}
-		return d.carriedNoescape(name, len(td.Sig.Params))
+		return d.carriedNoescape(name, sig, len(td.Sig.Params))
 	}
 	return noescapeLine(name, td)
 }
 
-func (d *drafter) notaintForFn(name string, td *check.FnDecl) string {
+func (d *drafter) notaintForFn(name, sig string, td *check.FnDecl) string {
 	if td.Extern {
 		if td.Sig == nil {
 			return ""
 		}
-		return d.carriedNotaint(name, len(td.Sig.Params))
+		return d.carriedNotaint(name, sig, len(td.Sig.Params))
 	}
 	return notaintLine(name, td)
 }
@@ -403,11 +458,12 @@ func (d *drafter) letMember(name string, td check.Decl) []string {
 			}
 			return lines
 		}
-		lines := []string{d.fnDecl(name, td)}
-		if ne := d.noescapeForFn(name, td); ne != "" {
+		sig := d.fnDecl(name, td)
+		lines := []string{sig}
+		if ne := d.noescapeForFn(name, sig, td); ne != "" {
 			lines = append([]string{ne}, lines...)
 		}
-		if nt := d.notaintForFn(name, td); nt != "" {
+		if nt := d.notaintForFn(name, sig, td); nt != "" {
 			lines = append([]string{nt}, lines...)
 		}
 		return lines
@@ -419,7 +475,8 @@ func (d *drafter) letMember(name string, td check.Decl) []string {
 			var sb strings.Builder
 			fmt.Fprintf(&sb, "let %s : ", name)
 			d.writeType(&sb, m.Type)
-			lines := []string{sb.String()}
+			sig := sb.String()
+			lines := []string{sig}
 			// `let f = g` keeps the LetDecl shape but its symbol
 			// inherited g's escape flags — publish them so the
 			// importer does not fall back to conservative
@@ -431,8 +488,8 @@ func (d *drafter) letMember(name string, td check.Decl) []string {
 			if f, ok := types.Chase(m.Type).(*types.Func); ok {
 				var ne, nt string
 				if td.Extern {
-					ne = d.carriedNoescape(name, len(f.Params))
-					nt = d.carriedNotaint(name, len(f.Params))
+					ne = d.carriedNoescape(name, sig, len(f.Params))
+					nt = d.carriedNotaint(name, sig, len(f.Params))
 				} else {
 					ne = noescapeDirective(name, sym, f.Params)
 					nt = notaintDirective(name, sym, len(f.Params))

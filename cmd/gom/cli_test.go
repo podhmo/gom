@@ -1633,6 +1633,9 @@ fn keep (f: Unit -> Unit) -> Unit
 
 @extern let keepv : (Unit -> Unit) -> Unit
 
+@extern
+fn moved (second: Unit -> Unit) (first: Unit -> Unit) -> Unit
+
 fn leak (f: Unit -> Unit) -> Unit -> Unit = f
 `,
 		"lib/lib.gomi": `package lib
@@ -1644,6 +1647,9 @@ fn keep (f: Unit -> Unit) -> Unit
 //gom:result-notaint keepv 0
 //gom:noescape keepv 0
 let keepv : (Unit -> Unit) -> Unit
+
+//gom:noescape moved 0
+fn moved (first: Unit -> Unit) (second: Unit -> Unit) -> Unit
 
 //gom:result-notaint leak 0
 //gom:noescape leak 0
@@ -1667,10 +1673,50 @@ fn leak (f: Unit -> Unit) -> Unit -> Unit
 			t.Errorf("regenerated draft missing %q:\n%s", want, text)
 		}
 	}
+	if strings.Contains(text, "//gom:noescape moved") {
+		t.Errorf("regenerated draft carried a positional extern directive across a parameter reorder:\n%s", text)
+	}
 	for _, stale := range []string{"//gom:result-notaint leak", "//gom:noescape leak"} {
 		if strings.Contains(text, stale) {
 			t.Errorf("regenerated draft carried stale non-extern directive %q:\n%s", stale, text)
 		}
+	}
+}
+
+// TestInfoAlternateOutputSeedsItsOwnDirectives: `gom info -o` regenerates
+// the file it overwrites. Once an alternate draft carries author-maintained
+// extern directives, those — not only the canonical package interface's —
+// seed the next regeneration.
+func TestInfoAlternateOutputSeedsItsOwnDirectives(t *testing.T) {
+	t.Parallel()
+
+	dir := writeFiles(t, map[string]string{
+		"lib/lib.gom": `package lib
+
+@extern
+fn keep (f: Unit -> Unit) -> Unit
+`,
+		"lib/lib.gomi": `package lib
+
+fn keep (f: Unit -> Unit) -> Unit
+`,
+		"lib/draft.gomi": `package lib
+
+//gom:noescape keep 0
+fn keep (f: Unit -> Unit) -> Unit
+`,
+	})
+	outPath := filepath.Join(dir, "lib", "draft.gomi")
+	code, out, errout := invoke("info", "-o", outPath, filepath.Join(dir, "lib"))
+	if code != 0 {
+		t.Fatalf("gom info -o: exit %d; stderr=%q stdout=%q", code, errout, out)
+	}
+	b, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatalf("alternate output not written: %v", err)
+	}
+	if !strings.Contains(string(b), "//gom:noescape keep 0\nfn keep") {
+		t.Errorf("alternate output lost its own extern directive:\n%s", b)
 	}
 }
 

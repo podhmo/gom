@@ -401,7 +401,7 @@ fn guarded (held: Ref Int) (need: Bool) -> Int =
 4. `Scope.on_err` の後片付けは、本体が `Err` を返したときと panic したときだけ走る。後片付けの `Err` では走らない
 5. 後片付けの 1 つが panic しても、残りの後片付けはすべて走り、そのあと panic が伝播する
 6. スコープが閉じたあとに登録すると panic する
-7. `s`（とそれを束ねた別名・それを捕まえたクロージャ）をスコープの外へ持ち出すことは型エラー（E0419、[decisions/scope-escape-check](decisions/2026-11-22-scope-escape-check.md)）。型の位置では `Scope` はパラメータの葉の型か関数型の引数側の中にのみ書ける — 結果型・フィールド・コンテナ要素は禁止。使い方では、引数を保持しない呼び出し（`Scope` 操作・非脱出パラメータ・即時適用ラムダ）の中では使えるが、返り値にする・`Task.spawn` や `go {}`・Go の関数へ渡す・可変セルやコンストラクタへ格納するのはエラー。Go の関数は常に「逃げる」扱いで、非脱出パラメータはパッケージ内の推論が `.gomi` の `//gom:noescape` 注釈に書き出される。ラムダを束ねた `let` のパラメータにも同じ推論が効く。`let f = g` の別名束縛は `g` が証明した非脱出パラメータをそのまま引き継ぐ。どちらも `let` メンバのまま `.gomi` に出るときは `//gom:noescape` 行がメンバ名に対して書き出され、import 側にも同じ判定が効く。引数が保持されなくても呼出しの結果がその引数の生産物を運びうるとき（結果型が関数を含む脱出位置の呼出し）、引数ラムダの本体が返す値にも同じ脱出規則がかかる — ローカル宣言の callee ではそのパラメータの生産物が結果に載る場合に限り、callee が呼ぶ関数を介した運搬も遡って判定し（相互再帰は保守的）、外部の callee では保守的に検査する。パラメータの生産物が結果に載らない位置は `.gomi` の `//gom:result-notaint <name> <i>` 注釈に書き出され、import 側にも同じ判定が効く — 注釈のない位置は載る保守扱いで、未検査の外部 callee と同じ判定になる。`gom info` の再生成では、本体のある宣言は現在の本体から推論し直し、`@extern fn` / 関数型の `@extern let` は検査できる本体がないため既存 `.gomi` の同名メンバの directive を引き継ぐ
+7. `s`（とそれを束ねた別名・それを捕まえたクロージャ）をスコープの外へ持ち出すことは型エラー（E0419、[decisions/scope-escape-check](decisions/2026-11-22-scope-escape-check.md)）。型の位置では `Scope` はパラメータの葉の型か関数型の引数側の中にのみ書ける — 結果型・フィールド・コンテナ要素は禁止。使い方では、引数を保持しない呼び出し（`Scope` 操作・非脱出パラメータ・即時適用ラムダ）の中では使えるが、返り値にする・`Task.spawn` や `go {}`・Go の関数へ渡す・可変セルやコンストラクタへ格納するのはエラー。Go の関数は常に「逃げる」扱いで、非脱出パラメータはパッケージ内の推論が `.gomi` の `//gom:noescape` 注釈に書き出される。ラムダを束ねた `let` のパラメータにも同じ推論が効く。`let f = g` の別名束縛は `g` が証明した非脱出パラメータをそのまま引き継ぐ。どちらも `let` メンバのまま `.gomi` に出るときは `//gom:noescape` 行がメンバ名に対して書き出され、import 側にも同じ判定が効く。引数が保持されなくても呼出しの結果がその引数の生産物を運びうるとき（結果型が関数を含む脱出位置の呼出し）、引数ラムダの本体が返す値にも同じ脱出規則がかかる — ローカル宣言の callee ではそのパラメータの生産物が結果に載る場合に限り、callee が呼ぶ関数を介した運搬も遡って判定し（相互再帰は保守的）、外部の callee では保守的に検査する。パラメータの生産物が結果に載らない位置は `.gomi` の `//gom:result-notaint <name> <i>` 注釈に書き出され、import 側にも同じ判定が効く — 注釈のない位置は載る保守扱いで、未検査の外部 callee と同じ判定になる。`gom info` の再生成では、本体のある宣言は現在の本体から推論し直し、`@extern fn` / 関数型の `@extern let` は検査できる本体がないため、canonical なシグネチャが変わっていない同名メンバだけ既存 `.gomi` の directive を引き継ぐ
 8. `run_result` / `defer_err` が合流するのは `GoError` だけ。後片付けの失敗をドメイン独自のエラー型 `E` で扱いたいときは、`run_result` の結果を `|> Result.map_err f` で橋渡しする。後片付け自体が `E` を返す場合は、`defer_err` のコールバック内で `E -> GoError` に変換して登録すれば `Close` の合流に乗る。取得と登録を一度に書く糖衣はユーザー側の helper 関数として書ける — `s` は引数を保持しない呼び出しに渡せるので:
 
    ```gom
@@ -876,7 +876,7 @@ test "rendered items" {
 | `gom fix` | `applied`（適用した編集）、`summary` |
 | `gom explain <code>` | `explanation`（エラーコードの説明・例・修正例） |
 | `gom schema` | メッセージ形式の JSON Schema |
-| `gom info` | `.gom` 入力には `.gomi` 下書きをファイルまたは `-o -` で stdout に書く。stdlib 短名（同名のファイル/ディレクトリがない場合）は既存 `.gomi` の read-only inspection として stdout に書く。診断は stderr の同形式ストリーム |
+| `gom info` | `.gom` 入力には `.gomi` 下書きをファイルまたは `-o -` で stdout に書く。再生成時の directive 引き継ぎは、明示した出力ファイルが既にあればそれを、なければ canonical `.gomi` を種にする。stdlib 短名（同名のファイル/ディレクトリがない場合）は既存 `.gomi` の read-only inspection として stdout に書く。診断は stderr の同形式ストリーム |
 | `gom list` | import 可能な stdlib の短名を 1 行 1 件で stdout に書く（`import "list"` 等が受理する表そのもの）。`-external` は代わりに、作業ディレクトリの module 文脈から import 可能な Gom パッケージ（main module 内の `.gomi` 所在ディレクトリと `go list -m all` の build list 内の同。vendor mode が有効なら vendor 配下の `.gomi` 所在も vendored パスで列挙する — module vendoring は `<modRoot>/vendor`、workspace vendoring（`go work vendor`）は `<workroot>/vendor`（`modules.txt` に `## workspace` のあるものに限る）。workspace vendoring 下では `go list -m all` が使えないため `use` 成员は go.work と各 go.mod から読む）を import パスで列挙する — ファイルシステムを walk するため opt-in。メッセージは出さない |
 | `gom dump -phase` | フェーズの IR ツリーを stdout に書く。診断は stderr の同形式ストリーム |
 
@@ -916,8 +916,8 @@ test "rendered items" {
 | --- | --- | --- | --- | --- |
 | `//gom:allow` | `<code>...`（1 つ以上） | `.gom` ファイル内の行頭どこでも | そのファイルで発火した指定コードの診断を緩和 — relaxable な error は warning へ格下げ、warning は報告から除く | §12、W0003（誤用の報告） |
 | `//gom:embed` | `<pattern>...`（1 つ以上のファイルパターン） | `@extern let` 宣言の直上 | コンパイラが `//go:embed` 変数を生成する。型は `String`・`Go.Slice Byte`・named Go 型（`embed.FS` 等）に限る | §8.10、E0512 |
-| `//gom:noescape` | `<name> <index>...` | `.gomi` の `fn`/`let` シグネチャ直上（`gom info` が書き出し、extern の再生成では引き継ぐ） | そのパラメータ位置のラムダがスコープを脱出しないことを表明し、import 側の E0419 判定に効く | §4（`Scope` 規則） |
-| `//gom:result-notaint` | `<name> <index>...` | `.gomi` の `fn`/`let` シグネチャ直上（`gom info` が書き出し、extern の再生成では引き継ぐ） | そのパラメータの生産物が結果に載らないことを表明 — 注釈のない位置は保守的に「載る」扱い | §4（`Scope` 規則） |
+| `//gom:noescape` | `<name> <index>...` | `.gomi` の `fn`/`let` シグネチャ直上（`gom info` が書き出し、extern の無変更シグネチャでは再生成時に引き継ぐ） | そのパラメータ位置のラムダがスコープを脱出しないことを表明し、import 側の E0419 判定に効く | §4（`Scope` 規則） |
+| `//gom:result-notaint` | `<name> <index>...` | `.gomi` の `fn`/`let` シグネチャ直上（`gom info` が書き出し、extern の無変更シグネチャでは再生成時に引き継ぐ） | そのパラメータの生産物が結果に載らないことを表明 — 注釈のない位置は保守的に「載る」扱い | §4（`Scope` 規則） |
 | `//gom:mutable` | `<name>` | `.gomi` の型宣言直上（著者が記述、`gom info` の再生成が引き継ぐ） | extern 裏付け・abstract export で中身の見えない宣言型が可変な値を含むと表明し、可変構造リントで `Ref` 等と同じく数える | §10 |
 
 `@method(GoName)` のような `@`-attribute の引数はディレクティブではない — ここに列挙しない。

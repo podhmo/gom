@@ -22,8 +22,11 @@ wave47 lane C）。
   stale な保証を残さないため
 - `@extern fn` と関数型の `@extern let` は本体を検査できないので、既存
   `.gomi` の同名メンバの `//gom:noescape` / `//gom:result-notaint` を
-  再生成後のシグネチャへ引き継ぐ。index は現在の flat パラメータ数の範囲に
-  限定し、範囲外と重複は落とす
+  再生成後のシグネチャへ引き継ぐ。ただし directive の index は位置への
+  主張なので、canonical なシグネチャ文言が変わったメンバでは引き継がない
+  — パラメータの並べ替えや型修正で古い位置の保証が別の入力へ移るのを防ぐ。
+  無変更のときも index は現在の flat パラメータ数の範囲に限定し、範囲外と
+  重複は落とす
 - メンバ自体が再生成 draft から消える場合は directive も残さない。
   abstract/private 化の意図保持はこの決定の対象外
 
@@ -49,6 +52,7 @@ result-notaint は本体から推論できるときは推論を正とし、exter
 prototype 記録: [wave47 lane C .gomi directive verify](../sketch/2026-11-25-wave47-lane-c-gomi-directives-verify.md)。
 
 - extern fn / extern let の directive が再生成後も残り、本体のある stale な
-  directive は残らないことを `TestInfoCarriesExternEscapeDirectives` で固定
+  directive は残らず、extern のパラメータを並べ替えた signature では位置の
+  保証を引き継がないことを `TestInfoCarriesExternEscapeDirectives` で固定
 - `stdlib/list/list.gom` と既存 `stdlib/list/list.gomi` のコピーに対する
   `gom info` 再生成が no-op になることを確認

@@ -32,6 +32,14 @@ fn leak (f: Unit -> Unit) -> Unit -> Unit
 
 関数型の `@extern let` も同じ引き継ぎ経路を通ることを
 `TestInfoCarriesExternEscapeDirectives`（`cmd/gom/cli_test.go`）で固定した。
+同じ test では、extern の 2 つのコールバック引数を入れ替えた signature では
+`//gom:noescape moved 0` を引き継がないことも固定した — directive の index は
+位置への主張なので、古い位置の保証を別の入力へ移さない。
+
+`gom info -o <path>` の regression も
+`TestInfoAlternateOutputSeedsItsOwnDirectives` で固定した。明示した出力
+ファイルが既にある場合は canonical `.gomi` ではなくそのファイルを seed に
+読むため、alternate draft だけに書いた extern directive が上書き後も残る。
 
 ## stdlib/list での確認
 
