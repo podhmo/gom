@@ -101,7 +101,7 @@ func runGomRun(args []string, stdout, stderr io.Writer) int {
 			writeErrs = append(writeErrs, err)
 			continue
 		}
-		if err := writeFile(d, r.Output.Source); err != nil {
+		if err := writeGenerated(d, r.Output.Source); err != nil {
 			writeErrs = append(writeErrs, fmt.Errorf("%s: %w", d, err))
 			continue
 		}
@@ -111,14 +111,15 @@ func runGomRun(args []string, stdout, stderr io.Writer) int {
 			hasMain = true
 		}
 	}
+	for _, e := range writeErrs {
+		rep.Diagnostics = append(rep.Diagnostics,
+			diag.Error("E0003", "output could not be written").Set("error", e.Error()))
+	}
 	if len(writeErrs) > 0 {
 		if err := emitReport(stdout, *format, rep, srcs); err != nil {
 			fmt.Fprintf(stderr, "gom run: %v\n", err)
 		}
-		for _, e := range writeErrs {
-			fmt.Fprintf(stderr, "gom run: cannot write output: %v\n", e)
-		}
-		return diag.ExitInternal
+		return rep.ExitCode()
 	}
 	if rep.ExitCode() != 0 {
 		if err := emitReport(stdout, *format, rep, srcs); err != nil {

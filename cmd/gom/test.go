@@ -100,7 +100,7 @@ func runTest(args []string, stdout, stderr io.Writer) int {
 			writeErrs = append(writeErrs, err)
 			continue
 		}
-		if err := writeFile(dst, r.Output.Source); err != nil {
+		if err := writeGenerated(dst, r.Output.Source); err != nil {
 			writeErrs = append(writeErrs, fmt.Errorf("%s: %w", dst, err))
 			continue
 		}
@@ -108,7 +108,7 @@ func runTest(args []string, stdout, stderr io.Writer) int {
 		tst := strings.TrimSuffix(dst, ".go") + "_test.go"
 		switch {
 		case r.Output.TestSource != nil:
-			if err := writeFile(tst, r.Output.TestSource); err != nil {
+			if err := writeGenerated(tst, r.Output.TestSource); err != nil {
 				writeErrs = append(writeErrs, fmt.Errorf("%s: %w", tst, err))
 				continue
 			}
@@ -125,14 +125,15 @@ func runTest(args []string, stdout, stderr io.Writer) int {
 			}
 		}
 	}
+	for _, e := range writeErrs {
+		rep.Diagnostics = append(rep.Diagnostics,
+			diag.Error("E0003", "output could not be written").Set("error", e.Error()))
+	}
 	if len(writeErrs) > 0 {
 		if err := emitReport(stdout, *format, rep, srcs); err != nil {
 			fmt.Fprintf(stderr, "gom test: %v\n", err)
 		}
-		for _, e := range writeErrs {
-			fmt.Fprintf(stderr, "gom test: cannot write output: %v\n", e)
-		}
-		return diag.ExitInternal
+		return strictExit(rep, strict)
 	}
 
 	if !diag.List(rep.Diagnostics).HasError() {

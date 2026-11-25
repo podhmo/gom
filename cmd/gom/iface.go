@@ -465,14 +465,12 @@ func runInfo(args []string, stdout, stderr io.Writer) int {
 		}
 		rep.Outputs = append(rep.Outputs, dst)
 	}
+	for _, e := range writeErrs {
+		rep.Diagnostics = append(rep.Diagnostics,
+			diag.Error("E0003", "output could not be written").Set("error", e.Error()))
+	}
 	if err := emitReport(stderr, *format, rep, srcs); err != nil {
 		fmt.Fprintf(stderr, "gom info: %v\n", err)
-		return diag.ExitInternal
-	}
-	for _, e := range writeErrs {
-		fmt.Fprintf(stderr, "gom info: cannot write output: %v\n", e)
-	}
-	if len(writeErrs) > 0 {
 		return diag.ExitInternal
 	}
 	return rep.ExitCode()
