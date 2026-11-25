@@ -417,6 +417,87 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 		want: "false:true",
 	},
 	{
+		// wave46 lane C: a named Go scalar splice renders through
+		// its scalar underlying, not fmt's type-specific methods —
+		// time.Duration therefore prints `1`, while a float32-underlying
+		// value keeps float32 precision.
+		name: "splice_go_named_scalar_underlying",
+		src: `package main
+
+import go "fmt"
+import go "time"
+import go "github.com/podhmo/gom/testdata/goiface"
+
+fn answer () -> String = {
+  let d : time.Duration = 1
+  let r : goiface.SmallRatio = 0.1
+  let l : goiface.Label = goiface.LabelOf "x"
+  "${d}:${r}:${l}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "1:0.1:x",
+	},
+	{
+		// Review finding on wave46 lane C: os.FileMode's uint32
+		// arithmetic wraps at the named type's own width and renders
+		// unsigned — the evaluator must not compute the addition in
+		// signed int64 and print 4294967296.
+		name: "splice_go_named_unsigned_width",
+		src: `package main
+
+import go "fmt"
+import go "os"
+
+fn answer () -> String = {
+  let x : os.FileMode = 4294967295
+  let y = x + 1
+  "${x}:${y}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "4294967295:0",
+	},
+	{
+		// lane C review: typed record rendering must keep the
+		// comparison format at scalar leaves — strings and chars
+		// stay quoted inside a record even though a top-level
+		// splice prints them naturally.
+		name: "splice_record_scalar_quotes",
+		src: `package main
+
+import go "fmt"
+
+type TextBox = { label : String, ch : Char }
+
+fn answer () -> String = {
+  let x : TextBox = { label = "x", ch = 'y' }
+  "${x}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: `{ label = "x", ch = 'y' }`,
+	},
+	{
+		// lane C review: width-64 unsigned values above MaxInt64
+		// round-trip through the evaluator's bit pattern, print as
+		// unsigned, and divide as uint64 rather than signed int64.
+		name: "splice_go_named_uint64_boundary",
+		src: `package main
+
+import go "fmt"
+import go "github.com/podhmo/gom/testdata/goiface"
+
+fn answer () -> String = {
+  let x : goiface.Big = 9223372036854775808
+  let y = x / 2
+  "${x}:${y}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "9223372036854775808:4611686018427387904",
+	},
+	{
 		// P2-2c: the same delayed-reference cycle through a
 		// destructuring let — tuple, record, and a single-variant
 		// constructor all bind `count` as a named wrapper.
@@ -2154,6 +2235,40 @@ let w = Score 42
 	},
 }
 
+// TestEvalUnsignedRecordShape pins the evaluator half of the lane C
+// review fix without involving compiled nested parentheses: unsigned
+// formatting must happen after the declared one-field record shape is
+// restored. Compiled nested foreign-scalar parentheses are wave46
+// lane A's separate canonicalization.
+func TestEvalUnsignedRecordShape(t *testing.T) {
+	src := `package main
+
+import go "fmt"
+import go "os"
+import go "github.com/podhmo/gom/testdata/goiface"
+
+type ModeBox = { mode : os.FileMode }
+type BigBox = { big : goiface.Big }
+
+fn answer () -> String = {
+  let x : ModeBox = 4294967295
+  let y : BigBox = 9223372036854775808
+  "${x};${y}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`
+	r, err := build.Compile(build.Input{Path: "unsigned_record.gom", Src: []byte(src)}, suiteOptions())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Diagnostics.HasError() {
+		t.Fatalf("diagnostics: %v", r.Diagnostics)
+	}
+	if got, want := evalAnswer(t, r, src), "{ mode = 4294967295 };{ big = 9223372036854775808 }"; got != want {
+		t.Fatalf("eval display = %q, want %q", got, want)
+	}
+}
+
 // evalAnswer applies the file's `answer` through internal/eval and
 // returns the produced String's contents. Go members the typed file
 // references and the audited stub table covers are bound first, so
@@ -2184,6 +2299,7 @@ func evalAnswerFiles(t *testing.T, rs []*build.Result, srcs map[string][]byte) s
 	}
 	ev := eval.NewFiles(typed)
 	ev.SetFloatWidthOracle(floatWidthOracle())
+	ev.SetIntWidthOracle(intWidthOracle())
 	for path, src := range srcs {
 		ev.SetLineIndexFor(path, diag.NewLineIndex(src))
 	}

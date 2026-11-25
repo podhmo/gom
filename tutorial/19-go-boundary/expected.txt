@@ -1,4 +1,4 @@
-timeout 5s
+timeout 5000000000
 ptr 42
 nil false, safe Some 0
 i32 301

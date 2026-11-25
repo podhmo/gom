@@ -2,6 +2,7 @@ package lower
 
 import (
 	"fmt"
+	gotypes "go/types"
 
 	"github.com/podhmo/gom/internal/check"
 	"github.com/podhmo/gom/internal/core"
@@ -41,6 +42,9 @@ func (l *lowerer) showPlan(sp diag.Span, t types.Type) *core.ShowPlan {
 	case showScalar:
 		c := types.Chase(t).(*types.Con)
 		return &core.ShowPlan{Kind: core.ShowScalar, Scalar: c.Name}
+	case showGoScalar:
+		name, _ := l.goScalarName(t)
+		return &core.ShowPlan{Kind: core.ShowGoScalar, Scalar: name}
 	case showError:
 		return &core.ShowPlan{Kind: core.ShowError}
 	case showDecl:
@@ -61,6 +65,9 @@ type showKind int
 const (
 	// showScalar — a builtin scalar rendered through strconv.
 	showScalar showKind = iota + 1
+	// showGoScalar — a named Go type rendered through its scalar
+	// underlying rather than fmt's type-specific methods.
+	showGoScalar
 	// showError — GoError's nil-aware `error("text")` recipe.
 	showError
 	// showDecl — a generated display function: tuples, lists,
@@ -124,10 +131,63 @@ func (l *lowerer) showKindOf(t types.Type) showKind {
 		return showRuntime
 	case *types.Tuple:
 		return showDecl
-	case *types.Go, *types.Func, *types.Var, *types.Meta:
+	case *types.Go:
+		if _, ok := l.goScalarName(t); ok {
+			return showGoScalar
+		}
+		return showRuntime
+	case *types.Func, *types.Var, *types.Meta:
 		return showRuntime
 	default:
 		panic("unreachable")
+	}
+}
+
+// goScalarName names the scalar underlying of a named Go type as a
+// codegen recipe spelling (`go:int64`, `go:float32`). Complex and
+// non-basic underlyings stay opaque, as do unknown types when the
+// oracle is absent.
+func (l *lowerer) goScalarName(t types.Type) (string, bool) {
+	if l.env.GoUnderlyingKind == nil {
+		return "", false
+	}
+	kind, ok := l.env.GoUnderlyingKind(t)
+	if !ok {
+		return "", false
+	}
+	switch kind {
+	case gotypes.Bool:
+		return "go:bool", true
+	case gotypes.Int:
+		return "go:int", true
+	case gotypes.Int8:
+		return "go:int8", true
+	case gotypes.Int16:
+		return "go:int16", true
+	case gotypes.Int32:
+		return "go:int32", true
+	case gotypes.Int64:
+		return "go:int64", true
+	case gotypes.Uint:
+		return "go:uint", true
+	case gotypes.Uint8:
+		return "go:uint8", true
+	case gotypes.Uint16:
+		return "go:uint16", true
+	case gotypes.Uint32:
+		return "go:uint32", true
+	case gotypes.Uint64:
+		return "go:uint64", true
+	case gotypes.Uintptr:
+		return "go:uintptr", true
+	case gotypes.Float32:
+		return "go:float32", true
+	case gotypes.Float64:
+		return "go:float64", true
+	case gotypes.String:
+		return "go:string", true
+	default:
+		return "", false
 	}
 }
 
@@ -209,7 +269,7 @@ func (l *lowerer) markShowProd(d *core.ShowDecl) {
 					walk(p.Variants[i].Fields[j].Plan)
 				}
 			}
-		case core.ShowScalar, core.ShowRuntime, core.ShowError:
+		case core.ShowScalar, core.ShowGoScalar, core.ShowRuntime, core.ShowError:
 			// leaves — no helper to promote
 		default:
 			panic("unreachable")

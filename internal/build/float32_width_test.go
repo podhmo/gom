@@ -81,6 +81,7 @@ fn main () -> Unit = ()
 	ev := eval.New(r.Typed)
 	ev.SetLineIndex(diag.NewLineIndex([]byte(src)))
 	ev.SetFloatWidthOracle(floatWidthOracle())
+	ev.SetIntWidthOracle(intWidthOracle())
 	for name, wantW := range map[string]int{"plain": 0, "narrow": 32} {
 		res := ev.Apply(ev.Global(name), &eval.VUnit{})
 		if !res.OK() {

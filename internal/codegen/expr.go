@@ -474,6 +474,8 @@ func (g *gen) display(c *core.CallBuiltin) ast.Expr {
 	}
 	if p := c.Show; p != nil {
 		switch p.Kind {
+		case core.ShowScalar, core.ShowGoScalar:
+			return g.displayScalar(p.Scalar, x)
 		case core.ShowCall:
 			// A composite recipe — the minted gomShowN renders
 			// the evaluator's comparison format.
@@ -483,6 +485,24 @@ func (g *gen) display(c *core.CallBuiltin) ast.Expr {
 		}
 	}
 	return &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual("fmt") + "Sprint"), Args: []ast.Expr{x}}
+}
+
+// displayScalar renders a scalar for string interpolation — unlike
+// the comparison display, strings stay unquoted and Char prints the
+// code point itself. Named Go scalars convert through their
+// underlying basic type first.
+func (g *gen) displayScalar(name string, x ast.Expr) ast.Expr {
+	if name == "go:string" {
+		return &ast.CallExpr{Fun: ast.NewIdent("string"), Args: []ast.Expr{x}}
+	}
+	switch name {
+	case "String":
+		return x
+	case "Char":
+		return &ast.CallExpr{Fun: ast.NewIdent("string"), Args: []ast.Expr{x}}
+	default:
+		return g.showScalar(name, x)
+	}
 }
 
 // ctorApp renders a saturated constructor application: a variant

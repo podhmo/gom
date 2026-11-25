@@ -27,7 +27,7 @@
 ### wave46 採択済み lane（[prompts](docs/sketch/2026-11-25-wave46-prompts.md) — 2026-11-25 採否確定、順 E→D→C→B→A）
 
 - [x] **[wave46 lane D] eval の width 伝播の残り**（[prompts](docs/sketch/2026-11-25-wave46-prompts.md)）: W タグの意味論の残りの隅（conv 経由の int→float、cross-width boxed-any 比較）を台帳から整理 — width 伝播の残件なし。boxed-any equality の nominal type 脱落を修正し、幅区別・型区別を compare で pin。width-32 入れ子表示は lane A ブロック（[調査](docs/sketch/2026-11-25-wave46-lane-d-width-investigation.md)）
-- [ ] **[wave46 lane C] splice 補間の Go 値フォーマット精緻化**（[prompts](docs/sketch/2026-11-25-wave46-prompts.md)）: `GoError` 以外の Go 由来値は `%v` 素通し — gomShow との整合
+- [x] **[wave46 lane C] splice 補間の Go 値フォーマット精緻化**（[prompts](docs/sketch/2026-11-25-wave46-prompts.md)）: `GoError` 以外の Go 由来値は `%v` 素通し — gomShow との整合 — underlying が numeric / bool / string の named Go scalar を `ShowGoScalar` で scalar 表示に揃え、`time.Duration` の Stringer ずれを解消（[decision](docs/decisions/2026-11-25-go-named-scalar-display.md)）。composite 内括弧 canonical は lane A
 - [ ] **[wave46 lane B] MoonBit 式スナップショットテスト内蔵 + assert の go-cmp 化**（[prompts](docs/sketch/2026-11-25-wave46-prompts.md)）: `gom test --update` で期待値更新する方向
 - [ ] **[wave46 lane A] writeOperand の型駆動再設計**（[prompts](docs/sketch/2026-11-25-wave46-prompts.md)、[台帳](docs/implementation-gaps.md)）: foreign named scalar の括弧 canonical — compiled は opaque 値を括弧で包むが eval は見られない
 

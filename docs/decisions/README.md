@@ -263,6 +263,7 @@
 | [sum-comparable-panic](2026-11-24-sum-comparable-panic.md) | sum 型の `comparable` 制約 — interface 表現の実行時 panic 面 | 採択（wave40 lane E の調査結果。実装は wave41 lane B） |
 | [wide-tuple-anon-struct](2026-11-24-wide-tuple-anon-struct.md) | 8 要素超の spelled tuple — 匿名 struct で emit | 採用（wave43 lane A で実装） |
 | [eval-float32-width-aware](2026-11-25-eval-float32-width-aware.md) | eval の float 値を幅正規化する（float32 対応） | 採用 |
+| [go-named-scalar-display](2026-11-25-go-named-scalar-display.md) | named Go scalar の表示は underlying scalar に揃える | 採用 |
 | [method-iface-width-exact](2026-11-25-method-iface-width-exact.md) | @method の interface 適合判定を raw 幅で行う | 採用 |
 | [nary-result-ptr-verbatim](2026-11-25-nary-result-ptr-verbatim.md) | n-ary Result の pointer payload は verbatim のまま — Option は後包みか extern で選ぶ | 採用 |
 | [splice-display-type-driven](2026-11-25-splice-display-type-driven.md) | splice 表示は静的型駆動 — scalar 束縛の宣言型も record 形で描く | 採用 |
