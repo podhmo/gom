@@ -431,11 +431,12 @@ import go "github.com/podhmo/gom/testdata/goiface"
 fn answer () -> String = {
   let d : time.Duration = 1
   let r : goiface.SmallRatio = 0.1
-  "${d}:${r}"
+  let l : goiface.Label = goiface.LabelOf "x"
+  "${d}:${r}:${l}"
 }
 fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 `,
-		want: "1:0.1",
+		want: "1:0.1:x",
 	},
 	{
 		// P2-2c: the same delayed-reference cycle through a

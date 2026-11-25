@@ -900,6 +900,15 @@ var diffGoStubs = map[string]func(capture *diffCapture) func([]eval.Value) (eval
 	// and the verbatim `Result T GoError` view for `any`/named
 	// empty interfaces. A `(nil, nil)` Go return is `Ok None`
 	// under the Option view and `Ok <nil>` verbatim.
+	"github.com/podhmo/gom/testdata/goiface.LabelOf": func(capture *diffCapture) func([]eval.Value) (eval.Value, error) {
+		return func(args []eval.Value) (eval.Value, error) {
+			s, ok := args[0].(*eval.VStr)
+			if !ok {
+				return goBadArgs("github.com/podhmo/gom/testdata/goiface.LabelOf", args)
+			}
+			return &eval.VStr{S: s.S}, nil
+		}
+	},
 	"github.com/podhmo/gom/testdata/goiface.NetErr": func(capture *diffCapture) func([]eval.Value) (eval.Value, error) {
 		return func(args []eval.Value) (eval.Value, error) {
 			n, ok := args[0].(*eval.VInt)

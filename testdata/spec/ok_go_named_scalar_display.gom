@@ -1,0 +1,12 @@
+package ex
+
+import go "time"
+import go "github.com/podhmo/gom/testdata/goiface"
+
+fn show_scalars () -> String = {
+  let d : time.Duration = 1
+  let r : goiface.SmallRatio = 0.1
+  let l : goiface.Label = goiface.LabelOf "x"
+  "${d}:${r}:${l}"
+}
+

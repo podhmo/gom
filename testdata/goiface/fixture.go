@@ -144,3 +144,10 @@ func Sum64(xs []int64) int64 {
 // LenAny takes `[]any` — the any-element slice a `List Go.Any`
 // view reconciles against.
 func LenAny(xs []any) int64 { return int64(len(xs)) }
+
+// Label is a named string type — the `type X string` shape whose
+// display follows Gom scalar string rules, not fmt type-specific behavior.
+type Label string
+
+// LabelOf returns a named string through the Go boundary.
+func LabelOf(s string) Label { return Label(s) }
