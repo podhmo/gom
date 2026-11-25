@@ -14,6 +14,23 @@ Quint / TLA+ 系が効くのは「普通のテストでは再現しにくい状�
 
 逆に型推論や codegen の意味論そのものには向かない。そちらは比較テスト・golden・fuzzing の方がよい。
 
+### gom内の他の適用対象候補
+
+次に同じことをやるなら、優先度はこの順で見るとよさそう:
+
+| 対象 | 向いている問い | 期待度 |
+| --- | --- | --- |
+| `goimport` の export cache | `go list -export` の file cache hit/miss、dep dir stat、cache corruption、並列 Loader で古い export data を読まないか | 高 |
+| package initialization order | package 単位の初期化依存・循環・失敗時の partial output を仕様どおり rejection できるか | 高 |
+| `.gomi` contract / `gom info` 再生成 | compile 中 read-only、missing/stale interface、draft 再生成の順序で「古い interface を読む」が起きないか | 中 |
+| 複数 dir の並列 compile と Go loader pool | module/workspace 単位の dep 集約が保守的すぎる/足りない、pool key の workspace 文脈漏れ | 中 |
+| `gom test` の JSON event 解釈 | run/pass/fail/skip/output の pending 状態、test が terminal action に到達しない場合の扱い | 中 |
+| output write / clobber guard | write-if-different、marker guard、複数 file の一部 write 失敗で不整合な artifact を残さないか | 中 |
+| lexer/parser の layout 状態 | virtual NL・brace・indent の遷移漏れ。ただし逐次構文解析なら property test の方が強い | 低〜中 |
+| 型推論・lowering・codegen の意味論 | 生成結果の意味が合うか。状態遷移より写像の性質なので Quint は主役ではない | 低 |
+
+「状態遷移 + 永続化/並行/失敗」があるものほど向く。逆に純粋な写像（parse 結果、型推論結果、生成コードの意味）は property-based testing や differential testing に分がある。
+
 ## 抽出した状態機械
 
 ### 1. invocation 単位の有効/無効
@@ -102,6 +119,8 @@ hit 判定は output の「存在」だけを見て内容 hash は見ない。`w
 - compiler / rt/stdlib / Go env を `envFp` とする
 - compile/write の成功失敗は nondeterministic
 - hit 判定と miss 後の `compiling -> writing -> committing` を明示化
+- output artifact は output destination ごとに存在/ corruption / dependency observation を持つ。cache-disabled build が別 destination を書いても、元 destination の artifact を存在扱いにしない
+- artifact の dependency observation は write 成功時にだけ更新する。失敗した rebuild が最新依存を読んでも、生存している古い artifact の provenance を上書きしない
 - `.gom` input だけ snapshot、dependency は compile 中観測 + commit 時再観測、という非対称をそのまま写す
 
 `step` では同じ action を重複列挙している。遷移関係は変わらないが、Quint の random simulation は action をほぼ一様に選ぶので、重複がないと mutation ばかり選ばれて commit まで辿り着けなかった。これは検証用の pitfall。
@@ -149,7 +168,7 @@ next build hits         # mHard == current hard, but output is stale
 
 - `quint run` の default Rust evaluator は初回に GitHub Releases を見に行き、rate limit で落ちる。`--backend=typescript` が無難。`quint verify` でも反例表示のために evaluator fetch を試みて warning が出た
 - Apalache は Java 21 必須。system の Java 17 では動かない
-- random simulation は「compile 成功 -> write 成功 -> commit 成功 -> 特定 mutation -> hit」のような稀有な列を素直には引かない。action 重複で進行方向に寄せるのが手軽だった
+- random simulation は「compile 成功 -> write 成功 -> commit 成功 -> 特定 mutation -> hit」のような稀有な列を素直には引かない。action 重複で進行方向に寄せるのが手軽だったが、witness の確認は finite sample に任せず `quint verify --invariant=<witness predicate> --max-steps=7` を正とした
 - verify は有界探索。「すべてのケース」ではなく、「この抽象化・この有限世界・この深さの全ケース」。今回は depth 7 が witness を覆うので意味がある
 - 実装をなぞりすぎると状態爆発する。今回は Go/module/`.gomi` を `hardFp` に畳んだが、問いは dependency invalidation なので十分だった
 - invariant は safety の健全性チェックにはなるが、一番情報量があったのは witness predicate の反例だった。形式検証を「証明」ではなく「シナリオ発生器」として使う感覚に近い

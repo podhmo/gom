@@ -19,12 +19,15 @@ quint typecheck spec/buildcache.qnt
 quint run spec/buildcache.qnt --backend=typescript \
   --max-steps=12 --max-samples=300 --invariant=allInvariants
 
-# witnesses: each of these MUST report a violation; the violating
-# trace is the interesting behavior
-quint run spec/buildcache.qnt --backend=typescript \
-  --max-steps=10 --max-samples=1000 --invariant=noImplOnlyHit
-quint run spec/buildcache.qnt --backend=typescript \
-  --max-steps=10 --max-samples=1000 --invariant=noCorruptedHit
+# witnesses: each of these MUST report a counterexample; the
+# counterexample trace is the interesting behavior. Prefer verify for
+# witnesses — a finite random sample can miss them.
+quint verify spec/buildcache.qnt --invariant=noImplOnlyHit --max-steps=7
+quint verify spec/buildcache.qnt --invariant=noCorruptedHit --max-steps=7
+quint verify spec/buildcache.qnt --invariant=noStaleCommit --max-steps=7
+quint verify spec/buildcache.qnt --invariant=noStaleHit --max-steps=7
+
+# randomized simulation is still useful as a fast smoke test
 quint run spec/buildcache.qnt --backend=typescript \
   --max-steps=14 --max-samples=3000 --invariant=noStaleHit
 
