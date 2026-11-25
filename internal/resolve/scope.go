@@ -137,7 +137,7 @@ func builtinScope() *scope {
 	for _, name := range []string{"Some", "None", "Ok", "Err"} {
 		s.terms[name] = &Symbol{Name: name, Kind: KindCtor}
 	}
-	for _, name := range []string{"assert", "assert_eq", "todo", "not"} {
+	for _, name := range []string{"assert", "assert_eq", "snapshot", "todo", "not"} {
 		s.terms[name] = &Symbol{Name: name, Kind: KindBuiltin}
 	}
 	// Standard-library modules named after builtin types (spec

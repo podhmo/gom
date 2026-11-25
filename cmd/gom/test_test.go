@@ -134,6 +134,9 @@ func TestTestEmitsStream(t *testing.T) {
 	if !strings.Contains(out2, "m.gom:") || !strings.Contains(out2, "actual:") || !strings.Contains(out2, "expected:") {
 		t.Errorf("fail output lacks position and values: %q", out2)
 	}
+	if !strings.Contains(out2, "diff (-expected +actual):") || !strings.Contains(out2, "Y:") {
+		t.Errorf("fail output lacks go-cmp structural diff: %q", out2)
+	}
 	sum := lastSummary(t, out)
 	tc, _ := sum["tests"].(map[string]any)
 	if tc["run"] != float64(2) || tc["failed"] != float64(1) {
@@ -141,6 +144,61 @@ func TestTestEmitsStream(t *testing.T) {
 	}
 	if sum["ok"] != false {
 		t.Errorf("summary ok = %v on a failing run", sum["ok"])
+	}
+}
+
+// TestTestSnapshotUpdate exercises the lane-B snapshot flow: a missing
+// snapshot fails with the update hint, `--update` writes it beside the
+// package, and a later value change fails with a diff.
+func TestTestSnapshotUpdate(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: %.2fs on last run, skipping in short mode", 0.9)
+	}
+
+	t.Parallel()
+
+	haveGo(t)
+	dir := writeFiles(t, map[string]string{"m.gom": `package main
+
+test "snap" {
+  snapshot [1, 2] "list"
+}
+`})
+	testModule(t, dir)
+	src := filepath.Join(dir, "m.gom")
+
+	code, out, _ := invoke("test", src)
+	if code != 1 || !strings.Contains(out, "run `gom test --update`") {
+		t.Fatalf("missing snapshot: exit=%d out=%q", code, out)
+	}
+	code, out, _ = invoke("test", "--update", src)
+	if code != 0 {
+		t.Fatalf("--update exit=%d out=%q", code, out)
+	}
+	snaps, err := filepath.Glob(filepath.Join(dir, "__snapshot__", "snap_list_*.snap"))
+	if err != nil || len(snaps) != 1 {
+		t.Fatalf("snapshot files = %v, err=%v", snaps, err)
+	}
+	snap := snaps[0]
+	data, err := os.ReadFile(snap)
+	if err != nil {
+		t.Fatalf("snapshot not written: %v", err)
+	}
+	if string(data) != "[1, 2]" {
+		t.Fatalf("snapshot = %q, want %q", data, "[1, 2]")
+	}
+	changed := strings.Replace(`package main
+
+test "snap" {
+  snapshot [1, 2] "list"
+}
+`, "[1, 2]", "[1, 3]", 1)
+	if err := os.WriteFile(src, []byte(changed), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	code, out, _ = invoke("test", src)
+	if code != 1 || !strings.Contains(out, "snapshot mismatch") || !strings.Contains(out, "diff (-expected +actual):") {
+		t.Fatalf("stale snapshot: exit=%d out=%q", code, out)
 	}
 }
 
@@ -908,5 +966,16 @@ func TestTestConcurrency(t *testing.T) {
 		if tc["ok"] != true {
 			t.Errorf("test %v failed: %v", tc["name"], tc)
 		}
+	}
+}
+
+func TestSnapshotUpdateEnvPinsInheritedValue(t *testing.T) {
+	env := snapshotUpdateEnv(false)
+	if got := env[len(env)-1]; got != "GOM_TEST_UPDATE_SNAPSHOTS=0" {
+		t.Fatalf("last env entry = %q", got)
+	}
+	env = snapshotUpdateEnv(true)
+	if got := env[len(env)-1]; got != "GOM_TEST_UPDATE_SNAPSHOTS=1" {
+		t.Fatalf("last env entry = %q", got)
 	}
 }

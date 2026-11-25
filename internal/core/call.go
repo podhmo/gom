@@ -203,15 +203,16 @@ type CallBuiltin struct {
 	Args []Atom
 	// Eq is the comparison recipe — set for `assert_eq` only, where
 	// it describes how Args[0] and Args[1] compare so codegen emits
-	// the verdict as the pre-computed operand of rt.AssertEq. Nil
+	// the verdict as the pre-computed operand of testutil.AssertEq. Nil
 	// for every other builtin.
 	Eq *EqPlan
 	// Show is the display recipe — set for `assert_eq`, where it
 	// describes how the operand type renders to text so codegen
-	// emits the displayed operands of rt.AssertEq through it
+	// emits the displayed operands of testutil.AssertEq through it
 	// (docs/design.md section 4.8), and for `display`, where it
 	// renders the spliced value (docs/design.md section 4.8 —
-	// composite splices reuse the gomShow machinery). Nil for
+	// composite splices reuse the gomShow machinery), and for
+	// `snapshot`, where it renders the recorded value. Nil for
 	// every other builtin.
 	Show *ShowPlan
 }

@@ -1,0 +1,5 @@
+package ex
+
+test "list snapshot" {
+  snapshot [1, 2] "list"
+}

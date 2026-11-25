@@ -91,22 +91,6 @@ func Assert(t *testing.T, cond bool) {
 	}
 }
 
-// AssertEq is the body of the `assert_eq actual expected` builtin
-// used in test blocks. The eq argument is the already-computed
-// verdict under the operands' own comparison recipe — the same
-// plan `actual == expected` would evaluate (docs/design.md section
-// 4.9) — so a failing assert_eq reports exactly what `==` would
-// answer, including native comparisons' IEEE NaN verdict. actual and
-// expected arrive already rendered to text by the compiler-generated
-// display functions of docs/design.md section 4.8 (fmt's %v for
-// Go-view values, spec section 11).
-func AssertEq(t *testing.T, eq bool, actual, expected string) {
-	t.Helper()
-	if !eq {
-		t.Errorf("gom: assertion failed:\n  actual:   %s\n  expected: %s", actual, expected)
-	}
-}
-
 // ShowError renders a GoError value inside a generated display
 // function — `error("text")`, the evaluator's VGoErr reading, with a
 // nil guard for the Go-side zero value. A typed-nil error whose

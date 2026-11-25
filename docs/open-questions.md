@@ -70,7 +70,5 @@
 - [x] `CtorApp`/`CtorRef` の `TypeArgs` を廃止して `Typ` の `Con.Args` を唯一の正にするか: podhmo 判定 (b) 採用（廃止）→ wave24 lane A で実装済み — `Typ` の `Con.Args` が唯一の正（[decision](decisions/2026-11-19-ctor-typeargs-removed.md)、元 [decision](decisions/2026-11-18-ctor-typeargs-authoritative.md)、棚卸し [sketch](sketch/2026-11-19-ctor-targs-b-inventory.md)）
 - [x] `gom list` の列挙対象を外部 Gom パッケージまで広げる — wave41 lane C で `gom list -external` として実装: main module + `go list -m all` の build list 内 `.gomi` 所在を import パスで列挙（vendor 列挙は別項目のまま future work）
 
-- MoonBit 式スナップショットテストの内蔵 — `test` ブロックの出力を期待値ファイルに記録・比較し、`gom test --update` で更新する機構（[MoonBit tests](https://docs.moonbitlang.com/ja/latest/language/tests.html) 参考）。tutorial/realworld の `expected.txt` を手で同期する現状の代替になりうる（podhmo 要望、2026-11-24、wave43 lane F）
-- `assert`/`assert_eq` 失敗時の差分を go-cmp で出す変換 — 現在の構造比較メッセージを `github.com/google/go-cmp/cmp` の diff 表示に置き換える機能（podhmo 要望、2026-11-24、wave43 lane F）
 
 エフェクトシステム、高度な所有権型、独自 GC は急いで導入しない。型クラスは不採用（明示的辞書渡し — [decision](decisions/2026-11-19-ad-hoc-poly-dict-passing.md)）。

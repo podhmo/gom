@@ -4,6 +4,7 @@ package dict
 
 import (
 	rt "github.com/podhmo/gom/rt"
+	testutil "github.com/podhmo/gom/rt/testutil"
 	list "github.com/podhmo/gom/stdlib/list"
 	option "github.com/podhmo/gom/stdlib/option"
 	strconv "strconv"
@@ -20,7 +21,7 @@ func TestMinAndSortByDictionary(t *testing.T) {
 //line experiments/w23/typeclass/dict/a.gom:36
 	tmp29 := option.Option[int64](option.Option_Some[int64]{V0: 1})
 //line experiments/w23/typeclass/dict/a.gom:36
-	rt.AssertEq(t, tmp28 == tmp29, gomShow14b88934d(tmp28), gomShow14b88934d(tmp29))
+	testutil.AssertEq(t, tmp28 == tmp29, gomShow14b88934d(tmp28), gomShow14b88934d(tmp29), tmp28, tmp29)
 //line experiments/w23/typeclass/dict/a.gom:37
 	tmp30 := list.List[int64]{3, 1, 2}
 //line experiments/w23/typeclass/dict/a.gom:37
@@ -28,7 +29,7 @@ func TestMinAndSortByDictionary(t *testing.T) {
 //line experiments/w23/typeclass/dict/a.gom:37
 	tmp32 := option.Option[int64](option.Option_Some[int64]{V0: 3})
 //line experiments/w23/typeclass/dict/a.gom:37
-	rt.AssertEq(t, tmp31 == tmp32, gomShow14b88934d(tmp31), gomShow14b88934d(tmp32))
+	testutil.AssertEq(t, tmp31 == tmp32, gomShow14b88934d(tmp31), gomShow14b88934d(tmp32), tmp31, tmp32)
 //line experiments/w23/typeclass/dict/a.gom:38
 	tmp33 := list.List[int64]{}
 //line experiments/w23/typeclass/dict/a.gom:38
@@ -36,7 +37,7 @@ func TestMinAndSortByDictionary(t *testing.T) {
 //line experiments/w23/typeclass/dict/a.gom:38
 	tmp35 := option.Option[int64](option.Option_None[int64]{})
 //line experiments/w23/typeclass/dict/a.gom:38
-	rt.AssertEq(t, tmp34 == tmp35, gomShow14b88934d(tmp34), gomShow14b88934d(tmp35))
+	testutil.AssertEq(t, tmp34 == tmp35, gomShow14b88934d(tmp34), gomShow14b88934d(tmp35), tmp34, tmp35)
 //line experiments/w23/typeclass/dict/a.gom:39
 	tmp36 := list.List[int64]{3, 1, 2}
 //line experiments/w23/typeclass/dict/a.gom:39
@@ -44,7 +45,7 @@ func TestMinAndSortByDictionary(t *testing.T) {
 //line experiments/w23/typeclass/dict/a.gom:39
 	tmp38 := list.List[int64]{1, 2, 3}
 //line experiments/w23/typeclass/dict/a.gom:39
-	rt.AssertEq(t, gomEq14b88934d(tmp37, tmp38), gomShow24b88934d(tmp37), gomShow24b88934d(tmp38))
+	testutil.AssertEq(t, gomEq14b88934d(tmp37, tmp38), gomShow24b88934d(tmp37), gomShow24b88934d(tmp38), tmp37, tmp38)
 //line experiments/w23/typeclass/dict/a.gom:40
 	tmp39 := list.List[int64]{3, 1, 2}
 //line experiments/w23/typeclass/dict/a.gom:40
@@ -52,7 +53,7 @@ func TestMinAndSortByDictionary(t *testing.T) {
 //line experiments/w23/typeclass/dict/a.gom:40
 	tmp41 := list.List[int64]{3, 2, 1}
 //line experiments/w23/typeclass/dict/a.gom:40
-	rt.AssertEq(t, gomEq14b88934d(tmp40, tmp41), gomShow24b88934d(tmp40), gomShow24b88934d(tmp41))
+	testutil.AssertEq(t, gomEq14b88934d(tmp40, tmp41), gomShow24b88934d(tmp40), gomShow24b88934d(tmp41), tmp40, tmp41)
 //line experiments/w23/typeclass/dict/a.gom:35
 }
 
@@ -72,6 +73,8 @@ func gomShow14b88934d(v option.Option[int64]) string {
 		return "" + "Some" + " " + strconv.FormatInt(x.V0, 10)
 //line experiments/w23/typeclass/dict/a.gom:36
 	case option.Option_None[int64]:
+//line experiments/w23/typeclass/dict/a.gom:36
+		_ = x
 //line experiments/w23/typeclass/dict/a.gom:36
 		return "" + "None"
 //line experiments/w23/typeclass/dict/a.gom:36

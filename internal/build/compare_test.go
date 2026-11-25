@@ -2410,7 +2410,7 @@ func runCompiled(t *testing.T, src []byte) string {
 // generated <pkg>_test.go under `go test` — the path the golden
 // suite never exercises (it generates with Tests off). The
 // assert_eq cases pin the precomputed-verdict signature of
-// rt.AssertEq and the generated-comparator route for lists.
+// testutil.AssertEq and the generated-comparator route for lists.
 func TestGeneratedTestFileRuns(t *testing.T) {
 	if testing.Short() {
 		t.Skipf("long test: %.2fs on last run, skipping in short mode", 1.85)

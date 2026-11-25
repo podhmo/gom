@@ -795,14 +795,19 @@ test "parse then sum" {
   assert_eq n 3
   Ok ()
 }
+
+test "rendered items" {
+  snapshot [1, 2] "items"
+}
 ```
 
 1. `test "名前" { ... }` はトップレベルの宣言。ブロックの型は `Unit` か `Result Unit e`。`Err` を返すと失敗
 2. テストは `.gomi` で公開していない定義も呼べる
 3. `@test` を付けた定義はテスト用のスコープに入り、テストと他の `@test` 定義からしか参照できない。名前空間はパッケージと共有するので、通常の定義と同じ名前は付けられない
-4. アサーションは `assert cond` と `assert_eq actual expected`。`assert_eq` は `==` が使える型（関数を含まない型）にだけ使える。失敗すると両方の値を表示する（Go 由来の値は `fmt` の `%v` で表示するが、underlying が numeric / bool / string の named scalar は underlying scalar の表示に従う）。どちらも `test` ブロックの中でだけ使える（外で呼ぶ・値として参照するのは E0803）
-5. テストと `@test` 定義はインターフェースに含まれない
-6. `gom build` でもテストの型検査とパターン検査は行う。テストのコードは `gom test` のときだけ出力される
+4. アサーションは `assert cond` と `assert_eq actual expected`。`assert_eq` は `==` が使える型（関数を含まない型）にだけ使える。失敗すると両方の値を表示し、構造比較できる値では go-cmp の `diff (-expected +actual)` を添える（Go 由来の値は `fmt` の `%v` で表示するが、underlying が numeric / bool / string の named scalar は underlying scalar の表示に従う）。どちらも `test` ブロックの中でだけ使える（外で呼ぶ・値として参照するのは E0803）
+5. スナップショットは `snapshot value key`。`value` を `assert_eq` と同じ表示形式に描き、生成 `_test.go` のあるディレクトリの `__snapshot__/` に key ごとの `.snap` ファイルとして比較する。`gom test --update`（または `-u`）のときだけ期待値ファイルを書き込み、通常実行では missing / mismatch がテスト失敗になる。`snapshot` も `test` ブロックの中でだけ使える（外では E0803）。key は test 名ごとの namespace で一意に選ぶ
+6. テストと `@test` 定義はインターフェースに含まれない
+7. `gom build` でもテストの型検査とパターン検査は行う。テストのコードは `gom test` のときだけ出力される
 
 ---
 
@@ -897,7 +902,7 @@ test "parse then sum" {
 
 `gom run` は `go run` の綴り方である — 単一の `package main` ディレクトリをコンパイルし、生成コードをソースの隣に書き（`gom build` と同じ置き場）、`go build` で temp バイナリにリンクして実行する。`go run` でなく `go build` + 直接起動にするのは、子プロセスの終了コードをそのまま返すためである（`go run` はどんな失敗も `exit status 1` に潰す）。引数列の最初の `--` 以降はプログラムの argv に渡す。入力が複数ディレクトリにまたがる、または `package main` でない場合は使用エラー（終了コード 2）。コンパイルやリンクに失敗したときだけ通常のメッセージストリームを出し、成功時は `summary` も出さない — パイプで受けるプログラム出力を汚さないためである（[decisions/gom-run](decisions/2026-11-18-gom-run.md)）
 
-`gom test` の引数列のうち最初の `--` 以降は `go test` にそのまま渡す（`gom test -- -race`、`gom test -- -run Bump -count=1` など）。`-json` は gom が結果の取得に使うフラグなので、これを打ち消す指定（`-json=false`）は結果ストリームを壊し、Go ツール側の失敗として `"source": "go"` の E0001 で報告される。未知・不正なフラグも gom 側の使用エラーではなく同じ経路で報告される（[decisions/gom-test-go-test-flags](decisions/2026-11-05-gom-test-go-test-flags.md)）。
+`gom test --update`（短縮形 `-u`）はスナップショットの更新モードである — `go test` の子プロセスにだけ更新用の環境変数を渡し、通常の `gom test` では期待値ファイルを読み比較する。`gom test` の引数列のうち最初の `--` 以降は `go test` にそのまま渡す（`gom test -- -race`、`gom test -- -run Bump -count=1` など）。`-json` は gom が結果の取得に使うフラグなので、これを打ち消す指定（`-json=false`）は結果ストリームを壊し、Go ツール側の失敗として `"source": "go"` の E0001 で報告される。未知・不正なフラグも gom 側の使用エラーではなく同じ経路で報告される（[decisions/gom-test-go-test-flags](decisions/2026-11-05-gom-test-go-test-flags.md)）。
 
 ## 付録 A. `//gom:` ディレクティブ索引
 

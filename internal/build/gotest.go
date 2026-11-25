@@ -49,11 +49,20 @@ type GoTestRun struct {
 // reports those as E0001 diagnostics with source "go", like a
 // build failure.
 func RunGoTest(gobin, dir string, args ...string) (*GoTestRun, error) {
+	return RunGoTestEnv(gobin, dir, nil, args...)
+}
+
+// RunGoTestEnv is RunGoTest with an explicit child environment;
+// nil env inherits the parent process environment.
+func RunGoTestEnv(gobin, dir string, env []string, args ...string) (*GoTestRun, error) {
 	if gobin == "" {
 		gobin = "go"
 	}
 	cmd := exec.Command(gobin, append([]string{"test", "-json"}, args...)...)
 	cmd.Dir = dir
+	if env != nil {
+		cmd.Env = env
+	}
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr

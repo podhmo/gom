@@ -4,6 +4,7 @@ package result
 
 import (
 	rt "github.com/podhmo/gom/rt"
+	testutil "github.com/podhmo/gom/rt/testutil"
 	strconv "strconv"
 	testing "testing"
 )
@@ -40,19 +41,19 @@ func TestGetGetOrElseGetErr(t *testing.T) {
 //line stdlib/result/result.gom:83
 	tmp37 := Get[int64, string](okR)
 //line stdlib/result/result.gom:83
-	rt.AssertEq(t, tmp37 == 1, strconv.FormatInt(tmp37, 10), strconv.FormatInt(1, 10))
+	testutil.AssertEq(t, tmp37 == 1, strconv.FormatInt(tmp37, 10), strconv.FormatInt(1, 10), tmp37, 1)
 //line stdlib/result/result.gom:84
 	tmp38 := GetOrElse[int64, string](9, okR)
 //line stdlib/result/result.gom:84
-	rt.AssertEq(t, tmp38 == 1, strconv.FormatInt(tmp38, 10), strconv.FormatInt(1, 10))
+	testutil.AssertEq(t, tmp38 == 1, strconv.FormatInt(tmp38, 10), strconv.FormatInt(1, 10), tmp38, 1)
 //line stdlib/result/result.gom:85
 	tmp39 := GetOrElse[int64, string](9, errR)
 //line stdlib/result/result.gom:85
-	rt.AssertEq(t, tmp39 == 9, strconv.FormatInt(tmp39, 10), strconv.FormatInt(9, 10))
+	testutil.AssertEq(t, tmp39 == 9, strconv.FormatInt(tmp39, 10), strconv.FormatInt(9, 10), tmp39, 9)
 //line stdlib/result/result.gom:86
 	tmp40 := GetErr[int64, string](errR)
 //line stdlib/result/result.gom:86
-	rt.AssertEq(t, tmp40 == "bad", strconv.Quote(tmp40), strconv.Quote("bad"))
+	testutil.AssertEq(t, tmp40 == "bad", strconv.Quote(tmp40), strconv.Quote("bad"), tmp40, "bad")
 //line stdlib/result/result.gom:80
 }
 
@@ -75,7 +76,7 @@ func TestMapMapErrAndThen(t *testing.T) {
 //line stdlib/result/result.gom:94
 	tmp42 := Map[int64, int64, string](tmp41, ok1)
 //line stdlib/result/result.gom:94
-	rt.AssertEq(t, tmp42 == ok2, gomShow168abbcd6(tmp42), gomShow168abbcd6(ok2))
+	testutil.AssertEq(t, tmp42 == ok2, gomShow168abbcd6(tmp42), gomShow168abbcd6(ok2), tmp42, ok2)
 //line stdlib/result/result.gom:95
 	tmp43 := func(x1 int64) int64 {
 //line stdlib/result/result.gom:95
@@ -85,7 +86,7 @@ func TestMapMapErrAndThen(t *testing.T) {
 //line stdlib/result/result.gom:95
 	tmp44 := Map[int64, int64, string](tmp43, errR)
 //line stdlib/result/result.gom:95
-	rt.AssertEq(t, tmp44 == errR, gomShow168abbcd6(tmp44), gomShow168abbcd6(errR))
+	testutil.AssertEq(t, tmp44 == errR, gomShow168abbcd6(tmp44), gomShow168abbcd6(errR), tmp44, errR)
 //line stdlib/result/result.gom:96
 	tmp46 := func(e string) string {
 //line stdlib/result/result.gom:96
@@ -97,7 +98,7 @@ func TestMapMapErrAndThen(t *testing.T) {
 //line stdlib/result/result.gom:96
 	tmp47 := MapErr[string, string, int64](tmp46, errR)
 //line stdlib/result/result.gom:96
-	rt.AssertEq(t, tmp47 == errBang, gomShow168abbcd6(tmp47), gomShow168abbcd6(errBang))
+	testutil.AssertEq(t, tmp47 == errBang, gomShow168abbcd6(tmp47), gomShow168abbcd6(errBang), tmp47, errBang)
 //line stdlib/result/result.gom:97
 	tmp49 := func(e1 string) string {
 //line stdlib/result/result.gom:97
@@ -109,7 +110,7 @@ func TestMapMapErrAndThen(t *testing.T) {
 //line stdlib/result/result.gom:97
 	tmp50 := MapErr[string, string, int64](tmp49, ok1)
 //line stdlib/result/result.gom:97
-	rt.AssertEq(t, tmp50 == ok1, gomShow168abbcd6(tmp50), gomShow168abbcd6(ok1))
+	testutil.AssertEq(t, tmp50 == ok1, gomShow168abbcd6(tmp50), gomShow168abbcd6(ok1), tmp50, ok1)
 //line stdlib/result/result.gom:98
 	tmp52 := func(x2 int64) Result[int64, string] {
 //line stdlib/result/result.gom:98
@@ -121,7 +122,7 @@ func TestMapMapErrAndThen(t *testing.T) {
 //line stdlib/result/result.gom:98
 	tmp53 := AndThen[int64, int64, string](tmp52, ok1)
 //line stdlib/result/result.gom:98
-	rt.AssertEq(t, tmp53 == ok2, gomShow168abbcd6(tmp53), gomShow168abbcd6(ok2))
+	testutil.AssertEq(t, tmp53 == ok2, gomShow168abbcd6(tmp53), gomShow168abbcd6(ok2), tmp53, ok2)
 //line stdlib/result/result.gom:99
 	tmp55 := func(x3 int64) Result[int64, string] {
 //line stdlib/result/result.gom:99
@@ -133,7 +134,7 @@ func TestMapMapErrAndThen(t *testing.T) {
 //line stdlib/result/result.gom:99
 	tmp56 := AndThen[int64, int64, string](tmp55, errR)
 //line stdlib/result/result.gom:99
-	rt.AssertEq(t, tmp56 == errR, gomShow168abbcd6(tmp56), gomShow168abbcd6(errR))
+	testutil.AssertEq(t, tmp56 == errR, gomShow168abbcd6(tmp56), gomShow168abbcd6(errR), tmp56, errR)
 //line stdlib/result/result.gom:89
 }
 
@@ -148,11 +149,11 @@ func TestOrElse(t *testing.T) {
 //line stdlib/result/result.gom:106
 	tmp57 := OrElse[int64, string](ok9, ok1)
 //line stdlib/result/result.gom:106
-	rt.AssertEq(t, tmp57 == ok1, gomShow168abbcd6(tmp57), gomShow168abbcd6(ok1))
+	testutil.AssertEq(t, tmp57 == ok1, gomShow168abbcd6(tmp57), gomShow168abbcd6(ok1), tmp57, ok1)
 //line stdlib/result/result.gom:107
 	tmp58 := OrElse[int64, string](ok9, errR)
 //line stdlib/result/result.gom:107
-	rt.AssertEq(t, tmp58 == ok9, gomShow168abbcd6(tmp58), gomShow168abbcd6(ok9))
+	testutil.AssertEq(t, tmp58 == ok9, gomShow168abbcd6(tmp58), gomShow168abbcd6(ok9), tmp58, ok9)
 //line stdlib/result/result.gom:102
 }
 

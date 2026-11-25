@@ -1398,7 +1398,7 @@ func (l *lowerer) directCall(s *seq, sp diag.Span, resTyp types.Type, callee che
 // check settles it, lowering reports the shape rather than produce
 // uncompilable Go.
 func (l *lowerer) builtinCall(s *seq, sp diag.Span, typ types.Type, sym *resolve.Symbol, args []core.Atom) core.Expr {
-	if !l.inTest && (sym.Name == "assert" || sym.Name == "assert_eq") {
+	if !l.inTest && (sym.Name == "assert" || sym.Name == "assert_eq" || sym.Name == "snapshot") {
 		l.err(sp, fmt.Sprintf("builtin %s may only be called inside a test block", sym.Name))
 	}
 	cb := &core.CallBuiltin{
@@ -1413,11 +1413,14 @@ func (l *lowerer) builtinCall(s *seq, sp diag.Span, typ types.Type, sym *resolve
 	}
 	// assert_eq carries the operands' comparison recipe — the same
 	// judgment `x == y` applies, rendered by codegen as the
-	// pre-computed operand of rt.AssertEq — and the operand type's
+	// pre-computed operand of testutil.AssertEq — and the operand type's
 	// display recipe, rendered as the reported values
 	// (docs/design.md section 4.8).
 	if sym.Name == "assert_eq" && len(args) == 2 {
 		cb.Eq = l.eqPlan(sp, args[0].Type())
+		cb.Show = l.showPlan(sp, args[0].Type())
+	}
+	if sym.Name == "snapshot" && len(args) == 2 {
 		cb.Show = l.showPlan(sp, args[0].Type())
 	}
 	return cb

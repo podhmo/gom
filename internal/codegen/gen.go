@@ -20,10 +20,11 @@ import (
 // stdlib packages are the Go-side representations of the builtin
 // types (docs/design.md section 4.6).
 const (
-	rtPath     = "github.com/podhmo/gom/rt"
-	resultPath = "github.com/podhmo/gom/stdlib/result"
-	optionPath = "github.com/podhmo/gom/stdlib/option"
-	listPath   = "github.com/podhmo/gom/stdlib/list"
+	rtPath       = "github.com/podhmo/gom/rt"
+	testutilPath = "github.com/podhmo/gom/rt/testutil"
+	resultPath   = "github.com/podhmo/gom/stdlib/result"
+	optionPath   = "github.com/podhmo/gom/stdlib/option"
+	listPath     = "github.com/podhmo/gom/stdlib/list"
 )
 
 // ctorDecl records a locally declared variant constructor: the type
@@ -97,7 +98,8 @@ type gen struct {
 	// needs its named alias for references, not `_`.
 	blankImports map[string]bool
 
-	testFn *core.Func // the test's fn: escapes targeting it call t.Errorf
+	testFn       *core.Func // the test's fn: escapes targeting it call t.Errorf
+	testDeclName string     // the source test name used as snapshot namespace
 
 	// depth is the current indentation level, pendingIndent marks a
 	// fresh output line whose first write must pad. Statements are
