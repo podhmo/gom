@@ -18,9 +18,11 @@ package build_test
 
 import (
 	"context"
+	mathbits "math/bits"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -765,7 +767,9 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 	},
 	{
 		// wave47 lane D: a raw Go uint boundary converts at the call edge —
-		// Reverse takes and returns uint rather than uint64.
+		// Reverse takes and returns uint rather than uint64. The exact
+		// reversal depends on the host uint width, so the oracle uses the
+		// same Go operation instead of a 64-bit-only constant.
 		name: "uint_go_raw_uint_roundtrip",
 		src: `package main
 
@@ -779,7 +783,7 @@ fn answer () -> String = {
 }
 fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 `,
-		want: "9223372036854775808",
+		want: strconv.FormatUint(uint64(mathbits.Reverse(1)), 10),
 	},
 	{
 		// wave47 lane D: a Go uint64 result crosses back into Gom without
