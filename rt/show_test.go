@@ -34,6 +34,10 @@ type showPlainError struct{}
 
 func (showPlainError) Error() string { return "plain" }
 
+type showIntError int64
+
+func (e showIntError) Error() string { return "int-backed" }
+
 func TestShowRuntimeComposites(t *testing.T) {
 	rt.RegisterShowRecord(rt.TypeOf[showPerson](), false, "name", "age")
 	rt.RegisterShowVariant(rt.TypeOf[showCircle](), "Circle", "r")
@@ -66,6 +70,10 @@ func TestShowRuntimeComposites(t *testing.T) {
 	got = rt.ShowRuntime([]any{showPlainError{}})
 	if want := `[(error("plain"))]`; got != want {
 		t.Errorf("nested error = %q, want %q", got, want)
+	}
+	got = rt.ShowRuntime([]any{showIntError(1)})
+	if want := `[(error("int-backed"))]`; got != want {
+		t.Errorf("nested scalar-backed error = %q, want %q", got, want)
 	}
 	got = rt.ShowRuntime(result.Err[int64, showErrorRecord](showErrorRecord{Msg: "bad"}))
 	if want := `Err ({ msg = "bad" })`; got != want {

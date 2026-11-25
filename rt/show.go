@@ -102,6 +102,11 @@ func showRuntimeOperand(v reflect.Value, depth int) string {
 			return "(" + s + ")"
 		}
 	}
+	if v.CanInterface() {
+		if _, ok := v.Interface().(error); ok {
+			return "(" + s + ")"
+		}
+	}
 	if isTupleType(v.Type()) || (v.Kind() == reflect.Struct && v.Type().Name() == "" && v.Type().NumField() == 0) {
 		return s
 	}
