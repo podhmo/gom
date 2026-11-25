@@ -188,7 +188,7 @@ func (g *gen) methodDecl(d *core.FuncDecl) {
 		g.raw("_, err := " + g.pkgQual(resultPath) + "ToGo(" + call + ")")
 		g.nl()
 		g.raw("return err")
-	case resErr && len(outs) == 1 && !resOpt && !methodConv(outs[0]):
+	case resErr && len(outs) == 1 && !resOpt && !g.methodConv(outs[0]):
 		g.raw("return " + g.pkgQual(resultPath) + "ToGo(" + call + ")")
 	case resErr:
 		g.raw("v, err := " + g.pkgQual(resultPath) + "ToGo(" + call + ")")
@@ -211,9 +211,9 @@ func (g *gen) methodDecl(d *core.FuncDecl) {
 		switch {
 		case listElem(o) != nil:
 			g.raw("return append([]" + g.exprString(g.goType(listElem(o))) + "{}, " + call + "...)")
-		case types.Equal(types.Chase(o), types.Int):
+		case g.methodBuiltin(o, types.Int, "Int"):
 			g.raw("return int(" + call + ")")
-		case types.Equal(types.Chase(o), types.Uint):
+		case g.methodBuiltin(o, types.Uint, "Uint"):
 			g.raw("return uint(" + call + ")")
 		default:
 			g.raw("return " + call)
@@ -228,6 +228,13 @@ func (g *gen) methodDecl(d *core.FuncDecl) {
 	g.nl()
 	g.close()
 	g.nl()
+}
+
+// methodBuiltin reports whether t is the unshadowed builtin machine
+// spelling a method boundary rewrites. A file-local declaration of
+// the same name is nominal and must keep its declared Go type.
+func (g *gen) methodBuiltin(t, builtin types.Type, name string) bool {
+	return types.Equal(types.Chase(t), builtin) && !g.localT[exportName(name)]
 }
 
 // methodResult reports the method's Result unwrap shape: resErr is
@@ -247,8 +254,8 @@ func methodResult(res types.Type) (resT types.Type, resErr bool) {
 // methodConv reports whether a type needs a value conversion between
 // the method's boundary spelling and the emitted inner shape —
 // `List T` (`[]T` vs `list.List[T]`) and `Int`/`Uint` (`int`/`uint` vs `int64`/`uint64`).
-func methodConv(t types.Type) bool {
-	return listElem(t) != nil || types.Equal(types.Chase(t), types.Int) || types.Equal(types.Chase(t), types.Uint)
+func (g *gen) methodConv(t types.Type) bool {
+	return listElem(t) != nil || g.methodBuiltin(t, types.Int, "Int") || g.methodBuiltin(t, types.Uint, "Uint")
 }
 
 // listElem reports the element type when t is the gom `List T`
@@ -292,10 +299,10 @@ func (g *gen) boundaryResults(outs []types.Type, opt, resErr bool) string {
 		if el := listElem(o); el != nil {
 			return "append([]" + g.exprString(g.goType(el)) + "{}, " + acc + "...)"
 		}
-		if types.Equal(types.Chase(o), types.Int) {
+		if g.methodBuiltin(o, types.Int, "Int") {
 			return "int(" + acc + ")"
 		}
-		if types.Equal(types.Chase(o), types.Uint) {
+		if g.methodBuiltin(o, types.Uint, "Uint") {
 			return "uint(" + acc + ")"
 		}
 		return acc
@@ -325,10 +332,10 @@ func (g *gen) boundaryZeros(outs []types.Type, opt bool) string {
 		if el := listElem(o); el != nil {
 			return "[]" + g.exprString(g.goType(el)) + "{}"
 		}
-		if types.Equal(types.Chase(o), types.Int) {
+		if g.methodBuiltin(o, types.Int, "Int") {
 			return "int(" + acc + ")"
 		}
-		if types.Equal(types.Chase(o), types.Uint) {
+		if g.methodBuiltin(o, types.Uint, "Uint") {
 			return "uint(" + acc + ")"
 		}
 		return acc
@@ -389,10 +396,10 @@ func (g *gen) methodType(t types.Type) ast.Expr {
 	if el := listElem(t); el != nil {
 		return &ast.ArrayType{Elt: g.goType(el)}
 	}
-	if types.Equal(types.Chase(t), types.Int) {
+	if g.methodBuiltin(t, types.Int, "Int") {
 		return ast.NewIdent("int")
 	}
-	if types.Equal(types.Chase(t), types.Uint) {
+	if g.methodBuiltin(t, types.Uint, "Uint") {
 		return ast.NewIdent("uint")
 	}
 	return g.goType(t)
@@ -409,10 +416,10 @@ func (g *gen) methodArg(name string, t types.Type) string {
 		// or reuse after the call.
 		return g.pkgQual(listPath) + "List[" + g.exprString(g.goType(el)) + "](append([]" + g.exprString(g.goType(el)) + "{}, " + name + "...))"
 	}
-	if types.Equal(types.Chase(t), types.Int) {
+	if g.methodBuiltin(t, types.Int, "Int") {
 		return "int64(" + name + ")"
 	}
-	if types.Equal(types.Chase(t), types.Uint) {
+	if g.methodBuiltin(t, types.Uint, "Uint") {
 		return "uint64(" + name + ")"
 	}
 	return name
