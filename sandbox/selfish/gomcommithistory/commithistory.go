@@ -152,9 +152,9 @@ func DefaultWriteFile(path string) result.Result[struct{}, error] {
 //line gomcommithistory/commithistory.gom:65
 		}
 //line gomcommithistory/commithistory.gom:65
-		tmp205 := tmp17
+		tmp165 := tmp17
 //line gomcommithistory/commithistory.gom:65
-		defer tmp205(struct{}{})
+		defer tmp165(struct{}{})
 //line gomcommithistory/commithistory.gom:66
 		tmp26 := func(tmp18 struct{}) result.Result[struct{}, error] {
 //line gomcommithistory/commithistory.gom:66
@@ -206,9 +206,9 @@ func DefaultWriteFile(path string) result.Result[struct{}, error] {
 //line gomcommithistory/commithistory.gom:62
 	}
 //line gomcommithistory/commithistory.gom:62
-	tmp206 := rt.NewScope()
+	tmp166 := rt.NewScope()
 //line gomcommithistory/commithistory.gom:62
-	return tmp27(tmp206)
+	return tmp27(tmp166)
 //line gomcommithistory/commithistory.gom:61
 }
 
@@ -507,9 +507,9 @@ func ConfigLoad(c Config, name string, ob any) result.Result[struct{}, error] {
 //line gomcommithistory/commithistory.gom:120
 		}
 //line gomcommithistory/commithistory.gom:120
-		tmp207 := tmp57
+		tmp167 := tmp57
 //line gomcommithistory/commithistory.gom:120
-		defer tmp207(struct{}{})
+		defer tmp167(struct{}{})
 //line gomcommithistory/commithistory.gom:121
 		tmp58 := io.Reader(fp)
 //line gomcommithistory/commithistory.gom:121
@@ -521,9 +521,9 @@ func ConfigLoad(c Config, name string, ob any) result.Result[struct{}, error] {
 //line gomcommithistory/commithistory.gom:108
 	}
 //line gomcommithistory/commithistory.gom:108
-	tmp208 := rt.NewScope()
+	tmp168 := rt.NewScope()
 //line gomcommithistory/commithistory.gom:108
-	return tmp59(tmp208)
+	return tmp59(tmp168)
 //line gomcommithistory/commithistory.gom:107
 }
 
@@ -586,9 +586,9 @@ func ConfigSave(c Config, name string, ob any) result.Result[struct{}, error] {
 //line gomcommithistory/commithistory.gom:132
 		}
 //line gomcommithistory/commithistory.gom:132
-		tmp209 := tmp63
+		tmp169 := tmp63
 //line gomcommithistory/commithistory.gom:132
-		defer tmp209(struct{}{})
+		defer tmp169(struct{}{})
 //line gomcommithistory/commithistory.gom:133
 		tmp64 := io.Writer(fp)
 //line gomcommithistory/commithistory.gom:133
@@ -600,9 +600,9 @@ func ConfigSave(c Config, name string, ob any) result.Result[struct{}, error] {
 //line gomcommithistory/commithistory.gom:127
 	}
 //line gomcommithistory/commithistory.gom:127
-	tmp210 := rt.NewScope()
+	tmp170 := rt.NewScope()
 //line gomcommithistory/commithistory.gom:127
-	return tmp65(tmp210)
+	return tmp65(tmp170)
 //line gomcommithistory/commithistory.gom:126
 }
 
@@ -721,9 +721,9 @@ func LoadFile[A any](filename string, parse func(list.List[string]) result.Resul
 //line gomcommithistory/commithistory.gom:149
 		}
 //line gomcommithistory/commithistory.gom:149
-		tmp211 := tmp80
+		tmp171 := tmp80
 //line gomcommithistory/commithistory.gom:149
-		defer tmp211(struct{}{})
+		defer tmp171(struct{}{})
 //line gomcommithistory/commithistory.gom:150
 		tmp81 := io.Reader(fp)
 //line gomcommithistory/commithistory.gom:150
@@ -733,9 +733,9 @@ func LoadFile[A any](filename string, parse func(list.List[string]) result.Resul
 //line gomcommithistory/commithistory.gom:140
 	}
 //line gomcommithistory/commithistory.gom:140
-	tmp212 := rt.NewScope()
+	tmp172 := rt.NewScope()
 //line gomcommithistory/commithistory.gom:140
-	return tmp83(tmp212)
+	return tmp83(tmp172)
 //line gomcommithistory/commithistory.gom:139
 }
 
@@ -803,15 +803,15 @@ func findRecords[A any](r *csv.Reader, parse func(list.List[string]) result.Resu
 //line gomcommithistory/commithistory.gom:164
 func SaveFile(filename string, write func(io.Writer) result.Result[struct{}, error]) result.Result[struct{}, error] {
 //line gomcommithistory/commithistory.gom:165
-	tmp126 := func(s *rt.Scope) (tmp213 result.Result[struct{}, error]) {
+	tmp126 := func(s *rt.Scope) (tmp173 result.Result[struct{}, error]) {
 //line gomcommithistory/commithistory.gom:165
-		var tmp214 []error
+		var tmp174 []error
 //line gomcommithistory/commithistory.gom:165
 		defer func() {
 //line gomcommithistory/commithistory.gom:165
-			if len(tmp214) > 0 && tmp213.IsOk() {
+			if len(tmp174) > 0 && tmp173.IsOk() {
 //line gomcommithistory/commithistory.gom:165
-				tmp213 = result.Err[struct{}, error](errors.Join(tmp214...))
+				tmp173 = result.Err[struct{}, error](errors.Join(tmp174...))
 //line gomcommithistory/commithistory.gom:165
 			}
 //line gomcommithistory/commithistory.gom:165
@@ -881,15 +881,15 @@ func SaveFile(filename string, write func(io.Writer) result.Result[struct{}, err
 //line gomcommithistory/commithistory.gom:170
 		}
 //line gomcommithistory/commithistory.gom:170
-		tmp216 := tmp100
+		tmp176 := tmp100
 //line gomcommithistory/commithistory.gom:170
 		defer func() {
 //line gomcommithistory/commithistory.gom:170
-			if r := tmp216(struct{}{}); !r.IsOk() {
+			if r := tmp176(struct{}{}); !r.IsOk() {
 //line gomcommithistory/commithistory.gom:170
 				_, e := r.Unwrap()
 //line gomcommithistory/commithistory.gom:170
-				tmp214 = append(tmp214, e)
+				tmp174 = append(tmp174, e)
 //line gomcommithistory/commithistory.gom:170
 			}
 //line gomcommithistory/commithistory.gom:170
@@ -1059,9 +1059,9 @@ func SaveFile(filename string, write func(io.Writer) result.Result[struct{}, err
 //line gomcommithistory/commithistory.gom:189
 		}
 //line gomcommithistory/commithistory.gom:189
-		tmp215 := tmp123
+		tmp175 := tmp123
 //line gomcommithistory/commithistory.gom:189
-		defer tmp215(struct{}{})
+		defer tmp175(struct{}{})
 //line gomcommithistory/commithistory.gom:190
 		tmp124 := io.Writer(fp)
 //line gomcommithistory/commithistory.gom:190
@@ -1081,9 +1081,9 @@ func SaveFile(filename string, write func(io.Writer) result.Result[struct{}, err
 //line gomcommithistory/commithistory.gom:165
 	}
 //line gomcommithistory/commithistory.gom:165
-	tmp217 := rt.NewScope()
+	tmp177 := rt.NewScope()
 //line gomcommithistory/commithistory.gom:165
-	return tmp126(tmp217)
+	return tmp126(tmp177)
 //line gomcommithistory/commithistory.gom:164
 }
 

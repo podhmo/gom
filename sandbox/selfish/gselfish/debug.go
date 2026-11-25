@@ -36,9 +36,7 @@ func fprintJson(w io.Writer, data any) struct{} {
 //line gselfish/debug.gom:14
 		tmp4 := tmp3
 //line gselfish/debug.gom:14
-		tmp5 := any(tmp4)
-//line gselfish/debug.gom:14
-		log.Fatal(tmp5)
+		log.Fatal(tmp4)
 //line gselfish/debug.gom:14
 		return struct{}{}
 //line gselfish/debug.gom:14
@@ -53,21 +51,21 @@ func fprintJson(w io.Writer, data any) struct{} {
 //line gselfish/debug.gom:20
 func printJson(data any) struct{} {
 //line gselfish/debug.gom:20
-	tmp6 := io.Writer(os.Stdout)
+	tmp5 := io.Writer(os.Stdout)
 //line gselfish/debug.gom:20
-	return fprintJson(tmp6, data)
+	return fprintJson(tmp5, data)
 //line gselfish/debug.gom:20
 }
 
 //line gselfish/debug.gom:22
 func wrapResult[A any](r result.Result[A, error], msg string) result.Result[A, error] {
 //line gselfish/debug.gom:23
-	tmp7 := func(e error) error {
+	tmp6 := func(e error) error {
 //line gselfish/debug.gom:23
 		return wrap(e, msg)
 //line gselfish/debug.gom:23
 	}
 //line gselfish/debug.gom:23
-	return result.MapErr[error, error, A](tmp7, r)
+	return result.MapErr[error, error, A](tmp6, r)
 //line gselfish/debug.gom:22
 }

@@ -105,9 +105,7 @@ func newGist(filenames list.List[string], public bool) result.Result[*github.Gis
 //line gselfish/model.gom:23
 				tmp17 := any(filename)
 //line gselfish/model.gom:23
-				tmp18 := any(tmp16)
-//line gselfish/model.gom:23
-				log.Printf("skip file=%s err=%v\n", tmp17, tmp18)
+				log.Printf("skip file=%s err=%v\n", tmp17, tmp16)
 //line gselfish/model.gom:23
 				_ = struct{}{}
 //line gselfish/model.gom:23
@@ -125,7 +123,7 @@ func newGist(filenames list.List[string], public bool) result.Result[*github.Gis
 //line gselfish/model.gom:35
 	empty := rt.MapMake[github.GistFilename, github.GistFile]()
 //line gselfish/model.gom:36
-	tmp19 := func(p0 GistAcc, p1 string) GistAcc {
+	tmp18 := func(p0 GistAcc, p1 string) GistAcc {
 //line gselfish/model.gom:36
 		u0 := collect(p0)
 //line gselfish/model.gom:36
@@ -133,25 +131,25 @@ func newGist(filenames list.List[string], public bool) result.Result[*github.Gis
 //line gselfish/model.gom:36
 	}
 //line gselfish/model.gom:36
-	tmp20 := option.Option[string](option.Option_None[string]{})
+	tmp19 := option.Option[string](option.Option_None[string]{})
 //line gselfish/model.gom:36
-	tmp21 := GistAcc{Title: tmp20, Files: empty}
+	tmp20 := GistAcc{Title: tmp19, Files: empty}
 //line gselfish/model.gom:36
-	acc1 := list.Fold[GistAcc, string](tmp19, tmp21, filenames)
+	acc1 := list.Fold[GistAcc, string](tmp18, tmp20, filenames)
 //line gselfish/model.gom:37
 	gist := rt.PtrNew[github.Gist]()
 //line gselfish/model.gom:38
-	tmp22 := rt.PtrMake[bool](public)
+	tmp21 := rt.PtrMake[bool](public)
 //line gselfish/model.gom:38
-	gist.Public = tmp22
+	gist.Public = tmp21
 //line gselfish/model.gom:39
 	gist.Files = acc1.Files
 //line gselfish/model.gom:40
-	tmp23 := option.GetOrElse[string]("", acc1.Title)
+	tmp22 := option.GetOrElse[string]("", acc1.Title)
 //line gselfish/model.gom:40
-	tmp24 := rt.PtrMake[string](tmp23)
+	tmp23 := rt.PtrMake[string](tmp22)
 //line gselfish/model.gom:40
-	gist.Description = tmp24
+	gist.Description = tmp23
 //line gselfish/model.gom:41
 	return result.Ok[*github.Gist, error](gist)
 //line gselfish/model.gom:21
@@ -160,11 +158,11 @@ func newGist(filenames list.List[string], public bool) result.Result[*github.Gis
 //line gselfish/model.gom:45
 func readmeTitle(text string) option.Option[string] {
 //line gselfish/model.gom:45
-	tmp25 := strings.Split(text, "\n")
+	tmp24 := strings.Split(text, "\n")
 //line gselfish/model.gom:45
-	tmp26 := list.FromSlice(tmp25)
+	tmp25 := list.FromSlice(tmp24)
 //line gselfish/model.gom:45
-	return firstHeading(tmp26)
+	return firstHeading(tmp25)
 //line gselfish/model.gom:45
 }
 
@@ -181,45 +179,45 @@ func firstHeading(lines list.List[string]) option.Option[string] {
 //line gselfish/model.gom:48
 		case len(lines) != 0:
 //line gselfish/model.gom:48
-			tmp27 := lines[0]
+			tmp26 := lines[0]
 //line gselfish/model.gom:48
-			tmp28 := lines[1:]
+			tmp27 := lines[1:]
+//line gselfish/model.gom:48
+			tmp28 := tmp26
 //line gselfish/model.gom:48
 			tmp29 := tmp27
-//line gselfish/model.gom:48
-			tmp30 := tmp28
 //line gselfish/model.gom:49
-			var tmp31 rt.Tuple2[string, bool]
+			var tmp30 rt.Tuple2[string, bool]
 //line gselfish/model.gom:49
-			a, b := strings.CutPrefix(tmp29, "# ")
+			a, b := strings.CutPrefix(tmp28, "# ")
 //line gselfish/model.gom:49
-			tmp31 = rt.Tuple2[string, bool]{V0: a, V1: b}
+			tmp30 = rt.Tuple2[string, bool]{V0: a, V1: b}
 //line gselfish/model.gom:50
-			switch tmp31.V1 {
+			switch tmp30.V1 {
 //line gselfish/model.gom:50
 			case true:
 //line gselfish/model.gom:50
-				tmp32 := tmp31.V0
+				tmp31 := tmp30.V0
 //line gselfish/model.gom:50
-				tmp33 := strings.TrimSpace(tmp32)
+				tmp32 := strings.TrimSpace(tmp31)
 //line gselfish/model.gom:50
-				return option.Option_Some[string]{V0: tmp33}
+				return option.Option_Some[string]{V0: tmp32}
 //line gselfish/model.gom:50
 			default:
 //line gselfish/model.gom:51
-				switch tmp31.V1 {
+				switch tmp30.V1 {
 //line gselfish/model.gom:51
 				case false:
 //line gselfish/model.gom:51
-					_ = tmp31.V0
+					_ = tmp30.V0
 //line gselfish/model.gom:51
-					lines = tmp30
+					lines = tmp29
 //line gselfish/model.gom:51
 					continue
 //line gselfish/model.gom:51
 				default:
 //line gselfish/model.gom:51
-					panic(rt.InvalidVariant("Bool", tmp31.V1))
+					panic(rt.InvalidVariant("Bool", tmp30.V1))
 //line gselfish/model.gom:51
 				}
 //line gselfish/model.gom:50
@@ -240,47 +238,47 @@ func newGistFile(filename string) result.Result[*github.GistFile, error] {
 //line gselfish/model.gom:57
 	basename := path.Base(filename)
 //line gselfish/model.gom:58
-	var tmp35 result.Result[option.Option[fs.FileInfo], error]
+	var tmp34 result.Result[option.Option[fs.FileInfo], error]
 //line gselfish/model.gom:58
 	v1, err := os.Stat(filename)
 //line gselfish/model.gom:58
-	tmp35 = result.FromGo(option.FromGo(v1, v1 != nil), err)
+	tmp34 = result.FromGo(option.FromGo(v1, v1 != nil), err)
 //line gselfish/model.gom:58
-	tmp36 := wrapResult[option.Option[fs.FileInfo]](tmp35, "stat")
+	tmp35 := wrapResult[option.Option[fs.FileInfo]](tmp34, "stat")
 //line gselfish/model.gom:58
-	var tmp37 option.Option[fs.FileInfo]
+	var tmp36 option.Option[fs.FileInfo]
 //line gselfish/model.gom:58
-	switch tmp36.Tag() {
+	switch tmp35.Tag() {
 //line gselfish/model.gom:58
 	case result.ResultTagOk:
 //line gselfish/model.gom:58
-		tmp37 = tmp36.Value
+		tmp36 = tmp35.Value
 //line gselfish/model.gom:58
 	case result.ResultTagErr:
 //line gselfish/model.gom:58
-		return result.Err[*github.GistFile, error](tmp36.Error)
+		return result.Err[*github.GistFile, error](tmp35.Error)
 //line gselfish/model.gom:58
 	default:
 //line gselfish/model.gom:58
-		panic(rt.InvalidVariant("result.Result", tmp36))
+		panic(rt.InvalidVariant("result.Result", tmp35))
 //line gselfish/model.gom:58
 	}
 //line gselfish/model.gom:58
 	var finfo fs.FileInfo
 //line gselfish/model.gom:59
-	switch v2 := tmp37.(type) {
+	switch v2 := tmp36.(type) {
 //line gselfish/model.gom:59
 	case option.Option_Some[fs.FileInfo]:
 //line gselfish/model.gom:59
-		tmp38 := v2
+		tmp37 := v2
 //line gselfish/model.gom:59
-		tmp39 := tmp38.V0
+		tmp38 := tmp37.V0
 //line gselfish/model.gom:59
-		finfo = tmp39
+		finfo = tmp38
 //line gselfish/model.gom:59
 	case option.Option_None[fs.FileInfo]:
 //line gselfish/model.gom:60
-		var tmp40 error
+		var tmp39 error
 //line gselfish/model.gom:60
 		v3 := fmt.Errorf("stat returned nil file info")
 //line gselfish/model.gom:60
@@ -290,39 +288,39 @@ func newGistFile(filename string) result.Result[*github.GistFile, error] {
 //line gselfish/model.gom:60
 		}
 //line gselfish/model.gom:60
-		tmp40 = v3
+		tmp39 = v3
 //line gselfish/model.gom:60
-		tmp41 := result.Err[fs.FileInfo, error](tmp40)
+		tmp40 := result.Err[fs.FileInfo, error](tmp39)
 //line gselfish/model.gom:60
-		switch tmp41.Tag() {
+		switch tmp40.Tag() {
 //line gselfish/model.gom:60
 		case result.ResultTagOk:
 //line gselfish/model.gom:60
-			finfo = tmp41.Value
+			finfo = tmp40.Value
 //line gselfish/model.gom:60
 		case result.ResultTagErr:
 //line gselfish/model.gom:60
-			return result.Err[*github.GistFile, error](tmp41.Error)
+			return result.Err[*github.GistFile, error](tmp40.Error)
 //line gselfish/model.gom:60
 		default:
 //line gselfish/model.gom:60
-			panic(rt.InvalidVariant("result.Result", tmp41))
+			panic(rt.InvalidVariant("result.Result", tmp40))
 //line gselfish/model.gom:60
 		}
 //line gselfish/model.gom:60
 	default:
 //line gselfish/model.gom:58
-		panic(rt.InvalidVariant("Option", tmp37))
+		panic(rt.InvalidVariant("Option", tmp36))
 //line gselfish/model.gom:59
 	}
 //line gselfish/model.gom:62
 	size := finfo.Size()
 //line gselfish/model.gom:63
-	tmp42 := size == 0
+	tmp41 := size == 0
 //line gselfish/model.gom:63
-	if tmp42 {
+	if tmp41 {
 //line gselfish/model.gom:64
-		var tmp43 error
+		var tmp42 error
 //line gselfish/model.gom:64
 		v4 := fmt.Errorf("empty file")
 //line gselfish/model.gom:64
@@ -332,58 +330,58 @@ func newGistFile(filename string) result.Result[*github.GistFile, error] {
 //line gselfish/model.gom:64
 		}
 //line gselfish/model.gom:64
-		tmp43 = v4
+		tmp42 = v4
 //line gselfish/model.gom:64
-		tmp44 := result.Err[struct{}, error](tmp43)
+		tmp43 := result.Err[struct{}, error](tmp42)
 //line gselfish/model.gom:64
-		switch tmp44.Tag() {
+		switch tmp43.Tag() {
 //line gselfish/model.gom:64
 		case result.ResultTagOk:
 //line gselfish/model.gom:64
-			_ = tmp44.Value
+			_ = tmp43.Value
 //line gselfish/model.gom:64
 		case result.ResultTagErr:
 //line gselfish/model.gom:64
-			return result.Err[*github.GistFile, error](tmp44.Error)
+			return result.Err[*github.GistFile, error](tmp43.Error)
 //line gselfish/model.gom:64
 		default:
 //line gselfish/model.gom:64
-			panic(rt.InvalidVariant("result.Result", tmp44))
+			panic(rt.InvalidVariant("result.Result", tmp43))
 //line gselfish/model.gom:64
 		}
 //line gselfish/model.gom:63
 	}
 //line gselfish/model.gom:66
-	var tmp45 result.Result[list.List[byte], error]
+	var tmp44 result.Result[list.List[byte], error]
 //line gselfish/model.gom:66
 	v5, err1 := os.ReadFile(filename)
 //line gselfish/model.gom:66
-	tmp45 = result.FromGo(list.FromSlice(v5), err1)
+	tmp44 = result.FromGo(list.FromSlice(v5), err1)
 //line gselfish/model.gom:66
-	tmp46 := wrapResult[list.List[byte]](tmp45, "read all")
+	tmp45 := wrapResult[list.List[byte]](tmp44, "read all")
 //line gselfish/model.gom:66
 	var byte_ list.List[byte]
 //line gselfish/model.gom:66
-	switch tmp46.Tag() {
+	switch tmp45.Tag() {
 //line gselfish/model.gom:66
 	case result.ResultTagOk:
 //line gselfish/model.gom:66
-		byte_ = tmp46.Value
+		byte_ = tmp45.Value
 //line gselfish/model.gom:66
 	case result.ResultTagErr:
 //line gselfish/model.gom:66
-		return result.Err[*github.GistFile, error](tmp46.Error)
+		return result.Err[*github.GistFile, error](tmp45.Error)
 //line gselfish/model.gom:66
 	default:
 //line gselfish/model.gom:66
-		panic(rt.InvalidVariant("result.Result", tmp46))
+		panic(rt.InvalidVariant("result.Result", tmp45))
 //line gselfish/model.gom:66
 	}
 //line gselfish/model.gom:67
 	content := string(byte_)
 //line gselfish/model.gom:70
-	tmp47 := hostNewGistFile(basename, size, content)
+	tmp46 := hostNewGistFile(basename, size, content)
 //line gselfish/model.gom:70
-	return result.Ok[*github.GistFile, error](tmp47)
+	return result.Ok[*github.GistFile, error](tmp46)
 //line gselfish/model.gom:56
 }
