@@ -11,8 +11,10 @@ type Bare = { v: Int }
 type Failure = { reason: String }
 type Dir = { ok: Bool }
 type Hij = { live: Bool, conn: Option net.Conn }
+type Cur = { pos: Int }
 
 fn writer_of (s: Sink) -> io.Writer
 fn unmarshaler_of (b: Bare) -> encoding.TextUnmarshaler
 fn fs_of (d: Dir) -> fs.ReadDirFS
 fn hijacker_of (h: Hij) -> http.Hijacker
+fn seeker_of (c: Cur) -> io.Seeker

@@ -1,0 +1,27 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected github.com/podhmo/gom/testdata/goiface.WidthIntElem, got W",
+      "span": {
+        "file": "E0401_method_iface_int_elem.gom",
+        "start": {
+          "line": 18,
+          "col": 34,
+          "offset": 615
+        },
+        "end": {
+          "line": 18,
+          "col": 35,
+          "offset": 616
+        }
+      },
+      "data": {
+        "actual": "W",
+        "expected": "github.com/podhmo/gom/testdata/goiface.WidthIntElem"
+      }
+    }
+  ]
+}

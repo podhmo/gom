@@ -55,15 +55,17 @@ func (l *Loader) InterfaceMethods(t gt.Type) ([]check.InterfaceMethod, bool) {
 		if !ok {
 			return nil, false
 		}
-		ck, _, _ := l.mapSignature(sig)
+		ck, gs, _ := l.mapSignature(sig)
 		fn, ok := ck.Type.(*gt.Func)
 		if !ok {
 			return nil, false
 		}
 		out = append(out, check.InterfaceMethod{
-			Name:  m.Name(),
-			Sig:   fn,
-			GoSig: goMethodSig(sig),
+			Name:       m.Name(),
+			Sig:        fn,
+			GoSig:      goMethodSig(sig),
+			RawParams:  gs.Params,
+			RawResults: gs.ResTypes,
 		})
 	}
 	return out, true

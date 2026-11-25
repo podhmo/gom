@@ -1,0 +1,26 @@
+package main
+
+// Nested widths mirror the nested emit: a slice element emits
+// through goType where both Int and Int64 spell int64, so `List Int`
+// conforms to a `[]int64` interface position. A fallible tuple
+// return spreads over the leading raw results, each element's width
+// checked positionally — `Result (Int64, Int64) GoError` conforms
+// to `(int64, int64, error)`.
+import go "github.com/podhmo/gom/testdata/goiface"
+
+type W = { n: Int }
+
+@method
+fn (w: W) put (xs: List Int) -> Int64 = 0
+
+@method
+fn (w: W) pair () -> Result (Int64, Int64) GoError = Ok (0, 0)
+
+fn main () -> Unit = {
+  let w = { n = 0 }
+  let a : goiface.WidthPutSlice = w
+  let b : goiface.WidthPair = w
+  ignore a
+  ignore b
+  ()
+}
