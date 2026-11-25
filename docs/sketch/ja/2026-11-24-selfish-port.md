@@ -102,9 +102,9 @@ update ではなく create のまま（両バイナリで一致することを�
   `Option` 要素の扱いぐらい。
 - ~~**カリー適用の複数行記述がパースに弱い**~~ → wave44 lane G で**仕様として決着**:
   NL-2 は維持、`|>` パイプラインか `( )` で括る慣例で解決する（decisions/2026-11-24-multiline-application）。
-- **inline lambda の多引数適用で型推論が回帰**（wave43/44 以降）: `List.fold (fn api op -> op api) base ops`
-  が旧 main では通ったが E0401 になる。注釈付き lambda か名前付き関数なら通る。
-  移植側は注釈で回避済み — 回帰本体は implementation-gaps に登録（main 向け PR #235。台帳は main にあるため本ブランチには含めない）。
+- ~~**inline lambda の多引数適用で型推論が回帰**（wave43/44 以降）~~ → **解消済み（wave45 lane H、#236）**。
+  `List.fold (fn api op -> op api) base ops` が一時 E0401 になったが、over-application での want-pin skip で修正された。
+  移植側の注釈は workaround として入れたまま（害はない）。詳細は implementation-gaps の解消済みエントリ参照。
 - **無名レコードの `List.fold` acc は型推論が通らない（E0407）**。named type 必須。
   これは上の sumtypes メモと同じ系統の DX 摩擦。
 - ~~**`filter_map`/`find_map` が stdlib にない**~~ → **解消済み（wave44 lane F）**。stdlib に追加された。
