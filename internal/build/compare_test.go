@@ -59,6 +59,45 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 		want: "3:4:5:42",
 	},
 	{
+		// wave45 lane B: float32 width semantics — both literals
+		// round to the same float32 image at construction, in eval
+		// exactly as in the compiled binary.
+		name: "float32_width_literal_rounding",
+		src: `package main
+
+import go "fmt"
+import go "github.com/podhmo/gom/testdata/goiface"
+
+fn answer () -> String = {
+  let a : goiface.SmallRatio = 16777217.0
+  let b : goiface.SmallRatio = 16777216.0
+  if a == b { "same" } else { "diff" }
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "same",
+	},
+	{
+		// lane B arithmetic: width-32 operations run in float32
+		// precision — the small difference vanishes under addition
+		// exactly like the compiled float32 arithmetic.
+		name: "float32_width_arithmetic",
+		src: `package main
+
+import go "fmt"
+import go "github.com/podhmo/gom/testdata/goiface"
+
+fn answer () -> String = {
+  let a : goiface.SmallRatio = 16777216.0
+  let b : goiface.SmallRatio = 1.0
+  let c = a + b
+  if c == a { "absorbed" } else { "kept" }
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "absorbed",
+	},
+	{
 		// P2-2c: the same delayed-reference cycle through a
 		// destructuring let — tuple, record, and a single-variant
 		// constructor all bind `count` as a named wrapper.
@@ -1825,6 +1864,7 @@ func evalAnswerFiles(t *testing.T, rs []*build.Result, srcs map[string][]byte) s
 		}
 	}
 	ev := eval.NewFiles(typed)
+	ev.SetFloatWidthOracle(floatWidthOracle())
 	for path, src := range srcs {
 		ev.SetLineIndexFor(path, diag.NewLineIndex(src))
 	}

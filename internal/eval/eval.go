@@ -67,6 +67,13 @@ type interp struct {
 	// of the unit makes IsResult answer false for its variants
 	// unit-wide.
 	localT map[string]bool
+	// floatWidthOracle answers the machine width of a float type
+	// the interpreter cannot see through — a named Go type whose
+	// underlying is float32 (`type SmallRatio float32`). Only the
+	// go/types oracle of the loader knows it; nil means every float
+	// position judges at width 64. Evaluator.SetFloatWidthOracle
+	// installs it.
+	floatWidthOracle func(types.Type) (int, bool)
 }
 
 // letInit is the lazy initializer of one top-level `let`
@@ -251,6 +258,14 @@ func (e *Evaluator) SetMaxSteps(n int64) { e.interp.maxSteps = n }
 // unreachable. n <= 0 removes the bound — only for callers that can
 // prove the program terminates.
 func (e *Evaluator) SetMaxDepth(n int64) { e.interp.maxDepth = n }
+
+// SetFloatWidthOracle installs the width oracle for float types the
+// interpreter cannot see through — named Go types whose underlying
+// is float32. The oracle reports (32, true) for those; everything
+// else judges at width 64.
+func (e *Evaluator) SetFloatWidthOracle(f func(types.Type) (int, bool)) {
+	e.interp.floatWidthOracle = f
+}
 
 // Global returns the value bound to the top-level symbol named name,
 // or nil.
@@ -1008,6 +1023,45 @@ func (e *interp) intOperandWidth(t types.Type) int {
 	return 64
 }
 
+// floatOperandWidth returns the machine width a float operand type
+// computes in: 32 when the type peels — through declared one-field
+// records, the way codegen's defined-type chain emits — to a named
+// Go type whose underlying is float32, 64 otherwise. Peelable
+// records need no oracle: a user `type Float` shadows nothing here
+// because only the emitted scalar shape decides the width. Values
+// at width 32 carry the canonical float64 image of their float32
+// value — like the VInt invariant, host-supplied or hand-built
+// values are repaired at the operation instead of trusting
+// construction.
+func (e *interp) floatOperandWidth(t types.Type) int {
+	for i := 0; i < 64; i++ { // bound against a pathological cycle
+		c, ok := types.Chase(t).(*types.Con)
+		if !ok {
+			break
+		}
+		if ri := e.recordOf(c); ri != nil && len(ri.fields) == 1 {
+			t = ri.fields[0].typ
+			continue
+		}
+		break
+	}
+	if e.floatWidthOracle != nil {
+		if w, ok := e.floatWidthOracle(types.Chase(t)); ok {
+			return w
+		}
+	}
+	return 64
+}
+
+// roundFloat narrows f to the float32 image width 32 carries —
+// the canonical form every width-32 VFloat keeps.
+func roundFloat(width int, f float64) float64 {
+	if width == 32 {
+		return float64(float32(f))
+	}
+	return f
+}
+
 // wrapTo narrows n to width bits and sign-extends back to int64 —
 // the per-operation two's-complement wrap of spec 3.3. Width 64 is
 // the identity: int64 arithmetic already wraps.
@@ -1164,6 +1218,34 @@ func (e *interp) evalPrim(x *check.Binary, env *Env) Value {
 		r, ok := r.(*VFloat)
 		if !ok {
 			e.binMismatch(x, l, r)
+		}
+		// Per-operation machine semantics, mirroring the integer
+		// path: at width 32 the operands are canonical float32
+		// images, so converting down is lossless and the operation
+		// runs in float32 precision exactly like the emitted Go —
+		// `16777217.0` rounds at construction and compares equal
+		// to `16777216.0` where compiled float32 does.
+		w := e.floatOperandWidth(x.X.Type())
+		if w == 32 {
+			a, b := float32(l.F), float32(r.F)
+			switch x.Op {
+			case syntax.BinAdd:
+				return &VFloat{F: float64(a + b)}
+			case syntax.BinSub:
+				return &VFloat{F: float64(a - b)}
+			case syntax.BinMul:
+				return &VFloat{F: float64(a * b)}
+			case syntax.BinDiv:
+				return &VFloat{F: float64(a / b)}
+			case syntax.BinLt:
+				return &VBool{B: a < b}
+			case syntax.BinLe:
+				return &VBool{B: a <= b}
+			case syntax.BinGt:
+				return &VBool{B: a > b}
+			case syntax.BinGe:
+				return &VBool{B: a >= b}
+			}
 		}
 		switch x.Op {
 		case syntax.BinAdd:

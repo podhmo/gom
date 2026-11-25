@@ -638,6 +638,7 @@ func evalDiff(t *testing.T, r *build.Result, sources ...string) (o diffOutcome) 
 		ev.SetLineIndex(diag.NewLineIndex([]byte(sources[0])))
 	}
 	ev.SetMaxSteps(diffEvalFuel)
+	ev.SetFloatWidthOracle(floatWidthOracle())
 	bindGoStubs(t, ev, capture, r.Typed)
 	res := ev.Run()
 

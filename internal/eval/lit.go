@@ -52,10 +52,20 @@ func (e *interp) floatBackedField(t types.Type) bool {
 // `Score(1)` — so the stored value, the pattern-bound value, and
 // the field projection all carry the same VFloat kind.
 func (e *interp) litValueTyped(kind syntax.LitKind, text string, typ types.Type, sp diag.Span) Value {
+	width := e.floatOperandWidth(typ)
 	if e.floatBackedField(typ) {
 		typ = types.Float
 	}
-	return litValue(kind, text, typ, sp)
+	v := litValue(kind, text, typ, sp)
+	// Width-canonical construction: a float literal typed at a
+	// float32-width position materializes the float32 image — the
+	// same rounding the emitted constant conversion applies — so
+	// `16777217.0` in a SmallRatio field IS `16777216.0`, matching
+	// the compiled comparison (wave45 lane B).
+	if f, ok := v.(*VFloat); ok {
+		return &VFloat{F: roundFloat(width, f.F)}
+	}
+	return v
 }
 
 // isInt32Con reports whether t is the builtin Int32 constructor —
