@@ -91,12 +91,13 @@ Rules:
   hash plus a canonical token hash of each source (test decls
   excluded); `GOM_BUILD_NOCACHE=1` disables it and
   `GOM_BUILD_CACHE_DIR` relocates it.
-- `//gom:` directive lines carry machine-checked annotations the
-  drafter writes: `//gom:noescape name` before an `fn` signature
-  marks a function-typed param as non-escaping (the escape check
-  uses it for `Scope` handling), and an `@method` line before an
-  `fn` keeps the record→Go-interface method set. Both round-trip
-  — do not hand-edit unless regenerating the draft is impossible.
+- `//gom:` directive lines carry annotations across the package
+  boundary. `//gom:noescape` / `//gom:result-notaint` are re-inferred
+  from ordinary bodies on regeneration; for an extern `fn` or
+  function-typed extern `let` there is no inspectable body, so the
+  prior lines carry across regeneration instead. `//gom:mutable` is an
+  author-written claim and also carries. An `@method` line before an
+  `fn` keeps the record→Go-interface method set.
 - Drafting command: `gom info FILE|DIR...` (`moon info`-style)
   writes or updates the `.gomi` draft; `-o -` prints it. A stdlib
   short name (for example `gom info list`) prints the existing

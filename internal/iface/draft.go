@@ -33,12 +33,14 @@ type Source struct {
 // author trims what should stay private and may replace a concrete
 // `type T = ...` with the abstract `type T`.
 //
-// prior, when non-nil, is the previous .gomi text: its
+// prior, when non-nil, is the previous .gomi text. Its
 // `//gom:mutable` directives carry across regeneration onto the
 // same-named type declarations — the mark is an author's claim
 // about an impl-invisible type, which nothing in the .gom sources
-// can re-derive, and a regenerated draft is a starting point the
-// author re-trims to the abstract form the directive pairs with.
+// can re-derive. `//gom:noescape` and `//gom:result-notaint`
+// carry only for extern members: bodies of ordinary declarations
+// are re-inferred so stale claims cannot survive implementation
+// changes.
 func Draft(srcs []Source, prior []byte) []byte {
 	d := &drafter{
 		vars:     map[*types.Var]string{},
@@ -51,6 +53,8 @@ func Draft(srcs []Source, prior []byte) []byte {
 		}
 		d.mutable[name] = true
 	}
+	d.noescape = ScanNoescape(prior)
+	d.notaint = ScanNotaint(prior)
 	var out strings.Builder
 	pkg := ""
 	for _, s := range srcs {
@@ -122,6 +126,8 @@ type drafter struct {
 	imports   map[string]imp    // path → import
 	usedAlias map[string]string // alias → path (collision detection)
 	mutable   map[string]bool   // carried `//gom:mutable` names
+	noescape  map[string][]int  // prior `//gom:noescape` indices by member
+	notaint   map[string][]int  // prior `//gom:result-notaint` indices by member
 }
 
 // file renders one source's declarations into w, in surface order.
@@ -146,10 +152,10 @@ func (d *drafter) file(w *strings.Builder, s Source) {
 				continue
 			}
 			lines = []string{d.fnDecl(decl.Name.Name, td)}
-			if ne := noescapeLine(decl.Name.Name, td); ne != "" {
+			if ne := d.noescapeForFn(decl.Name.Name, td); ne != "" {
 				lines = append([]string{ne}, lines...)
 			}
-			if nt := notaintLine(decl.Name.Name, td); nt != "" {
+			if nt := d.notaintForFn(decl.Name.Name, td); nt != "" {
 				lines = append([]string{nt}, lines...)
 			}
 		case *syntax.LetDecl:
@@ -238,6 +244,62 @@ func (d *drafter) fnDecl(name string, td *check.FnDecl) string {
 	sb.WriteString(" -> ")
 	d.writeType(&sb, ret)
 	return sb.String()
+}
+
+// carriedDirective renders a prior directive's in-range indices in
+// the same canonical shape as an inferred directive. Out-of-range
+// and duplicate indices do not carry: the loader would ignore the
+// former and the latter have no extra meaning.
+func carriedDirective(prefix, name string, idxs []int, n int) string {
+	var kept []int
+	for _, i := range idxs {
+		if i < 0 || i >= n || slices.Contains(kept, i) {
+			continue
+		}
+		kept = append(kept, i)
+	}
+	if len(kept) == 0 {
+		return ""
+	}
+	idx := make([]string, len(kept))
+	for i, v := range kept {
+		idx[i] = strconv.Itoa(v)
+	}
+	return prefix + name + " " + strings.Join(idx, " ")
+}
+
+func (d *drafter) carriedNoescape(name string, n int) string {
+	return carriedDirective("//gom:noescape ", name, d.noescape[name], n)
+}
+
+func (d *drafter) carriedNotaint(name string, n int) string {
+	return carriedDirective("//gom:result-notaint ", name, d.notaint[name], n)
+}
+
+// noescapeForFn renders the directive for one fn. An extern fn has
+// no body the package compile can inspect, so its prior interface is
+// the only source of the author's claim and carries across
+// regeneration. A non-extern fn is always re-inferred from its body:
+// carrying a stale prior line there would keep a false claim after
+// the implementation changed.
+func (d *drafter) noescapeForFn(name string, td *check.FnDecl) string {
+	if td.Extern {
+		if td.Sig == nil {
+			return ""
+		}
+		return d.carriedNoescape(name, len(td.Sig.Params))
+	}
+	return noescapeLine(name, td)
+}
+
+func (d *drafter) notaintForFn(name string, td *check.FnDecl) string {
+	if td.Extern {
+		if td.Sig == nil {
+			return ""
+		}
+		return d.carriedNotaint(name, len(td.Sig.Params))
+	}
+	return notaintLine(name, td)
 }
 
 // noescapeLine renders the `//gom:noescape` directive the loader
@@ -342,10 +404,10 @@ func (d *drafter) letMember(name string, td check.Decl) []string {
 			return lines
 		}
 		lines := []string{d.fnDecl(name, td)}
-		if ne := noescapeLine(name, td); ne != "" {
+		if ne := d.noescapeForFn(name, td); ne != "" {
 			lines = append([]string{ne}, lines...)
 		}
-		if nt := notaintLine(name, td); nt != "" {
+		if nt := d.notaintForFn(name, td); nt != "" {
 			lines = append([]string{nt}, lines...)
 		}
 		return lines
@@ -367,10 +429,18 @@ func (d *drafter) letMember(name string, td check.Decl) []string {
 				sym = vp.Sym
 			}
 			if f, ok := types.Chase(m.Type).(*types.Func); ok {
-				if ne := noescapeDirective(name, sym, f.Params); ne != "" {
+				var ne, nt string
+				if td.Extern {
+					ne = d.carriedNoescape(name, len(f.Params))
+					nt = d.carriedNotaint(name, len(f.Params))
+				} else {
+					ne = noescapeDirective(name, sym, f.Params)
+					nt = notaintDirective(name, sym, len(f.Params))
+				}
+				if ne != "" {
 					lines = append([]string{ne}, lines...)
 				}
-				if nt := notaintDirective(name, sym, len(f.Params)); nt != "" {
+				if nt != "" {
 					lines = append([]string{nt}, lines...)
 				}
 			}

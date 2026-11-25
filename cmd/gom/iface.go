@@ -481,8 +481,11 @@ func runInfo(args []string, stdout, stderr io.Writer) int {
 		}
 		// A `//gom:mutable` directive names the author's claim
 		// about an impl-invisible type — nothing in the .gom
-		// sources re-derives it, so the previous interface
-		// text seeds the new draft's directive lines.
+		// sources re-derives it. Extern `//gom:noescape` and
+		// `//gom:result-notaint` directives are author claims
+		// for the same reason. The previous interface text seeds
+		// those directive lines; ordinary declarations are
+		// re-inferred from their bodies instead.
 		var prior []byte
 		if b, err := os.ReadFile(filepath.Join(g.dir, g.name+".gomi")); err == nil {
 			prior = b

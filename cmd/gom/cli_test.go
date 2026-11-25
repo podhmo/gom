@@ -1618,6 +1618,62 @@ fn push (q: Queue Int) (x: Int) -> Unit
 	}
 }
 
+// TestInfoCarriesExternEscapeDirectives: extern implementations have no
+// inspectable Gom body, so regeneration carries their prior noescape /
+// result-notaint claims. Non-extern members are re-inferred instead — a
+// stale prior claim must not survive a body that now leaks its parameter.
+func TestInfoCarriesExternEscapeDirectives(t *testing.T) {
+	t.Parallel()
+
+	dir := writeFiles(t, map[string]string{
+		"lib/lib.gom": `package lib
+
+@extern
+fn keep (f: Unit -> Unit) -> Unit
+
+@extern let keepv : (Unit -> Unit) -> Unit
+
+fn leak (f: Unit -> Unit) -> Unit -> Unit = f
+`,
+		"lib/lib.gomi": `package lib
+
+//gom:result-notaint keep 0
+//gom:noescape keep 0
+fn keep (f: Unit -> Unit) -> Unit
+
+//gom:result-notaint keepv 0
+//gom:noescape keepv 0
+let keepv : (Unit -> Unit) -> Unit
+
+//gom:result-notaint leak 0
+//gom:noescape leak 0
+fn leak (f: Unit -> Unit) -> Unit -> Unit
+`,
+	})
+	code, out, errout := invoke("info", filepath.Join(dir, "lib"))
+	if code != 0 {
+		t.Fatalf("gom info: exit %d; stderr=%q stdout=%q", code, errout, out)
+	}
+	gomi, err := os.ReadFile(filepath.Join(dir, "lib", "lib.gomi"))
+	if err != nil {
+		t.Fatalf("lib.gomi not written: %v", err)
+	}
+	text := string(gomi)
+	for _, want := range []string{
+		"//gom:result-notaint keep 0\n//gom:noescape keep 0\nfn keep",
+		"//gom:result-notaint keepv 0\n//gom:noescape keepv 0\nlet keepv",
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("regenerated draft missing %q:\n%s", want, text)
+		}
+	}
+	for _, stale := range []string{"//gom:result-notaint leak", "//gom:noescape leak"} {
+		if strings.Contains(text, stale) {
+			t.Errorf("regenerated draft carried stale non-extern directive %q:\n%s", stale, text)
+		}
+	}
+}
+
 // TestCheckMissingInterface verifies spec 7 rule 4: a library package
 // with no <package>.gomi is E0601.
 func TestCheckMissingInterface(t *testing.T) {
