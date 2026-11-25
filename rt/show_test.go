@@ -52,7 +52,7 @@ func TestShowRuntimeComposites(t *testing.T) {
 	}
 	rt.RegisterShowRecord(rt.TypeOf[showErrorRecord](), false, "msg")
 	got = rt.ShowRuntime(result.Err[int64, error](showErrorRecord{Msg: "bad"}))
-	if want := `Err error("boom: bad")`; got != want {
+	if want := `Err (error("boom: bad"))`; got != want {
 		t.Errorf("result error payload = %q, want %q", got, want)
 	}
 	got = rt.ShowRuntime(result.Err[int64, showErrorRecord](showErrorRecord{Msg: "bad"}))

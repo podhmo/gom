@@ -145,7 +145,7 @@ func showRuntimeValue(v reflect.Value, depth int) string {
 	}
 	if v.CanInterface() {
 		if err, ok := v.Interface().(error); ok {
-			return ShowError(err)
+			return "(" + ShowError(err) + ")"
 		}
 	}
 	if isTupleType(t) {
@@ -319,7 +319,7 @@ func showRuntimeErrorOperand(v reflect.Value, depth int) string {
 	}
 	if staticallyError && v.IsValid() && v.CanInterface() {
 		if err, ok := v.Interface().(error); ok {
-			return ShowError(err)
+			return "(" + ShowError(err) + ")"
 		}
 	}
 	return showRuntimeOperand(v, depth)
