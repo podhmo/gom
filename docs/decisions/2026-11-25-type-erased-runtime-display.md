@@ -25,8 +25,9 @@ Gom 値を Gom comparison display 側へ寄せる。
 - ユーザーの record / variant は generated code が登録する show metadata を
   reflection が引き、record は `{ field = v }`、variant は
   `Ctor ~name: v` で描く。metadata は field/constructor の Gom 綴りだけを持ち、
-  初期化時の package-scope blank var が `rt.RegisterShowRecord` /
-  `rt.RegisterShowVariant` へ登録する
+  generated な `gomShowInit_<Type>()` registration function が
+  `rt.RegisterShowRecord` / `rt.RegisterShowVariant` へ登録し、runtime display を
+  持つ generic function は描画前に unit の registration function を呼ぶ
 - 一フィールド record の defined representation（`type X F`）でも metadata を
   登録し、`{ field = v }` に戻す。`F` が型パラメータを含まないときは
   `rt.RegisterShowUnwrap` が field representation の reflect.Type も登録し、
