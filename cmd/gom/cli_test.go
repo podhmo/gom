@@ -167,6 +167,29 @@ func TestCheckDiagnosticsText(t *testing.T) {
 	}
 }
 
+// TestTestClobberGuardTestFile: `gom test` refuses a handwritten
+// _test.go sharing the generated test-output name, and the refusal
+// advises shim_test.go (shim.go would escape test discovery).
+func TestTestClobberGuardTestFile(t *testing.T) {
+	t.Parallel()
+
+	dir := writeFiles(t, map[string]string{
+		"m.gom":     "package main\n\ntest \"ok\" {\n  assert true\n}\n",
+		"m_test.go": "// handwritten tests\npackage main\n",
+	})
+	code, out, _ := invoke("test", filepath.Join(dir, "m.gom"))
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1 (E0003 diagnostic); out=%q", code, out)
+	}
+	if !strings.Contains(out, "E0003") || !strings.Contains(out, "shim_test.go") {
+		t.Fatalf("missing refusal or shim_test.go advice: %q", out)
+	}
+	got, err := os.ReadFile(filepath.Join(dir, "m_test.go"))
+	if err != nil || !strings.HasPrefix(string(got), "// handwritten tests") {
+		t.Fatalf("handwritten test file changed: %q err=%v", got, err)
+	}
+}
+
 // TestBuildClobberGuard: a handwritten .go file sharing the
 // generated name is never overwritten — `host.gom` emits `host.go`
 // beside it, and the guard refuses files without the generated
