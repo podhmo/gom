@@ -30,7 +30,7 @@ recipe であり、go-cmp の判定には置き換えない。
 スナップショットファイル名は source test 名と key を filesystem-safe に
 折り畳み、常に短い hash を suffix に付けて test/key pair の衝突を避ける。
 dedup 後の Go 関数名は declaration order で変わるので namespace に使わない。
-長すぎる名前は rune 境界で短縮する。key は test 名の namespace 内で一意に
+長すぎる名前は byte 上限内の UTF-8 境界で短縮する。key は test 名の namespace 内で一意に
 する運用を前提とし、コンパイラは重複を検査しない。baseline の書き込みは
 sibling temp からの rename で atomic に行い、通常実行では親環境の
 `GOM_TEST_UPDATE_SNAPSHOTS` を継承しないよう child env に 0/1 を明示する。

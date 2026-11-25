@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/google/go-cmp/cmp"
 )
@@ -102,6 +103,8 @@ func snapshotRoot(t *testing.T) string {
 	return snapshotRootDir
 }
 
+var renameSnapshotFile = os.Rename
+
 // writeSnapshotAtomic rewrites a baseline through a sibling temp file
 // so a failed update never truncates the previously good snapshot.
 func writeSnapshotAtomic(path, value string) error {
@@ -124,11 +127,24 @@ func writeSnapshotAtomic(path, value string) error {
 		_ = os.Remove(tmpName)
 		return err
 	}
-	if err := os.Rename(tmpName, path); err != nil {
+	if err := renameSnapshotFile(tmpName, path); err != nil {
 		_ = os.Remove(tmpName)
 		return err
 	}
 	return nil
+}
+
+// truncateUTF8Bytes truncates s to at most max bytes without cutting
+// through a multibyte rune. The byte count matters because filesystem
+// name limits are byte limits, not character limits.
+func truncateUTF8Bytes(s string, max int) string {
+	if len(s) <= max {
+		return s
+	}
+	for max > 0 && !utf8.RuneStart(s[max]) {
+		max--
+	}
+	return s[:max]
 }
 
 // snapshotName maps a test/key pair to a stable filesystem-safe
@@ -150,9 +166,7 @@ func snapshotName(testName, key string) string {
 		base = "snapshot"
 	}
 	sum := sha256.Sum256([]byte(testName + "\x00" + key))
-	if rs := []rune(base); len(rs) > 80 {
-		base = string(rs[:80])
-	}
+	base = truncateUTF8Bytes(base, 80)
 	base += "_" + hex.EncodeToString(sum[:])[:12]
 	return base + ".snap"
 }
