@@ -105,7 +105,14 @@ func (e *interp) litValueTyped(kind syntax.LitKind, text string, typ types.Type,
 				return &VFloat{F: f32, W: 32}
 			}
 		}
-		return &VFloat{F: roundFloat(width, f.F), W: width}
+		// Stamp only width 32 — zero is the float64 default, and a
+		// width-64 tag would split otherwise-equal values in the
+		// boxed-any DeepEqual comparison (a literal carries the tag
+		// where an arithmetic result carries none).
+		if width == 32 {
+			return &VFloat{F: roundFloat(width, f.F), W: 32}
+		}
+		return &VFloat{F: f.F}
 	}
 	return v
 }

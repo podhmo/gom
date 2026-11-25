@@ -51,3 +51,47 @@ func TestFloat32WidthNegativeControl(t *testing.T) {
 		}
 	}
 }
+
+// TestFloatWidthTagInvariant pins the width-tag invariant the
+// boxed-any comparison depends on: only width-32 floats carry a
+// tag. A width-64 literal leaves W zero exactly like an arithmetic
+// result, so the structural DeepEqual of boxed aggregates cannot
+// split values whose float64 bits are equal (review round —
+// literals tagged W=64 compared false against untagged arithmetic).
+func TestFloatWidthTagInvariant(t *testing.T) {
+	src := `package main
+
+import go "github.com/podhmo/gom/testdata/goiface"
+
+fn plain () -> Float = 1.0
+fn narrow () -> goiface.SmallRatio = 1.0
+fn answer () -> String = ""
+fn main () -> Unit = ()
+`
+	r, err := build.Compile(
+		build.Input{Path: "widthtag.gom", Src: []byte(src)},
+		suiteOptions(),
+	)
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	if r.Diagnostics.HasError() {
+		t.Fatalf("diags: %v", r.Diagnostics)
+	}
+	ev := eval.New(r.Typed)
+	ev.SetLineIndex(diag.NewLineIndex([]byte(src)))
+	ev.SetFloatWidthOracle(floatWidthOracle())
+	for name, wantW := range map[string]int{"plain": 0, "narrow": 32} {
+		res := ev.Apply(ev.Global(name), &eval.VUnit{})
+		if !res.OK() {
+			t.Fatalf("%s: eval diags %v", name, res.Diags)
+		}
+		f, ok := res.Value.(*eval.VFloat)
+		if !ok {
+			t.Fatalf("%s is %T", name, res.Value)
+		}
+		if f.W != wantW {
+			t.Fatalf("%s: W=%d, want %d", name, f.W, wantW)
+		}
+	}
+}
