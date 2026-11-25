@@ -26,6 +26,10 @@ type chainNode struct{ Next any }
 
 type chainEnd struct{}
 
+type showErrorRecord struct{ Msg string }
+
+func (e showErrorRecord) Error() string { return "boom: " + e.Msg }
+
 func TestShowRuntimeComposites(t *testing.T) {
 	rt.RegisterShowRecord(rt.TypeOf[showPerson](), false, "name", "age")
 	rt.RegisterShowVariant(rt.TypeOf[showCircle](), "Circle", "r")
@@ -45,6 +49,19 @@ func TestShowRuntimeComposites(t *testing.T) {
 	got = rt.ShowRuntime(result.Ok[int64, error](4))
 	if want := `Ok 4`; got != want {
 		t.Errorf("result = %q, want %q", got, want)
+	}
+	rt.RegisterShowRecord(rt.TypeOf[showErrorRecord](), false, "msg")
+	got = rt.ShowRuntime(result.Err[int64, error](showErrorRecord{Msg: "bad"}))
+	if want := `Err error("boom: bad")`; got != want {
+		t.Errorf("result error payload = %q, want %q", got, want)
+	}
+	got = rt.ShowRuntime(result.Err[int64, showErrorRecord](showErrorRecord{Msg: "bad"}))
+	if want := `Err ({ msg = "bad" })`; got != want {
+		t.Errorf("concrete result payload = %q, want %q", got, want)
+	}
+	got = rt.ShowRuntime(showErrorRecord{Msg: "bad"})
+	if want := `{ msg = "bad" }`; got != want {
+		t.Errorf("root error record = %q, want %q", got, want)
 	}
 	got = rt.ShowRuntime([]any{opaquePoint{X: 1, Y: 2}})
 	if want := `[({1 2})]`; got != want {

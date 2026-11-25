@@ -174,7 +174,7 @@ func showRuntimeValue(v reflect.Value, depth int) string {
 			case 1:
 				return "Ok " + showRuntimeOperand(v.FieldByName("Value"), depth+1)
 			case 2:
-				return "Err " + showRuntimeOperand(v.FieldByName("Error"), depth+1)
+				return "Err " + showRuntimeErrorOperand(v.FieldByName("Error"), depth+1)
 			}
 		}
 		return fmt.Sprintf("%v", v.Interface())
@@ -306,6 +306,23 @@ func showRuntimeVariant(v reflect.Value, meta showMeta, depth int) string {
 		}
 	}
 	return sb.String()
+}
+
+// showRuntimeErrorOperand renders the statically error-typed payload of
+// the builtin Result representation. A record may implement error while
+// also carrying show metadata; inside Result's Error slot the interface
+// contract is the observable representation, so the Error() text wins.
+func showRuntimeErrorOperand(v reflect.Value, depth int) string {
+	staticallyError := v.IsValid() && v.Kind() == reflect.Interface && v.Type().Implements(reflect.TypeOf((*error)(nil)).Elem())
+	for v.IsValid() && v.Kind() == reflect.Interface && !v.IsNil() {
+		v = v.Elem()
+	}
+	if staticallyError && v.IsValid() && v.CanInterface() {
+		if err, ok := v.Interface().(error); ok {
+			return ShowError(err)
+		}
+	}
+	return showRuntimeOperand(v, depth)
 }
 
 func isTupleType(t reflect.Type) bool {
