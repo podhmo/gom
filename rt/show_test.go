@@ -30,6 +30,10 @@ type showErrorRecord struct{ Msg string }
 
 func (e showErrorRecord) Error() string { return "boom: " + e.Msg }
 
+type showPlainError struct{}
+
+func (showPlainError) Error() string { return "plain" }
+
 func TestShowRuntimeComposites(t *testing.T) {
 	rt.RegisterShowRecord(rt.TypeOf[showPerson](), false, "name", "age")
 	rt.RegisterShowVariant(rt.TypeOf[showCircle](), "Circle", "r")
@@ -54,6 +58,14 @@ func TestShowRuntimeComposites(t *testing.T) {
 	got = rt.ShowRuntime(result.Err[int64, error](showErrorRecord{Msg: "bad"}))
 	if want := `Err (error("boom: bad"))`; got != want {
 		t.Errorf("result error payload = %q, want %q", got, want)
+	}
+	got = rt.ShowRuntime(showPlainError{})
+	if want := `error("plain")`; got != want {
+		t.Errorf("root error = %q, want %q", got, want)
+	}
+	got = rt.ShowRuntime([]any{showPlainError{}})
+	if want := `[(error("plain"))]`; got != want {
+		t.Errorf("nested error = %q, want %q", got, want)
 	}
 	got = rt.ShowRuntime(result.Err[int64, showErrorRecord](showErrorRecord{Msg: "bad"}))
 	if want := `Err ({ msg = "bad" })`; got != want {
