@@ -84,7 +84,7 @@ fn default_config () -> Config = {
 // commithistory.New
 fn api_new (name: String) (ops: List (API -> API)) -> API = {
   let base = { config = { default_config () with name = name } }
-  List.fold (fn api op -> op api) base ops
+  List.fold (fn (api: API) (op: API -> API) -> op api) base ops
 }
 
 fn with_profile (profile: String) (api: API) -> API =
