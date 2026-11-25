@@ -35,3 +35,6 @@ go.work.sum
 
 # Executable built by examples/gist-cli/build.sh
 /gist-cli
+
+# Quint/Apalache model-checker scratch output
+/_apalache-out/
