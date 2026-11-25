@@ -19,6 +19,9 @@
 - `testdata/spec/E0417_uint_lit_range.gom` は `-1` と `2^64` の拒否を固定する
 - `testdata/spec/E0414_uint_div_width.gom` は constant-fold が unsigned division を
   使うことを固定する
+- review regression: high-bit shift count、negative fractional conversion、extern
+  `Uint64`、shadowed `Uint` の method/type-test、raw uint field write、host-width
+  dependent `bits.Reverse` expectation を固定する
 - `go_try_as_uint_type_erased_box` — type-erased `Uint` は `Go.Any` 内で uint64 として
   assert できる
 - `TestUintGoFuncCallbackRuns` — raw `func(uint) uint` について `Go.func1` / `Go.fn1`
