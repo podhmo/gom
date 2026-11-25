@@ -1958,7 +1958,8 @@
 
 - [ ] **match の到達不能 arm は `todo ()` に頼る**: catch-all `action ->` の内側で sub-match する形になると網羅性チェックの恩恵が薄れる（selfish 移植 — 同上 sketch）
 
-- [ ] **`Result (Option T, U)` の payload Option 宣言は extern 宣言側でのみ選べる**: メソッド直呼びの n-ary result は verbatim 固定なので `Ptr.to_option` の後包みが要る（selfish 移植 stage 4 nil 監査 — 同上 sketch）
+- [x] **`Result (Option T, U)` の payload Option 宣言は extern 宣言側でのみ選べる**: メソッド直呼びの n-ary result は verbatim 固定なので `Ptr.to_option` の後包みが要る（selfish 移植 stage 4 nil 監査 — 同上 sketch）
+  - 解消というより決着（wave45 lane G）: verbatim 維持を採用 — auto-wrap は arity 非一貫か err==nil ⟹ non-nil 慣習の多数派 API への unwrap 強制のどちらかになり、後包みは宣言的ビューと意味的に等価な1行のコンビネータ（[decision](decisions/2026-11-25-nary-result-ptr-verbatim.md)、[検証](sketch/2026-11-25-nary-ptr-verbatim-verify.md)）
 
 - [x] **`@method` は `Result` 返りを禁じている（E0420）**: `encoding.TextUnmarshaler` 系（`UnmarshalText([]byte) error` 等 error を返す Go interface）には使えない — defined type の `UnmarshalText` は同パッケージの `shim.go` に Go で書く回避が必要（selfish 移植 — 同上 sketch、open-questions も参照）。解消: `Result T GoError`（および `Result (Tuple ...) GoError`・`Result (Option T) GoError`）を許容し、メソッドは `(T', error)` / `error` に unwrap して emit（spec §8.9、decisions/2026-11-21-go-iface-impl の「2段目」を実装）。非 `GoError` payload は引き続き E0420。検証: gocall `methodres`（io.Writer / encoding.TextUnmarshaler / fs.ReadDirFS の Go 側適合）、golden `method_result`、spec `ok_method_result` / `E0420_method_result_payload`（wave44 lane C）
 
