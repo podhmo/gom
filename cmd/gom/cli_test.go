@@ -1492,6 +1492,15 @@ func TestInfoStdlibShortNameInspection(t *testing.T) {
 	if code == 0 || !strings.Contains(errout, "read-only") {
 		t.Fatalf("inspection with output file: exit %d, stderr=%q", code, errout)
 	}
+
+	var failErr strings.Builder
+	code = run([]string{"info", "list"}, failWriter{}, &failErr)
+	if code != 1 || !strings.Contains(failErr.String(), "E0003") {
+		t.Fatalf("stdout write failure: exit %d, stderr=%q", code, failErr.String())
+	}
+	if sum := lastSummary(t, failErr.String()); sum["ok"] != false {
+		t.Fatalf("stdout write failure summary.ok = %v, want false", sum["ok"])
+	}
 }
 
 // TestInfoDraftWritesGomi exercises `gom info`: a package without an

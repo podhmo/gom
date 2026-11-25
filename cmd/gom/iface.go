@@ -399,11 +399,11 @@ func runInfo(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stderr, "gom info: %v\n", err)
 			return diag.ExitInternal
 		}
-		if _, err := stdout.Write(src); err != nil {
-			fmt.Fprintf(stderr, "gom info: stdout: %v\n", err)
-			return diag.ExitInternal
-		}
 		rep := diag.Report{Files: []string{gomi}}
+		if _, err := stdout.Write(src); err != nil {
+			rep.Diagnostics = append(rep.Diagnostics,
+				diag.Error("E0003", "output could not be written").Set("error", err.Error()))
+		}
 		srcs := map[string][]byte{gomi: src}
 		if err := emitReport(stderr, *format, rep, srcs); err != nil {
 			fmt.Fprintf(stderr, "gom info: %v\n", err)
