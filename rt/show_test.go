@@ -20,6 +20,8 @@ type opaquePoint struct{ X, Y int }
 
 type opaqueNamedSlice []float64
 
+type viewLike[T any] []T
+
 type chainNode struct{ Next any }
 
 type chainEnd struct{}
@@ -51,6 +53,14 @@ func TestShowRuntimeComposites(t *testing.T) {
 	got = rt.ShowRuntime(opaqueNamedSlice{1, 2})
 	if want := `[1 2]`; got != want {
 		t.Errorf("opaque named slice = %q, want %q", got, want)
+	}
+	got = rt.ShowRuntime([]any{opaqueNamedSlice{1, 2}})
+	if want := `[([1 2])]`; got != want {
+		t.Errorf("nested opaque named slice = %q, want %q", got, want)
+	}
+	got = rt.ShowRuntime(list.ListView(list.List[int64]{5, 6}))
+	if want := `[5, 6]`; got != want {
+		t.Errorf("list view = %q, want %q", got, want)
 	}
 	got = rt.ShowRuntime(struct {
 		V0 int

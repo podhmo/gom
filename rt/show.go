@@ -93,6 +93,9 @@ func showRuntimeOperand(v reflect.Value, depth int) string {
 	if isTupleType(v.Type()) || (v.Kind() == reflect.Struct && v.Type().Name() == "" && v.Type().NumField() == 0) {
 		return s
 	}
+	if (v.Kind() == reflect.Slice || v.Kind() == reflect.Array) && opaqueNamedSliceType(v.Type()) {
+		return "(" + s + ")"
+	}
 	switch v.Kind() {
 	case reflect.Struct, reflect.Func, reflect.Chan, reflect.Map, reflect.Pointer, reflect.UnsafePointer:
 		return "(" + s + ")"
@@ -179,7 +182,7 @@ func showRuntimeValue(v reflect.Value, depth int) string {
 	case reflect.String:
 		return strconv.Quote(v.String())
 	case reflect.Slice, reflect.Array:
-		if t.Name() != "" && !(t.PkgPath() == "github.com/podhmo/gom/stdlib/list" && strings.HasPrefix(t.Name(), "List")) {
+		if opaqueNamedSliceType(t) {
 			return fmt.Sprintf("%v", v.Interface())
 		}
 		return showRuntimeSlice(v, depth+1)
@@ -189,6 +192,10 @@ func showRuntimeValue(v reflect.Value, depth int) string {
 		}
 	}
 	return fmt.Sprintf("%v", v.Interface())
+}
+
+func opaqueNamedSliceType(t reflect.Type) bool {
+	return t.Name() != "" && !(t.PkgPath() == "github.com/podhmo/gom/stdlib/list" && (strings.HasPrefix(t.Name(), "List") || strings.HasPrefix(t.Name(), "View")))
 }
 
 func showRuntimeSlice(v reflect.Value, depth int) string {
