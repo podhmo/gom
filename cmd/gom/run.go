@@ -101,7 +101,7 @@ func runGomRun(args []string, stdout, stderr io.Writer) int {
 			writeErrs = append(writeErrs, err)
 			continue
 		}
-		if err := writeFile(d, r.Output.Source); err != nil {
+		if err := writeGenerated(d, r.Output.Source); err != nil {
 			writeErrs = append(writeErrs, fmt.Errorf("%s: %w", d, err))
 			continue
 		}
