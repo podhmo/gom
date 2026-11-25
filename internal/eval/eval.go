@@ -1057,13 +1057,6 @@ func (e *interp) intOperandShape(t types.Type) (width int, unsigned bool) {
 	return 64, false
 }
 
-// intOperandWidth returns only the width half of intOperandShape —
-// kept for width-tag tests and sites that do not inspect signedness.
-func (e *interp) intOperandWidth(t types.Type) int {
-	w, _ := e.intOperandShape(t)
-	return w
-}
-
 // floatOperandWidth returns the machine width a float operand type
 // computes in: 32 when the type peels — through declared one-field
 // records, the way codegen's defined-type chain emits — to a named
@@ -1086,13 +1079,6 @@ func roundFloat(width int, f float64) float64 {
 		return float64(float32(f))
 	}
 	return f
-}
-
-// wrapTo narrows a signed integer to width bits and sign-extends
-// back to int64 — the historic signed shape used by the builtin
-// widths. Width 64 is the identity: int64 arithmetic already wraps.
-func wrapTo(width int, n int64) int64 {
-	return wrapInt(width, false, n)
 }
 
 // wrapInt narrows n to width bits under the operand signedness and
