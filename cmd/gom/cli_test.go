@@ -1505,6 +1505,31 @@ fn area (s: Shape) -> Float = match s {
 // still renders abstract (spec section 10 — the mark is an author's
 // claim about an impl-invisible type, which nothing in the .gom
 // sources can re-derive).
+// TestInfoWriteFailureE0003: a .gomi draft that cannot be written
+// (a directory sits at the target path) is an E0003 diagnostic with
+// ok:false and exit 1 — write failures are environment problems,
+// never exit-2 internal errors (write-failure-e0003 decision).
+func TestInfoWriteFailureE0003(t *testing.T) {
+	t.Parallel()
+
+	dir := writeFiles(t, map[string]string{
+		"lib/lib.gom": "package lib\n\nfn f () -> Int = 1\n",
+	})
+	if err := os.Mkdir(filepath.Join(dir, "lib", "lib.gomi"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	code, _, errout := invoke("info", filepath.Join(dir, "lib", "lib.gom"))
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1 (E0003 diagnostic); errout=%q", code, errout)
+	}
+	if !strings.Contains(errout, "E0003") {
+		t.Fatalf("missing E0003 in the diagnostic stream: %q", errout)
+	}
+	if sum := lastSummary(t, errout); sum["ok"] != false {
+		t.Fatalf("summary.ok = %v, want false", sum["ok"])
+	}
+}
+
 func TestInfoCarriesMutableDirective(t *testing.T) {
 	t.Parallel()
 
