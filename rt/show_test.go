@@ -20,8 +20,6 @@ type opaquePoint struct{ X, Y int }
 
 type opaqueNamedSlice []float64
 
-type viewLike[T any] []T
-
 type chainNode struct{ Next any }
 
 type chainEnd struct{}
