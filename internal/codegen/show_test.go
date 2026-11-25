@@ -83,7 +83,7 @@ func TestShowDeclInTestHalf(t *testing.T) {
 	src := string(out.TestSource)
 	for _, want := range []string{
 		"func TestPair(t *testing.T)",
-		"rt.AssertEq(t, x == x, gomShow1Deadbeef(x), gomShow1Deadbeef(x))",
+		"rt.AssertEq(t, x == x, gomShow1Deadbeef(x), gomShow1Deadbeef(x), x, x)",
 		"func gomShow1Deadbeef(v rt.Tuple2[int64, string]) string",
 		`"(" + strconv.FormatInt(v.V0, 10) + ", " + strconv.Quote(v.V1) + ")"`,
 	} {

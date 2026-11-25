@@ -4,7 +4,9 @@ package flat
 
 import (
 	rt "github.com/podhmo/gom/rt"
+	list "github.com/podhmo/gom/stdlib/list"
 	strconv "strconv"
+	strings "strings"
 	testing "testing"
 )
 
@@ -13,6 +15,37 @@ func TestAdd(t *testing.T) {
 //line test_flat.gom:6
 	tmp1 := add(1, 2)
 //line test_flat.gom:6
-	rt.AssertEq(t, tmp1 == 3, strconv.FormatInt(tmp1, 10), strconv.FormatInt(3, 10))
+	rt.AssertEq(t, tmp1 == 3, strconv.FormatInt(tmp1, 10), strconv.FormatInt(3, 10), tmp1, 3)
+//line test_flat.gom:7
+	tmp2 := add(1, 2)
+//line test_flat.gom:7
+	tmp3 := list.List[int64]{tmp2, 3}
+//line test_flat.gom:7
+	rt.Snapshot(t, "sum", gomShow1A22bc612(tmp3))
 //line test_flat.gom:5
+}
+
+//line test_flat.gom:7
+func gomShow1A22bc612(v list.List[int64]) string {
+//line test_flat.gom:7
+	var sb strings.Builder
+//line test_flat.gom:7
+	sb.WriteByte('[')
+//line test_flat.gom:7
+	for i, e := range v {
+//line test_flat.gom:7
+		if i > 0 {
+//line test_flat.gom:7
+			sb.WriteString(", ")
+//line test_flat.gom:7
+		}
+//line test_flat.gom:7
+		sb.WriteString(strconv.FormatInt(e, 10))
+//line test_flat.gom:7
+	}
+//line test_flat.gom:7
+	sb.WriteByte(']')
+//line test_flat.gom:7
+	return sb.String()
+//line test_flat.gom:7
 }

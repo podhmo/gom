@@ -1,0 +1,26 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0803",
+      "severity": "error",
+      "message": "`snapshot` may only be used inside a test block",
+      "span": {
+        "file": "E0803_snapshot_outside_test.gom",
+        "start": {
+          "line": 4,
+          "col": 3,
+          "offset": 37
+        },
+        "end": {
+          "line": 4,
+          "col": 11,
+          "offset": 45
+        }
+      },
+      "data": {
+        "builtin": "snapshot"
+      }
+    }
+  ]
+}

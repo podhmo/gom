@@ -224,8 +224,8 @@ duplicate-arm checks.
   lowers to a Go loop; `@tailrec` on a `fn` *requires* it and
   errors otherwise.
 - **Tests live in the same file:** `test "name" { ... }` body is
-  `Unit` or `Result Unit e`; `assert`/`assert_eq` exist only inside
-  `test`; `@test` marks test-only helpers. `@method` on a `fn`
+  `Unit` or `Result Unit e`; `assert`/`assert_eq`/`snapshot` exist
+  only inside `test`; `@test` marks test-only helpers. `@method` on a `fn`
   adds a Go method to the receiver record so it satisfies Go
   interfaces, including `error`-returning signatures — a
   `Result _ GoError` return unwraps to `(T, error)`/`error`
@@ -235,7 +235,10 @@ duplicate-arm checks.
   see go-interop). `gom test FILE|DIR ...`
   writes the `.go` plus a `_test.go` beside each input and runs the
   package's tests through `go test -json`; a failed `assert_eq`
-  reports both values in the assertion message.
+  reports both values plus a go-cmp structural diff when available.
+  `snapshot value key` records the value's display text under
+  `__snapshot__/`; use `gom test --update` (or `-u`) to write or
+  refresh snapshot files.
 - **Stdlib modules exist:** `List.map`, `List.filter`, `List.fold`,
   `List.filter_map`, `List.find_map`,
   `List.sum`, `List.sum_int`, `List.rev`, `List.head`, `List.get`, `List.take`,

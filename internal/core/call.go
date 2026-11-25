@@ -211,7 +211,8 @@ type CallBuiltin struct {
 	// emits the displayed operands of rt.AssertEq through it
 	// (docs/design.md section 4.8), and for `display`, where it
 	// renders the spliced value (docs/design.md section 4.8 —
-	// composite splices reuse the gomShow machinery). Nil for
+	// composite splices reuse the gomShow machinery), and for
+	// `snapshot`, where it renders the recorded value. Nil for
 	// every other builtin.
 	Show *ShowPlan
 }

@@ -1,0 +1,5 @@
+package ex
+
+fn main () -> Unit = {
+  snapshot [1] "items"
+}

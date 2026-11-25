@@ -104,6 +104,7 @@ replace github.com/podhmo/gom => %s
 		}
 	}
 	cmd := exec.Command("go", "run", ".")
+	cmd.Env = append(os.Environ(), "GOWORK=off", "GOFLAGS=-mod=mod")
 	cmd.Dir = dir
 	out, err := cmd.CombinedOutput()
 	return string(out), err

@@ -257,7 +257,7 @@ func TestOptionEqOptionOrd(t *testing.T) {
 //line stdlib/cmp/cmp.gom:225
 	tmp227 := list.List[option.Option[int64]]{tmp224, tmp225, tmp226}
 //line stdlib/cmp/cmp.gom:225
-	rt.AssertEq(t, gomEq10943da16(tmp223, tmp227), gomShow10943da16(tmp223), gomShow10943da16(tmp227))
+	rt.AssertEq(t, gomEq10943da16(tmp223, tmp227), gomShow10943da16(tmp223), gomShow10943da16(tmp227), tmp223, tmp227)
 //line stdlib/cmp/cmp.gom:213
 }
 
@@ -396,7 +396,7 @@ func TestListEqListOrd(t *testing.T) {
 //line stdlib/cmp/cmp.gom:241
 	tmp281 := list.List[list.List[int64]]{tmp278, tmp279, tmp280}
 //line stdlib/cmp/cmp.gom:241
-	rt.AssertEq(t, gomEq20943da16(tmp277, tmp281), gomShow30943da16(tmp277), gomShow30943da16(tmp281))
+	rt.AssertEq(t, gomEq20943da16(tmp277, tmp281), gomShow30943da16(tmp277), gomShow30943da16(tmp281), tmp277, tmp281)
 //line stdlib/cmp/cmp.gom:228
 }
 
@@ -503,7 +503,7 @@ func TestPairEqPairOrd(t *testing.T) {
 //line stdlib/cmp/cmp.gom:254
 	tmp322 := list.List[rt.Tuple2[int64, string]]{tmp319, tmp320, tmp321}
 //line stdlib/cmp/cmp.gom:254
-	rt.AssertEq(t, gomEq40943da16(tmp318, tmp322), gomShow50943da16(tmp318), gomShow50943da16(tmp322))
+	rt.AssertEq(t, gomEq40943da16(tmp318, tmp322), gomShow50943da16(tmp318), gomShow50943da16(tmp322), tmp318, tmp322)
 //line stdlib/cmp/cmp.gom:244
 }
 
@@ -618,7 +618,7 @@ func TestResultEqResultOrd(t *testing.T) {
 //line stdlib/cmp/cmp.gom:268
 	tmp366 := list.List[result.Result[int64, string]]{tmp363, tmp364, tmp365}
 //line stdlib/cmp/cmp.gom:268
-	rt.AssertEq(t, gomEq50943da16(tmp362, tmp366), gomShow70943da16(tmp362), gomShow70943da16(tmp366))
+	rt.AssertEq(t, gomEq50943da16(tmp362, tmp366), gomShow70943da16(tmp362), gomShow70943da16(tmp366), tmp362, tmp366)
 //line stdlib/cmp/cmp.gom:257
 }
 
@@ -631,7 +631,7 @@ func TestMinMaxSort(t *testing.T) {
 //line stdlib/cmp/cmp.gom:272
 	tmp369 := option.Option[int64](option.Option_Some[int64]{V0: 1})
 //line stdlib/cmp/cmp.gom:272
-	rt.AssertEq(t, tmp368 == tmp369, gomShow20943da16(tmp368), gomShow20943da16(tmp369))
+	rt.AssertEq(t, tmp368 == tmp369, gomShow20943da16(tmp368), gomShow20943da16(tmp369), tmp368, tmp369)
 //line stdlib/cmp/cmp.gom:273
 	tmp370 := list.List[int64]{3, 1, 2}
 //line stdlib/cmp/cmp.gom:273
@@ -639,7 +639,7 @@ func TestMinMaxSort(t *testing.T) {
 //line stdlib/cmp/cmp.gom:273
 	tmp372 := option.Option[int64](option.Option_Some[int64]{V0: 3})
 //line stdlib/cmp/cmp.gom:273
-	rt.AssertEq(t, tmp371 == tmp372, gomShow20943da16(tmp371), gomShow20943da16(tmp372))
+	rt.AssertEq(t, tmp371 == tmp372, gomShow20943da16(tmp371), gomShow20943da16(tmp372), tmp371, tmp372)
 //line stdlib/cmp/cmp.gom:274
 	tmp373 := list.List[int64]{}
 //line stdlib/cmp/cmp.gom:274
@@ -647,7 +647,7 @@ func TestMinMaxSort(t *testing.T) {
 //line stdlib/cmp/cmp.gom:274
 	tmp375 := option.Option[int64](option.Option_None[int64]{})
 //line stdlib/cmp/cmp.gom:274
-	rt.AssertEq(t, tmp374 == tmp375, gomShow20943da16(tmp374), gomShow20943da16(tmp375))
+	rt.AssertEq(t, tmp374 == tmp375, gomShow20943da16(tmp374), gomShow20943da16(tmp375), tmp374, tmp375)
 //line stdlib/cmp/cmp.gom:275
 	tmp376 := Desc[int64](IntOrd)
 //line stdlib/cmp/cmp.gom:275
@@ -657,7 +657,7 @@ func TestMinMaxSort(t *testing.T) {
 //line stdlib/cmp/cmp.gom:275
 	tmp379 := option.Option[int64](option.Option_Some[int64]{V0: 1})
 //line stdlib/cmp/cmp.gom:275
-	rt.AssertEq(t, tmp378 == tmp379, gomShow20943da16(tmp378), gomShow20943da16(tmp379))
+	rt.AssertEq(t, tmp378 == tmp379, gomShow20943da16(tmp378), gomShow20943da16(tmp379), tmp378, tmp379)
 //line stdlib/cmp/cmp.gom:276
 	tmp380 := list.List[int64]{3, 1, 2}
 //line stdlib/cmp/cmp.gom:276
@@ -665,7 +665,7 @@ func TestMinMaxSort(t *testing.T) {
 //line stdlib/cmp/cmp.gom:276
 	tmp382 := list.List[int64]{1, 2, 3}
 //line stdlib/cmp/cmp.gom:276
-	rt.AssertEq(t, gomEq30943da16(tmp381, tmp382), gomShow40943da16(tmp381), gomShow40943da16(tmp382))
+	rt.AssertEq(t, gomEq30943da16(tmp381, tmp382), gomShow40943da16(tmp381), gomShow40943da16(tmp382), tmp381, tmp382)
 //line stdlib/cmp/cmp.gom:277
 	tmp383 := Desc[int64](IntOrd)
 //line stdlib/cmp/cmp.gom:277
@@ -675,7 +675,7 @@ func TestMinMaxSort(t *testing.T) {
 //line stdlib/cmp/cmp.gom:277
 	tmp386 := list.List[int64]{3, 2, 1}
 //line stdlib/cmp/cmp.gom:277
-	rt.AssertEq(t, gomEq30943da16(tmp385, tmp386), gomShow40943da16(tmp385), gomShow40943da16(tmp386))
+	rt.AssertEq(t, gomEq30943da16(tmp385, tmp386), gomShow40943da16(tmp385), gomShow40943da16(tmp386), tmp385, tmp386)
 //line stdlib/cmp/cmp.gom:278
 	tmp387 := list.List[string]{"b", "a"}
 //line stdlib/cmp/cmp.gom:278
@@ -683,7 +683,7 @@ func TestMinMaxSort(t *testing.T) {
 //line stdlib/cmp/cmp.gom:278
 	tmp389 := list.List[string]{"a", "b"}
 //line stdlib/cmp/cmp.gom:278
-	rt.AssertEq(t, gomEq60943da16(tmp388, tmp389), gomShow90943da16(tmp388), gomShow90943da16(tmp389))
+	rt.AssertEq(t, gomEq60943da16(tmp388, tmp389), gomShow90943da16(tmp388), gomShow90943da16(tmp389), tmp388, tmp389)
 //line stdlib/cmp/cmp.gom:271
 }
 

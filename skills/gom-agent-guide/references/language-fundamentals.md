@@ -342,6 +342,7 @@ fn fixture () -> Int = 3          // visible only to tests/@test defs
 test "add works" {
   assert (add 1 1 == 2)
   assert_eq (add 1 (fixture ())) 4
+  snapshot [1, 2] "items"
 }
 
 test "may fail" {
@@ -355,8 +356,11 @@ fn add_res (a: Int) (b: Int) -> Result Int String = Ok (a + b)
 
 - `test "name" { ... }`: body type `Unit` or `Result Unit e`
   (`Err` fails the test); anything else is E0801.
-- `assert cond`, `assert_eq actual expected` — only inside `test`
-  (E0803); `assert_eq` needs `==`-able types.
+- `assert cond`, `assert_eq actual expected`, `snapshot value key` —
+  only inside `test` (E0803); `assert_eq` needs `==`-able types and
+  adds a go-cmp diff on failure when the raw values are inspectable.
+  `snapshot` records the value's display text in `__snapshot__/`;
+  `gom test --update` / `-u` writes or refreshes it.
 - `@test` defs are test-scope-only (E0802), share the package
   namespace, never appear in `.gomi`.
 - `gom build`/`gom check` type-check tests but emit no test code;

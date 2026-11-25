@@ -23,6 +23,6 @@ func TestWiden(t *testing.T) {
 //line flat_generic_widen.gom:16
 	tmp4 := callw(tmp3)
 //line flat_generic_widen.gom:16
-	rt.AssertEq(t, tmp4 == 1, strconv.FormatInt(tmp4, 10), strconv.FormatInt(1, 10))
+	rt.AssertEq(t, tmp4 == 1, strconv.FormatInt(tmp4, 10), strconv.FormatInt(1, 10), tmp4, 1)
 //line flat_generic_widen.gom:15
 }

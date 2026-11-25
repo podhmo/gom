@@ -267,5 +267,6 @@
 | [method-iface-width-exact](2026-11-25-method-iface-width-exact.md) | @method の interface 適合判定を raw 幅で行う | 採用 |
 | [nary-result-ptr-verbatim](2026-11-25-nary-result-ptr-verbatim.md) | n-ary Result の pointer payload は verbatim のまま — Option は後包みか extern で選ぶ | 採用 |
 | [splice-display-type-driven](2026-11-25-splice-display-type-driven.md) | splice 表示は静的型駆動 — scalar 束縛の宣言型も record 形で描く | 採用 |
+| [test-snapshots-go-cmp](2026-11-25-test-snapshots-go-cmp.md) | テストスナップショットと go-cmp 差分 | 採用 |
 | [write-failure-e0003](2026-11-25-write-failure-e0003.md) | write 失敗は E0003 診断（exit 2 → 1） | 採用 |
 <!-- END GENERATED -->

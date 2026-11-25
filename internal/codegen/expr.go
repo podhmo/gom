@@ -382,12 +382,21 @@ func (g *gen) callBuiltin(c *core.CallBuiltin) ast.Expr {
 		for _, a := range c.Args {
 			args = append(args, g.showExpr(c.Show, g.atom(a)))
 		}
+		// Raw operands ride along for go-cmp's structural failure
+		// diff; equality still uses the Gom recipe verdict above.
+		for _, a := range c.Args {
+			args = append(args, g.atom(a))
+		}
 		return &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual(rtPath) + "AssertEq"),
 			Args: args}
 	case "assert":
 		// rt.Assert(t, cond)
 		return &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual(rtPath) + "Assert"),
 			Args: append([]ast.Expr{ast.NewIdent("t")}, g.atoms(c.Args)...)}
+	case "snapshot":
+		// rt.Snapshot(t, key, rendered value)
+		return &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual(rtPath) + "Snapshot"),
+			Args: []ast.Expr{ast.NewIdent("t"), g.atom(c.Args[1]), g.showExpr(c.Show, g.atom(c.Args[0]))}}
 	case "todo":
 		// rt.Todo[T]() panics at the hole.
 		fun := &ast.IndexExpr{X: ast.NewIdent(g.pkgQual(rtPath) + "Todo"),

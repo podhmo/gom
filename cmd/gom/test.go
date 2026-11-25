@@ -38,6 +38,8 @@ func runTest(args []string, stdout, stderr io.Writer) int {
 	format := fs.String("format", "json", "diagnostic format: json or text")
 	quiet := fs.Bool("q", false, "suppress the raw Go stack trace in panic output")
 	fs.BoolVar(quiet, "quiet", false, "suppress the raw Go stack trace in panic output")
+	update := fs.Bool("update", false, "update snapshot files")
+	fs.BoolVar(update, "u", false, "update snapshot files")
 	strict := &strictFlag{}
 	fs.Var(strict, "strict", "exit non-zero on warnings; -strict=CODES limits to the listed codes")
 	if err := fs.Parse(gomArgs); err != nil {
@@ -137,7 +139,7 @@ func runTest(args []string, stdout, stderr io.Writer) int {
 	}
 
 	if !diag.List(rep.Diagnostics).HasError() {
-		runGoTests(inputs, results, failed, *quiet, goArgs, &rep)
+		runGoTests(inputs, results, failed, *quiet, *update, goArgs, &rep)
 	}
 	if err := emitReport(stdout, *format, rep, srcs); err != nil {
 		fmt.Fprintf(stderr, "gom test: %v\n", err)
@@ -162,7 +164,7 @@ type testDir struct {
 // Results in failed — packages the interface pass withheld — do not
 // join a directory's test run, the same withhold gom build applies
 // to their .go output.
-func runGoTests(inputs []input, results []*build.Result, failed map[*build.Result]bool, quiet bool, goArgs []string, rep *diag.Report) {
+func runGoTests(inputs []input, results []*build.Result, failed map[*build.Result]bool, quiet bool, update bool, goArgs []string, rep *diag.Report) {
 	var dirs []*testDir
 	byDir := map[string]*testDir{}
 	for i, in := range inputs {
@@ -212,7 +214,11 @@ func runGoTests(inputs []input, results []*build.Result, failed map[*build.Resul
 	}
 
 	for _, d := range dirs {
-		run, err := build.RunGoTest("", d.dir, goArgs...)
+		env := []string(nil)
+		if update {
+			env = append(os.Environ(), "GOM_TEST_UPDATE_SNAPSHOTS=1")
+		}
+		run, err := build.RunGoTestEnv("", d.dir, env, goArgs...)
 		if err != nil {
 			// go test could not be invoked at all or broke its output
 			// contract — the toolchain itself failed, which is a

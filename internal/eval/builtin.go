@@ -42,6 +42,17 @@ func builtinByName(name string, typ types.Type) *VFunc {
 			}
 			return &VUnit{}, nil
 		}
+	case "snapshot":
+		// Snapshot files are runner state, not program semantics; in
+		// the evaluator oracle the builtin only validates the key and
+		// succeeds. The generated test runner performs the comparison.
+		arity = 2
+		impl = func(args []Value) (Value, error) {
+			if _, ok := args[1].(*VStr); !ok {
+				return nil, fmt.Errorf("snapshot key is %s, want String", args[1].String())
+			}
+			return &VUnit{}, nil
+		}
 	case "not":
 		// `not x` is the Bool negation codegen emits as `!x`.
 		arity = 1

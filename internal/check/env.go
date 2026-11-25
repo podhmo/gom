@@ -269,6 +269,9 @@ func builtinSigs(v *builtinTVar) map[string]Signature {
 		// assert_eq actual expected : Unit — the no-function
 		// restriction of `==` (spec 11.4) is enforced at the call.
 		"assert_eq": {Type: types.Fn(types.Unit, types.P(a), types.P(a))},
+		// snapshot value key : Unit — records value's display text
+		// under a string key inside a test block.
+		"snapshot": {Type: types.Fn(types.Unit, types.P(a), types.P(types.String))},
 		// todo () : a — diverges (panics) when reached.
 		"todo": {Type: types.Fn(v.named("todo_ret"), types.P(types.Unit))},
 		// not x : Bool — the `!` negation builtin (its lowering

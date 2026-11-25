@@ -853,7 +853,7 @@ func (c *checker) valOf(sym *resolve.Symbol, sp diag.Span) (types.Type, []types.
 		return c.quietMeta(sp, fmt.Sprintf("the type of `%s`", sym.Name)), nil
 	}
 	if sym.Kind == resolve.KindBuiltin && !c.inTest &&
-		(sym.Name == "assert" || sym.Name == "assert_eq") {
+		(sym.Name == "assert" || sym.Name == "assert_eq" || sym.Name == "snapshot") {
 		// assert/assert_eq compile to rt.Assert*(t, ...) — t is
 		// the *testing.T only a generated test function binds.
 		// The restriction is reported here rather than at
