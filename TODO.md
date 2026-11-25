@@ -35,8 +35,8 @@
 
 - [x] **[wave45 lane A] `@method` の境界綴り `Int` → `int`/`int64` 選択**: interface 側が `int64` を要求するシグネチャ（`io.Seeker.Seek`）に emit が適合しない実バグ — check は通るが生成 Go が不一致
 - [x] **[wave45 lane B] eval の float32 値表現**: VFloat は f64 オンリーで compiled の f32 比較と分岐（`16777217.0`）— width-aware な値表現が要る（#226 escalate）
-- [ ] **[wave45 lane C] 宣言型 splice 表示の正**: compiled `{ on = true }` vs テスト oracle `true` — 正を決める decision + 揃え実装
-- [ ] **[wave45 lane G] n-ary `Result` の payload Option verbatim 固定**: メソッド直呼びの n-ary result は verbatim 固定で `Ptr.to_option` 後包みが要る（selfish 観測・open-questions 済み）
+- [x] **[wave45 lane C] 宣言型 splice 表示の正**: compiled `{ on = true }` vs テスト oracle `true` — 正を決める decision + 揃え実装
+- [x] **[wave45 lane G] n-ary `Result` の payload Option verbatim 固定**: メソッド直呼びの n-ary result は verbatim 固定で `Ptr.to_option` 後包みが要る（selfish 観測・open-questions 済み）
 
 ### 基盤（最初に着手。P0 と並列に進められる）
 
