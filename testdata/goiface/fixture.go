@@ -151,3 +151,6 @@ type Label string
 
 // LabelOf returns a named string through the Go boundary.
 func LabelOf(s string) Label { return Label(s) }
+
+// Big is a named uint64 — the unsigned width-64 shape.
+type Big uint64

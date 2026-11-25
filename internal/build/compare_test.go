@@ -479,6 +479,25 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 		want: "{ mode = 4294967295 }",
 	},
 	{
+		// lane C review: width-64 unsigned values above MaxInt64
+		// round-trip through the evaluator's bit pattern, print as
+		// unsigned, and divide as uint64 rather than signed int64.
+		name: "splice_go_named_uint64_boundary",
+		src: `package main
+
+import go "fmt"
+import go "github.com/podhmo/gom/testdata/goiface"
+
+fn answer () -> String = {
+  let x : goiface.Big = 9223372036854775808
+  let y = x / 2
+  "${x}:${y}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "9223372036854775808:4611686018427387904",
+	},
+	{
 		// P2-2c: the same delayed-reference cycle through a
 		// destructuring let — tuple, record, and a single-variant
 		// constructor all bind `count` as a named wrapper.
