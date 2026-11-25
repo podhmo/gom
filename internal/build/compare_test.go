@@ -459,26 +459,6 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 		want: "4294967295:0",
 	},
 	{
-		// lane C review: unsigned formatting must not bypass the
-		// type-driven record shape — a scalar literal bound to a
-		// one-field record still displays with its field name.
-		name: "splice_go_named_unsigned_record_shape",
-		src: `package main
-
-import go "fmt"
-import go "os"
-
-type ModeBox = { mode : os.FileMode }
-
-fn answer () -> String = {
-  let x : ModeBox = 4294967295
-  "${x}"
-}
-fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
-`,
-		want: "{ mode = 4294967295 }",
-	},
-	{
 		// lane C review: width-64 unsigned values above MaxInt64
 		// round-trip through the evaluator's bit pattern, print as
 		// unsigned, and divide as uint64 rather than signed int64.
@@ -2233,6 +2213,37 @@ let w = Score 42
 		},
 		want: "41:s42",
 	},
+}
+
+// TestEvalUnsignedRecordShape pins the evaluator half of the lane C
+// review fix without involving compiled nested parentheses: unsigned
+// formatting must happen after the declared one-field record shape is
+// restored. Compiled nested foreign-scalar parentheses are wave46
+// lane A's separate canonicalization.
+func TestEvalUnsignedRecordShape(t *testing.T) {
+	src := `package main
+
+import go "fmt"
+import go "os"
+
+type ModeBox = { mode : os.FileMode }
+
+fn answer () -> String = {
+  let x : ModeBox = 4294967295
+  "${x}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`
+	r, err := build.Compile(build.Input{Path: "unsigned_record.gom", Src: []byte(src)}, suiteOptions())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Diagnostics.HasError() {
+		t.Fatalf("diagnostics: %v", r.Diagnostics)
+	}
+	if got, want := evalAnswer(t, r, src), "{ mode = 4294967295 }"; got != want {
+		t.Fatalf("eval display = %q, want %q", got, want)
+	}
 }
 
 // evalAnswer applies the file's `answer` through internal/eval and
