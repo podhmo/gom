@@ -805,7 +805,7 @@ test "rendered items" {
 2. テストは `.gomi` で公開していない定義も呼べる
 3. `@test` を付けた定義はテスト用のスコープに入り、テストと他の `@test` 定義からしか参照できない。名前空間はパッケージと共有するので、通常の定義と同じ名前は付けられない
 4. アサーションは `assert cond` と `assert_eq actual expected`。`assert_eq` は `==` が使える型（関数を含まない型）にだけ使える。失敗すると両方の値を表示し、構造比較できる値では go-cmp の `diff (-expected +actual)` を添える（Go 由来の値は `fmt` の `%v` で表示するが、underlying が numeric / bool / string の named scalar は underlying scalar の表示に従う）。どちらも `test` ブロックの中でだけ使える（外で呼ぶ・値として参照するのは E0803）
-5. スナップショットは `snapshot value key`。`value` を `assert_eq` と同じ表示形式に描き、生成 `_test.go` のあるディレクトリの `__snapshot__/` に key ごとの `.snap` ファイルとして比較する。`gom test --update`（または `-u`）のときだけ期待値ファイルを書き込み、通常実行では missing / mismatch がテスト失敗になる。`snapshot` も `test` ブロックの中でだけ使える（外では E0803）
+5. スナップショットは `snapshot value key`。`value` を `assert_eq` と同じ表示形式に描き、生成 `_test.go` のあるディレクトリの `__snapshot__/` に key ごとの `.snap` ファイルとして比較する。`gom test --update`（または `-u`）のときだけ期待値ファイルを書き込み、通常実行では missing / mismatch がテスト失敗になる。`snapshot` も `test` ブロックの中でだけ使える（外では E0803）。key は test 名ごとの namespace で一意に選ぶ
 6. テストと `@test` 定義はインターフェースに含まれない
 7. `gom build` でもテストの型検査とパターン検査は行う。テストのコードは `gom test` のときだけ出力される
 
