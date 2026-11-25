@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/podhmo/gom/internal/check"
@@ -67,6 +68,13 @@ type interp struct {
 	// of the unit makes IsResult answer false for its variants
 	// unit-wide.
 	localT map[string]bool
+	// floatWidthOracle answers the machine width of a float type
+	// the interpreter cannot see through — a named Go type whose
+	// underlying is float32 (`type SmallRatio float32`). Only the
+	// go/types oracle of the loader knows it; nil means every float
+	// position judges at width 64. Evaluator.SetFloatWidthOracle
+	// installs it.
+	floatWidthOracle func(types.Type) (int, bool)
 }
 
 // letInit is the lazy initializer of one top-level `let`
@@ -251,6 +259,20 @@ func (e *Evaluator) SetMaxSteps(n int64) { e.interp.maxSteps = n }
 // unreachable. n <= 0 removes the bound — only for callers that can
 // prove the program terminates.
 func (e *Evaluator) SetMaxDepth(n int64) { e.interp.maxDepth = n }
+
+// SetFloatWidthOracle installs the width oracle for float types the
+// interpreter cannot see through — named Go types whose underlying
+// is a float kind. The contract has three outcomes: (32, true) and
+// (64, true) for float32/float64 underlyings respectively, and
+// (_, false) when the type is not float-underlying OR NOT KNOWN —
+// int-spelled literals at a position depend on the float/unknown
+// distinction to materialize as floating-point values, so an oracle
+// that answers (_, false) for a float64-underlying named type turns
+// its arithmetic integer. Without an oracle everything judges at
+// width 64.
+func (e *Evaluator) SetFloatWidthOracle(f func(types.Type) (int, bool)) {
+	e.interp.floatWidthOracle = f
+}
 
 // Global returns the value bound to the top-level symbol named name,
 // or nil.
@@ -542,7 +564,7 @@ func (e *interp) eval(x check.Expr, env *Env) Value {
 			case *check.StrText:
 				sb.WriteString(unescape(part.Text, part.Sp))
 			case *check.StrExpr:
-				sb.WriteString(display(e.eval(part.X, env)))
+				sb.WriteString(e.displayTyped(e.eval(part.X, env), part.X.Type()))
 			default:
 				panic("unreachable")
 			}
@@ -1008,6 +1030,30 @@ func (e *interp) intOperandWidth(t types.Type) int {
 	return 64
 }
 
+// floatOperandWidth returns the machine width a float operand type
+// computes in: 32 when the type peels — through declared one-field
+// records, the way codegen's defined-type chain emits — to a named
+// Go type whose underlying is float32, 64 otherwise. Peelable
+// records need no oracle: a user `type Float` shadows nothing here
+// because only the emitted scalar shape decides the width. Values
+// at width 32 carry the canonical float64 image of their float32
+// value — like the VInt invariant, host-supplied or hand-built
+// values are repaired at the operation instead of trusting
+// construction.
+func (e *interp) floatOperandWidth(t types.Type) int {
+	w, _ := e.floatKindOf(t)
+	return w
+}
+
+// roundFloat narrows f to the float32 image width 32 carries —
+// the canonical form every width-32 VFloat keeps.
+func roundFloat(width int, f float64) float64 {
+	if width == 32 {
+		return float64(float32(f))
+	}
+	return f
+}
+
 // wrapTo narrows n to width bits and sign-extends back to int64 —
 // the per-operation two's-complement wrap of spec 3.3. Width 64 is
 // the identity: int64 arithmetic already wraps.
@@ -1027,7 +1073,14 @@ func (e *interp) evalUnary(x *check.Unary, env *Env) Value {
 		case *VInt:
 			return &VInt{N: wrapTo(e.intOperandWidth(x.X.Type()), -v.N)}
 		case *VFloat:
-			return &VFloat{F: -v.F}
+			// Negating a zero LITERAL folds like a Go constant
+			// expression: untyped constants carry no signed zero,
+			// so `-0`/`-0.0` emit as positive zero while runtime
+			// negation of a non-literal +0.0 stays IEEE -0.
+			if _, lit := x.X.(*check.Lit); lit && v.F == 0 {
+				return &VFloat{F: 0, W: v.W}
+			}
+			return &VFloat{F: -v.F, W: v.W}
 		default:
 			failData(CodeInternal, "negation of a non-number", x.Span(), "value", v.String())
 		}
@@ -1164,6 +1217,34 @@ func (e *interp) evalPrim(x *check.Binary, env *Env) Value {
 		r, ok := r.(*VFloat)
 		if !ok {
 			e.binMismatch(x, l, r)
+		}
+		// Per-operation machine semantics, mirroring the integer
+		// path: at width 32 the operands are canonical float32
+		// images, so converting down is lossless and the operation
+		// runs in float32 precision exactly like the emitted Go —
+		// `16777217.0` rounds at construction and compares equal
+		// to `16777216.0` where compiled float32 does.
+		w := e.floatOperandWidth(x.X.Type())
+		if w == 32 {
+			a, b := float32(l.F), float32(r.F)
+			switch x.Op {
+			case syntax.BinAdd:
+				return &VFloat{F: float64(a + b), W: 32}
+			case syntax.BinSub:
+				return &VFloat{F: float64(a - b), W: 32}
+			case syntax.BinMul:
+				return &VFloat{F: float64(a * b), W: 32}
+			case syntax.BinDiv:
+				return &VFloat{F: float64(a / b), W: 32}
+			case syntax.BinLt:
+				return &VBool{B: a < b}
+			case syntax.BinLe:
+				return &VBool{B: a <= b}
+			case syntax.BinGt:
+				return &VBool{B: a > b}
+			case syntax.BinGe:
+				return &VBool{B: a >= b}
+			}
 		}
 		switch x.Op {
 		case syntax.BinAdd:
@@ -2100,7 +2181,9 @@ func hostElem(t types.Type, rv reflect.Value) Value {
 			return &VInt{N: n}
 		case "Float":
 			switch rv.Kind() {
-			case reflect.Float32, reflect.Float64:
+			case reflect.Float32:
+				return &VFloat{F: rv.Float(), W: 32}
+			case reflect.Float64:
 				return &VFloat{F: rv.Float()}
 			}
 		case "Bool":
@@ -2226,6 +2309,105 @@ func ctorSig(info *ctorInfo) *types.Func {
 		sig.Params = append(sig.Params, types.FuncParam{Label: f.label, Type: types.Unit})
 	}
 	return sig
+}
+
+// displayTyped renders a value inside string interpolation with the
+// splice's static type: a float at a float32-width position prints
+// at float32 precision — `0.1`, not the float64 expansion of its
+// canonical image — matching the compiled interpolation's
+// float32-typed operand. Everything else renders through the
+// type-driven record shape typedDisplayValue computes.
+func (e *interp) displayTyped(v Value, t types.Type) string {
+	if f, ok := v.(*VFloat); ok {
+		if w := e.floatOperandWidth(t); w == 32 {
+			return strconv.FormatFloat(f.F, 'g', -1, 32)
+		}
+	}
+	return display(e.typedDisplayValue(v, t))
+}
+
+// typedDisplayValue wraps a scalar value into the record shape its
+// static type declares, so interpolation renders declared-type
+// values the way compiled gomShow does: type-driven, never
+// construction-driven. A scalar bound through the literal rule
+// (`let f : Flag = true`) is the same value as the record literal
+// (`{ on = true }`) in generated code — `type Flag bool` carries no
+// record at run time — and gomShow renders both as `{ on = true }`;
+// the oracle's splice now matches instead of splitting on how the
+// value was constructed (wave45 lane C). The wrap recurses through
+// peel chains (`type M = {u: UserId}` renders `{ u = ({ v = 8 }) }`)
+// and skips what does not peel: generic one-field records emit as
+// structs, and values already composite carry their own shape.
+func (e *interp) typedDisplayValue(v Value, t types.Type) Value {
+	switch v := v.(type) {
+	case *VUnit, *VBool, *VInt, *VFloat, *VChar, *VStr:
+		c, ok := types.Chase(t).(*types.Con)
+		if !ok || len(c.Args) != 0 {
+			return v
+		}
+		ri := e.recordOf(c)
+		if ri == nil || len(ri.fields) != 1 {
+			return v
+		}
+		inner := e.typedDisplayValue(v, ri.fields[0].typ)
+		return &VRecord{Type: c, Fields: []VField{{
+			Index: ri.fields[0].index, Name: ri.fields[0].name,
+			Sym: ri.fields[0].sym, V: inner,
+		}}}
+	case *VRecord:
+		// Fields literal-conformed into declared types are scalars
+		// here exactly like top-level bindings — wrap them by the
+		// declared field type the way gomShow's field recursion
+		// does.
+		ri := e.recordOf(v.Type)
+		if ri == nil {
+			return v
+		}
+		out := &VRecord{Type: v.Type}
+		for _, f := range v.Fields {
+			nf := f
+			for _, fi := range ri.fields {
+				if fi.index == f.Index {
+					nf.V = e.typedDisplayValue(f.V, fi.typ)
+					break
+				}
+			}
+			out.Fields = append(out.Fields, nf)
+		}
+		return out
+	case *VList:
+		el := listElemType(t)
+		if el == nil {
+			return v
+		}
+		out := &VList{Elems: make([]Value, len(v.Elems))}
+		for i, x := range v.Elems {
+			out.Elems[i] = e.typedDisplayValue(x, el)
+		}
+		return out
+	case *VTuple:
+		tp, ok := types.Chase(t).(*types.Tuple)
+		if !ok || len(tp.Elems) != len(v.Elems) {
+			return v
+		}
+		out := &VTuple{Elems: make([]Value, len(v.Elems))}
+		for i, x := range v.Elems {
+			out.Elems[i] = e.typedDisplayValue(x, tp.Elems[i])
+		}
+		return out
+	default:
+		return v
+	}
+}
+
+// listElemType extracts the element type of a List static type —
+// nil for anything else.
+func listElemType(t types.Type) types.Type {
+	c, ok := types.Chase(t).(*types.Con)
+	if ok && c.Qual == "" && c.Name == "List" && len(c.Args) == 1 {
+		return c.Args[0]
+	}
+	return nil
 }
 
 // display renders a value inside string interpolation: scalar values

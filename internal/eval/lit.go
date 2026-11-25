@@ -46,16 +46,75 @@ func (e *interp) floatBackedField(t types.Type) bool {
 	return false
 }
 
+// floatKindOf reports whether a type computes in a float machine
+// type at all, and at which width: the builtin Float is (64, true),
+// a one-field declared record peels like codegen's defined-type
+// chain, and a named Go type answers through the width oracle —
+// a float32 underlying is (32, true), float64 (64, true). Anything
+// else is (64, false): not a float position.
+func (e *interp) floatKindOf(t types.Type) (int, bool) {
+	for i := 0; i < 64; i++ { // bound against a pathological cycle
+		if t == types.Float {
+			return 64, true
+		}
+		c, ok := types.Chase(t).(*types.Con)
+		if ok {
+			if ri := e.recordOf(c); ri != nil && len(ri.fields) == 1 {
+				t = ri.fields[0].typ
+				continue
+			}
+			if c.Qual == "" && c.Name == "Float" && !e.localT["Float"] {
+				return 64, true
+			}
+		}
+		if e.floatWidthOracle != nil {
+			if w, ok := e.floatWidthOracle(types.Chase(t)); ok {
+				return w, true
+			}
+		}
+		return 64, false
+	}
+	return 64, false
+}
+
 // litValueTyped is litValue plus the defined-type peel: a literal
 // whose checked type is a Float-backed declared type (`type Score
-// = {v: Float}`) must materialize as a float — matching codegen's
-// `Score(1)` — so the stored value, the pattern-bound value, and
-// the field projection all carry the same VFloat kind.
+// = {v: Float}`) or a float-underlying named Go type must
+// materialize as a float — matching codegen's `Score(1)` /
+// `SmallRatio(1)` — so the stored value, the pattern-bound value,
+// and the field projection all carry the same VFloat kind.
 func (e *interp) litValueTyped(kind syntax.LitKind, text string, typ types.Type, sp diag.Span) Value {
-	if e.floatBackedField(typ) {
+	width, floaty := e.floatKindOf(typ)
+	if floaty {
 		typ = types.Float
 	}
-	return litValue(kind, text, typ, sp)
+	v := litValue(kind, text, typ, sp)
+	// Width-canonical construction: a float literal typed at a
+	// float32-width position materializes the float32 image — the
+	// same rounding the emitted constant conversion applies — so
+	// `16777217.0` in a SmallRatio field IS `16777216.0`, matching
+	// the compiled comparison (wave45 lane B). The parse happens at
+	// the width's own precision where possible: a float64 parse
+	// rounded down afterward can land on the wrong side of a
+	// float32 midpoint (double rounding). Spellings ParseFloat
+	// rejects at 32 (base-prefixed ints) fall back to the rounded
+	// 64-bit parse.
+	if f, ok := v.(*VFloat); ok {
+		if width == 32 {
+			if f32, err := strconv.ParseFloat(text, 32); err == nil {
+				return &VFloat{F: f32, W: 32}
+			}
+		}
+		// Stamp only width 32 — zero is the float64 default, and a
+		// width-64 tag would split otherwise-equal values in the
+		// boxed-any DeepEqual comparison (a literal carries the tag
+		// where an arithmetic result carries none).
+		if width == 32 {
+			return &VFloat{F: roundFloat(width, f.F), W: 32}
+		}
+		return &VFloat{F: f.F}
+	}
+	return v
 }
 
 // isInt32Con reports whether t is the builtin Int32 constructor —

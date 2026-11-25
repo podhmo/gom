@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 
+	gotypes "go/types"
+
 	"github.com/podhmo/gom/internal/build"
 	"github.com/podhmo/gom/internal/diag"
 	"github.com/podhmo/gom/internal/goimport"
@@ -14,6 +16,7 @@ import (
 	"github.com/podhmo/gom/internal/lower"
 	"github.com/podhmo/gom/internal/resolve"
 	gomstd "github.com/podhmo/gom/internal/stdlib"
+	"github.com/podhmo/gom/internal/types"
 	// Keep the named-interface golden helper in the Go test dependency graph.
 	_ "github.com/podhmo/gom/testdata/goiface"
 	// Generated programs import these outside the test process. Keep
@@ -23,6 +26,36 @@ import (
 	_ "github.com/podhmo/gom/stdlib/option"
 	_ "github.com/podhmo/gom/stdlib/result"
 )
+
+// floatWidthOracle answers the evaluator's width questions from a
+// throwaway loader: a named Go type whose underlying is float32
+// (testdata's SmallRatio shape) computes at width 32; everything
+// else falls back to the default 64. One loader per evaluator —
+// the loader's caches are plain maps and the diff harness races
+// modes on separate goroutines.
+func floatWidthOracle() func(types.Type) (int, bool) {
+	gl := goimport.New(&goimport.Config{Dir: "../.."})
+	return func(t types.Type) (int, bool) {
+		// The underlying lookup consults the loader's interned
+		// named-type table — cold for a type no Load interned yet,
+		// so warm the ref's own package first (cached after the
+		// first query).
+		if g, ok := types.Chase(t).(*types.Go); ok {
+			_, _ = gl.Load(g.Ref.Path, true)
+		}
+		k, ok := gl.GoUnderlyingKind(t)
+		if !ok {
+			return 0, false
+		}
+		switch k {
+		case gotypes.Float32:
+			return 32, true
+		case gotypes.Float64:
+			return 64, true
+		}
+		return 0, false
+	}
+}
 
 // These tests run the file-based suites under testdata/ end to end
 // through the real driver. suiteOptions is shared by both suites.

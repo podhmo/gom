@@ -59,6 +59,178 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 		want: "3:4:5:42",
 	},
 	{
+		// wave45 lane B: float32 width semantics — both literals
+		// round to the same float32 image at construction, in eval
+		// exactly as in the compiled binary.
+		name: "float32_width_literal_rounding",
+		src: `package main
+
+import go "fmt"
+import go "github.com/podhmo/gom/testdata/goiface"
+
+fn answer () -> String = {
+  let a : goiface.SmallRatio = 16777217.0
+  let b : goiface.SmallRatio = 16777216.0
+  if a == b { "same" } else { "diff" }
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "same",
+	},
+	{
+		// lane C display: a scalar bound through the literal rule at
+		// a 1-field record type renders the RECORD shape — compiled
+		// gomShow is type-driven and never sees how the value was
+		// constructed.
+		name: "splice_scalar_literal_record_shape",
+		src: `package main
+
+import go "fmt"
+
+type Flag = {on: Bool}
+fn answer () -> String = {
+  let f : Flag = true
+  "${f}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "{ on = true }",
+	},
+	{
+		// lane C display: the wrap recurses through peel chains —
+		// a scalar at a doubly-nested declared type prints the full
+		// record nesting.
+		name: "splice_nested_peel_record_shape",
+		src: `package main
+
+import go "fmt"
+
+type UserId = {v: Int}
+type Masked = {u: UserId}
+fn answer () -> String = {
+  let m : Masked = 8
+  "${m}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "{ u = ({ v = 8 }) }",
+	},
+	{
+		// lane C display: fields of a record literal carry their own
+		// declared types — the literal-conformed scalar inside
+		// renders record-shaped too.
+		name: "splice_field_record_shape",
+		src: `package main
+
+import go "fmt"
+
+type Flag = {on: Bool}
+type Cfg = {f: Flag, n: Int}
+fn answer () -> String = {
+  let c : Cfg = { f = true, n = 1 }
+  "${c}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "{ f = ({ on = true }), n = 1 }",
+	},
+	{
+		// lane C display: the type-driven wrap recurses into List
+		// elements and tuple slots — declared-type scalars nested
+		// in composites render record-shaped everywhere.
+		name: "splice_list_tuple_record_shape",
+		src: `package main
+
+import go "fmt"
+
+type Flag = {on: Bool}
+fn answer () -> String = {
+  let fs : List Flag = [true, false]
+  let p : (Flag, Int) = (true, 3)
+  "${fs} ${p}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "[({ on = true }), ({ on = false })] (({ on = true }), 3)",
+	},
+	{
+		// lane B materialization: an int-spelled literal at a
+		// float32-underlying named type is a FLOAT value — division
+		// is floating-point, not integer.
+		name: "float32_width_int_spelled_literal",
+		src: `package main
+
+import go "fmt"
+import go "github.com/podhmo/gom/testdata/goiface"
+
+fn answer () -> String = {
+  let a : goiface.SmallRatio = 7
+  let b : goiface.SmallRatio = 2
+  "${a / b}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "3.5",
+	},
+	{
+		// lane B display: a width-32 float interpolates at float32
+		// precision — 0.1, not the float64 expansion of the
+		// canonical image.
+		name: "float32_width_interp_precision",
+		src: `package main
+
+import go "fmt"
+import go "github.com/podhmo/gom/testdata/goiface"
+
+fn answer () -> String = {
+  let a : goiface.SmallRatio = 0.1
+  "${a}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "0.1",
+	},
+	{
+		// lane B constants: a negated zero literal folds like a Go
+		// constant expression — untyped constants carry no signed
+		// zero, so `-0` at a float position prints `0`, not `-0`.
+		// (not width-specific — constant folding applies oracle-less
+		// too, so the negative control does not apply)
+		name: "float_neg_zero_literal_fold",
+		src: `package main
+
+import go "fmt"
+import go "github.com/podhmo/gom/testdata/goiface"
+
+fn answer () -> String = {
+  let a : goiface.SmallRatio = -0
+  "${a}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "0",
+	},
+	{
+		// lane B arithmetic: width-32 operations run in float32
+		// precision — the small difference vanishes under addition
+		// exactly like the compiled float32 arithmetic.
+		name: "float32_width_arithmetic",
+		src: `package main
+
+import go "fmt"
+import go "github.com/podhmo/gom/testdata/goiface"
+
+fn answer () -> String = {
+  let a : goiface.SmallRatio = 16777216.0
+  let b : goiface.SmallRatio = 1.0
+  let c = a + b
+  if c == a { "absorbed" } else { "kept" }
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "absorbed",
+	},
+	{
 		// P2-2c: the same delayed-reference cycle through a
 		// destructuring let — tuple, record, and a single-variant
 		// constructor all bind `count` as a named wrapper.
@@ -1825,6 +1997,7 @@ func evalAnswerFiles(t *testing.T, rs []*build.Result, srcs map[string][]byte) s
 		}
 	}
 	ev := eval.NewFiles(typed)
+	ev.SetFloatWidthOracle(floatWidthOracle())
 	for path, src := range srcs {
 		ev.SetLineIndexFor(path, diag.NewLineIndex(src))
 	}
