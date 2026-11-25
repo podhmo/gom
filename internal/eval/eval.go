@@ -2375,6 +2375,29 @@ func (e *interp) typedDisplayValue(v Value, t types.Type) Value {
 			out.Fields = append(out.Fields, nf)
 		}
 		return out
+	case *VVariant:
+		// Constructor payloads literal-conformed into declared
+		// types are scalars exactly like record fields — wrap them
+		// by the ctor's field types at this instantiation.
+		if v.Ctor == nil {
+			return v
+		}
+		info := e.ctorOf(v.Ctor, v.Name, t)
+		if info == nil {
+			return v
+		}
+		out := &VVariant{Type: v.Type, Ctor: v.Ctor, Name: v.Name}
+		for _, f := range v.Fields {
+			nf := f
+			for _, fi := range info.fields {
+				if fi.index == f.Index {
+					nf.V = e.typedDisplayValue(f.V, fi.typ)
+					break
+				}
+			}
+			out.Fields = append(out.Fields, nf)
+		}
+		return out
 	case *VList:
 		el := listElemType(t)
 		if el == nil {

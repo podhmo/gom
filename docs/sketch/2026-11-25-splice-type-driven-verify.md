@@ -22,6 +22,8 @@ compiled（生成バイナリ）の stdout を両方検査:
 
 - 値の表現は不変: scalar は scalar のまま（算術・等価・peel 意味論に影響なし）
   — 包むのは `displayTyped` の描画直前のみ
-- generic な 1-field record は包まない — compiled 側も struct emit で
-  record renderer を通らないためずれない
+- generic な 1-field record は包まない — generic な宣言は peel されず struct
+  emit なので scalar literal の代入がそもそも型付かず、包むべき scalar は
+  値として現れない（compiled は concrete インスタンスに ShowRecord の
+  renderer を通すが、そこに乗る値は必ず record 構築されている）
 - float32 の幅表示（lane B）と統合: `displayTyped` が一本の入口

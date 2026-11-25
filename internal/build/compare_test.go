@@ -154,6 +154,43 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 		want: "[({ on = true }), ({ on = false })] (({ on = true }), 3)",
 	},
 	{
+		// lane C display: a scalar-bound declared value inside a
+		// variant payload renders record-shaped too — gomShow plans
+		// constructor fields by type, construction path invisible.
+		name: "splice_variant_payload_record_shape",
+		src: `package main
+
+import go "fmt"
+
+type Flag = {on: Bool}
+fn answer () -> String = {
+  let f : Flag = true
+  let x : Option Flag = Some f
+  "${x}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "Some ({ on = true })",
+	},
+	{
+		// lane C display: record literals and scalar bindings draw
+		// the SAME rendering — the construction path is invisible.
+		name: "splice_record_literal_parity",
+		src: `package main
+
+import go "fmt"
+
+type Flag = {on: Bool}
+fn answer () -> String = {
+  let a : Flag = true
+  let b : Flag = { on = true }
+  "${a} ${b}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "{ on = true } { on = true }",
+	},
+	{
 		// lane B materialization: an int-spelled literal at a
 		// float32-underlying named type is a FLOAT value — division
 		// is floating-point, not integer.

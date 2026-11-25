@@ -44,4 +44,4 @@ scalar のまま保持し（算術・等価・peel 意味論を壊さない）�
 - `splice_scalar_literal_record_shape` / `splice_nested_peel_record_shape` /
   `splice_field_record_shape` / `splice_list_tuple_record_shape` —
   oracle と compiled の stdout が一致
-  （[compare_test.go](../internal/build/compare_test.go)）
+  （[compare_test.go](../../internal/build/compare_test.go)）
