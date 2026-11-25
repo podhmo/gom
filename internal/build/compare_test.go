@@ -417,6 +417,27 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 		want: "false:true",
 	},
 	{
+		// wave46 lane C: a named Go scalar splice renders through
+		// its scalar underlying, not fmt's type-specific methods —
+		// time.Duration therefore prints `1`, while a float32-underlying
+		// value keeps float32 precision.
+		name: "splice_go_named_scalar_underlying",
+		src: `package main
+
+import go "fmt"
+import go "time"
+import go "github.com/podhmo/gom/testdata/goiface"
+
+fn answer () -> String = {
+  let d : time.Duration = 1
+  let r : goiface.SmallRatio = 0.1
+  "${d}:${r}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "1:0.1",
+	},
+	{
 		// P2-2c: the same delayed-reference cycle through a
 		// destructuring let — tuple, record, and a single-variant
 		// constructor all bind `count` as a named wrapper.

@@ -2,6 +2,7 @@ package lower
 
 import (
 	"fmt"
+	gotypes "go/types"
 	"hash/fnv"
 	"slices"
 
@@ -53,6 +54,13 @@ type Env struct {
 	// keeps the raw cast so the boxed dynamic type stays list.List[T].
 	// Nil: never.
 	GoUnderlyingSliceOrArrayPtr func(t types.Type) bool
+
+	// GoUnderlyingKind reports the go/types basic kind of a named
+	// Go type's underlying — the same oracle check uses for
+	// arithmetic admission. Display uses it to render named scalar
+	// underlyings at scalar precision instead of fmt's type-specific
+	// String methods. Nil: named Go types stay opaque.
+	GoUnderlyingKind func(t types.Type) (gotypes.BasicKind, bool)
 
 	// FuncNOfNamed expands a method-less named Go func type's handle
 	// (`*types.Go` naming `pkg.F`) to the `Go.FuncN` it reads as at

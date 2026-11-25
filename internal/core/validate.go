@@ -292,7 +292,7 @@ func (v *validator) showPlan(p *ShowPlan, root bool, what string) {
 		}
 	} else {
 		switch p.Kind {
-		case ShowScalar, ShowRuntime, ShowError, ShowCall:
+		case ShowScalar, ShowGoScalar, ShowRuntime, ShowError, ShowCall:
 		default:
 			v.err(diag.Span{}, what, "composite recipe kind %s is legal only at a display decl's root", p.Kind)
 			return
@@ -323,7 +323,7 @@ func (v *validator) showPlan(p *ShowPlan, root bool, what string) {
 				v.showField(&vr.Fields[j], what)
 			}
 		}
-	case ShowScalar, ShowRuntime, ShowError:
+	case ShowScalar, ShowGoScalar, ShowRuntime, ShowError:
 	default:
 		panic("unreachable")
 	}

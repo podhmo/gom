@@ -14,8 +14,8 @@ import (
 // only renders the recipe. The rendering format matches the
 // evaluator's comparison display (internal/eval/value.go's String):
 // `Rect ~w: 2 ~h: 3`, `{ name = "n" }`, `(1, 2)`, `[1, 2]`,
-// `Ok 42` — with Go-view values shown through fmt's %v (spec
-// section 11, "Go 由来の値は `fmt` の `%v` で表示する").
+// `Ok 42` — with opaque Go-view values shown through fmt's %v;
+// named Go scalars use their scalar underlying (spec section 11).
 
 // ShowKind selects how a value of one type renders to text.
 type ShowKind int
@@ -25,6 +25,12 @@ const (
 	// decimal ints, 'g' shortest floats, quoted strings and runes,
 	// true/false bools, `()` for Unit.
 	ShowScalar ShowKind = iota + 1
+	// ShowGoScalar renders a named Go type whose underlying is a
+	// numeric, bool, or string basic type through the underlying
+	// scalar conversion. It deliberately bypasses type-specific
+	// fmt behavior (Stringer) so compiled output follows Gom's
+	// scalar semantics and matches the evaluator oracle.
+	ShowGoScalar
 	// ShowRuntime renders `fmt.Sprintf("%v", v)` — the fallback for
 	// Go-view types whose Gom-level shape does not exist or is
 	// opaque: named Go types, Task, Go.Any, function values,
@@ -62,6 +68,8 @@ func (k ShowKind) String() string {
 	switch k {
 	case ShowScalar:
 		return "scalar"
+	case ShowGoScalar:
+		return "go-scalar"
 	case ShowRuntime:
 		return "runtime"
 	case ShowError:
@@ -85,14 +93,15 @@ func (k ShowKind) String() string {
 
 // ShowPlan is one operand's display recipe — the mini-program a
 // CallBuiltin's Show field or a ShowDecl's Plan carries. Leaf kinds
-// (ShowScalar, ShowRuntime, ShowError, ShowCall) may appear
+// (ShowScalar, ShowGoScalar, ShowRuntime, ShowError, ShowCall) may appear
 // anywhere; the composite kinds (ShowTuple through ShowResult)
 // appear only as a ShowDecl's Plan — nested operands always go
 // through ShowCall, which is what keeps recursive types finite.
 type ShowPlan struct {
 	Kind ShowKind
 	// Scalar is the builtin constructor name the leaf renders —
-	// ShowScalar only.
+	// ShowScalar and ShowGoScalar only. ShowGoScalar names the
+	// underlying Go basic type with a `go:` prefix.
 	Scalar string
 	// Fn is the display function to call — ShowCall only.
 	Fn *ShowDecl

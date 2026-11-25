@@ -233,7 +233,7 @@ func (d *cdump) csplan(p *core.ShowPlan) *form {
 		return nodef("?")
 	}
 	switch p.Kind {
-	case core.ShowScalar:
+	case core.ShowScalar, core.ShowGoScalar:
 		return nodef(p.Kind.String() + " " + p.Scalar)
 	case core.ShowRuntime, core.ShowError:
 		return nodef(p.Kind.String())

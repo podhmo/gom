@@ -184,7 +184,9 @@ duplicate-arm checks.
   `RecvChan a` / `SendChan a`, `Task a`, `GoError`, `Go.Slice a`,
   `Go.Map k v`, `Go.Any`, `Go.FuncN p0 … r` (raw view of a Go func
   type, params 0–3 / results 0–8 — adapt a Gom fn in with
-  `Go.funcN f`, out with `Go.fnN f`). Type
+  `Go.funcN f`, out with `Go.fnN f`). Named Go scalar types print as
+  their scalar underlying in interpolation (`time.Duration(1)` → `1`,
+  not `1ns`). Type
   application is juxtaposed:
   `Result Int GoError`, `Option (List Int)`. Type variables are
   lowercase (`a`, `b`).

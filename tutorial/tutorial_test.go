@@ -48,7 +48,7 @@ func compileStep(t *testing.T, root, src string, checkOnly bool) *build.Result {
 	ml := gomimport.New(&gomimport.Config{Dir: dir, Go: gl, Sigs: gl, Modules: mods})
 	compiled, err := build.Compile(build.Input{Path: src, Src: source}, gomstd.Apply(&build.Options{
 		Loader: ml, Sigs: ml, Modules: mods,
-		Lower:          &lower.Env{GoSig: gl.GoSigOf, Types: ml, FuncArity: ml.ArityOf, FuncType: ml.FuncTypeOf, FuncNOfNamed: ml.FuncNOfNamed, GoUnderlyingSliceOrArrayPtr: gl.GoUnderlyingIsSliceOrArrayPtr},
+		Lower:          &lower.Env{GoSig: gl.GoSigOf, Types: ml, FuncArity: ml.ArityOf, FuncType: ml.FuncTypeOf, FuncNOfNamed: ml.FuncNOfNamed, GoUnderlyingSliceOrArrayPtr: gl.GoUnderlyingIsSliceOrArrayPtr, GoUnderlyingKind: gl.GoUnderlyingKind},
 		SelfImportPath: ml.EntryPath(),
 		CheckOnly:      checkOnly,
 	}))

@@ -5,6 +5,7 @@ import (
 	"go/ast"
 	"go/token"
 	"strconv"
+	"strings"
 
 	"github.com/podhmo/gom/internal/core"
 )
@@ -28,6 +29,8 @@ func (g *gen) showExpr(p *core.ShowPlan, x ast.Expr) ast.Expr {
 	switch p.Kind {
 	case core.ShowScalar:
 		return g.showScalar(p.Scalar, x)
+	case core.ShowGoScalar:
+		return g.showScalar(p.Scalar, x)
 	case core.ShowRuntime:
 		return &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual("fmt") + "Sprint"), Args: []ast.Expr{x}}
 	case core.ShowError:
@@ -46,6 +49,31 @@ func (g *gen) showExpr(p *core.ShowPlan, x ast.Expr) ast.Expr {
 func (g *gen) showScalar(name string, x ast.Expr) ast.Expr {
 	sv := func(fun string, args ...ast.Expr) ast.Expr {
 		return &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual("strconv") + fun), Args: args}
+	}
+	conv := func(to string) ast.Expr {
+		return &ast.CallExpr{Fun: ast.NewIdent(to), Args: []ast.Expr{x}}
+	}
+	if strings.HasPrefix(name, "go:") {
+		switch strings.TrimPrefix(name, "go:") {
+		case "bool":
+			return sv("FormatBool", conv("bool"))
+		case "int", "int8", "int16", "int32", "int64":
+			return sv("FormatInt", conv("int64"), &ast.BasicLit{Kind: token.INT, Value: "10"})
+		case "uint", "uint8", "uint16", "uint32", "uint64", "uintptr":
+			return sv("FormatUint", conv("uint64"), &ast.BasicLit{Kind: token.INT, Value: "10"})
+		case "float32":
+			return sv("FormatFloat", conv("float64"),
+				&ast.BasicLit{Kind: token.CHAR, Value: `'g'`},
+				&ast.BasicLit{Kind: token.INT, Value: "-1"},
+				&ast.BasicLit{Kind: token.INT, Value: "32"})
+		case "float64":
+			return sv("FormatFloat", conv("float64"),
+				&ast.BasicLit{Kind: token.CHAR, Value: `'g'`},
+				&ast.BasicLit{Kind: token.INT, Value: "-1"},
+				&ast.BasicLit{Kind: token.INT, Value: "64"})
+		case "string":
+			return sv("Quote", conv("string"))
+		}
 	}
 	switch name {
 	case "String":
@@ -87,7 +115,7 @@ func (g *gen) showOperand(p *core.ShowPlan, x ast.Expr) ast.Expr {
 	}
 	paren := false
 	switch p.Kind {
-	case core.ShowError, core.ShowRuntime:
+	case core.ShowError, core.ShowRuntime, core.ShowGoScalar:
 		paren = true
 	case core.ShowCall:
 		switch p.Fn.Plan.Kind {
@@ -220,7 +248,7 @@ func (g *gen) showBody(d *core.ShowDecl) {
 		g.showSum(d)
 	case core.ShowResult:
 		g.showResult(d)
-	case core.ShowScalar, core.ShowRuntime, core.ShowError, core.ShowCall:
+	case core.ShowScalar, core.ShowGoScalar, core.ShowRuntime, core.ShowError, core.ShowCall:
 		// A leaf recipe at a decl's root — the defensive plans.
 		g.raw("return ")
 		g.expr(g.showExpr(p, ast.NewIdent("v")))
