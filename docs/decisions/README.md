@@ -52,7 +52,7 @@
 | [value-representation](2026-11-01-value-representation.md) | 値の表現（ADT・List・Result） | 採用（P0-1・P0-3・P0-4 の実験で決定） |
 | [value-restriction](2026-11-01-value-restriction.md) | 一般化は value restriction 付き | 採用 |
 | [ast-representation](2026-11-02-ast-representation.md) | Placement and shape of the pre-Core intermediate representations | draft |
-| [build-driver](2026-11-02-build-driver.md) | The P1-11 build driver: error boundaries, compilation unit, and CLI shape | 採用 |
+| [build-driver](2026-11-02-build-driver.md) | The P1-11 build driver: error boundaries, compilation unit, and CLI shape（一部を [write-failure-e0003](2026-11-25-write-failure-e0003.md) で置き換え） | 採用 |
 | [builtin-type-identity](2026-11-02-builtin-type-identity.md) | Builtin type identity is decided by declaration, not by name | 採用 |
 | [canary-vet-analysis](2026-11-02-canary-vet-analysis.md) | Compile canary: stdlib-only vet-equivalent analysis on generated Go | 採用 |
 | [ci-check-scope](2026-11-02-ci-check-scope.md) | Scope of CI checks and `make check` (B-2) | 採用 |
@@ -266,4 +266,5 @@
 | [method-iface-width-exact](2026-11-25-method-iface-width-exact.md) | @method の interface 適合判定を raw 幅で行う | 採用 |
 | [nary-result-ptr-verbatim](2026-11-25-nary-result-ptr-verbatim.md) | n-ary Result の pointer payload は verbatim のまま — Option は後包みか extern で選ぶ | 採用 |
 | [splice-display-type-driven](2026-11-25-splice-display-type-driven.md) | splice 表示は静的型駆動 — scalar 束縛の宣言型も record 形で描く | 採用 |
+| [write-failure-e0003](2026-11-25-write-failure-e0003.md) | write 失敗は E0003 診断（exit 2 → 1） | 採用 |
 <!-- END GENERATED -->
