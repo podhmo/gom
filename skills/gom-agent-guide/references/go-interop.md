@@ -213,7 +213,13 @@ fn ptr_ops () -> Int = {
 ```
 
 `p1 == p2` on `Ptr` is Go pointer identity; nil tests go through
-`is_nil`/`to_option`. Passing a `Ptr` to an `any`/`Go.Any`
+`is_nil`/`to_option`. Result payloads are verbatim too — a method
+returning `(*T, error)` (or n-ary `(*T, *U, error)`) derives
+`Result (Ptr T) GoError`, and the nil-caring read is the same
+post-wrap: `let f = try os.CreateTemp ("", "x")` then
+`match Ptr.to_option f { Some _ -> ..., None -> ... }`. Declare the
+`Option` view in an `extern` only when a function (not a method)
+deserves it as its contract. Passing a `Ptr` to an `any`/`Go.Any`
 parameter is verbatim — `Ptr.new ()` + an annotation is the
 `errors.As` target shape.
 
