@@ -215,6 +215,28 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 		want: "{ v = (Some ({ on = true })) }",
 	},
 	{
+		// lane C display: a record built inside a GENERIC HELPER
+		// carries the helper's parameter in its value type — the
+		// instantiation must come from the splice's static type,
+		// not from how the value was constructed.
+		name: "splice_generic_helper_construction",
+		src: `package main
+
+import go "fmt"
+
+type Flag = {on: Bool}
+type Box a = {v: a}
+fn wrap (x: a) -> Box a = { v = x }
+fn answer () -> String = {
+  let f : Flag = true
+  let b : Box (Option Flag) = wrap (Some f)
+  "${b}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "{ v = (Some ({ on = true })) }",
+	},
+	{
 		// lane C display: record literals and scalar bindings draw
 		// the SAME rendering — the construction path is invisible.
 		name: "splice_record_literal_parity",

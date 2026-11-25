@@ -2364,10 +2364,21 @@ func (e *interp) typedDisplayValue(v Value, t types.Type) Value {
 			return v
 		}
 		// Declared field types are in terms of the record's type
-		// parameters — instantiate them at the value's own type the
-		// way reshape does, or a generic record passes the bare
-		// parameter `a` down and the payload never wraps.
-		sub := instSubst(ri.typ, v.Type)
+		// parameters — instantiate them the way reshape does, or a
+		// generic record passes the bare parameter `a` down and the
+		// payload never wraps. The instantiation comes from the
+		// splice's STATIC type when it names this record: a value
+		// built inside a generic helper carries the helper's own
+		// parameter in v.Type (`Box a` where the splice sees
+		// `Box (Option Flag)`), and construction must not decide
+		// the rendering.
+		instCon := v.Type
+		if tc, ok := types.Chase(t).(*types.Con); ok &&
+			tc.Qual == v.Type.Qual && tc.Name == v.Type.Name &&
+			len(tc.Args) == len(v.Type.Args) {
+			instCon = tc
+		}
+		sub := instSubst(ri.typ, instCon)
 		out := &VRecord{Type: v.Type}
 		for _, f := range v.Fields {
 			nf := f
