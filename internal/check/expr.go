@@ -4509,13 +4509,13 @@ func (c *checker) deferInterfaceSource(m *types.Meta) bool {
 // inside a container type argument.
 func (c *checker) typeTestKey(t types.Type) string {
 	key := types.CanonGoRepr(types.GoRepr(c.typeTestNominal(t)))
-	return strings.ReplaceAll(key, "shadowedNominal", "")
+	return strings.ReplaceAll(key, "\x00", "")
 }
 
 // typeTestNominal rewrites file-local declarations that shadow a
-// builtin to marker constructors types.GoRepr cannot mistake for
-// the builtin. Nested arguments are rewritten with them; the
-// markers are stripped from the final duplicate-detection key.
+// builtin to NUL-delimited marker constructors types.GoRepr cannot
+// mistake for the builtin. Nested arguments are rewritten with them;
+// the impossible-in-Go NUL markers are stripped from the final key.
 func (c *checker) typeTestNominal(t types.Type) types.Type {
 	switch t := types.Chase(t).(type) {
 	case *types.Con:
@@ -4525,7 +4525,7 @@ func (c *checker) typeTestNominal(t types.Type) types.Type {
 		}
 		name := t.Name
 		if t.Qual == "" && c.shadowedBuiltin(name) {
-			name = "shadowedNominal" + name
+			name = "\x00" + name + "\x00"
 		}
 		return &types.Con{Qual: t.Qual, Name: name, Args: args}
 	case *types.Func:
