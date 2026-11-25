@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/podhmo/gom/internal/check"
@@ -557,7 +558,7 @@ func (e *interp) eval(x check.Expr, env *Env) Value {
 			case *check.StrText:
 				sb.WriteString(unescape(part.Text, part.Sp))
 			case *check.StrExpr:
-				sb.WriteString(display(e.eval(part.X, env)))
+				sb.WriteString(e.displayTyped(e.eval(part.X, env), part.X.Type()))
 			default:
 				panic("unreachable")
 			}
@@ -1034,23 +1035,8 @@ func (e *interp) intOperandWidth(t types.Type) int {
 // values are repaired at the operation instead of trusting
 // construction.
 func (e *interp) floatOperandWidth(t types.Type) int {
-	for i := 0; i < 64; i++ { // bound against a pathological cycle
-		c, ok := types.Chase(t).(*types.Con)
-		if !ok {
-			break
-		}
-		if ri := e.recordOf(c); ri != nil && len(ri.fields) == 1 {
-			t = ri.fields[0].typ
-			continue
-		}
-		break
-	}
-	if e.floatWidthOracle != nil {
-		if w, ok := e.floatWidthOracle(types.Chase(t)); ok {
-			return w
-		}
-	}
-	return 64
+	w, _ := e.floatKindOf(t)
+	return w
 }
 
 // roundFloat narrows f to the float32 image width 32 carries —
@@ -2308,6 +2294,20 @@ func ctorSig(info *ctorInfo) *types.Func {
 		sig.Params = append(sig.Params, types.FuncParam{Label: f.label, Type: types.Unit})
 	}
 	return sig
+}
+
+// displayTyped renders a value inside string interpolation with the
+// splice's static type: a float at a float32-width position prints
+// at float32 precision — `0.1`, not the float64 expansion of its
+// canonical image — matching the compiled interpolation's
+// float32-typed operand.
+func (e *interp) displayTyped(v Value, t types.Type) string {
+	if f, ok := v.(*VFloat); ok {
+		if w := e.floatOperandWidth(t); w == 32 {
+			return strconv.FormatFloat(f.F, 'g', -1, 32)
+		}
+	}
+	return display(v)
 }
 
 // display renders a value inside string interpolation: scalar values

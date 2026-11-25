@@ -44,10 +44,16 @@ func floatWidthOracle() func(types.Type) (int, bool) {
 			_, _ = gl.Load(g.Ref.Path, true)
 		}
 		k, ok := gl.GoUnderlyingKind(t)
-		if !ok || k != gotypes.Float32 {
+		if !ok {
 			return 0, false
 		}
-		return 32, true
+		switch k {
+		case gotypes.Float32:
+			return 32, true
+		case gotypes.Float64:
+			return 64, true
+		}
+		return 0, false
 	}
 }
 

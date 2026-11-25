@@ -78,6 +78,43 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 		want: "same",
 	},
 	{
+		// lane B materialization: an int-spelled literal at a
+		// float32-underlying named type is a FLOAT value — division
+		// is floating-point, not integer.
+		name: "float32_width_int_spelled_literal",
+		src: `package main
+
+import go "fmt"
+import go "github.com/podhmo/gom/testdata/goiface"
+
+fn answer () -> String = {
+  let a : goiface.SmallRatio = 7
+  let b : goiface.SmallRatio = 2
+  "${a / b}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "3.5",
+	},
+	{
+		// lane B display: a width-32 float interpolates at float32
+		// precision — 0.1, not the float64 expansion of the
+		// canonical image.
+		name: "float32_width_interp_precision",
+		src: `package main
+
+import go "fmt"
+import go "github.com/podhmo/gom/testdata/goiface"
+
+fn answer () -> String = {
+  let a : goiface.SmallRatio = 0.1
+  "${a}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "0.1",
+	},
+	{
 		// lane B arithmetic: width-32 operations run in float32
 		// precision — the small difference vanishes under addition
 		// exactly like the compiled float32 arithmetic.

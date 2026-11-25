@@ -16,6 +16,13 @@ func TestFloat32WidthNegativeControl(t *testing.T) {
 		if !strings.HasPrefix(c.name, "float32_width") {
 			continue
 		}
+		if c.name == "float32_width_interp_precision" {
+			// The interpolation case pins the FORMATTING side:
+			// oracle-less the value never rounds, so its shortest
+			// float64 spelling coincides with the float32 one —
+			// the positive compiled comparison is the proof there.
+			continue
+		}
 		r, err := build.Compile(
 			build.Input{Path: c.name + ".gom", Src: []byte(c.src)},
 			suiteOptions(),
