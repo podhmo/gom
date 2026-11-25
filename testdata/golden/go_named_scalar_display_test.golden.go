@@ -4,6 +4,7 @@ package ex
 
 import (
 	rt "github.com/podhmo/gom/rt"
+	testutil "github.com/podhmo/gom/rt/testutil"
 	goiface "github.com/podhmo/gom/testdata/goiface"
 	strconv "strconv"
 	testing "testing"
@@ -16,6 +17,6 @@ func TestNamedScalarDisplayQuotesComparisons(t *testing.T) {
 //line go_named_scalar_display.gom:22
 	b := goiface.LabelOf("y")
 //line go_named_scalar_display.gom:23
-	rt.AssertEq(t, rt.Equal(a, b), strconv.Quote(string(a)), strconv.Quote(string(b)), a, b)
+	testutil.AssertEq(t, rt.Equal(a, b), strconv.Quote(string(a)), strconv.Quote(string(b)), a, b)
 //line go_named_scalar_display.gom:20
 }

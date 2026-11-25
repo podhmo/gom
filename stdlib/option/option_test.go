@@ -4,6 +4,7 @@ package option
 
 import (
 	rt "github.com/podhmo/gom/rt"
+	testutil "github.com/podhmo/gom/rt/testutil"
 	result "github.com/podhmo/gom/stdlib/result"
 	strconv "strconv"
 	testing "testing"
@@ -39,19 +40,19 @@ func TestGetAndGetOrElse(t *testing.T) {
 //line stdlib/option/option.gom:86
 	tmp28 := Get[int64](tmp27)
 //line stdlib/option/option.gom:86
-	rt.AssertEq(t, tmp28 == 1, strconv.FormatInt(tmp28, 10), strconv.FormatInt(1, 10), tmp28, 1)
+	testutil.AssertEq(t, tmp28 == 1, strconv.FormatInt(tmp28, 10), strconv.FormatInt(1, 10), tmp28, 1)
 //line stdlib/option/option.gom:87
 	tmp29 := Option[int64](Option_Some[int64]{V0: 1})
 //line stdlib/option/option.gom:87
 	tmp30 := GetOrElse[int64](9, tmp29)
 //line stdlib/option/option.gom:87
-	rt.AssertEq(t, tmp30 == 1, strconv.FormatInt(tmp30, 10), strconv.FormatInt(1, 10), tmp30, 1)
+	testutil.AssertEq(t, tmp30 == 1, strconv.FormatInt(tmp30, 10), strconv.FormatInt(1, 10), tmp30, 1)
 //line stdlib/option/option.gom:88
 	tmp31 := Option[int64](Option_None[int64]{})
 //line stdlib/option/option.gom:88
 	tmp32 := GetOrElse[int64](9, tmp31)
 //line stdlib/option/option.gom:88
-	rt.AssertEq(t, tmp32 == 9, strconv.FormatInt(tmp32, 10), strconv.FormatInt(9, 10), tmp32, 9)
+	testutil.AssertEq(t, tmp32 == 9, strconv.FormatInt(tmp32, 10), strconv.FormatInt(9, 10), tmp32, 9)
 //line stdlib/option/option.gom:85
 }
 
@@ -70,7 +71,7 @@ func TestMapAndThen(t *testing.T) {
 //line stdlib/option/option.gom:92
 	tmp36 := Option[int64](Option_Some[int64]{V0: 2})
 //line stdlib/option/option.gom:92
-	rt.AssertEq(t, tmp35 == tmp36, gomShow1932b3742(tmp35), gomShow1932b3742(tmp36), tmp35, tmp36)
+	testutil.AssertEq(t, tmp35 == tmp36, gomShow1932b3742(tmp35), gomShow1932b3742(tmp36), tmp35, tmp36)
 //line stdlib/option/option.gom:93
 	tmp37 := func(x1 int64) int64 {
 //line stdlib/option/option.gom:93
@@ -84,7 +85,7 @@ func TestMapAndThen(t *testing.T) {
 //line stdlib/option/option.gom:93
 	tmp40 := Option[int64](Option_None[int64]{})
 //line stdlib/option/option.gom:93
-	rt.AssertEq(t, tmp39 == tmp40, gomShow1932b3742(tmp39), gomShow1932b3742(tmp40), tmp39, tmp40)
+	testutil.AssertEq(t, tmp39 == tmp40, gomShow1932b3742(tmp39), gomShow1932b3742(tmp40), tmp39, tmp40)
 //line stdlib/option/option.gom:94
 	tmp42 := func(x2 int64) Option[int64] {
 //line stdlib/option/option.gom:94
@@ -100,7 +101,7 @@ func TestMapAndThen(t *testing.T) {
 //line stdlib/option/option.gom:94
 	tmp45 := Option[int64](Option_Some[int64]{V0: 2})
 //line stdlib/option/option.gom:94
-	rt.AssertEq(t, tmp44 == tmp45, gomShow1932b3742(tmp44), gomShow1932b3742(tmp45), tmp44, tmp45)
+	testutil.AssertEq(t, tmp44 == tmp45, gomShow1932b3742(tmp44), gomShow1932b3742(tmp45), tmp44, tmp45)
 //line stdlib/option/option.gom:95
 	tmp47 := func(x3 int64) Option[int64] {
 //line stdlib/option/option.gom:95
@@ -116,7 +117,7 @@ func TestMapAndThen(t *testing.T) {
 //line stdlib/option/option.gom:95
 	tmp50 := Option[int64](Option_None[int64]{})
 //line stdlib/option/option.gom:95
-	rt.AssertEq(t, tmp49 == tmp50, gomShow1932b3742(tmp49), gomShow1932b3742(tmp50), tmp49, tmp50)
+	testutil.AssertEq(t, tmp49 == tmp50, gomShow1932b3742(tmp49), gomShow1932b3742(tmp50), tmp49, tmp50)
 //line stdlib/option/option.gom:91
 }
 
@@ -133,7 +134,7 @@ func TestOrElseFilterFlatten(t *testing.T) {
 //line stdlib/option/option.gom:100
 	tmp54 := Option[int64](Option_Some[int64]{V0: 1})
 //line stdlib/option/option.gom:100
-	rt.AssertEq(t, tmp53 == tmp54, gomShow1932b3742(tmp53), gomShow1932b3742(tmp54), tmp53, tmp54)
+	testutil.AssertEq(t, tmp53 == tmp54, gomShow1932b3742(tmp53), gomShow1932b3742(tmp54), tmp53, tmp54)
 //line stdlib/option/option.gom:101
 	tmp55 := Option[int64](Option_Some[int64]{V0: 9})
 //line stdlib/option/option.gom:101
@@ -141,7 +142,7 @@ func TestOrElseFilterFlatten(t *testing.T) {
 //line stdlib/option/option.gom:101
 	tmp57 := Option[int64](Option_Some[int64]{V0: 9})
 //line stdlib/option/option.gom:101
-	rt.AssertEq(t, tmp56 == tmp57, gomShow1932b3742(tmp56), gomShow1932b3742(tmp57), tmp56, tmp57)
+	testutil.AssertEq(t, tmp56 == tmp57, gomShow1932b3742(tmp56), gomShow1932b3742(tmp57), tmp56, tmp57)
 //line stdlib/option/option.gom:102
 	tmp58 := func(x int64) bool {
 //line stdlib/option/option.gom:102
@@ -155,7 +156,7 @@ func TestOrElseFilterFlatten(t *testing.T) {
 //line stdlib/option/option.gom:102
 	tmp61 := Option[int64](Option_Some[int64]{V0: 2})
 //line stdlib/option/option.gom:102
-	rt.AssertEq(t, tmp60 == tmp61, gomShow1932b3742(tmp60), gomShow1932b3742(tmp61), tmp60, tmp61)
+	testutil.AssertEq(t, tmp60 == tmp61, gomShow1932b3742(tmp60), gomShow1932b3742(tmp61), tmp60, tmp61)
 //line stdlib/option/option.gom:103
 	tmp62 := func(x1 int64) bool {
 //line stdlib/option/option.gom:103
@@ -167,7 +168,7 @@ func TestOrElseFilterFlatten(t *testing.T) {
 //line stdlib/option/option.gom:103
 	tmp64 := Filter[int64](tmp62, tmp63)
 //line stdlib/option/option.gom:103
-	rt.AssertEq(t, tmp64 == noneI, gomShow1932b3742(tmp64), gomShow1932b3742(noneI), tmp64, noneI)
+	testutil.AssertEq(t, tmp64 == noneI, gomShow1932b3742(tmp64), gomShow1932b3742(noneI), tmp64, noneI)
 //line stdlib/option/option.gom:104
 	tmp65 := Option[int64](Option_Some[int64]{V0: 1})
 //line stdlib/option/option.gom:104
@@ -177,13 +178,13 @@ func TestOrElseFilterFlatten(t *testing.T) {
 //line stdlib/option/option.gom:104
 	tmp68 := Option[int64](Option_Some[int64]{V0: 1})
 //line stdlib/option/option.gom:104
-	rt.AssertEq(t, tmp67 == tmp68, gomShow1932b3742(tmp67), gomShow1932b3742(tmp68), tmp67, tmp68)
+	testutil.AssertEq(t, tmp67 == tmp68, gomShow1932b3742(tmp67), gomShow1932b3742(tmp68), tmp67, tmp68)
 //line stdlib/option/option.gom:105
 	tmp69 := Option[Option[int64]](Option_Some[Option[int64]]{V0: noneI})
 //line stdlib/option/option.gom:105
 	tmp70 := Flatten[int64](tmp69)
 //line stdlib/option/option.gom:105
-	rt.AssertEq(t, tmp70 == noneI, gomShow1932b3742(tmp70), gomShow1932b3742(noneI), tmp70, noneI)
+	testutil.AssertEq(t, tmp70 == noneI, gomShow1932b3742(tmp70), gomShow1932b3742(noneI), tmp70, noneI)
 //line stdlib/option/option.gom:98
 }
 
@@ -198,13 +199,13 @@ func TestToResult(t *testing.T) {
 //line stdlib/option/option.gom:110
 	tmp73 := result.Ok[int64, string](1)
 //line stdlib/option/option.gom:110
-	rt.AssertEq(t, tmp72 == tmp73, gomShow2932b3742(tmp72), gomShow2932b3742(tmp73), tmp72, tmp73)
+	testutil.AssertEq(t, tmp72 == tmp73, gomShow2932b3742(tmp72), gomShow2932b3742(tmp73), tmp72, tmp73)
 //line stdlib/option/option.gom:111
 	tmp74 := ToResult[string, int64]("missing", noneI)
 //line stdlib/option/option.gom:111
 	tmp75 := result.Err[int64, string]("missing")
 //line stdlib/option/option.gom:111
-	rt.AssertEq(t, tmp74 == tmp75, gomShow2932b3742(tmp74), gomShow2932b3742(tmp75), tmp74, tmp75)
+	testutil.AssertEq(t, tmp74 == tmp75, gomShow2932b3742(tmp74), gomShow2932b3742(tmp75), tmp74, tmp75)
 //line stdlib/option/option.gom:108
 }
 

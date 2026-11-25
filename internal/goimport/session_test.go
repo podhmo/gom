@@ -264,7 +264,6 @@ func TestModuleInteropBothDirections(t *testing.T) {
 		}
 	}
 	cmd := exec.Command("go", "test", "./...")
-	cmd.Env = append(os.Environ(), "GOWORK=off", "GOFLAGS=-mod=mod")
 	cmd.Dir = dir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("generated bridge failed: %v\n%s\n%s", err, out, gen)
@@ -361,7 +360,6 @@ func TestModuleInteropGenerics(t *testing.T) {
 		}
 	}
 	cmd := exec.Command("go", "test", "./...")
-	cmd.Env = append(os.Environ(), "GOWORK=off", "GOFLAGS=-mod=mod")
 	cmd.Dir = dir
 	if out, err := cmd.CombinedOutput(); err != nil {
 		t.Fatalf("generated bridge failed: %v\n%s\n%s", err, out, gen)

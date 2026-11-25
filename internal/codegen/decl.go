@@ -452,7 +452,9 @@ func (g *gen) testDecl(d *core.TestDecl) string {
 	g.raw("func " + name + "(t *" + g.pkgQual("testing") + "T)")
 	g.open()
 	savedT := g.testFn
+	savedTestName := g.testDeclName
 	g.testFn = d.Fn
+	g.testDeclName = d.Name
 	res := d.Fn.ResidualType()
 	if isResultCon(res) && !g.localT["Result"] {
 		r := g.fresh("r")
@@ -472,6 +474,7 @@ func (g *gen) testDecl(d *core.TestDecl) string {
 		g.funcBody(d.Fn, discard)
 	}
 	g.testFn = savedT
+	g.testDeclName = savedTestName
 	g.close()
 	g.nl()
 	return name

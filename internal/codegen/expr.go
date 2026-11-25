@@ -363,7 +363,7 @@ func (g *gen) callGo(c *core.CallGo) ast.Expr {
 func (g *gen) callBuiltin(c *core.CallBuiltin) ast.Expr {
 	switch c.Sym.Name {
 	case "assert_eq":
-		// rt.AssertEq(t, eq, actual, expected) — eq is the verdict
+		// testutil.AssertEq(t, eq, actual, expected) — eq is the verdict
 		// under the operands' own recipe (core.CallBuiltin.Eq),
 		// matching what `actual == expected` evaluates to; the value
 		// operands go through the operand type's display recipe
@@ -387,16 +387,16 @@ func (g *gen) callBuiltin(c *core.CallBuiltin) ast.Expr {
 		for _, a := range c.Args {
 			args = append(args, g.atom(a))
 		}
-		return &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual(rtPath) + "AssertEq"),
+		return &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual(testutilPath) + "AssertEq"),
 			Args: args}
 	case "assert":
 		// rt.Assert(t, cond)
 		return &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual(rtPath) + "Assert"),
 			Args: append([]ast.Expr{ast.NewIdent("t")}, g.atoms(c.Args)...)}
 	case "snapshot":
-		// rt.Snapshot(t, key, rendered value)
-		return &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual(rtPath) + "Snapshot"),
-			Args: []ast.Expr{ast.NewIdent("t"), g.atom(c.Args[1]), g.showExpr(c.Show, g.atom(c.Args[0]))}}
+		// testutil.Snapshot(t, key, rendered value)
+		return &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual(testutilPath) + "Snapshot"),
+			Args: []ast.Expr{ast.NewIdent("t"), strLit(g.testDeclName), g.atom(c.Args[1]), g.showExpr(c.Show, g.atom(c.Args[0]))}}
 	case "todo":
 		// rt.Todo[T]() panics at the hole.
 		fun := &ast.IndexExpr{X: ast.NewIdent(g.pkgQual(rtPath) + "Todo"),

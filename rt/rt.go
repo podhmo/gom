@@ -1,17 +1,9 @@
 package rt
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
-	"os"
-	"path/filepath"
 	"reflect"
-	"strings"
 	"testing"
-	"unicode"
-
-	"github.com/google/go-cmp/cmp"
 )
 
 // InvalidVariant returns the error used when a value of a Gom sum type
@@ -97,112 +89,6 @@ func Assert(t *testing.T, cond bool) {
 	if !cond {
 		t.Error("gom: assertion failed")
 	}
-}
-
-// AssertEq is the body of the `assert_eq actual expected` builtin
-// used in test blocks. The eq argument is the already-computed
-// verdict under the operands' own comparison recipe — the same
-// plan `actual == expected` would evaluate (docs/design.md section
-// 4.9) — so a failing assert_eq reports exactly what `==` would
-// answer, including native comparisons' IEEE NaN verdict. actual and
-// expected arrive already rendered to text by the compiler-generated
-// display functions of docs/design.md section 4.8 (fmt's %v for
-// Go-view values, spec section 11).
-func AssertEq(t *testing.T, eq bool, actual, expected string, raw ...any) {
-	t.Helper()
-	if eq {
-		return
-	}
-	msg := fmt.Sprintf("gom: assertion failed:\n  actual:   %s\n  expected: %s", actual, expected)
-	if len(raw) >= 2 {
-		if diff, ok := cmpDiff(raw[1], raw[0]); ok && diff != "" {
-			msg += "\n  diff (-expected +actual):\n" + indent(diff, "    ")
-		}
-	}
-	t.Error(msg)
-}
-
-// cmpDiff renders a go-cmp diff, falling back when a Go-view value
-// carries unexported fields or another shape cmp cannot inspect.
-func cmpDiff(expected, actual any) (diff string, ok bool) {
-	defer func() {
-		if recover() != nil {
-			diff, ok = "", false
-		}
-	}()
-	return cmp.Diff(expected, actual), true
-}
-
-func indent(s, prefix string) string {
-	lines := strings.Split(strings.TrimRight(s, "\n"), "\n")
-	for i := range lines {
-		lines[i] = prefix + lines[i]
-	}
-	return strings.Join(lines, "\n")
-}
-
-// Snapshot is the body of the `snapshot value key` builtin used in
-// test blocks. value arrives pre-rendered through the operand type's
-// gomShow/display recipe. Snapshots live under __snapshot__ beside
-// the generated test file; `gom test --update` rewrites missing or
-// stale files through GOM_TEST_UPDATE_SNAPSHOTS=1.
-func Snapshot(t *testing.T, key, value string) {
-	t.Helper()
-	// Go runs a package's test binary with that package's source
-	// directory as cwd. Using cwd rather than runtime.Caller keeps
-	// snapshots working when the binary is built with -trimpath.
-	dir, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("gom: snapshot directory: %v", err)
-	}
-	path := filepath.Join(dir, "__snapshot__", snapshotName(t.Name(), key))
-	if os.Getenv("GOM_TEST_UPDATE_SNAPSHOTS") == "1" {
-		if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-			t.Fatalf("gom: snapshot directory: %v", err)
-		}
-		if err := os.WriteFile(path, []byte(value), 0o644); err != nil {
-			t.Fatalf("gom: snapshot write %s: %v", path, err)
-		}
-		return
-	}
-	data, err := os.ReadFile(path)
-	if err != nil {
-		t.Errorf("gom: snapshot %s is missing (run `gom test --update`): %v", path, err)
-		return
-	}
-	if got := string(data); got != value {
-		msg := fmt.Sprintf("gom: snapshot mismatch: %s\n  actual:   %s\n  expected: %s", path, value, got)
-		if diff, ok := cmpDiff(got, value); ok && diff != "" {
-			msg += "\n  diff (-expected +actual):\n" + indent(diff, "    ")
-		}
-		t.Error(msg)
-	}
-}
-
-// snapshotName maps a test/key pair to a stable filesystem-safe
-// name. Readable characters survive verbatim; anything else is
-// folded. A short hash of the length-separated pair always suffixes
-// the readable prefix, so distinct test/key pairs cannot collide.
-func snapshotName(testName, key string) string {
-	name := testName + "_" + key
-	var b strings.Builder
-	for _, r := range name {
-		if unicode.IsLetter(r) || unicode.IsDigit(r) || r == '-' || r == '_' || r == '.' {
-			b.WriteRune(r)
-		} else {
-			b.WriteByte('_')
-		}
-	}
-	base := b.String()
-	if base == "" || base == "." || base == ".." {
-		base = "snapshot"
-	}
-	sum := sha256.Sum256([]byte(testName + "\x00" + key))
-	if len(base) > 80 {
-		base = base[:80]
-	}
-	base += "_" + hex.EncodeToString(sum[:])[:12]
-	return base + ".snap"
 }
 
 // ShowError renders a GoError value inside a generated display

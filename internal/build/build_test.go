@@ -113,7 +113,7 @@ test "arith" {
 		t.Fatal("no generated output")
 	}
 	ts := string(r.Output.TestSource)
-	for _, want := range []string{"func TestArith(t *testing.T)", "rt.AssertEq(t,", "rt.Assert(t,"} {
+	for _, want := range []string{"func TestArith(t *testing.T)", "testutil.AssertEq(t,", "rt.Assert(t,"} {
 		if !strings.Contains(ts, want) {
 			t.Errorf("TestSource missing %q:\n%s", want, ts)
 		}
