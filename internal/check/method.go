@@ -173,14 +173,19 @@ func methodSigMatch(s *types.Func, n InterfaceMethod) bool {
 		return false
 	}
 	if n.RawParams == nil && n.RawResults == nil {
-		return true
+		// A source without the raw view cannot tell widths apart;
+		// fall back to the exact gom-view comparison the check
+		// used before the width pass (the relaxed comparison
+		// would admit spellings whose emit the source cannot
+		// vouch for).
+		return types.Equal(s, n.Sig)
 	}
 	sp := s.Params
 	if len(n.RawParams) != len(sp) {
 		return false
 	}
 	for i, rp := range n.RawParams {
-		if !methodWidthOk(sp[i].Type, rp) {
+		if !methodWidthOk(sp[i].Type, rp, true) {
 			return false
 		}
 	}
@@ -192,26 +197,40 @@ func methodSigMatch(s *types.Func, n InterfaceMethod) bool {
 		return true
 	}
 	if rc, ok := ret.(*types.Con); ok && rc.Qual == "" && rc.Name == "Result" && len(rc.Args) == 2 {
-		if !methodWidthOk(rc.Args[0], n.RawResults[0]) {
+		payload := types.Chase(rc.Args[0])
+		// A Tuple payload spreads over the leading results like a
+		// plain tuple return — `(T, error)` carries the Option-
+		// unwrapped element widths positionally.
+		if tp, ok := payload.(*types.Tuple); ok {
+			return methodWidthResults(tp.Elems, n.RawResults)
+		}
+		if len(n.RawResults) > 0 && !methodWidthOk(payload, n.RawResults[0], true) {
 			return false
 		}
 		return true
 	}
 	if tp, ok := ret.(*types.Tuple); ok {
-		if len(tp.Elems) > len(n.RawResults) {
-			return false
-		}
-		for i, e := range tp.Elems {
-			if !methodWidthOk(e, n.RawResults[i]) {
-				return false
-			}
-		}
-		return true
+		return methodWidthResults(tp.Elems, n.RawResults)
 	}
 	if types.Equal(ret, types.Unit) {
 		return true
 	}
-	return methodWidthOk(ret, n.RawResults[0])
+	return methodWidthOk(ret, n.RawResults[0], true)
+}
+
+// methodWidthResults pairs spread result elements with the raw
+// results positionally, each a root position of the emitted
+// signature.
+func methodWidthResults(elems, raw []types.Type) bool {
+	if len(elems) > len(raw) {
+		return false
+	}
+	for i, e := range elems {
+		if !methodWidthOk(e, raw[i], true) {
+			return false
+		}
+	}
+	return true
 }
 
 // methodViewEqual is types.Equal with the int family relaxed at
@@ -276,28 +295,43 @@ func methodIntFamily(t types.Type) bool {
 }
 
 // methodWidthOk reports whether the declared type u emits the
-// boundary width the interface's raw position r requires. Only
-// the int widths can disagree — everything else either compares
-// equal in the gom view already or has no method-boundary spelling.
-func methodWidthOk(u, r types.Type) bool {
+// boundary width the interface's raw position r requires, mirroring
+// the emit rules exactly: at a root position (a parameter or result
+// type itself) methodType spells `Int` as `int` and `Int64` as
+// `int64`; inside a container the element emits through goType
+// instead, where both spell `int64` — so a nested raw `int64`
+// admits either, and a nested raw `int` admits neither (no
+// container spelling emits it). Only the int widths can disagree —
+// everything else either compares equal in the gom view already or
+// has no method-boundary spelling.
+func methodWidthOk(u, r types.Type, root bool) bool {
 	uc, rc := types.Chase(u), types.Chase(r)
 	if gc, ok := rc.(*types.Con); ok && gc.Qual == "Go" && gc.Name == "Int" {
-		// A raw `int` position: the boundary spells gom `Int`
-		// as `int` (methodType) — `Int64` would emit `int64`.
-		return types.Equal(uc, types.Int)
+		// A raw `int` position: only the root spelling `Int`
+		// emits `int`; nested int-family types emit `int64`.
+		if root {
+			return types.Equal(uc, types.Int)
+		}
+		return !methodIntFamily(uc)
 	}
 	if types.Equal(rc, types.Int) {
-		// A raw `int64` position: only `Int64` spells it.
-		return types.Equal(uc, types.Int64)
+		// A raw `int64` position: the root wants `Int64`
+		// (gom `Int` spells `int` there); nested, both spellings
+		// emit `int64` — the relaxed view comparison has already
+		// pinned u to the int family at this position.
+		if root {
+			return types.Equal(uc, types.Int64)
+		}
+		return true
 	}
 	// Containers pair element-wise when the shapes mirror — a
-	// `List Int` parameter emits `[]int`, so a raw `Go.Slice`
-	// position recurses into the element width.
+	// `List Int` element emits through goType, so the width rule
+	// recurses with root cleared.
 	ucon, uok := uc.(*types.Con)
 	rcon, rok := rc.(*types.Con)
 	if uok && rok && len(ucon.Args) == len(rcon.Args) {
 		for i := range ucon.Args {
-			if !methodWidthOk(ucon.Args[i], rcon.Args[i]) {
+			if !methodWidthOk(ucon.Args[i], rcon.Args[i], false) {
 				return false
 			}
 		}

@@ -78,3 +78,18 @@ fn (h: Hij) hijack () -> Result (Option net.Conn, Ptr bufio.ReadWriter) GoError 
   }
 
 fn hijacker_of (h: Hij) -> http.Hijacker = h
+
+// Runtime pin for width-exact conformance (wave45 lane A):
+// io.Seeker's `Seek(int64, int)` is spelled with `Int64` at the
+// int64 positions and `Int` at the int position — the widths the
+// emitted method carries. The all-Int spelling is E0401.
+type Cur = { pos: Int }
+
+@method
+fn (c: Cur) seek (offset: Int64) (whence: Int) -> Result Int64 GoError = {
+  ignore whence
+  ignore c
+  Ok offset
+}
+
+fn seeker_of (c: Cur) -> io.Seeker = c

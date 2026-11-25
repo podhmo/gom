@@ -1,0 +1,19 @@
+package main
+
+// A nested raw int element (`Take(xs []int)`) is inexpressible:
+// container elements emit through goType where both Int and Int64
+// spell int64, never int. Conformance fails with E0401 rather than
+// passing a method set the generated Go does not carry.
+import go "github.com/podhmo/gom/testdata/goiface"
+
+type W = { n: Int }
+
+@method
+fn (w: W) take (xs: List Int) -> Int = 0
+
+fn main () -> Unit = {
+  let w = { n = 0 }
+  let x : goiface.WidthIntElem = w
+  ignore x
+  ()
+}

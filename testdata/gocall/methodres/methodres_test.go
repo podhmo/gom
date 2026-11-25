@@ -72,3 +72,15 @@ func TestMethodResultUnwrap(t *testing.T) {
 		t.Fatal("Hijack (err path) = nil error, want non-nil")
 	}
 }
+
+// The width-exact spelling compiles into a conforming method set:
+// `Seek(offset int64, whence int) (int64, error)` — the generated
+// Cur carries io.Seeker because the check compared widths in the
+// raw view (wave45 lane A).
+func TestSeekerWidthConformance(t *testing.T) {
+	var s io.Seeker = SeekerOf(Cur(10))
+	n, err := s.Seek(5, io.SeekStart)
+	if err != nil || n != 5 {
+		t.Fatalf("Seek = (%d, %v), want (5, nil)", n, err)
+	}
+}
