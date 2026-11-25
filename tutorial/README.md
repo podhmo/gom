@@ -55,7 +55,7 @@ go test ./tutorial/            # the same drive as a Go test
 | 14 | `14-stdlib` | Builtin `List`/`Option`/`Result` module surfaces and `import "cmp"` comparison dictionaries |
 | 15 | `15-mutable` | `Ref` cells captured by closures and `Array` build buffers |
 | 16 | `16-scope` | `Scope.run`/`defer`/`on_err` cleanup and `run_result`/`defer_err` |
-| 17 | `17-tests` | `test` blocks, `@test` helpers, `assert`/`assert_eq`, and `gom test` |
+| 17 | `17-tests` | `test` blocks, `@test` helpers, `assert`/`assert_eq`/`snapshot`, and `gom test` |
 | 18 | `18-concurrency` | `go { }`, `Chan`/`RecvChan`/`SendChan`, `select` receive/send/`default` arms, `Task` |
 | 19 | `19-go-boundary` | `Ptr.new` + field writes for Go structs, `Go.conv`, `Go.nil`, `Go.Slice`, `Go.Map`, `..xs` spread |
 | 20 | `20-go-callbacks` | `Go.funcN`/`Go.fnN` conversions, `@method` interfaces, `Go.Any`/`Go.try_as` |
@@ -114,6 +114,7 @@ tutorial/
     expected-check.txt  the diagnostic code `gom check` must report
   17-tests/
     expected-test.txt   `gom test`'s JSONL report, `elapsed` normalized
+    __snapshot__/       committed snapshot baselines for `snapshot` examples
   run.sh            builds gom, runs + diffs every step
   tutorial_test.go  the same driver under `go test ./tutorial/`
 ```
