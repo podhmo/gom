@@ -2363,12 +2363,17 @@ func (e *interp) typedDisplayValue(v Value, t types.Type) Value {
 		if ri == nil {
 			return v
 		}
+		// Declared field types are in terms of the record's type
+		// parameters — instantiate them at the value's own type the
+		// way reshape does, or a generic record passes the bare
+		// parameter `a` down and the payload never wraps.
+		sub := instSubst(ri.typ, v.Type)
 		out := &VRecord{Type: v.Type}
 		for _, f := range v.Fields {
 			nf := f
 			for _, fi := range ri.fields {
 				if fi.index == f.Index {
-					nf.V = e.typedDisplayValue(f.V, fi.typ)
+					nf.V = e.typedDisplayValue(f.V, applySubst(fi.typ, sub))
 					break
 				}
 			}

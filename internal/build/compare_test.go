@@ -194,6 +194,27 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 		want: "Some ({ on = true }) Some false",
 	},
 	{
+		// lane C display: generic record fields instantiate at the
+		// value's own type — `Box (Option Flag)` passes `Option
+		// Flag` down, not the bare parameter, so the variant
+		// payload wraps too.
+		name: "splice_generic_record_instantiated",
+		src: `package main
+
+import go "fmt"
+
+type Flag = {on: Bool}
+type Box a = {v: a}
+fn answer () -> String = {
+  let f : Flag = true
+  let b : Box (Option Flag) = { v = Some f }
+  "${b}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "{ v = (Some ({ on = true })) }",
+	},
+	{
 		// lane C display: record literals and scalar bindings draw
 		// the SAME rendering — the construction path is invisible.
 		name: "splice_record_literal_parity",
