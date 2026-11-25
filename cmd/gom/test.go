@@ -148,6 +148,17 @@ func runTest(args []string, stdout, stderr io.Writer) int {
 	return strictExit(rep, strict)
 }
 
+// snapshotUpdateEnv pins the update switch in the go-test child either
+// way: an inherited GOM_TEST_UPDATE_SNAPSHOTS=1 must not turn an
+// ordinary verification run into a baseline rewrite.
+func snapshotUpdateEnv(update bool) []string {
+	value := "GOM_TEST_UPDATE_SNAPSHOTS=0"
+	if update {
+		value = "GOM_TEST_UPDATE_SNAPSHOTS=1"
+	}
+	return append(os.Environ(), value)
+}
+
 // testDir groups the inputs of one package directory for a single
 // `go test` invocation.
 type testDir struct {
@@ -214,11 +225,7 @@ func runGoTests(inputs []input, results []*build.Result, failed map[*build.Resul
 	}
 
 	for _, d := range dirs {
-		env := []string(nil)
-		if update {
-			env = append(os.Environ(), "GOM_TEST_UPDATE_SNAPSHOTS=1")
-		}
-		run, err := build.RunGoTestEnv("", d.dir, env, goArgs...)
+		run, err := build.RunGoTestEnv("", d.dir, snapshotUpdateEnv(update), goArgs...)
 		if err != nil {
 			// go test could not be invoked at all or broke its output
 			// contract — the toolchain itself failed, which is a

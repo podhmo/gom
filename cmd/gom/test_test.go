@@ -175,7 +175,7 @@ test "snap" {
 	if code != 0 {
 		t.Fatalf("--update exit=%d out=%q", code, out)
 	}
-	snaps, err := filepath.Glob(filepath.Join(dir, "__snapshot__", "TestSnap_list_*.snap"))
+	snaps, err := filepath.Glob(filepath.Join(dir, "__snapshot__", "snap_list_*.snap"))
 	if err != nil || len(snaps) != 1 {
 		t.Fatalf("snapshot files = %v, err=%v", snaps, err)
 	}
@@ -966,5 +966,16 @@ func TestTestConcurrency(t *testing.T) {
 		if tc["ok"] != true {
 			t.Errorf("test %v failed: %v", tc["name"], tc)
 		}
+	}
+}
+
+func TestSnapshotUpdateEnvPinsInheritedValue(t *testing.T) {
+	env := snapshotUpdateEnv(false)
+	if got := env[len(env)-1]; got != "GOM_TEST_UPDATE_SNAPSHOTS=0" {
+		t.Fatalf("last env entry = %q", got)
+	}
+	env = snapshotUpdateEnv(true)
+	if got := env[len(env)-1]; got != "GOM_TEST_UPDATE_SNAPSHOTS=1" {
+		t.Fatalf("last env entry = %q", got)
 	}
 }
