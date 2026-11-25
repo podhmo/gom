@@ -439,6 +439,26 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 		want: "1:0.1:x",
 	},
 	{
+		// Review finding on wave46 lane C: os.FileMode's uint32
+		// arithmetic wraps at the named type's own width and renders
+		// unsigned — the evaluator must not compute the addition in
+		// signed int64 and print 4294967296.
+		name: "splice_go_named_unsigned_width",
+		src: `package main
+
+import go "fmt"
+import go "os"
+
+fn answer () -> String = {
+  let x : os.FileMode = 4294967295
+  let y = x + 1
+  "${x}:${y}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "4294967295:0",
+	},
+	{
 		// P2-2c: the same delayed-reference cycle through a
 		// destructuring let — tuple, record, and a single-variant
 		// constructor all bind `count` as a named wrapper.
@@ -2206,6 +2226,7 @@ func evalAnswerFiles(t *testing.T, rs []*build.Result, srcs map[string][]byte) s
 	}
 	ev := eval.NewFiles(typed)
 	ev.SetFloatWidthOracle(floatWidthOracle())
+	ev.SetIntWidthOracle(intWidthOracle())
 	for path, src := range srcs {
 		ev.SetLineIndexFor(path, diag.NewLineIndex(src))
 	}

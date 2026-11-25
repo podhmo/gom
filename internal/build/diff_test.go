@@ -639,6 +639,7 @@ func evalDiff(t *testing.T, r *build.Result, sources ...string) (o diffOutcome) 
 	}
 	ev.SetMaxSteps(diffEvalFuel)
 	ev.SetFloatWidthOracle(floatWidthOracle())
+	ev.SetIntWidthOracle(intWidthOracle())
 	bindGoStubs(t, ev, capture, r.Typed)
 	res := ev.Run()
 

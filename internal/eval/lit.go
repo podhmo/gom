@@ -89,6 +89,10 @@ func (e *interp) litValueTyped(kind syntax.LitKind, text string, typ types.Type,
 		typ = types.Float
 	}
 	v := litValue(kind, text, typ, sp)
+	if i, ok := v.(*VInt); ok {
+		w, unsigned := e.intOperandShape(typ)
+		return &VInt{N: wrapInt(w, unsigned, i.N)}
+	}
 	// Width-canonical construction: a float literal typed at a
 	// float32-width position materializes the float32 image — the
 	// same rounding the emitted constant conversion applies — so

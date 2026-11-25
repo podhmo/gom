@@ -9,13 +9,13 @@ import (
 	testing "testing"
 )
 
-//line go_named_scalar_display.gom:13
+//line go_named_scalar_display.gom:20
 func TestNamedScalarDisplayQuotesComparisons(t *testing.T) {
-//line go_named_scalar_display.gom:14
+//line go_named_scalar_display.gom:21
 	a := goiface.LabelOf("x")
-//line go_named_scalar_display.gom:15
+//line go_named_scalar_display.gom:22
 	b := goiface.LabelOf("y")
-//line go_named_scalar_display.gom:16
+//line go_named_scalar_display.gom:23
 	rt.AssertEq(t, rt.Equal(a, b), strconv.Quote(string(a)), strconv.Quote(string(b)))
-//line go_named_scalar_display.gom:13
+//line go_named_scalar_display.gom:20
 }

@@ -1,6 +1,7 @@
 package ex
 
 import go "time"
+import go "os"
 import go "github.com/podhmo/gom/testdata/goiface"
 
 fn show_scalars () -> String = {
@@ -8,6 +9,12 @@ fn show_scalars () -> String = {
   let r : goiface.SmallRatio = 0.1
   let l : goiface.Label = goiface.LabelOf "x"
   "${d}:${r}:${l}"
+}
+
+fn unsigned_wrap () -> String = {
+  let x : os.FileMode = 4294967295
+  let y = x + 1
+  "${x}:${y}"
 }
 
 test "named scalar display quotes comparisons" {

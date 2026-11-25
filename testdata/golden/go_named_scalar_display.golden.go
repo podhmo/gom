@@ -4,25 +4,41 @@ package ex
 
 import (
 	goiface "github.com/podhmo/gom/testdata/goiface"
+	fs "io/fs"
 	strconv "strconv"
 	time "time"
 )
 
-//line go_named_scalar_display.gom:6
-func showScalars(_ struct{}) string {
 //line go_named_scalar_display.gom:7
-	d := time.Duration(1)
+func showScalars(_ struct{}) string {
 //line go_named_scalar_display.gom:8
-	r := goiface.SmallRatio(0.1)
+	d := time.Duration(1)
 //line go_named_scalar_display.gom:9
+	r := goiface.SmallRatio(0.1)
+//line go_named_scalar_display.gom:10
 	l := goiface.LabelOf("x")
-//line go_named_scalar_display.gom:10
+//line go_named_scalar_display.gom:11
 	tmp1 := strconv.FormatInt(int64(d), 10)
-//line go_named_scalar_display.gom:10
+//line go_named_scalar_display.gom:11
 	tmp2 := strconv.FormatFloat(float64(r), 'g', -1, 32)
-//line go_named_scalar_display.gom:10
+//line go_named_scalar_display.gom:11
 	tmp3 := string(l)
-//line go_named_scalar_display.gom:10
+//line go_named_scalar_display.gom:11
 	return tmp1 + ":" + tmp2 + ":" + tmp3
-//line go_named_scalar_display.gom:6
+//line go_named_scalar_display.gom:7
+}
+
+//line go_named_scalar_display.gom:14
+func unsignedWrap(_ struct{}) string {
+//line go_named_scalar_display.gom:15
+	x := fs.FileMode(4294967295)
+//line go_named_scalar_display.gom:16
+	y := x + fs.FileMode(1)
+//line go_named_scalar_display.gom:17
+	tmp4 := strconv.FormatUint(uint64(x), 10)
+//line go_named_scalar_display.gom:17
+	tmp5 := strconv.FormatUint(uint64(y), 10)
+//line go_named_scalar_display.gom:17
+	return tmp4 + ":" + tmp5
+//line go_named_scalar_display.gom:14
 }

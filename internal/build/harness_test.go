@@ -33,6 +33,43 @@ import (
 // else falls back to the default 64. One loader per evaluator —
 // the loader's caches are plain maps and the diff harness races
 // modes on separate goroutines.
+// intWidthOracle answers the evaluator's integer width/signedness
+// questions from a throwaway loader. Machine-width int/uint/uintptr
+// judge at 64 bits under the implementation's documented Go.Int
+// convention; unknown and non-integer underlyings fall back to the
+// evaluator default.
+func intWidthOracle() func(types.Type) (int, bool, bool) {
+	gl := goimport.New(&goimport.Config{Dir: "../.."})
+	return func(t types.Type) (int, bool, bool) {
+		if g, ok := types.Chase(t).(*types.Go); ok {
+			_, _ = gl.Load(g.Ref.Path, true)
+		}
+		k, ok := gl.GoUnderlyingKind(t)
+		if !ok {
+			return 0, false, false
+		}
+		switch k {
+		case gotypes.Int, gotypes.Int64:
+			return 64, false, true
+		case gotypes.Int8:
+			return 8, false, true
+		case gotypes.Int16:
+			return 16, false, true
+		case gotypes.Int32:
+			return 32, false, true
+		case gotypes.Uint, gotypes.Uint64, gotypes.Uintptr:
+			return 64, true, true
+		case gotypes.Uint8:
+			return 8, true, true
+		case gotypes.Uint16:
+			return 16, true, true
+		case gotypes.Uint32:
+			return 32, true, true
+		}
+		return 0, false, false
+	}
+}
+
 func floatWidthOracle() func(types.Type) (int, bool) {
 	gl := goimport.New(&goimport.Config{Dir: "../.."})
 	return func(t types.Type) (int, bool) {

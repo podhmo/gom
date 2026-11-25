@@ -75,6 +75,10 @@ type interp struct {
 	// position judges at width 64. Evaluator.SetFloatWidthOracle
 	// installs it.
 	floatWidthOracle func(types.Type) (int, bool)
+	// intWidthOracle answers width and signedness of a named Go
+	// integer underlying. Nil: named integer types judge at signed
+	// width 64, the historic approximation.
+	intWidthOracle func(types.Type) (int, bool, bool)
 }
 
 // letInit is the lazy initializer of one top-level `let`
@@ -272,6 +276,15 @@ func (e *Evaluator) SetMaxDepth(n int64) { e.interp.maxDepth = n }
 // width 64.
 func (e *Evaluator) SetFloatWidthOracle(f func(types.Type) (int, bool)) {
 	e.interp.floatWidthOracle = f
+}
+
+// SetIntWidthOracle installs the width/signedness oracle for named
+// Go integer types. The callback reports (bits, unsigned, true) for
+// an integer basic underlying and (_, _, false) otherwise. Without
+// an oracle named integer types keep the evaluator's signed-width-64
+// approximation.
+func (e *Evaluator) SetIntWidthOracle(f func(types.Type) (int, bool, bool)) {
+	e.interp.intWidthOracle = f
 }
 
 // Global returns the value bound to the top-level symbol named name,
@@ -1016,18 +1029,39 @@ func (e *interp) evalMember(x *check.MemberExpr, env *Env) Value {
 	panic("unreachable")
 }
 
-// intOperandWidth returns the machine width of an integer operand
-// type: 32 for the builtin Int32, 64 for everything else (Int and
-// Int64 are both int64 at run time; an unresolved meta defaults to
-// Int). A file-local `type Int32` shadows the builtin the same way
-// the checker's num constraint rejects it — its Con is not an
-// integer type here.
-func (e *interp) intOperandWidth(t types.Type) int {
-	c, ok := types.Chase(t).(*types.Con)
-	if ok && c.Qual == "" && c.Name == "Int32" && !e.localT["Int32"] {
-		return 32
+// intOperandShape returns the machine width and signedness of an
+// integer operand type: Int32 is signed 32-bit, Int/Int64 signed
+// 64-bit, and a named Go type answers through the oracle when one is
+// installed. Declared one-field records peel like codegen's defined
+// type chain. Unknown or non-integer types default to signed width
+// 64 — the same default an unresolved meta takes as Int.
+func (e *interp) intOperandShape(t types.Type) (width int, unsigned bool) {
+	for i := 0; i < 64; i++ { // bound against a pathological peel cycle
+		c, ok := types.Chase(t).(*types.Con)
+		if ok {
+			if ri := e.recordOf(c); ri != nil && len(ri.fields) == 1 {
+				t = ri.fields[0].typ
+				continue
+			}
+			if c.Qual == "" && c.Name == "Int32" && !e.localT["Int32"] {
+				return 32, false
+			}
+		}
+		if e.intWidthOracle != nil {
+			if w, u, ok := e.intWidthOracle(types.Chase(t)); ok {
+				return w, u
+			}
+		}
+		return 64, false
 	}
-	return 64
+	return 64, false
+}
+
+// intOperandWidth returns only the width half of intOperandShape —
+// kept for width-tag tests and sites that do not inspect signedness.
+func (e *interp) intOperandWidth(t types.Type) int {
+	w, _ := e.intOperandShape(t)
+	return w
 }
 
 // floatOperandWidth returns the machine width a float operand type
@@ -1054,14 +1088,27 @@ func roundFloat(width int, f float64) float64 {
 	return f
 }
 
-// wrapTo narrows n to width bits and sign-extends back to int64 —
-// the per-operation two's-complement wrap of spec 3.3. Width 64 is
-// the identity: int64 arithmetic already wraps.
+// wrapTo narrows a signed integer to width bits and sign-extends
+// back to int64 — the historic signed shape used by the builtin
+// widths. Width 64 is the identity: int64 arithmetic already wraps.
 func wrapTo(width int, n int64) int64 {
-	if width == 32 {
-		return int64(int32(n))
+	return wrapInt(width, false, n)
+}
+
+// wrapInt narrows n to width bits under the operand signedness and
+// returns its canonical VInt image. Signed narrow widths sign-extend;
+// unsigned narrow widths zero-extend. Width 64 keeps the bit pattern
+// either way — uint64 values above MaxInt64 are necessarily negative
+// as int64 bits, and unsigned operations reinterpret them as uint64.
+func wrapInt(width int, unsigned bool, n int64) int64 {
+	if width >= 64 {
+		return n
 	}
-	return n
+	if unsigned {
+		return int64(uint64(n) & ((uint64(1) << uint(width)) - 1))
+	}
+	shift := uint(64 - width)
+	return (n << shift) >> shift
 }
 
 // evalUnary handles `-x` and `!x`.
@@ -1071,7 +1118,8 @@ func (e *interp) evalUnary(x *check.Unary, env *Env) Value {
 	case syntax.UnNeg:
 		switch v := v.(type) {
 		case *VInt:
-			return &VInt{N: wrapTo(e.intOperandWidth(x.X.Type()), -v.N)}
+			w, unsigned := e.intOperandShape(x.X.Type())
+			return &VInt{N: wrapInt(w, unsigned, -v.N)}
 		case *VFloat:
 			// Negating a zero LITERAL folds like a Go constant
 			// expression: untyped constants carry no signed zero,
@@ -1167,43 +1215,84 @@ func (e *interp) evalPrim(x *check.Binary, env *Env) Value {
 		// back. MinInt32 / -1 lands on -2147483648 exactly like
 		// Go's int32 division, and normalized operands compare
 		// identically to int32 operands.
-		w := e.intOperandWidth(x.X.Type())
-		a, b := wrapTo(w, l.N), wrapTo(w, r.N)
+		w, unsigned := e.intOperandShape(x.X.Type())
+		a, b := wrapInt(w, unsigned, l.N), wrapInt(w, unsigned, r.N)
+		if unsigned {
+			ua, ub := uint64(a), uint64(b)
+			switch x.Op {
+			case syntax.BinAdd:
+				return &VInt{N: wrapInt(w, true, int64(ua+ub))}
+			case syntax.BinSub:
+				return &VInt{N: wrapInt(w, true, int64(ua-ub))}
+			case syntax.BinMul:
+				return &VInt{N: wrapInt(w, true, int64(ua*ub))}
+			case syntax.BinDiv:
+				if ub == 0 {
+					failData(CodePanic, "integer division by zero", x.Span(), "op", "/")
+				}
+				return &VInt{N: wrapInt(w, true, int64(ua/ub))}
+			case syntax.BinMod:
+				if ub == 0 {
+					failData(CodePanic, "integer modulo by zero", x.Span(), "op", "%")
+				}
+				return &VInt{N: wrapInt(w, true, int64(ua%ub))}
+			case syntax.BinBitAnd:
+				return &VInt{N: wrapInt(w, true, int64(ua&ub))}
+			case syntax.BinBitAndNot:
+				return &VInt{N: wrapInt(w, true, int64(ua&^ub))}
+			case syntax.BinBitOr:
+				return &VInt{N: wrapInt(w, true, int64(ua|ub))}
+			case syntax.BinBitXor:
+				return &VInt{N: wrapInt(w, true, int64(ua^ub))}
+			case syntax.BinBitShl:
+				return &VInt{N: wrapInt(w, true, int64(ua<<uint(ub)))}
+			case syntax.BinBitShr:
+				return &VInt{N: wrapInt(w, true, int64(ua>>uint(ub)))}
+			case syntax.BinLt:
+				return &VBool{B: ua < ub}
+			case syntax.BinLe:
+				return &VBool{B: ua <= ub}
+			case syntax.BinGt:
+				return &VBool{B: ua > ub}
+			case syntax.BinGe:
+				return &VBool{B: ua >= ub}
+			}
+		}
 		switch x.Op {
 		case syntax.BinAdd:
-			return &VInt{N: wrapTo(w, a+b)}
+			return &VInt{N: wrapInt(w, false, a+b)}
 		case syntax.BinSub:
-			return &VInt{N: wrapTo(w, a-b)}
+			return &VInt{N: wrapInt(w, false, a-b)}
 		case syntax.BinMul:
-			return &VInt{N: wrapTo(w, a*b)}
+			return &VInt{N: wrapInt(w, false, a*b)}
 		case syntax.BinDiv:
 			if b == 0 {
 				failData(CodePanic, "integer division by zero", x.Span(), "op", "/")
 			}
-			return &VInt{N: wrapTo(w, a/b)}
+			return &VInt{N: wrapInt(w, false, a/b)}
 		case syntax.BinMod:
 			if b == 0 {
 				failData(CodePanic, "integer modulo by zero", x.Span(), "op", "%")
 			}
-			return &VInt{N: wrapTo(w, a%b)}
+			return &VInt{N: wrapInt(w, false, a%b)}
 		case syntax.BinBitAnd:
-			return &VInt{N: wrapTo(w, a&b)}
+			return &VInt{N: wrapInt(w, false, a&b)}
 		case syntax.BinBitAndNot:
-			return &VInt{N: wrapTo(w, a&^b)}
+			return &VInt{N: wrapInt(w, false, a&^b)}
 		case syntax.BinBitOr:
-			return &VInt{N: wrapTo(w, a|b)}
+			return &VInt{N: wrapInt(w, false, a|b)}
 		case syntax.BinBitXor:
-			return &VInt{N: wrapTo(w, a^b)}
+			return &VInt{N: wrapInt(w, false, a^b)}
 		case syntax.BinBitShl:
 			if b < 0 {
 				failData(CodePanic, "negative shift amount", x.Span(), "op", "<<<")
 			}
-			return &VInt{N: wrapTo(w, a<<uint(b))}
+			return &VInt{N: wrapInt(w, false, a<<uint(b))}
 		case syntax.BinBitShr:
 			if b < 0 {
 				failData(CodePanic, "negative shift amount", x.Span(), "op", ">>>")
 			}
-			return &VInt{N: wrapTo(w, a>>uint(b))}
+			return &VInt{N: wrapInt(w, false, a>>uint(b))}
 		case syntax.BinLt:
 			return &VBool{B: a < b}
 		case syntax.BinLe:
@@ -2321,6 +2410,11 @@ func (e *interp) displayTyped(v Value, t types.Type) string {
 	if f, ok := v.(*VFloat); ok {
 		if w := e.floatOperandWidth(t); w == 32 {
 			return strconv.FormatFloat(f.F, 'g', -1, 32)
+		}
+	}
+	if i, ok := v.(*VInt); ok {
+		if _, unsigned := e.intOperandShape(t); unsigned {
+			return strconv.FormatUint(uint64(i.N), 10)
 		}
 	}
 	return display(e.typedDisplayValue(v, t))
