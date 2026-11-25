@@ -1,6 +1,7 @@
 package rt_test
 
 import (
+	"strings"
 	"testing"
 
 	"github.com/podhmo/gom/rt"
@@ -16,6 +17,12 @@ type showPerson struct {
 type showCircle struct{ R float64 }
 
 type opaquePoint struct{ X, Y int }
+
+type opaqueNamedSlice []float64
+
+type chainNode struct{ Next any }
+
+type chainEnd struct{}
 
 func TestShowRuntimeComposites(t *testing.T) {
 	rt.RegisterShowRecord(rt.TypeOf[showPerson](), false, "name", "age")
@@ -41,11 +48,26 @@ func TestShowRuntimeComposites(t *testing.T) {
 	if want := `[({1 2})]`; got != want {
 		t.Errorf("opaque struct = %q, want %q", got, want)
 	}
+	got = rt.ShowRuntime(opaqueNamedSlice{1, 2})
+	if want := `[1 2]`; got != want {
+		t.Errorf("opaque named slice = %q, want %q", got, want)
+	}
 	got = rt.ShowRuntime(struct {
 		V0 int
 		V1 string
 	}{V0: 1, V1: "x"})
 	if want := `(1, "x")`; got != want {
 		t.Errorf("wide tuple shape = %q, want %q", got, want)
+	}
+
+	rt.RegisterShowVariant(rt.TypeOf[chainNode](), "Node", "next")
+	rt.RegisterShowVariant(rt.TypeOf[chainEnd](), "End")
+	var chain any = chainEnd{}
+	for range 22 {
+		chain = chainNode{Next: chain}
+	}
+	got = rt.ShowRuntime(chain)
+	if want := "End"; !strings.Contains(got, want) {
+		t.Errorf("22-link chain = %q, want %q", got, want)
 	}
 }

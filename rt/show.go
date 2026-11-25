@@ -70,7 +70,9 @@ func ShowRuntime(v any) string {
 func ShowDisplay(v any) string {
 	rv := reflect.ValueOf(v)
 	if rv.IsValid() && rv.Kind() == reflect.String {
-		return rv.String()
+		if _, ok := lookupShowMeta(rv.Type()); !ok {
+			return rv.String()
+		}
 	}
 	return ShowRuntime(v)
 }
@@ -117,19 +119,19 @@ func showRuntimeValue(v reflect.Value, depth int) string {
 		if v.IsNil() {
 			return "nil"
 		}
-		return showRuntimeValue(v.Elem(), depth+1)
+		return showRuntimeValue(v.Elem(), depth)
+	}
+	t := v.Type()
+	if meta, ok := lookupShowMeta(t); ok {
+		if meta.variant {
+			return showRuntimeVariant(v, meta, depth)
+		}
+		return showRuntimeRecord(v, meta, depth)
 	}
 	if v.CanInterface() {
 		if err, ok := v.Interface().(error); ok {
 			return ShowError(err)
 		}
-	}
-	t := v.Type()
-	if meta, ok := lookupShowMeta(t); ok {
-		if meta.variant {
-			return showRuntimeVariant(v, meta, depth+1)
-		}
-		return showRuntimeRecord(v, meta, depth+1)
 	}
 	if isTupleType(t) {
 		var sb strings.Builder
@@ -177,6 +179,9 @@ func showRuntimeValue(v reflect.Value, depth int) string {
 	case reflect.String:
 		return strconv.Quote(v.String())
 	case reflect.Slice, reflect.Array:
+		if t.Name() != "" && !(t.PkgPath() == "github.com/podhmo/gom/stdlib/list" && strings.HasPrefix(t.Name(), "List")) {
+			return fmt.Sprintf("%v", v.Interface())
+		}
 		return showRuntimeSlice(v, depth+1)
 	case reflect.Struct:
 		if t.Name() == "" && t.NumField() == 0 {

@@ -301,6 +301,23 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 		want: `x:(1, "x")`,
 	},
 	{
+		// wave47 lane A: even when a string-backed one-field record is
+		// the root splice, registered record metadata outranks the root
+		// string's bare interpolation form.
+		name: "splice_generic_root_string_record_runtime_renderer",
+		src: `package main
+
+import go "fmt"
+
+type Name = {value: String}
+
+fn show (x: a) -> String = "${x}"
+fn answer () -> String = show {value = "x"}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: `{ value = "x" }`,
+	},
+	{
 		// wave47 lane A: a defined one-field record can convert back
 		// to a concrete composite field representation and recurse.
 		name: "splice_generic_wrapped_record_runtime_renderer",
