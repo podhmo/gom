@@ -24,19 +24,28 @@
 
 - [x] **[task] stdlib に `List.filter_map` / `List.find_map` を追加**: `fold` で回すしかない現状 — selfish 移植で要望（[sketch](docs/sketch/ja/2026-11-24-selfish-port.md)、wave43 lane F）。実装済み: `@extern` buffer-built Go impl（`stdlib/list/impl.go` の `FilterMap`/`FindMap`）、`noescape` directive 付き（wave44 lane F）
 
+### wave47 採択済み lane（[prompts](docs/sketch/2026-11-25-wave47-prompts.md) — 2026-11-25 採否確定、順 B→F→C→A→D）
+
+- [ ] **[wave47 lane B] `gom info` の stdlib 短名解決**（[prompts](docs/sketch/2026-11-25-wave47-prompts.md)）: `list`/`option`/`result`/`cmp` を short name として read-only inspection で引けるようにする
+- [ ] **[wave47 lane F] tutorial での snapshot dogfooding**（[prompts](docs/sketch/2026-11-25-wave47-prompts.md)）: tutorial/17-tests に `snapshot` の例を 1 つ入れ、教材と最小限の dogfooding を兼ねる
+- [ ] **[wave47 lane C] `.gomi` 再生成での directive 引き継ぎ bug 修正**（[prompts](docs/sketch/2026-11-25-wave47-prompts.md)）: `//gom:noescape` / `//gom:result-notaint` が `gom info` 再生成で落ちないようにする。abstract/private 意図は対象外
+- [ ] **[wave47 lane A] type-erased composite 表示の runtime renderer**（[prompts](docs/sketch/2026-11-25-wave47-prompts.md)）: compiled/eval 共通の runtime renderer を作り、Gom 表示側へ寄せる
+- [ ] **[wave47 lane D] `uint` / `uint64` の第一級対応**（[prompts](docs/sketch/2026-11-25-wave47-prompts.md)）: `uint` / `uint64` に絞って literal・算術・`Go.conv`・Go signature mapping を開く
+
 ### wave46 採択済み lane（[prompts](docs/sketch/2026-11-25-wave46-prompts.md) — 2026-11-25 採否確定、順 E→D→C→B→A）
 
+- [x] **[wave46 lane E] エラー出力から `gom explain` への誘導**（[prompts](docs/sketch/2026-11-25-wave46-prompts.md)）: text 診断に `gom explain CODE` 案内を追加（PR #237）
 - [x] **[wave46 lane D] eval の width 伝播の残り**（[prompts](docs/sketch/2026-11-25-wave46-prompts.md)）: W タグの意味論の残りの隅（conv 経由の int→float、cross-width boxed-any 比較）を台帳から整理 — width 伝播の残件なし。boxed-any equality の nominal type 脱落を修正し、幅区別・型区別を compare で pin。width-32 入れ子表示は lane A ブロック（[調査](docs/sketch/2026-11-25-wave46-lane-d-width-investigation.md)）
 - [x] **[wave46 lane C] splice 補間の Go 値フォーマット精緻化**（[prompts](docs/sketch/2026-11-25-wave46-prompts.md)）: `GoError` 以外の Go 由来値は `%v` 素通し — gomShow との整合 — underlying が numeric / bool / string の named Go scalar を `ShowGoScalar` で scalar 表示に揃え、`time.Duration` の Stringer ずれを解消（[decision](docs/decisions/2026-11-25-go-named-scalar-display.md)）。composite 内括弧 canonical は lane A
 - [x] **[wave46 lane B] MoonBit 式スナップショットテスト内蔵 + assert の go-cmp 化**（[prompts](docs/sketch/2026-11-25-wave46-prompts.md)）: `gom test --update` で期待値更新する方向
-- [ ] **[wave46 lane A] writeOperand の型駆動再設計**（[prompts](docs/sketch/2026-11-25-wave46-prompts.md)、[台帳](docs/implementation-gaps.md)）: foreign named scalar の括弧 canonical — compiled は opaque 値を括弧で包むが eval は見られない
+- [x] **[wave46 lane A] writeOperand の型駆動再設計**（[prompts](docs/sketch/2026-11-25-wave46-prompts.md)、[台帳](docs/implementation-gaps.md)）: foreign named scalar の括弧 canonical — evaluator の nested operand を静的型駆動化し、compiled と同じく opaque operand を括弧で包む（[decision](docs/decisions/2026-11-25-writeoperand-type-driven.md)）
 
 ### wave45 採択済み lane（[prompts](docs/sketch/2026-11-24-wave45-prompts.md) — 2026-11-25 採否確定、順 A→B→C→G→D）
 
 - [x] **[wave45 lane A] `@method` の境界綴り `Int` → `int`/`int64` 選択**: interface 側が `int64` を要求するシグネチャ（`io.Seeker.Seek`）に emit が適合しない実バグ — check は通るが生成 Go が不一致
 - [x] **[wave45 lane B] eval の float32 値表現**: VFloat は f64 オンリーで compiled の f32 比較と分岐（`16777217.0`）— width-aware な値表現が要る（#226 escalate）
-- [ ] **[wave45 lane C] 宣言型 splice 表示の正**: compiled `{ on = true }` vs テスト oracle `true` — 正を決める decision + 揃え実装
-- [ ] **[wave45 lane G] n-ary `Result` の payload Option verbatim 固定**: メソッド直呼びの n-ary result は verbatim 固定で `Ptr.to_option` 後包みが要る（selfish 観測・open-questions 済み）
+- [x] **[wave45 lane C] 宣言型 splice 表示の正**: compiled `{ on = true }` vs テスト oracle `true` — 正を決める decision + 揃え実装
+- [x] **[wave45 lane G] n-ary `Result` の payload Option verbatim 固定**: メソッド直呼びの n-ary result は verbatim 固定で `Ptr.to_option` 後包みが要る（selfish 観測・open-questions 済み）
 
 ### 基盤（最初に着手。P0 と並列に進められる）
 

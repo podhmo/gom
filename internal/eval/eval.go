@@ -2402,10 +2402,19 @@ func (e *interp) displayTyped(v Value, t types.Type) string {
 
 // displayValueTyped is the typed counterpart of display. It matters
 // at integer leaves: the bit pattern of a uint64 above MaxInt64 is a
-// negative int64 in the oracle, so the record/variant shape restored
+// negative int64 in the oracle, so the composite shape restored
 // around it cannot print the right digits unless the declared field
 // type is carried down to the leaf.
 func (e *interp) displayValueTyped(v Value, t types.Type, nested bool) string {
+	return e.displayValueTypedMode(v, t, nested, typeHasVar(t))
+}
+
+// displayValueTypedMode carries scalar types even through the runtime
+// fallback. The fallback must not gain typed operand parentheses, but
+// concrete leaves inside it are still machine-typed Go values — a
+// uint64-backed field next to a type parameter must not print its
+// high bit pattern as a negative signed integer.
+func (e *interp) displayValueTypedMode(v Value, t types.Type, nested, runtimeFallback bool) string {
 	if f, ok := v.(*VFloat); ok {
 		if w := e.floatOperandWidth(t); w == 32 {
 			return strconv.FormatFloat(f.F, 'g', -1, 32)
@@ -2424,19 +2433,169 @@ func (e *interp) displayValueTyped(v Value, t types.Type, nested bool) string {
 			return v.String()
 		}
 	}
-	if r, ok := v.(*VRecord); ok {
-		if s, ok := e.recordDisplayTyped(r, t); ok {
+	switch v := v.(type) {
+	case *VRecord:
+		if s, ok := e.recordDisplayTyped(v, t, runtimeFallback); ok {
+			return s
+		}
+	case *VTuple:
+		if s, ok := e.tupleDisplayTyped(v, t, runtimeFallback); ok {
+			return s
+		}
+	case *VList:
+		if s, ok := e.listDisplayTyped(v, t, runtimeFallback); ok {
+			return s
+		}
+	case *VVariant:
+		if s, ok := e.variantDisplayTyped(v, t, runtimeFallback); ok {
 			return s
 		}
 	}
 	return display(v)
 }
 
+// typeHasVar mirrors lowering's showDecl guard: a package-level
+// display helper cannot mention a function-local type parameter, so
+// any type still containing one uses the runtime recipe as a whole.
+func typeHasVar(t types.Type) bool {
+	switch t := types.Chase(t).(type) {
+	case *types.Var:
+		return true
+	case *types.Con:
+		for _, a := range t.Args {
+			if typeHasVar(a) {
+				return true
+			}
+		}
+	case *types.Go:
+		for _, a := range t.Args {
+			if typeHasVar(a) {
+				return true
+			}
+		}
+	case *types.Func:
+		for _, p := range t.Params {
+			if typeHasVar(p.Type) {
+				return true
+			}
+		}
+		return typeHasVar(t.Ret)
+	case *types.Tuple:
+		for _, x := range t.Elems {
+			if typeHasVar(x) {
+				return true
+			}
+		}
+	case *types.Meta:
+		return false
+	default:
+		panic("unreachable")
+	}
+	return false
+}
+
+// scalarDisplayType reports whether operand type t uses one of the
+// scalar display recipes. The distinction decides parentheses in a
+// composite: values are scalar payloads even when their static type
+// is a foreign named scalar, so the answer must come from the type —
+// not from the value's Go representation in the oracle.
+func (e *interp) scalarDisplayType(t types.Type) bool {
+	switch t := types.Chase(t).(type) {
+	case *types.Con:
+		if t.Qual == "Go" {
+			return t.Name == "Int"
+		}
+		if t.Qual == "" && !e.localT[t.Name] {
+			switch t.Name {
+			case "Unit", "Bool", "Int", "Int32", "Int64", "Float",
+				"Char", "Byte", "String":
+				return true
+			}
+		}
+		return false
+	case *types.Go:
+		// Foreign named scalars parenthesize exactly like opaque
+		// Go values in operand position — lane C aligns their
+		// contents with the scalar underlying, not their nominal
+		// operand category.
+		return false
+	case *types.Func, *types.Var, *types.Meta, *types.Tuple:
+		return false
+	default:
+		panic("unreachable")
+	}
+}
+
+// typedOperandParen is the type-driven replacement for writeOperand's
+// value-shaped parenthesis decision. Tuples and lists bracket
+// themselves; scalars do not parenthesize; records, variants, Go
+// errors, opaque Go values, function values, and type-erased operands
+// (a generic or otherwise runtime-rendered value) do.
+func (e *interp) typedOperandParen(v Value, t types.Type) bool {
+	if e.scalarDisplayType(t) {
+		return false
+	}
+	switch t := types.Chase(t).(type) {
+	case *types.Tuple:
+		return false
+	case *types.Con:
+		// Only the builtin list forms bracket themselves. Go.Slice is
+		// deliberately excluded: compiled renders it through the opaque
+		// runtime recipe, whose operands parenthesize even though fmt's
+		// output happens to carry square brackets.
+		if t.Qual == "" && !e.localT[t.Name] && (t.Name == "List" || t.Name == "Array") {
+			return false
+		}
+		return true
+	case *types.Func, *types.Var, *types.Meta, *types.Go:
+		return true
+	default:
+		panic("unreachable")
+	}
+}
+
+// writeTypedOperand writes one nested operand using its static type's
+// parenthesis canonical. It is the evaluator oracle's counterpart of
+// codegen's showOperand: the same type-driven decision, with scalar
+// leaves still rendered by displayValueTyped.
+func (e *interp) writeTypedOperand(sb *strings.Builder, v Value, t types.Type) {
+	e.writeOperandMode(sb, v, t, false)
+}
+
+// writeRuntimeOperand is the operand writer inside a whole-value
+// runtime fallback: parentheses follow the value-shaped legacy rule,
+// while scalar contents still use whatever concrete static type the
+// fallback position carries.
+func (e *interp) writeRuntimeOperand(sb *strings.Builder, v Value, t types.Type) {
+	e.writeOperandMode(sb, v, t, true)
+}
+
+func (e *interp) writeOperandMode(sb *strings.Builder, v Value, t types.Type, runtimeFallback bool) {
+	paren := e.typedOperandParen(v, t)
+	if runtimeFallback {
+		switch v.(type) {
+		case *VTuple, *VList:
+			paren = false
+		case *VUnit, *VBool, *VInt, *VFloat, *VChar, *VStr:
+			paren = false
+		case *VRecord, *VVariant, *VGoErr, *VHost, *VFunc:
+			paren = true
+		default:
+			panic("unreachable")
+		}
+	}
+	if paren {
+		sb.WriteByte('(')
+	}
+	sb.WriteString(e.displayValueTypedMode(v, t, true, runtimeFallback))
+	if paren {
+		sb.WriteByte(')')
+	}
+}
+
 // recordDisplayTyped formats a record through its declared field
-// types. It preserves writeOperand's nested-composite parentheses so
-// the oracle's record canonical stays unchanged apart from typed
-// scalar leaves.
-func (e *interp) recordDisplayTyped(r *VRecord, t types.Type) (string, bool) {
+// types.
+func (e *interp) recordDisplayTyped(r *VRecord, t types.Type, runtimeFallback bool) (string, bool) {
 	ri := e.recordOf(r.Type)
 	if ri == nil {
 		return "", false
@@ -2463,20 +2622,136 @@ func (e *interp) recordDisplayTyped(r *VRecord, t types.Type) (string, bool) {
 				break
 			}
 		}
-		text := display(f.V)
 		if ft != nil {
-			text = e.displayValueTyped(f.V, ft, true)
-		}
-		switch f.V.(type) {
-		case *VRecord, *VVariant, *VGoErr, *VHost, *VFunc:
-			sb.WriteByte('(')
-			sb.WriteString(text)
-			sb.WriteByte(')')
-		default:
-			sb.WriteString(text)
+			if runtimeFallback {
+				e.writeRuntimeOperand(&sb, f.V, ft)
+			} else {
+				e.writeTypedOperand(&sb, f.V, ft)
+			}
+		} else {
+			writeOperand(&sb, f.V)
 		}
 	}
 	sb.WriteString(" }")
+	return sb.String(), true
+}
+
+// tupleDisplayTyped formats tuple elements through their static
+// element types.
+func (e *interp) tupleDisplayTyped(v *VTuple, t types.Type, runtimeFallback bool) (string, bool) {
+	tp, ok := types.Chase(t).(*types.Tuple)
+	if !ok || len(tp.Elems) != len(v.Elems) {
+		return "", false
+	}
+	var sb strings.Builder
+	sb.WriteByte('(')
+	for i, x := range v.Elems {
+		if i > 0 {
+			sb.WriteString(", ")
+		}
+		if runtimeFallback {
+			e.writeRuntimeOperand(&sb, x, tp.Elems[i])
+		} else {
+			e.writeTypedOperand(&sb, x, tp.Elems[i])
+		}
+	}
+	sb.WriteByte(')')
+	return sb.String(), true
+}
+
+// listDisplayTyped formats list elements through the static List
+// element type.
+func (e *interp) listDisplayTyped(v *VList, t types.Type, runtimeFallback bool) (string, bool) {
+	el := listElemType(t)
+	if el == nil {
+		return "", false
+	}
+	var sb strings.Builder
+	sb.WriteByte('[')
+	for i, x := range v.Elems {
+		if i > 0 {
+			sb.WriteString(", ")
+		}
+		if runtimeFallback {
+			e.writeRuntimeOperand(&sb, x, el)
+		} else {
+			e.writeTypedOperand(&sb, x, el)
+		}
+	}
+	sb.WriteByte(']')
+	return sb.String(), true
+}
+
+// displayCtorInfo returns constructor metadata in declaration form.
+// `Go.try_as` materializes builtin Option values without carrying the
+// constructor symbol, so recover Some/None/Ok/Err by name for display;
+// reshape must not treat that missing symbol as a reason to drop the
+// payload's static type.
+func (e *interp) displayCtorInfo(v *VVariant) *ctorInfo {
+	sym := v.Ctor
+	if sym == nil {
+		switch v.Name {
+		case "Some", "None", "Ok", "Err":
+			sym = &resolve.Symbol{Name: v.Name, Kind: resolve.KindCtor}
+		default:
+			return nil
+		}
+		return builtinDeclCtor(sym)
+	}
+	info := e.ctorOf(sym, v.Name, v.Type)
+	if info != nil && !info.declared {
+		info = builtinDeclCtor(sym)
+	}
+	if info == nil || !info.declared {
+		return nil
+	}
+	return info
+}
+
+// variantDisplayTyped formats constructor payloads through the
+// constructor's declared field types instantiated at the splice's
+// static type — the same substitution discipline typedDisplayValue
+// uses to reshape literal-conformed payloads.
+func (e *interp) variantDisplayTyped(v *VVariant, t types.Type, runtimeFallback bool) (string, bool) {
+	con, ok := types.Chase(t).(*types.Con)
+	if !ok {
+		return "", false
+	}
+	info := e.displayCtorInfo(v)
+	if info == nil {
+		return "", false
+	}
+	sub := instSubst(info.typ, con)
+	name := v.Name
+	if name == "" {
+		name = info.name
+	}
+	var sb strings.Builder
+	sb.WriteString(name)
+	for _, f := range v.Fields {
+		sb.WriteByte(' ')
+		if f.Name != "" {
+			sb.WriteByte('~')
+			sb.WriteString(f.Name)
+			sb.WriteString(": ")
+		}
+		ft := types.Type(nil)
+		for _, fi := range info.fields {
+			if fi.index == f.Index && fi.typ != nil {
+				ft = applySubst(fi.typ, sub)
+				break
+			}
+		}
+		if ft != nil {
+			if runtimeFallback {
+				e.writeRuntimeOperand(&sb, f.V, ft)
+			} else {
+				e.writeTypedOperand(&sb, f.V, ft)
+			}
+		} else {
+			writeOperand(&sb, f.V)
+		}
+	}
 	return sb.String(), true
 }
 
@@ -2554,18 +2829,12 @@ func (e *interp) typedDisplayValue(v Value, t types.Type) Value {
 		// not reshape a different instantiation (`Some` at Flag
 		// recasting a later `Some` at Bool) — the same discipline
 		// reshape follows.
-		if v.Ctor == nil {
-			return v
-		}
 		con, ok := types.Chase(t).(*types.Con)
 		if !ok {
 			return v
 		}
-		info := e.ctorOf(v.Ctor, v.Name, v.Type)
-		if info != nil && !info.declared {
-			info = builtinDeclCtor(v.Ctor)
-		}
-		if info == nil || !info.declared {
+		info := e.displayCtorInfo(v)
+		if info == nil {
 			return v
 		}
 		sub := instSubst(info.typ, con)

@@ -27,8 +27,9 @@ float32 underlying は bitSize 32 で描く。
   `String` と同じ使い分け
 - struct / interface / map / slice / channel / function / complex など
   scalar underlying を持たない Go 由来値は従来どおり `%v`
-- composite 内で Go scalar を括弧で包むかどうかは別問題（wave46 lane A）
-  であり、この決定は括弧 canonical を変えない
+- composite 内で Go scalar を括弧で包む canonical は
+  [writeoperand-type-driven](2026-11-25-writeoperand-type-driven.md) が決める。
+  この決定は scalar payload の内容だけを揃え、括弧 canonical は変えない
 
 ## 却下した案
 

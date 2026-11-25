@@ -58,16 +58,22 @@ Gom の開発は「wave」という単位で回す。1 wave = 複数 lane（細�
 
 - 次 wave の lane 候補を `docs/sketch/YYYY-MM-DD-waveN-prompts.md`
   として草案化する。
+- 入力は前 wave の round、TODO、open-questions、implementation-gaps。
+  特に round の発生タスクは、lane 候補・採否確認点・明示的な見送りの
+  いずれかに載せ、prompts 作成時に取りこぼさない。小さな発見は
+  必要に応じて参照する。
 - **意思決定はこの時点で人間（podhmo）と会話して済ませる。**
   採択が要る点は prompts 作成時点で聞いて確定し、lane 本文に
   「計測結果なら (a)、そうでなければ (b)」型の実行時採択を
   残さない（wave21 の Prompt-drafting rules）。
 - **インタビューで採択が確定したら台帳も同期する**: 採択された
-  decision の `状態` を更新し、open-questions の該当項目を
-  `[x]` + decision リンクに、採択済みの実作業を `TODO.md` に
-  登録する（決まっていて手を動かすだけの lane だけ。調査 lane は
-  open-questions 側の管理のまま）。prompts の `状態` 更新だけでは
-  各台帳が stale のまま残る。
+  decision が既にあるときは `状態` を更新する。open-questions の
+  該当項目は `[x]` + decision または採否確定済み prompts リンクに、
+  採択済みの実作業を `TODO.md` に登録する（決まっていて手を動かす
+  だけの lane だけ。調査 lane は open-questions 側の管理のまま）。
+  採択時点の scope は prompts に記録し、実装中の技術決定は通常どおり
+  lane の中で decision 化する。prompts の `状態` 更新だけでは各台帳が
+  stale のまま残る。
 - 実装中の細かい設計決定は decision (draft) → prototype 検証 →
   状態更新、の通常手順で記録する。これは分岐ではなく記録手順。
 - 採択されなかった候補の sketch/experiments は記録として残す
@@ -95,11 +101,33 @@ Gom の開発は「wave」という単位で回す。1 wave = 複数 lane（細�
 
 締め作業の内容:
 
-- `docs/sketch/YYYY-MM-DD-waveN-round.md` の round 記録
-  （各 lane の結果・pitfalls・次への申し送り）。レビュー往復の
-  帳簿ではない — finding→fix の対応表は書かず、pitfall として
-  一般化できる指摘だけを学びの節に書く（件数・ラウンド経過は
-  lane 表に一句で済ませる）。
+- `docs/sketch/YYYY-MM-DD-waveN-round.md` の round 記録。round は
+  個別 lane を読まない評価者が wave を把握する summary。中心は
+  lane 結果と、実行・review で分かったことを蒸留した pitfalls。
+  詳細本文や網羅監査の再録ではない。
+
+  必須:
+
+  - lane 表: lane/PR/結果。review 経過は wave の概観に必要な範囲で
+    一言添えてよいが、正確な全件記録は不要
+  - pitfalls: 発見や事後理解から次回以降に効く形へ蒸留したもの。
+    round の主な蓄積
+  - 発生タスクと台帳の動き: 新規/解消した TODO、open question、
+    implementation gap、decision、problem のうち次 wave prompts の
+    入力になるもの。なければ「なし」と書く
+  - 次への申し送り
+
+  必要に応じて:
+
+  - 発見メモ: 一般化しきれない小さな発見、事後的に気づいて対応した
+    こと、計画や当時の認識とずれたこと。網羅ではなく思い出すための
+    数行の index
+  - wave の経過: review/merge/closeout をまたいで方針や実装が変わった
+    部分の概観。commit 群のおおまかな把握を助ける程度でよい
+
+  ただし finding→fix の対応表、commit 全件の把握、ドキュメント差分の
+  精密な追跡は round の目的ではない。詳細は PR の review thread、
+  decision、sketch、台帳を正とし、round からリンクする。
 - `skills/gom-agent-guide` の同期（その wave で変わった
   ユーザー可視の振る舞い・診断・構文の分）。
 - **全体を眺めての修整・調整**: 個別のレビュー・マージ時点では

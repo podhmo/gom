@@ -237,6 +237,42 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 		want: "{ v = (Some ({ on = true })) }",
 	},
 	{
+		// wave46 lane A review: a list whose element type is still
+		// generic cannot mint a typed renderer in compiled code; the
+		// whole operand is `%v`, so the scalar element must not gain
+		// typed operand parentheses in the oracle.
+		name: "splice_generic_list_runtime_fallback",
+		src: `package main
+
+import go "fmt"
+
+fn show (x: a) -> String = "${[x]}"
+fn answer () -> String = show 1
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: `[1]`,
+	},
+	{
+		// wave46 lane A review: Go.try_as materializes builtin Option
+		// without a ctor symbol. Display must recover the builtin ctor
+		// shape so a foreign named scalar payload still gets its opaque
+		// operand parentheses.
+		name: "splice_try_as_named_scalar_operand",
+		src: `package main
+
+import go "fmt"
+import go "time"
+
+fn answer () -> String = {
+  let d : time.Duration = 1
+  let x : Go.Any = d
+  "${Go.try_as x : Option time.Duration}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: `Some (1)`,
+	},
+	{
 		// lane C display: record literals and scalar bindings draw
 		// the SAME rendering — the construction path is invisible.
 		name: "splice_record_literal_parity",
@@ -477,6 +513,26 @@ fn answer () -> String = {
 fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 `,
 		want: `{ label = "x", ch = 'y' }`,
+	},
+	{
+		// wave46 lane A: foreign named scalars keep their nominal
+		// operand parentheses inside every composite shape, while
+		// the scalar payload itself still uses the underlying's
+		// width and quoting rules.
+		name: "splice_go_named_scalar_nested_operands",
+		src: `package main
+
+import go "fmt"
+import go "github.com/podhmo/gom/testdata/goiface"
+
+fn answer () -> String = {
+  let r : goiface.SmallRatio = 1.23456789
+  let l = goiface.LabelOf "x"
+  "${[r]}:${(r, l)}:${Some r}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: `[(1.2345679)]:((1.2345679), ("x")):Some (1.2345679)`,
 	},
 	{
 		// lane C review: width-64 unsigned values above MaxInt64
@@ -2235,11 +2291,50 @@ let w = Score 42
 	},
 }
 
+// TestEvalRuntimeFallbackKeepsConcreteUnsignedLeaf pins scalar type
+// retention inside a whole-value runtime fallback: the tuple itself
+// cannot mint a typed renderer, but its concrete uint64-backed leaf
+// must still print unsigned.
+func TestEvalRuntimeFallbackKeepsConcreteUnsignedLeaf(t *testing.T) {
+	src := `package main
+
+import go "fmt"
+import go "github.com/podhmo/gom/testdata/goiface"
+
+fn show (x: a) -> String = {
+  let big : goiface.Big = 9223372036854775808
+  "${(x, big)}"
+}
+fn answer () -> String = show 1
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`
+	r, err := build.Compile(build.Input{Path: "runtime_unsigned.gom", Src: []byte(src)}, suiteOptions())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Diagnostics.HasError() {
+		t.Fatalf("diagnostics: %v", r.Diagnostics)
+	}
+	if got, want := evalAnswer(t, r, src), "(1, 9223372036854775808)"; got != want {
+		t.Fatalf("eval display = %q, want %q", got, want)
+	}
+	gobin, err := lookupGo(t)
+	if err != nil {
+		t.Skip(err)
+	}
+	out, err := runCompiledCmd(t, gobin, r.Output.Source)
+	if err != nil {
+		t.Fatalf("compiled run: %v\n%s", err, out)
+	}
+	if !strings.Contains(out, "9223372036854775808") || strings.Contains(out, "-9223372036854775808") {
+		t.Fatalf("compiled stdout does not preserve the unsigned digits: %q", out)
+	}
+}
+
 // TestEvalUnsignedRecordShape pins the evaluator half of the lane C
 // review fix without involving compiled nested parentheses: unsigned
 // formatting must happen after the declared one-field record shape is
-// restored. Compiled nested foreign-scalar parentheses are wave46
-// lane A's separate canonicalization.
+// restored.
 func TestEvalUnsignedRecordShape(t *testing.T) {
 	src := `package main
 
@@ -2264,7 +2359,7 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 	if r.Diagnostics.HasError() {
 		t.Fatalf("diagnostics: %v", r.Diagnostics)
 	}
-	if got, want := evalAnswer(t, r, src), "{ mode = 4294967295 };{ big = 9223372036854775808 }"; got != want {
+	if got, want := evalAnswer(t, r, src), "{ mode = (4294967295) };{ big = (9223372036854775808) }"; got != want {
 		t.Fatalf("eval display = %q, want %q", got, want)
 	}
 }
