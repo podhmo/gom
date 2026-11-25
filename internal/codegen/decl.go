@@ -572,6 +572,65 @@ func (g *gen) typeParams(tparams []*types.Var) []string {
 	return names
 }
 
+// showTypeInstantiation renders `Name[any, ...]` for runtime show
+// metadata registration. The instantiation arguments never matter —
+// registration keys strip them — but Go requires a generic type to be
+// instantiated before reflect.TypeOf can name it.
+func showTypeInstantiation(tname string, tparams []*types.Var) string {
+	if len(tparams) == 0 {
+		return tname
+	}
+	args := make([]string, len(tparams))
+	for i := range args {
+		args[i] = "any"
+	}
+	return tname + "[" + strings.Join(args, ", ") + "]"
+}
+
+func quoteStrings(xs []string) string {
+	out := make([]string, len(xs))
+	for i, x := range xs {
+		out[i] = strconv.Quote(x)
+	}
+	return strings.Join(out, ", ")
+}
+
+func (g *gen) showRecordRegistration(d *core.TypeDecl, b *core.TRecord) {
+	fields := make([]string, len(b.Fields))
+	for i, f := range b.Fields {
+		fields[i] = f.Name
+	}
+	typeExpr := showTypeInstantiation(g.typeName(d.Sym), d.TypeParams)
+	args := ""
+	if len(fields) > 0 {
+		args = ", " + quoteStrings(fields)
+	}
+	g.raw("var _ = " + g.pkgQual(rtPath) + "RegisterShowRecord(" + g.pkgQual(rtPath) + "TypeOf[" + typeExpr + "](), " + strconv.FormatBool(b.Defined) + args + ")")
+	g.nl()
+	if b.Defined && len(b.Fields) == 1 && len(types.FreeVars(b.Fields[0].Type)) == 0 {
+		unwrap := g.exprString(g.goType(b.Fields[0].Type))
+		g.raw("var _ = " + g.pkgQual(rtPath) + "RegisterShowUnwrap(" + g.pkgQual(rtPath) + "TypeOf[" + typeExpr + "](), " + g.pkgQual(rtPath) + "TypeOf[" + unwrap + "]())")
+		g.nl()
+	}
+	g.nl()
+}
+
+func (g *gen) showVariantRegistration(d *core.TypeDecl, v *core.TVariant) {
+	fields := make([]string, len(v.Fields))
+	for i, f := range v.Fields {
+		fields[i] = f.Name
+	}
+	vname := g.typeName(d.Sym) + "_" + exportName(v.Sym.Name)
+	typeExpr := showTypeInstantiation(vname, d.TypeParams)
+	args := ""
+	if len(fields) > 0 {
+		args = ", " + quoteStrings(fields)
+	}
+	g.raw("var _ = " + g.pkgQual(rtPath) + "RegisterShowVariant(" + g.pkgQual(rtPath) + "TypeOf[" + typeExpr + "](), " + strconv.Quote(v.Sym.Name) + args + ")")
+	g.nl()
+	g.nl()
+}
+
 // tsum emits the P0-1 sealed-interface ADT: the interface with the
 // unexported marker, one struct per variant, and each variant's
 // marker method. Generic ADTs keep the type parameters on every
@@ -623,6 +682,8 @@ func (g *gen) tsum(d *core.TypeDecl, b *core.TSum) {
 			}
 			g.close()
 		}
+
+		g.showVariantRegistration(d, v)
 
 		// func (Name_Ctor[A]) isName() (A, B) { return zero vals }
 		g.raw("func (" + vname)
@@ -682,6 +743,7 @@ func (g *gen) trecord(d *core.TypeDecl, b *core.TRecord) {
 		g.raw(" struct{}")
 		g.nl()
 		g.nl()
+		g.showRecordRegistration(d, b)
 		return
 	}
 	if b.Defined {
@@ -693,6 +755,7 @@ func (g *gen) trecord(d *core.TypeDecl, b *core.TRecord) {
 		g.typ(g.goType(b.Fields[0].Type))
 		g.nl()
 		g.nl()
+		g.showRecordRegistration(d, b)
 		return
 	}
 	g.raw(" struct")
@@ -710,6 +773,7 @@ func (g *gen) trecord(d *core.TypeDecl, b *core.TRecord) {
 	}
 	g.close()
 	g.nl()
+	g.showRecordRegistration(d, b)
 }
 
 // talias emits `type Name[A] = T` — the transparent alias: a Gom

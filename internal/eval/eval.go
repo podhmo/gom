@@ -2415,6 +2415,14 @@ func (e *interp) displayValueTyped(v Value, t types.Type, nested bool) string {
 // uint64-backed field next to a type parameter must not print its
 // high bit pattern as a negative signed integer.
 func (e *interp) displayValueTypedMode(v Value, t types.Type, nested, runtimeFallback bool) string {
+	if runtimeFallback {
+		// Char is a rune/Int32 machine value in compiled code. Once the
+		// static recipe is erased, reflection cannot recover character-ness,
+		// so the oracle's runtime fallback uses the same numeric reading.
+		if c, ok := v.(*VChar); ok {
+			return strconv.FormatInt(int64(c.R), 10)
+		}
+	}
 	if f, ok := v.(*VFloat); ok {
 		if w := e.floatOperandWidth(t); w == 32 {
 			return strconv.FormatFloat(f.F, 'g', -1, 32)

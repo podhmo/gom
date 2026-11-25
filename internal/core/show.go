@@ -31,11 +31,12 @@ const (
 	// fmt behavior (Stringer) so compiled output follows Gom's
 	// scalar semantics and matches the evaluator oracle.
 	ShowGoScalar
-	// ShowRuntime renders `fmt.Sprintf("%v", v)` — the fallback for
+	// ShowRuntime renders through rt.ShowRuntime — the fallback for
 	// Go-view types whose Gom-level shape does not exist or is
 	// opaque: named Go types, Task, Go.Any, function values,
 	// channels, references, and the defensive landing spots
-	// (Var, Meta).
+	// (Var, Meta). Reflection canonicalizes runtime-representable
+	// Gom composites while unregistered opaque values stay on fmt.
 	ShowRuntime
 	// ShowError renders a GoError as `error("text")`, the
 	// evaluator's VGoErr reading, nil-aware.

@@ -16,6 +16,9 @@ type Pair struct {
 //line builtins.gom:7
 }
 
+//line builtins.gom:7
+var _ = rt.RegisterShowRecord(rt.TypeOf[Pair](), false, "x", "xs")
+
 //line builtins.gom:9
 type Shape interface{ isShape() }
 
@@ -27,6 +30,9 @@ type Shape_Circle struct {
 }
 
 //line builtins.gom:9
+var _ = rt.RegisterShowVariant(rt.TypeOf[Shape_Circle](), "Circle", "")
+
+//line builtins.gom:9
 func (Shape_Circle) isShape() {}
 
 //line builtins.gom:9
@@ -35,6 +41,9 @@ type Shape_Square struct {
 	V0 list.List[int64]
 //line builtins.gom:9
 }
+
+//line builtins.gom:9
+var _ = rt.RegisterShowVariant(rt.TypeOf[Shape_Square](), "Square", "")
 
 //line builtins.gom:9
 func (Shape_Square) isShape() {}

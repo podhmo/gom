@@ -4,6 +4,7 @@ package main
 
 import (
 	fmt "fmt"
+	rt "github.com/podhmo/gom/rt"
 	result "github.com/podhmo/gom/stdlib/result"
 	strconv "strconv"
 )
@@ -11,11 +12,29 @@ import (
 //line scalar_lit_declared.gom:8
 type Name string
 
+//line scalar_lit_declared.gom:8
+var _ = rt.RegisterShowRecord(rt.TypeOf[Name](), true, "n")
+
+//line scalar_lit_declared.gom:8
+var _ = rt.RegisterShowUnwrap(rt.TypeOf[Name](), rt.TypeOf[string]())
+
 //line scalar_lit_declared.gom:9
 type Flag bool
 
+//line scalar_lit_declared.gom:9
+var _ = rt.RegisterShowRecord(rt.TypeOf[Flag](), true, "on")
+
+//line scalar_lit_declared.gom:9
+var _ = rt.RegisterShowUnwrap(rt.TypeOf[Flag](), rt.TypeOf[bool]())
+
 //line scalar_lit_declared.gom:10
 type Ch rune
+
+//line scalar_lit_declared.gom:10
+var _ = rt.RegisterShowRecord(rt.TypeOf[Ch](), true, "c")
+
+//line scalar_lit_declared.gom:10
+var _ = rt.RegisterShowUnwrap(rt.TypeOf[Ch](), rt.TypeOf[rune]())
 
 //line scalar_lit_declared.gom:12
 func greet(n Name) string {

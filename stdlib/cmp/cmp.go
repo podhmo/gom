@@ -12,8 +12,14 @@ import (
 //line stdlib/cmp/cmp.gom:14
 type Eq[A any] func(A) func(A) bool
 
+//line stdlib/cmp/cmp.gom:14
+var _ = rt.RegisterShowRecord(rt.TypeOf[Eq[any]](), true, "eq")
+
 //line stdlib/cmp/cmp.gom:18
 type Ord[A any] func(A) func(A) bool
+
+//line stdlib/cmp/cmp.gom:18
+var _ = rt.RegisterShowRecord(rt.TypeOf[Ord[any]](), true, "lt")
 
 //line stdlib/cmp/cmp.gom:20
 var IntEq Eq[int64] = func() Eq[int64] {

@@ -253,6 +253,165 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 		want: `[1]`,
 	},
 	{
+		// wave47 lane A: a type-erased tuple uses the runtime
+		// renderer's Gom composite spelling rather than fmt's
+		// struct form, while opaque scalar leaves keep machine width.
+		name: "splice_generic_tuple_runtime_renderer",
+		src: `package main
+
+import go "fmt"
+
+fn show (x: a) -> String = "${[x]}"
+fn answer () -> String = show (1, "x")
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: `[(1, "x")]`,
+	},
+	{
+		// wave47 lane A: generated record and variant representations
+		// register their Gom field/constructor spellings, so the same
+		// spellings survive type erasure in compiled code.
+		name: "splice_generic_record_variant_runtime_renderer",
+		src: `package main
+
+import go "fmt"
+
+type Point = {x: Int, y: Int}
+type Shape = | Circle (radius: Float) | Empty
+
+fn show (x: a) -> String = "${[x]}"
+fn answer () -> String = "${show {x = 1, y = 2}}:${show (Circle 1.5)}"
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: `[({ x = 1, y = 2 })]:[(Circle ~radius: 1.5)]`,
+	},
+	{
+		// wave47 lane A: a root type-erased splice keeps interpolation's
+		// bare scalar form, while a composite root uses the runtime
+		// renderer's composite notation.
+		name: "splice_generic_root_runtime_renderer",
+		src: `package main
+
+import go "fmt"
+
+fn show (x: a) -> String = "${x}"
+fn answer () -> String = "${show "x"}:${show (1, "x")}"
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: `x:(1, "x")`,
+	},
+	{
+		// wave47 lane A: a defined one-field record can convert back
+		// to a concrete composite field representation and recurse.
+		name: "splice_generic_wrapped_record_runtime_renderer",
+		src: `package main
+
+import go "fmt"
+
+type Point = {x: Int, y: Int}
+type Wrapped = {p: Point}
+
+fn show (x: a) -> String = "${[x]}"
+fn answer () -> String = show {p = {x = 1, y = 2}}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: `[({ p = ({ x = 1, y = 2 }) })]`,
+	},
+	{
+		// wave47 lane A: even when a generic field type cannot be
+		// reified for conversion, a defined record whose representation
+		// is slice-shaped keeps list canonicalization.
+		name: "splice_generic_wrapped_list_runtime_renderer",
+		src: `package main
+
+import go "fmt"
+
+type Box a = {items: List a}
+
+fn show (x: a) -> String = "${[x]}"
+fn answer () -> String = show {items = [1, 2]}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: `[({ items = [1, 2] })]`,
+	},
+	{
+		// wave47 lane A: tuples wider than Tuple8 lower to anonymous
+		// V<N> structs; the runtime renderer still recognizes that
+		// representation as tuple-shaped.
+		name: "splice_generic_wide_tuple_runtime_renderer",
+		src: `package main
+
+import go "fmt"
+
+fn show (x: a) -> String = "${[x]}"
+fn answer () -> String = show (1, 2, 3, 4, 5, 6, 7, 8, 9)
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: `[(1, 2, 3, 4, 5, 6, 7, 8, 9)]`,
+	},
+	{
+		// wave47 lane A: nested lists use comma separators through
+		// the erased outer list instead of fmt's slice spelling.
+		name: "splice_generic_nested_list_runtime_renderer",
+		src: `package main
+
+import go "fmt"
+
+fn show (x: a) -> String = "${[x]}"
+fn answer () -> String = show [1, 2]
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: `[[1, 2]]`,
+	},
+	{
+		// wave47 lane A: a one-field record keeps its record display
+		// even though its runtime representation is the field value.
+		name: "splice_generic_one_field_record_runtime_renderer",
+		src: `package main
+
+import go "fmt"
+
+type Flag = {on: Bool}
+
+fn show (x: a) -> String = "${[x]}"
+fn answer () -> String = show {on = true}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: `[({ on = true })]`,
+	},
+	{
+		// wave47 lane A: Char's rune representation is intentionally
+		// indistinguishable from Int32 after type erasure; both sides
+		// keep the machine scalar reading inside the erased record.
+		name: "splice_generic_char_record_runtime_renderer",
+		src: `package main
+
+import go "fmt"
+
+type Ch = {c: Char}
+
+fn show (x: a) -> String = "${[x]}"
+fn answer () -> String = show {c = 'y'}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: `[({ c = 121 })]`,
+	},
+	{
+		// wave47 lane A: builtin Option and Result representations are
+		// recognized without user-type registration metadata.
+		name: "splice_generic_option_result_runtime_renderer",
+		src: `package main
+
+import go "fmt"
+
+fn show (x: a) -> String = "${[x]}"
+fn ok2 () -> Result Int String = Ok 2
+fn answer () -> String = "${show (Some 1)}:${show (ok2 ())}"
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: `[(Some 1)]:[(Ok 2)]`,
+	},
+	{
 		// wave46 lane A review: Go.try_as materializes builtin Option
 		// without a ctor symbol. Display must recover the builtin ctor
 		// shape so a foreign named scalar payload still gets its opaque

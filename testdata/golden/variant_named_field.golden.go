@@ -2,6 +2,10 @@
 
 package main
 
+import (
+	rt "github.com/podhmo/gom/rt"
+)
+
 //line variant_named_field.gom:15
 type Shape interface{ isShape() }
 
@@ -13,10 +17,16 @@ type Shape_Circle struct {
 }
 
 //line variant_named_field.gom:15
+var _ = rt.RegisterShowVariant(rt.TypeOf[Shape_Circle](), "Circle", "r")
+
+//line variant_named_field.gom:15
 func (Shape_Circle) isShape() {}
 
 //line variant_named_field.gom:15
 type Shape_Empty struct{}
+
+//line variant_named_field.gom:15
+var _ = rt.RegisterShowVariant(rt.TypeOf[Shape_Empty](), "Empty")
 
 //line variant_named_field.gom:15
 func (Shape_Empty) isShape() {}
@@ -32,6 +42,9 @@ type Pair_MkPair[A any] struct {
 	Snd A
 //line variant_named_field.gom:31
 }
+
+//line variant_named_field.gom:31
+var _ = rt.RegisterShowVariant(rt.TypeOf[Pair_MkPair[any]](), "MkPair", "fst", "snd")
 
 //line variant_named_field.gom:31
 func (Pair_MkPair[A]) isPair() A {

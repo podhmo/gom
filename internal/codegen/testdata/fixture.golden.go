@@ -23,10 +23,16 @@ type Shape_Circle struct {
 }
 
 //line t.gom:1
+var _ = rt.RegisterShowVariant(rt.TypeOf[Shape_Circle](), "Circle", "radius")
+
+//line t.gom:1
 func (Shape_Circle) isShape() {}
 
 //line t.gom:1
 type Shape_Empty struct{}
+
+//line t.gom:1
+var _ = rt.RegisterShowVariant(rt.TypeOf[Shape_Empty](), "Empty")
 
 //line t.gom:1
 func (Shape_Empty) isShape() {}
@@ -165,6 +171,9 @@ type Box_Boxed[A any] struct {
 }
 
 //line t.gom:15
+var _ = rt.RegisterShowVariant(rt.TypeOf[Box_Boxed[any]](), "Boxed", "v")
+
+//line t.gom:15
 func (Box_Boxed[A]) isBox() A {
 //line t.gom:15
 	var z0 A
@@ -175,6 +184,9 @@ func (Box_Boxed[A]) isBox() A {
 
 //line t.gom:15
 type Box_Nada[A any] struct{}
+
+//line t.gom:15
+var _ = rt.RegisterShowVariant(rt.TypeOf[Box_Nada[any]](), "Nada")
 
 //line t.gom:15
 func (Box_Nada[A]) isBox() A {
@@ -223,6 +235,9 @@ type Point struct {
 	Y float64
 //line t.gom:18
 }
+
+//line t.gom:18
+var _ = rt.RegisterShowRecord(rt.TypeOf[Point](), false, "x", "y")
 
 //line t.gom:19
 type Meters = float64

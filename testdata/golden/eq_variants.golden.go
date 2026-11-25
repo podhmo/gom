@@ -14,6 +14,9 @@ type Sh interface{ isSh() }
 type Sh_A struct{}
 
 //line eq_variants.gom:6
+var _ = rt.RegisterShowVariant(rt.TypeOf[Sh_A](), "A")
+
+//line eq_variants.gom:6
 func (Sh_A) isSh() {}
 
 //line eq_variants.gom:6
@@ -22,6 +25,9 @@ type Sh_B struct {
 	V0 int64
 //line eq_variants.gom:6
 }
+
+//line eq_variants.gom:6
+var _ = rt.RegisterShowVariant(rt.TypeOf[Sh_B](), "B", "")
 
 //line eq_variants.gom:6
 func (Sh_B) isSh() {}

@@ -4,6 +4,7 @@ package ex
 
 import (
 	json "encoding/json"
+	rt "github.com/podhmo/gom/rt"
 	list "github.com/podhmo/gom/stdlib/list"
 	goiface "github.com/podhmo/gom/testdata/goiface"
 	os "os"
@@ -14,8 +15,20 @@ import (
 //line go_conv.gom:49
 type UserId int64
 
+//line go_conv.gom:49
+var _ = rt.RegisterShowRecord(rt.TypeOf[UserId](), true, "value")
+
+//line go_conv.gom:49
+var _ = rt.RegisterShowUnwrap(rt.TypeOf[UserId](), rt.TypeOf[int64]())
+
 //line go_conv.gom:50
 type P *int64
+
+//line go_conv.gom:50
+var _ = rt.RegisterShowRecord(rt.TypeOf[P](), true, "p")
+
+//line go_conv.gom:50
+var _ = rt.RegisterShowUnwrap(rt.TypeOf[P](), rt.TypeOf[*int64]())
 
 //line go_conv.gom:13
 func duration(n int64) time.Duration {

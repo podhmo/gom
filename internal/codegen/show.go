@@ -16,12 +16,12 @@ import (
 // translates it. The format matches the evaluator's comparison
 // display (internal/eval/value.go's String): `Rect ~w: 2 ~h: 3`,
 // `{ name = "n" }`, `(1, 2)`, `[1, 2]`, `Ok 42` — Go-view values
-// show through fmt's %v (spec section 11).
+// show through the runtime representation (spec section 11).
 
 // showExpr renders a leaf plan — `string(x)` where the recipe's
 // conversion is known: the operand every plan except a ShowDecl's
 // root occupies. Composite kinds are unreachable here (they live at
-// decl roots); a nil plan is a contract gap degraded to fmt's %v.
+// decl roots); a nil plan is a contract gap degraded to the runtime representation.
 func (g *gen) showExpr(p *core.ShowPlan, x ast.Expr) ast.Expr {
 	if p == nil {
 		return &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual("fmt") + "Sprint"), Args: []ast.Expr{x}}
@@ -32,7 +32,7 @@ func (g *gen) showExpr(p *core.ShowPlan, x ast.Expr) ast.Expr {
 	case core.ShowGoScalar:
 		return g.showScalar(p.Scalar, x)
 	case core.ShowRuntime:
-		return &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual("fmt") + "Sprint"), Args: []ast.Expr{x}}
+		return &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual(rtPath) + "ShowRuntime"), Args: []ast.Expr{x}}
 	case core.ShowError:
 		return &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual(rtPath) + "ShowError"), Args: []ast.Expr{x}}
 	case core.ShowCall:

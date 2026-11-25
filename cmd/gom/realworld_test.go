@@ -315,12 +315,13 @@ func TestEndToEnd_RealWorldPrograms(t *testing.T) {
 	}
 
 	// display: `${expr}` splice output pinned verbatim — composites
-	// in the evaluator's display form, Go slices via %v nested or
-	// not, GoError as error("text").
+	// in the evaluator's display form. A statically Go-shaped slice
+	// keeps %v at the root; once type-erased inside a composite the
+	// runtime renderer uses comparison notation. GoError is error("text").
 	displayBin := buildOne("display")
 	wantDisplay := "{ name = \"n\", age = 3 }\n" +
 		"[1, 2] (({ name = \"n\", age = 3 }), 7) Circle ~r: 1.5\n" +
-		"[a b] (([a b]), 1)\n" +
+		"[a b] (([\"a\", \"b\"]), 1)\n" +
 		"Err (error(\"boom\"))\n"
 	if code, out, errout := runBin(t, displayBin, dir, ""); code != 0 ||
 		out != wantDisplay || errout != "" {

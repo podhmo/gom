@@ -17,6 +17,9 @@ type Result_Ok struct {
 }
 
 //line local_result.gom:9
+var _ = rt.RegisterShowVariant(rt.TypeOf[Result_Ok](), "Ok", "")
+
+//line local_result.gom:9
 func (Result_Ok) isResult() {}
 
 //line local_result.gom:9
@@ -25,6 +28,9 @@ type Result_Err struct {
 	V0 string
 //line local_result.gom:9
 }
+
+//line local_result.gom:9
+var _ = rt.RegisterShowVariant(rt.TypeOf[Result_Err](), "Err", "")
 
 //line local_result.gom:9
 func (Result_Err) isResult() {}

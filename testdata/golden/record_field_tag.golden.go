@@ -21,6 +21,9 @@ type User struct {
 //line record_field_tag.gom:8
 }
 
+//line record_field_tag.gom:8
+var _ = rt.RegisterShowRecord(rt.TypeOf[User](), false, "name", "mail")
+
 //line record_field_tag.gom:10
 func main() {
 //line record_field_tag.gom:11

@@ -4,6 +4,7 @@ package main
 
 import (
 	fmt "fmt"
+	rt "github.com/podhmo/gom/rt"
 	result "github.com/podhmo/gom/stdlib/result"
 	strconv "strconv"
 )
@@ -21,10 +22,16 @@ type Tx_Transfer struct {
 }
 
 //line labeled_args.gom:14
+var _ = rt.RegisterShowVariant(rt.TypeOf[Tx_Transfer](), "Transfer", "to", "amount")
+
+//line labeled_args.gom:14
 func (Tx_Transfer) isTx() {}
 
 //line labeled_args.gom:15
 type Tx_Noop struct{}
+
+//line labeled_args.gom:15
+var _ = rt.RegisterShowVariant(rt.TypeOf[Tx_Noop](), "Noop")
 
 //line labeled_args.gom:15
 func (Tx_Noop) isTx() {}

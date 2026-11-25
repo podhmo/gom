@@ -15,6 +15,9 @@ type Pair struct {
 //line aggregate_function_alias.gom:11
 }
 
+//line aggregate_function_alias.gom:11
+var _ = rt.RegisterShowRecord(rt.TypeOf[Pair](), false, "f", "x")
+
 //line aggregate_function_alias.gom:14
 type Box interface{ isBox() }
 
@@ -24,6 +27,9 @@ type Box_Box struct {
 	V0 func(int64) int64
 //line aggregate_function_alias.gom:14
 }
+
+//line aggregate_function_alias.gom:14
+var _ = rt.RegisterShowVariant(rt.TypeOf[Box_Box](), "Box", "")
 
 //line aggregate_function_alias.gom:14
 func (Box_Box) isBox() {}

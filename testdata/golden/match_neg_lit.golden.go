@@ -17,10 +17,16 @@ type W_A struct {
 }
 
 //line match_neg_lit.gom:3
+var _ = rt.RegisterShowVariant(rt.TypeOf[W_A](), "A", "")
+
+//line match_neg_lit.gom:3
 func (W_A) isW() {}
 
 //line match_neg_lit.gom:3
 type W_B struct{}
+
+//line match_neg_lit.gom:3
+var _ = rt.RegisterShowVariant(rt.TypeOf[W_B](), "B")
 
 //line match_neg_lit.gom:3
 func (W_B) isW() {}
