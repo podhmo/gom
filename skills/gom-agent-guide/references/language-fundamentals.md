@@ -75,7 +75,8 @@ fn sign (n: Int) -> Int = {
   (`String` unquoted, `Char` as its code point), composites use the
   composite notation (`Ok 42`, `{ name = "n" }`, `[1, 2]`,
   `(1, 2)`, `Ctor ~name: v`). Named Go scalar types print as
-  their scalar underlying; other Go values fall back to `%v`.
+  their scalar underlying; inside a composite they still keep the
+  opaque-value parentheses. Other Go values fall back to `%v`.
   A composite still mentioning a type parameter prints with Go
   formatting instead (`{1 2}` for a generic tuple element).
 - `()` is the `Unit` value. Tuples `(a, b, c)` — a spelled
