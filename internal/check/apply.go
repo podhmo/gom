@@ -182,7 +182,17 @@ func (c *checker) checkApply(e *syntax.Apply, want types.Type) Expr {
 	if appRet == ret && len(e.Args) < len(params) {
 		appRet = &types.Func{Params: params[len(e.Args):], Ret: ret}
 	}
-	pin(want, appRet, false)
+	// Over-application never pins: with more args than flat params
+	// the want belongs to the FINAL result of the chain, not to
+	// ret — and for an unresolved meta callee (`op api` inside a
+	// lambda) flattenFunc reports params empty and ret = the
+	// callee type itself, so pinning would bind the callee's own
+	// meta to a non-function want before the over-application
+	// machinery can shape it as a function (the E0401 regression
+	// of `List.fold (fn api op -> op api)`).
+	if len(e.Args) <= len(params) {
+		pin(want, appRet, false)
+	}
 	if goCall {
 		sig, _ := c.sigOf(callee, e.Sp)
 		arity := c.declArity(sig, len(params))
