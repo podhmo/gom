@@ -1,6 +1,8 @@
 package pattern
 
 import (
+	"go/constant"
+	"go/token"
 	"math/big"
 	"slices"
 	"sort"
@@ -71,6 +73,16 @@ func (c conv) alts(p check.Pat) []*cell {
 		// the bound name does not affect coverage.
 		return c.alts(p.Pat)
 	case *check.LitPat:
+		if rc := c.litAsRecord(p, p.Type()); rc != nil {
+			// A scalar literal pattern against a record type peels
+			// to the record's single field (the same admission that
+			// lets `0` type-check against `type UserId = { v: Int }`).
+			// Converting it to the record cell makes `0` and
+			// `{ v = 0 }` cover the same domain — without this the
+			// duplicate arm and the unhandled remainder are both
+			// invisible to the matrix.
+			return []*cell{rc}
+		}
 		return []*cell{litCell(p)}
 	case *check.CtorPat:
 		return c.ctorAlts(p)
@@ -107,13 +119,70 @@ func (c conv) alts(p check.Pat) []*cell {
 // tupleKey is the signature key of the n-ary tuple constructor.
 func tupleKey(n int) string { return "t:" + strconv.Itoa(n) }
 
+// litAsRecord converts a scalar literal pattern typed at a record
+// type to the record cell `{ f = <lit> }` it is equivalent to, or
+// nil when t is not a single-field record. Peels nested 1-field
+// records recursively (`type A = { v: B }` over `type B = { w: Int }`
+// turns `0` into `{ v = { w = 0 } }`).
+func (c conv) litAsRecord(p *check.LitPat, t types.Type) *cell {
+	v := c.env.recordOf(t)
+	if v == nil || len(v.Fields) != 1 {
+		return nil
+	}
+	var arg *cell
+	if inner := c.litAsRecord(p, v.Fields[0].Type); inner != nil {
+		arg = inner
+	} else {
+		arg = litCell(p)
+		arg.typ = v.Fields[0].Type
+	}
+	tk, _ := keyOf(t)
+	return &cell{
+		typ:   t,
+		key:   variantKey(v, tk),
+		kind:  VRecord,
+		args:  []*cell{arg},
+		names: fieldNames(v),
+	}
+}
+
 // litCell converts a literal pattern to its cell.
 func litCell(p *check.LitPat) *cell {
 	if p.Kind == syntax.LitUnit {
 		return &cell{typ: p.Type(), key: litKey("()"), disp: "()", kind: VLiteral}
 	}
-	norm := normalizeLit(p.Kind, p.Text)
+	norm := p.Norm
+	// The check-time Norm was judged before the scrutinee meta
+	// settled — `match x { 1 -> ..; 1 -> .. }` where only a later
+	// arm body pins `x : Float` would give the two literals
+	// different keys and spare the unreachable second arm. Builtin
+	// targets are decidable here without the Go-type oracle
+	// (`types.Go` widths were already concrete at check time, so
+	// the stored Norm is correct for them).
+	if c, ok := types.Chase(p.Type()).(*types.Con); ok && c.Qual == "" && c.Name == "Float" {
+		if n := floatKey(p.Kind, p.Text); n != "" {
+			norm = n
+		}
+	}
+	if norm == "" {
+		norm = normalizeLit(p.Kind, p.Text)
+	}
 	return &cell{typ: p.Type(), key: litKey(norm), disp: p.Text, kind: VLiteral}
+}
+
+// floatKey renders a numeric literal as it compares under a
+// float64 target — the same key shape check's normLit produces.
+func floatKey(k syntax.LitKind, text string) string {
+	tok := token.INT
+	if k == syntax.LitFloat {
+		tok = token.FLOAT
+	}
+	v := constant.MakeFromLiteral(strings.ReplaceAll(text, "_", ""), tok, 0)
+	if v.Kind() == constant.Unknown {
+		return ""
+	}
+	f, _ := constant.Float64Val(v)
+	return strconv.FormatFloat(f, 'g', -1, 64)
 }
 
 // normalizeLit canonicalizes a literal's source text so that

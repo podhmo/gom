@@ -1,0 +1,13 @@
+package main
+
+// Arm 1 is checked while the scrutinee meta is still open — its
+// body then binds it to Float, so the identical literal in arm 2
+// normalizes at float width (`1e+10` vs `10000000000`). Both cells
+// must re-judge at the settled type, or the duplicate arm slips
+// through.
+let pick = fn x ->
+  match x {
+    10000000000 -> { let y : Float = x; 1 }
+    10000000000 -> 2
+    _ -> 3
+  }

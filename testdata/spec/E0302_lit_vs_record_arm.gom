@@ -1,0 +1,11 @@
+package ex
+
+type UserId = { v: Int }
+
+fn f (u: UserId) -> Int = match u {
+  0 -> 1
+  {v = 0} -> 2
+  _ -> 3
+}
+
+

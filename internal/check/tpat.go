@@ -45,6 +45,11 @@ type LitPat struct {
 	Kind   syntax.LitKind
 	Text   string
 	LitTyp types.Type
+	// Norm canonicalizes Text for the pattern matrix's signature
+	// keys, judged at the want type's width — `0.999999999` and
+	// `1.0` share a key under a float32 field. Empty falls back to
+	// plain text normalization.
+	Norm string
 }
 
 func (*LitPat) isPat() {}

@@ -2,6 +2,11 @@ package check
 
 import (
 	"fmt"
+	"go/constant"
+	"go/token"
+	"math/big"
+	"strconv"
+	"strings"
 
 	"github.com/podhmo/gom/internal/diag"
 	"github.com/podhmo/gom/internal/resolve"
@@ -32,7 +37,7 @@ func (c *checker) checkPat(p syntax.Pat, want types.Type) Pat {
 		if !c.unify(want, lt, p.Sp) {
 			c.markQuiet(lt)
 		}
-		out := &LitPat{Base: baseOf(p.Sp, want), Kind: p.Lit.Kind, Text: p.Lit.Text, LitTyp: lt}
+		out := &LitPat{Base: baseOf(p.Sp, want), Kind: p.Lit.Kind, Text: p.Lit.Text, LitTyp: lt, Norm: c.normLit(p.Lit.Kind, p.Lit.Text, want)}
 		c.watchPatLit(out)
 		return out
 	case *syntax.CtorPat:
@@ -585,6 +590,49 @@ func (c *checker) chanElem(t types.Type) (elem types.Type, dir string, ok bool) 
 		return con.Args[0], "send", true
 	default:
 		return nil, "", false
+	}
+}
+
+// normLit canonicalizes a literal's text into the signature key the
+// pattern matrix compares cells by — the same shape as
+// pattern.normalizeLit, except numeric literals judge at the want
+// type's emitted width: `0.999999999` and `1.0` are one value under
+// a float32 field. An unsolved or non-numeric want falls back to the
+// literal's own width (int: exact, float: 64).
+func (c *checker) normLit(k syntax.LitKind, text string, want types.Type) string {
+	switch k {
+	case syntax.LitInt, syntax.LitFloat:
+		if bits, _, floating, ok := c.litRange(want); ok && floating {
+			tok := token.INT
+			if k == syntax.LitFloat {
+				tok = token.FLOAT
+			}
+			if v := constant.MakeFromLiteral(strings.ReplaceAll(text, "_", ""), tok, 0); v.Kind() != constant.Unknown {
+				if bits == 32 {
+					f, _ := constant.Float32Val(v)
+					return strconv.FormatFloat(float64(f), 'g', -1, 32)
+				}
+				f, _ := constant.Float64Val(v)
+				return strconv.FormatFloat(f, 'g', -1, 64)
+			}
+		}
+		if k == syntax.LitInt {
+			if i, ok := new(big.Int).SetString(strings.ReplaceAll(text, "_", ""), 0); ok {
+				return i.String()
+			}
+		} else if f, err := strconv.ParseFloat(text, 64); err == nil {
+			return strconv.FormatFloat(f, 'g', -1, 64)
+		}
+		return text
+	case syntax.LitStr, syntax.LitChar:
+		if s, err := strconv.Unquote(text); err == nil {
+			return s
+		}
+		return text
+	case syntax.LitBool, syntax.LitUnit:
+		return text
+	default:
+		panic("unreachable")
 	}
 }
 
