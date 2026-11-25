@@ -2847,11 +2847,19 @@ func (c *checker) foldIntAt(e Expr, w uint, unsigned bool) (constant.Value, bool
 			return nil, false
 		}
 		if op == token.SHL || op == token.SHR {
+			// A uint64 count above MaxInt64 is still a runtime count
+			// — and always empties the shifted value — so read the
+			// unsigned machine value when the signed decoding overflows.
 			s, exact := constant.Int64Val(y)
-			if !exact || s < 0 {
+			var sc uint64
+			if exact && s >= 0 {
+				sc = uint64(s)
+			} else if u, uok := constant.Uint64Val(y); uok {
+				sc = u
+			} else {
 				return nil, false
 			}
-			return shiftConst(x, op, uint64(s), w, unsigned), true
+			return shiftConst(x, op, sc, w, unsigned), true
 		}
 		if op == token.QUO {
 			// Machine integer division truncates toward zero —
