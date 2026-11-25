@@ -2411,7 +2411,7 @@ func (e *interp) displayTyped(v Value, t types.Type) string {
 	// a one-field record peels for machine width, but its display is
 	// still `{ field = value }`, never the bare scalar.
 	v = e.typedDisplayValue(v, t)
-	return e.displayValueTyped(v, t)
+	return e.displayValueTyped(v, t, false)
 }
 
 // displayValueTyped is the typed counterpart of display. It matters
@@ -2419,7 +2419,7 @@ func (e *interp) displayTyped(v Value, t types.Type) string {
 // negative int64 in the oracle, so the record/variant shape restored
 // around it cannot print the right digits unless the declared field
 // type is carried down to the leaf.
-func (e *interp) displayValueTyped(v Value, t types.Type) string {
+func (e *interp) displayValueTyped(v Value, t types.Type, nested bool) string {
 	if f, ok := v.(*VFloat); ok {
 		if w := e.floatOperandWidth(t); w == 32 {
 			return strconv.FormatFloat(f.F, 'g', -1, 32)
@@ -2428,6 +2428,14 @@ func (e *interp) displayValueTyped(v Value, t types.Type) string {
 	if i, ok := v.(*VInt); ok {
 		if _, unsigned := e.intOperandShape(t); unsigned {
 			return strconv.FormatUint(uint64(i.N), 10)
+		}
+	}
+	if nested {
+		switch v := v.(type) {
+		case *VChar:
+			return v.String()
+		case *VStr:
+			return v.String()
 		}
 	}
 	if r, ok := v.(*VRecord); ok {
@@ -2471,7 +2479,7 @@ func (e *interp) recordDisplayTyped(r *VRecord, t types.Type) (string, bool) {
 		}
 		text := display(f.V)
 		if ft != nil {
-			text = e.displayValueTyped(f.V, ft)
+			text = e.displayValueTyped(f.V, ft, true)
 		}
 		switch f.V.(type) {
 		case *VRecord, *VVariant, *VGoErr, *VHost, *VFunc:

@@ -459,6 +459,26 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 		want: "4294967295:0",
 	},
 	{
+		// lane C review: typed record rendering must keep the
+		// comparison format at scalar leaves — strings and chars
+		// stay quoted inside a record even though a top-level
+		// splice prints them naturally.
+		name: "splice_record_scalar_quotes",
+		src: `package main
+
+import go "fmt"
+
+type TextBox = { label : String, ch : Char }
+
+fn answer () -> String = {
+  let x : TextBox = { label = "x", ch = 'y' }
+  "${x}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: `{ label = "x", ch = 'y' }`,
+	},
+	{
 		// lane C review: width-64 unsigned values above MaxInt64
 		// round-trip through the evaluator's bit pattern, print as
 		// unsigned, and divide as uint64 rather than signed int64.
