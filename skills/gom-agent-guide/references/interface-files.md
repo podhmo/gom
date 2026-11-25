@@ -95,10 +95,11 @@ Rules:
   boundary. `//gom:noescape` / `//gom:result-notaint` are re-inferred
   from ordinary bodies on regeneration; for an extern `fn` or
   function-typed extern `let` there is no inspectable body, so the
-  prior lines carry while the canonical signature is unchanged. A
-  rewritten extern signature drops them rather than moving a positional
-  guarantee onto a different parameter. `//gom:mutable` is an
-  author-written claim and also carries. An `@method` line before an
+  prior lines carry within the same package while the canonical
+  signature is unchanged. A rewritten extern signature drops them rather
+  than moving a positional guarantee onto a different parameter.
+  `//gom:mutable` is an author-written claim and also carries within the
+  same package. An `@method` line before an
   `fn` keeps the record→Go-interface method set.
 - Drafting command: `gom info FILE|DIR...` (`moon info`-style)
   writes or updates the `.gomi` draft; `-o -` prints it. A stdlib

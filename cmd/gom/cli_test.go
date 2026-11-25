@@ -1646,7 +1646,7 @@ fn keep (f: Unit -> Unit) -> Unit
 
 //gom:result-notaint keepv 0
 //gom:noescape keepv 0
-let keepv : (Unit -> Unit) -> Unit
+let keepv: (Unit -> Unit) -> Unit
 
 //gom:noescape moved 0
 fn moved (first: Unit -> Unit) (second: Unit -> Unit) -> Unit
@@ -1705,6 +1705,11 @@ fn keep (f: Unit -> Unit) -> Unit
 //gom:noescape keep 0
 fn keep (f: Unit -> Unit) -> Unit
 `,
+		"lib/other.gomi": `package other
+
+//gom:noescape keep 0
+fn keep (f: Unit -> Unit) -> Unit
+`,
 	})
 	outPath := filepath.Join(dir, "lib", "draft.gomi")
 	code, out, errout := invoke("info", "-o", outPath, filepath.Join(dir, "lib"))
@@ -1717,6 +1722,19 @@ fn keep (f: Unit -> Unit) -> Unit
 	}
 	if !strings.Contains(string(b), "//gom:noescape keep 0\nfn keep") {
 		t.Errorf("alternate output lost its own extern directive:\n%s", b)
+	}
+
+	otherPath := filepath.Join(dir, "lib", "other.gomi")
+	code, out, errout = invoke("info", "-o", otherPath, filepath.Join(dir, "lib"))
+	if code != 0 {
+		t.Fatalf("gom info -o other package draft: exit %d; stderr=%q stdout=%q", code, errout, out)
+	}
+	b, err = os.ReadFile(otherPath)
+	if err != nil {
+		t.Fatalf("other package output not written: %v", err)
+	}
+	if strings.Contains(string(b), "//gom:noescape keep") {
+		t.Errorf("draft inherited extern guarantees across a package boundary:\n%s", b)
 	}
 }
 

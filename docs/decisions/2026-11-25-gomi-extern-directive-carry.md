@@ -22,7 +22,9 @@ wave47 lane C）。
   stale な保証を残さないため
 - `@extern fn` と関数型の `@extern let` は本体を検査できないので、既存
   `.gomi` の同名メンバの `//gom:noescape` / `//gom:result-notaint` を
-  再生成後のシグネチャへ引き継ぐ。ただし directive の index は位置への
+  再生成後のシグネチャへ引き継ぐ。ただし引き継ぎ元は同じ package の
+  interface に限る — `gom info -o` で別 package の draft を seed に使っても
+  保証を移植しない。さらに directive の index は位置への
   主張なので、canonical なシグネチャ文言が変わったメンバでは引き継がない
   — パラメータの並べ替えや型修正で古い位置の保証が別の入力へ移るのを防ぐ。
   無変更のときも index は現在の flat パラメータ数の範囲に限定し、範囲外と
@@ -30,10 +32,11 @@ wave47 lane C）。
 - メンバ自体が再生成 draft から消える場合は directive も残さない。
   abstract/private 化の意図保持はこの決定の対象外
 
-これは `//gom:mutable` の引き継ぎ規則と矛盾しない。`//gom:mutable` は常に
-著者の意図表明で推論元がないため無条件に引き継ぐ。一方 noescape /
-result-notaint は本体から推論できるときは推論を正とし、extern のように
-推論元がないときだけ既存の表明を引き継ぐ。
+これは `//gom:mutable` の引き継ぎ規則と矛盾しない。`//gom:mutable` も
+著者の意図表明で推論元がないため、同じ package の中では無条件に引き継ぐ。
+一方 noescape / result-notaint は本体から推論できるときは推論を正とし、
+extern のように推論元がないときだけ既存の表明を引き継ぐ。package が違う
+seed からは mutable を含めて一切移植しない。
 
 ## 却下した案
 
@@ -53,6 +56,8 @@ prototype 記録: [wave47 lane C .gomi directive verify](../sketch/2026-11-25-wa
 
 - extern fn / extern let の directive が再生成後も残り、本体のある stale な
   directive は残らず、extern のパラメータを並べ替えた signature では位置の
-  保証を引き継がないことを `TestInfoCarriesExternEscapeDirectives` で固定
+  保証を引き継がないことを `TestInfoCarriesExternEscapeDirectives` で固定。
+  `gom fmt` 済みの `let x: T` 形式も canonical 化して同じ signature と
+  見なす
 - `stdlib/list/list.gom` と既存 `stdlib/list/list.gomi` のコピーに対する
   `gom info` 再生成が no-op になることを確認

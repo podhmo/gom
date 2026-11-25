@@ -9,6 +9,7 @@ import (
 
 	"github.com/podhmo/gom/internal/check"
 	"github.com/podhmo/gom/internal/diag"
+	"github.com/podhmo/gom/internal/format"
 	"github.com/podhmo/gom/internal/resolve"
 	"github.com/podhmo/gom/internal/syntax"
 	"github.com/podhmo/gom/internal/types"
@@ -56,7 +57,7 @@ func Draft(srcs []Source, prior []byte) []byte {
 	}
 	d.noescape = ScanNoescape(prior)
 	d.notaint = ScanNotaint(prior)
-	d.priorSigs = priorSigTexts(prior)
+	d.priorSigs, d.priorPkg = priorSigTexts(prior)
 	var out strings.Builder
 	pkg := ""
 	for _, s := range srcs {
@@ -68,6 +69,16 @@ func Draft(srcs []Source, prior []byte) []byte {
 			pkg = s.Typed.Package
 			break
 		}
+	}
+	// Directives are claims about this package's implementation. A
+	// prior file reused as another package's draft (for example through
+	// `gom info -o`) must not transplant those claims even when a
+	// signature happens to match.
+	if d.priorPkg != pkg {
+		d.mutable = nil
+		d.noescape = nil
+		d.notaint = nil
+		d.priorSigs = nil
 	}
 	fmt.Fprintf(&out, "package %s\n", pkg)
 
@@ -130,7 +141,8 @@ type drafter struct {
 	mutable   map[string]bool   // carried `//gom:mutable` names
 	noescape  map[string][]int  // prior `//gom:noescape` indices by member
 	notaint   map[string][]int  // prior `//gom:result-notaint` indices by member
-	priorSigs map[string]string // normalized prior member signatures
+	priorSigs map[string]string // canonical prior member signatures
+	priorPkg  string            // package clause of the prior interface
 }
 
 // file renders one source's declarations into w, in surface order.
@@ -255,20 +267,20 @@ func (d *drafter) fnDecl(name string, td *check.FnDecl) string {
 // so regeneration may carry one only while the extern signature is
 // textually unchanged in canonical form; after a parameter reorder
 // or type edit the old positions no longer identify the same inputs.
-func priorSigTexts(src []byte) map[string]string {
+func priorSigTexts(src []byte) (map[string]string, string) {
 	if len(src) == 0 {
-		return nil
+		return nil, ""
 	}
 	f, _ := syntax.ParseInterface(src, "<prior>.gomi")
 	if f == nil {
-		return nil
+		return nil, ""
 	}
 	out := map[string]string{}
 	add := func(name string, sp diag.Span) {
 		if name == "" || sp.Start < 0 || sp.End > len(src) || sp.Start >= sp.End {
 			return
 		}
-		out[name] = normalizedSig(string(src[sp.Start:sp.End]))
+		out[name] = canonicalSig(string(src[sp.Start:sp.End]))
 	}
 	for _, decl := range f.Decls {
 		switch d := decl.(type) {
@@ -288,11 +300,25 @@ func priorSigTexts(src []byte) map[string]string {
 			panic("unreachable")
 		}
 	}
-	return out
+	return out, f.PackageName()
 }
 
-func normalizedSig(s string) string {
-	return strings.Join(strings.Fields(s), " ")
+// canonicalSig renders one member signature through gom fmt's
+// interface syntax and then flattens whitespace. The formatter is the
+// canonicalization both sides share: `.gomi` files are commonly
+// `gom fmt`-formatted, while drafts are compiler-rendered, and the two
+// differ in trivia such as `let x: T` versus `let x : T`.
+func canonicalSig(s string) string {
+	src := []byte("package p\n\n" + s + "\n")
+	out, diags := format.Source(src, "<signature>.gomi", true)
+	if diags.HasError() || len(out) == 0 {
+		return strings.Join(strings.Fields(s), " ")
+	}
+	text := strings.TrimSpace(string(out))
+	if rest, ok := strings.CutPrefix(text, "package p"); ok {
+		text = strings.TrimSpace(rest)
+	}
+	return strings.Join(strings.Fields(text), " ")
 }
 
 // carriedDirective renders a prior directive's in-range indices in
@@ -318,14 +344,14 @@ func carriedDirective(prefix, name string, idxs []int, n int) string {
 }
 
 func (d *drafter) carriedNoescape(name, sig string, n int) string {
-	if d.priorSigs[name] != normalizedSig(sig) {
+	if d.priorSigs[name] != canonicalSig(sig) {
 		return ""
 	}
 	return carriedDirective("//gom:noescape ", name, d.noescape[name], n)
 }
 
 func (d *drafter) carriedNotaint(name, sig string, n int) string {
-	if d.priorSigs[name] != normalizedSig(sig) {
+	if d.priorSigs[name] != canonicalSig(sig) {
 		return ""
 	}
 	return carriedDirective("//gom:result-notaint ", name, d.notaint[name], n)

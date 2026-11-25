@@ -40,6 +40,14 @@ fn leak (f: Unit -> Unit) -> Unit -> Unit
 `TestInfoAlternateOutputSeedsItsOwnDirectives` で固定した。明示した出力
 ファイルが既にある場合は canonical `.gomi` ではなくそのファイルを seed に
 読むため、alternate draft だけに書いた extern directive が上書き後も残る。
+ただし seed の package clause が違う場合は実装の保証を別 package へ移植できない
+ため引き継がない。
+
+formatter の regression も同じ lane で固定した。`gom fmt` は interface の
+`let x: T` を colon 前に空白を置かない canonical で書く一方、`gom info` の
+draft は `let x : T` を出す。raw text のまま比較すると同じ signature で
+directive が落ちるため、比較前に両側を `gom fmt` の interface 構文で
+canonical 化する。
 
 ## stdlib/list での確認
 
