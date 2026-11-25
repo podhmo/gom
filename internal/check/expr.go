@@ -4505,23 +4505,45 @@ func (c *checker) deferInterfaceSource(m *types.Meta) bool {
 // typeTestKey is the Go `case` type an arm's target emits — the
 // duplicate-detection key of a type-test match. A declared type
 // whose name shadows a builtin (`type Int = ...`) emits its own
-// nominal name, not the builtin repr, so it keys nominally.
+// nominal name, not the builtin repr, including when it appears
+// inside a container type argument.
 func (c *checker) typeTestKey(t types.Type) string {
-	if con, ok := types.Chase(t).(*types.Con); ok && con.Qual == "" && c.shadowedBuiltin(con.Name) {
-		if len(con.Args) == 0 {
-			return con.Name
+	key := types.CanonGoRepr(types.GoRepr(c.typeTestNominal(t)))
+	return strings.ReplaceAll(key, "shadowedNominal", "")
+}
+
+// typeTestNominal rewrites file-local declarations that shadow a
+// builtin to marker constructors types.GoRepr cannot mistake for
+// the builtin. Nested arguments are rewritten with them; the
+// markers are stripped from the final duplicate-detection key.
+func (c *checker) typeTestNominal(t types.Type) types.Type {
+	switch t := types.Chase(t).(type) {
+	case *types.Con:
+		args := make([]types.Type, len(t.Args))
+		for i, a := range t.Args {
+			args[i] = c.typeTestNominal(a)
 		}
-		// Arguments are canonical too — a shadowed generic's
-		// `List Char` and `List Int32` emit the same `List[int32]`
-		// case and must key identically.
-		parts := make([]string, len(con.Args))
-		for i, a := range con.Args {
-			parts[i] = types.CanonGoRepr(types.GoRepr(a))
-			if parts[i] == "" {
-				return ""
-			}
+		name := t.Name
+		if t.Qual == "" && c.shadowedBuiltin(name) {
+			name = "shadowedNominal" + name
 		}
-		return con.Name + "[" + strings.Join(parts, ", ") + "]"
+		return &types.Con{Qual: t.Qual, Name: name, Args: args}
+	case *types.Func:
+		params := make([]types.FuncParam, len(t.Params))
+		for i, p := range t.Params {
+			params[i] = p
+			params[i].Type = c.typeTestNominal(p.Type)
+		}
+		return &types.Func{Params: params, Ret: c.typeTestNominal(t.Ret)}
+	case *types.Tuple:
+		elems := make([]types.Type, len(t.Elems))
+		for i, el := range t.Elems {
+			elems[i] = c.typeTestNominal(el)
+		}
+		return &types.Tuple{Elems: elems}
+	case *types.Go, *types.Meta, *types.Var:
+		return t
+	default:
+		panic("unreachable")
 	}
-	return types.CanonGoRepr(types.GoRepr(t))
 }
