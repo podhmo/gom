@@ -493,19 +493,15 @@ func runInfo(args []string, stdout, stderr io.Writer) int {
 		// `//gom:result-notaint` directives are author claims
 		// for the same reason. The interface being overwritten
 		// seeds those directive lines when it exists; a first
-		// alternate output falls back to the canonical interface.
+		// output outside the package directory falls back to the canonical interface.
 		// Ordinary declarations are re-inferred from their bodies.
 		priorPath := filepath.Join(g.dir, g.name+".gomi")
 		if *out != "" && *out != "-" {
 			// Package identity is directory identity in Go. A same-named
 			// .gomi elsewhere is still another package, so its author-
 			// maintained escape guarantees must not seed this one.
-			absDst, dstErr := filepath.Abs(dst)
-			absDir, dirErr := filepath.Abs(g.dir)
-			if dstErr == nil && dirErr == nil && filepath.Dir(absDst) == absDir {
-				if _, err := os.Stat(dst); err == nil {
-					priorPath = dst
-				}
+			if _, err := os.Stat(dst); err == nil && samePackageDir(dst, g.dir) {
+				priorPath = dst
 			}
 		}
 		var prior []byte
@@ -540,6 +536,24 @@ func runInfo(args []string, stdout, stderr io.Writer) int {
 		return diag.ExitInternal
 	}
 	return rep.ExitCode()
+}
+
+// samePackageDir reports whether path sits in the package directory.
+// Symlinked spellings of the same directory count as the same package;
+// a same-named package in another directory does not.
+func samePackageDir(path, dir string) bool {
+	absPath, pathErr := filepath.Abs(path)
+	absDir, dirErr := filepath.Abs(dir)
+	if pathErr != nil || dirErr != nil {
+		return false
+	}
+	if real, err := filepath.EvalSymlinks(absPath); err == nil {
+		absPath = real
+	}
+	if real, err := filepath.EvalSymlinks(absDir); err == nil {
+		absDir = real
+	}
+	return filepath.Dir(absPath) == absDir
 }
 
 // isDirFlag reports whether the -o argument names a directory —

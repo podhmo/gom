@@ -38,8 +38,10 @@ fn leak (f: Unit -> Unit) -> Unit -> Unit
 
 `gom info -o <path>` の regression も
 `TestInfoAlternateOutputSeedsItsOwnDirectives` で固定した。明示した出力
-ファイルが既にある場合は canonical `.gomi` ではなくそのファイルを seed に
-読むため、alternate draft だけに書いた extern directive が上書き後も残る。
+ファイルが同じ package directory に既にある場合は canonical `.gomi` ではなく
+そのファイルを seed に読むため、alternate draft だけに書いた extern directive
+が上書き後も残る。symlink 経由で同じ directory に届く経路も同じ package
+として扱う。
 ただし seed の package directory が違う場合は実装の保証を別 package へ移植できない（同名 package でも別 directory は別 package）
 ため引き継がない。
 
@@ -63,3 +65,4 @@ canonical 化する。
   厳密に解釈するか — spec と現行 scan のずれとして implementation-gaps に登録
 
 - 2026-11-25 review round 3: 別 directory にある同名 `package lib` の `lib.gomi` を `-o` seed に使っても directive を引き継がないことを `TestInfoAlternateOutputSeedsItsOwnDirectives` に追加した。
+- 2026-11-25 review round 4: `-o` が directory symlink 越しに同じ package directory の既存 draft へ届く場合は、その draft を seed に使い directive を保持することを `TestInfoAlternateOutputSeedsItsOwnDirectives` に追加した。

@@ -1754,6 +1754,22 @@ fn keep (f: Unit -> Unit) -> Unit
 	if strings.Contains(string(b), "//gom:noescape keep") {
 		t.Errorf("draft inherited extern guarantees from a same-named package in another directory:\n%s", b)
 	}
+
+	aliasDir := filepath.Join(dir, "alias")
+	if err := os.Symlink(filepath.Join(dir, "lib"), aliasDir); err != nil {
+		t.Fatalf("symlink alias: %v", err)
+	}
+	code, out, errout = invoke("info", "-o", filepath.Join(aliasDir, "draft.gomi"), filepath.Join(dir, "lib"))
+	if code != 0 {
+		t.Fatalf("gom info -o through directory symlink: exit %d; stderr=%q stdout=%q", code, errout, out)
+	}
+	b, err = os.ReadFile(outPath)
+	if err != nil {
+		t.Fatalf("symlinked output not written: %v", err)
+	}
+	if !strings.Contains(string(b), "//gom:noescape keep 0\nfn keep") {
+		t.Errorf("draft lost its own extern directive through a symlinked directory:\n%s", b)
+	}
 }
 
 // TestCheckMissingInterface verifies spec 7 rule 4: a library package
