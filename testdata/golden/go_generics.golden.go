@@ -6,19 +6,30 @@ import (
 	rt "github.com/podhmo/gom/rt"
 	list "github.com/podhmo/gom/stdlib/list"
 	goiface "github.com/podhmo/gom/testdata/goiface"
+	sync "sync"
 )
 
 //line go_generics.gom:26
 type UserId int64
 
 //line go_generics.gom:26
+var gomShowInit_UserIdOnce sync.Once
+
+//line go_generics.gom:26
 func gomShowInit_UserId() {
 //line go_generics.gom:26
-	_ = rt.RegisterShowRecord(rt.TypeOf[UserId](), true, "value")
+	gomShowInit_UserIdOnce.Do(func() {
 //line go_generics.gom:26
-	_ = rt.RegisterShowUnwrap(rt.TypeOf[UserId](), rt.TypeOf[int64]())
+		_ = rt.RegisterShowRecord(rt.TypeOf[UserId](), true, "value")
+//line go_generics.gom:26
+		_ = rt.RegisterShowUnwrap(rt.TypeOf[UserId](), rt.TypeOf[int64]())
+//line go_generics.gom:26
+	})
 //line go_generics.gom:26
 }
+
+//line go_generics.gom:26
+var _ = func() bool { gomShowInit_UserId(); return true }()
 
 //line go_generics.gom:9
 func ident(n int64) int64 {

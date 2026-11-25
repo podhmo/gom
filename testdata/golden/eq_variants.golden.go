@@ -5,6 +5,7 @@ package main
 import (
 	rt "github.com/podhmo/gom/rt"
 	option "github.com/podhmo/gom/stdlib/option"
+	sync "sync"
 )
 
 //line eq_variants.gom:6
@@ -27,13 +28,23 @@ type Sh_B struct {
 func (Sh_B) isSh() {}
 
 //line eq_variants.gom:6
+var gomShowInit_ShOnce sync.Once
+
+//line eq_variants.gom:6
 func gomShowInit_Sh() {
 //line eq_variants.gom:6
-	_ = rt.RegisterShowVariant(rt.TypeOf[Sh_A](), "A")
+	gomShowInit_ShOnce.Do(func() {
 //line eq_variants.gom:6
-	_ = rt.RegisterShowVariant(rt.TypeOf[Sh_B](), "B", "")
+		_ = rt.RegisterShowVariant(rt.TypeOf[Sh_A](), "A")
+//line eq_variants.gom:6
+		_ = rt.RegisterShowVariant(rt.TypeOf[Sh_B](), "B", "")
+//line eq_variants.gom:6
+	})
 //line eq_variants.gom:6
 }
+
+//line eq_variants.gom:6
+var _ = func() bool { gomShowInit_Sh(); return true }()
 
 //line eq_variants.gom:8
 func neqVars(_ struct{}) bool {

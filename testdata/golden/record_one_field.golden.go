@@ -9,19 +9,30 @@ import (
 	result "github.com/podhmo/gom/stdlib/result"
 	strconv "strconv"
 	strings "strings"
+	sync "sync"
 )
 
 //line record_one_field.gom:8
 type UserId int64
 
 //line record_one_field.gom:8
+var gomShowInit_UserIdOnce sync.Once
+
+//line record_one_field.gom:8
 func gomShowInit_UserId() {
 //line record_one_field.gom:8
-	_ = rt.RegisterShowRecord(rt.TypeOf[UserId](), true, "value")
+	gomShowInit_UserIdOnce.Do(func() {
 //line record_one_field.gom:8
-	_ = rt.RegisterShowUnwrap(rt.TypeOf[UserId](), rt.TypeOf[int64]())
+		_ = rt.RegisterShowRecord(rt.TypeOf[UserId](), true, "value")
+//line record_one_field.gom:8
+		_ = rt.RegisterShowUnwrap(rt.TypeOf[UserId](), rt.TypeOf[int64]())
+//line record_one_field.gom:8
+	})
 //line record_one_field.gom:8
 }
+
+//line record_one_field.gom:8
+var _ = func() bool { gomShowInit_UserId(); return true }()
 
 //line record_one_field.gom:12
 type Box[A any] struct {
@@ -31,23 +42,43 @@ type Box[A any] struct {
 }
 
 //line record_one_field.gom:12
+var gomShowInit_BoxOnce sync.Once
+
+//line record_one_field.gom:12
 func gomShowInit_Box() {
 //line record_one_field.gom:12
-	_ = rt.RegisterShowRecord(rt.TypeOf[Box[any]](), false, "item")
+	gomShowInit_BoxOnce.Do(func() {
+//line record_one_field.gom:12
+		_ = rt.RegisterShowRecord(rt.TypeOf[Box[any]](), false, "item")
+//line record_one_field.gom:12
+	})
 //line record_one_field.gom:12
 }
+
+//line record_one_field.gom:12
+var _ = func() bool { gomShowInit_Box(); return true }()
 
 //line record_one_field.gom:24
 type Bag list.List[int64]
 
 //line record_one_field.gom:24
+var gomShowInit_BagOnce sync.Once
+
+//line record_one_field.gom:24
 func gomShowInit_Bag() {
 //line record_one_field.gom:24
-	_ = rt.RegisterShowRecord(rt.TypeOf[Bag](), true, "xs")
+	gomShowInit_BagOnce.Do(func() {
 //line record_one_field.gom:24
-	_ = rt.RegisterShowUnwrap(rt.TypeOf[Bag](), rt.TypeOf[list.List[int64]]())
+		_ = rt.RegisterShowRecord(rt.TypeOf[Bag](), true, "xs")
+//line record_one_field.gom:24
+		_ = rt.RegisterShowUnwrap(rt.TypeOf[Bag](), rt.TypeOf[list.List[int64]]())
+//line record_one_field.gom:24
+	})
 //line record_one_field.gom:24
 }
+
+//line record_one_field.gom:24
+var _ = func() bool { gomShowInit_Bag(); return true }()
 
 //line record_one_field.gom:14
 func get(u UserId) int64 {

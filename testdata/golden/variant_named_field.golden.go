@@ -4,6 +4,7 @@ package main
 
 import (
 	rt "github.com/podhmo/gom/rt"
+	sync "sync"
 )
 
 //line variant_named_field.gom:15
@@ -26,13 +27,23 @@ type Shape_Empty struct{}
 func (Shape_Empty) isShape() {}
 
 //line variant_named_field.gom:15
+var gomShowInit_ShapeOnce sync.Once
+
+//line variant_named_field.gom:15
 func gomShowInit_Shape() {
 //line variant_named_field.gom:15
-	_ = rt.RegisterShowVariant(rt.TypeOf[Shape_Circle](), "Circle", "r")
+	gomShowInit_ShapeOnce.Do(func() {
 //line variant_named_field.gom:15
-	_ = rt.RegisterShowVariant(rt.TypeOf[Shape_Empty](), "Empty")
+		_ = rt.RegisterShowVariant(rt.TypeOf[Shape_Circle](), "Circle", "r")
+//line variant_named_field.gom:15
+		_ = rt.RegisterShowVariant(rt.TypeOf[Shape_Empty](), "Empty")
+//line variant_named_field.gom:15
+	})
 //line variant_named_field.gom:15
 }
+
+//line variant_named_field.gom:15
+var _ = func() bool { gomShowInit_Shape(); return true }()
 
 //line variant_named_field.gom:31
 type Pair[A any] interface{ isPair() A }
@@ -56,11 +67,21 @@ func (Pair_MkPair[A]) isPair() A {
 }
 
 //line variant_named_field.gom:31
+var gomShowInit_PairOnce sync.Once
+
+//line variant_named_field.gom:31
 func gomShowInit_Pair() {
 //line variant_named_field.gom:31
-	_ = rt.RegisterShowVariant(rt.TypeOf[Pair_MkPair[any]](), "MkPair", "fst", "snd")
+	gomShowInit_PairOnce.Do(func() {
+//line variant_named_field.gom:31
+		_ = rt.RegisterShowVariant(rt.TypeOf[Pair_MkPair[any]](), "MkPair", "fst", "snd")
+//line variant_named_field.gom:31
+	})
 //line variant_named_field.gom:31
 }
+
+//line variant_named_field.gom:31
+var _ = func() bool { gomShowInit_Pair(); return true }()
 
 //line variant_named_field.gom:17
 func getr(s Shape) float64 {

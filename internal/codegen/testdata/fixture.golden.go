@@ -10,6 +10,7 @@ import (
 	result "github.com/podhmo/gom/stdlib/result"
 	num "num"
 	strconv "strconv"
+	sync "sync"
 )
 
 //line t.gom:1
@@ -32,13 +33,23 @@ type Shape_Empty struct{}
 func (Shape_Empty) isShape() {}
 
 //line t.gom:1
+var gomShowInit_ShapeOnce sync.Once
+
+//line t.gom:1
 func gomShowInit_Shape() {
 //line t.gom:1
-	_ = rt.RegisterShowVariant(rt.TypeOf[Shape_Circle](), "Circle", "radius")
+	gomShowInit_ShapeOnce.Do(func() {
 //line t.gom:1
-	_ = rt.RegisterShowVariant(rt.TypeOf[Shape_Empty](), "Empty")
+		_ = rt.RegisterShowVariant(rt.TypeOf[Shape_Circle](), "Circle", "radius")
+//line t.gom:1
+		_ = rt.RegisterShowVariant(rt.TypeOf[Shape_Empty](), "Empty")
+//line t.gom:1
+	})
 //line t.gom:1
 }
+
+//line t.gom:1
+var _ = func() bool { gomShowInit_Shape(); return true }()
 
 //line t.gom:4
 func area(s Shape) float64 {
@@ -195,13 +206,23 @@ func (Box_Nada[A]) isBox() A {
 }
 
 //line t.gom:15
+var gomShowInit_BoxOnce sync.Once
+
+//line t.gom:15
 func gomShowInit_Box() {
 //line t.gom:15
-	_ = rt.RegisterShowVariant(rt.TypeOf[Box_Boxed[any]](), "Boxed", "v")
+	gomShowInit_BoxOnce.Do(func() {
 //line t.gom:15
-	_ = rt.RegisterShowVariant(rt.TypeOf[Box_Nada[any]](), "Nada")
+		_ = rt.RegisterShowVariant(rt.TypeOf[Box_Boxed[any]](), "Boxed", "v")
+//line t.gom:15
+		_ = rt.RegisterShowVariant(rt.TypeOf[Box_Nada[any]](), "Nada")
+//line t.gom:15
+	})
 //line t.gom:15
 }
+
+//line t.gom:15
+var _ = func() bool { gomShowInit_Box(); return true }()
 
 //line t.gom:15
 func ident[A any](x A) A {
@@ -243,20 +264,54 @@ type Point struct {
 }
 
 //line t.gom:18
+var gomShowInit_PointOnce sync.Once
+
+//line t.gom:18
 func gomShowInit_Point() {
 //line t.gom:18
-	_ = rt.RegisterShowRecord(rt.TypeOf[Point](), false, "x", "y")
+	gomShowInit_PointOnce.Do(func() {
+//line t.gom:18
+		_ = rt.RegisterShowRecord(rt.TypeOf[Point](), false, "x", "y")
+//line t.gom:18
+	})
 //line t.gom:18
 }
+
+//line t.gom:18
+var _ = func() bool { gomShowInit_Point(); return true }()
 
 //line t.gom:19
 type Meters = float64
 
 //line t.gom:19
-func gomShowInit_Meters() {}
+var gomShowInit_MetersOnce sync.Once
 
 //line t.gom:19
-func gomShowInit_Opaque() {}
+func gomShowInit_Meters() {
+//line t.gom:19
+	gomShowInit_MetersOnce.Do(func() {
+//line t.gom:19
+	})
+//line t.gom:19
+}
+
+//line t.gom:19
+var _ = func() bool { gomShowInit_Meters(); return true }()
+
+//line t.gom:19
+var gomShowInit_OpaqueOnce sync.Once
+
+//line t.gom:19
+func gomShowInit_Opaque() {
+//line t.gom:19
+	gomShowInit_OpaqueOnce.Do(func() {
+//line t.gom:19
+	})
+//line t.gom:19
+}
+
+//line t.gom:19
+var _ = func() bool { gomShowInit_Opaque(); return true }()
 
 //line t.gom:19
 func classify(r result.Result[int64, error]) int64 {

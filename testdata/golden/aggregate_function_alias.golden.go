@@ -4,6 +4,7 @@ package aliases
 
 import (
 	rt "github.com/podhmo/gom/rt"
+	sync "sync"
 )
 
 //line aggregate_function_alias.gom:11
@@ -16,11 +17,21 @@ type Pair struct {
 }
 
 //line aggregate_function_alias.gom:11
+var gomShowInit_PairOnce sync.Once
+
+//line aggregate_function_alias.gom:11
 func gomShowInit_Pair() {
 //line aggregate_function_alias.gom:11
-	_ = rt.RegisterShowRecord(rt.TypeOf[Pair](), false, "f", "x")
+	gomShowInit_PairOnce.Do(func() {
+//line aggregate_function_alias.gom:11
+		_ = rt.RegisterShowRecord(rt.TypeOf[Pair](), false, "f", "x")
+//line aggregate_function_alias.gom:11
+	})
 //line aggregate_function_alias.gom:11
 }
+
+//line aggregate_function_alias.gom:11
+var _ = func() bool { gomShowInit_Pair(); return true }()
 
 //line aggregate_function_alias.gom:14
 type Box interface{ isBox() }
@@ -36,11 +47,21 @@ type Box_Box struct {
 func (Box_Box) isBox() {}
 
 //line aggregate_function_alias.gom:14
+var gomShowInit_BoxOnce sync.Once
+
+//line aggregate_function_alias.gom:14
 func gomShowInit_Box() {
 //line aggregate_function_alias.gom:14
-	_ = rt.RegisterShowVariant(rt.TypeOf[Box_Box](), "Box", "")
+	gomShowInit_BoxOnce.Do(func() {
+//line aggregate_function_alias.gom:14
+		_ = rt.RegisterShowVariant(rt.TypeOf[Box_Box](), "Box", "")
+//line aggregate_function_alias.gom:14
+	})
 //line aggregate_function_alias.gom:14
 }
+
+//line aggregate_function_alias.gom:14
+var _ = func() bool { gomShowInit_Box(); return true }()
 
 //line aggregate_function_alias.gom:8
 func count(n int64) int64 {

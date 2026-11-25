@@ -7,27 +7,48 @@ import (
 	list "github.com/podhmo/gom/stdlib/list"
 	option "github.com/podhmo/gom/stdlib/option"
 	result "github.com/podhmo/gom/stdlib/result"
+	sync "sync"
 )
 
 //line stdlib/cmp/cmp.gom:14
 type Eq[A any] func(A) func(A) bool
 
 //line stdlib/cmp/cmp.gom:14
+var gomShowInit_EqOnce sync.Once
+
+//line stdlib/cmp/cmp.gom:14
 func gomShowInit_Eq() {
 //line stdlib/cmp/cmp.gom:14
-	_ = rt.RegisterShowRecord(rt.TypeOf[Eq[any]](), true, "eq")
+	gomShowInit_EqOnce.Do(func() {
+//line stdlib/cmp/cmp.gom:14
+		_ = rt.RegisterShowRecord(rt.TypeOf[Eq[any]](), true, "eq")
+//line stdlib/cmp/cmp.gom:14
+	})
 //line stdlib/cmp/cmp.gom:14
 }
+
+//line stdlib/cmp/cmp.gom:14
+var _ = func() bool { gomShowInit_Eq(); return true }()
 
 //line stdlib/cmp/cmp.gom:18
 type Ord[A any] func(A) func(A) bool
 
 //line stdlib/cmp/cmp.gom:18
+var gomShowInit_OrdOnce sync.Once
+
+//line stdlib/cmp/cmp.gom:18
 func gomShowInit_Ord() {
 //line stdlib/cmp/cmp.gom:18
-	_ = rt.RegisterShowRecord(rt.TypeOf[Ord[any]](), true, "lt")
+	gomShowInit_OrdOnce.Do(func() {
+//line stdlib/cmp/cmp.gom:18
+		_ = rt.RegisterShowRecord(rt.TypeOf[Ord[any]](), true, "lt")
+//line stdlib/cmp/cmp.gom:18
+	})
 //line stdlib/cmp/cmp.gom:18
 }
+
+//line stdlib/cmp/cmp.gom:18
+var _ = func() bool { gomShowInit_Ord(); return true }()
 
 //line stdlib/cmp/cmp.gom:20
 var IntEq Eq[int64] = func() Eq[int64] {

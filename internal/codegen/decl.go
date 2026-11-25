@@ -643,19 +643,30 @@ func (g *gen) showVariantRegistrationExpr(d *core.TypeDecl, v *core.TVariant) st
 // initialization, unrelated package-level initializer order is not
 // perturbed, and even an initializer-time call registers metadata first.
 func (g *gen) showInit(d *core.TypeDecl, exprs []string) {
-	g.raw("func " + showInitName(g.typeName(d.Sym)) + "() {")
-	if len(exprs) == 0 {
-		g.raw("}")
-		g.nl()
-		g.nl()
-		return
-	}
+	name := showInitName(g.typeName(d.Sym))
+	once := name + "Once"
+	g.raw("var " + once + " " + g.pkgQual("sync") + "Once")
+	g.nl()
+	g.nl()
+	g.raw("func " + name + "() {")
+	g.nl()
+	g.raw(once + ".Do(func() {")
 	g.nl()
 	for _, expr := range exprs {
 		g.raw("_ = " + expr)
 		g.nl()
 	}
+	g.raw("})")
+	g.nl()
 	g.raw("}")
+	g.nl()
+	g.nl()
+	// Imported packages must have their metadata before importers run:
+	// package initialization calls the once-protected registration too.
+	// Same-package initializer-time display still relies on the explicit
+	// call inside generic display helpers, so user initializer order is
+	// not constrained by this package variable.
+	g.raw("var _ = func() bool { " + name + "(); return true }()")
 	g.nl()
 	g.nl()
 }

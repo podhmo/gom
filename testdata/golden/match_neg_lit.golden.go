@@ -4,6 +4,7 @@ package main
 
 import (
 	rt "github.com/podhmo/gom/rt"
+	sync "sync"
 )
 
 //line match_neg_lit.gom:3
@@ -26,13 +27,23 @@ type W_B struct{}
 func (W_B) isW() {}
 
 //line match_neg_lit.gom:3
+var gomShowInit_WOnce sync.Once
+
+//line match_neg_lit.gom:3
 func gomShowInit_W() {
 //line match_neg_lit.gom:3
-	_ = rt.RegisterShowVariant(rt.TypeOf[W_A](), "A", "")
+	gomShowInit_WOnce.Do(func() {
 //line match_neg_lit.gom:3
-	_ = rt.RegisterShowVariant(rt.TypeOf[W_B](), "B")
+		_ = rt.RegisterShowVariant(rt.TypeOf[W_A](), "A", "")
+//line match_neg_lit.gom:3
+		_ = rt.RegisterShowVariant(rt.TypeOf[W_B](), "B")
+//line match_neg_lit.gom:3
+	})
 //line match_neg_lit.gom:3
 }
+
+//line match_neg_lit.gom:3
+var _ = func() bool { gomShowInit_W(); return true }()
 
 //line match_neg_lit.gom:9
 func f(n int64) int64 {

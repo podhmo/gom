@@ -4,25 +4,62 @@ package main
 
 import (
 	list "github.com/podhmo/gom/stdlib/list"
+	sync "sync"
 )
 
 //line type_alias.gom:5
 type UserId = int64
 
 //line type_alias.gom:5
-func gomShowInit_UserId() {}
+var gomShowInit_UserIdOnce sync.Once
+
+//line type_alias.gom:5
+func gomShowInit_UserId() {
+//line type_alias.gom:5
+	gomShowInit_UserIdOnce.Do(func() {
+//line type_alias.gom:5
+	})
+//line type_alias.gom:5
+}
+
+//line type_alias.gom:5
+var _ = func() bool { gomShowInit_UserId(); return true }()
 
 //line type_alias.gom:6
 type Wrap[A any] = list.List[A]
 
 //line type_alias.gom:6
-func gomShowInit_Wrap() {}
+var gomShowInit_WrapOnce sync.Once
+
+//line type_alias.gom:6
+func gomShowInit_Wrap() {
+//line type_alias.gom:6
+	gomShowInit_WrapOnce.Do(func() {
+//line type_alias.gom:6
+	})
+//line type_alias.gom:6
+}
+
+//line type_alias.gom:6
+var _ = func() bool { gomShowInit_Wrap(); return true }()
 
 //line type_alias.gom:7
 type Id = int64
 
 //line type_alias.gom:7
-func gomShowInit_Id() {}
+var gomShowInit_IdOnce sync.Once
+
+//line type_alias.gom:7
+func gomShowInit_Id() {
+//line type_alias.gom:7
+	gomShowInit_IdOnce.Do(func() {
+//line type_alias.gom:7
+	})
+//line type_alias.gom:7
+}
+
+//line type_alias.gom:7
+var _ = func() bool { gomShowInit_Id(); return true }()
 
 //line type_alias.gom:9
 func takes(id int64) int64 {

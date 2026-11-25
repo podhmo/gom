@@ -5,19 +5,30 @@ package ex
 import (
 	rt "github.com/podhmo/gom/rt"
 	http "net/http"
+	sync "sync"
 )
 
 //line go_method_verbatim.gom:9
 type Handler string
 
 //line go_method_verbatim.gom:9
+var gomShowInit_HandlerOnce sync.Once
+
+//line go_method_verbatim.gom:9
 func gomShowInit_Handler() {
 //line go_method_verbatim.gom:9
-	_ = rt.RegisterShowRecord(rt.TypeOf[Handler](), true, "tag")
+	gomShowInit_HandlerOnce.Do(func() {
 //line go_method_verbatim.gom:9
-	_ = rt.RegisterShowUnwrap(rt.TypeOf[Handler](), rt.TypeOf[string]())
+		_ = rt.RegisterShowRecord(rt.TypeOf[Handler](), true, "tag")
+//line go_method_verbatim.gom:9
+		_ = rt.RegisterShowUnwrap(rt.TypeOf[Handler](), rt.TypeOf[string]())
+//line go_method_verbatim.gom:9
+	})
 //line go_method_verbatim.gom:9
 }
+
+//line go_method_verbatim.gom:9
+var _ = func() bool { gomShowInit_Handler(); return true }()
 
 //line go_method_verbatim.gom:11
 func mk(_ struct{}) http.Handler {

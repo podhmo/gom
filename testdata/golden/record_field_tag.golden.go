@@ -10,6 +10,7 @@ import (
 	result "github.com/podhmo/gom/stdlib/result"
 	strconv "strconv"
 	strings "strings"
+	sync "sync"
 )
 
 //line record_field_tag.gom:8
@@ -22,11 +23,21 @@ type User struct {
 }
 
 //line record_field_tag.gom:8
+var gomShowInit_UserOnce sync.Once
+
+//line record_field_tag.gom:8
 func gomShowInit_User() {
 //line record_field_tag.gom:8
-	_ = rt.RegisterShowRecord(rt.TypeOf[User](), false, "name", "mail")
+	gomShowInit_UserOnce.Do(func() {
+//line record_field_tag.gom:8
+		_ = rt.RegisterShowRecord(rt.TypeOf[User](), false, "name", "mail")
+//line record_field_tag.gom:8
+	})
 //line record_field_tag.gom:8
 }
+
+//line record_field_tag.gom:8
+var _ = func() bool { gomShowInit_User(); return true }()
 
 //line record_field_tag.gom:10
 func main() {
