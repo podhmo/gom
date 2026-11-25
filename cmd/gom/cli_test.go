@@ -1506,7 +1506,7 @@ fn area (s: Shape) -> Float = match s {
 // claim about an impl-invisible type, which nothing in the .gom
 // sources can re-derive).
 // TestInfoWriteFailureE0003: a .gomi draft that cannot be written
-// (a directory sits at the target path) is an E0003 diagnostic with
+// (the read-only target refuses writeFile) is an E0003 diagnostic with
 // ok:false and exit 1 — write failures are environment problems,
 // never exit-2 internal errors (write-failure-e0003 decision).
 func TestInfoWriteFailureE0003(t *testing.T) {
@@ -1515,7 +1515,11 @@ func TestInfoWriteFailureE0003(t *testing.T) {
 	dir := writeFiles(t, map[string]string{
 		"lib/lib.gom": "package lib\n\nfn f () -> Int = 1\n",
 	})
-	if err := os.Mkdir(filepath.Join(dir, "lib", "lib.gomi"), 0o755); err != nil {
+	// Read-only target: fileEquals reads it fine, but writeFile
+	// fails — the E0003 must come from the write branch, not the
+	// read.
+	gomi := filepath.Join(dir, "lib", "lib.gomi")
+	if err := os.WriteFile(gomi, []byte("package lib\n"), 0o444); err != nil {
 		t.Fatal(err)
 	}
 	code, _, errout := invoke("info", filepath.Join(dir, "lib", "lib.gom"))
