@@ -24,6 +24,13 @@
 
 - [x] **[task] stdlib に `List.filter_map` / `List.find_map` を追加**: `fold` で回すしかない現状 — selfish 移植で要望（[sketch](docs/sketch/ja/2026-11-24-selfish-port.md)、wave43 lane F）。実装済み: `@extern` buffer-built Go impl（`stdlib/list/impl.go` の `FilterMap`/`FindMap`）、`noescape` directive 付き（wave44 lane F）
 
+### wave46 採択済み lane（[prompts](docs/sketch/2026-11-25-wave46-prompts.md) — 2026-11-25 採否確定、順 E→D→C→B→A）
+
+- [ ] **[wave46 lane D] eval の width 伝播の残り**（[prompts](docs/sketch/2026-11-25-wave46-prompts.md)）: W タグの意味論の残りの隅（conv 経由の int→float、cross-width boxed-any 比較）を台帳から整理
+- [ ] **[wave46 lane C] splice 補間の Go 値フォーマット精緻化**（[prompts](docs/sketch/2026-11-25-wave46-prompts.md)）: `GoError` 以外の Go 由来値は `%v` 素通し — gomShow との整合
+- [ ] **[wave46 lane B] MoonBit 式スナップショットテスト内蔵 + assert の go-cmp 化**（[prompts](docs/sketch/2026-11-25-wave46-prompts.md)）: `gom test --update` で期待値更新する方向
+- [ ] **[wave46 lane A] writeOperand の型駆動再設計**（[prompts](docs/sketch/2026-11-25-wave46-prompts.md)、[台帳](docs/implementation-gaps.md)）: foreign named scalar の括弧 canonical — compiled は opaque 値を括弧で包むが eval は見られない
+
 ### wave45 採択済み lane（[prompts](docs/sketch/2026-11-24-wave45-prompts.md) — 2026-11-25 採否確定、順 A→B→C→G→D）
 
 - [x] **[wave45 lane A] `@method` の境界綴り `Int` → `int`/`int64` 選択**: interface 側が `int64` を要求するシグネチャ（`io.Seeker.Seek`）に emit が適合しない実バグ — check は通るが生成 Go が不一致
