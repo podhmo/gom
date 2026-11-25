@@ -50,8 +50,11 @@ module buildcache {
   var hardFp: int      // interface-affecting dependency/material fingerprint
   var implFp: int      // implementation-only dependency fingerprint
   var envFp: int       // compiler + rt/stdlib ABI + Go build conditions
-  var outputExists: bool
-  var outputCorrupt: bool
+  // Output artifacts are per destination: writing OUT_B must not make
+  // OUT_A exist, and each destination's artifact has its own dependency
+  // observation. Sets membership is the artifact state.
+  var outputExists: Set[str]
+  var outputCorrupt: Set[str]
 
   // ---- manifest -----------------------------------------------------
   var manifest: bool
@@ -68,6 +71,12 @@ module buildcache {
   var depsRead: bool
   var compiledHard: int
   var compiledImpl: int
+  // Dependency observations of the artifact currently at each output
+  // destination. These change only when a write succeeds; a failed
+  // rebuild must not overwrite them the way compiledHard/compiledImpl
+  // are overwritten while attempting a compile.
+  var outputHard: str -> int
+  var outputImpl: str -> int
 
   // ---- ghost counters ------------------------------------------------
   var hits: int
@@ -82,8 +91,8 @@ module buildcache {
     hardFp' = 0,
     implFp' = 0,
     envFp' = 0,
-    outputExists' = false,
-    outputCorrupt' = false,
+    outputExists' = Set(),
+    outputCorrupt' = Set(),
     manifest' = false,
     mSrc' = 0,
     mHard' = 0,
@@ -96,6 +105,8 @@ module buildcache {
     depsRead' = false,
     compiledHard' = 0,
     compiledImpl' = 0,
+    outputHard' = Map(OUT_A -> 0, OUT_B -> 0),
+    outputImpl' = Map(OUT_A -> 0, OUT_B -> 0),
     hits' = 0,
     staleHits' = 0,
     corruptedHits' = 0,
@@ -126,22 +137,22 @@ module buildcache {
       all {
         useCache,
         hitHolds(manifest, mSrc, mHard, mEnv, mOut, out,
-                 srcFp, hardFp, envFp, outputExists),
+                 srcFp, hardFp, envFp, out.in(outputExists)),
         hits' = hits + 1,
-        staleHits' = staleHits + (if (compiledHard == hardFp) 0 else 1),
+        staleHits' = staleHits + (if (outputHard.get(out) == hardFp) 0 else 1),
         // Isolate the witnesses: a corrupted/impl-only hit counts only
         // when the interface-affecting dependency observation is still
         // coherent. Otherwise the trace is already a stale-hit witness.
         corruptedHits' = corruptedHits +
-          (if (outputCorrupt and compiledHard == hardFp) 1 else 0),
+          (if (out.in(outputCorrupt) and outputHard.get(out) == hardFp) 1 else 0),
         implOnlyHits' = implOnlyHits +
-          (if (compiledImpl != implFp and compiledHard == hardFp) 1 else 0),
+          (if (outputImpl.get(out) != implFp and outputHard.get(out) == hardFp) 1 else 0),
         phase' = IDLE,
       },
       all {
         not(useCache) or
           not(hitHolds(manifest, mSrc, mHard, mEnv, mOut, out,
-                       srcFp, hardFp, envFp, outputExists)),
+                       srcFp, hardFp, envFp, out.in(outputExists))),
         hits' = hits,
         staleHits' = staleHits,
         corruptedHits' = corruptedHits,
@@ -162,6 +173,8 @@ module buildcache {
     mOut' = mOut,
     compiledHard' = compiledHard,
     compiledImpl' = compiledImpl,
+    outputHard' = outputHard,
+    outputImpl' = outputImpl,
     commits' = commits,
     staleCommits' = staleCommits,
   }
@@ -178,6 +191,8 @@ module buildcache {
     depsRead' = true,
     compiledHard' = hardFp,
     compiledImpl' = implFp,
+    outputHard' = outputHard,
+    outputImpl' = outputImpl,
     srcFp' = srcFp,
     hardFp' = hardFp,
     implFp' = implFp,
@@ -232,6 +247,8 @@ module buildcache {
     depsRead' = depsRead,
     compiledHard' = compiledHard,
     compiledImpl' = compiledImpl,
+    outputHard' = outputHard,
+    outputImpl' = outputImpl,
     hits' = hits,
     staleHits' = staleHits,
     corruptedHits' = corruptedHits,
@@ -241,24 +258,46 @@ module buildcache {
   }
 
   // Output writing is all-or-nothing at the package granularity for the
-  // manifest: a failed member/write never reaches the commit step. A
-  // successful write refreshes the generated output. A cache-disabled
-  // invocation still writes outputs but has no commit step.
-  action finishWrite = all {
+  // manifest: a failed member/write never reaches the commit step. The
+  // artifact itself is per destination, and only a successful write
+  // replaces that destination's dependency observation.
+  action failWrite = all {
     phase == WRITING,
-    any {
-      all {
-        // write failure (or a withheld package member): no commit
-        phase' = IDLE,
-        outputExists' = outputExists,
-        outputCorrupt' = outputCorrupt,
-      },
-      all {
-        phase' = if (cacheEnabled) COMMITTING else IDLE,
-        outputExists' = true,
-        outputCorrupt' = false,
-      },
-    },
+    phase' = IDLE,
+    outputExists' = outputExists,
+    outputCorrupt' = outputCorrupt,
+    srcFp' = srcFp,
+    hardFp' = hardFp,
+    implFp' = implFp,
+    envFp' = envFp,
+    manifest' = manifest,
+    mSrc' = mSrc,
+    mHard' = mHard,
+    mEnv' = mEnv,
+    mOut' = mOut,
+    runOut' = runOut,
+    cacheEnabled' = cacheEnabled,
+    inputSnapshot' = inputSnapshot,
+    depsRead' = depsRead,
+    compiledHard' = compiledHard,
+    compiledImpl' = compiledImpl,
+    outputHard' = outputHard,
+    outputImpl' = outputImpl,
+    hits' = hits,
+    staleHits' = staleHits,
+    corruptedHits' = corruptedHits,
+    implOnlyHits' = implOnlyHits,
+    commits' = commits,
+    staleCommits' = staleCommits,
+  }
+
+  action succeedWrite = all {
+    phase == WRITING,
+    phase' = if (cacheEnabled) COMMITTING else IDLE,
+    outputExists' = outputExists.union(Set(runOut)),
+    outputCorrupt' = outputCorrupt.exclude(Set(runOut)),
+    outputHard' = outputHard.set(runOut, compiledHard),
+    outputImpl' = outputImpl.set(runOut, compiledImpl),
     srcFp' = srcFp,
     hardFp' = hardFp,
     implFp' = implFp,
@@ -322,6 +361,8 @@ module buildcache {
     depsRead' = depsRead,
     compiledHard' = compiledHard,
     compiledImpl' = compiledImpl,
+    outputHard' = outputHard,
+    outputImpl' = outputImpl,
     hits' = hits,
     staleHits' = staleHits,
     corruptedHits' = corruptedHits,
@@ -351,6 +392,8 @@ module buildcache {
     depsRead' = depsRead,
     compiledHard' = compiledHard,
     compiledImpl' = compiledImpl,
+    outputHard' = outputHard,
+    outputImpl' = outputImpl,
     hits' = hits,
     staleHits' = staleHits,
     corruptedHits' = corruptedHits,
@@ -378,6 +421,8 @@ module buildcache {
     depsRead' = depsRead,
     compiledHard' = compiledHard,
     compiledImpl' = compiledImpl,
+    outputHard' = outputHard,
+    outputImpl' = outputImpl,
     hits' = hits,
     staleHits' = staleHits,
     corruptedHits' = corruptedHits,
@@ -405,6 +450,8 @@ module buildcache {
     depsRead' = depsRead,
     compiledHard' = compiledHard,
     compiledImpl' = compiledImpl,
+    outputHard' = outputHard,
+    outputImpl' = outputImpl,
     hits' = hits,
     staleHits' = staleHits,
     corruptedHits' = corruptedHits,
@@ -433,6 +480,8 @@ module buildcache {
     depsRead' = depsRead,
     compiledHard' = compiledHard,
     compiledImpl' = compiledImpl,
+    outputHard' = outputHard,
+    outputImpl' = outputImpl,
     hits' = hits,
     staleHits' = staleHits,
     corruptedHits' = corruptedHits,
@@ -441,10 +490,10 @@ module buildcache {
     staleCommits' = staleCommits,
   }
 
-  action corruptOutput = all {
-    outputExists,
-    not(outputCorrupt),
-    outputCorrupt' = true,
+  action corruptOutput(out) = all {
+    out.in(outputExists),
+    not(out.in(outputCorrupt)),
+    outputCorrupt' = outputCorrupt.union(Set(out)),
     outputExists' = outputExists,
     srcFp' = srcFp,
     hardFp' = hardFp,
@@ -462,6 +511,8 @@ module buildcache {
     depsRead' = depsRead,
     compiledHard' = compiledHard,
     compiledImpl' = compiledImpl,
+    outputHard' = outputHard,
+    outputImpl' = outputImpl,
     hits' = hits,
     staleHits' = staleHits,
     corruptedHits' = corruptedHits,
@@ -470,10 +521,10 @@ module buildcache {
     staleCommits' = staleCommits,
   }
 
-  action deleteOutput = all {
-    outputExists,
-    outputExists' = false,
-    outputCorrupt' = false,
+  action deleteOutput(out) = all {
+    out.in(outputExists),
+    outputExists' = outputExists.exclude(Set(out)),
+    outputCorrupt' = outputCorrupt.exclude(Set(out)),
     srcFp' = srcFp,
     hardFp' = hardFp,
     implFp' = implFp,
@@ -490,6 +541,8 @@ module buildcache {
     depsRead' = depsRead,
     compiledHard' = compiledHard,
     compiledImpl' = compiledImpl,
+    outputHard' = outputHard,
+    outputImpl' = outputImpl,
     hits' = hits,
     staleHits' = staleHits,
     corruptedHits' = corruptedHits,
@@ -515,9 +568,9 @@ module buildcache {
     finishCompile,
     finishCompile,
     finishCompile,
-    finishWrite,
-    finishWrite,
-    finishWrite,
+    failWrite,
+    succeedWrite,
+    succeedWrite,
     commitManifest,
     commitManifest,
     commitManifest,
@@ -525,8 +578,10 @@ module buildcache {
     editHardDep,
     editImplOnlyDep,
     editEnvironment,
-    corruptOutput,
-    deleteOutput,
+    corruptOutput(OUT_A),
+    corruptOutput(OUT_B),
+    deleteOutput(OUT_A),
+    deleteOutput(OUT_B),
   }
 
   // ---- invariants over the model itself ------------------------------
