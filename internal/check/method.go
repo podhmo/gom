@@ -238,8 +238,20 @@ func (c *checker) methodWidthResults(elems, raw []types.Type) bool {
 // because the gom view cannot tell which one an interface position
 // asked for — the raw width pass decides that.
 func (c *checker) methodViewEqual(a, b types.Type) bool {
-	if c.methodIntFamily(a) && c.methodIntFamily(b) {
-		return true
+	// The interface side is always the builtin — goimport folds the
+	// raw signature with the builtin constructors, no file-local
+	// declaration can reach it. The user side only counts when its
+	// spelling is not shadowed: a file-local `type Int` is never
+	// the builtin the interface carries, so it must not relax into
+	// — or structurally coincide with — the interface's int leaf.
+	if methodBuiltinInt(b) {
+		if c.methodIntFamily(a) {
+			return true
+		}
+		if con, ok := types.Chase(a).(*types.Con); ok && con.Qual == "" &&
+			(con.Name == "Int" || con.Name == "Int64") {
+			return false
+		}
 	}
 	ac, bc := types.Chase(a), types.Chase(b)
 	switch at := ac.(type) {
@@ -281,6 +293,18 @@ func (c *checker) methodViewEqual(a, b types.Type) bool {
 	default:
 		panic("unreachable")
 	}
+}
+
+// methodBuiltinInt reports whether t is structurally a builtin
+// int-family constructor — used for the interface side, whose
+// types goimport builds with the real builtins regardless of what
+// the checked file shadows.
+func methodBuiltinInt(t types.Type) bool {
+	c, ok := types.Chase(t).(*types.Con)
+	if !ok || c.Qual != "" {
+		return false
+	}
+	return c.Name == "Int" || c.Name == "Int64"
 }
 
 // methodIntFamily reports whether t is one of the builtin integer

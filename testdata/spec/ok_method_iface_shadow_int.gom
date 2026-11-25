@@ -1,0 +1,22 @@
+package main
+
+// A file-local `type Int` shadows the builtin spelling, but an
+// all-int64 interface stays implementable — `Int64` is unshadowed
+// and carries the right width. The interface side of the
+// comparison is always the builtin, however the file shadows its
+// own spelling.
+import go "github.com/podhmo/gom/testdata/goiface"
+
+type Int = { x: Int64 }
+
+type W = { n: Int64 }
+
+@method
+fn (w: W) pair () -> Result (Int64, Int64) GoError = Ok (0, 0)
+
+fn main () -> Unit = {
+  let w = { n = 0 }
+  let x : goiface.WidthPair = w
+  ignore x
+  ()
+}
