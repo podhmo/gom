@@ -1,0 +1,7 @@
+package main
+
+// Float-to-unsigned conversion truncates before judging range:
+// -0.5 becomes the representable zero, so division by that
+// conversion reports E0414. The negative sign alone must not keep
+// the conversion unfolded.
+fn divz (x: Uint) -> Uint = x / (Go.conv (0.0 - 0.5) : Uint)

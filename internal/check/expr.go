@@ -2507,7 +2507,10 @@ func (c *checker) constFold(e Expr) (constant.Value, bool) {
 				// is -2^31 on amd64, not the wrapped 0 an int64
 				// round-trip would suggest — so the fold declines.
 				if us {
-					if fv < 0 || fv >= math.Pow(2, float64(w)) {
+					// Truncation happens before the range judgment: a
+					// float in (-1, 0) converts to the representable
+					// unsigned zero, while -1 itself is out of range.
+					if fv <= -1 || fv >= math.Pow(2, float64(w)) {
 						return nil, false
 					}
 				} else if fv < -math.Pow(2, float64(w-1)) || fv >= math.Pow(2, float64(w-1)) {
