@@ -47,10 +47,23 @@ func (*VInt) isValue()         {}
 func (v *VInt) String() string { return strconv.FormatInt(v.N, 10) }
 
 // VFloat is a Float.
-type VFloat struct{ F float64 }
+// VFloat is a float value. W is the machine width the value was
+// constructed at — 32 for float32-canonical images, zero/64 for
+// ordinary float64. Width only shapes the textual rendering: nested
+// inside composites a width-32 value prints at float32 precision
+// like the compiled gomShow does for a float32-typed field, where a
+// plain float64 print would expand the canonical image
+// (`0.10000000149011612` for 0.1).
+type VFloat struct {
+	F float64
+	W int
+}
 
 func (*VFloat) isValue() {}
 func (v *VFloat) String() string {
+	if v.W == 32 {
+		return strconv.FormatFloat(v.F, 'g', -1, 32)
+	}
 	return strconv.FormatFloat(v.F, 'g', -1, 64)
 }
 

@@ -135,6 +135,25 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 		want: "{ f = ({ on = true }), n = 1 }",
 	},
 	{
+		// lane C display: the type-driven wrap recurses into List
+		// elements and tuple slots — declared-type scalars nested
+		// in composites render record-shaped everywhere.
+		name: "splice_list_tuple_record_shape",
+		src: `package main
+
+import go "fmt"
+
+type Flag = {on: Bool}
+fn answer () -> String = {
+  let fs : List Flag = [true, false]
+  let p : (Flag, Int) = (true, 3)
+  "${fs} ${p}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "[({ on = true }), ({ on = false })] (({ on = true }), 3)",
+	},
+	{
 		// lane B materialization: an int-spelled literal at a
 		// float32-underlying named type is a FLOAT value — division
 		// is floating-point, not integer.
@@ -175,7 +194,9 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 		// lane B constants: a negated zero literal folds like a Go
 		// constant expression — untyped constants carry no signed
 		// zero, so `-0` at a float position prints `0`, not `-0`.
-		name: "float32_width_neg_zero_literal",
+		// (not width-specific — constant folding applies oracle-less
+		// too, so the negative control does not apply)
+		name: "float_neg_zero_literal_fold",
 		src: `package main
 
 import go "fmt"

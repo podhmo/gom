@@ -102,10 +102,10 @@ func (e *interp) litValueTyped(kind syntax.LitKind, text string, typ types.Type,
 	if f, ok := v.(*VFloat); ok {
 		if width == 32 {
 			if f32, err := strconv.ParseFloat(text, 32); err == nil {
-				return &VFloat{F: f32}
+				return &VFloat{F: f32, W: 32}
 			}
 		}
-		return &VFloat{F: roundFloat(width, f.F)}
+		return &VFloat{F: roundFloat(width, f.F), W: width}
 	}
 	return v
 }

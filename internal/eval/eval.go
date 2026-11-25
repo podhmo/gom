@@ -1078,9 +1078,9 @@ func (e *interp) evalUnary(x *check.Unary, env *Env) Value {
 			// so `-0`/`-0.0` emit as positive zero while runtime
 			// negation of a non-literal +0.0 stays IEEE -0.
 			if _, lit := x.X.(*check.Lit); lit && v.F == 0 {
-				return &VFloat{F: 0}
+				return &VFloat{F: 0, W: v.W}
 			}
-			return &VFloat{F: -v.F}
+			return &VFloat{F: -v.F, W: v.W}
 		default:
 			failData(CodeInternal, "negation of a non-number", x.Span(), "value", v.String())
 		}
@@ -1229,13 +1229,13 @@ func (e *interp) evalPrim(x *check.Binary, env *Env) Value {
 			a, b := float32(l.F), float32(r.F)
 			switch x.Op {
 			case syntax.BinAdd:
-				return &VFloat{F: float64(a + b)}
+				return &VFloat{F: float64(a + b), W: 32}
 			case syntax.BinSub:
-				return &VFloat{F: float64(a - b)}
+				return &VFloat{F: float64(a - b), W: 32}
 			case syntax.BinMul:
-				return &VFloat{F: float64(a * b)}
+				return &VFloat{F: float64(a * b), W: 32}
 			case syntax.BinDiv:
-				return &VFloat{F: float64(a / b)}
+				return &VFloat{F: float64(a / b), W: 32}
 			case syntax.BinLt:
 				return &VBool{B: a < b}
 			case syntax.BinLe:
@@ -2181,7 +2181,9 @@ func hostElem(t types.Type, rv reflect.Value) Value {
 			return &VInt{N: n}
 		case "Float":
 			switch rv.Kind() {
-			case reflect.Float32, reflect.Float64:
+			case reflect.Float32:
+				return &VFloat{F: rv.Float(), W: 32}
+			case reflect.Float64:
 				return &VFloat{F: rv.Float()}
 			}
 		case "Bool":
