@@ -67,11 +67,13 @@ Gom の開発は「wave」という単位で回す。1 wave = 複数 lane（細�
   「計測結果なら (a)、そうでなければ (b)」型の実行時採択を
   残さない（wave21 の Prompt-drafting rules）。
 - **インタビューで採択が確定したら台帳も同期する**: 採択された
-  decision の `状態` を更新し、open-questions の該当項目を
-  `[x]` + decision リンクに、採択済みの実作業を `TODO.md` に
-  登録する（決まっていて手を動かすだけの lane だけ。調査 lane は
-  open-questions 側の管理のまま）。prompts の `状態` 更新だけでは
-  各台帳が stale のまま残る。
+  decision が既にあるときは `状態` を更新する。open-questions の
+  該当項目は `[x]` + decision または採否確定済み prompts リンクに、
+  採択済みの実作業を `TODO.md` に登録する（決まっていて手を動かす
+  だけの lane だけ。調査 lane は open-questions 側の管理のまま）。
+  採択時点の scope は prompts に記録し、実装中の技術決定は通常どおり
+  lane の中で decision 化する。prompts の `状態` 更新だけでは各台帳が
+  stale のまま残る。
 - 実装中の細かい設計決定は decision (draft) → prototype 検証 →
   状態更新、の通常手順で記録する。これは分岐ではなく記録手順。
 - 採択されなかった候補の sketch/experiments は記録として残す

@@ -25,6 +25,7 @@ wave46 lane B で入れた `snapshot` を tutorial/17-tests でだけ使い、�
 scope:
 
 - `tutorial/17-tests/main.gom` に `snapshot` の例を 1 つ入れ、tutorial 文面と expected 出力を同期する
+- `gom test --update` で生成した `tutorial/17-tests/__snapshot__/*.snap` を commit し、clean checkout では baseline missing にしない
 - stdlib や compiler harness への大規模適用はしない
 - `testdata/spec` / `testdata/golden` / `tutorial/*/expected.txt` の既存 golden harness は `internal/gomtest` のまま変えない
 
