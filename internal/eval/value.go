@@ -470,7 +470,52 @@ func hostBoxRepr(v *VHost) (string, bool) {
 		return "", false
 	}
 	r := types.CanonGoRepr(types.GoRepr(v.T))
-	return r, r != ""
+	if r == "" {
+		return "", false
+	}
+	// GoRepr renders a Go-defined type under its package's base
+	// name because that is how the emitted source spells it. Type
+	// identity needs the declaring import path too: `a/units.Count`
+	// and `b/units.Count` both render `units.Count` but are distinct
+	// dynamic types in compiled reflect.DeepEqual. Keep the emitted
+	// repr for builtin representation sharing (Int/Int64), then add
+	// the exact Go refs as an identity-only suffix.
+	return r + "\x00" + goTypeRefKey(v.T), true
+}
+
+// goTypeRefKey renders the exact Go-defined type refs inside t in a
+// deterministic traversal order. It is not a type spelling — only a
+// disambiguator for hostBoxRepr — so the encoding needs no inverse.
+func goTypeRefKey(t types.Type) string {
+	var sb strings.Builder
+	writeGoTypeRefKey(&sb, t)
+	return sb.String()
+}
+
+func writeGoTypeRefKey(sb *strings.Builder, t types.Type) {
+	switch t := types.Chase(t).(type) {
+	case *types.Con:
+		for _, a := range t.Args {
+			writeGoTypeRefKey(sb, a)
+		}
+	case *types.Tuple:
+		for _, el := range t.Elems {
+			writeGoTypeRefKey(sb, el)
+		}
+	case *types.Func:
+		for _, p := range t.Params {
+			writeGoTypeRefKey(sb, p.Type)
+		}
+		writeGoTypeRefKey(sb, t.Ret)
+	case *types.Go:
+		fmt.Fprintf(sb, "G%d:%s%d:%s", len(t.Ref.Path), t.Ref.Path, len(t.Ref.Name), t.Ref.Name)
+		for _, a := range t.Args {
+			writeGoTypeRefKey(sb, a)
+		}
+	case *types.Meta, *types.Var:
+	default:
+		panic("unreachable")
+	}
 }
 
 // Equal reports structural equality — the `==` semantics of spec

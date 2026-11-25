@@ -390,6 +390,31 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 		want: "false:true:true",
 	},
 	{
+		// wave46 lane D review: two Go packages may share both
+		// their package name and type name. The emitted spelling
+		// `units.Count` is not a dynamic-type identity — the full
+		// import path is.
+		name: "go_any_boxed_named_type_import_path",
+		src: `package main
+
+import go "fmt"
+import go au "github.com/podhmo/gom/testdata/collide/a/units"
+import go bu "github.com/podhmo/gom/testdata/collide/b/units"
+
+fn answer () -> String = {
+  let a : au.Count = 1
+  let a2 : au.Count = 1
+  let b : bu.Count = 1
+  let x : Go.Any = a
+  let y : Go.Any = b
+  let z : Go.Any = a2
+  "${x == y}:${x == z}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "false:true",
+	},
+	{
 		// P2-2c: the same delayed-reference cycle through a
 		// destructuring let — tuple, record, and a single-variant
 		// constructor all bind `count` as a named wrapper.
