@@ -459,6 +459,20 @@ func writeOperand(sb *strings.Builder, v Value) {
 	}
 }
 
+// hostBoxRepr names the emitted Go type a boxed value was recorded
+// with. Foreign named scalars need the static tag: their eval
+// payload is only the underlying scalar Value, so the payload alone
+// cannot carry the nominal type. Opaque host values and boxes whose
+// static type is unnameable report false; their payload comparison
+// keeps the pre-existing best-effort semantics.
+func hostBoxRepr(v *VHost) (string, bool) {
+	if v.T == nil {
+		return "", false
+	}
+	r := types.CanonGoRepr(types.GoRepr(v.T))
+	return r, r != ""
+}
+
 // Equal reports structural equality — the `==` semantics of spec
 // section 3.3 restricted to non-function types. Function values
 // compare by pointer identity (the harness uses Equal on expected
@@ -517,7 +531,22 @@ func Equal(a, b Value) bool {
 		return ok && a.Text == bv.Text
 	case *VHost:
 		bv, ok := b.(*VHost)
-		return ok && reflect.DeepEqual(a.V, bv.V)
+		if !ok {
+			return false
+		}
+		// Eval keeps foreign named scalars as their underlying
+		// Value plus the boxed static type, so DeepEqual on the
+		// payload alone would erase the nominal type distinction
+		// compiled rt.Equal gets from reflect.DeepEqual
+		// (`time.Duration(1)` != `goiface.Ticks(1)` even though
+		// both payloads eval as VInt 1). Compare the emitted-Go
+		// type identity first when both sides name one.
+		if ar, aok := hostBoxRepr(a); aok {
+			if br, bok := hostBoxRepr(bv); bok && ar != br {
+				return false
+			}
+		}
+		return reflect.DeepEqual(a.V, bv.V)
 	case *VFunc:
 		bv, ok := b.(*VFunc)
 		return ok && a == bv

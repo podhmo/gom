@@ -332,6 +332,64 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 		want: "absorbed",
 	},
 	{
+		// wave46 lane D: boxed-any equality keeps Go's dynamic-type
+		// distinction across float widths — float32-width and
+		// float64-width boxes never compare equal, while same-width
+		// boxes do. Eval reproduces the distinction through the
+		// canonical W tag (width 32 only); direct VFloat equality is
+		// width-insensitive because the static operand type is the
+		// same in ordinary numeric comparisons.
+		name: "float32_width_boxed_any_dynamic_width",
+		src: `package main
+
+import go "fmt"
+import go "github.com/podhmo/gom/testdata/goiface"
+
+fn answer () -> String = {
+  let f : goiface.SmallRatio = 16777217.0
+  let g : goiface.SmallRatio = 16777216.0
+  let x : Go.Any = f
+  let y : Go.Any = 16777216.0
+  let z : Go.Any = g
+  let a : Go.Any = 16777216.0
+  let b : Go.Any = 16777216.0
+  "${x == y}:${x == z}:${a == b}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "false:true:true",
+	},
+	{
+		// wave46 lane D: foreign named scalars box as their
+		// underlying eval scalar plus a static type tag. Equality
+		// must still follow the emitted dynamic type: two named
+		// int64 types are distinct, the same named type compares
+		// equal, and Int/Int64 share int64 as compiled.
+		name: "go_any_boxed_named_type_identity",
+		src: `package main
+
+import go "fmt"
+import go "time"
+import go "github.com/podhmo/gom/testdata/goiface"
+
+fn answer () -> String = {
+  let d : time.Duration = 1
+  let d2 : time.Duration = 1
+  let t : goiface.Ticks = 1
+  let x : Go.Any = d
+  let y : Go.Any = t
+  let z : Go.Any = d2
+  let i : Int = 1
+  let j : Int64 = 1
+  let a : Go.Any = i
+  let b : Go.Any = j
+  "${x == y}:${x == z}:${a == b}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "false:true:true",
+	},
+	{
 		// P2-2c: the same delayed-reference cycle through a
 		// destructuring let — tuple, record, and a single-variant
 		// constructor all bind `count` as a named wrapper.
