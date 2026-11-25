@@ -2406,6 +2406,14 @@ func (e *interp) displayTyped(v Value, t types.Type) string {
 // around it cannot print the right digits unless the declared field
 // type is carried down to the leaf.
 func (e *interp) displayValueTyped(v Value, t types.Type, nested bool) string {
+	// A composite type that still mentions a type parameter cannot
+	// mint a package-level renderer in compiled code either: the whole
+	// value degrades to ShowRuntime there. Do not recursively apply
+	// typed operand parentheses inside that fallback — `${[x]}` in a
+	// generic helper is compiled's `%v` list, not a typed List renderer.
+	if typeHasVar(t) {
+		return display(v)
+	}
 	if f, ok := v.(*VFloat); ok {
 		if w := e.floatOperandWidth(t); w == 32 {
 			return strconv.FormatFloat(f.F, 'g', -1, 32)
@@ -2443,6 +2451,46 @@ func (e *interp) displayValueTyped(v Value, t types.Type, nested bool) string {
 		}
 	}
 	return display(v)
+}
+
+// typeHasVar mirrors lowering's showDecl guard: a package-level
+// display helper cannot mention a function-local type parameter, so
+// any type still containing one uses the runtime recipe as a whole.
+func typeHasVar(t types.Type) bool {
+	switch t := types.Chase(t).(type) {
+	case *types.Var:
+		return true
+	case *types.Con:
+		for _, a := range t.Args {
+			if typeHasVar(a) {
+				return true
+			}
+		}
+	case *types.Go:
+		for _, a := range t.Args {
+			if typeHasVar(a) {
+				return true
+			}
+		}
+	case *types.Func:
+		for _, p := range t.Params {
+			if typeHasVar(p.Type) {
+				return true
+			}
+		}
+		return typeHasVar(t.Ret)
+	case *types.Tuple:
+		for _, x := range t.Elems {
+			if typeHasVar(x) {
+				return true
+			}
+		}
+	case *types.Meta:
+		return false
+	default:
+		panic("unreachable")
+	}
+	return false
 }
 
 // scalarDisplayType reports whether operand type t uses one of the
@@ -2597,29 +2645,49 @@ func (e *interp) listDisplayTyped(v *VList, t types.Type) (string, bool) {
 	return sb.String(), true
 }
 
+// displayCtorInfo returns constructor metadata in declaration form.
+// `Go.try_as` materializes builtin Option values without carrying the
+// constructor symbol, so recover Some/None/Ok/Err by name for display;
+// reshape must not treat that missing symbol as a reason to drop the
+// payload's static type.
+func (e *interp) displayCtorInfo(v *VVariant) *ctorInfo {
+	sym := v.Ctor
+	if sym == nil {
+		switch v.Name {
+		case "Some", "None", "Ok", "Err":
+			sym = &resolve.Symbol{Name: v.Name, Kind: resolve.KindCtor}
+		default:
+			return nil
+		}
+		return builtinDeclCtor(sym)
+	}
+	info := e.ctorOf(sym, v.Name, v.Type)
+	if info != nil && !info.declared {
+		info = builtinDeclCtor(sym)
+	}
+	if info == nil || !info.declared {
+		return nil
+	}
+	return info
+}
+
 // variantDisplayTyped formats constructor payloads through the
 // constructor's declared field types instantiated at the splice's
 // static type — the same substitution discipline typedDisplayValue
 // uses to reshape literal-conformed payloads.
 func (e *interp) variantDisplayTyped(v *VVariant, t types.Type) (string, bool) {
-	if v.Ctor == nil {
-		return "", false
-	}
 	con, ok := types.Chase(t).(*types.Con)
 	if !ok {
 		return "", false
 	}
-	info := e.ctorOf(v.Ctor, v.Name, v.Type)
-	if info != nil && !info.declared {
-		info = builtinDeclCtor(v.Ctor)
-	}
-	if info == nil || !info.declared {
+	info := e.displayCtorInfo(v)
+	if info == nil {
 		return "", false
 	}
 	sub := instSubst(info.typ, con)
 	name := v.Name
 	if name == "" {
-		name = v.Ctor.Name
+		name = info.name
 	}
 	var sb strings.Builder
 	sb.WriteString(name)
@@ -2720,18 +2788,12 @@ func (e *interp) typedDisplayValue(v Value, t types.Type) Value {
 		// not reshape a different instantiation (`Some` at Flag
 		// recasting a later `Some` at Bool) — the same discipline
 		// reshape follows.
-		if v.Ctor == nil {
-			return v
-		}
 		con, ok := types.Chase(t).(*types.Con)
 		if !ok {
 			return v
 		}
-		info := e.ctorOf(v.Ctor, v.Name, v.Type)
-		if info != nil && !info.declared {
-			info = builtinDeclCtor(v.Ctor)
-		}
-		if info == nil || !info.declared {
+		info := e.displayCtorInfo(v)
+		if info == nil {
 			return v
 		}
 		sub := instSubst(info.typ, con)

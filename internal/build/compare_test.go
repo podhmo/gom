@@ -237,6 +237,42 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 		want: "{ v = (Some ({ on = true })) }",
 	},
 	{
+		// wave46 lane A review: a list whose element type is still
+		// generic cannot mint a typed renderer in compiled code; the
+		// whole operand is `%v`, so the scalar element must not gain
+		// typed operand parentheses in the oracle.
+		name: "splice_generic_list_runtime_fallback",
+		src: `package main
+
+import go "fmt"
+
+fn show (x: a) -> String = "${[x]}"
+fn answer () -> String = show 1
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: `[1]`,
+	},
+	{
+		// wave46 lane A review: Go.try_as materializes builtin Option
+		// without a ctor symbol. Display must recover the builtin ctor
+		// shape so a foreign named scalar payload still gets its opaque
+		// operand parentheses.
+		name: "splice_try_as_named_scalar_operand",
+		src: `package main
+
+import go "fmt"
+import go "time"
+
+fn answer () -> String = {
+  let d : time.Duration = 1
+  let x : Go.Any = d
+  "${Go.try_as x : Option time.Duration}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: `Some (1)`,
+	},
+	{
 		// lane C display: record literals and scalar bindings draw
 		// the SAME rendering — the construction path is invisible.
 		name: "splice_record_literal_parity",
