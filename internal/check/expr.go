@@ -291,6 +291,12 @@ func (c *checker) conformExpr(out Expr, want types.Type, sp diag.Span) Expr {
 	if m, ok := types.Chase(out.Type()).(*types.Meta); ok && c.deferInterfaceSource(m) && ifaceWant {
 		if src, ok := c.src.(InterfaceSource); ok && src.InterfaceAssignable(want, want) {
 			conv := &Ascribe{Base: baseOf(sp, want), X: out, Conv: true, Iface: true}
+			if !c.expectedFrom.IsZero() {
+				if c.pendingIfaceFrom == nil {
+					c.pendingIfaceFrom = map[*Ascribe]diag.Span{}
+				}
+				c.pendingIfaceFrom[conv] = c.expectedFrom
+			}
 			c.pendingIfaces = append(c.pendingIfaces, conv)
 			return conv
 		}
@@ -4499,7 +4505,14 @@ func (c *checker) revisitInterfaces() {
 		}
 		src, ok := c.src.(InterfaceSource)
 		if !ok || !c.goOriginType(from) || !src.InterfaceAssignable(from, conv.Type()) {
-			c.mismatch(conv.Sp, conv.Type(), from)
+			if expectedFrom, ok := c.pendingIfaceFrom[conv]; ok {
+				prev := c.expectedFrom
+				c.expectedFrom = expectedFrom
+				c.mismatch(conv.Sp, conv.Type(), from)
+				c.expectedFrom = prev
+			} else {
+				c.mismatch(conv.Sp, conv.Type(), from)
+			}
 		}
 	}
 }

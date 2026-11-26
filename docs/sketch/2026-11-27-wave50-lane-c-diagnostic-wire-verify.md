@@ -6,7 +6,7 @@
 - `gom schema` の diagnostic object に optional な `labels` / `details` を追加した。後方互換な optional field 追加なので schema version は 1 のまま
 - text renderer は `data` の鍵を診断コードごとに解釈せず、`details` を generic に `<label>:` block、`labels` を副 span snippet として描く
 - E0301 は `data.missing_patterns` に加えて同じ反例を `patterns not covered` detail として出す。wave49 の E0301 限定 renderer 例外は除去した
-- E0401 の代表利用として、let 注釈と関数 return 注釈が直接 supply する expected type との mismatch に、注釈位置を指す `expected type declared here` label を付けた
+- E0401 の代表利用として、let 注釈と関数 return 注釈が直接 supply する expected type との mismatch に、注釈位置を指す `expected type declared here` label を付けた。deferred interface conformance で最終確定まで遅れた mismatch でも同じ label を保持し、numeric constraint のような注釈型そのものではない constraint failure には付けない
 - spec §12、decision、open-questions、problem、spec harness の `labels` / `details` 比較を同期した
 
 ## 結果

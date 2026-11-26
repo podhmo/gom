@@ -298,6 +298,10 @@ type checker struct {
 
 	// pendingIfaces keep numeric and selector inference independent of interface assignment.
 	pendingIfaces []*Ascribe
+	// pendingIfaceFrom carries the let/return annotation span that
+	// introduced each deferred interface expectation. revisitInterfaces
+	// runs after conformExprAt has restored the transient context.
+	pendingIfaceFrom map[*Ascribe]diag.Span
 
 	// methods records each own-package record type's declared
 	// @method set for Go-interface conformance checks
