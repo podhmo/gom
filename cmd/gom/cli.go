@@ -356,6 +356,13 @@ func compileInputs(inputs []input, checkOnly bool, bc *buildCache, outFlag strin
 // module line — the module path and root dir a dir's imports resolve
 // against. Mirrors gomimport's own module lookup; kept local because
 // scheduling (not loading) needs it here.
+func canonicalDir(dir string) string {
+	if resolved, err := filepath.EvalSymlinks(dir); err == nil {
+		return filepath.Clean(resolved)
+	}
+	return filepath.Clean(dir)
+}
+
 func moduleOf(dir string) (modPath, modDir string, ok bool) {
 	d, err := filepath.Abs(dir)
 	if err != nil {
@@ -517,7 +524,8 @@ func expandModuleLocalDeps(inputs []input) ([]input, error) {
 			if resolved, err := filepath.EvalSymlinks(depDir); err == nil {
 				checkDir = resolved
 			}
-			if depModPath, depModDir, ok := moduleOf(checkDir); !ok || depModPath != modPath || depModDir != modDir {
+			depModPath, depModDir, ok := moduleOf(checkDir)
+			if !ok || depModPath != modPath || canonicalDir(depModDir) != canonicalDir(modDir) {
 				continue // a nested or symlinked module is external even when its path prefixes ours
 			}
 			depKey := inputKey(depDir)

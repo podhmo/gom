@@ -446,6 +446,36 @@ fn main () -> Unit = ()
 	}
 }
 
+func TestExpandModuleLocalDepsThroughCheckoutSymlink(t *testing.T) {
+	t.Parallel()
+
+	real := writeFiles(t, map[string]string{
+		"main.gom": `package main
+
+import "m/dep"
+
+fn main () -> Unit = ()
+`,
+		"dep/dep.gom": "package dep\n\nfn f () -> Int = 1\n",
+	})
+	testModule(t, real)
+	link := filepath.Join(t.TempDir(), "checkout")
+	if err := os.Symlink(real, link); err != nil {
+		t.Fatal(err)
+	}
+	explicit, err := readInputs([]string{filepath.Join(link, "main.gom")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := expandModuleLocalDeps(explicit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("expanded %d inputs through checkout symlink, want 2: %#v", len(got), got)
+	}
+}
+
 func TestBuildModuleLocalDependencyKeepsOutputBesideSource(t *testing.T) {
 	t.Parallel()
 
