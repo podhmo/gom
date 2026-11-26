@@ -1038,6 +1038,7 @@ func (l *Loader) module() (string, string, error) {
 			b, err := os.ReadFile(gm)
 			if err == nil {
 				for line := range strings.SplitSeq(string(b), "\n") {
+					line, _, _ = strings.Cut(line, "//")
 					fields := strings.Fields(line)
 					if len(fields) >= 2 && fields[0] == "module" {
 						l.modPath, l.modDir = fields[1], dir

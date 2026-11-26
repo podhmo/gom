@@ -316,7 +316,7 @@ func TestModuleOfAcceptsTrailingComment(t *testing.T) {
 	t.Parallel()
 
 	dir := writeFiles(t, map[string]string{
-		"go.mod": "module m // trailing comment\n\ngo 1.27\n",
+		"go.mod": "module m// trailing comment\n\ngo 1.27\n",
 	})
 	mp, md, ok := moduleOf(dir)
 	if !ok || mp != "m" || md != dir {
