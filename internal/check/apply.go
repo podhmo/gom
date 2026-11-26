@@ -423,11 +423,7 @@ func (c *checker) mergeContextualType(original, speculative types.Type, open map
 	}
 	if _, openOriginal := o.(*types.Meta); openOriginal {
 		t, _ := c.reifyPrefixType(x, open, sp)
-		// Labels in a speculative expectation are borrowed context, not
-		// the callee's contract. Stripping them keeps label introduction
-		// at the final conformance boundary instead of binding borrowed
-		// labels into shared inference variables.
-		return types.StripLabels(t)
+		return t
 	}
 	switch o := o.(type) {
 	case *types.Con:

@@ -117,7 +117,7 @@ func TestMergeContextualTypeExtendsCurriedSpeculativeTail(t *testing.T) {
 	}
 }
 
-func TestMergeContextualTypeStripsBorrowedLabels(t *testing.T) {
+func TestMergeContextualTypeKeepsStaticLabels(t *testing.T) {
 	c := &checker{metas: map[*types.Meta]*metaRec{}}
 	sp := diag.SpanIn("test.gom", 1, 2)
 	open := c.newMeta(sp, "open")
@@ -125,9 +125,8 @@ func TestMergeContextualTypeStripsBorrowedLabels(t *testing.T) {
 	speculative := types.Fn(acc, types.FuncParam{Label: "x", Type: acc})
 
 	got := c.mergeContextualType(open, speculative, map[*types.Meta]*types.Meta{}, sp)
-	want := types.Fn(acc, types.FuncParam{Type: acc})
-	if !types.Equal(got, want) {
-		t.Fatalf("label-stripped merge = %v, want %v", got, want)
+	if !types.Equal(got, speculative) {
+		t.Fatalf("label-preserving merge = %v, want %v", got, speculative)
 	}
 }
 
