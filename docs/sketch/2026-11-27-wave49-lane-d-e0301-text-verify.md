@@ -10,6 +10,7 @@
 
 - `go test ./internal/diag -run TestWriteTextE0301MissingPatterns -count=1`: pass
 - `go run ./cmd/gom check --format text /tmp/e0301check.gom`: E0301 の実出力に `patterns not covered:` と `None` が出ることを確認
+- `go test ./cmd/gom -run TestCheckE0301TextMissingPatterns -count=1`: pass（compiler 全体を通した real E0301 で同ブロックを確認）
 - `go test ./...` / `go vet ./...` / `gofmt -l .` / `scripts/check-sumtype.sh`: pass
 - text 出力は source snippet のあとに反例を列挙し、note/fix の順序を保つ
 
