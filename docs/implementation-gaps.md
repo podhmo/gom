@@ -1197,6 +1197,7 @@
   「各ステップは独立 Go モジュール」という stale な一文が残っているのを
   再発見し、tutorial README と同じ scratch module 説明へ修正した。
   参照: [テスト](../tutorial/tutorial_test.go)、[README](../tutorial/README.md)、
+  [root README](../README.md)、
   [decision](decisions/2026-11-05-test-performance.md)、
   [sketch](sketch/2026-11-04-v1-tutorial-findings.md)。
 
