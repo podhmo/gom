@@ -394,6 +394,19 @@ func StdlibShortNames() []string {
 	return names
 }
 
+// IsStdlibPath reports whether path is one of the toolchain's
+// Gom-written standard-library packages after short-name expansion.
+// The CLI uses this to keep toolchain artifacts out of module-local
+// source emission when developing inside the gom repository itself.
+func IsStdlibPath(path string) bool {
+	for _, p := range stdlibPaths {
+		if path == p {
+			return true
+		}
+	}
+	return false
+}
+
 // ExternalPackages enumerates the importable Gom packages visible
 // from dir's module context: every module in `go list -m all` whose
 // source directory is known — the main module, replace targets and
@@ -1025,8 +1038,9 @@ func (l *Loader) module() (string, string, error) {
 			b, err := os.ReadFile(gm)
 			if err == nil {
 				for line := range strings.SplitSeq(string(b), "\n") {
+					line, _, _ = strings.Cut(line, "//")
 					fields := strings.Fields(line)
-					if len(fields) == 2 && fields[0] == "module" {
+					if len(fields) >= 2 && fields[0] == "module" {
 						l.modPath, l.modDir = fields[1], dir
 						return
 					}

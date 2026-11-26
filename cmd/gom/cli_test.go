@@ -312,6 +312,310 @@ func TestCheckInterfaceFile(t *testing.T) {
 	}
 }
 
+func TestModuleOfAcceptsTrailingComment(t *testing.T) {
+	t.Parallel()
+
+	dir := writeFiles(t, map[string]string{
+		"go.mod": "module m// trailing comment\n\ngo 1.27\n",
+	})
+	mp, md, ok := moduleOf(dir)
+	if !ok || mp != "m" || md != dir {
+		t.Fatalf("moduleOf = (%q, %q, %v), want (m, %q, true)", mp, md, ok, dir)
+	}
+}
+
+func TestExpandModuleLocalDepsTransitivelyAddsPackageFiles(t *testing.T) {
+	t.Parallel()
+
+	dir := writeFiles(t, map[string]string{
+		"main.gom": `package main
+
+import "m/a"
+
+fn main () -> Unit = ()
+`,
+		"a/a.gom": `package a
+
+import "m/b"
+
+fn f () -> Int = b.g ()
+`,
+		"a/x.gom": `package x
+
+fn h () -> Int = 2
+`,
+		"b/b.gom": `package b
+
+fn g () -> Int = 1
+`,
+	})
+	testModule(t, dir)
+	explicit, err := readInputs([]string{filepath.Join(dir, "main.gom")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := expandModuleLocalDeps(explicit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]bool{
+		filepath.Join(dir, "main.gom"):   false,
+		filepath.Join(dir, "a", "a.gom"): true,
+		filepath.Join(dir, "a", "x.gom"): true,
+		filepath.Join(dir, "b", "b.gom"): true,
+	}
+	if len(got) != len(want) {
+		t.Fatalf("expanded %d inputs, want %d: %#v", len(got), len(want), got)
+	}
+	for _, in := range got {
+		auto, ok := want[in.path]
+		if !ok {
+			t.Fatalf("unexpected input %s", in.path)
+		}
+		if in.auto != auto {
+			t.Fatalf("%s auto = %v, want %v", in.path, in.auto, auto)
+		}
+	}
+}
+
+func TestExpandModuleLocalDepsSkipsToolchainStdlib(t *testing.T) {
+	t.Parallel()
+
+	dir := writeFiles(t, map[string]string{
+		"main.gom": `package main
+
+import "list"
+
+fn main () -> Unit = ()
+`,
+		"stdlib/list/list.gom": `package list
+
+fn f () -> Int = 1
+`,
+	})
+	testModule(t, dir)
+	gomod := "module github.com/podhmo/gom\n\ngo 1.27\n"
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(gomod), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	explicit, err := readInputs([]string{filepath.Join(dir, "main.gom")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := expandModuleLocalDeps(explicit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("expanded %d inputs, want only the explicit input: %#v", len(got), got)
+	}
+}
+
+func TestExpandModuleLocalDepsSkipsSymlinkedExternalModule(t *testing.T) {
+	t.Parallel()
+
+	dir := writeFiles(t, map[string]string{
+		"main.gom": `package main
+
+import "m/dep"
+
+fn main () -> Unit = ()
+`,
+	})
+	testModule(t, dir)
+	external := t.TempDir()
+	if err := os.WriteFile(filepath.Join(external, "go.mod"), []byte("module example.com/external\n\ngo 1.27\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(external, "dep.gom"), []byte("package dep\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(external, filepath.Join(dir, "dep")); err != nil {
+		t.Fatal(err)
+	}
+	explicit, err := readInputs([]string{filepath.Join(dir, "main.gom")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := expandModuleLocalDeps(explicit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("expanded %d inputs, want only the explicit input: %#v", len(got), got)
+	}
+}
+
+func TestExpandModuleLocalDepsThroughCheckoutSymlink(t *testing.T) {
+	t.Parallel()
+
+	real := writeFiles(t, map[string]string{
+		"main.gom": `package main
+
+import "m/dep"
+
+fn main () -> Unit = ()
+`,
+		"dep/dep.gom": "package dep\n\nfn f () -> Int = 1\n",
+		"dep/x.gom":   "package x\n\nfn omitted () -> Int = 1\n",
+	})
+	testModule(t, real)
+	link := filepath.Join(t.TempDir(), "checkout")
+	if err := os.Symlink(real, link); err != nil {
+		t.Fatal(err)
+	}
+	explicit, err := readInputs([]string{filepath.Join(link, "main.gom"), filepath.Join(real, "dep", "dep.gom")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := expandModuleLocalDeps(explicit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("expanded %d inputs through checkout symlink, want 2: %#v", len(got), got)
+	}
+}
+
+func TestExpandModuleLocalDepsKeepsFileSymlinksInSeparatePackages(t *testing.T) {
+	t.Parallel()
+
+	dir := writeFiles(t, map[string]string{
+		"main.gom": `package main
+
+import "m/a"
+import "m/b"
+
+fn main () -> Unit = ()
+`,
+		"shared.gom": "package shared\n\nfn f () -> Int = 1\n",
+	})
+	testModule(t, dir)
+	for _, pkg := range []string{"a", "b"} {
+		if err := os.MkdirAll(filepath.Join(dir, pkg), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink(filepath.Join(dir, "shared.gom"), filepath.Join(dir, pkg, pkg+".gom")); err != nil {
+			t.Fatal(err)
+		}
+	}
+	explicit, err := readInputs([]string{filepath.Join(dir, "main.gom")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := expandModuleLocalDeps(explicit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 3 {
+		t.Fatalf("expanded %d inputs, want main plus both package-local symlink entries: %#v", len(got), got)
+	}
+}
+
+func TestBuildModuleLocalDependencyKeepsOutputBesideSource(t *testing.T) {
+	t.Parallel()
+
+	dir := writeFiles(t, map[string]string{
+		"main.gom":     "package main\n\nimport \"m/dep\"\n\nfn main () -> Unit = {\n  let _ = dep.one ()\n  ()\n}\n",
+		"dep/dep.gom":  "package dep\n\nfn one () -> Int = 1\n",
+		"dep/dep.gomi": "package dep\n\nfn one () -> Int\n",
+	})
+	testModule(t, dir)
+	out := filepath.Join(dir, "dist", "main.go")
+
+	code, stdout, stderr := invoke("build", "-o", out, filepath.Join(dir, "main.gom"))
+	if code != 0 {
+		t.Fatalf("gom build: exit %d; stdout=%q stderr=%q", code, stdout, stderr)
+	}
+	for _, p := range []string{out, filepath.Join(dir, "dep", "dep.go")} {
+		if _, err := os.Stat(p); err != nil {
+			t.Fatalf("expected output %s: %v", p, err)
+		}
+	}
+}
+
+func TestBuildRejectsSymlinkedOutputCollision(t *testing.T) {
+	t.Parallel()
+
+	dir := writeFiles(t, map[string]string{
+		"main.gom":     "package main\n\nimport \"m/dep\"\n\nfn main () -> Unit = {\n  let _ = dep.one ()\n  ()\n}\n",
+		"dep/dep.gom":  "package dep\n\nfn one () -> Int = 1\n",
+		"dep/dep.gomi": "package dep\n\nfn one () -> Int\n",
+	})
+	testModule(t, dir)
+	target := filepath.Join(dir, "dep", "dep.go")
+	if err := os.WriteFile(target, []byte("old"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	alias := filepath.Join(dir, "out.go")
+	if err := os.Symlink(target, alias); err != nil {
+		t.Fatal(err)
+	}
+	code, _, stderr := invoke("build", "-o", alias, filepath.Join(dir, "main.gom"))
+	if code != 2 || !strings.Contains(stderr, "assigned to both") {
+		t.Fatalf("gom build: exit %d, want collision rejection; stderr=%q", code, stderr)
+	}
+	if b, err := os.ReadFile(target); err != nil || string(b) != "old" {
+		t.Fatalf("collision target changed: %q, %v", b, err)
+	}
+}
+
+func TestBuildRejectsDanglingSymlinkOutputCollision(t *testing.T) {
+	t.Parallel()
+
+	dir := writeFiles(t, map[string]string{
+		"main.gom":     "package main\n\nimport \"m/dep\"\n\nfn main () -> Unit = {\n  let _ = dep.one ()\n  ()\n}\n",
+		"dep/dep.gom":  "package dep\n\nfn one () -> Int = 1\n",
+		"dep/dep.gomi": "package dep\n\nfn one () -> Int\n",
+	})
+	testModule(t, dir)
+	alias := filepath.Join(dir, "out.go")
+	if err := os.Symlink(filepath.Join(dir, "dep", "dep.go"), alias); err != nil {
+		t.Fatal(err)
+	}
+	code, _, stderr := invoke("build", "-o", alias, filepath.Join(dir, "main.gom"))
+	if code != 2 || !strings.Contains(stderr, "assigned to both") {
+		t.Fatalf("gom build: exit %d, want collision rejection; stderr=%q", code, stderr)
+	}
+}
+
+func TestBuildRejectsOutputCollisionWithAutoDependency(t *testing.T) {
+	t.Parallel()
+
+	dir := writeFiles(t, map[string]string{
+		"main.gom": `package main
+
+import "m/dep"
+
+fn main () -> Unit = {
+  let _ = dep.one ()
+  ()
+}
+`,
+		"dep/dep.gom": `package dep
+
+fn one () -> Int = 1
+`,
+		"dep/dep.gomi": `package dep
+
+fn one () -> Int
+`,
+	})
+	testModule(t, dir)
+	collision := filepath.Join(dir, "dep", "dep.go")
+
+	code, stdout, stderr := invoke("build", "-o", collision, filepath.Join(dir, "main.gom"))
+	if code != 2 {
+		t.Fatalf("gom build: exit %d, want 2; stdout=%q stderr=%q", code, stdout, stderr)
+	}
+	if !strings.Contains(stderr, "assigned to both") {
+		t.Fatalf("stderr = %q, want collision explanation", stderr)
+	}
+	if _, err := os.Stat(collision); !os.IsNotExist(err) {
+		t.Fatalf("collision output exists after rejection: stat err=%v", err)
+	}
+}
+
 func TestBuildWritesGo(t *testing.T) {
 	t.Parallel()
 
