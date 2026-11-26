@@ -29,7 +29,7 @@
 - [x] **[wave49 lane B] record literal E0407 の決着**: 型名前置 record literal（例: `ValidatedOrder { id = id, ... }`）を第一案に、record literal の曖昧さを解消する。文脈推論の一般化は後続（[decision](docs/decisions/2026-11-27-record-type-prefixed-literal.md)、[検証](docs/sketch/2026-11-27-wave49-lane-b-record-type-literal-verify.md)）
 - [x] **[wave49 lane D] E0301 text 出力の不足パターン詳細**: `missing_patterns` を text emitter が構造的に描き、spec の人間向け出力へ寄せる。汎用 `labels` / `details` wire は今回の前提にしない
 - [x] **[wave49 lane E] DMMF boundary guide**: JSON DTO、bounded context package/visibility、金額表現の 3 点について推奨形を文書化し、open-questions の対象を絞る
-- [ ] **[wave49 lane F] implementation-gaps archive 分割**: `[x]` 項目を `docs/implementation-gaps-archive.md` へ移し、未解消だけを live 台帳に残す
+- [x] **[wave49 lane F] implementation-gaps archive 分割**: `[x]` 項目を `docs/implementation-gaps-archive.md` へ移し、未解消だけを live 台帳に残す
 
 ### wave48 採択済み lane（[prompts](docs/sketch/2026-11-26-wave48-prompts.md) — 2026-11-26 採否確定、順 A→B→C→D→E→F→G→H）
 
