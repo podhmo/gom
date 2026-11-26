@@ -1611,7 +1611,7 @@ func TestList(t *testing.T) {
 		t.Fatalf("gom list: exit %d; stderr=%q", code, errout)
 	}
 	got := strings.Fields(out)
-	want := []string{"cmp", "list", "option", "result"}
+	want := []string{"cmp", "list", "option", "result", "str"}
 	if len(got) != len(want) {
 		t.Fatalf("gom list = %v, want %v", got, want)
 	}

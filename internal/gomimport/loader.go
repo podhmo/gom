@@ -379,6 +379,7 @@ var stdlibPaths = map[string]string{
 	"option": "github.com/podhmo/gom/stdlib/option",
 	"result": "github.com/podhmo/gom/stdlib/result",
 	"cmp":    "github.com/podhmo/gom/stdlib/cmp",
+	"str":    "github.com/podhmo/gom/stdlib/str",
 }
 
 // StdlibShortNames returns the importable stdlib short names,
