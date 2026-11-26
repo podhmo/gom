@@ -169,7 +169,7 @@ func scanGoStringCodes(t *testing.T, dir string, testsOnly bool) map[diag.Code]b
 			return nil
 		}
 		base := filepath.Base(path)
-		if base == "codes_coverage_test.go" || (!testsOnly && base == "codes.go") {
+		if base == "codes_coverage_test.go" || base == "explain_examples_test.go" || (!testsOnly && base == "codes.go") {
 			return nil
 		}
 		fset := token.NewFileSet()
