@@ -513,8 +513,12 @@ func expandModuleLocalDeps(inputs []input) ([]input, error) {
 					}
 				}
 			}
-			if depModPath, depModDir, ok := moduleOf(depDir); !ok || depModPath != modPath || depModDir != modDir {
-				continue // a nested module is external even when its path prefixes ours
+			checkDir := depDir
+			if resolved, err := filepath.EvalSymlinks(depDir); err == nil {
+				checkDir = resolved
+			}
+			if depModPath, depModDir, ok := moduleOf(checkDir); !ok || depModPath != modPath || depModDir != modDir {
+				continue // a nested or symlinked module is external even when its path prefixes ours
 			}
 			depKey := inputKey(depDir)
 			if seenDirs[depKey] {

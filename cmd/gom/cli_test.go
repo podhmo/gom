@@ -411,6 +411,41 @@ fn f () -> Int = 1
 	}
 }
 
+func TestExpandModuleLocalDepsSkipsSymlinkedExternalModule(t *testing.T) {
+	t.Parallel()
+
+	dir := writeFiles(t, map[string]string{
+		"main.gom": `package main
+
+import "m/dep"
+
+fn main () -> Unit = ()
+`,
+	})
+	testModule(t, dir)
+	external := t.TempDir()
+	if err := os.WriteFile(filepath.Join(external, "go.mod"), []byte("module example.com/external\n\ngo 1.27\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(external, "dep.gom"), []byte("package dep\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Symlink(external, filepath.Join(dir, "dep")); err != nil {
+		t.Fatal(err)
+	}
+	explicit, err := readInputs([]string{filepath.Join(dir, "main.gom")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := expandModuleLocalDeps(explicit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("expanded %d inputs, want only the explicit input: %#v", len(got), got)
+	}
+}
+
 func TestBuildModuleLocalDependencyKeepsOutputBesideSource(t *testing.T) {
 	t.Parallel()
 
