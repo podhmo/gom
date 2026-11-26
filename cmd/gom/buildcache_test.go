@@ -107,6 +107,23 @@ func TestBuildCache_CommitRejectsPostCompileGomiEdit(t *testing.T) {
 	}
 }
 
+func TestNewBuildCache_ReadOnlyDirDisabled(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root can write through directory permissions")
+	}
+	dir := t.TempDir()
+	ro := filepath.Join(dir, "cache")
+	if err := os.Mkdir(ro, 0o555); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(ro, 0o755) })
+	t.Setenv(cacheDirEnv, ro)
+	t.Setenv(cacheOffEnv, "")
+	if bc := newBuildCache(); bc != nil {
+		t.Fatal("read-only cache directory stayed enabled")
+	}
+}
+
 func TestBuildCache_NestedWorkspaceModuleFilesHit(t *testing.T) {
 	root := t.TempDir()
 	service := filepath.Join(root, "service")

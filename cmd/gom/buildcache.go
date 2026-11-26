@@ -197,7 +197,30 @@ func newBuildCache() *buildCache {
 		}
 		base = filepath.Join(ucd, "gom", "build")
 	}
+	if !cacheDirWritable(base) {
+		return nil
+	}
 	return &buildCache{dir: base, notes: map[string][]build.Input{}, seen: map[string]*depSeen{}}
+}
+
+// cacheDirWritable probes the manifest directory before any hit is
+// trusted. A hit is only safe when a later commit can invalidate or
+// replace the manifest after rewriting outputs; a read-only cache
+// must degrade to no cache rather than freeze a stale manifest.
+func cacheDirWritable(base string) bool {
+	if err := os.MkdirAll(base, 0o755); err != nil {
+		return false
+	}
+	f, err := os.CreateTemp(base, ".probe-*")
+	if err != nil {
+		return false
+	}
+	name := f.Name()
+	if err := f.Close(); err != nil {
+		_ = os.Remove(name)
+		return false
+	}
+	return os.Remove(name) == nil
 }
 
 // envKeyLocked returns the shared key material, computing it once —
