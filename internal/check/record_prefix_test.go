@@ -92,7 +92,11 @@ func TestUseExpectedPrefixTypeKeepsPartiallyConcreteExpectation(t *testing.T) {
 	if types.Chase(got.Elems[1]) == types.Chase(external) {
 		t.Fatalf("lookahead linked directly to the external meta")
 	}
-	if _, ok := types.Chase(got.Elems[1]).(*types.Meta); !ok {
+	openArg, ok := types.Chase(got.Elems[1]).(*types.Meta)
+	if !ok {
 		t.Fatalf("second tuple element = %v, want an open meta", got.Elems[1])
+	}
+	if c.metas[openArg].quiet || !c.metas[openArg].silent {
+		t.Fatalf("open replay meta must report mismatches but not demand an annotation")
 	}
 }

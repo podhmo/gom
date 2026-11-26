@@ -328,7 +328,8 @@ func (c *checker) typePrefixedRecordType(ti *typeInfo, sp diag.Span, want types.
 // cloned metas first: the trial uses the real unification rules
 // (including curried-tail absorption and shared-meta propagation), but
 // it must neither mutate inference state nor emit a second mismatch.
-// Only concrete solutions for rt's own inference metas are replayed.
+// Only structurally informative solutions for rt's own inference metas
+// are replayed; a wholly open solution carries no useful information.
 // External inference metas are never bound by this lookahead — doing
 // so would let constraints flow backwards into the surrounding
 // expression before its own arguments are checked.
@@ -355,7 +356,9 @@ func (c *checker) useExpectedPrefixType(rt, want types.Type, sp diag.Span) {
 				continue
 			}
 			if sol, ok := c.reifyPrefixType(types.Chase(cm), openMetas, sp); ok {
-				solutions[m] = sol
+				if _, openOnly := types.Chase(sol).(*types.Meta); !openOnly {
+					solutions[m] = sol
+				}
 			}
 		}
 	}
@@ -382,7 +385,8 @@ func (c *checker) reifyPrefixType(t types.Type, open map[*types.Meta]*types.Meta
 		if m, ok := open[t]; ok {
 			return m, true
 		}
-		m := c.quietMeta(sp, "the unresolved expected type")
+		m := c.newMeta(sp, "the unresolved expected type")
+		c.markSilent(m)
 		open[t] = m
 		return m, true
 	case *types.Var:
