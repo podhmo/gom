@@ -107,6 +107,36 @@ func TestBuildCache_CommitRejectsPostCompileGomiEdit(t *testing.T) {
 	}
 }
 
+func TestBuildCache_NestedWorkspaceModuleFilesHit(t *testing.T) {
+	root := t.TempDir()
+	service := filepath.Join(root, "service")
+	if err := os.Mkdir(service, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for path, src := range map[string]string{
+		filepath.Join(root, "go.work"):     "go 1.24\n\nuse ./service\n",
+		filepath.Join(service, "go.mod"):   "module example.com/service\n\ngo 1.24\n",
+		filepath.Join(service, "main.gom"): "package main\n\nfn main () -> Int = 1\n",
+		filepath.Join(service, "main.go"):  "package main\n",
+	} {
+		if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	bc := &buildCache{dir: t.TempDir(), notes: map[string][]build.Input{}, seen: map[string]*depSeen{}}
+	inputSrc, err := os.ReadFile(filepath.Join(service, "main.gom"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ins := []build.Input{{Path: filepath.Join(service, "main.gom"), Src: inputSrc}}
+	bc.note(service, ins)
+	bc.depSink(service).noteMods(service)
+	bc.commit(service, "", []string{filepath.Join(service, "main.go")})
+	if _, ok := bc.Hit(service, "", ins); !ok {
+		t.Fatal("nested workspace module files did not round-trip a cache hit")
+	}
+}
+
 func TestBuildCache_SkipsOnIdenticalAndImplOnlyChange(t *testing.T) {
 	if testing.Short() {
 		t.Skip("invokes the go tool")

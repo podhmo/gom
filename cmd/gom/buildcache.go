@@ -574,8 +574,13 @@ func (c *buildCache) Hit(dir, out string, ins []build.Input) (outputs []string, 
 	if len(mods) != len(m.Mods) {
 		return nil, false
 	}
-	for i, p := range mods {
-		if m.Mods[i].Path != p || m.Mods[i].Hash != fileStatHash(p) {
+	recordedMods := make(map[string]string, len(m.Mods))
+	for _, h := range m.Mods {
+		recordedMods[h.Path] = h.Hash
+	}
+	for _, p := range mods {
+		h, ok := recordedMods[p]
+		if !ok || h != fileStatHash(p) {
 			return nil, false
 		}
 	}
