@@ -477,7 +477,7 @@ func TestRectArea(t *testing.T) {
 
 ## 5. インクリメンタルビルド
 
-`.gomi` は型検査の境界として最初から使う。`gom build` にはこれを活かした増分キャッシュがある（[decision](decisions/2026-11-18-incremental-build-cache.md)）: パッケージ（dir 単位の compile グループ）ごとに manifest を `os.UserCacheDir()/gom/build/` に置き、自分のソースか依存先のインターフェースのハッシュが変わったときだけ再コンパイルする。キャッシュキーは: Gom ソースの正規化ハッシュ、依存先の `.gomi` の意味的なハッシュ、`import` が解決した Go パッケージのソース dir ファイル統計（`go list -export` の dep dir を含む — Go API の変更で再生成）、最寄りの go.mod/go.sum と go.work の stat（replace・workspace 変更で解決先が変わる）、コンパイラのコード生成方式のバージョン（`genVersion`＋バイナリ identity）、`rt` と標準ライブラリの ABI、`extern` などの相互運用規則、対象の Go バージョンとビルド条件（`go env GOOS GOARCH GOFLAGS GOWORK`）。`GOM_BUILD_NOCACHE` で無効化、`GOM_BUILD_CACHE_DIR` で格納先を差し替える。失敗は常に素通りして compile を壊さない。
+`.gomi` は型検査の境界として最初から使う。`gom build` にはこれを活かした増分キャッシュがある（[decision](decisions/2026-11-18-incremental-build-cache.md)）: パッケージ（dir 単位の compile グループ）ごとに manifest を `os.UserCacheDir()/gom/build/` に置き、自分のソースか依存先のインターフェースのハッシュが変わったときだけ再コンパイルする。キャッシュキーは: Gom ソースの正規化ハッシュ、依存先の `.gomi` の意味的なハッシュ、`import` が解決した Go パッケージのソース dir ファイル統計（`go list -export` の dep dir を含む — Go API の変更で再生成）、最寄りの go.mod/go.sum と go.work の stat（replace・workspace 変更で解決先が変わる）、コンパイラのコード生成方式のバージョン（`genVersion`＋バイナリ identity）、`rt` と標準ライブラリの ABI、`extern` などの相互運用規則、対象の Go バージョンとビルド条件（`go env GOOS GOARCH GOFLAGS GOWORK`）。dependency fingerprint は commit 時に読み直さず compile 時観測を使う — `.gomi` は loader が compile へ渡した bytes、Go dep dir は importer resolve 時、module file は compile 開始前の stat を記録し、commit 前に現在値がその観測と一致しなければ manifest を書かない。`GOM_BUILD_NOCACHE` で無効化、`GOM_BUILD_CACHE_DIR` で格納先を差し替える。失敗は常に素通りして compile を壊さない。
 
 1. 各パッケージのインターフェース（`.gomi`）を検査し、正規化した構文木からハッシュを計算する。コメントと書式はハッシュに含めない
 2. パッケージは、依存先の実装ではなくインターフェースだけを読んで型検査とコード生成を行う

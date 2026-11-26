@@ -18,6 +18,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/podhmo/gom/internal/build"
 )
 
 // setupCacheFixture copies testdata/multifile into a temp module
@@ -65,6 +67,32 @@ func isSentinel(t *testing.T, path string) bool {
 		t.Fatal(err)
 	}
 	return strings.HasSuffix(string(b), "// sentinel\n")
+}
+
+func TestBuildCache_CommitRejectsPostCompileGomiEdit(t *testing.T) {
+	dir := t.TempDir()
+	cacheDir := t.TempDir()
+	dep := filepath.Join(dir, "dep.gomi")
+	oldSrc := []byte("package dep\n\nfn f () -> Int\n")
+	if err := os.WriteFile(dep, oldSrc, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	bc := &buildCache{dir: cacheDir, notes: map[string][]build.Input{}, seen: map[string]*depSeen{}}
+	inputPath := filepath.Join(dir, "main.gom")
+	inputSrc := []byte("package main\n\nfn main () -> Int = 1\n")
+	bc.note(dir, []build.Input{{Path: inputPath, Src: inputSrc}})
+	bc.depSink(dir).noteGomi(dep, oldSrc)
+
+	// Quint witness shape: the compile consumed oldSrc, then the
+	// dependency changed before commit. The commit must not seal the
+	// edited fingerprint into a manifest for output built from oldSrc.
+	if err := os.WriteFile(dep, []byte("package dep\n\nfn f () -> Int\nfn g () -> Int\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	bc.commit(dir, "", []string{filepath.Join(dir, "main.go")})
+	if _, err := os.Stat(bc.file(dir)); !os.IsNotExist(err) {
+		t.Fatalf("post-compile dependency edit seeded a manifest (stat err=%v)", err)
+	}
 }
 
 func TestBuildCache_SkipsOnIdenticalAndImplOnlyChange(t *testing.T) {
