@@ -22,6 +22,13 @@
 
 ## To Be Implemented
 
+### wave50 採択済み lane（[prompts](docs/sketch/2026-11-27-wave50-prompts.md) — 2026-11-27 採否確定、順 A→C→D→E）
+
+- [ ] **[wave50 lane A] 診断コード表のメタテスト**: retired code を除き、spec harness で出せる言語診断には `testdata/spec/` fixture、driver/CLI 診断には CLI test があるかを分類して検査する。`gom explain` の example は実際にそのコードを出すものだけ対象にし、`docs/error-codes.md` と表の一致は既存 `TestErrorCodesDocInSync` に任せる
+- [ ] **[wave50 lane C] 汎用 diagnostic `labels` / `details` wire**: JSON wire、text renderer、spec §12 を揃え、代表利用として E0401 の期待型由来を示す副 span まで入れる。typo 候補と error recovery は対象外
+- [ ] **[wave50 lane D] match 精度改善の調査と decision**: catch-all 内 sub-match、到達不能 arm、guard、nested match の精度化範囲を調査し、decision と selfish/DMMF 形の回帰 fixture まで作る。大きな checker/pattern 実装は wave51 以降
+- [ ] **[wave50 lane E] record literal の文脈推論**: 型名前置 literal を最優先にし、静的に分かる expected type（annotation/return/呼出し引数/constructor payload/record field）だけで推論する。`List.fold` の無名 record accumulator を必須 probe にする
+
 ### wave49 採択済み lane（[prompts](docs/sketch/2026-11-27-wave49-prompts.md) — 2026-11-27 採否確定、順 A→C→B→D→E→F）
 
 - [x] **[wave49 lane A] `&&` / `||` の生成コードを短絡評価に揃える**: evaluator は `false && x` / `true || x` で右辺を評価しないが、lower は両 operand を先に atom 化する。生成コードを evaluator/Go の短絡規則へ揃え、spec に規則を明記し、副作用または panic を持つ右辺の fixture で固定する（[gap](docs/implementation-gaps.md)、[検証](docs/sketch/2026-11-27-wave49-lane-a-shortcircuit-verify.md)）
@@ -46,7 +53,6 @@
 
 - [ ] **[task] checker の状態を関心ごとの部分構造体に分ける**: `typeTables`・deferred revisit queue・taint・lint state などを分け、`expr.go` を構文種別ごとに分割する。振る舞いは変えない。現行の非コメント field 数は 49（PR 本文の 70 超は過大）だが、`expr.go` 4,549 行と責務集中は有効な観測
 - [ ] **[task] 値表示を rt の単一実装へさらに寄せる**: wave47 lane A の runtime renderer 共通化を前提に、eval 独自の表示・整数幅・float32 丸め・structural equality を rt 公開関数へ寄せ、eval 側は評価順・pattern 振分け・部分適用の oracle に絞る
-- [ ] **[task] 診断コード表を軸にしたメタテスト**: retired code（例: W0601）を除き、spec harness で出せる言語診断には `testdata/spec/` fixture、driver/CLI 診断には CLI test があるかを分類して検査する。`gom explain` の example は実際にそのコードを出すものだけ対象にし、`docs/error-codes.md` と表の一致は既存 `TestErrorCodesDocInSync` に任せる
 - [ ] **[task] 生成コードの benchmark 基盤**: `bench/` に代表的な gom/手書き Go のペアを置き、`go test -bench` の比率を記録する。回帰警告の閾値や CI 実行は導入時に決める
 
 - [x] **[task] stdlib に `List.filter_map` / `List.find_map` を追加**: `fold` で回すしかない現状 — selfish 移植で要望（[sketch](docs/sketch/ja/2026-11-24-selfish-port.md)、wave43 lane F）。実装済み: `@extern` buffer-built Go impl（`stdlib/list/impl.go` の `FilterMap`/`FindMap`）、`noescape` directive 付き（wave44 lane F）
