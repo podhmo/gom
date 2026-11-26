@@ -21,22 +21,13 @@ func ScanNoescape(src []byte) map[string][]int {
 
 // scanDirective is the shared `//gom:<directive> <name> <i> ...`
 // line scan — a leading name field plus non-negative indices, the
-// whole line ignored when a field fails to parse.
+// whole line ignored when a field fails to parse. Only directives
+// attached to a declaration count: spec's comment-run rule is the
+// same one doc comments use, so a blank line or non-comment line
+// between the directive and the declaration detaches it.
 func scanDirective(src []byte, prefix string) map[string][]int {
 	var dirs map[string][]int
-	inBlock := false
-	for _, raw := range strings.Split(string(src), "\n") {
-		inside := inBlock
-		inBlock = updateBlockState(raw, inBlock)
-		if inside {
-			// The whole line sits inside a block comment — a
-			// directive text there is commented out.
-			continue
-		}
-		line := strings.TrimSpace(raw)
-		if !strings.HasPrefix(line, prefix) {
-			continue
-		}
+	for _, line := range attachedDirectiveLines(src, prefix) {
 		fields := strings.Fields(strings.TrimPrefix(line, prefix))
 		if len(fields) < 2 {
 			continue
@@ -59,6 +50,42 @@ func scanDirective(src []byte, prefix string) map[string][]int {
 		dirs[fields[0]] = idxs
 	}
 	return dirs
+}
+
+// attachedDirectiveLines returns trimmed directive lines that belong
+// to a contiguous line-comment run immediately preceding a .gomi
+// declaration. The declaration may start with an attribute line
+// (`@extern`/`@method`), in which case the run attaches there.
+func attachedDirectiveLines(src []byte, prefix string) []string {
+	var out, pending []string
+	inBlock := false
+	for _, raw := range strings.Split(string(src), "\n") {
+		inside := inBlock
+		inBlock = updateBlockState(raw, inBlock)
+		line := strings.TrimSpace(raw)
+		if inside || line == "" {
+			pending = nil
+			continue
+		}
+		if strings.HasPrefix(line, "//") {
+			if strings.HasPrefix(line, prefix) {
+				pending = append(pending, line)
+			}
+			continue
+		}
+		if interfaceDeclStart(line) {
+			out = append(out, pending...)
+		}
+		pending = nil
+	}
+	return out
+}
+
+func interfaceDeclStart(line string) bool {
+	return strings.HasPrefix(line, "fn ") ||
+		strings.HasPrefix(line, "let ") ||
+		strings.HasPrefix(line, "type ") ||
+		strings.HasPrefix(line, "@")
 }
 
 // ApplyNoescape turns `//gom:noescape` directives into

@@ -1922,6 +1922,112 @@ fn push (q: Queue Int) (x: Int) -> Unit
 	}
 }
 
+func TestInfoCarriesAbstractDirective(t *testing.T) {
+	t.Parallel()
+
+	dir := writeFiles(t, map[string]string{
+		"lib/lib.gom": `package lib
+
+type Queue a = | QNil | QCons a (Queue a)
+
+fn empty () -> Queue Int = QNil
+`,
+		"lib/lib.gomi": `package lib
+
+//gom:abstract Queue
+type Queue a
+
+fn empty () -> Queue Int
+`,
+	})
+	code, out, errout := invoke("info", filepath.Join(dir, "lib"))
+	if code != 0 {
+		t.Fatalf("gom info: exit %d; stderr=%q stdout=%q", code, errout, out)
+	}
+	gomi, err := os.ReadFile(filepath.Join(dir, "lib", "lib.gomi"))
+	if err != nil {
+		t.Fatalf("lib.gomi not written: %v", err)
+	}
+	text := string(gomi)
+	if !strings.Contains(text, "//gom:abstract Queue\ntype Queue a") {
+		t.Fatalf("regenerated draft dropped abstract intent:\n%s", text)
+	}
+	if strings.Contains(text, "QNil") {
+		t.Fatalf("abstract type became transparent:\n%s", text)
+	}
+}
+
+func TestInfoCarriesPrivateClaims(t *testing.T) {
+	t.Parallel()
+
+	dir := writeFiles(t, map[string]string{
+		"lib/lib.gom": `package lib
+
+type Secret = { x: Int }
+
+fn helper (x: Int) -> Int = x
+
+fn public () -> Int = helper 1
+`,
+		"lib/lib.gomi": `package lib
+
+//gom:private type Secret = { x : Int }
+//gom:private fn helper (x: Int) -> Int
+
+fn public () -> Int
+`,
+	})
+	code, out, errout := invoke("info", filepath.Join(dir, "lib"))
+	if code != 0 {
+		t.Fatalf("gom info: exit %d; stderr=%q stdout=%q", code, errout, out)
+	}
+	gomi, err := os.ReadFile(filepath.Join(dir, "lib", "lib.gomi"))
+	if err != nil {
+		t.Fatalf("lib.gomi not written: %v", err)
+	}
+	text := string(gomi)
+	for _, want := range []string{"//gom:private type Secret = { x : Int }", "//gom:private fn helper (x: Int) -> Int"} {
+		if !strings.Contains(text, want) {
+			t.Errorf("regenerated draft dropped private claim %q:\n%s", want, text)
+		}
+	}
+	for _, unwanted := range []string{"\ntype Secret =", "\nfn helper (x: Int)"} {
+		if strings.Contains(text, unwanted) {
+			t.Errorf("private member %q became public:\n%s", unwanted, text)
+		}
+	}
+	if !strings.Contains(text, "fn public () -> Int") {
+		t.Errorf("public member missing:\n%s", text)
+	}
+
+	changed := `package lib
+
+type Secret = { x: Int }
+
+fn helper (y: Int) -> Int = y
+
+fn public () -> Int = helper 1
+`
+	if err := os.WriteFile(filepath.Join(dir, "lib", "lib.gom"), []byte(changed), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	code, out, errout = invoke("info", filepath.Join(dir, "lib"))
+	if code != 0 {
+		t.Fatalf("gom info after signature change: exit %d; stderr=%q stdout=%q", code, errout, out)
+	}
+	gomi, err = os.ReadFile(filepath.Join(dir, "lib", "lib.gomi"))
+	if err != nil {
+		t.Fatalf("lib.gomi not reread: %v", err)
+	}
+	text = string(gomi)
+	if !strings.Contains(text, "\nfn helper (y: Int) -> Int") {
+		t.Fatalf("changed private member did not reappear:\n%s", text)
+	}
+	if strings.Contains(text, "//gom:private fn helper") {
+		t.Fatalf("stale private claim survived a signature change:\n%s", text)
+	}
+}
+
 // TestInfoCarriesExternEscapeDirectives: extern implementations have no
 // inspectable Gom body, so regeneration carries their prior noescape /
 // result-notaint claims. Non-extern members are re-inferred instead — a

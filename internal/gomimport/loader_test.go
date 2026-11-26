@@ -850,14 +850,14 @@ func TestLoadMutable(t *testing.T) {
 		"q/q.gomi": `package q
 
 //gom:mutable Queue
-//gom:mutable nope
-//gom:mutable value
+type Queue a
+
 /*
 //gom:mutable Blocked
 */
-type Queue a
 type Blocked a
 
+//gom:mutable value
 let value : Int
 `,
 	})

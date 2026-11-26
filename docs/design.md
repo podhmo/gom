@@ -215,7 +215,7 @@ gom/
 │   ├── types/        型の表現、単一化、HM 推論、ラベル付き引数
 │   ├── check/        型検査（型付き AST を作る）
 │   ├── pattern/      網羅性・冗長性の判定と反例の生成（match、let、関数引数で共用）
-│   ├── iface/        .gomi の検査とハッシュ、gom info の下書き生成
+│   ├── iface/        .gomi の検査とハッシュ、gom info の下書き生成（directive の付着 scan と abstract/private 引き継ぎを含む）
 │   ├── core/         Core IR の定義
 │   ├── staticalias/  パッケージ初期化の静的 alias 分類（lower と eval で共用。2.1 節）
 │   ├── lower/        脱糖、決定木へのコンパイル、arity 解析、テストの分離
