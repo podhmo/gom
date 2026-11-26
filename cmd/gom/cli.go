@@ -365,7 +365,7 @@ func moduleOf(dir string) (modPath, modDir string, ok bool) {
 		b, err := os.ReadFile(filepath.Join(d, "go.mod"))
 		if err == nil {
 			for line := range strings.SplitSeq(string(b), "\n") {
-				if f := strings.Fields(line); len(f) == 2 && f[0] == "module" {
+				if f := strings.Fields(line); len(f) >= 2 && f[0] == "module" {
 					return f[1], d, true
 				}
 			}

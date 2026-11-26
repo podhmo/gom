@@ -312,6 +312,18 @@ func TestCheckInterfaceFile(t *testing.T) {
 	}
 }
 
+func TestModuleOfAcceptsTrailingComment(t *testing.T) {
+	t.Parallel()
+
+	dir := writeFiles(t, map[string]string{
+		"go.mod": "module m // trailing comment\n\ngo 1.27\n",
+	})
+	mp, md, ok := moduleOf(dir)
+	if !ok || mp != "m" || md != dir {
+		t.Fatalf("moduleOf = (%q, %q, %v), want (m, %q, true)", mp, md, ok, dir)
+	}
+}
+
 func TestExpandModuleLocalDepsTransitivelyAddsPackageFiles(t *testing.T) {
 	t.Parallel()
 
