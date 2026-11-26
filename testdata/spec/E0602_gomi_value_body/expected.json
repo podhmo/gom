@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0602",
+      "severity": "error",
+      "message": "a signature in an interface file has no \"= body\"",
+      "span": {
+        "file": "E0602_gomi_value_body/m.gomi",
+        "start": {
+          "line": 3,
+          "col": 21,
+          "offset": 31
+        },
+        "end": {
+          "line": 3,
+          "col": 22,
+          "offset": 32
+        }
+      }
+    }
+  ]
+}

@@ -1607,6 +1607,7 @@ errors.As e target                  // W0502 — panics at run time`,
 		Severity: SeverityWarning,
 		Title:    "decls emit the same Go name (retired)",
 		Phase:    PhaseCodegen,
+		Retired:  true,
 		Explanation: `Retired in favor of E0608: a verbatim
 double-claim of an emitted name makes the generated package
 uncompilable, so it is an error and withholds the output rather

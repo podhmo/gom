@@ -1159,7 +1159,7 @@ imposes no name contract.
 
 ### W0601 — decls emit the same Go name (retired)
 
-**Severity:** warning · **Phase:** codegen
+**Severity:** warning · **Phase:** codegen · **Status:** retired
 
 Retired in favor of E0608: a verbatim
 double-claim of an emitted name makes the generated package

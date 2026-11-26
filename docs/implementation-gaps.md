@@ -32,3 +32,5 @@
 - [ ] **無名レコードの `List.fold` acc は型推論が通らない（E0407）**: named type（`type GistAcc = {...}`）が必須。record literal の曖昧さ E0407 の open question と同系統の DX 摩擦（selfish 移植 — 同上 sketch）
 
 - [ ] **match の到達不能 arm は `todo ()` に頼る**: catch-all `action ->` の内側で sub-match する形になると網羅性チェックの恩恵が薄れる（selfish 移植 — 同上 sketch）
+
+- [ ] **E0204/E0503 は live code table にあるが production emitter がない**: `gom explain` / [error-codes](error-codes.md) はユーザー向けエラーとして説明するが、E0204 の unknown attribute は現状 parser が E0101 を出し、E0503 implicit numeric conversion の emitter は存在しない。wave50 lane A の coverage meta-test では reserved として明示分類したが、仕様・実装のどちらに合わせるかは未決定（[codes.go](../internal/diag/codes.go)、[parser](../internal/syntax/parser.go)）

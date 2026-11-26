@@ -24,7 +24,7 @@
 
 ### wave50 採択済み lane（[prompts](docs/sketch/2026-11-27-wave50-prompts.md) — 2026-11-27 採否確定、順 A→C→D→E。D は調査 lane のため open-questions 側で管理）
 
-- [ ] **[wave50 lane A] 診断コード表のメタテスト**: retired code を除き、spec harness で出せる言語診断には `testdata/spec/` fixture、driver/CLI 診断には CLI test があるかを分類して検査する。`gom explain` の example は実際にそのコードを出すものだけ対象にし、`docs/error-codes.md` と表の一致は既存 `TestErrorCodesDocInSync` に任せる
+- [x] **[wave50 lane A] 診断コード表のメタテスト**: retired code を除き、spec harness で出せる言語診断には `testdata/spec/` fixture、driver/CLI 診断には CLI test があるかを分類して検査する。`gom explain` の example は実際にそのコードを出すものだけ対象にし、`docs/error-codes.md` と表の一致は既存 `TestErrorCodesDocInSync` に任せる（[検証](docs/sketch/2026-11-27-wave50-lane-a-diag-meta-verify.md)）
 - [ ] **[wave50 lane C] 汎用 diagnostic `labels` / `details` wire**: JSON wire、text renderer、spec §12 を揃え、代表利用として E0401 の期待型由来を示す副 span まで入れる。typo 候補と error recovery は対象外
 - [ ] **[wave50 lane E] record literal の文脈推論**: 型名前置 literal を最優先にし、静的に分かる expected type（annotation/return/呼出し引数/constructor payload/record field）だけで推論する。`List.fold` の無名 record accumulator を必須 probe にする
 
