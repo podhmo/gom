@@ -32,11 +32,13 @@ fn process_customer_id ((CustomerId inner): CustomerId) -> Int = inner
 
 fn constructor_pipe (s: String) -> Option LocalString50 = s |> LocalString50 |> Some
 
+fn text_length (s: String) -> Int = str.runes s |> List.length
+
 fn create_string (field: String) (ctor: String -> a) (max_len: Int) (s: String) -> Result a String =
-  if str.length s == 0 {
+  if text_length s == 0 {
     Err "${field} must not be empty"
   } else {
-    if str.length s > max_len { Err "${field} is too long" } else { Ok (ctor s) }
+    if text_length s > max_len { Err "${field} is too long" } else { Ok (ctor s) }
   }
 
 type ValidationError = | ValidationError String
@@ -130,13 +132,18 @@ fn decode_customer (bytes: List Byte) -> Result CustomerInfoDto GoError = {
 fn encode_customer (dto: CustomerInfoDto) -> Result (List Byte) GoError =
   json.Marshal dto
 
-type ShippableDto = { order_id: String `json:"orderId"` }
-type Event = | Shippable ShippableDto | Ack String
+type Event = | Shippable String | Ack String
+
+fn shippable_dto (order_id: String) -> Go.Map String Go.Any = {
+  let payload : Go.Map String Go.Any = Go.Map.make ()
+  Go.Map.set payload "orderId" order_id
+  payload
+}
 
 fn event_dto (e: Event) -> Go.Map String Go.Any = {
   let m : Go.Map String Go.Any = Go.Map.make ()
   match e {
-    Shippable dto -> Go.Map.set m "ShippableOrderPlaced" dto
+    Shippable order_id -> Go.Map.set m "ShippableOrderPlaced" (shippable_dto order_id)
     Ack order_id -> Go.Map.set m "OrderAcknowledgmentSent" order_id
   }
   m

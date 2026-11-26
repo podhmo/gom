@@ -4,11 +4,13 @@ import "str"
 
 type String50 = { value: String }
 
+fn text_length (s: String) -> Int = str.runes s |> List.length
+
 fn string50_create (s: String) -> Result String50 String =
-  if str.length s == 0 {
+  if text_length s == 0 {
     Err "must not be empty"
   } else {
-    if str.length s > 50 { Err "too long" } else { Ok { value = s } }
+    if text_length s > 50 { Err "too long" } else { Ok { value = s } }
   }
 
 fn string50_value (x: String50) -> String = x.value

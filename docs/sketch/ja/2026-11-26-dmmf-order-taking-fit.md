@@ -19,7 +19,7 @@ cd experiments/dmmf-fit
 go test ./...
 ```
 
-2026-11-26 時点ではこの一連が成功した。生成された `domain.go` / `main.go` は rebuild できるため commit していない。
+2026-11-26 時点ではこの一連が成功した。生成された `domain.go` / `main.go` も commit してある。`scripts/check-sumtype.sh` が experiment module を Go package として走査するため、生成物がないと CI の sumtype チェックが `matched no packages` で失敗する。
 
 なお、このレポートは調査記録であり規範ではない。言語仕様の正は [spec.md](../../spec.md)。
 
@@ -121,7 +121,7 @@ fn zero_bypass () -> domain.String50 = {
 
 | # | 判定 | 結果 |
 | --- | --- | --- |
-| 4-1 `|>` の型推論と連鎖 | ◎ | 仕様どおり。改行ルールだけ注意が必要で、複数行適用は pipe か全体の括弧で書く。 |
+| 4-1 `\|>` の型推論と連鎖 | ◎ | 仕様どおり。改行ルールだけ注意が必要で、複数行適用は pipe か全体の括弧で書く。 |
 | 4-2 コンストラクタの第一級関数化 | ◎ | `s \|> String50 \|> Some`、`o \|> Option.map Event.AcknowledgmentSent`、`r \|> Result.map_err Validation` を確認。 |
 | 4-3 部分適用 DI | ◎ | gom 関数はすべてカリー化されている。`validate_order check_product check_address` を部分適用して 1 引数関数として渡せる。Go 関数はカリー化しないので、依存が Go 関数なら薄いラッパを置く。 |
 | 4-4 汎用高階関数アダプタ | ◎ | `predicateToPassthru` 相当や `tee` 相当は HM 型推論の普通の generic fn として書ける。 |
@@ -132,11 +132,13 @@ fn zero_bypass () -> domain.String50 = {
 コンストラクタを受け取る generic factory もそのまま書けた。
 
 ```gom
+fn text_length (s: String) -> Int = str.runes s |> List.length
+
 fn create_string (field: String) (ctor: String -> a) (max_len: Int) (s: String) -> Result a String =
-  if str.length s == 0 {
+  if text_length s == 0 {
     Err "${field} must not be empty"
   } else {
-    if str.length s > max_len { Err "${field} is too long" } else { Ok (ctor s) }
+    if text_length s > max_len { Err "${field} is too long" } else { Ok (ctor s) }
   }
 
 type String50 = | String50 String
@@ -144,6 +146,8 @@ type String50 = | String50 String
 fn string50_create (field: String) (s: String) -> Result String50 String =
   create_string field String50 50 s
 ```
+
+`str.length` は rune 数ではなく byte 数なので、DMMF の文字列長制約に近づけるなら `str.runes s |> List.length` を使う。
 
 ## 5. `(T, error)` と `Result` の統合
 
@@ -257,13 +261,21 @@ type Dto = { line1: String `json:"line1"`, line2: Ptr String `json:"line2,omitem
 
 これは型安全というより JSON 境界用の表現なので、DTO 側だけに限定し、ドメイン型では `Option` を使うのがよい。あるいは DMMF 側がやっているように optional string を空文字で表す割り切りもできる。
 
-tagged union 相当も手書きで成立する。
+tagged union 相当も手書きで成立する。ここでは `Shippable` の payload を 1 フィールド record ではなく `Go.Map` にしている。1 フィールド record は gom の表現上 scalar として marshal され、`{"orderId": ...}` の object にならないためである。
 
 ```gom
+type Event = | Shippable String | Ack String
+
+fn shippable_dto (order_id: String) -> Go.Map String Go.Any = {
+  let payload : Go.Map String Go.Any = Go.Map.make ()
+  Go.Map.set payload "orderId" order_id
+  payload
+}
+
 fn event_dto (e: Event) -> Go.Map String Go.Any = {
   let m : Go.Map String Go.Any = Go.Map.make ()
   match e {
-    Shippable dto -> Go.Map.set m "ShippableOrderPlaced" dto
+    Shippable order_id -> Go.Map.set m "ShippableOrderPlaced" (shippable_dto order_id)
     Ack order_id -> Go.Map.set m "OrderAcknowledgmentSent" order_id
   }
   m
@@ -303,7 +315,7 @@ fn count_users (dsn: String) -> Result Int GoError =
 | 測定単位 `[<Measure>]` | `KilogramQuantity` / `UnitQuantity` のような opaque wrapper で代替。 |
 | active pattern | 分類用の sum type を返す関数 + exhaustive `match` で代替。 |
 | type provider | Go の `database/sql`、sqlc 生成物、または手書き boundary で代替。 |
-| ユーザー定義 computation expression builder | `try` / `|?>` は言語組み込み。Applicative validation は自作できるが糖衣はない。 |
+| ユーザー定義 computation expression builder | `try` / `\|?>` は言語組み込み。Applicative validation は自作できるが糖衣はない。 |
 
 ## 10. 追加で見えた不足・注意点
 
@@ -313,7 +325,7 @@ fn count_users (dsn: String) -> Result Int GoError =
 2. **zero value / direct JSON / reflection は不透明型の不変条件を守らない**: `Ptr.new` で abstract 型の zero value を作れる。1 フィールド record は scalar として marshal され、unmarshal でも検証を通さず値が入る。外部入力は必ず専用 DTO にし、ドメイン型へは smart constructor 経由で入る。
 3. **Go 側から見た通常の export fn は `(T, error)` ではない**: `Go.FuncN` adapter か `@method` が必要。Go との厚い境界を持つなら、公開面を `Go.FuncN` にする規約を先に決める。
 4. **E0301 の人間向け出力は弱い**: 網羅性エラー自体は出るが、text 出力に不足パターン名がない。AI/CI が JSON を読む分には問題ないが、人間向け DX としては改善候補。
-5. **`&&` / `||` は生成 Go で短絡しない**: DMMF 写経とは直接関係しないが、境界ロジックでは `if` に書き分ける必要がある。
+5. **`&&` / `||` の右辺は生成 Go では判定前に評価される**: evaluator 側は短絡するため eval/compiled でずれる。DMMF 写経とは直接関係しないが、境界ロジックでは `if` に書き分ける必要がある。ずれは [implementation-gaps](../../implementation-gaps.md) に登録した。
 
 ## 11. 優先度つきの提案
 
