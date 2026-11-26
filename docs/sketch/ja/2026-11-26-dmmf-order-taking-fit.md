@@ -19,7 +19,7 @@ cd experiments/dmmf-fit
 go test ./...
 ```
 
-2026-11-26 時点ではこの一連が成功した。生成された `domain.go` / `main.go` も commit してある。`scripts/check-sumtype.sh` が experiment module を Go package として走査するため、生成物がないと CI の sumtype チェックが `matched no packages` で失敗する。
+2026-11-26 時点ではこの一連が成功した。`go test ./...` には、shipping event の payload が `{"orderId": ...}` object になることと、`String50` の 50 rune 境界を確認する runtime test も含む。生成された `domain.go` / `main.go` も commit してある。`scripts/check-sumtype.sh` が experiment module を Go package として走査するため、生成物がないと CI の sumtype チェックが `matched no packages` で失敗する。
 
 なお、このレポートは調査記録であり規範ではない。言語仕様の正は [spec.md](../../spec.md)。
 
