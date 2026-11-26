@@ -16,7 +16,7 @@ evaluator は `false && x` / `true || x` で右辺を評価しないが、lower 
 
 `UnvalidatedOrder` / `ValidatedOrder` / `PricedOrder` のような段階型では同名フィールドが自然に並び、`Ok { ... }` や無名 record の `List.fold` accumulator で E0407 が頻発する。sandbox と DMMF の両方で再観測された最大級の摩擦。wave49 で正を決めて実装する。
 
-推薦案: PR #256 F2 / DMMF fit にある型名前置 record literal（例: `ValidatedOrder { id = id, ... }`）を採用し、文脈推論の一般化は後続に残す。代替案は expected type / field type を使う推論強化。両方入れると意味論とテスト面が大きいので、まずどちらを正にするか採否時に決める。
+採択案: PR #256 F2 / DMMF fit にある型名前置 record literal（例: `ValidatedOrder { id = id, ... }`）を実装し、文脈推論の一般化は後続に残す。expected type / field type を使う推論強化はこの lane では実装しない。
 
 ### C. stdlib Result/Option traverse helpers（小）
 
@@ -28,7 +28,7 @@ DMMF の `List.map ... |> Result.sequence` が毎回ユーザー helper を要�
 
 spec §4 の text 例は `patterns not covered:` を示すが、現行 text emitter は `data.missing_patterns` を出せない。DMMF の進化テストでは「どの variant が不足か」が最重要情報。wave49 で人間向け出力を仕様へ寄せる。
 
-推薦案: いきなり汎用 `labels` / `details` wire を設計せず、E0301 の `missing_patterns` を text emitter が構造的に描く小さな修正から入れる。ただし spec 例と同じ形にするか、汎用 details を先に導入するかは採否時に決める。E0401 の期待型由来など broader な副 span は対象外。
+採択案: 汎用 `labels` / `details` wire は設計せず、E0301 の `missing_patterns` を text emitter が構造的に描く小さな修正とする。spec 例の `patterns not covered:` に沿った形へ寄せ、E0401 の期待型由来など broader な副 span は対象外。
 
 ### E. DMMF boundary guide（小〜中、docs）
 
