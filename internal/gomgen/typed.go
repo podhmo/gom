@@ -228,7 +228,7 @@ func (g *Gen) initTyped() {
 		// of the generated namespace outright. "Go" is the reserved
 		// qualifier of the Go namespace.
 		"Unit": true, "Bool": true, "Int": true, "Int32": true, "Int64": true,
-		"Float": true, "Char": true, "Byte": true, "String": true, "GoError": true, "Go": true,
+		"Uint": true, "Uint64": true, "Float": true, "Char": true, "Byte": true, "String": true, "GoError": true, "Go": true,
 		"List": true, "Option": true, "Ref": true, "Array": true, "Ptr": true,
 		"Chan": true, "RecvChan": true, "SendChan": true, "Task": true,
 		"Scope": true, "Result": true,

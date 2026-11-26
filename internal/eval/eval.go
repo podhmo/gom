@@ -887,7 +887,11 @@ func goFieldValue(v Value, t reflect.Type) (reflect.Value, bool) {
 	case *VHost:
 		x = v.V
 	case *VInt:
-		x = v.N
+		if v.U {
+			x = uint64(v.N)
+		} else {
+			x = v.N
+		}
 	case *VChar:
 		x = v.R
 	case *VFloat:
@@ -900,10 +904,31 @@ func goFieldValue(v Value, t reflect.Type) (reflect.Value, bool) {
 		return reflect.Value{}, false
 	}
 	rv := reflect.ValueOf(x)
-	if !rv.IsValid() || !rv.Type().AssignableTo(t) {
+	if !rv.IsValid() {
 		return reflect.Value{}, false
 	}
-	return rv, true
+	if rv.Type().AssignableTo(t) {
+		return rv, true
+	}
+	// Lowering writes the boundary conversion into generated Go
+	// (`uint(x)` for a raw uint field, `pkg.Mode(x)` for a named
+	// numeric field). Mirror that conversion here: the checker has
+	// already admitted the numeric pair, while the eval value keeps
+	// only its machine representation.
+	if numericReflectKind(rv.Type().Kind()) && numericReflectKind(t.Kind()) && rv.Type().ConvertibleTo(t) {
+		return rv.Convert(t), true
+	}
+	return reflect.Value{}, false
+}
+
+func numericReflectKind(k reflect.Kind) bool {
+	switch k {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64,
+		reflect.Float32, reflect.Float64:
+		return true
+	}
+	return false
 }
 
 // evalMember handles `recv.sel`: record/variant field access, module
@@ -1046,6 +1071,9 @@ func (e *interp) intOperandShape(t types.Type) (width int, unsigned bool) {
 			if c.Qual == "" && c.Name == "Int32" && !e.localT["Int32"] {
 				return 32, false
 			}
+			if c.Qual == "" && (c.Name == "Uint" || c.Name == "Uint64") && !e.localT[c.Name] {
+				return 64, true
+			}
 		}
 		if e.intWidthOracle != nil {
 			if w, u, ok := e.intWidthOracle(types.Chase(t)); ok {
@@ -1105,7 +1133,7 @@ func (e *interp) evalUnary(x *check.Unary, env *Env) Value {
 		switch v := v.(type) {
 		case *VInt:
 			w, unsigned := e.intOperandShape(x.X.Type())
-			return &VInt{N: wrapInt(w, unsigned, -v.N)}
+			return &VInt{N: wrapInt(w, unsigned, -v.N), U: unsigned}
 		case *VFloat:
 			// Negating a zero LITERAL folds like a Go constant
 			// expression: untyped constants carry no signed zero,
@@ -1207,33 +1235,33 @@ func (e *interp) evalPrim(x *check.Binary, env *Env) Value {
 			ua, ub := uint64(a), uint64(b)
 			switch x.Op {
 			case syntax.BinAdd:
-				return &VInt{N: wrapInt(w, true, int64(ua+ub))}
+				return &VInt{N: wrapInt(w, true, int64(ua+ub)), U: true}
 			case syntax.BinSub:
-				return &VInt{N: wrapInt(w, true, int64(ua-ub))}
+				return &VInt{N: wrapInt(w, true, int64(ua-ub)), U: true}
 			case syntax.BinMul:
-				return &VInt{N: wrapInt(w, true, int64(ua*ub))}
+				return &VInt{N: wrapInt(w, true, int64(ua*ub)), U: true}
 			case syntax.BinDiv:
 				if ub == 0 {
 					failData(CodePanic, "integer division by zero", x.Span(), "op", "/")
 				}
-				return &VInt{N: wrapInt(w, true, int64(ua/ub))}
+				return &VInt{N: wrapInt(w, true, int64(ua/ub)), U: true}
 			case syntax.BinMod:
 				if ub == 0 {
 					failData(CodePanic, "integer modulo by zero", x.Span(), "op", "%")
 				}
-				return &VInt{N: wrapInt(w, true, int64(ua%ub))}
+				return &VInt{N: wrapInt(w, true, int64(ua%ub)), U: true}
 			case syntax.BinBitAnd:
-				return &VInt{N: wrapInt(w, true, int64(ua&ub))}
+				return &VInt{N: wrapInt(w, true, int64(ua&ub)), U: true}
 			case syntax.BinBitAndNot:
-				return &VInt{N: wrapInt(w, true, int64(ua&^ub))}
+				return &VInt{N: wrapInt(w, true, int64(ua&^ub)), U: true}
 			case syntax.BinBitOr:
-				return &VInt{N: wrapInt(w, true, int64(ua|ub))}
+				return &VInt{N: wrapInt(w, true, int64(ua|ub)), U: true}
 			case syntax.BinBitXor:
-				return &VInt{N: wrapInt(w, true, int64(ua^ub))}
+				return &VInt{N: wrapInt(w, true, int64(ua^ub)), U: true}
 			case syntax.BinBitShl:
-				return &VInt{N: wrapInt(w, true, int64(ua<<uint(ub)))}
+				return &VInt{N: wrapInt(w, true, int64(ua<<uint(ub))), U: true}
 			case syntax.BinBitShr:
-				return &VInt{N: wrapInt(w, true, int64(ua>>uint(ub)))}
+				return &VInt{N: wrapInt(w, true, int64(ua>>uint(ub))), U: true}
 			case syntax.BinLt:
 				return &VBool{B: ua < ub}
 			case syntax.BinLe:
@@ -1467,7 +1495,7 @@ func (e *interp) evalPipeTry(x *check.Binary, env *Env) Value {
 // anyBox wraps a value crossing into `Go.Any` — the `any(v)` the
 // compiled boundary emits. The VHost records the value's gom type so
 // `Go.try_as` can assert at the emitted-Go-type grain (`x.(T)` on
-// int64 succeeds for both Int and Int64). A value already boxed —
+// int64 succeeds for both Int and Int64, and uint64 for Uint/Uint64). A value already boxed —
 // re-entering `any` — keeps its inner box, matching Go.
 func (e *interp) anyBox(v Value, t types.Type, env *Env) Value {
 	if _, ok := v.(*VHost); ok {
@@ -1554,6 +1582,10 @@ func boxRepr(v Value, t types.Type) any {
 			if i, ok := v.(*VInt); ok {
 				return int32(i.N)
 			}
+		case "Uint", "Uint64":
+			if i, ok := v.(*VInt); ok {
+				return uint64(i.N)
+			}
 		case "Byte":
 			if i, ok := v.(*VInt); ok {
 				return byte(i.N)
@@ -1587,6 +1619,9 @@ func boxRepr(v Value, t types.Type) any {
 func boxValue(v Value) any {
 	switch v := v.(type) {
 	case *VInt:
+		if v.U {
+			return uint64(v.N)
+		}
 		return v.N
 	case *VFloat:
 		return v.F
@@ -1670,6 +1705,13 @@ func (e *interp) unboxAny(v Value, t types.Type) Value {
 			}
 			return &VGoErr{Text: err.Error()}
 		}
+	case "uint64", "uint":
+		switch i := h.V.(type) {
+		case uint64:
+			return &VInt{N: int64(i), U: true}
+		case uint:
+			return &VInt{N: int64(i), U: true}
+		}
 	case "int64", "int32", "byte", "int":
 		switch i := h.V.(type) {
 		case int64:
@@ -1705,7 +1747,8 @@ func (e *interp) unboxAny(v Value, t types.Type) Value {
 // `Go.try_as` to assert — the comma-ok `x.(T)` check on eval's
 // values. Both sides compare at emitted-Go-type-name grain: a boxed
 // gom value asserts by its recorded type's repr name (Int and Int64
-// both assert as int64, `List Int` and `List String` differ), an
+// both assert as int64, Uint and Uint64 as uint64, `List Int` and
+// `List String` differ), an
 // opaque host value by its reflect-rendered name, and a named Go
 // type target by `pkgbase.Name`. A nil interface value asserts as
 // nothing; an `error` target accepts any non-nil error payload.
@@ -1915,6 +1958,9 @@ func applySubst(t types.Type, m map[*types.Var]types.Type) types.Type {
 func valueReprName(v Value) string {
 	switch v := v.(type) {
 	case *VInt:
+		if v.U {
+			return "uint64"
+		}
 		return "int64"
 	case *VFloat:
 		return "float64"
@@ -2240,7 +2286,7 @@ func (e *interp) evalFor(x *check.For, env *Env) Value {
 func hostElem(t types.Type, rv reflect.Value) Value {
 	if con, ok := types.Chase(t).(*types.Con); ok && con.Qual == "" {
 		switch con.Name {
-		case "Int", "Int64", "Int32", "Char":
+		case "Int", "Int64", "Int32", "Uint", "Uint64", "Char":
 			var n int64
 			switch rv.Kind() {
 			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
@@ -2253,7 +2299,7 @@ func hostElem(t types.Type, rv reflect.Value) Value {
 			if con.Name == "Char" {
 				return &VChar{R: rune(n)}
 			}
-			return &VInt{N: n}
+			return &VInt{N: n, U: con.Name == "Uint" || con.Name == "Uint64"}
 		case "Float":
 			switch rv.Kind() {
 			case reflect.Float32:
@@ -2521,7 +2567,7 @@ func (e *interp) scalarDisplayType(t types.Type) bool {
 		}
 		if t.Qual == "" && !e.localT[t.Name] {
 			switch t.Name {
-			case "Unit", "Bool", "Int", "Int32", "Int64", "Float",
+			case "Unit", "Bool", "Int", "Int32", "Int64", "Uint", "Uint64", "Float",
 				"Char", "Byte", "String":
 				return true
 			}

@@ -1352,7 +1352,7 @@ func (c *checker) convOK(from, to types.Type) bool {
 		// conversion rule means.
 		if con.Qual == "" && !c.shadowedBuiltin(con.Name) {
 			switch con.Name {
-			case "Int", "Int32", "Int64", "Float", "Char", "Byte":
+			case "Int", "Int32", "Int64", "Uint", "Uint64", "Float", "Char", "Byte":
 				return true
 			}
 		}
@@ -1525,6 +1525,8 @@ func (c *checker) convBasicKind(t types.Type) (string, bool) {
 		return "int64", true
 	case "Int32", "Char":
 		return "int32", true
+	case "Uint", "Uint64":
+		return "uint64", true
 	case "Float":
 		return "float64", true
 	case "Byte":
@@ -1858,6 +1860,8 @@ func (c *checker) litRange(t types.Type) (bits int64, unsigned, floating, ok boo
 		switch t.Name {
 		case "Int", "Int64":
 			return 64, false, false, true
+		case "Uint", "Uint64":
+			return 64, true, false, true
 		case "Int32", "Char":
 			return 32, false, false, true
 		case "Byte":
@@ -2503,7 +2507,10 @@ func (c *checker) constFold(e Expr) (constant.Value, bool) {
 				// is -2^31 on amd64, not the wrapped 0 an int64
 				// round-trip would suggest — so the fold declines.
 				if us {
-					if fv < 0 || fv >= math.Pow(2, float64(w)) {
+					// Truncation happens before the range judgment: a
+					// float in (-1, 0) converts to the representable
+					// unsigned zero, while -1 itself is out of range.
+					if fv <= -1 || fv >= math.Pow(2, float64(w)) {
 						return nil, false
 					}
 				} else if fv < -math.Pow(2, float64(w-1)) || fv >= math.Pow(2, float64(w-1)) {
@@ -2659,7 +2666,7 @@ func (c *checker) narrowFloat(v float64, t types.Type) float64 {
 // intFoldWidth gives the machine width — and its signedness — that
 // constFold wraps a literal shift result at: the width of the
 // builtin integral type the emitted Go type carries (`int`/`int64`/
-// `int32`, `rune`'s int32 for Char, `uint8` for Byte), or — through
+// `int32`, `uint64` for `Uint`/`Uint64`, `rune`'s int32 for Char, `uint8` for Byte), or — through
 // the UnderlyingSource oracle — a named Go type's integer
 // underlying (time.Duration's int64, os.FileMode's uint32), or a
 // declared defined type's field. A width we cannot know (a struct-
@@ -2679,6 +2686,8 @@ func (c *checker) intFoldWidth(t types.Type) (w uint, unsigned bool, ok bool) {
 		switch t.Name {
 		case "Int", "Int64":
 			return 64, false, true
+		case "Uint", "Uint64":
+			return 64, true, true
 		case "Int32", "Char":
 			return 32, false, true
 		case "Byte":
@@ -2841,11 +2850,19 @@ func (c *checker) foldIntAt(e Expr, w uint, unsigned bool) (constant.Value, bool
 			return nil, false
 		}
 		if op == token.SHL || op == token.SHR {
+			// A uint64 count above MaxInt64 is still a runtime count
+			// — and always empties the shifted value — so read the
+			// unsigned machine value when the signed decoding overflows.
 			s, exact := constant.Int64Val(y)
-			if !exact || s < 0 {
+			var sc uint64
+			if exact && s >= 0 {
+				sc = uint64(s)
+			} else if u, uok := constant.Uint64Val(y); uok {
+				sc = u
+			} else {
 				return nil, false
 			}
-			return shiftConst(x, op, uint64(s), w, unsigned), true
+			return shiftConst(x, op, sc, w, unsigned), true
 		}
 		if op == token.QUO {
 			// Machine integer division truncates toward zero —
@@ -4377,7 +4394,7 @@ func (c *checker) goOriginType(t types.Type) bool {
 		if (t.Name == "Ptr" || t.Name == "Chan" || t.Name == "RecvChan" || t.Name == "SendChan") && len(t.Args) == 1 {
 			return c.goOriginType(t.Args[0])
 		}
-		return c.isBuiltinCon(t, "Int") || c.isBuiltinCon(t, "Int32") || c.isBuiltinCon(t, "Float") || c.isBuiltinCon(t, "Bool") || c.isBuiltinCon(t, "String") || c.isBuiltinCon(t, "Char") || c.isBuiltinCon(t, "Byte") || c.isBuiltinCon(t, "GoError")
+		return c.isBuiltinCon(t, "Int") || c.isBuiltinCon(t, "Int32") || c.isBuiltinCon(t, "Uint") || c.isBuiltinCon(t, "Float") || c.isBuiltinCon(t, "Bool") || c.isBuiltinCon(t, "String") || c.isBuiltinCon(t, "Char") || c.isBuiltinCon(t, "Byte") || c.isBuiltinCon(t, "GoError")
 	case *types.Func, *types.Var, *types.Tuple, *types.Meta:
 		return false
 	default:
@@ -4488,23 +4505,45 @@ func (c *checker) deferInterfaceSource(m *types.Meta) bool {
 // typeTestKey is the Go `case` type an arm's target emits — the
 // duplicate-detection key of a type-test match. A declared type
 // whose name shadows a builtin (`type Int = ...`) emits its own
-// nominal name, not the builtin repr, so it keys nominally.
+// nominal name, not the builtin repr, including when it appears
+// inside a container type argument.
 func (c *checker) typeTestKey(t types.Type) string {
-	if con, ok := types.Chase(t).(*types.Con); ok && con.Qual == "" && c.shadowedBuiltin(con.Name) {
-		if len(con.Args) == 0 {
-			return con.Name
+	key := types.CanonGoRepr(types.GoRepr(c.typeTestNominal(t)))
+	return strings.ReplaceAll(key, "\x00", "")
+}
+
+// typeTestNominal rewrites file-local declarations that shadow a
+// builtin to NUL-delimited marker constructors types.GoRepr cannot
+// mistake for the builtin. Nested arguments are rewritten with them;
+// the impossible-in-Go NUL markers are stripped from the final key.
+func (c *checker) typeTestNominal(t types.Type) types.Type {
+	switch t := types.Chase(t).(type) {
+	case *types.Con:
+		args := make([]types.Type, len(t.Args))
+		for i, a := range t.Args {
+			args[i] = c.typeTestNominal(a)
 		}
-		// Arguments are canonical too — a shadowed generic's
-		// `List Char` and `List Int32` emit the same `List[int32]`
-		// case and must key identically.
-		parts := make([]string, len(con.Args))
-		for i, a := range con.Args {
-			parts[i] = types.CanonGoRepr(types.GoRepr(a))
-			if parts[i] == "" {
-				return ""
-			}
+		name := t.Name
+		if t.Qual == "" && c.shadowedBuiltin(name) {
+			name = "\x00" + name + "\x00"
 		}
-		return con.Name + "[" + strings.Join(parts, ", ") + "]"
+		return &types.Con{Qual: t.Qual, Name: name, Args: args}
+	case *types.Func:
+		params := make([]types.FuncParam, len(t.Params))
+		for i, p := range t.Params {
+			params[i] = p
+			params[i].Type = c.typeTestNominal(p.Type)
+		}
+		return &types.Func{Params: params, Ret: c.typeTestNominal(t.Ret)}
+	case *types.Tuple:
+		elems := make([]types.Type, len(t.Elems))
+		for i, el := range t.Elems {
+			elems[i] = c.typeTestNominal(el)
+		}
+		return &types.Tuple{Elems: elems}
+	case *types.Go, *types.Meta, *types.Var:
+		return t
+	default:
+		panic("unreachable")
 	}
-	return types.CanonGoRepr(types.GoRepr(t))
 }

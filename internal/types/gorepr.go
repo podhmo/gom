@@ -39,6 +39,8 @@ func GoRepr(t Type) string {
 				return cat("map[", GoRepr(t.Args[0]), "]", GoRepr(t.Args[1]))
 			case t.Name == "Int":
 				return "int"
+			case t.Name == "Uint":
+				return "uint"
 			case t.Name == "Any":
 				return "any"
 			}
@@ -64,6 +66,8 @@ func GoRepr(t Type) string {
 			return "int64"
 		case t.Name == "Int32":
 			return "int32"
+		case t.Name == "Uint" || t.Name == "Uint64":
+			return "uint64"
 		case t.Name == "Byte":
 			return "byte"
 		case t.Name == "Float" || t.Name == "Float64":

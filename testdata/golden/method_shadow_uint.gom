@@ -1,0 +1,17 @@
+package main
+
+// A file-local `type Uint` shadows the builtin machine spelling.
+// The method boundary must keep the nominal return type instead of
+// rewriting it to Go uint.
+type Uint = { v: Uint64 }
+
+type W = { n: Uint }
+
+@method
+fn (w: W) value () -> Uint = w.n
+
+fn main () -> Unit = {
+  let w = { n = { v = 1 } }
+  ignore w
+  ()
+}

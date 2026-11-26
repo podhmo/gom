@@ -1,0 +1,50 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0417",
+      "severity": "error",
+      "message": "integer literal -1 overflows Uint",
+      "span": {
+        "file": "E0417_uint_lit_range.gom",
+        "start": {
+          "line": 8,
+          "col": 19,
+          "offset": 320
+        },
+        "end": {
+          "line": 8,
+          "col": 20,
+          "offset": 321
+        }
+      },
+      "data": {
+        "literal": "-1",
+        "type": "Uint"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0417",
+      "severity": "error",
+      "message": "integer literal 18446744073709551616 overflows Uint64",
+      "span": {
+        "file": "E0417_uint_lit_range.gom",
+        "start": {
+          "line": 9,
+          "col": 20,
+          "offset": 341
+        },
+        "end": {
+          "line": 9,
+          "col": 40,
+          "offset": 361
+        }
+      },
+      "data": {
+        "literal": "18446744073709551616",
+        "type": "Uint64"
+      }
+    }
+  ]
+}

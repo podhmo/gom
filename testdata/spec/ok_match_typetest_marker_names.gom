@@ -1,0 +1,13 @@
+package ex
+
+// Internal shadow markers must not overlap ordinary declared type
+// names: `UnshadowedNominal` is distinct from `Un` even when the
+// marker implementation uses a sentinel spelling internally.
+type Un = {v: String}
+type UnshadowedNominal = {v: String}
+
+fn f (x : Go.Any) -> String = match x {
+    a : UnshadowedNominal -> a.v
+    b : Un -> b.v
+    _ -> "?"
+}

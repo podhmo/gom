@@ -124,7 +124,7 @@ func (t *tvScope) implicitScope() *tvScope {
 func builtinScope() *scope {
 	s := &scope{terms: map[string]*Symbol{}, types: map[string]*Symbol{}}
 	for _, name := range []string{
-		"Unit", "Bool", "Int", "Int32", "Int64", "Float", "Char",
+		"Unit", "Bool", "Int", "Int32", "Int64", "Uint", "Uint64", "Float", "Char",
 		"Byte", "String", "GoError",
 		"List", "Option", "Result", "Ref", "Array", "Ptr", "View",
 		"Chan", "RecvChan", "SendChan", "Task", "Scope",

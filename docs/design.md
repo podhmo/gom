@@ -102,8 +102,10 @@ Go コード生成器に言語の意味を判断させない。次のことは C
 6. **型の具体化**: 多相な定義と、実行時の関数値を区別する。多相な定義を値として使う箇所では型引数が具体化済みで、必要なラッパーも確定済み（関数値の表現は [decisions/function-value-representation](decisions/2026-11-02-function-value-representation.md)、多相定義との区別は [decisions/function-representation](decisions/2026-11-01-function-representation.md)）。コンストラクタノードの ADT 具現化は `Typ` の終着 `Con.Args` が唯一の正 — `TypeArgs` フィールドは廃止され、codegen は結果型から派生する（[decisions/ctor-typeargs-removed](decisions/2026-11-19-ctor-typeargs-removed.md)）
 7. **エントリポイントの判定**: `package main` の `fn main () -> Unit` という言語規則は `FuncDecl.IsEntry` として確定済み。codegen はパッケージ名・関数名を見ず、このフラグだけで `func main()` を出力する（[decisions/fn-main-entrypoint](decisions/2026-11-04-fn-main-entrypoint.md)）
 8. **等価のレシピ**: `==` / `!=` / `assert_eq` がどう比較するか（ネイティブ `==`・ランタイムのフォールバック・エラーの文字列比較・生成した比較関数の呼び出し）は `core.Equal` / `CallBuiltin.Eq` のプランとして確定済み（4.9 節）
-9. **数値演算の定数回避**: `Float` の `+ - * / < <= > >= == !=` と整数系の `+ - * /` で被演算子が両方とも数値リテラルのとき、左オペランドを変数に束縛する。Go が定数式として畳むのは言語の「演算ごとの機械演算」の意味（spec 3.3）とずれるので、実行時評価を強いる束縛として Core IR で確定する（[decision](decisions/2026-11-05-numeric-arithmetic-per-operation.md)）
-10. **ソースの由来**: すべてのノードが元の Gom ソースの範囲を指す
+9. **整数の符号・幅**: `Int`/`Int64` は int64、`Uint`/`Uint64` は uint64 を普通の値表現にし、raw `int`/`uint` は Go 境界の view（内部では `Go.Int`/`Go.Uint`）として変換する。`Uint64` は `Int64` と同じく `@method` raw signature で 64 ビット幅を正確に要求する綴りであり、root の raw `uint` には `Uint` を使う（[decision](decisions/2026-11-25-uint-first-class.md)）
+
+10. **数値演算の定数回避**: `Float` の `+ - * / < <= > >= == !=` と整数系の `+ - * /` で被演算子が両方とも数値リテラルのとき、左オペランドを変数に束縛する。Go が定数式として畳むのは言語の「演算ごとの機械演算」の意味（spec 3.3）とずれるので、実行時評価を強いる束縛として Core IR で確定する（[decision](decisions/2026-11-05-numeric-arithmetic-per-operation.md)）
+11. **ソースの由来**: すべてのノードが元の Gom ソースの範囲を指す
 
 例: ラベル付き引数の並べ替え。
 
@@ -510,7 +512,7 @@ sum type にコンストラクタを足すとインターフェースが変わ�
 検査するE2Eには適用しない。実行結果と判定はcacheしない。詳細と制約は同じ決定を参照する。
 
 
-- **意味論の比較テスト**: 小さな Gom 評価器（単相の純粋な式、ADT、`match`、関数適用から始める）を作り、生成した Go コードの実行結果と比べる。評価順序、パターンマッチ、部分適用の検証に使う。評価器の数値は機械幅に正規化される — 整数は幅に sign-extend され（decisions/2026-11-05-eval-int-width-aware-ops）、float は named Go 型の underlying が float32 の位置で float32 像を保持する（decisions/2026-11-25-eval-float32-width-aware）。float32 の幅は named Go 型の underlying を要するため評価器だけでは決められず、比較 harness が `Evaluator.SetFloatWidthOracle` で loader の oracle を注入する — 未注入なら全て幅 64 にフォールバックし、float32 の位置は compiled と分岐しうる
+- **意味論の比較テスト**: 小さな Gom 評価器（単相の純粋な式、ADT、`match`、関数適用から始める）を作り、生成した Go コードの実行結果と比べる。評価順序、パターンマッチ、部分適用の検証に使う。評価器の数値は機械幅に正規化される — 整数は幅に sign/zero-extend され、evaluator の `VInt` は unsigned interpretation を保持して type-erased display でも compiled と同じ符号で描かれ（decisions/2026-11-05-eval-int-width-aware-ops）、float は named Go 型の underlying が float32 の位置で float32 像を保持する（decisions/2026-11-25-eval-float32-width-aware）。float32 の幅は named Go 型の underlying を要するため評価器だけでは決められず、比較 harness が `Evaluator.SetFloatWidthOracle` で loader の oracle を注入する — 未注入なら全て幅 64 にフォールバックし、float32 の位置は compiled と分岐しうる
 - **Go 相互運用テスト**: Gom → Go と Go → Gom の両方向。特に `nil`、スライス、named type、interface、ジェネリクス
 - **実行可能なユースケース**: `examples/gist-cli/` は引数解析・ファイル走査・JSON生成・HTTP新規/更新・診断をGomで組み合わせ、生成CLIをfake serverへ実行して検証する。Goの書き込み先decode・struct構築/callbackのような未対応操作はGist固有の方針を含まないexample-local adapterに隔離し、コンパイラ機能が整い次第縮小する（byte I/Oと引数走査は`Byte`型導入でGomへ移行済み）（[decision](decisions/2026-11-03-gist-cli-host-boundary.md)、[検証](sketch/2026-11-03-gist-cli-prototype.md)）。
 - **実行可能 tutorial**: 各章をコンパイラ API と実際の CLI の両方で変換し、生成 Go の一致と実行時の期待出力を検査する。コンパイラの実装依存に加え、CLI/fixture と `go list -deps` で得た生成 Go のモジュール入力を直接読み込み、runtime/stdlib の変更やソース追加でも Go のテストキャッシュを無効化できるようにする（[検証](sketch/2026-11-03-tutorial-iteration.md)）。

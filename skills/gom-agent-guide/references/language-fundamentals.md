@@ -169,7 +169,7 @@ literal reports E0401 "no record type has fields …".
 
 ## Types
 
-All types are nominal. Builtin names (`Int`, `Int32`, `Int64`,
+All types are nominal. Builtin names (`Int`, `Int32`, `Int64`, `Uint`, `Uint64`,
 `Byte`, `List`, `Option`, `Result`, `Bool`, `String`, `Unit`,
 `Float`, `Char`, `Ref`, `Array`, `Ptr`, `Chan`, `RecvChan`,
 `SendChan`, `Task`, `GoError`, `Go.Slice`, `Go.Map`, `Go.Any`)
@@ -226,7 +226,7 @@ type alias Wrap a = List a       // forwards its parameters
   (E0409): scalars, `Ref`/`Ptr`/channels by identity, `List`/tuples/
   records elementwise, ADTs by variant+payload, `GoError` by message
   string. `Float` is IEEE (NaN ≠ NaN). Not on type variables (v1).
-- Arithmetic `+ - * / %` overloads over numeric builtins and
+- Arithmetic `+ - * / %` overloads over numeric builtins (`Int`/`Int32`/`Int64`/`Uint`/`Uint64`/`Float`) and
   resolves late: ambiguous use is E0407 (annotate). `/`/`%` by a
   divisor that folds to a constant `0` is E0414 (Go rejects it
   too; `Float` allows `x / 0.0` but not `10.0 / 0.0`) — this

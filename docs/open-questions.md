@@ -62,7 +62,6 @@
 - `iota` 流の Go 定数セット宣言 — sum type や `let` 定数で代替になるが、Go API の定数群を gom 側から作る面はない（sandbox 探索 — [sketch](sketch/2026-11-23-sandbox-missing-features.md)）。wave47 では見送り（2026-11-25、[prompts](sketch/2026-11-25-wave47-prompts.md)）
 - cgo、`unsafe`、`reflect` の本格的な扱い
 - `gom install` — 書き換え後の selfish リポジトリのような gom 製バイナリをリポジトリ指定でインストールする経路（`go install` 相当）。依存パッケージの推移的 emit（TODO の `gom run` 不ビルド問題）と合わせて検討（podhmo 要望、2026-11-24、wave43 lane F）
-- [x] 符号なし整数（`byte`/`uint8` 以外 — spec §8.3 で v1 非対応と明記済み）: run 2 で `text/tabwriter` の `flags uint` が E0501 で取れず手書きパディングに退避した事例あり（[recheck](sketch/ja/2026-11-24-sandbox-explorer2-recheck.md) tabwriter）。**2026-11-25 wave47 lane D 採択** — `uint` / `uint64` 中心に第一級化し、`uint16` / `uint32` / `uintptr` は需要を見て後続へ残す（[prompts](sketch/2026-11-25-wave47-prompts.md)）
 - セルフホスト（コンパイラを Gom で書き直す）
 - [x] Core 検証器で Go 呼び出しの関数引数の表現を検査する — wave34 lane D で実装済み: `CallGo.FlatArgs` に宣言型由来のスロット arity を載せ、`core.Validate` が emitted repr（`callbackArity`）と照合して E0901。宣言型（rigid）を読む点が要 — instantiated 型は型変数下の関数型で arity が広がる（`internal/core/validate.go`、`TestCallGoCtorRefCallbackArity`）
 - [x] W0502 `lintErrorsAsTarget` の `Ptr (Ptr E)` ケース: `**int` は `*int` が error 非実装かつ非 interface なので panic が証明可能（wave9 error-tail レビュー nit） → wave22 lane2 で実装済み: E が unnamed/interface 表現なら warn、named Go 型・record・abstract・メタは沈黙維持（[decision](decisions/2026-11-19-errors-as-nested-ptr-lint.md)）

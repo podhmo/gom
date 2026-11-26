@@ -1,0 +1,13 @@
+package ex
+
+// A file-local `type Uint` keeps its nominal element type inside a
+// List type-test, so it does not collide with an arm for the
+// builtin `List Uint64` even though both erase to uint64-shaped
+// machine values.
+type Uint = {v: String}
+
+fn f (x : Go.Any) -> String = match x {
+    xs : List Uint -> "local"
+    ys : List Uint64 -> "builtin"
+    _ -> "?"
+}

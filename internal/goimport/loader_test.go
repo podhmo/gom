@@ -133,14 +133,14 @@ func TestHiddenMembers(t *testing.T) {
 	t.Parallel()
 
 	l := loaderFor(t)
-	pkg := membersOf(t, l, "strconv")
-	// AppendUint takes a uint64 — uint64 is unmapped.
-	au := pkg.Members["AppendUint"]
+	pkg := membersOf(t, l, "math/bits")
+	// Len32 takes a uint32 — uint32 is unmapped.
+	au := pkg.Members["Len32"]
 	if au == nil {
-		t.Skip("AppendUint not exported")
+		t.Skip("Len32 not exported")
 	}
 	if au.Hidden == "" {
-		t.Errorf("AppendUint should be Hidden, got %+v", au)
+		t.Errorf("Len32 should be Hidden, got %+v", au)
 	}
 	if _, ok := l.SignatureOf(au); ok {
 		t.Error("SignatureOf must not answer a hidden member")

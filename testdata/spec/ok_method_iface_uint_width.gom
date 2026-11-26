@@ -1,0 +1,22 @@
+package main
+
+// Uint mirrors the Int width split at method boundaries: a root raw
+// uint position wants `Uint`, while root uint64 results want `Uint64`.
+import go "github.com/podhmo/gom/testdata/goiface"
+
+type W = { n: Uint }
+
+@method
+fn (w: W) put (x: Uint) -> Uint = x
+
+@method
+fn (w: W) pair () -> Result (Uint64, Uint64) GoError = Ok (0, 0)
+
+fn main () -> Unit = {
+  let w = { n = 0 }
+  let a : goiface.WidthUint = w
+  let b : goiface.WidthUintPair = w
+  ignore a
+  ignore b
+  ()
+}

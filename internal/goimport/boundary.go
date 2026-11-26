@@ -310,9 +310,10 @@ func (l *Loader) boundaryTypeOf(t gt.Type, nested bool) types.Type {
 			goKind types.BasicKind
 		}{
 			{gt.Int, types.Int64}, {gt.Int32, types.Int32}, {gt.Int64, types.Int64},
+			{gt.Uint, types.Uint64}, {gt.Uint64, types.Uint64},
 			{gt.Float, types.Float64},
 			{gt.Bool, types.Bool}, {gt.String, types.String}, {gt.Char, types.Int32}, {gt.Byte, types.Uint8},
-			{gt.GoInt, types.Int},
+			{gt.GoInt, types.Int}, {gt.GoUint, types.Uint},
 		} {
 			if gt.Equal(t, b.gom) {
 				return types.Typ[b.goKind]
@@ -424,7 +425,7 @@ func gomOnly(t gt.Type) bool {
 		}
 		switch t.Name {
 		case "Unit", "Ptr", "List", "Chan", "RecvChan", "SendChan",
-			"Int", "Int32", "Int64", "Float", "Bool", "String", "Char", "Byte", "GoError":
+			"Int", "Int32", "Int64", "Uint", "Uint64", "Float", "Bool", "String", "Char", "Byte", "GoError":
 			return false
 		}
 		return true

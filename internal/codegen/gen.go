@@ -721,6 +721,8 @@ func builtinConKind(name string) conKind {
 		return conInt64
 	case "Int32":
 		return conSimple
+	case "Uint", "Uint64":
+		return conUint64
 	case "Byte":
 		return conSimple
 	case "Float":
@@ -767,6 +769,7 @@ const (
 	conUnit                    // struct{}
 	conSimple                  // bool / int32 / float64 / rune / string
 	conInt64                   // int64
+	conUint64                  // uint64
 	conError                   // error
 	conList                    // list.List[A]
 	conOption                  // option.Option[A]
@@ -831,6 +834,8 @@ func (g *gen) intLitConv(t types.Type, x core.Expr) string {
 	switch c.Name {
 	case "Int", "Int64":
 		return "int64"
+	case "Uint", "Uint64":
+		return "uint64"
 	case "Int32":
 		return "int32"
 	}

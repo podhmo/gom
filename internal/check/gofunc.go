@@ -527,6 +527,10 @@ func fnViewCompatible(g, r types.Type) bool {
 		(rc.Qual == "" || rc.Qual == "Go") && rc.Name == "Int" && len(rc.Args) == 0 {
 		return true
 	}
+	if gc.Qual == "" && (gc.Name == "Uint" || gc.Name == "Uint64") && len(gc.Args) == 0 &&
+		rc.Qual == "Go" && rc.Name == "Uint" && len(rc.Args) == 0 {
+		return true
+	}
 	if gc.Qual == "" && gc.Name == "List" && len(gc.Args) == 1 &&
 		rc.Qual == "Go" && rc.Name == "Slice" && len(rc.Args) == 1 {
 		return types.Equal(gc.Args[0], rc.Args[0])
@@ -545,6 +549,8 @@ func goFuncGomView(t types.Type, boundary bool) types.Type {
 			switch t.Name {
 			case "Int":
 				return types.Int
+			case "Uint":
+				return types.Uint
 			case "Slice":
 				if boundary {
 					return types.List(goFuncGomView(t.Args[0], false))
@@ -635,6 +641,8 @@ func (c *checker) goFuncRawView(t types.Type) (types.Type, string) {
 			// Both are int64 — the int64/int split only exists at
 			// `Go.Int` (mapping.go's basicType).
 			return types.Int, ""
+		case "Uint", "Uint64":
+			return types.Uint, ""
 		case "Int32", "Float", "Bool", "String", "Char", "Byte", "GoError":
 			return t, ""
 		case "List":
@@ -819,6 +827,21 @@ func gomRawCompatible(a, b types.Type) bool {
 	}
 	if bc.Qual == "" && bc.Name == "Int64" && len(bc.Args) == 0 &&
 		ac.Name == "Int" && len(ac.Args) == 0 &&
+		(ac.Qual == "" || ac.Qual == "Go") {
+		return true
+	}
+	if ac.Name == "Uint" && len(ac.Args) == 0 && bc.Name == "Uint" &&
+		len(bc.Args) == 0 && (ac.Qual == "Go") != (bc.Qual == "Go") &&
+		(ac.Qual == "" || ac.Qual == "Go") && (bc.Qual == "" || bc.Qual == "Go") {
+		return true
+	}
+	if ac.Qual == "" && ac.Name == "Uint64" && len(ac.Args) == 0 &&
+		bc.Name == "Uint" && len(bc.Args) == 0 &&
+		(bc.Qual == "" || bc.Qual == "Go") {
+		return true
+	}
+	if bc.Qual == "" && bc.Name == "Uint64" && len(bc.Args) == 0 &&
+		ac.Name == "Uint" && len(ac.Args) == 0 &&
 		(ac.Qual == "" || ac.Qual == "Go") {
 		return true
 	}

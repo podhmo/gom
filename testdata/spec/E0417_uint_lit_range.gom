@@ -1,0 +1,12 @@
+package ex
+
+// `Uint`/`Uint64` literals judge at the unsigned 64-bit range: zero
+// is the lower bound and 2^64-1 is the upper bound. A directly
+// negated literal carries its sign into the range judgment, so `-1`
+// is out of range rather than wrapping at the literal boundary.
+fn main () -> Unit = {
+  let a : Uint = -1
+  let b : Uint64 = 18446744073709551616
+  ignore (a, b)
+  ()
+}
