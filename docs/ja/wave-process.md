@@ -85,6 +85,11 @@ Gom の開発は「wave」という単位で回す。1 wave = 複数 lane（細�
   書いてあるので、実行中に人間へ意思確認しない。
 - 1 lane = 1 ブランチ = 1 PR。前の PR が未マージなら前 lane の
   ブランチからチェーンして分岐する（A→B→C…）。
+- PR 作成後の CI / Devin Review 待ちだけでは作業を止めない。
+  review findings や CI failure の通知にはその場で対応しつつ、
+  待ち時間は次 lane の実装か締め作業を進める。停止して人間へ
+  返すのは採否・大きな設計判断・merge など人間の操作が必要な
+  ときだけにする。
 - Devin Review の finding は lane 内でトリアージして潰す
   （resolved = 修正 commit、rejected/escalated は理由つき）。
 
