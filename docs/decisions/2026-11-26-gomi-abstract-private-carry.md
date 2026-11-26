@@ -25,8 +25,9 @@
   隠したい宣言が `.gomi` に存在しないため付着先を持てないので、例外的に
   付着規則は適用しない。`<declaration>` は隠す対象の `.gomi` 宣言本文で、
   `gom info` は再生成した同名メンバの canonical な宣言文言が一致するときだけ
-  そのメンバを省き、directive を引き継ぐ。シグネチャが変われば公開面に
-  戻し、directive も落とす
+  そのメンバを省き、directive を引き継ぐ。比較では import qualifier を
+  collision で変わりうる alias ではなく import path へ正規化する。シグネチャが
+  変われば公開面へ戻し、directive も落とす
 - どちらの引き継ぎも、既存の escape / mutable directive と同じく、同じ
   package directory の prior `.gomi` だけを種にする
 

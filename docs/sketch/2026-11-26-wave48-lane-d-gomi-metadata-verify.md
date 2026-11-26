@@ -13,6 +13,16 @@
   再生成後もメンバを公開面から外したまま残ること、引数名を変えたシグネチャでは
   private claim が stale となりメンバが公開面へ戻ることを `TestInfoCarriesPrivateClaims` で確認
 
+## review 追加検証
+
+- alias 実装を abstract export するときは `type alias T` ではなく bare `type T` を
+  再生成し、interface 構文を保つ
+- private 比較は import alias の衝突番号ではなく import path 同一性で行い、
+  隠したメンバだけが使う import を再生成 draft へ残さない
+- `gom fmt` は directive と宣言の間にあった空行を消さず、detached directive を
+  再付着させない。build cache の canonical hash は directive 直後が block comment
+  か宣言かを区別し、detachment 後の stale hit を避ける
+
 ## 境界
 
 - private directive は隠れた宣言そのものに付着できないため、ファイルレベルの
