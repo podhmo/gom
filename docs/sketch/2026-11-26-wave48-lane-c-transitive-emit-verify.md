@@ -24,3 +24,5 @@
 - toolchain stdlib (`list` / `option` / `result` / `cmp`) は gom リポジトリ内では物理的に同一 module に見えるが、生成 artifact は stdlib workflow が管理するので auto emit から除外する。これを外さないと examples/tutorial のテストが `stdlib/cmp/cmp.go` を呼び出し cwd 依存の `//line` で再生成し、コミット済み artifact を汚すことを確認した
 - 利用者が dependency dir の一部ファイルだけを明示入力した場合、その dir は auto expansion で広げない。file 単位入力の意味を保持するため、incomplete package になる場合の診断は従来どおり compile が返す
 - 依存が import されるには `.gomi` が必要という公開面の規則は変わらない。`.gomi` のない source-only package を暗黙に公開する仕組みはこの lane の scope 外
+- `import go` した Go adapter が生成 Gom package を import する mixed graph では、typecheck 中の `go list -export` がまだ生成されていない dependency を要求しうる。これは compile/write を layer ごとに materialize する設計変更が必要なため lane C では閉じず、Gom import closure の境界として記録する
+- review 対応で dependency dir の symlink 先 module を検査し、module directive の trailing comment を受理し、`-o` と自動 dependency output の衝突を拒否する regression を追加した

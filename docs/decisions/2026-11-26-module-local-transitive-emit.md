@@ -16,10 +16,10 @@
 - dependency dir を加えるときは direct child の `.gom` をすべて加える。Gom の compile unit は package directory なので、import 宣言を持つ 1 ファイルだけを切り出すと incomplete package になる
 - 利用者が既に入力した dir は dependency expansion で広げない。file 単位入力の意味を変えない
 - dependency からさらに辿れる module-local import も同じ規則で辿る。cycle があっても収集は停止し、E0606 は従来どおり compile が報告する
-- 自動追加された dependency の生成 `.go` は常にソースの隣へ書く。Go package identity は directory identity なので、`-o` で dependency だけを別 dir へ flatten するとリンクできない。`-o` は利用者が明示した入力の出力先を変える指定として残す
+- 自動追加された dependency の生成 `.go` は常にソースの隣へ書く。Go package identity は directory identity なので、`-o` で dependency だけを別 dir へ flatten するとリンクできない。`-o` は利用者が明示した入力の出力先を変える指定として残す。明示入力の `-o` 先と自動 dependency の output が同じファイルに衝突する場合は build を拒否する
 - `gom run` の「入力は単一 package directory」制約は利用者が指定した入力に適用する。自動追加された dependency dir はこの制約に含めない
 
-`gom check` / `gom test` / `gom info` の入力解釈は変えない。`gom install` や module cache 内 package への emit は別問題とする。
+`gom check` / `gom test` / `gom info` の入力解釈は変えない。`gom install` や module cache 内 package への emit は別問題とする。`import go` した Go adapter がさらに生成 Gom package を必要とする export-data 依存も、この lane の Gom import closure には含めない — 依存 output を型検査中の Go package loading へ供給するには compile/write の段階構造を変える必要がある。
 
 ## 検証
 
