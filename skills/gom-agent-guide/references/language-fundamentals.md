@@ -100,6 +100,10 @@ fn sign (n: Int) -> Int = {
 - Ascription: `let x : Int = e` annotates bindings; `Go.conv e : T`
   converts (see go-interop). Bare `e : T` in expression position is
   reserved/limited — prefer `let` annotations.
+- Strings have no indexing syntax. Import `str` for the minimal byte
+  surface: `str.length` is byte length, `str.get` returns `Option Byte`
+  at a byte index, `str.slice` takes a byte range (panics out of range
+  like Go), and `str.runes` explicitly decodes UTF-8 to `List Char`.
 
 ## Functions and currying
 

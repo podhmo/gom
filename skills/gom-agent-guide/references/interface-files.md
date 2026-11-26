@@ -22,9 +22,9 @@ file-local binding; without an alias the bound name is the
 path's last segment.
 
 The compiler's own stdlib also spells short: `import "list"`,
-`import "option"`, `import "result"` unfold to
-`github.com/podhmo/gom/stdlib/<name>` — handy in external
-modules where the full path is noise.
+`import "option"`, `import "result"`, `import "cmp"`, and
+`import "str"` unfold to `github.com/podhmo/gom/stdlib/<name>` —
+handy in external modules where the full path is noise.
 
 ## Syntax
 

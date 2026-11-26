@@ -945,7 +945,7 @@ fn main () -> Unit = ()
 - `import "mod/path"` loads a Gom package through its `.gomi` —
   spelled as a full module path (`import "example.com/m/shapes"`)
   and resolved through the module graph (any module in the build
-  list, vendoring honored). `import "list"`/`"option"`/`"result"`/`"cmp"`
+  list, vendoring honored). `import "list"`/`"option"`/`"result"`/`"cmp"`/`"str"`
   are the stdlib short names; Go packages use `import go "pkg"`.
 - No `switch`/`case` → `match`; no `enum` → `type`; no
   `interface`/`struct`/`class` → records and ADTs; no `nil`/`null`/

@@ -1,8 +1,8 @@
 # wave48 prompts
 
 - 日付: 2026-11-26
-- 採否: A〜F すべて採用（podhmo、2026-11-26）。G は同日に追加指定
-- 順序: A → B → C → D → E → F → G
+- 採否: A〜F すべて採用（podhmo、2026-11-26）。G は同日に追加指定、H は 2026-11-27 に追加指定
+- 順序: A → B → C → D → E → F → G → H
 
 wave47 の残件と TODO/open questions/implementation-gaps から。採否インタビューでは、
 推薦どおり C は module-local source dependency 限定、D は `.gomi` directive 引き継ぎ、
@@ -64,6 +64,10 @@ Unicode 文字列処理全般や mutable string builder の設計は対象外。
 
 [PR #256](https://github.com/podhmo/gom/pull/256) の 20 件の改善案を、PR 上の Devin Review / podhmo コメントと wave48 lane A〜F 後の状態へ突き合わせる。採用可能な未決事項は open-questions、実施可能な内部作業は TODO、spec/implementation/docs mismatch は implementation-gaps、既存 problem への追記に分ける。U3（端末では text 既定）と U8（LSP）は podhmo コメントで却下済み。F1/F3 は wave48 lane E/D の採用済み decision と競合する部分を戻さない。コード変更はしない。
 
+### H. PR #259 DMMF fit report の精査と台帳登録（小）
+
+[PR #259](https://github.com/podhmo/gom/pull/259) の DMMF OrderTaking 適合性レポートについて、優先度 A〜C と追加観測を現行 spec / stdlib / decisions / 台帳へ突き合わせる。採用可能な未決事項は open-questions、実施可能な修正は TODO、spec/implementation/docs mismatch は implementation-gaps へ分ける。`Result.to_option` など既に存在する surface の誤判定や stale なコメントは訂正する。言語機能の実装はしない。
+
 ## 見送り候補
 
 - record literal の E0407 曖昧さ緩和 — 段階型パターンでは価値が高いが、型推論の設計変更が
@@ -83,3 +87,4 @@ Unicode 文字列処理全般や mutable string builder の設計は対象外。
 4. E は byte 長・byte 範囲を基礎にし、rune 走査を明示的な面に分ける
 5. F の spec/explain 掃除も wave48 に入れる
 6. G は PR #256 の精査と台帳登録に限定し、提案そのものの実装はしない
+7. H は PR #259 の精査と台帳登録に限定し、DMMF 向け言語機能の実装はしない（podhmo、2026-11-27 追加指定）

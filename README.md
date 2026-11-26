@@ -50,8 +50,9 @@ gom build main.gom
 go run .
 ```
 
-Each tutorial step is its own Go module, with a `replace` directive that
-points generated code at this repository.
+Tutorial steps share this repository's Go module. `tutorial/run.sh` and
+`go test ./tutorial/` assemble a scratch module per step with a `replace`
+directive that points generated code at this repository.
 
 ## Commands
 

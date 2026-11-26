@@ -31,7 +31,7 @@ go test ./...
 
 1. **段階型 record の型推論が弱い**: `UnvalidatedOrder` / `ValidatedOrder` / `PricedOrder` のように同じフィールド名を持つ record を並べると、record literal が E0407 になることが多い。`Ok { ... }` の中では戻り値の注釈だけでは足りず、`let x : T = { ... }` を挟む必要がある。
 2. **F# の型名モジュールに相当する namespace がない**: `String50.create` / `String50.value` のような型に紐づくモジュールは、パッケージ分割または `string50_create` のような命名で代替する必要がある。
-3. **`internal` 相当の可視性がない**: `.gomi` に書くか書かないかの公開/非公開だけなので、bounded context 内では共有しつつ外部には隠す型を素直に表せない。
+3. **可視性の粒度は package 単位**: `.gomi` に書くか書かないかの公開/非公開だけで、同一 package 内限定や型に紐づく module はない。bounded context の外部隠蔽には Go の `internal/` layout と package 分割を使う必要がある。
 4. **stdlib に `Result.sequence` / `traverse` などがない**: ユーザー定義で書けるが、DMMF の `List.map ... |> Result.sequence` は毎回 helper が要る。
 5. **panic を gom 側で `recover` できない**: Go の普通の `error` は `Result` に入るが、panic をドメインエラー化するアダプタは手書き Go の `@extern fn` が要る。
 6. **JSON は record 用の struct tag 経由では強いが、sum type / `Option` の自然な表現は自動では出ない**: tagged union や nullable 文字列は DTO / `Ptr` / `Go.Map` で明示変換する。
@@ -69,7 +69,7 @@ go test ./...
 | # | 判定 | 結果 |
 | --- | --- | --- |
 | 2-1 不透明型とスマートコンストラクタ | △ | `.gomi` に `type String50` だけ書くと、import 側は通常の literal/conversion/constructor では作れず、公開した `string50_create` 経由にできる。probe では `let x : domain.String50 = "x"` が E0401、`Go.conv` が E0507 になった。ただし `Ptr.new` や `encoding/json` 経由では未検証値を作れるため、F# の private constructor と同じ強さではない。 |
-| 2-2 型とモジュールの同居・公開/内部の分離 | △ | F# の `module String50` 相当はない。`string50_create` / `string50_value` 命名、または型ごとに小さな package を作って `string50.create` と呼ぶ代替になる。`.gomi` の公開/非公開はあるが、assembly internal 相当はない。 |
+| 2-2 型とモジュールの同居・公開/内部の分離 | △ | F# の `module String50` 相当はない。`string50_create` / `string50_value` 命名、または型ごとに小さな package を作って `string50.create` と呼ぶ代替になる。`.gomi` の公開/非公開に加え、外部隠蔽は Go の `internal/` layout で package 単位に運用する。 |
 | 2-3 状態マシンとしての型遷移 | ◎ | `UnvalidatedOrder` → `ValidatedOrder` → `PricedOrder` のような段階型は普通に書け、不正な段階の関数適用は型エラーになる。実装上の摩擦は 1-8 の record literal 推論。 |
 
 不透明型の probe 形:
@@ -158,7 +158,7 @@ fn string50_create (field: String) (s: String) -> Result String50 String =
 | 5-3 型付きドメインエラーの sum type 化 | ◎ | `PlaceOrderError = \| Validation ValidationError \| Pricing PricingError \| OutsideBusinessHours` のような閉じた型を書き、constructor を `map_err` に渡せる。Go の `error` は `GoError` 値として payload/record に保持できる。 |
 | 5-4 `Result.sequence` | ○ | stdlib にはないが、ユーザー helper で書ける。DMMF の頻出パターンなので stdlib 入り候補。 |
 | 5-5 Applicative なエラー蓄積 | ○ | `Validation a e` と `map2` を自作できる。ただし専用構文や stdlib はなく、fail-fast の `try` よりかなり冗長。 |
-| 5-6 `Option` と `Result` の相互変換 | ○ | `Option.to_result` は stdlib にある。`Result -> Option` と `bindOption` は小さな helper を書く。能力不足ではないが surface は薄い。 |
+| 5-6 `Option` と `Result` の相互変換 | ○ | `Option.to_result` と `Result.to_option` は stdlib にある。Option 経由で Result を運ぶ traverse 系は小さな helper を書く。能力不足ではないが sequence/traverse 系の surface は薄い。 |
 | 5-7 Go `(T, error)` とのシームレス連携 | ○ | Go → gom は直接。gom → Go は通常の export fn が curried + `Result` 値を返すためそのままでは `(T, error)` ではないが、`Go.funcN` に適合する `let` を export すれば Go 側に `func(string) (int64, error)` の形で見せられることを確認した。`@method` でも `Result T GoError` は `(T, error)` に unwrap される。 |
 | 5-8 panic / 例外の Result 化 | △ | gom の言語内に `recover` はなく、panic は伝播する。`Scope` は panic 時 cleanup を走らせるが error 化はしない。アダプタが必要なら手書き Go 実装の `@extern fn protect` を用意する。Go の通常の失敗は panic ではなく `error` なので、DMMF の例外アダプタほど頻繁には要らない。 |
 
@@ -333,10 +333,10 @@ fn count_users (dsn: String) -> Result Int GoError =
 
 1. **型名前置 record literal か record literal 推論の改善**  
    `ValidatedOrder { ... }` のような明示構文、または expected type / field type を使う推論。DMMF の段階型パターンでは最も頻繁に効く。既存 open question を具体化済み。
-2. **stdlib に `Result.sequence` / `List.traverse_result` / `Result.to_option` / `bind_option` を足す**  
-   いずれも小さいが、DMMF では頻出。仕様論点は名前と引数順だけ。
+2. **stdlib に `Result.sequence` / `List.traverse_result` / Option 経由の traverse 系 helper を足す**
+   `Result.to_option` は既存。残りも小さいが、DMMF では頻出。仕様論点は名前・配置・引数順だけ。
 3. **bounded context のパッケージ設計ガイドを書く**  
-   `public types` / `internal types` / `implementation` / `api` を 1 package に寄せるのか、sub package に分けるのか。`internal` 不可視性がない現状では、ここを決めないとカプセル化方針がぶれる。
+   `public types` / `internal types` / `implementation` / `api` を 1 package に寄せるのか、sub package に分けるのか。Go の `internal/` layout は使える一方、同一 package 内限定の公開や型に紐づく module はないので、ここを決めないとカプセル化方針がぶれる。
 4. **JSON tagged union と nullable DTO の推奨形を文書化する**  
    言語機能追加より先に、`Go.Map String Go.Any`、専用 DTO、`Ptr` nullable のどれを推すかを決めるとよい。
 5. **abstract 型の zero value 生成をどう扱うか決める**  
