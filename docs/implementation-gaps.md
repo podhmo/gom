@@ -1917,13 +1917,19 @@
 - [x] **9 要素以上の spelled tuple が check を通るが codegen が未定義の `rt.TupleN` を吐く**: `rt` の tuple は `Tuple8` までしかなく、関数シグネチャの 8 結果上限（E0510）は型位置の tuple arity を縛らない — `(Int ×9)` をペイロードや戻り型に書くと check は通り、生成 Go が `undefined: rt.Tuple9` で `go build` に落ちる（wave41 lane B で `rt.Tuple64` 相当を確認; fuzz seed#275 も同経路）。check で上限を診断するか rt を拡張するかは未決。参照: [実装](../internal/codegen/types.go)（`tupleType`）、[実装](../rt/tuple.go)
   - wave43 lane A で解消: 8 要素超は `V0..Vn` を持つ匿名 struct に降りて emit（[decision](decisions/2026-11-24-wide-tuple-anon-struct.md)、検証: [tuple9.gom](../testdata/golden/tuple9.gom)）。check 側に arity 上限は設けない。
 
-- [ ] **`Ok n` の `Unit` 束縛を文字列補間すると生成 Go が `declared and not used` になる**:
+- [x] **`Ok n` の `Unit` 束縛を文字列補間すると生成 Go が `declared and not used` になる**:
   `match r () { Ok n -> ignore (fmt.Println "ok ${n}") ... }`（`r : Result Unit String`）が
   check/build を通るが、生成コードは補間に `"()"` リテラルを使い、bind した `tmp` が
   未参照で `go build` に落ちる（"declared and not used: tmp3"）。回避は `Ok _ ->`。
   最小再現と文脈は [調査](sketch/ja/2026-11-24-tutorial-gap-enumeration.md)（tutorial 16 章
   執筆中に発見）。未確認: `Unit` ペイロードの他の束縛位置（`let`・他の ctor）でも
   同じか。（2026-11-24 登録）
+  - 解消（wave48 lane A）: `display` / comparison scalar の Unit recipe は結果が定数でも
+    operand を参照する `rt.ShowUnit` を呼ぶ。match payload の束縛が補間だけに使われる場合も
+    生成 Go が残り、`ok ()` を eval/compiled で一致させた。検証:
+    [unit-payload-splice-verify](sketch/2026-11-26-wave48-lane-a-unit-payload-splice-verify.md)、
+    [unit_payload_splice.gom](../testdata/golden/unit_payload_splice.gom)、
+    `unit_payload_splice_binding`（[compare_test.go](../internal/build/compare_test.go)）
 
 - [x] **`gom test` が生成テストを持つパッケージで手書き `main_test.go` を無条件上書きする**:
   `r.Output.TestSource != nil` の場合 `writeFile(tst, ...)` が marker 判定なしで上書きする

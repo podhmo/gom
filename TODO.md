@@ -22,6 +22,15 @@
 
 ## To Be Implemented
 
+### wave48 採択済み lane（[prompts](docs/sketch/2026-11-26-wave48-prompts.md) — 2026-11-26 採否確定、順 A→B→C→D→E→F）
+
+- [x] **[wave48 lane A] `Unit` payload 束縛の生成 Go 未使用 bug**（[prompts](docs/sketch/2026-11-26-wave48-prompts.md)）: `Unit` payload の束縛・表示・一時変数生成の整合を取る — `rt.ShowUnit` で operand 参照を残す（[verify](docs/sketch/2026-11-26-wave48-lane-a-unit-payload-splice-verify.md)）
+- [ ] **[wave48 lane B] incremental build cache の dependency hash race**（[prompts](docs/sketch/2026-11-26-wave48-prompts.md)）: manifest へ記録する依存内容を compile 時観測へ寄せる
+- [ ] **[wave48 lane C] `gom build` / `gom run` の module-local transitive emit**（[prompts](docs/sketch/2026-11-26-wave48-prompts.md)）: 同一 module 内の `.gom` source dependency を依存順に emit する
+- [ ] **[wave48 lane D] `.gomi` author metadata の fidelity**（[prompts](docs/sketch/2026-11-26-wave48-prompts.md)）: directive attachment 規則と abstract/private 引き継ぎを実装する
+- [ ] **[wave48 lane E] 文字列操作面の設計と最小実装**（[prompts](docs/sketch/2026-11-26-wave48-prompts.md)）: byte 長・byte 範囲を基礎にし、rune 走査を明示的な面に分ける
+- [ ] **[wave48 lane F] spec / explain の小さな mismatch 掃除**（[prompts](docs/sketch/2026-11-26-wave48-prompts.md)）: record abstract、零引数 extern、E0513、`Go.conv` List 制限を同期する
+
 - [x] **[task] stdlib に `List.filter_map` / `List.find_map` を追加**: `fold` で回すしかない現状 — selfish 移植で要望（[sketch](docs/sketch/ja/2026-11-24-selfish-port.md)、wave43 lane F）。実装済み: `@extern` buffer-built Go impl（`stdlib/list/impl.go` の `FilterMap`/`FindMap`）、`noescape` directive 付き（wave44 lane F）
 
 ### wave47 採択済み lane（[prompts](docs/sketch/2026-11-25-wave47-prompts.md) — 2026-11-25 採否確定、順 B→F→C→A→D）

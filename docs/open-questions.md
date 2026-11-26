@@ -15,7 +15,7 @@
 - [x] ビット演算子の提供形: `|`/`&`/`^`/shift がなく、Go のフラグ合成（`os.O_APPEND|os.O_CREATE|os.O_WRONLY`）を `+` で代用するしかない。`<<`/`>>` は関数合成に使用済みで名称の余地が狭い（[problem](problems/2026-11-01-operator-coverage.md)、sandbox 探索 jot で再観測 — [sketch](sketch/2026-11-23-sandbox-missing-features.md)）。wave37 lane B で decision 化 — 三重字 `&&&`/`|||`/`^^^`/`<<<`/`>>>`（+`&&^`）を推薦（[decision](decisions/2026-11-23-bit-operators.md)、[prompts](sketch/2026-11-23-wave37-prompts.md)）。**2026-11-24 採択・実装済み** — wave38 lane B で `&&&`/`&&^`/`|||`/`^^^`/`<<<`/`>>>` として実装
 - [x] nil の綴り: wave37 lane C — decision [2026-11-23-nil-spelling](decisions/2026-11-23-nil-spelling.md)（`Go.nil` ユニバーサル builtin）。**2026-11-24 採択** — 実装は wave38 lane C
 - [x] 部分適用・`Unit` 残りの関数値が値位置に流れたときの lint: `fmt.Println` 等に残りパラメータを持つ関数値を渡すとエラーにならず `0x...` が印字される（同 sketch、probes/method の `string i` 事例）。wave39 lane C で調査 → [decision](decisions/2026-11-24-partial-application-lint.md) 採択: `ignore`・`_` 束縛・match `_` 腕の 3 面で `*types.Func` の捨てを警告（`//gom:allow` の warning 拡張が前提）。実装は wave40 lane A。**残問**: `any` 引数経由で Go へ渡る関数値は対象外（decision で明示的に open のまま。run 2 の recheck/partapp でも `fmt.Println f` が無警告で `0x...` 表示になることを再確認 — [recheck](sketch/ja/2026-11-24-sandbox-explorer2-recheck.md)）
-- [ ] 文字列の操作面（len・部分列・添字）をどう提供するか: `strings.Join`/`Split` は Go の `strings` 経由で足りるが、`len(s)`・`s[i]`・`s[lo:hi]` 相当がなく、文字集合の走査は `strings.Split (s, "")` + `List.get` の迂回になる（run 2 の passgen）。組み込み `String` のメンバー面か stdlib パッケージか（sandbox 探索 run 2 — [recheck](sketch/ja/2026-11-24-sandbox-explorer2-recheck.md)）
+- [x] 文字列の操作面（len・部分列・添字）をどう提供するか — wave48 lane E として採択（2026-11-26、[prompts](sketch/2026-11-26-wave48-prompts.md)）。byte 長・byte 範囲を基礎にし、rune 走査を明示的な面に分ける。実装は wave48 lane E
 - [ ] フィールド名の共通する record を並べたときの record literal の曖昧さ（E0407）を緩和するか: `UnvalidatedOrder` → `ValidatedOrder` のような段階型パターンでは同じフィールド名が自然に並び、literal ごとに `let v : T` 注釈が要る。フィールド型・文脈での絞り込みは考えられるか（run 2 の shop/ — [recheck](sketch/ja/2026-11-24-sandbox-explorer2-recheck.md)、[log](sketch/ja/2026-11-24-sandbox-explorer2-log.md)）
 
 ### Go 相互運用
@@ -43,7 +43,8 @@
 - [x] `--strict` / 診断フィルタ → 採用・実装済み（[decisions/strict-mode](decisions/2026-11-22-strict-mode.md)）: リラックスは `//gom:allow CODE` ディレクティブで relaxable コードのみ（初期 E0301/E0302）、厳格方向は warnings→errors の exit code（`-strict` / `-strict=CODES`、wave32 PR #129）
 - [ ] `gom fix` でも `.gomi` 適合検査を走らせるか（`gom check`/`build`/`test` は走らせると決定済み — [decision](decisions/2026-11-04-gomi-conformance-in-gom-test.md)。`info`/`dump` は対象外）。2026-11-05 に検討して見送り: 適合診断は fix 候補プールに加わるだけ・ゲート無し・診断非表示という形が妥当だが、現状 E0601/E0603/E0604 に safe fix がなく観測差ゼロのため先送り。interface 診断に safe fix が付くなど価値が具体化した時点で再検討する（[検討の記録](decisions/2026-11-05-gomi-conformance-in-gom-fix.md)）。2026-11-24 wave43 lane E で再確認 — 状況不変、保留を維持
 - [x] ~~`gom run`（`go run` 相当の実行経路）~~ → wave19 で採用・実装済み: compile → temp dir への `go build -o` → 子プロセス exec（引数 passthrough・exit code 保全・signal kill は 128+signal）。実行中の出力は対象プログラムが stdout/stderr を所有し、gom の JSON message stream は失敗時のみ（[decision](decisions/2026-11-18-gom-run.md)）
-- [ ] `.gomi` の abstract/private 意図を再生成に残す経路がない — abstract 化・非公開化の意図を生成に残す経路がなく、draft への手編集が再生成で消える。`.gom` 属性か `.gomi` ディレクティブで表し `gom info` が引き継ぐ仕組みが要る（`//gom:mutable` の「著者記述・再生成引き継ぎ」モデルを広げる案がありうる）（sandbox 探索 run 2 — [gotchas](sketch/ja/2026-11-24-sandbox-explorer2-gotchas.md) §3）。wave47 lane C では対象外
+- [x] `.gomi` の abstract/private 意図を再生成に残す経路がない — wave48 lane D として採択（2026-11-26、[prompts](sketch/2026-11-26-wave48-prompts.md)）。`.gomi` directive で表し `gom info` が引き継ぐ。実装は wave48 lane D
+
 ## Future work（v1 では扱わないと決めたもの）
 
 - [x] ~~ラベル付き引数の制限の緩和~~ → 調査済み、unlabeled→labeled の一方向 introduction を採択・実装済み（2026-11-23、[decision](decisions/2026-11-23-labeled-arg-relaxation.md)、wave36 lane B）。meta へのラベル制約の後送りと位置引数の labeled 充填は reject

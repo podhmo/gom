@@ -79,7 +79,7 @@ func (g *gen) showScalar(name string, x ast.Expr) ast.Expr {
 	case "String":
 		return sv("Quote", x)
 	case "Unit":
-		return &ast.BasicLit{Kind: token.STRING, Value: `"()"`}
+		return &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual(rtPath) + "ShowUnit"), Args: []ast.Expr{x}}
 	case "Bool":
 		return sv("FormatBool", x)
 	case "Int", "Int64":

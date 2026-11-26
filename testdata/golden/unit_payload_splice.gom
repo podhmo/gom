@@ -1,0 +1,13 @@
+package main
+
+import go "fmt"
+
+fn run () -> Result Unit String = Ok ()
+fn answer () -> String = match (run ()) {
+  Ok n -> "ok ${n}"
+  Err e -> "err ${e}"
+}
+fn main () -> Unit = {
+  ignore (fmt.Println (answer ()))
+  ()
+}
