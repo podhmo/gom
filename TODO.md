@@ -29,7 +29,7 @@
 - [x] **[wave48 lane C] `gom build` / `gom run` の module-local transitive emit**（[prompts](docs/sketch/2026-11-26-wave48-prompts.md)）: 同一 module 内の `.gom` source dependency を依存順に emit する（[decision](docs/decisions/2026-11-26-module-local-transitive-emit.md)、[verify](docs/sketch/2026-11-26-wave48-lane-c-transitive-emit-verify.md)）。依存: wave48 lane B
 - [x] **[wave48 lane D] `.gomi` author metadata の fidelity**（[prompts](docs/sketch/2026-11-26-wave48-prompts.md)）: directive attachment 規則と abstract/private 引き継ぎを実装する
 - [x] **[wave48 lane E] 文字列操作面**（[prompts](docs/sketch/2026-11-26-wave48-prompts.md)）: stdlib `str` package に byte length/index/range と明示的な rune decode を実装（[decision](docs/decisions/2026-11-26-string-byte-surface.md)、[verify](docs/sketch/2026-11-26-wave48-lane-e-string-surface-verify.md)）
-- [ ] **[wave48 lane F] spec / explain の小さな mismatch 掃除**（[prompts](docs/sketch/2026-11-26-wave48-prompts.md)）: record abstract、零引数 extern、E0513、`Go.conv` List 制限を同期する
+- [x] **[wave48 lane F] spec / explain の小さな mismatch 掃除**（[prompts](docs/sketch/2026-11-26-wave48-prompts.md)）: record abstract、零引数 extern、E0513、`Go.conv` List 制限を同期する
 
 - [x] **[task] stdlib に `List.filter_map` / `List.find_map` を追加**: `fold` で回すしかない現状 — selfish 移植で要望（[sketch](docs/sketch/ja/2026-11-24-selfish-port.md)、wave43 lane F）。実装済み: `@extern` buffer-built Go impl（`stdlib/list/impl.go` の `FilterMap`/`FindMap`）、`noescape` directive 付き（wave44 lane F）
 
@@ -95,7 +95,7 @@
 - [x] **[task] scoped-cleanup 代替経路の文書化（案 D）**: `run_result` の GoError 制約を越えるパターンを helper で書く例を guide（Scope 節）と spec に追記（案 D 採択済み — [decision](docs/decisions/2026-11-23-scope-cleanup-extension.md)、wave35 lane B / PR #150）
 - [ ] **D-3 `README.md` を書く**: 言語の概要・ビルド/実行の quick start・ツール群（`gom build`/`check`/`fmt`/`info`）・ドキュメントへの導線（spec/design/tutorial）を載せる。**プロジェクト終盤に書く** — 機能が増えるたびに更新対象になるのを避けるため、内容が安定してから一括で書く（ユーザー指定）。PR #3 で英語 README の初版は入ったが、十分性の最終判定は終盤に行う
 - [ ] **D-4 tutorial/examples の go.mod 配置の整理**: tutorial の各章にはほぼ同形の go.mod がある（実質 `tutorial_test.go` が scratch module へコピーする用途だけで使い、`run.sh` は自前生成）。章側で生成するか集約するかは、gom がパッケージとして取り込まれる形（examples/tutorial が利用者からどう見えるか）を決めるタイミングで整理する。外部依存を取り込んでいない現状では不要。**D-3 と同程度の後の作業**（ユーザー指定）
-- [ ] **[task] spec §7 に record の abstract 宣言を明記する**: `.gomi` に `type T` と bare 宣言すると record 型でも import 側の record literal が E0401 で封じられる（sandbox run 2 の `shop/domain` で実検証）が、spec §7 のルール 3 は sum type にしか言及していない。record にも同じ規則が効くことを明記する（[gaps](docs/implementation-gaps.md) 登録済み、[検証](docs/sketch/ja/2026-11-24-sandbox-explorer2-sumtypes.md)）
+- [x] **[task] spec §7 に record の abstract 宣言を明記する**: `.gomi` に `type T` と bare 宣言すると record 型でも import 側の record literal が E0401 で封じられる（sandbox run 2 の `shop/domain` で実検証）が、spec §7 のルール 3 は sum type にしか言及していない。record にも同じ規則が効くことを明記する（[gaps](docs/implementation-gaps.md) 登録済み、[検証](docs/sketch/ja/2026-11-24-sandbox-explorer2-sumtypes.md)）
 
 ### P0 Go 出力の実現可能性の検証
 

@@ -943,7 +943,7 @@ embed.FS — and the directive needs at least one file pattern
 **Severity:** error · **Phase:** check · **Spec:** §8.6
 
 Go.nil produces nil for any nil-able Go type — pointers,
-channels, Go.Slice, Go.Map, Go.Any, GoError, and named Go types
+channels, Go.Slice, Go.Map, Go.Any, GoError, Go.FuncN, and named Go types
 whose underlying can hold nil (os.DirEntry, sort.IntSlice). The
 result type is solved from context; when it settles to a type that
 cannot hold nil — Int, a record, a sum type — Go.nil is E0513. An
