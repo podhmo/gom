@@ -90,10 +90,13 @@ func scanAbstract(src []byte) map[string]bool {
 		return nil
 	}
 	out := map[string]bool{}
-	for _, line := range attachedDirectiveLines(src, "//gom:abstract ") {
-		fields := strings.Fields(strings.TrimPrefix(line, "//gom:abstract "))
-		if _, ok := counts[fields[0]]; len(fields) == 1 && ok {
-			out[fields[0]] = true
+	for _, line := range attachedDirectivePairs(src, "//gom:abstract ") {
+		fields := strings.Fields(strings.TrimPrefix(line.text, "//gom:abstract "))
+		target := strings.Fields(line.target)
+		if len(fields) == 1 && len(target) >= 2 && target[0] == "type" && target[1] == fields[0] {
+			if _, ok := counts[fields[0]]; ok {
+				out[fields[0]] = true
+			}
 		}
 	}
 	return out

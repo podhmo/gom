@@ -56,8 +56,23 @@ func scanDirective(src []byte, prefix string) map[string][]int {
 // to a contiguous line-comment run immediately preceding a .gomi
 // declaration. The declaration may start with an attribute line
 // (`@extern`/`@method`), in which case the run attaches there.
+type attachedDirectiveLine struct {
+	text   string
+	target string
+}
+
 func attachedDirectiveLines(src []byte, prefix string) []string {
-	var out, pending []string
+	pairs := attachedDirectivePairs(src, prefix)
+	out := make([]string, len(pairs))
+	for i, p := range pairs {
+		out[i] = p.text
+	}
+	return out
+}
+
+func attachedDirectivePairs(src []byte, prefix string) []attachedDirectiveLine {
+	var out []attachedDirectiveLine
+	var pending []string
 	inBlock := false
 	for _, raw := range strings.Split(string(src), "\n") {
 		inside := inBlock
@@ -74,7 +89,9 @@ func attachedDirectiveLines(src []byte, prefix string) []string {
 			continue
 		}
 		if interfaceDeclStart(line) {
-			out = append(out, pending...)
+			for _, text := range pending {
+				out = append(out, attachedDirectiveLine{text: text, target: line})
+			}
 		}
 		pending = nil
 	}

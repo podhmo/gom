@@ -60,3 +60,16 @@ func TestScanDirectiveAcceptsTabAfterKeyword(t *testing.T) {
 		t.Fatalf("ScanNoescape = %#v, want tabbed", got)
 	}
 }
+
+func TestScanAbstractRequiresTypeTarget(t *testing.T) {
+	src := []byte(`package m
+
+//gom:abstract Queue
+fn unrelated () -> Int
+
+type Queue
+`)
+	if got := scanAbstract(src); got["Queue"] {
+		t.Fatalf("scanAbstract = %#v, want no cross-declaration claim", got)
+	}
+}
