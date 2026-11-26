@@ -15,6 +15,7 @@ func TestApplyParamExpectationsDoesNotBindInferenceState(t *testing.T) {
 	}
 	sp := diag.SpanIn("test.gom", 1, 2)
 	accT := &types.Con{Name: "Acc"}
+	c.tyCons[conKey{name: "Acc"}] = &typeInfo{kind: kindRecord}
 	a := c.newMeta(sp, "the folded element")
 	b := c.newMeta(sp, "the fold accumulator")
 	param := func(t types.Type) types.FuncParam { return types.FuncParam{Type: t} }

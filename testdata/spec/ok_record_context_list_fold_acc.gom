@@ -6,3 +6,5 @@ type Other = { count: Int }
 fn total (xs: List Int) -> Acc = List.fold (fn acc x -> { acc with count = acc.count + x }) { count = 0 } xs
 
 fn total_pipe (xs: List Int) -> Acc = xs |> List.fold (fn acc x -> { acc with count = acc.count + x }) { count = 0 }
+
+fn total_any (xs: List Int) -> Go.Any = xs |> List.fold (fn (acc: Acc) x -> { acc with count = acc.count + x }) (Acc { count = 0 })

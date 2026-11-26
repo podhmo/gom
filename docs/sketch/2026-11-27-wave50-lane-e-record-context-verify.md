@@ -40,5 +40,5 @@ wave-process の運用どおり、実装前に spec fixture を追加して red 
 
 - 静的に名指せる record 型がどこにもない ad hoc accumulator shape は依然として作れない。wave50 lane E の scope どおり匿名 record 型の発明や structural record typing は入っていない。必要なら「匿名 record 型 / structural record を導入するか」の open question 候補として closeout で扱う
 - 注釈なしラムダのパラメータ seeding は record 型だけの限定例外。`Go.Any` など record 以外の expected parameter を seed するかは従来どおり別問題で、`E0401_go_any_lambda_use` の意味は変えていない
-- pipe では無名 record literal を含む部分適用 callee にだけ結果期待型を渡す。record literal を含まない一般の pipe 推論は変えていない
+- pipe では無名 record literal を含み、かつ結果期待型に record 型を含む部分適用 callee にだけ結果期待型を渡す。record literal を含まない一般の pipe 推論は変えていない
 - generic 適用の speculative propagation は、供給スロットが静的に決まり、かつ引数に直接の無名 record literal がある場合に限定している。spread や未決定スロット、over-application には広げていない

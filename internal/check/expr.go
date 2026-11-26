@@ -2111,7 +2111,7 @@ func goCalleeSym(e Expr) *resolve.Symbol {
 // piped input is intentionally fresh: only the result side is known,
 // and pipeCall still links the input when the argument is checked.
 func (c *checker) pipeCalleeWant(e syntax.Expr, want types.Type, sp diag.Span) types.Type {
-	if want == nil || !applyHasAnonRecordLit(e) {
+	if want == nil || !c.containsRecordType(want) || !applyHasAnonRecordLit(e) {
 		return nil
 	}
 	input := c.newMeta(sp, "the piped argument's type")
@@ -2154,7 +2154,7 @@ func (c *checker) pipeArgWant(fn Expr) types.Type {
 	}
 	if fs, ok := types.Chase(fn.Type()).(*types.Func); ok &&
 		len(fs.Params) > 0 && fs.Params[0].Label == "" &&
-		containsGoAny(types.Chase(fs.Params[0].Type)) {
+		(containsGoAny(types.Chase(fs.Params[0].Type)) || c.isRecordType(fs.Params[0].Type)) {
 		return fs.Params[0].Type
 	}
 	return nil
@@ -3088,6 +3088,41 @@ func (c *checker) isRecordType(t types.Type) bool {
 	}
 	ti, ok := c.tyCons[conKey{qual: con.Qual, name: con.Name}]
 	return ok && ti.kind == kindRecord
+}
+
+func (c *checker) containsRecordType(t types.Type) bool {
+	if c.isRecordType(t) {
+		return true
+	}
+	switch t := types.Chase(t).(type) {
+	case *types.Con:
+		for _, a := range t.Args {
+			if c.containsRecordType(a) {
+				return true
+			}
+		}
+	case *types.Func:
+		for _, p := range t.Params {
+			if c.containsRecordType(p.Type) {
+				return true
+			}
+		}
+		return c.containsRecordType(t.Ret)
+	case *types.Tuple:
+		for _, e := range t.Elems {
+			if c.containsRecordType(e) {
+				return true
+			}
+		}
+	case *types.Go:
+		for _, a := range t.Args {
+			if c.containsRecordType(a) {
+				return true
+			}
+		}
+	case *types.Meta, *types.Var:
+	}
+	return false
 }
 
 // checkLambda types an anonymous function `fn x y -> body`.

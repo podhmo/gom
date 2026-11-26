@@ -18,3 +18,5 @@ fn simple (x: Int) -> Box = {
   ignore returned
   { acc = { count = x } }
 }
+
+fn pipe_arg (x: Int) -> Acc = takes <| { count = x }

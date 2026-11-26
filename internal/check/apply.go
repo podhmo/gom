@@ -399,7 +399,10 @@ func (x *applyParamExpectations) at(i int) (types.Type, bool) {
 		return nil, false
 	}
 	t, ok := x.c.reifyPrefixType(x.params[i], x.open, x.sp)
-	return t, ok
+	if !ok || !x.c.containsRecordType(t) {
+		return nil, false
+	}
+	return t, true
 }
 
 // useExpectedPrefixType binds the inference metas inside rt from a
@@ -873,7 +876,7 @@ func (c *checker) checkGomApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol
 		case pi >= 0:
 			used[pi] = true
 			pt = params[pi].Type
-			if xp, ok := expectations.at(pi); ok {
+			if xp, ok := expectations.at(pi); ok && !c.isRecordType(pt) {
 				pt = xp
 				contextual = true
 			}
