@@ -93,6 +93,10 @@ Gom の開発は「wave」という単位で回す。1 wave = 複数 lane（細�
   merge / base retarget は最後の調整点として podhmo に残す。
 - Devin Review の finding は lane 内でトリアージして潰す
   （resolved = 修正 commit、rejected/escalated は理由つき）。
+- lane 内で scope を削る・後続へ送る場合は、lane では実装と検証に
+  集中し、残件を verify と round 入力へ具体的に記録する。台帳への
+  登録は締め作業で行う。verify 側に残件の中身がなければ closeout で
+  拾えないため、「対象外」の一言だけで済ませない。
 
 ### 4. 締め作業（lane ではない独立作業）
 
@@ -141,8 +145,21 @@ Gom の開発は「wave」という単位で回す。1 wave = 複数 lane（細�
   読み、索引系の更新忘れ（README の表、`docs/error-codes.md`、
   decisions README — `go generate ./internal/tool/decisionsdoc`）
   やレーン間の不整合を拾って直す。
+- **scope 外・後送り残件の台帳登録**: 各 lane の verify、review、
+  round 入力から残件を集め、対応意思のある実作業は wave 番号を持たない
+  独立な `[task]` として `TODO.md` に、未決定の設計判断は
+  `docs/open-questions.md` に、仕様・実装・文書のずれは
+  `docs/implementation-gaps.md` に登録する。round や verify に
+  「将来 wave」「今回は対象外」と書くだけでは管理したことにしない。
+  `implementation-gaps` はずれの台帳であり、実作業の管理先ではない。
+  この登録を終えるまで wave を閉じない。
 - 台帳の掃除: open-questions / implementation-gaps / TODO.md の
   解消済みチェック漏れ sweep、problems/ 残件の台帳化判定。
+  TODO.md の `[x]` エントリは todo-md skill の GC 手順どおり
+  `TODO-archive.md` へ移し、live な TODO.md には `[ ]` / `[-]`
+  だけを残す。wave ごとの見出しは進行中の作業 queue であり、
+  完了済み lane の進捗表として残さない。GC は feature PR とは分け、
+  独立した consolidation PR で行う。
 - 次 wave の prompts 草案を作り、フェーズ 2 に戻る。
 
 ## 運用上の細目

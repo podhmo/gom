@@ -26,6 +26,7 @@
 
 ## 境界
 
-- fragment example をすべて self-contained な例へ書き換える作業は lane A に入れていない
-- E0204/E0503 を実装側へ寄せるか、文書・code table 側へ寄せるかは未決定のまま残す
+- fragment example をすべて self-contained な例へ書き換える作業は lane A に入れていない。wave50 closeout で TODO 登録すべき残件候補: fragment 59 件を順に self-contained 化するか、実行不能な例として表現/分類を明確化する
+- E0204/E0503/E0704 を実装側へ寄せるか、文書・code table 側へ寄せるかは未決定のまま残す。wave50 closeout で open-questions 登録すべき decision 候補であり、決定後の実装・fixture/example 同期は TODO 登録が要る
+- unit-only 分類の診断を source-level fixture へ寄せる再分類と、coverage meta-test の意味検証強化も wave50 closeout で TODO 登録すべき残件候補
 - `docs/error-codes.md` と code table の一致は既存 `TestErrorCodesDocInSync` に任せ、この lane では重複実装しない
