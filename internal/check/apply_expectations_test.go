@@ -46,11 +46,57 @@ func TestApplyParamExpectationsDoesNotBindInferenceState(t *testing.T) {
 	if len(c.diags) != 0 {
 		t.Fatalf("lookahead emitted diagnostics: %v", c.diags)
 	}
-	got, ok := x.at(1)
+	got, ok := x.at(1, b)
 	if !ok {
 		t.Fatal("accumulator parameter did not gain the static result type")
 	}
 	if !types.Equal(got, accT) {
 		t.Fatalf("accumulator expectation = %v, want %v", got, accT)
+	}
+
+	before = len(c.metas)
+	folder, ok := x.at(0, folderT)
+	if !ok {
+		t.Fatal("folder parameter did not gain the static result type")
+	}
+	wantFolder := types.Fn(accT, param(accT), param(a))
+	if !types.Equal(folder, wantFolder) {
+		t.Fatalf("folder expectation = %v, want %v", folder, wantFolder)
+	}
+	if len(c.metas) != before {
+		t.Fatalf("merging an open speculative leaf left %d forwarding metas", len(c.metas)-before)
+	}
+}
+
+func TestMergeContextualTypeFillsOpenArgs(t *testing.T) {
+	c := &checker{metas: map[*types.Meta]*metaRec{}}
+	sp := diag.SpanIn("test.gom", 1, 2)
+	open := c.newMeta(sp, "open")
+	acc := &types.Con{Name: "Acc"}
+	box := func(arg types.Type) types.Type {
+		return &types.Con{Name: "Box", Args: []types.Type{arg}}
+	}
+
+	got := c.mergeContextualType(box(open), box(acc), map[*types.Meta]*types.Meta{}, sp)
+	if !types.Equal(got, box(acc)) {
+		t.Fatalf("mergeContextualType filled = %v, want %v", got, box(acc))
+	}
+}
+
+func TestMergeContextualTypeKeepsEarlierConcreteSolution(t *testing.T) {
+	c := &checker{metas: map[*types.Meta]*metaRec{}}
+	sp := diag.SpanIn("test.gom", 1, 2)
+	open := c.newMeta(sp, "open")
+	acc := &types.Con{Name: "Acc"}
+	other := &types.Con{Name: "Other"}
+	box := func(arg types.Type) types.Type {
+		return &types.Con{Name: "Box", Args: []types.Type{arg}}
+	}
+
+	if got := c.mergeContextualType(box(acc), box(other), map[*types.Meta]*types.Meta{}, sp); !types.Equal(got, box(acc)) {
+		t.Fatalf("concrete original = %v, want %v", got, box(acc))
+	}
+	if got := c.mergeContextualType(open, open, map[*types.Meta]*types.Meta{}, sp); got != open {
+		t.Fatalf("open original = %v, want the original meta", got)
 	}
 }

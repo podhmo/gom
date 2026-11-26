@@ -23,10 +23,10 @@ generic な関数や constructor の適用では、適用結果に静的な期�
 
 ## 実装
 
-`checkGomApply` は静的に fill できる適用について、結果の期待型と残余型を clone 上で単一化し、具体化が分かったパラメータだけを文脈期待型として引数チェックに使う。引数自体はそのあと本来のパラメータ型へ `conformExpr` するため、モノモーフィックな局所推論を素通りしない。`checkLambda` は expected parameter が record 型のときだけ注釈なしパラメータへその型を seed する。pipe は無名 record literal を含む部分適用 callee に限り、結果期待型を `input -> expected` の形で渡す。
+`checkGomApply` は静的に fill できる適用について、結果の期待型と残余型を clone 上で単一化し、具体化が分かったパラメータだけを文脈期待型として引数チェックに使う。callee のパラメータ型が `Box a` のように record constructor と開いた型引数を持つときは、文脈側へ丸ごと置き換えず型 constructor ごとに merge し、すでに推論済みの具体型を残しながら開いた部分だけを `Box Inner` のような文脈情報で埋める。引数自体はそのあと本来のパラメータ型へ `conformExpr` するため、モノモーフィックな局所推論を素通りしない。`checkLambda` は expected parameter が record 型のときだけ注釈なしパラメータへその型を seed する。pipe は無名 record literal を含む部分適用 callee に限り、結果期待型を `input -> expected` の形で渡す。
 
 ## 検証
 
-- spec fixture: `ok_record_context_simple_positions`（注釈・return・generic 呼出し引数・record field）、`ok_record_context_constructor_payload`、`ok_record_context_list_fold_acc`（直接適用と `|>`）
+- spec fixture: `ok_record_context_simple_positions`（注釈・return・generic 呼出し引数・record field）、`ok_record_context_constructor_payload`、`ok_record_context_list_fold_acc`（直接適用と `|>`）、`ok_record_context_nested_generic`（generic record の型引数 merge）
 - negative fixture: `E0407_record_context_no_backward`（後続使用から逆推論しない）、`E0401_record_context_prefix_priority`（型名前置優先）
-- unit test: `TestApplyParamExpectationsDoesNotBindInferenceState`
+- unit test: `TestApplyParamExpectationsDoesNotBindInferenceState`、`TestMergeContextualTypeFillsOpenArgs`、`TestMergeContextualTypeKeepsEarlierConcreteSolution`

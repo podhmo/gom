@@ -394,15 +394,114 @@ func (c *checker) applyParamExpectations(fnT types.Type, params []types.FuncPara
 	return x
 }
 
-func (x *applyParamExpectations) at(i int) (types.Type, bool) {
+func (x *applyParamExpectations) at(i int, original types.Type) (types.Type, bool) {
 	if x == nil || i < 0 || i >= len(x.params) || !x.informative[i] {
 		return nil, false
 	}
 	if !x.c.containsRecordType(x.params[i]) {
 		return nil, false
 	}
-	t, ok := x.c.reifyPrefixType(x.params[i], x.open, x.sp)
-	return t, ok
+	merged := x.c.mergeContextualType(original, x.params[i], x.open, x.sp)
+	if types.Equal(merged, original) {
+		return nil, false
+	}
+	return merged, true
+}
+
+// mergeContextualType combines the callee's current parameter type
+// with its speculative expectation at type-constructor granularity.
+// The current type is authoritative wherever both sides are concrete;
+// speculative concrete structure fills open parts. Open speculative
+// leaves are not reified when the current type already has a node for
+// the position — using that node keeps ordinary inference sharing and
+// avoids orphaned forwarding variables.
+func (c *checker) mergeContextualType(original, speculative types.Type, open map[*types.Meta]*types.Meta, sp diag.Span) types.Type {
+	o := types.Chase(original)
+	x := types.Chase(speculative)
+	if _, openLeaf := x.(*types.Meta); openLeaf {
+		return o
+	}
+	if _, openOriginal := o.(*types.Meta); openOriginal {
+		t, _ := c.reifyPrefixType(x, open, sp)
+		return t
+	}
+	switch o := o.(type) {
+	case *types.Con:
+		xc, ok := x.(*types.Con)
+		if !ok || o.Qual != xc.Qual || o.Name != xc.Name || len(o.Args) != len(xc.Args) {
+			return o
+		}
+		args, changed := c.mergeContextualTypeSlice(o.Args, xc.Args, open, sp)
+		if !changed {
+			return o
+		}
+		return &types.Con{Qual: o.Qual, Name: o.Name, Args: args}
+	case *types.Func:
+		xf, ok := x.(*types.Func)
+		if !ok {
+			return o
+		}
+		op, or := flattenFunc(o)
+		xp, xr := flattenFunc(xf)
+		if len(op) != len(xp) {
+			return o
+		}
+		ps := make([]types.FuncParam, len(op))
+		changed := false
+		for i, fp := range op {
+			if fp.Label != xp[i].Label {
+				return o
+			}
+			nt := c.mergeContextualType(fp.Type, xp[i].Type, open, sp)
+			changed = changed || nt != fp.Type
+			ps[i] = types.FuncParam{Label: fp.Label, Type: nt}
+		}
+		ret := c.mergeContextualType(or, xr, open, sp)
+		changed = changed || ret != or
+		if !changed {
+			return o
+		}
+		return types.Fn(ret, ps...)
+	case *types.Tuple:
+		xt, ok := x.(*types.Tuple)
+		if !ok || len(o.Elems) != len(xt.Elems) {
+			return o
+		}
+		elems, changed := c.mergeContextualTypeSlice(o.Elems, xt.Elems, open, sp)
+		if !changed {
+			return o
+		}
+		return &types.Tuple{Elems: elems}
+	case *types.Go:
+		xg, ok := x.(*types.Go)
+		if !ok || o.Ref != xg.Ref || len(o.Args) != len(xg.Args) {
+			return o
+		}
+		args, changed := c.mergeContextualTypeSlice(o.Args, xg.Args, open, sp)
+		if !changed {
+			return o
+		}
+		return &types.Go{Ref: o.Ref, Args: args}
+	case *types.Meta:
+		return o
+	case *types.Var:
+		return o
+	default:
+		panic("unreachable")
+	}
+}
+
+func (c *checker) mergeContextualTypeSlice(original, speculative []types.Type, open map[*types.Meta]*types.Meta, sp diag.Span) ([]types.Type, bool) {
+	out := make([]types.Type, len(original))
+	changed := false
+	for i, t := range original {
+		out[i] = c.mergeContextualType(t, speculative[i], open, sp)
+		changed = changed || out[i] != t
+	}
+	if !changed {
+		return original, false
+	}
+	return out, true
 }
 
 // useExpectedPrefixType binds the inference metas inside rt from a
@@ -876,7 +975,7 @@ func (c *checker) checkGomApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol
 		case pi >= 0:
 			used[pi] = true
 			pt = params[pi].Type
-			if xp, ok := expectations.at(pi); ok && !c.isRecordType(pt) {
+			if xp, ok := expectations.at(pi, pt); ok {
 				pt = xp
 				contextual = true
 			}

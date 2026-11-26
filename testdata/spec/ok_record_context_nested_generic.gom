@@ -1,0 +1,10 @@
+package main
+
+type Inner = { x: Int, y: Int }
+type Inner2 = { x: Int, y: Int }
+type Box a = { inner: a }
+type Box2 a = { inner: a }
+
+fn f (box: Box a) (x: a) -> Box a = box
+
+fn run () -> Box Inner = f { inner = { x = 1, y = 2 } } (Inner { x = 1, y = 2 })
