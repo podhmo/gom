@@ -208,7 +208,15 @@ func newBuildCache() *buildCache {
 // replace the manifest after rewriting outputs; a read-only cache
 // must degrade to no cache rather than freeze a stale manifest.
 func cacheDirWritable(base string) bool {
-	if err := os.MkdirAll(base, 0o755); err != nil {
+	st, err := os.Stat(base)
+	if err != nil {
+		// An absent cache cannot hold a stale manifest. Whether its
+		// parent is writable only affects commit, which already
+		// degrades to a miss — do not create the path here: it may
+		// collide with a file the build itself was asked to write.
+		return os.IsNotExist(err)
+	}
+	if !st.IsDir() {
 		return false
 	}
 	f, err := os.CreateTemp(base, ".probe-*")

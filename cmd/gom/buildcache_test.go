@@ -124,6 +124,18 @@ func TestNewBuildCache_ReadOnlyDirDisabled(t *testing.T) {
 	}
 }
 
+func TestNewBuildCache_MissingDirIsNotCreated(t *testing.T) {
+	base := filepath.Join(t.TempDir(), "cache")
+	t.Setenv(cacheDirEnv, base)
+	t.Setenv(cacheOffEnv, "")
+	if bc := newBuildCache(); bc == nil {
+		t.Fatal("absent cache directory was not usable")
+	}
+	if _, err := os.Stat(base); !os.IsNotExist(err) {
+		t.Fatalf("cache probe created %s (stat err=%v)", base, err)
+	}
+}
+
 func TestBuildCache_NestedWorkspaceModuleFilesHit(t *testing.T) {
 	root := t.TempDir()
 	service := filepath.Join(root, "service")
