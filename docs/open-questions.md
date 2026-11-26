@@ -21,7 +21,7 @@
 ### 開発体験 / 診断
 
 - [ ] 継続行らしき字下げ行の誤パースを専用診断に畳み込むか: `List.fold` の適用を複数行に書くと E0407/E0402/E0401 が連鎖し、本因（改行で式が切れた）が見えない。NL-2 の文法変更は既 decision どおり採らないが、診断だけを改善する余地はある。字下げだけで括る自動 fix は独立式を別意味に書き換えうるため unsafe（PR #256 U1、Devin Review 指摘、[audit](sketch/2026-11-26-wave48-lane-g-owner-ideas-audit.md)）
-- [ ] `diag.Diagnostic` に `labels` / `details` を足すか: E0301 の不足パターン一覧や E0401 の「期待型の由来」を text/JSON 出力へ構造化して渡す面がない。format 層に `data` を解釈させず phase 側が作る案だが、wire shape と spec の変更が要る（[problem](problems/2026-11-02-text-format-detail-block.md)、PR #256 U2/U6、[audit](sketch/2026-11-26-wave48-lane-g-owner-ideas-audit.md)）
+- [ ] `diag.Diagnostic` に `labels` / `details` を足すか: E0301 の `missing_patterns` は JSON の `data` に既にあるが text 出力へ詳細行として描く面がなく、E0401 の「期待型の由来」のような副 span も表せない。format 層に `data` を解釈させず phase 側が作る案だが、汎用の wire shape と spec の変更が要る（[problem](problems/2026-11-02-text-format-detail-block.md)、PR #256 U2/U6、[audit](sketch/2026-11-26-wave48-lane-g-owner-ideas-audit.md)）
 - [ ] E0201 に typo 候補や import 補完 fix を付けるか: `aera` → `area` のような編集距離候補、module member の typo、未 import の Go package に対する `import go` fix の提供境界が未決（PR #256 U4、[audit](sketch/2026-11-26-wave48-lane-g-owner-ideas-audit.md)）
 - [ ] resolve/type error 後のエラー回復をどこまで広げるか: 未定義名を error type として check に通す、pattern を宣言単位で走らせると 1 回の check で見える情報は増えるが、連鎖診断の抑止と fixture 設計が未決（PR #256 U5、[audit](sketch/2026-11-26-wave48-lane-g-owner-ideas-audit.md)）
 - [ ] module 外での `gom run` scratch module 実行と `gom init` を提供するか: module-local transitive emit は wave48 lane C で解消済み。残りは go.mod のない directory での一時 module 合成と、新規 project の `go.mod`/`main.gom` 雛形生成。tutorial の章別 go.mod 生成ではない（PR #256 U7、[audit](sketch/2026-11-26-wave48-lane-g-owner-ideas-audit.md)）
