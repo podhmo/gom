@@ -1,0 +1,122 @@
+package iface
+
+import (
+	"strings"
+	"testing"
+)
+
+func TestScanDirectiveRequiresAttachment(t *testing.T) {
+	src := []byte(`package m
+
+//gom:noescape detached 0
+
+fn detached (f: Int -> Int) -> Int
+
+//gom:noescape attached 0
+fn attached (f: Int -> Int) -> Int
+
+/// docs and directives share one comment run.
+//gom:noescape documented 0
+fn documented (f: Int -> Int) -> Int
+
+//gom:noescape import_only 0
+import "x"
+
+fn later (f: Int -> Int) -> Int
+`)
+	got := ScanNoescape(src)
+	if len(got) != 2 || len(got["attached"]) != 1 || len(got["documented"]) != 1 {
+		t.Fatalf("ScanNoescape = %#v, want only attached/documented", got)
+	}
+}
+
+func TestScanDirectiveAttachesToAttributeLine(t *testing.T) {
+	src := []byte(`package m
+
+//gom:noescape wrapped 0
+@extern fn wrapped (f: Int -> Int) -> Int
+`)
+	if got := ScanNoescape(src); len(got["wrapped"]) != 1 {
+		t.Fatalf("ScanNoescape = %#v, want wrapped", got)
+	}
+}
+
+func TestScanMutableRequiresAttachment(t *testing.T) {
+	src := []byte(`package m
+
+//gom:mutable Detached
+
+type Detached
+
+//gom:mutable Attached
+type Attached
+`)
+	got := ScanMutable(src)
+	if len(got) != 1 || got[0] != "Attached" {
+		t.Fatalf("ScanMutable = %#v, want [Attached]", got)
+	}
+}
+
+func TestScanDirectiveAcceptsTabAfterKeyword(t *testing.T) {
+	src := []byte("package m\n\n//gom:noescape tabbed 0\nfn\ttabbed (f: Int -> Int) -> Int\n")
+	if got := ScanNoescape(src); len(got["tabbed"]) != 1 {
+		t.Fatalf("ScanNoescape = %#v, want tabbed", got)
+	}
+}
+
+func TestScanAbstractRequiresTypeTarget(t *testing.T) {
+	src := []byte(`package m
+
+//gom:abstract Queue
+fn unrelated () -> Int
+
+type Queue
+`)
+	if got := scanAbstract(src); got["Queue"] {
+		t.Fatalf("scanAbstract = %#v, want no cross-declaration claim", got)
+	}
+}
+
+func TestCanonicalPrivateTextUsesImportPathNotAlias(t *testing.T) {
+	aliases := map[string]string{"p": "example.com/a/p", "p2": "example.com/b/p"}
+	a := canonicalPrivateText("fn f (x: p.T) -> p.T", aliases)
+	b := canonicalPrivateText("fn f (x: p2.T) -> p2.T", map[string]string{"p2": "example.com/a/p"})
+	if a != b {
+		t.Fatalf("canonical private signatures differ by collision alias only:\n%s\n%s", a, b)
+	}
+}
+
+func TestScanAbstractSeesThroughInlineBlockComment(t *testing.T) {
+	src := []byte("package m\n\n//gom:abstract Queue\ntype /* note */ Queue\n")
+	if got := scanAbstract(src); !got["Queue"] {
+		t.Fatalf("scanAbstract = %#v, want Queue", got)
+	}
+}
+
+func TestImportAliasesUnfoldStdlibShortNames(t *testing.T) {
+	src := []byte("package m\n\nimport \"cmp\"\n")
+	if got := importAliases(src)["cmp"]; got != "github.com/podhmo/gom/stdlib/cmp" {
+		t.Fatalf("cmp alias path = %q", got)
+	}
+}
+
+func TestPriorSigTextsUseImportPaths(t *testing.T) {
+	src := []byte("package m\n\nimport \"cmp\"\n\nfn f (x: cmp.Eq Int) -> cmp.Eq Int\n")
+	sigs, _ := priorSigTexts(src)
+	got := sigs["f"]
+	want := canonicalPrivateText("fn f (x: cmp.Eq Int) -> cmp.Eq Int", map[string]string{"cmp": "github.com/podhmo/gom/stdlib/cmp"})
+	if got != want {
+		t.Fatalf("prior sig = %q, want %q", got, want)
+	}
+}
+
+func TestNormalizeQualifiersDoesNotRewriteInsideImportPathKeys(t *testing.T) {
+	aliases := map[string]string{
+		"github": "github.com/acme/lib",
+		"x":      "example.com/x",
+	}
+	got := normalizeQualifiers(canonicalSig("fn f (a: x.T) (b: github.T) -> x.T"), aliases)
+	if strings.Count(got, "<example.com/x>.") != 2 || strings.Count(got, "<github.com/acme/lib>.") != 1 {
+		t.Fatalf("normalized = %q, want stable import keys", got)
+	}
+}

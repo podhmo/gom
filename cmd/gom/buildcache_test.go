@@ -432,3 +432,11 @@ func TestBuildCache_MtimeUnchangedOnIdenticalOutput(t *testing.T) {
 		t.Fatalf("identical output rewrote the file: %v -> %v", fi1.ModTime(), fi2.ModTime())
 	}
 }
+
+func TestCanonHashDetectsDirectiveDetachingBlockComment(t *testing.T) {
+	attached := []byte("package m\n\n//gom:noescape f 0\nfn f (x: Int) -> Int\n")
+	detached := []byte("package m\n\n//gom:noescape f 0\n/* interrupt */\nfn f (x: Int) -> Int\n")
+	if canonHash(attached, false) == canonHash(detached, false) {
+		t.Fatal("canonHash did not change when a block comment detached a directive")
+	}
+}

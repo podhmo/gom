@@ -211,10 +211,25 @@ func (p *printer) seqLines(gaps []gap, items []item, s seqSpec, ind int) []*doc 
 			// directives are name-keyed scans — no attachment needed.
 			if s.keepGomDir && next != nil && e.c != nil &&
 				e.c.c.Kind == syntax.CommentLine &&
-				strings.HasPrefix(e.c.c.Text, "gom:embed") &&
-				!next.embedDir[e.c.c] &&
+				strings.HasPrefix(e.c.c.Text, "gom:") &&
 				(i+1 >= len(ev) || !ev[i+1].blank) {
-				lines = append(lines, docNil)
+				keep := strings.HasPrefix(e.c.c.Text, "gom:embed") && !next.embedDir[e.c.c]
+				if !keep {
+					// Interface directives attach only through an unbroken comment
+					// run. Blank events are normally collapsed away between decls,
+					// so restore one when the input had a blank after this directive
+					// and before the next declaration.
+					itemLine := p.lineOf(next.lo)
+					for blank := e.c.endLine + 1; blank < itemLine; blank++ {
+						if p.blanks[blank] {
+							keep = true
+							break
+						}
+					}
+				}
+				if keep {
+					lines = append(lines, docNil)
+				}
 			}
 		}
 		var out []string

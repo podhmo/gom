@@ -21,19 +21,7 @@ import (
 // `Array` payloads.
 func ScanMutable(src []byte) []string {
 	var names []string
-	inBlock := false
-	for _, raw := range strings.Split(string(src), "\n") {
-		inside := inBlock
-		inBlock = updateBlockState(raw, inBlock)
-		if inside {
-			// The whole line sits inside a block comment — a
-			// directive text there is commented out.
-			continue
-		}
-		line := strings.TrimSpace(raw)
-		if !strings.HasPrefix(line, "//gom:mutable ") {
-			continue
-		}
+	for _, line := range attachedDirectiveLines(src, "//gom:mutable ") {
 		fields := strings.Fields(strings.TrimPrefix(line, "//gom:mutable "))
 		if len(fields) != 1 {
 			continue

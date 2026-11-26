@@ -99,7 +99,12 @@ Rules:
   signature is unchanged. A rewritten extern signature drops them rather
   than moving a positional guarantee onto a different parameter.
   `//gom:mutable` is an author-written claim and also carries within the
-  same package directory. An `@method` line before an
+  same package directory. `//gom:abstract Name` attached to a bare
+  `type Name` keeps the implementation body hidden on regeneration;
+  file-level `//gom:private <declaration>` omits the unchanged member.
+  Member directives count only in the contiguous comment run directly
+  above their declaration (or its attribute line); blank lines detach
+  them. An `@method` line before an
   `fn` keeps the record→Go-interface method set.
 - Drafting command: `gom info FILE|DIR...` (`moon info`-style)
   writes or updates the `.gomi` draft; `-o -` prints it. A stdlib

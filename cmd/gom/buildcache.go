@@ -376,9 +376,10 @@ func canonHash(src []byte, dropTests bool) string {
 	// A directive's attachment also depends on the contiguous
 	// comment run around it (a blank line detaches `//gom:embed`
 	// from the decl below), so fold every comment run that contains
-	// a `//gom:` line, with two adjacency flags per member: 'n' —
-	// the next physical line is non-blank, 'p' — the previous line
-	// is a comment in the same run. Comment text and spacing outside
+	// a `//gom:` line, with adjacency classes per member: '0'/'l'/'b'/'o'
+	// for a next line that is blank, a line comment, a block comment, or
+	// other tokens; 'p' marks a previous line in the same run. Comment text
+	// and spacing outside
 	// such runs cannot change a directive's meaning and stays out.
 	lines := bytes.Split(src, []byte("\n"))
 	isComment := func(i int) bool {
@@ -401,8 +402,18 @@ func canonHash(src []byte, dropTests bool) string {
 			for k := i; k < j; k++ {
 				canon = append(canon, '\n')
 				canon = append(canon, bytes.TrimSpace(lines[k])...)
-				if k+1 < len(lines) && len(bytes.TrimSpace(lines[k+1])) > 0 {
-					canon = append(canon, 'n')
+				if k+1 < len(lines) {
+					next := bytes.TrimSpace(lines[k+1])
+					switch {
+					case len(next) == 0:
+						canon = append(canon, '0')
+					case bytes.HasPrefix(next, []byte("//")):
+						canon = append(canon, 'l')
+					case bytes.HasPrefix(next, []byte("/*")):
+						canon = append(canon, 'b')
+					default:
+						canon = append(canon, 'o')
+					}
 				}
 				if k > i {
 					canon = append(canon, 'p')

@@ -58,6 +58,9 @@ func Draft(srcs []Source, prior []byte) []byte {
 	d.noescape = ScanNoescape(prior)
 	d.notaint = ScanNotaint(prior)
 	d.priorSigs, d.priorPkg = priorSigTexts(prior)
+	d.private = scanPrivate(prior)
+	d.abstract = scanAbstract(prior)
+	d.priorAbstract = priorAbstractTypes(prior)
 	var out strings.Builder
 	pkg := ""
 	for _, s := range srcs {
@@ -79,6 +82,9 @@ func Draft(srcs []Source, prior []byte) []byte {
 		d.noescape = nil
 		d.notaint = nil
 		d.priorSigs = nil
+		d.private = nil
+		d.abstract = nil
+		d.priorAbstract = nil
 	}
 	fmt.Fprintf(&out, "package %s\n", pkg)
 
@@ -112,6 +118,15 @@ func Draft(srcs []Source, prior []byte) []byte {
 	// Sections are separated by a blank line; the file ends with a
 	// single newline.
 	text := strings.TrimRight(body.String(), "\n")
+	if len(d.privateLines) > 0 {
+		slices.Sort(d.privateLines)
+		priv := strings.Join(d.privateLines, "\n")
+		if text != "" {
+			text = priv + "\n\n" + text
+		} else {
+			text = priv
+		}
+	}
 	if len(paths) > 0 && text != "" {
 		out.WriteByte('\n')
 	}
@@ -134,15 +149,19 @@ type imp struct {
 // type-variable naming (per declaration) and the imports the emitted
 // types refer to.
 type drafter struct {
-	vars      map[*types.Var]string // var → display name, reset per decl
-	varCount  int
-	imports   map[string]imp    // path → import
-	usedAlias map[string]string // alias → path (collision detection)
-	mutable   map[string]bool   // carried `//gom:mutable` names
-	noescape  map[string][]int  // prior `//gom:noescape` indices by member
-	notaint   map[string][]int  // prior `//gom:result-notaint` indices by member
-	priorSigs map[string]string // canonical prior member signatures
-	priorPkg  string            // package clause of the prior interface
+	vars          map[*types.Var]string // var → display name, reset per decl
+	varCount      int
+	imports       map[string]imp          // path → import
+	usedAlias     map[string]string       // alias → path (collision detection)
+	mutable       map[string]bool         // carried `//gom:mutable` names
+	noescape      map[string][]int        // prior `//gom:noescape` indices by member
+	notaint       map[string][]int        // prior `//gom:result-notaint` indices by member
+	priorSigs     map[string]string       // canonical prior member signatures
+	priorPkg      string                  // package clause of the prior interface
+	private       map[string]privateClaim // file-level private claims by member
+	privateLines  []string                // claims carried into this draft
+	abstract      map[string]bool         // attached abstract claims by type
+	priorAbstract map[string]int          // prior abstract type parameter counts
 }
 
 // file renders one source's declarations into w, in surface order.
@@ -156,7 +175,10 @@ func (d *drafter) file(w *strings.Builder, s Source) {
 	for _, decl := range s.AST.Decls {
 		d.vars = map[*types.Var]string{} // names restart per decl
 		d.varCount = 0
+		importsBefore := maps.Clone(d.imports)
+		aliasesBefore := maps.Clone(d.usedAlias)
 		var lines []string
+		memberName := ""
 		switch decl := decl.(type) {
 		case *syntax.FnDecl:
 			if decl.TestOnly || decl.Name == nil {
@@ -166,6 +188,7 @@ func (d *drafter) file(w *strings.Builder, s Source) {
 			if td == nil {
 				continue
 			}
+			memberName = decl.Name.Name
 			sig := d.fnDecl(decl.Name.Name, td)
 			lines = []string{sig}
 			if ne := d.noescapeForFn(decl.Name.Name, sig, td); ne != "" {
@@ -178,7 +201,11 @@ func (d *drafter) file(w *strings.Builder, s Source) {
 			if decl.TestOnly {
 				continue
 			}
-			for _, name := range patNames(decl.Pat) {
+			names := patNames(decl.Pat)
+			if len(names) == 1 {
+				memberName = names[0]
+			}
+			for _, name := range names {
 				lines = append(lines, d.letMember(name, typed[name])...)
 			}
 		case *syntax.TypeDecl:
@@ -189,6 +216,7 @@ func (d *drafter) file(w *strings.Builder, s Source) {
 			if td == nil {
 				continue
 			}
+			memberName = decl.Name.Name
 			lines = d.typeDecl(decl.Name.Name, td)
 		case *syntax.TestDecl, *syntax.ImportDecl, *syntax.ExternDecl:
 			continue
@@ -198,6 +226,14 @@ func (d *drafter) file(w *strings.Builder, s Source) {
 		if len(lines) == 0 {
 			continue
 		}
+		if claim, ok := d.private[memberName]; ok && memberName != "" {
+			if claim.canon == canonicalPrivateText(declarationLines(lines), d.currentAliases()) {
+				d.privateLines = append(d.privateLines, "//gom:private "+claim.text)
+				d.imports = importsBefore
+				d.usedAlias = aliasesBefore
+				continue
+			}
+		}
 		writeDoc(w, declDoc(decl))
 		for _, l := range lines {
 			w.WriteString(l)
@@ -205,6 +241,28 @@ func (d *drafter) file(w *strings.Builder, s Source) {
 		}
 		w.WriteByte('\n')
 	}
+}
+
+func (d *drafter) currentAliases() map[string]string {
+	out := map[string]string{}
+	for path, im := range d.imports {
+		out[im.alias] = path
+	}
+	return out
+}
+
+// declarationLines drops directive lines from one rendered member;
+// private claims compare the declaration itself, not the adjacent
+// compiler-managed directives.
+func declarationLines(lines []string) string {
+	var out []string
+	for _, line := range lines {
+		if strings.HasPrefix(line, "//gom:") {
+			continue
+		}
+		out = append(out, line)
+	}
+	return strings.Join(out, "\n")
 }
 
 // fnDecl renders `fn name (p: T) ... -> R`. Parameter groups come
@@ -276,11 +334,12 @@ func priorSigTexts(src []byte) (map[string]string, string) {
 		return nil, ""
 	}
 	out := map[string]string{}
+	aliases := importAliases(src)
 	add := func(name string, sp diag.Span) {
 		if name == "" || sp.Start < 0 || sp.End > len(src) || sp.Start >= sp.End {
 			return
 		}
-		out[name] = canonicalSig(string(src[sp.Start:sp.End]))
+		out[name] = canonicalPrivateText(string(src[sp.Start:sp.End]), aliases)
 	}
 	for _, decl := range f.Decls {
 		switch d := decl.(type) {
@@ -344,14 +403,14 @@ func carriedDirective(prefix, name string, idxs []int, n int) string {
 }
 
 func (d *drafter) carriedNoescape(name, sig string, n int) string {
-	if d.priorSigs[name] != canonicalSig(sig) {
+	if d.priorSigs[name] != canonicalPrivateText(sig, d.currentAliases()) {
 		return ""
 	}
 	return carriedDirective("//gom:noescape ", name, d.noescape[name], n)
 }
 
 func (d *drafter) carriedNotaint(name, sig string, n int) string {
-	if d.priorSigs[name] != canonicalSig(sig) {
+	if d.priorSigs[name] != canonicalPrivateText(sig, d.currentAliases()) {
 		return ""
 	}
 	return carriedDirective("//gom:result-notaint ", name, d.notaint[name], n)
@@ -556,6 +615,18 @@ func (d *drafter) typeDecl(name string, td *check.TypeDecl) []string {
 	for _, v := range td.TypeParams {
 		sb.WriteByte(' ')
 		sb.WriteString(d.varName(v))
+	}
+	if d.abstract[name] {
+		if n, ok := d.priorAbstract[name]; ok && n == len(td.TypeParams) {
+			lines = append(lines, "//gom:abstract "+name)
+			header := sb.String()
+			if strings.HasPrefix(header, "type alias ") {
+				// An alias implementation can satisfy an abstract interface,
+				// but interface syntax has no bare `type alias T` form.
+				header = "type " + strings.TrimPrefix(header, "type alias ")
+			}
+			return append(lines, header)
+		}
 	}
 	switch b := td.Body.(type) {
 	case *check.SumType:
