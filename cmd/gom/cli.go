@@ -457,10 +457,14 @@ func dirCacheOut(inputs []input, idxs []int, outFlag string) string {
 // inputKey canonicalizes a path for identity comparisons without
 // changing the user-facing spelling carried in input.path.
 func inputKey(path string) string {
+	p := path
 	if abs, err := filepath.Abs(path); err == nil {
-		return filepath.Clean(abs)
+		p = abs
 	}
-	return filepath.Clean(path)
+	if resolved, err := filepath.EvalSymlinks(p); err == nil {
+		p = resolved
+	}
+	return filepath.Clean(p)
 }
 
 // expandModuleLocalDeps adds same-module .gom source dependencies

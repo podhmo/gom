@@ -457,13 +457,14 @@ import "m/dep"
 fn main () -> Unit = ()
 `,
 		"dep/dep.gom": "package dep\n\nfn f () -> Int = 1\n",
+		"dep/x.gom":   "package x\n\nfn omitted () -> Int = 1\n",
 	})
 	testModule(t, real)
 	link := filepath.Join(t.TempDir(), "checkout")
 	if err := os.Symlink(real, link); err != nil {
 		t.Fatal(err)
 	}
-	explicit, err := readInputs([]string{filepath.Join(link, "main.gom")})
+	explicit, err := readInputs([]string{filepath.Join(link, "main.gom"), filepath.Join(real, "dep", "dep.gom")})
 	if err != nil {
 		t.Fatal(err)
 	}
