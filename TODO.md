@@ -36,7 +36,7 @@
 
 - [ ] **[task] checker の状態を関心ごとの部分構造体に分ける**: `typeTables`・deferred revisit queue・taint・lint state などを分け、`expr.go` を構文種別ごとに分割する。振る舞いは変えない。現行の非コメント field 数は 49（PR 本文の 70 超は過大）だが、`expr.go` 4,549 行と責務集中は有効な観測
 - [ ] **[task] 値表示を rt の単一実装へさらに寄せる**: wave47 lane A の runtime renderer 共通化を前提に、eval 独自の表示・整数幅・float32 丸め・structural equality を rt 公開関数へ寄せ、eval 側は評価順・pattern 振分け・部分適用の oracle に絞る
-- [ ] **[task] 診断コード表を軸にしたメタテスト**: `internal/diag/codes.go` の各コードに spec fixture があるか、`gom explain` の example が実際にそのコードを出すか、`docs/error-codes.md` と表が一致するかを機械検査する
+- [ ] **[task] 診断コード表を軸にしたメタテスト**: retired code（例: W0601）を除き、spec harness で出せる言語診断には `testdata/spec/` fixture、driver/CLI 診断には CLI test があるかを分類して検査する。`gom explain` の example は実際にそのコードを出すものだけ対象にし、`docs/error-codes.md` と表の一致は既存 `TestErrorCodesDocInSync` に任せる
 - [ ] **[task] implementation-gaps の解消済み項目を archive へ分ける**: `[x]` 項目を `docs/implementation-gaps-archive.md` へ移し、未解消だけを live 台帳に残す。podhmo が PR #256 で肯定
 - [ ] **[task] 生成コードの benchmark 基盤**: `bench/` に代表的な gom/手書き Go のペアを置き、`go test -bench` の比率を記録する。回帰警告の閾値や CI 実行は導入時に決める
 
