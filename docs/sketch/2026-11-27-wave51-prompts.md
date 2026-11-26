@@ -37,11 +37,13 @@ wave50 lane E の残り。labeled expected signature の positional lambda param
 3. B/C/D は wave51 で実装してよいか。C は E0204/E0503/E0704 の方向が未決のまま進めてよいか
 4. E は調査 lane に入れるか、需要が集まるまで保留するか
 5. 診断系の open questions（expected type provenance、details 昇格基準、snippet 統合）を独立 lane にする必要があるか
+6. `gom explain` fragment example は self-contained 化と fragment 種別 formalize のどちらにするか。wave51 で扱わないなら明示的に保留するか
 
 ## 見送り候補（少なくとも現時点では lane にしない）
 
 - checker の状態分割、rt 表示一元化、benchmark 基盤 — 有効な内部改善だが、wave51 は wave50 残件とユーザー向け A を優先
 - E0201 typo 候補、error recovery 拡大、継続行誤パース診断 — wave50 lane C の wire 結果を使う設計として別途絞る
+- `gom explain` fragment example 方針 — 採否確認点 6 で扱うか明示保留かを決める。現時点では lane 候補に入れない
 - stdlib `str` 拡張、Option traverse、panic capture adapter — 需要確認が弱い
 - `gom eval` / REPL、`gom search`、goimport export data 共有、`gom fix` の `.gomi` 検査 — 設計または需要確認が大きい
 - `gom install`、Go 定数セット、cgo/unsafe/reflect、セルフホスト — future work 維持
