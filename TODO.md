@@ -29,7 +29,7 @@
 - [x] **[wave48 lane C] `gom build` / `gom run` の module-local transitive emit**（[prompts](docs/sketch/2026-11-26-wave48-prompts.md)）: 同一 module 内の `.gom` source dependency を依存順に emit する（[decision](docs/decisions/2026-11-26-module-local-transitive-emit.md)、[verify](docs/sketch/2026-11-26-wave48-lane-c-transitive-emit-verify.md)）。依存: wave48 lane B
 - [x] **[wave48 lane D] `.gomi` author metadata の fidelity**（[prompts](docs/sketch/2026-11-26-wave48-prompts.md)）: directive attachment 規則と abstract/private 引き継ぎを実装する
 - [x] **[wave48 lane E] 文字列操作面**（[prompts](docs/sketch/2026-11-26-wave48-prompts.md)）: stdlib `str` package に byte length/index/range と明示的な rune decode を実装（[decision](docs/decisions/2026-11-26-string-byte-surface.md)、[verify](docs/sketch/2026-11-26-wave48-lane-e-string-surface-verify.md)）
-- [ ] **[wave48 lane F] spec / explain の小さな mismatch 掃除**（[prompts](docs/sketch/2026-11-26-wave48-prompts.md)）: record abstract、零引数 extern、E0513、`Go.conv` List 制限を同期する
+- [x] **[wave48 lane F] spec / explain の小さな mismatch 掃除**（[prompts](docs/sketch/2026-11-26-wave48-prompts.md)）: record abstract、零引数 extern、E0513、`Go.conv` List 制限を同期する
 
 - [x] **[task] stdlib に `List.filter_map` / `List.find_map` を追加**: `fold` で回すしかない現状 — selfish 移植で要望（[sketch](docs/sketch/ja/2026-11-24-selfish-port.md)、wave43 lane F）。実装済み: `@extern` buffer-built Go impl（`stdlib/list/impl.go` の `FilterMap`/`FindMap`）、`noescape` directive 付き（wave44 lane F）
 
