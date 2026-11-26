@@ -29,17 +29,17 @@ type CreateResult struct {
 //line gselfish/client.gom:12
 }
 
-//line gselfish/client.gom:34
+//line gselfish/client.gom:40
 type UpdateResult struct {
-//line gselfish/client.gom:35
+//line gselfish/client.gom:41
 	GistId string `json:"GistID"`
-//line gselfish/client.gom:36
+//line gselfish/client.gom:42
 	CreatedAt time.Time `json:"CreatedAt"`
-//line gselfish/client.gom:37
+//line gselfish/client.gom:43
 	HtmlUrl string `json:"HTMLURL"`
-//line gselfish/client.gom:38
+//line gselfish/client.gom:44
 	Raw *github.Gist `json:"-"`
-//line gselfish/client.gom:34
+//line gselfish/client.gom:40
 }
 
 //line gselfish/client.gom:20
@@ -51,285 +51,269 @@ func zeroTime(_ struct{}) time.Time {
 //line gselfish/client.gom:20
 }
 
-//line gselfish/client.gom:22
-func clientCreate(c Client, ctx context.Context, filenames list.List[string], public bool) result.Result[CreateResult, error] {
-//line gselfish/client.gom:24
-	tmp3 := func(e error) error {
-//line gselfish/client.gom:24
-		tmp2 := any(filenames)
-//line gselfish/client.gom:24
-		return wrapf(e, "invalid file name is found. %q", tmp2)
-//line gselfish/client.gom:24
-	}
+//line gselfish/client.gom:23
+func ptrStr(p *string) string {
+//line gselfish/client.gom:23
+	var tmp2 option.Option[string]
+//line gselfish/client.gom:23
+	v, ok := rt.PtrToOption[string](p)
+//line gselfish/client.gom:23
+	tmp2 = option.FromGo(v, ok)
+//line gselfish/client.gom:23
+	return option.GetOrElse[string]("", tmp2)
+//line gselfish/client.gom:23
+}
+
 //line gselfish/client.gom:25
-	tmp4 := newGist(filenames, public)
-//line gselfish/client.gom:23
-	tmp5 := result.MapErr[error, error, *github.Gist](tmp3, tmp4)
-//line gselfish/client.gom:23
-	var gist *github.Gist
-//line gselfish/client.gom:23
-	switch tmp5.Tag() {
-//line gselfish/client.gom:23
-	case result.ResultTagOk:
-//line gselfish/client.gom:23
-		gist = tmp5.Value
-//line gselfish/client.gom:23
-	case result.ResultTagErr:
-//line gselfish/client.gom:23
-		return result.Err[CreateResult, error](tmp5.Error)
-//line gselfish/client.gom:23
-	default:
-//line gselfish/client.gom:23
-		panic(rt.InvalidVariant("result.Result", tmp5))
-//line gselfish/client.gom:23
-	}
+func ptrTimestamp(p *github.Timestamp) time.Time {
 //line gselfish/client.gom:26
-	tmp6 := gistsCreate((*github.Client)(c), ctx, gist)
+	tmp3 := zeroTime(struct{}{})
 //line gselfish/client.gom:26
-	var g *github.Gist
+	tmp5 := func(ts github.Timestamp) time.Time {
 //line gselfish/client.gom:26
-	switch tmp6.Tag() {
+		tmp4 := ts.Time
 //line gselfish/client.gom:26
-	case result.ResultTagOk:
-//line gselfish/client.gom:26
-		g = tmp6.Value
-//line gselfish/client.gom:26
-	case result.ResultTagErr:
-//line gselfish/client.gom:26
-		return result.Err[CreateResult, error](tmp6.Error)
-//line gselfish/client.gom:26
-	default:
-//line gselfish/client.gom:26
-		panic(rt.InvalidVariant("result.Result", tmp6))
+		return tmp4
 //line gselfish/client.gom:26
 	}
-//line gselfish/client.gom:27
-	tmp7 := g.HTMLURL
-//line gselfish/client.gom:27
-	var tmp8 option.Option[string]
-//line gselfish/client.gom:27
-	v, ok := rt.PtrToOption[string](tmp7)
-//line gselfish/client.gom:27
-	tmp8 = option.FromGo(v, ok)
-//line gselfish/client.gom:27
-	htmlUrl := option.GetOrElse[string]("", tmp8)
+//line gselfish/client.gom:26
+	var tmp6 option.Option[github.Timestamp]
+//line gselfish/client.gom:26
+	v1, ok1 := rt.PtrToOption[github.Timestamp](p)
+//line gselfish/client.gom:26
+	tmp6 = option.FromGo(v1, ok1)
+//line gselfish/client.gom:26
+	tmp7 := option.Map[github.Timestamp, time.Time](tmp5, tmp6)
+//line gselfish/client.gom:26
+	return option.GetOrElse[time.Time](tmp3, tmp7)
+//line gselfish/client.gom:25
+}
+
 //line gselfish/client.gom:28
-	tmp9 := zeroTime(struct{}{})
-//line gselfish/client.gom:28
-	tmp11 := func(ts github.Timestamp) time.Time {
-//line gselfish/client.gom:28
-		tmp10 := ts.Time
-//line gselfish/client.gom:28
-		return tmp10
-//line gselfish/client.gom:28
-	}
-//line gselfish/client.gom:28
-	tmp12 := g.CreatedAt
-//line gselfish/client.gom:28
-	var tmp13 option.Option[github.Timestamp]
-//line gselfish/client.gom:28
-	v1, ok1 := rt.PtrToOption[github.Timestamp](tmp12)
-//line gselfish/client.gom:28
-	tmp13 = option.FromGo(v1, ok1)
-//line gselfish/client.gom:28
-	tmp14 := option.Map[github.Timestamp, time.Time](tmp11, tmp13)
-//line gselfish/client.gom:28
-	createdAt := option.GetOrElse[time.Time](tmp9, tmp14)
-//line gselfish/client.gom:29
-	tmp15 := g.ID
-//line gselfish/client.gom:29
-	var tmp16 option.Option[string]
-//line gselfish/client.gom:29
-	v2, ok2 := rt.PtrToOption[string](tmp15)
-//line gselfish/client.gom:29
-	tmp16 = option.FromGo(v2, ok2)
-//line gselfish/client.gom:29
-	gistId := option.GetOrElse[string]("", tmp16)
+func clientCreate(c Client, ctx context.Context, filenames list.List[string], public bool) result.Result[CreateResult, error] {
 //line gselfish/client.gom:30
-	r := CreateResult{GistId: gistId, CreatedAt: createdAt, HtmlUrl: htmlUrl, Raw: g}
+	tmp9 := func(e error) error {
+//line gselfish/client.gom:30
+		tmp8 := any(filenames)
+//line gselfish/client.gom:30
+		return wrapf(e, "invalid file name is found. %q", tmp8)
+//line gselfish/client.gom:30
+	}
 //line gselfish/client.gom:31
-	return result.Ok[CreateResult, error](r)
-//line gselfish/client.gom:22
-}
-
-//line gselfish/client.gom:41
-func clientUpdate(c Client, ctx context.Context, gistId string, filenames list.List[string], public bool) result.Result[UpdateResult, error] {
-//line gselfish/client.gom:43
-	tmp18 := func(e error) error {
-//line gselfish/client.gom:43
-		tmp17 := any(filenames)
-//line gselfish/client.gom:43
-		return wrapf(e, "invalid file name is found. %q", tmp17)
-//line gselfish/client.gom:43
-	}
-//line gselfish/client.gom:44
-	tmp19 := newGist(filenames, public)
-//line gselfish/client.gom:42
-	tmp20 := result.MapErr[error, error, *github.Gist](tmp18, tmp19)
-//line gselfish/client.gom:42
+	tmp10 := newGist(filenames, public)
+//line gselfish/client.gom:29
+	tmp11 := result.MapErr[error, error, *github.Gist](tmp9, tmp10)
+//line gselfish/client.gom:29
 	var gist *github.Gist
-//line gselfish/client.gom:42
-	switch tmp20.Tag() {
-//line gselfish/client.gom:42
+//line gselfish/client.gom:29
+	switch tmp11.Tag() {
+//line gselfish/client.gom:29
 	case result.ResultTagOk:
-//line gselfish/client.gom:42
-		gist = tmp20.Value
-//line gselfish/client.gom:42
+//line gselfish/client.gom:29
+		gist = tmp11.Value
+//line gselfish/client.gom:29
 	case result.ResultTagErr:
-//line gselfish/client.gom:42
-		return result.Err[UpdateResult, error](tmp20.Error)
-//line gselfish/client.gom:42
+//line gselfish/client.gom:29
+		return result.Err[CreateResult, error](tmp11.Error)
+//line gselfish/client.gom:29
 	default:
-//line gselfish/client.gom:42
-		panic(rt.InvalidVariant("result.Result", tmp20))
-//line gselfish/client.gom:42
+//line gselfish/client.gom:29
+		panic(rt.InvalidVariant("result.Result", tmp11))
+//line gselfish/client.gom:29
 	}
-//line gselfish/client.gom:45
-	tmp21 := gistsEdit((*github.Client)(c), ctx, gistId, gist)
-//line gselfish/client.gom:45
+//line gselfish/client.gom:32
+	tmp12 := gistsCreate((*github.Client)(c), ctx, gist)
+//line gselfish/client.gom:32
 	var g *github.Gist
-//line gselfish/client.gom:45
-	switch tmp21.Tag() {
-//line gselfish/client.gom:45
+//line gselfish/client.gom:32
+	switch tmp12.Tag() {
+//line gselfish/client.gom:32
 	case result.ResultTagOk:
-//line gselfish/client.gom:45
-		g = tmp21.Value
-//line gselfish/client.gom:45
+//line gselfish/client.gom:32
+		g = tmp12.Value
+//line gselfish/client.gom:32
 	case result.ResultTagErr:
-//line gselfish/client.gom:45
-		return result.Err[UpdateResult, error](tmp21.Error)
-//line gselfish/client.gom:45
+//line gselfish/client.gom:32
+		return result.Err[CreateResult, error](tmp12.Error)
+//line gselfish/client.gom:32
 	default:
-//line gselfish/client.gom:45
-		panic(rt.InvalidVariant("result.Result", tmp21))
-//line gselfish/client.gom:45
+//line gselfish/client.gom:32
+		panic(rt.InvalidVariant("result.Result", tmp12))
+//line gselfish/client.gom:32
 	}
-//line gselfish/client.gom:46
-	tmp22 := g.HTMLURL
-//line gselfish/client.gom:46
-	var tmp23 option.Option[string]
-//line gselfish/client.gom:46
-	v3, ok3 := rt.PtrToOption[string](tmp22)
-//line gselfish/client.gom:46
-	tmp23 = option.FromGo(v3, ok3)
-//line gselfish/client.gom:46
-	htmlUrl := option.GetOrElse[string]("", tmp23)
-//line gselfish/client.gom:47
-	tmp24 := zeroTime(struct{}{})
-//line gselfish/client.gom:47
-	tmp26 := func(ts github.Timestamp) time.Time {
-//line gselfish/client.gom:47
-		tmp25 := ts.Time
-//line gselfish/client.gom:47
-		return tmp25
-//line gselfish/client.gom:47
-	}
-//line gselfish/client.gom:47
-	tmp27 := g.CreatedAt
-//line gselfish/client.gom:47
-	var tmp28 option.Option[github.Timestamp]
-//line gselfish/client.gom:47
-	v4, ok4 := rt.PtrToOption[github.Timestamp](tmp27)
-//line gselfish/client.gom:47
-	tmp28 = option.FromGo(v4, ok4)
-//line gselfish/client.gom:47
-	tmp29 := option.Map[github.Timestamp, time.Time](tmp26, tmp28)
-//line gselfish/client.gom:47
-	createdAt := option.GetOrElse[time.Time](tmp24, tmp29)
-//line gselfish/client.gom:48
-	tmp30 := g.ID
-//line gselfish/client.gom:48
-	var tmp31 option.Option[string]
-//line gselfish/client.gom:48
-	v5, ok5 := rt.PtrToOption[string](tmp30)
-//line gselfish/client.gom:48
-	tmp31 = option.FromGo(v5, ok5)
-//line gselfish/client.gom:49
-	switch v6 := tmp31.(type) {
-//line gselfish/client.gom:49
-	case option.Option_Some[string]:
-//line gselfish/client.gom:49
-		tmp32 := v6
-//line gselfish/client.gom:49
-		tmp33 := tmp32.V0
-//line gselfish/client.gom:49
-		tmp34 := tmp33 != gistId
-//line gselfish/client.gom:49
-		if tmp34 {
-//line gselfish/client.gom:50
-			tmp35 := any(gistId)
-//line gselfish/client.gom:50
-			tmp36 := any(tmp33)
-//line gselfish/client.gom:50
-			log.Printf("WARN: gistId is mismatch %q != %q", tmp35, tmp36)
-//line gselfish/client.gom:50
-			_ = struct{}{}
-//line gselfish/client.gom:50
-			_ = struct{}{}
-//line gselfish/client.gom:49
-		}
-//line gselfish/client.gom:49
-	case option.Option_None[string]:
-//line gselfish/client.gom:52
-		_ = struct{}{}
-//line gselfish/client.gom:52
-	default:
-//line gselfish/client.gom:48
-		panic(rt.InvalidVariant("Option", tmp31))
-//line gselfish/client.gom:49
-	}
-//line gselfish/client.gom:54
-	r := UpdateResult{GistId: gistId, CreatedAt: createdAt, HtmlUrl: htmlUrl, Raw: g}
-//line gselfish/client.gom:55
-	return result.Ok[UpdateResult, error](r)
-//line gselfish/client.gom:41
+//line gselfish/client.gom:33
+	tmp13 := g.HTMLURL
+//line gselfish/client.gom:33
+	htmlUrl := ptrStr(tmp13)
+//line gselfish/client.gom:34
+	tmp14 := g.CreatedAt
+//line gselfish/client.gom:34
+	createdAt := ptrTimestamp(tmp14)
+//line gselfish/client.gom:35
+	tmp15 := g.ID
+//line gselfish/client.gom:35
+	gistId := ptrStr(tmp15)
+//line gselfish/client.gom:36
+	r := CreateResult{GistId: gistId, CreatedAt: createdAt, HtmlUrl: htmlUrl, Raw: g}
+//line gselfish/client.gom:37
+	return result.Ok[CreateResult, error](r)
+//line gselfish/client.gom:28
 }
 
-//line gselfish/client.gom:58
-func clientDelete(c Client, ctx context.Context, gistId string) result.Result[struct{}, error] {
-//line gselfish/client.gom:59
-	tmp43 := func(tmp37 struct{}) result.Result[struct{}, error] {
-//line gselfish/client.gom:59
-		tmp38 := (*github.Client)(c).Gists
-//line gselfish/client.gom:59
-		tmp39, err := tmp38.Delete(ctx, gistId)
-//line gselfish/client.gom:59
-		if err != nil {
-//line gselfish/client.gom:59
-			return result.Err[struct{}, error](err)
-//line gselfish/client.gom:59
-		}
-//line gselfish/client.gom:59
-		tmp40 := func(Response *github.Response) result.Result[struct{}, error] {
-//line gselfish/client.gom:59
-			return result.Ok[struct{}, error](struct{}{})
-//line gselfish/client.gom:59
-		}
-//line gselfish/client.gom:59
-		tmp41 := tmp40(tmp39)
-//line gselfish/client.gom:59
-		var tmp42 struct{}
-//line gselfish/client.gom:59
-		switch tmp41.Tag() {
-//line gselfish/client.gom:59
-		case result.ResultTagOk:
-//line gselfish/client.gom:59
-			tmp42 = tmp41.Value
-//line gselfish/client.gom:59
-		case result.ResultTagErr:
-//line gselfish/client.gom:59
-			return result.Err[struct{}, error](rt.StepErr("gselfish/client.gom:59", tmp41.Error))
-//line gselfish/client.gom:59
-		default:
-//line gselfish/client.gom:59
-			panic(rt.InvalidVariant("result.Result", tmp41))
-//line gselfish/client.gom:59
-		}
-//line gselfish/client.gom:59
-		return result.Ok[struct{}, error](tmp42)
-//line gselfish/client.gom:59
+//line gselfish/client.gom:47
+func clientUpdate(c Client, ctx context.Context, gistId string, filenames list.List[string], public bool) result.Result[UpdateResult, error] {
+//line gselfish/client.gom:49
+	tmp17 := func(e error) error {
+//line gselfish/client.gom:49
+		tmp16 := any(filenames)
+//line gselfish/client.gom:49
+		return wrapf(e, "invalid file name is found. %q", tmp16)
+//line gselfish/client.gom:49
 	}
-//line gselfish/client.gom:59
-	return tmp43(struct{}{})
+//line gselfish/client.gom:50
+	tmp18 := newGist(filenames, public)
+//line gselfish/client.gom:48
+	tmp19 := result.MapErr[error, error, *github.Gist](tmp17, tmp18)
+//line gselfish/client.gom:48
+	var gist *github.Gist
+//line gselfish/client.gom:48
+	switch tmp19.Tag() {
+//line gselfish/client.gom:48
+	case result.ResultTagOk:
+//line gselfish/client.gom:48
+		gist = tmp19.Value
+//line gselfish/client.gom:48
+	case result.ResultTagErr:
+//line gselfish/client.gom:48
+		return result.Err[UpdateResult, error](tmp19.Error)
+//line gselfish/client.gom:48
+	default:
+//line gselfish/client.gom:48
+		panic(rt.InvalidVariant("result.Result", tmp19))
+//line gselfish/client.gom:48
+	}
+//line gselfish/client.gom:51
+	tmp20 := gistsEdit((*github.Client)(c), ctx, gistId, gist)
+//line gselfish/client.gom:51
+	var g *github.Gist
+//line gselfish/client.gom:51
+	switch tmp20.Tag() {
+//line gselfish/client.gom:51
+	case result.ResultTagOk:
+//line gselfish/client.gom:51
+		g = tmp20.Value
+//line gselfish/client.gom:51
+	case result.ResultTagErr:
+//line gselfish/client.gom:51
+		return result.Err[UpdateResult, error](tmp20.Error)
+//line gselfish/client.gom:51
+	default:
+//line gselfish/client.gom:51
+		panic(rt.InvalidVariant("result.Result", tmp20))
+//line gselfish/client.gom:51
+	}
+//line gselfish/client.gom:52
+	tmp21 := g.HTMLURL
+//line gselfish/client.gom:52
+	htmlUrl := ptrStr(tmp21)
+//line gselfish/client.gom:53
+	tmp22 := g.CreatedAt
+//line gselfish/client.gom:53
+	createdAt := ptrTimestamp(tmp22)
+//line gselfish/client.gom:54
+	tmp23 := g.ID
+//line gselfish/client.gom:54
+	var tmp24 option.Option[string]
+//line gselfish/client.gom:54
+	v2, ok2 := rt.PtrToOption[string](tmp23)
+//line gselfish/client.gom:54
+	tmp24 = option.FromGo(v2, ok2)
+//line gselfish/client.gom:55
+	switch v3 := tmp24.(type) {
+//line gselfish/client.gom:55
+	case option.Option_Some[string]:
+//line gselfish/client.gom:55
+		tmp25 := v3
+//line gselfish/client.gom:55
+		tmp26 := tmp25.V0
+//line gselfish/client.gom:55
+		tmp27 := tmp26 != gistId
+//line gselfish/client.gom:55
+		if tmp27 {
+//line gselfish/client.gom:56
+			tmp28 := any(gistId)
+//line gselfish/client.gom:56
+			tmp29 := any(tmp26)
+//line gselfish/client.gom:56
+			log.Printf("WARN: gistId is mismatch %q != %q", tmp28, tmp29)
+//line gselfish/client.gom:56
+			_ = struct{}{}
+//line gselfish/client.gom:56
+			_ = struct{}{}
+//line gselfish/client.gom:55
+		}
+//line gselfish/client.gom:55
+	case option.Option_None[string]:
 //line gselfish/client.gom:58
+		_ = struct{}{}
+//line gselfish/client.gom:58
+	default:
+//line gselfish/client.gom:54
+		panic(rt.InvalidVariant("Option", tmp24))
+//line gselfish/client.gom:55
+	}
+//line gselfish/client.gom:60
+	r := UpdateResult{GistId: gistId, CreatedAt: createdAt, HtmlUrl: htmlUrl, Raw: g}
+//line gselfish/client.gom:61
+	return result.Ok[UpdateResult, error](r)
+//line gselfish/client.gom:47
+}
+
+//line gselfish/client.gom:64
+func clientDelete(c Client, ctx context.Context, gistId string) result.Result[struct{}, error] {
+//line gselfish/client.gom:65
+	tmp36 := func(tmp30 struct{}) result.Result[struct{}, error] {
+//line gselfish/client.gom:65
+		tmp31 := (*github.Client)(c).Gists
+//line gselfish/client.gom:65
+		tmp32, err := tmp31.Delete(ctx, gistId)
+//line gselfish/client.gom:65
+		if err != nil {
+//line gselfish/client.gom:65
+			return result.Err[struct{}, error](err)
+//line gselfish/client.gom:65
+		}
+//line gselfish/client.gom:65
+		tmp33 := func(Response *github.Response) result.Result[struct{}, error] {
+//line gselfish/client.gom:65
+			return result.Ok[struct{}, error](struct{}{})
+//line gselfish/client.gom:65
+		}
+//line gselfish/client.gom:65
+		tmp34 := tmp33(tmp32)
+//line gselfish/client.gom:65
+		var tmp35 struct{}
+//line gselfish/client.gom:65
+		switch tmp34.Tag() {
+//line gselfish/client.gom:65
+		case result.ResultTagOk:
+//line gselfish/client.gom:65
+			tmp35 = tmp34.Value
+//line gselfish/client.gom:65
+		case result.ResultTagErr:
+//line gselfish/client.gom:65
+			return result.Err[struct{}, error](rt.StepErr("gselfish/client.gom:65", tmp34.Error))
+//line gselfish/client.gom:65
+		default:
+//line gselfish/client.gom:65
+			panic(rt.InvalidVariant("result.Result", tmp34))
+//line gselfish/client.gom:65
+		}
+//line gselfish/client.gom:65
+		return result.Ok[struct{}, error](tmp35)
+//line gselfish/client.gom:65
+	}
+//line gselfish/client.gom:65
+	return tmp36(struct{}{})
+//line gselfish/client.gom:64
 }
