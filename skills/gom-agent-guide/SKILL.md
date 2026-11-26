@@ -972,7 +972,7 @@ prints the pointer and exits 2).
 | `gom info [-o OUT] FILE\|DIR...` | Draft `.gomi` interfaces from implementations; `-o -` prints to stdout. A stdlib short name (when no same-named file/dir exists) instead prints its existing `.gomi` read-only. |
 | `gom explain [CODE]` | Error-code explanations; no argument lists them all. |
 | `gom schema` | JSON Schema of the diagnostic stream. |
-| `gom list` | Importable stdlib short names (`list`, `option`, `result`, `cmp`, `string`), one per line. `-external` instead lists importable Gom packages of the working dir's module (main module + build list; walks the FS — module vendoring and workspace vendoring `go work vendor` both honored). |
+| `gom list` | Importable stdlib short names (`list`, `option`, `result`, `cmp`, `str`), one per line. `-external` instead lists importable Gom packages of the working dir's module (main module + build list; walks the FS — module vendoring and workspace vendoring `go work vendor` both honored). |
 | `gom check -format text` | Human rendering instead of JSON Lines. |
 
 Diagnostics are JSON Lines: one object per line, `kind:
