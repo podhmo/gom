@@ -5,7 +5,6 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -14,7 +13,7 @@ import (
 	"time"
 
 	"github.com/google/go-github/v68/github"
-	"github.com/podhmo/gom/stdlib/result"
+	"github.com/pkg/errors"
 )
 
 type fakeTransport struct {
@@ -45,30 +44,15 @@ func fakeHttpClient(_ struct{}) *http.Client {
 	}
 }
 
-// github.GistsService.{Create,Edit} return 3 values, which gom can't
-// express (E0501); these wrappers drop the *Response like the oracle
-// does. Gom `Result T GoError` emits as result.Result[T, error].
-func gistsCreate(c *github.Client, ctx context.Context, g *github.Gist) result.Result[*github.Gist, error] {
-	gist, _, err := c.Gists.Create(ctx, g)
-	if err != nil {
-		return result.Err[*github.Gist, error](err)
-	}
-	return result.Ok[*github.Gist, error](gist)
-}
-
-func gistsEdit(c *github.Client, ctx context.Context, gistID string, g *github.Gist) result.Result[*github.Gist, error] {
-	gist, _, err := c.Gists.Edit(ctx, gistID, g)
-	if err != nil {
-		return result.Err[*github.Gist, error](err)
-	}
-	return result.Ok[*github.Gist, error](gist)
-}
-
 // errors.Wrap(err, msg) — gom can't emit %w (see host.gom).
 func wrap(e error, msg string) error { return fmt.Errorf("%s: %w", msg, e) }
 
 // errors.Wrapf(err, format, arg) — one format arg is all this port needs.
 func wrapf(e error, format string, arg any) error { return fmt.Errorf(format+": %w", arg, e) }
+
+// pkg/errors.Errorf — the oracle's errors carry a stack trace, which
+// log.Fatalf("!!%+v") then prints. Paths/line numbers follow the build.
+func stackErrorf(format string, arg any) error { return errors.Errorf(format, arg) }
 
 // github.GistFile.Size is *int; gom's Ptr Int is *int64, so the
 // literal is built here.

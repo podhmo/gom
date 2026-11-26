@@ -131,13 +131,16 @@ let too_large_file_size = 5 * (1024 * 1024)
 fn scan_files (files: List String) -> ScanResult = {
   let classify = fn acc (fname: String) -> match os.Stat fname {
     Err e -> { ignore (log.Printf ("ignored for %+v (%q)", e, fname)); acc }
-    Ok fi -> if (Option.get fi).Size () > too_large_file_size {
-      { acc with binary_files = [fname, ..acc.binary_files] }
-    } else {
-      match is_text_file fname {
-        Err e -> { ignore (log.Printf ("ignored for %+v, in detect file type (%q)", e, fname)); acc }
-        Ok true -> { acc with text_files = [fname, ..acc.text_files] }
-        Ok false -> { acc with binary_files = [fname, ..acc.binary_files] }
+    Ok fi -> match fi {
+      None -> { ignore (log.Printf ("ignored for empty file info (%q)", fname)); acc }
+      Some f -> if f.Size () > too_large_file_size {
+        { acc with binary_files = [fname, ..acc.binary_files] }
+      } else {
+        match is_text_file fname {
+          Err e -> { ignore (log.Printf ("ignored for %+v, in detect file type (%q)", e, fname)); acc }
+          Ok true -> { acc with text_files = [fname, ..acc.text_files] }
+          Ok false -> { acc with binary_files = [fname, ..acc.binary_files] }
+        }
       }
     }
   }

@@ -69,6 +69,10 @@ fn default_write_file (path: String) -> Result Unit GoError =
 // DefaultConfigDir — ~/.config/<name>.
 fn default_config_dir (name: String) -> Result String GoError = {
   let u = try user.Current ()
+  let u = match Ptr.to_option u {
+    Some v -> v
+    None -> try Err (fmt.Errorf "user.Current returned nil user")
+  }
   Ok (filepath.Join (u.HomeDir, ".config", name))
 }
 
