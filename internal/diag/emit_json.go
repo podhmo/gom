@@ -148,7 +148,7 @@ func wireOf(d Diagnostic, res Resolver) (wireDiagnostic, error) {
 		w.Labels = append(w.Labels, wireLabel{Span: rp, Message: l.Message})
 	}
 	for _, dt := range d.Details {
-		w.Details = append(w.Details, wireDetail{Label: dt.Label, Lines: dt.Lines})
+		w.Details = append(w.Details, wireDetail(dt))
 	}
 	for _, f := range d.Fixes {
 		wf := wireFix{
