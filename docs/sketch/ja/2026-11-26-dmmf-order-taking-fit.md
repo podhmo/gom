@@ -365,3 +365,24 @@ fn count_users (dsn: String) -> Result Int GoError =
 DMMF の「型で不正状態を潰し、ワークフローを `Result` の pipeline として組み、境界で DTO に落とす」という中心部分は、gom の現在の言語機能で十分に表現できる。特に `try` + `Result` + `(T, error)` の統合は、Go ベースの言語として強い。
 
 一方で、**快適に写せるか**という観点では record literal 推論と namespace/visibility が最大の摩擦である。次に stdlib の Result helpers、JSON union/Option 表現、decimal 方針が続く。これらはコンパイラの根本的な穴というより、DMMF 型のドメインモデリングを繰り返し書くときに効いてくる「面」の不足である。
+
+## wave49 後の再検証（2026-11-27）
+
+この節の結論は、本文中の古い workaround 推奨（`if` 評価順への注意、自前 `result_sequence`、E0301 text は不足パターンを出せないという制限）を上書きする。wave49 lane A/C/B/D 後は、論理演算子は短絡し、stdlib の traverse/sequence を使い、E0301 text も不足パターンを表示する。
+
+`experiments/dmmf-fit` を wave49 lane A/C/B に合わせて更新し、次を実コードで確認した。
+
+- `UnvalidatedOrder` / `ValidatedOrder` は同じフィールド構成のまま、`ValidatedOrder { id = input.id, lines = lines }` の型名前置 record literal で構築できる。局所注釈 workaround は不要で、E0407 は出ない。
+- line validation は `List.traverse_result`、order list 側は `inputs |> List.map validate_order_input |> Result.sequence` に置き換えた。自前の reverse/cons 型 `result_sequence` は削除した。
+- `false && todo ()` / `true || todo ()` の probe を追加し、生成 Go が右辺を branch 内に置くこと、実行しても panic しないことを確認した。
+
+検証手順:
+
+```sh
+go build -o /tmp/gom ./cmd/gom
+cd experiments/dmmf-fit
+/tmp/gom build domain main/main.gom
+go test ./...
+```
+
+結果: `gom build` は diagnostics なし、`go test ./...` は `domain` / `main` ともに pass。E0301 text 出力の改善は compiler diagnostic 側の機能であり、この runtime probe の対象外。

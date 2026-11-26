@@ -55,10 +55,19 @@ fn place_order () -> Result Int PlaceOrderError = {
   Ok n
 }
 
-fn result_sequence (rs: List (Result a e)) -> Result (List a) e =
-  rs
-  |> List.fold (fn acc r -> acc |> Result.and_then (fn xs -> r |> Result.map (fn x -> [x, ..xs]))) (Ok [])
-  |> Result.map List.rev
+type UnvalidatedOrder = { id: String, lines: List Line }
+type ValidatedOrder = { id: String, lines: List Line }
+
+fn validate_line (line: Line) -> Result Line ValidationError =
+  if line.qty > 0 { Ok line } else { Err (ValidationError "quantity must be positive") }
+
+fn validate_order_input (input: UnvalidatedOrder) -> Result ValidatedOrder ValidationError =
+  input.lines
+  |> List.traverse_result validate_line
+  |> Result.map (fn lines -> ValidatedOrder { id = input.id, lines = lines })
+
+fn validate_order_inputs (inputs: List UnvalidatedOrder) -> Result (List ValidatedOrder) ValidationError =
+  inputs |> List.map validate_order_input |> Result.sequence
 
 fn bind_option (f: a -> Result b e) (o: Option a) -> Result (Option b) e = match o {
   Some x -> f x |> Result.map Some
@@ -169,5 +178,11 @@ fn zero_bypass () -> domain.String50 = {
   let p : Ptr domain.String50 = Ptr.new ()
   Ptr.get p
 }
+
+fn short_circuit_rhs () -> Bool = todo ()
+
+fn short_circuit_and () -> Bool = false && short_circuit_rhs ()
+
+fn short_circuit_or () -> Bool = true || short_circuit_rhs ()
 
 fn main () -> Unit = ()
