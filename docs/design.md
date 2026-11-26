@@ -231,7 +231,7 @@ gom/
 │   ├── stdlib/       埋め込み .gomi から組み込みモジュール表・シグネチャ・arity を作る配線（gomstd.Apply）＋手書きの builtin 表（`Chan`/`Task` — [decision](decisions/2026-11-04-builtin-chan-task-rt.md)）
 │   └── tool/         リポジトリのツール（同期ジェネレータなど。コンパイラのフェーズではない）
 ├── rt/               生成コードが import する補助（Tuple、Task、アサーションなど）。stdlib の表現を参照しない葉
-├── stdlib/           Gom で書いた標準ライブラリ（list, option, result, cmp）。各パッケージに .gomi。
+├── stdlib/           Gom で書いた標準ライブラリ（list, option, result, cmp, str）。各パッケージに .gomi。
 │                     types.go が手書きの Go 表現、.go / _test.go は `gom build` / `gom test` の生成物でコミットする
 │                     bench_test.go は生成物を直接測る手書きのベンチ（P5-3、[decision](decisions/2026-11-05-generated-code-benchmark-harness.md)）
 ├── editor/           エディタ同梱物（emacs モード）
@@ -267,7 +267,7 @@ gom/
 - 依存の向きはパイプラインと同じく一方向: `syntax` → `resolve` → `check` → `pattern` → `lower` → `codegen`
 - `diag` と `types` はどのフェーズからも使う共通部品。`build` がすべてを束ね、`cmd/gom` は `build` と `format` を呼ぶだけの薄い層にする
 - `rt` は生成コードから import されるので `internal/` の外に置く。名前は Go 標準の `runtime` との衝突を避けたもの。境界ヘルパ（`result.FromGo`/`result.FromErr`/`result.AssertOk`/`option.FromGo`）は対象の stdlib パッケージ側に置き、`rt` は stdlib を参照しない葉にする — 生成された stdlib コード自身も `rt` を import できる
-- `stdlib` はコンパイラ自身でビルドするので、最初の大きな実用テストになる。パッケージ間の依存は DAG に固定する（`result` のみ葉、`option` は `result` に、`list` は `option` に、`cmp` は `list` に依存）。`List.map` などの組み込みモジュール参照は `internal/stdlib` が `.gomi` を一度だけコンパイルして得た member 表で解決し、`.gomi` の公開名は `build.Options.Exports` → `core.Decl.Exported` でエクスポート名になる（[decisions/stdlib-packaging](decisions/2026-11-03-stdlib-packaging.md)）。層変換の `Result.to_option` / `Option.to_list` は `.gomi` には置けず（下層 .gom が上層を import できないため）、`internal/stdlib` が `.gomi` 由来の表を読み込んだあと `conversionModules` で手組みメンバーとして追記する — メンバーは下層モジュールの面に、forward 先は上層パッケージの手書き Go（`option.ResultToOption` / `list.OptionToList`）という `builtinMember.pkg` 上書きで、`Array.to_list` → `list.ArrayFreeze` と同じパターン（[decisions/stdlib-conv-placement](decisions/2026-11-18-stdlib-conv-placement.md)）
+- `stdlib` はコンパイラ自身でビルドするので、最初の大きな実用テストになる。パッケージ間の依存は DAG に固定する（`result` のみ葉、`option` は `result` に、`list` は `option` に、`cmp` は `list` に依存。`string` は byte 面を `@extern` の薄い Go 実装で供給し、compiler-owned builtin member にはしない — [decision](decisions/2026-11-26-string-byte-surface.md)）。`List.map` などの組み込みモジュール参照は `internal/stdlib` が `.gomi` を一度だけコンパイルして得た member 表で解決し、`.gomi` の公開名は `build.Options.Exports` → `core.Decl.Exported` でエクスポート名になる（[decisions/stdlib-packaging](decisions/2026-11-03-stdlib-packaging.md)）。層変換の `Result.to_option` / `Option.to_list` は `.gomi` には置けず（下層 .gom が上層を import できないため）、`internal/stdlib` が `.gomi` 由来の表を読み込んだあと `conversionModules` で手組みメンバーとして追記する — メンバーは下層モジュールの面に、forward 先は上層パッケージの手書き Go（`option.ResultToOption` / `list.OptionToList`）という `builtinMember.pkg` 上書きで、`Array.to_list` → `list.ArrayFreeze` と同じパターン（[decisions/stdlib-conv-placement](decisions/2026-11-18-stdlib-conv-placement.md)）
 
 ---
 

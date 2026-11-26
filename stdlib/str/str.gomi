@@ -1,0 +1,14 @@
+package str
+
+/// length s is the number of bytes in s, not the number of runes.
+fn length (s: String) -> Int
+
+/// get n s is the byte at byte index n, or None outside the string.
+fn get (n: Int) (s: String) -> Option Byte
+
+/// slice lo hi s is s[lo:hi] in byte indexes. Invalid bounds panic like Go.
+fn slice (lo: Int) (hi: Int) (s: String) -> String
+
+/// runes s decodes s as UTF-8 and returns its Unicode code points as Chars.
+/// Invalid byte sequences decode as U+FFFD, following Go's string conversion.
+fn runes (s: String) -> List Char

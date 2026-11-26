@@ -1,0 +1,13 @@
+package ex
+
+// wave48 lane E: the toolchain stdlib string package exposes the
+// byte-oriented string surface; rune traversal is explicit.
+import "str"
+
+fn byte_len (s: String) -> Int = str.length s
+
+fn byte_at (n: Int) (s: String) -> Option Byte = str.get n s
+
+fn byte_slice (lo: Int) (hi: Int) (s: String) -> String = str.slice lo hi s
+
+fn chars (s: String) -> List Char = str.runes s
