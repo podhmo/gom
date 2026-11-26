@@ -77,15 +77,27 @@ func TestBuildCache_CommitRejectsPostCompileGomiEdit(t *testing.T) {
 	if err := os.WriteFile(dep, oldSrc, 0o644); err != nil {
 		t.Fatal(err)
 	}
-	bc := &buildCache{dir: cacheDir, notes: map[string][]build.Input{}, seen: map[string]*depSeen{}}
+	newCache := func() *buildCache {
+		return &buildCache{dir: cacheDir, notes: map[string][]build.Input{}, seen: map[string]*depSeen{}}
+	}
 	inputPath := filepath.Join(dir, "main.gom")
 	inputSrc := []byte("package main\n\nfn main () -> Int = 1\n")
+	seed := newCache()
+	seed.note(dir, []build.Input{{Path: inputPath, Src: inputSrc}})
+	seed.depSink(dir).noteGomi(dep, oldSrc)
+	seed.commit(dir, "", []string{filepath.Join(dir, "main.go")})
+	if _, err := os.Stat(seed.file(dir)); err != nil {
+		t.Fatalf("unchanged commit did not seed a manifest: %v", err)
+	}
+
+	bc := newCache()
 	bc.note(dir, []build.Input{{Path: inputPath, Src: inputSrc}})
 	bc.depSink(dir).noteGomi(dep, oldSrc)
 
 	// Quint witness shape: the compile consumed oldSrc, then the
-	// dependency changed before commit. The commit must not seal the
-	// edited fingerprint into a manifest for output built from oldSrc.
+	// dependency changed before commit. The commit must neither seal
+	// the edited fingerprint into a manifest nor leave the previous
+	// manifest pointing at outputs this rebuild replaced.
 	if err := os.WriteFile(dep, []byte("package dep\n\nfn f () -> Int\nfn g () -> Int\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}

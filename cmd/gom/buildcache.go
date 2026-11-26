@@ -467,13 +467,22 @@ func (c *buildCache) commit(dir, out string, outputs []string) {
 	// goimport.Loader's OnLoad cannot tell which dir triggered a
 	// resolve, so every dir in the pool records the union.
 	merge(c.seen[goPoolKey(dir)], false)
+	// A rejected commit happens after runBuild has replaced the
+	// outputs. The previous manifest no longer describes those files,
+	// so leaving it behind could reuse output from this unprovenanced
+	// rebuild after the dependency is restored.
+	reject := func() {
+		_ = os.Remove(c.file(dir))
+	}
 	if conflict {
+		reject()
 		return
 	}
 	for _, p := range slices.Sorted(maps.Keys(gomis)) {
 		h := gomis[p]
 		src, err := os.ReadFile(p)
 		if err != nil || canonHash(src, false) != h {
+			reject()
 			return // changed or vanished after compile: no trustworthy provenance
 		}
 		m.Gomis = append(m.Gomis, bcHashed{Path: p, Hash: h})
@@ -481,6 +490,7 @@ func (c *buildCache) commit(dir, out string, outputs []string) {
 	for _, d := range slices.Sorted(maps.Keys(godirs)) {
 		h := godirs[d]
 		if statTreeHash(d) != h {
+			reject()
 			return
 		}
 		m.GoDirs = append(m.GoDirs, bcHashed{Path: d, Hash: h})
@@ -488,6 +498,7 @@ func (c *buildCache) commit(dir, out string, outputs []string) {
 	for _, p := range slices.Sorted(maps.Keys(mods)) {
 		h := mods[p]
 		if fileStatHash(p) != h {
+			reject()
 			return
 		}
 		m.Mods = append(m.Mods, bcHashed{Path: p, Hash: h})
