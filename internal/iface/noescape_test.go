@@ -73,3 +73,12 @@ type Queue
 		t.Fatalf("scanAbstract = %#v, want no cross-declaration claim", got)
 	}
 }
+
+func TestCanonicalPrivateTextUsesImportPathNotAlias(t *testing.T) {
+	aliases := map[string]string{"p": "example.com/a/p", "p2": "example.com/b/p"}
+	a := canonicalPrivateText("fn f (x: p.T) -> p.T", aliases)
+	b := canonicalPrivateText("fn f (x: p2.T) -> p2.T", map[string]string{"p2": "example.com/a/p"})
+	if a != b {
+		t.Fatalf("canonical private signatures differ by collision alias only:\n%s\n%s", a, b)
+	}
+}

@@ -175,6 +175,8 @@ func (d *drafter) file(w *strings.Builder, s Source) {
 	for _, decl := range s.AST.Decls {
 		d.vars = map[*types.Var]string{} // names restart per decl
 		d.varCount = 0
+		importsBefore := maps.Clone(d.imports)
+		aliasesBefore := maps.Clone(d.usedAlias)
 		var lines []string
 		memberName := ""
 		switch decl := decl.(type) {
@@ -225,8 +227,10 @@ func (d *drafter) file(w *strings.Builder, s Source) {
 			continue
 		}
 		if claim, ok := d.private[memberName]; ok && memberName != "" {
-			if claim.canon == canonicalSig(declarationLines(lines)) {
+			if claim.canon == canonicalPrivateText(declarationLines(lines), d.currentAliases()) {
 				d.privateLines = append(d.privateLines, "//gom:private "+claim.text)
+				d.imports = importsBefore
+				d.usedAlias = aliasesBefore
 				continue
 			}
 		}
@@ -237,6 +241,14 @@ func (d *drafter) file(w *strings.Builder, s Source) {
 		}
 		w.WriteByte('\n')
 	}
+}
+
+func (d *drafter) currentAliases() map[string]string {
+	out := map[string]string{}
+	for path, im := range d.imports {
+		out[im.alias] = path
+	}
+	return out
 }
 
 // declarationLines drops directive lines from one rendered member;

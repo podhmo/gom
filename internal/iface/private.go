@@ -1,6 +1,7 @@
 package iface
 
 import (
+	"slices"
 	"strings"
 
 	"github.com/podhmo/gom/internal/syntax"
@@ -58,7 +59,7 @@ func scanPrivate(src []byte) map[string]privateClaim {
 		if name == "" {
 			continue
 		}
-		out[name] = privateClaim{name: name, canon: canonicalSig(text), text: text}
+		out[name] = privateClaim{name: name, canon: canonicalPrivateText(text, importAliases(src)), text: text}
 	}
 	return out
 }
@@ -124,4 +125,70 @@ func priorAbstractTypes(src []byte) map[string]int {
 		}
 	}
 	return out
+}
+
+// importAliases maps the interface's rendered import qualifiers to
+// their canonical paths. Import paths, not collision-dependent alias
+// numbering, are the stable identity private signatures compare.
+func importAliases(src []byte) map[string]string {
+	f, _ := syntax.ParseInterface(src, "<prior>.gomi")
+	if f == nil {
+		return nil
+	}
+	out := map[string]string{}
+	for _, decl := range f.Decls {
+		im, ok := decl.(*syntax.ImportDecl)
+		if !ok {
+			continue
+		}
+		alias := pathBase(im.Path)
+		if im.Name != nil && im.Name.Name != "" {
+			alias = im.Name.Name
+		}
+		out[alias] = im.Path
+	}
+	return out
+}
+
+func canonicalPrivateText(text string, aliases map[string]string) string {
+	return normalizeQualifiers(canonicalSig(text), aliases)
+}
+
+// normalizeQualifiers rewrites qualifier prefixes to their import
+// paths inside an already canonical signature. The rewriting is only
+// a comparison key, not surface syntax, so path characters need no
+// escaping.
+func normalizeQualifiers(sig string, aliases map[string]string) string {
+	keys := make([]string, 0, len(aliases))
+	for alias := range aliases {
+		keys = append(keys, alias)
+	}
+	slices.SortFunc(keys, func(a, b string) int { return len(b) - len(a) })
+	for _, alias := range keys {
+		needle := alias + "."
+		var out strings.Builder
+		for pos := 0; ; {
+			idx := strings.Index(sig[pos:], needle)
+			if idx < 0 {
+				out.WriteString(sig[pos:])
+				break
+			}
+			idx += pos
+			out.WriteString(sig[pos:idx])
+			if idx > 0 && isIdentByte(sig[idx-1]) {
+				out.WriteString(sig[idx : idx+len(needle)])
+			} else {
+				out.WriteByte('<')
+				out.WriteString(aliases[alias])
+				out.WriteString(">.")
+			}
+			pos = idx + len(needle)
+		}
+		sig = out.String()
+	}
+	return sig
+}
+
+func isIdentByte(c byte) bool {
+	return c == '_' || c >= 'a' && c <= 'z' || c >= 'A' && c <= 'Z' || c >= '0' && c <= '9'
 }
