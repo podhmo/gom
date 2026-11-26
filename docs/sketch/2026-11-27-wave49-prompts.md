@@ -22,7 +22,7 @@ evaluator は `false && x` / `true || x` で右辺を評価しないが、lower 
 
 DMMF の `List.map ... |> Result.sequence` が毎回ユーザー helper を要する。`Result.to_option` は既存なので対象外。不足している traversal 面を stdlib に追加する。
 
-推薦案: `Result.sequence : List (Result a e) -> Result (List a) e` と `List.traverse_result (f: a -> Result b e) (xs: List a) -> Result (List b) e` に限定する。Option を Result へ畳む helper は命名と必要性が弱いため今回は入れない。実装は `@extern` buffer-built Go か pure Gom + 既存最適化のどちらが既存 stdlib 流儀に合うか確認する。
+推薦案: `Result.sequence : List (Result a e) -> Result (List a) e` と `List.traverse_result (f: a -> Result b e) (xs: List a) -> Result (List b) e` に限定する。Option を Result へ畳む helper は命名と必要性が弱いため今回は入れない。配置には既存の制約がある: 両方を素直に所属パッケージへ実装すると `result` が `list` を、`list` が `result` を import して循環する。`List.traverse_result` は `list` 側に実装し、`Result.sequence` は [stdlib-conv-placement](../decisions/2026-11-18-stdlib-conv-placement.md) と同じ compiler-owned forwarding member として `list` 側実装へ寄せる。実装本体が `@extern` buffer-built Go か pure Gom + 既存最適化のどちらが既存 stdlib 流儀に合うかは lane 内で確認する。
 
 ### D. E0301 text 出力の不足パターン詳細（中）
 
