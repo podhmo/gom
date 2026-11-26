@@ -95,6 +95,32 @@ func (l *lowerer) litUnit(sp diag.Span) *core.Lit {
 	return &core.Lit{Sp: sp, Typ: types.Unit, Kind: syntax.LitUnit, Text: "()"}
 }
 
+func litBool(sp diag.Span, v bool) *core.Lit {
+	text := "false"
+	if v {
+		text = "true"
+	}
+	return &core.Lit{Sp: sp, Typ: types.Bool, Kind: syntax.LitBool, Text: text}
+}
+
+func boolBody(sp diag.Span, v bool) *core.Body {
+	return &core.Body{Tail: litBool(sp, v)}
+}
+
+// logicalRHS lowers the right side of `&&` / `||` into an isolated
+// sequence. When it is already atomic, the answer can stay inside the
+// Go operator itself: Go's `&&` / `||` are lazy, so an atom operand is
+// not pre-evaluated. Otherwise the accumulated work must move into the
+// branch body rather than the enclosing sequence.
+func (l *lowerer) logicalRHS(e check.Expr) (core.Atom, *core.Body) {
+	s := &seq{}
+	x := l.expr(s, e)
+	if a, ok := x.(core.Atom); ok && len(s.lets) == 0 {
+		return a, nil
+	}
+	return nil, &core.Body{Lets: s.lets, Tail: x}
+}
+
 // expr is the expression dispatcher. The result is an Atom or a
 // complex Expr — never two; callers in operand position force it
 // through asAtom.
@@ -2378,6 +2404,20 @@ func (l *lowerer) binaryExpr(s *seq, e *check.Binary) core.Expr {
 		gAtom := l.atom(s, e.X)
 		fAtom := l.atom(s, e.Y)
 		return l.compose(s, e, fAtom, gAtom, e.Y.Span(), e.X.Span())
+	case syntax.BinAnd:
+		cond := l.atom(s, e.X)
+		rhs, body := l.logicalRHS(e.Y)
+		if rhs != nil {
+			return &core.Binary{Base: baseOf(e), Op: e.Op, X: cond, Y: rhs}
+		}
+		return &core.If{Base: baseOf(e), Cond: cond, Then: body, Else: boolBody(e.X.Span(), false)}
+	case syntax.BinOr:
+		cond := l.atom(s, e.X)
+		rhs, body := l.logicalRHS(e.Y)
+		if rhs != nil {
+			return &core.Binary{Base: baseOf(e), Op: e.Op, X: cond, Y: rhs}
+		}
+		return &core.If{Base: baseOf(e), Cond: cond, Then: boolBody(e.X.Span(), true), Else: body}
 	case syntax.BinEq, syntax.BinNe:
 		return l.eqExpr(s, e)
 	default:
