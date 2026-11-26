@@ -425,770 +425,820 @@ var tooLargeFileSize int64 = func() int64 {
 //line gselfish/main.gom:103
 func scanFiles(files list.List[string]) ScanResult {
 //line gselfish/main.gom:104
-	tmp65 := list.List[string]{}
+	classify := func(acc ScanResult) func(string) ScanResult {
 //line gselfish/main.gom:104
-	texts := rt.RefNew[list.List[string]](tmp65)
+		return func(fname string) ScanResult {
+//line gselfish/main.gom:104
+			var tmp65 result.Result[option.Option[fs_.FileInfo], error]
+//line gselfish/main.gom:104
+			v3, err4 := os.Stat(fname)
+//line gselfish/main.gom:104
+			tmp65 = result.FromGo(option.FromGo(v3, v3 != nil), err4)
 //line gselfish/main.gom:105
-	tmp66 := list.List[string]{}
+			switch tmp65.Tag() {
 //line gselfish/main.gom:105
-	bins := rt.RefNew[list.List[string]](tmp66)
+			case result.ResultTagOk:
+//line gselfish/main.gom:105
+				tmp66 := tmp65.Value
+//line gselfish/main.gom:105
+				tmp67 := tmp66
 //line gselfish/main.gom:106
-	for _, fname := range files {
+				tmp76 := option.Get[fs_.FileInfo](tmp67)
+//line gselfish/main.gom:106
+				tmp77 := tmp76.Size()
+//line gselfish/main.gom:106
+				tmp78 := tmp77 > tooLargeFileSize
+//line gselfish/main.gom:106
+				if tmp78 {
 //line gselfish/main.gom:107
-		var tmp67 result.Result[option.Option[fs_.FileInfo], error]
+					tmp79 := append(list.List[string]{fname}, acc.BinaryFiles...)
 //line gselfish/main.gom:107
-		v3, err4 := os.Stat(fname)
+					u1 := acc
 //line gselfish/main.gom:107
-		tmp67 = result.FromGo(option.FromGo(v3, v3 != nil), err4)
-//line gselfish/main.gom:108
-		switch tmp67.Tag() {
-//line gselfish/main.gom:108
-		case result.ResultTagOk:
-//line gselfish/main.gom:108
-			tmp68 := tmp67.Value
-//line gselfish/main.gom:108
-			tmp69 := tmp68
+					u1.BinaryFiles = tmp79
+//line gselfish/main.gom:107
+					return u1
+//line gselfish/main.gom:106
+				} else {
 //line gselfish/main.gom:109
-			tmp80 := option.Get[fs_.FileInfo](tmp69)
-//line gselfish/main.gom:109
-			tmp81 := tmp80.Size()
-//line gselfish/main.gom:109
-			tmp82 := tmp81 > tooLargeFileSize
-//line gselfish/main.gom:109
-			if tmp82 {
+					tmp68 := isTextFile(fname)
 //line gselfish/main.gom:110
-				tmp83 := rt.RefGet[list.List[string]](bins)
+					switch tmp68.Tag() {
 //line gselfish/main.gom:110
-				tmp84 := append(list.List[string]{fname}, tmp83...)
+					case result.ResultTagOk:
 //line gselfish/main.gom:110
-				rt.RefSet[list.List[string]](bins, tmp84)
-//line gselfish/main.gom:110
-				_ = struct{}{}
-//line gselfish/main.gom:109
-			} else {
+						tmp69 := tmp68.Value
+//line gselfish/main.gom:111
+						switch tmp69 {
+//line gselfish/main.gom:111
+						case true:
+//line gselfish/main.gom:111
+							tmp70 := append(list.List[string]{fname}, acc.TextFiles...)
+//line gselfish/main.gom:111
+							u2 := acc
+//line gselfish/main.gom:111
+							u2.TextFiles = tmp70
+//line gselfish/main.gom:111
+							return u2
 //line gselfish/main.gom:112
-				tmp70 := isTextFile(fname)
-//line gselfish/main.gom:113
-				switch tmp70.Tag() {
-//line gselfish/main.gom:113
-				case result.ResultTagOk:
-//line gselfish/main.gom:113
-					tmp71 := tmp70.Value
-//line gselfish/main.gom:114
-					switch tmp71 {
-//line gselfish/main.gom:114
-					case true:
-//line gselfish/main.gom:114
-						tmp72 := rt.RefGet[list.List[string]](texts)
-//line gselfish/main.gom:114
-						tmp73 := append(list.List[string]{fname}, tmp72...)
-//line gselfish/main.gom:114
-						rt.RefSet[list.List[string]](texts, tmp73)
-//line gselfish/main.gom:114
+						case false:
+//line gselfish/main.gom:112
+							tmp71 := append(list.List[string]{fname}, acc.BinaryFiles...)
+//line gselfish/main.gom:112
+							u3 := acc
+//line gselfish/main.gom:112
+							u3.BinaryFiles = tmp71
+//line gselfish/main.gom:112
+							return u3
+//line gselfish/main.gom:112
+						default:
+//line gselfish/main.gom:110
+							panic(rt.InvalidVariant("Bool", tmp69))
+//line gselfish/main.gom:111
+						}
+//line gselfish/main.gom:110
+					case result.ResultTagErr:
+//line gselfish/main.gom:110
+						tmp72 := tmp68.Error
+//line gselfish/main.gom:110
+						tmp73 := tmp72
+//line gselfish/main.gom:110
+						tmp74 := any(tmp73)
+//line gselfish/main.gom:110
+						tmp75 := any(fname)
+//line gselfish/main.gom:110
+						log.Printf("ignored for %+v, in detect file type (%q)", tmp74, tmp75)
+//line gselfish/main.gom:110
 						_ = struct{}{}
-//line gselfish/main.gom:115
-					case false:
-//line gselfish/main.gom:115
-						tmp74 := rt.RefGet[list.List[string]](bins)
-//line gselfish/main.gom:115
-						tmp75 := append(list.List[string]{fname}, tmp74...)
-//line gselfish/main.gom:115
-						rt.RefSet[list.List[string]](bins, tmp75)
-//line gselfish/main.gom:115
-						_ = struct{}{}
-//line gselfish/main.gom:115
+//line gselfish/main.gom:110
+						return acc
+//line gselfish/main.gom:110
 					default:
-//line gselfish/main.gom:113
-						panic(rt.InvalidVariant("Bool", tmp71))
-//line gselfish/main.gom:114
-					}
-//line gselfish/main.gom:113
-				case result.ResultTagErr:
-//line gselfish/main.gom:113
-					tmp76 := tmp70.Error
-//line gselfish/main.gom:113
-					tmp77 := tmp76
-//line gselfish/main.gom:113
-					tmp78 := any(tmp77)
-//line gselfish/main.gom:113
-					tmp79 := any(fname)
-//line gselfish/main.gom:113
-					log.Printf("ignored for %+v, in detect file type (%q)", tmp78, tmp79)
-//line gselfish/main.gom:113
-					_ = struct{}{}
-//line gselfish/main.gom:113
-					_ = struct{}{}
-//line gselfish/main.gom:113
-				default:
-//line gselfish/main.gom:112
-					panic(rt.InvalidVariant("Result", tmp70))
-//line gselfish/main.gom:113
-				}
 //line gselfish/main.gom:109
-			}
-//line gselfish/main.gom:108
-		case result.ResultTagErr:
-//line gselfish/main.gom:108
-			tmp85 := tmp67.Error
-//line gselfish/main.gom:108
-			tmp86 := tmp85
-//line gselfish/main.gom:108
-			tmp87 := any(tmp86)
-//line gselfish/main.gom:108
-			tmp88 := any(fname)
-//line gselfish/main.gom:108
-			log.Printf("ignored for %+v (%q)", tmp87, tmp88)
-//line gselfish/main.gom:108
-			_ = struct{}{}
-//line gselfish/main.gom:108
-			_ = struct{}{}
-//line gselfish/main.gom:108
-		default:
-//line gselfish/main.gom:107
-			panic(rt.InvalidVariant("Result", tmp67))
-//line gselfish/main.gom:108
-		}
+						panic(rt.InvalidVariant("Result", tmp68))
+//line gselfish/main.gom:110
+					}
 //line gselfish/main.gom:106
+				}
+//line gselfish/main.gom:105
+			case result.ResultTagErr:
+//line gselfish/main.gom:105
+				tmp80 := tmp65.Error
+//line gselfish/main.gom:105
+				tmp81 := tmp80
+//line gselfish/main.gom:105
+				tmp82 := any(tmp81)
+//line gselfish/main.gom:105
+				tmp83 := any(fname)
+//line gselfish/main.gom:105
+				log.Printf("ignored for %+v (%q)", tmp82, tmp83)
+//line gselfish/main.gom:105
+				_ = struct{}{}
+//line gselfish/main.gom:105
+				return acc
+//line gselfish/main.gom:105
+			default:
+//line gselfish/main.gom:104
+				panic(rt.InvalidVariant("Result", tmp65))
+//line gselfish/main.gom:105
+			}
+//line gselfish/main.gom:104
+		}
+//line gselfish/main.gom:104
 	}
-//line gselfish/main.gom:120
-	tmp89 := rt.RefGet[list.List[string]](texts)
-//line gselfish/main.gom:120
-	tmp90 := list.Rev[string](tmp89)
-//line gselfish/main.gom:120
-	tmp91 := rt.RefGet[list.List[string]](bins)
-//line gselfish/main.gom:120
-	tmp92 := list.Rev[string](tmp91)
-//line gselfish/main.gom:120
-	return ScanResult{TextFiles: tmp90, BinaryFiles: tmp92}
+//line gselfish/main.gom:116
+	tmp84 := func(p0 ScanResult, p1 string) ScanResult {
+//line gselfish/main.gom:116
+		u0 := classify(p0)
+//line gselfish/main.gom:116
+		return u0(p1)
+//line gselfish/main.gom:116
+	}
+//line gselfish/main.gom:116
+	tmp85 := list.List[string]{}
+//line gselfish/main.gom:116
+	tmp86 := list.List[string]{}
+//line gselfish/main.gom:116
+	tmp87 := ScanResult{TextFiles: tmp85, BinaryFiles: tmp86}
+//line gselfish/main.gom:116
+	scan := list.Fold[ScanResult, string](tmp84, tmp87, files)
+//line gselfish/main.gom:118
+	tmp88 := list.Rev[string](scan.TextFiles)
+//line gselfish/main.gom:119
+	tmp89 := list.Rev[string](scan.BinaryFiles)
+//line gselfish/main.gom:117
+	u4 := scan
+//line gselfish/main.gom:118
+	u4.TextFiles = tmp88
+//line gselfish/main.gom:119
+	u4.BinaryFiles = tmp89
+//line gselfish/main.gom:119
+	return u4
 //line gselfish/main.gom:103
 }
 
-//line gselfish/main.gom:123
+//line gselfish/main.gom:122
 func isTextFile(fname string) result.Result[bool, error] {
-//line gselfish/main.gom:124
-	tmp93, err5 := os.ReadFile(fname)
-//line gselfish/main.gom:124
-	if err5 != nil {
-//line gselfish/main.gom:124
-		return result.Err[bool, error](err5)
-//line gselfish/main.gom:124
-	}
-//line gselfish/main.gom:124
-	b := list.FromSlice(tmp93)
-//line gselfish/main.gom:125
-	tmp94 := b.ToSlice()
-//line gselfish/main.gom:125
-	tmp95 := http.DetectContentType(tmp94)
-//line gselfish/main.gom:125
-	tmp96 := strings.HasPrefix(tmp95, "text/")
-//line gselfish/main.gom:125
-	return result.Ok[bool, error](tmp96)
 //line gselfish/main.gom:123
+	tmp99 := func(tmp90 struct{}) result.Result[bool, error] {
+//line gselfish/main.gom:123
+		tmp91, err5 := os.ReadFile(fname)
+//line gselfish/main.gom:123
+		if err5 != nil {
+//line gselfish/main.gom:123
+			return result.Err[bool, error](err5)
+//line gselfish/main.gom:123
+		}
+//line gselfish/main.gom:123
+		tmp92 := list.FromSlice(tmp91)
+//line gselfish/main.gom:123
+		tmp96 := func(b list.List[byte]) result.Result[bool, error] {
+//line gselfish/main.gom:123
+			tmp93 := b.ToSlice()
+//line gselfish/main.gom:123
+			tmp94 := http.DetectContentType(tmp93)
+//line gselfish/main.gom:123
+			tmp95 := strings.HasPrefix(tmp94, "text/")
+//line gselfish/main.gom:123
+			return result.Ok[bool, error](tmp95)
+//line gselfish/main.gom:123
+		}
+//line gselfish/main.gom:123
+		tmp97 := tmp96(tmp92)
+//line gselfish/main.gom:123
+		var tmp98 bool
+//line gselfish/main.gom:123
+		switch tmp97.Tag() {
+//line gselfish/main.gom:123
+		case result.ResultTagOk:
+//line gselfish/main.gom:123
+			tmp98 = tmp97.Value
+//line gselfish/main.gom:123
+		case result.ResultTagErr:
+//line gselfish/main.gom:123
+			return result.Err[bool, error](rt.StepErr("gselfish/main.gom:123", tmp97.Error))
+//line gselfish/main.gom:123
+		default:
+//line gselfish/main.gom:123
+			panic(rt.InvalidVariant("result.Result", tmp97))
+//line gselfish/main.gom:123
+		}
+//line gselfish/main.gom:123
+		return result.Ok[bool, error](tmp98)
+//line gselfish/main.gom:123
+	}
+//line gselfish/main.gom:123
+	return tmp99(struct{}{})
+//line gselfish/main.gom:122
 }
 
-//line gselfish/main.gom:130
+//line gselfish/main.gom:127
 func handleBinaries(app App, commit commithistory.Commit, files list.List[string]) result.Result[struct{}, error] {
-//line gselfish/main.gom:131
-	tmp109 := list.IsEmpty[string](files)
-//line gselfish/main.gom:131
-	if tmp109 {
-//line gselfish/main.gom:132
+//line gselfish/main.gom:128
+	tmp112 := list.IsEmpty[string](files)
+//line gselfish/main.gom:128
+	if tmp112 {
+//line gselfish/main.gom:129
 		return result.Ok[struct{}, error](struct{}{})
-//line gselfish/main.gom:131
+//line gselfish/main.gom:128
 	} else {
-//line gselfish/main.gom:134
-		if app.Config.Debug {
-//line gselfish/main.gom:135
-			tmp97 := io.Writer(os.Stderr)
-//line gselfish/main.gom:135
-			tmp98 := any("----------------------------------------")
-//line gselfish/main.gom:135
-			v4, err6 := fmt.Fprintln(tmp97, tmp98)
-//line gselfish/main.gom:135
-			_ = result.FromGo(int64(v4), err6)
-//line gselfish/main.gom:136
-			tmp99 := io.Writer(os.Stderr)
-//line gselfish/main.gom:136
-			tmp100 := any("binary files are detected")
-//line gselfish/main.gom:136
-			tmp101 := any(files)
-//line gselfish/main.gom:136
-			v5, err7 := fmt.Fprintln(tmp99, tmp100, tmp101)
-//line gselfish/main.gom:136
-			_ = result.FromGo(int64(v5), err7)
-//line gselfish/main.gom:137
-			tmp102 := io.Writer(os.Stderr)
-//line gselfish/main.gom:137
-			tmp103 := any("----------------------------------------")
-//line gselfish/main.gom:137
-			v6, err8 := fmt.Fprintln(tmp102, tmp103)
-//line gselfish/main.gom:137
-			_ = result.FromGo(int64(v6), err8)
-//line gselfish/main.gom:137
-			_ = struct{}{}
-//line gselfish/main.gom:134
-		}
-//line gselfish/main.gom:139
-		tmp104 := binariesBody(app, commit, files)
-//line gselfish/main.gom:140
-		switch tmp104.Tag() {
-//line gselfish/main.gom:140
-		case result.ResultTagOk:
-//line gselfish/main.gom:144
-			return result.Ok[struct{}, error](struct{}{})
-//line gselfish/main.gom:140
-		case result.ResultTagErr:
-//line gselfish/main.gom:140
-			tmp106 := tmp104.Error
-//line gselfish/main.gom:140
-			tmp107 := tmp106
-//line gselfish/main.gom:141
-			tmp108 := any(tmp107)
-//line gselfish/main.gom:141
-			log.Printf("WARN: handling binaries is failed. %+v\nignored.", tmp108)
-//line gselfish/main.gom:141
-			_ = struct{}{}
-//line gselfish/main.gom:142
-			return result.Ok[struct{}, error](struct{}{})
-//line gselfish/main.gom:142
-		default:
-//line gselfish/main.gom:139
-			panic(rt.InvalidVariant("Result", tmp104))
-//line gselfish/main.gom:140
-		}
 //line gselfish/main.gom:131
+		if app.Config.Debug {
+//line gselfish/main.gom:132
+			tmp100 := io.Writer(os.Stderr)
+//line gselfish/main.gom:132
+			tmp101 := any("----------------------------------------")
+//line gselfish/main.gom:132
+			v4, err6 := fmt.Fprintln(tmp100, tmp101)
+//line gselfish/main.gom:132
+			_ = result.FromGo(int64(v4), err6)
+//line gselfish/main.gom:133
+			tmp102 := io.Writer(os.Stderr)
+//line gselfish/main.gom:133
+			tmp103 := any("binary files are detected")
+//line gselfish/main.gom:133
+			tmp104 := any(files)
+//line gselfish/main.gom:133
+			v5, err7 := fmt.Fprintln(tmp102, tmp103, tmp104)
+//line gselfish/main.gom:133
+			_ = result.FromGo(int64(v5), err7)
+//line gselfish/main.gom:134
+			tmp105 := io.Writer(os.Stderr)
+//line gselfish/main.gom:134
+			tmp106 := any("----------------------------------------")
+//line gselfish/main.gom:134
+			v6, err8 := fmt.Fprintln(tmp105, tmp106)
+//line gselfish/main.gom:134
+			_ = result.FromGo(int64(v6), err8)
+//line gselfish/main.gom:134
+			_ = struct{}{}
+//line gselfish/main.gom:131
+		}
+//line gselfish/main.gom:136
+		tmp107 := binariesBody(app, commit, files)
+//line gselfish/main.gom:137
+		switch tmp107.Tag() {
+//line gselfish/main.gom:137
+		case result.ResultTagOk:
+//line gselfish/main.gom:141
+			return result.Ok[struct{}, error](struct{}{})
+//line gselfish/main.gom:137
+		case result.ResultTagErr:
+//line gselfish/main.gom:137
+			tmp109 := tmp107.Error
+//line gselfish/main.gom:137
+			tmp110 := tmp109
+//line gselfish/main.gom:138
+			tmp111 := any(tmp110)
+//line gselfish/main.gom:138
+			log.Printf("WARN: handling binaries is failed. %+v\nignored.", tmp111)
+//line gselfish/main.gom:138
+			_ = struct{}{}
+//line gselfish/main.gom:139
+			return result.Ok[struct{}, error](struct{}{})
+//line gselfish/main.gom:139
+		default:
+//line gselfish/main.gom:136
+			panic(rt.InvalidVariant("Result", tmp107))
+//line gselfish/main.gom:137
+		}
+//line gselfish/main.gom:128
 	}
-//line gselfish/main.gom:130
+//line gselfish/main.gom:127
 }
 
-//line gselfish/main.gom:148
+//line gselfish/main.gom:145
 func binariesBody(app App, commit commithistory.Commit, files list.List[string]) result.Result[struct{}, error] {
-//line gselfish/main.gom:149
-	tmp110 := commithistory.ConfigFilePath(commithistory.Config(app.CommitHistory), app.Config.Profile.RepositoryDirectory)
-//line gselfish/main.gom:149
+//line gselfish/main.gom:146
+	tmp113 := commithistory.ConfigFilePath(commithistory.Config(app.CommitHistory), app.Config.Profile.RepositoryDirectory)
+//line gselfish/main.gom:146
 	var rootDir string
-//line gselfish/main.gom:149
-	switch tmp110.Tag() {
-//line gselfish/main.gom:149
+//line gselfish/main.gom:146
+	switch tmp113.Tag() {
+//line gselfish/main.gom:146
 	case result.ResultTagOk:
-//line gselfish/main.gom:149
-		rootDir = tmp110.Value
-//line gselfish/main.gom:149
+//line gselfish/main.gom:146
+		rootDir = tmp113.Value
+//line gselfish/main.gom:146
 	case result.ResultTagErr:
-//line gselfish/main.gom:149
-		return result.Err[struct{}, error](tmp110.Error)
-//line gselfish/main.gom:149
+//line gselfish/main.gom:146
+		return result.Err[struct{}, error](tmp113.Error)
+//line gselfish/main.gom:146
 	default:
-//line gselfish/main.gom:149
-		panic(rt.InvalidVariant("result.Result", tmp110))
-//line gselfish/main.gom:149
+//line gselfish/main.gom:146
+		panic(rt.InvalidVariant("result.Result", tmp113))
+//line gselfish/main.gom:146
 	}
-//line gselfish/main.gom:150
+//line gselfish/main.gom:147
 	err9 := os.MkdirAll(rootDir, fs_.FileMode(0o744))
-//line gselfish/main.gom:150
+//line gselfish/main.gom:147
 	if err9 != nil {
-//line gselfish/main.gom:150
+//line gselfish/main.gom:147
 		return result.Err[struct{}, error](err9)
-//line gselfish/main.gom:150
+//line gselfish/main.gom:147
 	}
-//line gselfish/main.gom:151
+//line gselfish/main.gom:148
 	repoDir := filepath.Join(rootDir, commit.Id)
-//line gselfish/main.gom:152
-	tmp111 := commit.Id
-//line gselfish/main.gom:152
-	repoUrl := "git@github.com:" + tmp111 + ".git"
-//line gselfish/main.gom:154
-	var tmp112 result.Result[option.Option[fs_.FileInfo], error]
-//line gselfish/main.gom:154
+//line gselfish/main.gom:149
+	tmp114 := commit.Id
+//line gselfish/main.gom:149
+	repoUrl := "git@github.com:" + tmp114 + ".git"
+//line gselfish/main.gom:151
+	var tmp115 result.Result[option.Option[fs_.FileInfo], error]
+//line gselfish/main.gom:151
 	v7, err10 := os.Stat(repoDir)
-//line gselfish/main.gom:154
-	tmp112 = result.FromGo(option.FromGo(v7, v7 != nil), err10)
-//line gselfish/main.gom:155
-	switch tmp112.Tag() {
-//line gselfish/main.gom:155
+//line gselfish/main.gom:151
+	tmp115 = result.FromGo(option.FromGo(v7, v7 != nil), err10)
+//line gselfish/main.gom:152
+	switch tmp115.Tag() {
+//line gselfish/main.gom:152
 	case result.ResultTagOk:
-//line gselfish/main.gom:155
-		tmp113 := tmp112.Value
-//line gselfish/main.gom:155
-		_ = tmp113
-//line gselfish/main.gom:162
-		_ = struct{}{}
-//line gselfish/main.gom:155
-	case result.ResultTagErr:
-//line gselfish/main.gom:155
-		tmp115 := tmp112.Error
-//line gselfish/main.gom:155
-		tmp116 := tmp115
-//line gselfish/main.gom:155
-		tmp118 := os.IsNotExist(tmp116)
-//line gselfish/main.gom:155
-		if tmp118 {
-//line gselfish/main.gom:156
-			tmp119 := any("clone repository; git clone")
-//line gselfish/main.gom:156
-			tmp120 := any(repoUrl)
-//line gselfish/main.gom:156
-			log.Println(tmp119, tmp120)
-//line gselfish/main.gom:156
-			_ = struct{}{}
-//line gselfish/main.gom:157
-			tmp121 := list.List[string]{"clone", repoUrl}
-//line gselfish/main.gom:157
-			tmp122 := gitRun(rootDir, tmp121)
-//line gselfish/main.gom:158
-			switch tmp122.Tag() {
-//line gselfish/main.gom:158
-			case result.ResultTagOk:
+//line gselfish/main.gom:152
+		tmp116 := tmp115.Value
+//line gselfish/main.gom:152
+		_ = tmp116
 //line gselfish/main.gom:159
-				_ = struct{}{}
-//line gselfish/main.gom:158
-			case result.ResultTagErr:
-//line gselfish/main.gom:158
-				tmp124 := tmp122.Error
-//line gselfish/main.gom:158
-				tmp125 := tmp124
-//line gselfish/main.gom:158
-				tmp126 := any(tmp125)
-//line gselfish/main.gom:158
-				var tmp127 error
-//line gselfish/main.gom:158
-				v8 := fmt.Errorf("in git clone. %v", tmp126)
-//line gselfish/main.gom:158
-				if v8 == nil {
-//line gselfish/main.gom:158
-					panic("gom: fmt.Errorf returned nil error — its binding declares a never-nil GoError result")
-//line gselfish/main.gom:158
-				}
-//line gselfish/main.gom:158
-				tmp127 = v8
-//line gselfish/main.gom:158
-				tmp128 := result.Err[struct{}, error](tmp127)
-//line gselfish/main.gom:158
-				switch tmp128.Tag() {
-//line gselfish/main.gom:158
-				case result.ResultTagOk:
-//line gselfish/main.gom:158
-					_ = tmp128.Value
-//line gselfish/main.gom:158
-				case result.ResultTagErr:
-//line gselfish/main.gom:158
-					return result.Err[struct{}, error](tmp128.Error)
-//line gselfish/main.gom:158
-				default:
-//line gselfish/main.gom:158
-					panic(rt.InvalidVariant("result.Result", tmp128))
-//line gselfish/main.gom:158
-				}
-//line gselfish/main.gom:158
-			default:
-//line gselfish/main.gom:157
-				panic(rt.InvalidVariant("Result", tmp122))
-//line gselfish/main.gom:158
-			}
-//line gselfish/main.gom:155
-		} else {
-//line gselfish/main.gom:161
-			tmp117 := result.Err[struct{}, error](tmp116)
-//line gselfish/main.gom:161
-			switch tmp117.Tag() {
-//line gselfish/main.gom:161
-			case result.ResultTagOk:
-//line gselfish/main.gom:161
-				_ = tmp117.Value
-//line gselfish/main.gom:161
-			case result.ResultTagErr:
-//line gselfish/main.gom:161
-				return result.Err[struct{}, error](tmp117.Error)
-//line gselfish/main.gom:161
-			default:
-//line gselfish/main.gom:161
-				panic(rt.InvalidVariant("result.Result", tmp117))
-//line gselfish/main.gom:161
-			}
-//line gselfish/main.gom:155
-		}
-//line gselfish/main.gom:155
-	default:
+		_ = struct{}{}
+//line gselfish/main.gom:152
+	case result.ResultTagErr:
+//line gselfish/main.gom:152
+		tmp118 := tmp115.Error
+//line gselfish/main.gom:152
+		tmp119 := tmp118
+//line gselfish/main.gom:152
+		tmp121 := os.IsNotExist(tmp119)
+//line gselfish/main.gom:152
+		if tmp121 {
+//line gselfish/main.gom:153
+			tmp122 := any("clone repository; git clone")
+//line gselfish/main.gom:153
+			tmp123 := any(repoUrl)
+//line gselfish/main.gom:153
+			log.Println(tmp122, tmp123)
+//line gselfish/main.gom:153
+			_ = struct{}{}
 //line gselfish/main.gom:154
-		panic(rt.InvalidVariant("Result", tmp112))
+			tmp124 := list.List[string]{"clone", repoUrl}
+//line gselfish/main.gom:154
+			tmp125 := gitRun(rootDir, tmp124)
 //line gselfish/main.gom:155
-	}
-//line gselfish/main.gom:165
-	tmp129 := any(repoDir)
-//line gselfish/main.gom:165
-	log.Printf("remove dirty files; cd %s && git reset --hard HEAD", tmp129)
-//line gselfish/main.gom:165
-	_ = struct{}{}
-//line gselfish/main.gom:166
-	tmp130 := list.List[string]{"reset", "--hard", "HEAD"}
-//line gselfish/main.gom:166
-	tmp131 := gitRun(repoDir, tmp130)
-//line gselfish/main.gom:167
-	switch tmp131.Tag() {
-//line gselfish/main.gom:167
-	case result.ResultTagOk:
-//line gselfish/main.gom:168
-		_ = struct{}{}
-//line gselfish/main.gom:167
-	case result.ResultTagErr:
-//line gselfish/main.gom:167
-		tmp133 := tmp131.Error
-//line gselfish/main.gom:167
-		tmp134 := tmp133
-//line gselfish/main.gom:167
-		tmp135 := any(tmp134)
-//line gselfish/main.gom:167
-		log.Printf("git reset is failed. %+v (but continued)", tmp135)
-//line gselfish/main.gom:167
-		_ = struct{}{}
-//line gselfish/main.gom:167
-		_ = struct{}{}
-//line gselfish/main.gom:167
-	default:
-//line gselfish/main.gom:166
-		panic(rt.InvalidVariant("Result", tmp131))
-//line gselfish/main.gom:167
-	}
-//line gselfish/main.gom:170
-	tmp136 := any(repoDir)
-//line gselfish/main.gom:170
-	log.Printf("sync repository; cd %s && git pull", tmp136)
-//line gselfish/main.gom:170
-	_ = struct{}{}
-//line gselfish/main.gom:171
-	tmp137 := list.List[string]{"pull", "--rebase"}
-//line gselfish/main.gom:171
-	tmp138 := gitRun(repoDir, tmp137)
-//line gselfish/main.gom:172
-	switch tmp138.Tag() {
-//line gselfish/main.gom:172
-	case result.ResultTagOk:
-//line gselfish/main.gom:173
-		_ = struct{}{}
-//line gselfish/main.gom:172
-	case result.ResultTagErr:
-//line gselfish/main.gom:172
-		tmp140 := tmp138.Error
-//line gselfish/main.gom:172
-		tmp141 := tmp140
-//line gselfish/main.gom:172
-		tmp142 := any(tmp141)
-//line gselfish/main.gom:172
-		log.Printf("git pull is failed. %+v (but continued)", tmp142)
-//line gselfish/main.gom:172
-		_ = struct{}{}
-//line gselfish/main.gom:172
-		_ = struct{}{}
-//line gselfish/main.gom:172
-	default:
-//line gselfish/main.gom:171
-		panic(rt.InvalidVariant("Result", tmp138))
-//line gselfish/main.gom:172
-	}
-//line gselfish/main.gom:176
-	tmp143 := list.List[string]{}
-//line gselfish/main.gom:176
-	copied := rt.RefNew[list.List[string]](tmp143)
-//line gselfish/main.gom:177
-	for _, fname := range files {
-//line gselfish/main.gom:178
-		tmp144 := copyTo(repoDir, fname)
-//line gselfish/main.gom:179
-		switch tmp144.Tag() {
-//line gselfish/main.gom:179
-		case result.ResultTagOk:
-//line gselfish/main.gom:179
-			tmp145 := tmp144.Value
-//line gselfish/main.gom:179
-			tmp146 := tmp145
-//line gselfish/main.gom:180
-			tmp147 := rt.RefGet[list.List[string]](copied)
-//line gselfish/main.gom:180
-			tmp148 := append(list.List[string]{tmp146}, tmp147...)
-//line gselfish/main.gom:180
-			rt.RefSet[list.List[string]](copied, tmp148)
-//line gselfish/main.gom:180
-			_ = struct{}{}
-//line gselfish/main.gom:179
-		case result.ResultTagErr:
-//line gselfish/main.gom:179
-			tmp149 := tmp144.Error
-//line gselfish/main.gom:179
-			tmp150 := tmp149
-//line gselfish/main.gom:179
-			tmp151 := any(tmp150)
-//line gselfish/main.gom:179
-			tmp152 := any(fname)
-//line gselfish/main.gom:179
-			log.Printf("ignored for %+v, in copy file (%q)", tmp151, tmp152)
-//line gselfish/main.gom:179
-			_ = struct{}{}
-//line gselfish/main.gom:179
-			_ = struct{}{}
-//line gselfish/main.gom:179
-		default:
-//line gselfish/main.gom:178
-			panic(rt.InvalidVariant("Result", tmp144))
-//line gselfish/main.gom:179
+			switch tmp125.Tag() {
+//line gselfish/main.gom:155
+			case result.ResultTagOk:
+//line gselfish/main.gom:156
+				_ = struct{}{}
+//line gselfish/main.gom:155
+			case result.ResultTagErr:
+//line gselfish/main.gom:155
+				tmp127 := tmp125.Error
+//line gselfish/main.gom:155
+				tmp128 := tmp127
+//line gselfish/main.gom:155
+				tmp129 := any(tmp128)
+//line gselfish/main.gom:155
+				var tmp130 error
+//line gselfish/main.gom:155
+				v8 := fmt.Errorf("in git clone. %v", tmp129)
+//line gselfish/main.gom:155
+				if v8 == nil {
+//line gselfish/main.gom:155
+					panic("gom: fmt.Errorf returned nil error — its binding declares a never-nil GoError result")
+//line gselfish/main.gom:155
+				}
+//line gselfish/main.gom:155
+				tmp130 = v8
+//line gselfish/main.gom:155
+				tmp131 := result.Err[struct{}, error](tmp130)
+//line gselfish/main.gom:155
+				switch tmp131.Tag() {
+//line gselfish/main.gom:155
+				case result.ResultTagOk:
+//line gselfish/main.gom:155
+					_ = tmp131.Value
+//line gselfish/main.gom:155
+				case result.ResultTagErr:
+//line gselfish/main.gom:155
+					return result.Err[struct{}, error](tmp131.Error)
+//line gselfish/main.gom:155
+				default:
+//line gselfish/main.gom:155
+					panic(rt.InvalidVariant("result.Result", tmp131))
+//line gselfish/main.gom:155
+				}
+//line gselfish/main.gom:155
+			default:
+//line gselfish/main.gom:154
+				panic(rt.InvalidVariant("Result", tmp125))
+//line gselfish/main.gom:155
+			}
+//line gselfish/main.gom:152
+		} else {
+//line gselfish/main.gom:158
+			tmp120 := result.Err[struct{}, error](tmp119)
+//line gselfish/main.gom:158
+			switch tmp120.Tag() {
+//line gselfish/main.gom:158
+			case result.ResultTagOk:
+//line gselfish/main.gom:158
+				_ = tmp120.Value
+//line gselfish/main.gom:158
+			case result.ResultTagErr:
+//line gselfish/main.gom:158
+				return result.Err[struct{}, error](tmp120.Error)
+//line gselfish/main.gom:158
+			default:
+//line gselfish/main.gom:158
+				panic(rt.InvalidVariant("result.Result", tmp120))
+//line gselfish/main.gom:158
+			}
+//line gselfish/main.gom:152
 		}
+//line gselfish/main.gom:152
+	default:
+//line gselfish/main.gom:151
+		panic(rt.InvalidVariant("Result", tmp115))
+//line gselfish/main.gom:152
+	}
+//line gselfish/main.gom:162
+	tmp132 := any(repoDir)
+//line gselfish/main.gom:162
+	log.Printf("remove dirty files; cd %s && git reset --hard HEAD", tmp132)
+//line gselfish/main.gom:162
+	_ = struct{}{}
+//line gselfish/main.gom:163
+	tmp133 := list.List[string]{"reset", "--hard", "HEAD"}
+//line gselfish/main.gom:163
+	tmp134 := gitRun(repoDir, tmp133)
+//line gselfish/main.gom:164
+	switch tmp134.Tag() {
+//line gselfish/main.gom:164
+	case result.ResultTagOk:
+//line gselfish/main.gom:165
+		_ = struct{}{}
+//line gselfish/main.gom:164
+	case result.ResultTagErr:
+//line gselfish/main.gom:164
+		tmp136 := tmp134.Error
+//line gselfish/main.gom:164
+		tmp137 := tmp136
+//line gselfish/main.gom:164
+		tmp138 := any(tmp137)
+//line gselfish/main.gom:164
+		log.Printf("git reset is failed. %+v (but continued)", tmp138)
+//line gselfish/main.gom:164
+		_ = struct{}{}
+//line gselfish/main.gom:164
+		_ = struct{}{}
+//line gselfish/main.gom:164
+	default:
+//line gselfish/main.gom:163
+		panic(rt.InvalidVariant("Result", tmp134))
+//line gselfish/main.gom:164
+	}
+//line gselfish/main.gom:167
+	tmp139 := any(repoDir)
+//line gselfish/main.gom:167
+	log.Printf("sync repository; cd %s && git pull", tmp139)
+//line gselfish/main.gom:167
+	_ = struct{}{}
+//line gselfish/main.gom:168
+	tmp140 := list.List[string]{"pull", "--rebase"}
+//line gselfish/main.gom:168
+	tmp141 := gitRun(repoDir, tmp140)
+//line gselfish/main.gom:169
+	switch tmp141.Tag() {
+//line gselfish/main.gom:169
+	case result.ResultTagOk:
+//line gselfish/main.gom:170
+		_ = struct{}{}
+//line gselfish/main.gom:169
+	case result.ResultTagErr:
+//line gselfish/main.gom:169
+		tmp143 := tmp141.Error
+//line gselfish/main.gom:169
+		tmp144 := tmp143
+//line gselfish/main.gom:169
+		tmp145 := any(tmp144)
+//line gselfish/main.gom:169
+		log.Printf("git pull is failed. %+v (but continued)", tmp145)
+//line gselfish/main.gom:169
+		_ = struct{}{}
+//line gselfish/main.gom:169
+		_ = struct{}{}
+//line gselfish/main.gom:169
+	default:
+//line gselfish/main.gom:168
+		panic(rt.InvalidVariant("Result", tmp141))
+//line gselfish/main.gom:169
+	}
+//line gselfish/main.gom:173
+	copy_ := func(acc list.List[string]) func(string) list.List[string] {
+//line gselfish/main.gom:173
+		return func(fname string) list.List[string] {
+//line gselfish/main.gom:173
+			tmp146 := copyTo(repoDir, fname)
+//line gselfish/main.gom:174
+			switch tmp146.Tag() {
+//line gselfish/main.gom:174
+			case result.ResultTagOk:
+//line gselfish/main.gom:174
+				tmp147 := tmp146.Value
+//line gselfish/main.gom:174
+				tmp148 := tmp147
+//line gselfish/main.gom:175
+				return append(list.List[string]{tmp148}, acc...)
+//line gselfish/main.gom:174
+			case result.ResultTagErr:
+//line gselfish/main.gom:174
+				tmp149 := tmp146.Error
+//line gselfish/main.gom:174
+				tmp150 := tmp149
+//line gselfish/main.gom:174
+				tmp151 := any(tmp150)
+//line gselfish/main.gom:174
+				tmp152 := any(fname)
+//line gselfish/main.gom:174
+				log.Printf("ignored for %+v, in copy file (%q)", tmp151, tmp152)
+//line gselfish/main.gom:174
+				_ = struct{}{}
+//line gselfish/main.gom:174
+				return acc
+//line gselfish/main.gom:174
+			default:
+//line gselfish/main.gom:173
+				panic(rt.InvalidVariant("Result", tmp146))
+//line gselfish/main.gom:174
+			}
+//line gselfish/main.gom:173
+		}
+//line gselfish/main.gom:173
+	}
+//line gselfish/main.gom:177
+	tmp153 := func(p01 list.List[string], p11 string) list.List[string] {
+//line gselfish/main.gom:177
+		u01 := copy_(p01)
+//line gselfish/main.gom:177
+		return u01(p11)
 //line gselfish/main.gom:177
 	}
+//line gselfish/main.gom:177
+	tmp154 := list.List[string]{}
+//line gselfish/main.gom:177
+	tmp155 := list.Fold[list.List[string], string](tmp153, tmp154, files)
+//line gselfish/main.gom:177
+	names := list.Rev[string](tmp155)
+//line gselfish/main.gom:178
+	tmp171 := list.List[string]{}
+//line gselfish/main.gom:178
+	tmp172 := gomEq192bccb7f(names, tmp171)
+//line gselfish/main.gom:178
+	if tmp172 {
+//line gselfish/main.gom:179
+		_ = struct{}{}
+//line gselfish/main.gom:178
+	} else {
+//line gselfish/main.gom:181
+		log.Printf("git add && git push")
+//line gselfish/main.gom:181
+		_ = struct{}{}
+//line gselfish/main.gom:182
+		tmp157 := func(e error) error {
+//line gselfish/main.gom:182
+			tmp156 := any(e)
+//line gselfish/main.gom:182
+			v9 := fmt.Errorf("in git add. %v", tmp156)
+//line gselfish/main.gom:182
+			if v9 == nil {
+//line gselfish/main.gom:182
+				panic("gom: fmt.Errorf returned nil error — its binding declares a never-nil GoError result")
+//line gselfish/main.gom:182
+			}
+//line gselfish/main.gom:182
+			return v9
+//line gselfish/main.gom:182
+		}
+//line gselfish/main.gom:182
+		tmp158 := append(list.List[string]{"add"}, names...)
+//line gselfish/main.gom:182
+		tmp159 := gitRun(repoDir, tmp158)
+//line gselfish/main.gom:182
+		tmp160 := result.MapErr[error, error, struct{}](tmp157, tmp159)
+//line gselfish/main.gom:182
+		switch tmp160.Tag() {
+//line gselfish/main.gom:182
+		case result.ResultTagOk:
+//line gselfish/main.gom:182
+			_ = tmp160.Value
+//line gselfish/main.gom:182
+		case result.ResultTagErr:
+//line gselfish/main.gom:182
+			return result.Err[struct{}, error](tmp160.Error)
+//line gselfish/main.gom:182
+		default:
+//line gselfish/main.gom:182
+			panic(rt.InvalidVariant("result.Result", tmp160))
+//line gselfish/main.gom:182
+		}
 //line gselfish/main.gom:183
-	tmp153 := rt.RefGet[list.List[string]](copied)
+		tmp162 := func(e1 error) error {
 //line gselfish/main.gom:183
-	names := list.Rev[string](tmp153)
+			tmp161 := any(e1)
+//line gselfish/main.gom:183
+			v10 := fmt.Errorf("in git commit. %v", tmp161)
+//line gselfish/main.gom:183
+			if v10 == nil {
+//line gselfish/main.gom:183
+				panic("gom: fmt.Errorf returned nil error — its binding declares a never-nil GoError result")
+//line gselfish/main.gom:183
+			}
+//line gselfish/main.gom:183
+			return v10
+//line gselfish/main.gom:183
+		}
+//line gselfish/main.gom:183
+		tmp163 := list.List[string]{"commit", "-m", "from selfish"}
+//line gselfish/main.gom:183
+		tmp164 := gitRun(repoDir, tmp163)
+//line gselfish/main.gom:183
+		tmp165 := result.MapErr[error, error, struct{}](tmp162, tmp164)
+//line gselfish/main.gom:183
+		switch tmp165.Tag() {
+//line gselfish/main.gom:183
+		case result.ResultTagOk:
+//line gselfish/main.gom:183
+			_ = tmp165.Value
+//line gselfish/main.gom:183
+		case result.ResultTagErr:
+//line gselfish/main.gom:183
+			return result.Err[struct{}, error](tmp165.Error)
+//line gselfish/main.gom:183
+		default:
+//line gselfish/main.gom:183
+			panic(rt.InvalidVariant("result.Result", tmp165))
+//line gselfish/main.gom:183
+		}
 //line gselfish/main.gom:184
-	tmp169 := list.List[string]{}
+		tmp167 := func(e2 error) error {
 //line gselfish/main.gom:184
-	tmp170 := gomEq192bccb7f(names, tmp169)
+			tmp166 := any(e2)
 //line gselfish/main.gom:184
-	if tmp170 {
+			v11 := fmt.Errorf("in git push. %v", tmp166)
+//line gselfish/main.gom:184
+			if v11 == nil {
+//line gselfish/main.gom:184
+				panic("gom: fmt.Errorf returned nil error — its binding declares a never-nil GoError result")
+//line gselfish/main.gom:184
+			}
+//line gselfish/main.gom:184
+			return v11
+//line gselfish/main.gom:184
+		}
+//line gselfish/main.gom:184
+		tmp168 := list.List[string]{"push"}
+//line gselfish/main.gom:184
+		tmp169 := gitRun(repoDir, tmp168)
+//line gselfish/main.gom:184
+		tmp170 := result.MapErr[error, error, struct{}](tmp167, tmp169)
+//line gselfish/main.gom:184
+		switch tmp170.Tag() {
+//line gselfish/main.gom:184
+		case result.ResultTagOk:
+//line gselfish/main.gom:184
+			_ = tmp170.Value
+//line gselfish/main.gom:184
+		case result.ResultTagErr:
+//line gselfish/main.gom:184
+			return result.Err[struct{}, error](tmp170.Error)
+//line gselfish/main.gom:184
+		default:
+//line gselfish/main.gom:184
+			panic(rt.InvalidVariant("result.Result", tmp170))
+//line gselfish/main.gom:184
+		}
 //line gselfish/main.gom:185
 		_ = struct{}{}
-//line gselfish/main.gom:184
-	} else {
-//line gselfish/main.gom:187
-		log.Printf("git add && git push")
-//line gselfish/main.gom:187
-		_ = struct{}{}
-//line gselfish/main.gom:188
-		tmp155 := func(e error) error {
-//line gselfish/main.gom:188
-			tmp154 := any(e)
-//line gselfish/main.gom:188
-			v9 := fmt.Errorf("in git add. %v", tmp154)
-//line gselfish/main.gom:188
-			if v9 == nil {
-//line gselfish/main.gom:188
-				panic("gom: fmt.Errorf returned nil error — its binding declares a never-nil GoError result")
-//line gselfish/main.gom:188
-			}
-//line gselfish/main.gom:188
-			return v9
-//line gselfish/main.gom:188
-		}
-//line gselfish/main.gom:188
-		tmp156 := append(list.List[string]{"add"}, names...)
-//line gselfish/main.gom:188
-		tmp157 := gitRun(repoDir, tmp156)
-//line gselfish/main.gom:188
-		tmp158 := result.MapErr[error, error, struct{}](tmp155, tmp157)
-//line gselfish/main.gom:188
-		switch tmp158.Tag() {
-//line gselfish/main.gom:188
-		case result.ResultTagOk:
-//line gselfish/main.gom:188
-			_ = tmp158.Value
-//line gselfish/main.gom:188
-		case result.ResultTagErr:
-//line gselfish/main.gom:188
-			return result.Err[struct{}, error](tmp158.Error)
-//line gselfish/main.gom:188
-		default:
-//line gselfish/main.gom:188
-			panic(rt.InvalidVariant("result.Result", tmp158))
-//line gselfish/main.gom:188
-		}
-//line gselfish/main.gom:189
-		tmp160 := func(e1 error) error {
-//line gselfish/main.gom:189
-			tmp159 := any(e1)
-//line gselfish/main.gom:189
-			v10 := fmt.Errorf("in git commit. %v", tmp159)
-//line gselfish/main.gom:189
-			if v10 == nil {
-//line gselfish/main.gom:189
-				panic("gom: fmt.Errorf returned nil error — its binding declares a never-nil GoError result")
-//line gselfish/main.gom:189
-			}
-//line gselfish/main.gom:189
-			return v10
-//line gselfish/main.gom:189
-		}
-//line gselfish/main.gom:189
-		tmp161 := list.List[string]{"commit", "-m", "from selfish"}
-//line gselfish/main.gom:189
-		tmp162 := gitRun(repoDir, tmp161)
-//line gselfish/main.gom:189
-		tmp163 := result.MapErr[error, error, struct{}](tmp160, tmp162)
-//line gselfish/main.gom:189
-		switch tmp163.Tag() {
-//line gselfish/main.gom:189
-		case result.ResultTagOk:
-//line gselfish/main.gom:189
-			_ = tmp163.Value
-//line gselfish/main.gom:189
-		case result.ResultTagErr:
-//line gselfish/main.gom:189
-			return result.Err[struct{}, error](tmp163.Error)
-//line gselfish/main.gom:189
-		default:
-//line gselfish/main.gom:189
-			panic(rt.InvalidVariant("result.Result", tmp163))
-//line gselfish/main.gom:189
-		}
-//line gselfish/main.gom:190
-		tmp165 := func(e2 error) error {
-//line gselfish/main.gom:190
-			tmp164 := any(e2)
-//line gselfish/main.gom:190
-			v11 := fmt.Errorf("in git push. %v", tmp164)
-//line gselfish/main.gom:190
-			if v11 == nil {
-//line gselfish/main.gom:190
-				panic("gom: fmt.Errorf returned nil error — its binding declares a never-nil GoError result")
-//line gselfish/main.gom:190
-			}
-//line gselfish/main.gom:190
-			return v11
-//line gselfish/main.gom:190
-		}
-//line gselfish/main.gom:190
-		tmp166 := list.List[string]{"push"}
-//line gselfish/main.gom:190
-		tmp167 := gitRun(repoDir, tmp166)
-//line gselfish/main.gom:190
-		tmp168 := result.MapErr[error, error, struct{}](tmp165, tmp167)
-//line gselfish/main.gom:190
-		switch tmp168.Tag() {
-//line gselfish/main.gom:190
-		case result.ResultTagOk:
-//line gselfish/main.gom:190
-			_ = tmp168.Value
-//line gselfish/main.gom:190
-		case result.ResultTagErr:
-//line gselfish/main.gom:190
-			return result.Err[struct{}, error](tmp168.Error)
-//line gselfish/main.gom:190
-		default:
-//line gselfish/main.gom:190
-			panic(rt.InvalidVariant("result.Result", tmp168))
-//line gselfish/main.gom:190
-		}
-//line gselfish/main.gom:191
-		_ = struct{}{}
-//line gselfish/main.gom:184
+//line gselfish/main.gom:178
 	}
-//line gselfish/main.gom:193
+//line gselfish/main.gom:187
 	return result.Ok[struct{}, error](struct{}{})
-//line gselfish/main.gom:148
+//line gselfish/main.gom:145
 }
 
-//line gselfish/main.gom:196
+//line gselfish/main.gom:190
 func gitRun(dir string, args list.List[string]) result.Result[struct{}, error] {
-//line gselfish/main.gom:197
-	tmp171 := args.ToSlice()
-//line gselfish/main.gom:197
-	cmd := exec.Command("git", tmp171...)
-//line gselfish/main.gom:198
+//line gselfish/main.gom:191
+	tmp173 := args.ToSlice()
+//line gselfish/main.gom:191
+	cmd := exec.Command("git", tmp173...)
+//line gselfish/main.gom:192
 	cmd.Dir = dir
-//line gselfish/main.gom:199
-	tmp172 := io.Writer(os.Stderr)
-//line gselfish/main.gom:199
-	cmd.Stderr = tmp172
-//line gselfish/main.gom:200
+//line gselfish/main.gom:193
+	tmp174 := io.Writer(os.Stderr)
+//line gselfish/main.gom:193
+	cmd.Stderr = tmp174
+//line gselfish/main.gom:194
 	err11 := cmd.Run()
-//line gselfish/main.gom:200
+//line gselfish/main.gom:194
 	return result.FromErr(err11)
-//line gselfish/main.gom:196
+//line gselfish/main.gom:190
 }
 
-//line gselfish/main.gom:203
+//line gselfish/main.gom:197
 func copyTo(dir, fname string) result.Result[string, error] {
-//line gselfish/main.gom:204
-	tmp178 := func(s *rt.Scope) result.Result[string, error] {
-//line gselfish/main.gom:205
+//line gselfish/main.gom:198
+	tmp180 := func(s *rt.Scope) result.Result[string, error] {
+//line gselfish/main.gom:199
 		rf, err12 := os.Open(fname)
-//line gselfish/main.gom:205
+//line gselfish/main.gom:199
 		if err12 != nil {
-//line gselfish/main.gom:205
+//line gselfish/main.gom:199
 			return result.Err[string, error](err12)
-//line gselfish/main.gom:205
+//line gselfish/main.gom:199
 		}
-//line gselfish/main.gom:206
-		tmp173 := func(_ struct{}) struct{} {
-//line gselfish/main.gom:206
-			err13 := rf.Close()
-//line gselfish/main.gom:206
-			_ = result.FromErr(err13)
-//line gselfish/main.gom:206
-			return struct{}{}
-//line gselfish/main.gom:206
-		}
-//line gselfish/main.gom:206
-		tmp180 := tmp173
-//line gselfish/main.gom:206
-		defer tmp180(struct{}{})
-//line gselfish/main.gom:207
-		base := filepath.Base(fname)
-//line gselfish/main.gom:208
-		tmp174 := filepath.Join(dir, base)
-//line gselfish/main.gom:208
-		wf, err14 := os.Create(tmp174)
-//line gselfish/main.gom:208
-		if err14 != nil {
-//line gselfish/main.gom:208
-			return result.Err[string, error](err14)
-//line gselfish/main.gom:208
-		}
-//line gselfish/main.gom:209
+//line gselfish/main.gom:200
 		tmp175 := func(_ struct{}) struct{} {
-//line gselfish/main.gom:209
-			err15 := wf.Close()
-//line gselfish/main.gom:209
-			_ = result.FromErr(err15)
-//line gselfish/main.gom:209
+//line gselfish/main.gom:200
+			err13 := rf.Close()
+//line gselfish/main.gom:200
+			_ = result.FromErr(err13)
+//line gselfish/main.gom:200
 			return struct{}{}
-//line gselfish/main.gom:209
+//line gselfish/main.gom:200
 		}
-//line gselfish/main.gom:209
-		tmp179 := tmp175
-//line gselfish/main.gom:209
-		defer tmp179(struct{}{})
-//line gselfish/main.gom:210
-		tmp176 := io.Writer(wf)
-//line gselfish/main.gom:210
-		tmp177 := io.Reader(rf)
-//line gselfish/main.gom:210
-		v12, err16 := io.Copy(tmp176, tmp177)
-//line gselfish/main.gom:210
-		if err16 != nil {
-//line gselfish/main.gom:210
-			return result.Err[string, error](err16)
-//line gselfish/main.gom:210
+//line gselfish/main.gom:200
+		tmp182 := tmp175
+//line gselfish/main.gom:200
+		defer tmp182(struct{}{})
+//line gselfish/main.gom:201
+		base := filepath.Base(fname)
+//line gselfish/main.gom:202
+		tmp176 := filepath.Join(dir, base)
+//line gselfish/main.gom:202
+		wf, err14 := os.Create(tmp176)
+//line gselfish/main.gom:202
+		if err14 != nil {
+//line gselfish/main.gom:202
+			return result.Err[string, error](err14)
+//line gselfish/main.gom:202
 		}
-//line gselfish/main.gom:210
-		_ = v12
-//line gselfish/main.gom:211
-		return result.Ok[string, error](base)
-//line gselfish/main.gom:204
-	}
-//line gselfish/main.gom:204
-	tmp181 := rt.NewScope()
-//line gselfish/main.gom:204
-	return tmp178(tmp181)
 //line gselfish/main.gom:203
+		tmp177 := func(_ struct{}) struct{} {
+//line gselfish/main.gom:203
+			err15 := wf.Close()
+//line gselfish/main.gom:203
+			_ = result.FromErr(err15)
+//line gselfish/main.gom:203
+			return struct{}{}
+//line gselfish/main.gom:203
+		}
+//line gselfish/main.gom:203
+		tmp181 := tmp177
+//line gselfish/main.gom:203
+		defer tmp181(struct{}{})
+//line gselfish/main.gom:204
+		tmp178 := io.Writer(wf)
+//line gselfish/main.gom:204
+		tmp179 := io.Reader(rf)
+//line gselfish/main.gom:204
+		v12, err16 := io.Copy(tmp178, tmp179)
+//line gselfish/main.gom:204
+		if err16 != nil {
+//line gselfish/main.gom:204
+			return result.Err[string, error](err16)
+//line gselfish/main.gom:204
+		}
+//line gselfish/main.gom:204
+		_ = v12
+//line gselfish/main.gom:205
+		return result.Ok[string, error](base)
+//line gselfish/main.gom:198
+	}
+//line gselfish/main.gom:198
+	tmp183 := rt.NewScope()
+//line gselfish/main.gom:198
+	return tmp180(tmp183)
+//line gselfish/main.gom:197
 }
 
-//line gselfish/main.gom:184
+//line gselfish/main.gom:178
 func gomEq192bccb7f(a, b list.List[string]) bool {
-//line gselfish/main.gom:184
+//line gselfish/main.gom:178
 	if len(a) != len(b) {
-//line gselfish/main.gom:184
+//line gselfish/main.gom:178
 		return false
-//line gselfish/main.gom:184
+//line gselfish/main.gom:178
 	}
-//line gselfish/main.gom:184
+//line gselfish/main.gom:178
 	for i := range a {
-//line gselfish/main.gom:184
+//line gselfish/main.gom:178
 		if !(a[i] == b[i]) {
-//line gselfish/main.gom:184
+//line gselfish/main.gom:178
 			return false
-//line gselfish/main.gom:184
+//line gselfish/main.gom:178
 		}
-//line gselfish/main.gom:184
+//line gselfish/main.gom:178
 	}
-//line gselfish/main.gom:184
+//line gselfish/main.gom:178
 	return true
-//line gselfish/main.gom:184
+//line gselfish/main.gom:178
 }

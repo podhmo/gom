@@ -101,29 +101,26 @@ type ScanResult = { text_files: List String, binary_files: List String }
 let too_large_file_size = 5 * (1024 * 1024)
 
 fn scan_files (files: List String) -> ScanResult = {
-  let texts = Ref.new []
-  let bins = Ref.new []
-  for fname in files {
-    match os.Stat fname {
-      Err e -> ignore (log.Printf ("ignored for %+v (%q)", e, fname))
-      Ok fi -> if (Option.get fi).Size () > too_large_file_size {
-        Ref.set bins [fname, ..Ref.get bins]
-      } else {
-        match is_text_file fname {
-          Err e -> ignore (log.Printf ("ignored for %+v, in detect file type (%q)", e, fname))
-          Ok true -> Ref.set texts [fname, ..Ref.get texts]
-          Ok false -> Ref.set bins [fname, ..Ref.get bins]
-        }
+  let classify = fn acc (fname: String) -> match os.Stat fname {
+    Err e -> { ignore (log.Printf ("ignored for %+v (%q)", e, fname)); acc }
+    Ok fi -> if (Option.get fi).Size () > too_large_file_size {
+      { acc with binary_files = [fname, ..acc.binary_files] }
+    } else {
+      match is_text_file fname {
+        Err e -> { ignore (log.Printf ("ignored for %+v, in detect file type (%q)", e, fname)); acc }
+        Ok true -> { acc with text_files = [fname, ..acc.text_files] }
+        Ok false -> { acc with binary_files = [fname, ..acc.binary_files] }
       }
     }
   }
-  { text_files = List.rev (Ref.get texts), binary_files = List.rev (Ref.get bins) }
+  let scan = List.fold classify { text_files = [], binary_files = [] } files
+  { scan with
+    text_files = List.rev scan.text_files,
+    binary_files = List.rev scan.binary_files }
 }
 
-fn is_text_file (fname: String) -> Result Bool GoError = {
-  let b = try os.ReadFile fname
-  Ok (strings.HasPrefix (http.DetectContentType b, "text/"))
-}
+fn is_text_file (fname: String) -> Result Bool GoError =
+  os.ReadFile fname |?> fn b -> Ok (strings.HasPrefix (http.DetectContentType b, "text/"))
 
 // The binary block: every step's failure is a WARN that swallows the
 // whole block, matching the oracle's `return nil` tails.
@@ -173,14 +170,11 @@ fn binaries_body (app: App) (commit: Commit) (files: List String) -> Result Unit
     Ok _ -> ()
   }
 
-  let copied = Ref.new []
-  for fname in files {
-    match copy_to repo_dir fname {
-      Err e -> ignore (log.Printf ("ignored for %+v, in copy file (%q)", e, fname))
-      Ok base -> Ref.set copied [base, ..Ref.get copied]
-    }
+  let copy = fn acc (fname: String) -> match copy_to repo_dir fname {
+    Err e -> { ignore (log.Printf ("ignored for %+v, in copy file (%q)", e, fname)); acc }
+    Ok base -> [base, ..acc]
   }
-  let names = List.rev (Ref.get copied)
+  let names = List.rev (List.fold copy [] files)
   if names == [] {
     ()
   } else {

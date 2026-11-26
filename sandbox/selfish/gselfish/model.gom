@@ -13,40 +13,38 @@ import commithistory "github.com/podhmo/selfish/gomcommithistory"
 // internal.Commit = commithistory.Commit
 type alias Commit = commithistory.Commit
 
+// Fold accumulator for new_gist.
+type GistAcc = { title: Option String, files: Go.Map github.GistFilename github.GistFile }
+
 // NewGist is shorthand of github.Gist object creation. The title is
 // the first `# ` heading of a file literally named readme.md.
 fn new_gist (filenames: List String) (public: Bool) -> Result (Ptr github.Gist) GoError = {
-  let title = Ref.new ""
-  let files : Go.Map github.GistFilename github.GistFile = Go.Map.make ()
-  for filename in filenames {
-    match new_gist_file filename {
-      Err e -> ignore (log.Printf ("skip file=%s err=%v\n", filename, e))
-      Ok gistfile -> {
+  let collect = fn (acc: GistAcc) (filename: String) -> match new_gist_file filename {
+    Err e -> { ignore (log.Printf ("skip file=%s err=%v\n", filename, e)); acc }
+    Ok gistfile -> {
+      let title =
         if strings.ToLower (filepath.Base filename) == "readme.md" {
-          match Ptr.to_option gistfile.Content {
-            Some content -> match readme_title (strings.TrimLeft (content, "\n\t ")) {
-              Some t -> Ref.set title t
-              None -> ()
-            }
-            None -> ()
-          }
-        }
-        let k = Go.conv (filepath.Base filename) : github.GistFilename
-        Go.Map.set files k (Ptr.get gistfile)
-      }
+          Ptr.to_option gistfile.Content
+            |> Option.and_then (fn c -> readme_title (strings.TrimLeft (c, "\n\t ")))
+            |> Option.or_else acc.title
+        } else { acc.title }
+      Go.Map.set acc.files (Go.conv (filepath.Base filename) : github.GistFilename) (Ptr.get gistfile)
+      { acc with title = title }
     }
   }
+  let empty : Go.Map github.GistFilename github.GistFile = Go.Map.make ()
+  let acc : GistAcc = List.fold collect { title = None, files = empty } filenames
   let gist : Ptr github.Gist = Ptr.new ()
   gist.Public = Ptr.make public
-  gist.Files = files
-  gist.Description = Ptr.make (Ref.get title)
+  gist.Files = acc.files
+  gist.Description = Ptr.make (Option.get_or_else "" acc.title)
   Ok gist
 }
 
 // The first `# ` heading, trimmed; readme.md only (caller checks).
 fn readme_title (text: String) -> Option String = first_heading (strings.Split (text, "\n"))
 
-fn first_heading (lines: List String) -> Option String = match lines {
+@tailrec fn first_heading (lines: List String) -> Option String = match lines {
   [] -> None
   [line, ..rest] -> match strings.CutPrefix (line, "# ") {
     (after, true) -> Some (strings.TrimSpace after)
