@@ -1,0 +1,6 @@
+package main
+
+type Box a = { value: a }
+type alias IntBox = Box Int
+
+fn fixed_bad () -> Box String = IntBox { value = 1 }

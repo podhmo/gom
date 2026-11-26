@@ -15,6 +15,9 @@ type Wrap =
 
 type alias OrderAlias = ValidatedOrder
 type alias BoxAlias a = Box a
+type alias ConstBox a = Box Int
+type alias IntBox = Box Int
+type alias PairBox a = Box (a, a)
 
 fn build (id: Int) (total: Int) -> ValidatedOrder =
   ValidatedOrder { id = id, total = total }
@@ -45,3 +48,12 @@ fn local_alias (x: Int) -> Int = {
   let b = BoxAlias { value = x }
   b.value
 }
+
+fn alias_unused_param (x: Int) -> Int = {
+  let b = ConstBox { value = x }
+  b.value
+}
+
+fn alias_fixed () -> Box Int = IntBox { value = 1 }
+
+fn alias_repeated () -> Box (Int, Int) = PairBox { value = (1, 2) }

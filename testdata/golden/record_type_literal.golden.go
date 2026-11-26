@@ -105,73 +105,107 @@ type OrderAlias = ValidatedOrder
 //line record_type_literal.gom:15
 type BoxAlias[A any] = Box[A]
 
+//line record_type_literal.gom:16
+type ConstBox[A any] = Box[int64]
+
 //line record_type_literal.gom:17
-func build(id, total int64) ValidatedOrder {
+type IntBox = Box[int64]
+
 //line record_type_literal.gom:18
-	return ValidatedOrder{Id: id, Total: total}
-//line record_type_literal.gom:17
-}
+type PairBox[A any] = Box[rt.Tuple2[A, A]]
 
 //line record_type_literal.gom:20
+func build(id, total int64) ValidatedOrder {
+//line record_type_literal.gom:21
+	return ValidatedOrder{Id: id, Total: total}
+//line record_type_literal.gom:20
+}
+
+//line record_type_literal.gom:23
 func generic(x int64) Box[int64] {
-//line record_type_literal.gom:20
+//line record_type_literal.gom:23
 	return Box[int64]{Value: x}
-//line record_type_literal.gom:20
+//line record_type_literal.gom:23
 }
 
-//line record_type_literal.gom:22
-func ctor(x int64) Wrap {
-//line record_type_literal.gom:22
-	tmp1 := CtorArg(x)
-//line record_type_literal.gom:22
-	return Wrap_Wrap{V0: tmp1}
-//line record_type_literal.gom:22
-}
-
-//line record_type_literal.gom:24
-func ambiguous(id, total int64) PricedOrder {
 //line record_type_literal.gom:25
-	return PricedOrder{Id: id, Total: total}
-//line record_type_literal.gom:24
+func ctor(x int64) Wrap {
+//line record_type_literal.gom:25
+	tmp1 := CtorArg(x)
+//line record_type_literal.gom:25
+	return Wrap_Wrap{V0: tmp1}
+//line record_type_literal.gom:25
 }
 
 //line record_type_literal.gom:27
-func localDisambiguated(id, total int64) int64 {
+func ambiguous(id, total int64) PricedOrder {
 //line record_type_literal.gom:28
-	x := ValidatedOrder{Id: id, Total: total}
-//line record_type_literal.gom:29
-	return x.Id + x.Total
+	return PricedOrder{Id: id, Total: total}
 //line record_type_literal.gom:27
 }
 
+//line record_type_literal.gom:30
+func localDisambiguated(id, total int64) int64 {
+//line record_type_literal.gom:31
+	x := ValidatedOrder{Id: id, Total: total}
 //line record_type_literal.gom:32
-func anyBox(_ struct{}) Box[any] {
-//line record_type_literal.gom:32
-	tmp2 := any("text")
-//line record_type_literal.gom:32
-	return Box[any]{Value: tmp2}
-//line record_type_literal.gom:32
+	return x.Id + x.Total
+//line record_type_literal.gom:30
 }
 
-//line record_type_literal.gom:34
-func aliasBuild(id, total int64) ValidatedOrder {
 //line record_type_literal.gom:35
+func anyBox(_ struct{}) Box[any] {
+//line record_type_literal.gom:35
+	tmp2 := any("text")
+//line record_type_literal.gom:35
+	return Box[any]{Value: tmp2}
+//line record_type_literal.gom:35
+}
+
+//line record_type_literal.gom:37
+func aliasBuild(id, total int64) ValidatedOrder {
+//line record_type_literal.gom:38
 	return ValidatedOrder{Id: id, Total: total}
-//line record_type_literal.gom:34
-}
-
-//line record_type_literal.gom:37
-func aliasGeneric(x int64) Box[int64] {
-//line record_type_literal.gom:37
-	return Box[int64]{Value: x}
 //line record_type_literal.gom:37
 }
 
-//line record_type_literal.gom:39
-func localAlias(x int64) int64 {
 //line record_type_literal.gom:40
+func aliasGeneric(x int64) Box[int64] {
+//line record_type_literal.gom:40
+	return Box[int64]{Value: x}
+//line record_type_literal.gom:40
+}
+
+//line record_type_literal.gom:42
+func localAlias(x int64) int64 {
+//line record_type_literal.gom:43
 	b := Box[int64]{Value: x}
-//line record_type_literal.gom:41
+//line record_type_literal.gom:44
 	return b.Value
-//line record_type_literal.gom:39
+//line record_type_literal.gom:42
+}
+
+//line record_type_literal.gom:47
+func aliasUnusedParam(x int64) int64 {
+//line record_type_literal.gom:48
+	b := Box[int64]{Value: x}
+//line record_type_literal.gom:49
+	return b.Value
+//line record_type_literal.gom:47
+}
+
+//line record_type_literal.gom:52
+func aliasFixed(_ struct{}) Box[int64] {
+//line record_type_literal.gom:52
+	return Box[int64]{Value: 1}
+//line record_type_literal.gom:52
+}
+
+//line record_type_literal.gom:54
+func aliasRepeated(_ struct{}) Box[rt.Tuple2[int64, int64]] {
+//line record_type_literal.gom:54
+	tmp3 := rt.Tuple2[int64, int64]{V0: 1, V1: 2}
+//line record_type_literal.gom:54
+	return Box[rt.Tuple2[int64, int64]]{Value: tmp3}
+//line record_type_literal.gom:54
 }

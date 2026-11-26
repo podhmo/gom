@@ -266,9 +266,12 @@ func (c *checker) checkConvCall(e *syntax.Apply, fn Expr) Expr {
 // type prefix. Aliases are transparent here just as in type
 // annotations: instantiate their parameters with metas, expand the
 // target, and require that target to be a record constructor. When the
-// enclosing context already expects that constructor, keep its type
-// arguments — `Box { value = "s" }` under `Box Go.Any` must check the
-// field against `Go.Any`, not infer a disjoint `Box String`.
+// enclosing context already expects a compatible shape, use it to
+// instantiate the prefix's inference metas — `Box { value = "s" }`
+// under `Box Go.Any` must check the field against `Go.Any`, not infer a
+// disjoint `Box String`. Unlike the old copy-in approach this never
+// rewrites a shared alias body: incompatible expectations are left for
+// the ordinary result-type mismatch.
 func (c *checker) typePrefixedRecordType(ti *typeInfo, sp diag.Span, want types.Type) (types.Type, bool) {
 	instantiate := func(params []*types.Var) ([]types.Type, types.Subst) {
 		args := make([]types.Type, len(params))
@@ -279,20 +282,10 @@ func (c *checker) typePrefixedRecordType(ti *typeInfo, sp diag.Span, want types.
 		}
 		return args, sub
 	}
-	expectedArgs := func(con *types.Con) {
-		wc, ok := types.Chase(want).(*types.Con)
-		if !ok || wc.Qual != con.Qual || wc.Name != con.Name || len(wc.Args) != len(con.Args) {
-			return
-		}
-		// The inference metas currently in con.Args are replaced by
-		// the expectation wholesale. Quiet them: they are placeholders
-		// for the prefix, not an undecided user-facing type.
-		metasIn(con, func(m *types.Meta) { c.markQuiet(m) })
-		copy(con.Args, wc.Args)
-	}
 
+	var rt types.Type
 	if ti.kind == kindAlias {
-		_, sub := instantiate(ti.params)
+		args, sub := instantiate(ti.params)
 		if !ti.aliasRes && ti.aliasBod != nil {
 			c.resolveAlias(ti, ti.aliasBod)
 		}
@@ -308,16 +301,127 @@ func (c *checker) typePrefixedRecordType(ti *typeInfo, sp diag.Span, want types.
 		if rti == nil || rti.kind != kindRecord {
 			return target, false
 		}
-		expectedArgs(con)
-		return con, true
-	}
-	if ti.kind != kindRecord {
+		// An alias parameter can be absent from its expansion
+		// (`type alias ConstBox a = Box Int`). It does not make the
+		// constructed record any less determined, so it must not demand
+		// an annotation of its own.
+		used := map[*types.Meta]bool{}
+		metasIn(target, func(m *types.Meta) { used[m] = true })
+		for _, arg := range args {
+			if m, ok := types.Chase(arg).(*types.Meta); ok && !used[m] {
+				c.markQuiet(m)
+			}
+		}
+		rt = con
+	} else if ti.kind == kindRecord {
+		args, _ := instantiate(ti.params)
+		rt = &types.Con{Qual: ti.con.Qual, Name: ti.con.Name, Args: args}
+	} else {
 		return ti.con, false
 	}
-	args, _ := instantiate(ti.params)
-	rt := &types.Con{Qual: ti.con.Qual, Name: ti.con.Name, Args: args}
-	expectedArgs(rt)
+	c.useExpectedPrefixType(rt, want, sp)
 	return rt, true
+}
+
+// useExpectedPrefixType binds the inference metas inside rt from a
+// structurally compatible expectation. It is a dry-run match followed
+// by binds, not a mutating overwrite: alias expansions may share type
+// nodes with their declarations, and constraints such as a repeated
+// alias parameter must continue to be enforced.
+func (c *checker) useExpectedPrefixType(rt, want types.Type, sp diag.Span) {
+	if want == nil {
+		return
+	}
+	binds := map[*types.Meta]types.Type{}
+	if !matchPrefixType(rt, want, binds) {
+		return
+	}
+	ms := make([]*types.Meta, 0, len(binds))
+	for m := range binds {
+		ms = append(ms, m)
+	}
+	slices.SortFunc(ms, func(a, b *types.Meta) int { return a.ID - b.ID })
+	for _, m := range ms {
+		_ = c.bind(m, binds[m], sp)
+	}
+}
+
+// matchPrefixType matches rt against the expected type while treating
+// only rt's unbound metas as pattern variables. An unsolved meta on the
+// expected side cannot refute the shape, but also contributes no
+// information beyond letting rt's meta point at it.
+func matchPrefixType(rt, want types.Type, binds map[*types.Meta]types.Type) bool {
+	r := types.Chase(rt)
+	w := types.Chase(want)
+	if rm, ok := r.(*types.Meta); ok {
+		if rm == w {
+			return true
+		}
+		if prev, ok := binds[rm]; ok {
+			return types.Equal(prev, w)
+		}
+		if occurs(rm, w) {
+			return false
+		}
+		binds[rm] = w
+		return true
+	}
+	if _, ok := w.(*types.Meta); ok {
+		return true
+	}
+	switch r := r.(type) {
+	case *types.Meta:
+		panic("unreachable")
+	case *types.Var:
+		wv, ok := w.(*types.Var)
+		return ok && r.ID == wv.ID
+	case *types.Con:
+		wc, ok := w.(*types.Con)
+		if !ok || r.Qual != wc.Qual || r.Name != wc.Name || len(r.Args) != len(wc.Args) {
+			return false
+		}
+		for i := range r.Args {
+			if !matchPrefixType(r.Args[i], wc.Args[i], binds) {
+				return false
+			}
+		}
+		return true
+	case *types.Func:
+		wf, ok := w.(*types.Func)
+		if !ok || len(r.Params) != len(wf.Params) {
+			return false
+		}
+		for i := range r.Params {
+			if r.Params[i].Label != wf.Params[i].Label || !matchPrefixType(r.Params[i].Type, wf.Params[i].Type, binds) {
+				return false
+			}
+		}
+		return matchPrefixType(r.Ret, wf.Ret, binds)
+	case *types.Tuple:
+		wt, ok := w.(*types.Tuple)
+		if !ok || len(r.Elems) != len(wt.Elems) {
+			return false
+		}
+		for i := range r.Elems {
+			if !matchPrefixType(r.Elems[i], wt.Elems[i], binds) {
+				return false
+			}
+		}
+		return true
+	case *types.Go:
+		wg, ok := w.(*types.Go)
+		if !ok || r.Ref != wg.Ref || len(r.Args) != len(wg.Args) {
+			return false
+		}
+		for i := range r.Args {
+			if !matchPrefixType(r.Args[i], wg.Args[i], binds) {
+				return false
+			}
+		}
+		return true
+	default:
+		panic("unreachable")
+	}
 }
 
 // typePrefixedRecordLit recognizes `T { x = v }` where resolution
