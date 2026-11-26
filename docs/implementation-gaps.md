@@ -34,3 +34,5 @@
 - [ ] **match の到達不能 arm は `todo ()` に頼る**: catch-all `action ->` の内側で sub-match する形になると網羅性チェックの恩恵が薄れる（selfish 移植 — 同上 sketch）
 
 - [ ] **E0204/E0503 は live code table にあるが production emitter がない**: `gom explain` / [error-codes](error-codes.md) はユーザー向けエラーとして説明するが、E0204 の unknown attribute は現状 parser が E0101 を出し、E0503 implicit numeric conversion の emitter は存在しない。wave50 lane A の coverage meta-test では reserved として明示分類したが、仕様・実装のどちらに合わせるかは未決定（[codes.go](../internal/diag/codes.go)、[parser](../internal/syntax/parser.go)）
+
+- [ ] **E0704 の例は parser では E0101 になる**: [error-codes](error-codes.md) / `gom explain` は destructuring select receive arm（`Some job <- jobs`）を E0704 の例として示すが、現状の parser は receive arm の左辺を identifier / `_` だけに制限して先に E0101 を出す。E0704 は checker recovery / typed-AST 経路の診断なので、例を parser に通る形へ直すか、spec/parser 側を E0704 へ寄せるかは未決定（[codes.go](../internal/diag/codes.go)、[parser](../internal/syntax/parse_expr.go)）
