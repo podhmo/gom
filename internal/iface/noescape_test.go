@@ -82,3 +82,27 @@ func TestCanonicalPrivateTextUsesImportPathNotAlias(t *testing.T) {
 		t.Fatalf("canonical private signatures differ by collision alias only:\n%s\n%s", a, b)
 	}
 }
+
+func TestScanAbstractSeesThroughInlineBlockComment(t *testing.T) {
+	src := []byte("package m\n\n//gom:abstract Queue\ntype /* note */ Queue\n")
+	if got := scanAbstract(src); !got["Queue"] {
+		t.Fatalf("scanAbstract = %#v, want Queue", got)
+	}
+}
+
+func TestImportAliasesUnfoldStdlibShortNames(t *testing.T) {
+	src := []byte("package m\n\nimport \"cmp\"\n")
+	if got := importAliases(src)["cmp"]; got != "github.com/podhmo/gom/stdlib/cmp" {
+		t.Fatalf("cmp alias path = %q", got)
+	}
+}
+
+func TestPriorSigTextsUseImportPaths(t *testing.T) {
+	src := []byte("package m\n\nimport \"cmp\"\n\nfn f (x: cmp.Eq Int) -> cmp.Eq Int\n")
+	sigs, _ := priorSigTexts(src)
+	got := sigs["f"]
+	want := canonicalPrivateText("fn f (x: cmp.Eq Int) -> cmp.Eq Int", map[string]string{"cmp": "github.com/podhmo/gom/stdlib/cmp"})
+	if got != want {
+		t.Fatalf("prior sig = %q, want %q", got, want)
+	}
+}

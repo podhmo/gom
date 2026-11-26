@@ -93,7 +93,7 @@ func scanAbstract(src []byte) map[string]bool {
 	out := map[string]bool{}
 	for _, line := range attachedDirectivePairs(src, "//gom:abstract ") {
 		fields := strings.Fields(strings.TrimPrefix(line.text, "//gom:abstract "))
-		target := strings.Fields(line.target)
+		target := strings.Fields(stripInlineBlockComments(line.target))
 		if len(fields) == 1 && len(target) >= 2 && target[0] == "type" && target[1] == fields[0] {
 			if _, ok := counts[fields[0]]; ok {
 				out[fields[0]] = true
@@ -145,9 +145,38 @@ func importAliases(src []byte) map[string]string {
 		if im.Name != nil && im.Name.Name != "" {
 			alias = im.Name.Name
 		}
-		out[alias] = im.Path
+		out[alias] = canonicalIfaceImportPath(im.Path)
 	}
 	return out
+}
+
+// canonicalIfaceImportPath unfolds the toolchain stdlib short names
+// for signature comparison. It is hand-mirrored from gomimport's
+// stdlib table because iface sits below the import loader.
+func canonicalIfaceImportPath(path string) string {
+	switch path {
+	case "list", "option", "result", "cmp":
+		return "github.com/podhmo/gom/stdlib/" + path
+	default:
+		return path
+	}
+}
+
+// stripInlineBlockComments removes complete block comments from one
+// declaration-start line for directive-target recognition. The parser
+// itself sees through them; the textual scanner must too.
+func stripInlineBlockComments(line string) string {
+	for {
+		start := strings.Index(line, "/*")
+		if start < 0 {
+			return line
+		}
+		end := strings.Index(line[start+2:], "*/")
+		if end < 0 {
+			return line[:start]
+		}
+		line = line[:start] + " " + line[start+2+end+2:]
+	}
 }
 
 func canonicalPrivateText(text string, aliases map[string]string) string {

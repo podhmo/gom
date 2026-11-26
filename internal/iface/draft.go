@@ -338,7 +338,7 @@ func priorSigTexts(src []byte) (map[string]string, string) {
 		if name == "" || sp.Start < 0 || sp.End > len(src) || sp.Start >= sp.End {
 			return
 		}
-		out[name] = canonicalSig(string(src[sp.Start:sp.End]))
+		out[name] = canonicalPrivateText(string(src[sp.Start:sp.End]), importAliases(src))
 	}
 	for _, decl := range f.Decls {
 		switch d := decl.(type) {
@@ -402,14 +402,14 @@ func carriedDirective(prefix, name string, idxs []int, n int) string {
 }
 
 func (d *drafter) carriedNoescape(name, sig string, n int) string {
-	if d.priorSigs[name] != canonicalSig(sig) {
+	if d.priorSigs[name] != canonicalPrivateText(sig, d.currentAliases()) {
 		return ""
 	}
 	return carriedDirective("//gom:noescape ", name, d.noescape[name], n)
 }
 
 func (d *drafter) carriedNotaint(name, sig string, n int) string {
-	if d.priorSigs[name] != canonicalSig(sig) {
+	if d.priorSigs[name] != canonicalPrivateText(sig, d.currentAliases()) {
 		return ""
 	}
 	return carriedDirective("//gom:result-notaint ", name, d.notaint[name], n)
