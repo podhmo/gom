@@ -692,6 +692,7 @@ func runBuild(args []string, stdout, stderr io.Writer) int {
 	// Resolve every output path before writing anything so a bad -o
 	// fails fast instead of after partial writes.
 	dsts := make([]string, len(inputs))
+	dstSeen := map[string]string{}
 	for i, in := range inputs {
 		if results[i].Output == nil || failed[results[i]] {
 			continue
@@ -701,6 +702,12 @@ func runBuild(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stderr, "gom build: %v\n", err)
 			return diag.ExitInternal
 		}
+		key := inputKey(dst)
+		if prev, ok := dstSeen[key]; ok {
+			fmt.Fprintf(stderr, "gom build: output path %s is assigned to both %s and %s\n", dst, prev, in.path)
+			return diag.ExitInternal
+		}
+		dstSeen[key] = in.path
 		dsts[i] = dst
 	}
 

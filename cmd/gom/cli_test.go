@@ -468,6 +468,43 @@ func TestBuildModuleLocalDependencyKeepsOutputBesideSource(t *testing.T) {
 	}
 }
 
+func TestBuildRejectsOutputCollisionWithAutoDependency(t *testing.T) {
+	t.Parallel()
+
+	dir := writeFiles(t, map[string]string{
+		"main.gom": `package main
+
+import "m/dep"
+
+fn main () -> Unit = {
+  let _ = dep.one ()
+  ()
+}
+`,
+		"dep/dep.gom": `package dep
+
+fn one () -> Int = 1
+`,
+		"dep/dep.gomi": `package dep
+
+fn one () -> Int
+`,
+	})
+	testModule(t, dir)
+	collision := filepath.Join(dir, "dep", "dep.go")
+
+	code, stdout, stderr := invoke("build", "-o", collision, filepath.Join(dir, "main.gom"))
+	if code != 2 {
+		t.Fatalf("gom build: exit %d, want 2; stdout=%q stderr=%q", code, stdout, stderr)
+	}
+	if !strings.Contains(stderr, "assigned to both") {
+		t.Fatalf("stderr = %q, want collision explanation", stderr)
+	}
+	if _, err := os.Stat(collision); !os.IsNotExist(err) {
+		t.Fatalf("collision output exists after rejection: stat err=%v", err)
+	}
+}
+
 func TestBuildWritesGo(t *testing.T) {
 	t.Parallel()
 
