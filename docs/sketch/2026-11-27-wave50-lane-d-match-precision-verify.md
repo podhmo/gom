@@ -22,7 +22,7 @@
 
 ## 境界
 
-- lane D は調査 + decision + fixture に限定し、pattern/checker 実装は行わない。wave50 closeout で TODO 登録すべき実作業: same-scrutinee root constructor narrowing を `internal/pattern` に実装し、4 fixture の期待を red-first で更新する
+- lane D は調査 + decision + fixture に限定し、pattern/checker 実装は行わない。wave50 closeout で TODO 登録すべき実作業: same-scrutinee root constructor narrowing を `internal/pattern` に実装し、selfish/DMMF/positive の 3 fixture の期待を red-first で更新する。guard boundary fixture は guard 付き腕を negative narrowing に使わない境界なので、実装後も E0301 を期待するまま維持する
 - context を考慮した E0302 は移行影響が大きいため第一段階に入れない。wave50 closeout で open-questions 登録すべき decision 候補: contextual unreachable arm を warning/error として有効にする移行時期と診断コード
 - ガード条件の意味解析、リテラル範囲、フィールド/path narrowing、interprocedural narrowing は対象外。採用する場合は別 decision が必要
 - DMMF の「広い `_` があると新ケース追加を検知できない」問題は narrowing では解けない。wave50 closeout で open-questions 登録すべき decision 候補: 進化検知を重視する match スタイルを guide へ書くか、構文/診断で支援するか
