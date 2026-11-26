@@ -50,6 +50,21 @@ func TestModuleFindsNearestGoMod(t *testing.T) {
 	}
 }
 
+func TestModuleAcceptsTrailingComment(t *testing.T) {
+	root := writeMod(t, "example.com/m", nil)
+	if err := os.WriteFile(filepath.Join(root, "go.mod"), []byte("module example.com/m // trailing comment\n\ngo 1.27\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	l := New(&Config{Dir: root})
+	path, dir, err := l.module()
+	if err != nil {
+		t.Fatalf("module: %v", err)
+	}
+	if path != "example.com/m" || dir != root {
+		t.Fatalf("module = (%q, %q), want (example.com/m, %q)", path, dir, root)
+	}
+}
+
 func TestModuleOutsideModule(t *testing.T) {
 	l := New(&Config{Dir: t.TempDir()})
 	if _, _, err := l.module(); err == nil {

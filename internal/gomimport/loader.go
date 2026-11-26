@@ -1039,7 +1039,7 @@ func (l *Loader) module() (string, string, error) {
 			if err == nil {
 				for line := range strings.SplitSeq(string(b), "\n") {
 					fields := strings.Fields(line)
-					if len(fields) == 2 && fields[0] == "module" {
+					if len(fields) >= 2 && fields[0] == "module" {
 						l.modPath, l.modDir = fields[1], dir
 						return
 					}
