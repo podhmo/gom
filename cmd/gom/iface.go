@@ -479,12 +479,33 @@ func runInfo(args []string, stdout, stderr io.Writer) int {
 		if g.erred {
 			continue // a broken source has no meaningful draft
 		}
+		dst := filepath.Join(g.dir, g.name+".gomi")
+		if *out != "" && *out != "-" {
+			if isDirFlag(*out) {
+				dst = filepath.Join(strings.TrimSuffix(*out, "/"), g.name+".gomi")
+			} else {
+				dst = *out
+			}
+		}
 		// A `//gom:mutable` directive names the author's claim
 		// about an impl-invisible type — nothing in the .gom
-		// sources re-derives it, so the previous interface
-		// text seeds the new draft's directive lines.
+		// sources re-derives it. Extern `//gom:noescape` and
+		// `//gom:result-notaint` directives are author claims
+		// for the same reason. The interface being overwritten
+		// seeds those directive lines when it exists; a first
+		// output outside the package directory falls back to the canonical interface.
+		// Ordinary declarations are re-inferred from their bodies.
+		priorPath := filepath.Join(g.dir, g.name+".gomi")
+		if *out != "" && *out != "-" {
+			// Package identity is directory identity in Go. A same-named
+			// .gomi elsewhere is still another package, so its author-
+			// maintained escape guarantees must not seed this one.
+			if _, err := os.Stat(dst); err == nil && samePackageDir(dst, g.dir) {
+				priorPath = dst
+			}
+		}
 		var prior []byte
-		if b, err := os.ReadFile(filepath.Join(g.dir, g.name+".gomi")); err == nil {
+		if b, err := os.ReadFile(priorPath); err == nil {
 			prior = b
 		}
 		draft := iface.Draft(g.srcs, prior)
@@ -493,14 +514,6 @@ func runInfo(args []string, stdout, stderr io.Writer) int {
 				writeErrs = append(writeErrs, fmt.Errorf("stdout: %w", err))
 			}
 			continue
-		}
-		dst := filepath.Join(g.dir, g.name+".gomi")
-		if *out != "" {
-			if isDirFlag(*out) {
-				dst = filepath.Join(strings.TrimSuffix(*out, "/"), g.name+".gomi")
-			} else {
-				dst = *out
-			}
 		}
 		if same, err := fileEquals(dst, draft); err != nil {
 			writeErrs = append(writeErrs, fmt.Errorf("%s: %w", dst, err))
@@ -523,6 +536,24 @@ func runInfo(args []string, stdout, stderr io.Writer) int {
 		return diag.ExitInternal
 	}
 	return rep.ExitCode()
+}
+
+// samePackageDir reports whether path sits in the package directory.
+// Symlinked spellings of the same directory count as the same package;
+// a same-named package in another directory does not.
+func samePackageDir(path, dir string) bool {
+	absPath, pathErr := filepath.Abs(path)
+	absDir, dirErr := filepath.Abs(dir)
+	if pathErr != nil || dirErr != nil {
+		return false
+	}
+	if real, err := filepath.EvalSymlinks(absPath); err == nil {
+		absPath = real
+	}
+	if real, err := filepath.EvalSymlinks(absDir); err == nil {
+		absDir = real
+	}
+	return filepath.Dir(absPath) == absDir
 }
 
 // isDirFlag reports whether the -o argument names a directory —

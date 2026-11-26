@@ -1618,6 +1618,174 @@ fn push (q: Queue Int) (x: Int) -> Unit
 	}
 }
 
+// TestInfoCarriesExternEscapeDirectives: extern implementations have no
+// inspectable Gom body, so regeneration carries their prior noescape /
+// result-notaint claims. Non-extern members are re-inferred instead — a
+// stale prior claim must not survive a body that now leaks its parameter.
+func TestInfoCarriesExternEscapeDirectives(t *testing.T) {
+	t.Parallel()
+
+	dir := writeFiles(t, map[string]string{
+		"lib/lib.gom": `package lib
+
+@extern
+fn keep (f: Unit -> Unit) -> Unit
+
+@extern let keepv : (Unit -> Unit) -> Unit
+
+@extern
+fn moved (second: Unit -> Unit) (first: Unit -> Unit) -> Unit
+
+fn leak (f: Unit -> Unit) -> Unit -> Unit = f
+`,
+		"lib/lib.gomi": `package lib
+
+//gom:result-notaint keep 0
+//gom:noescape keep 0
+fn keep (f: Unit -> Unit) -> Unit
+
+//gom:result-notaint keepv 0
+//gom:noescape keepv 0
+let keepv: (Unit -> Unit) -> Unit
+
+//gom:noescape moved 0
+fn moved (first: Unit -> Unit) (second: Unit -> Unit) -> Unit
+
+//gom:result-notaint leak 0
+//gom:noescape leak 0
+fn leak (f: Unit -> Unit) -> Unit -> Unit
+`,
+	})
+	code, out, errout := invoke("info", filepath.Join(dir, "lib"))
+	if code != 0 {
+		t.Fatalf("gom info: exit %d; stderr=%q stdout=%q", code, errout, out)
+	}
+	gomi, err := os.ReadFile(filepath.Join(dir, "lib", "lib.gomi"))
+	if err != nil {
+		t.Fatalf("lib.gomi not written: %v", err)
+	}
+	text := string(gomi)
+	for _, want := range []string{
+		"//gom:result-notaint keep 0\n//gom:noescape keep 0\nfn keep",
+		"//gom:result-notaint keepv 0\n//gom:noescape keepv 0\nlet keepv",
+	} {
+		if !strings.Contains(text, want) {
+			t.Errorf("regenerated draft missing %q:\n%s", want, text)
+		}
+	}
+	if strings.Contains(text, "//gom:noescape moved") {
+		t.Errorf("regenerated draft carried a positional extern directive across a parameter reorder:\n%s", text)
+	}
+	for _, stale := range []string{"//gom:result-notaint leak", "//gom:noescape leak"} {
+		if strings.Contains(text, stale) {
+			t.Errorf("regenerated draft carried stale non-extern directive %q:\n%s", stale, text)
+		}
+	}
+}
+
+// TestInfoAlternateOutputSeedsItsOwnDirectives: `gom info -o` regenerates
+// the file it overwrites. Once an alternate draft carries author-maintained
+// extern directives, those — not only the canonical package interface's —
+// seed the next regeneration.
+func TestInfoAlternateOutputSeedsItsOwnDirectives(t *testing.T) {
+	t.Parallel()
+
+	dir := writeFiles(t, map[string]string{
+		"lib/lib.gom": `package lib
+
+@extern
+fn keep (f: Unit -> Unit) -> Unit
+`,
+		"lib/lib.gomi": `package lib
+
+fn keep (f: Unit -> Unit) -> Unit
+`,
+		"lib/draft.gomi": `package lib
+
+//gom:noescape keep 0
+fn keep (f: Unit -> Unit) -> Unit
+`,
+		"lib/other.gomi": `package other
+
+//gom:noescape keep 0
+fn keep (f: Unit -> Unit) -> Unit
+`,
+		"elsewhere/lib.gomi": `package lib
+
+//gom:noescape keep 0
+fn keep (f: Unit -> Unit) -> Unit
+`,
+	})
+	outPath := filepath.Join(dir, "lib", "draft.gomi")
+	code, out, errout := invoke("info", "-o", outPath, filepath.Join(dir, "lib"))
+	if code != 0 {
+		t.Fatalf("gom info -o: exit %d; stderr=%q stdout=%q", code, errout, out)
+	}
+	b, err := os.ReadFile(outPath)
+	if err != nil {
+		t.Fatalf("alternate output not written: %v", err)
+	}
+	if !strings.Contains(string(b), "//gom:noescape keep 0\nfn keep") {
+		t.Errorf("alternate output lost its own extern directive:\n%s", b)
+	}
+
+	otherPath := filepath.Join(dir, "lib", "other.gomi")
+	code, out, errout = invoke("info", "-o", otherPath, filepath.Join(dir, "lib"))
+	if code != 0 {
+		t.Fatalf("gom info -o other package draft: exit %d; stderr=%q stdout=%q", code, errout, out)
+	}
+	b, err = os.ReadFile(otherPath)
+	if err != nil {
+		t.Fatalf("other package output not written: %v", err)
+	}
+	if strings.Contains(string(b), "//gom:noescape keep") {
+		t.Errorf("draft inherited extern guarantees across a package boundary:\n%s", b)
+	}
+
+	elsewherePath := filepath.Join(dir, "elsewhere", "lib.gomi")
+	code, out, errout = invoke("info", "-o", elsewherePath, filepath.Join(dir, "lib"))
+	if code != 0 {
+		t.Fatalf("gom info -o same-named package draft elsewhere: exit %d; stderr=%q stdout=%q", code, errout, out)
+	}
+	b, err = os.ReadFile(elsewherePath)
+	if err != nil {
+		t.Fatalf("same-named output not written: %v", err)
+	}
+	if strings.Contains(string(b), "//gom:noescape keep") {
+		t.Errorf("draft inherited extern guarantees from a same-named package in another directory:\n%s", b)
+	}
+
+	// Make the next regeneration observable: a correct run drops the
+	// unknown-member directive, while a successful no-op would leave it.
+	b, err = os.ReadFile(outPath)
+	if err != nil {
+		t.Fatalf("read alternate before symlink run: %v", err)
+	}
+	seeded := strings.Replace(string(b), "//gom:noescape keep 0", "//gom:noescape ghost 0\n//gom:noescape keep 0", 1)
+	if err := os.WriteFile(outPath, []byte(seeded), 0o666); err != nil {
+		t.Fatalf("mark alternate before symlink run: %v", err)
+	}
+
+	aliasDir := filepath.Join(dir, "alias")
+	if err := os.Symlink(filepath.Join(dir, "lib"), aliasDir); err != nil {
+		t.Fatalf("symlink alias: %v", err)
+	}
+	code, out, errout = invoke("info", "-o", filepath.Join(aliasDir, "draft.gomi"), filepath.Join(dir, "lib"))
+	if code != 0 {
+		t.Fatalf("gom info -o through directory symlink: exit %d; stderr=%q stdout=%q", code, errout, out)
+	}
+	b, err = os.ReadFile(outPath)
+	if err != nil {
+		t.Fatalf("symlinked output not written: %v", err)
+	}
+	if strings.Contains(string(b), "//gom:noescape ghost") {
+		t.Errorf("symlinked run did not regenerate the draft:\n%s", b)
+	}
+	if !strings.Contains(string(b), "//gom:noescape keep 0\nfn keep") {
+		t.Errorf("draft lost its own extern directive through a symlinked directory:\n%s", b)
+	}
+}
+
 // TestCheckMissingInterface verifies spec 7 rule 4: a library package
 // with no <package>.gomi is E0601.
 func TestCheckMissingInterface(t *testing.T) {

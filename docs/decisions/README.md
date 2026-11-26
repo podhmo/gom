@@ -265,6 +265,7 @@
 | [eval-float32-width-aware](2026-11-25-eval-float32-width-aware.md) | eval の float 値を幅正規化する（float32 対応） | 採用 |
 | [go-named-scalar-display](2026-11-25-go-named-scalar-display.md) | named Go scalar の表示は underlying scalar に揃える | 採用 |
 | [gom-info-stdlib-inspection](2026-11-25-gom-info-stdlib-inspection.md) | `gom info` の stdlib 短名 inspection | 採用 |
+| [gomi-extern-directive-carry](2026-11-25-gomi-extern-directive-carry.md) | extern メンバの escape directive は `.gomi` 再生成で引き継ぐ | 採用 |
 | [method-iface-width-exact](2026-11-25-method-iface-width-exact.md) | @method の interface 適合判定を raw 幅で行う | 採用 |
 | [nary-result-ptr-verbatim](2026-11-25-nary-result-ptr-verbatim.md) | n-ary Result の pointer payload は verbatim のまま — Option は後包みか extern で選ぶ | 採用 |
 | [splice-display-type-driven](2026-11-25-splice-display-type-driven.md) | splice 表示は静的型駆動 — scalar 束縛の宣言型も record 形で描く | 採用 |
