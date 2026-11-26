@@ -18,8 +18,6 @@
 - [ ] record literal の文脈推論を型名前置 literal 以降も広げるか: wave49 lane B では `ValidatedOrder { id = 1, ... }` の型名前置 literal を第一案として採択した。残問は expected type / field type を使う一般推論を追加するかで、`Ok { ... }` や無名 record accumulator までどこまで infer するかは lane B の結果を見て決める（[prompts](sketch/2026-11-27-wave49-prompts.md)）
 - [ ] stdlib `str` の最小面を超える文字列操作を広げるか: wave48 lane E で byte length/index/range と `runes` は stdlib package `str` に決着したが、`fold_chars` 相当の中間 List を作らない走査、panic しない slice、Unicode 一般処理は未提供。PR #256 F1 の組み込み `String` module 案自体は採用済み decision と競合するため戻さない（[decision](decisions/2026-11-26-string-byte-surface.md)、[audit](sketch/2026-11-26-wave48-lane-g-owner-ideas-audit.md)）
 - [ ] Option を Result へ畳む traverse 系 helper を追加するか: wave49 lane C では `Result.sequence` / `List.traverse_result` の採用が決まり、配置も `Result.sequence` を compiler-owned forwarding member にする方向へ絞った。Option 側 helper は需要と命名が弱く今回は見送り（[prompts](sketch/2026-11-27-wave49-prompts.md)）
-- [ ] bounded context の package / visibility 設計ガイドを作るか: `.gomi` に書かない定義は package-private だが、F# の型名 module に相当するものや、選択した sibling package だけへ公開する friend visibility はない。Go の `internal/` layout、型ごとの package 分割、`string50_create` 命名をどう組み合わせ、`public types` / `internal types` / `implementation` / `api` を分けるかは wave49 lane E で決める（[prompts](sketch/2026-11-27-wave49-prompts.md)、[fit](sketch/ja/2026-11-26-dmmf-order-taking-fit.md)）
-- [ ] 金額・exact decimal の推奨表現を決めるか: `Float` は binary64 で DMMF の `decimal` と性質が違う。integer minor units を推奨するか、外部 decimal 型を許容するか。外部 decimal では `+` / `*` が使えないため、ドメインの核でどう書くかを wave49 lane E で決める（[prompts](sketch/2026-11-27-wave49-prompts.md)、[fit](sketch/ja/2026-11-26-dmmf-order-taking-fit.md)）
 
 ### 開発体験 / 診断
 
@@ -33,8 +31,6 @@
 
 ### Go 相互運用
 
-- [ ] JSON tagged union / nullable field の推奨 DTO 表現を決めるか: record の struct tag は使えるが、sum type の direct marshal は implementation shape、`Option` は nullable にならない。`Go.Map String Go.Any`、専用 DTO record、`Ptr` nullable、空文字割り切りのどれを推奨形とするか wave49 lane E で決める（[prompts](sketch/2026-11-27-wave49-prompts.md)、[fit](sketch/ja/2026-11-26-dmmf-order-taking-fit.md)）
-- [ ] abstract 型の不変条件を Go の zero value / boundary までどこまで守るか: `.gomi` の abstract 宣言は通常の literal / constructor / conversion を塞ぐが、`Ptr.new` や `encoding/json` 経由では未検証値を作れる。`Ptr.new` を制限する、lint する、DTO 境界規約に留めるのかが未決（[fit](sketch/ja/2026-11-26-dmmf-order-taking-fit.md)）。wave49 では lane E の boundary guide 後に再評価する
 - [ ] panic capture の boundary adapter を用意するか: spec は言語機能としての `recover` を提供しないが、外部サービス呼び出しなどで Go 側 helper に panic を捕まえさせ `Result` 化する余地はある。`Go.func0` / `@extern fn` の形、置き場所、そもそも定型化するかが未決（[fit](sketch/ja/2026-11-26-dmmf-order-taking-fit.md)）。wave49 では見送り
 - [x] Go ABI の方針: 生成される Go の API（型名・関数のシグネチャ・バリアントの struct 名）を、Gom のバージョンをまたいでどこまで安定させるか — 案 B 採択（決定的 emit の保証 + emit 名の衝突検出、名前の安定保証はしない — [decision](decisions/2026-11-23-go-abi-stability.md)）。衝突検出器は wave35 lane C で実装済み（emit 台帳 + W0601/W0602 + `gom dump -phase=emit` — [decision](decisions/2026-11-23-emit-name-collision-check.md)）
 - [x] Gom の型が Go の interface を実装できるようにするか（v1 ではできない）。できるなら、どう宣言するか — wave25 lane D で実現可能性を調査済み、wave29 lane D で post-defined-type 世界の設計を decision まで固め（`@method` 属性 + 規約命名、.gomi は fn リスト、`InterfaceMethods` oracle — [decision](decisions/2026-11-21-go-iface-impl.md)）、2026-11-22 に採択。実装は wave30 lane C（[prompts](sketch/2026-11-22-wave30-prompts.md)）
