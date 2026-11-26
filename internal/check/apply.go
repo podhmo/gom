@@ -443,12 +443,32 @@ func (c *checker) mergeContextualType(original, speculative types.Type, open map
 		}
 		op, or := flattenFunc(o)
 		xp, xr := flattenFunc(xf)
-		if len(op) != len(xp) {
-			return o
+		shared := len(op)
+		extendOriginal := false
+		extendSpeculative := false
+		switch {
+		case len(xp) < shared:
+			// A speculative function can end in an open meta while the
+			// already-inferred type continues curried. The open tail adds no
+			// information, but the shared prefix can still be merged.
+			if _, openTail := types.Chase(xr).(*types.Meta); !openTail {
+				return o
+			}
+			shared = len(xp)
+			extendOriginal = true
+		case len(xp) > shared:
+			// Conversely an open original return can stand for the rest of a
+			// curried callback. Fill that tail from the longer speculative
+			// signature instead of discarding the whole expectation.
+			if _, openTail := types.Chase(or).(*types.Meta); !openTail {
+				return o
+			}
+			extendSpeculative = true
 		}
-		ps := make([]types.FuncParam, len(op))
+		ps := make([]types.FuncParam, shared)
 		changed := false
-		for i, fp := range op {
+		for i := 0; i < shared; i++ {
+			fp := op[i]
 			if fp.Label != xp[i].Label {
 				return o
 			}
@@ -456,8 +476,18 @@ func (c *checker) mergeContextualType(original, speculative types.Type, open map
 			changed = changed || nt != fp.Type
 			ps[i] = types.FuncParam{Label: fp.Label, Type: nt}
 		}
-		ret := c.mergeContextualType(or, xr, open, sp)
-		changed = changed || ret != or
+		var ret types.Type
+		switch {
+		case extendOriginal:
+			ret = types.Fn(or, op[shared:]...)
+		case extendSpeculative:
+			tail := types.Fn(xr, xp[shared:]...)
+			ret = c.mergeContextualType(or, tail, open, sp)
+			changed = true
+		default:
+			ret = c.mergeContextualType(or, xr, open, sp)
+			changed = changed || ret != or
+		}
 		if !changed {
 			return o
 		}

@@ -100,3 +100,19 @@ func TestMergeContextualTypeKeepsEarlierConcreteSolution(t *testing.T) {
 		t.Fatalf("open original = %v, want the original meta", got)
 	}
 }
+
+func TestMergeContextualTypeExtendsCurriedSpeculativeTail(t *testing.T) {
+	c := &checker{metas: map[*types.Meta]*metaRec{}}
+	sp := diag.SpanIn("test.gom", 1, 2)
+	openRet := c.newMeta(sp, "open return")
+	intT := &types.Con{Name: "Int"}
+	acc := &types.Con{Name: "Acc"}
+	param := func(t types.Type) types.FuncParam { return types.FuncParam{Type: t} }
+
+	original := types.Fn(openRet, param(intT))
+	speculative := types.Fn(acc, param(intT), param(intT))
+	got := c.mergeContextualType(original, speculative, map[*types.Meta]*types.Meta{}, sp)
+	if !types.Equal(got, speculative) {
+		t.Fatalf("curried merge = %v, want %v", got, speculative)
+	}
+}
