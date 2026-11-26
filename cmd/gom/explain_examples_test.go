@@ -77,7 +77,7 @@ func TestExecutableExplainExamplesProduceTheirDiagnostic(t *testing.T) {
 			dir := writeFiles(t, map[string]string{
 				"main.gom": "package main\n\n" + info.Example + "\n",
 			})
-			_, stdout, stderr := invoke("check", filepath.Join(dir, "main.gom"))
+			_, stdout, stderr := invoke("build", filepath.Join(dir, "main.gom"))
 			if !jsonOutputHasCode(stdout, code) {
 				t.Fatalf("example for %s did not emit %s\nstdout:\n%s\nstderr:\n%s", code, code, stdout, stderr)
 			}
