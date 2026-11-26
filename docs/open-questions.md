@@ -19,6 +19,9 @@
 - [x] match の到達不能 arm / nested match の網羅性精度をどこまで上げるか: **wave50 lane D で decision**（2026-11-27、[decision](decisions/2026-11-27-match-nested-narrowing.md)）。same-scrutinee root constructor narrowing は採択し、実装は wave51 以降。contextual E0302 の移行、guard 条件解析、進化検知スタイル支援は別 decision（[検証](sketch/2026-11-27-wave50-lane-d-match-precision-verify.md)、[gap](implementation-gaps.md)）
 - [ ] stdlib `str` の最小面を超える文字列操作を広げるか: wave48 lane E で byte length/index/range と `runes` は stdlib package `str` に決着したが、`fold_chars` 相当の中間 List を作らない走査、panic しない slice、Unicode 一般処理は未提供。PR #256 F1 の組み込み `String` module 案自体は採用済み decision と競合するため戻さない（[decision](decisions/2026-11-26-string-byte-surface.md)、[audit](sketch/2026-11-26-wave48-lane-g-owner-ideas-audit.md)）
 - [ ] Option を Result へ畳む traverse 系 helper を追加するか: wave49 lane C では `Result.sequence` / `List.traverse_result` の採用が決まり、配置も `Result.sequence` を compiler-owned forwarding member にする方向へ絞った。Option 側 helper は需要と命名が弱く今回は見送り（[prompts](sketch/2026-11-27-wave49-prompts.md)）
+- [ ] labeled expected signature の positional lambda parameter に record 型を seed するか: unlabeled→labeled introduction は最終 conformance では許すが、`fn x` 側の型推論へ同じ label 対応を戻すと意味を広げる。record seeding だけ局所的に許すか、label introduction 全体の規則として扱うかを決める（[lane E 検証](sketch/2026-11-27-wave50-lane-e-record-context-verify.md)）
+- [ ] 匿名 record 型または structural record を導入するか: 静的に named record 型がどこにもない ad hoc accumulator shape は wave50 lane E でも型名が必須のまま。型名のない shape を第一級にするか、named type 必須を仕様として固定するか（[gap](implementation-gaps.md)、[lane E 検証](sketch/2026-11-27-wave50-lane-e-record-context-verify.md)）
+- [ ] match narrowing の残りの精度化をどこまで入れるか: same-scrutinee root constructor narrowing 以外に、guard 条件解析、literal/field path narrowing、interprocedural な絞り込み、alias 解釈を扱うか。contextual E0302 への移行時期・コード、進化検知を促す match スタイル支援も別 decision が要る（[lane D 検証](sketch/2026-11-27-wave50-lane-d-match-precision-verify.md)）
 
 ### 開発体験 / 診断
 
@@ -29,6 +32,11 @@
 - [ ] module 外での `gom run` scratch module 実行と `gom init` を提供するか: module-local transitive emit は wave48 lane C で解消済み。残りは go.mod のない directory での一時 module 合成と、新規 project の `go.mod`/`main.gom` 雛形生成。tutorial の章別 go.mod 生成ではない（PR #256 U7、[audit](sketch/2026-11-26-wave48-lane-g-owner-ideas-audit.md)）。wave50 では実施せず次回へ延期（2026-11-27、[prompts](sketch/2026-11-27-wave50-prompts.md)）
 - [ ] `gom eval` / REPL を利用者へ公開するか: `internal/eval` は oracle としてあるが、Go interop や並行のカバー範囲が compiled より狭い。eval で返す式と compiled へ落とす式の境界、表示方法、REPL の需要が未決（PR #256 U9、[audit](sketch/2026-11-26-wave48-lane-g-owner-ideas-audit.md)）
 - [ ] 型シグネチャで stdlib を引く `gom search` を提供するか: Hoogle 相当の検索は名前を知らない利用者に有効だが、検索対象・単一化の柔軟さ・curry 引数順の扱いが未決。`filter_map` は `(a -> Option b) -> List a -> List b` なので PR #256 の例は引数順の修正が要る（PR #256 U10、[audit](sketch/2026-11-26-wave48-lane-g-owner-ideas-audit.md)）
+- [ ] `gom explain` の fragment example をどう検証するか: 59 件の fragment を self-contained な例へ育てるか、例示用 fragment という種別を formalize して coverage meta-test の対象外にするか（[lane A 検証](sketch/2026-11-27-wave50-lane-a-diag-meta-verify.md)）
+- [ ] E0204/E0503/E0704 は実装を足すか文書・コード表を直すか: live code table / explain / parser-checker 境界が揃っていない。production emitter を実装するか、docs/code-table 側を現行診断へ寄せるかを決める（[gap](implementation-gaps.md)）
+- [ ] E0401 の expected type provenance をどこまで伝播するか: wave50 lane C は let/return 注釈の副 span まで。if/match 腕、呼出し引数、record field などへ同じ provenance を広げる境界が未決（[lane C 検証](sketch/2026-11-27-wave50-lane-c-diagnostic-wire-verify.md)）
+- [ ] diagnostic `details` へ昇格する構造データの基準を決めるか: wire は汎用化したが、どの data を人間向け text の detail block へ出すかは診断ごとの判断のまま。原文のまま出す基準・整形責任・過剰出力の抑止を決める（[lane C 検証](sketch/2026-11-27-wave50-lane-c-diagnostic-wire-verify.md)）
+- [ ] 近接した同一ファイルの span を 1 つの text snippet にまとめるか: labels/details で副 span が増えると同じソース断片が繰り返し出る可能性がある。snippet layout を統合するか現状の独立表示を維持するか（[lane C 検証](sketch/2026-11-27-wave50-lane-c-diagnostic-wire-verify.md)）
 
 ### Go 相互運用
 

@@ -26,7 +26,13 @@
 
 - [x] **[wave50 lane A] 診断コード表のメタテスト**: retired code を除き、spec harness で出せる言語診断には `testdata/spec/` fixture、driver/CLI 診断には CLI test があるかを分類して検査する。`gom explain` の example は実際にそのコードを出すものだけ対象にし、`docs/error-codes.md` と表の一致は既存 `TestErrorCodesDocInSync` に任せる（[検証](docs/sketch/2026-11-27-wave50-lane-a-diag-meta-verify.md)）
 - [x] **[wave50 lane C] 汎用 diagnostic `labels` / `details` wire**: JSON wire、text renderer、spec §12 を揃え、代表利用として E0401 の期待型由来を示す副 span まで入れる。typo 候補と error recovery は対象外（[decision](docs/decisions/2026-11-27-diagnostic-labels-details.md)、[検証](docs/sketch/2026-11-27-wave50-lane-c-diagnostic-wire-verify.md)）
-- [ ] **[wave50 lane E] record literal の文脈推論**: 型名前置 literal を最優先にし、静的に分かる expected type（annotation/return/呼出し引数/constructor payload/record field）だけで推論する。`List.fold` の無名 record accumulator を必須 probe にする
+- [x] **[wave50 lane E] record literal の文脈推論**: 型名前置 literal を最優先にし、静的に分かる expected type（annotation/return/呼出し引数/constructor payload/record field）だけで推論する。`List.fold` の無名 record accumulator を必須 probe にする（[decision](docs/decisions/2026-11-27-record-contextual-inference.md)、[検証](docs/sketch/2026-11-27-wave50-lane-e-record-context-verify.md)）
+
+### wave50 closeout 由来
+
+- [ ] **[task] unit-only 診断 coverage の再分類とメタテスト強化**: lane A の分類で残った unit-only / no explicit coverage を一件ずつ意味確認し、spec/CLI fixture 追加、意図的 reserved、または meta-test 対象外の明示へ落とす。分類軸と fixture 命名を meta-test で固定する（[検証](docs/sketch/2026-11-27-wave50-lane-a-diag-meta-verify.md)）
+- [ ] **[task] same-scrutinee root constructor narrowing の実装**: `internal/pattern` に decision どおりの narrowing を入れ、selfish/DMMF/positive fixture を red-first で green にする。guard boundary fixture は E0301 のまま残す（[decision](docs/decisions/2026-11-27-match-nested-narrowing.md)、[検証](docs/sketch/2026-11-27-wave50-lane-d-match-precision-verify.md)）
+- [ ] **[bug] record pipe の二重 mismatch 診断を抑制する**: pipe operand が明示的に異なる record 型なら operand 側と `pipeCall` 側で同じ mismatch が二度出る。適合失敗済み情報を渡すか重複抑制し、二重診断 fixture を red-first で直す（[lane E 検証](docs/sketch/2026-11-27-wave50-lane-e-record-context-verify.md)）
 
 ### wave49 採択済み lane（[prompts](docs/sketch/2026-11-27-wave49-prompts.md) — 2026-11-27 採否確定、順 A→C→B→D→E→F）
 
