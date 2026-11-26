@@ -122,9 +122,11 @@ func TestResultSequence(t *testing.T) {
 		t.Fatalf("ResultSequence all-Ok = %#v, want Ok [1 2]", r)
 	}
 
+	var zero result.Result[int64, string]
 	bad := list.ResultSequence(list.List[result.Result[int64, string]]{
 		result.Ok[int64, string](1),
 		result.Err[int64, string]("no"),
+		zero, // must not be inspected after the first Err
 	})
 	if bad.Tag() != result.ResultTagErr || bad.Error != "no" {
 		t.Fatalf("ResultSequence with Err = %#v, want Err(no)", bad)
