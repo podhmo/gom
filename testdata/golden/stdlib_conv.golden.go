@@ -30,3 +30,33 @@ func chain(r result.Result[int64, error]) list.List[int64] {
 	return list.OptionToList[int64](tmp1)
 //line stdlib_conv.gom:10
 }
+
+//line stdlib_conv.gom:13
+func collect(xs list.List[result.Result[int64, string]]) result.Result[list.List[int64], string] {
+//line stdlib_conv.gom:14
+	return list.ResultSequence[int64, string](xs)
+//line stdlib_conv.gom:13
+}
+
+//line stdlib_conv.gom:16
+func validate(xs list.List[int64]) result.Result[list.List[int64], string] {
+//line stdlib_conv.gom:17
+	tmp3 := func(x int64) result.Result[int64, string] {
+//line stdlib_conv.gom:17
+		tmp2 := x > 0
+//line stdlib_conv.gom:17
+		if tmp2 {
+//line stdlib_conv.gom:17
+			return result.Ok[int64, string](x)
+//line stdlib_conv.gom:17
+		} else {
+//line stdlib_conv.gom:17
+			return result.Err[int64, string]("bad")
+//line stdlib_conv.gom:17
+		}
+//line stdlib_conv.gom:17
+	}
+//line stdlib_conv.gom:17
+	return list.TraverseResult[int64, int64, string](tmp3, xs)
+//line stdlib_conv.gom:16
+}

@@ -1,6 +1,7 @@
 package ex
 
-// The layering conversions `Result.to_option` / `Option.to_list`:
+// The layering conversions and forwards — `Result.to_option`,
+// `Result.sequence`, `Option.to_list`:
 // surfaced on the lower module but backed by the upper package —
 // option.ResultToOption and list.OptionToList (decision
 // stdlib-conv-placement).
@@ -11,6 +12,12 @@ fn items (o: Option Int) -> List Int = Option.to_list o
 
 fn chain (r: Result Int GoError) -> List Int =
   r |> Result.to_option |> Option.to_list
+
+fn collect (xs: List (Result Int String)) -> Result (List Int) String =
+  Result.sequence xs
+
+fn validate (xs: List Int) -> Result (List Int) String =
+  xs |> List.traverse_result (fn x -> if x > 0 { Ok x } else { Err "bad" })
 
 // Bare references keep their declared arity (1), so the members
 // adapt like any function value.

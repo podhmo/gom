@@ -25,7 +25,7 @@
 ### wave49 採択済み lane（[prompts](docs/sketch/2026-11-27-wave49-prompts.md) — 2026-11-27 採否確定、順 A→C→B→D→E→F）
 
 - [x] **[wave49 lane A] `&&` / `||` の生成コードを短絡評価に揃える**: evaluator は `false && x` / `true || x` で右辺を評価しないが、lower は両 operand を先に atom 化する。生成コードを evaluator/Go の短絡規則へ揃え、spec に規則を明記し、副作用または panic を持つ右辺の fixture で固定する（[gap](docs/implementation-gaps.md)、[検証](docs/sketch/2026-11-27-wave49-lane-a-shortcircuit-verify.md)）
-- [ ] **[wave49 lane C] stdlib Result/Option traverse helpers**: `Result.sequence` と `List.traverse_result` に限定して追加する。`Result.sequence` は import cycle を避けるため compiler-owned forwarding member として `list` 側実装へ寄せる
+- [x] **[wave49 lane C] stdlib Result/Option traverse helpers**: `Result.sequence` と `List.traverse_result` に限定して追加する。`Result.sequence` は import cycle を避けるため compiler-owned forwarding member として `list` 側実装へ寄せる（[decision](docs/decisions/2026-11-27-stdlib-result-traverse.md)、[検証](docs/sketch/2026-11-27-wave49-lane-c-result-traverse-verify.md)）
 - [ ] **[wave49 lane B] record literal E0407 の決着**: 型名前置 record literal（例: `ValidatedOrder { id = id, ... }`）を第一案に、record literal の曖昧さを解消する。文脈推論の一般化は後続
 - [ ] **[wave49 lane D] E0301 text 出力の不足パターン詳細**: `missing_patterns` を text emitter が構造的に描き、spec の人間向け出力へ寄せる。汎用 `labels` / `details` wire は今回の前提にしない
 - [ ] **[wave49 lane E] DMMF boundary guide**: JSON DTO、bounded context package/visibility、金額表現の 3 点について推奨形を文書化し、open-questions の対象を絞る

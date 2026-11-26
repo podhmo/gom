@@ -5,6 +5,7 @@ import (
 
 	"github.com/podhmo/gom/rt"
 	"github.com/podhmo/gom/stdlib/option"
+	"github.com/podhmo/gom/stdlib/result"
 )
 
 // Hand-written implementations backing the `@extern fn` signatures in
@@ -78,6 +79,47 @@ func FindMap[A, B any](f func(A) option.Option[B], xs List[A]) option.Option[B] 
 		}
 	}
 	return option.Option_None[B]{}
+}
+
+// TraverseResult applies f to every element in order until the first
+// Err, collecting the Ok payloads in order — `@extern fn
+// traverse_result`. It builds into one fresh buffer: a pure-Gom
+// reverse accumulator would pay the slice List representation's O(n)
+// cons copy per element.
+func TraverseResult[A, B, E any](f func(A) result.Result[B, E], xs List[A]) result.Result[List[B], E] {
+	out := make(List[B], 0, len(xs))
+	for _, x := range xs {
+		r := f(x)
+		switch r.Tag() {
+		case result.ResultTagOk:
+			out = append(out, r.Value)
+		case result.ResultTagErr:
+			return result.Err[List[B], E](r.Error)
+		default:
+			panic(rt.InvalidVariant("Result", r))
+		}
+	}
+	return result.Ok[List[B], E](out)
+}
+
+// ResultSequence is `Result.sequence`: it turns a list of results
+// into a result of the collected payloads, stopping at the first
+// Err. It lives in this package — the upward half of the
+// result < option < list layering — while being surfaced as a member
+// of the Result module (decision stdlib-conv-placement).
+func ResultSequence[A, E any](xs List[result.Result[A, E]]) result.Result[List[A], E] {
+	out := make(List[A], 0, len(xs))
+	for _, r := range xs {
+		switch r.Tag() {
+		case result.ResultTagOk:
+			out = append(out, r.Value)
+		case result.ResultTagErr:
+			return result.Err[List[A], E](r.Error)
+		default:
+			panic(rt.InvalidVariant("Result", r))
+		}
+	}
+	return result.Ok[List[A], E](out)
 }
 
 // Append is xs ++ ys — `@extern fn append`.

@@ -9,171 +9,171 @@ import (
 	testing "testing"
 )
 
-//line stdlib/result/result.gom:72
-func TestIsOkIsErr(t *testing.T) {
-//line stdlib/result/result.gom:73
-	okR := Ok[int64, string](1)
 //line stdlib/result/result.gom:74
-	errR := Err[int64, string]("bad")
+func TestIsOkIsErr(t *testing.T) {
 //line stdlib/result/result.gom:75
-	tmp33 := IsOk[int64, string](okR)
-//line stdlib/result/result.gom:75
-	rt.Assert(t, tmp33)
-//line stdlib/result/result.gom:76
-	tmp34 := IsErr[int64, string](errR)
-//line stdlib/result/result.gom:76
-	rt.Assert(t, tmp34)
-//line stdlib/result/result.gom:77
-	tmp35 := IsOk[int64, string](errR)
-//line stdlib/result/result.gom:77
-	tmp36 := !tmp35
-//line stdlib/result/result.gom:77
-	rt.Assert(t, tmp36)
-//line stdlib/result/result.gom:72
-}
-
-//line stdlib/result/result.gom:80
-func TestGetGetOrElseGetErr(t *testing.T) {
-//line stdlib/result/result.gom:81
 	okR := Ok[int64, string](1)
+//line stdlib/result/result.gom:76
+	errR := Err[int64, string]("bad")
+//line stdlib/result/result.gom:77
+	tmp33 := IsOk[int64, string](okR)
+//line stdlib/result/result.gom:77
+	rt.Assert(t, tmp33)
+//line stdlib/result/result.gom:78
+	tmp34 := IsErr[int64, string](errR)
+//line stdlib/result/result.gom:78
+	rt.Assert(t, tmp34)
+//line stdlib/result/result.gom:79
+	tmp35 := IsOk[int64, string](errR)
+//line stdlib/result/result.gom:79
+	tmp36 := !tmp35
+//line stdlib/result/result.gom:79
+	rt.Assert(t, tmp36)
+//line stdlib/result/result.gom:74
+}
+
 //line stdlib/result/result.gom:82
-	errR := Err[int64, string]("bad")
+func TestGetGetOrElseGetErr(t *testing.T) {
 //line stdlib/result/result.gom:83
+	okR := Ok[int64, string](1)
+//line stdlib/result/result.gom:84
+	errR := Err[int64, string]("bad")
+//line stdlib/result/result.gom:85
 	tmp37 := Get[int64, string](okR)
-//line stdlib/result/result.gom:83
+//line stdlib/result/result.gom:85
 	testutil.AssertEq(t, tmp37 == 1, strconv.FormatInt(tmp37, 10), strconv.FormatInt(1, 10), tmp37, 1)
-//line stdlib/result/result.gom:84
+//line stdlib/result/result.gom:86
 	tmp38 := GetOrElse[int64, string](9, okR)
-//line stdlib/result/result.gom:84
+//line stdlib/result/result.gom:86
 	testutil.AssertEq(t, tmp38 == 1, strconv.FormatInt(tmp38, 10), strconv.FormatInt(1, 10), tmp38, 1)
-//line stdlib/result/result.gom:85
+//line stdlib/result/result.gom:87
 	tmp39 := GetOrElse[int64, string](9, errR)
-//line stdlib/result/result.gom:85
+//line stdlib/result/result.gom:87
 	testutil.AssertEq(t, tmp39 == 9, strconv.FormatInt(tmp39, 10), strconv.FormatInt(9, 10), tmp39, 9)
-//line stdlib/result/result.gom:86
+//line stdlib/result/result.gom:88
 	tmp40 := GetErr[int64, string](errR)
-//line stdlib/result/result.gom:86
+//line stdlib/result/result.gom:88
 	testutil.AssertEq(t, tmp40 == "bad", strconv.Quote(tmp40), strconv.Quote("bad"), tmp40, "bad")
-//line stdlib/result/result.gom:80
+//line stdlib/result/result.gom:82
 }
 
-//line stdlib/result/result.gom:89
-func TestMapMapErrAndThen(t *testing.T) {
-//line stdlib/result/result.gom:90
-	ok1 := Ok[int64, string](1)
 //line stdlib/result/result.gom:91
-	ok2 := Ok[int64, string](2)
+func TestMapMapErrAndThen(t *testing.T) {
 //line stdlib/result/result.gom:92
-	errR := Err[int64, string]("bad")
-//line stdlib/result/result.gom:93
-	errBang := Err[int64, string]("bad!")
-//line stdlib/result/result.gom:94
-	tmp41 := func(x int64) int64 {
-//line stdlib/result/result.gom:94
-		return x + 1
-//line stdlib/result/result.gom:94
-	}
-//line stdlib/result/result.gom:94
-	tmp42 := Map[int64, int64, string](tmp41, ok1)
-//line stdlib/result/result.gom:94
-	testutil.AssertEq(t, tmp42 == ok2, gomShow168abbcd6(tmp42), gomShow168abbcd6(ok2), tmp42, ok2)
-//line stdlib/result/result.gom:95
-	tmp43 := func(x1 int64) int64 {
-//line stdlib/result/result.gom:95
-		return x1 + 1
-//line stdlib/result/result.gom:95
-	}
-//line stdlib/result/result.gom:95
-	tmp44 := Map[int64, int64, string](tmp43, errR)
-//line stdlib/result/result.gom:95
-	testutil.AssertEq(t, tmp44 == errR, gomShow168abbcd6(tmp44), gomShow168abbcd6(errR), tmp44, errR)
-//line stdlib/result/result.gom:96
-	tmp46 := func(e string) string {
-//line stdlib/result/result.gom:96
-		tmp45 := e
-//line stdlib/result/result.gom:96
-		return tmp45 + "!"
-//line stdlib/result/result.gom:96
-	}
-//line stdlib/result/result.gom:96
-	tmp47 := MapErr[string, string, int64](tmp46, errR)
-//line stdlib/result/result.gom:96
-	testutil.AssertEq(t, tmp47 == errBang, gomShow168abbcd6(tmp47), gomShow168abbcd6(errBang), tmp47, errBang)
-//line stdlib/result/result.gom:97
-	tmp49 := func(e1 string) string {
-//line stdlib/result/result.gom:97
-		tmp48 := e1
-//line stdlib/result/result.gom:97
-		return tmp48 + "!"
-//line stdlib/result/result.gom:97
-	}
-//line stdlib/result/result.gom:97
-	tmp50 := MapErr[string, string, int64](tmp49, ok1)
-//line stdlib/result/result.gom:97
-	testutil.AssertEq(t, tmp50 == ok1, gomShow168abbcd6(tmp50), gomShow168abbcd6(ok1), tmp50, ok1)
-//line stdlib/result/result.gom:98
-	tmp52 := func(x2 int64) Result[int64, string] {
-//line stdlib/result/result.gom:98
-		tmp51 := x2 + 1
-//line stdlib/result/result.gom:98
-		return Ok[int64, string](tmp51)
-//line stdlib/result/result.gom:98
-	}
-//line stdlib/result/result.gom:98
-	tmp53 := AndThen[int64, int64, string](tmp52, ok1)
-//line stdlib/result/result.gom:98
-	testutil.AssertEq(t, tmp53 == ok2, gomShow168abbcd6(tmp53), gomShow168abbcd6(ok2), tmp53, ok2)
-//line stdlib/result/result.gom:99
-	tmp55 := func(x3 int64) Result[int64, string] {
-//line stdlib/result/result.gom:99
-		tmp54 := x3 + 1
-//line stdlib/result/result.gom:99
-		return Ok[int64, string](tmp54)
-//line stdlib/result/result.gom:99
-	}
-//line stdlib/result/result.gom:99
-	tmp56 := AndThen[int64, int64, string](tmp55, errR)
-//line stdlib/result/result.gom:99
-	testutil.AssertEq(t, tmp56 == errR, gomShow168abbcd6(tmp56), gomShow168abbcd6(errR), tmp56, errR)
-//line stdlib/result/result.gom:89
-}
-
-//line stdlib/result/result.gom:102
-func TestOrElse(t *testing.T) {
-//line stdlib/result/result.gom:103
 	ok1 := Ok[int64, string](1)
-//line stdlib/result/result.gom:104
-	ok9 := Ok[int64, string](9)
-//line stdlib/result/result.gom:105
+//line stdlib/result/result.gom:93
+	ok2 := Ok[int64, string](2)
+//line stdlib/result/result.gom:94
 	errR := Err[int64, string]("bad")
-//line stdlib/result/result.gom:106
-	tmp57 := OrElse[int64, string](ok9, ok1)
-//line stdlib/result/result.gom:106
-	testutil.AssertEq(t, tmp57 == ok1, gomShow168abbcd6(tmp57), gomShow168abbcd6(ok1), tmp57, ok1)
-//line stdlib/result/result.gom:107
-	tmp58 := OrElse[int64, string](ok9, errR)
-//line stdlib/result/result.gom:107
-	testutil.AssertEq(t, tmp58 == ok9, gomShow168abbcd6(tmp58), gomShow168abbcd6(ok9), tmp58, ok9)
-//line stdlib/result/result.gom:102
+//line stdlib/result/result.gom:95
+	errBang := Err[int64, string]("bad!")
+//line stdlib/result/result.gom:96
+	tmp41 := func(x int64) int64 {
+//line stdlib/result/result.gom:96
+		return x + 1
+//line stdlib/result/result.gom:96
+	}
+//line stdlib/result/result.gom:96
+	tmp42 := Map[int64, int64, string](tmp41, ok1)
+//line stdlib/result/result.gom:96
+	testutil.AssertEq(t, tmp42 == ok2, gomShow168abbcd6(tmp42), gomShow168abbcd6(ok2), tmp42, ok2)
+//line stdlib/result/result.gom:97
+	tmp43 := func(x1 int64) int64 {
+//line stdlib/result/result.gom:97
+		return x1 + 1
+//line stdlib/result/result.gom:97
+	}
+//line stdlib/result/result.gom:97
+	tmp44 := Map[int64, int64, string](tmp43, errR)
+//line stdlib/result/result.gom:97
+	testutil.AssertEq(t, tmp44 == errR, gomShow168abbcd6(tmp44), gomShow168abbcd6(errR), tmp44, errR)
+//line stdlib/result/result.gom:98
+	tmp46 := func(e string) string {
+//line stdlib/result/result.gom:98
+		tmp45 := e
+//line stdlib/result/result.gom:98
+		return tmp45 + "!"
+//line stdlib/result/result.gom:98
+	}
+//line stdlib/result/result.gom:98
+	tmp47 := MapErr[string, string, int64](tmp46, errR)
+//line stdlib/result/result.gom:98
+	testutil.AssertEq(t, tmp47 == errBang, gomShow168abbcd6(tmp47), gomShow168abbcd6(errBang), tmp47, errBang)
+//line stdlib/result/result.gom:99
+	tmp49 := func(e1 string) string {
+//line stdlib/result/result.gom:99
+		tmp48 := e1
+//line stdlib/result/result.gom:99
+		return tmp48 + "!"
+//line stdlib/result/result.gom:99
+	}
+//line stdlib/result/result.gom:99
+	tmp50 := MapErr[string, string, int64](tmp49, ok1)
+//line stdlib/result/result.gom:99
+	testutil.AssertEq(t, tmp50 == ok1, gomShow168abbcd6(tmp50), gomShow168abbcd6(ok1), tmp50, ok1)
+//line stdlib/result/result.gom:100
+	tmp52 := func(x2 int64) Result[int64, string] {
+//line stdlib/result/result.gom:100
+		tmp51 := x2 + 1
+//line stdlib/result/result.gom:100
+		return Ok[int64, string](tmp51)
+//line stdlib/result/result.gom:100
+	}
+//line stdlib/result/result.gom:100
+	tmp53 := AndThen[int64, int64, string](tmp52, ok1)
+//line stdlib/result/result.gom:100
+	testutil.AssertEq(t, tmp53 == ok2, gomShow168abbcd6(tmp53), gomShow168abbcd6(ok2), tmp53, ok2)
+//line stdlib/result/result.gom:101
+	tmp55 := func(x3 int64) Result[int64, string] {
+//line stdlib/result/result.gom:101
+		tmp54 := x3 + 1
+//line stdlib/result/result.gom:101
+		return Ok[int64, string](tmp54)
+//line stdlib/result/result.gom:101
+	}
+//line stdlib/result/result.gom:101
+	tmp56 := AndThen[int64, int64, string](tmp55, errR)
+//line stdlib/result/result.gom:101
+	testutil.AssertEq(t, tmp56 == errR, gomShow168abbcd6(tmp56), gomShow168abbcd6(errR), tmp56, errR)
+//line stdlib/result/result.gom:91
 }
 
-//line stdlib/result/result.gom:94
+//line stdlib/result/result.gom:104
+func TestOrElse(t *testing.T) {
+//line stdlib/result/result.gom:105
+	ok1 := Ok[int64, string](1)
+//line stdlib/result/result.gom:106
+	ok9 := Ok[int64, string](9)
+//line stdlib/result/result.gom:107
+	errR := Err[int64, string]("bad")
+//line stdlib/result/result.gom:108
+	tmp57 := OrElse[int64, string](ok9, ok1)
+//line stdlib/result/result.gom:108
+	testutil.AssertEq(t, tmp57 == ok1, gomShow168abbcd6(tmp57), gomShow168abbcd6(ok1), tmp57, ok1)
+//line stdlib/result/result.gom:109
+	tmp58 := OrElse[int64, string](ok9, errR)
+//line stdlib/result/result.gom:109
+	testutil.AssertEq(t, tmp58 == ok9, gomShow168abbcd6(tmp58), gomShow168abbcd6(ok9), tmp58, ok9)
+//line stdlib/result/result.gom:104
+}
+
+//line stdlib/result/result.gom:96
 func gomShow168abbcd6(v Result[int64, string]) string {
-//line stdlib/result/result.gom:94
+//line stdlib/result/result.gom:96
 	switch v.Tag() {
-//line stdlib/result/result.gom:94
+//line stdlib/result/result.gom:96
 	case ResultTagOk:
-//line stdlib/result/result.gom:94
+//line stdlib/result/result.gom:96
 		return "" + "Ok" + " " + strconv.FormatInt(v.Value, 10)
-//line stdlib/result/result.gom:94
+//line stdlib/result/result.gom:96
 	case ResultTagErr:
-//line stdlib/result/result.gom:94
+//line stdlib/result/result.gom:96
 		return "" + "Err" + " " + strconv.Quote(v.Error)
-//line stdlib/result/result.gom:94
+//line stdlib/result/result.gom:96
 	default:
-//line stdlib/result/result.gom:94
+//line stdlib/result/result.gom:96
 		panic(rt.InvalidVariant("result.Result", v))
-//line stdlib/result/result.gom:94
+//line stdlib/result/result.gom:96
 	}
-//line stdlib/result/result.gom:94
+//line stdlib/result/result.gom:96
 }
