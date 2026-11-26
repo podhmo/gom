@@ -33,6 +33,8 @@ import (
 //     byte offsets or only line/columns.
 //   - "data": subset match — each expected key must exist in the
 //     actual data with a JSON-equal value. Extra actual keys pass.
+//   - "labels"/"details": each expected entry matches the next actual
+//     entry in order. Extra actual entries pass.
 //   - "notes": each expected note must appear among the actual notes,
 //     in order (a subsequence). Extra actual notes pass.
 //   - "fixes": each expected fix must match some actual fix in order.
@@ -207,6 +209,8 @@ func diffDiagnostic(exp map[string]any, got diag.Diagnostic, res diag.Resolver, 
 	msgs = append(msgs, checkString(exp, "source", string(got.Source), path)...)
 	msgs = append(msgs, checkSpan(exp, got.Span, res, path)...)
 	msgs = append(msgs, checkData(exp, got.Data, path)...)
+	msgs = append(msgs, checkLabels(exp, got.Labels, res, path)...)
+	msgs = append(msgs, checkDetails(exp, got.Details, path)...)
 	msgs = append(msgs, checkNotes(exp, got.Notes, path)...)
 	msgs = append(msgs, checkFixes(exp, got.Fixes, res, path)...)
 	return msgs
@@ -368,6 +372,103 @@ func checkData(exp map[string]any, data map[string]any, path string) (msgs []str
 		if !jsonEqual(ev, gv) {
 			msgs = append(msgs, fmt.Sprintf("%s.data[%q]: expected %s, got %s",
 				path, k, jsonRepr(ev), jsonRepr(gv)))
+		}
+	}
+	return msgs
+}
+
+// checkLabels verifies that each expected label matches the actual
+// labels in order. A label's "span" uses the same subset semantics as
+// the primary span; "message" is exact.
+func checkLabels(exp map[string]any, labels []diag.Label, res diag.Resolver, path string) (msgs []string) {
+	v, ok := exp["labels"]
+	if !ok {
+		return nil
+	}
+	arr, ok := v.([]any)
+	if !ok {
+		return []string{fmt.Sprintf("%s.labels: expected an array, got %s", path, jsonRepr(v))}
+	}
+	at := 0
+	for i, ev := range arr {
+		em, ok := ev.(map[string]any)
+		if !ok {
+			msgs = append(msgs, fmt.Sprintf("%s.labels[%d]: expected an object, got %s", path, i, jsonRepr(ev)))
+			continue
+		}
+		if at >= len(labels) {
+			msgs = append(msgs, fmt.Sprintf("%s.labels[%d]: no remaining actual label", path, i))
+			continue
+		}
+		lp := fmt.Sprintf("%s.labels[%d]", path, i)
+		got := labels[at]
+		at++
+		if sv, ok := em["message"]; ok {
+			s, ok := sv.(string)
+			if !ok || s != got.Message {
+				msgs = append(msgs, fmt.Sprintf("%s.message: expected %s, got %q", lp, jsonRepr(sv), got.Message))
+			}
+		}
+		if sv, ok := em["span"]; ok {
+			sm, ok := sv.(map[string]any)
+			if !ok {
+				msgs = append(msgs, fmt.Sprintf("%s.span: expected an object, got %s", lp, jsonRepr(sv)))
+			} else {
+				msgs = append(msgs, checkSpanFields(sm, got.Span, res, lp+".span")...)
+			}
+		}
+	}
+	return msgs
+}
+
+// checkDetails verifies that each expected detail group matches the
+// actual details in order. Label and lines are exact for every line the
+// expected object names; extra actual trailing lines pass.
+func checkDetails(exp map[string]any, details []diag.Detail, path string) (msgs []string) {
+	v, ok := exp["details"]
+	if !ok {
+		return nil
+	}
+	arr, ok := v.([]any)
+	if !ok {
+		return []string{fmt.Sprintf("%s.details: expected an array, got %s", path, jsonRepr(v))}
+	}
+	at := 0
+	for i, ev := range arr {
+		em, ok := ev.(map[string]any)
+		if !ok {
+			msgs = append(msgs, fmt.Sprintf("%s.details[%d]: expected an object, got %s", path, i, jsonRepr(ev)))
+			continue
+		}
+		if at >= len(details) {
+			msgs = append(msgs, fmt.Sprintf("%s.details[%d]: no remaining actual detail", path, i))
+			continue
+		}
+		got := details[at]
+		at++
+		lp := fmt.Sprintf("%s.details[%d]", path, i)
+		if sv, ok := em["label"]; ok {
+			s, ok := sv.(string)
+			if !ok || s != got.Label {
+				msgs = append(msgs, fmt.Sprintf("%s.label: expected %s, got %q", lp, jsonRepr(sv), got.Label))
+			}
+		}
+		if lv, ok := em["lines"]; ok {
+			lines, ok := lv.([]any)
+			if !ok {
+				msgs = append(msgs, fmt.Sprintf("%s.lines: expected an array, got %s", lp, jsonRepr(lv)))
+				continue
+			}
+			if len(lines) > len(got.Lines) {
+				msgs = append(msgs, fmt.Sprintf("%s.lines: expected at least %d lines, got %d", lp, len(lines), len(got.Lines)))
+				continue
+			}
+			for j, lv := range lines {
+				s, ok := lv.(string)
+				if !ok || s != got.Lines[j] {
+					msgs = append(msgs, fmt.Sprintf("%s.lines[%d]: expected %s, got %q", lp, j, jsonRepr(lv), got.Lines[j]))
+				}
+			}
 		}
 	}
 	return msgs

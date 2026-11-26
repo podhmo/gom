@@ -88,8 +88,22 @@ type wireDiagnostic struct {
 	Span     *SpanPos       `json:"span,omitempty"`
 	Source   string         `json:"source,omitempty"`
 	Data     map[string]any `json:"data,omitempty"`
+	Labels   []wireLabel    `json:"labels,omitempty"`
+	Details  []wireDetail   `json:"details,omitempty"`
 	Notes    []string       `json:"notes,omitempty"`
 	Fixes    []wireFix      `json:"fixes,omitempty"`
+}
+
+// wireLabel is the JSON shape of one secondary source label.
+type wireLabel struct {
+	Span    SpanPos `json:"span"`
+	Message string  `json:"message"`
+}
+
+// wireDetail is the JSON shape of one labeled detail group.
+type wireDetail struct {
+	Label string   `json:"label"`
+	Lines []string `json:"lines"`
 }
 
 // wireFix is the JSON shape of one entry of "fixes".
@@ -124,6 +138,17 @@ func wireOf(d Diagnostic, res Resolver) (wireDiagnostic, error) {
 				d.Code, d.Span.File, d.Span.Start, d.Span.End, err)
 		}
 		w.Span = &rp
+	}
+	for _, l := range d.Labels {
+		rp, err := ResolveSpan(res, l.Span)
+		if err != nil {
+			return w, fmt.Errorf("diag: diagnostic %s: label %q: %w",
+				d.Code, l.Message, err)
+		}
+		w.Labels = append(w.Labels, wireLabel{Span: rp, Message: l.Message})
+	}
+	for _, dt := range d.Details {
+		w.Details = append(w.Details, wireDetail{Label: dt.Label, Lines: dt.Lines})
 	}
 	for _, f := range d.Fixes {
 		wf := wireFix{

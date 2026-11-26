@@ -66,6 +66,28 @@ const messageSchema = `{
         }
       }
     },
+    "label": {
+      "type": "object",
+      "description": "A secondary source span explaining the diagnostic, with a short human-facing message.",
+      "required": ["span", "message"],
+      "properties": {
+        "span": { "$ref": "#/$defs/span" },
+        "message": { "type": "string" }
+      }
+    },
+    "detail": {
+      "type": "object",
+      "description": "One labeled group of human-facing detail lines; structured machine-facing facts stay in \"data\".",
+      "required": ["label", "lines"],
+      "properties": {
+        "label": { "type": "string" },
+        "lines": {
+          "type": "array",
+          "items": { "type": "string" },
+          "minItems": 1
+        }
+      }
+    },
     "diagnostic": {
       "type": "object",
       "required": ["kind", "code", "severity", "message"],
@@ -81,6 +103,14 @@ const messageSchema = `{
         "span": { "$ref": "#/$defs/span" },
         "source": { "type": "string", "description": "The tool that produced the diagnostic; \"go\" marks Go toolchain output mapped back to .gom (spec section 12 item 6). Omitted for gom's own diagnostics." },
         "data": { "type": "object", "description": "Structured detail; the keys are fixed per code." },
+        "labels": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/label" }
+        },
+        "details": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/detail" }
+        },
         "notes": {
           "type": "array",
           "items": { "type": "string" }

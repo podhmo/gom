@@ -27,6 +27,17 @@
         ],
         "scrutinee_type": "Expr"
       },
+      "details": [
+        {
+          "label": "patterns not covered",
+          "lines": [
+            "Neg (Num _)",
+            "Neg (Add _ _)",
+            "Neg (Let _ _ _)",
+            "Let _ _ _"
+          ]
+        }
+      ],
       "notes": [
         "arms with guards do not count toward exhaustiveness"
       ],
