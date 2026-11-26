@@ -606,7 +606,13 @@ func (d *drafter) typeDecl(name string, td *check.TypeDecl) []string {
 	if d.abstract[name] {
 		if n, ok := d.priorAbstract[name]; ok && n == len(td.TypeParams) {
 			lines = append(lines, "//gom:abstract "+name)
-			return append(lines, sb.String())
+			header := sb.String()
+			if strings.HasPrefix(header, "type alias ") {
+				// An alias implementation can satisfy an abstract interface,
+				// but interface syntax has no bare `type alias T` form.
+				header = "type " + strings.TrimPrefix(header, "type alias ")
+			}
+			return append(lines, header)
 		}
 	}
 	switch b := td.Body.(type) {

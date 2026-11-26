@@ -1957,6 +1957,41 @@ fn empty () -> Queue Int
 	}
 }
 
+func TestInfoCarriesAbstractAliasAsBareType(t *testing.T) {
+	t.Parallel()
+
+	dir := writeFiles(t, map[string]string{
+		"lib/lib.gom": `package lib
+
+type alias UserId = Int
+
+fn make () -> UserId = 1
+`,
+		"lib/lib.gomi": `package lib
+
+//gom:abstract UserId
+type UserId
+
+fn make () -> UserId
+`,
+	})
+	code, out, errout := invoke("info", filepath.Join(dir, "lib"))
+	if code != 0 {
+		t.Fatalf("gom info: exit %d; stderr=%q stdout=%q", code, errout, out)
+	}
+	gomi, err := os.ReadFile(filepath.Join(dir, "lib", "lib.gomi"))
+	if err != nil {
+		t.Fatalf("lib.gomi not written: %v", err)
+	}
+	text := string(gomi)
+	if !strings.Contains(text, "//gom:abstract UserId\ntype UserId") {
+		t.Fatalf("abstract alias regenerated incorrectly:\n%s", text)
+	}
+	if strings.Contains(text, "type alias UserId\n") {
+		t.Fatalf("bare abstract alias is not interface syntax:\n%s", text)
+	}
+}
+
 func TestInfoCarriesPrivateClaims(t *testing.T) {
 	t.Parallel()
 
