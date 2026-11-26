@@ -193,42 +193,64 @@ func normalizeQualifiers(sig string, aliases map[string]string) string {
 		keys = append(keys, alias)
 	}
 	slices.SortFunc(keys, func(a, b string) int { return len(b) - len(a) })
-	for _, alias := range keys {
-		needle := alias + "."
-		var out strings.Builder
-		depth := 0
-		for pos := 0; ; {
-			idx := strings.Index(sig[pos:], needle)
-			if idx < 0 {
-				tail := sig[pos:]
-				out.WriteString(tail)
-				break
+
+	var out strings.Builder
+	inRaw, inString, escaped := false, false, false
+	for i := 0; i < len(sig); {
+		c := sig[i]
+		if inRaw {
+			out.WriteByte(c)
+			if c == '`' {
+				inRaw = false
 			}
-			idx += pos
-			for _, ch := range sig[pos:idx] {
-				if ch == '<' {
-					depth++
-				} else if ch == '>' && depth > 0 {
-					depth--
+			i++
+			continue
+		}
+		if inString {
+			out.WriteByte(c)
+			if escaped {
+				escaped = false
+			} else if c == '\\' {
+				escaped = true
+			} else if c == '"' {
+				inString = false
+			}
+			i++
+			continue
+		}
+		if c == '`' {
+			inRaw = true
+			out.WriteByte(c)
+			i++
+			continue
+		}
+		if c == '"' {
+			inString = true
+			out.WriteByte(c)
+			i++
+			continue
+		}
+		if i == 0 || !isIdentByte(sig[i-1]) {
+			matched := false
+			for _, alias := range keys {
+				needle := alias + "."
+				if strings.HasPrefix(sig[i:], needle) {
+					out.WriteByte('<')
+					out.WriteString(aliases[alias])
+					out.WriteString(">.")
+					i += len(needle)
+					matched = true
+					break
 				}
 			}
-			out.WriteString(sig[pos:idx])
-			if depth > 0 || (idx > 0 && isIdentByte(sig[idx-1])) {
-				out.WriteString(sig[idx : idx+len(needle)])
-			} else {
-				out.WriteByte('<')
-				out.WriteString(aliases[alias])
-				out.WriteString(">.")
-				depth++
-				// The emitted path is consumed as ordinary output below;
-				// close its depth immediately because it is one complete key.
-				depth--
+			if matched {
+				continue
 			}
-			pos = idx + len(needle)
 		}
-		sig = out.String()
+		out.WriteByte(c)
+		i++
 	}
-	return sig
+	return out.String()
 }
 
 func isIdentByte(c byte) bool {
