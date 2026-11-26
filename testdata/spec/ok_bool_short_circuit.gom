@@ -1,0 +1,9 @@
+package main
+
+// `&&` / `||` are short-circuiting: the right operand is not
+// evaluated when the left operand already fixes the answer.
+// Runtime behavior is pinned by internal/build/shortcircuit_test.go;
+// this fixture pins that the operand form itself type-checks.
+fn boom () -> Bool = todo ()
+fn pick (a: Bool) (b: Bool) -> Bool =
+  (a && boom ()) || (b || boom ())

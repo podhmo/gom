@@ -277,4 +277,5 @@
 | [gomi-abstract-private-carry](2026-11-26-gomi-abstract-private-carry.md) | `.gomi` の abstract / private 意図は directive で再生成に引き継ぐ | 採用 |
 | [module-local-transitive-emit](2026-11-26-module-local-transitive-emit.md) | `gom build` / `gom run` は module-local の `.gom` dependency を推移的に emit する | 採用（prototype 検証済み） |
 | [string-byte-surface](2026-11-26-string-byte-surface.md) | 文字列操作は stdlib package の byte 面に置く | 採用（prototype 検証済み） |
+| [logical-shortcircuit-lowering](2026-11-27-logical-shortcircuit-lowering.md) | `&&` / `\|\|` は短絡評価し、complex な右辺は Core IR の分岐へ閉じ込める | 採用（実装・検証した — [検証](../sketch/2026-11-27-wave49-lane-a-shortcircuit-verify.md)） |
 <!-- END GENERATED -->

@@ -940,8 +940,8 @@ fn main () -> Unit = ()
 - A lambda parameter's own type variable must be bound —
   `fn (x: a) -> x` is E0412 unless the enclosing signature or a
   generalizing top-level `let` owns `a` (spec 3.3).
-- `&&`/`||` are NOT short-circuit in generated Go — both operands
-  evaluate. Use `if` when evaluation order or side effects matter.
+- `&&`/`||` are short-circuit in both the evaluator and generated Go:
+  `false && x` / `true || x` do not evaluate `x`.
 - `import "mod/path"` loads a Gom package through its `.gomi` —
   spelled as a full module path (`import "example.com/m/shapes"`)
   and resolved through the module graph (any module in the build

@@ -263,12 +263,17 @@ type Binary struct {
 func (*Binary) isExpr() {}
 
 // If is `if c { a } else { b }`. Else is nil when omitted — allowed
-// only when Then's result type is Unit.
+// only when Then's result type is Unit. ShortCircuit marks a synthetic
+// branch introduced when lowering `&&` / `||`: its bodies implement an
+// operand of the source operator, so @tailrec must not treat them as
+// the function's source-level tail position even though the Core branch
+// is control-flow tail position.
 type If struct {
 	Base
-	Cond Atom
-	Then *Body
-	Else *Body // nil when omitted
+	Cond         Atom
+	Then         *Body
+	Else         *Body // nil when omitted
+	ShortCircuit bool
 }
 
 func (*If) isExpr() {}

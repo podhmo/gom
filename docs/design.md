@@ -106,6 +106,7 @@ Go コード生成器に言語の意味を判断させない。次のことは C
 
 10. **数値演算の定数回避**: `Float` の `+ - * / < <= > >= == !=` と整数系の `+ - * /` で被演算子が両方とも数値リテラルのとき、左オペランドを変数に束縛する。Go が定数式として畳むのは言語の「演算ごとの機械演算」の意味（spec 3.3）とずれるので、実行時評価を強いる束縛として Core IR で確定する（[decision](decisions/2026-11-05-numeric-arithmetic-per-operation.md)）
 11. **ソースの由来**: すべてのノードが元の Gom ソースの範囲を指す
+12. **論理演算の短絡**: `&&` / `||` の右辺が atom だけで済む場合は Go の lazy な演算子に対応する `core.Binary` でよい。complex な場合は `core.If` へ下ろし、右辺の束縛列を選択された branch body 内へ置く — 両 operand を enclosing な ANF seq へ置くと短絡前に右辺が評価される。この合成 `core.If` は `ShortCircuit` 印を持ち、`@tailrec` は branch body をソースレベルの末尾位置として数えない
 
 例: ラベル付き引数の並べ替え。
 

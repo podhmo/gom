@@ -68,9 +68,15 @@ func main() {
 //line let_rec.gom:15
 	tmp8 := even(10)
 //line let_rec.gom:15
-	tmp9 := odd(10)
+	if tmp8 {
 //line let_rec.gom:15
-	_ = tmp8 && tmp9
+		odd(10)
+//line let_rec.gom:15
+	} else {
+//line let_rec.gom:15
+		_ = false
+//line let_rec.gom:15
+	}
 //line let_rec.gom:16
 	_ = struct{}{}
 //line let_rec.gom:13
