@@ -100,40 +100,78 @@ func gomShowInit_Wrap() {
 var _ = func() bool { gomShowInit_Wrap(); return true }()
 
 //line record_type_literal.gom:14
-func build(id, total int64) ValidatedOrder {
+type OrderAlias = ValidatedOrder
+
 //line record_type_literal.gom:15
+type BoxAlias[A any] = Box[A]
+
+//line record_type_literal.gom:17
+func build(id, total int64) ValidatedOrder {
+//line record_type_literal.gom:18
 	return ValidatedOrder{Id: id, Total: total}
-//line record_type_literal.gom:14
+//line record_type_literal.gom:17
 }
 
-//line record_type_literal.gom:17
+//line record_type_literal.gom:20
 func generic(x int64) Box[int64] {
-//line record_type_literal.gom:17
+//line record_type_literal.gom:20
 	return Box[int64]{Value: x}
-//line record_type_literal.gom:17
+//line record_type_literal.gom:20
 }
 
-//line record_type_literal.gom:19
-func ctor(x int64) Wrap {
-//line record_type_literal.gom:19
-	tmp1 := CtorArg(x)
-//line record_type_literal.gom:19
-	return Wrap_Wrap{V0: tmp1}
-//line record_type_literal.gom:19
-}
-
-//line record_type_literal.gom:21
-func ambiguous(id, total int64) PricedOrder {
 //line record_type_literal.gom:22
-	return PricedOrder{Id: id, Total: total}
-//line record_type_literal.gom:21
+func ctor(x int64) Wrap {
+//line record_type_literal.gom:22
+	tmp1 := CtorArg(x)
+//line record_type_literal.gom:22
+	return Wrap_Wrap{V0: tmp1}
+//line record_type_literal.gom:22
 }
 
 //line record_type_literal.gom:24
-func localDisambiguated(id, total int64) int64 {
+func ambiguous(id, total int64) PricedOrder {
 //line record_type_literal.gom:25
-	x := ValidatedOrder{Id: id, Total: total}
-//line record_type_literal.gom:26
-	return x.Id + x.Total
+	return PricedOrder{Id: id, Total: total}
 //line record_type_literal.gom:24
+}
+
+//line record_type_literal.gom:27
+func localDisambiguated(id, total int64) int64 {
+//line record_type_literal.gom:28
+	x := ValidatedOrder{Id: id, Total: total}
+//line record_type_literal.gom:29
+	return x.Id + x.Total
+//line record_type_literal.gom:27
+}
+
+//line record_type_literal.gom:32
+func anyBox(_ struct{}) Box[any] {
+//line record_type_literal.gom:32
+	tmp2 := any("text")
+//line record_type_literal.gom:32
+	return Box[any]{Value: tmp2}
+//line record_type_literal.gom:32
+}
+
+//line record_type_literal.gom:34
+func aliasBuild(id, total int64) ValidatedOrder {
+//line record_type_literal.gom:35
+	return ValidatedOrder{Id: id, Total: total}
+//line record_type_literal.gom:34
+}
+
+//line record_type_literal.gom:37
+func aliasGeneric(x int64) Box[int64] {
+//line record_type_literal.gom:37
+	return Box[int64]{Value: x}
+//line record_type_literal.gom:37
+}
+
+//line record_type_literal.gom:39
+func localAlias(x int64) int64 {
+//line record_type_literal.gom:40
+	b := Box[int64]{Value: x}
+//line record_type_literal.gom:41
+	return b.Value
+//line record_type_literal.gom:39
 }

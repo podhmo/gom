@@ -11,6 +11,9 @@ type CtorArg = { value: Int }
 type Wrap =
   | Wrap CtorArg
 
+type alias OrderAlias = ValidatedOrder
+type alias BoxAlias a = Box a
+
 fn build (id: Int) (total: Int) -> ValidatedOrder =
   ValidatedOrder { id = id, total = total }
 
@@ -24,4 +27,16 @@ fn ambiguous (id: Int) (total: Int) -> PricedOrder =
 fn local_disambiguated (id: Int) (total: Int) -> Int = {
   let x = ValidatedOrder { id = id, total = total }
   x.id + x.total
+}
+
+fn any_box () -> Box Go.Any = Box { value = "text" }
+
+fn alias_build (id: Int) (total: Int) -> ValidatedOrder =
+  OrderAlias { id = id, total = total }
+
+fn alias_generic (x: Int) -> Box Int = BoxAlias { value = x }
+
+fn local_alias (x: Int) -> Int = {
+  let b = BoxAlias { value = x }
+  b.value
 }

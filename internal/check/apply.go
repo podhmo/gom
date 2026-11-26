@@ -31,15 +31,11 @@ import (
 // reports E0507.
 func (c *checker) checkApply(e *syntax.Apply, want types.Type) Expr {
 	if ti, lit := c.typePrefixedRecordLit(e); ti != nil {
-		if ti.kind != kindRecord {
-			c.mismatch(e.Fn.Span(), "a record type", ti.con)
+		rt, ok := c.typePrefixedRecordType(ti, e.Sp, want)
+		if !ok {
+			c.mismatch(e.Fn.Span(), "a record type", rt)
 			return c.checkRecordLit(lit, nil)
 		}
-		args := make([]types.Type, len(ti.params))
-		for i := range args {
-			args[i] = c.newMeta(e.Sp, "the record type's argument")
-		}
-		rt := &types.Con{Qual: ti.con.Qual, Name: ti.con.Name, Args: args}
 		return c.checkRecordLit(lit, rt)
 	}
 	fn, callee, goCall := c.calleeOf(e.Fn)
@@ -264,6 +260,64 @@ func (c *checker) checkConvCall(e *syntax.Apply, fn Expr) Expr {
 	}
 	out.Call = CallInfo{Kind: CallUnknown, Arity: 0, Applied: len(out.Args), HoleIndex: -1}
 	return out
+}
+
+// typePrefixedRecordType resolves the record construction type for a
+// type prefix. Aliases are transparent here just as in type
+// annotations: instantiate their parameters with metas, expand the
+// target, and require that target to be a record constructor. When the
+// enclosing context already expects that constructor, keep its type
+// arguments — `Box { value = "s" }` under `Box Go.Any` must check the
+// field against `Go.Any`, not infer a disjoint `Box String`.
+func (c *checker) typePrefixedRecordType(ti *typeInfo, sp diag.Span, want types.Type) (types.Type, bool) {
+	instantiate := func(params []*types.Var) ([]types.Type, types.Subst) {
+		args := make([]types.Type, len(params))
+		sub := types.Subst{}
+		for i, v := range params {
+			args[i] = c.newMeta(sp, "the record type's argument")
+			sub[v.ID] = args[i]
+		}
+		return args, sub
+	}
+	expectedArgs := func(con *types.Con) {
+		wc, ok := types.Chase(want).(*types.Con)
+		if !ok || wc.Qual != con.Qual || wc.Name != con.Name || len(wc.Args) != len(con.Args) {
+			return
+		}
+		// The inference metas currently in con.Args are replaced by
+		// the expectation wholesale. Quiet them: they are placeholders
+		// for the prefix, not an undecided user-facing type.
+		metasIn(con, func(m *types.Meta) { c.markQuiet(m) })
+		copy(con.Args, wc.Args)
+	}
+
+	if ti.kind == kindAlias {
+		_, sub := instantiate(ti.params)
+		if !ti.aliasRes && ti.aliasBod != nil {
+			c.resolveAlias(ti, ti.aliasBod)
+		}
+		var target types.Type = c.quietMeta(sp, "the type alias")
+		if ti.aliasRes {
+			target = sub.Apply(ti.alias)
+		}
+		con, ok := types.Chase(target).(*types.Con)
+		if !ok {
+			return target, false
+		}
+		rti := c.tyCons[conKey{qual: con.Qual, name: con.Name}]
+		if rti == nil || rti.kind != kindRecord {
+			return target, false
+		}
+		expectedArgs(con)
+		return con, true
+	}
+	if ti.kind != kindRecord {
+		return ti.con, false
+	}
+	args, _ := instantiate(ti.params)
+	rt := &types.Con{Qual: ti.con.Qual, Name: ti.con.Name, Args: args}
+	expectedArgs(rt)
+	return rt, true
 }
 
 // typePrefixedRecordLit recognizes `T { x = v }` where resolution
