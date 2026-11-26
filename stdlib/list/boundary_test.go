@@ -13,6 +13,7 @@ import (
 
 	"github.com/podhmo/gom/stdlib/list"
 	"github.com/podhmo/gom/stdlib/option"
+	"github.com/podhmo/gom/stdlib/result"
 )
 
 // TestFromSliceIndependence mutates the source slice after the
@@ -79,6 +80,67 @@ func TestOptionToListInvalid(t *testing.T) {
 		}
 	}()
 	list.OptionToList[int](nil)
+}
+
+// TestTraverseResultOrderAndEarlyStop pins the traversal contract:
+// callbacks run in input order and the first Err stops the walk —
+// elements after it are not inspected.
+func TestTraverseResultOrderAndEarlyStop(t *testing.T) {
+	var called []int64
+	f := func(x int64) result.Result[int64, string] {
+		called = append(called, x)
+		if x == 2 {
+			return result.Err[int64, string]("bad")
+		}
+		return result.Ok[int64, string](x * 10)
+	}
+	r := list.TraverseResult(f, list.List[int64]{1, 2, 3})
+	if r.Tag() != result.ResultTagErr || r.Error != "bad" {
+		t.Fatalf("TraverseResult = %#v, want Err(bad)", r)
+	}
+	if len(called) != 2 || called[0] != 1 || called[1] != 2 {
+		t.Fatalf("called = %v, want [1 2]", called)
+	}
+
+	ok := list.TraverseResult(func(x int64) result.Result[int64, string] {
+		return result.Ok[int64, string](x + 1)
+	}, list.List[int64]{1, 2})
+	if ok.Tag() != result.ResultTagOk || len(ok.Value) != 2 || ok.Value[0] != 2 || ok.Value[1] != 3 {
+		t.Fatalf("TraverseResult all-Ok = %#v, want Ok [2 3]", ok)
+	}
+}
+
+// TestResultSequence pins the compiler-owned forwarding member's
+// backing implementation.
+func TestResultSequence(t *testing.T) {
+	xs := list.List[result.Result[int64, string]]{
+		result.Ok[int64, string](1),
+		result.Ok[int64, string](2),
+	}
+	r := list.ResultSequence(xs)
+	if r.Tag() != result.ResultTagOk || len(r.Value) != 2 || r.Value[0] != 1 || r.Value[1] != 2 {
+		t.Fatalf("ResultSequence all-Ok = %#v, want Ok [1 2]", r)
+	}
+
+	var zero result.Result[int64, string]
+	bad := list.ResultSequence(list.List[result.Result[int64, string]]{
+		result.Ok[int64, string](1),
+		result.Err[int64, string]("no"),
+		zero, // must not be inspected after the first Err
+	})
+	if bad.Tag() != result.ResultTagErr || bad.Error != "no" {
+		t.Fatalf("ResultSequence with Err = %#v, want Err(no)", bad)
+	}
+}
+
+func TestResultSequenceInvalid(t *testing.T) {
+	var zero result.Result[int64, string]
+	defer func() {
+		if recover() == nil {
+			t.Fatal("ResultSequence with a zero Result did not panic")
+		}
+	}()
+	list.ResultSequence(list.List[result.Result[int64, string]]{zero})
 }
 
 func TestListViewSub(t *testing.T) {

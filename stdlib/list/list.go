@@ -5,6 +5,7 @@ package list
 import (
 	rt "github.com/podhmo/gom/rt"
 	option "github.com/podhmo/gom/stdlib/option"
+	result "github.com/podhmo/gom/stdlib/result"
 )
 
 //line stdlib/list/list.gom:9
@@ -391,200 +392,207 @@ func Find[A any](f func(A) bool, xs List[A]) option.Option[A] {
 //line stdlib/list/list.gom:97
 }
 
-//line stdlib/list/list.gom:132
+//line stdlib/list/list.gom:138
 func Sum(xs List[float64]) float64 {
-//line stdlib/list/list.gom:132
+//line stdlib/list/list.gom:138
 	return SumGo(0.0, xs)
-//line stdlib/list/list.gom:132
+//line stdlib/list/list.gom:138
 }
 
-//line stdlib/list/list.gom:137
+//line stdlib/list/list.gom:143
 func SumInt(xs List[int64]) int64 {
-//line stdlib/list/list.gom:137
+//line stdlib/list/list.gom:143
 	return SumiGo(0, xs)
-//line stdlib/list/list.gom:137
+//line stdlib/list/list.gom:143
 }
 
-//line stdlib/list/list.gom:146
+//line stdlib/list/list.gom:152
 func LengthGo[A any](acc int64, xs List[A]) int64 {
-//line stdlib/list/list.gom:146
+//line stdlib/list/list.gom:152
 	for {
-//line stdlib/list/list.gom:147
+//line stdlib/list/list.gom:153
 		switch {
-//line stdlib/list/list.gom:147
+//line stdlib/list/list.gom:153
 		case len(xs) == 0:
-//line stdlib/list/list.gom:147
+//line stdlib/list/list.gom:153
 			return acc
-//line stdlib/list/list.gom:147
+//line stdlib/list/list.gom:153
 		case len(xs) != 0:
-//line stdlib/list/list.gom:147
+//line stdlib/list/list.gom:153
 			tmp46 := xs[1:]
-//line stdlib/list/list.gom:147
+//line stdlib/list/list.gom:153
 			tmp47 := tmp46
-//line stdlib/list/list.gom:148
+//line stdlib/list/list.gom:154
 			tmp48 := acc + 1
-//line stdlib/list/list.gom:148
+//line stdlib/list/list.gom:154
 			acc, xs = tmp48, tmp47
-//line stdlib/list/list.gom:148
+//line stdlib/list/list.gom:154
 			continue
-//line stdlib/list/list.gom:148
+//line stdlib/list/list.gom:154
 		default:
-//line stdlib/list/list.gom:146
+//line stdlib/list/list.gom:152
 			panic(rt.InvalidVariant("List", xs))
-//line stdlib/list/list.gom:147
+//line stdlib/list/list.gom:153
 		}
-//line stdlib/list/list.gom:146
+//line stdlib/list/list.gom:152
 	}
-//line stdlib/list/list.gom:146
+//line stdlib/list/list.gom:152
 }
 
-//line stdlib/list/list.gom:152
+//line stdlib/list/list.gom:158
 func SumGo(acc float64, xs List[float64]) float64 {
-//line stdlib/list/list.gom:152
+//line stdlib/list/list.gom:158
 	for {
-//line stdlib/list/list.gom:153
+//line stdlib/list/list.gom:159
 		switch {
-//line stdlib/list/list.gom:153
+//line stdlib/list/list.gom:159
 		case len(xs) == 0:
-//line stdlib/list/list.gom:153
+//line stdlib/list/list.gom:159
 			return acc
-//line stdlib/list/list.gom:153
+//line stdlib/list/list.gom:159
 		case len(xs) != 0:
-//line stdlib/list/list.gom:153
+//line stdlib/list/list.gom:159
 			tmp49 := xs[0]
-//line stdlib/list/list.gom:153
+//line stdlib/list/list.gom:159
 			tmp50 := xs[1:]
-//line stdlib/list/list.gom:153
+//line stdlib/list/list.gom:159
 			tmp51 := tmp49
-//line stdlib/list/list.gom:153
+//line stdlib/list/list.gom:159
 			tmp52 := tmp50
-//line stdlib/list/list.gom:154
+//line stdlib/list/list.gom:160
 			tmp53 := acc + tmp51
-//line stdlib/list/list.gom:154
+//line stdlib/list/list.gom:160
 			acc, xs = tmp53, tmp52
-//line stdlib/list/list.gom:154
+//line stdlib/list/list.gom:160
 			continue
-//line stdlib/list/list.gom:154
+//line stdlib/list/list.gom:160
 		default:
-//line stdlib/list/list.gom:152
+//line stdlib/list/list.gom:158
 			panic(rt.InvalidVariant("List", xs))
-//line stdlib/list/list.gom:153
+//line stdlib/list/list.gom:159
 		}
-//line stdlib/list/list.gom:152
+//line stdlib/list/list.gom:158
 	}
-//line stdlib/list/list.gom:152
+//line stdlib/list/list.gom:158
 }
 
-//line stdlib/list/list.gom:158
+//line stdlib/list/list.gom:164
 func SumiGo(acc int64, xs List[int64]) int64 {
-//line stdlib/list/list.gom:158
+//line stdlib/list/list.gom:164
 	for {
-//line stdlib/list/list.gom:159
+//line stdlib/list/list.gom:165
 		switch {
-//line stdlib/list/list.gom:159
+//line stdlib/list/list.gom:165
 		case len(xs) == 0:
-//line stdlib/list/list.gom:159
+//line stdlib/list/list.gom:165
 			return acc
-//line stdlib/list/list.gom:159
+//line stdlib/list/list.gom:165
 		case len(xs) != 0:
-//line stdlib/list/list.gom:159
+//line stdlib/list/list.gom:165
 			tmp54 := xs[0]
-//line stdlib/list/list.gom:159
+//line stdlib/list/list.gom:165
 			tmp55 := xs[1:]
-//line stdlib/list/list.gom:159
+//line stdlib/list/list.gom:165
 			tmp56 := tmp54
-//line stdlib/list/list.gom:159
+//line stdlib/list/list.gom:165
 			tmp57 := tmp55
-//line stdlib/list/list.gom:160
+//line stdlib/list/list.gom:166
 			tmp58 := acc + tmp56
-//line stdlib/list/list.gom:160
+//line stdlib/list/list.gom:166
 			acc, xs = tmp58, tmp57
-//line stdlib/list/list.gom:160
+//line stdlib/list/list.gom:166
 			continue
-//line stdlib/list/list.gom:160
+//line stdlib/list/list.gom:166
 		default:
-//line stdlib/list/list.gom:158
+//line stdlib/list/list.gom:164
 			panic(rt.InvalidVariant("List", xs))
-//line stdlib/list/list.gom:159
+//line stdlib/list/list.gom:165
 		}
-//line stdlib/list/list.gom:158
+//line stdlib/list/list.gom:164
 	}
-//line stdlib/list/list.gom:158
+//line stdlib/list/list.gom:164
 }
 
-//line stdlib/list/list.gom:163
+//line stdlib/list/list.gom:169
 func gomEq17fd05b20(a, b List[int64]) bool {
-//line stdlib/list/list.gom:163
+//line stdlib/list/list.gom:169
 	if len(a) != len(b) {
-//line stdlib/list/list.gom:163
+//line stdlib/list/list.gom:169
 		return false
-//line stdlib/list/list.gom:163
+//line stdlib/list/list.gom:169
 	}
-//line stdlib/list/list.gom:163
+//line stdlib/list/list.gom:169
 	for i := range a {
-//line stdlib/list/list.gom:163
+//line stdlib/list/list.gom:169
 		if !(a[i] == b[i]) {
-//line stdlib/list/list.gom:163
+//line stdlib/list/list.gom:169
 			return false
-//line stdlib/list/list.gom:163
+//line stdlib/list/list.gom:169
 		}
-//line stdlib/list/list.gom:163
+//line stdlib/list/list.gom:169
 	}
-//line stdlib/list/list.gom:163
+//line stdlib/list/list.gom:169
 	return true
-//line stdlib/list/list.gom:163
+//line stdlib/list/list.gom:169
 }
 
-//line stdlib/list/list.gom:182
+//line stdlib/list/list.gom:188
 func gomEq27fd05b20(a, b option.Option[List[int64]]) bool {
-//line stdlib/list/list.gom:182
+//line stdlib/list/list.gom:188
 	if a == nil || b == nil {
-//line stdlib/list/list.gom:182
+//line stdlib/list/list.gom:188
 		return a == nil && b == nil
-//line stdlib/list/list.gom:182
+//line stdlib/list/list.gom:188
 	}
-//line stdlib/list/list.gom:182
+//line stdlib/list/list.gom:188
 	switch av := a.(type) {
-//line stdlib/list/list.gom:182
+//line stdlib/list/list.gom:188
 	case option.Option_Some[List[int64]]:
-//line stdlib/list/list.gom:182
+//line stdlib/list/list.gom:188
 		bv, ok := b.(option.Option_Some[List[int64]])
-//line stdlib/list/list.gom:182
+//line stdlib/list/list.gom:188
 		return ok && gomEq17fd05b20(av.V0, bv.V0)
-//line stdlib/list/list.gom:182
+//line stdlib/list/list.gom:188
 	case option.Option_None[List[int64]]:
-//line stdlib/list/list.gom:182
+//line stdlib/list/list.gom:188
 		_, ok := b.(option.Option_None[List[int64]])
-//line stdlib/list/list.gom:182
+//line stdlib/list/list.gom:188
 		return ok
-//line stdlib/list/list.gom:182
+//line stdlib/list/list.gom:188
 	default:
-//line stdlib/list/list.gom:182
+//line stdlib/list/list.gom:188
 		return false
-//line stdlib/list/list.gom:182
+//line stdlib/list/list.gom:188
 	}
-//line stdlib/list/list.gom:182
+//line stdlib/list/list.gom:188
 }
 
-//line stdlib/list/list.gom:229
+//line stdlib/list/list.gom:235
 func gomEq37fd05b20(a, b List[string]) bool {
-//line stdlib/list/list.gom:229
+//line stdlib/list/list.gom:235
 	if len(a) != len(b) {
-//line stdlib/list/list.gom:229
+//line stdlib/list/list.gom:235
 		return false
-//line stdlib/list/list.gom:229
+//line stdlib/list/list.gom:235
 	}
-//line stdlib/list/list.gom:229
+//line stdlib/list/list.gom:235
 	for i := range a {
-//line stdlib/list/list.gom:229
+//line stdlib/list/list.gom:235
 		if !(a[i] == b[i]) {
-//line stdlib/list/list.gom:229
+//line stdlib/list/list.gom:235
 			return false
-//line stdlib/list/list.gom:229
+//line stdlib/list/list.gom:235
 		}
-//line stdlib/list/list.gom:229
+//line stdlib/list/list.gom:235
 	}
-//line stdlib/list/list.gom:229
+//line stdlib/list/list.gom:235
 	return true
-//line stdlib/list/list.gom:229
+//line stdlib/list/list.gom:235
+}
+
+//line stdlib/list/list.gom:258
+func gomEq47fd05b20(a, b result.Result[List[int64], string]) bool {
+//line stdlib/list/list.gom:258
+	return a.Tag() == b.Tag() && (a.Tag() != result.ResultTagOk || gomEq17fd05b20(a.Value, b.Value)) && (a.Tag() != result.ResultTagErr || a.Error == b.Error)
+//line stdlib/list/list.gom:258
 }

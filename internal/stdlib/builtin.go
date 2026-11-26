@@ -446,9 +446,10 @@ func (e *env) addMember(module string, table map[string]*resolve.Symbol, m built
 }
 
 // conversionModules extends the .gomi-derived `Result` and `Option`
-// member tables with the layering conversions — `Result.to_option`
-// and `Option.to_list`. Neither can be a .gomi fn: the conversion
-// reaches *upward* in the result < option < list DAG, and a
+// member tables with the layering conversions and forwards —
+// `Result.to_option`, `Result.sequence`, and `Option.to_list`.
+// Neither can be a .gomi fn: the conversion reaches *upward* in the
+// result < option < list DAG, and a
 // lower package's .gom implementation importing its upper layer
 // would close a Go import cycle. Instead each member is surfaced
 // on the lower module but forwards to a hand-written function in
@@ -460,6 +461,10 @@ func (e *env) conversionModules() {
 		"Result": {
 			{name: "to_option", goSym: "ResultToOption", pkg: "github.com/podhmo/gom/stdlib/option",
 				sig: genericErrSig(types.Fn(types.Option(elemTVar), types.P(types.Result(elemTVar, errTVar)))),
+				gosig: lower.GoSig{Arity: 1, Results: core.GoResultsOne,
+					TypeParams: []*types.Var{elemTVar, errTVar}}},
+			{name: "sequence", goSym: "ResultSequence", pkg: "github.com/podhmo/gom/stdlib/list",
+				sig: genericErrSig(types.Fn(types.Result(types.List(elemTVar), errTVar), types.P(types.List(types.Result(elemTVar, errTVar))))),
 				gosig: lower.GoSig{Arity: 1, Results: core.GoResultsOne,
 					TypeParams: []*types.Var{elemTVar, errTVar}}},
 		},

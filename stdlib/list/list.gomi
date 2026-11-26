@@ -79,6 +79,12 @@ fn filter_map (f: a -> Option b) (xs: List a) -> List b
 //gom:noescape find_map 0
 fn find_map (f: a -> Option b) (xs: List a) -> Option b
 
+/// traverse_result f xs applies f to every element in order until
+/// the first Err, collecting the Ok payloads in order. Buffer-built
+/// Go impl (impl.go).
+//gom:noescape traverse_result 0
+fn traverse_result (f: a -> Result b e) (xs: List a) -> Result (List b) e
+
 /// concat xss = xss[0] ++ xss[1] ++ ... — `List.join` in OCaml.
 /// Buffer-built Go impl (impl.go) — one pass over the total size;
 /// the right-fold shape stacked a frame per sublist (O(k) depth).

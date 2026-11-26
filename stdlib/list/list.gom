@@ -109,6 +109,12 @@ fn filter_map (f: a -> Option b) (xs: List a) -> List b
 @extern
 fn find_map (f: a -> Option b) (xs: List a) -> Option b
 
+/// traverse_result f xs applies f to every element in order until
+/// the first Err, collecting the Ok payloads in order. Buffer-built
+/// Go impl (impl.go).
+@extern
+fn traverse_result (f: a -> Result b e) (xs: List a) -> Result (List b) e
+
 /// concat xss = xss[0] ++ xss[1] ++ ... — `List.join` in OCaml.
 /// Buffer-built Go impl (impl.go) — one pass over the total size;
 /// the right-fold shape stacked a frame per sublist (O(k) depth).
@@ -244,4 +250,16 @@ test "filter_map and find_map" {
   assert_eq (filter_map parse [-1, -2]) []
   assert_eq (find_map parse [-1, 2, 3]) (Some 20)
   assert_eq (find_map parse [-1, -2]) None
+}
+
+test "traverse_result and Result.sequence" {
+  let parse = fn x -> if x > 0 { Ok (x * 10) } else { Err "bad" }
+  let good : Result (List Int) String = traverse_result parse [1, 2]
+  assert_eq good (Ok [10, 20])
+  let bad : Result (List Int) String = traverse_result parse [1, -2, 3]
+  assert_eq bad (Err "bad")
+  let xs : List (Result Int String) = [Ok 1, Ok 2]
+  assert_eq (Result.sequence xs) (Ok [1, 2])
+  let bads : List (Result Int String) = [Ok 1, Err "no", Ok 3]
+  assert_eq (Result.sequence bads) (Err "no")
 }

@@ -240,15 +240,17 @@ duplicate-arm checks.
   `__snapshot__/`; use `gom test --update` (or `-u`) to write or
   refresh snapshot files.
 - **Stdlib modules exist:** `List.map`, `List.filter`, `List.fold`,
-  `List.filter_map`, `List.find_map`,
+  `List.filter_map`, `List.find_map`, `List.traverse_result`,
   `List.sum`, `List.sum_int`, `List.rev`, `List.head`, `List.get`, `List.take`,
   `List.drop`, `List.last`, `List.last_n`, `List.sort_by`,
   `Option.get`,
   `Option.map`, `Option.and_then`, `Result.map`, `Result.and_then`,
-  `Result.map_err` and friends resolve without an import — the
+  `Result.map_err`, `Result.sequence` and friends resolve without an import — the
   worked-on value is the last parameter so `xs |> List.map f`
-  pipelines. See `stdlib/{list,option,result}/*.gomi` for the full
-  surface. **`View a`** is a read-only sub-view of a `List`
+  pipelines. See `stdlib/{list,option,result}/*.gomi` plus the
+  compiler-owned forwarding members (`Result.to_option`,
+  `Result.sequence`, `Option.to_list`) for the full surface.
+  **`View a`** is a read-only sub-view of a `List`
   (`List.view`, `List.slice xs lo hi`; `View.length`/`get`/`slice`/
   `fold`/`to_list`, `for x in v` also works) — sub-slicing and
   indexing are O(1) because the view shares the immutable backing.

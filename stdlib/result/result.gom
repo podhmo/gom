@@ -66,9 +66,11 @@ fn iter (f: a -> Unit) (r: Result a e) -> Unit = match r {
 // to_option (Ok x → Some x, Err → None) is surfaced as
 // Result.to_option, but its implementation lives in stdlib/option:
 // implementing it here would make this package import option,
-// while option.to_result already imports result. internal/stdlib
-// registers the member as a compiler-owned forwarding conversion.
-// See docs/decisions/2026-11-18-stdlib-conv-placement.md.
+// while option.to_result already imports result. sequence
+// (List (Result a e) → Result (List a) e) is likewise surfaced as
+// Result.sequence while its implementation lives in stdlib/list.
+// internal/stdlib registers both members as compiler-owned forwarding
+// conversions. See docs/decisions/2026-11-18-stdlib-conv-placement.md.
 test "is_ok / is_err" {
   let ok_r: Result Int String = Ok 1
   let err_r: Result Int String = Err "bad"
