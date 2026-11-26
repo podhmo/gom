@@ -22,7 +22,7 @@
 
 ## To Be Implemented
 
-### wave48 採択済み lane（[prompts](docs/sketch/2026-11-26-wave48-prompts.md) — 2026-11-26 採否確定、順 A→B→C→D→E→F）
+### wave48 採択済み lane（[prompts](docs/sketch/2026-11-26-wave48-prompts.md) — 2026-11-26 採否確定、順 A→B→C→D→E→F→G）
 
 - [x] **[wave48 lane A] `Unit` payload 束縛の生成 Go 未使用 bug**（[prompts](docs/sketch/2026-11-26-wave48-prompts.md)）: `Unit` payload の束縛・表示・一時変数生成の整合を取る — `rt.ShowUnit` で operand 参照を残す（[verify](docs/sketch/2026-11-26-wave48-lane-a-unit-payload-splice-verify.md)）
 - [x] **[wave48 lane B] incremental build cache の dependency hash race**（[prompts](docs/sketch/2026-11-26-wave48-prompts.md)）: manifest へ記録する依存内容を compile 時観測へ寄せる
@@ -30,6 +30,15 @@
 - [x] **[wave48 lane D] `.gomi` author metadata の fidelity**（[prompts](docs/sketch/2026-11-26-wave48-prompts.md)）: directive attachment 規則と abstract/private 引き継ぎを実装する
 - [x] **[wave48 lane E] 文字列操作面**（[prompts](docs/sketch/2026-11-26-wave48-prompts.md)）: stdlib `str` package に byte length/index/range と明示的な rune decode を実装（[decision](docs/decisions/2026-11-26-string-byte-surface.md)、[verify](docs/sketch/2026-11-26-wave48-lane-e-string-surface-verify.md)）
 - [x] **[wave48 lane F] spec / explain の小さな mismatch 掃除**（[prompts](docs/sketch/2026-11-26-wave48-prompts.md)）: record abstract、零引数 extern、E0513、`Go.conv` List 制限を同期する
+- [x] **[wave48 lane G] PR #256 owner improvement ideas の精査と台帳登録**（[prompts](docs/sketch/2026-11-26-wave48-prompts.md)）: 20 件の提案を podhmo コメントと wave48 後の状態へ突き合わせ、TODO/open-questions/implementation-gaps/problems へ反映（[audit](docs/sketch/2026-11-26-wave48-lane-g-owner-ideas-audit.md)）
+
+### owner improvement ideas audit 由来（[PR #256](https://github.com/podhmo/gom/pull/256)、[audit](docs/sketch/2026-11-26-wave48-lane-g-owner-ideas-audit.md)）
+
+- [ ] **[task] checker の状態を関心ごとの部分構造体に分ける**: `typeTables`・deferred revisit queue・taint・lint state などを分け、`expr.go` を構文種別ごとに分割する。振る舞いは変えない。現行の非コメント field 数は 49（PR 本文の 70 超は過大）だが、`expr.go` 4,549 行と責務集中は有効な観測
+- [ ] **[task] 値表示を rt の単一実装へさらに寄せる**: wave47 lane A の runtime renderer 共通化を前提に、eval 独自の表示・整数幅・float32 丸め・structural equality を rt 公開関数へ寄せ、eval 側は評価順・pattern 振分け・部分適用の oracle に絞る
+- [ ] **[task] 診断コード表を軸にしたメタテスト**: retired code（例: W0601）を除き、spec harness で出せる言語診断には `testdata/spec/` fixture、driver/CLI 診断には CLI test があるかを分類して検査する。`gom explain` の example は実際にそのコードを出すものだけ対象にし、`docs/error-codes.md` と表の一致は既存 `TestErrorCodesDocInSync` に任せる
+- [ ] **[task] implementation-gaps の解消済み項目を archive へ分ける**: `[x]` 項目を `docs/implementation-gaps-archive.md` へ移し、未解消だけを live 台帳に残す。podhmo が PR #256 で肯定
+- [ ] **[task] 生成コードの benchmark 基盤**: `bench/` に代表的な gom/手書き Go のペアを置き、`go test -bench` の比率を記録する。回帰警告の閾値や CI 実行は導入時に決める
 
 - [x] **[task] stdlib に `List.filter_map` / `List.find_map` を追加**: `fold` で回すしかない現状 — selfish 移植で要望（[sketch](docs/sketch/ja/2026-11-24-selfish-port.md)、wave43 lane F）。実装済み: `@extern` buffer-built Go impl（`stdlib/list/impl.go` の `FilterMap`/`FindMap`）、`noescape` directive 付き（wave44 lane F）
 
@@ -94,7 +103,7 @@
 - [x] **[task] `|?>` 文言の回避経路の文書化**: `*rt.StepError.Step`・`rt.StepErr`・`Result.map_err`・`try`+`match` で文言を制御する方法を spec と gom-agent-guide に追記（案 C 採択済み — [decision](docs/decisions/2026-11-23-pipe-try-wording.md)、wave35 lane A / PR #149）
 - [x] **[task] scoped-cleanup 代替経路の文書化（案 D）**: `run_result` の GoError 制約を越えるパターンを helper で書く例を guide（Scope 節）と spec に追記（案 D 採択済み — [decision](docs/decisions/2026-11-23-scope-cleanup-extension.md)、wave35 lane B / PR #150）
 - [ ] **D-3 `README.md` を書く**: 言語の概要・ビルド/実行の quick start・ツール群（`gom build`/`check`/`fmt`/`info`）・ドキュメントへの導線（spec/design/tutorial）を載せる。**プロジェクト終盤に書く** — 機能が増えるたびに更新対象になるのを避けるため、内容が安定してから一括で書く（ユーザー指定）。PR #3 で英語 README の初版は入ったが、十分性の最終判定は終盤に行う
-- [ ] **D-4 tutorial/examples の go.mod 配置の整理**: tutorial の各章にはほぼ同形の go.mod がある（実質 `tutorial_test.go` が scratch module へコピーする用途だけで使い、`run.sh` は自前生成）。章側で生成するか集約するかは、gom がパッケージとして取り込まれる形（examples/tutorial が利用者からどう見えるか）を決めるタイミングで整理する。外部依存を取り込んでいない現状では不要。**D-3 と同程度の後の作業**（ユーザー指定）
+- [ ] **D-4 tutorial/examples の module 配置の最終整理**: tutorial の章別 go.mod は削除済みで、現行は repository root の go.mod + test/run 時の scratch module 合成。examples/tutorial が利用者からどう見えるかを決める終盤に、quick start・`gom init` 要否・外部依存の扱いと合わせて最終確認する。**D-3 と同程度の後の作業**（ユーザー指定。2026-11-26 に stale な前提を修正）
 - [x] **[task] spec §7 に record の abstract 宣言を明記する**: `.gomi` に `type T` と bare 宣言すると record 型でも import 側の record literal が E0401 で封じられる（sandbox run 2 の `shop/domain` で実検証）が、spec §7 のルール 3 は sum type にしか言及していない。record にも同じ規則が効くことを明記する（[gaps](docs/implementation-gaps.md) 登録済み、[検証](docs/sketch/ja/2026-11-24-sandbox-explorer2-sumtypes.md)）
 
 ### P0 Go 出力の実現可能性の検証

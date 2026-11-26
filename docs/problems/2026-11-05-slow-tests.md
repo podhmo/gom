@@ -124,3 +124,11 @@ diff の native job、NativeBinaryCache 検証、FuzzCompile）で約31秒に
 main 側の2失敗は本計測に影響しない既知のもの: `TestPanicStackResolvesToGom`
 は PR で修正済みの既存バグ、`TestSkillSymlinks` は worktree 展開先が
 /tmp シンボリックリンク配下であることによる環境由来の偽陽性。
+
+## 2026-11-26: PR #256 からの追加仮説
+
+[wave48 lane G audit](../sketch/2026-11-26-wave48-lane-g-owner-ideas-audit.md) で精査した改善案のうち、テスト高速化に関係するものはこの problem で追跡する。
+
+- compile-only の検証を子プロセス `go build` から `go/types` の in-process 型検査へ移す案。golden や「生成 Go がコンパイルできる」だけの検査ではリンクと実行が不要なので有力だが、importer の型 identity と依存再現性は P1（goimport の stdlib decode 共有）と同じ前提確認が要る
+- `TestEvalCompiledDiff` へ bundled runner 方式を広げ、N プログラムを 1 バイナリへ同居させて `os.Args[1]` で選ぶ案。既存 bundled runner が効いた固定ケースと違い seed stream 型なので、生成パッケージ名の衝突回避と失敗時の切り分けを先に prototype する
+- `go test -json` の時間集計を CI で残し、上位テストを定期的に見る案。測定基盤がないと削減対象を毎回推測し直すため
