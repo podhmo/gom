@@ -1193,7 +1193,9 @@
   対応: runStep も run.sh と同じ合成に揃え、tutorial/*/go.mod を削除して
   リポジトリルートの go.mod 1つに統一。README とテストコメントは実装に
   合わせ、sketch は日付付き記録として残置。ステップ go.mod 不在での
-  全ステップ成功を確認済み。
+  全ステップ成功を確認済み。wave48 closeout で root README にだけ
+  「各ステップは独立 Go モジュール」という stale な一文が残っているのを
+  再発見し、tutorial README と同じ scratch module 説明へ修正した。
   参照: [テスト](../tutorial/tutorial_test.go)、[README](../tutorial/README.md)、
   [decision](decisions/2026-11-05-test-performance.md)、
   [sketch](sketch/2026-11-04-v1-tutorial-findings.md)。
