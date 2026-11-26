@@ -3,11 +3,11 @@
 ## 実施
 
 - live code の coverage を phase 別に分類する meta-test を追加した。source-language diagnostic は `testdata/spec`、driver/interface diagnostic は CLI test または spec fixture、evaluator diagnostic は unit test を要求する
-- fixture を source から直接作りにくい code は例外一覧で明示した。E0204/E0503 は production emitter がない reserved 扱い、E0502/E0605/E0606/E0704/E0901 は unit test 側の coverage とした
+- fixture を source から直接作りにくい code は例外一覧で明示した。E0204/E0503 は production emitter がない reserved 扱い、E0502/E0606/E0704/E0901 は unit test 側の coverage とした。E0605 は既存の multi-file spec fixture を coverage に使う
 - `gom explain` example を executable / fragment に分類し、executable と判定した例は `package main` を足した完全なファイルとして実際にその診断を出すことを CLI test で検査する
 - 不足していた source-level fixture として E0105 invalid byte string と E0602 `.gomi` value body を追加した
 - W0601 は title/explanation どおり retired として `Retired: true` を付け、`docs/error-codes.md` を再生成した
-- E0204/E0503 の「live code table にあるが emitter がない」ずれは implementation-gaps に登録した
+- E0204/E0503 の「live code table にあるが emitter がない」ずれと、E0704 example が parser では E0101 になるずれは implementation-gaps に登録した
 
 ## 結果
 
