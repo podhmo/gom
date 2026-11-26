@@ -100,3 +100,25 @@ func TestUseExpectedPrefixTypeKeepsPartiallyConcreteExpectation(t *testing.T) {
 		t.Fatalf("open replay meta must report mismatches but not demand an annotation")
 	}
 }
+
+func TestUseExpectedPrefixTypePreservesSharedOpenArguments(t *testing.T) {
+	c := &checker{
+		metas:  map[*types.Meta]*metaRec{},
+		tyCons: map[conKey]*typeInfo{},
+	}
+	sp := diag.SpanIn("test.gom", 1, 2)
+	external := c.newMeta(sp, "the surrounding expression")
+	left := c.newMeta(sp, "the first record type argument")
+	right := c.newMeta(sp, "the second record type argument")
+	pair := func(x, y types.Type) types.Type {
+		return &types.Con{Name: "Pair", Args: []types.Type{x, y}}
+	}
+
+	c.useExpectedPrefixType(pair(left, right), pair(external, external), sp)
+	if !left.Bound() || !right.Bound() || types.Chase(left) != types.Chase(right) {
+		t.Fatalf("shared open expectation was not preserved: left=%v right=%v", types.Chase(left), types.Chase(right))
+	}
+	if types.Chase(left) == types.Chase(external) {
+		t.Fatalf("lookahead linked directly to the external meta")
+	}
+}

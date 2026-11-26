@@ -350,15 +350,27 @@ func (c *checker) useExpectedPrefixType(rt, want types.Type, sp diag.Span) {
 	solutions := map[*types.Meta]types.Type{}
 	openMetas := map[*types.Meta]*types.Meta{}
 	if ok {
+		sharedOpen := map[*types.Meta]int{}
+		for _, m := range rtMetas {
+			if cm, ok := clones[m]; ok {
+				if target, ok := types.Chase(cm).(*types.Meta); ok {
+					sharedOpen[target]++
+				}
+			}
+		}
 		for _, m := range rtMetas {
 			cm, ok := clones[m]
 			if !ok {
 				continue
 			}
 			if sol, ok := c.reifyPrefixType(types.Chase(cm), openMetas, sp); ok {
-				if _, openOnly := types.Chase(sol).(*types.Meta); !openOnly {
-					solutions[m] = sol
+				if _, openOnly := types.Chase(sol).(*types.Meta); openOnly {
+					target := types.Chase(cm).(*types.Meta)
+					if sharedOpen[target] < 2 {
+						continue
+					}
 				}
+				solutions[m] = sol
 			}
 		}
 	}
