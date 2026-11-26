@@ -96,8 +96,8 @@ func TestUseExpectedPrefixTypeKeepsPartiallyConcreteExpectation(t *testing.T) {
 	if !ok {
 		t.Fatalf("second tuple element = %v, want an open meta", got.Elems[1])
 	}
-	if c.metas[openArg].quiet || !c.metas[openArg].silent {
-		t.Fatalf("open replay meta must report mismatches but not demand an annotation")
+	if c.metas[openArg].quiet || c.metas[openArg].silent {
+		t.Fatalf("open replay meta must not suppress mismatch or annotation diagnostics")
 	}
 }
 
@@ -120,5 +120,34 @@ func TestUseExpectedPrefixTypePreservesSharedOpenArguments(t *testing.T) {
 	}
 	if types.Chase(left) == types.Chase(external) {
 		t.Fatalf("lookahead linked directly to the external meta")
+	}
+}
+
+func TestUseExpectedPrefixTypePreservesNestedSharedOpenArguments(t *testing.T) {
+	c := &checker{
+		metas:  map[*types.Meta]*metaRec{},
+		tyCons: map[conKey]*typeInfo{},
+	}
+	sp := diag.SpanIn("test.gom", 1, 2)
+	external := c.newMeta(sp, "the surrounding expression")
+	left := c.newMeta(sp, "the first record type argument")
+	right := c.newMeta(sp, "the second record type argument")
+	pair := func(x, y types.Type) types.Type {
+		return &types.Con{Name: "Pair", Args: []types.Type{x, y}}
+	}
+	box := func(x types.Type) types.Type {
+		return &types.Con{Name: "Box", Args: []types.Type{x}}
+	}
+
+	c.useExpectedPrefixType(pair(left, right), pair(external, box(external)), sp)
+	if !left.Bound() || !right.Bound() {
+		t.Fatalf("shared nested expectation was not replayed: left=%v right=%v", types.Chase(left), types.Chase(right))
+	}
+	rbox, ok := types.Chase(right).(*types.Con)
+	if !ok || len(rbox.Args) != 1 {
+		t.Fatalf("right solution = %v, want Box _", types.Chase(right))
+	}
+	if types.Chase(left) != types.Chase(rbox.Args[0]) {
+		t.Fatalf("nested sharing was lost: left=%v nested=%v", types.Chase(left), types.Chase(rbox.Args[0]))
 	}
 }

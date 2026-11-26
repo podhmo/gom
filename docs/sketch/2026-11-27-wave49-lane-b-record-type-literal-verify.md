@@ -28,3 +28,5 @@
 - Validation after the change: `go test ./...`, `go vet ./...`, `gofmt -l .` (empty), and `sh scripts/check-sumtype.sh` pass.
 
 Partially concrete expectations are retained: unknown expected metas become fresh open metas inside the replayed prefix type, while concrete structure such as `Go.Any` still reaches field checking. Regression coverage is in `record_prefix_test.go` and `ok_record_type_literal.gom` (`partially_concrete_expected`).
+
+Final replay boundary: unshared wholly open solutions are skipped before reification, so no unused artifact meta is minted. Shared open solutions — including a bare argument whose mate occurs only nested inside another argument — are replayed through ordinary (non-quiet, non-silent) fresh metas. This preserves equality constraints without suppressing E0401/E0407 when inference truly cannot determine the type. Direct coverage is in `internal/check/record_prefix_test.go`.

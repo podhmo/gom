@@ -329,7 +329,8 @@ func (c *checker) typePrefixedRecordType(ti *typeInfo, sp diag.Span, want types.
 // (including curried-tail absorption and shared-meta propagation), but
 // it must neither mutate inference state nor emit a second mismatch.
 // Only structurally informative solutions for rt's own inference metas
-// are replayed; a wholly open solution carries no useful information.
+// are replayed. A wholly open solution is replayed only when it is shared
+// with another solution, where it still carries an equality constraint.
 // External inference metas are never bound by this lookahead — doing
 // so would let constraints flow backwards into the surrounding
 // expression before its own arguments are checked.
@@ -352,24 +353,24 @@ func (c *checker) useExpectedPrefixType(rt, want types.Type, sp diag.Span) {
 	if ok {
 		sharedOpen := map[*types.Meta]int{}
 		for _, m := range rtMetas {
-			if cm, ok := clones[m]; ok {
-				if target, ok := types.Chase(cm).(*types.Meta); ok {
-					sharedOpen[target]++
-				}
+			cm, ok := clones[m]
+			if !ok {
+				continue
 			}
+			metasIn(types.Chase(cm), func(open *types.Meta) { sharedOpen[open]++ })
 		}
 		for _, m := range rtMetas {
 			cm, ok := clones[m]
 			if !ok {
 				continue
 			}
-			if sol, ok := c.reifyPrefixType(types.Chase(cm), openMetas, sp); ok {
-				if _, openOnly := types.Chase(sol).(*types.Meta); openOnly {
-					target := types.Chase(cm).(*types.Meta)
-					if sharedOpen[target] < 2 {
-						continue
-					}
-				}
+			cs := types.Chase(cm)
+			if target, openOnly := cs.(*types.Meta); openOnly && sharedOpen[target] < 2 {
+				// A single wholly open solution carries no information. Skip it
+				// before reification so no unused inference artifact is minted.
+				continue
+			}
+			if sol, ok := c.reifyPrefixType(cs, openMetas, sp); ok {
 				solutions[m] = sol
 			}
 		}
@@ -388,9 +389,11 @@ func (c *checker) useExpectedPrefixType(rt, want types.Type, sp diag.Span) {
 }
 
 // reifyPrefixType rewrites a speculative solution. Concrete structure is
-// kept; an unsolved clone meta becomes a fresh quiet real meta so that
+// kept; an unsolved clone meta becomes a fresh ordinary real meta so that
 // ordinary unification can link it to the surrounding inference variable
 // in checking order instead of letting lookahead mutate that variable now.
+// The meta is neither quiet nor silent: if it really remains undetermined,
+// inference must still reject the program.
 func (c *checker) reifyPrefixType(t types.Type, open map[*types.Meta]*types.Meta, sp diag.Span) (types.Type, bool) {
 	switch t := types.Chase(t).(type) {
 	case *types.Meta:
@@ -398,7 +401,6 @@ func (c *checker) reifyPrefixType(t types.Type, open map[*types.Meta]*types.Meta
 			return m, true
 		}
 		m := c.newMeta(sp, "the unresolved expected type")
-		c.markSilent(m)
 		open[t] = m
 		return m, true
 	case *types.Var:
