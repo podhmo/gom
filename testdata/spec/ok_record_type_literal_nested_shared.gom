@@ -1,0 +1,9 @@
+package main
+
+type Box a = { value: a }
+type Pair a b = { fst: List a, snd: b }
+
+fn consume (x: Pair a (Box a)) -> Unit = ()
+
+fn nested_shared () -> Unit =
+  consume (Pair { fst = [], snd = Box { value = "y" } })
