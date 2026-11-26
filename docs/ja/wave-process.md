@@ -94,9 +94,10 @@ Gom の開発は「wave」という単位で回す。1 wave = 複数 lane（細�
 - Devin Review の finding は lane 内でトリアージして潰す
   （resolved = 修正 commit、rejected/escalated は理由つき）。
 - lane 内で scope を削る・後続へ送る場合は、lane では実装と検証に
-  集中し、残件を verify と round 入力へ具体的に記録する。台帳への
-  登録は締め作業で行う。verify 側に残件の中身がなければ closeout で
-  拾えないため、「対象外」の一言だけで済ませない。
+  集中し、残件を lane の検証レポート（`docs/sketch/...-verify.md`）と
+  round 入力へ具体的に記録する。台帳への登録は締め作業で行う。
+  検証レポート側に残件の中身がなければ closeout で拾えないため、
+  「対象外」の一言だけで済ませない。
 
 ### 4. 締め作業（lane ではない独立作業）
 
@@ -145,11 +146,11 @@ Gom の開発は「wave」という単位で回す。1 wave = 複数 lane（細�
   読み、索引系の更新忘れ（README の表、`docs/error-codes.md`、
   decisions README — `go generate ./internal/tool/decisionsdoc`）
   やレーン間の不整合を拾って直す。
-- **scope 外・後送り残件の台帳登録**: 各 lane の verify、review、
+- **scope 外・後送り残件の台帳登録**: 各 lane の検証レポート、review、
   round 入力から残件を集め、対応意思のある実作業は wave 番号を持たない
   独立な `[task]` として `TODO.md` に、未決定の設計判断は
   `docs/open-questions.md` に、仕様・実装・文書のずれは
-  `docs/implementation-gaps.md` に登録する。round や verify に
+  `docs/implementation-gaps.md` に登録する。round や検証レポートに
   「将来 wave」「今回は対象外」と書くだけでは管理したことにしない。
   `implementation-gaps` はずれの台帳であり、実作業の管理先ではない。
   この登録を終えるまで wave を閉じない。
