@@ -3,12 +3,25 @@
 package ex
 
 import (
+	rt "github.com/podhmo/gom/rt"
 	list "github.com/podhmo/gom/stdlib/list"
 	goiface "github.com/podhmo/gom/testdata/goiface"
 )
 
 //line iter_defer_call_copy.gom:10
 type IterBox func(int64) list.List[int64]
+
+//line iter_defer_call_copy.gom:10
+func gomShowInit_IterBox() {
+//line iter_defer_call_copy.gom:10
+	_ = rt.RegisterShowRecord(rt.TypeOf[IterBox](), true, "iter")
+//line iter_defer_call_copy.gom:10
+	_ = rt.RegisterShowUnwrap(rt.TypeOf[IterBox](), rt.TypeOf[func(int64) list.List[int64]]())
+//line iter_defer_call_copy.gom:10
+}
+
+//line iter_defer_call_copy.gom:10
+var _ = func() bool { gomShowInit_IterBox(); return true }()
 
 //line iter_defer_call_copy.gom:12
 func viaCallResult(_ struct{}) int64 {

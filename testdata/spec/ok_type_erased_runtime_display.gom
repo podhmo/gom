@@ -1,0 +1,7 @@
+package ex
+
+type Point = {x: Int, y: Int}
+type Shape = | Circle (radius: Float) | Empty
+
+fn show (x: a) -> String = "${[x]}"
+fn rendered () -> String = "${show {x = 1, y = 2}}:${show (Circle 1.5)}"

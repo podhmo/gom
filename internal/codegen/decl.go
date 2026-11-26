@@ -63,6 +63,12 @@ func (g *gen) funcDecl(d *core.FuncDecl) {
 	g.raw(") ")
 	g.resultSig(d.Fn.ResidualType(), d.Fn.Body)
 	g.open()
+	if len(d.TypeParams) > 0 && funcUsesRuntimeShow(d.Fn) {
+		for _, name := range g.showInitTypes {
+			g.raw(showInitName(name) + "()")
+			g.nl()
+		}
+	}
 	g.funcBody(d.Fn, ret)
 	g.close()
 	g.nl()
@@ -572,6 +578,88 @@ func (g *gen) typeParams(tparams []*types.Var) []string {
 	return names
 }
 
+// showTypeInstantiation renders `Name[any, ...]` for runtime show
+// metadata registration. The instantiation arguments never matter —
+// registration keys strip them — but Go requires a generic type to be
+// instantiated before reflect.TypeOf can name it.
+func showTypeInstantiation(tname string, tparams []*types.Var) string {
+	if len(tparams) == 0 {
+		return tname
+	}
+	args := make([]string, len(tparams))
+	for i := range args {
+		args[i] = "any"
+	}
+	return tname + "[" + strings.Join(args, ", ") + "]"
+}
+
+func quoteStrings(xs []string) string {
+	out := make([]string, len(xs))
+	for i, x := range xs {
+		out[i] = strconv.Quote(x)
+	}
+	return strings.Join(out, ", ")
+}
+
+func showInitName(tname string) string { return "gomShowInit_" + tname }
+
+func (g *gen) showRecordRegistrationExprs(d *core.TypeDecl, b *core.TRecord) []string {
+	fields := make([]string, len(b.Fields))
+	for i, f := range b.Fields {
+		fields[i] = f.Name
+	}
+	typeExpr := showTypeInstantiation(g.typeName(d.Sym), d.TypeParams)
+	args := ""
+	if len(fields) > 0 {
+		args = ", " + quoteStrings(fields)
+	}
+	out := []string{g.pkgQual(rtPath) + "RegisterShowRecord(" + g.pkgQual(rtPath) + "TypeOf[" + typeExpr + "](), " + strconv.FormatBool(b.Defined) + args + ")"}
+	if b.Defined && len(b.Fields) == 1 && len(types.FreeVars(b.Fields[0].Type)) == 0 {
+		unwrap := g.exprString(g.goType(b.Fields[0].Type))
+		out = append(out, g.pkgQual(rtPath)+"RegisterShowUnwrap("+g.pkgQual(rtPath)+"TypeOf["+typeExpr+"](), "+g.pkgQual(rtPath)+"TypeOf["+unwrap+"]())")
+	}
+	return out
+}
+
+func (g *gen) showVariantRegistrationExpr(d *core.TypeDecl, v *core.TVariant) string {
+	fields := make([]string, len(v.Fields))
+	for i, f := range v.Fields {
+		fields[i] = f.Name
+	}
+	vname := g.typeName(d.Sym) + "_" + exportName(v.Sym.Name)
+	typeExpr := showTypeInstantiation(vname, d.TypeParams)
+	args := ""
+	if len(fields) > 0 {
+		args = ", " + quoteStrings(fields)
+	}
+	return g.pkgQual(rtPath) + "RegisterShowVariant(" + g.pkgQual(rtPath) + "TypeOf[" + typeExpr + "](), " + strconv.Quote(v.Sym.Name) + args + ")"
+}
+
+// showInit emits one runtime registration function per type. A generic
+// display helper calls the unit's functions before rendering. The
+// function references no package-level variable, so the call adds no
+// artificial package initialization ordering; an initializer-time call
+// still registers metadata first.
+func (g *gen) showInit(d *core.TypeDecl, exprs []string) {
+	name := showInitName(g.typeName(d.Sym))
+	g.raw("func " + name + "() {")
+	g.nl()
+	for _, expr := range exprs {
+		g.raw("_ = " + expr)
+		g.nl()
+	}
+	g.raw("}")
+	g.nl()
+	g.nl()
+	// Imported packages must have their metadata before importers run:
+	// package initialization calls registration too. The function itself
+	// references no package-level state, so generic display helpers can
+	// call it without adding user-visible initialization dependencies.
+	g.raw("var _ = func() bool { " + name + "(); return true }()")
+	g.nl()
+	g.nl()
+}
+
 // tsum emits the P0-1 sealed-interface ADT: the interface with the
 // unexported marker, one struct per variant, and each variant's
 // marker method. Generic ADTs keep the type parameters on every
@@ -653,6 +741,147 @@ func (g *gen) tsum(d *core.TypeDecl, b *core.TSum) {
 		g.close()
 		g.nl()
 	}
+
+	var exprs []string
+	for i := range b.Variants {
+		if b.Variants[i].Sym != nil {
+			exprs = append(exprs, g.showVariantRegistrationExpr(d, &b.Variants[i]))
+		}
+	}
+	g.showInit(d, exprs)
+}
+
+// funcUsesRuntimeShow reports whether a function body contains a
+// display/snapshot/assertion recipe that can land on rt.ShowRuntime.
+// Only those calls read the metadata registry; other generic functions
+// need no initialization dependency edge.
+func funcUsesRuntimeShow(fn *core.Func) bool {
+	return fn != nil && bodyUsesRuntimeShow(fn.Body)
+}
+
+func bodyUsesRuntimeShow(b *core.Body) bool {
+	if b == nil {
+		return false
+	}
+	for _, l := range b.Lets {
+		if exprUsesRuntimeShow(l.X) {
+			return true
+		}
+	}
+	return exprUsesRuntimeShow(b.Tail)
+}
+
+func exprUsesRuntimeShow(e core.Expr) bool {
+	switch e := e.(type) {
+	case *core.CallBuiltin:
+		switch e.Sym.Name {
+		case "display", "snapshot", "assert_eq":
+			return showPlanUsesRuntime(e.Show)
+		}
+		return false
+	case *core.Closure:
+		return funcUsesRuntimeShow(e.Fn)
+	case *core.GoFunc:
+		for _, in := range e.In {
+			if exprUsesRuntimeShow(in) {
+				return true
+			}
+		}
+		return false
+	case *core.Uncurry:
+		return exprUsesRuntimeShow(e.X)
+	case *core.If:
+		return bodyUsesRuntimeShow(e.Then) || bodyUsesRuntimeShow(e.Else)
+	case *core.Match:
+		return dtreeUsesRuntimeShow(e.Tree)
+	case *core.SelectExpr:
+		for _, a := range e.Arms {
+			if selArmUsesRuntimeShow(a) {
+				return true
+			}
+		}
+		return false
+	case *core.Spawn:
+		return bodyUsesRuntimeShow(e.Body)
+	case *core.ForRange:
+		return bodyUsesRuntimeShow(e.Body)
+	case *core.Var, *core.Lit, *core.FuncRef, *core.CtorRef,
+		*core.GoFuncRef, *core.FieldGet, *core.CallDirect, *core.CallFunc,
+		*core.CallGo, *core.CtorApp, *core.Unary, *core.Binary, *core.Equal,
+		*core.FieldSet, *core.Defer, *core.TupleNew, *core.ListNew,
+		*core.RecordNew, *core.RecordUpdate, *core.TailCall,
+		*core.EscapeResult, *core.EscapeCall, *core.ResultFromGo,
+		*core.OptionFromGo, *core.TupleFromGo, *core.ErrorFromGo,
+		*core.Conv, *core.TryAs:
+		return false
+	default:
+		panic("unreachable")
+	}
+}
+
+func showPlanUsesRuntime(p *core.ShowPlan) bool {
+	if p == nil {
+		return false
+	}
+	if p.Kind == core.ShowRuntime {
+		return true
+	}
+	for _, q := range []*core.ShowPlan{p.Elem} {
+		if showPlanUsesRuntime(q) {
+			return true
+		}
+	}
+	for _, q := range p.Elems {
+		if showPlanUsesRuntime(q) {
+			return true
+		}
+	}
+	for _, f := range p.Fields {
+		if showPlanUsesRuntime(f.Plan) {
+			return true
+		}
+	}
+	for _, v := range p.Variants {
+		for _, f := range v.Fields {
+			if showPlanUsesRuntime(f.Plan) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func selArmUsesRuntimeShow(a core.SelArm) bool {
+	switch a := a.(type) {
+	case *core.SelRecv:
+		return bodyUsesRuntimeShow(a.Body)
+	case *core.SelSend:
+		return bodyUsesRuntimeShow(a.Body)
+	case *core.SelDefault:
+		return bodyUsesRuntimeShow(a.Body)
+	default:
+		panic("unreachable")
+	}
+}
+
+func dtreeUsesRuntimeShow(t core.DTree) bool {
+	switch t := t.(type) {
+	case *core.DLeaf:
+		return bodyUsesRuntimeShow(t.Body)
+	case *core.DGuard:
+		return dtreeUsesRuntimeShow(t.Then) || dtreeUsesRuntimeShow(t.Else)
+	case *core.DSwitch:
+		for _, c := range t.Cases {
+			if bodyUsesRuntimeShow(c.Body) {
+				return true
+			}
+		}
+		return t.Default != nil && dtreeUsesRuntimeShow(t.Default)
+	case *core.DPanic:
+		return false
+	default:
+		panic("unreachable")
+	}
 }
 
 // tparamNames renders the declared type parameters' names without
@@ -682,6 +911,7 @@ func (g *gen) trecord(d *core.TypeDecl, b *core.TRecord) {
 		g.raw(" struct{}")
 		g.nl()
 		g.nl()
+		g.showInit(d, g.showRecordRegistrationExprs(d, b))
 		return
 	}
 	if b.Defined {
@@ -693,6 +923,7 @@ func (g *gen) trecord(d *core.TypeDecl, b *core.TRecord) {
 		g.typ(g.goType(b.Fields[0].Type))
 		g.nl()
 		g.nl()
+		g.showInit(d, g.showRecordRegistrationExprs(d, b))
 		return
 	}
 	g.raw(" struct")
@@ -710,6 +941,7 @@ func (g *gen) trecord(d *core.TypeDecl, b *core.TRecord) {
 	}
 	g.close()
 	g.nl()
+	g.showInit(d, g.showRecordRegistrationExprs(d, b))
 }
 
 // talias emits `type Name[A] = T` — the transparent alias: a Gom

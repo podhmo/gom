@@ -77,8 +77,12 @@ fn sign (n: Int) -> Int = {
   `(1, 2)`, `Ctor ~name: v`). Named Go scalar types print as
   their scalar underlying; inside a composite they still keep the
   opaque-value parentheses. Other Go values fall back to `%v`.
-  A composite still mentioning a type parameter prints with Go
-  formatting instead (`{1 2}` for a generic tuple element).
+  A composite still mentioning a type parameter uses the runtime
+  representation renderer: Gom tuples/lists/records/variants keep
+  the composite notation through generated show metadata, while
+  unregistered opaque Go values keep `%v`. `Char` erased through a
+  type parameter is indistinguishable from Int32 and prints as a
+  number.
 - `()` is the `Unit` value. Tuples `(a, b, c)` — a spelled
   tuple beyond 8 elements emits an anonymous `struct{ V0..Vn }`
   rather than `rt.TupleN`, so wide tuples still typecheck and

@@ -2415,6 +2415,14 @@ func (e *interp) displayValueTyped(v Value, t types.Type, nested bool) string {
 // uint64-backed field next to a type parameter must not print its
 // high bit pattern as a negative signed integer.
 func (e *interp) displayValueTypedMode(v Value, t types.Type, nested, runtimeFallback bool) string {
+	if runtimeFallback {
+		// Char is a rune/Int32 machine value in compiled code. Once the
+		// static recipe is erased, reflection cannot recover character-ness,
+		// so the oracle's runtime fallback uses the same numeric reading.
+		if c, ok := v.(*VChar); ok {
+			return strconv.FormatInt(int64(c.R), 10)
+		}
+	}
 	if f, ok := v.(*VFloat); ok {
 		if w := e.floatOperandWidth(t); w == 32 {
 			return strconv.FormatFloat(f.F, 'g', -1, 32)
@@ -2442,9 +2450,15 @@ func (e *interp) displayValueTypedMode(v Value, t types.Type, nested, runtimeFal
 		if s, ok := e.tupleDisplayTyped(v, t, runtimeFallback); ok {
 			return s
 		}
+		if runtimeFallback {
+			return e.tupleDisplayRuntime(v)
+		}
 	case *VList:
 		if s, ok := e.listDisplayTyped(v, t, runtimeFallback); ok {
 			return s
+		}
+		if runtimeFallback {
+			return e.listDisplayRuntime(v)
 		}
 	case *VVariant:
 		if s, ok := e.variantDisplayTyped(v, t, runtimeFallback); ok {
@@ -2634,6 +2648,38 @@ func (e *interp) recordDisplayTyped(r *VRecord, t types.Type, runtimeFallback bo
 	}
 	sb.WriteString(" }")
 	return sb.String(), true
+}
+
+// tupleDisplayRuntime formats an erased tuple when no static element
+// recipe survived. Reflection likewise knows only the runtime tuple
+// representation, so elements recurse value-shape-first and Char reads
+// as its rune/Int32 machine value.
+func (e *interp) tupleDisplayRuntime(v *VTuple) string {
+	var sb strings.Builder
+	sb.WriteByte('(')
+	for i, x := range v.Elems {
+		if i > 0 {
+			sb.WriteString(", ")
+		}
+		e.writeRuntimeOperand(&sb, x, types.GoAny)
+	}
+	sb.WriteByte(')')
+	return sb.String()
+}
+
+// listDisplayRuntime is the erased-list counterpart of
+// tupleDisplayRuntime.
+func (e *interp) listDisplayRuntime(v *VList) string {
+	var sb strings.Builder
+	sb.WriteByte('[')
+	for i, x := range v.Elems {
+		if i > 0 {
+			sb.WriteString(", ")
+		}
+		e.writeRuntimeOperand(&sb, x, types.GoAny)
+	}
+	sb.WriteByte(']')
+	return sb.String()
 }
 
 // tupleDisplayTyped formats tuple elements through their static

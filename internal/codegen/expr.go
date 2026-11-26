@@ -446,8 +446,9 @@ func (g *gen) strConcat(c *core.CallBuiltin) ast.Expr {
 // lowering fixes a Show plan on the call (design.md section 4.8),
 // so a composite splice emits the same gomShowN the test half's
 // assert_eq uses — matching the evaluator's comparison format.
-// Anything the plan leaves to the runtime still falls back to
-// fmt's %v (docs/problems/2026-11-04-interp-composite-display.md).
+// Anything the plan leaves to the runtime still uses the
+// representation-driven runtime fallback for composite recipes; a
+// top-level type-erased splice keeps fmt's %v.
 func (g *gen) display(c *core.CallBuiltin) ast.Expr {
 	a := c.Args[0]
 	x := g.atom(a)
@@ -491,6 +492,8 @@ func (g *gen) display(c *core.CallBuiltin) ast.Expr {
 			return &ast.CallExpr{Fun: ast.NewIdent(g.symName(p.Fn.Sym)), Args: []ast.Expr{x}}
 		case core.ShowError:
 			return &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual(rtPath) + "ShowError"), Args: []ast.Expr{x}}
+		case core.ShowRuntime:
+			return &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual(rtPath) + "ShowDisplay"), Args: []ast.Expr{x}}
 		}
 	}
 	return &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual("fmt") + "Sprint"), Args: []ast.Expr{x}}

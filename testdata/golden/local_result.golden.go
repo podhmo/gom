@@ -29,6 +29,18 @@ type Result_Err struct {
 //line local_result.gom:9
 func (Result_Err) isResult() {}
 
+//line local_result.gom:9
+func gomShowInit_Result() {
+//line local_result.gom:9
+	_ = rt.RegisterShowVariant(rt.TypeOf[Result_Ok](), "Ok", "")
+//line local_result.gom:9
+	_ = rt.RegisterShowVariant(rt.TypeOf[Result_Err](), "Err", "")
+//line local_result.gom:9
+}
+
+//line local_result.gom:9
+var _ = func() bool { gomShowInit_Result(); return true }()
+
 //line local_result.gom:11
 var r Result = Result_Ok{V0: 1}
 

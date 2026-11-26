@@ -311,11 +311,12 @@ func (l *lowerer) unitScope(pkg string, siblings []check.Decl) *core.UnitScope {
 		return nil
 	}
 	u := &core.UnitScope{
-		Vars:    map[*resolve.Symbol]bool{},
-		Types:   map[string]bool{},
-		TParams: map[*resolve.Symbol]int{},
-		Sums:    map[string][]string{},
-		Tests:   map[string]bool{},
+		Vars:      map[*resolve.Symbol]bool{},
+		Types:     map[string]bool{},
+		ShowTypes: map[string]bool{},
+		TParams:   map[*resolve.Symbol]int{},
+		Sums:      map[string][]string{},
+		Tests:     map[string]bool{},
 	}
 	for _, d := range siblings {
 		switch d := d.(type) {
@@ -330,6 +331,14 @@ func (l *lowerer) unitScope(pkg string, siblings []check.Decl) *core.UnitScope {
 			local := d.Sym != nil && d.Sym.Package == ""
 			if local {
 				u.Types[d.Sym.Name] = true
+				switch d.Body.(type) {
+				case *check.RecordType, *check.SumType:
+					u.ShowTypes[d.Sym.Name] = true
+				case *check.AliasType, *check.AbstractType:
+					// no representation metadata of their own
+				default:
+					panic("unreachable")
+				}
 			}
 			if s, ok := d.Body.(*check.SumType); ok {
 				for _, v := range s.Variants {

@@ -32,12 +32,32 @@ func (Pair_MkPair[A, B]) isPair() (A, B) {
 //line poly_adts.gom:3
 }
 
+//line poly_adts.gom:3
+func gomShowInit_Pair() {
+//line poly_adts.gom:3
+	_ = rt.RegisterShowVariant(rt.TypeOf[Pair_MkPair[any, any]](), "MkPair", "fst", "snd")
+//line poly_adts.gom:3
+}
+
+//line poly_adts.gom:3
+var _ = func() bool { gomShowInit_Pair(); return true }()
+
 //line poly_adts.gom:4
 type Box[A any] struct {
 //line poly_adts.gom:4
 	V A
 //line poly_adts.gom:4
 }
+
+//line poly_adts.gom:4
+func gomShowInit_Box() {
+//line poly_adts.gom:4
+	_ = rt.RegisterShowRecord(rt.TypeOf[Box[any]](), false, "v")
+//line poly_adts.gom:4
+}
+
+//line poly_adts.gom:4
+var _ = func() bool { gomShowInit_Box(); return true }()
 
 //line poly_adts.gom:5
 type Phantom[A any] interface{ isPhantom() A }
@@ -57,6 +77,16 @@ func (Phantom_MkP[A]) isPhantom() A {
 	return z0
 //line poly_adts.gom:5
 }
+
+//line poly_adts.gom:5
+func gomShowInit_Phantom() {
+//line poly_adts.gom:5
+	_ = rt.RegisterShowVariant(rt.TypeOf[Phantom_MkP[any]](), "MkP", "")
+//line poly_adts.gom:5
+}
+
+//line poly_adts.gom:5
+var _ = func() bool { gomShowInit_Phantom(); return true }()
 
 //line poly_adts.gom:6
 type W[A any] interface{ isW() A }
@@ -92,6 +122,18 @@ func (W_WNode[A]) isW() A {
 	return z0
 //line poly_adts.gom:6
 }
+
+//line poly_adts.gom:6
+func gomShowInit_W() {
+//line poly_adts.gom:6
+	_ = rt.RegisterShowVariant(rt.TypeOf[W_WLeaf[any]](), "WLeaf", "")
+//line poly_adts.gom:6
+	_ = rt.RegisterShowVariant(rt.TypeOf[W_WNode[any]](), "WNode", "")
+//line poly_adts.gom:6
+}
+
+//line poly_adts.gom:6
+var _ = func() bool { gomShowInit_W(); return true }()
 
 //line poly_adts.gom:7
 type Tree[A any] interface{ isTree() A }
@@ -129,6 +171,18 @@ func (Tree_Node[A]) isTree() A {
 	return z0
 //line poly_adts.gom:7
 }
+
+//line poly_adts.gom:7
+func gomShowInit_Tree() {
+//line poly_adts.gom:7
+	_ = rt.RegisterShowVariant(rt.TypeOf[Tree_Leaf[any]](), "Leaf", "")
+//line poly_adts.gom:7
+	_ = rt.RegisterShowVariant(rt.TypeOf[Tree_Node[any]](), "Node", "", "")
+//line poly_adts.gom:7
+}
+
+//line poly_adts.gom:7
+var _ = func() bool { gomShowInit_Tree(); return true }()
 
 //line poly_adts.gom:9
 func none[A any]() option.Option[A] {

@@ -25,6 +25,18 @@ type W_B struct{}
 //line match_neg_lit.gom:3
 func (W_B) isW() {}
 
+//line match_neg_lit.gom:3
+func gomShowInit_W() {
+//line match_neg_lit.gom:3
+	_ = rt.RegisterShowVariant(rt.TypeOf[W_A](), "A", "")
+//line match_neg_lit.gom:3
+	_ = rt.RegisterShowVariant(rt.TypeOf[W_B](), "B")
+//line match_neg_lit.gom:3
+}
+
+//line match_neg_lit.gom:3
+var _ = func() bool { gomShowInit_W(); return true }()
+
 //line match_neg_lit.gom:9
 func f(n int64) int64 {
 //line match_neg_lit.gom:11

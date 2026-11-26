@@ -101,6 +101,10 @@ type gen struct {
 	testFn       *core.Func // the test's fn: escapes targeting it call t.Errorf
 	testDeclName string     // the source test name used as snapshot namespace
 
+	// showInitTypes are the unit type names whose registration functions
+	// a generic runtime-display function calls before rendering.
+	showInitTypes []string
+
 	// depth is the current indentation level, pendingIndent marks a
 	// fresh output line whose first write must pad. Statements are
 	// emitted already-indented because a `//line` directive — which
@@ -223,6 +227,14 @@ func (g *gen) indexDecls(f *core.File) {
 				g.used[name] = true
 				g.recordEmit(emitRecord{kind: emitType, gomName: td.Sym.Name,
 					name: name, base: name, sp: td.Sym.DefSpan()})
+				switch td.Body.(type) {
+				case *core.TRecord, *core.TSum:
+					g.showInitTypes = append(g.showInitTypes, name)
+				case *core.TAlias, *core.TAbstract:
+					// no representation metadata of their own
+				default:
+					panic("unreachable")
+				}
 				if _, ok := td.Body.(*core.TSum); ok {
 					m := markerName(name)
 					g.recordEmit(emitRecord{kind: emitMarker, gomName: td.Sym.Name,
@@ -245,6 +257,9 @@ func (g *gen) indexDecls(f *core.File) {
 	if u := f.Unit; u != nil {
 		for tname := range u.Types {
 			name := exportName(tname)
+			if u.ShowTypes[tname] {
+				g.showInitTypes = append(g.showInitTypes, name)
+			}
 			g.localT[name] = true
 			g.pused[name] = true
 			g.used[name] = true
@@ -289,6 +304,25 @@ func (g *gen) indexDecls(f *core.File) {
 			g.testCollide = u.Tests
 		}
 	}
+	// Type registration functions are internal package-scope names too:
+	// claim them before user values so a collision cannot silently remove
+	// the registration call generic runtime display relies on.
+	{
+		seen := map[string]bool{}
+		var names []string
+		for _, name := range g.showInitTypes {
+			anchor := showInitName(name)
+			if !seen[anchor] {
+				seen[anchor] = true
+				names = append(names, name)
+				g.pused[anchor] = true
+				g.used[anchor] = true
+			}
+		}
+		sort.Strings(names)
+		g.showInitTypes = names
+	}
+
 	// Every package-scope value symbol of the unit claims its
 	// emitted name in one canonical order — sorted by (emitted base,
 	// Gom name), not declaration order — so the claiming sequence is

@@ -21,6 +21,16 @@ type User struct {
 //line record_field_tag.gom:8
 }
 
+//line record_field_tag.gom:8
+func gomShowInit_User() {
+//line record_field_tag.gom:8
+	_ = rt.RegisterShowRecord(rt.TypeOf[User](), false, "name", "mail")
+//line record_field_tag.gom:8
+}
+
+//line record_field_tag.gom:8
+var _ = func() bool { gomShowInit_User(); return true }()
+
 //line record_field_tag.gom:10
 func main() {
 //line record_field_tag.gom:11

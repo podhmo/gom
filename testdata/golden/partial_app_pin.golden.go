@@ -4,11 +4,24 @@ package main
 
 import (
 	fmt "fmt"
+	rt "github.com/podhmo/gom/rt"
 	result "github.com/podhmo/gom/stdlib/result"
 )
 
 //line partial_app_pin.gom:9
 type Name string
+
+//line partial_app_pin.gom:9
+func gomShowInit_Name() {
+//line partial_app_pin.gom:9
+	_ = rt.RegisterShowRecord(rt.TypeOf[Name](), true, "n")
+//line partial_app_pin.gom:9
+	_ = rt.RegisterShowUnwrap(rt.TypeOf[Name](), rt.TypeOf[string]())
+//line partial_app_pin.gom:9
+}
+
+//line partial_app_pin.gom:9
+var _ = func() bool { gomShowInit_Name(); return true }()
 
 //line partial_app_pin.gom:11
 func pair[B any](x, y B) string {
