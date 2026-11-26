@@ -282,6 +282,7 @@
 | [e0301-text-missing-patterns](2026-11-27-e0301-text-missing-patterns.md) | E0301 の text 出力へ不足パターンを出す（一部を [diagnostic-labels-details](2026-11-27-diagnostic-labels-details.md) で置き換え） | 採用（実装・検証した — [検証](../sketch/2026-11-27-wave49-lane-d-e0301-text-verify.md)） |
 | [logical-shortcircuit-lowering](2026-11-27-logical-shortcircuit-lowering.md) | `&&` / `\|\|` は短絡評価し、complex な右辺は Core IR の分岐へ閉じ込める | 採用（実装・検証した — [検証](../sketch/2026-11-27-wave49-lane-a-shortcircuit-verify.md)） |
 | [match-nested-narrowing](2026-11-27-match-nested-narrowing.md) | nested match の same-scrutinee narrowing | 採択（実装は wave51 以降 — [検証](../sketch/2026-11-27-wave50-lane-d-match-precision-verify.md)） |
+| [record-contextual-inference](2026-11-27-record-contextual-inference.md) | record literal の文脈推論 | 採用（実装・検証した — [検証](../sketch/2026-11-27-wave50-lane-e-record-context-verify.md)） |
 | [record-type-prefixed-literal](2026-11-27-record-type-prefixed-literal.md) | record 型名前置 literal | 採用（実装・検証した — [検証](../sketch/2026-11-27-wave49-lane-b-record-type-literal-verify.md)） |
 | [stdlib-result-traverse](2026-11-27-stdlib-result-traverse.md) | stdlib の Result traverse helpers — sequence / traverse_result | 採用（実装・検証した — [検証](../sketch/2026-11-27-wave49-lane-c-result-traverse-verify.md)） |
 <!-- END GENERATED -->

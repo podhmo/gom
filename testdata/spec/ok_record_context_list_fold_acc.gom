@@ -4,3 +4,5 @@ type Acc = { count: Int }
 type Other = { count: Int }
 
 fn total (xs: List Int) -> Acc = List.fold (fn acc x -> { acc with count = acc.count + x }) { count = 0 } xs
+
+fn total_pipe (xs: List Int) -> Acc = xs |> List.fold (fn acc x -> { acc with count = acc.count + x }) { count = 0 }

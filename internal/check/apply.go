@@ -220,7 +220,7 @@ func (c *checker) checkApply(e *syntax.Apply, want types.Type) Expr {
 			arity = c.declArity(sig, arity)
 		}
 	}
-	return c.checkGomApply(e, fn, callee, params, ret, arity)
+	return c.checkGomApply(e, fn, callee, params, ret, arity, want)
 }
 
 // declArity returns the callee's own declared parameter count — what
@@ -321,6 +321,85 @@ func (c *checker) typePrefixedRecordType(ti *typeInfo, sp diag.Span, want types.
 	}
 	c.useExpectedPrefixType(rt, want, sp)
 	return rt, true
+}
+
+// applyParamExpectations derives the parameter views a statically
+// decidable application fills when its result already has an expected
+// type. The derivation is speculative: inference metas on both sides
+// are cloned before the trial unification, so the surrounding inference
+// state is never bound early. Reified open metas act only as forwarding
+// placeholders inside the argument being checked; ordinary conformance
+// still links the callee's own metas in source order.
+type applyParamExpectations struct {
+	c           *checker
+	params      []types.Type
+	informative []bool
+	open        map[*types.Meta]*types.Meta
+	sp          diag.Span
+}
+
+func (c *checker) applyParamExpectations(fnT types.Type, params []types.FuncParam, args []syntax.Arg, want types.Type, sp diag.Span) *applyParamExpectations {
+	if want == nil || len(args) > len(params) {
+		return nil
+	}
+	hasRecordLit := false
+	for _, a := range args {
+		if lit, ok := a.Value.(*syntax.RecordLit); ok && lit.Base == nil {
+			hasRecordLit = true
+			break
+		}
+	}
+	if !hasRecordLit {
+		return nil
+	}
+	used, ok := c.fillUsed(args, params)
+	if !ok {
+		return nil
+	}
+	residual := applyResidual(fnT, used, 0)
+	clones := map[*types.Meta]*types.Meta{}
+	cw := c.clonePrefixType(want, clones)
+	cr := c.clonePrefixType(residual, clones)
+	cps := make([]types.Type, len(params))
+	for i, p := range params {
+		cps[i] = c.clonePrefixType(p.Type, clones)
+	}
+	ndiag := len(c.diags)
+	ok = c.unify(cw, cr, sp)
+	c.diags = c.diags[:ndiag]
+	for _, m := range clones {
+		delete(c.metas, m)
+	}
+	if !ok {
+		return nil
+	}
+	x := &applyParamExpectations{
+		c:           c,
+		params:      cps,
+		informative: make([]bool, len(params)),
+		open:        map[*types.Meta]*types.Meta{},
+		sp:          sp,
+	}
+	for i, p := range params {
+		metasIn(p.Type, func(m *types.Meta) {
+			cm, ok := clones[m]
+			if !ok {
+				return
+			}
+			if _, open := types.Chase(cm).(*types.Meta); !open {
+				x.informative[i] = true
+			}
+		})
+	}
+	return x
+}
+
+func (x *applyParamExpectations) at(i int) (types.Type, bool) {
+	if x == nil || i < 0 || i >= len(x.params) || !x.informative[i] {
+		return nil, false
+	}
+	t, ok := x.c.reifyPrefixType(x.params[i], x.open, x.sp)
+	return t, ok
 }
 
 // useExpectedPrefixType binds the inference metas inside rt from a
@@ -645,7 +724,7 @@ func (c *checker) calleeOf(e syntax.Expr) (Expr, *resolve.Symbol, bool) {
 // — then classifies the call: a prefix fill covering the declared
 // arity is CallDirect, a call leaving an earlier flat slot open is
 // CallPartial.
-func (c *checker) checkGomApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol, params []types.FuncParam, ret types.Type, declArity int) Expr {
+func (c *checker) checkGomApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol, params []types.FuncParam, ret types.Type, declArity int, want types.Type) Expr {
 	flat := len(params)
 	if declArity > flat {
 		declArity = flat
@@ -658,6 +737,7 @@ func (c *checker) checkGomApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol
 	unmapped := false  // an argument no flat parameter position answers
 
 	out := &Apply{Base: baseOf(e.Sp, nil), Fn: fn}
+	expectations := c.applyParamExpectations(fn.Type(), params, e.Args, want, e.Sp)
 
 	// `g args` where `g`'s type waits on a deferred member —
 	// a variable aliasing the member's standing meta
@@ -788,10 +868,15 @@ func (c *checker) checkGomApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol
 			}
 		}
 		var pt types.Type
+		contextual := false
 		switch {
 		case pi >= 0:
 			used[pi] = true
 			pt = params[pi].Type
+			if xp, ok := expectations.at(pi); ok {
+				pt = xp
+				contextual = true
+			}
 		case label == "":
 			// A positional argument beyond the callee's parameters
 			// over-applies into the returned function value.
@@ -828,6 +913,9 @@ func (c *checker) checkGomApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol
 			argExpr = c.checkExpr(a.Value, pt)
 		default:
 			panic("unreachable")
+		}
+		if contextual && pi >= 0 && argExpr != nil {
+			argExpr = c.conformExpr(argExpr, params[pi].Type, a.Value.Span())
 		}
 		out.Args = append(out.Args, Arg{Label: label, LabelSp: labelSp, Value: argExpr})
 		argToParam = append(argToParam, pi)
