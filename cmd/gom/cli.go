@@ -457,14 +457,20 @@ func dirCacheOut(inputs []input, idxs []int, outFlag string) string {
 // inputKey canonicalizes a path for identity comparisons without
 // changing the user-facing spelling carried in input.path.
 func inputKey(path string) string {
-	p := path
 	if abs, err := filepath.Abs(path); err == nil {
-		p = abs
+		return filepath.Clean(abs)
 	}
-	if resolved, err := filepath.EvalSymlinks(p); err == nil {
-		p = resolved
+	return filepath.Clean(path)
+}
+
+// dirKey canonicalizes package-directory identity across symlinks.
+// File identity deliberately stays lexical: one shared file symlinked
+// into two package directories is a member of both Go packages.
+func dirKey(path string) string {
+	if abs, err := filepath.Abs(path); err == nil {
+		path = abs
 	}
-	return filepath.Clean(p)
+	return canonicalDir(path)
 }
 
 // expandModuleLocalDeps adds same-module .gom source dependencies
@@ -479,7 +485,7 @@ func expandModuleLocalDeps(inputs []input) ([]input, error) {
 	seenDirs := map[string]bool{}
 	for _, in := range inputs {
 		seenFiles[inputKey(in.path)] = true
-		seenDirs[inputKey(filepath.Dir(filepath.Clean(in.path)))] = true
+		seenDirs[dirKey(filepath.Dir(filepath.Clean(in.path)))] = true
 	}
 	for len(queue) > 0 {
 		in := queue[0]
@@ -533,7 +539,7 @@ func expandModuleLocalDeps(inputs []input) ([]input, error) {
 			if !ok || depModPath != modPath || canonicalDir(depModDir) != canonicalDir(modDir) {
 				continue // a nested or symlinked module is external even when its path prefixes ours
 			}
-			depKey := inputKey(depDir)
+			depKey := dirKey(depDir)
 			if seenDirs[depKey] {
 				continue
 			}

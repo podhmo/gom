@@ -477,6 +477,41 @@ fn main () -> Unit = ()
 	}
 }
 
+func TestExpandModuleLocalDepsKeepsFileSymlinksInSeparatePackages(t *testing.T) {
+	t.Parallel()
+
+	dir := writeFiles(t, map[string]string{
+		"main.gom": `package main
+
+import "m/a"
+import "m/b"
+
+fn main () -> Unit = ()
+`,
+		"shared.gom": "package shared\n\nfn f () -> Int = 1\n",
+	})
+	testModule(t, dir)
+	for _, pkg := range []string{"a", "b"} {
+		if err := os.MkdirAll(filepath.Join(dir, pkg), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink(filepath.Join(dir, "shared.gom"), filepath.Join(dir, pkg, pkg+".gom")); err != nil {
+			t.Fatal(err)
+		}
+	}
+	explicit, err := readInputs([]string{filepath.Join(dir, "main.gom")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := expandModuleLocalDeps(explicit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 3 {
+		t.Fatalf("expanded %d inputs, want main plus both package-local symlink entries: %#v", len(got), got)
+	}
+}
+
 func TestBuildModuleLocalDependencyKeepsOutputBesideSource(t *testing.T) {
 	t.Parallel()
 
