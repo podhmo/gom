@@ -53,3 +53,10 @@ type Attached
 		t.Fatalf("ScanMutable = %#v, want [Attached]", got)
 	}
 }
+
+func TestScanDirectiveAcceptsTabAfterKeyword(t *testing.T) {
+	src := []byte("package m\n\n//gom:noescape tabbed 0\nfn\ttabbed (f: Int -> Int) -> Int\n")
+	if got := ScanNoescape(src); len(got["tabbed"]) != 1 {
+		t.Fatalf("ScanNoescape = %#v, want tabbed", got)
+	}
+}

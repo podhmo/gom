@@ -82,10 +82,11 @@ func attachedDirectiveLines(src []byte, prefix string) []string {
 }
 
 func interfaceDeclStart(line string) bool {
-	return strings.HasPrefix(line, "fn ") ||
-		strings.HasPrefix(line, "let ") ||
-		strings.HasPrefix(line, "type ") ||
-		strings.HasPrefix(line, "@")
+	if strings.HasPrefix(line, "@") {
+		return true
+	}
+	fields := strings.Fields(line)
+	return len(fields) > 0 && (fields[0] == "fn" || fields[0] == "let" || fields[0] == "type")
 }
 
 // ApplyNoescape turns `//gom:noescape` directives into
