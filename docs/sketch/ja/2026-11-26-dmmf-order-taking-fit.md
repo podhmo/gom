@@ -368,6 +368,8 @@ DMMF の「型で不正状態を潰し、ワークフローを `Result` の pipe
 
 ## wave49 後の再検証（2026-11-27）
 
+この節の結論は、本文中の古い workaround 推奨（`if` 評価順への注意、自前 `result_sequence`、E0301 text は不足パターンを出せないという制限）を上書きする。wave49 lane A/C/B/D 後は、論理演算子は短絡し、stdlib の traverse/sequence を使い、E0301 text も不足パターンを表示する。
+
 `experiments/dmmf-fit` を wave49 lane A/C/B に合わせて更新し、次を実コードで確認した。
 
 - `UnvalidatedOrder` / `ValidatedOrder` は同じフィールド構成のまま、`ValidatedOrder { id = input.id, lines = lines }` の型名前置 record literal で構築できる。局所注釈 workaround は不要で、E0407 は出ない。

@@ -38,6 +38,10 @@ func TestValidateOrderInputsUsesStdlibTraverseAndSequence(t *testing.T) {
 	if len(got.Value) != 2 || got.Value[0].Id != "order-1" || got.Value[1].Id != "order-2" {
 		t.Fatalf("validated orders = %#v", got.Value)
 	}
+	if len(got.Value[0].Lines) != 1 || got.Value[0].Lines[0].Sku != "sku-1" || got.Value[0].Lines[0].Qty != 1 ||
+		len(got.Value[1].Lines) != 1 || got.Value[1].Lines[0].Sku != "sku-2" || got.Value[1].Lines[0].Qty != 2 {
+		t.Fatalf("validated lines = %#v", got.Value)
+	}
 
 	bad := validateOrderInputs(list.List[UnvalidatedOrder]{
 		{Id: "bad", Lines: list.List[Line]{{Sku: "sku-0", Qty: 0}}},
