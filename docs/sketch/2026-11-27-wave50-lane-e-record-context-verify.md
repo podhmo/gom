@@ -20,7 +20,7 @@ wave-process の運用どおり、実装前に spec fixture を追加して red 
 - 同 fixture に `xs |> List.fold ... { count = 0 }` を追加した時点でも、pipe 経由では期待型が callee へ届かず E0407/E0401 の 4 件を確認
 - negative fixture として `E0407_record_context_no_backward` と `E0401_record_context_prefix_priority` を先に登録し、後続使用逆推論の禁止と型名前置優先を固定した
 - review で escalated された nested generic record では、`ok_record_context_nested_generic` を先に追加し、内側 literal の E0407 と連鎖する 2 件の E0401 を確認してから修正した
-- 続く review の curried callback 指摘では、`ok_record_context_curried_callback` を先に追加し、内側 literal の E0407 と結果側の E0401 を確認してから修正した
+- 続く review の curried callback 指摘では、`ok_record_context_curried_callback` を先に追加し、内側 literal の E0407 と結果側の E0401 を確認してから修正した。label 伝播と逆向き arity は統合 fixture では labeled lambda seeding の未決問題と分離できなかったため、unit test で merge 規則を固定した
 
 ## fixture / probe 結果
 
@@ -46,3 +46,4 @@ wave-process の運用どおり、実装前に spec fixture を追加して red 
 - 注釈なしラムダのパラメータ seeding は record 型だけの限定例外。`Go.Any` など record 以外の expected parameter を seed するかは従来どおり別問題で、`E0401_go_any_lambda_use` の意味は変えていない
 - pipe では無名 record literal を含み、かつ結果期待型に record 型を含む部分適用 callee にだけ結果期待型を渡す。record literal を含まない一般の pipe 推論は変えていない
 - generic 適用の speculative propagation は、供給スロットが静的に決まり、かつ引数に直接の無名 record literal がある場合に限定している。spread や未決定スロット、over-application には広げていない
+- 文脈期待側の関数パラメータ label は borrowed context として落とし、callee の型変数へ bind しない。labeled expected signature の positional lambda parameter へ record seeding するかは引き続き未決のまま

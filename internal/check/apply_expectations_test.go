@@ -116,3 +116,35 @@ func TestMergeContextualTypeExtendsCurriedSpeculativeTail(t *testing.T) {
 		t.Fatalf("curried merge = %v, want %v", got, speculative)
 	}
 }
+
+func TestMergeContextualTypeStripsBorrowedLabels(t *testing.T) {
+	c := &checker{metas: map[*types.Meta]*metaRec{}}
+	sp := diag.SpanIn("test.gom", 1, 2)
+	open := c.newMeta(sp, "open")
+	acc := &types.Con{Name: "Acc"}
+	speculative := types.Fn(acc, types.FuncParam{Label: "x", Type: acc})
+
+	got := c.mergeContextualType(open, speculative, map[*types.Meta]*types.Meta{}, sp)
+	want := types.Fn(acc, types.FuncParam{Type: acc})
+	if !types.Equal(got, want) {
+		t.Fatalf("label-stripped merge = %v, want %v", got, want)
+	}
+}
+
+func TestMergeContextualTypePreservesLongerOriginalTail(t *testing.T) {
+	c := &checker{metas: map[*types.Meta]*metaRec{}}
+	sp := diag.SpanIn("test.gom", 1, 2)
+	openParam := c.newMeta(sp, "open parameter")
+	openSpeculativeRet := c.newMeta(sp, "open speculative return")
+	intT := &types.Con{Name: "Int"}
+	acc := &types.Con{Name: "Acc"}
+	param := func(t types.Type) types.FuncParam { return types.FuncParam{Type: t} }
+
+	original := types.Fn(acc, param(openParam), param(intT))
+	speculative := types.Fn(openSpeculativeRet, param(acc))
+	got := c.mergeContextualType(original, speculative, map[*types.Meta]*types.Meta{}, sp)
+	want := types.Fn(acc, param(acc), param(intT))
+	if !types.Equal(got, want) {
+		t.Fatalf("shorter speculative merge = %v, want %v", got, want)
+	}
+}
