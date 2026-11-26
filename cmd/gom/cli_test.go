@@ -167,6 +167,35 @@ func TestCheckDiagnosticsText(t *testing.T) {
 	}
 }
 
+// TestCheckE0301TextMissingPatterns runs a real non-exhaustive match
+// through the CLI so the text renderer cannot pass only because a unit
+// test hand-supplied `missing_patterns`.
+func TestCheckE0301TextMissingPatterns(t *testing.T) {
+	t.Parallel()
+
+	dir := writeFiles(t, map[string]string{"match.gom": `package main
+
+type Choice =
+  | Yes
+  | No
+
+fn pick (x: Choice) -> Int =
+  match x {
+    Yes -> 1
+  }
+`})
+	code, out, errout := invoke("check", "-format", "text", filepath.Join(dir, "match.gom"))
+
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1; stdout=%q stderr=%q", code, out, errout)
+	}
+	if !strings.Contains(out, "error[E0301]") ||
+		!strings.Contains(out, "patterns not covered:") ||
+		!strings.Contains(out, "No") {
+		t.Errorf("text output missing real E0301 counterexamples: %q", out)
+	}
+}
+
 // TestTestClobberGuardTestFile: `gom test` refuses a handwritten
 // _test.go sharing the generated test-output name, and the refusal
 // advises shim_test.go (shim.go would escape test discovery).

@@ -64,8 +64,9 @@ func sevStyle(s Severity) string {
 //
 // Text is a lossy rendering of the same internal diagnostics: it shows
 // the header, the primary span with its source snippet, notes, and fix
-// titles — structured Data and fix edits are machine-facing detail and
-// are not rendered.
+// titles. Structured Data is machine-facing detail and is not rendered
+// generically; E0301's `missing_patterns` is the deliberate exception
+// because the spec's human output names the uncovered patterns.
 //
 // Diagnostics are emitted in List.Sort order on a copy of the list.
 // Each diagnostic must pass Validate and located spans must resolve
@@ -237,8 +238,15 @@ func (tw *textWriter) diagnostic(d Diagnostic) error {
 	}
 
 	pad := strings.Repeat(" ", gutter+1)
-	if shown && (len(d.Notes) > 0 || len(d.Fixes) > 0) {
+	missing := e0301MissingPatterns(d)
+	if shown && (len(missing) > 0 || len(d.Notes) > 0 || len(d.Fixes) > 0) {
 		tw.printf("%s\n", tw.paint(markStyle, pad+" |"))
+	}
+	if len(missing) > 0 {
+		tw.printf("%s  patterns not covered:\n", tw.paint(markStyle, pad+" |"))
+		for _, p := range missing {
+			tw.printf("%s    %s\n", tw.paint(markStyle, pad+" |"), p)
+		}
 	}
 	for _, n := range d.Notes {
 		tw.labeled(pad, "note", n)
@@ -254,6 +262,17 @@ func (tw *textWriter) diagnostic(d Diagnostic) error {
 		tw.labeled(pad, "help", f.Title+suffix)
 	}
 	return tw.err
+}
+
+// e0301MissingPatterns exposes only E0301's structured counterexamples
+// to the text renderer. Other diagnostics keep their Data machine-only;
+// this is not a generic details-wire hook.
+func e0301MissingPatterns(d Diagnostic) []string {
+	if d.Code != "E0301" {
+		return nil
+	}
+	pats, _ := d.Data["missing_patterns"].([]string)
+	return pats
 }
 
 // labeled prints " = <label>: <text>" in the gutter; continuation
