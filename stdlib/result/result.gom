@@ -63,12 +63,12 @@ fn iter (f: a -> Unit) (r: Result a e) -> Unit = match r {
   Err _ -> ()
 }
 
-// to_option would forget the error (Ok x → Some x, Err → None)
-// — but it cannot live here: emitting `option.Option_Some` would
-// make this package import stdlib/option, while option.to_result
-// already makes option import this one, and Go forbids the cycle.
-// The conversion exists on the Option side — there is no
-// Result.to_option.
+// to_option (Ok x → Some x, Err → None) is surfaced as
+// Result.to_option, but its implementation lives in stdlib/option:
+// implementing it here would make this package import option,
+// while option.to_result already imports result. internal/stdlib
+// registers the member as a compiler-owned forwarding conversion.
+// See docs/decisions/2026-11-18-stdlib-conv-placement.md.
 test "is_ok / is_err" {
   let ok_r: Result Int String = Ok 1
   let err_r: Result Int String = Err "bad"

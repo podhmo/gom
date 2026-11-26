@@ -63,11 +63,11 @@ fn iter (f: a -> Unit) (o: Option a) -> Unit = match o {
   None -> ()
 }
 
-// to_list ([x] for Some x, [] for None) cannot live here: it
-// would make this package import stdlib/list, while List.get
-// already makes list import this one — Go forbids the cycle.
-// The layering is result < option < list, so Option-to-List
-// lives nowhere; callers match instead.
+// to_list ([x] for Some x, [] for None) is surfaced as
+// Option.to_list, but its implementation lives in stdlib/list:
+// implementing it here would make this package import list,
+// while list already imports option. internal/stdlib registers
+// the compiler-owned forwarding conversion.
 
 /// to_result err o is Ok x for Some x, Err err for None.
 fn to_result (err: e) (o: Option a) -> Result a e = match o {
