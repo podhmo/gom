@@ -11,7 +11,7 @@
 | --- | --- | --- |
 | A1 record literal 推論 / 型名前置 literal | 有効。既存 open question の最重要 evidence として再確認 | 既存 open question へ DMMF evidence を追記 |
 | A2 stdlib Result/Option helper | 一部誤り。`Result.to_option` は既存。`Result.sequence` / traverse 系の不足は有効 | 新規 open question。report 本文を訂正 |
-| A3 bounded context package 設計 | 有効。ただし「`internal` 相当がない」は不正確で、Go の `internal/` layout は package 境界として使える。型 module / package 内限定公開がないという問いに修正 | 新規 open question。report 本文を訂正 |
+| A3 bounded context package 設計 | 有効。ただし「`internal` 相当がない」は不正確で、`.gomi` 非公開は package-private、Go の `internal/` layout も package 境界として使える。型 module / selected sibling package 向けの friend visibility がないという問いに修正 | 新規 open question。report 本文を訂正 |
 | A4 JSON tagged union / nullable DTO | 有効。言語機能より先に推奨 DTO 形を決める論点 | 新規 open question |
 | A5 abstract 型と zero value / boundary | 有効。`Ptr.new` / `encoding/json` は smart constructor を通らない | 新規 open question |
 | B6 panic capture adapter | spec は言語 `recover` を提供しないが、Go helper で boundary adapter を作るかは別問い。形状と置き場所が未決 | 新規 open question |
@@ -36,7 +36,7 @@ spec §5 と [stdlib-conv-placement](../decisions/2026-11-18-stdlib-conv-placeme
 
 ### `internal/` layout は package 境界として使える
 
-`/tmp/gom-internal-probe` で `example.com/root/internal/shared` を同一 module の `main` から import する probe を作り、`gom build main/main.gom` と `go build ./...` が通ることを確認した。したがって「bounded context の外部隠蔽に使える仕組みがまったくない」ではない。足りないのは、F# の型名 module 相当の namespace と、同一 package 内だけで共有する細かい可視性である。設計ガイドの問いは package 分割・`internal/` layout・`string50_create` 命名の組み合わせに修正する。
+`/tmp/gom-internal-probe` で `example.com/root/internal/shared` を同一 module の `main` から import する probe を作り、`gom build main/main.gom` と `go build ./...` が通ることを確認した。したがって「bounded context の外部隠蔽に使える仕組みがまったくない」ではない。`.gomi` に書かない定義は package-private で、足りないのは F# の型名 module 相当の namespace と、選択した sibling package だけへ公開する friend visibility である。設計ガイドの問いは package 分割・`internal/` layout・`string50_create` 命名の組み合わせに修正する。
 
 ### constructor 名衝突は新規の未決事項ではない
 

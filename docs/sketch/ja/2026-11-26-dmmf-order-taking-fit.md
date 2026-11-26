@@ -31,7 +31,7 @@ go test ./...
 
 1. **段階型 record の型推論が弱い**: `UnvalidatedOrder` / `ValidatedOrder` / `PricedOrder` のように同じフィールド名を持つ record を並べると、record literal が E0407 になることが多い。`Ok { ... }` の中では戻り値の注釈だけでは足りず、`let x : T = { ... }` を挟む必要がある。
 2. **F# の型名モジュールに相当する namespace がない**: `String50.create` / `String50.value` のような型に紐づくモジュールは、パッケージ分割または `string50_create` のような命名で代替する必要がある。
-3. **可視性の粒度は package 単位**: `.gomi` に書くか書かないかの公開/非公開だけで、同一 package 内限定や型に紐づく module はない。bounded context の外部隠蔽には Go の `internal/` layout と package 分割を使う必要がある。
+3. **可視性の粒度は package 単位**: `.gomi` に書かない定義は package-private になる。足りないのは型に紐づく module と、選択した sibling package だけへ公開する friend visibility で、bounded context 内の共有には Go の `internal/` layout と package 分割を使う必要がある。
 4. **stdlib に `Result.sequence` / `traverse` などがない**: ユーザー定義で書けるが、DMMF の `List.map ... |> Result.sequence` は毎回 helper が要る。
 5. **panic を gom 側で `recover` できない**: Go の普通の `error` は `Result` に入るが、panic をドメインエラー化するアダプタは手書き Go の `@extern fn` が要る。
 6. **JSON は record 用の struct tag 経由では強いが、sum type / `Option` の自然な表現は自動では出ない**: tagged union や nullable 文字列は DTO / `Ptr` / `Go.Map` で明示変換する。
@@ -336,7 +336,7 @@ fn count_users (dsn: String) -> Result Int GoError =
 2. **stdlib に `Result.sequence` / `List.traverse_result` / Option 経由の traverse 系 helper を足す**
    `Result.to_option` は既存。残りも小さいが、DMMF では頻出。仕様論点は名前・配置・引数順だけ。
 3. **bounded context のパッケージ設計ガイドを書く**  
-   `public types` / `internal types` / `implementation` / `api` を 1 package に寄せるのか、sub package に分けるのか。Go の `internal/` layout は使える一方、同一 package 内限定の公開や型に紐づく module はないので、ここを決めないとカプセル化方針がぶれる。
+   `public types` / `internal types` / `implementation` / `api` を 1 package に寄せるのか、sub package に分けるのか。`.gomi` に書かない定義は package-private になり、Go の `internal/` layout も使える一方、型に紐づく module や選択した sibling package だけへ公開する仕組みはないので、ここを決めないとカプセル化方針がぶれる。
 4. **JSON tagged union と nullable DTO の推奨形を文書化する**  
    言語機能追加より先に、`Go.Map String Go.Any`、専用 DTO、`Ptr` nullable のどれを推すかを決めるとよい。
 5. **abstract 型の zero value 生成をどう扱うか決める**  
