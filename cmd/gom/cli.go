@@ -471,7 +471,19 @@ func outputKey(path string) string {
 		path = abs
 	}
 	if resolved, err := filepath.EvalSymlinks(path); err == nil {
-		path = resolved
+		return filepath.Clean(resolved)
+	}
+	// EvalSymlinks fails for a symlink whose target does not exist yet,
+	// but writing through it still reaches that target. Resolve the final
+	// link explicitly before falling back to the lexical path.
+	if target, err := os.Readlink(path); err == nil {
+		if !filepath.IsAbs(target) {
+			target = filepath.Join(filepath.Dir(path), target)
+		}
+		return filepath.Clean(target)
+	}
+	if parent, err := filepath.EvalSymlinks(filepath.Dir(path)); err == nil {
+		return filepath.Clean(filepath.Join(parent, filepath.Base(path)))
 	}
 	return filepath.Clean(path)
 }

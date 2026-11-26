@@ -560,6 +560,25 @@ func TestBuildRejectsSymlinkedOutputCollision(t *testing.T) {
 	}
 }
 
+func TestBuildRejectsDanglingSymlinkOutputCollision(t *testing.T) {
+	t.Parallel()
+
+	dir := writeFiles(t, map[string]string{
+		"main.gom":     "package main\n\nimport \"m/dep\"\n\nfn main () -> Unit = {\n  let _ = dep.one ()\n  ()\n}\n",
+		"dep/dep.gom":  "package dep\n\nfn one () -> Int = 1\n",
+		"dep/dep.gomi": "package dep\n\nfn one () -> Int\n",
+	})
+	testModule(t, dir)
+	alias := filepath.Join(dir, "out.go")
+	if err := os.Symlink(filepath.Join(dir, "dep", "dep.go"), alias); err != nil {
+		t.Fatal(err)
+	}
+	code, _, stderr := invoke("build", "-o", alias, filepath.Join(dir, "main.gom"))
+	if code != 2 || !strings.Contains(stderr, "assigned to both") {
+		t.Fatalf("gom build: exit %d, want collision rejection; stderr=%q", code, stderr)
+	}
+}
+
 func TestBuildRejectsOutputCollisionWithAutoDependency(t *testing.T) {
 	t.Parallel()
 
