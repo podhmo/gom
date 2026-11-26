@@ -325,35 +325,109 @@ func (c *checker) typePrefixedRecordType(ti *typeInfo, sp diag.Span, want types.
 
 // useExpectedPrefixType binds the inference metas inside rt from a
 // compatible expectation. Compatibility is tested speculatively on
-// cloned metas first: the trial must use the real unification rules
+// cloned metas first: the trial uses the real unification rules
 // (including curried-tail absorption and shared-meta propagation), but
-// a failed trial must neither mutate inference state nor emit a second
-// mismatch. Only a successful trial is replayed on the real types.
+// it must neither mutate inference state nor emit a second mismatch.
+// Only concrete solutions for rt's own inference metas are replayed.
+// External inference metas are never bound by this lookahead — doing
+// so would let constraints flow backwards into the surrounding
+// expression before its own arguments are checked.
 func (c *checker) useExpectedPrefixType(rt, want types.Type, sp diag.Span) {
 	if want == nil {
 		return
 	}
-	if !c.prefixTypesUnifySpeculatively(rt, want, sp) {
-		return
-	}
-	_ = c.unify(want, rt, sp)
-}
+	var rtMetas []*types.Meta
+	metasIn(rt, func(m *types.Meta) { rtMetas = append(rtMetas, m) })
 
-// prefixTypesUnifySpeculatively runs the ordinary value-slot
-// unification on copies of the two types. Every unbound meta is copied
-// consistently, so the trial sees the same structural and constraint
-// behavior as the real types while leaving every real meta untouched.
-func (c *checker) prefixTypesUnifySpeculatively(rt, want types.Type, sp diag.Span) bool {
 	clones := map[*types.Meta]*types.Meta{}
 	cr := c.clonePrefixType(rt, clones)
 	cw := c.clonePrefixType(want, clones)
 	ndiag := len(c.diags)
 	ok := c.unify(cw, cr, sp)
 	c.diags = c.diags[:ndiag]
+
+	solutions := map[*types.Meta]types.Type{}
+	if ok {
+		for _, m := range rtMetas {
+			cm, ok := clones[m]
+			if !ok {
+				continue
+			}
+			if sol, concrete := reifyPrefixType(types.Chase(cm)); concrete {
+				solutions[m] = sol
+			}
+		}
+	}
 	for _, m := range clones {
 		delete(c.metas, m)
 	}
-	return ok
+	if !ok {
+		return
+	}
+	for _, m := range rtMetas {
+		if sol, ok := solutions[m]; ok {
+			_ = c.bind(m, sol, sp)
+		}
+	}
+}
+
+// reifyPrefixType rewrites a speculative solution into a type with no
+// metas. A solution still depending on inference (for example a shared
+// but otherwise unknown expected type argument) is not concrete enough
+// to replay; ordinary checking will solve it in its normal order.
+func reifyPrefixType(t types.Type) (types.Type, bool) {
+	switch t := types.Chase(t).(type) {
+	case *types.Meta:
+		return nil, false
+	case *types.Var:
+		return t, true
+	case *types.Con:
+		args, ok := reifyPrefixTypeSlice(t.Args)
+		if !ok {
+			return nil, false
+		}
+		return &types.Con{Qual: t.Qual, Name: t.Name, Args: args}, true
+	case *types.Func:
+		ps := make([]types.FuncParam, len(t.Params))
+		for i, p := range t.Params {
+			nt, ok := reifyPrefixType(p.Type)
+			if !ok {
+				return nil, false
+			}
+			ps[i] = types.FuncParam{Label: p.Label, Type: nt}
+		}
+		ret, ok := reifyPrefixType(t.Ret)
+		if !ok {
+			return nil, false
+		}
+		return types.Fn(ret, ps...), true
+	case *types.Tuple:
+		elems, ok := reifyPrefixTypeSlice(t.Elems)
+		if !ok {
+			return nil, false
+		}
+		return &types.Tuple{Elems: elems}, true
+	case *types.Go:
+		args, ok := reifyPrefixTypeSlice(t.Args)
+		if !ok {
+			return nil, false
+		}
+		return &types.Go{Ref: t.Ref, Args: args}, true
+	default:
+		panic("unreachable")
+	}
+}
+
+func reifyPrefixTypeSlice(ts []types.Type) ([]types.Type, bool) {
+	out := make([]types.Type, len(ts))
+	for i, t := range ts {
+		nt, ok := reifyPrefixType(t)
+		if !ok {
+			return nil, false
+		}
+		out[i] = nt
+	}
+	return out, true
 }
 
 // clonePrefixType copies a type for speculative unification. Bound

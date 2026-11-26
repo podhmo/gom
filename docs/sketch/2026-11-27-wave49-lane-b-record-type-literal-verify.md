@@ -20,3 +20,9 @@
 
 - `testdata/spec/E0401_record_type_alias_mismatch.gom`: fixed alias と矛盾する期待型が上書きされず E0401 になることを固定
 - `testdata/spec/E0401_record_type_alias_repeated_mismatch.gom`: repeated alias parameter が `(Int, String)` を取れないことを固定
+
+### review round 4 — speculative replay boundary
+
+- The expected-type trial still uses real unification over cloned metas, but it no longer replays the whole unification onto the real types. Only concrete solutions for metas owned by the record prefix are replayed. External inference metas are left for ordinary checking order, so a numeric constraint on a surrounding meta cannot flow backwards into an unresolved record type argument before the surrounding expression itself is checked.
+- Direct regression coverage: `internal/check/record_prefix_test.go` checks both that a failed trial leaves external/prefix metas, diagnostics, and the meta table untouched, and that a numeric constraint on the surrounding expression is not propagated into the record type argument by lookahead.
+- Validation after the change: `go test ./...`, `go vet ./...`, `gofmt -l .` (empty), and `sh scripts/check-sumtype.sh` pass.
