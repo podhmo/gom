@@ -4,7 +4,7 @@
 
 - implementation-gaps の「catch-all の内側で sub-match すると網羅性の恩恵が薄れる」を、selfish の action dispatch 形と DMMF の `ProductLine` 形に分解して再現した
 - `internal/pattern` の現行実装を確認し、各 `match` が独立に Maranget matrix へ入り、外側の腕文脈を渡していないことを確認した
-- positive narrowing、negative narrowing、guard、alias、到達不能 arm の適用範囲を [decision](../decisions/2026-11-27-match-nested-narrowing.md) として確定した
+- positive narrowing、negative narrowing、guard、alias、到達不能 arm の適用範囲を [decision](../decisions/2026-11-27-match-nested-narrowing.md) として確定し、利用者に見える規則を spec §4 へ記述した
 - 現行挙動を固定する spec fixture を 4 件追加した。いずれも現行では E0301 を期待し、将来の実装 lane で red-first の入力になる
 
 ## 観測
