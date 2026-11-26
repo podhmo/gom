@@ -461,7 +461,7 @@ func (g *gen) display(c *core.CallBuiltin) ast.Expr {
 		case "String":
 			return x
 		case "Unit":
-			return &ast.BasicLit{Kind: token.STRING, Value: `"()"`}
+			return &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual(rtPath) + "ShowUnit"), Args: []ast.Expr{x}}
 		case "Bool":
 			return &ast.CallExpr{Fun: ast.NewIdent(g.pkgQual("strconv") + "FormatBool"), Args: []ast.Expr{x}}
 		case "Int", "Int64":

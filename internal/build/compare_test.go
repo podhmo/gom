@@ -61,6 +61,21 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 		want: "3:4:5:42",
 	},
 	{
+		name: "unit_payload_splice_binding",
+		src: `package main
+
+import go "fmt"
+
+fn run () -> Result Unit String = Ok ()
+fn answer () -> String = match (run ()) {
+  Ok n -> "ok ${n}"
+  Err e -> "err ${e}"
+}
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "ok ()",
+	},
+	{
 		// wave45 lane B: float32 width semantics — both literals
 		// round to the same float32 image at construction, in eval
 		// exactly as in the compiled binary.

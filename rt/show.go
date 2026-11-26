@@ -76,6 +76,12 @@ func ShowRuntime(v any) string {
 	return showRuntimeValue(reflect.ValueOf(v), 0)
 }
 
+// ShowUnit renders Unit while keeping the generated operand
+// referenced: interpolation and comparison display know the result
+// statically, but the value may be a pattern binding Go still
+// requires to be used.
+func ShowUnit(struct{}) string { return "()" }
+
 // ShowDisplay renders a top-level runtime-fallback splice. It shares
 // ShowRuntime's composite canonicalization, but a root string keeps
 // interpolation's unquoted scalar form.
