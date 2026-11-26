@@ -147,3 +147,27 @@ func TestMergeContextualTypePreservesLongerOriginalTail(t *testing.T) {
 		t.Fatalf("shorter speculative merge = %v, want %v", got, want)
 	}
 }
+
+func TestApplyParamExpectationsIgnoresLabeledContext(t *testing.T) {
+	c := &checker{
+		metas:  map[*types.Meta]*metaRec{},
+		tyCons: map[conKey]*typeInfo{},
+	}
+	sp := diag.SpanIn("test.gom", 1, 2)
+	acc := &types.Con{Name: "Acc"}
+	c.tyCons[conKey{name: "Acc"}] = &typeInfo{kind: kindRecord}
+	a := c.newMeta(sp, "identity payload")
+	param := func(t types.Type) types.FuncParam { return types.FuncParam{Type: t} }
+	fnT := types.Fn(a, param(a))
+	params := []types.FuncParam{param(a)}
+	args := []syntax.Arg{{Value: &syntax.RecordLit{}}}
+	labeled := types.Fn(acc, types.FuncParam{Label: "x", Type: acc})
+
+	x := c.applyParamExpectations(fnT, params, args, labeled, sp)
+	if x == nil {
+		t.Fatal("expected parameter views from the static result type")
+	}
+	if got, ok := x.at(0, a); ok {
+		t.Fatalf("labeled context was propagated as %v", got)
+	}
+}

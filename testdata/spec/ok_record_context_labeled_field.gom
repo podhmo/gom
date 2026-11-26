@@ -1,8 +1,0 @@
-package main
-
-type Acc = { count: Int }
-type Box a = { cb: a }
-
-fn identity (x: a) -> a = x
-
-fn run () -> Box (~x: Acc -> Acc) = identity { cb = fn (~x: Acc) -> x }

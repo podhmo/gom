@@ -339,7 +339,7 @@ func (c *checker) conformExpr(out Expr, want types.Type, sp diag.Span) Expr {
 	// `-> ~x: T -> U` body would fail the residual-type check the
 	// Core validator runs (E0901).
 	if lentLabels(want, out.Type()) {
-		return &Ascribe{Base: baseOf(sp, want), X: out, LentLabels: true}
+		return &Ascribe{Base: baseOf(sp, want), X: out}
 	}
 	// A value conforming to a `Go.Any` slot materializes the box:
 	// the Ascribe lowers through ConvBoxAny so the emitted Go type
@@ -3232,15 +3232,10 @@ func (c *checker) checkLambda(e *syntax.Lambda, want types.Type) Expr {
 	// No types.Fn here: it flattens a concrete `ret` into the
 	// parameter list, collapsing the level boundary partial
 	// application needs (`b -> (~c -> Int)` is one level, not two
-	// parameters of this lambda). The lambda's own type is the body's
-	// produced type; a lent-label ascription is the conformance
-	// boundary's contract, not a label the body itself declared.
-	bodyT := body.Type()
-	if as, ok := body.(*Ascribe); ok && as.LentLabels {
-		bodyT = as.X.Type()
-	}
+	// parameters of this lambda). The nested Func keeps the shape
+	// a fresh `ret` meta would have recorded.
 	return &Lambda{
-		Base:   baseOf(e.Sp, &types.Func{Params: fparams, Ret: bodyT}),
+		Base:   baseOf(e.Sp, &types.Func{Params: fparams, Ret: ret}),
 		Params: params,
 		Body:   body,
 	}

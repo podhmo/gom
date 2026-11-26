@@ -20,7 +20,7 @@ wave-process の運用どおり、実装前に spec fixture を追加して red 
 - 同 fixture に `xs |> List.fold ... { count = 0 }` を追加した時点でも、pipe 経由では期待型が callee へ届かず E0407/E0401 の 4 件を確認
 - negative fixture として `E0407_record_context_no_backward` と `E0401_record_context_prefix_priority` を先に登録し、後続使用逆推論の禁止と型名前置優先を固定した
 - review で escalated された nested generic record では、`ok_record_context_nested_generic` を先に追加し、内側 literal の E0407 と連鎖する 2 件の E0401 を確認してから修正した
-- 続く review の curried callback 指摘では、`ok_record_context_curried_callback` を先に追加し、内側 literal の E0407 と結果側の E0401 を確認してから修正した。label 伝播と逆向き arity は統合 fixture では labeled lambda seeding の未決問題と分離できなかったため、merge 規則は unit test、label が型変数へ残らないことは `gom dump -phase=check` の CLI regression test で固定した
+- 続く review の curried callback 指摘では、`ok_record_context_curried_callback` を先に追加し、内側 literal の E0407 と結果側の E0401 を確認してから修正した。label 伝播と逆向き arity は統合 fixture では labeled lambda seeding の未決問題と分離できなかったため、merge 規則は unit test で固定した。label を含む文脈型は review で curried binding・conditional lowering・direct generic conformance の退行が分かり、wave50 の scope では propagation 自体を行わない境界へ絞った
 
 ## fixture / probe 結果
 
@@ -29,7 +29,6 @@ wave-process の運用どおり、実装前に spec fixture を追加して red 
 - `ok_record_context_list_fold_acc`: `List.fold` の無名 record accumulator が直接適用・`|>` の両方で通る。fold 関数内の `{ acc with ... }` も同じ `Acc` で検査される
 - `ok_record_context_nested_generic`: `Box a` の `a` が戻り値の `Box Inner` から分かるとき、nested literal が引数順に依存せず `Inner` として通る。先行引数で `a` が確定済みの順序でも既存の推論を上書きしない
 - `ok_record_context_curried_callback`: callback の開いた戻り値が `Int -> Acc` の関数として分かるとき、nested lambda 内の record literal まで文脈が届く
-- `ok_record_context_labeled_field`: generic record の型引数が labeled function type なとき、explicit な labeled lambda を reject しない
 - `E0407_record_context_no_backward`: 注釈のない `let seed = { count = 0 }` は後続の `List.fold` 使用から `Acc` に逆推論されず E0407 のまま
 - `E0401_record_context_prefix_priority`: `Other { ... }` は `Acc` 期待より型名前置が優先され、E0401 になる
 
@@ -47,4 +46,4 @@ wave-process の運用どおり、実装前に spec fixture を追加して red 
 - 注釈なしラムダのパラメータ seeding は record 型だけの限定例外。`Go.Any` など record 以外の expected parameter を seed するかは従来どおり別問題で、`E0401_go_any_lambda_use` の意味は変えていない
 - pipe では無名 record literal を含み、かつ結果期待型に record 型を含む部分適用 callee にだけ結果期待型を渡す。record literal を含まない一般の pipe 推論は変えていない
 - generic 適用の speculative propagation は、供給スロットが静的に決まり、かつ引数に直接の無名 record literal がある場合に限定している。spread や未決定スロット、over-application には広げていない
-- 文脈期待側の関数パラメータ label はチェック用には保持しつつ、unlabeled lambda が借りた label は lent-label ascription として区別し、callee の型変数へ bind しない。labeled expected signature の positional lambda parameter へ record seeding するかは引き続き未決のまま
+- 文脈期待側の型が関数パラメータ label を含むときは propagation しない。labeled expected signature の positional lambda parameter へ record seeding するか、および label を含む文脈型を安全に propagate するかは引き続き未決のまま

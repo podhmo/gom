@@ -1074,29 +1074,6 @@ func TestDumpPhases(t *testing.T) {
 	}
 }
 
-func TestDumpCheckDoesNotBindBorrowedLabels(t *testing.T) {
-	t.Parallel()
-
-	dir := writeFiles(t, map[string]string{"main.gom": `package main
-
-type Acc = { count: Int }
-
-fn wrap (f: Int -> a) (seed: Acc) -> a = f 0
-
-fn run () -> Int -> ~x: Int -> Acc = wrap (fn a -> fn b -> fn (y: Int) -> { count = y }) { count = 0 }
-`})
-	code, out, errout := invoke("dump", "-phase", "check", filepath.Join(dir, "main.gom"))
-	if code != 0 {
-		t.Fatalf("dump -phase=check: exit %d, want 0; stderr=%q", code, errout)
-	}
-	if !strings.Contains(out, "targs=[(Int -> Int -> Acc)]") {
-		t.Errorf("borrowed label reached the generic type argument: %q", out)
-	}
-	if !strings.Contains(out, "(ascribe@") || !strings.Contains(out, ":(Int -> ~x: Int -> Acc)") {
-		t.Errorf("final labeled conformance ascription missing: %q", out)
-	}
-}
-
 func TestDumpMultifilePackage(t *testing.T) {
 	t.Parallel()
 

@@ -410,10 +410,6 @@ func (*RecordLit) isExpr() {}
 type Ascribe struct {
 	Base
 	X Expr
-	// LentLabels marks the implicit unlabeled→labeled introduction.
-	// It publishes the labeled contract at the conformance boundary but
-	// must not be mistaken for the underlying expression's own type.
-	LentLabels bool
 	// Conv asks lowering to emit a Go conversion, for explicit `Go.conv`
 	// or an implicit interface assignment. Plain ascription is a no-op.
 	Conv bool

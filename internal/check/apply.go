@@ -402,10 +402,45 @@ func (x *applyParamExpectations) at(i int, original types.Type) (types.Type, boo
 		return nil, false
 	}
 	merged := x.c.mergeContextualType(original, x.params[i], x.open, x.sp)
-	if types.Equal(merged, original) {
+	if types.Equal(merged, original) || x.c.containsFuncLabels(merged) {
 		return nil, false
 	}
 	return merged, true
+}
+
+// containsFuncLabels reports whether a type structure contains a
+// labeled function parameter. Contextual propagation deliberately
+// declines those types: a borrowed label is useful for checking one
+// expression, but it is not part of the callee's inference contract.
+func (c *checker) containsFuncLabels(t types.Type) bool {
+	switch t := types.Chase(t).(type) {
+	case *types.Var, *types.Meta:
+		return false
+	case *types.Con:
+		return c.containsFuncLabelsSlice(t.Args)
+	case *types.Func:
+		for _, p := range t.Params {
+			if p.Label != "" || c.containsFuncLabels(p.Type) {
+				return true
+			}
+		}
+		return c.containsFuncLabels(t.Ret)
+	case *types.Tuple:
+		return c.containsFuncLabelsSlice(t.Elems)
+	case *types.Go:
+		return c.containsFuncLabelsSlice(t.Args)
+	default:
+		panic("unreachable")
+	}
+}
+
+func (c *checker) containsFuncLabelsSlice(ts []types.Type) bool {
+	for _, t := range ts {
+		if c.containsFuncLabels(t) {
+			return true
+		}
+	}
+	return false
 }
 
 // mergeContextualType combines the callee's current parameter type
