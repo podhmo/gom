@@ -347,13 +347,14 @@ func (c *checker) useExpectedPrefixType(rt, want types.Type, sp diag.Span) {
 	c.diags = c.diags[:ndiag]
 
 	solutions := map[*types.Meta]types.Type{}
+	openMetas := map[*types.Meta]*types.Meta{}
 	if ok {
 		for _, m := range rtMetas {
 			cm, ok := clones[m]
 			if !ok {
 				continue
 			}
-			if sol, concrete := reifyPrefixType(types.Chase(cm)); concrete {
+			if sol, ok := c.reifyPrefixType(types.Chase(cm), openMetas, sp); ok {
 				solutions[m] = sol
 			}
 		}
@@ -371,18 +372,23 @@ func (c *checker) useExpectedPrefixType(rt, want types.Type, sp diag.Span) {
 	}
 }
 
-// reifyPrefixType rewrites a speculative solution into a type with no
-// metas. A solution still depending on inference (for example a shared
-// but otherwise unknown expected type argument) is not concrete enough
-// to replay; ordinary checking will solve it in its normal order.
-func reifyPrefixType(t types.Type) (types.Type, bool) {
+// reifyPrefixType rewrites a speculative solution. Concrete structure is
+// kept; an unsolved clone meta becomes a fresh quiet real meta so that
+// ordinary unification can link it to the surrounding inference variable
+// in checking order instead of letting lookahead mutate that variable now.
+func (c *checker) reifyPrefixType(t types.Type, open map[*types.Meta]*types.Meta, sp diag.Span) (types.Type, bool) {
 	switch t := types.Chase(t).(type) {
 	case *types.Meta:
-		return nil, false
+		if m, ok := open[t]; ok {
+			return m, true
+		}
+		m := c.quietMeta(sp, "the unresolved expected type")
+		open[t] = m
+		return m, true
 	case *types.Var:
 		return t, true
 	case *types.Con:
-		args, ok := reifyPrefixTypeSlice(t.Args)
+		args, ok := c.reifyPrefixTypeSlice(t.Args, open, sp)
 		if !ok {
 			return nil, false
 		}
@@ -390,25 +396,25 @@ func reifyPrefixType(t types.Type) (types.Type, bool) {
 	case *types.Func:
 		ps := make([]types.FuncParam, len(t.Params))
 		for i, p := range t.Params {
-			nt, ok := reifyPrefixType(p.Type)
+			nt, ok := c.reifyPrefixType(p.Type, open, sp)
 			if !ok {
 				return nil, false
 			}
 			ps[i] = types.FuncParam{Label: p.Label, Type: nt}
 		}
-		ret, ok := reifyPrefixType(t.Ret)
+		ret, ok := c.reifyPrefixType(t.Ret, open, sp)
 		if !ok {
 			return nil, false
 		}
 		return types.Fn(ret, ps...), true
 	case *types.Tuple:
-		elems, ok := reifyPrefixTypeSlice(t.Elems)
+		elems, ok := c.reifyPrefixTypeSlice(t.Elems, open, sp)
 		if !ok {
 			return nil, false
 		}
 		return &types.Tuple{Elems: elems}, true
 	case *types.Go:
-		args, ok := reifyPrefixTypeSlice(t.Args)
+		args, ok := c.reifyPrefixTypeSlice(t.Args, open, sp)
 		if !ok {
 			return nil, false
 		}
@@ -418,10 +424,10 @@ func reifyPrefixType(t types.Type) (types.Type, bool) {
 	}
 }
 
-func reifyPrefixTypeSlice(ts []types.Type) ([]types.Type, bool) {
+func (c *checker) reifyPrefixTypeSlice(ts []types.Type, open map[*types.Meta]*types.Meta, sp diag.Span) ([]types.Type, bool) {
 	out := make([]types.Type, len(ts))
 	for i, t := range ts {
-		nt, ok := reifyPrefixType(t)
+		nt, ok := c.reifyPrefixType(t, open, sp)
 		if !ok {
 			return nil, false
 		}

@@ -65,3 +65,34 @@ func TestUseExpectedPrefixTypeDoesNotPropagateRecordConstraintToTypeArg(t *testi
 		t.Fatalf("lookahead emitted diagnostics: %v", c.diags)
 	}
 }
+
+func TestUseExpectedPrefixTypeKeepsPartiallyConcreteExpectation(t *testing.T) {
+	c := &checker{
+		metas:  map[*types.Meta]*metaRec{},
+		tyCons: map[conKey]*typeInfo{},
+	}
+	sp := diag.SpanIn("test.gom", 1, 2)
+	external := c.newMeta(sp, "the surrounding expression")
+	prefix := c.newMeta(sp, "the record type argument")
+	box := func(arg types.Type) types.Type {
+		return &types.Con{Name: "Box", Args: []types.Type{arg}}
+	}
+	tuple := func(x, y types.Type) types.Type {
+		return &types.Tuple{Elems: []types.Type{x, y}}
+	}
+
+	c.useExpectedPrefixType(box(prefix), box(tuple(types.GoAny, external)), sp)
+	got, ok := types.Chase(prefix).(*types.Tuple)
+	if !ok || len(got.Elems) != 2 {
+		t.Fatalf("prefix solution = %v, want tuple", types.Chase(prefix))
+	}
+	if !types.Equal(got.Elems[0], types.GoAny) {
+		t.Fatalf("first tuple element = %v, want Go.Any", got.Elems[0])
+	}
+	if types.Chase(got.Elems[1]) == types.Chase(external) {
+		t.Fatalf("lookahead linked directly to the external meta")
+	}
+	if _, ok := types.Chase(got.Elems[1]).(*types.Meta); !ok {
+		t.Fatalf("second tuple element = %v, want an open meta", got.Elems[1])
+	}
+}

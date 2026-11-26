@@ -61,3 +61,8 @@ fn choose_pair (x: Box (a, Go.Any)) -> Box (a, Go.Any) = x
 
 fn alias_shared_expected (x: String) -> Box (Go.Any, Go.Any) =
   choose_pair (PairBox { value = (x, x) })
+
+fn choose_box (x: Box (Go.Any, a)) -> Box (Go.Any, a) = x
+
+fn partially_concrete_expected () -> Box (Go.Any, Int) =
+  choose_box (Box { value = ("x", 1) })

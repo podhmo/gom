@@ -26,3 +26,5 @@
 - The expected-type trial still uses real unification over cloned metas, but it no longer replays the whole unification onto the real types. Only concrete solutions for metas owned by the record prefix are replayed. External inference metas are left for ordinary checking order, so a numeric constraint on a surrounding meta cannot flow backwards into an unresolved record type argument before the surrounding expression itself is checked.
 - Direct regression coverage: `internal/check/record_prefix_test.go` checks both that a failed trial leaves external/prefix metas, diagnostics, and the meta table untouched, and that a numeric constraint on the surrounding expression is not propagated into the record type argument by lookahead.
 - Validation after the change: `go test ./...`, `go vet ./...`, `gofmt -l .` (empty), and `sh scripts/check-sumtype.sh` pass.
+
+Partially concrete expectations are retained: unknown expected metas become fresh open metas inside the replayed prefix type, while concrete structure such as `Go.Any` still reaches field checking. Regression coverage is in `record_prefix_test.go` and `ok_record_type_literal.gom` (`partially_concrete_expected`).

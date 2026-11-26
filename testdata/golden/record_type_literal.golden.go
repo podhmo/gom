@@ -251,3 +251,23 @@ func aliasSharedExpected(x string) Box[rt.Tuple2[any, any]] {
 	return choosePair[any](tmp8)
 //line record_type_literal.gom:62
 }
+
+//line record_type_literal.gom:65
+func chooseBox[A any](x Box[rt.Tuple2[any, A]]) Box[rt.Tuple2[any, A]] {
+//line record_type_literal.gom:65
+	return x
+//line record_type_literal.gom:65
+}
+
+//line record_type_literal.gom:67
+func partiallyConcreteExpected(_ struct{}) Box[rt.Tuple2[any, int64]] {
+//line record_type_literal.gom:68
+	tmp9 := any("x")
+//line record_type_literal.gom:68
+	tmp10 := rt.Tuple2[any, int64]{V0: tmp9, V1: 1}
+//line record_type_literal.gom:68
+	tmp11 := Box[rt.Tuple2[any, int64]]{Value: tmp10}
+//line record_type_literal.gom:68
+	return chooseBox[int64](tmp11)
+//line record_type_literal.gom:67
+}
