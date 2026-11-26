@@ -196,20 +196,33 @@ func normalizeQualifiers(sig string, aliases map[string]string) string {
 	for _, alias := range keys {
 		needle := alias + "."
 		var out strings.Builder
+		depth := 0
 		for pos := 0; ; {
 			idx := strings.Index(sig[pos:], needle)
 			if idx < 0 {
-				out.WriteString(sig[pos:])
+				tail := sig[pos:]
+				out.WriteString(tail)
 				break
 			}
 			idx += pos
+			for _, ch := range sig[pos:idx] {
+				if ch == '<' {
+					depth++
+				} else if ch == '>' && depth > 0 {
+					depth--
+				}
+			}
 			out.WriteString(sig[pos:idx])
-			if idx > 0 && isIdentByte(sig[idx-1]) {
+			if depth > 0 || (idx > 0 && isIdentByte(sig[idx-1])) {
 				out.WriteString(sig[idx : idx+len(needle)])
 			} else {
 				out.WriteByte('<')
 				out.WriteString(aliases[alias])
 				out.WriteString(">.")
+				depth++
+				// The emitted path is consumed as ordinary output below;
+				// close its depth immediately because it is one complete key.
+				depth--
 			}
 			pos = idx + len(needle)
 		}

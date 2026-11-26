@@ -334,11 +334,12 @@ func priorSigTexts(src []byte) (map[string]string, string) {
 		return nil, ""
 	}
 	out := map[string]string{}
+	aliases := importAliases(src)
 	add := func(name string, sp diag.Span) {
 		if name == "" || sp.Start < 0 || sp.End > len(src) || sp.Start >= sp.End {
 			return
 		}
-		out[name] = canonicalPrivateText(string(src[sp.Start:sp.End]), importAliases(src))
+		out[name] = canonicalPrivateText(string(src[sp.Start:sp.End]), aliases)
 	}
 	for _, decl := range f.Decls {
 		switch d := decl.(type) {

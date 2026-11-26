@@ -1,6 +1,9 @@
 package iface
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestScanDirectiveRequiresAttachment(t *testing.T) {
 	src := []byte(`package m
@@ -104,5 +107,17 @@ func TestPriorSigTextsUseImportPaths(t *testing.T) {
 	want := canonicalPrivateText("fn f (x: cmp.Eq Int) -> cmp.Eq Int", map[string]string{"cmp": "github.com/podhmo/gom/stdlib/cmp"})
 	if got != want {
 		t.Fatalf("prior sig = %q, want %q", got, want)
+	}
+}
+
+func TestNormalizeQualifiersDoesNotRewriteInsideImportPathKeys(t *testing.T) {
+	aliases := map[string]string{
+		"github": "github.com/acme/lib",
+		"x":      "example.com/x",
+	}
+	got := normalizeQualifiers(canonicalSig("fn f (a: x.T) -> x.T"), aliases)
+	got = normalizeQualifiers(got, aliases)
+	if strings.Count(got, "<example.com/x>.") != 2 {
+		t.Fatalf("normalized twice = %q, want stable x import keys", got)
 	}
 }
