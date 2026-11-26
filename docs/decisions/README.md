@@ -59,7 +59,7 @@
 | [constant-zero-division](2026-11-02-constant-zero-division.md) | `/` / `%` の定数ゼロ除数は型検査エラー（E0414） | 採用 |
 | [core-ir-node-inventory](2026-11-02-core-ir-node-inventory.md) | Core IR node inventory and validator | draft |
 | [diag-internal-model](2026-11-02-diag-internal-model.md) | Shape of the internal diagnostic model (internal/diag) | 採用 |
-| [diag-output-formats](2026-11-02-diag-output-formats.md) | Diagnostic output formats: JSON Lines and text emitters (P1-10) | draft |
+| [diag-output-formats](2026-11-02-diag-output-formats.md) | Diagnostic output formats: JSON Lines and text emitters (P1-10)（一部を [e0301-text-missing-patterns](2026-11-27-e0301-text-missing-patterns.md) で置き換え） | draft |
 | [error-code-table](2026-11-02-error-code-table.md) | Error-code table and numbering scheme (D-2) | 採用 |
 | [eval-value-model](2026-11-02-eval-value-model.md) | Value model of the typed-AST evaluator (internal/eval) | draft |
 | [function-value-representation](2026-11-02-function-value-representation.md) | Function value representation: canonical curried form（一部を [flat-fn-params](2026-11-18-flat-fn-params.md) で置き換え） | 採用 |
@@ -277,6 +277,7 @@
 | [gomi-abstract-private-carry](2026-11-26-gomi-abstract-private-carry.md) | `.gomi` の abstract / private 意図は directive で再生成に引き継ぐ | 採用 |
 | [module-local-transitive-emit](2026-11-26-module-local-transitive-emit.md) | `gom build` / `gom run` は module-local の `.gom` dependency を推移的に emit する | 採用（prototype 検証済み） |
 | [string-byte-surface](2026-11-26-string-byte-surface.md) | 文字列操作は stdlib package の byte 面に置く | 採用（prototype 検証済み） |
+| [e0301-text-missing-patterns](2026-11-27-e0301-text-missing-patterns.md) | E0301 の text 出力へ不足パターンを出す | 採用（実装・検証した — [検証](../sketch/2026-11-27-wave49-lane-d-e0301-text-verify.md)） |
 | [logical-shortcircuit-lowering](2026-11-27-logical-shortcircuit-lowering.md) | `&&` / `\|\|` は短絡評価し、complex な右辺は Core IR の分岐へ閉じ込める | 採用（実装・検証した — [検証](../sketch/2026-11-27-wave49-lane-a-shortcircuit-verify.md)） |
 | [record-type-prefixed-literal](2026-11-27-record-type-prefixed-literal.md) | record 型名前置 literal | 採用（実装・検証した — [検証](../sketch/2026-11-27-wave49-lane-b-record-type-literal-verify.md)） |
 | [stdlib-result-traverse](2026-11-27-stdlib-result-traverse.md) | stdlib の Result traverse helpers — sequence / traverse_result | 採用（実装・検証した — [検証](../sketch/2026-11-27-wave49-lane-c-result-traverse-verify.md)） |

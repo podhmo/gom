@@ -1,6 +1,6 @@
 # The spec's text-format example shows a block the model cannot emit
 
-- 状態: 未解決
+- 状態: 解消（2026-11-27 wave49 lane D — E0301 限定で `missing_patterns` を text の `patterns not covered:` ブロックへ描く。汎用 `labels` / `details` wire は open question として残る）
 - 日付: 2026-11-02
 
 ## Situation

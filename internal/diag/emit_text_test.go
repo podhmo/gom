@@ -76,6 +76,44 @@ error: aborting due to previous error
 	}
 }
 
+// TestWriteTextE0301MissingPatterns renders the spec's human-facing
+// counterexample detail from structured data. This is deliberately
+// E0301-only, not a generic data rendering rule.
+func TestWriteTextE0301MissingPatterns(t *testing.T) {
+	src := []byte("fn f =\n  match e {\n    Num -> 1\n  }\n")
+	start := strings.Index(string(src), "match")
+	end := strings.Index(string(src), "}") + 1
+	rep := diag.Report{Diagnostics: []diag.Diagnostic{
+		diag.Error("E0301", "non-exhaustive match on `Expr`").
+			At(diag.SpanIn("f.gom", start, end)).
+			Set("missing_patterns", []string{"Neg (Num _)", "Let _ _ _"}).
+			AddNote("arms with guards do not count toward exhaustiveness"),
+	}}
+	res := diag.NewMapResolver(map[string][]byte{"f.gom": src})
+
+	want := `error[E0301]: non-exhaustive match on ` + "`Expr`" + `
+  --> f.gom:2:3
+   |
+2  |   match e {
+   |   ^^^^^^^^^
+3  |     Num -> 1
+   | ^^^^^^^^^^^^
+4  |   }
+   | ^^^
+   |
+   |  patterns not covered:
+   |    Neg (Num _)
+   |    Let _ _ _
+   = note: arms with guards do not count toward exhaustiveness
+For more information about this error, run ` + "`" + `gom explain E0301` + "`" + `.
+
+error: aborting due to previous error
+`
+	if got := textOf(t, rep, res); got != want {
+		t.Errorf("got:\n%s\nwant:\n%s", got, want)
+	}
+}
+
 // TestWriteTextWideGutter checks the layout when line numbers reach
 // two digits: the structural marks shift one column with the gutter.
 func TestWriteTextWideGutter(t *testing.T) {
