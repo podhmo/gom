@@ -38,7 +38,6 @@ var coverageExceptions = map[diag.Code]coverageException{
 	"E0204": {coverageReserved, "unknown attributes are currently rejected by the parser as E0101; the resolve-phase code is reserved until the AST can carry attributes"},
 	"E0502": {coverageUnit, "method-on-Gom-value is covered by a synthetic checker unit test; source-level triggering depends on resolver method setup"},
 	"E0503": {coverageReserved, "implicit numeric conversion currently has no production emitter"},
-	"E0605": {coverageUnit, "conflicting package declarations need multi-file package-layout setup covered by unit tests"},
 	"E0606": {coverageUnit, "package import cycles need multi-module package-layout setup covered by unit tests"},
 	"E0704": {coverageUnit, "the source parser rejects destructuring select receive patterns as E0101; E0704 is checker recovery coverage"},
 	"E0901": {coverageUnit, "lowering invariant violations are compiler-internal contracts, not expected user-source diagnostics"},
