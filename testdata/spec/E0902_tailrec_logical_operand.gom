@@ -1,0 +1,8 @@
+package ex
+
+// `n <= 0 || f (n - 1)` puts the recursive call in an operand of
+// `||`. Lowering may use a synthetic branch for short-circuiting, but
+// that does not make the operand a source-level tail position.
+@tailrec
+fn f (n: Int) -> Bool =
+  n <= 0 || f (n - 1)

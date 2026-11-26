@@ -40,7 +40,9 @@ codegen に新しい意味判断を持ち込まずに済む。右辺が atom の
 lower の `binaryExpr` は `&&` / `||` だけを特別扱いする。右辺を独立した
 seq で lowering し、結果が atom で束縛列も空なら `core.Binary`、そうでなければ
 その束縛列を持つ branch body 付きの `core.If` を返す。`&&` の else は
-`false`、`||` の then は `true`。
+`false`、`||` の then は `true`。この `core.If` には `ShortCircuit` 印を付け、
+`@tailrec` の末尾位置判定からは外す — Core の制御フロー上は分岐結果でも、
+ソース上は operator の operand であり、spec の末尾位置ではない。
 
 ## 検証
 

@@ -2410,14 +2410,14 @@ func (l *lowerer) binaryExpr(s *seq, e *check.Binary) core.Expr {
 		if rhs != nil {
 			return &core.Binary{Base: baseOf(e), Op: e.Op, X: cond, Y: rhs}
 		}
-		return &core.If{Base: baseOf(e), Cond: cond, Then: body, Else: boolBody(e.X.Span(), false)}
+		return &core.If{Base: baseOf(e), Cond: cond, Then: body, Else: boolBody(e.X.Span(), false), ShortCircuit: true}
 	case syntax.BinOr:
 		cond := l.atom(s, e.X)
 		rhs, body := l.logicalRHS(e.Y)
 		if rhs != nil {
 			return &core.Binary{Base: baseOf(e), Op: e.Op, X: cond, Y: rhs}
 		}
-		return &core.If{Base: baseOf(e), Cond: cond, Then: boolBody(e.X.Span(), true), Else: body}
+		return &core.If{Base: baseOf(e), Cond: cond, Then: boolBody(e.X.Span(), true), Else: body, ShortCircuit: true}
 	case syntax.BinEq, syntax.BinNe:
 		return l.eqExpr(s, e)
 	default:
@@ -3784,9 +3784,11 @@ func (l *lowerer) markTailCalls(fn *core.Func, self *resolve.Symbol, tparams []*
 			return e
 		}
 		if e, ok := e.(*core.If); ok {
-			body(e.Then)
-			if e.Else != nil {
-				body(e.Else)
+			if !e.ShortCircuit {
+				body(e.Then)
+				if e.Else != nil {
+					body(e.Else)
+				}
 			}
 			return e
 		}
