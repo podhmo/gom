@@ -1,0 +1,45 @@
+// Port of internal/config.go.
+package main
+
+import go "fmt"
+
+type Profile = {
+  default_alias: String `json:"default_alias"`,
+  access_token: String `json:"access_token"`,
+  hist_file: String `json:"hist_file"`,
+  repository_directory: String `json:"repositoryDirectory"`,
+}
+
+// ClientType is `type ClientType string` on the Go side — a one-field
+// record emits exactly that. gom can't declare methods on it, so
+// UnmarshalText/MarshalText/Validate live in shim.go, where flagstruct
+// picks up the TextUnmarshaler path exactly like the oracle.
+type ClientType = { value: String }
+
+let client_type_github : ClientType = { value = "github" }
+let client_type_fake : ClientType = { value = "fake" }
+
+// ClientType.Validate — the reflect.TypeFor name kept literal.
+fn client_type_validate (v: ClientType) -> Result Unit GoError =
+  if v == client_type_github || v == client_type_fake {
+    Ok ()
+  } else {
+    Err (fmt.Errorf ("%s is an invalid value for internal.ClientType", v.value))
+  }
+
+// Config is mapping object for application config (internal.Config —
+// the anonymous Profile struct becomes a named record).
+type Config = {
+  profile: Profile `flag:"-"`,
+  alias: String `flag:"alias" help:"alias name of uploaded gists"`,
+  is_delete: Bool `flag:"delete" help:"delete uploaded gists"`,
+  is_secret: Bool `flag:"secret" help:"upload gist as secret (not public)"`,
+  is_silent: Bool `flag:"silent" help:"don't open gist pages with browser, after uploading"`,
+  client_type: ClientType `flag:"client" help:"if =fake, doesn't request {github, fake}"`,
+  files: List String `flag:"-"`,
+  debug: Bool `flag:"debug"`,
+}
+
+// Config.ResolveAlias
+fn resolve_alias (c: Config) (alias: String) -> String =
+  if alias == "" { c.profile.default_alias } else { alias }

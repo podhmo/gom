@@ -1,0 +1,306 @@
+// Port of pkg/commithistory (+ history/, timeutil/) — the three Go
+// packages collapse into one gom package; the Parsable/Unparsable
+// interfaces become function parameters (gom can't express
+// `Parse(record) error`-style interfaces: @method can't return Result).
+package commithistory
+
+import go "bytes"
+import go "encoding/csv"
+import go "encoding/json"
+import go "errors"
+import go "fmt"
+import go "io"
+import go "log"
+import go "os"
+import go "os/user"
+import go "path/filepath"
+import go "strings"
+import go "time"
+
+// Commit is one recorded gist operation (commithistory.Commit).
+type Commit = {
+  id: String,
+  alias: String,
+  created_at: time.Time,
+  action: String,
+}
+
+// Config mirrors commithistory.Config; the function fields stay fields.
+type Config = {
+  name: String,
+  profile: String,
+  dryrun: Bool,
+  join_path: String -> List String -> String,
+  default_write: String -> Result Unit GoError,
+  dir: String -> Result String GoError,
+}
+
+// API mirrors commithistory.API (which embeds *Config).
+type API = { config: Config }
+
+// errors.Wrap(err, msg) — %s: %w keeps the text and the Unwrap
+// chain. @extern because generated code boxes the GoError arg into
+// `any`, which go vet's printf check rejects for %w.
+@extern fn wrap (e: GoError) (msg: String) -> GoError
+
+fn wrap_result (r: Result a GoError) (msg: String) -> Result a GoError =
+  Result.map_err (fn e -> wrap e msg) r
+
+// DefaultJoinPath — a non-empty profile rewrites the last element.
+fn default_join_path (profile: String) (paths: List String) -> String =
+  if profile == "" {
+    filepath.Join (..paths)
+  } else {
+    match List.rev paths {
+      [] -> filepath.Join (..paths)
+      [last, ..rest] -> filepath.Join (..(List.rev ["${profile}.${last}", ..rest]))
+    }
+  }
+
+// DefaultWriteFile — writes `{}` plus a newline, log line included.
+fn default_write_file (path: String) -> Result Unit GoError =
+  Scope.run_result <| fn s -> {
+    ignore (log.Printf ("create. %q\n", path))
+    let fp = try os.Create path
+    Scope.defer s (fn () -> ignore (fp.Close ()))
+    fmt.Fprintln (fp, "{}") |?> fn _n -> Ok ()
+  }
+
+// DefaultConfigDir — ~/.config/<name>.
+fn default_config_dir (name: String) -> Result String GoError = {
+  let u = try user.Current ()
+  Ok (filepath.Join (u.HomeDir, ".config", name))
+}
+
+fn default_config () -> Config = {
+  name = "",
+  profile = "",
+  dryrun = false,
+  join_path = default_join_path,
+  default_write = default_write_file,
+  dir = default_config_dir,
+}
+
+// commithistory.New
+fn api_new (name: String) (ops: List (API -> API)) -> API = {
+  let base = { config = { default_config () with name = name } }
+  List.fold (fn (api: API) (op: API -> API) -> op api) base ops
+}
+
+fn with_profile (profile: String) (api: API) -> API =
+  { api with config = { api.config with profile = profile } }
+
+fn with_dryrun (api: API) -> API =
+  { api with config = { api.config with dryrun = true } }
+
+// Config.FilePath
+fn config_file_path (c: Config) (name: String) -> Result String GoError = {
+  let d = try c.dir c.name
+  Ok (c.join_path c.profile [d, name])
+}
+
+// Config.Load — on a missing file it creates the default then reopens.
+fn config_load (c: Config) (name: String) (ob: Go.Any) -> Result Unit GoError =
+  Scope.run_result <| fn s -> {
+    let path = try config_file_path c name
+    ignore (log.Printf ("load. %q\n", path))
+    let fp = match os.Open path {
+      Ok f -> f
+      Err _e -> {
+        ignore (log.Printf ("not found. %q\n", path))
+        try (os.MkdirAll (filepath.Dir path, 0o700))
+        try (c.default_write path)
+        try (os.Open path)
+      }
+    }
+    Scope.defer s (fn () -> ignore (fp.Close ()))
+    let decoder = json.NewDecoder fp
+    decoder.Decode ob
+  }
+
+// Config.Save
+fn config_save (c: Config) (name: String) (ob: Go.Any) -> Result Unit GoError =
+  Scope.run_result <| fn s -> {
+    let path = try config_file_path c name
+    ignore (log.Printf ("save. %q\n", path))
+    try (os.MkdirAll (filepath.Dir path, 0o700))
+    let fp = try os.Create path
+    Scope.defer s (fn () -> ignore (fp.Close ()))
+    let encoder = json.NewEncoder fp
+    encoder.Encode ob
+  }
+
+// history.loadFile + Finder.Find — open, then scan CSV rows until
+// `matches` hits and `parse` the matching record.
+fn load_file (filename: String) (parse: List String -> Result a GoError) (matches: List String -> String -> Bool) (alias: String) -> Result a GoError =
+  Scope.run_result <| fn s -> {
+    ignore (log.Printf ("load. %q\n", filename))
+    let fp = match os.Open filename {
+      Ok f -> f
+      Err e -> match os.Stat filename {
+        Err _se -> try Err io.EOF
+        Ok _fi -> try Err (wrap e "open")
+      }
+    }
+    Scope.defer s (fn () -> ignore (fp.Close ()))
+    find_records (csv.NewReader fp) parse matches alias
+  }
+
+@tailrec
+fn find_records (r: Ptr csv.Reader) (parse: List String -> Result a GoError) (matches: List String -> String -> Bool) (alias: String) -> Result a GoError =
+  match r.Read () {
+    Err e -> if errors.Is (e, io.EOF) { Err io.EOF } else { Err (wrap e "csv readline") }
+    Ok record -> if matches record alias { parse record } else {
+      find_records r parse matches alias
+    }
+  }
+
+// history.saveFile — write to a temp file, then prepend it to (or
+// replace) the destination via close+rename on scope exit.
+fn save_file (filename: String) (write: io.Writer -> Result Unit GoError) -> Result Unit GoError =
+  Scope.run_result <| fn s -> {
+    let fp = match os.CreateTemp (".", "ch") {
+      Ok f -> f
+      Err e -> try Err (wrap e "save, create tempfile")
+    }
+    Scope.defer_err s (fn () -> {
+      ignore (fp.Close ())
+      os.Rename (fp.Name (), filename)
+    })
+    try (write fp)
+    ignore (log.Printf ("save. %q\n", filename))
+    let rp = match os.Open filename {
+      Ok f -> f
+      Err e -> match os.Stat filename {
+        Ok _fi -> try Err (wrap e "save, open file")
+        Err _se -> {
+          ignore (log.Printf ("create. %q\n", filename))
+          match os.Create filename {
+            Ok f2 -> f2
+            Err _ce -> try Err e
+          }
+        }
+      }
+    }
+    Scope.defer s (fn () -> ignore (rp.Close ()))
+    ignore (try (io.Copy (fp, rp)))
+    Ok ()
+  }
+
+// Commit.Parse — a row is id,alias,created_at,action.
+fn commit_parse (xs: List String) -> Result Commit GoError = match xs {
+  [id, alias, ctime, action, .._rest] -> {
+    let t = try time.Parse (time.RFC3339, ctime)
+    Ok { id = id, alias = alias, created_at = t, action = action }
+  }
+  _ -> Err (fmt.Errorf ("too few %q", xs))
+}
+
+// Commit.Match — the key column is index 1.
+fn commit_matches (record: List String) (alias: String) -> Bool =
+  match List.get 1 record {
+    Some a -> a == alias
+    None -> false
+  }
+
+// Commit.Unparse — one CSV row.
+fn commit_unparse (w: io.Writer) (c: Commit) -> Result Unit GoError = {
+  let writer = csv.NewWriter w
+  try (writer.Write [c.id, c.alias, c.created_at.Format time.RFC3339, c.action])
+  writer.Flush ()
+  Ok ()
+}
+
+// API.LoadCommit
+fn api_load_commit (api: API) (filename: String) (alias: String) -> Result Commit GoError = {
+  let path = try config_file_path api.config filename
+  load_file path commit_parse commit_matches alias
+}
+
+// API.SaveCommit — dryrun only logs the path.
+fn api_save_commit (api: API) (filename: String) (commit: Commit) -> Result Unit GoError = {
+  let path = try config_file_path api.config filename
+  if api.config.dryrun {
+    ignore (log.Printf ("save file: %q", path))
+    Ok ()
+  } else {
+    save_file path (fn w -> commit_unparse w commit)
+  }
+}
+
+// history.IsNotFound — io.EOF is the not-found sentinel.
+fn is_not_found (err: GoError) -> Bool = errors.Is (err, io.EOF)
+
+// timeutil.MustParse — panic on a bad timestamp like the original.
+fn must_parse (s: String) -> time.Time =
+  match time.Parse (time.RFC3339, s) {
+    Ok t -> t
+    Err e -> todo ()
+  }
+
+@test
+fn with_tempfile (lines: List String) (f: String -> Result a GoError) -> Result a GoError =
+  Scope.run_result <| fn s -> {
+    let fp = try (os.CreateTemp (".", "gomtest"))
+    let name = fp.Name ()
+    Scope.defer s (fn () -> ignore (os.Remove name))
+    for line in lines {
+      ignore (try (fmt.Fprintln (fp, line)))
+    }
+    ignore (fp.Close ())
+    f name
+  }
+
+test "commit unparse writes one csv row" {
+  let buf : Ptr bytes.Buffer = Ptr.new ()
+  let c = { id = "435048d99f77300e5c33dd7ab46dbca2", alias = "head", created_at = must_parse "2018-03-10T16:23:57+09:00", action = "create" }
+  try (commit_unparse buf c)
+  assert_eq (buf.String ()) "435048d99f77300e5c33dd7ab46dbca2,head,2018-03-10T16:23:57+09:00,create\n"
+  Ok ()
+}
+
+test "load_file finds the alias row" {
+  Scope.run_result <| fn s -> {
+    let lines = [
+      "435048d99f77300e5c33dd7ab46dbca3,todo,2018-03-10T16:23:57+09:00,create",
+      "435048d99f77300e5c33dd7ab46dbca2,head,2018-03-10T16:23:57+09:00,create",
+    ]
+    let c = try (with_tempfile lines (fn name -> load_file name commit_parse commit_matches "head"))
+    assert_eq c.id "435048d99f77300e5c33dd7ab46dbca2"
+    assert_eq c.alias "head"
+    assert_eq c.action "create"
+    Ok ()
+  }
+}
+
+test "load_file on a missing alias is not-found" {
+  let lines = ["435048d99f77300e5c33dd7ab46dbca2,todo,2018-03-10T16:23:57+09:00,create"]
+  match with_tempfile lines (fn name -> load_file name commit_parse commit_matches "head") {
+    Err e -> {
+      assert (is_not_found e)
+      Ok ()
+    }
+    Ok _ -> Err (fmt.Errorf "must be not found")
+  }
+}
+
+test "load_file on a missing file is not-found" {
+  match load_file "./definitely-not-here-gomxyz" commit_parse commit_matches "head" {
+    Err e -> assert (is_not_found e)
+    Ok _ -> assert false
+  }
+}
+
+test "save_file prepends the new row" {
+  Scope.run_result <| fn s -> {
+    let line = "435048d99f77300e5c33dd7ab46dbca2,head,2018-03-10T16:23:57+09:00,create"
+    let got = try (with_tempfile [line] <| fn name -> {
+      let c = { id = "435048d99f77300e5c33dd7ab46dbca2", alias = "head", created_at = must_parse "2018-03-10T16:23:57+09:00", action = "create" }
+      try (save_file name (fn w -> commit_unparse w c))
+      let b = try os.ReadFile name
+      Ok (Go.conv b : String)
+    })
+    assert_eq (strings.TrimRight (got, "\n")) "${line}\n${line}"
+    Ok ()
+  }
+}
