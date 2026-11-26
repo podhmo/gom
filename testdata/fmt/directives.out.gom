@@ -5,6 +5,7 @@ fn apply (f: Unit -> Unit) -> Unit = f ()
 fn apply2 (f: Unit -> Unit) -> Unit = f ()
 
 //gom:noescape apply2 0
+
 fn g () -> Int = 1 + 2
 
 fn trailing () -> Int = 1 +  /* gom:allow E0301 */ 2

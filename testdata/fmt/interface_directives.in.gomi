@@ -1,0 +1,8 @@
+package m
+
+//gom:noescape detached 0
+
+fn detached (f: Int -> Int) -> Int
+
+//gom:noescape attached 0
+fn attached (f: Int -> Int) -> Int
