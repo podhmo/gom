@@ -26,3 +26,7 @@
 - E0303 など `missing_patterns` を既に持つ他診断への `details` 適用は lane C に入れていない。wave50 closeout で open-questions 登録すべき decision 候補: どの診断の data を人間向け detail として昇格するかの基準。採用対象が決まれば TODO 化する
 - labels の text 表示は、主 snippet と統合した rustc 風 multi-span layout ではなく、副 span ごとの独立 snippet とした。wave50 closeout で open-questions 登録すべき decision 候補: 同一ファイル内で近い span を 1 つの snippet に統合するか。統合する場合の実装は TODO 化する
 - typo 候補、error recovery 拡大、継続行誤パース診断は prompts どおり対象外
+
+## 運用メモ
+
+- lane C は red-first 運用が明文化される前に実装先行で進んだ。最終的には spec fixture と checker test を伴うが、fixture を先に red 確認してから実装した順序ではない。lane D/E では診断・fixture を変える変更を先に red で固定する
