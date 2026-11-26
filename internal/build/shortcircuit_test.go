@@ -31,8 +31,23 @@ fn answer () -> String = {
   }
 }
 
+fn effects () -> String = {
+  let c = yes () && {
+    let _ = fmt.Println "and-branch"
+    true
+  }
+  let d = no () || {
+    let _ = fmt.Println "or-branch"
+    false
+  }
+  if c {
+    if d { "bad-d" } else { "effects-ok" }
+  } else { "bad-c" }
+}
+
 fn main () -> Unit = {
   let _ = fmt.Println (answer ())
+  let _ = fmt.Println (effects ())
   ()
 }
 `
@@ -68,7 +83,8 @@ func TestBooleanShortCircuitEvalCompiled(t *testing.T) {
 	}
 
 	out := runCompiled(t, r.Output.Source)
-	if strings.TrimSpace(out) != "ok" {
-		t.Fatalf("compiled output = %q, want ok", out)
+	wantOut := "ok\nand-branch\nor-branch\neffects-ok"
+	if strings.TrimSpace(out) != wantOut {
+		t.Fatalf("compiled output = %q, want %q", out, wantOut)
 	}
 }

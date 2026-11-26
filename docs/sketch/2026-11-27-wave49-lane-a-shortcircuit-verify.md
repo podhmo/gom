@@ -7,12 +7,15 @@
 - spec §1.2 に短絡規則を明記し、guide の「generated Go では短絡しない」という古い注意を現行仕様へ合わせた
 - `no () && boom ()` / `yes () || boom ()`（`boom` は `todo ()`）について evaluator と compiled が同じ結果になることを `internal/build/shortcircuit_test.go` で固定した。条件を literal ではなく関数返り値にし、constant folding に頼らず右辺の抑止を確認する
 - 構文と型検査の fixture を `testdata/spec/ok_bool_short_circuit.gom` に追加し、生成コード差分は `testdata/golden/let_rec.golden.go` と `stdlib/cmp` の generated artifact で確認した
+- review 指摘で、合成 branch が `x || f ()` の自己呼び出しを `@tailrec` の末尾位置へ偽装することが分かった。`core.If.ShortCircuit` を足して operand 由来の branch を末尾位置判定から外し、`testdata/spec/E0902_tailrec_logical_operand.gom` で E0902 を固定した
+- 実行される右辺については、print 副作用を持つ block が branch 内で実行され末尾 literal を返すことを compiled output で固定した
 
 ## 結果
 
 - `go test ./internal/build -run TestBooleanShortCircuitEvalCompiled -count=1`: pass
 - `go test ./...`: pass
 - `stdlib/cmp/cmp.go` / `stdlib/cmp/cmp_test.go` は repo root から `go run ./cmd/gom test stdlib/cmp` で再生成
+- `go test ./internal/build -run 'TestBooleanShortCircuitEvalCompiled|TestSpec/E0902_tailrec_logical_operand' -count=1`: pass
 
 ## 境界
 
