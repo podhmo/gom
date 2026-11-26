@@ -115,9 +115,8 @@ func TestNormalizeQualifiersDoesNotRewriteInsideImportPathKeys(t *testing.T) {
 		"github": "github.com/acme/lib",
 		"x":      "example.com/x",
 	}
-	got := normalizeQualifiers(canonicalSig("fn f (a: x.T) -> x.T"), aliases)
-	got = normalizeQualifiers(got, aliases)
-	if strings.Count(got, "<example.com/x>.") != 2 {
-		t.Fatalf("normalized twice = %q, want stable x import keys", got)
+	got := normalizeQualifiers(canonicalSig("fn f (a: x.T) (b: github.T) -> x.T"), aliases)
+	if strings.Count(got, "<example.com/x>.") != 2 || strings.Count(got, "<github.com/acme/lib>.") != 1 {
+		t.Fatalf("normalized = %q, want stable import keys", got)
 	}
 }
