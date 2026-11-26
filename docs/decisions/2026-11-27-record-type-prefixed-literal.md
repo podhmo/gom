@@ -12,7 +12,7 @@ ValidatedOrder { id = id, total = total }
 pkg.ValidatedOrder { id = id, total = total }
 ```
 
-前置名は record 型を直接選び、同名フィールドを持つ複数 record による E0407 を回避する。型パラメータを持つ record では型引数を書かず、フィールド値または期待型から推論する。record への transparent alias も前置できる — alias は注釈と同じく展開してから record かどうかを見る。期待型は展開後の型と整合するときだけ型引数の推論に使い、alias が固定・再利用する型パラメータの制約を期待型で上書きしない。展開結果に現れない alias パラメータは構築型を未定にしない。`{ base with x = v }` 更新や匿名 record の文脈推論一般化は導入しない。
+前置名は record 型を直接選び、同名フィールドを持つ複数 record による E0407 を回避する。型パラメータを持つ record では型引数を書かず、フィールド値または期待型から推論する。record への transparent alias も前置できる — alias は注釈と同じく展開してから record かどうかを見る。期待型は展開後の型と整合するときだけ型引数の推論に使い、alias が固定・再利用する型パラメータの制約を期待型で上書きしない。適合判定は通常の unification を speculative に replay し、カリー化された関数 tail や共有 meta の伝播を通常の型検査と同じ意味にする。展開結果に現れない alias パラメータは構築型を未定にしない。`{ base with x = v }` 更新や匿名 record の文脈推論一般化は導入しない。
 
 頭の名前がコンストラクタや関数などの値として解決できる場合は従来どおり適用と読む。したがって `Wrap { value = x }` は `Wrap` コンストラクタへ record 引数を渡す式のままで、後方互換性を壊さない。型名が値として解決できず、record literal 引数 1 つだけに前置されたときだけ型名前置 literal と読む。
 

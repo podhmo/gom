@@ -114,98 +114,140 @@ type IntBox = Box[int64]
 //line record_type_literal.gom:18
 type PairBox[A any] = Box[rt.Tuple2[A, A]]
 
-//line record_type_literal.gom:20
-func build(id, total int64) ValidatedOrder {
+//line record_type_literal.gom:19
+type FnBox[F any] = Box[func(int64) F]
+
 //line record_type_literal.gom:21
+func build(id, total int64) ValidatedOrder {
+//line record_type_literal.gom:22
 	return ValidatedOrder{Id: id, Total: total}
-//line record_type_literal.gom:20
+//line record_type_literal.gom:21
 }
 
-//line record_type_literal.gom:23
+//line record_type_literal.gom:24
 func generic(x int64) Box[int64] {
-//line record_type_literal.gom:23
+//line record_type_literal.gom:24
 	return Box[int64]{Value: x}
-//line record_type_literal.gom:23
+//line record_type_literal.gom:24
 }
 
-//line record_type_literal.gom:25
+//line record_type_literal.gom:26
 func ctor(x int64) Wrap {
-//line record_type_literal.gom:25
+//line record_type_literal.gom:26
 	tmp1 := CtorArg(x)
-//line record_type_literal.gom:25
+//line record_type_literal.gom:26
 	return Wrap_Wrap{V0: tmp1}
-//line record_type_literal.gom:25
+//line record_type_literal.gom:26
 }
 
-//line record_type_literal.gom:27
-func ambiguous(id, total int64) PricedOrder {
 //line record_type_literal.gom:28
+func ambiguous(id, total int64) PricedOrder {
+//line record_type_literal.gom:29
 	return PricedOrder{Id: id, Total: total}
-//line record_type_literal.gom:27
+//line record_type_literal.gom:28
 }
 
-//line record_type_literal.gom:30
-func localDisambiguated(id, total int64) int64 {
 //line record_type_literal.gom:31
-	x := ValidatedOrder{Id: id, Total: total}
+func localDisambiguated(id, total int64) int64 {
 //line record_type_literal.gom:32
+	x := ValidatedOrder{Id: id, Total: total}
+//line record_type_literal.gom:33
 	return x.Id + x.Total
-//line record_type_literal.gom:30
+//line record_type_literal.gom:31
 }
 
-//line record_type_literal.gom:35
+//line record_type_literal.gom:36
 func anyBox(_ struct{}) Box[any] {
-//line record_type_literal.gom:35
+//line record_type_literal.gom:36
 	tmp2 := any("text")
-//line record_type_literal.gom:35
+//line record_type_literal.gom:36
 	return Box[any]{Value: tmp2}
-//line record_type_literal.gom:35
+//line record_type_literal.gom:36
 }
 
-//line record_type_literal.gom:37
-func aliasBuild(id, total int64) ValidatedOrder {
 //line record_type_literal.gom:38
+func aliasBuild(id, total int64) ValidatedOrder {
+//line record_type_literal.gom:39
 	return ValidatedOrder{Id: id, Total: total}
-//line record_type_literal.gom:37
+//line record_type_literal.gom:38
 }
 
-//line record_type_literal.gom:40
+//line record_type_literal.gom:41
 func aliasGeneric(x int64) Box[int64] {
-//line record_type_literal.gom:40
+//line record_type_literal.gom:41
 	return Box[int64]{Value: x}
-//line record_type_literal.gom:40
+//line record_type_literal.gom:41
 }
 
-//line record_type_literal.gom:42
-func localAlias(x int64) int64 {
 //line record_type_literal.gom:43
-	b := Box[int64]{Value: x}
+func localAlias(x int64) int64 {
 //line record_type_literal.gom:44
-	return b.Value
-//line record_type_literal.gom:42
-}
-
-//line record_type_literal.gom:47
-func aliasUnusedParam(x int64) int64 {
-//line record_type_literal.gom:48
 	b := Box[int64]{Value: x}
-//line record_type_literal.gom:49
+//line record_type_literal.gom:45
 	return b.Value
-//line record_type_literal.gom:47
+//line record_type_literal.gom:43
 }
 
-//line record_type_literal.gom:52
+//line record_type_literal.gom:48
+func aliasUnusedParam(x int64) int64 {
+//line record_type_literal.gom:49
+	b := Box[int64]{Value: x}
+//line record_type_literal.gom:50
+	return b.Value
+//line record_type_literal.gom:48
+}
+
+//line record_type_literal.gom:53
 func aliasFixed(_ struct{}) Box[int64] {
-//line record_type_literal.gom:52
+//line record_type_literal.gom:53
 	return Box[int64]{Value: 1}
-//line record_type_literal.gom:52
+//line record_type_literal.gom:53
 }
 
-//line record_type_literal.gom:54
+//line record_type_literal.gom:55
 func aliasRepeated(_ struct{}) Box[rt.Tuple2[int64, int64]] {
-//line record_type_literal.gom:54
+//line record_type_literal.gom:55
 	tmp3 := rt.Tuple2[int64, int64]{V0: 1, V1: 2}
-//line record_type_literal.gom:54
+//line record_type_literal.gom:55
 	return Box[rt.Tuple2[int64, int64]]{Value: tmp3}
-//line record_type_literal.gom:54
+//line record_type_literal.gom:55
+}
+
+//line record_type_literal.gom:57
+func aliasCurriedTail(_ struct{}) Box[func(int64) func(string) any] {
+//line record_type_literal.gom:58
+	tmp4 := func(x int64) func(string) any {
+//line record_type_literal.gom:58
+		return func(y string) any {
+//line record_type_literal.gom:58
+			return any(y)
+//line record_type_literal.gom:58
+		}
+//line record_type_literal.gom:58
+	}
+//line record_type_literal.gom:58
+	return Box[func(int64) func(string) any]{Value: tmp4}
+//line record_type_literal.gom:57
+}
+
+//line record_type_literal.gom:60
+func choosePair[A any](x Box[rt.Tuple2[A, any]]) Box[rt.Tuple2[A, any]] {
+//line record_type_literal.gom:60
+	return x
+//line record_type_literal.gom:60
+}
+
+//line record_type_literal.gom:62
+func aliasSharedExpected(x string) Box[rt.Tuple2[any, any]] {
+//line record_type_literal.gom:63
+	tmp5 := any(x)
+//line record_type_literal.gom:63
+	tmp6 := any(x)
+//line record_type_literal.gom:63
+	tmp7 := rt.Tuple2[any, any]{V0: tmp5, V1: tmp6}
+//line record_type_literal.gom:63
+	tmp8 := Box[rt.Tuple2[any, any]]{Value: tmp7}
+//line record_type_literal.gom:63
+	return choosePair[any](tmp8)
+//line record_type_literal.gom:62
 }

@@ -324,104 +324,111 @@ func (c *checker) typePrefixedRecordType(ti *typeInfo, sp diag.Span, want types.
 }
 
 // useExpectedPrefixType binds the inference metas inside rt from a
-// structurally compatible expectation. It is a dry-run match followed
-// by binds, not a mutating overwrite: alias expansions may share type
-// nodes with their declarations, and constraints such as a repeated
-// alias parameter must continue to be enforced.
+// compatible expectation. Compatibility is tested speculatively on
+// cloned metas first: the trial must use the real unification rules
+// (including curried-tail absorption and shared-meta propagation), but
+// a failed trial must neither mutate inference state nor emit a second
+// mismatch. Only a successful trial is replayed on the real types.
 func (c *checker) useExpectedPrefixType(rt, want types.Type, sp diag.Span) {
 	if want == nil {
 		return
 	}
-	binds := map[*types.Meta]types.Type{}
-	if !matchPrefixType(rt, want, binds) {
+	if !c.prefixTypesUnifySpeculatively(rt, want, sp) {
 		return
 	}
-	ms := make([]*types.Meta, 0, len(binds))
-	for m := range binds {
-		ms = append(ms, m)
-	}
-	slices.SortFunc(ms, func(a, b *types.Meta) int { return a.ID - b.ID })
-	for _, m := range ms {
-		_ = c.bind(m, binds[m], sp)
-	}
+	_ = c.unify(want, rt, sp)
 }
 
-// matchPrefixType matches rt against the expected type while treating
-// only rt's unbound metas as pattern variables. An unsolved meta on the
-// expected side cannot refute the shape, but also contributes no
-// information beyond letting rt's meta point at it.
-func matchPrefixType(rt, want types.Type, binds map[*types.Meta]types.Type) bool {
-	r := types.Chase(rt)
-	w := types.Chase(want)
-	if rm, ok := r.(*types.Meta); ok {
-		if rm == w {
-			return true
-		}
-		if prev, ok := binds[rm]; ok {
-			return types.Equal(prev, w)
-		}
-		if occurs(rm, w) {
-			return false
-		}
-		binds[rm] = w
-		return true
+// prefixTypesUnifySpeculatively runs the ordinary value-slot
+// unification on copies of the two types. Every unbound meta is copied
+// consistently, so the trial sees the same structural and constraint
+// behavior as the real types while leaving every real meta untouched.
+func (c *checker) prefixTypesUnifySpeculatively(rt, want types.Type, sp diag.Span) bool {
+	clones := map[*types.Meta]*types.Meta{}
+	cr := c.clonePrefixType(rt, clones)
+	cw := c.clonePrefixType(want, clones)
+	ndiag := len(c.diags)
+	ok := c.unify(cw, cr, sp)
+	c.diags = c.diags[:ndiag]
+	for _, m := range clones {
+		delete(c.metas, m)
 	}
-	if _, ok := w.(*types.Meta); ok {
-		return true
-	}
-	switch r := r.(type) {
+	return ok
+}
+
+// clonePrefixType copies a type for speculative unification. Bound
+// metas are chased away; unbound metas become fresh metas with copied
+// constraints. Type nodes themselves are immutable and can be shared
+// when no meta occurs below them.
+func (c *checker) clonePrefixType(t types.Type, clones map[*types.Meta]*types.Meta) types.Type {
+	switch t := types.Chase(t).(type) {
 	case *types.Meta:
-		panic("unreachable")
+		if cl, ok := clones[t]; ok {
+			return cl
+		}
+		cl := &types.Meta{ID: c.nextMeta}
+		c.nextMeta++
+		rec := &metaRec{}
+		if r := c.metas[t]; r != nil {
+			cp := *r
+			rec = &cp
+		}
+		c.metas[cl] = rec
+		clones[t] = cl
+		return cl
 	case *types.Var:
-		wv, ok := w.(*types.Var)
-		return ok && r.ID == wv.ID
+		return t
 	case *types.Con:
-		wc, ok := w.(*types.Con)
-		if !ok || r.Qual != wc.Qual || r.Name != wc.Name || len(r.Args) != len(wc.Args) {
-			return false
+		args, changed := c.clonePrefixTypeSlice(t.Args, clones)
+		if !changed {
+			return t
 		}
-		for i := range r.Args {
-			if !matchPrefixType(r.Args[i], wc.Args[i], binds) {
-				return false
-			}
-		}
-		return true
+		return &types.Con{Qual: t.Qual, Name: t.Name, Args: args}
 	case *types.Func:
-		wf, ok := w.(*types.Func)
-		if !ok || len(r.Params) != len(wf.Params) {
-			return false
+		ps := make([]types.FuncParam, len(t.Params))
+		changed := false
+		for i, p := range t.Params {
+			nt := c.clonePrefixType(p.Type, clones)
+			changed = changed || nt != p.Type
+			ps[i] = types.FuncParam{Label: p.Label, Type: nt}
 		}
-		for i := range r.Params {
-			if r.Params[i].Label != wf.Params[i].Label || !matchPrefixType(r.Params[i].Type, wf.Params[i].Type, binds) {
-				return false
-			}
+		ret := c.clonePrefixType(t.Ret, clones)
+		if !changed && ret == t.Ret {
+			return t
 		}
-		return matchPrefixType(r.Ret, wf.Ret, binds)
+		return types.Fn(ret, ps...)
 	case *types.Tuple:
-		wt, ok := w.(*types.Tuple)
-		if !ok || len(r.Elems) != len(wt.Elems) {
-			return false
+		elems, changed := c.clonePrefixTypeSlice(t.Elems, clones)
+		if !changed {
+			return t
 		}
-		for i := range r.Elems {
-			if !matchPrefixType(r.Elems[i], wt.Elems[i], binds) {
-				return false
-			}
-		}
-		return true
+		return &types.Tuple{Elems: elems}
 	case *types.Go:
-		wg, ok := w.(*types.Go)
-		if !ok || r.Ref != wg.Ref || len(r.Args) != len(wg.Args) {
-			return false
+		args, changed := c.clonePrefixTypeSlice(t.Args, clones)
+		if !changed {
+			return t
 		}
-		for i := range r.Args {
-			if !matchPrefixType(r.Args[i], wg.Args[i], binds) {
-				return false
-			}
-		}
-		return true
+		return &types.Go{Ref: t.Ref, Args: args}
 	default:
 		panic("unreachable")
 	}
+}
+
+func (c *checker) clonePrefixTypeSlice(ts []types.Type, clones map[*types.Meta]*types.Meta) ([]types.Type, bool) {
+	var out []types.Type
+	for i, t := range ts {
+		nt := c.clonePrefixType(t, clones)
+		if out == nil && nt != t {
+			out = append([]types.Type(nil), ts...)
+		}
+		if out != nil {
+			out[i] = nt
+		}
+	}
+	if out == nil {
+		return ts, false
+	}
+	return out, true
 }
 
 // typePrefixedRecordLit recognizes `T { x = v }` where resolution

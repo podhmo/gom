@@ -1,0 +1,7 @@
+package main
+
+type Box a = { value: a }
+type alias PairBox a = Box (a, a)
+
+fn repeated_bad (xy: (Int, String)) -> Box (Int, String) =
+  PairBox { value = xy }

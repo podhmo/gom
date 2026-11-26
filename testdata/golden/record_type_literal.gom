@@ -16,6 +16,7 @@ type alias BoxAlias a = Box a
 type alias ConstBox a = Box Int
 type alias IntBox = Box Int
 type alias PairBox a = Box (a, a)
+type alias FnBox f = Box (Int -> f)
 
 fn build (id: Int) (total: Int) -> ValidatedOrder =
   ValidatedOrder { id = id, total = total }
@@ -52,3 +53,11 @@ fn alias_unused_param (x: Int) -> Int = {
 fn alias_fixed () -> Box Int = IntBox { value = 1 }
 
 fn alias_repeated () -> Box (Int, Int) = PairBox { value = (1, 2) }
+
+fn alias_curried_tail () -> Box (Int -> String -> Go.Any) =
+  FnBox { value = fn x y -> y }
+
+fn choose_pair (x: Box (a, Go.Any)) -> Box (a, Go.Any) = x
+
+fn alias_shared_expected (x: String) -> Box (Go.Any, Go.Any) =
+  choose_pair (PairBox { value = (x, x) })
