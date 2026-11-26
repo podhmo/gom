@@ -1,7 +1,7 @@
 # wave49 prompts（草案）
 
 - 日付: 2026-11-27
-- 状態: 草案。採否インタビュー前
+- 状態: 採択（podhmo、2026-11-27）。順 A→C→B→D→E→F。lane 実装は wave48 lane H/closeout merge 後
 - 入力: [wave48 round](2026-11-26-wave48-round.md)、[TODO](../../TODO.md)、[open-questions](../open-questions.md)、[implementation-gaps](../implementation-gaps.md)、[problems](../problems/)、[DMMF fit](ja/2026-11-26-dmmf-order-taking-fit.md)、[lane H audit](2026-11-27-wave48-lane-h-dmmf-fit-audit.md)
 
 wave48 は correctness bug、cache/emit、interface metadata、stdlib `str`、spec 整合、owner ideas / DMMF fit の台帳化まで終わった。wave49 は「明確な correctness 修正を先に潰し、DMMF で効く表面を小さいものから決める」構成を推薦する。
@@ -45,6 +45,15 @@ abstract 型の zero value 制限や panic capture adapter のような言語/�
 podhmo が PR #256 で肯定した archive 分割を実施する。`[x]` 項目を `docs/implementation-gaps-archive.md` へ移し、live 台帳は未解消だけにする。機械的な移動で済むか、残すべき文脈があるかを確認し、README/リンクを更新する。台帳が小さくなった後で wave49 後半の gap 管理をしやすくする。
 
 推薦順: A → C → B → D → E → F。A/C は小さく先に終わらせ、B/D は設計の重い順、E/F は後半の締めに近い面として置く。
+
+## 採否インタビュー結果
+
+1. A〜F はすべて採用（podhmo、2026-11-27）
+2. B は型名前置 record literal を第一案とし、文脈推論強化は後続に残す
+3. C は `Result.sequence` + `List.traverse_result` に限定し、Option traverse は入れない。`Result.sequence` は compiler-owned forwarding member として `list` 側実装へ寄せる
+4. D は E0301 限定の text 改善とし、汎用 `labels` / `details` wire は今回の前提にしない
+5. E は JSON / bounded context / decimal の 3 点に絞る
+6. module 外 `gom run` / `gom init` は wave49 に追加しない
 
 ## 採否を確認したい点
 

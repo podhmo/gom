@@ -22,6 +22,15 @@
 
 ## To Be Implemented
 
+### wave49 採択済み lane（[prompts](docs/sketch/2026-11-27-wave49-prompts.md) — 2026-11-27 採否確定、順 A→C→B→D→E→F）
+
+- [ ] **[wave49 lane A] `&&` / `||` の生成コードを短絡評価に揃える**: evaluator は `false && x` / `true || x` で右辺を評価しないが、lower は両 operand を先に atom 化する。生成コードを evaluator/Go の短絡規則へ揃え、spec に規則を明記し、副作用または panic を持つ右辺の fixture で固定する（[gap](docs/implementation-gaps.md)）
+- [ ] **[wave49 lane C] stdlib Result/Option traverse helpers**: `Result.sequence` と `List.traverse_result` に限定して追加する。`Result.sequence` は import cycle を避けるため compiler-owned forwarding member として `list` 側実装へ寄せる
+- [ ] **[wave49 lane B] record literal E0407 の決着**: 型名前置 record literal（例: `ValidatedOrder { id = id, ... }`）を第一案に、record literal の曖昧さを解消する。文脈推論の一般化は後続
+- [ ] **[wave49 lane D] E0301 text 出力の不足パターン詳細**: `missing_patterns` を text emitter が構造的に描き、spec の人間向け出力へ寄せる。汎用 `labels` / `details` wire は今回の前提にしない
+- [ ] **[wave49 lane E] DMMF boundary guide**: JSON DTO、bounded context package/visibility、金額表現の 3 点について推奨形を文書化し、open-questions の対象を絞る
+- [ ] **[wave49 lane F] implementation-gaps archive 分割**: `[x]` 項目を `docs/implementation-gaps-archive.md` へ移し、未解消だけを live 台帳に残す
+
 ### wave48 採択済み lane（[prompts](docs/sketch/2026-11-26-wave48-prompts.md) — 2026-11-26 採否確定、順 A→B→C→D→E→F→G→H）
 
 - [x] **[wave48 lane A] `Unit` payload 束縛の生成 Go 未使用 bug**（[prompts](docs/sketch/2026-11-26-wave48-prompts.md)）: `Unit` payload の束縛・表示・一時変数生成の整合を取る — `rt.ShowUnit` で operand 参照を残す（[verify](docs/sketch/2026-11-26-wave48-lane-a-unit-payload-splice-verify.md)）
@@ -38,14 +47,9 @@
 - [ ] **[task] checker の状態を関心ごとの部分構造体に分ける**: `typeTables`・deferred revisit queue・taint・lint state などを分け、`expr.go` を構文種別ごとに分割する。振る舞いは変えない。現行の非コメント field 数は 49（PR 本文の 70 超は過大）だが、`expr.go` 4,549 行と責務集中は有効な観測
 - [ ] **[task] 値表示を rt の単一実装へさらに寄せる**: wave47 lane A の runtime renderer 共通化を前提に、eval 独自の表示・整数幅・float32 丸め・structural equality を rt 公開関数へ寄せ、eval 側は評価順・pattern 振分け・部分適用の oracle に絞る
 - [ ] **[task] 診断コード表を軸にしたメタテスト**: retired code（例: W0601）を除き、spec harness で出せる言語診断には `testdata/spec/` fixture、driver/CLI 診断には CLI test があるかを分類して検査する。`gom explain` の example は実際にそのコードを出すものだけ対象にし、`docs/error-codes.md` と表の一致は既存 `TestErrorCodesDocInSync` に任せる
-- [ ] **[task] implementation-gaps の解消済み項目を archive へ分ける**: `[x]` 項目を `docs/implementation-gaps-archive.md` へ移し、未解消だけを live 台帳に残す。podhmo が PR #256 で肯定
 - [ ] **[task] 生成コードの benchmark 基盤**: `bench/` に代表的な gom/手書き Go のペアを置き、`go test -bench` の比率を記録する。回帰警告の閾値や CI 実行は導入時に決める
 
 - [x] **[task] stdlib に `List.filter_map` / `List.find_map` を追加**: `fold` で回すしかない現状 — selfish 移植で要望（[sketch](docs/sketch/ja/2026-11-24-selfish-port.md)、wave43 lane F）。実装済み: `@extern` buffer-built Go impl（`stdlib/list/impl.go` の `FilterMap`/`FindMap`）、`noescape` directive 付き（wave44 lane F）
-
-### DMMF fit audit 由来（[PR #259](https://github.com/podhmo/gom/pull/259)、[audit](docs/sketch/2026-11-27-wave48-lane-h-dmmf-fit-audit.md)）
-
-- [ ] **[task] `&&` / `||` の生成コードを短絡評価に揃える**: evaluator は `false && x` / `true || x` で右辺を評価しないが、lower は両 operand を先に atom 化する。生成コードを evaluator/Go の短絡規則へ揃え、spec に規則を明記し、副作用または panic を持つ右辺の fixture で固定する（[gap](docs/implementation-gaps.md)）
 
 ### wave47 採択済み lane（[prompts](docs/sketch/2026-11-25-wave47-prompts.md) — 2026-11-25 採否確定、順 B→F→C→A→D）
 
