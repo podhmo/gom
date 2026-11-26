@@ -5,8 +5,8 @@ DMMF (Domain Modeling Made Functional) 風に「ドメイン型を不正状態�
 ## JSON / external schema
 
 - 外部 schema が安定している・利用者に公開する API では、sum type や `Option` を direct marshal しない。implementation shape（`{"V0": ...}` や `{}`）を外部契約にしない。
-- tagged union は boundary 専用の DTO へ手書き変換する。小さく動的な event envelope では `Go.Map String Go.Any`、フィールドが固定なら struct tag 付きの専用 record を使う。
-- nullable string / optional field が外部 schema 上重要なら DTO 側で `Ptr` nullable を使う。ドメイン型では `Option` を使い、境界で相互変換する。空文字を optional の意味に使うのは、既存 schema がそうなっている場合の割り切りに限定する。
+- tagged union は boundary 専用の DTO へ手書き変換する。小さく動的な event envelope や 1 フィールド object では `Go.Map String Go.Any`、2 つ以上の固定フィールドを持つ object なら struct tag 付きの専用 record を使う。Gom の 1 フィールド record は Go の defined scalar として emit され JSON object にならないため、1 フィールド DTO record を object schema に使わない。
+- nullable string / optional field が外部 schema 上重要なら DTO 側で `Ptr` nullable を使う。ドメイン型では `Option` を使い、境界で相互変換する。空文字を optional の意味に使うのは、既存 schema がそうなっている場合の割り切りに限定する。`Ptr` だけでは field absence と explicit `null` を区別できない。PATCH のように「未指定=変更なし」と `null`=clear を区別する schema では、presence flag 付き DTO か手書き Go boundary を使う。
 - 外部入力は必ず DTO → smart constructor → domain type の順で検証する。`Ptr.new` / `encoding/json` は abstract 型の不変条件を通さないため、domain type へ直接 decode しない。
 
 ## bounded context / visibility
