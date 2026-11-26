@@ -1,0 +1,173 @@
+package main
+
+import go "database/sql"
+import go "encoding/json"
+import "str"
+import "github.com/podhmo/gom/experiments/dmmf-fit/domain"
+
+type Payment =
+  | Cash
+  | Check Int
+  | Card PaymentMethod
+
+type PaymentMethod =
+  | CreditCard String
+  | BankTransfer Payment
+
+type Employee =
+  | Worker String
+  | Manager (List Employee)
+
+type Box a = { item: a }
+
+type Validation a e =
+  | VOk a
+  | VErr (List e)
+
+type CustomerId = | CustomerId Int
+type OrderId = | OrderId Int
+type LocalString50 = | LocalString50 String
+
+fn process_customer_id ((CustomerId inner): CustomerId) -> Int = inner
+
+fn constructor_pipe (s: String) -> Option LocalString50 = s |> LocalString50 |> Some
+
+fn text_length (s: String) -> Int = str.runes s |> List.length
+
+fn create_string (field: String) (ctor: String -> a) (max_len: Int) (s: String) -> Result a String =
+  if text_length s == 0 {
+    Err "${field} must not be empty"
+  } else {
+    if text_length s > max_len { Err "${field} is too long" } else { Ok (ctor s) }
+  }
+
+type ValidationError = | ValidationError String
+type PricingError = | PricingError String
+type PlaceOrderError =
+  | Validation ValidationError
+  | Pricing PricingError
+  | OutsideBusinessHours
+
+fn validate_order () -> Result Int ValidationError = Ok 1
+
+fn place_order () -> Result Int PlaceOrderError = {
+  let n = try (validate_order () |> Result.map_err Validation)
+  Ok n
+}
+
+fn result_sequence (rs: List (Result a e)) -> Result (List a) e =
+  rs
+  |> List.fold (fn acc r -> acc |> Result.and_then (fn xs -> r |> Result.map (fn x -> [x, ..xs]))) (Ok [])
+  |> Result.map List.rev
+
+fn bind_option (f: a -> Result b e) (o: Option a) -> Result (Option b) e = match o {
+  Some x -> f x |> Result.map Some
+  None -> Ok None
+}
+
+fn validation_map2 (f: a -> b -> c) (va: Validation a e) (vb: Validation b e) -> Validation c e = match (va, vb) {
+  (VOk x, VOk y) -> VOk (f x y)
+  (VErr xs, VErr ys) -> VErr (List.append xs ys)
+  (VErr xs, _) -> VErr xs
+  (_, VErr ys) -> VErr ys
+}
+
+type Line = { sku: String, qty: Int }
+type Order = { id: String, lines: List Line }
+
+fn eq_order (a: Order) (b: Order) -> Bool = a == b
+
+type PricedLine = | ProductLine String | CommentLine String
+
+fn make_shipment_line (line: PricedLine) -> Option String = match line {
+  ProductLine code -> Some code
+  CommentLine _ -> None
+}
+
+fn shipment_lines (lines: List PricedLine) -> List String =
+  lines |> List.filter_map make_shipment_line
+
+fn list_of_option (o: Option a) -> List a = match o {
+  Some x -> [x]
+  None -> []
+}
+
+fn create_events (ack: Option String) (billing: Option String) -> List String =
+  List.concat [
+    ack |> list_of_option,
+    ["shipping"],
+    billing |> list_of_option,
+  ]
+
+type ProductCode = | WidgetCode String | GizmoCode String
+type Price = | Price Float
+type PromotionCode = | PromotionCode String
+type PricingMethod = | Standard | Promotion PromotionCode
+
+fn get_pricing_function (standard_prices: Unit -> ProductCode -> Price) (promo_prices: PromotionCode -> ProductCode -> Option Price) -> PricingMethod -> ProductCode -> Price = {
+  let get_standard_price = standard_prices ()
+  fn pricing_method -> match pricing_method {
+    Standard -> get_standard_price
+    Promotion promo -> {
+      let get_promotion_price = promo_prices promo
+      fn product_code -> match get_promotion_price product_code {
+        Some price -> price
+        None -> get_standard_price product_code
+      }
+    }
+  }
+}
+
+type CustomerInfoDto = {
+  name: String `json:"name"`,
+  email: String `json:"email"`,
+}
+
+fn decode_customer (bytes: List Byte) -> Result CustomerInfoDto GoError = {
+  let p : Ptr CustomerInfoDto = Ptr.new ()
+  try (json.Unmarshal (bytes, p))
+  Ok (Ptr.get p)
+}
+
+fn encode_customer (dto: CustomerInfoDto) -> Result (List Byte) GoError =
+  json.Marshal dto
+
+type Event = | Shippable String | Ack String
+
+fn shippable_dto (order_id: String) -> Go.Map String Go.Any = {
+  let payload : Go.Map String Go.Any = Go.Map.make ()
+  Go.Map.set payload "orderId" order_id
+  payload
+}
+
+fn event_dto (e: Event) -> Go.Map String Go.Any = {
+  let m : Go.Map String Go.Any = Go.Map.make ()
+  match e {
+    Shippable order_id -> Go.Map.set m "ShippableOrderPlaced" (shippable_dto order_id)
+    Ack order_id -> Go.Map.set m "OrderAcknowledgmentSent" order_id
+  }
+  m
+}
+
+fn encode_event (e: Event) -> Result (List Byte) GoError = json.Marshal (event_dto e)
+
+fn count_users (dsn: String) -> Result Int GoError =
+  Scope.run_result <| fn s -> {
+    let db = try (sql.Open ("sqlite3", dsn))
+    Scope.defer_err s (fn () -> db.Close ())
+    let row = db.QueryRow ("select count(*) from users")
+    let n : Ptr Int = Ptr.new ()
+    try (row.Scan n)
+    Ok (Ptr.get n)
+  }
+
+fn parse_impl (s: String) -> Result Int GoError = Ok 1
+
+let parse_go : Go.Func1 String Int GoError = Go.func1 parse_impl
+
+fn zero_bypass () -> domain.String50 = {
+  let p : Ptr domain.String50 = Ptr.new ()
+  Ptr.get p
+}
+
+fn main () -> Unit = ()

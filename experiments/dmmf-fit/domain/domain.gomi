@@ -1,0 +1,6 @@
+package domain
+
+type String50
+
+fn string50_create (s: String) -> Result String50 String
+fn string50_value (x: String50) -> String
