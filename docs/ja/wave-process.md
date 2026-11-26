@@ -95,9 +95,11 @@ Gom の開発は「wave」という単位で回す。1 wave = 複数 lane（細�
   （resolved = 修正 commit、rejected/escalated は理由つき）。
 - lane 内で scope を削る・後続へ送る場合は、lane では実装と検証に
   集中し、残件を lane の検証レポート（`docs/sketch/...-verify.md`）と
-  round 入力へ具体的に記録する。台帳への登録は締め作業で行う。
-  検証レポート側に残件の中身がなければ closeout で拾えないため、
-  「対象外」の一言だけで済ませない。
+  round 入力へ具体的に記録する。TODO / open-questions への登録は
+  締め作業で行う。検証レポート側に残件の中身がなければ closeout で
+  拾えないため、「対象外」の一言だけで済ませない。ただし
+  仕様・実装・文書のずれは AGENTS.md どおり発見時に
+  `docs/implementation-gaps.md` へ即時登録する。
 
 ### 4. 締め作業（lane ではない独立作業）
 
@@ -149,9 +151,10 @@ Gom の開発は「wave」という単位で回す。1 wave = 複数 lane（細�
 - **scope 外・後送り残件の台帳登録**: 各 lane の検証レポート、review、
   round 入力から残件を集め、対応意思のある実作業は wave 番号を持たない
   独立な `[task]` として `TODO.md` に、未決定の設計判断は
-  `docs/open-questions.md` に、仕様・実装・文書のずれは
-  `docs/implementation-gaps.md` に登録する。round や検証レポートに
+  `docs/open-questions.md` に登録する。round や検証レポートに
   「将来 wave」「今回は対象外」と書くだけでは管理したことにしない。
+  仕様・実装・文書のずれは発見時登録が正なので、closeout では
+  `docs/implementation-gaps.md` への登録漏れがないかを確認するに留める。
   `implementation-gaps` はずれの台帳であり、実作業の管理先ではない。
   この登録を終えるまで wave を閉じない。
 - 台帳の掃除: open-questions / implementation-gaps / TODO.md の
