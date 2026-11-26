@@ -18,6 +18,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/podhmo/gom/internal/build"
 )
 
 // setupCacheFixture copies testdata/multifile into a temp module
@@ -65,6 +67,103 @@ func isSentinel(t *testing.T, path string) bool {
 		t.Fatal(err)
 	}
 	return strings.HasSuffix(string(b), "// sentinel\n")
+}
+
+func TestBuildCache_CommitRejectsPostCompileGomiEdit(t *testing.T) {
+	dir := t.TempDir()
+	cacheDir := t.TempDir()
+	dep := filepath.Join(dir, "dep.gomi")
+	oldSrc := []byte("package dep\n\nfn f () -> Int\n")
+	if err := os.WriteFile(dep, oldSrc, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	newCache := func() *buildCache {
+		return &buildCache{dir: cacheDir, notes: map[string][]build.Input{}, seen: map[string]*depSeen{}}
+	}
+	inputPath := filepath.Join(dir, "main.gom")
+	inputSrc := []byte("package main\n\nfn main () -> Int = 1\n")
+	seed := newCache()
+	seed.note(dir, []build.Input{{Path: inputPath, Src: inputSrc}})
+	seed.depSink(dir).noteGomi(dep, oldSrc)
+	seed.commit(dir, "", []string{filepath.Join(dir, "main.go")})
+	if _, err := os.Stat(seed.file(dir)); err != nil {
+		t.Fatalf("unchanged commit did not seed a manifest: %v", err)
+	}
+
+	bc := newCache()
+	bc.note(dir, []build.Input{{Path: inputPath, Src: inputSrc}})
+	bc.depSink(dir).noteGomi(dep, oldSrc)
+
+	// Quint witness shape: the compile consumed oldSrc, then the
+	// dependency changed before commit. The commit must neither seal
+	// the edited fingerprint into a manifest nor leave the previous
+	// manifest pointing at outputs this rebuild replaced.
+	if err := os.WriteFile(dep, []byte("package dep\n\nfn f () -> Int\nfn g () -> Int\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	bc.commit(dir, "", []string{filepath.Join(dir, "main.go")})
+	if _, err := os.Stat(bc.file(dir)); !os.IsNotExist(err) {
+		t.Fatalf("post-compile dependency edit seeded a manifest (stat err=%v)", err)
+	}
+}
+
+func TestNewBuildCache_ReadOnlyDirDisabled(t *testing.T) {
+	if os.Geteuid() == 0 {
+		t.Skip("root can write through directory permissions")
+	}
+	dir := t.TempDir()
+	ro := filepath.Join(dir, "cache")
+	if err := os.Mkdir(ro, 0o555); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chmod(ro, 0o755) })
+	t.Setenv(cacheDirEnv, ro)
+	t.Setenv(cacheOffEnv, "")
+	if bc := newBuildCache(); bc != nil {
+		t.Fatal("read-only cache directory stayed enabled")
+	}
+}
+
+func TestNewBuildCache_MissingDirIsNotCreated(t *testing.T) {
+	base := filepath.Join(t.TempDir(), "cache")
+	t.Setenv(cacheDirEnv, base)
+	t.Setenv(cacheOffEnv, "")
+	if bc := newBuildCache(); bc == nil {
+		t.Fatal("absent cache directory was not usable")
+	}
+	if _, err := os.Stat(base); !os.IsNotExist(err) {
+		t.Fatalf("cache probe created %s (stat err=%v)", base, err)
+	}
+}
+
+func TestBuildCache_NestedWorkspaceModuleFilesHit(t *testing.T) {
+	root := t.TempDir()
+	service := filepath.Join(root, "service")
+	if err := os.Mkdir(service, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for path, src := range map[string]string{
+		filepath.Join(root, "go.work"):     "go 1.24\n\nuse ./service\n",
+		filepath.Join(service, "go.mod"):   "module example.com/service\n\ngo 1.24\n",
+		filepath.Join(service, "main.gom"): "package main\n\nfn main () -> Int = 1\n",
+		filepath.Join(service, "main.go"):  "package main\n",
+	} {
+		if err := os.WriteFile(path, []byte(src), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	bc := &buildCache{dir: t.TempDir(), notes: map[string][]build.Input{}, seen: map[string]*depSeen{}}
+	inputSrc, err := os.ReadFile(filepath.Join(service, "main.gom"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ins := []build.Input{{Path: filepath.Join(service, "main.gom"), Src: inputSrc}}
+	bc.note(service, ins)
+	bc.depSink(service).noteMods(service)
+	bc.commit(service, "", []string{filepath.Join(service, "main.go")})
+	if _, ok := bc.Hit(service, "", ins); !ok {
+		t.Fatal("nested workspace module files did not round-trip a cache hit")
+	}
 }
 
 func TestBuildCache_SkipsOnIdenticalAndImplOnlyChange(t *testing.T) {

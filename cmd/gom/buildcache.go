@@ -13,9 +13,9 @@ package main
 //     blanks and positions excluded; `test`/`@test` declarations
 //     dropped (test code is not a `gom build` output);
 //   - the package's own *.gomi files and every .gomi the import
-//     loader read, each canonical-hashed — an interface's semantic
-//     change regenerates, an implementation-only dependency edit
-//     does not;
+//     loader read, each canonical-hashed from the bytes observed
+//     during compilation — an interface's semantic change
+//     regenerates, an implementation-only dependency edit does not;
 //   - the source-dir file stats of every Go package the importer
 //     resolved (own dir plus `go list -export`'s dep dirs) — an
 //     imported Go API change regenerates;
@@ -42,6 +42,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"hash"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -87,12 +88,83 @@ type buildCache struct {
 	seen  map[string]*depSeen
 }
 
-// depSeen is one dir's observed dependency set: the .gomi files
-// the Gom loader read and the source dirs of the Go packages the
-// Go importer resolved (each with its `go list -export` dep dirs).
+// depSeen is one dir's compile-time dependency observation. Paths
+// alone are not enough: the manifest must carry the interface bytes,
+// file stats and module-file stats the compile actually saw, not a
+// later commit-time re-read. A path observed with two different
+// fingerprints poisons the set — the compile may have mixed versions,
+// so it must not seed a hit.
 type depSeen struct {
-	gomis  []string
-	godirs []string
+	mu       sync.Mutex
+	gomis    map[string]string
+	godirs   map[string]string
+	mods     map[string]string
+	conflict bool
+}
+
+func newDepSeen() *depSeen {
+	return &depSeen{
+		gomis:  map[string]string{},
+		godirs: map[string]string{},
+		mods:   map[string]string{},
+	}
+}
+
+func (s *depSeen) noteHash(table map[string]string, path, hash string) {
+	if old, ok := table[path]; ok {
+		if old != hash {
+			s.conflict = true
+		}
+		return
+	}
+	table[path] = hash
+}
+
+// noteGomi records the exact interface bytes a compile consumed.
+func (s *depSeen) noteGomi(path string, src []byte) {
+	h := canonHash(src, false)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.noteHash(s.gomis, filepath.Clean(path), h)
+}
+
+// noteGoDir records a Go dependency dir's stat fingerprint when the
+// importer resolves it.
+func (s *depSeen) noteGoDir(dir string) {
+	h := statTreeHash(dir)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.noteHash(s.godirs, dir, h)
+}
+
+// noteMods records the module-context files before compilation of a
+// dir starts. Module resolution reads them indirectly through the Go
+// tool, so this precompile observation plus commit-time revalidation
+// is the narrowest conservative fingerprint.
+func (s *depSeen) noteMods(dir string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	for _, p := range modFiles(dir) {
+		s.noteHash(s.mods, p, fileStatHash(p))
+	}
+}
+
+func (s *depSeen) snapshot() (gomis, godirs, mods map[string]string, conflict bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	gomis = make(map[string]string, len(s.gomis))
+	for p, h := range s.gomis {
+		gomis[p] = h
+	}
+	godirs = make(map[string]string, len(s.godirs))
+	for p, h := range s.godirs {
+		godirs[p] = h
+	}
+	mods = make(map[string]string, len(s.mods))
+	for p, h := range s.mods {
+		mods[p] = h
+	}
+	return gomis, godirs, mods, s.conflict
 }
 
 type bcHashed struct {
@@ -125,7 +197,38 @@ func newBuildCache() *buildCache {
 		}
 		base = filepath.Join(ucd, "gom", "build")
 	}
+	if !cacheDirWritable(base) {
+		return nil
+	}
 	return &buildCache{dir: base, notes: map[string][]build.Input{}, seen: map[string]*depSeen{}}
+}
+
+// cacheDirWritable probes the manifest directory before any hit is
+// trusted. A hit is only safe when a later commit can invalidate or
+// replace the manifest after rewriting outputs; a read-only cache
+// must degrade to no cache rather than freeze a stale manifest.
+func cacheDirWritable(base string) bool {
+	st, err := os.Stat(base)
+	if err != nil {
+		// An absent cache cannot hold a stale manifest. Whether its
+		// parent is writable only affects commit, which already
+		// degrades to a miss — do not create the path here: it may
+		// collide with a file the build itself was asked to write.
+		return os.IsNotExist(err)
+	}
+	if !st.IsDir() {
+		return false
+	}
+	f, err := os.CreateTemp(base, ".probe-*")
+	if err != nil {
+		return false
+	}
+	name := f.Name()
+	if err := f.Close(); err != nil {
+		_ = os.Remove(name)
+		return false
+	}
+	return os.Remove(name) == nil
 }
 
 // envKeyLocked returns the shared key material, computing it once —
@@ -257,11 +360,6 @@ func statTree(h hash.Hash, dir string) {
 	}
 }
 
-// dedup sorts and deduplicates a path list for manifest entries.
-func dedup(ps []string) []string {
-	return slices.Compact(slices.Sorted(slices.Values(ps)))
-}
-
 // canonHash is the normalized-source fingerprint: the canonical
 // token-stream hash. dropTests removes `test`/`@test` declaration
 // spans first — for .gom inputs, where test code never reaches a
@@ -325,7 +423,7 @@ func (c *buildCache) depSink(dir string) *depSeen {
 	defer c.mu.Unlock()
 	s := c.seen[dir]
 	if s == nil {
-		s = &depSeen{}
+		s = newDepSeen()
 		c.seen[dir] = s
 	}
 	return s
@@ -358,32 +456,83 @@ func (c *buildCache) commit(dir, out string, outputs []string) {
 	for _, in := range ins {
 		m.Inputs = append(m.Inputs, bcHashed{Path: in.Path, Hash: canonHash(in.Src, true)})
 	}
-	// The package's own interfaces are dependencies too — their
-	// edit must regenerate just like an imported one.
-	gomis := filepathGomis(dir)
-	godirs := []string{}
-	if s := c.seen[dir]; s != nil {
-		gomis = append(gomis, s.gomis...)
-		godirs = s.godirs
+	// Manifests carry compile-time observations. Revalidate each one
+	// before writing: if the dependency changed after the compile read
+	// it, this output's provenance is uncertain and must not seed a hit.
+	gomis := map[string]string{}
+	godirs := map[string]string{}
+	mods := map[string]string{}
+	conflict := false
+	merge := func(s *depSeen, withMods bool) {
+		if s == nil {
+			return
+		}
+		gs, ds, ms, bad := s.snapshot()
+		conflict = conflict || bad
+		for p, h := range gs {
+			if old, ok := gomis[p]; ok && old != h {
+				conflict = true
+			} else {
+				gomis[p] = h
+			}
+		}
+		for p, h := range ds {
+			if old, ok := godirs[p]; ok && old != h {
+				conflict = true
+			} else {
+				godirs[p] = h
+			}
+		}
+		if withMods {
+			for p, h := range ms {
+				if old, ok := mods[p]; ok && old != h {
+					conflict = true
+				} else {
+					mods[p] = h
+				}
+			}
+		}
 	}
+	merge(c.seen[dir], true)
 	// Go-side deps pool at module granularity — the shared
 	// goimport.Loader's OnLoad cannot tell which dir triggered a
 	// resolve, so every dir in the pool records the union.
-	if s := c.seen[goPoolKey(dir)]; s != nil {
-		godirs = append(godirs, s.godirs...)
+	merge(c.seen[goPoolKey(dir)], false)
+	// A rejected commit happens after runBuild has replaced the
+	// outputs. The previous manifest no longer describes those files,
+	// so leaving it behind could reuse output from this unprovenanced
+	// rebuild after the dependency is restored.
+	reject := func() {
+		_ = os.Remove(c.file(dir))
 	}
-	for _, p := range dedup(gomis) {
+	if conflict {
+		reject()
+		return
+	}
+	for _, p := range slices.Sorted(maps.Keys(gomis)) {
+		h := gomis[p]
 		src, err := os.ReadFile(p)
-		if err != nil {
-			return // a dep that vanished cannot seed a hit
+		if err != nil || canonHash(src, false) != h {
+			reject()
+			return // changed or vanished after compile: no trustworthy provenance
 		}
-		m.Gomis = append(m.Gomis, bcHashed{Path: p, Hash: canonHash(src, false)})
+		m.Gomis = append(m.Gomis, bcHashed{Path: p, Hash: h})
 	}
-	for _, d := range dedup(godirs) {
-		m.GoDirs = append(m.GoDirs, bcHashed{Path: d, Hash: statTreeHash(d)})
+	for _, d := range slices.Sorted(maps.Keys(godirs)) {
+		h := godirs[d]
+		if statTreeHash(d) != h {
+			reject()
+			return
+		}
+		m.GoDirs = append(m.GoDirs, bcHashed{Path: d, Hash: h})
 	}
-	for _, p := range modFiles(dir) {
-		m.Mods = append(m.Mods, bcHashed{Path: p, Hash: fileStatHash(p)})
+	for _, p := range slices.Sorted(maps.Keys(mods)) {
+		h := mods[p]
+		if fileStatHash(p) != h {
+			reject()
+			return
+		}
+		m.Mods = append(m.Mods, bcHashed{Path: p, Hash: h})
 	}
 	data, err := json.Marshal(m)
 	if err != nil {
@@ -456,8 +605,13 @@ func (c *buildCache) Hit(dir, out string, ins []build.Input) (outputs []string, 
 	if len(mods) != len(m.Mods) {
 		return nil, false
 	}
-	for i, p := range mods {
-		if m.Mods[i].Path != p || m.Mods[i].Hash != fileStatHash(p) {
+	recordedMods := make(map[string]string, len(m.Mods))
+	for _, h := range m.Mods {
+		recordedMods[h.Path] = h.Hash
+	}
+	for _, p := range mods {
+		h, ok := recordedMods[p]
+		if !ok || h != fileStatHash(p) {
 			return nil, false
 		}
 	}

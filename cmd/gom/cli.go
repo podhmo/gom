@@ -54,7 +54,7 @@ func compileOptions(in input, checkOnly bool, seen *depSeen, gl *goimport.Loader
 	mods := map[string]map[string]*resolve.Symbol{}
 	gc := &gomimport.Config{Dir: dir, Go: gl, Sigs: gl, Modules: mods}
 	if seen != nil {
-		gc.OnLoadGomi = func(p string) { seen.gomis = append(seen.gomis, p) }
+		gc.OnLoadGomi = func(p string, src []byte) { seen.noteGomi(p, src) }
 	}
 	ml := gomimport.New(gc)
 	return gomstd.Apply(&build.Options{
@@ -90,12 +90,16 @@ func compileInputs(inputs []input, checkOnly bool, bc *buildCache, outFlag strin
 			dir := filepath.Dir(filepath.Clean(in.path))
 			if bc != nil {
 				seen = bc.depSink(dir)
+				seen.noteMods(dir)
+				seen.noteGomi(in.path, in.src)
 			}
 			glc := &goimport.Config{Dir: dir}
 			if seen != nil {
 				glc.OnLoad = func(d string, deps []string) {
-					seen.godirs = append(seen.godirs, d)
-					seen.godirs = append(seen.godirs, deps...)
+					seen.noteGoDir(d)
+					for _, dep := range deps {
+						seen.noteGoDir(dep)
+					}
 				}
 			}
 			gl = goimport.New(glc)
@@ -263,8 +267,10 @@ func compileInputs(inputs []input, checkOnly bool, bc *buildCache, outFlag strin
 				// the loader (the dep set is the union).
 				p.seen = bc.depSink(goPoolKey(dir))
 				glc.OnLoad = func(d string, deps []string) {
-					p.seen.godirs = append(p.seen.godirs, d)
-					p.seen.godirs = append(p.seen.godirs, deps...)
+					p.seen.noteGoDir(d)
+					for _, dep := range deps {
+						p.seen.noteGoDir(dep)
+					}
 				}
 			}
 			p.gl = goimport.New(glc)
@@ -293,6 +299,7 @@ func compileInputs(inputs []input, checkOnly bool, bc *buildCache, outFlag strin
 		var seen *depSeen
 		if bc != nil {
 			seen = bc.depSink(dir)
+			seen.noteMods(dir)
 		}
 		gl, _ := poolLoader(dir)
 		if !badParse[dir] {

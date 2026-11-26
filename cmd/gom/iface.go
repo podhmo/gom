@@ -178,6 +178,9 @@ func checkInterfaces(inputs []input, results []*build.Result, rep *diag.Report, 
 			}
 			declared, sp, src := gomiDecl(path, gomiInputs, inputs, results)
 			if src != nil {
+				if bc != nil {
+					bc.depSink(dir).noteGomi(path, src)
+				}
 				// The E0604 span points into this file, so its
 				// source must join srcs — a discovered stray is
 				// not an input and was never registered.
@@ -324,13 +327,19 @@ func compileInput(in input, bc *buildCache) *build.Result {
 	var seen *depSeen
 	if bc != nil {
 		seen = bc.depSink(filepath.Dir(filepath.Clean(in.path)))
+		seen.noteMods(filepath.Dir(filepath.Clean(in.path)))
+		if in.iface {
+			seen.noteGomi(in.path, in.src)
+		}
 	}
 	dir := filepath.Dir(filepath.Clean(in.path))
 	glc := &goimport.Config{Dir: dir}
 	if seen != nil {
 		glc.OnLoad = func(d string, deps []string) {
-			seen.godirs = append(seen.godirs, d)
-			seen.godirs = append(seen.godirs, deps...)
+			seen.noteGoDir(d)
+			for _, dep := range deps {
+				seen.noteGoDir(dep)
+			}
 		}
 	}
 	r, err := build.Compile(build.Input{Path: in.path, Src: in.src, Interface: in.iface},
