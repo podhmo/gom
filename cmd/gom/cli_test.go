@@ -534,6 +534,32 @@ func TestBuildModuleLocalDependencyKeepsOutputBesideSource(t *testing.T) {
 	}
 }
 
+func TestBuildRejectsSymlinkedOutputCollision(t *testing.T) {
+	t.Parallel()
+
+	dir := writeFiles(t, map[string]string{
+		"main.gom":     "package main\n\nimport \"m/dep\"\n\nfn main () -> Unit = {\n  let _ = dep.one ()\n  ()\n}\n",
+		"dep/dep.gom":  "package dep\n\nfn one () -> Int = 1\n",
+		"dep/dep.gomi": "package dep\n\nfn one () -> Int\n",
+	})
+	testModule(t, dir)
+	target := filepath.Join(dir, "dep", "dep.go")
+	if err := os.WriteFile(target, []byte("old"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	alias := filepath.Join(dir, "out.go")
+	if err := os.Symlink(target, alias); err != nil {
+		t.Fatal(err)
+	}
+	code, _, stderr := invoke("build", "-o", alias, filepath.Join(dir, "main.gom"))
+	if code != 2 || !strings.Contains(stderr, "assigned to both") {
+		t.Fatalf("gom build: exit %d, want collision rejection; stderr=%q", code, stderr)
+	}
+	if b, err := os.ReadFile(target); err != nil || string(b) != "old" {
+		t.Fatalf("collision target changed: %q, %v", b, err)
+	}
+}
+
 func TestBuildRejectsOutputCollisionWithAutoDependency(t *testing.T) {
 	t.Parallel()
 

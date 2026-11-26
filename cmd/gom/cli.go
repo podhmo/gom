@@ -463,6 +463,19 @@ func inputKey(path string) string {
 	return filepath.Clean(path)
 }
 
+// outputKey canonicalizes a generated-file destination. Unlike input
+// file identity, symlink aliases of one output must collide because
+// both writes reach the same file.
+func outputKey(path string) string {
+	if abs, err := filepath.Abs(path); err == nil {
+		path = abs
+	}
+	if resolved, err := filepath.EvalSymlinks(path); err == nil {
+		path = resolved
+	}
+	return filepath.Clean(path)
+}
+
 // dirKey canonicalizes package-directory identity across symlinks.
 // File identity deliberately stays lexical: one shared file symlinked
 // into two package directories is a member of both Go packages.
@@ -721,7 +734,7 @@ func runBuild(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stderr, "gom build: %v\n", err)
 			return diag.ExitInternal
 		}
-		key := inputKey(dst)
+		key := outputKey(dst)
 		if prev, ok := dstSeen[key]; ok {
 			fmt.Fprintf(stderr, "gom build: output path %s is assigned to both %s and %s\n", dst, prev, in.path)
 			return diag.ExitInternal
