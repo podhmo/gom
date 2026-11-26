@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -38,6 +39,53 @@ func TestRunExecutes(t *testing.T) {
 	}
 	if !strings.Contains(out, "argc 3") {
 		t.Fatalf("stdout = %q, want program output (binary + a + b = argc 3)", out)
+	}
+}
+
+// TestRunModuleLocalDependency: `gom run` discovers a same-module
+// .gom import transitively, emits that package beside its sources,
+// and links the single user-facing main package in one invocation.
+func TestRunModuleLocalDependency(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: go build + exec, skipping in short mode")
+	}
+	t.Parallel()
+
+	gobin, err := exec.LookPath("go")
+	if err != nil {
+		t.Skip("no go toolchain on PATH")
+	}
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	copyFixture(t, filepath.Join(root, "testdata", "multifile"), dir)
+	if !goAtLeast(gobin, dir, 1, 27) {
+		t.Skip("fixture requires go >= 1.27 (testdata/multifile/go.mod)")
+	}
+	gomodPath := filepath.Join(dir, "go.mod")
+	gomod, err := os.ReadFile(gomodPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gomod = []byte(strings.ReplaceAll(string(gomod), "=> ../..", "=> "+root))
+	if err := os.WriteFile(gomodPath, gomod, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	code, out, errout := invoke("run", filepath.Join(dir, "gomapp"))
+	if code != 0 {
+		t.Fatalf("gom run: exit %d; stdout=%q stderr=%q", code, out, errout)
+	}
+	want := "12.56636\ncircle 4\n2\n6.28318\n[]\n[]\n7\n"
+	if out != want {
+		t.Fatalf("gom run stdout = %q, want %q", out, want)
+	}
+	for _, rel := range []string{"shapes/shapes.go", "shapes/ops.go", "gomapp/main.go"} {
+		if _, err := os.Stat(filepath.Join(dir, rel)); err != nil {
+			t.Fatalf("expected generated file %s: %v", rel, err)
+		}
 	}
 }
 

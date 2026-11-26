@@ -312,6 +312,115 @@ func TestCheckInterfaceFile(t *testing.T) {
 	}
 }
 
+func TestExpandModuleLocalDepsTransitivelyAddsPackageFiles(t *testing.T) {
+	t.Parallel()
+
+	dir := writeFiles(t, map[string]string{
+		"main.gom": `package main
+
+import "m/a"
+
+fn main () -> Unit = ()
+`,
+		"a/a.gom": `package a
+
+import "m/b"
+
+fn f () -> Int = b.g ()
+`,
+		"a/x.gom": `package x
+
+fn h () -> Int = 2
+`,
+		"b/b.gom": `package b
+
+fn g () -> Int = 1
+`,
+	})
+	testModule(t, dir)
+	explicit, err := readInputs([]string{filepath.Join(dir, "main.gom")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := expandModuleLocalDeps(explicit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]bool{
+		filepath.Join(dir, "main.gom"):   false,
+		filepath.Join(dir, "a", "a.gom"): true,
+		filepath.Join(dir, "a", "x.gom"): true,
+		filepath.Join(dir, "b", "b.gom"): true,
+	}
+	if len(got) != len(want) {
+		t.Fatalf("expanded %d inputs, want %d: %#v", len(got), len(want), got)
+	}
+	for _, in := range got {
+		auto, ok := want[in.path]
+		if !ok {
+			t.Fatalf("unexpected input %s", in.path)
+		}
+		if in.auto != auto {
+			t.Fatalf("%s auto = %v, want %v", in.path, in.auto, auto)
+		}
+	}
+}
+
+func TestExpandModuleLocalDepsSkipsToolchainStdlib(t *testing.T) {
+	t.Parallel()
+
+	dir := writeFiles(t, map[string]string{
+		"main.gom": `package main
+
+import "list"
+
+fn main () -> Unit = ()
+`,
+		"stdlib/list/list.gom": `package list
+
+fn f () -> Int = 1
+`,
+	})
+	testModule(t, dir)
+	gomod := "module github.com/podhmo/gom\n\ngo 1.27\n"
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(gomod), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	explicit, err := readInputs([]string{filepath.Join(dir, "main.gom")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := expandModuleLocalDeps(explicit)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 1 {
+		t.Fatalf("expanded %d inputs, want only the explicit input: %#v", len(got), got)
+	}
+}
+
+func TestBuildModuleLocalDependencyKeepsOutputBesideSource(t *testing.T) {
+	t.Parallel()
+
+	dir := writeFiles(t, map[string]string{
+		"main.gom":     "package main\n\nimport \"m/dep\"\n\nfn main () -> Unit = {\n  let _ = dep.one ()\n  ()\n}\n",
+		"dep/dep.gom":  "package dep\n\nfn one () -> Int = 1\n",
+		"dep/dep.gomi": "package dep\n\nfn one () -> Int\n",
+	})
+	testModule(t, dir)
+	out := filepath.Join(dir, "dist", "main.go")
+
+	code, stdout, stderr := invoke("build", "-o", out, filepath.Join(dir, "main.gom"))
+	if code != 0 {
+		t.Fatalf("gom build: exit %d; stdout=%q stderr=%q", code, stdout, stderr)
+	}
+	for _, p := range []string{out, filepath.Join(dir, "dep", "dep.go")} {
+		if _, err := os.Stat(p); err != nil {
+			t.Fatalf("expected output %s: %v", p, err)
+		}
+	}
+}
+
 func TestBuildWritesGo(t *testing.T) {
 	t.Parallel()
 

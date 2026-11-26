@@ -198,9 +198,10 @@ func TestEndToEnd_MultifilePackage(t *testing.T) {
 		t.Fatalf("gom check: exit %d; stdout=%q stderr=%q", code, out, errout)
 	}
 
-	// gom build emits shapes/shapes.go + shapes/ops.go (same package)
-	// and gomapp/main.go importing the generated library package.
-	if code, out, errout := invoke("build", shapesDir, gomappDir); code != 0 {
+	// gom build on the consumer alone discovers the same-module
+	// library through its import and emits the whole shapes package
+	// before gomapp/main.go.
+	if code, out, errout := invoke("build", gomappDir); code != 0 {
 		t.Fatalf("gom build: exit %d; stdout=%q stderr=%q", code, out, errout)
 	}
 	for _, rel := range []string{

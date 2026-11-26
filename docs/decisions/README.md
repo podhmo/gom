@@ -274,4 +274,5 @@
 | [uint-first-class](2026-11-25-uint-first-class.md) | `Uint` / `Uint64` を第一級整数型にする | 採用 |
 | [write-failure-e0003](2026-11-25-write-failure-e0003.md) | write 失敗は E0003 診断（exit 2 → 1） | 採用 |
 | [writeoperand-type-driven](2026-11-25-writeoperand-type-driven.md) | nested operand の括弧判定は静的型駆動にする | 採用 |
+| [module-local-transitive-emit](2026-11-26-module-local-transitive-emit.md) | `gom build` / `gom run` は module-local の `.gom` dependency を推移的に emit する | 採用（prototype 検証済み） |
 <!-- END GENERATED -->

@@ -36,6 +36,9 @@ type input struct {
 	path  string // as the user refers to it — also the name spans carry
 	src   []byte
 	iface bool
+	// auto marks a module-local source dependency discovered from
+	// imports rather than a file or directory the user named.
+	auto bool
 }
 
 // compileOptions builds the driver options for one input: a
@@ -286,7 +289,7 @@ func compileInputs(inputs []input, checkOnly bool, bc *buildCache, outFlag strin
 			ins[j] = build.Input{Path: inputs[i].path, Src: inputs[i].src}
 		}
 		if bc != nil {
-			if _, ok := bc.Hit(dir, outFlag, ins); ok {
+			if _, ok := bc.Hit(dir, dirCacheOut(inputs, idxs, outFlag), ins); ok {
 				// The manifest still holds and its outputs are on
 				// disk — mark the inputs cached; runBuild lists
 				// their dsts without compiling or writing.
@@ -423,6 +426,129 @@ func canonicalImport(path string) string {
 	return gomimport.CanonicalPath(path)
 }
 
+// cacheOutForInput is the output mode a cache manifest can rely on.
+// Auto-added dependencies ignore -o and write beside their sources.
+func cacheOutForInput(in input, outFlag string) string {
+	if in.auto {
+		return ""
+	}
+	return outFlag
+}
+
+// dirCacheOut keys a compiled directory's manifest by the output
+// mode of its members. Expansion never mixes auto dependencies with
+// explicit inputs in one directory, so the first member represents
+// the group.
+func dirCacheOut(inputs []input, idxs []int, outFlag string) string {
+	if len(idxs) == 0 {
+		return outFlag
+	}
+	return cacheOutForInput(inputs[idxs[0]], outFlag)
+}
+
+// inputKey canonicalizes a path for identity comparisons without
+// changing the user-facing spelling carried in input.path.
+func inputKey(path string) string {
+	if abs, err := filepath.Abs(path); err == nil {
+		return filepath.Clean(abs)
+	}
+	return filepath.Clean(path)
+}
+
+// expandModuleLocalDeps adds same-module .gom source dependencies
+// imported by the explicit inputs. Package directories are added as
+// complete direct-child *.gom sets because directory identity is the
+// Go package identity. Directories the user already named are not
+// widened, preserving file-wise input control.
+func expandModuleLocalDeps(inputs []input) ([]input, error) {
+	out := slices.Clone(inputs)
+	queue := slices.Clone(inputs)
+	seenFiles := map[string]bool{}
+	seenDirs := map[string]bool{}
+	for _, in := range inputs {
+		seenFiles[inputKey(in.path)] = true
+		seenDirs[inputKey(filepath.Dir(filepath.Clean(in.path)))] = true
+	}
+	for len(queue) > 0 {
+		in := queue[0]
+		queue = queue[1:]
+		if in.iface {
+			continue
+		}
+		f, ds := syntax.Parse(in.src, in.path)
+		if f == nil || ds.HasError() {
+			continue // the normal compile reports the parse error once
+		}
+		dir := filepath.Dir(filepath.Clean(in.path))
+		modPath, modDir, ok := moduleOf(dir)
+		if !ok {
+			continue
+		}
+		for _, d := range f.Decls {
+			imp, ok := d.(*syntax.ImportDecl)
+			if !ok || imp.Go {
+				continue
+			}
+			impPath := canonicalImport(imp.Path)
+			if gomimport.IsStdlibPath(impPath) {
+				continue // toolchain artifacts are built through the stdlib workflow
+			}
+			var rel string
+			switch {
+			case impPath == modPath:
+				rel = ""
+			case strings.HasPrefix(impPath, modPath+"/"):
+				rel = strings.TrimPrefix(impPath, modPath+"/")
+			default:
+				continue // stdlib, external module, or workspace sibling
+			}
+			depDir := filepath.Clean(filepath.Join(modDir, filepath.FromSlash(rel)))
+			if !filepath.IsAbs(in.path) {
+				// Keep discovered paths in the same user-facing style as
+				// the input that reached them: relative CLI inputs should
+				// not turn dependency diagnostics and outputs absolute.
+				if cwd, err := os.Getwd(); err == nil {
+					if relDir, err := filepath.Rel(cwd, depDir); err == nil {
+						depDir = relDir
+					}
+				}
+			}
+			if depModPath, depModDir, ok := moduleOf(depDir); !ok || depModPath != modPath || depModDir != modDir {
+				continue // a nested module is external even when its path prefixes ours
+			}
+			depKey := inputKey(depDir)
+			if seenDirs[depKey] {
+				continue
+			}
+			seenDirs[depKey] = true
+			matches, err := filepath.Glob(filepath.Join(depDir, "*.gom"))
+			if err != nil {
+				return nil, err
+			}
+			sort.Strings(matches)
+			for _, path := range matches {
+				if st, err := os.Stat(path); err != nil || st.IsDir() {
+					continue
+				}
+				clean := filepath.Clean(path)
+				fileKey := inputKey(clean)
+				if seenFiles[fileKey] {
+					continue
+				}
+				src, err := os.ReadFile(clean)
+				if err != nil {
+					return nil, fmt.Errorf("read %s: %w", clean, err)
+				}
+				dep := input{path: clean, src: src, auto: true}
+				seenFiles[fileKey] = true
+				out = append(out, dep)
+				queue = append(queue, dep)
+			}
+		}
+	}
+	return out, nil
+}
+
 // runCheck implements `gom check [-format F] [FILE|DIR ...]`:
 // diagnostics only, nothing written (spec section 12).
 func runCheck(args []string, stdout, stderr io.Writer) int {
@@ -517,6 +643,17 @@ func runBuild(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "gom build: -o %s names a file, which requires a single input\n", *out)
 		return diag.ExitInternal
 	}
+	inputs, err = expandModuleLocalDeps(inputs)
+	if err != nil {
+		fmt.Fprintf(stderr, "gom build: %v\n", err)
+		return diag.ExitInternal
+	}
+	nOutInputs := 0
+	for _, in := range inputs {
+		if !in.auto {
+			nOutInputs++
+		}
+	}
 
 	rep := diag.Report{Files: inputNames(inputs)}
 	srcs := map[string][]byte{}
@@ -555,7 +692,7 @@ func runBuild(args []string, stdout, stderr io.Writer) int {
 		if results[i].Output == nil || failed[results[i]] {
 			continue
 		}
-		dst, err := outputPath(in.path, *out, len(inputs))
+		dst, err := outputPath(in.path, cacheOutForInput(in, *out), nOutInputs)
 		if err != nil {
 			fmt.Fprintf(stderr, "gom build: %v\n", err)
 			return diag.ExitInternal
@@ -574,7 +711,7 @@ func runBuild(args []string, stdout, stderr io.Writer) int {
 				// Cache hit: the recorded outputs are still on
 				// disk — list them like a fresh write (design.md
 				// section 5's summary contract).
-				dst, err := outputPath(inputs[i].path, *out, len(inputs))
+				dst, err := outputPath(inputs[i].path, cacheOutForInput(inputs[i], *out), nOutInputs)
 				if err != nil {
 					fmt.Fprintf(stderr, "gom build: %v\n", err)
 					return diag.ExitInternal
@@ -599,9 +736,13 @@ func runBuild(args []string, stdout, stderr io.Writer) int {
 	// seed a hit from (the withheld package recompiles next run).
 	if bc != nil {
 		wrote := map[string][]string{}
+		outByDir := map[string]string{}
 		broken := map[string]bool{}
 		for i, r := range results {
 			dir := filepath.Dir(filepath.Clean(inputs[i].path))
+			if _, ok := outByDir[dir]; !ok {
+				outByDir[dir] = cacheOutForInput(inputs[i], *out)
+			}
 			if r == nil || r.Cached || r.Output == nil || failed[r] || !writeOK[r] {
 				broken[dir] = true
 				continue
@@ -610,7 +751,7 @@ func runBuild(args []string, stdout, stderr io.Writer) int {
 		}
 		for dir, outs := range wrote {
 			if !broken[dir] {
-				bc.commit(dir, *out, outs)
+				bc.commit(dir, outByDir[dir], outs)
 			}
 		}
 	}

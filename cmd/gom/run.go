@@ -68,6 +68,15 @@ func runGomRun(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "gom run: inputs must belong to a single package directory (got %d)\n", len(dirs))
 		return diag.ExitInternal
 	}
+	runDir := ""
+	for d := range dirs {
+		runDir = d
+	}
+	inputs, err = expandModuleLocalDeps(inputs)
+	if err != nil {
+		fmt.Fprintf(stderr, "gom run: %v\n", err)
+		return diag.ExitInternal
+	}
 
 	rep := diag.Report{Files: inputNames(inputs)}
 	srcs := map[string][]byte{}
@@ -90,7 +99,7 @@ func runGomRun(args []string, stdout, stderr io.Writer) int {
 	// `gom build` and `gom test` have, so the package stays the
 	// module-resolvable unit the go tool runs.
 	var writeErrs []error
-	var dir, dst string
+	mainDst := runDir
 	hasMain := false
 	for i, r := range results {
 		if r == nil || r.Output == nil || failed[r] {
@@ -106,9 +115,11 @@ func runGomRun(args []string, stdout, stderr io.Writer) int {
 			continue
 		}
 		rep.Outputs = append(rep.Outputs, d)
-		dir, dst = filepath.Dir(d), d
-		if isMainSource(r.Output.Source) {
-			hasMain = true
+		if !inputs[i].auto {
+			mainDst = d
+			if isMainSource(r.Output.Source) {
+				hasMain = true
+			}
 		}
 	}
 	for _, e := range writeErrs {
@@ -128,15 +139,15 @@ func runGomRun(args []string, stdout, stderr io.Writer) int {
 		return rep.ExitCode()
 	}
 	if !hasMain {
-		fmt.Fprintf(stderr, "gom run: %s is not a package main (no generated file declares `package main`)\n", dst)
+		fmt.Fprintf(stderr, "gom run: %s is not a package main (no generated file declares `package main`)\n", mainDst)
 		return diag.ExitInternal
 	}
 
 	// The position table folds `go build` diagnostics onto .gom
 	// spans exactly like runGoTools.
-	abs, err := filepath.Abs(dir)
+	abs, err := filepath.Abs(runDir)
 	if err != nil {
-		abs = dir
+		abs = runDir
 	}
 	pos := build.NewGoPosIndex(abs, srcs)
 	for i, r := range results {
