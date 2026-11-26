@@ -26,7 +26,7 @@ pipe operand の record 適合失敗と `pipeCall` の同じ mismatch が二度�
 
 ### E. labeled lambda seeding / structural record の設計（調査 + decision、中）
 
-wave50 lane E の残り。labeled expected signature の positional lambda parameter に record 型を seed するか、匿名 record 型または structural record を導入するかを調査し decision まで行う。実装は wave52 以降。label introduction 全体への影響と、ad hoc accumulator の需要を selfish/DMMF probe で確認する。
+wave50 lane E の残り。labeled expected signature の positional lambda parameter に record 型を seed するか、label を含む文脈型を安全に propagate するか、匿名 record 型または structural record を導入するかを調査し decision まで行う。実装は wave52 以降。label introduction 全体と speculative propagation への影響、および ad hoc accumulator の需要を selfish/DMMF probe で確認する。
 
 推薦順: B → D → C → A → E。B/D/C は wave50 の直接残件で小さく、A はユーザー向け、E は設計論点なので最後に置く。A/E の同時採用は重い場合があり、採否時にどちらかを落とす選択肢を確認する。
 
