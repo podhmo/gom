@@ -15,7 +15,18 @@
 - [x] ビット演算子の提供形: `|`/`&`/`^`/shift がなく、Go のフラグ合成（`os.O_APPEND|os.O_CREATE|os.O_WRONLY`）を `+` で代用するしかない。`<<`/`>>` は関数合成に使用済みで名称の余地が狭い（[problem](problems/2026-11-01-operator-coverage.md)、sandbox 探索 jot で再観測 — [sketch](sketch/2026-11-23-sandbox-missing-features.md)）。wave37 lane B で decision 化 — 三重字 `&&&`/`|||`/`^^^`/`<<<`/`>>>`（+`&&^`）を推薦（[decision](decisions/2026-11-23-bit-operators.md)、[prompts](sketch/2026-11-23-wave37-prompts.md)）。**2026-11-24 採択・実装済み** — wave38 lane B で `&&&`/`&&^`/`|||`/`^^^`/`<<<`/`>>>` として実装
 - [x] nil の綴り: wave37 lane C — decision [2026-11-23-nil-spelling](decisions/2026-11-23-nil-spelling.md)（`Go.nil` ユニバーサル builtin）。**2026-11-24 採択** — 実装は wave38 lane C
 - [x] 部分適用・`Unit` 残りの関数値が値位置に流れたときの lint: `fmt.Println` 等に残りパラメータを持つ関数値を渡すとエラーにならず `0x...` が印字される（同 sketch、probes/method の `string i` 事例）。wave39 lane C で調査 → [decision](decisions/2026-11-24-partial-application-lint.md) 採択: `ignore`・`_` 束縛・match `_` 腕の 3 面で `*types.Func` の捨てを警告（`//gom:allow` の warning 拡張が前提）。実装は wave40 lane A。**残問**: `any` 引数経由で Go へ渡る関数値は対象外（decision で明示的に open のまま。run 2 の recheck/partapp でも `fmt.Println f` が無警告で `0x...` 表示になることを再確認 — [recheck](sketch/ja/2026-11-24-sandbox-explorer2-recheck.md)）
-- [ ] フィールド名の共通する record を並べたときの record literal の曖昧さ（E0407）を緩和するか: `UnvalidatedOrder` → `ValidatedOrder` のような段階型パターンでは同じフィールド名が自然に並び、literal ごとに `let v : T` 注釈が要る。フィールド型・文脈での絞り込みは考えられるか（run 2 の shop/ — [recheck](sketch/ja/2026-11-24-sandbox-explorer2-recheck.md)、[log](sketch/ja/2026-11-24-sandbox-explorer2-log.md)）
+- [ ] フィールド名の共通する record を並べたときの record literal の曖昧さ（E0407）を緩和するか: `UnvalidatedOrder` → `ValidatedOrder` のような段階型パターンでは同じフィールド名が自然に並び、literal ごとに `let v : T` 注釈が要る。フィールド型・文脈での絞り込みは考えられるか（run 2 の shop/ — [recheck](sketch/ja/2026-11-24-sandbox-explorer2-recheck.md)、[log](sketch/ja/2026-11-24-sandbox-explorer2-log.md)）。PR #256 の F2 は推論強化より先に `ValidatedOrder { id = 1, ... }` の型名前置 literal を足す案。文脈推論と明示構文のどちらを正にするかは未決（[audit](sketch/2026-11-26-wave48-lane-g-owner-ideas-audit.md)）
+- [ ] stdlib `str` の最小面を超える文字列操作を広げるか: wave48 lane E で byte length/index/range と `runes` は stdlib package `str` に決着したが、`fold_chars` 相当の中間 List を作らない走査、panic しない slice、Unicode 一般処理は未提供。PR #256 F1 の組み込み `String` module 案自体は採用済み decision と競合するため戻さない（[decision](decisions/2026-11-26-string-byte-surface.md)、[audit](sketch/2026-11-26-wave48-lane-g-owner-ideas-audit.md)）
+
+### 開発体験 / 診断
+
+- [ ] 継続行らしき字下げ行の誤パースを専用診断に畳み込むか: `List.fold` の適用を複数行に書くと E0407/E0402/E0401 が連鎖し、本因（改行で式が切れた）が見えない。NL-2 の文法変更は既 decision どおり採らないが、診断だけを改善する余地はある。字下げだけで括る自動 fix は独立式を別意味に書き換えうるため unsafe（PR #256 U1、Devin Review 指摘、[audit](sketch/2026-11-26-wave48-lane-g-owner-ideas-audit.md)）
+- [ ] `diag.Diagnostic` に `labels` / `details` を足すか: E0301 の不足パターン一覧や E0401 の「期待型の由来」を text/JSON 出力へ構造化して渡す面がない。format 層に `data` を解釈させず phase 側が作る案だが、wire shape と spec の変更が要る（[problem](problems/2026-11-02-text-format-detail-block.md)、PR #256 U2/U6、[audit](sketch/2026-11-26-wave48-lane-g-owner-ideas-audit.md)）
+- [ ] E0201 に typo 候補や import 補完 fix を付けるか: `aera` → `area` のような編集距離候補、module member の typo、未 import の Go package に対する `import go` fix の提供境界が未決（PR #256 U4、[audit](sketch/2026-11-26-wave48-lane-g-owner-ideas-audit.md)）
+- [ ] resolve/type error 後のエラー回復をどこまで広げるか: 未定義名を error type として check に通す、pattern を宣言単位で走らせると 1 回の check で見える情報は増えるが、連鎖診断の抑止と fixture 設計が未決（PR #256 U5、[audit](sketch/2026-11-26-wave48-lane-g-owner-ideas-audit.md)）
+- [ ] module 外での `gom run` scratch module 実行と `gom init` を提供するか: module-local transitive emit は wave48 lane C で解消済み。残りは go.mod のない directory での一時 module 合成と、新規 project の `go.mod`/`main.gom` 雛形生成。tutorial の章別 go.mod 生成ではない（PR #256 U7、[audit](sketch/2026-11-26-wave48-lane-g-owner-ideas-audit.md)）
+- [ ] `gom eval` / REPL を利用者へ公開するか: `internal/eval` は oracle としてあるが、Go interop や並行のカバー範囲が compiled より狭い。eval で返す式と compiled へ落とす式の境界、表示方法、REPL の需要が未決（PR #256 U9、[audit](sketch/2026-11-26-wave48-lane-g-owner-ideas-audit.md)）
+- [ ] 型シグネチャで stdlib を引く `gom search` を提供するか: Hoogle 相当の検索は名前を知らない利用者に有効だが、検索対象・単一化の柔軟さ・curry 引数順の扱いが未決。`filter_map` は `(a -> Option b) -> List a -> List b` なので PR #256 の例は引数順の修正が要る（PR #256 U10、[audit](sketch/2026-11-26-wave48-lane-g-owner-ideas-audit.md)）
 
 ### Go 相互運用
 
@@ -36,6 +47,7 @@
 - [x] 生成コード特殊化ポリシー（curried HOF 側）: 呼出側 uncurry（flat fn params）を採択 — 宣言 >=2 本矢印パラメータを flat `func(T1',...,Tk') R'` にし、`Fold` の要素ごと確保を解消（~12×）。wave20 lane 2、[decision](decisions/2026-11-18-flat-fn-params.md)、[検証](sketch/2026-11-18-flat-fn-params-verify.md)。コピーしない共有スライス型（View）の案は [problems](problems/2026-11-04-shared-slice-view-type.md)
 - [x] `concat` の O(k) スタック: `@extern fn` で `Concat` を impl.go の buffer loop へ — 総長 prealloc の 1 回コピー、O(1) スタック・O(n)・1 alloc（k=512 で 1.51ms → 21µs、~72×）。wave19 lane 3、[sketch](sketch/2026-11-18-concat-buffer-impl.md)
 - [x] 独立 dir 並列コンパイルの実測ベンチ: wave21 lane3 で Kahn 層 + GOMAXPROCS ワーカー化済み（[decision](decisions/2026-11-18-parallel-dir-compile.md)）だが wall-clock の効果は未計測。複数 dir・dep 連鎖 fixture での計測は wave22 候補（prompts 草案 案4） → wave22 lane1 で実測: serial 比約 2.8 倍（単一プロセス化が支配的）、層内並列でさらに -22〜-32%（[sketch](sketch/2026-11-18-wave22-parallel-bench.md)）
+- [ ] goimport の stdlib export data decode を process 内で共有できるか: module pool ごとの再 decode は大きな build で hotspot になりうるが、`importer.ForCompiler` の lookup は `*types.Package` ではなく export data reader を返す。decode 済み型 identity を保つ共有構成を prototype で確かめるまで実装不可（PR #256 P1、Devin Review 指摘、[audit](sketch/2026-11-26-wave48-lane-g-owner-ideas-audit.md)）
 
 ### ツール
 

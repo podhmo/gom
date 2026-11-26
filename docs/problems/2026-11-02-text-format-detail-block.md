@@ -45,6 +45,11 @@ have either — the wire object has no field for it.
 - Extend the model with labeled/secondary spans (`labels: [{span,
   message}]` rustc-style). That changes the JSON wire shape too, so it
   needs a spec section 12 amendment first.
+- Extend the model with diagnostic detail lines (`details: [...]`) in
+  addition to labels: phases that already compute structured facts such as
+  E0301's missing patterns would render them without teaching the text
+  emitter per-code `data` keys. This is PR #256 U2's refinement of the
+  previous response; it still needs the same wire/spec decision.
 - Per-code text templates (fluent-style): the emitter maps
   code+data→sentences. Heavier machinery; probably overkill for v1.
 - Or amend the spec example to match the implemented format (snippet
@@ -56,3 +61,6 @@ have either — the wire object has no field for it.
 - [decision: diag-output-formats](../decisions/2026-11-02-diag-output-formats.md)
 - [problem: none yet — E0301 is the only code whose spec example shows
   a detail block]
+- [wave48 lane G audit](../sketch/2026-11-26-wave48-lane-g-owner-ideas-audit.md)
+  — 2026-11-26 に現行 text 出力へ不足パターンが出ないことを再確認し、
+  implementation-gaps へ登録した

@@ -1,8 +1,8 @@
 # wave48 prompts
 
 - 日付: 2026-11-26
-- 採否: A〜F すべて採用（podhmo、2026-11-26）
-- 順序: A → B → C → D → E → F
+- 採否: A〜F すべて採用（podhmo、2026-11-26）。G は同日に追加指定
+- 順序: A → B → C → D → E → F → G
 
 wave47 の残件と TODO/open questions/implementation-gaps から。採否インタビューでは、
 推薦どおり C は module-local source dependency 限定、D は `.gomi` directive 引き継ぎ、
@@ -60,6 +60,10 @@ Unicode 文字列処理全般や mutable string builder の設計は対象外。
 - `gom explain E0513` の nil-able 一覧へ `Go.FuncN` を足す
 - `Go.conv` の `List` → `Go.Slice` で gom 宣言要素型が E0507 になる現行制限を spec に明記する
 
+### G. PR #256 owner improvement ideas の精査と台帳登録（小）
+
+[PR #256](https://github.com/podhmo/gom/pull/256) の 20 件の改善案を、PR 上の Devin Review / podhmo コメントと wave48 lane A〜F 後の状態へ突き合わせる。採用可能な未決事項は open-questions、実施可能な内部作業は TODO、spec/implementation/docs mismatch は implementation-gaps、既存 problem への追記に分ける。U3（端末では text 既定）と U8（LSP）は podhmo コメントで却下済み。F1/F3 は wave48 lane E/D の採用済み decision と競合する部分を戻さない。コード変更はしない。
+
 ## 見送り候補
 
 - record literal の E0407 曖昧さ緩和 — 段階型パターンでは価値が高いが、型推論の設計変更が
@@ -69,12 +73,13 @@ Unicode 文字列処理全般や mutable string builder の設計は対象外。
 - `gom install` — C の transitive emit が前提。wave48 では scope に入れない
 - `pkg/errors` 系の stack を持つ error 値生成、match 到達不能 arm の構造化、無名 record の
   `List.fold` acc 推論 — 実用の摩擦はあるが wave48 の上位候補ではない
-- D-3 README / D-4 tutorial go.mod 整理 — ユーザー指定どおりプロジェクト終盤まで保留
+- D-3 README / D-4 tutorial/examples module 配置整理 — ユーザー指定どおりプロジェクト終盤まで保留
 
 ## 採否インタビュー結果
 
-1. A〜F をすべて採用し、順序は推薦どおり A → B → C → D → E → F
+1. A〜F をすべて採用し、順序は推薦どおり A → B → C → D → E → F。G は同日の追加指定として末尾に足す
 2. C の scope は module-local source dependency に限定する
 3. D の abstract/private 意図は `.gomi` directive で引き継ぐ
 4. E は byte 長・byte 範囲を基礎にし、rune 走査を明示的な面に分ける
 5. F の spec/explain 掃除も wave48 に入れる
+6. G は PR #256 の精査と台帳登録に限定し、提案そのものの実装はしない
