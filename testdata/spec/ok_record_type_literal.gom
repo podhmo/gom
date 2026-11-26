@@ -1,0 +1,73 @@
+package ex
+
+import "github.com/podhmo/gom/testdata/spec/foreignpkg"
+
+// A record type name may prefix its literal: the prefix chooses the
+// record type when same-shaped records exist. A constructor head keeps
+// the ordinary application reading, so `Wrap { value = 3 }` remains
+// constructor application with a record argument.
+type Box a = { value: a }
+type ValidatedOrder = { id: Int, total: Int }
+type PricedOrder = { id: Int, total: Int }
+type CtorArg = { value: Int }
+type Wrap =
+  | Wrap CtorArg
+
+type alias OrderAlias = ValidatedOrder
+type alias BoxAlias a = Box a
+type alias ConstBox a = Box Int
+type alias IntBox = Box Int
+type alias PairBox a = Box (a, a)
+type alias FnBox f = Box (Int -> f)
+
+fn build (id: Int) (total: Int) -> ValidatedOrder =
+  ValidatedOrder { id = id, total = total }
+
+fn generic (x: Int) -> Box Int = Box { value = x }
+
+fn ctor (x: Int) -> Wrap = Wrap { value = x }
+
+fn ambiguous (id: Int) (total: Int) -> PricedOrder =
+  PricedOrder { id = id, total = total }
+
+fn foreign (x: Float) (y: Float) -> foreignpkg.Point =
+  foreignpkg.Point { x = x, y = y }
+
+fn local_disambiguated (id: Int) (total: Int) -> Int = {
+  let x = ValidatedOrder { id = id, total = total }
+  x.id + x.total
+}
+
+fn any_box () -> Box Go.Any = Box { value = "text" }
+
+fn alias_build (id: Int) (total: Int) -> ValidatedOrder =
+  OrderAlias { id = id, total = total }
+
+fn alias_generic (x: Int) -> Box Int = BoxAlias { value = x }
+
+fn local_alias (x: Int) -> Int = {
+  let b = BoxAlias { value = x }
+  b.value
+}
+
+fn alias_unused_param (x: Int) -> Int = {
+  let b = ConstBox { value = x }
+  b.value
+}
+
+fn alias_fixed () -> Box Int = IntBox { value = 1 }
+
+fn alias_repeated () -> Box (Int, Int) = PairBox { value = (1, 2) }
+
+fn alias_curried_tail () -> Box (Int -> String -> Go.Any) =
+  FnBox { value = fn x y -> y }
+
+fn choose_pair (x: Box (a, Go.Any)) -> Box (a, Go.Any) = x
+
+fn alias_shared_expected (x: String) -> Box (Go.Any, Go.Any) =
+  choose_pair (PairBox { value = (x, x) })
+
+fn choose_box (x: Box (Go.Any, a)) -> Box (Go.Any, a) = x
+
+fn partially_concrete_expected () -> Box (Go.Any, Int) =
+  choose_box (Box { value = ("x", 1) })

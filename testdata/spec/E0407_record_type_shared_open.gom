@@ -1,0 +1,8 @@
+package main
+
+type Pair a b = { fst: List a, snd: List b }
+
+fn choose (x: Pair a a) -> Pair a a = x
+
+fn bad () -> Go.Any =
+  choose (Pair { fst = [], snd = [] })

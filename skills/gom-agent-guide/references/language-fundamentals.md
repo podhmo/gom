@@ -88,7 +88,10 @@ fn sign (n: Int) -> Int = {
   rather than `rt.TupleN`, so wide tuples still typecheck and
   destructure the same. Lists `[1, 2, 3]`
   (fixed length only). Records `{ x = 1, y = 2 }`, update
-  `{ p with x = 3 }`, access `p.x`.
+  `{ p with x = 3 }`, access `p.x`. Prefix a record literal with
+  its type to choose among same-shaped records:
+  `ValidatedOrder { id = id, total = total }` (constructor heads
+  still mean constructor application).
 - Operators (tightest first): field/module access `a.b`, application
   `f x`, unary `-` `try` `ignore`, `* / %`, `+ -`, `== != < <= > >=`,
   `&&`, `||`, and lowest `|> <| |?> >> <<`. Binary ops are

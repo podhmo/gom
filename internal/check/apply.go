@@ -30,6 +30,14 @@ import (
 // checker as an ascription over this node, so a bare `Go.conv e`
 // reports E0507.
 func (c *checker) checkApply(e *syntax.Apply, want types.Type) Expr {
+	if ti, lit := c.typePrefixedRecordLit(e); ti != nil {
+		rt, ok := c.typePrefixedRecordType(ti, e.Sp, want)
+		if !ok {
+			c.mismatch(e.Fn.Span(), "a record type", rt)
+			return c.checkRecordLit(lit, nil)
+		}
+		return c.checkRecordLit(lit, rt)
+	}
 	fn, callee, goCall := c.calleeOf(e.Fn)
 	if callee == nil {
 		// A member selection deferred on an unresolved receiver meta
@@ -252,6 +260,302 @@ func (c *checker) checkConvCall(e *syntax.Apply, fn Expr) Expr {
 	}
 	out.Call = CallInfo{Kind: CallUnknown, Arity: 0, Applied: len(out.Args), HoleIndex: -1}
 	return out
+}
+
+// typePrefixedRecordType resolves the record construction type for a
+// type prefix. Aliases are transparent here just as in type
+// annotations: instantiate their parameters with metas, expand the
+// target, and require that target to be a record constructor. When the
+// enclosing context already expects a compatible shape, use it to
+// instantiate the prefix's inference metas — `Box { value = "s" }`
+// under `Box Go.Any` must check the field against `Go.Any`, not infer a
+// disjoint `Box String`. Unlike the old copy-in approach this never
+// rewrites a shared alias body: incompatible expectations are left for
+// the ordinary result-type mismatch.
+func (c *checker) typePrefixedRecordType(ti *typeInfo, sp diag.Span, want types.Type) (types.Type, bool) {
+	instantiate := func(params []*types.Var) ([]types.Type, types.Subst) {
+		args := make([]types.Type, len(params))
+		sub := types.Subst{}
+		for i, v := range params {
+			args[i] = c.newMeta(sp, "the record type's argument")
+			sub[v.ID] = args[i]
+		}
+		return args, sub
+	}
+
+	var rt types.Type
+	if ti.kind == kindAlias {
+		args, sub := instantiate(ti.params)
+		if !ti.aliasRes && ti.aliasBod != nil {
+			c.resolveAlias(ti, ti.aliasBod)
+		}
+		var target types.Type = c.quietMeta(sp, "the type alias")
+		if ti.aliasRes {
+			target = sub.Apply(ti.alias)
+		}
+		con, ok := types.Chase(target).(*types.Con)
+		if !ok {
+			return target, false
+		}
+		rti := c.tyCons[conKey{qual: con.Qual, name: con.Name}]
+		if rti == nil || rti.kind != kindRecord {
+			return target, false
+		}
+		// An alias parameter can be absent from its expansion
+		// (`type alias ConstBox a = Box Int`). It does not make the
+		// constructed record any less determined, so it must not demand
+		// an annotation of its own.
+		used := map[*types.Meta]bool{}
+		metasIn(target, func(m *types.Meta) { used[m] = true })
+		for _, arg := range args {
+			if m, ok := types.Chase(arg).(*types.Meta); ok && !used[m] {
+				c.markQuiet(m)
+			}
+		}
+		rt = con
+	} else if ti.kind == kindRecord {
+		args, _ := instantiate(ti.params)
+		rt = &types.Con{Qual: ti.con.Qual, Name: ti.con.Name, Args: args}
+	} else {
+		return ti.con, false
+	}
+	c.useExpectedPrefixType(rt, want, sp)
+	return rt, true
+}
+
+// useExpectedPrefixType binds the inference metas inside rt from a
+// compatible expectation. Compatibility is tested speculatively on
+// cloned metas first: the trial uses the real unification rules
+// (including curried-tail absorption and shared-meta propagation), but
+// it must neither mutate inference state nor emit a second mismatch.
+// Only structurally informative solutions for rt's own inference metas
+// are replayed. A wholly open solution is replayed only when it is shared
+// with another solution, where it still carries an equality constraint.
+// External inference metas are never bound by this lookahead — doing
+// so would let constraints flow backwards into the surrounding
+// expression before its own arguments are checked.
+func (c *checker) useExpectedPrefixType(rt, want types.Type, sp diag.Span) {
+	if want == nil {
+		return
+	}
+	var rtMetas []*types.Meta
+	metasIn(rt, func(m *types.Meta) { rtMetas = append(rtMetas, m) })
+
+	clones := map[*types.Meta]*types.Meta{}
+	cr := c.clonePrefixType(rt, clones)
+	cw := c.clonePrefixType(want, clones)
+	ndiag := len(c.diags)
+	ok := c.unify(cw, cr, sp)
+	c.diags = c.diags[:ndiag]
+
+	solutions := map[*types.Meta]types.Type{}
+	openMetas := map[*types.Meta]*types.Meta{}
+	if ok {
+		sharedOpen := map[*types.Meta]int{}
+		for _, m := range rtMetas {
+			cm, ok := clones[m]
+			if !ok {
+				continue
+			}
+			metasIn(types.Chase(cm), func(open *types.Meta) { sharedOpen[open]++ })
+		}
+		for _, m := range rtMetas {
+			cm, ok := clones[m]
+			if !ok {
+				continue
+			}
+			cs := types.Chase(cm)
+			if target, openOnly := cs.(*types.Meta); openOnly && sharedOpen[target] < 2 {
+				// A single wholly open solution carries no information. Skip it
+				// before reification so no unused inference artifact is minted.
+				continue
+			}
+			if sol, ok := c.reifyPrefixType(cs, openMetas, sp); ok {
+				solutions[m] = sol
+			}
+		}
+	}
+	for _, m := range clones {
+		delete(c.metas, m)
+	}
+	if !ok {
+		return
+	}
+	for _, m := range rtMetas {
+		if sol, ok := solutions[m]; ok {
+			_ = c.bind(m, sol, sp)
+		}
+	}
+}
+
+// reifyPrefixType rewrites a speculative solution. Concrete structure is
+// kept; an unsolved clone meta becomes a fresh ordinary real meta so that
+// ordinary unification can link it to the surrounding inference variable
+// in checking order instead of letting lookahead mutate that variable now.
+// The meta is neither quiet nor silent: if it really remains undetermined,
+// inference must still reject the program.
+func (c *checker) reifyPrefixType(t types.Type, open map[*types.Meta]*types.Meta, sp diag.Span) (types.Type, bool) {
+	switch t := types.Chase(t).(type) {
+	case *types.Meta:
+		if m, ok := open[t]; ok {
+			return m, true
+		}
+		m := c.newMeta(sp, "the unresolved expected type")
+		open[t] = m
+		return m, true
+	case *types.Var:
+		return t, true
+	case *types.Con:
+		args, ok := c.reifyPrefixTypeSlice(t.Args, open, sp)
+		if !ok {
+			return nil, false
+		}
+		return &types.Con{Qual: t.Qual, Name: t.Name, Args: args}, true
+	case *types.Func:
+		ps := make([]types.FuncParam, len(t.Params))
+		for i, p := range t.Params {
+			nt, ok := c.reifyPrefixType(p.Type, open, sp)
+			if !ok {
+				return nil, false
+			}
+			ps[i] = types.FuncParam{Label: p.Label, Type: nt}
+		}
+		ret, ok := c.reifyPrefixType(t.Ret, open, sp)
+		if !ok {
+			return nil, false
+		}
+		return types.Fn(ret, ps...), true
+	case *types.Tuple:
+		elems, ok := c.reifyPrefixTypeSlice(t.Elems, open, sp)
+		if !ok {
+			return nil, false
+		}
+		return &types.Tuple{Elems: elems}, true
+	case *types.Go:
+		args, ok := c.reifyPrefixTypeSlice(t.Args, open, sp)
+		if !ok {
+			return nil, false
+		}
+		return &types.Go{Ref: t.Ref, Args: args}, true
+	default:
+		panic("unreachable")
+	}
+}
+
+func (c *checker) reifyPrefixTypeSlice(ts []types.Type, open map[*types.Meta]*types.Meta, sp diag.Span) ([]types.Type, bool) {
+	out := make([]types.Type, len(ts))
+	for i, t := range ts {
+		nt, ok := c.reifyPrefixType(t, open, sp)
+		if !ok {
+			return nil, false
+		}
+		out[i] = nt
+	}
+	return out, true
+}
+
+// clonePrefixType copies a type for speculative unification. Bound
+// metas are chased away; unbound metas become fresh metas with copied
+// constraints. Type nodes themselves are immutable and can be shared
+// when no meta occurs below them.
+func (c *checker) clonePrefixType(t types.Type, clones map[*types.Meta]*types.Meta) types.Type {
+	switch t := types.Chase(t).(type) {
+	case *types.Meta:
+		if cl, ok := clones[t]; ok {
+			return cl
+		}
+		cl := &types.Meta{ID: c.nextMeta}
+		c.nextMeta++
+		rec := &metaRec{}
+		if r := c.metas[t]; r != nil {
+			cp := *r
+			rec = &cp
+		}
+		c.metas[cl] = rec
+		clones[t] = cl
+		return cl
+	case *types.Var:
+		return t
+	case *types.Con:
+		args, changed := c.clonePrefixTypeSlice(t.Args, clones)
+		if !changed {
+			return t
+		}
+		return &types.Con{Qual: t.Qual, Name: t.Name, Args: args}
+	case *types.Func:
+		ps := make([]types.FuncParam, len(t.Params))
+		changed := false
+		for i, p := range t.Params {
+			nt := c.clonePrefixType(p.Type, clones)
+			changed = changed || nt != p.Type
+			ps[i] = types.FuncParam{Label: p.Label, Type: nt}
+		}
+		ret := c.clonePrefixType(t.Ret, clones)
+		if !changed && ret == t.Ret {
+			return t
+		}
+		return types.Fn(ret, ps...)
+	case *types.Tuple:
+		elems, changed := c.clonePrefixTypeSlice(t.Elems, clones)
+		if !changed {
+			return t
+		}
+		return &types.Tuple{Elems: elems}
+	case *types.Go:
+		args, changed := c.clonePrefixTypeSlice(t.Args, clones)
+		if !changed {
+			return t
+		}
+		return &types.Go{Ref: t.Ref, Args: args}
+	default:
+		panic("unreachable")
+	}
+}
+
+func (c *checker) clonePrefixTypeSlice(ts []types.Type, clones map[*types.Meta]*types.Meta) ([]types.Type, bool) {
+	var out []types.Type
+	for i, t := range ts {
+		nt := c.clonePrefixType(t, clones)
+		if out == nil && nt != t {
+			out = append([]types.Type(nil), ts...)
+		}
+		if out != nil {
+			out[i] = nt
+		}
+	}
+	if out == nil {
+		return ts, false
+	}
+	return out, true
+}
+
+// typePrefixedRecordLit recognizes `T { x = v }` where resolution
+// bound the head to a type symbol. The parser cannot distinguish this
+// form from constructor application — `Ctor { x = v }` may pass a
+// record as a constructor argument — so resolution keeps the term
+// reading whenever the head is a real term and uses the type reading
+// only for a head that otherwise has no value meaning.
+func (c *checker) typePrefixedRecordLit(e *syntax.Apply) (*typeInfo, *syntax.RecordLit) {
+	if len(e.Args) != 1 || e.Args[0].Label != nil || e.Args[0].Spread {
+		return nil, nil
+	}
+	lit, ok := e.Args[0].Value.(*syntax.RecordLit)
+	if !ok || lit.Base != nil {
+		return nil, nil
+	}
+	var sym *resolve.Symbol
+	if fn, ok := e.Fn.(*syntax.Ident); ok {
+		sym = c.res.UseOf(fn)
+	} else if fn, ok := e.Fn.(*syntax.Select); ok && fn.Sel != nil {
+		sym = c.res.UseOf(fn.Sel)
+	}
+	if sym == nil || sym.Kind != resolve.KindType {
+		return nil, nil
+	}
+	if ti := c.tyBySym[sym]; ti != nil {
+		return ti, lit
+	}
+	return nil, nil
 }
 
 // checkNilCall types `Go.nil ()` — the universal nil literal

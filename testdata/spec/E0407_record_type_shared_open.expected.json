@@ -1,0 +1,26 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0407",
+      "severity": "error",
+      "message": "type annotation required: the type argument for `a` could not be determined",
+      "span": {
+        "file": "E0407_record_type_shared_open.gom",
+        "start": {
+          "line": 8,
+          "col": 3,
+          "offset": 125
+        },
+        "end": {
+          "line": 8,
+          "col": 9,
+          "offset": 131
+        }
+      },
+      "data": {
+        "type": "?1"
+      }
+    }
+  ]
+}
