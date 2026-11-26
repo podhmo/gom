@@ -11,7 +11,7 @@
 
 - **positive narrowing**: 腕本体では、その腕の root pattern が当たったことが分かる。`Add n -> ...` の本体では scrutinee は `Add`
 - **negative narrowing**: 後続腕へ到達した値は、それより前の guard なし腕が確実に除外した constructor ではない。`Add _ -> ...; rest -> ...` の `rest` 本体では `Add` は来ない
-- **alias**: `rest ->` のような root 変数 pattern は scrutinee と同じ値を束縛する。nested match が元変数と alias 変数のどちらを対象にしても同じ narrowing を使う
+- **alias**: `rest ->` のような root の素朴な変数 pattern は scrutinee と同じ値を束縛する。nested match が元変数と alias 変数のどちらを対象にしても同じ narrowing を使う。`as` 束縛や or-pattern 内の変数は、選択肢ごとに root 値と payload 値のどちらを指すか変わりうるため、第一段階では alias に使わない
 - constructor payload がすべて `_` / 変数 / 全体を覆う pattern の constructor 腕だけを negative narrowing の根拠にする。`Add 0` のような一部 payload は `Add 1` を残すので constructor 自体を除外しない
 - or-pattern は、各選択肢が同じく確実に除外できる constructor 単位で畳み込む
 
@@ -40,7 +40,7 @@
 
 ## 実装方針
 
-`internal/pattern` の matrix checker を壊さず、match walker が腕本体へ入るときに「root constructor を除いた / 絞った signature view」を渡す。型検査フェーズや型そのものは変えない。scrutinee identity は typed AST のローカル変数 symbol と、root catch-all / as 束縛が作る alias に限る。
+`internal/pattern` の matrix checker を壊さず、match walker が腕本体へ入るときに「root constructor を除いた / 絞った signature view」を渡す。型検査フェーズや型そのものは変えない。scrutinee identity は typed AST のローカル変数 symbol と、root catch-all の素朴な変数束縛が作る alias に限る。`as` / or-pattern の alias 解釈は将来拡張とする。
 
 これは完全な flow analysis ではなく、match の腕境界に限定した構文的な narrowingである。未知の pattern 形や式形では narrowing しない方向に倒し、false positive より現行どおりの保守的な E0301 を優先する。
 
