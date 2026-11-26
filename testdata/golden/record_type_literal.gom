@@ -1,0 +1,27 @@
+package ex
+
+// A record type name may prefix its literal: the prefix chooses the
+// record type when same-shaped records exist. A constructor head keeps
+// the ordinary application reading, so `Wrap { value = 3 }` remains
+// constructor application with a record argument.
+type Box a = { value: a }
+type ValidatedOrder = { id: Int, total: Int }
+type PricedOrder = { id: Int, total: Int }
+type CtorArg = { value: Int }
+type Wrap =
+  | Wrap CtorArg
+
+fn build (id: Int) (total: Int) -> ValidatedOrder =
+  ValidatedOrder { id = id, total = total }
+
+fn generic (x: Int) -> Box Int = Box { value = x }
+
+fn ctor (x: Int) -> Wrap = Wrap { value = x }
+
+fn ambiguous (id: Int) (total: Int) -> PricedOrder =
+  PricedOrder { id = id, total = total }
+
+fn local_disambiguated (id: Int) (total: Int) -> Int = {
+  let x = ValidatedOrder { id = id, total = total }
+  x.id + x.total
+}

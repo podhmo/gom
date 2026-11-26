@@ -26,7 +26,13 @@ func (r *resolver) expr(e syntax.Expr, sc *scope) {
 			}
 		}
 	case *syntax.Apply:
-		r.expr(n.Fn, sc)
+		// `T { x = v }` is a type-name-prefixed record literal when
+		// T names a record type. Keep the ctor/application reading when
+		// the head already resolves as a term — `Ctor { x = v }` can
+		// still pass a record argument to a constructor.
+		if _, handled := r.recordTypePrefix(n, sc); !handled {
+			r.expr(n.Fn, sc)
+		}
 		for i := range n.Args {
 			a := &n.Args[i]
 			// a.Label is the call-site label, not a symbol
@@ -150,6 +156,48 @@ func (r *resolver) expr(e syntax.Expr, sc *scope) {
 	default:
 		panic("unreachable")
 	}
+}
+
+// recordTypePrefix resolves the head of `T { x = v }` / `pkg.T { x = v }`
+// as a type when the application has exactly one record-literal
+// argument. It reports whether the head resolved to a type symbol, and
+// whether the head has already been walked (so the caller must not
+// resolve it again).
+func (r *resolver) recordTypePrefix(n *syntax.Apply, sc *scope) (bool, bool) {
+	if len(n.Args) != 1 || n.Args[0].Label != nil || n.Args[0].Spread {
+		return false, false
+	}
+	lit, ok := n.Args[0].Value.(*syntax.RecordLit)
+	if !ok || lit.Base != nil {
+		return false, false
+	}
+	if fn, ok := n.Fn.(*syntax.Ident); ok {
+		term := sc.lookupTerm(fn.Name)
+		if term != nil && term.Kind != KindModule {
+			return false, false
+		}
+		if tsym := sc.lookupType(fn.Name); tsym != nil && tsym.Kind == KindType {
+			r.use(fn, tsym)
+			return true, true
+		}
+		return false, false
+	}
+	if fn, ok := n.Fn.(*syntax.Select); ok {
+		// A type in the qualifier is a namespace hop here, not a
+		// term-level misuse. Constructor heads still resolve exactly as
+		// before; only a final type symbol makes this a type-prefixed
+		// literal.
+		r.inQual++
+		r.expr(fn, sc)
+		r.inQual--
+		if fn.Sel != nil {
+			if tsym := r.uses[fn.Sel]; tsym != nil && tsym.Kind == KindType {
+				return true, true
+			}
+		}
+		return false, true
+	}
+	return false, false
 }
 
 // block resolves a `{ ... }` block: one fresh scope for the block,

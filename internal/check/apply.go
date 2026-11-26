@@ -30,6 +30,18 @@ import (
 // checker as an ascription over this node, so a bare `Go.conv e`
 // reports E0507.
 func (c *checker) checkApply(e *syntax.Apply, want types.Type) Expr {
+	if ti, lit := c.typePrefixedRecordLit(e); ti != nil {
+		if ti.kind != kindRecord {
+			c.mismatch(e.Fn.Span(), "a record type", ti.con)
+			return c.checkRecordLit(lit, nil)
+		}
+		args := make([]types.Type, len(ti.params))
+		for i := range args {
+			args[i] = c.newMeta(e.Sp, "the record type's argument")
+		}
+		rt := &types.Con{Qual: ti.con.Qual, Name: ti.con.Name, Args: args}
+		return c.checkRecordLit(lit, rt)
+	}
 	fn, callee, goCall := c.calleeOf(e.Fn)
 	if callee == nil {
 		// A member selection deferred on an unresolved receiver meta
@@ -252,6 +264,35 @@ func (c *checker) checkConvCall(e *syntax.Apply, fn Expr) Expr {
 	}
 	out.Call = CallInfo{Kind: CallUnknown, Arity: 0, Applied: len(out.Args), HoleIndex: -1}
 	return out
+}
+
+// typePrefixedRecordLit recognizes `T { x = v }` where resolution
+// bound the head to a type symbol. The parser cannot distinguish this
+// form from constructor application — `Ctor { x = v }` may pass a
+// record as a constructor argument — so resolution keeps the term
+// reading whenever the head is a real term and uses the type reading
+// only for a head that otherwise has no value meaning.
+func (c *checker) typePrefixedRecordLit(e *syntax.Apply) (*typeInfo, *syntax.RecordLit) {
+	if len(e.Args) != 1 || e.Args[0].Label != nil || e.Args[0].Spread {
+		return nil, nil
+	}
+	lit, ok := e.Args[0].Value.(*syntax.RecordLit)
+	if !ok || lit.Base != nil {
+		return nil, nil
+	}
+	var sym *resolve.Symbol
+	if fn, ok := e.Fn.(*syntax.Ident); ok {
+		sym = c.res.UseOf(fn)
+	} else if fn, ok := e.Fn.(*syntax.Select); ok && fn.Sel != nil {
+		sym = c.res.UseOf(fn.Sel)
+	}
+	if sym == nil || sym.Kind != resolve.KindType {
+		return nil, nil
+	}
+	if ti := c.tyBySym[sym]; ti != nil {
+		return ti, lit
+	}
+	return nil, nil
 }
 
 // checkNilCall types `Go.nil ()` — the universal nil literal
