@@ -228,6 +228,21 @@ func testStep(t *testing.T, gom, root, dir string) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Snapshots are read only by the child test binary, outside this
+	// process. Read them here too so Go's test cache notices baseline edits.
+	snapshotDir := filepath.Join(dir, "__snapshot__")
+	if entries, err := os.ReadDir(snapshotDir); err == nil {
+		for _, entry := range entries {
+			if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".snap") {
+				continue
+			}
+			if _, err := os.ReadFile(filepath.Join(snapshotDir, entry.Name())); err != nil {
+				t.Fatal(err)
+			}
+		}
+	} else if !os.IsNotExist(err) {
+		t.Fatal(err)
+	}
 	// `gom test` writes the generated main.go/main_test.go in place —
 	// overwriting even a handwritten one. Snapshot whatever was there
 	// and restore it after the run, so the tree (and later

@@ -1,4 +1,5 @@
-{"kind":"test","name":"arithmetic","func":"TestArithmetic","ok":true,"elapsed":0,"span":{"file":"tutorial/17-tests/main.gom","start":{"line":28,"col":6,"offset":816},"end":{"line":28,"col":18,"offset":828}}}
-{"kind":"test","name":"fixtures and helpers","func":"TestFixturesAndHelpers","ok":true,"elapsed":0,"span":{"file":"tutorial/17-tests/main.gom","start":{"line":33,"col":6,"offset":888},"end":{"line":33,"col":28,"offset":910}}}
-{"kind":"test","name":"a failable test uses try","func":"TestAFailableTestUsesTry","ok":true,"elapsed":0,"span":{"file":"tutorial/17-tests/main.gom","start":{"line":37,"col":6,"offset":953},"end":{"line":37,"col":32,"offset":979}}}
-{"kind":"summary","ok":true,"errors":0,"warnings":0,"files":["tutorial/17-tests/main.gom"],"outputs":["tutorial/17-tests/main.go","tutorial/17-tests/main_test.go"],"tests":{"run":3,"failed":0,"skipped":0}}
+{"kind":"test","name":"arithmetic","func":"TestArithmetic","ok":true,"elapsed":0,"span":{"file":"tutorial/17-tests/main.gom","start":{"line":31,"col":6,"offset":993},"end":{"line":31,"col":18,"offset":1005}}}
+{"kind":"test","name":"fixtures and helpers","func":"TestFixturesAndHelpers","ok":true,"elapsed":0,"span":{"file":"tutorial/17-tests/main.gom","start":{"line":36,"col":6,"offset":1065},"end":{"line":36,"col":28,"offset":1087}}}
+{"kind":"test","name":"snapshot baseline","func":"TestSnapshotBaseline","ok":true,"elapsed":0,"span":{"file":"tutorial/17-tests/main.gom","start":{"line":40,"col":6,"offset":1130},"end":{"line":40,"col":25,"offset":1149}}}
+{"kind":"test","name":"a failable test uses try","func":"TestAFailableTestUsesTry","ok":true,"elapsed":0,"span":{"file":"tutorial/17-tests/main.gom","start":{"line":44,"col":6,"offset":1215},"end":{"line":44,"col":32,"offset":1241}}}
+{"kind":"summary","ok":true,"errors":0,"warnings":0,"files":["tutorial/17-tests/main.gom"],"outputs":["tutorial/17-tests/main.go","tutorial/17-tests/main_test.go"],"tests":{"run":4,"failed":0,"skipped":0}}

@@ -3,9 +3,12 @@
 // `test "name" { ... }` is a top-level declaration whose body is
 // `Unit` or `Result Unit e` (`Err` fails the test, and `try` works
 // inside). `assert cond` and `assert_eq actual expected` are only
-// valid inside a test block. `@test` marks helpers visible only to
-// tests. `gom build` type-checks tests but emits them only for
-// `gom test` — run it to see the `kind:"test"` JSON Lines report:
+// valid inside a test block. `snapshot value "key"` compares the
+// value's display text with a baseline under `__snapshot__/`; create
+// or refresh baselines with `gom test --update tutorial/17-tests`.
+// `@test` marks helpers visible only to tests. `gom build` type-checks
+// tests but emits them only for `gom test` — run it to see the
+// `kind:"test"` JSON Lines report:
 //
 //   gom test tutorial/17-tests
 //
@@ -32,6 +35,10 @@ test "arithmetic" {
 
 test "fixtures and helpers" {
   assert_eq (double fixture) 82
+}
+
+test "snapshot baseline" {
+  snapshot [square 3, double fixture] "derived-values"
 }
 
 test "a failable test uses try" {

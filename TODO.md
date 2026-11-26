@@ -27,7 +27,7 @@
 ### wave47 採択済み lane（[prompts](docs/sketch/2026-11-25-wave47-prompts.md) — 2026-11-25 採否確定、順 B→F→C→A→D）
 
 - [x] **[wave47 lane B] `gom info` の stdlib 短名解決**（[prompts](docs/sketch/2026-11-25-wave47-prompts.md)）: `list`/`option`/`result`/`cmp` を short name として read-only inspection で引けるようにする
-- [ ] **[wave47 lane F] tutorial での snapshot dogfooding**（[prompts](docs/sketch/2026-11-25-wave47-prompts.md)）: tutorial/17-tests に `snapshot` の例を 1 つ入れ、教材と最小限の dogfooding を兼ねる
+- [x] **[wave47 lane F] tutorial での snapshot dogfooding**（[prompts](docs/sketch/2026-11-25-wave47-prompts.md)）: tutorial/17-tests に `snapshot` の例を 1 つ入れ、教材と最小限の dogfooding を兼ねる
 - [ ] **[wave47 lane C] `.gomi` 再生成での directive 引き継ぎ bug 修正**（[prompts](docs/sketch/2026-11-25-wave47-prompts.md)）: `//gom:noescape` / `//gom:result-notaint` が `gom info` 再生成で落ちないようにする。abstract/private 意図は対象外
 - [ ] **[wave47 lane A] type-erased composite 表示の runtime renderer**（[prompts](docs/sketch/2026-11-25-wave47-prompts.md)）: compiled/eval 共通の runtime renderer を作り、Gom 表示側へ寄せる
 - [ ] **[wave47 lane D] `uint` / `uint64` の第一級対応**（[prompts](docs/sketch/2026-11-25-wave47-prompts.md)）: `uint` / `uint64` に絞って literal・算術・`Go.conv`・Go signature mapping を開く
