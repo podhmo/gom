@@ -82,7 +82,7 @@ rendering.
 | Compiler design and implementation principles | [`docs/design.md`](docs/design.md) |
 | Diagnostic catalog | [`docs/error-codes.md`](docs/error-codes.md) |
 | Design decisions and their rationale | [`docs/decisions/`](docs/decisions/) |
-| Known spec/implementation gaps and open concerns | [`docs/implementation-gaps.md`](docs/implementation-gaps.md), [`docs/problems/`](docs/problems/) |
+| Known spec/implementation gaps and open concerns | [`docs/implementation-gaps.md`](docs/implementation-gaps.md), [`docs/implementation-gaps-archive.md`](docs/implementation-gaps-archive.md), [`docs/problems/`](docs/problems/) |
 | A larger example program (Gist CLI) | [`examples/gist-cli/README.md`](examples/gist-cli/README.md) |
 | Repository layout and development commands | [`skills/gom-agent-guide/references/project-layout.md`](skills/gom-agent-guide/references/project-layout.md) |
 
