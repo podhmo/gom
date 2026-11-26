@@ -7,4 +7,8 @@ type Box2 a = { inner: a }
 
 fn f (box: Box a) (x: a) -> Box a = box
 
+fn f_bound_first (x: a) (box: Box a) -> Box a = box
+
 fn run () -> Box Inner = f { inner = { x = 1, y = 2 } } (Inner { x = 1, y = 2 })
+
+fn run_bound_first () -> Box Inner = f_bound_first (Inner { x = 1, y = 2 }) { inner = { x = 1, y = 2 } }

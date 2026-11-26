@@ -27,6 +27,6 @@ generic な関数や constructor の適用では、適用結果に静的な期�
 
 ## 検証
 
-- spec fixture: `ok_record_context_simple_positions`（注釈・return・generic 呼出し引数・record field）、`ok_record_context_constructor_payload`、`ok_record_context_list_fold_acc`（直接適用と `|>`）、`ok_record_context_nested_generic`（generic record の型引数 merge）
+- spec fixture: `ok_record_context_simple_positions`（注釈・return・generic 呼出し引数・record field）、`ok_record_context_constructor_payload`、`ok_record_context_list_fold_acc`（直接適用と `|>`）、`ok_record_context_nested_generic`（generic record の型引数 merge）、`ok_record_context_curried_callback`（curried callback の戻り値 merge）
 - negative fixture: `E0407_record_context_no_backward`（後続使用から逆推論しない）、`E0401_record_context_prefix_priority`（型名前置優先）
-- unit test: `TestApplyParamExpectationsDoesNotBindInferenceState`、`TestMergeContextualTypeFillsOpenArgs`、`TestMergeContextualTypeKeepsEarlierConcreteSolution`
+- unit test: `TestApplyParamExpectationsDoesNotBindInferenceState`、`TestMergeContextualTypeFillsOpenArgs`、`TestMergeContextualTypeKeepsEarlierConcreteSolution`、`TestMergeContextualTypeExtendsCurriedSpeculativeTail`

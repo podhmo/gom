@@ -20,13 +20,15 @@ wave-process の運用どおり、実装前に spec fixture を追加して red 
 - 同 fixture に `xs |> List.fold ... { count = 0 }` を追加した時点でも、pipe 経由では期待型が callee へ届かず E0407/E0401 の 4 件を確認
 - negative fixture として `E0407_record_context_no_backward` と `E0401_record_context_prefix_priority` を先に登録し、後続使用逆推論の禁止と型名前置優先を固定した
 - review で escalated された nested generic record では、`ok_record_context_nested_generic` を先に追加し、内側 literal の E0407 と連鎖する 2 件の E0401 を確認してから修正した
+- 続く review の curried callback 指摘では、`ok_record_context_curried_callback` を先に追加し、内側 literal の E0407 と結果側の E0401 を確認してから修正した
 
 ## fixture / probe 結果
 
 - `ok_record_context_simple_positions`: 型注釈、return、generic 呼出し引数（`id { count = x }`）、record field の nested literalがすべて通る
 - `ok_record_context_constructor_payload`: `Ok { count = x }` が `Result Acc GoError` の文脈で通る
 - `ok_record_context_list_fold_acc`: `List.fold` の無名 record accumulator が直接適用・`|>` の両方で通る。fold 関数内の `{ acc with ... }` も同じ `Acc` で検査される
-- `ok_record_context_nested_generic`: `Box a` の `a` が戻り値の `Box Inner` から分かるとき、nested literal が引数順に依存せず `Inner` として通る
+- `ok_record_context_nested_generic`: `Box a` の `a` が戻り値の `Box Inner` から分かるとき、nested literal が引数順に依存せず `Inner` として通る。先行引数で `a` が確定済みの順序でも既存の推論を上書きしない
+- `ok_record_context_curried_callback`: callback の開いた戻り値が `Int -> Acc` の関数として分かるとき、nested lambda 内の record literal まで文脈が届く
 - `E0407_record_context_no_backward`: 注釈のない `let seed = { count = 0 }` は後続の `List.fold` 使用から `Acc` に逆推論されず E0407 のまま
 - `E0401_record_context_prefix_priority`: `Other { ... }` は `Acc` 期待より型名前置が優先され、E0401 になる
 
