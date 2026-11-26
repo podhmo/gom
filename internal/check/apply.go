@@ -398,11 +398,11 @@ func (x *applyParamExpectations) at(i int) (types.Type, bool) {
 	if x == nil || i < 0 || i >= len(x.params) || !x.informative[i] {
 		return nil, false
 	}
-	t, ok := x.c.reifyPrefixType(x.params[i], x.open, x.sp)
-	if !ok || !x.c.containsRecordType(t) {
+	if !x.c.containsRecordType(x.params[i]) {
 		return nil, false
 	}
-	return t, true
+	t, ok := x.c.reifyPrefixType(x.params[i], x.open, x.sp)
+	return t, ok
 }
 
 // useExpectedPrefixType binds the inference metas inside rt from a

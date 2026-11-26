@@ -3121,6 +3121,9 @@ func (c *checker) containsRecordType(t types.Type) bool {
 			}
 		}
 	case *types.Meta, *types.Var:
+		return false
+	default:
+		panic("unreachable")
 	}
 	return false
 }
