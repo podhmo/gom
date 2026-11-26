@@ -46,3 +46,25 @@ func TestExpectedTypeLabelDoesNotLeakIntoNestedDiagnostics(t *testing.T) {
 		}
 	}
 }
+
+func TestExpectedTypeLabelDoesNotDescribeNumericConstraint(t *testing.T) {
+	ress := resolveFiles(t, map[string]string{
+		"a.gom": "package m\n\nlet x : String = 1\n",
+	})
+	_, ds := Files(ress, nil)
+	if len(ds) == 0 {
+		t.Fatal("expected a numeric-constraint diagnostic")
+	}
+	found := false
+	for _, d := range ds {
+		found = found || d.Code == "E0401" && d.Data["expected"] == "a numeric type"
+	}
+	if !found {
+		t.Fatalf("diagnostics = %v, want E0401 for the numeric constraint", ds)
+	}
+	for i, d := range ds {
+		if len(d.Labels) != 0 {
+			t.Errorf("diagnostics[%d] unexpectedly carries labels: %+v", i, d.Labels)
+		}
+	}
+}
