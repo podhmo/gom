@@ -1,0 +1,6 @@
+package main
+
+type Acc = { count: Int }
+type Other = { count: Int }
+
+fn wrap (x: Int) -> Result Acc GoError = Ok { count = x }

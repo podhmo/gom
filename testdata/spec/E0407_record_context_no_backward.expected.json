@@ -1,0 +1,134 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0407",
+      "severity": "error",
+      "message": "the record literal is ambiguous: 2 record types own these fields; annotate the type",
+      "span": {
+        "file": "E0407_record_context_no_backward.gom",
+        "start": {
+          "line": 7,
+          "col": 14,
+          "offset": 117
+        },
+        "end": {
+          "line": 7,
+          "col": 27,
+          "offset": 130
+        }
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected Acc, got Unit",
+      "span": {
+        "file": "E0407_record_context_no_backward.gom",
+        "start": {
+          "line": 8,
+          "col": 14,
+          "offset": 144
+        },
+        "end": {
+          "line": 8,
+          "col": 60,
+          "offset": 190
+        }
+      },
+      "data": {
+        "actual": "Unit",
+        "expected": "Acc"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected Acc, got Unit",
+      "span": {
+        "file": "E0407_record_context_no_backward.gom",
+        "start": {
+          "line": 8,
+          "col": 26,
+          "offset": 156
+        },
+        "end": {
+          "line": 8,
+          "col": 60,
+          "offset": 190
+        }
+      },
+      "data": {
+        "actual": "Unit",
+        "expected": "Acc"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0407",
+      "severity": "error",
+      "message": "the record literal is ambiguous: 2 record types own these fields; annotate the type",
+      "span": {
+        "file": "E0407_record_context_no_backward.gom",
+        "start": {
+          "line": 8,
+          "col": 26,
+          "offset": 156
+        },
+        "end": {
+          "line": 8,
+          "col": 60,
+          "offset": 190
+        }
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "Unit has no field or method `count`",
+      "span": {
+        "file": "E0407_record_context_no_backward.gom",
+        "start": {
+          "line": 8,
+          "col": 49,
+          "offset": 179
+        },
+        "end": {
+          "line": 8,
+          "col": 54,
+          "offset": 184
+        }
+      },
+      "data": {
+        "member": "count",
+        "type": "Unit"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected Acc, got Unit",
+      "span": {
+        "file": "E0407_record_context_no_backward.gom",
+        "start": {
+          "line": 8,
+          "col": 62,
+          "offset": 192
+        },
+        "end": {
+          "line": 8,
+          "col": 66,
+          "offset": 196
+        }
+      },
+      "data": {
+        "actual": "Unit",
+        "expected": "Acc"
+      }
+    }
+  ]
+}

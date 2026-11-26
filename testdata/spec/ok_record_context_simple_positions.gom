@@ -1,0 +1,14 @@
+package main
+
+type Acc = { count: Int }
+type Other = { count: Int }
+type Box = { acc: Acc }
+
+fn takes (a: Acc) -> Acc = a
+
+fn simple (x: Int) -> Box = {
+  let annotated : Acc = { count = x }
+  let returned = takes { count = x }
+  ignore annotated
+  { acc = returned }
+}
