@@ -89,7 +89,7 @@ wrap; Gom values still box as before.
 | interface (`io.Reader`) | nominal `io.Reader`; Go-assignable values pass |
 
 - Implicit numeric conversion only where lossless: `Int ↔
-  int/int64`, `Float ↔ float64`. Anything else is E0503 — write
+  int/int64`, `Float ↔ float64`. Anything else is E0401 — write
   `Go.conv x : Int32` (checked against Go's conversion rules;
   invalid pairs are E0507). A one-field record (`type UserId = {
   value: Int }`) peels to its field type first — `Go.conv u : Int`

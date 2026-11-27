@@ -693,25 +693,25 @@ func (p *parser) parseSelectArm() SelectArm {
 	case tokIdent, tokUnder:
 		return p.parseReceiveArm(start, p.parsePattern())
 	default:
+		if selectRecvPatternStart(start.kind) {
+			bind := p.parsePattern()
+			if !p.at(tokLArrow) {
+				p.errf(p.span(start.start, p.prevEnd()),
+					"expected a select arm (\"send\", \"default\", or \"name <-\"), found %s",
+					p.describe(start))
+				p.syncItem()
+				return nil
+			}
+			return p.parseReceiveArm(start, bind)
+		}
 		if nameKeyword(start.kind) && p.peek(1).kind == tokLArrow {
 			return p.parseReservedRecvArm(start)
 		}
-		if !selectRecvPatternStart(start.kind) {
-			p.errf(p.spanOf(start),
-				"expected a select arm (\"send\", \"default\", or \"name <-\"), found %s",
-				p.describe(start))
-			p.syncItem()
-			return nil
-		}
-		bind := p.parsePattern()
-		if !p.at(tokLArrow) {
-			p.errf(p.span(start.start, p.prevEnd()),
-				"expected a select arm (\"send\", \"default\", or \"name <-\"), found %s",
-				p.describe(start))
-			p.syncItem()
-			return nil
-		}
-		return p.parseReceiveArm(start, bind)
+		p.errf(p.spanOf(start),
+			"expected a select arm (\"send\", \"default\", or \"name <-\"), found %s",
+			p.describe(start))
+		p.syncItem()
+		return nil
 	}
 }
 

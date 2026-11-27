@@ -560,6 +560,15 @@ func (p *parser) gomOnly(sp diag.Span, what string) {
 	}
 }
 
+func knownAttribute(name string) bool {
+	switch name {
+	case "test", "tailrec", "extern", "method":
+		return true
+	default:
+		return false
+	}
+}
+
 // parseAttrDecl parses "@" member-name followed by a fn or let
 // declaration. The grammar writes [ attribute ] , ( fn-decl |
 // let-decl ); separators between the attribute and the declaration
@@ -580,8 +589,16 @@ func (p *parser) parseAttrDecl() Decl {
 		return nil
 	}
 	p.skipSep()
+	unknown := !knownAttribute(name)
+	if unknown {
+		// Unknown attributes are rejected at parse time: the parser
+		// owns the closed attribute vocabulary and the AST carries
+		// only the known booleans.
+		p.diags.Add(diag.Error("E0204",
+			fmt.Sprintf("unknown attribute \"@%s\": only \"@test\", \"@tailrec\", \"@extern\" and \"@method\" are defined", name)).At(p.spanOf(nameTok)))
+	}
 	methodName := ""
-	if name == "method" && p.at(tokLParen) {
+	if p.at(tokLParen) && (name == "method" || !knownAttribute(name)) {
 		// `@method(GoName)` — a verbatim Go method name for
 		// initialisms and other spellings ExportName cannot
 		// reach (`ServeHTTP`, `URL`, `ID`).
@@ -622,13 +639,6 @@ func (p *parser) parseAttrDecl() Decl {
 		method:     name == "method",
 		methodName: methodName,
 		sp:         attrSp,
-	}
-	if !attrs.testOnly && !attrs.tailRec && !attrs.extern && !attrs.method {
-		// Unknown attributes are rejected at parse time: the parser
-		// owns the closed attribute vocabulary and the AST carries
-		// only the known booleans.
-		p.diags.Add(diag.Error("E0204",
-			fmt.Sprintf("unknown attribute \"@%s\": only \"@test\", \"@tailrec\", \"@extern\" and \"@method\" are defined", name)).At(p.spanOf(nameTok)))
 	}
 	if !attrs.method {
 		// @method is the one attribute a .gomi must carry — an

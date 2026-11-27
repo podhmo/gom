@@ -107,6 +107,8 @@ func TestParseExpr(t *testing.T) {
 			`(select (recv x <- ch -> (apply f x)) (send ch v -> v) (default -> 0))`},
 		{"select recv wildcard + call chan", "select { _ <- ch -> 0\nx <- f ch -> x }",
 			`(select (recv _ <- ch -> 0) (recv x <- (apply f ch) -> x))`},
+		{"select recv literal pattern", "select { true <- ch -> 0 }",
+			`(select (recv true <- ch -> 0))`},
 		{"select send paren value", "select { send ch (f x) -> 1 }", `(select (send ch (apply f x) -> 1))`},
 		{"lambda", `fn x -> x`, `(fn (x) -> x)`},
 		{"lambda multi", `fn a b -> a + b`, `(fn (a) (b) -> (+ a b))`},
@@ -504,6 +506,11 @@ func TestParseDiagnostics(t *testing.T) {
 			"unknown attribute",
 			"package m\n@wat fn f () -> Unit = ()\n",
 			[]string{`E0204@11-14: unknown attribute "@wat": only "@test", "@tailrec", "@extern" and "@method" are defined`},
+		},
+		{
+			"unknown attribute with argument",
+			"package m\n@mtehod(ServeHTTP) fn f () -> Unit = ()\n",
+			[]string{`E0204@11-17: unknown attribute "@mtehod": only "@test", "@tailrec", "@extern" and "@method" are defined`},
 		},
 		{
 			"tailrec on let",
