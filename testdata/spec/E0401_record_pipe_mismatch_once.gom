@@ -1,0 +1,9 @@
+package main
+
+type Acc = { count: Int }
+
+type Other = { count: Int }
+
+fn use (acc: Acc) -> Acc = acc
+
+fn main () -> Unit = { ignore (Other { count = 0 } |> use); () }

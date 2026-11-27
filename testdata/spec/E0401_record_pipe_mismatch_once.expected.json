@@ -1,0 +1,14 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected Acc, got Other",
+      "data": {
+        "actual": "Other",
+        "expected": "Acc"
+      }
+    }
+  ]
+}
