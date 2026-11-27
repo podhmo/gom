@@ -78,7 +78,7 @@ func runInit(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stderr, "gom init: %v\n", err)
 			return 2
 		}
-		if err := downloadToolchain(*dir); err != nil {
+		if err := downloadToolchainStandalone(*dir); err != nil {
 			fmt.Fprintf(stderr, "gom init: %v\n", err)
 			return 2
 		}
@@ -88,7 +88,7 @@ func runInit(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stderr, "gom init: %v\n", err)
 			return 2
 		}
-		if err := downloadToolchain(*dir); err != nil {
+		if err := downloadToolchainStandalone(*dir); err != nil {
 			fmt.Fprintf(stderr, "gom init: %v\n", err)
 			return 2
 		}

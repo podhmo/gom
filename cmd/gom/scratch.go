@@ -95,6 +95,18 @@ func downloadToolchain(dir string) error {
 	return fmt.Errorf("go mod download github.com/podhmo/gom: %w: %s", err, bytes.TrimSpace(out))
 }
 
+// downloadToolchainStandalone resolves the toolchain exactly as the new
+// module will outside any caller workspace. `gom init` must not silently
+// rely on a parent go.work replace or checksum: a project that only works
+// while initialized inside that workspace is not yet standalone.
+func downloadToolchainStandalone(dir string) error {
+	out, err := runDownloadToolchain(dir, replaceEnv(os.Environ(), "GOWORK", "off"))
+	if err != nil {
+		return fmt.Errorf("go mod download github.com/podhmo/gom with GOWORK=off: %w: %s (gom init requires the project to resolve outside the caller's workspace; use a released gom version or add an explicit replace in the project go.mod)", err, bytes.TrimSpace(out))
+	}
+	return nil
+}
+
 func runDownloadToolchain(dir string, env []string) ([]byte, error) {
 	cmd := exec.Command("go", "mod", "download", "github.com/podhmo/gom")
 	cmd.Dir = dir
