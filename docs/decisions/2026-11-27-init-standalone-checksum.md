@@ -6,7 +6,7 @@
 
 ## 決定
 
-`gom init` は新しい project を standalone module として成立させる。init 時の toolchain dependency 解決は常に `GOWORK=off` で行い、caller の `go.work` / `go.work.sum` / workspace 内 `replace` を使わない。`go mod download` に加えて generated code が必要とする `github.com/podhmo/gom/rt` / `github.com/podhmo/gom/stdlib` を同じ環境で解決し、local `replace` の参照先が存在しない、または release artifact が toolchain package を持たない状態を成功扱いにしない。
+`gom init` は新しい project を standalone module として成立させる。init 時の toolchain dependency 解決は常に `GOWORK=off` で行い、caller の `go.work` / `go.work.sum` / workspace 内 `replace` を使わない。`go mod download` に加えて init template の generated code が必要とする `github.com/podhmo/gom/rt` / `github.com/podhmo/gom/stdlib/result` を同じ環境で解決し、local `replace` の参照先が存在しない、または release artifact が toolchain package を持たない状態を成功扱いにしない。
 
 - init 先の `go.mod` が release module を `require` する場合は、その module だけで `go.sum` の checksum を解決できる必要がある
 - init 先の `go.mod` 自身が開発用 `replace` を持つ場合は、その replace によって standalone に解決できる。replace 先には generated code が import する toolchain package が必要である。checksum がなくてもよいのはこのように module 自身が解決手段を持つ場合だけである

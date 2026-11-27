@@ -6,7 +6,7 @@
 
 ## 実装した規則
 
-`gom init` の toolchain dependency 解決を `downloadToolchainStandalone` へ切り替え、常に `GOWORK=off` で `go mod download github.com/podhmo/gom` を実行する。さらに generated code が import する `github.com/podhmo/gom/rt` / `github.com/podhmo/gom/stdlib` を同じ環境で `go list` し、local `replace` の参照先がない、または release artifact が toolchain package を持たない project を成功扱いにしない。caller の `go.work` や `go.work.sum` に解決を依存する project も成功扱いにしない。失敗時は release version を使うか project の `go.mod` に explicit な `replace` を書くよう促す。
+`gom init` の toolchain dependency 解決を `downloadToolchainStandalone` へ切り替え、常に `GOWORK=off` で `go mod download github.com/podhmo/gom` を実行する。さらに generated code が import する `github.com/podhmo/gom/rt` / `github.com/podhmo/gom/stdlib/result` を同じ環境で `go list` し、local `replace` の参照先がない、または release artifact が toolchain package を持たない project を成功扱いにしない。caller の `go.work` や `go.work.sum` に解決を依存する project も成功扱いにしない。失敗時は release version を使うか project の `go.mod` に explicit な `replace` を書くよう促す。
 
 module 外 `gom run` が使う scratch module 側の `downloadToolchain`、寿命、cache、workspace 無効化は変えていない。
 

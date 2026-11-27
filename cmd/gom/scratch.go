@@ -109,9 +109,9 @@ func downloadToolchainStandalone(dir string) error {
 	// distinguish a valid toolchain checkout from a missing or unrelated
 	// directory. Resolve the packages generated code imports; this also
 	// catches a release artifact that does not carry the toolchain packages.
-	out, err = runGoCommand(dir, env, "list", "-mod=mod", "github.com/podhmo/gom/rt", "github.com/podhmo/gom/stdlib")
+	out, err = runGoCommand(dir, env, "list", "-mod=readonly", "github.com/podhmo/gom/rt", "github.com/podhmo/gom/stdlib/result")
 	if err != nil {
-		return fmt.Errorf("go list github.com/podhmo/gom/rt github.com/podhmo/gom/stdlib with GOWORK=off: %w: %s (gom init requires the project to resolve outside the caller's workspace; use a released gom version or add an explicit replace in the project go.mod)", err, bytes.TrimSpace(out))
+		return fmt.Errorf("go list github.com/podhmo/gom/rt github.com/podhmo/gom/stdlib/result with GOWORK=off: %w: %s (gom init requires the project to resolve outside the caller's workspace; use a released gom version or add an explicit replace in the project go.mod)", err, bytes.TrimSpace(out))
 	}
 	return nil
 }

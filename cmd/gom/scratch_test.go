@@ -178,30 +178,36 @@ func TestDownloadToolchainStandaloneReleaseModuleWritesSum(t *testing.T) {
 
 func writeGomModuleProxy(t *testing.T, version string) string {
 	t.Helper()
+	return writeGomModuleProxyVersions(t, map[string]bool{version: true})
+}
+
+func writeGomModuleProxyVersions(t *testing.T, versions map[string]bool) string {
+	t.Helper()
 	proxy := t.TempDir()
 	vdir := filepath.Join(proxy, "github.com", "podhmo", "gom", "@v")
 	if err := os.MkdirAll(vdir, 0o755); err != nil {
 		t.Fatal(err)
 	}
 	mod := []byte("module github.com/podhmo/gom\n\ngo 1.27\n")
-	if err := os.WriteFile(filepath.Join(vdir, version+".mod"), mod, 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(vdir, version+".info"), []byte(`{"Version":"`+version+`"}`), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(vdir, "list"), []byte(version+"\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	zf, err := os.Create(filepath.Join(vdir, version+".zip"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	zw := zip.NewWriter(zf)
-	writeProxyZipEntry(t, zw, "github.com/podhmo/gom@"+version+"/go.mod", mod)
-	writeProxyZipEntry(t, zw, "github.com/podhmo/gom@"+version+"/rt/doc.go", []byte("package rt\n"))
-	writeProxyZipEntry(t, zw, "github.com/podhmo/gom@"+version+"/stdlib/doc.go", []byte("package stdlib\n"))
-	writeProxyZipEntry(t, zw, "github.com/podhmo/gom@"+version+"/stdlib/result/result.go", []byte(`package result
+	var list strings.Builder
+	for version, withResult := range versions {
+		list.WriteString(version + "\n")
+		if err := os.WriteFile(filepath.Join(vdir, version+".mod"), mod, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(vdir, version+".info"), []byte(`{"Version":"`+version+`"}`), 0o644); err != nil {
+			t.Fatal(err)
+		}
+		zf, err := os.Create(filepath.Join(vdir, version+".zip"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		zw := zip.NewWriter(zf)
+		writeProxyZipEntry(t, zw, "github.com/podhmo/gom@"+version+"/go.mod", mod)
+		writeProxyZipEntry(t, zw, "github.com/podhmo/gom@"+version+"/rt/doc.go", []byte("package rt\n"))
+		writeProxyZipEntry(t, zw, "github.com/podhmo/gom@"+version+"/stdlib/doc.go", []byte("package stdlib\n"))
+		if withResult {
+			writeProxyZipEntry(t, zw, "github.com/podhmo/gom@"+version+"/stdlib/result/result.go", []byte(`package result
 
 type Result[A, E any] struct {
 	Value A
@@ -212,13 +218,48 @@ func FromGo[A, E any](v A, err E) Result[A, E] {
 	return Result[A, E]{Value: v, Error: err}
 }
 `))
-	if err := zw.Close(); err != nil {
-		t.Fatal(err)
+		}
+		if err := zw.Close(); err != nil {
+			t.Fatal(err)
+		}
+		if err := zf.Close(); err != nil {
+			t.Fatal(err)
+		}
 	}
-	if err := zf.Close(); err != nil {
+	if err := os.WriteFile(filepath.Join(vdir, "list"), []byte(list.String()), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	return proxy
+}
+
+func TestDownloadToolchainStandaloneDoesNotUpgradePinnedRelease(t *testing.T) {
+	haveGo(t)
+	proxy := writeGomModuleProxyVersions(t, map[string]bool{
+		"v0.0.1": false,
+		"v0.0.2": true,
+	})
+	dir := t.TempDir()
+	gomod := []byte("module pinned.example/project\n\ngo 1.27\n\nrequire github.com/podhmo/gom v0.0.1\n")
+	gomodPath := filepath.Join(dir, "go.mod")
+	if err := os.WriteFile(gomodPath, gomod, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GOPROXY", (&url.URL{Scheme: "file", Path: proxy}).String())
+	t.Setenv("GOSUMDB", "off")
+	t.Setenv("GOWORK", "off")
+	t.Setenv("GOMODCACHE", isolatedModCache(t))
+
+	err := downloadToolchainStandalone(dir)
+	if err == nil {
+		t.Fatal("standalone resolution accepted a pinned release without stdlib/result")
+	}
+	after, readErr := os.ReadFile(gomodPath)
+	if readErr != nil {
+		t.Fatal(readErr)
+	}
+	if string(after) != string(gomod) {
+		t.Fatalf("go.mod was rewritten during failed validation:\nbefore:\n%s\nafter:\n%s", gomod, after)
+	}
 }
 
 func writeProxyZipEntry(t *testing.T, zw *zip.Writer, name string, body []byte) {

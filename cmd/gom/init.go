@@ -114,10 +114,6 @@ func runInitWithRequirement(args []string, stdout, stderr io.Writer, requirement
 // Gom code. The edit is additive: it never rewrites the module line or an
 // existing requirement. A replace-only mention is not a dependency, and an
 // existing replace is preserved rather than duplicated.
-func ensureGomDependency(dir, gomodPath string) error {
-	return ensureGomDependencyWithRequirement(dir, gomodPath, toolchainRequirement)
-}
-
 func ensureGomDependencyWithRequirement(dir, gomodPath string, requirement func() (string, string, error)) error {
 	b, err := os.ReadFile(gomodPath)
 	if err != nil {
