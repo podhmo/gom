@@ -205,8 +205,11 @@ duplicate-arm checks.
   `type Point = { x: Int, y: Int }`. Constructors are curried
   functions you can pass around.
 - **`match` is exhaustive** — a missing case is E0301 with concrete
-  counterexamples; an unreachable arm is E0302. Guards (`p if cond`)
-  never count toward coverage. Bind with variables/constructors;
+  counterexamples; an unreachable arm is E0302. Nested constructor
+  patterns on the same scrutinee narrow the root constructors still
+  needing coverage; guards (`p if cond`) never count toward coverage.
+  This narrowing changes only E0301 evidence — contextual E0302 and
+  guard analysis are unchanged. Bind with variables/constructors;
   `let` accepts only irrefutable patterns.
 - **Errors are values.** `try e` unwraps `Ok v → v` or returns `Err`
   from the innermost enclosing function — which must return
@@ -976,7 +979,7 @@ prints the pointer and exits 2).
 | `gom build [-o out] FILE\|DIR...` | Full pipeline; writes one `.go` per `.gom` next to the input (or under `-o` dir/file). `-go` additionally runs `go build` on the written package and folds its errors back to `.gom` spans. |
 | `gom dump -phase=syntax\|resolve\|check\|core\|emit FILE` | Print one phase's IR — sibling `.gom` files compile along so package members resolve; only the named file's IR prints (diagnostics go to stderr; stdout is the artifact). `emit` lists the generated Go names (`kind`, Gom name, emitted name — `(base X)` marks a suffix eviction). |
 | `gom test FILE\|DIR... [-- FLAGS]` | Also writes `_test.go` beside the `.go` and runs the package's `go test -json` — FLAGS after `--` pass through (`-race`, `-run`). Library packages need `<pkg>.gomi` (the conformance gate runs here too); `-q`/`--quiet` drops the raw half of panic stacks. |
-| `gom run FILE\|DIR... [-- ARGS]` | Compile one `package main` directory, link a temp binary, and execute it; ARGS after `--` and the child exit code pass through. Without an enclosing `go.mod`, a temporary `gom.local/scratch` module is synthesized for that invocation only. |
+| `gom run FILE\|DIR... [-- ARGS]` | Compile one `package main` directory, link a temp binary, and execute it; ARGS after `--` and the child exit code pass through. Without an enclosing `go.mod`, a temporary `gom.local/scratch` module is synthesized for that invocation only; it is a bootstrap path and does not manage external dependencies — use `gom init` and the real module for those. |
 | `gom init [-dir DIR] [MODULE-PATH]` | Create `go.mod` and a runnable `main.gom` template. Existing files are not overwritten; an existing Go module gets only the additive Gom dependency it needs. |
 | `gom fmt [-w\|-d\|-l\|--check] FILE...` | Canonical formatter; `-` reads stdin. stdout carries the artifact; message stream to stderr. |
 | `gom fix FILE...` | Apply the `safe` fixes diagnostics carry. |
