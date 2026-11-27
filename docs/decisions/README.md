@@ -283,6 +283,7 @@
 | [diagnostic-labels-details](2026-11-27-diagnostic-labels-details.md) | diagnostic labels/details wire | 採用（実装・検証した — [検証](../sketch/2026-11-27-wave50-lane-c-diagnostic-wire-verify.md)） |
 | [dmmf-boundary-guide](2026-11-27-dmmf-boundary-guide.md) | DMMF boundary guide | 採用（文書化 — [guide](../ja/dmmf-boundary-guide.md)） |
 | [e0301-text-missing-patterns](2026-11-27-e0301-text-missing-patterns.md) | E0301 の text 出力へ不足パターンを出す（一部を [diagnostic-labels-details](2026-11-27-diagnostic-labels-details.md) で置き換え） | 採用（実装・検証した — [検証](../sketch/2026-11-27-wave49-lane-d-e0301-text-verify.md)） |
+| [init-failure-atomicity](2026-11-27-init-failure-atomicity.md) | `gom init` の failure atomicity | 採用（実装・検証した — [検証](../sketch/2026-11-27-wave53-lane-b-init-atomicity-verify.md)） |
 | [init-standalone-checksum](2026-11-27-init-standalone-checksum.md) | `gom init` の standalone checksum | 採用（実装・検証した — [検証](../sketch/2026-11-27-wave52-lane-b-init-checksum-verify.md)） |
 | [labeled-lambda-record-seeding](2026-11-27-labeled-lambda-record-seeding.md) | labeled lambda の record seeding / structural record | 採用（label-erased seeding を実装・検証した。structural record は不採用） |
 | [logical-shortcircuit-lowering](2026-11-27-logical-shortcircuit-lowering.md) | `&&` / `\|\|` は短絡評価し、complex な右辺は Core IR の分岐へ閉じ込める | 採用（実装・検証した — [検証](../sketch/2026-11-27-wave49-lane-a-shortcircuit-verify.md)） |
