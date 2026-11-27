@@ -346,6 +346,8 @@ func anonRecordLitInResultPosition(e syntax.Expr) bool {
 				return true
 			}
 		}
+	default:
+		return false
 	}
 	return false
 }
