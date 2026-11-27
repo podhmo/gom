@@ -28,13 +28,13 @@
             "file": "E0401_match_arm_provenance.gom",
             "start": {
               "line": 3,
-              "col": 22,
-              "offset": 35
+              "col": 30,
+              "offset": 43
             },
             "end": {
               "line": 3,
-              "col": 25,
-              "offset": 38
+              "col": 33,
+              "offset": 46
             }
           },
           "message": "expected type declared here"
