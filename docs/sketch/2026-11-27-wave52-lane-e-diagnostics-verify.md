@@ -21,6 +21,7 @@
 - `internal/diag/codes_coverage_test.go`: E0204/E0704 は spec fixture coverage、E0503 は retired なので例外分類から除去
 - `cmd/gom/explain_examples_test.go`: retired E0503 を fragment 分類から除去
 - `docs/error-codes.md`: `go generate ./internal/diag` で同期
+- `docs/grammar.ebnf`: receive arm の構文は pattern を保持し、変数・`_` 以外を checker の E0704 へ送る表記へ同期
 - 既存の attribute AST 懸念 2 件は parse 時 E0204 採用で解決済みに更新
 
 ## 検証コマンド

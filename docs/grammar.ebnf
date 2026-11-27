@@ -577,10 +577,13 @@ go-expr        = "go" , block ;                             (* spec 10.1 *)
 select-expr    = "select" , "{" ,
                  [ select-arm , { sep , select-arm } , [ sep ] ] , "}" ;
 select-arm     = recv-arm | send-arm | default-arm ;
-recv-arm       = ( ident | "_" ) , "<-" , expr , "->" , expr ;
-               (* spec 10.4-5: left side is a variable or "_" — not a
-                  pattern. The channel is an expr; it stops before "->".
-                  Taking a full expr here is intentionally permissive
+recv-arm       = pattern , "<-" , expr , "->" , expr ;
+               (* spec 10.4-5: only a variable or "_" is a legal left
+                  side. The parser keeps other patterns in the AST so the
+                  checker can reject them as E0704 instead of discarding
+                  the arm as generic E0101. The channel is an expr; it
+                  stops before "->". Taking a full expr here is
+                  intentionally permissive
                   (spec 10.6 evaluates each channel expression once, so
                   arbitrary expressions are meaningful); a later phase
                   may restrict it [SEMANTIC: bound var has type

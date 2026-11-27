@@ -650,11 +650,13 @@ func (p *parser) parseSelect() Expr {
 //
 //	"send" simple-expr simple-expr "->" expr      send
 //	"default" "->" expr                         default
-//	(ident | "_") "<-" expr "->" expr           receive
+//	pattern "<-" expr "->" expr                    receive
 //
 // The send operands are restricted to simple-expr (postfix level)
-// [PROVISIONAL — docs/problems/2026-11-01-select-send-arm-operands.md];
-// the receive channel is a full expr (grammar.ebnf recv-arm).
+// [PROVISIONAL — docs/problems/2026-11-01-select-send-arm-operands.md].
+// Receive binds parse as patterns so destructuring forms can reach
+// checker diagnostic E0704; only variables and "_" are legal binds.
+// The receive channel is a full expr (grammar.ebnf recv-arm).
 func (p *parser) parseSelectArm() SelectArm {
 	start := p.cur()
 	switch start.kind {
