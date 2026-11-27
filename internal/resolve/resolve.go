@@ -334,7 +334,11 @@ func Files(fs []*syntax.File, cfg *Config) ([]*Resolved, diag.List) {
 	diags := diag.List(u.diags)
 	for i, r := range rs {
 		r.resolveDecls(fs[i], r.file)
-		out[i] = &Resolved{File: fs[i], Defs: r.defs, Uses: r.uses, ImportPaths: r.importPaths}
+		layouts := map[string]*syntax.Layout{}
+		if fs[i].Layout != nil {
+			layouts[fs[i].Sp.File] = fs[i].Layout
+		}
+		out[i] = &Resolved{File: fs[i], Defs: r.defs, Uses: r.uses, Layouts: layouts, ImportPaths: r.importPaths}
 		diags = append(diags, r.diags...)
 	}
 	return out, diags

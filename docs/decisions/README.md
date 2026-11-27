@@ -279,7 +279,7 @@
 | [string-byte-surface](2026-11-26-string-byte-surface.md) | 文字列操作は stdlib package の byte 面に置く | 採用（prototype 検証済み） |
 | [agent-skill-tool-inventory](2026-11-27-agent-skill-tool-inventory.md) | agent skill の inventory はツール問い合わせへ寄せる | 採用 |
 | [callback-result-record-propagation](2026-11-27-callback-result-record-propagation.md) | callback result への record expectation propagation | 採用（実装・検証した — [検証](../sketch/2026-11-27-wave53-lane-a-callback-record-verify.md)） |
-| [continuation-line-diagnostics](2026-11-27-continuation-line-diagnostics.md) | 継続行らしき字下げ行の誤パース診断 | 採用（調査済み・実装は未実施） |
+| [continuation-line-diagnostics](2026-11-27-continuation-line-diagnostics.md) | 継続行らしき字下げ行の誤パース診断 | 採用（実装・検証した — [検証](../sketch/2026-11-28-wave55-lane-b-continuation-hint-verify.md)） |
 | [diagnostic-coverage-positive-assertions](2026-11-27-diagnostic-coverage-positive-assertions.md) | 診断 coverage positive assertion 規約 | 採用（実装・検証した — [検証](../sketch/2026-11-27-wave52-lane-c-positive-assertions-verify.md)） |
 | [diagnostic-direction-e0204-e0704-e0503](2026-11-27-diagnostic-direction-e0204-e0704-e0503.md) | E0204/E0704/E0503 の診断方向 | 採用（実装・検証した — [検証](../sketch/2026-11-27-wave52-lane-e-diagnostics-verify.md)） |
 | [diagnostic-labels-details](2026-11-27-diagnostic-labels-details.md) | diagnostic labels/details wire | 採用（実装・検証した — [検証](../sketch/2026-11-27-wave50-lane-c-diagnostic-wire-verify.md)） |

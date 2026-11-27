@@ -23,7 +23,7 @@
 ## To Be Implemented
 
 - [ ] **[task DIAG-2] E0401 provenance を if/match 腕へ伝播する**（依存: なし、**wave55 lane C として採択**）: 注釈からそのまま同じ expected type が供給される if/match 腕について、最終 conformance mismatch に `expected type declared here` label を付ける。nested if/match でも同じ経路では伝える。腕内の独立 mismatch へ漏らさない negative fixture、text/JSON output、spec/decision 更新を含める（[decision](docs/decisions/2026-11-27-diagnostic-ux-next-step.md)）
-- [ ] **[task CONT-1] 継続行疑いの E0402 note を実装する**（依存: なし、**wave55 lane B として採択**）: 関数型の mid-block statement で、同一 block の次 statement が後続行かつ深い字下げのときだけ E0402 へ pipe/parens note を付ける。深ければ字下げ幅は問わず、間の空行・コメントは無視する。診断 suppression、NL-2 変更、自動 rewrite は入れない（[decision](docs/decisions/2026-11-27-continuation-line-diagnostics.md)、[wave55 prompts](docs/sketch/2026-11-27-wave55-prompts.md)）
+- [x] **[task CONT-1] 継続行疑いの E0402 note を実装する**（依存: なし、**wave55 lane B として採択**）: 関数型の mid-block statement で、同一 block の次 statement が後続行かつ深い字下げのときだけ E0402 へ pipe/parens note を付ける。深ければ字下げ幅は問わず、間の空行・コメントは無視する。診断 suppression、NL-2 変更、自動 rewrite は入れない（[decision](docs/decisions/2026-11-27-continuation-line-diagnostics.md)、[wave55 prompts](docs/sketch/2026-11-27-wave55-prompts.md)）
 - [ ] **[task REC-1] record 未解決時の quiet recovery を実装する**（依存: なし、**wave55 lane A として採択**）: field-set resolution 失敗時は `wantT` の meta を `Unit` へ bind せず quiet にし、`wantT` がないときだけ quiet meta を recovery type にする。独立 mismatch が残る fixture と no-match 経路を含める（[decision](docs/decisions/2026-11-27-record-ambiguity-secondary-mismatch.md)、[wave55 prompts](docs/sketch/2026-11-27-wave55-prompts.md)）
 
 ### owner improvement ideas audit 由来（[PR #256](https://github.com/podhmo/gom/pull/256)、[audit](docs/sketch/2026-11-26-wave48-lane-g-owner-ideas-audit.md)）

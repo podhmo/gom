@@ -278,6 +278,10 @@ func (c *checker) checkBlock(e *syntax.Block, want types.Type) Expr {
 	out := &Block{Base: baseOf(e.Sp, types.Unit), Stmts: make([]Expr, 0, len(e.Stmts))}
 	for i, s := range e.Stmts {
 		var st Expr
+		var next syntax.Expr
+		if i+1 < len(e.Stmts) {
+			next = e.Stmts[i+1]
+		}
 		if i == len(e.Stmts)-1 {
 			st = c.checkExpr(s, want)
 		} else {
@@ -310,7 +314,11 @@ func (c *checker) checkBlock(e *syntax.Block, want types.Type) Expr {
 					c.diags.Add(midBlockUnitDiag(s, types.Display(st.Type(), metaNamer())))
 				}
 			case *types.Var, *types.Func, *types.Tuple, *types.Go:
-				c.diags.Add(midBlockUnitDiag(s, types.Display(st.Type(), metaNamer())))
+				d := midBlockUnitDiag(s, types.Display(st.Type(), metaNamer()))
+				if _, ok := t.(*types.Func); ok && c.continuationLike(s, next) {
+					d = d.AddNote("if these lines were meant as one application, use |> or wrap the whole application in parentheses")
+				}
+				c.diags.Add(d)
 			default:
 				panic("unreachable")
 			}
@@ -326,6 +334,29 @@ func (c *checker) checkBlock(e *syntax.Block, want types.Type) Expr {
 	// it in checkExpr's trailing step (an `fn f () -> a = {}` is a
 	// mismatch, not a silently ascribed `a`).
 	return out
+}
+
+// continuationLike reports whether next looks like an indented
+// continuation of cur inside one block. The comparison is deliberately
+// small: a later line and a deeper start column in the same file. Blank
+// lines and comments do not participate because next is already the
+// next syntactic statement of the block.
+func (c *checker) continuationLike(cur, next syntax.Expr) bool {
+	if cur == nil || next == nil {
+		return false
+	}
+	sp := cur.Span()
+	np := next.Span()
+	if sp.File != np.File {
+		return false
+	}
+	layout := c.layouts[sp.File]
+	if layout == nil {
+		return false
+	}
+	curLine, curCol := layout.LineCol(sp.Start)
+	nextLine, nextCol := layout.LineCol(np.Start)
+	return nextLine > curLine && nextCol > curCol
 }
 
 // midBlockUnitDiag builds the E0402 diagnostic of a non-Unit

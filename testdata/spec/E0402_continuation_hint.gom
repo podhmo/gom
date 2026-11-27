@@ -1,0 +1,10 @@
+package main
+
+fn total (xs: List Int) -> Int = {
+  List.fold
+
+    // this line is still meant as part of the application
+    (fn acc x -> acc + x)
+    0
+    xs
+}

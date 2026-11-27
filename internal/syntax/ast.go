@@ -22,6 +22,7 @@ type File struct {
 	Decls    []Decl      // top-level declarations in source order
 	Comments []*Comment  // every comment in the file, in source order
 	Blanks   []diag.Span // one span per blank line, in source order
+	Layout   *Layout     // parser-provided line/column trivia
 }
 
 // Span returns the whole-file span.

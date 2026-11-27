@@ -1,0 +1,222 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0402",
+      "severity": "error",
+      "message": "a mid-block expression must have type Unit, got (?1 -> ?2 -> ?1) -> ?1 -> List ?2 -> ?1",
+      "span": {
+        "file": "E0402_continuation_hint_negative.gom",
+        "start": {
+          "line": 4,
+          "col": 3,
+          "offset": 57
+        },
+        "end": {
+          "line": 4,
+          "col": 12,
+          "offset": 66
+        }
+      },
+      "data": {
+        "type": "(?1 -> ?2 -> ?1) -> ?1 -> List ?2 -> ?1"
+      },
+      "fixes": [
+        {
+          "title": "discard the value with `ignore`",
+          "applicability": "safe",
+          "edits": [
+            {
+              "file": "E0402_continuation_hint_negative.gom",
+              "start": {
+                "line": 4,
+                "col": 3,
+                "offset": 57
+              },
+              "end": {
+                "line": 4,
+                "col": 3,
+                "offset": 57
+              },
+              "text": "ignore ("
+            },
+            {
+              "file": "E0402_continuation_hint_negative.gom",
+              "start": {
+                "line": 4,
+                "col": 12,
+                "offset": 66
+              },
+              "end": {
+                "line": 4,
+                "col": 12,
+                "offset": 66
+              },
+              "text": ")"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0407",
+      "severity": "error",
+      "message": "type annotation required: the type argument for `a` could not be determined",
+      "span": {
+        "file": "E0402_continuation_hint_negative.gom",
+        "start": {
+          "line": 4,
+          "col": 8,
+          "offset": 62
+        },
+        "end": {
+          "line": 4,
+          "col": 12,
+          "offset": 66
+        }
+      },
+      "data": {
+        "type": "?1"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0407",
+      "severity": "error",
+      "message": "type annotation required: the type argument for `b` could not be determined",
+      "span": {
+        "file": "E0402_continuation_hint_negative.gom",
+        "start": {
+          "line": 4,
+          "col": 8,
+          "offset": 62
+        },
+        "end": {
+          "line": 4,
+          "col": 12,
+          "offset": 66
+        }
+      },
+      "data": {
+        "type": "?1"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0402",
+      "severity": "error",
+      "message": "a mid-block expression must have type Unit, got Int",
+      "span": {
+        "file": "E0402_continuation_hint_negative.gom",
+        "start": {
+          "line": 9,
+          "col": 3,
+          "offset": 108
+        },
+        "end": {
+          "line": 9,
+          "col": 4,
+          "offset": 109
+        }
+      },
+      "data": {
+        "type": "Int"
+      },
+      "fixes": [
+        {
+          "title": "discard the value with `ignore`",
+          "applicability": "safe",
+          "edits": [
+            {
+              "file": "E0402_continuation_hint_negative.gom",
+              "start": {
+                "line": 9,
+                "col": 3,
+                "offset": 108
+              },
+              "end": {
+                "line": 9,
+                "col": 3,
+                "offset": 108
+              },
+              "text": "ignore ("
+            },
+            {
+              "file": "E0402_continuation_hint_negative.gom",
+              "start": {
+                "line": 9,
+                "col": 4,
+                "offset": 109
+              },
+              "end": {
+                "line": 9,
+                "col": 4,
+                "offset": 109
+              },
+              "text": ")"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0402",
+      "severity": "error",
+      "message": "a mid-block expression must have type Unit, got Int",
+      "span": {
+        "file": "E0402_continuation_hint_negative.gom",
+        "start": {
+          "line": 10,
+          "col": 5,
+          "offset": 114
+        },
+        "end": {
+          "line": 10,
+          "col": 6,
+          "offset": 115
+        }
+      },
+      "data": {
+        "type": "Int"
+      },
+      "fixes": [
+        {
+          "title": "discard the value with `ignore`",
+          "applicability": "safe",
+          "edits": [
+            {
+              "file": "E0402_continuation_hint_negative.gom",
+              "start": {
+                "line": 10,
+                "col": 5,
+                "offset": 114
+              },
+              "end": {
+                "line": 10,
+                "col": 5,
+                "offset": 114
+              },
+              "text": "ignore ("
+            },
+            {
+              "file": "E0402_continuation_hint_negative.gom",
+              "start": {
+                "line": 10,
+                "col": 6,
+                "offset": 115
+              },
+              "end": {
+                "line": 10,
+                "col": 6,
+                "offset": 115
+              },
+              "text": ")"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

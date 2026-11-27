@@ -24,6 +24,10 @@ type Resolved struct {
 	File *syntax.File
 	Defs map[*syntax.Ident]*Symbol
 	Uses map[*syntax.Ident]*Symbol
+	// Layouts carries each parsed file's line/column trivia for
+	// diagnostics that compare source indentation. Hand-built syntax
+	// trees may leave it empty.
+	Layouts map[string]*syntax.Layout
 	// ImportPaths maps each import clause to the loaded package's
 	// canonical path — the written path may differ (a stdlib short
 	// name unfolds to the toolchain path). Clauses that failed to

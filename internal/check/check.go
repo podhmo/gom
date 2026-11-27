@@ -55,6 +55,10 @@ func Check(res *resolve.Resolved, src SignatureSource) (*File, diag.List) {
 		adoptedAnnVars:  map[*types.Var]bool{},
 		reportedUnbound: map[*types.Var]bool{},
 	}
+	c.layouts = res.Layouts
+	if len(c.layouts) == 0 && res.File != nil && res.File.Layout != nil {
+		c.layouts = map[string]*syntax.Layout{res.File.Sp.File: res.File.Layout}
+	}
 	c.registerBuiltinTypes(bv)
 	c.registerTypeDecls(res.File.Decls)
 	if ts, ok := src.(TypeDeclSource); ok {
@@ -292,8 +296,9 @@ type checker struct {
 	resultTaintState
 	deferredState
 
-	res *resolve.Resolved
-	src SignatureSource
+	res     *resolve.Resolved
+	src     SignatureSource
+	layouts map[string]*syntax.Layout
 
 	// expectedFrom is the annotation span active for the final
 	// conformance of one expression; mismatch turns it into a
