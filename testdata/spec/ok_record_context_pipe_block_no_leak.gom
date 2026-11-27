@@ -1,0 +1,16 @@
+package main
+
+type In = { seed: Int }
+type Out = { count: Int, label: String }
+type OtherOut = { count: Int, label: String }
+
+fn identity (x: a) -> a = x
+
+fn produce (input: In) -> List Out =
+  [{ count = input.seed, label = "x" }]
+
+fn run () -> Go.Slice Out =
+  ({
+    let local : OtherOut = identity { count = 0, label = "x" }
+    produce
+  }) <| { seed = 1 }

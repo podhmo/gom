@@ -68,6 +68,123 @@ func TestApplyParamExpectationsDoesNotBindInferenceState(t *testing.T) {
 	}
 }
 
+func TestApplyParamExpectationsActivatesCallbackResultRecord(t *testing.T) {
+	c := &checker{
+		metas:  map[*types.Meta]*metaRec{},
+		tyCons: map[conKey]*typeInfo{},
+	}
+	sp := diag.SpanIn("test.gom", 1, 2)
+	accT := &types.Con{Name: "Acc"}
+	c.tyCons[conKey{name: "Acc"}] = &typeInfo{kind: kindRecord}
+	a := c.newMeta(sp, "the callback result")
+	intT := &types.Con{Name: "Int"}
+	param := func(t types.Type) types.FuncParam { return types.FuncParam{Type: t} }
+	callbackT := types.Fn(a, param(intT))
+	params := []types.FuncParam{param(callbackT)}
+	fnT := types.Fn(a, params[0])
+	args := []syntax.Arg{{Value: &syntax.Lambda{Body: &syntax.RecordLit{}}}}
+
+	x := c.applyParamExpectations(fnT, params, args, accT, sp)
+	if x == nil {
+		t.Fatal("callback result record did not activate expectations")
+	}
+	if a.Bound() {
+		t.Fatalf("lookahead bound the callback result meta to %v", types.Chase(a))
+	}
+	got, ok := x.at(0, callbackT)
+	if !ok {
+		t.Fatal("callback parameter did not gain the static result type")
+	}
+	want := types.Fn(accT, param(intT))
+	if !types.Equal(got, want) {
+		t.Fatalf("callback expectation = %v, want %v", got, want)
+	}
+}
+
+func TestApplyParamExpectationsPipeReverseSliceBoundary(t *testing.T) {
+	c := &checker{
+		metas:  map[*types.Meta]*metaRec{},
+		tyCons: map[conKey]*typeInfo{},
+	}
+	sp := diag.SpanIn("test.gom", 1, 2)
+	outT := &types.Con{Name: "Out"}
+	c.tyCons[conKey{name: "Out"}] = &typeInfo{kind: kindRecord}
+	a := c.newMeta(sp, "the mapped element")
+	b := c.newMeta(sp, "the callback result")
+	param := func(t types.Type) types.FuncParam { return types.FuncParam{Type: t} }
+	callbackT := types.Fn(b, param(a))
+	params := []types.FuncParam{param(callbackT), param(types.List(a))}
+	fnT := types.Fn(types.GoSlice(b), params...)
+	body := &syntax.TupleLit{Elems: []syntax.Expr{&syntax.Ident{}, &syntax.RecordLit{}}}
+	args := []syntax.Arg{{Value: &syntax.Lambda{Body: body}}}
+	pairT := types.Tup(types.GoAny, outT)
+	pipeWant := types.Fn(types.List(pairT), param(c.untypedMeta()))
+
+	x := c.applyParamExpectationsImpl(fnT, params, args, pipeWant, sp, true)
+	if x == nil {
+		t.Fatal("reverse slice boundary did not activate pipe expectations")
+	}
+	got, ok := x.at(0, callbackT)
+	if !ok {
+		t.Fatal("callback parameter did not gain the reverse boundary result type")
+	}
+	want := types.Fn(pairT, param(a))
+	if !types.Equal(got, want) {
+		t.Fatalf("callback expectation = %v, want %v", got, want)
+	}
+	if x := c.applyParamExpectations(fnT, params, args, pipeWant, sp); x != nil {
+		t.Fatalf("ordinary application used the pipe-only boundary retry: %+v", x)
+	}
+}
+
+func TestApplyParamExpectationsSkipsOpenBoundaryResult(t *testing.T) {
+	c := &checker{
+		metas:  map[*types.Meta]*metaRec{},
+		tyCons: map[conKey]*typeInfo{},
+	}
+	sp := diag.SpanIn("test.gom", 1, 2)
+	outT := &types.Con{Name: "Out"}
+	c.tyCons[conKey{name: "Out"}] = &typeInfo{kind: kindRecord}
+	a := c.newMeta(sp, "the picked value")
+	param := func(t types.Type) types.FuncParam { return types.FuncParam{Type: t} }
+	params := []types.FuncParam{param(types.List(a)), param(outT), param(a)}
+	fnT := types.Fn(a, params...)
+	args := []syntax.Arg{
+		{Value: &syntax.Ident{}},
+		{Value: &syntax.RecordLit{}},
+	}
+	pipeWant := types.Fn(types.GoSlice(outT), param(c.untypedMeta()))
+
+	if x := c.applyParamExpectationsImpl(fnT, params, args, pipeWant, sp, true); x != nil {
+		t.Fatalf("ambiguous open boundary result propagated expectations: %+v", x)
+	}
+	if x := c.applyParamExpectations(fnT, params, args, pipeWant, sp); x == nil {
+		t.Fatal("ordinary application lost exact open-result expectations")
+	}
+}
+
+func TestApplyParamExpectationsIgnoresNonResultRecordInCallback(t *testing.T) {
+	c := &checker{
+		metas:  map[*types.Meta]*metaRec{},
+		tyCons: map[conKey]*typeInfo{},
+	}
+	sp := diag.SpanIn("test.gom", 1, 2)
+	accT := &types.Con{Name: "Acc"}
+	c.tyCons[conKey{name: "Acc"}] = &typeInfo{kind: kindRecord}
+	a := c.newMeta(sp, "the callback result")
+	intT := &types.Con{Name: "Int"}
+	param := func(t types.Type) types.FuncParam { return types.FuncParam{Type: t} }
+	callbackT := types.Fn(a, param(intT))
+	params := []types.FuncParam{param(callbackT)}
+	fnT := types.Fn(a, params[0])
+	body := &syntax.Block{Stmts: []syntax.Expr{&syntax.RecordLit{}, &syntax.Ident{}}}
+	args := []syntax.Arg{{Value: &syntax.Lambda{Body: body}}}
+
+	if x := c.applyParamExpectations(fnT, params, args, accT, sp); x != nil {
+		t.Fatalf("non-result record activated expectations: %+v", x)
+	}
+}
+
 func TestMergeContextualTypeFillsOpenArgs(t *testing.T) {
 	c := &checker{metas: map[*types.Meta]*metaRec{}}
 	sp := diag.SpanIn("test.gom", 1, 2)

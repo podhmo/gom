@@ -1,0 +1,36 @@
+package main
+
+type Line = { qty: Int }
+type Out = { count: Int, lines: List Line }
+type OtherOut = { count: Int, lines: List Line }
+
+fn validate_line (line: Line) -> Result Line String = Ok line
+
+fn count_lines (lines: List Line) -> Result Out String =
+  lines
+  |> List.traverse_result validate_line
+  |> Result.map (fn valid -> { count = 0, lines = valid })
+
+fn wrap_lines (f: List Line -> a) (lines: List Line) -> a = f lines
+
+fn count_lines_direct (lines: List Line) -> Out =
+  wrap_lines (fn valid -> { count = 0, lines = valid }) lines
+
+fn count_lines_if (lines: List Line) -> Result Out String =
+  lines
+  |> List.traverse_result validate_line
+  |> Result.map (fn valid ->
+    if List.length valid > 0 {
+      { count = 1, lines = valid }
+    } else {
+      { count = 0, lines = valid }
+    })
+
+fn count_lines_match (lines: List Line) -> Result Out String =
+  lines
+  |> List.traverse_result validate_line
+  |> Result.map (fn valid ->
+    match List.length valid {
+      0 -> { count = 0, lines = valid }
+      _ -> { count = 1, lines = valid }
+    })

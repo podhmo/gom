@@ -1,0 +1,7 @@
+package main
+
+type Out = { count: Int, label: String }
+type OtherOut = { count: Int, label: String }
+
+fn run () -> Go.Slice (Go.Any, Out) =
+  ["x"] |> List.map (fn x -> (x, { count = 0, label = "x" }))

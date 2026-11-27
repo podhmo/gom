@@ -30,6 +30,13 @@ import (
 // checker as an ascription over this node, so a bare `Go.conv e`
 // reports E0507.
 func (c *checker) checkApply(e *syntax.Apply, want types.Type) Expr {
+	recordWant := c.pipeApplyExpectation
+	recordBoundary := c.pipeApplyBoundary
+	c.pipeApplyExpectation = nil
+	c.pipeApplyBoundary = false
+	if recordWant == nil {
+		recordWant = want
+	}
 	if ti, lit := c.typePrefixedRecordLit(e); ti != nil {
 		rt, ok := c.typePrefixedRecordType(ti, e.Sp, want)
 		if !ok {
@@ -220,7 +227,7 @@ func (c *checker) checkApply(e *syntax.Apply, want types.Type) Expr {
 			arity = c.declArity(sig, arity)
 		}
 	}
-	return c.checkGomApply(e, fn, callee, params, ret, arity, want)
+	return c.checkGomApply(e, fn, callee, params, ret, arity, want, recordWant, recordBoundary)
 }
 
 // declArity returns the callee's own declared parameter count — what
@@ -323,6 +330,49 @@ func (c *checker) typePrefixedRecordType(ti *typeInfo, sp diag.Span, want types.
 	return rt, true
 }
 
+// anonRecordLitInResultPosition reports whether an expression's result
+// can be an anonymous record literal. Nested positions that merely evaluate
+// a record for its value (let bodies, call arguments, field values) do not
+// count: contextual propagation follows only the expression positions whose
+// type is the enclosing expression's own result type.
+func anonRecordLitInResultPosition(e syntax.Expr) bool {
+	if e == nil {
+		return false
+	}
+	switch e := e.(type) {
+	case *syntax.RecordLit:
+		return e.Base == nil
+	case *syntax.Ascribe:
+		return anonRecordLitInResultPosition(e.X)
+	case *syntax.Lambda:
+		return anonRecordLitInResultPosition(e.Body)
+	case *syntax.Block:
+		return len(e.Stmts) > 0 && anonRecordLitInResultPosition(e.Stmts[len(e.Stmts)-1])
+	case *syntax.If:
+		return anonRecordLitInResultPosition(e.Then) || (e.Else != nil && anonRecordLitInResultPosition(e.Else))
+	case *syntax.Match:
+		for _, arm := range e.Arms {
+			if anonRecordLitInResultPosition(arm.Body) {
+				return true
+			}
+		}
+		return false
+	case *syntax.TupleLit:
+		for _, elem := range e.Elems {
+			if anonRecordLitInResultPosition(elem) {
+				return true
+			}
+		}
+		return false
+	case *syntax.Apply, *syntax.Assign, *syntax.Binary, *syntax.For, *syntax.GoExpr, *syntax.Hole,
+		*syntax.Ident, *syntax.Ignore, *syntax.Let, *syntax.ListLit, *syntax.Lit, *syntax.Select,
+		*syntax.SelectExpr, *syntax.Spread, *syntax.StrInterp, *syntax.Try, *syntax.Unary:
+		return false
+	default:
+		panic("unreachable")
+	}
+}
+
 // applyParamExpectations derives the parameter views a statically
 // decidable application fills when its result already has an expected
 // type. The derivation is speculative: inference metas on both sides
@@ -338,13 +388,94 @@ type applyParamExpectations struct {
 	sp          diag.Span
 }
 
+// boundaryProducerWants returns the producer-side spelling an expected
+// type can have across the implicit List/Go.Slice boundary. The exact
+// expected type is always tried first; these variants let speculative
+// propagation see through a conversion the final expression may still
+// perform after inference.
+func (c *checker) boundaryProducerWants(want types.Type) []types.Type {
+	switch t := types.Chase(want).(type) {
+	case *types.Func:
+		if len(t.Params) != 1 {
+			return nil
+		}
+		input, ok := types.Chase(t.Params[0].Type).(*types.Meta)
+		if !ok || input.ID != -1 {
+			return nil
+		}
+		alts := c.boundaryProducerWants(t.Ret)
+		out := make([]types.Type, 0, len(alts))
+		for _, ret := range alts {
+			out = append(out, &types.Func{Params: t.Params, Ret: ret})
+		}
+		return out
+	case *types.Con:
+		if len(t.Args) != 1 {
+			return nil
+		}
+		if t.Qual == "Go" && t.Name == "Slice" && !c.shadowedBuiltin("List") {
+			return []types.Type{types.List(t.Args[0])}
+		}
+		if t.Qual == "" && t.Name == "List" && !c.shadowedBuiltin("List") {
+			return []types.Type{types.GoSlice(t.Args[0])}
+		}
+	case *types.Tuple, *types.Go, *types.Meta, *types.Var:
+		return nil
+	default:
+		panic("unreachable")
+	}
+	return nil
+}
+
+func staticFuncResult(t types.Type) types.Type {
+	if f, ok := types.Chase(t).(*types.Func); ok {
+		return types.Chase(f.Ret)
+	}
+	return types.Chase(t)
+}
+
+// openBoundaryResult reports the ambiguous case where the producer's
+// whole result is still an open meta but the consumer expects List or
+// Go.Slice. Binding that meta to either spelling would be stronger than
+// the program warrants: the other spelling may be equally valid because
+// the final pipe result can cross the boundary by copy. In that case the
+// static expectation is not injective enough to propagate into sibling
+// parameters at all.
+func (c *checker) openBoundaryResult(residual, want types.Type) bool {
+	if c.shadowedBuiltin("List") {
+		return false
+	}
+	res, ok := staticFuncResult(residual).(*types.Meta)
+	if !ok || res.Bound() {
+		return false
+	}
+	switch w := staticFuncResult(want).(type) {
+	case *types.Con:
+		if len(w.Args) != 1 {
+			return false
+		}
+		if w.Qual == "Go" && w.Name == "Slice" {
+			return true
+		}
+		return w.Qual == "" && w.Name == "List" && !c.shadowedBuiltin("List")
+	case *types.Func, *types.Tuple, *types.Go, *types.Meta, *types.Var:
+		return false
+	default:
+		panic("unreachable")
+	}
+}
+
 func (c *checker) applyParamExpectations(fnT types.Type, params []types.FuncParam, args []syntax.Arg, want types.Type, sp diag.Span) *applyParamExpectations {
+	return c.applyParamExpectationsImpl(fnT, params, args, want, sp, false)
+}
+
+func (c *checker) applyParamExpectationsImpl(fnT types.Type, params []types.FuncParam, args []syntax.Arg, want types.Type, sp diag.Span, allowBoundary bool) *applyParamExpectations {
 	if want == nil || len(args) > len(params) {
 		return nil
 	}
 	hasRecordLit := false
 	for _, a := range args {
-		if lit, ok := a.Value.(*syntax.RecordLit); ok && lit.Base == nil {
+		if anonRecordLitInResultPosition(a.Value) {
 			hasRecordLit = true
 			break
 		}
@@ -357,18 +488,35 @@ func (c *checker) applyParamExpectations(fnT types.Type, params []types.FuncPara
 		return nil
 	}
 	residual := applyResidual(fnT, used, 0)
-	clones := map[*types.Meta]*types.Meta{}
-	cw := c.clonePrefixType(want, clones)
-	cr := c.clonePrefixType(residual, clones)
-	cps := make([]types.Type, len(params))
-	for i, p := range params {
-		cps[i] = c.clonePrefixType(p.Type, clones)
+	if allowBoundary && c.openBoundaryResult(residual, want) {
+		return nil
 	}
-	ndiag := len(c.diags)
-	ok = c.unify(cw, cr, sp)
-	c.diags = c.diags[:ndiag]
-	for _, m := range clones {
-		delete(c.metas, m)
+	try := func(want types.Type) (map[*types.Meta]*types.Meta, []types.Type, bool) {
+		clones := map[*types.Meta]*types.Meta{}
+		cw := c.clonePrefixType(want, clones)
+		cr := c.clonePrefixType(residual, clones)
+		cps := make([]types.Type, len(params))
+		for i, p := range params {
+			cps[i] = c.clonePrefixType(p.Type, clones)
+		}
+		ndiag := len(c.diags)
+		ok := c.unify(cw, cr, sp)
+		c.diags = c.diags[:ndiag]
+		for _, m := range clones {
+			delete(c.metas, m)
+		}
+		if !ok {
+			return nil, nil, false
+		}
+		return clones, cps, true
+	}
+	clones, cps, ok := try(want)
+	if !ok && allowBoundary {
+		for _, alt := range c.boundaryProducerWants(want) {
+			if clones, cps, ok = try(alt); ok {
+				break
+			}
+		}
 	}
 	if !ok {
 		return nil
@@ -396,9 +544,6 @@ func (c *checker) applyParamExpectations(fnT types.Type, params []types.FuncPara
 
 func (x *applyParamExpectations) at(i int, original types.Type) (types.Type, bool) {
 	if x == nil || i < 0 || i >= len(x.params) || !x.informative[i] {
-		return nil, false
-	}
-	if !x.c.containsRecordType(x.params[i]) {
 		return nil, false
 	}
 	reifiedBefore := make(map[*types.Meta]bool, len(x.open))
@@ -870,7 +1015,7 @@ func (c *checker) calleeOf(e syntax.Expr) (Expr, *resolve.Symbol, bool) {
 // — then classifies the call: a prefix fill covering the declared
 // arity is CallDirect, a call leaving an earlier flat slot open is
 // CallPartial.
-func (c *checker) checkGomApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol, params []types.FuncParam, ret types.Type, declArity int, want types.Type) Expr {
+func (c *checker) checkGomApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol, params []types.FuncParam, ret types.Type, declArity int, want types.Type, recordWant types.Type, recordBoundary bool) Expr {
 	flat := len(params)
 	if declArity > flat {
 		declArity = flat
@@ -883,7 +1028,7 @@ func (c *checker) checkGomApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol
 	unmapped := false  // an argument no flat parameter position answers
 
 	out := &Apply{Base: baseOf(e.Sp, nil), Fn: fn}
-	expectations := c.applyParamExpectations(fn.Type(), params, e.Args, want, e.Sp)
+	expectations := c.applyParamExpectationsImpl(fn.Type(), params, e.Args, recordWant, e.Sp, recordBoundary)
 
 	// `g args` where `g`'s type waits on a deferred member —
 	// a variable aliasing the member's standing meta

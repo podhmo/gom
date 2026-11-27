@@ -23,7 +23,7 @@
 ## To Be Implemented
 
 - [x] **[task INIT-2] `gom init` failure atomicity**（依存: なし）: 失敗時は init 由来の変更をすべて rollback する。validation failure で残る新規 `go.mod` / `go.sum` に加え、validation 後の `main.gom` write failure でも、新規 init が作成した `go.mod` / `go.sum` と既存 module への additive edit / `go.sum` 変更を対象にする。init が作っていない file と non-overwrite 契約は変えない（[wave53 prompts](docs/sketch/2026-11-27-wave53-prompts.md)）
-- [ ] **[task RCTX-1] callback result への前向き record propagation**（依存: なし）: generic higher-order callback の本体結果位置にある無名 record literal へ、pipe / generic application の静的に分かる result expectation を伝える。後続使用からの逆推論は入れず、二次 E0401 抑制可否も fixture で確認する（[wave53 prompts](docs/sketch/2026-11-27-wave53-prompts.md)、[gap](docs/implementation-gaps.md)）
+- [x] **[task RCTX-1] callback result への前向き record propagation**（依存: なし）: generic higher-order callback の本体結果位置にある無名 record literal へ、pipe / generic application の静的に分かる result expectation を伝える。後続使用からの逆推論は入れず、二次 E0401 抑制可否も fixture で確認する（[wave53 prompts](docs/sketch/2026-11-27-wave53-prompts.md)、[gap](docs/implementation-gaps.md)）
 
 ### owner improvement ideas audit 由来（[PR #256](https://github.com/podhmo/gom/pull/256)、[audit](docs/sketch/2026-11-26-wave48-lane-g-owner-ideas-audit.md)）
 
