@@ -72,6 +72,31 @@ func runGomRun(args []string, stdout, stderr io.Writer) int {
 	for d := range dirs {
 		runDir = d
 	}
+	// Outside a module, synthesize the invocation-scoped scratch module
+	// before dependency discovery so module-aware imports resolve under
+	// gom.local/scratch. It is removed when this command returns.
+	_, _, inModule := moduleOf(runDir)
+	var restore func()
+	if !inModule {
+		defer func() {
+			if restore != nil {
+				restore()
+			}
+		}()
+		// A parent go.work otherwise captures every Go subprocess. The
+		// scratch module is deliberately self-contained, so workspace
+		// resolution is disabled for this invocation. cmd/gom is a
+		// single-command process; tests already pin GOWORK=off for the
+		// same isolation.
+		restore = setEnv("GOWORK", "off")
+	}
+	cleanupScratch, err := ensureScratchModule(runDir)
+	if err != nil {
+		fmt.Fprintf(stderr, "gom run: %v\n", err)
+		return diag.ExitInternal
+	}
+	defer cleanupScratch()
+
 	inputs, err = expandModuleLocalDeps(inputs)
 	if err != nil {
 		fmt.Fprintf(stderr, "gom run: %v\n", err)
@@ -178,6 +203,12 @@ func runGomRun(args []string, stdout, stderr io.Writer) int {
 		return rep.ExitCode()
 	}
 
+	// Workspace isolation ends with compilation. The executed program is
+	// user code and must inherit the caller's normal Go environment.
+	if restore != nil {
+		restore()
+		restore = nil
+	}
 	// The program inherits the caller's working directory — the same
 	// place `go run ./pkg` would run it — and its stdio and exit
 	// code pass through unadorned.
