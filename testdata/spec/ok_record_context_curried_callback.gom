@@ -1,0 +1,8 @@
+package main
+
+type Acc = { count: Int }
+type Other = { count: Int }
+
+fn wrap (f: Int -> a) (seed: Acc) -> a = f 0
+
+fn run () -> Int -> Acc = wrap (fn x -> fn y -> { count = y }) { count = 0 }

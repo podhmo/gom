@@ -1,0 +1,9 @@
+package main
+
+type Acc = { count: Int }
+type Other = { count: Int }
+
+fn total (xs: List Int) -> Acc = {
+  let seed = { count = 0 }
+  List.fold (fn acc x -> { acc with count = acc.count + x }) seed xs
+}

@@ -220,7 +220,7 @@ func (c *checker) checkApply(e *syntax.Apply, want types.Type) Expr {
 			arity = c.declArity(sig, arity)
 		}
 	}
-	return c.checkGomApply(e, fn, callee, params, ret, arity)
+	return c.checkGomApply(e, fn, callee, params, ret, arity, want)
 }
 
 // declArity returns the callee's own declared parameter count — what
@@ -321,6 +321,252 @@ func (c *checker) typePrefixedRecordType(ti *typeInfo, sp diag.Span, want types.
 	}
 	c.useExpectedPrefixType(rt, want, sp)
 	return rt, true
+}
+
+// applyParamExpectations derives the parameter views a statically
+// decidable application fills when its result already has an expected
+// type. The derivation is speculative: inference metas on both sides
+// are cloned before the trial unification, so the surrounding inference
+// state is never bound early. Reified open metas act only as forwarding
+// placeholders inside the argument being checked; ordinary conformance
+// still links the callee's own metas in source order.
+type applyParamExpectations struct {
+	c           *checker
+	params      []types.Type
+	informative []bool
+	open        map[*types.Meta]*types.Meta
+	sp          diag.Span
+}
+
+func (c *checker) applyParamExpectations(fnT types.Type, params []types.FuncParam, args []syntax.Arg, want types.Type, sp diag.Span) *applyParamExpectations {
+	if want == nil || len(args) > len(params) {
+		return nil
+	}
+	hasRecordLit := false
+	for _, a := range args {
+		if lit, ok := a.Value.(*syntax.RecordLit); ok && lit.Base == nil {
+			hasRecordLit = true
+			break
+		}
+	}
+	if !hasRecordLit {
+		return nil
+	}
+	used, ok := c.fillUsed(args, params)
+	if !ok {
+		return nil
+	}
+	residual := applyResidual(fnT, used, 0)
+	clones := map[*types.Meta]*types.Meta{}
+	cw := c.clonePrefixType(want, clones)
+	cr := c.clonePrefixType(residual, clones)
+	cps := make([]types.Type, len(params))
+	for i, p := range params {
+		cps[i] = c.clonePrefixType(p.Type, clones)
+	}
+	ndiag := len(c.diags)
+	ok = c.unify(cw, cr, sp)
+	c.diags = c.diags[:ndiag]
+	for _, m := range clones {
+		delete(c.metas, m)
+	}
+	if !ok {
+		return nil
+	}
+	x := &applyParamExpectations{
+		c:           c,
+		params:      cps,
+		informative: make([]bool, len(params)),
+		open:        map[*types.Meta]*types.Meta{},
+		sp:          sp,
+	}
+	for i, p := range params {
+		metasIn(p.Type, func(m *types.Meta) {
+			cm, ok := clones[m]
+			if !ok {
+				return
+			}
+			if _, open := types.Chase(cm).(*types.Meta); !open {
+				x.informative[i] = true
+			}
+		})
+	}
+	return x
+}
+
+func (x *applyParamExpectations) at(i int, original types.Type) (types.Type, bool) {
+	if x == nil || i < 0 || i >= len(x.params) || !x.informative[i] {
+		return nil, false
+	}
+	if !x.c.containsRecordType(x.params[i]) {
+		return nil, false
+	}
+	merged := x.c.mergeContextualType(original, x.params[i], x.open, x.sp)
+	if types.Equal(merged, original) || x.c.containsFuncLabels(merged) {
+		return nil, false
+	}
+	return merged, true
+}
+
+// containsFuncLabels reports whether a type structure contains a
+// labeled function parameter. Contextual propagation deliberately
+// declines those types: a borrowed label is useful for checking one
+// expression, but it is not part of the callee's inference contract.
+func (c *checker) containsFuncLabels(t types.Type) bool {
+	switch t := types.Chase(t).(type) {
+	case *types.Var, *types.Meta:
+		return false
+	case *types.Con:
+		return c.containsFuncLabelsSlice(t.Args)
+	case *types.Func:
+		for _, p := range t.Params {
+			if p.Label != "" || c.containsFuncLabels(p.Type) {
+				return true
+			}
+		}
+		return c.containsFuncLabels(t.Ret)
+	case *types.Tuple:
+		return c.containsFuncLabelsSlice(t.Elems)
+	case *types.Go:
+		return c.containsFuncLabelsSlice(t.Args)
+	default:
+		panic("unreachable")
+	}
+}
+
+func (c *checker) containsFuncLabelsSlice(ts []types.Type) bool {
+	for _, t := range ts {
+		if c.containsFuncLabels(t) {
+			return true
+		}
+	}
+	return false
+}
+
+// mergeContextualType combines the callee's current parameter type
+// with its speculative expectation at type-constructor granularity.
+// The current type is authoritative wherever both sides are concrete;
+// speculative concrete structure fills open parts. Open speculative
+// leaves are not reified when the current type already has a node for
+// the position — using that node keeps ordinary inference sharing and
+// avoids orphaned forwarding variables.
+func (c *checker) mergeContextualType(original, speculative types.Type, open map[*types.Meta]*types.Meta, sp diag.Span) types.Type {
+	o := types.Chase(original)
+	x := types.Chase(speculative)
+	if _, openLeaf := x.(*types.Meta); openLeaf {
+		return o
+	}
+	if _, openOriginal := o.(*types.Meta); openOriginal {
+		t, _ := c.reifyPrefixType(x, open, sp)
+		return t
+	}
+	switch o := o.(type) {
+	case *types.Con:
+		xc, ok := x.(*types.Con)
+		if !ok || o.Qual != xc.Qual || o.Name != xc.Name || len(o.Args) != len(xc.Args) {
+			return o
+		}
+		args, changed := c.mergeContextualTypeSlice(o.Args, xc.Args, open, sp)
+		if !changed {
+			return o
+		}
+		return &types.Con{Qual: o.Qual, Name: o.Name, Args: args}
+	case *types.Func:
+		xf, ok := x.(*types.Func)
+		if !ok {
+			return o
+		}
+		op, or := flattenFunc(o)
+		xp, xr := flattenFunc(xf)
+		shared := len(op)
+		extendOriginal := false
+		extendSpeculative := false
+		switch {
+		case len(xp) < shared:
+			// A speculative function can end in an open meta while the
+			// already-inferred type continues curried. The open tail adds no
+			// information, but the shared prefix can still be merged.
+			if _, openTail := types.Chase(xr).(*types.Meta); !openTail {
+				return o
+			}
+			shared = len(xp)
+			extendOriginal = true
+		case len(xp) > shared:
+			// Conversely an open original return can stand for the rest of a
+			// curried callback. Fill that tail from the longer speculative
+			// signature instead of discarding the whole expectation.
+			if _, openTail := types.Chase(or).(*types.Meta); !openTail {
+				return o
+			}
+			extendSpeculative = true
+		}
+		ps := make([]types.FuncParam, shared)
+		changed := false
+		for i := 0; i < shared; i++ {
+			fp := op[i]
+			if fp.Label != "" && fp.Label != xp[i].Label {
+				return o
+			}
+			nt := c.mergeContextualType(fp.Type, xp[i].Type, open, sp)
+			changed = changed || nt != fp.Type
+			ps[i] = types.FuncParam{Label: fp.Label, Type: nt}
+		}
+		var ret types.Type
+		switch {
+		case extendOriginal:
+			ret = types.Fn(or, op[shared:]...)
+		case extendSpeculative:
+			tail := types.Fn(xr, xp[shared:]...)
+			ret = c.mergeContextualType(or, tail, open, sp)
+			changed = true
+		default:
+			ret = c.mergeContextualType(or, xr, open, sp)
+			changed = changed || ret != or
+		}
+		if !changed {
+			return o
+		}
+		return types.Fn(ret, ps...)
+	case *types.Tuple:
+		xt, ok := x.(*types.Tuple)
+		if !ok || len(o.Elems) != len(xt.Elems) {
+			return o
+		}
+		elems, changed := c.mergeContextualTypeSlice(o.Elems, xt.Elems, open, sp)
+		if !changed {
+			return o
+		}
+		return &types.Tuple{Elems: elems}
+	case *types.Go:
+		xg, ok := x.(*types.Go)
+		if !ok || o.Ref != xg.Ref || len(o.Args) != len(xg.Args) {
+			return o
+		}
+		args, changed := c.mergeContextualTypeSlice(o.Args, xg.Args, open, sp)
+		if !changed {
+			return o
+		}
+		return &types.Go{Ref: o.Ref, Args: args}
+	case *types.Meta:
+		return o
+	case *types.Var:
+		return o
+	default:
+		panic("unreachable")
+	}
+}
+
+func (c *checker) mergeContextualTypeSlice(original, speculative []types.Type, open map[*types.Meta]*types.Meta, sp diag.Span) ([]types.Type, bool) {
+	out := make([]types.Type, len(original))
+	changed := false
+	for i, t := range original {
+		out[i] = c.mergeContextualType(t, speculative[i], open, sp)
+		changed = changed || out[i] != t
+	}
+	if !changed {
+		return original, false
+	}
+	return out, true
 }
 
 // useExpectedPrefixType binds the inference metas inside rt from a
@@ -645,7 +891,7 @@ func (c *checker) calleeOf(e syntax.Expr) (Expr, *resolve.Symbol, bool) {
 // — then classifies the call: a prefix fill covering the declared
 // arity is CallDirect, a call leaving an earlier flat slot open is
 // CallPartial.
-func (c *checker) checkGomApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol, params []types.FuncParam, ret types.Type, declArity int) Expr {
+func (c *checker) checkGomApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol, params []types.FuncParam, ret types.Type, declArity int, want types.Type) Expr {
 	flat := len(params)
 	if declArity > flat {
 		declArity = flat
@@ -658,6 +904,7 @@ func (c *checker) checkGomApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol
 	unmapped := false  // an argument no flat parameter position answers
 
 	out := &Apply{Base: baseOf(e.Sp, nil), Fn: fn}
+	expectations := c.applyParamExpectations(fn.Type(), params, e.Args, want, e.Sp)
 
 	// `g args` where `g`'s type waits on a deferred member —
 	// a variable aliasing the member's standing meta
@@ -788,10 +1035,15 @@ func (c *checker) checkGomApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol
 			}
 		}
 		var pt types.Type
+		contextual := false
 		switch {
 		case pi >= 0:
 			used[pi] = true
 			pt = params[pi].Type
+			if xp, ok := expectations.at(pi, pt); ok {
+				pt = xp
+				contextual = true
+			}
 		case label == "":
 			// A positional argument beyond the callee's parameters
 			// over-applies into the returned function value.
@@ -828,6 +1080,9 @@ func (c *checker) checkGomApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol
 			argExpr = c.checkExpr(a.Value, pt)
 		default:
 			panic("unreachable")
+		}
+		if contextual && pi >= 0 && argExpr != nil {
+			argExpr = c.conformExpr(argExpr, params[pi].Type, a.Value.Span())
 		}
 		out.Args = append(out.Args, Arg{Label: label, LabelSp: labelSp, Value: argExpr})
 		argToParam = append(argToParam, pi)

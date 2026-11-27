@@ -29,7 +29,7 @@
 
 - [ ] **stack を持つ error 値の生成が書けない（`pkg/errors` 系）**: `fmt.Errorf("ctx: %w", e)` のユーザーコードは生成される Go-call で問題なく通る（[errwalk fixture](../testdata/realworld/errwalk/main.gom)）が、`%+v` で stack trace を出す `pkg/errors.Errorf` 相当の「stack を持つ error 値」の生成には `@extern` shim が要った — `%+v` 出力自体は生成コードで動くが、stack を持つ値の作成側だけ shim（selfish 移植の観測 — [sketch](sketch/ja/2026-11-24-selfish-port.md)、wave43 lane F）
 
-- [ ] **無名レコードの `List.fold` acc は型推論が通らない（E0407）**: named type（`type GistAcc = {...}`）が必須。record literal の曖昧さ E0407 の open question と同系統の DX 摩擦（selfish 移植 — 同上 sketch）
+- [ ] **静的な期待型のない無名レコードの `List.fold` acc は型推論が通らない（E0407）**: wave50 lane E で戻り値など静的に分かる record 期待型がある場合は解消（[検証](sketch/2026-11-27-wave50-lane-e-record-context-verify.md)）。それでも accumulator shape を表す named type がどこにもない ad hoc shape は named type（`type GistAcc = {...}`）が必須のまま。匿名 record 型や structural record を導入するかは未決（selfish 移植 — 同上 sketch）
 
 - [ ] **match の到達不能 arm は `todo ()` に頼る**: catch-all `action ->` の内側で sub-match する形になると網羅性チェックの恩恵が薄れる（selfish 移植 — 同上 sketch）。wave50 lane D で same-scrutinee narrowing 採択、実装は wave51 以降（[decision](decisions/2026-11-27-match-nested-narrowing.md)）
 

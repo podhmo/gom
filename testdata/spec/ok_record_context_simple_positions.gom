@@ -1,0 +1,22 @@
+package main
+
+type Acc = { count: Int }
+type Other = { count: Int }
+type Box = { acc: Acc }
+
+fn takes (a: Acc) -> Acc = a
+let id = fn x -> x
+
+fn direct (x: Int) -> Acc = { count = x }
+
+fn through_id (x: Int) -> Acc = id { count = x }
+
+fn simple (x: Int) -> Box = {
+  let annotated : Acc = { count = x }
+  let returned = takes { count = x }
+  ignore annotated
+  ignore returned
+  { acc = { count = x } }
+}
+
+fn pipe_arg (x: Int) -> Acc = takes <| { count = x }

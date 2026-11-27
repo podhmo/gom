@@ -1,0 +1,45 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected Acc, got Other",
+      "span": {
+        "file": "E0401_record_context_prefix_priority.gom",
+        "start": {
+          "line": 6,
+          "col": 28,
+          "offset": 96
+        },
+        "end": {
+          "line": 6,
+          "col": 47,
+          "offset": 115
+        }
+      },
+      "data": {
+        "actual": "Other",
+        "expected": "Acc"
+      },
+      "labels": [
+        {
+          "span": {
+            "file": "E0401_record_context_prefix_priority.gom",
+            "start": {
+              "line": 6,
+              "col": 22,
+              "offset": 90
+            },
+            "end": {
+              "line": 6,
+              "col": 25,
+              "offset": 93
+            }
+          },
+          "message": "expected type declared here"
+        }
+      ]
+    }
+  ]
+}

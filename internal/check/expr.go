@@ -68,7 +68,7 @@ func (c *checker) checkExprAt(e syntax.Expr, want types.Type, expectedFrom diag.
 	case *syntax.Unary:
 		out = c.checkUnary(e)
 	case *syntax.Binary:
-		out = c.checkBinary(e)
+		out = c.checkBinary(e, want)
 	case *syntax.Hole:
 		// `_` is only legal as a Go-call argument; the apply checker
 		// never calls checkExpr on one, so reaching here is misplaced.
@@ -1975,7 +1975,7 @@ func (c *checker) checkUnary(e *syntax.Unary) Expr {
 // checkBinary types the binary operators, including the sugared
 // pipeline and composition forms, which stay Binary nodes until
 // lowering.
-func (c *checker) checkBinary(e *syntax.Binary) Expr {
+func (c *checker) checkBinary(e *syntax.Binary, want types.Type) Expr {
 	op := e.Op
 	switch op {
 	case syntax.BinAdd, syntax.BinSub, syntax.BinMul, syntax.BinDiv:
@@ -2028,13 +2028,13 @@ func (c *checker) checkBinary(e *syntax.Binary) Expr {
 		// (`f : Option Go.Any -> R`) pins `Option[any]` the way
 		// `f (Some 1)` does, rather than settling `Option num`
 		// before the callee's want can reach it.
-		f := c.checkExpr(e.Y, nil)
+		f := c.checkExpr(e.Y, c.pipeCalleeWant(e.Y, want, e.Sp))
 		x := c.checkExpr(e.X, c.pipeArgWant(f))
 		return c.pipeCall(e, x, f)
 	case syntax.BinPipeBack:
 		// `f PIPE_BACK x` applies f to x — operands in source order;
 		// the callee still checks first for the same seeding reason.
-		f := c.checkExpr(e.X, nil)
+		f := c.checkExpr(e.X, c.pipeCalleeWant(e.X, want, e.Sp))
 		x := c.checkExpr(e.Y, c.pipeArgWant(f))
 		return c.pipeCall(e, x, f)
 	case syntax.BinPipeTry:
@@ -2106,6 +2106,34 @@ func goCalleeSym(e Expr) *resolve.Symbol {
 	return nil
 }
 
+// pipeCalleeWant forwards the pipe's static result type into a callee
+// whose partial application carries an anonymous record literal. The
+// piped input is intentionally fresh: only the result side is known,
+// and pipeCall still links the input when the argument is checked.
+func (c *checker) pipeCalleeWant(e syntax.Expr, want types.Type, sp diag.Span) types.Type {
+	if want == nil || !c.containsRecordType(want) || !applyHasAnonRecordLit(e) {
+		return nil
+	}
+	input := c.newMeta(sp, "the piped argument's type")
+	return types.Fn(want, types.P(input))
+}
+
+func applyHasAnonRecordLit(e syntax.Expr) bool {
+	ap, ok := e.(*syntax.Apply)
+	if !ok {
+		return false
+	}
+	for _, a := range ap.Args {
+		if lit, ok := a.Value.(*syntax.RecordLit); ok && lit.Base == nil {
+			return true
+		}
+		if applyHasAnonRecordLit(a.Value) {
+			return true
+		}
+	}
+	return false
+}
+
 // pipeArgWant is the want a piped argument checks under — the
 // callee's first positional parameter when it carries `Go.Any` and
 // the callee takes the generic application path, mirroring
@@ -2126,7 +2154,7 @@ func (c *checker) pipeArgWant(fn Expr) types.Type {
 	}
 	if fs, ok := types.Chase(fn.Type()).(*types.Func); ok &&
 		len(fs.Params) > 0 && fs.Params[0].Label == "" &&
-		containsGoAny(types.Chase(fs.Params[0].Type)) {
+		(containsGoAny(types.Chase(fs.Params[0].Type)) || c.isRecordType(fs.Params[0].Type)) {
 		return fs.Params[0].Type
 	}
 	return nil
@@ -3053,10 +3081,60 @@ func nonResultStepRet(t types.Type) (types.Type, bool) {
 	}
 }
 
+func (c *checker) isRecordType(t types.Type) bool {
+	con, ok := types.Chase(t).(*types.Con)
+	if !ok {
+		return false
+	}
+	ti, ok := c.tyCons[conKey{qual: con.Qual, name: con.Name}]
+	return ok && ti.kind == kindRecord
+}
+
+func (c *checker) containsRecordType(t types.Type) bool {
+	if c.isRecordType(t) {
+		return true
+	}
+	switch t := types.Chase(t).(type) {
+	case *types.Con:
+		for _, a := range t.Args {
+			if c.containsRecordType(a) {
+				return true
+			}
+		}
+	case *types.Func:
+		for _, p := range t.Params {
+			if c.containsRecordType(p.Type) {
+				return true
+			}
+		}
+		return c.containsRecordType(t.Ret)
+	case *types.Tuple:
+		for _, e := range t.Elems {
+			if c.containsRecordType(e) {
+				return true
+			}
+		}
+	case *types.Go:
+		for _, a := range t.Args {
+			if c.containsRecordType(a) {
+				return true
+			}
+		}
+	case *types.Meta, *types.Var:
+		return false
+	default:
+		panic("unreachable")
+	}
+	return false
+}
+
 // checkLambda types an anonymous function `fn x y -> body`.
-// Unannotated parameters get metas; the boundary stack grows so a
-// `try` inside escapes to this lambda's Result — which therefore
-// becomes `p1 ... -> Result a e` when it contains one.
+// Unannotated parameters normally get metas. A statically expected
+// record parameter is the one exception: seeding it lets record-update
+// bodies use the same contextual type as the record literal that
+// motivated the expectation. The boundary stack grows so a `try`
+// inside escapes to this lambda's Result — which therefore becomes
+// `p1 ... -> Result a e` when it contains one.
 func (c *checker) checkLambda(e *syntax.Lambda, want types.Type) Expr {
 	sc := c.newTScope()
 	// A variable this scope mints stays registered so finalize can
@@ -3083,6 +3161,7 @@ func (c *checker) checkLambda(e *syntax.Lambda, want types.Type) Expr {
 	params := make([]Param, len(e.Params))
 	fparams := make([]types.FuncParam, len(e.Params))
 	for i, p := range e.Params {
+		var wpt types.Type
 		if p.Label == nil {
 			for wi < len(wparams) && consumed[wi] {
 				wi++
@@ -3090,6 +3169,7 @@ func (c *checker) checkLambda(e *syntax.Lambda, want types.Type) Expr {
 			if wi >= len(wparams) || wparams[wi].Label != "" {
 				known = false
 			} else {
+				wpt = wparams[wi].Type
 				consumed[wi] = true
 				wi++
 			}
@@ -3098,6 +3178,7 @@ func (c *checker) checkLambda(e *syntax.Lambda, want types.Type) Expr {
 			for k := wi; k < len(wparams) && wparams[k].Label != ""; k++ {
 				if !consumed[k] && wparams[k].Label == p.Label.Name {
 					matched = true
+					wpt = wparams[k].Type
 					consumed[k] = true
 					break
 				}
@@ -3110,6 +3191,8 @@ func (c *checker) checkLambda(e *syntax.Lambda, want types.Type) Expr {
 		if p.Type != nil {
 			pt = c.typeExpr(p.Type, sc)
 			c.checkScopeTypeParam(p.Type, pt, "lambda parameter's type")
+		} else if c.isRecordType(wpt) {
+			pt = wpt
 		} else {
 			pt = c.newMeta(p.Sp, "the lambda parameter's type")
 		}

@@ -1,0 +1,11 @@
+package main
+
+type Acc = { count: Int }
+type Other = { count: Int }
+
+fn apply (f: Int -> Go.Slice Int) (x: Acc) -> Go.Slice Int = {
+  ignore x
+  f 0
+}
+
+fn run () -> Go.Slice Int = apply (fn x -> [x]) { count = 0 }

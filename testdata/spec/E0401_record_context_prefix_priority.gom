@@ -1,0 +1,6 @@
+package main
+
+type Acc = { count: Int }
+type Other = { count: Int }
+
+fn prefix_wins () -> Acc = Other { count = 0 }
