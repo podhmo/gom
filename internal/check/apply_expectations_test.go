@@ -260,3 +260,39 @@ func TestApplyParamExpectationsMergesWhenSpeculativeLabelIsDiscarded(t *testing.
 		t.Fatalf("merged context = %v, want %v", got, want)
 	}
 }
+
+func TestApplyParamExpectationsDiscardedMergeDoesNotMintOpenMetas(t *testing.T) {
+	c := &checker{
+		metas:  map[*types.Meta]*metaRec{},
+		tyCons: map[conKey]*typeInfo{},
+	}
+	sp := diag.SpanIn("test.gom", 1, 2)
+	acc := &types.Con{Name: "Acc"}
+	c.tyCons[conKey{name: "Acc"}] = &typeInfo{kind: kindRecord}
+	param := func(t types.Type) types.FuncParam { return types.FuncParam{Type: t} }
+	labeled := func(label string) types.FuncParam {
+		return types.FuncParam{Label: label, Type: acc}
+	}
+	openOriginal := c.newMeta(sp, "open original parameter")
+	openSpeculative := c.newMeta(sp, "open speculative payload")
+	original := types.Fn(acc, param(openOriginal), labeled("x"))
+	speculative := types.Fn(acc,
+		param(&types.Con{Name: "List", Args: []types.Type{openSpeculative}}),
+		labeled("y"),
+	)
+	x := &applyParamExpectations{
+		c:           c,
+		params:      []types.Type{speculative},
+		informative: []bool{true},
+		open:        map[*types.Meta]*types.Meta{},
+		sp:          sp,
+	}
+
+	before := len(c.metas)
+	if got, ok := x.at(0, original); ok {
+		t.Fatalf("label-mismatched context was propagated as %v", got)
+	}
+	if len(c.metas) != before {
+		t.Fatalf("discarding a label-mismatched merge left %d unused metas", len(c.metas)-before)
+	}
+}
