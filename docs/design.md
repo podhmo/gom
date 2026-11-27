@@ -164,6 +164,8 @@ go tool の実起動は opt-in: `gom build -go` は出力先ディレクトリ�
 
 診断はコンパイラ内部のデータ型（`internal/diag`）を正とし、JSON Lines・text・LSP（将来は SARIF など）はそこからの変換にする。コンパイラ本体は出力形式を知らない。
 
+error recovery では同じ型不適合を複数の span で繰り返さない。例えば pipe operand を record seed つきで検査し、その trailing conformance が失敗したときは、失敗済みであることを `pipeCall` へ渡して parameter conformance の再診断だけを省略する。result tail の settle は行い、正しいコードの推論規則を変えずに回復用の E0407 も抑える（[decision](decisions/2026-11-27-record-contextual-inference.md)）。
+
 ### 2.4 実装言語
 
 コンパイラは Go で実装する。`go/ast`・`go/printer`・`go/types`・`go/importer` をそのまま使えるので、Go パッケージの読み込みと Go コードの出力を自前で書かずに済み、配布も単一バイナリで済む。Go には sum type とパターンマッチがないため、コンパイラ内部の AST は sealed interface＋type switch で表す（Gom が生成するコードと同じ形）。type switch の網羅性は go-sumtype のような静的検査ツールで補う。ツールが実際に漏れを検出することを確かめるため、AST にバリアントを足したときに CI が失敗するテストを置く（Go のバージョンとジェネリック型への対応も確認する）。
