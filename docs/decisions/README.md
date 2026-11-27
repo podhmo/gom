@@ -291,6 +291,7 @@
 | [logical-shortcircuit-lowering](2026-11-27-logical-shortcircuit-lowering.md) | `&&` / `\|\|` は短絡評価し、complex な右辺は Core IR の分岐へ閉じ込める | 採用（実装・検証した — [検証](../sketch/2026-11-27-wave49-lane-a-shortcircuit-verify.md)） |
 | [match-nested-narrowing](2026-11-27-match-nested-narrowing.md) | nested match の same-scrutinee narrowing | 採用（実装・検証した — [検証](../sketch/2026-11-27-wave51-lane-b-match-narrowing-verify.md)） |
 | [module-external-run-init](2026-11-27-module-external-run-init.md) | module 外 `gom run` / `gom init`（一部を [init-standalone-checksum](2026-11-27-init-standalone-checksum.md) で置き換え） | 採用（prototype 検証済み） |
+| [record-ambiguity-secondary-mismatch](2026-11-27-record-ambiguity-secondary-mismatch.md) | record 未解決時の二次 mismatch suppression | 採用（調査済み・実装は未実施） |
 | [record-contextual-inference](2026-11-27-record-contextual-inference.md) | record literal の文脈推論（一部を [labeled-lambda-record-seeding](2026-11-27-labeled-lambda-record-seeding.md) で置き換え） | 採用（実装・検証した — [検証](../sketch/2026-11-27-wave50-lane-e-record-context-verify.md)、[pipe recovery 検証](../sketch/2026-11-27-wave51-lane-d-record-pipe-verify.md)） |
 | [record-type-prefixed-literal](2026-11-27-record-type-prefixed-literal.md) | record 型名前置 literal | 採用（実装・検証した — [検証](../sketch/2026-11-27-wave49-lane-b-record-type-literal-verify.md)） |
 | [stdlib-result-traverse](2026-11-27-stdlib-result-traverse.md) | stdlib の Result traverse helpers — sequence / traverse_result | 採用（実装・検証した — [検証](../sketch/2026-11-27-wave49-lane-c-result-traverse-verify.md)） |
