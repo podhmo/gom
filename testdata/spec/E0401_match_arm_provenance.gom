@@ -1,0 +1,7 @@
+package main
+
+fn choose (x: Option Int) -> Int =
+  match x {
+    Some _ -> 1
+    None -> "none"
+  }

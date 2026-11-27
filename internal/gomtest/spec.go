@@ -390,6 +390,12 @@ func checkLabels(exp map[string]any, labels []diag.Label, res diag.Resolver, pat
 	if !ok {
 		return []string{fmt.Sprintf("%s.labels: expected an array, got %s", path, jsonRepr(v))}
 	}
+	if len(arr) == 0 {
+		if len(labels) != 0 {
+			return []string{fmt.Sprintf("%s.labels: expected no labels, got %d", path, len(labels))}
+		}
+		return nil
+	}
 	at := 0
 	for i, ev := range arr {
 		em, ok := ev.(map[string]any)
