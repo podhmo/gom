@@ -59,3 +59,4 @@
 - `testdata/spec/E0301_nested_match_dmmf_line.gom`: DMMF 形の negative narrowing
 - `testdata/spec/E0301_nested_match_positive_context.gom`: constructor 腕本体内の positive narrowing
 - `testdata/spec/E0301_nested_match_guard_boundary.gom`: guard 付き腕を negative narrowing に使わない境界
+- `testdata/spec/E0301_nested_match_extern_boundary.gom`: `@extern let` の backing storage を stable subject にしない境界

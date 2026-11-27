@@ -27,3 +27,8 @@
 - guard 条件の意味解析、リテラル範囲、フィールド/path narrowing、interprocedural narrowing、`as` / or-pattern 内変数の alias 解釈は入れていない
 - 到達不能な腕本体では domain が空になり得るが、到達不能自体は従来どおり uncontextual な E0302 側が報告する
 - 複数の partial payload を組み合わせて constructor 全体を覆う場合（例: 有限 payload を複数腕で分担）は今回の negative narrowing に使わない。1 つの guard なし alternative が constructor payload をすべて覆う場合だけを根拠にする
+
+## review 対応の追加検証
+
+- `@extern let` は backing Go storage を外から更新しうるため、stable subject から外した。`E0301_nested_match_extern_boundary` は inner match が `Remove _` を欠く E0301 を保持する
+- positive narrowing の root 判定は payload の or-pattern を cartesian product へ展開しない root-shape walk にした。16 個の payload がそれぞれ 3 択の or-patternを持つ guard 付き腕でも、root constructor の判定だけでは payload alternatives を展開しないことを unit test で固定した
