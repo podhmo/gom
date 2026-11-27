@@ -528,6 +528,17 @@ Bare field names pun the same-named variable — in literals,
 updates, and patterns alike: `{ x, y }` is `{ x = x, y = y }`,
 and `match p { { x, y } -> ... }` binds `x`/`y`.
 
+Record literals are ambiguous when several record types share the
+same fields. Prefer a type-prefixed literal at construction points
+where the intended type is not already obvious:
+`ValidatedOrder { id = id, total = total }`. A bare literal can use
+a statically known record expected type — annotations, returns,
+call arguments, constructor payloads and record fields — but it
+never infers backward from later field use, and contextual propagation
+stops when the propagated type contains labeled function parameters. If
+no statically known record type names the shape, declare a named record type; there is
+no anonymous/structural record type.
+
 A trailing raw-string literal on a record *type* field is the Go
 struct tag, verbatim: `{ name: String `json:"name"` }`
 emits `Name string `json:"name"``.

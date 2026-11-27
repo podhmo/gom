@@ -9,7 +9,7 @@ Every `gom` command writes **JSON Lines** to stdout by default — one
 JSON object per line:
 
 ```json
-{"kind":"diagnostic","code":"E0301","severity":"error","message":"non-exhaustive match on `Shape`","span":{"file":"badmatch.gom","start":{"line":9,"col":3,"offset":145},"end":{"line":12,"col":4,"offset":199}},"data":{"scrutinee_type":"Shape","missing_patterns":["Empty"]},"notes":[],"fixes":[{"title":"add the missing arms","applicability":"placeholder","edits":[{"file":"badmatch.gom","start":{"line":12,"col":3,"offset":198},"end":{"line":12,"col":3,"offset":198},"text":"Empty -> todo ()\n  "}]}]}
+{"kind":"diagnostic","code":"E0301","severity":"error","message":"non-exhaustive match on `Shape`","span":{"file":"badmatch.gom","start":{"line":9,"col":3,"offset":145},"end":{"line":12,"col":4,"offset":199}},"data":{"scrutinee_type":"Shape","missing_patterns":["Empty"]},"details":[{"label":"patterns not covered","lines":["Empty"]}],"notes":[],"fixes":[{"title":"add the missing arms","applicability":"placeholder","edits":[{"file":"badmatch.gom","start":{"line":12,"col":3,"offset":198},"end":{"line":12,"col":3,"offset":198},"text":"Empty -> todo ()\n  "}]}]}
 {"kind":"summary","ok":false,"errors":1,"warnings":0,"files":["badmatch.gom"],"outputs":[]}
 ```
 
@@ -22,6 +22,10 @@ JSON object per line:
   1-based, col in code points.
 - `data` carries the structured payload per code — `expected`/`got`
   types for E0401, `missing_patterns` for E0301, etc.
+- `labels` carries secondary spans with short messages, such as the
+  annotation that introduced an expected type. `details` carries
+  human-oriented structured blocks, such as E0301's uncovered
+  patterns; both are optional and code-dependent.
 - `fixes`: `applicability` is `safe` | `placeholder` | `unsafe`.
   `placeholder` inserts `todo ()` — compiles, panics at run time.
 - `kind` values per command: `diagnostic` + `summary` everywhere;

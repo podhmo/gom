@@ -107,14 +107,26 @@ Gom の開発は「wave」という単位で回す。1 wave = 複数 lane（細�
 
 ### 4. 締め作業（lane ではない独立作業）
 
-規範としては **全 lane マージ後** にやる作業。単一エージェント
-運用では 2 段に分かれる:
+規範としては **lane PR 群とは別の closeout PR** でやる作業。
+lane PR は実装・decision/spec・lane 検証レポートまでに絞り、
+podhmo は lane PR 群を先に merge してよい。wave の完了は lane PR
+ではなく closeout PR の merge とする。単一エージェント運用では
+2 段に分かれる:
 
-- **下書き（エージェント）**: 全 lane の PR が揃った時点で、
-  締め作業の下書きをやる。不足事項（索引の更新忘れなど）を
-  見つけたらこの時点で拾って commit する。
-- **仕上げ（podhmo）**: 下書きに口出ししながら、マージを進め
-  つつ締め作業を終わらせ、次期 prompts を確定させる。
+- **closeout PR 作成（エージェント）**: 全 lane の PR が揃った
+  時点で、stack 最上位または lane merge 後の follow-up として
+  closeout PR を作る。round 草案、残件台帳登録、索引・guide 同期、
+  不足調整をここに入れる。lane merge 前でも内容はレビュー可能に
+  してよいが、round の merge 状態と main CI 結果は未確定のまま
+  明記する。
+- **仕上げ（podhmo + エージェント）**: podhmo は closeout PR の
+  1 つ手前までの lane PR を merge する。merge 後に round の merge
+  状態と main CI を最終確認・更新し、closeout PR を merge して
+  wave を閉じる。lane merge 後に既存実装の review/CI 修正だけが
+  見つかった場合は、closeout に混ぜず小さい follow-up PR として
+  分離し、その merge と main CI を確認してから closeout を閉じる。
+  実装の意味変更や新規 scope が必要になった場合は次 lane / 次 wave
+  扱いにする。
 
 締め作業の内容:
 
