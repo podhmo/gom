@@ -33,6 +33,7 @@
 - [ ] **[task] unit-only 診断 coverage の再分類とメタテスト強化**: lane A の分類で残った unit-only / no explicit coverage を一件ずつ意味確認し、spec/CLI fixture 追加、意図的 reserved、または meta-test 対象外の明示へ落とす。分類軸と fixture 命名を meta-test で固定する（[検証](docs/sketch/2026-11-27-wave50-lane-a-diag-meta-verify.md)）
 - [ ] **[task] same-scrutinee root constructor narrowing の実装**: `internal/pattern` に decision どおりの narrowing を入れ、selfish/DMMF/positive fixture を red-first で green にする。guard boundary fixture は E0301 のまま残す（[decision](docs/decisions/2026-11-27-match-nested-narrowing.md)、[検証](docs/sketch/2026-11-27-wave50-lane-d-match-precision-verify.md)）
 - [ ] **[bug] record pipe の二重 mismatch 診断を抑制する**: pipe operand が明示的に異なる record 型なら operand 側と `pipeCall` 側で同じ mismatch が二度出る。適合失敗済み情報を渡すか重複抑制し、二重診断 fixture を red-first で直す（[lane E 検証](docs/sketch/2026-11-27-wave50-lane-e-record-context-verify.md)）
+- [ ] **[task] agent skill の記述をツール利用中心へ瘦身する**: `skills/gom-agent-guide` に静的に厚く書かれている情報のうち、`gom list` / `gom info` などのツールで得られるものはコマンドの使い方を示す形へ寄せる。stdlib package/member 情報を代表例として、guide に残すべき規範とツールへ委譲すべき inventory を分ける（wave51 候補）
 
 ### wave49 採択済み lane（[prompts](docs/sketch/2026-11-27-wave49-prompts.md) — 2026-11-27 採否確定、順 A→C→B→D→E→F）
 

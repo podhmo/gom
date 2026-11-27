@@ -28,11 +28,15 @@ pipe operand の record 適合失敗と `pipeCall` の同じ mismatch が二度�
 
 wave50 lane E の残り。labeled expected signature の positional lambda parameter に record 型を seed するか、label を含む文脈型を安全に propagate するか、匿名 record 型または structural record を導入するかを調査し decision まで行う。実装は wave52 以降。label introduction 全体と speculative propagation への影響、および ad hoc accumulator の需要を selfish/DMMF probe で確認する。
 
-推薦順: B → D → C → A → E。B/D/C は wave50 の直接残件で小さく、A はユーザー向け、E は設計論点なので最後に置く。A/E の同時採用は重い場合があり、採否時にどちらかを落とす選択肢を確認する。
+### F. agent skill のツール利用中心化（小〜中）
+
+`skills/gom-agent-guide` に静的に厚く書かれている情報のうち、`gom list` / `gom info` などのツールで得られるものは、inventory を転写する代わりにコマンドの使い方を示す形へ寄せる。stdlib package/member 情報を代表例に、guide に残すべき規範・落とし穴と、ツールへ委譲すべき一覧情報を分類する。guide 側の記述を減らしすぎて探索不能にならないかが分岐。
+
+推薦順: B → D → C → F → A → E。B/D/C は wave50 の直接残件で小さく、F はドキュメント保守の重複を減らす小さめの改善、A はユーザー向け、E は設計論点なので最後に置く。A/E の同時採用は重い場合があり、採否時にどちらかを落とす選択肢を確認する。
 
 ## 採否を確認したい点
 
-1. 推薦 5 lane を採用するか。落とす lane があれば指定する
+1. 推薦 6 lane を採用するか。落とす lane があれば指定する
 2. A は run/init の両方か、run だけに絞るか
 3. B/C/D は wave51 で実装してよいか。C は E0204/E0503/E0704 の方向が未決のまま進めてよいか
 4. E は調査 lane に入れるか、需要が集まるまで保留するか
