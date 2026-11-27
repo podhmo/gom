@@ -8,6 +8,7 @@ package check
 import (
 	"testing"
 
+	"github.com/podhmo/gom/internal/resolve"
 	"github.com/podhmo/gom/internal/syntax"
 	"github.com/podhmo/gom/internal/types"
 )
@@ -202,4 +203,44 @@ func TestStrayHoleQuiet(t *testing.T) {
 
 	_, diags := b.check(nil, main)
 	requireCodes(t, diags, "E0504")
+}
+
+// Nested unlabeled→labeled introduction can make a record seed
+// conform successfully while the value's type representation stays
+// different: label lending is a type-equality rule inside the record
+// parameter, but lentLabels only publishes a contract on a function
+// node itself. The pipe operand helper must therefore observe the
+// conformance result, not infer failure from type inequality.
+func TestPipeOperandNestedLabelIntroIsNotSeedFailure(t *testing.T) {
+	b := newTB()
+	boxId := b.id("box")
+	boxSym := b.def(boxId, resolve.KindVar)
+	expr := b.ref(boxSym)
+
+	labeled := types.Fn(types.Int, types.LP("x", types.Int))
+	unlabeled := types.Fn(types.Int, types.P(types.Int))
+	want := &types.Con{Name: "Box", Args: []types.Type{labeled}}
+	got := &types.Con{Name: "Box", Args: []types.Type{unlabeled}}
+
+	c := &checker{
+		res:         b.resolved(),
+		vals:        map[*resolve.Symbol]types.Type{boxSym: got},
+		externBound: map[*resolve.Symbol]Signature{},
+		referenced:  map[*resolve.Symbol]bool{},
+		tyCons: map[conKey]*typeInfo{
+			{name: "Box"}: {kind: kindRecord},
+		},
+		metas:    map[*types.Meta]*metaRec{},
+		builtins: map[string]Signature{},
+	}
+	out, failed := c.checkPipeOperand(expr, want)
+	if failed {
+		t.Fatal("successful nested label introduction was treated as a pipe seed failure")
+	}
+	if len(c.diags) != 0 {
+		t.Fatalf("unexpected diagnostics: %v", c.diags)
+	}
+	if types.Equal(want, out.Type()) {
+		t.Fatal("test no longer exercises the unequal successful-conformance case")
+	}
 }
