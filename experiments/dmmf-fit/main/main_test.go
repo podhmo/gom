@@ -59,3 +59,35 @@ func TestShortCircuitLogicalOperators(t *testing.T) {
 		t.Fatal("true || rhs should be true without evaluating rhs")
 	}
 }
+
+func TestOrderLineTotalsUsesPositionalLambdaInLabeledCallback(t *testing.T) {
+	got := orderLineTotals(list.List[Line]{
+		{Sku: "sku-1", Qty: 2},
+		{Sku: "sku-2", Qty: 3},
+	})
+	if got.Quantity != 5 || got.Lines != 2 {
+		t.Fatalf("orderLineTotals = %#v", got)
+	}
+}
+
+func TestShipmentCodeLengthUsesNestedMatchNarrowing(t *testing.T) {
+	if got := shipmentCodeLength(PricedLine_ProductLine{V0: "sku-1"}); got != 5 {
+		t.Fatalf("product shipmentCodeLength = %d", got)
+	}
+	if got := shipmentCodeLength(PricedLine_CommentLine{V0: "note"}); got != 0 {
+		t.Fatalf("comment shipmentCodeLength = %d", got)
+	}
+}
+
+func TestValidateSingletonOrderUsesConstructorPayloadInference(t *testing.T) {
+	got := validateSingletonOrder(
+		UnvalidatedOrder{Id: "order-1"},
+		Line{Sku: "sku-1", Qty: 1},
+	)
+	if !got.IsOk() {
+		t.Fatalf("validateSingletonOrder failed: %v", got.Error)
+	}
+	if got.Value.Id != "order-1" || len(got.Value.Lines) != 1 || got.Value.Lines[0].Sku != "sku-1" {
+		t.Fatalf("validated singleton order = %#v", got.Value)
+	}
+}

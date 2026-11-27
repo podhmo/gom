@@ -386,3 +386,13 @@ go test ./...
 ```
 
 結果: `gom build` は diagnostics なし、`go test ./...` は `domain` / `main` ともに pass。E0301 text 出力の改善は compiler diagnostic 側の機能であり、この runtime probe の対象外。
+
+
+## wave52 後の再検証（2026-11-27）
+
+wave50/51/52 lane A の推論・pattern 改善を `experiments/dmmf-fit` で追加確認した。詳細な分類と失敗 probe は [wave52 lane D 検証](../2026-11-27-wave52-lane-d-dmmf-fit-verify.md) にまとめる。
+
+- direct constructor payload は戻り値型から推論できる。`match validate_line line { ... Ok valid -> Ok { id = input.id, lines = [valid] } }` は注釈や型名前置なしでコンパイルできる。
+- labeled callback へ渡す flat positional lambda で record accumulator を推論できる。`fold_order_lines (fn line acc -> { acc with ... }) lines` 形で `LineTotals` の seeding が効く。
+- same-scrutinee nested match narrowing により、`CommentLine` を外側で処理した nested `match` は不可能な `CommentLine` 腕なしで書ける。
+- 一方、`input.lines |> ... |> Result.map (fn lines -> { ... })` のように generic higher-order pipe の lambda 本体にある無名 record literal はまだ E0407 になる。この位置では引き続き `ValidatedOrder { ... }` の型名前置 literal が推奨形である。
