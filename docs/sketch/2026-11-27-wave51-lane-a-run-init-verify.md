@@ -64,6 +64,16 @@ go test ./...
 
 追加検証: `TestModPathLiteralQuotesWhitespace`、`TestScratchModulePinsAndRemovesWorkspaceFiles`、`TestInitRejectsEmptyModulePath`、`TestInitExistingGoModuleAddsToolchain`。親 `go.work` が対象外 module だけを `use` する directory で手動実行し、scratch file が残らず exit 0 を確認した。
 
+## Review follow-up round 2
+
+- scratch `go.work` 方式は `-mod=mod` と衝突し、checksum file の ownership も曖昧だったため撤回した。代わりに module 外 run の invocation 中だけ `GOWORK=off` にし、parent workspace を無効化する。directory 本人に既存 `go.work` がある場合は拒否する
+- `gom init` の `go mod download` も `GOWORK=off` で実行し、親 workspace 配下の新規 project で main template 生成前に失敗しないようにした
+- 既存 `go.mod` の判定は文字列包含ではなく directive 単位で行い、`replace` only なら `require` を足し、既存 `replace` は保持する
+- scratch file の mtime は固定 epoch ではなく内容 hash 由来にした。同じ内容では export cache を再利用し、`GOM_TOOLCHAIN_ROOT` や version が変われば cache key も変わる
+- spec に既存 `go.mod` への additive dependency 追記を明記した
+
+手動確認: parent `go.work` が別 module だけを `use` し、`GOFLAGS=-mod=mod` の環境で、module 外 run は exit 0 / `ok` を出力し、init は `go.mod`・`go.sum`・`main.gom` を生成した。
+
 ## 残論点
 
 - scratch module では外部 dependency の追加を編集できない。依存管理が必要な project は `gom init` を使う
