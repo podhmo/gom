@@ -296,6 +296,7 @@
 | [record-contextual-inference](2026-11-27-record-contextual-inference.md) | record literal の文脈推論（一部を [labeled-lambda-record-seeding](2026-11-27-labeled-lambda-record-seeding.md) で置き換え） | 採用（実装・検証した — [検証](../sketch/2026-11-27-wave50-lane-e-record-context-verify.md)、[pipe recovery 検証](../sketch/2026-11-27-wave51-lane-d-record-pipe-verify.md)） |
 | [record-type-prefixed-literal](2026-11-27-record-type-prefixed-literal.md) | record 型名前置 literal | 採用（実装・検証した — [検証](../sketch/2026-11-27-wave49-lane-b-record-type-literal-verify.md)） |
 | [stdlib-result-traverse](2026-11-27-stdlib-result-traverse.md) | stdlib の Result traverse helpers — sequence / traverse_result | 採用（実装・検証した — [検証](../sketch/2026-11-27-wave49-lane-c-result-traverse-verify.md)） |
+| [diagnostic-details-and-snippets](2026-11-28-diagnostic-details-and-snippets.md) | diagnostic details 昇格と近接 snippet 統合の扱い | 採用（調査済み・いずれも汎用機構は見送り） |
 | [e0201-member-typo-candidates](2026-11-28-e0201-member-typo-candidates.md) | E0201 module member typo 候補表示 | 採用（実装・検証した — [検証](../sketch/2026-11-28-wave56-lane-b-member-typo-verify.md)） |
 | [e0401-provenance-expansion](2026-11-28-e0401-provenance-expansion.md) | E0401 expected type provenance の拡張範囲 | 採用（調査済み・実装候補の決定。実装は未実施） |
 | [record-ambiguity-candidates](2026-11-28-record-ambiguity-candidates.md) | ambiguous record literal の候補表示 | 採用（実装・検証した — [検証](../sketch/2026-11-28-wave56-lane-a-record-candidates-verify.md)） |
