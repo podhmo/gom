@@ -30,11 +30,11 @@
 - [ ] `gom eval` / REPL を利用者へ公開するか: `internal/eval` は oracle としてあるが、Go interop や並行のカバー範囲が compiled より狭い。eval で返す式と compiled へ落とす式の境界、表示方法、REPL の需要が未決（PR #256 U9、[audit](sketch/2026-11-26-wave48-lane-g-owner-ideas-audit.md)）
 - [ ] 型シグネチャで stdlib を引く `gom search` を提供するか: Hoogle 相当の検索は名前を知らない利用者に有効だが、検索対象・単一化の柔軟さ・curry 引数順の扱いが未決。`filter_map` は `(a -> Option b) -> List a -> List b` なので PR #256 の例は引数順の修正が要る（PR #256 U10、[audit](sketch/2026-11-26-wave48-lane-g-owner-ideas-audit.md)）
 - [ ] `gom explain` の fragment example をどう検証するか: 59 件の fragment を self-contained な例へ育てるか、例示用 fragment という種別を formalize して coverage meta-test の対象外にするか（[lane A 検証](sketch/2026-11-27-wave50-lane-a-diag-meta-verify.md)）。wave51 では扱わず明示保留（2026-11-27、[wave51 prompts](sketch/2026-11-27-wave51-prompts.md)）
-- [ ] E0204/E0503/E0704 は実装を足すか文書・コード表を直すか: live code table / explain / parser-checker 境界が揃っていない。production emitter を実装するか、docs/code-table 側を現行診断へ寄せるかを決める（[gap](implementation-gaps.md)）
+- [x] E0204/E0503/E0704 は実装を足すか文書・コード表を直すか: **wave52 lane E として採択**（2026-11-27、[prompts](sketch/2026-11-27-wave52-prompts.md)）。E0204/E0704 は実装側へ寄せ、E0503 は retired にする。実作業は `[task DIAG-1]`（[gap](implementation-gaps.md)）
 - [ ] E0401 の expected type provenance をどこまで伝播するか: wave50 lane C は let/return 注釈の副 span まで。if/match 腕、呼出し引数、record field などへ同じ provenance を広げる境界が未決。wave51 では独立 lane にしない（2026-11-27、[wave51 prompts](sketch/2026-11-27-wave51-prompts.md)、[lane C 検証](sketch/2026-11-27-wave50-lane-c-diagnostic-wire-verify.md)）
 - [ ] diagnostic `details` へ昇格する構造データの基準を決めるか: wire は汎用化したが、どの data を人間向け text の detail block へ出すかは診断ごとの判断のまま。原文のまま出す基準・整形責任・過剰出力の抑止を決める。wave51 では独立 lane にしない（2026-11-27、[wave51 prompts](sketch/2026-11-27-wave51-prompts.md)、[lane C 検証](sketch/2026-11-27-wave50-lane-c-diagnostic-wire-verify.md)）
 - [ ] 近接した同一ファイルの span を 1 つの text snippet にまとめるか: labels/details で副 span が増えると同じソース断片が繰り返し出る可能性がある。snippet layout を統合するか現状の独立表示を維持するか。wave51 では独立 lane にしない（2026-11-27、[wave51 prompts](sketch/2026-11-27-wave51-prompts.md)、[lane C 検証](sketch/2026-11-27-wave50-lane-c-diagnostic-wire-verify.md)）
-- [ ] 診断 coverage meta-test は positive/negative assertion を区別するか: 現行は例外表が指名した test 内に diagnostic literal があることだけを保証し、assertion の正負は編集者責任である。negative assertion を positive evidence へ誤登録する事故を機械検知するには、test helper 経由も含む assertion 構造の分類が要る。編集者責任のままにするか、構造規約・検査を入れるか（wave51 lane C、[検証](sketch/2026-11-27-wave51-lane-c-diag-coverage-verify.md)）
+- [x] 診断 coverage meta-test は positive/negative assertion を区別するか: **wave52 lane C として採択**（2026-11-27、[prompts](sketch/2026-11-27-wave52-prompts.md)）。例外表が指名した test には承認済み positive assertion 形を要求する。実作業は `[task DCOV-1]`（[検証](sketch/2026-11-27-wave51-lane-c-diag-coverage-verify.md)）
 
 ### Go 相互運用
 
@@ -62,7 +62,7 @@
 
 - [x] `--strict` / 診断フィルタ → 採用・実装済み（[decisions/strict-mode](decisions/2026-11-22-strict-mode.md)）: リラックスは `//gom:allow CODE` ディレクティブで relaxable コードのみ（初期 E0301/E0302）、厳格方向は warnings→errors の exit code（`-strict` / `-strict=CODES`、wave32 PR #129）
 - [ ] `gom fix` でも `.gomi` 適合検査を走らせるか（`gom check`/`build`/`test` は走らせると決定済み — [decision](decisions/2026-11-04-gomi-conformance-in-gom-test.md)。`info`/`dump` は対象外）。2026-11-05 に検討して見送り: 適合診断は fix 候補プールに加わるだけ・ゲート無し・診断非表示という形が妥当だが、現状 E0601/E0603/E0604 に safe fix がなく観測差ゼロのため先送り。interface 診断に safe fix が付くなど価値が具体化した時点で再検討する（[検討の記録](decisions/2026-11-05-gomi-conformance-in-gom-fix.md)）。2026-11-24 wave43 lane E で再確認 — 状況不変、保留を維持
-- [ ] `gom init` が workspace で解決した依存の checksum をどう扱うか: caller の `go.work` で Gom 依存を解決できると checksum は `go.work.sum` 側へ入り、init 先の `go.sum` に残らないことがある。workspace 内利用を優先して成功のままにするか、standalone module として build できる checksum を必須にして失敗・警告へ寄せるか。workspace local replace と release module で扱いが分かれる（[gap](implementation-gaps.md)、[PR #284 review](https://github.com/podhmo/gom/pull/284#discussion_r4715216524)）
+- [x] `gom init` が workspace で解決した依存の checksum をどう扱うか: **wave52 lane B として standalone checksum 必須を採択**（2026-11-27、[prompts](sketch/2026-11-27-wave52-prompts.md)）。init 先の module だけで解決できない依存を成功扱いにしない。実作業は `[task INIT-1]`（[gap](implementation-gaps.md)、[PR #284 review](https://github.com/podhmo/gom/pull/284#discussion_r4715216524)）
 - [x] ~~`gom run`（`go run` 相当の実行経路）~~ → wave19 で採用・実装済み: compile → temp dir への `go build -o` → 子プロセス exec（引数 passthrough・exit code 保全・signal kill は 128+signal）。実行中の出力は対象プログラムが stdout/stderr を所有し、gom の JSON message stream は失敗時のみ（[decision](decisions/2026-11-18-gom-run.md)）
 
 ## Future work（v1 では扱わないと決めたもの）

@@ -1,6 +1,6 @@
 # labeled lambda の record seeding / structural record
 
-- 状態: 採択（label-erased seeding は wave52 実装候補。structural record は不採用）
+- 状態: 採択（label-erased seeding は wave52 lane A として実装採択。structural record は不採用）
 - 日付: 2026-11-27
 
 ## 状況
@@ -21,7 +21,7 @@ wave50 lane E で record literal の文脈推論を入れたが、文脈型が�
 
 ### labeled callback 文脈: label-erased seeding / propagation を採用する
 
-wave52 以降の実装では、label を含む文脈関数型を推論へ渡すとき、label 自体は inference contract に入れず、parameter 順序と型だけを残した label-erased view を使う。
+wave52 lane A の実装では、label を含む文脈関数型を推論へ渡すとき、label 自体は inference contract に入れず、parameter 順序と型だけを残した label-erased view を使う。
 
 - unannotated positional lambda parameter の対応位置が record 型なら、その record 型で seed する
 - erased view は推論だけに使い、accept/reject の意味判定には使わない。最終 conformance は従来どおり — produced 側が完全に unlabeled のときだけ位置対応で label を貸し、produced 側が自分の label を持つときは strict な run pairingで判定する
