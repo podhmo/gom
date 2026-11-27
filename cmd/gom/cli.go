@@ -1290,7 +1290,7 @@ func checkFormat(format string) error {
 // emitReport renders rep in format to w: JSON Lines or text per spec
 // section 12. The format has already passed checkFormat.
 func emitReport(w io.Writer, format string, rep diag.Report, srcs map[string][]byte) error {
-	res := diag.NewMapResolver(srcs)
+	res := newDiskFallbackResolver(diag.NewMapResolver(srcs))
 	if format == "text" {
 		return rep.WriteText(w, res, diag.TextOptions{})
 	}

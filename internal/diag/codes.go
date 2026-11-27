@@ -631,7 +631,13 @@ declare. Check the spelling against the function's signature (or the
 		Explanation: `Arithmetic operators are overloaded over the built-in numeric
 types and are resolved to a concrete type at the end of type checking
 (spec section 3.3). When nothing fixes the type, the compiler asks
-for an annotation rather than guessing.`,
+for an annotation rather than guessing.
+
+An ambiguous record literal is another form of this error: several
+record types own the written fields. Its diagnostic points at up to
+five candidate record declarations with secondary labels and carries
+every candidate in data.candidates as {name, qual}; extra candidates
+are counted in a note.`,
 		Example: `let x = read_number () + 1   // + stays ambiguous: annotate x`,
 	},
 	{

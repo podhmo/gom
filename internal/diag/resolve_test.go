@@ -54,6 +54,14 @@ func TestDirResolver(t *testing.T) {
 		t.Errorf("Pos(4) = %+v, want line 2 col 2", got)
 	}
 
+	abs, err := res.LineIndex(filepath.Join(sub, "f.gom"))
+	if err != nil {
+		t.Fatalf("LineIndex(absolute): %v", err)
+	}
+	if got := abs.Pos(4); got.Line != 2 || got.Col != 2 {
+		t.Errorf("absolute Pos(4) = %+v, want line 2 col 2", got)
+	}
+
 	// Missing files fail, and the failure is memoized.
 	err1 := func() error { _, err := res.LineIndex("none.gom"); return err }()
 	err2 := func() error { _, err := res.LineIndex("none.gom"); return err }()

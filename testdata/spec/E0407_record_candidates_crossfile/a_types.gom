@@ -1,0 +1,3 @@
+package main
+
+type First = { x: Int, y: Int }

@@ -1,0 +1,10 @@
+package main
+
+type First = { x: Int, y: Int }
+type Second = { x: Int, y: Int }
+
+fn bad () -> Unit = {
+  let p = { x = 1, y = 2 }
+  ignore p
+  ()
+}

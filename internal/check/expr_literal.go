@@ -1,7 +1,9 @@
 package check
 
 import (
+	"cmp"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/podhmo/gom/internal/diag"
@@ -242,8 +244,7 @@ func (c *checker) checkRecordLit(e *syntax.RecordLit, want types.Type) Expr {
 // type pins it: exactly one declared record may own every written
 // field name. Ambiguity or no match reports and returns nil.
 func (c *checker) recordByFields(e *syntax.RecordLit) *typeInfo {
-	var cand *typeInfo
-	count := 0
+	var candidates []*typeInfo
 	names := make([]string, 0, len(e.Fields))
 	for _, f := range e.Fields {
 		if f.Name != nil {
@@ -268,23 +269,48 @@ func (c *checker) recordByFields(e *syntax.RecordLit) *typeInfo {
 			}
 		}
 		if ok {
-			cand = ti
-			count++
+			candidates = append(candidates, ti)
 		}
 	}
+	slices.SortFunc(candidates, func(a, b *typeInfo) int {
+		return cmp.Or(
+			cmp.Compare(a.con.Qual, b.con.Qual),
+			cmp.Compare(a.con.Name, b.con.Name),
+		)
+	})
 	switch {
-	case count == 0:
+	case len(candidates) == 0:
 		c.diags.Add(diag.Error("E0401",
 			fmt.Sprintf("no record type has fields %s", fmt.Sprint(names))).At(e.Sp))
 		return nil
-	case count > 1:
-		c.diags.Add(diag.Error("E0407",
-			fmt.Sprintf("the record literal is ambiguous: %d record types own these fields; annotate the type", count)).
-			At(e.Sp))
+	case len(candidates) > 1:
+		d := diag.Error("E0407",
+			fmt.Sprintf("the record literal is ambiguous: %d record types own these fields; annotate the type", len(candidates))).
+			At(e.Sp)
+		data := make([]map[string]string, len(candidates))
+		for i, ti := range candidates {
+			data[i] = map[string]string{"name": ti.con.Name, "qual": ti.con.Qual}
+			if i < 5 && ti.sp.Valid() {
+				d = d.AddLabel(ti.sp,
+					fmt.Sprintf("candidate record %s declared here", qualifiedRecordName(ti)))
+			}
+		}
+		d = d.Set("candidates", data)
+		if len(candidates) > 5 {
+			d = d.AddNote(fmt.Sprintf("and %d more candidate records", len(candidates)-5))
+		}
+		c.diags.Add(d)
 		return nil
 	default:
-		return cand
+		return candidates[0]
 	}
+}
+
+func qualifiedRecordName(ti *typeInfo) string {
+	if ti.con.Qual == "" {
+		return ti.con.Name
+	}
+	return ti.con.Qual + "." + ti.con.Name
 }
 
 // goOriginType excludes file-local nominal types and shadowed builtins from
