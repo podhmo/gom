@@ -259,7 +259,7 @@ func restoreInitFiles(backups []initFileBackup) {
 }
 
 func fileExists(path string) bool {
-	_, err := os.Lstat(path)
+	_, err := os.Stat(path)
 	return err == nil
 }
 

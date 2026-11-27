@@ -27,13 +27,13 @@
 - 既存 module + `main.gom` write failure: additive edit された `go.mod` は元の bytes へ戻り、既存の空 `go.sum` は空のまま残る
 - 成功時だけ stdout の `created` / `kept existing` を出す
 - backup は directory entry の存在を `Lstat` で見る。dangling symlink の `go.mod` を rollback が誤って消さないことを固定した
-- `main.gom` は rollback backup に含めない。validation 後に外部から作られた file を消さないことを review regression test で固定した
+- `main.gom` は rollback backup に含めない。validation 後に外部から作られた file を消さないことを review regression test で固定した。dangling symlink の `main.gom` も成功扱いにせず、symlink を残して失敗する
 
 ## 検証コマンド
 
 ```text
 go test ./cmd/gom -run 'TestInit(NewModuleValidationFailureRollsBackCreatedFiles|MainWriteFailureRollsBackAllInitChanges)' -count=1
-go test ./cmd/gom -run 'TestInit(NewModuleValidationFailureRollsBackCreatedFiles|MainWriteFailureRollsBackAllInitChanges|ExistingOlderGoModuleRollsBackDependency|CreatesTemplates|DoesNotOverwrite|FailureKeepsBrokenGoModSymlink)' -count=1
+go test ./cmd/gom -run 'TestInit(NewModuleValidationFailureRollsBackCreatedFiles|MainWriteFailureRollsBackAllInitChanges|ExistingOlderGoModuleRollsBackDependency|CreatesTemplates|DoesNotOverwrite|FailureKeepsBrokenGoModSymlink|FailureKeepsBrokenMainSymlink)' -count=1
 go test ./cmd/gom -count=1
 ```
 

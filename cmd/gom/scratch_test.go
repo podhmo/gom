@@ -455,6 +455,29 @@ func TestInitFailureKeepsBrokenGoModSymlink(t *testing.T) {
 	}
 }
 
+func TestInitFailureKeepsBrokenMainSymlink(t *testing.T) {
+	haveGo(t)
+	t.Setenv("GOWORK", "off")
+	root := mustRepoRoot(t)
+	requirement := func() (string, string, error) {
+		return "github.com/podhmo/gom v0.0.0", "github.com/podhmo/gom => " + strconv.Quote(root), nil
+	}
+	dir := t.TempDir()
+	mainPath := filepath.Join(dir, "main.gom")
+	if err := os.Symlink("missing-main-gom-target", mainPath); err != nil {
+		t.Fatal(err)
+	}
+
+	var out, errout strings.Builder
+	code := runInitWithRequirement([]string{"-dir", dir, "example.com/hello"}, &out, &errout, requirement)
+	if code != 2 {
+		t.Fatalf("exit = %d, want 2; stdout=%q stderr=%q", code, out.String(), errout.String())
+	}
+	if _, err := os.Lstat(mainPath); err != nil {
+		t.Fatalf("failed init removed the pre-existing main.gom symlink: %v", err)
+	}
+}
+
 func TestInitExistingOlderGoModuleRollsBackDependency(t *testing.T) {
 	haveGo(t)
 	dir := t.TempDir()
