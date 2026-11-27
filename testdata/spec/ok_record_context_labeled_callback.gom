@@ -1,0 +1,12 @@
+package main
+
+type Acc = { count: Int }
+type Other = { count: Int }
+
+fn apply_labeled (f: ~acc: a -> a) (seed: a) -> a = f ~acc: seed
+
+fn positional_labeled () -> Acc =
+  apply_labeled (fn acc -> { acc with count = acc.count + 1 }) { count = 0 }
+
+fn labeled_labeled () -> Acc =
+  apply_labeled (fn ~acc -> { acc with count = acc.count + 1 }) { count = 0 }

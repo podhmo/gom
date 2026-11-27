@@ -19,7 +19,7 @@ func TestApplyParamExpectationsDoesNotBindInferenceState(t *testing.T) {
 	a := c.newMeta(sp, "the folded element")
 	b := c.newMeta(sp, "the fold accumulator")
 	param := func(t types.Type) types.FuncParam { return types.FuncParam{Type: t} }
-	folderT := types.Fn(b, param(b), param(a))
+	folderT := types.Fn(b, types.FuncParam{Label: "acc", Type: b}, param(a))
 	listT := &types.Con{Name: "List", Args: []types.Type{a}}
 	params := []types.FuncParam{param(folderT), param(b), param(listT)}
 	fnT := types.Fn(b, params...)
@@ -59,7 +59,7 @@ func TestApplyParamExpectationsDoesNotBindInferenceState(t *testing.T) {
 	if !ok {
 		t.Fatal("folder parameter did not gain the static result type")
 	}
-	wantFolder := types.Fn(accT, param(accT), param(a))
+	wantFolder := types.Fn(accT, types.FuncParam{Label: "acc", Type: accT}, param(a))
 	if !types.Equal(folder, wantFolder) {
 		t.Fatalf("folder expectation = %v, want %v", folder, wantFolder)
 	}
@@ -148,7 +148,7 @@ func TestMergeContextualTypePreservesLongerOriginalTail(t *testing.T) {
 	}
 }
 
-func TestApplyParamExpectationsIgnoresLabeledContext(t *testing.T) {
+func TestApplyParamExpectationsPropagatesLabeledContext(t *testing.T) {
 	c := &checker{
 		metas:  map[*types.Meta]*metaRec{},
 		tyCons: map[conKey]*typeInfo{},
@@ -167,12 +167,17 @@ func TestApplyParamExpectationsIgnoresLabeledContext(t *testing.T) {
 	if x == nil {
 		t.Fatal("expected parameter views from the static result type")
 	}
-	if got, ok := x.at(0, a); ok {
-		t.Fatalf("labeled context was propagated as %v", got)
+	got, ok := x.at(0, a)
+	if !ok {
+		t.Fatal("labeled context was not propagated")
+	}
+	want := types.Fn(acc, types.FuncParam{Label: "x", Type: acc})
+	if !types.Equal(got, want) {
+		t.Fatalf("labeled context = %v, want %v", got, want)
 	}
 }
 
-func TestApplyParamExpectationsLabeledRejectionDoesNotMintOpenMetas(t *testing.T) {
+func TestApplyParamExpectationsReifyingOpenLeavesKeepsLabels(t *testing.T) {
 	c := &checker{
 		metas:  map[*types.Meta]*metaRec{},
 		tyCons: map[conKey]*typeInfo{},
@@ -191,16 +196,26 @@ func TestApplyParamExpectationsLabeledRejectionDoesNotMintOpenMetas(t *testing.T
 		sp:          sp,
 	}
 
-	before := len(c.metas)
-	if got, ok := x.at(0, original); ok {
-		t.Fatalf("labeled context was propagated as %v", got)
+	got, ok := x.at(0, original)
+	if !ok {
+		t.Fatal("labeled context was not propagated")
 	}
-	if len(c.metas) != before {
-		t.Fatalf("rejecting a labeled context left %d unused metas", len(c.metas)-before)
+	f, ok := types.Chase(got).(*types.Func)
+	if !ok || len(f.Params) != 1 {
+		t.Fatalf("labeled context = %v, want a one-parameter function", got)
+	}
+	if f.Params[0].Label != "x" {
+		t.Fatalf("label lost from contextual view: %q", f.Params[0].Label)
+	}
+	if !types.Equal(f.Params[0].Type, acc) {
+		t.Fatalf("parameter type = %v, want %v", f.Params[0].Type, acc)
+	}
+	if _, open := types.Chase(f.Ret).(*types.Meta); !open {
+		t.Fatalf("open return was over-specified as %v", f.Ret)
 	}
 }
 
-func TestApplyParamExpectationsRejectsMergedOriginalLabels(t *testing.T) {
+func TestApplyParamExpectationsMergedOriginalKeepsLabels(t *testing.T) {
 	c := &checker{
 		metas:  map[*types.Meta]*metaRec{},
 		tyCons: map[conKey]*typeInfo{},
@@ -222,8 +237,13 @@ func TestApplyParamExpectationsRejectsMergedOriginalLabels(t *testing.T) {
 		sp:          sp,
 	}
 
-	if got, ok := x.at(0, box(labeledCallback, openOriginal)); ok {
-		t.Fatalf("merged original label was propagated as %v", got)
+	got, ok := x.at(0, box(labeledCallback, openOriginal))
+	if !ok {
+		t.Fatal("labeled original context was not propagated")
+	}
+	want := box(types.Fn(acc, types.FuncParam{Label: "x", Type: acc}), acc)
+	if !types.Equal(got, want) {
+		t.Fatalf("merged context = %v, want %v", got, want)
 	}
 }
 
@@ -261,7 +281,7 @@ func TestApplyParamExpectationsMergesWhenSpeculativeLabelIsDiscarded(t *testing.
 	}
 }
 
-func TestApplyParamExpectationsDiscardedMergeDoesNotMintOpenMetas(t *testing.T) {
+func TestApplyParamExpectationsLabelMergeKeepsParameterOrder(t *testing.T) {
 	c := &checker{
 		metas:  map[*types.Meta]*metaRec{},
 		tyCons: map[conKey]*typeInfo{},
@@ -288,11 +308,31 @@ func TestApplyParamExpectationsDiscardedMergeDoesNotMintOpenMetas(t *testing.T) 
 		sp:          sp,
 	}
 
-	before := len(c.metas)
-	if got, ok := x.at(0, original); ok {
-		t.Fatalf("label-mismatched context was propagated as %v", got)
+	got, ok := x.at(0, original)
+	if !ok {
+		t.Fatal("labeled context was not propagated")
 	}
-	if len(c.metas) != before {
-		t.Fatalf("discarding a label-mismatched merge left %d unused metas", len(c.metas)-before)
+	f, ok := types.Chase(got).(*types.Func)
+	if !ok || len(f.Params) != 2 {
+		t.Fatalf("labeled context = %v, want a two-parameter function", got)
+	}
+	if f.Params[0].Label != "" {
+		t.Fatalf("first parameter kept label %q", f.Params[0].Label)
+	}
+	if f.Params[1].Label != "x" {
+		t.Fatalf("second parameter label = %q, want x", f.Params[1].Label)
+	}
+	list, ok := types.Chase(f.Params[0].Type).(*types.Con)
+	if !ok || list.Name != "List" || len(list.Args) != 1 {
+		t.Fatalf("first parameter = %v, want List _", f.Params[0].Type)
+	}
+	if _, open := types.Chase(list.Args[0]).(*types.Meta); !open {
+		t.Fatalf("speculative payload was over-specified as %v", list.Args[0])
+	}
+	if !types.Equal(f.Params[1].Type, acc) {
+		t.Fatalf("second parameter = %v, want %v", f.Params[1].Type, acc)
+	}
+	if !types.Equal(f.Ret, acc) {
+		t.Fatalf("return = %v, want %v", f.Ret, acc)
 	}
 }
