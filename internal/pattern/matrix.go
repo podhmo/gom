@@ -201,6 +201,13 @@ func mustKeyOf(t types.Type) typeKey {
 // depth-first into arguments. At most limit vectors are returned;
 // limit <= 0 means unbounded.
 func (c *checker) missing(m matrix, tys []types.Type, limit int) [][]*cell {
+	return c.missingAtRoot(m, tys, limit, nil)
+}
+
+// missingAtRoot is missing with a narrowed constructor signature for
+// the root column only. Recursive calls deliberately use missing, so
+// payload positions and later columns keep the type's full signature.
+func (c *checker) missingAtRoot(m matrix, tys []types.Type, limit int, rootSig *signature) [][]*cell {
 	if len(tys) == 0 {
 		if len(m.rows) == 0 {
 			return [][]*cell{{}}
@@ -214,6 +221,9 @@ func (c *checker) missing(m matrix, tys []types.Type, limit int) [][]*cell {
 		return nil
 	}
 	sig := c.env.signature(tys[0])
+	if rootSig != nil {
+		sig = rootSig
+	}
 	if sig == nil {
 		// Infinite or opaque domain: values outside the named
 		// constructors are missing exactly when the wildcard-only

@@ -1,0 +1,61 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0301",
+      "severity": "error",
+      "message": "non-exhaustive match on `Expr`",
+      "span": {
+        "file": "E0301_nested_match_root_only.gom",
+        "start": {
+          "line": 8,
+          "col": 15,
+          "offset": 135
+        },
+        "end": {
+          "line": 10,
+          "col": 4,
+          "offset": 178
+        }
+      },
+      "data": {
+        "missing_patterns": [
+          "Node Leaf Leaf",
+          "Node Leaf (Node _ _)"
+        ],
+        "scrutinee_type": "Expr"
+      },
+      "details": [
+        {
+          "label": "patterns not covered",
+          "lines": [
+            "Node Leaf Leaf",
+            "Node Leaf (Node _ _)"
+          ]
+        }
+      ],
+      "fixes": [
+        {
+          "title": "add the missing arms",
+          "applicability": "placeholder",
+          "edits": [
+            {
+              "file": "E0301_nested_match_root_only.gom",
+              "start": {
+                "line": 10,
+                "col": 3,
+                "offset": 177
+              },
+              "end": {
+                "line": 10,
+                "col": 3,
+                "offset": 177
+              },
+              "text": "  Node Leaf Leaf -> todo ()\n    Node Leaf (Node _ _) -> todo ()\n  "
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

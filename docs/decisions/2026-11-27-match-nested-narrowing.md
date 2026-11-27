@@ -1,6 +1,6 @@
 # nested match の same-scrutinee narrowing
 
-- 状態: 採択（実装は wave51 以降 — [検証](../sketch/2026-11-27-wave50-lane-d-match-precision-verify.md)）
+- 状態: 採用（実装・検証した — [検証](../sketch/2026-11-27-wave51-lane-b-match-narrowing-verify.md)）
 - 日付: 2026-11-27
 
 ## 決定
@@ -18,7 +18,7 @@
 適用しないもの:
 
 - guard 条件の意味解析。前の腕に guard があれば negative narrowing には使わない。本体の中では pattern 自体が当たった事実は使える
-- フィールド参照、関数呼び出し結果、mutable cell、タプル/record path、別名をさらに辿る解析
+- フィールド参照、関数呼び出し結果、mutable cell、タプル/record path、別名をさらに辿る解析。`@extern let` や Go 側の変数も backing storage を外部から更新しうるため安定な scrutinee に含めない
 - リテラル集合や数値範囲の推論
 - 関数をまたぐ interprocedural な narrowing
 
@@ -53,9 +53,10 @@
 
 ## 回帰 fixture
 
-現行の限界を示す fixture を spec harness に追加する。これらは現行では E0301 を期待するが、実装 lane では red-first の起点として期待を更新する。
+実装後は、最初の 3 件で narrowing により E0301 が出ないことを固定し、guard / extern boundary では E0301 が残ることを固定する。
 
 - `testdata/spec/E0301_nested_match_selfish_action.gom`: catch-all alias 内の negative narrowing
 - `testdata/spec/E0301_nested_match_dmmf_line.gom`: DMMF 形の negative narrowing
 - `testdata/spec/E0301_nested_match_positive_context.gom`: constructor 腕本体内の positive narrowing
 - `testdata/spec/E0301_nested_match_guard_boundary.gom`: guard 付き腕を negative narrowing に使わない境界
+- `testdata/spec/E0301_nested_match_extern_boundary.gom`: `@extern let` の backing storage を stable subject にしない境界

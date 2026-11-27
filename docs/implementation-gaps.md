@@ -31,7 +31,7 @@
 
 - [ ] **静的な期待型のない無名レコードの `List.fold` acc は型推論が通らない（E0407）**: wave50 lane E で戻り値など静的に分かる record 期待型がある場合は解消（[検証](sketch/2026-11-27-wave50-lane-e-record-context-verify.md)）。それでも accumulator shape を表す named type がどこにもない ad hoc shape は named type（`type GistAcc = {...}`）が必須のまま。匿名 record 型や structural record を導入するかは未決（selfish 移植 — 同上 sketch）
 
-- [ ] **match の到達不能 arm は `todo ()` に頼る**: catch-all `action ->` の内側で sub-match する形になると網羅性チェックの恩恵が薄れる（selfish 移植 — 同上 sketch）。wave50 lane D で same-scrutinee narrowing 採択、実装は wave51 以降（[decision](decisions/2026-11-27-match-nested-narrowing.md)）
+- [x] **match の到達不能 arm は `todo ()` に頼る**: catch-all `action ->` の内側で sub-match する形になると網羅性チェックの恩恵が薄れる（selfish 移植 — 同上 sketch）。wave51 lane B で spec/decision の採択範囲どおり same-scrutinee root constructor narrowing を実装し、E0301 のみへ適用することで解消（[decision](decisions/2026-11-27-match-nested-narrowing.md)、[検証](sketch/2026-11-27-wave51-lane-b-match-narrowing-verify.md)）。guard 条件解析や contextual E0302 は仕様上の対象外として残る
 
 - [ ] **E0204/E0503 は live code table にあるが production emitter がない**: `gom explain` / [error-codes](error-codes.md) はユーザー向けエラーとして説明するが、E0204 の unknown attribute は現状 parser が E0101 を出し、E0503 implicit numeric conversion の emitter は存在しない。wave50 lane A の coverage meta-test では reserved として明示分類したが、仕様・実装のどちらに合わせるかは未決定（[codes.go](../internal/diag/codes.go)、[parser](../internal/syntax/parser.go)）
 

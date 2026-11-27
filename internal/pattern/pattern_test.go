@@ -882,3 +882,90 @@ func TestCheckFileWalks(t *testing.T) {
 		t.Fatalf("codes = %v, want %v", got, want)
 	}
 }
+
+func TestNarrowingRejectsExternSubject(t *testing.T) {
+	def := &syntax.VarPat{Sp: sp, Name: &syntax.Ident{Sp: sp, Name: "current"}}
+	sym := &resolve.Symbol{Name: "current", Kind: resolve.KindVar, Def: def}
+	c := newChecker(NewEnv(nil), Options{})
+	c.unstableVars[sym] = true
+	v := &check.Var{Base: base(&types.Con{Name: "Action"}), Sym: sym}
+	if _, ok := c.stableSubject(v); ok {
+		t.Fatal("extern-backed variable was treated as a stable subject")
+	}
+}
+
+func TestPositiveRootKeysDoesNotExpandPayloads(t *testing.T) {
+	wideTy := &types.Con{Name: "Wide"}
+	fields := make([]types.Type, 24)
+	for i := range fields {
+		fields[i] = types.Int
+	}
+	decl := typeDecl("Wide", nil,
+		variant("Wide", fields...),
+		variant("Other"))
+	env := NewEnv([]check.Decl{decl})
+	c := newChecker(env, Options{})
+
+	choice := orp(types.Int,
+		litp(syntax.LitInt, "0", types.Int),
+		litp(syntax.LitInt, "1", types.Int),
+		litp(syntax.LitInt, "2", types.Int))
+	args := make([]check.Pat, 24)
+	for i := range args {
+		args[i] = choice
+	}
+	keys := c.positiveRootKeys(ctor(wideTy, "Wide", args...))
+	if !keys["c:/Wide/Wide"] || len(keys) != 1 {
+		t.Fatalf("positiveRootKeys() = %v", keys)
+	}
+}
+
+func TestGuardedArmNarrowsWithoutPayloadProduct(t *testing.T) {
+	wideTy := &types.Con{Name: "Wide"}
+	fields := make([]types.Type, 16)
+	for i := range fields {
+		fields[i] = types.Int
+	}
+	decl := typeDecl("Wide", nil,
+		variant("Wide", fields...),
+		variant("Other"))
+	choice := orp(types.Int,
+		litp(syntax.LitInt, "0", types.Int),
+		litp(syntax.LitInt, "1", types.Int),
+		litp(syntax.LitInt, "2", types.Int))
+	guardedArgs := make([]check.Pat, 16)
+	wildArgs := make([]check.Pat, 16)
+	for i := range guardedArgs {
+		guardedArgs[i] = choice
+		wildArgs[i] = wildp(types.Int)
+	}
+
+	xsym := &resolve.Symbol{
+		Name: "x", Kind: resolve.KindVar,
+		Def: &syntax.VarPat{Sp: sp, Name: &syntax.Ident{Sp: sp, Name: "x"}},
+	}
+	subj := &check.Var{Base: base(wideTy), Sym: xsym}
+	intLit := func() check.Expr {
+		return &check.Lit{Base: base(types.Int), Kind: syntax.LitInt, Text: "0"}
+	}
+	inner := &check.Match{Base: base(types.Int), Subj: subj, Arms: []check.MatchArm{
+		{Sp: sp, Pat: ctor(wideTy, "Wide", wildArgs...), Body: intLit()},
+		{Sp: sp, Pat: ctor(wideTy, "Other"), Body: intLit()},
+	}}
+	outer := &check.Match{Base: base(types.Int), Subj: subj, Arms: []check.MatchArm{
+		{Sp: sp, Pat: ctor(wideTy, "Wide", guardedArgs...),
+			Guard: &check.Lit{Base: base(types.Bool), Kind: syntax.LitBool, Text: "true"}, Body: inner},
+		{Sp: sp, Pat: wildp(wideTy), Body: intLit()},
+	}}
+	fn := &check.FnDecl{
+		Sp:     sp,
+		Sym:    &resolve.Symbol{Name: "f", Kind: resolve.KindFunc},
+		Sig:    types.Fn(types.Int, types.P(wideTy)),
+		Params: []check.Param{{Pat: &check.VarPat{Base: base(wideTy), Sym: xsym}}},
+		Body:   outer,
+	}
+	f := &check.File{Sp: sp, Package: "main", Decls: []check.Decl{decl, fn}}
+	if diags := CheckFile(f, Options{}); len(diags) != 0 {
+		t.Fatalf("guarded narrowing path produced %v", codes(diags))
+	}
+}
