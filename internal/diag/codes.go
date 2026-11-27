@@ -372,11 +372,11 @@ package that Gom cannot represent are reported separately (E0501);
 		Code:     "E0204",
 		Severity: SeverityError,
 		Title:    "unknown attribute",
-		Phase:    PhaseResolve,
-		Spec:     "11",
-		Explanation: `An "@name" attribute other than the defined "@test" was used.
-The grammar accepts attributes syntactically and rejects unknown ones
-during name resolution (docs/grammar.ebnf section 1).`,
+		Phase:    PhaseSyntax,
+		Spec:     "1",
+		Explanation: `An "@name" attribute other than the defined ones was used.
+The parser owns the closed attribute vocabulary and rejects unknown
+attributes during parsing (docs/grammar.ebnf section 1).`,
 		Example: `@memo
 fn fib (n: Int) -> Int = ...`,
 	},
@@ -873,14 +873,14 @@ corresponding Gom function instead.`,
 	{
 		Code:     "E0503",
 		Severity: SeverityError,
-		Title:    "implicit numeric conversion not allowed",
+		Title:    "implicit numeric conversion not allowed (retired)",
 		Phase:    PhaseCheck,
-		Spec:     "8.1",
-		Explanation: `Between Gom and Go, numeric types convert implicitly only when
-no information is lost: Int ↔ int/int64, Float ↔ float64 (spec
-section 8.1.5). Other conversions (Int to int32 or float32, for
-example) must be written explicitly with Go.conv.`,
-		Example: `let r: Int32 = Go.conv x : Int32   // x: Int needs the explicit form`,
+		Retired:  true,
+		Explanation: `This code was reserved for a dedicated implicit numeric
+conversion diagnostic. It is retired and will never be reassigned:
+numeric conversion violations are reported by the ordinary type
+mismatch diagnostic E0401, and explicit conversions use Go.conv
+(spec sections 8.1 and 8.4).`,
 	},
 	{
 		Code:     "E0504",

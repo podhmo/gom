@@ -1,0 +1,4 @@
+package main
+
+@wat
+fn fib (n: Int) -> Int = n

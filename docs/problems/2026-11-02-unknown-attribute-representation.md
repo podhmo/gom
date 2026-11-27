@@ -1,6 +1,6 @@
 # The AST cannot represent attributes other than `@test`
 
-- 状態: 未解決
+- 状態: 解決（wave52 lane E で parse 時 E0204 を採用）
 - 日付: 2026-11-02
 
 ## Situation

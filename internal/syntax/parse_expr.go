@@ -650,11 +650,13 @@ func (p *parser) parseSelect() Expr {
 //
 //	"send" simple-expr simple-expr "->" expr      send
 //	"default" "->" expr                         default
-//	(ident | "_") "<-" expr "->" expr           receive
+//	pattern "<-" expr "->" expr                    receive
 //
 // The send operands are restricted to simple-expr (postfix level)
-// [PROVISIONAL — docs/problems/2026-11-01-select-send-arm-operands.md];
-// the receive channel is a full expr (grammar.ebnf recv-arm).
+// [PROVISIONAL — docs/problems/2026-11-01-select-send-arm-operands.md].
+// Receive binds parse as patterns so destructuring forms can reach
+// checker diagnostic E0704; only variables and "_" are legal binds.
+// The receive channel is a full expr (grammar.ebnf recv-arm).
 func (p *parser) parseSelectArm() SelectArm {
 	start := p.cur()
 	switch start.kind {
@@ -689,30 +691,19 @@ func (p *parser) parseSelectArm() SelectArm {
 			Body: body,
 		}
 	case tokIdent, tokUnder:
-		var bind Pat
-		if start.kind == tokIdent {
-			p.next()
-			bind = &VarPat{
-				Sp:   p.spanOf(start),
-				Name: &Ident{Sp: p.spanOf(start), Name: p.text(start)},
-			}
-		} else {
-			p.next()
-			bind = &WildPat{Sp: p.spanOf(start)}
-		}
-		p.expect(tokLArrow)
-		ch := p.parseExpr()
-		p.expectArmArrow(p.srcText(bind.Span())+" <-", ch,
-			"expected \"->\" after the receive arm's channel, found %s",
-			p.describe(p.cur()))
-		body := p.parseExpr()
-		return &RecvArm{
-			Sp:   p.span(start.start, body.Span().End),
-			Bind: bind,
-			Chan: ch,
-			Body: body,
-		}
+		return p.parseReceiveArm(start, p.parsePattern())
 	default:
+		if selectRecvPatternStart(start.kind) {
+			bind := p.parsePattern()
+			if !p.at(tokLArrow) {
+				p.errf(p.span(start.start, p.prevEnd()),
+					"expected a select arm (\"send\", \"default\", or \"name <-\"), found %s",
+					p.describe(start))
+				p.syncItem()
+				return nil
+			}
+			return p.parseReceiveArm(start, bind)
+		}
 		if nameKeyword(start.kind) && p.peek(1).kind == tokLArrow {
 			return p.parseReservedRecvArm(start)
 		}
@@ -721,6 +712,38 @@ func (p *parser) parseSelectArm() SelectArm {
 			p.describe(start))
 		p.syncItem()
 		return nil
+	}
+}
+
+// selectRecvPatternStart reports whether a select arm can begin with a
+// pattern. Constructor and destructuring forms parse here so the checker
+// can reject them with E0704 instead of the parser discarding them as a
+// generic E0101; variable and wildcard binds remain the legal forms.
+func selectRecvPatternStart(k tokenKind) bool {
+	switch k {
+	case tokUnder, tokIdent, tokUIdent, tokInt, tokFloat, tokChar,
+		tokString, tokStrOpen, tokTrue, tokFalse, tokLParen, tokLBrack,
+		tokLBrace, tokMinus:
+		return true
+	default:
+		return false
+	}
+}
+
+// parseReceiveArm parses the channel, arrow, and body after a receive
+// arm's already parsed bind pattern.
+func (p *parser) parseReceiveArm(start token, bind Pat) SelectArm {
+	p.expect(tokLArrow)
+	ch := p.parseExpr()
+	p.expectArmArrow(p.srcText(bind.Span())+" <-", ch,
+		"expected \"->\" after the receive arm's channel, found %s",
+		p.describe(p.cur()))
+	body := p.parseExpr()
+	return &RecvArm{
+		Sp:   p.span(start.start, body.Span().End),
+		Bind: bind,
+		Chan: ch,
+		Body: body,
 	}
 }
 

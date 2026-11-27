@@ -61,6 +61,7 @@ fn main () -> Unit = {
 - 関数適用は並置 `f x y`。左結合で、どの二項演算子よりも強く結合する（`f x + g y` は `(f x) + (g y)`）
 - フィールド・モジュールのアクセスは適用より強い: `f p.name` は `f (p.name)`、`List.map f xs`
 - 負の数を引数に渡すときは括弧が必要: `f (-1)`
+- 宣言に付けられる attribute は `@test` / `@tailrec` / `@extern` / `@method` に限る。未知の `@name` は構文段階の E0204
 - ラムダ: `fn x -> x + 1`、複数引数は `fn a b -> a + b`。パラメータは `fn` 宣言と同じ `(x: T)` の形で型注釈できる: `fn (x: Int) -> x + 1`、`fn (x: Int) (y: Int) -> x + y`。パラメータにラベルを付けることもできる — 呼び出し側の `~x:` pun と対称の裸の形 `fn ~x -> x` と、`fn` 宣言と同じ注釈つき `(~x: T)` の形 `fn (~x: Int) -> x`（[decision](decisions/2026-11-23-labeled-arg-relaxation.md) 案 D）。ラベルつきラムダの型は `~x: T -> R` で、expected 側のラベルと名前対応で受ける — ラベルのない expected への逆方向 introduction はしない（2.1 節）。本体はできるだけ右まで伸びる
 - 引数のない関数は `Unit` を取る: 定義は `fn main () -> Unit`、呼び出しは `main ()`
 - タプル `(a, b)`、リスト `[1, 2, 3]`、レコード `{ name = "a", age = 3 }`、更新 `{ p with age = 4 }`

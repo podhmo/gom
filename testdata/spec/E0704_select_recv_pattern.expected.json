@@ -2,11 +2,11 @@
   "diagnostics": [
     {
       "kind": "diagnostic",
-      "code": "E0101",
+      "code": "E0704",
       "severity": "error",
-      "message": "expected a select arm (\"send\", \"default\", or \"name <-\"), found identifier 'Some'",
+      "message": "a select receive arm must bind a variable or `_`, not a destructuring pattern",
       "span": {
-        "file": "E0101_select_recv_pattern.gom",
+        "file": "E0704_select_recv_pattern.gom",
         "start": {
           "line": 7,
           "col": 5,
@@ -14,8 +14,8 @@
         },
         "end": {
           "line": 7,
-          "col": 9,
-          "offset": 95
+          "col": 11,
+          "offset": 97
         }
       }
     }
