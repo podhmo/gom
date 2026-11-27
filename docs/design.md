@@ -166,6 +166,8 @@ go tool の実起動は opt-in: `gom build -go` は出力先ディレクトリ�
 
 error recovery では同じ型不適合を複数の span で繰り返さない。例えば pipe operand を record seed つきで検査し、その trailing conformance が失敗したときは、失敗済みであることを `pipeCall` へ渡して parameter conformance の再診断だけを省略する。result tail の settle は行い、正しいコードの推論規則を変えずに回復用の E0407 も抑える（[decision](decisions/2026-11-27-record-contextual-inference.md)）。
 
+診断 coverage の meta-test は、live code の既定置き場を phase 別に固定しつつ、例外を「unit integration」「checker recovery」「compiler-internal」「reserved」へ分類する。unit / recovery 分類は package 内にコード文字列があるだけでは足りず、例外表が指名した positive test function の本体にそのコードがあることだけを根拠にする。compiler-internal は lower/core invariant のように利用者ソースからの到達を設計しない診断で、coverage 対象外であることを分類自体で明示する。reserved は production emitter がない診断で、emitter が現れたら分類をやり直す。E0204/E0503/E0704 の仕様方向はこの分類とは切り離し、open question のままにする（wave51 lane C）。
+
 ### 2.4 実装言語
 
 コンパイラは Go で実装する。`go/ast`・`go/printer`・`go/types`・`go/importer` をそのまま使えるので、Go パッケージの読み込みと Go コードの出力を自前で書かずに済み、配布も単一バイナリで済む。Go には sum type とパターンマッチがないため、コンパイラ内部の AST は sealed interface＋type switch で表す（Gom が生成するコードと同じ形）。type switch の網羅性は go-sumtype のような静的検査ツールで補う。ツールが実際に漏れを検出することを確かめるため、AST にバリアントを足したときに CI が失敗するテストを置く（Go のバージョンとジェネリック型への対応も確認する）。

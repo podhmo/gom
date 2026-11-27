@@ -20,13 +20,19 @@ type coverageKind string
 const (
 	coverageSpec     coverageKind = "spec fixture"
 	coverageCLI      coverageKind = "CLI test"
-	coverageUnit     coverageKind = "unit test"
+	coverageUnit     coverageKind = "unit integration test"
+	coverageRecovery coverageKind = "checker recovery unit test"
+	coverageInternal coverageKind = "compiler-internal, coverage exempt"
 	coverageReserved coverageKind = "reserved, currently unemitted"
 )
 
 type coverageException struct {
 	kind coverageKind
 	why  string
+	// tests names the positive Go test functions carrying unit or
+	// recovery coverage. Naming them keeps a negative "must not emit"
+	// assertion or an incidental literal from counting as coverage.
+	tests []string
 }
 
 // coverageExceptions is the explicit negative space of the diagnostic
@@ -35,12 +41,33 @@ type coverageException struct {
 // evaluator diagnostics need a unit test. Anything else must be named
 // here so a missing fixture is a conscious classification, not drift.
 var coverageExceptions = map[diag.Code]coverageException{
-	"E0204": {coverageReserved, "unknown attributes are currently rejected by the parser as E0101; the resolve-phase code is reserved until the AST can carry attributes"},
-	"E0502": {coverageUnit, "method-on-Gom-value is covered by a synthetic checker unit test; source-level triggering depends on resolver method setup"},
-	"E0503": {coverageReserved, "implicit numeric conversion currently has no production emitter"},
-	"E0606": {coverageUnit, "package import cycles need multi-module package-layout setup covered by unit tests"},
-	"E0704": {coverageUnit, "the source parser rejects destructuring select receive patterns as E0101; E0704 is checker recovery coverage"},
-	"E0901": {coverageUnit, "lowering invariant violations are compiler-internal contracts, not expected user-source diagnostics"},
+	"E0204": {
+		kind: coverageReserved,
+		why:  "unknown attributes are currently rejected by the parser as E0101; the resolve-phase code is reserved until the AST can carry attributes",
+	},
+	"E0502": {
+		kind:  coverageRecovery,
+		why:   "value method selections are type-directed and unresolved by the resolver; the Gom-receiver branch is checker recovery for inconsistent resolution",
+		tests: []string{"TestMethodOnGomValue"},
+	},
+	"E0503": {
+		kind: coverageReserved,
+		why:  "implicit numeric conversion currently has no production emitter",
+	},
+	"E0606": {
+		kind:  coverageUnit,
+		why:   "package import cycles need multi-module package-layout setup covered by integration tests",
+		tests: []string{"TestImplImportCycleMutual", "TestIfaceImportCycleMutual"},
+	},
+	"E0704": {
+		kind:  coverageRecovery,
+		why:   "the source parser rejects destructuring select receive patterns as E0101; E0704 is checker recovery coverage",
+		tests: []string{"TestSelectRecvArmCtorPat"},
+	},
+	"E0901": {
+		kind: coverageInternal,
+		why:  "lowering invariant violations are compiler-internal contracts, not expected user-source diagnostics",
+	},
 }
 
 var expectedCodeRE = regexp.MustCompile(`"code"\s*:\s*"([EWN][0-9]{4})"`)
@@ -59,6 +86,7 @@ func TestLiveDiagnosticCoverageClassification(t *testing.T) {
 	specCodes := scanSpecCodes(t, filepath.Join(root, "testdata", "spec"))
 	cliCodes := scanGoStringCodes(t, filepath.Join(root, "cmd", "gom"), true)
 	unitCodes := scanGoStringCodes(t, filepath.Join(root, "internal"), true)
+	unitEvidence := scanGoTestCodeEvidence(t, filepath.Join(root, "internal"))
 
 	for _, info := range diag.CodeTable() {
 		if info.Retired {
@@ -75,10 +103,19 @@ func TestLiveDiagnosticCoverageClassification(t *testing.T) {
 				if !cliCodes[code] {
 					t.Errorf("%s: classified as %s (%s), but no CLI test names it", code, ex.kind, ex.why)
 				}
-			case coverageUnit:
-				if !unitCodes[code] {
-					t.Errorf("%s: classified as %s (%s), but no unit test names it", code, ex.kind, ex.why)
+			case coverageUnit, coverageRecovery:
+				if len(ex.tests) == 0 {
+					t.Errorf("%s: classified as %s (%s), but names no positive evidence test", code, ex.kind, ex.why)
+					continue
 				}
+				for _, testName := range ex.tests {
+					if !unitEvidence[code][testName] {
+						t.Errorf("%s: classified as %s (%s), but %s does not name it", code, ex.kind, ex.why, testName)
+					}
+				}
+			case coverageInternal:
+				// Compiler-internal invariant diagnostics are exempt from user-source
+				// coverage. The explicit classification is the coverage decision.
 			case coverageReserved:
 				// The classification itself is the coverage. Emission sites are
 				// checked below so a newly implemented code must be reclassified.
@@ -148,6 +185,58 @@ func scanSpecCodes(t *testing.T, dir string) map[diag.Code]bool {
 		t.Fatal(err)
 	}
 	return codes
+}
+
+// scanGoTestCodeEvidence maps diagnostic-code literals to the top-level
+// Go test functions whose bodies contain them. Unlike a package-wide
+// literal scan, this lets the classification name the positive test it
+// means; a literal in an unrelated negative test does not count.
+func scanGoTestCodeEvidence(t *testing.T, dir string) map[diag.Code]map[string]bool {
+	t.Helper()
+	out := map[diag.Code]map[string]bool{}
+	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() || filepath.Ext(path) != ".go" || !strings.HasSuffix(path, "_test.go") {
+			return nil
+		}
+		if filepath.Base(path) == "codes_coverage_test.go" || filepath.Base(path) == "explain_examples_test.go" {
+			return nil
+		}
+		fset := token.NewFileSet()
+		f, err := goparser.ParseFile(fset, path, nil, 0)
+		if err != nil {
+			return err
+		}
+		for _, decl := range f.Decls {
+			fn, ok := decl.(*ast.FuncDecl)
+			if !ok || fn.Body == nil || !strings.HasPrefix(fn.Name.Name, "Test") {
+				continue
+			}
+			ast.Inspect(fn.Body, func(n ast.Node) bool {
+				lit, ok := n.(*ast.BasicLit)
+				if !ok || lit.Kind != token.STRING {
+					return true
+				}
+				s, err := strconv.Unquote(lit.Value)
+				if err != nil || !diag.WellFormed(diag.Code(s)) {
+					return true
+				}
+				code := diag.Code(s)
+				if out[code] == nil {
+					out[code] = map[string]bool{}
+				}
+				out[code][fn.Name.Name] = true
+				return true
+			})
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return out
 }
 
 // scanGoStringCodes finds exact diagnostic-code string literals in Go
