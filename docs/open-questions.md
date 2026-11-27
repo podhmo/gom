@@ -25,7 +25,7 @@
 
 ### 開発体験 / 診断
 
-- [x] 継続行らしき字下げ行の誤パースを専用診断に畳み込むか: **wave54 lane F として採択**（2026-11-27、[prompts](sketch/2026-11-27-wave54-prompts.md)）。`List.fold` の適用を複数行に書くと E0407/E0402/E0401 が連鎖し、本因（改行で式が切れた）が見えない。NL-2 の文法変更は既 decision どおり採らないが、診断だけを改善する余地はある。字下げだけで括る自動 fix は独立式を別意味に書き換えうるため unsafe（PR #256 U1、Devin Review 指摘、[audit](sketch/2026-11-26-wave48-lane-g-owner-ideas-audit.md)）
+- [x] 継続行らしき字下げ行の誤パースを専用診断に畳み込むか: **wave54 lane F として採択・調査済み**（2026-11-27、[prompts](sketch/2026-11-27-wave54-prompts.md)、[decision](decisions/2026-11-27-continuation-line-diagnostics.md)、[検証](sketch/2026-11-27-wave54-lane-f-continuation-diag-verify.md)）。専用診断への畳込みは見送り、先頭の E0402 が関数型かつ後続行が深い字下げのときだけ pipe/parens の note を付ける方針。実装は未実施
 - [x] `diag.Diagnostic` に汎用 `labels` / `details` を足すか: wave49 lane D では E0301 の `missing_patterns` を text 出力へ出す限定修正を先に行った。汎用 wire shape は **wave50 lane C で実装**（2026-11-27、[decision](decisions/2026-11-27-diagnostic-labels-details.md)）。代表利用は E0401 の let/return 注釈由来を示す副 span まで。if/match 腕や呼出し引数への伝播、typo 候補と error recovery は対象外（[problem](problems/2026-11-02-text-format-detail-block.md)）
 - [ ] E0201 に typo 候補や import 補完 fix を付けるか: `aera` → `area` のような編集距離候補、module member の typo、未 import の Go package に対する `import go` fix の提供境界が未決（PR #256 U4、[audit](sketch/2026-11-26-wave48-lane-g-owner-ideas-audit.md)）
 - [ ] resolve/type error 後のエラー回復をどこまで広げるか: 未定義名を error type として check に通す、pattern を宣言単位で走らせると 1 回の check で見える情報は増えるが、連鎖診断の抑止と fixture 設計が未決（PR #256 U5、[audit](sketch/2026-11-26-wave48-lane-g-owner-ideas-audit.md)）
