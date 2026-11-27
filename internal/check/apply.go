@@ -416,6 +416,9 @@ func (c *checker) boundaryProducerWants(want types.Type) []types.Type {
 		if t.Qual == "Go" && t.Name == "Slice" && !c.shadowedBuiltin("List") {
 			return []types.Type{types.List(t.Args[0])}
 		}
+		if t.Qual == "" && t.Name == "List" && !c.shadowedBuiltin("List") {
+			return []types.Type{types.GoSlice(t.Args[0])}
+		}
 	case *types.Tuple, *types.Go, *types.Meta, *types.Var:
 		return nil
 	default:
