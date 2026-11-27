@@ -10,7 +10,7 @@ TODO E0407-1。E0407 に候補 record declaration label（5 件まで）と dete
 
 ## lane B: E0201 module/operation member typo candidates の実装
 
-TODO E0201-1。E0201 `namespace: "member"` で member table 内の optimal string alignment 距離 1 の候補を最大 3 件、note と `data.candidates` に出す。通常 module に加え `Go.Map` / `Go.Slice` operation table を対象にし、`fixes` は付けない。positive/negative/truncate/text/JSON fixture を含める。decision 済みで実装のみ。
+TODO E0201-1。E0201 `namespace: "member"` で member table 内の optimal string alignment 距離 1 の候補を最大 3 件、note と `data.candidates` に出す。通常 module に加え `Go.Map` / `Go.Slice` operation table を対象にし、`fixes` は付けない。positive/negative/truncate/text/JSON fixture を含める。spec harness の explicit-empty assertion を `fixes` にも広げ、修正候補が出ないことを固定する。decision 済みで実装のみ。
 
 ## lane C: E0401 provenance の call argument / record field 拡張可否調査
 

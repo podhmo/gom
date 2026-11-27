@@ -139,8 +139,9 @@ podhmo は lane PR 群を先に merge してよい。wave の完了は lane PR
   prompts・実行形態・merge/CI 状態、`lane 結果`、`wave の経過`、
   `発見メモ`、`pitfall 一般化`、`lane PR の残件監査`、
   `発生タスクと台帳の動き`、`締め sweep`、`次への申し送り`。
-  `wave の経過`は必要に応じて省略してよいが、具体的な発見メモと
-  一般化した pitfall、残件監査、締め sweep は分ける。`pitfalls`
+  `wave の経過`と`発見メモ`は記録すべき内容がなければ省略してよいが、
+  書く場合は具体的な発見メモと一般化した pitfall を分ける。残件監査と
+  締め sweep は省略せず、なければ「なし」と書く。`pitfalls`
   を review finding の列挙や lane 本文の再録だけで済ませない。
 
   必須:
