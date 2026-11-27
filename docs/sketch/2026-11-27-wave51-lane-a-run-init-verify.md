@@ -74,6 +74,12 @@ go test ./...
 
 手動確認: parent `go.work` が別 module だけを `use` し、`GOFLAGS=-mod=mod` の環境で、module 外 run は exit 0 / `ok` を出力し、init は `go.mod`・`go.sum`・`main.gom` を生成した。
 
+## Review follow-up round 3
+
+- 既存 `go.mod` の require/replace は block 形式と quoted module path も directive 単位で判定し、version 付き replace は要求 version に一致する場合だけ既存解決として扱う
+- dependency download はまず caller の workspace を使い、workspace 外 directory で失敗した場合だけ `GOWORK=off` に fallback する。parent workspace + `GOFLAGS=-mod=mod` の run/init 手動 probe は exit 0 を維持した
+- scratch compilation 用の `GOWORK=off` は build 完了時に戻し、実行される program には caller 本来の Go 環境を引き継ぐ
+
 ## 残論点
 
 - scratch module では外部 dependency の追加を編集できない。依存管理が必要な project は `gom init` を使う
