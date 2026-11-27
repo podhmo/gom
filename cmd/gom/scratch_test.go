@@ -390,6 +390,9 @@ func TestInitMainWriteFailureRollsBackAllInitChanges(t *testing.T) {
 		if code != 2 {
 			t.Fatalf("exit = %d, want 2; stdout=%q stderr=%q", code, out.String(), errout.String())
 		}
+		if !strings.Contains(errout.String(), "injected main.gom write failure") {
+			t.Fatalf("init did not reach the injected write failure: %q", errout.String())
+		}
 		after, err := os.ReadFile(gomodPath)
 		if err != nil {
 			t.Fatal(err)
@@ -406,6 +409,32 @@ func TestInitMainWriteFailureRollsBackAllInitChanges(t *testing.T) {
 		}
 		if _, err := os.Stat(filepath.Join(dir, "main.gom")); !os.IsNotExist(err) {
 			t.Fatalf("main.gom exists after failed init: %v", err)
+		}
+	})
+
+	t.Run("externally created main.gom is not removed", func(t *testing.T) {
+		dir := t.TempDir()
+		sentinel := []byte("package main\n\nfn main () -> Unit = ()\n")
+		writeExternalMain := func(path string, body []byte) error {
+			if filepath.Base(path) == "main.gom" {
+				if err := os.WriteFile(path, sentinel, 0o644); err != nil {
+					return err
+				}
+				return errors.New("main.gom appeared before init could create it")
+			}
+			return writeNewFile(path, body)
+		}
+		var out, errout strings.Builder
+		code := runInitWithWriter([]string{"-dir", dir, "example.com/hello"}, &out, &errout, requirement, writeExternalMain)
+		if code != 2 {
+			t.Fatalf("exit = %d, want 2; stdout=%q stderr=%q", code, out.String(), errout.String())
+		}
+		after, err := os.ReadFile(filepath.Join(dir, "main.gom"))
+		if err != nil {
+			t.Fatalf("rollback removed an externally created main.gom: %v", err)
+		}
+		if string(after) != string(sentinel) {
+			t.Fatalf("externally created main.gom changed:\nbefore:\n%s\nafter:\n%s", sentinel, after)
 		}
 	})
 }

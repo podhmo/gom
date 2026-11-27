@@ -76,7 +76,7 @@ func runInitWithWriter(args []string, stdout, stderr io.Writer, requirement func
 		fmt.Fprintf(stderr, "gom init: %s already has go.mod and main.gom\n", *dir)
 		return 2
 	}
-	backups, err := backupInitFiles(gomodPath, filepath.Join(*dir, "go.sum"), mainPath)
+	backups, err := backupInitFiles(gomodPath, filepath.Join(*dir, "go.sum"))
 	if err != nil {
 		fmt.Fprintf(stderr, "gom init: %v\n", err)
 		return 2

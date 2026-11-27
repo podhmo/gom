@@ -27,6 +27,7 @@
 - 既存 module + `main.gom` write failure: additive edit された `go.mod` は元の bytes へ戻り、既存の空 `go.sum` は空のまま残る
 - 成功時だけ stdout の `created` / `kept existing` を出す
 - backup は directory entry の存在を `Lstat` で見る。dangling symlink の `go.mod` を rollback が誤って消さないことを固定した
+- `main.gom` は rollback backup に含めない。validation 後に外部から作られた file を消さないことを review regression test で固定した
 
 ## 検証コマンド
 
@@ -41,4 +42,4 @@ go test ./cmd/gom -count=1
 ## 残論点
 
 - directory 作成自体は prompts の採択どおり rollback 対象外のまま。project file atomicity のみを固定した
-- write failure の inject は `runInitWithWriter` の test seam で行い、本番経路は従来どおり `writeNewFile` を使う
+- write failure の inject は `runInitWithWriter` の test seam で行い、本番経路は従来どおり `writeNewFile` を使う。`main.gom` 自体の partial write cleanup は `writeNewFile` の既存契約に任せ、init 全体の rollback は `go.mod` / `go.sum` を対象にする
