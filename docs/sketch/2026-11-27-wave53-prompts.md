@@ -16,9 +16,9 @@ wave52 は labeled lambda seeding、standalone init checksum、診断コード�
 
 ## lane B. `gom init` failure atomicity（小）
 
-standalone validation に失敗したとき、新規 init で作成した `go.mod` / `main.gom` / `go.sum` を残すか rollback するかを決め、採用側だけ実装する。
+standalone validation に失敗したとき、validation 前に作成した `go.mod` / 生成されうる `go.sum` を残すか rollback するかを決め、採用側だけ実装する。`main.gom` は validation 成功後に作られるため validation failure では残らない。validation 後の `main.gom` write failure まで巻き戻すかは別の判断として記録する。
 
-- 既存 module の additive edit rollback は wave52 で済んでいる。今回は新規作成ファイルだけを対象にする
+- 既存 module の additive edit rollback は wave52 で済んでいる。今回は新規作成ファイルだけを対象にし、validation failure で残る file と validation 後の write failure rollback を分ける
 - directory 自体やユーザー既存ファイルの non-overwrite 契約は変えない
 - 方針を decision/spec/test で固定する
 
