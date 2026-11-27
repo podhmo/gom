@@ -379,8 +379,9 @@ func checkData(exp map[string]any, data map[string]any, path string) (msgs []str
 }
 
 // checkLabels verifies that each expected label matches the actual
-// labels in order. A label's "span" uses the same subset semantics as
-// the primary span; "message" is exact.
+// labels in order. An explicitly empty array requires no actual labels.
+// A label's "span" uses the same subset semantics as the primary span;
+// "message" is exact.
 func checkLabels(exp map[string]any, labels []diag.Label, res diag.Resolver, path string) (msgs []string) {
 	v, ok := exp["labels"]
 	if !ok {

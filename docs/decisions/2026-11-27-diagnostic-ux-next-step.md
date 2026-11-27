@@ -1,11 +1,11 @@
 # 診断 UX の次段実装候補
 
-- 状態: 採用（調査済み・実装候補の決定。実装は未実施）
+- 状態: 採用（実装・検証した — [検証](../sketch/2026-11-28-wave55-lane-c-provenance-verify.md)）
 - 日付: 2026-11-27
 
 ## 決定
 
-次に実装する診断 UX は **E0401 expected type provenance の if/match 腕への伝播**とする。呼出し引数や record field の provenance、details 昇格基準、snippet 統合、fragment example 検証は今回の実装候補にしない。
+診断 UX の次段として **E0401 expected type provenance の if/match 腕への伝播**を実装する。呼出し引数や record field の provenance、details 昇格基準、snippet 統合、fragment example 検証は今回の実装候補にしない。
 
 ## 理由
 
@@ -33,4 +33,10 @@
 - 近接 span の snippet 統合: label 増加後の可読性問題ではあるが、現状は重複表示があっても情報は読める。text renderer の layout 変更は影響面が広い
 - `gom explain` fragment example 検証: 台帳・coverage の衛生としては有効だが、利用者向け診断そのものの改善ではない。self-contained 化は件数が多く、調査 lane では実装費用を正当化しにくい
 
-検証記録: [sketch/2026-11-27-wave53-lane-c-diagnostic-ux-verify](../sketch/2026-11-27-wave53-lane-c-diagnostic-ux-verify.md)。
+## 実装
+
+- checker は注釈 span を `checkIf` / `checkMatch` / `checkBlock` へ明示的に渡し、同じ expected type を受け取る腕と block 最終式だけを `checkExprAt` で検査する。腕本体が block のときは、その block が型を変えず最終式へ同じ expected type を渡す経路として扱う
+- 内部 join のため detached にした腕、 bare `Go.Any` へ bounding だけを行う分岐、演算子・呼出し引数・lambda 本体・record field の内部には provenance を伝えない
+- spec harness では expected `labels: []` が「label がないこと」を要求するようにし、negative fixture が無条件に通る形を防ぐ
+
+調査記録: [sketch/2026-11-27-wave53-lane-c-diagnostic-ux-verify](../sketch/2026-11-27-wave53-lane-c-diagnostic-ux-verify.md)。実装検証: [sketch/2026-11-28-wave55-lane-c-provenance-verify](../sketch/2026-11-28-wave55-lane-c-provenance-verify.md)。

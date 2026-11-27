@@ -869,7 +869,7 @@ test "rendered items" {
 
 1. 1 行に 1 オブジェクト。JSON・text・LSP は、どれもコンパイラ内部の診断データからの変換であり、同じ内容を持つ。`kind` で種類を区別し、最後の行は必ず `summary`。終了コードは成功 0、診断エラーあり 1、コンパイラの内部エラー 2
 2. `code` は安定した識別子。意味を変えず、廃止しても番号を再利用しない
-3. `message` は 1 行の英語。機械可読な詳細は `data` に構造化して入れる。人間向けの詳細行があれば `details` に `{ "label": string, "lines": [string] }` の列として入れ、text 表示では主 span のあとに `<label>:` ブロックとして描く。主 span 以外の説明位置があれば `labels` に `{ "span": ..., "message": string }` の列として入れ、text 表示では副 span の snippet として描く。`data` は出力形式をまたいだ機械可読の正で、text renderer は `data` の鍵を診断コードごとに解釈しない
+3. `message` は 1 行の英語。機械可読な詳細は `data` に構造化して入れる。人間向けの詳細行があれば `details` に `{ "label": string, "lines": [string] }` の列として入れ、text 表示では主 span のあとに `<label>:` ブロックとして描く。主 span 以外の説明位置があれば `labels` に `{ "span": ..., "message": string }` の列として入れ、text 表示では副 span の snippet として描く。`data` は出力形式をまたいだ機械可読の正で、text renderer は `data` の鍵を診断コードごとに解釈しない。E0401 では、let/return 注釈が直接供給した expected type との mismatch、および同じ expected type が block 最終式を通って if/match 腕へそのまま供給された最終 conformance mismatch に、注釈位置を示す `expected type declared here` label を付ける。呼出し引数・lambda 本体・record field・演算子の内部で独立に失敗した mismatch にはこの label を付けない
 4. 位置は 0 始まりの UTF-8 バイトオフセットを正とし、1 始まりの行・列（列は Unicode コードポイント単位）を出力時に計算して添える。LSP など別の座標系（UTF-16）が必要な出力では、オフセットから変換する。`labels` の `span` も主 span と同じ形
 5. `fixes` の `applicability` は `safe`（そのまま適用してよい）、`placeholder`（`todo ()` など実行すると panic する穴を含む）、`unsafe`（意味が変わり得る）の 3 段階。`gom fix` は `safe` だけを自動で適用する
 6. 生成した Go コードに対する `go build` / `go vet` / `go test` のエラーも `.gom` の位置に戻し、`"source": "go"` を付けて同じ形式で出す
