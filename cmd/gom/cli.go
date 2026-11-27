@@ -1293,6 +1293,9 @@ func checkFormat(format string) error {
 // emitReport renders rep in format to w: JSON Lines or text per spec
 // section 12. The format has already passed checkFormat.
 func emitReport(w io.Writer, format string, rep diag.Report, srcs map[string][]byte) error {
+	// Dependency bytes are needed only while this report resolves its
+	// spans. Do not keep them alive while `gom run` waits for a child.
+	defer loadedGomiSources.Clear()
 	res := newDiskFallbackResolver(diag.NewMapResolver(srcs))
 	if format == "text" {
 		return rep.WriteText(w, res, diag.TextOptions{})

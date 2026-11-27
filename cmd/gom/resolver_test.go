@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
@@ -47,5 +48,18 @@ func TestDiskFallbackResolverUsesCompileTimeGomiBytes(t *testing.T) {
 	}
 	if got := li.Pos(4); got.Line != 2 || got.Col != 2 {
 		t.Errorf("Pos(4) = %+v, want line 2 col 2", got)
+	}
+}
+
+func TestEmitReportReleasesLoadedGomiSources(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "dep.gomi")
+	noteLoadedGomiSource(path, []byte("package dep\n"))
+
+	var out bytes.Buffer
+	if err := emitReport(&out, "json", diag.Report{}, nil); err != nil {
+		t.Fatalf("emitReport: %v", err)
+	}
+	if _, ok := loadedGomiSources.Load(path); ok {
+		t.Error("emitReport kept loaded .gomi bytes after rendering")
 	}
 }
