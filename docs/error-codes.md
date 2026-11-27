@@ -419,7 +419,9 @@ expected type comes directly from a let or return annotation, the
 diagnostic also labels that annotation as "expected type declared here".
 The same label follows the expected type through if/match arms, including
 block tail expressions on that path; independent mismatches inside an arm
-(for example an operator constraint) do not receive it.
+(for example an operator constraint) do not receive it. Numeric-literal
+constraint failures such as "expected a numeric type, got String" do not
+receive it either, because the annotation is not the constraint source.
 
 ```gom
 let x = 1 + "a"

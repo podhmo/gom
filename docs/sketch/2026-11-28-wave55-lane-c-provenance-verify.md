@@ -17,7 +17,7 @@ red 確認コミット: `d30147e4 check: pin expected type provenance in branch 
 - `E0401_if_arm_provenance`: `"nested"` の E0401 が `fn choose ... -> Int` の `Int` span を label に持つ
 - `E0401_match_arm_provenance`: `"none"` の E0401 が return 注釈の `Int` span を labelに持つ
 - `E0401_if_arm_provenance_no_leak`: `expected a numeric type, got String` に label がない
-- `E0401_if_arm_provenance_go_any_no_leak`: `-> Go.Any` は branch type を seed しないので、腕内 mismatch に注釈 label がない
+- `E0401_if_arm_provenance_go_any_no_leak`: `-> Go.Any` は branch type を seed しないので、先行腕の `x: Int` が決めた branch join との mismatch `expected Int, got String` に注釈 label がない
 - JSON output に `labels` が出ること、text output に副 span snippet として出ることを `gom check` で確認
 
 text 出力例:
@@ -48,3 +48,4 @@ error[E0401]: type mismatch: expected Int, got String
 - `go test ./...` — pass
 - `gofmt -l .` — 空
 - `go vet ./...` — pass
+- review 補強: `-update` 再生成でも explicit empty `notes` / `labels` assertion を同じ diagnostic index/code に限り保持し、numeric literal constraint failure には注釈 label を付けない例外を spec/error-codes へ明記
