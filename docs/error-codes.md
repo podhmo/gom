@@ -243,11 +243,11 @@ import go "example.com/no/such/pkg"
 
 ### E0204 — unknown attribute
 
-**Severity:** error · **Phase:** resolve · **Spec:** §11
+**Severity:** error · **Phase:** syntax · **Spec:** §1
 
-An "@name" attribute other than the defined "@test" was used.
-The grammar accepts attributes syntactically and rejects unknown ones
-during name resolution (docs/grammar.ebnf section 1).
+An "@name" attribute other than the defined ones was used.
+The parser owns the closed attribute vocabulary and rejects unknown
+attributes during parsing (docs/grammar.ebnf section 1).
 
 ```gom
 @memo
@@ -770,18 +770,15 @@ corresponding Gom function instead.
 shape.Area()   // write: area shape
 ```
 
-### E0503 — implicit numeric conversion not allowed
+### E0503 — implicit numeric conversion not allowed (retired)
 
-**Severity:** error · **Phase:** check · **Spec:** §8.1
+**Severity:** error · **Phase:** check · **Status:** retired
 
-Between Gom and Go, numeric types convert implicitly only when
-no information is lost: Int ↔ int/int64, Float ↔ float64 (spec
-section 8.1.5). Other conversions (Int to int32 or float32, for
-example) must be written explicitly with Go.conv.
-
-```gom
-let r: Int32 = Go.conv x : Int32   // x: Int needs the explicit form
-```
+This code was reserved for a dedicated implicit numeric
+conversion diagnostic. It is retired and will never be reassigned:
+numeric conversion violations are reported by the ordinary type
+mismatch diagnostic E0401, and explicit conversions use Go.conv
+(spec sections 8.1 and 8.4).
 
 ### E0504 — misplaced _ placeholder
 

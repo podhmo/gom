@@ -166,7 +166,7 @@ go tool の実起動は opt-in: `gom build -go` は出力先ディレクトリ�
 
 error recovery では同じ型不適合を複数の span で繰り返さない。例えば pipe operand を record seed つきで検査し、その trailing conformance が失敗したときは、失敗済みであることを `pipeCall` へ渡して parameter conformance の再診断だけを省略する。result tail の settle は行い、正しいコードの推論規則を変えずに回復用の E0407 も抑える（[decision](decisions/2026-11-27-record-contextual-inference.md)）。
 
-診断 coverage の meta-test は、live code の既定置き場を phase 別に固定しつつ、例外を「unit integration」「checker recovery」「compiler-internal」「reserved」へ分類する。unit / recovery 分類は package 内にコード文字列があるだけでは足りず、例外表が positive evidence として指名した test function の本体にそのコードがあることを確認する。meta-test が保証するのは指名先と literal の所在までで、assertion の正负は例外表を編集する側の責任として明示する。compiler-internal は lower/core invariant のように利用者ソースからの到達を設計しない診断で、coverage 対象外であることを分類自体で明示する。reserved は production emitter がない診断で、emitter が現れたら分類をやり直す。E0204/E0503/E0704 の仕様方向はこの分類とは切り離し、open question のままにする（wave51 lane C）。
+診断 coverage の meta-test は、live code の既定置き場を phase 別に固定しつつ、例外を「unit integration」「checker recovery」「compiler-internal」「reserved」へ分類する。unit / recovery 分類は package 内にコード文字列があるだけでは足りず、例外表が positive evidence として指名した test function の本体にそのコードがあることを確認する。meta-test が保証するのは指名先と literal の所在までで、assertion の正负は例外表を編集する側の責任として明示する。compiler-internal は lower/core invariant のように利用者ソースからの到達を設計しない診断で、coverage 対象外であることを分類自体で明示する。reserved は production emitter がない診断で、emitter が現れたら分類をやり直す。E0204/E0503/E0704 の方向は wave52 lane E で確定し、E0204/E0704 は spec fixture 側、E0503 は retired へ移した。
 
 ### 2.4 実装言語
 

@@ -689,38 +689,59 @@ func (p *parser) parseSelectArm() SelectArm {
 			Body: body,
 		}
 	case tokIdent, tokUnder:
-		var bind Pat
-		if start.kind == tokIdent {
-			p.next()
-			bind = &VarPat{
-				Sp:   p.spanOf(start),
-				Name: &Ident{Sp: p.spanOf(start), Name: p.text(start)},
-			}
-		} else {
-			p.next()
-			bind = &WildPat{Sp: p.spanOf(start)}
-		}
-		p.expect(tokLArrow)
-		ch := p.parseExpr()
-		p.expectArmArrow(p.srcText(bind.Span())+" <-", ch,
-			"expected \"->\" after the receive arm's channel, found %s",
-			p.describe(p.cur()))
-		body := p.parseExpr()
-		return &RecvArm{
-			Sp:   p.span(start.start, body.Span().End),
-			Bind: bind,
-			Chan: ch,
-			Body: body,
-		}
+		return p.parseReceiveArm(start, p.parsePattern())
 	default:
 		if nameKeyword(start.kind) && p.peek(1).kind == tokLArrow {
 			return p.parseReservedRecvArm(start)
 		}
-		p.errf(p.spanOf(start),
-			"expected a select arm (\"send\", \"default\", or \"name <-\"), found %s",
-			p.describe(start))
-		p.syncItem()
-		return nil
+		if !selectRecvPatternStart(start.kind) {
+			p.errf(p.spanOf(start),
+				"expected a select arm (\"send\", \"default\", or \"name <-\"), found %s",
+				p.describe(start))
+			p.syncItem()
+			return nil
+		}
+		bind := p.parsePattern()
+		if !p.at(tokLArrow) {
+			p.errf(p.span(start.start, p.prevEnd()),
+				"expected a select arm (\"send\", \"default\", or \"name <-\"), found %s",
+				p.describe(start))
+			p.syncItem()
+			return nil
+		}
+		return p.parseReceiveArm(start, bind)
+	}
+}
+
+// selectRecvPatternStart reports whether a select arm can begin with a
+// pattern. Constructor and destructuring forms parse here so the checker
+// can reject them with E0704 instead of the parser discarding them as a
+// generic E0101; variable and wildcard binds remain the legal forms.
+func selectRecvPatternStart(k tokenKind) bool {
+	switch k {
+	case tokUnder, tokIdent, tokUIdent, tokInt, tokFloat, tokChar,
+		tokString, tokStrOpen, tokTrue, tokFalse, tokLParen, tokLBrack,
+		tokLBrace, tokMinus:
+		return true
+	default:
+		return false
+	}
+}
+
+// parseReceiveArm parses the channel, arrow, and body after a receive
+// arm's already parsed bind pattern.
+func (p *parser) parseReceiveArm(start token, bind Pat) SelectArm {
+	p.expect(tokLArrow)
+	ch := p.parseExpr()
+	p.expectArmArrow(p.srcText(bind.Span())+" <-", ch,
+		"expected \"->\" after the receive arm's channel, found %s",
+		p.describe(p.cur()))
+	body := p.parseExpr()
+	return &RecvArm{
+		Sp:   p.span(start.start, body.Span().End),
+		Bind: bind,
+		Chan: ch,
+		Body: body,
 	}
 }
 

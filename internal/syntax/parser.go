@@ -624,12 +624,11 @@ func (p *parser) parseAttrDecl() Decl {
 		sp:         attrSp,
 	}
 	if !attrs.testOnly && !attrs.tailRec && !attrs.extern && !attrs.method {
-		// The AST cannot carry an unknown attribute (no field
-		// records it): report at parse time so the error is not
-		// silently lost. E0204 remains the resolve-phase code once
-		// the AST gains an attribute slot.
-		p.errf(p.spanOf(nameTok),
-			"unknown attribute \"@%s\": only \"@test\", \"@tailrec\", \"@extern\" and \"@method\" are defined", name)
+		// Unknown attributes are rejected at parse time: the parser
+		// owns the closed attribute vocabulary and the AST carries
+		// only the known booleans.
+		p.diags.Add(diag.Error("E0204",
+			fmt.Sprintf("unknown attribute \"@%s\": only \"@test\", \"@tailrec\", \"@extern\" and \"@method\" are defined", name)).At(p.spanOf(nameTok)))
 	}
 	if !attrs.method {
 		// @method is the one attribute a .gomi must carry — an
@@ -890,7 +889,7 @@ func (p *parser) parseLetDeclWithFlag(attrs declAttrs, doc *Comment, embed []*Co
 // parseLetHead parses the "pattern [":" type]" left side shared by
 // let declarations and block lets. The ":" annotation is not in
 // grammar.ebnf's let-decl but the AST (Let.Type / LetDecl.Type) and
-// the E0503 example require it — see
+// annotated lets require it — see
 // docs/problems/2026-11-02-let-type-annotation.md.
 func (p *parser) parseLetHead() (pat Pat, typ TypeExpr) {
 	pat = p.parsePattern()

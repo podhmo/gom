@@ -817,8 +817,8 @@ char-char      = ? any code point except "'" and '\' ? ;
    - "_" is an atom everywhere; Go-call-only usage is [SEMANTIC].
    - "{ a : T }" is a block containing an ascription, not a record.
    - "(x,)" is a parenthesized expression with a trailing comma.
-   - attributes other than "@test", "@tailrec" and "@extern" are
-     accepted by the grammar and rejected in the parser.
+   - attributes other than "@test", "@tailrec", "@extern" and "@method" are
+     accepted by the grammar and rejected in the parser as E0204.
    - keywords are usable as member names after "." (needed for
      "Chan.send", "ctx.Done" uses UIdent, etc.).
 

@@ -4,7 +4,7 @@ type Job = | Job (id: Int)
 
 fn poll (jobs: Chan Job) -> Int =
   select {
-    Some j <- jobs -> j
+    Some j <- jobs -> 0
     _ <- jobs -> 0
     default -> -1
   }

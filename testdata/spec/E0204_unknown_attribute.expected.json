@@ -4,7 +4,20 @@
       "kind": "diagnostic",
       "code": "E0204",
       "severity": "error",
-      "message": "unknown attribute \"@wat\": only \"@test\", \"@tailrec\", \"@extern\" and \"@method\" are defined"
+      "message": "unknown attribute \"@wat\": only \"@test\", \"@tailrec\", \"@extern\" and \"@method\" are defined",
+      "span": {
+        "file": "E0204_unknown_attribute.gom",
+        "start": {
+          "line": 3,
+          "col": 2,
+          "offset": 15
+        },
+        "end": {
+          "line": 3,
+          "col": 5,
+          "offset": 18
+        }
+      }
     }
   ]
 }

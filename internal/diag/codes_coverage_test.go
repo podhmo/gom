@@ -42,28 +42,15 @@ type coverageException struct {
 // evaluator diagnostics need a unit test. Anything else must be named
 // here so a missing fixture is a conscious classification, not drift.
 var coverageExceptions = map[diag.Code]coverageException{
-	"E0204": {
-		kind: coverageReserved,
-		why:  "unknown attributes are currently rejected by the parser as E0101; the resolve-phase code is reserved until the AST can carry attributes",
-	},
 	"E0502": {
 		kind:  coverageRecovery,
 		why:   "value method selections are type-directed and unresolved by the resolver; the Gom-receiver branch is checker recovery for inconsistent resolution",
 		tests: []string{"TestMethodOnGomValue"},
 	},
-	"E0503": {
-		kind: coverageReserved,
-		why:  "implicit numeric conversion currently has no production emitter",
-	},
 	"E0606": {
 		kind:  coverageUnit,
 		why:   "package import cycles need multi-package module-layout setup covered by integration tests",
 		tests: []string{"TestImplImportCycleMutual", "TestIfaceImportCycleMutual"},
-	},
-	"E0704": {
-		kind:  coverageRecovery,
-		why:   "the source parser rejects destructuring select receive patterns as E0101; E0704 is checker recovery coverage",
-		tests: []string{"TestSelectRecvArmCtorPat"},
 	},
 	"E0901": {
 		kind: coverageInternal,
