@@ -69,6 +69,12 @@ fn validate_order_input (input: UnvalidatedOrder) -> Result ValidatedOrder Valid
 fn validate_order_inputs (inputs: List UnvalidatedOrder) -> Result (List ValidatedOrder) ValidationError =
   inputs |> List.map validate_order_input |> Result.sequence
 
+fn validate_singleton_order (input: UnvalidatedOrder) (line: Line) -> Result ValidatedOrder ValidationError =
+  match validate_line line {
+    Err e -> Err e
+    Ok valid -> Ok { id = input.id, lines = [valid] }
+  }
+
 fn bind_option (f: a -> Result b e) (o: Option a) -> Result (Option b) e = match o {
   Some x -> f x |> Result.map Some
   None -> Ok None
@@ -87,6 +93,21 @@ type Order = { id: String, lines: List Line }
 fn eq_order (a: Order) (b: Order) -> Bool = a == b
 
 type PricedLine = | ProductLine String | CommentLine String
+
+type LineTotals = { quantity: Int, lines: Int }
+
+fn fold_order_lines (step: ~line: Line -> ~acc: LineTotals -> LineTotals) (lines: List Line) -> LineTotals =
+  List.fold (fn acc line -> step ~line: line ~acc: acc) (LineTotals { quantity = 0, lines = 0 }) lines
+
+fn order_line_totals (lines: List Line) -> LineTotals =
+  fold_order_lines (fn line acc -> { acc with quantity = acc.quantity + line.qty, lines = acc.lines + 1 }) lines
+
+fn shipment_code_length (line: PricedLine) -> Int = match line {
+  CommentLine _ -> 0
+  product -> match product {
+    ProductLine code -> text_length code
+  }
+}
 
 fn make_shipment_line (line: PricedLine) -> Option String = match line {
   ProductLine code -> Some code

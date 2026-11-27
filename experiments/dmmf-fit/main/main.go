@@ -391,243 +391,262 @@ func gomShowInit_ValidatedOrder() {
 //line main/main.gom:59
 var _ = func() bool { gomShowInit_ValidatedOrder(); return true }()
 
-//line main/main.gom:84
+//line main/main.gom:90
 type Line struct {
-//line main/main.gom:84
+//line main/main.gom:90
 	Sku string
-//line main/main.gom:84
+//line main/main.gom:90
 	Qty int64
-//line main/main.gom:84
+//line main/main.gom:90
 }
 
-//line main/main.gom:84
+//line main/main.gom:90
 func gomShowInit_Line() {
-//line main/main.gom:84
+//line main/main.gom:90
 	_ = rt.RegisterShowRecord(rt.TypeOf[Line](), false, "sku", "qty")
-//line main/main.gom:84
+//line main/main.gom:90
 }
 
-//line main/main.gom:84
+//line main/main.gom:90
 var _ = func() bool { gomShowInit_Line(); return true }()
 
-//line main/main.gom:85
+//line main/main.gom:91
 type Order struct {
-//line main/main.gom:85
+//line main/main.gom:91
 	Id string
-//line main/main.gom:85
+//line main/main.gom:91
 	Lines list.List[Line]
-//line main/main.gom:85
+//line main/main.gom:91
 }
 
-//line main/main.gom:85
+//line main/main.gom:91
 func gomShowInit_Order() {
-//line main/main.gom:85
+//line main/main.gom:91
 	_ = rt.RegisterShowRecord(rt.TypeOf[Order](), false, "id", "lines")
-//line main/main.gom:85
+//line main/main.gom:91
 }
 
-//line main/main.gom:85
+//line main/main.gom:91
 var _ = func() bool { gomShowInit_Order(); return true }()
 
-//line main/main.gom:89
+//line main/main.gom:95
 type PricedLine interface{ isPricedLine() }
 
-//line main/main.gom:89
+//line main/main.gom:95
 type PricedLine_ProductLine struct {
-//line main/main.gom:89
+//line main/main.gom:95
 	V0 string
-//line main/main.gom:89
+//line main/main.gom:95
 }
 
-//line main/main.gom:89
+//line main/main.gom:95
 func (PricedLine_ProductLine) isPricedLine() {}
 
-//line main/main.gom:89
+//line main/main.gom:95
 type PricedLine_CommentLine struct {
-//line main/main.gom:89
+//line main/main.gom:95
 	V0 string
-//line main/main.gom:89
+//line main/main.gom:95
 }
 
-//line main/main.gom:89
+//line main/main.gom:95
 func (PricedLine_CommentLine) isPricedLine() {}
 
-//line main/main.gom:89
+//line main/main.gom:95
 func gomShowInit_PricedLine() {
-//line main/main.gom:89
+//line main/main.gom:95
 	_ = rt.RegisterShowVariant(rt.TypeOf[PricedLine_ProductLine](), "ProductLine", "")
-//line main/main.gom:89
+//line main/main.gom:95
 	_ = rt.RegisterShowVariant(rt.TypeOf[PricedLine_CommentLine](), "CommentLine", "")
-//line main/main.gom:89
+//line main/main.gom:95
 }
 
-//line main/main.gom:89
+//line main/main.gom:95
 var _ = func() bool { gomShowInit_PricedLine(); return true }()
 
-//line main/main.gom:111
+//line main/main.gom:97
+type LineTotals struct {
+//line main/main.gom:97
+	Quantity int64
+//line main/main.gom:97
+	Lines int64
+//line main/main.gom:97
+}
+
+//line main/main.gom:97
+func gomShowInit_LineTotals() {
+//line main/main.gom:97
+	_ = rt.RegisterShowRecord(rt.TypeOf[LineTotals](), false, "quantity", "lines")
+//line main/main.gom:97
+}
+
+//line main/main.gom:97
+var _ = func() bool { gomShowInit_LineTotals(); return true }()
+
+//line main/main.gom:132
 type ProductCode interface{ isProductCode() }
 
-//line main/main.gom:111
+//line main/main.gom:132
 type ProductCode_WidgetCode struct {
-//line main/main.gom:111
+//line main/main.gom:132
 	V0 string
-//line main/main.gom:111
+//line main/main.gom:132
 }
 
-//line main/main.gom:111
+//line main/main.gom:132
 func (ProductCode_WidgetCode) isProductCode() {}
 
-//line main/main.gom:111
+//line main/main.gom:132
 type ProductCode_GizmoCode struct {
-//line main/main.gom:111
+//line main/main.gom:132
 	V0 string
-//line main/main.gom:111
+//line main/main.gom:132
 }
 
-//line main/main.gom:111
+//line main/main.gom:132
 func (ProductCode_GizmoCode) isProductCode() {}
 
-//line main/main.gom:111
+//line main/main.gom:132
 func gomShowInit_ProductCode() {
-//line main/main.gom:111
+//line main/main.gom:132
 	_ = rt.RegisterShowVariant(rt.TypeOf[ProductCode_WidgetCode](), "WidgetCode", "")
-//line main/main.gom:111
+//line main/main.gom:132
 	_ = rt.RegisterShowVariant(rt.TypeOf[ProductCode_GizmoCode](), "GizmoCode", "")
-//line main/main.gom:111
+//line main/main.gom:132
 }
 
-//line main/main.gom:111
+//line main/main.gom:132
 var _ = func() bool { gomShowInit_ProductCode(); return true }()
 
-//line main/main.gom:112
+//line main/main.gom:133
 type Price interface{ isPrice() }
 
-//line main/main.gom:112
+//line main/main.gom:133
 type Price_Price struct {
-//line main/main.gom:112
+//line main/main.gom:133
 	V0 float64
-//line main/main.gom:112
+//line main/main.gom:133
 }
 
-//line main/main.gom:112
+//line main/main.gom:133
 func (Price_Price) isPrice() {}
 
-//line main/main.gom:112
+//line main/main.gom:133
 func gomShowInit_Price() {
-//line main/main.gom:112
+//line main/main.gom:133
 	_ = rt.RegisterShowVariant(rt.TypeOf[Price_Price](), "Price", "")
-//line main/main.gom:112
+//line main/main.gom:133
 }
 
-//line main/main.gom:112
+//line main/main.gom:133
 var _ = func() bool { gomShowInit_Price(); return true }()
 
-//line main/main.gom:113
+//line main/main.gom:134
 type PromotionCode interface{ isPromotionCode() }
 
-//line main/main.gom:113
+//line main/main.gom:134
 type PromotionCode_PromotionCode struct {
-//line main/main.gom:113
+//line main/main.gom:134
 	V0 string
-//line main/main.gom:113
+//line main/main.gom:134
 }
 
-//line main/main.gom:113
+//line main/main.gom:134
 func (PromotionCode_PromotionCode) isPromotionCode() {}
 
-//line main/main.gom:113
+//line main/main.gom:134
 func gomShowInit_PromotionCode() {
-//line main/main.gom:113
+//line main/main.gom:134
 	_ = rt.RegisterShowVariant(rt.TypeOf[PromotionCode_PromotionCode](), "PromotionCode", "")
-//line main/main.gom:113
+//line main/main.gom:134
 }
 
-//line main/main.gom:113
+//line main/main.gom:134
 var _ = func() bool { gomShowInit_PromotionCode(); return true }()
 
-//line main/main.gom:114
+//line main/main.gom:135
 type PricingMethod interface{ isPricingMethod() }
 
-//line main/main.gom:114
+//line main/main.gom:135
 type PricingMethod_Standard struct{}
 
-//line main/main.gom:114
+//line main/main.gom:135
 func (PricingMethod_Standard) isPricingMethod() {}
 
-//line main/main.gom:114
+//line main/main.gom:135
 type PricingMethod_Promotion struct {
-//line main/main.gom:114
+//line main/main.gom:135
 	V0 PromotionCode
-//line main/main.gom:114
+//line main/main.gom:135
 }
 
-//line main/main.gom:114
+//line main/main.gom:135
 func (PricingMethod_Promotion) isPricingMethod() {}
 
-//line main/main.gom:114
+//line main/main.gom:135
 func gomShowInit_PricingMethod() {
-//line main/main.gom:114
+//line main/main.gom:135
 	_ = rt.RegisterShowVariant(rt.TypeOf[PricingMethod_Standard](), "Standard")
-//line main/main.gom:114
+//line main/main.gom:135
 	_ = rt.RegisterShowVariant(rt.TypeOf[PricingMethod_Promotion](), "Promotion", "")
-//line main/main.gom:114
+//line main/main.gom:135
 }
 
-//line main/main.gom:114
+//line main/main.gom:135
 var _ = func() bool { gomShowInit_PricingMethod(); return true }()
 
-//line main/main.gom:130
+//line main/main.gom:151
 type CustomerInfoDto struct {
-//line main/main.gom:131
+//line main/main.gom:152
 	Name string `json:"name"`
-//line main/main.gom:132
+//line main/main.gom:153
 	Email string `json:"email"`
-//line main/main.gom:130
+//line main/main.gom:151
 }
 
-//line main/main.gom:130
+//line main/main.gom:151
 func gomShowInit_CustomerInfoDto() {
-//line main/main.gom:130
+//line main/main.gom:151
 	_ = rt.RegisterShowRecord(rt.TypeOf[CustomerInfoDto](), false, "name", "email")
-//line main/main.gom:130
+//line main/main.gom:151
 }
 
-//line main/main.gom:130
+//line main/main.gom:151
 var _ = func() bool { gomShowInit_CustomerInfoDto(); return true }()
 
-//line main/main.gom:144
+//line main/main.gom:165
 type Event interface{ isEvent() }
 
-//line main/main.gom:144
+//line main/main.gom:165
 type Event_Shippable struct {
-//line main/main.gom:144
+//line main/main.gom:165
 	V0 string
-//line main/main.gom:144
+//line main/main.gom:165
 }
 
-//line main/main.gom:144
+//line main/main.gom:165
 func (Event_Shippable) isEvent() {}
 
-//line main/main.gom:144
+//line main/main.gom:165
 type Event_Ack struct {
-//line main/main.gom:144
+//line main/main.gom:165
 	V0 string
-//line main/main.gom:144
+//line main/main.gom:165
 }
 
-//line main/main.gom:144
+//line main/main.gom:165
 func (Event_Ack) isEvent() {}
 
-//line main/main.gom:144
+//line main/main.gom:165
 func gomShowInit_Event() {
-//line main/main.gom:144
+//line main/main.gom:165
 	_ = rt.RegisterShowVariant(rt.TypeOf[Event_Shippable](), "Shippable", "")
-//line main/main.gom:144
+//line main/main.gom:165
 	_ = rt.RegisterShowVariant(rt.TypeOf[Event_Ack](), "Ack", "")
-//line main/main.gom:144
+//line main/main.gom:165
 }
 
-//line main/main.gom:144
+//line main/main.gom:165
 var _ = func() bool { gomShowInit_Event(); return true }()
 
 //line main/main.gom:31
@@ -798,704 +817,826 @@ func validateOrderInputs(inputs list.List[UnvalidatedOrder]) result.Result[list.
 }
 
 //line main/main.gom:72
+func validateSingletonOrder(input UnvalidatedOrder, line Line) result.Result[ValidatedOrder, ValidationError] {
+//line main/main.gom:73
+	tmp22 := validateLine(line)
+//line main/main.gom:74
+	switch tmp22.Tag() {
+//line main/main.gom:74
+	case result.ResultTagOk:
+//line main/main.gom:74
+		tmp23 := tmp22.Value
+//line main/main.gom:74
+		tmp24 := tmp23
+//line main/main.gom:75
+		tmp25 := list.List[Line]{tmp24}
+//line main/main.gom:75
+		tmp26 := ValidatedOrder{Id: input.Id, Lines: tmp25}
+//line main/main.gom:75
+		return result.Ok[ValidatedOrder, ValidationError](tmp26)
+//line main/main.gom:74
+	case result.ResultTagErr:
+//line main/main.gom:74
+		tmp27 := tmp22.Error
+//line main/main.gom:74
+		tmp28 := tmp27
+//line main/main.gom:74
+		return result.Err[ValidatedOrder, ValidationError](tmp28)
+//line main/main.gom:74
+	default:
+//line main/main.gom:73
+		panic(rt.InvalidVariant("Result", tmp22))
+//line main/main.gom:74
+	}
+//line main/main.gom:72
+}
+
+//line main/main.gom:78
 func bindOption[A, B, E any](f func(A) result.Result[B, E], o option.Option[A]) result.Result[option.Option[B], E] {
-//line main/main.gom:73
+//line main/main.gom:79
 	switch v1 := o.(type) {
-//line main/main.gom:73
+//line main/main.gom:79
 	case option.Option_Some[A]:
-//line main/main.gom:73
-		tmp22 := v1
-//line main/main.gom:73
-		tmp23 := tmp22.V0
-//line main/main.gom:73
-		tmp24 := f(tmp23)
-//line main/main.gom:73
+//line main/main.gom:79
+		tmp29 := v1
+//line main/main.gom:79
+		tmp30 := tmp29.V0
+//line main/main.gom:79
+		tmp31 := f(tmp30)
+//line main/main.gom:79
 		return result.Map[B, option.Option[B], E](func(v0 B) option.Option[B] {
-//line main/main.gom:73
+//line main/main.gom:79
 			return option.Option_Some[B]{V0: v0}
-//line main/main.gom:73
-		}, tmp24)
-//line main/main.gom:73
+//line main/main.gom:79
+		}, tmp31)
+//line main/main.gom:79
 	case option.Option_None[A]:
-//line main/main.gom:74
-		tmp25 := option.Option[B](option.Option_None[B]{})
-//line main/main.gom:74
-		return result.Ok[option.Option[B], E](tmp25)
-//line main/main.gom:74
+//line main/main.gom:80
+		tmp32 := option.Option[B](option.Option_None[B]{})
+//line main/main.gom:80
+		return result.Ok[option.Option[B], E](tmp32)
+//line main/main.gom:80
 	default:
-//line main/main.gom:72
+//line main/main.gom:78
 		panic(rt.InvalidVariant("Option", o))
-//line main/main.gom:73
+//line main/main.gom:79
 	}
-//line main/main.gom:72
+//line main/main.gom:78
 }
 
-//line main/main.gom:77
+//line main/main.gom:83
 func validationMap2[A, B, C, E any](f func(A, B) C, va Validation[A, E], vb Validation[B, E]) Validation[C, E] {
-//line main/main.gom:77
-	tmp26 := rt.Tuple2[Validation[A, E], Validation[B, E]]{V0: va, V1: vb}
-//line main/main.gom:78
-	switch v2 := tmp26.V0.(type) {
-//line main/main.gom:78
+//line main/main.gom:83
+	tmp33 := rt.Tuple2[Validation[A, E], Validation[B, E]]{V0: va, V1: vb}
+//line main/main.gom:84
+	switch v2 := tmp33.V0.(type) {
+//line main/main.gom:84
 	case Validation_VOk[A, E]:
-//line main/main.gom:78
-		tmp27 := v2
-//line main/main.gom:78
-		switch v3 := tmp26.V1.(type) {
-//line main/main.gom:78
+//line main/main.gom:84
+		tmp34 := v2
+//line main/main.gom:84
+		switch v3 := tmp33.V1.(type) {
+//line main/main.gom:84
 		case Validation_VOk[B, E]:
-//line main/main.gom:78
-			tmp28 := v3
-//line main/main.gom:78
-			tmp29 := tmp27.V0
-//line main/main.gom:78
-			tmp30 := tmp28.V0
-//line main/main.gom:78
-			tmp31 := f(tmp29, tmp30)
-//line main/main.gom:78
-			return Validation_VOk[C, E]{V0: tmp31}
-//line main/main.gom:78
+//line main/main.gom:84
+			tmp35 := v3
+//line main/main.gom:84
+			tmp36 := tmp34.V0
+//line main/main.gom:84
+			tmp37 := tmp35.V0
+//line main/main.gom:84
+			tmp38 := f(tmp36, tmp37)
+//line main/main.gom:84
+			return Validation_VOk[C, E]{V0: tmp38}
+//line main/main.gom:84
 		case Validation_VErr[B, E]:
-//line main/main.gom:79
-			switch v4 := tmp26.V0.(type) {
-//line main/main.gom:79
+//line main/main.gom:85
+			switch v4 := tmp33.V0.(type) {
+//line main/main.gom:85
 			case Validation_VOk[A, E]:
-//line main/main.gom:80
-				switch v5 := tmp26.V0.(type) {
-//line main/main.gom:80
+//line main/main.gom:86
+				switch v5 := tmp33.V0.(type) {
+//line main/main.gom:86
 				case Validation_VOk[A, E]:
-//line main/main.gom:81
-					switch v6 := tmp26.V1.(type) {
-//line main/main.gom:81
+//line main/main.gom:87
+					switch v6 := tmp33.V1.(type) {
+//line main/main.gom:87
 					case Validation_VErr[B, E]:
-//line main/main.gom:81
-						tmp32 := v6
-//line main/main.gom:81
-						tmp33 := tmp32.V0
-//line main/main.gom:81
-						return Validation_VErr[C, E]{V0: tmp33}
-//line main/main.gom:81
-					default:
-//line main/main.gom:81
-						panic(rt.InvalidVariant("Validation", tmp26.V1))
-//line main/main.gom:81
-					}
-//line main/main.gom:80
-				case Validation_VErr[A, E]:
-//line main/main.gom:80
-					tmp34 := v5
-//line main/main.gom:80
-					tmp35 := tmp34.V0
-//line main/main.gom:80
-					return Validation_VErr[C, E]{V0: tmp35}
-//line main/main.gom:80
-				default:
-//line main/main.gom:80
-					panic(rt.InvalidVariant("Validation", tmp26.V0))
-//line main/main.gom:80
-				}
-//line main/main.gom:79
-			case Validation_VErr[A, E]:
-//line main/main.gom:79
-				tmp36 := v4
-//line main/main.gom:79
-				switch v7 := tmp26.V1.(type) {
-//line main/main.gom:79
-				case Validation_VOk[B, E]:
-//line main/main.gom:80
-					switch v8 := tmp26.V0.(type) {
-//line main/main.gom:80
-					case Validation_VOk[A, E]:
-//line main/main.gom:81
-						switch v9 := tmp26.V1.(type) {
-//line main/main.gom:81
-						case Validation_VErr[B, E]:
-//line main/main.gom:81
-							tmp37 := v9
-//line main/main.gom:81
-							tmp38 := tmp37.V0
-//line main/main.gom:81
-							return Validation_VErr[C, E]{V0: tmp38}
-//line main/main.gom:81
-						default:
-//line main/main.gom:81
-							panic(rt.InvalidVariant("Validation", tmp26.V1))
-//line main/main.gom:81
-						}
-//line main/main.gom:80
-					case Validation_VErr[A, E]:
-//line main/main.gom:80
-						tmp39 := v8
-//line main/main.gom:80
+//line main/main.gom:87
+						tmp39 := v6
+//line main/main.gom:87
 						tmp40 := tmp39.V0
-//line main/main.gom:80
+//line main/main.gom:87
 						return Validation_VErr[C, E]{V0: tmp40}
-//line main/main.gom:80
+//line main/main.gom:87
 					default:
-//line main/main.gom:80
-						panic(rt.InvalidVariant("Validation", tmp26.V0))
-//line main/main.gom:80
+//line main/main.gom:87
+						panic(rt.InvalidVariant("Validation", tmp33.V1))
+//line main/main.gom:87
 					}
-//line main/main.gom:79
-				case Validation_VErr[B, E]:
-//line main/main.gom:79
-					tmp41 := v7
-//line main/main.gom:79
-					tmp42 := tmp36.V0
-//line main/main.gom:79
-					tmp43 := tmp41.V0
-//line main/main.gom:79
-					tmp44 := list.Append[E](tmp42, tmp43)
-//line main/main.gom:79
-					return Validation_VErr[C, E]{V0: tmp44}
-//line main/main.gom:79
-				default:
-//line main/main.gom:79
-					panic(rt.InvalidVariant("Validation", tmp26.V1))
-//line main/main.gom:79
-				}
-//line main/main.gom:79
-			default:
-//line main/main.gom:79
-				panic(rt.InvalidVariant("Validation", tmp26.V0))
-//line main/main.gom:79
-			}
-//line main/main.gom:79
-		default:
-//line main/main.gom:78
-			panic(rt.InvalidVariant("Validation", tmp26.V1))
-//line main/main.gom:78
-		}
-//line main/main.gom:78
-	case Validation_VErr[A, E]:
-//line main/main.gom:79
-		switch v10 := tmp26.V0.(type) {
-//line main/main.gom:79
-		case Validation_VOk[A, E]:
-//line main/main.gom:80
-			switch v11 := tmp26.V0.(type) {
-//line main/main.gom:80
-			case Validation_VOk[A, E]:
-//line main/main.gom:81
-				switch v12 := tmp26.V1.(type) {
-//line main/main.gom:81
-				case Validation_VErr[B, E]:
-//line main/main.gom:81
-					tmp45 := v12
-//line main/main.gom:81
-					tmp46 := tmp45.V0
-//line main/main.gom:81
-					return Validation_VErr[C, E]{V0: tmp46}
-//line main/main.gom:81
-				default:
-//line main/main.gom:81
-					panic(rt.InvalidVariant("Validation", tmp26.V1))
-//line main/main.gom:81
-				}
-//line main/main.gom:80
-			case Validation_VErr[A, E]:
-//line main/main.gom:80
-				tmp47 := v11
-//line main/main.gom:80
-				tmp48 := tmp47.V0
-//line main/main.gom:80
-				return Validation_VErr[C, E]{V0: tmp48}
-//line main/main.gom:80
-			default:
-//line main/main.gom:80
-				panic(rt.InvalidVariant("Validation", tmp26.V0))
-//line main/main.gom:80
-			}
-//line main/main.gom:79
-		case Validation_VErr[A, E]:
-//line main/main.gom:79
-			tmp49 := v10
-//line main/main.gom:79
-			switch v13 := tmp26.V1.(type) {
-//line main/main.gom:79
-			case Validation_VOk[B, E]:
-//line main/main.gom:80
-				switch v14 := tmp26.V0.(type) {
-//line main/main.gom:80
-				case Validation_VOk[A, E]:
-//line main/main.gom:81
-					switch v15 := tmp26.V1.(type) {
-//line main/main.gom:81
-					case Validation_VErr[B, E]:
-//line main/main.gom:81
-						tmp50 := v15
-//line main/main.gom:81
-						tmp51 := tmp50.V0
-//line main/main.gom:81
-						return Validation_VErr[C, E]{V0: tmp51}
-//line main/main.gom:81
-					default:
-//line main/main.gom:81
-						panic(rt.InvalidVariant("Validation", tmp26.V1))
-//line main/main.gom:81
-					}
-//line main/main.gom:80
+//line main/main.gom:86
 				case Validation_VErr[A, E]:
-//line main/main.gom:80
-					tmp52 := v14
-//line main/main.gom:80
-					tmp53 := tmp52.V0
-//line main/main.gom:80
-					return Validation_VErr[C, E]{V0: tmp53}
-//line main/main.gom:80
+//line main/main.gom:86
+					tmp41 := v5
+//line main/main.gom:86
+					tmp42 := tmp41.V0
+//line main/main.gom:86
+					return Validation_VErr[C, E]{V0: tmp42}
+//line main/main.gom:86
 				default:
-//line main/main.gom:80
-					panic(rt.InvalidVariant("Validation", tmp26.V0))
-//line main/main.gom:80
+//line main/main.gom:86
+					panic(rt.InvalidVariant("Validation", tmp33.V0))
+//line main/main.gom:86
 				}
-//line main/main.gom:79
-			case Validation_VErr[B, E]:
-//line main/main.gom:79
-				tmp54 := v13
-//line main/main.gom:79
-				tmp55 := tmp49.V0
-//line main/main.gom:79
-				tmp56 := tmp54.V0
-//line main/main.gom:79
-				tmp57 := list.Append[E](tmp55, tmp56)
-//line main/main.gom:79
-				return Validation_VErr[C, E]{V0: tmp57}
-//line main/main.gom:79
+//line main/main.gom:85
+			case Validation_VErr[A, E]:
+//line main/main.gom:85
+				tmp43 := v4
+//line main/main.gom:85
+				switch v7 := tmp33.V1.(type) {
+//line main/main.gom:85
+				case Validation_VOk[B, E]:
+//line main/main.gom:86
+					switch v8 := tmp33.V0.(type) {
+//line main/main.gom:86
+					case Validation_VOk[A, E]:
+//line main/main.gom:87
+						switch v9 := tmp33.V1.(type) {
+//line main/main.gom:87
+						case Validation_VErr[B, E]:
+//line main/main.gom:87
+							tmp44 := v9
+//line main/main.gom:87
+							tmp45 := tmp44.V0
+//line main/main.gom:87
+							return Validation_VErr[C, E]{V0: tmp45}
+//line main/main.gom:87
+						default:
+//line main/main.gom:87
+							panic(rt.InvalidVariant("Validation", tmp33.V1))
+//line main/main.gom:87
+						}
+//line main/main.gom:86
+					case Validation_VErr[A, E]:
+//line main/main.gom:86
+						tmp46 := v8
+//line main/main.gom:86
+						tmp47 := tmp46.V0
+//line main/main.gom:86
+						return Validation_VErr[C, E]{V0: tmp47}
+//line main/main.gom:86
+					default:
+//line main/main.gom:86
+						panic(rt.InvalidVariant("Validation", tmp33.V0))
+//line main/main.gom:86
+					}
+//line main/main.gom:85
+				case Validation_VErr[B, E]:
+//line main/main.gom:85
+					tmp48 := v7
+//line main/main.gom:85
+					tmp49 := tmp43.V0
+//line main/main.gom:85
+					tmp50 := tmp48.V0
+//line main/main.gom:85
+					tmp51 := list.Append[E](tmp49, tmp50)
+//line main/main.gom:85
+					return Validation_VErr[C, E]{V0: tmp51}
+//line main/main.gom:85
+				default:
+//line main/main.gom:85
+					panic(rt.InvalidVariant("Validation", tmp33.V1))
+//line main/main.gom:85
+				}
+//line main/main.gom:85
 			default:
-//line main/main.gom:79
-				panic(rt.InvalidVariant("Validation", tmp26.V1))
-//line main/main.gom:79
+//line main/main.gom:85
+				panic(rt.InvalidVariant("Validation", tmp33.V0))
+//line main/main.gom:85
 			}
-//line main/main.gom:79
+//line main/main.gom:85
 		default:
-//line main/main.gom:79
-			panic(rt.InvalidVariant("Validation", tmp26.V0))
-//line main/main.gom:79
+//line main/main.gom:84
+			panic(rt.InvalidVariant("Validation", tmp33.V1))
+//line main/main.gom:84
 		}
-//line main/main.gom:79
-	default:
-//line main/main.gom:78
-		panic(rt.InvalidVariant("Validation", tmp26.V0))
-//line main/main.gom:78
-	}
-//line main/main.gom:77
-}
-
+//line main/main.gom:84
+	case Validation_VErr[A, E]:
+//line main/main.gom:85
+		switch v10 := tmp33.V0.(type) {
+//line main/main.gom:85
+		case Validation_VOk[A, E]:
+//line main/main.gom:86
+			switch v11 := tmp33.V0.(type) {
+//line main/main.gom:86
+			case Validation_VOk[A, E]:
 //line main/main.gom:87
-func eqOrder(a, b Order) bool {
+				switch v12 := tmp33.V1.(type) {
 //line main/main.gom:87
-	return gomEq1C850f8b7(a, b)
+				case Validation_VErr[B, E]:
 //line main/main.gom:87
-}
-
-//line main/main.gom:91
-func makeShipmentLine(line PricedLine) option.Option[string] {
-//line main/main.gom:92
-	switch v16 := line.(type) {
-//line main/main.gom:92
-	case PricedLine_ProductLine:
-//line main/main.gom:92
-		tmp58 := v16
-//line main/main.gom:92
-		tmp59 := tmp58.V0
-//line main/main.gom:92
-		return option.Option_Some[string]{V0: tmp59}
-//line main/main.gom:92
-	case PricedLine_CommentLine:
-//line main/main.gom:93
-		return option.Option_None[string]{}
-//line main/main.gom:93
-	default:
-//line main/main.gom:91
-		panic(rt.InvalidVariant("PricedLine", line))
-//line main/main.gom:92
-	}
-//line main/main.gom:91
-}
-
-//line main/main.gom:96
-func shipmentLines(lines list.List[PricedLine]) list.List[string] {
-//line main/main.gom:97
-	return list.FilterMap[PricedLine, string](makeShipmentLine, lines)
-//line main/main.gom:96
-}
-
-//line main/main.gom:99
-func listOfOption[A any](o option.Option[A]) list.List[A] {
-//line main/main.gom:100
-	switch v17 := o.(type) {
-//line main/main.gom:100
-	case option.Option_Some[A]:
-//line main/main.gom:100
-		tmp61 := v17
-//line main/main.gom:100
-		tmp62 := tmp61.V0
-//line main/main.gom:100
-		return list.List[A]{tmp62}
-//line main/main.gom:100
-	case option.Option_None[A]:
-//line main/main.gom:101
-		return list.List[A]{}
-//line main/main.gom:101
-	default:
-//line main/main.gom:99
-		panic(rt.InvalidVariant("Option", o))
-//line main/main.gom:100
-	}
-//line main/main.gom:99
-}
-
-//line main/main.gom:104
-func createEvents(ack, billing option.Option[string]) list.List[string] {
-//line main/main.gom:106
-	tmp63 := listOfOption[string](ack)
-//line main/main.gom:107
-	tmp64 := list.List[string]{"shipping"}
-//line main/main.gom:108
-	tmp65 := listOfOption[string](billing)
-//line main/main.gom:105
-	tmp66 := list.List[list.List[string]]{tmp63, tmp64, tmp65}
-//line main/main.gom:105
-	return list.Concat[string](tmp66)
-//line main/main.gom:104
-}
-
-//line main/main.gom:116
-func getPricingFunction(standardPrices func(struct{}, ProductCode) Price, promoPrices func(PromotionCode, ProductCode) option.Option[Price]) func(PricingMethod) func(ProductCode) Price {
-//line main/main.gom:117
-	getStandardPrice := func(tmp67 ProductCode) Price {
-//line main/main.gom:117
-		return standardPrices(struct{}{}, tmp67)
-//line main/main.gom:117
-	}
-//line main/main.gom:118
-	return func(pricingMethod PricingMethod) func(ProductCode) Price {
-//line main/main.gom:119
-		switch v18 := pricingMethod.(type) {
-//line main/main.gom:119
-		case PricingMethod_Standard:
-//line main/main.gom:119
-			return getStandardPrice
-//line main/main.gom:119
-		case PricingMethod_Promotion:
-//line main/main.gom:119
-			tmp68 := v18
-//line main/main.gom:120
-			tmp69 := tmp68.V0
-//line main/main.gom:121
-			getPromotionPrice := func(tmp70 ProductCode) option.Option[Price] {
-//line main/main.gom:121
-				return promoPrices(tmp69, tmp70)
-//line main/main.gom:121
-			}
-//line main/main.gom:122
-			return func(productCode ProductCode) Price {
-//line main/main.gom:122
-				tmp71 := getPromotionPrice(productCode)
-//line main/main.gom:123
-				switch v19 := tmp71.(type) {
-//line main/main.gom:123
-				case option.Option_Some[Price]:
-//line main/main.gom:123
-					tmp72 := v19
-//line main/main.gom:123
-					tmp73 := tmp72.V0
-//line main/main.gom:123
-					return tmp73
-//line main/main.gom:123
-				case option.Option_None[Price]:
-//line main/main.gom:124
-					return getStandardPrice(productCode)
-//line main/main.gom:124
+					tmp52 := v12
+//line main/main.gom:87
+					tmp53 := tmp52.V0
+//line main/main.gom:87
+					return Validation_VErr[C, E]{V0: tmp53}
+//line main/main.gom:87
 				default:
-//line main/main.gom:122
-					panic(rt.InvalidVariant("Option", tmp71))
-//line main/main.gom:123
+//line main/main.gom:87
+					panic(rt.InvalidVariant("Validation", tmp33.V1))
+//line main/main.gom:87
 				}
-//line main/main.gom:122
+//line main/main.gom:86
+			case Validation_VErr[A, E]:
+//line main/main.gom:86
+				tmp54 := v11
+//line main/main.gom:86
+				tmp55 := tmp54.V0
+//line main/main.gom:86
+				return Validation_VErr[C, E]{V0: tmp55}
+//line main/main.gom:86
+			default:
+//line main/main.gom:86
+				panic(rt.InvalidVariant("Validation", tmp33.V0))
+//line main/main.gom:86
 			}
-//line main/main.gom:122
+//line main/main.gom:85
+		case Validation_VErr[A, E]:
+//line main/main.gom:85
+			tmp56 := v10
+//line main/main.gom:85
+			switch v13 := tmp33.V1.(type) {
+//line main/main.gom:85
+			case Validation_VOk[B, E]:
+//line main/main.gom:86
+				switch v14 := tmp33.V0.(type) {
+//line main/main.gom:86
+				case Validation_VOk[A, E]:
+//line main/main.gom:87
+					switch v15 := tmp33.V1.(type) {
+//line main/main.gom:87
+					case Validation_VErr[B, E]:
+//line main/main.gom:87
+						tmp57 := v15
+//line main/main.gom:87
+						tmp58 := tmp57.V0
+//line main/main.gom:87
+						return Validation_VErr[C, E]{V0: tmp58}
+//line main/main.gom:87
+					default:
+//line main/main.gom:87
+						panic(rt.InvalidVariant("Validation", tmp33.V1))
+//line main/main.gom:87
+					}
+//line main/main.gom:86
+				case Validation_VErr[A, E]:
+//line main/main.gom:86
+					tmp59 := v14
+//line main/main.gom:86
+					tmp60 := tmp59.V0
+//line main/main.gom:86
+					return Validation_VErr[C, E]{V0: tmp60}
+//line main/main.gom:86
+				default:
+//line main/main.gom:86
+					panic(rt.InvalidVariant("Validation", tmp33.V0))
+//line main/main.gom:86
+				}
+//line main/main.gom:85
+			case Validation_VErr[B, E]:
+//line main/main.gom:85
+				tmp61 := v13
+//line main/main.gom:85
+				tmp62 := tmp56.V0
+//line main/main.gom:85
+				tmp63 := tmp61.V0
+//line main/main.gom:85
+				tmp64 := list.Append[E](tmp62, tmp63)
+//line main/main.gom:85
+				return Validation_VErr[C, E]{V0: tmp64}
+//line main/main.gom:85
+			default:
+//line main/main.gom:85
+				panic(rt.InvalidVariant("Validation", tmp33.V1))
+//line main/main.gom:85
+			}
+//line main/main.gom:85
 		default:
-//line main/main.gom:118
-			panic(rt.InvalidVariant("PricingMethod", pricingMethod))
-//line main/main.gom:119
+//line main/main.gom:85
+			panic(rt.InvalidVariant("Validation", tmp33.V0))
+//line main/main.gom:85
 		}
-//line main/main.gom:118
-	}
-//line main/main.gom:116
-}
-
-//line main/main.gom:135
-func decodeCustomer(bytes list.List[byte]) result.Result[CustomerInfoDto, error] {
-//line main/main.gom:136
-	p := rt.PtrNew[CustomerInfoDto]()
-//line main/main.gom:137
-	tmp74 := bytes.ToSlice()
-//line main/main.gom:137
-	err := json.Unmarshal(tmp74, p)
-//line main/main.gom:137
-	if err != nil {
-//line main/main.gom:137
-		return result.Err[CustomerInfoDto, error](err)
-//line main/main.gom:137
-	}
-//line main/main.gom:138
-	tmp75 := rt.PtrGet[CustomerInfoDto](p)
-//line main/main.gom:138
-	return result.Ok[CustomerInfoDto, error](tmp75)
-//line main/main.gom:135
-}
-
-//line main/main.gom:141
-func encodeCustomer(dto CustomerInfoDto) result.Result[list.List[byte], error] {
-//line main/main.gom:142
-	tmp76 := any(dto)
-//line main/main.gom:142
-	v20, err1 := json.Marshal(tmp76)
-//line main/main.gom:142
-	return result.FromGo(list.FromSlice(v20), err1)
-//line main/main.gom:141
-}
-
-//line main/main.gom:146
-func shippableDto(orderId string) map[string]any {
-//line main/main.gom:147
-	payload := rt.MapMake[string, any]()
-//line main/main.gom:148
-	tmp77 := any(orderId)
-//line main/main.gom:148
-	rt.MapSet[string, any](payload, "orderId", tmp77)
-//line main/main.gom:149
-	return payload
-//line main/main.gom:146
-}
-
-//line main/main.gom:152
-func eventDto(e Event) map[string]any {
-//line main/main.gom:153
-	m := rt.MapMake[string, any]()
-//line main/main.gom:155
-	switch v21 := e.(type) {
-//line main/main.gom:155
-	case Event_Shippable:
-//line main/main.gom:155
-		tmp78 := v21
-//line main/main.gom:155
-		tmp79 := tmp78.V0
-//line main/main.gom:155
-		tmp80 := shippableDto(tmp79)
-//line main/main.gom:155
-		rt.MapSet[string, any](m, "ShippableOrderPlaced", tmp80)
-//line main/main.gom:155
-		_ = struct{}{}
-//line main/main.gom:155
-	case Event_Ack:
-//line main/main.gom:155
-		tmp81 := v21
-//line main/main.gom:156
-		tmp82 := tmp81.V0
-//line main/main.gom:156
-		tmp83 := any(tmp82)
-//line main/main.gom:156
-		rt.MapSet[string, any](m, "OrderAcknowledgmentSent", tmp83)
-//line main/main.gom:156
-		_ = struct{}{}
-//line main/main.gom:156
+//line main/main.gom:85
 	default:
-//line main/main.gom:154
-		panic(rt.InvalidVariant("Event", e))
-//line main/main.gom:155
+//line main/main.gom:84
+		panic(rt.InvalidVariant("Validation", tmp33.V0))
+//line main/main.gom:84
 	}
+//line main/main.gom:83
+}
+
+//line main/main.gom:93
+func eqOrder(a, b Order) bool {
+//line main/main.gom:93
+	return gomEq1C850f8b7(a, b)
+//line main/main.gom:93
+}
+
+//line main/main.gom:99
+func foldOrderLines(step func(Line, LineTotals) LineTotals, lines list.List[Line]) LineTotals {
+//line main/main.gom:100
+	tmp65 := func(acc LineTotals, line Line) LineTotals {
+//line main/main.gom:100
+		return step(line, acc)
+//line main/main.gom:100
+	}
+//line main/main.gom:100
+	tmp66 := LineTotals{Quantity: 0, Lines: 0}
+//line main/main.gom:100
+	return list.Fold[LineTotals, Line](tmp65, tmp66, lines)
+//line main/main.gom:99
+}
+
+//line main/main.gom:102
+func orderLineTotals(lines list.List[Line]) LineTotals {
+//line main/main.gom:103
+	tmp69 := func(line Line) func(LineTotals) LineTotals {
+//line main/main.gom:103
+		return func(acc LineTotals) LineTotals {
+//line main/main.gom:103
+			tmp67 := acc.Quantity + line.Qty
+//line main/main.gom:103
+			tmp68 := acc.Lines + 1
+//line main/main.gom:103
+			u := acc
+//line main/main.gom:103
+			u.Quantity = tmp67
+//line main/main.gom:103
+			u.Lines = tmp68
+//line main/main.gom:103
+			return u
+//line main/main.gom:103
+		}
+//line main/main.gom:103
+	}
+//line main/main.gom:103
+	tmp70 := func(p0 Line, p1 LineTotals) LineTotals {
+//line main/main.gom:103
+		u0 := tmp69(p0)
+//line main/main.gom:103
+		return u0(p1)
+//line main/main.gom:103
+	}
+//line main/main.gom:103
+	return foldOrderLines(tmp70, lines)
+//line main/main.gom:102
+}
+
+//line main/main.gom:105
+func shipmentCodeLength(line PricedLine) int64 {
+//line main/main.gom:106
+	switch line.(type) {
+//line main/main.gom:106
+	case PricedLine_ProductLine:
+//line main/main.gom:105
+		tmp71 := line
+//line main/main.gom:108
+		switch v16 := tmp71.(type) {
+//line main/main.gom:108
+		case PricedLine_ProductLine:
+//line main/main.gom:108
+			tmp72 := v16
+//line main/main.gom:108
+			tmp73 := tmp72.V0
+//line main/main.gom:108
+			return textLength(tmp73)
+//line main/main.gom:108
+		default:
+//line main/main.gom:107
+			panic(rt.InvalidVariant("PricedLine", tmp71))
+//line main/main.gom:108
+		}
+//line main/main.gom:106
+	case PricedLine_CommentLine:
+//line main/main.gom:106
+		return 0
+//line main/main.gom:106
+	default:
+//line main/main.gom:105
+		panic(rt.InvalidVariant("PricedLine", line))
+//line main/main.gom:106
+	}
+//line main/main.gom:105
+}
+
+//line main/main.gom:112
+func makeShipmentLine(line PricedLine) option.Option[string] {
+//line main/main.gom:113
+	switch v17 := line.(type) {
+//line main/main.gom:113
+	case PricedLine_ProductLine:
+//line main/main.gom:113
+		tmp75 := v17
+//line main/main.gom:113
+		tmp76 := tmp75.V0
+//line main/main.gom:113
+		return option.Option_Some[string]{V0: tmp76}
+//line main/main.gom:113
+	case PricedLine_CommentLine:
+//line main/main.gom:114
+		return option.Option_None[string]{}
+//line main/main.gom:114
+	default:
+//line main/main.gom:112
+		panic(rt.InvalidVariant("PricedLine", line))
+//line main/main.gom:113
+	}
+//line main/main.gom:112
+}
+
+//line main/main.gom:117
+func shipmentLines(lines list.List[PricedLine]) list.List[string] {
+//line main/main.gom:118
+	return list.FilterMap[PricedLine, string](makeShipmentLine, lines)
+//line main/main.gom:117
+}
+
+//line main/main.gom:120
+func listOfOption[A any](o option.Option[A]) list.List[A] {
+//line main/main.gom:121
+	switch v18 := o.(type) {
+//line main/main.gom:121
+	case option.Option_Some[A]:
+//line main/main.gom:121
+		tmp78 := v18
+//line main/main.gom:121
+		tmp79 := tmp78.V0
+//line main/main.gom:121
+		return list.List[A]{tmp79}
+//line main/main.gom:121
+	case option.Option_None[A]:
+//line main/main.gom:122
+		return list.List[A]{}
+//line main/main.gom:122
+	default:
+//line main/main.gom:120
+		panic(rt.InvalidVariant("Option", o))
+//line main/main.gom:121
+	}
+//line main/main.gom:120
+}
+
+//line main/main.gom:125
+func createEvents(ack, billing option.Option[string]) list.List[string] {
+//line main/main.gom:127
+	tmp80 := listOfOption[string](ack)
+//line main/main.gom:128
+	tmp81 := list.List[string]{"shipping"}
+//line main/main.gom:129
+	tmp82 := listOfOption[string](billing)
+//line main/main.gom:126
+	tmp83 := list.List[list.List[string]]{tmp80, tmp81, tmp82}
+//line main/main.gom:126
+	return list.Concat[string](tmp83)
+//line main/main.gom:125
+}
+
+//line main/main.gom:137
+func getPricingFunction(standardPrices func(struct{}, ProductCode) Price, promoPrices func(PromotionCode, ProductCode) option.Option[Price]) func(PricingMethod) func(ProductCode) Price {
+//line main/main.gom:138
+	getStandardPrice := func(tmp84 ProductCode) Price {
+//line main/main.gom:138
+		return standardPrices(struct{}{}, tmp84)
+//line main/main.gom:138
+	}
+//line main/main.gom:139
+	return func(pricingMethod PricingMethod) func(ProductCode) Price {
+//line main/main.gom:140
+		switch v19 := pricingMethod.(type) {
+//line main/main.gom:140
+		case PricingMethod_Standard:
+//line main/main.gom:140
+			return getStandardPrice
+//line main/main.gom:140
+		case PricingMethod_Promotion:
+//line main/main.gom:140
+			tmp85 := v19
+//line main/main.gom:141
+			tmp86 := tmp85.V0
+//line main/main.gom:142
+			getPromotionPrice := func(tmp87 ProductCode) option.Option[Price] {
+//line main/main.gom:142
+				return promoPrices(tmp86, tmp87)
+//line main/main.gom:142
+			}
+//line main/main.gom:143
+			return func(productCode ProductCode) Price {
+//line main/main.gom:143
+				tmp88 := getPromotionPrice(productCode)
+//line main/main.gom:144
+				switch v20 := tmp88.(type) {
+//line main/main.gom:144
+				case option.Option_Some[Price]:
+//line main/main.gom:144
+					tmp89 := v20
+//line main/main.gom:144
+					tmp90 := tmp89.V0
+//line main/main.gom:144
+					return tmp90
+//line main/main.gom:144
+				case option.Option_None[Price]:
+//line main/main.gom:145
+					return getStandardPrice(productCode)
+//line main/main.gom:145
+				default:
+//line main/main.gom:143
+					panic(rt.InvalidVariant("Option", tmp88))
+//line main/main.gom:144
+				}
+//line main/main.gom:143
+			}
+//line main/main.gom:143
+		default:
+//line main/main.gom:139
+			panic(rt.InvalidVariant("PricingMethod", pricingMethod))
+//line main/main.gom:140
+		}
+//line main/main.gom:139
+	}
+//line main/main.gom:137
+}
+
+//line main/main.gom:156
+func decodeCustomer(bytes list.List[byte]) result.Result[CustomerInfoDto, error] {
+//line main/main.gom:157
+	p := rt.PtrNew[CustomerInfoDto]()
 //line main/main.gom:158
-	return m
-//line main/main.gom:152
+	tmp91 := bytes.ToSlice()
+//line main/main.gom:158
+	err := json.Unmarshal(tmp91, p)
+//line main/main.gom:158
+	if err != nil {
+//line main/main.gom:158
+		return result.Err[CustomerInfoDto, error](err)
+//line main/main.gom:158
+	}
+//line main/main.gom:159
+	tmp92 := rt.PtrGet[CustomerInfoDto](p)
+//line main/main.gom:159
+	return result.Ok[CustomerInfoDto, error](tmp92)
+//line main/main.gom:156
 }
 
-//line main/main.gom:161
-func encodeEvent(e Event) result.Result[list.List[byte], error] {
-//line main/main.gom:161
-	tmp84 := eventDto(e)
-//line main/main.gom:161
-	v22, err2 := json.Marshal(tmp84)
-//line main/main.gom:161
-	return result.FromGo(list.FromSlice(v22), err2)
-//line main/main.gom:161
-}
-
+//line main/main.gom:162
+func encodeCustomer(dto CustomerInfoDto) result.Result[list.List[byte], error] {
 //line main/main.gom:163
-func countUsers(dsn string) result.Result[int64, error] {
-//line main/main.gom:164
-	tmp87 := func(s *rt.Scope) (tmp89 result.Result[int64, error]) {
-//line main/main.gom:164
-		var tmp90 []error
-//line main/main.gom:164
-		defer func() {
-//line main/main.gom:164
-			if len(tmp90) > 0 && tmp89.IsOk() {
-//line main/main.gom:164
-				tmp89 = result.Err[int64, error](errors.Join(tmp90...))
-//line main/main.gom:164
-			}
-//line main/main.gom:164
-		}()
-//line main/main.gom:165
-		db, err3 := sql.Open("sqlite3", dsn)
-//line main/main.gom:165
-		if err3 != nil {
-//line main/main.gom:165
-			return result.Err[int64, error](err3)
-//line main/main.gom:165
-		}
-//line main/main.gom:166
-		tmp85 := func(_ struct{}) result.Result[struct{}, error] {
-//line main/main.gom:166
-			err4 := db.Close()
-//line main/main.gom:166
-			return result.FromErr(err4)
-//line main/main.gom:166
-		}
-//line main/main.gom:166
-		tmp91 := tmp85
-//line main/main.gom:166
-		defer func() {
-//line main/main.gom:166
-			if r := tmp91(struct{}{}); !r.IsOk() {
-//line main/main.gom:166
-				_, e := r.Unwrap()
-//line main/main.gom:166
-				tmp90 = append(tmp90, e)
-//line main/main.gom:166
-			}
-//line main/main.gom:166
-		}()
+	tmp93 := any(dto)
+//line main/main.gom:163
+	v21, err1 := json.Marshal(tmp93)
+//line main/main.gom:163
+	return result.FromGo(list.FromSlice(v21), err1)
+//line main/main.gom:162
+}
+
 //line main/main.gom:167
-		row := db.QueryRow("select count(*) from users")
+func shippableDto(orderId string) map[string]any {
 //line main/main.gom:168
-		n := rt.PtrNew[int64]()
+	payload := rt.MapMake[string, any]()
 //line main/main.gom:169
-		err5 := row.Scan(n)
+	tmp94 := any(orderId)
 //line main/main.gom:169
-		if err5 != nil {
-//line main/main.gom:169
-			return result.Err[int64, error](err5)
-//line main/main.gom:169
-		}
+	rt.MapSet[string, any](payload, "orderId", tmp94)
 //line main/main.gom:170
-		tmp86 := rt.PtrGet[int64](n)
-//line main/main.gom:170
-		return result.Ok[int64, error](tmp86)
-//line main/main.gom:164
-	}
-//line main/main.gom:164
-	tmp92 := rt.NewScope()
-//line main/main.gom:164
-	return tmp87(tmp92)
-//line main/main.gom:163
+	return payload
+//line main/main.gom:167
 }
 
 //line main/main.gom:173
-func parseImpl(s string) result.Result[int64, error] {
-//line main/main.gom:173
-	return result.Ok[int64, error](1)
-//line main/main.gom:173
-}
-
-//line main/main.gom:175
-var parseGo func(string) (int64, error) = func(tmp88 string) (int64, error) {
-//line main/main.gom:175
-	v23, err6 := parseImpl(tmp88).Unwrap()
-//line main/main.gom:175
-	if err6 != nil {
-//line main/main.gom:175
-		var z int64
-//line main/main.gom:175
-		return z, err6
-//line main/main.gom:175
-	}
-//line main/main.gom:175
-	return v23, nil
-//line main/main.gom:175
-}
-
+func eventDto(e Event) map[string]any {
+//line main/main.gom:174
+	m := rt.MapMake[string, any]()
+//line main/main.gom:176
+	switch v22 := e.(type) {
+//line main/main.gom:176
+	case Event_Shippable:
+//line main/main.gom:176
+		tmp95 := v22
+//line main/main.gom:176
+		tmp96 := tmp95.V0
+//line main/main.gom:176
+		tmp97 := shippableDto(tmp96)
+//line main/main.gom:176
+		rt.MapSet[string, any](m, "ShippableOrderPlaced", tmp97)
+//line main/main.gom:176
+		_ = struct{}{}
+//line main/main.gom:176
+	case Event_Ack:
+//line main/main.gom:176
+		tmp98 := v22
 //line main/main.gom:177
-func zeroBypass(_ struct{}) domain.String50 {
-//line main/main.gom:178
-	p := rt.PtrNew[domain.String50]()
+		tmp99 := tmp98.V0
+//line main/main.gom:177
+		tmp100 := any(tmp99)
+//line main/main.gom:177
+		rt.MapSet[string, any](m, "OrderAcknowledgmentSent", tmp100)
+//line main/main.gom:177
+		_ = struct{}{}
+//line main/main.gom:177
+	default:
+//line main/main.gom:175
+		panic(rt.InvalidVariant("Event", e))
+//line main/main.gom:176
+	}
 //line main/main.gom:179
-	return rt.PtrGet[domain.String50](p)
-//line main/main.gom:177
+	return m
+//line main/main.gom:173
 }
 
 //line main/main.gom:182
-func shortCircuitRhs(_ struct{}) bool {
+func encodeEvent(e Event) result.Result[list.List[byte], error] {
 //line main/main.gom:182
-	return rt.Todo[bool]()
+	tmp101 := eventDto(e)
+//line main/main.gom:182
+	v23, err2 := json.Marshal(tmp101)
+//line main/main.gom:182
+	return result.FromGo(list.FromSlice(v23), err2)
 //line main/main.gom:182
 }
 
 //line main/main.gom:184
-func shortCircuitAnd(_ struct{}) bool {
-//line main/main.gom:184
-	if false {
-//line main/main.gom:184
-		return shortCircuitRhs(struct{}{})
-//line main/main.gom:184
-	} else {
-//line main/main.gom:184
-		return false
-//line main/main.gom:184
-	}
-//line main/main.gom:184
-}
-
+func countUsers(dsn string) result.Result[int64, error] {
+//line main/main.gom:185
+	tmp104 := func(s *rt.Scope) (tmp106 result.Result[int64, error]) {
+//line main/main.gom:185
+		var tmp107 []error
+//line main/main.gom:185
+		defer func() {
+//line main/main.gom:185
+			if len(tmp107) > 0 && tmp106.IsOk() {
+//line main/main.gom:185
+				tmp106 = result.Err[int64, error](errors.Join(tmp107...))
+//line main/main.gom:185
+			}
+//line main/main.gom:185
+		}()
 //line main/main.gom:186
-func shortCircuitOr(_ struct{}) bool {
+		db, err3 := sql.Open("sqlite3", dsn)
 //line main/main.gom:186
-	if true {
+		if err3 != nil {
 //line main/main.gom:186
-		return true
+			return result.Err[int64, error](err3)
 //line main/main.gom:186
-	} else {
-//line main/main.gom:186
-		return shortCircuitRhs(struct{}{})
-//line main/main.gom:186
-	}
-//line main/main.gom:186
-}
-
-//line main/main.gom:188
-func main() {
-//line main/main.gom:188
-	_ = struct{}{}
-//line main/main.gom:188
-}
-
-//line main/main.gom:87
-func gomEq1C850f8b7(a, b Order) bool {
-//line main/main.gom:87
-	return a.Id == b.Id && gomEq2C850f8b7(a.Lines, b.Lines)
-//line main/main.gom:87
-}
-
-//line main/main.gom:87
-func gomEq2C850f8b7(a, b list.List[Line]) bool {
-//line main/main.gom:87
-	if len(a) != len(b) {
-//line main/main.gom:87
-		return false
-//line main/main.gom:87
-	}
-//line main/main.gom:87
-	for i := range a {
-//line main/main.gom:87
-		if !(a[i] == b[i]) {
-//line main/main.gom:87
-			return false
-//line main/main.gom:87
 		}
-//line main/main.gom:87
+//line main/main.gom:187
+		tmp102 := func(_ struct{}) result.Result[struct{}, error] {
+//line main/main.gom:187
+			err4 := db.Close()
+//line main/main.gom:187
+			return result.FromErr(err4)
+//line main/main.gom:187
+		}
+//line main/main.gom:187
+		tmp108 := tmp102
+//line main/main.gom:187
+		defer func() {
+//line main/main.gom:187
+			if r := tmp108(struct{}{}); !r.IsOk() {
+//line main/main.gom:187
+				_, e := r.Unwrap()
+//line main/main.gom:187
+				tmp107 = append(tmp107, e)
+//line main/main.gom:187
+			}
+//line main/main.gom:187
+		}()
+//line main/main.gom:188
+		row := db.QueryRow("select count(*) from users")
+//line main/main.gom:189
+		n := rt.PtrNew[int64]()
+//line main/main.gom:190
+		err5 := row.Scan(n)
+//line main/main.gom:190
+		if err5 != nil {
+//line main/main.gom:190
+			return result.Err[int64, error](err5)
+//line main/main.gom:190
+		}
+//line main/main.gom:191
+		tmp103 := rt.PtrGet[int64](n)
+//line main/main.gom:191
+		return result.Ok[int64, error](tmp103)
+//line main/main.gom:185
 	}
-//line main/main.gom:87
+//line main/main.gom:185
+	tmp109 := rt.NewScope()
+//line main/main.gom:185
+	return tmp104(tmp109)
+//line main/main.gom:184
+}
+
+//line main/main.gom:194
+func parseImpl(s string) result.Result[int64, error] {
+//line main/main.gom:194
+	return result.Ok[int64, error](1)
+//line main/main.gom:194
+}
+
+//line main/main.gom:196
+var parseGo func(string) (int64, error) = func(tmp105 string) (int64, error) {
+//line main/main.gom:196
+	v24, err6 := parseImpl(tmp105).Unwrap()
+//line main/main.gom:196
+	if err6 != nil {
+//line main/main.gom:196
+		var z int64
+//line main/main.gom:196
+		return z, err6
+//line main/main.gom:196
+	}
+//line main/main.gom:196
+	return v24, nil
+//line main/main.gom:196
+}
+
+//line main/main.gom:198
+func zeroBypass(_ struct{}) domain.String50 {
+//line main/main.gom:199
+	p := rt.PtrNew[domain.String50]()
+//line main/main.gom:200
+	return rt.PtrGet[domain.String50](p)
+//line main/main.gom:198
+}
+
+//line main/main.gom:203
+func shortCircuitRhs(_ struct{}) bool {
+//line main/main.gom:203
+	return rt.Todo[bool]()
+//line main/main.gom:203
+}
+
+//line main/main.gom:205
+func shortCircuitAnd(_ struct{}) bool {
+//line main/main.gom:205
+	if false {
+//line main/main.gom:205
+		return shortCircuitRhs(struct{}{})
+//line main/main.gom:205
+	} else {
+//line main/main.gom:205
+		return false
+//line main/main.gom:205
+	}
+//line main/main.gom:205
+}
+
+//line main/main.gom:207
+func shortCircuitOr(_ struct{}) bool {
+//line main/main.gom:207
+	if true {
+//line main/main.gom:207
+		return true
+//line main/main.gom:207
+	} else {
+//line main/main.gom:207
+		return shortCircuitRhs(struct{}{})
+//line main/main.gom:207
+	}
+//line main/main.gom:207
+}
+
+//line main/main.gom:209
+func main() {
+//line main/main.gom:209
+	_ = struct{}{}
+//line main/main.gom:209
+}
+
+//line main/main.gom:93
+func gomEq1C850f8b7(a, b Order) bool {
+//line main/main.gom:93
+	return a.Id == b.Id && gomEq2C850f8b7(a.Lines, b.Lines)
+//line main/main.gom:93
+}
+
+//line main/main.gom:93
+func gomEq2C850f8b7(a, b list.List[Line]) bool {
+//line main/main.gom:93
+	if len(a) != len(b) {
+//line main/main.gom:93
+		return false
+//line main/main.gom:93
+	}
+//line main/main.gom:93
+	for i := range a {
+//line main/main.gom:93
+		if !(a[i] == b[i]) {
+//line main/main.gom:93
+			return false
+//line main/main.gom:93
+		}
+//line main/main.gom:93
+	}
+//line main/main.gom:93
 	return true
-//line main/main.gom:87
+//line main/main.gom:93
 }
