@@ -1341,27 +1341,39 @@ func lentLabels(want, got types.Type) bool {
 }
 
 // lendFuncLabels copies the labels the expected type lent through
-// introduction onto the produced function signature — annotation to
-// binding, at every curried level the shapes share.
-func lendFuncLabels(dst, src types.Type) {
+// introduction onto a private copy of the produced function signature —
+// annotation to binding, in positional order across curried levels. The
+// input may share its nested function type with another binding, so the
+// label lending itself must not mutate that shape.
+func lendFuncLabels(dst, src types.Type) types.Type {
 	sp, _ := flattenFunc(src)
+	out := copyFuncSpine(dst)
 	pos := 0
-	for {
-		df, ok := types.Chase(dst).(*types.Func)
+	for cursor := out; ; {
+		df, ok := types.Chase(cursor).(*types.Func)
 		if !ok {
-			return
+			return out
 		}
 		for i := range df.Params {
 			if pos >= len(sp) {
-				return
+				return out
 			}
 			if df.Params[i].Label == "" {
 				df.Params[i].Label = sp[pos].Label
 			}
 			pos++
 		}
-		dst = df.Ret
+		cursor = df.Ret
 	}
+}
+
+func copyFuncSpine(t types.Type) types.Type {
+	f, ok := types.Chase(t).(*types.Func)
+	if !ok {
+		return t
+	}
+	params := append([]types.FuncParam(nil), f.Params...)
+	return &types.Func{Params: params, Ret: copyFuncSpine(f.Ret)}
 }
 
 // allPositional reports whether every parameter in ps is unlabeled —

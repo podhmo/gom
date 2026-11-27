@@ -1183,7 +1183,7 @@ func (c *checker) checkLetDecl(d *syntax.LetDecl) {
 				// calls its lambda positionally but `f ~x: v` at
 				// use sites names the parameter introduction lent
 				// it.
-				lendFuncLabels(sig, want)
+				sig = lendFuncLabels(sig, want).(*types.Func)
 				// A binding already consumed by a forward (or
 				// recursive) reference may not generalize: the
 				// earlier use recorded a monomorphic shape through

@@ -29,7 +29,7 @@
 - unit test: `TestApplyParamExpectationsDoesNotBindInferenceState` を labeled callback 形へ強め、speculative trial が元の inference metaを bind せず clone/rollback することを固定した
 - unit test: labeled context propagation、open leaf reification、label merge の parameter order を `apply_expectations_test.go` で固定した
 - regression: `TestEvalMatchesCompiled/deep_label_pipe` で residual の label が残ることを確認した
-- regression: `ok_labeled_nested_positional_lambda` と `TestEvalMatchesCompiled/positional_lambda_labeled_params` で、flat / nested positional lambda が複数 labeled parameter を宣言順に受け、注釈付き `let` が lending 後の label で呼べることを確認した
+- regression: `ok_labeled_nested_positional_lambda` と `TestEvalMatchesCompiled/positional_lambda_labeled_params` で、flat / nested positional lambda が複数 labeled parameter を宣言順に受け、注釈付き `let` が lending 後の label で呼べ、label lending が共有された nested function type を書き換えないことを確認した
 - regression: `ok_record_context_labeled_callback` の `positional_nested` で、同名 field set を持つ record 型への seeding が nested positional lambda の内側 parameter にも届くことを確認した
 
 ## 検証コマンド

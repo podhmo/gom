@@ -974,11 +974,13 @@ import go "fmt"
 fn apply2 (f: ~x: Int -> ~y: Int -> Int) -> Int = f ~x: 3 ~y: 4
 fn flat () -> Int = apply2 (fn x y -> x * 10 + y)
 fn nested () -> Int = apply2 (fn x -> fn y -> x * 10 + y)
+let annotated : Int -> ~y: Int -> Int = fn x -> fn y -> x * 10 + y
+fn annotated_use () -> Int = annotated 3 ~y: 4
 
-fn answer () -> String = "${flat ()}:${nested ()}"
+fn answer () -> String = "${flat ()}:${nested ()}:${annotated_use ()}"
 fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 `,
-		want: "34:34",
+		want: "34:34:34",
 	},
 	{
 		// A pipe into a CallPartial whose `~label:` already bound a
