@@ -31,7 +31,7 @@ E0401 type mismatch: expected Acc, got Unit
 
 lane の実装には入れず、throwaway prototype で recovery 方針だけ確認した。
 
-1. field-set resolution 失敗時に expected meta を `Unit` へ bind せず quiet にする、または want がないときだけ quiet meta を使う
+1. field-set resolution 失敗時に、`wantT` が meta なら `Unit` へ bind せずその meta 自体を `markQuiet` する。`wantT` が nil のときだけ新しい quiet meta を recovery type に使う
 2. `E0407_record_context_no_backward` を実行すると diagnostics は E0407 1 件だけになった
 3. `go test ./internal/check ./internal/build -count=1` では、既存 fixture が expected 2 / actual 1 で fail するだけで、他の fixture failure は出なかった
 4. `seed` を `Other` へ注釈した変数へ流したあと `Acc` として使う probe では、E0407 に加えて `expected Acc, got Other` が残った。quiet recovery が独立した型矛盾まで隠すわけではない
