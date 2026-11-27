@@ -1,0 +1,187 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0402",
+      "severity": "error",
+      "message": "a mid-block expression must have type Unit, got (?1 -> ?2 -> ?1) -> ?1 -> List ?2 -> ?1",
+      "span": {
+        "file": "E0402_continuation_hint_paren_negative.gom",
+        "start": {
+          "line": 4,
+          "col": 3,
+          "offset": 64
+        },
+        "end": {
+          "line": 4,
+          "col": 12,
+          "offset": 73
+        }
+      },
+      "data": {
+        "type": "(?1 -> ?2 -> ?1) -> ?1 -> List ?2 -> ?1"
+      },
+      "notes": [],
+      "fixes": [
+        {
+          "title": "discard the value with `ignore`",
+          "applicability": "safe",
+          "edits": [
+            {
+              "file": "E0402_continuation_hint_paren_negative.gom",
+              "start": {
+                "line": 4,
+                "col": 3,
+                "offset": 64
+              },
+              "end": {
+                "line": 4,
+                "col": 3,
+                "offset": 64
+              },
+              "text": "ignore ("
+            },
+            {
+              "file": "E0402_continuation_hint_paren_negative.gom",
+              "start": {
+                "line": 4,
+                "col": 12,
+                "offset": 73
+              },
+              "end": {
+                "line": 4,
+                "col": 12,
+                "offset": 73
+              },
+              "text": ")"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0407",
+      "severity": "error",
+      "message": "type annotation required: the type argument for `a` could not be determined",
+      "span": {
+        "file": "E0402_continuation_hint_paren_negative.gom",
+        "start": {
+          "line": 4,
+          "col": 8,
+          "offset": 69
+        },
+        "end": {
+          "line": 4,
+          "col": 12,
+          "offset": 73
+        }
+      },
+      "data": {
+        "type": "?1"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0407",
+      "severity": "error",
+      "message": "type annotation required: the type argument for `b` could not be determined",
+      "span": {
+        "file": "E0402_continuation_hint_paren_negative.gom",
+        "start": {
+          "line": 4,
+          "col": 8,
+          "offset": 69
+        },
+        "end": {
+          "line": 4,
+          "col": 12,
+          "offset": 73
+        }
+      },
+      "data": {
+        "type": "?1"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0402",
+      "severity": "error",
+      "message": "a mid-block expression must have type Unit, got ?1 -> ?1 -> ?1",
+      "span": {
+        "file": "E0402_continuation_hint_paren_negative.gom",
+        "start": {
+          "line": 5,
+          "col": 4,
+          "offset": 77
+        },
+        "end": {
+          "line": 5,
+          "col": 23,
+          "offset": 96
+        }
+      },
+      "data": {
+        "type": "?1 -> ?1 -> ?1"
+      },
+      "fixes": [
+        {
+          "title": "discard the value with `ignore`",
+          "applicability": "safe",
+          "edits": [
+            {
+              "file": "E0402_continuation_hint_paren_negative.gom",
+              "start": {
+                "line": 5,
+                "col": 4,
+                "offset": 77
+              },
+              "end": {
+                "line": 5,
+                "col": 4,
+                "offset": 77
+              },
+              "text": "ignore ("
+            },
+            {
+              "file": "E0402_continuation_hint_paren_negative.gom",
+              "start": {
+                "line": 5,
+                "col": 23,
+                "offset": 96
+              },
+              "end": {
+                "line": 5,
+                "col": 23,
+                "offset": 96
+              },
+              "text": ")"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0407",
+      "severity": "error",
+      "message": "type annotation required: the lambda's return type could not be determined",
+      "span": {
+        "file": "E0402_continuation_hint_paren_negative.gom",
+        "start": {
+          "line": 5,
+          "col": 4,
+          "offset": 77
+        },
+        "end": {
+          "line": 5,
+          "col": 23,
+          "offset": 96
+        }
+      },
+      "data": {
+        "type": "?1"
+      }
+    }
+  ]
+}

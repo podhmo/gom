@@ -354,8 +354,8 @@ func (c *checker) continuationLike(cur, next syntax.Expr) bool {
 	if layout == nil {
 		return false
 	}
-	curLine, curCol := layout.LineCol(sp.Start)
-	nextLine, nextCol := layout.LineCol(np.Start)
+	curLine, curCol := layout.StatementLineCol(sp.Start)
+	nextLine, nextCol := layout.StatementLineCol(np.Start)
 	return nextLine > curLine && nextCol > curCol
 }
 

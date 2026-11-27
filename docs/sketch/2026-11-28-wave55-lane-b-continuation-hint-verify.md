@@ -29,7 +29,9 @@ diagnostics[0].notes[0]: expected note not found: "if these lines were meant as 
 ## fixture
 
 - `testdata/spec/E0402_continuation_hint.gom`: `List.fold` を字下げした複数行へ書き、先頭 E0402 に note がある。間に空行とコメントを入れ、それらを無視することを固定した
-- `testdata/spec/E0402_continuation_hint_negative.gom`: 同じ深さの独立した関数型式と、関数ではない Int 式では note がないことを固定した
+- `testdata/spec/E0402_continuation_hint_negative.gom`: 同じ深さの独立した関数型式と、関数ではない Int 式では note がないことを、明示的な空 `notes` で固定した
+- `testdata/spec/E0402_continuation_hint_paren.gom`: grouping parens が AST node を作らなくても、開き括弧を含む見た目の字下げで note を付けることを固定した
+- `testdata/spec/E0402_continuation_hint_paren_negative.gom`: 次式が grouping parens 付きで見た目の深さが同じ場合は note がないことを固定した
 
 ## 出力確認
 
@@ -43,10 +45,16 @@ diagnostics[0].notes[0]: expected note not found: "if these lines were meant as 
 ## 検証
 
 - `go test ./internal/build -run 'TestSpec/E0402_continuation_hint' -count=1`
+- `go test ./internal/gomtest -run 'TestDiffDiagnostics.*Notes' -count=1`
 - `go test ./internal/syntax ./internal/resolve ./internal/check -count=1`
 - `gofmt -l .`（空）
 - `go vet ./...`
 - `go test ./...`
+
+## 補助変更
+
+- spec harness の `notes` は、明示的な空配列があれば actual notes が空であることを要求するようにした。省略時は従来どおり non-constraining、非空配列は従来どおり subsequence
+- `Layout.StatementLineCol` は AST expression span ではなく、その行の最初の non-whitespace byte の列を返す。grouping parens は AST node を作らず expression span が括弧の内側から始まるため、見た目の字下げを正しく比較するために必要
 
 ## 残件
 

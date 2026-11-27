@@ -6,8 +6,9 @@ import "sort"
 // byte columns. It is parser-provided trivia for layout-sensitive
 // diagnostics; positions in the AST itself remain byte offsets.
 type Layout struct {
-	starts []int
-	len    int
+	starts    []int
+	firstCols []int
+	len       int
 }
 
 func newLayout(src []byte) *Layout {
@@ -17,7 +18,15 @@ func newLayout(src []byte) *Layout {
 			starts = append(starts, i+1)
 		}
 	}
-	return &Layout{starts: starts, len: len(src)}
+	firstCols := make([]int, len(starts))
+	for i, start := range starts {
+		pos := start
+		for pos < len(src) && (src[pos] == ' ' || src[pos] == '\t') {
+			pos++
+		}
+		firstCols[i] = pos - start + 1
+	}
+	return &Layout{starts: starts, firstCols: firstCols, len: len(src)}
 }
 
 // LineCol returns the 1-based line and byte column of offset. The
@@ -33,4 +42,18 @@ func (l *Layout) LineCol(offset int) (line, col int) {
 		return l.starts[i] > offset
 	}) - 1
 	return i + 1, offset - l.starts[i] + 1
+}
+
+// StatementLineCol returns the line and byte column of the first
+// non-whitespace byte on the line containing offset. Grouping
+// parentheses produce no AST node, so an expression span can start
+// inside the parentheses; comparing this first-token column keeps the
+// continuation heuristic tied to the visible indentation of the whole
+// statement rather than the inner expression.
+func (l *Layout) StatementLineCol(offset int) (line, col int) {
+	line, _ = l.LineCol(offset)
+	if line == 0 {
+		return 0, 0
+	}
+	return line, l.firstCols[line-1]
 }
