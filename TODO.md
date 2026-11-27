@@ -27,7 +27,7 @@
 
 ### owner improvement ideas audit 由来（[PR #256](https://github.com/podhmo/gom/pull/256)、[audit](docs/sketch/2026-11-26-wave48-lane-g-owner-ideas-audit.md)）
 
-- [ ] **[task] checker の状態を関心ごとの部分構造体に分ける**: `typeTables`・deferred revisit queue・taint・lint state などを分け、`expr.go` を構文種別ごとに分割する。振る舞いは変えない。`checker` の field 数は増え続け、`expr.go` は 4,774 行へ増えている。責務集中は有効な観測。**wave54 lane G として採択**（[prompts](docs/sketch/2026-11-27-wave54-prompts.md)）
+- [x] **[task] checker の状態を関心ごとの部分構造体に分ける**: `typeTables`・inference/meta・pipe propagation・taint・deferred revisit queue を embedded state struct へ分け、`expr.go` を構文種別・責務ごとに分割する。振る舞いは変えない。**wave54 lane G で実施済み**（[prompts](docs/sketch/2026-11-27-wave54-prompts.md)、[検証](docs/sketch/2026-11-27-wave54-lane-g-checker-organize-verify.md)）
 - [ ] **[task] 値表示を rt の単一実装へさらに寄せる**: wave47 lane A の runtime renderer 共通化を前提に、eval 独自の表示・整数幅・float32 丸め・structural equality を rt 公開関数へ寄せ、eval 側は評価順・pattern 振分け・部分適用の oracle に絞る
 - [ ] **[task] 生成コードの benchmark 基盤**: `bench/` に代表的な gom/手書き Go のペアを置き、`go test -bench` の比率を記録する。回帰警告の閾値や CI 実行は導入時に決める
 
