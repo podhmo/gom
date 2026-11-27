@@ -167,6 +167,22 @@ func TestCheckDiagnosticsText(t *testing.T) {
 	}
 }
 
+func TestCheckE0201MemberTypoText(t *testing.T) {
+	t.Parallel()
+
+	dir := writeFiles(t, map[string]string{"bad.gom": `package main
+
+fn f (xs: List Int) -> List Int = List.mapp (fn x -> x) xs
+`})
+	code, out, errout := invoke("check", "-format", "text", filepath.Join(dir, "bad.gom"))
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1; stdout=%q stderr=%q", code, out, errout)
+	}
+	if !strings.Contains(out, "error[E0201]") || !strings.Contains(out, "= note: did you mean `map`?") {
+		t.Errorf("text output missing member typo candidate: %q", out)
+	}
+}
+
 // Imported .gomi declaration spans are not command inputs, but E0407
 // labels them. JSON and text both resolve the dependency file through
 // the exact bytes captured while loading it.
