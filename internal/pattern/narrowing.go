@@ -1,8 +1,6 @@
 package pattern
 
 import (
-	"strings"
-
 	"github.com/podhmo/gom/internal/check"
 	"github.com/podhmo/gom/internal/resolve"
 	"github.com/podhmo/gom/internal/types"
@@ -70,19 +68,70 @@ func (c *checker) filteredSignature(t types.Type, domain *rootDomain) *signature
 // positiveRootKeys returns the root constructor keys the pattern can
 // match, or nil when the pattern places no root constructor restriction
 // on the value (a wildcard/var root, an unknown form, or a mixture).
+//
+// This deliberately inspects only the root shape. Converting the whole
+// pattern with conv.alts would multiply the alternatives of unrelated
+// payload positions; a guarded arm must stay cheap even when narrowing
+// never uses it.
 func (c *checker) positiveRootKeys(p check.Pat) map[string]bool {
-	alts := c.cv.alts(p)
-	if len(alts) == 0 {
-		return nil
+	one := func(key string) map[string]bool {
+		return map[string]bool{key: true}
 	}
-	keys := make(map[string]bool)
-	for _, alt := range alts {
-		if alt.key == "" || strings.HasPrefix(alt.key, "u:") {
+	switch p := p.(type) {
+	case *check.WildPat, *check.VarPat, *check.TypePat:
+		return nil
+	case *check.AsPat:
+		return c.positiveRootKeys(p.Pat)
+	case *check.LitPat:
+		if rc := c.cv.litAsRecord(p, p.Type()); rc != nil {
+			return one(rc.key)
+		}
+		return one(litCell(p).key)
+	case *check.CtorPat:
+		if p.Ctor == nil {
 			return nil
 		}
-		keys[alt.key] = true
+		sig := c.env.signature(p.Type())
+		v := sig.findCtor(p.Ctor.Name)
+		if v == nil {
+			return nil
+		}
+		tk, _ := keyOf(p.Type())
+		return one(variantKey(v, tk))
+	case *check.TuplePat:
+		return one(tupleKey(len(p.Elems)))
+	case *check.RecordPat:
+		v := c.env.recordOf(p.Type())
+		if v == nil {
+			return nil
+		}
+		tk, _ := keyOf(p.Type())
+		return one(variantKey(v, tk))
+	case *check.ListPat:
+		switch {
+		case len(p.Elems) > 0:
+			return one(listConsKey)
+		case p.Rest == nil:
+			return one(listNilKey)
+		default:
+			// `[..rest]` can match both Nil and Cons.
+			return nil
+		}
+	case *check.OrPat:
+		keys := make(map[string]bool)
+		for _, alt := range p.Alts {
+			part := c.positiveRootKeys(alt)
+			if part == nil {
+				return nil
+			}
+			for key := range part {
+				keys[key] = true
+			}
+		}
+		return keys
+	default:
+		panic("unreachable")
 	}
-	return keys
 }
 
 // definiteRootKeys returns the root constructor keys the unguarded

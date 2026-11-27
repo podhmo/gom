@@ -893,3 +893,29 @@ func TestNarrowingRejectsExternSubject(t *testing.T) {
 		t.Fatal("extern-backed variable was treated as a stable subject")
 	}
 }
+
+func TestPositiveRootKeysDoesNotExpandPayloads(t *testing.T) {
+	wideTy := &types.Con{Name: "Wide"}
+	fields := make([]types.Type, 24)
+	for i := range fields {
+		fields[i] = types.Int
+	}
+	decl := typeDecl("Wide", nil,
+		variant("Wide", fields...),
+		variant("Other"))
+	env := NewEnv([]check.Decl{decl})
+	c := newChecker(env, Options{})
+
+	choice := orp(types.Int,
+		litp(syntax.LitInt, "0", types.Int),
+		litp(syntax.LitInt, "1", types.Int),
+		litp(syntax.LitInt, "2", types.Int))
+	args := make([]check.Pat, 24)
+	for i := range args {
+		args[i] = choice
+	}
+	keys := c.positiveRootKeys(ctor(wideTy, "Wide", args...))
+	if !keys["c:/Wide/Wide"] || len(keys) != 1 {
+		t.Fatalf("positiveRootKeys() = %v", keys)
+	}
+}
