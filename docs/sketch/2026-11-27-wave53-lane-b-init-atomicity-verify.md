@@ -42,4 +42,4 @@ go test ./cmd/gom -count=1
 ## 残論点
 
 - directory 作成自体は prompts の採択どおり rollback 対象外のまま。project file atomicity のみを固定した
-- write failure の inject は `runInitWithWriter` の test seam で行い、本番経路は従来どおり `writeNewFile` を使う。`main.gom` 自体の partial write cleanup は `writeNewFile` の既存契約に任せ、init 全体の rollback は `go.mod` / `go.sum` を対象にする
+- write failure の inject は `runInitWithWriter` の test seam で行い、本番経路は従来どおり `writeNewFile` を使う。`main.gom` 自体の partial write cleanup は `writeNewFile` の既存契約に任せ、init 全体の rollback は `go.mod` / `go.sum` を対象にする。validation 中に外部から concurrent に作成・置換された `go.mod` / `go.sum` の attribution は spec/decision ともに保証しない
