@@ -53,7 +53,7 @@
 
 ## 回帰 fixture
 
-現行の限界を示す fixture を spec harness に追加する。これらは現行では E0301 を期待するが、実装 lane では red-first の起点として期待を更新する。
+実装後は、最初の 3 件で narrowing により E0301 が出ないことを固定し、guard / extern boundary では E0301 が残ることを固定する。
 
 - `testdata/spec/E0301_nested_match_selfish_action.gom`: catch-all alias 内の negative narrowing
 - `testdata/spec/E0301_nested_match_dmmf_line.gom`: DMMF 形の negative narrowing
