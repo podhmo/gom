@@ -177,3 +177,247 @@
 - [x] **[quality] E0415 の診断品質フォローアップ（fix-local-result レビューの nice-to-have）**: ③ は P5-2 で修復（select recv/send arm に shadowed-builtin 分岐、fixture `E0415_select_recv_local_chan`/`E0415_select_send_local_chan`）。① `resultArgs` 二重報告 ② `|?>` 経路の誤構文名（construct 名の引数化）④ `for` メッセージの連結改善 ⑤ quiet-meta 伝搬で E0407/E0401 カスケード削減＋`shadowedNamesInType` が全 shadowed 名を報告、は Wave 5 hardening (g) で修復。⑤ の残件（unify 失敗経路の非 mismatch E0401 抑制）は過剰抑制リスクで意図的に見送り — ただし `metasIn(want)` 化で隣接の共有 want 抑制リスクが台帳に新規登録されている
 - [x] **[divergence] Float 型の巨大整数リテラルが eval で CodeInternal になる**: `let m: Float = 99999999999999999999`（int64 超）は eval の `litValue` が `strconv.ParseInt` を Float 判定より先に呼ぶため "invalid int literal" で失敗するが、生成 Go は `float64(...)` を出してコンパイル・実行できる（Wave 5 hardening レビュー指摘、exotic）。`isFloatCon` 時は `ParseFloat` を先に試す。[lit.go](internal/eval/lit.go)
 - [x] **[bug] `for` の shadowed-con E0415 リストに `SendChan` がない**: `checkFor` の shadowed builtin 一覧は `List`/`Chan`/`RecvChan` を挙げるが `SendChan` を含まないため、ファイルローカルの `type SendChan` 下の `for` は E0415 ではなく素の mismatch になる（pre-existing、Wave 5 hardening レビュー指摘）。`internal/check/expr.go` の checkFor 付近
+
+- [x] **[wave50 lane A] 診断コード表のメタテスト**: retired code を除き、spec harness で出せる言語診断には `testdata/spec/` fixture、driver/CLI 診断には CLI test があるかを分類して検査する。`gom explain` の example は実際にそのコードを出すものだけ対象にし、`docs/error-codes.md` と表の一致は既存 `TestErrorCodesDocInSync` に任せる（[検証](docs/sketch/2026-11-27-wave50-lane-a-diag-meta-verify.md)）
+
+- [x] **[wave50 lane C] 汎用 diagnostic `labels` / `details` wire**: JSON wire、text renderer、spec §12 を揃え、代表利用として E0401 の期待型由来を示す副 span まで入れる。typo 候補と error recovery は対象外（[decision](docs/decisions/2026-11-27-diagnostic-labels-details.md)、[検証](docs/sketch/2026-11-27-wave50-lane-c-diagnostic-wire-verify.md)）
+
+- [x] **[wave50 lane E] record literal の文脈推論**: 型名前置 literal を最優先にし、静的に分かる expected type（annotation/return/呼出し引数/constructor payload/record field）だけで推論する。`List.fold` の無名 record accumulator を必須 probe にする（[decision](docs/decisions/2026-11-27-record-contextual-inference.md)、[検証](docs/sketch/2026-11-27-wave50-lane-e-record-context-verify.md)）
+
+- [x] **[wave49 lane A] `&&` / `||` の生成コードを短絡評価に揃える**: evaluator は `false && x` / `true || x` で右辺を評価しないが、lower は両 operand を先に atom 化する。生成コードを evaluator/Go の短絡規則へ揃え、spec に規則を明記し、副作用または panic を持つ右辺の fixture で固定する（[gap](docs/implementation-gaps.md)、[検証](docs/sketch/2026-11-27-wave49-lane-a-shortcircuit-verify.md)）
+
+- [x] **[wave49 lane C] stdlib Result/Option traverse helpers**: `Result.sequence` と `List.traverse_result` に限定して追加する。`Result.sequence` は import cycle を避けるため compiler-owned forwarding member として `list` 側実装へ寄せる（[decision](docs/decisions/2026-11-27-stdlib-result-traverse.md)、[検証](docs/sketch/2026-11-27-wave49-lane-c-result-traverse-verify.md)）
+
+- [x] **[wave49 lane B] record literal E0407 の決着**: 型名前置 record literal（例: `ValidatedOrder { id = id, ... }`）を第一案に、record literal の曖昧さを解消する。文脈推論の一般化は後続（[decision](docs/decisions/2026-11-27-record-type-prefixed-literal.md)、[検証](docs/sketch/2026-11-27-wave49-lane-b-record-type-literal-verify.md)）
+
+- [x] **[wave49 lane D] E0301 text 出力の不足パターン詳細**: `missing_patterns` を text emitter が構造的に描き、spec の人間向け出力へ寄せる。汎用 `labels` / `details` wire は今回の前提にしない
+
+- [x] **[wave49 lane E] DMMF boundary guide**: JSON DTO、bounded context package/visibility、金額表現の 3 点について推奨形を文書化し、open-questions の対象を絞る
+
+- [x] **[wave49 lane F] implementation-gaps archive 分割**: `[x]` 項目を `docs/implementation-gaps-archive.md` へ移し、未解消だけを live 台帳に残す
+
+- [x] **[wave48 lane A] `Unit` payload 束縛の生成 Go 未使用 bug**（[prompts](docs/sketch/2026-11-26-wave48-prompts.md)）: `Unit` payload の束縛・表示・一時変数生成の整合を取る — `rt.ShowUnit` で operand 参照を残す（[verify](docs/sketch/2026-11-26-wave48-lane-a-unit-payload-splice-verify.md)）
+
+- [x] **[wave48 lane B] incremental build cache の dependency hash race**（[prompts](docs/sketch/2026-11-26-wave48-prompts.md)）: manifest へ記録する依存内容を compile 時観測へ寄せる
+
+- [x] **[wave48 lane C] `gom build` / `gom run` の module-local transitive emit**（[prompts](docs/sketch/2026-11-26-wave48-prompts.md)）: 同一 module 内の `.gom` source dependency を依存順に emit する（[decision](docs/decisions/2026-11-26-module-local-transitive-emit.md)、[verify](docs/sketch/2026-11-26-wave48-lane-c-transitive-emit-verify.md)）。依存: wave48 lane B
+
+- [x] **[wave48 lane D] `.gomi` author metadata の fidelity**（[prompts](docs/sketch/2026-11-26-wave48-prompts.md)）: directive attachment 規則と abstract/private 引き継ぎを実装する
+
+- [x] **[wave48 lane E] 文字列操作面**（[prompts](docs/sketch/2026-11-26-wave48-prompts.md)）: stdlib `str` package に byte length/index/range と明示的な rune decode を実装（[decision](docs/decisions/2026-11-26-string-byte-surface.md)、[verify](docs/sketch/2026-11-26-wave48-lane-e-string-surface-verify.md)）
+
+- [x] **[wave48 lane F] spec / explain の小さな mismatch 掃除**（[prompts](docs/sketch/2026-11-26-wave48-prompts.md)）: record abstract、零引数 extern、E0513、`Go.conv` List 制限を同期する
+
+- [x] **[wave48 lane G] PR #256 owner improvement ideas の精査と台帳登録**（[prompts](docs/sketch/2026-11-26-wave48-prompts.md)）: 20 件の提案を podhmo コメントと wave48 後の状態へ突き合わせ、TODO/open-questions/implementation-gaps/problems へ反映（[audit](docs/sketch/2026-11-26-wave48-lane-g-owner-ideas-audit.md)）
+
+- [x] **[wave48 lane H] PR #259 DMMF fit report の精査と台帳登録**（[prompts](docs/sketch/2026-11-26-wave48-prompts.md)）: DMMF 適合性レポートの提案を現行仕様・stdlib と突き合わせ、TODO/open-questions/implementation-gaps へ反映。`Result.to_option` 既存の誤りと stdlib コメントの stale さを修正（[audit](docs/sketch/2026-11-27-wave48-lane-h-dmmf-fit-audit.md)）
+
+- [x] **[task] stdlib に `List.filter_map` / `List.find_map` を追加**: `fold` で回すしかない現状 — selfish 移植で要望（[sketch](docs/sketch/ja/2026-11-24-selfish-port.md)、wave43 lane F）。実装済み: `@extern` buffer-built Go impl（`stdlib/list/impl.go` の `FilterMap`/`FindMap`）、`noescape` directive 付き（wave44 lane F）
+
+- [x] **[wave47 lane B] `gom info` の stdlib 短名解決**（[prompts](docs/sketch/2026-11-25-wave47-prompts.md)）: `list`/`option`/`result`/`cmp` を short name として read-only inspection で引けるようにする
+
+- [x] **[wave47 lane F] tutorial での snapshot dogfooding**（[prompts](docs/sketch/2026-11-25-wave47-prompts.md)）: tutorial/17-tests に `snapshot` の例を 1 つ入れ、教材と最小限の dogfooding を兼ねる
+
+- [x] **[wave47 lane C] `.gomi` 再生成での directive 引き継ぎ bug 修正**（[prompts](docs/sketch/2026-11-25-wave47-prompts.md)）: `//gom:noescape` / `//gom:result-notaint` が `gom info` 再生成で落ちないようにする。abstract/private 意図は対象外
+
+- [x] **[wave47 lane A] type-erased composite 表示の runtime renderer**（[prompts](docs/sketch/2026-11-25-wave47-prompts.md)）: compiled/eval 共通の runtime renderer を作り、Gom 表示側へ寄せる
+
+- [x] **[wave47 lane D] `uint` / `uint64` の第一級対応**（[prompts](docs/sketch/2026-11-25-wave47-prompts.md)）: `uint` / `uint64` に絞って literal・算術・`Go.conv`・Go signature mapping を開く
+
+- [x] **[wave46 lane E] エラー出力から `gom explain` への誘導**（[prompts](docs/sketch/2026-11-25-wave46-prompts.md)）: text 診断に `gom explain CODE` 案内を追加（PR #237）
+
+- [x] **[wave46 lane D] eval の width 伝播の残り**（[prompts](docs/sketch/2026-11-25-wave46-prompts.md)）: W タグの意味論の残りの隅（conv 経由の int→float、cross-width boxed-any 比較）を台帳から整理 — width 伝播の残件なし。boxed-any equality の nominal type 脱落を修正し、幅区別・型区別を compare で pin。width-32 入れ子表示は lane A ブロック（[調査](docs/sketch/2026-11-25-wave46-lane-d-width-investigation.md)）
+
+- [x] **[wave46 lane C] splice 補間の Go 値フォーマット精緻化**（[prompts](docs/sketch/2026-11-25-wave46-prompts.md)）: `GoError` 以外の Go 由来値は `%v` 素通し — gomShow との整合 — underlying が numeric / bool / string の named Go scalar を `ShowGoScalar` で scalar 表示に揃え、`time.Duration` の Stringer ずれを解消（[decision](docs/decisions/2026-11-25-go-named-scalar-display.md)）。composite 内括弧 canonical は lane A
+
+- [x] **[wave46 lane B] MoonBit 式スナップショットテスト内蔵 + assert の go-cmp 化**（[prompts](docs/sketch/2026-11-25-wave46-prompts.md)）: `gom test --update` で期待値更新する方向
+
+- [x] **[wave46 lane A] writeOperand の型駆動再設計**（[prompts](docs/sketch/2026-11-25-wave46-prompts.md)、[台帳](docs/implementation-gaps.md)）: foreign named scalar の括弧 canonical — evaluator の nested operand を静的型駆動化し、compiled と同じく opaque operand を括弧で包む（[decision](docs/decisions/2026-11-25-writeoperand-type-driven.md)）
+
+- [x] **[wave45 lane A] `@method` の境界綴り `Int` → `int`/`int64` 選択**: interface 側が `int64` を要求するシグネチャ（`io.Seeker.Seek`）に emit が適合しない実バグ — check は通るが生成 Go が不一致
+
+- [x] **[wave45 lane B] eval の float32 値表現**: VFloat は f64 オンリーで compiled の f32 比較と分岐（`16777217.0`）— width-aware な値表現が要る（#226 escalate）
+
+- [x] **[wave45 lane C] 宣言型 splice 表示の正**: compiled `{ on = true }` vs テスト oracle `true` — 正を決める decision + 揃え実装
+
+- [x] **[wave45 lane G] n-ary `Result` の payload Option verbatim 固定**: メソッド直呼びの n-ary result は verbatim 固定で `Ptr.to_option` 後包みが要る（selfish 観測・open-questions 済み）
+
+- [x] **[task] emit 名の衝突検出器（Go ABI 案 B）**: 生成名の一覧化・suffix 衝突（同 base 追い出し）・暗黙 member 名を検出する。E0607 は base 名の `.gomi` メンバ衝突までしか止めないので、suffix 追い出しは新規検出対象（[decision](docs/decisions/2026-11-23-go-abi-stability.md)、wave35 lane C — [prompts](docs/sketch/2026-11-23-wave35-prompts.md)）
+  - 対応（wave35 lane C）: codegen の emit 台帳（`emitLog`/`emitOwner`）で全パッケージスコープ名を記録し、verbatim 二重請求は W0601・suffix 追い出しは W0602 で警告。一覧は `Output.EmitNames` + `gom dump -phase=emit`（[decision](docs/decisions/2026-11-23-emit-name-collision-check.md)）。verbatim 二重請求は wave36 lane A でエラー E0608 に格上げ（下のタスク）
+
+- [x] **[task] emit 名の verbatim 二重請求で壊れた Go を emit しない**: 方針 (a) エラー化で実装 — verbatim 二重請求はエラー E0608（W0601 retired）、emit 診断のエラーは unitFailed に接続してパッケージ全出力を withhold。ファイルをまたぐ衝突ペアは各ファイルの自分側の宣言にレポート（wave35 lane C で検出、wave36 lane A で修正、[decision](docs/decisions/2026-11-23-verbatim-dup-error.md)）
+
+- [x] **G-1 `Ptr T` 経由の field 書き込みの実装**: `ptr.Field = v` の代入構文と addressability 規則。`Ptr T`（T は named Go struct）経由に限定し、record/`Ref` への field 代入は開かない（[decision](docs/decisions/2026-11-19-struct-field-write.md)、比較材料は [sketch](docs/sketch/2026-11-19-wave23-struct-construction.md)）。実装後に tutorial / examples の host パッケージ（`NewClient` factory）を撤去する — wave24 以降の lane 候補
+  - 対応（wave24 lane B）: `Assign`/`FieldAssign`/`FieldSet` を syntax→check→lower→codegen に通し、左辺は `ptr.Field` の形のみ（変数・record field・`Ptr` でない Go 値経由は E0511）。代入式は `Unit`。examples/gist-cli の host パッケージは撤去 — `NewClient` は `Ptr.new` + `client.Timeout`/`client.CheckRedirect` への代入に置換。composite literal は引き続き非提供
+
+- [x] **[task] `//go:embed` / directive comment / blank import の提供形**: `@extern let name : T`（宣言のみ・実体は手書き Go または directive 生成）+ `//gom:embed <patterns>` directive → `//go:embed` + `var` emit + `_ "embed"` 自動補完。`import go _ "path"` blank import も追加。型制約は check で E0512（spec §8.10、[decision](docs/decisions/2026-11-23-extern-let-embed.md)、wave37 lane E）
+
+- [x] **[task] record フィールドへの Go struct tag（`json:"name"` 等）の宣言面**: 対応: wave39 lane B — フィールド行末尾の raw string literal を verbatim struct tag として宣言（`{name: String `json:"name"`}` の形 — [decision](docs/decisions/2026-11-24-record-field-struct-tag.md)）。: フィールド名は lowercase 強制で Go 側は PascalCase emit、tag を付けられないため `json.Marshal` が `{"Name":...}` になり外部 JSON スキーマと合わない（`{{.name}}` テンプレ参照も同根）。属性引数かフィールド行の directive の形を decision で決めて実装（同 sketch、回避は `Go.Map`/`json.RawMessage` 経由）
+
+- [x] **[task] `@method` emit 名の escape（initialism 対応）**: `serve_http`→`ServeHttp` しか出せず `ServeHTTP`/`URL`/`ID` 等の initialism を含むメソッド名を生成できない → `http.Handler`・`sort.Interface` 等を record に実装できない（E0401）。[decision](docs/decisions/2026-11-21-go-iface-impl.md) が「規約で足りなければ別 decision」と予告した分岐 — 属性引数か verbatim 綴りの escape を採る（同 sketch、回避は `Go.conv (Go.func2 h) : http.HandlerFunc`）— 実施済み: `@method(GoName)` 属性引数（wave38 lane G、[decision](docs/decisions/2026-11-24-method-emit-name-verbatim.md)）
+
+- [x] **[task] unlabeled → labeled の introduction（ラベル付き引数の緩和）**: `unifyFunc` が expected 側のラベルを produced の全 unlabeled パラメータへ位置対応で貸す（`apply (fn x -> x)` が通る）。produced 側にラベルが混ざる型・逆方向・合成 `argT -> res` unify（応用は型の同一性ではないので `noLabelIntro` で抑止 — `id mk 3` の `~x` 位置充填は依然 E0401）は拒否のまま。spec §2.1 は wave35 lane D で同期済み（[decision](docs/decisions/2026-11-23-labeled-arg-relaxation.md)、wave36 lane B）
+
+- [x] **[task] result-taint flag + `.gomi` export（案 B）**: `Symbol.ResultTaint []bool`（結果が param i の生産物を運び得る）を fixpoint 推論し、`//gom:result-notaint name i ...` directive でエクスポート（[decision](docs/decisions/2026-11-23-result-taint-gomi-export.md)、wave36 lane C/D）
+  - lane C（推論 + 診断接続）: `resultTaintOf` が `resultProducers`（retainedVars の結果位置 walk + saturated call の callee taint 伝播、`ArgToParam` 対応・相互再帰は保守 true）で `sym.ResultTaint` を充填し、`resultCarriesArg`/`resultCarriesPipe` が flag 参照化。`let f = fn` の lambda にも推論が効く
+  - lane D（`.gomi` directive I/O）: `iface.ScanNotaint`/`ApplyNotaint`/`notaintLine` で scan・適用・emit。`/* */` 内の directive を無視する `scanDirective` 修正を含む
+
+- [x] **[task] `fn ~x ->` ラムダラベル構文**: `fn ~x -> e` / `fn (~x: T) -> e` を実装（parser + check + format）。unlabeled→labeled introduction と組になり呼び出し側で `~x:` を書ける匿名関数になる。併せて `types.Equal` の labeled run を宣言順比較に修正（positional Go ABI — `~a ~b` ≠ `~b ~a`）、`checkLambda` の residual ret 構築の consumed-set バグ、`unifyFunc` の labeled-run 順序検査を修正（wave36 lane F）
+
+> parent: **SC scoped cleanup（Go の `defer` が解く問題）**
+- [x] **SC-1 `Scope` 型と rt-backed モジュール**: `Scope.run`/`run_result`/`defer`/`defer_err`/`on_err` を builtin module として配線する（LIFO、cleanup 同士は `errors.Join`、本体の `Err` 優先、`on_err` は panic 時も走る、閉じた後の登録は panic）。spec fixture・golden・spec 8.3 を足す
+
+> parent: **SC scoped cleanup（Go の `defer` が解く問題）**
+- [x] **SC-2 `Scope` 値の脱出の静的検査**: `Scope` を返す・record/コンストラクタ/可変セルに格納する・`Task.spawn` や Go の関数値へ渡すのを型エラーにする。ラムダ引数が逃げないかはパッケージ内で推論し、`.gomi` に注釈として出す。Go の関数は常に「逃げる」扱い。依存: SC-1
+
+> parent: **SC scoped cleanup（Go の `defer` が解く問題）**
+- [x] **SC-3 ネイティブ `defer` への lowering**: 登録が `Scope.run` と同じ Go 関数内にあるとき、Core IR で判定して登録位置に Go の `defer` を出し、結果に触る cleanup だけ生成 Go 側で named result を使う（目標形は `experiments/defer/cgen`）。それ以外は SC-1 のランタイムスタックのまま。依存: SC-1, SC-2
+
+- [x] **[task] stdlib `List` の補強**: `take`/`drop`/`last`/`last_n`/`sort_by`/`sum_int` を追加（impl.go buffer loop / `@tailrec` / `slices.SortFunc` バック）。`sort` は `Ord` dict が `cmp` にあり DAG 的に list から参照できないため comparator 形 `sort_by` で供給（昇順は `Cmp.sort` も既存）。`sum` は Gom に overload がないため `sum_int` 命名（wave37 lane F — [prompts](docs/sketch/2026-11-23-wave37-prompts.md)）
+
+- [x] **[task] `|?>` 文言の回避経路の文書化**: `*rt.StepError.Step`・`rt.StepErr`・`Result.map_err`・`try`+`match` で文言を制御する方法を spec と gom-agent-guide に追記（案 C 採択済み — [decision](docs/decisions/2026-11-23-pipe-try-wording.md)、wave35 lane A / PR #149）
+
+- [x] **[task] scoped-cleanup 代替経路の文書化（案 D）**: `run_result` の GoError 制約を越えるパターンを helper で書く例を guide（Scope 節）と spec に追記（案 D 採択済み — [decision](docs/decisions/2026-11-23-scope-cleanup-extension.md)、wave35 lane B / PR #150）
+
+- [x] **[task] spec §7 に record の abstract 宣言を明記する**: `.gomi` に `type T` と bare 宣言すると record 型でも import 側の record literal が E0401 で封じられる（sandbox run 2 の `shop/domain` で実検証）が、spec §7 のルール 3 は sum type にしか言及していない。record にも同じ規則が効くことを明記する（[gaps](docs/implementation-gaps.md) 登録済み、[検証](docs/sketch/ja/2026-11-24-sandbox-explorer2-sumtypes.md)）
+
+- [x] **[task] extern の「標準のバインディング」集の整備**: 管理場所はコンパイラ内蔵テーブル `internal/goimport/stdbind.go`（drift は Hidden 報告、明示 extern が優先）と決定 — 初期エントリとして `errors.New`/`fmt.Errorf` → `GoError`、`errors.Join`/`errors.Unwrap` → `Option GoError`（lone `error` の宣言ビュー機構と共用）。`(T, bool)` → `Option` 系エントリは用途ごとの extern を維持する判断（[decision](docs/decisions/2026-11-05-error-result-bindings.md)、[検証](docs/sketch/2026-11-05-error-result-bindings-verification.md)）
+
+- [x] **[task] `Ptr` の操作面の設計**: コンパイラ組み込みの `Ptr` モジュール（rt バック）として採用・実装 — `get`/`set`（nil で Go と同じく panic）、`is_nil`、`new`（`errors.As` 等の out-pointer 用）、`make`、`nil`、`to_option`（安全な読み出し）。`*T` 既定の問いは open-questions に残る（[decision](docs/decisions/2026-11-05-ptr-ops-surface.md)、[検証](docs/sketch/2026-11-05-p3-7-interop-ops-verification.md)）
+
+- [x] **[task] `Go.Map` の操作面（member table またはモジュール）**: ctor-table 経路の `Go.Map` メンバーテーブルとして採用・実装 — `make`/`get`（`Option` 返し）/`set`/`delete`/`length`/`to_list`（順序不定スナップショット、v1 の反復面）。nil map は Go のまま（set のみ panic）。非 comparable key は E0508（[decision](docs/decisions/2026-11-05-go-map-ops.md)、[検証](docs/sketch/2026-11-05-p3-7-interop-ops-verification.md)）
+
+- [x] **[task] `[]T` を in-place 変更する Go 関数への警告**: W0501 lint として採用・実装 — Unit 結果の Go 呼び出しがコピーされる `List` 引数（`..xs` spread、`Go.Slice` 宣言 param への `List`、List 位置へ物質化された `Go.Slice`）を受け取ると警告。素の `Go.Slice`（`..gs` spread、`...[]T` 要素、`Go.Slice`→`Go.Slice`）は verbatim で沈黙。`signal.Notify` 系は文書化済みの偽陽性（[decision](docs/decisions/2026-11-05-go-mutation-warning.md)）
+
+- [x] **[task] `Go.conv` の `Go.Slice T ↔ List T` をコピーにする**: `convKind` が `goConvKindOf` を先に照会し `ConvSliceToGo`/`ConvSliceFromGo` を返す — `list.FromSlice` / `.ToSlice()` に。`freeze`/`thaw`/`bump` で両方向の分離を実測、golden `go_conv` で emission を固定（[decision](docs/decisions/2026-11-04-goconv-list-slice-copies.md)）
+
+- [x] **[task] `Go.Slice` の読み取り専用の操作面**: ctor-table 経路（`Config.Modules["Go.Slice"]`、rt バック）で `length`/`get`（`Option`）/`slice`（共有ビュー、不正境界は Go と同じく panic）/`fold`（`b -> a -> b` カリー形）/`to_list`（スナップショット）を実装。書き込みは非搭載（[decision](docs/decisions/2026-11-05-go-slice-ops.md)、[検証](docs/sketch/2026-11-05-go-slice-ops-verification.md)）
+
+- [x] **[task] `Go.Any` の綴りを admission する**: `internal/resolve/scope.go` builtinGoMembers に `Any`（KindType/Go）、`internal/check/typenv.go` goTypeArity に `"Any": 0` を追加。受理側 fixtures `ok_go_any_positions`・`ok_go_any_gomi/`・`ok_extern_go_any_views`（`Option Go.Any`/`Result (Option Go.Any) GoError` 結果ビュー）・`ok_any_lowercase_typevar`、拒否側 `E0201_go_any_value_position`・`E0401_go_any_arity`・`E0509_extern_option_go_any_param`・`E0507_go_any_conv` を testdata/spec に（[decision](docs/decisions/2026-11-06-go-any-spellable.md)、[検証](docs/sketch/2026-11-06-go-any-conformance-verification.md)。wave12 interop-decisions）
+
+- [x] **[task] `Go.Any` 宣言結果位置のボックス materialize**: materialize を採用 — `conformExpr` が `Go.Any` want への適合を `Ascribe{Conv: true}` で包み `ConvBoxAny` 経路で `any(body)` を emit。`fn -> Go.Any = 42`、`try dec.Token()` 経路の E0901 を解消（[decision](docs/decisions/2026-11-06-go-any-conformance-materialize.md)、[検証](docs/sketch/2026-11-06-go-any-conformance-verification.md)。残ギャップ 1）
+
+- [x] **[task] exported `let` の declared-type 忠実度**: `var X any` を emit — 適合ボックスを Core の `Conv`（型 `Go.Any`）として物質化するので `d.Body.Tail.Type()` が宣言型を拾う（codegen への型伝搬は不要だった。残ギャップ 2、同検証、spec `ok_go_any_gomi/`・golden `go_any`）
+
+- [x] **[task] `Option Go.Any` の `None`**: 解決 — unify を値スロット判定と構造判定 `unifySub` に分け、型引数位置の `Go.Any` は ctor の未解決 meta を `Go.Any` に bind（`option.Option_None[any]{}` を emit）。スカラ `let x : Go.Any = None` は制限として E0407 のまま（残ギャップ 3、同 decision/検証、fixture `E0407_go_any_scalar_ctor`）
+
+- [x] **[task] `Go.Any` コンテナ payload の materialize/拒否**: materialize を採用 — `unifySub` が型引数位置の `Go.Any` をインスタンス化の選択として裁き `Some 42`/`Ok 42`/`[1]` は `…[any]` emit（`Option[int64]` の乖離を解消）。concrete `Option Int` は型不変で E0401 拒否（残ギャップ 4、同 decision/検証、fixture `E0401_go_any_invariant`・golden `go_any`）
+
+- [x] **[task] Gom fn → Go func 相互運用（typed adapter `Go.funcN`）**: (b) を採用・実装 — func 型は生ビュー引数の `Go.FuncN`（N=0..3、結果 ≤2）として surface、Gom 側は `Go.funcN` 明示変換のみで供給（暗黙変換なし）。check 側は produced-vs-want を `gomRawCompatible` で view-tolerant に比較（E0401）、引数の非関数・arity 違い・ラベル付き・未対応型は E0510、inline lambda は want から seed。`Unit -> R` は `Go.func0` で `func() R`。lower が `core.GoFunc` に変換計画（パラメータ conv・結果 shape）を確定して載せ、codegen は flat `func` リテラルを render。fixtures: spec `ok_go_func_adapter`・`E0510_go_func_{non_fn,arity,label}`・`E0401_go_func_want`、golden `go_func_adapter`、`E0509_extern_go_any_fn_param` は FuncN 公開に合わせて更新（wave-16 lane 2、[decision](docs/decisions/2026-11-17-func-interop.md)、spec 8.8）
+
+- [x] **[task] `--strict` モードの実装**: `//gom:allow CODE` directive で relaxable コードのみリラックス（初期 E0301/E0302）+ warnings→errors の exit flag — wave32（PR #129）で実装済み（`-strict` / `-strict=CODES` flag + spec §12）。wave36 lane E は prompts の記載が stale だったため skip（[decision](docs/decisions/2026-11-22-strict-mode.md)）
+
+- [x] **[task] `//gom:mutable` directive（`.gomi`）**: 対応: wave39 lane D — `//gom:mutable <name>` の専用 scan/apply（`resolve.Symbol.Mutable`）、`containsMutable` の `ti.mutable` 照合、`gom info` 再生成での引き継ぎ、spec §10 記述。: 実装が見えない宣言型（extern 裏付け・abstract export 不透明化）を `.gomi` の directive で mutable 表明 — name-only（index 無し）形なので `scanDirective` ではなく専用スキャンが要る、ロード時に tyCons へフラグ適用、`containsMutable` が `Qual != ""` の `Con` で照合、`.gomi` 再生成時は著者の directive を引き継ぐ（toolchain は新規生成しない）。ローカル `.gom` 宣言では受理しない（フィールドから導出可能なため）。priority low（[decision](docs/decisions/2026-11-23-user-mutable-structures.md)、wave36 lane G で採択）
+
+- [x] **[task] 部分適用の握り潰し lint の実装**（対応: wave40 lane A — W0901 + `//gom:allow` の warning 拡張）: `ignore`・`_` 束縛（package-level 含む）・match `_` 腕の 3 面で捨てられる `*types.Func` を警告（W 系新設）+ `//gom:allow` の warning 拡張（前提機構）（[decision](docs/decisions/2026-11-24-partial-application-lint.md) 採択、wave40 lane A）
+
+- [x] **[task] `match` 型テスト腕（`p : T`）の実装**（対応: wave40 lane B — E0306–E0309・Go type-switch emit・eval implements 判定）: `Go.Any` 系（named Go interface 含む）scrutinee のみ・`_` 腕必須・first-match・Go type-switch emit。guard は v1 非対応、dup 判定は Go 表現、eval は implements 判定要（[decision](docs/decisions/2026-11-24-match-type-test-arms.md) 採択、wave40 lane B）
+
+- [x] **[task] `gom list` サブコマンド（stdlib 列挙）**: 対応: wave38 lane A — `gom list`（引数なし、列挙のみ）が `gomimport.StdlibShortNames()`（`stdlibPaths` の keys: cmp/list/option/result）を 1 行 1 件で出力。`cmp` は埋め込み `.gomi` がないため FS walk ではなくテーブルが列挙元
+
+- [x] **[task] ビット演算子 `&&&`/`|||`/`^^^`/`<<<`/`>>>`（+`&&^`）の実装**: 採択済みの三重字演算子を lexer + check + codegen + spec に実装（[decision](docs/decisions/2026-11-23-bit-operators.md)）。対応: wave38 lane B — token/lexer/parser/check(intg)/codegen/eval/fmt/validate + spec 演算子表・grammar.ebnf 同期、fixture [ok_bit_ops](testdata/spec/ok_bit_ops.gom)/[E0401_bit_ops](testdata/spec/E0401_bit_ops.gom)/[bit_ops](testdata/golden/bit_ops.gom)
+
+- [x] **[task] `Go.nil` ユニバーサル builtin の実装**: `Ptr.nil` 以外（`Go.Slice`/`Go.Map`/Go 関数型等）でも nil を書ける Go 名前空間の拡張（[decision](docs/decisions/2026-11-23-nil-spelling.md)、wave38 lane C — `rt.Nil[T]()` emit・E0513・W0502 両綴り認識）
+
+- [x] **[task] `Go.Slice`/`Go.Map` 要素の `~` 制約一致の実装**: `~` 制約の要素一致を Gom 側 `types.Equal` で見る — record を `[]MyRec` として `slices.SortFunc` 等に渡せる面（[decision](docs/decisions/2026-11-23-goslice-gom-elem.md)、wave38 lane D — `goSatisfiesGomElems` shape walk）
+
+- [x] **P4-6 LSP**: 型表示、網羅性エラーの即時表示、UTF-16 位置への変換。依存: P4-5 — v1 foundation として採用: `internal/lsp`（stdio JSON-RPC、`didOpen`/`didChange`/`didClose`/`hover`/`publishDiagnostics`、単一 open-file モデル、`OffsetUTF16` で UTF-16 列→バイトオフセット逆変換）+ `gom lsp`。実 Emacs+Eglot で hover・診断 push を検証（wave11 lsp、[decision](docs/decisions/2026-11-06-lsp-v1-scope.md)、[検証](docs/sketch/2026-11-06-lsp-v1-verification.md)）
+
+- [x] **[task] LSP: 複数ファイルパッケージ単位のコンパイル**: `gom lsp` の compile unit をパッケージへ — dir の `*.gom` を overlay gather（open バッファがディスクをシャドウ、未オープン兄弟はディスク読み込み、絶対 `.gom` パスのみが member になる）し `build.CompileFiles` で単位ごと再コンパイル、診断はファイル単位で publish（未オープンは合成 file:// URI）+ 離脱メンバーの retract。Emacs/Eglot で兄弟解決・クロスファイル hover・didChange 反転を実証（wave12 lsp-multifile、[decision](docs/decisions/2026-11-06-lsp-package-unit.md)、[検証](docs/sketch/2026-11-06-lsp-package-unit-verification.md)）
+
+- [x] **[task] LSP: go-tool 診断の取り込み（SourceMap-aware 逆引き）**: 基盤は wave13 で着地 — `SourceMap.Candidates`/`ReportedLine` + `GoPosIndex.AddSourceMap`/`ResolveMatch`（exact/drift/ambiguous）と `gom test` fold への配線済み（[decision](docs/decisions/2026-11-06-gotool-position-inverse.md)、[検証](docs/sketch/2026-11-06-gotool-inverse-verification.md)）。残件だった LSP 側の起動点は wave15 で `gom lsp -go`（opt-in）として着地 — 全面コンパイルに切り替え、publish 前にモジュールルート下の temp dir で `go build` を同期的に走らせて `.gom` span に fold（実測 ~205–210ms/change。実 Emacs+Eglot で `source:"go"` 診断の到達を検証）。[decision](docs/decisions/2026-11-17-lsp-gotool-invocation.md)、[検証](docs/sketch/2026-11-17-lsp-gotool.md)
+
+- [x] **P4-7 インクリメンタルビルドのキャッシュ**: キャッシュキーは [design.md 5 章](docs/design.md)。依存: P4-1 — `gom build` に dir 単位 manifest の増分キャッシュを実装（[decision](docs/decisions/2026-11-18-incremental-build-cache.md)）。5 章の並列化ルールのみ残件
+
+- [x] **[task] `gom test` で `.gomi` 適合検査を走らせる**: `runTest` が `runBuild` と同じ位置で `checkInterfaces` を呼び、E0601/E0603 のあるパッケージグループは `.go`/`_test.go` 書き出しと `go test` 実行の双方から withhold（[decision](docs/decisions/2026-11-04-gomi-conformance-in-gom-test.md)。`TestTestWithholdsOnInterfaceFailure` / `TestTestInterfaceGatePass`）
+
+- [x] **[task] `gom test` の panic スタックを `.gom` 位置付きで再描画する**: `GoPosIndex.RenderStack` がフレームの `file:line` を `.gom` 位置に書き換え、`renderTrace` が「再描画 + `--- raw go stack trace ---` + 生トレース」の 2 部構成を `TestResult.Output`・パッケージ級 E0001・no-events E0001 の 3 経路に適用。`-q`/`--quiet` は生トレース側のみ抑制（[decision](docs/decisions/2026-11-05-gom-test-panic-stack.md)）
+
+- [x] **[task] 境界での別名と可変性の検証**: H1–H7 を `testdata/gocall/boundary`+`box` fixture で実測 — `[]T` field は read ごとの boundary copy（`[][]int64` は `List (Go.Slice Int)` で内側は共有）、`let` は Go の書き換え可能な package var、生成 API 面の `List` は verbatim 受け渡し、バリアントは value struct。MoonBit（可視性は 4 種）/OCaml（FFI はブロック共有・規律は C 側）もドキュメントで確認（[sketch 検証結果](docs/sketch/2026-11-04-boundary-aliasing-hypotheses.md)）
+
+- [x] **[task] 境界の別名・可変性の契約を decision にする**: OCaml 型契約（候補 1）を採用 — 不変性は Gom 側の操作が守る契約で、境界は Go の書き込みを防がない。spec 8.5 のコピー範囲を Gom 内の view 切替位置に限定、8.7 に verbatim 受け渡し + 契約（要素書き換え・`let` 再束縛は契約違反、診断なし）を明記、7 章/3.1 に `var` 形状と要素留保を追記。façade は API 硬化策として deferred（[decision](docs/decisions/2026-11-05-boundary-mutation-contract.md)、[検証](docs/sketch/2026-11-05-boundary-mutation-contract-verification.md)）
+
+- [x] **gomtest spec ハーネスの複数ファイル対応**: ディレクトリ case を採用 — 裸の side file（`expected.json`/`golden.go`/`case.json` のいずれか）を直接持つサブディレクトリが 1 case になり、メンバ `.gom` は 1 パッケージユニット、`.gomi` は自身のスコープで interface file としてコンパイル。`DiagnosticsFunc` は `func([]File)` に拡張（Supersedes: test-harness decision の一部）。fixture: `E0907_init_cycle_siblings`/`E0904`/`E0202`/`E0605` siblings + `ok_sibling_let`/`ok_sibling_iface`（[decision](docs/decisions/2026-11-05-gomtest-multifile-cases.md)、[検証](docs/sketch/2026-11-05-gomtest-multifile-cases-verification.md)）
+
+- [x] **[task] golden スイートのディレクトリ case 対応**: 生成ファイルごとに 1 ゴールデン（`<name>/<member>.golden.go`、test-mode 出力は `<member>_test.golden.go`）を採用 — `GenerateFunc` は `func([]File, CaseOptions) ([]GeneratedFile, error)` に拡張。stray golden は `-update` でも Errorf（自動削除しない、削除した member は手動 rm）、重複出力→同一 golden は両モードで fail、`_` 接頭は stray 対象外（wave10 gomtest-followup、[decision](docs/decisions/2026-11-06-gomtest-golden-dir-cases.md)、[検証](docs/sketch/2026-11-06-gomtest-golden-dir-cases-verification.md)）
+
+- [x] **[task] 兄弟 test 名タグ付けを spec fixture で pin できるようにする**: `case.json` に `{"tests": true}` を追加 → `CaseOptions{Tests}` → `lower.Env.Tests` で member の `_test.go` を `<member>_test.golden.go` として pin。`testdata/golden/test_name_collision/` で `TestX_64f1a489`/`TestX_c83a3948`/`TestOnlyA` を固定（`Output.Tests` 写像自体は従来の `TestCompileFilesTestNameCollision` が残る。flat case の tests:true は 1 出力制約で fail — flat 向け `x_test.golden.go` 規約は将来拡張 → wave-13 tooling-hygiene item b で実施済み — [decision](docs/decisions/2026-11-08-gomtest-flat-tests-golden.md)、squash `8a0e136`。wave10 gomtest-followup、[decision](docs/decisions/2026-11-06-gomtest-tests-option.md)）
+
+- [x] **[task] spec スイート root 直下の裸 side file が無言で無視される**: load error 報告を採用（malformed-group と同じ経路） — `discoverCases` が root 直下の bare `expected.json`/`case.json`/`golden.go` に `loadErr` 付き case を合成。`TestDiscoverRootSideFile` + `testdata/rootside/` fixture（wave10 hygiene、[decision](docs/decisions/2026-11-06-spec-suite-root-bare-side-files.md)）
+
+- [x] **[task] `gom test` に `go test` フラグ透過がない**: `gom test -- FLAGS` で最初の `--` 以降を `go test -json` へ verbatim 透過（`-race`/`-run` が生成コードに届くことを実測。`-json` は常に先頭、`-json=false` 等の不正フラグは `source:"go"` の E0001 経路）[decision](docs/decisions/2026-11-05-gom-test-go-test-flags.md)、[検証](docs/sketch/2026-11-05-gom-test-go-test-flags.md)
+
+- [x] **[task] Emacs gom-mode を tree-sitter 化する**: `editor/emacs/gom-mode.el` は tree-sitter 文法が無いため正規表現ベースで書いた（[sketch](docs/sketch/2026-11-05-emacs-gom-mode.md)）。`docs/grammar.ebnf` から tree-sitter-gom（`grammar.js` + 改行 NL 挿入の外部 scanner）を書き、[podhmo/moonbit-mode](https://github.com/podhmo/moonbit-mode) と同じ `treesit` ベースの font-lock / imenu / インデントへ移す。`editor/emacs/test/` の ert-font-lock 注釈とインデントテストをそのまま回帰テストに使う — 対応: `tree-sitter-gom/`（stateless NL 外部 scanner、corpus 25/25、repo sweep 359/367=意図的エラー fixture 除き全 parse）+ treesit font-lock/imenu/indent を `gom-use-tree-sitter`+`treesit-ready-p` で検出、正規表現経路は fallback として温存。`.gomi` のトップレベル `fn_sig` は parent=`source_file` gating で imenu/defun に出す（wave11 emacs-treesitter、[decision](docs/decisions/2026-11-06-tree-sitter-gom-grammar.md)、[検証](docs/sketch/2026-11-06-tree-sitter-gom-verification.md)）
+
+- [x] **[bug] `internal/lsp/jsonrpc_test.go` の `frame` が未使用（staticcheck U1000）で `make check` が赤**: `1ffd6f6`（wave11 lsp lane）由来、呼び出し側ゼロ。wave13 lane3（lsp-gotool）で対応 — 未使用 helper 自体を削除（`a69f726`、squash `d181a80`）
+
+- [x] **[bug] `Go.Any` 値の直接呼び出しが受理され無効な Go を emit**: wave-14 lane 1 で解消済み（ledger 未反映だった）。`conformCallee` が `Go.Any` callee を構造判定 `unifySub` へ振り分け E0401。wave-16 lane 1 で fixture `E0401_go_any_apply` に over-application `a 1 "s"` を追加（wave-13 go-any re-review P1、[gaps](docs/implementation-gaps.md)）
+
+- [x] **[bug] `Go.Any` との `==` がリテラルの型不整合で恒偽**: wave-14 lane 1 で `a == 42` 側は box 化済み（ledger 未反映だった）。wave-16 lane 1 で `42 == a` 側を対称化 — リテラルの numeric meta が `any` に bind して落ちていたのを、box を unify より先に移して解消（fixture `ok_go_any_eq`・golden `go_any`、wave-13 re-review P2、[gaps](docs/implementation-gaps.md)）
+
+- [x] **[task] `Go.Any` 境界の残カバレッジ: 期待位置ラムダの結果側・meta/`types.Go` ret の pin・pipe 引数の ctor pin**: wave-13 re-review F1–F3 — F2/F3 は wave-15 lane 1 で解消。F1 は want channel が wave-14 で着地済み、残りの正直な拒否（未注釈ラムダパラメータが使用箇所から先に bind される `fn a -> a == x` 形）を wave-16 lane 1 で fixture `E0401_go_any_lambda_use` に pin（ラムダ param 注釈なし = 正直な境界、[gaps](docs/implementation-gaps.md)）
+
+- [x] **[bug] ラベル付き部分適用を let 束縛すると E0901**: 原因は `CallUnknown` が `CallInfo.ArgToParam` を無視して常に位置順 `CallFunc` チェーンに落としていたこと — 非前置のラベル充填はカリー化チェーンで表現不能だった。`unknownCall` が ArgToParam を消費し、飽和は宣言順チェーン・非前置充填は `closureChain` で η 展開（eval と同じ意味論）、不安定 callee は `tmpBind` で 1 回評価に固定（issue #11、knownCompileBugs 解除、golden `labeled_args` に η/リオーダー形追加）
+
+- [x] **[bug] `gom fmt` の適用後セレクタが非冪等**: `argRaw` が `Select` 引数を `pPost` 裸出力し、レシーバ連の最左が `(` 先頭（`()`/タプル/低優先式、nb 下の `{`-led RecordLit/Block 含む）の場合 `.f` が適用側へエスケープして再パースでツリーが変わっていた。`selectEscape`/`parenLed` で外側を `(...)` に包む（`nb` 伝播込み、issue #12、knownFormatBugs 解除、`TestSelectArgParens` 17 ケース）
+
+- [x] **[divergence] Float リテラル演算が生成 Go の定数畳み込みで評価器と値がずれる**: 数値演算は演算子ごとに機械型で 1 回評価する（eval 側の意味）と決定。lower がリテラル同士の Float 演算・比較と Int 系 `+ - * /` の左被演算子を変数に bind して生成 Go を非定数式にする（`litFoldDiverges`）。Int リテラルオーバーフローの go build 失敗も解消（[decision](docs/decisions/2026-11-05-numeric-arithmetic-per-operation.md)、[検証](docs/sketch/2026-11-05-numeric-arithmetic-per-operation.md)）
+
+- [x] **[divergence] 異なるバリアント値への名前付きペイロードアクセス `.f` で eval とコンパイルがずれる**: assertion 意味を採用 — `.f` はフィールドを所有するバリアントを要求し、違約は panic（eval E9003、生成コードは型アサーション）。spec §3.2/§8.6 に明記（[decision](docs/decisions/2026-11-05-variant-field-assert-owning-ctor.md)、[検証](docs/sketch/2026-11-05-variant-field-assert-owning-ctor.md)）
+
+- [x] **[bug] 要素型の異なる `Go.conv` `Go.Slice T ↔ List U` が依然 pun で mutation が List に届く**: `convOK` の `sliceListPair` で不一致要素対を oracle 手前で E0507 拒否（要素コピー案より拒否を採用）。`Go.Slice↔Go.Slice` verbatim pun と同要素 copy は不変（[decision](docs/decisions/2026-11-05-goconv-slice-list-element-mismatch.md)、[検証](docs/sketch/2026-11-05-goconv-slice-list-element-mismatch.md)、[fixture](testdata/spec/E0507_go_conv_slice_elem_mismatch.gom)）
+
+- [x] **[bug] 未 clean な `.gomi` 入力パスが `gomiInputs[want]` を外れ `.gomi` が二重コンパイルされ診断が重複する**: `gom check pkg/../pkg/ex.gomi pkg/a.gom` のような入力で、Join 済みの clean な `want` キーに一致せず `os.ReadFile`+`compileInput` にフォールバック → 同一 `.gomi` の診断が入力スペリングと clean スペリングの 2 件で出る。`gomiInputs`/`dirCensus` `byPath` のキーを `filepath.Clean` して修正（初版の登録は「`filepath.Dir` 未 clean で `.gom` グループ分裂」と誤診 — `Dir` は内部で Clean するため `.gom` 側は常に正しかった。実際の穴は `.gomi` 入力キー。wave7 gomtest レビューで発見、wave8 レビューで機序訂正。[台帳](docs/implementation-gaps.md)、`TestCheckUncleanGomiInput`）
+
+- [x] **[divergence] eval は整数演算を型幅に関係なく int64 で計算する**: 演算位置の静的被演算子型で幅を引く方式を採用 — `VInt` は sign-extended 済み canonical 値の不変条件を持ち、`evalPrim`/`evalUnary`/`litValue` が幅に正規化して計算・wrap（`Int32` の `%`・`MinInt32 / -1`・単項 `-` も int64 で実行→wrap で Go と一致。ホスト注入 VInt は pre-normalized 前提。[decision](docs/decisions/2026-11-05-eval-int-width-aware-ops.md)、[検証](docs/sketch/2026-11-05-eval-int-width.md)）
+
+- [x] **[bug] check が整数リテラルの範囲を検査しない**: Go の定数モデルに揃えて拒否を採用 — `pendingLit` が式・パターンの整数・float リテラルを記録し `finalize` の `revisitLitRanges` が既定後の静的型で判定（単項 `-` 直接被演算子は符号込み、`Go.conv` 直接被演算子は変換先で float→整数の `constant.ToInt` 規則込み）、範囲外は E0417。eval の wrap 実体化は防御分岐化（[decision](docs/decisions/2026-11-05-int-literal-range-check.md)、[検証](docs/sketch/2026-11-05-int-literal-range-check.md)、[fixture](testdata/spec/E0417_int_lit_range.gom)）
+
+- [x] **[task] E0904 の `through`/`path` に隠し `tmpN_xxxx` VarDecl 名が出る**: `CheckTailRecMutual` が `vars` を `tailrecCycle`/`tailrecPath` に渡し E0907 の `nodeName`/`DiagName` で描画（`tailrecLess` は表示名→生名→def offset で全順序）。fixture は `tmp1_b96eea0a` → `let (g, _)` に更新（wave7 lower-residuals residual-1）
+
+- [x] **[task] E0407/E0409/E0801 で raw meta ID がメッセージ・`data["type"]` に残る**: 各診断が fresh `metaNamer()` で `types.Display` — E0409（satisfies・finalize）、E0407、E0801 に適用。fixture `E0409_eq_open_meta`/`E0801_test_body_open_meta` 追加（wave7 lower-residuals residual-2）
+
+- [x] **[task] E0701 の Meta arm も raw `?n` を出しうる**: `check/expr.go` の E0701 報告が `shown.String()` を message/`data["type"]` に使い、`dflt` を持たない制約付きメタで内部 mint ID が漏れる — E0407/E0409/E0801 と同じリーククラス（fresh `metaNamer` で揃う。wave8 diag-fuzz レビュー F-4、pre-existing）— 対応: 3 報告箇所すべて `types.Display(t, metaNamer())` に統一（fixture [E0701_go_body_open_meta](testdata/spec/E0701_go_body_open_meta.gom) で `?1` を pin）。同クラスの残件は下の E0402/E0403 項目を参照
+
+- [x] **[bug?] `reclassifyCalls` の `ArgToParam` nil 化で eval と compiled が乖離しうる（未確認）**: 結論は「乖離しない」と確認 — ただし機序は当初の記録と異なる。`ArgToParam` 非 nil は**到達可能**（`fn take () -> (Int -> ~a: Int -> ~b: Int -> Int) = f` のような非呼出使用が pre-registered meta を束縛した後の前方呼出で `ArgToParam=[0,2,1]` が乗る）で、ガードは `CallInfo.Validate` の panic を防ぐ**稼働中の防御**。乖離がないのは eval が再分類後の同一 `CallInfo` を読む（`eval.go:1088`）ことと、nil 化後の位置適用が declared-fn の `overDeclared` 規約と同じだから（[sketch](docs/sketch/2026-11-05-reclassify-arg-to-param-guard.md)、wave9 small-bugs。TODO 自体はクローズ）
+
+- [x] **[task] Gist CLIのGo境界**: byte I/Oと`Go.Slice String`→`List String`を実装して残りのexample-local adapterを縮小する。最小再現と必要操作は[Gist prototype](docs/sketch/2026-11-03-gist-cli-prototype.md)、関連: P3-2/P3-3。
+  - 対応（wave14 lane 4）: `byte`/`uint8` → `Byte` 組み込み型を追加（[decision](docs/decisions/2026-11-17-byte-type.md)）— `[]byte` は `List Byte`/`Go.Slice Byte` に読め、`os.ReadFile`/`io.ReadAll`/`json.Marshal`/`utf8.Valid` が公開された。`Go.Slice String`→`List String` は `Go.Slice.to_list`（P3-3 既存）で済んだ。host adapter は `NewClient` のみ（`StringField` は除去済み — main.gom が空文字フォールバックを自前で書く）。wave17 再検証: 残る撤去条件は `http.Client{...}` の composite literal 構築だが、Go struct 構築は [decision](docs/decisions/2026-11-17-struct-construction.md) で提供しない方針のため現行では撤去不可 — host.go の縮小はここで終端。
+
+- [x] **[bug] `(error, error)` 系の結果で先頭の nil-able `error` が `Ok` ペイロードに検査なしで入る**: `func F() (error, error)` → `Result GoError GoError` の派生写像で、`resultFromGo` は Ok 側に nil 検査を置かないため第 1 結果が nil error のとき nil `GoError` が `Ok` に紛れ込み `e.Error()` が Go 側で nil-interface panic する。lone `error` の宣言ビュー（`Option GoError` 相当を Ok 側に与える）で閉じられる同族の穴（pre-existing、wave8 error-boundary レビュー F-4。[台帳](docs/implementation-gaps.md)）— 解消: 派生ビューは `Result (Option GoError) GoError`、宣言の `Result GoError GoError` は `NilGuard` で境界検査、nil 許容な第 1 結果への `Result (Option T) GoError` 宣言を許容（[decision](docs/decisions/2026-11-05-error-pair-ok-payload.md)、[検証](docs/sketch/2026-11-05-error-pair-ok-payload-verification.md)）
+
+- [x] **[bug] `Go.conv` のリテラル被演算子が named Go 型の変換先で範囲判定を skip する**: 対応: `check.UnderlyingSource` プロトコル + `goimport.Loader.GoUnderlyingKind`（underlying BasicKind の oracle）を追加し `litRange` が named 型の幅・符号で判定 — unsigned `[0,2^bits)`、float32、`LitChar` 監視を含む。非 Basic underlying は従来どおりリテラル自身の型で判定（[sketch](docs/sketch/2026-11-05-goconv-named-target-lit-range.md)、fixture [E0417_go_conv_named_target](testdata/spec/E0417_go_conv_named_target.gom)・[ok_go_conv_named_boundaries](testdata/spec/ok_go_conv_named_boundaries.gom)）
+
+- [x] **[task] E0402/E0403（および E0410/E0411 の可能性）も同クラスの `?n` 漏れを持つ**: 4 件とも再現・修正 — E0403 の 3 arm、E0402 は `midBlockUnitDiag` を pre-rendered 文字列受け取りに変更、E0410/E0411 も**到達可能**（E0410 は `b.ret` が `List ?p` に束縛され `try` で `Result ?a ?e` に解決、E0411 は `errT` が具象型内に未解決メタを抱える）。全サイト fresh `metaNamer` + `types.Display`。fixture `E0402_midblock_open_meta`/`E0403_if_no_else_open_meta`/`E0410_try_lambda_boundary_meta`/`E0411_try_err_open_meta`（wave10 hygiene。同族残件は下の E0502/E0401/E0507 監査項目を参照）
+
+- [x] **[bug] 返り値関数のパラメータを指す labeled 引数が無診断で位置適用に潰れる**: 意味拡張案を採用 — `f ~b: "x"` は η 展開 `fn a -> f a ~b: "x"`（カリー鎖をまたいだ reorder-fill）。`ArgToParam` は flat ドメインマッピングになり、`classMappedCall`（`ClassMappedCall` に export）が充填位置の宣言レベル prefix で `CallDirect`/`CallPartial` を分類、`appendArg` の stale 昇格も同規則に統一（レビューで発見した `x |> g ~c:7` の eval/compiled 乖離を修正。latent な nil-mapping バグも解消）。eval/compiled は `deep_label_pipe` を含む比較テストで一致確認（wave10 call-honesty、[decision](docs/decisions/2026-11-06-label-args-into-returned-functions.md)、[検証](docs/sketch/2026-11-06-label-args-into-returned-functions.md)）
+
+- [x] **[task] `(NamedIface, error)` / `(any, error)` の第 1 結果は nil-able だが `Result (Option T) GoError` を導出・宣言ともにできない**: メソッド持ち interface を nil-able クラスとして採用 — `(I,error)` は派生 `Result (Option T) GoError`、`CallGo`/`GoSig` の `ResNilable` で伝搬、`payloadNilGuard` 一般化（verbatim ペイロードなら境界 `nil` 検査、panic 文は `never-nil payload`）。`nilablePresence` は `*T`＋全 interface の宣言を許容。`any` は methodIface でないため verbatim（`Ok None` 既定にならない — 意図どおり）。`(any, error)` の宣言ビューは `Go.Any` が綴れないため named-iface alias で代替（wave10 call-honesty、[decision](docs/decisions/2026-11-06-nilable-iface-pair-ok-payload.md)、[検証](docs/sketch/2026-11-06-nilable-iface-pair-ok-payload.md)）
+
+- [x] **[task] `payloadNilGuard`/`ConvOptNil` の lower ユニットテスト追加**: `internal/lower/nilguard_test.go` — 5 境界サイト（`wrapGoResult` の `ResultFromGo`、`tryExpr`/`pipeInflowAtom`/`escapeStepPayload`/`pipeRest` の fused `EscapeCall`）× 3 ビュー（strict `Result GoError GoError`→NilGuard、derived Option→guard 無し+ConvOptNil、`(int,error)`→guard 無し+ConvNum）のテーブル駆動 pin（wave10 hygiene）
+
+- [x] **[task] `expr.go` に残る raw `.String()` 描画の `?n` リーク監査**: E0402/3/10/11 を直したが同クラスの残件あり — E0502 `data["type"]`（expr.go ~363、`recv.Type()` raw）、E0401 `data["type"]`（~728）、E0507 `data["from"/"to"]`（~773。`convOK` はトップレベル meta のみ defer するため `Go.conv ([todo ()]) : Go.Slice Int` で `List ?17` が出うる）。E0417 の `judgeT`（~1067/1081/1114）は常に具象で安全。到達可能性の確認を含む sweep が要る（wave10 hygiene worker + レビュー両者が独立に指摘。[台帳](docs/implementation-gaps.md)）— 対応: E0401 ascription・E0507 を実測再現し fresh `metaNamer()` + `types.Display` 化（fixture `E0401_ascribe_meta_id`/`E0507_go_conv_meta_render`）。E0502 は値レシーバ `.M` が pendingSel に遅延するため surface から到達不能と機序確認のうえ同修正を適用・記録。E0417 `judgeT` は具象再確認で未変更（wave11 check-residuals、[検証](docs/sketch/2026-11-06-check-residuals-verification.md)）
+
+- [x] **[task] lower `unknownCall` の empty-args 非 `-> T` フォールバックが silent drop**: `len(args)==0` かつ callee が `-> T` でない場合、`callFuncChunks(fn, nil)` の bare `fn` 返却をやめ `l.err` で報告して recoverable unit IR を返す防御を追加（到達不能ケースを将来の checker バグが無音化しない）。`let m = x.Error; m ()` の deferred `alwaysGom` replay は `TestDeferredAlwaysGomUnitMarker`（`internal/check/check_deferred_test.go`）で pin — pendingSel 上の Var は CallUnknown Applied:0 の call marker に落ちる（commit `f48edb8`、wave-12 item d）
+
+- [x] **[task] spec §8.1 の `-> T`/`f ()` marker に `Unit -> T` の対比を追記**: 同一 surface の `f ()` が `Unit -> T`（Gom 関数、真の Unit 引数 → `f(struct{}{})`）と `-> T`（Go 関数値の call marker → `f()`）で異なる意味を持つ対比を §8.1 項目 1 に明記（commit `f51b318`、wave-12 item e）
+
+- [x] **[task] spec スイート root 直下の裸 `.gomi` が無言で無視される**: 裸 side file と同じ「silent drop」クラス — `.gomi` は case marker でも orphan でもなく load error にもならない。影響は小さい（wave10 hygiene レビュー指摘、nit）— 対応: `discoverCases` が root 直下の `.gomi` を `loadErr` 付き case に合成（marker なしサブディレクトリ内は従来どおり無視、境界は `TestDiscoverRootGomi` + `rootgomi/helpers/` fixture で pin。wave11 wording-hygiene、[decision](docs/decisions/2026-11-06-spec-suite-root-bare-gomi.md)、[検証](docs/sketch/2026-11-06-spec-suite-root-bare-gomi-verification.md)）
+
+- [x] **[task] codegen: 束縛名の import 別名を無条件に出す（または実 `package` 句名を codegen へ供給）**: 「常に `name "path"` を出す」案を採用 — `render` が束縛名を明示別名として全 import に emit するため、`lib/` が `package other` でも `import go "math/rand/v2"` が `rand` 句でも `lib.X`/`v2.X` が正しく解決される。package-name oracle を resolve→codegen に通す案は `.gomi` 句が `.gom` 句と食い違い得るため採らず（commit `ae5f2cf`、wave-12 item a、[decision](docs/decisions/2026-11-06-generated-import-bound-name-alias.md)、[gaps](docs/implementation-gaps.md)）
+
+- [x] **[task] interface-only import cycle の診断コード方針**: E0606 に揃える方針を採用 — `.gomi` 同士だけの循環は loader の in-flight guard が load stack から真の連鎖を復元して `resolve.ImportCycleError` を返し、`load` が内側の E0606 を typed error で伝搬するため entry の import 位置に経路付き E0606 が出る。impl scan は `*.gom` edge のみのまま（`.gomi` edge は生成 Go import にならず、含めると一方向 back-edge を誤報する）(wave11 wording-hygiene レビュー F-2、[decision](docs/decisions/2026-11-06-iface-import-cycle-e0606.md)、[検証](docs/sketch/2026-11-06-iface-import-cycle-e0606-verification.md)、[gaps](docs/implementation-gaps.md))
+
+- [x] **[task] gomtest の `t.Fatalf` 経路を検査するテスト基盤がない**: stray/duplicate golden・1 出力制約など `t.Fatalf` で報告する case failure は、failure-injection パターンが無く未テスト（wave10 gomtest-followup 修正ラウンドの残件 — subprocess ハーネス等の整備が前提）— 対応: helper-process 方式を採用（`os.Args[0]` を `-test.run` で再実行、`GOMTEST_GOLDEN_HELPER` で scenario 選択）。`TestGoldenFatalPaths` が stray dir golden・stale flat `x_test`/`x` golden・duplicate mapping・flat 出力数・manifest 無し `_test.go` の 6 scenario を exit 1+メッセージで pin（squash `8a0e136`、wave-13 tooling-hygiene item d、[検証](docs/sketch/2026-11-08-gomtest-fatal-path-tests.md)）
+
+- [x] **[bug] `Go.conv` の `List` → named Go slice が check を通るが生成 Go が `go build` で落ちる**: `Go.conv xs : sort.IntSlice`（`xs : List Int`）が `sort.IntSlice(list.List[int64])` を emit — check の変換許可判定が List の Go 表現を `[]T` 扱いしている疑い。拒否に倒すか `list.FromSlice` 系の変換を出すか（[gaps](docs/implementation-gaps.md) 登録済み、sandbox 探索 — [sketch](docs/sketch/2026-11-23-sandbox-missing-features.md)）。`~` 制約一致機構（wave38 lane D）に乗せて修正 — wave38 lane E（受理ペアは `B(xs.ToSlice())`/`list.FromSlice([]T(b))` の合成 emit、要素不一致は E0507 — `ok_go_conv_named_slice`/`E0507_go_conv_slice_elem_mismatch`）
+
+- [x] **[bug] `gom run` がシグナルを子プロセスにフォワードしない**: `runGomRun` が `cmd.Run()` を `Start`+`Wait` に分解し、`signal.Notify` で SIGINT/SIGTERM/SIGHUP/SIGQUIT を捕捉して relay goroutine が `cmd.Process.Signal` で子へ転送 — 親の既定動作も抑制されるため `wait` 後に子の signal 死を `128+signal` で報告（wave37 lane A。SIGTERM→子死亡・gom exit 143 を実測。非対話シェルの `&` ジョブでは SIGINT が `SIG_IGN` 継承のため検証は SIGTERM で実施）
+
+- [x] **[bug] `rt.MakeChan[os.Signal](1)` が `go vet` の "misuse of unbuffered os.Signal channel" を踏む**: `Chan.make` の CallGo を codegen で `make(chan T, n)` の直接 emit に変更（`makeChanCall` が `rt.MakeChan` を識別、`callGo` が builtin make を生成）。`make` は式文にならないため `emitsConversion` に同形を追加して discard 位置は `_ = make(...)`。vet が buffered `make` を透視するようになり FP 解消（wave37 lane A、golden `chan_ops`/`chan_go_boundary`/`go_spawn` 更新、FuzzCompile seed#225 の `make` not-used 併発修正）
+
+- [x] **[task] `Go.try_as` の実装（wave39 lane A 採択済み）**: 対応: wave39 lane A — `Go.try_as x : Option T`（E0514、`option.FromGo` emit、eval は内部断言）。レビューで reshape の `VVariant` が `Ctor` を落として rebox 後の抽出を壊すバグを修正: `Go.Any` からの取り出し面 — comma-ok `v, ok := x.(T)` を `Option T` に写る `Go.try_as x : Option T` を唯一の面とする（[decision](docs/decisions/2026-11-24-go-any-extraction.md) 採択）。check で `x : Go.Any` + 目標 `T` の検査（`x.(T)` 合法な具象型式のみ — `Go.Any`/type param は設計上拒否）、emit は `option.FromGo` 経由の block emit、eval 側は内部断言、spec §8.3 追記 + fixture
+
+- [x] **[bug] `gom run` / `gom build` が gom の `import` 先を推移的に build しない**: `gom run sandbox/shop` は `domain.gom` を emit しないため `go build` が `no required module provides package .../domain` で落ちる（E0001）。`gom check` は `.gomi` を読むだけで通るのにリンクで初めて失敗する。`gom build dirA dirB` と全依存を層順に列挙すれば emit されるが、`gom run` は単一 `package main` ディレクトリ限定（spec §12）なので、依存を持つプログラムは「依存を `gom build` → `gom run`」の2段が要る（sandbox 探索 run 2 — [recheck](docs/sketch/ja/2026-11-24-sandbox-explorer2-recheck.md)、[棚卸し](docs/sketch/2026-11-24-sandbox-missing-features-run2.md)）。解消（wave48 lane C）: 同一 main module 内の `.gom` source dependency を依存順に自動 emit する（[decision](docs/decisions/2026-11-26-module-local-transitive-emit.md)、[検証](docs/sketch/2026-11-26-wave48-lane-c-transitive-emit-verify.md)）
+
+- [x] **SC scoped cleanup（Go の `defer` が解く問題）**: 組み込み `Scope` モジュールでスコープを値として開き、cleanup を `if`・`match` の腕・その場で呼ばれるラムダから登録する（[decision](docs/decisions/2026-11-21-scoped-cleanup.md)、[sketch](docs/sketch/2026-11-21-defer-survey.md)、実験 `experiments/defer/`）
