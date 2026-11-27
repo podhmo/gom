@@ -16,6 +16,8 @@ module 外 `gom run` が使う scratch module 側の `downloadToolchain`、寿�
 - `TestDownloadToolchainStandaloneReleaseModuleWritesSum`: file-based module proxy の release module `v0.0.1` を使い、既存 `go.sum` がある場合・ない場合の両方で init 先の `go.sum` に checksum が残ることを固定した
 - `TestDownloadToolchainStandaloneRejectsMissingLocalReplace`: local `replace` 先がないとき `go mod download` だけでは検出できない失敗を toolchain package resolution が actionable error にすることを固定した
 - `TestInitReleaseProjectBuildsOutsideWorkspaceReadonly`: parent workspace 内で release module を要求する project を init し、workspace 外で `GOFLAGS=-mod=readonly` の `gom run` が成功することを固定した
+- `TestDownloadToolchainStandaloneDoesNotUpgradePinnedRelease`: pinned release に `stdlib/result` がなく newer release にあるとき、validation failure が `go.mod` を upgrade しないことを固定した
+- `TestInitExistingOlderGoModuleRollsBackDependency`: `go 1.26` project で validation が失敗したとき、追加した dependency・`main.gom`・`go.sum` を残さないことを固定した
 - 既存 `go.mod` への additive edit は `TestInitExistingGoModuleAddsToolchain`、replace-only の保持は `TestInitExistingGoModuleWithReplaceOnly`、init template の実行は `TestInitTemplateRuns` が従来どおり固定する
 
 ## 検証コマンド

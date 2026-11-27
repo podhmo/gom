@@ -88,11 +88,19 @@ func runInitWithRequirement(args []string, stdout, stderr io.Writer, requirement
 		}
 		fmt.Fprintf(stdout, "created %s\n", gomodPath)
 	} else {
+		backups, err := backupInitFiles(gomodPath, filepath.Join(*dir, "go.sum"))
+		if err != nil {
+			fmt.Fprintf(stderr, "gom init: %v\n", err)
+			return 2
+		}
+		rollback := func() { restoreInitFiles(backups) }
 		if err := ensureGomDependencyWithRequirement(*dir, gomodPath, requirement); err != nil {
+			rollback()
 			fmt.Fprintf(stderr, "gom init: %v\n", err)
 			return 2
 		}
 		if err := downloadToolchainStandalone(*dir); err != nil {
+			rollback()
 			fmt.Fprintf(stderr, "gom init: %v\n", err)
 			return 2
 		}
@@ -196,6 +204,39 @@ func ensureGomDependencyWithRequirement(dir, gomodPath string, requirement func(
 		fmt.Fprintf(&out, "\nreplace %s\n", rep)
 	}
 	return os.WriteFile(gomodPath, []byte(out.String()), 0o644)
+}
+
+type initFileBackup struct {
+	path    string
+	body    []byte
+	existed bool
+}
+
+func backupInitFiles(paths ...string) ([]initFileBackup, error) {
+	backups := make([]initFileBackup, 0, len(paths))
+	for _, path := range paths {
+		body, err := os.ReadFile(path)
+		if err != nil {
+			if os.IsNotExist(err) {
+				backups = append(backups, initFileBackup{path: path})
+				continue
+			}
+			return nil, err
+		}
+		backups = append(backups, initFileBackup{path: path, body: body, existed: true})
+	}
+	return backups, nil
+}
+
+func restoreInitFiles(backups []initFileBackup) {
+	for i := len(backups) - 1; i >= 0; i-- {
+		b := backups[i]
+		if b.existed {
+			_ = os.WriteFile(b.path, b.body, 0o644)
+		} else {
+			_ = os.Remove(b.path)
+		}
+	}
 }
 
 func fileExists(path string) bool {

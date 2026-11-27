@@ -253,6 +253,9 @@ func TestDownloadToolchainStandaloneDoesNotUpgradePinnedRelease(t *testing.T) {
 	if err == nil {
 		t.Fatal("standalone resolution accepted a pinned release without stdlib/result")
 	}
+	if !strings.Contains(err.Error(), "stdlib/result") {
+		t.Fatalf("failure did not come from the missing stdlib/result package: %v", err)
+	}
 	after, readErr := os.ReadFile(gomodPath)
 	if readErr != nil {
 		t.Fatal(readErr)
@@ -270,6 +273,34 @@ func writeProxyZipEntry(t *testing.T, zw *zip.Writer, name string, body []byte) 
 	}
 	if _, err := entry.Write(body); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestInitExistingOlderGoModuleRollsBackDependency(t *testing.T) {
+	haveGo(t)
+	dir := t.TempDir()
+	original := []byte("module existing.example/project\n\ngo 1.26\n")
+	gomodPath := filepath.Join(dir, "go.mod")
+	if err := os.WriteFile(gomodPath, original, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GOWORK", "off")
+
+	code, _, errout := invoke("init", "-dir", dir)
+	if code != 2 {
+		t.Fatalf("exit = %d, want 2; stderr=%q", code, errout)
+	}
+	after, err := os.ReadFile(gomodPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(after) != string(original) {
+		t.Fatalf("failed init left go.mod modified:\nbefore:\n%s\nafter:\n%s", original, after)
+	}
+	for _, name := range []string{"main.gom", "go.sum"} {
+		if _, err := os.Stat(filepath.Join(dir, name)); !os.IsNotExist(err) {
+			t.Fatalf("%s exists after rolled-back init: %v", name, err)
+		}
 	}
 }
 

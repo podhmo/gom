@@ -10,7 +10,7 @@
 
 - init 先の `go.mod` が release module を `require` する場合は、その module だけで `go.sum` の checksum を解決できる必要がある
 - init 先の `go.mod` 自身が開発用 `replace` を持つ場合は、その replace によって standalone に解決できる。replace 先には generated code が import する toolchain package が必要である。checksum がなくてもよいのはこのように module 自身が解決手段を持つ場合だけである
-- standalone に解決できない場合は init を成功扱いにせず、release version を使うか project の `go.mod` に explicit な `replace` を書くよう促すエラーにする
+- standalone に解決できない場合は init を成功扱いにせず、release version を使うか project の `go.mod` に explicit な `replace` を書くよう促すエラーにする。既存 `go.mod` への additive edit や init が書いた `go.sum` は rollback し、失敗した init が依存だけを残さないようにする
 - module 外 `gom run` の scratch module とは契約を分ける。scratch の寿命・cache・workspace 無効化の決定は変えない
 
 ## 背景
