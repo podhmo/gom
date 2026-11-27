@@ -182,6 +182,10 @@ type checker struct {
 	// may still cross the List/Go.Slice boundary after the callee's
 	// residual type is known.
 	pipeApplyExpectation types.Type
+	// pipeApplyBoundary marks pipeApplyExpectation as a pipe-result hint,
+	// so speculative propagation may try the producer-side List shape for
+	// a Go.Slice expectation. Ordinary applications do not get that retry.
+	pipeApplyBoundary bool
 
 	// noLabelIntro disables unifyFunc's unlabeled→labeled
 	// introduction while set — the synthesized `argT -> res` unify

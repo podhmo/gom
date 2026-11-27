@@ -2124,10 +2124,16 @@ func (c *checker) checkPipeCallee(callee, arg syntax.Expr, want types.Type, sp d
 		input := c.newMeta(sp, "the piped argument's type")
 		return c.checkExpr(callee, types.Fn(want, types.P(input)))
 	}
-	saved := c.pipeApplyExpectation
+	if _, ok := callee.(*syntax.Apply); !ok {
+		return c.checkExpr(callee, nil)
+	}
+	savedWant := c.pipeApplyExpectation
+	savedBoundary := c.pipeApplyBoundary
 	c.pipeApplyExpectation = types.Fn(want, types.P(c.untypedMeta()))
+	c.pipeApplyBoundary = true
 	out := c.checkExpr(callee, nil)
-	c.pipeApplyExpectation = saved
+	c.pipeApplyExpectation = savedWant
+	c.pipeApplyBoundary = savedBoundary
 	return out
 }
 
@@ -2140,7 +2146,7 @@ func (c *checker) pipeArgExpectation(fn Expr, arg syntax.Expr, want types.Type, 
 	if want != nil && anonRecordLitInResultPosition(arg) {
 		params, _ := flattenFunc(fn.Type())
 		if len(params) > 0 {
-			expectations := c.applyParamExpectations(fn.Type(), params, []syntax.Arg{{Value: arg}}, want, sp)
+			expectations := c.applyParamExpectationsImpl(fn.Type(), params, []syntax.Arg{{Value: arg}}, want, sp, true)
 			if got, ok := expectations.at(0, params[0].Type); ok {
 				return got
 			}

@@ -7,8 +7,8 @@
 
 generic higher-order callback の本体結果位置にある無名 record literal も、[record literal の文脈推論](2026-11-27-record-contextual-inference.md) の activation 対象に含める。pipe / generic application の結果に静的な期待型があり、供給スロットが静的に決まるとき、従来どおり結果型と残余型を speculative に単一化し、callback の戻り値側へ分かった record 型を前向きに伝える。
 
-- 対象は callback 本体の結果位置にある literal に限る。block の最終式、if/match の分岐結果、ascription の内側は結果位置として辿る
-- let 内の中間 literal、呼出し引数、field 値など、callback の結果型をそのまま持たない位置からは activation しない
+- 対象は callback 本体の結果位置にある literal に限る。block の最終式、if/match の分岐結果、tuple の要素、ascription の内側は結果位置として辿る
+- let 内の中間 literal、呼出し引数、field 値など、callback の結果型をそのまま持たない位置からは activation しない。tuple の要素は結果値の構成要素として辿るが、record field 値は対象外のままにする
 - 後続使用から逆方向に型を決めない。`let seed = { ... }` の seed を後の `List.fold` 利用から推論するような経路は入れない
 - speculative propagation の clone/rollback、型名前置 literal 優先、positional/labeled lambda の既存規則、monomorphic local inference は変えない
 - pipe の静的な期待型が `Go.Slice` のとき、最後に implicit boundary conversion を取る `List` producer の形でも speculative propagation を試す。逆に hard expectation へすると部分適用の残余型を境界変換より前に誤って拒否するため、pipe callee へは soft hint として渡す

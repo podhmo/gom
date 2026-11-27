@@ -31,7 +31,9 @@ import (
 // reports E0507.
 func (c *checker) checkApply(e *syntax.Apply, want types.Type) Expr {
 	recordWant := c.pipeApplyExpectation
+	recordBoundary := c.pipeApplyBoundary
 	c.pipeApplyExpectation = nil
+	c.pipeApplyBoundary = false
 	if recordWant == nil {
 		recordWant = want
 	}
@@ -212,7 +214,7 @@ func (c *checker) checkApply(e *syntax.Apply, want types.Type) Expr {
 		}
 	}
 	if pinOK {
-		pin(want, appRet, false)
+		pin(recordWant, appRet, false)
 	}
 	if goCall {
 		sig, _ := c.sigOf(callee, e.Sp)
@@ -225,7 +227,7 @@ func (c *checker) checkApply(e *syntax.Apply, want types.Type) Expr {
 			arity = c.declArity(sig, arity)
 		}
 	}
-	return c.checkGomApply(e, fn, callee, params, ret, arity, want, recordWant)
+	return c.checkGomApply(e, fn, callee, params, ret, arity, want, recordWant, recordBoundary)
 }
 
 // declArity returns the callee's own declared parameter count — what
@@ -355,9 +357,16 @@ func anonRecordLitInResultPosition(e syntax.Expr) bool {
 			}
 		}
 		return false
+	case *syntax.TupleLit:
+		for _, elem := range e.Elems {
+			if anonRecordLitInResultPosition(elem) {
+				return true
+			}
+		}
+		return false
 	case *syntax.Apply, *syntax.Assign, *syntax.Binary, *syntax.For, *syntax.GoExpr, *syntax.Hole,
 		*syntax.Ident, *syntax.Ignore, *syntax.Let, *syntax.ListLit, *syntax.Lit, *syntax.Select,
-		*syntax.SelectExpr, *syntax.Spread, *syntax.StrInterp, *syntax.Try, *syntax.TupleLit, *syntax.Unary:
+		*syntax.SelectExpr, *syntax.Spread, *syntax.StrInterp, *syntax.Try, *syntax.Unary:
 		return false
 	default:
 		panic("unreachable")
@@ -409,6 +418,10 @@ func (c *checker) boundaryProducerWants(want types.Type) []types.Type {
 }
 
 func (c *checker) applyParamExpectations(fnT types.Type, params []types.FuncParam, args []syntax.Arg, want types.Type, sp diag.Span) *applyParamExpectations {
+	return c.applyParamExpectationsImpl(fnT, params, args, want, sp, false)
+}
+
+func (c *checker) applyParamExpectationsImpl(fnT types.Type, params []types.FuncParam, args []syntax.Arg, want types.Type, sp diag.Span, allowBoundary bool) *applyParamExpectations {
 	if want == nil || len(args) > len(params) {
 		return nil
 	}
@@ -447,7 +460,7 @@ func (c *checker) applyParamExpectations(fnT types.Type, params []types.FuncPara
 		return clones, cps, true
 	}
 	clones, cps, ok := try(want)
-	if !ok {
+	if !ok && allowBoundary {
 		for _, alt := range c.boundaryProducerWants(want) {
 			if clones, cps, ok = try(alt); ok {
 				break
@@ -954,7 +967,7 @@ func (c *checker) calleeOf(e syntax.Expr) (Expr, *resolve.Symbol, bool) {
 // — then classifies the call: a prefix fill covering the declared
 // arity is CallDirect, a call leaving an earlier flat slot open is
 // CallPartial.
-func (c *checker) checkGomApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol, params []types.FuncParam, ret types.Type, declArity int, want types.Type, recordWant types.Type) Expr {
+func (c *checker) checkGomApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol, params []types.FuncParam, ret types.Type, declArity int, want types.Type, recordWant types.Type, recordBoundary bool) Expr {
 	flat := len(params)
 	if declArity > flat {
 		declArity = flat
@@ -967,7 +980,7 @@ func (c *checker) checkGomApply(e *syntax.Apply, fn Expr, callee *resolve.Symbol
 	unmapped := false  // an argument no flat parameter position answers
 
 	out := &Apply{Base: baseOf(e.Sp, nil), Fn: fn}
-	expectations := c.applyParamExpectations(fn.Type(), params, e.Args, recordWant, e.Sp)
+	expectations := c.applyParamExpectationsImpl(fn.Type(), params, e.Args, recordWant, e.Sp, recordBoundary)
 
 	// `g args` where `g`'s type waits on a deferred member —
 	// a variable aliasing the member's standing meta
