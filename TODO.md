@@ -22,6 +22,7 @@
 
 ## To Be Implemented
 
+- [ ] **[task E0201-1] module member typo の候補表示を実装する**（依存: なし）: E0201 `namespace: "member"` で、member table 内の optimal string alignment 距離 1 の候補を最大 3 件 note と `data.candidates` に出す。`Go.Map` / `Go.Slice` の operation table も対象にし、fixes は付けない（[decision](docs/decisions/2026-11-28-e0201-member-typo-candidates.md)）
 - [ ] **[task E0407-1] ambiguous record literal の候補表示を実装する**（依存: なし）: E0407 に候補 record declaration label（5 件まで）と deterministic な `data.candidates` を付ける。local cross-file/import `.gomi`/truncate の fixture を含める（[decision](docs/decisions/2026-11-28-record-ambiguity-candidates.md)）
 - [x] **[task DIAG-2] E0401 provenance を if/match 腕へ伝播する**（依存: なし、**wave55 lane C として採択**）: 注釈からそのまま同じ expected type が供給される if/match 腕について、最終 conformance mismatch に `expected type declared here` label を付ける。nested if/match でも同じ経路では伝える。腕内の独立 mismatch へ漏らさない negative fixture、text/JSON output、spec/decision 更新を含める（[decision](docs/decisions/2026-11-27-diagnostic-ux-next-step.md)）
 - [x] **[task CONT-1] 継続行疑いの E0402 note を実装する**（依存: なし、**wave55 lane B として採択**）: 関数型の mid-block statement で、同一 block の次 statement が後続行かつ深い字下げのときだけ E0402 へ pipe/parens note を付ける。深ければ字下げ幅は問わず、間の空行・コメントは無視する。診断 suppression、NL-2 変更、自動 rewrite は入れない（[decision](docs/decisions/2026-11-27-continuation-line-diagnostics.md)、[wave55 prompts](docs/sketch/2026-11-27-wave55-prompts.md)）
