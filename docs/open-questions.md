@@ -35,7 +35,7 @@
 - [ ] E0401 の expected type provenance をどこまで伝播するか: wave50 lane C は let/return 注釈の副 span まで。if/match 腕、呼出し引数、record field などへ同じ provenance を広げる境界が未決。wave51 では独立 lane にしない（2026-11-27、[wave51 prompts](sketch/2026-11-27-wave51-prompts.md)、[lane C 検証](sketch/2026-11-27-wave50-lane-c-diagnostic-wire-verify.md)）
 - [ ] diagnostic `details` へ昇格する構造データの基準を決めるか: wire は汎用化したが、どの data を人間向け text の detail block へ出すかは診断ごとの判断のまま。原文のまま出す基準・整形責任・過剰出力の抑止を決める。wave51 では独立 lane にしない（2026-11-27、[wave51 prompts](sketch/2026-11-27-wave51-prompts.md)、[lane C 検証](sketch/2026-11-27-wave50-lane-c-diagnostic-wire-verify.md)）
 - [ ] 近接した同一ファイルの span を 1 つの text snippet にまとめるか: labels/details で副 span が増えると同じソース断片が繰り返し出る可能性がある。snippet layout を統合するか現状の独立表示を維持するか。wave51 では独立 lane にしない（2026-11-27、[wave51 prompts](sketch/2026-11-27-wave51-prompts.md)、[lane C 検証](sketch/2026-11-27-wave50-lane-c-diagnostic-wire-verify.md)）
-- [x] 診断 coverage meta-test は positive/negative assertion を区別するか: **wave52 lane C として採択**（2026-11-27、[prompts](sketch/2026-11-27-wave52-prompts.md)）。例外表が指名した test には承認済み positive assertion 形を要求する。実作業は `[task DCOV-1]`（[検証](sketch/2026-11-27-wave51-lane-c-diag-coverage-verify.md)）
+- [x] 診断 coverage meta-test は positive/negative assertion を区別するか: **wave52 lane C として採択**（2026-11-27、[prompts](sketch/2026-11-27-wave52-prompts.md)）。例外表が指名した test には承認済み positive assertion 形を要求する。wave52 lane C で実装済み（[decision](decisions/2026-11-27-diagnostic-coverage-positive-assertions.md)、[検証](sketch/2026-11-27-wave52-lane-c-positive-assertions-verify.md)）
 
 ### Go 相互運用
 

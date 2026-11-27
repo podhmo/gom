@@ -31,8 +31,8 @@ type coverageException struct {
 	why  string
 	// tests names the Go test functions the classification identifies
 	// as positive unit or recovery coverage. The meta-test verifies
-	// that the diagnostic literal occurs inside each named test body;
-	// it does not prove the assertion's polarity by itself.
+	// that each named test passes the diagnostic literal to an approved
+	// positive assertion helper.
 	tests []string
 }
 
@@ -175,11 +175,72 @@ func scanSpecCodes(t *testing.T, dir string) map[diag.Code]bool {
 	return codes
 }
 
+func TestScanGoTestCodeEvidenceRequiresPositiveAssertion(t *testing.T) {
+	dir := t.TempDir()
+	src := `package sample
+
+import "testing"
+
+func TestPositive(t *testing.T) {
+	requireCodes(t, diags, "E9999", "E9998")
+}
+
+func TestNestedPositive(t *testing.T) {
+	t.Run("case", func(t *testing.T) {
+		requireCodes(t, diags, "E9997")
+	})
+}
+
+func TestNegativeComparison(t *testing.T) {
+	if got != "E9996" {
+		t.Fatalf("unexpected E9996")
+	}
+}
+
+func TestNegativeHelper(t *testing.T) {
+	forbidCodes(t, diags, "E9995")
+}
+
+func TestUnrelatedLiteral(t *testing.T) {
+	_ = "E9994"
+}
+
+func TestCommentLiteral(t *testing.T) {
+	// requireCodes(t, diags, "E9993")
+}
+`
+	if err := os.WriteFile(filepath.Join(dir, "evidence_test.go"), []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	evidence := scanGoTestCodeEvidence(t, dir)
+	assertEvidence := func(code diag.Code, testName string, want bool) {
+		t.Helper()
+		if got := evidence[code][testName]; got != want {
+			t.Errorf("%s in %s: evidence = %v, want %v", code, testName, got, want)
+		}
+	}
+	assertEvidence("E9999", "TestPositive", true)
+	assertEvidence("E9998", "TestPositive", true)
+	assertEvidence("E9997", "TestNestedPositive", true)
+	assertEvidence("E9996", "TestNegativeComparison", false)
+	assertEvidence("E9995", "TestNegativeHelper", false)
+	assertEvidence("E9994", "TestUnrelatedLiteral", false)
+	assertEvidence("E9993", "TestCommentLiteral", false)
+}
+
+// positiveDiagnosticAssertionHelpers is the closed vocabulary of test
+// helpers accepted as positive diagnostic evidence. The helpers are
+// package-local test utilities, so the scanner keys on the direct call
+// name rather than a package path.
+var positiveDiagnosticAssertionHelpers = map[string]bool{
+	"requireCodes": true,
+}
+
 // scanGoTestCodeEvidence maps diagnostic-code literals to the top-level
-// Go test functions whose bodies contain them. Unlike a package-wide
-// literal scan, this lets the classification name the intended evidence
-// test; the exception table remains responsible for choosing a test
-// whose assertion is positive.
+// Go test functions whose bodies pass them to an approved positive
+// assertion helper. A literal in a comparison, comment, unrelated
+// assignment, or unapproved helper does not count: positive coverage
+// must use the same direct assertion shape the exception table names.
 func scanGoTestCodeEvidence(t *testing.T, dir string) map[diag.Code]map[string]bool {
 	t.Helper()
 	out := map[diag.Code]map[string]bool{}
@@ -204,19 +265,29 @@ func scanGoTestCodeEvidence(t *testing.T, dir string) map[diag.Code]map[string]b
 				continue
 			}
 			ast.Inspect(fn.Body, func(n ast.Node) bool {
-				lit, ok := n.(*ast.BasicLit)
-				if !ok || lit.Kind != token.STRING {
+				call, ok := n.(*ast.CallExpr)
+				if !ok {
 					return true
 				}
-				s, err := strconv.Unquote(lit.Value)
-				if err != nil || !diag.WellFormed(diag.Code(s)) {
+				name, ok := call.Fun.(*ast.Ident)
+				if !ok || !positiveDiagnosticAssertionHelpers[name.Name] {
 					return true
 				}
-				code := diag.Code(s)
-				if out[code] == nil {
-					out[code] = map[string]bool{}
+				for _, arg := range call.Args {
+					lit, ok := arg.(*ast.BasicLit)
+					if !ok || lit.Kind != token.STRING {
+						continue
+					}
+					s, err := strconv.Unquote(lit.Value)
+					if err != nil || !diag.WellFormed(diag.Code(s)) {
+						continue
+					}
+					code := diag.Code(s)
+					if out[code] == nil {
+						out[code] = map[string]bool{}
+					}
+					out[code][fn.Name.Name] = true
 				}
-				out[code][fn.Name.Name] = true
 				return true
 			})
 		}
