@@ -135,6 +135,14 @@ podhmo は lane PR 群を先に merge してよい。wave の完了は lane PR
   lane 結果と、実行・review で分かったことを蒸留した pitfalls。
   詳細本文や網羅監査の再録ではない。
 
+  wave53 以降の実例で安定している構成を使う: 先頭の日付・
+  prompts・実行形態・merge/CI 状態、`lane 結果`、`wave の経過`、
+  `発見メモ`、`pitfall 一般化`、`lane PR の残件監査`、
+  `発生タスクと台帳の動き`、`締め sweep`、`次への申し送り`。
+  `wave の経過`は必要に応じて省略してよいが、具体的な発見メモと
+  一般化した pitfall、残件監査、締め sweep は分ける。`pitfalls`
+  を review finding の列挙や lane 本文の再録だけで済ませない。
+
   必須:
 
   - lane 表: lane/PR/結果。review 経過は wave の概観に必要な範囲で
