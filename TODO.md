@@ -23,11 +23,6 @@
 ## To Be Implemented
 
 
-- [x] **[task LS-1] label-erased contextual seeding の実装**（依存: なし）: label を含む文脈関数型について、label を inference contract に入れず parameter 順序と型だけを残した view で positional lambda の record parameter を seed する。labeled callback・positional lambda・同名 field set probe を red-first で固定し、speculative propagation の clone/rollback へ最初から erased view を作る接続も fixture で固定する。最終 conformance の unlabeled→labeled introduction は変えず、spec §3.3 の label 付き文脈型 propagation 禁止もあわせて更新する（[decision](docs/decisions/2026-11-27-labeled-lambda-record-seeding.md)、[調査](docs/sketch/2026-11-27-wave51-lane-e-labeled-records-verify.md)、[検証](docs/sketch/2026-11-27-wave52-lane-a-label-seeding-verify.md)）
-- [x] **[task INIT-1] `gom init` の standalone checksum 必須化**（依存: なし）: init 時の toolchain dependency 解決を `GOWORK=off` 側へ寄せ、init 直後 project が workspace 外で build できることを fixture で固定する。workspace local replace / release module / 既存 `go.sum` / 既存 go.mod additive edit を確認し、standalone 解決できない場合は actionable error にする（[wave52 prompts](docs/sketch/2026-11-27-wave52-prompts.md)、[検証](docs/sketch/2026-11-27-wave52-lane-b-init-checksum-verify.md)）
-- [x] **[task DIAG-1] E0204/E0704/E0503 の診断方向固定**（依存: なし）: E0204 は parser から production diagnostic として出し、E0704 は destructuring receive arm が checker へ到達するよう直し、E0503 は retired にする。spec/error-codes/explain/coverage fixture を同期する（[wave52 prompts](docs/sketch/2026-11-27-wave52-prompts.md)、[検証](docs/sketch/2026-11-27-wave52-lane-e-diagnostics-verify.md)）
-- [x] **[task DCOV-1] 診断 coverage positive assertion scanner**（依存: DIAG-1）: coverage 例外表が指名した test について、diagnostic literal の存在だけでなく承認済み positive assertion 形を要求する。negative assertion・コメント literal・無関係 literal を evidence にできないことを red-first で固定する（[wave52 prompts](docs/sketch/2026-11-27-wave52-prompts.md)、[検証](docs/sketch/2026-11-27-wave52-lane-c-positive-assertions-verify.md)）
-
 ### owner improvement ideas audit 由来（[PR #256](https://github.com/podhmo/gom/pull/256)、[audit](docs/sketch/2026-11-26-wave48-lane-g-owner-ideas-audit.md)）
 
 - [ ] **[task] checker の状態を関心ごとの部分構造体に分ける**: `typeTables`・deferred revisit queue・taint・lint state などを分け、`expr.go` を構文種別ごとに分割する。振る舞いは変えない。現行の非コメント field 数は 49（PR 本文の 70 超は過大）だが、`expr.go` 4,549 行と責務集中は有効な観測
