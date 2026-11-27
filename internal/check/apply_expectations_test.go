@@ -171,3 +171,31 @@ func TestApplyParamExpectationsIgnoresLabeledContext(t *testing.T) {
 		t.Fatalf("labeled context was propagated as %v", got)
 	}
 }
+
+func TestApplyParamExpectationsLabeledRejectionDoesNotMintOpenMetas(t *testing.T) {
+	c := &checker{
+		metas:  map[*types.Meta]*metaRec{},
+		tyCons: map[conKey]*typeInfo{},
+	}
+	sp := diag.SpanIn("test.gom", 1, 2)
+	acc := &types.Con{Name: "Acc"}
+	c.tyCons[conKey{name: "Acc"}] = &typeInfo{kind: kindRecord}
+	original := c.newMeta(sp, "the callback parameter")
+	openReturn := c.newMeta(sp, "the speculative callback return")
+	labeled := types.Fn(openReturn, types.FuncParam{Label: "x", Type: acc})
+	x := &applyParamExpectations{
+		c:           c,
+		params:      []types.Type{labeled},
+		informative: []bool{true},
+		open:        map[*types.Meta]*types.Meta{},
+		sp:          sp,
+	}
+
+	before := len(c.metas)
+	if got, ok := x.at(0, original); ok {
+		t.Fatalf("labeled context was propagated as %v", got)
+	}
+	if len(c.metas) != before {
+		t.Fatalf("rejecting a labeled context left %d unused metas", len(c.metas)-before)
+	}
+}

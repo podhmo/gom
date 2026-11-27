@@ -398,11 +398,11 @@ func (x *applyParamExpectations) at(i int, original types.Type) (types.Type, boo
 	if x == nil || i < 0 || i >= len(x.params) || !x.informative[i] {
 		return nil, false
 	}
-	if !x.c.containsRecordType(x.params[i]) {
+	if !x.c.containsRecordType(x.params[i]) || x.c.containsFuncLabels(x.params[i]) {
 		return nil, false
 	}
 	merged := x.c.mergeContextualType(original, x.params[i], x.open, x.sp)
-	if types.Equal(merged, original) || x.c.containsFuncLabels(merged) {
+	if types.Equal(merged, original) {
 		return nil, false
 	}
 	return merged, true
