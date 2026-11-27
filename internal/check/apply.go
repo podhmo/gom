@@ -214,7 +214,7 @@ func (c *checker) checkApply(e *syntax.Apply, want types.Type) Expr {
 		}
 	}
 	if pinOK {
-		pin(recordWant, appRet, false)
+		pin(want, appRet, false)
 	}
 	if goCall {
 		sig, _ := c.sigOf(callee, e.Sp)
