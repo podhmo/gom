@@ -101,6 +101,23 @@ type Fix struct {
 	Edits         []Edit
 }
 
+// Label is a secondary source location that explains the diagnostic's
+// primary span — for example the type annotation that supplied an
+// expected type. Message is a short single-line human explanation.
+type Label struct {
+	Span    Span
+	Message string
+}
+
+// Detail is one labeled group of human-facing detail lines. It is a
+// rendering-ready view of facts the producing phase already knows
+// (for example E0301's missing patterns); machine consumers should
+// use Data when they need the underlying structured values.
+type Detail struct {
+	Label string
+	Lines []string
+}
+
 // Diagnostic is the internal representation of one compiler message —
 // the source of truth from which the JSON Lines, text and LSP
 // renderings are derived (docs/design.md section 2.3).
@@ -110,11 +127,13 @@ type Fix struct {
 // consumers never parse the message text. Notes are short
 // human-readable lines. Fixes are machine-applicable repair
 // candidates. Span is the primary location; its zero value means the
-// diagnostic has no source location.
+// diagnostic has no source location. Labels are secondary locations and
+// Details are labeled human-facing detail lines.
 //
 // Diagnostics are values: deriving one from another (via At, Set,
-// AddNote, AddFix, ...) clones the shared Data, Notes and Fixes so
-// derived diagnostics stay independent.
+// AddLabel, AddDetail, AddNote, AddFix, ...) clones the shared Data,
+// Labels, Details, Notes and Fixes so derived diagnostics stay
+// independent.
 type Diagnostic struct {
 	Severity Severity
 	Code     Code
@@ -122,6 +141,8 @@ type Diagnostic struct {
 	Span     Span
 	Source   Source
 	Data     map[string]any
+	Labels   []Label
+	Details  []Detail
 	Notes    []string
 	Fixes    []Fix
 }
@@ -178,6 +199,25 @@ func (d Diagnostic) Set(key string, value any) Diagnostic {
 	return d
 }
 
+// AddLabel appends a secondary source label to d and returns it. The
+// slice is cloned before appending so that diagnostics derived from a
+// common base do not share its backing array.
+func (d Diagnostic) AddLabel(sp Span, message string) Diagnostic {
+	d.Labels = append(slices.Clone(d.Labels), Label{Span: sp, Message: message})
+	return d
+}
+
+// AddDetail appends one labeled group of human-facing detail lines to d
+// and returns it. The slice is cloned before appending so that
+// diagnostics derived from a common base do not share its backing array.
+func (d Diagnostic) AddDetail(label string, lines ...string) Diagnostic {
+	d.Details = append(slices.Clone(d.Details), Detail{
+		Label: label,
+		Lines: slices.Clone(lines),
+	})
+	return d
+}
+
 // AddNote appends a human-readable note line to d and returns it. The
 // slice is cloned before appending so that diagnostics derived from a
 // common base do not share its backing array.
@@ -216,6 +256,34 @@ func (d Diagnostic) Validate() error {
 	if !d.Span.IsZero() && !d.Span.Valid() {
 		return fmt.Errorf("diag: invalid span {File:%q Start:%d End:%d}",
 			d.Span.File, d.Span.Start, d.Span.End)
+	}
+	for i, l := range d.Labels {
+		if l.Message == "" {
+			return fmt.Errorf("diag: label %d: empty message", i)
+		}
+		if strings.ContainsAny(l.Message, "\r\n") {
+			return fmt.Errorf("diag: label %d: message must be a single line: %q", i, l.Message)
+		}
+		if !l.Span.Valid() {
+			return fmt.Errorf("diag: label %d: invalid span {File:%q Start:%d End:%d}",
+				i, l.Span.File, l.Span.Start, l.Span.End)
+		}
+	}
+	for i, dt := range d.Details {
+		if dt.Label == "" {
+			return fmt.Errorf("diag: detail %d: empty label", i)
+		}
+		if strings.ContainsAny(dt.Label, "\r\n") {
+			return fmt.Errorf("diag: detail %d: label must be a single line: %q", i, dt.Label)
+		}
+		if len(dt.Lines) == 0 {
+			return fmt.Errorf("diag: detail %d: no lines", i)
+		}
+		for j, line := range dt.Lines {
+			if strings.ContainsAny(line, "\r\n") {
+				return fmt.Errorf("diag: detail %d line %d: must be a single line: %q", i, j, line)
+			}
+		}
 	}
 	for i := range d.Fixes {
 		f := &d.Fixes[i]

@@ -20,6 +20,13 @@ import (
 // or nil when nothing is expected. The result unifies with want
 // before returning.
 func (c *checker) checkExpr(e syntax.Expr, want types.Type) Expr {
+	return c.checkExprAt(e, want, diag.Span{})
+}
+
+// checkExprAt is checkExpr plus the source position that introduced the
+// expected type. A mismatch against want labels that position as the
+// expectation's origin.
+func (c *checker) checkExprAt(e syntax.Expr, want types.Type, expectedFrom diag.Span) Expr {
 	if e == nil {
 		// A missing expression (a .gomi signature body, a recovery
 		// hole in the surface tree) is a meta-typed unit. Quiet:
@@ -107,7 +114,7 @@ func (c *checker) checkExpr(e syntax.Expr, want types.Type) Expr {
 	default:
 		panic("unreachable")
 	}
-	return c.conformExpr(out, want, e.Span())
+	return c.conformExprAt(out, want, e.Span(), expectedFrom)
 }
 
 // checkAssign types `ptr.Field = v` — a field write through a
@@ -255,6 +262,20 @@ func (c *checker) assignShapeDiag(sel *syntax.Select, me *MemberExpr) *diag.Diag
 	return nil
 }
 
+// conformExprAt is conformExpr with the source position that introduced
+// the expected type. The label context is active only while this final
+// conformance unifies, so diagnostics inside nested expressions do not
+// inherit it.
+func (c *checker) conformExprAt(out Expr, want types.Type, sp diag.Span, expectedFrom diag.Span) Expr {
+	if expectedFrom.IsZero() {
+		return c.conformExpr(out, want, sp)
+	}
+	prev := c.expectedFrom
+	c.expectedFrom = expectedFrom
+	defer func() { c.expectedFrom = prev }()
+	return c.conformExpr(out, want, sp)
+}
+
 // conformExpr applies the want-context conformance to an already
 // typed expression — the trailing half of checkExpr, shared with the
 // deferred-apply replay whose arguments checked provisionally. An
@@ -270,6 +291,12 @@ func (c *checker) conformExpr(out Expr, want types.Type, sp diag.Span) Expr {
 	if m, ok := types.Chase(out.Type()).(*types.Meta); ok && c.deferInterfaceSource(m) && ifaceWant {
 		if src, ok := c.src.(InterfaceSource); ok && src.InterfaceAssignable(want, want) {
 			conv := &Ascribe{Base: baseOf(sp, want), X: out, Conv: true, Iface: true}
+			if !c.expectedFrom.IsZero() {
+				if c.pendingIfaceFrom == nil {
+					c.pendingIfaceFrom = map[*Ascribe]diag.Span{}
+				}
+				c.pendingIfaceFrom[conv] = c.expectedFrom
+			}
 			c.pendingIfaces = append(c.pendingIfaces, conv)
 			return conv
 		}
@@ -3498,7 +3525,12 @@ func (c *checker) checkLet(e *syntax.Let) Expr {
 	if annScope != nil {
 		c.curTScope = annScope
 	}
-	val := c.checkExpr(e.Value, want)
+	var val Expr
+	if e.Type != nil {
+		val = c.checkExprAt(e.Value, want, e.Type.Span())
+	} else {
+		val = c.checkExpr(e.Value, want)
+	}
 	c.curTScope = prevScope
 	pat := c.checkPat(e.Pat, want)
 	if e.Type != nil {
@@ -4473,7 +4505,14 @@ func (c *checker) revisitInterfaces() {
 		}
 		src, ok := c.src.(InterfaceSource)
 		if !ok || !c.goOriginType(from) || !src.InterfaceAssignable(from, conv.Type()) {
-			c.mismatch(conv.Sp, conv.Type(), from)
+			if expectedFrom, ok := c.pendingIfaceFrom[conv]; ok {
+				prev := c.expectedFrom
+				c.expectedFrom = expectedFrom
+				c.mismatch(conv.Sp, conv.Type(), from)
+				c.expectedFrom = prev
+			} else {
+				c.mismatch(conv.Sp, conv.Type(), from)
+			}
 		}
 	}
 }

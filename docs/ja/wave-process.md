@@ -93,6 +93,10 @@ Gom の開発は「wave」という単位で回す。1 wave = 複数 lane（細�
   merge / base retarget は最後の調整点として podhmo に残す。
 - Devin Review の finding は lane 内でトリアージして潰す
   （resolved = 修正 commit、rejected/escalated は理由つき）。
+- 既存のメタテストや診断 fixture が足場としてある領域を変える lane
+  では、実装へ入る前に期待値・fixture を追加・更新し、red を確認
+  してから実装で green にする。red を再現できない場合は、その理由を
+  lane の検証レポートに書く
 - lane 内で scope を削る・後続へ送る場合は、lane では実装と検証に
   集中し、残件を lane の検証レポート（`docs/sketch/...-verify.md`）と
   round 入力へ具体的に記録する。TODO / open-questions への登録は

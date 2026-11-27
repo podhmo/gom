@@ -1,0 +1,5 @@
+package main
+
+let x : Int = "s"
+
+fn f () -> Int = "s"

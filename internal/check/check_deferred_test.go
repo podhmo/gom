@@ -625,3 +625,27 @@ func TestDeferredLabeledArgs(t *testing.T) {
 	}
 	expectCall(t, inner, CallGo, 2, 2, 2, 0, []int{1, 0})
 }
+
+// A numeric literal assigned to a Go interface waits for its default
+// before revisitInterfaces can reject it. The annotation that supplied
+// the interface expectation still owns that deferred mismatch.
+func TestExpectedTypeLabelSurvivesDeferredInterface(t *testing.T) {
+	b := newTB()
+	ifaceSym := b.gotypeSym("fmt", "Stringer")
+	ifaceT := &types.Go{Ref: types.NamedRef{Path: "fmt", Name: "Stringer"}}
+	xp, _ := b.vp("x")
+	ann := b.tnBound("Stringer", ifaceSym)
+	ld := b.letd(xp, ann, b.ilit("1"))
+
+	_, diags := b.check(methodStub{MapSource: MapSource{ifaceSym: {Type: ifaceT}}}, ld)
+	requireCodes(t, diags, "E0401")
+	if len(diags[0].Labels) != 1 {
+		t.Fatalf("Labels = %+v, want one annotation label", diags[0].Labels)
+	}
+	if got := diags[0].Labels[0].Span; got != ann.Sp {
+		t.Errorf("label span = %+v, want annotation span %+v", got, ann.Sp)
+	}
+	if got := diags[0].Labels[0].Message; got != "expected type declared here" {
+		t.Errorf("label message = %q", got)
+	}
+}

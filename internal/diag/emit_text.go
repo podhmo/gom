@@ -63,10 +63,10 @@ func sevStyle(s Severity) string {
 // emitted", or "success").
 //
 // Text is a lossy rendering of the same internal diagnostics: it shows
-// the header, the primary span with its source snippet, notes, and fix
-// titles. Structured Data is machine-facing detail and is not rendered
-// generically; E0301's `missing_patterns` is the deliberate exception
-// because the spec's human output names the uncovered patterns.
+// the header, the primary span with its source snippet, secondary labels,
+// details, notes, and fix titles. Structured Data is machine-facing detail
+// and is not rendered generically; phases attach the human-facing view as
+// Details when it belongs in text output.
 //
 // Diagnostics are emitted in List.Sort order on a copy of the list.
 // Each diagnostic must pass Validate and located spans must resolve
@@ -187,65 +187,70 @@ func (tw *textWriter) diagnostic(d Diagnostic) error {
 	tw.printf("%s: %s\n", tw.paint(sevStyle(d.Severity), tag), tw.paint(ansiBold, d.Message))
 
 	// The gutter width is the digit count of the largest displayed
-	// line number; positionless diagnostics render with width 1.
+	// line number across the primary span and secondary labels;
+	// positionless diagnostics render with width 1.
 	gutter := 1
-	shown := false
+	spanLast := func(sp Span) (int, error) {
+		li, err := resolveIndex(tw.res, sp.File)
+		if err != nil {
+			return 0, err
+		}
+		start := li.Pos(sp.Start)
+		last := start.Line
+		if sp.End > sp.Start {
+			last = li.Pos(sp.End - 1).Line
+		}
+		return last, nil
+	}
 	if !d.Span.IsZero() {
-		li, err := resolveIndex(tw.res, d.Span.File)
+		last, err := spanLast(d.Span)
 		if err != nil {
 			return fmt.Errorf("diag: diagnostic %s: cannot resolve %q: %w",
 				d.Code, d.Span.File, err)
 		}
-		start := li.Pos(d.Span.Start)
-		first := start.Line
-		// The span end is exclusive, so the last covered position is
-		// the rune containing End-1: a span ending at a line break
-		// underlines through it instead of spilling onto the next
-		// line, and one ending mid-rune still covers the whole rune.
-		last, endCol := first, start.Col+1
-		if d.Span.End > d.Span.Start {
-			lastByte := d.Span.End - 1
-			last = li.Pos(lastByte).Line
-			ls, _ := li.LineBounds(last)
-			rel := lastByte - ls
-			lastText := li.LineText(last)
-			for rel > 0 && rel < len(lastText) && !utf8.RuneStart(lastText[rel]) {
-				rel--
-			}
-			endCol = li.Pos(ls+rel).Col + 1
+		if w := digitWidth(last); w > gutter {
+			gutter = w
 		}
-		gutter = digitWidth(last)
-		pad := strings.Repeat(" ", gutter+1)
-		tw.printf("%s %s:%d:%d\n", tw.paint(markStyle, pad+"-->"),
-			d.Span.File, start.Line, start.Col)
-		tw.printf("%s\n", tw.paint(markStyle, pad+" |"))
-		for line := first; line <= last; line++ {
-			raw := string(li.LineText(line))
-			text := expandTabs(raw)
-			ucol, uend := 1, endCol
-			if line == first {
-				ucol = start.Col
-			}
-			if line < last {
-				uend = utf8.RuneCountInString(raw) + 1
-			}
-			indent, carets := underlineCells(raw, ucol, uend)
-			tw.printf("%*d  | %s\n", gutter, line, text)
-			tw.printf("%s%s%s\n", tw.paint(markStyle, pad+" | "),
-				strings.Repeat(" ", indent), tw.paint(sevStyle(d.Severity), strings.Repeat("^", carets)))
+	}
+	for _, l := range d.Labels {
+		last, err := spanLast(l.Span)
+		if err != nil {
+			return fmt.Errorf("diag: diagnostic %s: cannot resolve label %q in %q: %w",
+				d.Code, l.Message, l.Span.File, err)
+		}
+		if w := digitWidth(last); w > gutter {
+			gutter = w
+		}
+	}
+
+	shown := false
+	if !d.Span.IsZero() {
+		if err := tw.spanSnippet(d.Span, gutter, sevStyle(d.Severity)); err != nil {
+			return fmt.Errorf("diag: diagnostic %s: cannot resolve %q: %w",
+				d.Code, d.Span.File, err)
+		}
+		shown = true
+	}
+	pad := strings.Repeat(" ", gutter+1)
+	for _, l := range d.Labels {
+		if shown {
+			tw.printf("%s\n", tw.paint(markStyle, pad+" |"))
+		}
+		tw.labeled(pad, "label", l.Message)
+		if err := tw.spanSnippet(l.Span, gutter, sevStyle(d.Severity)); err != nil {
+			return fmt.Errorf("diag: diagnostic %s: cannot resolve label %q in %q: %w",
+				d.Code, l.Message, l.Span.File, err)
 		}
 		shown = true
 	}
 
-	pad := strings.Repeat(" ", gutter+1)
-	missing := e0301MissingPatterns(d)
-	if shown && (len(missing) > 0 || len(d.Notes) > 0 || len(d.Fixes) > 0) {
+	if shown && (len(d.Details) > 0 || len(d.Notes) > 0 || len(d.Fixes) > 0) {
 		tw.printf("%s\n", tw.paint(markStyle, pad+" |"))
 	}
-	if len(missing) > 0 {
-		tw.printf("%s  patterns not covered:\n", tw.paint(markStyle, pad+" |"))
-		for _, p := range missing {
-			tw.printf("%s    %s\n", tw.paint(markStyle, pad+" |"), p)
+	for _, dt := range d.Details {
+		tw.printf("%s  %s:\n", tw.paint(markStyle, pad+" |"), dt.Label)
+		for _, line := range dt.Lines {
+			tw.printf("%s    %s\n", tw.paint(markStyle, pad+" |"), line)
 		}
 	}
 	for _, n := range d.Notes {
@@ -264,15 +269,53 @@ func (tw *textWriter) diagnostic(d Diagnostic) error {
 	return tw.err
 }
 
-// e0301MissingPatterns exposes only E0301's structured counterexamples
-// to the text renderer. Other diagnostics keep their Data machine-only;
-// this is not a generic details-wire hook.
-func e0301MissingPatterns(d Diagnostic) []string {
-	if d.Code != "E0301" {
-		return nil
+// spanSnippet renders one source span with the text format's rustc-like
+// location header and caret underline. The caller chooses gutter from
+// the largest line number shown in the diagnostic so related snippets
+// align.
+func (tw *textWriter) spanSnippet(sp Span, gutter int, style string) error {
+	li, err := resolveIndex(tw.res, sp.File)
+	if err != nil {
+		return err
 	}
-	pats, _ := d.Data["missing_patterns"].([]string)
-	return pats
+	start := li.Pos(sp.Start)
+	first := start.Line
+	// The span end is exclusive, so the last covered position is
+	// the rune containing End-1: a span ending at a line break
+	// underlines through it instead of spilling onto the next
+	// line, and one ending mid-rune still covers the whole rune.
+	last, endCol := first, start.Col+1
+	if sp.End > sp.Start {
+		lastByte := sp.End - 1
+		last = li.Pos(lastByte).Line
+		ls, _ := li.LineBounds(last)
+		rel := lastByte - ls
+		lastText := li.LineText(last)
+		for rel > 0 && rel < len(lastText) && !utf8.RuneStart(lastText[rel]) {
+			rel--
+		}
+		endCol = li.Pos(ls+rel).Col + 1
+	}
+	pad := strings.Repeat(" ", gutter+1)
+	tw.printf("%s %s:%d:%d\n", tw.paint(markStyle, pad+"-->"),
+		sp.File, start.Line, start.Col)
+	tw.printf("%s\n", tw.paint(markStyle, pad+" |"))
+	for line := first; line <= last; line++ {
+		raw := string(li.LineText(line))
+		text := expandTabs(raw)
+		ucol, uend := 1, endCol
+		if line == first {
+			ucol = start.Col
+		}
+		if line < last {
+			uend = utf8.RuneCountInString(raw) + 1
+		}
+		indent, carets := underlineCells(raw, ucol, uend)
+		tw.printf("%*d  | %s\n", gutter, line, text)
+		tw.printf("%s%s%s\n", tw.paint(markStyle, pad+" | "),
+			strings.Repeat(" ", indent), tw.paint(style, strings.Repeat("^", carets)))
+	}
+	return tw.err
 }
 
 // labeled prints " = <label>: <text>" in the gutter; continuation

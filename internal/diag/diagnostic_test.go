@@ -165,6 +165,26 @@ func TestValidate(t *testing.T) {
 			wantErr: "invalid span",
 		},
 		{
+			name:    "label without message",
+			d:       diag.Error("E0001", "boom").AddLabel(validSpan, ""),
+			wantErr: "empty message",
+		},
+		{
+			name:    "label without file",
+			d:       diag.Error("E0001", "boom").AddLabel(diag.Span{Start: 1, End: 2}, "context"),
+			wantErr: "invalid span",
+		},
+		{
+			name:    "detail without label",
+			d:       diag.Error("E0001", "boom").AddDetail("", "line"),
+			wantErr: "empty label",
+		},
+		{
+			name:    "detail without lines",
+			d:       diag.Error("E0001", "boom").AddDetail("context"),
+			wantErr: "no lines",
+		},
+		{
 			name: "fix without title",
 			d: diag.Error("E0001", "boom").AddFix(diag.Fix{
 				Applicability: diag.ApplicabilitySafe,

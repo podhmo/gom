@@ -1,0 +1,86 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected Int, got String",
+      "span": {
+        "file": "E0401_expected_type_label.gom",
+        "start": {
+          "line": 3,
+          "col": 15,
+          "offset": 28
+        },
+        "end": {
+          "line": 3,
+          "col": 18,
+          "offset": 31
+        }
+      },
+      "data": {
+        "actual": "String",
+        "expected": "Int"
+      },
+      "labels": [
+        {
+          "span": {
+            "file": "E0401_expected_type_label.gom",
+            "start": {
+              "line": 3,
+              "col": 9,
+              "offset": 22
+            },
+            "end": {
+              "line": 3,
+              "col": 12,
+              "offset": 25
+            }
+          },
+          "message": "expected type declared here"
+        }
+      ]
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected Int, got String",
+      "span": {
+        "file": "E0401_expected_type_label.gom",
+        "start": {
+          "line": 5,
+          "col": 18,
+          "offset": 50
+        },
+        "end": {
+          "line": 5,
+          "col": 21,
+          "offset": 53
+        }
+      },
+      "data": {
+        "actual": "String",
+        "expected": "Int"
+      },
+      "labels": [
+        {
+          "span": {
+            "file": "E0401_expected_type_label.gom",
+            "start": {
+              "line": 5,
+              "col": 12,
+              "offset": 44
+            },
+            "end": {
+              "line": 5,
+              "col": 15,
+              "offset": 47
+            }
+          },
+          "message": "expected type declared here"
+        }
+      ]
+    }
+  ]
+}

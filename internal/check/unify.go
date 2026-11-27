@@ -1410,6 +1410,12 @@ func (c *checker) mismatch(sp diag.Span, want, got any) {
 	}
 	d := diag.Error("E0401", fmt.Sprintf("type mismatch: expected %s, got %s", w, g)).
 		At(sp).Set("expected", w).Set("actual", g)
+	// Constraint failures name a requirement ("a numeric type") rather
+	// than the annotated type, so only concrete type expectations are
+	// provenance-labelled.
+	if _, ok := want.(types.Type); ok && !c.expectedFrom.IsZero() {
+		d = d.AddLabel(c.expectedFrom, "expected type declared here")
+	}
 	// A function type still carrying labeled parameters is the shape
 	// of a partial application that left labels unfilled — name them
 	// so the diagnostic points at the missing arguments rather than

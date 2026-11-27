@@ -128,6 +128,11 @@ type checker struct {
 	res *resolve.Resolved
 	src SignatureSource
 
+	// expectedFrom is the annotation span active for the final
+	// conformance of one expression; mismatch turns it into a
+	// secondary diagnostic label.
+	expectedFrom diag.Span
+
 	diags diag.List
 
 	// vals maps every value-level symbol — top-level functions,
@@ -293,6 +298,10 @@ type checker struct {
 
 	// pendingIfaces keep numeric and selector inference independent of interface assignment.
 	pendingIfaces []*Ascribe
+	// pendingIfaceFrom carries the let/return annotation span that
+	// introduced each deferred interface expectation. revisitInterfaces
+	// runs after conformExprAt has restored the transient context.
+	pendingIfaceFrom map[*Ascribe]diag.Span
 
 	// methods records each own-package record type's declared
 	// @method set for Go-interface conformance checks
@@ -1037,7 +1046,11 @@ func (c *checker) checkFnDecl(d *syntax.FnDecl) {
 	c.bounds = append(c.bounds, boundary{ret: sig.Ret, sp: d.Sp, goDepth: c.goDepth, kind: "fn"})
 	var body Expr
 	if d.Body != nil {
-		body = c.checkExpr(d.Body, sig.Ret)
+		if d.Ret != nil {
+			body = c.checkExprAt(d.Body, sig.Ret, d.Ret.Span())
+		} else {
+			body = c.checkExpr(d.Body, sig.Ret)
+		}
 	}
 	c.bounds = c.bounds[:len(c.bounds)-1]
 	c.curTScope = prevScope
@@ -1129,7 +1142,11 @@ func (c *checker) checkLetDecl(d *syntax.LetDecl) {
 	}
 	var val Expr
 	if d.Value != nil {
-		val = c.checkExpr(d.Value, want)
+		if d.Type != nil {
+			val = c.checkExprAt(d.Value, want, d.Type.Span())
+		} else {
+			val = c.checkExpr(d.Value, want)
+		}
 	} else {
 		// A .gomi-style signature `let name : T` has no body.
 		val = &Lit{Base: baseOf(d.Sp, want), Kind: syntax.LitUnit}

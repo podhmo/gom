@@ -76,10 +76,10 @@ error: aborting due to previous error
 	}
 }
 
-// TestWriteTextE0301MissingPatterns renders the spec's human-facing
-// counterexample detail from structured data. This is deliberately
-// E0301-only, not a generic data rendering rule.
-func TestWriteTextE0301MissingPatterns(t *testing.T) {
+// TestWriteTextDetails renders a generic human-facing detail group.
+// E0301 uses it for the spec's counterexample block; the renderer does
+// not interpret the diagnostic code or Data keys.
+func TestWriteTextDetails(t *testing.T) {
 	src := []byte("fn f =\n  match e {\n    Num -> 1\n  }\n")
 	start := strings.Index(string(src), "match")
 	end := strings.Index(string(src), "}") + 1
@@ -87,6 +87,7 @@ func TestWriteTextE0301MissingPatterns(t *testing.T) {
 		diag.Error("E0301", "non-exhaustive match on `Expr`").
 			At(diag.SpanIn("f.gom", start, end)).
 			Set("missing_patterns", []string{"Neg (Num _)", "Let _ _ _"}).
+			AddDetail("patterns not covered", "Neg (Num _)", "Let _ _ _").
 			AddNote("arms with guards do not count toward exhaustiveness"),
 	}}
 	res := diag.NewMapResolver(map[string][]byte{"f.gom": src})
@@ -106,6 +107,37 @@ func TestWriteTextE0301MissingPatterns(t *testing.T) {
    |    Let _ _ _
    = note: arms with guards do not count toward exhaustiveness
 For more information about this error, run ` + "`" + `gom explain E0301` + "`" + `.
+
+error: aborting due to previous error
+`
+	if got := textOf(t, rep, res); got != want {
+		t.Errorf("got:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+// TestWriteTextLabels renders a secondary source label as its own
+// located snippet after the primary span.
+func TestWriteTextLabels(t *testing.T) {
+	src := []byte("package main\n\nlet x : Int = \"s\"\n")
+	rep := diag.Report{Diagnostics: []diag.Diagnostic{
+		diag.Error("E0401", "type mismatch: expected Int, got String").
+			At(diag.SpanIn("main.gom", 28, 31)).
+			AddLabel(diag.SpanIn("main.gom", 22, 25), "expected type declared here"),
+	}}
+	res := diag.NewMapResolver(map[string][]byte{"main.gom": src})
+
+	want := `error[E0401]: type mismatch: expected Int, got String
+  --> main.gom:3:15
+   |
+3  | let x : Int = "s"
+   |               ^^^
+   |
+   = label: expected type declared here
+  --> main.gom:3:9
+   |
+3  | let x : Int = "s"
+   |         ^^^
+For more information about this error, run ` + "`" + `gom explain E0401` + "`" + `.
 
 error: aborting due to previous error
 `

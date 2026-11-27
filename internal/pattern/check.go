@@ -142,7 +142,8 @@ func (c *checker) checkMatch(m *check.Match) []diag.Diagnostic {
 			fmt.Sprintf("non-exhaustive match on `%s`", subjTy)).
 			At(m.Span()).
 			Set("scrutinee_type", subjTy.String()).
-			Set("missing_patterns", pats)
+			Set("missing_patterns", pats).
+			AddDetail("patterns not covered", pats...)
 		if guarded {
 			d = d.AddNote("arms with guards do not count toward exhaustiveness")
 		}

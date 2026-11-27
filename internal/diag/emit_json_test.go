@@ -50,6 +50,7 @@ func TestMarshalDiagnosticSpecExample(t *testing.T) {
 		At(diag.SpanIn("eval.gom", 41, 228)).
 		Set("scrutinee_type", "Expr").
 		Set("missing_patterns", []string{"Neg (Num _)", "Neg (Add _ _)", "Neg (Let _ _ _)", "Let _ _ _"}).
+		AddDetail("patterns not covered", "Neg (Num _)", "Neg (Add _ _)", "Neg (Let _ _ _)", "Let _ _ _").
 		AddNote("arms with guards do not count toward exhaustiveness").
 		AddFix(diag.Fix{
 			Title:         "add the missing arms",
@@ -67,6 +68,7 @@ func TestMarshalDiagnosticSpecExample(t *testing.T) {
 	want := `{"kind":"diagnostic","code":"E0301","severity":"error","message":"non-exhaustive match on ` + "`Expr`" + `",` +
 		`"span":{"file":"eval.gom","start":{"line":2,"col":3,"offset":41},"end":{"line":9,"col":4,"offset":228}},` +
 		`"data":{"missing_patterns":["Neg (Num _)","Neg (Add _ _)","Neg (Let _ _ _)","Let _ _ _"],"scrutinee_type":"Expr"},` +
+		`"details":[{"label":"patterns not covered","lines":["Neg (Num _)","Neg (Add _ _)","Neg (Let _ _ _)","Let _ _ _"]}],` +
 		`"notes":["arms with guards do not count toward exhaustiveness"],` +
 		`"fixes":[{"title":"add the missing arms","applicability":"placeholder","edits":[{` +
 		`"file":"eval.gom","start":{"line":9,"col":3,"offset":226},"end":{"line":9,"col":3,"offset":226},` +
@@ -77,6 +79,31 @@ func TestMarshalDiagnosticSpecExample(t *testing.T) {
 	}
 	if bytes.Contains(raw, []byte("\n")) {
 		t.Error("marshal produced a newline; objects must stay on one line")
+	}
+}
+
+// TestMarshalDiagnosticLabelsAndDetails renders the generic secondary
+// span and detail wire fields.
+func TestMarshalDiagnosticLabelsAndDetails(t *testing.T) {
+	src := []byte("package main\n\nlet x : Int = \"s\"\n")
+	res := diag.NewMapResolver(map[string][]byte{"main.gom": src})
+	d := diag.Error("E0401", "type mismatch: expected Int, got String").
+		At(diag.SpanIn("main.gom", 28, 31)).
+		Set("expected", "Int").Set("actual", "String").
+		AddLabel(diag.SpanIn("main.gom", 22, 25), "expected type declared here").
+		AddDetail("type context", "the annotation is authoritative")
+
+	raw, err := diag.MarshalDiagnostic(d, res)
+	if err != nil {
+		t.Fatalf("MarshalDiagnostic: %v", err)
+	}
+	want := `{"kind":"diagnostic","code":"E0401","severity":"error","message":"type mismatch: expected Int, got String",` +
+		`"span":{"file":"main.gom","start":{"line":3,"col":15,"offset":28},"end":{"line":3,"col":18,"offset":31}},` +
+		`"data":{"actual":"String","expected":"Int"},` +
+		`"labels":[{"span":{"file":"main.gom","start":{"line":3,"col":9,"offset":22},"end":{"line":3,"col":12,"offset":25}},"message":"expected type declared here"}],` +
+		`"details":[{"label":"type context","lines":["the annotation is authoritative"]}]}`
+	if string(raw) != want {
+		t.Errorf("marshal =\n%s\nwant\n%s", raw, want)
 	}
 }
 
