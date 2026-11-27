@@ -45,7 +45,7 @@ podhmo 採択方針: **実装する**。
 
 podhmo 採択方針: **調査し、decision へ 1 方針だけ記録する。実装は lane に入れない**。
 
-- undefined name の typo 候補、module member typo、未 import Go package に対する `import go` fix の 3 案を比較する
+- undefined name の typo 候補、module member typo、未 import の Gom stdlib module に対する候補表示の 3 案を比較する。`str` のような toolchain が既知の stdlib module だけを対象にし、未 import の Go package 探索や `import go` 追加 fix は対象外とする
 - 編集距離・候補数上限・誤修正リスクを決める。出力形は note/structured data による候補表示までに限り、safe fix は対象外とする
 - 少なくとも 1 案を却下し、次に実装する最小面を 1 つだけ decision へ記録する
 - 大きな import 管理や LSP 連携は対象外
@@ -57,4 +57,4 @@ podhmo 採択方針: **調査し、decision へ 1 方針だけ記録する。実
 - lane B: 深ければ字下げ幅は問わず、間の空行・コメントは無視する
 - lane D: 調査のみのままとし、複数候補を比較して decision を決める
 - lane C: nested if/match にも同じ経路では伝える。呼出し引数・lambda 本体・record field・演算子の中へは広げない
-- lane E: 出力形は note/structured data による候補表示までに限り、safe fix は対象外
+- lane E: 出力形は note/structured data による候補表示までに限り、safe fix は対象外。goimports 的な未 import Go package 探索は行わず、import 候補は Gom stdlib に限る
