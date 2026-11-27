@@ -1344,17 +1344,24 @@ func lentLabels(want, got types.Type) bool {
 // introduction onto the produced function signature — annotation to
 // binding, at every curried level the shapes share.
 func lendFuncLabels(dst, src types.Type) {
-	df, _ := types.Chase(dst).(*types.Func)
-	sf, _ := types.Chase(src).(*types.Func)
-	if df == nil || sf == nil || len(df.Params) != len(sf.Params) {
-		return
-	}
-	for i := range df.Params {
-		if df.Params[i].Label == "" && sf.Params[i].Label != "" {
-			df.Params[i].Label = sf.Params[i].Label
+	sp, _ := flattenFunc(src)
+	pos := 0
+	for {
+		df, ok := types.Chase(dst).(*types.Func)
+		if !ok {
+			return
 		}
+		for i := range df.Params {
+			if pos >= len(sp) {
+				return
+			}
+			if df.Params[i].Label == "" {
+				df.Params[i].Label = sp[pos].Label
+			}
+			pos++
+		}
+		dst = df.Ret
 	}
-	lendFuncLabels(df.Ret, sf.Ret)
 }
 
 // allPositional reports whether every parameter in ps is unlabeled —
