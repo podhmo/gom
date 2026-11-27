@@ -28,3 +28,10 @@
 - `sh scripts/check-sumtype.sh`: pass
 - `sh scripts/check-staticcheck.sh`: pass
 - `gofmt -l .`: empty
+
+## Review follow-up
+
+- project/dependency package の `.gomi` は直接読む案内へ修正した。`gom info DIR` は inspection ではなく draft 生成・更新なので、既存 interface の確認には使わない
+- compiler-registered conversion member（`List.view`/`List.slice`/`Result.to_option`/`Result.sequence`/`Option.to_list`）は `.gomi` に出ないため references に残した
+- stdlib short-name inspection は同名 file/dir がない場合だけで、external resolution は現在の module context に従うことを明記した
+- `Ref`/`Array` の古い説明の修正を implementation-gaps に登録した

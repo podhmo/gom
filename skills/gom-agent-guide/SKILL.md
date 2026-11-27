@@ -36,9 +36,11 @@ CI; blocks marked `fail` are verified to produce a diagnostic.
    the stdlib short names importable in the current toolchain;
    `gom info <short-name>` prints that package's current `.gomi`
    (members, directives, docs). For project or dependency packages,
-   inspect the package's `.gomi` or run `gom info` on its directory.
-   Do not rely on memorized or copied member inventories — they go
-   stale first.
+   read the package's existing `.gomi` directly. Do not run `gom info`
+   merely to inspect one: on an implementation directory it drafts or
+   rewrites the interface (`gom info -o -` prints a draft without
+   writing). Do not rely on memorized or copied member inventories —
+   they go stale first.
 3. **Read before writing.** New syntax? Check `docs/spec.md` (or the
    matching `references/` file here) and copy a working pattern from
    `tutorial/NN-*/main.gom`. Never improvise surface syntax.
@@ -256,7 +258,8 @@ duplicate-arm checks.
   Some surfaces are compiler-registered rather than `.gomi` modules,
   so `gom info` cannot enumerate them: use
   [references/language-fundamentals.md](references/language-fundamentals.md)
-  for `View`/`Array`/`Ref` rules and
+  for `View`/`Array`/`Ref` rules and the compiler-only conversion
+  members, and
   [references/concurrency.md](references/concurrency.md) for
   `Chan`/`Task` rules.
 
@@ -975,7 +978,7 @@ prints the pointer and exits 2).
 | `gom test FILE\|DIR... [-- FLAGS]` | Also writes `_test.go` beside the `.go` and runs the package's `go test -json` — FLAGS after `--` pass through (`-race`, `-run`). Library packages need `<pkg>.gomi` (the conformance gate runs here too); `-q`/`--quiet` drops the raw half of panic stacks. |
 | `gom fmt [-w\|-d\|-l\|--check] FILE...` | Canonical formatter; `-` reads stdin. stdout carries the artifact; message stream to stderr. |
 | `gom fix FILE...` | Apply the `safe` fixes diagnostics carry. |
-| `gom info [-o OUT] FILE\|DIR...` | Draft `.gomi` interfaces from implementations; `-o -` prints to stdout. `gom info <stdlib-short-name>` instead prints that stdlib package's existing `.gomi` read-only — the canonical way to inspect current stdlib members. |
+| `gom info [-o OUT] FILE\|DIR...` | Draft `.gomi` interfaces from implementations; `-o -` prints to stdout. `gom info <stdlib-short-name>` instead prints that stdlib package's existing `.gomi` read-only — the canonical way to inspect current stdlib `.gomi` members. The short-name form applies only when no same-named file/dir exists in the working directory, and external resolution uses the current module context. |
 | `gom explain [CODE]` | Error-code explanations; no argument lists them all. |
 | `gom schema` | JSON Schema of the diagnostic stream. |
 | `gom list` | Print the current importable stdlib short names, one per line — query this rather than copying the list into notes. `-external` instead lists importable Gom packages of the working dir's module (main module + build list; walks the FS — module vendoring and workspace vendoring `go work vendor` both honored). |

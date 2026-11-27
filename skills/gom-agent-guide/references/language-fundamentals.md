@@ -393,6 +393,11 @@ Their important semantic constraints are:
   supplied initial value into every slot.
 - **`Ref a`** is the mutable cell: always initialized, no nil form.
 
+Some cross-layer conversions are compiler-registered for the same
+layering reason and do not appear in `.gomi`: `List.view`,
+`List.slice`, `Result.to_option`, `Result.sequence`, and
+`Option.to_list`.
+
 `Chan.*`/`Task.*` are likewise compiler-provided; see
 `concurrency.md`. `Ptr.*`/`Go.Map.*` are covered in
 `go-interop.md`.
