@@ -343,7 +343,7 @@ func (r *resolver) selectMember(mod *Symbol, sel *syntax.Ident, sc *scope) {
 			return
 		}
 	}
-	r.undefinedMember(mod, sel, builtin)
+	r.undefinedMember(mod, sel, table, builtin)
 }
 
 // selectTypeCtor resolves `T.sel` (or the final selector of

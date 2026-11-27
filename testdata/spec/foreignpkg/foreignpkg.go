@@ -32,3 +32,8 @@ func (Chunk_Piece) isChunk() {}
 type Box[A any] struct{ V A }
 
 type Holder Box[list.List[int64]]
+
+func Foo1() {}
+func Foo2() {}
+func Foo3() {}
+func Foo4() {}

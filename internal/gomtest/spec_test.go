@@ -272,6 +272,7 @@ func TestDiffDiagnosticsFixes(t *testing.T) {
 			`[{"fixes":[{"title":"add the missing arms","edits":[{"start":{"offset":5},"end":{"offset":5},"text":"x"}]}]}]`, 1},
 		{"edit count mismatch",
 			`[{"fixes":[{"title":"add the missing arms","edits":[]}]}]`, 1},
+		{"explicit empty rejects actual fixes", `[{"fixes":[]}]`, 1},
 		{"non-array fixes", `[{"fixes":{}}]`, 1},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -329,7 +330,7 @@ func TestLoadExpected(t *testing.T) {
 func TestSpecUpdatePreservesExplicitEmptyAssertions(t *testing.T) {
 	dir := t.TempDir()
 	expectedPath := filepath.Join(dir, "c.expected.json")
-	old := `{"diagnostics":[{"code":"E0301","notes":[],"labels":[]}]}`
+	old := `{"diagnostics":[{"code":"E0301","notes":[],"labels":[],"fixes":[]}]}`
 	if err := os.WriteFile(expectedPath, []byte(old), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -346,7 +347,7 @@ func TestSpecUpdatePreservesExplicitEmptyAssertions(t *testing.T) {
 		t.Fatal(err)
 	}
 	obj := wire["diagnostics"].([]any)[0].(map[string]any)
-	for _, key := range []string{"notes", "labels"} {
+	for _, key := range []string{"notes", "labels", "fixes"} {
 		arr, ok := obj[key].([]any)
 		if !ok || len(arr) != 0 {
 			t.Errorf("%s was not preserved as an empty array: %s", key, data)

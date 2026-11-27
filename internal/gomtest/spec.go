@@ -39,6 +39,7 @@ import (
 //     in order (a subsequence). Extra actual notes pass, except that
 //     an explicitly empty array requires the actual notes to be empty.
 //   - "fixes": each expected fix must match some actual fix in order.
+//     An explicitly empty array requires the actual fixes to be empty.
 //     A fix matches when its "title"/"applicability" equal the present
 //     expected values and, if "edits" is present, the edits are equal
 //     in number and pairwise matching (same fields as "span" plus
@@ -148,8 +149,8 @@ func writeExpected(t *testing.T, path string, got []diag.Diagnostic, res diag.Re
 	t.Logf("updated %s", path)
 }
 
-// preserveExplicitEmptyArrays keeps an explicitly empty "notes" or
-// "labels" assertion when -update rewrites a fixture and the actual
+// preserveExplicitEmptyArrays keeps an explicitly empty "notes",
+// "labels", or "fixes" assertion when -update rewrites a fixture and the actual
 // diagnostic still has no such values. The wire encoder omits empty
 // arrays, so without this preservation every regeneration would erase
 // the negative assertion. Preservation is conservative: only the same
@@ -177,7 +178,7 @@ func preserveExplicitEmptyArrays(path string, rendered []byte) []byte {
 		if !ok || cur["code"] != old[i]["code"] {
 			continue
 		}
-		for _, key := range []string{"notes", "labels"} {
+		for _, key := range []string{"notes", "labels", "fixes"} {
 			oldVal, ok := old[i][key]
 			if !ok {
 				continue
@@ -644,7 +645,8 @@ func checkNotes(exp map[string]any, notes []string, path string) (msgs []string)
 }
 
 // checkFixes verifies that each expected fix matches some actual fix
-// in order (subsequence semantics).
+// in order (subsequence semantics). An explicitly empty expected array
+// asserts that no fixes were emitted.
 func checkFixes(exp map[string]any, fixes []diag.Fix, res diag.Resolver, path string) (msgs []string) {
 	v, ok := exp["fixes"]
 	if !ok {
@@ -653,6 +655,12 @@ func checkFixes(exp map[string]any, fixes []diag.Fix, res diag.Resolver, path st
 	arr, ok := v.([]any)
 	if !ok {
 		return []string{fmt.Sprintf("%s.fixes: expected an array, got %s", path, jsonRepr(v))}
+	}
+	if len(arr) == 0 {
+		if len(fixes) != 0 {
+			return []string{fmt.Sprintf("%s.fixes: expected no fixes, got %s", path, jsonRepr(fixTitles(fixes)))}
+		}
+		return nil
 	}
 	from := 0
 	for i, e := range arr {

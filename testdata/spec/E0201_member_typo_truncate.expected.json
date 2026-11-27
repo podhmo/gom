@@ -1,0 +1,46 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0201",
+      "severity": "error",
+      "message": "`foreignpkg` has no member `foo`",
+      "span": {
+        "file": "E0201_member_typo_truncate.gom",
+        "start": {
+          "line": 7,
+          "col": 30,
+          "offset": 207
+        },
+        "end": {
+          "line": 7,
+          "col": 33,
+          "offset": 210
+        }
+      },
+      "data": {
+        "candidates": [
+          {
+            "edit_distance": 1,
+            "name": "foo1"
+          },
+          {
+            "edit_distance": 1,
+            "name": "foo2"
+          },
+          {
+            "edit_distance": 1,
+            "name": "foo3"
+          }
+        ],
+        "in": "foreignpkg",
+        "name": "foo",
+        "namespace": "member"
+      },
+      "notes": [
+        "did you mean one of `foo1`, `foo2`, or `foo3`?"
+      ],
+      "fixes": []
+    }
+  ]
+}

@@ -69,7 +69,7 @@ func (r *resolver) undefinedQual(id *syntax.Ident) {
 
 // undefinedMember reports `mod.name` where mod is a loaded module
 // that has no such member.
-func (r *resolver) undefinedMember(mod *Symbol, id *syntax.Ident, builtin bool) {
+func (r *resolver) undefinedMember(mod *Symbol, id *syntax.Ident, table map[string]*Symbol, builtin bool) {
 	d := diag.Error("E0201", fmt.Sprintf("`%s` has no member `%s`", mod.Name, id.Name)).
 		At(id.Sp).
 		Set("name", id.Name).
@@ -89,6 +89,7 @@ func (r *resolver) undefinedMember(mod *Symbol, id *syntax.Ident, builtin bool) 
 				"its standard library is not implemented", mod.Name))
 		}
 	}
+	d = addMemberTypoCandidates(d, table, id.Name)
 	r.diags.Add(d)
 }
 
@@ -146,6 +147,7 @@ func (r *resolver) noSuchCtor(tsym *Symbol, id *syntax.Ident) {
 			Set("name", id.Name).
 			Set("in", qual).
 			Set("namespace", "member")
+		d = addMemberTypoCandidates(d, r.ctorTable(tsym), id.Name)
 		if goTypeModules[tsym.Name] && r.cfg.Modules[qual] == nil {
 			// The ops table exists in the toolchain — its
 			// absence means the caller did not wire the

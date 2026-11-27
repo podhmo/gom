@@ -1,0 +1,38 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0201",
+      "severity": "error",
+      "message": "`Go.Slice` has no member `lenght`",
+      "span": {
+        "file": "E0201_go_slice_member_typo.gom",
+        "start": {
+          "line": 6,
+          "col": 20,
+          "offset": 189
+        },
+        "end": {
+          "line": 6,
+          "col": 26,
+          "offset": 195
+        }
+      },
+      "data": {
+        "candidates": [
+          {
+            "edit_distance": 1,
+            "name": "length"
+          }
+        ],
+        "in": "Go.Slice",
+        "name": "lenght",
+        "namespace": "member"
+      },
+      "notes": [
+        "did you mean `length`?"
+      ],
+      "fixes": []
+    }
+  ]
+}

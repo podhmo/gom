@@ -1,0 +1,38 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0201",
+      "severity": "error",
+      "message": "`Go.Map` has no member `lengt`",
+      "span": {
+        "file": "E0201_go_map_member_typo.gom",
+        "start": {
+          "line": 5,
+          "col": 18,
+          "offset": 119
+        },
+        "end": {
+          "line": 5,
+          "col": 23,
+          "offset": 124
+        }
+      },
+      "data": {
+        "candidates": [
+          {
+            "edit_distance": 1,
+            "name": "length"
+          }
+        ],
+        "in": "Go.Map",
+        "name": "lengt",
+        "namespace": "member"
+      },
+      "notes": [
+        "did you mean `length`?"
+      ],
+      "fixes": []
+    }
+  ]
+}

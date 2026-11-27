@@ -338,7 +338,12 @@ divide — a module name in expression or callee position reports
 used where a type was written (a parameter annotation spelling a
 variable or a Go member function) reports "` + "`Ptr` is a func, not a type" + `"
 — the checker emits that one, resolution the rest — rather than an
-arity diagnostic derived from the func's signature.`,
+arity diagnostic derived from the func's signature.
+
+When a resolved module or operation table has no such member, the
+diagnostic also suggests table members at optimal string alignment
+distance 1 (at most three) in a note and in data.candidates. These
+are suggestions only; no automatic fix is attached.`,
 		Example: `transfer alice ~to ~amount: 100   // error when no variable
                                     // named "to" is in scope`,
 	},

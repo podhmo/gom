@@ -32,3 +32,10 @@ type Chunk = | Piece (xs: List Int)
 // substitution, or a caller's `type List` would be claimed for it.
 type Box a = { v : a }
 type Holder = { h : Box (List Int) }
+
+// Member-typo fixtures: a misspelled `foo` is distance 1 from all
+// four names, so the diagnostic must truncate its candidate list.
+fn foo1 () -> Unit
+fn foo2 () -> Unit
+fn foo3 () -> Unit
+fn foo4 () -> Unit

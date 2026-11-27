@@ -19,10 +19,20 @@
         }
       },
       "data": {
+        "candidates": [
+          {
+            "edit_distance": 1,
+            "name": "map"
+          }
+        ],
         "in": "List",
         "name": "mapp",
         "namespace": "member"
-      }
+      },
+      "notes": [
+        "did you mean `map`?"
+      ],
+      "fixes": []
     }
   ]
 }

@@ -208,6 +208,11 @@ variable or a Go member function) reports "`Ptr` is a func, not a type"
 — the checker emits that one, resolution the rest — rather than an
 arity diagnostic derived from the func's signature.
 
+When a resolved module or operation table has no such member, the
+diagnostic also suggests table members at optimal string alignment
+distance 1 (at most three) in a note and in data.candidates. These
+are suggestions only; no automatic fix is attached.
+
 ```gom
 transfer alice ~to ~amount: 100   // error when no variable
                                     // named "to" is in scope

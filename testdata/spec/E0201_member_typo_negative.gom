@@ -1,0 +1,5 @@
+package ex
+
+// `zzzz` is not within edit distance 1 of any List member: the
+// ordinary member miss carries no candidate note, data, or fix.
+fn f (xs: List Int) -> List Int = List.zzzz xs
