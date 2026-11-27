@@ -158,6 +158,9 @@ func TestApplyParamExpectationsSkipsOpenBoundaryResult(t *testing.T) {
 	if x := c.applyParamExpectationsImpl(fnT, params, args, pipeWant, sp, true); x != nil {
 		t.Fatalf("ambiguous open boundary result propagated expectations: %+v", x)
 	}
+	if x := c.applyParamExpectations(fnT, params, args, pipeWant, sp); x == nil {
+		t.Fatal("ordinary application lost exact open-result expectations")
+	}
 }
 
 func TestApplyParamExpectationsIgnoresNonResultRecordInCallback(t *testing.T) {

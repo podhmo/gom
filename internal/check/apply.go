@@ -488,7 +488,7 @@ func (c *checker) applyParamExpectationsImpl(fnT types.Type, params []types.Func
 		return nil
 	}
 	residual := applyResidual(fnT, used, 0)
-	if c.openBoundaryResult(residual, want) {
+	if allowBoundary && c.openBoundaryResult(residual, want) {
 		return nil
 	}
 	try := func(want types.Type) (map[*types.Meta]*types.Meta, []types.Type, bool) {
