@@ -9,7 +9,7 @@
 - `recordByFields` が ambiguity 時に候補 record を deterministic に収集し、`qual` → `name` 順へ並べるようにした
 - E0407 に最大 5 件の `candidate record <name> declared here` secondary label を付ける。foreign record は qualified name を使う
 - `data.candidates` に全候補を `{ "name": ..., "qual": ... }` の列で入れる。5 件超は `and N more candidate records` note にする
-- import した `.gomi` の declaration span は絶対パスで来るため、CLI の出力 resolver は in-memory input を優先しつつ dependency file を disk から解決するようにした。spec harness 側の `NewDirResolver` も absolute path を読めるようにした
+- import した `.gomi` の declaration span は絶対パスで来るため、CLI の出力 resolver は in-memory input を優先し、compile 時に `OnLoadGomi` で捕捉した正確な bytes を使い、最後に dependency file を disk から読む fallback にした。spec harness 側の `NewDirResolver` も absolute path を読めるようにした
 - E0407 の `gom explain` / generated error-codes と spec 12 の診断形式説明を更新した
 
 ## red-first

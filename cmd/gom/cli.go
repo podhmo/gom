@@ -56,8 +56,11 @@ func compileOptions(in input, checkOnly bool, seen *depSeen, gl *goimport.Loader
 	}
 	mods := map[string]map[string]*resolve.Symbol{}
 	gc := &gomimport.Config{Dir: dir, Go: gl, Sigs: gl, Modules: mods}
-	if seen != nil {
-		gc.OnLoadGomi = func(p string, src []byte) { seen.noteGomi(p, src) }
+	gc.OnLoadGomi = func(p string, src []byte) {
+		noteLoadedGomiSource(p, src)
+		if seen != nil {
+			seen.noteGomi(p, src)
+		}
 	}
 	ml := gomimport.New(gc)
 	return gomstd.Apply(&build.Options{
