@@ -1,0 +1,13 @@
+package main
+
+type Acc = { count: Int }
+type Other = { count: Int }
+
+fn bad (b: Bool) -> Unit = {
+  let x = if b {
+    { count = 0 }
+  } else {
+    { unknown = 1 }
+  }
+  ()
+}

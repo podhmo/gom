@@ -1,6 +1,6 @@
 # record 未解決時の二次 mismatch suppression
 
-- 状態: 採用（調査済み・実装は未実施）
+- 状態: 採用（実装・検証した — [検証](../sketch/2026-11-28-wave55-lane-a-quiet-recovery-verify.md)）
 - 日付: 2026-11-27
 
 ## 決定

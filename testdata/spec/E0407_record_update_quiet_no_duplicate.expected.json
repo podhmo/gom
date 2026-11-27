@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0407",
+      "severity": "error",
+      "message": "the record literal is ambiguous: 2 record types own these fields; annotate the type",
+      "span": {
+        "file": "E0407_record_update_quiet_no_duplicate.gom",
+        "start": {
+          "line": 7,
+          "col": 14,
+          "offset": 104
+        },
+        "end": {
+          "line": 7,
+          "col": 27,
+          "offset": 117
+        }
+      }
+    }
+  ]
+}
