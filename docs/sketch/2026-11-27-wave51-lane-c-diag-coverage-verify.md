@@ -28,3 +28,11 @@
 - E0204/E0503/E0704 を実装側へ寄せるか文書・code table 側へ寄せるかは lane C で決めない。open question のまま残す
 - explain fragment の coverage 方針もこの lane に入れない
 - compiler 内部の coverage 分類変更なので spec fixture の追加は不要
+
+## 最終検証
+
+- `go vet ./...`: pass
+- `go test ./...`: pass
+- `sh scripts/check-sumtype.sh`: pass
+- `sh scripts/check-staticcheck.sh`: pass
+- `gofmt -l .`: empty
