@@ -5,6 +5,8 @@
 次の 3 形はいずれも E0201 の主 message と主 span だけで、候補は出ない。
 
 ```gom
+package main
+
 fn area (x: Int) -> Int = x
 fn use (x: Int) -> Int = aera x              // undefined name `aera`
 fn member (xs: List Int) -> Int = List.lenght xs  // `List` has no member `lenght`
@@ -38,6 +40,7 @@ stdlib member 名を確認すると、距離 2 には `max`/`min`、`find`/`fold
 - `List.lenght` に `length` の候補 note/data が出る
 - import alias 付き stdlib/Gom module で同じ候補が出る
 - Go package member typo（例: `fmt.Printlnn`）で同じ規則が効く
+- `Go.Slice.lenght` のような operation member typo でも `length` の候補が出る（constructor fallback 経路でも member 診断として扱う）
 - 距離 2 になる typo（例: `List.fndd`）や遠い名前に候補が出ない
 - 候補が 4 件以上作れる人工 module では deterministic に 3 件へ truncate される
 - `fixes` が空であること、text/JSON 両方の出力を確認する

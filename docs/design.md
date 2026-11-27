@@ -168,6 +168,8 @@ error recovery では同じ型不適合を複数の span で繰り返さない�
 
 E0401 の expected type provenance は `checkExprAt` の annotation span を正とし、同じ expected type が供給される if/match 腕と、その経路上の block 最終式へだけ明示的に渡す。分岐の内部 join で detached にした腕、bare `Go.Any` への境界、呼出し引数・lambda 本体・record field・演算子の内部には伝えない — 最終 conformance mismatch にだけ `expected type declared here` label が付き、独立した constraint mismatch や numeric literal の constraint failure を注釈へ結び付けない（[decision](decisions/2026-11-27-diagnostic-ux-next-step.md)）。
 
+E0201 typo 候補の方向は、未実装の方針として module member typo から始める。`namespace: "member"` で lookup に使った member table がある診断 — 通常の module member に加え、constructor fallback 経路で出る `Go.Map` / `Go.Slice` operation member miss を含む — にだけ、同一 table 内の距離 1 の候補を note と `data.candidates` へ付ける。`fixes` や import 自動追加は付けない（[decision](decisions/2026-11-28-e0201-member-typo-candidates.md)、実装は TODO E0201-1）。
+
 診断 coverage の meta-test は、live code の既定置き場を phase 別に固定しつつ、例外を「unit integration」「checker recovery」「compiler-internal」「reserved」へ分類する。unit / recovery 分類は package 内にコード文字列があるだけでは足りず、例外表が positive evidence として指名した test function の本体で、承認済み positive assertion helper への direct argument としてそのコードが使われることを確認する。現行の承認形は `requireCodes(t, diags, "E0502")` 形で、negative assertion・コメント・無関係 literal は evidence にできない（[decision](decisions/2026-11-27-diagnostic-coverage-positive-assertions.md)）。compiler-internal は lower/core invariant のように利用者ソースからの到達を設計しない診断で、coverage 対象外であることを分類自体で明示する。reserved は production emitter がない診断で、emitter が現れたら分類をやり直す。E0204/E0503/E0704 の方向は wave52 lane E で確定し、E0204/E0704 は spec fixture 側、E0503 は retired へ移した。
 
 ### 2.4 実装言語
