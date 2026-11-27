@@ -199,3 +199,64 @@ func TestApplyParamExpectationsLabeledRejectionDoesNotMintOpenMetas(t *testing.T
 		t.Fatalf("rejecting a labeled context left %d unused metas", len(c.metas)-before)
 	}
 }
+
+func TestApplyParamExpectationsRejectsMergedOriginalLabels(t *testing.T) {
+	c := &checker{
+		metas:  map[*types.Meta]*metaRec{},
+		tyCons: map[conKey]*typeInfo{},
+	}
+	sp := diag.SpanIn("test.gom", 1, 2)
+	acc := &types.Con{Name: "Acc"}
+	c.tyCons[conKey{name: "Acc"}] = &typeInfo{kind: kindRecord}
+	labeledCallback := types.Fn(acc, types.FuncParam{Label: "x", Type: acc})
+	openOriginal := c.newMeta(sp, "open original field")
+	openSpeculative := c.newMeta(sp, "open speculative callback")
+	box := func(cb, payload types.Type) types.Type {
+		return &types.Con{Name: "Box", Args: []types.Type{cb, payload}}
+	}
+	x := &applyParamExpectations{
+		c:           c,
+		params:      []types.Type{box(openSpeculative, acc)},
+		informative: []bool{true},
+		open:        map[*types.Meta]*types.Meta{},
+		sp:          sp,
+	}
+
+	if got, ok := x.at(0, box(labeledCallback, openOriginal)); ok {
+		t.Fatalf("merged original label was propagated as %v", got)
+	}
+}
+
+func TestApplyParamExpectationsMergesWhenSpeculativeLabelIsDiscarded(t *testing.T) {
+	c := &checker{
+		metas:  map[*types.Meta]*metaRec{},
+		tyCons: map[conKey]*typeInfo{},
+	}
+	sp := diag.SpanIn("test.gom", 1, 2)
+	acc := &types.Con{Name: "Acc"}
+	c.tyCons[conKey{name: "Acc"}] = &typeInfo{kind: kindRecord}
+	param := func(t types.Type) types.FuncParam { return types.FuncParam{Type: t} }
+	positionalCallback := types.Fn(acc, param(acc))
+	labeledCallback := types.Fn(acc, types.FuncParam{Label: "x", Type: acc})
+	openOriginal := c.newMeta(sp, "open original field")
+	box := func(cb, payload types.Type) types.Type {
+		return &types.Con{Name: "Box", Args: []types.Type{cb, payload}}
+	}
+	x := &applyParamExpectations{
+		c:           c,
+		params:      []types.Type{box(labeledCallback, acc)},
+		informative: []bool{true},
+		open:        map[*types.Meta]*types.Meta{},
+		sp:          sp,
+	}
+	original := box(positionalCallback, openOriginal)
+
+	got, ok := x.at(0, original)
+	if !ok {
+		t.Fatal("merge was rejected even though the positional original discarded the speculative label")
+	}
+	want := box(positionalCallback, acc)
+	if !types.Equal(got, want) {
+		t.Fatalf("merged context = %v, want %v", got, want)
+	}
+}

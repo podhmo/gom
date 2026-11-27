@@ -398,11 +398,28 @@ func (x *applyParamExpectations) at(i int, original types.Type) (types.Type, boo
 	if x == nil || i < 0 || i >= len(x.params) || !x.informative[i] {
 		return nil, false
 	}
-	if !x.c.containsRecordType(x.params[i]) || x.c.containsFuncLabels(x.params[i]) {
+	if !x.c.containsRecordType(x.params[i]) {
 		return nil, false
+	}
+	reifiedBefore := make(map[*types.Meta]bool, len(x.open))
+	for _, m := range x.open {
+		reifiedBefore[m] = true
 	}
 	merged := x.c.mergeContextualType(original, x.params[i], x.open, x.sp)
 	if types.Equal(merged, original) {
+		return nil, false
+	}
+	if x.c.containsFuncLabels(merged) {
+		// Reification mints real metas before the merged type is known to
+		// be usable. Roll back only the metas introduced by this attempt;
+		// earlier entries may already participate in another parameter's
+		// accepted expectation.
+		for clone, m := range x.open {
+			if !reifiedBefore[m] {
+				delete(x.c.metas, m)
+				delete(x.open, clone)
+			}
+		}
 		return nil, false
 	}
 	return merged, true
