@@ -1,0 +1,12 @@
+package main
+
+type Expr =
+  | Leaf
+  | Node Expr Expr
+
+fn nested_payload_not_narrowed (expr: Expr) -> Int = match expr {
+  Node _ _ -> match expr {
+    Node (Node _ _) _ -> 1
+  }
+  Leaf -> 0
+}

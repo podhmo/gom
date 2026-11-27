@@ -1,6 +1,6 @@
 # nested match の same-scrutinee narrowing
 
-- 状態: 採択（実装は wave51 以降 — [検証](../sketch/2026-11-27-wave50-lane-d-match-precision-verify.md)）
+- 状態: 採用（実装・検証した — [検証](../sketch/2026-11-27-wave51-lane-b-match-narrowing-verify.md)）
 - 日付: 2026-11-27
 
 ## 決定

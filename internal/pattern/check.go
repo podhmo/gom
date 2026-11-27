@@ -6,6 +6,7 @@ import (
 
 	"github.com/podhmo/gom/internal/check"
 	"github.com/podhmo/gom/internal/diag"
+	"github.com/podhmo/gom/internal/resolve"
 	"github.com/podhmo/gom/internal/types"
 )
 
@@ -39,6 +40,11 @@ type checker struct {
 	cv  conv
 	res diag.Resolver
 	max int
+	// narrowed is the lexical root-constructor domain of a stable
+	// local variable inside a match arm body. It affects only
+	// E0301's root signature view; E0302 keeps the uncontextual
+	// matrix for migration compatibility.
+	narrowed map[*resolve.Symbol]*rootDomain
 }
 
 func newChecker(env *Env, opts Options) *checker {
@@ -49,7 +55,7 @@ func newChecker(env *Env, opts Options) *checker {
 	if max <= 0 {
 		max = 5
 	}
-	return &checker{env: env, cv: conv{env: env}, res: opts.Resolver, max: max}
+	return &checker{env: env, cv: conv{env: env}, res: opts.Resolver, max: max, narrowed: map[*resolve.Symbol]*rootDomain{}}
 }
 
 // CheckMatch checks one match expression (docs/design.md section
@@ -131,8 +137,19 @@ func (c *checker) checkMatch(m *check.Match) []diag.Diagnostic {
 		}
 	}
 
-	// Exhaustiveness against the unguarded arms.
-	miss := c.missing(cover, []types.Type{subjTy}, c.max)
+	// Exhaustiveness against the unguarded arms. Inside a match arm
+	// body, a nested match over the same stable local variable (or a
+	// root catch-all alias of it) sees only the root constructors
+	// still possible in that lexical context. The narrowing is a
+	// root-column view only: recursive payload positions keep the
+	// type's full signature, and E0302 above remains uncontextual.
+	var rootSig *signature
+	if sym, ok := stableSubject(m.Subj); ok {
+		if domain := c.narrowed[sym]; domain != nil {
+			rootSig = c.filteredSignature(subjTy, domain)
+		}
+	}
+	miss := c.missingAtRoot(cover, []types.Type{subjTy}, c.max, rootSig)
 	if len(miss) > 0 {
 		pats := make([]string, len(miss))
 		for i, w := range miss {
@@ -414,12 +431,40 @@ func (c *checker) walkExpr(e check.Expr, diags *diag.List) {
 	case *check.Match:
 		*diags = append(*diags, c.checkMatch(e)...)
 		c.walkExpr(e.Subj, diags)
+		subjSym, tracking := stableSubject(e.Subj)
+		var remaining *rootDomain
+		if tracking {
+			remaining = c.rootDomainFor(e.Subj.Type(), c.narrowed[subjSym])
+			tracking = remaining != nil
+		}
 		for i := range e.Arms {
 			arm := &e.Arms[i]
 			if arm.Guard != nil {
 				c.walkExpr(arm.Guard, diags)
 			}
-			c.walkExpr(arm.Body, diags)
+			if tracking {
+				domain := remaining
+				if positive := c.positiveRootKeys(arm.Pat); positive != nil {
+					domain = intersectDomain(domain, positive)
+				}
+				syms := []*resolve.Symbol{subjSym}
+				if alias := rootAlias(arm.Pat); alias != nil {
+					syms = append(syms, alias)
+				}
+				saved := c.pushNarrowing(syms, domain)
+				c.walkExpr(arm.Body, diags)
+				c.popNarrowing(saved)
+			} else {
+				c.walkExpr(arm.Body, diags)
+			}
+			if tracking && arm.Guard == nil {
+				keys, all := c.definiteRootKeys(arm.Pat)
+				if all {
+					remaining = emptyDomain()
+				} else {
+					remaining = withoutKeys(remaining, keys)
+				}
+			}
 		}
 	case *check.Block:
 		for _, s := range e.Stmts {

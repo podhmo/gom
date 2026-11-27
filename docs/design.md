@@ -341,6 +341,7 @@ func area(s Shape) float64 {
 4. 冗長性: 各腕 i について `U(P[0..i), p_i)` が偽ならその腕は到達不能
 5. Int / String などシグネチャが無限の型は完全なシグネチャではないと扱い、デフォルト行列へ進む
 6. ガード付きの行は、網羅性でも冗長性でも、後続の行を覆う行列からは除いて判定する（ガードが常に真とは限らないため）
+7. ファイル walker は match の腕本体へ入るとき、同じ安定なローカル変数に対する root constructor の残余 domain を lexical scope として保持する。nested match の E0301 では root column の constructor signature だけをその domain へ絞り、payload 以降の再帰 column と E0302 は通常の signature のままにする（[decision](decisions/2026-11-27-match-nested-narrowing.md)）
 
 最悪計算量は指数だが、実用的なコードでは問題にならないことが OCaml / Rust で実証済み。反例の列挙は先頭 5 件で打ち切る。
 

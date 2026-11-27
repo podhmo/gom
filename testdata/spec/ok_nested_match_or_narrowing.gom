@@ -1,0 +1,21 @@
+package main
+
+type Action =
+  | Add Int
+  | Remove Int
+  | Archive
+
+fn apply_positive_or (action: Action) -> Int = match action {
+  Add n | Remove n -> match action {
+    Add m -> m
+    Remove m -> m
+  }
+  Archive -> 0
+}
+
+fn apply_negative_or (action: Action) -> Int = match action {
+  Add n | Remove n -> n
+  action2 -> match action2 {
+    Archive -> 0
+  }
+}
