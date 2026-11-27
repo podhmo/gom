@@ -285,10 +285,14 @@ func TestInitExistingOlderGoModuleRollsBackDependency(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Setenv("GOWORK", "off")
+	t.Setenv("GOM_TOOLCHAIN_ROOT", mustRepoRoot(t))
 
 	code, _, errout := invoke("init", "-dir", dir)
 	if code != 2 {
 		t.Fatalf("exit = %d, want 2; stderr=%q", code, errout)
+	}
+	if !strings.Contains(errout, "go list") || !strings.Contains(errout, "stdlib/result") {
+		t.Fatalf("init failed before standalone toolchain validation: %q", errout)
 	}
 	after, err := os.ReadFile(gomodPath)
 	if err != nil {
