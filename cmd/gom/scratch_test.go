@@ -10,6 +10,25 @@ import (
 	"testing"
 )
 
+func isolatedModCache(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	t.Cleanup(func() {
+		_ = filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+			if err != nil {
+				return nil
+			}
+			if d.IsDir() {
+				_ = os.Chmod(path, 0o700)
+			} else {
+				_ = os.Chmod(path, 0o600)
+			}
+			return nil
+		})
+	})
+	return dir
+}
+
 func TestModPathLiteralQuotesWhitespace(t *testing.T) {
 	t.Parallel()
 
@@ -102,6 +121,7 @@ func TestDownloadToolchainStandaloneIgnoresWorkspaceReplace(t *testing.T) {
 	t.Setenv("GOWORK", filepath.Join(ws, "go.work"))
 	t.Setenv("GOPROXY", "off")
 	t.Setenv("GOSUMDB", "off")
+	t.Setenv("GOMODCACHE", isolatedModCache(t))
 
 	if out, err := runDownloadToolchain(project, os.Environ()); err != nil {
 		t.Fatalf("workspace resolution did not use the local replace: %v: %s", err, out)
@@ -121,6 +141,7 @@ func TestDownloadToolchainStandaloneReleaseModuleWritesSum(t *testing.T) {
 	t.Setenv("GOPROXY", (&url.URL{Scheme: "file", Path: proxy}).String())
 	t.Setenv("GOSUMDB", "off")
 	t.Setenv("GOWORK", "off")
+	t.Setenv("GOMODCACHE", isolatedModCache(t))
 
 	for _, tc := range []struct {
 		name        string
@@ -177,13 +198,20 @@ func writeGomModuleProxy(t *testing.T, version string) string {
 		t.Fatal(err)
 	}
 	zw := zip.NewWriter(zf)
-	entry, err := zw.Create("github.com/podhmo/gom@" + version + "/go.mod")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := entry.Write(mod); err != nil {
-		t.Fatal(err)
-	}
+	writeProxyZipEntry(t, zw, "github.com/podhmo/gom@"+version+"/go.mod", mod)
+	writeProxyZipEntry(t, zw, "github.com/podhmo/gom@"+version+"/rt/doc.go", []byte("package rt\n"))
+	writeProxyZipEntry(t, zw, "github.com/podhmo/gom@"+version+"/stdlib/doc.go", []byte("package stdlib\n"))
+	writeProxyZipEntry(t, zw, "github.com/podhmo/gom@"+version+"/stdlib/result/result.go", []byte(`package result
+
+type Result[A, E any] struct {
+	Value A
+	Error E
+}
+
+func FromGo[A, E any](v A, err E) Result[A, E] {
+	return Result[A, E]{Value: v, Error: err}
+}
+`))
 	if err := zw.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -191,4 +219,85 @@ func writeGomModuleProxy(t *testing.T, version string) string {
 		t.Fatal(err)
 	}
 	return proxy
+}
+
+func writeProxyZipEntry(t *testing.T, zw *zip.Writer, name string, body []byte) {
+	t.Helper()
+	entry, err := zw.Create(name)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := entry.Write(body); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestDownloadToolchainStandaloneRejectsMissingLocalReplace(t *testing.T) {
+	haveGo(t)
+	dir := t.TempDir()
+	gomod := "module replace.example/project\n\ngo 1.27\n\nrequire github.com/podhmo/gom v0.0.0\n\nreplace github.com/podhmo/gom => ./missing\n"
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte(gomod), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GOWORK", "off")
+	t.Setenv("GOPROXY", "off")
+	t.Setenv("GOSUMDB", "off")
+	t.Setenv("GOMODCACHE", isolatedModCache(t))
+
+	err := downloadToolchainStandalone(dir)
+	if err == nil {
+		t.Fatal("standalone resolution accepted a missing local replace")
+	}
+	if !strings.Contains(err.Error(), "replacement directory") || !strings.Contains(err.Error(), "explicit replace") {
+		t.Fatalf("error does not explain the invalid replace: %v", err)
+	}
+}
+
+func TestInitReleaseProjectBuildsOutsideWorkspaceReadonly(t *testing.T) {
+	if testing.Short() {
+		t.Skip("runs gom init, gom run, and go build")
+	}
+	haveGo(t)
+	root := mustRepoRoot(t)
+	proxy := writeGomModuleProxy(t, "v0.0.1")
+	ws := t.TempDir()
+	project := filepath.Join(ws, "project")
+	if err := os.MkdirAll(project, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	gowork := "go 1.27\n\nuse ./project\n\nreplace github.com/podhmo/gom => " + root + "\n"
+	if err := os.WriteFile(filepath.Join(ws, "go.work"), []byte(gowork), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("GOWORK", filepath.Join(ws, "go.work"))
+	t.Setenv("GOPROXY", (&url.URL{Scheme: "file", Path: proxy}).String())
+	t.Setenv("GOSUMDB", "off")
+	t.Setenv("GOMODCACHE", isolatedModCache(t))
+	t.Setenv("GOFLAGS", "-mod=mod")
+
+	requirement := func() (string, string, error) {
+		return "github.com/podhmo/gom v0.0.1", "", nil
+	}
+	var initOut, initErr strings.Builder
+	code := runInitWithRequirement([]string{"-dir", project, "example.com/hello"}, &initOut, &initErr, requirement)
+	if code != 0 {
+		t.Fatalf("gom init exit = %d; stdout=%q stderr=%q", code, initOut.String(), initErr.String())
+	}
+	sum, err := os.ReadFile(filepath.Join(project, "go.sum"))
+	if err != nil {
+		t.Fatalf("go.sum was not written: %v", err)
+	}
+	if !strings.Contains(string(sum), "github.com/podhmo/gom v0.0.1") {
+		t.Fatalf("go.sum lacks the release checksum: %q", sum)
+	}
+
+	t.Setenv("GOWORK", "off")
+	t.Setenv("GOFLAGS", "-mod=readonly")
+	code, out, errout := invoke("run", filepath.Join(project, "main.gom"))
+	if code != 0 {
+		t.Fatalf("gom run outside the workspace exit = %d; stdout=%q stderr=%q", code, out, errout)
+	}
+	if out != "hello\n" {
+		t.Fatalf("stdout = %q", out)
+	}
 }

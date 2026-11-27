@@ -26,6 +26,10 @@ var unsafeModuleChars = regexp.MustCompile(`[^A-Za-z0-9_.-]+`)
 // runInit implements `gom init [-dir DIR] [MODULE-PATH]`: create a
 // go.mod/main.gom pair for a new project without overwriting either file.
 func runInit(args []string, stdout, stderr io.Writer) int {
+	return runInitWithRequirement(args, stdout, stderr, toolchainRequirement)
+}
+
+func runInitWithRequirement(args []string, stdout, stderr io.Writer, requirement func() (string, string, error)) int {
 	fs := flag.NewFlagSet("init", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	dir := fs.String("dir", ".", "directory to initialize")
@@ -69,7 +73,7 @@ func runInit(args []string, stdout, stderr io.Writer) int {
 		return 2
 	}
 	if !gomodExists {
-		body, err := moduleFile(modulePath)
+		body, err := moduleFileWithRequirement(modulePath, requirement)
 		if err != nil {
 			fmt.Fprintf(stderr, "gom init: %v\n", err)
 			return 2
@@ -84,7 +88,7 @@ func runInit(args []string, stdout, stderr io.Writer) int {
 		}
 		fmt.Fprintf(stdout, "created %s\n", gomodPath)
 	} else {
-		if err := ensureGomDependency(*dir, gomodPath); err != nil {
+		if err := ensureGomDependencyWithRequirement(*dir, gomodPath, requirement); err != nil {
 			fmt.Fprintf(stderr, "gom init: %v\n", err)
 			return 2
 		}
@@ -111,6 +115,10 @@ func runInit(args []string, stdout, stderr io.Writer) int {
 // existing requirement. A replace-only mention is not a dependency, and an
 // existing replace is preserved rather than duplicated.
 func ensureGomDependency(dir, gomodPath string) error {
+	return ensureGomDependencyWithRequirement(dir, gomodPath, toolchainRequirement)
+}
+
+func ensureGomDependencyWithRequirement(dir, gomodPath string, requirement func() (string, string, error)) error {
 	b, err := os.ReadFile(gomodPath)
 	if err != nil {
 		return err
@@ -174,7 +182,7 @@ func ensureGomDependency(dir, gomodPath string) error {
 	if hasRequire || isGomModule {
 		return nil
 	}
-	req, rep, err := toolchainRequirement()
+	req, rep, err := requirement()
 	if err != nil {
 		return err
 	}
