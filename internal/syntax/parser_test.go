@@ -513,6 +513,11 @@ func TestParseDiagnostics(t *testing.T) {
 			[]string{`E0204@11-17: unknown attribute "@mtehod": only "@test", "@tailrec", "@extern" and "@method" are defined`},
 		},
 		{
+			"unknown attribute with lowercase argument",
+			"package m\n@wat(foo) fn f () -> Unit = ()\n",
+			[]string{`E0204@11-14: unknown attribute "@wat": only "@test", "@tailrec", "@extern" and "@method" are defined`},
+		},
+		{
 			"tailrec on let",
 			"package m\n@tailrec let f = fn n -> n\n",
 			[]string{`E0101@11-18: the "@tailrec" attribute applies only to a "fn" declaration`},

@@ -604,9 +604,15 @@ func (p *parser) parseAttrDecl() Decl {
 		// reach (`ServeHTTP`, `URL`, `ID`).
 		p.next()
 		if p.at(tokUIdent) {
-			methodName = p.text(p.cur())
+			if name == "method" {
+				methodName = p.text(p.cur())
+			}
 			p.next()
-		} else {
+		} else if unknown && p.at(tokIdent) {
+			// The unknown attribute is already E0204; consume a simple
+			// argument for recovery without framing it as a @method error.
+			p.next()
+		} else if name == "method" {
 			p.errf(p.spanOf(p.cur()),
 				"the \"@method\" argument must be an exported Go name (uppercase identifier), found %s",
 				p.describe(p.cur()))
