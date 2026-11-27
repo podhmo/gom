@@ -29,7 +29,7 @@
 
 - [ ] **stack を持つ error 値の生成が書けない（`pkg/errors` 系）**: `fmt.Errorf("ctx: %w", e)` のユーザーコードは生成される Go-call で問題なく通る（[errwalk fixture](../testdata/realworld/errwalk/main.gom)）が、`%+v` で stack trace を出す `pkg/errors.Errorf` 相当の「stack を持つ error 値」の生成には `@extern` shim が要った — `%+v` 出力自体は生成コードで動くが、stack を持つ値の作成側だけ shim（selfish 移植の観測 — [sketch](sketch/ja/2026-11-24-selfish-port.md)、wave43 lane F）
 
-- [ ] **静的な期待型のない無名レコードの `List.fold` acc は型推論が通らない（E0407）**: wave50 lane E で戻り値など静的に分かる record 期待型がある場合は解消（[検証](sketch/2026-11-27-wave50-lane-e-record-context-verify.md)）。それでも accumulator shape を表す named type がどこにもない ad hoc shape は named type（`type GistAcc = {...}`）が必須のまま。匿名 record 型や structural record を導入するかは未決（selfish 移植 — 同上 sketch）
+- [x] **静的な期待型のない無名レコードの `List.fold` acc は型推論が通らない（E0407）**: wave50 lane E で戻り値など静的に分かる record 期待型がある場合は解消（[検証](sketch/2026-11-27-wave50-lane-e-record-context-verify.md)）。named type がどこにもない ad hoc shape は named type（`type GistAcc = {...}`）が必須のままだが、wave51 lane E で structural record は不採用・named record 必須を仕様の正として維持すると決着した（[decision](decisions/2026-11-27-labeled-lambda-record-seeding.md)、[調査](sketch/2026-11-27-wave51-lane-e-labeled-records-verify.md)）
 
 - [x] **match の到達不能 arm は `todo ()` に頼る**: catch-all `action ->` の内側で sub-match する形になると網羅性チェックの恩恵が薄れる（selfish 移植 — 同上 sketch）。wave51 lane B で spec/decision の採択範囲どおり same-scrutinee root constructor narrowing を実装し、E0301 のみへ適用することで解消（[decision](decisions/2026-11-27-match-nested-narrowing.md)、[検証](sketch/2026-11-27-wave51-lane-b-match-narrowing-verify.md)）。guard 条件解析や contextual E0302 は仕様上の対象外として残る
 
