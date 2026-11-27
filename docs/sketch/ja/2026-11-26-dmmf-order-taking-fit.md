@@ -395,4 +395,12 @@ wave50/51/52 lane A の推論・pattern 改善を `experiments/dmmf-fit` で追�
 - direct constructor payload は戻り値型から推論できる。`match validate_line line { ... Ok valid -> Ok { id = input.id, lines = [valid] } }` は注釈や型名前置なしでコンパイルできる。
 - labeled callback へ渡す flat positional lambda で record accumulator を推論できる。`fold_order_lines (fn line acc -> { acc with ... }) lines` 形で `LineTotals` の seeding が効く。
 - same-scrutinee nested match narrowing により、`CommentLine` を外側で処理した nested `match` は不可能な `CommentLine` 腕なしで書ける。
-- 一方、`input.lines |> ... |> Result.map (fn lines -> { ... })` のように generic higher-order pipe の lambda 本体にある無名 record literal はまだ E0407 になる。この位置では引き続き `ValidatedOrder { ... }` の型名前置 literal が推奨形である。
+- wave52 時点では、`input.lines |> ... |> Result.map (fn lines -> { ... })` のように generic higher-order pipe の lambda 本体にある無名 record literal はまだ E0407 になり、この位置では `ValidatedOrder { ... }` の型名前置 literal が推奨形だった。
+
+## wave54 後の再検証（2026-11-27）
+
+wave53 lane A の callback result record propagation を受け、wave54 lane B で `experiments/dmmf-fit` の recommended form を更新した。直前の wave52 記録にある pipe 経由 `Result.map` lambda 内の型名前置 literal 推奨はこの節で上書きする。詳細は [wave54 lane B 検証](../2026-11-27-wave54-lane-b-dmmf-form-verify.md)。
+
+- `input.lines |> List.traverse_result validate_line |> Result.map (fn lines -> { id = input.id, lines = lines })` は、関数の戻り値 `Result ValidatedOrder ValidationError` から無名 record literal を推論してコンパイルできる。DMMF の段階型 pipeline では、静的な期待型が既にあるこの位置で型名前置 literal を必須にしない。
+- `List.fold` の初期 accumulator も、callback/戻り値から静的に型が分かる形では `{ quantity = 0, lines = 0 }` と書ける。
+- それでも `let seed = { ... }` のような局所 literal を後続使用から逆推論することはない。同名 field set を持つ staged record で一旦局所変数へ置くときは、`let seed : ValidatedOrder = { ... }` の注釈か `ValidatedOrder { ... }` の型名前置 literal を残す。

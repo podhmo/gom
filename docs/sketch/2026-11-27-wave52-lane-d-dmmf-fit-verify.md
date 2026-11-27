@@ -5,6 +5,10 @@
 - 元レポート: [DMMF fit](ja/2026-11-26-dmmf-order-taking-fit.md)
 - 関連 decision: [record contextual inference](../decisions/2026-11-27-record-contextual-inference.md)、[match nested narrowing](../decisions/2026-11-27-match-nested-narrowing.md)、[labeled lambda record seeding](../decisions/2026-11-27-labeled-lambda-record-seeding.md)
 
+## wave54 追記（recommended form の現行値）
+
+wave53 lane A で pipe 経由 `Result.map` lambda 本体の無名 record literal へ前向き propagation が入り、wave54 lane B で `experiments/dmmf-fit` の recommended form を更新した。本文中の「generic higher-order pipe の lambda 本体では残る」「この位置では型名前置 literal が推奨形」という記述は wave52 時点の観測であり、現在の推奨は [wave54 lane B 検証](2026-11-27-wave54-lane-b-dmmf-form-verify.md) を参照する。
+
 ## 目的と範囲
 
 `experiments/dmmf-fit` を wave49 以降に入った言語機能で実際に更新し、元レポートの不足項目が解消したか、よりよい書き方ができるようになったか、何が残るかを分類した。compiler / 言語機能の新規実装は行っていない。DMMF boundary guide の全面改訂も行わず、example 更新から明らかに stale だった agent skill の record 推論説明 1 箇所だけを修正した。
@@ -43,7 +47,7 @@
 
 ## 新たに確認した残課題
 
-`input.lines |> List.traverse_result validate_line |> Result.map (fn lines -> { id = input.id, lines = lines })` に書き換える probe では、無名 record literal が E0407 のままだった。加えて `expected ValidatedOrder, got Unit` の E0401 が出て、record 未解決の二次診断として分かりにくい。spec §3.3 の generic/pipe propagation がこの形を含むように読めるため、implementation-gaps へ登録した。現行の推奨形はこの位置では `ValidatedOrder { ... }` の型名前置 literal か、constructor payload が静的に pin される direct `Ok { ... }` へ書き分けることである。
+`input.lines |> List.traverse_result validate_line |> Result.map (fn lines -> { id = input.id, lines = lines })` に書き換える probe では、無名 record literal が E0407 のままだった。加えて `expected ValidatedOrder, got Unit` の E0401 が出て、record 未解決の二次診断として分かりにくい。spec §3.3 の generic/pipe propagation がこの形を含むように読めるため、implementation-gaps へ登録した。wave52 時点の推奨形はこの位置では `ValidatedOrder { ... }` の型名前置 literal か、constructor payload が静的に pin される direct `Ok { ... }` への書き分けだった。wave54 lane B で pipe 経由 `Result.map` lambda 内の無名 literal が実用 probe で通ることを確認し、現行の推奨は更新済みである。
 
 この課題は lane D の scope では修正しない。一方で、labeled callback 内の record accumulator は lane A によって通るため、「labeled function parameter を含む文脈では contextual propagation が止まる」という agent skill の古い一文は修正した。
 

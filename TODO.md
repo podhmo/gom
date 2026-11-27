@@ -23,7 +23,7 @@
 ## To Be Implemented
 
 - [ ] **[task DIAG-2] E0401 provenance を if/match 腕へ伝播する**（依存: なし）: 注釈からそのまま同じ expected type が供給される if/match 腕について、最終 conformance mismatch に `expected type declared here` label を付ける。腕内の独立 mismatch へ漏らさない negative fixture、text/JSON output、spec/decision 更新を含める（[decision](docs/decisions/2026-11-27-diagnostic-ux-next-step.md)）
-- [ ] **[task DMMF-1] DMMF fit example の recommended form を更新する**（依存: なし）: wave53 lane A で pipe 経由 `Result.map` lambda 内の無名 record literal が推論できるようになったため、`experiments/dmmf-fit` と関連レポートの「この位置では型名前置 literal が推奨形」という古い案内を再評価し、recommended form と probe を更新する（[wave52 lane D 検証](docs/sketch/2026-11-27-wave52-lane-d-dmmf-fit-verify.md)、[wave53 lane A 検証](docs/sketch/2026-11-27-wave53-lane-a-callback-record-verify.md)）
+- [x] **[task DMMF-1] DMMF fit example の recommended form を更新する**（依存: なし）: wave53 lane A で pipe 経由 `Result.map` lambda 内の無名 record literal が推論できるようになったため、`experiments/dmmf-fit` と関連レポートの「この位置では型名前置 literal が推奨形」という古い案内を再評価し、recommended form と probe を更新する（[wave52 lane D 検証](docs/sketch/2026-11-27-wave52-lane-d-dmmf-fit-verify.md)、[wave53 lane A 検証](docs/sketch/2026-11-27-wave53-lane-a-callback-record-verify.md)）
 
 ### owner improvement ideas audit 由来（[PR #256](https://github.com/podhmo/gom/pull/256)、[audit](docs/sketch/2026-11-26-wave48-lane-g-owner-ideas-audit.md)）
 
