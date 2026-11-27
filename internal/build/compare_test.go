@@ -962,6 +962,25 @@ fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
 		want: "-19",
 	},
 	{
+		// Positional lambdas may satisfy adjacent labeled parameters by
+		// position. The flat and syntactically nested forms must pass the
+		// same values in declaration order through both evaluator and
+		// generated Go; label erasure is inference-only.
+		name: "positional_lambda_labeled_params",
+		src: `package main
+
+import go "fmt"
+
+fn apply2 (f: ~x: Int -> ~y: Int -> Int) -> Int = f ~x: 3 ~y: 4
+fn flat () -> Int = apply2 (fn x y -> x * 10 + y)
+fn nested () -> Int = apply2 (fn x -> fn y -> x * 10 + y)
+
+fn answer () -> String = "${flat ()}:${nested ()}"
+fn main () -> Unit = { ignore (fmt.Println (answer ())); () }
+`,
+		want: "34:34",
+	},
+	{
 		// A pipe into a CallPartial whose `~label:` already bound a
 		// returned-function level's slot must stay partial when a
 		// declared-level gap remains — promoting on `Applied >=

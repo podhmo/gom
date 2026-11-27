@@ -1,0 +1,4 @@
+package main
+
+fn nested () -> ~x: Int -> ~y: Int -> Int = fn x -> fn y -> x + y
+fn flat () -> ~x: Int -> ~y: Int -> Int = fn x y -> x + y

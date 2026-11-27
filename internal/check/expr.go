@@ -3157,6 +3157,24 @@ func (c *checker) containsRecordType(t types.Type) bool {
 	return false
 }
 
+// positionalLambdaChainParams counts the parameter positions consumed by
+// a syntactic chain of fully positional lambdas. The count is an upper
+// bound for inference-time label erasure: labels after it belong to a
+// value the chain did not itself produce positionally.
+func positionalLambdaChainParams(e *syntax.Lambda) int {
+	n := len(e.Params)
+	body, ok := e.Body.(*syntax.Lambda)
+	if !ok {
+		return n
+	}
+	for _, p := range body.Params {
+		if p.Label != nil {
+			return n
+		}
+	}
+	return n + positionalLambdaChainParams(body)
+}
+
 // checkLambda types an anonymous function `fn x y -> body`.
 // Unannotated parameters normally get metas. A statically expected
 // record parameter is the one exception: seeding it lets record-update
@@ -3194,10 +3212,11 @@ func (c *checker) checkLambda(e *syntax.Lambda, want types.Type) Expr {
 	}
 	if allPositional {
 		// A fully positional lambda may borrow labels only at final
-		// conformance. For inference, erase labels only from the parameter
-		// positions the lambda itself consumes; labels left in the residual
-		// still belong to the returned function's contract.
-		for i := 0; i < len(e.Params) && i < len(wparams); i++ {
+		// conformance. For inference, erase labels from the parameter
+		// positions consumed by this syntactic chain of positional lambdas;
+		// labels left beyond that chain still belong to the returned
+		// function's contract.
+		for i := 0; i < positionalLambdaChainParams(e) && i < len(wparams); i++ {
 			wparams[i].Label = ""
 		}
 	}
