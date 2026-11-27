@@ -29,9 +29,10 @@ const (
 type coverageException struct {
 	kind coverageKind
 	why  string
-	// tests names the positive Go test functions carrying unit or
-	// recovery coverage. Naming them keeps a negative "must not emit"
-	// assertion or an incidental literal from counting as coverage.
+	// tests names the Go test functions the classification identifies
+	// as positive unit or recovery coverage. The meta-test verifies
+	// that the diagnostic literal occurs inside each named test body;
+	// it does not prove the assertion's polarity by itself.
 	tests []string
 }
 
@@ -56,7 +57,7 @@ var coverageExceptions = map[diag.Code]coverageException{
 	},
 	"E0606": {
 		kind:  coverageUnit,
-		why:   "package import cycles need multi-module package-layout setup covered by integration tests",
+		why:   "package import cycles need multi-package module-layout setup covered by integration tests",
 		tests: []string{"TestImplImportCycleMutual", "TestIfaceImportCycleMutual"},
 	},
 	"E0704": {
@@ -189,8 +190,9 @@ func scanSpecCodes(t *testing.T, dir string) map[diag.Code]bool {
 
 // scanGoTestCodeEvidence maps diagnostic-code literals to the top-level
 // Go test functions whose bodies contain them. Unlike a package-wide
-// literal scan, this lets the classification name the positive test it
-// means; a literal in an unrelated negative test does not count.
+// literal scan, this lets the classification name the intended evidence
+// test; the exception table remains responsible for choosing a test
+// whose assertion is positive.
 func scanGoTestCodeEvidence(t *testing.T, dir string) map[diag.Code]map[string]bool {
 	t.Helper()
 	out := map[diag.Code]map[string]bool{}

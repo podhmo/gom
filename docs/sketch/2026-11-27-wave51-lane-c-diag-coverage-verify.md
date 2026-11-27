@@ -19,7 +19,7 @@
 | E0204 | reserved | parser が先に E0101 を出し、production emitter がない。方向決定は保留 |
 | E0502 | checker recovery unit test | resolver が value method selection を未解決のまま残し、通常 source からは到達しにくい checker recovery |
 | E0503 | reserved | implicit numeric conversion の production emitter がない。方向決定は保留 |
-| E0606 | unit integration test | package import cycle は multi-module layout が必要で、gomimport integration test が positive coverage |
+| E0606 | unit integration test | package import cycle は multi-package layout が必要で、gomimport integration test が positive coverage |
 | E0704 | checker recovery unit test | parser が destructuring receive pattern を E0101 で拒否するため checker recovery。方向決定は保留 |
 | E0901 | compiler-internal, coverage exempt | lowering invariant の violation は利用者 diagnostic ではなく compiler contract |
 
@@ -36,3 +36,8 @@
 - `sh scripts/check-sumtype.sh`: pass
 - `sh scripts/check-staticcheck.sh`: pass
 - `gofmt -l .`: empty
+
+## Review follow-up
+
+- E0606 の理由を multi-module ではなく multi-package layout と修正した。対象テストは単一 module 内の複数 package で cycle を再現している
+- positive evidence の保証範囲を明確化した。meta-test は例外表が指名した test 内に literal があることだけを検査し、assertion の正負までは証明しない
