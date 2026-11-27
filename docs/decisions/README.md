@@ -281,7 +281,7 @@
 | [diagnostic-labels-details](2026-11-27-diagnostic-labels-details.md) | diagnostic labels/details wire | 採用（実装・検証した — [検証](../sketch/2026-11-27-wave50-lane-c-diagnostic-wire-verify.md)） |
 | [dmmf-boundary-guide](2026-11-27-dmmf-boundary-guide.md) | DMMF boundary guide | 採用（文書化 — [guide](../ja/dmmf-boundary-guide.md)） |
 | [e0301-text-missing-patterns](2026-11-27-e0301-text-missing-patterns.md) | E0301 の text 出力へ不足パターンを出す（一部を [diagnostic-labels-details](2026-11-27-diagnostic-labels-details.md) で置き換え） | 採用（実装・検証した — [検証](../sketch/2026-11-27-wave49-lane-d-e0301-text-verify.md)） |
-| [labeled-lambda-record-seeding](2026-11-27-labeled-lambda-record-seeding.md) | labeled lambda の record seeding / structural record | 採択（label-erased seeding は wave52 実装候補。structural record は不採用） |
+| [labeled-lambda-record-seeding](2026-11-27-labeled-lambda-record-seeding.md) | labeled lambda の record seeding / structural record | 採択（label-erased seeding は wave52 lane A として実装採択。structural record は不採用） |
 | [logical-shortcircuit-lowering](2026-11-27-logical-shortcircuit-lowering.md) | `&&` / `\|\|` は短絡評価し、complex な右辺は Core IR の分岐へ閉じ込める | 採用（実装・検証した — [検証](../sketch/2026-11-27-wave49-lane-a-shortcircuit-verify.md)） |
 | [match-nested-narrowing](2026-11-27-match-nested-narrowing.md) | nested match の same-scrutinee narrowing | 採用（実装・検証した — [検証](../sketch/2026-11-27-wave51-lane-b-match-narrowing-verify.md)） |
 | [module-external-run-init](2026-11-27-module-external-run-init.md) | module 外 `gom run` / `gom init` | 採用（prototype 検証済み） |
