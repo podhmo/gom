@@ -122,8 +122,12 @@ func (c *checker) checkRecordLit(e *syntax.RecordLit, want types.Type) Expr {
 		}
 	} else if _, isMeta := types.Chase(wantT).(*types.Meta); isMeta || wantT == nil {
 		// Field-set resolution: exactly one declared record may own
-		// every written name.
-		ti = c.recordByFields(e)
+		// every written name. A quiet base is already recovery owned
+		// by an earlier literal, so do not report the same ambiguity
+		// again at the update.
+		if !c.isQuiet(wantT) {
+			ti = c.recordByFields(e)
+		}
 		if ti != nil {
 			// Instantiate the record's parameters with metas.
 			args := make([]types.Type, len(ti.params))
@@ -141,8 +145,8 @@ func (c *checker) checkRecordLit(e *syntax.RecordLit, want types.Type) Expr {
 				// nothing else to tie to
 			}
 		} else {
-			// Resolution already reported (no candidate or an
-			// ambiguous set). Keep the recovery type quiet rather than
+			// Resolution already reported, or an earlier quiet recovery
+			// owns the failure. Keep the recovery type quiet rather than
 			// manufacturing a Unit mismatch at later uses.
 			if m, ok := types.Chase(wantT).(*types.Meta); ok {
 				c.markQuiet(m)

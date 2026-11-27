@@ -1,0 +1,10 @@
+package main
+
+type Acc = { count: Int }
+type Other = { count: Int }
+
+fn bad () -> Unit = {
+  let seed = { count = 0 }
+  let x = { seed with count = 1 }
+  ()
+}

@@ -29,6 +29,8 @@ type mismatch: expected Acc, got Unit
 - `E0407_record_context_no_backward`: ambiguous record の root E0407 だけが出て、後続使用に `got Unit` の二次 E0401 が出ない
 - `E0407_record_quiet_independent_mismatch`: quiet meta が `Other` へ解かれたあと `Acc` として返すと、独立した `expected Acc, got Other` が残る
 - `E0401_record_no_match_quiet`: no matching record の経路でも root diagnostic だけが出て、recovery artifact の mismatch は出ない
+- `E0407_record_update_quiet_no_duplicate`: quiet recovery した record を `with` 更新しても、同じ ambiguity を update 側で二重に報告しない
+- `E0407_record_no_want_quiet`: 期待型のない mid-block record literal でも新規 quiet meta が余計な診断を足さない
 
 ## 検証
 

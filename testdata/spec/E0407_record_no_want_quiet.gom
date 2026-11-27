@@ -1,0 +1,9 @@
+package main
+
+type Acc = { count: Int }
+type Other = { count: Int }
+
+fn bad () -> Unit = {
+  { count = 0 }
+  ()
+}
