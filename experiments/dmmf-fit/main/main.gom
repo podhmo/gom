@@ -64,7 +64,7 @@ fn validate_line (line: Line) -> Result Line ValidationError =
 fn validate_order_input (input: UnvalidatedOrder) -> Result ValidatedOrder ValidationError =
   input.lines
   |> List.traverse_result validate_line
-  |> Result.map (fn lines -> ValidatedOrder { id = input.id, lines = lines })
+  |> Result.map (fn lines -> { id = input.id, lines = lines })
 
 fn validate_order_inputs (inputs: List UnvalidatedOrder) -> Result (List ValidatedOrder) ValidationError =
   inputs |> List.map validate_order_input |> Result.sequence
@@ -97,7 +97,7 @@ type PricedLine = | ProductLine String | CommentLine String
 type LineTotals = { quantity: Int, lines: Int }
 
 fn fold_order_lines (step: ~line: Line -> ~acc: LineTotals -> LineTotals) (lines: List Line) -> LineTotals =
-  List.fold (fn acc line -> step ~line: line ~acc: acc) (LineTotals { quantity = 0, lines = 0 }) lines
+  List.fold (fn acc line -> step ~line: line ~acc: acc) ({ quantity = 0, lines = 0 }) lines
 
 fn order_line_totals (lines: List Line) -> LineTotals =
   fold_order_lines (fn line acc -> { acc with quantity = acc.quantity + line.qty, lines = acc.lines + 1 }) lines
