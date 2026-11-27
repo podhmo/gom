@@ -125,7 +125,7 @@ func (c *checker) checkRecordLit(e *syntax.RecordLit, want types.Type) Expr {
 		// every written name. A quiet base is already recovery owned
 		// by an earlier literal, so do not report the same ambiguity
 		// again at the update.
-		if !c.isQuiet(wantT) {
+		if !(base != nil && c.isQuiet(wantT)) {
 			ti = c.recordByFields(e)
 		}
 		if ti != nil {

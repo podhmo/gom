@@ -31,6 +31,7 @@ type mismatch: expected Acc, got Unit
 - `E0401_record_no_match_quiet`: no matching record の経路でも root diagnostic だけが出て、recovery artifact の mismatch は出ない
 - `E0407_record_update_quiet_no_duplicate`: quiet recovery した record を `with` 更新しても、同じ ambiguity を update 側で二重に報告しない
 - `E0407_record_no_want_quiet`: 期待型のない mid-block record literal でも新規 quiet meta が余計な診断を足さない
+- `E0401_record_quiet_want_still_resolves`: shared want が別腕の recovery で quiet でも、後続腕の independent no-match resolution は行う
 
 ## 検証
 
