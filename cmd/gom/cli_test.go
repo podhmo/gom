@@ -167,6 +167,63 @@ func TestCheckDiagnosticsText(t *testing.T) {
 	}
 }
 
+// Imported .gomi declaration spans are not command inputs, but E0407
+// labels them. JSON and text both resolve the dependency file through
+// the exact bytes captured while loading it.
+func TestCheckE0407ForeignCandidateSource(t *testing.T) {
+	t.Parallel()
+
+	dir := writeFiles(t, map[string]string{
+		"go.mod": "module example.com/m\n\ngo 1.27\n",
+		"lib/lib.gomi": `package lib
+
+type Point = { x: Float, y: Float }
+`,
+		"main.gom": `package main
+
+import "example.com/m/lib"
+
+type Point = { x: Float, y: Float }
+
+fn bad () -> Unit = {
+  let p = { x = 1.0, y = 2.0 }
+  ignore p
+  ()
+}
+`,
+	})
+	mainPath := filepath.Join(dir, "main.gom")
+	gomiPath := filepath.Join(dir, "lib", "lib.gomi")
+
+	code, out, errout := invoke("check", mainPath)
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1; stdout=%q stderr=%q", code, out, errout)
+	}
+	lines := jsonLines(t, out)
+	if len(lines) != 2 || lines[0]["code"] != "E0407" {
+		t.Fatalf("stream = %v, want one E0407 diagnostic plus summary", lines)
+	}
+	labels, ok := lines[0]["labels"].([]any)
+	if !ok || len(labels) != 2 {
+		t.Fatalf("labels = %v, want local and foreign declaration labels", lines[0]["labels"])
+	}
+	foreign, _ := labels[1].(map[string]any)
+	span, _ := foreign["span"].(map[string]any)
+	start, _ := span["start"].(map[string]any)
+	if span["file"] != gomiPath || start["line"] != float64(3) || start["col"] != float64(1) {
+		t.Errorf("foreign label span = %v, want %s:3:1", span, gomiPath)
+	}
+
+	code, text, errout := invoke("check", "-format", "text", mainPath)
+	if code != 1 {
+		t.Fatalf("text exit code = %d, want 1; stdout=%q stderr=%q", code, text, errout)
+	}
+	if !strings.Contains(text, "--> "+gomiPath+":3:1") ||
+		!strings.Contains(text, "type Point = { x: Float, y: Float }") {
+		t.Errorf("text output missing foreign declaration snippet: %q", text)
+	}
+}
+
 // TestCheckE0301TextMissingPatterns runs a real non-exhaustive match
 // through the CLI so the text renderer cannot pass only because a unit
 // test hand-supplied `missing_patterns`.
