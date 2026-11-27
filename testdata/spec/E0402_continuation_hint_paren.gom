@@ -1,0 +1,7 @@
+package main
+
+fn total (xs: List Int) -> Int = {
+  (List.fold)
+   0
+   xs
+}

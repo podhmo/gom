@@ -432,6 +432,7 @@ func (p *parser) parseFile() *File {
 	f := &File{
 		Comments: p.comments,
 		Blanks:   p.blanks,
+		Layout:   newLayout(p.src),
 	}
 	p.skipSep() // leading separators before the package clause
 	f.Package = p.parsePackageDecl()

@@ -1,0 +1,270 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0402",
+      "severity": "error",
+      "message": "a mid-block expression must have type Unit, got (?1 -> ?2 -> ?1) -> ?1 -> List ?2 -> ?1",
+      "span": {
+        "file": "E0402_continuation_hint.gom",
+        "start": {
+          "line": 4,
+          "col": 3,
+          "offset": 51
+        },
+        "end": {
+          "line": 4,
+          "col": 12,
+          "offset": 60
+        }
+      },
+      "data": {
+        "type": "(?1 -> ?2 -> ?1) -> ?1 -> List ?2 -> ?1"
+      },
+      "notes": [
+        "if these lines were meant as one application, use |> or wrap the whole application in parentheses"
+      ],
+      "fixes": [
+        {
+          "title": "discard the value with `ignore`",
+          "applicability": "safe",
+          "edits": [
+            {
+              "file": "E0402_continuation_hint.gom",
+              "start": {
+                "line": 4,
+                "col": 3,
+                "offset": 51
+              },
+              "end": {
+                "line": 4,
+                "col": 3,
+                "offset": 51
+              },
+              "text": "ignore ("
+            },
+            {
+              "file": "E0402_continuation_hint.gom",
+              "start": {
+                "line": 4,
+                "col": 12,
+                "offset": 60
+              },
+              "end": {
+                "line": 4,
+                "col": 12,
+                "offset": 60
+              },
+              "text": ")"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0407",
+      "severity": "error",
+      "message": "type annotation required: the type argument for `a` could not be determined",
+      "span": {
+        "file": "E0402_continuation_hint.gom",
+        "start": {
+          "line": 4,
+          "col": 8,
+          "offset": 56
+        },
+        "end": {
+          "line": 4,
+          "col": 12,
+          "offset": 60
+        }
+      },
+      "data": {
+        "type": "?1"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0407",
+      "severity": "error",
+      "message": "type annotation required: the type argument for `b` could not be determined",
+      "span": {
+        "file": "E0402_continuation_hint.gom",
+        "start": {
+          "line": 4,
+          "col": 8,
+          "offset": 56
+        },
+        "end": {
+          "line": 4,
+          "col": 12,
+          "offset": 60
+        }
+      },
+      "data": {
+        "type": "?1"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0402",
+      "severity": "error",
+      "message": "a mid-block expression must have type Unit, got ?1 -> ?1 -> ?1",
+      "span": {
+        "file": "E0402_continuation_hint.gom",
+        "start": {
+          "line": 7,
+          "col": 6,
+          "offset": 126
+        },
+        "end": {
+          "line": 7,
+          "col": 25,
+          "offset": 145
+        }
+      },
+      "data": {
+        "type": "?1 -> ?1 -> ?1"
+      },
+      "fixes": [
+        {
+          "title": "discard the value with `ignore`",
+          "applicability": "safe",
+          "edits": [
+            {
+              "file": "E0402_continuation_hint.gom",
+              "start": {
+                "line": 7,
+                "col": 6,
+                "offset": 126
+              },
+              "end": {
+                "line": 7,
+                "col": 6,
+                "offset": 126
+              },
+              "text": "ignore ("
+            },
+            {
+              "file": "E0402_continuation_hint.gom",
+              "start": {
+                "line": 7,
+                "col": 25,
+                "offset": 145
+              },
+              "end": {
+                "line": 7,
+                "col": 25,
+                "offset": 145
+              },
+              "text": ")"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0407",
+      "severity": "error",
+      "message": "type annotation required: the lambda's return type could not be determined",
+      "span": {
+        "file": "E0402_continuation_hint.gom",
+        "start": {
+          "line": 7,
+          "col": 6,
+          "offset": 126
+        },
+        "end": {
+          "line": 7,
+          "col": 25,
+          "offset": 145
+        }
+      },
+      "data": {
+        "type": "?1"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0402",
+      "severity": "error",
+      "message": "a mid-block expression must have type Unit, got Int",
+      "span": {
+        "file": "E0402_continuation_hint.gom",
+        "start": {
+          "line": 8,
+          "col": 5,
+          "offset": 151
+        },
+        "end": {
+          "line": 8,
+          "col": 6,
+          "offset": 152
+        }
+      },
+      "data": {
+        "type": "Int"
+      },
+      "fixes": [
+        {
+          "title": "discard the value with `ignore`",
+          "applicability": "safe",
+          "edits": [
+            {
+              "file": "E0402_continuation_hint.gom",
+              "start": {
+                "line": 8,
+                "col": 5,
+                "offset": 151
+              },
+              "end": {
+                "line": 8,
+                "col": 5,
+                "offset": 151
+              },
+              "text": "ignore ("
+            },
+            {
+              "file": "E0402_continuation_hint.gom",
+              "start": {
+                "line": 8,
+                "col": 6,
+                "offset": 152
+              },
+              "end": {
+                "line": 8,
+                "col": 6,
+                "offset": 152
+              },
+              "text": ")"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected Int, got List Int",
+      "span": {
+        "file": "E0402_continuation_hint.gom",
+        "start": {
+          "line": 9,
+          "col": 5,
+          "offset": 157
+        },
+        "end": {
+          "line": 9,
+          "col": 7,
+          "offset": 159
+        }
+      },
+      "data": {
+        "actual": "List Int",
+        "expected": "Int"
+      }
+    }
+  ]
+}

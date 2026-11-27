@@ -36,7 +36,8 @@ import (
 //   - "labels"/"details": each expected entry matches the next actual
 //     entry in order. Extra actual entries pass.
 //   - "notes": each expected note must appear among the actual notes,
-//     in order (a subsequence). Extra actual notes pass.
+//     in order (a subsequence). Extra actual notes pass, except that
+//     an explicitly empty array requires the actual notes to be empty.
 //   - "fixes": each expected fix must match some actual fix in order.
 //     A fix matches when its "title"/"applicability" equal the present
 //     expected values and, if "edits" is present, the edits are equal
@@ -475,7 +476,8 @@ func checkDetails(exp map[string]any, details []diag.Detail, path string) (msgs 
 }
 
 // checkNotes verifies that each expected note appears among the actual
-// notes in order (subsequence semantics).
+// notes in order (subsequence semantics). An explicitly empty expected
+// array asserts that no notes were emitted.
 func checkNotes(exp map[string]any, notes []string, path string) (msgs []string) {
 	v, ok := exp["notes"]
 	if !ok {
@@ -484,6 +486,12 @@ func checkNotes(exp map[string]any, notes []string, path string) (msgs []string)
 	arr, ok := v.([]any)
 	if !ok {
 		return []string{fmt.Sprintf("%s.notes: expected an array, got %s", path, jsonRepr(v))}
+	}
+	if len(arr) == 0 {
+		if len(notes) != 0 {
+			return []string{fmt.Sprintf("%s.notes: expected no notes, got %s", path, jsonRepr(notes))}
+		}
+		return nil
 	}
 	from := 0
 	for i, e := range arr {

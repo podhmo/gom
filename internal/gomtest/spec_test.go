@@ -206,6 +206,7 @@ func TestDiffDiagnosticsNotes(t *testing.T) {
 		{"out of order", `[{"notes":["third note","first note"]}]`, 1},
 		{"non-array", `[{"notes":"x"}]`, 1},
 		{"non-string element", `[{"notes":[1]}]`, 1},
+		{"explicit empty rejects actual notes", `[{"notes":[]}]`, 1},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			msgs := diffDiagnostics(mustExpected(t, tt.exp), got, diag.NewDirResolver(""))
@@ -213,6 +214,14 @@ func TestDiffDiagnosticsNotes(t *testing.T) {
 				t.Errorf("got %d messages %v, want %d", len(msgs), msgs, tt.want)
 			}
 		})
+	}
+}
+
+func TestDiffDiagnosticsEmptyNotes(t *testing.T) {
+	got := []diag.Diagnostic{diag.Error("E0301", "m")}
+	exp := mustExpected(t, `[{"notes":[]}]`)
+	if msgs := diffDiagnostics(exp, got, diag.NewDirResolver("")); len(msgs) != 0 {
+		t.Errorf("msgs = %v", msgs)
 	}
 }
 

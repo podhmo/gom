@@ -430,7 +430,11 @@ compile error because silently dropping results hides bugs. To
 discard a value deliberately, write "ignore e". The diagnostic
 offers a safe fix that wraps the statement in "ignore (...)" —
 the discard the code already performs, made explicit — which
-"gom fix" applies (spec section 12 item 5).
+"gom fix" applies (spec section 12 item 5). If the dropped value is
+a function and the next statement in the same block starts on a later,
+more deeply indented line, the diagnostic adds a note suggesting "|>"
+or parentheses for an application that was meant to span lines. The
+note is only a hint; indentation does not change Gom's meaning.
 
 ```gom
 fn main () -> Unit = {

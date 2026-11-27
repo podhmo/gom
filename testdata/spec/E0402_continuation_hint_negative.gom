@@ -1,0 +1,12 @@
+package main
+
+fn same_depth (xs: List Int) -> Unit = {
+  List.fold
+  ()
+}
+
+fn not_function () -> Unit = {
+  1
+    2
+  ()
+}
