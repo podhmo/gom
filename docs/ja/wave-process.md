@@ -180,7 +180,9 @@ podhmo は lane PR 群を先に merge してよい。wave の完了は lane PR
   だけを残す。wave ごとの見出しは進行中の作業 queue であり、
   完了済み lane の進捗表として残さない。GC は feature PR とは分け、
   独立した consolidation PR で行う。
-- 次 wave の prompts 草案を作り、フェーズ 2 に戻る。
+- 次 wave の prompts 草案を作り、採否インタビューと採択後の台帳同期まで
+  済ませてから closeout PR の merge 準備ができたものとする。
+  prompts 確定後はフェーズ 2 の採択済み状態から次 wave へ進む。
 
 ## 運用上の細目
 
