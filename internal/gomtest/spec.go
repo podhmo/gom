@@ -136,8 +136,9 @@ func writeExpected(t *testing.T, path string, got []diag.Diagnostic, res diag.Re
 		doc.Write(raw)
 	}
 	doc.WriteString("]}")
+	rendered := preserveExplicitEmptyArrays(path, doc.Bytes())
 	var out bytes.Buffer
-	if err := json.Indent(&out, doc.Bytes(), "", "  "); err != nil {
+	if err := json.Indent(&out, rendered, "", "  "); err != nil {
 		t.Fatalf("gomtest: cannot encode %s: %v", path, err)
 	}
 	out.WriteByte('\n')
@@ -145,6 +146,55 @@ func writeExpected(t *testing.T, path string, got []diag.Diagnostic, res diag.Re
 		t.Fatalf("gomtest: cannot write %s: %v", path, err)
 	}
 	t.Logf("updated %s", path)
+}
+
+// preserveExplicitEmptyArrays keeps an explicitly empty "notes" or
+// "labels" assertion when -update rewrites a fixture and the actual
+// diagnostic still has no such values. The wire encoder omits empty
+// arrays, so without this preservation every regeneration would erase
+// the negative assertion. Preservation is conservative: only the same
+// diagnostic index and code inherits the empty array, and a non-empty
+// actual array always wins.
+func preserveExplicitEmptyArrays(path string, rendered []byte) []byte {
+	old, err := loadExpected(path)
+	if err != nil {
+		return rendered
+	}
+	var root map[string]any
+	if err := json.Unmarshal(rendered, &root); err != nil {
+		return rendered
+	}
+	arr, ok := root["diagnostics"].([]any)
+	if !ok {
+		return rendered
+	}
+	for i, v := range arr {
+		if i >= len(old) {
+			break
+		}
+		cur, ok := v.(map[string]any)
+		if !ok || cur["code"] != old[i]["code"] {
+			continue
+		}
+		for _, key := range []string{"notes", "labels"} {
+			oldVal, ok := old[i][key]
+			if !ok {
+				continue
+			}
+			oldArr, ok := oldVal.([]any)
+			if !ok || len(oldArr) != 0 {
+				continue
+			}
+			if _, present := cur[key]; !present {
+				cur[key] = []any{}
+			}
+		}
+	}
+	out, err := json.Marshal(root)
+	if err != nil {
+		return rendered
+	}
+	return out
 }
 
 // sortedDiagnostics returns a copy of got ordered into the output

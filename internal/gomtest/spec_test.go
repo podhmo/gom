@@ -225,6 +225,19 @@ func TestDiffDiagnosticsEmptyNotes(t *testing.T) {
 	}
 }
 
+func TestDiffDiagnosticsEmptyLabels(t *testing.T) {
+	got := []diag.Diagnostic{diag.Error("E0301", "m")}
+	exp := mustExpected(t, `[{"labels":[]}]`)
+	if msgs := diffDiagnostics(exp, got, diag.NewDirResolver("")); len(msgs) != 0 {
+		t.Errorf("msgs = %v", msgs)
+	}
+
+	got[0] = got[0].AddLabel(diag.SpanIn("f.gom", 0, 1), "context")
+	if msgs := diffDiagnostics(exp, got, diag.NewDirResolver("")); len(msgs) == 0 {
+		t.Error("explicit empty labels should reject an actual label")
+	}
+}
+
 func TestDiffDiagnosticsFixes(t *testing.T) {
 	fix := diag.Fix{
 		Title:         "add the missing arms",
@@ -310,6 +323,34 @@ func TestLoadExpected(t *testing.T) {
 		t.Error("missing file should be an error mentioning -update")
 	} else if !strings.Contains(err.Error(), "-update") {
 		t.Errorf("error should hint at -update: %v", err)
+	}
+}
+
+func TestSpecUpdatePreservesExplicitEmptyAssertions(t *testing.T) {
+	dir := t.TempDir()
+	expectedPath := filepath.Join(dir, "c.expected.json")
+	old := `{"diagnostics":[{"code":"E0301","notes":[],"labels":[]}]}`
+	if err := os.WriteFile(expectedPath, []byte(old), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	d := diag.Error("E0301", "m")
+	res := diag.NewDirResolver(dir)
+	writeExpected(t, expectedPath, []diag.Diagnostic{d}, res)
+
+	data, err := os.ReadFile(expectedPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wire map[string]any
+	if err := json.Unmarshal(data, &wire); err != nil {
+		t.Fatal(err)
+	}
+	obj := wire["diagnostics"].([]any)[0].(map[string]any)
+	for _, key := range []string{"notes", "labels"} {
+		arr, ok := obj[key].([]any)
+		if !ok || len(arr) != 0 {
+			t.Errorf("%s was not preserved as an empty array: %s", key, data)
+		}
 	}
 }
 
