@@ -2129,10 +2129,7 @@ func applyHasAnonRecordLit(e syntax.Expr) bool {
 		return false
 	}
 	for _, a := range ap.Args {
-		if lit, ok := a.Value.(*syntax.RecordLit); ok && lit.Base == nil {
-			return true
-		}
-		if applyHasAnonRecordLit(a.Value) {
+		if anonRecordLitInResultPosition(a.Value) || applyHasAnonRecordLit(a.Value) {
 			return true
 		}
 	}

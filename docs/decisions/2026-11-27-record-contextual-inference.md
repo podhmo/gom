@@ -9,7 +9,7 @@
 
 型名前置 literal は常に最優先する。`Other { count = 0 }` を `Acc` が期待される位置に書けば、期待型ではなく前置した `Other` を選び、通常どおり型不一致を報告する。pipe の operand では seeding と適用判定が同じ不適合を二度報告しない。
 
-generic な関数や constructor の適用では、適用結果に静的な期待型があり、引数に無名 record literal を含み、供給スロットが静的に決まるとき、結果型と残余型の単一化を speculative に試してパラメータの期待型へ使う。この試行は推論 meta を clone して行い、周囲の推論状態を早く bind しない。実際の引数は従来どおり callee 自身のパラメータ型へソース順で適合させる。`|>` / `<|` の片側が無名 record literal を持つ部分適用なら、pipe の結果の期待型に record 型が含まれるときだけそれを callee 側へ渡し、pipe される入力型は開いたままにする。
+generic な関数や constructor の適用では、適用結果に静的な期待型があり、引数に無名 record literal を含み、供給スロットが静的に決まるとき、結果型と残余型の単一化を speculative に試してパラメータの期待型へ使う。higher-order callback の本体結果位置にある無名 record literal も同じ activation 対象とする（[callback result propagation](2026-11-27-callback-result-record-propagation.md)）。この試行は推論 meta を clone して行い、周囲の推論状態を早く bind しない。実際の引数は従来どおり callee 自身のパラメータ型へソース順で適合させる。`|>` / `<|` の片側が無名 record literal を持つ部分適用なら、pipe の結果の期待型に record 型が含まれるときだけそれを callee 側へ渡し、pipe される入力型は開いたままにする。
 
 期待型の関数パラメータを受け取る無名ラムダでは、そのパラメータの期待型が record 型のときだけ、注釈のないパラメータをその record 型で初期化する。これは `List.fold (fn acc x -> { acc with ... }) seed xs` の accumulator のように、record literal 自体だけでなく fold 関数内の record update まで同じ文脈を必要とするための限定例外である。record 型でない expected parameter は従来どおり fresh meta にし、本体の使用から推論する。
 

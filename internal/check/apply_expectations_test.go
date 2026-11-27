@@ -68,6 +68,61 @@ func TestApplyParamExpectationsDoesNotBindInferenceState(t *testing.T) {
 	}
 }
 
+func TestApplyParamExpectationsActivatesCallbackResultRecord(t *testing.T) {
+	c := &checker{
+		metas:  map[*types.Meta]*metaRec{},
+		tyCons: map[conKey]*typeInfo{},
+	}
+	sp := diag.SpanIn("test.gom", 1, 2)
+	accT := &types.Con{Name: "Acc"}
+	c.tyCons[conKey{name: "Acc"}] = &typeInfo{kind: kindRecord}
+	a := c.newMeta(sp, "the callback result")
+	intT := &types.Con{Name: "Int"}
+	param := func(t types.Type) types.FuncParam { return types.FuncParam{Type: t} }
+	callbackT := types.Fn(a, param(intT))
+	params := []types.FuncParam{param(callbackT)}
+	fnT := types.Fn(a, params[0])
+	args := []syntax.Arg{{Value: &syntax.Lambda{Body: &syntax.RecordLit{}}}}
+
+	x := c.applyParamExpectations(fnT, params, args, accT, sp)
+	if x == nil {
+		t.Fatal("callback result record did not activate expectations")
+	}
+	if a.Bound() {
+		t.Fatalf("lookahead bound the callback result meta to %v", types.Chase(a))
+	}
+	got, ok := x.at(0, callbackT)
+	if !ok {
+		t.Fatal("callback parameter did not gain the static result type")
+	}
+	want := types.Fn(accT, param(intT))
+	if !types.Equal(got, want) {
+		t.Fatalf("callback expectation = %v, want %v", got, want)
+	}
+}
+
+func TestApplyParamExpectationsIgnoresNonResultRecordInCallback(t *testing.T) {
+	c := &checker{
+		metas:  map[*types.Meta]*metaRec{},
+		tyCons: map[conKey]*typeInfo{},
+	}
+	sp := diag.SpanIn("test.gom", 1, 2)
+	accT := &types.Con{Name: "Acc"}
+	c.tyCons[conKey{name: "Acc"}] = &typeInfo{kind: kindRecord}
+	a := c.newMeta(sp, "the callback result")
+	intT := &types.Con{Name: "Int"}
+	param := func(t types.Type) types.FuncParam { return types.FuncParam{Type: t} }
+	callbackT := types.Fn(a, param(intT))
+	params := []types.FuncParam{param(callbackT)}
+	fnT := types.Fn(a, params[0])
+	body := &syntax.Block{Stmts: []syntax.Expr{&syntax.RecordLit{}, &syntax.Ident{}}}
+	args := []syntax.Arg{{Value: &syntax.Lambda{Body: body}}}
+
+	if x := c.applyParamExpectations(fnT, params, args, accT, sp); x != nil {
+		t.Fatalf("non-result record activated expectations: %+v", x)
+	}
+}
+
 func TestMergeContextualTypeFillsOpenArgs(t *testing.T) {
 	c := &checker{metas: map[*types.Meta]*metaRec{}}
 	sp := diag.SpanIn("test.gom", 1, 2)

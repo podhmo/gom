@@ -323,6 +323,33 @@ func (c *checker) typePrefixedRecordType(ti *typeInfo, sp diag.Span, want types.
 	return rt, true
 }
 
+// anonRecordLitInResultPosition reports whether an expression's result
+// can be an anonymous record literal. Nested positions that merely evaluate
+// a record for its value (let bodies, call arguments, field values) do not
+// count: contextual propagation follows only the expression positions whose
+// type is the enclosing expression's own result type.
+func anonRecordLitInResultPosition(e syntax.Expr) bool {
+	switch e := e.(type) {
+	case *syntax.RecordLit:
+		return e.Base == nil
+	case *syntax.Ascribe:
+		return anonRecordLitInResultPosition(e.X)
+	case *syntax.Lambda:
+		return anonRecordLitInResultPosition(e.Body)
+	case *syntax.Block:
+		return len(e.Stmts) > 0 && anonRecordLitInResultPosition(e.Stmts[len(e.Stmts)-1])
+	case *syntax.If:
+		return anonRecordLitInResultPosition(e.Then) || (e.Else != nil && anonRecordLitInResultPosition(e.Else))
+	case *syntax.Match:
+		for _, arm := range e.Arms {
+			if anonRecordLitInResultPosition(arm.Body) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // applyParamExpectations derives the parameter views a statically
 // decidable application fills when its result already has an expected
 // type. The derivation is speculative: inference metas on both sides
@@ -344,7 +371,7 @@ func (c *checker) applyParamExpectations(fnT types.Type, params []types.FuncPara
 	}
 	hasRecordLit := false
 	for _, a := range args {
-		if lit, ok := a.Value.(*syntax.RecordLit); ok && lit.Base == nil {
+		if anonRecordLitInResultPosition(a.Value) {
 			hasRecordLit = true
 			break
 		}
