@@ -535,9 +535,10 @@ same fields. Prefer a type-prefixed literal at construction points
 where the intended type is not already obvious:
 `ValidatedOrder { id = id, total = total }`. A bare literal can use
 a statically known record expected type — annotations, returns,
-call arguments, constructor payloads and record fields — but it
-never infers backward from later field use. When a positional lambda
-consumes parameters through a labeled function context, inference uses
+call arguments, constructor payloads, record fields, and callback
+result positions reached through statically known generic applications
+or pipes — but it never infers backward from later field use.
+When a positional lambda consumes parameters through a labeled function context, inference uses
 the corresponding positions with their labels erased; labels left in the
 residual type still follow the normal call/conformance rules. If no
 statically known record type names the shape, declare a named record type;
@@ -985,7 +986,7 @@ prints the pointer and exits 2).
 | `gom dump -phase=syntax\|resolve\|check\|core\|emit FILE` | Print one phase's IR — sibling `.gom` files compile along so package members resolve; only the named file's IR prints (diagnostics go to stderr; stdout is the artifact). `emit` lists the generated Go names (`kind`, Gom name, emitted name — `(base X)` marks a suffix eviction). |
 | `gom test FILE\|DIR... [-- FLAGS]` | Also writes `_test.go` beside the `.go` and runs the package's `go test -json` — FLAGS after `--` pass through (`-race`, `-run`). Library packages need `<pkg>.gomi` (the conformance gate runs here too); `-q`/`--quiet` drops the raw half of panic stacks. |
 | `gom run FILE\|DIR... [-- ARGS]` | Compile one `package main` directory, link a temp binary, and execute it; ARGS after `--` and the child exit code pass through. Without an enclosing `go.mod`, a temporary `gom.local/scratch` module is synthesized for that invocation only; it is a bootstrap path and does not manage external dependencies — use `gom init` and the real module for those. |
-| `gom init [-dir DIR] [MODULE-PATH]` | Create `go.mod` and a runnable `main.gom` template. Existing files are not overwritten; an existing Go module gets only the additive Gom dependency it needs. |
+| `gom init [-dir DIR] [MODULE-PATH]` | Create `go.mod` and a runnable `main.gom` template. Existing files are not overwritten; an existing Go module gets only the additive Gom dependency it needs. If init fails, files it created or edited are rolled back, while pre-existing user files stay untouched. |
 | `gom fmt [-w\|-d\|-l\|--check] FILE...` | Canonical formatter; `-` reads stdin. stdout carries the artifact; message stream to stderr. |
 | `gom fix FILE...` | Apply the `safe` fixes diagnostics carry. |
 | `gom info [-o OUT] FILE\|DIR...` | Draft `.gomi` interfaces from implementations; `-o -` prints to stdout. `gom info <stdlib-short-name>` instead prints that stdlib package's existing `.gomi` read-only — the canonical way to inspect current stdlib `.gomi` members. The short-name form applies only when no same-named file/dir exists in the working directory, and external resolution uses the current module context. |
