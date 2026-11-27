@@ -122,8 +122,11 @@ podhmo は lane PR 群を先に merge してよい。wave の完了は lane PR
 - **仕上げ（podhmo + エージェント）**: podhmo は closeout PR の
   1 つ手前までの lane PR を merge する。merge 後に round の merge
   状態と main CI を最終確認・更新し、closeout PR を merge して
-  wave を閉じる。closeout で実装の意味変更が必要になった場合は、
-  closeout に混ぜず次 lane / 次 wave 扱いにする。
+  wave を閉じる。lane merge 後に既存実装の review/CI 修正だけが
+  見つかった場合は、closeout に混ぜず小さい follow-up PR として
+  分離し、その merge と main CI を確認してから closeout を閉じる。
+  実装の意味変更や新規 scope が必要になった場合は次 lane / 次 wave
+  扱いにする。
 
 締め作業の内容:
 

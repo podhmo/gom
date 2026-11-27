@@ -534,8 +534,9 @@ where the intended type is not already obvious:
 `ValidatedOrder { id = id, total = total }`. A bare literal can use
 a statically known record expected type — annotations, returns,
 call arguments, constructor payloads and record fields — but it
-never infers backward from later field use, and contextual propagation stops when the propagated type contains labeled function parameters. If no statically known
-record type names the shape, declare a named record type; there is
+never infers backward from later field use, and contextual propagation
+stops when the propagated type contains labeled function parameters. If
+no statically known record type names the shape, declare a named record type; there is
 no anonymous/structural record type.
 
 A trailing raw-string literal on a record *type* field is the Go
