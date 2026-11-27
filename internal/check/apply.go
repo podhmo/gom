@@ -329,6 +329,9 @@ func (c *checker) typePrefixedRecordType(ti *typeInfo, sp diag.Span, want types.
 // count: contextual propagation follows only the expression positions whose
 // type is the enclosing expression's own result type.
 func anonRecordLitInResultPosition(e syntax.Expr) bool {
+	if e == nil {
+		return false
+	}
 	switch e := e.(type) {
 	case *syntax.RecordLit:
 		return e.Base == nil
@@ -346,6 +349,7 @@ func anonRecordLitInResultPosition(e syntax.Expr) bool {
 				return true
 			}
 		}
+		return false
 	case *syntax.Apply, *syntax.Assign, *syntax.Binary, *syntax.For, *syntax.GoExpr, *syntax.Hole,
 		*syntax.Ident, *syntax.Ignore, *syntax.Let, *syntax.ListLit, *syntax.Lit, *syntax.Select,
 		*syntax.SelectExpr, *syntax.Spread, *syntax.StrInterp, *syntax.Try, *syntax.TupleLit, *syntax.Unary:
