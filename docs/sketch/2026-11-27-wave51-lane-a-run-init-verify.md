@@ -54,6 +54,16 @@ go test ./...
 - `TestInitDoesNotOverwrite`
 - `TestInitTemplateRuns`
 
+## Review follow-up
+
+- release module version を使う scratch/init では checksum が必要なため、合成・初期化直後に `go mod download github.com/podhmo/gom` を行うようにした
+- 既存 `go.mod` に Gom 依存がない init では additive に `require`（開発版では `replace`）を足す。module 行と既存 require は書き換えない
+- source checkout path の空白は go.mod quoted string にする
+- 親 `go.work` があっても scratch workspace で invocation を閉じ、scratch 管理ファイルの mtime を固定して export cache の再生成を抑える
+- 空の explicit module path は拒否する
+
+追加検証: `TestModPathLiteralQuotesWhitespace`、`TestScratchModulePinsAndRemovesWorkspaceFiles`、`TestInitRejectsEmptyModulePath`、`TestInitExistingGoModuleAddsToolchain`。親 `go.work` が対象外 module だけを `use` する directory で手動実行し、scratch file が残らず exit 0 を確認した。
+
 ## 残論点
 
 - scratch module では外部 dependency の追加を編集できない。依存管理が必要な project は `gom init` を使う
