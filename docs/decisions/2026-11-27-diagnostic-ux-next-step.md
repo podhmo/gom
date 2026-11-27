@@ -15,7 +15,7 @@
 
 ## 実装候補の境界
 
-- 最初の実装では、注釈からそのまま同じ expected type が供給される if/match 腕に限って provenance を伝える
+- 最初の実装では、注釈からそのまま同じ expected type が供給される if/match 腕に限って provenance を伝える。nested if/match でも同じ expected type がそのまま腕へ渡る経路では伝えるが、呼出し引数・lambda 本体・record field・演算子の中へは広げない
 - 腕の内部で独立に失敗した constraint mismatch へ注釈 label を漏らさない。ラベルはその expected type との最終 conformance が失敗した診断にだけ付ける
 - 呼出し引数の parameter 宣言位置、record field の宣言位置は別の provenance 源が要るため今回の候補に含めない
 - 仕様上の診断形式は変えず、`labels` の既存 wire を使う

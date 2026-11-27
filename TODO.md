@@ -22,12 +22,12 @@
 
 ## To Be Implemented
 
-- [ ] **[task DIAG-2] E0401 provenance を if/match 腕へ伝播する**（依存: なし）: 注釈からそのまま同じ expected type が供給される if/match 腕について、最終 conformance mismatch に `expected type declared here` label を付ける。腕内の独立 mismatch へ漏らさない negative fixture、text/JSON output、spec/decision 更新を含める（[decision](docs/decisions/2026-11-27-diagnostic-ux-next-step.md)）
-- [x] **[task DMMF-1] DMMF fit example の recommended form を更新する**（依存: なし）: wave53 lane A で pipe 経由 `Result.map` lambda 内の無名 record literal が推論できるようになったため、`experiments/dmmf-fit` と関連レポートの「この位置では型名前置 literal が推奨形」という古い案内を再評価し、recommended form と probe を更新する（[wave52 lane D 検証](docs/sketch/2026-11-27-wave52-lane-d-dmmf-fit-verify.md)、[wave53 lane A 検証](docs/sketch/2026-11-27-wave53-lane-a-callback-record-verify.md)）
+- [ ] **[task DIAG-2] E0401 provenance を if/match 腕へ伝播する**（依存: なし、**wave55 lane C として採択**）: 注釈からそのまま同じ expected type が供給される if/match 腕について、最終 conformance mismatch に `expected type declared here` label を付ける。nested if/match でも同じ経路では伝える。腕内の独立 mismatch へ漏らさない negative fixture、text/JSON output、spec/decision 更新を含める（[decision](docs/decisions/2026-11-27-diagnostic-ux-next-step.md)）
+- [ ] **[task CONT-1] 継続行疑いの E0402 note を実装する**（依存: なし、**wave55 lane B として採択**）: 関数型の mid-block statement で、同一 block の次 statement が後続行かつ深い字下げのときだけ E0402 へ pipe/parens note を付ける。深ければ字下げ幅は問わず、間の空行・コメントは無視する。診断 suppression、NL-2 変更、自動 rewrite は入れない（[decision](docs/decisions/2026-11-27-continuation-line-diagnostics.md)、[wave55 prompts](docs/sketch/2026-11-27-wave55-prompts.md)）
+- [ ] **[task REC-1] record 未解決時の quiet recovery を実装する**（依存: なし、**wave55 lane A として採択**）: field-set resolution 失敗時は `wantT` の meta を `Unit` へ bind せず quiet にし、`wantT` がないときだけ quiet meta を recovery type にする。独立 mismatch が残る fixture と no-match 経路を含める（[decision](docs/decisions/2026-11-27-record-ambiguity-secondary-mismatch.md)、[wave55 prompts](docs/sketch/2026-11-27-wave55-prompts.md)）
 
 ### owner improvement ideas audit 由来（[PR #256](https://github.com/podhmo/gom/pull/256)、[audit](docs/sketch/2026-11-26-wave48-lane-g-owner-ideas-audit.md)）
 
-- [x] **[task] checker の状態を関心ごとの部分構造体に分ける**: `typeTables`・inference/meta・pipe propagation・taint・deferred revisit queue を embedded state struct へ分け、`expr.go` を構文種別・責務ごとに分割する。振る舞いは変えない。**wave54 lane G で実施済み**（[prompts](docs/sketch/2026-11-27-wave54-prompts.md)、[検証](docs/sketch/2026-11-27-wave54-lane-g-checker-organize-verify.md)）
 - [ ] **[task] 値表示を rt の単一実装へさらに寄せる**: wave47 lane A の runtime renderer 共通化を前提に、eval 独自の表示・整数幅・float32 丸め・structural equality を rt 公開関数へ寄せ、eval 側は評価順・pattern 振分け・部分適用の oracle に絞る
 - [ ] **[task] 生成コードの benchmark 基盤**: `bench/` に代表的な gom/手書き Go のペアを置き、`go test -bench` の比率を記録する。回帰警告の閾値や CI 実行は導入時に決める
 
