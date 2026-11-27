@@ -75,6 +75,16 @@ func runGomRun(args []string, stdout, stderr io.Writer) int {
 	// Outside a module, synthesize the invocation-scoped scratch module
 	// before dependency discovery so module-aware imports resolve under
 	// gom.local/scratch. It is removed when this command returns.
+	_, _, inModule := moduleOf(runDir)
+	if !inModule {
+		// A parent go.work otherwise captures every Go subprocess. The
+		// scratch module is deliberately self-contained, so workspace
+		// resolution is disabled for this invocation. cmd/gom is a
+		// single-command process; tests already pin GOWORK=off for the
+		// same isolation.
+		restore := setEnv("GOWORK", "off")
+		defer restore()
+	}
 	cleanupScratch, err := ensureScratchModule(runDir)
 	if err != nil {
 		fmt.Fprintf(stderr, "gom run: %v\n", err)

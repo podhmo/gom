@@ -425,3 +425,29 @@ func TestInitExistingGoModuleAddsToolchain(t *testing.T) {
 		t.Fatalf("explicit module path overwrote existing module: %q", text)
 	}
 }
+
+// TestInitExistingGoModuleWithReplaceOnly: a replace directive alone is not
+// a dependency. init keeps that replace but adds the missing require.
+func TestInitExistingGoModuleWithReplaceOnly(t *testing.T) {
+	t.Parallel()
+
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := writeFiles(t, map[string]string{
+		"go.mod": "module existing.example/project\n\ngo 1.27\n\nreplace github.com/podhmo/gom => " + root + "\n",
+	})
+	code, _, errout := invoke("init", "-dir", dir)
+	if code != 0 {
+		t.Fatalf("exit = %d; stderr=%q", code, errout)
+	}
+	gomod, err := os.ReadFile(filepath.Join(dir, "go.mod"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(gomod)
+	if !strings.Contains(text, "require github.com/podhmo/gom") || strings.Count(text, "replace github.com/podhmo/gom") != 1 {
+		t.Fatalf("go.mod = %q", text)
+	}
+}

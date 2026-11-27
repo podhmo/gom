@@ -2,6 +2,8 @@ package main
 
 import (
 	"bytes"
+	"crypto/sha256"
+	"encoding/binary"
 	"fmt"
 	"os"
 	"os/exec"
@@ -57,11 +59,21 @@ func modPathLiteral(path string) string {
 	return path
 }
 
-var scratchFileTime = time.Unix(0, 0)
-
+// pinFileTime gives scratch files a deterministic content-derived mtime.
+// The export cache keys on mtimes rather than file contents; a constant
+// time would keep stale entries alive across toolchain replacement changes,
+// while the creation time would needlessly miss every invocation.
 func pinFileTime(path string) {
-	_ = os.Chtimes(path, scratchFileTime, scratchFileTime)
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return
+	}
+	sum := sha256.Sum256(b)
+	sec := int64(binary.BigEndian.Uint64(sum[:8])%(10*365*24*60*60)) + 1600000000
+	_ = os.Chtimes(path, timeUnix(sec), timeUnix(sec))
 }
+
+func timeUnix(sec int64) time.Time { return time.Unix(sec, 0) }
 
 // downloadToolchain resolves the release-module requirement once so the
 // scratch module carries the checksums the read-only Go build mode needs.
@@ -71,11 +83,44 @@ func pinFileTime(path string) {
 func downloadToolchain(dir string) error {
 	cmd := exec.Command("go", "mod", "download", "github.com/podhmo/gom")
 	cmd.Dir = dir
+	cmd.Env = replaceEnv(os.Environ(), "GOWORK", "off")
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("go mod download github.com/podhmo/gom: %w: %s", err, bytes.TrimSpace(out))
 	}
 	return nil
+}
+
+func setEnv(key, value string) func() {
+	old, existed := os.LookupEnv(key)
+	_ = os.Setenv(key, value)
+	return func() {
+		if existed {
+			_ = os.Setenv(key, old)
+		} else {
+			_ = os.Unsetenv(key)
+		}
+	}
+}
+
+func replaceEnv(env []string, key, value string) []string {
+	prefix := key + "="
+	out := make([]string, 0, len(env)+1)
+	seen := false
+	for _, e := range env {
+		if strings.HasPrefix(e, prefix) {
+			if !seen {
+				out = append(out, prefix+value)
+				seen = true
+			}
+			continue
+		}
+		out = append(out, e)
+	}
+	if !seen {
+		out = append(out, prefix+value)
+	}
+	return out
 }
 
 func isGomSourceRoot(dir string) bool {
@@ -146,42 +191,25 @@ func ensureScratchModule(dir string) (func(), error) {
 	if err := writeScratch("go.mod", body); err != nil {
 		return nil, err
 	}
-	// A parent go.work otherwise wins over the scratch go.mod and rejects the
-	// unregistered temporary module. A nearest empty workspace keeps the
-	// invocation self-contained without editing the user's workspace file.
-	workPath := filepath.Join(dir, "go.work")
-	if _, err := os.Stat(workPath); os.IsNotExist(err) {
-		if err := writeScratch("go.work", []byte("go 1.27\n\nuse .\n")); err != nil {
-			cleanup()
-			return nil, err
-		}
+	// A go.work already in this directory would capture every Go subprocess
+	// before the scratch go.mod. It is user-owned and cannot be shadowed
+	// non-destructively, so refuse rather than editing or deleting it.
+	if _, err := os.Stat(filepath.Join(dir, "go.work")); err == nil {
+		cleanup()
+		return nil, fmt.Errorf("module-external run is not supported in a directory already containing go.work")
 	}
 	sumPath := filepath.Join(dir, "go.sum")
 	_, sumErr := os.Stat(sumPath)
 	sumExisted := sumErr == nil
-	createdWork := len(created) == 2
 	if err := downloadToolchain(dir); err != nil {
 		cleanup()
 		return nil, err
-	}
-	// In the scratch workspace Go records module checksums in go.work.sum;
-	// without the workspace file they go in go.sum. Both are invocation-owned
-	// only when this function created the workspace file or the sum did not
-	// pre-exist.
-	workSumPath := filepath.Join(dir, "go.work.sum")
-	if createdWork {
-		if _, err := os.Stat(workSumPath); err == nil {
-			pinFileTime(workSumPath)
-			created = append(created, workSumPath)
-		}
 	}
 	if !sumExisted {
 		if _, err := os.Stat(sumPath); err == nil {
 			pinFileTime(sumPath)
 			created = append(created, sumPath)
 		}
-	} else {
-		pinFileTime(sumPath)
 	}
 	return cleanup, nil
 }

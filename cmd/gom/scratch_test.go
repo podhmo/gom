@@ -17,7 +17,7 @@ func TestModPathLiteralQuotesWhitespace(t *testing.T) {
 	}
 }
 
-func TestScratchModulePinsAndRemovesWorkspaceFiles(t *testing.T) {
+func TestScratchModulePinsAndRemovesFiles(t *testing.T) {
 	if testing.Short() {
 		t.Skip("runs go mod download")
 	}
@@ -27,20 +27,32 @@ func TestScratchModulePinsAndRemovesWorkspaceFiles(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, name := range []string{"go.mod", "go.work"} {
-		fi, err := os.Stat(filepath.Join(dir, name))
-		if err != nil {
-			t.Fatalf("%s: %v", name, err)
-		}
-		if !fi.ModTime().Equal(scratchFileTime) {
-			t.Fatalf("%s mtime = %v, want pinned %v", name, fi.ModTime(), scratchFileTime)
-		}
+	fi, err := os.Stat(filepath.Join(dir, "go.mod"))
+	if err != nil {
+		t.Fatal(err)
 	}
+	firstTime := fi.ModTime()
 	cleanup()
-	for _, name := range []string{"go.mod", "go.work", "go.sum", "go.work.sum"} {
+	for _, name := range []string{"go.mod", "go.sum"} {
 		if _, err := os.Stat(filepath.Join(dir, name)); !os.IsNotExist(err) {
 			t.Fatalf("%s remained: %v", name, err)
 		}
+	}
+
+	cleanup, err = ensureScratchModule(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup()
+	fi, err = os.Stat(filepath.Join(dir, "go.mod"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !fi.ModTime().Equal(firstTime) {
+		t.Fatalf("same scratch content changed mtime: first %v, second %v", firstTime, fi.ModTime())
+	}
+	if _, err := os.Stat(filepath.Join(dir, "go.work")); !os.IsNotExist(err) {
+		t.Fatalf("scratch go.work exists: %v", err)
 	}
 }
 
