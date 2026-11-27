@@ -1,0 +1,8 @@
+package main
+
+type Out = { count: Int, label: String }
+
+fn pick (xs: List a) (r: Out) (x: a) -> a = x
+
+fn run (xss: List (List Out)) (x: List Out) -> Go.Slice Out =
+  x |> pick xss { count = 0, label = "x" }

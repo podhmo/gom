@@ -137,6 +137,29 @@ func TestApplyParamExpectationsPipeReverseSliceBoundary(t *testing.T) {
 	}
 }
 
+func TestApplyParamExpectationsSkipsOpenBoundaryResult(t *testing.T) {
+	c := &checker{
+		metas:  map[*types.Meta]*metaRec{},
+		tyCons: map[conKey]*typeInfo{},
+	}
+	sp := diag.SpanIn("test.gom", 1, 2)
+	outT := &types.Con{Name: "Out"}
+	c.tyCons[conKey{name: "Out"}] = &typeInfo{kind: kindRecord}
+	a := c.newMeta(sp, "the picked value")
+	param := func(t types.Type) types.FuncParam { return types.FuncParam{Type: t} }
+	params := []types.FuncParam{param(types.List(a)), param(outT), param(a)}
+	fnT := types.Fn(a, params...)
+	args := []syntax.Arg{
+		{Value: &syntax.Ident{}},
+		{Value: &syntax.RecordLit{}},
+	}
+	pipeWant := types.Fn(types.GoSlice(outT), param(c.untypedMeta()))
+
+	if x := c.applyParamExpectationsImpl(fnT, params, args, pipeWant, sp, true); x != nil {
+		t.Fatalf("ambiguous open boundary result propagated expectations: %+v", x)
+	}
+}
+
 func TestApplyParamExpectationsIgnoresNonResultRecordInCallback(t *testing.T) {
 	c := &checker{
 		metas:  map[*types.Meta]*metaRec{},

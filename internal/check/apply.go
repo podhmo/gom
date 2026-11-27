@@ -427,6 +427,44 @@ func (c *checker) boundaryProducerWants(want types.Type) []types.Type {
 	return nil
 }
 
+func staticFuncResult(t types.Type) types.Type {
+	if f, ok := types.Chase(t).(*types.Func); ok {
+		return types.Chase(f.Ret)
+	}
+	return types.Chase(t)
+}
+
+// openBoundaryResult reports the ambiguous case where the producer's
+// whole result is still an open meta but the consumer expects List or
+// Go.Slice. Binding that meta to either spelling would be stronger than
+// the program warrants: the other spelling may be equally valid because
+// the final pipe result can cross the boundary by copy. In that case the
+// static expectation is not injective enough to propagate into sibling
+// parameters at all.
+func (c *checker) openBoundaryResult(residual, want types.Type) bool {
+	if c.shadowedBuiltin("List") {
+		return false
+	}
+	res, ok := staticFuncResult(residual).(*types.Meta)
+	if !ok || res.Bound() {
+		return false
+	}
+	switch w := staticFuncResult(want).(type) {
+	case *types.Con:
+		if len(w.Args) != 1 {
+			return false
+		}
+		if w.Qual == "Go" && w.Name == "Slice" {
+			return true
+		}
+		return w.Qual == "" && w.Name == "List" && !c.shadowedBuiltin("List")
+	case *types.Func, *types.Tuple, *types.Go, *types.Meta, *types.Var:
+		return false
+	default:
+		panic("unreachable")
+	}
+}
+
 func (c *checker) applyParamExpectations(fnT types.Type, params []types.FuncParam, args []syntax.Arg, want types.Type, sp diag.Span) *applyParamExpectations {
 	return c.applyParamExpectationsImpl(fnT, params, args, want, sp, false)
 }
@@ -450,6 +488,9 @@ func (c *checker) applyParamExpectationsImpl(fnT types.Type, params []types.Func
 		return nil
 	}
 	residual := applyResidual(fnT, used, 0)
+	if c.openBoundaryResult(residual, want) {
+		return nil
+	}
 	try := func(want types.Type) (map[*types.Meta]*types.Meta, []types.Type, bool) {
 		clones := map[*types.Meta]*types.Meta{}
 		cw := c.clonePrefixType(want, clones)
