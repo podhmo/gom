@@ -206,10 +206,12 @@ duplicate-arm checks.
   functions you can pass around.
 - **`match` is exhaustive** — a missing case is E0301 with concrete
   counterexamples; an unreachable arm is E0302. Nested constructor
-  patterns on the same scrutinee narrow the root constructors still
-  needing coverage; guards (`p if cond`) never count toward coverage.
-  This narrowing changes only E0301 evidence — contextual E0302 and
-  guard analysis are unchanged. Bind with variables/constructors;
+  matches on the same stable local scrutinee narrow the constructors
+  used for E0301 in arm bodies and later arms. A guarded arm does not
+  narrow later arms, though its body can use the positive fact that
+  its pattern matched. This narrowing affects only E0301 — contextual
+  E0302 and guard-condition analysis are unchanged. Bind with
+  variables/constructors;
   `let` accepts only irrefutable patterns.
 - **Errors are values.** `try e` unwraps `Ok v → v` or returns `Err`
   from the innermost enclosing function — which must return
