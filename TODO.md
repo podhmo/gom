@@ -22,12 +22,12 @@
 
 ## To Be Implemented
 
-- [x] **[task INIT-2] `gom init` failure atomicity**（依存: なし）: 失敗時は init 由来の変更をすべて rollback する。validation failure で残る新規 `go.mod` / `go.sum` に加え、validation 後の `main.gom` write failure でも、新規 init が作成した `go.mod` / `go.sum` と既存 module への additive edit / `go.sum` 変更を対象にする。init が作っていない file と non-overwrite 契約は変えない（[wave53 prompts](docs/sketch/2026-11-27-wave53-prompts.md)）
-- [x] **[task RCTX-1] callback result への前向き record propagation**（依存: なし）: generic higher-order callback の本体結果位置にある無名 record literal へ、pipe / generic application の静的に分かる result expectation を伝える。後続使用からの逆推論は入れず、二次 E0401 抑制可否も fixture で確認する（[wave53 prompts](docs/sketch/2026-11-27-wave53-prompts.md)、[gap](docs/implementation-gaps.md)）
+- [ ] **[task DIAG-2] E0401 provenance を if/match 腕へ伝播する**（依存: なし）: 注釈からそのまま同じ expected type が供給される if/match 腕について、最終 conformance mismatch に `expected type declared here` label を付ける。腕内の独立 mismatch へ漏らさない negative fixture、text/JSON output、spec/decision 更新を含める（[decision](docs/decisions/2026-11-27-diagnostic-ux-next-step.md)）
+- [ ] **[task DMMF-1] DMMF fit example の recommended form を更新する**（依存: なし）: wave53 lane A で pipe 経由 `Result.map` lambda 内の無名 record literal が推論できるようになったため、`experiments/dmmf-fit` と関連レポートの「この位置では型名前置 literal が推奨形」という古い案内を再評価し、recommended form と probe を更新する（[wave52 lane D 検証](docs/sketch/2026-11-27-wave52-lane-d-dmmf-fit-verify.md)、[wave53 lane A 検証](docs/sketch/2026-11-27-wave53-lane-a-callback-record-verify.md)）
 
 ### owner improvement ideas audit 由来（[PR #256](https://github.com/podhmo/gom/pull/256)、[audit](docs/sketch/2026-11-26-wave48-lane-g-owner-ideas-audit.md)）
 
-- [ ] **[task] checker の状態を関心ごとの部分構造体に分ける**: `typeTables`・deferred revisit queue・taint・lint state などを分け、`expr.go` を構文種別ごとに分割する。振る舞いは変えない。現行の非コメント field 数は 49（PR 本文の 70 超は過大）だが、`expr.go` 4,549 行と責務集中は有効な観測
+- [ ] **[task] checker の状態を関心ごとの部分構造体に分ける**: `typeTables`・deferred revisit queue・taint・lint state などを分け、`expr.go` を構文種別ごとに分割する。振る舞いは変えない。`checker` の field 数は増え続け、`expr.go` は 4,774 行へ増えている。責務集中は有効な観測。**wave54 lane G として採択**（[prompts](docs/sketch/2026-11-27-wave54-prompts.md)）
 - [ ] **[task] 値表示を rt の単一実装へさらに寄せる**: wave47 lane A の runtime renderer 共通化を前提に、eval 独自の表示・整数幅・float32 丸め・structural equality を rt 公開関数へ寄せ、eval 側は評価順・pattern 振分け・部分適用の oracle に絞る
 - [ ] **[task] 生成コードの benchmark 基盤**: `bench/` に代表的な gom/手書き Go のペアを置き、`go test -bench` の比率を記録する。回帰警告の閾値や CI 実行は導入時に決める
 
