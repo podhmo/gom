@@ -473,8 +473,14 @@ func TestInitFailureKeepsBrokenMainSymlink(t *testing.T) {
 	if code != 2 {
 		t.Fatalf("exit = %d, want 2; stdout=%q stderr=%q", code, out.String(), errout.String())
 	}
+	if !strings.Contains(errout.String(), "main.gom") {
+		t.Fatalf("init did not reach the main.gom write failure: %q", errout.String())
+	}
 	if _, err := os.Lstat(mainPath); err != nil {
 		t.Fatalf("failed init removed the pre-existing main.gom symlink: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "go.mod")); !os.IsNotExist(err) {
+		t.Fatalf("go.mod exists after failed init: %v", err)
 	}
 }
 
