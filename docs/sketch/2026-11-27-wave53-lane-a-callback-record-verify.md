@@ -23,7 +23,7 @@ E0407 the record literal is ambiguous: 2 record types own these fields; annotate
 - unit test: speculative lookahead は callback result meta を bind せず、非結果位置の record literal は activation しない
 - backpipe: `run_callback <| fn _ -> { ... }` と `Scope.run <| fn _ -> { ... }` でも、静的な戻り値が callback result へ届く
 - boundary: `xs |> List.map (fn x -> { ... })` の結果を `Go.Slice Out` へ返す形では、producer 側の `List Out` を speculative に使い、最後の implicit boundary conversion を残す。`List Out` を返す通常形も固定する
-- composite result: tuple 要素にある record literal も結果位置として辿り、`Go.Slice (Go.Any, Out)` への pipe で `Go.Any` の要素型 pin と record propagation が一緒に効く。逆方向に、producer が `Go.Slice` を返し pipe 結果の期待型が `List` の場合も境界変換前の producer 形から推論する。reverse boundary は unit test で固定し、通常適用が同じ retry を使わないことも併せて固定する
+- composite result: tuple 要素にある record literal も結果位置として辿り、`Go.Slice (Go.Any, Out)` への pipe で `Go.Any` の要素型 pin と record propagation が一緒に効く。逆方向に、producer が `Go.Slice` を返し pipe 結果の期待型が `List` の場合も境界変換前の producer 形から推論する。reverse boundary は spec fixture と unit test で固定し、通常適用が同じ retry を使わないことも併せて固定する。sibling parameter については `() |> pack "x" { ... }` が `List (Go.Any, Out)` を満たす fixture で固定する
 - soft hint は pipe callee 自身が application のときだけ使い、block 内の無関係な application へ漏れない。boundary producer 形の retry も pipe 経路に限定し、通常の関数適用や関数値の戻り値の内側へは広げない
 - `E0407_record_context_no_backward` は従来どおり E0407 + E0401。これは `let seed = { ... }` を後続使用から推論しない限界事例で、wave53 lane A の前向き propagation 対象外である
 

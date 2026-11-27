@@ -10,7 +10,7 @@ generic higher-order callback の本体結果位置にある無名 record litera
 - 対象は callback 本体の結果位置にある literal に限る。block の最終式、if/match の分岐結果、tuple の要素、ascription の内側は結果位置として辿る
 - let 内の中間 literal、呼出し引数、field 値など、callback の結果型をそのまま持たない位置からは activation しない。tuple の要素は結果値の構成要素として辿るが、record field 値は対象外のままにする
 - 後続使用から逆方向に型を決めない。`let seed = { ... }` の seed を後の `List.fold` 利用から推論するような経路は入れない
-- speculative propagation の clone/rollback、型名前置 literal 優先、positional/labeled lambda の既存規則、monomorphic local inference は変えない
+- speculative propagation の clone/rollback、型名前置 literal 優先、positional/labeled lambda の既存規則、monomorphic local inference は変えない。activation 後は record を含まない sibling parameter も同じ speculative 解で制約し、tuple 内の `Go.Any` などが取りこぼされないようにする
 - pipe の静的な期待型が `Go.Slice` のとき、最後に implicit boundary conversion を取る `List` producer の形でも speculative propagation を試す。期待型が `List` で producer が `Go.Slice` を返す逆方向も同様に試す。逆に hard expectation へすると部分適用の残余型を境界変換より前に誤って拒否するため、pipe callee へは soft hint として渡す。この retry は pipe に限り、通常の関数適用や関数値の戻り値の内側には広げない
 - `<|` / `|>` で piped operand そのものが higher-order callback のときも、pipe を `callee operand` の適用として speculative propagation する。`Scope.run` のような Go boundary callee でも callback parameter に record result が見えるときは seed を使う
 - record literal が解決できない backward inference 事例で出る二次 E0401 は今回の対象にしない。`E0407_record_context_no_backward` は従来どおり E0407 + E0401 を固定し、診断抑制は lane A の scope に入れない

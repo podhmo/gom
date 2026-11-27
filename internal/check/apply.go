@@ -505,9 +505,6 @@ func (x *applyParamExpectations) at(i int, original types.Type) (types.Type, boo
 	if x == nil || i < 0 || i >= len(x.params) || !x.informative[i] {
 		return nil, false
 	}
-	if !x.c.containsRecordType(x.params[i]) {
-		return nil, false
-	}
 	reifiedBefore := make(map[*types.Meta]bool, len(x.open))
 	for _, m := range x.open {
 		reifiedBefore[m] = true

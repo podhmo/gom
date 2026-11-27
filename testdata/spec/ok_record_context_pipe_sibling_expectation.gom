@@ -1,0 +1,9 @@
+package main
+
+type Out = { count: Int, label: String }
+type OtherOut = { count: Int, label: String }
+
+fn pack (x: a) (r: b) (_: Unit) -> List (a, b) = [(x, r)]
+
+fn run () -> List (Go.Any, Out) =
+  () |> pack "x" { count = 0, label = "x" }
