@@ -1,0 +1,45 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected Int, got String",
+      "span": {
+        "file": "E0401_match_arm_provenance.gom",
+        "start": {
+          "line": 6,
+          "col": 13,
+          "offset": 89
+        },
+        "end": {
+          "line": 6,
+          "col": 19,
+          "offset": 95
+        }
+      },
+      "data": {
+        "actual": "String",
+        "expected": "Int"
+      },
+      "labels": [
+        {
+          "span": {
+            "file": "E0401_match_arm_provenance.gom",
+            "start": {
+              "line": 3,
+              "col": 30,
+              "offset": 43
+            },
+            "end": {
+              "line": 3,
+              "col": 33,
+              "offset": 46
+            }
+          },
+          "message": "expected type declared here"
+        }
+      ]
+    }
+  ]
+}

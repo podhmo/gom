@@ -1,0 +1,4 @@
+package main
+
+fn choose (c: Bool) (x: Int) -> Go.Any =
+  if c { x } else { "s" }

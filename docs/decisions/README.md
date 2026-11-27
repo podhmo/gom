@@ -283,7 +283,7 @@
 | [diagnostic-coverage-positive-assertions](2026-11-27-diagnostic-coverage-positive-assertions.md) | 診断 coverage positive assertion 規約 | 採用（実装・検証した — [検証](../sketch/2026-11-27-wave52-lane-c-positive-assertions-verify.md)） |
 | [diagnostic-direction-e0204-e0704-e0503](2026-11-27-diagnostic-direction-e0204-e0704-e0503.md) | E0204/E0704/E0503 の診断方向 | 採用（実装・検証した — [検証](../sketch/2026-11-27-wave52-lane-e-diagnostics-verify.md)） |
 | [diagnostic-labels-details](2026-11-27-diagnostic-labels-details.md) | diagnostic labels/details wire | 採用（実装・検証した — [検証](../sketch/2026-11-27-wave50-lane-c-diagnostic-wire-verify.md)） |
-| [diagnostic-ux-next-step](2026-11-27-diagnostic-ux-next-step.md) | 診断 UX の次段実装候補 | 採用（調査済み・実装候補の決定。実装は未実施） |
+| [diagnostic-ux-next-step](2026-11-27-diagnostic-ux-next-step.md) | 診断 UX の次段実装候補 | 採用（実装・検証した — [検証](../sketch/2026-11-28-wave55-lane-c-provenance-verify.md)） |
 | [dmmf-boundary-guide](2026-11-27-dmmf-boundary-guide.md) | DMMF boundary guide | 採用（文書化 — [guide](../ja/dmmf-boundary-guide.md)） |
 | [e0301-text-missing-patterns](2026-11-27-e0301-text-missing-patterns.md) | E0301 の text 出力へ不足パターンを出す（一部を [diagnostic-labels-details](2026-11-27-diagnostic-labels-details.md) で置き換え） | 採用（実装・検証した — [検証](../sketch/2026-11-27-wave49-lane-d-e0301-text-verify.md)） |
 | [init-failure-atomicity](2026-11-27-init-failure-atomicity.md) | `gom init` の failure atomicity | 採用（実装・検証した — [検証](../sketch/2026-11-27-wave53-lane-b-init-atomicity-verify.md)） |

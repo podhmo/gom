@@ -45,6 +45,12 @@ func (c *checker) checkExprAt(e syntax.Expr, want types.Type, expectedFrom diag.
 	if w := types.Chase(bw); isGoAny(w) {
 		bw = nil
 	}
+	branchExpectedFrom := expectedFrom
+	if bw == nil {
+		// A bare Go.Any expectation bounds without seeding the branch
+		// type, so its annotation is not the arms' expected type.
+		branchExpectedFrom = diag.Span{}
+	}
 	switch e := e.(type) {
 	case *syntax.Ident:
 		out = c.checkIdent(e)
@@ -73,11 +79,11 @@ func (c *checker) checkExprAt(e syntax.Expr, want types.Type, expectedFrom diag.
 	case *syntax.Lambda:
 		out = c.checkLambda(e, bw)
 	case *syntax.If:
-		out = c.checkIf(e, bw)
+		out = c.checkIf(e, bw, branchExpectedFrom)
 	case *syntax.Match:
-		out = c.checkMatch(e, bw)
+		out = c.checkMatch(e, bw, branchExpectedFrom)
 	case *syntax.Block:
-		out = c.checkBlock(e, bw)
+		out = c.checkBlock(e, bw, branchExpectedFrom)
 	case *syntax.Let:
 		out = c.checkLet(e)
 	case *syntax.Ignore:

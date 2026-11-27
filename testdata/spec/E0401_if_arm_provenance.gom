@@ -1,0 +1,8 @@
+package main
+
+fn choose (c: Bool) (d: Bool) -> Int =
+  if c {
+    if d { 1 } else { "nested" }
+  } else {
+    2
+  }

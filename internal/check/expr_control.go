@@ -70,7 +70,10 @@ func (c *checker) joinArm(bt types.Type, arm Expr, armSp diag.Span, prev []*Expr
 
 // checkIf types `if c { a } else { b }`. Without else the then-branch
 // must be Unit — a value-producing then without else is E0403.
-func (c *checker) checkIf(e *syntax.If, want types.Type) Expr {
+func (c *checker) checkIf(e *syntax.If, want types.Type, expectedFrom diag.Span) Expr {
+	if want == nil {
+		expectedFrom = diag.Span{}
+	}
 	cond := c.checkExpr(e.Cond, types.Bool)
 	// The condition must be the builtin Bool — which a file-local
 	// `type Bool` shadows away entirely.
@@ -120,7 +123,7 @@ func (c *checker) checkIf(e *syntax.If, want types.Type) Expr {
 	if bt == nil {
 		bt = c.newMeta(e.Sp, "the if branches' type")
 	}
-	then := c.checkExpr(e.Then, bt)
+	then := c.checkExprAt(e.Then, bt, expectedFrom)
 	elsW := bt
 	if want == nil && c.armSelfContained(e.Else) && c.armDetached(bt) {
 		// The then arm settled the join to a concrete,
@@ -129,7 +132,12 @@ func (c *checker) checkIf(e *syntax.If, want types.Type) Expr {
 		// arm order stops mattering under a bare `Go.Any` want.
 		elsW = nil
 	}
-	els := c.checkExpr(e.Else, elsW)
+	var els Expr
+	if elsW == nil {
+		els = c.checkExpr(e.Else, nil)
+	} else {
+		els = c.checkExprAt(e.Else, elsW, expectedFrom)
+	}
 	if elsW == nil {
 		bt, els = c.joinArm(bt, els, e.Else.Span(), []*Expr{&then})
 	}
@@ -139,7 +147,10 @@ func (c *checker) checkIf(e *syntax.If, want types.Type) Expr {
 // checkMatch types `match subj { arms }`. Arm patterns check against
 // the subject type; bodies unify on one result type. Exhaustiveness
 // and reachability are P1-6's, not this phase's.
-func (c *checker) checkMatch(e *syntax.Match, want types.Type) Expr {
+func (c *checker) checkMatch(e *syntax.Match, want types.Type, expectedFrom diag.Span) Expr {
+	if want == nil {
+		expectedFrom = diag.Span{}
+	}
 	subj := c.checkExpr(e.Subj, nil)
 	bt := want
 	if bt == nil {
@@ -164,7 +175,12 @@ func (c *checker) checkMatch(e *syntax.Match, want types.Type) Expr {
 		if detached {
 			w = nil
 		}
-		body := c.checkExpr(a.Body, w)
+		var body Expr
+		if w == nil {
+			body = c.checkExpr(a.Body, nil)
+		} else {
+			body = c.checkExprAt(a.Body, w, expectedFrom)
+		}
 		if detached {
 			bt, body = c.joinArm(bt, body, a.Body.Span(), prev)
 		}
@@ -274,7 +290,10 @@ func (c *checker) checkTypeTestArms(e *syntax.Match, arms []MatchArm, subjT type
 // an expected type the node takes it directly: the last statement
 // was already checked against it, so reporting the block itself
 // against it again would double every mismatch.
-func (c *checker) checkBlock(e *syntax.Block, want types.Type) Expr {
+func (c *checker) checkBlock(e *syntax.Block, want types.Type, expectedFrom diag.Span) Expr {
+	if want == nil {
+		expectedFrom = diag.Span{}
+	}
 	out := &Block{Base: baseOf(e.Sp, types.Unit), Stmts: make([]Expr, 0, len(e.Stmts))}
 	for i, s := range e.Stmts {
 		var st Expr
@@ -283,7 +302,11 @@ func (c *checker) checkBlock(e *syntax.Block, want types.Type) Expr {
 			next = e.Stmts[i+1]
 		}
 		if i == len(e.Stmts)-1 {
-			st = c.checkExpr(s, want)
+			if want == nil {
+				st = c.checkExpr(s, nil)
+			} else {
+				st = c.checkExprAt(s, want, expectedFrom)
+			}
 		} else {
 			st = c.checkExpr(s, nil)
 			switch t := types.Chase(st.Type()).(type) {

@@ -1,0 +1,4 @@
+package main
+
+fn choose (c: Bool) -> Int =
+  if c { 1 } else { 2 + "bad" }

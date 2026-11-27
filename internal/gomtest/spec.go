@@ -136,8 +136,9 @@ func writeExpected(t *testing.T, path string, got []diag.Diagnostic, res diag.Re
 		doc.Write(raw)
 	}
 	doc.WriteString("]}")
+	rendered := preserveExplicitEmptyArrays(path, doc.Bytes())
 	var out bytes.Buffer
-	if err := json.Indent(&out, doc.Bytes(), "", "  "); err != nil {
+	if err := json.Indent(&out, rendered, "", "  "); err != nil {
 		t.Fatalf("gomtest: cannot encode %s: %v", path, err)
 	}
 	out.WriteByte('\n')
@@ -145,6 +146,127 @@ func writeExpected(t *testing.T, path string, got []diag.Diagnostic, res diag.Re
 		t.Fatalf("gomtest: cannot write %s: %v", path, err)
 	}
 	t.Logf("updated %s", path)
+}
+
+// preserveExplicitEmptyArrays keeps an explicitly empty "notes" or
+// "labels" assertion when -update rewrites a fixture and the actual
+// diagnostic still has no such values. The wire encoder omits empty
+// arrays, so without this preservation every regeneration would erase
+// the negative assertion. Preservation is conservative: only the same
+// diagnostic index and code inherits the empty array, and a non-empty
+// actual array always wins.
+func preserveExplicitEmptyArrays(path string, rendered []byte) []byte {
+	old, err := loadExpected(path)
+	if err != nil {
+		return rendered
+	}
+	var root map[string]any
+	if err := json.Unmarshal(rendered, &root); err != nil {
+		return rendered
+	}
+	arr, ok := root["diagnostics"].([]any)
+	if !ok {
+		return rendered
+	}
+	inserts := map[int][]string{}
+	for i, v := range arr {
+		if i >= len(old) {
+			break
+		}
+		cur, ok := v.(map[string]any)
+		if !ok || cur["code"] != old[i]["code"] {
+			continue
+		}
+		for _, key := range []string{"notes", "labels"} {
+			oldVal, ok := old[i][key]
+			if !ok {
+				continue
+			}
+			oldArr, ok := oldVal.([]any)
+			if !ok || len(oldArr) != 0 {
+				continue
+			}
+			if _, present := cur[key]; !present {
+				inserts[i] = append(inserts[i], key)
+			}
+		}
+	}
+	if len(inserts) == 0 {
+		return rendered
+	}
+	return insertEmptyArrays(rendered, inserts)
+}
+
+// insertEmptyArrays inserts empty arrays into the compact rendered
+// document without re-encoding it. Re-encoding would reorder object
+// keys and escape characters such as `>` in messages, unlike the wire
+// encoder used for ordinary updates.
+func insertEmptyArrays(rendered []byte, inserts map[int][]string) []byte {
+	prefix := `{"diagnostics":[`
+	if !bytes.HasPrefix(rendered, []byte(prefix)) {
+		return rendered
+	}
+	var out bytes.Buffer
+	out.WriteString(prefix)
+	pos := len(prefix)
+	index := 0
+	for pos < len(rendered) && rendered[pos] == '{' {
+		end, ok := compactJSONObjectEnd(rendered, pos)
+		if !ok {
+			return rendered
+		}
+		keys := inserts[index]
+		if len(keys) == 0 {
+			out.Write(rendered[pos:end])
+		} else {
+			out.Write(rendered[pos : end-1])
+			for _, key := range keys {
+				fmt.Fprintf(&out, `,%q:[]`, key)
+			}
+			out.WriteByte('}')
+		}
+		pos = end
+		index++
+		if pos < len(rendered) && rendered[pos] == ',' {
+			out.WriteByte(',')
+			pos++
+		}
+	}
+	out.Write(rendered[pos:])
+	return out.Bytes()
+}
+
+// compactJSONObjectEnd returns the exclusive end of the JSON object
+// starting at rendered[start], tracking braces inside strings.
+func compactJSONObjectEnd(rendered []byte, start int) (int, bool) {
+	depth := 0
+	inString := false
+	escaped := false
+	for i := start; i < len(rendered); i++ {
+		b := rendered[i]
+		if inString {
+			if escaped {
+				escaped = false
+			} else if b == '\\' {
+				escaped = true
+			} else if b == '"' {
+				inString = false
+			}
+			continue
+		}
+		switch b {
+		case '"':
+			inString = true
+		case '{':
+			depth++
+		case '}':
+			depth--
+			if depth == 0 {
+				return i + 1, true
+			}
+		}
+	}
+	return 0, false
 }
 
 // sortedDiagnostics returns a copy of got ordered into the output
@@ -379,8 +501,9 @@ func checkData(exp map[string]any, data map[string]any, path string) (msgs []str
 }
 
 // checkLabels verifies that each expected label matches the actual
-// labels in order. A label's "span" uses the same subset semantics as
-// the primary span; "message" is exact.
+// labels in order. An explicitly empty array requires no actual labels.
+// A label's "span" uses the same subset semantics as the primary span;
+// "message" is exact.
 func checkLabels(exp map[string]any, labels []diag.Label, res diag.Resolver, path string) (msgs []string) {
 	v, ok := exp["labels"]
 	if !ok {
@@ -389,6 +512,12 @@ func checkLabels(exp map[string]any, labels []diag.Label, res diag.Resolver, pat
 	arr, ok := v.([]any)
 	if !ok {
 		return []string{fmt.Sprintf("%s.labels: expected an array, got %s", path, jsonRepr(v))}
+	}
+	if len(arr) == 0 {
+		if len(labels) != 0 {
+			return []string{fmt.Sprintf("%s.labels: expected no labels, got %d", path, len(labels))}
+		}
+		return nil
 	}
 	at := 0
 	for i, ev := range arr {

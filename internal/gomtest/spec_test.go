@@ -225,6 +225,19 @@ func TestDiffDiagnosticsEmptyNotes(t *testing.T) {
 	}
 }
 
+func TestDiffDiagnosticsEmptyLabels(t *testing.T) {
+	got := []diag.Diagnostic{diag.Error("E0301", "m")}
+	exp := mustExpected(t, `[{"labels":[]}]`)
+	if msgs := diffDiagnostics(exp, got, diag.NewDirResolver("")); len(msgs) != 0 {
+		t.Errorf("msgs = %v", msgs)
+	}
+
+	got[0] = got[0].AddLabel(diag.SpanIn("f.gom", 0, 1), "context")
+	if msgs := diffDiagnostics(exp, got, diag.NewDirResolver("")); len(msgs) == 0 {
+		t.Error("explicit empty labels should reject an actual label")
+	}
+}
+
 func TestDiffDiagnosticsFixes(t *testing.T) {
 	fix := diag.Fix{
 		Title:         "add the missing arms",
@@ -313,6 +326,40 @@ func TestLoadExpected(t *testing.T) {
 	}
 }
 
+func TestSpecUpdatePreservesExplicitEmptyAssertions(t *testing.T) {
+	dir := t.TempDir()
+	expectedPath := filepath.Join(dir, "c.expected.json")
+	old := `{"diagnostics":[{"code":"E0301","notes":[],"labels":[]}]}`
+	if err := os.WriteFile(expectedPath, []byte(old), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	d := diag.Error("E0301", "x -> y")
+	res := diag.NewDirResolver(dir)
+	writeExpected(t, expectedPath, []diag.Diagnostic{d}, res)
+
+	data, err := os.ReadFile(expectedPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wire map[string]any
+	if err := json.Unmarshal(data, &wire); err != nil {
+		t.Fatal(err)
+	}
+	obj := wire["diagnostics"].([]any)[0].(map[string]any)
+	for _, key := range []string{"notes", "labels"} {
+		arr, ok := obj[key].([]any)
+		if !ok || len(arr) != 0 {
+			t.Errorf("%s was not preserved as an empty array: %s", key, data)
+		}
+	}
+	if !strings.Contains(string(data), "x -> y") {
+		t.Errorf("message should keep the wire encoder's unescaped form: %s", data)
+	}
+	if strings.Contains(string(data), `\u003e`) {
+		t.Errorf("message should not be HTML-escaped: %s", data)
+	}
+}
+
 // TestSpecUpdate exercises -update: the expected file is rendered from
 // actual diagnostics in the wire shape and passes comparison
 // afterwards.
@@ -345,6 +392,15 @@ func TestSpecUpdate(t *testing.T) {
 	}
 	if msgs := diffDiagnostics(exp, []diag.Diagnostic{d}, res); len(msgs) != 0 {
 		t.Fatalf("round-trip mismatch: %v", msgs)
+	}
+
+	// Rewriting without explicit empty assertions is byte-stable: the
+	// updater must not re-encode the wire output just to rewrite the file.
+	before, _ := os.ReadFile(expectedPath)
+	writeExpected(t, expectedPath, []diag.Diagnostic{d}, res)
+	after, _ := os.ReadFile(expectedPath)
+	if string(after) != string(before) {
+		t.Errorf("second update changed bytes without a semantic change:\nfirst:\n%s\nsecond:\n%s", before, after)
 	}
 
 	// And it really is the spec section 12 wire shape.
