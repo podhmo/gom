@@ -333,7 +333,7 @@ func TestSpecUpdatePreservesExplicitEmptyAssertions(t *testing.T) {
 	if err := os.WriteFile(expectedPath, []byte(old), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	d := diag.Error("E0301", "m")
+	d := diag.Error("E0301", "x -> y")
 	res := diag.NewDirResolver(dir)
 	writeExpected(t, expectedPath, []diag.Diagnostic{d}, res)
 
@@ -351,6 +351,12 @@ func TestSpecUpdatePreservesExplicitEmptyAssertions(t *testing.T) {
 		if !ok || len(arr) != 0 {
 			t.Errorf("%s was not preserved as an empty array: %s", key, data)
 		}
+	}
+	if !strings.Contains(string(data), "x -> y") {
+		t.Errorf("message should keep the wire encoder's unescaped form: %s", data)
+	}
+	if strings.Contains(string(data), `\u003e`) {
+		t.Errorf("message should not be HTML-escaped: %s", data)
 	}
 }
 
@@ -386,6 +392,15 @@ func TestSpecUpdate(t *testing.T) {
 	}
 	if msgs := diffDiagnostics(exp, []diag.Diagnostic{d}, res); len(msgs) != 0 {
 		t.Fatalf("round-trip mismatch: %v", msgs)
+	}
+
+	// Rewriting without explicit empty assertions is byte-stable: the
+	// updater must not re-encode the wire output just to rewrite the file.
+	before, _ := os.ReadFile(expectedPath)
+	writeExpected(t, expectedPath, []diag.Diagnostic{d}, res)
+	after, _ := os.ReadFile(expectedPath)
+	if string(after) != string(before) {
+		t.Errorf("second update changed bytes without a semantic change:\nfirst:\n%s\nsecond:\n%s", before, after)
 	}
 
 	// And it really is the spec section 12 wire shape.

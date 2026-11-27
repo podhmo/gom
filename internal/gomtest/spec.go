@@ -168,6 +168,7 @@ func preserveExplicitEmptyArrays(path string, rendered []byte) []byte {
 	if !ok {
 		return rendered
 	}
+	inserts := map[int][]string{}
 	for i, v := range arr {
 		if i >= len(old) {
 			break
@@ -186,15 +187,86 @@ func preserveExplicitEmptyArrays(path string, rendered []byte) []byte {
 				continue
 			}
 			if _, present := cur[key]; !present {
-				cur[key] = []any{}
+				inserts[i] = append(inserts[i], key)
 			}
 		}
 	}
-	out, err := json.Marshal(root)
-	if err != nil {
+	if len(inserts) == 0 {
 		return rendered
 	}
-	return out
+	return insertEmptyArrays(rendered, inserts)
+}
+
+// insertEmptyArrays inserts empty arrays into the compact rendered
+// document without re-encoding it. Re-encoding would reorder object
+// keys and escape characters such as `>` in messages, unlike the wire
+// encoder used for ordinary updates.
+func insertEmptyArrays(rendered []byte, inserts map[int][]string) []byte {
+	prefix := `{"diagnostics":[`
+	if !bytes.HasPrefix(rendered, []byte(prefix)) {
+		return rendered
+	}
+	var out bytes.Buffer
+	out.WriteString(prefix)
+	pos := len(prefix)
+	index := 0
+	for pos < len(rendered) && rendered[pos] == '{' {
+		end, ok := compactJSONObjectEnd(rendered, pos)
+		if !ok {
+			return rendered
+		}
+		keys := inserts[index]
+		if len(keys) == 0 {
+			out.Write(rendered[pos:end])
+		} else {
+			out.Write(rendered[pos : end-1])
+			for _, key := range keys {
+				fmt.Fprintf(&out, `,%q:[]`, key)
+			}
+			out.WriteByte('}')
+		}
+		pos = end
+		index++
+		if pos < len(rendered) && rendered[pos] == ',' {
+			out.WriteByte(',')
+			pos++
+		}
+	}
+	out.Write(rendered[pos:])
+	return out.Bytes()
+}
+
+// compactJSONObjectEnd returns the exclusive end of the JSON object
+// starting at rendered[start], tracking braces inside strings.
+func compactJSONObjectEnd(rendered []byte, start int) (int, bool) {
+	depth := 0
+	inString := false
+	escaped := false
+	for i := start; i < len(rendered); i++ {
+		b := rendered[i]
+		if inString {
+			if escaped {
+				escaped = false
+			} else if b == '\\' {
+				escaped = true
+			} else if b == '"' {
+				inString = false
+			}
+			continue
+		}
+		switch b {
+		case '"':
+			inString = true
+		case '{':
+			depth++
+		case '}':
+			depth--
+			if depth == 0 {
+				return i + 1, true
+			}
+		}
+	}
+	return 0, false
 }
 
 // sortedDiagnostics returns a copy of got ordered into the output

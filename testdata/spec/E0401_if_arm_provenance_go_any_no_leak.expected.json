@@ -1,28 +1,28 @@
 {
   "diagnostics": [
     {
+      "kind": "diagnostic",
       "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected Int, got String",
+      "span": {
+        "file": "E0401_if_arm_provenance_go_any_no_leak.gom",
+        "start": {
+          "line": 4,
+          "col": 19,
+          "offset": 73
+        },
+        "end": {
+          "line": 4,
+          "col": 26,
+          "offset": 80
+        }
+      },
       "data": {
         "actual": "String",
         "expected": "Int"
       },
-      "kind": "diagnostic",
-      "labels": [],
-      "message": "type mismatch: expected Int, got String",
-      "severity": "error",
-      "span": {
-        "end": {
-          "col": 26,
-          "line": 4,
-          "offset": 80
-        },
-        "file": "E0401_if_arm_provenance_go_any_no_leak.gom",
-        "start": {
-          "col": 19,
-          "line": 4,
-          "offset": 73
-        }
-      }
+      "labels": []
     }
   ]
 }
