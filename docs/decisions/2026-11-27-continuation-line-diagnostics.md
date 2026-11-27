@@ -26,7 +26,7 @@ note は人間向けの案内であり、fix は追加しない。既存の `ign
 
 - 判定は block 内の mid-block statement に限る。関数本体の block 直下でも match/if arm の block 内でも対象にする。ファイルスコープの E0101 や、block 末尾式だけが出す E0401 には広げない
 - 先頭 statement の型が `types.Func` のときだけ候補にする。generic な部分適用で内部に meta を含んでいても、外側が関数型ならよい
-- 次の statement が直後の行にある必要はないが、同一 block 内で後続行かつ先頭 statement より深い列にあることだけを見る。字下げ幅や空行・コメントの解釈は実装時に fixture へ固定する
+- 次の statement が直後の行にある必要はないが、同一 block 内で後続行かつ先頭 statement より深い列にあることだけを見る。深ければ字下げ幅は問わず、間の空行・コメントは無視する
 - 診断 suppression はしない。E0407/E0402/E0401 の連鎖自体は残り、最初の E0402 の note が本因への導線になる
 - hint から括弧で括る fix を出さない。indentation は意味を持たないため、継続行と断定した rewrite は unsafe である
 
