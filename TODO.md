@@ -23,6 +23,7 @@
 ## To Be Implemented
 
 - [ ] **[task E0201-1] module member typo の候補表示を実装する**（依存: なし、**wave56 lane B として採択**）: E0201 `namespace: "member"` で、member table 内の optimal string alignment 距離 1 の候補を最大 3 件 note と `data.candidates` に出す。`Go.Map` / `Go.Slice` の operation table も対象にし、fixes は付けない（[decision](docs/decisions/2026-11-28-e0201-member-typo-candidates.md)）
+- [ ] **[task E0401-1] record field 値へ expected type provenance を付ける**（依存: なし）: type parameter を含まない exact declaration type に限り、field 値と block tail/if/match 腕の最終 mismatch へ `expected type declared here` label を付ける。呼出し引数・generic field・constraint negative を fixture で固定する（[decision](docs/decisions/2026-11-28-e0401-provenance-expansion.md)、[調査](docs/sketch/2026-11-28-wave56-lane-c-provenance-expansion-verify.md)）
 - [ ] **[task E0407-1] ambiguous record literal の候補表示を実装する**（依存: なし、**wave56 lane A として採択**）: E0407 に候補 record declaration label（5 件まで）と deterministic な `data.candidates` を付ける。local cross-file/import `.gomi`/truncate の fixture を含める（[decision](docs/decisions/2026-11-28-record-ambiguity-candidates.md)）
 
 ### owner improvement ideas audit 由来（[PR #256](https://github.com/podhmo/gom/pull/256)、[audit](docs/sketch/2026-11-26-wave48-lane-g-owner-ideas-audit.md)）
