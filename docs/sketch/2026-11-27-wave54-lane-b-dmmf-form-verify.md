@@ -23,7 +23,7 @@ wave53 lane A の callback result record propagation を前提に、DMMF example
 
 - 関数戻り値、constructor payload、generic application / pipe の callback 結果など、静的な期待型が既にある位置では無名 record literal を使ってよい。DMMF の段階型 pipeline でも `ValidatedOrder { ... }` を重ねて書く必要はない
 - `let seed = { ... }` のような局所 literal を後続使用から逆推論することはない。同名 field set を持つ staged record を一旦局所変数へ置くときは、`let seed : ValidatedOrder = { ... }` の注釈か `ValidatedOrder { ... }` の型名前置 literal を残す
-- 静的な期待型がない、または record 型が一意に決まらない位置でも、従来どおり注釈または型名前置 literal が必要である
+- 静的な期待型がなくても、field set がちょうど 1 つの record 型へ対応するなら注釈なしで推論できる。注釈または型名前置 literal が必要なのは、後続使用からの逆推論が必要な位置、または field set が曖昧・未対応で record 型が一意に決まらない位置である
 
 ## negative probe
 
