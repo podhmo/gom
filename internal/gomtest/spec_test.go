@@ -284,6 +284,20 @@ func TestDiffDiagnosticsFixes(t *testing.T) {
 	}
 }
 
+func TestDiffDiagnosticsDataAbsent(t *testing.T) {
+	got := []diag.Diagnostic{
+		diag.Error("E0201", "m").Set("candidates", []any{map[string]any{"name": "map"}}),
+	}
+	res := diag.NewDirResolver(filepath.Join("testdata", "spans"))
+	if msgs := diffDiagnostics(mustExpected(t, `[{"data_absent":["candidates"]}]`), got, res); len(msgs) != 1 {
+		t.Errorf("present key: got %d messages %v, want 1", len(msgs), msgs)
+	}
+	got[0].Data = nil
+	if msgs := diffDiagnostics(mustExpected(t, `[{"data_absent":["candidates"]}]`), got, res); len(msgs) != 0 {
+		t.Errorf("absent key: got messages %v, want none", msgs)
+	}
+}
+
 func TestLoadExpected(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "x.expected.json")
@@ -330,7 +344,7 @@ func TestLoadExpected(t *testing.T) {
 func TestSpecUpdatePreservesExplicitEmptyAssertions(t *testing.T) {
 	dir := t.TempDir()
 	expectedPath := filepath.Join(dir, "c.expected.json")
-	old := `{"diagnostics":[{"code":"E0301","notes":[],"labels":[],"fixes":[]}]}`
+	old := `{"diagnostics":[{"code":"E0301","notes":[],"labels":[],"fixes":[],"data_absent":["candidates"]}]}`
 	if err := os.WriteFile(expectedPath, []byte(old), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -352,6 +366,10 @@ func TestSpecUpdatePreservesExplicitEmptyAssertions(t *testing.T) {
 		if !ok || len(arr) != 0 {
 			t.Errorf("%s was not preserved as an empty array: %s", key, data)
 		}
+	}
+	arr, ok := obj["data_absent"].([]any)
+	if !ok || len(arr) != 1 || arr[0] != "candidates" {
+		t.Errorf("data_absent was not preserved: %s", data)
 	}
 	if !strings.Contains(string(data), "x -> y") {
 		t.Errorf("message should keep the wire encoder's unescaped form: %s", data)

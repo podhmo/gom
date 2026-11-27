@@ -24,7 +24,10 @@
         "namespace": "member"
       },
       "notes": [],
-      "fixes": []
+      "fixes": [],
+      "data_absent": [
+        "candidates"
+      ]
     }
   ]
 }
