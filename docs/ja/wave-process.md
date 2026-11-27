@@ -146,13 +146,16 @@ podhmo は lane PR 群を先に merge してよい。wave の完了は lane PR
 
   必須:
 
-  - lane 表: lane/PR/結果。review 経過は wave の概観に必要な範囲で
-    一言添えてよいが、正確な全件記録は不要
+  - lane 表: lane/PR/結果/レビュー経過。レビュー経過には修正ラウンドの
+    回数と主な論点を wave の概観に必要な範囲で書く。正確な全件記録は不要
   - pitfalls: 発見や事後理解から次回以降に効く形へ蒸留したもの。
     round の主な蓄積
+  - lane PR の残件監査: lane ごとの残件と登録先。なければ「なし」と書く
   - 発生タスクと台帳の動き: 新規/解消した TODO、open question、
     implementation gap、decision、problem のうち次 wave prompts の
     入力になるもの。なければ「なし」と書く
+  - 締め sweep: decisions/error-codes/guide/TODO archive/索引/main CI の
+    確認結果。なければ「なし」と書く
   - 次への申し送り
 
   必要に応じて:
