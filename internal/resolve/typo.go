@@ -19,7 +19,10 @@ type memberTypoCandidate struct {
 // transpositions, too narrow for the noisy distance-2 lookalikes.
 func memberTypoCandidates(table map[string]*Symbol, name string) []memberTypoCandidate {
 	var out []memberTypoCandidate
-	for member := range table {
+	for member, sym := range table {
+		if sym != nil && sym.Hidden != "" {
+			continue // correcting to this member would only move the user to E0501
+		}
 		if d := osaDistance(name, member); d == 1 {
 			out = append(out, memberTypoCandidate{name: member, distance: d})
 		}

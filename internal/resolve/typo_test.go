@@ -28,6 +28,7 @@ func TestMemberTypoCandidates(t *testing.T) {
 		"foo3": {Name: "foo3"},
 		"foo4": {Name: "foo4"},
 		"bar":  {Name: "bar"},
+		"foo5": {Name: "foo5", Hidden: "unsupported basic type uint32"},
 	}
 	got := memberTypoCandidates(table, "foo")
 	if len(got) != 3 {
@@ -40,5 +41,10 @@ func TestMemberTypoCandidates(t *testing.T) {
 	}
 	if got := memberTypoCandidates(table, "zzzz"); len(got) != 0 {
 		t.Errorf("zzzz candidates = %+v, want none", got)
+	}
+	for _, c := range memberTypoCandidates(table, "foo") {
+		if c.name == "foo5" {
+			t.Errorf("hidden member foo5 was suggested: %+v", memberTypoCandidates(table, "foo"))
+		}
 	}
 }
