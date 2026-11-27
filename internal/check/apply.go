@@ -2216,6 +2216,33 @@ func (c *checker) replayGoApply(pa *pendingApply) {
 	}
 }
 
+// calleeTail returns the residual type after consuming the first
+// positional parameter of callee. The bool is false for a callee
+// shape conformCallee handles through the synthesized function-type
+// fallback instead.
+func calleeTail(callee types.Type) (types.Type, bool) {
+	fs, ok := types.Chase(callee).(*types.Func)
+	if !ok || len(fs.Params) == 0 || fs.Params[0].Label != "" {
+		return nil, false
+	}
+	if len(fs.Params) > 1 {
+		return &types.Func{Params: fs.Params[1:], Ret: fs.Ret}, true
+	}
+	return fs.Ret, true
+}
+
+// conformCalleeAfterParamFailure performs only the result-side half
+// of conformCallee when the caller already knows the first parameter
+// conformance failed and reported that failure. It keeps the ordinary
+// recovery type of the application without re-reporting the parameter
+// mismatch, and returns false because the application itself is invalid.
+func (c *checker) conformCalleeAfterParamFailure(callee, res types.Type, sp diag.Span) bool {
+	if tail, ok := calleeTail(callee); ok {
+		c.unify(res, tail, sp)
+	}
+	return false
+}
+
 // conformCallee checks a one-argument application of `callee`: its
 // first positional parameter accepts `argT` under the conformance a
 // direct call applies — a `Go.Any` parameter takes every argument
@@ -2250,8 +2277,8 @@ func (c *checker) replayGoApply(pa *pendingApply) {
 // Go.Slice. (Interface assignability materializes no conversion,
 // so conv=false still admits it — see conformParam.)
 func (c *checker) conformCallee(callee, argT, res types.Type, sp diag.Span, conv bool, arg Expr) bool {
-	if fs, ok := types.Chase(callee).(*types.Func); ok &&
-		len(fs.Params) > 0 && fs.Params[0].Label == "" {
+	if tail, ok := calleeTail(callee); ok {
+		fs := types.Chase(callee).(*types.Func)
 		// A literal argument can still materialize into a defined
 		// first parameter — the type-only conformParam cannot see
 		// the literalness, so scalarLitConv decides first (it
@@ -2260,10 +2287,6 @@ func (c *checker) conformCallee(callee, argT, res types.Type, sp diag.Span, conv
 		if !(conv && arg != nil && c.scalarLitConv(fs.Params[0].Type, arg, arg.Span()) != nil) &&
 			!c.conformParam(fs.Params[0].Type, argT, sp, conv) {
 			return false
-		}
-		var tail types.Type = fs.Ret
-		if len(fs.Params) > 1 {
-			tail = &types.Func{Params: fs.Params[1:], Ret: fs.Ret}
 		}
 		return c.unify(res, tail, sp)
 	}

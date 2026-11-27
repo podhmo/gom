@@ -1,0 +1,73 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected Acc, got Other",
+      "span": {
+        "file": "E0401_record_pipe_mismatch_once.gom",
+        "start": {
+          "line": 9,
+          "col": 47,
+          "offset": 148
+        },
+        "end": {
+          "line": 9,
+          "col": 52,
+          "offset": 153
+        }
+      },
+      "data": {
+        "actual": "Other",
+        "expected": "Acc"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected Acc, got Other",
+      "span": {
+        "file": "E0401_record_pipe_mismatch_once.gom",
+        "start": {
+          "line": 11,
+          "col": 55,
+          "offset": 223
+        },
+        "end": {
+          "line": 11,
+          "col": 60,
+          "offset": 228
+        }
+      },
+      "data": {
+        "actual": "Other",
+        "expected": "Acc"
+      }
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected Acc, got Other",
+      "span": {
+        "file": "E0401_record_pipe_mismatch_once.gom",
+        "start": {
+          "line": 13,
+          "col": 32,
+          "offset": 268
+        },
+        "end": {
+          "line": 13,
+          "col": 51,
+          "offset": 287
+        }
+      },
+      "data": {
+        "actual": "Other",
+        "expected": "Acc"
+      }
+    }
+  ]
+}

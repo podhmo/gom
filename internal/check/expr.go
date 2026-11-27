@@ -328,6 +328,9 @@ func (c *checker) conformExpr(out Expr, want types.Type, sp diag.Span) Expr {
 	// sibling if/match/select arms, and a genuine mismatch at the
 	// next arm must still report (docs/implementation-gaps.md).
 	if !c.unify(want, out.Type(), sp) {
+		if c.wantFailureSink != nil {
+			c.wantFailureSink[out] = true
+		}
 		metasIn(want, func(m *types.Meta) { c.markSilent(m) })
 		return out
 	}
@@ -2029,14 +2032,16 @@ func (c *checker) checkBinary(e *syntax.Binary, want types.Type) Expr {
 		// `f (Some 1)` does, rather than settling `Option num`
 		// before the callee's want can reach it.
 		f := c.checkExpr(e.Y, c.pipeCalleeWant(e.Y, want, e.Sp))
-		x := c.checkExpr(e.X, c.pipeArgWant(f))
-		return c.pipeCall(e, x, f)
+		argWant := c.pipeArgWant(f)
+		x, seedFailed := c.checkPipeOperand(e.X, argWant)
+		return c.pipeCall(e, x, f, seedFailed)
 	case syntax.BinPipeBack:
 		// `f PIPE_BACK x` applies f to x — operands in source order;
 		// the callee still checks first for the same seeding reason.
 		f := c.checkExpr(e.X, c.pipeCalleeWant(e.X, want, e.Sp))
-		x := c.checkExpr(e.Y, c.pipeArgWant(f))
-		return c.pipeCall(e, x, f)
+		argWant := c.pipeArgWant(f)
+		x, seedFailed := c.checkPipeOperand(e.Y, argWant)
+		return c.pipeCall(e, x, f, seedFailed)
 	case syntax.BinPipeTry:
 		return c.checkPipeTry(e)
 	case syntax.BinComposeFwd:
@@ -2135,15 +2140,15 @@ func applyHasAnonRecordLit(e syntax.Expr) bool {
 }
 
 // pipeArgWant is the want a piped argument checks under — the
-// callee's first positional parameter when it carries `Go.Any` and
-// the callee takes the generic application path, mirroring
-// checkGomApply's `checkExpr(arg, paramType)`. Seeding only the
-// `Go.Any` case keeps honest mismatches single-reported: pipeCall
-// still unifies the arg against the parameter itself, and a want
-// the arg already failed would only echo the same mismatch at the
-// pipe's span. A bare Go callee or a saturated Go call result
-// answers nil: pipeCall's Go-boundary branches perform their own
-// conformExpr under goWant, and a premature want would skip the
+// callee's first positional parameter when it carries `Go.Any` or a
+// record type and the callee takes the generic application path,
+// mirroring checkGomApply's `checkExpr(arg, paramType)`. The record
+// seed lets a type-prefixed or anonymous record literal settle before
+// pipeCall applies the callee. When that seed itself fails, the
+// caller passes the fact to pipeCall so the same mismatch is not
+// echoed at the pipe's span. A bare Go callee or a saturated Go call
+// result answers nil: pipeCall's Go-boundary branches perform their
+// own conformExpr under goWant, and a premature want would skip the
 // live-parameter mark chanDirConv needs.
 func (c *checker) pipeArgWant(fn Expr) types.Type {
 	if goCalleeSym(fn) != nil {
@@ -2158,6 +2163,24 @@ func (c *checker) pipeArgWant(fn Expr) types.Type {
 		return fs.Params[0].Type
 	}
 	return nil
+}
+
+// checkPipeOperand checks one piped operand and reports whether its
+// trailing conformance to a record seed actually failed. The failure
+// is observed directly rather than inferred from type inequality:
+// successful conformance can leave nested function labels different
+// through introduction, and that successful value must still go
+// through pipeCall's ordinary application judgment.
+func (c *checker) checkPipeOperand(e syntax.Expr, want types.Type) (Expr, bool) {
+	if want == nil || !c.isRecordType(want) {
+		return c.checkExpr(e, want), false
+	}
+	sink := map[Expr]bool{}
+	saved := c.wantFailureSink
+	c.wantFailureSink = sink
+	out := c.checkExpr(e, want)
+	c.wantFailureSink = saved
+	return out, sink[out]
 }
 
 // pipeCall types `x |> f` and `f BACKPIPE x`: f applied to x.
@@ -2181,7 +2204,7 @@ func (c *checker) pipeArgWant(fn Expr) types.Type {
 //
 // Everything else goes through the generic function-type rule:
 // f must be `x's type -> ret` for a fresh ret meta.
-func (c *checker) pipeCall(e *syntax.Binary, arg, fn Expr) Expr {
+func (c *checker) pipeCall(e *syntax.Binary, arg, fn Expr, seededParamFailed bool) Expr {
 	out := &Binary{Base: baseOf(e.Sp, nil), Op: e.Op, X: arg, Y: fn}
 	if e.Op == syntax.BinPipeBack {
 		out.X, out.Y = fn, arg
@@ -2260,7 +2283,13 @@ func (c *checker) pipeCall(e *syntax.Binary, arg, fn Expr) Expr {
 	// the boundary conversion; the type-only application check
 	// never wrapped the argument. A failed check already reported
 	// the mismatch — wrapping again would echo it at the arg span.
-	if c.conformCallee(fn.Type(), arg.Type(), ret, e.Sp, true, arg) {
+	// When the operand already failed the record seed, skip only
+	// the duplicate parameter judgment but still settle the result
+	// tail, so recovery does not pile an E0407 onto the one honest
+	// mismatch.
+	if seededParamFailed {
+		c.conformCalleeAfterParamFailure(fn.Type(), ret, e.Sp)
+	} else if c.conformCallee(fn.Type(), arg.Type(), ret, e.Sp, true, arg) {
 		conv := c.conformFirstArg(fn.Type(), arg)
 		if e.Op == syntax.BinPipeBack {
 			out.Y = conv

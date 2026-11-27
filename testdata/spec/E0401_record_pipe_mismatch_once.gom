@@ -1,0 +1,13 @@
+package main
+
+type Acc = { count: Int }
+
+type Other = { count: Int }
+
+fn use (acc: Acc) -> Acc = acc
+
+fn use_var (other: Other) -> Unit = { ignore (other |> use); () }
+
+fn use_back (other: Other) -> Unit = { ignore (use <| other); () }
+
+fn main () -> Unit = { ignore (Other { count = 0 } |> use); () }

@@ -169,6 +169,13 @@ type checker struct {
 	// anything left has no quantifier and reports E0412 at finalize.
 	lambdaAnnScopes []lambdaAnnScope
 
+	// wantFailureSink, when non-nil, receives the final expression of
+	// each checkExpr whose trailing conformance failed. Pipe checking
+	// installs it for one operand so pipeCall can distinguish an actual
+	// seed failure from a type merely left different by successful
+	// conformance (for example label introduction inside a record).
+	wantFailureSink map[Expr]bool
+
 	// noLabelIntro disables unifyFunc's unlabeled→labeled
 	// introduction while set — the synthesized `argT -> res` unify
 	// of conformCallee is application, not type equality, and a
