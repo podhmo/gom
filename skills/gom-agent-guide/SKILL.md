@@ -85,9 +85,9 @@ fn main () -> Unit = {
 - A block's value is its last expression: `()` (Unit) ends a
   `-> Unit` function.
 
-Then `gom run main.gom` — or `gom build main.gom && go run .` — in a
-Go module that can resolve `github.com/podhmo/gom` (each `tutorial/`
-step has a `go.mod` you can copy).
+Then `gom run main.gom`. Outside a Go module it synthesizes a temporary
+scratch module for that one run; for a real project, `gom init` creates
+the `go.mod`/`main.gom` pair and never overwrites existing files.
 
 ## Fix a `.gom` that fails `gom check`
 
@@ -967,7 +967,7 @@ fn main () -> Unit = ()
 # Toolchain
 
 Implemented today: `build`, `check`, `dump`, `test`, `run`, `fmt`,
-`fix`, `info`, `list`, `explain`, `schema`. `gomi` was renamed `info` (`gom gomi`
+`fix`, `info`, `init`, `list`, `explain`, `schema`. `gomi` was renamed `info` (`gom gomi`
 prints the pointer and exits 2).
 
 | Command | Use |
@@ -976,6 +976,8 @@ prints the pointer and exits 2).
 | `gom build [-o out] FILE\|DIR...` | Full pipeline; writes one `.go` per `.gom` next to the input (or under `-o` dir/file). `-go` additionally runs `go build` on the written package and folds its errors back to `.gom` spans. |
 | `gom dump -phase=syntax\|resolve\|check\|core\|emit FILE` | Print one phase's IR — sibling `.gom` files compile along so package members resolve; only the named file's IR prints (diagnostics go to stderr; stdout is the artifact). `emit` lists the generated Go names (`kind`, Gom name, emitted name — `(base X)` marks a suffix eviction). |
 | `gom test FILE\|DIR... [-- FLAGS]` | Also writes `_test.go` beside the `.go` and runs the package's `go test -json` — FLAGS after `--` pass through (`-race`, `-run`). Library packages need `<pkg>.gomi` (the conformance gate runs here too); `-q`/`--quiet` drops the raw half of panic stacks. |
+| `gom run FILE\|DIR... [-- ARGS]` | Compile one `package main` directory, link a temp binary, and execute it; ARGS after `--` and the child exit code pass through. Without an enclosing `go.mod`, a temporary `gom.local/scratch` module is synthesized for that invocation only. |
+| `gom init [-dir DIR] [MODULE-PATH]` | Create `go.mod` and a runnable `main.gom` template. Existing files are not overwritten; an existing Go module gets only the additive Gom dependency it needs. |
 | `gom fmt [-w\|-d\|-l\|--check] FILE...` | Canonical formatter; `-` reads stdin. stdout carries the artifact; message stream to stderr. |
 | `gom fix FILE...` | Apply the `safe` fixes diagnostics carry. |
 | `gom info [-o OUT] FILE\|DIR...` | Draft `.gomi` interfaces from implementations; `-o -` prints to stdout. `gom info <stdlib-short-name>` instead prints that stdlib package's existing `.gomi` read-only — the canonical way to inspect current stdlib `.gomi` members. The short-name form applies only when no same-named file/dir exists in the working directory, and external resolution uses the current module context. |
