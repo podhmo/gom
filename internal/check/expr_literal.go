@@ -142,13 +142,13 @@ func (c *checker) checkRecordLit(e *syntax.RecordLit, want types.Type) Expr {
 			}
 		} else {
 			// Resolution already reported (no candidate or an
-			// ambiguous set). Bind the expected meta so the failure
-			// does not leave an unsolved variable behind, and use
-			// Unit as the recovery type.
+			// ambiguous set). Keep the recovery type quiet rather than
+			// manufacturing a Unit mismatch at later uses.
 			if m, ok := types.Chase(wantT).(*types.Meta); ok {
-				c.bind(m, types.Unit, e.Sp)
+				c.markQuiet(m)
+			} else if wantT == nil {
+				wantT = c.quietMeta(e.Sp, "the record's type")
 			}
-			wantT = types.Unit
 		}
 	} else {
 		// The context expects a definite non-record type — a record

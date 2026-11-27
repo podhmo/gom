@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "no record type has fields [unknown]",
+      "span": {
+        "file": "E0401_record_no_match_quiet.gom",
+        "start": {
+          "line": 6,
+          "col": 14,
+          "offset": 75
+        },
+        "end": {
+          "line": 6,
+          "col": 29,
+          "offset": 90
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,8 @@
+package main
+
+type Acc = { count: Int }
+
+fn bad () -> Acc = {
+  let seed = { unknown = 0 }
+  seed
+}
