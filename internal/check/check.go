@@ -36,19 +36,21 @@ import (
 func Check(res *resolve.Resolved, src SignatureSource) (*File, diag.List) {
 	bv := &builtinTVar{}
 	c := &checker{
-		res:             res,
-		src:             src,
-		vals:            map[*resolve.Symbol]types.Type{},
-		externBound:     map[*resolve.Symbol]Signature{},
-		referenced:      map[*resolve.Symbol]bool{},
-		sigScope:        map[*resolve.Symbol]*tscope{},
-		thunks:          map[*resolve.Symbol]bool{},
-		tyCons:          map[conKey]*typeInfo{},
-		tyBySym:         map[*resolve.Symbol]*typeInfo{},
-		ctors:           map[*resolve.Symbol]*variantInfo{},
-		fieldSyms:       map[*resolve.Symbol]*fieldInfo{},
-		foreignRecs:     map[conKey]*typeInfo{},
-		metas:           map[*types.Meta]*metaRec{},
+		res:         res,
+		src:         src,
+		vals:        map[*resolve.Symbol]types.Type{},
+		externBound: map[*resolve.Symbol]Signature{},
+		referenced:  map[*resolve.Symbol]bool{},
+		sigScope:    map[*resolve.Symbol]*tscope{},
+		thunks:      map[*resolve.Symbol]bool{},
+		typeTables: typeTables{
+			tyCons:      map[conKey]*typeInfo{},
+			tyBySym:     map[*resolve.Symbol]*typeInfo{},
+			ctors:       map[*resolve.Symbol]*variantInfo{},
+			fieldSyms:   map[*resolve.Symbol]*fieldInfo{},
+			foreignRecs: map[conKey]*typeInfo{},
+		},
+		inferenceState:  inferenceState{metas: map[*types.Meta]*metaRec{}},
 		builtins:        builtinSigs(bv),
 		adoptedAnnVars:  map[*types.Var]bool{},
 		reportedUnbound: map[*types.Var]bool{},
@@ -123,8 +125,173 @@ func (c *checker) pos(sp diag.Span) diag.Span {
 	return sp
 }
 
+// typeTables groups the declaration-side lookup tables. They are
+// initialized before expression checking and then treated as mostly
+// read-only indexes into declared and visible types.
+type typeTables struct {
+	// The type-declaration tables.
+	tyCons    map[conKey]*typeInfo          // declared + builtin types by identity
+	tyBySym   map[*resolve.Symbol]*typeInfo // declared types by symbol
+	ctors     map[*resolve.Symbol]*variantInfo
+	fieldSyms map[*resolve.Symbol]*fieldInfo // record/variant fields by symbol
+	records   []*typeInfo                    // record types, for literal resolution
+	// foreignRecs holds record types that arrived through imports,
+	// keyed by identity — recordByFields admits a candidate only
+	// when the literal's file's import closure (fileVis) names it.
+	// fileVis stays nil for unscoped sources: their foreign
+	// records are visible to every file.
+	foreignRecs map[conKey]*typeInfo
+	fileVis     map[string]map[conKey]bool
+
+	// methods records each own-package record type's declared
+	// @method set for Go-interface conformance checks
+	// (docs/decisions/2026-11-21-go-iface-impl.md).
+	methods map[conKey][]GomMethod
+}
+
+// inferenceState groups the checker-owned unification variables and
+// their fresh-name counters. Speculative unification may add and then
+// remove entries here, so keeping them together makes that ownership
+// explicit.
+type inferenceState struct {
+	// metas records every unification variable with its constraints.
+	metas    map[*types.Meta]*metaRec
+	nextMeta int
+	nextVar  int
+}
+
+// pipeState groups the transient expectation state used while pipe
+// checking speculatively propagates a result shape into a callee.
+type pipeState struct {
+	// wantFailureSink, when non-nil, receives the final expression of
+	// each checkExpr whose trailing conformance failed. Pipe checking
+	// installs it for one operand so pipeCall can distinguish an actual
+	// seed failure from a type merely left different by successful
+	// conformance (for example label introduction inside a record).
+	wantFailureSink map[Expr]bool
+
+	// pipeApplyExpectation is a soft result expectation for the next
+	// application checked as a pipe callee. Unlike want it is used only
+	// for speculative record-context propagation: the pipe's own result
+	// may still cross the List/Go.Slice boundary after the callee's
+	// residual type is known.
+	pipeApplyExpectation types.Type
+	// pipeApplyBoundary marks pipeApplyExpectation as a pipe-result hint,
+	// so speculative propagation may try the producer-side List shape for
+	// a Go.Slice expectation. Ordinary applications do not get that retry.
+	pipeApplyBoundary bool
+}
+
+// resultTaintState groups the memo and in-flight set used by the
+// conservative result-taint analysis.
+type resultTaintState struct {
+	// resultTaintMemo caches resultTaintOf answers; taintDoing is
+	// the in-flight set that bottoms out mutually recursive
+	// callees conservatively.
+	resultTaintMemo  map[*resolve.Symbol][]bool
+	resultTaintDoing map[*resolve.Symbol]bool
+}
+
+// deferredState groups the provisional nodes revisited during finalize.
+// Each queue has a distinct owner and lifetime, but all are checker-local
+// retry state rather than part of the typed AST.
+type deferredState struct {
+	// pendingSels are member selections deferred on an unresolved
+	// receiver type — `0.f` waits for the literal's numeric default,
+	// `x.f` for the meta the use site pins. finalize revisits them
+	// once the receiver is known (or asks for its annotation).
+	pendingSels []*MemberExpr
+
+	// selDone marks the deferred selections already resolved (or
+	// failed) — revisitSelects runs once per finalize round, so the
+	// mark lives on the checker, not the call.
+	selDone map[*MemberExpr]bool
+
+	// pendingApplies are applications whose callee is one of the
+	// deferred member selections above: `x.M(args)` cannot pick the
+	// calling convention (curried Gom vs Go tuple) until `.M`'s
+	// owner is known, so the arguments check provisionally and the
+	// replay runs when the member resolves — or under the Gom rule
+	// at finalize's end when the receiver never does.
+	pendingApplies []*pendingApply
+
+	// pendingAssigns are field assignments `x.F = v` whose target
+	// selection deferred on an unresolved receiver meta — the write
+	// is admitted provisionally and revisitSelects validates the
+	// resolved shape (or rejects it with E0511) once the member
+	// settles.
+	pendingAssigns []*assignTarget
+
+	// assignDone marks the deferred field assignments already
+	// completed — same multi-round revisit lifetime as selDone.
+	assignDone map[*assignTarget]bool
+
+	// pendingIters are `for` loops whose iterable's type waits on a
+	// deferred member or call — `for v in f a` where `f` is an alias
+	// of a member that has not resolved. Binding `List elem` at
+	// check time would pin the pending result meta before the
+	// member's real signature (View, Slice, channel) arrives, so the
+	// element meta is minted provisionally and finishIters
+	// reconciles it once the iterable settles at finalize.
+	pendingIters []*pendingIter
+
+	// pendingIfaces keep numeric and selector inference independent of interface assignment.
+	pendingIfaces []*Ascribe
+	// pendingIfaceFrom carries the let/return annotation span that
+	// introduced each deferred interface expectation. revisitInterfaces
+	// runs after conformExprAt has restored the transient context.
+	pendingIfaceFrom map[*Ascribe]diag.Span
+
+	// pendingDivs are `/` and `%` nodes whose right operand folded
+	// to a constant zero — candidates for E0414. Whether the
+	// diagnostic fires depends on the operand type (an integer
+	// division by a constant zero is always invalid, a Float one
+	// only when the dividend is constant too), and an unresolved
+	// operand meta makes that undecidable until finalize's default
+	// pass has run — `x / 0` judged under a meta that later binds
+	// Float is the IEEE division Go allows.
+	pendingDivs []*Binary
+
+	// pendingGens are the use sites of generic Go callees — each
+	// records the signature and the type arguments (metas) that
+	// instantiate produced, in declared TypeParams order. Once
+	// inference finishes, validateGoGenerics checks each solved type
+	// argument against its Go constraint (spec section 8.5).
+	pendingGens []*genericUse
+
+	// pendingConvs are `Go.conv e : T` sites whose operand type was
+	// still a meta at ascription time — a numeric literal before its
+	// Int default binds. finalize rechecks the conversion once the
+	// meta solves (spec 8.4: the pair obeys Go's conversion rules).
+	pendingConvs []*pendingConv
+
+	// pendingNils are `Go.nil ()` sites whose result meta carries a
+	// nil-ability obligation — validateNils judges each solved type
+	// after inference (decision 2026-11-23-nil-spelling).
+	pendingNils []*pendingNil
+
+	// pendingLits are the integer and float literals (expressions and
+	// patterns) whose range judgment waits for their metas to solve or
+	// default — the same post-default moment as revisitDivs and
+	// revisitConvs. A literal's emitted Go spelling must convert at
+	// its static type (spec 3.3): `let n : Int32 = 3000000000` would
+	// render `var n int32 = 3000000000`, which cannot build (E0417;
+	// decisions/2026-11-05-int-literal-range-check).
+	pendingLits []*pendingLit
+	// pendingLitOf indexes pendingLits by node so the enclosing forms
+	// that change the judgment — a direct unary `-` or a direct
+	// `Go.conv` target — can annotate the literal they wrap.
+	pendingLitOf map[*Lit]*pendingLit
+}
+
 // checker is the per-file state of the type checker.
 type checker struct {
+	typeTables
+	inferenceState
+	pipeState
+	resultTaintState
+	deferredState
+
 	res *resolve.Resolved
 	src SignatureSource
 
@@ -169,24 +336,6 @@ type checker struct {
 	// anything left has no quantifier and reports E0412 at finalize.
 	lambdaAnnScopes []lambdaAnnScope
 
-	// wantFailureSink, when non-nil, receives the final expression of
-	// each checkExpr whose trailing conformance failed. Pipe checking
-	// installs it for one operand so pipeCall can distinguish an actual
-	// seed failure from a type merely left different by successful
-	// conformance (for example label introduction inside a record).
-	wantFailureSink map[Expr]bool
-
-	// pipeApplyExpectation is a soft result expectation for the next
-	// application checked as a pipe callee. Unlike want it is used only
-	// for speculative record-context propagation: the pipe's own result
-	// may still cross the List/Go.Slice boundary after the callee's
-	// residual type is known.
-	pipeApplyExpectation types.Type
-	// pipeApplyBoundary marks pipeApplyExpectation as a pipe-result hint,
-	// so speculative propagation may try the producer-side List shape for
-	// a Go.Slice expectation. Ordinary applications do not get that retry.
-	pipeApplyBoundary bool
-
 	// noLabelIntro disables unifyFunc's unlabeled→labeled
 	// introduction while set — the synthesized `argT -> res` unify
 	// of conformCallee is application, not type equality, and a
@@ -194,36 +343,12 @@ type checker struct {
 	// positional argument through it (spec section 2 rule 3).
 	noLabelIntro bool
 
-	// resultTaintMemo caches resultTaintOf answers; taintDoing is
-	// the in-flight set that bottoms out mutually recursive
-	// callees conservatively.
-	resultTaintMemo  map[*resolve.Symbol][]bool
-	resultTaintDoing map[*resolve.Symbol]bool
 	// adoptedAnnVars are the rigid variables a binding's
 	// generalization adopted — the `a` of `let f = fn (x: a) -> x`.
 	adoptedAnnVars map[*types.Var]bool
 	// reportedUnbound dedupes E0412 between the lambda-scope check
 	// and the monomorphic-let check when both cover one variable.
 	reportedUnbound map[*types.Var]bool
-
-	// The type-declaration tables.
-	tyCons    map[conKey]*typeInfo          // declared + builtin types by identity
-	tyBySym   map[*resolve.Symbol]*typeInfo // declared types by symbol
-	ctors     map[*resolve.Symbol]*variantInfo
-	fieldSyms map[*resolve.Symbol]*fieldInfo // record/variant fields by symbol
-	records   []*typeInfo                    // record types, for literal resolution
-	// foreignRecs holds record types that arrived through imports,
-	// keyed by identity — recordByFields admits a candidate only
-	// when the literal's file's import closure (fileVis) names it.
-	// fileVis stays nil for unscoped sources: their foreign
-	// records are visible to every file.
-	foreignRecs map[conKey]*typeInfo
-	fileVis     map[string]map[conKey]bool
-
-	// metas records every unification variable with its constraints.
-	metas    map[*types.Meta]*metaRec
-	nextMeta int
-	nextVar  int
 
 	// builtins are the signatures known without a source, keyed by
 	// name (Option/Result constructors and compiler-provided
@@ -274,98 +399,6 @@ type checker struct {
 	// errMethod is the synthetic symbol for `GoError.Error` —
 	// created on first use by goErrMethodSym.
 	errMethod *resolve.Symbol
-
-	// pendingSels are member selections deferred on an unresolved
-	// receiver type — `0.f` waits for the literal's numeric default,
-	// `x.f` for the meta the use site pins. finalize revisits them
-	// once the receiver is known (or asks for its annotation).
-	pendingSels []*MemberExpr
-
-	// selDone marks the deferred selections already resolved (or
-	// failed) — revisitSelects runs once per finalize round, so the
-	// mark lives on the checker, not the call.
-	selDone map[*MemberExpr]bool
-
-	// pendingApplies are applications whose callee is one of the
-	// deferred member selections above: `x.M(args)` cannot pick the
-	// calling convention (curried Gom vs Go tuple) until `.M`'s
-	// owner is known, so the arguments check provisionally and the
-	// replay runs when the member resolves — or under the Gom rule
-	// at finalize's end when the receiver never does.
-	pendingApplies []*pendingApply
-
-	// pendingAssigns are field assignments `x.F = v` whose target
-	// selection deferred on an unresolved receiver meta — the write
-	// is admitted provisionally and revisitSelects validates the
-	// resolved shape (or rejects it with E0511) once the member
-	// settles.
-	pendingAssigns []*assignTarget
-
-	// assignDone marks the deferred field assignments already
-	// completed — same multi-round revisit lifetime as selDone.
-	assignDone map[*assignTarget]bool
-
-	// pendingIters are `for` loops whose iterable's type waits on a
-	// deferred member or call — `for v in f a` where `f` is an alias
-	// of a member that has not resolved. Binding `List elem` at
-	// check time would pin the pending result meta before the
-	// member's real signature (View, Slice, channel) arrives, so the
-	// element meta is minted provisionally and finishIters
-	// reconciles it once the iterable settles at finalize.
-	pendingIters []*pendingIter
-
-	// pendingIfaces keep numeric and selector inference independent of interface assignment.
-	pendingIfaces []*Ascribe
-	// pendingIfaceFrom carries the let/return annotation span that
-	// introduced each deferred interface expectation. revisitInterfaces
-	// runs after conformExprAt has restored the transient context.
-	pendingIfaceFrom map[*Ascribe]diag.Span
-
-	// methods records each own-package record type's declared
-	// @method set for Go-interface conformance checks
-	// (docs/decisions/2026-11-21-go-iface-impl.md).
-	methods map[conKey][]GomMethod
-
-	// pendingDivs are `/` and `%` nodes whose right operand folded
-	// to a constant zero — candidates for E0414. Whether the
-	// diagnostic fires depends on the operand type (an integer
-	// division by a constant zero is always invalid, a Float one
-	// only when the dividend is constant too), and an unresolved
-	// operand meta makes that undecidable until finalize's default
-	// pass has run — `x / 0` judged under a meta that later binds
-	// Float is the IEEE division Go allows.
-	pendingDivs []*Binary
-
-	// pendingGens are the use sites of generic Go callees — each
-	// records the signature and the type arguments (metas) that
-	// instantiate produced, in declared TypeParams order. Once
-	// inference finishes, validateGoGenerics checks each solved type
-	// argument against its Go constraint (spec section 8.5).
-	pendingGens []*genericUse
-
-	// pendingConvs are `Go.conv e : T` sites whose operand type was
-	// still a meta at ascription time — a numeric literal before its
-	// Int default binds. finalize rechecks the conversion once the
-	// meta solves (spec 8.4: the pair obeys Go's conversion rules).
-	pendingConvs []*pendingConv
-
-	// pendingNils are `Go.nil ()` sites whose result meta carries a
-	// nil-ability obligation — validateNils judges each solved type
-	// after inference (decision 2026-11-23-nil-spelling).
-	pendingNils []*pendingNil
-
-	// pendingLits are the integer and float literals (expressions and
-	// patterns) whose range judgment waits for their metas to solve or
-	// default — the same post-default moment as revisitDivs and
-	// revisitConvs. A literal's emitted Go spelling must convert at
-	// its static type (spec 3.3): `let n : Int32 = 3000000000` would
-	// render `var n int32 = 3000000000`, which cannot build (E0417;
-	// decisions/2026-11-05-int-literal-range-check).
-	pendingLits []*pendingLit
-	// pendingLitOf indexes pendingLits by node so the enclosing forms
-	// that change the judgment — a direct unary `-` or a direct
-	// `Go.conv` target — can annotate the literal they wrap.
-	pendingLitOf map[*Lit]*pendingLit
 
 	imports []Import
 	decls   []Decl
