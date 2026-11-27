@@ -50,7 +50,7 @@ func runInit(args []string, stdout, stderr io.Writer) int {
 		}
 		modulePath = "example.com/" + base
 	}
-	if strings.ContainsAny(modulePath, " \t\n\r") {
+	if modulePath == "" || strings.ContainsAny(modulePath, " \t\n\r") {
 		fmt.Fprintf(stderr, "gom init: invalid module path %q\n", modulePath)
 		return 2
 	}
@@ -77,8 +77,20 @@ func runInit(args []string, stdout, stderr io.Writer) int {
 			fmt.Fprintf(stderr, "gom init: %v\n", err)
 			return 2
 		}
+		if err := downloadToolchain(*dir); err != nil {
+			fmt.Fprintf(stderr, "gom init: %v\n", err)
+			return 2
+		}
 		fmt.Fprintf(stdout, "created %s\n", gomodPath)
 	} else {
+		if err := ensureGomDependency(*dir, gomodPath); err != nil {
+			fmt.Fprintf(stderr, "gom init: %v\n", err)
+			return 2
+		}
+		if err := downloadToolchain(*dir); err != nil {
+			fmt.Fprintf(stderr, "gom init: %v\n", err)
+			return 2
+		}
 		fmt.Fprintf(stdout, "kept existing %s\n", gomodPath)
 	}
 	if !mainExists {
@@ -91,6 +103,34 @@ func runInit(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stdout, "kept existing %s\n", mainPath)
 	}
 	return 0
+}
+
+// ensureGomDependency makes an existing Go module able to compile generated
+// Gom code. The edit is additive: it never rewrites the module line or an
+// existing requirement, and multiple require directives are valid go.mod
+// syntax. A local replace is appended only for development binaries.
+func ensureGomDependency(dir, gomodPath string) error {
+	b, err := os.ReadFile(gomodPath)
+	if err != nil {
+		return err
+	}
+	if strings.Contains(string(b), "github.com/podhmo/gom") {
+		return nil
+	}
+	req, rep, err := toolchainRequirement()
+	if err != nil {
+		return err
+	}
+	var out strings.Builder
+	out.Write(b)
+	if len(b) > 0 && b[len(b)-1] != '\n' {
+		out.WriteByte('\n')
+	}
+	fmt.Fprintf(&out, "\nrequire %s\n", req)
+	if rep != "" {
+		fmt.Fprintf(&out, "\nreplace %s\n", rep)
+	}
+	return os.WriteFile(gomodPath, []byte(out.String()), 0o644)
 }
 
 func fileExists(path string) bool {

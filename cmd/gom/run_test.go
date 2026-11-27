@@ -381,3 +381,47 @@ func TestInitTemplateRuns(t *testing.T) {
 		t.Fatalf("stdout = %q", out)
 	}
 }
+
+// TestInitRejectsEmptyModulePath: an empty explicit module path must not
+// produce a malformed module line that blocks later reinitialization.
+func TestInitRejectsEmptyModulePath(t *testing.T) {
+	t.Parallel()
+
+	dir := writeFiles(t, map[string]string{})
+	code, _, errout := invoke("init", "-dir", dir, "")
+	if code != 2 {
+		t.Fatalf("exit = %d, want 2; stderr=%q", code, errout)
+	}
+	if !strings.Contains(errout, "invalid module path") {
+		t.Fatalf("stderr = %q", errout)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "go.mod")); !os.IsNotExist(err) {
+		t.Fatalf("go.mod exists after rejected init: %v", err)
+	}
+}
+
+// TestInitExistingGoModuleAddsToolchain: initializing inside a pre-existing
+// Go project keeps the project module but adds the additive Gom requirement
+// the generated template needs to link.
+func TestInitExistingGoModuleAddsToolchain(t *testing.T) {
+	t.Parallel()
+
+	dir := writeFiles(t, map[string]string{
+		"go.mod": "module existing.example/project\n\ngo 1.27\n",
+	})
+	code, _, errout := invoke("init", "-dir", dir, "ignored.example/name")
+	if code != 0 {
+		t.Fatalf("exit = %d; stderr=%q", code, errout)
+	}
+	gomod, err := os.ReadFile(filepath.Join(dir, "go.mod"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(gomod)
+	if !strings.Contains(text, "module existing.example/project") || !strings.Contains(text, "require github.com/podhmo/gom") {
+		t.Fatalf("go.mod = %q", text)
+	}
+	if strings.Contains(text, "ignored.example") {
+		t.Fatalf("explicit module path overwrote existing module: %q", text)
+	}
+}
