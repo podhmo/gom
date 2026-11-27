@@ -1,0 +1,64 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected Box (~x: Acc -> Acc), got Unit",
+      "span": {
+        "file": "E0407_record_context_labeled_generic.gom",
+        "start": {
+          "line": 10,
+          "col": 3,
+          "offset": 155
+        },
+        "end": {
+          "line": 10,
+          "col": 38,
+          "offset": 190
+        }
+      },
+      "data": {
+        "actual": "Unit",
+        "expected": "Box (~x: Acc -> Acc)"
+      },
+      "labels": [
+        {
+          "span": {
+            "file": "E0407_record_context_labeled_generic.gom",
+            "start": {
+              "line": 9,
+              "col": 14,
+              "offset": 130
+            },
+            "end": {
+              "line": 9,
+              "col": 34,
+              "offset": 150
+            }
+          },
+          "message": "expected type declared here"
+        }
+      ]
+    },
+    {
+      "kind": "diagnostic",
+      "code": "E0407",
+      "severity": "error",
+      "message": "the record literal is ambiguous: 2 record types own these fields; annotate the type",
+      "span": {
+        "file": "E0407_record_context_labeled_generic.gom",
+        "start": {
+          "line": 10,
+          "col": 12,
+          "offset": 164
+        },
+        "end": {
+          "line": 10,
+          "col": 38,
+          "offset": 190
+        }
+      }
+    }
+  ]
+}
