@@ -396,6 +396,13 @@ type applyParamExpectations struct {
 func (c *checker) boundaryProducerWants(want types.Type) []types.Type {
 	switch t := types.Chase(want).(type) {
 	case *types.Func:
+		if len(t.Params) != 1 {
+			return nil
+		}
+		input, ok := types.Chase(t.Params[0].Type).(*types.Meta)
+		if !ok || input.ID != -1 {
+			return nil
+		}
 		alts := c.boundaryProducerWants(t.Ret)
 		out := make([]types.Type, 0, len(alts))
 		for _, ret := range alts {
