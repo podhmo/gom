@@ -233,3 +233,151 @@ func TestRunNativeScope(t *testing.T) {
 		t.Errorf("stdout = %q, want both sections %q", out, want)
 	}
 }
+
+// TestRunOutsideModuleSynthesizesScratch: with no enclosing go.mod,
+// `gom run` still compiles and executes by supplying an invocation-scoped
+// scratch module. The temporary go.mod is removed afterward.
+func TestRunOutsideModuleSynthesizesScratch(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: go build + exec, skipping in short mode")
+	}
+	t.Parallel()
+
+	haveGo(t)
+	dir := writeFiles(t, map[string]string{
+		"m.gom": `package main
+
+import go "fmt"
+
+fn main () -> Unit = {
+  ignore (fmt.Println "outside")
+  ()
+}
+`,
+	})
+
+	code, out, errout := invoke("run", filepath.Join(dir, "m.gom"))
+	if code != 0 {
+		t.Fatalf("exit = %d, want 0; stdout=%q stderr=%q", code, out, errout)
+	}
+	if out != "outside\n" {
+		t.Fatalf("stdout = %q", out)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "go.mod")); !os.IsNotExist(err) {
+		t.Fatalf("scratch go.mod remained or stat failed: %v", err)
+	}
+}
+
+// TestRunOutsideModuleLocalDependency: the scratch module is rooted at
+// the run package directory. Imports under its fixed module path resolve
+// module-local packages just as they do in a real module.
+func TestRunOutsideModuleLocalDependency(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: go build + exec, skipping in short mode")
+	}
+	t.Parallel()
+
+	haveGo(t)
+	dir := writeFiles(t, map[string]string{
+		"m.gom": `package main
+
+import go "fmt"
+import "gom.local/scratch/lib"
+
+fn main () -> Unit = {
+  ignore (fmt.Println (lib.answer ()))
+  ()
+}
+`,
+		"lib/lib.gom": `package lib
+
+fn answer () -> Int = 42
+`,
+		"lib/lib.gomi": `package lib
+
+fn answer () -> Int
+`,
+	})
+
+	code, out, errout := invoke("run", filepath.Join(dir, "m.gom"))
+	if code != 0 {
+		t.Fatalf("exit = %d, want 0; stdout=%q stderr=%q", code, out, errout)
+	}
+	if out != "42\n" {
+		t.Fatalf("stdout = %q", out)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "lib", "lib.go")); err != nil {
+		t.Fatalf("expected generated dependency output: %v", err)
+	}
+}
+
+// TestInitCreatesTemplates: `gom init` creates a module file carrying the
+// requested path and a runnable main.gom template.
+func TestInitCreatesTemplates(t *testing.T) {
+	t.Parallel()
+
+	dir := writeFiles(t, map[string]string{})
+	code, out, errout := invoke("init", "-dir", dir, "example.com/hello")
+	if code != 0 {
+		t.Fatalf("exit = %d; stdout=%q stderr=%q", code, out, errout)
+	}
+	gomod, err := os.ReadFile(filepath.Join(dir, "go.mod"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(gomod), "module example.com/hello") {
+		t.Fatalf("go.mod = %q", gomod)
+	}
+	mainGom, err := os.ReadFile(filepath.Join(dir, "main.gom"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(mainGom), "package main") {
+		t.Fatalf("main.gom = %q", mainGom)
+	}
+}
+
+// TestInitDoesNotOverwrite: existing files are inputs the user may have
+// edited. init fills only the missing side and leaves existing bytes alone.
+func TestInitDoesNotOverwrite(t *testing.T) {
+	t.Parallel()
+
+	sentinel := "package main\n\nfn main () -> Unit = ()\n"
+	dir := writeFiles(t, map[string]string{"main.gom": sentinel})
+	code, _, errout := invoke("init", "-dir", dir, "example.com/hello")
+	if code != 0 {
+		t.Fatalf("exit = %d; stderr=%q", code, errout)
+	}
+	mainGom, err := os.ReadFile(filepath.Join(dir, "main.gom"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(mainGom) != sentinel {
+		t.Fatalf("main.gom overwritten: %q", mainGom)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "go.mod")); err != nil {
+		t.Fatalf("go.mod not created: %v", err)
+	}
+}
+
+// TestInitTemplateRuns: the generated pair is not just a textual template —
+// it is a runnable project under the current toolchain.
+func TestInitTemplateRuns(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: go build + exec, skipping in short mode")
+	}
+	t.Parallel()
+
+	haveGo(t)
+	dir := writeFiles(t, map[string]string{})
+	if code, out, errout := invoke("init", "-dir", dir, "example.com/hello"); code != 0 {
+		t.Fatalf("gom init exit = %d; stdout=%q stderr=%q", code, out, errout)
+	}
+	code, out, errout := invoke("run", filepath.Join(dir, "main.gom"))
+	if code != 0 {
+		t.Fatalf("gom run exit = %d; stdout=%q stderr=%q", code, out, errout)
+	}
+	if out != "hello\n" {
+		t.Fatalf("stdout = %q", out)
+	}
+}

@@ -32,6 +32,7 @@ The commands are:
 	fmt       format .gom files
 	fix       apply the fixes diagnostics mark safe
 	info      generate or update .gomi interface drafts
+	init      initialize go.mod and main.gom templates
 	list      print the importable stdlib package names
 	explain   explain an error code
 	schema    print the JSON Schema of the message format
@@ -68,6 +69,8 @@ func run(args []string, stdout, stderr io.Writer) int {
 		return runFix(args[1:], stdout, stderr)
 	case "info":
 		return runInfo(args[1:], stdout, stderr)
+	case "init":
+		return runInit(args[1:], stdout, stderr)
 	case "list":
 		return runList(args[1:], stdout, stderr)
 	case "explain":

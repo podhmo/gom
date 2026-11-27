@@ -72,6 +72,16 @@ func runGomRun(args []string, stdout, stderr io.Writer) int {
 	for d := range dirs {
 		runDir = d
 	}
+	// Outside a module, synthesize the invocation-scoped scratch module
+	// before dependency discovery so module-aware imports resolve under
+	// gom.local/scratch. It is removed when this command returns.
+	cleanupScratch, err := ensureScratchModule(runDir)
+	if err != nil {
+		fmt.Fprintf(stderr, "gom run: %v\n", err)
+		return diag.ExitInternal
+	}
+	defer cleanupScratch()
+
 	inputs, err = expandModuleLocalDeps(inputs)
 	if err != nil {
 		fmt.Fprintf(stderr, "gom run: %v\n", err)
