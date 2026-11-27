@@ -31,4 +31,4 @@
 ## review 対応の追加検証
 
 - `@extern let` は backing Go storage を外から更新しうるため、stable subject から外した。`E0301_nested_match_extern_boundary` は inner match が `Remove _` を欠く E0301 を保持する
-- positive narrowing の root 判定は payload の or-pattern を cartesian product へ展開しない root-shape walk にした。16 個の payload がそれぞれ 3 択の or-patternを持つ guard 付き腕でも、root constructor の判定だけでは payload alternatives を展開しないことを unit test で固定した
+- positive narrowing の root 判定は payload の or-pattern を cartesian product へ展開しない root-shape walk にした。16 個の payload がそれぞれ 3 択の or-pattern を持つ guard 付き腕でも、root constructor の判定だけでは payload alternatives を展開しないことを、helper の unit test と `CheckFile` 全体を通す回帰 test で固定した
