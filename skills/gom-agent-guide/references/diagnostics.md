@@ -34,8 +34,9 @@ Type-error clues added by the current checker:
   if/match arm fed by that annotation. Mismatches invented inside a
   call, lambda, record field, or operator do not blame that annotation.
 - E0402 on a function-valued mid-block expression may add a note when
-  the next physical line looks like an indented continuation. Use `|>`
-  or parenthesize the whole application; indentation itself has no
+  the next statement in the same block is on a later line and indented
+  more deeply, even across blank lines or comments. Use `|>` or
+  parenthesize the whole application; indentation itself has no
   language meaning.
 - E0407 record-resolution failures no longer manufacture a secondary
   `got Unit` mismatch. Treat remaining E0401s as independent type
