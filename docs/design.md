@@ -246,7 +246,7 @@ gom/
 ├── examples/         実行可能なユースケース（gist-cli — 7 節）
 ├── tutorial/         実行可能 tutorial 章（7 節）
 ├── experiments/      設計検証のスクラッチ置き場
-├── skills/           エージェント向けスキル（gom-agent-guide など）
+├── skills/           エージェント向けスキル（gom-agent-guide など）。guide は規範・落とし穴を持ち、ツールで得られる inventory は `gom list` / `gom info` へ問い合わせる形を正とする（[decision](decisions/2026-11-27-agent-skill-tool-inventory.md)）
 ├── scripts/          開発用スクリプト（check-sumtype / check-staticcheck など）
 ├── testdata/
 │   ├── spec/         仕様の規則ごとの .gom と、期待する診断 JSON。パッケージ単位の規則は <name>/ ディレクトリ case（内部の .gom 群を 1 ユニットとしてコンパイル、bare な side file（expected.json / golden.go / case.json のいずれか）が目印 — [decision](decisions/2026-11-05-gomtest-multifile-cases.md)。スイート root 直下の裸 side file は load error — [decision](decisions/2026-11-06-spec-suite-root-bare-side-files.md)）
