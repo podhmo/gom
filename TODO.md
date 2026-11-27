@@ -30,7 +30,7 @@
 - [x] **[wave51 lane F] agent skill の記述をツール利用中心へ瘦身する**: `skills/gom-agent-guide` に静的に厚く書かれている情報のうち、`gom list` / `gom info` などのツールで得られるものはコマンドの使い方を示す形へ寄せる。stdlib package/member 情報を代表例として、guide に残すべき規範とツールへ委譲すべき inventory を分ける（[wave51 prompts](docs/sketch/2026-11-27-wave51-prompts.md)）
 - [x] **[wave51 lane A] module 外 `gom run` / `gom init`**: go.mod のない directory では scratch module を合成して `gom run` し、`gom init` は `go.mod` / `main.gom` 雛形を生成する。scratch module の寿命・cache・既存ファイル非上書き・module-aware import 解決を decision/fixture で固定する（[wave51 prompts](docs/sketch/2026-11-27-wave51-prompts.md)）
 
-- [ ] **[task] label-erased contextual seeding の実装**: label を含む文脈関数型について、label を inference contract に入れず parameter 順序と型だけを残した view で positional lambda の record parameter を seed する。labeled callback・positional lambda・同名 field set probe を red-first で固定し、最終 conformance の unlabeled→labeled introduction は変えない（[decision](docs/decisions/2026-11-27-labeled-lambda-record-seeding.md)、[調査](docs/sketch/2026-11-27-wave51-lane-e-labeled-records-verify.md)）
+- [ ] **[task LS-1] label-erased contextual seeding の実装**（依存: なし）: label を含む文脈関数型について、label を inference contract に入れず parameter 順序と型だけを残した view で positional lambda の record parameter を seed する。labeled callback・positional lambda・同名 field set probe を red-first で固定し、最終 conformance の unlabeled→labeled introduction は変えない。spec §3.3 の label 付き文脈型 propagation 禁止もあわせて更新する（[decision](docs/decisions/2026-11-27-labeled-lambda-record-seeding.md)、[調査](docs/sketch/2026-11-27-wave51-lane-e-labeled-records-verify.md)）
 
 ### owner improvement ideas audit 由来（[PR #256](https://github.com/podhmo/gom/pull/256)、[audit](docs/sketch/2026-11-26-wave48-lane-g-owner-ideas-audit.md)）
 
