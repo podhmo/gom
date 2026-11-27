@@ -26,6 +26,21 @@ JSON object per line:
   annotation that introduced an expected type. `details` carries
   human-oriented structured blocks, such as E0301's uncovered
   patterns; both are optional and code-dependent.
+
+Type-error clues added by the current checker:
+
+- E0401 can label the `let`/return annotation that supplied the
+  expected type when the mismatch is in a direct block tail or an
+  if/match arm fed by that annotation. Mismatches invented inside a
+  call, lambda, record field, or operator do not blame that annotation.
+- E0402 on a function-valued mid-block expression may add a note when
+  the next statement in the same block is on a later line and indented
+  more deeply, even across blank lines or comments. Use `|>` or
+  parenthesize the whole application; indentation itself has no
+  language meaning.
+- E0407 record-resolution failures no longer manufacture a secondary
+  `got Unit` mismatch. Treat remaining E0401s as independent type
+  constraints, not as recovery noise.
 - `fixes`: `applicability` is `safe` | `placeholder` | `unsafe`.
   `placeholder` inserts `todo ()` — compiles, panics at run time.
 - `kind` values per command: `diagnostic` + `summary` everywhere;
