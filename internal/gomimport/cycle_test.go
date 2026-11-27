@@ -17,6 +17,22 @@ import (
 	"github.com/podhmo/gom/internal/resolve"
 )
 
+func requireCodes(t *testing.T, got diag.List, want ...string) {
+	t.Helper()
+	var codes []diag.Code
+	for _, d := range got {
+		codes = append(codes, d.Code)
+	}
+	if len(codes) != len(want) {
+		t.Fatalf("diag codes = %v, want %v", codes, want)
+	}
+	for i := range codes {
+		if string(codes[i]) != want[i] {
+			t.Fatalf("diag codes = %v, want %v", codes, want)
+		}
+	}
+}
+
 // compileEntry compiles the single .gom entry file in dir against a
 // loader rooted at it, returning the compile result.
 func compileEntry(t *testing.T, root, dir, src string) *build.Result {
@@ -58,13 +74,7 @@ import "example.com/m/b"
 
 fn f () -> Int = b.g
 `)
-	var codes []diag.Code
-	for _, d := range r.Diagnostics {
-		codes = append(codes, d.Code)
-	}
-	if len(codes) != 1 || codes[0] != "E0606" {
-		t.Fatalf("codes = %v, want exactly E0606", codes)
-	}
+	requireCodes(t, r.Diagnostics, "E0606")
 	d := r.Diagnostics[0]
 	want := "example.com/m/a -> example.com/m/b -> example.com/m/a"
 	if d.Data["cycle"] != want {
@@ -277,13 +287,7 @@ import "example.com/m/a"
 
 fn h () -> Unit = ()
 `)
-	var codes []diag.Code
-	for _, d := range r.Diagnostics {
-		codes = append(codes, d.Code)
-	}
-	if len(codes) != 1 || codes[0] != "E0606" {
-		t.Fatalf("codes = %v, want exactly E0606", codes)
-	}
+	requireCodes(t, r.Diagnostics, "E0606")
 	want := "example.com/m/a -> example.com/m/b -> example.com/m/a"
 	if got := r.Diagnostics[0].Data["cycle"]; got != want {
 		t.Fatalf("cycle = %v, want %q", got, want)
