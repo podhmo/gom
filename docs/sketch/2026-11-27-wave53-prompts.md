@@ -1,48 +1,59 @@
-# wave53 prompts（草案）
+# wave53 prompts
 
 - 日付: 2026-11-27
-- 状態: 草案
+- 状態: 採択済み（podhmo interview、2026-11-27）
 - 入力: [wave52 round](2026-11-27-wave52-round.md)、[TODO](../../TODO.md)、[open-questions](../open-questions.md)、[implementation-gaps](../implementation-gaps.md)
 
-wave52 は labeled lambda seeding、standalone init checksum、診断コード方向、coverage evidence、DMMF fit example を処理した。wave53 は wave52 で表面化した推論境界と init failure atomicity を先に決め、診断 UX の残件を小さく束ねる候補を置く。採否は lane 実行前に podhmo と確定する。
+wave52 は labeled lambda seeding、standalone init checksum、診断コード方向、coverage evidence、DMMF fit example を処理した。wave53 は wave52 で表面化した init failure atomicity と推論境界を先に実装し、その結果を踏まえて診断 UX の次段を調査する。
 
-## lane A. generic higher-order pipe の record literal 推論を決める（小〜中）
-
-`input.lines |> ... |> Result.map (fn lines -> { ... })` の無名 record literal が E0407 になり、二次 E0401 が分かりにくい問題について、実装拡張・spec 文言狭窄・診断改善のどこまでを入れるか決める。
-
-- implementation-gaps のずれを解消する方向を決める。spec §3.3 が約束する範囲を現実へ合わせるか、実装を spec へ寄せるかを最初に固定する
-- 実装する場合でも後続使用からの逆推論は入れない。pipe / generic application の静的に分かる result expectation に限定する
-- bare literal が解決できない場合の二次 E0401 を抑制できるかは別 fixture で確認する
+採用 lane は **B → A → C**。B は小さく独立しているため先に処理する。A の推論結果は二次 E0401 の扱いに影響するため、C の診断 UX 比較は A の後に置く。
 
 ## lane B. `gom init` failure atomicity（小）
 
-standalone validation に失敗したとき、validation 前に作成した `go.mod` / 生成されうる `go.sum` を残すか rollback するかを決め、採用側だけ実装する。`main.gom` は validation 成功後に作られるため validation failure では残らない。validation 後の `main.gom` write failure まで巻き戻すかは別の判断として記録する。
+podhmo 採択方針: **失敗時は init 由来の変更をすべて rollback する**。
 
-- 既存 module の additive edit rollback は wave52 で済んでいる。今回は新規作成ファイルだけを対象にし、validation failure で残る file と validation 後の write failure rollback を分ける
-- directory 自体やユーザー既存ファイルの non-overwrite 契約は変えない
+- 新規 init では standalone validation 前に作成した `go.mod` / 生成されうる `go.sum` が validation failure で残る現状を直す
+- `main.gom` は validation 成功後にだけ作られる。validation 後の `main.gom` write failure でも、init が作成・変更した file はすべて rollback する
+- 既存 module への additive edit rollback は wave52 で済んでいるが、その rollback が `main.gom` write failure でも効くようにする
+- directory 自体やユーザー既存ファイルの non-overwrite 契約は変えない。init が作っていない file は消さない
 - 方針を decision/spec/test で固定する
+
+## lane A. callback result への前向き record propagation（小〜中）
+
+podhmo 採択方針: **callback result への前向き propagation を実装する**。
+
+- `input.lines |> ... |> Result.map (fn lines -> { ... })` のように、generic higher-order callback の本体結果位置にある無名 record literal へ、静的に分かる expected type を前向きに伝える
+- 対象は pipe / generic application の静的に分かる result expectation に限定する。後続使用からの逆推論は入れない
+- lambda 本体の任意位置ではなく、結果として使われる式の形を red-first fixture で固定する。if/match などの分岐結果を対象にするかは lane 内で fixture から決める
+- bare literal が解決できない形で二次 E0401 が出る場合、抑制できるかを fixture で確認する
+- 型名前置 literal の優先順位、positional/labeled lambda の既存規則、monomorphic local inference は変えない
+- implementation gap と open question を解消し、spec/decision/検証レポートを同期する
 
 ## lane C. E0401 provenance / details 昇格の次段調査（中、調査）
 
-wave50/52 で溜まった診断 UX の open questions を束ね、次に実装すべき 1 面を decision まで絞る。
+podhmo 採択方針: **4 論点を比較し、実装候補を 1 つだけ decision へ絞る**。
+
+比較対象:
 
 - if/match 腕・呼出し引数・record field への expected type provenance 伝播
 - structured data の details 昇格基準
 - 近接 span の text snippet 統合
 - `gom explain` fragment example の検証方針
 
-実装は lane に入れず、採用する 1 面と fixture 方針だけを決める。
+実装は lane に入れない。lane A/B の結果を踏まえ、次に実装すべき 1 面と red-first fixture 方針だけを decision へ記録する。選ばれなかった論点は open question へ残す。
 
-## lane D. checker 内部状態の分割（中）
+## 採否インタビュー結果
 
-TODO にある内部改善。`typeTables` / deferred revisit queue / taint / lint state を関心ごとの部分構造へ分け、`expr.go` の責務を下げる。振る舞いは変えない。
-
-## lane E. benchmark 基盤（小〜中）
-
-TODO にある生成コード benchmark 基盤を `bench/` に作る。代表ペアと記録方法だけを決め、CI 実行や回帰警告は導入しない。
+- B/A/C を採用。D/E は見送り
+- lane 順は B→A→C
+- B は失敗時に init 由来の変更をすべて rollback する
+- A は callback result への前向き propagation を実装する
+- C は 4 論点を比較し、実装候補を 1 つだけ decision へ絞る
 
 ## 見送り候補（少なくとも現時点では lane にしない）
 
+- checker 内部状態の分割 — 有効な内部改善だが、wave53 は wave52 直結の残件を優先する
+- benchmark 基盤 — 現状すぐ使う最適化計画がなく、基盤だけ先に置く優先度は低い
 - match narrowing の次段 precision — DMMF 再評価でも主用途は解消済み。guard/literal/field path は需要が出るまで保留
 - stdlib `str` 拡張、Option traverse、panic capture adapter — 需要確認が弱い
 - rt 表示一元化 — 有効だが checker 分割より後でよい
