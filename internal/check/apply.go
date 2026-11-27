@@ -346,10 +346,13 @@ func anonRecordLitInResultPosition(e syntax.Expr) bool {
 				return true
 			}
 		}
-	default:
+	case *syntax.Apply, *syntax.Assign, *syntax.Binary, *syntax.For, *syntax.GoExpr, *syntax.Hole,
+		*syntax.Ident, *syntax.Ignore, *syntax.Let, *syntax.ListLit, *syntax.Lit, *syntax.Select,
+		*syntax.SelectExpr, *syntax.Spread, *syntax.StrInterp, *syntax.Try, *syntax.TupleLit, *syntax.Unary:
 		return false
+	default:
+		panic("unreachable")
 	}
-	return false
 }
 
 // applyParamExpectations derives the parameter views a statically
