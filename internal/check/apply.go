@@ -406,11 +406,11 @@ func (x *applyParamExpectations) at(i int, original types.Type) (types.Type, boo
 		reifiedBefore[m] = true
 	}
 	merged := x.c.mergeContextualType(original, x.params[i], x.open, x.sp)
-	if types.Equal(merged, original) || x.c.containsFuncLabels(merged) {
-		// Reification can mint real metas before a later structural
-		// mismatch or label makes the merge unusable. Roll back only the
-		// metas introduced by this attempt; earlier entries may already
-		// participate in another parameter's accepted expectation.
+	if types.Equal(merged, original) {
+		// Reification can mint real metas before the merge turns out not to
+		// add information. Roll back only the metas introduced by this
+		// attempt; earlier entries may already participate in another
+		// parameter's accepted expectation.
 		for clone, m := range x.open {
 			if !reifiedBefore[m] {
 				delete(x.c.metas, m)
@@ -422,48 +422,16 @@ func (x *applyParamExpectations) at(i int, original types.Type) (types.Type, boo
 	return merged, true
 }
 
-// containsFuncLabels reports whether a type structure contains a
-// labeled function parameter. Contextual propagation deliberately
-// declines those types: a borrowed label is useful for checking one
-// expression, but it is not part of the callee's inference contract.
-func (c *checker) containsFuncLabels(t types.Type) bool {
-	switch t := types.Chase(t).(type) {
-	case *types.Var, *types.Meta:
-		return false
-	case *types.Con:
-		return c.containsFuncLabelsSlice(t.Args)
-	case *types.Func:
-		for _, p := range t.Params {
-			if p.Label != "" || c.containsFuncLabels(p.Type) {
-				return true
-			}
-		}
-		return c.containsFuncLabels(t.Ret)
-	case *types.Tuple:
-		return c.containsFuncLabelsSlice(t.Elems)
-	case *types.Go:
-		return c.containsFuncLabelsSlice(t.Args)
-	default:
-		panic("unreachable")
-	}
-}
-
-func (c *checker) containsFuncLabelsSlice(ts []types.Type) bool {
-	for _, t := range ts {
-		if c.containsFuncLabels(t) {
-			return true
-		}
-	}
-	return false
-}
-
 // mergeContextualType combines the callee's current parameter type
 // with its speculative expectation at type-constructor granularity.
 // The current type is authoritative wherever both sides are concrete;
-// speculative concrete structure fills open parts. Open speculative
-// leaves are not reified when the current type already has a node for
-// the position — using that node keeps ordinary inference sharing and
-// avoids orphaned forwarding variables.
+// speculative concrete structure fills open parts. Function labels are
+// acceptance syntax rather than inference structure, so the current
+// side's label is kept without treating a speculative label mismatch
+// as a type mismatch. Open speculative leaves are not reified when the
+// current type already has a node for the position — using that node
+// keeps ordinary inference sharing and avoids orphaned forwarding
+// variables.
 func (c *checker) mergeContextualType(original, speculative types.Type, open map[*types.Meta]*types.Meta, sp diag.Span) types.Type {
 	o := types.Chase(original)
 	x := types.Chase(speculative)
@@ -518,9 +486,6 @@ func (c *checker) mergeContextualType(original, speculative types.Type, open map
 		changed := false
 		for i := 0; i < shared; i++ {
 			fp := op[i]
-			if fp.Label != "" && fp.Label != xp[i].Label {
-				return o
-			}
 			nt := c.mergeContextualType(fp.Type, xp[i].Type, open, sp)
 			changed = changed || nt != fp.Type
 			ps[i] = types.FuncParam{Label: fp.Label, Type: nt}
