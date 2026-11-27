@@ -2031,15 +2031,15 @@ func (c *checker) checkBinary(e *syntax.Binary, want types.Type) Expr {
 		// (`f : Option Go.Any -> R`) pins `Option[any]` the way
 		// `f (Some 1)` does, rather than settling `Option num`
 		// before the callee's want can reach it.
-		f := c.checkExpr(e.Y, c.pipeCalleeWant(e.Y, want, e.Sp))
-		argWant := c.pipeArgWant(f)
+		f := c.checkPipeCallee(e.Y, e.X, want, e.Sp)
+		argWant := c.pipeArgExpectation(f, e.X, want, e.Sp)
 		x, seedFailed := c.checkPipeOperand(e.X, argWant)
 		return c.pipeCall(e, x, f, seedFailed)
 	case syntax.BinPipeBack:
 		// `f PIPE_BACK x` applies f to x — operands in source order;
 		// the callee still checks first for the same seeding reason.
-		f := c.checkExpr(e.X, c.pipeCalleeWant(e.X, want, e.Sp))
-		argWant := c.pipeArgWant(f)
+		f := c.checkPipeCallee(e.X, e.Y, want, e.Sp)
+		argWant := c.pipeArgExpectation(f, e.Y, want, e.Sp)
 		x, seedFailed := c.checkPipeOperand(e.Y, argWant)
 		return c.pipeCall(e, x, f, seedFailed)
 	case syntax.BinPipeTry:
@@ -2111,16 +2111,42 @@ func goCalleeSym(e Expr) *resolve.Symbol {
 	return nil
 }
 
-// pipeCalleeWant forwards the pipe's static result type into a callee
-// whose partial application carries an anonymous record literal. The
-// piped input is intentionally fresh: only the result side is known,
-// and pipeCall still links the input when the argument is checked.
-func (c *checker) pipeCalleeWant(e syntax.Expr, want types.Type, sp diag.Span) types.Type {
-	if want == nil || !c.containsRecordType(want) || !applyHasAnonRecordLit(e) {
-		return nil
+// checkPipeCallee checks the callee half of a pipe. Exact record
+// expectations use the pipe result as the callee residual's hard type;
+// a Go.Slice expectation instead stays a soft propagation hint because
+// the pipe may produce a List and cross the boundary only afterwards.
+func (c *checker) checkPipeCallee(callee, arg syntax.Expr, want types.Type, sp diag.Span) Expr {
+	if want == nil || !c.containsRecordType(want) ||
+		(!applyHasAnonRecordLit(callee) && !anonRecordLitInResultPosition(arg)) {
+		return c.checkExpr(callee, nil)
 	}
-	input := c.newMeta(sp, "the piped argument's type")
-	return types.Fn(want, types.P(input))
+	if len(c.boundaryProducerWants(want)) == 0 {
+		input := c.newMeta(sp, "the piped argument's type")
+		return c.checkExpr(callee, types.Fn(want, types.P(input)))
+	}
+	saved := c.pipeApplyExpectation
+	c.pipeApplyExpectation = types.Fn(want, types.P(c.untypedMeta()))
+	out := c.checkExpr(callee, nil)
+	c.pipeApplyExpectation = saved
+	return out
+}
+
+// pipeArgExpectation treats the pipe itself as the application `fn arg`
+// for record-context propagation. This covers a bare higher-order
+// callee whose callback is the piped operand (`Scope.run <| fn _ -> ...`):
+// the statically known pipe result can solve the callback's result slot
+// before that operand is checked.
+func (c *checker) pipeArgExpectation(fn Expr, arg syntax.Expr, want types.Type, sp diag.Span) types.Type {
+	if want != nil && anonRecordLitInResultPosition(arg) {
+		params, _ := flattenFunc(fn.Type())
+		if len(params) > 0 {
+			expectations := c.applyParamExpectations(fn.Type(), params, []syntax.Arg{{Value: arg}}, want, sp)
+			if got, ok := expectations.at(0, params[0].Type); ok {
+				return got
+			}
+		}
+	}
+	return c.pipeArgWant(fn)
 }
 
 func applyHasAnonRecordLit(e syntax.Expr) bool {
@@ -2148,16 +2174,25 @@ func applyHasAnonRecordLit(e syntax.Expr) bool {
 // own conformExpr under goWant, and a premature want would skip the
 // live-parameter mark chanDirConv needs.
 func (c *checker) pipeArgWant(fn Expr) types.Type {
-	if goCalleeSym(fn) != nil {
-		return nil
-	}
-	if ap, ok := fn.(*Apply); ok && ap.Call.Kind == CallGo && ap.Call.HoleIndex < 0 {
-		return nil
-	}
 	if fs, ok := types.Chase(fn.Type()).(*types.Func); ok &&
-		len(fs.Params) > 0 && fs.Params[0].Label == "" &&
-		(containsGoAny(types.Chase(fs.Params[0].Type)) || c.isRecordType(fs.Params[0].Type)) {
-		return fs.Params[0].Type
+		len(fs.Params) > 0 && fs.Params[0].Label == "" {
+		param := fs.Params[0].Type
+		// A higher-order callback whose result carries a record type
+		// needs the seed even when the callee itself is a Go boundary
+		// function (`Scope.run`): the boundary conversion special case
+		// below does not apply to the callback value, and without the
+		// seed its result-position record literal cannot settle.
+		if _, callback := types.Chase(param).(*types.Func); callback && c.containsRecordType(param) {
+			return param
+		}
+		saturatedGoCall := false
+		if ap, ok := fn.(*Apply); ok && ap.Call.Kind == CallGo && ap.Call.HoleIndex < 0 {
+			saturatedGoCall = true
+		}
+		if goCalleeSym(fn) == nil && !saturatedGoCall &&
+			(containsGoAny(types.Chase(param)) || c.containsRecordType(param)) {
+			return param
+		}
 	}
 	return nil
 }

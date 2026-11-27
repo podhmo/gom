@@ -1,0 +1,14 @@
+package main
+
+type Out = { count: Int, label: String }
+type OtherOut = { count: Int, label: String }
+
+fn run_callback (f: Unit -> a) -> a = f ()
+
+fn direct () -> Out = run_callback (fn _ -> { count = 0, label = "x" })
+
+fn piped () -> Out =
+  run_callback <| fn _ -> { count = 0, label = "x" }
+
+fn piped_scope () -> Out =
+  Scope.run <| fn _ -> { count = 0, label = "x" }

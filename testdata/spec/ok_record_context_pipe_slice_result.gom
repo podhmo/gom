@@ -1,0 +1,10 @@
+package main
+
+type Out = { count: Int }
+type OtherOut = { count: Int }
+
+fn ids (xs: List Int) -> Go.Slice Out =
+  xs |> List.map (fn x -> { count = x })
+
+fn ids_list (xs: List Int) -> List Out =
+  xs |> List.map (fn x -> { count = x })

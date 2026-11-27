@@ -21,6 +21,8 @@ E0407 the record literal is ambiguous: 2 record types own these fields; annotate
 - pipe: `lines |> List.traverse_result validate_line |> Result.map (fn valid -> { ... })` が `Result Out String` から callback result を推論する
 - if / match: 分岐結果の裸 record literal も同じ期待型を使う
 - unit test: speculative lookahead は callback result meta を bind せず、非結果位置の record literal は activation しない
+- backpipe: `run_callback <| fn _ -> { ... }` と `Scope.run <| fn _ -> { ... }` でも、静的な戻り値が callback result へ届く
+- boundary: `xs |> List.map (fn x -> { ... })` の結果を `Go.Slice Out` へ返す形では、producer 側の `List Out` を speculative に使い、最後の implicit boundary conversion を残す。`List Out` を返す通常形も固定する
 - `E0407_record_context_no_backward` は従来どおり E0407 + E0401。これは `let seed = { ... }` を後続使用から推論しない限界事例で、wave53 lane A の前向き propagation 対象外である
 
 ## 検証コマンド

@@ -176,6 +176,13 @@ type checker struct {
 	// conformance (for example label introduction inside a record).
 	wantFailureSink map[Expr]bool
 
+	// pipeApplyExpectation is a soft result expectation for the next
+	// application checked as a pipe callee. Unlike want it is used only
+	// for speculative record-context propagation: the pipe's own result
+	// may still cross the List/Go.Slice boundary after the callee's
+	// residual type is known.
+	pipeApplyExpectation types.Type
+
 	// noLabelIntro disables unifyFunc's unlabeled→labeled
 	// introduction while set — the synthesized `argT -> res` unify
 	// of conformCallee is application, not type equality, and a
