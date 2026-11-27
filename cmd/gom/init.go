@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
@@ -114,36 +115,60 @@ func ensureGomDependency(dir, gomodPath string) error {
 	if err != nil {
 		return err
 	}
-	hasRequire, hasReplace, isGomModule := false, false, false
-	inRequireBlock := false
+	hasRequire, isGomModule := false, false
+	replacements := map[string]bool{}
+	inRequireBlock, inReplaceBlock := false, false
+	modToken := func(s string) string {
+		if unq, err := strconv.Unquote(s); err == nil {
+			return unq
+		}
+		return s
+	}
+	markReplace := func(f []string, offset int) {
+		if len(f) > offset && modToken(f[offset]) == "github.com/podhmo/gom" {
+			version := ""
+			if len(f) > offset+1 && f[offset+1] != "=>" {
+				version = modToken(f[offset+1])
+			}
+			replacements[version] = true
+		}
+	}
 	for line := range strings.SplitSeq(string(b), "\n") {
 		line, _, _ = strings.Cut(line, "//")
 		f := strings.Fields(line)
 		if len(f) == 0 {
 			continue
 		}
-		if f[0] == "require" && len(f) == 1 {
-			inRequireBlock = true
-			continue
-		}
-		if inRequireBlock && f[0] == ")" {
-			inRequireBlock = false
+		if f[0] == ")" {
+			inRequireBlock, inReplaceBlock = false, false
 			continue
 		}
 		if inRequireBlock {
-			if f[0] == "github.com/podhmo/gom" {
+			if modToken(f[0]) == "github.com/podhmo/gom" {
 				hasRequire = true
 			}
 			continue
 		}
-		if len(f) >= 2 && f[0] == "module" {
-			isGomModule = f[1] == "github.com/podhmo/gom"
+		if inReplaceBlock {
+			markReplace(f, 0)
+			continue
 		}
-		if len(f) >= 2 && f[0] == "require" && f[1] == "github.com/podhmo/gom" {
+		if f[0] == "require" && len(f) >= 2 && f[1] == "(" {
+			inRequireBlock = true
+			continue
+		}
+		if f[0] == "replace" && len(f) >= 2 && f[1] == "(" {
+			inReplaceBlock = true
+			continue
+		}
+		if len(f) >= 2 && f[0] == "module" {
+			isGomModule = modToken(f[1]) == "github.com/podhmo/gom"
+		}
+		if len(f) >= 2 && f[0] == "require" && modToken(f[1]) == "github.com/podhmo/gom" {
 			hasRequire = true
 		}
-		if len(f) >= 2 && f[0] == "replace" && f[1] == "github.com/podhmo/gom" {
-			hasReplace = true
+		if len(f) >= 2 && f[0] == "replace" {
+			markReplace(f, 1)
 		}
 	}
 	if hasRequire || isGomModule {
@@ -159,7 +184,11 @@ func ensureGomDependency(dir, gomodPath string) error {
 		out.WriteByte('\n')
 	}
 	fmt.Fprintf(&out, "\nrequire %s\n", req)
-	if rep != "" && !hasReplace {
+	reqVersion := ""
+	if parts := strings.Fields(req); len(parts) == 2 {
+		reqVersion = parts[1]
+	}
+	if rep != "" && !replacements[""] && !replacements[reqVersion] {
 		fmt.Fprintf(&out, "\nreplace %s\n", rep)
 	}
 	return os.WriteFile(gomodPath, []byte(out.String()), 0o644)

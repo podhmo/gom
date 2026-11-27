@@ -436,7 +436,7 @@ func TestInitExistingGoModuleWithReplaceOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 	dir := writeFiles(t, map[string]string{
-		"go.mod": "module existing.example/project\n\ngo 1.27\n\nreplace github.com/podhmo/gom => " + root + "\n",
+		"go.mod": "module existing.example/project\n\ngo 1.27\n\nreplace (\n\t\"github.com/podhmo/gom\" => " + root + "\n)\n",
 	})
 	code, _, errout := invoke("init", "-dir", dir)
 	if code != 0 {
@@ -447,7 +447,7 @@ func TestInitExistingGoModuleWithReplaceOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := string(gomod)
-	if !strings.Contains(text, "require github.com/podhmo/gom") || strings.Count(text, "replace github.com/podhmo/gom") != 1 {
+	if !strings.Contains(text, "require github.com/podhmo/gom") || strings.Count(text, "\"github.com/podhmo/gom\" =>") != 1 || strings.Contains(text, "replace github.com/podhmo/gom") {
 		t.Fatalf("go.mod = %q", text)
 	}
 }
