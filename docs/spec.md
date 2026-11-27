@@ -311,6 +311,8 @@ error[E0301]: non-exhaustive match on `Expr`
 
 ガード付きの腕は、網羅性判定でも冗長性判定でも「その値を覆う」とは見なさない。たとえば `Neg x if is_zero x` の後の `Neg x` は冗長ではない。
 
+同じローカル変数を `match` の腕本体の中で再び `match` するとき、網羅性判定は外側の `match` から分かる root constructor を narrowing する。腕本体ではその腕に当たった constructor だけを残し、後続腕では、それより前の guard なし腕が payload も含めて確実に覆う constructor を除く。guard 付きの前腕は後続腕の narrowing に使わない。`rest ->` のような root の素朴な変数束縛は scrutinee の別名として扱うが、`as` 束縛や or-pattern 内の変数は別名とはみなさない。この narrowing は E0301 の網羅性判定にだけ使い、E0302 の到達不能判定には使わない（[decision](decisions/2026-11-27-match-nested-narrowing.md)）。
+
 `Go.Any` または named Go interface 型の対象への `match` では、型テスト腕 `p : T` / `_ : T` が使える — Go の型スイッチ `case T:` に対応し、最初に当たった腕を実行する（型スイッチと同じく、上から順に評価され、型テスト腕は書かれた順に意味を持つ）。`p : T` は断言した型 `T` で値を束縛し、`_ : T` は束縛せず型だけで分岐する。`T` は具象型（型パラメータ・メタ変数を含まない）に限る。named Go interface を目標にした場合は名前一致ではなくメソッド集合で適合を判定する（`x : fmt.Stringer` は `String() string` を実装する任意の値に当たる）。型テストを含む `match` では:
 
 - すべての腕が型テスト腕または末尾の catch-all（`_` または変数）でなければならない — 通常パターンとの混在は E0307

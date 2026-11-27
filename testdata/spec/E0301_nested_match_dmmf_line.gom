@@ -1,0 +1,12 @@
+package main
+
+type ProductLine =
+  | OrderLine Int
+  | CommentLine String
+
+fn line_units (line: ProductLine) -> Int = match line {
+  CommentLine _ -> 0
+  line2 -> match line2 {
+    OrderLine units -> units
+  }
+}

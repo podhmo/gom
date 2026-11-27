@@ -1,0 +1,14 @@
+package main
+
+type Action =
+  | Add Int
+  | Remove Int
+  | Archive
+
+fn apply_guarded (action: Action) -> Int = match action {
+  Add n if n > 0 -> n
+  action2 -> match action2 {
+    Remove n -> n
+    Archive -> 0
+  }
+}
