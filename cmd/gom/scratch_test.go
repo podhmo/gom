@@ -2,6 +2,7 @@ package main
 
 import (
 	"archive/zip"
+	"errors"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -273,6 +274,155 @@ func writeProxyZipEntry(t *testing.T, zw *zip.Writer, name string, body []byte) 
 	}
 	if _, err := entry.Write(body); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestInitNewModuleValidationFailureRollsBackCreatedFiles(t *testing.T) {
+	haveGo(t)
+	proxy := writeGomModuleProxyVersions(t, map[string]bool{"v0.0.1": false})
+	t.Setenv("GOPROXY", (&url.URL{Scheme: "file", Path: proxy}).String())
+	t.Setenv("GOSUMDB", "off")
+	t.Setenv("GOWORK", "off")
+	t.Setenv("GOMODCACHE", isolatedModCache(t))
+	requirement := func() (string, string, error) {
+		return "github.com/podhmo/gom v0.0.1", "", nil
+	}
+	run := func(t *testing.T, dir string) (string, string, int) {
+		t.Helper()
+		var out, errout strings.Builder
+		code := runInitWithRequirement([]string{"-dir", dir, "example.com/hello"}, &out, &errout, requirement)
+		return out.String(), errout.String(), code
+	}
+
+	t.Run("without existing files", func(t *testing.T) {
+		dir := t.TempDir()
+		out, errout, code := run(t, dir)
+		if code != 2 {
+			t.Fatalf("exit = %d, want 2; stdout=%q stderr=%q", code, out, errout)
+		}
+		if !strings.Contains(errout, "stdlib/result") {
+			t.Fatalf("init did not fail during toolchain validation: %q", errout)
+		}
+		for _, name := range []string{"go.mod", "go.sum", "main.gom"} {
+			if _, err := os.Stat(filepath.Join(dir, name)); !os.IsNotExist(err) {
+				t.Fatalf("%s exists after failed init: %v", name, err)
+			}
+		}
+	})
+
+	t.Run("keeps an existing main.gom", func(t *testing.T) {
+		dir := t.TempDir()
+		sentinel := []byte("package main\n\nfn main () -> Unit = ()\n")
+		mainPath := filepath.Join(dir, "main.gom")
+		if err := os.WriteFile(mainPath, sentinel, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		out, errout, code := run(t, dir)
+		if code != 2 {
+			t.Fatalf("exit = %d, want 2; stdout=%q stderr=%q", code, out, errout)
+		}
+		after, err := os.ReadFile(mainPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(after) != string(sentinel) {
+			t.Fatalf("existing main.gom changed:\nbefore:\n%s\nafter:\n%s", sentinel, after)
+		}
+		for _, name := range []string{"go.mod", "go.sum"} {
+			if _, err := os.Stat(filepath.Join(dir, name)); !os.IsNotExist(err) {
+				t.Fatalf("%s exists after failed init: %v", name, err)
+			}
+		}
+	})
+}
+
+func TestInitMainWriteFailureRollsBackAllInitChanges(t *testing.T) {
+	haveGo(t)
+	t.Setenv("GOWORK", "off")
+	root := mustRepoRoot(t)
+	requirement := func() (string, string, error) {
+		return "github.com/podhmo/gom v0.0.0", "github.com/podhmo/gom => " + strconv.Quote(root), nil
+	}
+	writeMainFailure := func(path string, body []byte) error {
+		if filepath.Base(path) == "main.gom" {
+			return errors.New("injected main.gom write failure")
+		}
+		return writeNewFile(path, body)
+	}
+
+	t.Run("new module", func(t *testing.T) {
+		dir := t.TempDir()
+		var out, errout strings.Builder
+		code := runInitWithWriter([]string{"-dir", dir, "example.com/hello"}, &out, &errout, requirement, writeMainFailure)
+		if code != 2 {
+			t.Fatalf("exit = %d, want 2; stdout=%q stderr=%q", code, out.String(), errout.String())
+		}
+		if !strings.Contains(errout.String(), "injected main.gom write failure") {
+			t.Fatalf("init did not report the write failure: %q", errout.String())
+		}
+		for _, name := range []string{"go.mod", "go.sum", "main.gom"} {
+			if _, err := os.Stat(filepath.Join(dir, name)); !os.IsNotExist(err) {
+				t.Fatalf("%s exists after failed init: %v", name, err)
+			}
+		}
+	})
+
+	t.Run("existing module", func(t *testing.T) {
+		proxy := writeGomModuleProxy(t, "v0.0.1")
+		t.Setenv("GOPROXY", (&url.URL{Scheme: "file", Path: proxy}).String())
+		t.Setenv("GOSUMDB", "off")
+		t.Setenv("GOMODCACHE", isolatedModCache(t))
+		releaseRequirement := func() (string, string, error) {
+			return "github.com/podhmo/gom v0.0.1", "", nil
+		}
+		dir := t.TempDir()
+		original := []byte("module existing.example/project\n\ngo 1.27\n")
+		gomodPath := filepath.Join(dir, "go.mod")
+		if err := os.WriteFile(gomodPath, original, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		sumPath := filepath.Join(dir, "go.sum")
+		if err := os.WriteFile(sumPath, nil, 0o644); err != nil {
+			t.Fatal(err)
+		}
+		var out, errout strings.Builder
+		code := runInitWithWriter([]string{"-dir", dir}, &out, &errout, releaseRequirement, writeMainFailure)
+		if code != 2 {
+			t.Fatalf("exit = %d, want 2; stdout=%q stderr=%q", code, out.String(), errout.String())
+		}
+		after, err := os.ReadFile(gomodPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(after) != string(original) {
+			t.Fatalf("failed init left go.mod modified:\nbefore:\n%s\nafter:\n%s", original, after)
+		}
+		sum, err := os.ReadFile(sumPath)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(sum) != 0 {
+			t.Fatalf("failed init left go.sum modified: %q", sum)
+		}
+		if _, err := os.Stat(filepath.Join(dir, "main.gom")); !os.IsNotExist(err) {
+			t.Fatalf("main.gom exists after failed init: %v", err)
+		}
+	})
+}
+
+func TestInitFailureKeepsBrokenGoModSymlink(t *testing.T) {
+	dir := t.TempDir()
+	gomodPath := filepath.Join(dir, "go.mod")
+	if err := os.Symlink("missing-go-mod-target", gomodPath); err != nil {
+		t.Fatal(err)
+	}
+
+	code, _, errout := invoke("init", "-dir", dir)
+	if code != 2 {
+		t.Fatalf("exit = %d, want 2; stderr=%q", code, errout)
+	}
+	if _, err := os.Lstat(gomodPath); err != nil {
+		t.Fatalf("failed init removed the pre-existing go.mod symlink: %v", err)
 	}
 }
 

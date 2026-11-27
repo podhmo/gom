@@ -30,6 +30,10 @@ func runInit(args []string, stdout, stderr io.Writer) int {
 }
 
 func runInitWithRequirement(args []string, stdout, stderr io.Writer, requirement func() (string, string, error)) int {
+	return runInitWithWriter(args, stdout, stderr, requirement, writeNewFile)
+}
+
+func runInitWithWriter(args []string, stdout, stderr io.Writer, requirement func() (string, string, error), writeFile func(string, []byte) error) int {
 	fs := flag.NewFlagSet("init", flag.ContinueOnError)
 	fs.SetOutput(stderr)
 	dir := fs.String("dir", ".", "directory to initialize")
@@ -72,45 +76,57 @@ func runInitWithRequirement(args []string, stdout, stderr io.Writer, requirement
 		fmt.Fprintf(stderr, "gom init: %s already has go.mod and main.gom\n", *dir)
 		return 2
 	}
+	backups, err := backupInitFiles(gomodPath, filepath.Join(*dir, "go.sum"), mainPath)
+	if err != nil {
+		fmt.Fprintf(stderr, "gom init: %v\n", err)
+		return 2
+	}
+	committed := false
+	defer func() {
+		if !committed {
+			restoreInitFiles(backups)
+		}
+	}()
+
+	gomodCreated := false
 	if !gomodExists {
 		body, err := moduleFileWithRequirement(modulePath, requirement)
 		if err != nil {
 			fmt.Fprintf(stderr, "gom init: %v\n", err)
 			return 2
 		}
-		if err := writeNewFile(gomodPath, body); err != nil {
+		if err := writeFile(gomodPath, body); err != nil {
 			fmt.Fprintf(stderr, "gom init: %v\n", err)
 			return 2
 		}
-		if err := downloadToolchainStandalone(*dir); err != nil {
+		gomodCreated = true
+	} else {
+		if err := ensureGomDependencyWithRequirement(*dir, gomodPath, requirement); err != nil {
 			fmt.Fprintf(stderr, "gom init: %v\n", err)
 			return 2
 		}
+	}
+	if err := downloadToolchainStandalone(*dir); err != nil {
+		fmt.Fprintf(stderr, "gom init: %v\n", err)
+		return 2
+	}
+
+	mainCreated := false
+	if !mainExists {
+		if err := writeFile(mainPath, []byte(initMainTemplate)); err != nil {
+			fmt.Fprintf(stderr, "gom init: %v\n", err)
+			return 2
+		}
+		mainCreated = true
+	}
+
+	committed = true
+	if gomodCreated {
 		fmt.Fprintf(stdout, "created %s\n", gomodPath)
 	} else {
-		backups, err := backupInitFiles(gomodPath, filepath.Join(*dir, "go.sum"))
-		if err != nil {
-			fmt.Fprintf(stderr, "gom init: %v\n", err)
-			return 2
-		}
-		rollback := func() { restoreInitFiles(backups) }
-		if err := ensureGomDependencyWithRequirement(*dir, gomodPath, requirement); err != nil {
-			rollback()
-			fmt.Fprintf(stderr, "gom init: %v\n", err)
-			return 2
-		}
-		if err := downloadToolchainStandalone(*dir); err != nil {
-			rollback()
-			fmt.Fprintf(stderr, "gom init: %v\n", err)
-			return 2
-		}
 		fmt.Fprintf(stdout, "kept existing %s\n", gomodPath)
 	}
-	if !mainExists {
-		if err := writeNewFile(mainPath, []byte(initMainTemplate)); err != nil {
-			fmt.Fprintf(stderr, "gom init: %v\n", err)
-			return 2
-		}
+	if mainCreated {
 		fmt.Fprintf(stdout, "created %s\n", mainPath)
 	} else {
 		fmt.Fprintf(stdout, "kept existing %s\n", mainPath)
@@ -215,12 +231,15 @@ type initFileBackup struct {
 func backupInitFiles(paths ...string) ([]initFileBackup, error) {
 	backups := make([]initFileBackup, 0, len(paths))
 	for _, path := range paths {
-		body, err := os.ReadFile(path)
-		if err != nil {
+		if _, err := os.Lstat(path); err != nil {
 			if os.IsNotExist(err) {
 				backups = append(backups, initFileBackup{path: path})
 				continue
 			}
+			return nil, err
+		}
+		body, err := os.ReadFile(path)
+		if err != nil {
 			return nil, err
 		}
 		backups = append(backups, initFileBackup{path: path, body: body, existed: true})
@@ -240,7 +259,7 @@ func restoreInitFiles(backups []initFileBackup) {
 }
 
 func fileExists(path string) bool {
-	_, err := os.Stat(path)
+	_, err := os.Lstat(path)
 	return err == nil
 }
 
