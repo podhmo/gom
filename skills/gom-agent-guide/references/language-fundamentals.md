@@ -379,15 +379,27 @@ fn add_res (a: Int) (b: Int) -> Result Int String = Ok (a + b)
   `gom test` writes `<name>_test.go` next to the generated `.go`
   and runs the whole package's tests via `go test -json`.
 
+## Compiler-registered helpers
+
+`View`, `Array`, and `Ref` are compiler-registered rather than
+`.gomi` modules, so `gom info` cannot enumerate their members.
+Their important semantic constraints are:
+
+- **`View a`** is a read-only sub-view of a `List`; sub-slicing and
+  indexing are O(1) because the view shares the immutable backing.
+- **`Array a`** is a mutable build buffer. `Array.to_list` freezes it
+  zero-copy — do not write the array after freezing (spec §8.7).
+  ADT elements have no zero value, so `Array.make n init` copies the
+  supplied initial value into every slot.
+- **`Ref a`** is the mutable cell: always initialized, no nil form.
+
+`Chan.*`/`Task.*` are likewise compiler-provided; see
+`concurrency.md`. `Ptr.*`/`Go.Map.*` are covered in
+`go-interop.md`.
+
 ## Things that look plausible but don't exist
 
-`Ref.*`, `Array.*` — module names are reserved, member tables are
-empty → E0201 "exposes no members yet" (`Chan.*`/`Task.*` —
-see `references/concurrency.md` — and `Ptr.*`/`Go.Map.*` —
-see `references/go-interop.md` — do exist). The `List.*`,
-`Option.*`, `Result.*` stdlib modules do exist (see
-`stdlib/{list,option,result}/*.gomi`). `let ... in`, `pub`, `var`,
-`return`, `break`, `while`,
+`let ... in`, `pub`, `var`, `return`, `break`, `while`,
 `switch`, `enum`, `interface`, `class`, `nil`, `null`, `void`,
 `func`, `def`, bare `type X = T` aliases (write `type alias X = T`),
 `::`, `$`, `!`, `??`, `?.`,

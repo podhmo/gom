@@ -32,23 +32,30 @@ CI; blocks marked `fail` are verified to produce a diagnostic.
    `a.gom` with no import). A `package main` needs a
    `fn main () -> Unit` to be a runnable entrypoint. Non-`main`
    packages need exactly one `.gomi` to be usable.
-2. **Read before writing.** New syntax? Check `docs/spec.md` (or the
+2. **Discover APIs with the tools before coding.** `gom list` prints
+   the stdlib short names importable in the current toolchain;
+   `gom info <short-name>` prints that package's current `.gomi`
+   (members, directives, docs). For project or dependency packages,
+   inspect the package's `.gomi` or run `gom info` on its directory.
+   Do not rely on memorized or copied member inventories — they go
+   stale first.
+3. **Read before writing.** New syntax? Check `docs/spec.md` (or the
    matching `references/` file here) and copy a working pattern from
    `tutorial/NN-*/main.gom`. Never improvise surface syntax.
-3. **Write the smallest possible `.gom`.** Prefer editing an existing
+4. **Write the smallest possible `.gom`.** Prefer editing an existing
    compiling file over generating a large new one.
-4. **Check early and often:** `gom check file.gom` — read the JSON
+5. **Check early and often:** `gom check file.gom` — read the JSON
    diagnostic, or `-format text` for a human rendering. Fix the
    first error; later phases only run on error-free input, so later
    messages often vanish once the first is fixed.
-5. **Build:** `gom build file.gom` writes `file.go`; run it with the
+6. **Build:** `gom build file.gom` writes `file.go`; run it with the
    real Go toolchain (`go run .` in a module, or `go build`).
    **Run:** `gom run file.gom -- args...` compiles to a temp binary
    and executes it directly — child argv/exit codes pass through
    (signal kills report 128+signal). On success the program owns
    stdout/stderr; on compile or link failure gom emits the usual
    JSON message stream.
-6. **Finish with `gom fmt -w`** — the canonical formatter has no
+7. **Finish with `gom fmt -w`** — the canonical formatter has no
    configuration; whatever it prints is correct.
 
 # Fast Task Playbooks
@@ -239,33 +246,19 @@ duplicate-arm checks.
   `snapshot value key` records the value's display text under
   `__snapshot__/`; use `gom test --update` (or `-u`) to write or
   refresh snapshot files.
-- **Stdlib modules exist:** `List.map`, `List.filter`, `List.fold`,
-  `List.filter_map`, `List.find_map`, `List.traverse_result`,
-  `List.sum`, `List.sum_int`, `List.rev`, `List.head`, `List.get`, `List.take`,
-  `List.drop`, `List.last`, `List.last_n`, `List.sort_by`,
-  `Option.get`,
-  `Option.map`, `Option.and_then`, `Result.map`, `Result.and_then`,
-  `Result.map_err`, `Result.sequence` and friends resolve without an import — the
-  worked-on value is the last parameter so `xs |> List.map f`
-  pipelines. See `stdlib/{list,option,result}/*.gomi` plus the
-  compiler-owned forwarding members (`Result.to_option`,
-  `Result.sequence`, `Option.to_list`) for the full surface.
-  **`View a`** is a read-only sub-view of a `List`
-  (`List.view`, `List.slice xs lo hi`; `View.length`/`get`/`slice`/
-  `fold`/`to_list`, `for x in v` also works) — sub-slicing and
-  indexing are O(1) because the view shares the immutable backing.
-  The View surface is compiler-registered (no `.gomi`). Concurrency builtins are compiler-provided (no `.gomi`,
-  they forward to `rt/`): `Chan.make`,
-  `Chan.send`, `Chan.recv` (`Option a` — `None` once closed),
-  `Chan.close`, `Chan.recvOnly`, `Chan.sendOnly`, `Task.spawn`
-  (`(Unit -> a) -> Task a`), `Task.await` (`Task a -> a`,
-  re-panics a captured panic). `Array a` is the mutable build
-  buffer (compiler-provided like `Chan`): `Array.make n init` (n copies of init — ADT elements have no zero value),
-  `Array.length a`, `Array.get a i`, `Array.set a i v`,
-  `Array.to_list a` (zero-copy freeze — do not write the array
-  after freezing, spec §8.7), `Array.from_list xs` (copies).
-  `Ref a` is the mutable cell: `Ref.new v`, `Ref.get r`,
-  `Ref.set r v` — always initialized, no nil form.
+- **Stdlib modules exist; query their exact surface.** `gom list`
+  prints the importable short names, and `gom info <short-name>`
+  prints the current `.gomi` — use those before choosing a member.
+  The important library-wide convention is data-last:
+  `xs |> List.map f` pipelines because the collection being worked
+  on is the final parameter. Functions that can miss generally
+  return `Option` rather than panicking.
+  Some surfaces are compiler-registered rather than `.gomi` modules,
+  so `gom info` cannot enumerate them: use
+  [references/language-fundamentals.md](references/language-fundamentals.md)
+  for `View`/`Array`/`Ref` rules and
+  [references/concurrency.md](references/concurrency.md) for
+  `Chan`/`Task` rules.
 
 ## Newlines (no indentation rules)
 
@@ -958,8 +951,8 @@ fn main () -> Unit = ()
 - `import "mod/path"` loads a Gom package through its `.gomi` —
   spelled as a full module path (`import "example.com/m/shapes"`)
   and resolved through the module graph (any module in the build
-  list, vendoring honored). `import "list"`/`"option"`/`"result"`/`"cmp"`/`"str"`
-  are the stdlib short names; Go packages use `import go "pkg"`.
+  list, vendoring honored). Stdlib short names are the ones currently
+  printed by `gom list`; Go packages use `import go "pkg"`.
 - No `switch`/`case` → `match`; no `enum` → `type`; no
   `interface`/`struct`/`class` → records and ADTs; no `nil`/`null`/
   `None`-free references → `Option`; no `func`/`def`/`let fun` →
@@ -982,10 +975,10 @@ prints the pointer and exits 2).
 | `gom test FILE\|DIR... [-- FLAGS]` | Also writes `_test.go` beside the `.go` and runs the package's `go test -json` — FLAGS after `--` pass through (`-race`, `-run`). Library packages need `<pkg>.gomi` (the conformance gate runs here too); `-q`/`--quiet` drops the raw half of panic stacks. |
 | `gom fmt [-w\|-d\|-l\|--check] FILE...` | Canonical formatter; `-` reads stdin. stdout carries the artifact; message stream to stderr. |
 | `gom fix FILE...` | Apply the `safe` fixes diagnostics carry. |
-| `gom info [-o OUT] FILE\|DIR...` | Draft `.gomi` interfaces from implementations; `-o -` prints to stdout. A stdlib short name (when no same-named file/dir exists) instead prints its existing `.gomi` read-only. |
+| `gom info [-o OUT] FILE\|DIR...` | Draft `.gomi` interfaces from implementations; `-o -` prints to stdout. `gom info <stdlib-short-name>` instead prints that stdlib package's existing `.gomi` read-only — the canonical way to inspect current stdlib members. |
 | `gom explain [CODE]` | Error-code explanations; no argument lists them all. |
 | `gom schema` | JSON Schema of the diagnostic stream. |
-| `gom list` | Importable stdlib short names (`list`, `option`, `result`, `cmp`, `str`), one per line. `-external` instead lists importable Gom packages of the working dir's module (main module + build list; walks the FS — module vendoring and workspace vendoring `go work vendor` both honored). |
+| `gom list` | Print the current importable stdlib short names, one per line — query this rather than copying the list into notes. `-external` instead lists importable Gom packages of the working dir's module (main module + build list; walks the FS — module vendoring and workspace vendoring `go work vendor` both honored). |
 | `gom check -format text` | Human rendering instead of JSON Lines. |
 
 Diagnostics are JSON Lines: one object per line, `kind:
