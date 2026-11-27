@@ -1,6 +1,6 @@
 # wave56 prompts 草案
 
-状態: 草案（採否・順序は未確定）
+状態: 採択済み（A+B+C+D+E、順 A → B → C → D → E）
 
 入力は wave55 round、TODO、open-questions。wave55 は診断の root cause 表示を進めたので、wave56 は decision 済みの 2 件を実装しつつ、残る表示方針を調査で絞る案を置く。
 
@@ -31,7 +31,7 @@ TODO E0201-1。E0201 `namespace: "member"` で member table 内の optimal strin
 - stdlib `str` 拡張、Option/Result helper: 独立したユーザー価値はあるが、wave55 からの連続性は弱い
 - goimport export data decode 共有・benchmark 基盤: 内部性能・基盤寄り。benchmark 基盤は前回議論で優先度低と確認済み
 
-## 推薦
+## 採択結果
 
 採用: A+B+C+D+E。順: A → B → C → D → E。
 
