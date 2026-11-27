@@ -1,4 +1,4 @@
 package main
 
-fn choose (c: Bool) -> Go.Any =
-  if c { 1 } else { 2 + "bad" }
+fn choose (c: Bool) (x: Int) -> Go.Any =
+  if c { x } else { "s" }
