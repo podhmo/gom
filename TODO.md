@@ -28,7 +28,7 @@
 - [x] **[wave51 lane D] record pipe の二重 mismatch 診断を抑制する**: pipe operand が明示的に異なる record 型なら operand 側と `pipeCall` 側で同じ mismatch が二度出る。適合失敗済み情報を渡すか重複抑制し、二重診断 fixture を red-first で直す（[lane E 検証](docs/sketch/2026-11-27-wave50-lane-e-record-context-verify.md)）
 - [x] **[wave51 lane C] unit-only 診断 coverage の再分類とメタテスト強化**: lane A の分類で残った unit-only / no explicit coverage を一件ずつ意味確認し、spec/CLI fixture 追加、意図的 reserved、または meta-test 対象外の明示へ落とす。分類軸と fixture 命名を meta-test で固定する（[検証](docs/sketch/2026-11-27-wave50-lane-a-diag-meta-verify.md)）
 - [x] **[wave51 lane F] agent skill の記述をツール利用中心へ瘦身する**: `skills/gom-agent-guide` に静的に厚く書かれている情報のうち、`gom list` / `gom info` などのツールで得られるものはコマンドの使い方を示す形へ寄せる。stdlib package/member 情報を代表例として、guide に残すべき規範とツールへ委譲すべき inventory を分ける（[wave51 prompts](docs/sketch/2026-11-27-wave51-prompts.md)）
-- [ ] **[wave51 lane A] module 外 `gom run` / `gom init`**: go.mod のない directory では scratch module を合成して `gom run` し、`gom init` は `go.mod` / `main.gom` 雛形を生成する。scratch module の寿命・cache・既存ファイル非上書き・module-aware import 解決を decision/fixture で固定する（[wave51 prompts](docs/sketch/2026-11-27-wave51-prompts.md)）
+- [x] **[wave51 lane A] module 外 `gom run` / `gom init`**: go.mod のない directory では scratch module を合成して `gom run` し、`gom init` は `go.mod` / `main.gom` 雛形を生成する。scratch module の寿命・cache・既存ファイル非上書き・module-aware import 解決を decision/fixture で固定する（[wave51 prompts](docs/sketch/2026-11-27-wave51-prompts.md)）
 
 ### owner improvement ideas audit 由来（[PR #256](https://github.com/podhmo/gom/pull/256)、[audit](docs/sketch/2026-11-26-wave48-lane-g-owner-ideas-audit.md)）
 

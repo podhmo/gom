@@ -884,6 +884,7 @@ test "rendered items" {
 | `gom check` | `diagnostic`、`summary`（Go を生成せず、型検査とパターン検査だけ行う） |
 | `gom test` | `diagnostic`、`test`（テストごとの成否・所要時間・失敗時の値と位置）、`summary`（`tests` の集計を含む） |
 | `gom run` | コンパイル・リンクが失敗したときだけ `diagnostic`、`summary`。成功時はメッセージを出さず、プログラムの出力だけが stdout/stderr に残る |
+| `gom init` | メッセージストリームではなく、作成/保持したファイル名を行として stdout に出す |
 | `gom fmt --check` | `unformatted`（整形が必要なファイルと差分）、`summary` |
 | `gom fix` | `applied`（適用した編集）、`summary` |
 | `gom explain <code>` | `explanation`（エラーコードの説明・例・修正例） |
@@ -912,7 +913,9 @@ test "rendered items" {
 
 `gom test` が実行するのは `go test` のパッケージ粒度である — 入力ファイルのあるディレクトリのパッケージ全体のテストが走るので、同じパッケージの他の `.gom` 由来や手書きのテストも結果に含まれる。それらは `span` のない `test` オブジェクトとして `func` と同名の `name` で報告される。コンパイルにエラーがあるとき `go test` は実行しない（`tests` の集計はすべて 0）。Go のツールチェーン側の失敗（テストバイナリがコンパイルできない、`go test` が起動できない）は `"source": "go"` の `diagnostic` として報告する。
 
-`gom run` は `go run` の綴り方である — 単一の `package main` ディレクトリをコンパイルし、生成コードをソースの隣に書き（`gom build` と同じ置き場）、`go build` で temp バイナリにリンクして実行する。`go run` でなく `go build` + 直接起動にするのは、子プロセスの終了コードをそのまま返すためである（`go run` はどんな失敗も `exit status 1` に潰す）。引数列の最初の `--` 以降はプログラムの argv に渡す。利用者が指定した入力が複数ディレクトリにまたがる、または `package main` でない場合は使用エラー（終了コード 2）。同一 module 内の依存 dir は自動追加されるため、この単一ディレクトリ制約には数えない。コンパイルやリンクに失敗したときだけ通常のメッセージストリームを出し、成功時は `summary` も出さない — パイプで受けるプログラム出力を汚さないためである（[decisions/gom-run](decisions/2026-11-18-gom-run.md)）
+`gom run` は `go run` の綴り方である — 単一の `package main` ディレクトリをコンパイルし、生成コードをソースの隣に書き（`gom build` と同じ置き場）、`go build` で temp バイナリにリンクして実行する。go.mod のない directory では、run package directory を root とする invocation-scoped な scratch module（module path `gom.local/scratch`）を合成し、終了時に削除する。既存 go.mod は上書きしない。`gom.local/scratch` 配下の import は module-local dependency として辿るが、外部 dependency を管理する用途には使わず、`gom init` で通常の module を作る。`go run` でなく `go build` + 直接起動にするのは、子プロセスの終了コードをそのまま返すためである（`go run` はどんな失敗も `exit status 1` に潰す）。引数列の最初の `--` 以降はプログラムの argv に渡す。利用者が指定した入力が複数ディレクトリにまたがる、または `package main` でない場合は使用エラー（終了コード 2）。同一 module 内の依存 dir は自動追加されるため、この単一ディレクトリ制約には数えない。コンパイルやリンクに失敗したときだけ通常のメッセージストリームを出し、成功時は `summary` も出さない — パイプで受けるプログラム出力を汚さないためである（[decisions/gom-run](decisions/2026-11-18-gom-run.md)）
+
+`gom init [-dir DIR] [MODULE-PATH]` は新規 project の `go.mod` と `main.gom` を生成する。`MODULE-PATH` 省略時は `example.com/<directory 名を sanitize したもの>` を使う。既存ファイルは上書きせず、片方だけあるときは欠けている側だけを作る。両方あるときは使用エラー（終了コード 2）である（[decision](decisions/2026-11-27-module-external-run-init.md)）。
 
 `gom test --update`（短縮形 `-u`）はスナップショットの更新モードである — `go test` の子プロセスにだけ更新用の環境変数を渡し、通常の `gom test` では期待値ファイルを読み比較する。`gom test` の引数列のうち最初の `--` 以降は `go test` にそのまま渡す（`gom test -- -race`、`gom test -- -run Bump -count=1` など）。`-json` は gom が結果の取得に使うフラグなので、これを打ち消す指定（`-json=false`）は結果ストリームを壊し、Go ツール側の失敗として `"source": "go"` の E0001 で報告される。未知・不正なフラグも gom 側の使用エラーではなく同じ経路で報告される（[decisions/gom-test-go-test-flags](decisions/2026-11-05-gom-test-go-test-flags.md)）。
 

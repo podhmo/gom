@@ -193,7 +193,7 @@
 | [flat-fn-params](2026-11-18-flat-fn-params.md) | >=2 本矢印の宣言パラメータは flat 表現（呼出側 uncurry） | 採用（wave20 lane 2 で実装・検証した — ベンチと生成コード差分は [sketch/2026-11-18-flat-fn-params-verify.md](../sketch/2026-11-18-flat-fn-params-verify.md)、全ゲート緑） |
 | [fn-interop](2026-11-18-fn-interop.md) | `Go.FuncN` 値を Gom 側から適用する(逆変換 `Go.fnN`) | 採用（実装・検証した — `Go.fn2`/`fn0`/`fn1` の変換+呼出、int/int64 境界、`func() error` と `func(A) (T, error)` の `Result` materialize が `gom check`/`build`→`go build`→実行まで通る。testdata/spec/ok_go_fn_adapter・E0510_go_fn_{arity,non_fn}、testdata/golden/go_fn_adapter で固定。spec.md §8.8 へ反映済み） |
 | [golist-export-cache](2026-11-18-golist-export-cache.md) | `go list -export` の process 越し file cache | 採用（実装・検証した — `TestExportCacheSecondLoaderSkipsGoList`（2 台目の Loader は `go list` 0 回）・`TestExportCacheSourceEditInvalidates`（ソース編集で invalidation）・`TestExportCacheDisabled`（NOCACHE 素通り）。実測: `gom check` で `go list` 3 回 ~253ms → cache hit 時 ~7ms に） |
-| [gom-run](2026-11-18-gom-run.md) | `gom run` サブコマンド: go build + temp バイナリ実行 | 採択 |
+| [gom-run](2026-11-18-gom-run.md) | `gom run` サブコマンド: go build + temp バイナリ実行（一部を [module-external-run-init](2026-11-27-module-external-run-init.md) で置き換え） | 採択 |
 | [gomi-poly-let](2026-11-18-gomi-poly-let.md) | .gomi の多相 let | 採用 |
 | [incremental-build-cache](2026-11-18-incremental-build-cache.md) | インクリメンタルビルドキャッシュ | 採用 |
 | [lint-callee-alias](2026-11-18-lint-callee-alias.md) | lint の callee 照合は let の値エイリアスを辿る | 採用 |
@@ -283,6 +283,7 @@
 | [e0301-text-missing-patterns](2026-11-27-e0301-text-missing-patterns.md) | E0301 の text 出力へ不足パターンを出す（一部を [diagnostic-labels-details](2026-11-27-diagnostic-labels-details.md) で置き換え） | 採用（実装・検証した — [検証](../sketch/2026-11-27-wave49-lane-d-e0301-text-verify.md)） |
 | [logical-shortcircuit-lowering](2026-11-27-logical-shortcircuit-lowering.md) | `&&` / `\|\|` は短絡評価し、complex な右辺は Core IR の分岐へ閉じ込める | 採用（実装・検証した — [検証](../sketch/2026-11-27-wave49-lane-a-shortcircuit-verify.md)） |
 | [match-nested-narrowing](2026-11-27-match-nested-narrowing.md) | nested match の same-scrutinee narrowing | 採用（実装・検証した — [検証](../sketch/2026-11-27-wave51-lane-b-match-narrowing-verify.md)） |
+| [module-external-run-init](2026-11-27-module-external-run-init.md) | module 外 `gom run` / `gom init` | 採用（prototype 検証済み） |
 | [record-contextual-inference](2026-11-27-record-contextual-inference.md) | record literal の文脈推論 | 採用（実装・検証した — [検証](../sketch/2026-11-27-wave50-lane-e-record-context-verify.md)、[pipe recovery 検証](../sketch/2026-11-27-wave51-lane-d-record-pipe-verify.md)） |
 | [record-type-prefixed-literal](2026-11-27-record-type-prefixed-literal.md) | record 型名前置 literal | 採用（実装・検証した — [検証](../sketch/2026-11-27-wave49-lane-b-record-type-literal-verify.md)） |
 | [stdlib-result-traverse](2026-11-27-stdlib-result-traverse.md) | stdlib の Result traverse helpers — sequence / traverse_result | 採用（実装・検証した — [検証](../sketch/2026-11-27-wave49-lane-c-result-traverse-verify.md)） |
