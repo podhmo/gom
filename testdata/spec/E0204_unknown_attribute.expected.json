@@ -1,0 +1,10 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0204",
+      "severity": "error",
+      "message": "unknown attribute \"@wat\": only \"@test\", \"@tailrec\", \"@extern\" and \"@method\" are defined"
+    }
+  ]
+}
