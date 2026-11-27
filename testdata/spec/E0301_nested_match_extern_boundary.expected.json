@@ -1,0 +1,16 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0301",
+      "severity": "error",
+      "message": "non-exhaustive match on `Action`",
+      "data": {
+        "missing_patterns": [
+          "Remove _"
+        ],
+        "scrutinee_type": "Action"
+      }
+    }
+  ]
+}

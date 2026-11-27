@@ -1,0 +1,14 @@
+package main
+
+type Action =
+  | Add Int
+  | Remove Int
+
+@extern let current : Action
+
+fn read () -> Int = match current {
+  Add n -> match current {
+    Add m -> m
+  }
+  Remove n -> n
+}

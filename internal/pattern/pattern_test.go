@@ -882,3 +882,14 @@ func TestCheckFileWalks(t *testing.T) {
 		t.Fatalf("codes = %v, want %v", got, want)
 	}
 }
+
+func TestNarrowingRejectsExternSubject(t *testing.T) {
+	def := &syntax.VarPat{Sp: sp, Name: &syntax.Ident{Sp: sp, Name: "current"}}
+	sym := &resolve.Symbol{Name: "current", Kind: resolve.KindVar, Def: def}
+	c := newChecker(NewEnv(nil), Options{})
+	c.unstableVars[sym] = true
+	v := &check.Var{Base: base(&types.Con{Name: "Action"}), Sym: sym}
+	if _, ok := c.stableSubject(v); ok {
+		t.Fatal("extern-backed variable was treated as a stable subject")
+	}
+}

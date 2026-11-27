@@ -45,6 +45,10 @@ type checker struct {
 	// E0301's root signature view; E0302 keeps the uncontextual
 	// matrix for migration compatibility.
 	narrowed map[*resolve.Symbol]*rootDomain
+	// unstableVars are extern variables: their backing Go storage may
+	// change between the outer and inner match, so they are never a
+	// stable scrutinee.
+	unstableVars map[*resolve.Symbol]bool
 }
 
 func newChecker(env *Env, opts Options) *checker {
@@ -55,7 +59,14 @@ func newChecker(env *Env, opts Options) *checker {
 	if max <= 0 {
 		max = 5
 	}
-	return &checker{env: env, cv: conv{env: env}, res: opts.Resolver, max: max, narrowed: map[*resolve.Symbol]*rootDomain{}}
+	return &checker{
+		env:          env,
+		cv:           conv{env: env},
+		res:          opts.Resolver,
+		max:          max,
+		narrowed:     map[*resolve.Symbol]*rootDomain{},
+		unstableVars: map[*resolve.Symbol]bool{},
+	}
 }
 
 // CheckMatch checks one match expression (docs/design.md section
@@ -144,7 +155,7 @@ func (c *checker) checkMatch(m *check.Match) []diag.Diagnostic {
 	// root-column view only: recursive payload positions keep the
 	// type's full signature, and E0302 above remains uncontextual.
 	var rootSig *signature
-	if sym, ok := stableSubject(m.Subj); ok {
+	if sym, ok := c.stableSubject(m.Subj); ok {
 		if domain := c.narrowed[sym]; domain != nil {
 			rootSig = c.filteredSignature(subjTy, domain)
 		}
@@ -367,6 +378,13 @@ func CheckFile(f *check.File, opts Options) diag.List {
 		env.AddDecl(d)
 	}
 	c := newChecker(env, opts)
+	for _, d := range append(append([]check.Decl{}, f.Decls...), opts.Decls...) {
+		if ld, ok := d.(*check.LetDecl); ok && ld.Extern {
+			if vp, ok := ld.Pat.(*check.VarPat); ok && vp.Sym != nil {
+				c.unstableVars[vp.Sym] = true
+			}
+		}
+	}
 	var diags diag.List
 	for _, d := range f.Decls {
 		switch d := d.(type) {
@@ -431,7 +449,7 @@ func (c *checker) walkExpr(e check.Expr, diags *diag.List) {
 	case *check.Match:
 		*diags = append(*diags, c.checkMatch(e)...)
 		c.walkExpr(e.Subj, diags)
-		subjSym, tracking := stableSubject(e.Subj)
+		subjSym, tracking := c.stableSubject(e.Subj)
 		var remaining *rootDomain
 		if tracking {
 			remaining = c.rootDomainFor(e.Subj.Type(), c.narrowed[subjSym])

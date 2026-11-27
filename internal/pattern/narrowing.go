@@ -17,11 +17,15 @@ type rootDomain struct {
 }
 
 // stableSubject returns the local variable symbol used as a match
-// scrutinee. Only a direct variable reference is stable enough for
-// the syntactic narrowing of decisions/2026-11-27-match-nested-narrowing.
-func stableSubject(e check.Expr) (*resolve.Symbol, bool) {
+// scrutinee. Only a direct reference to source-defined, non-extern
+// storage is stable enough for the syntactic narrowing of
+// decisions/2026-11-27-match-nested-narrowing.
+func (c *checker) stableSubject(e check.Expr) (*resolve.Symbol, bool) {
 	v, ok := e.(*check.Var)
 	if !ok || v.Sym == nil || v.Sym.Kind != resolve.KindVar {
+		return nil, false
+	}
+	if v.Sym.IsGo || v.Sym.Def == nil || c.unstableVars[v.Sym] {
 		return nil, false
 	}
 	return v.Sym, true

@@ -18,7 +18,7 @@
 適用しないもの:
 
 - guard 条件の意味解析。前の腕に guard があれば negative narrowing には使わない。本体の中では pattern 自体が当たった事実は使える
-- フィールド参照、関数呼び出し結果、mutable cell、タプル/record path、別名をさらに辿る解析
+- フィールド参照、関数呼び出し結果、mutable cell、タプル/record path、別名をさらに辿る解析。`@extern let` や Go 側の変数も backing storage を外部から更新しうるため安定な scrutinee に含めない
 - リテラル集合や数値範囲の推論
 - 関数をまたぐ interprocedural な narrowing
 
