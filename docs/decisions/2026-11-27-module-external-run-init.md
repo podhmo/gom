@@ -32,7 +32,7 @@ go.mod が見つからない run package directory では、`gom run` がその 
 
 - `MODULE-PATH` 省略時は `example.com/<directory 名を sanitize したもの>` を使う
 - `go.mod` / `main.gom` は既存ファイルを上書きしない。片方だけ存在するときは残っている側を保ち、欠けている側だけを作る。両方あるときは何もせず使用エラーにする
-- 既存 `go.mod` が Gom 依存を持たないときは、生成 template が link できるよう `require github.com/podhmo/gom`（必要なら開発用 `replace`）を末尾へ追加する。module 行や既存 require は書き換えず、追加後に checksum を解決する
+- 既存 `go.mod` が Gom 依存を持たないときは、生成 template が link できるよう `require github.com/podhmo/gom`（必要なら開発用 `replace`）を末尾へ追加する。module 行や既存 require は書き換えず、追加後に checksum を解決する（wave52 lane B 以降、この解決は [init-standalone-checksum](2026-11-27-init-standalone-checksum.md) により init 先 module だけで行う）
 - `main.gom` は `fmt.Println("hello")` を実行する package main で、`gom run` ですぐ動く最小形にする
 
 ## 検証

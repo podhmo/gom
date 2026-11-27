@@ -95,6 +95,35 @@ func downloadToolchain(dir string) error {
 	return fmt.Errorf("go mod download github.com/podhmo/gom: %w: %s", err, bytes.TrimSpace(out))
 }
 
+// downloadToolchainStandalone resolves the toolchain exactly as the new
+// module will outside any caller workspace. `gom init` must not silently
+// rely on a parent go.work replace or checksum: a project that only works
+// while initialized inside that workspace is not yet standalone.
+func downloadToolchainStandalone(dir string) error {
+	env := replaceEnv(os.Environ(), "GOWORK", "off")
+	out, err := runDownloadToolchain(dir, env)
+	if err != nil {
+		return fmt.Errorf("go mod download github.com/podhmo/gom with GOWORK=off: %w: %s (gom init requires the project to resolve outside the caller's workspace; use a released gom version or add an explicit replace in the project go.mod)", err, bytes.TrimSpace(out))
+	}
+	// A local replace is not downloaded, so `go mod download` alone cannot
+	// distinguish a valid toolchain checkout from a missing or unrelated
+	// directory. Resolve the packages generated code imports; this also
+	// catches a release artifact that does not carry the toolchain packages.
+	out, err = runGoCommand(dir, env, "list", "-mod=readonly", "github.com/podhmo/gom/rt", "github.com/podhmo/gom/stdlib/result")
+	if err != nil {
+		return fmt.Errorf("go list github.com/podhmo/gom/rt github.com/podhmo/gom/stdlib/result with GOWORK=off: %w: %s (gom init requires the project to resolve outside the caller's workspace; use a released gom version or add an explicit replace in the project go.mod)", err, bytes.TrimSpace(out))
+	}
+	return nil
+}
+
+func runGoCommand(dir string, env []string, args ...string) ([]byte, error) {
+	cmd := exec.Command("go", args...)
+	cmd.Dir = dir
+	cmd.Env = env
+	out, err := cmd.CombinedOutput()
+	return out, err
+}
+
 func runDownloadToolchain(dir string, env []string) ([]byte, error) {
 	cmd := exec.Command("go", "mod", "download", "github.com/podhmo/gom")
 	cmd.Dir = dir
@@ -151,7 +180,11 @@ func isGomSourceRoot(dir string) bool {
 }
 
 func moduleFile(modulePath string) ([]byte, error) {
-	req, rep, err := toolchainRequirement()
+	return moduleFileWithRequirement(modulePath, toolchainRequirement)
+}
+
+func moduleFileWithRequirement(modulePath string, requirement func() (string, string, error)) ([]byte, error) {
+	req, rep, err := requirement()
 	if err != nil {
 		return nil, err
 	}
