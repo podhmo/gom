@@ -20,6 +20,7 @@
 - [ ] stdlib `str` の最小面を超える文字列操作を広げるか: wave48 lane E で byte length/index/range と `runes` は stdlib package `str` に決着したが、`fold_chars` 相当の中間 List を作らない走査、panic しない slice、Unicode 一般処理は未提供。PR #256 F1 の組み込み `String` module 案自体は採用済み decision と競合するため戻さない（[decision](decisions/2026-11-26-string-byte-surface.md)、[audit](sketch/2026-11-26-wave48-lane-g-owner-ideas-audit.md)）
 - [ ] Option を Result へ畳む traverse 系 helper を追加するか: wave49 lane C では `Result.sequence` / `List.traverse_result` の採用が決まり、配置も `Result.sequence` を compiler-owned forwarding member にする方向へ絞った。Option 側 helper は需要と命名が弱く今回は見送り（[prompts](sketch/2026-11-27-wave49-prompts.md)）
 - [ ] match narrowing の残りの精度化をどこまで入れるか: same-scrutinee root constructor narrowing 以外に、guard 条件解析、literal/field path narrowing、複数 partial payload alternative の合成、interprocedural な絞り込み、alias 解釈を扱うか。contextual E0302 への移行時期・コード、進化検知を促す match スタイル支援も別 decision が要る（[lane D 検証](sketch/2026-11-27-wave50-lane-d-match-precision-verify.md)、[wave51 lane B 検証](sketch/2026-11-27-wave51-lane-b-match-narrowing-verify.md)）
+- [x] DMMF fit example は現在の言語機能でどこまで更新できるか: **wave52 lane D として採択**（2026-11-27、[prompts](sketch/2026-11-27-wave52-prompts.md)）。`experiments/dmmf-fit` を実際に更新しながら、不足項目の解消・よりよい書き方・残課題を調査する。調査 lane なので実作業 TODO には登録しない（[fit report](sketch/ja/2026-11-26-dmmf-order-taking-fit.md)）
 
 ### 開発体験 / 診断
 
