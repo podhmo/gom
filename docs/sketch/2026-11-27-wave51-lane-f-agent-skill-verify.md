@@ -20,3 +20,11 @@
 - `go run ./cmd/gom list`: `cmp` / `list` / `option` / `result` / `str` を列挙
 - `go run ./cmd/gom info list`: 現在の `stdlib/list/list.gomi` を表示
 - `go test ./skills`: pass
+
+## 最終検証
+
+- `go vet ./...`: pass
+- `go test ./...`: pass
+- `sh scripts/check-sumtype.sh`: pass
+- `sh scripts/check-staticcheck.sh`: pass
+- `gofmt -l .`: empty
