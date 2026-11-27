@@ -209,8 +209,9 @@ duplicate-arm checks.
   matches on the same stable local scrutinee narrow the constructors
   used for E0301 in arm bodies and later arms. A guarded arm does not
   narrow later arms, though its body can use the positive fact that
-  its pattern matched. This narrowing affects only E0301 — contextual
-  E0302 and guard-condition analysis are unchanged. Bind with
+  its pattern matched. Independently of narrowing, a guarded arm never
+  counts as covering its own `match`. This narrowing affects only E0301 —
+  contextual E0302 and guard-condition analysis are unchanged. Bind with
   variables/constructors;
   `let` accepts only irrefutable patterns.
 - **Errors are values.** `try e` unwraps `Ok v → v` or returns `Err`
