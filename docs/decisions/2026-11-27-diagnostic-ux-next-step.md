@@ -22,7 +22,7 @@
 
 ## red-first fixture 方針
 
-1. `fn f () -> Int = if c { 1 } else { "s" }` で、文字列側の E0401 が return 注釈 span を `expected type declared here` label に持つことを先に固定する
+1. `fn f (c: Bool) -> Int = if c { 1 } else { "s" }` で、文字列側の E0401 が return 注釈 span を `expected type declared here` label に持つことを先に固定する
 2. `match` の各腕でも同じ label が出る fixture を足す
 3. 腕内の独立した演算 mismatch には label が付かない negative fixture を足し、wave50 の non-leak 規則を保つ
 4. 実装後に `testdata/spec` の期待 JSON と text output の両方を確認する
