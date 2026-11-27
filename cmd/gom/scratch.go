@@ -81,14 +81,26 @@ func timeUnix(sec int64) time.Time { return time.Unix(sec, 0) }
 // two paths on one contract and surfaces toolchain-resolution errors before
 // compilation rather than at the final link step.
 func downloadToolchain(dir string) error {
+	out, err := runDownloadToolchain(dir, os.Environ())
+	if err == nil {
+		return nil
+	}
+	// A module under a parent workspace can use that workspace's replace
+	// directives, so try the caller's resolution first. A directory not yet
+	// listed in the workspace cannot be resolved there; retry outside the
+	// workspace before reporting the original failure shape.
+	if _, ierr := runDownloadToolchain(dir, replaceEnv(os.Environ(), "GOWORK", "off")); ierr == nil {
+		return nil
+	}
+	return fmt.Errorf("go mod download github.com/podhmo/gom: %w: %s", err, bytes.TrimSpace(out))
+}
+
+func runDownloadToolchain(dir string, env []string) ([]byte, error) {
 	cmd := exec.Command("go", "mod", "download", "github.com/podhmo/gom")
 	cmd.Dir = dir
-	cmd.Env = replaceEnv(os.Environ(), "GOWORK", "off")
+	cmd.Env = env
 	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("go mod download github.com/podhmo/gom: %w: %s", err, bytes.TrimSpace(out))
-	}
-	return nil
+	return out, err
 }
 
 func setEnv(key, value string) func() {
