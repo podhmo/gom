@@ -537,7 +537,7 @@ where the intended type is not already obvious:
 a statically known record expected type — annotations, returns,
 call arguments, constructor payloads, record fields, and callback
 result positions reached through statically known generic applications
-or pipes — but it never infers backward from later field use.
+or `|>`/`<|` pipes — but it never infers backward from later field use.
 When a positional lambda consumes parameters through a labeled function context, inference uses
 the corresponding positions with their labels erased; labels left in the
 residual type still follow the normal call/conformance rules. If no
