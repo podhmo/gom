@@ -5,7 +5,7 @@
 
 ## 決定
 
-`gom init` が失敗したとき、init が作成・変更した project file はすべて rollback する。対象は `go.mod`、`go.sum`、`main.gom` とし、init 自身が作成した file は削除し、init が変更した既存 file は開始前の内容へ戻す。init 開始後に外部から `main.gom` が作られた場合は、init がまだその file を作っていないので削除しない。`go.mod` / `go.sum` については、init 開始時の backup を正とし、validation 中に外部から concurrent に作成・置換された file まで attribution を保証しない。
+`gom init` が失敗したとき、init が作成・変更した project file はすべて rollback する。対象は `go.mod`、`go.sum`、`main.gom` とし、init 自身が作成した file は削除し、init が変更した既存 file は開始前の内容へ戻す。init 開始後に外部から `main.gom` が作られた場合は、init がまだその file を作っていないので削除しない。`go.mod` / `go.sum` については、init 開始時の backup を正とし、validation 中に外部から concurrent に作成・置換された file は rollback が削除・上書きすることがあり、その attribution までは保証しない。
 
 - standalone toolchain validation の失敗だけでなく、validation 成功後の `main.gom` write failure も同じ失敗として扱う
 - 新規 init で作成した `go.mod` / `go.sum`、既存 module への additive edit、init が書いた `go.sum` 変更を区別せず rollback する
