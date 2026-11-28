@@ -272,6 +272,7 @@ func TestDiffDiagnosticsFixes(t *testing.T) {
 			`[{"fixes":[{"title":"add the missing arms","edits":[{"start":{"offset":5},"end":{"offset":5},"text":"x"}]}]}]`, 1},
 		{"edit count mismatch",
 			`[{"fixes":[{"title":"add the missing arms","edits":[]}]}]`, 1},
+		{"explicit empty rejects actual fixes", `[{"fixes":[]}]`, 1},
 		{"non-array fixes", `[{"fixes":{}}]`, 1},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -280,6 +281,20 @@ func TestDiffDiagnosticsFixes(t *testing.T) {
 				t.Errorf("got %d messages %v, want %d", len(msgs), msgs, tt.want)
 			}
 		})
+	}
+}
+
+func TestDiffDiagnosticsDataAbsent(t *testing.T) {
+	got := []diag.Diagnostic{
+		diag.Error("E0201", "m").Set("candidates", []any{map[string]any{"name": "map"}}),
+	}
+	res := diag.NewDirResolver(filepath.Join("testdata", "spans"))
+	if msgs := diffDiagnostics(mustExpected(t, `[{"data_absent":["candidates"]}]`), got, res); len(msgs) != 1 {
+		t.Errorf("present key: got %d messages %v, want 1", len(msgs), msgs)
+	}
+	got[0].Data = nil
+	if msgs := diffDiagnostics(mustExpected(t, `[{"data_absent":["candidates"]}]`), got, res); len(msgs) != 0 {
+		t.Errorf("absent key: got messages %v, want none", msgs)
 	}
 }
 
@@ -329,7 +344,7 @@ func TestLoadExpected(t *testing.T) {
 func TestSpecUpdatePreservesExplicitEmptyAssertions(t *testing.T) {
 	dir := t.TempDir()
 	expectedPath := filepath.Join(dir, "c.expected.json")
-	old := `{"diagnostics":[{"code":"E0301","notes":[],"labels":[]}]}`
+	old := `{"diagnostics":[{"code":"E0301","notes":[],"labels":[],"fixes":[],"data_absent":["candidates"]}]}`
 	if err := os.WriteFile(expectedPath, []byte(old), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -346,11 +361,15 @@ func TestSpecUpdatePreservesExplicitEmptyAssertions(t *testing.T) {
 		t.Fatal(err)
 	}
 	obj := wire["diagnostics"].([]any)[0].(map[string]any)
-	for _, key := range []string{"notes", "labels"} {
+	for _, key := range []string{"notes", "labels", "fixes"} {
 		arr, ok := obj[key].([]any)
 		if !ok || len(arr) != 0 {
 			t.Errorf("%s was not preserved as an empty array: %s", key, data)
 		}
+	}
+	arr, ok := obj["data_absent"].([]any)
+	if !ok || len(arr) != 1 || arr[0] != "candidates" {
+		t.Errorf("data_absent was not preserved: %s", data)
 	}
 	if !strings.Contains(string(data), "x -> y") {
 		t.Errorf("message should keep the wire encoder's unescaped form: %s", data)

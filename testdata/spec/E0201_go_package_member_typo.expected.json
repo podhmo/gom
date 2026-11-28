@@ -1,0 +1,38 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0201",
+      "severity": "error",
+      "message": "`fmt` has no member `Printlm`",
+      "span": {
+        "file": "E0201_go_package_member_typo.gom",
+        "start": {
+          "line": 8,
+          "col": 15,
+          "offset": 182
+        },
+        "end": {
+          "line": 8,
+          "col": 22,
+          "offset": 189
+        }
+      },
+      "data": {
+        "candidates": [
+          {
+            "edit_distance": 1,
+            "name": "Println"
+          }
+        ],
+        "in": "fmt",
+        "name": "Printlm",
+        "namespace": "member"
+      },
+      "notes": [
+        "did you mean `Println`?"
+      ],
+      "fixes": []
+    }
+  ]
+}

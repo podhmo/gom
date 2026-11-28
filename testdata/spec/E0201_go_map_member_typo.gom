@@ -1,0 +1,7 @@
+package ex
+
+// `lengt` is one deletion from `length` in Go.Map's operation table.
+fn f () -> Unit = {
+  let _ = Go.Map.lengt
+  ()
+}

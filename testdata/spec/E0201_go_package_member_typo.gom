@@ -1,0 +1,10 @@
+package ex
+
+import go "fmt"
+
+// A Go package member table participates in the same candidate rule:
+// `Printlm` is one substitution from `Println`.
+fn f () -> Unit = {
+  let _ = fmt.Printlm("x")
+  ()
+}

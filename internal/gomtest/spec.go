@@ -33,12 +33,15 @@ import (
 //     byte offsets or only line/columns.
 //   - "data": subset match — each expected key must exist in the
 //     actual data with a JSON-equal value. Extra actual keys pass.
+//   - "data_absent": each expected key name must be absent from the
+//     actual data. This harness-only key is preserved by -update.
 //   - "labels"/"details": each expected entry matches the next actual
 //     entry in order. Extra actual entries pass.
 //   - "notes": each expected note must appear among the actual notes,
 //     in order (a subsequence). Extra actual notes pass, except that
 //     an explicitly empty array requires the actual notes to be empty.
 //   - "fixes": each expected fix must match some actual fix in order.
+//     An explicitly empty array requires the actual fixes to be empty.
 //     A fix matches when its "title"/"applicability" equal the present
 //     expected values and, if "edits" is present, the edits are equal
 //     in number and pairwise matching (same fields as "span" plus
@@ -148,8 +151,9 @@ func writeExpected(t *testing.T, path string, got []diag.Diagnostic, res diag.Re
 	t.Logf("updated %s", path)
 }
 
-// preserveExplicitEmptyArrays keeps an explicitly empty "notes" or
-// "labels" assertion when -update rewrites a fixture and the actual
+// preserveExplicitEmptyArrays keeps an explicitly empty "notes",
+// "labels", or "fixes" assertion and the harness-only "data_absent"
+// assertion when -update rewrites a fixture and the actual
 // diagnostic still has no such values. The wire encoder omits empty
 // arrays, so without this preservation every regeneration would erase
 // the negative assertion. Preservation is conservative: only the same
@@ -168,7 +172,7 @@ func preserveExplicitEmptyArrays(path string, rendered []byte) []byte {
 	if !ok {
 		return rendered
 	}
-	inserts := map[int][]string{}
+	inserts := map[int][]preservedKey{}
 	for i, v := range arr {
 		if i >= len(old) {
 			break
@@ -177,7 +181,7 @@ func preserveExplicitEmptyArrays(path string, rendered []byte) []byte {
 		if !ok || cur["code"] != old[i]["code"] {
 			continue
 		}
-		for _, key := range []string{"notes", "labels"} {
+		for _, key := range []string{"notes", "labels", "fixes"} {
 			oldVal, ok := old[i][key]
 			if !ok {
 				continue
@@ -187,21 +191,31 @@ func preserveExplicitEmptyArrays(path string, rendered []byte) []byte {
 				continue
 			}
 			if _, present := cur[key]; !present {
-				inserts[i] = append(inserts[i], key)
+				inserts[i] = append(inserts[i], preservedKey{key: key, raw: []byte("[]")})
+			}
+		}
+		if oldVal, ok := old[i]["data_absent"]; ok {
+			if raw, err := json.Marshal(oldVal); err == nil {
+				inserts[i] = append(inserts[i], preservedKey{key: "data_absent", raw: raw})
 			}
 		}
 	}
 	if len(inserts) == 0 {
 		return rendered
 	}
-	return insertEmptyArrays(rendered, inserts)
+	return insertPreservedKeys(rendered, inserts)
 }
 
-// insertEmptyArrays inserts empty arrays into the compact rendered
-// document without re-encoding it. Re-encoding would reorder object
-// keys and escape characters such as `>` in messages, unlike the wire
-// encoder used for ordinary updates.
-func insertEmptyArrays(rendered []byte, inserts map[int][]string) []byte {
+type preservedKey struct {
+	key string
+	raw []byte
+}
+
+// insertPreservedKeys inserts harness assertions into the compact
+// rendered document without re-encoding it. Re-encoding would reorder
+// object keys and escape characters such as `>` in messages, unlike
+// the wire encoder used for ordinary updates.
+func insertPreservedKeys(rendered []byte, inserts map[int][]preservedKey) []byte {
 	prefix := `{"diagnostics":[`
 	if !bytes.HasPrefix(rendered, []byte(prefix)) {
 		return rendered
@@ -221,7 +235,8 @@ func insertEmptyArrays(rendered []byte, inserts map[int][]string) []byte {
 		} else {
 			out.Write(rendered[pos : end-1])
 			for _, key := range keys {
-				fmt.Fprintf(&out, `,%q:[]`, key)
+				fmt.Fprintf(&out, `,%q:`, key.key)
+				out.Write(key.raw)
 			}
 			out.WriteByte('}')
 		}
@@ -332,6 +347,7 @@ func diffDiagnostic(exp map[string]any, got diag.Diagnostic, res diag.Resolver, 
 	msgs = append(msgs, checkString(exp, "source", string(got.Source), path)...)
 	msgs = append(msgs, checkSpan(exp, got.Span, res, path)...)
 	msgs = append(msgs, checkData(exp, got.Data, path)...)
+	msgs = append(msgs, checkDataAbsent(exp, got.Data, path)...)
 	msgs = append(msgs, checkLabels(exp, got.Labels, res, path)...)
 	msgs = append(msgs, checkDetails(exp, got.Details, path)...)
 	msgs = append(msgs, checkNotes(exp, got.Notes, path)...)
@@ -500,6 +516,30 @@ func checkData(exp map[string]any, data map[string]any, path string) (msgs []str
 	return msgs
 }
 
+// checkDataAbsent verifies the harness-only "data_absent" assertion:
+// every listed key must be absent from the actual data object.
+func checkDataAbsent(exp map[string]any, data map[string]any, path string) (msgs []string) {
+	v, ok := exp["data_absent"]
+	if !ok {
+		return nil
+	}
+	arr, ok := v.([]any)
+	if !ok {
+		return []string{fmt.Sprintf("%s.data_absent: expected an array, got %s", path, jsonRepr(v))}
+	}
+	for i, k := range arr {
+		key, ok := k.(string)
+		if !ok {
+			msgs = append(msgs, fmt.Sprintf("%s.data_absent[%d]: expected a string, got %s", path, i, jsonRepr(k)))
+			continue
+		}
+		if _, present := data[key]; present {
+			msgs = append(msgs, fmt.Sprintf("%s.data_absent[%d]: key %q unexpectedly present in actual data", path, i, key))
+		}
+	}
+	return msgs
+}
+
 // checkLabels verifies that each expected label matches the actual
 // labels in order. An explicitly empty array requires no actual labels.
 // A label's "span" uses the same subset semantics as the primary span;
@@ -644,7 +684,8 @@ func checkNotes(exp map[string]any, notes []string, path string) (msgs []string)
 }
 
 // checkFixes verifies that each expected fix matches some actual fix
-// in order (subsequence semantics).
+// in order (subsequence semantics). An explicitly empty expected array
+// asserts that no fixes were emitted.
 func checkFixes(exp map[string]any, fixes []diag.Fix, res diag.Resolver, path string) (msgs []string) {
 	v, ok := exp["fixes"]
 	if !ok {
@@ -653,6 +694,12 @@ func checkFixes(exp map[string]any, fixes []diag.Fix, res diag.Resolver, path st
 	arr, ok := v.([]any)
 	if !ok {
 		return []string{fmt.Sprintf("%s.fixes: expected an array, got %s", path, jsonRepr(v))}
+	}
+	if len(arr) == 0 {
+		if len(fixes) != 0 {
+			return []string{fmt.Sprintf("%s.fixes: expected no fixes, got %s", path, jsonRepr(fixTitles(fixes)))}
+		}
+		return nil
 	}
 	from := 0
 	for i, e := range arr {

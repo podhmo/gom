@@ -1,6 +1,6 @@
 # E0201 module member typo 候補表示
 
-- 状態: 採用（調査済み・実装候補の決定。実装は未実施）
+- 状態: 採用（実装・検証した — [検証](../sketch/2026-11-28-wave56-lane-b-member-typo-verify.md)）
 - 日付: 2026-11-28
 
 ## 決定

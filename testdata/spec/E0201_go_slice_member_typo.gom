@@ -1,0 +1,8 @@
+package ex
+
+// `lenght` transposes two letters of `length`: the operation-table
+// member miss suggests the exact candidate but does not offer a fix.
+fn f () -> Unit = {
+  let _ = Go.Slice.lenght
+  ()
+}

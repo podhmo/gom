@@ -1,0 +1,33 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0201",
+      "severity": "error",
+      "message": "`List` has no member `zzzz`",
+      "span": {
+        "file": "E0201_member_typo_negative.gom",
+        "start": {
+          "line": 5,
+          "col": 40,
+          "offset": 180
+        },
+        "end": {
+          "line": 5,
+          "col": 44,
+          "offset": 184
+        }
+      },
+      "data": {
+        "in": "List",
+        "name": "zzzz",
+        "namespace": "member"
+      },
+      "notes": [],
+      "fixes": [],
+      "data_absent": [
+        "candidates"
+      ]
+    }
+  ]
+}

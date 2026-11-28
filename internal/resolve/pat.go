@@ -279,7 +279,7 @@ func (r *resolver) selectMemberCtor(mod *Symbol, sel *syntax.Ident, sc *scope) {
 			return
 		}
 	}
-	r.undefinedMember(mod, sel, builtin)
+	r.undefinedMember(mod, sel, table, builtin)
 }
 
 // fieldRef resolves a `{ name = pat }` field name or a `~label:`
