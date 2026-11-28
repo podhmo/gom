@@ -406,23 +406,24 @@ func TestSpecUpdateDropsStaleDataAbsent(t *testing.T) {
 
 func TestSpecUpdateOmitsAbsoluteForeignSpanFile(t *testing.T) {
 	dir := t.TempDir()
-	foreignDir := t.TempDir()
+	foreignDir := filepath.Join(t.TempDir(), "full　width")
+	if err := os.MkdirAll(foreignDir, 0o755); err != nil {
+		t.Fatal(err)
+	}
 	foreignPath := filepath.Join(foreignDir, "foreignpkg.gomi")
 	if err := os.WriteFile(foreignPath, []byte("type X = { x: Int }\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
 	expectedPath := filepath.Join(dir, "c.expected.json")
 	d := diag.Error("E0401", "x").
-		AddLabel(diag.SpanIn(foreignPath, 0, 1), "foreign declaration")
+		AddLabel(diag.SpanIn(foreignPath, 0, 1), "foreign declaration").
+		Set("file", foreignPath)
 	res := diag.NewDirResolver(dir)
 	writeExpected(t, expectedPath, []diag.Diagnostic{d}, res)
 
 	data, err := os.ReadFile(expectedPath)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if strings.Contains(string(data), foreignPath) {
-		t.Errorf("update wrote machine-local foreign path: %s", data)
 	}
 	var wire map[string]any
 	if err := json.Unmarshal(data, &wire); err != nil {
@@ -436,6 +437,9 @@ func TestSpecUpdateOmitsAbsoluteForeignSpanFile(t *testing.T) {
 	}
 	if _, ok := sp["start"].(map[string]any)["line"]; !ok {
 		t.Errorf("foreign label span lost positions: %s", data)
+	}
+	if obj["data"].(map[string]any)["file"] != foreignPath {
+		t.Errorf("machine-facing data file was rewritten with span files: %s", data)
 	}
 }
 

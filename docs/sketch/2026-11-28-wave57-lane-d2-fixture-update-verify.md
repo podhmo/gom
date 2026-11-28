@@ -17,7 +17,7 @@ spec fixture `-update` の 2 つの preservation bug を直した。
 ## fixture
 
 - `TestSpecUpdateDropsStaleDataAbsent`: actual `data.candidates` があるとき stale な `data_absent: ["candidates"]` を残さない
-- `TestSpecUpdateOmitsAbsoluteForeignSpanFile`: foreign `.gomi` label span から absolute `file` を落とし、position を残す
+- `TestSpecUpdateOmitsAbsoluteForeignSpanFile`: foreign `.gomi` label span から absolute `file` を落とし、position を残す。全角スペースを含む path でも wire JSON の exact bytes を decode して判定し、同じ path を持つ machine-facing `data.file` は落とさない
 - `TestSpecUpdatePreservesExplicitEmptyAssertions`: still valid な `data_absent` と empty notes/labels/fixes の既存 preserve 非退行
 
 ## 残件

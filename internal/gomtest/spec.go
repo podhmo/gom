@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
-	"strconv"
 	"testing"
 
 	"github.com/podhmo/gom/internal/diag"
@@ -142,7 +141,7 @@ func writeExpected(t *testing.T, path string, got []diag.Diagnostic, res diag.Re
 		doc.Write(raw)
 	}
 	doc.WriteString("]}")
-	rendered := stripAbsoluteSpanFiles(doc.Bytes(), got)
+	rendered := stripAbsoluteSpanFiles(doc.Bytes())
 	rendered = preserveExplicitEmptyArrays(path, rendered)
 	var out bytes.Buffer
 	if err := json.Indent(&out, rendered, "", "  "); err != nil {
@@ -236,38 +235,90 @@ func liveDataAbsentKeys(oldVal, actualData any) []string {
 	return keep
 }
 
-// stripAbsoluteSpanFiles removes the file key of spans naming an
-// absolute path. Foreign dependency spans use machine-local absolute
-// paths; writing them into expected files makes the fixture fail in
-// another checkout. Positions remain asserted, while the portable
-// spelling of foreign diagnostic paths is still an open question.
-// The generated wire form puts "file" first in every span object, so
-// removing the exact compact key/value plus its following comma does
-// not disturb key order or require re-encoding the document.
-func stripAbsoluteSpanFiles(rendered []byte, got []diag.Diagnostic) []byte {
-	seen := map[string]bool{}
-	add := func(file string) {
-		if filepath.IsAbs(file) {
-			seen[file] = true
-		}
-	}
-	for _, d := range got {
-		add(d.Span.File)
-		for _, label := range d.Labels {
-			add(label.Span.File)
-		}
-		for _, fix := range d.Fixes {
-			for _, edit := range fix.Edits {
-				add(edit.Span.File)
+// stripAbsoluteSpanFiles removes the file key of span-shaped objects
+// naming an absolute path. Foreign dependency spans use machine-local
+// absolute paths; writing them into expected files makes the fixture
+// fail in another checkout. Positions remain asserted, while the
+// portable spelling of foreign diagnostic paths is still an open
+// question.
+//
+// The update must not re-encode the wire document, so this scans the
+// compact JSON instead. A "file" key is treated as part of a span only
+// when it is followed by the span's "start" object; machine-facing data
+// keys named file are therefore left alone. The string is decoded from
+// the exact bytes in the document rather than re-quoted, because the
+// wire encoder and strconv.Quote escape some Unicode spaces differently.
+func stripAbsoluteSpanFiles(rendered []byte) []byte {
+	key := []byte(`"file":`)
+	var out bytes.Buffer
+	pos, scan := 0, 0
+	inString := false
+	escaped := false
+	for scan < len(rendered) {
+		b := rendered[scan]
+		if inString {
+			if escaped {
+				escaped = false
+			} else if b == '\\' {
+				escaped = true
+			} else if b == '"' {
+				inString = false
 			}
+			scan++
+			continue
+		}
+		if b != '"' {
+			scan++
+			continue
+		}
+		if !bytes.HasPrefix(rendered[scan:], key) {
+			inString = true
+			scan++
+			continue
+		}
+		valueStart := scan + len(key)
+		valueEnd, ok := compactJSONStringEnd(rendered, valueStart)
+		if !ok {
+			scan = valueStart
+			continue
+		}
+		var file string
+		if err := json.Unmarshal(rendered[valueStart:valueEnd], &file); err != nil || !filepath.IsAbs(file) ||
+			valueEnd+len(`,"start":`) > len(rendered) || !bytes.Equal(rendered[valueEnd:valueEnd+len(`,"start":`)], []byte(`,"start":`)) {
+			scan = valueEnd
+			continue
+		}
+		out.Write(rendered[pos:scan])
+		pos = valueEnd + 1 // drop the comma that preceded the file key
+		scan = pos
+	}
+	out.Write(rendered[pos:])
+	return out.Bytes()
+}
+
+// compactJSONStringEnd returns the exclusive end of the compact JSON
+// string starting at rendered[start], or false when no string starts
+// there. The input is compact, so no whitespace can precede the value.
+func compactJSONStringEnd(rendered []byte, start int) (int, bool) {
+	if start >= len(rendered) || rendered[start] != '"' {
+		return start, false
+	}
+	escaped := false
+	for i := start + 1; i < len(rendered); i++ {
+		b := rendered[i]
+		if escaped {
+			escaped = false
+			continue
+		}
+		if b == '\\' {
+			escaped = true
+			continue
+		}
+		if b == '"' {
+			return i + 1, true
 		}
 	}
-	for file := range seen {
-		needle := append([]byte(`"file":`), strconv.Quote(file)...)
-		needle = append(needle, ',')
-		rendered = bytes.ReplaceAll(rendered, needle, nil)
-	}
-	return rendered
+	return start, false
 }
 
 type preservedKey struct {
