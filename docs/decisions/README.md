@@ -300,6 +300,7 @@
 | [e0201-bare-name-typo-candidates](2026-11-28-e0201-bare-name-typo-candidates.md) | E0201 typo 候補の第二段: bare value name を優先する | 採用（wave57 lane B で実装済み） |
 | [e0201-member-typo-candidates](2026-11-28-e0201-member-typo-candidates.md) | E0201 module member typo 候補表示 | 採用（実装・検証した — [検証](../sketch/2026-11-28-wave56-lane-b-member-typo-verify.md)） |
 | [e0201-member-typo-kind-policy](2026-11-28-e0201-member-typo-kind-policy.md) | E0201 member typo 候補の参照位置 kind policy | 採用（wave57 lane C で実装済み） |
+| [e0201-unimported-stdlib-candidates](2026-11-28-e0201-unimported-stdlib-candidates.md) | E0201 未 import Gom stdlib module 候補: 限定的に採用する | 採用（実装は次 wave 以降） |
 | [e0401-provenance-expansion](2026-11-28-e0401-provenance-expansion.md) | E0401 expected type provenance の拡張範囲 | 採用（wave57 lane A で実装済み） |
 | [record-ambiguity-candidates](2026-11-28-record-ambiguity-candidates.md) | ambiguous record literal の候補表示 | 採用（実装・検証した — [検証](../sketch/2026-11-28-wave56-lane-a-record-candidates-verify.md)） |
 <!-- END GENERATED -->
