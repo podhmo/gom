@@ -122,21 +122,34 @@ func TestRunReleasesGomiCacheBeforeChild(t *testing.T) {
 
 	called := false
 	var stdout, stderr strings.Builder
-	code := runGomRunWithBeforeChild(
-		[]string{filepath.Join(dir, "gomapp")}, &stdout, &stderr,
-		func(cache *gomiSourceCache) {
-			called = true
-			entries := 0
-			cache.sources.Range(func(_, _ any) bool {
-				entries++
-				return true
-			})
-			if entries != 0 {
-				t.Errorf("gom run child starts with %d cached .gomi sources", entries)
-			}
+	countEntries := func(cache *gomiSourceCache) int {
+		entries := 0
+		cache.sources.Range(func(_, _ any) bool {
+			entries++
+			return true
 		})
-	if !called {
-		t.Fatal("before-child hook was not called")
+		return entries
+	}
+	beforeRelease, beforeStart := -1, -1
+	code := runGomRunWithHooks(
+		[]string{filepath.Join(dir, "gomapp")}, &stdout, &stderr,
+		&runChildHooks{
+			beforeRelease: func(cache *gomiSourceCache) {
+				called = true
+				beforeRelease = countEntries(cache)
+			},
+			beforeStart: func(cache *gomiSourceCache) {
+				beforeStart = countEntries(cache)
+			},
+		})
+	if !called || beforeStart < 0 {
+		t.Fatal("cache-release hooks were not called")
+	}
+	if beforeRelease == 0 {
+		t.Fatal("compile did not populate the dependency .gomi cache")
+	}
+	if beforeStart != 0 {
+		t.Errorf("gom run child starts with %d cached .gomi sources", beforeStart)
 	}
 	if code != 0 {
 		t.Fatalf("gom run: exit %d; stdout=%q stderr=%q", code, stdout.String(), stderr.String())

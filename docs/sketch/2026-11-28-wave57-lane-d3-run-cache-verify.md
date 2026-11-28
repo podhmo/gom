@@ -9,7 +9,7 @@ dependency `.gomi` の compile-time bytes cache を process-global から compil
 
 ## red-first
 
-`TestRunReleasesGomiCacheBeforeChild` は `testdata/multifile` の dependency `.gomi` を読む successful run を使い、child 開始直前 hook で cache entry数を検査する。`gomi.clear()` を外すと `gom run child starts with 1 cached .gomi sources` で failし、戻すと pass した。
+`TestRunReleasesGomiCacheBeforeChild` は `testdata/multifile` の dependency `.gomi` を読む successful run を使い、compile 後・解放前 hook で dependency `.gomi` が登録されていることを確認し、child 開始直前 hook で cache entry数を検査する。`gomi.clear()` を外すと `gom run child starts with 1 cached .gomi sources` で failし、戻すと pass した。
 
 ## fixture / test
 

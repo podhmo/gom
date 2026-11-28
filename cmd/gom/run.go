@@ -34,13 +34,17 @@ import (
 // alone (a trailing summary would corrupt piped program output) and
 // the exit code is the program's own.
 func runGomRun(args []string, stdout, stderr io.Writer) int {
-	return runGomRunWithBeforeChild(args, stdout, stderr, nil)
+	return runGomRunWithHooks(args, stdout, stderr, nil)
 }
 
-// runGomRunWithBeforeChild is the testable body of runGomRun. The hook,
-// when non-nil, runs after diagnostic-only state has been released and
-// before the child process starts.
-func runGomRunWithBeforeChild(args []string, stdout, stderr io.Writer, beforeChild func(*gomiSourceCache)) int {
+// runChildHooks observes the cache-release boundary in the testable body
+// of runGomRun. Production passes nil.
+type runChildHooks struct {
+	beforeRelease func(*gomiSourceCache)
+	beforeStart   func(*gomiSourceCache)
+}
+
+func runGomRunWithHooks(args []string, stdout, stderr io.Writer, hooks *runChildHooks) int {
 	gomArgs, progArgs := args, []string(nil)
 	if i := slices.Index(args, "--"); i >= 0 {
 		gomArgs, progArgs = args[:i], args[i+1:]
@@ -214,9 +218,12 @@ func runGomRunWithBeforeChild(args []string, stdout, stderr io.Writer, beforeChi
 	// this point. Release the exact dependency bytes before the child can
 	// keep this process alive; the cache is invocation-scoped, so later
 	// commands still reread what they need.
+	if hooks != nil && hooks.beforeRelease != nil {
+		hooks.beforeRelease(gomi)
+	}
 	gomi.clear()
-	if beforeChild != nil {
-		beforeChild(gomi)
+	if hooks != nil && hooks.beforeStart != nil {
+		hooks.beforeStart(gomi)
 	}
 
 	// Workspace isolation ends with compilation. The executed program is
