@@ -221,7 +221,7 @@ func (r *resolver) ctorRef(e syntax.Expr, sc *scope) {
 				// the term winner is not a namespace, but a type of
 				// the same name is — `T.C` reads as type-qualified
 				r.use(recv, tsym)
-				r.selectTypeCtor(tsym, n.Sel)
+				r.selectTypeCtor(tsym, n.Sel, memberUseConstructor)
 				return
 			}
 			// q is bound but names neither a package nor a type —
@@ -236,7 +236,7 @@ func (r *resolver) ctorRef(e syntax.Expr, sc *scope) {
 				r.notModule(recv, tsym)
 				return
 			}
-			r.selectTypeCtor(tsym, n.Sel)
+			r.selectTypeCtor(tsym, n.Sel, memberUseConstructor)
 			return
 		}
 		r.undefinedQual(recv)
@@ -279,7 +279,7 @@ func (r *resolver) selectMemberCtor(mod *Symbol, sel *syntax.Ident, sc *scope) {
 			return
 		}
 	}
-	r.undefinedMember(mod, sel, table, builtin)
+	r.undefinedMember(mod, sel, table, builtin, memberUseConstructor, false)
 }
 
 // fieldRef resolves a `{ name = pat }` field name or a `~label:`

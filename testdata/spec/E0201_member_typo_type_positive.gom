@@ -1,0 +1,6 @@
+package ex
+
+import go "fmt"
+
+// Stringer is a type member, so it remains a candidate in type position.
+fn f (x: fmt.Stringe) -> Unit = ()

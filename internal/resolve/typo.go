@@ -13,14 +13,29 @@ type memberTypoCandidate struct {
 	distance int
 }
 
+type memberUse int
+
+const (
+	memberUseValue memberUse = iota + 1
+	memberUseType
+	memberUseConstructor
+)
+
 // memberTypoCandidates returns the nearest member names in table for
 // name. The first implementation deliberately keeps the threshold at
 // optimal-string-alignment distance 1: enough for one-letter typos and
 // transpositions, too narrow for the noisy distance-2 lookalikes.
 func memberTypoCandidates(table map[string]*Symbol, name string) []memberTypoCandidate {
+	return memberTypoCandidatesForUse(table, name, memberUseValue, false)
+}
+
+func memberTypoCandidatesForUse(table map[string]*Symbol, name string, use memberUse, namespaceHop bool) []memberTypoCandidate {
 	var out []memberTypoCandidate
 	for member, sym := range table {
-		if sym != nil && sym.Hidden != "" {
+		if sym == nil || !memberCandidateKind(sym.Kind, use, namespaceHop) {
+			continue
+		}
+		if sym.Hidden != "" {
 			continue // correcting to this member would only move the user to E0501
 		}
 		if d := osaDistance(name, member); d == 1 {
@@ -37,6 +52,19 @@ func memberTypoCandidates(table map[string]*Symbol, name string) []memberTypoCan
 		out = out[:3]
 	}
 	return out
+}
+
+func memberCandidateKind(k Kind, use memberUse, namespaceHop bool) bool {
+	switch use {
+	case memberUseValue:
+		return valueCandidateKind(k) || (namespaceHop && k == KindType)
+	case memberUseType:
+		return k == KindType
+	case memberUseConstructor:
+		return k == KindCtor
+	default:
+		panic("unreachable")
+	}
 }
 
 // valueTypoCandidates returns nearby value-level names visible through
@@ -102,8 +130,8 @@ func addValueTypoCandidates(d diag.Diagnostic, sc *scope, name string, inTest bo
 	return addTypoCandidates(d, valueTypoCandidates(sc, name, inTest))
 }
 
-func addMemberTypoCandidates(d diag.Diagnostic, table map[string]*Symbol, name string) diag.Diagnostic {
-	return addTypoCandidates(d, memberTypoCandidates(table, name))
+func addMemberTypoCandidates(d diag.Diagnostic, table map[string]*Symbol, name string, use memberUse, namespaceHop bool) diag.Diagnostic {
+	return addTypoCandidates(d, memberTypoCandidatesForUse(table, name, use, namespaceHop))
 }
 
 func addTypoCandidates(d diag.Diagnostic, candidates []memberTypoCandidate) diag.Diagnostic {

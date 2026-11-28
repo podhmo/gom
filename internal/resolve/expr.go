@@ -256,7 +256,7 @@ func (r *resolver) selectExpr(n *syntax.Select, sc *scope) {
 			// table (Config.Ctors).
 			if inner.Sel != nil {
 				if tsym := r.uses[inner.Sel]; tsym != nil && tsym.Kind == KindType {
-					r.selectTypeCtor(tsym, n.Sel)
+					r.selectTypeCtor(tsym, n.Sel, memberUseValue)
 				}
 			}
 			return
@@ -282,7 +282,7 @@ func (r *resolver) selectExpr(n *syntax.Select, sc *scope) {
 			r.notModule(recv, tsym)
 			return
 		}
-		r.selectTypeCtor(tsym, n.Sel)
+		r.selectTypeCtor(tsym, n.Sel, memberUseValue)
 		return
 	}
 	r.undefinedQual(recv)
@@ -343,17 +343,17 @@ func (r *resolver) selectMember(mod *Symbol, sel *syntax.Ident, sc *scope) {
 			return
 		}
 	}
-	r.undefinedMember(mod, sel, table, builtin)
+	r.undefinedMember(mod, sel, table, builtin, memberUseValue, r.inQual > 0)
 }
 
 // selectTypeCtor resolves `T.sel` (or the final selector of
 // `pkg.T.sel`) as a constructor of type tsym.
-func (r *resolver) selectTypeCtor(tsym *Symbol, sel *syntax.Ident) {
+func (r *resolver) selectTypeCtor(tsym *Symbol, sel *syntax.Ident, use memberUse) {
 	if cs := r.ctorTable(tsym)[sel.Name]; cs != nil {
 		r.use(sel, cs)
 		return
 	}
-	r.noSuchCtor(tsym, sel)
+	r.noSuchCtor(tsym, sel, use)
 }
 
 // ctorTable returns the constructor name -> symbol table of a type:

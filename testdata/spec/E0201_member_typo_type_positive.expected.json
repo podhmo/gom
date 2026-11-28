@@ -1,0 +1,24 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0201",
+      "severity": "error",
+      "message": "`fmt` has no member `Stringe`",
+      "data": {
+        "name": "Stringe",
+        "in": "fmt",
+        "namespace": "member",
+        "candidates": [
+          {
+            "name": "Stringer",
+            "edit_distance": 1
+          }
+        ]
+      },
+      "notes": [
+        "did you mean `Stringer`?"
+      ]
+    }
+  ]
+}

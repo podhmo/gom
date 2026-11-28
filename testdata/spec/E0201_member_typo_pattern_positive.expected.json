@@ -1,0 +1,24 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0201",
+      "severity": "error",
+      "message": "`foreignpkg` has no member `Circl`",
+      "data": {
+        "name": "Circl",
+        "in": "foreignpkg",
+        "namespace": "member",
+        "candidates": [
+          {
+            "name": "Circle",
+            "edit_distance": 1
+          }
+        ]
+      },
+      "notes": [
+        "did you mean `Circle`?"
+      ]
+    }
+  ]
+}
