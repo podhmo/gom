@@ -22,6 +22,8 @@
 
 ## To Be Implemented
 
+- [ ] **[task] 未 import Gom stdlib module candidate を出す**: E0201 `namespace: "module"` に限定し、`list`/`option`/`result`/`cmp`/`str` の exact match を import 忘れ、OSA 距離 1 を typo candidate として note/data に出す。stdlib short-name index は `build.Options` → `resolve.Config` へ注入し、safe fix は別 decision（[decision](docs/decisions/2026-11-28-e0201-unimported-stdlib-candidates.md)、[調査](docs/sketch/2026-11-28-wave57-lane-e-stdlib-candidates-verify.md)）
+
 - [x] **[task E0201-2] bare value name typo の候補表示を実装する**（依存: なし）: E0201 `namespace: "value"` で lexical scope chain の value kind だけを対象に、OSA 距離 1 の候補を最大 3 件 note と `data.candidates` に出す。shadowing dedup、TestOnly/Hidden 除外、3 文字未満 suppression、positive/negative/truncate fixture を含める（[decision](docs/decisions/2026-11-28-e0201-bare-name-typo-candidates.md)、[調査](docs/sketch/2026-11-28-wave56-lane-e-typo-candidates-verify.md)、[検証](docs/sketch/2026-11-28-wave57-lane-b-bare-value-typo-verify.md)）
 - [x] **[task E0401-1] record field 値へ expected type provenance を付ける**（依存: なし）: type parameter を含まない exact declaration type に限り、field 値と block tail/if/match 腕の最終 mismatch へ `expected type declared here` label を付ける。呼出し引数・generic field・constraint negative を fixture で固定する（[decision](docs/decisions/2026-11-28-e0401-provenance-expansion.md)、[調査](docs/sketch/2026-11-28-wave56-lane-c-provenance-expansion-verify.md)、[検証](docs/sketch/2026-11-28-wave57-lane-a-record-field-provenance-verify.md)）
 
