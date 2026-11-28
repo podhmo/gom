@@ -58,7 +58,7 @@ func valueTypoCandidates(sc *scope, name string, inTest bool) []memberTypoCandid
 			if sym == nil || !valueCandidateKind(sym.Kind) {
 				continue
 			}
-			if sym.Hidden != "" || (sym.TestOnly && !inTest) || testOnlyBuiltinName(member) {
+			if sym.Hidden != "" || (sym.TestOnly && !inTest) || (sym.Kind == KindBuiltin && testOnlyBuiltinName(member)) {
 				continue
 			}
 			if d := osaDistance(name, member); d == 1 {

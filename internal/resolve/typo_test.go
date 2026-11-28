@@ -68,6 +68,13 @@ func TestValueTypoCandidates(t *testing.T) {
 	if got := valueTypoCandidates(inner, "tota", true); len(got) != 1 || got[0].name != "total" {
 		t.Fatalf("tota candidates in test = %+v, want only total", got)
 	}
+	shadowAssert := &scope{parent: outer, terms: map[string]*Symbol{
+		"assert": {Name: "assert", Kind: KindVar},
+	}}
+	if got := valueTypoCandidates(shadowAssert, "asser", false); len(got) != 1 || got[0].name != "assert" {
+		t.Errorf("shadowing user assert candidates = %+v, want assert", got)
+	}
+
 	for name, want := range map[string]string{
 		"hidde":  "hidden",
 		"testf":  "testfn",

@@ -1,0 +1,6 @@
+package ex
+
+fn f () -> Int = {
+  let assert = 1
+  asser + 1
+}

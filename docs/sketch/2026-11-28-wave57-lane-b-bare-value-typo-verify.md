@@ -20,7 +20,8 @@ fixture 追加後、実装前の `go test ./internal/build -run 'TestSpec/E0201_
 - `E0201_bare_typo_shadowing`: top-level と parameter の同名 `total` を 1 件だけ出す
 - `E0201_bare_typo_kind_filter`: module/type 名 `List` に近い `Lis` を出さない
 - `E0201_bare_typo_short_name`: 2 文字の `to` には候補を出さない
-- `E0201_bare_typo_testonly_builtin`: `asser` に `assert` を出さない
+- `E0201_bare_typo_testonly_builtin`: builtin `assert` そのものには `asser` から候補を出さない
+- `E0201_bare_typo_testonly_shadow`: user-defined local `assert` は test-only builtin filter に巻き込まず候補へ出す
 - `TestValueTypoCandidates`: Hidden/TestOnly/kind/shadowing/short-name filter の unit regression
 - `TestCheckE0201BareTypoText`: text output に `error[E0201]` と `did you mean` note が出ることを固定
 
