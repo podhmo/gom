@@ -1,0 +1,9 @@
+package ex
+
+import "github.com/podhmo/gom/testdata/spec/foreignpkg"
+
+// Circle is a constructor member, so it remains a candidate in pattern position.
+fn f (x: foreignpkg.Shape) -> Float = match x {
+  foreignpkg.Circl r -> r
+  _ -> 0.0
+}

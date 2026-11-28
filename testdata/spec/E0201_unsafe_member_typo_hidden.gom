@@ -1,0 +1,10 @@
+package ex
+
+import go "unsafe"
+
+// Hidden members are filtered before kind validation, so unsupported
+// unsafe symbols cannot panic candidate generation.
+fn f () -> Unit = {
+  let _ = unsafe.Sizof
+  ()
+}

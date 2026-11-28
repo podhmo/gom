@@ -1,0 +1,8 @@
+package ex
+
+// A nested constructor-pattern head is still constructor position:
+// the operation member `make` is not a usable correction.
+fn f (x: Go.Map String Int) -> Int = match x {
+  Go.Map.Make -> 1
+  _ -> 0
+}

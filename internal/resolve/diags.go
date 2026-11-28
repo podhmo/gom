@@ -70,7 +70,7 @@ func (r *resolver) undefinedQual(id *syntax.Ident) {
 
 // undefinedMember reports `mod.name` where mod is a loaded module
 // that has no such member.
-func (r *resolver) undefinedMember(mod *Symbol, id *syntax.Ident, table map[string]*Symbol, builtin bool) {
+func (r *resolver) undefinedMember(mod *Symbol, id *syntax.Ident, table map[string]*Symbol, builtin bool, use memberUse, namespaceHop bool) {
 	d := diag.Error("E0201", fmt.Sprintf("`%s` has no member `%s`", mod.Name, id.Name)).
 		At(id.Sp).
 		Set("name", id.Name).
@@ -90,7 +90,7 @@ func (r *resolver) undefinedMember(mod *Symbol, id *syntax.Ident, table map[stri
 				"its standard library is not implemented", mod.Name))
 		}
 	}
-	d = addMemberTypoCandidates(d, table, id.Name)
+	d = addMemberTypoCandidates(d, table, id.Name, use, namespaceHop)
 	r.diags.Add(d)
 }
 
@@ -132,7 +132,7 @@ func (r *resolver) notCtor(id *syntax.Ident, sym *Symbol) {
 // that the name missed. A `Go`-namespace type (`Go.Map`) has no
 // constructors either but *does* have an operation member table —
 // the miss is a member miss, diagnosed as one.
-func (r *resolver) noSuchCtor(tsym *Symbol, id *syntax.Ident) {
+func (r *resolver) noSuchCtor(tsym *Symbol, id *syntax.Ident, use memberUse) {
 	if tsym.IsGo {
 		r.diags.Add(diag.Error("E0201", fmt.Sprintf("Go type `%s` has no constructor `%s` — Go types cannot declare Gom constructors", tsym.Name, id.Name)).
 			At(id.Sp).
@@ -148,7 +148,7 @@ func (r *resolver) noSuchCtor(tsym *Symbol, id *syntax.Ident) {
 			Set("name", id.Name).
 			Set("in", qual).
 			Set("namespace", "member")
-		d = addMemberTypoCandidates(d, r.ctorTable(tsym), id.Name)
+		d = addMemberTypoCandidates(d, r.ctorTable(tsym), id.Name, use, false)
 		if goTypeModules[tsym.Name] && r.cfg.Modules[qual] == nil {
 			// The ops table exists in the toolchain — its
 			// absence means the caller did not wire the

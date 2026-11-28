@@ -139,5 +139,5 @@ func (r *resolver) qualifiedTypeName(n *syntax.TypeName, sc *scope) {
 		}
 		return
 	}
-	r.undefinedMember(sym, n.Name, table, builtin)
+	r.undefinedMember(sym, n.Name, table, builtin, memberUseType, false)
 }

@@ -1,0 +1,19 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0201",
+      "severity": "error",
+      "message": "`fmt` has no member `Printlm`",
+      "data": {
+        "name": "Printlm",
+        "in": "fmt",
+        "namespace": "member"
+      },
+      "data_absent": [
+        "candidates"
+      ],
+      "notes": []
+    }
+  ]
+}

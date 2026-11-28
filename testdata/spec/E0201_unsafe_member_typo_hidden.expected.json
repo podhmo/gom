@@ -1,0 +1,19 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0201",
+      "severity": "error",
+      "message": "`unsafe` has no member `Sizof`",
+      "data": {
+        "name": "Sizof",
+        "in": "unsafe",
+        "namespace": "member"
+      },
+      "data_absent": [
+        "candidates"
+      ],
+      "notes": []
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+package ex
+
+import go "fmt"
+
+// In constructor-pattern position the func Println is not a usable correction.
+fn f (x: Int) -> Int = match x {
+  fmt.Printlm -> 1
+  _ -> 0
+}

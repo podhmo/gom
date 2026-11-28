@@ -23,12 +23,12 @@ func TestOSADistance(t *testing.T) {
 
 func TestMemberTypoCandidates(t *testing.T) {
 	table := map[string]*Symbol{
-		"foo1": {Name: "foo1"},
-		"foo2": {Name: "foo2"},
-		"foo3": {Name: "foo3"},
-		"foo4": {Name: "foo4"},
-		"bar":  {Name: "bar"},
-		"foo0": {Name: "foo0", Hidden: "unsupported basic type uint32"},
+		"foo1": {Name: "foo1", Kind: KindFunc},
+		"foo2": {Name: "foo2", Kind: KindFunc},
+		"foo3": {Name: "foo3", Kind: KindFunc},
+		"foo4": {Name: "foo4", Kind: KindFunc},
+		"bar":  {Name: "bar", Kind: KindFunc},
+		"foo0": {Name: "foo0", Kind: KindFunc, Hidden: "unsupported basic type uint32"},
 	}
 	got := memberTypoCandidates(table, "foo")
 	if len(got) != 3 {
@@ -46,6 +46,36 @@ func TestMemberTypoCandidates(t *testing.T) {
 		if c.name == "foo0" {
 			t.Errorf("hidden member foo0 was suggested: %+v", memberTypoCandidates(table, "foo"))
 		}
+	}
+}
+
+func TestMemberTypoCandidatesHiddenZeroKind(t *testing.T) {
+	table := map[string]*Symbol{
+		"Sizeof": {Name: "Sizeof", Hidden: "unsupported unsafe type"},
+	}
+	if got := memberTypoCandidates(table, "Sizof"); len(got) != 0 {
+		t.Errorf("hidden zero-kind candidates = %+v, want none", got)
+	}
+}
+
+func TestMemberTypoCandidateKindPolicy(t *testing.T) {
+	table := map[string]*Symbol{
+		"abcdx": {Name: "abcdx", Kind: KindFunc},
+		"abcdy": {Name: "abcdy", Kind: KindType},
+		"abcdz": {Name: "abcdz", Kind: KindCtor},
+	}
+	if got := memberTypoCandidatesForUse(table, "abcde", memberUseType, false); len(got) != 1 || got[0].name != "abcdy" {
+		t.Errorf("type candidates = %+v, want only abcdy", got)
+	}
+	if got := memberTypoCandidatesForUse(table, "abcde", memberUseConstructor, false); len(got) != 1 || got[0].name != "abcdz" {
+		t.Errorf("constructor candidates = %+v, want only abcdz", got)
+	}
+	if got := memberTypoCandidatesForUse(table, "abcde", memberUseValue, false); len(got) != 2 || got[0].name != "abcdx" || got[1].name != "abcdz" {
+		t.Errorf("value candidates = %+v, want abcdx and abcdz", got)
+	}
+	got := memberTypoCandidatesForUse(table, "abcde", memberUseValue, true)
+	if len(got) != 3 || got[0].name != "abcdx" || got[1].name != "abcdy" || got[2].name != "abcdz" {
+		t.Errorf("namespace-hop value candidates = %+v, want abcdx, abcdy, and abcdz", got)
 	}
 }
 
