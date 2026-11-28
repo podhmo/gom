@@ -162,7 +162,7 @@ go tool の実起動は opt-in: `gom build -go` は出力先ディレクトリ�
 
 ### 2.3 診断の内部表現
 
-診断はコンパイラ内部のデータ型（`internal/diag`）を正とし、JSON Lines・text・LSP（将来は SARIF など）はそこからの変換にする。コンパイラ本体は出力形式を知らない。 `data` は machine-facing の正で、text renderer は key を診断コードごとに解釈して汎用表示しない。人間向けの一覧や表は、診断を作る phase が整形責任を持って `details` / `labels` / `notes` へ置く。
+診断はコンパイラ内部のデータ型（`internal/diag`）を正とし、JSON Lines・text・LSP（将来は SARIF など）はそこからの変換にする。コンパイラ本体は出力形式を知らない。 `data` は machine-facing の正で、text renderer は key を診断コードごとに解釈して汎用表示しない。人間向けの一覧や表は、診断を作る phase が整形責任を持って `details` / `labels` / `notes` へ置く。text renderer は source snippet 内の端末制御文字を renderer-wide に visible replacement へ sanitize し、依存パッケージや入力ソースが terminal state を改変できないようにする。
 
 error recovery では同じ型不適合を複数の span で繰り返さない。例えば pipe operand を record seed つきで検査し、その trailing conformance が失敗したときは、失敗済みであることを `pipeCall` へ渡して parameter conformance の再診断だけを省略する。result tail の settle は行い、正しいコードの推論規則を変えずに回復用の E0407 も抑える（[decision](decisions/2026-11-27-record-contextual-inference.md)）。
 
