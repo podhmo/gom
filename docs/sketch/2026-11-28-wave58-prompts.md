@@ -8,7 +8,7 @@ TODO。`undefinedTerm` の unresolved module name に限定し、`list`/`option`
 
 ## lane B: builtin constructor shadowing metadata の調査
 
-wave57 lane B review follow-up。local type shadowing 下で `Option.Some` などの builtin constructor candidate をどう所有・遮蔽するか調査する。constructor table ownership、scope shadowing、candidate usability を fixture で比較し decision へ落とす。実装は lane に入れない。
+wave57 lane B review follow-up。local type shadowing 下で `Some` などの bare builtin constructor candidate をどう所有・遮蔽するか調査する。候補は非修飾名であり、`Option.Some` の qualified fallback 候補とは別に扱う。constructor table ownership、scope shadowing、candidate usability を fixture で比較し decision へ落とす。実装は lane に入れない。
 
 ## lane C: dependency `.gomi` diagnostic path の調査
 
