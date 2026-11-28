@@ -302,7 +302,7 @@ func (tw *textWriter) spanSnippet(sp Span, gutter int, style string) error {
 	tw.printf("%s\n", tw.paint(markStyle, pad+" |"))
 	for line := first; line <= last; line++ {
 		raw := string(li.LineText(line))
-		text := expandTabs(raw)
+		text := expandTabs(sanitizeTerminalControls(raw))
 		ucol, uend := 1, endCol
 		if line == first {
 			ucol = start.Col
@@ -382,6 +382,30 @@ func plural(n int) string {
 		return ""
 	}
 	return "s"
+}
+
+// sanitizeTerminalControls replaces terminal-active control runes in
+// a source snippet with one-cell visible runes. C0 controls use the
+// Unicode control pictures (ESC becomes U+241B), DEL uses U+2421, and
+// C1 controls become U+FFFD because they have no corresponding
+// control-picture block. Tab is preserved for expandTabs. Keeping the
+// replacement width at one rune preserves the column accounting shared
+// with underlineCells.
+func sanitizeTerminalControls(s string) string {
+	return strings.Map(func(r rune) rune {
+		switch {
+		case r == '\t':
+			return r
+		case r < 0x20:
+			return rune(0x2400 + r)
+		case r == 0x7f:
+			return '␡'
+		case r >= 0x80 && r <= 0x9f:
+			return '�'
+		default:
+			return r
+		}
+	}, s)
 }
 
 // expandTabs renders a source line for display: '\t' becomes four
