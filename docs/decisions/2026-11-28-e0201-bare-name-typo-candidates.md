@@ -14,7 +14,7 @@
 対象は `undefinedTerm` が出す E0201 だけとする。候補集合は参照位置の lexical scope chain を innermost から outermost へ辿った `terms` とし、次を満たす。
 
 - kind filter: `KindVar`・`KindFunc`・`KindCtor`・`KindBuiltin` だけを候補にする。`KindModule`・`KindType`・`KindTypeVar`・`KindField`・`KindMethod` は value position で使えないので出さない
-- visibility filter: non-test code から見えるが使えない `TestOnly` symbol と、Go の `Hidden` symbol は出さない
+- visibility filter: non-test code から見えるが使えない `TestOnly` symbol、test-only builtin の `assert` / `assert_eq` / `snapshot`、Go の `Hidden` symbol は出さない。これらの builtin は `TestOnly` flag ではなく checker 側の規則で制限されるため、名前で明示的に除外する
 - shadowing dedup: 同じ名前は 1 回だけ数える。innermost の binding が優先だが、候補表示は名前だけなので shadowed binding を別候補にしない
 - false positive control: 長さ 3 未満の入力名には候補を出さない。`x`/`y` のような 1 文字変数では距離 1 が頻繁すぎるため
 - ordering/limit: 距離昇順（現状は 1 のみ）・名前昇順、最大 3 件。note/structured data は lane B と同じ形に揃える

@@ -24,7 +24,7 @@ resolver の `scope` は `terms` / `types` を分け、lookup は innermost か�
 
 - include: `KindVar`・`KindFunc`・`KindCtor`・`KindBuiltin`
 - exclude: `KindModule`・`KindType`・`KindTypeVar`・`KindField`・`KindMethod`
-- non-test code から使えない `TestOnly` と、使っても E0501 になる `Hidden` を除外
+- non-test code から使えない `TestOnly`、通常コードで E0803 になる test-only builtin（`assert` / `assert_eq` / `snapshot`）、使っても E0501 になる `Hidden` を除外
 - 同名は shadowing に関係なく 1 回だけ候補化する
 - 入力名が 3 文字未満なら候補を出さない
 
