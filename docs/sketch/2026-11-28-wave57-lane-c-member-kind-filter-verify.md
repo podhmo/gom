@@ -18,6 +18,8 @@ fixture 追加後、実装前の `go test ./internal/build -run 'TestSpec/E0201_
 - `E0201_member_typo_type_positive`: type annotation の `fmt.Stringe` に type `Stringer` を出す
 - `E0201_member_typo_pattern_negative`: constructor pattern の `fmt.Printlm` に func `Println` を出さない
 - `E0201_member_typo_pattern_positive`: constructor pattern の `foreignpkg.Circl` に constructor `Circle` を出す
+- `E0201_member_typo_nested_pattern_negative`: nested constructor-pattern head `Go.Map.Make` に operation `make` を出さない
+- `E0201_unsafe_member_typo_hidden`: Hidden で kind metadata のない `unsafe` member が candidate generation を panic させない
 - `E0201_go_package_member_typo`: 通常 value position の `fmt.Printlm` → `Println` 非退行
 - `E0201_go_map_member_typo` / `E0201_go_slice_member_typo`: `Go` operation table の候補非退行
 - `TestMemberTypoCandidateKindPolicy`: value/type/constructor/nested qualifier hop の kind policy unit regression

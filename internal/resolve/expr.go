@@ -256,7 +256,7 @@ func (r *resolver) selectExpr(n *syntax.Select, sc *scope) {
 			// table (Config.Ctors).
 			if inner.Sel != nil {
 				if tsym := r.uses[inner.Sel]; tsym != nil && tsym.Kind == KindType {
-					r.selectTypeCtor(tsym, n.Sel, memberUseValue)
+					r.selectTypeCtor(tsym, n.Sel, r.exprCtorUse())
 				}
 			}
 			return
@@ -282,7 +282,7 @@ func (r *resolver) selectExpr(n *syntax.Select, sc *scope) {
 			r.notModule(recv, tsym)
 			return
 		}
-		r.selectTypeCtor(tsym, n.Sel, memberUseValue)
+		r.selectTypeCtor(tsym, n.Sel, r.exprCtorUse())
 		return
 	}
 	r.undefinedQual(recv)
@@ -344,6 +344,13 @@ func (r *resolver) selectMember(mod *Symbol, sel *syntax.Ident, sc *scope) {
 		}
 	}
 	r.undefinedMember(mod, sel, table, builtin, memberUseValue, r.inQual > 0)
+}
+
+func (r *resolver) exprCtorUse() memberUse {
+	if r.inCtorHead > 0 {
+		return memberUseConstructor
+	}
+	return memberUseValue
 }
 
 // selectTypeCtor resolves `T.sel` (or the final selector of

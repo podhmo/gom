@@ -208,7 +208,9 @@ func (r *resolver) ctorRef(e syntax.Expr, sc *scope) {
 		// type must point at the type so qualifier and selector agree.
 		recv, ok := n.Recv.(*syntax.Ident)
 		if !ok || n.Sel == nil {
+			r.inCtorHead++
 			r.expr(e, sc)
+			r.inCtorHead--
 			return
 		}
 		if sym := sc.lookupTerm(recv.Name); sym != nil {

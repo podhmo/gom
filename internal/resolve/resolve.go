@@ -249,6 +249,11 @@ type resolver struct {
 	// hop, not a term, so selectMember suppresses its notValue
 	// diagnostic while the count is non-zero.
 	inQual int
+	// inCtorHead is non-zero while resolving a constructor-pattern
+	// head through the expression walker (the nested `pkg.Type.Ctor`
+	// shape). Nested type-constructor lookup then keeps constructor
+	// semantics instead of suggesting value-only operation members.
+	inCtorHead int
 	// tv is the enclosing declaration's type-variable scope while a
 	// body is being resolved — annotations inside the body see the
 	// signature's variables through it.

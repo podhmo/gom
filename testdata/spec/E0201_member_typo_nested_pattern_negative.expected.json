@@ -1,0 +1,19 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0201",
+      "severity": "error",
+      "message": "`Go.Map` has no member `Make`",
+      "data": {
+        "name": "Make",
+        "in": "Go.Map",
+        "namespace": "member"
+      },
+      "data_absent": [
+        "candidates"
+      ],
+      "notes": []
+    }
+  ]
+}

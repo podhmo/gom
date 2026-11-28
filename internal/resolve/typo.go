@@ -32,11 +32,14 @@ func memberTypoCandidates(table map[string]*Symbol, name string) []memberTypoCan
 func memberTypoCandidatesForUse(table map[string]*Symbol, name string, use memberUse, namespaceHop bool) []memberTypoCandidate {
 	var out []memberTypoCandidate
 	for member, sym := range table {
-		if sym == nil || !memberCandidateKind(sym.Kind, use, namespaceHop) {
+		if sym == nil {
 			continue
 		}
 		if sym.Hidden != "" {
 			continue // correcting to this member would only move the user to E0501
+		}
+		if !memberCandidateKind(sym.Kind, use, namespaceHop) {
+			continue
 		}
 		if d := osaDistance(name, member); d == 1 {
 			out = append(out, memberTypoCandidate{name: member, distance: d})

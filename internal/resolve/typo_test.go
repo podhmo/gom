@@ -49,6 +49,15 @@ func TestMemberTypoCandidates(t *testing.T) {
 	}
 }
 
+func TestMemberTypoCandidatesHiddenZeroKind(t *testing.T) {
+	table := map[string]*Symbol{
+		"Sizeof": {Name: "Sizeof", Hidden: "unsupported unsafe type"},
+	}
+	if got := memberTypoCandidates(table, "Sizof"); len(got) != 0 {
+		t.Errorf("hidden zero-kind candidates = %+v, want none", got)
+	}
+}
+
 func TestMemberTypoCandidateKindPolicy(t *testing.T) {
 	table := map[string]*Symbol{
 		"abcdx": {Name: "abcdx", Kind: KindFunc},
