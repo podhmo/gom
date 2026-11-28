@@ -1,6 +1,6 @@
 # wave57 prompts 草案
 
-状態: 草案（採否インタビュー未実施）
+状態: 保留（採否インタビュー済み、wave57 開始は見送り）
 
 入力は wave56 round、TODO、open-questions。wave56 は診断候補表示の実装と次段方針の決定を進めたので、wave57 は decision 済みの 2 件を実装しつつ、review で見つかった小さい follow-up と残る候補 source の設計を分ける案を置く。
 
@@ -33,4 +33,4 @@ wave56 lane A/B review の follow-up。成功した `gom run` が dependency `.g
 
 ## 採択結果
 
-未実施。podhmo の採否インタビューで lane と順序を確定する。
+保留。2026-11-28 の採否インタビューで podhmo は「closeout だけ先に進め、wave57 は保留」を選択した。個別 lane の採否は確定していないため、wave57 再開時にこの草案を入力として採否と順序をやり直す。
