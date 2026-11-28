@@ -1,6 +1,6 @@
 # wave57 prompts 草案
 
-状態: 保留（採否インタビュー済み、wave57 開始は見送り）
+状態: 採択済み（A+B+C+D+E、順 A → B → C → D → E。lane D は複数 PR 分割可）
 
 入力は wave56 round、TODO、open-questions。wave56 は診断候補表示の実装と次段方針の決定を進めたので、wave57 は decision 済みの 2 件を実装しつつ、review で見つかった小さい follow-up と残る候補 source の設計を分ける案を置く。
 
@@ -18,7 +18,13 @@ wave56 lane B review の follow-up。型注釈や constructor pattern で使え�
 
 ## lane D: diagnostic rendering follow-up の小さい修正
 
-wave56 lane A/B review の follow-up。成功した `gom run` が dependency `.gomi` bytes を保持する問題、spec fixture `-update` が foreign span の絶対パスを書き戻す問題、同じく `-update` が actual data と矛盾する `data_absent` assertion を残す問題、text renderer の source snippet 内制御文字 sanitize を扱う。いずれも診断出力の安全性・再現性に関する小さい修正で、意味変更は入れない。
+wave56 lane A/B review の follow-up。診断出力の安全性・再現性に関する小さい修正で、意味変更は入れない。独立した root cause を 1 PR に混ぜないため、lane D 内は次の小さい PR に分割する。
+
+- D1: text renderer の source snippet 内制御文字 sanitize。E0407 個別ではなく renderer-wide に扱う
+- D2: spec fixture `-update` の harness 修正。foreign span の絶対パス書き戻しと、actual data と矛盾する stale `data_absent` assertion の preserve を直す
+- D3: 成功した `gom run` が dependency `.gomi` bytes を子プロセス終了まで保持する問題。compile 後の所有権と解放点を直す
+
+lane D 内の順は D1 → D2 → D3。いずれも wave の lane 順としては lane C の後・lane E の前に置く。
 
 ## lane E: 未 import Gom stdlib module candidate の調査
 
@@ -30,7 +36,10 @@ wave56 lane A/B review の follow-up。成功した `gom run` が dependency `.g
 - generic record field / call argument provenance: 複合 label や parameter span ownership の設計が大きく、lane A の結果を見てから分ける
 - snippet 統合: wave56 lane D で現時点見送り。頻出ノイズの実例が集まるまで戻さない
 - match narrowing の残り精度化: 重要だが診断候補の wave と混ぜると scope が広い
+- dependency `.gomi` diagnostic path の module-relative 化: JSON consumer が実 path を必要とするか未決。wave57 では扱わず open question のまま保留し、fixture harness は省略 assertion preserve の範囲で直す
 
 ## 採択結果
 
-保留。2026-11-28 の採否インタビューで podhmo は「closeout だけ先に進め、wave57 は保留」を選択した。個別 lane の採否は確定していないため、wave57 再開時にこの草案を入力として採否と順序をやり直す。
+採用: A+B+C+D+E。順: A → B → C → D → E。
+
+2026-11-28 の採否インタビューで podhmo が確定。lane D は複数 PR に分割してよいと確認済みで、D1 terminal sanitization → D2 fixture `-update` harness → D3 `gom run` cache の順で扱う。lane D は wave lane 順として lane C の後・lane E の前を維持する。
