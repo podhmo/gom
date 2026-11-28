@@ -5,7 +5,7 @@
 
 ## 決定
 
-E0201 `namespace: "module"` に限定し、toolchain 同梱の Gom stdlib short name（`list` / `option` / `result` / `cmp` / `str`）だけを将来の候補 source として採用する。goimports 的な Go package 探索と import 追加の safe fix は対象外とする。
+`undefinedTerm` が unresolved module name について出す E0201 `namespace: "module"` に限定し、toolchain 同梱の Gom stdlib short name（`list` / `option` / `result` / `cmp` / `str`）だけを将来の候補 source として採用する。goimports 的な Go package 探索と import 追加の safe fix は対象外とする。`notModule` のように同じ `namespace: "module"` を持つが名前自体は解決済みの診断には候補を付けない。
 
 ## 表示境界
 
