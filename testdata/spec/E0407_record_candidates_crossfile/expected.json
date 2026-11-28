@@ -1,0 +1,69 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0407",
+      "severity": "error",
+      "message": "the record literal is ambiguous: 2 record types own these fields; annotate the type",
+      "span": {
+        "file": "E0407_record_candidates_crossfile/main.gom",
+        "start": {
+          "line": 4,
+          "col": 11,
+          "offset": 46
+        },
+        "end": {
+          "line": 4,
+          "col": 27,
+          "offset": 62
+        }
+      },
+      "data": {
+        "candidates": [
+          {
+            "name": "First",
+            "qual": ""
+          },
+          {
+            "name": "Second",
+            "qual": ""
+          }
+        ]
+      },
+      "labels": [
+        {
+          "span": {
+            "file": "E0407_record_candidates_crossfile/a_types.gom",
+            "start": {
+              "line": 3,
+              "col": 1,
+              "offset": 14
+            },
+            "end": {
+              "line": 3,
+              "col": 32,
+              "offset": 45
+            }
+          },
+          "message": "candidate record First declared here"
+        },
+        {
+          "span": {
+            "file": "E0407_record_candidates_crossfile/b_types.gom",
+            "start": {
+              "line": 3,
+              "col": 1,
+              "offset": 14
+            },
+            "end": {
+              "line": 3,
+              "col": 33,
+              "offset": 46
+            }
+          },
+          "message": "candidate record Second declared here"
+        }
+      ]
+    }
+  ]
+}

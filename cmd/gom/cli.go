@@ -56,8 +56,11 @@ func compileOptions(in input, checkOnly bool, seen *depSeen, gl *goimport.Loader
 	}
 	mods := map[string]map[string]*resolve.Symbol{}
 	gc := &gomimport.Config{Dir: dir, Go: gl, Sigs: gl, Modules: mods}
-	if seen != nil {
-		gc.OnLoadGomi = func(p string, src []byte) { seen.noteGomi(p, src) }
+	gc.OnLoadGomi = func(p string, src []byte) {
+		noteLoadedGomiSource(p, src)
+		if seen != nil {
+			seen.noteGomi(p, src)
+		}
 	}
 	ml := gomimport.New(gc)
 	return gomstd.Apply(&build.Options{
@@ -1290,7 +1293,10 @@ func checkFormat(format string) error {
 // emitReport renders rep in format to w: JSON Lines or text per spec
 // section 12. The format has already passed checkFormat.
 func emitReport(w io.Writer, format string, rep diag.Report, srcs map[string][]byte) error {
-	res := diag.NewMapResolver(srcs)
+	// Dependency bytes are needed only while this report resolves its
+	// spans. Do not keep them alive while `gom run` waits for a child.
+	defer loadedGomiSources.Clear()
+	res := newDiskFallbackResolver(diag.NewMapResolver(srcs))
 	if format == "text" {
 		return rep.WriteText(w, res, diag.TextOptions{})
 	}

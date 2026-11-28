@@ -95,7 +95,11 @@ func (r *dirResolver) LineIndex(file string) (*LineIndex, error) {
 	if err, ok := r.failed[file]; ok {
 		return nil, err
 	}
-	src, err := os.ReadFile(filepath.Join(r.dir, filepath.FromSlash(file)))
+	path := filepath.Join(r.dir, filepath.FromSlash(file))
+	if filepath.IsAbs(file) {
+		path = filepath.Clean(file)
+	}
+	src, err := os.ReadFile(path)
 	if err != nil {
 		r.failed[file] = err
 		return nil, err

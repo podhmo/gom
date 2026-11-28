@@ -1,0 +1,14 @@
+package main
+
+type Alpha = { x: Int }
+type Beta = { x: Int }
+type Gamma = { x: Int }
+type Delta = { x: Int }
+type Epsilon = { x: Int }
+type Zeta = { x: Int }
+
+fn bad () -> Unit = {
+  let p = { x = 1 }
+  ignore p
+  ()
+}

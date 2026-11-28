@@ -1,0 +1,64 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0407",
+      "severity": "error",
+      "message": "the record literal is ambiguous: 2 record types own these fields; annotate the type",
+      "span": {
+        "file": "E0407_record_candidates_foreign.gom",
+        "start": {
+          "line": 8,
+          "col": 11,
+          "offset": 140
+        },
+        "end": {
+          "line": 8,
+          "col": 31,
+          "offset": 160
+        }
+      },
+      "data": {
+        "candidates": [
+          {
+            "name": "Point",
+            "qual": ""
+          },
+          {
+            "name": "Point",
+            "qual": "github.com/podhmo/gom/testdata/spec/foreignpkg"
+          }
+        ]
+      },
+      "labels": [
+        {
+          "span": {
+            "file": "E0407_record_candidates_foreign.gom",
+            "start": {
+              "line": 5,
+              "col": 1,
+              "offset": 71
+            },
+            "end": {
+              "line": 5,
+              "col": 36,
+              "offset": 106
+            }
+          },
+          "message": "candidate record Point declared here"
+        },
+        {
+          "span": {
+            "start": {
+              "offset": 606
+            },
+            "end": {
+              "offset": 643
+            }
+          },
+          "message": "candidate record github.com/podhmo/gom/testdata/spec/foreignpkg.Point declared here"
+        }
+      ]
+    }
+  ]
+}
