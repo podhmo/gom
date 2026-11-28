@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"slices"
 	"testing"
 
@@ -52,8 +53,9 @@ import (
 // length must equal the actual count exactly.
 //
 // With -update the expected file is rewritten from the actual
-// diagnostics rendered to the wire shape of spec section 12; the file
-// is created if missing.
+// diagnostics rendered to the wire shape of spec section 12, except
+// that machine-local absolute span files are omitted for portability;
+// the file is created if missing.
 func RunSpecTests(t *testing.T, dir string, compile DiagnosticsFunc) {
 	t.Helper()
 	if compile == nil {
@@ -139,7 +141,8 @@ func writeExpected(t *testing.T, path string, got []diag.Diagnostic, res diag.Re
 		doc.Write(raw)
 	}
 	doc.WriteString("]}")
-	rendered := preserveExplicitEmptyArrays(path, doc.Bytes())
+	rendered := stripAbsoluteSpanFiles(doc.Bytes())
+	rendered = preserveExplicitEmptyArrays(path, rendered)
 	var out bytes.Buffer
 	if err := json.Indent(&out, rendered, "", "  "); err != nil {
 		t.Fatalf("gomtest: cannot encode %s: %v", path, err)
@@ -154,7 +157,8 @@ func writeExpected(t *testing.T, path string, got []diag.Diagnostic, res diag.Re
 // preserveExplicitEmptyArrays keeps an explicitly empty "notes",
 // "labels", or "fixes" assertion and the harness-only "data_absent"
 // assertion when -update rewrites a fixture and the actual
-// diagnostic still has no such values. The wire encoder omits empty
+// diagnostic still has no such values. A data_absent entry whose key
+// now exists in actual data is dropped rather than preserved. The wire encoder omits empty
 // arrays, so without this preservation every regeneration would erase
 // the negative assertion. Preservation is conservative: only the same
 // diagnostic index and code inherits the empty array, and a non-empty
@@ -195,8 +199,10 @@ func preserveExplicitEmptyArrays(path string, rendered []byte) []byte {
 			}
 		}
 		if oldVal, ok := old[i]["data_absent"]; ok {
-			if raw, err := json.Marshal(oldVal); err == nil {
-				inserts[i] = append(inserts[i], preservedKey{key: "data_absent", raw: raw})
+			if keep := liveDataAbsentKeys(oldVal, cur["data"]); len(keep) > 0 {
+				if raw, err := json.Marshal(keep); err == nil {
+					inserts[i] = append(inserts[i], preservedKey{key: "data_absent", raw: raw})
+				}
 			}
 		}
 	}
@@ -204,6 +210,115 @@ func preserveExplicitEmptyArrays(path string, rendered []byte) []byte {
 		return rendered
 	}
 	return insertPreservedKeys(rendered, inserts)
+}
+
+// liveDataAbsentKeys keeps only the data_absent entries still absent
+// from the actual data object. A key that the compiler now emits must
+// win over the stale negative assertion; preserving both would make
+// the rewritten fixture internally contradictory.
+func liveDataAbsentKeys(oldVal, actualData any) []string {
+	arr, ok := oldVal.([]any)
+	if !ok {
+		return nil
+	}
+	data, _ := actualData.(map[string]any)
+	keep := make([]string, 0, len(arr))
+	for _, v := range arr {
+		key, ok := v.(string)
+		if !ok {
+			continue
+		}
+		if _, present := data[key]; !present {
+			keep = append(keep, key)
+		}
+	}
+	return keep
+}
+
+// stripAbsoluteSpanFiles removes the file key of span-shaped objects
+// naming an absolute path. Foreign dependency spans use machine-local
+// absolute paths; writing them into expected files makes the fixture
+// fail in another checkout. Positions remain asserted, while the
+// portable spelling of foreign diagnostic paths is still an open
+// question.
+//
+// The update must not re-encode the wire document, so this scans the
+// compact JSON instead. A "file" key is treated as part of a span only
+// when it is followed by the span's "start" object; machine-facing data
+// keys named file are therefore left alone. The string is decoded from
+// the exact bytes in the document rather than re-quoted, because the
+// wire encoder and strconv.Quote escape some Unicode spaces differently.
+func stripAbsoluteSpanFiles(rendered []byte) []byte {
+	key := []byte(`"file":`)
+	var out bytes.Buffer
+	pos, scan := 0, 0
+	inString := false
+	escaped := false
+	for scan < len(rendered) {
+		b := rendered[scan]
+		if inString {
+			if escaped {
+				escaped = false
+			} else if b == '\\' {
+				escaped = true
+			} else if b == '"' {
+				inString = false
+			}
+			scan++
+			continue
+		}
+		if b != '"' {
+			scan++
+			continue
+		}
+		if !bytes.HasPrefix(rendered[scan:], key) {
+			inString = true
+			scan++
+			continue
+		}
+		valueStart := scan + len(key)
+		valueEnd, ok := compactJSONStringEnd(rendered, valueStart)
+		if !ok {
+			scan = valueStart
+			continue
+		}
+		var file string
+		if err := json.Unmarshal(rendered[valueStart:valueEnd], &file); err != nil || !filepath.IsAbs(file) ||
+			valueEnd+len(`,"start":`) > len(rendered) || !bytes.Equal(rendered[valueEnd:valueEnd+len(`,"start":`)], []byte(`,"start":`)) {
+			scan = valueEnd
+			continue
+		}
+		out.Write(rendered[pos:scan])
+		pos = valueEnd + 1 // drop the comma that preceded the file key
+		scan = pos
+	}
+	out.Write(rendered[pos:])
+	return out.Bytes()
+}
+
+// compactJSONStringEnd returns the exclusive end of the compact JSON
+// string starting at rendered[start], or false when no string starts
+// there. The input is compact, so no whitespace can precede the value.
+func compactJSONStringEnd(rendered []byte, start int) (int, bool) {
+	if start >= len(rendered) || rendered[start] != '"' {
+		return start, false
+	}
+	escaped := false
+	for i := start + 1; i < len(rendered); i++ {
+		b := rendered[i]
+		if escaped {
+			escaped = false
+			continue
+		}
+		if b == '\\' {
+			escaped = true
+			continue
+		}
+		if b == '"' {
+			return i + 1, true
+		}
+	}
+	return start, false
 }
 
 type preservedKey struct {
