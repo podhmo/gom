@@ -342,8 +342,11 @@ arity diagnostic derived from the func's signature.
 
 When a resolved module or operation table has no such member, the
 diagnostic also suggests table members at optimal string alignment
-distance 1 (at most three) in a note and in data.candidates. These
-are suggestions only; no automatic fix is attached.`,
+distance 1 (at most three) in a note and in data.candidates. A bare
+undefined value name likewise suggests visible variables, functions,
+constructors, and builtins at distance 1, after shadowing deduplication
+and filtering out hidden, test-only, non-value, and very short names.
+These are suggestions only; no automatic fix is attached.`,
 		Example: `transfer alice ~to ~amount: 100   // error when no variable
                                     // named "to" is in scope`,
 	},

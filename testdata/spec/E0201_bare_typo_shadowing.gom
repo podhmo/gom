@@ -1,0 +1,5 @@
+package ex
+
+let total : Int = 1
+
+fn f (total: Int) -> Int = tota + total

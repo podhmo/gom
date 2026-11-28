@@ -183,6 +183,25 @@ fn f (xs: List Int) -> List Int = List.mapp (fn x -> x) xs
 	}
 }
 
+func TestCheckE0201BareTypoText(t *testing.T) {
+	t.Parallel()
+
+	dir := writeFiles(t, map[string]string{"bad.gom": `package main
+
+fn f () -> Int = {
+  let total = 1
+  tota + 1
+}
+`})
+	code, out, errout := invoke("check", "-format", "text", filepath.Join(dir, "bad.gom"))
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1; stdout=%q stderr=%q", code, out, errout)
+	}
+	if !strings.Contains(out, "error[E0201]") || !strings.Contains(out, "= note: did you mean `total`?") {
+		t.Errorf("text output missing bare-name typo candidate: %q", out)
+	}
+}
+
 func TestCheckE0401RecordFieldProvenanceText(t *testing.T) {
 	t.Parallel()
 

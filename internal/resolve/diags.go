@@ -23,11 +23,12 @@ import (
 // or "field".
 
 // undefinedTerm reports a term-level name with no binding in scope.
-func (r *resolver) undefinedTerm(id *syntax.Ident) {
+func (r *resolver) undefinedTerm(id *syntax.Ident, sc *scope) {
 	d := diag.Error("E0201", fmt.Sprintf("undefined name `%s`", id.Name)).
 		At(id.Sp).
 		Set("name", id.Name).
 		Set("namespace", "value")
+	d = addValueTypoCandidates(d, sc, id.Name, r.inTest)
 	r.diags.Add(d)
 }
 

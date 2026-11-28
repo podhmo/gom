@@ -1,0 +1,23 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0201",
+      "severity": "error",
+      "message": "undefined name `tota`",
+      "data": {
+        "name": "tota",
+        "namespace": "value",
+        "candidates": [
+          {
+            "name": "total",
+            "edit_distance": 1
+          }
+        ]
+      },
+      "notes": [
+        "did you mean `total`?"
+      ]
+    }
+  ]
+}
