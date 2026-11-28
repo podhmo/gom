@@ -8,6 +8,34 @@
 
 `internal/check/expr.go`・`expr_control.go`・`expr_literal.go`・`apply.go`・`env.go`・`typenv.go` を読み、`/tmp/provfix` 以下の一時 fixture を `gom check -format json` にかけて現行出力を確認した。repo の fixture や実装は変更していない。
 
+完全な入力は次のとおり（共通して `package main`）。実行は各ファイルに対して `go run ./cmd/gom check -format json <file>`。
+
+```gom
+-- record_direct.gom
+type R = { x: Int }
+let r = { x = "bad" }
+
+-- record_branch.gom
+type R = { x: Int }
+fn f (c: Bool) -> R = { x = if c { 1 } else { "bad" } }
+
+-- record_constraint.gom
+type R = { x: Int }
+let r = { x = 1 + "bad" }
+
+-- call_direct.gom
+fn takes (x: Int) -> Int = x
+let y = takes "bad"
+
+-- call_branch.gom
+fn takes (x: Int) -> Int = x
+fn f (c: Bool) -> Int = takes (if c { 1 } else { "bad" })
+
+-- call_constraint.gom
+fn takes (x: Int) -> Int = x
+let y = takes (1 + "bad")
+```
+
 ## 現行確認 fixture
 
 | fixture | 入力の形 | 現行の主要診断 | labels | 観察 |

@@ -32,14 +32,14 @@ E0301 の spec 例では、JSON の `data.missing_patterns` と人間向け `det
 | `data` → `details` の汎用昇格 | 新しい診断で人間向け情報を出し忘れにくい | machine-facing key まで text に漏れる、JSON 表記が読みにくい、key 追加で text が変わる | 見送り |
 | 診断ごとの手動 `details` | 表示文字列・順序・省略を phase が制御できる | 昇格の判断が個別実装になる | 維持 |
 | 近接 snippet 統合 | E0407 の連続宣言候補で縦幅を減らせる | 複数 caret/label の layout が複雑、multi-line と隣接閾値の semantics が要る | 現時点では見送り |
-| 候補上限 + structured data | text を短く保ちつつ JSON consumer は全候補を見られる | text で末尾候補の宣言位置は出ない | 維持 |
+| 候補上限 + structured data | text を短く保ちつつ JSON consumer も候補を読める。全量が残るのは E0407 で、E0201 は JSON も 3 件まで | text/JSON で末尾候補の詳細は出ない | 維持 |
 
 ## 結論
 
 - generic な `data` 昇格は採用しない
 - 近接 snippet の汎用統合も現時点では採用しない
 - `details` は診断ごとに人間向けの価値が確定したものだけを手動で足す
-- 実装タスクは発生させない。再検討条件は「候補上限を超える頻出ノイズが fixture/利用例で確認できること」
+- 実装タスクは発生させない。再検討条件は「上限内の表示でも 1 診断あたりの snippet 行数が利用例で常態化し、複数箇所で編集体験を妨げる頻度が確認できること」
 
 ## 検証コマンド
 

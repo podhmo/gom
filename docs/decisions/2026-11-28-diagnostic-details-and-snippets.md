@@ -10,7 +10,7 @@
 
 ## 比較した例
 
-`testdata/spec/E0407_record_candidates.gom` の text 出力では、主 span の後に `First` と `Second` の宣言 label が別 snippet として出る。2 つの宣言は隣接行でも、現行は `-->`・`|`・label 行をそれぞれ繰り返す。候補が増えると縦に長いが、wave56 lane A/B では候補数上限（E0407 は 5、E0201 は 3）と `data.candidates` による機械可読な全量表現を既に入れている。
+`testdata/spec/E0407_record_candidates.gom` の text 出力では、主 span の後に `First` と `Second` の宣言 label が別 snippet として出る。2 つの宣言は隣接行でも、現行は `-->`・`|`・label 行をそれぞれ繰り返す。候補が増えると縦に長いが、wave56 lane A/B では候補数上限（E0407 の label は 5、E0201 の候補は 3）と `data.candidates` による機械可読表現を既に入れている。全量が JSON に残るのは E0407 で、E0201 は JSON/note とも最大 3 件である。
 
 反対に E0301 の `missing_patterns` は machine-facing data として残しつつ、人間向けには既存の `details: patterns not covered` が必要な代表例である。この種の一覧は generic な data ダンプではなく、phase が表示名と順序を選ぶべきである。
 
@@ -25,6 +25,6 @@
 
 - `details` を増やしてよいのは、人間が次に取るべき行動を決めるのに必要な一覧または表で、phase が人間向けの表示文字列を既に確定できる場合だけ
 - `data` だけを増やす変更は text output を変えない。text にも出す場合は診断ごとの fixture で過剰出力を審査する
-- snippet 統合は、候補上限を超えるほどの頻出ノイズが fixture または利用例で確認できたら別途再検討する。その場合は単一行複数 caret の prototype から始める
+- snippet 統合は、上限内の表示でも 1 診断あたりの snippet 行数が利用例で常態化し、複数箇所で編集体験を妨げる頻度が確認できたら別途再検討する。その場合は単一行複数 caret の prototype から始める
 
 調査記録: [sketch/2026-11-28-wave56-lane-d-diagnostic-rendering-verify](../sketch/2026-11-28-wave56-lane-d-diagnostic-rendering-verify.md)。
