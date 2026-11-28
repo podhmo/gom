@@ -1,0 +1,18 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0201",
+      "severity": "error",
+      "message": "undefined name `asser`",
+      "data": {
+        "name": "asser",
+        "namespace": "value"
+      },
+      "data_absent": [
+        "candidates"
+      ],
+      "notes": []
+    }
+  ]
+}

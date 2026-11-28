@@ -48,3 +48,61 @@ func TestMemberTypoCandidates(t *testing.T) {
 		}
 	}
 }
+
+func TestValueTypoCandidates(t *testing.T) {
+	outer := &scope{terms: map[string]*Symbol{
+		"total": {Name: "total", Kind: KindFunc},
+		"todo":  {Name: "todo", Kind: KindBuiltin},
+		"List":  {Name: "List", Kind: KindModule},
+	}}
+	inner := &scope{parent: outer, terms: map[string]*Symbol{
+		"count":  {Name: "count", Kind: KindVar},
+		"hidden": {Name: "hidden", Kind: KindFunc, Hidden: "unsupported"},
+		"testfn": {Name: "testfn", Kind: KindFunc, TestOnly: true},
+		"assert": {Name: "assert", Kind: KindBuiltin},
+	}}
+
+	if got := valueTypoCandidates(inner, "tota", false); len(got) != 1 || got[0].name != "total" {
+		t.Fatalf("tota candidates = %+v, want only total", got)
+	}
+	if got := valueTypoCandidates(inner, "tota", true); len(got) != 1 || got[0].name != "total" {
+		t.Fatalf("tota candidates in test = %+v, want only total", got)
+	}
+	shadowAssert := &scope{parent: outer, terms: map[string]*Symbol{
+		"assert": {Name: "assert", Kind: KindVar},
+	}}
+	if got := valueTypoCandidates(shadowAssert, "asser", false); len(got) != 1 || got[0].name != "assert" {
+		t.Errorf("shadowing user assert candidates = %+v, want assert", got)
+	}
+
+	for name, want := range map[string]string{
+		"hidde":  "hidden",
+		"testf":  "testfn",
+		"asser":  "assert",
+		"lis":    "",
+		"to":     "",
+		"zzzzzz": "",
+	} {
+		got := valueTypoCandidates(inner, name, false)
+		if want == "" && len(got) != 0 {
+			t.Errorf("%s candidates = %+v, want none", name, got)
+		}
+		if want != "" {
+			for _, c := range got {
+				if c.name == want {
+					t.Errorf("%s candidates include filtered %s: %+v", name, want, got)
+				}
+			}
+		}
+	}
+	if got := valueTypoCandidates(inner, "testf", true); len(got) != 1 || got[0].name != "testfn" {
+		t.Errorf("testf candidates in test = %+v, want testfn", got)
+	}
+
+	shadowed := &scope{parent: outer, terms: map[string]*Symbol{
+		"total": {Name: "total", Kind: KindModule},
+	}}
+	if got := valueTypoCandidates(shadowed, "tota", false); len(got) != 0 {
+		t.Errorf("shadowed total candidates = %+v, want none", got)
+	}
+}

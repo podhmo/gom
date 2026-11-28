@@ -46,7 +46,7 @@ func (r *resolver) useTerm(id *syntax.Ident, sc *scope) {
 	}
 	sym := sc.lookupTerm(id.Name)
 	if sym == nil {
-		r.undefinedTerm(id)
+		r.undefinedTerm(id, sc)
 		return
 	}
 	r.use(id, sym)

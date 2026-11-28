@@ -22,7 +22,7 @@
 
 ## To Be Implemented
 
-- [ ] **[task E0201-2] bare value name typo の候補表示を実装する**（依存: なし）: E0201 `namespace: "value"` で lexical scope chain の value kind だけを対象に、OSA 距離 1 の候補を最大 3 件 note と `data.candidates` に出す。shadowing dedup、TestOnly/Hidden 除外、3 文字未満 suppression、positive/negative/truncate fixture を含める（[decision](docs/decisions/2026-11-28-e0201-bare-name-typo-candidates.md)、[調査](docs/sketch/2026-11-28-wave56-lane-e-typo-candidates-verify.md)）
+- [x] **[task E0201-2] bare value name typo の候補表示を実装する**（依存: なし）: E0201 `namespace: "value"` で lexical scope chain の value kind だけを対象に、OSA 距離 1 の候補を最大 3 件 note と `data.candidates` に出す。shadowing dedup、TestOnly/Hidden 除外、3 文字未満 suppression、positive/negative/truncate fixture を含める（[decision](docs/decisions/2026-11-28-e0201-bare-name-typo-candidates.md)、[調査](docs/sketch/2026-11-28-wave56-lane-e-typo-candidates-verify.md)、[検証](docs/sketch/2026-11-28-wave57-lane-b-bare-value-typo-verify.md)）
 - [x] **[task E0401-1] record field 値へ expected type provenance を付ける**（依存: なし）: type parameter を含まない exact declaration type に限り、field 値と block tail/if/match 腕の最終 mismatch へ `expected type declared here` label を付ける。呼出し引数・generic field・constraint negative を fixture で固定する（[decision](docs/decisions/2026-11-28-e0401-provenance-expansion.md)、[調査](docs/sketch/2026-11-28-wave56-lane-c-provenance-expansion-verify.md)、[検証](docs/sketch/2026-11-28-wave57-lane-a-record-field-provenance-verify.md)）
 
 ### owner improvement ideas audit 由来（[PR #256](https://github.com/podhmo/gom/pull/256)、[audit](docs/sketch/2026-11-26-wave48-lane-g-owner-ideas-audit.md)）

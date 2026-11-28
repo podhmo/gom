@@ -39,8 +39,74 @@ func memberTypoCandidates(table map[string]*Symbol, name string) []memberTypoCan
 	return out
 }
 
+// valueTypoCandidates returns nearby value-level names visible through
+// the lexical scope chain. Names are deduplicated before filtering so an
+// inner binding — even one unusable in this position — shadows an outer
+// binding of the same spelling.
+func valueTypoCandidates(sc *scope, name string, inTest bool) []memberTypoCandidate {
+	if len([]rune(name)) < 3 {
+		return nil
+	}
+	seen := map[string]bool{}
+	var out []memberTypoCandidate
+	for ; sc != nil; sc = sc.parent {
+		for member, sym := range sc.terms {
+			if seen[member] {
+				continue
+			}
+			seen[member] = true
+			if sym == nil || !valueCandidateKind(sym.Kind) {
+				continue
+			}
+			if sym.Hidden != "" || (sym.TestOnly && !inTest) || (sym.Kind == KindBuiltin && testOnlyBuiltinName(member)) {
+				continue
+			}
+			if d := osaDistance(name, member); d == 1 {
+				out = append(out, memberTypoCandidate{name: member, distance: d})
+			}
+		}
+	}
+	sort.Slice(out, func(i, j int) bool {
+		if out[i].distance != out[j].distance {
+			return out[i].distance < out[j].distance
+		}
+		return out[i].name < out[j].name
+	})
+	if len(out) > 3 {
+		out = out[:3]
+	}
+	return out
+}
+
+func valueCandidateKind(k Kind) bool {
+	switch k {
+	case KindVar, KindFunc, KindCtor, KindBuiltin:
+		return true
+	case KindType, KindField, KindModule, KindTypeVar, KindMethod:
+		return false
+	default:
+		panic("unreachable")
+	}
+}
+
+func testOnlyBuiltinName(name string) bool {
+	switch name {
+	case "assert", "assert_eq", "snapshot":
+		return true
+	default:
+		return false
+	}
+}
+
+func addValueTypoCandidates(d diag.Diagnostic, sc *scope, name string, inTest bool) diag.Diagnostic {
+	return addTypoCandidates(d, valueTypoCandidates(sc, name, inTest))
+}
+
 func addMemberTypoCandidates(d diag.Diagnostic, table map[string]*Symbol, name string) diag.Diagnostic {
-	candidates := memberTypoCandidates(table, name)
+	return addTypoCandidates(d, memberTypoCandidates(table, name))
+}
+
+func addTypoCandidates(d diag.Diagnostic, candidates []memberTypoCandidate) diag.Diagnostic {
 	if len(candidates) == 0 {
 		return d
 	}

@@ -1,0 +1,31 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0201",
+      "severity": "error",
+      "message": "undefined name `foo`",
+      "data": {
+        "name": "foo",
+        "namespace": "value",
+        "candidates": [
+          {
+            "name": "foo1",
+            "edit_distance": 1
+          },
+          {
+            "name": "foo2",
+            "edit_distance": 1
+          },
+          {
+            "name": "foo3",
+            "edit_distance": 1
+          }
+        ]
+      },
+      "notes": [
+        "did you mean one of `foo1`, `foo2`, or `foo3`?"
+      ]
+    }
+  ]
+}

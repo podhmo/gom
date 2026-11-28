@@ -1,0 +1,6 @@
+package ex
+
+fn f () -> Int = {
+  let total = 1
+  tota + 1
+}
