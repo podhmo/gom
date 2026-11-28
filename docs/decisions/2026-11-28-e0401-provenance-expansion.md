@@ -1,6 +1,6 @@
 # E0401 expected type provenance の拡張範囲
 
-- 状態: 採用（wave57 lane A として実施決定。実装は未実施）
+- 状態: 採用（wave57 lane A で実装済み）
 - 日付: 2026-11-28
 
 ## 決定

@@ -1,0 +1,9 @@
+package main
+
+type R = { x: Int }
+
+fn bad (c: Bool) -> Unit = {
+  let r : R = { x = if c { 1 } else { "bad" } }
+  ignore r
+  ()
+}

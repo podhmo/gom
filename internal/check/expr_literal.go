@@ -174,6 +174,7 @@ func (c *checker) checkRecordLit(e *syntax.RecordLit, want types.Type) Expr {
 		}
 		var ft types.Type
 		var fsym *resolve.Symbol
+		var fieldFrom diag.Span
 		if ti != nil {
 			if fi := c.fieldByName(ti.fields, fname); fi != nil {
 				fsym = fi.sym
@@ -181,6 +182,9 @@ func (c *checker) checkRecordLit(e *syntax.RecordLit, want types.Type) Expr {
 					ft = sub.Apply(fi.typ)
 				} else {
 					ft = fi.typ
+				}
+				if !usesTypeParam(fi.typ, ti.params) {
+					fieldFrom = fi.sp
 				}
 			} else {
 				c.diags.Add(diag.Error("E0401",
@@ -201,7 +205,7 @@ func (c *checker) checkRecordLit(e *syntax.RecordLit, want types.Type) Expr {
 			Sp:    f.Sp,
 			Name:  fname,
 			Sym:   fsym,
-			Value: c.checkExpr(f.Value, ft),
+			Value: c.checkExprAt(f.Value, ft, fieldFrom),
 		})
 	}
 
@@ -238,6 +242,28 @@ func (c *checker) checkRecordLit(e *syntax.RecordLit, want types.Type) Expr {
 	}
 	out.Base = baseOf(e.Sp, rt)
 	return out
+}
+
+// usesTypeParam reports whether t mentions one of the declaring
+// type's parameters. A field whose declaration is monomorphic may
+// still live in a generic record (`type Count a = { n: Int, ... }`):
+// its declaration then exactly states the expected type, while `v: a`
+// does not.
+func usesTypeParam(t types.Type, params []*types.Var) bool {
+	if len(params) == 0 {
+		return false
+	}
+	owned := map[int]bool{}
+	for _, p := range params {
+		owned[p.ID] = true
+	}
+	uses := false
+	varsIn(t, func(v *types.Var) {
+		if owned[v.ID] {
+			uses = true
+		}
+	})
+	return uses
 }
 
 // recordByFields resolves a record literal's type when no expected

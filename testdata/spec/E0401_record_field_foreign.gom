@@ -1,0 +1,9 @@
+package main
+
+import "github.com/podhmo/gom/testdata/spec/foreignpkg"
+
+fn bad () -> Unit = {
+  let p : foreignpkg.Point = { x = "bad", y = 2.0 }
+  ignore p
+  ()
+}

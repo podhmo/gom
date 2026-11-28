@@ -1,0 +1,31 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected Float, got String",
+      "data": {
+        "actual": "String",
+        "expected": "Float"
+      },
+      "labels": [
+        {
+          "message": "expected type declared here",
+          "span": {
+            "start": {
+              "line": 14,
+              "col": 16,
+              "offset": 621
+            },
+            "end": {
+              "line": 14,
+              "col": 25,
+              "offset": 630
+            }
+          }
+        }
+      ]
+    }
+  ]
+}
