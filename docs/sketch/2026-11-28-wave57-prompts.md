@@ -24,7 +24,7 @@ wave56 lane A/B review の follow-up。診断出力の安全性・再現性に�
 - D2: spec fixture `-update` の harness 修正。foreign span の絶対パス書き戻しと、actual data と矛盾する stale `data_absent` assertion の preserve を直す
 - D3: 成功した `gom run` が dependency `.gomi` bytes を子プロセス終了まで保持する問題。compile 後の所有権と解放点を直す
 
-lane D 内の順は D1 → D2 → D3。いずれも wave の lane 順としては lane C の後・lane E の前に置く。
+lane D 内の順は D1 → D2 → D3。いずれも wave の lane 順としては lane C の後・lane E の前に置く。PR 分割時の分岐もこの順に直列へそろえ、D1 は lane C から、D2 は D1 から、D3 は D2 から、lane E は D3 から分岐する。下位 PR の merge 後は通常の stacked PR と同じく base を retarget する。
 
 ## lane E: 未 import Gom stdlib module candidate の調査
 
