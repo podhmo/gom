@@ -1,0 +1,15 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected Fixed Int, got String",
+      "data": {
+        "actual": "String",
+        "expected": "Fixed Int"
+      },
+      "labels": []
+    }
+  ]
+}
