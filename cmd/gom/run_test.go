@@ -89,6 +89,73 @@ func TestRunModuleLocalDependency(t *testing.T) {
 	}
 }
 
+// TestRunReleasesGomiCacheBeforeChild: a successful run must not carry
+// compile-time dependency .gomi bytes while it waits for the child.
+func TestRunReleasesGomiCacheBeforeChild(t *testing.T) {
+	if testing.Short() {
+		t.Skipf("long test: go build + exec, skipping in short mode")
+	}
+	t.Parallel()
+
+	gobin, err := exec.LookPath("go")
+	if err != nil {
+		t.Skip("no go toolchain on PATH")
+	}
+	root, err := filepath.Abs(filepath.Join("..", ".."))
+	if err != nil {
+		t.Fatal(err)
+	}
+	dir := t.TempDir()
+	copyFixture(t, filepath.Join(root, "testdata", "multifile"), dir)
+	if !goAtLeast(gobin, dir, 1, 27) {
+		t.Skip("fixture requires go >= 1.27 (testdata/multifile/go.mod)")
+	}
+	gomodPath := filepath.Join(dir, "go.mod")
+	gomod, err := os.ReadFile(gomodPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	gomod = []byte(strings.ReplaceAll(string(gomod), "=> ../..", "=> "+root))
+	if err := os.WriteFile(gomodPath, gomod, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	called := false
+	var stdout, stderr strings.Builder
+	countEntries := func(cache *gomiSourceCache) int {
+		entries := 0
+		cache.sources.Range(func(_, _ any) bool {
+			entries++
+			return true
+		})
+		return entries
+	}
+	beforeRelease, beforeStart := -1, -1
+	code := runGomRunWithHooks(
+		[]string{filepath.Join(dir, "gomapp")}, &stdout, &stderr,
+		&runChildHooks{
+			beforeRelease: func(cache *gomiSourceCache) {
+				called = true
+				beforeRelease = countEntries(cache)
+			},
+			beforeStart: func(cache *gomiSourceCache) {
+				beforeStart = countEntries(cache)
+			},
+		})
+	if !called || beforeStart < 0 {
+		t.Fatal("cache-release hooks were not called")
+	}
+	if beforeRelease == 0 {
+		t.Fatal("compile did not populate the dependency .gomi cache")
+	}
+	if beforeStart != 0 {
+		t.Errorf("gom run child starts with %d cached .gomi sources", beforeStart)
+	}
+	if code != 0 {
+		t.Fatalf("gom run: exit %d; stdout=%q stderr=%q", code, stdout.String(), stderr.String())
+	}
+}
+
 // TestRunCompileFailure: a .gom that fails checking reports the
 // usual message stream and does not run.
 func TestRunCompileFailure(t *testing.T) {

@@ -49,7 +49,7 @@ type input struct {
 // builtin-module tables and the .gomi export hook of spec section
 // 5. The loaders run in the input file's own directory so imported
 // packages resolve in the module the file belongs to.
-func compileOptions(in input, checkOnly bool, seen *depSeen, gl *goimport.Loader) *build.Options {
+func compileOptions(in input, checkOnly bool, seen *depSeen, gl *goimport.Loader, gomi *gomiSourceCache) *build.Options {
 	dir := filepath.Dir(in.path)
 	if abs, err := filepath.Abs(dir); err == nil {
 		dir = abs
@@ -57,7 +57,7 @@ func compileOptions(in input, checkOnly bool, seen *depSeen, gl *goimport.Loader
 	mods := map[string]map[string]*resolve.Symbol{}
 	gc := &gomimport.Config{Dir: dir, Go: gl, Sigs: gl, Modules: mods}
 	gc.OnLoadGomi = func(p string, src []byte) {
-		noteLoadedGomiSource(p, src)
+		gomi.note(p, src)
 		if seen != nil {
 			seen.noteGomi(p, src)
 		}
@@ -81,7 +81,8 @@ func compileOptions(in input, checkOnly bool, seen *depSeen, gl *goimport.Loader
 // compilation-unit.md) — while each .gomi input compiles
 // individually through build.Compile (an interface is its own
 // scope). Diagnostics of all results concatenate in input order.
-func compileInputs(inputs []input, checkOnly bool, bc *buildCache, outFlag string, tweak func(*build.Options)) ([]*build.Result, error) {
+func compileInputs(inputs []input, checkOnly bool, bc *buildCache, outFlag string, tweak func(*build.Options)) ([]*build.Result, *gomiSourceCache, error) {
+	gomi := newGomiSourceCache()
 	results := make([]*build.Result, len(inputs))
 	groups := map[string][]int{}
 	var order []string
@@ -121,9 +122,9 @@ func compileInputs(inputs []input, checkOnly bool, bc *buildCache, outFlag strin
 				gl.Prefetch(goImports)
 			}
 			r, err := build.Compile(build.Input{Path: in.path, Src: in.src, Interface: true},
-				compileOptions(in, checkOnly, seen, gl))
+				compileOptions(in, checkOnly, seen, gl, gomi))
 			if err != nil {
-				return nil, fmt.Errorf("%s: %w", in.path, err)
+				return nil, gomi, fmt.Errorf("%s: %w", in.path, err)
 			}
 			results[i] = r
 			continue
@@ -311,7 +312,7 @@ func compileInputs(inputs []input, checkOnly bool, bc *buildCache, outFlag strin
 		if !badParse[dir] {
 			gl.Prefetch(goImports[dir])
 		}
-		opts := compileOptions(inputs[idxs[0]], checkOnly, seen, gl)
+		opts := compileOptions(inputs[idxs[0]], checkOnly, seen, gl, gomi)
 		if tweak != nil {
 			tweak(opts)
 		}
@@ -348,11 +349,11 @@ func compileInputs(inputs []input, checkOnly bool, bc *buildCache, outFlag strin
 		wg.Wait()
 		for _, err := range errs {
 			if err != nil {
-				return nil, err
+				return nil, gomi, err
 			}
 		}
 	}
-	return results, nil
+	return results, gomi, nil
 }
 
 // moduleOf walks up from dir for the nearest go.mod and parses its
@@ -631,7 +632,7 @@ func runCheck(args []string, stdout, stderr io.Writer) int {
 	for _, in := range inputs {
 		srcs[in.path] = in.src
 	}
-	results, err := compileInputs(inputs, true, nil, "", nil)
+	results, gomi, err := compileInputs(inputs, true, nil, "", nil)
 	if err != nil {
 		fmt.Fprintf(stderr, "gom check: %v\n", err)
 		return diag.ExitInternal
@@ -642,8 +643,8 @@ func runCheck(args []string, stdout, stderr io.Writer) int {
 	// The interface contract binds the package, not the argument
 	// list: sibling .gomi files are discovered and compared
 	// (spec section 7.4–7.6).
-	checkInterfaces(inputs, results, &rep, srcs, nil)
-	if err := emitReport(stdout, *format, rep, srcs); err != nil {
+	checkInterfaces(inputs, results, &rep, srcs, nil, gomi)
+	if err := emitReport(stdout, *format, rep, srcs, gomi); err != nil {
 		fmt.Fprintf(stderr, "gom check: %v\n", err)
 		return diag.ExitInternal
 	}
@@ -720,7 +721,7 @@ func runBuild(args []string, stdout, stderr io.Writer) int {
 	if !*goBuild && !*goVet && !strict.on {
 		bc = newBuildCache()
 	}
-	results, err := compileInputs(inputs, false, bc, *out, nil)
+	results, gomi, err := compileInputs(inputs, false, bc, *out, nil)
 	if err != nil {
 		fmt.Fprintf(stderr, "gom build: %v\n", err)
 		return diag.ExitInternal
@@ -734,7 +735,7 @@ func runBuild(args []string, stdout, stderr io.Writer) int {
 	// contract failed (E0601/E0603, or an unverifiable interface)
 	// writes no output — generated code is only kept for packages
 	// that pass whole.
-	failed := checkInterfaces(inputs, results, &rep, srcs, bc)
+	failed := checkInterfaces(inputs, results, &rep, srcs, bc, gomi)
 
 	// Resolve every output path before writing anything so a bad -o
 	// fails fast instead of after partial writes.
@@ -826,7 +827,7 @@ func runBuild(args []string, stdout, stderr io.Writer) int {
 	if *goBuild || *goVet {
 		runGoTools(inputs, results, failed, dsts, &rep, *goBuild, *goVet)
 	}
-	if err := emitReport(stdout, *format, rep, srcs); err != nil {
+	if err := emitReport(stdout, *format, rep, srcs, gomi); err != nil {
 		fmt.Fprintf(stderr, "gom build: %v\n", err)
 		return diag.ExitInternal
 	}
@@ -878,6 +879,7 @@ func runDump(args []string, stdout, stderr io.Writer) int {
 	var r *build.Result
 	rep := diag.Report{}
 	sources := map[string][]byte{}
+	gomi := newGomiSourceCache()
 	if !in.iface {
 		dir := filepath.Dir(filepath.Clean(in.path))
 		sibs, _ := filepath.Glob(filepath.Join(dir, "*.gom"))
@@ -897,7 +899,7 @@ func runDump(args []string, stdout, stderr io.Writer) int {
 			ins = append(ins, build.Input{Path: s, Src: b})
 		}
 		if len(ins) > 1 {
-			opts := compileOptions(in, false, nil, goimport.New(&goimport.Config{Dir: dir}))
+			opts := compileOptions(in, false, nil, goimport.New(&goimport.Config{Dir: dir}), gomi)
 			if *phase == "emit" {
 				opts.Lower.Tests = true
 			}
@@ -916,7 +918,7 @@ func runDump(args []string, stdout, stderr io.Writer) int {
 		}
 	}
 	if r == nil {
-		opts := compileOptions(in, false, nil, goimport.New(&goimport.Config{Dir: filepath.Dir(in.path)}))
+		opts := compileOptions(in, false, nil, goimport.New(&goimport.Config{Dir: filepath.Dir(in.path)}), gomi)
 		if *phase == "emit" {
 			opts.Lower.Tests = true
 		}
@@ -929,7 +931,7 @@ func runDump(args []string, stdout, stderr io.Writer) int {
 		rep = diag.Report{Diagnostics: r.Diagnostics, Files: []string{in.path}}
 		sources = map[string][]byte{in.path: in.src}
 	}
-	if err := emitReport(stderr, *format, rep, sources); err != nil {
+	if err := emitReport(stderr, *format, rep, sources, gomi); err != nil {
 		fmt.Fprintf(stderr, "gom dump: %v\n", err)
 		return diag.ExitInternal
 	}
@@ -1027,7 +1029,7 @@ func runFmt(args []string, stdout, stderr io.Writer) int {
 		}
 		out, diags := format.Source(src, "<stdin>", false)
 		rep := diag.Report{Diagnostics: diags, Files: []string{"<stdin>"}}
-		if err := emitReport(stderr, *fmtFormat, rep, map[string][]byte{"<stdin>": src}); err != nil {
+		if err := emitReport(stderr, *fmtFormat, rep, map[string][]byte{"<stdin>": src}, nil); err != nil {
 			fmt.Fprintf(stderr, "gom fmt: %v\n", err)
 			return diag.ExitInternal
 		}
@@ -1100,7 +1102,7 @@ func runFmt(args []string, stdout, stderr io.Writer) int {
 		fmt.Fprintf(stderr, "gom fmt: %v\n", err)
 		return diag.ExitInternal
 	}
-	if err := emitReport(stderr, *fmtFormat, rep, srcs); err != nil {
+	if err := emitReport(stderr, *fmtFormat, rep, srcs, nil); err != nil {
 		fmt.Fprintf(stderr, "gom fmt: %v\n", err)
 		return diag.ExitInternal
 	}
@@ -1291,12 +1293,11 @@ func checkFormat(format string) error {
 }
 
 // emitReport renders rep in format to w: JSON Lines or text per spec
-// section 12. The format has already passed checkFormat.
-func emitReport(w io.Writer, format string, rep diag.Report, srcs map[string][]byte) error {
-	// Dependency bytes are needed only while this report resolves its
-	// spans. Do not keep them alive while `gom run` waits for a child.
-	defer loadedGomiSources.Clear()
-	res := newDiskFallbackResolver(diag.NewMapResolver(srcs))
+// section 12. The format has already passed checkFormat. The gomi cache
+// is borrowed only while this report resolves its spans; its caller
+// controls the cache lifetime.
+func emitReport(w io.Writer, format string, rep diag.Report, srcs map[string][]byte, gomi *gomiSourceCache) error {
+	res := newDiskFallbackResolver(diag.NewMapResolver(srcs), gomi)
 	if format == "text" {
 		return rep.WriteText(w, res, diag.TextOptions{})
 	}

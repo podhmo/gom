@@ -50,7 +50,7 @@ Go 相互運用を変えたら両方向（Gom → Go、Go → Gom）のテスト
 ## Bugs
 
 （見つけたバグはここに `- [ ]` で足す）
-- [ ] **[bug] 成功した `gom run` が依存 `.gomi` のコピーを保持する**: wave56 lane A の診断用 dependency source cache は `emitReport` でだけ解放される。成功した `gom run` はレポートを描画せず子プロセス待ちへ入るため、依存 interface bytes が子プロセス終了まで残る。compile 完了後の所有権と解放点を小さい follow-up で直す（wave56 lane A review）
+- [x] **[bug] 成功した `gom run` が依存 `.gomi` のコピーを保持する**: wave56 lane A の診断用 dependency source cache は `emitReport` でだけ解放される。成功した `gom run` はレポートを描画せず子プロセス待ちへ入るため、依存 interface bytes が子プロセス終了まで残る。compile 完了後の所有権と解放点を小さい follow-up で直す（wave56 lane A review、[検証](docs/sketch/2026-11-28-wave57-lane-d3-run-cache-verify.md)）
 - [x] **[bug] spec fixture `-update` が foreign span の絶対パスを書き戻す**: `E0407_record_candidates_foreign.expected.json` は環境依存の `span.file` を意図的に省略するが、`-update` は実際の絶対パスを持つ wire JSON を書き戻す。保存すると別 checkout で失敗するため、absolute foreign span file を落として position assertion だけ残す（wave56 lane A review、[検証](docs/sketch/2026-11-28-wave57-lane-d2-fixture-update-verify.md)）
 - [x] **[security] text renderer の source snippet 内制御文字を sanitize する**: 依存パッケージや入力ソースのコメントに端末制御文字があると、text diagnostic がそのまま出力して表示を改変しうる。E0407 個別ではなく renderer-wide の escaping/ sanitization を別 follow-up で行う（wave56 lane A review、[検証](docs/sketch/2026-11-28-wave57-lane-d1-terminal-sanitize-verify.md)）
 - [x] **[bug] spec fixture `-update` が stale な `data_absent` assertion を残す**: 診断が新しく key を出すようになると、`-update` は actual の `data` へ key を書きつつ harness-only `data_absent` もそのまま preserve し、同じ key の存在と不在を要求する期待値になる。actual data と矛盾する entry は preserve しない（wave56 lane B review、[検証](docs/sketch/2026-11-28-wave57-lane-d2-fixture-update-verify.md)）

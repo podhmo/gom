@@ -70,7 +70,7 @@ func runTest(args []string, stdout, stderr io.Writer) int {
 	// The .gom files of one directory compile as one package unit,
 	// like gom build — a test file sees its siblings' declarations,
 	// and a member's failure withholds the whole package's outputs.
-	results, err := compileInputs(inputs, false, nil, "", func(o *build.Options) {
+	results, gomi, err := compileInputs(inputs, false, nil, "", func(o *build.Options) {
 		o.Lower.Tests = true
 	})
 	if err != nil {
@@ -85,7 +85,7 @@ func runTest(args []string, stdout, stderr io.Writer) int {
 	// contract failed (E0601/E0603, or an unverifiable interface)
 	// gets no output and no test run (spec section 7.8;
 	// docs/decisions/2026-11-04-gomi-conformance-in-gom-test.md).
-	failed := checkInterfaces(inputs, results, &rep, srcs, nil)
+	failed := checkInterfaces(inputs, results, &rep, srcs, nil, gomi)
 
 	// Write the generated files of every clean input — `gom test`
 	// is a build as well as a run. go test runs only when the whole
@@ -132,7 +132,7 @@ func runTest(args []string, stdout, stderr io.Writer) int {
 			diag.Error("E0003", "output could not be written").Set("error", e.Error()))
 	}
 	if len(writeErrs) > 0 {
-		if err := emitReport(stdout, *format, rep, srcs); err != nil {
+		if err := emitReport(stdout, *format, rep, srcs, gomi); err != nil {
 			fmt.Fprintf(stderr, "gom test: %v\n", err)
 		}
 		return strictExit(rep, strict)
@@ -141,7 +141,7 @@ func runTest(args []string, stdout, stderr io.Writer) int {
 	if !diag.List(rep.Diagnostics).HasError() {
 		runGoTests(inputs, results, failed, *quiet, *update, goArgs, &rep)
 	}
-	if err := emitReport(stdout, *format, rep, srcs); err != nil {
+	if err := emitReport(stdout, *format, rep, srcs, gomi); err != nil {
 		fmt.Fprintf(stderr, "gom test: %v\n", err)
 		return diag.ExitInternal
 	}

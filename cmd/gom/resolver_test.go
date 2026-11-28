@@ -15,7 +15,7 @@ func TestDiskFallbackResolver(t *testing.T) {
 	if err := os.WriteFile(path, []byte("ab\ncd\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	res := newDiskFallbackResolver(diag.NewMapResolver(nil))
+	res := newDiskFallbackResolver(diag.NewMapResolver(nil), nil)
 	li, err := res.LineIndex(path)
 	if err != nil {
 		t.Fatalf("LineIndex: %v", err)
@@ -35,13 +35,13 @@ func TestDiskFallbackResolverUsesCompileTimeGomiBytes(t *testing.T) {
 	if err := os.WriteFile(path, []byte("ab\ncd\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	noteLoadedGomiSource(path, []byte("ab\ncd\n"))
-	defer loadedGomiSources.Delete(path)
+	cache := newGomiSourceCache()
+	cache.note(path, []byte("ab\ncd\n"))
 	if err := os.Remove(path); err != nil {
 		t.Fatal(err)
 	}
 
-	res := newDiskFallbackResolver(diag.NewMapResolver(nil))
+	res := newDiskFallbackResolver(diag.NewMapResolver(nil), cache)
 	li, err := res.LineIndex(path)
 	if err != nil {
 		t.Fatalf("LineIndex: %v", err)
@@ -51,15 +51,20 @@ func TestDiskFallbackResolverUsesCompileTimeGomiBytes(t *testing.T) {
 	}
 }
 
-func TestEmitReportReleasesLoadedGomiSources(t *testing.T) {
+func TestEmitReportBorrowsGomiSourceCache(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "dep.gomi")
-	noteLoadedGomiSource(path, []byte("package dep\n"))
+	cache := newGomiSourceCache()
+	cache.note(path, []byte("package dep\n"))
 
 	var out bytes.Buffer
-	if err := emitReport(&out, "json", diag.Report{}, nil); err != nil {
+	if err := emitReport(&out, "json", diag.Report{}, nil, cache); err != nil {
 		t.Fatalf("emitReport: %v", err)
 	}
-	if _, ok := loadedGomiSources.Load(path); ok {
-		t.Error("emitReport kept loaded .gomi bytes after rendering")
+	if _, ok := cache.load(path); !ok {
+		t.Error("emitReport consumed the caller-owned .gomi cache")
+	}
+	cache.clear()
+	if _, ok := cache.load(path); ok {
+		t.Error("clear kept loaded .gomi bytes")
 	}
 }
