@@ -34,6 +34,13 @@ import (
 // alone (a trailing summary would corrupt piped program output) and
 // the exit code is the program's own.
 func runGomRun(args []string, stdout, stderr io.Writer) int {
+	return runGomRunWithBeforeChild(args, stdout, stderr, nil)
+}
+
+// runGomRunWithBeforeChild is the testable body of runGomRun. The hook,
+// when non-nil, runs after diagnostic-only state has been released and
+// before the child process starts.
+func runGomRunWithBeforeChild(args []string, stdout, stderr io.Writer, beforeChild func(*gomiSourceCache)) int {
 	gomArgs, progArgs := args, []string(nil)
 	if i := slices.Index(args, "--"); i >= 0 {
 		gomArgs, progArgs = args[:i], args[i+1:]
@@ -110,7 +117,7 @@ func runGomRun(args []string, stdout, stderr io.Writer) int {
 	}
 	// No incremental cache: the link step needs the compiled output
 	// and a hit supplies none, matching runBuild's -go/-vet opt-out.
-	results, err := compileInputs(inputs, false, nil, "", nil)
+	results, gomi, err := compileInputs(inputs, false, nil, "", nil)
 	if err != nil {
 		fmt.Fprintf(stderr, "gom run: %v\n", err)
 		return diag.ExitInternal
@@ -118,7 +125,7 @@ func runGomRun(args []string, stdout, stderr io.Writer) int {
 	for _, r := range results {
 		rep.Diagnostics = append(rep.Diagnostics, r.Diagnostics...)
 	}
-	failed := checkInterfaces(inputs, results, &rep, srcs, nil)
+	failed := checkInterfaces(inputs, results, &rep, srcs, nil, gomi)
 
 	// Write generated code beside the sources — the same contract
 	// `gom build` and `gom test` have, so the package stays the
@@ -152,13 +159,13 @@ func runGomRun(args []string, stdout, stderr io.Writer) int {
 			diag.Error("E0003", "output could not be written").Set("error", e.Error()))
 	}
 	if len(writeErrs) > 0 {
-		if err := emitReport(stdout, *format, rep, srcs); err != nil {
+		if err := emitReport(stdout, *format, rep, srcs, gomi); err != nil {
 			fmt.Fprintf(stderr, "gom run: %v\n", err)
 		}
 		return rep.ExitCode()
 	}
 	if rep.ExitCode() != 0 {
-		if err := emitReport(stdout, *format, rep, srcs); err != nil {
+		if err := emitReport(stdout, *format, rep, srcs, gomi); err != nil {
 			fmt.Fprintf(stderr, "gom run: %v\n", err)
 		}
 		return rep.ExitCode()
@@ -188,7 +195,7 @@ func runGomRun(args []string, stdout, stderr io.Writer) int {
 				From(diag.SourceGo).
 				Set("tool", "go build").
 				Set("error", err.Error()))
-		if err := emitReport(stdout, *format, rep, srcs); err != nil {
+		if err := emitReport(stdout, *format, rep, srcs, gomi); err != nil {
 			fmt.Fprintf(stderr, "gom run: %v\n", err)
 		}
 		return diag.ExitInternal
@@ -197,10 +204,19 @@ func runGomRun(args []string, stdout, stderr io.Writer) int {
 	if run.Failed {
 		rep.Diagnostics = append(rep.Diagnostics,
 			build.GoToolDiagnostics(run.Lines(), "go build", pos)...)
-		if err := emitReport(stdout, *format, rep, srcs); err != nil {
+		if err := emitReport(stdout, *format, rep, srcs, gomi); err != nil {
 			fmt.Fprintf(stderr, "gom run: %v\n", err)
 		}
 		return rep.ExitCode()
+	}
+
+	// Compilation and every diagnostic-rendering fallback are finished at
+	// this point. Release the exact dependency bytes before the child can
+	// keep this process alive; the cache is invocation-scoped, so later
+	// commands still reread what they need.
+	gomi.clear()
+	if beforeChild != nil {
+		beforeChild(gomi)
 	}
 
 	// Workspace isolation ends with compilation. The executed program is
