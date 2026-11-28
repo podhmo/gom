@@ -38,9 +38,16 @@ Type-error clues added by the current checker:
   more deeply, even across blank lines or comments. Use `|>` or
   parenthesize the whole application; indentation itself has no
   language meaning.
-- E0407 record-resolution failures no longer manufacture a secondary
-  `got Unit` mismatch. Treat remaining E0401s as independent type
-  constraints, not as recovery noise.
+- E0407 ambiguous record literals list up to five candidate record
+  declarations as secondary labels and put the full deterministic
+  candidate list in `data.candidates` (`name`/`qual`). Overflow is
+  summarized in an `and N more candidate records` note. Record-resolution
+  failures no longer manufacture a secondary `got Unit` mismatch; treat
+  remaining E0401s as independent type constraints, not recovery noise.
+- E0201 module-member misses suggest up to three distance-1 member names
+  in a `did you mean ...?` note and in `data.candidates`
+  (`name`/`edit_distance`). This covers ordinary modules and the
+  `Go.Map`/`Go.Slice` operation tables; no automatic fix is attached.
 - `fixes`: `applicability` is `safe` | `placeholder` | `unsafe`.
   `placeholder` inserts `todo ()` — compiles, panics at run time.
 - `kind` values per command: `diagnostic` + `summary` everywhere;
