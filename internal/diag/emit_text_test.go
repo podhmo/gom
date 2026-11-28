@@ -176,6 +176,31 @@ error: aborting due to previous error
 	}
 }
 
+// TestWriteTextSnippetControlAlignment places control runes and a tab
+// before the underlined rune: replacing them must not move the caret.
+func TestWriteTextSnippetControlAlignment(t *testing.T) {
+	src := []byte("let \x1b\u0085\tx = 1\n")
+	start := strings.Index(string(src), "x")
+	rep := diag.Report{Diagnostics: []diag.Diagnostic{
+		diag.Error("E0001", "x").At(diag.SpanIn("f.gom", start, start+1)),
+	}}
+	res := diag.NewMapResolver(map[string][]byte{"f.gom": src})
+
+	want := `error[E0001]: x
+  --> f.gom:1:8
+   |
+1  | let ␛�    x = 1
+   |           ^
+For more information about this error, run ` + "`" + `gom explain E0001` + "`" + `.
+
+error: aborting due to previous error
+`
+	got := textOf(t, rep, res)
+	if got != want {
+		t.Errorf("got:\n%s\nwant:\n%s", got, want)
+	}
+}
+
 // TestWriteTextWideGutter checks the layout when line numbers reach
 // two digits: the structural marks shift one column with the gutter.
 func TestWriteTextWideGutter(t *testing.T) {

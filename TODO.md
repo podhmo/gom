@@ -50,8 +50,8 @@ Go 相互運用を変えたら両方向（Gom → Go、Go → Gom）のテスト
 ## Bugs
 
 （見つけたバグはここに `- [ ]` で足す）
-- [ ] **[bug] 成功した `gom run` が依存 `.gomi` のコピーを保持する**: wave56 lane A の診断用 dependency source cache は `emitReport` でだけ解放される。成功した `gom run` はレポートを描画せず子プロセス待ちへ入るため、依存 interface bytes が子プロセス終了まで残る。compile 完了後の所有権と解放点を小さい follow-up で直す（wave56 lane A review、[検証](docs/sketch/2026-11-28-wave57-lane-d1-terminal-sanitize-verify.md)）
+- [ ] **[bug] 成功した `gom run` が依存 `.gomi` のコピーを保持する**: wave56 lane A の診断用 dependency source cache は `emitReport` でだけ解放される。成功した `gom run` はレポートを描画せず子プロセス待ちへ入るため、依存 interface bytes が子プロセス終了まで残る。compile 完了後の所有権と解放点を小さい follow-up で直す（wave56 lane A review）
 - [ ] **[bug] spec fixture `-update` が foreign span の絶対パスを書き戻す**: `E0407_record_candidates_foreign.expected.json` は環境依存の `span.file` を意図的に省略するが、`-update` は実際の絶対パスを持つ wire JSON を書き戻す。保存すると別 checkout で失敗するため、省略された foreign span assertion を preserve/normalize する（wave56 lane A review）
-- [x] **[security] text renderer の source snippet 内制御文字を sanitize する**: 依存パッケージや入力ソースのコメントに端末制御文字があると、text diagnostic がそのまま出力して表示を改変しうる。E0407 個別ではなく renderer-wide の escaping/ sanitization を別 follow-up で行う（wave56 lane A review）
+- [x] **[security] text renderer の source snippet 内制御文字を sanitize する**: 依存パッケージや入力ソースのコメントに端末制御文字があると、text diagnostic がそのまま出力して表示を改変しうる。E0407 個別ではなく renderer-wide の escaping/ sanitization を別 follow-up で行う（wave56 lane A review、[検証](docs/sketch/2026-11-28-wave57-lane-d1-terminal-sanitize-verify.md)）
 - [ ] **[bug] spec fixture `-update` が stale な `data_absent` assertion を残す**: 診断が新しく key を出すようになると、`-update` は actual の `data` へ key を書きつつ harness-only `data_absent` もそのまま preserve し、同じ key の存在と不在を要求する期待値になる。preserve 時に actual data と矛盾する `data_absent` entry を落とすか fail-fast にする（wave56 lane B review、[decision](docs/decisions/2026-11-28-e0201-member-typo-kind-policy.md)、[検証](docs/sketch/2026-11-28-wave57-lane-c-member-kind-filter-verify.md)）
 - [x] **[task] member typo candidates を参照位置の kind で絞る**: 型注釈や constructor pattern の `fmt.Printlm` では関数 `Println` が候補になる。value/type/pattern の context-aware kind policy を決め、bare-name typo 実装と共通利用できるかを小さい follow-up で扱う（wave56 lane B review）
