@@ -7,7 +7,9 @@ import (
 	"fmt"
 	"io/fs"
 	"os"
+	"path/filepath"
 	"slices"
+	"strconv"
 	"testing"
 
 	"github.com/podhmo/gom/internal/diag"
@@ -52,8 +54,9 @@ import (
 // length must equal the actual count exactly.
 //
 // With -update the expected file is rewritten from the actual
-// diagnostics rendered to the wire shape of spec section 12; the file
-// is created if missing.
+// diagnostics rendered to the wire shape of spec section 12, except
+// that machine-local absolute span files are omitted for portability;
+// the file is created if missing.
 func RunSpecTests(t *testing.T, dir string, compile DiagnosticsFunc) {
 	t.Helper()
 	if compile == nil {
@@ -139,7 +142,8 @@ func writeExpected(t *testing.T, path string, got []diag.Diagnostic, res diag.Re
 		doc.Write(raw)
 	}
 	doc.WriteString("]}")
-	rendered := preserveExplicitEmptyArrays(path, doc.Bytes())
+	rendered := stripAbsoluteSpanFiles(doc.Bytes(), got)
+	rendered = preserveExplicitEmptyArrays(path, rendered)
 	var out bytes.Buffer
 	if err := json.Indent(&out, rendered, "", "  "); err != nil {
 		t.Fatalf("gomtest: cannot encode %s: %v", path, err)
@@ -154,7 +158,8 @@ func writeExpected(t *testing.T, path string, got []diag.Diagnostic, res diag.Re
 // preserveExplicitEmptyArrays keeps an explicitly empty "notes",
 // "labels", or "fixes" assertion and the harness-only "data_absent"
 // assertion when -update rewrites a fixture and the actual
-// diagnostic still has no such values. The wire encoder omits empty
+// diagnostic still has no such values. A data_absent entry whose key
+// now exists in actual data is dropped rather than preserved. The wire encoder omits empty
 // arrays, so without this preservation every regeneration would erase
 // the negative assertion. Preservation is conservative: only the same
 // diagnostic index and code inherits the empty array, and a non-empty
@@ -195,8 +200,10 @@ func preserveExplicitEmptyArrays(path string, rendered []byte) []byte {
 			}
 		}
 		if oldVal, ok := old[i]["data_absent"]; ok {
-			if raw, err := json.Marshal(oldVal); err == nil {
-				inserts[i] = append(inserts[i], preservedKey{key: "data_absent", raw: raw})
+			if keep := liveDataAbsentKeys(oldVal, cur["data"]); len(keep) > 0 {
+				if raw, err := json.Marshal(keep); err == nil {
+					inserts[i] = append(inserts[i], preservedKey{key: "data_absent", raw: raw})
+				}
 			}
 		}
 	}
@@ -204,6 +211,63 @@ func preserveExplicitEmptyArrays(path string, rendered []byte) []byte {
 		return rendered
 	}
 	return insertPreservedKeys(rendered, inserts)
+}
+
+// liveDataAbsentKeys keeps only the data_absent entries still absent
+// from the actual data object. A key that the compiler now emits must
+// win over the stale negative assertion; preserving both would make
+// the rewritten fixture internally contradictory.
+func liveDataAbsentKeys(oldVal, actualData any) []string {
+	arr, ok := oldVal.([]any)
+	if !ok {
+		return nil
+	}
+	data, _ := actualData.(map[string]any)
+	keep := make([]string, 0, len(arr))
+	for _, v := range arr {
+		key, ok := v.(string)
+		if !ok {
+			continue
+		}
+		if _, present := data[key]; !present {
+			keep = append(keep, key)
+		}
+	}
+	return keep
+}
+
+// stripAbsoluteSpanFiles removes the file key of spans naming an
+// absolute path. Foreign dependency spans use machine-local absolute
+// paths; writing them into expected files makes the fixture fail in
+// another checkout. Positions remain asserted, while the portable
+// spelling of foreign diagnostic paths is still an open question.
+// The generated wire form puts "file" first in every span object, so
+// removing the exact compact key/value plus its following comma does
+// not disturb key order or require re-encoding the document.
+func stripAbsoluteSpanFiles(rendered []byte, got []diag.Diagnostic) []byte {
+	seen := map[string]bool{}
+	add := func(file string) {
+		if filepath.IsAbs(file) {
+			seen[file] = true
+		}
+	}
+	for _, d := range got {
+		add(d.Span.File)
+		for _, label := range d.Labels {
+			add(label.Span.File)
+		}
+		for _, fix := range d.Fixes {
+			for _, edit := range fix.Edits {
+				add(edit.Span.File)
+			}
+		}
+	}
+	for file := range seen {
+		needle := append([]byte(`"file":`), strconv.Quote(file)...)
+		needle = append(needle, ',')
+		rendered = bytes.ReplaceAll(rendered, needle, nil)
+	}
+	return rendered
 }
 
 type preservedKey struct {

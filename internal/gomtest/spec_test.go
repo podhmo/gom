@@ -379,6 +379,66 @@ func TestSpecUpdatePreservesExplicitEmptyAssertions(t *testing.T) {
 	}
 }
 
+func TestSpecUpdateDropsStaleDataAbsent(t *testing.T) {
+	dir := t.TempDir()
+	expectedPath := filepath.Join(dir, "c.expected.json")
+	old := `{"diagnostics":[{"code":"E0201","data_absent":["candidates"]}]}`
+	if err := os.WriteFile(expectedPath, []byte(old), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	d := diag.Error("E0201", "x").Set("candidates", []string{"y"})
+	res := diag.NewDirResolver(dir)
+	writeExpected(t, expectedPath, []diag.Diagnostic{d}, res)
+
+	data, err := os.ReadFile(expectedPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var wire map[string]any
+	if err := json.Unmarshal(data, &wire); err != nil {
+		t.Fatal(err)
+	}
+	obj := wire["diagnostics"].([]any)[0].(map[string]any)
+	if _, ok := obj["data_absent"]; ok {
+		t.Errorf("stale data_absent was preserved although candidates exists: %s", data)
+	}
+}
+
+func TestSpecUpdateOmitsAbsoluteForeignSpanFile(t *testing.T) {
+	dir := t.TempDir()
+	foreignDir := t.TempDir()
+	foreignPath := filepath.Join(foreignDir, "foreignpkg.gomi")
+	if err := os.WriteFile(foreignPath, []byte("type X = { x: Int }\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	expectedPath := filepath.Join(dir, "c.expected.json")
+	d := diag.Error("E0401", "x").
+		AddLabel(diag.SpanIn(foreignPath, 0, 1), "foreign declaration")
+	res := diag.NewDirResolver(dir)
+	writeExpected(t, expectedPath, []diag.Diagnostic{d}, res)
+
+	data, err := os.ReadFile(expectedPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(string(data), foreignPath) {
+		t.Errorf("update wrote machine-local foreign path: %s", data)
+	}
+	var wire map[string]any
+	if err := json.Unmarshal(data, &wire); err != nil {
+		t.Fatal(err)
+	}
+	obj := wire["diagnostics"].([]any)[0].(map[string]any)
+	label := obj["labels"].([]any)[0].(map[string]any)
+	sp := label["span"].(map[string]any)
+	if _, ok := sp["file"]; ok {
+		t.Errorf("foreign label span kept file key: %s", data)
+	}
+	if _, ok := sp["start"].(map[string]any)["line"]; !ok {
+		t.Errorf("foreign label span lost positions: %s", data)
+	}
+}
+
 // TestSpecUpdate exercises -update: the expected file is rendered from
 // actual diagnostics in the wire shape and passes comparison
 // afterwards.
