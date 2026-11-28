@@ -183,6 +183,28 @@ fn f (xs: List Int) -> List Int = List.mapp (fn x -> x) xs
 	}
 }
 
+func TestCheckE0401RecordFieldProvenanceText(t *testing.T) {
+	t.Parallel()
+
+	dir := writeFiles(t, map[string]string{"bad.gom": `package main
+
+type R = { x: Int }
+
+fn bad () -> Unit = {
+  let r = { x = "bad" }
+  ignore r
+  ()
+}
+`})
+	code, out, errout := invoke("check", "-format", "text", filepath.Join(dir, "bad.gom"))
+	if code != 1 {
+		t.Fatalf("exit code = %d, want 1; stdout=%q stderr=%q", code, out, errout)
+	}
+	if !strings.Contains(out, "error[E0401]") || !strings.Contains(out, "expected type declared here") {
+		t.Errorf("text output missing record field provenance label: %q", out)
+	}
+}
+
 // Imported .gomi declaration spans are not command inputs, but E0407
 // labels them. JSON and text both resolve the dependency file through
 // the exact bytes captured while loading it.

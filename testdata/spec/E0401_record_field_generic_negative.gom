@@ -1,0 +1,9 @@
+package main
+
+type Box a = { v: a }
+
+fn bad () -> Unit = {
+  let b : Box Int = { v = "bad" }
+  ignore b
+  ()
+}

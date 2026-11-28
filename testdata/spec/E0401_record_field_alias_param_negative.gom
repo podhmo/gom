@@ -1,0 +1,10 @@
+package main
+
+type Fixed a = Int
+type R a = { x: Fixed a }
+
+fn bad () -> Unit = {
+  let r : R Int = { x = "bad" }
+  ignore r
+  ()
+}

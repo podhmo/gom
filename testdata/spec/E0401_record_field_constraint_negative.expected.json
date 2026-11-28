@@ -1,0 +1,15 @@
+{
+  "diagnostics": [
+    {
+      "kind": "diagnostic",
+      "code": "E0401",
+      "severity": "error",
+      "message": "type mismatch: expected a numeric type, got String",
+      "data": {
+        "actual": "String",
+        "expected": "a numeric type"
+      },
+      "labels": []
+    }
+  ]
+}

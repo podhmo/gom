@@ -1,0 +1,9 @@
+package main
+
+type Count a = { n: Int, items: List a }
+
+fn bad () -> Unit = {
+  let c : Count String = { n = "bad", items = [] }
+  ignore c
+  ()
+}

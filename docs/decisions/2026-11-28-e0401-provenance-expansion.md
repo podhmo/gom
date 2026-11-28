@@ -1,6 +1,6 @@
 # E0401 expected type provenance の拡張範囲
 
-- 状態: 採用（wave57 lane A として実施決定。実装は未実施）
+- 状態: 採用（wave57 lane A で実装済み）
 - 日付: 2026-11-28
 
 ## 決定
@@ -31,7 +31,7 @@ E0401 provenance の次の実装面は **record field の値**に限定する。
 ## 却下・後送り
 
 - 呼出し引数 provenance: 後送り。意味上は有用だが、partial に local function だけへ付けると import/builtin/Go callee と挙動が揺れ、span 所有の設計が必要
-- type parameter を含む record field: 後送り。`Box Int` の outer annotation と `v: a` の field declaration の両方を示す複合 provenance が必要で、単一の `expected type declared here` では説明できない。generic record の monomorphic field はこの制限に含めない
+- type parameter を含む record field: 後送り。`Box Int` の outer annotation と `v: a` の field declaration の両方を示す複合 provenance が必要で、単一の `expected type declared here` では説明できない。generic record の monomorphic field はこの制限に含めない。型パラメータを含むかは alias 展開前の宣言型式で判断し、`x: Fixed a` は alias `Fixed` が `a` を捨てても対象外とする
 - label 文言の変更: 今回は行わない。文言を `field type declared here` などへ分けると既存 E0401 label の意味を広げすぎる
 
 調査記録: [sketch/2026-11-28-wave56-lane-c-provenance-expansion-verify](../sketch/2026-11-28-wave56-lane-c-provenance-expansion-verify.md)。

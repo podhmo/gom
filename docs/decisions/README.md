@@ -299,6 +299,6 @@
 | [diagnostic-details-and-snippets](2026-11-28-diagnostic-details-and-snippets.md) | diagnostic details 昇格と近接 snippet 統合の扱い | 採用（調査済み・いずれも汎用機構は見送り） |
 | [e0201-bare-name-typo-candidates](2026-11-28-e0201-bare-name-typo-candidates.md) | E0201 typo 候補の第二段: bare value name を優先する | 採用（wave57 lane B として実施決定。実装は未実施） |
 | [e0201-member-typo-candidates](2026-11-28-e0201-member-typo-candidates.md) | E0201 module member typo 候補表示 | 採用（実装・検証した — [検証](../sketch/2026-11-28-wave56-lane-b-member-typo-verify.md)） |
-| [e0401-provenance-expansion](2026-11-28-e0401-provenance-expansion.md) | E0401 expected type provenance の拡張範囲 | 採用（wave57 lane A として実施決定。実装は未実施） |
+| [e0401-provenance-expansion](2026-11-28-e0401-provenance-expansion.md) | E0401 expected type provenance の拡張範囲 | 採用（wave57 lane A で実装済み） |
 | [record-ambiguity-candidates](2026-11-28-record-ambiguity-candidates.md) | ambiguous record literal の候補表示 | 採用（実装・検証した — [検証](../sketch/2026-11-28-wave56-lane-a-record-candidates-verify.md)） |
 <!-- END GENERATED -->

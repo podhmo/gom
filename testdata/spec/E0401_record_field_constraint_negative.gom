@@ -1,0 +1,9 @@
+package main
+
+type R = { x: Int }
+
+fn bad () -> Unit = {
+  let r = { x = 1 + "bad" }
+  ignore r
+  ()
+}

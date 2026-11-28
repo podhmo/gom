@@ -420,13 +420,15 @@ wrong operand and argument types, arms of if/match/select that
 disagree, "|?>" pipelines whose value or step is not a matching
 Result, and Go assignments that violate the interop typing rules.
 The structured data carries the expected and actual types. When the
-expected type comes directly from a let or return annotation, the
-diagnostic also labels that annotation as "expected type declared here".
-The same label follows the expected type through if/match arms, including
-block tail expressions on that path; independent mismatches inside an arm
-(for example an operator constraint) do not receive it. Numeric-literal
-constraint failures such as "expected a numeric type, got String" do not
-receive it either, because the annotation is not the constraint source.
+expected type comes directly from a let or return annotation, or from a
+record field declaration whose declared type contains no type parameter of
+the declaring type, the diagnostic also labels that annotation or field
+declaration as "expected type declared here". The same label follows the
+expected type through if/match arms, including block tail expressions on
+that path; independent mismatches inside an arm (for example an operator
+constraint) do not receive it. Numeric-literal constraint failures such as
+"expected a numeric type, got String" do not receive it either, because the
+annotation or field declaration is not the constraint source.
 
 ```gom
 let x = 1 + "a"
